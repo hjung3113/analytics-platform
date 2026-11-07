@@ -5,6 +5,7 @@
 // guard trigger; there is no edit action). `roundClose` is final. Round actions write no development_event (the closed
 // event kinds have no round kind): the history of rounds is the round rows plus the audit rows.
 
+import { LinkAttachmentsRejected, linkAttachments } from '../attachments/index.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import type { Tx } from '../../db/tx.js';
 import {
@@ -33,7 +34,7 @@ export const LIFECYCLE_ROUND_PERMISSION = 'lifecycle.round.manage';
 /** The menu permission the two actions declare: bootstrap lists it exactly for the users `LIFECYCLE_ROUND_PERMISSION` lets write (`platform-port/permissions.ts`). */
 export const LIFECYCLE_ROUND_MENU_PERMISSION = 'lifecycle:round-manage';
 
-const INVALIDATES = ['logLifecycle.models', 'logLifecycle.projectDetail', 'logLifecycle.rounds', 'logLifecycle.roundDetail'] as const;
+const INVALIDATES = ['logLifecycle.models', 'logLifecycle.projectDetail', 'logLifecycle.rounds', 'logLifecycle.roundDetail', 'logLifecycle.roundEvidence'] as const;
 
 export interface RoundActionDeps {
   checkService: CheckService;
@@ -52,7 +53,7 @@ export function roundActions(deps: RoundActionDeps): MenuActionDeclaration[] {
       await deps.checkService.checkCapability(actor, LIFECYCLE_ROUND_PERMISSION, { workspace_id: actor.workspace_id }, { tx }),
     ).allow;
 
-  const base = (op: 'roundOpen' | 'roundClose', concurrency: 'none' | 'version') => ({
+  const base = (op: 'roundOpen' | 'roundClose' | 'roundEvidenceAttach', concurrency: 'none' | 'version') => ({
     id: `logLifecycle.${op}`,
     menuId: LOG_MODELS_MENU_ID,
     inputKeys: LIFECYCLE_INPUT_KEYS[op],
@@ -141,5 +142,46 @@ export function roundActions(deps: RoundActionDeps): MenuActionDeclaration[] {
     },
   };
 
-  return [roundOpen, roundClose];
+  // Manual validation attachment (#1451, D6): link pre-uploaded attachments (`POST /attachments`, uploaded by the caller) to a round
+  // as parent kind `validation_round`. Write right = `lifecycle.round.manage` like the other round writes; only an open
+  // round takes Evidence (a closed round is final). The link guard (unlinked, not archived, uploaded by the caller)
+  // is the attachments module's; any miss rolls the whole call back.
+  const roundEvidenceAttach: MenuActionDeclaration = {
+    spec: base('roundEvidenceAttach', 'none'),
+    authorize,
+    validate: (input) => validateLifecycleInput('roundEvidenceAttach', input),
+    async handle(tx, actor, input): Promise<ActionHandlerResult> {
+      const ws = actor.workspace_id;
+      const parsed = parseLifecycleInput('roundEvidenceAttach', input);
+      if (!parsed.ok) throw new Error('action roundEvidenceAttach: validate passed but parse failed');
+      const { roundId, attachmentIds } = parsed.value;
+      const round = await lockRound(tx, ws, roundId);
+      if (!round) throw invalid({ path: ['roundId'], code: 'not_found' });
+      if (round.status !== 'open') throw invalid({ path: ['roundId'], code: 'illegal_transition' });
+      try {
+        await linkAttachments(tx, {
+          attachmentIds,
+          parent: { kind: 'validation_round', roundId: round.id },
+          uploaderActorId: actor.actor_id,
+        });
+      } catch (err) {
+        if (err instanceof LinkAttachmentsRejected) {
+          throw invalid({ path: ['attachmentIds', String(err.index)], code: 'invalid' });
+        }
+        throw err;
+      }
+      await audit.record(tx, {
+        workspace_id: ws,
+        actor_id: actor.actor_id,
+        event_type: 'lifecycle.round.evidence_attached',
+        subject_type: 'validation_round',
+        subject_id: round.id,
+        summary: 'validation round evidence attached',
+        detail: { projectId: round.projectId, seq: round.seq, count: attachmentIds.length },
+      });
+      return { data: { roundId: round.id, count: attachmentIds.length }, version: null };
+    },
+  };
+
+  return [roundOpen, roundClose, roundEvidenceAttach];
 }

@@ -38,6 +38,12 @@ import type { AuditService } from '../core/audit/audit-service.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
 import { runIdempotentCommand } from '../core/idempotency/idempotent-command.js';
 import type { VocAttachmentReader, VocPublicAttachmentReader } from '../voc/index.js';
+import {
+  type AttachmentLinkRow,
+  type AttachmentParentReader,
+  attachmentParentKindOf,
+  createAttachmentParentRegistry,
+} from './parent-kinds.js';
 import { insertAttachment } from './repo.js';
 
 export interface UploadAttachmentActor {
@@ -62,6 +68,11 @@ export interface AttachmentsServiceDeps {
   vocReadService: VocAttachmentReader;
   /** Public-read arm of the download entitlement (ADR-0110 decision 3); absent = no public arm. */
   vocPublicAttachmentReader?: VocPublicAttachmentReader;
+  /**
+   * Readers of the parent kinds other than `voc` (which this service builds from `vocReadService`). A linked row whose
+   * kind has no reader is denied (#1451).
+   */
+  parents?: readonly AttachmentParentReader[];
   /** Optional structured log for cleanup warnings (no keys, no filenames). */
   log?: Pick<JobLog, 'warn'>;
 }
@@ -229,14 +240,11 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
     }
   }
 
-  type DownloadRow = {
-    voc_id: string | null;
-    comment_id: string | null;
-    comment_kind: string | null;
-    uploaded_by_actor_id: string;
-  };
+  type DownloadRow = AttachmentLinkRow;
 
-  async function assertOperatorOrReporterEntitlement(
+  // The `voc` parent reader: the pre-#1451 rules unchanged. The operator / reporter rule decides first; only when it
+  // denies does the public-read arm get a say, and a denial there re-raises the original error.
+  async function assertVocOperatorOrReporterEntitlement(
     actor: DownloadAttachmentActor,
     row: DownloadRow,
   ): Promise<void> {
@@ -279,10 +287,8 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
         throw new HttpError('permission.denied', 'attachment not accessible to caller');
       }
     } else {
-      // Unlinked: only the uploader.
-      if (row.uploaded_by_actor_id !== actor.actor_id) {
-        throw new HttpError('permission.denied', 'attachment not accessible to caller');
-      }
+      // A `voc` row without voc_id / comment_id has no parent to judge.
+      throw new HttpError('permission.denied', 'attachment not accessible to caller');
     }
   }
 
@@ -303,6 +309,35 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
     return false;
   }
 
+  const vocParent: AttachmentParentReader = {
+    kind: 'voc',
+    async assertCanRead({ actor, row }) {
+      try {
+        await assertVocOperatorOrReporterEntitlement(actor, row);
+      } catch (err) {
+        if (!(err instanceof HttpError) || err.code !== 'permission.denied') throw err;
+        if (!(await publicArmAllows(actor, row))) throw err;
+      }
+    },
+  };
+
+  const parentReaders = createAttachmentParentRegistry([vocParent, ...(deps.parents ?? [])]);
+
+  // Entitlement by parent kind. Unlinked: the uploader only. Linked: the reader registered for the row's kind;
+  // none registered = denied (default-deny).
+  async function assertCanRead(actor: DownloadAttachmentActor, row: DownloadRow): Promise<void> {
+    const kind = attachmentParentKindOf(row);
+    if (kind === null) {
+      if (row.uploaded_by_actor_id !== actor.actor_id) {
+        throw new HttpError('permission.denied', 'attachment not accessible to caller');
+      }
+      return;
+    }
+    const reader = parentReaders.get(kind);
+    if (!reader) throw new HttpError('permission.denied', 'attachment not accessible to caller');
+    await reader.assertCanRead({ actor, row });
+  }
+
   // ── downloadAttachment — PLAN-22 C4a ────────────────────────────────────
   //
   // Streaming GET path: select metadata, gate on entitlement, then hand the
@@ -317,6 +352,8 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
   //     both parent resolution and visibility (including deny-aware triage).
   //   * Unlinked (voc_id IS NULL AND comment_id IS NULL): permit only the
   //     original uploader.
+  //   * Parent kind (#1451): a linked row is judged by the reader registered for its `parent_kind` (`voc`: built here;
+  //     `validation_round`: injected by log-lifecycle); a kind with no reader is denied.
   //   * Public arm (ADR-0110 decision 3): when the rules above deny, a VOC-body or `public_update`
   //     attachment of a VOC that passes the public read rule is permitted; reporter-reply and
   //     internal-comment attachments stay denied.
@@ -331,13 +368,15 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
       voc_id: string | null;
       comment_id: string | null;
       comment_kind: string | null;
+      parent_kind: string | null;
+      parent_id: string | null;
       name: string;
       size_bytes: string | number;
       mime_type: string;
       storage_key: string;
       uploaded_by_actor_id: string;
     }>(sql`
-      select id, voc_id, comment_id, comment_kind, name, size_bytes,
+      select id, voc_id, comment_id, comment_kind, parent_kind, parent_id, name, size_bytes,
              mime_type, storage_key, uploaded_by_actor_id
         from voc.voc_attachments
        where id = ${id}
@@ -353,15 +392,9 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
       throw new HttpError('not_found.record', 'attachment not found');
     }
 
-    // 3. Entitlement. The existing operator/reporter rule decides first; only when it denies does the
-    //    public-read arm (a VOC-body or `public_update` attachment of a publicly readable VOC) get a
-    //    say, and a denial there re-raises the original error unchanged.
-    try {
-      await assertOperatorOrReporterEntitlement(actor, row);
-    } catch (err) {
-      if (!(err instanceof HttpError) || err.code !== 'permission.denied') throw err;
-      if (!(await publicArmAllows(actor, row))) throw err;
-    }
+    // 3. Entitlement by parent kind (#1451). `voc` keeps the operator/reporter rule first, then the public-read
+    //    arm; any other kind is judged by its registered reader only; an unregistered kind is denied.
+    await assertCanRead(actor, row);
 
     // 4. Stream from storage. Surface StorageUnavailableError as 502;
     //    NoSuchKey (stale row whose bytes are missing) as 404.

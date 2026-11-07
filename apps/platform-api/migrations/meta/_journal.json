@@ -736,6 +736,13 @@
       "when": 1794063592568,
       "tag": "0104_knowledge_draft_validator_ref",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1794068097422,
+      "tag": "0105_attachment_parent_kind",
+      "breakpoints": true
     }
   ]
 }

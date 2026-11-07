@@ -1,6 +1,6 @@
 # Log Lifecycle
 
-Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the development project, its append-only history and the validation rounds (#1444 node c): five reads and six writes of menu `log-models`. Design and decisions: the log-lifecycle design (`docs/design/features/log-lifecycle/`) §3–§5 and ADR-0117. Not in this node (later nodes d/e): execution requests, attempts, rule results, the Gate, worker REST, attachments for manual evidence (node c2, #1451).
+Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the development project, its append-only history and the validation rounds (#1444 node c): six reads and seven writes of menu `log-models`. Design and decisions: the log-lifecycle design (`docs/design/features/log-lifecycle/`) §3–§5 and ADR-0117. Manual validation attachments (node c2, #1451) are included (one read, one write; see below). Not in this node (later nodes d/e): execution requests, attempts, rule results, the Gate, worker REST.
 
 ## Transport and permission
 
@@ -18,6 +18,7 @@ Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file
 | `logLifecycle.projectEvents` | `projectId`, `page`, `pageSize` (offset page, 50 default, 200 max) | `{ rows: EventRow[], total }`, newest first (`seq desc`) |
 | `logLifecycle.rounds` | `projectId` | `{ rows: RoundSummary[] }`, `seq desc` |
 | `logLifecycle.roundDetail` | `roundId` | `RoundDetail` or `null` |
+| `logLifecycle.roundEvidence` | `roundId` | `{ rows: [{ id, name, sizeBytes, mimeType, uploadedByActorId, linkedAt }] }` or `null` (see Manual validation attachment) |
 
 `models`: the base rows are the knowledge models (`knowledge.equipment_model`, read directly: see 02 §Log Lifecycle), so a model without a project is a row with `project: null`. Row: `{ id, code, name, active, version, vendorId, vendorName, processes[{id,name}], createdAt, updatedAt, project }` with `project: null | { projectId, stage, kind, ownerActorId, latestRound: { id, seq, status } | null }`. `project` is the model's OPEN project (not `completed`, not `cancelled`). Sort ids: those of `logKnowledge.models` plus `stage` (`code, name, vendorName, active, softwareCount, stage, createdAt, updatedAt`); same `q` / page / sorting rules as [log-knowledge.md §Common params](log-knowledge.md). Filter fields (ADR-0105): `active`, `id`, `vendorId`, `processes` as in `logKnowledge.models`, and `stage` (ops `in`, `notIn`, `isEmpty`, `isNotEmpty`; values the stage set `registered|kickoff|alpha|beta|completed|cancelled`; rows show only the open project, so `completed`/`cancelled` match nothing under `in`): `isEmpty` = the model has no open project, `notIn` excludes models without one (ADR-0105). Not yet (node d, they need the request tables): the `validation` filter and the pending-request count.
 
@@ -35,10 +36,17 @@ Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file
 | `logLifecycle.projectUpdate` | `id`, `ownerActorId?`, `targetDate?` (null clears), `softwareId?` (null clears) | `expectedVersion` |
 | `logLifecycle.roundOpen` | `projectId`, `sampleSet`, `note?` | none (`idempotencyKey`) |
 | `logLifecycle.roundClose` | `id` | `expectedVersion` |
+| `logLifecycle.roundEvidenceAttach` | `roundId`, `attachmentIds` (1–20, unique uuids) | none (`idempotencyKey`) |
 
 `roundOpen` has no `specPin` input: the server computes it (below). Unknown input keys are `unexpected_field`.
 
 Every project write is one transaction: the row change (`row_version + 1`), the `development_event` row and the `core.audit_log` row. A save that changes nothing answers `ok` with the current version and writes nothing. Round writes write the audit row and no `development_event` (the closed event kinds have no round kind).
+
+### Manual validation attachment (#1451, design D6)
+
+Manual validation records are Core attachments linked to a Round with parent kind `validation_round` (no new table; the parent seam is in [attachments.md](attachments.md)). The caller first uploads with `POST /attachments`, then calls `roundEvidenceAttach { roundId, attachmentIds }`. Right: `lifecycle.round.manage` (menu permission `lifecycle:round-manage`, like `roundOpen`/`roundClose`). The Round must be `open` (`roundId: illegal_transition` on a closed one, `roundId: not_found` for an unknown or other-workspace id). Each attachment must be an unlinked, non-archived upload of the caller; any miss is `attachmentIds.<i>: invalid` and the whole call rolls back (one transaction with the audit row); `attachmentIds` is `required` when empty, `too_many` above 20 (start value), `duplicate` on a repeated id. The audit row `lifecycle.round.evidence_attached` (subject `validation_round`, action `update`) carries `{ projectId, seq, count }` and no filename or key.
+
+Read: `logLifecycle.roundEvidence { roundId }` (right `platform:view`) answers `{ rows: [{ id, name, sizeBytes, mimeType, uploadedByActorId, linkedAt }] }` ordered by `linkedAt`, or `data: null` for an unknown or other-workspace Round. The bytes come from `GET /attachments/:id/download`, allowed under the Round's own visibility (`platform:view`, Round in the actor's workspace). There is no detach action in v0.30.0.
 
 ### Stage transitions
 

@@ -62,7 +62,7 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 
 - `sample_set` = `{ files: [{ fileRef, order, sha256 }], sourceOwner }`. `fileRef`는 외부 위치 문자열(불투명 값; 경로 정규화·길이 상한·허용 스킴은 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)). 순서는 사용자가 확정하고 시간순 재정렬이나 합치기를 하지 않는다. `sample_manifest_digest`는 순서·해시를 포함한 정규 직렬화의 SHA-256이다.
 - **Round를 연 순간부터 샘플·`spec_pin`은 불변**이다(As-built: 삽입 뒤 불변, 샘플 편집 동작 없음). 바꾸려면 새 Round를 연다(과거 시도는 불변 보존). 이 규칙은 DB 트리거와 서비스가 같이 지킨다.
-- 수동 검증 기록(#1330 P0 «수동 검증 첨부»)은 Core 첨부(Attachments)와 등록 entity link로 Round에 붙이고 새 테이블을 두지 않는다. 첨부 entity type 등록이 가능한지는 구현 노드 첫 단계에서 확인한다(Open Decision D6).
+- 수동 검증 기록(#1330 P0 «수동 검증 첨부»)은 Core 첨부(Attachments)와 등록 entity link로 Round에 붙이고 새 테이블을 두지 않는다. **As-built(#1451 c2)**: 첨부에 부모 종류(`parent_kind`, 닫힌 집합 `voc`·`validation_round`)와 종류별 읽기 판정 seam(`AttachmentParentReader`, 등록 없는 종류는 거부)을 두었다. 쓰기 = `roundEvidenceAttach`(`lifecycle.round.manage`, 열린 Round만), 읽기 = Round와 같은 가시성(`platform:view`, 같은 워크스페이스). 계약: [api/log-lifecycle.md](../../../architecture/platform-api/api/log-lifecycle.md) §Manual validation attachment. 등록 entity link(`core.entity_links`)는 아직 없다: 노드 c3 [#1466](https://github.com/hjung3113/analytics-platform/issues/1466)이 맡는다(구현 안 함).
 
 ### execution_request
 
@@ -144,6 +144,7 @@ log-lifecycle/
 | `logLifecycle.projectEvents` | 이력(커서 페이지) | `AuditTimeline` 소비 |
 | `logLifecycle.rounds` | 개발 건의 Round 목록 | |
 | `logLifecycle.roundDetail` | Round + 샘플 목록 + 요청·시도 요약 + Gate 결정 이력 | `roundId` |
+| `logLifecycle.roundEvidence` | Round에 붙은 수동 검증 첨부 목록(#1451) | `roundId`, `platform:view` |
 | `logLifecycle.ruleResults` | 시도의 규칙 결과(서버 페이지·정렬·필터), 발췌는 `hasExcerpt`만 | `PlatformDataTable` |
 | `logLifecycle.excerpt` | 발췌 본문 한 건 | `lifecycle.excerpt.read` 필요, 열람 감사 |
 | `logLifecycle.requests` | 검증 요청 목록 | 필터: `state`·`priority`·`modelId`·기간 |
@@ -160,6 +161,7 @@ log-lifecycle/
 | `logLifecycle.projectUpdate` | `id`, `ownerActorId?`, `targetDate?`, `softwareId?` | version |
 | `logLifecycle.roundOpen` | `projectId`, `sampleSet`, `note?` (`spec_pin`은 입력이 아니라 서버가 열 때 `log-knowledge` 읽기 포트로 고정, #1444) | none |
 | `logLifecycle.roundClose` | `id` | version |
+| `logLifecycle.roundEvidenceAttach` | `roundId`, `attachmentIds` (수동 검증 첨부, #1451) | none (idempotencyKey) |
 | `logLifecycle.requestCreate` | `roundId`, `priority`, `immediate?`, `engineProfileRef?` | none (idempotencyKey) |
 | `logLifecycle.requestCancel` | `id`, `reason` | version |
 | `logLifecycle.gateDecide` | `roundId`, `targetStage`, `decision`, `reason`, `exception?` | version(프로젝트) |
@@ -233,7 +235,7 @@ log-dev (기존 Space)
 | 0 | ADR 0116·0117·0118 확정(소유자 답) + 이 문서 Candidate→As-built 전환 계획 | light | 소유자 답 |
 | a | **API 토큰 코어**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)): 테이블·발급·폐기·인증 훅·scope ∩ 권한 판정·감사·고위험 거절. **As-built** #1442(PR #1456): `core.api_tokens`(0101), 토큰은 `menu-query`·`menu-action`만 호출 가능, 계약은 [auth.md](../../../architecture/platform-api/api/auth.md)·[05](../../../architecture/platform-api/05-permission-policy.md) | full, `impl-complex` (권한 경계) | 0 |
 | b | 토큰 관리 화면(개인 목록·발급·폐기, 관리자 서비스 토큰) + 시안 | full, `ux=required` | a |
-| c | `log-lifecycle` 스키마·마이그레이션·개발 건·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 Evidence는 c2 #1451) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
+| c | `log-lifecycle` 스키마·마이그레이션·개발 건·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 검증 첨부는 c2 #1451, 구현됨) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
 | d | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
 | e | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
 | f | 화면: 모델 목록·개발 건/Round 상세·검증 요청 + 시안(`?variant=`) | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
@@ -279,5 +281,5 @@ log-dev (기존 Space)
 | D3 | 자기 승인 | **결정됨**: 막지 않고 이력에 표시(소유자 2026-11-07) | |
 | D4 | 우선순위 단계 수(비소유자 결정 아님, 시작값) | 3단계(0–2) | #1420 «우선순위» 요구만 충족 |
 | D5 | 단계 스테퍼 컴포넌트 | 기존 후보 조사 후 없으면 메뉴 로컬로 시작 | 소비자 2–3곳 확인 전 공통화하지 않음(§24) |
-| D6 | 수동 검증 첨부 = 첨부 + entity link | **결정됨**(소유자 2026-11-07); 첨부 type 등록 가능 여부는 노드 c의 첫 확인 | |
+| D6 | 수동 검증 첨부 = 첨부 + entity link | **결정됨**(소유자 2026-11-07); 첨부 부모 종류 등록은 **구현됨**(#1451 c2). 확인 결과: 첨부는 `voc.voc_attachments`(voc_id/comment_id)만 쓰고 권한이 VOC 읽기에 묶여 있어 종류 레지스트리가 없었다 → 종류 열 + 종류별 reader를 추가 | Entity Link 등록은 c3 #1466(구현 안 함). |
 | D7 | `observed` 500자·근거 20개·발췌 2,000자·시도당 256KB·보관 90일·「즉시」 동시 5건 | 이 값으로 시작 | 측정 전 시작값, 실제 Validator 출력 확인 후 조정 |

@@ -2,7 +2,7 @@
 // ADR-0011 attachment lifecycle).
 //
 // POST /attachments inserts an attachment row in two phases: the raw row
-// lands first (voc_id IS NULL AND comment_id IS NULL), then a follow-up
+// lands first (voc_id, comment_id and parent_id all NULL), then a follow-up
 // link step (voc create / reporter-reply / internal-comment) populates
 // voc_id or comment_id. If the link step never runs (client crash,
 // abandoned flow) the row + its S3 object leak indefinitely. This job
@@ -79,6 +79,7 @@ export async function purgeUnlinkedAttachments(
        FROM voc.voc_attachments
        WHERE voc_id IS NULL
          AND comment_id IS NULL
+         AND parent_id IS NULL
          AND created_at < now() - interval '24 hours'`,
   );
 
@@ -94,7 +95,7 @@ export async function purgeUnlinkedAttachments(
       await client.query('BEGIN');
       const locked = await client.query<AttachmentRow>(
         `SELECT id, storage_key, size_bytes FROM voc.voc_attachments
-          WHERE id = $1 AND voc_id IS NULL AND comment_id IS NULL
+          WHERE id = $1 AND voc_id IS NULL AND comment_id IS NULL AND parent_id IS NULL
             AND created_at < now() - interval '24 hours'
           FOR UPDATE`,
         [candidate.id],
@@ -135,7 +136,7 @@ export async function purgeUnlinkedAttachments(
 
     const del = await pool.query(
       `DELETE FROM voc.voc_attachments WHERE id = $1
-        AND archived_at IS NOT NULL AND voc_id IS NULL AND comment_id IS NULL`,
+        AND archived_at IS NOT NULL AND voc_id IS NULL AND comment_id IS NULL AND parent_id IS NULL`,
       [row.id],
     );
     if ((del.rowCount ?? 0) > 0) {

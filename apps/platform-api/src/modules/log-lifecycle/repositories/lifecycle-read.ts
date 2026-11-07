@@ -356,3 +356,13 @@ export async function getRoundDetail(tx: Tx, workspaceId: string, roundId: strin
     .limit(1);
   return row ? { ...baseRound(row), sampleSet: filesOf(row) } : null;
 }
+
+/** Whether the round exists in the workspace (the attachment parent reader and the evidence list share it). */
+export async function roundInWorkspace(tx: Tx, workspaceId: string, roundId: string): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: r.id })
+    .from(r)
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, roundId)))
+    .limit(1);
+  return row !== undefined;
+}
