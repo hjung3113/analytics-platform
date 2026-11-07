@@ -1303,6 +1303,10 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     const bound = readDependencies(tx);
     const sourceProvider = providerFor(bound.providers, source.type);
     const targetProvider = providerFor(bound.providers, target.type);
+    // Default-deny: an end with no registered provider answers like an unresolved or unreadable end.
+    if (!sourceProvider || !targetProvider) {
+      throw new HttpError('not_found.record', 'entity link endpoint not found');
+    }
     const [sourceRow, targetRow] = await Promise.all([
       sourceProvider.assertExists(bound.db, actor.workspace_id, source.id),
       targetProvider.assertExists(bound.db, actor.workspace_id, target.id),

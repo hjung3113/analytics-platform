@@ -80,7 +80,8 @@ describe.skipIf(!runIntegration)('entity_links managed_system_id rule (ADR-0123,
     ['another relation', 'manual_validation_attachment', 'validation_round', 'related_to'],
     ['a Managed-System end paired with a Round', 'voc', 'validation_round', 'evidence_of'],
   ])('refuses %s as an unregistered tuple', async (_label, source, target, relation) => {
-    await expect(insert(source, target, relation, null)).rejects.toMatchObject({ constraint: 'entity_links_tuple_check' });
+    // A real Managed System keeps the NULL rule out of the way, so only the tuple allowlist can reject.
+    await expect(insert(source, target, relation, ms)).rejects.toMatchObject({ constraint: 'entity_links_tuple_check' });
   });
 
   it('a pre-existing row is untouched: its Managed System is still set', async () => {

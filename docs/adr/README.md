@@ -132,7 +132,7 @@
 | [0120](0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md) | 테스트 Dataset·Baseline은 Round와 별도 ID, 회귀 실행은 검증 요청 큐를 요청 주체 확장으로 재사용(ADR-0117 개정 포함), Baseline 자동 갱신 금지 | Decided(2026-11-07) |
 | [0121](0121-ordered-interval-track-sdk-piece.md) | 시퀀스 보기는 도메인을 모르는 SDK 범용 조각 `OrderedIntervalTrack`(순서 축 기본, 열린 구간 표시) | Decided(2026-11-07) |
 | [0122](0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md) | 규칙 카탈로그는 Validator가 토큰으로 보고한 읽기 전용 스냅샷(정의 본문 저장 금지), 연결은 선언/수동 구분, 명세 커버리지는 읽을 때 계산 | Decided(2026-11-08) |
-| [0123](0123-entity-links-extend-to-targets-without-managed-system.md) | Entity Link는 Managed System 없는 끝(Round·수동 검증 첨부)까지 넓히고, 그 끝은 소유 모듈의 읽기 권한으로 판단(ADR-0064 규칙 개정) | Decided(2026-11-08, 소유자) — #1466 |
+| [0123](0123-entity-links-extend-to-targets-without-managed-system.md) | Entity Link는 Managed System 없는 끝(Round·수동 검증 첨부)까지 넓히고, 그 끝은 소유 모듈의 읽기 권한으로 판단(FO ADR-0064 규칙 개정) | Decided(2026-11-08, 소유자) — #1466 |
 | [0124](0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md) | 지식 검색은 접근 권한을 조회 때 현재 규칙으로 판정하고 색인에 담지 않으며, 표시 값은 최신 Revision에서 그때 읽는다 | Decided(2026-11-08) |
 | [0125](0125-event-order-search-uses-structured-event-relation-records.md) | Event 순서 검색은 본문 해석이 아니라 Revision이 구조화해 적은 Event 관계 기록으로 한다 | Decided(2026-11-08) |
 

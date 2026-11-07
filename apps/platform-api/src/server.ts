@@ -622,6 +622,8 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     },
   });
 
+  // One Round attachment parent reader, shared by the Entity Links end check and the attachment download path (ADR-0123).
+  const roundAttachmentParentReader = roundAttachmentParent({ db: dbHandle.db, checkService });
   // ── Entity Links module — Slice 4.1 issue #112 ────────────────────────────
   const entityLinksService = createEntityLinksService({
     reconcileFindingExecution,
@@ -631,7 +633,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     auditService,
     providers: buildEntityLinkProviders({
       // The 수동 검증 첨부 end is judged by the same parent reader as the download path (ADR-0123).
-      attachmentParents: [roundAttachmentParent({ db: dbHandle.db, checkService })],
+      attachmentParents: [roundAttachmentParentReader],
     }),
   });
   await app.register(entityLinksRoutes, {
@@ -1151,7 +1153,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     vocReadService,
     vocPublicAttachmentReader: vocPublicReadService,
     // Parent kinds other than `voc` (#1451); a linked row whose kind is not listed here is denied.
-    parents: [roundAttachmentParent({ db: dbHandle.db, checkService })],
+    parents: [roundAttachmentParentReader],
     log: { warn: (msg, meta) => app.log.warn(meta ?? {}, msg) },
   });
   await app.register(attachmentsRoutes, {

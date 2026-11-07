@@ -1,6 +1,6 @@
 # Entity Link는 Managed System이 없는 대상까지 넓히고, 그 끝은 소유 모듈의 읽기 권한으로 판단한다
 
-상태: **Decided (2026-11-08, 소유자 답 — option B).** 결정자: 소유자(2026-11-08, [#1466](https://github.com/hjung3113/analytics-platform/issues/1466)). [ADR-0064](../architecture/platform-api/06-entity-linking-contract.md)의 Entity Link 규칙(양 끝이 같은 Managed System)을 Managed System이 없는 끝에 한해 개정한다. 설계 [`log-lifecycle` D6](../design/features/log-lifecycle/README.md).
+상태: **Decided (2026-11-08, 소유자 답 — option B).** 결정자: 소유자(2026-11-08, [#1466](https://github.com/hjung3113/analytics-platform/issues/1466)). [FO ADR-0064](history/feedbackops/0064-survey-provenance-read-boundary.md)와 [Entity Linking 계약](../architecture/platform-api/06-entity-linking-contract.md)의 Entity Link 규칙(양 끝이 같은 Managed System)을 Managed System이 없는 끝에 한해 개정한다. 설계 [`log-lifecycle` D6](../design/features/log-lifecycle/README.md).
 
 ## 배경
 
@@ -8,7 +8,7 @@
 
 ## 결정
 
-1. **Managed System이 있는 끝은 규칙이 그대로다.** VOC·Finding·VOC Cluster·Task Request·Task의 기존 13개 tuple은 `managed_system_id`가 NOT NULL이고, 양 끝이 같은 Managed System이어야 한다(`assertLinkManagedSystemCompatibility`). 동작·오류 코드·상태 코드는 바뀌지 않는다. Survey 응답 tuple 예외(ADR-0064)도 그대로다.
+1. **Managed System이 있는 끝은 규칙이 그대로다.** VOC·Finding·VOC Cluster·Task Request·Task의 기존 13개 tuple은 `managed_system_id`가 NOT NULL이고, 양 끝이 같은 Managed System이어야 한다(`assertLinkManagedSystemCompatibility`). 동작·오류 코드·상태 코드는 바뀌지 않는다. Survey 응답 tuple 예외(FO ADR-0064)도 그대로다.
 2. **Managed System이 없는 끝(개발 건·Round·Round 밑 수동 검증 첨부)은 소유 모듈의 읽기 권한으로 판단한다.** 링크 한 건을 만들 때 두 끝 모두의 소유 모듈 provider가 `canRead`를 판단하고, 둘 다 읽을 수 있어야 한다. 한 끝이라도 못 읽거나 provider가 없으면 거절한다(기본 거부).
 3. **Managed System 없는 tuple은 계약에 등록된 쌍만 허용한다.** 등록 쌍은 `noManagedSystemEntityLinkPairs`(`packages/feature-shared/src/entity-links.ts`)이고, 지금은 `manual_validation_attachment → validation_round (evidence_of)` 하나다. 한 끝만 Managed System이 있는 tuple은 등록하지 않으므로, 그런 링크(예: VOC ↔ Round)는 «tuple 미등록»으로 거절된다. 개발 건 끝(`log_project`)은 이 규칙이 허용하는 부류이지만 쓰는 쌍이 아직 없어 지금은 entity type을 등록하지 않는다.
 4. **DB.** `managed_system_id`를 NULL 허용으로 바꾸고 CHECK `entity_links_managed_system_check`로 묶는다: 등록된 Managed System 없는 tuple이면 NULL이어야 하고, 그 밖의 모든 tuple은 NOT NULL이어야 한다. `entity_links_tuple_check`에 새 쌍을 더한다. 기존 행은 그대로이고 마이그레이션은 더하기뿐이다.

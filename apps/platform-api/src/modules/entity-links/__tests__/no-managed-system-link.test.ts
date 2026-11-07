@@ -126,10 +126,17 @@ describe('createNoManagedSystemLink', () => {
     expect(audit).not.toHaveBeenCalled();
   });
 
-  it('denies when a provider is missing (default-deny)', async () => {
-    const { service } = build({ validation_round: undefined } as never);
-    await expect(create(service)).rejects.toThrow();
+  it.each([
+    ['source', { manual_validation_attachment: undefined }],
+    ['target', { validation_round: undefined }],
+  ])('denies with the uniform not-found when the %s provider is missing (default-deny)', async (_label, overrides) => {
+    const { service, audit } = build(overrides as never);
+    await expect(create(service)).rejects.toMatchObject({
+      code: 'not_found.record',
+      message: 'entity link endpoint not found',
+    });
     expect(insertActiveEntityLink).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
   });
 
   it('refuses a pair where one end carries a Managed System, after both ends were judged readable', async () => {
