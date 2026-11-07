@@ -164,6 +164,57 @@ The dispatch outcome set has no `not_found`: an unknown or other-workspace id an
 
 `ItemDetail`: `item` (an `ItemRow` plus `version`, `createdBy`, `createdAt`); `revision` (the requested revision, default latest: `revisionNo, title, typeCode, observation, expected, analysisOpinion, improvement, changeNote, publishedBy, publishedAt, evidence: { ordinal, sourceKind, sourceOwner, sourceRef, sourceVersion, contentHash, locator, note }[]`); `revisions` (all, newest first: `revisionNo, title, publishedBy, publishedAt, changeNote`); `assessments` (all, newest first: `id, dimension, priorState, newState, rationale, actorId, basedOnRevisionNo, observedAt`); `links: { kind, direction: 'outgoing' | 'incoming', itemId, itemNo, title, owner, sourceRevisionNo }[]`. For `derived_from`, `outgoing` means this item was derived from `itemId` at `sourceRevisionNo` of that original; `incoming` means `itemId` was derived from this item. `related` has no revision (`null`).
 
+## Knowledge drafts (#1198 a, migration 0101)
+
+A human author proposes a new item or a revision of one as a **draft**; a reviewer decides later (node b: approve / reject / changes requested and the atomic publish; node c: Agent/Validator submission over API tokens). Node a ships the tables, the author's four writes and the two reads, all on menu `log-knowledge-items` (`modules/log-knowledge/draft-actions.ts`, `draft-endpoints.ts`; value checks `domain/draft-input.ts`, status flow `domain/draft-transitions.ts`, SQL `repositories/draft-write.ts` / `draft-read.ts`). A draft **never writes** `knowledge.knowledge_item*` / `knowledge.item_*` in node a. Not here yet (node b/c): `draft_review`, review decisions, publish, search outbox, token routes, screens. The client menu declares no draft endpoints yet, so `catalog-menu-drift.test.ts` excludes ids starting `logKnowledge.draft`.
+
+### Tables (migration 0101)
+
+- `knowledge.draft`: `id`, `workspace_id`, `origin` (`human` · `ai` · `validator`; node a writes only `human`, set by the server from the session, never from input), `proposal_type` (`create` · `revise`), `target_item_id?` / `base_revision_no?` (revise only: the item and its latest revision at draft creation), `owner_model_id?` / `owner_software_id?` (create: exactly one; revise: copied from the target item), `status`, `latest_draft_rev`, `submitter_actor_id`, `submitted_at?`, `closed_at?` / `closed_by?`, `close_reason?` (≤ 500, the withdraw reason, never audited), `row_version`, created/updated at/by. CHECKs: closed sets, create/revise pairing, owner XOR, closed columns set exactly when the status is final.
+- `knowledge.draft_revision` (append-only): `workspace_id`, `draft_id`, `draft_rev_no` (1..n per draft, gapless, allocated under the draft row lock), `proposal_json`, `payload_digest` (64 lower-case hex), `schema_version` (1), `author_actor_id`, `author_auth` (`session` · `token`; node a writes only `session`), `created_at`. Primary key `(workspace_id, draft_id, draft_rev_no)`. UPDATE and DELETE are refused by grant (`42501` for the app role) and by trigger (`23514` for every role).
+
+### Proposal and digest
+
+`proposal` is the item input: `create` = what `itemCreate` accepts (`ownerModelId` / `ownerSoftwareId` exactly one, `typeCode`, `title`, `observation` / `expected` at least one, `analysisOpinion`, `improvement`, `evidence[]`, `subjects[]`); `revise` = what `itemRevise` accepts without `id` (the target is the draft's), with `changeNote`. The same field rules and server checks run (item input builders reused; `checkOwner`, `judgeSubjects`, target exists and not archived). Unlike the item actions, **unknown keys are refused** at the proposal, in each `evidence[i]` and each `subjects[i]` (`malformed` at the key's path), and every proposal field error is prefixed `['proposal', …]`. The owner of a create draft is fixed at creation: another owner on update is `['proposal', 'ownerModelId' | 'ownerSoftwareId'] immutable`.
+
+The stored proposal is the **normalized** parse (trimmed text, `null` for empty optional text, `evidence: []` when none, unset owner fields absent, normalized `subjects` values; an omitted `subjects` on a revise stays absent and means "keep the previous revision's links"). `payload_digest` = SHA-256 hex of `canonicalJson` (`domain/spec-hash.ts`) of that normalized proposal: `proposalDigest(normalizeProposal(...))` in `domain/draft-input.ts`, the pure function node b compares with `approvedDigest`. The same normalized proposal always has the same digest; any content change has another.
+
+### Status flow
+
+Statuses: `draft`, `submitted`, `changes_requested`, `approved`, `rejected`, `withdrawn`. One table, `LEGAL_DRAFT_STATUS_PAIRS` in `domain/draft-transitions.ts`, mirrored by the guard trigger `knowledge.draft_guard` (drift test `draft-transitions.test.ts`):
+
+| from | to | by |
+| --- | --- | --- |
+| `draft` | `submitted`, `withdrawn` | `draftSubmit`, `draftWithdraw` |
+| `changes_requested` | `submitted`, `withdrawn` | `draftSubmit` (resubmit), `draftWithdraw` |
+| `submitted` | `withdrawn` | `draftWithdraw` |
+| `submitted` | `approved`, `rejected`, `changes_requested` | node b (allowed by the guard now, no service caller) |
+| `approved`, `rejected`, `withdrawn` | — | final |
+
+The trigger also fixes the identity and proposal-shape columns, freezes a final draft, requires `row_version + 1` on every update and lets `latest_draft_rev` stay or rise by exactly 1.
+
+### Writes (`menu-action`)
+
+Right: capability `knowledge.draft.create` (workspace-scoped; Admin always; **Developer and User by grant**), menu permission `knowledge:draft-create`; same transport, key and replay rules as [Write actions](#write-actions). Only the draft's `submitter_actor_id` may update, submit or withdraw it. Every write answers `data: { id, status, latestDraftRev, payloadDigest }`, `invalidates: ['logKnowledge.drafts', 'logKnowledge.draftDetail']`, and runs in one transaction with its audit row.
+
+| Action | Input | Concurrency | Effect |
+| --- | --- | --- | --- |
+| `logKnowledge.draftCreate` | `proposalType`, `targetItemId?` (revise: required; create: refused), `proposal` | none + `idempotencyKey` | draft `draft` at revision 1 (+ revision row); `version` `1` |
+| `logKnowledge.draftUpdate` | `id`, `proposal` | `expectedVersion` | allowed in `draft`, `submitted`, `changes_requested`: appends revision `latest + 1`, status unchanged. Same digest as the latest revision: `ok` with the current version, no revision, no audit. An edit during review changes the digest (node b's reviewer sees a stale digest and gets 409) |
+| `logKnowledge.draftSubmit` | `id` | `expectedVersion` | `draft` / `changes_requested` → `submitted`; sets `submitted_at` (a resubmit updates it) |
+| `logKnowledge.draftWithdraw` | `id`, `reason?` (≤ 500) | `expectedVersion` | `draft` / `submitted` / `changes_requested` → `withdrawn`; `closed_at`, `closed_by`, `close_reason` |
+
+Refusals (`outcome: 'invalid'`, field errors): `proposal.*` item codes (`required`, `too_long`, `malformed`, `required_one`, `duplicate`, `model_mismatch`, `not_found`, `inactive`), `proposal.ownerModelId|ownerSoftwareId: not_found | inactive | immutable`, `targetItemId: not_found | archived` (create of a revise draft), `id: archived` (update of a revise draft whose target was archived since), `id: illegal_transition` (a move outside the table, any write on a final draft), `id: forbidden_not_author`, `reason: too_long | malformed`. The visibility and authorship check runs **before** the engine compares `expectedVersion`: a draft that is missing, another workspace's or not visible to the caller answers `not_found` (never `conflict`, never a version); a visible draft the caller did not author is `['id'] forbidden_not_author`. The capability check comes first (`forbidden`).
+
+Audit (`core.audit_log`, `subject_type: 'knowledge_draft'`, subject id = draft id): `knowledge.draft.created` (`create`), `knowledge.draft.updated` / `knowledge.draft.submitted` (`update`), `knowledge.draft.withdrawn` (`retire`). Detail (strict): `draftId`, `proposalType`, `origin`, `targetItemId`, `draftRevNo`, `payloadDigest`, `statusBefore` (null on create), `statusAfter` — never a title, body, evidence or the withdraw reason (`packages/feature-shared/src/audit/log-knowledge-draft.ts`).
+
+### Reads (`menu-query`, `platform:view`)
+
+Row visibility is decided in SQL: the **author** sees their drafts in every status; a holder of `knowledge.item.publish` (Admin by the module bypass) also sees every draft whose status is not `draft` (a not-yet-submitted draft is private to its author); nobody else sees any draft.
+
+- `logKnowledge.drafts` — params `q`, `page`, `pageSize`, `sorting`, `filters` ([Common params](#common-params), ADR-0105). `q`: `ILIKE` on the latest revision's title. Filters: `status`, `origin`, `proposalType` (`in` / `notIn` over their closed sets), `ownerModelId` (`in` / `notIn`; matches `coalesce(owner_model_id, the SW version's model)`). Sorts: `updatedAt` (default, desc), `submittedAt` (`NULLS LAST`), `createdAt`. Row: `{ id, origin, proposalType, targetItemId, baseRevisionNo, ownerModelId, ownerSoftwareId, title, status, latestDraftRev, submitterActorId, submittedAt, updatedAt, createdAt }`; never the proposal.
+- `logKnowledge.draftDetail` — `paramKeys: ['draftId']`. A draft the caller may not see (or unknown / other workspace) answers `ok` with `data: null`. Otherwise `{ draft, revisions, proposal }`: `draft` is the row shape plus `version`, `closeReason`, `closedAt`, `closedBy`, `createdBy`; `revisions` is `{ revNo, payloadDigest, authorActorId, createdAt }` newest first; `proposal` is the latest revision's stored proposal.
+
 ## Model spec reads (#1196 a, migration 0091)
 
 Four menu-query endpoints (`modules/log-knowledge/spec-endpoints.ts`; `specDraft` is the b1 addition, `specChanges` the c addition) on menu `log-knowledge-models`; same transport, `platform:view`, `requiresScope: false`, no Context key, workspace = the session actor's. Design: `docs/design/features/log-knowledge-hub/design-v0.6-candidate.md` §15. The menu package declares both in `menus/log-dev/log-knowledge/src/endpoints.ts` (`modelSpecEndpointSpecs`; node d registers all four mock reads and the seven writes alongside the production screen) and `catalog-menu-drift.test.ts` compares them. The writes are in [Model spec write actions](#model-spec-write-actions) (#1196 b1). `modelSpec` takes an optional `softwareId` (#1196 c, [SW changes](#sw-changes-1196-c)).

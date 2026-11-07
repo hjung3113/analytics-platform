@@ -68,6 +68,8 @@ const server = logKnowledgeContribution({ db: {} as never, checkService: {} as n
 // compared below, then the item reads (menu `log-knowledge-items`, #1197 s2).
 // The import staging declarations (#1195 a) share the catalog menu id and are compared in their own block below.
 const isImport = (id: string) => id.startsWith('logKnowledge.import');
+// The knowledge draft declarations (#1198 a) are server-only for now: the client menu declares no draft endpoints yet.
+const isDraft = (id: string) => id.startsWith('logKnowledge.draft');
 const serverEndpoints = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MENU_ID && !isImport(e.spec.id));
 const serverActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_MENU_ID && !isImport(a.spec.id));
 const serverImportEndpoints = (server.endpoints ?? []).filter((e) => isImport(e.spec.id));
@@ -159,7 +161,7 @@ describe('model reads (menu log-knowledge-models) vs the server', () => {
 
 // The two item reads of the `log-knowledge-items` menu (#1197 s2); the model reads are node s1's block.
 describe('log knowledge item reads vs the server', () => {
-  const serverItemReads = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_ITEMS_MENU_ID);
+  const serverItemReads = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_ITEMS_MENU_ID && !isDraft(e.spec.id));
 
   it('declares the same two reads on the same menu in the same order', () => {
     expect(serverItemReads).toHaveLength(2);
@@ -232,7 +234,7 @@ describe('log knowledge model spec writes vs the server', () => {
 // The five item writes of the `log-knowledge-items` menu (#1197 s3a): ids, menu, input keys, concurrency, permission,
 // scope and the reads they invalidate. The server lists them in create, revise, assess, derive, set-archived order.
 describe('log knowledge item writes vs the server', () => {
-  const serverItemActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_ITEMS_MENU_ID);
+  const serverItemActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_ITEMS_MENU_ID && !isDraft(a.spec.id));
 
   it('uses the server\'s menu permission name for the writes', () => {
     expect(ITEM_PUBLISH_PERMISSION).toBe(ITEM_MENU_PERMISSION);

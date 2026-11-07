@@ -24,6 +24,8 @@ import { conceptActions } from './concept-actions.js';
 import { conceptEndpoints } from './concept-endpoints.js';
 import { subjectEndpoints } from './subject-endpoints.js';
 import { itemEndpoints } from './item-endpoints.js';
+import { draftActions } from './draft-actions.js';
+import { draftEndpoints } from './draft-endpoints.js';
 import { specEndpoints } from './spec-endpoints.js';
 import { importActions } from './import-actions.js';
 import { importIntakeActions } from './import-intake-actions.js';
@@ -83,6 +85,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
     actions: [
       ...catalogActions({ checkService: deps.checkService }),
       ...itemActions({ checkService: deps.checkService }),
+      ...draftActions({ checkService: deps.checkService }),
       ...specActions({ checkService: deps.checkService }),
       ...specChangeActions({ checkService: deps.checkService }),
       ...conceptActions({ checkService: deps.checkService }),
@@ -95,6 +98,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       declare(deps, 'models', MODEL_SORT_IDS, (_a, q) => listModels(deps.db, q)),
       declare(deps, 'softwareVersions', SOFTWARE_SORT_IDS, (_a, q) => listSoftwareVersions(deps.db, q)),
       ...itemEndpoints(deps),
+      ...draftEndpoints(deps),
       ...specEndpoints(deps),
       ...conceptEndpoints(deps),
       ...subjectEndpoints(deps),

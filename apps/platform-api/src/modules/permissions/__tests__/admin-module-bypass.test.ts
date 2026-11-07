@@ -30,6 +30,7 @@ const ALWAYS: Capability[] = [
   'improvement.manage',
   'lifecycle.project.manage',
   'lifecycle.round.manage',
+  'knowledge.draft.create',
 ];
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage', 'voc.create'];
 const NONE: Capability[] = [

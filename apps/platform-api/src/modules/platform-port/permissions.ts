@@ -28,7 +28,9 @@ export type PlatformPermissionRule =
   /** Admin role, or an active workspace grant of `lifecycle.project.manage` (the write capability of the development projects). */
   | 'lifecycle-project-manage'
   /** Admin role, or an active workspace grant of `lifecycle.round.manage` (the write capability of the validation rounds). */
-  | 'lifecycle-round-manage';
+  | 'lifecycle-round-manage'
+  /** Admin role, or an active workspace grant of `knowledge.draft.create` (the write capability of the knowledge drafts; Developer and User may hold it). */
+  | 'draft-create';
 
 export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'platform:view', rule: 'every-session' },
@@ -49,6 +51,8 @@ export const PLATFORM_PERMISSION_TABLE = [
   // Menu permissions of the log lifecycle writes (#1444 c): project actions and round actions.
   { permission: 'lifecycle:project-manage', rule: 'lifecycle-project-manage' },
   { permission: 'lifecycle:round-manage', rule: 'lifecycle-round-manage' },
+  // Menu permission of the knowledge draft writes (#1198 a); the four draft actions declare it.
+  { permission: 'knowledge:draft-create', rule: 'draft-create' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
 /** Capabilities whose active grant (workspace or Managed-System scoped) opens `features:access`. */
@@ -177,6 +181,16 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'lifecycle.round.manage', decision).allow;
+    }
+    case 'draft-create': {
+      // The same decision the draft write actions take (`log-knowledge/draft-actions.ts`).
+      const decision = await checkService.checkCapability(
+        actor,
+        'knowledge.draft.create',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'knowledge.draft.create', decision).allow;
     }
     case 'features-access': {
       // A token call has no role shortcut: only the capability scopes below can open it.

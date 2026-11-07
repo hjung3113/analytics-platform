@@ -16,6 +16,7 @@ describe('isOrdinarilyRequestable', () => {
     ['improvement.manage', true],
     ['lifecycle.project.manage', true],
     ['lifecycle.round.manage', true],
+    ['knowledge.draft.create', true],
     ['voc.read_public', true],
     ['voc.create', true],
   ] as const)('%s → %s', (capability: Capability, expected) => {
@@ -60,4 +61,16 @@ describe('recipient role for the log knowledge capabilities (ADR-0107 decision 3
       }
     },
   );
+});
+
+describe('recipient role for knowledge.draft.create (owner answer #1198 Q2)', () => {
+  const tx = {} as Tx;
+  it.each(['user', 'developer', 'admin'])('a %s recipient passes on the ordinary and the approval path', async (recipientRole) => {
+    await expect(
+      validateSupportedScope(tx, 'ws', 'knowledge.draft.create', null, null, null, { recipientRole }),
+    ).resolves.toBeUndefined();
+    await expect(
+      validateSupportedScope(tx, 'ws', 'knowledge.draft.create', null, null, null, { approval: true, recipientRole }),
+    ).resolves.toBeUndefined();
+  });
 });

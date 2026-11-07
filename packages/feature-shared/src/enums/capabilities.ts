@@ -31,6 +31,7 @@ export const CAPABILITIES = [
   'improvement.manage',
   'lifecycle.project.manage',
   'lifecycle.round.manage',
+  'knowledge.draft.create',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -122,6 +123,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // Log lifecycle (#1444 c): workspace-scoped, not sensitive; development projects and validation rounds. User role refused (supported-scope policy).
   'lifecycle.project.manage': { sensitive: false, adminModuleBypass: 'always' },
   'lifecycle.round.manage': { sensitive: false, adminModuleBypass: 'always' },
+  // Log knowledge drafts (#1198 a): workspace-scoped, not sensitive; a human submits a draft of a new or revised item. Admin always; Developer and User by grant (owner answer #1198 Q2).
+  'knowledge.draft.create': { sensitive: false, adminModuleBypass: 'always' },
 };
 
 export function isCapability(value: string): value is Capability {

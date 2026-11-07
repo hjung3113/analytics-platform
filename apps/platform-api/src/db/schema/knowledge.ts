@@ -1108,3 +1108,110 @@ export const itemRevisionSubjects = knowledgeSchema.table(
     specRevCheck: check('item_revision_subject_spec_rev_check', sql`${t.specRevNoAtLink} is null or ${t.specRevNoAtLink} >= 1`),
   }),
 );
+
+// Log knowledge drafts (#1198 a, design v0.6 §5 rows 33–35 without `draft_review`): a proposal for a new or revised
+// item, kept as immutable revisions with a payload digest until a reviewer decides (node b). A draft never writes the
+// `knowledge_item*` tables in node a. `origin` and `author_auth` are set by the server from the authenticated actor.
+const DRAFT_STATUSES = "('draft','submitted','changes_requested','approved','rejected','withdrawn')";
+
+export const knowledgeDrafts = knowledgeSchema.table(
+  'draft',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    origin: text('origin').notNull(),
+    proposalType: text('proposal_type').notNull(),
+    targetItemId: uuid('target_item_id'),
+    baseRevisionNo: integer('base_revision_no'),
+    ownerModelId: uuid('owner_model_id'),
+    ownerSoftwareId: uuid('owner_software_id'),
+    status: text('status').notNull().default('draft'),
+    latestDraftRev: integer('latest_draft_rev').notNull().default(1),
+    submitterActorId: uuid('submitter_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    closedBy: uuid('closed_by').references(() => actors.id),
+    closeReason: text('close_reason'),
+    rowVersion: integer('row_version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid('updated_by')
+      .notNull()
+      .references(() => actors.id),
+  },
+  (t) => ({
+    workspaceIdUq: unique('draft_workspace_id_id_uq').on(t.workspaceId, t.id),
+    targetFk: foreignKey({
+      name: 'draft_target_item_fk',
+      columns: [t.workspaceId, t.targetItemId],
+      foreignColumns: [knowledgeItems.workspaceId, knowledgeItems.id],
+    }).onDelete('restrict'),
+    modelFk: foreignKey({
+      name: 'draft_owner_model_fk',
+      columns: [t.workspaceId, t.ownerModelId],
+      foreignColumns: [equipmentModels.workspaceId, equipmentModels.id],
+    }).onDelete('restrict'),
+    softwareFk: foreignKey({
+      name: 'draft_owner_software_fk',
+      columns: [t.workspaceId, t.ownerSoftwareId],
+      foreignColumns: [softwareVersions.workspaceId, softwareVersions.id],
+    }).onDelete('restrict'),
+    submitterIdx: index('draft_submitter_idx').on(t.workspaceId, t.submitterActorId, t.updatedAt),
+    statusIdx: index('draft_status_idx').on(t.workspaceId, t.status, t.updatedAt),
+    targetIdx: index('draft_target_item_idx').on(t.workspaceId, t.targetItemId),
+    originCheck: check('draft_origin_check', sql`${t.origin} in ('human','ai','validator')`),
+    proposalTypeCheck: check('draft_proposal_type_check', sql`${t.proposalType} in ('create','revise')`),
+    pairingCheck: check(
+      'draft_proposal_pairing_check',
+      sql`(${t.proposalType} = 'create' and ${t.targetItemId} is null and ${t.baseRevisionNo} is null) or (${t.proposalType} = 'revise' and ${t.targetItemId} is not null and ${t.baseRevisionNo} is not null and ${t.baseRevisionNo} >= 1)`,
+    ),
+    ownerXor: check('draft_owner_xor', sql`num_nonnulls(${t.ownerModelId}, ${t.ownerSoftwareId}) = 1`),
+    statusCheck: check('draft_status_check', sql`${t.status} in ${sql.raw(DRAFT_STATUSES)}`),
+    latestRevCheck: check('draft_latest_draft_rev_check', sql`${t.latestDraftRev} >= 1`),
+    versionCheck: check('draft_row_version_check', sql`${t.rowVersion} >= 1`),
+    closeReasonCheck: check('draft_close_reason_check', sql`coalesce(char_length(${t.closeReason}), 0) <= 500`),
+    closedCheck: check(
+      'draft_closed_check',
+      sql`(${t.status} in ('approved','rejected','withdrawn')) = (${t.closedAt} is not null and ${t.closedBy} is not null)`,
+    ),
+  }),
+);
+
+export const knowledgeDraftRevisions = knowledgeSchema.table(
+  'draft_revision',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    draftId: uuid('draft_id').notNull(),
+    draftRevNo: integer('draft_rev_no').notNull(),
+    proposalJson: jsonb('proposal_json').notNull(),
+    payloadDigest: text('payload_digest').notNull(),
+    schemaVersion: integer('schema_version').notNull().default(1),
+    authorActorId: uuid('author_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    authorAuth: text('author_auth').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ name: 'draft_revision_pk', columns: [t.workspaceId, t.draftId, t.draftRevNo] }),
+    draftFk: foreignKey({
+      name: 'draft_revision_draft_fk',
+      columns: [t.workspaceId, t.draftId],
+      foreignColumns: [knowledgeDrafts.workspaceId, knowledgeDrafts.id],
+    }).onDelete('restrict'),
+    revNoCheck: check('draft_revision_rev_no_check', sql`${t.draftRevNo} >= 1`),
+    proposalCheck: check('draft_revision_proposal_check', sql`jsonb_typeof(${t.proposalJson}) = 'object'`),
+    digestCheck: check('draft_revision_digest_check', sql`${t.payloadDigest} ~ '^[0-9a-f]{64}$'`),
+    schemaVersionCheck: check('draft_revision_schema_version_check', sql`${t.schemaVersion} >= 1`),
+    authorAuthCheck: check('draft_revision_author_auth_check', sql`${t.authorAuth} in ('session','token')`),
+  }),
+);
