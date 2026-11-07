@@ -1,2 +1,5 @@
+SyntheticHierarchyOptions | type | type SyntheticHierarchyOptions = { delayMs?: number; depth?: number; failures?: Readonly<Record<string, @ap/contracts#HierarchyFailure['kind']>>; nodes?: number; }
+createSyntheticHierarchySource | function | function createSyntheticHierarchySource({ nodes: count, depth, delayMs, failures }?: @ap/components/testing#SyntheticHierarchyOptions): @ap/contracts#HierarchySource
 stubCompactTableGeometry | function | function stubCompactTableGeometry(scrollportWidth?: number): () => void
+stubHierarchyGeometry | function | function stubHierarchyGeometry(): () => void
 # reachable types

@@ -116,6 +116,7 @@ MentionAttrs | interface | interface MentionAttrs { actor_id: string; }
 MultiCombobox | function | function MultiCombobox({ values, onValuesChange, options, getLabel, label, 'aria-labelledby': labelledBy, listboxLabel, emptyText, selectedSummaryLabel, moreLabel, clearAllLabel, removeLabel, placeholder, searchPlaceholder, search: controlledSearch, onSearchChange, loading, loadingText, error, onRetry, retryLabel, hasMore, onLoadMore, maxVisibleChips, maxSelected, maxSelectedText, disabled, id, className, 'aria-invalid': invalid, 'aria-describedby': describedBy, }: @ap/ui#MultiComboboxProps): React.JSX.Element
 MultiComboboxOption | interface | interface MultiComboboxOption { description?: string; disabled?: boolean; label: string; value: string; }
 MultiComboboxProps | type | type MultiComboboxProps = MultiComboboxBaseProps & ({ 'aria-labelledby': string; label?: string; } | { 'aria-labelledby'?: string; label: string; }) & ({ maxSelected: number; maxSelectedText: string; } | { maxSelected?: undefined; maxSelectedText?: string; })
+NavCurrentMarker | function | function NavCurrentMarker(): import("react").JSX.Element
 NestedTextBlock | function | function NestedTextBlock({ children, className }: @ap/ui#NestedTextBlockProps): React.JSX.Element
 NestedTextBlockProps | interface | interface NestedTextBlockProps { children: React.ReactNode; className?: string; }
 ObjectRow | const | const ObjectRow: React.ForwardRefExoticComponent<@ap/ui#ObjectRowProps & React.RefAttributes<HTMLDivElement>>
@@ -154,8 +155,8 @@ RichEditorToolbarApi | interface | interface RichEditorToolbarApi { attach: (fil
 SCRIM_MOTION | const | const SCRIM_MOTION: "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:animation-duration-base data-[state=open]:ease-enter"
 SELECT_CONTENT_MOTION | const | const SELECT_CONTENT_MOTION: "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:animation-duration-base data-[state=open]:ease-enter data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-[state=delayed-open]:animation-duration-base data-[state=delayed-open]:ease-enter data-[state=instant-open]:animate-in data-[state=instant-open]:fade-in-0 data-[state=instant-open]:zoom-in-95 data-[state=instant-open]:animation-duration-base data-[state=instant-open]:ease-enter data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
 SHEET_CONTENT_MOTION | const | const SHEET_CONTENT_MOTION: { readonly bottom: "data-[state=open]:animate-in data-[state=open]:animation-duration-slow data-[state=open]:ease-enter data-[state=open]:slide-in-from-bottom"; readonly left: "data-[state=open]:animate-in data-[state=open]:animation-duration-slow data-[state=open]:ease-enter data-[state=open]:slide-in-from-left"; readonly right: "data-[state=open]:animate-in data-[state=open]:animation-duration-slow data-[state=open]:ease-enter data-[state=open]:slide-in-from-right"; readonly top: "data-[state=open]:animate-in data-[state=open]:animation-duration-slow data-[state=open]:ease-enter data-[state=open]:slide-in-from-top"; }
-SearchInput | function | function SearchInput({ placeholder, className, value, onValueChange, onCommit, }: @ap/ui#SearchInputProps): import("react").JSX.Element
-SearchInputProps | interface | interface SearchInputProps { className?: string; onCommit?: () => void; onValueChange?: (value: string) => void; placeholder?: string; value?: string; }
+SearchInput | function | function SearchInput({ placeholder, className, value, onValueChange, onCommit, size, 'aria-label': ariaLabel, clearLabel, }: @ap/ui#SearchInputProps): import("react").JSX.Element
+SearchInputProps | interface | interface SearchInputProps { 'aria-label'?: string; className?: string; clearLabel?: string; onCommit?: () => void; onValueChange?: (value: string) => void; placeholder?: string; size?: 'default' | 'toolbar'; value?: string; }
 Select | const | const Select: React.FC<SelectPrimitive.SelectProps>
 SelectContent | const | const SelectContent: React.ForwardRefExoticComponent<Omit<SelectPrimitive.SelectContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
 SelectGroup | const | const SelectGroup: React.ForwardRefExoticComponent<SelectPrimitive.SelectGroupProps & React.RefAttributes<HTMLDivElement>>
@@ -224,12 +225,14 @@ UserChipProps | interface | interface UserChipProps { className?: string; size?:
 WorkbenchShell | function | function WorkbenchShell({ toolbar, children, detailPanel, className }: @ap/ui#WorkbenchShellProps): React.JSX.Element
 WorkbenchShellProps | interface | interface WorkbenchShellProps { children: React.ReactNode; className?: string; detailPanel?: React.ReactNode; toolbar?: @ap/ui#ShellHeaderProps; }
 badgeVariants | const | const badgeVariants: (props?: ({ variant?: "default" | "destructive" | "outline" | "secondary" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
-buttonVariants | const | const buttonVariants: (props?: ({ size?: "icon-sm" | "icon-xs" | "lg" | "md" | "sm" | "toolbar" | null | undefined; variant?: "default" | "destructive" | "ghost" | "link" | "outline" | "secondary" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
+buttonVariants | const | const buttonVariants: (props?: ({ size?: "icon-sm" | "icon-xs" | "lg" | "md" | "sm" | "toolbar" | null | undefined; variant?: "default" | "destructive" | "ghost" | "link" | "navigation" | "outline" | "secondary" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
 cn | function | function cn(...inputs: ClassValue[]): string
 copyText | function | function copyText(text: string): Promise<boolean>
 isMacPlatform | function | function isMacPlatform(): boolean
 isProductionEnv | function | function isProductionEnv(meta: { env?: { PROD?: boolean; }; }, g: { process?: { env?: { NODE_ENV?: string; }; }; }): boolean
 isToastTarget | function | function isToastTarget(target: EventTarget | null): boolean
+navDrillAffordance | const | const navDrillAffordance: "grid size-6 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-text-primary"
+navRowVariants | function | function navRowVariants({ active, collapsed, inset, feature }?: { active?: boolean; collapsed?: boolean; feature?: boolean; inset?: boolean; }): string
 prefersReducedMotion | function | function prefersReducedMotion(): boolean
 readLocalStorage | function | function readLocalStorage<T>(key: string, decode: (raw: null | string) => T, fallback: T): T
 readMotionTiming | function | function readMotionTiming(duration: 'base' | 'fast' | 'slow', easing: 'enter' | 'exit' | 'standard'): { durationMs: number; easing: string; }

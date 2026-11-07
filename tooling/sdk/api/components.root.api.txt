@@ -52,6 +52,9 @@ HeaderOverflowDialogControl | type | type HeaderOverflowDialogControl = { close:
 HeaderOverflowItem | function | function HeaderOverflowItem({ label, onSelect, allowed, reason }: { allowed?: boolean; label: ReactNode; onSelect: () => void; reason?: ReactNode; }): import("react").JSX.Element
 HeatmapCell | type | type HeatmapCell = { value: null | number; x: string; y: string; }
 HeatmapSpec | type | type HeatmapSpec = { cells: @ap/components#HeatmapCell[]; kind: 'heatmap'; onCellClick?: (x: string, y: string) => void; scale?: { breaks: [ number, number ]; labels: [ string, string, string ]; type: 'threshold'; } | { domain?: [ number, number ]; lowerIsBetter?: boolean; pivot: number; type: 'diverging'; } | { domain?: [ number, number ]; type: 'sequential'; }; valueFormat?: (v: number) => string; xLabels: string[]; yLabels: string[]; }
+HierarchyNav | function | function HierarchyNav({ menuId, label, source, mode, currentNodeId, levelIcon, pageSize, state: shared, onNavigate }: @ap/components#HierarchyNavProps): import("react").JSX.Element
+HierarchyNavProps | type | type HierarchyNavProps = { currentNodeId?: null | string; label: string; levelIcon?: (kind: string) => ComponentType<{ className?: string; }> | undefined; menuId: string; mode?: 'drill' | 'tree'; onNavigate?: () => void; pageSize?: number; source: @ap/contracts#HierarchySource; state?: @ap/components#HierarchyNavState; }
+HierarchyNavState | type-only class | class HierarchyNavState { private ancestors; readonly identity: string; private listeners; loadAncestors(source: @ap/contracts#HierarchySource, id: string): void; loadPage(source: @ap/contracts#HierarchySource, key: string, parentId: null | string, query: null | string, limit: number, more?: boolean): void; private page; read: () => HierarchySnapshot; private request; private requests; retain(wanted: ReadonlySet<string>): void; retryAncestors(id: string): void; retryPage(key: string): void; private snapshot; subscribe: (listener: () => void) => () => void; update(patch: Partial<HierarchySnapshot>): void; constructor(identity: string); }
 Inspector | function | function Inspector(props: @ap/components#InspectorProps): import("react").JSX.Element
 InspectorProps | type | type InspectorProps = { defaultExpanded?: readonly string[]; expanded?: readonly string[]; form: 'rail' | 'stack'; label: @ap/contracts#Text; onExpandedChange?: (ids: string[]) => void; persistKey?: string; sections: readonly @ap/components#InspectorSection[]; }
 InspectorSection | type | type InspectorSection = { icon: LucideIcon; id: string; render: () => ReactNode; summary?: @ap/contracts#Text; title: @ap/contracts#Text; }
@@ -200,6 +203,7 @@ useClearFiltersAction | function | function useClearFiltersAction({ filterKey, h
 useCompactPageDensity | const | const useCompactPageDensity: () => boolean
 useCopyLink | function | function useCopyLink(successText: string, options?: CopyLinkOptions): (url: string) => Promise<boolean>
 useHeaderOverflowDialog | function | function useHeaderOverflowDialog(): ShowHeaderDialog | null
+useHierarchyNavState | function | function useHierarchyNavState(menuId: string): @ap/components#HierarchyNavState
 usePageKeyRules | function | function usePageKeyRules(rules: readonly @ap/components#PageKeyRule[]): { badKeys: string[]; invalid: boolean; recover: () => void; sentences: string[]; }
 usePeopleSearch | function | function usePeopleSearch(search: @ap/components#PeopleSearch, query: string): @ap/components#PeopleSearchState
 useQueryBarExtension | function | function useQueryBarExtension(): @ap/components#QueryBarExtension | undefined
@@ -212,7 +216,10 @@ useWorkbookExport | function | function useWorkbookExport(): @ap/components#Work
 ChartSize | type | type ChartSize = 'compact' | 'fill' | 'hero' | 'regular'
 CopyLinkOptions | type | type CopyLinkOptions = { absolute?: boolean; failureText?: string; onFailure?: (link: string) => void; }
 EnumOptions | type | type EnumOptions = Extract<@ap/contracts#ColumnFilterSpec, { kind: 'enum'; }>['options']
+Failure | type | type Failure = @ap/contracts#HierarchyFailure['kind']
+HierarchySnapshot | type | type HierarchySnapshot = { ancestors: Readonly<Record<string, Load<@ap/contracts#HierarchyNode[]>>>; expanded: ReadonlySet<string>; locatedId?: string; pages: Readonly<Record<string, Load<@ap/contracts#HierarchyPage>>>; path: @ap/contracts#HierarchyNode[]; query: string; readyQuery: string; routeId: null | string | undefined; }
 Lang | type | type Lang = 'en' | 'ko'
+Load | type | type Load<T> = { status: 'loading' | 'ready' | Failure; value?: T; }
 PageFilterBarShared | type | type PageFilterBarShared = { actions?: ReactNode; fields: readonly @ap/components#PageFilterField[]; label: string; mode?: 'draft'; }
 PageFilterFieldBase | type | type PageFilterFieldBase = { key: string; label: string; testId?: string; }
 Selection | type | type Selection = { from: string; to: string; }
