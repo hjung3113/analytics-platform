@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One command for the lead's resume (LANES §Lead rotation, step 1) and the 2-hour periodic check (#1142).
-# Prints the capacity line, the lock audit, the wave status and the board, then one line per finding:
+# Prints the capacity line of every lane host (hosts-capacity.sh), the lock audit, the wave status and the board, then one line per finding:
 #   duplicate-write     two or more running write workers (roles impl*, fix) share one cwd
 #   unowned-listener    a listener on a reserved preview/E2E port that no running worker or preview owns
 #   idle-terminal       a done/stopped worker's Orca terminal is still listed
@@ -585,12 +585,14 @@ export STATE_DIRS
 
 rc=0
 
-cap=$(bash "$SCRIPT_DIR/capacity.sh" 2>&1) || true
-echo "$cap"
+caps=$(bash "$SCRIPT_DIR/hosts-capacity.sh" 2>&1) || true
+echo "$caps"
+cap=$(printf '%s\n' "$caps" | head -1)
 case "$cap" in *" start=no"*)
   echo "lead-check: capacity start=no — start no new worker or heavy step"
   rc=10 ;;
 esac
+printf '%s\n' "$caps" | grep -E '^host=[^ ]+ .* start=no' | sed -E 's/^host=([^ ]+) .*/lead-check: host \1 start=no — place new work on another host/'
 
 la_out=$(bash "$SCRIPT_DIR/lock-audit.sh" 2>&1); la=$?
 [ -n "$la_out" ] && printf '%s\n' "$la_out"

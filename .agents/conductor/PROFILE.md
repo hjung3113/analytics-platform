@@ -133,6 +133,7 @@ Engine tools are listed in SKILL §0; run `install.sh --check` if a warning says
 | --- | --- |
 | `tier.sh [<base>] [<head>]` | Tier, verify and merge mode for a diff |
 | `capacity.sh` | Machine capacity stage |
+| `hosts-capacity.sh` | Capacity of every lane host (`.review/lanes/hosts.tsv`), logged to `capacity-log.tsv` (LANES «Lane hosts») |
 | `with-lock.sh <lock> "<purpose>" -- <cmd>` | Take a lock or slot for the command's lifetime |
 | `verify-root.sh [--light] <log-dir>` | Verify step 2 |
 | `lock-audit.sh` | Find locks left by finished work |

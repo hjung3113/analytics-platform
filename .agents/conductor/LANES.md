@@ -56,6 +56,8 @@ Take the first match:
 | `merge.lock` | See [addenda/merge.md](addenda/merge.md). |
 | Stale locks | The lead runs `bash .agents/conductor/scripts/lock-audit.sh` at each periodic check and on each `막힘`. On exit 10, it tells the owner `[팀장] <lock> 풀어라`. The owner either releases it (`<lane>: 풀음 <lock>`) or replies `<lane>: 유지 <lock> <evidence>`. After `유지`, leave the lock alone. With no reply in 10 minutes, the lead releases it with `mv <lock> <lock>.released-$$ && trash <lock>.released-$$`. A `merge.lock` whose purpose says `ship` counts as stale only past the `ship-pr.sh` CI cap. |
 | Lower capacity stage | Running work is never preempted. Only new starts are blocked. |
+| Lane hosts (owner 2026-11-07) | Lanes and workers may run on any paired Orca host listed in `$AP_MAIN/.review/lanes/hosts.tsv` (local file). Limits, `start=` and `heavy.lock`/`browser.lock` are **per host**. The lead runs `bash .agents/conductor/scripts/hosts-capacity.sh` (also inside `lead-check.sh`) before every lane spawn and on every wake, and places a new lane on the host with `start=yes` and the most `free`, preferring the host where its area's DB/preview already runs. A lane's workers stay on the lane's host. Reason: one machine's limit capped the slice; the second host doubles it only if both are measured. |
+| Remote host ramp | A newly added host starts at **lanes ≤ 2, workers ≤ 4** whatever its stage says. Raise it to its `capacity.sh` limits after 3 logged measurements (`capacity-log.tsv`) taken while it ran at the ramp ceiling stay green with no swap growth; drop back one step on any yellow/red. Record each limit change as one line in `LEAD.md` with the log lines it rests on. Reason: `capacity.sh` limits are tuned for the 16 GB Mac and the remote's real per-worker cost is unmeasured. |
 
 ## Lane session
 
@@ -103,7 +105,7 @@ Take the first match:
   - Sessions the owner started count toward `lanes=`. Brief them the same way.
 - **No-lane mode** (the lead runs the issues itself with workers): the PROFILE loop and the periodic check run unchanged; the `run-use`/`check --peek` resume steps run only when a Run exists.
 - **Board:** `$AP_MAIN/.review/lanes/board.json`, managed with `python3 .agents/conductor/scripts/board.py` (schema, commands and the release rules: `board.py --help`). `LEAD.md` keeps only free-form notes. Nothing migrates automatically; the lead seeds the board. On every wake, assign each line from `board.py ready` if capacity allows: first to the lane that last touched the area, then to an idle lane, then to a clone lane (port +50).
-- **Periodic check (every 2 h, armed with CronCreate; a safety net for missed events):** run `bash .agents/conductor/scripts/lead-check.sh` and act on every finding it prints (exit 10). Then read `gh pr list` and new issues for duplicates, and report only the board diff.
+- **Periodic check (every 2 h, armed with CronCreate; a safety net for missed events):** run `bash .agents/conductor/scripts/lead-check.sh` and act on every finding it prints (exit 10); it measures every lane host, so read each `host=` line and rebalance new starts (§Machine resources «Lane hosts»). Then read `gh pr list` and new issues for duplicates, and report only the board diff.
 - **SDK release timing:** a lane adds only the "next release" row in `docs/integration/sdk-git-tag-consumption.md`. The lead releases the SDK when that row exists and main CI is green, and at once if a lane is waiting for it.
 - **Release:**
   1. Run the slice-close `review-quality` (plus a `review-ux` walk-through if screens changed).
