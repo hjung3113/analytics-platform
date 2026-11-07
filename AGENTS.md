@@ -82,7 +82,7 @@
 | [`packages/`](packages/AGENTS.md) | 플랫폼 패키지 공통 규칙과 의존 방향 → 각 패키지 `AGENTS.md` |
 | [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig·경계 lint·메뉴 생성기(`pnpm gen:menu`)·CSS selector 비교 |
 | [`site/`](site/AGENTS.md) | 도입 소개 페이지(정적, workspace 밖)와 Pages 조립 |
-| [`archive/`](archive/AGENTS.md) | 통합 전 Kernel 단위 프로토타입(보존, 새 기능 금지) |
+| [`archive/`](archive/AGENTS.md) | 통합 전 Kernel 단위 프로토타입·옛 운영 프로필(보존, 새 기능 금지) |
 | [`apps/platform-api/`](apps/platform-api/AGENTS.md) · [`apps/feature-screens/`](apps/feature-screens/AGENTS.md) | Core-server and feature-screen ownership; for feature domain work, read [feature implementation](docs/agents/feature-implementation.md) and its subject contracts. |
 
 ## 에이전트 자산
