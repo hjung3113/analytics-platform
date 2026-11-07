@@ -8,6 +8,7 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Ban, Inbox, Info, ServerCrash } from 'lucide-react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
 import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
@@ -18,6 +19,8 @@ import { ChartTrustFooter } from './analysisChartFrameParts';
 import { OrderedIntervalPlot } from './OrderedIntervalPlot';
 import {
   clampOrderView,
+  orderedTooltipPosition,
+  visiblePartialGaps,
   validOrderDomain,
   validOrderedItems,
   visibleOrderedItems,
@@ -42,6 +45,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
   const [loaded, setLoaded] = useState<readonly OrderedTrackItem[] | null>(null);
   const [request, setRequest] = useState<OrderedTrackLoadState>('ready');
   const [round, setRound] = useState(0);
+  const [errorRetry, setErrorRetry] = useState(false);
   const [selection, setSelection] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [brush, setBrush] = useState<[number, number] | null>(null);
@@ -75,7 +79,8 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
   const selectedId = props.selectedId === undefined ? selection : props.selectedId;
   const selected = data.find((item) => item.id === selectedId);
   const loading = !restricted && (kind === 'loading' || request === 'loading');
-  const failed = overCap || kind === 'error' || request === 'error';
+  const recoveringError = kind === 'error' && errorRetry;
+  const failed = overCap || (kind === 'error' && !recoveringError) || request === 'error';
   const loadObserver = useRef(props.onLoadStateChange);
   useEffect(() => {
     loadObserver.current = props.onLoadStateChange;
@@ -85,7 +90,13 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
     [],
   );
   useEffect(() => {
-    if (restricted || kind === 'error' || !props.onRangeRequest) return;
+    if (kind !== 'error') setErrorRetry(false);
+  }, [kind]);
+  useEffect(() => {
+    if (restricted || (kind === 'error' && !recoveringError) || !props.onRangeRequest) {
+      setRequest('ready');
+      return;
+    }
     const controller = new AbortController();
     const loader = props.onRangeRequest;
     setRequest('loading');
@@ -108,15 +119,20 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
     }
     void load();
     return () => controller.abort();
-  }, [restricted, kind, props.onRangeRequest, view, round, reportLoad]);
+  }, [restricted, kind, recoveringError, props.onRangeRequest, view, round, reportLoad]);
   useEffect(() => {
     const element = tooltip.current;
     if (!element || !hover) return;
-    const w = element.offsetWidth;
-    const h = element.offsetHeight;
-    const left = hover.x + 12 + w > window.innerWidth - 8 ? hover.x - w - 12 : hover.x + 12;
-    element.style.left = `${Math.max(8, Math.min(window.innerWidth - w - 8, left))}px`;
-    element.style.top = `${Math.max(8, Math.min(window.innerHeight - h - 8, hover.y + 12))}px`;
+    const { left, top } = orderedTooltipPosition(
+      hover.x,
+      hover.y,
+      element.offsetWidth,
+      element.offsetHeight,
+      window.innerWidth,
+      window.innerHeight,
+    );
+    element.style.left = `${left}px`;
+    element.style.top = `${top}px`;
   }, [hover]);
   const moveView = useCallback(
     (range: [number, number]) => {
@@ -224,9 +240,10 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
   const page = Math.min(pageState, pages - 1);
   const retry = () => {
     props.state?.onRetry?.();
+    if (kind === 'error') setErrorRetry(true);
     setRound((n) => n + 1);
   };
-  const notice = kind !== 'ready' || failed || !domainValid;
+  const notice = (kind !== 'ready' && !recoveringError) || failed || !domainValid;
   return (
     <section
       aria-label={props.ariaLabel}
@@ -266,13 +283,14 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
               <TooltipContent className="max-w-xs break-keep">{help}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Button size="toolbar" variant="ghost" disabled={restricted} onClick={() => zoom(0.8)}>
+          <Button type="button" size="toolbar" variant="ghost" disabled={restricted} onClick={() => zoom(0.8)}>
             {tx({ ko: '확대', en: 'Zoom in' })}
           </Button>
-          <Button size="toolbar" variant="ghost" disabled={restricted} onClick={() => zoom(1.25)}>
+          <Button type="button" size="toolbar" variant="ghost" disabled={restricted} onClick={() => zoom(1.25)}>
             {tx({ ko: '축소', en: 'Zoom out' })}
           </Button>
           <Button
+            type="button"
             size="toolbar"
             variant="ghost"
             disabled={restricted}
@@ -282,6 +300,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             {tx({ ko: '구간 선택', en: 'Brush' })}
           </Button>
           <Button
+            type="button"
             size="toolbar"
             variant="ghost"
             disabled={restricted}
@@ -295,6 +314,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
           </Button>
           {props.formatTime && (
             <Button
+              type="button"
               size="toolbar"
               variant="ghost"
               disabled={restricted}
@@ -305,6 +325,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             </Button>
           )}
           <Button
+            type="button"
             size="toolbar"
             variant="ghost"
             disabled={restricted}
@@ -390,7 +411,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             body={props.state?.body}
             action={
               (failed || kind === 'empty') && (props.onRangeRequest || props.state?.onRetry) ? (
-                <Button size="toolbar" variant="secondary" onClick={retry}>
+                <Button type="button" size="toolbar" variant="secondary" onClick={retry}>
                   {props.state?.retryLabel ?? tx({ ko: '다시 시도', en: 'Retry' })}
                 </Button>
               ) : undefined
@@ -406,6 +427,11 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
               ko: `${props.lanes.length}개 줄 · ${visible.length}개 항목`,
               en: `${props.lanes.length} lanes · ${visible.length} items`,
             })}
+            {loading && data.length > 0 && (
+              <span className="ml-2 t-caption text-text-secondary">
+                {tx({ ko: '불러오는 중', en: 'Loading' })}
+              </span>
+            )}
           </p>
           {loading && data.length === 0 ? (
             <div className="px-4 py-2">
@@ -419,10 +445,11 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
                     {tx({ ko: '현재 범위 항목 목록', en: 'Visible item list' })} · {page + 1}/
                     {pages}
                   </p>
-                  <ol className="space-y-1">
+                  <ol aria-describedby={summaryId} className="space-y-1">
                     {visible.slice(page * 20, (page + 1) * 20).map((item) => (
                       <li key={item.id}>
                         <Button
+                          type="button"
                           size="toolbar"
                           variant="ghost"
                           className="max-w-full whitespace-normal text-left"
@@ -435,6 +462,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
                     ))}
                   </ol>
                   <Button
+                    type="button"
                     size="toolbar"
                     variant="ghost"
                     disabled={page === 0}
@@ -443,6 +471,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
                     {tx({ ko: '이전 쪽', en: 'Previous page' })}
                   </Button>
                   <Button
+                    type="button"
                     size="toolbar"
                     variant="ghost"
                     disabled={page === pages - 1}
@@ -479,7 +508,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
               <>
                 {tx({ ko: '선택 구간', en: 'Selected range' })}: {displayOrder(brush[0])}–
                 {displayOrder(brush[1])}{' '}
-                <Button size="toolbar" variant="ghost" onClick={() => moveView(brush)}>
+                <Button type="button" size="toolbar" variant="ghost" onClick={() => moveView(brush)}>
                   {tx({ ko: '선택 구간 확대', en: 'Zoom to selection' })}
                 </Button>
               </>
@@ -492,17 +521,40 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
         </>
       )}
       <output id={summaryId} aria-live="polite" className="block px-4 py-2 text-text-secondary">
-        {!restricted && focused ? itemText(focused) : null}
+        {!restricted && (
+          <>
+            {focused ? itemText(focused) : null}
+            {(props.markers ?? [])
+              .filter((marker) => marker.order >= view[0] && marker.order <= view[1])
+              .map((marker) => (
+                <span className="block" key={`${marker.kind}:${marker.order}:${marker.label}`}>
+                  {marker.kind === 'boundary'
+                    ? tx({ ko: '파일 경계', en: 'File boundary' })
+                    : marker.kind === 'inversion'
+                      ? tx({ ko: '시간 역전', en: 'Time inversion' })
+                      : tx({ ko: '부분 결과 경계', en: 'Partial boundary' })} · {marker.label} ·{' '}
+                  {displayOrder(marker.order)}
+                </span>
+              ))}
+            {visiblePartialGaps(props.partialGaps, view).map((gap) => (
+              <span className="block" key={`${gap.orderStart}:${gap.orderEnd}`}>
+                {tx({ ko: '미수신', en: 'Unreceived' })}: {displayOrder(gap.orderStart)}–
+                {displayOrder(gap.orderEnd)}
+              </span>
+            ))}
+          </>
+        )}
       </output>
       {kind !== 'forbidden' && <ChartTrustFooter trust={props.trust} />}
-      {!restricted && hover && (
+      {!restricted && hover && createPortal(
         <div
           ref={tooltip}
           role="tooltip"
-          className="pointer-events-none fixed z-50 max-w-xs break-keep rounded border border-border-subtle bg-surface-card px-3 py-2 text-text-primary shadow-lg"
+          className="pointer-events-none fixed z-50 w-80 max-w-xs break-keep rounded border border-border-subtle bg-surface-card px-3 py-2 text-text-primary shadow-lg"
         >
           {itemText(hover.item)}
-        </div>
+        </div>,
+        document.body,
       )}
     </section>
   );

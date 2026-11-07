@@ -68,3 +68,35 @@ export function validOrderedItems(items: readonly OrderedTrackItem[]) {
     return true;
   });
 }
+
+/** Tooltip coordinates are viewport-relative; callers render outside paint containment. */
+export function orderedTooltipPosition(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  viewportWidth: number,
+  viewportHeight: number,
+) {
+  const left = x + 12 + width > viewportWidth - 8 ? x - width - 12 : x + 12;
+  return {
+    left: Math.max(8, Math.min(viewportWidth - width - 8, left)),
+    top: Math.max(8, Math.min(viewportHeight - height - 8, y + 12)),
+  };
+}
+export function visiblePartialGaps(
+  gaps: readonly { orderStart: number; orderEnd: number }[] | undefined,
+  view: [number, number],
+) {
+  return (gaps ?? [])
+    .filter(
+      (gap) =>
+        validOrderDomain([gap.orderStart, gap.orderEnd]) &&
+        gap.orderStart < view[1] &&
+        gap.orderEnd > view[0],
+    )
+    .map((gap) => ({
+      orderStart: Math.max(view[0], gap.orderStart),
+      orderEnd: Math.min(view[1], gap.orderEnd),
+    }));
+}

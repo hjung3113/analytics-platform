@@ -44,6 +44,8 @@ export type OrderedIntervalTrackProps = {
   /** Optional display only: never used for sorting or placement. */
   formatTime?: (order: number) => string;
   markers?: readonly OrderedTrackMarker[];
+  /** Consumer-declared unreceived order ranges; finite increasing bounds, clipped to the view. */
+  partialGaps?: readonly { orderStart: number; orderEnd: number }[];
   state?: {
     kind: OrderedTrackStatus;
     title: string;

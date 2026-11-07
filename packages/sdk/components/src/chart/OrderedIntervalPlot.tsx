@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useI18n } from '@ap/kernel';
 import { isThemeColorToken, readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import {
   intervalShape,
@@ -7,12 +8,21 @@ import {
   ORDER_GUTTER,
   ORDER_ROW_HEIGHT,
   visibleOrderedItems,
+  visiblePartialGaps,
 } from './orderedIntervalGeometry';
 import type { OrderedIntervalTrackProps, OrderedTrackItem } from './orderedIntervalTypes';
 
 type PlotProps = Pick<
   OrderedIntervalTrackProps,
-  'ariaLabel' | 'states' | 'lanes' | 'formatTick' | 'formatTime' | 'markers' | 'axis' | 'height'
+  | 'ariaLabel'
+  | 'states'
+  | 'lanes'
+  | 'formatTick'
+  | 'formatTime'
+  | 'markers'
+  | 'axis'
+  | 'height'
+  | 'partialGaps'
 > & {
   items: readonly OrderedTrackItem[];
   view: [number, number];
@@ -31,6 +41,7 @@ type PlotProps = Pick<
 const AXIS_HEIGHT = 48;
 /** Draws only the current horizontal and vertical window; no per-item DOM nodes. */
 export function OrderedIntervalPlot(props: PlotProps) {
+  const { tx } = useI18n();
   const canvas = useRef<HTMLCanvasElement>(null);
   const axis = useRef<HTMLCanvasElement>(null);
   const scroll = useRef<HTMLDivElement>(null);
@@ -39,9 +50,27 @@ export function OrderedIntervalPlot(props: PlotProps) {
   const [width, setWidth] = useState(600);
   const [top, setTop] = useState(0);
   const [theme, setTheme] = useState(0);
+  const [dpr, setDpr] = useState(() =>
+    typeof window === 'undefined' ? 1 : Math.max(1, window.devicePixelRatio || 1),
+  );
   const height = Math.max(24, Number.isFinite(props.height) ? (props.height ?? 288) : 288);
   const plotWidth = Math.max(1, width - ORDER_GUTTER);
   const { view, onZoom } = props;
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    let query: MediaQueryList;
+    const subscribe = () => {
+      query = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+      query.addEventListener('change', changed);
+    };
+    const changed = () => {
+      query.removeEventListener('change', changed);
+      setDpr(Math.max(1, window.devicePixelRatio || 1));
+      subscribe();
+    };
+    subscribe();
+    return () => query.removeEventListener('change', changed);
+  }, []);
   useEffect(() => {
     const element = scroll.current;
     if (!element) return;
@@ -95,7 +124,6 @@ export function OrderedIntervalPlot(props: PlotProps) {
     const element = canvas.current;
     const header = axis.current;
     if (!element || !header) return;
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
     const setup = (target: HTMLCanvasElement, h: number) => {
       target.width = Math.round(width * dpr);
       target.height = Math.round(h * dpr);
@@ -176,6 +204,14 @@ export function OrderedIntervalPlot(props: PlotProps) {
     ctx.beginPath();
     ctx.rect(ORDER_GUTTER, 0, plotWidth, height);
     ctx.clip();
+    for (const gap of visiblePartialGaps(props.partialGaps, props.view)) {
+      const start = x(gap.orderStart);
+      const gapWidth = x(gap.orderEnd) - start;
+      ctx.fillStyle = color('surface-sunken');
+      ctx.fillRect(start, 0, gapWidth, height);
+      head.fillStyle = color('--text-secondary');
+      head.fillText(tx({ ko: '미수신', en: 'Unreceived' }), start + 4, 30, gapWidth);
+    }
     const pointCounts = new Map<string, number>();
     for (const item of visible)
       if (item.kind === 'point')
@@ -196,13 +232,19 @@ export function OrderedIntervalPlot(props: PlotProps) {
           continue;
         const at = x(item.orderStart);
         const middle = y + ORDER_ROW_HEIGHT / 2;
+        const radius = selected ? 5 : 3;
         ctx.beginPath();
-        ctx.moveTo(at, middle - 3);
-        ctx.lineTo(at + 3, middle);
-        ctx.lineTo(at, middle + 3);
-        ctx.lineTo(at - 3, middle);
+        ctx.moveTo(at, middle - radius);
+        ctx.lineTo(at + radius, middle);
+        ctx.lineTo(at, middle + radius);
+        ctx.lineTo(at - radius, middle);
         ctx.closePath();
         ctx.fill();
+        if (selected) {
+          ctx.strokeStyle = color('surface-card');
+          ctx.lineWidth = 6;
+          ctx.stroke();
+        }
         ctx.strokeStyle = color(selected ? 'chart-selection-outline' : 'surface-card');
         ctx.lineWidth = selected ? 2 : 1;
         ctx.stroke();
@@ -232,14 +274,22 @@ export function OrderedIntervalPlot(props: PlotProps) {
           ctx.setLineDash([]);
         }
         if (selected) {
+          ctx.strokeStyle = color('surface-card');
+          ctx.lineWidth = 6;
+          ctx.strokeRect(shape.x + 3, y + 3, Math.max(0, shape.width - 6), ORDER_ROW_HEIGHT - 6);
           ctx.strokeStyle = color('chart-selection-outline');
           ctx.lineWidth = 2;
-          ctx.strokeRect(shape.x + 1, y + 1, Math.max(0, shape.width - 2), ORDER_ROW_HEIGHT - 2);
+          ctx.strokeRect(shape.x + 3, y + 3, Math.max(0, shape.width - 6), ORDER_ROW_HEIGHT - 6);
         }
-        if (focused) {
-          ctx.fillStyle = color('--text-primary');
-          ctx.fillText('▾', shape.x, y + 4);
-        }
+      }
+      if (focused) {
+        const at = item.kind === 'point'
+          ? x(item.orderStart) - 4
+          : intervalShape(item, props.view, plotWidth).x;
+        ctx.fillStyle = color('surface-card');
+        ctx.fillRect(at, y, 10, 8);
+        ctx.fillStyle = color('--text-primary');
+        ctx.fillText('▾', at, y + 8);
       }
     }
     for (const marker of props.markers ?? [])
@@ -279,7 +329,7 @@ export function OrderedIntervalPlot(props: PlotProps) {
       ctx.strokeRect(x(props.brush[0]), 1, x(props.brush[1]) - x(props.brush[0]), height - 2);
     }
     ctx.restore();
-  }, [props, height, width, top, plotWidth, theme]);
+  }, [props, height, width, top, plotWidth, theme, dpr, tx]);
   function position(event: React.PointerEvent<HTMLCanvasElement>) {
     const box = event.currentTarget.getBoundingClientRect();
     const px = event.clientX - box.left;
