@@ -147,12 +147,16 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'platform_notice_created',
   'platform_notice_updated',
   'platform_notice_deleted',
+  'api_token.issue',
+  'api_token.revoke',
+  'api_token.auth_failed',
+  'api_token.session_required_denied',
 ] as const;
 
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(132);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(136);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });

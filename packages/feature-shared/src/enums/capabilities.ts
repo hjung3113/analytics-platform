@@ -61,6 +61,12 @@ export interface CapabilityMeta {
   sensitive: boolean;
   /** Admin-role satisfaction layered above `roleSatisfies`. */
   adminModuleBypass: AdminModuleBypass;
+  /**
+   * ADR-0116 decision 4: high-risk capability that only a human login session may exercise. An API token is
+   * refused (`permission.session_required`) even when the capability is in its scopes, and it cannot be
+   * listed as a scope at issue. Single declaration; `check-service` and token issue both read it.
+   */
+  sessionOnly?: true;
 }
 
 /**
@@ -73,7 +79,7 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // The four role-derived Slice 1 capabilities are satisfied by `roleSatisfies`
   // itself, so no module layers anything on top: `adminModuleBypass: 'none'`.
   'workspace.read': { sensitive: false, adminModuleBypass: 'none' },
-  'workspace.admin': { sensitive: true, adminModuleBypass: 'none' },
+  'workspace.admin': { sensitive: true, adminModuleBypass: 'none', sessionOnly: true },
   // voc.triage: NOT sensitive — Developers may request it for a specific MS.
   'voc.triage': { sensitive: false, adminModuleBypass: 'none' },
   // voc.read: NOT sensitive — Developers may request it for a specific MS to view VOCs.
@@ -90,7 +96,7 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'finding.manage': { sensitive: false, adminModuleBypass: 'always' },
   // Self-approval is sensitive because it bypasses normal reviewer separation.
   // `hasSelfApprovalCapability` still short-circuits on the admin role.
-  'task_request.self_approve': { sensitive: true, adminModuleBypass: 'always' },
+  'task_request.self_approve': { sensitive: true, adminModuleBypass: 'always', sessionOnly: true },
   // survey.read: NOT sensitive — Developers may request scoped read access for a Managed System.
   // ADR-0033 §C: Admin may bypass, but an explicit deny still wins.
   'survey.read': { sensitive: false, adminModuleBypass: 'unless_denied' },
@@ -108,9 +114,9 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'knowledge.catalog.manage': { sensitive: false, adminModuleBypass: 'always' },
   'knowledge.catalog.import': { sensitive: false, adminModuleBypass: 'always' },
   // Log knowledge items (ADR-0109): same shape as the catalog rights; writes a published item.
-  'knowledge.item.publish': { sensitive: false, adminModuleBypass: 'always' },
+  'knowledge.item.publish': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
   // Log knowledge model specs (ADR-0111): same shape; seals (publishes) a model spec revision.
-  'knowledge.spec.publish': { sensitive: false, adminModuleBypass: 'always' },
+  'knowledge.spec.publish': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
   // Improvement items (#1328 b): workspace-scoped, not sensitive; writes items. User role refused (supported-scope policy).
   'improvement.manage': { sensitive: false, adminModuleBypass: 'always' },
   // Log lifecycle (#1444 c): workspace-scoped, not sensitive; development projects and validation rounds. User role refused (supported-scope policy).
@@ -129,3 +135,12 @@ export function isSensitiveCapability(cap: Capability): boolean {
 export function adminModuleBypassFor(cap: Capability): AdminModuleBypass {
   return CAPABILITY_META[cap].adminModuleBypass;
 }
+
+export function isSessionOnlyCapability(cap: Capability): boolean {
+  return CAPABILITY_META[cap].sessionOnly === true;
+}
+
+/** Capability names an API token may carry as scopes: every capability that is not session-only. */
+export const TOKEN_SCOPE_CAPABILITIES: readonly Capability[] = CAPABILITIES.filter(
+  (cap) => !isSessionOnlyCapability(cap),
+);

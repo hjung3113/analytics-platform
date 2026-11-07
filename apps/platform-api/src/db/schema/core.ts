@@ -206,6 +206,46 @@ export const sessions = coreSchema.table(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
+// core.api_tokens — ADR-0116 (#1442). Opaque Bearer tokens `ap_<prefix>_<secret>`; only the SHA-256 of the
+// whole value is stored (`secret_hash`), never the value. `expires_at` is nullable on purpose (3a: the issuer
+// may choose no expiry). Personal tokens act as `actor_id` (= the issuer); service tokens act as a
+// `actor_type='system'` actor of the same workspace. `scopes` are capability names (intersected with the
+// actor's current permissions on every call).
+// ─────────────────────────────────────────────────────────────────────────
+export const apiTokens = coreSchema.table(
+  'api_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => actors.id),
+    kind: text('kind').notNull(),
+    name: text('name').notNull(),
+    prefix: text('prefix').notNull(),
+    secretHash: text('secret_hash').notNull(),
+    scopes: text('scopes').array().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    lastUsedIp: text('last_used_ip'),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    revokedBy: uuid('revoked_by').references(() => actors.id),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    secretHashUq: uniqueIndex('api_tokens_secret_hash_uq').on(t.secretHash),
+    workspaceActorIdx: index('api_tokens_workspace_actor_idx').on(t.workspaceId, t.actorId),
+    workspaceCreatedIdx: index('api_tokens_workspace_created_idx').on(t.workspaceId, t.createdAt.desc()),
+    kindCheck: check('api_tokens_kind_check', sql`${t.kind} in ('personal','service')`),
+  }),
+);
+
+// ─────────────────────────────────────────────────────────────────────────
 // core.audit_log — ADR-0008 exact shape, append-only via DB role grants.
 // Index conventions per ADR-0015:55-61.
 // ─────────────────────────────────────────────────────────────────────────

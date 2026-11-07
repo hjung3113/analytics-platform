@@ -149,4 +149,8 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   platform_notice_created: 'create',
   platform_notice_updated: 'update',
   platform_notice_deleted: 'delete',
+  'api_token.issue': 'create',
+  'api_token.revoke': 'retire',
+  'api_token.auth_failed': 'update',
+  'api_token.session_required_denied': 'update',
 };

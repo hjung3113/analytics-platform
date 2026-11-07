@@ -8,6 +8,15 @@ import type { Db } from '../db/client.js';
 import type { RoleLevel } from '../modules/auth/session-service.js';
 
 declare module 'fastify' {
+  interface FastifyContextConfig {
+    /**
+     * ADR-0116 deny-by-default: only a route that sets this may be reached with a Bearer API token, and only if
+     * every authorization decision on it goes through the capability check. Absent = cookie session only.
+     */
+    tokenCallable?: boolean;
+    /** A token call to this route is a mutation: it uses the mutation-sized per-token rate-limit bucket. */
+    tokenMutation?: boolean;
+  }
   interface FastifyRequest {
     session?: {
       session_id: string;

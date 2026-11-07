@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
 
 import { sendError } from '../../lib/errors.js';
+import { tokenSessionOf } from '../api-tokens/request-state.js';
 import { SESSION_COOKIE_NAME } from '../../middleware/require-session.js';
 import type { SessionService } from '../auth/session-service.js';
 
@@ -26,6 +27,8 @@ export function requireCsrf(sessionService: SessionService): preHandlerHookHandl
     req: FastifyRequest,
     reply: FastifyReply,
   ): Promise<FastifyReply | undefined> {
+    // A token call carries no ambient credential (no cookie is read), so there is nothing to forge cross-site.
+    if (tokenSessionOf(req)) return undefined;
     const cookie = req.cookies?.[SESSION_COOKIE_NAME];
     if (!cookie) {
       return sendError(reply, 'auth.session_invalid', 'session cookie missing');

@@ -179,6 +179,9 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_lifecycle.development_project': ['SELECT', 'INSERT'],
   'log_lifecycle.development_event': ['SELECT', 'INSERT'],
   'log_lifecycle.validation_round': ['SELECT', 'INSERT'],
+  // Migration 0101 (ADR-0116): tokens are issued and revoked, never edited or deleted. UPDATE is column-scoped to
+  // the usage and revocation columns (asserted below); no table-wide UPDATE and no DELETE.
+  'core.api_tokens': ['SELECT', 'INSERT'],
 };
 
 describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice 3 #22)', () => {
@@ -313,6 +316,39 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
            has_table_privilege('platform_app', 'voc.public_update_review_candidates', 'UPDATE') as has_table_update,
            has_table_privilege('platform_app', 'voc.public_update_review_candidates', 'DELETE') as has_delete,
            has_table_privilege('platform_app', 'voc.public_update_review_candidates', 'TRUNCATE') as has_truncate`,
+    );
+    expect(tablePrivileges[0]).toEqual({
+      has_table_update: false,
+      has_delete: false,
+      has_truncate: false,
+    });
+  });
+
+  it('platform_app UPDATE on API tokens is limited to usage and revocation columns', async () => {
+    const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
+      `select column_name
+           from information_schema.column_privileges
+          where grantee = 'platform_app'
+            and table_schema = 'core'
+            and table_name = 'api_tokens'
+            and privilege_type = 'UPDATE'
+          order by column_name`,
+    );
+    expect(rows.map((row) => row.column_name)).toEqual([
+      'last_used_at',
+      'last_used_ip',
+      'revoked_at',
+      'revoked_by',
+    ]);
+    const { rows: tablePrivileges } = await migrateHandle.pool.query<{
+      has_table_update: boolean;
+      has_delete: boolean;
+      has_truncate: boolean;
+    }>(
+      `select
+           has_table_privilege('platform_app', 'core.api_tokens', 'UPDATE') as has_table_update,
+           has_table_privilege('platform_app', 'core.api_tokens', 'DELETE') as has_delete,
+           has_table_privilege('platform_app', 'core.api_tokens', 'TRUNCATE') as has_truncate`,
     );
     expect(tablePrivileges[0]).toEqual({
       has_table_update: false,

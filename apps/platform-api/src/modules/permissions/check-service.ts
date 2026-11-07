@@ -28,10 +28,11 @@
 
 import { and, eq, isNull } from 'drizzle-orm';
 
-import { type Capability, adminModuleBypassFor } from '@ap/feature-shared';
+import { type Capability, adminModuleBypassFor, isSessionOnlyCapability } from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
 import { permissionDenies, permissionGrants } from '../../db/schema/permission.js';
 import type { Tx } from '../../db/tx.js';
+import { currentAuthContext, noteSessionOnlyDenial } from '../../lib/auth-context.js';
 import { allManagedSystemIds } from '../managed-systems/read-projections.js';
 import { isOrdinarilyRequestable } from './supported-scope-policy.js';
 
@@ -47,7 +48,29 @@ export type DenyReason =
   | 'no_grant'
   | 'grant_expired'
   | 'grant_revoked'
-  | 'sensitive_reason_missing';
+  | 'sensitive_reason_missing'
+  // ADR-0116: token calls. Never requestable, never lifted by the Admin bypass.
+  | 'session_required'
+  | 'token_scope';
+
+/**
+ * ADR-0116 token rule, applied before any grant or role is read: a token call to a session-only capability is
+ * `session_required` (even when the capability is in its scopes); a capability outside the token's scopes is
+ * `token_scope`. Null = the normal check for the token's actor runs (issuer's / system actor's current grants and
+ * role, so the effective right is that intersect the scopes). Session calls and non-request code are unaffected.
+ */
+export function tokenDenial(capability: Capability): Decision | null {
+  const auth = currentAuthContext();
+  if (auth.kind !== 'token') return null;
+  if (isSessionOnlyCapability(capability)) {
+    noteSessionOnlyDenial(capability);
+    return { allow: false, reason: 'session_required', requestable: null };
+  }
+  if (!auth.scopes.includes(capability)) {
+    return { allow: false, reason: 'token_scope', requestable: null };
+  }
+  return null;
+}
 
 export function isRequestableDenial(reason: DenyReason): boolean {
   return reason === 'no_grant' || reason === 'grant_revoked' || reason === 'grant_expired';
@@ -127,6 +150,9 @@ export function createCheckService(deps: CheckServiceDeps) {
     // Section D). Without it, we fall back to the pool-bound handle for
     // read-only callers like the route-level pre-check at routes.ts.
     const db: Tx = options.tx ?? deps.db;
+
+    const byToken = tokenDenial(capability);
+    if (byToken) return byToken;
 
     // (1) workspace context — actor must be acting inside their own workspace.
     if (actor.workspace_id !== scope.workspace_id) {
@@ -302,6 +328,7 @@ export async function resolveCapabilityScope(
   capability: Capability,
   now: () => Date = () => new Date(),
 ): Promise<CapabilityScope> {
+  if (tokenDenial(capability)) return { kind: 'scoped', managed_system_ids: [] };
   const bypass = actor.role_level === 'admin' ? adminModuleBypassFor(capability) : 'none';
   if (bypass === 'always') return { kind: 'all' };
 
@@ -367,6 +394,8 @@ export function applyAdminModuleBypass(
 ): Decision {
   if (decision.allow || roleLevel !== 'admin') return decision;
   if (decision.reason === 'workspace_mismatch') return decision;
+  // A token's scope / session-only refusal is not a missing grant: the Admin role never lifts it.
+  if (decision.reason === 'session_required' || decision.reason === 'token_scope') return decision;
   switch (adminModuleBypassFor(capability)) {
     case 'always':
       return { allow: true, via: 'role' };

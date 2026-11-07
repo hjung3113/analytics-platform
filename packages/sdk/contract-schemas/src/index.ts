@@ -3,6 +3,7 @@ import { endpointDeclarationSchema, menuQueryContextSchema, menuQuerySchema } fr
 import { columnFilterSchema, columnFilterSpecSchema } from './column-filter.ts';
 import * as ports from './service-ports.ts';
 import * as views from './saved-view-commands.ts';
+import * as tokens from './api-token.ts';
 import { z } from 'zod/v4';
 
 export { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
@@ -53,6 +54,17 @@ export {
   viewVisibilitySchema,
 } from './saved-view-commands.ts';
 export type { SavedViewCommand, SavedViewOp } from './saved-view-commands.ts';
+export {
+  API_TOKEN_ERROR_CODES,
+  API_TOKEN_VERSION,
+  apiTokenItemSchema,
+  apiTokenKindSchema,
+  apiTokenPageSchema,
+  apiTokenValueSchema,
+  issuePersonalApiTokenInputSchema,
+  issueServiceApiTokenInputSchema,
+  issuedApiTokenSchema,
+} from './api-token.ts';
 export { schemaFileText, toJsonSchema } from './export.ts';
 
 /**
@@ -95,4 +107,11 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   savedViewEntry: views.savedViewEntrySchema,
   savedViewListItem: views.savedViewListItemSchema,
   savedViewImportOutcome: views.savedViewImportOutcomeSchema,
+  apiTokenKind: tokens.apiTokenKindSchema,
+  apiTokenValue: tokens.apiTokenValueSchema,
+  apiTokenItem: tokens.apiTokenItemSchema,
+  apiTokenPage: tokens.apiTokenPageSchema,
+  issuePersonalApiTokenInput: tokens.issuePersonalApiTokenInputSchema,
+  issueServiceApiTokenInput: tokens.issueServiceApiTokenInputSchema,
+  issuedApiToken: tokens.issuedApiTokenSchema,
 };
