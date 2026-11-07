@@ -23,6 +23,7 @@ export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
   'lifecycle.round.manage': '로그 검증 Round 관리',
   'knowledge.draft.create': '지식 초안 작성',
   'explorer.source.read': '로그 원본 열람',
+  'validation.catalog.report': '규칙 카탈로그 보고(토큰 전용)',
 };
 
 export function getCapabilityDisplayLabel(capability: string): string {

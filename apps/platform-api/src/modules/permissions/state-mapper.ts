@@ -53,6 +53,7 @@ export function toFrontendState(
       return hasRequestable ? 'revoked' : 'blocked_non_requestable';
     case 'session_required':
     case 'token_scope':
+    case 'token_required':
       // ADR-0116: a token-only refusal; no request can lift it.
       return 'blocked_non_requestable';
     case 'sensitive_reason_missing':

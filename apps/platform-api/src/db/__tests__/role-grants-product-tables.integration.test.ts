@@ -46,6 +46,7 @@ const PRODUCT_SCHEMAS = [
   'finding',
   'improvement',
   'log_lifecycle',
+  'log_rules',
   'permission',
   'survey',
   'task',
@@ -179,6 +180,11 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_lifecycle.development_project': ['SELECT', 'INSERT'],
   'log_lifecycle.development_event': ['SELECT', 'INSERT'],
   'log_lifecycle.validation_round': ['SELECT', 'INSERT'],
+  // Log rules (#1491): the four tables are insert-only; catalog_report alone has a column-limited UPDATE (asserted below).
+  'log_rules.catalog_report': ['SELECT', 'INSERT'],
+  'log_rules.rule_set_revision': ['SELECT', 'INSERT'],
+  'log_rules.rule': ['SELECT', 'INSERT'],
+  'log_rules.rule_target': ['SELECT', 'INSERT'],
   // Migration 0101 (ADR-0116): tokens are issued and revoked, never edited or deleted. UPDATE is column-scoped to
   // the usage and revocation columns (asserted below); no table-wide UPDATE and no DELETE.
   'core.api_tokens': ['SELECT', 'INSERT'],
@@ -421,6 +427,25 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
            from information_schema.column_privileges
           where grantee = 'platform_app'
             and table_schema = 'log_lifecycle'
+            and table_name = $1
+            and privilege_type = 'UPDATE'
+          order by column_name`,
+      [table],
+    );
+    expect(rows.map((row) => row.column_name)).toEqual([...columns].sort());
+  });
+
+  it.each([
+    ['catalog_report', ['superseded_at', 'superseded_by_report_id']],
+    ['rule_set_revision', []],
+    ['rule', []],
+    ['rule_target', []],
+  ] as const)('platform_app UPDATE on log_rules.%s is limited to the supersede marker', async (table, columns) => {
+    const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
+      `select column_name
+           from information_schema.column_privileges
+          where grantee = 'platform_app'
+            and table_schema = 'log_rules'
             and table_name = $1
             and privilege_type = 'UPDATE'
           order by column_name`,

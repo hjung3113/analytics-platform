@@ -162,4 +162,6 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   'api_token.revoke': 'retire',
   'api_token.auth_failed': 'update',
   'api_token.session_required_denied': 'update',
+  'validation.catalog.reported': 'create',
+  'validation.catalog.rejected': 'update',
 };

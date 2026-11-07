@@ -107,6 +107,10 @@ import {
   LOG_LIFECYCLE_AUDIT_EVENT_TYPES,
 } from '../audit/log-lifecycle.js';
 import {
+  LOG_RULES_AUDIT_EVENT_DETAIL_SCHEMAS,
+  LOG_RULES_AUDIT_EVENT_TYPES,
+} from '../audit/log-rules.js';
+import {
   LOG_KNOWLEDGE_DRAFT_AUDIT_EVENT_DETAIL_SCHEMAS,
   LOG_KNOWLEDGE_DRAFT_AUDIT_EVENT_TYPES,
 } from '../audit/log-knowledge-draft.js';
@@ -156,6 +160,7 @@ export const AUDIT_EVENT_TYPES = [
   ...ACTOR_ROLE_AUDIT_EVENT_TYPES,
   ...PLATFORM_NOTICE_AUDIT_EVENT_TYPES,
   ...API_TOKEN_AUDIT_EVENT_TYPES,
+  ...LOG_RULES_AUDIT_EVENT_TYPES,
 ] as const;
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
 
@@ -192,4 +197,5 @@ export const AUDIT_EVENT_DETAIL_SCHEMAS = {
   ...ACTOR_ROLE_AUDIT_EVENT_DETAIL_SCHEMAS,
   ...PLATFORM_NOTICE_AUDIT_EVENT_DETAIL_SCHEMAS,
   ...API_TOKEN_AUDIT_EVENT_DETAIL_SCHEMAS,
+  ...LOG_RULES_AUDIT_EVENT_DETAIL_SCHEMAS,
 } as const satisfies Record<AuditEventType, z.ZodTypeAny>;

@@ -160,12 +160,14 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'api_token.revoke',
   'api_token.auth_failed',
   'api_token.session_required_denied',
+  'validation.catalog.reported',
+  'validation.catalog.rejected',
 ] as const;
 
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(145);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(147);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });

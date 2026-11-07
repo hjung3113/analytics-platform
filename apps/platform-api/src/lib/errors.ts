@@ -49,6 +49,8 @@ export type DetailShape =
       max_bytes?: number;
       mime_type?: string;
       reason?: string | null;
+      /** The recorded rejected report (#1491). */
+      report_id?: string;
       detail?: { reason: string | null };
     }
   | { retry_after_seconds: number }

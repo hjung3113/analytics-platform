@@ -34,6 +34,7 @@ import type { DrainState } from './lib/shutdown.js';
 import { getStorage } from './lib/storage/factory.js';
 import type { StorageBackend } from './lib/storage/index.js';
 import { SESSION_COOKIE_NAME } from './middleware/require-session.js';
+import { catalogReportRoutes } from './modules/log-rules/index.js';
 import {
   apiTokenRoutes,
   authResultOf,
@@ -560,6 +561,16 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   await app.register(apiTokenRoutes, {
     sessionService,
     tokens: apiTokenService,
+    workspaceId,
+    rateLimitConfig: { mutation: app.rateLimitConfig.mutation },
+  });
+
+  // ── Log rules (#1491): the token-submitted rule catalog report (design log-rules §5.1, ADR-0122) ──────────────
+  await app.register(catalogReportRoutes, {
+    db: dbHandle.db,
+    checkService,
+    auditService,
+    sessionService,
     workspaceId,
     rateLimitConfig: { mutation: app.rateLimitConfig.mutation },
   });
