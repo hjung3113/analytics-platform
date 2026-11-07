@@ -55,7 +55,7 @@ export function RulesTable({ onOpen }: { onOpen: () => void }) {
   const columns = useMemo<PlatformColumn<RuleRow>[]>(() => [
     { id: 'ruleSetKey', header: 'RuleSet', size: 130, filter: specs.ruleSetKey, filterPinned: 1, cell: r => <Button type="button" variant="link" size="sm" aria-label={`${r.ruleSetKey} RuleSet 이력`} onClick={() => { onOpen(); setPage({ ruleSetKey: r.ruleSetKey, ruleKey: null }); }}>{r.ruleSetKey}</Button> },
     { id: 'ruleKey', header: 'Rule', size: 110, cell: r => <Button type="button" variant="link" size="sm" aria-label={`${r.ruleKey} 상세 보기`} onClick={() => { onOpen(); setPage({ ruleSetKey: r.ruleSetKey, ruleKey: r.ruleKey }); }}>{r.ruleKey}</Button> },
-    { id: 'title', header: '짧은 이름', size: 180, cell: r => <span className="break-keep whitespace-normal">{r.title}</span> },
+    { id: 'title', header: '짧은 이름', size: 180, cell: r => <span className="block truncate break-keep">{r.title}</span> },
     { id: 'support', header: '지원', size: 100, filter: specs.support, filterPinned: 2, cell: r => <SupportBadge value={r.support} />, exportValue: r => r.support },
     { id: 'scopeSummary', header: '지원 범위 요약', size: 180, sortable: false, cell: r => <ScopeText scope={r.scope} summary />, exportValue: r => scopeSummary(r.scope) },
     { id: 'targetCount', header: '선언한 대상 범위', size: 250, filter: specs.targetCount, filterPinned: 4, filterLabel: '대상 범위 원문', cell: r => r.firstTarget ? <span className="t-mono block truncate">{r.firstTarget.format} · {r.firstTarget.target}{r.targetCount > 1 ? ` · 외 ${r.targetCount - 1}개` : ''}</span> : '선언 없음', exportValue: r => r.firstTarget ? `${r.firstTarget.format} · ${r.firstTarget.target} (총 ${r.targetCount})` : '선언 없음' },

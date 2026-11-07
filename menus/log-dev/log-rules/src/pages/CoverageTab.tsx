@@ -16,7 +16,7 @@ function CoverageSelector({ modelId, softwareId, children }: { modelId: string |
   if (draft.applied !== `${modelId}:${softwareId}`) setDraft({ model: modelId ?? '', software: softwareId ?? '', applied: `${modelId}:${softwareId}` });
   const [submitted, setSubmitted] = useState(false);
   const valid = isUuid(draft.model) && (!draft.software || isUuid(draft.software));
-  return <form className="grid min-w-0 gap-2" onSubmit={e => {
+  return <form className="grid min-w-0 grid-cols-1 gap-2" onSubmit={e => {
     e.preventDefault(); setSubmitted(true);
     if (valid) { setPage({ modelId: draft.model.toLowerCase(), softwareId: draft.software.toLowerCase() || null, page: null, focus: null }); setSubmitted(false); }
   }}><div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -33,7 +33,7 @@ export function CoverageTab({ modelId, softwareId, onOpenRule }: { modelId: stri
   const query = useMenuQuery(coverageEndpoint, { modelId: modelId ?? '', softwareId, page, pageSize: 50 }, modelId !== null && !url.invalid);
   const summary = useMenuQuery(coverageSummaryEndpoint, { modelIds: modelId ? [modelId] : [] }, modelId !== null);
   const currentSummary = summary.response?.outcome === 'ok' ? summary.response.data?.rows.find(r => r.modelId === modelId) : undefined;
-  return <div className="grid min-w-0 gap-3">
+  return <div className="grid min-w-0 grid-cols-1 gap-3">
     <CoverageSelector modelId={modelId} softwareId={softwareId}>
     {modelId && <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs"><Original>{modelId}</Original>{softwareId ? <Original>{softwareId}</Original> : <span>· 모델 기준</span>}
       <PlatformLink className="text-accent-primary" href={linkTo('log-knowledge-spec', { params: { modelId }, page: softwareId ? { software: softwareId } : {}, returnTo: true })}>모델 명세</PlatformLink>
@@ -64,7 +64,7 @@ function ComputedCoverage({ onRefresh, onOpenRule, data, modelId, softwareId, ur
     <p>명세 커버리지 구성이 바뀌었습니다. 다시 조회해 주세요.</p>
     <Button type="button" variant="secondary" size="toolbar" onClick={onRefresh}>명세 커버리지 새로고침</Button>
   </div>;
-  return <div className="grid min-w-0 gap-3">
+  return <div className="grid min-w-0 grid-cols-1 gap-3">
     <div className="text-xs text-text-muted"><Original>spec_pin: {data.specPin.revisionId} · {data.specPin.changeSetDigest}</Original></div>
     <div className="flex flex-wrap items-center gap-3 text-xs">{COVERAGE_STATES.map(state => <span key={state} className="inline-flex items-center gap-1.5"><CoverageBadge value={state} /><span className="tabular">{data.counts[state]}</span></span>)}</div>
     <p className="text-xs text-text-secondary">{percentage !== null ? `명세 커버리지 ${percentage}% · ` : ''}통과가 아니라 구성 정보입니다</p>
