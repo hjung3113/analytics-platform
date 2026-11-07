@@ -42,4 +42,34 @@ test.describe('분석에서 개선 아이템 완결 (#1408 · §13 확인 · §2
     await expect(page.getByText('효과 있음', { exact: true })).toBeVisible();
     await evidence(page, testInfo, 'improvement-analysis-effect-verified');
   });
+  test('CLAS에서 고른 설비(eqp)가 대상 제안이 된다 (#1430 Q3 · 메뉴 선언 subjectPageKeys)', async ({ page }) => {
+    await signInAs(page, 'admin');
+    await page.goto('/clas/operation-time?v=1&scopeId=MEM&from=2026-11-01T00:00:00&to=2026-11-05T00:00:00&roomNames=PHOTO&eqp=MEM-PHOTO-0105');
+    const actions = await headerMore(page);
+    await actions.getByRole('button', { name: '개선 아이템 남기기', exact: true }).click();
+    const drawer = page.getByRole('dialog', { name: '개선 아이템 남기기', exact: true });
+    await expect(drawer.getByRole('button', { name: /MEM-PHOTO-0105 제거/ })).toBeVisible();
+    await expect(drawer.getByText('등록된 대상이 없습니다.')).toBeHidden();
+  });
+
+  test('생산성 개요(overview)에도 ⋯ 「개선 아이템 남기기」가 있고 드릴 설비를 제안한다 (#1430)', async ({ page }) => {
+    await signInAs(page, 'admin');
+    await page.goto('/mars/productivity-overview?v=1&scopeId=MEM&roomNames=PHOTO&drillEquipment=MEM-PHOTO-0103');
+    const actions = await headerMore(page);
+    await actions.getByRole('button', { name: '개선 아이템 남기기', exact: true }).click();
+    const drawer = page.getByRole('dialog', { name: '개선 아이템 남기기', exact: true });
+    await expect(drawer.getByRole('button', { name: /MEM-PHOTO-0103 제거/ })).toBeVisible();
+  });
+
+  test('목록에서 연 만들기 서랍의 같은 메뉴 뒤로는 입력을 묻는다 (#1430 UX-1)', async ({ page }) => {
+    await signInAs(page, 'admin');
+    await page.goto('/improvement-items?v=1&view=all');
+    await page.getByRole('button', { name: '개선 아이템 남기기', exact: true }).click();
+    const drawer = page.getByRole('dialog', { name: '개선 아이템 남기기', exact: true });
+    await drawer.getByLabel('문제 · 필수', { exact: true }).fill('뒤로 확인');
+    await page.goBack();
+    await expect(page.getByText('저장하지 않은 변경이 있습니다')).toBeVisible();
+    await page.getByRole('button', { name: '머무르기' }).click();
+    await expect(drawer.getByLabel('문제 · 필수', { exact: true })).toHaveValue('뒤로 확인');
+  });
 });

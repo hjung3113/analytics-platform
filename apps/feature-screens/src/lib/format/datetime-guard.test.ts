@@ -12,6 +12,11 @@ const forbiddenPatterns = [
   /\bnew\s+Intl\.RelativeTimeFormat\s*\(/g,
 ];
 
+// An untracked temp file (the lint-dispatch probe in tooling/eslint) can vanish between listing and reading when packages test in parallel: skip it (#1437).
+function readIfPresent(file: string): string {
+  try { return readFileSync(file, 'utf8'); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return ''; throw error; }
+}
+
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = resolve(directory, entry.name);
@@ -35,7 +40,7 @@ function sourceFiles(directory: string): string[] {
 describe('date and number format module guard', () => {
   it('keeps locale formatter calls inside src/lib/format', () => {
     const violations = sourceFiles(sourceRoot).flatMap((path) => {
-      const source = readFileSync(path, 'utf8');
+      const source = readIfPresent(path);
       return forbiddenPatterns.flatMap((pattern) => {
         pattern.lastIndex = 0;
         return [...source.matchAll(pattern)].map(

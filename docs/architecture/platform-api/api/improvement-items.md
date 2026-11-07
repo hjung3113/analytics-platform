@@ -72,7 +72,7 @@ Foreign keys: every improvement-to-improvement reference (`item_target` and `ite
 - `quest_id` and `quest_title_snapshot`: both null or both set; each ≤ 200; `quest_id` non-blank.
 - `origin_menu_id` and `origin_context`: both null or both set; the menu id ≤ 200 and non-blank; `origin_context` is a JSON object. The context is a snapshot of metric, period and equipment; the destination id and the Context stay separate ([cross-menu-links](../../../contract/cross-menu-links.md)).
 - `effect_result` in `effective | ineffective | inconclusive`; `effect_note` ≤ 2000; `drop_reason` ≤ 2000. `effect_result` null ⇒ `effect_note` and `effect_compare_link` null.
-- `effect_compare_link`: a same-origin relative path only, `~ '^/[^/\\]'` (one leading slash, then neither a second slash nor a backslash), ≤ 2000 characters. An absolute or protocol-relative URL is refused. The link stays optional (the before/after comparison piece, #1243, is node f).
+- `effect_compare_link`: a same-origin relative path only, `~ '^/[^/\\]'` (one leading slash, then neither a second slash nor a backslash), ≤ 2000 characters, and no C0 control character or DEL (`!~ '[\u0001-\u001f\u007f]'`, migration 0099, #1408 item 4; the write path rejects the same characters before SQL). An absolute or protocol-relative URL is refused. The link stays optional; the consumer builds it from the before/after comparison piece `beforeAfterPeriods` (#1243).
 - `effect_*` and `drop_reason` MAY remain after a reopen; the history lives in `item_event`.
 
 ### Origin-or-target rule (Q2): a deferred constraint trigger, not a CHECK

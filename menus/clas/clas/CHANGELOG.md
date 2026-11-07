@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.2.1 — 2026-11-07
+
+- CLAS 운영시간이 `subjectPageKeys`(설비 `eqp`)를 선언한다. 고른 설비가 「개선 아이템 남기기」 서랍의 대상 제안이 된다(#1430).
+
 ## 0.2.0 — 2026-11-05
 
 - CLAS 운영시간에서 설비를 바꾸면 이전 순위·흐름이 새 결과가 올 때까지 남는다(#1365, [ADR-0114](../../../docs/adr/0114-opt-in-keep-previous-for-page-input-params.md)).

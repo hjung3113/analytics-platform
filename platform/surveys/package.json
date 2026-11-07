@@ -2,7 +2,7 @@
   "name": "@ap/menu-surveys",
   "private": true,
   "version": "0.2.0",
-  "ap": { "sdk": ">=0.30.0 <0.31.0" },
+  "ap": { "sdk": ">=0.31.0 <0.32.0" },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

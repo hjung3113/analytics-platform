@@ -1,18 +1,18 @@
 // PLAN-22 C9 fix — UI-side drift assertion for `allowlist-local.ts`.
 //
-// ADR-0016 forbids @ap/feature-ui from importing @ap/feature-shared, so this test cannot
+// ADR-0016 forbids @ap/ui from importing @ap/feature-shared, so this test cannot
 // import the shared allowlist directly. Instead it carries an inline fixture
 // describing the **shape** of the canonical shared allowlist; if the UI-local
 // copy drifts (extra/missing surfaces, nodes, marks, attr keys, attr kinds,
 // or DoS caps), this test fails.
 //
-// The companion `apps/backend/src/lib/rich-content/__tests__/drift-vs-shared
+// The companion `apps/platform-api/src/lib/rich-content/__tests__/drift-vs-shared
 // .test.ts` enforces backend↔shared parity. Together the two tests pin all
 // three copies (backend, shared, UI) in lockstep.
 //
 // If you change the canonical shared allowlist, update:
-//   1. packages/shared/src/rich-content/allowlist.ts (canonical)
-//   2. apps/backend/src/lib/rich-content/surface-allowlists.ts
+//   1. packages/feature-shared/src/rich-content/allowlist.ts (canonical)
+//   2. apps/platform-api/src/lib/rich-content/surface-allowlists.ts
 //   3. packages/sdk/ui/src/rich-content/allowlist-local.ts
 //   4. The EXPECTED fixture in this file.
 
