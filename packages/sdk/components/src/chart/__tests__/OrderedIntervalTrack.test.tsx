@@ -248,6 +248,34 @@ it('retries a consumer error with the current range without an onRetry callback'
   await waitFor(() => expect(screen.queryByText('Consumer failure')).toBeNull());
   expect(screen.getByRole('region', { name: 'Track' })).toHaveAttribute('aria-busy', 'false');
 });
+it('keeps following the consumer error when retry is callback-only', () => {
+  const onRetry = vi.fn();
+  mount({ state: { kind: 'error', title: 'Consumer failure', onRetry } });
+  fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+  expect(onRetry).toHaveBeenCalledTimes(1);
+  expect(screen.getByText('Consumer failure')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+  expect(onRetry).toHaveBeenCalledTimes(2);
+});
+it('shows a new external error after the loader recovered the previous one', async () => {
+  const loader = vi.fn(async () => items);
+  const { rerender } = mount({
+    state: { kind: 'error', title: 'First failure' },
+    onRangeRequest: loader,
+  });
+  fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+  await waitFor(() => expect(screen.queryByText('First failure')).toBeNull());
+  rerender(
+    <I18nProvider>
+      <OrderedIntervalTrack
+        {...base}
+        onRangeRequest={loader}
+        state={{ kind: 'error', title: 'Second failure' }}
+      />
+    </I18nProvider>,
+  );
+  expect(screen.getByText('Second failure')).toBeVisible();
+});
 it('clears cancelled loading when a consumer error interrupts a request and retries it', async () => {
   const pending: {
     signal: AbortSignal;

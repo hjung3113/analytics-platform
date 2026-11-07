@@ -55,7 +55,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
   const [loaded, setLoaded] = useState<readonly OrderedTrackItem[] | null>(null);
   const [request, setRequest] = useState<OrderedTrackLoadState>('ready');
   const [round, setRound] = useState(0);
-  const [errorRetry, setErrorRetry] = useState(false);
+  const [recovered, setRecovered] = useState<{ title?: string; body?: unknown } | null>(null);
   const [selection, setSelection] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [brush, setBrush] = useState<[number, number] | null>(null);
@@ -89,7 +89,11 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
   const selectedId = props.selectedId === undefined ? selection : props.selectedId;
   const selected = data.find((item) => item.id === selectedId);
   const loading = !restricted && (kind === 'loading' || request === 'loading');
-  const recoveringError = kind === 'error' && errorRetry;
+  const recoveringError =
+    kind === 'error' &&
+    recovered !== null &&
+    recovered.title === props.state?.title &&
+    recovered.body === props.state?.body;
   const failed = overCap || (kind === 'error' && !recoveringError) || request === 'error';
   const loadObserver = useRef(props.onLoadStateChange);
   useEffect(() => {
@@ -100,7 +104,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
     [],
   );
   useEffect(() => {
-    if (kind !== 'error') setErrorRetry(false);
+    if (kind !== 'error') setRecovered(null);
   }, [kind]);
   useEffect(() => {
     if (restricted || (kind === 'error' && !recoveringError) || !props.onRangeRequest) {
@@ -279,7 +283,8 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
   const page = Math.min(pageState, pages - 1);
   const retry = () => {
     props.state?.onRetry?.();
-    if (kind === 'error') setErrorRetry(true);
+    if (kind === 'error' && props.onRangeRequest)
+      setRecovered({ title: props.state?.title, body: props.state?.body });
     setRound((n) => n + 1);
   };
   const notice = (kind !== 'ready' && !recoveringError) || failed || !domainValid;
