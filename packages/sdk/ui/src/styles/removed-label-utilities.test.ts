@@ -39,7 +39,6 @@ describe('removed platform label utilities (#210)', () => {
       self,
       join(process.cwd(), 'src/styles/tokens.test.ts'),
       join(process.cwd(), 'src/styles/__tests__/token-fidelity.test.ts'),
-      join(repo, 'packages/feature-ui/src/styles/__tests__/token-fidelity.test.ts'),
       join(process.cwd(), 'src/theme/tokens.generated.ts'),
     ]);
     const offenders = roots.flatMap(sources).filter(path => !allowed.has(path))
