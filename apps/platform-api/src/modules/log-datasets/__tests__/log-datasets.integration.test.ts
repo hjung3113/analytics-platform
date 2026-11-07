@@ -679,9 +679,13 @@ describe.skipIf(!runIntegration)('log test datasets (#1477 D-a)', () => {
       return value;
     }
     const bearer = (value: string) => ({ 'content-type': 'application/json', authorization: `Bearer ${value}` });
+    // Token calls whose identity does not resolve to an Actor key the global limiter by client IP (50/min, shared by every test file of the
+    // run): use an own address so this block cannot starve the unauthenticated requests of other files.
+    const TOKEN_IP = '10.77.0.1';
     const tokenAct = async (value: string, action: string, input: Record<string, unknown>, expectedVersion?: string): Promise<Answer> => {
       const res = await withPort.inject({
         method: 'POST',
+        remoteAddress: TOKEN_IP,
         url: '/api/v1/menu-action',
         headers: bearer(value),
         payload: JSON.stringify({ action: `logDataset.${action}`, context: {}, input, idempotencyKey: randomUUID(), ...(expectedVersion === undefined ? {} : { expectedVersion }) }),
@@ -692,6 +696,7 @@ describe.skipIf(!runIntegration)('log test datasets (#1477 D-a)', () => {
     const tokenRead = async (value: string, endpoint: string, params: Record<string, unknown>): Promise<Answer> => {
       const res = await withPort.inject({
         method: 'POST',
+        remoteAddress: TOKEN_IP,
         url: '/api/v1/menu-query',
         headers: bearer(value),
         payload: JSON.stringify({ endpoint: `logDataset.${endpoint}`, context: {}, params }),
