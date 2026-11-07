@@ -1,6 +1,6 @@
 # Log Rules
 
-Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for **nodes R-a, R-b and R-d** (#1491, #1492, #1494): the token-submitted validation catalog report, the `log_rules` storage behind it, the catalog reads and the spec coverage reads. Design and decisions: `docs/design/features/log-rules/README.md` §2–§5.2, §8 and ADR-0122. Not here (later nodes): any screen (R-e), the consumers of `RuleCoveragePort` (Gate, Round, Datasets; R-f), any call from the platform to the Validator, any rule editing. The wire contract is `@ap/contract-schemas` `validation-catalog-report` `v0` (provisional until the Validator is surveyed).
+Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for **nodes R-a, R-b and R-d** (#1491, #1492, #1494): the token-submitted validation catalog report, the `log_rules` storage behind it, the catalog reads and the spec coverage reads. Design and decisions: `docs/design/features/log-rules/README.md` §2–§5.2, §8 and ADR-0122. The R-e screen (#1495) reads these seven declarations; its UI contract is design §6.4. Not here (later nodes): the consumers of `RuleCoveragePort` (Gate, Round, Datasets; R-f), any call from the platform to the Validator, any rule editing. The wire contract is `@ap/contract-schemas` `validation-catalog-report` `v0` (provisional until the Validator is surveyed).
 
 The platform receives the Validator's report as a **read-only snapshot**. It stores identifiers, short display text, the support level and the declared targets, and nothing else: there is no column for a rule body, condition, threshold, parameter, script or sample log.
 
@@ -85,6 +85,8 @@ Both are `platform:view`, `requiresScope: false`, workspace = the session Actor'
 **Cost** (local throwaway database, integration test «cost»): a model of 600 requirement keys against a 5,000-Rule current catalog (10 RuleSets, two ids per Rule) computed in about 70 ms (catalog read, spec read, computation). `coverageSummary` costs one such computation per model after a single catalog read, bounded by 50 models.
 
 **`RuleCoveragePort`** (`coverage-port.ts`, barrel `createRuleCoveragePort({ knowledgeLookup })`): `getCoverage(tx, workspaceId, modelId, softwareId?)` → `{ computable:false, reason, specPin, ambiguousKeys? }` or `{ computable:true, requirements[{ key, state }], coverageDigest, specPin, ruleSetRevisions[] }`; `resolveRuleSetRevision(tx, workspaceId, ruleSetKey, revision)` → `{ ruleSetKey, revision, resultRef, status, isCurrent, revisionDigest }` for a Revision of the current catalog whose `revision` or `resultRef` equals the string exactly, or `null` (unknown key, no match, or more than one match: never guessed). The caller verified the workspace and decides the permission; no consumer is wired in R-d (R-f).
+
+Screen limitation (R-e, #1495): the selector accepts deep-linked `modelId`/`softwareId` UUIDs; `coverageSummary` is a summary of supplied ids, never a model-discovery list. A model-name/software-name picker remains unimplemented until a sanctioned model-list surface is available.
 
 Not implemented: a workspace-wide model page for `coverageSummary` (it would need a model-list method on the `knowledgeLookup` port; reopen with the model-list screen integration, R-f), custom sort/filter of `coverage` rows.
 

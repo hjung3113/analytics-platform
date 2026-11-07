@@ -16,7 +16,8 @@
 | `@ap/menu-configuration` | `menus/mars/configuration` | `configuration` | 없음(계획 메뉴 manifest만) |
 | `@ap/menu-metrics` | `menus/bravo/metrics` | `metrics` | MetricCatalog(상태·도메인은 표 필터 선언의 숨은 반복 키 `filter`, 틀린 값은 고치지 않고 `TableUrlWarning`으로 거부, #1218), MetricDetail |
 | `@ap/menu-clas` | `menus/clas/clas` | `clas` | OperationTime |
-| `@ap/menu-log-my-work`·`-log-models`·`-log-cross`·`-log-rules` | `menus/log-dev/*` | `logMyWork`·`logModels`·`logCross`·`logRules` | 없음(계획 메뉴 manifest만, ADR-0065) |
+| `@ap/menu-log-my-work`·`-log-models`·`-log-cross` | `menus/log-dev/*` | `logMyWork`·`logModels`·`logCross` | 없음(계획 메뉴 manifest만, ADR-0065) |
+| `@ap/menu-log-rules` | `menus/log-dev/log-rules` | `logRules` | Read-only validation catalog and specification coverage tabs, Rule/RuleSet history/requirement drawers; lazy `log-rules` + navHidden `log-rule`; declarations `src/endpoints.ts`, synthetic `./mock` (#1495, ADR-0122) |
 | `@ap/menu-log-knowledge` | `menus/log-dev/log-knowledge` | `logKnowledge` | `logKnowledge.*` 조회·쓰기 선언(원본 `src/endpoints.ts`), mock `./mock`(조회 + `logKnowledgeActionsMock`). 카탈로그 관리(설비사·공정·모델 탭의 가져오기 마법사 포함)와 모델 탐색·모델 프로파일·전체 기술 Item·Item 상세(Item 편집의 모델 명세 대상 선택·상세의 «대상» 칩) 화면, 모델 명세(Module 트리·명세/변경점/개념/Revision 이력 탭, 고정 footer 서랍, 개념 매핑 검토). 읽기 `platform:view`, 카탈로그 관리 `knowledge:catalog-manage`, Item 쓰기 `knowledge:item-publish`, 명세·개념 쓰기 `knowledge:spec-publish`. API 원본은 [`docs/architecture/platform-api/api/log-knowledge.md`](../docs/architecture/platform-api/api/log-knowledge.md) |
 
 ## 규칙
@@ -41,6 +42,6 @@
 
 ## 검증
 
-- `pnpm --filter @ap/menu-<group> test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). `test` 스크립트(vitest)는 계획 메뉴만 가진 패키지(`@ap/menu-master-data`, `menus/log-dev/*`(`log-knowledge` 제외))를 뺀 모든 메뉴 패키지에 있다. 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. lint상 `@ap/mock-server`를 import하는 메뉴 파일은 `src/mock/**`뿐이며, 테스트(`*.test.ts`)도 이 규칙의 면제 대상이 아니다.
+- `pnpm --filter @ap/menu-<group> test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). `test` 스크립트(vitest)는 계획 메뉴만 가진 패키지(`@ap/menu-master-data`, `menus/log-dev/*`(`log-knowledge`·`log-rules` 제외))를 뺀 모든 메뉴 패키지에 있다. 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. lint상 `@ap/mock-server`를 import하는 메뉴 파일은 `src/mock/**`뿐이며, 테스트(`*.test.ts`)도 이 규칙의 면제 대상이 아니다.
 
 다음 단계: 화면 작성법은 [apps/platform-web README "페이지 작성 가이드"](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙), 메뉴 선언 계약은 06 §5.
