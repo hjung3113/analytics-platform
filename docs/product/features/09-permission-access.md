@@ -102,6 +102,7 @@ The backend returns effective navigation and capability states for the current w
 | Write improvement items (`improvement.manage`) | no | permission required (workspace-wide) | yes |
 | Manage log development projects (`lifecycle.project.manage`) | no | permission required (workspace-wide) | yes |
 | Manage log validation rounds (`lifecycle.round.manage`) | no | permission required (workspace-wide) | yes |
+| Write log knowledge drafts (`knowledge.draft.create`) | permission required (workspace-wide) | permission required (workspace-wide) | yes |
 | Approve Permission Request | no | no | yes |
 
 Notes:

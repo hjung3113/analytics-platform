@@ -143,5 +143,19 @@ describe.skipIf(!runIntegration)(
         expect(res.statusCode).toBe(201);
       },
     );
+
+    // #1198 a (owner answer Q2): knowledge.draft.create is NOT for Admin and Developer only; a User may hold it.
+    // It is not sensitive, so it does not share the sensitive-tier budget of the grants above.
+    it.each(["user", "developer"] as const)(
+      "a direct grant of knowledge.draft.create to a %s succeeds",
+      async (role) => {
+        const res = await post("/permissions/grants", "admin4", {
+          actor_id: ids[role],
+          capability: "knowledge.draft.create",
+          reason: "test",
+        });
+        expect(res.statusCode).toBe(201);
+      },
+    );
   },
 );

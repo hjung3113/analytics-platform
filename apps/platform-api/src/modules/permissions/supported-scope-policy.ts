@@ -34,7 +34,8 @@ export async function supportedScopeCandidates(
     capability === 'knowledge.spec.publish' ||
     capability === 'improvement.manage' ||
     capability === 'lifecycle.project.manage' ||
-    capability === 'lifecycle.round.manage'
+    capability === 'lifecycle.round.manage' ||
+    capability === 'knowledge.draft.create'
   ) {
     return [{ managed_system_id: null }];
   }
