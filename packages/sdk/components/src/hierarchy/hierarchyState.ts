@@ -12,6 +12,8 @@ export type HierarchySnapshot = {
   query: string;
   readyQuery: string;
 };
+/** Ids are unrestricted strings: copy into a null-prototype dictionary so `constructor`/`__proto__` are ordinary keys. */
+const dict = <T>(source: Readonly<Record<string, T>>): Record<string, T> => Object.assign(Object.create(null) as Record<string, T>, source);
 export const childrenKey = (parentId: string | null) => JSON.stringify(['children', parentId]);
 export const searchKey = (query: string) => JSON.stringify(['search', query]);
 export const ancestorKey = (id: string) => JSON.stringify(['ancestors', id]);
@@ -19,15 +21,17 @@ export const hierarchyLimit = (limit: number) => Number.isFinite(limit) ? Math.m
 
 /** Per-menu, per-session state. No fetch/SQL, storage, URL state or module singleton. */
 export class HierarchyNavState {
-  private snapshot: HierarchySnapshot = { pages: {}, ancestors: {}, routeId: undefined, path: [], expanded: new Set(), query: '', readyQuery: '' };
+  private snapshot: HierarchySnapshot = { pages: {}, ancestors: dict({}), routeId: undefined, path: [], expanded: new Set(), query: '', readyQuery: '' };
   private listeners = new Set<() => void>();
   private requests = new Map<string, AbortController>();
+  /** Cursors already sent per page chain; a repeat means a cycle. Reset when a chain restarts. */
+  private cursors = new Map<string, Set<string>>();
   constructor(readonly identity: string) {}
   read = () => this.snapshot;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   update(patch: Partial<HierarchySnapshot>) { this.snapshot = { ...this.snapshot, ...patch }; this.listeners.forEach(listener => listener()); }
   private page(key: string, value: Load<HierarchyPage>) { this.update({ pages: { ...this.snapshot.pages, [key]: value } }); }
-  private ancestors(id: string, value: Load<HierarchyNode[]>) { this.update({ ancestors: { ...this.snapshot.ancestors, [id]: value } }); }
+  private ancestors(id: string, value: Load<HierarchyNode[]>) { this.update({ ancestors: Object.assign(dict(this.snapshot.ancestors), { [id]: value }) }); }
   private request<T>(key: string, run: (signal: AbortSignal) => Promise<T>, apply: (value: T) => void, fail: (kind: Failure) => void) {
     if (this.requests.has(key)) return;
     const controller = new AbortController();
@@ -44,6 +48,8 @@ export class HierarchyNavState {
     if (this.requests.has(key) || (!more && old !== undefined)) return;
     const cursor = more ? old?.value?.nextCursor : undefined;
     if (more && cursor === undefined) return;
+    if (!more) this.cursors.set(key, new Set());
+    if (cursor !== undefined) (this.cursors.get(key) ?? this.cursors.set(key, new Set()).get(key)!).add(cursor);
     this.page(key, { status: 'loading', value: old?.value });
     this.request(key, signal => query === null
       ? source.listChildren({ parentId, cursor, limit: hierarchyLimit(limit), signal })
@@ -51,7 +57,10 @@ export class HierarchyNavState {
       const seen = new Set<string>();
       const nodes = [...(more ? old?.value?.nodes ?? [] : []), ...result.nodes].filter(node => !seen.has(node.id) && !!seen.add(node.id));
       // A repeated cursor must not produce an endless load-more loop.
-      this.page(key, { status: 'ready', value: { nodes, totalCount: result.totalCount ?? old?.value?.totalCount, nextCursor: result.nextCursor === cursor ? undefined : result.nextCursor } });
+      const next = result.nextCursor === cursor ? undefined : result.nextCursor;
+      const value = { nodes, totalCount: result.totalCount ?? old?.value?.totalCount, nextCursor: next };
+      if (next !== undefined && this.cursors.get(key)?.has(next)) this.page(key, { status: 'error', value: { ...value, nextCursor: undefined } });
+      else this.page(key, { status: 'ready', value });
     }, kind => this.page(key, { status: kind, value: old?.value }));
   }
   loadAncestors(source: HierarchySource, id: string) {
@@ -60,7 +69,8 @@ export class HierarchyNavState {
     this.request(ancestorKey(id), signal => source.resolveAncestors(id, signal), value => this.ancestors(id, { status: 'ready', value }), kind => this.ancestors(id, { status: kind }));
   }
   retryPage(key: string) { const pages = { ...this.snapshot.pages }; delete pages[key]; this.update({ pages }); }
-  retryAncestors(id: string) { const ancestors = { ...this.snapshot.ancestors }; delete ancestors[id]; this.update({ ancestors }); }
+  retryPages(keys: readonly string[]) { const pages = { ...this.snapshot.pages }; keys.forEach(key => { delete pages[key]; }); this.update({ pages }); }
+  retryAncestors(id: string) { const ancestors = dict(this.snapshot.ancestors); delete ancestors[id]; this.update({ ancestors }); }
   /** Cancel superseded work, drop late completions, and make interrupted pages retryable on reopening. */
   retain(wanted: ReadonlySet<string>) {
     for (const [key, controller] of this.requests) {

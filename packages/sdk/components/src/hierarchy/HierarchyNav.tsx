@@ -92,6 +92,9 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
   const virtual = useVirtualizer({ count: rows.length, getScrollElement: () => scrollRef.current, estimateSize: index => rows[index].kind === 'state' ? pitch * 3 : pitch, overscan: 3, getItemKey: index => rows[index].kind === 'node' ? (rows[index] as NodeRow).node.id : (rows[index] as StateRow).key });
   const windowRows = virtual.getVirtualItems();
   const firstId = rows.find((row): row is NodeRow => row.kind === 'node')?.node.id;
+  // Virtualization may unmount the roving row; keep one Tab entry among the mounted rows.
+  const mountedIds = windowRows.flatMap(item => rows[item.index]?.kind === 'node' ? [(rows[item.index] as NodeRow).node.id] : []);
+  const entryId = focusId !== null && mountedIds.includes(focusId) ? focusId : mountedIds.includes(firstId ?? '') ? firstId : mountedIds[0];
 
   const expandedParents = useMemo(() => rows.flatMap(row => row.kind === 'node' && row.node.hasChildren && snapshot.expanded.has(row.node.id) ? [row.node.id] : []), [rows, snapshot.expanded]);
   const needed = useMemo(() => {
@@ -211,7 +214,7 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
     {!searching && mode === 'drill' && snapshot.path.length > 0 && !restoring && <button type="button" className={cn(navRowVariants(), 'w-full text-left break-keep')} aria-label={t('hierarchyBack')} onClick={event => { if (event.detail === 0) pendingFocus.current = 'first'; state.update({ path: snapshot.path.slice(0, -1) }); }}>
       <ChevronLeft className="size-4 shrink-0" aria-hidden /><ClippedLabel label={snapshot.path.at(-1)!.label} className="font-semibold text-text-primary" />
     </button>}
-    {missingRoute ? failure({ status: 'deleted' }, () => { if (currentNodeId) { state.retryAncestors(currentNodeId); state.update({ routeId: undefined }); } }) : restoring ? failure(pathLoad, () => { if (currentNodeId) state.retryAncestors(currentNodeId); }) : waitingSearch ? failure(undefined, () => {}) : <>
+    {missingRoute ? failure({ status: 'deleted' }, () => { if (currentNodeId) { state.retryPages(routeSteps.map(step => childrenKey(step.parent))); state.retryAncestors(currentNodeId); state.update({ routeId: undefined }); } }) : restoring ? failure(pathLoad, () => { if (currentNodeId) state.retryAncestors(currentNodeId); }) : waitingSearch ? failure(undefined, () => {}) : <>
       <div ref={scrollRef} data-hierarchy-scroll className="shell-scroll h-(--hierarchy-height) overflow-y-auto" role={mode === 'tree' && !searching ? 'tree' : 'list'} aria-label={label} style={{ '--hierarchy-height': `${Math.min(virtual.getTotalSize(), maxHeight)}px` } as CSSProperties}>
         <div role="presentation" className="relative h-(--hierarchy-total) w-full" style={{ '--hierarchy-total': `${virtual.getTotalSize()}px` } as CSSProperties}>
           {windowRows.map(item => {
@@ -224,7 +227,7 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
             const Icon = levelIcon?.(node.kind);
             const isTree = mode === 'tree' && !searching;
             const primaryContent = <>{Icon && <Icon className="size-4 shrink-0" />}<span className="flex min-w-0 flex-1 flex-col"><ClippedLabel label={node.label} />{searching && <ClippedLabel label={snapshot.ancestors[node.id]?.value?.map(parent => parent.label).join(' › ') ?? ''} className="text-xs text-text-muted" />}</span></>;
-            return <div key={node.id} ref={element => { if (element) elements.current.set(node.id, element); else elements.current.delete(node.id); }} data-hierarchy-node={node.id} role={isTree ? 'treeitem' : 'listitem'} aria-label={isTree ? node.label : undefined} aria-level={isTree ? depth + 1 : undefined} aria-posinset={isTree ? row.index : undefined} aria-setsize={isTree ? row.total ?? -1 : undefined} aria-expanded={isTree && node.hasChildren ? expanded : undefined} aria-current={isTree && current ? 'location' : undefined} tabIndex={isTree ? ((focusId ?? firstId) === node.id ? 0 : -1) : undefined} onFocus={isTree ? () => setFocusId(node.id) : undefined} onKeyDown={isTree ? event => onKey(event, row) : undefined}
+            return <div key={node.id} ref={element => { if (element) elements.current.set(node.id, element); else elements.current.delete(node.id); }} data-hierarchy-node={node.id} role={isTree ? 'treeitem' : 'listitem'} aria-label={isTree ? node.label : undefined} aria-level={isTree ? depth + 1 : undefined} aria-posinset={isTree ? row.index : undefined} aria-setsize={isTree ? row.total ?? -1 : undefined} aria-expanded={isTree && node.hasChildren ? expanded : undefined} aria-current={isTree && current ? 'location' : undefined} tabIndex={isTree ? (entryId === node.id ? 0 : -1) : undefined} onFocus={isTree ? () => setFocusId(node.id) : undefined} onKeyDown={isTree ? event => onKey(event, row) : undefined}
               className={cn(navRowVariants({ active: current }), 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset absolute left-0 top-0 h-(--hierarchy-row) w-full translate-y-(--hierarchy-offset) break-keep', isTree && INDENT[Math.min(depth, INDENT.length - 1)], searching && 'min-h-10')}
               style={{ '--hierarchy-offset': `${item.start}px`, '--hierarchy-row': `${pitch - 2}px` } as CSSProperties}>
               {current && <NavCurrentMarker />}

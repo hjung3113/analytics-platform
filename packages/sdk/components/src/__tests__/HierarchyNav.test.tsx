@@ -156,4 +156,39 @@ describe('HierarchyNav (#1448)', () => {
     await waitFor(() => expect(signal?.aborted).toBe(true));
   });
 
+  it('keeps exactly one Tab entry when virtualization unmounts the first and roving rows', async () => {
+    const source = createSyntheticHierarchySource();
+    const { container } = mount(source, { currentNodeId: 'node-0125', mode: 'tree' });
+    await screen.findByText('Item 125');
+    await waitFor(() => expect(container.querySelectorAll('[role="treeitem"][tabindex="0"]')).toHaveLength(1));
+    expect(container.querySelector('[data-hierarchy-node="node-0001"]')).toBeNull();
+  });
+
+  it('Retry after a deleted path reloads the exhausted page', async () => {
+    let present = false;
+    const source: HierarchySource = { resolveAncestors: async () => [], listChildren: vi.fn(async () => ({ nodes: present ? [node('selected')] : [node('other')] })) };
+    mount(source, { currentNodeId: 'selected' });
+    await screen.findByText('삭제되었거나 이동된 항목입니다.');
+    present = true;
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await screen.findByRole('link', { name: 'selected' });
+    expect(vi.mocked(source.listChildren)).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['constructor', 'toString', '__proto__'])('restores a node whose id is the reserved property name %s', async id => {
+    mount({ resolveAncestors: async () => [], listChildren: async () => ({ nodes: [node(id)] }) }, { currentNodeId: id });
+    expect((await screen.findByRole('link', { name: id })).getAttribute('aria-current')).toBe('location');
+  });
+
+  it('stops an A/B/A cursor cycle with a retryable error and a bounded call count', async () => {
+    const cursors = [undefined, 'A', 'B'];
+    const next: Record<string, string> = { start: 'A', A: 'B', B: 'A' };
+    const source: HierarchySource = { resolveAncestors: async () => [], listChildren: vi.fn(async ({ cursor }) => ({ nodes: [node(`n-${cursor ?? 'start'}`)], nextCursor: next[cursor ?? 'start'] })) };
+    mount(source, { currentNodeId: 'missing' });
+    await screen.findByText('항목을 불러오지 못했습니다.');
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(vi.mocked(source.listChildren)).toHaveBeenCalledTimes(cursors.length);
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+  });
+
 });

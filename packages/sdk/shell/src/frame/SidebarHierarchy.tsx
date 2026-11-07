@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FolderTree, X } from 'lucide-react';
 import type { HierarchySource } from '@ap/contracts';
 import { HierarchyNav, useHierarchyNavState } from '@ap/components';
@@ -26,6 +26,13 @@ function HierarchySection({ menu, declaration, source, collapsed }: { menu: Menu
   const ownsRoute = route?.menu.id === menu.id || (route?.menu.navHidden && route.menu.parent === menu.id);
   const currentNodeId = ownsRoute && route ? declaration.currentNodeId?.({ menuId: route.menu.id, params: route.params, page: pageParam }) ?? null : null;
   const label = tx(declaration.label);
+  // A guarded move replays without the link callback; close once the route's node actually changes.
+  const shownNode = useRef(currentNodeId);
+  useEffect(() => {
+    if (shownNode.current === currentNodeId) return;
+    shownNode.current = currentNodeId;
+    navigated.current = true; setOpen(false);
+  }, [currentNodeId]);
   const content = <HierarchyNav menuId={menu.id} label={label} source={source} state={state} mode={declaration.mode} levelIcon={declaration.levelIcon} currentNodeId={currentNodeId} onNavigate={() => { navigated.current = true; setOpen(false); }} />;
   if (!collapsed) return <div role="group" aria-label={label}><p className={SIDEBAR_GROUP_TITLE}>{label}</p>{content}</div>;
   return <Popover open={open} onOpenChange={value => { navigated.current = false; setOpen(value); }}>
