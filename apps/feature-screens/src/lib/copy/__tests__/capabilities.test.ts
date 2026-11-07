@@ -29,6 +29,7 @@ const EXPECTED_LABELS: Record<Capability, string> = {
   'validation.catalog.report': '규칙 카탈로그 보고(토큰 전용)',
   'explorer.export': '로그 원본 내보내기',
   'explorer.investigate': '로그 조사',
+  'dataset.manage': '로그 테스트 데이터셋 관리',
 };
 
 describe('capability display copy', () => {

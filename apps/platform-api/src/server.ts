@@ -98,6 +98,7 @@ import {
   logExplorerContribution,
   logExplorerExportRoutes,
 } from './modules/log-explorer/index.js';
+import { type DatasetSourceRead, logDatasetsContribution } from './modules/log-datasets/index.js';
 import {
   createManagedSystemService,
   managedSystemsRoutes,
@@ -247,6 +248,8 @@ export interface BuildServerOptions {
     exportTotalMs?: number;
   };
   /** Test seam of the catalog import apply (#1195 b): a shorter time budget and failure/barrier hooks. */
+  /** Test seam of the log test datasets (#1477): the Source read port that settles file availability. Production injects none until a real adapter exists, so availability is `unverified`. */
+  logDatasets?: { sourceRead?: DatasetSourceRead; sourceOwnerAccess?: SourceOwnerAccess };
   logKnowledgeImport?: { applyBudgetMs?: number; hooks?: ImportApplyHooks & { afterApply?(): Promise<void> } };
 }
 
@@ -995,6 +998,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     logExplorerContribution(logExplorerDeps),
     logRulesContribution({ db: dbHandle.db, checkService, knowledgeLookup }),
     investigationContribution({ db: dbHandle.db, checkService, lifecycleRead: lifecycleRoundRead }),
+    logDatasetsContribution({ db: dbHandle.db, checkService, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is

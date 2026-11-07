@@ -151,6 +151,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
         'admin',
         [
           'console:access',
+          'dataset:manage',
           'features:access',
           'improvement:manage',
           'knowledge:catalog-manage',
@@ -263,6 +264,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
     it.each([
       ['lifecycle:project-manage', 'lifecycle.project.manage'],
       ['lifecycle:round-manage', 'lifecycle.round.manage'],
+      ['dataset:manage', 'dataset.manage'],
     ] as const)('%s is listed for Admin and for a workspace grant of %s, not for a plain user or a developer', async (permission, capability) => {
       const admin = await newActor('admin');
       const has = async (cookie: string) => (await bootstrap(cookie)).session.user.permissions.includes(permission);

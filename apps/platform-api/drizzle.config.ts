@@ -35,6 +35,7 @@ export default defineConfig({
     'log_lifecycle',
     'log_rules',
     'log_explorer',
+    'log_datasets',
     'dashboard',
     'platform',
   ],

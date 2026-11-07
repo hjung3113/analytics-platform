@@ -69,6 +69,13 @@ describe('audit action map vs @ap/contracts AuditAction', () => {
     ['lifecycle.excerpt_access.set', 'update'],
     ['lifecycle.excerpt.deleted', 'retire'],
     ['lifecycle.excerpt.purged', 'retire'],
+    ['dataset.created', 'create'],
+    ['dataset.updated', 'update'],
+    ['dataset.archived', 'retire'],
+    ['dataset.revision_created', 'create'],
+    ['dataset.candidate_created', 'create'],
+    ['dataset.candidate_approved', 'retire'],
+    ['dataset.candidate_rejected', 'retire'],
   ] as const)('%s → %s', (type, action) => {
     expect(AUDIT_ACTION_BY_EVENT_TYPE[type]).toBe(action);
   });
