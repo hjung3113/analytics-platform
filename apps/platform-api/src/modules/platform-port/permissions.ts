@@ -30,7 +30,9 @@ export type PlatformPermissionRule =
   /** Admin role, or an active workspace grant of `lifecycle.round.manage` (the write capability of the validation rounds). */
   | 'lifecycle-round-manage'
   /** Admin role, or an active workspace grant of `knowledge.draft.create` (the write capability of the knowledge drafts; Developer and User may hold it). */
-  | 'draft-create';
+  | 'draft-create'
+  /** An active workspace grant of `explorer.investigate` (the write capability of the log explorer investigations); no Admin role bypass (sensitive, #1472). */
+  | 'explorer-investigate';
 
 export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'platform:view', rule: 'every-session' },
@@ -53,6 +55,8 @@ export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'lifecycle:round-manage', rule: 'lifecycle-round-manage' },
   // Menu permission of the knowledge draft writes (#1198 a); the four draft actions declare it.
   { permission: 'knowledge:draft-create', rule: 'draft-create' },
+  // Menu permission of the log explorer investigation writes (#1468 b); the five investigation actions declare it.
+  { permission: 'explorer:investigate', rule: 'explorer-investigate' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
 /** Capabilities whose active grant (workspace or Managed-System scoped) opens `features:access`. */
@@ -191,6 +195,16 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'knowledge.draft.create', decision).allow;
+    }
+    case 'explorer-investigate': {
+      // The same decision the investigation write actions take (`log-explorer/investigation-actions.ts`).
+      const decision = await checkService.checkCapability(
+        actor,
+        'explorer.investigate',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'explorer.investigate', decision).allow;
     }
     case 'features-access': {
       // A token call has no role shortcut: only the capability scopes below can open it.

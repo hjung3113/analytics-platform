@@ -45,6 +45,7 @@ const PRODUCT_SCHEMAS = [
   'dashboard',
   'finding',
   'improvement',
+  'log_explorer',
   'log_lifecycle',
   'log_rules',
   'permission',
@@ -193,6 +194,8 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_lifecycle.rule_result_excerpt': ['SELECT', 'INSERT'],
   'log_lifecycle.queue_settings': ['SELECT', 'INSERT'],
   'log_lifecycle.excerpt_reader': ['SELECT', 'INSERT'],
+  // Log explorer (#1468 b): investigations are inserted and updated by column (asserted below); nothing is deleted.
+  'log_explorer.investigation': ['SELECT', 'INSERT'],
   // Migration 0101 (ADR-0116): tokens are issued and revoked, never edited or deleted. UPDATE is column-scoped to
   // the usage and revocation columns (asserted below); no table-wide UPDATE and no DELETE.
   'core.api_tokens': ['SELECT', 'INSERT'],
@@ -494,6 +497,21 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
       ['rule_result_excerpt_guard', false, true, 'O'],
       ['rule_result_excerpt_no_delete', true, false, 'O'],
     ]);
+  });
+
+  it('platform_app UPDATE on log_explorer.investigation is limited to the mutable columns', async () => {
+    const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
+      `select column_name
+           from information_schema.column_privileges
+          where grantee = 'platform_app'
+            and table_schema = 'log_explorer'
+            and table_name = 'investigation'
+            and privilege_type = 'UPDATE'
+          order by column_name`,
+    );
+    expect(rows.map((row) => row.column_name)).toEqual(
+      ['title', 'filters', 'evidence', 'status', 'row_version', 'updated_at'].sort(),
+    );
   });
 
   // #1198 a: the `knowledge` schema is not in PRODUCT_SCHEMAS, so the three draft tables are pinned explicitly.

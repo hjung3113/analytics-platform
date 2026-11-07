@@ -275,6 +275,18 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(await has(developer.cookie)).toBe(true);
     });
 
+    it('explorer:investigate is not listed for Admin (no role bypass), only for a workspace grant of explorer.investigate to a Developer', async () => {
+      const admin = await newActor('admin');
+      const has = async (cookie: string) => (await bootstrap(cookie)).session.user.permissions.includes('explorer:investigate');
+      expect(await has(admin.cookie)).toBe(false);
+      const developer = await newActor('developer');
+      expect(await has(developer.cookie)).toBe(false);
+      const plain = await newActor('user');
+      expect(await has(plain.cookie)).toBe(false);
+      await grantCapability(dbHandle, WORKSPACE_ID, developer.id, 'explorer.investigate', null, admin.id);
+      expect(await has(developer.cookie)).toBe(true);
+    });
+
     it('knowledge:draft-create is listed for Admin and for a workspace grant of knowledge.draft.create (Developer or User), not without one', async () => {
       const admin = await newActor('admin');
       const has = async (cookie: string) => (await bootstrap(cookie)).session.user.permissions.includes('knowledge:draft-create');

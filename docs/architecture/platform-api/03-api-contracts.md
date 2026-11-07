@@ -28,6 +28,7 @@ Detailed schemas may later move into OpenAPI; until they do, `api/*.md` remains 
 | [`api/saved-views.md`](api/saved-views.md) | Saved Views |
 | [`api/log-knowledge.md`](api/log-knowledge.md) | Log knowledge catalog and model/Item reads (menu-query), catalog and Item writes (menu-action) |
 | [`api/improvement-items.md`](api/improvement-items.md) | Improvement item reads (menu-query), tables and CHECK rules (#1328) |
+| [`api/log-explorer.md`](api/log-explorer.md) | Log explorer investigation reads (menu-query) and writes (menu-action), evidence refs, revoke state (#1468) |
 | [`api/log-lifecycle.md`](api/log-lifecycle.md) | Log lifecycle reads (menu-query) and project/round writes (menu-action), stage table, sampleSet limits, digests (#1444) |
 | [`api/log-explorer.md`](api/log-explorer.md) | Log explorer reads (menu-query): records, window, parsed, periods; states, limits, signed cursor, audit (#1469) |
 | [`api/log-rules.md`](api/log-rules.md) | Validation catalog report REST (token-only capability, closed fields, limits, idempotency, rejection records, audit) and the `log_rules` schema notes (#1491) |

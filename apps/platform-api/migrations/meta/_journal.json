@@ -764,6 +764,13 @@
       "when": 1794078049717,
       "tag": "0108_validation_request_queue",
       "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1794082864492,
+      "tag": "0109_log_explorer_investigation",
+      "breakpoints": true
     }
   ]
 }

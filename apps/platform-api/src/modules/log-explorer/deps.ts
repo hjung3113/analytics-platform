@@ -1,6 +1,7 @@
 import type { Db } from '../../db/client.js';
 import type { createAuditService } from '../core/audit/audit-service.js';
 import type { SourceSampleSet } from '@ap/contract-schemas';
+import type { LifecycleRoundRead } from '../log-lifecycle/index.js';
 import type { CheckService } from '../permissions/check-service.js';
 import type { SourceReadPort } from './ports/source-read.js';
 import type { UsageStore } from './usage-store.js';
@@ -61,4 +62,12 @@ export interface LogExplorerExportDeps extends LogExplorerReadDeps {
   beforeExportChunk?(index: number): Promise<void> | void;
   /** Wall-clock cap of the WHOLE response (Source reads and the stream), then the stream is cut. Default 120 s (less than the 150 s lease). */
   exportTotalMs?: number;
+}
+
+/** What the investigation endpoints and actions (#1468 node b) need: no Source port, no clock (the DB `now()` is used). */
+export interface InvestigationDeps {
+  db: Db;
+  checkService: CheckService;
+  /** The log lifecycle read port: the sample set of a round-origin investigation (never copied into the investigation). */
+  lifecycleRead: LifecycleRoundRead;
 }

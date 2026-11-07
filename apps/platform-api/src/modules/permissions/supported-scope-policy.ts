@@ -18,6 +18,7 @@ const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'improvement.manage',
   'lifecycle.project.manage',
   'lifecycle.round.manage',
+  'explorer.investigate',
 ]);
 
 export async function supportedScopeCandidates(

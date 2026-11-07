@@ -27,6 +27,7 @@ const CAPABILITIES = [
   "improvement.manage",
   "lifecycle.project.manage",
   "lifecycle.round.manage",
+  "explorer.investigate",
 ] as const;
 // The sensitive tier is 5/min per actor: split the grant calls over several admins.
 const ADMINS = ["admin", "admin2", "admin3", "admin4"] as const;
@@ -145,11 +146,12 @@ describe.skipIf(!runIntegration)(
     );
 
     // #1198 a (owner answer Q2): knowledge.draft.create is NOT for Admin and Developer only; a User may hold it.
-    // It is not sensitive, so it does not share the sensitive-tier budget of the grants above.
+    // The grants route allows 5 calls/min per actor and each admin already made 4 above (8 capabilities x 2 calls over 4 admins),
+    // so the two calls below go to different admins (5 each).
     it.each(["user", "developer"] as const)(
       "a direct grant of knowledge.draft.create to a %s succeeds",
       async (role) => {
-        const res = await post("/permissions/grants", "admin4", {
+        const res = await post("/permissions/grants", role === "user" ? "admin3" : "admin4", {
           actor_id: ids[role],
           capability: "knowledge.draft.create",
           reason: "test",
