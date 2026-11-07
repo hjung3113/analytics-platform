@@ -56,13 +56,15 @@ describe('leak boundary', () => {
     Object.defineProperty(throwing, 'code', { get() { throw new Error('body'); } });
     expect(toSourceReadError(throwing).code).toBe('adapter_failed');
   });
-  it('module source has no console/logger use, and no audit write', () => {
+  // `read-service.ts` is the one audit writer (#1469): it records counts, the Source owner, a digest, filter KEYS and a result code only;
+  // `read-endpoints.test.ts` pins that the written row holds no body, no filter value and no file reference.
+  it('module source has no console/logger use, and no audit write outside read-service.ts', () => {
     const offenders: string[] = [];
     for (const file of sources(ROOT)) {
       const text = readFileSync(file, 'utf8').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
       const rel = relative(ROOT, file);
       if (/\bconsole\s*\./.test(text) || /\b(?:logger|log|request\.log|app\.log)\s*\.(?:info|warn|error|debug|trace)\b/.test(text)) offenders.push(`${rel}: logging`);
-      if (/\baudit\.record\b|\bauditLog\b/.test(text)) offenders.push(`${rel}: audit write`);
+      if (rel !== 'read-service.ts' && /\baudit\.record\b|\bauditLog\b/.test(text)) offenders.push(`${rel}: audit write`);
     }
     expect(offenders).toEqual([]);
   });

@@ -62,6 +62,8 @@ export interface EndpointHandlerArgs {
   context: Record<string, unknown>;
   params: Record<string, unknown>;
   correlationId: string;
+  /** Fires when the client abandons the request (connection closed before the answer was sent). Absent for a caller that cannot cancel. */
+  signal?: AbortSignal;
 }
 
 export interface MenuEndpointDeclaration {

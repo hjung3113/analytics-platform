@@ -1,4 +1,4 @@
-// log-explorer module barrel (#1467 node a: port, contract, guard, domain, skeleton). No endpoints, tables or migrations yet (nodes b/c).
+// log-explorer module barrel (#1467 node a: port, contract, guard, domain, skeleton; #1469 node c: the four read endpoints). No tables or migrations yet (node b).
 // This barrel must never import `adapters/synthetic/` or `testing/`: the production graph check fails if it does (ADR-0009 approach).
 
 import type { LogExplorerDeps } from './deps.js';
@@ -23,3 +23,7 @@ export { clampRowLimit, clampTimeBudgetMs, clampWindowSide, effectiveLimits, PLA
 export { isInSourceOrder, markTimeReversals } from './domain/time-reversal.js';
 export { guardSourceReadPort } from './ports/guarded.js';
 export type { SourceReadContext, SourceReadPort } from './ports/source-read.js';
+export { LOG_EXPLORER_MENU_ID, logExplorerContribution, logExplorerReadEndpoints } from './read-endpoints.js';
+export { denyAllSourceOwners } from './deps.js';
+export type { LogExplorerReadDeps, SourceOwnerAccess } from './deps.js';
+export { SYNTHETIC_MARK } from './read-service.js';

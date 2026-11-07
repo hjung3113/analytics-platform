@@ -1,6 +1,6 @@
-# Log Explorer — 범용 로그 탐색 워크벤치 설계 (v0.31.0, 소유자 답 반영, 노드 a 구현됨)
+# Log Explorer — 범용 로그 탐색 워크벤치 설계 (v0.31.0, 소유자 답 반영, 노드 a·c 구현됨)
 
-> **Status: Candidate → 소유자 답 7개 반영(2026-11-07), ADR 0119·0121 Decided.** 노드 a(읽기 포트·`@ap/contract-schemas v0`·계약 테스트 하니스·합성 어댑터·모듈 골격)는 구현됐고(#1467), DB·API·화면·실제 Source 연동은 아직 구현되지 않았다. 근거는 [#1344](https://github.com/hjung3113/analytics-platform/issues/1344)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 설계 [`log-lifecycle`](../log-lifecycle/README.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0(= #1198 + #1344, 소유자 2026-11-07). 결정은 [ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)(읽기 포트·토큰·내보내기)와 [ADR-0121](../../../adr/0121-ordered-interval-track-sdk-piece.md)(시퀀스 SDK 조각)이 소유하고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: Candidate → 소유자 답 7개 반영(2026-11-07), ADR 0119·0121 Decided.** 노드 a(읽기 포트·`@ap/contract-schemas v0`·계약 테스트 하니스·합성 어댑터·모듈 골격)는 구현됐고(#1467), 읽기 엔드포인트 네 개(노드 c, #1469: records·window·parsed·periods)도 구현됐다. 조사 상태 DB·화면·실제 Source 연동은 아직 구현되지 않았고, 운영 조립에는 Source 어댑터가 없어 읽기는 «미연결» 상태로 답한다. 근거는 [#1344](https://github.com/hjung3113/analytics-platform/issues/1344)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 설계 [`log-lifecycle`](../log-lifecycle/README.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0(= #1198 + #1344, 소유자 2026-11-07). 결정은 [ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)(읽기 포트·토큰·내보내기)와 [ADR-0121](../../../adr/0121-ordered-interval-track-sdk-piece.md)(시퀀스 SDK 조각)이 소유하고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 원본 로그의 소유자(Source API)·Parser·Top View(#1200)는 사내 쪽에서 개발 중이거나 실사 전이다. 이 슬라이스는 **읽기 포트와 합성 어댑터까지만** 만들고 «연동됨» 표시를 두지 않는다.
 
@@ -239,10 +239,10 @@ log-dev
 | 0 | ADR 0119·0121 Decided 반영 + GLOSSARY 용어 확인 | light | 소유자 답(완료) |
 | a | `SourceReadPort` 계약·`@ap/contract-schemas v0`·계약 테스트 하니스·합성 어댑터·모듈 골격 (**구현됨, #1467**: 엔드포인트·테이블·마이그레이션 없음) | full, `impl-complex`(데이터 유출 경계) | 0 |
 | b | `investigation` 스키마·액션·읽기, 권한 철회·낙관적 동시성 | full | 0, v0.30.0 c |
-| c | 읽기 엔드포인트: records·window·parsed·periods (상한·취소·부분 결과) | full, `impl-complex` | a |
+| c | 읽기 엔드포인트: records·window·parsed·periods (상한·취소·부분 결과) (**구현됨, #1469**: [`api/log-explorer.md`](../../../architecture/platform-api/api/log-explorer.md); 마이그레이션 없음) | full, `impl-complex` | a |
 | d | `rule_result_evidence` 사이드 테이블 + `evidenceLinks` | full | v0.30.0 d |
 | e | **시퀀스 SDK 조각** `OrderedIntervalTrack` + 합성 소비자 + 시안(`?variant=`) + `sdk:api` | full, `impl-complex`(공개 API), `ux=required` | 시안 컨펌 |
-| f | 토큰 scope 등록·읽기 예산·내보내기 REST·감사·집계 | full, `impl-complex`(권한·유출 경계), `flags.permission` | a, c, [ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md) 노드 a(v0.30.0) |
+| f | 토큰 scope 등록(`explorer.source.read`의 `sessionOnly` 해제는 일일 본문 예산을 넣을 때 함께)·읽기 예산·내보내기 REST·감사·집계 | full, `impl-complex`(권한·유출 경계), `flags.permission` | a, c, [ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md) 노드 a(v0.30.0) |
 | g | 「로그 분석」 그룹·`menus/log-dev/log-analysis` + 조사 화면 + `LogInvestigationView` + 시안 | full, `ux=required`, 시각 부분 `impl-complex-sol` high | b, c, e, 시안 컨펌 |
 | h | 근거 위치 넘기기: 수신 인터페이스(Round·지식 초안), 확인 문구, 감사 | full, `impl-complex`(교차 모듈 쓰기) | b, **#1198 초안 제출 서비스**, v0.30.0 c |
 | i | Round 상세 «원본/시퀀스» 탭 연결 | full, `ux=required` | g, v0.30.0 f |

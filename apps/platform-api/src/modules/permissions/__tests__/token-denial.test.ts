@@ -13,8 +13,19 @@ const noDb = new Proxy({}, { get() { throw new Error('DB must not be read before
 describe('session-only capability registry', () => {
   it('marks exactly the high-risk capabilities and keeps them out of token scopes', () => {
     const marked = CAPABILITIES.filter(isSessionOnlyCapability).sort();
-    expect(marked).toEqual(['knowledge.item.publish', 'knowledge.spec.publish', 'task_request.self_approve', 'workspace.admin']);
+    expect(marked).toEqual(['explorer.source.read', 'knowledge.item.publish', 'knowledge.spec.publish', 'task_request.self_approve', 'workspace.admin']);
     expect(TOKEN_SCOPE_CAPABILITIES.some((c) => CAPABILITY_META[c].sessionOnly)).toBe(false);
+  });
+});
+
+describe('log explorer source read is session-only until node X-f (#1472)', () => {
+  it('cannot be a token scope and a token that names it is refused before any grant is read', async () => {
+    expect(TOKEN_SCOPE_CAPABILITIES).not.toContain('explorer.source.read');
+    expect(isSessionOnlyCapability('explorer.source.read')).toBe(true); // api-tokens `validateScopes` refuses a scope for which this is true (`session_only`)
+    const svc = createCheckService({ db: noDb });
+    await runAsToken('t', ['workspace.read', 'explorer.source.read'], async () => {
+      expect(await svc.checkCapability(actor, 'explorer.source.read', scope)).toMatchObject({ allow: false, reason: 'session_required' });
+    });
   });
 });
 

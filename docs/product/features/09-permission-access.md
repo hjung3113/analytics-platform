@@ -103,6 +103,7 @@ The backend returns effective navigation and capability states for the current w
 | Manage log development projects (`lifecycle.project.manage`) | no | permission required (workspace-wide) | yes |
 | Manage log validation rounds (`lifecycle.round.manage`) | no | permission required (workspace-wide) | yes |
 | Write log knowledge drafts (`knowledge.draft.create`) | permission required (workspace-wide) | permission required (workspace-wide) | yes |
+| Read original log text in the log explorer (`explorer.source.read`; also per Source owner) | permission required (workspace-wide) | permission required (workspace-wide) | permission required (explicit grant, no role bypass) and Source-owner access |
 | Approve Permission Request | no | no | yes |
 
 Notes:

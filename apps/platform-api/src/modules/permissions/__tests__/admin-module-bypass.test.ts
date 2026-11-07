@@ -41,6 +41,7 @@ const NONE: Capability[] = [
   'voc.read_public',
   'survey.read_personal_responses',
   'survey.export',
+  'explorer.source.read',
 ];
 
 describe('applyAdminModuleBypass', () => {

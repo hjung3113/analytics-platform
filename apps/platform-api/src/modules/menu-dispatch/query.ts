@@ -167,6 +167,7 @@ export async function runQuery(
   shape: Extract<QueryShape, { ok: true }>,
   actor: PlatformActor,
   correlationId: string,
+  signal?: AbortSignal,
 ): Promise<QueryAnswer> {
   const { declaration, context, params } = shape;
   if (!(await declaration.authorize(actor))) {
@@ -176,7 +177,7 @@ export async function runQuery(
   if (SET_FIELDS.some((field) => Array.isArray(context[field]) && context[field].length === 0)) {
     return answer('empty');
   }
-  const result = await declaration.handle({ actor, context, params, correlationId });
+  const result = await declaration.handle({ actor, context, params, correlationId, ...(signal ? { signal } : {}) });
   const { maxRows } = declaration.spec.limits ?? {};
   if (maxRows !== undefined && result.outcome === 'ok') {
     if (!Array.isArray(result.data)) {
