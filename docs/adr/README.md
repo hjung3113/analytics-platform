@@ -125,6 +125,9 @@
 | [0113](0113-voc-creation-permission-per-managed-system.md) | VOC 등록 권한은 시스템 단위(`voc_create_mode` `open`/`restricted`, 기본 열림, 연결 시스템도 열림 시작), 좁히는 단위는 사람(직접 부여 `voc.create`)+Admin 통과, 「플랫폼」 시스템은 항상 열림, 기존 VOC는 그대로. 0110·0069 보충 | Decided(2026-11-05, 소유자, #1358) |
 | [0114](0114-opt-in-keep-previous-for-page-input-params.md) | `useMenuQuery(..., { keepPrevious })` opt-in: 페이지 입력 `params`만 바뀌면 받아들인 마지막 `ok`·`empty` 결과를 `refreshing`으로 남김(`completedAt`은 그 결과의 시각). Context·Scope·세션·엔드포인트 변경은 그대로 가림, 새 응답은 오류도 대체, 기본 꺼짐. 켠 화면 6곳(#1382) | Decided(2026-11-05, 소유자, #1365) |
 | [0115](0115-kernel-navigation-guard-for-unsaved-edits.md) | Kernel 이동 가드: 메뉴가 `useUnsavedGuard(dirty, …)`로 선언하면 `commit`·popstate 한 곳에서 이동을 보류하고 셸 대화상자로 확인(`머무르기`/`이동`). 같은 경로 쓰기·재작성·Scope·세션 변경은 보류 안 함, popstate는 `apIdx` 보정, 새로고침은 `beforeunload`만 | Decided(2026-11-06, 소유자, #1388) |
+| [0116](0116-platform-api-tokens-personal-and-service.md) | 개인·서비스 API 토큰으로 기존 업무 API 호출, 고위험 동작은 세션 전용 | Decided(2026-11-07) |
+| [0117](0117-validation-request-queue-claim-lease-heartbeat.md) | 검증 요청 큐: pull 모델 claim·lease·heartbeat·멱등 결과, 서버가 실행 시간대 판단 | Decided(2026-11-07) |
+| [0118](0118-dynamic-hierarchy-navigation-sdk-piece.md) | 동적 계층 탐색을 SDK 범용 조각으로 제공, 메뉴가 단계 선언 | Decided(2026-11-07) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
