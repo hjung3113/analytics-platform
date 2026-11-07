@@ -25,8 +25,8 @@ const digest = z
 const itemVersion = z
   .number({ invalid_type_error: 'malformed' })
   .refine((v) => Number.isSafeInteger(v) && v >= 1, { message: 'malformed' })
-  .nullish()
-  .transform((v) => v ?? undefined);
+  // Absent or a positive int only: an explicit null is malformed (review C2), so a create approval cannot send it.
+  .optional();
 /** Optional approval note: absent, null or blank → null. */
 const optionalRationale = bounded(REVIEW_RATIONALE_MAX)
   .nullish()

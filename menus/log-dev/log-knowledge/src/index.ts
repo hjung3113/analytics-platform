@@ -32,7 +32,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'log-knowledge-items', group: groupId('logKnowledge'), label: { ko: '전체 기술 Item', en: 'Technical items' },
-    description: { ko: '모든 모델·SW 버전의 기술 Item을 유형·검증·처리·게시 상태로 찾습니다', en: 'Find technical items of every model and software version by type, verification, processing and publication state' },
+    description: { ko: '모든 모델·SW 버전의 기술 Item을 유형·검증·처리·발행 상태로 찾습니다', en: 'Find technical items of every model and software version by type, verification, processing and publication state' },
     path: '/log/knowledge/items', icon: ListChecks, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['q', 'filter', 'sort', 'page', 'focus', 'owner'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], contextResetKeys: ['page'],
     component: lazy(() => import('./pages/items/ItemList')),

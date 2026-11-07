@@ -6,7 +6,7 @@ describe('item model', () => {
     expect(['anomaly', 'needs_check', 'behavior_note', 'guideline'].map(typeLabel)).toEqual(['이상 사례', '확인 필요', '동작 설명', '작업 기준']);
     expect(['not_checked', 'observed', 'verified', 'disputed'].map(v => stateLabel('verification', v))).toEqual(['미확인', '관찰됨', '검증됨', '이견 있음']);
     expect(['open', 'under_investigation', 'resolved'].map(v => stateLabel('processing', v))).toEqual(['열림', '조사 중', '해결됨']);
-    expect(['published', 'archived'].map(v => stateLabel('publication', v))).toEqual(['게시됨', '보관됨']);
+    expect(['published', 'archived'].map(v => stateLabel('publication', v))).toEqual(['발행됨', '보관됨']);
   });
   it('writes KI-<n> and the owner as model or model / SW version', () => {
     expect(itemNoLabel(12)).toBe('KI-12');

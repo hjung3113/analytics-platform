@@ -320,7 +320,7 @@ describe.skipIf(!runIntegration)('log knowledge draft review (#1198 b)', () => {
       expect(a).toMatchObject({ outcome: 'ok', data: { itemId: target.id, revisionNo: 2 } });
       expect(await one('select * from knowledge.knowledge_item where id = $1', [target.id])).toMatchObject({ latest_revision_no: 2, row_version: 2 });
       expect(await one('select * from knowledge.knowledge_item_revision where item_id = $1 and revision_no = 2', [target.id])).toMatchObject({ title: title('revise-carry-d'), change_note: 'note revise-carry-d', published_by: reviewer.id });
-      expect((await sql('select target_key from knowledge.item_revision_subject where item_id = $1 and revision_no = 2', [target.id])).rows).toEqual([{ target_key: 'c1' }]);
+      expect((await sql('select target_key from knowledge.item_revision_subject where item_id = $1 and revision_no = 2', [target.id])).rows).toEqual([{ target_key: 'C1' }]); // stored in its canonical (upper-case) spelling, as a direct revise stores it
       const revised = (await audit(target.id)).filter((r) => r.event_type === 'knowledge.item.revised');
       expect(revised).toEqual([expect.objectContaining({ actor_id: reviewer.id, detail: expect.objectContaining({ revisionNo: 2 }) })]);
       expect(await draftRow(d.id)).toMatchObject({ status: 'approved' });
@@ -330,7 +330,7 @@ describe.skipIf(!runIntegration)('log knowledge draft review (#1198 b)', () => {
       const target = await newItem('revise-replace', [subject('r1')]);
       const d = await submitted('revise-replace-d', author, reviseProposal('revise-replace-d', { subjects: [subject('r2')] }), target.id);
       expect((await approve(d, { expectedItemVersion: Number(target.version) })).outcome).toBe('ok');
-      expect((await sql('select target_key from knowledge.item_revision_subject where item_id = $1 and revision_no = 2', [target.id])).rows).toEqual([{ target_key: 'r2' }]);
+      expect((await sql('select target_key from knowledge.item_revision_subject where item_id = $1 and revision_no = 2', [target.id])).rows).toEqual([{ target_key: 'R2' }]);
     });
 
     it('expectedItemVersion is required for revise and refused for create', async () => {
@@ -345,7 +345,7 @@ describe.skipIf(!runIntegration)('log knowledge draft review (#1198 b)', () => {
     it('a target that moved since the reviewer loaded it is stale and nothing is written', async () => {
       const target = await newItem('item-stale');
       const d = await submitted('item-stale-d', author, reviseProposal('item-stale-d'), target.id);
-      const rev = await act('itemRevise', { id: target.id, title: title('direct-bump'), typeCode: 'anomaly', changeNote: 'bump' }, { who: admin, expectedVersion: target.version });
+      const rev = await act('itemRevise', { id: target.id, title: title('direct-bump'), typeCode: 'anomaly', observation: 'bumped directly', changeNote: 'bump' }, { who: admin, expectedVersion: target.version });
       expect(rev.outcome).toBe('ok');
       const before = await itemTableCounts();
       const a = await approve(d, { expectedItemVersion: Number(target.version) });

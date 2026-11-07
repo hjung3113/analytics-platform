@@ -465,7 +465,7 @@ const itemEnum = (values: readonly string[], labels: Record<string, string>, mul
 export const ITEM_TYPE_LABEL: Record<ItemTypeCode, string> = { anomaly: '이상 사례', needs_check: '확인 필요', behavior_note: '동작 설명', guideline: '작업 기준' };
 export const VERIFICATION_LABEL: Record<VerificationState, string> = { not_checked: '미확인', observed: '관찰됨', verified: '검증됨', disputed: '이견 있음' };
 export const PROCESSING_LABEL: Record<ProcessingState, string> = { open: '열림', under_investigation: '조사 중', resolved: '해결됨' };
-export const PUBLICATION_LABEL: Record<PublicationState, string> = { published: '게시됨', archived: '보관됨' };
+export const PUBLICATION_LABEL: Record<PublicationState, string> = { published: '발행됨', archived: '보관됨' };
 
 /** Filter fields of the item list (wire meaning, ADR-0105). No `publicationState` condition = published items only (the server's rule). */
 export const itemFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = {

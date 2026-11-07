@@ -26,6 +26,7 @@ describe('review input (#1198 b)', () => {
     ['a zero item version', { id: ID, approvedDigest: DIGEST, expectedItemVersion: 0 }, ['expectedItemVersion:malformed']],
     ['a fractional item version', { id: ID, approvedDigest: DIGEST, expectedItemVersion: 1.5 }, ['expectedItemVersion:malformed']],
     ['a string item version', { id: ID, approvedDigest: DIGEST, expectedItemVersion: '2' }, ['expectedItemVersion:malformed']],
+    ['an explicit null item version', { id: ID, approvedDigest: DIGEST, expectedItemVersion: null }, ['expectedItemVersion:malformed']],
     ['a rationale over 2000', { id: ID, approvedDigest: DIGEST, rationale: 'x'.repeat(2001) }, ['rationale:too_long']],
     ['a bad id', { id: 'nope', approvedDigest: DIGEST }, ['id:malformed']],
   ])('approve refuses %s', (_label, input, expected) => {
