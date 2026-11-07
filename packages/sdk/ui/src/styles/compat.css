@@ -120,7 +120,7 @@
     .hljs-keyword, .hljs-selector-tag { color: rgb(var(--text-info-label)); }
     .hljs-string, .hljs-attr { color: rgb(var(--text-success-label)); }
     .hljs-number, .hljs-literal { color: rgb(var(--text-warning-label)); }
-    .hljs-comment { color: rgb(var(--text-muted)); }
+    .hljs-comment { color: rgb(var(--text-secondary)); }
   }
 }
 

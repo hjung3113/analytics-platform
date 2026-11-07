@@ -71,7 +71,7 @@ export function buildExtensionsForSurface(surface: RichEditorSurface, placeholde
     ...(has('link') ? [Link.configure({ openOnClick: false })] : []), ...(has('underline') ? [Underline] : []),
     Placeholder.configure({ placeholder }), ...(has('attachmentRef') ? [AttachmentRef] : []), ...(has('mention') ? [Mention] : []),
     ...(has('highlight') ? [PaletteHighlight] : []), ...(has('color') ? [PaletteColor] : []),
-    ...(has('taskList') ? [TaskList, TaskItem.configure({ nested: true })] : []),
+    ...(has('taskList') ? [TaskList, TaskItem.configure({ nested: true, HTMLAttributes: { 'data-type': 'taskItem' } })] : []),
     ...(has('table') ? [TableKit.configure({ table: { resizable: true, cellMinWidth: 25 } })] : []),
     ...(has('details') ? [Details.configure({ persist: true }), DetailsSummary, DetailsContent] : []),
     ...(has('tableOfContents') ? [OutlineNode.extend({

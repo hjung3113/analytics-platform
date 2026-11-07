@@ -6,7 +6,7 @@ import type { RichEditorProps, RichEditorToolbarApi, TipTapDoc } from './RichEdi
 import { getExtensionsForSurface } from './allowlist-local';
 import { buildExtensionsForSurface } from './editor-extensions';
 import { RichEditorToolbar } from './RichEditorToolbar';
-import { EditorExtras } from './EditorExtras';
+import { EditorExtras, type SlashMenuAssociation } from './EditorExtras';
 import { sanitizeClient } from './sanitizeClient';
 
 export default function RichEditorImpl({
@@ -25,6 +25,7 @@ export default function RichEditorImpl({
   const callbacks = React.useRef({ onAttach, resolveAttachmentUrl });
   React.useEffect(() => { callbacks.current = { onAttach, resolveAttachmentUrl }; }, [onAttach, resolveAttachmentUrl]);
   const [uploadError, setUploadError] = React.useState(false);
+  const [slashMenu, setSlashMenu] = React.useState<SlashMenuAssociation | null>(null);
   const uploadFiles = React.useCallback(async (editor: Editor, files: File[], pos?: number) => {
     if (!editor.isEditable || !callbacks.current.onAttach) return;
     setUploadError(false);
@@ -60,9 +61,13 @@ export default function RichEditorImpl({
         role: 'textbox',
         'aria-multiline': 'true',
         ...(ariaLabel ? { 'aria-label': ariaLabel } : {}),
+        ...(getExtensionsForSurface(surface).includes('heading') ? {
+          'aria-expanded': slashMenu ? 'true' : 'false',
+          ...(slashMenu ? { 'aria-controls': slashMenu.id, 'aria-activedescendant': slashMenu.activeId } : {}),
+        } : {}),
       },
     }),
-    [ariaLabel],
+    [ariaLabel, surface, slashMenu],
   );
 
   const editor = useEditor({
@@ -163,7 +168,7 @@ export default function RichEditorImpl({
     <>
       {toolbar ? toolbar(editor, toolbarApi) : editor && getExtensionsForSurface(surface).includes('heading') ? <RichEditorToolbar editor={editor} surface={surface} {...(onAttach ? { attach: toolbarApi.attach } : {})} /> : null}
       {uploadError && <p role="alert" className="break-keep px-3 text-sm text-text-danger-label">첨부 파일을 올리지 못했습니다. 다시 시도해 주세요.</p>}
-      {editor && getExtensionsForSurface(surface).includes('heading') && <EditorExtras editor={editor} surface={surface} />}
+      {editor && getExtensionsForSurface(surface).includes('heading') && <EditorExtras editor={editor} surface={surface} onMenuChange={setSlashMenu} />}
       {/*
         `minHeight` sizes this wrapper, but the editable element TipTap renders
         inside it (`.ProseMirror`) is only as tall as its content. Everything

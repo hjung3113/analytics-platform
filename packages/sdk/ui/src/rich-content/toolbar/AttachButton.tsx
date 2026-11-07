@@ -12,6 +12,7 @@
 import { Loader2, Paperclip } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '../../utils/cn';
+import { IconHelp } from './IconHelp';
 
 export interface AttachButtonProps {
   /**
@@ -25,6 +26,8 @@ export interface AttachButtonProps {
   disabled?: boolean;
   /** Accessible label. Defaults to '첨부 파일 추가' (PLAN-22 C8 acceptance). */
   label?: string;
+  /** Opt in to shared hover/focus help; legacy toolbar markup stays unchanged by default. */
+  showTooltip?: boolean;
   className?: string;
   /** Optional test id for surface-specific assertion. */
   'data-testid'?: string;
@@ -35,6 +38,7 @@ export function AttachButton({
   accept,
   disabled,
   label = '첨부 파일 추가',
+  showTooltip = false,
   className,
   'data-testid': testId,
 }: AttachButtonProps): React.ReactElement {
@@ -64,8 +68,7 @@ export function AttachButton({
 
   const isDisabled = disabled === true || pending;
 
-  return (
-    <>
+  const button = (
       <button
         type="button"
         aria-label={label}
@@ -93,6 +96,11 @@ export function AttachButton({
           <Paperclip size={14} aria-hidden="true" />
         )}
       </button>
+  );
+
+  return (
+    <>
+      {showTooltip ? <IconHelp label={label}>{button}</IconHelp> : button}
       <input
         ref={inputRef}
         type="file"

@@ -12,11 +12,19 @@ import { FormatButtons } from './RichEditorToolbar';
 import { richContentOutline } from './outline';
 import { getExtensionsForSurface } from './allowlist-local';
 const slashKey = new PluginKey('richContentSlash');
+const bubbleOptions = { placement: 'bottom', flip: false } as const;
 interface MenuState { items: EditorAction[]; index: number; apply: (action: EditorAction) => void }
-export function EditorExtras({ editor, surface }: { editor: Editor; surface: RichEditorSurface }) {
+export interface SlashMenuAssociation { id: string; activeId: string }
+export function EditorExtras({ editor, surface, onMenuChange }: { editor: Editor; surface: RichEditorSurface; onMenuChange: (menu: SlashMenuAssociation | null) => void }) {
   const [menu, setMenu] = React.useState<MenuState | null>(null);
+  const menuId = React.useId();
   const [, update] = React.useReducer(n => n + 1, 0);
   const capabilities = getExtensionsForSurface(surface);
+  const editable = editor.isEditable;
+  React.useEffect(() => {
+    onMenuChange(menu && editable ? { id: menuId, activeId: `${menuId}-${menu.index}` } : null);
+  }, [menu, editable, menuId, onMenuChange]);
+  React.useEffect(() => () => onMenuChange(null), [onMenuChange]);
   React.useEffect(() => {
     editor.on('transaction', update);
     const actions = actionsForSurface(surface);
@@ -47,7 +55,7 @@ export function EditorExtras({ editor, surface }: { editor: Editor; surface: Ric
   return <>
     {outline.length > 0 && <details className="border-b border-border-subtle p-3 text-xs break-keep"><summary>목차</summary><div className="flex flex-col items-start gap-1">{outline.map((entry, index) => <Button type="button" key={entry.id} size="toolbar" variant="subtle" onClick={() => editor.view.dom.querySelectorAll('h1,h2,h3')[index]?.scrollIntoView({ block: 'center' })}>{entry.text}</Button>)}</div></details>}
     {editor.isEditable && actionsForSurface(surface).length > 0 && <DragHandle editor={editor}><Button type="button" variant="subtle" size="icon-xs" aria-label="블록 끌어 옮기기"><GripVertical className="size-4" /></Button></DragHandle>}
-    {editor.isEditable && <BubbleMenu editor={editor}><div className="flex gap-1 rounded-md border border-border-subtle bg-surface-popover p-1 shadow-md" role="toolbar" aria-label="선택 서식"><FormatButtons editor={editor} surface={surface} /></div></BubbleMenu>}
-    {menu && editor.isEditable && <div className="sticky bottom-1 flex flex-col rounded-md border border-border-subtle bg-surface-popover p-1 shadow-md break-keep" role="listbox" aria-label="블록 추가">{menu.items.map((action, index) => <Button type="button" key={action.label} role="option" aria-selected={index === menu.index} size="toolbar" variant={index === menu.index ? 'outline' : 'subtle'} onMouseDown={event => event.preventDefault()} onClick={() => menu.apply(action)}>{action.label}</Button>)}</div>}
+    {editor.isEditable && <BubbleMenu editor={editor} options={bubbleOptions}><div className="flex gap-1 rounded-md border border-border-subtle bg-surface-popover p-1 shadow-md" role="toolbar" aria-label="선택 서식"><FormatButtons editor={editor} surface={surface} /></div></BubbleMenu>}
+    {menu && editor.isEditable && <div id={menuId} className="sticky bottom-1 flex flex-col rounded-md border border-border-subtle bg-surface-popover p-1 shadow-md break-keep" role="listbox" aria-label="블록 추가">{menu.items.map((action, index) => <Button type="button" key={action.label} id={`${menuId}-${index}`} role="option" tabIndex={-1} aria-selected={index === menu.index} size="toolbar" variant={index === menu.index ? 'outline' : 'subtle'} onMouseDown={event => event.preventDefault()} onClick={() => menu.apply(action)}>{action.label}</Button>)}</div>}
   </>;
 }
