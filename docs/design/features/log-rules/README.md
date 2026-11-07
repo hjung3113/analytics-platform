@@ -11,7 +11,7 @@
 1. **조회**: Validator가 실제로 지원한다고 보고한 Rule·RuleSet·Revision 목록과 **지원 범위**를 본다.
 2. **선언 기록·표시**: Rule마다 Validator가 선언한 **대상 범위**를 그 형식 그대로 저장·표시한다(소유자 2026-11-08: «정적 검사가 담당하고 범위가 이벤트·컬럼보다 다양해 플랫폼이 단위를 정하기 어렵다»). 플랫폼은 대상 범위를 해석하거나 이벤트·필드 단위로 바꾸지 않는다.
 3. **명세 커버리지**: Validator가 **명세 요구사항 ID**를 함께 줄 때만, 모델 명세의 요구사항과 대조해 요구사항마다 «규칙 있음/규칙 없음»을 계산한다. ID를 주지 않으면 «규칙 없음»을 계산하지 않고 «계산할 수 없음»이라 표시한다.
-4. **읽기 포트**: 나중에 Gate의 필수 Rule 커버리지 계산([log-lifecycle §9](../log-lifecycle/README.md#9-미구현-목록-다시-여는-조건))이 이 선언을 읽는 포트를 정해 둔다. 계산 자체는 하지 않는다.
+4. **읽기 포트**: 나중에 Gate의 필수 Rule의 명세 커버리지 계산([log-lifecycle §9](../log-lifecycle/README.md#9-미구현-목록-다시-여는-조건))이 이 선언을 읽는 포트를 정해 둔다. 계산 자체는 하지 않는다.
 
 하지 않는 것(§9에 다시 여는 조건): **사람이 만드는 연결**(수동 연결·확인·폐기 — 소유자 결정), Rule 편집기·실행·규칙 엔진 이관(P2, Validator가 안전한 편집 API를 내놓고 권위 일치가 확인될 때), Rule 정의 본문·파라미터·판정 로직의 저장, 플랫폼에서 Validator로 나가는 호출, LLM이 제안한 연결, Gate 필수 Rule 정책 계산, 실행 결과(`rule_result`)의 재판정.
 
@@ -30,7 +30,7 @@
 - **판정 축 분리.** 이 문서의 선언·커버리지는 «이 요구사항을 검사하는 규칙이 있다고 Validator가 말한다»는 **구성 정보**이고 검증 결과가 아니다. 커버리지 100%는 통과를 뜻하지 않는다. 규칙 결과, 사람 Gate 결정과 서로 덮지 않는다.
 - **명세 커버리지 ≠ 실행 커버리지**(소유자 2026-11-08). 명세 커버리지는 *명세 요구사항 ↔ Rule 선언*이고(이 문서), 실행 커버리지는 *한 회귀 실행/시도에서 기대한 Rule 중 실제로 돈 것*이다([log-test-datasets](../log-test-datasets/README.md)). 두 문서는 각각 이 이름만 쓴다.
 - **«규칙 없음»**(소유자 2026-11-08): Validator가 요구사항 ID를 선언했는데 어떤 활성 Rule도 그 요구사항을 선언하지 않았다는 표시다. Validator가 ID를 주지 않으면 **쓰지 않는다**(«계산할 수 없음»). 지식 Item의 기술 검증 상태(`not_checked`, 현재 표시 «미확인»)·규칙 결과 `NOT_CHECKED`와 다른 축이고, 이 표시로 그 상태들을 바꾸지 않는다. 이슈 본문의 «미검증 표시»는 이 표시를 뜻한다.
-- **ID 보존.** 기존 규칙 결과의 `rule_id`와 Dataset `expected_scope`의 `rule_id`는 외부 규칙 식별자다([log-lifecycle §3](../log-lifecycle/README.md#rule_result)). 카탈로그의 `rule.id`는 보고별 투영 행 ID이며 외부 규칙 식별자를 대신하지 않는다. `rule_key`·`rule_set_key`는 Validator가 정한 불투명 식별자 후보로, 기존 `rule_id`와의 대응 및 RuleSet·Revision 식별 조건은 Validator 실사 때 노드 0에서 확인한다(실사 전에는 `rule_id = rule_key`라고 단정하지 않는다). Revision 사이 동일성은 Validator가 보고한 `supersedes` 관계가 있을 때만 쓴다.
+- **식별 계약**(노드 0 확인 결과). 기존 규칙 결과의 `rule_id`(`rule_result.rule_id`)와 Dataset `expected_scope`의 `rule_id`, 시도의 `execution_attempt.rule_set_revision`은 모두 **Validator가 정한 불투명 `text`**다([log-lifecycle §3](../log-lifecycle/README.md#rule_result); 구현 중인 검증 요청 큐 노드가 `text`로 둔다). 카탈로그의 `rule.id`·`rule_set_revision.id`는 보고별 **투영 행 ID**이며 외부 식별자를 대신하지 않는다. 규칙: ① `rule_key`·`rule_set_key`·`revision`·`resultRef`는 1–200자, 앞뒤 공백·제어 문자 없음(위반은 `unknown_field`가 아닌 `invalid_identifier`로 거절), 비교는 **대소문자·정규화 변환 없는 정확한 문자열 일치**; ② `rule_result.rule_id` ↔ 카탈로그는 **`(RuleSet, rule_key)`로** 짝짓고, RuleSet은 시도의 `rule_set_revision` 문자열을 카탈로그의 `result_ref`(§3.2)와 정확히 비교해 찾는다; ③ 한 문자열이 둘 이상의 RuleSet Revision에 걸리면 **짝짓지 않고** `ambiguous`로 표시한다(추정 금지); ④ 실사 전에는 `rule_id = rule_key`라고 단정하지 않고, 합성 보고자는 같은 철자를 쓰는 **합성 fixture**일 뿐 연동 증거가 아니다. Revision 사이 동일성은 Validator가 보고한 `supersedes` 관계가 있을 때만 쓴다.
 - **용어.** 화면은 기존 `검증 규칙`·`규칙`, 외부 객체·코드 설명은 `Rule`·`RuleSet`(같은 개념, 노드 0에서 GLOSSARY에 한 항목으로 등재). `규칙 결과`·`실행 프로파일`·`근거 위치`는 GLOSSARY. 새 용어 `규칙 카탈로그`, `명세 요구사항`, `대상 범위`(Rule), `명세 커버리지`, `실행 커버리지`도 노드 0에서 등재한다.
 
 ## 3. 데이터 모델 (확정 DDL 아님)
@@ -46,7 +46,7 @@
 
 ### 3.2 rule_set_revision · rule · rule_target (보고의 정규화 행, 불변)
 
-`rule_set_revision`: `id`, `report_id`, `rule_set_key`, `revision`(Validator의 버전 문자열), `revision_digest`, `released_at?`, `status`(`active`·`retired`: 보고가 알려 준 값), `supersedes?`.
+`rule_set_revision`: `id`, `report_id`, `rule_set_key`, `revision`(Validator의 버전 문자열), `result_ref`(Validator가 결과 제출의 `rule_set_revision`에 쓰는 문자열, 선택; 없으면 `revision`), `revision_digest`, `released_at?`, `status`(`active`·`retired`: 보고가 알려 준 값), `supersedes?`.
 
 `rule`: `id`, `rule_set_revision_id`, `rule_key`, `title`(≤120자), `summary`(≤300자, 정의 본문 아님), `support`(`supported`·`partial`·`unsupported`·`unknown`), `scope`(지원 범위, jsonb 후보 — 닫힌 키: `logTypes[]`·`processes[]`·`modelIds[]`·`softwareRange?`·`inputFormats[]`; 실제 키는 Validator 실사 뒤 확정, D2), `required_default`(bool?: Validator가 «기본 필수»로 표시한 경우), `rule_digest`.
 
@@ -112,7 +112,7 @@ log-rules/
 ### 5.1 보고 — 토큰 호출 REST (`v0`)
 
 ```text
-POST /api/v1/validation-catalog/report   { sourceSystem, validatorVersion, ruleSets:[{ ruleSetKey, revision, status, supersedes?, rules:[{ ruleKey, title, summary, support, scope?, requiredDefault?, targets?:[{ format, target, requirementIds?:[string] }] }] }] }
+POST /api/v1/validation-catalog/report   { sourceSystem, validatorVersion, ruleSets:[{ ruleSetKey, revision, resultRef?, status, supersedes?, rules:[{ ruleKey, title, summary, support, scope?, requiredDefault?, targets?:[{ format, target, requirementIds?:[string] }] }] }] }
   → 200 { reportId, outcome:"accepted" }  | 200 (같은 digest 재전송)  | 4xx 사유 코드(unknown_field·too_large·duplicate_key·secret_pattern·forbidden)
 ```
 
@@ -132,7 +132,7 @@ POST /api/v1/validation-catalog/report   { sourceSystem, validatorVersion, ruleS
 
 ### 5.3 읽기 포트 (모듈 간)
 
-`RuleCoveragePort.getCoverage(modelId, softwareId?)` → `{ computable, requirements:[{ key, state }], coverageDigest, specPin, ruleSetRevisions:[…] }` 와 `resolveRuleSetRevision(ruleSetKey, revision)`. 소비자(구현은 각 문서의 몫): Gate의 필수 Rule 커버리지 계산(log-lifecycle §9), Round 화면의 RuleSet 링크, [log-test-datasets](../log-test-datasets/README.md)의 `expected_scope` 규칙 ID 존재 확인(노드 0의 식별 계약 확인 뒤), 이후 `logCross`.
+`RuleCoveragePort.getCoverage(modelId, softwareId?)` → `{ computable, requirements:[{ key, state }], coverageDigest, specPin, ruleSetRevisions:[…] }` 와 `resolveRuleSetRevision(ruleSetKey, revision)`. 소비자(구현은 각 문서의 몫): Gate의 필수 Rule의 명세 커버리지 계산(log-lifecycle §9), Round 화면의 RuleSet 링크, [log-test-datasets](../log-test-datasets/README.md)의 `expected_scope` 규칙 ID 존재 확인(노드 0의 식별 계약 확인 뒤), 이후 `logCross`.
 
 쓰기 액션은 없다.
 
@@ -182,7 +182,7 @@ log-dev > 기준 (logRules)
 
 | 노드 | 내용 | 기대 티어 | 선행 |
 | --- | --- | --- | --- |
-| 0 | 외부 `rule_id` ↔ `rule_key`·`rule_set_key`·Revision 식별 계약 확인 + [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md) 확정 + GLOSSARY 용어(`규칙 카탈로그`·`명세 요구사항`·`대상 범위`·`명세 커버리지`·`실행 커버리지`, Rule↔규칙 한 항목) + log-test-datasets의 «Rule coverage» → «실행 커버리지» 정리 | light | 소유자 답(완료), Validator 실사 |
+| 0 | **완료(#1490)**: 외부 `rule_id` ↔ `rule_key`·`rule_set_key`·Revision 식별 계약 확인(§2) + [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md) 확정 + GLOSSARY 용어(`규칙 카탈로그`·`명세 요구사항`·`대상 범위`·`명세 커버리지`·`실행 커버리지`, Rule↔규칙 한 항목) + log-test-datasets의 «Rule coverage» → «실행 커버리지» 정리 | light | 소유자 답(완료), Validator 실사 |
 | a | `log_rules` 스키마·마이그레이션, 보고 REST(토큰 scope, 멱등, 상한, 닫힌 필드, 비밀 패턴 거절), 합성 보고자 | full, `impl-complex` (권한·입력 경계) | 0, v0.30.0 a |
 | b | 카탈로그 읽기: ruleSets·ruleSetDetail·rules·ruleDetail·catalogStatus | full | a |
 | c | `log-knowledge` 실효 명세 요구사항 키 읽기 포트(모델·SW → 키 목록·`spec_pin`·ACL) | full, `impl-complex` | — (a와 독립) |
@@ -240,4 +240,4 @@ log-dev > 기준 (logRules)
 | D7 | 보고 상한(RuleSet 50·Rule 5,000·Rule당 targets 20·요구사항 ID 50·2MB, 요약 300자, `target` 500자) | 이 값으로 시작, 측정 후 조정 |
 | D8 | 카탈로그 보존 | 모든 보고 추가 전용 보존(시도의 `rule_set_revision` 참조) |
 | D9 | Rule/규칙 이름 | 화면은 `검증 규칙`·`규칙`, 외부 객체·코드는 `Rule`·`RuleSet`을 같은 개념으로 용어집에 한 항목 등재(용어 정리, 비소유자 결정) |
-| D10 | 외부 `rule_id` ↔ `rule_key` 대응 | Validator 실사 전이라 단정하지 않고 노드 0에서 확인(소유자 질문 아님) |
+| D10 | 외부 `rule_id` ↔ `rule_key` 대응 | 불투명 text·정확한 문자열 일치·`result_ref`로 RuleSet을 찾고 모호하면 `ambiguous`(§2 식별 계약, 노드 0). 실제 Validator 값과의 일치는 실사 때 확인 |

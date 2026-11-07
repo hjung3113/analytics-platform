@@ -12,7 +12,7 @@ Round에 묶이지 않고 여러 모델·Round·Validator 버전에서 되풀이
 2. **DatasetRevision**: 순서 있는 파일 참조·해시·매니페스트 digest를 **불변**으로 고정. 원본은 복제하지 않는다.
 3. **ExpectedBaseline**: 한 DatasetRevision에 대해 적용 Spec·RuleSet·Parser 버전·실행 프로파일(`engine_profile_ref`) 버전, 예상 검사 범위, Rule별 기대 결과·예외, 검수자·시각. **실행 결과(`rule_result`)로 자동 덮어쓰지 않는다.**
 4. **RegressionSuite**: Dataset 집합 + 고정 실행 프로파일(`engine_profile_ref`). 재실행을 **요청**하고 실행은 외부 작업자(기존 검증 요청 큐)가 한다.
-5. **Comparison**: Baseline 대비 새 회귀 실행의 fixed·new·regressed·unchanged와 Rule coverage(실행 vs 미검사), false-positive/negative를 사람이 붙이는 결과 검토 라벨. 공식 확정은 사람.
+5. **Comparison**: Baseline 대비 새 회귀 실행의 fixed·new·regressed·unchanged와 실행 커버리지(실행 vs 미검사), false-positive/negative를 사람이 붙이는 결과 검토 라벨. 공식 확정은 사람.
 6. **회귀 자산화**: 새 Defect·Round 근거 위치에서 Dataset **후보(draft)**를 만들고 사람이 검토·승인한다.
 
 식별자·이력은 처음부터 Round와 분리한다(인수 기준 1). 같은 Dataset이 여러 Round에서 쓰여도 각 실행 이력은 따로 남는다.
@@ -90,7 +90,7 @@ Round에 묶이지 않고 여러 모델·Round·Validator 버전에서 되풀이
 | `not_comparable` | 관측 `NOT_CHECKED`/`SKIPPED`/`ERROR`/원본 부재인데 기대가 검사였음 — **PASS로 세지 않음** |
 | `missing` | 기대한 `rule_id`가 결과에 없음(미검사) |
 
-- **Rule coverage**: `expected_scope` 대비 실행된 Rule / 미검사 Rule 수와 목록. 필수 Rule 미검사는 비교 요약 맨 위에 보인다.
+- **실행 커버리지**: `expected_scope` 대비 실행된 Rule / 미검사 Rule 수와 목록. 필수 Rule 미검사는 비교 요약 맨 위에 보인다.
 - `false positive`/`false negative`는 **계산 값이 아니라 사람의 결과 검토 라벨**이다: `suite_review_label`(추가 전용: `suite_run_id`, `rule_id`, `dataset_revision_id`, `label`(`false_positive`·`false_negative`·`accepted_change`·`needs_review`), `reason`, `actor_id`, `at`). 결과 검토 라벨이 Baseline이나 규칙 결과를 바꾸지 않는다. 기대를 바꾸려면 새 Baseline draft → 승인.
 - 스크립트 판정과 LLM 가설은 별도 열이다. 이 슬라이스에는 LLM 열이 없고 자리만 정한다(§9).
 
