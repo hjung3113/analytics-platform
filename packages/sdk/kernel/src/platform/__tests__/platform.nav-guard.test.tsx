@@ -50,7 +50,11 @@ function Probe() {
   useEffect(() => guard.onTraversal(() => { traversals++; }), [guard]);
   return null;
 }
-const settle = () => act(async () => { await new Promise(r => setTimeout(r, 30)); });
+// jsdom runs each history traversal as two chained zero-delay timers (queue, then popstate), and a guarded Back adds a compensating traversal.
+// A fixed wall-clock wait races that chain when the loop stalls (CI load, #1417); a count of zero-delay hops is ordered after it whatever the load.
+// 8 hops cover the two chained traversals of a guarded Back plus the replayed one after confirm.
+const HOPS = 8;
+const settle = () => act(async () => { for (let i = 0; i < HOPS; i++) await new Promise(r => setTimeout(r, 0)); });
 const here = () => window.location.pathname + window.location.search;
 function mount(url: string, over: Partial<PlatformAdapter> = {}, strict = false) {
   window.history.replaceState(null, '', url);
@@ -263,6 +267,19 @@ describe('menu leave guard: browser Back and Forward (ADR-0115)', () => {
     act(() => request!.confirm());
     await settle();
     expect(here()).toBe('/mars/other');
+  });
+
+  it('a stalled event loop between a multi-step Back and its settle does not skip the compensation (#1417)', async () => {
+    stack();
+    act(() => setDirty(true));
+    const go = vi.spyOn(window.history, 'go');
+    const settled = settle(); // armed before the stall, like a CI worker that is descheduled right after `go(-2)`
+    window.history.go(-2);
+    for (const start = Date.now(); Date.now() - start < 60;); // block the loop past any wall-clock wait
+    await settled;
+    expect(go.mock.calls.map(([d]) => d as number)).toEqual([-2, 2]);
+    expect(here()).toBe('/mars/third');
+    expect(request).not.toBeNull();
   });
 
   it('cancel keeps the screen; Forward still works afterwards', async () => {
