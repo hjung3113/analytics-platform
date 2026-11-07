@@ -28,7 +28,7 @@ export const SAVED_VIEW_PORT_METHODS: readonly SavedViewPortMethod[] = [
 const NO_ACCESS = 'no-access';
 const OTHERS_VIEW = '다른 사람의 뷰입니다. 복제해서 편집하세요.';
 const OFFICIAL_NO_EDIT = '공식 등록본은 직접 편집할 수 없습니다. 변경하면 재승인을 요청합니다.';
-const REVOKE_NOTE = '공식 등록가 회수되어 개인 비공개로 돌아왔습니다.';
+const REVOKE_NOTE = '공식 등록이 회수되어 개인 비공개로 돌아왔습니다.';
 
 export function planSavedViewChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   const sample = harness.ports.savedViews;

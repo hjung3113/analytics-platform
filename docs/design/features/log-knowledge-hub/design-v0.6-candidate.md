@@ -36,8 +36,8 @@
 | 9 | SW별 Module/Event ID 독립, 공통 개념은 검토된 매핑 | 원본 키 공유·자동 동치판정 금지 |
 | 10 | 기술 판단 변경 이력과 본문 Revision은 별개 | append-only `item_assessment_event` |
 | 11 | SW 버전까지 관리, **Build 제외** | Build 필수 키/자식 테이블/화면 금지 |
-| 12 | 핵심 Spec 구조화+상세 문서 병행 | SW별 Revision/Module/Event/필드·관계·문서 링크 |
-| 13 | Model 공통 후보는 SW 명세로 추출하고 **사람 확정** | 출처 SW Revision 집합, stale/revalidation 관리 |
+| 12 | 핵심 Spec 구조화+상세 문서 병행 | 모델 명세 Revision/Module/Event/필드·관계·문서 링크, SW는 변경점만 |
+| 13 | 모델 명세가 원본이라 «후보 추출 → 승인 파생본» 흐름 없음 | 열린 변경점의 `재검토 필요` 표시([ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)) |
 | 14 | Model↔Process **N:M** | 독립 공정 사전과 조인, 모델 중복 없이 탐색 |
 | 15 | 표준 유형·카테고리 + 수동 그룹 + 저장 검색 | 데이터 소유/분류/개인 뷰 분리 |
 | 16 | 기존 Item의 특정 Revision으로부터 **독립 신규 Item 파생** | `derived_from` provenance, 근거·검증 자동 승계 금지 |

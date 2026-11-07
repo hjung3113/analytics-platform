@@ -17,7 +17,7 @@ const TRANSITIONS: Readonly<Record<ApprovalAction, readonly ApprovalState[]>> = 
 export const canTransition = (approval: ApprovalState, action: ApprovalAction): boolean =>
   TRANSITIONS[action].includes(approval);
 
-export const REVOKE_NOTE = '공식 등록가 회수되어 개인 비공개로 돌아왔습니다.';
+export const REVOKE_NOTE = '공식 등록이 회수되어 개인 비공개로 돌아왔습니다.';
 
 export interface ViewBody {
   context: Record<string, unknown>;

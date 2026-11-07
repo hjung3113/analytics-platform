@@ -14,7 +14,7 @@ export const savedViewDefaultStorageKey = (userId: string, menuId: string | null
 export const savedViewGroupsStorageKey = () => 'platform:saved-view-groups:v1:' + tuple();
 /** One origin lock serializes every mutation of every key (views, defaults, groups) across tabs. */
 const LOCK = 'platform:saved-views:v1';
-const REVOKE_NOTE = '공식 등록가 회수되어 개인 비공개로 돌아왔습니다.';
+const REVOKE_NOTE = '공식 등록이 회수되어 개인 비공개로 돌아왔습니다.';
 
 const fail = (reason: 'conflict' | 'forbidden' | 'unavailable' | 'invalid', detail?: string): Result<never> => ({ ok: false, reason, ...(detail ? { detail } : {}) });
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
