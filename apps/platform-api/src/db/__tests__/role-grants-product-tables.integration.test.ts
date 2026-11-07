@@ -45,6 +45,7 @@ const PRODUCT_SCHEMAS = [
   'dashboard',
   'finding',
   'improvement',
+  'log_lifecycle',
   'permission',
   'survey',
   'task',
@@ -173,6 +174,11 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'improvement.item_target': ['SELECT', 'INSERT', 'DELETE'],
   'improvement.item_event': ['SELECT', 'INSERT'],
   'improvement.item_counter': ['SELECT', 'INSERT'],
+  // Log lifecycle (#1444 c): projects and rounds are inserted and updated by column (asserted below), the event table
+  // is append-only; nothing is deleted.
+  'log_lifecycle.development_project': ['SELECT', 'INSERT'],
+  'log_lifecycle.development_event': ['SELECT', 'INSERT'],
+  'log_lifecycle.validation_round': ['SELECT', 'INSERT'],
 };
 
 describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice 3 #22)', () => {
@@ -367,6 +373,24 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
         'row_version', 'updated_at', 'updated_by',
       ].sort(),
     );
+  });
+
+  it.each([
+    ['development_project', ['software_id', 'stage', 'owner_actor_id', 'target_date', 'row_version', 'updated_at', 'updated_by']],
+    ['validation_round', ['status', 'closed_at', 'closed_by', 'row_version', 'updated_at', 'updated_by']],
+    ['development_event', []],
+  ] as const)('platform_app UPDATE on log_lifecycle.%s is limited to the mutable columns', async (table, columns) => {
+    const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
+      `select column_name
+           from information_schema.column_privileges
+          where grantee = 'platform_app'
+            and table_schema = 'log_lifecycle'
+            and table_name = $1
+            and privilege_type = 'UPDATE'
+          order by column_name`,
+      [table],
+    );
+    expect(rows.map((row) => row.column_name)).toEqual([...columns].sort());
   });
 
   it('platform_app UPDATE on outcome follow-up decisions is limited to transition columns', async () => {

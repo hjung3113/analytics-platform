@@ -20,7 +20,9 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
       (permission) => permission !== CATALOG_MENU_PERMISSION &&
         permission !== ITEM_MENU_PERMISSION &&
         permission !== SPEC_MENU_PERMISSION &&
-        permission !== IMPROVEMENT_MENU_PERMISSION,
+        permission !== IMPROVEMENT_MENU_PERMISSION &&
+        permission !== 'lifecycle:project-manage' &&
+        permission !== 'lifecycle:round-manage',
     );
     expect([...tabled].sort()).toEqual([...vocabulary].sort());
     for (const permission of vocabulary) {
@@ -53,6 +55,15 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
     const entries = PLATFORM_PERMISSION_TABLE.filter((entry) => entry.permission === IMPROVEMENT_MENU_PERMISSION);
     expect(entries).toEqual([{ permission: 'improvement:manage', rule: 'improvement-manage' }]);
     expect(kernelPermissions()).not.toContain(IMPROVEMENT_MENU_PERMISSION);
+  });
+
+  it.each([
+    ['lifecycle:project-manage', 'lifecycle-project-manage'],
+    ['lifecycle:round-manage', 'lifecycle-round-manage'],
+  ] as const)('lists the log lifecycle menu permission %s once, with the rule %s', (permission, rule) => {
+    const entries = PLATFORM_PERMISSION_TABLE.filter((entry) => entry.permission === permission);
+    expect(entries).toEqual([{ permission, rule }]);
+    expect(kernelPermissions()).not.toContain(permission);
   });
 
   it('names the feature permission features:access and keeps no feedbackops:access fallback', () => {

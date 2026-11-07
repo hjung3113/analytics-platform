@@ -21,4 +21,5 @@ export * from './survey-recovery.js';
 export * from './platform-saved-views.js';
 export * from './knowledge.js';
 export * from './improvement.js';
+export * from './log-lifecycle.js';
 export * from './space-links.js';

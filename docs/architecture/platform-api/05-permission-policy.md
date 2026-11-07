@@ -78,7 +78,7 @@ alone.
    Developer satisfies none and needs Managed System grants.
 2. Module bypass, declared per capability in CAPABILITY_META.adminModuleBypass
    (packages/feature-shared/src/enums/capabilities.ts):
-   - always: finding.read, finding.manage, task_request.self_approve, knowledge.catalog.manage, knowledge.catalog.import, knowledge.item.publish, knowledge.spec.publish, improvement.manage
+   - always: finding.read, finding.manage, task_request.self_approve, knowledge.catalog.manage, knowledge.catalog.import, knowledge.item.publish, knowledge.spec.publish, improvement.manage, lifecycle.project.manage, lifecycle.round.manage
    - unless_denied: survey.read, survey.manage, voc.create (an explicit deny still wins, FO ADR-0033 section C; ADR-0113 for voc.create)
    - none: every other capability, including survey.read_personal_responses and survey.export
 ```
@@ -177,6 +177,8 @@ Every other capability is non-sensitive and needs no reason beyond the route's `
 `knowledge.item.publish` (ADR-0109 decision 7, #1197 w) follows the same pattern: workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, refused for a User recipient at request, approval and direct grant (`NOT_FOR_USER_ROLE`). It is enforced by the five `logKnowledge.item*` write actions (`modules/log-knowledge/item-actions.ts`, capability check plus `applyAdminModuleBypass`), whose menu permission `knowledge:item-publish` maps to it in `PLATFORM_PERMISSION_TABLE` (rule `item-publish`).
 
 `knowledge.spec.publish` (ADR-0111, #1196 b1) has the same shape for the model spec writes (menu permission `knowledge:spec-publish`, rule `spec-publish`); the three SW change writes `specChangeAdd|Retire|Confirm` (#1196 c) use the same capability and menu permission, no new one. `improvement.manage` (#1328 b, [api/improvement-items.md](api/improvement-items.md) §Write actions) too: workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, refused for a User recipient (`NOT_FOR_USER_ROLE`); enforced by the six `improvement.item*` write actions (capability check plus `applyAdminModuleBypass`), whose menu permission `improvement:manage` maps to it in `PLATFORM_PERMISSION_TABLE` (rule `improvement-manage`). Both are in the platform audit projection list (0092, 0094).
+
+`lifecycle.project.manage` and `lifecycle.round.manage` (#1444 c, [api/log-lifecycle.md](api/log-lifecycle.md)) have the same shape for the log lifecycle writes: workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, refused for a User recipient. Menu permissions `lifecycle:project-manage` (rule `lifecycle-project-manage`; the four project actions) and `lifecycle:round-manage` (rule `lifecycle-round-manage`; `roundOpen`, `roundClose`). Reads need only `platform:view`.
 
 Requester expiration is optional, with no automatic default (FO ADR-0044, confirmed
 by FO ADR-0066). Any supplied/resolved non-null expiry must be future in create,

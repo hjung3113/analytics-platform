@@ -291,6 +291,10 @@ improvement (improvement items, migration 0093, #1328 a, ADR-0106 amendment 2)
 - item_event (append-only history; `seq` identity; `changes` before/after object)
 - item_counter (`IM-<n>` allocator; `platform_app` updates `last_item_no` through it)
 - the data-table grants include the migration 0094 writes (`INSERT` on item, item_target, item_event, `DELETE` on item_target only, column-limited `UPDATE` on item); the authoritative grant restrictions: §Improvement item writes below and [api/improvement-items.md](api/improvement-items.md)
+log_lifecycle (log lifecycle, #1444 c, design docs/design/features/log-lifecycle/README.md §3)
+- development_project (`model_id`/`software_id` plain uuids, `kind`, `stage`, `owner_actor_id`, `target_date date`, `row_version`; partial unique index one open project per model)
+- development_event (append-only history; `seq` per project 1..n, `kind`, `before`/`after` objects, `reason`)
+- validation_round (`seq` per project, `stage`, `status`, `sample_set`, `sample_manifest_digest`, `spec_pin`, `note`, `row_version`; partial unique index one open round per project)
 ```
 
 `core.attachments` does not exist as a shared attachment table as of Slice 6;
@@ -919,6 +923,10 @@ Adds the `improvement` schema (`platform_app` and `platform_migrate` get USAGE) 
 ## Improvement item writes (#1328 b, migration 0094)
 
 `platform_app` gets `INSERT` on `item`, `item_target`, `item_event`, `DELETE` on `item_target` only, and a column-limited `UPDATE` on `item` (`problem, action, action_date, status, assignee_id, quest_id, quest_title_snapshot, origin_menu_id, origin_context, effect_result, effect_note, effect_compare_link, drop_reason, row_version, updated_at, updated_by`); no DELETE on `item`/`item_event`, no UPDATE on `item_event`/`item_target`. `BEFORE UPDATE` trigger `improvement_item_guard` refuses (`23514`) a changed identity column, a `row_version` that does not rise by exactly 1, and an illegal status pair. The origin-or-target rule (Q2) is the `DEFERRABLE INITIALLY DEFERRED` constraint trigger `improvement_item_origin_or_target` on `item` (insert, update of `origin_menu_id`) and `item_target` (delete); its function re-reads the current state and skips a vanished item. `core.platform_audit_events` is redefined from the 0092 body plus the subject type `improvement_item` and the capability `improvement.manage` (temporary `CREATE` grant, `SET ROLE platform_core_audit_reader_owner`, revoked as in 0092). Actions: [api/improvement-items.md](api/improvement-items.md) §Write actions.
+
+## Log lifecycle (#1444 c)
+
+Adds the `log_lifecycle` schema (`platform_app` and `platform_migrate` get USAGE) with `development_project`, `development_event` and `validation_round`; no FK into `knowledge` (module boundary), composite same-workspace FKs inside the schema (`ON DELETE RESTRICT`), actor columns FK `core.actors`. `platform_app` gets SELECT and INSERT on the three tables, a column-limited UPDATE on `development_project` (`software_id, stage, owner_actor_id, target_date, row_version, updated_at, updated_by`) and on `validation_round` (`status, closed_at, closed_by, row_version, updated_at, updated_by`), nothing on `development_event` beyond INSERT, and no DELETE anywhere. Walls behind the grants (they bind the migrate role too): `project_guard` (identity columns fixed, `row_version + 1`, stage moves along `LEGAL_STAGE_PAIRS`), `event_append_only` (BEFORE UPDATE OR DELETE raises), `round_guard` (input columns fixed, closed is final, `row_version + 1`). The migration also redefines `core.platform_audit_events` (0097 body + subject types `development_project`, `validation_round` + capabilities `lifecycle.project.manage`, `lifecycle.round.manage`). Contract: [api/log-lifecycle.md](api/log-lifecycle.md).
 
 ## usageNextScreens from-menu index (#605, migration 0095)
 

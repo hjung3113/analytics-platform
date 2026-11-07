@@ -25,7 +25,13 @@ const CAPABILITIES = [
   "knowledge.item.publish",
   "knowledge.spec.publish",
   "improvement.manage",
+  "lifecycle.project.manage",
+  "lifecycle.round.manage",
 ] as const;
+// The sensitive tier is 5/min per actor: split the grant calls over several admins.
+const ADMINS = ["admin", "admin2", "admin3", "admin4"] as const;
+const adminFor = (capability: (typeof CAPABILITIES)[number]) =>
+  ADMINS[Math.floor(CAPABILITIES.indexOf(capability) / 2)] ?? "admin4";
 
 describe.skipIf(!runIntegration)(
   "log knowledge capability recipients (ADR-0107)",
@@ -43,13 +49,13 @@ describe.skipIf(!runIntegration)(
       migrate = createDb(MIGRATE_URL);
       app = await buildServer({ config: loadConfig(), dbHandle });
       await app.ready();
-      // `admin2` takes the Developer grants: the sensitive rate-limit tier is per actor and one admin cannot make them all.
-      for (const role of ["admin", "admin2", "developer", "user"] as const) {
+      // `admin2`..`admin4` share (two capabilities each: one refused and one granted call) the grants: the sensitive rate-limit tier is per actor and one admin cannot make them all.
+      for (const role of ["admin", "admin2", "admin3", "admin4", "developer", "user"] as const) {
         const externalId = `${TAG}-${role}`;
         const { id } = await insertActorRow(dbHandle, {
           workspaceId: WORKSPACE_ID,
           externalId,
-          roleLevel: role === "admin2" ? "admin" : role,
+          roleLevel: role === "developer" || role === "user" ? role : "admin",
         });
         actorIds.push(id);
         ids[role] = id;
@@ -112,7 +118,7 @@ describe.skipIf(!runIntegration)(
     it.each(CAPABILITIES)(
       "a direct grant of %s to a User is refused",
       async (capability) => {
-        const res = await post("/permissions/grants", "admin", {
+        const res = await post("/permissions/grants", adminFor(capability), {
           actor_id: ids.user,
           capability,
           reason: "test",
@@ -129,7 +135,7 @@ describe.skipIf(!runIntegration)(
     it.each(CAPABILITIES)(
       "a direct grant of %s to a Developer succeeds",
       async (capability) => {
-        const res = await post("/permissions/grants", "admin2", {
+        const res = await post("/permissions/grants", adminFor(capability), {
           actor_id: ids.developer,
           capability,
           reason: "test",
