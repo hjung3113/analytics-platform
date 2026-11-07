@@ -17,7 +17,7 @@ const version = (id: string, input: Row) => action(id).version?.({ input, actor:
 const detail = (params: Row): ImportDetail => logKnowledgeMock.find(e => e.spec.id === importDetailEndpoint.id)!.handle({ equipment: [], context: {}, params, actor: 'admin' } as never);
 
 const FIXTURE = [
-  '메이커명\t공정명\t모델명',
+  '설비사명\t공정명\t모델명',
   'Alpha Semicap\tEtch\tAlpha 100',
   'Alpha Semicap\tEtch, Planarization\tAlpha 200',
   'Delta Corp\tEtch, Dry Clean\tDelta 1',
@@ -45,12 +45,12 @@ describe('importPaste', () => {
   });
   it('reads a comma sheet with aliases', () => expect(pasted('제조사,모델\nAlpha Semicap,Alpha 100')).toMatchObject({ rowCount: 1 }));
   it.each([
-    ['missing 모델명', '메이커명\t공정명\nA\tB', ['text:missing_header', 'text.headers.모델명:missing_header']],
-    ['both missing', '공정명\nA', ['text:missing_header', 'text.headers.메이커명:missing_header', 'text.headers.모델명:missing_header']],
-    ['duplicate alias', '메이커명\t제조사\t모델명\nA\tB\tC', ['text:duplicate_header', 'text.headers.메이커명:duplicate_header', 'text.headers.제조사:duplicate_header']],
+    ['missing 모델명', '설비사명\t공정명\nA\tB', ['text:missing_header', 'text.headers.모델명:missing_header']],
+    ['both missing', '공정명\nA', ['text:missing_header', 'text.headers.설비사명:missing_header', 'text.headers.모델명:missing_header']],
+    ['duplicate alias', '설비사명\t제조사\t모델명\nA\tB\tC', ['text:duplicate_header', 'text.headers.설비사명:duplicate_header', 'text.headers.제조사:duplicate_header']],
     ['empty', '  \n', ['text:empty']],
-    ['ragged rows', '메이커명\t모델명\nA', ['text:unreadable']],
-    ['too many rows', `메이커명,모델명\n${Array.from({ length: 1001 }, (_, i) => `A,M${i}`).join('\n')}`, ['text:too_many_rows']],
+    ['ragged rows', '설비사명\t모델명\nA', ['text:unreadable']],
+    ['too many rows', `설비사명,모델명\n${Array.from({ length: 1001 }, (_, i) => `A,M${i}`).join('\n')}`, ['text:too_many_rows']],
   ])('refuses %s without creating a job', (_name, text, expected) => expect(errors('importPaste', { text })).toEqual(expected));
 });
 
@@ -68,7 +68,7 @@ describe('importValidate', () => {
     expect(job.status).toBe('review_required');
   });
   it('flags a model repeated in the file', () => {
-    const { rows } = detail({ jobId: validated('메이커명,모델명\nNew Co,M1\nnew co,m1'), page: 0, pageSize: 50 });
+    const { rows } = detail({ jobId: validated('설비사명,모델명\nNew Co,M1\nnew co,m1'), page: 0, pageSize: 50 });
     expect(rows[1]!.errors).toEqual([{ field: 'model_name', code: 'duplicate_in_file' }]);
   });
   it('starts at job version 1', () => {
@@ -117,24 +117,24 @@ describe('process column semantics (the server replaces the mapped set)', () => 
   };
 
   it('a subset removes the links the sheet does not name', () => {
-    const text = '메이커명\t공정명\t모델명\nAlpha Semicap\tEtch\tAlpha 100';
+    const text = '설비사명\t공정명\t모델명\nAlpha Semicap\tEtch\tAlpha 100';
     expect(planStates(text)).toEqual(['update']);
     applyAll(text);
     expect(processNames('Alpha 100')).toEqual(['Etch']);
   });
   it('a replacement adds the new link and drops the old one', () => {
-    applyAll('메이커명\t공정명\t모델명\nAlpha Semicap\tPlanarization\tAlpha 200');
+    applyAll('설비사명\t공정명\t모델명\nAlpha Semicap\tPlanarization\tAlpha 200');
     expect(processNames('Alpha 200')).toEqual(['Planarization']);
   });
   it('an empty process cell clears every link', () => {
-    const text = '메이커명\t공정명\t모델명\nAlpha Semicap\t\tAlpha 100';
+    const text = '설비사명\t공정명\t모델명\nAlpha Semicap\t\tAlpha 100';
     expect(planStates(text)).toEqual(['update']);
     applyAll(text);
     expect(processNames('Alpha 100')).toEqual([]);
   });
-  it('the same set is unchanged, in any order', () => expect(planStates('메이커명\t공정명\t모델명\nAlpha Semicap\tDeposition, Etch\tAlpha 100')).toEqual(['unchanged']));
+  it('the same set is unchanged, in any order', () => expect(planStates('설비사명\t공정명\t모델명\nAlpha Semicap\tDeposition, Etch\tAlpha 100')).toEqual(['unchanged']));
   it('an omitted process column leaves the links alone', () => {
-    const text = '메이커명\t모델명\nAlpha Semicap\tAlpha 100';
+    const text = '설비사명\t모델명\nAlpha Semicap\tAlpha 100';
     expect(planStates(text)).toEqual(['unchanged']);
     applyAll(text);
     expect(processNames('Alpha 100')).toEqual(['Deposition', 'Etch']);
@@ -143,7 +143,7 @@ describe('process column semantics (the server replaces the mapped set)', () => 
 
 describe('importApply', () => {
   it('works in several calls: progress until completed, parents first, one maker once', () => {
-    const rows = ['메이커명,공정명,모델명', ...Array.from({ length: MOCK_APPLY_BATCH * 2 + 5 }, (_, i) => `Big Co,"P${i % 3}",Big ${i}`)].join('\n');
+    const rows = ['설비사명,공정명,모델명', ...Array.from({ length: MOCK_APPLY_BATCH * 2 + 5 }, (_, i) => `Big Co,"P${i % 3}",Big ${i}`)].join('\n');
     const jobId = validated(rows);
     const planVersion = detail({ jobId, page: 0, pageSize: 1 }).job.planVersion;
     const seen: string[] = [];

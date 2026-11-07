@@ -216,10 +216,9 @@ console.log("용어: 보이는 글에 남은 금지 용어");
         if (!m) continue;
         const context = visible.slice(Math.max(0, m.index - 24), m.index + 24).replace(/\s+/g, " ");
         // 허용: ① GLOSSARY.md에 같은 문장이 있는 정의(용어 페이지) ② 옛 표기를 인용한 원장 문구
-        // ③ 데이터 자산 허브의 표 게시(지표 버전 `발행`과 다른 동작이라 용어집이 정한 `게시` 금지 대상이 아니다)
         const plain = norm(line.replace(/<dt[^>]*>.*?<\/dt>/, " ").replace(/<(script|style)[\s\S]*?<\/\1>/g, " ")).replace(/근거 L\d+/g, "").replace(/\s+/g, "");
         const inGlossary = page === "glossary.html" && plain.length > 12 && glossaryText.replace(/\s+/g, "").includes(plain);
-        const quoted = /조회 범위 초과|서브모듈 아님|서브모듈이 아닌|서브모듈 문구|서브모듈 포인터/.test(visible) || (name === "게시" && /권한[에별]?\S* ?게시|게시한 표|게시하면|권한별 게시/.test(visible));
+        const quoted = /조회 범위 초과|서브모듈 아님|서브모듈이 아닌|서브모듈 문구|서브모듈 포인터/.test(visible);
         if (inGlossary || quoted) allowed.push(`${page}:${n + 1} ${name} … ${context}`);
         else {
           hits += 1;

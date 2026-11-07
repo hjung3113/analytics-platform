@@ -304,7 +304,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
         이전에 검사한 작업이 남아 있습니다. 아직 적용하지 않았으므로 카탈로그는 바뀌지 않았습니다. 「새로 시작」은 그 작업을 취소하고 붙여넣은 내용을 지웁니다.</Notice>}
       <div className="grid gap-1.5">
         <FieldLabel htmlFor={`${uid}-paste`}>붙여넣을 목록</FieldLabel>
-        <p id={`${uid}-help`} className="text-sm text-text-secondary">엑셀에서 메이커명 · 모델명 · 공정명 열을 머리글 행과 함께 복사해 붙여넣으세요. 공정이 여러 개면 쉼표로 구분합니다.</p>
+        <p id={`${uid}-help`} className="text-sm text-text-secondary">엑셀에서 설비사명 · 모델명 · 공정명 열을 머리글 행과 함께 복사해 붙여넣으세요. 공정이 여러 개면 쉼표로 구분합니다.</p>
         <div className="t-mono"><Textarea id={`${uid}-paste`} aria-describedby={`${uid}-help ${uid}-limit`} rows={12} value={text} spellCheck={false}
           onChange={e => setText(e.target.value)} placeholder={`${EXAMPLE.header.join('\t')}\n${EXAMPLE.rows[0]!.join('\t')}`} /></div>
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -350,7 +350,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
             return <tr key={r.rowNo} className="border-t border-border-subtle align-top">
               <td className="tabular px-3 py-2">{r.rowNo}</td>
               <td className="px-3 py-2"><dl className="grid grid-cols-[auto_1fr] gap-x-2">
-                {([['메이커명', 'vendor'], ['공정명', 'process'], ['모델명', 'model']] as const).map(([label, kind]) => <div key={kind} className="contents"><dt className="text-text-muted">{label}</dt><dd>{cellOf(r, kind, job.mapping) || '—'}</dd></div>)}
+                {([['설비사명', 'vendor'], ['공정명', 'process'], ['모델명', 'model']] as const).map(([label, kind]) => <div key={kind} className="contents"><dt className="text-text-muted">{label}</dt><dd>{cellOf(r, kind, job.mapping) || '—'}</dd></div>)}
               </dl></td>
               <td className="max-w-md px-3 py-2"><p>{guide.why}</p><p className="mt-1 text-text-secondary">{guide.fix}</p></td>
               <td className="px-3 py-2">{r.resolution === 'skip' ? <StatusBadge tone="neutral">건너뜀</StatusBadge>
@@ -415,7 +415,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
   return <div ref={rootRef} className="grid min-w-0 gap-3">
     <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-card px-4 py-3">
       <div><h2 className="text-base font-semibold text-text-primary">모델 가져오기</h2>
-        <p className="t-caption text-text-muted">메이커명 · 공정명 · 모델명을 붙여넣어 검사한 뒤, 확인한 결과만 카탈로그에 반영합니다. 코드는 이름으로 자동 부여됩니다.</p></div>
+        <p className="t-caption text-text-muted">설비사명 · 공정명 · 모델명을 붙여넣어 검사한 뒤, 확인한 결과만 카탈로그에 반영합니다. 코드는 이름으로 자동 부여됩니다.</p></div>
       <Button type="button" variant="ghost" size="sm" disabled={phase === 'running'} onClick={requestExit}><X className="size-4" aria-hidden />목록으로</Button>
     </div>
     <StepBar step={step} conflicts={job ? conflicts.length : 1} />

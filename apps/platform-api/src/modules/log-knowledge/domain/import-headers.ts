@@ -1,5 +1,5 @@
 // Header recognition of a model import sheet (#1195 b2, ADR-0107 decision 2 supplement). The sheet carries names
-// only: 메이커명, 모델명 and the optional 공정명 (several process names split by `,`). The aliases below are compared
+// only: 설비사명, 모델명 and the optional 공정명 (several process names split by `,`). The aliases below are compared
 // after trim and NFKC. The old code headers stay accepted as optional columns. At upload the server maps the
 // recognized headers itself, so no mapping step is needed. Pure.
 
@@ -7,7 +7,7 @@ import type { HeaderFailure } from './import-file.js';
 
 /** Field → accepted header texts (compared after `headerKey`). Order is the order a duplicate is reported in. */
 export const MODEL_HEADER_ALIASES: Readonly<Record<string, readonly string[]>> = {
-  vendor_name: ['메이커명', '메이커', '제조사', 'vendor_name'],
+  vendor_name: ['설비사명', '설비사', '메이커명', '메이커', '제조사', 'vendor_name'],
   model_name: ['모델명', '모델', 'model_name'],
   process_names: ['공정명', '공정', 'process_names'],
   vendor_code: ['vendor_code'],
@@ -16,7 +16,7 @@ export const MODEL_HEADER_ALIASES: Readonly<Record<string, readonly string[]>> =
 };
 
 /** The names a missing required header is reported as. */
-export const REQUIRED_MODEL_HEADERS = { vendor: '메이커명', model: '모델명' } as const;
+export const REQUIRED_MODEL_HEADERS = { vendor: '설비사명', model: '모델명' } as const;
 
 export const headerKey = (header: string): string => header.normalize('NFKC').trim();
 
@@ -32,7 +32,7 @@ export type ModelHeaderRecognition =
 /**
  * `none`: no header is recognized, so the job waits for `importMap` (an API client's own headers). `failed`: two
  * headers resolve to one field (`duplicate_header`, the header texts named) or a required one is absent
- * (`missing_header`: 메이커명 and/or 모델명; a `vendor_code`/`model_code` column stands in for its name column).
+ * (`missing_header`: 설비사명 and/or 모델명; a `vendor_code`/`model_code` column stands in for its name column).
  */
 export function recognizeModelHeaders(headers: readonly string[]): ModelHeaderRecognition {
   const byField = new Map<string, string[]>();

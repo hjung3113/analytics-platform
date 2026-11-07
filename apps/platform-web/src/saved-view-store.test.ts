@@ -37,7 +37,7 @@ it('keys are user- and menu-scoped JSON tuples, with separate keys for views, de
 
 it.each([
   ['남의 그룹 뷰는 편집 불가·복제 가능', '주간 리뷰 기준', { canEdit: false, canCopy: true, canShare: false }],
-  ['공식 게시본은 개인 편집 불가', '공식 생산성 일일 점검', { canEdit: false, canCopy: true, canShare: false }],
+  ['공식 등록본은 개인 편집 불가', '공식 생산성 일일 점검', { canEdit: false, canCopy: true, canShare: false }],
   ['내 뷰는 편집·공유 가능', '내 야간 점검', { canEdit: true, canShare: true }],
   ['사람 지정으로 받은 뷰는 복제만', 'PHOTO 라인 주간', { canEdit: false, canCopy: true }],
 ] as const)('capabilities are per object: %s', async (_label, name, expected) => {

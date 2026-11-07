@@ -28,7 +28,7 @@ const importHandler = (id: string) => MOCK_ACTIONS.find(action => action.spec.id
 let importSeq = 0;
 const stagedImport = (validated: boolean): { jobId: string; planVersion: number } => {
   const n = ++importSeq;
-  const text = ['메이커명\t공정명\t모델명', `CF Import Co ${n}\tEtch\tCF Import Model ${n}`, 'Alpha Semicap\t\tAlpha'].join('\n');
+  const text = ['설비사명\t공정명\t모델명', `CF Import Co ${n}\tEtch\tCF Import Model ${n}`, 'Alpha Semicap\t\tAlpha'].join('\n');
   const { jobId } = importHandler('importPaste').handle({ input: { text }, actor: 'admin', scopeId: null }).data as { jobId: string };
   const planVersion = validated ? (importHandler('importValidate').handle({ input: { jobId }, actor: 'admin', scopeId: null }).data as { planVersion: number }).planVersion : 1;
   return { jobId, planVersion };
@@ -160,7 +160,7 @@ const itemSamples: Record<string, () => Record<string, unknown>> = {
 };
 // The import writes (#1195 c): every sample stages its own job, so it succeeds again with a fresh key. Applies use new names each time.
 const importSamples: Record<string, () => Record<string, unknown>> = {
-  importPaste: () => ({ text: `메이커명\t모델명\nCF Paste Co\tCF Paste ${++importSeq}` }),
+  importPaste: () => ({ text: `설비사명\t모델명\nCF Paste Co\tCF Paste ${++importSeq}` }),
   importValidate: () => ({ jobId: stagedImport(false).jobId }),
   importResolve: () => ({ jobId: stagedImport(true).jobId, resolutions: [{ rowNo: 2, resolution: 'skip' }] }),
   importCancel: () => ({ jobId: stagedImport(false).jobId }),

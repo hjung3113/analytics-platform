@@ -95,7 +95,7 @@ const CASES: ComposerCase[] = [
     name: 'PublicUpdateComposer',
     root: 'public-update-composer',
     dropzone: 'public-update-attachment-dropzone',
-    submit: '담당자 답변 게시',
+    submit: '답변 공개',
     render: () => (
       <Controlled>{(p) => <PublicUpdateComposer voc={VOC} me={ME} {...p} />}</Controlled>
     ),

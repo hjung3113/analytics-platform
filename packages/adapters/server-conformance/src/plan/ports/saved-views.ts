@@ -27,8 +27,8 @@ export const SAVED_VIEW_PORT_METHODS: readonly SavedViewPortMethod[] = [
 // separately, so the shared literals live here once — the side that drifts fails its check.
 const NO_ACCESS = 'no-access';
 const OTHERS_VIEW = '다른 사람의 뷰입니다. 복제해서 편집하세요.';
-const OFFICIAL_NO_EDIT = '공식 게시본은 직접 편집할 수 없습니다. 변경하면 재승인을 요청합니다.';
-const REVOKE_NOTE = '공식 게시가 회수되어 개인 비공개로 돌아왔습니다.';
+const OFFICIAL_NO_EDIT = '공식 등록본은 직접 편집할 수 없습니다. 변경하면 재승인을 요청합니다.';
+const REVOKE_NOTE = '공식 등록가 회수되어 개인 비공개로 돌아왔습니다.';
 
 export function planSavedViewChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   const sample = harness.ports.savedViews;
@@ -234,7 +234,7 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
       if (!request) return 'the approver sees the pending application (ADR-0099 §2)';
       if (request.requestedBy !== who.user) return `requestedBy is the owner, got ${request.requestedBy}`;
       if (request.targetVersion !== pending.view.version) return 'targetVersion is the version the approval would publish';
-      if (JSON.stringify(request.changes) !== JSON.stringify([`공식 게시 신청: "${saved.view.name}"`])) return `the change summary of a first request is one line naming the view, got ${JSON.stringify(request.changes)}`;
+      if (JSON.stringify(request.changes) !== JSON.stringify([`공식 등록 신청: "${saved.view.name}"`])) return `the change summary of a first request is one line naming the view, got ${JSON.stringify(request.changes)}`;
       if (typeof request.requestedAt !== 'number') return 'requestedAt is a timestamp';
       const approved = okOf(await admin.decide(id, 'approve', undefined, { expectedVersion: pending.view.version }), 'decide(approve)');
       if (typeof approved === 'string') return approved;

@@ -32,7 +32,7 @@ let holdDetail: Promise<void> | null;
 let currentSession = session;
 const sessionListeners = new Set<() => void>();
 const row = (rowNo: number, over: Partial<ImportRowView>): ImportRowView => ({
-  rowNo, raw: { 메이커명: `M${rowNo}`, 공정명: '', 모델명: `Model ${rowNo}` }, normalized: null, errors: [], planState: 'new', targetId: null, targetVersion: null, resolution: null, mapTargetId: null,
+  rowNo, raw: { 설비사명: `M${rowNo}`, 공정명: '', 모델명: `Model ${rowNo}` }, normalized: null, errors: [], planState: 'new', targetId: null, targetVersion: null, resolution: null, mapTargetId: null,
   applyStatus: null, applyError: null, resultTargetId: null, creates: null, ...over,
 });
 const rows = (): ImportRowView[] => [
@@ -87,7 +87,7 @@ function open(tab = 'model') {
   window.history.replaceState(null, '', `/log/knowledge/catalog?v=1&tab=${tab}`);
   mountWith({ registry, adapter, ui: <CatalogManagement /> });
 }
-const paste = async (text = '메이커명\t모델명\nA\tB') => {
+const paste = async (text = '설비사명\t모델명\nA\tB') => {
   fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
   fireEvent.change(await screen.findByLabelText('붙여넣을 목록'), { target: { value: text } });
   fireEvent.click(screen.getByRole('button', { name: '검사' }));
@@ -159,7 +159,7 @@ describe('catalog import wizard', () => {
   it('shows the refusal sentence and keeps the check button usable', async () => {
     refuse = { outcome: 'invalid', fieldErrors: [{ path: ['text'], code: 'missing_header' }, { path: ['text', 'headers', '모델명'], code: 'missing_header' }] };
     open();
-    await paste('메이커명\nA');
+    await paste('설비사명\nA');
     expect(await screen.findByText(/‘모델명’ 머리글이 없습니다/, {}, slow)).toBeTruthy();
     expect(stepName()).toContain('목록 붙여넣기');
     expect(screen.queryByText(/missing_header/)).toBeNull();
@@ -263,12 +263,12 @@ describe('catalog import wizard', () => {
   describe('draft kept across leaving through the menu', () => {
     it('restores the pasted text and offers 이어서 하기 for a staged job', async () => {
       open();
-      await paste('메이커명\t모델명\nA\tB');
+      await paste('설비사명\t모델명\nA\tB');
       await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
       cleanup();
       open();
       fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
-      expect(((await screen.findByLabelText('붙여넣을 목록')) as HTMLTextAreaElement).value).toBe('메이커명\t모델명\nA\tB');
+      expect(((await screen.findByLabelText('붙여넣을 목록')) as HTMLTextAreaElement).value).toBe('설비사명\t모델명\nA\tB');
       expect((screen.getByRole('button', { name: '검사' }) as HTMLButtonElement).disabled).toBe(true);
       fireEvent.click(screen.getByRole('button', { name: '이어서 하기' }));
       await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
@@ -311,7 +311,7 @@ describe('catalog import wizard', () => {
       const blank = new Event('beforeunload', { cancelable: true });
       window.dispatchEvent(blank);
       expect(blank.defaultPrevented).toBe(false);
-      fireEvent.change(await screen.findByLabelText('붙여넣을 목록'), { target: { value: '메이커명\t모델명\nA\tB' } });
+      fireEvent.change(await screen.findByLabelText('붙여넣을 목록'), { target: { value: '설비사명\t모델명\nA\tB' } });
       const draft = new Event('beforeunload', { cancelable: true });
       window.dispatchEvent(draft);
       expect(draft.defaultPrevented).toBe(true);
@@ -323,7 +323,7 @@ describe('catalog import wizard', () => {
 
     it('C1: a user change shows nothing of the previous draft, saves nothing under the new user, and the first user gets theirs back', async () => {
       open();
-      await paste('메이커명\t모델명\nA\tB');
+      await paste('설비사명\t모델명\nA\tB');
       await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
       expect(draftSaved()).toBe(true);
       signInAs(userB);
@@ -333,7 +333,7 @@ describe('catalog import wizard', () => {
       expect(readDraft('other')).toBeNull();
       expect(readDraft('admin')?.jobId).toBe('job-1');
       signInAs(session);
-      expect(((await screen.findByLabelText('붙여넣을 목록')) as HTMLTextAreaElement).value).toBe('메이커명\t모델명\nA\tB');
+      expect(((await screen.findByLabelText('붙여넣을 목록')) as HTMLTextAreaElement).value).toBe('설비사명\t모델명\nA\tB');
       expect(await screen.findByRole('button', { name: '이어서 하기' }, slow)).toBeTruthy();
     });
 

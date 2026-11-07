@@ -210,7 +210,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       pending.current = null;
       created.current = null;
       if (shared === null) { toast(ko ? `"${made.name}" 뷰를 저장했습니다.` : `Saved "${made.name}".`, 'info'); return true; }
-      toast(draft.mode === 'official' ? (ko ? `"${made.name}" 뷰를 저장하고 공식 게시를 신청했습니다.` : `Saved "${made.name}" and asked for official publishing.`) : (ko ? `"${made.name}" 뷰를 저장하고 공유 대상을 정했습니다.` : `Saved "${made.name}" and set who can see it.`), 'info');
+      toast(draft.mode === 'official' ? (ko ? `"${made.name}" 뷰를 저장하고 공식 등록를 신청했습니다.` : `Saved "${made.name}" and asked for official publishing.`) : (ko ? `"${made.name}" 뷰를 저장하고 공유 대상을 정했습니다.` : `Saved "${made.name}" and set who can see it.`), 'info');
       return true;
     } catch {
       return alive.current ? refused('unavailable', created.current !== null) : false;
