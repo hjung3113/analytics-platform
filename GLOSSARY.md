@@ -84,6 +84,14 @@ _Avoid_: 검증 Finding — Finding은 다른 객체다(아래 Finding).
 원본 로그의 한 줄을 가리키는 참조. 규칙 결과와 로그 탐색이 **같은 타입**을 쓰고 본문을 담지 않는다. 같은 이름 계열이지만 다른 항목: Finding에 붙는 근거 조각(Evidence Highlight), 로그 지식 허브의 지식 근거(Evidence Ref). 사람이 올린 파일은 `수동 검증 첨부`로 부른다. **발췌**는 근거 위치에 딸린 짧은 로그 본문으로 별도 상한·권한·보관 기한을 갖는다.
 _Avoid_: 증거(화면 문구), 근거 위치를 첨부와 같은 이름으로 부르는 것
 
+**Event 관계 기록** (`EventRelationRecord`):
+지식 Item의 Revision이 «Event A가 Event B보다 먼저 일어난다»를 **관찰했는지(`observed`) 명세가 기대하는지(`expected`)** 구조화해 적은 한 줄. 안정 키(`moduleKey/eventKey`)로 명세를 가리키고 본문 문장과 별개이며 추가 전용이다. 방향 검색은 이 기록에서만 만든다([ADR-0125](docs/adr/0125-event-order-search-uses-structured-event-relation-records.md)). 모델 명세가 선언한 순서(`spec_event_relation`)와 다른 객체다.
+_Avoid_: 이벤트 관계(명세의 순서 선언과 섞임), Finding
+
+**색인 지연** (`indexLag`):
+검색에 반영할 최신 원본 변경(새 Revision, 개념·alias·카탈로그 변경)이 검색 색인에 아직 반영되지 않은 상태. 검색 결과 행에 칩으로 보이며 옛 본문은 나가지 않고 순위만 낡을 수 있다([ADR-0124](docs/adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)).
+_Avoid_: 기준 낡음, 재검증 필요(다른 객체)
+
 **Gate** · **Gate 결정**:
 개발 건이 다음 단계로 들어가기 전 사람이 하는 결정(`approved`·`rejected`·`exception`)과 그 근거 스냅샷. 검증 판정(verdict)과 업무 승인은 다른 행이며, 승인이 판정을 바꾸지 않는다. 근거 digest가 달라져 다시 돌려야 하면 Gate는 `재검증 필요`로 표시한다.
 
