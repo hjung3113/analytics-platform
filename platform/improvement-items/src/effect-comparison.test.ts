@@ -38,3 +38,10 @@ describe('effect comparison wiring', () => {
     expect(comparisonFor('2026-02-30', origin, 7, resolve).reason).toBe('unavailable');
   });
 });
+
+
+it('keeps the saved drill page when opening a before/after comparison (#1408)', () => {
+  const resolver = vi.fn(() => ({ allowed: true, href: '/analysis', droppedPageKeys: [] }));
+  comparisonFor('2026-11-04', { menuId: 'analysis', context: { selection: ['EQ-1'], page: { drillEquipment: 'EQ-2' } } }, 7, resolver);
+  expect(resolver).toHaveBeenCalledWith('analysis', expect.objectContaining({ page: { drillEquipment: 'EQ-2' }, global: expect.objectContaining({ selection: ['EQ-1'], from: '2026-11-04T00:00:00' }) }));
+});

@@ -1,6 +1,7 @@
-import { beforeAfterPeriods, emptyGlobal, isAppRelativePath, type BeforeAfterPeriods, type GlobalContext } from '@ap/contracts';
+import { beforeAfterPeriods, isAppRelativePath, type BeforeAfterPeriods } from '@ap/contracts';
 import type { MenuPlatform } from '@ap/kernel';
 import type { Origin } from './endpoints';
+import { originLinkOptions } from './origin';
 export const COMPARISON_DAYS = [1, 7, 14, 30] as const;
 export const safeComparisonHref = (href: string): boolean => href.length <= 2000 && isAppRelativePath(href);
 type Comparison = { periods: BeforeAfterPeriods | null; href: string | null; reason: 'noDate' | 'noOrigin' | 'unavailable' | null };
@@ -14,7 +15,8 @@ export function comparisonFor(actionDate: string | null, origin: Origin | null, 
     periods = beforeAfterPeriods(`${actionDate}T00:00:00`, { before: { days }, after: { days } });
     if (!periods.after) return { periods, href: null, reason: 'unavailable' };
     // Clear ambient Context before restoring the saved snapshot, including absent metric/equipment fields.
-    const result = resolveLink(origin.menuId, { global: { ...emptyGlobal, ...origin.context as Partial<GlobalContext>, ...periods.after } });
+    const options = originLinkOptions(origin);
+    const result = resolveLink(origin.menuId, { ...options, global: { ...options.global, ...periods.after } });
     if (result.allowed && safeComparisonHref(result.href)) return { periods, href: result.href, reason: null };
   } catch { /* Retired menus and invalid saved Context are unavailable prerequisites, not query errors. */ }
   return { periods, href: null, reason: 'unavailable' };

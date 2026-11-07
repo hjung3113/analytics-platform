@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { formatInstant, type GlobalContext } from '@ap/contracts';
+import { formatInstant } from '@ap/contracts';
 import { PlatformLink, useMenuQuery, usePlatform } from '@ap/kernel';
 import { PlatformPage, QueryView, ReturnLink } from '@ap/components';
 import { Button } from '@ap/ui';
 import { MANAGE_PERMISSION, detailEndpoint, eventsEndpoint, itemsEndpoint, type ItemRow, type Target } from '../endpoints';
 import { useCopy } from '../copy';
-import { originPeriod } from '../model';
+import { OriginSummary } from './OriginSummary';
 import { ItemStatus, Section } from './parts';
 import { QuestReference } from './QuestReference';
 import { StatusMoves } from './StatusMove';
@@ -33,20 +33,16 @@ function TargetHistory({ target }: { target: Target }) {
   return <div className="space-y-3"><p className="text-sm">{target.displayName} · {target.externalKey}</p><QueryView query={query}>{data => <><ul className="space-y-2">{data.rows.map(row => <li key={row.id}><PlatformLink className="text-sm text-accent-primary hover:underline" href={linkTo('improvement-item', { params: { itemId: row.id }, returnTo: true })}>IM-{row.itemNo} · {row.problem} · {row.actionDate ?? c.unset}</PlatformLink></li>)}</ul><div className="flex gap-2"><Button variant="secondary" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>{c.previous}</Button><Button variant="secondary" size="sm" disabled={(page + 1) * 10 >= data.total} onClick={() => setPage(p => p + 1)}>{c.next}</Button></div></>}</QueryView></div>;
 }
 function DetailBody({ item }: { item: ItemRow }) {
-  const c = useCopy(), { can, resolveLink } = usePlatform();
+  const c = useCopy(), { can } = usePlatform();
   const [selectedTarget, setTarget] = useState(0);
   const target = item.targets[selectedTarget];
   const [days, setDays] = useState(7), [selectedComparison, setComparison] = useState<string | null>(null);
   const comparison = useEffectComparison(item, days);
   const compareLink = selectedComparison === comparison.href ? selectedComparison : null;
-  let source: string | null = null;
-  if (item.origin) {
-    try { const result = resolveLink(item.origin.menuId, { global: item.origin.context as Partial<GlobalContext> }); if (result.allowed) source = result.href; } catch { /* Stored Context remains readable when a destination is retired or incompatible. */ }
-  }
   return <div className="grid min-w-0 grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)] gap-6">
     <div className="min-w-0"><Section title={c.summary}><p className="break-words text-sm font-semibold">{item.problem}</p><dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm"><dt className="text-text-secondary">{c.action}</dt><dd className="whitespace-pre-wrap break-words">{item.action ?? c.unset}</dd><dt className="text-text-secondary">{c.actionDate}</dt><dd>{item.actionDate ?? c.unset}</dd><dt className="text-text-secondary">{c.assignee}</dt><dd>{item.assignee?.displayName ?? c.unset}</dd></dl></Section>
       <Section title={c.quest}>{item.quest ? <QuestReference id={item.quest.id} snapshot={item.quest.titleSnapshot} /> : <p className="text-sm text-text-secondary">{c.questNone}</p>}</Section>
-      <Section title={c.origin}>{item.origin ? <div className="space-y-3 text-sm"><p>{c.sourceMenu}: {item.origin.menuId}</p><p>{c.metric}: {typeof item.origin.context.metricId === 'string' ? item.origin.context.metricId : c.unset}</p><p>{c.period}: <span>{originPeriod(item.origin.context, c.lang)}</span></p>{source ? <PlatformLink className="text-accent-primary hover:underline" href={source}>{c.openAnalysis}</PlatformLink> : <p className="text-text-secondary">{c.sourceUnavailable}</p>}</div> : <p className="text-sm text-text-secondary">{c.unset}</p>}</Section>
+      <Section title={c.origin}>{item.origin ? <div className="space-y-2"><OriginSummary origin={item.origin} /></div> : <p className="text-sm text-text-secondary">{c.unset}</p>}</Section>
       <EffectCheck item={item} days={days} onDaysChange={value => { setDays(value); setComparison(null); }} comparison={comparison} selected={!!compareLink} onSelect={() => setComparison(comparison.href)} />
       <Section title={c.targetHistory}>{item.targets.length ? <><div className="flex flex-wrap gap-2">{item.targets.map((t, i) => <Button key={`${t.kind}:${t.externalKey}`} size="sm" variant={i === selectedTarget ? 'secondary' : 'ghost'} aria-pressed={i === selectedTarget} onClick={() => setTarget(i)}>{t.displayName}</Button>)}</div>{target && <TargetHistory key={`${target.kind}:${target.externalKey}`} target={target} />}</> : <p className="text-sm text-text-secondary">{c.noTarget}</p>}</Section>
     </div>

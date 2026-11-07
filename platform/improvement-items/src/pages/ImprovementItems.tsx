@@ -1,11 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { encodeFilterParam, type ColumnFilterSpec } from '@ap/contracts';
+import { encodeFilterParam, type ColumnFilterSpec, type Pair } from '@ap/contracts';
 import { PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
 import { ManagementLayout, PageKeyWarning, PlatformDataTable, PlatformPage, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField, type TableUrlState } from '@ap/components';
 import { Button, Input, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { MANAGE_PERMISSION, SORT_IDS, filterSpecs, itemsEndpoint, type ItemRow, type Origin } from '../endpoints';
 import { filtersForView, type View } from '../model';
+import { snapshotOrigin } from '../origin';
 import { useCopy } from '../copy';
 import { CreateDrawer } from './CreateDrawer';
 import { Field, ItemStatus } from './parts';
@@ -65,7 +66,7 @@ function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () =>
   </div>;
 }
 export default function ImprovementItems() {
-  const c = useCopy(), { pageParam, pageParams, setPage, can, canOpen, global } = usePlatform();
+  const c = useCopy(), { pageParam, pageParams, setPage, can, canOpen, global, registry, page, url } = usePlatform();
   const view = pageParam('view') ?? 'mine', q = pageParam('q') ?? '';
   const validView = ['mine', 'all', 'unlinked'].includes(view);
   const [initialized, setInitialized] = useState(false);
@@ -91,7 +92,10 @@ export default function ImprovementItems() {
   const source = pageParam('origin');
   let validSource = false;
   if (source) { try { validSource = canOpen(source); } catch { /* Unknown menu ids stay rejected and visible. */ } }
-  const origin: Origin | null = source && validSource ? { menuId: source, context: { ...global } } : null;
+  // The legacy origin URL may still carry source-declared keys; include hidden applied pairs too.
+  const visibleSourcePage = [...new URL(url, 'https://platform.invalid').searchParams.entries()].filter(([key]) => !page.some(([name]) => name === key));
+  const sourcePage: Pair[] = [...page, ...visibleSourcePage];
+  const origin: Origin | null = source && validSource ? snapshotOrigin(registry.menuById(source), global, sourcePage.filter(([key]) => key !== 'origin' && !(key === 'focus' && pageParam('focus') === 'new'))) : null;
   return <PlatformPage description={c.description} primaryAction={canWrite ? <Button ref={createButton} onClick={() => setPage({ focus: 'new' })}><Plus className="size-4" aria-hidden />{c.create}</Button> : undefined}>
     {!canWrite && <p role="note" className="text-sm text-text-secondary">{c.denied}</p>}
     {!validView && <PageKeyWarning sentences={[c.unsupportedView]} onRecover={clear} />}
