@@ -1,6 +1,6 @@
 # Log Rules — 검증 규칙 조회·연결 설계 (v0.31.0, 소유자 답 반영, 구현 전)
 
-> **Status: Candidate → 소유자 답 6개 반영(2026-11-08), 질문 7–9 재판정 반영.** 설계만 있고 구현·DB·API·화면은 없다. 근거는 [#1486](https://github.com/hjung3113/analytics-platform/issues/1486)이고, [#1346](https://github.com/hjung3113/analytics-platform/issues/1346) §1·§3 P1-3, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic, v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md), 모델 명세 [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0. [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md)는 Proposed(소유자 답 반영)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
+> **Status: Candidate → 소유자 답 반영 완료(2026-11-08), ADR-0122 Decided.** 설계만 있고 구현·DB·API·화면은 없다. 근거는 [#1486](https://github.com/hjung3113/analytics-platform/issues/1486)이고, [#1346](https://github.com/hjung3113/analytics-platform/issues/1346) §1·§3 P1-3, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic, v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md), 모델 명세 [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0. [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md)는 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
 >
 > 사내 Validator의 인터페이스·출력·권한은 실사 전이다. 이 설계는 **받는 쪽(플랫폼) 계약과 합성 보고자까지만** 정하고 «연동 완료»를 쓰지 않는다([#1330](https://github.com/hjung3113/analytics-platform/issues/1330)).
 
@@ -62,7 +62,7 @@
 
 입력: `(model_id, software_id?)`의 **실효 명세**(`log-knowledge`가 주는 요구사항 키 목록과 `spec_pin`), 현재 `active` RuleSet Revision들의 `rule`·`rule_target.requirement_ids`.
 
-- **매칭 규칙(남은 질문 1):** Validator가 준 요구사항 ID가 실효 명세의 요구사항 키와 **문자열이 정확히 같을 때** 짝지어진다. 키 형식은 `log-knowledge`의 `moduleKey` 또는 `moduleKey/eventKey`이고 보고 계약에 공개한다. 짝이 없는 ID는 Rule 상세에 «명세에 없는 요구사항 ID»로 보이고 커버리지에 세지 않는다. 다른 ID 체계와의 매핑은 만들지 않는다(§9).
+- **매칭 규칙**(소유자 2026-11-08): Validator가 준 요구사항 ID가 실효 명세의 요구사항 키와 **문자열이 정확히 같을 때만** 짝지어진다. 키 형식은 `log-knowledge`의 `moduleKey` 또는 `moduleKey/eventKey`이고 보고 계약에 공개한다. 짝이 없는 ID는 Rule 상세에 «명세에 없는 요구사항 ID»로 보이고 커버리지에 세지 않는다. 다른 ID 체계와의 매핑은 만들지 않는다(§9).
 - **계산 가능 조건:** 현재 활성 카탈로그에 요구사항 ID를 선언한 Rule이 하나라도 있어야 한다. 없으면 모델 전체가 «계산할 수 없음 — Validator가 요구사항 ID를 주지 않았습니다»이고 요구사항별 상태를 만들지 않는다.
 
 요구사항마다 상태(계산 가능할 때):
@@ -233,7 +233,7 @@ log-dev > 기준 (logRules)
 | --- | --- | --- |
 | D1 | 카탈로그 수신 방식 | **결정됨**: Validator가 서비스 토큰으로 스냅샷을 올림, 플랫폼은 나가는 호출 없음(소유자 2026-11-08) |
 | D2 | Rule 저장 범위, `scope` 키 | **결정됨**(저장 범위): 식별 정보만(식별자·짧은 이름·요약·지원 상태·범위·digest), 본문·파라미터·스크립트 거절(소유자 2026-11-08). `scope` 키 집합은 후보 5키로 시작, Validator 실사 뒤 확정 |
-| D3 | 요구사항↔Rule 연결 단위 | **결정됨**: 플랫폼은 단위를 정하지 않고 Validator가 선언한 대상 범위를 형식 그대로 저장·표시, 요구사항 ID를 함께 줄 때만 «규칙 없음» 계산(소유자 2026-11-08). **남은 질문:** ID 일치 방식(§3.3, 질문 목록 1번) |
+| D3 | 요구사항↔Rule 연결 단위 | **결정됨**: 플랫폼은 단위를 정하지 않고 Validator가 선언한 대상 범위를 형식 그대로 저장·표시, 요구사항 ID를 함께 줄 때만 «규칙 없음» 계산(소유자 2026-11-08). ID는 실효 명세 키와 정확히 같은 문자열일 때만 짝지음(§3.3, 소유자 2026-11-08) |
 | D4 | 연결 작성자 | **결정됨**: Validator 선언만, 사람 수동 연결 없음(소유자 2026-11-08, 앞의 «선언+수동» 답을 바꿈) |
 | D5 | 표시 이름 | **결정됨**: «규칙 없음», 명세 커버리지/실행 커버리지 구분(소유자 2026-11-08) |
 | D6 | 화면 범위 | **결정됨**: 기존 «검증 규칙» 한 화면에 탭 2개, 신규 화면 1개(소유자 2026-11-08) |
