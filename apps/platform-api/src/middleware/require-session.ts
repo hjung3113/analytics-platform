@@ -8,6 +8,7 @@
 
 import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
 import { sendError } from '../lib/errors.js';
+import { tokenSessionOf } from '../modules/api-tokens/request-state.js';
 import type { SessionService } from '../modules/auth/session-service.js';
 
 export const SESSION_COOKIE_NAME = 'platform_session';
@@ -19,6 +20,9 @@ export function requireSession(sessionService: SessionService): preHandlerHookHa
     req: FastifyRequest,
     reply: FastifyReply,
   ): Promise<FastifyReply | undefined> {
+    // The token gate has already set `req.session` for an authenticated Bearer call (and refused every route that
+    // has not opted in); the cookie is not read then.
+    if (tokenSessionOf(req)) return undefined;
     const cookie = req.cookies?.[SESSION_COOKIE_NAME];
     if (!cookie) {
       return sendError(reply, 'auth.session_invalid', 'session cookie missing');

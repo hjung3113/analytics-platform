@@ -8,6 +8,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { replyIfDbTimeout } from '../../lib/db-timeout.js';
 import { sendError, statusForCode } from '../../lib/errors.js';
+import { refuseLostTokenContext } from '../api-tokens/gate.js';
+import { tokenSessionOf } from '../api-tokens/request-state.js';
 import { SESSION_COOKIE_NAME } from '../../middleware/require-session.js';
 import type { ActorRecord, SessionRecord, SessionService } from '../auth/session-service.js';
 import type { PlatformActor } from './permissions.js';
@@ -91,6 +93,10 @@ export function createAuthenticator(deps: {
   workspaceId: string;
 }): Authenticate {
   return async function authenticate(req, reply, touch) {
+    // A Bearer API token was authenticated by the token gate (the cookie is ignored then); only a route that set
+    // `tokenCallable` reaches here with one.
+    const byToken = tokenSessionOf(req);
+    if (byToken) return refuseLostTokenContext(req, reply) ? null : byToken;
     const cookie = req.cookies?.[SESSION_COOKIE_NAME];
     if (!cookie) {
       sendError(reply, 'auth.session_invalid', 'session cookie missing');

@@ -10,9 +10,13 @@ export const ERROR_CODES = [
   'auth.session_invalid',
   'auth.session_required',
   'auth.session_expired',
+  // ADR-0116 (v0, provisional): Bearer API token missing/revoked/expired/unknown/inactive owner — one code, no distinction.
+  'auth.token_invalid',
   // permission.* → 403
   'auth.workspace_mismatch',
   'permission.denied',
+  // ADR-0116 decision 4: a token call to a route/capability that only a human login session may use.
+  'permission.session_required',
   // rate_limited.* → 429
   'rate_limited.actor',
   'rate_limited.workspace',

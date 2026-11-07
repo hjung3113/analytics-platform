@@ -953,3 +953,7 @@ Adds `knowledge.common_concept`, `knowledge.spec_concept_mapping` and `knowledge
 ## Compare link control characters (#1408 item 4, migration 0099)
 
 Replaces CHECK `improvement_item_effect_compare_link_check` on `improvement.item`: the existing rules (null, or ≤ 2000 characters and `~ '^/[^/\\]'`) plus `!~ '[\u0001-\u001f\u007f]'`. A row that already holds a control character fails the migration; there is no data rewrite. Rule source: [api/improvement-items.md](api/improvement-items.md).
+
+## API tokens (#1442, migration 0101; ADR-0116)
+
+`core.api_tokens`: `id, workspace_id, actor_id, kind ('personal'|'service'), name, prefix, secret_hash (unique), scopes text[], expires_at (nullable: no expiry is allowed), last_used_at, last_used_ip, revoked_at, revoked_by, created_by, created_at`. Only the SHA-256 of the whole token value is stored. `secret_hash` is the lookup key before the workspace is known, so its unique index is the one documented exception to "workspace_id first" (exempted by name in `role-grants.integration.test.ts`); the read-path indexes `(workspace_id, actor_id)` and `(workspace_id, created_at desc)` follow the rule. Grants: `platform_app` SELECT, INSERT and a column-limited UPDATE (`last_used_at, last_used_ip, revoked_at, revoked_by`), no DELETE; `platform_migrate` ALL.

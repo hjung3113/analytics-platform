@@ -7,6 +7,7 @@
 // an app declares (ADR-0072) are not listed: feature grants none of them.
 
 import type { Tx } from '../../db/tx.js';
+import { currentAuthContext } from '../../lib/auth-context.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 
 export type PlatformPermissionRule =
@@ -93,8 +94,19 @@ async function holds(
   options: { tx?: Tx } = {},
 ): Promise<boolean> {
   switch (rule) {
-    case 'every-session':
-      return true;
+    case 'every-session': {
+      if (currentAuthContext().kind !== 'token') return true;
+      // ADR-0116 deny by default: a token call has no session right. The read right of a token is the
+      // `workspace.read` capability: it must be in the token's scopes (checked inside `checkCapability`)
+      // and held by the token's actor. Every judgment of a token call thus goes through the capability check.
+      const decision = await checkService.checkCapability(
+        actor,
+        'workspace.read',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return decision.allow;
+    }
     case 'workspace-admin': {
       const decision = await checkService.checkCapability(
         actor,
@@ -167,7 +179,8 @@ async function holds(
       return applyAdminModuleBypass(actor.role_level, 'lifecycle.round.manage', decision).allow;
     }
     case 'features-access': {
-      if (actor.role_level === 'developer' || actor.role_level === 'admin') return true;
+      // A token call has no role shortcut: only the capability scopes below can open it.
+      if (currentAuthContext().kind !== 'token' && (actor.role_level === 'developer' || actor.role_level === 'admin')) return true;
       for (const capability of FEATURES_ACCESS_CAPABILITIES) {
         const scope = await checkService.capabilityScope(
           actor,

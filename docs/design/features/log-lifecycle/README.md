@@ -231,7 +231,7 @@ log-dev (기존 Space)
 | 노드 | 내용 | 기대 티어 | 선행 |
 | --- | --- | --- | --- |
 | 0 | ADR 0116·0117·0118 확정(소유자 답) + 이 문서 Candidate→As-built 전환 계획 | light | 소유자 답 |
-| a | **API 토큰 코어**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)): 테이블·발급·폐기·인증 훅·scope ∩ 권한 판정·감사·고위험 거절 | full, `impl-complex` (권한 경계) | 0 |
+| a | **API 토큰 코어**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)): 테이블·발급·폐기·인증 훅·scope ∩ 권한 판정·감사·고위험 거절. **As-built** #1442(PR #1456): `core.api_tokens`(0101), 토큰은 `menu-query`·`menu-action`만 호출 가능, 계약은 [auth.md](../../../architecture/platform-api/api/auth.md)·[05](../../../architecture/platform-api/05-permission-policy.md) | full, `impl-complex` (권한 경계) | 0 |
 | b | 토큰 관리 화면(개인 목록·발급·폐기, 관리자 서비스 토큰) + 시안 | full, `ux=required` | a |
 | c | `log-lifecycle` 스키마·마이그레이션·과제·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 Evidence는 c2 #1451) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
 | d | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |

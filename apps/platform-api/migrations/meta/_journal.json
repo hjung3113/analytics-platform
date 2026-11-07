@@ -708,6 +708,13 @@
       "when": 1794054650254,
       "tag": "0100_log_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1794058474608,
+      "tag": "0101_api_tokens",
+      "breakpoints": true
     }
   ]
 }
