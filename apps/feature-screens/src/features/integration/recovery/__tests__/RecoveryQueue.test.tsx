@@ -529,8 +529,8 @@ it('leaves fullscreen Escape to the shell and permits explicit close', async () 
   setup();
   await mount(`/integration?selected=${ID}`);
   await screen.findByTestId('recovery-panel');
-  fireEvent.click(screen.getByRole('button', { name: '전체 화면 전환' }));
-  expect(screen.getByRole('button', { name: '전체 화면 전환' })).toHaveAttribute(
+  fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
+  expect(screen.getByRole('button', { name: '원래 크기로' })).toHaveAttribute(
     'aria-pressed',
     'true',
   );
