@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Report machine usage and the current worker and flow-session limits on one line.
 # Thresholds and limitations are documented in .agents/conductor/LANES.md §Machine resources (16 GB). This script blocks nothing (it only writes one state file) —
-# the caller (flow session or lead) decides from the output. macOS only (`memory_pressure`, `sysctl`).
+# the caller (flow session or lead) decides from the output. macOS (`memory_pressure`, `sysctl`) and Linux/WSL (`/proc/meminfo`, `/proc/loadavg`, `nproc`):
+# on Linux, free% = MemAvailable / MemTotal, so a remote lane host measures its own memory instead of falling back to yellow.
 #
 # Output (one line; exit code is always 0):
 #   <green|yellow|red> workers=<1-7> lanes=<2-4> start=<yes|no> free=<%> swap_used_mb=<n> swap_total_mb=<n> swap_delta_mb=<n|?> load1=<x> ncpu=<n> why=<reason>
@@ -20,13 +21,22 @@ min_age_s=${CAPACITY_SWAP_MIN_AGE_S:-120}
 state=${CAPACITY_STATE:-${AP_MAIN:+$AP_MAIN/.review/capacity.last}}
 state=${state:-${TMPDIR:-/tmp}/capacity.last}
 
-free=$(memory_pressure 2>/dev/null | sed -n 's/.*free percentage: *\([0-9]*\)%.*/\1/p' | head -1)
-swap=$(sysctl -n vm.swapusage 2>/dev/null)
-swap_total=$(printf '%s' "$swap" | sed -n 's/.*total = *\([0-9.]*\)M.*/\1/p')
-swap_used=$(printf '%s' "$swap" | sed -n 's/.*used = *\([0-9.]*\)M.*/\1/p')
-load1=$(sysctl -n vm.loadavg 2>/dev/null | awk '{print $2}')
-ncpu=$(sysctl -n hw.ncpu 2>/dev/null)
-pl=$(sysctl -n kern.memorystatus_vm_pressure_level 2>/dev/null)
+if [ "$(uname -s 2>/dev/null)" = Linux ] && [ -r /proc/meminfo ]; then
+  free=$(awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2} END{if (t > 0) printf "%d", a * 100 / t}' /proc/meminfo)
+  swap_total=$(awk '/^SwapTotal:/{printf "%d", $2 / 1024}' /proc/meminfo)
+  swap_used=$(awk '/^SwapTotal:/{t=$2} /^SwapFree:/{f=$2} END{printf "%d", (t - f) / 1024}' /proc/meminfo)
+  load1=$(awk '{print $1}' /proc/loadavg 2>/dev/null)
+  ncpu=$(nproc 2>/dev/null)
+  pl=
+else
+  free=$(memory_pressure 2>/dev/null | sed -n 's/.*free percentage: *\([0-9]*\)%.*/\1/p' | head -1)
+  swap=$(sysctl -n vm.swapusage 2>/dev/null)
+  swap_total=$(printf '%s' "$swap" | sed -n 's/.*total = *\([0-9.]*\)M.*/\1/p')
+  swap_used=$(printf '%s' "$swap" | sed -n 's/.*used = *\([0-9.]*\)M.*/\1/p')
+  load1=$(sysctl -n vm.loadavg 2>/dev/null | awk '{print $2}')
+  ncpu=$(sysctl -n hw.ncpu 2>/dev/null)
+  pl=$(sysctl -n kern.memorystatus_vm_pressure_level 2>/dev/null)
+fi
 pl=${pl:-1}
 
 if [ -z "$free" ] || [ -z "$swap_used" ] || [ -z "$load1" ] || [ -z "$ncpu" ]; then
