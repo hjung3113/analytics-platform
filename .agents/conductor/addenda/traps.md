@@ -59,3 +59,4 @@ Append new traps at the end, one bullet each: the symptom, then what to do. No d
 - A test whose first query waits for a lazily loaded slot body passes `LAZY_MOUNT_WAIT` (`@ap/feature-bridge/testing`); the 1 s default fails under CI load.
 - If bundled Playwright Chromium will not launch, run E2E on installed Chrome with a throwaway config in `apps/platform-e2e`: `import base from './playwright.config'; export default { ...base, use: { ...base.use, channel: 'chrome' } };`, then `E2E_PORT=<port> pnpm exec playwright test -c <that file> <specs>`, and trash the file afterwards.
 - `ship-pr.sh` stopping on a GraphQL 503/504: the PR may already exist. Check `gh pr view`, wait for its checks, then merge per [`merge.md`](merge.md).
+- Pass `worker-wait.sh --state` the exact state file of the worker you launched, never a `W-<n>*.json` glob: an older sibling state (`W-<n>-CAP.json`) matches first and the lane waits on a finished worker while the live one ends unseen.

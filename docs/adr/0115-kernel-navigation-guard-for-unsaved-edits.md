@@ -1,7 +1,7 @@
 # Kernel이 미저장 변경이 있는 화면의 이동을 한 곳에서 보류하고 확인한다
 
 상태: **Decided (2026-11-06, 소유자: 다섯 항목 모두 추천안).** [06 §6.4](../contract/kernel.md)의 「뒤로가기 복원은 정확해야 한다」와 [§26](../contract/platform-ui-contract.md#26-accessibility-baseline)의 도착 포커스 규칙은 그대로이고, 메뉴가 가드를 켜지 않으면 기본 동작도 그대로다.
-- 결정자: 소유자. 조사·초안: [#1388](https://github.com/hjung3113/analytics-platform/issues/1388), 상세 계획 `W-1388-PLAN.md`.
+- 결정자: 소유자. 조사·초안: [#1388](https://github.com/hjung3113/analytics-platform/issues/1388).
 
 ## 배경
 
@@ -30,4 +30,4 @@
 
 - 공개 추가(선택·기본 동작 불변): 루트 `useUnsavedGuard`·`UnsavedGuardOptions`(`MenuPlatform`), 호스트 `useLeaveRequest`·`leaveRequest`, 선택적 `PlatformLocation.go`. 등록이 없으면 리스너·비용이 없다. `sdk:api` 스냅샷·버전·next-release 행 갱신.
 - 계약 문서: [kernel.md](../contract/kernel.md) §4·§6.4 「이동 가드」, [platform-ui-contract.md](../contract/platform-ui-contract.md) §26, [components.md](../contract/components.md)(셸 대화상자). 계약 문단에 없는 것은 여기 둔다: `replace`는 있는 번호를 유지하고 번호 없는 entry에서의 첫 push는 그 entry를 0으로 먼저 `replace`한다. 번호 없는 entry 뒤의 push는 항상 새 번호 구간 `apSeg`를 붙인다(Provider mount 이전에 번호를 보았는지 알 수 없어 옛 구간을 이어 쓰지 않고, 구간이 다른 entry 사이의 Back/Forward는 거리를 재지 않고 통과한다). 확인 replay의 `history.go`가 던지면 목적지 주소를 push해 이동을 마치되, 보정 전에 읽은 목적지 숨은 쌍을 복원한다. 출발 주소가 바뀌면 보류 요청은 폐기된다. `onDiscard`는 떠나는 등록만 돈다. 대화상자는 표준 모달(A)로 정했고 B(메뉴가 담는 배너+모달 대체: 경로가 둘)와 C(팝오버: Back·팔레트에 닻이 없음)는 버린다.
-- 구현 시 주의: `useSavedViews`의 popstate 플래그는 취소된 Back에 반응하면 안 된다(받아들인 이동 신호로 교체). 시험 계획은 `W-1388-PLAN.md` §6.
+- 구현 시 주의: `useSavedViews`의 popstate 플래그는 취소된 Back에 반응하면 안 된다(받아들인 이동 신호로 교체).
