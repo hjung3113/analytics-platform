@@ -6,7 +6,19 @@ import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatformOptional } from '@ap/kernel/host';
-import { DetailPanelFullscreenContext, DetailPanelFullscreenToggle, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused } from '@ap/ui';
+import { DetailPanelFullscreenContext, DetailPanelFullscreenToggle, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused, cn } from '@ap/ui';
+
+/** Menus declare content; the SDK owns its width-dependent placement. */
+export interface DetailDrawerRegions {
+  body: ReactNode;
+  properties?: ReactNode;
+  activity?: ReactNode;
+}
+
+export type DetailDrawerTab = { id: string; label: ReactNode } & (
+  | { content: ReactNode; regions?: never }
+  | { regions: DetailDrawerRegions; content?: never }
+);
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
 export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, focusOnOpen, returnFocusRef }: {
@@ -14,7 +26,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, footer, 
   focusOnOpen?: boolean;
   returnFocusRef?: RefObject<HTMLElement | null>;
   title: ReactNode; subtitle?: ReactNode; headerActions?: ReactNode; context?: ReactNode; footer?: ReactNode;
-  tabs: { id: string; label: ReactNode; content: ReactNode }[];
+  tabs: DetailDrawerTab[];
   onClose: () => void; tab?: string; onTabChange?: (tab: string) => void;
 }) {
   const paneId = useHostPlatformOptional()?.paneId;
@@ -131,7 +143,7 @@ function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions
     onPointerDownCapture={() => { focusInside.current = true; }}
     onBlur={e => { const to = e.relatedTarget as Node | null; if (to && !panel.current?.contains(to)) focusInside.current = false; }}
     onKeyDown={onKeyDown}
-    className="flex h-full min-h-0 w-full flex-col bg-surface-detail">
+    className={cn('flex h-full min-h-0 w-full flex-col bg-surface-detail', tabs.some(tb => tb.regions !== undefined) && '@container/detail-panel')}>
     <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
       <div className="min-w-0">
         {paneLabel && <p data-detail-pane-label className="truncate text-xs text-text-muted">{paneLabel}</p>}
@@ -148,16 +160,41 @@ function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions
     <OutcomeBanners />
     {/* One tab draws no tab row (06 §13, #886 UX-8); the content stays a focusable, named scroll region like a tabpanel. */}
     {tabs.length === 1
-      ? <div role="region" tabIndex={0} aria-labelledby={`${id}-t`} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0"><DetailPanelReadingColumn>{tabs[0].content}</DetailPanelReadingColumn></div>
+      ? tabs[0].regions !== undefined ? <DeclaredRegions regions={tabs[0].regions} /> : <div role="region" tabIndex={0} aria-labelledby={`${id}-t`} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0"><DetailPanelReadingColumn>{tabs[0].content}</DetailPanelReadingColumn></div>
       : <Tabs value={tab} defaultValue={tab ? undefined : tabs[0].id} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
         <TabsList aria-label={lang === 'ko' ? '상세 탭' : 'Detail tabs'} className="mx-5 mt-3 w-auto">
           {tabs.map(tb => <TabsTrigger key={tb.id} value={tb.id}>{tb.label}</TabsTrigger>)}
         </TabsList>
         {tabs.map(tb => (
           // eslint-disable-next-line shadcn/no-restyle -- the aside clips overflow, so the focus ring must sit inside the panel (#914 A1)
-          <TabsContent key={tb.id} value={tb.id} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:ring-inset focus-visible:ring-offset-0"><DetailPanelReadingColumn>{tb.content}</DetailPanelReadingColumn></TabsContent>
+          <TabsContent key={tb.id} value={tb.id} className={tb.regions !== undefined ? 'flex min-h-0 flex-1 flex-col overflow-hidden focus-visible:ring-inset focus-visible:ring-offset-0' : 'min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:ring-inset focus-visible:ring-offset-0'}>{tb.regions !== undefined ? <DeclaredRegions regions={tb.regions} /> : <DetailPanelReadingColumn>{tb.content}</DetailPanelReadingColumn>}</TabsContent>
         ))}
       </Tabs>}
     {footer !== undefined && <DetailPanelReadingColumn asChild><div className="shrink-0 border-t border-border-subtle px-5 py-3">{footer}</div></DetailPanelReadingColumn>}
     </div>;
+}
+
+
+/**
+ * Keep DOM/keyboard order body → properties → activity at every width. The main
+ * scrollport carries the left track; the properties track sticks inside it and
+ * scrolls independently. Size containment supplies its available block size in
+ * cqh without geometry observers, reparenting or a second copy of the content.
+ */
+function DeclaredRegions({ regions }: { regions: DetailDrawerRegions }) {
+  const { t } = useI18n();
+  const hasProperties = regions.properties !== undefined && regions.properties !== null && regions.properties !== false;
+  const hasActivity = regions.activity !== undefined && regions.activity !== null && regions.activity !== false;
+  // No token covers size containment or a 100cqh cap: properties use this scrollport's height, not the viewport's.
+  return <div className="min-h-0 flex-1 [container-type:size]">
+    <div role="region" aria-label={t('detailBodyActivity')} tabIndex={0} data-detail-main-scroll
+      className="h-full overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0">
+      <div data-detail-regions className={cn('grid min-h-full grid-cols-1 content-start', hasProperties && '@[60rem]/detail-panel:grid-cols-[minmax(0,1fr)_18rem] @[60rem]/detail-panel:grid-rows-[auto_1fr]')}>
+        <section aria-label={t('detailBody')} data-detail-region="body" className="min-w-0 px-5 py-3 @[60rem]/detail-panel:col-start-1 @[60rem]/detail-panel:row-start-1">{regions.body}</section>
+        {hasProperties && <section role="region" aria-label={t('detailProperties')} tabIndex={0} data-detail-region="properties"
+          className="min-h-0 min-w-0 px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0 @[60rem]/detail-panel:sticky @[60rem]/detail-panel:top-0 @[60rem]/detail-panel:col-start-2 @[60rem]/detail-panel:row-start-1 @[60rem]/detail-panel:row-span-2 @[60rem]/detail-panel:max-h-[100cqh] @[60rem]/detail-panel:self-start @[60rem]/detail-panel:overflow-y-auto @[60rem]/detail-panel:overscroll-contain">{regions.properties}</section>}
+        {hasActivity && <section aria-label={t('detailActivity')} data-detail-region="activity" className="min-w-0 px-5 py-3 @[60rem]/detail-panel:col-start-1 @[60rem]/detail-panel:row-start-2">{regions.activity}</section>}
+      </div>
+    </div>
+  </div>;
 }

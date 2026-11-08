@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState, type ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
@@ -53,6 +53,11 @@ describe('DetailDrawer optional footer', () => {
     const tabs = Array.from({ length: count }, (_, i) => ({ id: String(i), label: `Tab ${i}`, content: <p>Body</p> }));
     const view = render(tree(<DetailDrawer title="Details" onClose={() => {}} tabs={tabs} />));
     await screen.findByText('Body');
+    // Radix TabsContent draws `animation-duration: 0s` on its first mount and drops it on the first render after the next animation frame.
+    // Whether that frame lands before the rerender below depends on machine load, so let it pass and render once with unchanged props first;
+    // the snapshot then compares only what the footer prop could change.
+    await act(async () => { await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); });
+    view.rerender(tree(<DetailDrawer title="Details" onClose={() => {}} tabs={tabs} />));
     const before = screen.getByRole('dialog').innerHTML;
     view.rerender(tree(<DetailDrawer title="Details" onClose={() => {}} tabs={tabs} footer={undefined} />));
     expect(screen.getByRole('dialog').innerHTML).toBe(before);

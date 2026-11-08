@@ -4,11 +4,13 @@ import { TRIAGE_STATE_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { SeverityBadge, UnassignedBadge } from '@ap/feature-ui';
-import { Button, FieldRow, PanelSectionTitle, UserChip } from '@ap/ui';
+import { Button, FieldRow, PanelSectionTitle, UserChip, cn } from '@ap/ui';
 import type * as React from 'react';
 
 export interface TriageBlockProps {
   voc: VocDetailEnvelope;
+  /** The host places this section at the top of its properties track. */
+  leading?: boolean;
   ownerDisplayName?: string | null | undefined;
   analyticsAreaName?: string | null | undefined;
   canTriage: boolean;
@@ -18,15 +20,18 @@ export interface TriageBlockProps {
 
 export function TriageBlock({
   voc,
+  leading = false,
   ownerDisplayName,
   analyticsAreaName,
   canTriage,
   onOpenTriage,
 }: TriageBlockProps): React.ReactElement {
   return (
-    <div className="mt-8">
-      <div className="flex items-center justify-between">
-        <PanelSectionTitle>분류 (읽기 전용)</PanelSectionTitle>
+    <div className={cn(!leading && 'mt-8')}>
+      <div className={cn('flex items-center justify-between', leading && 'mb-4 gap-2')}>
+        <PanelSectionTitle {...(leading ? { className: 'mb-0' } : {})}>
+          분류 (읽기 전용)
+        </PanelSectionTitle>
         {canTriage && onOpenTriage !== undefined && (
           <Button
             variant="ghost"

@@ -125,3 +125,16 @@ describe('useVocDetailParts', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 });
+
+
+it('offers the region renderer with the same VOC and close guard as the standalone body', () => {
+  vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
+  const { result } = renderHook(() => useVocDetailParts({ vocId: DETAIL_ENVELOPE.id, onClose: () => {}, titleInHeader: true }), { wrapper });
+  const renderLayout = () => null;
+  const declared = result.current.renderRegions?.(renderLayout) as React.ReactElement<{ voc: unknown; closeGuard: unknown; titleInHeader: boolean; renderRegions: unknown }>;
+  const legacy = result.current.body as React.ReactElement<{ voc: unknown; closeGuard: unknown }>;
+  expect(declared.props.voc).toBe(legacy.props.voc);
+  expect(declared.props.closeGuard).toBe(legacy.props.closeGuard);
+  expect(declared.props.titleInHeader).toBe(true);
+  expect(declared.props.renderRegions).toBe(renderLayout);
+});

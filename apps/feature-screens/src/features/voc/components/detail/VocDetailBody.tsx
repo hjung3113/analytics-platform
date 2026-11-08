@@ -22,6 +22,13 @@ import { TriageBlock } from './TriageBlock';
 import type { DetailCloseGuard } from './useDetailCloseGuard';
 import { useVocDetailPanelController } from './useVocDetailPanelController';
 
+/** Semantic sections for a host-owned detail frame; no SDK dependency in feature screens. */
+export interface VocDetailRegionLayout {
+  regions: { body: React.ReactNode; properties?: React.ReactNode; activity?: React.ReactNode };
+  footer: React.ReactNode;
+}
+export type RenderVocDetailRegions = (layout: VocDetailRegionLayout) => React.ReactNode;
+
 export interface VocDetailBodyProps {
   voc: VocDetailEnvelope;
   vocId: string;
@@ -32,6 +39,8 @@ export interface VocDetailBodyProps {
   me: MeResponse | null;
   /** The host's frame already shows the title; the body omits its own (#1168 C-1). */
   titleInHeader?: boolean;
+  /** Optional host layout. Omission keeps the standalone section navigation and scroll frame. */
+  renderRegions?: RenderVocDetailRegions;
 }
 
 /** The VOC detail below its header: section nav, sections, footer and the dialogs. A host places it in its own frame. */
@@ -44,6 +53,7 @@ export function VocDetailBody({
   canRenderAllowedTask,
   me,
   titleInHeader,
+  renderRegions,
 }: VocDetailBodyProps): React.ReactElement {
   const { setComposerDirty, dirtyConfirmOpen, confirmClose, cancelClose } = closeGuard;
   const {
@@ -99,152 +109,159 @@ export function VocDetailBody({
         ]
       : VOC_DETAIL_SECTIONS;
 
-  return (
-    <>
-      {/* Section nav — sticky anchor tabs (prototype: screen-voc.jsx:191) */}
-      <DetailPanelSectionNav sections={detailSections} scrollRef={scrollRef} />
-
-      <div ref={scrollRef} className="flex flex-col flex-1 min-h-0 overflow-y-auto pt-7 px-6 pb-16">
-        <div data-anchor="overview">
-          <IdentitySection
-            voc={voc}
-            reporterDisplayName={actorNamesById.get(voc.reporter_id) ?? me?.actor.display_name}
-            {...(titleInHeader ? { titleInHeader } : {})}
-          />
-        </div>
-        {!isReporterArm && (
-          <div data-anchor="triage">
-            <TriageBlock
-              voc={voc}
-              ownerDisplayName={
-                voc.owner_user_id != null ? (actorNamesById.get(voc.owner_user_id) ?? null) : null
-              }
-              analyticsAreaName={
-                voc.analytics_area_id != null
-                  ? (analyticsAreasById.get(voc.analytics_area_id) ?? null)
-                  : null
-              }
-              canTriage={canTriage}
-              onOpenTriage={handleOpenTriage}
-            />
-          </div>
-        )}
-        <div data-anchor="description">
-          <DescriptionSection voc={voc} isReporterOnOwnVoc={isReporterOnOwnVoc} />
-          {/* Managed System and source context remain visible below the body. */}
-          <IdentityMetadataStrip voc={voc} />
-        </div>
-        {!isReporterArm && (
-          <NoFollowUpSection
-            key={noFollowUpScope}
-            vocId={vocId}
-            state={voc.follow_up}
-            canTriage={canTriage}
-            actorNames={actorNamesById}
-          />
-        )}
-        <div data-anchor="trail">
-          <LinkedExecutionSection
-            voc={voc}
-            isReporterContext={!canRenderAllowedTask}
-            linkedTask={linkedTask}
-          />
-          <LinkedEntityTrailSection
-            links={voc.links ?? []}
-            trails={voc.linked_execution.trails}
-            onOpenCluster={handleOpenCluster}
-            onOpenRequest={handleOpenRequest}
-            isReporterContext={!canRenderAllowedTask}
-            onOpenTask={handleOpenTask}
-            onOpenFinding={handleOpenFinding}
-            canOpen={canOpenTrailNode}
-          />
-          {requestTaskOpen && (
-            <TaskRequestDraftCard
-              sourceKind="VOC"
-              sourceDisplayId={voc.display_id}
-              evidenceSummaryDefault={vocEvidenceSummaryDefault(voc)}
-              isSubmitting={requestTaskIsPending}
-              source={{ type: 'voc', id: vocId }}
-              onClose={closeRequestTaskDraft}
-              onSubmit={handleRequestTaskSubmit}
-            />
-          )}
-        </div>
-        {showsSimilarVocSection && (
-          <div data-anchor="similar">
-            <SimilarVocSection
-              similar={voc.similar}
-              similarCount={voc.similar_count}
-              onSelect={handleSimilarVocSelect}
-              canSelect={canSelectSimilarVoc}
-            />
-          </div>
-        )}
-        <div data-anchor="conversation">
-          <ConversationTimeline
-            voc={voc}
-            canTriage={canTriage}
-            actorNamesById={actorNamesById}
-            meActor={me?.actor ?? null}
-            postSignal={postSignal}
-          />
-        </div>
-        <div data-anchor="compose">
-          <ComposerSection
-            voc={voc}
-            me={me}
-            canTriage={canTriage}
-            onDirtyChange={setComposerDirty}
-            onConversationPosted={(tab) =>
-              setPostSignal((previous) => ({ tab, seq: previous.seq + 1 }))
-            }
-          />
-          {canCreateFinding && pendingReviewCount > 0 && (
-            <div className="mt-2 flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setReviewOpen(true)}
-                data-testid="public-update-review-button"
-              >
-                리뷰{' '}
-                <span className="ml-1 rounded-full bg-surface-row-hover px-1.5 py-0.5 text-xs">
-                  {pendingReviewCount}
-                </span>
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <NextActionFooter
+  const overview = (
+    <div data-anchor="overview">
+      <IdentitySection
         voc={voc}
-        {...(canCreateFinding
-          ? {
-              primaryAction: {
-                label: hasVisibleFollowUp(voc, !canRenderAllowedTask)
-                  ? VOC_FOLLOW_UP_COPY.showExecution
-                  : VOC_FOLLOW_UP_COPY.createFinding,
-                onClick: () => {
-                  if (hasVisibleFollowUp(voc, !canRenderAllowedTask)) {
-                    scrollRef.current?.querySelector('[data-anchor="trail"]')?.scrollIntoView();
-                  } else setCreateFindingOpen(true);
-                },
-              },
-            }
-          : {})}
-        {...(canRequestTask
-          ? {
-              secondaryAction: {
-                label: VOC_FOLLOW_UP_COPY.requestTask,
-                onClick: () => setRequestTaskOpen(true),
-                testId: 'voc-request-task-button',
-              },
-            }
-          : {})}
+        reporterDisplayName={actorNamesById.get(voc.reporter_id) ?? me?.actor.display_name}
+        {...(titleInHeader ? { titleInHeader } : {})}
       />
-
+    </div>
+  );
+  const properties = !isReporterArm && (
+    <div data-anchor="triage">
+      <TriageBlock
+        voc={voc}
+        leading={renderRegions !== undefined}
+        ownerDisplayName={
+          voc.owner_user_id != null ? (actorNamesById.get(voc.owner_user_id) ?? null) : null
+        }
+        analyticsAreaName={
+          voc.analytics_area_id != null
+            ? (analyticsAreasById.get(voc.analytics_area_id) ?? null)
+            : null
+        }
+        canTriage={canTriage}
+        onOpenTriage={handleOpenTriage}
+      />
+    </div>
+  );
+  const body = (
+    <>
+      <div data-anchor="description">
+        <DescriptionSection voc={voc} isReporterOnOwnVoc={isReporterOnOwnVoc} />
+        {/* Managed System and source context remain visible below the body. */}
+        <IdentityMetadataStrip voc={voc} />
+      </div>
+      {!isReporterArm && (
+        <NoFollowUpSection
+          key={noFollowUpScope}
+          vocId={vocId}
+          state={voc.follow_up}
+          canTriage={canTriage}
+          actorNames={actorNamesById}
+        />
+      )}
+      <div data-anchor="trail">
+        <LinkedExecutionSection
+          voc={voc}
+          isReporterContext={!canRenderAllowedTask}
+          linkedTask={linkedTask}
+        />
+        <LinkedEntityTrailSection
+          links={voc.links ?? []}
+          trails={voc.linked_execution.trails}
+          onOpenCluster={handleOpenCluster}
+          onOpenRequest={handleOpenRequest}
+          isReporterContext={!canRenderAllowedTask}
+          onOpenTask={handleOpenTask}
+          onOpenFinding={handleOpenFinding}
+          canOpen={canOpenTrailNode}
+        />
+        {requestTaskOpen && (
+          <TaskRequestDraftCard
+            sourceKind="VOC"
+            sourceDisplayId={voc.display_id}
+            evidenceSummaryDefault={vocEvidenceSummaryDefault(voc)}
+            isSubmitting={requestTaskIsPending}
+            source={{ type: 'voc', id: vocId }}
+            onClose={closeRequestTaskDraft}
+            onSubmit={handleRequestTaskSubmit}
+          />
+        )}
+      </div>
+      {showsSimilarVocSection && (
+        <div data-anchor="similar">
+          <SimilarVocSection
+            similar={voc.similar}
+            similarCount={voc.similar_count}
+            onSelect={handleSimilarVocSelect}
+            canSelect={canSelectSimilarVoc}
+          />
+        </div>
+      )}
+    </>
+  );
+  const activity = (
+    <>
+      <div data-anchor="conversation">
+        <ConversationTimeline
+          voc={voc}
+          canTriage={canTriage}
+          actorNamesById={actorNamesById}
+          meActor={me?.actor ?? null}
+          postSignal={postSignal}
+        />
+      </div>
+      <div data-anchor="compose">
+        <ComposerSection
+          voc={voc}
+          me={me}
+          canTriage={canTriage}
+          onDirtyChange={setComposerDirty}
+          onConversationPosted={(tab) =>
+            setPostSignal((previous) => ({ tab, seq: previous.seq + 1 }))
+          }
+        />
+        {canCreateFinding && pendingReviewCount > 0 && (
+          <div className="mt-2 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setReviewOpen(true)}
+              data-testid="public-update-review-button"
+            >
+              리뷰{' '}
+              <span className="ml-1 rounded-full bg-surface-row-hover px-1.5 py-0.5 text-xs">
+                {pendingReviewCount}
+              </span>
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+  const footer = (
+    <NextActionFooter
+      voc={voc}
+      embedded={renderRegions !== undefined}
+      {...(canCreateFinding
+        ? {
+            primaryAction: {
+              label: hasVisibleFollowUp(voc, !canRenderAllowedTask)
+                ? VOC_FOLLOW_UP_COPY.showExecution
+                : VOC_FOLLOW_UP_COPY.createFinding,
+              onClick: () => {
+                if (hasVisibleFollowUp(voc, !canRenderAllowedTask)) {
+                  scrollRef.current?.querySelector('[data-anchor="trail"]')?.scrollIntoView();
+                } else setCreateFindingOpen(true);
+              },
+            },
+          }
+        : {})}
+      {...(canRequestTask
+        ? {
+            secondaryAction: {
+              label: VOC_FOLLOW_UP_COPY.requestTask,
+              onClick: () => setRequestTaskOpen(true),
+              testId: 'voc-request-task-button',
+            },
+          }
+        : {})}
+    />
+  );
+  const overlays = (
+    <>
       <DirtyConfirmation open={dirtyConfirmOpen} onConfirm={confirmClose} onCancel={cancelClose} />
       <CreateFindingModal
         vocId={vocId}
@@ -256,6 +273,48 @@ export function VocDetailBody({
         onClose={() => setCreateFindingOpen(false)}
       />
       <PublicUpdateReviewModal voc={voc} open={reviewOpen} onOpenChange={setReviewOpen} />
+    </>
+  );
+
+  if (renderRegions) {
+    // A body-local nav cannot track sibling regions or stay sticky through them.
+    // Restoring it needs a host-owned nav slot and shared scroll ref (backlog #1530).
+    return (
+      <>
+        {renderRegions({
+          regions: {
+            body: (
+              <div ref={scrollRef}>
+                {overview}
+                {body}
+              </div>
+            ),
+            ...(!isReporterArm ? { properties } : {}),
+            activity,
+          },
+          footer: (
+            <>
+              {footer}
+              {overlays}
+            </>
+          ),
+        })}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {/* Section nav belongs to the standalone one-scroll frame. */}
+      <DetailPanelSectionNav sections={detailSections} scrollRef={scrollRef} />
+      <div ref={scrollRef} className="flex flex-col flex-1 min-h-0 overflow-y-auto pt-7 px-6 pb-16">
+        {overview}
+        {properties}
+        {body}
+        {activity}
+      </div>
+      {footer}
+      {overlays}
     </>
   );
 }
