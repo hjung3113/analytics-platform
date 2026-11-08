@@ -82,6 +82,8 @@ describe('RichEditor + AttachButton integration', () => {
     renderEditor({ surface: 'voc-description', onAttach });
 
     const file = new File(['bin'], 'shot.png', { type: 'image/png' });
+    // The custom toolbar renders before useEditor returns a live instance (#1543).
+    await screen.findByRole('textbox');
     pickFile(await screen.findByTestId('rich-attach-input') as HTMLInputElement, file);
 
     await waitFor(() => expect(onAttach).toHaveBeenCalledWith(file));
@@ -103,6 +105,8 @@ describe('RichEditor + AttachButton integration', () => {
     renderEditor({ surface: 'reporter-reply', onAttach, onErrorRef: errorRef });
 
     const file = new File(['x'], 'huge.bin', { type: 'application/octet-stream' });
+    // The custom toolbar renders before useEditor returns a live instance (#1543).
+    await screen.findByRole('textbox');
     pickFile(await screen.findByTestId('rich-attach-input') as HTMLInputElement, file);
 
     await waitFor(() => expect(onAttach).toHaveBeenCalled());
@@ -128,6 +132,8 @@ describe('RichEditor + AttachButton integration', () => {
     const errorRef: { current?: unknown } = {};
     renderEditor({ surface: 'internal-comment', onErrorRef: errorRef });
     const file = new File(['x'], 'x.txt', { type: 'text/plain' });
+    // The custom toolbar renders before useEditor returns a live instance (#1543).
+    await screen.findByRole('textbox');
     pickFile(await screen.findByTestId('rich-attach-input') as HTMLInputElement, file);
     await waitFor(() => {
       expect(errorRef.current).toBeInstanceOf(Error);

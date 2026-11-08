@@ -125,6 +125,7 @@ export function VocComposeScreen({
             render={({ field }) => (
               <RichEditor
                 surface="voc-description"
+                toolbarStickyOffset="calc(var(--spacing) * -4)"
                 ariaLabel={VOC_CREATE_COPY.descriptionField}
                 value={field.value as TipTapDoc}
                 onChange={(doc) => field.onChange(doc)}

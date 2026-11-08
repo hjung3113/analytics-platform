@@ -182,3 +182,16 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Engine DOM: reserve the contextual controls inside their block, away from preceding text. */
+.rich-editor .ProseMirror[contenteditable="true"] .tableWrapper,
+.rich-editor .ProseMirror[contenteditable="true"] pre {
+  padding-block-start: calc(var(--spacing) * 10);
+}
+
+/* Editor-only gutter: the stacked 28px handle controls remain inside clipping scroll hosts.
+ * Read-view rendering and surfaces without block controls keep their existing inset. */
+.rich-editor [data-rich-gutter] .ProseMirror {
+  padding-inline-start: calc(var(--spacing) * 9);
+  padding-block-end: calc(var(--spacing) * 10);
+}
