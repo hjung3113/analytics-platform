@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { FolderTree, X } from 'lucide-react';
 import type { HierarchySource } from '@ap/contracts';
-import { HierarchyNav, useHierarchyNavState } from '@ap/components';
+import { useHierarchyNavState } from '@ap/components';
 import { useI18n, type MenuEntry, type PlatformMenuEntry } from '@ap/kernel';
 import { useHostPlatform, useLeaveRequest } from '@ap/kernel/host';
 import { Button, navRowVariants, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
+
+const HierarchyNav = lazy(() => import('./SidebarHierarchyNav'));
 
 export const SIDEBAR_GROUP_TITLE = 'mx-2 mb-1 mt-3.5 text-caption font-semibold uppercase tracking-wide text-text-muted';
 
@@ -33,7 +35,7 @@ function HierarchySection({ menu, declaration, source, collapsed }: { menu: Menu
     shownNode.current = currentNodeId;
     navigated.current = true; setOpen(false);
   }, [currentNodeId]);
-  const content = <HierarchyNav menuId={menu.id} label={label} source={source} state={state} mode={declaration.mode} levelIcon={declaration.levelIcon} currentNodeId={currentNodeId} onNavigate={() => { navigated.current = true; setOpen(false); }} />;
+  const content = <Suspense fallback={<div className="h-8" aria-busy="true" />}><HierarchyNav menuId={menu.id} label={label} source={source} state={state} mode={declaration.mode} levelIcon={declaration.levelIcon} currentNodeId={currentNodeId} onNavigate={() => { navigated.current = true; setOpen(false); }} /></Suspense>;
   if (!collapsed) return <div role="group" aria-label={label}><p className={SIDEBAR_GROUP_TITLE}>{label}</p>{content}</div>;
   return <Popover open={open} onOpenChange={value => { navigated.current = false; setOpen(value); }}>
     <Tooltip><TooltipTrigger asChild><PopoverTrigger asChild><button type="button" aria-label={label} className={navRowVariants({ collapsed: true })}><FolderTree className="size-4 shrink-0" aria-hidden /></button></PopoverTrigger></TooltipTrigger><TooltipContent side="right">{label}</TooltipContent></Tooltip>
