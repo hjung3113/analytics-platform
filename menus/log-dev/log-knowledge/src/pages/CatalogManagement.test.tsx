@@ -344,6 +344,73 @@ describe('unsaved drawer input (#1519, ADR-0115)', () => {
     expect(screen.queryByText('작성 중인 내용이 사라집니다. 닫을까요?')).toBeNull();
   });
 
+  // #1542: the 정보 → SW 버전 tab unmounts the form, and 가져오기 replaces the list area with the drawer; both used to drop input silently.
+  const lost = /^작성 중인 내용이 사라집니다/;
+  const drawerTab = (name: string) => within(screen.getByRole('tablist', { name: '상세 탭' })).getByRole('tab', { name });
+  const confirmIn = (name: string) => fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name }));
+  it('asks before the SW 버전 tab drops typed input; 계속 작성 keeps it and 바꾸기 switches', async () => {
+    mount(`&tab=model${activeOnly()}&focus=${modelRow.id}`);
+    const name = await screen.findByLabelText(/^이름/, {}, slow);
+    fireEvent.change(name, { target: { value: 'Alpha 100 renamed' } });
+    const swTab = drawerTab('SW 버전');
+    fireEvent.mouseDown(swTab);
+    fireEvent.click(swTab);
+    await screen.findByText(lost);
+    fireEvent.click(screen.getByRole('button', { name: '계속 작성' }));
+    await waitFor(() => expect(screen.queryByText(lost)).toBeNull());
+    expect(drawerTab('정보').getAttribute('aria-selected')).toBe('true');
+    expect((screen.getByLabelText(/^이름/) as HTMLInputElement).value).toBe('Alpha 100 renamed');
+
+    fireEvent.mouseDown(swTab);
+    fireEvent.click(swTab);
+    await screen.findByText(lost);
+    confirmIn('바꾸기');
+    await waitFor(() => expect(drawerTab('SW 버전').getAttribute('aria-selected')).toBe('true'));
+    expect(writes).toHaveLength(0);
+  });
+
+  it('a keyboard move onto SW 버전 asks once; 계속 작성 returns focus to 정보 without asking again', async () => {
+    mount(`&tab=model${activeOnly()}&focus=${modelRow.id}`);
+    fireEvent.change(await screen.findByLabelText(/^이름/, {}, slow), { target: { value: 'Alpha 100 renamed' } });
+    act(() => drawerTab('SW 버전').focus());
+    await screen.findByText(lost);
+    fireEvent.click(screen.getByRole('button', { name: '계속 작성' }));
+    await waitFor(() => expect(document.activeElement).toBe(drawerTab('정보')));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(screen.queryByText(lost)).toBeNull();
+    expect(drawerTab('정보').getAttribute('aria-selected')).toBe('true');
+    expect((screen.getByLabelText(/^이름/) as HTMLInputElement).value).toBe('Alpha 100 renamed');
+  });
+
+  it('asks before 가져오기 drops typed input; 계속 작성 keeps the drawer and 가져오기로 이동 opens the wizard', async () => {
+    mount(`&tab=vendor${activeOnly()}&focus=new`);
+    fireEvent.change(await screen.findByLabelText(/^코드/, {}, slow), { target: { value: 'NEWCO' } });
+    fireEvent.click(screen.getByRole('button', { name: '가져오기' }));
+    await screen.findByText(lost);
+    fireEvent.click(screen.getByRole('button', { name: '계속 작성' }));
+    await waitFor(() => expect(screen.queryByText(lost)).toBeNull());
+    expect(screen.queryByRole('list', { name: '가져오기 단계' })).toBeNull();
+    expect((screen.getByLabelText(/^코드/) as HTMLInputElement).value).toBe('NEWCO');
+
+    fireEvent.click(screen.getByRole('button', { name: '가져오기' }));
+    await screen.findByText(lost);
+    confirmIn('가져오기로 이동');
+    await screen.findByRole('list', { name: '가져오기 단계' }, slow);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('switches the tab and opens 가져오기 at once when nothing was typed', async () => {
+    mount(`&tab=model${activeOnly()}&focus=${modelRow.id}`);
+    await screen.findByLabelText(/^이름/, {}, slow);
+    const swTab = drawerTab('SW 버전');
+    fireEvent.mouseDown(swTab);
+    fireEvent.click(swTab);
+    await waitFor(() => expect(swTab.getAttribute('aria-selected')).toBe('true'));
+    fireEvent.click(screen.getByRole('button', { name: '가져오기' }));
+    await screen.findByRole('list', { name: '가져오기 단계' }, slow);
+    expect(screen.queryByText(lost)).toBeNull();
+  });
+
   it('closes an untouched drawer at once', async () => {
     mount(`&tab=vendor${activeOnly()}&focus=${vendorRow.id}`);
     const code = await screen.findByLabelText(/^코드/, {}, slow);

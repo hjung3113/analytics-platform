@@ -7,6 +7,7 @@ import { CatalogDrawer } from './CatalogDrawer';
 import { CatalogTable } from './CatalogTable';
 import { ImportWizard } from './import/ImportWizard';
 import { useCatalogOptions } from './useCatalogOptions';
+import type { GuardedLeave } from './items/ItemFormParts';
 
 const RULES = [
   { key: 'tab', label: { ko: '탭', en: 'Tab' }, valid: isCatalogTab },
@@ -28,6 +29,12 @@ export default function CatalogManagement() {
   const [revision, setRevision] = useState(0);
   // 가져오기 (#1195 c) replaces the list area while it is open; it keeps its own state, not a page key.
   const [importing, setImporting] = useState(false);
+  const drawerLeave = useRef<((next: GuardedLeave) => void) | null>(null);
+  const startImport = () => {
+    const enter = () => setImporting(true);
+    if (drawerLeave.current) drawerLeave.current({ run: enter, title: '작성 중인 내용이 사라집니다. 가져오기로 갈까요?', message: '가져오기로 가면 입력한 내용을 되찾을 수 없습니다.', confirmLabel: '가져오기로 이동' });
+    else enter();
+  };
   const rowsRef = useRef(new Map<string, CatalogRow>());
   const kind = tab === 'invalid' ? null : tab;
   const options = useCatalogOptions({ vendors: kind === 'model', processes: kind === 'model', models: kind === 'software' });
@@ -45,12 +52,12 @@ export default function CatalogManagement() {
         {CATALOG_TABS.map(id => <TabsTrigger key={id} value={id}>{TAB_LABEL[id]}{counts[id] !== undefined && <span className="tabular ml-1.5 text-text-muted">{counts[id]}</span>}</TabsTrigger>)}
       </TabsList>
     </Tabs>
-    <CatalogTable key={`${kind}:${revision}`} kind={kind} onImport={kind === 'software' ? undefined : () => setImporting(true)} q={q} focus={focus} rowsRef={rowsRef} options={options} labels={options.labels} remember={options.remember}
+    <CatalogTable key={`${kind}:${revision}`} kind={kind} onImport={kind === 'software' ? undefined : startImport} q={q} focus={focus} rowsRef={rowsRef} options={options} labels={options.labels} remember={options.remember}
       onTotal={(k, total) => setCounts(c => (c[k] === total ? c : { ...c, [k]: total }))} />
   </div>;
   return <PlatformPage description="설비사·공정·모델·SW 버전 기준 목록을 관리합니다. 비활성화해도 기존 연결은 그대로 남습니다."
     primaryAction={kind && !importing && <Button type="button" onClick={() => setPage({ focus: 'new' })}>{TAB_LABEL[kind]} 추가</Button>}>
     {importing ? <ImportWizard onExit={changed => { setImporting(false); if (changed) setRevision(n => n + 1); }} /> : <ManagementLayout table={body}
-      drawer={!keys.invalid && kind && focus && <CatalogDrawer kind={kind} focus={focus} rowsRef={rowsRef} options={options} onWritten={() => setRevision(n => n + 1)} />} />}
+      drawer={!keys.invalid && kind && focus && <CatalogDrawer kind={kind} focus={focus} rowsRef={rowsRef} options={options} onWritten={() => setRevision(n => n + 1)} leaveRef={drawerLeave} />} />}
   </PlatformPage>;
 }

@@ -12,7 +12,7 @@ import {
 } from '../endpoints';
 import { ACTIVE_ONLY, TAB_LABEL, failureText, impactText, mapFieldErrors, type Banner, type CatalogKind, type CatalogRow } from './catalogModel';
 import { useOptionPicker, type Option } from './useCatalogOptions';
-import { useCloseGuard } from './items/ItemFormParts';
+import { useCloseGuard, type GuardedLeave } from './items/ItemFormParts';
 
 type Write = ActionSpec<Record<string, unknown>, CatalogSummary>;
 const asWrite = (spec: unknown) => spec as Write;
@@ -235,9 +235,11 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
   </form>;
 }
 
-export function CatalogDrawer({ kind, focus, rowsRef, options, onWritten }: {
+export function CatalogDrawer({ kind, focus, rowsRef, options, onWritten, leaveRef }: {
   kind: CatalogKind; focus: string; rowsRef: RefObject<Map<string, CatalogRow>>;
   options: { vendors: Option[]; processes: Option[]; models: Option[] }; onWritten: () => void;
+  /** Filled with the guard's `leave` while the drawer is open, so a page view that replaces the drawer (가져오기) asks first (#1542). */
+  leaveRef: RefObject<((next: GuardedLeave) => void) | null>;
 }) {
   const { setPage } = usePlatform();
   const { lookup, reload } = useCatalogRow(kind, focus, rowsRef);
@@ -248,6 +250,16 @@ export function CatalogDrawer({ kind, focus, rowsRef, options, onWritten }: {
   useEffect(() => { if (released) closeNow(); }, [released]);
   useEffect(() => { setReleased(false); }, [focus]);
   const guard = useCloseGuard(() => setReleased(true));
+  useEffect(() => { leaveRef.current = guard.leave; return () => { leaveRef.current = null; }; }, [leaveRef, guard.leave]);
+  // The SW 버전 tab unmounts the 정보 form, so switching away from it asks like closing (#1542).
+  const changeTab = (next: string) => {
+    if (tab !== 'info' || next === 'info') { setTab(next); return; }
+    // Tabs activate on focus, and the question returns focus to whatever held it when it opened: hand focus back to the selected 정보 tab
+    // first, or 계속 작성 would refocus SW 버전 and ask again.
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && focused.getAttribute('role') === 'tab') focused.closest('[role="tablist"]')?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
+    guard.leave({ run: () => setTab(next), title: '작성 중인 내용이 사라집니다. 탭을 바꿀까요?', message: '탭을 바꾸면 입력한 내용을 되찾을 수 없습니다.', confirmLabel: '바꾸기' });
+  };
   const row = lookup.state === 'ready' ? lookup.row : null;
   const body = lookup.state === 'loading' ? <p className="text-sm text-text-muted">불러오는 중…</p>
     : lookup.state === 'missing' ? <p role="alert" className="text-sm">항목을 찾을 수 없습니다. 삭제되었거나 주소가 틀렸습니다.</p>
@@ -257,7 +269,7 @@ export function CatalogDrawer({ kind, focus, rowsRef, options, onWritten }: {
     ? [{ id: 'info', label: '정보', content: body }, { id: 'software', label: 'SW 버전', content: <ModelSoftware modelId={row.id} /> }]
     : [{ id: 'info', label: '정보', content: body }];
   return <><DetailDrawer key={focus} title={focus === NO_ROW ? `${TAB_LABEL[kind]} 추가` : row ? <span className="t-mono">{row.code}</span> : TAB_LABEL[kind]}
-    subtitle={`${TAB_LABEL[kind]} · 카탈로그 관리`} onClose={guard.request} tab={tabs.some(t => t.id === tab) ? tab : 'info'} onTabChange={setTab} tabs={tabs} />
+    subtitle={`${TAB_LABEL[kind]} · 카탈로그 관리`} onClose={guard.request} tab={tabs.some(t => t.id === tab) ? tab : 'info'} onTabChange={changeTab} tabs={tabs} />
     {guard.dialog}
   </>;
 }
