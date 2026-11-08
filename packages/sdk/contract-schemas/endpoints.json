@@ -725,6 +725,54 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logExplorer.handoffCheck",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "investigationId"
+    ],
+    "permission": "explorer:handoff",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.handoffDrafts",
+    "menuId": "log-explorer",
+    "paramKeys": [],
+    "permission": "explorer:handoff",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.handoffModels",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "q",
+      "page",
+      "pageSize"
+    ],
+    "permission": "explorer:handoff",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.handoffSoftware",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "modelId"
+    ],
+    "permission": "explorer:handoff",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logExplorer.investigationDetail",
     "menuId": "log-explorer",
     "paramKeys": [

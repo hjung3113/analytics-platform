@@ -16,7 +16,7 @@ describe('confirmed log explorer registry (#1473)', () => {
     expect(registry.menuById('log-explorer-view')).toMatchObject({ navHidden: true, aliases: ['/log/explorer/:investigationId'], parent: 'log-explorer' });
   });
   it('declares only merged reads/actions under their corrected owning menu', () => {
-    expect(explorerEndpoints.map(e => e.id)).toEqual(['logExplorer.investigations', 'logExplorer.investigationDetail', 'logExplorer.records', 'logExplorer.window', 'logExplorer.parsed', 'logExplorer.periods']);
+    expect(explorerEndpoints.map(e => e.id)).toEqual(['logExplorer.investigations', 'logExplorer.investigationDetail', 'logExplorer.records', 'logExplorer.window', 'logExplorer.parsed', 'logExplorer.periods', 'logExplorer.handoffCheck', 'logExplorer.handoffDrafts', 'logExplorer.handoffModels', 'logExplorer.handoffSoftware']);
     expect(explorerActions).toHaveLength(6);
     expect([...explorerEndpoints, ...explorerActions].every(e => e.menuId === 'log-explorer')).toBe(true);
     expect(explorerActions.map(a => a.id)).toContain('logExplorer.evidenceHandoff');

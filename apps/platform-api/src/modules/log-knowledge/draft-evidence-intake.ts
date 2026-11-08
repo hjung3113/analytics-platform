@@ -32,6 +32,7 @@ import {
 import { EVIDENCE_MAX, type EvidencePointer } from './domain/item-input.js';
 import { DRAFT_PERMISSION } from './draft-actions.js';
 import { authorAuthNow, draftCores } from './draft-core.js';
+import { listOwnOpenDrafts } from './repositories/draft-read.js';
 import { latestProposal } from './repositories/draft-write.js';
 
 export interface DraftEvidenceIntakeDeps {
@@ -63,6 +64,8 @@ export interface DraftEvidenceResult {
 }
 
 export interface DraftEvidenceIntake {
+  /** Caller-owned, non-final drafts, newest first, at most 50; empty without the intake right. */
+  listOwnOpen(tx: Tx, actor: PlatformActor, options: { limit: number }): Promise<Awaited<ReturnType<typeof listOwnOpenDrafts>>>;
   create(tx: Tx, actor: PlatformActor, input: DraftEvidenceCreateInput): Promise<DraftEvidenceResult>;
   append(tx: Tx, actor: PlatformActor, input: DraftEvidenceAppendInput): Promise<DraftEvidenceResult>;
   /** Whether the actor holds the receiving right (for the sender's own `authorize` pre-check); judges nothing else. */
@@ -152,6 +155,10 @@ export function draftEvidenceIntake(deps: DraftEvidenceIntakeDeps): DraftEvidenc
 
   return {
     canIntake,
+    async listOwnOpen(tx, actor, { limit }) {
+      if (!(await canIntake(tx, actor))) return [];
+      return listOwnOpenDrafts(tx, actor.workspace_id, actor.actor_id, limit);
+    },
 
     async create(tx, actor, input) {
       if (!(await canIntake(tx, actor))) throw invalid({ path: ['target'], code: 'forbidden' });
