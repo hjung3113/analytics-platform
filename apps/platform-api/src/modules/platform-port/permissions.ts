@@ -35,6 +35,8 @@ export type PlatformPermissionRule =
   | 'draft-create'
   /** An active workspace grant of `explorer.investigate` (the write capability of the log explorer investigations); no Admin role bypass (sensitive, #1472). */
   | 'explorer-investigate'
+  /** An active workspace grant of `explorer.handoff` (handing evidence locations to a Round or a knowledge draft); no Admin role bypass (sensitive, #1474). */
+  | 'explorer-handoff'
   /** Admin role, or an active workspace grant of `dataset.manage` (the write capability of the log test datasets). */
   | 'dataset-manage'
   /** An active workspace grant of `dataset.baseline.approve` (the approval of a log test dataset baseline); no Admin role bypass (sensitive, #1478). */
@@ -67,6 +69,8 @@ export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'knowledge:draft-create', rule: 'draft-create' },
   // Menu permission of the log explorer investigation writes (#1468 b); the five investigation actions declare it.
   { permission: 'explorer:investigate', rule: 'explorer-investigate' },
+  // Menu permission of the evidence-location handoff (#1474 X-h); the `logExplorer.evidenceHandoff` action declares it.
+  { permission: 'explorer:handoff', rule: 'explorer-handoff' },
   // Menu permission of the log test dataset writes (#1477 D-a).
   { permission: 'dataset:manage', rule: 'dataset-manage' },
   // Menu permission of the log test dataset baseline approval (#1478 D-b); the approve action declares it.
@@ -231,6 +235,16 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'explorer.investigate', decision).allow;
+    }
+    case 'explorer-handoff': {
+      // The same decision the handoff action takes (`log-explorer/handoff-action.ts`).
+      const decision = await checkService.checkCapability(
+        actor,
+        'explorer.handoff',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'explorer.handoff', decision).allow;
     }
     case 'dataset-manage': {
       // The same decision the dataset write actions take (`log-datasets/dataset-actions.ts`).

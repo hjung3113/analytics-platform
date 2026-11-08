@@ -25,7 +25,8 @@ export function createLogExplorerModule(deps: LogExplorerDeps): LogExplorerModul
   return { sourceRead: guardSourceReadPort(deps.sourceReadPort) };
 }
 
-export type { InvestigationDeps, LifecycleRead, LogExplorerDeps } from './deps.js';
+export type { HandoffDeps, InvestigationDeps, LifecycleRead, LogExplorerDeps } from './deps.js';
+export { EXPLORER_HANDOFF_MENU_PERMISSION, EXPLORER_HANDOFF_PERMISSION } from './investigation-handoff.js';
 export { INVESTIGATION_MENU_ID } from './menu.js';
 export { EXPLORER_INVESTIGATE_MENU_PERMISSION, EXPLORER_INVESTIGATE_PERMISSION } from './investigation-actions.js';
 export { SOURCE_READ_ERROR_CODES, SourceReadError, toSourceReadError } from './errors.js';

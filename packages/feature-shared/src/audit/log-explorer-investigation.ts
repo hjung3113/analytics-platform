@@ -11,6 +11,7 @@ export const LOG_EXPLORER_INVESTIGATION_AUDIT_EVENT_TYPES = [
   'explorer.investigation.archived',
   'explorer.evidence.added',
   'explorer.evidence.removed',
+  'explorer.evidence_handed_off',
 ] as const;
 
 /** Subject id of the explorer events is the investigation id. */
@@ -45,10 +46,32 @@ export const explorerEvidenceAddedDetailSchema = z
 
 export const explorerEvidenceRemovedDetailSchema = z.object({ evidenceCount: z.number().int().min(0).max(99) }).strict();
 
+/**
+ * Evidence-location handoff (#1474 X-h): the target kind and id and counts only. No note, file location, hash, title or
+ * observation. `hashMismatchCount` is present for a knowledge draft target only; `attached`/`alreadyAttached` and the
+ * by-status counts for a Round target only; `draftVersion` for a knowledge draft target only.
+ */
+export const explorerEvidenceHandedOffDetailSchema = z
+  .object({
+    targetKind: z.enum(['round', 'knowledgeDraft']),
+    targetId: z.string().uuid(),
+    refCount: z.number().int().min(1).max(100),
+    resolvedCount: z.number().int().min(0).max(100),
+    unresolvedCount: z.number().int().min(0).max(100),
+    hashMismatchCount: z.number().int().min(0).max(100).optional(),
+    attached: z.number().int().min(0).max(100).optional(),
+    alreadyAttached: z.number().int().min(0).max(100).optional(),
+    match: z.number().int().min(0).max(100).optional(),
+    hashMismatch: z.number().int().min(0).max(100).optional(),
+    unresolved: z.number().int().min(0).max(100).optional(),
+  })
+  .strict();
+
 export const LOG_EXPLORER_INVESTIGATION_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'explorer.investigation.created': explorerInvestigationCreatedDetailSchema,
   'explorer.investigation.updated': explorerInvestigationUpdatedDetailSchema,
   'explorer.investigation.archived': explorerInvestigationArchivedDetailSchema,
   'explorer.evidence.added': explorerEvidenceAddedDetailSchema,
   'explorer.evidence.removed': explorerEvidenceRemovedDetailSchema,
+  'explorer.evidence_handed_off': explorerEvidenceHandedOffDetailSchema,
 } as const satisfies Record<(typeof LOG_EXPLORER_INVESTIGATION_AUDIT_EVENT_TYPES)[number], z.ZodTypeAny>;

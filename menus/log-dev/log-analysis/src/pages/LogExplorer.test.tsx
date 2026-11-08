@@ -37,8 +37,8 @@ const write = vi.fn<PlatformAdapter['menuAction']>(async req => {
 });
 function Slot() { const slot = useDetailPanelSlotHost(); return <aside aria-label="상세" ref={slot.ref} />; }
 function mount() {
-  const registry = createRegistry({ permissions: [menuPermission('explorer:investigate')], spaces: [{ id: spaceId('log-dev'), label: { ko: '로그', en: 'Logs' }, description: { ko: '조사', en: 'Investigations' }, homeMenuId: 'log-explorer' }], groups: [{ id: groupId('logAnalysis'), label: { ko: '로그 분석', en: 'Log analysis' }, icon: ScrollText, space: spaceId('log-dev') }], menus: manifests });
-  const session = testSession(['platform:view', menuPermission('explorer:investigate')]);
+  const registry = createRegistry({ permissions: [menuPermission('explorer:investigate'), menuPermission('explorer:handoff')], spaces: [{ id: spaceId('log-dev'), label: { ko: '로그', en: 'Logs' }, description: { ko: '조사', en: 'Investigations' }, homeMenuId: 'log-explorer' }], groups: [{ id: groupId('logAnalysis'), label: { ko: '로그 분석', en: 'Log analysis' }, icon: ScrollText, space: spaceId('log-dev') }], menus: manifests });
+  const session = testSession(['platform:view', menuPermission('explorer:investigate'), menuPermission('explorer:handoff')]);
   const adapter = testAdapter({ session: () => session, menuQuery: read, menuAction: write });
   return render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider><LogExplorer params={{}} /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 }
@@ -49,7 +49,7 @@ beforeEach(() => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(new Proxy({ measureText: () => ({ width: 30 }) }, { get: (target, key) => key in target ? target[key as keyof typeof target] : () => undefined }) as unknown as CanvasRenderingContext2D);
   window.history.replaceState(null, '', '/log/explorer?v=1');
   read.mockClear(); write.mockClear(); sourceState = 'ok'; deniedWindow = false; pause = false; pendingSource = null;
-  investigation = { id, title: '합성 샘플', origin: 'standalone', roundId: null, status: 'open', version: '1', createdAt: '2026-11-08T00:00:00Z', updatedAt: '2026-11-08T00:00:00Z', sampleSet: set, sampleSetState: 'inline', canInvestigate: true, filters: {}, evidence: [] };
+  investigation = { id, title: '합성 샘플', origin: 'standalone', roundId: null, status: 'open', version: '1', createdAt: '2026-11-08T00:00:00Z', updatedAt: '2026-11-08T00:00:00Z', sampleSet: set, sampleSetState: 'inline', canInvestigate: true, handoff: { round: true, knowledgeDraft: false }, filters: {}, evidence: [] };
 });
 afterEach(() => { cleanup(); restore(); vi.restoreAllMocks(); });
 describe('confirmed list + right drawer (#1473, synthetic)', () => {
@@ -143,7 +143,7 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
     expect(JSON.stringify(write.mock.calls[0][0])).not.toContain('private-source');
     fireEvent.click(await screen.findByRole('button', { name: '근거 위치 바구니 · 1' }));
     fireEvent.keyDown(await screen.findByRole('button', { name: '넘기기' }), { key: 'Enter' });
-    expect((await screen.findByRole('menuitem', { name: 'Round · 준비 중' })).getAttribute('aria-disabled')).toBe('true');
+    expect((await screen.findByRole('menuitem', { name: 'Round · Round에서 시작한 조사만' })).getAttribute('aria-disabled')).toBe('true');
     expect(screen.getByText(/공식 FAIL이나 지식 발행을 확정하지 않습니다/)).toBeTruthy();
   });
   it('resends the same create request after an unknown answer instead of creating again', async () => {
@@ -159,5 +159,96 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
     fireEvent.click(await within(dialog).findByRole('button', { name: '같은 요청 다시 시도' }));
     await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
     expect(write.mock.calls[1]![0].idempotencyKey).toBe(write.mock.calls[0]![0].idempotencyKey);
+  });
+});
+
+describe('Round evidence handoff dialog (#1474, confirmed prototype A)', () => {
+  const ref = { fileRef: 'source-b', line: 1, fileSha256: 'b'.repeat(64) };
+  const roundOf = (over: Partial<Investigation> = {}): Investigation => ({ ...investigation, origin: 'round', roundId: '14740000-0000-4000-8000-000000000001', sampleSetState: 'round', evidence: [{ ref, state: { code: 'available' }, sourceAccess: 'unchecked' }], ...over });
+  const openMenu = async () => { fireEvent.click(await screen.findByRole('button', { name: /근거 위치 바구니 · / })); fireEvent.keyDown(await screen.findByRole('button', { name: '넘기기' }), { key: 'Enter' }); };
+  it.each([
+    ['standalone investigation', { origin: 'standalone' as const, roundId: null }, 'Round · Round에서 시작한 조사만'],
+    ['no handoff right', { handoff: { round: false, knowledgeDraft: false } }, 'Round · 넘기기 권한 없음'],
+    ['empty basket', { evidence: [] }, 'Round · 담은 근거 위치 없음'],
+    ['archived investigation', { status: 'archived' as const }, 'Round · 열린 조사만'],
+  ])('keeps Round disabled with its reason: %s', async (_name, over, label) => {
+    investigation = roundOf(over); mount(); await openMenu();
+    expect((await screen.findByRole('menuitem', { name: label })).getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByRole('menuitem', { name: '지식 초안 · 준비 중' }).getAttribute('aria-disabled')).toBe('true');
+  });
+  it('confirms with every basket reference and expectedVersion, shows the counts and returns focus to 넘기기', async () => {
+    investigation = roundOf();
+    write.mockResolvedValueOnce({ outcome: 'ok', data: { targetKind: 'round', targetId: investigation.roundId, handedOff: 2, alreadyAttached: 1, byStatus: { match: 2, hash_mismatch: 0, unresolved: 3 } }, version: '1', fieldErrors: [], replayed: false, correlationId: 'h' });
+    mount(); await openMenu();
+    fireEvent.keyDown(await screen.findByRole('menuitem', { name: 'Round' }), { key: 'Enter' });
+    const dialog = await screen.findByRole('alertdialog', { name: /Round에 근거 위치/ });
+    expect(within(dialog).getByText('Round에 근거 위치 1개 넘기기')).toBeTruthy();
+    expect(within(dialog).getByText('참조만 전달됩니다. 공식 FAIL·기술 지식 확정이 아닙니다')).toBeTruthy();
+    expect(within(dialog).getByText('fileRef · line · fileSha256만 전달 · 본문 없음')).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: '참조 전달' }));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(write.mock.calls[0]![0]).toMatchObject({ action: 'logExplorer.evidenceHandoff', expectedVersion: '1', input: { id, refs: [ref], target: { kind: 'round', roundId: '14740000-0000-4000-8000-000000000001' } } });
+    expect(await screen.findByText('Round에 2개 넘김 · 이미 있던 위치 1개 · 원본 없음 3개')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: '넘기기' })));
+  });
+  it.each([
+    ['source_unavailable', '원본 연결을 확인할 수 없어 넘기지 못했습니다'],
+    ['source_forbidden', '원본 접근 권한이 없습니다'],
+    ['round_closed', '닫힌 Round입니다'],
+    ['not_in_sample_set', 'Round 샘플 목록에 없는 파일이 있습니다'],
+    ['forbidden', '넘기기 권한이 없습니다'],
+  ])('keeps the dialog open with the reason for %s', async (code, text) => {
+    investigation = roundOf();
+    write.mockResolvedValueOnce({ outcome: 'invalid', data: null, version: null, fieldErrors: [{ path: ['refs'], code }], replayed: false, correlationId: 'h' });
+    mount(); await openMenu();
+    fireEvent.keyDown(await screen.findByRole('menuitem', { name: 'Round' }), { key: 'Enter' });
+    fireEvent.click(within(await screen.findByRole('alertdialog', { name: /Round에 근거 위치/ })).getByRole('button', { name: '참조 전달' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(text);
+    expect(screen.getByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeTruthy();
+  });
+  it('explains a conflict and lets the person cancel', async () => {
+    investigation = roundOf();
+    write.mockResolvedValueOnce({ outcome: 'conflict', data: null, version: '3', fieldErrors: [], replayed: false, correlationId: 'h' });
+    mount(); await openMenu();
+    fireEvent.keyDown(await screen.findByRole('menuitem', { name: 'Round' }), { key: 'Enter' });
+    const dialog = await screen.findByRole('alertdialog', { name: /Round에 근거 위치/ });
+    fireEvent.click(within(dialog).getByRole('button', { name: '참조 전달' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toBe('조사가 바뀌었습니다. 다시 열어 주세요');
+    fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeNull());
+  });
+  const okCounts = { outcome: 'ok' as const, data: { targetKind: 'round' as const, targetId: 'r', handedOff: 2, alreadyAttached: 1, byStatus: { match: 2, hash_mismatch: 0, unresolved: 3 } }, version: '1', fieldErrors: [], replayed: false, correlationId: 'h' };
+  const openDialog = async () => { mount(); await openMenu(); fireEvent.keyDown(await screen.findByRole('menuitem', { name: 'Round' }), { key: 'Enter' }); return screen.findByRole('alertdialog', { name: /Round에 근거 위치/ }); };
+  it('cannot be dismissed while the request is pending', async () => {
+    investigation = roundOf();
+    let release: (value: Awaited<ReturnType<PlatformAdapter['menuAction']>>) => void = () => undefined;
+    write.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: '참조 전달' }));
+    const cancel = await within(dialog).findByRole('button', { name: '취소' });
+    await waitFor(() => expect((cancel as HTMLButtonElement).disabled).toBe(true));
+    expect(within(dialog).getByRole('button', { name: '전달 중…' })).toBeTruthy();
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.getByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeTruthy();
+    await act(async () => { release(okCounts); });
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeNull());
+  });
+  it.each([
+    ['unknown', '응답을 받지 못했습니다. 넘겨졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.'],
+    ['error', '넘기지 못했습니다. 같은 요청으로 다시 시도할 수 있습니다.'],
+  ] as const)('resends the same request (same idempotency key) after %s', async (outcome, text) => {
+    investigation = roundOf();
+    write.mockResolvedValueOnce({ outcome, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'lost' });
+    write.mockResolvedValueOnce(okCounts);
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: '참조 전달' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toBe(text);
+    fireEvent.click(within(dialog).getByRole('button', { name: '같은 요청 다시 시도' }));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+    expect(write.mock.calls[1]![0].idempotencyKey).toBe(write.mock.calls[0]![0].idempotencyKey);
+    expect(within(dialog).queryByRole('button', { name: '참조 전달' })).toBeNull();
+    expect(await screen.findByText('Round에 2개 넘김 · 이미 있던 위치 1개 · 원본 없음 3개')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeNull());
   });
 });

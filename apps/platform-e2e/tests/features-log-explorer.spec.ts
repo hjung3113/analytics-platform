@@ -4,7 +4,7 @@ import { evidence, expandPageHead, signInAs } from './support';
 const investigation = (n: number) => `/log/explorer/14730000-0000-4000-8000-00000000000${n}?v=1`;
 test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
-  test('목록 → 근거 위치 → 바구니, text-only 원문과 준비 중 넘기기', async ({ page }, info) => {
+  test('목록 → 근거 위치 → 바구니, text-only 원문과 standalone 조사는 Round 넘기기 비활성', async ({ page }, info) => {
     await page.goto('/log/explorer?v=1');
     await expect(page.getByRole('heading', { name: '로그 탐색', exact: true })).toBeVisible();
     await expandPageHead(page);
@@ -17,12 +17,29 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     await page.getByRole('button', { name: '근거 위치 바구니 · 1', exact: true }).click();
     await expect(page.getByRole('heading', { name: '근거 위치 바구니', exact: true })).toBeVisible();
     await page.getByRole('button', { name: '넘기기', exact: true }).click();
-    await expect(page.getByRole('menuitem', { name: 'Round · 준비 중', exact: true })).toBeDisabled();
+    await expect(page.getByRole('menuitem', { name: 'Round · Round에서 시작한 조사만', exact: true })).toBeDisabled();
     await expect(page.getByRole('menuitem', { name: '지식 초안 · 준비 중', exact: true })).toBeDisabled();
     await expect(page.getByRole('menuitem', { name: '결함 · 수신 대상 없음', exact: true })).toBeDisabled();
     await page.keyboard.press('Escape');
     await expect(page.getByText(/공식 FAIL이나 지식 발행을 확정하지 않습니다/)).toBeVisible();
     await evidence(page, info, 'log-explorer-synthetic-basket');
+  });
+  test('Round에서 시작한 조사: 근거 위치를 Round로 넘기는 확인 대화상자(#1474)', async ({ page }, info) => {
+    await page.goto(investigation(7));
+    await expandPageHead(page);
+    await page.getByRole('button', { name: 'source-b:1 상세', exact: true }).click();
+    await page.getByRole('button', { name: '근거 위치 담기', exact: true }).click();
+    await page.getByRole('button', { name: '근거 위치 바구니 · 1', exact: true }).click();
+    const trigger = page.getByRole('button', { name: '넘기기', exact: true });
+    await trigger.click();
+    await page.getByRole('menuitem', { name: 'Round', exact: true }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Round에 근거 위치 1개 넘기기' });
+    await expect(dialog.getByText('참조만 전달됩니다. 공식 FAIL·기술 지식 확정이 아닙니다')).toBeVisible();
+    await expect(dialog.getByText('fileRef · line · fileSha256만 전달 · 본문 없음')).toBeVisible();
+    await dialog.getByRole('button', { name: '참조 전달', exact: true }).click();
+    await expect(page.getByText('Round에 1개 넘김 · 이미 있던 위치 0개 · 원본 없음 0개')).toBeVisible();
+    await expect(trigger).toBeFocused();
+    await evidence(page, info, 'log-explorer-round-handoff');
   });
   test('원본 ↔ 시퀀스 조건·선택 유지와 1280 서랍의 파일·타입 기본 숨김', async ({ page }, info) => {
     await page.setViewportSize({ width: 1280, height: 900 });

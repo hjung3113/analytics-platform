@@ -37,6 +37,7 @@ export const CAPABILITIES = [
   'validation.catalog.report',
   'explorer.export',
   'explorer.investigate',
+  'explorer.handoff',
   'dataset.manage',
   'dataset.baseline.approve',
   'dataset.suite.run',
@@ -150,6 +151,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'explorer.export': { sensitive: true, adminModuleBypass: 'none' },
   // Log explorer investigation (#1472 registers the token scope; the investigation actions are node b): workspace-scoped, no Admin bypass. Sensitive for the same reason as the read: it is granted with a stated reason and stays out of the audit projection allow-list (no migration).
   'explorer.investigate': { sensitive: true, adminModuleBypass: 'none' },
+  // Log explorer evidence-location handoff (#1474 X-h, design log-explorer §4.1): hands body-free pointers to a Round or a knowledge draft. Its own right so a token or person can investigate without handing off; the receiver re-judges its own capability. Workspace-scoped, sensitive, no Admin bypass (same shape as `explorer.investigate`), may be a token scope.
+  'explorer.handoff': { sensitive: true, adminModuleBypass: 'none' },
   // Validation catalog report (#1491, ADR-0122): the Validator posts its rule catalog snapshot over a service token.
   // Token-only (never a human session) and no Admin bypass: the token owner needs the grant itself.
   'validation.catalog.report': { sensitive: false, adminModuleBypass: 'none', tokenOnly: true },

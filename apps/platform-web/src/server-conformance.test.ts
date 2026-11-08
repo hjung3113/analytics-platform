@@ -251,8 +251,9 @@ const improvementSamples: Record<string, () => Record<string, unknown>> = {
 };
 // Fresh own investigations keep archive and evidence writes repeatable in the conformance kit.
 const explorerHandler = (name: string) => MOCK_ACTIONS.find(a => a.spec.id === `logExplorer.${name}`)!;
-const freshInvestigation = (withEvidence = false): string => {
-  const id = (explorerHandler('investigationCreate').handle({ actor: 'admin', scopeId: null, input: { title: 'Synthetic conformance investigation', origin: 'standalone', sampleSet: EXPLORER_SET } }).data as { id: string }).id;
+const EXPLORER_ROUND = '14740000-0000-4000-8000-0000000000aa';
+const freshInvestigation = (withEvidence = false, round = false): string => {
+  const id = (explorerHandler('investigationCreate').handle({ actor: 'admin', scopeId: null, input: round ? { title: 'Synthetic conformance round investigation', origin: 'round', roundId: EXPLORER_ROUND } : { title: 'Synthetic conformance investigation', origin: 'standalone', sampleSet: EXPLORER_SET } }).data as { id: string }).id;
   if (withEvidence) explorerHandler('evidenceAdd').handle({ actor: 'admin', scopeId: null, input: { id, ref: EXPLORER_REF } });
   return id;
 };
@@ -262,6 +263,7 @@ const explorerSamples = {
   evidenceAdd: () => ({ id: freshInvestigation(), ref: EXPLORER_REF }),
   evidenceRemove: () => ({ id: freshInvestigation(true), ref: { fileRef: EXPLORER_REF.fileRef, line: EXPLORER_REF.line } }),
   investigationArchive: () => ({ id: freshInvestigation() }),
+  evidenceHandoff: () => ({ id: freshInvestigation(true, true), refs: [{ fileRef: EXPLORER_REF.fileRef, line: EXPLORER_REF.line, fileSha256: EXPLORER_REF.fileSha256 }], target: { kind: 'round', roundId: EXPLORER_ROUND } }),
 };
 // #1447 lifecycle actions are stateful; stage fresh mock-only targets for each conformance request.
 const lifecycleSamples: Record<string, () => Record<string, unknown>> = {
@@ -296,6 +298,7 @@ const ITEM_PUBLISH = menuPermission('knowledge:item-publish');
 const IMPROVEMENT_MANAGE = menuPermission('improvement:manage');
 const SPEC_PUBLISH = menuPermission('knowledge:spec-publish');
 const EXPLORER_INVESTIGATE = menuPermission('explorer:investigate');
+const EXPLORER_HANDOFF = menuPermission('explorer:handoff');
 const asRole = async <T,>(role: RoleId, fn: () => Promise<T>): Promise<T> => {
   const previous = getRole();
   setRole(role);
@@ -399,7 +402,7 @@ describeServerConformance('server boundary conformance — mock adapter', {
   },
   withoutPermission: async (permission: Permission, fn) => {
     const previous = getRole();
-    setRole(permission === CATALOG_PERMISSION || permission === ITEM_PUBLISH || permission === IMPROVEMENT_MANAGE || permission === SPEC_PUBLISH || permission === EXPLORER_INVESTIGATE || String(permission).startsWith('lifecycle:') ? 'admin' : GRANTED);
+    setRole(permission === CATALOG_PERMISSION || permission === ITEM_PUBLISH || permission === IMPROVEMENT_MANAGE || permission === SPEC_PUBLISH || permission === EXPLORER_INVESTIGATE || permission === EXPLORER_HANDOFF || String(permission).startsWith('lifecycle:') ? 'admin' : GRANTED);
     // The adapter's world is built from the vocabulary above, not the default USERS, so the granted role's list is the session's own array.
     const permissions = adapter.session().user.permissions as Permission[];
     const kept = [...permissions];

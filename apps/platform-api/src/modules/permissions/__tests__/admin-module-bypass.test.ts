@@ -48,6 +48,7 @@ const NONE: Capability[] = [
   'validation.catalog.report',
   'explorer.export',
   'explorer.investigate',
+  'explorer.handoff',
   'dataset.baseline.approve',
 ];
 

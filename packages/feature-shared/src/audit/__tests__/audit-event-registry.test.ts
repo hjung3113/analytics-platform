@@ -171,6 +171,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'explorer.investigation.archived',
   'explorer.evidence.added',
   'explorer.evidence.removed',
+  'explorer.evidence_handed_off',
   'dataset.created',
   'dataset.updated',
   'dataset.archived',
@@ -201,7 +202,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(181);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(182);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });

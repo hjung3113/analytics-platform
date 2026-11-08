@@ -1,7 +1,7 @@
 import { emptyGlobal } from '@ap/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { logAnalysisMock, logAnalysisActionsMock, resetExplorer } from './index';
-import { recordsEndpoint, investigationDetailEndpoint, evidenceAdd, periodsEndpoint } from '../endpoints';
+import { recordsEndpoint, investigationDetailEndpoint, evidenceAdd, evidenceHandoff, periodsEndpoint } from '../endpoints';
 
 const endpoint = (id: string) => logAnalysisMock.find(e => e.spec.id === id)!;
 const input = (params: unknown) => ({ params, actor: 'engineer' as const, equipment: [], context: { ...emptyGlobal } });
@@ -35,6 +35,17 @@ describe('synthetic log explorer (#1473)', () => {
     const detail = endpoint(investigationDetailEndpoint.id).handle(input({ investigationId: id }));
     expect(detail.evidence[0].ref).toEqual(ref);
     expect(JSON.stringify(detail.evidence)).not.toContain('private');
+  });
+  it('hands off the basket to the investigation\'s own Round once, then reports alreadyAttached', () => {
+    const add = logAnalysisActionsMock.find(a => a.spec.id === evidenceAdd.id)!;
+    const hand = logAnalysisActionsMock.find(a => a.spec.id === evidenceHandoff.id)!;
+    const id = '14730000-0000-4000-8000-000000000007';
+    const ref = { fileRef: 'source-b', line: 1, fileSha256: 'b'.repeat(64) };
+    add.handle({ actor: 'engineer', scopeId: null, input: { id, ref } });
+    const call = { actor: 'engineer' as const, scopeId: null, input: { id, refs: [ref], target: { kind: 'round', roundId: '14740000-0000-4000-8000-000000000001' } } };
+    expect(hand.handle(call).data).toMatchObject({ handedOff: 1, alreadyAttached: 0 });
+    expect(hand.handle(call).data).toMatchObject({ handedOff: 0, alreadyAttached: 1 });
+    expect(() => hand.handle({ ...call, input: { ...call.input, id: '14730000-0000-4000-8000-000000000001' } })).toThrow();
   });
   it('does not reveal another actor’s saved investigation', () => {
     expect(endpoint(investigationDetailEndpoint.id).handle({ ...input({ investigationId: '14730000-0000-4000-8000-000000000001' }), actor: 'viewer' })).toBeNull();
