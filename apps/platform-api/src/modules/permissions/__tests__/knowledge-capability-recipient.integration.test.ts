@@ -29,11 +29,12 @@ const CAPABILITIES = [
   "lifecycle.round.manage",
   "explorer.investigate",
   "dataset.manage",
+  "dataset.baseline.approve",
 ] as const;
 // The sensitive tier is 5/min per actor: split the grant calls over several admins.
-const ADMINS = ["admin", "admin2", "admin3", "admin4", "admin5"] as const;
+const ADMINS = ["admin", "admin2", "admin3", "admin4", "admin5", "admin6"] as const;
 const adminFor = (capability: (typeof CAPABILITIES)[number]) =>
-  ADMINS[Math.floor(CAPABILITIES.indexOf(capability) / 2)] ?? "admin4";
+  ADMINS[Math.floor(CAPABILITIES.indexOf(capability) / 2)] ?? "admin6";
 
 describe.skipIf(!runIntegration)(
   "log knowledge capability recipients (ADR-0107)",
@@ -52,7 +53,7 @@ describe.skipIf(!runIntegration)(
       app = await buildServer({ config: loadConfig(), dbHandle });
       await app.ready();
       // `admin2`..`admin5` share (two capabilities each: one refused and one granted call) the grants: the sensitive rate-limit tier is per actor and one admin cannot make them all.
-      for (const role of ["admin", "admin2", "admin3", "admin4", "admin5", "developer", "user"] as const) {
+      for (const role of ["admin", "admin2", "admin3", "admin4", "admin5", "admin6", "developer", "user"] as const) {
         const externalId = `${TAG}-${role}`;
         const { id } = await insertActorRow(dbHandle, {
           workspaceId: WORKSPACE_ID,

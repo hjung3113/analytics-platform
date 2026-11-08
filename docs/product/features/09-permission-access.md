@@ -108,6 +108,7 @@ The backend returns effective navigation and capability states for the current w
 | Report the validation rule catalog (`validation.catalog.report`) | no (token only) | no (token only) | no (token only) |
 | Write log explorer investigations (`explorer.investigate`) | no | permission required (workspace-wide) | permission required (explicit grant, no role bypass) |
 | Manage log test datasets (`dataset.manage`) | no | permission required (workspace-wide) | yes |
+| Approve a log test dataset baseline (`dataset.baseline.approve`; sensitive, session only) | no | permission required (workspace-wide) | permission required (explicit grant, no role bypass) |
 | Approve Permission Request | no | no | yes |
 
 Notes:

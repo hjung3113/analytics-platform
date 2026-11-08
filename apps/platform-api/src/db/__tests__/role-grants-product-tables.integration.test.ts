@@ -202,6 +202,9 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_datasets.dataset': ['SELECT', 'INSERT'],
   'log_datasets.dataset_revision': ['SELECT', 'INSERT'],
   'log_datasets.dataset_candidate': ['SELECT', 'INSERT'],
+  // Log test dataset baselines (#1478 D-b): expected_baseline is updated by column (asserted below); baseline_event is append-only; nothing is deleted.
+  'log_datasets.expected_baseline': ['SELECT', 'INSERT'],
+  'log_datasets.baseline_event': ['SELECT', 'INSERT'],
   // Migration 0101 (ADR-0116): tokens are issued and revoked, never edited or deleted. UPDATE is column-scoped to
   // the usage and revocation columns (asserted below); no table-wide UPDATE and no DELETE.
   'core.api_tokens': ['SELECT', 'INSERT'],
@@ -481,6 +484,8 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     ['dataset', ['name', 'purpose', 'share_scope', 'model_ids', 'scenario_tags', 'status', 'row_version', 'updated_at', 'updated_by']],
     ['dataset_candidate', ['status', 'reviewer_actor_id', 'reason', 'dataset_id', 'decided_at', 'row_version']],
     ['dataset_revision', []],
+    ['expected_baseline', ['status', 'profile_pin', 'expected_scope', 'expectations', 'parser_golden_ref', 'approved_by_actor_id', 'approved_at', 'superseded_at', 'row_version', 'updated_at']],
+    ['baseline_event', []],
   ] as const)('platform_app UPDATE on log_datasets.%s is limited to the mutable columns', async (table, columns) => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name

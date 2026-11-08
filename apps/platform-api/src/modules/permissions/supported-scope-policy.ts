@@ -20,6 +20,7 @@ const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'lifecycle.round.manage',
   'explorer.investigate',
   'dataset.manage',
+  'dataset.baseline.approve',
 ]);
 
 export async function supportedScopeCandidates(
@@ -42,7 +43,8 @@ export async function supportedScopeCandidates(
     capability === 'validation.catalog.report' ||
     capability === 'explorer.export' ||
     capability === 'explorer.investigate' ||
-    capability === 'dataset.manage'
+    capability === 'dataset.manage' ||
+    capability === 'dataset.baseline.approve'
   ) {
     return [{ managed_system_id: null }];
   }

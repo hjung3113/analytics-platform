@@ -80,7 +80,7 @@ alone.
    (packages/feature-shared/src/enums/capabilities.ts):
    - always: finding.read, finding.manage, task_request.self_approve, knowledge.catalog.manage, knowledge.catalog.import, knowledge.item.publish, knowledge.spec.publish, improvement.manage, lifecycle.project.manage, lifecycle.round.manage, knowledge.draft.create, dataset.manage
    - unless_denied: survey.read, survey.manage, voc.create (an explicit deny still wins, FO ADR-0033 section C; ADR-0113 for voc.create)
-   - none: every other capability, including survey.read_personal_responses, survey.export, explorer.source.read (no Admin bypass) and validation.catalog.report
+   - none: every other capability, including survey.read_personal_responses, survey.export, explorer.source.read (no Admin bypass), dataset.baseline.approve and validation.catalog.report
 ```
 
 Layer 2 is enforced by `findings/authorization.ts`, `surveys/authorization.ts`,
@@ -167,6 +167,7 @@ survey.export
 explorer.source.read
 explorer.export
 explorer.investigate
+dataset.baseline.approve
 ```
 
 Every other capability is non-sensitive and needs no reason beyond the route's `min(1)`.
@@ -186,7 +187,9 @@ Every other capability is non-sensitive and needs no reason beyond the route's `
 
 `lifecycle.project.manage` and `lifecycle.round.manage` (#1444 c, [api/log-lifecycle.md](api/log-lifecycle.md)) have the same shape for the log lifecycle writes: workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, refused for a User recipient. Menu permissions `lifecycle:project-manage` (rule `lifecycle-project-manage`; the four project actions) and `lifecycle:round-manage` (rule `lifecycle-round-manage`; `roundOpen`, `roundClose`). Reads need only `platform:view`.
 
-`dataset.manage` (#1477 D-a, [api/log-datasets.md](api/log-datasets.md)) has the same shape for the log test dataset writes: workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, refused for a User recipient like `lifecycle.*`. Menu permission `dataset:manage` (rule `dataset-manage`; the six dataset, revision and candidate actions). Reads need only `platform:view`; a `private` dataset is further limited to its owner by the read itself. `dataset.baseline.approve` and `dataset.suite.run` of the design come with their nodes, not now. It is in the platform audit projection list.
+`dataset.manage` (#1477 D-a, [api/log-datasets.md](api/log-datasets.md)) has the same shape for the log test dataset writes: workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, refused for a User recipient like `lifecycle.*`. Menu permission `dataset:manage` (rule `dataset-manage`; the six dataset, revision and candidate actions). Reads need only `platform:view`; a `private` dataset is further limited to its owner by the read itself. `dataset.suite.run` of the design comes with its node, not now. It is in the platform audit projection list.
+
+`dataset.baseline.approve` (#1478 D-b, [api/log-datasets.md](api/log-datasets.md)) approves and thereby supersedes a log test dataset baseline: workspace-scoped, **sensitive** (a request states a reason; its permission rows stay out of the audit projection allow-list, so migration 0112 does not touch the projection), **session-only** (a token is refused and cannot carry it as a scope), `adminModuleBypass: 'none'` (the approval boundary is a grant; precedent: the sensitive log explorer rights), requestable with no Managed System, refused for a User recipient like `dataset.manage`. Menu permission `dataset:baseline-approve` (rule `dataset-baseline-approve`; the `baselineApprove` action), so bootstrap lists it for a grantee only, not for an Admin. Self-approval is not blocked: the author may approve their own draft and the event and audit row say `selfApproved: true` (log-lifecycle D3).
 
 `knowledge.draft.create` (#1198 a, [api/log-knowledge.md](api/log-knowledge.md#knowledge-drafts-1198-a-migration-0101)) is workspace-scoped, non-sensitive, `adminModuleBypass: 'always'`, requestable with no Managed System, and — unlike the log knowledge capabilities above — **not refused for a User recipient** (owner answer on #1198: Contributors include field users). It lets a human author, update, submit and withdraw their own draft; it never publishes. Menu permission `knowledge:draft-create` (rule `draft-create`; the four draft actions). Reviewing (approve / reject / request changes) and publishing stay on `knowledge.item.publish` (#1198 b, [api/log-knowledge.md](api/log-knowledge.md#review-decisions-1198-b)); the token core marks that capability session-only, so no token or service actor can decide (token subjects cannot review or publish; AI and Validator drafts arrive through `knowledge.draft.create` tokens only, [api/log-knowledge.md](api/log-knowledge.md#agent-and-validator-submission-over-api-tokens-1198-c)). Self-approval: a human may approve a draft they authored through their session (the review row and audit mark `selfApproval`); a reviewer who wrote a revision through a token may not (`self_approval_via_token`).
 

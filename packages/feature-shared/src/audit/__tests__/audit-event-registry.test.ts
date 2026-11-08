@@ -176,6 +176,10 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'dataset.candidate_created',
   'dataset.candidate_approved',
   'dataset.candidate_rejected',
+  'dataset.baseline_created',
+  'dataset.baseline_updated',
+  'dataset.baseline_approved',
+  'dataset.baseline_superseded',
   'actor_role_changed',
   'platform_notice_created',
   'platform_notice_updated',
@@ -191,7 +195,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(171);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(175);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });

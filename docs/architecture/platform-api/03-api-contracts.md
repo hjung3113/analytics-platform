@@ -32,7 +32,7 @@ Detailed schemas may later move into OpenAPI; until they do, `api/*.md` remains 
 | [`api/log-lifecycle.md`](api/log-lifecycle.md) | Log lifecycle reads (menu-query) and project/round writes (menu-action), stage table, sampleSet limits, digests (#1444) |
 | [`api/log-explorer.md`](api/log-explorer.md) | Log explorer reads (menu-query): records, window, parsed, periods; states, limits, signed cursor, audit (#1469) |
 | [`api/log-rules.md`](api/log-rules.md) | Validation catalog report REST (token-only capability, closed fields, limits, idempotency, rejection records, audit) and the `log_rules` schema notes (#1491) |
-| [`api/log-datasets.md`](api/log-datasets.md) | Log test dataset reads (menu-query) and dataset/revision/candidate writes (menu-action), availability, visibility (#1477) |
+| [`api/log-datasets.md`](api/log-datasets.md) | Log test dataset reads (menu-query) and dataset/revision/candidate writes (menu-action), availability, visibility (#1477); baselines, approve/supersede, 기준 낡음 (#1478) |
 | [`api/entity-links.md`](api/entity-links.md) | Entity Links; Workspace inventory pagination |
 | [`api/next-actions.md`](api/next-actions.md) | Next Action Contract |
 | [`api/cross-system.md`](api/cross-system.md) | Reporter Summary Contract; Cross-System Endpoint Decisions |

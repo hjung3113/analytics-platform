@@ -1,6 +1,6 @@
 # log-datasets module
 
-Owns the test datasets of the log domain: dataset, its immutable revisions and the candidates that become datasets (#1477 node D-a; design `docs/design/features/log-test-datasets/README.md`, API `docs/architecture/platform-api/api/log-datasets.md`). Not here yet: baselines, suites, runs, comparison, review labels (nodes b–d). Dataset ≠ data-collection Source; Baseline ≠ metric Baseline (`GLOSSARY.md`).
+Owns the test datasets of the log domain: dataset, its immutable revisions and the candidates that become datasets (#1477 node D-a; design `docs/design/features/log-test-datasets/README.md`, API `docs/architecture/platform-api/api/log-datasets.md`). Node b (#1478) adds the expected baselines. Not here yet: suites, runs, comparison, review labels (nodes c–d). Dataset ≠ data-collection Source; Baseline ≠ metric Baseline (`GLOSSARY.md`).
 
 ## Invariants
 
@@ -11,4 +11,6 @@ Owns the test datasets of the log domain: dataset, its immutable revisions and t
 - The `SourceReadPort` is OPTIONAL (`deps.sourceRead`). Never import `log-explorer/adapters/synthetic` or `testing/`; the production graph test of log-explorer fails if it enters. Do the Source IO before locking the dataset row; never keep an adapter error text.
 - A candidate holds data references only: no code, command or LLM origin field; the proposer is the session actor. Approve = dataset + first revision + decision in one transaction.
 - Every write is one transaction: row change and `core.audit_log` row; audit detail is body-free (`packages/feature-shared/src/audit/log-datasets.ts`): ids, tag/status names, counts, digest, lengths; never a `fileRef`, hash list or note text.
-- No read or action accepts an unknown param/input key. The «기준 낡음 요약» column is node b's: `datasets` returns no stale field.
+- No read or action accepts an unknown param/input key. `datasets` returns no stale field (a list-wide badge needs a Source check per dataset: backlog).
+- Baselines (`expected_baseline`, append-only `baseline_event`): a draft is editable, `approved`/`superseded` never change content (guard trigger, every role). Lock order is ALWAYS dataset row first (`lockDataset`, also the visibility judgment), then baselines; approve supersedes the revision's previous approved baseline first, then approves, in one transaction under that lock. Approve is `dataset.baseline.approve` (sensitive, session-only, no Admin bypass); self-approval is allowed and recorded (`selfApproved`). A baseline never changes from run results; `fromAttemptId` is refused until a lifecycle read port exists.
+- 기준 낡음 (`domain/baseline-stale.ts`, `stale-read.ts`) is read-time only and asserts `stale` only from a comparison that ran: Source-owner ACL gate first, no port / denied / unreadable = `unknown`; a pinned rule set, parser or engine profile is `unknown` until an engine capability read exists. The spec pin is read through the log-knowledge barrel port only. Baseline audit and event rows carry ids, counts, status names, a digest and reason LENGTH; never an expectation, exception text or evidence location.
