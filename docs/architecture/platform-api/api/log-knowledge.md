@@ -382,6 +382,15 @@ Reads (`concept-endpoints.ts`, `platform:view`, 0-based `page`, `pageSize` 1–2
 
 Menu mirror: `menus/log-dev/log-knowledge/src/endpoints.ts` (types and declarations only; mock server and screens later, backlog), compared by `catalog-menu-drift.test.ts`.
 
+
+### Item Event relation records (#1505 S-b, migration 0112)
+
+`itemCreate` and `itemRevise` accept optional `relations[]` (≤ 20), the structured «Event 관계 기록» of ADR-0125: `{ kind (observed|expected), source: { module, event }, target: { module, event }, predicate? (before default | after) }`. Keys are stored as stable `MODULE/EVENT` keys (`toCodeKey`, same grammar as subjects). `after` is **not stored**: `A after B` becomes the row `B before A`, so both spellings are one row and the reverse pair is a different row. Codes: `relations:malformed|too_long`, `relations.N.kind|source|target|predicate: required|malformed`, `relations.N.target:self_relation` (same event), `relations.N:duplicate` (same kind, source, target after the swap). `itemRevise` without `relations` copies the previous revision's rows (`resolved` as written); a list (even empty) replaces them. Draft proposals take no `relations` yet (a draft revise approval carries the previous rows).
+
+A key the owner's effective spec does not hold (SW-owned item: that SW version's effective spec; model-owned: the current published revision; no published spec: none) is stored with `resolved = false`, never refused. Table `knowledge.item_event_relation_record` is insert-only for `platform_app` (PK incl. `workspace_id`, `revision_no`, `ordinal`; FK to the item revision; CHECKs: kind, predicate `before` only, key length, source ≠ target; unique `(revision, kind, source, predicate, target)`; direction index `(workspace_id, source_key, predicate, target_key, kind)`).
+
+- `logKnowledge.itemDetail` adds `relations` for the shown revision: `{ ordinal, kind, source, predicate: 'before', target, resolved, sourceLabel, targetLabel }`; labels are the event names in the owner's current effective spec, `null` when the key is not there now. Items written before this change return `[]` (no backfill, no sentence parsing). List rows are unchanged.
+
 ## TSV text input (#1196 b2)
 
 `specDraftSave` with `text` (a string) and `format: 'tsv' | 'paste'` — `tsv` is the content of a TSV-formatted `.txt` the screen read (the file itself is never stored), `paste` is pasted text. Both run the same pure parser (`domain/spec-tsv.ts`, `parseSpecTsv`); `format` is provenance only, recorded in the audit detail. Everything after parsing is the structured path of [Model spec write actions](#model-spec-write-actions): same normalisation, same planning, same `content_sha256` (an acceptance test asserts text and rows parity), same caps wall, same capability.

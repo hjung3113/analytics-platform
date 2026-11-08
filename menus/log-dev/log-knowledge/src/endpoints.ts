@@ -273,6 +273,20 @@ export type ItemSubject = {
   /** The target's name in the current published spec; null unless `resolved`. */
   targetName: string | null;
 };
+// ---- Item Event relation record (#1505 S-b, ADR-0125) -------------------------------------------------------------------
+export const ITEM_RELATION_LIMITS = { relations: 20 } as const;
+export type ItemRelationKind = 'observed' | 'expected';
+/** One side of a relation input: the module and event keys (normalised to the stable `MODULE/EVENT` key by the server). */
+export type ItemRelationEventInput = { module: string; event: string };
+/** `after` is accepted but never stored: the server swaps source and target and keeps `before`. */
+export type ItemRelationInput = { kind: ItemRelationKind; source: ItemRelationEventInput; target: ItemRelationEventInput; predicate?: 'before' | 'after' };
+export type ItemRelation = {
+  ordinal: number; kind: ItemRelationKind; source: string; predicate: 'before'; target: string;
+  /** Whether the owner's effective spec held both keys when the record was written. */
+  resolved: boolean;
+  /** The event's name in the owner's current effective spec; null when it is not there now. */
+  sourceLabel: string | null; targetLabel: string | null;
+};
 export type SpecSubjectItemsParams = { modelId: string; targetKey: string; page?: number; pageSize?: number };
 export type SpecSubjectItemRow = ItemRow & { subjectRelation: SubjectRelation };
 export const specSubjectItemsEndpoint = defineEndpoint<SpecSubjectItemsParams, PageResult<SpecSubjectItemRow>>({
@@ -466,6 +480,8 @@ export type ItemDetail = {
   links: ItemLinkRow[];
   /** The targets of the shown revision, resolved against each model's current published specification. */
   subjects: ItemSubject[];
+  /** The Event relation records of the shown revision; empty for an item without any. */
+  relations: ItemRelation[];
 };
 
 export const ITEM_SORT_IDS = ['itemNo', 'title', 'updatedAt'] as const;
@@ -531,9 +547,9 @@ export type ItemContentInput = {
 export type ItemOwnerInput = { ownerModelId?: string | null; ownerSoftwareId?: string | null };
 /** A target the revision is about (#1196 f): the item's owner model and a module / event key of its spec. `relation` defaults to `about`. */
 export type ItemSubjectInput = { modelId: string; targetKind: ConceptKind; target: ConceptTargetBody; relation?: SubjectRelation };
-export type ItemCreateInput = ItemOwnerInput & ItemContentInput & { evidence?: EvidenceInput[] | null; subjects?: ItemSubjectInput[] | null };
+export type ItemCreateInput = ItemOwnerInput & ItemContentInput & { evidence?: EvidenceInput[] | null; subjects?: ItemSubjectInput[] | null; relations?: ItemRelationInput[] | null };
 /** `subjects` omitted keeps the previous revision's subjects; a list (even empty) replaces them. */
-export type ItemReviseInput = ItemContentInput & { id: string; evidence?: EvidenceInput[] | null; subjects?: ItemSubjectInput[] | null; changeNote: string };
+export type ItemReviseInput = ItemContentInput & { id: string; evidence?: EvidenceInput[] | null; subjects?: ItemSubjectInput[] | null; relations?: ItemRelationInput[] | null; changeNote: string };
 export type ItemAssessInput = { id: string; dimension: AssessmentDimension; newState: string; rationale: string };
 export type ItemDeriveInput = ItemOwnerInput & ItemContentInput & { sourceItemId: string; sourceRevisionNo: number };
 export type ItemSetArchivedInput = { id: string; archived: boolean };
@@ -549,8 +565,8 @@ const itemWrite = <I, O>(name: string, inputKeys: Record<keyof I & string, true>
   });
 const contentKeys = { typeCode: true, title: true, observation: true, expected: true, analysisOpinion: true, improvement: true } as const;
 
-export const itemCreate = itemWrite<ItemCreateInput, ItemWriteResult>('itemCreate', { ownerModelId: true, ownerSoftwareId: true, ...contentKeys, evidence: true, subjects: true }, 'none');
-export const itemRevise = itemWrite<ItemReviseInput, ItemReviseResult>('itemRevise', { id: true, ...contentKeys, evidence: true, subjects: true, changeNote: true }, 'version');
+export const itemCreate = itemWrite<ItemCreateInput, ItemWriteResult>('itemCreate', { ownerModelId: true, ownerSoftwareId: true, ...contentKeys, evidence: true, subjects: true, relations: true }, 'none');
+export const itemRevise = itemWrite<ItemReviseInput, ItemReviseResult>('itemRevise', { id: true, ...contentKeys, evidence: true, subjects: true, relations: true, changeNote: true }, 'version');
 export const itemAssess = itemWrite<ItemAssessInput, ItemWriteResult>('itemAssess', { id: true, dimension: true, newState: true, rationale: true }, 'version');
 export const itemDerive = itemWrite<ItemDeriveInput, ItemWriteResult>('itemDerive', { sourceItemId: true, sourceRevisionNo: true, ownerModelId: true, ownerSoftwareId: true, ...contentKeys }, 'none');
 export const itemSetArchived = itemWrite<ItemSetArchivedInput, ItemWriteResult>('itemSetArchived', { id: true, archived: true }, 'version');

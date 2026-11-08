@@ -46,8 +46,8 @@ const ownerFields = ['ownerModelId', 'ownerSoftwareId'] as const;
 const contentKeys = ['typeCode', 'title', 'observation', 'expected', 'analysisOpinion', 'improvement'] as const;
 
 const INPUT_KEYS = {
-  create: [...ownerFields, ...contentKeys, 'evidence', 'subjects'],
-  revise: ['id', ...contentKeys, 'evidence', 'subjects', 'changeNote'],
+  create: [...ownerFields, ...contentKeys, 'evidence', 'subjects', 'relations'],
+  revise: ['id', ...contentKeys, 'evidence', 'subjects', 'relations', 'changeNote'],
   assess: ['id', 'dimension', 'newState', 'rationale'],
   derive: ['sourceItemId', 'sourceRevisionNo', ...ownerFields, ...contentKeys],
   setArchived: ['id', 'archived'],
@@ -115,8 +115,8 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
     validate: (input) => validateItemInput('create', input),
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const value = parsed('create', input);
-      const { evidence, subjects, ownerModelId, ownerSoftwareId, ...content } = value;
-      const item = await publishCreate(tx, actor, { ownerModelId, ownerSoftwareId, content, evidence, subjects });
+      const { evidence, subjects, relations, ownerModelId, ownerSoftwareId, ...content } = value;
+      const item = await publishCreate(tx, actor, { ownerModelId, ownerSoftwareId, content, evidence, subjects, relations });
       return { data: { id: item.id, itemNo: item.itemNo }, version: String(item.rowVersion) };
     },
   };
@@ -130,8 +130,8 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
       const value = parsed('revise', input);
       const before = await lockExisting(tx, actor, value.id, 'itemRevise');
       if (before.publicationState === 'archived') throw invalid('id', 'archived');
-      const { id: _id, evidence, subjects, changeNote, ...content } = value;
-      const item = await publishRevise(tx, actor, before, { content, evidence, subjects, changeNote });
+      const { id: _id, evidence, subjects, relations, changeNote, ...content } = value;
+      const item = await publishRevise(tx, actor, before, { content, evidence, subjects, relations, changeNote });
       return {
         data: { id: item.id, itemNo: item.itemNo, revisionNo: item.latestRevisionNo },
         version: String(item.rowVersion),

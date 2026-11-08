@@ -10,6 +10,7 @@ import { z } from 'zod';
 
 import { REQUIRED, bounded, requiredText, uuid } from '../../../lib/input/fields.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
+import { parseRelations } from './item-relation-input.js';
 import { parseSubjects } from './item-subject-input.js';
 
 export const ITEM_TYPE_CODES = ['anomaly', 'needs_check', 'behavior_note', 'guideline'] as const;
@@ -70,6 +71,14 @@ export const subjectsField = z.unknown().transform((raw, ctx) => {
   return z.NEVER;
 });
 
+/** `relations` (#1505 S-b; Event relation records): omitted = a revise carries the previous revision's records; a list (even empty) replaces them. */
+export const relationsField = z.unknown().transform((raw, ctx) => {
+  const parsed = parseRelations(raw);
+  if (parsed.ok) return parsed.value;
+  for (const e of parsed.errors) ctx.addIssue({ code: 'custom', path: e.path.slice(1), message: e.code });
+  return z.NEVER;
+});
+
 export const contentFields = {
   typeCode: oneOf(ITEM_TYPE_CODES),
   title: requiredText(TITLE_MAX),
@@ -100,6 +109,7 @@ export const ITEM_INPUT_SCHEMAS = {
       ...contentFields,
       evidence: evidenceList,
       subjects: subjectsField,
+      relations: relationsField,
     })
     .superRefine(requireOneOwner)
     .superRefine(requireContent),
@@ -109,6 +119,7 @@ export const ITEM_INPUT_SCHEMAS = {
       ...contentFields,
       evidence: evidenceList,
       subjects: subjectsField,
+      relations: relationsField,
       changeNote: requiredText(CHANGE_NOTE_MAX),
     })
     .superRefine(requireContent),
@@ -154,7 +165,7 @@ export function fieldErrors(error: z.ZodError): FieldError[] {
     if (seen.has(key)) continue;
     seen.add(key);
     // Type errors without our message (e.g. a wrong object shape) are `required`.
-    const known = ['required', 'too_long', 'malformed', 'required_one', 'invalid_state', 'duplicate'];
+    const known = ['required', 'too_long', 'malformed', 'required_one', 'invalid_state', 'duplicate', 'self_relation'];
     out.push({ path, code: known.includes(issue.message) ? issue.message : 'required' });
   }
   return out;

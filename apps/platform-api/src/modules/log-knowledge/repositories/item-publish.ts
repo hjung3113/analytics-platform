@@ -9,7 +9,9 @@ import type { Tx } from '../../../db/tx.js';
 import { type FieldError, MenuActionInvalidError } from '../../menu-dispatch/types.js';
 import type { PlatformActor } from '../../platform-port/permissions.js';
 import type { EvidencePointer } from '../domain/item-input.js';
+import type { ItemRelationValue } from '../domain/item-relation-input.js';
 import type { ItemSubjectValue } from '../domain/item-subject-input.js';
+import { carryRelations, insertRelations, judgeRelations, relationOwnerOf } from './item-relation.js';
 import { carrySubjects, insertSubjects, judgeSubjects, ownerModelOf, softwareModelId } from './item-subject.js';
 import { type ItemRow, type RevisionContent, appendRevision, checkOwner, insertItem } from './item-write.js';
 
@@ -59,6 +61,8 @@ export interface CreateCoreInput {
   content: RevisionContent;
   evidence: readonly EvidencePointer[];
   subjects?: readonly ItemSubjectValue[] | undefined;
+  /** Event relation records (#1505); stored with `resolved` judged against the owner's effective spec. */
+  relations?: readonly ItemRelationValue[] | undefined;
 }
 
 /** Owner check, subject judgement, item + revision 1 + subjects, `knowledge.item.created`. */
@@ -84,6 +88,8 @@ export async function publishCreate(
     evidence: input.evidence,
   });
   await insertSubjects(tx, ws, item.id, 1, judged.rows);
+  const relationRows = await judgeRelations(tx, ws, { modelId: subjectModelId ?? null, softwareId: input.ownerSoftwareId ?? null }, input.relations ?? []);
+  await insertRelations(tx, ws, item.id, 1, relationRows);
   await recordItemAudit(tx, actor, 'created', item, input.content.title, { revisionNo: 1 });
   return item;
 }
@@ -93,6 +99,8 @@ export interface ReviseCoreInput {
   evidence: readonly EvidencePointer[];
   /** Omitted keeps the previous revision's links; a list (even empty) replaces them. */
   subjects?: readonly ItemSubjectValue[] | undefined;
+  /** Omitted keeps the previous revision's records; a list (even empty) replaces them. */
+  relations?: readonly ItemRelationValue[] | undefined;
   changeNote: string;
 }
 
@@ -113,6 +121,11 @@ export async function publishRevise(
   const item = await appendRevision(tx, ws, actor.actor_id, before, input.content, input.changeNote, input.evidence);
   if (judged) await insertSubjects(tx, ws, item.id, item.latestRevisionNo, judged.rows);
   else await carrySubjects(tx, ws, item.id, before.latestRevisionNo, item.latestRevisionNo);
+  if (input.relations === undefined) await carryRelations(tx, ws, item.id, before.latestRevisionNo, item.latestRevisionNo);
+  else {
+    const owner = (await relationOwnerOf(tx, ws, before.id)) ?? { modelId: null, softwareId: null };
+    await insertRelations(tx, ws, item.id, item.latestRevisionNo, await judgeRelations(tx, ws, owner, input.relations));
+  }
   await recordItemAudit(tx, actor, 'revised', item, input.content.title, { revisionNo: item.latestRevisionNo });
   return item;
 }
