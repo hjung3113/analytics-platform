@@ -1,15 +1,22 @@
 /** Synthetic request-local Source answers, never imported by a production assembly. */
 import { defineMockEndpoint, defineMockAction, MockActionInvalid, MockRequestError, type AnyMockEndpoint, type AnyMockAction } from '@ap/mock-server';
-import { investigationDetailEndpoint, investigationsEndpoint, recordsEndpoint, windowEndpoint, parsedEndpoint, periodsEndpoint, investigationCreate, investigationUpdate, evidenceAdd, evidenceRemove, investigationArchive, evidenceHandoff, type Investigation, type SampleSet, type SourceRow, type SourceAnswer, type PagedRead, type EvidenceRef } from '../endpoints';
+import { investigationDetailEndpoint, investigationsEndpoint, recordsEndpoint, windowEndpoint, parsedEndpoint, periodsEndpoint, investigationCreate, investigationUpdate, evidenceAdd, evidenceRemove, investigationArchive, evidenceHandoff, type Investigation, type SampleSet, type SourceRow, type SourceAnswer, type PagedRead, type EvidenceRef, handoffCheckEndpoint, handoffDraftsEndpoint, handoffModelsEndpoint, handoffSoftwareEndpoint, type HandoffDraft, type HandoffRef } from '../endpoints';
 
 type Owned = { actor: string; row: Investigation };
 let investigations: Owned[] = [];
 let cursors = new Map<string, { binding: string; offset: number }>();
 let serial = 0;
-/** The mock holds every right; the screen still gates the Round item on `origin === 'round'`. Handed-off locations per investigation, to answer alreadyAttached. */
-const HANDOFF_RIGHTS = { round: true, knowledgeDraft: false };
+/** The mock holds both receiving rights; the screen still gates the Round item on `origin === 'round'`. Handed-off locations per investigation, to answer alreadyAttached. */
+const HANDOFF_RIGHTS = { round: true, knowledgeDraft: true };
 export const ROUND_ID = '14740000-0000-4000-8000-000000000001';
 export const ROUND_INVESTIGATION = '14730000-0000-4000-8000-000000000007';
+type MockDraft = HandoffDraft & { actor: string; pointers: Set<string> };
+let drafts: MockDraft[] = [];
+const MODEL_ID = '14740000-0000-4000-8000-000000000010';
+const SOFTWARE_ID = '14740000-0000-4000-8000-000000000011';
+const models = [{ id: MODEL_ID, code: 'MX-100', name: '식각 설비', vendorName: '합성 설비사', active: true }];
+const software = [{ id: SOFTWARE_ID, versionLabel: '3.2', name: '제어 SW', active: true }];
+const pointerKey = (ref: HandoffRef) => `${ref.fileRef}:${ref.line}:${ref.fileSha256}`;
 let handed = new Map<string, Set<string>>();
 const stamp = '2026-11-08T00:45:00.000Z';
 const files = ['source-b', 'source-a', 'source-d', 'source-c'].map((fileRef, i) => ({ fileRef, order: i + 1, sha256: 'badc'[i].repeat(64) }));
@@ -19,6 +26,16 @@ export function resetExplorer() {
   investigations = modes.map((mode, i) => ({ actor: 'engineer', row: { id: `14730000-0000-4000-8000-00000000000${i + 1}`, title: i === 0 ? '합성 샘플 · 파일 4개' : `합성 상태 · ${mode}`, origin: 'standalone', roundId: null, status: 'open', version: '1', createdAt: stamp, updatedAt: stamp, filters: {}, sampleSet: { sourceOwner: `synthetic-${mode}`, files }, sampleSetState: 'inline', canInvestigate: true, handoff: HANDOFF_RIGHTS, evidence: [] } }));
   handed = new Map();
   investigations.push({ actor: 'engineer', row: { id: ROUND_INVESTIGATION, title: '합성 Round 조사', origin: 'round', roundId: ROUND_ID, status: 'open', version: '1', createdAt: stamp, updatedAt: stamp, filters: {}, sampleSet: { sourceOwner: 'synthetic-ok', files }, sampleSetState: 'round', canInvestigate: true, handoff: HANDOFF_RIGHTS, evidence: [] } });
+  drafts = [
+    { draftId: '14740000-0000-4000-8000-000000000020', title: '초기화 이후 응답 지연 확인', ownerLabel: 'MX-100', status: 'draft', evidenceCount: 4, version: '1', updatedAt: stamp, actor: 'engineer', pointers: new Set(Array.from({ length: 4 }, (_, i) => `seed:${i}`)) },
+    { draftId: '14740000-0000-4000-8000-000000000021', title: '제어 SW 재시도 위치 확인', ownerLabel: 'MX-100 · 제어 SW 3.2', status: 'changes_requested', evidenceCount: 19, version: '1', updatedAt: stamp, actor: 'engineer', pointers: new Set(Array.from({ length: 19 }, (_, i) => `seed:${i}`)) },
+  ];
+  investigations.push({ actor: 'engineer', row: { ...structuredClone(investigations[0]!.row), id: '14730000-0000-4000-8000-000000000008', title: '합성 지식 초안 넘기기', evidence: [
+    { ref: { fileRef: 'source-b', line: 124, fileSha256: 'b'.repeat(64), note: '시작 위치' }, state: { code: 'available' }, sourceAccess: 'unchecked' },
+    { ref: { fileRef: 'source-d', line: 318, fileSha256: 'e'.repeat(64), note: '샘플 목록과 다른 해시' }, state: { code: 'available' }, sourceAccess: 'unchecked' },
+    { ref: { fileRef: 'source-c', line: 2000, fileSha256: 'c'.repeat(64) }, state: { code: 'available' }, sourceAccess: 'unchecked' },
+  ] } });
+
 }
 resetExplorer();
 const owned = (id: string, actor: string) => investigations.find(r => r.actor === actor && r.row.id.toLowerCase() === id.toLowerCase())?.row ?? null;
@@ -57,6 +74,15 @@ const pagedValidate = ({ params }: { params: PagedRead }) => !params.sampleSet?.
 export const logAnalysisMock: readonly AnyMockEndpoint[] = [
   defineMockEndpoint(investigationsEndpoint, { mart: false, handle: ({ params, actor }) => { const rows = investigations.filter(r => r.actor === actor && (!params.status || r.row.status === params.status)).map(({ row }) => { const { sampleSet: _set, sampleSetState: _state, canInvestigate: _can, evidence, filters: _filters, ...summary } = row; return { ...summary, evidenceCount: evidence.length }; }); return { rows: rows.slice(params.page * params.pageSize, (params.page + 1) * params.pageSize), total: rows.length }; } }),
   defineMockEndpoint(investigationDetailEndpoint, { mart: false, handle: ({ params, actor }) => { const row = owned(params.investigationId, actor); return row ? structuredClone(row) : null; } }),
+  defineMockEndpoint(handoffCheckEndpoint, { mart: false, handle: ({ params, actor }) => {
+    const row = owned(params.investigationId, actor); if (!row) return null;
+    if (row.sampleSet?.sourceOwner === 'synthetic-revoked') return { state: 'source_forbidden', refs: [] };
+    if (!row.sampleSet || !['synthetic-ok', 'synthetic-absent'].includes(row.sampleSet.sourceOwner)) return { state: 'source_unavailable', refs: [] };
+    return { state: 'ok', refs: row.evidence.map(({ ref }) => ({ fileRef: ref.fileRef, line: ref.line, status: row.sampleSet?.sourceOwner === 'synthetic-absent' || ref.line > 1250 || !files.some(f => f.fileRef === ref.fileRef) ? 'unresolved' : row.sampleSet?.files.find(f => f.fileRef === ref.fileRef)?.sha256 !== ref.fileSha256 ? 'hash_mismatch' : 'ok' })) };
+  } }),
+  defineMockEndpoint(handoffDraftsEndpoint, { mart: false, handle: ({ actor }) => ({ rows: drafts.filter(row => row.actor === actor).slice(0, 50).map(({ actor: _actor, pointers: _pointers, ...row }) => row) }) }),
+  defineMockEndpoint(handoffModelsEndpoint, { mart: false, handle: ({ params }) => { const rows = models.filter(row => !params.q || `${row.code} ${row.name}`.toLocaleLowerCase().includes(params.q.toLocaleLowerCase())); return { rows: rows.slice(params.page * params.pageSize, (params.page + 1) * params.pageSize), total: rows.length }; } }),
+  defineMockEndpoint(handoffSoftwareEndpoint, { mart: false, handle: ({ params }) => params.modelId === MODEL_ID ? software : [] }),
   defineMockEndpoint(recordsEndpoint, { mart: false, validate: pagedValidate, handle: ({ params, actor }) => records(params, actor) }),
   defineMockEndpoint(windowEndpoint, { mart: false, handle: ({ params }) => { const answer = modeOf(params.sourceOwner); const known = files.find(f => f.fileRef === params.fileRef); const file = known ?? { fileRef: params.fileRef, order: 1, sha256: '' }; const set = { sourceOwner: params.sourceOwner, files: known ? files : [file] }; return { ...answer, rows: readable(answer) ? Array.from({ length: Math.min(1250, params.line + params.after) - Math.max(1, params.line - params.before) + 1 }, (_, i) => rowAt(set, (file.order - 1) * 1250 + Math.max(1, params.line - params.before) - 1 + i)) : [], truncated: answer.state === 'truncated' }; } }),
   defineMockEndpoint(parsedEndpoint, { mart: false, handle: ({ params }) => { const answer = modeOf(params.sourceOwner); return { ...answer, extractedFields: readable(answer) ? { Module: `Module ${params.line % 2 + 1}`, Event: params.line % 2 ? 'Start' : 'End', 'Context 키': `Job-${params.line % 3 + 1}`, EquipmentId: 'EQ-SYNTH (confirmed)' } : null, parserIn: readable(answer) ? `${params.fileRef}:${params.line} · 합성 Parser` : null, parserOut: readable(answer) ? JSON.stringify({ module: `Module ${params.line % 2 + 1}`, event: params.line % 2 ? 'Start' : 'End' }) : null, truncated: answer.state === 'truncated' }; } }),
@@ -72,15 +98,42 @@ export const logAnalysisActionsMock: readonly AnyMockAction[] = [
   defineMockAction(investigationUpdate, { version, handle: ({ input, actor }) => { const row = open(input.id, actor); if (input.title !== undefined) row.title = input.title; if (input.filters !== undefined) row.filters = structuredClone(input.filters); return touch(row); } }),
   defineMockAction(evidenceAdd, { version, validate: refErrors, handle: ({ input, actor }) => { const row = open(input.id, actor); if (row.evidence.length >= 100) return invalid('too_many'); if (row.evidence.some(e => e.ref.fileRef === input.ref.fileRef && e.ref.line === input.ref.line)) return invalid('duplicate'); row.evidence.push({ ref: { ...input.ref }, state: { code: 'available' }, sourceAccess: 'unchecked' }); return touch(row); } }),
   defineMockAction(evidenceRemove, { version, handle: ({ input, actor }) => { const row = open(input.id, actor); const at = row.evidence.findIndex(e => e.ref.fileRef === input.ref.fileRef && e.ref.line === input.ref.line); if (at < 0) return invalid('not_found'); row.evidence.splice(at, 1); return touch(row); } }),
-  defineMockAction(evidenceHandoff, { version, validate: ({ refs, target }) => !Array.isArray(refs) || refs.length < 1 || refs.length > 100 ? [{ path: ['refs'], code: 'malformed' }] : target?.kind !== 'round' ? [{ path: ['target'], code: 'not_available' }] : [], handle: ({ input, actor }) => {
+  defineMockAction(evidenceHandoff, { version, validate: ({ refs, target }) => !Array.isArray(refs) || refs.length < 1 || refs.length > 100 ? [{ path: ['refs'], code: 'malformed' }] : !['round', 'knowledgeDraft'].includes(target?.kind) ? [{ path: ['target'], code: 'not_available' }] : [], handle: ({ input, actor }) => {
     const row = open(input.id, actor);
+    if (input.target.kind === 'knowledgeDraft') {
+      const target = input.target;
+      if (!row.handoff.knowledgeDraft) return invalid('forbidden', ['target']);
+      for (const [i, ref] of input.refs.entries()) {
+        if (!row.evidence.some(e => pointerKey(e.ref) === pointerKey(ref))) return invalid('not_in_investigation', ['refs', String(i)]);
+        if (ref.line > 1250 || !files.some(f => f.fileRef === ref.fileRef)) return invalid('unresolved', ['refs', String(i)]);
+      }
+      if (target.mode === 'create') {
+        if (target.title === '[conflict]') return invalid('conflict', ['expectedVersion']);
+        if (target.title === '[field-error]') return invalid('too_long', ['title']);
+        if (!target.title.trim()) return invalid('required', ['title']);
+        if (!target.observation.trim()) return invalid('required_one', ['observation']);
+        if (!('modelId' in target.owner && target.owner.modelId === MODEL_ID) && !('softwareId' in target.owner && target.owner.softwareId === SOFTWARE_ID)) return invalid('not_found', ['target', 'owner']);
+        if (input.refs.length > 20) return invalid('too_many', ['refs']);
+        const draftId = `14740000-0000-4000-8001-${String(++serial).padStart(12, '0')}`;
+        drafts.unshift({ draftId, title: target.title, ownerLabel: 'softwareId' in target.owner ? 'MX-100 · 3.2' : 'MX-100', status: 'draft', evidenceCount: input.refs.length, version: '1', updatedAt: stamp, actor, pointers: new Set(input.refs.map(pointerKey)) });
+        return { data: { targetKind: 'knowledgeDraft' as const, targetId: draftId, handedOff: input.refs.length, draftVersion: '1' }, version: row.version };
+      }
+      const draft = drafts.find(d => d.actor === actor && d.draftId === target.draftId);
+      if (!draft) return invalid('not_found', ['target', 'draftId']);
+      if (draft.version !== target.draftExpectedVersion) return invalid('conflict', ['expectedVersion']);
+      const pointers = new Set([...draft.pointers, ...input.refs.map(pointerKey)]);
+      if (pointers.size > 20) return invalid('too_many', ['refs']);
+      draft.pointers = pointers; draft.evidenceCount = pointers.size; draft.version = String(Number(draft.version) + 1);
+      drafts = [draft, ...drafts.filter(d => d !== draft)];
+      return { data: { targetKind: 'knowledgeDraft' as const, targetId: draft.draftId, handedOff: input.refs.length, draftVersion: draft.version }, version: row.version };
+    }
     if (row.origin !== 'round' || row.roundId !== input.target.roundId) return invalid('forbidden', ['target']);
     const keys = input.refs.map(r => `${r.fileRef}:${r.line}`);
     if (keys.some(k => !row.evidence.some(e => `${e.ref.fileRef}:${e.ref.line}` === k))) return invalid('not_in_investigation', ['refs']);
     const seen = handed.get(row.id) ?? new Set<string>();
     const fresh = keys.filter(k => !seen.has(k));
     fresh.forEach(k => seen.add(k)); handed.set(row.id, seen);
-    return { data: { targetKind: 'round', targetId: input.target.roundId, handedOff: fresh.length, alreadyAttached: keys.length - fresh.length, byStatus: { match: fresh.length, hash_mismatch: 0, unresolved: 0 } }, version: row.version };
+    return { data: { targetKind: 'round' as const, targetId: input.target.roundId, handedOff: fresh.length, alreadyAttached: keys.length - fresh.length, byStatus: { match: fresh.length, hash_mismatch: 0, unresolved: 0 } }, version: row.version };
   } }),
   defineMockAction(investigationArchive, { version, handle: ({ input, actor }) => { const row = open(input.id, actor); row.status = 'archived'; return touch(row); } }),
 ];

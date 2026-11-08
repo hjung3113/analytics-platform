@@ -1,7 +1,7 @@
 import type { Db } from '../../db/client.js';
 import type { createAuditService } from '../core/audit/audit-service.js';
 import type { SourceSampleSet } from '@ap/contract-schemas';
-import type { DraftEvidenceIntake } from '../log-knowledge/index.js';
+import type { DraftEvidenceIntake, KnowledgeLookup } from '../log-knowledge/index.js';
 import type { LifecycleEvidenceRead, LifecycleRoundRead, RoundEvidenceRefIntake } from '../log-lifecycle/index.js';
 import type { CheckService } from '../permissions/check-service.js';
 import type { SourceReadPort } from './ports/source-read.js';
@@ -85,6 +85,7 @@ export interface InvestigationDeps {
 export interface HandoffDeps {
   roundIntake: RoundEvidenceRefIntake;
   draftIntake: DraftEvidenceIntake;
+  knowledgeLookup: KnowledgeLookup;
   sourceReadPort: SourceReadPort | null;
   sourceOwnerAccess: SourceOwnerAccess;
   /** Test seam: wall-clock cap of all Source checks of one handoff. Default 30 s (`HANDOFF_SOURCE_TOTAL_MS`). */

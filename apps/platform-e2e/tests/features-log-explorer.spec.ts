@@ -18,7 +18,7 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     await expect(page.getByRole('heading', { name: '근거 위치 바구니', exact: true })).toBeVisible();
     await page.getByRole('button', { name: '넘기기', exact: true }).click();
     await expect(page.getByRole('menuitem', { name: 'Round · Round에서 시작한 조사만', exact: true })).toBeDisabled();
-    await expect(page.getByRole('menuitem', { name: '지식 초안 · 준비 중', exact: true })).toBeDisabled();
+    await expect(page.getByRole('menuitem', { name: '지식 초안', exact: true })).toBeEnabled();
     await expect(page.getByRole('menuitem', { name: '결함 · 수신 대상 없음', exact: true })).toBeDisabled();
     await page.keyboard.press('Escape');
     await expect(page.getByText(/공식 FAIL이나 지식 발행을 확정하지 않습니다/)).toBeVisible();
@@ -40,6 +40,62 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     await expect(page.getByText('Round에 1개 넘김 · 이미 있던 위치 0개 · 원본 없음 0개')).toBeVisible();
     await expect(trigger).toBeFocused();
     await evidence(page, info, 'log-explorer-round-handoff');
+  });
+  // Host-only for W-1474c: worker rules prohibit browser/dev-server/E2E execution.
+  test('지식 초안 A: 위치 확인·새 초안·결과 안내와 넘기기 초점 복귀', async ({ page }, info) => {
+    await page.goto(investigation(8));
+    await page.getByRole('button', { name: '근거 위치 바구니 · 3', exact: true }).click();
+    const trigger = page.getByRole('button', { name: '넘기기', exact: true });
+    await trigger.click(); await page.getByRole('menuitem', { name: '지식 초안', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '지식 초안으로 넘기기', exact: true });
+    await expect(dialog.getByText('넘길 2 · 제외 1 · 해시 불일치 1', { exact: true })).toBeVisible();
+    await dialog.getByText('위치별 확인 결과 · 3개', { exact: true }).click();
+    await expect(dialog.getByText('제외 · 원본 없음', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('전달 · 해시 불일치', { exact: true })).toBeVisible();
+    await dialog.getByRole('combobox', { name: /소유 대상/ }).click();
+    await page.getByRole('option', { name: /MX-100/ }).click();
+    await dialog.getByLabel('제목', { exact: false }).fill('합성 응답 지연 확인');
+    await dialog.getByLabel('관찰 사실', { exact: false }).fill('시작 이후 응답 지연을 관찰했습니다.');
+    await evidence(page, info, 'log-explorer-knowledge-new-a');
+    await dialog.getByRole('button', { name: '새 초안으로 넘기기', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByText('새 초안에 2개 넘김', { exact: true })).toBeVisible();
+    await expect(trigger).toBeFocused();
+  });
+  test('지식 초안 A: 내 초안에 덧붙이기와 20개 한도', async ({ page }, info) => {
+    await page.goto(investigation(8));
+    await page.getByRole('button', { name: '근거 위치 바구니 · 3', exact: true }).click();
+    await page.getByRole('button', { name: '넘기기', exact: true }).click();
+    await page.getByRole('menuitem', { name: '지식 초안', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '지식 초안으로 넘기기', exact: true });
+    await dialog.getByRole('tab', { name: '내 초안에 덧붙이기', exact: true }).click();
+    await dialog.getByRole('radio', { name: /제어 SW 재시도 위치 확인/ }).click();
+    await expect(dialog.getByText('초안 근거는 20개까지입니다 (21/20)', { exact: true })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '내 초안에 덧붙이기', exact: true })).toBeDisabled();
+    await dialog.getByRole('radio', { name: /초기화 이후 응답 지연 확인/ }).click();
+    await evidence(page, info, 'log-explorer-knowledge-append-a');
+    await dialog.getByRole('button', { name: '내 초안에 덧붙이기', exact: true }).click();
+    await expect(page.getByText('내 초안에 2개 넘김', { exact: true })).toBeVisible();
+  });
+  test('지식 초안 A: 거절해도 입력 유지·닫기 전 작성 중 확인', async ({ page }, info) => {
+    await page.goto(investigation(8));
+    await page.getByRole('button', { name: '근거 위치 바구니 · 3', exact: true }).click();
+    await page.getByRole('button', { name: '넘기기', exact: true }).click();
+    await page.getByRole('menuitem', { name: '지식 초안', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '지식 초안으로 넘기기', exact: true });
+    await dialog.getByRole('combobox', { name: /소유 대상/ }).click();
+    await page.getByRole('option', { name: /MX-100/ }).click();
+    await dialog.getByLabel('제목', { exact: false }).fill('[conflict]');
+    await dialog.getByLabel('관찰 사실', { exact: false }).fill('합성 충돌 확인');
+    await dialog.getByRole('button', { name: '새 초안으로 넘기기', exact: true }).click();
+    await expect(dialog.getByText('초안 버전 충돌', { exact: true })).toBeVisible();
+    await expect(dialog.getByLabel('제목', { exact: false })).toHaveValue('[conflict]');
+    await expect(dialog.getByRole('button', { name: '목록 다시 확인', exact: true })).toBeVisible();
+    await evidence(page, info, 'log-explorer-knowledge-conflict-a');
+    await dialog.getByRole('button', { name: '취소', exact: true }).click();
+    const guard = page.getByRole('alertdialog', { name: '작성 중인 내용이 사라집니다. 닫을까요?' });
+    await guard.getByRole('button', { name: '계속 작성', exact: true }).click();
+    await expect(dialog.getByLabel('제목', { exact: false })).toHaveValue('[conflict]');
   });
   test('원본 ↔ 시퀀스 조건·선택 유지와 1280 서랍의 파일·타입 기본 숨김', async ({ page }, info) => {
     await page.setViewportSize({ width: 1280, height: 900 });

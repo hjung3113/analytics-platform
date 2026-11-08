@@ -1015,6 +1015,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       handoff: {
         roundIntake: roundEvidenceRefIntake({ checkService }),
         draftIntake: draftEvidenceIntake({ checkService }),
+        knowledgeLookup,
         sourceReadPort: logExplorerDeps.sourceReadPort,
         sourceOwnerAccess: logExplorerDeps.sourceOwnerAccess,
         ...(opts.logExplorer?.handoffSourceTotalMs !== undefined ? { sourceTotalMs: opts.logExplorer.handoffSourceTotalMs } : {}),
