@@ -187,7 +187,8 @@ test.describe('log-datasets screens', () => {
     await page.goto('/log-dev/log-datasets');
     await expect(page.getByRole('table', { name: '테스트 데이터셋 목록', exact: true })).toBeVisible();
     await setScenario(page, '서버 오류 (error)');
-    await page.getByRole('searchbox', { name: '데이터셋 검색' }).fill('경계');
+    // The scenario switch may refetch on its own (then the error replaces the table and its search box before this fill); a query change is the fallback trigger.
+    await page.getByRole('searchbox', { name: '데이터셋 검색' }).fill('경계', { timeout: 3_000 }).catch(() => undefined);
     await expect(page.getByText('데이터를 불러오지 못했습니다.')).toBeVisible();
     await expect(page.getByText('등록된 테스트 데이터셋이 없습니다.')).toHaveCount(0);
     await evidence(page, info, 'list-error');

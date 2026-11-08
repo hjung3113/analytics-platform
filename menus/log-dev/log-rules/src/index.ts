@@ -26,13 +26,16 @@ export const manifests: MenuEntry[] = [
     path: '/log/datasets', icon: Database, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: [], component: lazy(() => import('./pages/DatasetsPage')),
   },
-  ...[
-    { id: 'log-dataset', path: '/log/datasets/:datasetId' },
-    { id: 'log-dataset-run', path: '/log/datasets/:datasetId/regression-runs/:suiteRunId' },
-  ].map(({ id, path }): MenuEntry => ({
-    id, path, parent: 'log-datasets', navHidden: true, group: groupId('logRules'), label: id === 'log-dataset-run' ? { ko: '회귀 실행 비교', en: 'Regression run comparison' } : { ko: '테스트 데이터셋 상세', en: 'Test dataset detail' },
+  {
+    id: 'log-dataset', path: '/log/datasets/:datasetId', parent: 'log-datasets', navHidden: true, group: groupId('logRules'), label: { ko: '테스트 데이터셋 상세', en: 'Test dataset detail' },
     description: { ko: 'Revision·Baseline·회귀 실행·비교', en: 'Revision, baseline, regression runs and comparison' },
     icon: Database, permission: 'platform:view', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: [], component: lazy(() => import('./pages/DatasetsPage')),
-  })),
+  },
+  {
+    id: 'log-dataset-run', path: '/log/datasets/:datasetId/regression-runs/:suiteRunId', parent: 'log-datasets', navHidden: true, group: groupId('logRules'), label: { ko: '회귀 실행 비교', en: 'Regression run comparison' },
+    description: { ko: 'Revision·Baseline·회귀 실행·비교', en: 'Revision, baseline, regression runs and comparison' },
+    icon: Database, permission: 'platform:view', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES,
+    pageKeys: [], component: lazy(() => import('./pages/DatasetsPage')),
+  },
 ];
