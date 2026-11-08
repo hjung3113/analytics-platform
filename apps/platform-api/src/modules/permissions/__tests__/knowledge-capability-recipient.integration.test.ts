@@ -110,9 +110,6 @@ describe.skipIf(!runIntegration)(
         // The mutation tier allows 10 requests/min per actor: the second half of the list is requested by `user2`.
         const requester = CAPABILITIES.indexOf(capability) < 6 ? "user" : "user2";
         const res = await post("/permission-requests", requester, {
-        // One user files one request per capability: the list outgrew the per-minute mutation window, so each starts on a clean window.
-        await migrate.pool.query("delete from core.rate_limits");
-        const res = await post("/permission-requests", "user", {
           requested_capability: capability,
           reason: "needs it",
         });
