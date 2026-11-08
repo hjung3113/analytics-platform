@@ -30,3 +30,4 @@ bash .agents/conductor/scripts/with-lock.sh merge.lock "$PRN ship" -- bash -c 's
 
 - exit 75 (lock held) → retry. Merge refused for a conflict → rebase and ship again.
 - A locked ship that ends with exit 20/21/22 releases the lock; fix the problem, then ship again.
+- A CI job that failed on a diagnosed flake (the cause is identified and not in the PR) gets one rerun of the failed job only (`gh run rerun <run-id> --failed`), then `gh run watch <run-id>`; a second failure is a real failure to diagnose, not another rerun. Reason: rerunning the whole workflow repeats the cold jobs, and repeated reruns hide a real regression.

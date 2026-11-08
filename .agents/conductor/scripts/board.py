@@ -11,16 +11,19 @@ automatically. Schema, documented here and in LANES.md §Lead:
                   "state": "planned|running|review|blocked|done|dropped",
                   "release": str,          # optional; missing = the board's current release
                   "worker": str|null,      # worker state JSON name in $WAVE_STATE, e.g. "W-1142"
-                  "worktree": str, "pr": int|str|null, "next": str, "updated": ISO-8601 str } ] }
+                  "worktree": str, "pr": int|str|null, "next": str, "updated": ISO-8601 str,
+                  "done_at": ISO-8601 str  # set once when the line enters done } ] }
 
 Commands: init | add <issue> <title> [key=value...] | add decision <text> [by=<who>] [date=<YYYY-MM-DD>]
 | set <id|board> key=value... [--owner-ok "<quote>"] | show | ready | check.
-`set` refreshes the line's `updated`; `worker=null` / `pr=null` clears a field. Atomic writes
+`set` refreshes the line's `updated` only when `state`, `pr` or `worker` changes value (editing `next`, `title` or
+`worktree` leaves it); `worker=null` / `pr=null` clears a field. Atomic writes
 (temp file + rename in the same directory).
 
 Release scope (the owner sets it; keeping a lane busy never outranks it): `add` stores `release=<v>` on the
 line (default: the board's release). `ready` lists the planned lines whose release equals the board's release
-(`ready <id> #<issue> <title>` per line, `board ready: none` when empty); assign work only from that list. A line
+(`ready <id> #<issue> <title>` per line, `board ready: none` when empty), then one `release <v>: …` progress line per
+release (counts per state, age of the last done line); assign work only from the `ready` lines. A line
 that carries no `release` counts as the current one, so old boards stay readable. Setting `state=running` on a
 line of another release (via `set` or `add`) is refused unless `--owner-ok "<the owner's words>"` is given; the
 quote is stored on the line as `owner_ok`. `add decision` writes only to `decisions[]` — never a line.
@@ -28,8 +31,9 @@ quote is stored on the line as `owner_ok`. `add decision` writes only to `decisi
 `check` prints one line per finding and exits 10 when: a line is running/review but its worker's
 state JSON in $WAVE_STATE is done/stopped/closed/missing (a dead pid counts as stopped); a running
 worker in $WAVE_STATE is on no board line; two running lines with write roles (impl*, fix) share a
-worktree; a line still in planned/running/review/blocked was not updated for 4 h. A missing board
-or missing WAVE_STATE is a note, not a finding.
+worktree; a line in running/review/blocked was not updated for 4 h (planned lines wait by design and a `review`
+line may have no worker); a release with an unfinished line has had no line reach `done` for 4 h (the newest `done_at`
+of its done lines). A missing board or missing WAVE_STATE is a note, not a finding.
 
 Env: AP_MAIN (default: the git common dir of the checkout holding this script), BOARD (board path
 override), WAVE_STATE (worker state dir, or several joined with ':' — one per lane; checked only for
@@ -48,6 +52,7 @@ STATES = ('planned', 'running', 'review', 'blocked', 'done', 'dropped')
 LINE_KEYS = ('issue', 'title', 'state', 'release', 'worker', 'worktree', 'pr', 'next')
 BOARD_KEYS = ('release', 'goal', 'merge_grant', 'decisions')
 STALE_H = 4
+PROGRESS_KEYS = ('state', 'pr', 'worker')  # only these changes count as progress and refresh `updated`
 
 
 def die(msg, code=2):
@@ -186,9 +191,33 @@ def cmd_add(path, args):
             'pr': None, 'next': '', 'updated': now_iso()}
     apply_kv(line, args[2:], LINE_KEYS)
     guard_release(board, line, args[2:], owner_ok)
+    if line.get('state') == 'done':
+        line['done_at'] = line['updated']
     board['lines'].append(line)
     save(path, board)
     print(f'board: added line {line["id"]} #{line["issue"]} {line["title"]} (release {line_release(board, line) or "-"})')
+
+
+def release_groups(board):
+    """[(release, [lines])] in order of first appearance; legacy decision lines are not work."""
+    groups = {}
+    for l in board['lines']:
+        if str(l.get('issue')) != 'decision':
+            groups.setdefault(line_release(board, l), []).append(l)
+    return list(groups.items())
+
+
+def last_done(lines):
+    """Newest completion time among the done lines, or None. `done_at` is set when a line enters done and never moves
+    again; lines from before that field fall back to `updated`."""
+    stamps = []
+    for l in lines:
+        if l.get('state') == 'done':
+            try:
+                stamps.append(datetime.fromisoformat(str(l.get('done_at') or l.get('updated', ''))))
+            except ValueError:
+                pass
+    return max(stamps) if stamps else None
 
 
 def cmd_ready(path):
@@ -204,6 +233,12 @@ def cmd_ready(path):
         print(f'ready {l.get("id")} #{l.get("issue")} {l.get("title")} (release {current or "-"})')
     if not ready:
         print(f'board ready: none (release {current or "-"})')
+    for rel, lines in release_groups(board):
+        counts = {st: sum(1 for l in lines if l.get('state') == st) for st in STATES if st != 'dropped'}
+        last = last_done(lines)
+        age = f'{(datetime.now().astimezone() - last).total_seconds() / 3600:.1f} h ago' if last else 'none'
+        print(f'release {rel or "-"}: ' + ', '.join(f'{st} {n}' for st, n in counts.items())
+              + f' (last done {age})' + (' [current]' if rel == current else ''))
     return 0
 
 
@@ -223,9 +258,13 @@ def cmd_set(path, args):
     line = next((l for l in board['lines'] if l.get('id') == int(target)), None)
     if line is None:
         die(f'no line {target}')
+    before = {k: line.get(k) for k in PROGRESS_KEYS}
     apply_kv(line, args[1:], LINE_KEYS)
     guard_release(board, line, args[1:], owner_ok)
-    line['updated'] = now_iso()
+    if line.get('state') == 'done' and before['state'] != 'done':
+        line['done_at'] = now_iso()  # completion time: later pr/worker corrections must not renew it
+    if any(line.get(k) != before[k] for k in PROGRESS_KEYS):
+        line['updated'] = now_iso()  # `next`/title edits are bookkeeping: they must not hide a stalled line
     save(path, board)
     print(f'board: line {target} updated')
 
@@ -341,15 +380,14 @@ def cmd_check(path):
         if state in ('running', 'review'):
             name = l.get('worker')
             if not name:
-                if state == 'running':  # a `review` line may sit on a lead step (checks, CI, merge) with no worker
-                    findings.append(f'line {lid} (#{l.get("issue")}) is {state} but has no worker')
+                pass  # a line may sit on a lead step (checks, CI, merge) with no worker; stale-line check below still applies
             elif name not in workers:
                 findings.append(f'line {lid} (#{l.get("issue")}) is {state} but worker {name} has no state JSON')
             else:
                 status = (worker_status(*workers[name]) if name not in running_workers else 'running')
                 if status != 'running':
                     findings.append(f'line {lid} (#{l.get("issue")}) is {state} but worker {name} is {status}')
-        if state in ('planned', 'running', 'review', 'blocked'):
+        if state in ('running', 'review', 'blocked'):  # planned lines wait by design
             try:
                 updated = datetime.fromisoformat(str(l.get('updated', '')))
                 if datetime.now().astimezone() - updated > timedelta(hours=STALE_H):
@@ -357,6 +395,12 @@ def cmd_check(path):
                                     f'{STALE_H} h (updated {l.get("updated")})')
             except ValueError:
                 findings.append(f'line {lid} (#{l.get("issue")}) has unreadable updated "{l.get("updated")}"')
+    for rel, lines in release_groups(board):
+        last = last_done(lines)
+        open_n = sum(1 for l in lines if l.get('state') in ('planned', 'running', 'review', 'blocked'))
+        if last and open_n and datetime.now().astimezone() - last > timedelta(hours=STALE_H):
+            findings.append(f'release {rel or "-"} has {open_n} unfinished line(s) and no line done for {STALE_H} h '
+                            f'(last done {last.isoformat(timespec="minutes")})')
     on_board = {l.get('worker') for l in board['lines'] if l.get('worker')}
     for name, state in sorted(running_workers.items()):
         if name not in on_board:
@@ -509,9 +553,68 @@ def self_test():
     assert len(data['lines']) == before and data['decisions'][-1]['text'] == 'v2 waits for the owner' \
         and data['decisions'][-1]['by'] == 'owner', data
     expect(2, run('add', 'decision', 'x', 'worker=W-1'), 'add decision rejects line keys')
+
+    # stall detection (#1566): `updated` moves only with state/pr/worker; planned lines never go stale; a workerless
+    # running line is not a finding by itself; ready lists every release with the age of its last done line.
+    board.unlink()
+    for (_dir, _names, files) in os.walk(state):
+        for f in files:
+            (Path(_dir) / f).unlink()
+    old = (datetime.now().astimezone() - timedelta(hours=10)).isoformat(timespec='seconds')
+
+    def age_line(lid, stamp):
+        d = json.loads(board.read_text())
+        ln = next(l for l in d['lines'] if l['id'] == lid)
+        ln['updated'] = stamp
+        if 'done_at' in ln:
+            ln['done_at'] = stamp
+        board.write_text(json.dumps(d))
+
+    def line(lid):
+        return next(l for l in json.loads(board.read_text())['lines'] if l['id'] == lid)
+
+    expect(0, run('init'), 'init for stall detection')
+    expect(0, run('set', 'board', 'release=v1'), 'release v1')
+    expect(0, run('add', '1', 'planned old'), 'planned line')
+    expect(0, run('add', '2', 'running no worker', 'state=running'), 'workerless running line')
+    expect(0, run('add', '3', 'done long ago', 'state=done'), 'done line')
+    expect(0, run('add', '4', 'other release done', 'state=done', 'release=v0'), 'other release done line')
+    for lid in (1, 2, 3, 4):
+        age_line(lid, old)
+    r = run('check')
+    assert 'has no worker' not in r.stdout and 'line 1 ' not in r.stdout, r.stdout  # planned is not stale, workerless is not a finding
+    assert 'line 2 (#2) is running but not updated' in r.stdout, r.stdout  # running still goes stale
+    assert 'release v1 has 2 unfinished line(s) and no line done for 4 h' in r.stdout, r.stdout
+    assert 'release v0 ' not in r.stdout, r.stdout  # v0 has nothing unfinished
+    expect(10, r, 'release without a recent done line')
+    before = line(2)['updated']
+    expect(0, run('set', '2', 'next=waiting for review'), 'set next only')
+    assert line(2)['updated'] == before, line(2)  # `next` does not refresh updated
+    expect(0, run('set', '2', 'worker=W-7'), 'set worker')
+    assert line(2)['updated'] != before, line(2)
+    before = line(2)['updated']
+    expect(0, run('set', '2', 'worker=W-7'), 'set the same worker again')
+    assert line(2)['updated'] == before, line(2)  # an unchanged value is not progress
+    expect(0, run('set', '3', 'pr=12'), 'set pr')
+    assert line(3)['updated'] != old, line(3)
+    assert line(3)['done_at'] == old, line(3)  # correcting a done line's pr does not renew its completion time
+    r = run('check')
+    assert 'release v1 has 2 unfinished line(s) and no line done for 4 h' in r.stdout, r.stdout  # alarm stays
+    expect(0, run('set', '2', 'state=done'), 'line 2 enters done')
+    assert line(2)['done_at'] != old and line(2)['done_at'] == line(2)['updated'], line(2)
+    expect(0, run('set', '2', 'state=running'), 'line 2 back to running')
+    expect(0, run('set', '2', 'state=done'), 'line 2 done again')
+    r = run('check')
+    assert 'release v1 has' not in r.stdout, r.stdout  # a line entering done now clears the alarm
+    r = run('ready')
+    expect(0, r, 'ready with release lines')
+    assert 'release v1: planned 1, running 0, review 0, blocked 0, done 2 (last done 0.0 h ago) [current]' in r.stdout, r.stdout
+    assert 'release v0: planned 0, running 0, review 0, blocked 0, done 1 (last done 10.0 h ago)' in r.stdout, r.stdout
     print('board.py self-test passed: init/add/set/show, enum guard, clean check, worker missing/done/stopped, '
           'off-board worker, shared worktree, stale line, two state dirs, missing board, release scope '
-          '(ready, default release, owner-ok, old lines, decision only in decisions[])')
+          '(ready, default release, owner-ok, old lines, decision only in decisions[]), stall detection '
+          '(updated only on state/pr/worker change, planned never stale, no «has no worker», release done-age alarm, '
+          'release progress lines)')
 
 
 def main():
