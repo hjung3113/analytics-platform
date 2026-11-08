@@ -1,5 +1,5 @@
 {
-  "engine_api": 1,
+  "engine_api": 2,
   "review_plan": {
     "base": "origin/main",
     "test": {
@@ -38,15 +38,6 @@
         {
           "match": {
             "any": [
-              {
-                "prefix": [
-                  "docs/product/features/",
-                  "docs/design/features/",
-                  "docs/design/history/feedbackops-prototype/",
-                  "docs/user-guide/features/",
-                  "docs/user-guide/history/feedbackops/"
-                ]
-              },
               {
                 "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|platform/[^/]+/src|apps/platform-web/src|apps/feature-screens/src|packages/feature-ui/src)/",
                 "suffix": [
@@ -281,7 +272,9 @@
     }
   },
   "lanes": {
-    "shared_paths_regex": "^(tooling/sdk/api/|package\\.json$|packages/sdk/(contracts|kernel|components|shell)/package\\.json$|pnpm-lock\\.yaml$|turbo\\.json$|\\.github/workflows/|apps/platform-e2e/)",
+    "shared_paths_regex": "^(tooling/sdk/api/|package\\.json$|packages/sdk/(contracts|kernel|components|shell)/package\\.json$|pnpm-lock\\.yaml$|turbo\\.json$|\\.github/workflows/)",
+    "small_unit_regex": "^(packages/(sdk|adapters)/[^/]+|packages/[^/]+|menus/[^/]+/[^/]+|platform/[^/]+|apps/[^/]+)/",
+    "small_exclude_regex": "^(packages/sdk/(kernel|contracts)/|tooling/sdk/api/|apps/platform-api/|packages/adapters/|ops/|\\.github/)",
     "tier_full_regex": "^(packages/sdk/(kernel|components|shell|ui|contracts)/|packages/adapters/(mock-server|http-adapter|server-conformance|feature-bridge)/|apps/platform-web/|apps/platform-api/|apps/feature-screens/|packages/feature-shared/)",
     "verify": {
       "light": [
