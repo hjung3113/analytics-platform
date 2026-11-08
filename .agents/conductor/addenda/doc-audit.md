@@ -1,6 +1,6 @@
 # Pre-release document audit — reviewer work order
 
-Under [`LANES.md`](../LANES.md) §Lead, the lead uses this file to create a one-time reviewer's (`review-doc`) work order for release step 3. The first line must be "Read `~/.agents/agents/doc-steward.md` and follow it as your role definition" (mode `release-audit`). If this work order conflicts with the persona, follow this work order. Read-only `gh issue view|list` and `gh pr view` are allowed. The reviewer writes only the report and does not edit files. The lead puts fixes in the release-docs PR (site findings go in the site PR).
+Under [`PROFILE.md`](../PROFILE.md) §Slice close, the lead uses this file to create a one-time reviewer's (`review-doc`) work order for release step 3. The first line must be "Read `~/.agents/agents/doc-steward.md` and follow it as your role definition" (mode `release-audit`). If this work order conflicts with the persona, follow this work order. Read-only `gh issue view|list` and `gh pr view` are allowed. The reviewer writes only the report and does not edit files. The lead puts fixes in the release-docs PR (site findings go in the site PR).
 
 ## Inputs for the lead
 
