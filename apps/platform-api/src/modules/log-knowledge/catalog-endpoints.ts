@@ -1,3 +1,4 @@
+import { withReplayAccess } from './replay-access.js';
 // The four paged catalog reads of the log knowledge hub as menu-dispatch declarations (#1193,
 // design v0.6 §7.1, ADR-0107). Read right: every active workspace session (`platform:view`, the rule the
 // Home menu uses). The workspace is the session actor's, never a param. A value the endpoint cannot
@@ -97,7 +98,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       ...importActions({ checkService: deps.checkService }),
       ...importIntakeActions(deps),
       ...accessActions({ checkService: deps.checkService }),
-    ],
+    ].map(withReplayAccess),
     endpoints: [
       declare(deps, 'vendors', VENDOR_SORT_IDS, (_a, q, v) => listVendors(deps.db, q, v)),
       declare(deps, 'processes', PROCESS_SORT_IDS, (_a, q, v) => listProcesses(deps.db, q, v)),

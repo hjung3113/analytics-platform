@@ -1,7 +1,7 @@
 // RuleCoveragePort (#1494 R-d, design log-rules §5.3): the read surface other modules (Gate, Round screen, Datasets;
 // wired in R-f, not here) use for spec coverage and RuleSet Revision resolution. Workspace-parameterised like the other
-// ports: the caller verified the workspace and decides the permission; this port applies none (coverage visibility equals
-// `platform:view`, as log-knowledge reads, see the module AGENTS.md). Reads only; no outbound call.
+// ports: the caller verified the workspace and decides the entry permission; the required viewerActorId applies
+// the knowledge object visibility rule. Reads only; no outbound call.
 
 import { and, eq } from 'drizzle-orm';
 
@@ -33,7 +33,7 @@ export interface ResolvedRuleSetRevision {
 }
 
 export interface RuleCoveragePort {
-  getCoverage(tx: Tx, workspaceId: string, modelId: string, softwareId?: string | null): Promise<RuleCoverage>;
+  getCoverage(tx: Tx, workspaceId: string, modelId: string, softwareId: string | null, viewerActorId: string): Promise<RuleCoverage>;
   /**
    * Resolves a RuleSet Revision of the CURRENT catalog by `ruleSetKey` and the Validator's revision string — the
    * reported `revision` or its `resultRef`, compared exactly. Null when the key is not in the current catalog, when no
@@ -44,8 +44,8 @@ export interface RuleCoveragePort {
 
 export function createRuleCoveragePort(deps: { knowledgeLookup: CoverageKnowledge }): RuleCoveragePort {
   return {
-    async getCoverage(tx, workspaceId, modelId, softwareId = null) {
-      const result = await computeModelCoverage({ knowledge: deps.knowledgeLookup }, tx, workspaceId, modelId, softwareId);
+    async getCoverage(tx, workspaceId, modelId, softwareId, viewerActorId) {
+      const result = await computeModelCoverage({ knowledge: deps.knowledgeLookup }, tx, workspaceId, modelId, softwareId, viewerActorId);
       if (!result.computable) return result;
       return {
         computable: true,

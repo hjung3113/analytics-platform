@@ -16,7 +16,7 @@ export async function readSpecInput(
   workspaceId: string,
   modelId: string,
   softwareId: string | null,
-  viewerActorId?: string,
+  viewerActorId: string,
 ): Promise<CoverageSpecInput> {
   const r = await knowledge.listEffectiveRequirements(tx, workspaceId, modelId, softwareId, viewerActorId);
   if (r.state === 'ok') return { state: 'ok', specPin: r.specPin, keys: r.requirements.map((x) => x.key) };
@@ -30,8 +30,8 @@ export async function computeModelCoverage(
   workspaceId: string,
   modelId: string,
   softwareId: string | null,
+  viewerActorId: string,
   catalog?: CoverageCatalogInput,
-  viewerActorId?: string,
 ): Promise<CoverageResult> {
   const loaded = catalog ?? (await loadCoverageCatalog(tx, workspaceId));
   return computeCoverage(await readSpecInput(deps.knowledge, tx, workspaceId, modelId, softwareId, viewerActorId), loaded);

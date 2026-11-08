@@ -1,3 +1,4 @@
+import { ownerVisible } from './draft-read.js';
 // Write side of the knowledge drafts (#1198 a): `knowledge.draft` and `knowledge.draft_revision` only, every statement
 // scoped to the actor's workspace, no hard delete, never a `knowledge_item*` table. The caller owns the transaction
 // and the audit row. The draft a write targets is locked `FOR UPDATE` by `lockDraft` (the action's `currentVersion`)
@@ -8,7 +9,7 @@ import { type SQL, and, eq, sql } from 'drizzle-orm';
 
 import { knowledgeDraftRevisions, knowledgeDrafts, knowledgeItems } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
-import { type Viewer, canSeeItem, canSeeOwner } from './access-visibility.js';
+import { type Viewer, canSeeItem } from './access-visibility.js';
 import { DRAFT_SCHEMA_VERSION, type NormalizedProposal, type ValidatorRef, proposalDigest } from '../domain/draft-input.js';
 
 export type DraftRow = typeof knowledgeDrafts.$inferSelect;
@@ -27,7 +28,8 @@ export async function lockDraft(tx: Tx, viewer: Viewer, id: string): Promise<Dra
     .where(and(eq(d.workspaceId, viewer.workspaceId), eq(d.id, id)))
     .for('update');
   if (!row) return null;
-  return (await canSeeOwner(tx, viewer, row)) ? row : null;
+  const [visible] = await tx.select({ id: d.id }).from(d).where(and(eq(d.workspaceId, viewer.workspaceId), eq(d.id, id), ownerVisible(viewer)));
+  return visible ? row : null;
 }
 
 export interface TargetItem {

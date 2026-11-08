@@ -1,3 +1,4 @@
+import { lockOwnerAccess, viewerOf } from '../log-knowledge/index.js';
 // The development project write actions (#1444 c, design §5): create, set stage, reopen, update. Right:
 // `lifecycle.project.manage` (workspace-scoped; Admin passes through the module bypass, a User role is refused by the
 // supported-scope policy). Rules: the workspace is the actor's; every write is one transaction holding the row change,
@@ -96,12 +97,12 @@ export function projectActions(deps: ProjectActionDeps): MenuActionDeclaration[]
 
   /** Locks the project row; its row version is the concurrency token. `null` = missing or another workspace's. */
   const currentVersion = async (tx: Tx, actor: PlatformActor, input: Record<string, unknown>) => {
-    const row = await lockProject(tx, actor.workspace_id, input.id as string);
+    const row = await lockProject(tx, actor.workspace_id, input.id as string, viewerOf(actor));
     return row ? String(row.rowVersion) : null;
   };
 
   async function lockExisting(tx: Tx, actor: PlatformActor, id: string, action: string): Promise<ProjectRow> {
-    const row = await lockProject(tx, actor.workspace_id, id);
+    const row = await lockProject(tx, actor.workspace_id, id, viewerOf(actor));
     if (!row) throw new Error(`action ${action}: currentVersion judged not_found first`);
     return row;
   }
@@ -138,6 +139,7 @@ export function projectActions(deps: ProjectActionDeps): MenuActionDeclaration[]
       if (!model.active) throw invalid({ path: ['modelId'], code: 'inactive' });
       const softwareId = value.softwareId ?? null;
       if (softwareId !== null) await checkSoftware(tx, ws, value.modelId, softwareId, actor.actor_id);
+      if (!(await lockOwnerAccess(tx, viewerOf(actor), { ownerModelId: value.modelId, ownerSoftwareId: softwareId }))) throw invalid({ path: [softwareId ? 'softwareId' : 'modelId'], code: 'not_found' });
       if (!(await actorInWorkspace(tx, ws, value.ownerActorId))) throw invalid({ path: ['ownerActorId'], code: 'not_found' });
 
       const project = await mapUnique(

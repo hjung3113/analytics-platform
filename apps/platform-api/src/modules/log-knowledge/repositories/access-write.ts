@@ -121,6 +121,8 @@ export async function insertRule(
 }
 
 export async function lockRule(tx: Tx, workspaceId: string, ruleId: string): Promise<RuleRow | null> {
+  const [target] = await tx.select({ kind: r.targetKind, id: r.targetId }).from(r).where(and(eq(r.workspaceId, workspaceId), eq(r.ruleId, ruleId)));
+  if (!target || !(await lockTarget(tx, workspaceId, target.kind as AccessTargetKind, target.id))) return null;
   const [row] = await tx.select(ruleColumns).from(r).where(and(eq(r.workspaceId, workspaceId), eq(r.ruleId, ruleId))).for('update');
   return (row as RuleRow | undefined) ?? null;
 }

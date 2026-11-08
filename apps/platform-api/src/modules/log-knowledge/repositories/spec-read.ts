@@ -320,7 +320,7 @@ export async function listSpecChanges(
   const workspaceId = viewer.workspaceId;
   const c = specSwChanges;
   const end = alias(softwareVersions, 'end_sw');
-  const at = sql`(select s.release_order from knowledge.software_version s where s.workspace_id = ${workspaceId} and s.model_id = ${modelId} and s.id = ${filters.softwareId ?? null}::uuid)`;
+  const at = sql`(select s.release_order from knowledge.software_version s where s.workspace_id = ${workspaceId} and s.model_id = ${modelId} and s.id = ${filters.softwareId ?? null}::uuid and ${visibleSoftwareSql(viewer, sql`s.id`)})`;
   const where = and(
     eq(c.workspaceId, workspaceId),
     eq(c.modelId, modelId),
@@ -359,7 +359,7 @@ export async function listSpecChanges(
       id: row.id,
       softwareId: row.softwareId,
       softwareLabel,
-      endsBeforeSoftwareId: row.endsBeforeSoftwareId,
+      endsBeforeSoftwareId: endsBeforeLabel === null ? null : row.endsBeforeSoftwareId,
       endsBeforeLabel,
       targetKind: row.targetKind,
       targetKey: row.targetKey,

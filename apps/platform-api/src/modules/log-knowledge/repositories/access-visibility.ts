@@ -44,7 +44,7 @@ const uuidParam = (value: string): SQL => sql`${value}::uuid`;
 function level(alias: string, kind: 'model' | 'software' | 'item', viewer: Viewer): SQL {
   const a = sql.raw(alias);
   const rule = (effect: 'allow' | 'deny') =>
-    sql`exists (select 1 from knowledge.object_access_rule acc_r where acc_r.workspace_id = ${uuidParam(viewer.workspaceId)} and acc_r.grantee_kind = 'actor' and acc_r.grantee_id = ${uuidParam(viewer.actorId)} and acc_r.target_kind = ${kind} and acc_r.target_id = ${a}.id and acc_r.effect = ${effect} and acc_r.revoked_at is null and (acc_r.valid_until is null or acc_r.valid_until > now()))`;
+    sql`exists (select 1 from knowledge.object_access_rule acc_r where acc_r.workspace_id = ${uuidParam(viewer.workspaceId)} and acc_r.grantee_kind = 'actor' and acc_r.grantee_id = ${uuidParam(viewer.actorId)} and acc_r.target_kind = ${kind} and acc_r.target_id = ${a}.id and acc_r.effect = ${effect} and acc_r.revoked_at is null and (acc_r.valid_until is null or acc_r.valid_until > statement_timestamp()))`;
   return sql`(not ${rule('deny')} and (${a}.access_mode = 'internal' or ${rule('allow')}))`;
 }
 

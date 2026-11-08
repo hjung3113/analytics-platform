@@ -1,3 +1,4 @@
+import { type Viewer, canSeeModel, visibleModelSql, ref } from './access-visibility.js';
 // Apply side of the catalog import (#1195 b): resolutions, the seal, per-row bookkeeping, the lookups an apply
 // needs and the identity map. Catalog rows themselves are written through `catalog-write.ts`. Every statement is
 // scoped to the actor's workspace; the caller owns the transaction.
@@ -324,10 +325,11 @@ export async function findVendorByKey(tx: Tx, workspaceId: string, key: string):
 
 export async function findModelByKey(
   tx: Tx,
-  workspaceId: string,
+  viewer: Viewer,
   vendorId: string,
   key: string,
 ): Promise<{ id: string; active: boolean } | null> {
+  const workspaceId = viewer.workspaceId;
   const [row] = await tx
     .select({ id: equipmentModels.id, active: equipmentModels.active })
     .from(equipmentModels)
@@ -336,10 +338,11 @@ export async function findModelByKey(
         eq(equipmentModels.workspaceId, workspaceId),
         eq(equipmentModels.vendorId, vendorId),
         eq(equipmentModels.codeKey, key),
+        visibleModelSql(viewer, ref(equipmentModels.id)),
       ),
     )
     .for('share');
-  return row ?? null;
+  return row && await canSeeModel(tx, viewer, row.id) ? row : null;
 }
 
 export type ParentHit = { kind: 'none' } | { kind: 'many' } | { kind: 'one'; row: { id: string; active: boolean } };

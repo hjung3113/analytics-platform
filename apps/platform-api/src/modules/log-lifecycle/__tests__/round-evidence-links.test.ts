@@ -79,7 +79,7 @@ describe('readRoundEvidenceLinks', () => {
   it('answers null for an unknown or other-workspace Round, the same as an unreadable one', async () => {
     roundInWorkspace.mockResolvedValue(false);
     await expect(readRoundEvidenceLinks(deps, actor, ROUND)).resolves.toBeNull();
-    expect(roundInWorkspace).toHaveBeenCalledWith(deps.db, WS, ROUND);
+    expect(roundInWorkspace).toHaveBeenCalledWith(deps.db, WS, ROUND, { workspaceId: WS, actorId: actor.actor_id });
     expect(selectActiveLinksForEndpoint).not.toHaveBeenCalled();
   });
 

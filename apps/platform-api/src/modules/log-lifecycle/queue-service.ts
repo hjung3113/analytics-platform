@@ -100,7 +100,7 @@ export function createQueueService(deps: QueueServiceDeps) {
 
   /** The request + attempt a heartbeat / result / fail names, locked; 404 when either is unknown, lease_lost for another worker's. */
   async function locate(tx: Parameters<typeof lockRequest>[0], caller: WorkerCaller, requestId: string, attemptNo: number) {
-    const request = await lockRequest(tx, caller.workspaceId, requestId);
+    const request = await lockRequest(tx, caller.workspaceId, requestId, caller);
     if (!request) throw new HttpError('not_found.record', 'validation request not found');
     const attempt = await getAttempt(tx, request.id, attemptNo);
     if (!attempt) throw new HttpError('not_found.record', 'attempt not found');
@@ -116,7 +116,7 @@ export function createQueueService(deps: QueueServiceDeps) {
 
   async function claim(caller: WorkerCaller): Promise<ClaimBody | null> {
     return deps.db.transaction(async (tx) => {
-      const expired = await requeueExpiredLeases(tx, caller.workspaceId);
+      const expired = await requeueExpiredLeases(tx, caller.workspaceId, caller);
       for (const e of expired) {
         await audit.record(tx, {
           workspace_id: caller.workspaceId,
@@ -189,7 +189,7 @@ export function createQueueService(deps: QueueServiceDeps) {
     }
     return deps.db.transaction(async (tx) => {
       const { request, attempt } = await locate(tx, caller, requestId, attemptNo);
-      const round = await getRound(tx, caller.workspaceId, request.roundId);
+      const round = await getRound(tx, caller.workspaceId, request.roundId, caller);
       if (!round) throw new Error('execution request without a round');
       const set = round.sampleSet as SampleSet;
       const parsed = parseResultBody(rawBody, new Set(set.files.map((f) => f.fileRef)));

@@ -28,9 +28,9 @@ describe.skipIf(!runIntegration)('effective requirement keys (#1493)', () => {
   const sql = (text: string, params: unknown[] = []) => migrate.pool.query(text, params);
   const one = async (text: string, params: unknown[]) => (await sql(text, params)).rows[0].id as string;
   const read = (workspace: string, model: string, software: string | null) =>
-    app.db.transaction((tx) => knowledgeLookup.listEffectiveRequirements(tx, workspace, model, software));
+    app.db.transaction((tx) => knowledgeLookup.listEffectiveRequirements(tx, workspace, model, software, actorId));
   const pin = (workspace: string, model: string, software: string | null) =>
-    app.db.transaction((tx) => knowledgeLookup.getEffectiveSpecPin(tx, workspace, model, software));
+    app.db.transaction((tx) => knowledgeLookup.getEffectiveSpecPin(tx, workspace, model, software, actorId));
   const keysOf = (r: { requirements: { key: string }[] }) => r.requirements.map((x) => x.key);
 
   const catalog = (table: string, workspace: string, code: string, extra: Record<string, unknown> = {}) => {
@@ -242,7 +242,7 @@ describe.skipIf(!runIntegration)('effective requirement keys (#1493)', () => {
     await publish(WORKSPACE_ID, m, 1, ['M'], [['M', 'E1']]);
     const spy = vi.spyOn(app.db, 'transaction');
     try {
-      expect(keysOf(await knowledgeLookup.listEffectiveRequirements(app.db, WORKSPACE_ID, m, null))).toEqual(['M', 'M/E1']); // `Db`, not a transaction
+      expect(keysOf(await knowledgeLookup.listEffectiveRequirements(app.db, WORKSPACE_ID, m, null, actorId))).toEqual(['M', 'M/E1']); // `Db`, not a transaction
       expect(spy).toHaveBeenCalledTimes(1); // the model lock and every read ran inside that one transaction
       spy.mockClear();
       expect(keysOf(await read(WORKSPACE_ID, m, null))).toEqual(['M', 'M/E1']); // already a transaction: one wrapper (the helper's), none added

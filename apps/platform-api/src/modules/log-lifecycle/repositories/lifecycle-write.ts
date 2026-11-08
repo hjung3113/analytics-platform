@@ -1,3 +1,5 @@
+import { type Viewer, ref, lockOwnerAccess } from '../../log-knowledge/index.js';
+import { projectVisibleSql, roundVisibleSql } from './access-visibility.js';
 // Write side of the log lifecycle (#1444 c): every statement is scoped to the session's workspace and runs on the
 // caller's transaction. The project row is locked FOR UPDATE (by the engine's `currentVersion`, or by `lockProject`
 // before a round is opened); event and round `seq` are allocated under that lock, so they are gapless per project.
@@ -18,23 +20,25 @@ export type EventKind = 'created' | 'stage_changed' | 'owner_changed' | 'target_
 const p = developmentProjects;
 const r = validationRounds;
 
-export async function lockProject(tx: Tx, workspaceId: string, projectId: string): Promise<ProjectRow | null> {
+export async function lockProject(tx: Tx, workspaceId: string, projectId: string, viewer: Viewer): Promise<ProjectRow | null> {
   const [row] = await tx
     .select()
     .from(p)
-    .where(and(eq(p.workspaceId, workspaceId), eq(p.id, projectId)))
+    .where(and(eq(p.workspaceId, workspaceId), eq(p.id, projectId), projectVisibleSql(viewer, ref(p.id))))
     .for('update');
-  return row ?? null;
+  return row && await lockOwnerAccess(tx, viewer, { ownerModelId: row.modelId, ownerSoftwareId: row.softwareId }) ? row : null;
 }
 
 /** Locks a round row; its project is NOT locked here (a close does not allocate a seq). */
-export async function lockRound(tx: Tx, workspaceId: string, roundId: string): Promise<RoundRow | null> {
+export async function lockRound(tx: Tx, workspaceId: string, roundId: string, viewer: Viewer): Promise<RoundRow | null> {
   const [row] = await tx
     .select()
     .from(r)
-    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, roundId)))
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, roundId), roundVisibleSql(viewer, ref(r.id))))
     .for('update');
-  return row ?? null;
+  if (!row) return null;
+  const [project] = await tx.select().from(p).where(and(eq(p.workspaceId, workspaceId), eq(p.id, row.projectId)));
+  return project && await lockOwnerAccess(tx, viewer, { ownerModelId: project.modelId, ownerSoftwareId: project.softwareId }) ? row : null;
 }
 
 /** An owner must be an actor of the session workspace (the actor FKs are plain: core.actors has no workspace key). */

@@ -1,3 +1,4 @@
+import { normalizeRow, lookupByKeyOrName } from '../domain/import-plan.js';
 // Staging side of the catalog import (#1195 a): `knowledge.catalog_import_*` only. Nothing here writes a catalog
 // table; the catalog is read through `loadCatalogSnapshot`. Every statement is scoped to the actor's workspace. The
 // caller owns the transaction. Bulk statements run in chunks (a job holds up to 5,000 rows).
@@ -442,4 +443,68 @@ export async function loadCatalogSnapshot(tx: Tx, viewer: Viewer, entity: Import
     for (const s of rows) softwareMap.set(`${s.modelId}|${s.versionKey}`, ref(s));
   }
   return { vendors: vendorMap, processes: processMap, models: modelMap, softwares: softwareMap, vendorNames, processNames, modelNames };
+}
+
+/** Whole-job disclosure: one hidden target/parent hides the job, including raw cells, tallies, CSV and progress. */
+export async function getVisibleJob(tx: Tx, viewer: Viewer, jobId: string, lock = false): Promise<ImportJob | null> {
+  const j = catalogImportJobs;
+  const visible = sql`not exists (
+    select 1 from knowledge.catalog_import_row gate_row
+    left join knowledge.catalog_import_resolution gate_res on gate_res.workspace_id = gate_row.workspace_id and gate_res.job_id = gate_row.job_id and gate_res.row_no = gate_row.row_no and gate_res.based_on_validation = ${accessRef(j.validationGeneration)}
+    where gate_row.workspace_id = ${viewer.workspaceId}::uuid and gate_row.job_id = ${accessRef(j.id)} and (
+      (${accessRef(j.entityType)} = 'model' and exists (
+        select 1 from unnest(array[gate_row.target_id, gate_row.result_target_id, gate_res.map_target_id]) gate_id(id)
+        where gate_id.id is not null and not ${visibleModelSql(viewer, sql`gate_id.id`)}
+      )) or (${accessRef(j.entityType)} = 'software' and (
+        exists (select 1 from unnest(array[gate_row.target_id, gate_row.result_target_id, gate_res.map_target_id]) gate_id(id)
+          where gate_id.id is not null and not ${visibleSoftwareSql(viewer, sql`gate_id.id`)})
+        or exists (select 1 from knowledge.equipment_model gate_model join knowledge.vendor gate_vendor on gate_vendor.workspace_id = gate_model.workspace_id and gate_vendor.id = gate_model.vendor_id
+          where gate_model.workspace_id = gate_row.workspace_id and gate_vendor.code_key = gate_row.normalized_json->>'vendorKey' and gate_model.code_key = gate_row.normalized_json->>'modelKey'
+            and not ${visibleModelSql(viewer, sql`gate_model.id`)})
+      ))
+    ))`;
+  const query = () => tx.select().from(j).where(and(eq(j.workspaceId, viewer.workspaceId), eq(j.id, jobId), visible));
+  if (lock) {
+    const [candidate] = await query().for('update');
+    if (!candidate) return null;
+    // A lock wait must not preserve the old statement's ACL snapshot.
+  }
+  const [row] = await query();
+  if (!row) return null;
+  const job = toJob(row);
+  // Before mapping there are no typed references to judge; keep that raw input private to its uploader.
+  if (!job.mapping) return row.createdBy === viewer.actorId ? job : null;
+  if (job.entityType !== 'model' && job.entityType !== 'software') return job;
+  return await importCellsVisible(tx, viewer, job) ? job : null;
+}
+
+/** Resolve raw cells with the same normalizer/name fallback as validation, including before the first validation. */
+async function importCellsVisible(tx: Tx, viewer: Viewer, job: ImportJob): Promise<boolean> {
+  const vs = await tx.select().from(vendors).where(eq(vendors.workspaceId, viewer.workspaceId));
+  const ms = await tx.select({ id: equipmentModels.id, vendorId: equipmentModels.vendorId, codeKey: equipmentModels.codeKey, name: equipmentModels.name, active: equipmentModels.active, rowVersion: equipmentModels.rowVersion, visible: visibleModelSql(viewer, accessRef(equipmentModels.id)) }).from(equipmentModels).where(eq(equipmentModels.workspaceId, viewer.workspaceId));
+  const ss = job.entityType === 'software' ? await tx.select({ modelId: softwareVersions.modelId, key: softwareVersions.versionKey, visible: visibleSoftwareSql(viewer, accessRef(softwareVersions.id)) }).from(softwareVersions).where(eq(softwareVersions.workspaceId, viewer.workspaceId)) : [];
+  const vendorKeys = new Map(vs.map((v) => [v.codeKey, v]));
+  const vendorNames = new Map<string, (typeof vs)>();
+  for (const v of vs) vendorNames.set(toCodeKey(v.name), [...(vendorNames.get(toCodeKey(v.name)) ?? []), v]);
+  const stored = await readRowsForValidation(tx, viewer.workspaceId, job.id);
+  for (const row of stored) {
+    const { normalized } = normalizeRow(job.entityType, row.raw, job.mapping as Record<string, string>);
+    if (!('vendorKey' in normalized)) continue;
+    const vendor = lookupByKeyOrName(vendorKeys, vendorNames, normalized.vendorKey, 'vendorNameKey' in normalized ? normalized.vendorNameKey : null);
+    if (vendor.kind !== 'one') continue;
+    const candidates = ms.filter((m) => m.vendorId === vendor.ref.id);
+    if ('modelKey' in normalized) {
+      const model = candidates.find((m) => m.codeKey === normalized.modelKey);
+      if (!model) continue;
+      if (!model.visible || ss.some((s) => s.modelId === model.id && s.key === normalized.versionKey && !s.visible)) return false;
+    } else if ('nameKey' in normalized) {
+      const keys = new Map(candidates.map((m) => [m.codeKey, m]));
+      const names = new Map<string, typeof candidates>();
+      for (const m of candidates) names.set(toCodeKey(m.name), [...(names.get(toCodeKey(m.name)) ?? []), m]);
+      const model = lookupByKeyOrName(keys, names, normalized.codeKey, normalized.nameKey);
+      if (model.kind === 'one' && !model.ref.visible) return false;
+      if (model.kind === 'many' && candidates.some((m) => !m.visible && (m.codeKey === normalized.codeKey || m.codeKey === normalized.nameKey || toCodeKey(m.name) === normalized.nameKey))) return false;
+    }
+  }
+  return true;
 }

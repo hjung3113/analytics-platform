@@ -154,6 +154,7 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
         // Step 5: replay.
         const hit = await idempotency.lookup(tx, actor.actor_id, key, requestHash);
         if (hit.kind === 'match') {
+          if (declaration.canReplay && !(await declaration.canReplay(tx, actor, input, hit.body as ActionAnswer))) return answer(correlationId, 'not_found');
           return { ...(hit.body as ActionAnswer), replayed: true, correlationId };
         }
         if (hit.kind === 'mismatch') {

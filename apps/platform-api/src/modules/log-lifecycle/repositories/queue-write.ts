@@ -1,3 +1,5 @@
+import { type Viewer, ref } from '../../log-knowledge/index.js';
+import { attemptVisibleSql, requestVisibleSql, roundVisibleSql, lockRoundOwner } from './access-visibility.js';
 // Write side of the validation request queue (#1445 d, ADR-0117). Every statement is scoped to a workspace and runs on
 // the caller's transaction. Time is the database's (`now()`), so a lease and its expiry never depend on an app clock;
 // only the run-window judgment takes an app `Date` (the injected clock). `platform_app` holds INSERT + a column-limited
@@ -112,21 +114,21 @@ export async function insertRequest(tx: Tx, v: NewRequest): Promise<RequestRow> 
   return row;
 }
 
-export async function lockRequest(tx: Tx, workspaceId: string, requestId: string): Promise<RequestRow | null> {
+export async function lockRequest(tx: Tx, workspaceId: string, requestId: string, viewer: Viewer): Promise<RequestRow | null> {
   const [row] = await tx
     .select()
     .from(q)
-    .where(and(eq(q.workspaceId, workspaceId), eq(q.id, requestId)))
+    .where(and(eq(q.workspaceId, workspaceId), eq(q.id, requestId), requestVisibleSql(viewer, ref(q.id))))
     .for('update');
-  return row ?? null;
+  return row && await lockRoundOwner(tx, viewer, row.roundId) ? row : null;
 }
 
-export async function getRound(tx: Tx, workspaceId: string, roundId: string): Promise<RoundRow | null> {
+export async function getRound(tx: Tx, workspaceId: string, roundId: string, viewer: Viewer): Promise<RoundRow | null> {
   const [row] = await tx
     .select()
     .from(validationRounds)
-    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.id, roundId)));
-  return row ?? null;
+    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.id, roundId), roundVisibleSql(viewer, ref(validationRounds.id))));
+  return row && await lockRoundOwner(tx, viewer, row.id) ? row : null;
 }
 
 /** Human cancel of a queued or claimed request; a claimed one loses its lease (the worker's next call is `lease_lost`). */
@@ -164,16 +166,17 @@ export interface ExpiredLease {
  * (attempt_count / max_attempts left) or to `expired`; its running attempt ends `lease_expired`. `skip locked`, so two
  * claim calls never wait on each other and never expire a row twice.
  */
-export async function requeueExpiredLeases(tx: Tx, workspaceId: string, limit = 50): Promise<ExpiredLease[]> {
+export async function requeueExpiredLeases(tx: Tx, workspaceId: string, viewer: Viewer, limit = 50): Promise<ExpiredLease[]> {
   const due = await tx
     .select()
     .from(q)
-    .where(and(eq(q.workspaceId, workspaceId), eq(q.state, 'claimed'), sql`${q.leaseExpiresAt} < now()`))
+    .where(and(eq(q.workspaceId, workspaceId), eq(q.state, 'claimed'), requestVisibleSql(viewer, ref(q.id)), sql`${q.leaseExpiresAt} < now()`))
     .orderBy(asc(q.leaseExpiresAt))
     .limit(limit)
     .for('update', { skipLocked: true });
   const out: ExpiredLease[] = [];
   for (const row of due) {
+    if (!(await lockRoundOwner(tx, viewer, row.roundId))) continue;
     const to = stateAfterLeaseExpiry(row.attemptCount, row.maxAttempts);
     await tx
       .update(q)
@@ -222,7 +225,7 @@ export async function claimNext(
     .where(
       and(
         eq(q.workspaceId, workspaceId),
-        eq(q.state, 'queued'),
+        eq(q.state, 'queued'), requestVisibleSql({ workspaceId, actorId: worker.actorId }, ref(q.id)),
         sql`(${q.notBefore} is null or ${q.notBefore} <= now())`,
         opts.windowOpen ? sql`true` : eq(q.immediate, true),
         sql`exists (select 1 from log_lifecycle.validation_round v where v.workspace_id = ${workspaceId} and v.id = log_lifecycle.execution_request.round_id and v.status = 'open')`,
@@ -231,7 +234,7 @@ export async function claimNext(
     .orderBy(desc(q.priority), asc(q.createdAt), asc(q.id))
     .limit(1)
     .for('update', { skipLocked: true });
-  if (!locked) return null;
+  if (!locked || !(await lockRoundOwner(tx, { workspaceId, actorId: worker.actorId }, locked.roundId))) return null;
   const [roundRow] = await tx
     .select()
     .from(validationRounds)
@@ -447,11 +450,11 @@ export async function eraseExcerpts(
 }
 
 /** The Round and request an attempt belongs to (workspace-scoped); null when unknown. */
-export async function attemptOwner(tx: Tx, workspaceId: string, attemptId: string): Promise<{ requestId: string; roundId: string } | null> {
+export async function attemptOwner(tx: Tx, workspaceId: string, attemptId: string, viewer: Viewer): Promise<{ requestId: string; roundId: string } | null> {
   const [row] = await tx
     .select({ requestId: a.requestId, roundId: q.roundId })
     .from(a)
     .innerJoin(q, and(eq(q.workspaceId, a.workspaceId), eq(q.id, a.requestId)))
-    .where(and(eq(a.workspaceId, workspaceId), eq(a.id, attemptId)));
+    .where(and(eq(a.workspaceId, workspaceId), eq(a.id, attemptId), attemptVisibleSql(viewer, ref(a.id))));
   return row ?? null;
 }

@@ -1,3 +1,4 @@
+import { withLifecycleReplayAccess } from './replay-access.js';
 import type { MenuDispatchContribution } from '../menu-dispatch/types.js';
 import type { LogLifecycleDeps } from './deps.js';
 import { lifecycleEndpoints } from './lifecycle-endpoints.js';
@@ -9,7 +10,7 @@ import { roundActions } from './round-actions.js';
 export function logLifecycleContribution(deps: LogLifecycleDeps): MenuDispatchContribution {
   return {
     endpoints: [...lifecycleEndpoints(deps), ...requestEndpoints(deps)],
-    actions: [...projectActions(deps), ...roundActions(deps), ...requestActions(deps)],
+    actions: [...projectActions(deps), ...roundActions(deps), ...requestActions(deps)].map(withLifecycleReplayAccess),
   };
 }
 

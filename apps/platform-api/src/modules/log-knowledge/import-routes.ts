@@ -1,3 +1,4 @@
+import { viewerOf } from './repositories/access-visibility.js';
 // Also `POST …/imports/:jobId/apply` and `GET …/imports/:jobId/report.csv` (#1195 b, below the upload).
 // `POST /api/v1/log-knowledge/imports` — uploads a catalog import file and stages it (#1195 a, design v0.6 §6.2 ①).
 // Multipart: one `file` part and an `entityType` field. Order of judgment: session (401/403) → CSRF (403) →
@@ -37,7 +38,7 @@ import {
 } from './domain/import-file.js';
 import { isImportEntity } from './domain/import-mapping.js';
 import { modelHeaderFailure, recognizeModelHeaders } from './domain/import-headers.js';
-import { getJob, insertJob, insertRows } from './repositories/import-repo.js';
+import { getVisibleJob, insertJob, insertRows } from './repositories/import-repo.js';
 import { applySlots, parseSlots } from './import-admission.js';
 
 export const LOG_KNOWLEDGE_ROUTE_PREFIX = '/api/v1/log-knowledge';
@@ -148,6 +149,11 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
         // arriving or the request queued refuses a replay as well as a first run.
         async beforeReplay(tx) {
           if (!(await authorize(actor, tx))) throw new HttpError('permission.denied', 'No permission knowledge.catalog.import');
+          const hit = await opts.idempotencyService.lookup(tx, actor.actor_id, idempotencyKey, requestHash);
+          if (hit.kind === 'match') {
+            const saved = hit.body as { jobId?: string };
+            if (!saved.jobId || !(await getVisibleJob(tx, viewerOf(actor), saved.jobId))) throw new HttpError('not_found.record', 'import job not found');
+          }
         },
         async work(tx) {
           const jobId = await insertJob(tx, {
@@ -225,7 +231,7 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
     }
     const jobId = String((req.params as { jobId?: string }).jobId ?? '').toLowerCase();
     if (!UUID_PATTERN.test(jobId)) return refuse(reply, 404, 'not_found', 'import job not found');
-    const job = await getJob(opts.db, actor.workspace_id, jobId);
+    const job = await getVisibleJob(opts.db, viewerOf(actor), jobId);
     if (!job) return refuse(reply, 404, 'not_found', 'import job not found');
     const rows = await readReportRows(opts.db, actor.workspace_id, job.id, job.validationGeneration);
     const csv = toCsvDocument(

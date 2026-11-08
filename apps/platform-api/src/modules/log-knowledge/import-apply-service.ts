@@ -1,3 +1,4 @@
+import { type Viewer, viewerOf } from './repositories/access-visibility.js';
 // Seal and apply of a catalog import (#1195 b, design v0.6 §6.2 ④–⑤). The apply is a resumable state machine:
 //   * the first call seals the plan (row hashes + job hash) and sets the job `applying`;
 //   * rows are applied one transaction each, in `row_no` order, until the time budget is spent (at least one row
@@ -57,7 +58,7 @@ import {
   setRowResult,
   startRetryPass,
 } from './repositories/import-apply-repo.js';
-import { type ImportJob, getJob } from './repositories/import-repo.js';
+import { type ImportJob, getJob, getVisibleJob } from './repositories/import-repo.js';
 
 export const IMPORT_APPLY_BUDGET_MS = 15_000;
 
@@ -103,8 +104,9 @@ export type ApplyResult =
 
 const denied = () => new HttpError('permission.denied', 'No permission knowledge.catalog.import');
 
-async function progressOf(db: Db, ws: string, jobId: string): Promise<Progress | null> {
-  const job = await getJob(db, ws, jobId);
+async function progressOf(db: Db, viewer: Viewer, jobId: string): Promise<Progress | null> {
+  const ws = viewer.workspaceId;
+  const job = await getVisibleJob(db, viewer, jobId);
   if (!job) return null;
   const counts = await applyCounts(db, ws, job.id, job.applyPass);
   return { jobId: job.id, status: job.status, planVersion: job.planVersion, remaining: counts.remaining, counts };
@@ -172,7 +174,7 @@ export async function runApply(
     jobId,
     async (pinned) => {
       const ctx: ApplyContext = { ...outer, db: pinned };
-      let job = await getJob(ctx.db, ws, jobId);
+      let job = await getVisibleJob(ctx.db, viewerOf(ctx.actor), jobId);
       if (!job) return { kind: 'not_found' };
 
       if (job.status === 'validated' || job.status === 'review_required') {
@@ -181,9 +183,9 @@ export async function runApply(
         if (sealed !== 'ok') return { kind: 'conflict', code: sealed };
       } else if (job.status === 'partial_failure') {
         const started = await ctx.db.transaction((tx) => startRetry(tx, ctx, jobId));
-        if (!started) return progressResult(ctx.db, ws, jobId);
+        if (!started) return progressResult(ctx.db, viewerOf(ctx.actor), jobId);
       } else if (job.status !== 'applying') {
-        if (job.status === 'completed') return progressResult(ctx.db, ws, jobId);
+        if (job.status === 'completed') return progressResult(ctx.db, viewerOf(ctx.actor), jobId);
         return { kind: 'conflict', code: 'state' };
       }
 
@@ -191,15 +193,15 @@ export async function runApply(
       if (!job?.sealedPlanHash) return { kind: 'conflict', code: 'state' };
       const drained = await runPass(ctx, job);
       if (drained) await ctx.db.transaction((tx) => finish(tx, ctx, jobId));
-      return progressResult(ctx.db, ws, jobId);
+      return progressResult(ctx.db, viewerOf(ctx.actor), jobId);
     },
-    (pinned) => progressResult(pinned, ws, jobId),
+    (pinned) => progressResult(pinned, viewerOf(outer.actor), jobId),
     outer.config.busyOnNoConnection ? () => ({ kind: 'busy' }) : undefined,
   );
 }
 
-async function progressResult(db: Db, ws: string, jobId: string): Promise<ApplyResult> {
-  const progress = await progressOf(db, ws, jobId);
+async function progressResult(db: Db, viewer: Viewer, jobId: string): Promise<ApplyResult> {
+  const progress = await progressOf(db, viewer, jobId);
   return progress ? { kind: 'ok', progress } : { kind: 'not_found' };
 }
 
@@ -417,7 +419,7 @@ async function create(tx: Tx, ctx: ApplyContext, job: ImportJob, rowNo: number, 
     name = n.name;
     const vendor = await findVendorByKey(tx, ws, n.vendorKey);
     if (!vendor) return failed('parent_missing');
-    const model = await findModelByKey(tx, ws, vendor.id, n.modelKey);
+    const model = await findModelByKey(tx, viewerOf(ctx.actor), vendor.id, n.modelKey);
     if (!model) return failed('parent_missing');
     if (!model.active) return failed('parent_inactive');
     parentId = model.id;

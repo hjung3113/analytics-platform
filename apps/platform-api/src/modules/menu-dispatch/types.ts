@@ -116,6 +116,8 @@ export interface ActionHandlerResult {
 
 export interface MenuActionDeclaration {
   spec: ActionDeclarationSpec;
+  /** Current object visibility before returning a matched saved answer; false answers not_found without replaying or rewriting. */
+  canReplay?(tx: Tx, actor: PlatformActor, input: Record<string, unknown>, saved: ActionAnswer): Promise<boolean>;
   /** Judged before replay, and again on the transaction after the idempotency lock. */
   authorize(actor: PlatformActor, tx: Tx): Promise<boolean>;
   /** Value check of `input` (keys are already judged); an empty list means valid. */

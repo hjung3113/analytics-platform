@@ -13,3 +13,7 @@ export type {
   KnowledgeSoftwareRef,
   SpecPin,
 } from './knowledge-lookup.js';
+
+export { viewerOf, ref, visibleModelSql, visibleSoftwareSql } from './repositories/access-visibility.js';
+export type { Viewer } from './repositories/access-visibility.js';
+export { lockOwnerAccess } from './repositories/item-write.js';

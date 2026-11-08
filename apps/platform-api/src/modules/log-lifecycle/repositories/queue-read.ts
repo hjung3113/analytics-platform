@@ -1,3 +1,5 @@
+import { type Viewer, ref } from '../../log-knowledge/index.js';
+import { requestVisibleSql, roundVisibleSql, attemptVisibleSql } from './access-visibility.js';
 // Read side of the validation request queue (#1445 d). Every read filters by the session workspace; an unknown or foreign
 // id answers null (the dispatch has no `not_found` outcome). List responses expose `hasExcerpt` only: the excerpt body is
 // read by `readExcerpt` alone, which the endpoint gates on the source owner's right and audits per read.
@@ -58,11 +60,13 @@ export async function listRequests(
   tx: Tx,
   workspaceId: string,
   query: RequestListQuery,
+  viewer: Viewer,
 ): Promise<Page<RequestRowOut> & { immediateTotal: number }> {
   const who = alias(actors, 'requester');
   const p = developmentProjects;
   const where = and(
     eq(q.workspaceId, workspaceId),
+    requestVisibleSql(viewer, ref(q.id)),
     query.states ? inArray(q.state, [...query.states]) : undefined,
     query.priority === undefined ? undefined : eq(q.priority, query.priority),
     query.immediate === undefined ? undefined : eq(q.immediate, query.immediate),
@@ -140,8 +144,8 @@ export interface RequestDetail extends RequestRowOut {
   attempts: AttemptOut[];
 }
 
-export async function getRequestDetail(tx: Tx, workspaceId: string, requestId: string): Promise<RequestDetail | null> {
-  const list = await listRequestsById(tx, workspaceId, requestId);
+export async function getRequestDetail(tx: Tx, workspaceId: string, requestId: string, viewer: Viewer): Promise<RequestDetail | null> {
+  const list = await listRequestsById(tx, workspaceId, requestId, viewer);
   if (!list) return null;
   const [roundRow] = await tx
     .select()
@@ -189,7 +193,7 @@ export async function getRequestDetail(tx: Tx, workspaceId: string, requestId: s
   };
 }
 
-async function listRequestsById(tx: Tx, workspaceId: string, requestId: string) {
+async function listRequestsById(tx: Tx, workspaceId: string, requestId: string, viewer: Viewer) {
   const who = alias(actors, 'requester');
   const [found] = await tx
     .select({ request: q, projectId: validationRounds.projectId, modelId: developmentProjects.modelId, requesterName: who.displayName, latestVerdict: verdictOfLatest })
@@ -197,7 +201,7 @@ async function listRequestsById(tx: Tx, workspaceId: string, requestId: string) 
     .innerJoin(validationRounds, and(eq(validationRounds.workspaceId, q.workspaceId), eq(validationRounds.id, q.roundId)))
     .innerJoin(developmentProjects, and(eq(developmentProjects.workspaceId, validationRounds.workspaceId), eq(developmentProjects.id, validationRounds.projectId)))
     .leftJoin(who, and(eq(who.id, q.requestedByActorId), eq(who.workspaceId, q.workspaceId)))
-    .where(and(eq(q.workspaceId, workspaceId), eq(q.id, requestId)))
+    .where(and(eq(q.workspaceId, workspaceId), eq(q.id, requestId), requestVisibleSql(viewer, ref(q.id))))
     .limit(1);
   if (!found) return null;
   const r = found.request;
@@ -235,11 +239,11 @@ export interface RuleResultOut {
 }
 
 /** The rule results of one attempt (server page, filter by result / required), rule id order. */
-export async function listRuleResults(tx: Tx, workspaceId: string, query: RuleResultListQuery): Promise<Page<RuleResultOut>> {
+export async function listRuleResults(tx: Tx, workspaceId: string, query: RuleResultListQuery, viewer: Viewer): Promise<Page<RuleResultOut>> {
   const [owner] = await tx
     .select({ id: a.id })
     .from(a)
-    .where(and(eq(a.workspaceId, workspaceId), eq(a.id, query.attemptId)));
+    .where(and(eq(a.workspaceId, workspaceId), eq(a.id, query.attemptId), attemptVisibleSql(viewer, ref(a.id))));
   if (!owner) return { total: 0, rows: [] };
   const where = and(
     eq(rr.workspaceId, workspaceId),
@@ -271,14 +275,14 @@ export interface ExcerptTarget {
 }
 
 /** The chain rule result -> attempt -> request -> round for the source owner of an excerpt; null when not in the workspace. */
-export async function excerptTarget(tx: Tx, workspaceId: string, ruleResultId: string): Promise<ExcerptTarget | null> {
+export async function excerptTarget(tx: Tx, workspaceId: string, ruleResultId: string, viewer: Viewer): Promise<ExcerptTarget | null> {
   const [row] = await tx
     .select({ attemptId: rr.attemptId, requestId: a.requestId, sampleSet: validationRounds.sampleSet })
     .from(rr)
     .innerJoin(a, and(eq(a.workspaceId, rr.workspaceId), eq(a.id, rr.attemptId)))
     .innerJoin(q, and(eq(q.workspaceId, a.workspaceId), eq(q.id, a.requestId)))
     .innerJoin(validationRounds, and(eq(validationRounds.workspaceId, q.workspaceId), eq(validationRounds.id, q.roundId)))
-    .where(and(eq(rr.workspaceId, workspaceId), eq(rr.id, ruleResultId)));
+    .where(and(eq(rr.workspaceId, workspaceId), eq(rr.id, ruleResultId), roundVisibleSql(viewer, ref(validationRounds.id))));
   if (!row) return null;
   return { attemptId: row.attemptId, requestId: row.requestId, sourceOwner: (row.sampleSet as { sourceOwner?: string }).sourceOwner ?? '' };
 }

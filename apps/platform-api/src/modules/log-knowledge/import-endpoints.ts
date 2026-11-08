@@ -13,8 +13,8 @@ import { parseListParams } from '../../lib/list-params/list-params.js';
 import { APPLY_STATUSES } from './domain/import-apply.js';
 import { IMPORT_PLAN_STATES } from './domain/import-plan.js';
 import { applyCounts } from './repositories/import-apply-repo.js';
-import { type ImportJob, getJob, listRows } from './repositories/import-repo.js';
-import { visibleModelIds, visibleSoftwareIds } from './repositories/access-visibility.js';
+import { type ImportJob, getVisibleJob, listRows } from './repositories/import-repo.js';
+import { viewerOf } from './repositories/access-visibility.js';
 
 export const IMPORT_ROW_SORT_IDS = ['rowNo'] as const;
 export const IMPORT_ROW_FILTER_SPECS = {
@@ -35,23 +35,6 @@ function judge(params: Record<string, unknown>) {
 
 /** The job as the screen sees it: no seal hash, no internal generation. */
 const publicJob = ({ validationGeneration: _g, applyPass: _p, sealedPlanHash: _s, ...rest }: ImportJob) => rest;
-
-async function hideRestrictedTargets<R extends { targetId: string | null; targetVersion: number | null; mapTargetId: string | null; resultTargetId: string | null }>(
-  db: LogKnowledgeDeps['db'],
-  viewer: { workspaceId: string; actorId: string },
-  entityType: string,
-  rows: R[],
-): Promise<R[]> {
-  if (entityType !== 'model' && entityType !== 'software') return rows;
-  const ids = [...new Set(rows.flatMap((r) => [r.targetId, r.mapTargetId, r.resultTargetId]).filter((id): id is string => id !== null))];
-  const visible = entityType === 'model' ? await visibleModelIds(db, viewer, ids) : await visibleSoftwareIds(db, viewer, ids);
-  const hide = (id: string | null) => (id !== null && !visible.has(id) ? null : id);
-  return rows.map((r) =>
-    [r.targetId, r.mapTargetId, r.resultTargetId].some((id) => id !== null && !visible.has(id))
-      ? { ...r, targetId: hide(r.targetId), targetVersion: hide(r.targetId) === null ? null : r.targetVersion, mapTargetId: hide(r.mapTargetId), resultTargetId: hide(r.resultTargetId) }
-      : r,
-  );
-}
 
 export function importEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[] {
   const authorizeImport = importAuthorizer(deps.checkService);
@@ -79,7 +62,7 @@ export function importEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration
           return { outcome: 'forbidden', data: null, message: 'No permission knowledge.catalog.import' };
         }
         const ws = actor.workspace_id;
-        const job = await getJob(deps.db, ws, judged.jobId);
+        const job = await getVisibleJob(deps.db, viewerOf(actor), judged.jobId);
         if (!job) return { outcome: 'error', data: null, message: 'not_found' };
         const asFilter = (f: (typeof judged.query.conditions)[string] | undefined) =>
           f && (f.op === 'in' || f.op === 'notIn') ? { op: f.op, values: f.values } : null;
@@ -91,9 +74,7 @@ export function importEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration
           desc: judged.query.sorting[0]?.desc ?? false,
         });
         const counts = await applyCounts(deps.db, ws, job.id, job.applyPass);
-        // A staged plan can name a model / SW version that became hidden after it was planned: its ids are not shown (#1504).
-        const rows = await hideRestrictedTargets(deps.db, { workspaceId: ws, actorId: actor.actor_id }, job.entityType, page.rows);
-        return { outcome: 'ok', data: { job: publicJob(job), rows, total: page.total, applyCounts: counts } };
+        return { outcome: 'ok', data: { job: publicJob(job), rows: page.rows, total: page.total, applyCounts: counts } };
       },
     },
   ];

@@ -208,7 +208,8 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | --- | --- | --- |
 | 팀·역할 주체의 접근 규칙(§3.4) | `core.teams`는 멤버십 테이블이 없는 스키마 자리뿐이라 현재 projection을 읽을 수 없다. 규칙의 주체는 Actor만 | Core에 팀 멤버십 projection이 생김 |
 | 접근 규칙 관리 화면 | 노드 a는 API만(화면 없음). 관리 UI는 시안 컨펌이 필요 | 소유자가 관리 화면 범위를 정함 |
-| log-lifecycle 모델 목록 join·`coverageSummary`·`RuleCoveragePort`의 접근 규칙 적용 | 행위자를 받지 않는 호출이라 포트에 `viewerActorId`를 넘길 수 없다 | 해당 읽기에 행위자가 전달되거나 제한 모델이 실제로 쓰임 |
+| C7 숨은 코드의 충돌 응답 차단 — **미구현** | 생성·코드 변경의 `duplicate` 및 import의 `taken` 응답이 숨은 Model/SW 코드가 사용 중임을 확인해 준다. 전역 고유키를 유지하면서 응답·쓰기 선행 권한을 어떻게 바꿀지는 소유자 결정이 필요 | 소유자가 namespace 쓰기 권한 또는 충돌 비공개 응답 계약을 결정 |
+| C12 연속 Item 번호의 숨은 건수 유추 차단 — **미구현** | 연속 Item 번호와 visible total을 함께 보면 숨은 Item 건수를 역산할 수 있다. 기존 `KI-n` 식별자 호환 정책은 소유자 결정이 필요 | 소유자가 비연속 번호·공개 표시 번호 등 식별자 정책 또는 이 채널의 허용 여부를 결정 |
 | Evidence 원천 ACL을 검색에 반영 | 원본 소유자 판정이 어댑터 실사 전 | #1200/#1201의 원천 ACL 어댑터 확정 |
 | 순서 외 관계 술어(`requires`·`excludes` 등) | 필요가 입증되지 않음 | 소비자가 두 번째 술어를 요구 |
 | 본문 소급 해석으로 기존 Item의 방향 채우기 | 부정문·역순 문장에서 틀림. 외부 AI 금지 | 사람이 기록을 채우는 도구 요구가 있을 때(사람 확인 흐름 포함) |

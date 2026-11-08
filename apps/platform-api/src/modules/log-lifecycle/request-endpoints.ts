@@ -1,3 +1,4 @@
+import { viewerOf } from '../log-knowledge/index.js';
 // The validation request reads (#1445 d, design §5) as menu-dispatch declarations: the request list, one request with its
 // attempts, the rule results of an attempt and one excerpt body. Same read right and workspace rule as the lifecycle
 // reads (`platform:view`, `requiresScope: false`, the workspace is the session actor's); an unknown or foreign id answers
@@ -63,21 +64,21 @@ export function requestEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclaratio
   return [
     declare(deps, 'requests', REQUEST_PARAM_KEYS, parseRequestListParams, async (actor, query) => ({
       outcome: 'ok',
-      data: await listRequests(deps.db, actor.workspace_id, query),
+      data: await listRequests(deps.db, actor.workspace_id, query, viewerOf(actor)),
     })),
     declare(deps, 'requestDetail', REQUEST_DETAIL_PARAM_KEYS, parseRequestDetailParams, async (actor, requestId) => ({
       outcome: 'ok',
-      data: await getRequestDetail(deps.db, actor.workspace_id, requestId),
+      data: await getRequestDetail(deps.db, actor.workspace_id, requestId, viewerOf(actor)),
     })),
     declare(deps, 'ruleResults', RULE_RESULT_PARAM_KEYS, parseRuleResultParams, async (actor, query) => ({
       outcome: 'ok',
-      data: await listRuleResults(deps.db, actor.workspace_id, query),
+      data: await listRuleResults(deps.db, actor.workspace_id, query, viewerOf(actor)),
     })),
     declare(deps, 'excerpt', EXCERPT_PARAM_KEYS, parseExcerptParams, async (actor, q) => {
       // Human sessions only: no token can hold the per-source right, and a token read would have no person to audit.
       if (currentAuthContext().kind === 'token') return { outcome: 'forbidden', data: null, message: 'excerpt reads need a login session' };
       return deps.db.transaction(async (tx): Promise<EndpointResult> => {
-        const target = await excerptTarget(tx, actor.workspace_id, q.ruleResultId);
+        const target = await excerptTarget(tx, actor.workspace_id, q.ruleResultId, viewerOf(actor));
         if (!target) return { outcome: 'ok', data: null };
         // The right is judged inside the transaction that writes the audit row: a revoked right refuses this very call.
         if (!(await holdsExcerptRead(tx, actor.workspace_id, target.sourceOwner, actor.actor_id))) {

@@ -1,3 +1,4 @@
+import { viewerOf } from '../log-knowledge/index.js';
 // The log explorer investigation reads (#1468 b, design §5) as menu-dispatch declarations: the caller's own
 // investigations and one investigation with its set, filters and evidence locations. Right: `platform:view`,
 // `requiresScope: false`; the workspace and the owner are the session actor's, never a param. The dispatch outcome set
@@ -62,7 +63,7 @@ export function investigationEndpoints(deps: InvestigationDeps): MenuEndpointDec
 
       const roundSet =
         row.origin === 'round' && row.roundId
-          ? await deps.lifecycleRead.getRoundSampleSet(deps.db, actor.workspace_id, row.roundId)
+          ? await deps.lifecycleRead.getRoundSampleSet(deps.db, actor.workspace_id, row.roundId, viewerOf(actor))
           : null;
       const sampleSet = row.origin === 'round' ? roundSet : row.sampleSet;
       const sampleSetState = row.origin === 'standalone' ? 'inline' : roundSet ? 'round' : 'round_unavailable';

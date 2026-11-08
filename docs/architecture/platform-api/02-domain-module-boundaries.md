@@ -163,7 +163,7 @@ Another module is reached only through one of these:
 
 Importing another module's `repo.ts` or `repo-read.ts` is not a surface. A module reading its own repo, including `voc/jobs` reading `voc/embedding/repo.ts`, is internal.
 
-The log-knowledge barrel read port `knowledgeLookup` (`getModel`, `getSoftware`, `getEffectiveSpecPin`, and `listEffectiveRequirements` for log-rules, #1493) is an approved read surface; it takes a caller-verified workspace and applies no permission itself; object access (#1504) applies when the caller passes the optional trailing `viewerActorId` (api/log-knowledge.md «Read port: effective requirement keys», «Object access»).
+The log-knowledge barrel read port `knowledgeLookup` (`getModel`, `getSoftware`, `getEffectiveSpecPin`, and `listEffectiveRequirements` for log-rules, #1493) is an approved read surface; it takes a caller-verified workspace and applies no permission itself; object access (#1504) requires the trailing `viewerActorId` (api/log-knowledge.md «Read port: effective requirement keys», «Object access»).
 
 These imports are read surfaces, not repo bypasses, and the repo-import lint must leave them alone: Surveys importing `findings/authorization.ts`; Dashboard importing `findings/authorization.ts`, `surveys/authorization.ts`, and the VOC barrel's reader contract types (`voc/read-contract.ts`).
 

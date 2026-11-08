@@ -1,3 +1,4 @@
+import { viewerOf } from '../log-knowledge/index.js';
 // The validation round write actions (#1444 c, design §3/§5): open and close. Right: `lifecycle.round.manage`
 // (workspace-scoped, same shape as the project right). Rules: a round opens only on an OPEN project and at most one
 // round per project is open (partial unique index); `seq` is allocated under the project row lock; `stage` is the
@@ -75,7 +76,7 @@ export function roundActions(deps: RoundActionDeps): MenuActionDeclaration[] {
       if (!result.ok) throw new Error('action roundOpen: validate passed but parse failed');
       const value = result.value;
       // The project row lock orders concurrent opens of one project: the second waits, then sees the first's open round.
-      const project = await lockProject(tx, ws, value.projectId);
+      const project = await lockProject(tx, ws, value.projectId, viewerOf(actor));
       if (!project) throw invalid({ path: ['projectId'], code: 'not_found' });
       if (!isOpenStage(project.stage)) throw invalid({ path: ['projectId'], code: 'project_not_open' });
       // The pin is server-computed from the model's effective spec; null = no published revision (shown as 미고정).
@@ -119,14 +120,14 @@ export function roundActions(deps: RoundActionDeps): MenuActionDeclaration[] {
     authorize,
     validate: (input) => validateLifecycleInput('roundClose', input),
     async currentVersion(tx, actor, input) {
-      const row = await lockRound(tx, actor.workspace_id, input.id as string);
+      const row = await lockRound(tx, actor.workspace_id, input.id as string, viewerOf(actor));
       return row ? String(row.rowVersion) : null;
     },
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;
       const parsed = parseLifecycleInput('roundClose', input);
       if (!parsed.ok) throw new Error('action roundClose: validate passed but parse failed');
-      const row = await lockRound(tx, ws, parsed.value.id);
+      const row = await lockRound(tx, ws, parsed.value.id, viewerOf(actor));
       if (!row) throw new Error('action roundClose: currentVersion judged not_found first');
       // Closed is final: the same answer whatever version the caller holds.
       if (row.status !== 'open') throw invalid({ path: ['id'], code: 'illegal_transition' });
@@ -158,7 +159,7 @@ export function roundActions(deps: RoundActionDeps): MenuActionDeclaration[] {
       const parsed = parseLifecycleInput('roundEvidenceAttach', input);
       if (!parsed.ok) throw new Error('action roundEvidenceAttach: validate passed but parse failed');
       const { roundId, attachmentIds } = parsed.value;
-      const round = await lockRound(tx, ws, roundId);
+      const round = await lockRound(tx, ws, roundId, viewerOf(actor));
       if (!round) throw invalid({ path: ['roundId'], code: 'not_found' });
       if (round.status !== 'open') throw invalid({ path: ['roundId'], code: 'illegal_transition' });
       try {

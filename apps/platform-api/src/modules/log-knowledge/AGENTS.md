@@ -6,13 +6,13 @@ Owns the `knowledge` schema: catalog, model spec revisions, SW changes, Items, d
 
 - `getModel`, `getSoftware` — existence and activity of a model / software version in the workspace.
 - `getEffectiveSpecPin` — revision id and change-set digest of the effective spec (log-lifecycle).
-- `listEffectiveRequirements(tx, workspaceId, modelId, softwareId | null)` — requirement keys (`moduleKey`, `moduleKey/eventKey`) of the effective spec with its pin, states `ok | no_spec | model_unknown | ambiguous_key` (log-rules R-d, #1493). Key functions: `domain/requirement-key.ts`.
+- `listEffectiveRequirements(tx, workspaceId, modelId, softwareId | null, viewerActorId)` — requirement keys (`moduleKey`, `moduleKey/eventKey`) of the effective spec with its pin, states `ok | no_spec | model_unknown | ambiguous_key` (log-rules R-d, #1493). Key functions: `domain/requirement-key.ts`.
 
 ## Invariants of the port
 
-- The caller passes a verified workspace; the port decides **no permission**. The caller owns the entry permission. Object access (#1504) applies only when the caller passes the optional trailing `viewerActorId`: a model or SW version hidden from that actor answers like a missing one. A caller that acts for a person must pass it; without it nothing is filtered.
+- The caller passes a verified workspace; the port decides **no permission**. The caller owns the entry permission. Object access (#1504) requires the trailing `viewerActorId`: a model or SW version hidden from that actor answers like a missing one. Every caller, including a system Actor, passes the viewer.
 - Every statement is scoped to `workspace_id`; reads `knowledge.*` only; writes nothing.
-- A pin and the data derived with it come from one read under `lockModelChanges`, never from two separate calls. Adding a method must not change the signature of an existing one (log-lifecycle uses the same barrel).
+- A pin and the data derived with it come from one read under `lockModelChanges`, never from two separate calls. Keep callers aligned with the required viewer argument (log-lifecycle and log-rules use the same barrel).
 - Keys are used exactly as stored. A key containing `/` makes a requirement key ambiguous: the port answers `ambiguous_key` instead of returning it.
 
 ## Object access (#1504 S-a)

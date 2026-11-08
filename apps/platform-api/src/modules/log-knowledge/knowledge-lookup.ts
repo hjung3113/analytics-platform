@@ -42,26 +42,26 @@ export type EffectiveRequirements =
 
 export interface KnowledgeLookup {
   /**
-   * The model of the workspace; null when it does not exist there. `viewerActorId` (#1504, object access): when given, a model
+   * The model of the workspace; null when it does not exist there. `viewerActorId` (#1504, object access): a model
    * that actor cannot see is null too, exactly like a missing one. Every caller that acts for a person passes it.
    */
-  getModel(tx: Tx, workspaceId: string, modelId: string, viewerActorId?: string): Promise<KnowledgeModelRef | null>;
+  getModel(tx: Tx, workspaceId: string, modelId: string, viewerActorId: string): Promise<KnowledgeModelRef | null>;
   /** The software version when it belongs to that model of the workspace; null otherwise (or hidden from `viewerActorId`). */
-  getSoftware(tx: Tx, workspaceId: string, modelId: string, softwareId: string, viewerActorId?: string): Promise<KnowledgeSoftwareRef | null>;
+  getSoftware(tx: Tx, workspaceId: string, modelId: string, softwareId: string, viewerActorId: string): Promise<KnowledgeSoftwareRef | null>;
   /** Null when the model has no published revision (or is hidden from `viewerActorId`); else the revision and the digest of the applicable changes. */
-  getEffectiveSpecPin(tx: Tx, workspaceId: string, modelId: string, softwareId: string | null, viewerActorId?: string): Promise<SpecPin | null>;
+  getEffectiveSpecPin(tx: Tx, workspaceId: string, modelId: string, softwareId: string | null, viewerActorId: string): Promise<SpecPin | null>;
   /**
    * The requirement keys of the effective spec (published model spec revision + the changes applicable to the
    * software version; none = the revision as is) and the pin of that same state, read under the model lock. The caller
-   * has verified the workspace and decides the permission; object access applies only when `viewerActorId` is given
+   * has verified the workspace and decides the permission; object access always uses the required `viewerActorId`
    * (a model or SW version hidden from that actor answers `model_unknown`, see the module AGENTS.md).
    */
-  listEffectiveRequirements(tx: Tx, workspaceId: string, modelId: string, softwareId: string | null, viewerActorId?: string): Promise<EffectiveRequirements>;
+  listEffectiveRequirements(tx: Tx, workspaceId: string, modelId: string, softwareId: string | null, viewerActorId: string): Promise<EffectiveRequirements>;
 }
 
 export const knowledgeLookup: KnowledgeLookup = {
   async getModel(tx, workspaceId, modelId, viewerActorId) {
-    if (viewerActorId !== undefined && !(await canSeeModel(tx, { workspaceId, actorId: viewerActorId }, modelId))) return null;
+    if (!(await canSeeModel(tx, { workspaceId, actorId: viewerActorId }, modelId))) return null;
     const [row] = await tx
       .select({ id: equipmentModels.id, name: equipmentModels.name, active: equipmentModels.active })
       .from(equipmentModels)
@@ -69,7 +69,7 @@ export const knowledgeLookup: KnowledgeLookup = {
     return row ?? null;
   },
   async getSoftware(tx, workspaceId, modelId, softwareId, viewerActorId) {
-    if (viewerActorId !== undefined && !(await canSeeSoftware(tx, { workspaceId, actorId: viewerActorId }, softwareId))) return null;
+    if (!(await canSeeSoftware(tx, { workspaceId, actorId: viewerActorId }, softwareId))) return null;
     const s = softwareVersions;
     const [row] = await tx
       .select({ id: s.id, modelId: s.modelId, versionLabel: s.versionLabel, active: s.active })
@@ -78,7 +78,7 @@ export const knowledgeLookup: KnowledgeLookup = {
     return row ?? null;
   },
   async getEffectiveSpecPin(tx, workspaceId, modelId, softwareId, viewerActorId) {
-    if (viewerActorId !== undefined) {
+    {
       const viewer = { workspaceId, actorId: viewerActorId };
       if (!(await canSeeModel(tx, viewer, modelId)) || (softwareId !== null && !(await canSeeSoftware(tx, viewer, softwareId)))) return null;
     }
@@ -111,13 +111,13 @@ function isDrizzleTx(tx: Tx): tx is DrizzleTx {
   return typeof (tx as { rollback?: unknown }).rollback === 'function';
 }
 
-async function effectiveRequirementsInTx(tx: Tx, workspaceId: string, modelId: string, softwareId: string | null, viewerActorId?: string): Promise<EffectiveRequirements> {
+async function effectiveRequirementsInTx(tx: Tx, workspaceId: string, modelId: string, softwareId: string | null, viewerActorId: string): Promise<EffectiveRequirements> {
   // Lock first, then read everything (the requested software's release order included): a concurrent reorder can
   // otherwise leave the order of one moment next to the change list of another (review C1). Same lock as
   // `getEffectiveSpecPin`, so the pin below is derived from exactly the rows the keys come from.
   await lockModelChanges(tx, workspaceId, modelId);
   const unknown: EffectiveRequirements = { state: 'model_unknown', specPin: null, requirements: [] };
-  if (viewerActorId !== undefined) {
+  {
     const viewer = { workspaceId, actorId: viewerActorId };
     if (!(await canSeeModel(tx, viewer, modelId)) || (softwareId !== null && !(await canSeeSoftware(tx, viewer, softwareId)))) return unknown;
   }

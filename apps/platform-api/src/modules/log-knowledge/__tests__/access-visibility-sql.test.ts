@@ -25,7 +25,7 @@ describe('visibility SQL', () => {
     expect(sql.match(/acc_r\.effect = \$/g)?.length).toBe(kinds.length * 2);
     expect(params).toEqual(expect.arrayContaining([viewer.workspaceId, viewer.actorId, 'deny', 'allow', ...kinds]));
     expect(sql).toContain('acc_r.revoked_at is null');
-    expect(sql).toContain('acc_r.valid_until > now()');
+    expect(sql).toContain('acc_r.valid_until > statement_timestamp()');
     // The viewer is a bound parameter, never part of the text.
     expect(sql).not.toContain(viewer.actorId);
   });

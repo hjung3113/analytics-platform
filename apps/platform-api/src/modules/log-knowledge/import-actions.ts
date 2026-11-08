@@ -31,7 +31,7 @@ import { lockRow } from './repositories/catalog-write.js';
 import { readPlanRows, upsertResolutions, type ResolutionWrite } from './repositories/import-apply-repo.js';
 import {
   countByPlanState,
-  getJob,
+  getVisibleJob,
   loadCatalogSnapshot,
   readRowsForValidation,
   saveMapping,
@@ -103,7 +103,7 @@ export function importActions(deps: ImportActionDeps): MenuActionDeclaration[] {
   const authorize = importAuthorizer(deps.checkService);
 
   const currentVersion = async (tx: Tx, actor: PlatformActor, input: Record<string, unknown>) => {
-    const job = await getJob(tx, actor.workspace_id, input.jobId as string, true);
+    const job = await getVisibleJob(tx, viewerOf(actor), input.jobId as string, true);
     return job ? String(job.rowVersion) : null;
   };
 
@@ -122,7 +122,7 @@ export function importActions(deps: ImportActionDeps): MenuActionDeclaration[] {
     currentVersion,
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;
-      const job = await getJob(tx, ws, input.jobId as string, true);
+      const job = await getVisibleJob(tx, viewerOf(actor), input.jobId as string, true);
       if (!job) throw new Error('action importMap: currentVersion judged not_found first');
       if (!EDITABLE.has(job.status)) throw new MenuActionInvalidError([{ path: ['jobId'], code: 'state' }]);
       const mapping = input.mapping as Record<string, string>;
@@ -151,7 +151,7 @@ export function importActions(deps: ImportActionDeps): MenuActionDeclaration[] {
     currentVersion,
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;
-      const job = await getJob(tx, ws, input.jobId as string, true);
+      const job = await getVisibleJob(tx, viewerOf(actor), input.jobId as string, true);
       if (!job) throw new Error('action importValidate: currentVersion judged not_found first');
       if (!VALIDATABLE.has(job.status) || !job.mapping) {
         throw new MenuActionInvalidError([{ path: ['jobId'], code: 'state' }]);
@@ -203,7 +203,7 @@ export function importActions(deps: ImportActionDeps): MenuActionDeclaration[] {
     currentVersion,
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;
-      const job = await getJob(tx, ws, input.jobId as string, true);
+      const job = await getVisibleJob(tx, viewerOf(actor), input.jobId as string, true);
       if (!job) throw new Error('action importResolve: currentVersion judged not_found first');
       if (!RESOLVABLE.has(job.status)) throw new MenuActionInvalidError([{ path: ['jobId'], code: 'state' }]);
       const items = input.resolutions as { rowNo: number; resolution: Resolution; mapTargetId?: string }[];
@@ -275,7 +275,7 @@ export function importActions(deps: ImportActionDeps): MenuActionDeclaration[] {
     currentVersion,
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;
-      const job = await getJob(tx, ws, input.jobId as string, true);
+      const job = await getVisibleJob(tx, viewerOf(actor), input.jobId as string, true);
       if (!job) throw new Error('action importCancel: currentVersion judged not_found first');
       if (!CANCELLABLE.has(job.status)) throw new MenuActionInvalidError([{ path: ['jobId'], code: 'state' }]);
       const saved = await setJobStatus(tx, ws, job.id, actor.actor_id, 'cancelled');

@@ -1,7 +1,6 @@
 // The coverage reads (#1494 R-d, design log-rules §3.3/§5.2) as menu-dispatch declarations on the `log-rules` menu:
 // `logRules.coverage` (one model, optionally one software version) and `logRules.coverageSummary` (state counts for a
-// list of models). Same read right as the catalog reads (`platform:view`; log-knowledge has no model-level ACL, so
-// coverage visibility is the same for every model). Unknown model / software, or one of another workspace, answers `ok`
+// list of models). Read right `platform:view`; the current actor also passes the knowledge object visibility rule. Unknown model / software, or one of another workspace, answers `ok`
 // with `data: null` (the dispatch has no not_found). Nothing is written and no rule body exists to return.
 
 import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
@@ -48,7 +47,7 @@ export function coverageEndpoints(deps: LogRulesContributionDeps): MenuEndpointD
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
       const q = parsed.value;
       // One transaction: the catalog snapshot and the model-locked spec read; the single lock is taken last.
-      const result = await deps.db.transaction((tx) => computeModelCoverage(knowledge, tx, actor.workspace_id, q.modelId, q.softwareId, undefined, actor.actor_id));
+      const result = await deps.db.transaction((tx) => computeModelCoverage(knowledge, tx, actor.workspace_id, q.modelId, q.softwareId, actor.actor_id));
       if (!result.computable) {
         if (result.reason === 'model_unknown') return { outcome: 'ok', data: null };
         return { outcome: 'ok', data: result };
@@ -83,7 +82,7 @@ export function coverageEndpoints(deps: LogRulesContributionDeps): MenuEndpointD
       const catalog = await loadCoverageCatalog(deps.db, actor.workspace_id);
       const rows = [];
       for (const modelId of parsed.value) {
-        const result = await computeModelCoverage(knowledge, deps.db, actor.workspace_id, modelId, null, catalog);
+        const result = await computeModelCoverage(knowledge, deps.db, actor.workspace_id, modelId, null, actor.actor_id, catalog);
         rows.push(
           result.computable
             ? { modelId, computable: true, counts: result.counts, coverageDigest: result.coverageDigest }

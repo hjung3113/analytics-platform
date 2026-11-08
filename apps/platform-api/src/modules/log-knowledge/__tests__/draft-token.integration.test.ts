@@ -396,4 +396,22 @@ describe.skipIf(!runIntegration)('knowledge draft submission over API tokens (#1
       expect(detail.data).toBeNull();
     });
   });
+  it('C8: validatorRef and idempotency replays rejudge a real system Actor after owner access is lost', async () => {
+    const token = await rawToken({ actorId: sysActorId, scopes: ['knowledge.draft.create'] });
+    const input = { proposalType: 'create', proposal: proposal('access-replay'), validatorRef: ref() };
+    const key = randomUUID();
+    const made = await tokenAct(token, 'draftCreate', input, { key });
+    expect(made.outcome).toBe('ok');
+    const before = await counts();
+    try {
+      await sql("update knowledge.equipment_model set access_mode = 'restricted' where id = $1", [modelId]);
+      const replay = await tokenAct(token, 'draftCreate', input, { key });
+      expect(replay.outcome).toBe('not_found'); expect(replay.data).toBeNull();
+      const byRef = await tokenAct(token, 'draftCreate', input);
+      expect(byRef.outcome).toBe('invalid');
+      expect(byRef.fieldErrors).toEqual([{ path: ['validatorRef'], code: 'not_found' }]);
+      expect(await counts()).toEqual(before);
+    } finally { await sql("update knowledge.equipment_model set access_mode = 'internal' where id = $1", [modelId]); }
+  });
+
 });

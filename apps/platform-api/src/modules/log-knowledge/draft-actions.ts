@@ -1,3 +1,4 @@
+import { draftAccessVisible } from './replay-access.js';
 // The knowledge draft write actions of the log knowledge hub (#1198 a, design v0.6 §6.4–6.6): create, update, submit and
 // withdraw by the human author. Right: `knowledge.draft.create` (workspace-scoped; Admin passes through the module
 // bypass; Developer and User by grant, owner answer #1198 Q2). Rules: the workspace is the actor's; `origin` and
@@ -180,6 +181,7 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
    * private, so another caller learns only that the ref is taken — never its id, status, digest or version.
    */
   async function replayOwn(tx: Tx, ws: string, actorId: string, existing: DraftRow): Promise<ActionHandlerResult> {
+    if (!(await draftAccessVisible(tx, { workspaceId: ws, actorId }, existing.id))) throw invalid({ path: ['validatorRef'], code: 'not_found' });
     if (existing.submitterActorId !== actorId) throw invalid({ path: ['validatorRef'], code: 'taken' });
     return answer(existing, await latestDigest(tx, ws, existing));
   }

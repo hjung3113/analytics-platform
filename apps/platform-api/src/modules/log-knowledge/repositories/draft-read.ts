@@ -61,7 +61,7 @@ export function ownerVisible(viewer: Viewer): SQL {
     softwareId: null,
   });
   const software = visibleOwnerSql(viewer, { modelId: null, softwareId: sql`${ref(d.ownerSoftwareId)}` });
-  return sql`(case when ${ref(d.ownerSoftwareId)} is not null then ${software} else ${owner} end and (${ref(d.targetItemId)} is null or ${visibleItemSql(viewer, sql`${ref(d.targetItemId)}`)}))`;
+  return sql`(case when ${ref(d.ownerSoftwareId)} is not null then ${software} else ${owner} end and (${ref(d.targetItemId)} is null or ${visibleItemSql(viewer, sql`${ref(d.targetItemId)}`)}) and (${postedItem} is null or ${visibleItemSql(viewer, postedItem)}))`;
 }
 
 /** The visibility rule as a WHERE fragment. */
