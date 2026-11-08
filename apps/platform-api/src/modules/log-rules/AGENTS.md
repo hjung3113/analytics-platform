@@ -1,6 +1,6 @@
 # log-rules module
 
-Owns the validation rule catalog the external Validator reports over a service token (#1491 node R-a; design `docs/design/features/log-rules/README.md`, ADR-0122, API `docs/architecture/platform-api/api/log-rules.md`). Catalog reads: R-b (#1492, `catalog-endpoints.ts`). Coverage and `RuleCoveragePort`: R-d (#1494, `coverage-endpoints.ts`, `coverage-port.ts`, `domain/coverage.ts`). Screens: R-e (#1495). Port consumers: R-f (#1496) — Round attempt RuleSet link (`log-lifecycle/attempt-rule-set.ts`), Dataset rule-id check (`log-datasets/rule-scope-check.ts`), spec badge (`log-knowledge/spec-coverage-endpoint.ts`), picker options (`coverage-endpoints.ts`). Not here yet: contract E2E (R-g).
+Owns the validation rule catalog the external Validator reports over a service token (#1491 node R-a; design `docs/design/features/log-rules/README.md`, ADR-0122, API `docs/architecture/platform-api/api/log-rules.md`). Catalog reads: R-b (#1492, `catalog-endpoints.ts`). Coverage and `RuleCoveragePort`: R-d (#1494, `coverage-endpoints.ts`, `coverage-port.ts`, `domain/coverage.ts`). Screens: R-e (#1495). Port consumers: R-f (#1496) — Round attempt RuleSet link (`log-lifecycle/attempt-rule-set.ts`), Dataset rule-id check (`log-datasets/rule-scope-check.ts`), spec badge (`log-knowledge/spec-coverage-endpoint.ts`), picker options (`coverage-endpoints.ts`). Contract E2E (R-g, #1497): `apps/platform-e2e/tests-real/log-rules.admin.real.spec.ts` (synthetic fixture, run on the host, not in CI).
 
 ## Invariants
 
