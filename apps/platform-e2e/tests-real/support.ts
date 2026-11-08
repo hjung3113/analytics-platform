@@ -9,22 +9,35 @@ function inheritedWithoutLibpq(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(env).filter(([key]) => !key.startsWith('PG')));
 }
 
+/** Runs psql on the validated throwaway database through the `platform_migrate` connection. */
+function psqlMigrate(args: string[]) {
+  const database = requireSafeRealDatabaseEnv();
+  return spawnSync('psql', [
+    '-X', '-h', database.migrate.host, '-p', String(database.migrate.port),
+    '-U', database.migrate.username, '-d', database.migrate.database,
+    '-v', 'ON_ERROR_STOP=1', ...args,
+  ], {
+    encoding: 'utf8',
+    env: {
+      ...inheritedWithoutLibpq(process.env),
+      PGHOSTADDR: '127.0.0.1',
+      PGPASSWORD: database.migrate.password,
+      PGSERVICEFILE: '/dev/null',
+    },
+  });
+}
+
+/** One SQL statement for fixtures the product has no HTTP way to create (a system Actor and its grant); returns the unaligned result. */
+export function migrateSql(statement: string): string {
+  const result = psqlMigrate(['-Atq', '-c', statement]);
+  if (result.error || result.status !== 0) throw new Error(`Fixture SQL failed; psql exit ${result.status ?? 'unknown'}: ${result.stderr.trim().slice(0, 500)}`);
+  return result.stdout.trim();
+}
+
 export const test = base.extend<{ realDatabaseIsolation: void }>({
   realDatabaseIsolation: [async ({ page }, use) => {
     const database = requireSafeRealDatabaseEnv();
-    const result = spawnSync('psql', [
-      '-X', '-h', database.migrate.host, '-p', String(database.migrate.port),
-      '-U', database.migrate.username, '-d', database.migrate.database,
-      '-v', 'ON_ERROR_STOP=1', '-c', 'DELETE FROM core.rate_limits',
-    ], {
-      encoding: 'utf8',
-      env: {
-        ...inheritedWithoutLibpq(process.env),
-        PGHOSTADDR: '127.0.0.1',
-        PGPASSWORD: database.migrate.password,
-        PGSERVICEFILE: '/dev/null',
-      },
-    });
+    const result = psqlMigrate(['-c', 'DELETE FROM core.rate_limits']);
     if (result.error || result.status !== 0) {
       const detail = result.stderr.trim().slice(0, 500);
       throw new Error(`Could not reset rate limits in ${database.database}; psql exit ${result.status ?? 'unknown'}${detail ? `: ${detail}` : ''}.`);

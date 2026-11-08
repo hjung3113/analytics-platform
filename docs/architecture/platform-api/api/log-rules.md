@@ -53,7 +53,7 @@ Filters follow the table filter model (one condition per field, AND across field
 
 ## Coverage (R-d, #1494)
 
-Computed on read from the effective requirement keys of `log-knowledge` (`knowledgeLookup.listEffectiveRequirements`, R-c; keys `moduleKey` / `moduleKey/eventKey` as stored) and the Rules of the **current active** catalog (R-b «current»: accepted, not superseded reports; the active head Revision of each RuleSet; retired Revisions and older Revisions never count). Nothing is stored; no migration; no outbound call.
+Computed on read from the effective requirement keys of `log-knowledge` (`knowledgeLookup.listEffectiveRequirements`, R-c; keys `moduleKey` / `moduleKey/eventKey` as stored, in the normalized code-key spelling such as `ALPHA/START`; matching is exact, so a report must declare that spelling) and the Rules of the **current active** catalog (R-b «current»: accepted, not superseded reports; the active head Revision of each RuleSet; retired Revisions and older Revisions never count). Nothing is stored; no migration; no outbound call.
 
 **Matching.** A requirement id a target declares equals a key only when the strings are identical (no case folding, trimming, prefix or module-vs-event match, no ID mapping). Ids with no matching key are not counted. A Rule naming an id on several targets counts once for it.
 

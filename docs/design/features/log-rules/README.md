@@ -1,6 +1,6 @@
 # Log Rules — 검증 규칙 조회·연결 설계 (v0.31.0, 소유자 답 반영)
 
-> **Status: Candidate → 소유자 답 반영 완료(2026-11-08), ADR-0122 Decided.** R-a~R-d의 보고·저장·읽기와 R-e의 조회 화면이 구현되었다. R-f(#1496)의 소비자 연동(Round RuleSet 링크·Dataset 규칙 ID 확인·모델 명세 배지·모델/SW 선택기)도 구현되었고, R-g 계약 E2E는 미구현이다. 근거는 [#1486](https://github.com/hjung3113/analytics-platform/issues/1486)이고, [#1346](https://github.com/hjung3113/analytics-platform/issues/1346) §1·§3 P1-3, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic, v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md), 모델 명세 [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0. [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md)는 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
+> **Status: Candidate → 소유자 답 반영 완료(2026-11-08), ADR-0122 Decided.** R-a~R-d의 보고·저장·읽기와 R-e의 조회 화면이 구현되었다. R-f(#1496)의 소비자 연동(Round RuleSet 링크·Dataset 규칙 ID 확인·모델 명세 배지·모델/SW 선택기)도 구현되었고, R-g(#1497) 실서버 계약 E2E는 `apps/platform-e2e/tests-real/log-rules.admin.real.spec.ts`이고 합성 fixture로 돌며 CI가 아니라 호스트에서 실행한다(실제 Validator 연동 증거 아님). 근거는 [#1486](https://github.com/hjung3113/analytics-platform/issues/1486)이고, [#1346](https://github.com/hjung3113/analytics-platform/issues/1346) §1·§3 P1-3, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic, v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md), 모델 명세 [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0. [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md)는 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
 >
 > 사내 Validator의 인터페이스·출력·권한은 실사 전이다. 이 설계는 **받는 쪽(플랫폼) 계약과 합성 보고자까지만** 정하고 «연동 완료»를 쓰지 않는다([#1330](https://github.com/hjung3113/analytics-platform/issues/1330)).
 
@@ -225,7 +225,6 @@ log-dev > 기준 (logRules)
 | --- | --- | --- |
 | 표 높이 채우기(미구현, #1473) | SDK `fill` 병합 대기, 내부 높이 덮어쓰기 금지 | #1473 SDK 선택 prop 사용 가능 시 |
 | Revision별 규칙 탐색(미구현, #1495) | `rules` 읽기는 현재 Revision의 규칙만 제공. 이력 서랍의 «이 RuleSet의 규칙 보기»는 현재 규칙에 RuleSet 필터 적용 | `rules` read gains a Revision parameter or the owner asks for historical Revision rule lists |
-| R-g 계약 E2E(미구현) | R-f는 단위·통합 시험까지 | 해당 노드 착수 시 |
 | Round 상세의 `coverageSummary` 배지(미구현, #1496) | R-f 범위는 모델 명세 배지와 시도의 RuleSet 링크 | 소유자가 Round 화면의 배지를 요청할 때 |
 | Dataset 규칙 ID 확인의 «확인 없이 수용»(미구현 한계, #1496) | 핀한 Revision이 없거나 카탈로그가 비었거나 문자열이 모호하면 ID를 검사하지 않는다(카탈로그 부재가 Dataset 작업을 막지 않기 위함). 승인(`baselineApprove`)은 다시 검사하지 않는다 | 핀 없는 기준을 거절해야 한다고 소유자가 정하거나 카탈로그 수신이 운영에서 보장될 때 |
 | 사람이 만드는 연결(수동 연결·확인·폐기) | 소유자 결정(2026-11-08): 플랫폼은 단위를 정하지 않고 Validator 선언만 기록 | 소유자가 사람 연결을 요청하고 연결 단위를 정할 때 |
