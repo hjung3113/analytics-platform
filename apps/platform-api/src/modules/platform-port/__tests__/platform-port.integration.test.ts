@@ -203,7 +203,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(before - asInstant).toBeLessThan(61_000);
     });
 
-    it('knowledge:catalog-manage is listed for Admin and for a workspace grant of knowledge.catalog.manage, not for a plain user or a developer', async () => {
+    it('knowledge:catalog-manage is listed for Admin and for a workspace grant of knowledge.catalog.manage to a developer, not for a user (even with a grant row) or an ungranted developer', async () => {
       const admin = await newActor('admin');
       const has = async (cookie: string) =>
         (await bootstrap(cookie)).session.user.permissions.includes('knowledge:catalog-manage');
@@ -212,13 +212,14 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(await has(developer.cookie)).toBe(false);
       const plain = await newActor('user');
       expect(await has(plain.cookie)).toBe(false);
+      // #1531: a grant row on a User never counts for a User-excluded capability (the route refuses it; a direct row or a demotion must not bypass).
       await grantCapability(dbHandle, WORKSPACE_ID, plain.id, 'knowledge.catalog.manage', null, admin.id);
-      expect(await has(plain.cookie)).toBe(true);
+      expect(await has(plain.cookie)).toBe(false);
       await grantCapability(dbHandle, WORKSPACE_ID, developer.id, 'knowledge.catalog.manage', null, admin.id);
       expect(await has(developer.cookie)).toBe(true);
     });
 
-    it('knowledge:item-publish is listed for Admin and for a workspace grant of knowledge.item.publish, not for a plain user or a developer', async () => {
+    it('knowledge:item-publish is listed for Admin and for a workspace grant of knowledge.item.publish to a developer, not for a user (even with a grant row) or an ungranted developer', async () => {
       const admin = await newActor('admin');
       const has = async (cookie: string) =>
         (await bootstrap(cookie)).session.user.permissions.includes('knowledge:item-publish');
@@ -227,13 +228,14 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(await has(developer.cookie)).toBe(false);
       const plain = await newActor('user');
       expect(await has(plain.cookie)).toBe(false);
+      // #1531: a grant row on a User never counts for a User-excluded capability (the route refuses it; a direct row or a demotion must not bypass).
       await grantCapability(dbHandle, WORKSPACE_ID, plain.id, 'knowledge.item.publish', null, admin.id);
-      expect(await has(plain.cookie)).toBe(true);
+      expect(await has(plain.cookie)).toBe(false);
       await grantCapability(dbHandle, WORKSPACE_ID, developer.id, 'knowledge.item.publish', null, admin.id);
       expect(await has(developer.cookie)).toBe(true);
     });
 
-    it('knowledge:spec-publish is listed for Admin and for a workspace grant of knowledge.spec.publish, not for a plain user or a developer', async () => {
+    it('knowledge:spec-publish is listed for Admin and for a workspace grant of knowledge.spec.publish to a developer, not for a user (even with a grant row) or an ungranted developer', async () => {
       const admin = await newActor('admin');
       const has = async (cookie: string) =>
         (await bootstrap(cookie)).session.user.permissions.includes('knowledge:spec-publish');
@@ -242,8 +244,9 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(await has(developer.cookie)).toBe(false);
       const plain = await newActor('user');
       expect(await has(plain.cookie)).toBe(false);
+      // #1531: a grant row on a User never counts for a User-excluded capability (the route refuses it; a direct row or a demotion must not bypass).
       await grantCapability(dbHandle, WORKSPACE_ID, plain.id, 'knowledge.spec.publish', null, admin.id);
-      expect(await has(plain.cookie)).toBe(true);
+      expect(await has(plain.cookie)).toBe(false);
       await grantCapability(dbHandle, WORKSPACE_ID, developer.id, 'knowledge.spec.publish', null, admin.id);
       expect(await has(developer.cookie)).toBe(true);
     });
