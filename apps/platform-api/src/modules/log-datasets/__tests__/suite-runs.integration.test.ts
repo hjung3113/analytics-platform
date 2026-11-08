@@ -656,6 +656,22 @@ describe.skipIf(!runIntegration)('regression suites and suite runs (#1479 D-c)',
       expect((await runs(suite.id)).data.rows.find((x: { id: string }) => x.id === cancelled.data.suiteRunId).state).toBe('cancelled');
     });
 
+    it('filters the screen suite page by a visible dataset before paging and never discloses a private dataset association (#1481)', async () => {
+      const shared = await approvedDataset();
+      const unrelated = await approvedDataset();
+      const privateData = await approvedDataset(undefined, { shareScope: 'private' });
+      const mine = await makeSuite([{ datasetId: shared.ds.id }]);
+      await makeSuite([{ datasetId: unrelated.ds.id }]);
+      await makeSuite([{ datasetId: privateData.ds.id }], {}, privOwner);
+      const page = await read('suites', { datasetId: shared.ds.id, page: 0, pageSize: 1 }, user);
+      expect(page.outcome).toBe('ok');
+      expect(page.data.total).toBe(1);
+      expect(page.data.rows.map((r: { id: string }) => r.id)).toEqual([mine.id]);
+      expect((await read('suites', { datasetId: privateData.ds.id }, admin)).data).toEqual({ rows: [], total: 0 });
+      expect((await read('suites', { datasetId: randomUUID() }, user)).data).toEqual({ rows: [], total: 0 });
+      expect((await read('suites', { datasetId: 'bad-id' }, user)).outcome).toBe('error');
+    });
+
     it('suites lists with paging and search; suiteDetail shows what each item resolves to now; suiteRuns pages newest first; reads carry no log text', async () => {
       const a = await approvedDataset(['l1.log']);
       const noBaseline = await makeDataset(admin);

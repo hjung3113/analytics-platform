@@ -44,6 +44,8 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'packages/adapters/feature-bridge': featureBridgePreset,
   'platform/my-activity': featureBridgeMenuPreset,
   'platform/voc': featureBridgeMenuPreset,
+  'menus/log-dev/log-models': featureBridgeMenuPreset,
+  'menus/log-dev/log-analysis': menu,
   'apps/platform-web': app,
 };
 
@@ -599,7 +601,7 @@ rows.push(
 );
 // The operator VOC entries (#761): the feature VOC bridge menu may import them (static and dynamic); a non-bridge menu and the feature-bridge runtime's eager code may not.
 const FEATURE_VOC = 'platform/voc/src/pages/x.tsx';
-for (const entry of ['milestones', 'task-detail', 'tasks-search', 'voc-clusters', 'voc-detail', 'voc-inbox', 'voc-search', 'voc-triage', 'task-list', 'task-board', 'task-requests', 'findings-search', 'surveys-search', 'admin-search', 'integration-search', 'findings', 'finding-detail', 'surveys', 'survey-detail', 'survey-builder', 'survey-results', 'survey-follow-up', 'permission-requests', 'permission-grants', 'managed-systems', 'settings', 'analytics-areas', 'evidence', 'integration-dashboard', 'coverage', 'entity-links', 'log-lifecycle']) {
+for (const entry of ['milestones', 'task-detail', 'tasks-search', 'voc-clusters', 'voc-detail', 'voc-inbox', 'voc-search', 'voc-triage', 'task-list', 'task-board', 'task-requests', 'findings-search', 'surveys-search', 'admin-search', 'integration-search', 'findings', 'finding-detail', 'surveys', 'survey-detail', 'survey-builder', 'survey-results', 'survey-follow-up', 'permission-requests', 'permission-grants', 'managed-systems', 'settings', 'analytics-areas', 'evidence', 'integration-dashboard', 'coverage', 'entity-links', 'log-lifecycle', 'log-datasets']) {
   const source = `@ap/feature-screens/operator-screens/${entry}`;
   rows.push(
     { file: FEATURE_VOC, code: `import { x } from '${source}';`, rule: '' },
@@ -719,6 +721,16 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-improvement-items/analysis-actions/x';`, rule: 'no-restricted-imports' },
 );
 
+// The Round tab (#1475): the app joins menu-log-analysis's body to menu-log-models's slot in main.tsx only; the menus never import each other, and no other app file or subpath is open.
+rows.push(
+  { file: 'apps/platform-web/src/main.tsx', code: `import { RoundSourceView } from '@ap/menu-log-analysis/view';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { setRoundSourceView } from '@ap/menu-log-models/round-source-slot';`, rule: '' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { RoundSourceView } from '@ap/menu-log-analysis/view';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { setRoundSourceView } from '@ap/menu-log-models/round-source-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-log-analysis/src/view';`, rule: 'no-restricted-imports' },
+  { file: 'menus/log-dev/log-models/src/pages/LifecyclePage.tsx', code: `import { RoundSourceView } from '@ap/menu-log-analysis/view';`, rule: 'no-restricted-imports' },
+  { file: 'menus/log-dev/log-analysis/src/view.tsx', code: `import { setRoundSourceView } from '@ap/menu-log-models/round-source-slot';`, rule: 'no-restricted-imports' },
+);
 // The home 내 할 일 slot is main.tsx-only too (#657); `src/slots.ts` receives the value as a parameter.
 rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { homeTodoSlot } from '@ap/feature-bridge/home-todo-slot';`, rule: '' },

@@ -54,6 +54,8 @@ export interface RichEditorProps {
   disabled?: boolean;
   minHeight?: string | number;
   className?: string;
+  /** Sticky toolbar offset within the host scroll container; defaults to CSS --rich-editor-toolbar-offset or 0. */
+  toolbarStickyOffset?: string | number;
   /**
    * Toolbar render-prop. Receives the live editor + a toolbar API helper
    * (PLAN-22 C8). If `onAttach` is not provided, `toolbarApi.attach` rejects
@@ -75,7 +77,7 @@ export interface RichEditorProps {
 // The root entry stays cheap; Tiptap editing plugins load only when an editor mounts.
 const LazyEditor = React.lazy(() => import('./RichEditorImpl'));
 export function RichEditor(props: RichEditorProps) {
-  return <div className={cn('rich-editor border border-border-control rounded-md bg-surface-canvas', props.className)} data-surface={props.surface}>
+  return <div className={cn('rich-editor relative border border-border-control rounded-md bg-surface-canvas', props.className)} data-surface={props.surface}>
     <React.Suspense fallback={<div role="status" className="px-3 py-2 text-sm text-text-muted">{props.placeholder ?? '내용 준비 중'}</div>}>
       <LazyEditor {...props} />
     </React.Suspense>

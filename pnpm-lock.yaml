@@ -823,6 +823,9 @@ importers:
       '@ap/components':
         specifier: workspace:*
         version: link:../../../packages/sdk/components
+      '@ap/feature-screens':
+        specifier: workspace:*
+        version: link:../../../apps/feature-screens
       '@ap/contracts':
         specifier: workspace:*
         version: link:../../../packages/sdk/contracts

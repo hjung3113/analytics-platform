@@ -1,10 +1,29 @@
-# Log Test Datasets & Golden Baseline — 검증 테스트 데이터셋·기대 결과 설계 (v0.31.0, 소유자 답 반영)
+# Log Test Datasets & Golden Baseline — 검증 테스트 데이터셋·기대 결과 설계 (v0.31.0, 소유자 답 반영, 노드 a–e 구현)
 
-> **Status: Candidate → 소유자 답 반영(2026-11-07), ADR-0120 Decided.** 노드 a–d(스키마·Baseline·Suite·비교)는 구현됐고, 화면(e)과 통합(f)은 구현 전이다. 근거는 [#1345](https://github.com/hjung3113/analytics-platform/issues/1345)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md)(Round·샘플 목록·`rule_result`·검증 요청 큐)을 **재사용**한다(중복 설계 금지). 같은 릴리스의 [`log-explorer`](../log-explorer/README.md)의 `SourceReadPort`를 원본 존재·해시 확인에 쓴다. [ADR-0120](../../../adr/0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md)은 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: ADR-0120 Decided, 노드 a–e 구현.** 소유자 답(2026-11-07)과 탭 상세 variant A 컨펌(2026-11-08)을 반영했다. 노드 f의 실서버 통합 검증은 남아 있다. 근거는 [#1345](https://github.com/hjung3113/analytics-platform/issues/1345)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md)(Round·샘플 목록·`rule_result`·검증 요청 큐)을 **재사용**한다(중복 설계 금지). 같은 릴리스의 [`log-explorer`](../log-explorer/README.md)의 `SourceReadPort`를 원본 존재·해시 확인에 쓴다. [ADR-0120](../../../adr/0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md)은 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 검증 스크립트·사내 LLM은 별도 개발 중이고 플랫폼에서 다시 쓰지 않는다. 실제 API가 확정되기 전에는 **합성 Dataset과 어댑터 stub만** 쓰고 운영 연동 완료로 표시하지 않는다.
 
-> **구현 현황.** 노드 **a**([#1477](https://github.com/hjung3113/analytics-platform/issues/1477))는 구현됨: `log_datasets` 스키마(`dataset`·불변 `dataset_revision`·`dataset_candidate`), `logDataset.datasets`·`datasetDetail` 읽기, `datasetCreate`·`datasetUpdate`·`datasetArchive`·`revisionCreate`·`candidateCreate`·`candidateDecide` 쓰기, capability `dataset.manage`. 계약 원본은 [api/log-datasets.md](../../../architecture/platform-api/api/log-datasets.md)이고 이 문서와 다르면 그쪽과 코드가 우선한다. 운영 `SourceReadPort` 어댑터가 없어 가용성은 운영에서 `unverified`이고, v0 포트에는 파일 해시 읽기가 없어 존재 확인만 한다(해시 일치 확인은 포트가 `describeFile`을 내놓을 때). 노드 **b**([#1478](https://github.com/hjung3113/analytics-platform/issues/1478))도 구현됨: `expected_baseline`·추가 전용 `baseline_event`, `logDataset.baselines`·`baselineDetail` 읽기, `baselineDraftCreate`·`baselineUpdateDraft`·`baselineApprove` 쓰기(승인 시 이전 approved는 같은 트랜잭션에서 superseded), capability `dataset.baseline.approve`(sensitive·세션 전용·Admin 우회 없음), 기준 낡음 읽기 시 계산. 노드 **c**([#1479](https://github.com/hjung3113/analytics-platform/issues/1479))도 구현됨: 요청 주체 확장(`execution_request`: `round_id` XOR `suite_run_item_id`, ADR-0117 개정 1), `regression_suite`·불변 `suite_run`/`suite_run_item`, `logDataset.suites`·`suiteDetail`·`suiteRuns` 읽기, `suiteCreate`·`suiteUpdate`·`suiteRun` 쓰기, capability `dataset.suite.run`(비민감·세션 전용·사용자당 동시 3건), 실행 상태는 요청 상태에서 파생. 노드 **d**([#1480](https://github.com/hjung3113/analytics-platform/issues/1480))도 구현됨: 읽기 시 계산하는 `logDataset.comparison`(rule 분류 6종·서버 페이지·표 필터·coverage)·`logDataset.rerunDiff`(같은 revision의 두 실행), 추가 전용 `suite_review_label`과 `reviewLabelAdd`(새 capability 없이 `dataset.manage`). 분류표 칸별 결정과 «관측 시도 = 최신 `succeeded` 시도»는 [api/log-datasets.md](../../../architecture/platform-api/api/log-datasets.md)가 원본이다. 노드 e–f(화면·통합)는 구현 전이다. **Backlog(구현 안 함, d):** (1) 비교의 `required_pin` 판정(baseline pin이 suite 요구와 맞는지) — 엔진 capability 읽기 포트가 생기면(c의 (3)과 같은 조건). (2) 비교 화면의 발췌 읽기 — 비교 응답은 규칙 id·분류·개수만 준다; 발췌는 Source owner를 고정 샘플 목록에서 읽는 경로가 생길 때(화면 노드 e). (3) 분류 상태 «시도 없음»(성공 시도가 없는 항목)은 분류하지 않고 요청 상태만 보인다; 실패한 시도의 부분 결과 비교는 필요한 소비자가 생길 때. (4) 라벨 읽기는 규칙별 최신 라벨과 총 개수만 준다 — 라벨 이력 목록은 화면 노드 e에서 필요하면. **Backlog(구현 안 함, c):** (1) suite 실행 취소·운영자용 회귀 요청 목록 — 화면 노드 e. (2) 회귀 요청 시도의 발췌 읽기 — 근거 Source owner를 고정 샘플 목록에서 읽는 경로가 필요, 비교 노드 d. (3) `required_pin`으로 기준의 pin 판정 — 비교 노드 d. (4) 항목 요청 자신의 종료 시각 대신 suite 실행 종료 시각을 발췌 시계로 쓴 것은 소유자 확인 대기(ADR-0117 개정 1 §3). **Backlog(구현 안 함, b):** (1) `fromAttemptId` 복사 초안 — lifecycle 결과 읽기 포트가 생기면(그 전에는 `fromAttemptId:unsupported`로 거절). (2) `rule_set_changed`·`parser_changed`·`engine_profile_changed` — 엔진 capability 읽기 포트 확정 전까지 pin이 있으면 `unknown`. (3) `datasets` 목록의 «기준 낡음 요약» 열 — 목록마다 Source 확인이 필요해 비용 설계가 먼저; 지금은 `datasetDetail`(최신 revision)과 `baselines`만. (4) `baselineDetail` 기대 목록의 서버 페이지(상한 1000건으로 대신). (5) `ruleId` 확인은 R-f(#1496)로 연결됨: `baselineUpdateDraft`가 핀한 `ruleSetRevision`이 현재 카탈로그의 한 Revision으로 정해질 때만 없는 ID를 `expectedScope.<순번>:unknown_rule`로 거절한다. 핀이 없거나 카탈로그가 비었거나 문자열이 모호하면 확인 없이 수용한다(미구현 한계, 핀 없는 기준을 거절할지 소유자가 정할 때 다시 연다). **Backlog(구현 안 함):** `dataset`·`dataset_revision`·`dataset_candidate` 감사 행은 `core.audit_log`에만 남고 플랫폼 감사 추적(`core.platform_audit_events` 투영)에는 싣지 않는다. 사유: 비공개 데이터셋의 존재가 `console:access` Admin에게 새므로 호출자별 데이터셋 가시성을 아는 투영이 먼저 필요하다. 재개 조건: 데이터셋 감사 화면 요청이 올 때.
+> **구현 현황.** 노드 **a**([#1477](https://github.com/hjung3113/analytics-platform/issues/1477))는 구현됨: `log_datasets` 스키마(`dataset`·불변 `dataset_revision`·`dataset_candidate`), `logDataset.datasets`·`datasetDetail` 읽기, `datasetCreate`·`datasetUpdate`·`datasetArchive`·`revisionCreate`·`candidateCreate`·`candidateDecide` 쓰기, capability `dataset.manage`. 계약 원본은 [api/log-datasets.md](../../../architecture/platform-api/api/log-datasets.md)이고 이 문서와 다르면 그쪽과 코드가 우선한다. 운영 `SourceReadPort` 어댑터가 없어 가용성은 운영에서 `unverified`이고, v0 포트에는 파일 해시 읽기가 없어 존재 확인만 한다(해시 일치 확인은 포트가 `describeFile`을 내놓을 때). 노드 **b**([#1478](https://github.com/hjung3113/analytics-platform/issues/1478))도 구현됨: `expected_baseline`·추가 전용 `baseline_event`, `logDataset.baselines`·`baselineDetail` 읽기, `baselineDraftCreate`·`baselineUpdateDraft`·`baselineApprove` 쓰기(승인 시 이전 approved는 같은 트랜잭션에서 superseded), capability `dataset.baseline.approve`(sensitive·세션 전용·Admin 우회 없음), 기준 낡음 읽기 시 계산. 노드 **c**([#1479](https://github.com/hjung3113/analytics-platform/issues/1479))도 구현됨: 요청 주체 확장(`execution_request`: `round_id` XOR `suite_run_item_id`, ADR-0117 개정 1), `regression_suite`·불변 `suite_run`/`suite_run_item`, `logDataset.suites`·`suiteDetail`·`suiteRuns` 읽기, `suiteCreate`·`suiteUpdate`·`suiteRun` 쓰기, capability `dataset.suite.run`(비민감·세션 전용·사용자당 동시 3건), 실행 상태는 요청 상태에서 파생. 노드 **d**([#1480](https://github.com/hjung3113/analytics-platform/issues/1480))도 구현됨: 읽기 시 계산하는 `logDataset.comparison`(rule 분류 6종·서버 페이지·표 필터·coverage)·`logDataset.rerunDiff`(같은 revision의 두 실행), 추가 전용 `suite_review_label`과 `reviewLabelAdd`(새 capability 없이 `dataset.manage`). 분류표 칸별 결정과 «관측 시도 = 최신 `succeeded` 시도»는 [api/log-datasets.md](../../../architecture/platform-api/api/log-datasets.md)가 원본이다. 노드 **e**([#1481](https://github.com/hjung3113/analytics-platform/issues/1481))도 구현됨: 기존 `logRules` «기준» 그룹의 목록과 전체 페이지 탭 상세(개요·Revision·Baseline·회귀 실행·비교), Baseline 기대 표(2) + 승인·고정값·상태 이력(1), 회귀 실행 요청 서랍, 실행 커버리지·분류 필터·결과 검토 라벨 서랍, 같은 Revision 재실행 비교. 메뉴 host는 Kernel menu-query/action과 `PlatformDataTable`·`DetailDrawer`·`AuditTimeline`·`DataTrustIndicator`를 주입한다. Source·엔진 연동 완료를 뜻하지 않으며 mock은 «합성»으로 표시한다. 노드 **f**(실서버 통합)는 구현 전이다.
+
+### Backlog — 구현 안 함
+
+각 항목은 현재 구현에 포함되지 않는다. 아래 조건이 충족되면 해당 노드에서 다시 연다.
+
+- **b(1) `fromAttemptId` 복사 초안**: 복사 초안용 lifecycle 읽기 계약을 연결하지 않아 `unsupported`로 거절한다. 재개: 복사 대상·권한 계약과 읽기 포트를 연결할 때.
+- **b(2) `rule_set_changed`·`parser_changed`·`engine_profile_changed`**: 현재 엔진 값을 읽는 포트가 없어 pin이 있으면 `unknown`이다. 재개: 엔진 capability 읽기 포트 확정.
+- **b(3) 목록 Baseline 상태·기준 낡음 요약·최근 회귀 실행 열과 Baseline 상태 필터**: `datasets`가 해당 필드를 주지 않고 목록마다 Source 확인을 하면 비용이 늘어난다. 화면은 이름·태그·모델 범위·최신 Revision·소유자·갱신만 보여 주고 Baseline 상태 필터는 비활성이다. 재개: 일괄 요약·Source 확인 비용 설계와 목록 API 확장 확정.
+- **b(4) `baselineDetail` 기대 목록 서버 페이지**: 현재 상한 1000건의 단일 응답을 쓴다. 재개: 기대 목록 크기·조회 비용이 별도 페이지를 요구할 때.
+- **b(5) `ruleId` 카탈로그 존재 확인(일부)**: R-f(#1496)로 연결됨 — `baselineUpdateDraft`가 핀한 `ruleSetRevision`이 현재 카탈로그의 한 Revision으로 정해질 때만 없는 ID를 `expectedScope.<순번>:unknown_rule`로 거절한다. 핀이 없거나 카탈로그가 비었거나 문자열이 모호하면 확인 없이 수용한다(미구현 한계). 재개: 핀 없는 기준을 거절할지 소유자가 정할 때.
+- **c(1) Suite 실행 취소·운영자용 회귀 요청 목록**: 확정 시안에 조작이 없고 취소 action도 없다. 재개: 취소·운영 목록 사용 흐름과 API 계약 확정.
+- **c(2)·d(2) 회귀 요청·비교 발췌 읽기**: 비교 응답은 규칙 ID·분류·개수만 주며 Source owner를 고정 샘플 목록에서 읽는 경로를 연결하지 않았다. 재개: 그 경로·열람 권한·보관 기한과 발췌 UI 확정.
+- **c(3)·d(1) `required_pin` 판정**: 엔진 capability 읽기 없이 Baseline pin과 Suite 요구의 일치를 단정하지 않는다. 재개: 엔진 capability 읽기 포트 확정.
+- **c(4) 발췌 시계**: 항목 요청 자신의 종료 시각 대신 Suite 실행 종료 시각을 쓰는 계약은 소유자 확인 대기다(ADR-0117 개정 1 §3). 재개: 소유자가 시계를 확정할 때.
+- **d(3) 실패 시도 부분 결과 비교**: 최신 `succeeded` 시도가 없는 항목은 요청 상태만 보여 주고 분류하지 않는다. 재개: 실패 시도 부분 결과를 비교할 소비자와 판정 계약이 생길 때.
+- **d(4) 결과 검토 라벨 이력 목록**: API는 규칙별 최신 라벨과 총 개수만 제공한다. 재개: 이력 목록 요구와 페이지 읽기 API 확정.
+- **e 후보 UI·Dataset 생성/변경/보관·Revision 작성·Baseline 초안 작성/편집**: 확정 캡처에 없는 저작 흐름은 이 화면 슬라이스에 추가하지 않았다. 재개: 소유자가 각 흐름의 시안을 확정할 때.
+- **e «탐색에서 열기» 연결**: log-explorer #1473의 안정 ID 딥링크가 아직 없다. 버튼은 사유와 함께 비활성이다. 재개: 탐색 목적지·딥링크 계약 구현.
+- **Dataset 감사 투영**: `dataset`·`dataset_revision`·`dataset_candidate` 감사는 `core.audit_log`에만 남는다. 비공개 Dataset의 존재를 `console:access` Admin에게 노출하지 않으려면 호출자 가시성을 아는 투영이 필요하다. 재개: Dataset 감사 화면 요청과 가시성 투영 설계 확정.
 
 ## 1. 이 설계가 하는 것
 
@@ -189,22 +208,26 @@ log-dev > 기준 (logRules)
 
 - 새 화면은 **2개**(목록, 상세[탭: 개요·Revision·Baseline·실행·비교]). log-explorer(1개)와 합쳐 이번 릴리스 신규 3화면이고 **소유자가 범위를 승인했다**(2026-11-07, 독립 메뉴 진행).
 - 소규모 MVP로 #1330 Round 화면 안의 «데이터셋» 진입으로 시작하는 안이 있으나, **식별자와 데이터 모델은 처음부터 분리**하므로 화면 배치는 나중에 옮길 수 있다. 소유자가 독립 메뉴를 골랐다(2026-11-07).
-- 시각이 바뀌므로 구현 전 `?variant=` 시안을 아티팩트로 컨펌한다. 이 PR에는 시안이 없다.
+- 시각이 바뀌므로 구현 전 `?variant=` 시안을 아티팩트로 컨펌한다. 상세 variant A(탭 전체 페이지)는 소유자가 2026-11-08 컨펌했다.
 
 ### 7.3 Conceptual Contract
 
 **목록 (`PlatformDataTable`)**: 열 = 이름, 태그, 모델 범위, 최신 revision, Baseline 상태(`승인`·`초안 없음`·`기준 낡음 사유`), 최근 실행 요약, 소유자, 갱신. 빈 상태는 이유를 말한다.
 
 **상세**
-- 개요: 목적·소유·공유 범위·태그, 가용성 배지(`available`·`unavailable`·`hash_mismatch`·`unverified`), 파일 목록(순서·해시·«탐색에서 열기» 링크 = log-explorer 딥링크).
+- 개요: 목적·소유·공유 범위·태그, 가용성 배지(`available`·`unavailable`·`hash_mismatch`·`unverified`), 파일 목록(순서·해시·«탐색에서 열기» = log-explorer 딥링크 구현 전에는 사유와 함께 비활성).
 - Baseline: 기대 표(Rule, 기대, 예외, 근거 위치), 상태 이력(`AuditTimeline`), 기준 낡음 사유 배지, 승인 패널(세션 전용; 승인 불가 이유를 `DataTrustIndicator` 문구로).
-- 실행: Suite 실행 요청 서랍(고정될 revision·baseline 요약 표시, 동시 실행 한도 안내), 요청 상태.
-- 비교: 상단 coverage 띠(실행 / 미검사 / 필수 미검사 강조), 분류 필터(`regressed`·`new`·`fixed`·`not_comparable`·`missing`·`unchanged`), 행 서랍에서 결과 검토 라벨. **스크립트 판정 열과 LLM 열을 분리**(LLM 열은 이 슬라이스에서 «없음» 대신 숨김; 자리만 계약에 정의).
+- 실행: 페이지 상단의 «회귀 실행 요청»에서 Suite 실행 요청 서랍(고정될 revision·baseline 요약 표시, 동시 실행 한도 안내), 요청 상태.
+- 비교: 상단 실행 커버리지 띠(실행 / 미검사 / 필수 미검사 강조), 분류 필터(`regressed`·`new`·`fixed`·`not_comparable`·`missing`·`unchanged`), 행 서랍에서 결과 검토 라벨. 같은 Revision 재실행 비교는 API의 Suite 전체 항목을 페이지하므로 별도 표에 그 범위와 Revision ID를 명시한다. **스크립트 판정 열과 LLM 열을 분리**(LLM 열은 이 슬라이스에서 «없음» 대신 숨김; 자리만 계약에 정의).
+- 비교에 고정된 실행의 `suiteId`가 Suite 선택·재실행 비교·요청 서랍의 공통 대상이다. 직접 링크·새로고침에서도 해당 Suite를 읽으며, Suite를 바꾸면 기존 실행 고정을 해제한다. 실행 목록은 서버 페이지를 유지하고, 실행을 바꿔도 현재 페이지와 고정 실행 선택을 보존한다.
+- 성공한 시도가 없어 실행 커버리지가 없으면 수치·분류를 `0`으로 표시하지 않는다. `미산출`·`—`와 «성공한 시도 없음»을 표시하고, 조건 불일치 빈 표 대신 완료 대기·상태 새로 읽기·회귀 실행 재요청 경로를 안내한다. 계산된 실제 `0`은 그대로 표시한다.
+- 기대 표의 예외 사유·범위와 모든 근거 위치는 키보드로 전체 내용을 열 수 있다. 결과 검토 조작 이름에는 Rule ID를 포함한다.
+- 목록 로딩은 표 프레임·열 머리·스켈레톤·페이지 영역과 `aria-busy`를 유지하며 이전 조회 행을 숨긴다.
 - 모든 `not_comparable`/`unavailable`은 PASS 색을 쓰지 않는다.
 
 ### 7.4 Wireframe·URL
 
-데스크톱 1440×900과 1280만. 새 컴포넌트를 만들지 않는다(`PlatformDataTable`·`DetailDrawer`·`AuditTimeline`·`DataTrustIndicator`). URL은 안정 ID만(`/log/datasets/:datasetId/regression-runs/:suiteRunId`); 파일 경로·해시·필터 값을 주소에 직렬화하지 않는다.
+데스크톱 1440×900과 1280만. 새 컴포넌트를 만들지 않는다(`PlatformDataTable`·`DetailDrawer`·`AuditTimeline`·`DataTrustIndicator`). URL은 안정 ID만(`/log/datasets/:datasetId/regression-runs/:suiteRunId`); 파일 경로·해시·필터 값을 주소에 직렬화하지 않는다. 탭 전환은 로컬 상태이며 회귀 실행 딥링크의 ID를 유지한다. 그 주소를 새로고침하면 비교 탭을 복원한다.
 
 ## 8. 반례와 대응
 

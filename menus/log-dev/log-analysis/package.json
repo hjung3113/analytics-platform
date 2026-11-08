@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-log-analysis",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "ap": {
     "sdk": ">=0.32.0 <0.33.0"
   },
@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./mock": "./src/mock/index.ts",
+    "./view": "./src/view.tsx",
     "./styles.css": "./src/styles.css"
   },
   "scripts": {

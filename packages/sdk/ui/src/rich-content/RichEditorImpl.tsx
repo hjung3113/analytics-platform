@@ -1,4 +1,5 @@
 import { type Editor, EditorContent, useEditor } from '@tiptap/react';
+import type { JSONContent } from '@tiptap/core';
 import { Node as ProseNode } from '@tiptap/pm/model';
 import * as React from 'react';
 import { cn } from '../utils/cn';
@@ -21,6 +22,7 @@ export default function RichEditorImpl({
   toolbar,
   onAttach,
   resolveAttachmentUrl,
+  toolbarStickyOffset,
 }: RichEditorProps) {
   const callbacks = React.useRef({ onAttach, resolveAttachmentUrl });
   React.useEffect(() => { callbacks.current = { onAttach, resolveAttachmentUrl }; }, [onAttach, resolveAttachmentUrl]);
@@ -128,11 +130,20 @@ export default function RichEditorImpl({
     }
   }, [editor, value, surface]);
 
-  // Re-apply editable when disabled changes
+  const completedAttachments = React.useRef<JSONContent[]>([]);
+
+  // Re-apply editable and flush completed uploads once editing resumes.
   React.useEffect(() => {
     if (!editor) return;
     editor.setEditable(!disabled);
+    if (!disabled && completedAttachments.current.length) {
+      const content = completedAttachments.current.splice(0);
+      editor.commands.insertContent(content);
+    }
   }, [editor, disabled]);
+
+  const liveEditor = React.useRef<Editor | null>(null);
+  React.useEffect(() => { liveEditor.current = editor; return () => { liveEditor.current = null; }; }, [editor]);
 
   // Stable toolbar API. `attach` uploads via the injected `onAttach`, and on
   // resolve inserts an attachment-backed image for an opted-in image upload,
@@ -145,37 +156,34 @@ export default function RichEditorImpl({
 
   const toolbarApi = React.useMemo<RichEditorToolbarApi>(
     () => ({
-      renderControls: opts => editor ? <RichEditorToolbar editor={editor} surface={surface} {...(opts?.hideAttach ? {} : { attach: toolbarApi.attach })} {...(opts?.onAttachError ? { onAttachError: opts.onAttachError } : {})} /> : null,
+      renderControls: opts => editor ? <RichEditorToolbar editor={editor} surface={surface} stickyOffset={toolbarStickyOffset} {...(opts?.hideAttach ? {} : { attach: toolbarApi.attach })} {...(opts?.onAttachError ? { onAttachError: opts.onAttachError } : {})} /> : null,
       attach: async (file: File) => {
+        if (!liveEditor.current || liveEditor.current.isDestroyed) throw new Error('RichEditor: editor is not ready');
+        if (!liveEditor.current.isEditable) throw new Error('RichEditor: editor is disabled');
         const uploader = onAttachRef.current;
         if (!uploader) {
           throw new Error('RichEditor: onAttach is not configured for this surface');
         }
         const result = await uploader(file);
-        if (editor && !editor.isDestroyed) {
-          editor
-            .chain()
-            .focus()
-            .insertContent({
-              type: getExtensionsForSurface(surface).includes('image') && file.type.startsWith('image/') ? 'image' : 'attachmentRef',
-              attrs: {
-                id: result.attachment_id,
-                name: result.name,
-                size_bytes: result.size_bytes,
-                mime_type: result.mime_type,
-              },
-            })
-            .run();
+        const target = liveEditor.current;
+        const content: JSONContent = {
+          type: getExtensionsForSurface(surface).includes('image') && file.type.startsWith('image/') ? 'image' : 'attachmentRef',
+          attrs: { id: result.attachment_id, name: result.name, size_bytes: result.size_bytes, mime_type: result.mime_type },
+        };
+        if (target && !target.isDestroyed) {
+          if (target.isEditable) target.chain().focus().insertContent(content).run();
+          // Keep the uploaded result, rather than making the user upload the same file again.
+          else completedAttachments.current.push(content);
         }
         return result;
       },
     }),
-    [editor, surface],
+    [editor, surface, toolbarStickyOffset],
   );
 
   return (
     <>
-      {toolbar ? toolbar(editor, toolbarApi) : editor && getExtensionsForSurface(surface).includes('heading') ? <RichEditorToolbar editor={editor} surface={surface} {...(onAttach ? { attach: toolbarApi.attach } : {})} /> : null}
+      {toolbar ? toolbar(editor, toolbarApi) : editor && getExtensionsForSurface(surface).includes('heading') ? <RichEditorToolbar editor={editor} surface={surface} stickyOffset={toolbarStickyOffset} {...(onAttach ? { attach: toolbarApi.attach } : {})} /> : null}
       {uploadError && <p role="alert" className="break-keep px-3 text-sm text-text-danger-label">첨부 파일을 올리지 못했습니다. 다시 시도해 주세요.</p>}
       {editor && getExtensionsForSurface(surface).includes('heading') && <EditorExtras editor={editor} surface={surface} onMenuChange={setSlashMenu} />}
       {/*
@@ -191,6 +199,7 @@ export default function RichEditorImpl({
       */}
       <EditorContent
         editor={editor}
+        data-rich-gutter={!disabled && getExtensionsForSurface(surface).includes('heading') ? '' : undefined}
         className={cn(
           'flex max-w-none flex-col focus:outline-hidden [&_.ProseMirror]:flex-1 [&_.ProseMirror]:px-3 [&_.ProseMirror]:py-2',
           minHeight ? 'min-h-(--rich-editor-min-height)' : undefined,

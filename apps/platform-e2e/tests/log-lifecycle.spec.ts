@@ -74,6 +74,31 @@ test.describe('log-lifecycle screens', () => {
     }
   });
 
+  test('Round «원본/시퀀스» tab (#1475): same body as 로그 탐색, read-only, opened from a rule result line', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(roundPath);
+    await expect(page.getByRole('table', { name: '규칙 결과', exact: true })).toBeVisible();
+    await expect(page.getByRole('complementary', { name: 'Gate 결정' })).toBeVisible();
+    await page.getByRole('button', { name: '원본에서 보기' }).first().click();
+    await expect(page).toHaveURL(/view=source/);
+    await expect(page).toHaveURL(/sourceFocus=1%3A18\d\b/);
+    await expect(page.getByRole('table', { name: '원본 이벤트 목록' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '레코드 상세', exact: true })).toBeVisible();
+    // The selected line's own text comes from the Source read for this Round's file (not only the drawer frame).
+    const line = new URL(page.url()).searchParams.get('sourceFocus')!.split(':')[1]!;
+    await expect(page.getByRole('heading', { name: '원문 줄', exact: true }).locator('xpath=..')).toContainText(new RegExp(`${line} Module \\d (Start|End) Job-\\d`));
+    await expect(page.getByRole('button', { name: /근거 위치 바구니|조건 저장|근거 위치 담기/ })).toHaveCount(0);
+    await expect(page.getByRole('complementary', { name: 'Gate 결정' })).toHaveCount(0);
+    await expect(page.getByTestId('round-source-slot').getByLabel('스크롤 가능한 행 영역', { exact: true })).toBeVisible();
+    await evidence(page, testInfo, 'round-source-tab-1440');
+    await page.getByRole('tab', { name: '시퀀스', exact: true }).click();
+    await expect(page).toHaveURL(/sourceTab=sequence/);
+    await page.getByRole('tab', { name: '검증 · Gate' }).click();
+    await expect(page.getByRole('complementary', { name: 'Gate 결정' })).toBeVisible();
+    await expect(page).not.toHaveURL(/view=/);
+  });
+
   test('request drawer restores from URL and opens attempts/results; registration from a Round fixes that Round', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(`/log-dev/log-validation-requests?request=${REQUEST}`);

@@ -7,7 +7,7 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
 import { describe, expect, it } from 'vitest';
 import { createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
-import { stageLifecycleFixture, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
+import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
 import { GROUPS, MENUS, PERMISSIONS, registry } from './menus';
 import { modulePermissions } from './modules';
@@ -93,6 +93,15 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'logLifecycle.excerpt': { ruleResultId: '14470000-0000-4000-8000-000000000501', evidenceIndex: 0 },
   // Log knowledge catalog reads (#1194 r): the table's page + `filters` shape, no filter = every row.
   // Read-only validation catalog / coverage (#1495), synthetic fixture stable ids.
+  'logDataset.datasets': { ...page },
+  'logDataset.datasetDetail': { datasetId: '14810000-0000-4000-8000-000000000001' },
+  'logDataset.baselines': { datasetRevisionId: '14810000-0000-4000-8000-000000000101' },
+  'logDataset.baselineDetail': { baselineId: '14810000-0000-4000-8000-000000000201' },
+  'logDataset.suites': { datasetId: '14810000-0000-4000-8000-000000000001', ...page },
+  'logDataset.suiteDetail': { suiteId: '14810000-0000-4000-8000-000000000301' },
+  'logDataset.suiteRuns': { suiteId: '14810000-0000-4000-8000-000000000301', page: 0, pageSize: 25 },
+  'logDataset.comparison': { suiteRunId: '14810000-0000-4000-8000-000000000401', ...page },
+  'logDataset.rerunDiff': { fromRunId: '14810000-0000-4000-8000-000000000401', toRunId: '14810000-0000-4000-8000-000000000402' },
   'logRules.ruleSets': { q: null, ...page },
   'logRules.ruleSetDetail': { ruleSetKey: 'core' },
   'logRules.rules': { q: null, targetQ: null, ...page },
@@ -285,6 +294,11 @@ const writeSamples: Record<string, Record<string, () => Record<string, unknown>>
   improvement: improvementSamples,
   logExplorer: explorerSamples,
   logLifecycle: lifecycleSamples,
+  logDataset: {
+    baselineApprove: () => ({ id: stageDatasetBaseline(), reason: '적합성 승인' }),
+    suiteRun: () => ({ suiteId: stageDatasetSuiteRun(), idempotencyKey: crypto.randomUUID() }),
+    reviewLabelAdd: () => ({ suiteRunId: '14810000-0000-4000-8000-000000000401', datasetRevisionId: '14810000-0000-4000-8000-000000000101', ruleId: 'R-01', label: 'needs_review', reason: '적합성 검토' }),
+  },
 };
 const actionCases = MOCK_ACTIONS.map(action => {
   const dot = action.spec.id.indexOf('.');

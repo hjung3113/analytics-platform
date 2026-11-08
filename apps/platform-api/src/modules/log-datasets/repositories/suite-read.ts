@@ -36,9 +36,15 @@ export interface SuiteListRow {
   updatedAt: string;
 }
 
-export async function listSuites(tx: Tx, q: ListQuery): Promise<Page<SuiteListRow>> {
+export async function listSuites(tx: Tx, q: ListQuery & { datasetId?: string; actorId: string }): Promise<Page<SuiteListRow>> {
   const text = q.q === null || q.q.trim() === '' ? undefined : `%${escapeLikePattern(q.q.trim())}%`;
-  const where = and(eq(s.workspaceId, q.workspaceId), text ? ilike(s.name, text) : undefined);
+  // Filter before count/page. A private dataset association is visible to its owner only, including for Admin.
+  const datasetFilter = q.datasetId ? sql`exists (
+    select 1 from ${d} where ${d.workspaceId} = ${s.workspaceId} and ${d.id} = ${q.datasetId}::uuid
+    and (${d.shareScope} = 'workspace' or ${d.ownerActorId} = ${q.actorId}::uuid)
+    and ${s.items} @> ${JSON.stringify([{ datasetId: q.datasetId }])}::jsonb
+  )` : undefined;
+  const where = and(eq(s.workspaceId, q.workspaceId), text ? ilike(s.name, text) : undefined, datasetFilter);
   const sortable = { updatedAt: s.updatedAt, name: s.name, createdAt: s.createdAt } as const;
   const creator = alias(actors, 'suite_creator');
   const lastRun = sql<Date | null>`(select max(sr.created_at) from ${suiteRuns} sr where sr.workspace_id = ${s.workspaceId} and sr.suite_id = ${s.id})`;
