@@ -1,22 +1,17 @@
-# Implementation Documentation
+# Core Server Documentation
 
 These documents convert product design into implementation constraints.
 
 ## Required Reading Order
 
-```text
-1. 00-architecture.md
-2. 01-coding-conventions.md
-3. 02-domain-module-boundaries.md
-4. 03-api-contracts.md
-   - Domain contracts are docs/architecture/platform-api/api/*.md.
-5. 04-database-and-migrations.md
-6. 05-permission-policy.md
-   - Check order, audit event verbs, sensitive capabilities, decision endpoints.
-   - The capability matrix and default-user boundary are docs/product/features/09-permission-access.md. Do not duplicate the matrix here.
-7. 06-entity-linking-contract.md
-8. 07-testing-strategy.md
-```
+1. [00-architecture.md](00-architecture.md)
+2. [01-coding-conventions.md](01-coding-conventions.md)
+3. [02-domain-module-boundaries.md](02-domain-module-boundaries.md)
+4. [03-api-contracts.md](03-api-contracts.md). Domain contracts are in [`api/`](api/).
+5. [04-database-and-migrations.md](04-database-and-migrations.md)
+6. [05-permission-policy.md](05-permission-policy.md): check order, audit event verbs, sensitive capabilities, decision endpoints. The capability matrix and default-user boundary are in [09-permission-access.md](../../product/features/09-permission-access.md); link to it instead of repeating the matrix here.
+7. [06-entity-linking-contract.md](06-entity-linking-contract.md)
+8. [07-testing-strategy.md](07-testing-strategy.md)
 
 ## Implementation Gates
 

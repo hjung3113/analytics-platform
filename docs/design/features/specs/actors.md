@@ -40,7 +40,6 @@ The normative query and response contract is [Workspace actors](../../../archite
 
 ## Drift guards
 
-- Forward drift (BE→proxy): `apps/feature-screens/src/__tests__/vite-proxy-completeness.test.ts`.
 - Reverse drift (FE→BE): `apps/platform-api/src/__tests__/fe-call-endpoints-exist.test.ts`.
 
 Both discover backend routes by reading source, and both must parse **either**

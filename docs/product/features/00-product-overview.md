@@ -100,7 +100,7 @@ Implementation agents should read these required documents in order:
 9. docs/architecture/platform-api/README.md
 10. The target system document
 11. 09-permission-access.md
-12. 13-mvp-roadmap.md (release phases, MVP success flow, explicit MVP exclusions)
+12. history/13-mvp-roadmap.md (release phases, MVP success flow, explicit MVP exclusions)
 ```
 
 Reference and draft documents:
@@ -110,8 +110,8 @@ Reference and draft documents:
 - 15-data-contracts.md: field and enum authority (not superseded by migrations; see docs/product/features/README.md).
 ```
 
-Implementation-facing decisions live in `docs/implementation`.
-Frontend route, component, and interaction contracts live in `docs/frontend`.
+Implementation-facing decisions live in `docs/architecture/platform-api`.
+Frontend route, component, and interaction contracts live in `docs/design/features`.
 
 ## Non-Negotiable Interpretation Rules
 

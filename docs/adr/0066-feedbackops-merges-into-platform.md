@@ -1,6 +1,6 @@
 # FeedbackOps를 플랫폼에 합친다: 모두가 쓰는 기능은 플랫폼 전역, 운영 화면은 업무 시스템 하나, 서버는 FeedbackOps 백엔드에서 출발
 
-상태: **Decided (2026-10-21)** — 방향. 세부 계약은 [합류 설계](../integration/feedbackops-merge-design.md)(Candidate)와 그 Open 항목.
+상태: **Decided (2026-10-21)** — 방향. 세부 계약은 [합류 설계](../integration/history/feedbackops-merge-design.md)(Candidate)와 그 Open 항목.
 - 상태 보충: 부분 대체 — 역할 이름 통합·별칭 없음 원칙은 [ADR-0097](0097-platform-features-and-role-based-names.md)이 개정한다(옛 FeedbackOps 이름·진입 링크 부분).
 - 결정자: 사용자 — "플랫폼으로 들어갈 기능은 VOC, 공지, 권한 관리(이건 이제 플랫폼 내부 시스템 단위까지 확장), 설문 … 관리자나 개발자만 보면 되는 메뉴들은 별도 시스템으로 플랫폼에 추가", "플랫폼에 합치고 한번에 하는 게 오히려 빠른 길 아닌가", "방향 자체는 동의함"(2026-10-21).
 - Supersedes: [ADR-0027](0027-feedbackops-stays-standalone-entry-links.md)(화면은 옮기지 않고 링크만), [ADR-0038](0038-host-module-contract-and-feedbackops-mounting.md)(한 원본·두 호스트, Proposed였음). [ADR-0045](0045-feedbackops-entry-link-mapping-and-scope.md)의 진입 링크는 합류 단계 4까지 그대로 쓴다.
@@ -39,7 +39,7 @@ ADR-0027은 FeedbackOps를 독립 앱으로 두고 업무 공간에서 새 탭 �
 
 ## 결과
 
-- 단계와 Open 항목은 [합류 설계](../integration/feedbackops-merge-design.md) §6·§7이 소유한다. 단계 이슈: [#592](https://github.com/hjung3113/analytics-platform/issues/592) 저장소, [#593](https://github.com/hjung3113/analytics-platform/issues/593) 실서버, [#594](https://github.com/hjung3113/analytics-platform/issues/594) 전역 기능, [#595](https://github.com/hjung3113/analytics-platform/issues/595) 피드백 운영 시스템, [#596](https://github.com/hjung3113/analytics-platform/issues/596) 권한 결정, [#597](https://github.com/hjung3113/analytics-platform/issues/597) 독립 앱 은퇴.
+- 단계와 Open 항목은 [합류 설계](../integration/history/feedbackops-merge-design.md) §6·§7이 소유한다. 단계 이슈: [#592](https://github.com/hjung3113/analytics-platform/issues/592) 저장소, [#593](https://github.com/hjung3113/analytics-platform/issues/593) 실서버, [#594](https://github.com/hjung3113/analytics-platform/issues/594) 전역 기능, [#595](https://github.com/hjung3113/analytics-platform/issues/595) 피드백 운영 시스템, [#596](https://github.com/hjung3113/analytics-platform/issues/596) 권한 결정, [#597](https://github.com/hjung3113/analytics-platform/issues/597) 독립 앱 은퇴.
 - M5 FeedbackOps 2단계(지도 #213)는 이 결정으로 대체된다. M3의 1단계 읽기 화면 이슈(#84–#86)는 #594에 흡수된다.
 - 호스트 → 모듈 계약(ADR-0053, #402)은 equipment-visualization과 사내 새 앱을 위해 그대로 둔다. FeedbackOps는 그 계약의 소비자가 아니다.
 - 화면 모양이 바뀌는 단계(#594·#595)는 루트 AGENTS의 `?variant=` 시안 컨펌을 먼저 받는다.

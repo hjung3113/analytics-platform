@@ -1,5 +1,7 @@
 # #740 canonical link and audit read cutover
 
+> **Historical record.** This cutover shipped in v1.0.0. Current behavior is owned by the core-server contracts in [`docs/architecture/platform-api/`](../README.md).
+
 FO ADR-0064 item 2 is implemented in journaled `0064_canonical_read_boundary.sql`
 plus its Drizzle-generated snapshot, applied after 0058 Permission revisions, 0059
 Survey provenance, 0060 responsibility defaults, 0061 Coverage, 0062 Cluster

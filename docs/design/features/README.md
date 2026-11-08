@@ -1,40 +1,29 @@
-# Frontend Documentation
+# Feature Screen Documentation
 
 Frontend docs translate product intent into implementable UI contracts. Since #597, `@ap/feature-screens` is a screen library mounted by the platform; it has no standalone Vite app, file-route tree, login shell, deployable frontend image, or visual runner. Its 36 public entries and feature behavior remain. The platform supplies navigation, session, permissions, notifications and detail hosting through the bridge. Tests use screen/bridge hosts; route generation is retired.
 
-Surface specs live under `docs/design/features/specs/`:
+Surface specs:
 
-- `docs/design/features/specs/voc.md`: as-built VOC surface spec. API authority is `docs/architecture/platform-api/api/voc.md`.
-- `docs/design/features/specs/actors.md`: the general `GET /actors` workspace identity list contract. Triage owner candidates follow `docs/architecture/platform-api/api/voc.md`.
+- [`specs/voc.md`](specs/voc.md): as-built VOC surface spec. API authority is [`api/voc.md`](../../architecture/platform-api/api/voc.md).
+- [`specs/actors.md`](specs/actors.md): the general `GET /actors` workspace identity list contract. Triage owner candidates follow [`api/voc.md`](../../architecture/platform-api/api/voc.md).
 
-- `docs/design/features/improvement-items.md`: Design for the improvement item platform feature (implemented except the node f editable table) (#1328, ADR-0106 amendment 2).
-- `docs/design/features/log-rules/README.md`: Design for read-only validation rule catalog and spec-requirement coverage links (`logRules`) — v0.31.0, not implemented (#1486, ADR-0122).
-- `docs/design/features/log-explorer/README.md`: Design for the general log explorer workbench (source read port, sequence piece, token/export, evidence handoff) — v0.31.0, not implemented (#1344, ADR-0119, ADR-0121).
-- `docs/design/features/log-test-datasets/README.md`: Design for reusable log test datasets and expected baselines with regression comparison — v0.31.0, not implemented (#1345, ADR-0120).
+Feature designs (implementation status is at the top of each document):
+
+- [`improvement-items.md`](improvement-items.md): improvement item platform feature (#1328, ADR-0106 amendment 2).
+- [`log-rules/README.md`](log-rules/README.md): read-only validation rule catalog and spec-requirement coverage links (`logRules`) (#1486, ADR-0122).
+- [`log-explorer/README.md`](log-explorer/README.md): general log explorer workbench (source read port, sequence piece, token/export, evidence handoff) (#1344, ADR-0119, ADR-0121).
+- [`log-test-datasets/README.md`](log-test-datasets/README.md): reusable log test datasets and expected baselines with regression comparison (#1345, ADR-0120).
 
 The current user-facing text guide is [Feature manual](../../user-guide/features/manual.md). Historical interactive guides and captures are retained as history; they do not require synchronized new captures for this release.
 
 ## Precedence
 
-```text
-1. docs/design/features/routes-and-layout.md
-   Owns semantic screen URL state, list/detail behavior and panel behavior; actual mounted URLs and navigation belong to platform menus and the bridge.
-
-2. docs/design/features/ui-design-system.md
-   Owns reusable component patterns, state contracts, screen mapping, responsive behavior, and accessibility.
-
-3. docs/design/features/component-inventory.md
-   Owns implementation component inventory, variants, and required states.
-
-4. docs/design/features/interaction-patterns.md
-   Owns workflow-level UX state machines, cross-system creation flows, and permission UX.
-
-5. docs/product/features/12-ui-ux-principles.md
-   Owns product UI intent and traceability to requirements.
-
-6. docs/architecture/platform-api/tech-stack/component-stack.md
-   Owns approved frontend library stack and third-party component intake rules.
-```
+1. [routes-and-layout.md](routes-and-layout.md) owns semantic screen URL state, list/detail behavior and panel behavior; actual mounted URLs and navigation belong to platform menus and the bridge.
+2. [ui-design-system.md](ui-design-system.md) owns reusable component patterns, state contracts, screen mapping, responsive behavior, and accessibility.
+3. [component-inventory.md](component-inventory.md) owns implementation component inventory, variants, and required states.
+4. [interaction-patterns.md](interaction-patterns.md) owns workflow-level UX state machines, cross-system creation flows, and permission UX.
+5. [12-ui-ux-principles.md](../../product/features/12-ui-ux-principles.md) owns product UI intent and traceability to requirements.
+6. [component-stack.md](../../architecture/platform-api/tech-stack/component-stack.md) owns approved frontend library stack and third-party component intake rules.
 
 ## Visual Input
 

@@ -1,14 +1,16 @@
 # FeedbackOps 합류 설계 — 전역 기능 + 피드백 운영 업무 시스템, 서버는 FeedbackOps 백엔드에서 출발
 
-#597 implementation: the standalone runtime, routes, frontend image, outbound helpers and external return allowlist are retired. The retained 36 screen entries mount through the platform bridge. Backend/infra release validation remains. No #151 deployment prerequisite or parallel operation blocks this retirement; external repository archive belongs to the lead. Names remain unchanged until #1098/#1099/#1100. Historical migration stages below are context; current link authority is [platform-inbound-links.md](platform-inbound-links.md).
+> **과거 기록.** ADR-0097로 FeedbackOps 제품명과 `피드백 운영` 업무 시스템은 폐기됐고, #597에서 독립 앱이 은퇴했다. 현행 구조는 [저장소 구조](../repository-layout.md)다. 아래의 상태·경로·단계는 당시 기준이다.
 
-> 상태: 방향은 **Decided**([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), 사용자 2026-10-21). 이 문서의 배치표·단계·서버 대응표는 **Candidate**, §7은 **Open**이다. 지도 [#598](https://github.com/hjung3113/analytics-platform/issues/598), 마일스톤 `M6 FeedbackOps 합류`.
+#597 implementation: the standalone runtime, routes, frontend image, outbound helpers and external return allowlist are retired. The retained 36 screen entries mount through the platform bridge. Backend/infra release validation remains. No #151 deployment prerequisite or parallel operation blocks this retirement; external repository archive belongs to the lead. Names remain unchanged until #1098/#1099/#1100. Historical migration stages below are context; current link authority is [platform-inbound-links.md](../platform-inbound-links.md).
+
+> 상태: 방향은 **Decided**([ADR-0066](../../adr/0066-feedbackops-merges-into-platform.md), 사용자 2026-10-21). 이 문서의 배치표·단계·서버 대응표는 **Candidate**, §7은 **Open**이다. 지도 [#598](https://github.com/hjung3113/analytics-platform/issues/598), 마일스톤 `M6 FeedbackOps 합류`.
 >
-> 이 문서는 [플랫폼 탑재 설계](platform-hosting-design.md)의 FeedbackOps 부분(한 원본·두 호스트)을 대체한다. 그 문서의 호스트 → 모듈 계약은 equipment-visualization과 사내 새 앱을 위해 유효하다([ADR-0053](../adr/0053-host-module-contract-v1.md)).
+> 이 문서는 [플랫폼 탑재 설계](../platform-hosting-design.md)의 FeedbackOps 부분(한 원본·두 호스트)을 대체한다. 그 문서의 호스트 → 모듈 계약은 equipment-visualization과 사내 새 앱을 위해 유효하다([ADR-0053](../../adr/0053-host-module-contract-v1.md)).
 
 ## 1. 목표와 범위
 
-FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하나(코어 Fastify + 내부 분석 FastAPI, [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md))로 합친다. 사용자는 플랫폼 셸 안에서 VOC를 남기고 설문에 답하고, 관리자·개발자는 같은 셸의 업무 시스템에서 Triage → Finding → Task 흐름을 다룬다. 독립 FeedbackOps 앱은 합류가 끝나면 은퇴한다.
+FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하나(코어 Fastify + 내부 분석 FastAPI, [ADR-0095](../../adr/0095-dual-backend-fastify-core-fastapi-analytics.md))로 합친다. 사용자는 플랫폼 셸 안에서 VOC를 남기고 설문에 답하고, 관리자·개발자는 같은 셸의 업무 시스템에서 Triage → Finding → Task 흐름을 다룬다. 독립 FeedbackOps 앱은 합류가 끝나면 은퇴한다.
 
 범위 밖: FeedbackOps 도메인 규칙 변경, 화면 재설계. 옮긴 뒤 화면 모양이 바뀌는 부분(셸 배치, 전역 진입)만 시안 컨펌을 받는다.
 
@@ -22,17 +24,17 @@ FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하�
    - 시스템 간 이력의 원본은 `entity_links`다.
    - Task Request가 검토 전 실행 후보로부터 Task 백로그를 지킨다.
    - 대시보드는 차트 보고가 아니라 액션 큐다.
-4. **서버 계약 + 선택해서 쓰는 참조 구현**([ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md)). 계약 산출물·적합성 준수는 필수이고 참조 구현 채택은 선택이다. 플랫폼 실서버 구현은 FeedbackOps 백엔드에서 출발한다.
+4. **서버 계약 + 선택해서 쓰는 참조 구현**([ADR-0096](../../adr/0096-contract-schemas-zod-source-and-reference-implementations.md)). 계약 산출물·적합성 준수는 필수이고 참조 구현 채택은 선택이다. 플랫폼 실서버 구현은 FeedbackOps 백엔드에서 출발한다.
 
 ## 3. 기능 배치 (Candidate)
 
 ### 3.1 플랫폼 전역 기능 — 모든 사용자
 
-공간 밖 전역 유틸리티 자리([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md))에 둔다. 이슈 [#594](https://github.com/hjung3113/analytics-platform/issues/594). 화면 배치는 Decided([ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md)): 전역 화면은 플랫폼 사이드바(`홈` / `내 활동` / `공지`), 업무 시스템 안은 전환기 팝오버의 `플랫폼 메뉴` 구역.
+공간 밖 전역 유틸리티 자리([ADR-0028](../../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md))에 둔다. 이슈 [#594](https://github.com/hjung3113/analytics-platform/issues/594). 화면 배치는 Decided([ADR-0070](../../adr/0070-global-features-platform-menu-and-voc-drawer.md)): 전역 화면은 플랫폼 사이드바(`홈` / `내 활동` / `공지`), 업무 시스템 안은 전환기 팝오버의 `플랫폼 메뉴` 구역.
 
 | 기능 | 지금 FeedbackOps | 플랫폼에서 |
 | --- | --- | --- |
-| VOC 등록 | `/vocs` 생성 폼 | 레일 `VOC 등록` → 오른쪽 도킹 드로어(본문을 밀어냄). 열 때 지금 메뉴·Context를 지울 수 있는 칩으로 고정하고, 제출하면 남은 칩이 설명 끝 `화면 정보` 블록(항목 목록 + `화면 열기` 링크)이 된다([ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md) 개정). Managed System은 앱 표(`managedSystemFor`)의 값이 FeedbackOps 목록에 있을 때만 미리 고르고, Analytics Area는 연결이 없어 비워 직접 고른다. 본문은 신고자 관점 작성 화면 `VocComposeScreen`(유사 VOC·신고자 카드 없음, #656). 오른쪽 패널은 하나(ADR-0070) |
+| VOC 등록 | `/vocs` 생성 폼 | 레일 `VOC 등록` → 오른쪽 도킹 드로어(본문을 밀어냄). 열 때 지금 메뉴·Context를 지울 수 있는 칩으로 고정하고, 제출하면 남은 칩이 설명 끝 `화면 정보` 블록(항목 목록 + `화면 열기` 링크)이 된다([ADR-0045](../../adr/0045-feedbackops-entry-link-mapping-and-scope.md) 개정). Managed System은 앱 표(`managedSystemFor`)의 값이 FeedbackOps 목록에 있을 때만 미리 고르고, Analytics Area는 연결이 없어 비워 직접 고른다. 본문은 신고자 관점 작성 화면 `VocComposeScreen`(유사 VOC·신고자 카드 없음, #656). 오른쪽 패널은 하나(ADR-0070) |
 | 내 VOC·신고자 VOC 상세 | `/vocs` 내 VOC 탭·상세 | 전역 `내 VOC`(1단계 읽기 화면 대체, M3 #84–#86). 플랫폼 경로 `/voc`(목록 + 셸 상세 패널)·`/voc/:vocId`(전체 화면), 읽기 전용(#654) |
 | 설문 참여·응답 | `/surveys/participate`, `/surveys/$id/respond` | 전역 `설문` 전체 페이지(플랫폼 경로 `/surveys`·`/surveys/:surveyId/respond`, #653). 알림·홈·플랫폼 메뉴에서 진입, 제출 뒤 출발 화면으로 복귀, VOC를 만들지 않음(ADR-0070) |
 | 알림함 | 알림 모듈(신고자 알림, Slice 65) | 레일 알림 종(읽지 않은 수 배지) → 팝오버 → `모두 보기` 알림 페이지. VOC 상태 변경·권한 결정(설문 요청 알림은 FeedbackOps에 아직 없다 — 백로그). 읽음은 설문 완료와 별개(ADR-0070) |
@@ -42,7 +44,7 @@ FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하�
 
 ### 3.2 `피드백 운영` 업무 시스템 — 관리자·개발자
 
-시스템 전환기의 업무 시스템 하나([ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)). 틀은 **Decided: [ADR-0081](../adr/0081-feedbackops-operator-screens-platform-frame.md)**(이름 `FeedbackOps`·부제 `피드백 운영`, 레일 순서 `대시보드` · `VOC` · `Findings` · `Tasks` · `연동` · `Surveys` · `관리자`, 사이드바 `목록 범위`, 한 줄 머리). **구현됨(#759, #760, #761, #762, #763, #764):** 공간·`대시보드` 섹션·`목록 범위`·`VOC`의 `수신함`/`Triage`/`Clusters`(`/feedbackops/vocs`·`/feedbackops/triage`·`/feedbackops/clusters`, 선택은 `focus`)와 사이드바 보기·개수·저장된 보기, 다른 시스템 바닥 블록의 셸 안 이동·`Tasks` 그룹의 `Task Requests`·`Tasks`(보드)·`내 Task`·`Milestones`·숨은 `Task 목록`(`/feedbackops/task-requests`·`/feedbackops/tasks`·`/feedbackops/my-tasks`·`/feedbackops/milestones`·`/feedbackops/tasks/list`, 선택은 `focus`); `Findings` 그룹의 `전체 Finding`(`/feedbackops/findings`, 선택은 `focus`); `연동` 그룹의 `연동 액션 대시보드`·`Evidence`·`엔티티 링크`·`커버리지`(`/feedbackops/integration`·`/feedbackops/evidence`·`/feedbackops/entity-links`·`/feedbackops/coverage`, 선택은 `focus`); `Surveys` 그룹의 `Survey 관리`(`/feedbackops/surveys`, 선택은 `focus`)와 숨은 `Survey 빌더`·`Survey 결과`·`Survey 후속 조치`(`/feedbackops/surveys/:surveyId/builder|results|follow-up`); `관리자` 그룹의 `Managed System`·`Analytics Area`·`권한 요청 검토`·`부여 목록`·`FeedbackOps 설정`(`/feedbackops/managed-systems`·`/feedbackops/analytics-areas`·`/feedbackops/permission-requests`·`/feedbackops/permission-grants`·`/feedbackops/settings`, 권한 `console:access`, `목록 범위` 끔)와 사용자 메뉴 `FeedbackOps 전체` 링크 제거(#764 p2). 아래 표의 메뉴 열은 원본 기준이고, 신고자 항목과 `연동 › Findings` 중복은 뺀다. 레일 섹션과 메뉴는 지금 FeedbackOps 레일·사이드바(`NAV_TREE`)를 출발점으로 한다. 이슈 [#595](https://github.com/hjung3113/analytics-platform/issues/595). (위 `/feedbackops/…` 주소는 manifest `path`에 등록한 별칭이고 정규 URL은 `/feedbackops/<메뉴 id>`다 — 표는 `menus/AGENTS.md`).
+시스템 전환기의 업무 시스템 하나([ADR-0042](../../adr/0042-system-switcher-and-system-owned-rail.md)). 틀은 **Decided: [ADR-0081](../../adr/0081-feedbackops-operator-screens-platform-frame.md)**(이름 `FeedbackOps`·부제 `피드백 운영`, 레일 순서 `대시보드` · `VOC` · `Findings` · `Tasks` · `연동` · `Surveys` · `관리자`, 사이드바 `목록 범위`, 한 줄 머리). **구현됨(#759, #760, #761, #762, #763, #764):** 공간·`대시보드` 섹션·`목록 범위`·`VOC`의 `수신함`/`Triage`/`Clusters`(`/feedbackops/vocs`·`/feedbackops/triage`·`/feedbackops/clusters`, 선택은 `focus`)와 사이드바 보기·개수·저장된 보기, 다른 시스템 바닥 블록의 셸 안 이동·`Tasks` 그룹의 `Task Requests`·`Tasks`(보드)·`내 Task`·`Milestones`·숨은 `Task 목록`(`/feedbackops/task-requests`·`/feedbackops/tasks`·`/feedbackops/my-tasks`·`/feedbackops/milestones`·`/feedbackops/tasks/list`, 선택은 `focus`); `Findings` 그룹의 `전체 Finding`(`/feedbackops/findings`, 선택은 `focus`); `연동` 그룹의 `연동 액션 대시보드`·`Evidence`·`엔티티 링크`·`커버리지`(`/feedbackops/integration`·`/feedbackops/evidence`·`/feedbackops/entity-links`·`/feedbackops/coverage`, 선택은 `focus`); `Surveys` 그룹의 `Survey 관리`(`/feedbackops/surveys`, 선택은 `focus`)와 숨은 `Survey 빌더`·`Survey 결과`·`Survey 후속 조치`(`/feedbackops/surveys/:surveyId/builder|results|follow-up`); `관리자` 그룹의 `Managed System`·`Analytics Area`·`권한 요청 검토`·`부여 목록`·`FeedbackOps 설정`(`/feedbackops/managed-systems`·`/feedbackops/analytics-areas`·`/feedbackops/permission-requests`·`/feedbackops/permission-grants`·`/feedbackops/settings`, 권한 `console:access`, `목록 범위` 끔)와 사용자 메뉴 `FeedbackOps 전체` 링크 제거(#764 p2). 아래 표의 메뉴 열은 원본 기준이고, 신고자 항목과 `연동 › Findings` 중복은 뺀다. 레일 섹션과 메뉴는 지금 FeedbackOps 레일·사이드바(`NAV_TREE`)를 출발점으로 한다. 이슈 [#595](https://github.com/hjung3113/analytics-platform/issues/595). (위 `/feedbackops/…` 주소는 manifest `path`에 등록한 별칭이고 정규 URL은 `/feedbackops/<메뉴 id>`다 — 표는 `menus/AGENTS.md`).
 
 | 레일 섹션(Decided, ADR-0081) | 메뉴 | 지금 FeedbackOps 경로 |
 | --- | --- | --- |
@@ -54,9 +56,9 @@ FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하�
 | Surveys | Survey 관리(빌더·결과·후속 조치) | `/surveys`, `/surveys/$id/results`, `/follow-up` |
 | 관리자 | Managed System·Analytics Area·권한 요청 검토·부여 목록·FeedbackOps 설정 | `/admin/*` |
 
-다른 업무 공간 사이드바의 FeedbackOps 블록([ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md))은 새 탭 링크에서 셸 안 이동 + 업무 시스템 미리 채움 + 복귀로 바뀐다(구현 안 함 — #595). `VOC 등록` 항목은 블록에서 빠지고 레일로 간다([ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md)).
+다른 업무 공간 사이드바의 FeedbackOps 블록([ADR-0045](../../adr/0045-feedbackops-entry-link-mapping-and-scope.md))은 새 탭 링크에서 셸 안 이동 + 업무 시스템 미리 채움 + 복귀로 바뀐다(구현 안 함 — #595). `VOC 등록` 항목은 블록에서 빠지고 레일로 간다([ADR-0070](../../adr/0070-global-features-platform-menu-and-voc-drawer.md)).
 
-### 3.3 권한·레지스트리 관리 — Decided ([ADR-0068](../adr/0068-permission-scope-and-business-system-link.md))
+### 3.3 권한·레지스트리 관리 — Decided ([ADR-0068](../../adr/0068-permission-scope-and-business-system-link.md))
 
 - **최종 위치:**
   - 운영 콘솔: 권한 요청 승인, 부여·거부 목록
@@ -66,7 +68,7 @@ FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하�
 
 ## 4. 서버 출발점 (Candidate)
 
-플랫폼 앱은 서버를 `PlatformAdapter` 하나로 만난다([실서버 체크리스트](real-server-checklist.md) §1). 실어댑터 조립(#154)이 FeedbackOps 백엔드를 가리키게 하고, 백엔드가 [HTTP 어댑터 계약](http-adapter-contract.md)의 공통 부분을 구현한다. 이슈 [#593](https://github.com/hjung3113/analytics-platform/issues/593).
+플랫폼 앱은 서버를 `PlatformAdapter` 하나로 만난다([실서버 체크리스트](../real-server-checklist.md) §1). 실어댑터 조립(#154)이 FeedbackOps 백엔드를 가리키게 하고, 백엔드가 [HTTP 어댑터 계약](../http-adapter-contract.md)의 공통 부분을 구현한다. 이슈 [#593](https://github.com/hjung3113/analytics-platform/issues/593).
 
 아래 차이표는 FeedbackOps `develop` `c73c55c5`와 플랫폼 `main` `5b92ab8`를 읽고 만들었다(2026-10-21, 코드는 실행하지 않음). FeedbackOps 경로는 `apps/backend/src/` 기준이다. 지금은 `apps/platform-api/src/`처럼 `apps/{platform-api,feature-screens}`·`packages/feature-*` 아래에 있다. 줄 번호는 그 커밋 기준이다.
 
@@ -85,7 +87,7 @@ FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하�
 
 | 항목 | 분류 | FeedbackOps 근거 | 차이·할 일 |
 | --- | --- | --- | --- |
-| 경로 접두사 `/api/v1/platform/...` | 모양만 다름 | 모든 route가 접두사 없이 루트에 붙는다(`server.ts:389-926`). dev proxy는 화면 경로와 겹치는 `/vocs` 등을 Accept 헤더로 구분한다(`apps/frontend/vite.config.ts:28-60`) | 플랫폼 포트는 `/api/v1/platform`에 새로 등록한다. 기존 경로는 옮기지 않는다 — 플랫폼 앞단이 `/api/features`를 떼어 보낸다([ADR-0071](../adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md), O13) |
+| 경로 접두사 `/api/v1/platform/...` | 모양만 다름 | 모든 route가 접두사 없이 루트에 붙는다(`server.ts:389-926`). dev proxy는 화면 경로와 겹치는 `/vocs` 등을 Accept 헤더로 구분한다(`apps/frontend/vite.config.ts:28-60`) | 플랫폼 포트는 `/api/v1/platform`에 새로 등록한다. 기존 경로는 옮기지 않는다 — 플랫폼 앞단이 `/api/features`를 떼어 보낸다([ADR-0071](../../adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md), O13) |
 | JSON 필드 이름 | 모양만 다름 | snake_case(`modules/auth/routes.ts:221-231`) | 플랫폼 포트는 `@ap/contracts`의 camelCase로 답한다 |
 | 요청 검증 | 모양만 다름 | zod `.strict()`. 실패하면 422 `validation.failed`(`lib/http-error-handler.ts:50-58`) | 계약 §2는 envelope 메서드면 200 + `error`, fire-and-forget이면 200 + `accepted: 0/false`다. 플랫폼 경로에는 별도 처리기가 필요하다 |
 | 오류 envelope·코드 | 모양만 다름 | ADR-0012 상태 코드 + `{code, message, detail}`(`lib/errors.ts:9-27`). 오류 처리기는 루트에 하나다(`server.ts:345`) | 플랫폼은 권한 거부도 200 + `outcome`이다. 한 서버에 두 규약이 생긴다(O12) |
@@ -160,9 +162,9 @@ FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하�
 - **역할 원천**
   - FeedbackOps는 역할을 손으로 올리고, IdP 그룹 매핑은 하지 않는다고 정했다(FO ADR-0006).
   - 플랫폼은 IdP 그룹 claim 사양을 기다린다(#98, O2).
-  - 부여 체계·역할 모델 통합은 §5의 [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md) 결정이다. 실제 IdP 입력은 #98, 분석 site·site_room 부여 설계는 #1087로 구분한다.
+  - 부여 체계·역할 모델 통합은 §5의 [ADR-0068](../../adr/0068-permission-scope-and-business-system-link.md) 결정이다. 실제 IdP 입력은 #98, 분석 site·site_room 부여 설계는 #1087로 구분한다.
 
-## 5. 권한·업무 시스템 통합 (Decided, [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md))
+## 5. 권한·업무 시스템 통합 (Decided, [ADR-0068](../../adr/0068-permission-scope-and-business-system-link.md))
 
 - **부여 체계는 FeedbackOps 것 하나다.**
   - Role Level은 유지하고, 플랫폼 권한은 FeedbackOps Capability 어휘로 합친다. `@ap/contracts` `KERNEL_PERMISSIONS`와는 계약 테스트로 묶는다(앱이 선언한 메뉴 권한은 FeedbackOps가 부여하지 않으므로 표에 없다, ADR-0072).
@@ -191,24 +193,24 @@ FeedbackOps를 플랫폼 앱 하나·공개 서버 입구 하나·저장소 하�
 | ID | 질문 | 영향 |
 | --- | --- | --- |
 | O2 | 역할 소속 원천의 실제 IdP 입력 | 부여 체계·역할 모델 통합은 §5 ADR-0068로 Decided. IdP 그룹 claim 입력은 #98·#150 |
-| O3 | Managed System ↔ 업무 시스템 관계 | **Decided: §5 [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md)** — 레지스트리는 둘이고 연결 표로 잇는다 |
-| O4 | 분석 메뉴 데이터 엔드포인트를 같은 서버에 두나, 사내 별도 서버로 두나 | #593 범위 밖. 데이터 원천은 `context_recognized_parser` 적재 DB — **Decided: FastAPI 분석 데이터 서버를 Fastify 뒤 내부에 둔다, [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md)** |
-| O5 | 라우팅 이전: TanStack Router 화면을 Kernel Registry·`PlatformLocation`으로. 잘못된 search 값 처리(FeedbackOps는 버림, 플랫폼은 거부·보존) | #594·#595 — **Decided: [ADR-0071](../adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md)** 결정 1·9(#594 범위; #595는 같은 규칙) |
+| O3 | Managed System ↔ 업무 시스템 관계 | **Decided: §5 [ADR-0068](../../adr/0068-permission-scope-and-business-system-link.md)** — 레지스트리는 둘이고 연결 표로 잇는다 |
+| O4 | 분석 메뉴 데이터 엔드포인트를 같은 서버에 두나, 사내 별도 서버로 두나 | #593 범위 밖. 데이터 원천은 `context_recognized_parser` 적재 DB — **Decided: FastAPI 분석 데이터 서버를 Fastify 뒤 내부에 둔다, [ADR-0095](../../adr/0095-dual-backend-fastify-core-fastapi-analytics.md)** |
+| O5 | 라우팅 이전: TanStack Router 화면을 Kernel Registry·`PlatformLocation`으로. 잘못된 search 값 처리(FeedbackOps는 버림, 플랫폼은 거부·보존) | #594·#595 — **Decided: [ADR-0071](../../adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md)** 결정 1·9(#594 범위; #595는 같은 규칙) |
 | O6 | FeedbackOps git 이력 보존 방식(subtree 병합 권장) | #592 |
-| O7 | 업무 시스템 이름(`피드백 운영` Candidate) | #595 시안 — **Decided: [ADR-0081](../adr/0081-feedbackops-operator-screens-platform-frame.md)** 결정 1(`FeedbackOps`, 부제 `피드백 운영`) |
+| O7 | 업무 시스템 이름(`피드백 운영` Candidate) | #595 시안 — **Decided: [ADR-0081](../../adr/0081-feedbackops-operator-screens-platform-frame.md)** 결정 1(`FeedbackOps`, 부제 `피드백 운영`) |
 | O8 | 린터(Biome·ESLint)·테스트 설정·비주얼 하니스(darwin 전용)·백엔드 통합 테스트 DB를 이 저장소 CI에 넣는 방식 | #592 |
-| O9 | 권한 이름 매핑: FeedbackOps capability(점 표기, Managed System 범위)를 `Session.user.permissions`·`AccessPrincipal.permissions`에 어떻게 싣나. `console:access`의 원천(`workspace.admin` 또는 새 capability) | #596 질문 2, 06 §17 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 7** |
-| O10 | 분석 데이터 서버가 없는 동안(O4) 부트스트랩 필수 필드 `publishedMetrics`·`defaultRangeTo`를 무엇으로 채우나(빈 배열·서버 시계) | #593 임시 결정, [HTTP 어댑터 계약](http-adapter-contract.md) §3 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 8** |
-| O11 | `Session.scopes`와 site·room 부여를 어디에 저장하나(FeedbackOps DB의 새 표 또는 별도 meta DB). Scope(site)와 Managed System이라는 두 범위 용어 | #596 질문 1(O3), #98, O4 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 8(임시)** |
-| O12 | 한 서버의 두 오류 규약: 플랫폼 경로는 200 envelope, FeedbackOps 경로는 FO ADR-0012. 오류 처리기를 경로별로 나눌지. 413을 422로 바꾸는 동작. 전송 계약의 FastAPI 문구를 Fastify 기준으로 고치기 | #593, HTTP 어댑터 계약 §2 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 2(일부)** |
-| O13 | FeedbackOps API를 `/api/v1/feedbackops/...`로 옮길지(화면 경로 `/vocs` 등과의 충돌 제거) | #593, #597(옛 URL) — **Decided: [ADR-0071](../adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md)** 결정 3(ADR-0069 결정 3 갱신) |
-| O14 | CSRF 토큰을 플랫폼 경로에만 걸지, FeedbackOps 변경 경로 전체에 걸지. 같은 출처가 되면 SameSite만으로 충분한지 | #593, #150, HTTP 어댑터 계약 §10 Q8 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 4** |
+| O9 | 권한 이름 매핑: FeedbackOps capability(점 표기, Managed System 범위)를 `Session.user.permissions`·`AccessPrincipal.permissions`에 어떻게 싣나. `console:access`의 원천(`workspace.admin` 또는 새 capability) | #596 질문 2, 06 §17 — **Decided: [ADR-0069](../../adr/0069-platform-port-in-feedbackops-backend.md) 결정 7** |
+| O10 | 분석 데이터 서버가 없는 동안(O4) 부트스트랩 필수 필드 `publishedMetrics`·`defaultRangeTo`를 무엇으로 채우나(빈 배열·서버 시계) | #593 임시 결정, [HTTP 어댑터 계약](../http-adapter-contract.md) §3 — **Decided: [ADR-0069](../../adr/0069-platform-port-in-feedbackops-backend.md) 결정 8** |
+| O11 | `Session.scopes`와 site·room 부여를 어디에 저장하나(FeedbackOps DB의 새 표 또는 별도 meta DB). Scope(site)와 Managed System이라는 두 범위 용어 | #596 질문 1(O3), #98, O4 — **Decided: [ADR-0069](../../adr/0069-platform-port-in-feedbackops-backend.md) 결정 8(임시)** |
+| O12 | 한 서버의 두 오류 규약: 플랫폼 경로는 200 envelope, FeedbackOps 경로는 FO ADR-0012. 오류 처리기를 경로별로 나눌지. 413을 422로 바꾸는 동작. 전송 계약의 FastAPI 문구를 Fastify 기준으로 고치기 | #593, HTTP 어댑터 계약 §2 — **Decided: [ADR-0069](../../adr/0069-platform-port-in-feedbackops-backend.md) 결정 2(일부)** |
+| O13 | FeedbackOps API를 `/api/v1/feedbackops/...`로 옮길지(화면 경로 `/vocs` 등과의 충돌 제거) | #593, #597(옛 URL) — **Decided: [ADR-0071](../../adr/0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md)** 결정 3(ADR-0069 결정 3 갱신) |
+| O14 | CSRF 토큰을 플랫폼 경로에만 걸지, FeedbackOps 변경 경로 전체에 걸지. 같은 출처가 되면 SameSite만으로 충분한지 | #593, #150, HTTP 어댑터 계약 §10 Q8 — **Decided: [ADR-0069](../../adr/0069-platform-port-in-feedbackops-backend.md) 결정 4** |
 | O15 | rate limit: 5분 폴링·위젯 여럿·`recordUsage`가 Actor 100/분, read 300/분 안에 드는지, 플랫폼 경로 묶음을 새로 둘지 | #593 측정 |
-| O16 | 감사 읽기 노출 범위: FeedbackOps event → `AuditAction` 매핑, `console:access`가 볼 detail의 범위(사유·설문·이메일), `subject_id` text 전환·`scope_id` 추가 migration | #593 + FeedbackOps 개인정보 규칙(FO ADR-0033·0066), 사용자 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6** — 구현 #621(`subject_id` text·`scope_id`는 `.planning/backlog.md`에 구현 안 함으로 기록) |
+| O16 | 감사 읽기 노출 범위: FeedbackOps event → `AuditAction` 매핑, `console:access`가 볼 detail의 범위(사유·설문·이메일), `subject_id` text 전환·`scope_id` 추가 migration | #593 + FeedbackOps 개인정보 규칙(FO ADR-0033·0066), 사용자 — **Decided: [ADR-0069](../../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6** — 구현 #621(`subject_id` text·`scope_id`는 `.planning/backlog.md`에 구현 안 함으로 기록) |
 | O17 | 적합성 묶음 시드 계정(권한 하나씩 뺀 계정, site 두 곳 계정, 다른 주석 작성자)을 mock 로그인 시드로 만들지 | #593 |
-| O18 | 체크리스트 §5의 "#98 전에는 부여·회수 쓰기 없음"과 FeedbackOps 부여·승인 쓰기의 적용 범위 | **Decided: §5 [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md) 결정 2·결과**를 따른다. 실제 IdP 입력은 #98, 분석 site·site_room 부여 설계는 #1087 |
-| O19 | FeedbackOps 엔티티의 `EntityRef.scopeId`(`null` + 서버 안 Managed System 판정). 행이 있는지 드러나는 방식(Finding 404/403 대 플랫폼 `empty`/`forbidden`)을 맞출지 | 06 §22 소유자(사용자), #596 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 9, 구현 #623** |
-| O20 | Correlation ID 헤더 이름과 Fastify `reqId`·로그 필드 `request_id`를 하나로 맞출지 | #151(사내 표준), #593 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 5** |
+| O18 | 체크리스트 §5의 "#98 전에는 부여·회수 쓰기 없음"과 FeedbackOps 부여·승인 쓰기의 적용 범위 | **Decided: §5 [ADR-0068](../../adr/0068-permission-scope-and-business-system-link.md) 결정 2·결과**를 따른다. 실제 IdP 입력은 #98, 분석 site·site_room 부여 설계는 #1087 |
+| O19 | FeedbackOps 엔티티의 `EntityRef.scopeId`(`null` + 서버 안 Managed System 판정). 행이 있는지 드러나는 방식(Finding 404/403 대 플랫폼 `empty`/`forbidden`)을 맞출지 | 06 §22 소유자(사용자), #596 — **Decided: [ADR-0069](../../adr/0069-platform-port-in-feedbackops-backend.md) 결정 9, 구현 #623** |
+| O20 | Correlation ID 헤더 이름과 Fastify `reqId`·로그 필드 `request_id`를 하나로 맞출지 | #151(사내 표준), #593 — **Decided: [ADR-0069](../../adr/0069-platform-port-in-feedbackops-backend.md) 결정 5** |
 | O21 | 세션 만료: 지금은 12시간 고정이고 유휴 만료가 없다. #150 정책이 sliding이면 폴링을 활동에서 빼는 처리가 필요하다 | #150 |
 
 ## 8. 전환 기간

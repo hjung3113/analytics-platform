@@ -7,7 +7,7 @@
 - Amended (2026-10-23, #654): 결정 1(내 VOC 화면 내보내기, 운영 화면을 옮기지 않는다), 결정 10(알림 페이지는 `voc.public_update_posted`만 링크).
 - Amended (2026-10-24, #759): 다리 런타임은 `@ap/fo-bridge`(`packages/fo-bridge`, 소비자 쪽 패키지, SDK 아님)로 옮겼다 — 결정 1·6의 `@ap/menu-my-activity` 다리 패키지는 `@ap/fo-bridge`(세션·`FoBridge`·`fo-api`·슬롯 값)와 다리 메뉴(화면)로 나뉜다. 한 QueryClient·세션 세대(결정 5)는 그대로 이 패키지에만 있다. (보충 2026-10-26, ADR-0086: Kernel은 자기 조회 수명주기용 내부 QueryClient를 따로 가진다 — 이 FeedbackOps 클라이언트와 별개이고 `QueryClientProvider`로 공유하지 않는다.) 상세는 ADR-0081과 패키지 경계 §3 규칙 8.
 - Amended (2026-10-23, #654 FIX2): 결정 1·6(영구 로드되는 다리 코드는 `global-screens/core`만 import한다 — 화면 배럴이 메인 청크에 실리지 않게).
-- Scope: [#594](https://github.com/hjung3113/analytics-platform/issues/594), 단위 이슈 [#651](https://github.com/hjung3113/analytics-platform/issues/651). [합류 설계](../integration/feedbackops-merge-design.md) §7의 O5(라우팅 이전)·O13(FeedbackOps API 경로)을 #594 범위에서 닫는다.
+- Scope: [#594](https://github.com/hjung3113/analytics-platform/issues/594), 단위 이슈 [#651](https://github.com/hjung3113/analytics-platform/issues/651). [합류 설계](../integration/history/feedbackops-merge-design.md) §7의 O5(라우팅 이전)·O13(FeedbackOps API 경로)을 #594 범위에서 닫는다.
 - 갱신: [ADR-0069](0069-platform-port-in-feedbackops-backend.md) 결정 3(O13)·결정 4(CSRF)의 FeedbackOps 경로 부분.
 - 바탕: [ADR-0066](0066-feedbackops-merges-into-platform.md)(화면은 옮기고 다시 쓰지 않는다), [ADR-0070](0070-global-features-platform-menu-and-voc-drawer.md)("여기서 정하지 않는 것"으로 O5·O13을 #594 구현에 넘겼다), [ADR-0046](0046-design-system-source-moves-to-platform-whole-package.md)(플랫폼 패키지는 `@fops/*`를 import하지 않는다).
 - 이 문서의 FeedbackOps ADR은 `FO ADR-NNNN`으로 적는다(FO ADR-0071은 `platformReturn`이다).
@@ -51,7 +51,7 @@ ADR-0070은 알림·설문·내 VOC·권한 요청 같은 전역 기능을 플�
 
 ## 결과
 
-- 소유 문서 갱신: [패키지 경계](../integration/platform-packages.md) 규칙 8, [합류 설계](../integration/feedbackops-merge-design.md) §4.1·O5·O13, ADR-0069 갱신 메모.
+- 소유 문서 갱신: [패키지 경계](../integration/platform-packages.md) 규칙 8, [합류 설계](../integration/history/feedbackops-merge-design.md) §4.1·O5·O13, ADR-0069 갱신 메모.
 - 루트 turbo 작업은 FeedbackOps 작업을 돌리지 않는다(`.github/scripts/check-platform-turbo-scope.mjs`, #659). 그래서 `menus/_global/my-activity/turbo.json`이 `transit`·`build`의 의존을 `@ap/*` 패키지로 좁히고, FeedbackOps 소스(`apps/frontend`·`packages/shared`·`packages/ui`의 `src`)를 `transit` 입력으로 넣어 캐시가 FO 변경을 따라가게 한다.
 - 알림 페이지(`/notifications`)가 첫 소비자다. 설문(#653)·내 VOC(#654)·권한 요청(#657)이 같은 진입점에 화면을 더한다.
 - 구현하지 않음: FeedbackOps의 나머지 raw `fetch` API 모듈(`permissions.ts`의 확인·범위·관리자 목록 호출, `auth.ts`·`actors.ts`·`nav.ts` 등)의 `/api/fo` 기준 경로. `managed-systems`·`analytics-areas`의 **목록 읽기**는 #656이 `lib/api/registry-reads.ts`로 옮겨 `client.ts`(`apiRequest`)를 지난다 — 쓰기(등록·수정·보관)는 raw `fetch`로 남고 두 모듈이 읽기를 다시 내보낸다(그래프 테스트가 같은 모듈 안 raw `fetch`를 막기 때문). `permissions.ts`의 요청자 호출(요청·내 요청 목록·철회·수정·소유자 상세)은 #657이 `lib/api/permission-requests.ts`로 옮겼고 `permissions.ts`가 다시 내보낸다. 다시 볼 조건: 남은 호출을 쓰는 첫 옮기는 화면. 그래프 테스트가 그때까지 막는다([백로그](../../.planning/backlog.md)).

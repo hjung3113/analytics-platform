@@ -1,6 +1,6 @@
-# Log Test Datasets & Golden Baseline — 검증 테스트 데이터셋·기대 결과 설계 (v0.31.0, 소유자 답 반영, 구현 전)
+# Log Test Datasets & Golden Baseline — 검증 테스트 데이터셋·기대 결과 설계 (v0.31.0, 소유자 답 반영)
 
-> **Status: Candidate → 소유자 답 반영(2026-11-07), ADR-0120 Decided.** 설계만 있고 구현·DB·API·화면은 없다. 근거는 [#1345](https://github.com/hjung3113/analytics-platform/issues/1345)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md)(Round·샘플 목록·`rule_result`·검증 요청 큐)을 **재사용**한다(중복 설계 금지). 같은 릴리스의 [`log-explorer`](../log-explorer/README.md)의 `SourceReadPort`를 원본 존재·해시 확인에 쓴다. [ADR-0120](../../../adr/0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md)은 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: Candidate → 소유자 답 반영(2026-11-07), ADR-0120 Decided.** 노드 a–d(스키마·Baseline·Suite·비교)는 구현됐고, 화면(e)과 통합(f)은 구현 전이다. 근거는 [#1345](https://github.com/hjung3113/analytics-platform/issues/1345)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md)(Round·샘플 목록·`rule_result`·검증 요청 큐)을 **재사용**한다(중복 설계 금지). 같은 릴리스의 [`log-explorer`](../log-explorer/README.md)의 `SourceReadPort`를 원본 존재·해시 확인에 쓴다. [ADR-0120](../../../adr/0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md)은 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 검증 스크립트·사내 LLM은 별도 개발 중이고 플랫폼에서 다시 쓰지 않는다. 실제 API가 확정되기 전에는 **합성 Dataset과 어댑터 stub만** 쓰고 운영 연동 완료로 표시하지 않는다.
 

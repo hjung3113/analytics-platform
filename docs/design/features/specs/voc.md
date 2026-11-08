@@ -1,6 +1,8 @@
 # VOC Frontend Implementation Spec — Slice 3
 
 > Status: Implemented. Slice 3 shipped (milestone closed, 42 issues); this spec is the as-built contract for the VOC surfaces below, not a forward-looking draft. It originally drove backend S3-001..S3-008 and frontend S3-006/S3-007/S3-008. API authority is `docs/architecture/platform-api/api/voc.md`; token values are in `@ap/ui/styles/tokens.css` and `docs/design/features/tokens.md`.
+>
+> Status note: `apps/feature-screens/src/routes/` and the other file-route paths below were retired in #597. Read each as the screen it names, not as a current file.
 > Stack: React 18 + TypeScript 5 + Tailwind 4.3.3 (CSS-first theme, FO ADR-0058) + shadcn/ui (production), TipTap (rich content, per FO ADR-0002 / FO ADR-0011), TanStack Router (production route shell — see `apps/feature-screens/src/routes/`).
 > Conflict resolution and UI authority: `docs/agents/feature-implementation.md` → Source Of Truth (authority follows subject; there is no universal ladder). The shipped UI is the authority for existing surfaces (FO ADR-0060); this spec records the as-built contract.
 

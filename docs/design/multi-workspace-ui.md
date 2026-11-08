@@ -4,8 +4,8 @@
 
 > 이 문서는 **업무 시스템별 화면**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](../contract/kernel.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
-- [승인된 클릭형 v2 프로토타입](../prototypes/multi-workspace-v2/index.html)
-- [프로토타입 사용법 및 구현 차이](../prototypes/multi-workspace-v2/README.md)
+- [승인된 클릭형 v2 프로토타입](history/multi-workspace-v2-prototype/index.html)
+- [프로토타입 사용법 및 구현 차이](history/multi-workspace-v2-prototype/README.md)
 - [결정 근거 ADR-0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)
 - [기능 진입 링크 ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)(ADR-0018 대체)
 - [구현 추적 이슈 #249](https://github.com/hjung3113/analytics-platform/issues/249)
@@ -250,7 +250,7 @@ SDK가 제공하는 외부 기능 링크의 생성·검증·`platformReturn` 계
 
 ## 9. 프로토타입과 실제 구현의 차이
 
-[HTML](../prototypes/multi-workspace-v2/index.html)은 **UI 상호작용 검토용 Mock**이다. 실제 백엔드, SSO, 서버 권한, 정확한 표준 로그 검증 결과, 실데이터, 정식 XLSX는 포함하지 않는다.
+[HTML](history/multi-workspace-v2-prototype/index.html)은 **UI 상호작용 검토용 Mock**이다. 실제 백엔드, SSO, 서버 권한, 정확한 표준 로그 검증 결과, 실데이터, 정식 XLSX는 포함하지 않는다.
 
 | 항목 | v2 HTML 표현 | 실제 앱 계약/과제 |
 | --- | --- | --- |

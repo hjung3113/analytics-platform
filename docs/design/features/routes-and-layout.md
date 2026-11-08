@@ -351,7 +351,7 @@ queue's `next_action` and `secondary_action` carry `label`, `route`, and an `int
 (`apps/feature-screens/src/lib/copy/dashboard-actions.ts`) and is not a URL search key, so no `action=` intent is carried on these links. Each route is the filtered
 source list the queue count promises (#1179). Home and Integration append
 `managedSystem=<id>` to a queue route when a specific Managed System is selected
-(`hrefWithManagedSystem` in `apps/feature-screens/src/lib/router/managed-system-href.ts`);
+(`hrefWithManagedSystem` in `apps/feature-screens/src/features/home/href.ts`);
 with no selection or `all`, the bare route is used and the destination applies the
 caller's effective scope. Shipped queue routes:
 

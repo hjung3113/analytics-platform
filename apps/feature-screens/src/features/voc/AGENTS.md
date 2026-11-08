@@ -1,7 +1,5 @@
 # VOC Feature Agent Guide
 
-#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/feature-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
-
 ## Ownership
 
 VOC owns frontend route composition for VOC submission, inbox, triage, reporter-facing status, public updates, and VOC detail panels.

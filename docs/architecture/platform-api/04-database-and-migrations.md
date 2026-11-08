@@ -670,7 +670,7 @@ Measure grouped query plans around 5k VOCs/5k Tasks before proposing an index; n
 protected `survey.finding_response_bindings` and `survey.highlight_response_bindings`,
 and scoped reader/mutator seams. Existing-DB owner prerequisites, constraints,
 function signatures, cache inventory, standalone legacy-upgrade procedure and #740
-coordination are in [the #739 cutover contract](survey-provenance-cutover-739.md).
+coordination are in [the #739 cutover contract](history/survey-provenance-cutover-739.md).
 The cutover shipped (#739/#740). The cutover contract holds the verification procedure and the
 standing gap: no standalone legacy-upgrade harness exists yet.
 
@@ -807,7 +807,7 @@ migrate/operator history retains Actor, subject and detail. The narrow scoped Co
 question/configuration projections replace the two existing audit readers.
 
 The coordinated rollout, new owner-role prerequisite and consumer inventory are
-recorded in `survey-link-audit-cutover-740.md`. Trusted permitted-definer
+recorded in `history/survey-link-audit-cutover-740.md`. Trusted permitted-definer
 composition is the accepted limit; stolen-app-credential unlinkability is not claimed.
 
 ### #621 platform audit projection (0074)
@@ -828,7 +828,7 @@ function body. `p_offset` is `bigint` so a far page returns no rows and the true
 `meta/0066_snapshot.json`/journal extend the existing Survey provenance and Entity
 Links mutator functions. No storage table changes, new owners, app table grants or
 reader-owner widening are introduced. Exact column privileges and their purposes
-are recorded in [the #1109 cutover section](survey-link-audit-cutover-740.md#1109-approved-attachment-extension-0066).
+are recorded in [the #1109 cutover section](history/survey-link-audit-cutover-740.md#1109-approved-attachment-extension-0066).
 The new approval-addressed response lock has PUBLIC EXECUTE revoked and app EXECUTE
 only. Ownership-transfer schema CREATE is temporary and revoked before commit.
 Deferred 0059 checks allow another response on a target only with its same-transaction

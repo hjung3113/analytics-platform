@@ -2,7 +2,7 @@
 
 상태: **Decided (2026-10-19)** — 구현은 이슈로 이어진다([#396](https://github.com/hjung3113/analytics-platform/issues/396)). registry 공급자와 접두사 치환 시점만 Open이다.
 상태 보충: 부분 대체 — 배포(registry) 부분은 [ADR-0056](0056-sdk-release-github-release-tarballs.md)이 결정한다.
-- 결정자: 사용자 — 2026-10-19. 권고안("니추천대로")을 그대로 골랐다. 권고는 플랫폼(에이전트)이 §4.4와 [포괄 목록](../integration/sdk-coverage-inventory.md)에서 끌어냈다.
+- 결정자: 사용자 — 2026-10-19. 권고안("니추천대로")을 그대로 골랐다. 권고는 플랫폼(에이전트)이 §4.4와 [포괄 목록](../integration/history/sdk-coverage-inventory.md)에서 끌어냈다.
 
 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 SDK를 플랫폼 소유의 단일 프레임워크로 정했다. 이 ADR은 그것을 어디에 두고 어떻게 내보낼지를 다룬다. 지금 모든 `@ap/*` 패키지는 `private: true`·`0.0.0`·TS 소스 export·`workspace:*`라 저장소 밖에서 설치할 수 없다. 첫 외부 소비자는 equipment-visualization(`platform-adapter`)이고, 같은 저장소에 FeedbackOps가 `@fops/ui`를 서브모듈로 내주던 방향(ADR-0043이 뒤집음)을 SDK 배포로 바꾸려면 배포 구조가 먼저 정해져야 한다.
 
@@ -17,7 +17,7 @@
 - **게이트(단계 도입):** ① lint·typecheck·test·경계 검사 ② build + pack ③ 모노레포 밖 깨끗한 소비자에서 install·typecheck·build — 이 셋을 첫 배포 전 필수로 한다. ④ 호스트 계약·등록 적합성은 manifest가 생길 때, ⑤ 지원 제품 통합 E2E는 제품이 소비를 시작할 때 더한다.
 - **업그레이드·되돌리기:** 제품은 자동으로 올라가지 않는다. 각 제품이 자기 일정에 올리고 자기 CI로 검증하고 되돌린다. SDK를 바꾸는 쪽은 ②③④(깨끗한 소비자와 적합성)를 책임지고, 제품 통합 검증은 소비하는 제품이 책임진다. 빌드 시 조립 구조라 탑재된 모듈을 바꾸려면 플랫폼 호스트를 다시 빌드·배포한다.
 
-열어 둔 것(사용자·사내 답 필요): registry 공급자와 사내 망·권한 경로(#151), 접두사 `@ap/` 치환 시점([통합 계획 Q1](../integration/framework-unification-plan.md) — 배포 직전), 폐기 예고 기간의 길이.
+열어 둔 것(사용자·사내 답 필요): registry 공급자와 사내 망·권한 경로(#151), 접두사 `@ap/` 치환 시점([통합 계획 Q1](../integration/history/framework-unification-plan.md) — 배포 직전), 폐기 예고 기간의 길이.
 
 ## Considered Options
 
@@ -28,6 +28,6 @@
 
 ## 결과
 
-- [통합 계획 §4.4](../integration/framework-unification-plan.md#44-sdk-저장소릴리즈-구조-candidate-2026-10-19)의 "정할 것" 중 원본 위치·독립 릴리스 원칙·버전 정책·첫 배포 대상·공개/내부 경계·CI 게이트 수용·검증 책임이 Decided이고, registry와 접두사 시점만 Open으로 남는다.
+- [통합 계획 §4.4](../integration/history/framework-unification-plan.md#44-sdk-저장소릴리즈-구조-candidate-2026-10-19)의 "정할 것" 중 원본 위치·독립 릴리스 원칙·버전 정책·첫 배포 대상·공개/내부 경계·CI 게이트 수용·검증 책임이 Decided이고, registry와 접두사 시점만 Open으로 남는다.
 - **Open — FeedbackOps 전환 시점:** FeedbackOps가 SDK를 쓰는 전환 시점 = #443 완료 + 배포 경로 확정(#151). 그 전까지 @fops/ui는 FO에 그대로 둔다.
-- 구현 이슈는 이 ADR에서 이어 연다: ① `@ap/contracts` 빌드·`exports`·pack 검사, ② 모노레포 밖 소비자 CI, ③ 릴리스 도구 도입, ④ 디자인 시스템 코드 이전([포괄 목록](../integration/sdk-coverage-inventory.md) §7).
+- 구현 이슈는 이 ADR에서 이어 연다: ① `@ap/contracts` 빌드·`exports`·pack 검사, ② 모노레포 밖 소비자 CI, ③ 릴리스 도구 도입, ④ 디자인 시스템 코드 이전([포괄 목록](../integration/history/sdk-coverage-inventory.md) §7).

@@ -703,7 +703,7 @@ FO ADR-0055 decision state remains Survey-owned and is never copied into report 
 
 Migration 0059 models these Survey-owned protected extensions; it is applied.
 Names and application seams are in
-`docs/architecture/platform-api/survey-provenance-cutover-739.md`.
+`docs/architecture/platform-api/history/survey-provenance-cutover-739.md`.
 
 | Survey-owned extension | Private fields | Consistency |
 | --- | --- | --- |

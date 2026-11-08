@@ -1,6 +1,6 @@
 # 테마 계약은 CSS를 원본으로 두고, 거기서 만든 DTCG 토큰 JSON과 색 토큰 이름 타입·런타임 읽기 함수로 낸다
 
-상태: **Decided (2026-10-20, 결정자: 코디네이터 — 사용자 "ㅇㅇ sdk작업 진행하자"에 따른 SDK 다음 슬라이스 [포괄 목록](../integration/sdk-coverage-inventory.md) §5-5. 되돌릴 수 있음)**. 구현은 [#512](https://github.com/hjung3113/analytics-platform/issues/512).
+상태: **Decided (2026-10-20, 결정자: 코디네이터 — 사용자 "ㅇㅇ sdk작업 진행하자"에 따른 SDK 다음 슬라이스 [포괄 목록](../integration/history/sdk-coverage-inventory.md) §5-5. 되돌릴 수 있음)**. 구현은 [#512](https://github.com/hjung3113/analytics-platform/issues/512).
 
 `@ap/ui`는 디자인 토큰을 CSS로만 낸다(`tokens.css`·`semantic.css`·`theme.css`·`platform-tokens.css`). 이름을 묶어 주는 것은 주석과 문서뿐이다. 그래서 제품마다 변수 이름과 값을 손으로 옮긴다:
 

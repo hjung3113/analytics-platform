@@ -1,4 +1,4 @@
-# Log Rules — 검증 규칙 조회·연결 설계 (v0.31.0, 소유자 답 반영, 구현 전)
+# Log Rules — 검증 규칙 조회·연결 설계 (v0.31.0, 소유자 답 반영)
 
 > **Status: Candidate → 소유자 답 반영 완료(2026-11-08), ADR-0122 Decided.** R-a~R-d의 보고·저장·읽기와 R-e의 조회 화면이 구현되었다. R-f(#1496)의 소비자 연동(Round RuleSet 링크·Dataset 규칙 ID 확인·모델 명세 배지·모델/SW 선택기)도 구현되었고, R-g 계약 E2E는 미구현이다. 근거는 [#1486](https://github.com/hjung3113/analytics-platform/issues/1486)이고, [#1346](https://github.com/hjung3113/analytics-platform/issues/1346) §1·§3 P1-3, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic, v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md), 모델 명세 [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0. [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md)는 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
 >

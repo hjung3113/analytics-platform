@@ -1,5 +1,7 @@
 # Frontend Agent Guide
 
+Feature-folder guides under `src/features/` describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/feature-bridge`; standalone routes and `*Route` compositions are retired (#597). Adapters under `src/test` are test-only.
+
 ## Required Docs
 
 - Read `docs/design/features/README.md` before frontend changes.
@@ -8,6 +10,7 @@
 - Use `docs/design/features/routes-and-layout.md` for URL state, list/detail behavior, and responsive navigation.
 - Use `docs/design/features/tokens.md` only as the raw token seed.
 - Use `apps/feature-screens/src/features/*/AGENTS.md` for route-specific ownership before adding screens.
+- Read the measured traps before editing tests or shared UI: [frontend tests](../../.claude/rules/feature-screens-tests.md), [`@ap/ui` and `@ap/feature-ui`](../../.claude/rules/feature-ui.md).
 - New endpoints must use `apiRequest(method, path, parser, opts)` with a response schema from `@ap/feature-shared`; legacy unparsed calls are tracked in `apps/feature-screens/src/lib/api/api-unparsed-allowlist.txt`.
 
 ## Design Consistency Rules
