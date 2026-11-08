@@ -1,5 +1,6 @@
 import type * as React from 'react';
 import { DetailDrawer } from '@ap/components';
+import { DetailPanelSectionNav, type PanelSection } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 import { useVocDetailParts } from '@ap/feature-screens/operator-screens/voc-detail';
 
@@ -23,6 +24,7 @@ export function VocDetailDrawer({
   const frame = ({
     regions,
     footer,
+    sections,
   }: {
     regions: {
       body: React.ReactNode;
@@ -30,6 +32,7 @@ export function VocDetailDrawer({
       activity?: React.ReactNode;
     };
     footer?: React.ReactNode;
+    sections?: PanelSection[];
   }) => (
     <DetailDrawer
       title={parts.title}
@@ -37,7 +40,22 @@ export function VocDetailDrawer({
       headerActions={parts.headerActions}
       onClose={parts.requestClose}
       footer={footer}
-      tabs={[{ id: 'detail', label: lang === 'ko' ? '상세' : 'Detail', regions }]}
+      tabs={[
+        {
+          id: 'detail',
+          label: lang === 'ko' ? '상세' : 'Detail',
+          regions: {
+            ...regions,
+            ...(sections?.length
+              ? {
+                  navigation: (scrollRoot: React.RefObject<HTMLElement | null>) => (
+                    <DetailPanelSectionNav sections={sections} scrollRef={scrollRoot} />
+                  ),
+                }
+              : {}),
+          },
+        },
+      ]}
     />
   );
   // Loading, failure and permission summaries occupy the full body, without an empty properties track.
