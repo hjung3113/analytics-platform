@@ -306,6 +306,7 @@ log_datasets (log test datasets, #1477 D-a, design docs/design/features/log-test
 - dataset (`share_scope` private|workspace, `model_ids uuid[]` plain ids, `scenario_tags text[]` closed set, `status`, `synthetic`, `row_version`)
 - dataset_revision (immutable; `seq` per dataset, `sample_set`, `sample_manifest_digest` unique per dataset, `input_meta`, `note`)
 - dataset_candidate (`origin` manual|round_evidence, `source_ref`, `proposal`, `status` draft|approved|rejected, `reviewer_actor_id`, `reason`, `dataset_id`, `row_version`)
+- rule_result_evidence (normalized evidence locations of a rule result, #1470; see §Rule result evidence)
 ```
 
 `core.attachments` does not exist as a shared attachment table as of Slice 6;
@@ -992,6 +993,10 @@ Migration 0104 adds `knowledge.draft.validator_source_system`, `validator_run_id
 ## Log rules (#1491 R-a)
 
 Migration 0106 adds the `log_rules` schema (`platform_app` and `platform_migrate` get USAGE) with `catalog_report`, `rule_set_revision`, `rule` and `rule_target`. Composite same-workspace FKs (`ON DELETE RESTRICT`), workspace-first indexes, actor column FK `core.actors`; `catalog_report_superseded_by_fk` is `DEFERRABLE INITIALLY DEFERRED` (hand-edited in the SQL: drizzle cannot express it) because the accept transaction marks the previous report before the new row exists. `platform_app` gets SELECT and INSERT on all four tables and a column-limited UPDATE on `catalog_report (superseded_at, superseded_by_report_id)`; no DELETE and no other UPDATE. Triggers, valid for the migrate role too: `rule_set_revision`, `rule` and `rule_target` refuse UPDATE and DELETE; `catalog_report` refuses DELETE and allows exactly one UPDATE, from current-accepted to superseded (`log_rules.report_guard`). The migration also re-creates `core.platform_audit_events` (0102 body) with the subject type `catalog_report` and the capability `validation.catalog.report` in the allowlists. Details: [api/log-rules.md](api/log-rules.md).
+
+## Rule result evidence (#1470, migration `*_rule_result_evidence.sql`)
+
+`log_lifecycle.rule_result_evidence` (`rule_result_id`, `workspace_id`, `file_ref`, `line`, `file_sha256`): primary key on all of `rule_result_id, file_ref, line, file_sha256`; composite FK `(workspace_id, rule_result_id)` → `rule_result(workspace_id, id)` `ON DELETE RESTRICT`; index `rule_result_evidence_reverse_idx (workspace_id, file_ref, line, file_sha256)`; checks `line >= 1`, `file_sha256 ~ '^[0-9a-f]{64}$'`, `file_ref` 1..1024 characters. Grants: `platform_app` SELECT + INSERT, `platform_migrate` ALL; trigger `rule_result_evidence_append_only` refuses UPDATE and DELETE (test teardown disables it). The migration ends with an idempotent backfill from `rule_result.evidence` (`ON CONFLICT DO NOTHING`). Body-free by construction (no text column).
 
 ## Validation request queue (#1445 d)
 

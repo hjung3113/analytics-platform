@@ -3,11 +3,13 @@ import {
   check,
   date,
   foreignKey,
+  bigint,
   boolean,
   index,
   integer,
   jsonb,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -331,6 +333,35 @@ export const ruleResults = logLifecycleSchema.table(
       'rule_result_evidence_check',
       sql`jsonb_typeof(${t.evidence}) = 'array' and jsonb_array_length(${t.evidence}) <= 20`,
     ),
+  }),
+);
+
+/**
+ * Normalized evidence locations of a rule result (#1470, log-explorer D4): one row per distinct `(file_ref, line, file_sha256)` of the
+ * result's `evidence` array, written in the same transaction as the result. Location only, never log text. Insert-only for the runtime role.
+ */
+export const ruleResultEvidence = logLifecycleSchema.table(
+  'rule_result_evidence',
+  {
+    ruleResultId: uuid('rule_result_id').notNull(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    fileRef: text('file_ref').notNull(),
+    line: bigint('line', { mode: 'number' }).notNull(),
+    fileSha256: text('file_sha256').notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ name: 'rule_result_evidence_pk', columns: [t.ruleResultId, t.fileRef, t.line, t.fileSha256] }),
+    ruleResultFk: foreignKey({
+      name: 'rule_result_evidence_rule_result_fk',
+      columns: [t.workspaceId, t.ruleResultId],
+      foreignColumns: [ruleResults.workspaceId, ruleResults.id],
+    }).onDelete('restrict'),
+    reverseIdx: index('rule_result_evidence_reverse_idx').on(t.workspaceId, t.fileRef, t.line, t.fileSha256),
+    lineCheck: check('rule_result_evidence_line_check', sql`${t.line} >= 1`),
+    shaCheck: check('rule_result_evidence_sha_check', sql`${t.fileSha256} ~ '^[0-9a-f]{64}$'`),
+    refCheck: check('rule_result_evidence_ref_check', sql`char_length(${t.fileRef}) between 1 and 1024`),
   }),
 );
 

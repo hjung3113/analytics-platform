@@ -192,6 +192,7 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_lifecycle.execution_request': ['SELECT', 'INSERT'],
   'log_lifecycle.execution_attempt': ['SELECT', 'INSERT'],
   'log_lifecycle.rule_result': ['SELECT', 'INSERT'],
+  'log_lifecycle.rule_result_evidence': ['SELECT', 'INSERT'],
   'log_lifecycle.rule_result_excerpt': ['SELECT', 'INSERT'],
   'log_lifecycle.queue_settings': ['SELECT', 'INSERT'],
   'log_lifecycle.excerpt_reader': ['SELECT', 'INSERT'],

@@ -27,3 +27,7 @@ export { readRoundEvidenceLinks, type RoundEvidenceLink } from './round-evidence
 export { EXCERPT_PURGE_CRON, EXCERPT_PURGE_QUEUE, purgeExpiredExcerpts, registerExcerptPurge } from './excerpt-purge-job.js';
 export { lifecycleRoundRead } from './round-read-port.js';
 export type { LifecycleRoundRead } from './round-read-port.js';
+export { lifecycleEvidenceRead } from './evidence-link-read-port.js';
+export type { EvidenceLinkResult, EvidenceLinkRound, EvidenceLinks, LifecycleEvidenceRead } from './evidence-link-read-port.js';
+export { EVIDENCE_LINK_PAGE_SIZE_MAX, EVIDENCE_LINK_PARAM_KEYS, parseEvidenceLinkParams } from './domain/evidence-link-params.js';
+export type { EvidenceLinkQuery } from './domain/evidence-link-params.js';

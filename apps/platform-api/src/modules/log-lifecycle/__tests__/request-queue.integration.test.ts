@@ -6,6 +6,7 @@
 // (`tooling/scripts/validation-worker-mock.mjs`), not a real Validator.
 
 import { randomUUID } from 'node:crypto';
+import { readFileSync, readdirSync } from 'node:fs';
 
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -17,6 +18,7 @@ import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
+import { hashToken } from '../../api-tokens/token-format.js';
 import { toCodeKey } from '../../log-knowledge/index.js';
 import { purgeExpiredExcerpts } from '../excerpt-purge-job.js';
 import { sampleManifestDigest } from '../domain/sample-set.js';
@@ -64,6 +66,7 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
   let noScopeToken = '';
   let vendorId = '';
   let clock: Date = SATURDAY_NOON;
+  let foreignWorkspaceId = '';
   const SOURCE = `${TAG}-fab`;
   const actorIds: string[] = [];
   let n = 0;
@@ -208,6 +211,38 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
     } finally {
       cleaner.release();
     }
+    // The evidence side table is append-only (guard trigger): fixtures go with the trigger off, before their rule results.
+    const evidenceCleaner = await migrate.pool.connect();
+    try {
+      await evidenceCleaner.query('begin');
+      await evidenceCleaner.query('alter table log_lifecycle.rule_result_evidence disable trigger rule_result_evidence_append_only');
+      await evidenceCleaner.query('delete from log_lifecycle.rule_result_evidence where workspace_id = $1', [WORKSPACE_ID]);
+      await evidenceCleaner.query('alter table log_lifecycle.rule_result_evidence enable trigger rule_result_evidence_append_only');
+      await evidenceCleaner.query('commit');
+    } catch (error) {
+      await evidenceCleaner.query('rollback');
+      throw error;
+    } finally {
+      evidenceCleaner.release();
+    }
+    if (foreignWorkspaceId) {
+      const foreign = await migrate.pool.connect();
+      try {
+        await foreign.query('begin');
+        await foreign.query('alter table log_lifecycle.rule_result_evidence disable trigger rule_result_evidence_append_only');
+        for (const table of ['rule_result_evidence', 'rule_result', 'execution_attempt', 'execution_request', 'validation_round']) {
+          await foreign.query(`delete from log_lifecycle.${table} where workspace_id = $1`, [foreignWorkspaceId]);
+        }
+        await foreign.query('alter table log_lifecycle.rule_result_evidence enable trigger rule_result_evidence_append_only');
+        await foreign.query('commit');
+      } catch (error) {
+        await foreign.query('rollback');
+        throw error;
+      } finally {
+        foreign.release();
+      }
+      await sql('delete from log_lifecycle.development_project where workspace_id = $1', [foreignWorkspaceId]);
+    }
     await sql(`delete from log_lifecycle.rule_result where workspace_id = $1`, [WORKSPACE_ID]);
     await sql(`delete from log_lifecycle.execution_attempt where request_id in ${owned}`, [actorIds, WORKSPACE_ID]);
     await sql(`delete from log_lifecycle.execution_request where id in ${owned}`, [actorIds, WORKSPACE_ID]);
@@ -240,6 +275,7 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
     ]) {
       await sql(`delete from ${table} where ${column} = any($1)`, [actorIds]);
     }
+    if (foreignWorkspaceId) await sql('delete from core.workspaces where id = $1', [foreignWorkspaceId]);
     await app?.close();
     await dbHandle?.close();
     await migrate?.close();
@@ -926,6 +962,256 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
     it('an unknown request or attempt answers ok with null / an empty page', async () => {
       expect((await read('requestDetail', { requestId: randomUUID() })).data).toBeNull();
       expect((await read('ruleResults', { attemptId: randomUUID() })).data).toEqual({ total: 0, rows: [] });
+    });
+  });
+
+  describe('evidence side table and logExplorer.evidenceLinks (#1470 X-d)', () => {
+    const queryLinks = (params: Record<string, unknown>, who: Person = user, token?: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/v1/menu-query',
+        headers: { 'content-type': 'application/json', ...(token ? bearer(token) : cookieHeader(who.cookie)) },
+        payload: JSON.stringify({ endpoint: 'logExplorer.evidenceLinks', context: {}, params }),
+      });
+    const readLinks = async (params: Record<string, unknown>, who: Person = user, token?: string): Promise<Answer> => {
+      const res = await queryLinks(params, who, token);
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json<Answer>();
+    };
+    /** A token row inserted directly (a personal token or a scope set the issue route does not offer). */
+    const rawToken = async (actorId: string, kind: 'personal' | 'service', scopes: string[]) => {
+      const prefix = randomUUID().replace(/-/g, '').slice(0, 8);
+      const value = `ap_${prefix}_${Buffer.from(randomUUID() + randomUUID()).toString('base64url').slice(0, 43)}`;
+      await sql(
+        `insert into core.api_tokens (workspace_id, actor_id, kind, name, prefix, secret_hash, scopes, created_by) values ($1,$2,$3,'raw',$4,$5,$6,$7)`,
+        [WORKSPACE_ID, actorId, kind, prefix, hashToken(value), scopes, kind === 'personal' ? actorId : admin.id],
+      );
+      return value;
+    };
+    /** A sample set of the default two files plus `extra` file references. */
+    const sampleWith = (...extra: string[]) => ({
+      files: [...FILES(), ...extra.map((fileRef, i) => ({ fileRef, order: 3 + i, sha256: H('a') }))],
+      sourceOwner: SOURCE,
+    });
+    /** The same chain (project → round → request → attempt → rule result → side row) in a second workspace, by SQL. */
+    async function seedForeignChain(location: { fileRef: string; line: number; fileSha256: string }) {
+      if (!foreignWorkspaceId) {
+        foreignWorkspaceId = randomUUID();
+        await sql("insert into core.workspaces (id, name) values ($1, $2)", [foreignWorkspaceId, `${TAG}-foreign`]);
+      }
+      const ids = { project: randomUUID(), round: randomUUID(), request: randomUUID(), attempt: randomUUID(), result: randomUUID() };
+      const sample = JSON.stringify({ files: [{ fileRef: location.fileRef, order: 1, sha256: H('a') }], sourceOwner: SOURCE });
+      await sql(
+        `insert into log_lifecycle.development_project (id, workspace_id, model_id, kind, owner_actor_id, created_by, updated_by) values ($1,$2,$3,'new',$4,$4,$4)`,
+        [ids.project, foreignWorkspaceId, randomUUID(), admin.id],
+      );
+      await sql(
+        `insert into log_lifecycle.validation_round (id, workspace_id, project_id, seq, stage, sample_set, sample_manifest_digest, created_by, updated_by) values ($1,$2,$3,1,'registered',$4::jsonb,$5,$6,$6)`,
+        [ids.round, foreignWorkspaceId, ids.project, sample, H('c'), admin.id],
+      );
+      await sql(
+        `insert into log_lifecycle.execution_request (id, workspace_id, round_id, priority, request_digest, requested_by_actor_id, idempotency_key) values ($1,$2,$3,1,$4,$5,$6)`,
+        [ids.request, foreignWorkspaceId, ids.round, H('d'), admin.id, `${TAG}-foreign-${ids.request}`],
+      );
+      await sql(
+        `insert into log_lifecycle.execution_attempt (id, workspace_id, request_id, attempt_no, worker_actor_id, input_manifest_digest, outcome, verdict, result_digest, ended_at) values ($1,$2,$3,1,$4,$5,'succeeded','fail',$6,now())`,
+        [ids.attempt, foreignWorkspaceId, ids.request, systemA, H('c'), H('e')],
+      );
+      await sql(`insert into log_lifecycle.rule_result (id, workspace_id, attempt_id, rule_id, result, required, evidence) values ($1,$2,$3,'FOREIGN','FAIL',true,$4::jsonb)`, [
+        ids.result,
+        foreignWorkspaceId,
+        ids.attempt,
+        JSON.stringify([{ ...location, hasExcerpt: false }]),
+      ]);
+      await sql(`insert into log_lifecycle.rule_result_evidence (rule_result_id, workspace_id, file_ref, line, file_sha256) values ($1,$2,$3,$4,$5)`, [
+        ids.result,
+        foreignWorkspaceId,
+        location.fileRef,
+        location.line,
+        location.fileSha256,
+      ]);
+      return ids;
+    }
+    // `line` is a bigint column (the pg driver returns text): read it back as a number.
+    const sideRows = async (ruleResultId: string) =>
+      (await sql('select file_ref, line, file_sha256 from log_lifecycle.rule_result_evidence where rule_result_id = $1 order by file_ref, line', [ruleResultId])).rows.map(
+        (r) => ({ ...r, line: Number(r.line) }),
+      ) as Row[];
+    /** A round with one claimed request answered with `rules`; returns the ids. */
+    async function answered(rules: Row[], sample = SAMPLE()) {
+      const round = await makeRound(sample);
+      const request = await makeRequest(round.roundId);
+      const claimed = (await claim()).json();
+      const res = await post(workerA, `/requests/${request.id}/result`, resultBody(claimed, rules));
+      return { round, request, claimed, res, attemptId: claimed.attempt.id as string };
+    }
+    const ruleIdOf = async (attemptId: string, key: string) =>
+      (await sql('select id from log_lifecycle.rule_result where attempt_id = $1 and rule_id = $2', [attemptId, key])).rows[0]?.id as string | undefined;
+    const F1 = FILES()[0]?.fileRef ?? '';
+    const F2 = FILES()[1]?.fileRef ?? '';
+
+    it('writes one side row per distinct location with the result, no text, and the runtime role cannot edit or delete them', async () => {
+      const dup = { fileRef: F1, line: 7, fileSha256: H('d') };
+      const a = await answered([rule('R1', 'FAIL', true, { evidence: [dup, { ...dup, excerpt: 'same place, with text' }, { fileRef: F2, line: 3, fileSha256: H('e') }] })]);
+      expect(a.res.statusCode).toBe(200);
+      const id = (await ruleIdOf(a.attemptId, 'R1')) ?? '';
+      expect(await sideRows(id)).toEqual([
+        { file_ref: F1, line: 7, file_sha256: H('d') },
+        { file_ref: F2, line: 3, file_sha256: H('e') },
+      ]);
+      const cols = (await sql("select column_name from information_schema.columns where table_schema = 'log_lifecycle' and table_name = 'rule_result_evidence'")).rows.map((r) => r.column_name);
+      expect(cols.sort()).toEqual(['file_ref', 'file_sha256', 'line', 'rule_result_id', 'workspace_id']);
+      const app_ = (text: string) => dbHandle.pool.query(text, [id]);
+      await expect(app_("update log_lifecycle.rule_result_evidence set line = 9 where rule_result_id = $1")).rejects.toThrow(/permission denied/);
+      await expect(app_('delete from log_lifecycle.rule_result_evidence where rule_result_id = $1')).rejects.toThrow(/permission denied/);
+      await expect(sql('update log_lifecycle.rule_result_evidence set line = 9 where rule_result_id = $1', [id])).rejects.toThrow(/append-only/);
+      await expect(sql('delete from log_lifecycle.rule_result_evidence where rule_result_id = $1', [id])).rejects.toThrow(/append-only/);
+      // Same-workspace composite FK: a row naming another workspace for this result is refused.
+      const other = (await sql('select id from core.workspaces where id <> $1 limit 1', [WORKSPACE_ID])).rows[0]?.id as string | undefined;
+      if (other) {
+        await expect(sql('insert into log_lifecycle.rule_result_evidence (rule_result_id, workspace_id, file_ref, line, file_sha256) values ($1,$2,$3,1,$4)', [id, other, F1, H('d')])).rejects.toThrow(/foreign key/);
+      }
+    });
+
+    it('a failed side insert rolls the result back: no rule result, the attempt still running', async () => {
+      await sql(`create or replace function log_lifecycle.test_evidence_fail() returns trigger language plpgsql as $f$ begin if new.file_ref like '%ROLLBACK-MARK%' then raise exception 'side insert refused'; end if; return new; end $f$`);
+      await sql('create trigger test_evidence_fail before insert on log_lifecycle.rule_result_evidence for each row execute function log_lifecycle.test_evidence_fail()');
+      try {
+        const marked = `${F1}-ROLLBACK-MARK`;
+        const a = await answered([rule('R1', 'PASS'), rule('R2', 'FAIL', true, { evidence: [{ fileRef: marked, line: 1, fileSha256: H('f') }] })], sampleWith(marked));
+        // The marker file is in the Round sample, so the payload passes validation and the failure comes from the side insert itself.
+        expect(a.res.statusCode).toBeGreaterThanOrEqual(500);
+        expect(a.res.body).not.toContain('not_in_sample');
+        expect((await sql('select count(*)::int as n from log_lifecycle.rule_result where attempt_id = $1', [a.attemptId])).rows[0]?.n).toBe(0);
+        expect((await attempts(a.request.id))[0]).toMatchObject({ outcome: 'running' });
+      } finally {
+        await sql('drop trigger test_evidence_fail on log_lifecycle.rule_result_evidence');
+        await sql('drop function log_lifecycle.test_evidence_fail()');
+      }
+    });
+
+    it('backfills side rows from the jsonb evidence of existing results, idempotently', async () => {
+      const BIG = 2_147_483_648;
+      const a = await answered([rule('R1', 'FAIL', true, { evidence: [{ fileRef: F1, line: 21, fileSha256: H('a') }, { fileRef: F2, line: 22, fileSha256: H('b') }, { fileRef: F2, line: BIG, fileSha256: H('b') }] })]);
+      const id = (await ruleIdOf(a.attemptId, 'R1')) ?? '';
+      const c = await migrate.pool.connect();
+      try {
+        await c.query('alter table log_lifecycle.rule_result_evidence disable trigger rule_result_evidence_append_only');
+        await c.query('delete from log_lifecycle.rule_result_evidence where rule_result_id = $1', [id]);
+        await c.query('alter table log_lifecycle.rule_result_evidence enable trigger rule_result_evidence_append_only');
+      } finally {
+        c.release();
+      }
+      expect(await sideRows(id)).toEqual([]);
+      const migrations = new URL('../../../../migrations/', import.meta.url);
+      const name = readdirSync(migrations).find((f) => f.endsWith('_rule_result_evidence.sql'));
+      const file = readFileSync(new URL(name ?? 'missing', migrations), 'utf8');
+      const backfill = file.slice(file.indexOf('INSERT INTO log_lifecycle.rule_result_evidence'));
+      await sql(backfill);
+      await sql(backfill);
+      expect(await sideRows(id)).toEqual([
+        { file_ref: F1, line: 21, file_sha256: H('a') },
+        { file_ref: F2, line: 22, file_sha256: H('b') },
+        { file_ref: F2, line: BIG, file_sha256: H('b') },
+      ]);
+    });
+
+    it('stores and finds a line above the 32-bit range (2147483648)', async () => {
+      const LOC = { fileRef: F1, line: 2_147_483_648, fileSha256: H('7') };
+      const a = await answered([rule('RBIG', 'FAIL', true, { evidence: [LOC] })]);
+      expect(a.res.statusCode, a.res.body).toBe(200);
+      expect(await sideRows((await ruleIdOf(a.attemptId, 'RBIG')) ?? '')).toEqual([{ file_ref: F1, line: 2_147_483_648, file_sha256: H('7') }]);
+      const got = await readLinks(LOC);
+      expect(got.outcome).toBe('ok');
+      expect(got.data.results.total).toBe(1);
+      expect(got.data.results.rows[0]).toMatchObject({ ruleKey: 'RBIG', roundId: a.round.roundId });
+    });
+
+    it('finds the rule results and Rounds that cite a location, newest first, deduped, paged; a body never appears', async () => {
+      const LOC = { fileRef: `s3://${TAG}/lookup.log`, line: 40, fileSha256: H('9') };
+      const first = await answered([rule('RA', 'FAIL', true, { evidence: [{ ...LOC, excerpt: `secret-body-${TAG}` }, { ...LOC }] }), rule('RB', 'WARN', false, { evidence: [LOC] })], sampleWith(LOC.fileRef));
+      const second = await answered([rule('RC', 'PASS', true, { evidence: [LOC, { fileRef: F1, line: 1, fileSha256: H('1') }] })], sampleWith(LOC.fileRef));
+      expect(first.res.statusCode).toBe(200);
+      expect(second.res.statusCode).toBe(200);
+      const got = await readLinks(LOC);
+      expect(got.outcome).toBe('ok');
+      expect(got.data.results.total).toBe(3);
+      expect(got.data.results.rows.map((r: Row) => r.ruleKey)[0]).toBe('RC'); // the newest attempt first
+      expect(new Set(got.data.results.rows.map((r: Row) => r.ruleKey))).toEqual(new Set(['RA', 'RB', 'RC']));
+      expect(got.data.results.rows.find((r: Row) => r.ruleKey === 'RA')).toMatchObject({ result: 'FAIL', required: true, roundId: first.round.roundId, requestId: first.request.id, attemptId: first.attemptId });
+      expect(got.data.rounds.total).toBe(2);
+      expect(got.data.rounds.rows.map((r: Row) => r.roundId)).toEqual([second.round.roundId, first.round.roundId]);
+      expect(got.data.rounds.rows[1]).toMatchObject({ citingResults: 2, status: 'open' });
+      expect(JSON.stringify(got)).not.toContain('secret-body');
+      // Paging: one per page, no overlap, same total.
+      const p0 = await readLinks({ ...LOC, pageSize: 1, page: 0 });
+      const p1 = await readLinks({ ...LOC, pageSize: 1, page: 1 });
+      expect(p0.data.results.rows).toHaveLength(1);
+      expect(p1.data.results.rows).toHaveLength(1);
+      expect(p0.data.results.rows[0].ruleResultId).not.toBe(p1.data.results.rows[0].ruleResultId);
+      expect(p1.data.results.total).toBe(3);
+      // Unknown location, other line or other hash: the same empty answer.
+      for (const miss of [{ ...LOC, line: 41 }, { ...LOC, fileSha256: H('8') }, { ...LOC, fileRef: 'nope' }]) {
+        expect((await readLinks(miss)).data).toEqual({ results: { total: 0, rows: [] }, rounds: { total: 0, rows: [] } });
+      }
+    });
+
+    it('another workspace\'s citation answers like an unknown location and never changes a total or a page', async () => {
+      const LOC = { fileRef: `s3://${TAG}/iso.log`, line: 5, fileSha256: H('6') };
+      const FOREIGN_ONLY = { fileRef: `s3://${TAG}/iso-foreign.log`, line: 6, fileSha256: H('5') };
+      const mine = await answered([rule('RISO', 'FAIL', true, { evidence: [LOC] })], sampleWith(LOC.fileRef));
+      expect(mine.res.statusCode, mine.res.body).toBe(200);
+      const unknown = (await readLinks({ ...FOREIGN_ONLY, fileRef: `s3://${TAG}/never.log` })).data;
+      const before = (await readLinks({ ...LOC, pageSize: 1 })).data;
+      const beforeForeignOnly = (await readLinks(FOREIGN_ONLY)).data;
+      expect(beforeForeignOnly).toEqual(unknown);
+      // The same location cited in a real chain of another workspace, and a location only that workspace cites.
+      const sameLocation = await seedForeignChain(LOC);
+      await seedForeignChain(FOREIGN_ONLY);
+      const foreignRow = (await sql('select count(*)::int as n from log_lifecycle.rule_result_evidence where workspace_id = $1 and rule_result_id = $2', [foreignWorkspaceId, sameLocation.result])).rows[0];
+      expect(foreignRow?.n).toBe(1);
+      const after = (await readLinks({ ...LOC, pageSize: 1 })).data;
+      expect(after).toEqual(before);
+      expect(after.results.total).toBe(1);
+      expect(after.rounds.total).toBe(1);
+      expect(JSON.stringify(after)).not.toContain(sameLocation.round);
+      expect(JSON.stringify(after)).not.toContain(sameLocation.result);
+      expect((await readLinks({ ...LOC, pageSize: 1, page: 1 })).data).toEqual({ results: { total: 1, rows: [] }, rounds: { total: 1, rows: [] } });
+      expect((await readLinks(FOREIGN_ONLY)).data).toEqual(unknown);
+      expect(unknown).toEqual({ results: { total: 0, rows: [] }, rounds: { total: 0, rows: [] } });
+    });
+
+    it('a token needs workspace.read: a personal and a service token without it are refused, with it they read', async () => {
+      const LOC = { fileRef: `s3://${TAG}/tok.log`, line: 8, fileSha256: H('4') };
+      const a = await answered([rule('RTOK', 'FAIL', true, { evidence: [LOC] })], sampleWith(LOC.fileRef));
+      expect(a.res.statusCode, a.res.body).toBe(200);
+      // The Actor can read (role user holds workspace.read); only the token scopes differ.
+      const personalWithout = await rawToken(user.id, 'personal', ['lifecycle.round.manage']);
+      const serviceWithout = await rawToken(systemA, 'service', ['validation.worker']);
+      const personalWith = await rawToken(user.id, 'personal', ['workspace.read']);
+      const serviceWith = await rawToken(systemA, 'service', ['workspace.read']);
+      expect((await readLinks(LOC, user)).outcome).toBe('ok'); // the session control: same Actor, same location
+      for (const token of [personalWithout, serviceWithout]) {
+        const res = await queryLinks(LOC, user, token);
+        const refused = res.statusCode >= 400 || res.json<Answer>().outcome !== 'ok';
+        expect(refused, res.body).toBe(true);
+        expect(res.body).not.toContain('RTOK');
+        expect(res.body).not.toContain(a.round.roundId);
+      }
+      for (const token of [personalWith, serviceWith]) {
+        const got = await readLinks(LOC, user, token);
+        expect(got.outcome).toBe('ok');
+        expect(got.data.results.total).toBe(1);
+        expect(got.data.results.rows[0]).toMatchObject({ ruleKey: 'RTOK', roundId: a.round.roundId });
+      }
+    });
+
+    it('refuses bad or unknown params; the audit log gets no new row', async () => {
+      const before = (await sql('select count(*)::int as n from core.audit_log where workspace_id = $1', [WORKSPACE_ID])).rows[0]?.n as number;
+      for (const bad of [{}, { fileRef: 'x', line: 0, fileSha256: H('a') }, { fileRef: 'x', line: 1, fileSha256: 'abc' }, { fileRef: '', line: 1, fileSha256: H('a') }, { fileRef: 'x', line: 1, fileSha256: H('a'), workspaceId: 'x' }, { fileRef: 'x', line: 1, fileSha256: H('a'), pageSize: 1000 }]) {
+        expect((await readLinks(bad)).outcome).toBe('error');
+      }
+      expect((await sql('select count(*)::int as n from core.audit_log where workspace_id = $1', [WORKSPACE_ID])).rows[0]?.n).toBe(before);
     });
   });
 
