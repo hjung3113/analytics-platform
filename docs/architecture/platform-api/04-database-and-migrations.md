@@ -204,6 +204,15 @@ An existing database created before this change needs a one-time superuser
 dev image is `pgvector/pgvector:pg16` (`docker-compose.dev.yml`); the older
 `postgres:16-alpine` does not carry the extension at all.
 
+### Database prerequisite: pg_trgm (log knowledge search)
+
+The log knowledge search index (`knowledge.search_document`, design
+[`log-knowledge-search`](../../design/features/log-knowledge-search/README.md) §3.2) uses trigram indexes, so every
+database that runs migrations must have the `pg_trgm` extension. It ships with the postgres image (contrib).
+Bootstrap owns it like `vector`: `scripts/db/init.sql` installs it on a fresh volume and the search index migration only
+asserts it is present, with a directive message when it is not. An existing database needs a one-time
+`CREATE EXTENSION IF NOT EXISTS pg_trgm;` (superuser or the database owner; the extension is trusted).
+
 ## Schema Namespaces
 
 Schema namespace does not always imply module ownership. `core.entity_links` is
