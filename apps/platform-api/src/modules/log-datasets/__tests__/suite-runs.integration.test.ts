@@ -508,6 +508,32 @@ describe.skipIf(!runIntegration)('regression suites and suite runs (#1479 D-c)',
       expect((await sql('select baseline_stale from log_datasets.suite_run_item where suite_run_id = $1', [r2.data.suiteRunId])).rows[0].baseline_stale).toEqual({ state: 'fresh', reasons: [], unknown: [] });
     });
 
+    // Design §8 «원본 삭제·권한 없음»: the run is requested (a stale/unavailable Baseline never blocks it); the Source failure ends it as
+    // `failed` with a reason from the reference worker. It is never classified, so no comparison can pass.
+    it.each([
+      ['deleted at the Source', { status: 'source_absent' } as DescribeFileResponse, 'source_absent', 'stale'],
+      ['changed at the Source (hash mismatch)', { status: 'ok', sha256: H('f') } as DescribeFileResponse, 'source_hash_mismatch', 'stale'],
+    ])('a Source %s after approval: the run is accepted with the badge, the worker fails it with a reason, the run is failed and nothing is classified', async (_name, answer, reason, badge) => {
+      const a = await approvedDataset([`sf-${reason}.log`]);
+      for (const f of a.revision.set.files) portAnswers[f.fileRef] = answer;
+      const suite = await makeSuite([{ datasetId: a.ds.id }]);
+      const r = await run(suite.id);
+      expect(r.outcome, JSON.stringify(r)).toBe('ok');
+      const stale = (await sql('select baseline_stale from log_datasets.suite_run_item where suite_run_id = $1', [r.data.suiteRunId])).rows[0].baseline_stale as { state: string };
+      expect(stale).toMatchObject({ state: badge });
+      expect(JSON.stringify(stale)).toContain('file_');
+      const claimed = (await claim()).json();
+      const failed = await post(`/requests/${claimed.request.id}/fail`, { attemptNo: 1, reason });
+      expect(failed.statusCode, failed.body).toBe(200);
+      const attempt = (await sql('select outcome, worker_summary from log_lifecycle.execution_attempt where request_id = $1', [claimed.request.id])).rows[0] as Row;
+      expect(attempt).toMatchObject({ outcome: 'failed', worker_summary: { reason } });
+      expect((await runs(suite.id)).data.rows.find((x: { id: string }) => x.id === r.data.suiteRunId)).toMatchObject({ state: 'failed', counts: { failed: 1, succeeded: 0 } });
+      const compared = await read('comparison', { suiteRunId: r.data.suiteRunId }, admin);
+      expect(compared.data.run.state).toBe('failed');
+      expect(compared.data.items[0]).toMatchObject({ requestState: 'failed', observed: null, coverage: null, counts: { unchanged: 0, regressed: 0, fixed: 0, new: 0, not_comparable: 0, missing: 0 } });
+      expect(JSON.stringify(compared.data)).not.toContain('"PASS"');
+    });
+
     it('the Source-owner ACL comes first: denied = no Source call and the badge is unknown; no port = unknown; an adapter that throws = unknown with no error text kept', async () => {
       const a = await approvedDataset(['o1.log']);
       const suite = await makeSuite([{ datasetId: a.ds.id }]);
@@ -623,6 +649,36 @@ describe.skipIf(!runIntegration)('regression suites and suite runs (#1479 D-c)',
       const claimed2 = (await claim()).json();
       const wrong = await post(`/requests/${claimed2.request.id}/result`, { attemptNo: 1, inputManifestDigest: H('9'), results: [rule('R-1', 'PASS')] });
       expect(wrong.json()).toMatchObject({ verdict: 'incomplete' });
+    });
+
+    // Design §8 «결과 수신 replay·늦은 결과»: the Round subject is pinned in the lifecycle suite (request-queue.integration.test.ts); this pins the suite subject.
+    it('replay and late result for a suite subject: the same body answers the same 200 with no new row; a changed body conflicts; a result after the lease expired is lease_lost', async () => {
+      const a = await approvedDataset(['rp1.log']);
+      const suite = await makeSuite([{ datasetId: a.ds.id }]);
+      await run(suite.id);
+      const claimed = (await claim()).json();
+      const body = { attemptNo: 1, inputManifestDigest: claimed.request.sampleManifestDigest, results: [rule('R-1', 'PASS'), rule('R-2', 'FAIL')] };
+      const first = await post(`/requests/${claimed.request.id}/result`, body);
+      expect(first.statusCode, first.body).toBe(200);
+      const again = await post(`/requests/${claimed.request.id}/result`, body);
+      expect(again.statusCode).toBe(200);
+      expect(again.json()).toEqual(first.json());
+      const count = async () => Number((await sql('select count(*)::int as n from log_lifecycle.rule_result where attempt_id = $1', [claimed.attempt.id])).rows[0].n);
+      expect(await count()).toBe(2);
+      const changed = await post(`/requests/${claimed.request.id}/result`, { ...body, results: [rule('R-1', 'FAIL')] });
+      expect(changed.statusCode).toBe(409);
+      expect(changed.json().code).toBe('conflict.stale_write');
+      expect(await count()).toBe(2);
+
+      const b = await approvedDataset(['rp2.log']);
+      const suite2 = await makeSuite([{ datasetId: b.ds.id }]);
+      await run(suite2.id);
+      const claimed2 = (await claim()).json();
+      await sql("update log_lifecycle.execution_request set lease_expires_at = now() - interval '1 minute', row_version = row_version + 1 where id = $1", [claimed2.request.id]);
+      expect((await claim()).json().request).toMatchObject({ id: claimed2.request.id, attemptNo: 2 });
+      const late = await post(`/requests/${claimed2.request.id}/result`, { attemptNo: 1, inputManifestDigest: claimed2.request.sampleManifestDigest, results: [rule('R-1', 'PASS')] });
+      expect(late.statusCode).toBe(409);
+      expect(late.json().code).toBe('queue.lease_lost');
     });
   });
 
