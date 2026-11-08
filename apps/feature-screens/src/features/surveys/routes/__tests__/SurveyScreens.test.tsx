@@ -2014,10 +2014,10 @@ describe('설문 screens', () => {
 
     const parentRow = screen.getByTestId(`survey-question-row-${parentId}`);
     fireEvent.click(within(parentRow).getByLabelText('Q1 질문 삭제'));
-    const confirmation = await screen.findByRole('dialog');
+    const confirmation = await screen.findByRole('alertdialog');
     expect(confirmation).toHaveTextContent('1개 질문의 분기 조건이 해제됩니다.');
     fireEvent.click(within(confirmation).getByRole('button', { name: '취소' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(calls('PATCH', `/surveys/${survey.id}/questions/${childId}`)).toHaveLength(0);
     expect(calls('DELETE', `/surveys/${survey.id}/questions/${parentId}`)).toHaveLength(0);
     fireEvent.click(screen.getByText('Q2'));
@@ -2026,7 +2026,7 @@ describe('설문 screens', () => {
     );
 
     fireEvent.click(within(parentRow).getByLabelText('Q1 질문 삭제'));
-    const secondConfirmation = await screen.findByRole('dialog');
+    const secondConfirmation = await screen.findByRole('alertdialog');
     fireEvent.click(within(secondConfirmation).getByRole('button', { name: '삭제' }));
     expect(screen.queryByTestId(`survey-question-row-${parentId}`)).not.toBeInTheDocument();
     expect(screen.getByTestId(`survey-question-row-${childId}`)).toBeInTheDocument();

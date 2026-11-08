@@ -458,6 +458,33 @@ describe.skipIf(!runIntegration)('API tokens: issue, revoke, auth hook, scope âˆ
       expect(ids).toEqual(ordered.rows.map((r) => r.id));
     });
 
+    it('filters workspace tokens by kind, composes noExpiry and preserves keyset traversal (B8)', async () => {
+      const reader = await newPerson('admin');
+      const personal = await rawToken({ actorId: reader.id, scopes: [] });
+      const service = await rawToken({ actorId: systemActorId, createdBy: admin.id, kind: 'service', scopes: [] });
+      const expiring = await rawToken({ actorId: systemActorId, createdBy: admin.id, kind: 'service', scopes: [], expiresAt: new Date(Date.now() + 86_400_000).toISOString() });
+      for (const kind of ['personal', 'service']) {
+        const { ids, items } = await walk(`/api-tokens/service?kind=${kind}`, cookieHeader(reader.cookie), 1);
+        expect(ids).toContain(kind === 'personal' ? personal.id : service.id);
+        expect(ids).not.toContain(kind === 'personal' ? service.id : personal.id);
+        expect(items.every(item => (item as { kind?: string }).kind === kind)).toBe(true);
+        expect(new Set(ids).size).toBe(ids.length);
+      }
+      const never = await walk('/api-tokens/service?kind=service&noExpiry=true', cookieHeader(reader.cookie), 1);
+      expect(never.ids).toContain(service.id);
+      expect(never.ids).not.toContain(personal.id);
+      expect(never.ids).not.toContain(expiring.id);
+      const all = await walk('/api-tokens/service', cookieHeader(reader.cookie), 2);
+      expect(all.ids).toEqual(expect.arrayContaining([personal.id, service.id, expiring.id]));
+    });
+
+    it.each(['invalid', 'all', ''])('rejects invalid workspace token kind %j with validation.failed (B8)', async kind => {
+      const reader = await newPerson('admin');
+      const res = await app.inject({ method: 'GET', url: `/api-tokens/service?kind=${kind}`, headers: cookieHeader(reader.cookie) });
+      expect(res.statusCode).toBe(422);
+      expect(res.json()).toMatchObject({ code: 'validation.failed', detail: { fields: [{ path: [] }] } });
+    });
+
     it('the admin list keeps noExpiry across pages; limit and cursor are validated', async () => {
       const a = await rawToken({ actorId: admin.id, scopes: [] });
       await rawToken({ actorId: admin.id, scopes: [], expiresAt: new Date(Date.now() + 86_400_000).toISOString() });

@@ -144,9 +144,9 @@ export const MENUS: MenuEntry[] = [
   // </gen:menu-spreads>
 ];
 
-/** The global menus in sidebar order, per group. 내 활동 (#1099c): 알림 → 내 Task → 권한 요청; 내 Task is owned by `@ap/menu-tasks`. 소통 (ADR-0110): 공지 → FAQ → VOC → 설문; VOC and 설문 are `@ap/menu-my-activity` screens in the `noticeVoc` group. The app, not a Consumer, decides where they sit. */
+/** The global menus in sidebar order, per group. 내 활동 (#1099c): 알림 → 내 Task → 권한 요청 → API 토큰; 내 Task is owned by `@ap/menu-tasks`. 소통 (ADR-0110): 공지 → FAQ → VOC → 설문; VOC and 설문 are `@ap/menu-my-activity` screens in the `noticeVoc` group. The app, not a Consumer, decides where they sit. */
 const GLOBAL_GROUP_ORDER = [
-  ['notifications', 'my-tasks', 'permission-requests'],
+  ['notifications', 'my-tasks', 'permission-requests', 'api-tokens'],
   ['notices', 'faq', 'voc', 'voc-detail', 'surveys', 'survey-respond'],
 ] as const;
 
@@ -166,7 +166,7 @@ function fail(message: string): never { throw new Error(message); }
 export const CARRY_SETS: readonly CarrySetDef[] = [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }];
 
 /** Roots the app's own screens and feature serve outside the Registry; no space may take one (ADR-0093). The Kernel reserves only its own `board`, `api` and `auth`. */
-export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq'];
+export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq', 'tokens'];
 
 /** External host modules (src/modules.ts) join at the registry call only; GROUPS and MENUS stay the platform's own. */
 export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: placeGlobalGroups(configureHome([...MENUS, ...EQV_MODULE.menus])), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });

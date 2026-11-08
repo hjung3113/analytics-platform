@@ -1,6 +1,6 @@
-# Log Lifecycle — v0.30.0 최소 슬라이스 설계 (Decided 설계, 구현 전)
+# Log Lifecycle — v0.30.0 최소 슬라이스 설계 (Decided 설계, 부분 As-built)
 
-> **Status: Candidate → 구현 착수(2026-11-07), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영. 노드 완료마다 As-built로 바꾼다. 노드 c(#1444)는 As-built: 개발 건·이벤트·Round의 스키마·읽기·쓰기, 노드 d(#1445)는 As-built: 검증 요청 큐(요청·시도·규칙 결과·발췌, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict, 참조 작업자 «합성 fixture»). 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md).** 설계만 있고 구현·DB·API는 없다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: Candidate → 구현 착수(2026-11-07), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영. 노드 완료마다 As-built로 바꾼다. 노드 c(#1444)는 As-built: 개발 건·이벤트·Round의 스키마·읽기·쓰기, 노드 d(#1445)는 As-built: 검증 요청 큐(요청·시도·규칙 결과·발췌, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict, 참조 작업자 «합성 fixture»). 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md).** 구현 범위는 §7의 노드별 As-built 표기를 따른다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 사내 스크립트 Validator·사내 LLM은 별도 개발 중이다. 인터페이스·출력·권한은 실사 전이므로 **연동 완료로 쓰지 않는다.** 이 슬라이스는 플랫폼 쪽 틀(요청 등록·가져가기·결과 저장·사람 기록)만 만든다.
 
@@ -193,7 +193,7 @@ log-dev (기존 Space)
    └─ 검증 요청            log-validation-requests /log/validation-requests            [Management, 신규]
 ```
 
-화면 수: 모델 목록(계층 보기 포함, 기존 planned 메뉴의 첫 실구현) + 개발 건·Round 상세 + 검증 요청(+등록·결과 서랍) = **새 화면 3개**이고 범위는 소유자가 확정했다(2026-11-07). 토큰 관리 화면([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md))은 서비스 토큰 1개 화면이며 개인 토큰은 같은 화면의 탭이다(`platform/` 쪽, 소유자 2026-11-07). 각 화면은 실제 앱 시안(`?variant=`) 컨펌 뒤 구현한다.
+화면 수: 모델 목록(계층 보기 포함, 기존 planned 메뉴의 첫 실구현) + 개발 건·Round 상세 + 검증 요청(+등록·결과 서랍) = **새 화면 3개**이고 범위는 소유자가 확정했다(2026-11-07). 토큰 관리 화면([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md))은 내 활동의 개인 토큰(`/tokens`)과 운영 콘솔 권한 그룹의 서비스 토큰(`/operations/service-tokens`) 두 메뉴다(탭 없음, 소유자 2026-11-07). 각 화면은 실제 앱 시안(`?variant=`) 컨펌 뒤 구현한다.
 
 ### 6.3 Conceptual Contract (화면별 최소)
 
@@ -234,7 +234,7 @@ log-dev (기존 Space)
 | --- | --- | --- | --- |
 | 0 | ADR 0116·0117·0118 확정(소유자 답) + 이 문서 Candidate→As-built 전환 계획 | light | 소유자 답 |
 | a | **API 토큰 코어**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)): 테이블·발급·폐기·인증 훅·scope ∩ 권한 판정·감사·고위험 거절. **As-built** #1442(PR #1456): `core.api_tokens`(0101), 토큰은 `menu-query`·`menu-action`만 호출 가능, 계약은 [auth.md](../../../architecture/platform-api/api/auth.md)·[05](../../../architecture/platform-api/05-permission-policy.md) | full, `impl-complex` (권한 경계) | 0 |
-| b | 토큰 관리 화면(개인 목록·발급·폐기, 관리자 서비스 토큰) + 시안 | full, `ux=required` | a |
+| b | **As-built** #1443: 확인된 A안(표 + 발급 서랍), 개인 `/tokens`(내 활동)·`/operations/service-tokens`(운영 콘솔 권한), 복수 권한 묶음·일회 표시·폐기. 화면은 `apps/feature-screens/src/features/api-tokens/`, 묶음은 `packages/feature-shared/src/enums/api-token-bundles.ts`. 서비스 목록은 기본 서비스 토큰만, 「개인 토큰 포함」으로 전체(ADR-0116 3a); review-ux·일관성 점검·impeccable·mock/real E2E 통과. | full, `ux=required` | a |
 | c | `log-lifecycle` 스키마·마이그레이션·개발 건·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 검증 첨부는 c2 #1451, 구현됨) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
 | d **As-built** #1445 | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
 | e | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |

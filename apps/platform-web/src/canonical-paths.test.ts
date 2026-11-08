@@ -10,7 +10,7 @@ vi.mock('@ap/kernel', async importOriginal => {
 });
 // The first call is menus.ts at import time.
 const ASSEMBLY_CALL = vi.mocked(createRegistry).mock.calls[0]![0];
-const RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq'];
+const RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq', 'tokens'];
 
 // ADR-0093 / kernel.md §6.4: the assembled app's old → canonical path table. A menu added without canonical/alias coverage fails here.
 const RAW = [...MENUS, ...EQV_MODULE.menus];

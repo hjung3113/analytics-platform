@@ -41,7 +41,7 @@ describe('AlertDialogContent toast interactions (#1030)', () => {
       );
       if (target === 'toast') {
         expect(onOpenChange).not.toHaveBeenCalled();
-        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(screen.getByRole('alertdialog')).toBeInTheDocument();
       } else {
         expect(onOpenChange).toHaveBeenCalledWith(false);
         if (target === 'caller') expect(onInteractOutside).toHaveBeenCalled();
@@ -75,9 +75,9 @@ describe('AlertDialogCancel and AlertDialogAction close the dialog (#1324)', () 
         </AlertDialogContent>
       </AlertDialog>,
     );
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '취소' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
   });
 
   it('notifies onOpenChange(false) when Cancel is clicked in a controlled dialog', () => {
@@ -117,7 +117,7 @@ describe('AlertDialogCancel and AlertDialogAction close the dialog (#1324)', () 
       </AlertDialog>,
     );
     fireEvent.click(screen.getByRole('button', { name: '확인' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
   });
 
   it('keeps the dialog open when an Action onClick preventDefaults (ImportWizard 계속-열기 contract)', () => {
@@ -131,6 +131,19 @@ describe('AlertDialogCancel and AlertDialogAction close the dialog (#1324)', () 
     );
     fireEvent.click(screen.getByRole('button', { name: '확인' }));
     expect(onOpenChange).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+  });
+});
+
+
+describe('AlertDialog confirmation semantics (#1443)', () => {
+  it('exposes an alertdialog with its title and description', () => {
+    render(<AlertDialog open><AlertDialogContent>
+      <AlertDialogTitle>Close the one-time value?</AlertDialogTitle>
+      <AlertDialogDescription>Save it before closing.</AlertDialogDescription>
+      <AlertDialogCancel>Keep viewing</AlertDialogCancel>
+    </AlertDialogContent></AlertDialog>);
+    expect(screen.getByRole('alertdialog', { name: 'Close the one-time value?' }))
+      .toHaveAccessibleDescription('Save it before closing.');
   });
 });

@@ -29,6 +29,7 @@ const pageQuery = {
 const personalListQuery = z.object(pageQuery);
 const serviceListQuery = z.object({
   ...pageQuery,
+  kind: z.enum(['personal', 'service']).optional(),
   noExpiry: z
     .enum(['true', 'false'])
     .optional()

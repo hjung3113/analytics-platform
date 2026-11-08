@@ -1,7 +1,7 @@
 import { detailFocusFallback, paneRootById } from '../state/pageFocus';
 import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { X } from 'lucide-react';
-import { useContext, useEffect, useId, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
@@ -9,9 +9,10 @@ import { useHostPlatformOptional } from '@ap/kernel/host';
 import { DetailPanelFullscreenContext, DetailPanelFullscreenToggle, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused } from '@ap/ui';
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
-export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, focusOnOpen }: {
+export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, focusOnOpen, returnFocusRef }: {
   /** For consumers with a detail identity other than focus=: false preserves arrival focus; true claims a user-opened detail. Default follows Kernel navigation. */
   focusOnOpen?: boolean;
+  returnFocusRef?: RefObject<HTMLElement | null>;
   title: ReactNode; subtitle?: ReactNode; headerActions?: ReactNode; context?: ReactNode; footer?: ReactNode;
   tabs: { id: string; label: ReactNode; content: ReactNode }[];
   onClose: () => void; tab?: string; onTabChange?: (tab: string) => void;
@@ -28,7 +29,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, footer, 
   useCloseOnPaneChange(onClose);
   // A drawer whose owning surface is covered stays mounted in the hidden host; its own transient UI is dismissed, as a docked detail owns its visibility.
   const paused = useSurfacePaused();
-  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent focusOnOpen={focusOnOpen} superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} footer={footer} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope></TransientOverlayScope>, host) : null;
+  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent focusOnOpen={focusOnOpen} superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} footer={footer} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} returnFocusRef={returnFocusRef} /></OutcomeScope></TransientOverlayScope>, host) : null;
 }
 
 /**
@@ -50,7 +51,7 @@ function useCloseOnPaneChange(onClose: () => void) {
   }, [identity]);
 }
 
-function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
+function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, returnFocusRef }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
   const { lang, t } = useI18n();
   const onKeyDown = useDetailPanelEscape(onClose);
   const close = useRef<HTMLButtonElement>(null);
@@ -72,7 +73,7 @@ function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions
   const paneId = platform?.paneId ?? null;
   const paneLabel = platform?.paneLabel ?? null;
   useLayoutEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
+    const opener = returnFocusRef?.current ?? document.activeElement as HTMLElement | null;
     // Arrival with focus= leaves the title focused (§26). Same-screen open still moves here.
     // No provider means a locally mounted drawer, which still claims the close button.
     const claim = (focusOnOpen ?? pageNavigation?.claimsDetailFocus() ?? true) && !paused.current;
@@ -85,7 +86,7 @@ function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions
       const inside = panel.current?.contains(document.activeElement) ?? false;
       // A panel that never took focus must not treat the untouched body as its own.
       // `focusInside` follows React's tree, so a dialog the panel opened (portaled to body, e.g. a discard confirm) counts: closing through it still returns focus.
-      const restore = inside || focusInside.current || (claim && document.activeElement === document.body);
+      const restore = inside || focusInside.current || (claim && (document.activeElement === document.body || returnFocusRef !== undefined));
       if (!restore) return;
       // The panel is portaled out of its pane, so a pane's fallback is found by id (compared, not interpolated into a selector).
       const paneRoot = paneId === null ? null : paneRootById(paneId);
@@ -99,9 +100,12 @@ function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions
         setTimeout(() => { if (document.activeElement === document.body || document.activeElement === null) restoreFocus(); }, 0);
         return;
       }
-      restoreFocus();
+      // An explicit trigger can still be disabled until the same closing commit finishes.
+      if (returnFocusRef) {
+        setTimeout(() => { if (document.activeElement === document.body || document.activeElement === null) restoreFocus(); }, 0);
+      } else restoreFocus();
     };
-  }, [pageNavigation, paneId, superseded, paused, focusOnOpen]);
+  }, [pageNavigation, paneId, superseded, paused, focusOnOpen, returnFocusRef]);
   useLayoutEffect(() => {
     // A pointerdown outside the panel is the user choosing a focus destination (often body).
     const onPointerDown = (e: PointerEvent) => { if (!panel.current?.contains(e.target as Node)) focusInside.current = false; };

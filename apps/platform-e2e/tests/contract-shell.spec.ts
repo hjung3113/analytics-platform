@@ -684,7 +684,7 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await page.goto('/bravo/metric-catalog');
     const popover = await openSwitcher(page);
     const platformMenu = popover.getByRole('navigation', { name: '플랫폼 메뉴' });
-    await expect(platformMenu.getByRole('link')).toHaveText(['홈', '개선 아이템', '공지', 'FAQ', 'VOC', '설문', '알림', '권한 요청']);
+    await expect(platformMenu.getByRole('link')).toHaveText(['홈', '개선 아이템', '공지', 'FAQ', 'VOC', '설문', '알림', '권한 요청', 'API 토큰']);
     await evidence(page, testInfo, 'platform-menu-switcher');
     await platformMenu.getByRole('link', { name: '알림' }).click();
     await expect(popover).toHaveCount(0);
@@ -741,7 +741,7 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     await expect(page.getByRole('status')).toContainText('실서버 필요');
     await expect(sidebarSurveys).toHaveAttribute('aria-current', 'page');
     const switcher = await openSwitcher(page);
-    await expect(switcher.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '개선 아이템', '공지', 'FAQ', 'VOC', '설문', '알림', '권한 요청']);
+    await expect(switcher.getByRole('navigation', { name: '플랫폼 메뉴' }).getByRole('link')).toHaveText(['홈', '개선 아이템', '공지', 'FAQ', 'VOC', '설문', '알림', '권한 요청', 'API 토큰']);
 
     await page.goto('/survey/not-a-uuid/respond');
     await expect(page.getByText('설문을 찾을 수 없습니다')).toBeVisible();

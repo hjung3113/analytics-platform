@@ -1,12 +1,12 @@
 /**
- * @ap/menu-access — access group manifests (운영 콘솔 space 권한: 권한 요청 검토, 부여 목록; ADR-0081, #764 p2, ADR-0110).
+ * @ap/menu-access — access group manifests (운영 콘솔 space 권한: 권한 요청 검토, 부여 목록, 서비스 토큰; ADR-0081, #764 p2, ADR-0110).
  * The feature admin screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`permissionRequestsRoute`, `permissionGrantsRoute`; pinned by the manifests test)
  * plus the two carry-set keys (`managedSystem`, `returnTo`; #1099b). The group `access` is not list-scoped, so the screens ignore the carried `managedSystem`. `focus` is the selected row (06 §13).
  * `console:access` (the `workspace-admin` rule) AND `features:access` (declared redundantly while the feature space still gates it; it stays when the space goes) keep the section out of reach for non-admins; the screens' own `PermissionGate` stays a display hint (the backend decides).
  * 권한 요청 검토 is the group's one primary menu. The paths stay under `/operations/` (the 운영 콘솔 space) and never alias `/admin/*`.
  */
 import { lazy } from 'react';
-import { KeyRound, FileCheck2 } from 'lucide-react';
+import { KeyRound, FileCheck2, KeySquare } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, carrySetId, groupId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 
@@ -31,5 +31,12 @@ export const manifests: MenuEntry[] = [
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['tab', 'focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
     component: lazy(() => import('./pages/FeaturePermissionGrants')),
+  },
+  {
+    id: 'service-tokens', group: GROUP, label: { ko: '서비스 토큰', en: 'Service tokens' },
+    description: { ko: '워크스페이스 토큰 조회·폐기와 system Actor 토큰 발급', en: 'Review workspace tokens and issue system Actor tokens' },
+    path: '/operations/service-tokens', icon: KeySquare, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['noExpiry', 'kind'],
+    component: lazy(() => import('./pages/ServiceTokens')),
   },
 ];
