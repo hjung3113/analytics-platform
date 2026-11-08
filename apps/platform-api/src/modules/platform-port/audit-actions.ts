@@ -165,6 +165,7 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   'knowledge.draft.rejected': 'retire',
   'knowledge.draft.changes_requested': 'update',
   'lifecycle.round.evidence_attached': 'update',
+  'lifecycle.round.evidence_ref_attached': 'update',
   'explorer.source.read': 'update',
   'explorer.export': 'update',
   'explorer.investigation.created': 'create',

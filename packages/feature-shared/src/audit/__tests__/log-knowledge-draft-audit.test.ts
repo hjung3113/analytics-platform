@@ -41,6 +41,8 @@ describe('log knowledge draft audit detail schemas (#1198 a)', () => {
   it.each([
     ['knowledge.draft.created', base],
     ['knowledge.draft.updated', { ...base, proposalType: 'revise', targetItemId: ID, draftRevNo: 2, statusBefore: 'submitted', statusAfter: 'submitted' }],
+    ['knowledge.draft.created', { ...base, handoff: { originKind: 'log_explorer', originId: ID, refCount: 2 } }],
+    ['knowledge.draft.updated', { ...base, draftRevNo: 2, handoff: { originKind: 'log_explorer', originId: ID, refCount: 1 } }],
     ['knowledge.draft.submitted', { ...base, statusBefore: 'draft', statusAfter: 'submitted' }],
     ['knowledge.draft.withdrawn', { ...base, statusBefore: 'changes_requested', statusAfter: 'withdrawn' }],
   ] as const)('%s accepts its detail', (type, detail) => {
@@ -54,6 +56,8 @@ describe('log knowledge draft audit detail schemas (#1198 a)', () => {
     ['an unknown origin', { ...base, origin: 'robot' }],
     ['an unknown status', { ...base, statusAfter: 'published' }],
     ['revision 0', { ...base, draftRevNo: 0 }],
+    ['a handoff note', { ...base, handoff: { originKind: 'log_explorer', originId: ID, refCount: 1, note: 'x' } }],
+    ['a handoff with no refs', { ...base, handoff: { originKind: 'log_explorer', originId: ID, refCount: 0 } }],
   ] as const)('knowledge.draft.created rejects %s', (_label, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS['knowledge.draft.created'].safeParse(detail).success).toBe(false);
   });

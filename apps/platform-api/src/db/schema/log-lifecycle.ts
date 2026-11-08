@@ -522,3 +522,46 @@ export const gateDecisions = logLifecycleSchema.table(
     ),
   }),
 );
+
+// Evidence locations handed to a round (#1474 X-h, lead decision 2026-11-08): a body-free pointer `(file_ref, line,
+// file_sha256)` with the status the round judged on receipt. Append-only (trigger + no UPDATE/DELETE grant); `seq` is
+// 1..n per round without gaps, allocated under the round row lock. The same triple is stored once per round.
+const EVIDENCE_REF_STATUSES = "('match','hash_mismatch','unresolved')";
+export const roundEvidenceRefs = logLifecycleSchema.table(
+  'round_evidence_ref',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    roundId: uuid('round_id').notNull(),
+    seq: integer('seq').notNull(),
+    fileRef: text('file_ref').notNull(),
+    line: bigint('line', { mode: 'number' }).notNull(),
+    fileSha256: text('file_sha256').notNull(),
+    note: text('note'),
+    status: text('status').notNull(),
+    originKind: text('origin_kind').notNull(),
+    originId: uuid('origin_id').notNull(),
+    handedOffBy: uuid('handed_off_by')
+      .notNull()
+      .references(() => actors.id),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    roundFk: foreignKey({
+      name: 'round_evidence_ref_round_fk',
+      columns: [t.workspaceId, t.roundId],
+      foreignColumns: [validationRounds.workspaceId, validationRounds.id],
+    }).onDelete('restrict'),
+    seqUq: unique('round_evidence_ref_round_seq_uq').on(t.workspaceId, t.roundId, t.seq),
+    tripleUq: unique('round_evidence_ref_round_triple_uq').on(t.workspaceId, t.roundId, t.fileRef, t.line, t.fileSha256),
+    seqCheck: check('round_evidence_ref_seq_check', sql`${t.seq} between 1 and 1000`),
+    fileRefCheck: check('round_evidence_ref_file_ref_check', sql`char_length(${t.fileRef}) between 1 and 1024`),
+    lineCheck: check('round_evidence_ref_line_check', sql`${t.line} >= 1`),
+    shaCheck: check('round_evidence_ref_sha_check', sql`${t.fileSha256} ~ '^[0-9a-f]{64}$'`),
+    noteCheck: check('round_evidence_ref_note_check', sql`coalesce(char_length(${t.note}), 0) <= 500`),
+    statusCheck: check('round_evidence_ref_status_check', sql`${t.status} in ${sql.raw(EVIDENCE_REF_STATUSES)}`),
+    originCheck: check('round_evidence_ref_origin_check', sql`${t.originKind} in ('log_explorer')`),
+  }),
+);

@@ -58,6 +58,7 @@ describe('audit action map vs @ap/contracts AuditAction', () => {
     ['lifecycle.round.opened', 'create'],
     ['lifecycle.round.closed', 'retire'],
     ['lifecycle.round.evidence_attached', 'update'],
+    ['lifecycle.round.evidence_ref_attached', 'update'],
     ['lifecycle.request.created', 'create'],
     ['lifecycle.request.cancelled', 'retire'],
     ['lifecycle.request.claimed', 'update'],
