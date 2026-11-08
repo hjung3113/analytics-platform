@@ -507,6 +507,11 @@ describe('knowledge draft handoff (#1474c, confirmed A)', () => {
     expect(alert.textContent).not.toMatch(/target|title|required|too_long|malformed|not_found|unmapped/);
     if (code === 'unmapped') expect(alert.textContent).toBe('입력을 확인한 뒤 다시 시도하세요.');
   });
+  it('shows a refusal on its field only, keeping the alert for screen readers', async () => {
+    write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: ['title'], code: 'too_long' }] });
+    const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));
+    expect((await within(dialog).findByRole('alert')).className).toContain('sr-only');
+  });
   it('focuses the first invalid control in form order', async () => {
     write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: ['observation'], code: 'required' }, { path: ['title'], code: 'too_long' }] });
     const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));

@@ -70,12 +70,12 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     const dialog = page.getByRole('dialog', { name: '지식 초안으로 넘기기', exact: true });
     await dialog.getByRole('tab', { name: '내 초안에 덧붙이기', exact: true }).click();
     await dialog.getByRole('radio', { name: /제어 SW 재시도 위치 확인/ }).click();
-    await expect(dialog.getByText('초안 근거는 20개까지입니다 (21/20)', { exact: true })).toBeVisible();
-    await expect(dialog.getByRole('button', { name: '내 초안에 덧붙이기', exact: true })).toBeDisabled();
+    await expect(dialog.getByText(/기존 19 \+ 새 위치 최대 2 = 최대 21\/20/)).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '내 초안에 덧붙이기', exact: true })).toBeEnabled();
     await dialog.getByRole('radio', { name: /초기화 이후 응답 지연 확인/ }).click();
     await evidence(page, info, 'log-explorer-knowledge-append-a');
     await dialog.getByRole('button', { name: '내 초안에 덧붙이기', exact: true }).click();
-    await expect(page.getByText('내 초안에 2개 넘김', { exact: true })).toBeVisible();
+    await expect(page.getByText('내 초안에 근거 위치 2개를 전달했습니다. 이미 있던 위치는 더해지지 않습니다.', { exact: true })).toBeVisible();
   });
   test('지식 초안 A: 거절해도 입력 유지·닫기 전 작성 중 확인', async ({ page }, info) => {
     await page.goto(investigation(8));

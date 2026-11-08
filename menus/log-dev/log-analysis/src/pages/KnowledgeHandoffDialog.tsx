@@ -51,6 +51,7 @@ export function KnowledgeHandoffDialog({ investigation, onClose, onDone, onClose
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [errorOnFields, setErrorOnFields] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<InvalidField, string>>>({});
   const formRef = useRef<HTMLFormElement>(null);
   const alertRef = useRef<HTMLParagraphElement>(null);
@@ -94,6 +95,7 @@ export function KnowledgeHandoffDialog({ investigation, onClose, onDone, onClose
     const invalid: Partial<Record<InvalidField, string>> = {};
     for (const field of guidance) if (field.control && !invalid[field.control]) invalid[field.control] = field.message;
     setFieldErrors(invalid);
+    setErrorOnFields(r.outcome === 'invalid' && guidance.length > 0 && guidance.every(field => field.control));
     setError(r.outcome === 'conflict' ? '조사가 바뀌었습니다. 다시 열어 주세요' : r.outcome === 'forbidden' ? '넘기기 권한이 없습니다' : [...new Set(guidance.map(field => field.message))].join(' · ') || CORRECT_INPUT);
   }
   function confirm() {
@@ -140,7 +142,7 @@ export function KnowledgeHandoffDialog({ investigation, onClose, onDone, onClose
       {mode === 'append' && selected && <p>기존 {selected.evidenceCount} + 새 위치 최대 {eligible.length} = 최대 {total}/20 · 중복은 서버에서 제외</p>}
       {reason && !sourceError && <p id={`${uid}-reason`} className="text-xs text-text-secondary">{reason}</p>}
       {!reason && <p className="text-xs text-text-secondary">{mode === 'create' ? `새 초안에 근거 위치 ${eligible.length}개를 넘깁니다. 발행·승인이 아닙니다.` : '선택한 초안에 근거 위치만 덧붙입니다. 기존 관찰은 바꾸지 않습니다.'}</p>}
-      {error && <p ref={alertRef} role="alert" tabIndex={-1} className="text-sm text-text-danger-label">{error}</p>}
+      {error && <p ref={alertRef} role="alert" tabIndex={-1} className={errorOnFields && Object.keys(fieldErrors).length > 0 ? 'sr-only' : 'text-sm text-text-danger-label'}>{error}</p>}
       {conflict && <div ref={conflictRef} role="alert" tabIndex={-1}><Callout tone="amber" title="초안 버전 충돌" action={<Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => { drafts.retry(); setDraftId(''); setConflict(false); }}>목록 다시 확인</Button>}>다른 변경으로 초안 버전이 달라졌습니다. 아무 위치도 추가하지 않았습니다. 목록을 다시 확인하고 대상을 고르세요.</Callout></div>}
       </div>
     </div>
