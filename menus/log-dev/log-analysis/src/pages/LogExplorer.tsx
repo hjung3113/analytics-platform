@@ -83,7 +83,7 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
   const compactColumns = narrow && drawerOpen;
   const columns = useMemo<PlatformColumn<SourceRow>[]>(() => {
     const compact = compactColumns;
-    const column: PlatformColumn<SourceRow>[] = [{ id: 'order', header: '순번', size: drawerOpen ? 60 : 76, cell: r => <span className="t-mono">{r.fileOrder}:{r.line}</span> }];
+    const column: PlatformColumn<SourceRow>[] = [{ id: 'order', header: '순번', size: drawerOpen ? 60 : 76, cell: r => <span className="whitespace-nowrap t-mono">{r.fileOrder}:{r.line}</span> }];
     if (!compact) column.push({ id: 'fileRef', header: '파일', size: drawerOpen ? 88 : 140, cell: r => <span className="block truncate" title={r.fileRef}>{r.fileRef}</span> });
     column.push({ id: 'line', header: '줄', size: drawerOpen ? 60 : 64, cell: r => <span className="t-mono">{r.line}</span> }, { id: 'timestamp', header: '시간', size: drawerOpen ? 96 : 116, cell: r => <span className="block truncate t-mono" title={r.timestamp ?? undefined}>{r.timestamp?.split('T')[1] ?? '—'}{r.timeReversal ? ' ↶' : ''}</span> });
     // SourceRow has no type field; only a parsed response may assert a log type. Do not infer one from the source text.

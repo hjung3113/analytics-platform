@@ -66,3 +66,36 @@ describe('synthetic window read for a Round sample list (#1475)', () => {
     }
   });
 });
+
+describe('knowledge handoff mock (#1474c)', () => {
+  const id = '14730000-0000-4000-8000-000000000008';
+  const call = (endpointId: string, params: unknown = {}) => endpoint(`logExplorer.${endpointId}`).handle(input(params));
+  const hand = () => logAnalysisActionsMock.find(a => a.spec.id === evidenceHandoff.id)!;
+  it('checks a seeded mismatch and unresolved ref without source bodies', () => {
+    const check = call('handoffCheck', { investigationId: id });
+    expect(check).toMatchObject({ state: 'ok', refs: expect.arrayContaining([expect.objectContaining({ status: 'hash_mismatch' }), expect.objectContaining({ status: 'unresolved' })]) });
+    expect(check.refs.every((r: object) => Object.keys(r).length === 3)).toBe(true);
+  });
+  it('creates and appends with de-duplication and updates the caller-only list', () => {
+    const detail = call('investigationDetail', { investigationId: id });
+    const refs = detail.evidence.slice(0, 2).map(({ ref }: { ref: unknown }) => ref);
+    const target = { kind: 'knowledgeDraft', mode: 'create', owner: { modelId: call('handoffModels', { q: null, page: 0, pageSize: 20 }).rows[0].id }, title: '새 합성 초안', observation: '관찰 사실' };
+    const created = hand().handle({ actor: 'engineer', scopeId: null, input: { id, refs, target } });
+    expect(created.data).toMatchObject({ targetKind: 'knowledgeDraft', handedOff: 2 });
+    const appended = hand().handle({ actor: 'engineer', scopeId: null, input: { id, refs, target: { kind: 'knowledgeDraft', mode: 'append', draftId: created.data.targetId, draftExpectedVersion: created.data.draftVersion } } });
+    expect(appended.data.draftVersion).not.toBe(created.data.draftVersion);
+    expect(call('handoffDrafts').rows.find((r: { draftId: string }) => r.draftId === created.data.targetId).evidenceCount).toBe(2);
+    expect(endpoint('logExplorer.handoffDrafts').handle({ ...input({}), actor: 'viewer' }).rows).toEqual([]);
+  });
+  it('exposes a reproducible field refusal and draft conflict for capture', () => {
+    const detail = call('investigationDetail', { investigationId: id });
+    const target = { kind: 'knowledgeDraft', mode: 'create', owner: { modelId: '14740000-0000-4000-8000-000000000010' }, title: '[field-error]', observation: '관찰 사실' };
+    expect(() => hand().handle({ actor: 'engineer', scopeId: null, input: { id, refs: [detail.evidence[0].ref], target } })).toThrow();
+    expect(() => hand().handle({ actor: 'engineer', scopeId: null, input: { id, refs: [detail.evidence[0].ref], target: { ...target, title: '[conflict]' } } })).toThrow();
+  });
+  it.each(['conflict', 'field-error'])('matches a %s marker inside a title', marker => {
+    const detail = call('investigationDetail', { investigationId: id });
+    const target = { kind: 'knowledgeDraft', mode: 'create', owner: { modelId: '14740000-0000-4000-8000-000000000010' }, title: `검사 [${marker}] 재현`, observation: '관찰 사실' };
+    expect(() => hand().handle({ actor: 'engineer', scopeId: null, input: { id, refs: [detail.evidence[0].ref], target } })).toThrow();
+  });
+});

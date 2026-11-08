@@ -3,6 +3,7 @@
 // The Source is the synthetic adapter of the dev assembly. Needs migration 0116 (`round_evidence_ref`).
 
 import { randomUUID } from 'node:crypto';
+import type { ServerResponse } from 'node:http';
 
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -583,4 +584,119 @@ describe.skipIf(!runIntegration)('log explorer evidence handoff (#1474 X-h)', ()
       expect(await detailHandoff(who())).toEqual(expected);
     });
   });
+
+  describe('knowledge handoff reads (#1474c)', () => {
+    it('cancels active Source calls on read disconnect and never starts a later batch', async () => {
+      const s = await seed(Array.from({ length: 12 }, (_, i) => REF(i + 1)));
+      const before = await inv(s.id);
+      const audits = await allAudit(s.id);
+      const signals: AbortSignal[] = [];
+      let firstBatch: () => void = () => undefined;
+      const started = new Promise<void>(resolve => { firstBatch = resolve; });
+      const options = devLogExplorerServerOptions(access, 'typical');
+      const slow = await buildServer({ config: loadConfig(), dbHandle, logExplorer: {
+        ...options,
+        handoffSourceTotalMs: 1500,
+        sourceReadPort: { ...createSyntheticScenario('typical').port, getWindow: async (_request, ctx) => {
+          signals.push(ctx.signal);
+          if (signals.length === 10) firstBatch();
+          return new Promise(() => undefined);
+        } },
+      } });
+      let response: ServerResponse | undefined;
+      slow.addHook('onRequest', async (req, reply) => { if (req.url === '/api/v1/menu-query') response = reply.raw; });
+      let complete: () => void = () => undefined;
+      const completed = new Promise<void>(resolve => { complete = resolve; });
+      slow.addHook('onSend', async (req, _reply, payload) => { if (req.url === '/api/v1/menu-query') complete(); return payload; });
+      let pending: Promise<unknown> | undefined;
+      try {
+        await slow.ready();
+        pending = slow.inject({ method: 'POST', url: '/api/v1/menu-query', headers: { 'content-type': 'application/json', ...cookieHeader(holder.cookie) }, payload: { endpoint: 'logExplorer.handoffCheck', context: {}, params: { investigationId: s.id } } }).catch(error => {
+          expect(error.message).toBe('response destroyed before completion');
+        });
+        await started;
+        expect(response).toBeDefined();
+        response?.emit('close');
+        expect(signals).toHaveLength(10);
+        expect(signals.every(signal => signal.aborted)).toBe(true);
+        await pending;
+        await completed;
+        expect(signals).toHaveLength(10);
+        expect(await inv(s.id)).toEqual(before);
+        expect(await allAudit(s.id)).toEqual(audits);
+      } finally {
+        await pending;
+        await completed;
+        await slow.close();
+      }
+    });
+    async function query(endpoint: string, params: Row, who: Person = holder, server = app) {
+      const res = await server.inject({ method: 'POST', url: '/api/v1/menu-query', headers: { 'content-type': 'application/json', ...cookieHeader(who.cookie) }, payload: { endpoint: `logExplorer.${endpoint}`, context: {}, params } });
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json<Answer>();
+    }
+    it('checks statuses without a body, note, audit or investigation mutation', async () => {
+      const s = await seed([REF(1, { note: 'private-note' }), REF(2, { fileSha256: H('f') }), REF(99)]);
+      const before = await inv(s.id);
+      const audits = await allAudit(s.id);
+      const a = await query('handoffCheck', { investigationId: s.id });
+      expect(a).toMatchObject({ outcome: 'ok', data: { state: 'ok', refs: [ { fileRef: FILE_A, line: 1, status: 'ok' }, { fileRef: FILE_A, line: 2, status: 'hash_mismatch' }, { fileRef: FILE_A, line: 99, status: 'unresolved' } ] } });
+      expect(Object.keys(a.data)).toEqual(['state', 'refs']);
+      for (const r of a.data.refs) expect(Object.keys(r)).toEqual(['fileRef', 'line', 'status']);
+      expect(JSON.stringify(a)).not.toContain('private-note');
+      expect(await inv(s.id)).toEqual(before);
+      expect(await allAudit(s.id)).toEqual(audits);
+    });
+    it('hides foreign and unknown investigations identically', async () => {
+      const s = await seed([REF(1)]);
+      expect(await query('handoffCheck', { investigationId: s.id }, other)).toMatchObject({ outcome: 'ok', data: null });
+      expect(await query('handoffCheck', { investigationId: randomUUID() })).toMatchObject({ outcome: 'ok', data: null });
+    });
+    it('requires the explorer right before any check', async () => {
+      const s = await seed([REF(1)], noHandoff);
+      expect(await query('handoffCheck', { investigationId: s.id }, noHandoff)).toMatchObject({ outcome: 'forbidden', data: null });
+    });
+    it('answers ACL denial and absent Source with no per-location information', async () => {
+      const s = await seed([REF(1)], noAcl);
+      expect(await query('handoffCheck', { investigationId: s.id }, noAcl)).toMatchObject({ outcome: 'ok', data: { state: 'source_forbidden', refs: [] } });
+      const own = await seed([REF(1)]);
+      expect(await query('handoffCheck', { investigationId: own.id }, holder, noSource)).toMatchObject({ outcome: 'ok', data: { state: 'source_unavailable', refs: [] } });
+    });
+    it('lists only own non-final drafts with pointer count and current version', async () => {
+      const s = await seed([REF(3)]);
+      const created = await act('evidenceHandoff', { id: s.id, refs: KEYS(s.refs), target: toNewDraft() }, { expectedVersion: s.version });
+      const draftId = created.data.targetId;
+      const listed = await query('handoffDrafts', {});
+      expect(listed.data.rows).toContainEqual(expect.objectContaining({ draftId, title: `${TAG} handoff`, ownerLabel: expect.stringContaining(TAG), evidenceCount: 1, status: 'draft', version: created.data.draftVersion, updatedAt: expect.any(String) }));
+      expect((await query('handoffDrafts', {}, other)).data.rows.map((r: Row) => r.draftId)).not.toContain(draftId);
+      const withdrawn = await app.inject({ method: 'POST', url: '/api/v1/menu-action', headers: { 'content-type': 'application/json', ...cookieHeader(holder.cookie), 'x-csrf-token': holder.csrf }, payload: { action: 'logKnowledge.draftWithdraw', context: {}, input: { id: draftId }, expectedVersion: created.data.draftVersion, idempotencyKey: randomUUID() } });
+      expect(withdrawn.json<Answer>().outcome, withdrawn.body).toBe('ok');
+      expect((await query('handoffDrafts', {})).data.rows.map((r: Row) => r.draftId)).not.toContain(draftId);
+    });
+    it('caps own open drafts at 50, newest first', async () => {
+      const s = await seed([REF(4)]);
+      const ids: string[] = [];
+      for (let i = 0; i < 51; i++) {
+        const a = await act('evidenceHandoff', { id: s.id, refs: KEYS(s.refs), target: toNewDraft({ title: `${TAG} cap ${i}` }) }, { expectedVersion: s.version });
+        expect(a.outcome, JSON.stringify(a)).toBe('ok');
+        ids.push(a.data.targetId);
+      }
+      const rows = (await query('handoffDrafts', {})).data.rows;
+      expect(rows).toHaveLength(50);
+      expect(rows.map((r: Row) => r.draftId)).toEqual(ids.slice(1).reverse());
+    });
+    it.each(['handoffDrafts', 'handoffModels', 'handoffSoftware'])('%s requires both rights and returns empty for a missing receiving right', async name => {
+      const params = name === 'handoffModels' ? { q: null, page: 0, pageSize: 20 } : name === 'handoffSoftware' ? { modelId } : {};
+      expect(await query(name, params, noHandoff)).toMatchObject({ outcome: 'forbidden', data: null });
+      const a = await query(name, params, noDraft);
+      expect(a.outcome).toBe('ok');
+      expect(name === 'handoffSoftware' ? a.data : a.data.rows).toEqual([]);
+    });
+    it('reads model and software options through the catalog port', async () => {
+      const models = await query('handoffModels', { q: TAG, page: 0, pageSize: 20 });
+      expect(models.data.rows).toContainEqual(expect.objectContaining({ id: modelId, code: `${TAG}-m`, active: true }));
+      expect((await query('handoffSoftware', { modelId: randomUUID() })).data).toEqual([]);
+    });
+  });
+
 });

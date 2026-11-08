@@ -12,7 +12,7 @@
 #   blocked-lane      state blocked or waiting (a dialog or question waits)
 #   idle-lane         state done, no child worktree (parentWorktreeId) working, for more than LEAD_CHECK_IDLE_MIN (15) min;
 #                     reported even when the board has no ready line
-#   monitoring-lane   state working with workingMode monitoring for more than LEAD_CHECK_MONITOR_MIN (100) min
+#   monitoring-lane   state working with workingMode monitoring and no terminal output for more than LEAD_CHECK_MONITOR_MIN (100) min
 #   gone-lane         liveTerminalCount is 0
 #   host-unknown      a host's ps failed: its lanes were not checked (never printed as «ok»)
 #   A state-<lane> dir without a lane-<lane>* worktree on a readable host prints `lane <name> not-seen`.
@@ -311,8 +311,9 @@ def wt_name(e):
     return os.path.basename(p.rstrip('/')) if isinstance(p, str) and LANE_RE.match(os.path.basename(p.rstrip('/'))) else None
 
 lane_names = []  # lane names from state dirs (state-lead excluded)
+state_days = int(os.environ.get('LEAD_CHECK_STATE_DAYS', '1'))  # older state dirs are finished lanes, not missing ones
 for d in sorted(state_dirs):
-    if d.name.startswith('state-') and d.name != 'state-lead':
+    if d.name.startswith('state-') and d.name != 'state-lead' and time.time() - d.stat().st_mtime < state_days * 86400:
         lane_names.append(d.name[len('state-'):])
 
 hosts = host_names()
@@ -353,6 +354,8 @@ for h, e, name, child_working in seen:
     started = epoch(e.get('stateStartedAt'))
     age = int((now - started) / 60) if started is not None else None
     sk = e.get('stateStartedAt')
+    output = epoch(e.get('lastOutputAt'))  # stateStartedAt stays at the session resume while the lane keeps working
+    quiet = int((now - output) / 60) if output is not None else age
     print(f'{name} host={h} state={state} mode={mode or "-"} for={age if age is not None else "?"}min live={live} children_working={int(child_working)}')
     if isinstance(live, int) and live == 0:
         findings.append((f'gone:{name}:{sk}', f'gone-lane: {name} on {h} has no live terminal (liveTerminalCount=0)', e, h, h))
@@ -360,8 +363,8 @@ for h, e, name, child_working in seen:
         findings.append((f'{state}:{name}:{sk}', f'blocked-lane: {name} on {h} is {state} for {age if age is not None else "?"} min — a dialog or question waits', e, h, h))
     elif state == 'done' and not child_working and age is not None and age > idle_limit:
         findings.append((f'idle:{name}:{sk}', f'idle-lane: {name} on {h} finished {age} min ago and no child worktree is working — assign work or send 대기', e, h, h))
-    elif state == 'working' and mode == 'monitoring' and age is not None and age > mon_limit:
-        findings.append((f'monitoring:{name}:{sk}', f'monitoring-lane: {name} on {h} has been monitoring for {age} min (limit {mon_limit}) — check that it can still wake', e, h, h))
+    elif state == 'working' and mode == 'monitoring' and quiet is not None and quiet > mon_limit:
+        findings.append((f'monitoring:{name}:{sk}', f'monitoring-lane: {name} on {h} has been monitoring with no terminal output for {quiet} min (limit {mon_limit}) — check that it can still wake', e, h, h))
 for n in not_seen:
     print(f'lane {n} not-seen (no lane-{n}* worktree on a readable host)')
 
@@ -608,7 +611,7 @@ $out"
 
   # #1566: per-lane liveness from `orca worktree ps --json` (LEAD_CHECK_PS: host -> output, null = unreachable).
   # local: alpha (versioned name, done 30 min, no working child -> idle), beta (blocked), gamma (done 30 min but a child
-  # works -> clean), delta (monitoring 120 min), eps (monitoring 10 min -> clean), zeta (no live terminal -> gone), a
+  # works -> clean), delta (monitoring 120 min), eps (monitoring 300 min with output 2 min ago -> clean), zeta (no live terminal -> gone), a
   # non-lane worktree. desktop (remote): remote (done 40 min -> idle). broken: unreachable -> host-unknown.
   # ghost has a state dir but no worktree. The board has no planned line (ready=0): idle is still reported.
   NOW=1800000000
@@ -626,7 +629,7 @@ def wt(i, name, state, m, mode=None, live=1, parent=None):
 local = {'result': {'worktrees': [
     wt('wA', 'lane-alpha-v030', 'done', am), wt('wB', 'lane-beta', 'blocked', 5),
     wt('wC', 'lane-gamma', 'done', 30), wt('wC1', '1566-child', 'working', 3, parent='wC'),
-    wt('wD', 'lane-delta', 'working', 120, 'monitoring'), wt('wE', 'lane-eps', 'working', 10, 'monitoring'),
+    wt('wD', 'lane-delta', 'working', 120, 'monitoring'), dict(wt('wE', 'lane-eps', 'working', 300, 'monitoring'), lastOutputAt=ms(2)),
     wt('wZ', 'lane-zeta', 'working', 4, live=0), wt('wN', '1566-plain', 'done', 90)]}}
 # Real Orca rows carry the state on agents[]; lane-eps uses that shape (a sub-agent pane is ignored)
 for r in local['result']['worktrees']:
@@ -642,6 +645,8 @@ PYX
   printf '{"release":"v1","goal":"","merge_grant":"","decisions":[],"lines":[{"id":1,"issue":1,"title":"a","state":"done","release":"v1","updated":"2026-11-08T00:00:00+00:00"},{"id":2,"issue":2,"title":"b","state":"running","release":"v1","updated":"2026-11-08T00:00:00+00:00"}]}\n' \
     >"$T/main/.review/lanes/board.json"
   # shellcheck disable=SC2086
+  mkdir -p "$W/state-oldlane"; touch -t 202001010000 "$W/state-oldlane"  # a finished lane's old dir is not a missing lane
+  dirs="$dirs:$W/state-oldlane"
   (unset BOARD; LEAD_CHECK_NOW=$NOW LEAD_CHECK_PS="$(cat "$T/ps.json")" LEAD_CHECK_SCRIPT_DIR="$SCRIPT_DIR" \
     lane_liveness "$T/main" $(printf '%s' "$dirs" | tr ':' ' ')) >"$T/out8" 2>&1; rc=$?
   out=$(cat "$T/out8")
@@ -653,10 +658,11 @@ $out"
   check_has "idle-lane: lane-alpha-v030 on local finished 30 min ago" "$out"
   check_has "idle-lane: lane-remote on desktop finished 40 min ago" "$out"
   check_has "blocked-lane: lane-beta on local is blocked" "$out"
-  check_has "monitoring-lane: lane-delta on local has been monitoring for 120 min" "$out"
+  check_has "monitoring-lane: lane-delta on local has been monitoring with no terminal output for 120 min" "$out"
   check_has "gone-lane: lane-zeta on local has no live terminal" "$out"
   check_has "host-unknown: host broken" "$out"
   check_has "lane ghost not-seen" "$out"
+  case "$out" in *"lane oldlane not-seen"*) fail "an old state dir was reported as a missing lane" ;; esac
   for l in gamma eps; do case "$out" in *"lead-check: "*"lane-$l "*) fail "lane $l should be clean:
 $out" ;; esac; done
   pass=$((pass + 1))

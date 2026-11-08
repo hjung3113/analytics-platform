@@ -175,7 +175,7 @@ describe('Round evidence handoff dialog (#1474, confirmed prototype A)', () => {
   ])('keeps Round disabled with its reason: %s', async (_name, over, label) => {
     investigation = roundOf(over); mount(); await openMenu();
     expect((await screen.findByRole('menuitem', { name: label })).getAttribute('aria-disabled')).toBe('true');
-    expect(screen.getByRole('menuitem', { name: '지식 초안 · 준비 중' }).getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByRole('menuitem', { name: '지식 초안 · 넘기기 권한 없음' }).getAttribute('aria-disabled')).toBe('true');
   });
   it('confirms with every basket reference and expectedVersion, shows the counts and returns focus to 넘기기', async () => {
     investigation = roundOf();
@@ -304,5 +304,258 @@ describe('RoundSourceView, the Round tab body the app injects (#1475)', () => {
     fireEvent.click(screen.getByRole('tab', { name: '시퀀스' }));
     await waitFor(() => expect(new URLSearchParams(window.location.search).get('sourceTab')).toBe('sequence'));
     expect(new URLSearchParams(window.location.search).has('tab')).toBe(false);
+  });
+});
+
+describe('knowledge draft handoff (#1474c, confirmed A)', () => {
+  const baseRead = read.getMockImplementation()!;
+  const modelId = '14740000-0000-4000-8000-000000000010';
+  const draftId = '14740000-0000-4000-8000-000000000020';
+  const refs = [1, 2, 3].map(line => ({ fileRef: 'source-b', line, fileSha256: 'b'.repeat(64) }));
+  let check: { state: string; refs: { fileRef: string; line: number; status: string }[] };
+  let draftCount: number;
+  let checkFailed: boolean;
+  let checkPaused: boolean;
+  let releaseCheck: ((value: ApiResponse<unknown>) => void) | undefined;
+  const sent = { outcome: 'ok' as const, data: { targetKind: 'knowledgeDraft', targetId: draftId, handedOff: 2, draftVersion: '8' }, version: '1', fieldErrors: [], replayed: false, correlationId: 'h' };
+  beforeEach(() => {
+    investigation = { ...investigation, handoff: { round: true, knowledgeDraft: true }, evidence: refs.map(ref => ({ ref, state: { code: 'available' }, sourceAccess: 'unchecked' })) };
+    check = { state: 'ok', refs: refs.map((ref, i) => ({ fileRef: ref.fileRef, line: ref.line, status: ['ok', 'hash_mismatch', 'unresolved'][i]! })) };
+    draftCount = 4; checkFailed = false; checkPaused = false; releaseCheck = undefined;
+    read.mockImplementation(async (request, signal) => {
+      if (request.endpoint === 'logExplorer.handoffCheck') {
+        if (checkPaused) return new Promise(resolve => { releaseCheck = resolve; });
+        if (checkFailed) return { ...ok(null), outcome: 'error' };
+        return ok(check);
+      }
+      if (request.endpoint === 'logExplorer.handoffModels') return ok({ rows: [{ id: modelId, code: 'MX-100', name: '식각 설비', vendorName: '제조사', active: true }], total: 1 });
+      if (request.endpoint === 'logExplorer.handoffSoftware') return ok([{ id: `${modelId.slice(0, -1)}1`, name: '제어 SW', versionLabel: '3.2', active: true }]);
+      if (request.endpoint === 'logExplorer.handoffDrafts') return ok({ rows: [{ draftId, title: '내 초안', ownerLabel: 'MX-100', status: 'draft', evidenceCount: draftCount, version: '7', updatedAt: '2026-11-08T00:00:00Z' }] });
+      return baseRead(request, signal);
+    });
+  });
+  afterEach(() => read.mockImplementation(baseRead));
+  async function menu() { mount(); fireEvent.click(await screen.findByRole('button', { name: /근거 위치 바구니 · / })); fireEvent.keyDown(await screen.findByRole('button', { name: '넘기기' }), { key: 'Enter' }); }
+  async function open() { await menu(); fireEvent.keyDown(await screen.findByRole('menuitem', { name: '지식 초안' }), { key: 'Enter' }); return screen.findByRole('dialog', { name: '지식 초안으로 넘기기' }); }
+  async function fill(dialog: HTMLElement) {
+    fireEvent.click(await within(dialog).findByRole('combobox', { name: /소유 대상/ }));
+    fireEvent.click(await screen.findByRole('option', { name: /MX-100/ }));
+    fireEvent.change(within(dialog).getByLabelText(/제목/), { target: { value: '응답 지연' } });
+    fireEvent.change(within(dialog).getByLabelText(/관찰 사실/), { target: { value: '시작 이후 지연을 관찰했습니다.' } });
+    await within(dialog).findByText('넘길 2 · 제외 1 · 해시 불일치 1');
+  }
+  const primary = (d: HTMLElement, append = false) => within(d).getByRole('button', { name: append ? '내 초안에 덧붙이기' : '새 초안으로 넘기기' }) as HTMLButtonElement;
+  it.each([
+    [{ handoff: { round: true, knowledgeDraft: false } }, '넘기기 권한 없음'],
+    [{ status: 'archived' as const }, '열린 조사만'],
+    [{ evidence: [] }, '담은 근거 위치 없음'],
+  ])('shows the disabled reason %s', async (over, reason) => {
+    investigation = { ...investigation, ...over }; await menu();
+    expect(screen.getByRole('menuitem', { name: `지식 초안 · ${reason}` }).getAttribute('aria-disabled')).toBe('true');
+  });
+  it.each(['standalone', 'round'] as const)('allows a %s investigation', async origin => { investigation.origin = origin; if (origin === 'round') investigation.roundId = modelId; await menu(); expect(screen.getByRole('menuitem', { name: '지식 초안' }).getAttribute('aria-disabled')).not.toBe('true'); });
+  it('sends only eligible pointers, owner, title, observation and the investigation version; restores focus', async () => {
+    write.mockResolvedValueOnce(sent);
+    const dialog = await open(); await fill(dialog);
+    fireEvent.click(within(dialog).getByText(/위치별 확인 결과/));
+    expect(within(dialog).getByText('제외 · 원본 없음')).toBeTruthy();
+    fireEvent.click(primary(dialog));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(write.mock.calls[0]![0]).toMatchObject({ expectedVersion: '1', input: { id, refs: refs.slice(0, 2), target: { kind: 'knowledgeDraft', mode: 'create', owner: { modelId }, title: '응답 지연', observation: '시작 이후 지연을 관찰했습니다.' } } });
+    expect(await screen.findByText('새 초안에 2개 넘김')).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: '넘기기' })));
+  });
+  it('appends using the selected draft id and version', async () => {
+    write.mockResolvedValueOnce(sent);
+    const dialog = await open();
+    fireEvent.keyDown(within(dialog).getByRole('tab', { name: '내 초안에 덧붙이기' }), { key: 'Enter' });
+    fireEvent.click(await within(dialog).findByRole('radio', { name: /내 초안/ }));
+    fireEvent.click(primary(dialog, true));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(write.mock.calls[0]![0].input).toMatchObject({ target: { kind: 'knowledgeDraft', mode: 'append', draftId, draftExpectedVersion: '7' }, refs: refs.slice(0, 2) });
+    expect(await screen.findByText('내 초안에 근거 위치 2개를 전달했습니다. 이미 있던 위치는 더해지지 않습니다.')).toBeTruthy();
+  });
+  it('requires owner, title and observation with the confirmed reason', async () => {
+    const dialog = await open(); await within(dialog).findByText(/넘길 2/);
+    expect(primary(dialog).disabled).toBe(true);
+    expect(within(dialog).getByText('소유 대상·제목·관찰 사실을 모두 입력하세요.')).toBeTruthy();
+  });
+  it.each(['source_forbidden', 'source_unavailable'])('blocks %s', async state => {
+    check = { state, refs: [] }; const dialog = await open();
+    expect(await within(dialog).findByText(state === 'source_forbidden' ? '원본 접근 권한이 없어 넘길 수 없습니다.' : '원본 연결을 확인할 수 없어 넘길 수 없습니다.')).toBeTruthy();
+    expect(primary(dialog).disabled).toBe(true);
+  });
+  it('retries a failed check', async () => {
+    checkFailed = true; const dialog = await open();
+    await within(dialog).findByText('원본 연결을 확인할 수 없어 넘길 수 없습니다.');
+    checkFailed = false; fireEvent.click(within(dialog).getByRole('button', { name: '다시 확인' }));
+    expect(await within(dialog).findByText('넘길 2 · 제외 1 · 해시 불일치 1')).toBeTruthy();
+  });
+  it('keeps confirm disabled while the check loads', async () => {
+    checkPaused = true; const dialog = await open();
+    expect(primary(dialog).disabled).toBe(true); expect(within(dialog).getByLabelText('근거 위치 확인 중')).toBeTruthy();
+    await act(async () => releaseCheck?.(ok(check)));
+    expect(await within(dialog).findByText(/넘길 2/)).toBeTruthy();
+  });
+  it('blocks when every pointer is excluded', async () => {
+    check.refs = check.refs.map(r => ({ ...r, status: 'unresolved' })); const dialog = await open();
+    expect(await within(dialog).findByText('넘길 근거 위치가 없습니다.')).toBeTruthy(); expect(primary(dialog).disabled).toBe(true);
+  });
+  it('blocks new drafts above 20 without trimming', async () => {
+    investigation.evidence = Array.from({ length: 21 }, (_, i) => ({ ref: { ...refs[0]!, line: i + 1 }, state: { code: 'available' }, sourceAccess: 'unchecked' }));
+    check.refs = investigation.evidence.map(({ ref }) => ({ fileRef: ref.fileRef, line: ref.line, status: 'ok' }));
+    const dialog = await open();
+    expect(await within(dialog).findByText('초안 근거는 20개까지입니다 (21/20)')).toBeTruthy(); expect(primary(dialog).disabled).toBe(true); expect(write).not.toHaveBeenCalled();
+  });
+  it('allows the server to deduplicate an uncertain append above the estimated cap', async () => {
+    draftCount = 19; const dialog = await open(); fireEvent.keyDown(within(dialog).getByRole('tab', { name: '내 초안에 덧붙이기' }), { key: 'Enter' });
+    fireEvent.click(await within(dialog).findByRole('radio', { name: /내 초안/ }));
+    expect(await within(dialog).findByText(/최대 21\/20/)).toBeTruthy(); expect(primary(dialog, true).disabled).toBe(false);
+    write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: ['refs'], code: 'too_many' }] });
+    fireEvent.click(primary(dialog, true));
+    expect((await within(dialog).findByRole('alert')).textContent).toContain('초안 근거는 20개까지입니다');
+  });
+  it.each(['draft', 'refs'])('blocks append only when %s alone exceeds 20', async over => {
+    if (over === 'draft') draftCount = 21;
+    else {
+      investigation.evidence = Array.from({ length: 21 }, (_, i) => ({ ref: { ...refs[0]!, line: i + 1 }, state: { code: 'available' }, sourceAccess: 'unchecked' }));
+      check.refs = investigation.evidence.map(({ ref }) => ({ fileRef: ref.fileRef, line: ref.line, status: 'ok' }));
+    }
+    const dialog = await open(); fireEvent.keyDown(within(dialog).getByRole('tab', { name: '내 초안에 덧붙이기' }), { key: 'Enter' });
+    fireEvent.click(await within(dialog).findByRole('radio', { name: /내 초안/ }));
+    expect(primary(dialog, true).disabled).toBe(true); expect(write).not.toHaveBeenCalled();
+  });
+  it.each(['model', 'software'])('retains a paged %s label and payload across tabs', async kind => {
+    const previous = read.getMockImplementation()!;
+    const models = Array.from({ length: 21 }, (_, i) => ({ id: `model-${i}`, code: `MX-${i}`, name: `모델 ${i}`, active: true }));
+    const software = Array.from({ length: 21 }, (_, i) => ({ id: `software-${i}`, versionLabel: `v${i}`, name: '제어 SW', active: true }));
+    read.mockImplementation(async (request, signal) => {
+      if (request.endpoint === 'logExplorer.handoffModels') { const page = Number((request.params as { page: number }).page); return ok({ rows: models.slice(page * 20, (page + 1) * 20), total: models.length }); }
+      if (request.endpoint === 'logExplorer.handoffSoftware') return ok(software);
+      return previous(request, signal);
+    });
+    write.mockResolvedValueOnce(sent);
+    const dialog = await open();
+    await within(dialog).findByRole('button', { name: '모델 더 보기' });
+    fireEvent.click(within(dialog).getByRole('button', { name: '모델 더 보기' }));
+    await waitFor(() => expect(read.mock.calls.some(([r]) => r.endpoint === 'logExplorer.handoffModels' && (r.params as { page: number }).page === 1)).toBe(true));
+    fireEvent.click(within(dialog).getByRole('combobox', { name: /소유 대상/ }));
+    fireEvent.click(await screen.findByRole('option', { name: 'MX-20 · 모델 20' }));
+    if (kind === 'software') {
+      fireEvent.click(within(dialog).getByRole('radio', { name: 'SW 버전' }));
+      const picker = await within(dialog).findByRole('combobox', { name: 'SW 버전' });
+      expect(picker.textContent).toContain('모델을 고른 뒤 SW 버전 선택');
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'SW 버전 더 보기' }));
+      fireEvent.click(picker); fireEvent.click(await screen.findByRole('option', { name: 'v20 · 제어 SW' }));
+    }
+    fireEvent.change(within(dialog).getByLabelText(/제목/), { target: { value: '선택 유지' } });
+    fireEvent.change(within(dialog).getByLabelText(/관찰 사실/), { target: { value: '관찰 사실' } });
+    fireEvent.keyDown(within(dialog).getByRole('tab', { name: '내 초안에 덧붙이기' }), { key: 'Enter' });
+    expect(within(dialog).queryByRole('combobox', { name: /소유 대상/ })).toBeNull();
+    fireEvent.keyDown(within(dialog).getByRole('tab', { name: '새 초안' }), { key: 'Enter' });
+    expect(within(dialog).getByRole('combobox', { name: /소유 대상/ }).textContent).toContain('MX-20 · 모델 20');
+    if (kind === 'software') expect(within(dialog).getByRole('combobox', { name: 'SW 버전' }).textContent).toContain('v20 · 제어 SW');
+    fireEvent.click(primary(dialog));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(write.mock.calls[0]![0].input).toMatchObject({ target: { owner: kind === 'model' ? { modelId: 'model-20' } : { softwareId: 'software-20' } } });
+  });
+  it('exposes required controls and linked hints', async () => {
+    const dialog = await open();
+    for (const control of [within(dialog).getByRole('combobox', { name: /소유 대상/ }), within(dialog).getByLabelText(/제목/), within(dialog).getByLabelText(/관찰 사실/)]) {
+      expect(control.getAttribute('aria-required')).toBe('true');
+      const ids = control.getAttribute('aria-describedby')?.split(' ') ?? [];
+      expect(ids.length).toBeGreaterThan(0);
+      for (const hint of ids) expect(document.getElementById(hint)?.textContent).toBeTruthy();
+    }
+  });
+  it('keeps input and shows the amber conflict callout with a list refresh', async () => {
+    write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: ['expectedVersion'], code: 'conflict' }] });
+    const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));
+    expect(await within(dialog).findByText('초안 버전 충돌')).toBeTruthy();
+    expect((within(dialog).getByLabelText(/제목/) as HTMLInputElement).value).toBe('응답 지연');
+    fireEvent.click(within(dialog).getByRole('button', { name: '목록 다시 확인' }));
+    await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.handoffDrafts').length).toBe(2));
+  });
+  it('refetches the check after an unresolved race', async () => {
+    write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: ['refs', '0'], code: 'unresolved' }] });
+    const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));
+    expect(await within(dialog).findByText('원본을 찾을 수 없는 위치가 생겼습니다. 다시 확인합니다.')).toBeTruthy();
+    await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.handoffCheck').length).toBe(2));
+  });
+  it.each(['title', 'observation', 'target.modelId', 'refs'])('shows a server field refusal for %s', async path => {
+    write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: path.split('.'), code: path === 'refs' ? 'too_many' : 'required' }] });
+    const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));
+    expect((await within(dialog).findByRole('alert')).textContent).toContain(path === 'refs' ? '초안 근거는 20개까지입니다' : path === 'title' ? '제목을 입력하세요.' : path === 'observation' ? '관찰 사실을 입력하세요.' : '소유 대상을 선택하세요.');
+  });
+  it.each(['title', 'observation', 'target.title', 'target.observation', 'target.owner.modelId', 'target.owner.softwareId', 'target.draftId'])('links and focuses Korean field guidance for %s', async path => {
+    write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: path.split('.'), code: 'not_found' }] });
+    const dialog = await open(); await fill(dialog);
+    if (path.endsWith('softwareId')) { fireEvent.click(within(dialog).getByRole('radio', { name: 'SW 버전' })); fireEvent.click(within(dialog).getByRole('combobox', { name: 'SW 버전' })); fireEvent.click(await screen.findByRole('option', { name: /3.2/ })); }
+    const append = path.endsWith('draftId');
+    if (append) { fireEvent.keyDown(within(dialog).getByRole('tab', { name: '내 초안에 덧붙이기' }), { key: 'Enter' }); fireEvent.click(await within(dialog).findByRole('radio', { name: /내 초안/ })); }
+    fireEvent.click(primary(dialog, append));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert.textContent).not.toContain(path);
+    await waitFor(() => expect(document.activeElement?.getAttribute('aria-invalid')).toBe('true'));
+    const descriptions = document.activeElement?.getAttribute('aria-describedby')?.split(' ') ?? [];
+    expect(descriptions.some(id => document.getElementById(id)?.textContent === alert.textContent)).toBe(true);
+  });
+  it.each(['required', 'too_long', 'malformed', 'not_found', 'unmapped'])('never exposes raw paths or %s codes', async code => {
+    write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: ['target', 'title'], code }] });
+    const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert.textContent).not.toMatch(/target|title|required|too_long|malformed|not_found|unmapped/);
+    if (code === 'unmapped') expect(alert.textContent).toBe('입력을 확인한 뒤 다시 시도하세요.');
+  });
+  it('shows a refusal on its field only, keeping the alert for screen readers', async () => {
+    write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: ['title'], code: 'too_long' }] });
+    const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));
+    expect((await within(dialog).findByRole('alert')).className).toContain('sr-only');
+  });
+  it('focuses the first invalid control in form order', async () => {
+    write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: ['observation'], code: 'required' }, { path: ['title'], code: 'too_long' }] });
+    const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));
+    await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByLabelText(/제목/)));
+  });
+  it('focuses an actionable alert for an unmapped general refusal', async () => {
+    write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: ['private', 'path'], code: 'unknown_code' }] });
+    const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert.textContent).toBe('입력을 확인한 뒤 다시 시도하세요.');
+    await waitFor(() => expect(document.activeElement).toBe(alert));
+  });
+  it('focuses the conflict alert when the draft version is refused', async () => {
+    write.mockResolvedValueOnce({ ...sent, outcome: 'invalid', data: null, fieldErrors: [{ path: ['expectedVersion'], code: 'conflict' }] });
+    const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert.textContent).toContain('초안 버전 충돌');
+    await waitFor(() => expect(document.activeElement).toBe(alert));
+  });
+  it.each(['cancel', 'escape', 'x'])('asks before dirty close via %s', async how => {
+    const dialog = await open(); fireEvent.change(within(dialog).getByLabelText(/제목/), { target: { value: '작성 중' } });
+    if (how === 'escape') fireEvent.keyDown(dialog, { key: 'Escape' });
+    else fireEvent.click(within(dialog).getByRole('button', { name: how === 'x' ? '닫기' : '취소' }));
+    const ask = await screen.findByRole('alertdialog', { name: '작성 중인 내용이 사라집니다. 닫을까요?' });
+    fireEvent.click(within(ask).getByRole('button', { name: '계속 작성' }));
+    expect((within(dialog).getByLabelText(/제목/) as HTMLInputElement).value).toBe('작성 중');
+    fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '닫기' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '지식 초안으로 넘기기' })).toBeNull());
+  });
+  it('cannot dismiss while pending', async () => {
+    let release: (value: typeof sent) => void = () => undefined;
+    write.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));
+    await waitFor(() => expect((within(dialog).getByRole('button', { name: '취소' }) as HTMLButtonElement).disabled).toBe(true));
+    fireEvent.keyDown(dialog, { key: 'Escape' }); fireEvent.click(within(dialog).getByRole('button', { name: '닫기' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull(); expect(screen.getByRole('dialog', { name: '지식 초안으로 넘기기' })).toBeTruthy();
+    await act(async () => release(sent)); await waitFor(() => expect(screen.queryByRole('dialog', { name: '지식 초안으로 넘기기' })).toBeNull());
+  });
+  it.each(['unknown', 'error'] as const)('retries the identical request after %s', async outcome => {
+    write.mockResolvedValueOnce({ ...sent, outcome, data: null }); write.mockResolvedValueOnce(sent);
+    const dialog = await open(); await fill(dialog); fireEvent.click(primary(dialog));
+    fireEvent.click(await within(dialog).findByRole('button', { name: '같은 요청 다시 시도' }));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+    expect(write.mock.calls[1]![0]).toEqual(write.mock.calls[0]![0]);
   });
 });

@@ -3,6 +3,7 @@
 
 import type { MenuDispatchContribution } from '../menu-dispatch/types.js';
 import type { InvestigationDeps, LogExplorerDeps } from './deps.js';
+import { handoffEndpoints } from './handoff-endpoints.js';
 import { investigationActions } from './investigation-actions.js';
 import { investigationEndpoints } from './investigation-endpoints.js';
 import { guardSourceReadPort } from './ports/guarded.js';
@@ -16,7 +17,7 @@ export interface LogExplorerModule {
 /** The investigation menu (node b): its own menu id, apart from the read menu of `logExplorerContribution` (node c). */
 export function investigationContribution(deps: InvestigationDeps): MenuDispatchContribution {
   return {
-    endpoints: investigationEndpoints(deps),
+    endpoints: [...investigationEndpoints(deps), ...handoffEndpoints(deps)],
     actions: investigationActions(deps),
   };
 }
