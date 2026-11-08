@@ -1,7 +1,9 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   check,
+  customType,
   doublePrecision,
   foreignKey,
   index,
@@ -1385,5 +1387,123 @@ export const objectAccessRules = knowledgeSchema.table(
     granteeKindCheck: check('object_access_rule_grantee_kind_check', sql`${t.granteeKind} = 'actor'`),
     effectCheck: check('object_access_rule_effect_check', sql`${t.effect} in ('allow','deny')`),
     revokedCheck: check('object_access_rule_revoked_check', sql`(${t.revokedAt} is null) = (${t.revokedBy} is null)`),
+  }),
+);
+
+// ---- Search index (#1506 S-c, ADR-0124, design log-knowledge-search §3.2–3.3, §5) ----------------------------------------
+// A DERIVED index: every row can be rebuilt from the source tables, so nothing here is authoritative. It holds NO access
+// columns and no excerpt or 지식 근거 text (ADR-0124: ACL and display values are read live at query time).
+const tsvector = customType<{ data: string; driverData: string }>({
+  dataType() {
+    return 'tsvector';
+  },
+});
+
+/** One row per Item per generation: the latest published Revision only. `tsv` = to_tsvector('simple', search_text); `term_text` feeds the trigram index. */
+export const searchDocuments = knowledgeSchema.table(
+  'search_document',
+  {
+    workspaceId: uuid('workspace_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    indexGeneration: integer('index_generation').notNull(),
+    revisionNo: integer('revision_no').notNull(),
+    // The Item `row_version` the document was built from; an older build never overwrites a newer one.
+    sourceRowVersion: integer('source_row_version').notNull(),
+    searchText: text('search_text').notNull(),
+    tsv: tsvector('tsv').notNull(),
+    termText: text('term_text').notNull(),
+    indexedAt: timestamp('indexed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ name: 'search_document_pk', columns: [t.workspaceId, t.itemId, t.indexGeneration] }),
+    itemFk: foreignKey({
+      name: 'search_document_item_fk',
+      columns: [t.workspaceId, t.itemId],
+      foreignColumns: [knowledgeItems.workspaceId, knowledgeItems.id],
+    }).onDelete('cascade'),
+    tsvIdx: index('search_document_tsv_idx').using('gin', t.tsv),
+    termIdx: index('search_document_term_trgm_idx').using('gin', t.termText.op('gin_trgm_ops')),
+    generationCheck: check('search_document_generation_check', sql`${t.indexGeneration} >= 1`),
+    revisionCheck: check('search_document_revision_no_check', sql`${t.revisionNo} >= 1`),
+  }),
+);
+
+/** «Item X must be rebuilt»: no payload. One `pending` row per Item (partial unique); the consumer reads the source's current values. */
+export const searchOutbox = knowledgeSchema.table(
+  'search_outbox',
+  {
+    outboxId: bigint('outbox_id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    workspaceId: uuid('workspace_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    reason: text('reason').notNull(),
+    state: text('state').notNull().default('pending'),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    availableAt: timestamp('available_at', { withTimezone: true }).notNull().defaultNow(),
+    // A short code (never a message or content).
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    itemFk: foreignKey({
+      name: 'search_outbox_item_fk',
+      columns: [t.workspaceId, t.itemId],
+      foreignColumns: [knowledgeItems.workspaceId, knowledgeItems.id],
+    }).onDelete('cascade'),
+    pendingUq: uniqueIndex('search_outbox_pending_uq').on(t.workspaceId, t.itemId).where(sql`${t.state} = 'pending'`),
+    claimIdx: index('search_outbox_claim_idx').on(t.state, t.availableAt, t.outboxId).where(sql`${t.state} in ('pending','failed')`),
+    reasonCheck: check(
+      'search_outbox_reason_check',
+      sql`${t.reason} in ('published','archived','access_changed','concept_changed','alias_changed','subject_changed','catalog_changed','reindex')`,
+    ),
+    stateCheck: check('search_outbox_state_check', sql`${t.state} in ('pending','running','done','failed','dead')`),
+    attemptCheck: check('search_outbox_attempt_count_check', sql`${t.attemptCount} >= 0`),
+  }),
+);
+
+/** The active index generation of a workspace (one row). A switch or rollback is ONE UPDATE of this row. */
+export const searchIndexPointers = knowledgeSchema.table(
+  'search_index_pointer',
+  {
+    workspaceId: uuid('workspace_id')
+      .primaryKey()
+      .references(() => workspaces.id),
+    activeGeneration: integer('active_generation').notNull().default(1),
+    // The generation being built next to the active one (null = none). The consumer writes active, building and previous.
+    buildingGeneration: integer('building_generation'),
+    // The generation left by the last switch; kept for rollback until the retention period ends.
+    previousGeneration: integer('previous_generation'),
+    previousRetiredAt: timestamp('previous_retired_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    activeCheck: check('search_index_pointer_active_check', sql`${t.activeGeneration} >= 1`),
+    generationsCheck: check(
+      'search_index_pointer_generations_check',
+      sql`(${t.buildingGeneration} is null or (${t.buildingGeneration} > ${t.activeGeneration})) and (${t.previousGeneration} is null or ${t.previousGeneration} <> ${t.activeGeneration}) and ((${t.previousGeneration} is null) = (${t.previousRetiredAt} is null))`,
+    ),
+  }),
+);
+
+/** Backfill progress of a workspace (one row): resumable keyset position and counts. */
+export const searchBackfillProgress = knowledgeSchema.table(
+  'search_backfill_progress',
+  {
+    workspaceId: uuid('workspace_id')
+      .primaryKey()
+      .references(() => workspaces.id),
+    generation: integer('generation').notNull(),
+    state: text('state').notNull().default('running'),
+    lastItemId: uuid('last_item_id'),
+    totalCount: integer('total_count').notNull().default(0),
+    doneCount: integer('done_count').notNull().default(0),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    stateCheck: check('search_backfill_progress_state_check', sql`${t.state} in ('running','done')`),
+    countCheck: check('search_backfill_progress_count_check', sql`${t.totalCount} >= 0 and ${t.doneCount} >= 0`),
+    generationCheck: check('search_backfill_progress_generation_check', sql`${t.generation} >= 1`),
   }),
 );

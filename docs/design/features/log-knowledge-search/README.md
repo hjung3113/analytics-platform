@@ -1,6 +1,6 @@
 # 로그 지식 통합 검색 — 방향 관계·ACL-aware 색인 설계 (일부 구현)
 
-> **Status: Candidate → 소유자 답 3개 반영(2026-11-08), ADR-0124·0125 Decided.** 구현됨(S-b): `item_event_relation_record` 표, `itemCreate`/`itemRevise`의 `relations[]` 쓰기 입력, `itemDetail`의 `relations` 읽기. 설계만 있음: 검색 색인(`search_document`), 접근 규칙, 화면. 근거는 [#1199](https://github.com/hjung3113/analytics-platform/issues/1199)이고 Epic [#1192](https://github.com/hjung3113/analytics-platform/issues/1192)의 불변식과 [v0.6 통합 설계](../log-knowledge-hub/design-v0.6-candidate.md) §5.4·§9를 **구체화**한다(같은 내용을 다시 쓰지 않는다). 결정은 [ADR-0124](../../../adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)(ACL은 조회 때, 표시는 live)와 [ADR-0125](../../../adr/0125-event-order-search-uses-structured-event-relation-records.md)(방향 검색은 구조화된 Event 관계 기록)이 소유하며 둘 다 **Decided**(소유자 2026-11-08)다. 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
+> **Status: Candidate → 소유자 답 3개 반영(2026-11-08), ADR-0124·0125 Decided.** 구현됨: `item_event_relation_record` 표와 `relations[]` 쓰기·읽기(S-b), 접근 규칙(S-a), 색인 저장·갱신(S-c: `search_document`, `search_outbox`, 소비자, backfill, 생성 포인터, 운영 읽기). 설계만 있음: 검색 질의(`SearchPort`)와 화면. 근거는 [#1199](https://github.com/hjung3113/analytics-platform/issues/1199)이고 Epic [#1192](https://github.com/hjung3113/analytics-platform/issues/1192)의 불변식과 [v0.6 통합 설계](../log-knowledge-hub/design-v0.6-candidate.md) §5.4·§9를 **구체화**한다(같은 내용을 다시 쓰지 않는다). 결정은 [ADR-0124](../../../adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)(ACL은 조회 때, 표시는 live)와 [ADR-0125](../../../adr/0125-event-order-search-uses-structured-event-relation-records.md)(방향 검색은 구조화된 Event 관계 기록)이 소유하며 둘 다 **Decided**(소유자 2026-11-08)다. 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
 >
 > 공개 저장소다. 예시는 합성 데이터만 쓴다.
 
@@ -37,7 +37,7 @@
 
 ## 3. 데이터 모델 (확정 DDL 아님)
 
-스키마 `knowledge`. 번호는 병합 시점의 다음 빈 번호이고(현재 마지막 0105) journal은 이어져야 한다. 모든 신규 테이블은 한 번에 만들지 않고 §7 노드에서 필요한 것만 만든다(v0.6 §5.2 단계별 물리화).
+스키마 `knowledge`. 번호는 병합 시점의 다음 빈 번호이고 journal은 이어져야 한다. 모든 신규 테이블은 한 번에 만들지 않고 §7 노드에서 필요한 것만 만든다(v0.6 §5.2 단계별 물리화).
 
 ### 3.1 `item_event_relation_record` — 방향의 원천 (ADR-0125)
 
@@ -53,6 +53,8 @@ Item의 «관찰»·«기대» 본문은 자유 텍스트이고 방향은 거기
 
 ### 3.2 `search_document` — 파생 색인
 
+구현됨(S-c): 표·GIN 색인 둘·정규화(`domain/search-normalize.ts`)가 있다. 열 구성과 저장 규칙은 [04-database-and-migrations](../../../../apps/platform-api/docs/04-database-and-migrations.md#search-index-1506-s-c-migration-file-_search_indexsql)이 갖는다. `term_text`는 토큰·Event 키(관계 기록·대상)·소유 Model/SW/업체/공정의 코드와 이름·확정된 개념 레이블이다. 승인 alias는 코드에 alias가 없어 아직 넣지 않는다.
+
 Item당 한 행(`item_id` PK, `index_generation`). 최신 **발행** Revision만 반영한다.
 
 `item_id`, `workspace_id`, `revision_no`(색인한 Revision), `source_row_version`(색인 당시 Item `row_version`), `search_text`(제목·유형·관찰·기대·분석 의견·개선·변경 메모 정규화본), `tsv`(GIN), `term_text`(토큰·Event 키·승인 alias, trigram GIN), `index_generation`, `indexed_at`.
@@ -62,6 +64,8 @@ Item당 한 행(`item_id` PK, `index_generation`). 최신 **발행** Revision만
 - 정규화: 소문자·NFKC, `_`·`-`·`.`·카멜 경계에서 쪼갠 토큰과 원형 토큰을 **둘 다** 넣는다(`STEP_PROCESS` → `step_process`, `step`, `process`). 한국어는 형태소 사전 없이 공백 토큰 + 문자 n-gram(trigram)으로 시작하고 품질은 §6으로 잰다. 한국어 형태소 사전이나 별도 엔진은 측정 결과로 `SearchPort` 어댑터를 바꿔 해결한다.
 
 ### 3.3 `search_outbox` — 변경 알림 (페이로드 없음)
+
+구현됨(S-c): 쓰는 지점과 읽는 운영 항목은 [api/log-knowledge.md](../../../architecture/platform-api/api/log-knowledge.md#search-index-operations-1506-s-c)가 갖는다. alias 승인·회수는 alias가 없어 해당 없음이다.
 
 `outbox_id`, `item_id`, `reason`(`published`·`archived`·`access_changed`·`concept_changed`·`alias_changed`·`subject_changed`·`catalog_changed`·`reindex`), `state`(`pending`·`running`·`done`·`failed`·`dead`), `attempt_count`, `available_at`, `last_error`(코드만, 본문 없음), 생성 시각.
 
@@ -131,6 +135,8 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 
 ### 5.1 갱신 소비자
 
+구현됨(S-c): `knowledge.search.drain`이 위 규칙대로 돈다(배치 100, 시도 상한 8, 알림별 advisory 잠금). 한 번의 cron 실행이 약 55초 동안 계속 비워 낸다.
+
 `pg-boss`(`apps/platform-api/src/lib/jobs.ts` 재사용)에 `knowledge.search.drain` 작업을 두고 한 번에 `FOR UPDATE SKIP LOCKED`로 제한된 개수(시작값 100)만 가져온다. 새 인프라는 없다. 한 알림의 처리:
 
 1. 알림의 `item_id`를 **원본에서 지금 값으로** 읽는다(Item 행의 발행 상태, 최신 발행 Revision, 대상, 매핑, alias).
@@ -144,9 +150,13 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 
 ### 5.2 최초 색인 (backfill) — #1198이 넘긴 일
 
+구현됨(S-c): `knowledge.search.backfill`(10분 cron과 시작 시 한 번), 진행 위치는 `search_backfill_progress` 한 행이다. «색인 중 n / N» 표시는 화면 노드의 몫이다.
+
 색인 migration이 배포된 뒤 `search.backfill`이 **발행된 모든 Item**을 `item_id` 키셋 순서로 배치(시작값 500)마다 `reason='reindex'` 알림으로 넣는다. 진행 위치(`last_item_id`, 전체 수, 완료 수)는 한 행에 저장돼 중단 후 이어진다. 완료 전에는 검색 화면 머리에 «색인 중 n / N»을 보이고, 없는 것을 없다고 말하지 않는다. 빈 DB에서도 같은 코드가 돌고 0건에서 즉시 완료다.
 
 ### 5.3 재색인·롤백·SearchPort 교체
+
+구현됨(S-c): 생성 포인터와 새 생성 시작·전환·롤백·보존 기간 뒤 삭제는 저장소 함수다(HTTP 진입점 없음). 소비자는 활성·구축 중·직전 생성 모두에 쓴다. 그림자 비교와 `SearchPort`는 아직 없다.
 
 - `index_generation`: 새 생성(n+1)을 옆에 만들고 완료·검증 뒤 활성 생성 포인터를 **한 번의 UPDATE**로 바꾼다. 롤백은 포인터를 되돌리는 것이다(색인은 파생이므로 데이터 손실이 없다). 이전 생성은 보존 기한(시작값 7일) 뒤에 지운다.
 - `SearchPort` 어댑터를 바꾸려면 같은 계약 테스트(§6 평가 세트 포함)를 통과해야 하고, 전환 전에 **그림자 비교**(같은 질의를 두 어댑터에 보내 결과만 비교, 응답은 기존 것)로 순위·재현율 차이를 본다. 어댑터는 ACL을 모른다 — 가시성 판정과 표시값 읽기는 어댑터 밖(§4 3·4단계)이라 어댑터를 바꿔도 권한 경계가 그대로다.

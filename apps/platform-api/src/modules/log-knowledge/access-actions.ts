@@ -4,7 +4,7 @@
 // role is refused by the supported-scope policy). Managing is judged by the capability alone, not by the visibility rule: a manager
 // reaches a target they cannot see, otherwise a restricted object with no rule for them could never be reopened. They may grant
 // themselves access; every change is audited (ids only) in the same transaction. Grantee = Actor (team / role grantees wait for a
-// Core membership read). A rule is revoked, never deleted. Search outbox writes are NOT here: node S-c extends `access-write.ts`.
+// Core membership read). A rule is revoked, never deleted. The search outbox (#1506) is written by `access-write.ts` in the same transaction.
 
 import { createAuditService } from '../core/audit/audit-service.js';
 import type { Tx } from '../../db/tx.js';

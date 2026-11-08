@@ -36,6 +36,7 @@ import { importIntakeActions } from './import-intake-actions.js';
 import { importEndpoints } from './import-endpoints.js';
 import { accessActions } from './access-actions.js';
 import { accessEndpoints } from './access-endpoints.js';
+import { searchIndexActions, searchIndexEndpoints } from './search-index-ops.js';
 export { LOG_KNOWLEDGE_MENU_ID };
 import {
   type ListQuery,
@@ -99,6 +100,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       ...importActions({ checkService: deps.checkService }),
       ...importIntakeActions(deps),
       ...accessActions({ checkService: deps.checkService }),
+      ...searchIndexActions({ checkService: deps.checkService }),
     ].map(withReplayAccess),
     endpoints: [
       declare(deps, 'vendors', VENDOR_SORT_IDS, (_a, q, v) => listVendors(deps.db, q, v)),
@@ -113,6 +115,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       ...subjectEndpoints(deps),
       ...importEndpoints(deps),
       ...accessEndpoints(deps),
+      ...searchIndexEndpoints(deps),
     ],
   };
 }

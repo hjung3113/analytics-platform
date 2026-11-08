@@ -2,13 +2,14 @@
 // of model / SW version / Item. Every statement is scoped to the actor's workspace. Rules are appended and revoked, never deleted.
 // The caller owns the transaction and the audit row. Managing access is judged by the capability, not by visibility: a manager
 // reaches a target they cannot see (otherwise a restricted object without a rule for them could never be reopened).
-// NOT here: search outbox writes (node S-c adds them at `setAccessMode` / `insertRule` / `revokeRule`, the single place to extend).
+// Search outbox (#1506 S-c): `setAccessMode`, `insertRule` and `revokeRule` notify the Items the change reaches, in the caller's transaction.
 
 import { type SQL, and, desc, eq, sql } from 'drizzle-orm';
 
 import { equipmentModels, knowledgeItems, objectAccessRules, softwareVersions } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
 import type { AccessEffect, AccessMode, AccessTargetKind } from '../domain/access-visibility.js';
+import { enqueueAccessChange } from './search-outbox.js';
 
 export interface AccessTarget {
   id: string;
@@ -50,6 +51,7 @@ export async function setAccessMode(tx: Tx, workspaceId: string, actorId: string
     .where(and(eq(t.workspaceId, workspaceId), eq(t.id, target.id)))
     .returning({ rowVersion: t.rowVersion });
   if (!row) throw new Error('access mode update returned no row');
+  await enqueueAccessChange(tx, workspaceId, kind, target.id);
   return row.rowVersion;
 }
 
@@ -117,6 +119,7 @@ export async function insertRule(
     })
     .returning(ruleColumns);
   if (!row) throw new Error('access rule insert returned no row');
+  await enqueueAccessChange(tx, values.workspaceId, values.kind, values.targetId);
   return row as RuleRow;
 }
 
@@ -128,10 +131,12 @@ export async function lockRule(tx: Tx, workspaceId: string, ruleId: string): Pro
 }
 
 export async function revokeRule(tx: Tx, workspaceId: string, actorId: string, ruleId: string): Promise<void> {
-  await tx
+  const [row] = await tx
     .update(r)
     .set({ revokedAt: sql`now()`, revokedBy: actorId })
-    .where(and(eq(r.workspaceId, workspaceId), eq(r.ruleId, ruleId)));
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.ruleId, ruleId)))
+    .returning({ kind: r.targetKind, targetId: r.targetId });
+  if (row) await enqueueAccessChange(tx, workspaceId, row.kind as AccessTargetKind, row.targetId);
 }
 
 export async function listRules(
