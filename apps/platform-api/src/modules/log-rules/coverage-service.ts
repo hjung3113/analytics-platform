@@ -16,8 +16,9 @@ export async function readSpecInput(
   workspaceId: string,
   modelId: string,
   softwareId: string | null,
+  viewerActorId?: string,
 ): Promise<CoverageSpecInput> {
-  const r = await knowledge.listEffectiveRequirements(tx, workspaceId, modelId, softwareId);
+  const r = await knowledge.listEffectiveRequirements(tx, workspaceId, modelId, softwareId, viewerActorId);
   if (r.state === 'ok') return { state: 'ok', specPin: r.specPin, keys: r.requirements.map((x) => x.key) };
   if (r.state === 'ambiguous_key') return { state: 'ambiguous_key', specPin: r.specPin, ambiguousKeys: r.ambiguousKeys };
   return { state: r.state, specPin: null };
@@ -30,7 +31,8 @@ export async function computeModelCoverage(
   modelId: string,
   softwareId: string | null,
   catalog?: CoverageCatalogInput,
+  viewerActorId?: string,
 ): Promise<CoverageResult> {
   const loaded = catalog ?? (await loadCoverageCatalog(tx, workspaceId));
-  return computeCoverage(await readSpecInput(deps.knowledge, tx, workspaceId, modelId, softwareId), loaded);
+  return computeCoverage(await readSpecInput(deps.knowledge, tx, workspaceId, modelId, softwareId, viewerActorId), loaded);
 }

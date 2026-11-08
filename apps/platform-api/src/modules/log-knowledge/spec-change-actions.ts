@@ -10,6 +10,7 @@ import { createAuditService } from '../core/audit/audit-service.js';
 import type { Tx } from '../../db/tx.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
+import { viewerOf } from './repositories/access-visibility.js';
 import { LOG_KNOWLEDGE_MODELS_MENU_ID } from './catalog-menu.js';
 import {
   type ChangeFields,
@@ -103,7 +104,7 @@ export function specChangeActions(deps: SpecChangeActionDeps): MenuActionDeclara
     if (!published) return refuse(at('revision'), 'none_published');
 
     const ids = [fields.softwareId, ...(fields.endsBeforeSoftwareId ? [fields.endsBeforeSoftwareId] : [])];
-    const orders = await softwareOrders(tx, ws, modelId, ids);
+    const orders = await softwareOrders(tx, viewerOf(actor), modelId, ids);
     const start = orders.get(fields.softwareId);
     const errors: FieldError[] = [];
     if (start === undefined) errors.push({ path: at('softwareId'), code: 'not_found' });
@@ -176,7 +177,7 @@ export function specChangeActions(deps: SpecChangeActionDeps): MenuActionDeclara
       if (!parsed.ok) throw new Error('action specChangeAdd: validate passed but parse failed');
       const value = parsed.value;
       await lockModelChanges(tx, actor.workspace_id, value.modelId);
-      if (!(await modelExists(tx, actor.workspace_id, value.modelId))) {
+      if (!(await modelExists(tx, viewerOf(actor), value.modelId))) {
         throw new MenuActionInvalidError([{ path: ['modelId'], code: 'not_found' }]);
       }
       const { changeId, basedOnRevNo } = await writeChange(tx, actor, value.modelId, value, [], null);
@@ -189,10 +190,10 @@ export function specChangeActions(deps: SpecChangeActionDeps): MenuActionDeclara
   const lockedVersion = async (tx: Tx, actor: PlatformActor, input: Record<string, unknown>) => {
     const ws = actor.workspace_id;
     const changeId = input.changeId as string;
-    const modelId = await changeModelId(tx, ws, changeId);
+    const modelId = await changeModelId(tx, viewerOf(actor), changeId);
     if (!modelId) return null;
     await lockModelChanges(tx, ws, modelId);
-    const row = await lockChange(tx, ws, changeId);
+    const row = await lockChange(tx, viewerOf(actor), changeId);
     return row ? String(row.rowVersion) : null;
   };
 
@@ -206,7 +207,7 @@ export function specChangeActions(deps: SpecChangeActionDeps): MenuActionDeclara
       const parsed = parseSpecChangeRetire(input);
       if (!parsed.ok) throw new Error('action specChangeRetire: validate passed but parse failed');
       const { changeId, replacement } = parsed.value;
-      const row = await lockChange(tx, ws, changeId);
+      const row = await lockChange(tx, viewerOf(actor), changeId);
       if (!row) throw new MenuActionInvalidError([{ path: ['changeId'], code: 'not_found' }]);
       if (row.retiredAt !== null) throw new MenuActionInvalidError([{ path: ['change'], code: 'already_retired' }]);
       let replacementId: string | null = null;
@@ -238,7 +239,7 @@ export function specChangeActions(deps: SpecChangeActionDeps): MenuActionDeclara
       const ws = actor.workspace_id;
       const parsed = parseSpecChangeConfirm(input);
       if (!parsed.ok) throw new Error('action specChangeConfirm: validate passed but parse failed');
-      const row = await lockChange(tx, ws, parsed.value.changeId);
+      const row = await lockChange(tx, viewerOf(actor), parsed.value.changeId);
       if (!row) throw new MenuActionInvalidError([{ path: ['changeId'], code: 'not_found' }]);
       if (!row.needsRevalidation) throw new MenuActionInvalidError([{ path: ['needsRevalidation'], code: 'not_set' }]);
       const version = await confirmChange(tx, ws, row);

@@ -13,7 +13,7 @@ const noDb = new Proxy({}, { get() { throw new Error('DB must not be read before
 describe('session-only capability registry', () => {
   it('marks exactly the high-risk capabilities and keeps them out of token scopes', () => {
     const marked = CAPABILITIES.filter(isSessionOnlyCapability).sort();
-    expect(marked).toEqual(['dataset.manage', 'knowledge.item.publish', 'knowledge.spec.publish', 'task_request.self_approve', 'workspace.admin']);
+    expect(marked).toEqual(['dataset.manage', 'knowledge.access.manage', 'knowledge.item.publish', 'knowledge.spec.publish', 'task_request.self_approve', 'workspace.admin']);
     expect(TOKEN_SCOPE_CAPABILITIES.some((c) => CAPABILITY_META[c].sessionOnly)).toBe(false);
   });
 });

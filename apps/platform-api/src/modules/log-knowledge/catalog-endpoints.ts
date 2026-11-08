@@ -14,6 +14,7 @@ import type {
 import type { LogKnowledgeDeps } from './deps.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import { catalogActions } from './catalog-actions.js';
+import type { Viewer } from './repositories/access-visibility.js';
 import { CATALOG_FILTER_SPECS, type CatalogEndpointName } from './domain/catalog-filters.js';
 import { PAGE_SIZE_MAX, Q_MAX, parseListParams } from '../../lib/list-params/list-params.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
@@ -31,6 +32,8 @@ import { specEndpoints } from './spec-endpoints.js';
 import { importActions } from './import-actions.js';
 import { importIntakeActions } from './import-intake-actions.js';
 import { importEndpoints } from './import-endpoints.js';
+import { accessActions } from './access-actions.js';
+import { accessEndpoints } from './access-endpoints.js';
 export { LOG_KNOWLEDGE_MENU_ID };
 import {
   type ListQuery,
@@ -52,7 +55,7 @@ function declare(
   deps: LogKnowledgeDeps,
   name: CatalogEndpointName,
   sortIds: readonly string[],
-  run: (args: EndpointHandlerArgs, query: ListQuery) => Promise<{ rows: unknown[]; total: number }>,
+  run: (args: EndpointHandlerArgs, query: ListQuery, viewer: Viewer) => Promise<{ rows: unknown[]; total: number }>,
 ): MenuEndpointDeclaration {
   return {
     spec: {
@@ -74,7 +77,7 @@ function declare(
       const parsed = parseListParams(args.params, sortIds, CATALOG_FILTER_SPECS[name]);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
       const query = { ...parsed.value, workspaceId: args.actor.workspace_id };
-      const page = await run(args, query);
+      const page = await run(args, query, { workspaceId: args.actor.workspace_id, actorId: args.actor.actor_id });
       // A page with no rows is still a page ({ rows: [], total: 0 }): the table needs `total`, so it is `ok`.
       return { outcome: 'ok', data: page };
     },
@@ -93,18 +96,20 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       ...conceptActions({ checkService: deps.checkService }),
       ...importActions({ checkService: deps.checkService }),
       ...importIntakeActions(deps),
+      ...accessActions({ checkService: deps.checkService }),
     ],
     endpoints: [
-      declare(deps, 'vendors', VENDOR_SORT_IDS, (_a, q) => listVendors(deps.db, q)),
-      declare(deps, 'processes', PROCESS_SORT_IDS, (_a, q) => listProcesses(deps.db, q)),
-      declare(deps, 'models', MODEL_SORT_IDS, (_a, q) => listModels(deps.db, q)),
-      declare(deps, 'softwareVersions', SOFTWARE_SORT_IDS, (_a, q) => listSoftwareVersions(deps.db, q)),
+      declare(deps, 'vendors', VENDOR_SORT_IDS, (_a, q, v) => listVendors(deps.db, q, v)),
+      declare(deps, 'processes', PROCESS_SORT_IDS, (_a, q, v) => listProcesses(deps.db, q, v)),
+      declare(deps, 'models', MODEL_SORT_IDS, (_a, q, v) => listModels(deps.db, q, v)),
+      declare(deps, 'softwareVersions', SOFTWARE_SORT_IDS, (_a, q, v) => listSoftwareVersions(deps.db, q, v)),
       ...itemEndpoints(deps),
       ...draftEndpoints(deps),
       ...specEndpoints(deps),
       ...conceptEndpoints(deps),
       ...subjectEndpoints(deps),
       ...importEndpoints(deps),
+      ...accessEndpoints(deps),
     ],
   };
 }

@@ -3,3 +3,6 @@ export const LOG_KNOWLEDGE_MENU_ID = 'log-knowledge-catalog';
 // are navHidden children that read their parent menu's endpoints, so they have no id here.
 export const LOG_KNOWLEDGE_MODELS_MENU_ID = 'log-knowledge-models';
 export const LOG_KNOWLEDGE_ITEMS_MENU_ID = 'log-knowledge-items';
+// The object access management (#1504 S-a): its reads and writes have no screen yet (node S-f adds the search screen, a later node the
+// management screen), so they sit on a menu of their own and the models / items menus keep exactly the declarations their screens use.
+export const LOG_KNOWLEDGE_ACCESS_MENU_ID = 'log-knowledge-access';

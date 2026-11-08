@@ -108,6 +108,7 @@ The backend returns effective navigation and capability states for the current w
 | Report the validation rule catalog (`validation.catalog.report`) | no (token only) | no (token only) | no (token only) |
 | Write log explorer investigations (`explorer.investigate`) | no | permission required (workspace-wide) | permission required (explicit grant, no role bypass) |
 | Manage log test datasets (`dataset.manage`) | no | permission required (workspace-wide) | yes |
+| Manage who can see a restricted knowledge model, SW version or Item (`knowledge.access.manage`; session only, no token) | no | permission required (workspace-wide) | yes |
 | Approve Permission Request | no | no | yes |
 
 Notes:

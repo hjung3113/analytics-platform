@@ -29,6 +29,7 @@ const CAPABILITIES = [
   "lifecycle.round.manage",
   "explorer.investigate",
   "dataset.manage",
+  "knowledge.access.manage",
 ] as const;
 // The sensitive tier is 5/min per actor: split the grant calls over several admins.
 const ADMINS = ["admin", "admin2", "admin3", "admin4", "admin5"] as const;

@@ -466,7 +466,7 @@ async function updateOrMap(
       }
     } else writeIdentity = true;
   }
-  const target = await lockRow(tx, kind, ws, action.targetId);
+  const target = await lockRow(tx, kind, { workspaceId: ws, actorId: ctx.actor.actor_id }, action.targetId);
   if (!target) return conflict('target_missing');
   if (target.rowVersion !== action.expectedVersion) return conflict('stale_target');
   if (!target.active) return conflict('inactive_target');

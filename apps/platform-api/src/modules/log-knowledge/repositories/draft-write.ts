@@ -8,6 +8,7 @@ import { type SQL, and, eq, sql } from 'drizzle-orm';
 
 import { knowledgeDraftRevisions, knowledgeDrafts, knowledgeItems } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
+import { type Viewer, canSeeItem, canSeeOwner } from './access-visibility.js';
 import { DRAFT_SCHEMA_VERSION, type NormalizedProposal, type ValidatorRef, proposalDigest } from '../domain/draft-input.js';
 
 export type DraftRow = typeof knowledgeDrafts.$inferSelect;
@@ -15,14 +16,18 @@ export type DraftRow = typeof knowledgeDrafts.$inferSelect;
 const d = knowledgeDrafts;
 const dr = knowledgeDraftRevisions;
 
-/** Locks the draft `FOR UPDATE`; null when it is not in the workspace. */
-export async function lockDraft(tx: Tx, workspaceId: string, id: string): Promise<DraftRow | null> {
+/**
+ * Locks the draft `FOR UPDATE`; null when it is not in the workspace OR its owner / target item is hidden from the viewer
+ * (#1504: a draft of a hidden owner is not found, even to its author).
+ */
+export async function lockDraft(tx: Tx, viewer: Viewer, id: string): Promise<DraftRow | null> {
   const [row] = await tx
     .select()
     .from(d)
-    .where(and(eq(d.workspaceId, workspaceId), eq(d.id, id)))
+    .where(and(eq(d.workspaceId, viewer.workspaceId), eq(d.id, id)))
     .for('update');
-  return row ?? null;
+  if (!row) return null;
+  return (await canSeeOwner(tx, viewer, row)) ? row : null;
 }
 
 export interface TargetItem {
@@ -33,8 +38,10 @@ export interface TargetItem {
   ownerSoftwareId: string | null;
 }
 
-/** The item a revise draft targets (unlocked: the draft FK takes its own key-share lock on insert); null when it is not in the workspace. */
-export async function readTargetItem(tx: Tx, workspaceId: string, itemId: string): Promise<TargetItem | null> {
+/** The item a revise draft targets (unlocked: the draft FK takes its own key-share lock on insert); null when it is not in the workspace or the viewer cannot see it (#1504). */
+export async function readTargetItem(tx: Tx, viewer: Viewer, itemId: string): Promise<TargetItem | null> {
+  const workspaceId = viewer.workspaceId;
+  if (!(await canSeeItem(tx, viewer, itemId))) return null;
   const [row] = await tx
     .select({
       id: knowledgeItems.id,

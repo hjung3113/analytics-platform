@@ -79,7 +79,7 @@ export function roundActions(deps: RoundActionDeps): MenuActionDeclaration[] {
       if (!project) throw invalid({ path: ['projectId'], code: 'not_found' });
       if (!isOpenStage(project.stage)) throw invalid({ path: ['projectId'], code: 'project_not_open' });
       // The pin is server-computed from the model's effective spec; null = no published revision (shown as 미고정).
-      const specPin = await deps.knowledgeLookup.getEffectiveSpecPin(tx, ws, project.modelId, project.softwareId);
+      const specPin = await deps.knowledgeLookup.getEffectiveSpecPin(tx, ws, project.modelId, project.softwareId, actor.actor_id);
       const round = await mapUnique(
         () =>
           insertRound(tx, {

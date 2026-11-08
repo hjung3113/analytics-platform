@@ -17,6 +17,7 @@ import type { Tx } from '../../../db/tx.js';
 import type { FilterCondition, FilterConditions } from '../../../lib/list-params/catalog-filters.js';
 import type { ListQuery, Page, PageSort } from '../../../lib/list-params/types.js';
 import { toCodeKey } from '../domain/code-key.js';
+import { type Viewer, ref, visibleItemSql, visibleModelSql, visibleSoftwareSql } from './access-visibility.js';
 
 export type { ListQuery, Page, PageSort };
 
@@ -89,7 +90,7 @@ const activeFilter = (column: AnyPgColumn, conditions: FilterConditions): SQL | 
 const order = (expr: SQL | AnyPgColumn, descending: boolean): SQL =>
   descending ? desc(expr) : asc(expr);
 
-export async function listVendors(tx: Tx, q: ListQuery): Promise<Page<VendorRow>> {
+export async function listVendors(tx: Tx, q: ListQuery, viewer: Viewer): Promise<Page<VendorRow>> {
   const where = and(
     eq(vendors.workspaceId, q.workspaceId),
     activeFilter(vendors.active, q.conditions),
@@ -98,7 +99,7 @@ export async function listVendors(tx: Tx, q: ListQuery): Promise<Page<VendorRow>
   );
   // Outer columns are written qualified: a single-table select renders `${vendors.id}` unqualified, which
   // would bind to the subquery's own table.
-  const modelCount = sql<number>`(select count(*)::int from ${equipmentModels} m where m.workspace_id = "knowledge"."vendor"."workspace_id" and m.vendor_id = "knowledge"."vendor"."id" and m.active)`;
+  const modelCount = sql<number>`(select count(*)::int from ${equipmentModels} m where m.workspace_id = "knowledge"."vendor"."workspace_id" and m.vendor_id = "knowledge"."vendor"."id" and m.active and ${visibleModelSql(viewer, sql`m.id`)})`;
   const sortable: Record<string, SQL | AnyPgColumn> = {
     code: vendors.codeKey,
     name: vendors.name,
@@ -125,7 +126,7 @@ export async function listVendors(tx: Tx, q: ListQuery): Promise<Page<VendorRow>
   };
 }
 
-export async function listProcesses(tx: Tx, q: ListQuery): Promise<Page<ProcessRow>> {
+export async function listProcesses(tx: Tx, q: ListQuery, viewer: Viewer): Promise<Page<ProcessRow>> {
   const t = processCategories;
   const where = and(
     eq(t.workspaceId, q.workspaceId),
@@ -133,7 +134,7 @@ export async function listProcesses(tx: Tx, q: ListQuery): Promise<Page<ProcessR
     columnFilter(t.id, q.conditions.id),
     textFilter(t.codeKey, t.name, q.q),
   );
-  const modelCount = sql<number>`(select count(*)::int from ${modelProcesses} mp join ${equipmentModels} m on m.workspace_id = mp.workspace_id and m.id = mp.model_id where mp.workspace_id = "knowledge"."process_category"."workspace_id" and mp.process_id = "knowledge"."process_category"."id" and m.active)`;
+  const modelCount = sql<number>`(select count(*)::int from ${modelProcesses} mp join ${equipmentModels} m on m.workspace_id = mp.workspace_id and m.id = mp.model_id where mp.workspace_id = "knowledge"."process_category"."workspace_id" and mp.process_id = "knowledge"."process_category"."id" and m.active and ${visibleModelSql(viewer, sql`m.id`)})`;
   const sortable: Record<string, SQL | AnyPgColumn> = {
     code: t.codeKey,
     name: t.name,
@@ -196,20 +197,22 @@ function processFilter(
 export async function listModels(
   tx: Tx,
   q: ListQuery,
+  viewer: Viewer,
   options: { withItemCount?: boolean } = {},
 ): Promise<Page<ModelRow>> {
   const t = equipmentModels;
   const where = and(
     eq(t.workspaceId, q.workspaceId),
+    visibleModelSql(viewer, ref(t.id)),
     activeFilter(t.active, q.conditions),
     columnFilter(t.id, q.conditions.id),
     textFilter(t.codeKey, t.name, q.q),
     columnFilter(t.vendorId, q.conditions.vendorId),
     processFilter(tx, q.conditions.processes, t.workspaceId, t.id),
   );
-  const softwareCount = sql<number>`(select count(*)::int from ${softwareVersions} s where s.workspace_id = ${t.workspaceId} and s.model_id = ${t.id} and s.active)`;
-  const latestSoftwareLabel = sql<string | null>`(select s.version_label from ${softwareVersions} s where s.workspace_id = ${t.workspaceId} and s.model_id = ${t.id} and s.active order by s.created_at desc, s.id desc limit 1)`;
-  const modelItemCount = sql<number>`(select count(*)::int from ${knowledgeItems} ki where ki.workspace_id = ${t.workspaceId} and ki.owner_model_id = ${t.id} and ki.publication_state = 'published')`;
+  const softwareCount = sql<number>`(select count(*)::int from ${softwareVersions} s where s.workspace_id = ${t.workspaceId} and s.model_id = ${t.id} and s.active and ${visibleSoftwareSql(viewer, sql`s.id`)})`;
+  const latestSoftwareLabel = sql<string | null>`(select s.version_label from ${softwareVersions} s where s.workspace_id = ${t.workspaceId} and s.model_id = ${t.id} and s.active and ${visibleSoftwareSql(viewer, sql`s.id`)} order by s.created_at desc, s.id desc limit 1)`;
+  const modelItemCount = sql<number>`(select count(*)::int from ${knowledgeItems} ki where ki.workspace_id = ${t.workspaceId} and ki.owner_model_id = ${t.id} and ki.publication_state = 'published' and ${visibleItemSql(viewer, sql`ki.id`)})`;
   const sortable: Record<string, SQL | AnyPgColumn> = {
     code: t.codeKey,
     name: t.name,
@@ -262,10 +265,11 @@ export async function listModels(
   };
 }
 
-export async function listSoftwareVersions(tx: Tx, q: ListQuery): Promise<Page<SoftwareRow>> {
+export async function listSoftwareVersions(tx: Tx, q: ListQuery, viewer: Viewer): Promise<Page<SoftwareRow>> {
   const t = softwareVersions;
   const where = and(
     eq(t.workspaceId, q.workspaceId),
+    visibleSoftwareSql(viewer, ref(t.id)),
     activeFilter(t.active, q.conditions),
     columnFilter(t.id, q.conditions.id),
     textFilter(t.versionKey, t.name, q.q),

@@ -9,6 +9,7 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { modelSpecRevisions, specEvents, specModules } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
 import { buildTargetKey, parseTargetKey } from '../domain/spec-target-key.js';
+import { type Viewer, ref, visibleModelSql } from './access-visibility.js';
 
 export interface SpecTarget {
   kind: 'module' | 'event';
@@ -34,13 +35,13 @@ interface CurrentRevision {
 }
 
 /** The current published revision of each model (every model of the workspace when `modelIds` is undefined). Uncapped: one row per model. */
-async function currentRevisions(tx: Tx, workspaceId: string, modelIds?: readonly string[]): Promise<Map<string, CurrentRevision>> {
+async function currentRevisions(tx: Tx, workspaceId: string, modelIds?: readonly string[], viewer?: Viewer): Promise<Map<string, CurrentRevision>> {
   const r = modelSpecRevisions;
   if (modelIds && modelIds.length === 0) return new Map();
   const rows = await tx
     .selectDistinctOn([r.modelId], { id: r.id, modelId: r.modelId, revisionNo: r.revisionNo })
     .from(r)
-    .where(and(eq(r.workspaceId, workspaceId), eq(r.state, 'published'), modelIds ? inArray(r.modelId, [...modelIds]) : undefined))
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.state, 'published'), modelIds ? inArray(r.modelId, [...modelIds]) : undefined, viewer ? visibleModelSql(viewer, ref(r.modelId)) : undefined))
     .orderBy(r.modelId, desc(r.revisionNo));
   return new Map(rows.map((x) => [x.modelId, { revisionId: x.id, revisionNo: x.revisionNo }]));
 }
@@ -51,9 +52,12 @@ export interface TargetScan {
   truncated: boolean;
 }
 
-/** The BOUNDED scan of every model's current targets, for suggestions only. Never use it to decide that a key is absent. */
-export async function scanCurrentTargets(tx: Tx, workspaceId: string, cap: number = TARGET_SCAN_CAP): Promise<TargetScan> {
-  const revisions = await currentRevisions(tx, workspaceId);
+/**
+ * The BOUNDED scan of every model's current targets, for suggestions only. Never use it to decide that a key is absent.
+ * `viewer`: only the models that actor may see (#1504); every caller that answers a user passes it.
+ */
+export async function scanCurrentTargets(tx: Tx, workspaceId: string, cap: number = TARGET_SCAN_CAP, viewer?: Viewer): Promise<TargetScan> {
+  const revisions = await currentRevisions(tx, workspaceId, undefined, viewer);
   const models = new Map<string, ModelTargets>();
   if (revisions.size === 0) return { models, truncated: false };
   const byRevision = new Map<string, string>();

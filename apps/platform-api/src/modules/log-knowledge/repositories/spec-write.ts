@@ -16,6 +16,7 @@ import {
   specModules,
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
+import { type Viewer, canSeeModel } from './access-visibility.js';
 import { type DraftIndex, type PlannedEvent, type PlannedModule, type PlannedRelation, type SourceDocRef, SPEC_SCHEMA_VERSION, qualifiedKey, relationEdgeKey } from '../domain/spec-input.js';
 import { type HashEvent, type HashModule, type HashRelation, specContentHash } from '../domain/spec-hash.js';
 
@@ -41,14 +42,16 @@ const revisionColumns = {
   contentSha256: modelSpecRevisions.contentSha256,
 };
 
-/** Locks the revision `FOR UPDATE`; null when it is not in the workspace. */
-export async function lockRevision(tx: Tx, workspaceId: string, id: string): Promise<RevisionRow | null> {
+/** Locks the revision `FOR UPDATE`; null when it is not in the workspace or its model is hidden from the viewer (#1504). */
+export async function lockRevision(tx: Tx, viewer: Viewer, id: string): Promise<RevisionRow | null> {
+  const workspaceId = viewer.workspaceId;
   const [row] = await tx
     .select(revisionColumns)
     .from(modelSpecRevisions)
     .where(and(eq(modelSpecRevisions.workspaceId, workspaceId), eq(modelSpecRevisions.id, id)))
     .for('update');
-  return (row as RevisionRow | undefined) ?? null;
+  if (!row || !(await canSeeModel(tx, viewer, row.modelId))) return null;
+  return row as RevisionRow;
 }
 
 export type CreateDraftResult = { ok: true; revision: RevisionRow } | { ok: false; code: 'not_found' | 'draft_exists' };
@@ -59,6 +62,7 @@ export async function createDraft(
   input: { workspaceId: string; actorId: string; modelId: string; sourceDocRef: SourceDocRef },
 ): Promise<CreateDraftResult> {
   const { workspaceId, modelId } = input;
+  if (!(await canSeeModel(tx, { workspaceId, actorId: input.actorId }, modelId))) return { ok: false, code: 'not_found' };
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`spec-draft:${workspaceId}:${modelId}`}, 0))`);
   const [model] = await tx
     .select({ id: equipmentModels.id })

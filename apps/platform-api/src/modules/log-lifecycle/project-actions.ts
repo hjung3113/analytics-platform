@@ -119,8 +119,8 @@ export function projectActions(deps: ProjectActionDeps): MenuActionDeclaration[]
   const done = (version: number): ActionHandlerResult => ({ data: { version: String(version) }, version: String(version) });
 
   /** The software must be a version of the model of the workspace (refusal `softwareId: not_found`). */
-  async function checkSoftware(tx: Tx, workspaceId: string, modelId: string, softwareId: string) {
-    if (!(await deps.knowledgeLookup.getSoftware(tx, workspaceId, modelId, softwareId))) {
+  async function checkSoftware(tx: Tx, workspaceId: string, modelId: string, softwareId: string, viewerActorId: string) {
+    if (!(await deps.knowledgeLookup.getSoftware(tx, workspaceId, modelId, softwareId, viewerActorId))) {
       throw invalid({ path: ['softwareId'], code: 'not_found' });
     }
   }
@@ -133,11 +133,11 @@ export function projectActions(deps: ProjectActionDeps): MenuActionDeclaration[]
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;
       const value = parsed('projectCreate', input);
-      const model = await deps.knowledgeLookup.getModel(tx, ws, value.modelId);
+      const model = await deps.knowledgeLookup.getModel(tx, ws, value.modelId, actor.actor_id);
       if (!model) throw invalid({ path: ['modelId'], code: 'not_found' });
       if (!model.active) throw invalid({ path: ['modelId'], code: 'inactive' });
       const softwareId = value.softwareId ?? null;
-      if (softwareId !== null) await checkSoftware(tx, ws, value.modelId, softwareId);
+      if (softwareId !== null) await checkSoftware(tx, ws, value.modelId, softwareId, actor.actor_id);
       if (!(await actorInWorkspace(tx, ws, value.ownerActorId))) throw invalid({ path: ['ownerActorId'], code: 'not_found' });
 
       const project = await mapUnique(
@@ -281,7 +281,7 @@ export function projectActions(deps: ProjectActionDeps): MenuActionDeclaration[]
         changed.push('targetDate');
       }
       if (value.softwareId !== undefined && value.softwareId !== row.softwareId) {
-        if (value.softwareId !== null) await checkSoftware(tx, ws, row.modelId, value.softwareId);
+        if (value.softwareId !== null) await checkSoftware(tx, ws, row.modelId, value.softwareId, actor.actor_id);
         patch.softwareId = value.softwareId;
         targetBefore.softwareId = row.softwareId;
         targetAfter.softwareId = value.softwareId;

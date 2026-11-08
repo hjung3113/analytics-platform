@@ -34,7 +34,9 @@ export type PlatformPermissionRule =
   /** An active workspace grant of `explorer.investigate` (the write capability of the log explorer investigations); no Admin role bypass (sensitive, #1472). */
   | 'explorer-investigate'
   /** Admin role, or an active workspace grant of `dataset.manage` (the write capability of the log test datasets). */
-  | 'dataset-manage';
+  | 'dataset-manage'
+  /** Admin role, or an active workspace grant of `knowledge.access.manage` (sets access mode and rules of a model, SW version or Item). */
+  | 'knowledge-access-manage';
 
 export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'platform:view', rule: 'every-session' },
@@ -61,6 +63,8 @@ export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'explorer:investigate', rule: 'explorer-investigate' },
   // Menu permission of the log test dataset writes (#1477 D-a).
   { permission: 'dataset:manage', rule: 'dataset-manage' },
+  // Menu permission of the knowledge object access writes (#1504 S-a).
+  { permission: 'knowledge:access-manage', rule: 'knowledge-access-manage' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
 /** Capabilities whose active grant (workspace or Managed-System scoped) opens `features:access`. */
@@ -219,6 +223,16 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'dataset.manage', decision).allow;
+    }
+    case 'knowledge-access-manage': {
+      // The same decision the access actions take (`log-knowledge/access-actions.ts`).
+      const decision = await checkService.checkCapability(
+        actor,
+        'knowledge.access.manage',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'knowledge.access.manage', decision).allow;
     }
     case 'features-access': {
       // A token call has no role shortcut: only the capability scopes below can open it.

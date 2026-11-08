@@ -17,6 +17,7 @@ import {
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
 import type { EvidencePointer } from '../domain/item-input.js';
+import { type Viewer, canSeeItem, canSeeModel, canSeeSoftware } from './access-visibility.js';
 import { allocateItemNo } from './item-number.js';
 
 export interface ItemRow {
@@ -48,8 +49,10 @@ const itemColumns = {
   rowVersion: knowledgeItems.rowVersion,
 };
 
-/** Locks the item `FOR UPDATE`; null when it is not in the workspace. */
-export async function lockItem(tx: Tx, workspaceId: string, id: string): Promise<ItemRow | null> {
+/** Locks the item `FOR UPDATE`; null when it is not in the workspace or the viewer cannot see it (#1504: a hidden item is not found). */
+export async function lockItem(tx: Tx, viewer: Viewer, id: string): Promise<ItemRow | null> {
+  const workspaceId = viewer.workspaceId;
+  if (!(await canSeeItem(tx, viewer, id))) return null;
   const [row] = await tx
     .select(itemColumns)
     .from(knowledgeItems)
@@ -58,8 +61,10 @@ export async function lockItem(tx: Tx, workspaceId: string, id: string): Promise
   return row ?? null;
 }
 
-/** Whether the workspace holds this item (unlocked: items are never deleted). */
-export async function itemExists(tx: Tx, workspaceId: string, id: string): Promise<boolean> {
+/** Whether the workspace holds this item AND the viewer may see it (unlocked: items are never deleted). */
+export async function itemExists(tx: Tx, viewer: Viewer, id: string): Promise<boolean> {
+  const workspaceId = viewer.workspaceId;
+  if (!(await canSeeItem(tx, viewer, id))) return false;
   const [row] = await tx
     .select({ id: knowledgeItems.id })
     .from(knowledgeItems)
@@ -91,9 +96,12 @@ export type OwnerCheck = 'ok' | 'not_found' | 'inactive';
  */
 export async function checkOwner(
   tx: Tx,
-  workspaceId: string,
+  viewer: Viewer,
   owner: { modelId: string } | { softwareId: string },
 ): Promise<OwnerCheck> {
+  const workspaceId = viewer.workspaceId;
+  // An owner the viewer cannot see is `not_found`, exactly like one that does not exist (#1504).
+  if ('modelId' in owner ? !(await canSeeModel(tx, viewer, owner.modelId)) : !(await canSeeSoftware(tx, viewer, owner.softwareId))) return 'not_found';
   if ('modelId' in owner) {
     const [model] = await tx
       .select({ active: equipmentModels.active })

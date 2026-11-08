@@ -49,6 +49,7 @@ import {
 } from './repositories/draft-write.js';
 import { judgeSubjects, softwareModelId } from './repositories/item-subject.js';
 import { checkOwner } from './repositories/item-write.js';
+import { type Viewer, viewerOf } from './repositories/access-visibility.js';
 
 export const DRAFT_PERMISSION = 'knowledge.draft.create';
 /** The menu permission the four actions declare: bootstrap lists it exactly for the users `DRAFT_PERMISSION` lets write (`platform-port/permissions.ts`). */
@@ -120,7 +121,7 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
    * its author in every status and, once it is not a plain `draft`, to a holder of `knowledge.item.publish`.
    */
   async function lockOwn(tx: Tx, actor: PlatformActor, id: string): Promise<DraftRow | null> {
-    const row = await lockDraft(tx, actor.workspace_id, id);
+    const row = await lockDraft(tx, viewerOf(actor), id);
     if (!row) return null;
     if (row.submitterActorId === actor.actor_id) return row;
     const reviewer = await holdsPlatformPermission(deps.checkService, actor, REVIEW_MENU_PERMISSION, { tx });
@@ -155,10 +156,10 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
   });
 
   /** The owner of a create draft must exist and be active (the item create's check), on the field the caller set. */
-  async function ownerErrors(tx: Tx, ws: string, proposal: NormalizedProposal): Promise<FieldError[]> {
+  async function ownerErrors(tx: Tx, viewer: Viewer, proposal: NormalizedProposal): Promise<FieldError[]> {
     const [field, check] = proposal.ownerModelId
-      ? (['ownerModelId', await checkOwner(tx, ws, { modelId: proposal.ownerModelId })] as const)
-      : (['ownerSoftwareId', await checkOwner(tx, ws, { softwareId: proposal.ownerSoftwareId ?? '' })] as const);
+      ? (['ownerModelId', await checkOwner(tx, viewer, { modelId: proposal.ownerModelId })] as const)
+      : (['ownerSoftwareId', await checkOwner(tx, viewer, { softwareId: proposal.ownerSoftwareId ?? '' })] as const);
     return check === 'ok' ? [] : [{ path: ['proposal', field], code: check }];
   }
 
@@ -209,10 +210,10 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
       let target: { id: string; baseRevisionNo: number } | null = null;
       const errors: FieldError[] = [];
       if (value.proposalType === 'create') {
-        errors.push(...(await ownerErrors(tx, ws, proposal)));
+        errors.push(...(await ownerErrors(tx, viewerOf(actor), proposal)));
         owner = { ownerModelId: proposal.ownerModelId ?? null, ownerSoftwareId: proposal.ownerSoftwareId ?? null };
       } else {
-        const item = await readTargetItem(tx, ws, value.targetItemId as string);
+        const item = await readTargetItem(tx, viewerOf(actor), value.targetItemId as string);
         if (!item) throw invalid({ path: ['targetItemId'], code: 'not_found' });
         if (item.publicationState === 'archived') throw invalid({ path: ['targetItemId'], code: 'archived' });
         target = { id: item.id, baseRevisionNo: item.latestRevisionNo };
@@ -267,9 +268,9 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
       if (digest === (await latestDigest(tx, ws, before))) return answer(before, digest);
 
       const errors: FieldError[] = [];
-      if (before.proposalType === 'create') errors.push(...(await ownerErrors(tx, ws, proposal)));
+      if (before.proposalType === 'create') errors.push(...(await ownerErrors(tx, viewerOf(actor), proposal)));
       else {
-        const item = await readTargetItem(tx, ws, before.targetItemId as string);
+        const item = await readTargetItem(tx, viewerOf(actor), before.targetItemId as string);
         if (item?.publicationState === 'archived') errors.push({ path: ['id'], code: 'archived' });
       }
       if (errors.length === 0) errors.push(...(await subjectErrors(tx, ws, await modelOf(tx, ws, before), proposal)));

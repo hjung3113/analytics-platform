@@ -37,6 +37,7 @@ export const CAPABILITIES = [
   'explorer.export',
   'explorer.investigate',
   'dataset.manage',
+  'knowledge.access.manage',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -148,6 +149,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'validation.catalog.report': { sensitive: false, adminModuleBypass: 'none', tokenOnly: true },
   // Log test datasets (#1477 D-a): workspace-scoped, not sensitive, session-only (design §9 defers token calls); datasets, their revisions and candidates. User role refused (supported-scope policy).
   'dataset.manage': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
+  // Log knowledge object access (#1504 S-a, ADR-0124): sets `access_mode` and adds/revokes allow/deny rules of a model, SW version or Item. Workspace-scoped, session-only (ADR-0116 decision 4: a permission grant is never token-callable). Admin holds it by role but has NO read bypass: reads judge the rules like anyone's. Sensitive: a grant states a reason and its permission rows stay out of the platform audit projection allow-list (adding it there is a migration, not part of this node).
+  'knowledge.access.manage': { sensitive: true, adminModuleBypass: 'always', sessionOnly: true },
 };
 
 export function isCapability(value: string): value is Capability {

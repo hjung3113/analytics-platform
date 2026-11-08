@@ -27,6 +27,7 @@ export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
   'explorer.export': '로그 원본 내보내기',
   'explorer.investigate': '로그 조사',
   'dataset.manage': '로그 테스트 데이터셋 관리',
+  'knowledge.access.manage': '지식 접근 규칙 관리',
 };
 
 export function getCapabilityDisplayLabel(capability: string): string {

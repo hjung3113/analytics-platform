@@ -13,6 +13,7 @@ import { CATALOG_FILTER_SPECS } from './domain/catalog-filters.js';
 import { ITEM_FILTER_SPECS } from './domain/item-filters.js';
 import { parseListParams } from '../../lib/list-params/list-params.js';
 import type { LogKnowledgeDeps } from './deps.js';
+import type { Viewer } from './repositories/access-visibility.js';
 import { MODEL_SORT_IDS, listModels } from './repositories/catalog-read.js';
 import { ITEM_SORT_IDS, getItemDetail, getModelProfile, listItems } from './repositories/item-read.js';
 
@@ -41,7 +42,7 @@ function declareRead(
   menuId: string,
   paramKeys: readonly string[],
   judge: Judge,
-  run: (workspaceId: string, params: Record<string, unknown>) => Promise<EndpointResult>,
+  run: (viewer: Viewer, params: Record<string, unknown>) => Promise<EndpointResult>,
 ): MenuEndpointDeclaration {
   return {
     spec: spec(id, menuId, paramKeys),
@@ -53,7 +54,7 @@ function declareRead(
     async handle(args) {
       const judged = judge(args.params);
       if (!judged.ok) return { outcome: 'error', data: null, message: judged.message };
-      return run(args.actor.workspace_id, args.params);
+      return run({ workspaceId: args.actor.workspace_id, actorId: args.actor.actor_id }, args.params);
     },
   };
 }
@@ -85,27 +86,30 @@ const itemDetailJudge: Judge = (params) => {
 
 export function itemEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[] {
   return [
-    declareRead(deps, 'logKnowledge.exploreModels', LOG_KNOWLEDGE_MODELS_MENU_ID, LIST_PARAM_KEYS, exploreJudge, async (workspaceId, params) => {
+    declareRead(deps, 'logKnowledge.exploreModels', LOG_KNOWLEDGE_MODELS_MENU_ID, LIST_PARAM_KEYS, exploreJudge, async (viewer, params) => {
+      const { workspaceId } = viewer;
       const parsed = parseListParams(params, MODEL_SORT_IDS, CATALOG_FILTER_SPECS.models);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
-      const page = await listModels(deps.db, { ...parsed.value, workspaceId }, { withItemCount: true });
+      const page = await listModels(deps.db, { ...parsed.value, workspaceId }, viewer, { withItemCount: true });
       return { outcome: 'ok', data: page };
     }),
-    declareRead(deps, 'logKnowledge.modelProfile', LOG_KNOWLEDGE_MODELS_MENU_ID, ['modelId'], modelProfileJudge, async (workspaceId, params) => {
-      const profile = await getModelProfile(deps.db, workspaceId, uuidParam(params, 'modelId') as string);
+    declareRead(deps, 'logKnowledge.modelProfile', LOG_KNOWLEDGE_MODELS_MENU_ID, ['modelId'], modelProfileJudge, async (viewer, params) => {
+      const profile = await getModelProfile(deps.db, viewer, viewer.workspaceId, uuidParam(params, 'modelId') as string);
       return { outcome: 'ok', data: profile };
     }),
-    declareRead(deps, 'logKnowledge.items', LOG_KNOWLEDGE_ITEMS_MENU_ID, LIST_PARAM_KEYS, itemsJudge, async (workspaceId, params) => {
+    declareRead(deps, 'logKnowledge.items', LOG_KNOWLEDGE_ITEMS_MENU_ID, LIST_PARAM_KEYS, itemsJudge, async (viewer, params) => {
+      const { workspaceId } = viewer;
       const parsed = parseListParams(params, ITEM_SORT_IDS, ITEM_FILTER_SPECS, ITEM_DEFAULT_SORT);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
-      const page = await listItems(deps.db, { ...parsed.value, workspaceId });
+      const page = await listItems(deps.db, { ...parsed.value, workspaceId }, viewer);
       return { outcome: 'ok', data: page };
     }),
-    declareRead(deps, 'logKnowledge.itemDetail', LOG_KNOWLEDGE_ITEMS_MENU_ID, ['itemId', 'revisionNo'], itemDetailJudge, async (workspaceId, params) => {
+    declareRead(deps, 'logKnowledge.itemDetail', LOG_KNOWLEDGE_ITEMS_MENU_ID, ['itemId', 'revisionNo'], itemDetailJudge, async (viewer, params) => {
       const revisionNo = revisionNoOf(params);
       const detail = await getItemDetail(
         deps.db,
-        workspaceId,
+        viewer,
+        viewer.workspaceId,
         uuidParam(params, 'itemId') as string,
         revisionNo === 'invalid' ? null : revisionNo,
       );

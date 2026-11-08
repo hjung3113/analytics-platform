@@ -48,7 +48,7 @@ export function coverageEndpoints(deps: LogRulesContributionDeps): MenuEndpointD
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
       const q = parsed.value;
       // One transaction: the catalog snapshot and the model-locked spec read; the single lock is taken last.
-      const result = await deps.db.transaction((tx) => computeModelCoverage(knowledge, tx, actor.workspace_id, q.modelId, q.softwareId));
+      const result = await deps.db.transaction((tx) => computeModelCoverage(knowledge, tx, actor.workspace_id, q.modelId, q.softwareId, undefined, actor.actor_id));
       if (!result.computable) {
         if (result.reason === 'model_unknown') return { outcome: 'ok', data: null };
         return { outcome: 'ok', data: result };

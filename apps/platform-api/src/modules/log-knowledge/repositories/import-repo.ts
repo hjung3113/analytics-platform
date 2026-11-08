@@ -15,6 +15,7 @@ import {
   vendors,
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
+import { type Viewer, ref as accessRef, visibleModelSql, visibleSoftwareSql } from './access-visibility.js';
 import type { ParseError } from '../domain/import-file.js';
 import type { ImportEntity } from '../domain/import-mapping.js';
 import { toCodeKey } from '../domain/code-key.js';
@@ -386,8 +387,12 @@ const ref = (r: { id: string; name: string; active: boolean; rowVersion: number 
   rowVersion: r.rowVersion,
 });
 
-/** The workspace's catalog rows the plan of `entity` needs (read only). */
-export async function loadCatalogSnapshot(tx: Tx, workspaceId: string, entity: ImportEntity): Promise<CatalogSnapshot> {
+/**
+ * The workspace's catalog rows the plan of `entity` needs (read only). Models and SW versions the viewer cannot see are left
+ * out (#1504): a plan must not show their id, name or version. A row that names one is planned as new.
+ */
+export async function loadCatalogSnapshot(tx: Tx, viewer: Viewer, entity: ImportEntity): Promise<CatalogSnapshot> {
+  const workspaceId = viewer.workspaceId;
   const vendorMap = new Map<string, CatalogRef>();
   const processMap = new Map<string, CatalogRef>();
   const modelMap = new Map<string, ModelRef>();
@@ -415,7 +420,7 @@ export async function loadCatalogSnapshot(tx: Tx, workspaceId: string, entity: I
     }
   }
   if (entity === 'model' || entity === 'software') {
-    const models = await tx.select().from(equipmentModels).where(eq(equipmentModels.workspaceId, workspaceId));
+    const models = await tx.select().from(equipmentModels).where(and(eq(equipmentModels.workspaceId, workspaceId), visibleModelSql(viewer, accessRef(equipmentModels.id))));
     const mappings =
       entity === 'model'
         ? await tx.select().from(modelProcesses).where(eq(modelProcesses.workspaceId, workspaceId))
@@ -433,7 +438,7 @@ export async function loadCatalogSnapshot(tx: Tx, workspaceId: string, entity: I
     }
   }
   if (entity === 'software') {
-    const rows = await tx.select().from(softwareVersions).where(eq(softwareVersions.workspaceId, workspaceId));
+    const rows = await tx.select().from(softwareVersions).where(and(eq(softwareVersions.workspaceId, workspaceId), visibleSoftwareSql(viewer, accessRef(softwareVersions.id))));
     for (const s of rows) softwareMap.set(`${s.modelId}|${s.versionKey}`, ref(s));
   }
   return { vendors: vendorMap, processes: processMap, models: modelMap, softwares: softwareMap, vendorNames, processNames, modelNames };

@@ -5,6 +5,7 @@
 // `currentVersion` locks the revision row; for a revision that is not a draft it answers a value no client can hold,
 // so the engine answers `conflict`. A refusal only the database can judge is a `MenuActionInvalidError`.
 
+import { viewerOf } from './repositories/access-visibility.js';
 import { randomUUID } from 'node:crypto';
 
 import { createAuditService } from '../core/audit/audit-service.js';
@@ -98,7 +99,7 @@ export function specActions(deps: SpecActionDeps): MenuActionDeclaration[] {
 
   /** The revision is locked by `currentVersion`; for a non-draft it returned a value the client cannot hold. */
   const currentVersion = async (tx: Tx, actor: PlatformActor, input: Record<string, unknown>) => {
-    const revision = await lockRevision(tx, actor.workspace_id, input.revisionId as string);
+    const revision = await lockRevision(tx, viewerOf(actor), input.revisionId as string);
     if (!revision) return null;
     // A sealed revision must conflict whatever the client sends — including the token an earlier conflict handed
     // back. That token must therefore be fresh per call: anything derived only from state + row_version is
@@ -107,7 +108,7 @@ export function specActions(deps: SpecActionDeps): MenuActionDeclaration[] {
   };
 
   async function lockDraft(tx: Tx, actor: PlatformActor, revisionId: string): Promise<RevisionRow> {
-    const revision = await lockRevision(tx, actor.workspace_id, revisionId);
+    const revision = await lockRevision(tx, viewerOf(actor), revisionId);
     // Unreachable while `currentVersion` judged the same row first in this transaction; kept invalid-shaped so a
     // caller that skips the version step cannot turn a sealed row into a server error.
     if (!revision || revision.state !== 'draft') {

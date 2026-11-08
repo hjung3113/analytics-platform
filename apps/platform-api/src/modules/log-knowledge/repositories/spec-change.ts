@@ -7,8 +7,9 @@
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-import { equipmentModels, modelSpecRevisions, softwareVersions, specSwChanges } from '../../../db/schema/knowledge.js';
+import { modelSpecRevisions, softwareVersions, specSwChanges } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
+import { type Viewer, canSeeModel, ref, visibleSoftwareSql } from './access-visibility.js';
 import type { OrderRange } from '../domain/spec-range.js';
 
 const c = specSwChanges;
@@ -63,22 +64,21 @@ export async function lockModelChanges(tx: Tx, workspaceId: string, modelId: str
 }
 
 /** `model_id` of a change, read without a lock (the caller takes the model lock next, then `lockChange`). */
-export async function changeModelId(tx: Tx, workspaceId: string, id: string): Promise<string | null> {
-  const [row] = await tx.select({ modelId: c.modelId }).from(c).where(and(eq(c.workspaceId, workspaceId), eq(c.id, id)));
-  return row?.modelId ?? null;
+export async function changeModelId(tx: Tx, viewer: Viewer, id: string): Promise<string | null> {
+  const [row] = await tx.select({ modelId: c.modelId }).from(c).where(and(eq(c.workspaceId, viewer.workspaceId), eq(c.id, id)));
+  // A change of a hidden model is not found (#1504).
+  return row && (await canSeeModel(tx, viewer, row.modelId)) ? row.modelId : null;
 }
 
-export async function lockChange(tx: Tx, workspaceId: string, id: string): Promise<ChangeRow | null> {
-  const [row] = await tx.select(changeColumns).from(c).where(and(eq(c.workspaceId, workspaceId), eq(c.id, id))).for('update');
-  return (row as ChangeRow | undefined) ?? null;
+export async function lockChange(tx: Tx, viewer: Viewer, id: string): Promise<ChangeRow | null> {
+  const [row] = await tx.select(changeColumns).from(c).where(and(eq(c.workspaceId, viewer.workspaceId), eq(c.id, id))).for('update');
+  if (!row || !(await canSeeModel(tx, viewer, row.modelId))) return null;
+  return row as ChangeRow;
 }
 
-export async function modelExists(tx: Tx, workspaceId: string, modelId: string): Promise<boolean> {
-  const [row] = await tx
-    .select({ id: equipmentModels.id })
-    .from(equipmentModels)
-    .where(and(eq(equipmentModels.workspaceId, workspaceId), eq(equipmentModels.id, modelId)));
-  return row !== undefined;
+/** The model exists in the workspace AND the viewer may see it (a hidden model is «not found», #1504). */
+export async function modelExists(tx: Tx, viewer: Viewer, modelId: string): Promise<boolean> {
+  return canSeeModel(tx, viewer, modelId);
 }
 
 /** The model's latest published revision (no row lock: a publish waits for the model lock this transaction holds). */
@@ -94,12 +94,13 @@ export async function currentPublished(tx: Tx, workspaceId: string, modelId: str
 }
 
 /** `release_order` of the given software versions of THIS model; a version of another model or workspace is absent. */
-export async function softwareOrders(tx: Tx, workspaceId: string, modelId: string, ids: string[]): Promise<Map<string, number>> {
+export async function softwareOrders(tx: Tx, viewer: Viewer, modelId: string, ids: string[]): Promise<Map<string, number>> {
+  const workspaceId = viewer.workspaceId;
   const s = softwareVersions;
   const rows = await tx
     .select({ id: s.id, order: s.releaseOrder })
     .from(s)
-    .where(and(eq(s.workspaceId, workspaceId), eq(s.modelId, modelId), inArray(s.id, ids)));
+    .where(and(eq(s.workspaceId, workspaceId), eq(s.modelId, modelId), inArray(s.id, ids), visibleSoftwareSql(viewer, ref(s.id))));
   return new Map(rows.map((r) => [r.id, r.order]));
 }
 

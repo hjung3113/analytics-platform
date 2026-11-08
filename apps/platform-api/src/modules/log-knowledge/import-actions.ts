@@ -13,6 +13,7 @@ import {
 } from '../menu-dispatch/types.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
+import { viewerOf } from './repositories/access-visibility.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
 import { CATALOG_MENU_PERMISSION } from './catalog-actions.js';
 import { RESOLUTIONS, type Resolution } from './domain/import-apply.js';
@@ -164,7 +165,7 @@ export function importActions(deps: ImportActionDeps): MenuActionDeclaration[] {
         // Parse errors are immutable and always count: they come first and force `error`.
         return { rowNo: row.rowNo, normalized, errors: [...row.parseErrors, ...errors] };
       });
-      const catalog = await loadCatalogSnapshot(tx, ws, job.entityType);
+      const catalog = await loadCatalogSnapshot(tx, viewerOf(actor), job.entityType);
       const results = planRows(job.entityType, inputs, catalog);
       const status = statusAfterValidate(tallyOf(results));
       const saved = await saveValidation(
@@ -208,7 +209,7 @@ export function importActions(deps: ImportActionDeps): MenuActionDeclaration[] {
       const items = input.resolutions as { rowNo: number; resolution: Resolution; mapTargetId?: string }[];
       const rows = new Map((await readPlanRows(tx, ws, job.id, items.map((i) => i.rowNo))).map((r) => [r.rowNo, r]));
       const needsCatalog = items.some((i) => i.resolution === 'map');
-      const catalog = needsCatalog ? await loadCatalogSnapshot(tx, ws, job.entityType) : null;
+      const catalog = needsCatalog ? await loadCatalogSnapshot(tx, viewerOf(actor), job.entityType) : null;
       const errors: FieldError[] = [];
       const writes: ResolutionWrite[] = [];
       for (const [i, item] of items.entries()) {
@@ -235,7 +236,7 @@ export function importActions(deps: ImportActionDeps): MenuActionDeclaration[] {
           writes.push({ rowNo: item.rowNo, resolution: 'create', mapTargetId: null, expectedTargetVersion: null });
           continue;
         }
-        const target = await lockRow(tx, job.entityType, ws, item.mapTargetId as string);
+        const target = await lockRow(tx, job.entityType, viewerOf(actor), item.mapTargetId as string);
         if (!target) errors.push({ path: at('mapTargetId'), code: 'not_found' });
         else if (!target.active) errors.push({ path: at('mapTargetId'), code: 'inactive' });
         else if (target.parentId !== expectedParent(job.entityType, row.normalized, catalog)) {

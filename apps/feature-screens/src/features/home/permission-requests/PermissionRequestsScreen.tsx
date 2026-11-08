@@ -66,6 +66,7 @@ const NO_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>([
   'explorer.export',
   'explorer.investigate',
   'dataset.manage',
+  'knowledge.access.manage',
 ]);
 const OPTIONAL_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>(['survey.export']);
 const WORKSPACE_WIDE = '__workspace__';
