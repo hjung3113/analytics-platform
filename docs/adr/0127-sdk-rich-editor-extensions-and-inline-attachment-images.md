@@ -23,3 +23,13 @@
 ## 결과
 
 [공통 컴포넌트 계약 §13](../contract/components.md#richeditor--richcontentrenderer-decided-adr-0127)에 SDK 조립 경계를 둔다. 적용 버전은 `sdk-v0.32.0`, 플랫폼 작업은 [#1452](https://github.com/hjung3113/analytics-platform/issues/1452)다. 외부 임베드·iframe·수식·다이어그램·공동 편집·AI는 구현하지 않는다(사내망·보안 경계와 번들 비용에 비해 수요가 없음). 다시 검토하려면 해당 수요와 보안·성능 조건을 별도 결정해야 한다.
+
+## Amendment — toolbar layout (#1529), 2026-11-08
+
+Decider: owner, 2026-11-08. The owner confirmed [variant A in the actual app](https://claude.ai/artifact/JxsnbRK8xuTfCvzpNHzyXS): text formatting on row 1, block insertion on row 2. The prototype code is discarded; this decision is the specification.
+
+- Keep exactly two non-wrapping rows under one roving toolbar. At narrow widths, fold trailing controls in order into each row's «더보기» menu; insertion controls fold first, and text controls fold when their row still cannot fit. Folded controls retain their state.
+- The heading dropdown reflects the current block (본문 / 제목 1–3). Block actions are one-click controls. Token palette menus use color names. Toggle buttons expose their pressed state visually and accessibly.
+- The toolbar sticks within the host scroll container. The host supplies `toolbarStickyOffset` or `--rich-editor-toolbar-offset` (default 0); the SDK does not assume host padding.
+- Keep the left `+` stacked above the drag grip and run the selected action at the hovered block. The owner chose stacking on 2026-11-08 after reviewing the side-by-side build (https://claude.ai/artifact/TJpnpYEnTCAacePoseeCQN): it costs about 28px less body width, and side-by-side placement outside the editor is clipped by scrolling hosts. Reserve an internal gutter in editable surfaces with block controls so clipping scroll hosts cannot hide either control; read-view content and surfaces without block controls retain their existing inset. Keep the keyboard `/` menu and constrain its placement to the viewport.
+- Table actions float at the table's top-start; the code-language chip floats at the code block's top-end. Every editable table and code block always reserves a strip at its top for these controls, so they never cover preceding text and selecting a block never shifts the layout. The table bar shares the main toolbar's single Tab stop and arrow/Home/End navigation. Reserve code-chip space in editor-only CSS without mutating ProseMirror-owned code DOM. Opening a portalled language menu preserves its anchor and supports resetting to 일반 텍스트 (`null`).

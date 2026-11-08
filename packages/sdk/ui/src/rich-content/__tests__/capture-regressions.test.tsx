@@ -96,10 +96,12 @@ describe('capture review regressions', () => {
     expect(container.querySelector('li')).toHaveAttribute('data-checked', 'true');
   });
 
-  it.each(['굵게', '기울임', '밑줄', '취소선', '인라인 코드', '형광펜', '글자색', '블록 추가', '링크', '실행 취소', '첨부 파일 추가', '열 삭제', '행 삭제', '표 삭제', '칸 병합 / 나누기', '머리 행', '열 추가', '행 추가'])('shows shared tooltip help for %s without changing its accessible name', async label => {
+  it.each(['굵게', '기울임', '밑줄', '취소선', '인라인 코드', '형광펜', '글자색', '링크', '실행 취소', '첨부 파일 추가', '열 삭제', '행 삭제', '표 삭제', '칸 병합 / 나누기', '머리 행', '오른쪽에 열 추가', '아래에 행 추가'])('shows shared tooltip help for %s without changing its accessible name', async label => {
     const { editor } = await mountEditor();
     act(() => { editor.commands.insertTable({ rows: 2, cols: 2 }); });
-    const control = within(screen.getByRole('toolbar', { name: '본문 서식' })).getByRole('button', { name: label });
+    // Table controls now belong to their floating bar; block add belongs beside the drag grip (#1529).
+    const toolbar = ['열 삭제', '행 삭제', '표 삭제', '칸 병합 / 나누기', '머리 행', '오른쪽에 열 추가', '아래에 행 추가'].includes(label) ? screen.getByRole('toolbar', { name: '표 편집' }) : screen.getByRole('toolbar', { name: '본문 서식' });
+    const control = within(toolbar).getByRole('button', { name: label });
     // Undo needs an undoable transaction; attachment is exposed by api.renderControls().
     await userEvent.hover(control);
     expect(await screen.findByRole('tooltip')).toHaveTextContent(label);
