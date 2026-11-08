@@ -1,4 +1,5 @@
 // VOC creation command and its idempotent entry point.
+import { assertBodyAttachmentsLinked } from './attachment-content.js';
 import { randomUUID } from 'node:crypto';
 import { lockRecoveryCommand } from '../../../db/recovery-command-lock.js';
 
@@ -119,6 +120,8 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
       doc: input.description_rich_content,
       fieldPath: ['description_rich_content'],
     });
+
+    assertBodyAttachmentsLinked(sanitized, input.attachment_ids ?? []);
 
     // 4. INSERT vocs. `insertVoc` returns `inserted[0]` which is typed as
     // possibly-undefined under noUncheckedIndexedAccess; narrow defensively.

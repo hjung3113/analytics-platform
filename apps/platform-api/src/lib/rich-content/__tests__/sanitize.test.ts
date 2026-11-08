@@ -101,9 +101,9 @@ describe('sanitizeTipTap (voc-description)', () => {
     if (!res.ok) expect(res.error.code).toBe('rich_content.disallowed_node');
   });
 
-  it('rejects disallowed mark (strike not in voc-description allowlist)', () => {
+  it('rejects disallowed mark (strike not in reporter-reply allowlist)', () => {
     const res = sanitizeTipTap({
-      surface,
+      surface: 'reporter-reply',
       doc: doc(p('x', [{ type: 'strike' }])),
     });
     expect(res.ok).toBe(false);

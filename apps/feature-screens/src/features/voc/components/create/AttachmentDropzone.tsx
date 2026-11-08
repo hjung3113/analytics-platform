@@ -33,6 +33,8 @@ const COPY = {
 
 export interface AttachmentDropzoneProps {
   testId?: string;
+  /** Optional parent-owned queue, also used by editor paste/drop uploads. */
+  queue?: ReturnType<typeof useAttachmentUploadQueue>;
   /** Receives the list of successfully-uploaded server attachment IDs. */
   onChange?: (serverAttachmentIds: string[]) => void;
   /** Receives true while ANY row is mid-upload so parent can disable submit. */
@@ -53,12 +55,13 @@ export interface AttachmentDropzoneProps {
 
 export function AttachmentDropzone({
   testId,
+  queue: suppliedQueue,
   onChange,
   onUploadingChange,
   onErrorCountChange,
   notifyError,
 }: AttachmentDropzoneProps): React.ReactElement {
-  const queue = useAttachmentUploadQueue({
+  const internalQueue = useAttachmentUploadQueue(suppliedQueue ? {} : {
     ...(onChange ? { onChange } : {}),
     ...(onUploadingChange ? { onUploadingChange } : {}),
     ...(onErrorCountChange ? { onErrorCountChange } : {}),
@@ -73,7 +76,7 @@ export function AttachmentDropzone({
     handleDrop,
     handleInputChange,
     removeRow,
-  } = queue;
+  } = suppliedQueue ?? internalQueue;
 
   return (
     <section data-testid={testId} className="flex flex-col gap-2">

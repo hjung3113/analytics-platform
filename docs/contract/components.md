@@ -50,6 +50,12 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/f
 
 **미저장 변경 이동 확인 (ADR-0115):** 셸의 `LeaveConfirmDialog`가 Kernel `useLeaveRequest()`의 대기 요청 하나를 표준 `AlertDialog`(`alertdialog`)로 그린다. 메뉴가 주는 상세는 「이동하면 변경이 사라집니다.」 위에 더하고, 알려진 목적지 이름은 별도 줄에 둔다. `머무르기`는 기본 포커스·primary, `변경 버리고 이동`은 destructive다. Escape·바깥 클릭도 머무르기이며, 취소·확인의 포커스는 [§26](platform-ui-contract.md#26-accessibility-baseline)을 따른다. 팔레트에서 취소하면 검색어·선택 결과·검색 칸 포커스를 유지한다.
 
+### RichEditor / RichContentRenderer (Decided, ADR-0127)
+
+SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한다([ADR-0052](../adr/0052-rich-content-stays-in-the-sdk.md), [ADR-0127](../adr/0127-sdk-rich-editor-extensions-and-inline-attachment-images.md)). `surface`의 capability 집합이 편집 확장·툴바·슬래시 메뉴·선택 서식·블록 손잡이를 함께 선택한다. 기본 공개 진입점 `RichEditor` 안에서 편집 구현을 지연 로딩한다. `RichContentRenderer`는 편집 인스턴스와 편집 플러그인 없이 같은 노드를 정적으로 읽고 코드 강조·제목 목차를 계산한다.
+
+`onAttach(file)`는 소비자가 업로드한 첨부 envelope를 반환한다. 선택 `resolveAttachmentUrl?: (id: string) => string | null`은 두 부품이 첨부 이미지를 그릴 때만 사용하며 JSON에 URL을 넣지 않는다. 생략하거나 null을 반환하면 기존 첨부 칩으로 읽는다. `toolbar` render-prop의 선택 `api.renderControls({ hideAttach?, onAttachError? })`는 SDK capability 툴바를 소비자 어댑터에서 재사용한다. 서버 권한·첨부와 부모 연결·전송 필드·목록은 소비자 책임이다. surface별 노드·속성·허용 동작의 원본은 [VOC §5.7](../design/features/specs/voc.md#57-richeditor-per-surface-contract)이며 SDK 사본과 원본·서버 사이의 전체 schema 동등성을 테스트한다.
+
 ### Platform Component
 
 여러 도메인에서 동일한 플랫폼 의미를 갖는 컴포넌트다.

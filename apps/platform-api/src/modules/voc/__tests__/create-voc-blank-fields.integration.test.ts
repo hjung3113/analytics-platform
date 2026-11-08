@@ -215,13 +215,27 @@ describe.skipIf(!runIntegration)('POST /vocs blank required fields (#327)', () =
   });
 
   it('accepts a textless attachmentRef description', async () => {
+    // A body attachment must be one the VOC links (ADR-0127): seed an unlinked upload owned by the reporter.
+    const actor = await dbHandle.pool.query<{ id: string }>(
+      'select id from core.actors where workspace_id = $1 and external_id = $2',
+      [WORKSPACE_ID, 'mock-user-1'],
+    );
+    const actorId = actor.rows[0]?.id;
+    if (!actorId) throw new Error('reporter actor not seeded');
+    const attachmentId = randomUUID();
+    await dbHandle.pool.query(
+      `insert into voc.voc_attachments (id, voc_id, comment_id, comment_kind, name, size_bytes, mime_type, storage_key, uploaded_by_actor_id, linked_at)
+       values ($1, null, null, null, 'file.txt', 100, 'text/plain', $2, $3, null)`,
+      [attachmentId, `${WORKSPACE_ID}/${attachmentId}/file.txt`, actorId],
+    );
     const res = await postVoc(app, reporterCookie, {
       primary_managed_system_id: managedSystemId,
       title: 'attachment content',
       description_rich_content: {
         type: 'doc',
-        content: [{ type: 'attachmentRef', attrs: { id: randomUUID() } }],
+        content: [{ type: 'attachmentRef', attrs: { id: attachmentId } }],
       },
+      attachment_ids: [attachmentId],
     });
 
     expect(res.statusCode).toBe(201);

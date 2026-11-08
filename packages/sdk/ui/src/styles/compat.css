@@ -83,6 +83,47 @@
   }
 }
 
+/* ADR-0127: Tiptap-owned DOM; both supported CSS entry recipes include this file. */
+@layer base {
+  :is(.rich-editor[data-surface="voc-description"] .ProseMirror, .rich-content[data-rich-extended]) {
+    @apply text-sm leading-relaxed break-keep;
+    p { @apply my-2; }
+    h1 { @apply mt-4 mb-2 text-xl font-semibold; }
+    h2 { @apply mt-4 mb-2 text-lg font-semibold; }
+    h3 { @apply mt-3 mb-2 text-base font-semibold; }
+    ul { @apply my-2 pl-6 list-disc; }
+    ol { @apply my-2 pl-6 list-decimal; }
+    blockquote { @apply my-3 border-l border-border-strong pl-3 text-text-secondary; }
+    hr { @apply my-4 border-border-subtle; }
+    pre { @apply my-3 rounded-md bg-surface-popover p-3 font-mono text-xs whitespace-pre-wrap; }
+    code { @apply rounded-sm bg-surface-popover font-mono; }
+    img { @apply my-2 max-w-full h-auto rounded-md; }
+    table { @apply my-3 w-full border-collapse table-fixed; }
+    th, td { @apply relative border border-border-strong p-2 align-top; }
+    th { @apply bg-surface-row-selected text-left font-semibold; }
+    .selectedCell { @apply bg-surface-row-selected; }
+    .column-resize-handle { @apply absolute top-0 right-0 bottom-0 w-1 bg-accent-primary pointer-events-none; }
+    .resize-cursor { @apply cursor-col-resize; }
+    ul[data-type="taskList"] { @apply list-none pl-0; }
+    li[data-type="taskItem"] { @apply flex items-start gap-2; }
+    li[data-type="taskItem"] > label { @apply mt-2; }
+    li[data-type="taskItem"] > div { @apply flex-1 min-w-0; }
+    details, div[data-type="details"] { @apply my-3 rounded-md border border-border-subtle p-3; }
+    summary { @apply cursor-pointer font-medium; }
+    div[data-type="details"] > button { @apply float-left size-5 mr-2; }
+    div[data-type="details"] > button::before { content: '›'; }
+    div[data-type="details"].is-open > button::before { content: '⌄'; }
+    [data-rich-outline] { @apply my-3 border-y border-border-subtle py-2; }
+    [data-resize-container] { @apply relative inline-flex max-w-full; }
+    [data-resize-handle] { @apply absolute size-3 rounded-sm border border-surface-canvas bg-accent-primary; }
+    [data-resize-handle="bottom-right"] { @apply right-0 bottom-0 cursor-nwse-resize; }
+    .hljs-keyword, .hljs-selector-tag { color: rgb(var(--text-info-label)); }
+    .hljs-string, .hljs-attr { color: rgb(var(--text-success-label)); }
+    .hljs-number, .hljs-literal { color: rgb(var(--text-warning-label)); }
+    .hljs-comment { color: rgb(var(--text-secondary)); }
+  }
+}
+
 /* --- Legacy-name compat shims (moved from theme.css, ADR-0058) ---
  * tokens.css `--leading-*` / `--tracking-*` token names shadow Tailwind's
  * default utility namespaces in v4 (utilities resolve `var(--leading-tight)`

@@ -6,6 +6,7 @@ import {
 } from '@/lib/api/registry-reads';
 import type { ApiError, ApiErrorEnvelope } from '@/lib/api/types';
 import { VOC_CREATE_TARGETS_QUERY_KEY, VOC_CREATE_TARGETS_STALE_MS, fetchVocCreateTargets } from '@/lib/api/voc-create-targets';
+import { useAttachmentUploadQueue } from '@/lib/attachments/useAttachmentUploadQueue';
 import { VOC_CREATE_COPY } from '@/lib/copy/voc';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { useHostSeam } from '@/lib/host/host-seam';
@@ -81,6 +82,12 @@ export function useVocComposeController({
   const [attachmentIds, setAttachmentIds] = React.useState<string[]>([]);
   const [attachmentsUploading, setAttachmentsUploading] = React.useState(false);
   const [attachmentErrorCount, setAttachmentErrorCount] = React.useState(0);
+  const attachmentQueue = useAttachmentUploadQueue({ onChange: setAttachmentIds, onUploadingChange: setAttachmentsUploading, onErrorCountChange: setAttachmentErrorCount, notifyError });
+  const { uploadFile } = attachmentQueue;
+  const uploadEditorAttachment = React.useCallback(async (file: File) => {
+    const result = await uploadFile(file);
+    return { attachment_id: result.id, name: result.name, size_bytes: result.size_bytes, mime_type: result.mime_type };
+  }, [uploadFile]);
   const hasAttachmentErrors = attachmentErrorCount > 0;
   // Set when a submit attempt finds the merged attachment set over the per-parent cap; reflects the latest attempt.
   const [attachmentLimitExceeded, setAttachmentLimitExceeded] = React.useState(false);
@@ -277,6 +284,8 @@ export function useVocComposeController({
     attachmentsUploading,
     hasAttachmentErrors,
     attachmentLimitExceeded,
+    attachmentQueue,
+    uploadEditorAttachment,
     setAttachmentIds,
     setAttachmentsUploading,
     setAttachmentErrorCount,

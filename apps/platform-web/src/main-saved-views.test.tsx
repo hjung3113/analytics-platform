@@ -29,7 +29,8 @@ beforeEach(() => {
 });
 afterEach(() => { document.body.innerHTML = ''; });
 
-describe('main.tsx saved view wiring', () => {
+// Each case imports the whole app through main.tsx; the first import alone takes ~5 s of transform under load.
+describe('main.tsx saved view wiring', { timeout: 30_000 }, () => {
   it('a real assembly (no savedViews) builds no local store and passes none to PlatformProvider', async () => {
     const props = await boot({ adapter: {}, topBarTools: null });
     expect(seen.storeFactory).not.toHaveBeenCalled();

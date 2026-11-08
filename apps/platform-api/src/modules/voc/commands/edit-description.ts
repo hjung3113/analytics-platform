@@ -1,4 +1,6 @@
 // Reporter VOC description edit command and its idempotent entry point.
+import { assertBodyAttachmentsLinked } from './attachment-content.js';
+import { selectVocAttachments } from '../repo-read.js';
 import { createHash, randomUUID } from 'node:crypto';
 
 import type { EditDescriptionRequest } from '@ap/feature-shared';
@@ -119,6 +121,11 @@ export function createVocEditDescriptionCommands(deps: VocServiceDeps) {
         }
         throw err;
       }
+    }
+
+    if (sanitizedDoc !== null) {
+      const linked = await selectVocAttachments(tx, workspaceId, vocId);
+      assertBodyAttachmentsLinked(sanitizedDoc, linked.map(attachment => attachment.id));
     }
 
     // 8. Diff computation.

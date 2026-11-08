@@ -891,6 +891,39 @@ describe.skipIf(!runIntegration)('PATCH /vocs/:id/description (#17)', () => {
     expect(row.rows[0]?.linked_at).not.toBeNull();
   });
 
+  it.each(['image', 'attachmentRef'])('ADR-0127: %s must belong to this VOC on create and edit', async type => {
+    const admin = await loginAs(app, 'mock-admin-1');
+    const msId = await createMs(app, admin, `it-pd-image-${type.toLowerCase()}`, 'Inline attachment');
+    const reporter = await loginAs(app, 'mock-user-1');
+    const id = randomUUID();
+    const body = { type: 'doc', content: [{ type, attrs: { id } }] };
+    const rejectedCreate = await app.inject({ method: 'POST', url: '/vocs', headers: {
+      cookie: `${SESSION_COOKIE_NAME}=${reporter}`, 'idempotency-key': randomUUID(),
+    }, payload: { primary_managed_system_id: msId, title: 'unlinked image', description_rich_content: body } });
+    expect(rejectedCreate.statusCode).toBe(422);
+    expect(rejectedCreate.json().detail.fields).toContainEqual({ path: ['description_rich_content'], code: 'attachment_not_linked' });
+    const persisted = await dbHandle.pool.query('select id from voc.vocs where primary_managed_system_id = $1', [msId]);
+    expect(persisted.rows).toHaveLength(0);
+    const voc = await postVoc(app, reporter, { primary_managed_system_id: msId, title: 'before', description_rich_content: paragraphDoc('before') }, randomUUID());
+    const rejectedEdit = await patchDescription(app, reporter, voc.id, { description_rich_content: body }, { idempotencyKey: randomUUID(), ifMatch: voc.updated_at });
+    expect(rejectedEdit.statusCode).toBe(422);
+    expect(await countAuditRows(voc.id, 'voc_description_edited')).toBe(0);
+    const actor = await dbHandle.pool.query<{ id: string }>('select id from core.actors where workspace_id = $1 and external_id = $2', [WORKSPACE_ID, 'mock-user-1']);
+    const actorId = actor.rows[0]?.id;
+    if (!actorId) throw new Error('reporter not seeded');
+    await dbHandle.pool.query(`insert into voc.voc_attachments (id, voc_id, comment_id, comment_kind, name, size_bytes, mime_type, storage_key, uploaded_by_actor_id, linked_at)
+      values ($1, null, null, null, 'screen.png', 100, 'image/png', $2, $3, null)`, [id, `${WORKSPACE_ID}/${id}/screen.png`, actorId]);
+    const created = await postVoc(app, reporter, { primary_managed_system_id: msId, title: 'linked', description_rich_content: body, attachment_ids: [id] }, randomUUID());
+    const foreign = await patchDescription(app, reporter, voc.id, { description_rich_content: body }, { idempotencyKey: randomUUID(), ifMatch: voc.updated_at });
+    expect(foreign.statusCode).toBe(422);
+    const linked = await dbHandle.pool.query<{ voc_id: string }>('select voc_id from voc.voc_attachments where id = $1', [id]);
+    expect(linked.rows[0]?.voc_id).toBe(created.id);
+    // Existing linked ids are not sent back through the unlinked-upload attachment_ids path.
+    const edited = await patchDescription(app, reporter, created.id, { description_rich_content: { ...body, content: [...body.content, { type: 'paragraph', content: [{ type: 'text', text: 'after' }] }] } }, { idempotencyKey: randomUUID(), ifMatch: created.updated_at });
+    expect(edited.statusCode).toBe(200);
+    expect(await countAuditRows(created.id, 'voc_description_edited')).toBe(1);
+  });
+
   // ── Sanitizer ───────────────────────────────────────────────────────────
 
   // Case 16: image node rejected
