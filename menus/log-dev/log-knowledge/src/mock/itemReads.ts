@@ -126,6 +126,7 @@ function detail(params: ItemDetailParams): ItemDetail | null {
     assessments: [...rec.assessments].sort((a, b) => (a.observedAt === b.observedAt ? (a.id < b.id ? 1 : -1) : a.observedAt < b.observedAt ? 1 : -1)),
     links: linkRows,
     subjects: resolvedSubjects(rec, rev.revisionNo),
+    relations: [],
   };
 }
 

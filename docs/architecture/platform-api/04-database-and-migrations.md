@@ -213,6 +213,8 @@ Bootstrap owns it like `vector`: `scripts/db/init.sql` installs it on a fresh vo
 asserts it is present, with a directive message when it is not. An existing database needs a one-time
 `CREATE EXTENSION IF NOT EXISTS pg_trgm;` (superuser or the database owner; the extension is trusted).
 
+The shared `platform-verify` template (`platform` database) created before this prerequisite lacks the extension, so every `verify-db.sh create` clone fails `pg-trgm.integration.test.ts`. One-time fix, safe while other lanes test (it only adds the extension; clones made earlier are untouched; do not drop or recreate the template): `PGPASSWORD=postgres psql -h localhost -p 5439 -U postgres -d platform -c "CREATE EXTENSION IF NOT EXISTS pg_trgm"`, then recreate only the clones that need it.
+
 ## Schema Namespaces
 
 Schema namespace does not always imply module ownership. `core.entity_links` is
@@ -1037,3 +1039,7 @@ Migration `*_log_review_labels.sql` (additive): `log_datasets.suite_review_label
 ## Round evidence locations (#1474 X-h)
 
 Adds `log_lifecycle.round_evidence_ref` (migration file `*_round_evidence_ref.sql`): the body-free evidence locations the log explorer hands to a Round. Composite same-workspace FK to `validation_round` (`ON DELETE RESTRICT`), `handed_off_by` FK `core.actors`. CHECKs: `seq` 1–1000 (the per-round cap), `file_ref` 1–1024 characters, `line >= 1` (the column is `bigint`, mapped to a JS number: the intake accepts any positive safe integer), `file_sha256` 64 lower-case hex, `note` at most 500, `status` in (`match`, `hash_mismatch`, `unresolved`), `origin_kind` = `log_explorer`. Unique `(workspace_id, round_id, seq)` and `(workspace_id, round_id, file_ref, line, file_sha256)`. `platform_app` gets SELECT and INSERT only; trigger `round_evidence_ref_append_only` (BEFORE UPDATE OR DELETE, `23514`) binds every role including `platform_migrate`. Roles are not touched, and `core.platform_audit_events` is not redefined: `validation_round` is already a listed subject type and the new event type maps through the vocabulary the application passes (`lifecycle.round.evidence_ref_attached` → `update`). Behavior: [api/log-lifecycle.md](api/log-lifecycle.md#evidence-locations-1474-x-h).
+
+## Item Event relation record (#1505 S-b)
+
+Adds `knowledge.item_event_relation_record` (migration file `*_item_event_relation_record.sql`): one row per `before` pair of events of an immutable item revision, `(workspace_id, item_id, revision_no, ordinal)` PK, composite FK to `knowledge_item_revision`, no FK to spec rows (stable `module/event` keys, `resolved` flag). CHECKs: kind `observed|expected`, predicate `before`, key length 1–1200, `source_key <> target_key`, ordinal 1–20. Unique `(workspace_id, item_id, revision_no, kind, source_key, predicate, target_key)` and the direction index `(workspace_id, md5(source_key), predicate, md5(target_key), kind)` (the unique and the direction index are md5 expression indexes so long keys fit the btree limit; lookups must use `md5(key) = md5($n)`). Grants: `platform_app` SELECT/INSERT only (no UPDATE/DELETE), `platform_migrate` ALL; no role change. Rules: [api/log-knowledge.md](api/log-knowledge.md) §Item Event relation records.
