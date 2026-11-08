@@ -89,15 +89,17 @@ export function comparisonEndpoints(deps: LogDatasetsDeps): MenuEndpointDeclarat
         return from && to ? { from, to } : null;
       });
       if (!pair) return { outcome: 'ok', data: null };
-      const a = new Map(visibleItems(pair.from).map((x) => [x.datasetRevisionId, x]));
-      const b = new Map(visibleItems(pair.to).map((x) => [x.datasetRevisionId, x]));
-      // Only runs of the same revisions can be diffed: the sets of (visible) revisions must be equal.
-      if (a.size !== b.size || [...a.keys()].some((id) => !b.has(id))) return mismatch('revision_mismatch');
+      // Only two runs of the SAME suite can be diffed, item by item: the stable identity of an item is its ordinal within the suite (a suite may repeat a
+      // resolved revision, so the revision cannot key an item). The (visible) ordinals and the revision at each must be equal.
+      const a = new Map(visibleItems(pair.from).map((x) => [x.ordinal, x]));
+      const b = new Map(visibleItems(pair.to).map((x) => [x.ordinal, x]));
+      if (pair.from.run.suiteId !== pair.to.run.suiteId || a.size !== b.size || [...a].some(([ordinal, left]) => b.get(ordinal)?.datasetRevisionId !== left.datasetRevisionId)) return mismatch('revision_mismatch');
 
       const revisions = [];
-      const rows: { datasetRevisionId: string; ruleId: string; kind: string; from: unknown; to: unknown }[] = [];
-      for (const [revisionId, left] of a) {
-        const right = b.get(revisionId) as Visible;
+      const rows: { ordinal: number; datasetRevisionId: string; ruleId: string; kind: string; from: unknown; to: unknown }[] = [];
+      for (const [ordinal, left] of a) {
+        const right = b.get(ordinal) as Visible;
+        const revisionId = left.datasetRevisionId;
         const complete = left.observed !== null && right.observed !== null;
         const diffs = complete ? diffRuns(left.rules, right.rules) : [];
         revisions.push({
@@ -110,7 +112,7 @@ export function comparisonEndpoints(deps: LogDatasetsDeps): MenuEndpointDeclarat
           to: { ordinal: right.ordinal, baselineId: right.baselineId, observed: right.observed, counts: right.counts },
           diffCounts: countDiffs(diffs),
         });
-        for (const diff of diffs) if (q.kinds.length === 0 ? diff.kind !== 'same' : q.kinds.includes(diff.kind)) rows.push({ datasetRevisionId: revisionId, ruleId: diff.ruleId, kind: diff.kind, from: diff.from, to: diff.to });
+        for (const diff of diffs) if (q.kinds.length === 0 ? diff.kind !== 'same' : q.kinds.includes(diff.kind)) rows.push({ ordinal, datasetRevisionId: revisionId, ruleId: diff.ruleId, kind: diff.kind, from: diff.from, to: diff.to });
       }
       const page = pageOf(rows, q.page, q.pageSize);
       return {

@@ -113,13 +113,10 @@ export async function compareRun(
     .orderBy(asc(i.ordinal));
   if (!rows.some((x) => x.visible)) return null;
 
-  const requestIds = rows.map((x) => x.item.requestId);
-  const states = await ports.requests.requestStates(tx, workspaceId, requestIds);
-  const observedByRequest = await ports.results.latestSucceeded(
-    tx,
-    workspaceId,
-    rows.filter((x) => x.visible).map((x) => x.item.requestId),
-  );
+  // Only the items of datasets the actor may see feed any state, count or result: a restricted item's execution state must not leak through the aggregates.
+  const visibleRequestIds = rows.filter((x) => x.visible).map((x) => x.item.requestId);
+  const states = await ports.requests.requestStates(tx, workspaceId, visibleRequestIds);
+  const observedByRequest = await ports.results.latestSucceeded(tx, workspaceId, visibleRequestIds);
 
   const labelRows = await tx
     .select()
@@ -160,7 +157,7 @@ export async function compareRun(
     };
   });
 
-  const counts = countRequestStates(rows.map((x) => states.get(x.item.requestId)?.state ?? ''));
+  const counts = countRequestStates(rows.filter((x) => x.visible).map((x) => states.get(x.item.requestId)?.state ?? ''));
   return {
     run: { id: run.id, suiteId: run.suiteId, requestedByActorId: run.requestedByActorId, createdAt: iso(run.createdAt), state: deriveRunState(counts), counts },
     items,

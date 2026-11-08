@@ -15,6 +15,7 @@ import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
 import { hashToken } from '../../api-tokens/token-format.js';
+import { AUDIT_ACTION_BY_EVENT_TYPE } from '../../platform-port/audit-actions.js';
 import type { DatasetSourceRead, DescribeFileResponse } from '../source-check.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
@@ -534,6 +535,25 @@ describe.skipIf(!runIntegration)('comparison, coverage, review labels, rerun dif
       expect((await compare(started.data.suiteRunId, privOwner)).data.rules.total).toBe(2);
     });
 
+    it('a restricted item never feeds the run state or counts: only the visible items count, the answer ignores the private request, the owner sees both', async () => {
+      const shared = await datasetWith([['R-1', 'PASS']]);
+      const priv = await datasetWith([['R-1', 'PASS']], undefined, { shareScope: 'private' });
+      const suite = await makeSuite([{ datasetId: shared.ds.id }, { datasetId: priv.ds.id }], {}, privOwner);
+      const started = await run(suite.id, privOwner);
+      expect(started.outcome, JSON.stringify(started)).toBe('ok');
+      const items = started.data.items as { requestId: string }[];
+      await seedResult(at(items, 0).requestId, [['R-1', 'PASS']]);
+      const zero = { queued: 0, claimed: 0, succeeded: 0, failed: 0, cancelled: 0, expired: 0 };
+      const headOf = async (who: Person) => (await compare(started.data.suiteRunId, who)).data.run as { state: string; counts: Record<string, number> };
+      const before = await headOf(runner);
+      expect(before).toMatchObject({ state: 'succeeded', counts: { ...zero, succeeded: 1 } });
+      expect(await headOf(privOwner)).toMatchObject({ state: 'running', counts: { ...zero, queued: 1, succeeded: 1 } });
+      // Only the private request changes (it ends cancelled): the non-owner's answer is the same, the owner's is not.
+      await sql(`update log_lifecycle.execution_request set state = 'cancelled', ended_at = now(), row_version = row_version + 1 where id = $1 and state = 'queued'`, [at(items, 1).requestId]);
+      expect(await headOf(runner)).toEqual(before);
+      expect(await headOf(privOwner)).toMatchObject({ state: 'cancelled', counts: { ...zero, succeeded: 1, cancelled: 1 } });
+    });
+
     it('a run of another workspace is the same absence', async () => {
       const foreignRun = (await sql(`select sr.id from log_datasets.suite_run sr limit 0`)).rows;
       expect(foreignRun).toEqual([]);
@@ -582,8 +602,21 @@ describe.skipIf(!runIntegration)('comparison, coverage, review labels, rerun dif
       const events = (await audit(s.runId)).filter((e) => e.event_type === 'dataset.review_label_added');
       expect(events.map((e) => [e.subject_type, e.actor_id, e.detail])).toEqual([['suite_run', grantee.id, { datasetRevisionId: s.revision.id, ruleId: 'R-1', label: 'false_positive', reasonLength: 20 }]]);
       expect(JSON.stringify(events)).not.toContain('SECRET');
-      const projected = await sql(`select count(*)::int c from core.platform_audit_events($1, null, $2, null, null, null, null, null, '{}'::jsonb, 'at', true, 10, 0)`, [WORKSPACE_ID, s.runId]).catch(() => ({ rows: [{ c: 0 }] }));
-      expect(Number(projected.rows[0].c)).toBe(0);
+      // The real projection with the app's real action map, as the app role: the label event is written but never listed, a visible control row is.
+      expect(events).toHaveLength(1);
+      const control = randomUUID();
+      await sql(
+        `insert into core.audit_log (workspace_id, actor_id, event_type, subject_type, subject_id, summary, detail) values ($1,$2,'permission_granted','permission_grant',$3,'probe',$4::jsonb)`,
+        [WORKSPACE_ID, admin.id, control, JSON.stringify({ capability: 'dataset.suite.run' })],
+      );
+      const projected = await appSql(
+        `select event_type, subject_type, subject_id from core.platform_audit_events($1, null, null, null, null, null, null, null, $2::jsonb, 'at', true, 200, 0) where subject_id = any($3)`,
+        [WORKSPACE_ID, JSON.stringify(AUDIT_ACTION_BY_EVENT_TYPE), [control, s.runId]],
+      );
+      expect(projected.rows.map((r) => r.subject_id)).toEqual([control]);
+      const forRun = await appSql(`select audit_id, total from core.platform_audit_events($1, null, $2, null, null, null, null, null, $3::jsonb, 'at', true, 200, 0)`, [WORKSPACE_ID, s.runId, JSON.stringify(AUDIT_ACTION_BY_EVENT_TYPE)]);
+      expect(forRun.rows.filter((r) => r.audit_id !== null)).toEqual([]);
+      expect(Number(forRun.rows[0]?.total ?? 0)).toBe(0);
     });
 
     it('a refused call (unknown rule) writes neither a label nor an audit event', async () => {
@@ -736,6 +769,35 @@ describe.skipIf(!runIntegration)('comparison, coverage, review labels, rerun dif
       const ra2 = await run(sa.id);
       expect((await diff(ra.data.suiteRunId, ra2.data.suiteRunId)).data.fieldErrors).toEqual([{ path: ['toRunId'], code: 'revision_mismatch' }]);
       expect((await diff(ra.data.suiteRunId, ra.data.suiteRunId)).data.fieldErrors).toEqual([{ path: ['toRunId'], code: 'same_run' }]);
+    });
+
+    it.each([[1], [2]])('a suite that repeats one resolved revision keeps every item: a regression confined to ordinal %i is in the diff and its counts', async (regressed) => {
+      const d = await datasetWith([['R-1', 'PASS']]);
+      const suite = await makeSuite([{ datasetId: d.ds.id }, { datasetId: d.ds.id, datasetRevisionId: d.revision.id }]);
+      const r1 = await run(suite.id);
+      const r2 = await run(suite.id);
+      expect(r1.outcome, JSON.stringify(r1)).toBe('ok');
+      const idsOf = (a: Answer) => (a.data.items as { datasetRevisionId: string; requestId: string }[]);
+      expect(idsOf(r1).map((x) => x.datasetRevisionId)).toEqual([d.revision.id, d.revision.id]);
+      for (const item of idsOf(r1)) await seedResult(item.requestId, [['R-1', 'PASS']]);
+      for (const [index, item] of idsOf(r2).entries()) await seedResult(item.requestId, [['R-1', index + 1 === regressed ? 'FAIL' : 'PASS']]);
+      const a = await diff(r1.data.suiteRunId, r2.data.suiteRunId);
+      expect(a.outcome, JSON.stringify(a)).toBe('ok');
+      expect(a.data.revisions.map((x: { from: { ordinal: number }; diffCounts: Row }) => [x.from.ordinal, x.diffCounts.worsened, x.diffCounts.same])).toEqual([
+        [1, regressed === 1 ? 1 : 0, regressed === 1 ? 0 : 1],
+        [2, regressed === 2 ? 1 : 0, regressed === 2 ? 0 : 1],
+      ]);
+      expect(a.data.diffs.rows.map((r: { ordinal: number; ruleId: string; kind: string }) => [r.ordinal, r.ruleId, r.kind])).toEqual([[regressed, 'R-1', 'worsened']]);
+      expect(a.data.diffs.total).toBe(1);
+    });
+
+    it('refuses two runs of different suites even when they hold the same revisions', async () => {
+      const d = await datasetWith([['R-1', 'PASS']]);
+      const s1 = await makeSuite([{ datasetId: d.ds.id }]);
+      const s2 = await makeSuite([{ datasetId: d.ds.id }]);
+      const r1 = await run(s1.id);
+      const r2 = await run(s2.id);
+      expect((await diff(r1.data.suiteRunId, r2.data.suiteRunId)).data.fieldErrors).toEqual([{ path: ['toRunId'], code: 'revision_mismatch' }]);
     });
 
     it('unknown, other-workspace and private-dataset runs are the same absence; the owner may diff their own', async () => {
