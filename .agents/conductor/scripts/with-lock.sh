@@ -12,6 +12,7 @@
 #   ORCA_TERMINAL_HANDLE (owner; if absent, use WITH_LOCK_OWNER; if both are absent, exit 2 — do not rename it to `foreground`).
 # Signals: the child runs in a new process group (set -m). On TERM, HUP, or INT, forward TERM to the entire group (including grandchildren), wait for it to exit, then release the lock.
 #   SIGKILL cannot be caught — the lock remains, and lock-audit.sh finds it using the PID in purpose. Do not use commands that need to read tty from stdin; they stop in the background group.
+# merge.lock only: after the local directory is taken, also take the cross-machine lock refs/locks/merge on GitHub (SHARED_LOCK_PY, default ~/.agents/skills/orca-dispatch-recipes/scripts/shared-lock.py; repo from SHARED_LOCK_REPO or `gh repo view`). Held there -> exit 75 (local lock released); GitHub API failure -> exit 2 (fail closed, local lock released). Release deletes both. Other locks stay local.
 # Compatible with macOS (bash 3.2, BSD date).
 set -u
 
@@ -53,10 +54,20 @@ printf '%s\n' "$token" >"$lock/token"
 date -u +%FT%TZ >"$lock/since"
 printf '%s, pid %s\n' "$purpose" "$$" >"$lock/purpose"
 
+shared=0
+shared_py=${SHARED_LOCK_PY:-$HOME/.agents/skills/orca-dispatch-recipes/scripts/shared-lock.py}
+shared_repo=${SHARED_LOCK_REPO:-}
+shared_release() {
+  [ "$shared" = 1 ] || return 0
+  shared=0
+  python3 "$shared_py" release --repo "$shared_repo" --name merge --token "$token" || echo "with-lock: shared merge lock release failed; refs/locks/merge may remain (shared-lock.py status)" >&2
+}
+
 released=0
 release() {
   [ "$released" = 1 ] && return 0
   released=1
+  shared_release
   # Release only if both owner and token are ours. If someone else released and reacquired it, do not touch it.
   [ "$(cat "$lock/owner" 2>/dev/null | tr -d '\n')" = "$me" ] || return 0
   [ "$(cat "$lock/token" 2>/dev/null | tr -d '\n')" = "$token" ] || return 0
@@ -68,6 +79,20 @@ release() {
     fi
   fi
 }
+
+if [ "$lock_name" = merge.lock ]; then
+  [ -f "$shared_py" ] || { echo "with-lock: shared-lock.py not found at $shared_py (install conductor-engine)" >&2; release; exit 2; }
+  [ -n "$shared_repo" ] || shared_repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null)
+  [ -n "$shared_repo" ] || { echo "with-lock: cannot resolve the GitHub repo for the shared merge lock" >&2; release; exit 2; }
+  python3 "$shared_py" acquire --repo "$shared_repo" --name merge --owner "$me" --purpose "$purpose" --token "$token"
+  src=$?
+  if [ "$src" -ne 0 ]; then
+    [ "$src" -eq 75 ] || src=2
+    release
+    exit "$src"
+  fi
+  shared=1
+fi
 
 child=0
 exit_code=143

@@ -28,6 +28,7 @@ export PRN=<n> BR=<branch>
 bash .agents/conductor/scripts/with-lock.sh merge.lock "$PRN ship" -- bash -c 'ship-pr.sh … --ci && SHA=$(gh pr view "$PRN" --json headRefOid --jq .headRefOid) && bash .agents/conductor/scripts/merge-precheck.sh "$PRN" "$BR" "$SHA" && gh pr merge "$PRN" --squash --match-head-commit "$SHA"'
 ```
 
+- `merge.lock` is shared across hosts (GitHub ref `refs/locks/merge`, taken inside `with-lock.sh`); exit 75 may mean a lane on the other host holds it, and exit 2 means GitHub was unreachable, so do not merge. Reason: a local lock cannot stop the other host from merging during your CI window.
 - exit 75 (lock held) → retry. Merge refused for a conflict → rebase and ship again.
 - A locked ship that ends with exit 20/21/22 releases the lock; fix the problem, then ship again.
 - A CI job that failed on a diagnosed flake (the cause is identified and not in the PR) gets one rerun of the failed job only (`gh run rerun <run-id> --failed`), then `gh run watch <run-id>`; a second failure is a real failure to diagnose, not another rerun. Reason: rerunning the whole workflow repeats the cold jobs, and repeated reruns hide a real regression.
