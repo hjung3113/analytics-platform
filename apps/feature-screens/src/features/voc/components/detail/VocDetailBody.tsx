@@ -1,5 +1,5 @@
 import type { VocDetailEnvelope } from '@ap/feature-shared';
-import { Button, DetailPanelSectionNav, DirtyConfirmation } from '@ap/ui';
+import { Button, DetailPanelSectionNav, DirtyConfirmation, type PanelSection } from '@ap/ui';
 import * as React from 'react';
 
 import { CreateFindingModal } from '@/features/cross-system/create-finding/CreateFindingModal';
@@ -26,6 +26,8 @@ import { useVocDetailPanelController } from './useVocDetailPanelController';
 export interface VocDetailRegionLayout {
   regions: { body: React.ReactNode; properties?: React.ReactNode; activity?: React.ReactNode };
   footer: React.ReactNode;
+  /** Section entries for the host's narrow-width navigation (reporter arm has no 분류). */
+  sections: PanelSection[];
 }
 export type RenderVocDetailRegions = (layout: VocDetailRegionLayout) => React.ReactNode;
 
@@ -277,8 +279,6 @@ export function VocDetailBody({
   );
 
   if (renderRegions) {
-    // A body-local nav cannot track sibling regions or stay sticky through them.
-    // Restoring it needs a host-owned nav slot and shared scroll ref (backlog #1530).
     return (
       <>
         {renderRegions({
@@ -298,6 +298,7 @@ export function VocDetailBody({
               {overlays}
             </>
           ),
+          sections: detailSections,
         })}
       </>
     );

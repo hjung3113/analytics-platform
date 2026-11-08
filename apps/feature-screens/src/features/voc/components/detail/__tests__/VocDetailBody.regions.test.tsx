@@ -5,9 +5,10 @@ import { VocDetailBody, type VocDetailRegionLayout } from '../VocDetailBody';
 import type { DetailCloseGuard } from '../useDetailCloseGuard';
 
 const dirty = vi.hoisted(() => vi.fn());
+const arm = vi.hoisted(() => ({ reporter: false, scroll: { current: null as HTMLElement | null } }));
 vi.mock('../useVocDetailPanelController', () => ({
   useVocDetailPanelController: () => ({
-    scrollRef: { current: null },
+    scrollRef: arm.scroll,
     actorNamesById: new Map(),
     analyticsAreasById: new Map(),
     canTriage: true,
@@ -15,7 +16,7 @@ vi.mock('../useVocDetailPanelController', () => ({
     canRequestTask: true,
     pendingReviewCount: 1,
     showsSimilarVocSection: true,
-    isReporterArm: false,
+    isReporterArm: arm.reporter,
     noFollowUpScope: 'scope',
     canOpenTrailNode: () => true,
     canSelectSimilarVoc: () => true,
@@ -90,6 +91,7 @@ function mount(renderRegions?: typeof layout) {
 afterEach(() => {
   cleanup();
   dirty.mockClear();
+  arm.reporter = false;
 });
 
 it('retains body content, properties, conversation/composer and embedded fixed actions', () => {
@@ -140,4 +142,30 @@ it('preserves standalone section navigation with all anchors under its shared sc
   expect(screen.getByRole('button', { name: /Task 요청/ }).parentElement).toHaveClass(
     'sticky', 'border-t', 'bg-surface-canvas', 'px-4', 'py-3',
   );
+});
+
+it('hands the host the section entries, with the similar section under 더보기', () => {
+  let sections: VocDetailRegionLayout['sections'] = [];
+  mount((l) => { sections = l.sections; return layout(l); });
+  expect(sections.map((s) => s.id)).toEqual(['overview', 'triage', 'description', 'trail', 'similar', 'conversation', 'compose']);
+  expect(sections.find((s) => s.id === 'similar')?.overflow).toBe(true);
+});
+
+it('hands the reporter arm no 분류 entry', () => {
+  arm.reporter = true;
+  let sections: VocDetailRegionLayout['sections'] = [];
+  mount((l) => { sections = l.sections; return layout(l); });
+  expect(sections.map((s) => s.id)).not.toContain('triage');
+  expect(sections.map((s) => s.label)).not.toContain('분류');
+});
+
+it('keeps the footer trail jump scrolling the body anchor', () => {
+  const scrollIntoView = vi.fn();
+  Element.prototype.scrollIntoView = scrollIntoView;
+  const { container } = mount(layout);
+  arm.scroll.current = container.querySelector('[data-testid="body"] > div');
+  const primary = container.querySelector('footer button');
+  if (!primary) throw new Error('footer primary action is missing');
+  fireEvent.click(primary);
+  expect(scrollIntoView).toHaveBeenCalled();
 });

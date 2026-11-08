@@ -13,6 +13,11 @@ export interface DetailDrawerRegions {
   body: ReactNode;
   properties?: ReactNode;
   activity?: ReactNode;
+  /**
+   * Narrow-width section navigation. The drawer places it above the scroll root, hides it at the
+   * two-column width, and passes the scroll root that holds every region's anchors.
+   */
+  navigation?: (scrollRoot: RefObject<HTMLElement | null>) => ReactNode;
 }
 
 export type DetailDrawerTab = { id: string; label: ReactNode } & (
@@ -185,9 +190,12 @@ function DeclaredRegions({ regions }: { regions: DetailDrawerRegions }) {
   const { t } = useI18n();
   const hasProperties = regions.properties !== undefined && regions.properties !== null && regions.properties !== false;
   const hasActivity = regions.activity !== undefined && regions.activity !== null && regions.activity !== false;
+  const scrollRoot = useRef<HTMLElement | null>(null);
   // No token covers size containment or a 100cqh cap: properties use this scrollport's height, not the viewport's.
-  return <div className="min-h-0 flex-1 [container-type:size]">
-    <div role="region" aria-label={t('detailBodyActivity')} tabIndex={0} data-detail-main-scroll
+  return <>
+    {regions.navigation && <div data-detail-navigation className="@[60rem]/detail-panel:hidden">{regions.navigation(scrollRoot)}</div>}
+    <div className="min-h-0 flex-1 [container-type:size]">
+    <div ref={scrollRoot as RefObject<HTMLDivElement | null>} role="region" aria-label={t('detailBodyActivity')} tabIndex={0} data-detail-main-scroll
       className="h-full overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0">
       <div data-detail-regions className={cn('grid min-h-full grid-cols-1 content-start', hasProperties && '@[60rem]/detail-panel:grid-cols-[minmax(0,1fr)_18rem] @[60rem]/detail-panel:grid-rows-[auto_1fr]')}>
         <section aria-label={t('detailBody')} data-detail-region="body" className="min-w-0 px-5 py-3 @[60rem]/detail-panel:col-start-1 @[60rem]/detail-panel:row-start-1">{regions.body}</section>
@@ -196,5 +204,6 @@ function DeclaredRegions({ regions }: { regions: DetailDrawerRegions }) {
         {hasActivity && <section aria-label={t('detailActivity')} data-detail-region="activity" className="min-w-0 px-5 py-3 @[60rem]/detail-panel:col-start-1 @[60rem]/detail-panel:row-start-2">{regions.activity}</section>}
       </div>
     </div>
-  </div>;
+    </div>
+  </>;
 }
