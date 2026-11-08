@@ -481,6 +481,121 @@ describe.skipIf(!runIntegration)('log knowledge search read (#1507 S-d)', () => 
     expect(sug.data.suggestions).toEqual([]);
   });
 
+  it('C1: hidden pending changes leave the lag hint identical to absent changes', async () => {
+    const before = (await search({ q: 'hintmissingword' })).indexLag;
+    const hidden = await item(ws, { model: models.MA }, 'hidden lag hint', { access: 'restricted' });
+    try {
+      await sql(`insert into knowledge.search_outbox (workspace_id, item_id, reason, created_at) values ($1,$2,'reindex',now() - interval '1 minute')`, [ws, hidden]);
+      expect((await search({ q: 'hintmissingword' })).indexLag).toEqual(before);
+      await rule('item', hidden, viewerB);
+      expect((await search({ q: 'hintmissingword' }, viewerB)).indexLag.lagSeconds).toBeGreaterThanOrEqual(60);
+    } finally {
+      await sql('delete from knowledge.search_outbox where item_id = $1', [hidden]);
+    }
+  });
+
+  it('C1: hidden backfill Items and operational counters cannot change viewer progress', async () => {
+    await sql(`insert into knowledge.search_backfill_progress (workspace_id, generation, total_count, done_count) values ($1,1,2,1)`, [ws]);
+    try {
+      const before = (await search({ q: 'hintmissingword' })).indexLag.backfill;
+      const hidden = await item(ws, { model: models.MA }, 'hidden progress hint', { access: 'restricted' });
+      await sql('update knowledge.search_backfill_progress set total_count = 3 where workspace_id = $1', [ws]);
+      expect((await search({ q: 'hintmissingword' })).indexLag.backfill).toEqual(before);
+      await rule('item', hidden, viewerB);
+      const pending = (await search({ q: 'hintmissingword' }, viewerB)).indexLag.backfill;
+      expect(pending.state).toBe('running');
+      await index(ws, hidden);
+      const indexed = (await search({ q: 'hintmissingword' }, viewerB)).indexLag.backfill;
+      expect(indexed.percent).toBeGreaterThan(pending.percent);
+    } finally {
+      await sql('delete from knowledge.search_backfill_progress where workspace_id = $1', [ws]);
+    }
+  });
+
+  it.each(['model', 'software', 'rejected'] as const)('C2: concept direction preserves mapped Model identity for %s owners', async (kind) => {
+    const m = await model(ws, `${TAG}PAIR${tick++}`);
+    let owner: { model?: string; software?: string } = { model: m };
+    if (kind === 'software') {
+      const sw = await one(`insert into knowledge.software_version (workspace_id, model_id, version_label, version_key, name, created_by, updated_by) values ($1,$2,'pair','pair','',$3,$3) returning id`, [ws, m, creator]);
+      owner = { software: sw };
+    }
+    if (kind === 'rejected') {
+      for (const key of ['X/X_STEP', 'X/X_START']) {
+        await sql(`insert into knowledge.spec_concept_mapping (workspace_id, concept_id, model_id, target_kind, target_key, relation_kind, review_state, origin, reject_reason, proposed_by, reviewed_by, reviewed_at)
+          select workspace_id, concept_id, $2, target_kind, target_key, 'equivalent', 'rejected', 'human', 'no', $3, $3, now() from knowledge.spec_concept_mapping where workspace_id = $1 and model_id = $4 and target_key = $5`, [ws, m, creator, models.MB, key]);
+      }
+    }
+    const unmapped = await item(ws, owner, 'Unmapped reused keys', { relations: [['observed', 'X/X_STEP', 'X/X_START']] });
+    await index(ws, unmapped);
+    const result = await search({ q: 'STEP_PROCESS before PROCESS_START' });
+    expect(result.items.map((i) => i.itemId)).toContain(ids.mapped);
+    expect(result.items.map((i) => i.itemId)).not.toContain(unmapped);
+  });
+
+  it.each(['record', 'subject'] as const)('C2: text concept expansion preserves the %s Model/key pair', async (kind) => {
+    const m = await model(ws, `${TAG}TEXT${tick++}`);
+    const over = kind === 'record'
+      ? { relations: [['observed', 'X/X_STEP', 'X/X_START']] as [string, string, string][] }
+      : { subjects: [['X/X_STEP', 'about']] as [string, string][], modelForSubject: m };
+    const unmapped = await item(ws, { model: m }, 'Unmapped reused text keys', over);
+    const mapped = kind === 'record' ? ids.mapped : await item(ws, { model: m }, 'Mapped subject', { subjects: [['X/X_STEP', 'about']], modelForSubject: models.MB });
+    await index(ws, unmapped, mapped);
+    const result = await search({ q: 'STEP_PROCESS', limit: 50 });
+    expect(result.items.find((i) => i.itemId === mapped)?.reasons).toContain('concept_mapping');
+    expect(result.items.find((i) => i.itemId === unmapped)?.reasons ?? []).not.toContain('concept_mapping');
+  });
+
+  it.each([false, true])('C3: mixed adapter plans exclude reverse-only Items (includeOpposite=%s)', async (includeOpposite) => {
+    const result = await search({ q: 'alpha', relation: { source: 'a_evt', predicate: 'before', target: 'b_evt' }, includeOpposite }, viewerA, cws);
+    expect(result.items.map((i) => i.itemId)).toEqual(expect.arrayContaining([ids.cFwdObs, ids.cText]));
+    expect(result.items.map((i) => i.itemId)).not.toContain(ids.cRev);
+    expect(result.opposite?.map((i) => i.itemId) ?? []).toEqual(includeOpposite ? [ids.cRev] : []);
+    const plan = { workspaceId: cws, owner: null, text: { normalized: 'alpha', words: ['alpha'], conceptKeys: [] }, direction: { source: { tokens: ['a_evt'], conceptKeys: [] }, target: { tokens: ['b_evt'], conceptKeys: [] }, kinds: ['observed', 'expected'] as ('observed' | 'expected')[] } };
+    expect(await pgSearchPort.countUpTo(dbHandle.db, plan, (id) => visibleItemSql(view(viewerA, cws), id), 101)).toBe(4);
+  });
+
+  it('C3: the endpoint keeps mixed text/relation reverse-only results in the opt-in section', async () => {
+    const m = await one(`insert into knowledge.equipment_model (workspace_id, vendor_id, code, code_key, name, created_by, updated_by) values ($1,$2,$3,$4,'mixed',$5,$5) returning id`, [WORKSPACE_ID, seededVendor, `${TAG}MIX`, toCodeKey(`${TAG}MIX`), admin.id]);
+    try {
+      const forward = await item(WORKSPACE_ID, { model: m }, 'mixedword forward', { relations: [['observed', STEP, START]] });
+      const reverse = await item(WORKSPACE_ID, { model: m }, 'mixedword reverse', { relations: [['observed', START, STEP]] });
+      const plain = await item(WORKSPACE_ID, { model: m }, 'mixedword plain');
+      await index(WORKSPACE_ID, forward, reverse, plain);
+      for (const includeOpposite of [false, true]) {
+        const result = await call('logKnowledge.search', { q: 'mixedword', relation: { source: STEP, predicate: 'before', target: START }, includeOpposite }, { cookie: admin.cookie });
+        expect(result.outcome).toBe('ok');
+        expect(result.data.items.map((i: { itemId: string }) => i.itemId)).toEqual(expect.arrayContaining([forward, plain]));
+        expect(result.data.items.map((i: { itemId: string }) => i.itemId)).not.toContain(reverse);
+        expect(result.data.opposite?.map((i: { itemId: string }) => i.itemId) ?? []).toEqual(includeOpposite ? [reverse] : []);
+      }
+    } finally {
+      // Existing suite teardown owns seeded Items; remove this extra owner after its Items.
+      await sql('delete from knowledge.item_event_relation_record where item_id in (select id from knowledge.knowledge_item where owner_model_id = $1)', [m]);
+      await sql('delete from knowledge.knowledge_item_revision where item_id in (select id from knowledge.knowledge_item where owner_model_id = $1)', [m]);
+      await sql('delete from knowledge.knowledge_item where owner_model_id = $1', [m]);
+      await sql('delete from knowledge.equipment_model where id = $1', [m]);
+    }
+  });
+
+  it.each(['actor', 'workspace', 'tamper'] as const)('C4: %s cursors are refused exactly like malformed cursors', async (variant) => {
+    const first = await search({ q: 'forward', limit: 1 });
+    expect(first.nextCursor).not.toBeNull();
+    const cursor = first.nextCursor ?? '';
+    const binding = variant === 'actor' ? view(viewerB) : variant === 'workspace' ? view(viewerA, cws) : view(viewerA);
+    let supplied = cursor;
+    if (variant === 'tamper') {
+      // Preserve every valid field and the signature (if present), changing only a valid-shaped anchor.
+      const [payload, signature] = cursor.split('.');
+      const parsed = JSON.parse(Buffer.from(payload ?? '', 'base64url').toString('utf8')) as { i: string };
+      parsed.i = randomUUID();
+      supplied = [Buffer.from(JSON.stringify(parsed)).toString('base64url'), ...(signature ? [signature] : [])].join('.');
+    }
+    const malformed = await runSearch(dbHandle.db, binding, input({ q: 'forward', limit: 1, cursor: 'malformed!' }));
+    expect(malformed.ok).toBe(false);
+    expect(await runSearch(dbHandle.db, binding, input({ q: 'forward', limit: 1, cursor: supplied }))).toEqual(malformed);
+    expect((await runSearch(dbHandle.db, view(viewerA), input({ q: 'forward', limit: 1, cursor }))).ok).toBe(true);
+  });
+
   it('a service Actor reads only through a token that carries workspace.read, and gets no visibility bypass', async () => {
     const withRead = await call('logKnowledge.search', { q: 'httpword' }, { token: tokenOk });
     expect(withRead.outcome).toBe('ok');

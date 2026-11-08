@@ -6,7 +6,7 @@
 import { type SQL, sql } from 'drizzle-orm';
 
 import { escapeLikePattern } from '../../../lib/sql-like.js';
-import { type Candidate, type CandidateGuard, type KeyMatcher, REASON_ORDER, type SearchAfter, type SearchPlan, type SearchPort, type SearchReason, type Suggestion } from './search-port.js';
+import { type Candidate, type CandidateGuard, type ConceptKey, type KeyMatcher, REASON_ORDER, type SearchAfter, type SearchPlan, type SearchPort, type SearchReason, type Suggestion } from './search-port.js';
 import { rowsOf } from './search-outbox.js';
 
 const textArray = (values: readonly string[]): SQL => (values.length === 0 ? sql`ARRAY[]::text[]` : sql`ARRAY[${sql.join(values.map((v) => sql`${v}`), sql`, `)}]::text[]`);
@@ -27,9 +27,11 @@ function itemsCte(plan: Pick<SearchPlan, 'workspaceId' | 'owner'>, guard: Candid
   const ownerFilter = parts.length > 0 ? sql`AND ${sql.join(parts, sql` AND `)}` : sql``;
   return sql`items AS (
     SELECT i.id AS item_id, i.latest_revision_no AS revision_no, rv.title AS title, rv.published_at AS published_at,
+      coalesce(i.owner_model_id, sv.model_id) AS model_id,
       (extract(epoch FROM rv.published_at) * 1000000)::bigint AS pub
     FROM knowledge.knowledge_item i
     JOIN knowledge.knowledge_item_revision rv ON rv.workspace_id = i.workspace_id AND rv.item_id = i.id AND rv.revision_no = i.latest_revision_no
+    LEFT JOIN knowledge.software_version sv ON sv.workspace_id = i.workspace_id AND sv.id = i.owner_software_id
     WHERE i.workspace_id = ${uuid(plan.workspaceId)} AND i.publication_state = 'published' ${ownerFilter} AND ${guard(sql`i.id`)}
   )`;
 }
@@ -37,7 +39,8 @@ function itemsCte(plan: Pick<SearchPlan, 'workspaceId' | 'owner'>, guard: Candid
 /** Event key column `col` (a lower-cased key) matches the tokens: it is a whole token, or its Event part (after the last `/`) is one. */
 const tokenMatch = (col: string, tokens: readonly string[]): SQL =>
   tokens.length === 0 ? sql`false` : sql`(${sql.raw(col)} = ANY(${textArray(tokens)}) OR regexp_replace(${sql.raw(col)}, '^.*/', '') = ANY(${textArray(tokens)}))`;
-const conceptMatch = (col: string, keys: readonly string[]): SQL => (keys.length === 0 ? sql`false` : sql`${sql.raw(col)} = ANY(${textArray(keys)})`);
+const conceptMatch = (col: string, modelCol: string, keys: readonly ConceptKey[]): SQL =>
+  keys.length === 0 ? sql`false` : sql`(${sql.join(keys.map((k) => sql`(${sql.raw(modelCol)} = ${uuid(k.modelId)} AND ${sql.raw(col)} = ${k.key})`), sql` OR `)})`;
 
 interface Built {
   /** Complete `WITH …` prefix (no trailing comma) defining `items` and `hits` (main section). */
@@ -67,8 +70,8 @@ function textHits(plan: SearchPlan): SQL[] {
   if (t.conceptKeys.length > 0) {
     // Stage 4 (text): Items about an Event that a confirmed equivalent concept mapping ties to what the query names.
     hits.push(sql`SELECT it.item_id, 4 AS stage, 1000000 AS score_micro, 'concept_mapping' AS reason, false AS expected_only
-      FROM items it WHERE EXISTS (SELECT 1 FROM knowledge.item_revision_subject s WHERE s.workspace_id = ${ws} AND s.item_id = it.item_id AND s.revision_no = it.revision_no AND lower(s.target_key) = ANY(${textArray(t.conceptKeys)}))
-        OR EXISTS (SELECT 1 FROM knowledge.item_event_relation_record r WHERE r.workspace_id = ${ws} AND r.item_id = it.item_id AND r.revision_no = it.revision_no AND (lower(r.source_key) = ANY(${textArray(t.conceptKeys)}) OR lower(r.target_key) = ANY(${textArray(t.conceptKeys)})))`);
+      FROM items it WHERE EXISTS (SELECT 1 FROM knowledge.item_revision_subject s WHERE s.workspace_id = ${ws} AND s.item_id = it.item_id AND s.revision_no = it.revision_no AND s.target_kind = 'event' AND ${conceptMatch('lower(s.target_key)', 's.model_id', t.conceptKeys)})
+        OR EXISTS (SELECT 1 FROM knowledge.item_event_relation_record r WHERE r.workspace_id = ${ws} AND r.item_id = it.item_id AND r.revision_no = it.revision_no AND (${conceptMatch('lower(r.source_key)', 'it.model_id', t.conceptKeys)} OR ${conceptMatch('lower(r.target_key)', 'it.model_id', t.conceptKeys)}))`);
   }
   return hits;
 }
@@ -79,9 +82,10 @@ function build(plan: SearchPlan, guard: CandidateGuard): Built {
   const d = plan.direction;
   if (d) {
     ctes.push(sql`dir AS (${recordHitsBody(plan, d.source, d.target, d.kinds)})`);
+    ctes.push(sql`reverse_only AS (SELECT item_id FROM (${recordHitsBody(plan, d.target, d.source, d.kinds)}) r WHERE r.item_id NOT IN (SELECT item_id FROM dir))`);
     hitSelects.push(sql`SELECT item_id, stage, score_micro, reason, expected_only FROM dir`);
   }
-  hitSelects.push(...textHits(plan));
+  hitSelects.push(...textHits(plan).map((hit) => d ? sql`SELECT t.* FROM (${hit}) t WHERE t.item_id NOT IN (SELECT item_id FROM reverse_only)` : hit));
   if (hitSelects.length === 0) return { with: sql`WITH ${sql.join(ctes, sql`, `)}`, active: false };
   ctes.push(sql`hits AS (${sql.join(hitSelects.map((s) => sql`(${s})`), sql` UNION ALL `)})`);
   return { with: sql`WITH ${sql.join(ctes, sql`, `)}`, active: true };
@@ -92,8 +96,8 @@ function recordHitsBody(plan: SearchPlan, a: KeyMatcher, b: KeyMatcher, kinds: r
   const ws = uuid(plan.workspaceId);
   const srcExact = tokenMatch('lower(r.source_key)', a.tokens);
   const tgtExact = tokenMatch('lower(r.target_key)', b.tokens);
-  const srcAny = sql`(${srcExact} OR ${conceptMatch('lower(r.source_key)', a.conceptKeys)})`;
-  const tgtAny = sql`(${tgtExact} OR ${conceptMatch('lower(r.target_key)', b.conceptKeys)})`;
+  const srcAny = sql`(${srcExact} OR ${conceptMatch('lower(r.source_key)', 'it.model_id', a.conceptKeys)})`;
+  const tgtAny = sql`(${tgtExact} OR ${conceptMatch('lower(r.target_key)', 'it.model_id', b.conceptKeys)})`;
   return sql`SELECT r.item_id,
       CASE WHEN ${srcExact} AND ${tgtExact} THEN (CASE WHEN r.kind = 'observed' THEN 1 ELSE 2 END) ELSE 4 END AS stage,
       1000000 AS score_micro,

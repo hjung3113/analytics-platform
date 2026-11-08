@@ -12,8 +12,7 @@ import { type ExplicitRelation, type Interpretation, type RelationKind, eventTok
 import { type Viewer, visibleItemSql, visibleModelSql } from './access-visibility.js';
 import { pgSearchPort } from './search-pg-adapter.js';
 import { rowsOf } from './search-outbox.js';
-import type { Candidate, CandidateGuard, KeyMatcher, RelationRecordKind, SearchPlan, SearchPort, SearchReason } from './search-port.js';
-import { searchIndexStatus } from './search-index.js';
+import type { Candidate, CandidateGuard, ConceptKey, KeyMatcher, RelationRecordKind, SearchPlan, SearchPort, SearchReason } from './search-port.js';
 
 export const SEARCH_CAP = 100;
 export const SEARCH_LIMIT_DEFAULT = 20;
@@ -68,22 +67,22 @@ const uuidArray = (ids: readonly string[]) => sql`ARRAY[${sql.join(ids.map((id) 
 const textArray = (values: readonly string[]) => (values.length === 0 ? sql`ARRAY[]::text[]` : sql`ARRAY[${sql.join(values.map((v) => sql`${v}`), sql`, `)}]::text[]`);
 
 /**
- * Complete lower-case keys of the Events a CONFIRMED + EQUIVALENT concept mapping ties to any of `tokens` (a whole key or its Event part).
+ * Model/key pairs of the Events a CONFIRMED + EQUIVALENT concept mapping ties to any of `tokens` (a whole key or its Event part).
  * `proposed`, `rejected` and `related` mappings are never read. Both mappings must sit on models the viewer may see, so a hidden
  * model's mapping cannot make an Item match.
  */
-export async function conceptKeysFor(tx: Tx, viewer: Viewer, tokens: readonly string[]): Promise<string[]> {
+export async function conceptKeysFor(tx: Tx, viewer: Viewer, tokens: readonly string[]): Promise<ConceptKey[]> {
   if (tokens.length === 0) return [];
   const t = textArray(tokens);
   const res = await tx.execute(sql`
-    SELECT DISTINCT lower(m2.target_key) AS k
+    SELECT DISTINCT m2.model_id, lower(m2.target_key) AS k
     FROM knowledge.spec_concept_mapping m1
     JOIN knowledge.spec_concept_mapping m2 ON m2.workspace_id = m1.workspace_id AND m2.concept_id = m1.concept_id AND m2.id <> m1.id
       AND m2.review_state = 'confirmed' AND m2.relation_kind = 'equivalent' AND m2.target_kind = 'event'
     WHERE m1.workspace_id = ${viewer.workspaceId}::uuid AND m1.review_state = 'confirmed' AND m1.relation_kind = 'equivalent' AND m1.target_kind = 'event'
       AND (lower(m1.target_key) = ANY(${t}) OR regexp_replace(lower(m1.target_key), '^.*/', '') = ANY(${t}))
       AND ${visibleModelSql(viewer, sql`m1.model_id`)} AND ${visibleModelSql(viewer, sql`m2.model_id`)}`);
-  return rowsOf<{ k: string }>(res).map((r) => r.k);
+  return rowsOf<{ model_id: string; k: string }>(res).map((r) => ({ modelId: r.model_id, key: r.k }));
 }
 
 async function matcherFor(tx: Tx, viewer: Viewer, event: string): Promise<KeyMatcher> {
@@ -187,17 +186,33 @@ async function relatedCounts(tx: Tx, viewer: Viewer, ids: readonly string[]): Pr
   return new Map(rowsOf<{ id: string; n: number }>(res).map((r) => [r.id, r.n]));
 }
 
-/** The index hint: age of the oldest change the index has not taken in, and the first build as a whole percent (never a count). */
-export async function indexLagOf(tx: Tx, workspaceId: string): Promise<SearchResponse['indexLag']> {
-  const status = await searchIndexStatus(tx, workspaceId);
-  const b = status.backfill;
-  const percent = b.state === 'done' ? 100 : b.state === 'none' || b.total === 0 ? 0 : Math.min(99, Math.floor((b.done * 100) / b.total));
-  return { lagSeconds: status.lagSeconds, backfill: { state: b.state, percent } };
+/** Viewer-visible index coverage, never the workspace's operational backfill counters or state. */
+export async function indexLagOf(tx: Tx, viewer: Viewer): Promise<SearchResponse['indexLag']> {
+  const [hint] = rowsOf<{ total: number; done: number; lag: number | null }>(await tx.execute(sql`
+    WITH visible AS (
+      SELECT i.id FROM knowledge.knowledge_item i
+      WHERE i.workspace_id = ${viewer.workspaceId}::uuid AND i.publication_state = 'published' AND ${visibleItemSql(viewer, sql`i.id`)}
+    ), generation AS (
+      SELECT coalesce((SELECT coalesce(p.building_generation, p.active_generation)
+        FROM knowledge.search_index_pointer p WHERE p.workspace_id = ${viewer.workspaceId}::uuid), 1) AS n
+    )
+    SELECT count(*)::int AS total,
+      count(d.item_id)::int AS done,
+      (SELECT floor(extract(epoch FROM now() - min(o.created_at)))::int
+       FROM knowledge.search_outbox o JOIN visible v ON v.id = o.item_id
+       WHERE o.workspace_id = ${viewer.workspaceId}::uuid AND o.state = 'pending') AS lag
+    FROM visible v CROSS JOIN generation g
+    LEFT JOIN knowledge.search_document d ON d.workspace_id = ${viewer.workspaceId}::uuid AND d.item_id = v.id AND d.index_generation = g.n`));
+  const total = hint?.total ?? 0;
+  const done = hint?.done ?? 0;
+  const state = total === 0 ? 'none' : done === total ? 'done' : 'running';
+  const percent = total === 0 ? 0 : Math.floor((done * 100) / total);
+  return { lagSeconds: hint?.lag ?? null, backfill: { state, percent } };
 }
 
 export async function runSearch(tx: Tx, viewer: Viewer, input: SearchInput, port: SearchPort = pgSearchPort): Promise<SearchOutcome> {
   const interp = interpretQuery(input.q, input.relation, input.kind);
-  const digest = queryDigest({ n: interp.normalized, w: interp.words, d: interp.direction, o: input.owner, op: input.includeOpposite });
+  const digest = queryDigest({ workspaceId: viewer.workspaceId, actorId: viewer.actorId, n: interp.normalized, w: interp.words, d: interp.direction, o: input.owner, op: input.includeOpposite });
   let after = null;
   if (input.cursor !== null) {
     after = decodeSearchCursor(input.cursor, digest);
@@ -229,7 +244,7 @@ export async function runSearch(tx: Tx, viewer: Viewer, input: SearchInput, port
       hasMore,
       nextCursor: hasMore && last ? encodeSearchCursor({ stage: last.stage, scoreMicro: last.scoreMicro, publishedAtMicro: last.publishedAtMicro, itemId: last.itemId }, digest) : null,
       capped,
-      indexLag: await indexLagOf(tx, viewer.workspaceId),
+      indexLag: await indexLagOf(tx, viewer),
     },
   };
 }

@@ -22,17 +22,23 @@ export const REASON_STAGE: Readonly<Record<SearchReason, number>> = {
 };
 export const REASON_ORDER = Object.keys(REASON_STAGE) as SearchReason[];
 
-/** One side of a direction: lower-case Event tokens (a whole key or its Event part) and complete lower-case keys reached through confirmed equivalent concept mappings. */
+/** A complete lower-case key reached through a confirmed equivalent mapping, bound to its Model. */
+export interface ConceptKey {
+  modelId: string;
+  key: string;
+}
+
+/** One side of a direction: lower-case Event tokens (a whole key or its Event part) and Model/key pairs reached through confirmed equivalent concept mappings. */
 export interface KeyMatcher {
   tokens: string[];
-  conceptKeys: string[];
+  conceptKeys: ConceptKey[];
 }
 
 export interface SearchPlan {
   workspaceId: string;
   owner: { modelId: string | null; softwareId: string | null; includeSoftware: boolean } | null;
   /** Plain text stages; null or no words = no text stage. */
-  text: { normalized: string; words: string[]; conceptKeys: string[] } | null;
+  text: { normalized: string; words: string[]; conceptKeys: ConceptKey[] } | null;
   /** Direction stages; `source` happens before `target`. Null = no direction. */
   direction: { source: KeyMatcher; target: KeyMatcher; kinds: RelationRecordKind[] } | null;
 }
