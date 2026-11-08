@@ -9,10 +9,12 @@ import { AttachButton } from '../toolbar/AttachButton';
 
 async function mountEditor() {
   let editor: Editor | undefined;
-  const rendered = render(<RichEditorImpl surface="voc-description" ariaLabel="본문" defaultValue={{ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '선택한 본문' }] }] }} toolbar={(live, api) => { editor = live ?? undefined; return api.renderControls?.(); }} />);
+  const element = (disabled: boolean) => <RichEditorImpl surface="voc-description" ariaLabel="본문" disabled={disabled} defaultValue={{ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '선택한 본문' }] }] }} toolbar={(live, api) => { editor = live ?? undefined; return api.renderControls?.(); }} />;
+  const rendered = render(element(false));
   await screen.findByRole('textbox', { name: '본문' });
   await waitFor(() => expect(editor).toBeDefined());
-  return { ...rendered, editor: editor! };
+  // Disable through the prop a consumer uses: the editor re-applies `editable: !disabled` on every render.
+  return { ...rendered, editor: editor!, setDisabled: (disabled: boolean) => rendered.rerender(element(disabled)) };
 }
 
 describe('capture review regressions', () => {
@@ -22,7 +24,7 @@ describe('capture review regressions', () => {
   });
 
   it('associates slash options with editor focus through navigation, filtering, Escape and disabling', async () => {
-    const { editor } = await mountEditor();
+    const { editor, setDisabled } = await mountEditor();
     await waitFor(() => expect(editor.state.plugins.some(p => (p as unknown as { key: string }).key.startsWith('richContentSlash'))).toBe(true));
     const box = screen.getByRole('textbox', { name: '본문' });
     expect(box).toHaveAttribute('aria-expanded', 'false');
@@ -30,8 +32,8 @@ describe('capture review regressions', () => {
     const menu = await screen.findByRole('listbox', { name: '블록 추가' });
     const options = within(menu).getAllByRole('option');
     expect(menu.id).not.toBe('');
-    expect(box).toHaveFocus();
-    expect(box).toHaveAttribute('aria-expanded', 'true');
+    // Focus (Tiptap's focus command) and the textbox association (an effect after the menu renders) land asynchronously.
+    await waitFor(() => { expect(box).toHaveFocus(); expect(box).toHaveAttribute('aria-expanded', 'true'); });
     expect(box).toHaveAttribute('aria-controls', menu.id);
     expect(options[0]!.id).not.toBe('');
     expect(box).toHaveAttribute('aria-activedescendant', options[0]!.id);
@@ -50,9 +52,12 @@ describe('capture review regressions', () => {
     expect(box).not.toHaveAttribute('aria-activedescendant');
     act(() => { editor.commands.clearContent(); editor.commands.insertContent('/'); });
     await screen.findByRole('listbox');
-    act(() => { editor.setEditable(false); });
+    await waitFor(() => expect(box).toHaveAttribute('aria-expanded', 'true'));
+    setDisabled(true);
     await waitFor(() => expect(box).toHaveAttribute('aria-expanded', 'false'));
+    expect(box).not.toHaveAttribute('aria-controls');
     expect(box).not.toHaveAttribute('aria-activedescendant');
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 
   it('gives concurrent editors separate slash menu and option ids', async () => {

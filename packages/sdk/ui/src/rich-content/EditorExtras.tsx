@@ -26,9 +26,10 @@ export function EditorExtras({ editor, surface, onMenuChange }: { editor: Editor
   }, [menu, editable, menuId, onMenuChange]);
   React.useEffect(() => () => onMenuChange(null), [onMenuChange]);
   React.useEffect(() => {
-    editor.on('transaction', update);
+    // `setEditable` (the `disabled` prop) emits `update` without a transaction; re-render so the slash-menu association drops with editing.
+    editor.on('transaction', update); editor.on('update', update);
     const actions = actionsForSurface(surface);
-    if (!actions.length) return () => { editor.off('transaction', update); };
+    if (!actions.length) return () => { editor.off('transaction', update); editor.off('update', update); };
     editor.registerPlugin(Suggestion<EditorAction>({ editor, pluginKey: slashKey, char: '/',
       allow: () => editor.isEditable,
       items: ({ query }) => actions.filter(action => action.label.includes(query)),
@@ -49,7 +50,7 @@ export function EditorExtras({ editor, surface, onMenuChange }: { editor: Editor
         } };
       },
     }), (plugin, plugins) => [plugin, ...plugins]); // before the keymap, or Enter splits the block instead of running the command
-    return () => { editor.off('transaction', update); editor.unregisterPlugin(slashKey); };
+    return () => { editor.off('transaction', update); editor.off('update', update); editor.unregisterPlugin(slashKey); };
   }, [editor, surface]);
   const outline = capabilities.includes('tableOfContents') ? richContentOutline(editor.getJSON()) : [];
   return <>
