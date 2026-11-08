@@ -8,6 +8,7 @@ import * as source from './source-read.ts';
 import * as catalog from './validation-catalog-report.ts';
 import * as exportContract from './log-explorer-export.ts';
 import * as queue from './validation-queue.ts';
+import * as knowledgeSearch from './knowledge-search.ts';
 import { z } from 'zod/v4';
 
 export { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
@@ -167,6 +168,31 @@ export { schemaFileText, toJsonSchema } from './export.ts';
  * Every schema that becomes a file under `schemas/`, by file name. `apiResponse` is the factory applied to `z.unknown()`,
  * so its `data` is `{}` (any value) or null.
  */
+export {
+  KNOWLEDGE_SEARCH_CAP,
+  KNOWLEDGE_SEARCH_CURSOR_MAX,
+  KNOWLEDGE_SEARCH_EVENT_KEY_MAX,
+  KNOWLEDGE_SEARCH_LIMIT_DEFAULT,
+  KNOWLEDGE_SEARCH_LIMIT_MAX,
+  KNOWLEDGE_SEARCH_OPPOSITE_LIMIT,
+  KNOWLEDGE_SEARCH_PREDICATES,
+  KNOWLEDGE_SEARCH_Q_MAX,
+  KNOWLEDGE_SEARCH_REASONS,
+  KNOWLEDGE_SEARCH_RELATION_KINDS,
+  KNOWLEDGE_SEARCH_SUGGESTION_KINDS,
+  KNOWLEDGE_SEARCH_VERSION,
+  KNOWLEDGE_SUGGEST_LIMIT_MAX,
+  knowledgeSearchInterpretationSchema,
+  knowledgeSearchItemSchema,
+  knowledgeSearchOwnerFilterSchema,
+  knowledgeSearchOwnerSchema,
+  knowledgeSearchRelationSchema,
+  knowledgeSearchRequestSchema,
+  knowledgeSearchResponseSchema,
+  knowledgeSearchSuggestRequestSchema,
+  knowledgeSearchSuggestResponseSchema,
+  knowledgeSearchSuggestionSchema,
+} from './knowledge-search.ts';
 export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   outcome: outcomeSchema,
   assessmentKind: assessmentKindSchema,
@@ -241,6 +267,16 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   validationEvidenceInput: queue.evidenceInputSchema,
   validationRuleResultInput: queue.ruleResultInputSchema,
   validationClaimResponse: queue.validationClaimResponseSchema,
+  knowledgeSearchOwnerFilter: knowledgeSearch.knowledgeSearchOwnerFilterSchema,
+  knowledgeSearchRelation: knowledgeSearch.knowledgeSearchRelationSchema,
+  knowledgeSearchRequest: knowledgeSearch.knowledgeSearchRequestSchema,
+  knowledgeSearchInterpretation: knowledgeSearch.knowledgeSearchInterpretationSchema,
+  knowledgeSearchOwner: knowledgeSearch.knowledgeSearchOwnerSchema,
+  knowledgeSearchItem: knowledgeSearch.knowledgeSearchItemSchema,
+  knowledgeSearchSuggestion: knowledgeSearch.knowledgeSearchSuggestionSchema,
+  knowledgeSearchResponse: knowledgeSearch.knowledgeSearchResponseSchema,
+  knowledgeSearchSuggestRequest: knowledgeSearch.knowledgeSearchSuggestRequestSchema,
+  knowledgeSearchSuggestResponse: knowledgeSearch.knowledgeSearchSuggestResponseSchema,
   validationHeartbeatInput: queue.validationHeartbeatInputSchema,
   validationHeartbeatResponse: queue.validationHeartbeatResponseSchema,
   validationResultInput: queue.validationResultInputSchema,

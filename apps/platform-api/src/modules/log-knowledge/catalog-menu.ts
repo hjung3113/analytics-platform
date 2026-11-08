@@ -6,3 +6,5 @@ export const LOG_KNOWLEDGE_ITEMS_MENU_ID = 'log-knowledge-items';
 // The object access management (#1504 S-a): its reads and writes have no screen yet (node S-f adds the search screen, a later node the
 // management screen), so they sit on a menu of their own and the models / items menus keep exactly the declarations their screens use.
 export const LOG_KNOWLEDGE_ACCESS_MENU_ID = 'log-knowledge-access';
+// The knowledge search reads (#1507 S-d). The search screen and its menu entry are node S-f; until then the two reads sit on this id.
+export const LOG_KNOWLEDGE_SEARCH_MENU_ID = 'log-knowledge-search';

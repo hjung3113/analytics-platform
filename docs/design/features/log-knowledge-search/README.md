@@ -1,6 +1,6 @@
 # 로그 지식 통합 검색 — 방향 관계·ACL-aware 색인 설계 (일부 구현)
 
-> **Status: Candidate → 소유자 답 3개 반영(2026-11-08), ADR-0124·0125 Decided.** 구현됨: `item_event_relation_record` 표와 `relations[]` 쓰기·읽기(S-b), 접근 규칙(S-a), 색인 저장·갱신(S-c: `search_document`, `search_outbox`, 소비자, backfill, 생성 포인터, 운영 읽기). 설계만 있음: 검색 질의(`SearchPort`)와 화면. 근거는 [#1199](https://github.com/hjung3113/analytics-platform/issues/1199)이고 Epic [#1192](https://github.com/hjung3113/analytics-platform/issues/1192)의 불변식과 [v0.6 통합 설계](../log-knowledge-hub/design-v0.6-candidate.md) §5.4·§9를 **구체화**한다(같은 내용을 다시 쓰지 않는다). 결정은 [ADR-0124](../../../adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)(ACL은 조회 때, 표시는 live)와 [ADR-0125](../../../adr/0125-event-order-search-uses-structured-event-relation-records.md)(방향 검색은 구조화된 Event 관계 기록)이 소유하며 둘 다 **Decided**(소유자 2026-11-08)다. 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
+> **Status: Candidate → 소유자 답 3개 반영(2026-11-08), ADR-0124·0125 Decided.** 구현됨: `item_event_relation_record` 표와 `relations[]` 쓰기·읽기(S-b), 접근 규칙(S-a), 색인 저장·갱신(S-c: `search_document`, `search_outbox`, 소비자, backfill, 생성 포인터, 운영 읽기). 검색 질의(S-d: `SearchPort`·PG 어댑터·`logKnowledge.search`/`searchSuggest`·계약 스키마). 설계만 있음: 화면과 평가·부하 보고. 근거는 [#1199](https://github.com/hjung3113/analytics-platform/issues/1199)이고 Epic [#1192](https://github.com/hjung3113/analytics-platform/issues/1192)의 불변식과 [v0.6 통합 설계](../log-knowledge-hub/design-v0.6-candidate.md) §5.4·§9를 **구체화**한다(같은 내용을 다시 쓰지 않는다). 결정은 [ADR-0124](../../../adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)(ACL은 조회 때, 표시는 live)와 [ADR-0125](../../../adr/0125-event-order-search-uses-structured-event-relation-records.md)(방향 검색은 구조화된 Event 관계 기록)이 소유하며 둘 다 **Decided**(소유자 2026-11-08)다. 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
 >
 > 공개 저장소다. 예시는 합성 데이터만 쓴다.
 
@@ -41,7 +41,7 @@
 
 ### 3.1 `item_event_relation_record` — 방향의 원천 (ADR-0125)
 
-Item의 «관찰»·«기대» 본문은 자유 텍스트이고 방향은 거기서 읽을 수 없다. 방향은 S-b가 만든 `item_event_relation_record` 표(쓰기 입력 `relations[]`, 상세 응답 `relations`)가 담는다. 방향 검색(색인·질의)은 아직 없다. `spec_event_relation`은 **모델 명세가 선언한** 순서(기대 쪽)일 뿐 Item이 «실제로 거꾸로 관찰했다»를 담지 못한다. 본문 문장을 해석해 방향을 뽑으면 `A 전에 B`/`B 후에 A`/부정문에서 틀린다(§8). 그래서 Revision이 방향을 **구조화해서 직접 적는다.**
+Item의 «관찰»·«기대» 본문은 자유 텍스트이고 방향은 거기서 읽을 수 없다. 방향은 S-b가 만든 `item_event_relation_record` 표(쓰기 입력 `relations[]`, 상세 응답 `relations`)가 담는다. 방향 검색은 S-d가 이 표를 읽어 구현한다([api 계약](../../../architecture/platform-api/api/log-knowledge.md#knowledge-search-1507-s-d)). `spec_event_relation`은 **모델 명세가 선언한** 순서(기대 쪽)일 뿐 Item이 «실제로 거꾸로 관찰했다»를 담지 못한다. 본문 문장을 해석해 방향을 뽑으면 `A 전에 B`/`B 후에 A`/부정문에서 틀린다(§8). 그래서 Revision이 방향을 **구조화해서 직접 적는다.**
 
 `item_id`, `revision_no`, `ordinal`, `kind`(`observed`·`expected`), `source_key`·`target_key`(`moduleKey/eventKey`, [spec-target-key](../../../../apps/platform-api/src/modules/log-knowledge/domain/spec-target-key.ts)와 같은 안정 키), `predicate`, `resolved`(쓸 때 소유자의 실효 명세에 두 키가 모두 있었는지).
 
@@ -87,6 +87,8 @@ Item당 한 행(`item_id` PK, `index_generation`). 최신 **발행** Revision만
 
 ## 4. 검색 흐름
 
+구현됨(S-d): 아래 1–5단계, 순위 1–4·6단계, 반대 방향 별도 구역, 키셋 커서, `capped`, 자동완성. 계약과 한계는 [api/log-knowledge.md](../../../architecture/platform-api/api/log-knowledge.md#knowledge-search-1507-s-d)가 갖는다. 5단계(승인 alias)는 alias가 코드에 없어 구현하지 않았다. `indexLag`의 지연과 진행률은 현재 사용자가 볼 수 있는 발행 Item만으로 구한다(§5.2). 전체 workspace 진행률은 정수 퍼센트여도 숨은 Item 수를 유추하게 하므로 검색 응답에 쓰지 않는다. 커서는 workspace·Actor·해석된 질의·필터에 묶고 HMAC으로 인증한다. 다른 사용자·workspace의 커서와 변조된 커서는 잘못된 커서와 같은 오류로 거절한다. 프로세스가 재시작되거나 다른 인스턴스로 요청이 가면 첫 페이지부터 다시 조회한다.
+
 ```text
 GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cursor, limit<=50 }
   1. 질의 해석   : 원문 보존 → 토큰 + (명시된) 관계 조건. 해석 결과를 응답에 되돌려 준다
@@ -102,7 +104,7 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 - 질의에서 해석한 방향은 화면에 «방향으로 해석: STEP_PROCESS → PROCESS_START (관찰)» 칩으로 **항상 보이고** 끌 수 있다. 조용히 해석하지 않는다.
 - `B after A`는 `A before B`로 정규화해 같은 행을 찾는다. `B before A`는 다른 질의다.
 - Event 토큰은 모델 명세의 안정 키·승인 alias와 대조한다. 같은 키가 여러 Model/SW에 있으면 **각 Model/SW의 기록을 각자 찾고** 결과 행에 소유 Model/SW를 단다. 다른 소유자의 기록을 동치로 합치지 않는다.
-- 사람이 `confirmed` + `equivalent`로 확정한 개념 매핑이 있을 때만 «같은 개념의 다른 Event»도 후보에 넣고, 행에 «개념 매핑으로 일치» 이유를 단다. `proposed`·`rejected`는 쓰지 않는다([ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)).
+- 사람이 `confirmed` + `equivalent`로 확정한 개념 매핑이 있을 때만 «같은 개념의 다른 Event»도 후보에 넣고, 행에 «개념 매핑으로 일치» 이유를 단다. 확장 값은 `(Model ID, Event 키)` 쌍이다. 관계 기록은 Item 소유 Model(SW는 상위 Model), 대상(subject)은 자신의 `model_id`가 매핑의 Model과 같아야 한다. `proposed`·`rejected`는 쓰지 않는다([ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)).
 
 ### 4.2 매칭 이유와 순위 (정량값은 측정 뒤)
 
@@ -117,7 +119,7 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | 5 | 승인 alias 일치 |
 | 6 | 본문(FTS)·trigram 유사 |
 
-- **반대 방향**(`B before A`)은 위 단계에 들어가지 않는다. 사용자가 «반대 방향도 보기»를 켜면 **별도 구역**으로 보이고 기본은 꺼짐이다.
+- **반대 방향만 있는 Item**(`B before A`, 같은 종류 조건과 개념 매핑으로 판정)은 관계 조건과 텍스트를 함께 검색해도 위 단계 어디에도 들어가지 않는다. 사용자가 «반대 방향도 보기»를 켜면 **별도 구역**으로 보이고 기본은 꺼짐이다. 같은 방향 기록도 있으면 본 결과에 남고, 기록이 없는 Item은 텍스트로 찾을 수 있다.
 - 오타(trigram)는 자동 교정하지 않는다. 결과가 적을 때 «혹시 이 토큰?» 제안만 보인다(불확실한 alias를 강제 교정하지 않음, v0.6 §9.1).
 - 정렬 tie-break는 `(단계, 점수, published_at DESC, item_id ASC)`로 안정 정렬이다.
 
@@ -150,9 +152,11 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 
 ### 5.2 최초 색인 (backfill) — #1198이 넘긴 일
 
-구현됨(S-c): `knowledge.search.backfill`(10분 cron과 시작 시 한 번), 진행 위치는 `search_backfill_progress` 한 행이다. «색인 중 n / N» 표시는 화면 노드의 몫이다.
+구현됨(S-c): `knowledge.search.backfill`(10분 cron과 시작 시 한 번), 운영 진행 위치는 `search_backfill_progress` 한 행이다. 전체 건수·진행 상태는 `knowledge.access.manage`로 보호된 운영 경로에서만 읽는다.
 
-색인 migration이 배포된 뒤 `search.backfill`이 **발행된 모든 Item**을 `item_id` 키셋 순서로 배치(시작값 500)마다 `reason='reindex'` 알림으로 넣는다. 진행 위치(`last_item_id`, 전체 수, 완료 수)는 한 행에 저장돼 중단 후 이어진다. 완료 전에는 검색 화면 머리에 «색인 중 n / N»을 보이고, 없는 것을 없다고 말하지 않는다. 빈 DB에서도 같은 코드가 돌고 0건에서 즉시 완료다.
+색인 migration이 배포된 뒤 `search.backfill`이 **발행된 모든 Item**을 `item_id` 키셋 순서로 배치(시작값 500)마다 `reason='reindex'` 알림으로 넣는다. 진행 위치(`last_item_id`, 전체 수, 완료 수)는 한 행에 저장돼 중단 후 이어진다. 빈 DB에서도 같은 코드가 돌고 0건에서 즉시 완료다.
+
+검색의 `indexLag`는 운영 카운터·상태를 읽지 않는다. 같은 SQL에서 현재 가시성 판정을 통과한 발행 Item만 대상으로, `lagSeconds`는 이 Item들의 가장 오래된 `pending` 알림 나이(없으면 null), `backfill.percent`는 구축 중 생성(없으면 활성 생성, 포인터 없으면 1)에 문서가 있는 비율을 내림한 정수다. 상태는 보이는 발행 Item이 없으면 `none`·0%, 모두 문서가 있으면 `done`·100%, 일부가 없으면 `running`이다. 소유자 필터나 검색어와 무관하게 사용자가 볼 수 있는 발행 Item 전체를 기준으로 한다. 숨은 Item의 추가·알림·운영 완료 수는 이 힌트를 바꾸지 않는다. Revision 갱신 지연과 최초 문서 생성 진행은 다르므로, 문서가 있는 Item의 새 변경이 대기하면 `done`과 지연 나이가 함께 나올 수 있다. 화면은 이 가시 범위 힌트로 «색인 중»을 표시하고 전체 «n / N»을 표시하지 않는다.
 
 ### 5.3 재색인·롤백·SearchPort 교체
 

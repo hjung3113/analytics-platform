@@ -36,6 +36,7 @@ import { importIntakeActions } from './import-intake-actions.js';
 import { importEndpoints } from './import-endpoints.js';
 import { accessActions } from './access-actions.js';
 import { accessEndpoints } from './access-endpoints.js';
+import { searchEndpoints } from './search-endpoints.js';
 import { searchIndexActions, searchIndexEndpoints } from './search-index-ops.js';
 export { LOG_KNOWLEDGE_MENU_ID };
 import {
@@ -116,6 +117,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       ...importEndpoints(deps),
       ...accessEndpoints(deps),
       ...searchIndexEndpoints(deps),
+      ...searchEndpoints(deps),
     ],
   };
 }
