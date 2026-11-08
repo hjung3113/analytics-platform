@@ -22,4 +22,4 @@
 
 ## 결과
 
-[공통 컴포넌트 계약 §13](../contract/components.md#richeditor--richcontentrenderer-decided-adr-0123)에 SDK 조립 경계를 둔다. 적용 버전은 `sdk-v0.32.0`, 플랫폼 작업은 [#1452](https://github.com/hjung3113/analytics-platform/issues/1452)다. 외부 임베드·iframe·수식·다이어그램·공동 편집·AI는 구현하지 않는다(사내망·보안 경계와 번들 비용에 비해 수요가 없음). 다시 검토하려면 해당 수요와 보안·성능 조건을 별도 결정해야 한다.
+[공통 컴포넌트 계약 §13](../contract/components.md#richeditor--richcontentrenderer-decided-adr-0127)에 SDK 조립 경계를 둔다. 적용 버전은 `sdk-v0.32.0`, 플랫폼 작업은 [#1452](https://github.com/hjung3113/analytics-platform/issues/1452)다. 외부 임베드·iframe·수식·다이어그램·공동 편집·AI는 구현하지 않는다(사내망·보안 경계와 번들 비용에 비해 수요가 없음). 다시 검토하려면 해당 수요와 보안·성능 조건을 별도 결정해야 한다.
