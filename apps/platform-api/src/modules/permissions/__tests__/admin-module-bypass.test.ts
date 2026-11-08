@@ -30,6 +30,7 @@ const ALWAYS: Capability[] = [
   'improvement.manage',
   'lifecycle.project.manage',
   'lifecycle.round.manage',
+  'lifecycle.gate.decide',
   'knowledge.draft.create',
   'dataset.manage',
 ];

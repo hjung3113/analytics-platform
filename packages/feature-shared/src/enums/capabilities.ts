@@ -31,6 +31,7 @@ export const CAPABILITIES = [
   'improvement.manage',
   'lifecycle.project.manage',
   'lifecycle.round.manage',
+  'lifecycle.gate.decide',
   'knowledge.draft.create',
   'explorer.source.read',
   'validation.catalog.report',
@@ -136,6 +137,10 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // Log lifecycle (#1444 c): workspace-scoped, not sensitive; development projects and validation rounds. User role refused (supported-scope policy).
   'lifecycle.project.manage': { sensitive: false, adminModuleBypass: 'always' },
   'lifecycle.round.manage': { sensitive: false, adminModuleBypass: 'always' },
+  // Log lifecycle Gate (#1446 e, ADR-0116 decision 4): the business approval of a stage. A human decision: sensitive (a request states a reason, and the
+  // permission rows stay out of the audit projection allow-list) and session-only (a token, personal or service, is refused before any write).
+  // Admin passes through the module bypass; a User role is refused by the supported-scope policy; Developer holds it only by an explicit grant.
+  'lifecycle.gate.decide': { sensitive: true, adminModuleBypass: 'always', sessionOnly: true },
   // Log knowledge drafts (#1198 a): workspace-scoped, not sensitive; a human submits a draft of a new or revised item. Admin always; Developer and User by grant (owner answer #1198 Q2).
   'knowledge.draft.create': { sensitive: false, adminModuleBypass: 'always' },
   // Log explorer source read (#1469, design log-explorer §4): reads original log text through the Source adapter. Workspace-wide grant; the Source owner (`sourceOwner`) is judged per request on top (`SourceOwnerAccess`). No Admin role bypass: the text belongs to its Source owner. A token may carry it, with the daily body budget (#1472). Sensitive: a request states a reason, and the permission rows stay out of the platform audit projection allow-list (adding it there is a migration, not part of this node).

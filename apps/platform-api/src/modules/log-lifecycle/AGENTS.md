@@ -1,6 +1,6 @@
 # log-lifecycle module
 
-Owns the development project of a model, its append-only history and its validation rounds (#1444 node c; design `docs/design/features/log-lifecycle/README.md`, API `docs/architecture/platform-api/api/log-lifecycle.md`). Node d (#1445) adds the validation request queue (ADR-0117). Not here yet: Gate (node e), manual-evidence attachments (c2).
+Owns the development project of a model, its append-only history and its validation rounds (#1444 node c; design `docs/design/features/log-lifecycle/README.md`, API `docs/architecture/platform-api/api/log-lifecycle.md`). Node d (#1445) adds the validation request queue (ADR-0117). Node e (#1446) adds the Gate decision.
 
 ## Invariants
 
@@ -24,3 +24,10 @@ Owns the development project of a model, its append-only history and its validat
 - Evidence side table (#1470): `rule_result_evidence` holds one location row per distinct `(file_ref, line, file_sha256)` of a result, written by `insertRuleResults` in the result's own transaction; insert-only (no UPDATE/DELETE grant, guard trigger). The barrel read port `lifecycleEvidenceRead` (`evidence-link-read-port.ts`) is the explorer's reverse lookup: workspace-filtered, newest first, paged, ids and locations only.
 - Tests: `__tests__/request-queue-domain.test.ts` (DB-free), `__tests__/request-queue.integration.test.ts`; the reference worker is the 합성 fixture `tooling/scripts/validation-worker-mock.mjs`.
 
+## Gate decision (#1446 e)
+
+- `gateDecide` (`gate-actions.ts`) is a HUMAN approval: capability `lifecycle.gate.decide` (sensitive, session-only), plus an explicit refusal of any non-`internal_member` actor and of any token context before a statement. No input carries a verdict or an opinion; the Gate never writes a verdict, rule result or request.
+- Pure rules live in `domain/gate-rules.ts` (decision vs verdict, target stage, self-approval mark, `basis`), values in `domain/gate-input.ts`, SQL in `repositories/gate.ts`. Lock order: project, then Round (as `roundOpen`); `currentVersion` locks the project through the Round. Every decision bumps the project version; an approving one (approved / exception) moves the stage in the same transaction.
+- `gate_decision` is append-only (trigger + no UPDATE/DELETE grant). `basis` is frozen at decision time and holds attempt ids/verdicts, `rule_set_revision`, `input_manifest_digest`, `spec_pin`, the request digest and the 수동 검증 첨부 link ids and times only. No stale / 재검증 필요 calculation (design §9). Self approval is stored (`self_approved`), never blocked.
+- Reason text and exception scope are visible to every reader of the Round; audit (`lifecycle.gate.decided`) carries ids, enums and counts only.
+- Tests: `__tests__/gate-rules.test.ts` (DB-free), `__tests__/gate-decision.integration.test.ts`.

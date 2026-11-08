@@ -1,6 +1,6 @@
 # Log Lifecycle — v0.30.0 최소 슬라이스 설계 (Decided 설계, 부분 As-built)
 
-> **Status: Candidate → 구현 착수(2026-11-07), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영. 노드 완료마다 As-built로 바꾼다. 노드 c(#1444)는 As-built: 개발 건·이벤트·Round의 스키마·읽기·쓰기, 노드 d(#1445)는 As-built: 검증 요청 큐(요청·시도·규칙 결과·발췌, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict, 참조 작업자 «합성 fixture»). 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md).** 구현 범위는 §7의 노드별 As-built 표기를 따른다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: Candidate → 구현 착수(2026-11-07), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영. 노드 완료마다 As-built로 바꾼다. 노드 c(#1444)는 As-built: 개발 건·이벤트·Round의 스키마·읽기·쓰기, 노드 d(#1445)는 As-built: 검증 요청 큐(요청·시도·규칙 결과·발췌, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict, 참조 작업자 «합성 fixture»), 노드 e(#1446)는 As-built: Gate 결정·근거 스냅샷·단계 연동. 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md).** 구현 범위는 §7의 노드별 As-built 표기를 따른다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 사내 스크립트 Validator·사내 LLM은 별도 개발 중이다. 인터페이스·출력·권한은 실사 전이므로 **연동 완료로 쓰지 않는다.** 이 슬라이스는 플랫폼 쪽 틀(요청 등록·가져가기·결과 저장·사람 기록)만 만든다.
 
@@ -87,12 +87,13 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 - `evidence.fileRef`는 해당 Round `sample_set`에 있는 것만 받는다(없으면 `validation.failed`).
 - 결함(Defect)·재검증 연결은 만들지 않는다. 같은 `rule_id`·`fileRef`·`line`을 Round 사이에 비교하는 보기는 이 테이블로 나중에 가능하다.
 
-### gate_decision (추가 전용)
+### gate_decision (추가 전용) — **As-built(#1446 e)**
 
 `id`, `round_id`, `target_stage`, `decision`(`approved`·`rejected`·`exception`), `basis`(jsonb: 결정 시점의 `execution_attempt` ID들과 각 `verdict`·`rule_set_revision`·`input_manifest_digest`·`spec_pin`), `reason`, `exception`(`decision='exception'`일 때 `{ riskAcceptedBy, scope, until? }`), `actor_id`, `at`.
 
 - 서버 규칙: `approved`는 가장 최근 `succeeded` 시도의 `verdict='pass'`가 있을 때만; 없으면 `exception`(사유·위험 수용자 필수)으로만 통과한다. `fail`·`incomplete`·시도 없음은 `exception`이 아니면 `approved`가 거절된다. **검증 판정과 업무 승인은 별도 행**이고, 승인이 스크립트 판정을 바꾸지 않는다.
 - 승인한 결정은 `development_project.stage`를 같은 트랜잭션에서 옮긴다. 이벤트 `gate_decided`도 같이 쓴다.
+- **As-built(#1446 e, 마이그레이션 0113)**: 위 필드에 `from_stage`(결정 때 단계)·`self_approved`(저장; 결정자 = 최근 검증 요청의 요청자, 요청이 없으면 Round를 연 사람)를 더했다. `basis`는 `version`, `attempts[]`(성공한 모든 시도: 시도 ID·`attemptNo`·`verdict`·`rule_set_revision`·`input_manifest_digest`·종료 시각), `decisiveAttemptId`·`decisiveVerdict`(가장 최근 성공 시도), `specPin`, `sampleManifestDigest`, 요청 digest, `evidenceLinks[]`(수동 검증 첨부의 ID와 연결 시각만)이다. 모든 결정이 개발 건 버전을 올리고(동시 결정은 한 건만 이김), `rejected`는 단계를 옮기지 않는다. 예외는 기계 판정이 `pass`가 아닐 때만 쓴다(`pass` 위의 예외는 거절). Gate는 사람 결정이다: 토큰·`system` 행위자는 결정할 수 없다. 사유·예외 범위는 Round를 읽을 수 있는 누구나 본다(감사 로그에는 없다). 계약: [api/log-lifecycle.md §Gate decision](../../../architecture/platform-api/api/log-lifecycle.md#gate-decision-node-e-1446).
 - 이 슬라이스는 stale/needs_revalidation을 계산하지 않는다. 대신 비교에 필요한 digest(`spec_pin`, `rule_set_revision`, `input_manifest_digest`)를 `basis`에 고정해 두므로 나중에 계산이 추가되어도 과거 행을 고치지 않는다(§9).
 
 ## 4. 서버 모듈 경계
@@ -237,7 +238,7 @@ log-dev (기존 Space)
 | b | **As-built** #1443: 확인된 A안(표 + 발급 서랍), 개인 `/tokens`(내 활동)·`/operations/service-tokens`(운영 콘솔 권한), 복수 권한 묶음·일회 표시·폐기. 화면은 `apps/feature-screens/src/features/api-tokens/`, 묶음은 `packages/feature-shared/src/enums/api-token-bundles.ts`. 서비스 목록은 기본 서비스 토큰만, 「개인 토큰 포함」으로 전체(ADR-0116 3a); review-ux·일관성 점검·impeccable·mock/real E2E 통과. | full, `ux=required` | a |
 | c | `log-lifecycle` 스키마·마이그레이션·개발 건·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 검증 첨부는 c2 #1451, 구현됨) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
 | d **As-built** #1445 | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
-| e | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
+| e **As-built** #1446 | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
 | f | 화면: 모델 목록·개발 건/Round 상세·검증 요청 + 시안(`?variant=`) | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
 | g | **#1108 SDK 조각**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)): `HierarchyExplorer` + `HierarchyBreadcrumb`, 합성 소비자 | full, `impl-complex`(공개 API `sdk:api`) | 시안 컨펌(소비자는 확정) |
 | g2 | `log-models` 계층 보기 연결(source 구현, 노드 표시) | full, `ux=required` | g, c |
@@ -267,7 +268,7 @@ log-dev (기존 Space)
 | --- | --- | --- |
 | Validator·LLM 호출 어댑터 | 사내 인터페이스 실사 전 | 실제 CLI/API/출력/권한 실사 완료(#1330 §9-1) |
 | LLM 의견(`LlmSuggestionRef`) | P2, 사내 모델 능력 측정 전 | 측정 완료 + #1198 초안 경로 |
-| Gate stale/needs_revalidation 계산 | digest만 고정해 둠 | 두 번째 Round 비교가 필요한 시점 |
+| Gate stale/needs_revalidation(재검증 필요) 계산 | 노드 e는 digest만 `basis`에 고정(구현 안 함) | 두 번째 Round 비교가 필요한 시점 |
 | Defect·재검증·Task/VOC 연결 | P3 | FindingLink의 실제 소비자 |
 | 레거시 이관(키 매핑·7단계 매핑) | 소유자 결정: 이번 릴리스 제외 가정 | 이관 슬라이스 착수 |
 | `logCross`·`logRules`·`logMyWork` 확장 | #1346 P1–P2 | 이 슬라이스 병합 후 |

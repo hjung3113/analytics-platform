@@ -1,5 +1,6 @@
 import type { MenuDispatchContribution } from '../menu-dispatch/types.js';
 import type { LogLifecycleDeps } from './deps.js';
+import { gateActions } from './gate-actions.js';
 import { lifecycleEndpoints } from './lifecycle-endpoints.js';
 import { projectActions } from './project-actions.js';
 import { requestActions } from './request-actions.js';
@@ -9,7 +10,7 @@ import { roundActions } from './round-actions.js';
 export function logLifecycleContribution(deps: LogLifecycleDeps): MenuDispatchContribution {
   return {
     endpoints: [...lifecycleEndpoints(deps), ...requestEndpoints(deps)],
-    actions: [...projectActions(deps), ...roundActions(deps), ...requestActions(deps)],
+    actions: [...projectActions(deps), ...roundActions(deps), ...requestActions(deps), ...gateActions(deps)],
   };
 }
 
@@ -23,6 +24,7 @@ export { createQueueService } from './queue-service.js';
 export type { QueueService } from './queue-service.js';
 export { LIFECYCLE_PROJECT_MENU_PERMISSION, LIFECYCLE_PROJECT_PERMISSION } from './project-actions.js';
 export { LIFECYCLE_ROUND_MENU_PERMISSION, LIFECYCLE_ROUND_PERMISSION } from './round-actions.js';
+export { LIFECYCLE_GATE_MENU_PERMISSION, LIFECYCLE_GATE_PERMISSION } from './gate-actions.js';
 export { readRoundEvidenceLinks, type RoundEvidenceLink } from './round-evidence-links.js';
 export { EXCERPT_PURGE_CRON, EXCERPT_PURGE_QUEUE, purgeExpiredExcerpts, registerExcerptPurge } from './excerpt-purge-job.js';
 export { lifecycleRoundRead } from './round-read-port.js';
