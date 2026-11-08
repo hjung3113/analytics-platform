@@ -3,6 +3,7 @@
 // The Source is the synthetic adapter of the dev assembly. Needs migration 0116 (`round_evidence_ref`).
 
 import { randomUUID } from 'node:crypto';
+import type { ServerResponse } from 'node:http';
 
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -585,6 +586,50 @@ describe.skipIf(!runIntegration)('log explorer evidence handoff (#1474 X-h)', ()
   });
 
   describe('knowledge handoff reads (#1474c)', () => {
+    it('cancels active Source calls on read disconnect and never starts a later batch', async () => {
+      const s = await seed(Array.from({ length: 12 }, (_, i) => REF(i + 1)));
+      const before = await inv(s.id);
+      const audits = await allAudit(s.id);
+      const signals: AbortSignal[] = [];
+      let firstBatch: () => void = () => undefined;
+      const started = new Promise<void>(resolve => { firstBatch = resolve; });
+      const options = devLogExplorerServerOptions(access, 'typical');
+      const slow = await buildServer({ config: loadConfig(), dbHandle, logExplorer: {
+        ...options,
+        handoffSourceTotalMs: 1500,
+        sourceReadPort: { ...createSyntheticScenario('typical').port, getWindow: async (_request, ctx) => {
+          signals.push(ctx.signal);
+          if (signals.length === 10) firstBatch();
+          return new Promise(() => undefined);
+        } },
+      } });
+      let response: ServerResponse | undefined;
+      slow.addHook('onRequest', async (req, reply) => { if (req.url === '/api/v1/menu-query') response = reply.raw; });
+      let complete: () => void = () => undefined;
+      const completed = new Promise<void>(resolve => { complete = resolve; });
+      slow.addHook('onSend', async (req, _reply, payload) => { if (req.url === '/api/v1/menu-query') complete(); return payload; });
+      let pending: Promise<unknown> | undefined;
+      try {
+        await slow.ready();
+        pending = slow.inject({ method: 'POST', url: '/api/v1/menu-query', headers: { 'content-type': 'application/json', ...cookieHeader(holder.cookie) }, payload: { endpoint: 'logExplorer.handoffCheck', context: {}, params: { investigationId: s.id } } }).catch(error => {
+          expect(error.message).toBe('response destroyed before completion');
+        });
+        await started;
+        expect(response).toBeDefined();
+        response?.emit('close');
+        expect(signals).toHaveLength(10);
+        expect(signals.every(signal => signal.aborted)).toBe(true);
+        await pending;
+        await completed;
+        expect(signals).toHaveLength(10);
+        expect(await inv(s.id)).toEqual(before);
+        expect(await allAudit(s.id)).toEqual(audits);
+      } finally {
+        await pending;
+        await completed;
+        await slow.close();
+      }
+    });
     async function query(endpoint: string, params: Row, who: Person = holder, server = app) {
       const res = await server.inject({ method: 'POST', url: '/api/v1/menu-query', headers: { 'content-type': 'application/json', ...cookieHeader(who.cookie) }, payload: { endpoint: `logExplorer.${endpoint}`, context: {}, params } });
       expect(res.statusCode, res.body).toBe(200);

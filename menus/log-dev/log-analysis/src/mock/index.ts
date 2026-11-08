@@ -108,8 +108,8 @@ export const logAnalysisActionsMock: readonly AnyMockAction[] = [
         if (ref.line > 1250 || !files.some(f => f.fileRef === ref.fileRef)) return invalid('unresolved', ['refs', String(i)]);
       }
       if (target.mode === 'create') {
-        if (target.title === '[conflict]') return invalid('conflict', ['expectedVersion']);
-        if (target.title === '[field-error]') return invalid('too_long', ['title']);
+        if (target.title.includes('[conflict]')) return invalid('conflict', ['expectedVersion']);
+        if (target.title.includes('[field-error]')) return invalid('too_long', ['title']);
         if (!target.title.trim()) return invalid('required', ['title']);
         if (!target.observation.trim()) return invalid('required_one', ['observation']);
         if (!('modelId' in target.owner && target.owner.modelId === MODEL_ID) && !('softwareId' in target.owner && target.owner.softwareId === SOFTWARE_ID)) return invalid('not_found', ['target', 'owner']);

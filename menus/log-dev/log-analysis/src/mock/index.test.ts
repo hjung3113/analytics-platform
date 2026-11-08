@@ -93,4 +93,9 @@ describe('knowledge handoff mock (#1474c)', () => {
     expect(() => hand().handle({ actor: 'engineer', scopeId: null, input: { id, refs: [detail.evidence[0].ref], target } })).toThrow();
     expect(() => hand().handle({ actor: 'engineer', scopeId: null, input: { id, refs: [detail.evidence[0].ref], target: { ...target, title: '[conflict]' } } })).toThrow();
   });
+  it.each(['conflict', 'field-error'])('matches a %s marker inside a title', marker => {
+    const detail = call('investigationDetail', { investigationId: id });
+    const target = { kind: 'knowledgeDraft', mode: 'create', owner: { modelId: '14740000-0000-4000-8000-000000000010' }, title: `검사 [${marker}] 재현`, observation: '관찰 사실' };
+    expect(() => hand().handle({ actor: 'engineer', scopeId: null, input: { id, refs: [detail.evidence[0].ref], target } })).toThrow();
+  });
 });

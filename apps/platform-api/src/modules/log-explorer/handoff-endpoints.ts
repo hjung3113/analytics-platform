@@ -21,19 +21,19 @@ const modelsParams: Judge = p =>
 export function handoffEndpoints(deps: InvestigationDeps): MenuEndpointDeclaration[] {
   const handoff = deps.handoff;
   if (!handoff) return [];
-  const declare = (name: string, paramKeys: string[], judge: Judge, run: (actor: PlatformActor, params: Record<string, unknown>) => Promise<unknown>): MenuEndpointDeclaration => ({
+  const declare = (name: string, paramKeys: string[], judge: Judge, run: (actor: PlatformActor, params: Record<string, unknown>, signal?: AbortSignal) => Promise<unknown>): MenuEndpointDeclaration => ({
     spec: { id: `logExplorer.${name}`, menuId: INVESTIGATION_MENU_ID, paramKeys, permission: EXPLORER_HANDOFF_MENU_PERMISSION, requiresScope: false, context: {}, mergeTimeDomain: false },
     authorize: (actor, tx) => holdsPlatformPermission(deps.checkService, actor, EXPLORER_HANDOFF_MENU_PERMISSION, tx ? { tx } : {}),
     validate: judge,
-    async handle({ actor, params }) {
+    async handle({ actor, params, signal }) {
       const valid = judge(params);
       if (!valid.ok) return { outcome: 'error', data: null, message: valid.message };
-      return { outcome: 'ok', data: await run(actor, params) };
+      return { outcome: 'ok', data: await run(actor, params, signal) };
     },
   });
   const canIntake = (actor: PlatformActor) => handoff.draftIntake.canIntake(deps.db, actor);
   return [
-    declare('handoffCheck', ['investigationId'], parseDetailParams, async (actor, params) => {
+    declare('handoffCheck', ['investigationId'], parseDetailParams, async (actor, params, signal) => {
       const row = await getOwned(deps.db, actor.workspace_id, actor.actor_id, String(params.investigationId).toLowerCase());
       if (!row) return null;
       const sample = row.origin === 'round' && row.roundId
@@ -45,7 +45,7 @@ export function handoffEndpoints(deps: InvestigationDeps): MenuEndpointDeclarati
       if (refs.length > EVIDENCE_MAX) return unavailable;
       try {
         // All database reads finish before Source work; no transaction is held while awaiting it.
-        const resolved = await resolveHandoffRefs(handoff, actor, sample.sourceOwner, refs);
+        const resolved = await resolveHandoffRefs(handoff, actor, sample.sourceOwner, refs, undefined, signal);
         return { state: 'ok', refs: refs.map((ref, i) => ({ fileRef: ref.fileRef, line: ref.line, status: !resolved[i] ? 'unresolved' : hashMismatchOf(ref, sample.files) ? 'hash_mismatch' : 'ok' })) };
       } catch (error) {
         if (error instanceof MenuActionInvalidError && error.fieldErrors.some(e => e.code === 'source_forbidden')) return { state: 'source_forbidden', refs: [] };
