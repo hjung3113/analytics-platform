@@ -1,5 +1,7 @@
 # #739 Survey provenance cutover contract
 
+> **Historical record.** This cutover shipped in v1.0.0. Current behavior is owned by the core-server contracts in [`docs/architecture/platform-api/`](../README.md).
+
 FO ADR-0064 item 1 is implemented by `0059_survey_finding_provenance.sql`; the cutover
 shipped with the coordinated #740 delivery in v1.0.0.
 

@@ -1,4 +1,4 @@
-# Log Explorer — 범용 로그 탐색 워크벤치 설계 (v0.31.0, 소유자 답 반영, 노드 a·c 구현됨)
+# Log Explorer — 범용 로그 탐색 워크벤치 설계 (v0.31.0, 소유자 답 반영)
 
 > **Status: Candidate → 소유자 답 7개 반영(2026-11-07), ADR 0119·0121 Decided.** 노드 a(읽기 포트·`@ap/contract-schemas v0`·계약 테스트 하니스·합성 어댑터·모듈 골격)는 구현됐고(#1467), 읽기 엔드포인트 네 개(노드 c, #1469: records·window·parsed·periods)도 구현됐다. 조사 상태 DB·화면·실제 Source 연동은 아직 구현되지 않았고, 운영 조립에는 Source 어댑터가 없어 읽기는 «미연결» 상태로 답한다. 근거는 [#1344](https://github.com/hjung3113/analytics-platform/issues/1344)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 설계 [`log-lifecycle`](../log-lifecycle/README.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0(= #1198 + #1344, 소유자 2026-11-07). 결정은 [ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)(읽기 포트·토큰·내보내기)와 [ADR-0121](../../../adr/0121-ordered-interval-track-sdk-piece.md)(시퀀스 SDK 조각)이 소유하고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >

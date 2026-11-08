@@ -1,6 +1,6 @@
 # SDK 배포물은 `sdk-v*` GitHub Release에 붙인 다섯 패키지의 빌드된 tarball이다
 
-상태: **Decided (2026-10-20, 결정자: 코디네이터 — 사용자 "ㅇㅋ 니추천댜로 진행하자"에 따른 SDK 다음 슬라이스 [포괄 목록](../integration/sdk-coverage-inventory.md) §5-8. 되돌릴 수 있음)**. [ADR-0044](0044-sdk-source-in-platform-repo-released-separately.md)의 배포 방식 부분을 정한다. 구현은 [#519](https://github.com/hjung3113/analytics-platform/issues/519)(빌드·pack·외부 소비자 게이트), [#520](https://github.com/hjung3113/analytics-platform/issues/520)(공개 API 스냅샷)이다.
+상태: **Decided (2026-10-20, 결정자: 코디네이터 — 사용자 "ㅇㅋ 니추천댜로 진행하자"에 따른 SDK 다음 슬라이스 [포괄 목록](../integration/history/sdk-coverage-inventory.md) §5-8. 되돌릴 수 있음)**. [ADR-0044](0044-sdk-source-in-platform-repo-released-separately.md)의 배포 방식 부분을 정한다. 구현은 [#519](https://github.com/hjung3113/analytics-platform/issues/519)(빌드·pack·외부 소비자 게이트), [#520](https://github.com/hjung3113/analytics-platform/issues/520)(공개 API 스냅샷)이다.
 
 사내에는 패키지 레지스트리가 없다([#151](https://github.com/hjung3113/analytics-platform/issues/151)). 그래서 FeedbackOps는 `@ap/ui`를 git 태그 `path:` 의존으로 받는다. 이 방식은 `@ap/ui`가 다른 `@ap/*`에 런타임 의존이 없어서 된다. 나머지 네 패키지는 다르다(2026-10-20 조사, 외부 소비자 시험).
 

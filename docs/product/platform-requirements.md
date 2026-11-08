@@ -118,14 +118,14 @@
 | R3.3 | 목록에서 상세로, 같은 자리에서 | 상세를 볼 때마다 새 페이지로 가서 목록 위치를 잃는다 | 오른쪽 상세 패널이 모든 업무 시스템에서 같은 자리·같은 동작이다. 전체 화면으로 펼치거나 링크로 넘길 수 있다 | 동작 | [ADR-0013](../adr/0013-detail-panel-shell-docked-slot.md), [06 §20](../contract/components.md#20-detail-surface-contract) |
 | R3.4 | 해석을 남긴다 | 차트 위 판단이 대화방에 흩어진다 | 차트 주석은 차트·조회 범위에 붙어 다른 사람에게도 보인다. 작성자만 지우고, 지운 것도 감사에 남는다 | 동작 | [ADR-0041](../adr/0041-annotation-author-delete-audit.md) |
 | R3.5 | 필터는 한 줄, 화면 모양은 일정 | 화면마다 필터 위치와 적용 방식이 다르다 | 화면 필터는 같은 줄 모양이고, 접으면 고른 값을 생략 없이 요약한다. 관리 화면·분석 화면·개요·카탈로그·업무 흐름 다섯 가지 화면 모양이 정해져 있다 | 동작 | [ADR-0016](../adr/0016-page-filter-bar.md), [ADR-0029](../adr/0029-page-filter-bar-collapse-summary.md), [06 §12](../contract/layout.md#12-canonical-page-archetypes) |
-| R3.6 | 설비를 그림으로 본다 | 설비 구조와 실행 재생을 다른 도구에서 따로 본다 | 설비 Top View·재생 화면을 업무 화면으로 올리고, 같은 분석 조건·권한·딥링크를 따른다 | 계획 — 저장소 편입 결정 대기 | #332, #333, [ADR-0039](../adr/0039-equipment-visualization-platform-first-host-contract.md)(Proposed) |
+| R3.6 | 설비를 그림으로 본다 | 설비 구조와 실행 재생을 다른 도구에서 따로 본다 | 설비 Top View·재생 화면을 업무 화면으로 올리고, 같은 분석 조건·권한·딥링크를 따른다 | 동작(mock, EV Release tarball 호스트 모듈 #801, 배치는 임시) | #332, #333, [ADR-0039](../adr/0039-equipment-visualization-platform-first-host-contract.md)(Proposed) |
 
 ### 3.4 여러 화면을 함께 보고, 남기고, 직접 조합한다
 
 | ID | 요구 | 없으면 | 플랫폼이 보장하는 것 | 상태 | 근거 |
 | --- | --- | --- | --- | --- | --- |
 | R4.1 | 여러 분석을 한 작업대에서 | 비교할 때마다 브라우저 창을 새로 열고, 다음 날 같은 비교를 다시 만든다 | 분석 보드: 화면 아래 시트 탭, 시트마다 1×1·1×2·2×1·2×2 칸, 칸마다 화면 하나와 자기 조건. 칸끼리 다른 조건만 강조하고, 한 칸의 조건을 시트 전체에 적용할 수 있다. 위젯을 새로 그리는 도구가 아니라 이미 있는 화면을 칸에 담는다 | 완료(v0.14.0) — 칸 Context(#496), 보드 화면(#497), 생산성 개요·사이클타임 상세·설비 마스터 보드 지원(#498). 저장은 이 브라우저에만, 서버 저장·공유는 보류(16 §10). 첫 사용 다듬기(#526: 칸 크기·접기·최대화 ADR-0060, 빈 화면 안내, 상세 닫기)는 v0.15.0에서 완료 | [16](../design/analysis-board.md), [ADR-0049](../adr/0049-analysis-context-belongs-to-a-pane.md), [ADR-0051](../adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md), #421 |
-| R4.2 | 자주 보는 조건을 저장한다 | 매번 같은 조건을 다시 만든다 | 저장된 뷰: 화면·조건·필터·표 열 상태를 이름 붙여 저장하고, 열 때 권한을 다시 확인한다 | 보류 — 사용자 조합 분석(R4.3)과 같이 정한다 | [06 §21](../contract/kernel.md#21-saved-view-contract), #294 |
+| R4.2 | 자주 보는 조건을 저장한다 | 매번 같은 조건을 다시 만든다 | 저장된 뷰: 화면·조건·필터·표 열 상태를 이름 붙여 저장하고, 열 때 권한을 다시 확인한다 | 동작(계약 E2E `contract-saved-view`, 서버 저장 [ADR-0099](../adr/0099-server-saved-view-persistence.md); 보드 배치의 서버 저장은 미구현) | [06 §21](../contract/kernel.md#21-saved-view-contract), #294 |
 | R4.3 | 내가 직접 분석 화면을 조합한다 | 개발자에게 요청하고 기다리거나 엑셀로 내려받는다 | 개발자가 준 시각화·피벗을 사용자가 축·필터·차트 종류로 바꾸고, 저장·공유한다. 공식 지표와 탐색용 집계를 섞지 않는다 | 결정 대기 — 범위·저장·공유 질문이 열려 있다 | #294, #291 |
 | R4.4 | 자유 피벗·엑셀식 편집 | 큰 결과를 엑셀로 내려 피벗한다 | 브라우저 안에서만 도는 자유 피벗, 셀 범위 복사·채우기 | 보류 — 업무 필수로 확인될 때 | #163, #164, [ADR-0007](../adr/0007-perspective-browser-engine-only.md) |
 | R4.5 | 내 설정이 기기를 따라온다 | 다른 PC에서 즐겨찾기·열 설정이 없다 | 사용자 설정을 서버에 보존 | 동작(실서버 조립: 즐겨찾기·최근·마지막 Scope·언어·표 열을 사용자별 서버 저장, #1104b; 사이드바 접힘은 브라우저) | [06 §4](../contract/kernel.md#4-platform-kernel-responsibilities), [ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md) |
@@ -188,9 +188,9 @@ SDK는 플랫폼에 올릴 앱이 지키는 **계약**이면서, 앱이 자기 �
 | R9.2 | 앱이 선언하고 호스트가 주는 계약 | 앱은 manifest(화면·권한·필요 기능·계약 버전)를 내고, 플랫폼은 세션·조건 읽기·이동·알림·오류 보고를 주고, 선택 기능으로 서버 쓰기(`write`)도 호스트가 대신한다(멱등 키·Scope 게이트·쓰기 뒤 다시 읽기, ADR-0054). 플랫폼 내부를 import하지 않아 플랫폼이 바뀌어도 앱이 깨지지 않는다 | 동작 — 계약 1판(등록 검사·화면 렌더·호스트 포트)을 계약 검사용 고정 모듈로 검증하고, 첫 외부 모듈 EV `eqv`(Top View·Focus)를 릴리스 tarball로 mock 조립에 탑재했다(#801, `apps/platform-web/src/modules.ts`). 실서버 연결과 나머지 편입은 #332 이후. 계약 패키지(`@ap/contracts`)는 다른 SDK 패키지와 함께 `sdk-v0.12.0`(2026-10-23) GitHub Release의 tarball로 발행했다([git 태그 소비](../integration/sdk-git-tag-consumption.md)). 쓰기 포트는 R9.7 비고와 같은 상태(예시 데이터 기준) | [ADR-0053](../adr/0053-host-module-contract-v1.md), [탑재 설계](../integration/platform-hosting-design.md) |
 | R9.3 | 등록할 때 잘못을 막는다 | 계약 버전이 다르거나, 필요한 기능을 호스트가 못 주거나, 권한 이름이 다른 앱과 겹치면 사용자가 보기 전에 등록이 실패한다 | 동작(고정 모듈로 검증). 모듈 조회의 모듈 권한 선언은 #492 | [ADR-0053](../adr/0053-host-module-contract-v1.md), #492 |
 | R9.4 | 화면 사이 일을 앱이 다시 만들지 않는다 | 앱이 올라오는 순간 R1–R6(조건 유지, 주소, 신뢰 표시, 상태 화면, 권한, 감사, 활용률)을 받는다 | 플랫폼 안 화면은 동작. 다른 저장소 앱은 EV mock 조립 탑재(#801) 외에는 나머지 편입 뒤(#332) | §3.1–§3.6 |
-| R9.5 | 서버 계약 + 선택해서 쓰는 참조 구현 | SDK는 백엔드 프레임워크를 강요하지 않는다. 계약 산출물·적합성 준수는 필수이고 참조 구현 채택은 선택이다([ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md)) | 계약·적합성 묶음 동작(지금은 mock 어댑터를 판정). HTTP 실어댑터(`@ap/http-adapter`)와 참조 서버(플랫폼 API 포트, #620–#623) 동작. `@ap/contract-schemas` 및 JSON Schema·endpoints·vocab 자산 완료(#1086). FastAPI/Fastify × PostgreSQL/MSSQL 참조 구현은 아직 구현 안 함(#531). 실서버 대상 적합성 하네스는 #154 | [SDK 포괄 목록](../integration/sdk-coverage-inventory.md) §6, [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md), [ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md), #149, #154 |
+| R9.5 | 서버 계약 + 선택해서 쓰는 참조 구현 | SDK는 백엔드 프레임워크를 강요하지 않는다. 계약 산출물·적합성 준수는 필수이고 참조 구현 채택은 선택이다([ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md)) | 계약·적합성 묶음 동작(지금은 mock 어댑터를 판정). HTTP 실어댑터(`@ap/http-adapter`)와 참조 서버(플랫폼 API 포트, #620–#623) 동작. `@ap/contract-schemas` 및 JSON Schema·endpoints·vocab 자산 완료(#1086). FastAPI/Fastify × PostgreSQL/MSSQL 참조 구현은 아직 구현 안 함(#531). 실서버 대상 적합성 하네스는 #154 | [SDK 포괄 목록](../integration/history/sdk-coverage-inventory.md) §6, [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md), [ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md), #149, #154 |
 | R9.6 | 버전을 고정해 받는다 | 플랫폼 변경이 앱에 예고 없이 들어가지 않는다. SDK는 앱과 따로 묶음 버전(`sdk-v*` 태그)으로 내고, 앱은 `sdk-v*` 묶음 버전을 정해 릴리스 tarball로 받는다(사내 패키지 레지스트리 없음). 저장소 밖 소비자 검사가 릴리스 게이트다 | 동작 — `sdk-v0.12.0`(2026-10-23)부터 SDK 다섯 패키지(`@ap/contracts`·`@ap/ui`·`@ap/kernel`·`@ap/components`·`@ap/shell`)를 GitHub Release의 tarball과 `SHA256SUMS`로 낸다(ADR-0056). `@ap/ui`는 git 태그로도 받는다 | [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md), [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md), [git 태그 소비](../integration/sdk-git-tag-consumption.md) |
-| R9.7 | 세 제품의 프레임워크를 모두 덮는다 | 제품마다 프레임워크를 따로 키워 차이가 벌어지지 않는다. analytics-platform·FeedbackOps·equipment-visualization이 하는 일을 SDK 하나가 덮고, 빠진 것(쓰기 포트, 기계가 읽는 테마 계약, 접근성·성능 게이트)은 SDK가 새로 정한다 | 계획 — 쓰기 포트는 동작(ADR-0054, #501·#502: 동작 선언·멱등 키·쓰기 뒤 다시 읽기, mock 기준) | [SDK 포괄 목록](../integration/sdk-coverage-inventory.md) §5 |
+| R9.7 | 세 제품의 프레임워크를 모두 덮는다 | 제품마다 프레임워크를 따로 키워 차이가 벌어지지 않는다. analytics-platform·FeedbackOps·equipment-visualization이 하는 일을 SDK 하나가 덮고, 빠진 것(쓰기 포트, 기계가 읽는 테마 계약, 접근성·성능 게이트)은 SDK가 새로 정한다 | 계획 — 쓰기 포트는 동작(ADR-0054, #501·#502: 동작 선언·멱등 키·쓰기 뒤 다시 읽기, mock 기준) | [SDK 포괄 목록](../integration/history/sdk-coverage-inventory.md) §5 |
 
 ## 4. 판단 기준 — 이 플랫폼이라서 되는 것
 
@@ -268,9 +268,9 @@ SDK는 플랫폼에 올릴 앱이 지키는 **계약**이면서, 앱이 자기 �
 | 질문 | 막는 요구 | 이슈 |
 | --- | --- | --- |
 | 도입 효과를 잴 기준선과 지표 | R5.5, §6 | #233 |
-| 사용자 조합 분석의 범위·저장·공유 | R4.2, R4.3 | #294 |
+| 사용자 조합 분석의 범위·저장·공유 | R4.3 | #294 |
 | 사용자 설정을 서버에 보존할지 | R4.5 | [보드](../../.planning/README.md) |
 | 권한 부여·회수의 원천 | R6.5 | #98 |
 | 표준 로그 개발의 메뉴 경계 | R7.3 | #252 |
-| equipment-visualization 저장소 편입 | R3.6, R9.2 외부 소비자 | #332 |
+| equipment-visualization 저장소 편입 | R9.2 외부 소비자 | #332 |
 | 사내 SSO·배포·백엔드 | R10.1–R10.3 | #150, #151, #155 |

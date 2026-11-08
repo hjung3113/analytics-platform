@@ -3,7 +3,7 @@
 Append new traps at the end, one bullet each: the symptom, then what to do. No dates or stories. When a path changes, fix or delete its stale line.
 
 - Worker setup pitfalls (new worktree install, pnpm 11, CSS selector CI, captures, mock registration): [`docs/agents/operations.md`](../../../docs/agents/operations.md).
-- ADR numbers: comment `ADR-NNNN 예약` on #598 (still the reservation thread) after checking `origin/main` and open PRs; recheck `origin/main`'s `docs/adr` before ship, because a reservation does not stop another session.
+- ADR numbers follow the one procedure in [`docs/AGENTS.md`](../../../docs/AGENTS.md); recheck `origin/main`'s `docs/adr` before ship, because a reservation does not stop another session.
 - If `gh pr merge` rejects a merge by recommending `--auto`, check `gh pr view <n> --json state` before deleting the remote branch: deleting it closes the PR. Merge commands: [`merge.md`](merge.md).
 - Resolve `addenda/` paths from `$CONDUCTOR`, not the repository root.
 - A task with no issue number cannot use `launch-worker.py` (`--issue` needs digits). Create the worktree with `orca worktree create --setup skip`, install, write TASK, use the shared runner.

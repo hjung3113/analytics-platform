@@ -1,6 +1,8 @@
 # SDK 포괄 목록 — 세 프레임워크의 기능을 플랫폼 SDK가 모두 덮는지
 
-> 상태: **Candidate** — 2026-10-19 작성. [ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)의 "세 제품의 프레임워크가 하는 일을 SDK가 모두 덮는다"를 확인하는 목록이다. [프레임워크 통합 계획](framework-unification-plan.md) §2·§3 지도에서 출발해 세 저장소의 **코드**와 대조했다. 구현 지시가 아니고, 판정(덮음·흡수·신규·제품 유지)은 Candidate다. 저장소·릴리즈 구조는 [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md)(Decided)가 정한다.
+> **과거 기록.** 2026-10-19에 세 저장소의 특정 커밋을 대조한 표다. FeedbackOps는 이후 플랫폼에 합쳐졌다(ADR-0097). 아래 경로와 상태는 당시 기준이다.
+
+> 상태: **Candidate** — 2026-10-19 작성. [ADR-0043](../../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)의 "세 제품의 프레임워크가 하는 일을 SDK가 모두 덮는다"를 확인하는 목록이다. [프레임워크 통합 계획](framework-unification-plan.md) §2·§3 지도에서 출발해 세 저장소의 **코드**와 대조했다. 구현 지시가 아니고, 판정(덮음·흡수·신규·제품 유지)은 Candidate다. 저장소·릴리즈 구조는 [ADR-0044](../../adr/0044-sdk-source-in-platform-repo-released-separately.md)(Decided)가 정한다.
 >
 > 관찰 기준(읽기 전용 사본): analytics-platform `main` `058c643`, FeedbackOps `origin/develop` `a8d768b8`, equipment-visualization(EV) `origin/develop` `307df61`. FeedbackOps 사본과 EV 사본에는 `.git`이 없어 커밋은 `git archive`를 뜬 ref 기준이다. 테스트 유무는 파일 존재로만 봤고 커버리지는 재지 않았다. 읽지 않고 이은 판단은 **추정**으로 표시했다.
 
@@ -65,7 +67,7 @@
 | --- | --- | --- | --- | --- |
 | 조회 선언·포트 | `EndpointSpec`·`PlatformAdapter.menuQuery`·`useMenuQuery`·`useMenuFetch` | `apiRequest` + Zod 파서 필수, TanStack Query 훅 | `defineEndpoint` 제안(`equipment.topview.*`) | ✅ AP |
 | 응답·오류 의미 | `ApiResponse{outcome, assessments, trust}`, 어댑터는 던지지 않음 | `{code, message, detail, requestable_permission}`, code→HTTP 표는 **백엔드 `lib/errors.ts`**, `ERROR_CODES`는 도메인 코드가 섞인 닫힌 enum | Data Quality Issues·Evidence 4단계 | ✅ AP 의미 체계. FO code→outcome 변환은 서버 어댑터(⬜). 합치지 않음(통합 계획 §3 유지) |
-| 쓰기 포트 | 주석 저장·삭제(`saveAnnotation`·`deleteAnnotation`)뿐, 일반 쓰기 포트 없음 | `Idempotency-Key` 자동 발급(프런트) + advisory lock·해시·재생(백엔드), 낙관적 동시성 3방식 | Studio는 파일 API(개발 전용), 플랫폼 쓰기는 설계 없음(#334) | ⬇ FO 규약을 근거로 🆕 쓰기 포트를 설계한다 → [ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md)(#501·#502) |
+| 쓰기 포트 | 주석 저장·삭제(`saveAnnotation`·`deleteAnnotation`)뿐, 일반 쓰기 포트 없음 | `Idempotency-Key` 자동 발급(프런트) + advisory lock·해시·재생(백엔드), 낙관적 동시성 3방식 | Studio는 파일 API(개발 전용), 플랫폼 쓰기는 설계 없음(#334) | ⬇ FO 규약을 근거로 🆕 쓰기 포트를 설계한다 → [ADR-0054](../../adr/0054-write-port-declared-actions-idempotency-version.md)(#501·#502) |
 | 목록 페이지 계약 | `PageQuery`·`PageResult`·`sortAndPage` | 커서 페이지 계약, rate-limit 헤더 파싱, 304/ETag | 해당 없음 | ✅ + ⬇ 커서·rate-limit 헤더 |
 | 파서의 개인정보 방어 | — | `ApiParseError`가 값을 담지 않음, 파서 우회 `fetch(` ratchet allowlist 테스트 | 해당 없음 | ⬇ 비교 후 규칙만 가져옴. ⛔ 우회 `fetch(` 18곳과 레거시 `apiClient` 58곳 |
 | 라우트 오류 경계·오류 보고 | `RouteErrorBoundary`·`reportClientError` | `errorComponent`뿐, 클라이언트 오류 보고 없음 | 없음 | ✅ AP (FO·EV에 근거 없음) |
@@ -85,14 +87,14 @@
 | --- | --- | --- | --- | --- |
 | 토큰·primitive | `@ap/ui`는 `@ap/feature-ui` 재수출 + 확장 층 | **현재 원본** `@ap/feature-ui`(Pack 17, Tailwind v4) | `@eqv/ui`가 `@ap/feature-ui`를 서브모듈로 소비(EV ADR-0008) + `--eqv-*` 24개(렌더러 전용) | ⬇ 코드를 SDK로 이전(ADR-0043) — **이전 끝**(#441–#443, ADR-0046: `@ap/feature-ui` 전체가 `@ap/ui`에 있다). EV 서브모듈 경로도 SDK 소비로 바뀐다(전환은 열림) |
 | 셸·레이아웃 | `@ap/shell`(레일 52·사이드바 240·머리 50), `AnalysisLayout`·`ManagementLayout`·`DrillLayout` | `PageShell`·`ListShell`·`WorkbenchShell`은 **`@ap/feature-ui` 안**. `AppFrame` 계열은 앱 안이며 managed-systems·권한·저장된 뷰를 직접 조회해 도메인 결합이 큼 | `@eqv/ui` `AppFrame`·`Page`(AP를 손으로 복사한 치수) | ⬇ 구현 **세 벌**을 SDK 하나로. FO `AppFrame`은 ⛔ 그대로 옮기지 않음 |
-| 상세 패널 슬롯 | `DetailPanelSlot`(ADR-0013) | `DetailPanelSlotContext`(마지막 등록자 승리 + dev 경고) | 쓰지 않음 | ⬇ 슬롯 하나로 통합(G10) — 결정됨 [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md): FO의 `useDetailPanelSlot(node)`는 `@ap/ui` `useDetailPanelContent`(같은 `DetailPanelSlotProvider`의 내용 등록)로 옮겼다 |
+| 상세 패널 슬롯 | `DetailPanelSlot`(ADR-0013) | `DetailPanelSlotContext`(마지막 등록자 승리 + dev 경고) | 쓰지 않음 | ⬇ 슬롯 하나로 통합(G10) — 결정됨 [ADR-0047](../../adr/0047-detail-panel-slot-single-registrant-model.md): FO의 `useDetailPanelSlot(node)`는 `@ap/ui` `useDetailPanelContent`(같은 `DetailPanelSlotProvider`의 내용 등록)로 옮겼다 |
 | 문서 제목 | 없음 | `DocumentTitleProvider`, **모듈 전역 Map 상태**라 인스턴스 간 격리 안 됨 | 없음 | 🆕 호스트 소유(G11). ⛔ 전역 Map |
 | 토스트·알림 | `toast`(Platform) | sonner | `useToastQueue`·`ToastRegion` | 🆕 `notify` 포트 하나 |
 | 모션·reduced motion | `prefersReducedMotion` 재수출 | 모션 토큰, `useListMotion` | 해당 없음 | ✅ / ⬇ 모션 토큰은 토큰 이전에 포함 |
 | 명령 팔레트 | `CommandPalette`(shell) | cmdk + display-id 해석 | 없음 | ✅ AP. ⬇ display-id 해석은 비교 |
 | 디자인 lint | `@shadcn/lint` 6규칙 ESLint 프리셋 | Oxlint(`.oxlintrc.json`) | ESLint `RESTYLE_CONTRACTS` 복사본 | ⬇ **세 벌 수동 동기화 → 한 곳**. 규칙 옵션 원본을 SDK로 |
 | 다크·반응형 | 없음 | 없음 | 다크 팔레트 없음 | 🆕 해당 없음이면 선언으로 명시 |
-| 기계가 읽는 테마 계약 | `tokens.css` | CSS만 | README 표 기준 25개 중 9개 매핑, 나머지 16개는 hex fallback | 🆕 — [ADR-0055](../adr/0055-theme-contract-css-source-dtcg-json-typed-names.md), [#512](https://github.com/hjung3113/analytics-platform/issues/512) |
+| 기계가 읽는 테마 계약 | `tokens.css` | CSS만 | README 표 기준 25개 중 9개 매핑, 나머지 16개는 hex fallback | 🆕 — [ADR-0055](../../adr/0055-theme-contract-css-source-dtcg-json-typed-names.md), [#512](https://github.com/hjung3113/analytics-platform/issues/512) |
 
 ### 3.7 공통 컴포넌트
 
@@ -135,7 +137,7 @@
 | 성능 예산 | 없음 | 번들 예산 없음 | 수동 표(컴포넌트 2006개 342ms, 초선형) | 🆕 |
 | CI 게이트 | 루트 `lint·typecheck·test·build·e2e` + 계약 보고 | `gate.sh` 3단계(static/unit/integration) | 단일 `Gate` 잡 | ✅ AP |
 | 툴체인 | pnpm 11.1.1 / Node 26.7 / TS 5.9 | pnpm 9.15 / Node 22 / TS 5.7 / Biome | AP와 같음 | FO가 한 세대 뒤. 소비 조건으로 peer 범위에 표현 |
-| 패키지 배포 상태 | 전부 `private`·`0.0.0`·소스 export | 같음 | `core`·`renderer`는 `dist` 빌드, 나머지 소스 export. `files`·changelog·`publishConfig` 없음 | 🆕 [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md). 배포 모양은 [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md)(Release tarball 다섯, 구현 [#519](https://github.com/hjung3113/analytics-platform/issues/519)) |
+| 패키지 배포 상태 | 전부 `private`·`0.0.0`·소스 export | 같음 | `core`·`renderer`는 `dist` 빌드, 나머지 소스 export. `files`·changelog·`publishConfig` 없음 | 🆕 [ADR-0044](../../adr/0044-sdk-source-in-platform-repo-released-separately.md). 배포 모양은 [ADR-0056](../../adr/0056-sdk-release-github-release-tarballs.md)(Release tarball 다섯, 구현 [#519](https://github.com/hjung3113/analytics-platform/issues/519)) |
 
 ## 4. 통합 계획 지도의 정정
 
@@ -162,16 +164,16 @@
 
 ## 5. SDK가 새로 정할 것 (🆕 묶음)
 
-세 제품 중 누구도 가지고 있지 않아 SDK가 처음 정한다. 호스트 → 모듈 계약은 [탑재 설계](platform-hosting-design.md) §2를 출발점으로 한다.
+세 제품 중 누구도 가지고 있지 않아 SDK가 처음 정한다. 호스트 → 모듈 계약은 [탑재 설계](../platform-hosting-design.md) §2를 출발점으로 한다.
 
 1. 호스트 포트(`ModuleHost`)·화면 manifest·`contract` 정수와 필수·선택 기능 검사
 2. 열린 권한·그룹 어휘(모듈 접두사)와 모듈 경로 접두사
-3. 쓰기 포트(FO의 Idempotency-Key·동시성 규약을 근거로) — [ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md)
+3. 쓰기 포트(FO의 Idempotency-Key·동시성 규약을 근거로) — [ADR-0054](../../adr/0054-write-port-declared-actions-idempotency-version.md)
 4. React 밖 `signal`·모듈 상태(`auth_required` 등)·도착 포커스 대상·문서 제목 소유
-5. 기계가 읽는 테마 계약(EV는 25개 중 9개(README 표 기준)만 매핑, 나머지는 hex fallback) — [ADR-0055](../adr/0055-theme-contract-css-source-dtcg-json-typed-names.md)
+5. 기계가 읽는 테마 계약(EV는 25개 중 9개(README 표 기준)만 매핑, 나머지는 hex fallback) — [ADR-0055](../../adr/0055-theme-contract-css-source-dtcg-json-typed-names.md)
 6. 호스트 쪽 입력 검증 공유 위치(EV의 Binding→Mapping Version→Layout 검증이 `apps/studio`에 있어 `platform-adapter`가 복제하게 된다)
 7. 자동 접근성·시각·성능 예산 게이트
-8. 패키지 배포 구조([ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md)) — 배포물은 `sdk-v*` GitHub Release의 tarball 다섯 개다([ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md), 구현 [#519](https://github.com/hjung3113/analytics-platform/issues/519))
+8. 패키지 배포 구조([ADR-0044](../../adr/0044-sdk-source-in-platform-repo-released-separately.md)) — 배포물은 `sdk-v*` GitHub Release의 tarball 다섯 개다([ADR-0056](../../adr/0056-sdk-release-github-release-tarballs.md), 구현 [#519](https://github.com/hjung3113/analytics-platform/issues/519))
 
 ## 6. 결정 (사용자 2026-10-19, 권고안 그대로)
 
@@ -179,13 +181,13 @@
 | --- | --- | --- |
 | Q-B | SDK가 **백엔드 구현 프레임워크**(FO의 Fastify 모듈 규약·env 스키마·헬스·rate limit·DB 역할 가드)까지 덮는가 | **아니오 — 서버는 계약만**(전송 형식·오류 변환·헬스 규약·적합성 묶음). 구현 프레임워크는 제품이 고른다. 사내 백엔드는 FastAPI(#155)라 Node 규약을 SDK에 넣어도 사내 앱이 쓰지 못한다. 서버 쪽 SDK = 선언 산출물 + 적합성 묶음 + 전송 형식(통합 계획 단계 3). §3.8·§3.9의 "Q-B" 행은 이 결정으로 ⬜ 제품이다 |
 | Q-C | 이전 순서 | **`@ap/contracts` 배포를 먼저, 디자인 시스템 코드 이전은 그다음 이슈**. contracts는 의존·React가 없어 위험이 가장 낮고 EV `platform-adapter`가 먼저 필요로 한다. 이전은 FO 픽셀 게이트를 같이 옮겨야 한다(ADR-0043 결과) |
-| 저장소·릴리스 구조 | | [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md) |
+| 저장소·릴리스 구조 | | [ADR-0044](../../adr/0044-sdk-source-in-platform-repo-released-separately.md) |
 
 ## 7. 후속 — 아직 구현하지 않음
 
 | 항목 | 상태 | 이유·다시 열 조건 |
 | --- | --- | --- |
-| 디자인 시스템 코드 이전 | [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md) 코드 이전 끝(#441–#443) | 남은 것: FeedbackOps 소비 전환(+배포 경로 #151), 도메인 결합 부분 분류, `@ap/ui` 전체 배포 모양 |
+| 디자인 시스템 코드 이전 | [ADR-0046](../../adr/0046-design-system-source-moves-to-platform-whole-package.md) 코드 이전 끝(#441–#443) | 남은 것: FeedbackOps 소비 전환(+배포 경로 #151), 도메인 결합 부분 분류, `@ap/ui` 전체 배포 모양 |
 | FeedbackOps#1231 본문 | ~~낡음~~ 완료 — 본문 갱신(2026-10-19, 사용자 허락) | "`@ap/feature-ui`를 FeedbackOps가 배포" 서술을 ADR-0046 기준으로 고쳤다 |
 | EV ADR-0010 본문 | "미구현"으로 남아 있으나 코드는 구현됨 | EV 저장소 일 |
 | EV `packages/sdk/ui`의 AP 복사 치수 | 셸·표가 AP와 손 복사 | SDK 셸·표가 공개되면 교체. 그전에는 건드리지 않는다 |

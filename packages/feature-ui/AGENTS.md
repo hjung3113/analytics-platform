@@ -1,5 +1,7 @@
 # UI Package Agent Guide
 
+Read the measured traps before editing components or their tests: [`@ap/ui` and `@ap/feature-ui`](../../.claude/rules/feature-ui.md), [frontend tests](../../.claude/rules/feature-screens-tests.md).
+
 ## Allowed Content
 
 - UI primitives and wrappers.

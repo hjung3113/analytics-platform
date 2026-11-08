@@ -1,5 +1,7 @@
 # MVP Roadmap
 
+> **Historical record.** The MVP in this document shipped as v1.0.0 (2026-10-17). It is not a current plan; open work is in [`.planning/README.md`](../../../../.planning/README.md).
+
 ## Purpose
 
 This document defines release scope. System documents describe behavior; this document decides when behavior ships.
@@ -14,7 +16,7 @@ scope and the MVP Close-Out shipped, including the #739/#740/#816 Survey provena
 cutover and safe reuse (#816 included), the Evidence inventory and route
 (`#1040/#1107/#1109` per FO ADR-0065), and the Release Value Gate run (passed on the
 second run, #1062). Public survey links stay rejected (FO ADR-0035/0036). Every item
-deferred or dropped is recorded in [14-post-mvp-backlog.md](14-post-mvp-backlog.md).
+deferred or dropped is recorded in [14-post-mvp-backlog.md](../14-post-mvp-backlog.md).
 
 ## Phase 2
 

@@ -1,7 +1,5 @@
 # Surveys Feature Agent Guide
 
-#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/feature-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
-
 ## Ownership
 
 Surveys owns frontend route composition for Survey creation, builder flows, responses, results, and survey-to-action CTAs.

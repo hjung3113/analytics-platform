@@ -50,7 +50,7 @@ Email domain, SMTP relay and public HTTPS hostname are unknown until #150/#151 a
 | Item | Reason | Reopen when |
 | --- | --- | --- |
 | RP-initiated logout (`POST /auth/logout` stays feature-only) | Keycloak's SSO session survives feature logout, so the next login may skip the password. Acceptable for personal PCs. | A shared or kiosk PC requirement, or the company SSO switch |
-| Account linking for the company-SSO switch ([merge design §6](../../../integration/feedbackops-merge-design.md), #603) | The company IdP's `sub` is unknown. Rule when it happens: verified email match → move the Actor's `external_id` to the new `sub`, audited, only during the switch window. | #150 is answered |
+| Account linking for the company-SSO switch ([merge design §6](../../../integration/history/feedbackops-merge-design.md), #603) | The company IdP's `sub` is unknown. Rule when it happens: verified email match → move the Actor's `external_id` to the new `sub`, audited, only during the switch window. | #150 is answered |
 
 ## Realm and client rename (#1100 b)
 

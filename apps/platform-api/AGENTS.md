@@ -10,6 +10,7 @@ DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clu
 - Use `docs/architecture/platform-api/05-permission-policy.md` for access control.
 - Use `docs/architecture/platform-api/06-entity-linking-contract.md` for links.
 - Use `docs/architecture/platform-api/02-domain-module-boundaries.md` before adding or moving modules.
+- Read the measured traps before editing tests or migrations: [integration tests](../../.claude/rules/feature-api-integration-tests.md), [database and migrations](../../.claude/rules/feature-db-migrations.md).
 
 ## Layer Rules
 

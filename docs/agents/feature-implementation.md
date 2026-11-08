@@ -1,7 +1,5 @@
 # Feature Implementation Guide
 
-DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clusters use `ops/platform-api/scripts/db/cutover-0076-platform-identity.sh`; see `docs/architecture/platform-api/04-database-and-migrations.md` for the staged procedure.
-
 ## Operating Rules
 
 - The standalone runtime is retired (platform ADR-0097). Preserve the retained public entries of `@ap/feature-screens`, backend and bridge seams; the platform owns navigation/session/layout. ADR-0097 and ADR-0100 own current names, identity and navigation.
