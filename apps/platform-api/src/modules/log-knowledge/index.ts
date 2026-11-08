@@ -9,7 +9,9 @@ export type {
   EffectiveRequirement,
   EffectiveRequirements,
   KnowledgeLookup,
+  KnowledgeModelOption,
   KnowledgeModelRef,
+  KnowledgeSoftwareOption,
   KnowledgeSoftwareRef,
   SpecPin,
 } from './knowledge-lookup.js';

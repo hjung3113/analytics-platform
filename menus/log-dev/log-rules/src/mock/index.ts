@@ -1,11 +1,11 @@
 import { filterRows, validateFilters, type ColumnFilterSpec } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import {
-  RULE_SET_SORT_IDS, RULE_SORT_IDS, SUPPORTS, catalogStatusEndpoint, coverageEndpoint, coverageSummaryEndpoint,
+  RULE_SET_SORT_IDS, RULE_SORT_IDS, SUPPORTS, catalogStatusEndpoint, coverageEndpoint, coverageSummaryEndpoint, modelOptionsEndpoint, softwareOptionsEndpoint,
   isCatalogKey, isUuid, ruleDetailEndpoint, ruleWireFilterSpecs, ruleSetDetailEndpoint, ruleSetFilterSpecs, ruleSetsEndpoint, rulesEndpoint,
   type CatalogParams, type RuleParams,
 } from '../endpoints';
-import { fixtureCoverage, fixtureHistories, fixtureRows, fixtureRules, fixtureRuleSets, fixtureSoftware, fixtureStatus } from './fixtures';
+import { FIXTURE_MODELS, fixtureCoverage, fixtureHistories, fixtureRows, fixtureRules, fixtureRuleSets, fixtureSoftware, fixtureStatus } from './fixtures';
 export { FIXTURE_MODELS } from './fixtures';
 
 const compare = (a: string | number, b: string | number) => a < b ? -1 : a > b ? 1 : 0;
@@ -82,4 +82,24 @@ const summary = defineMockEndpoint(coverageSummaryEndpoint, { mart: false,
     return data?.computable ? { modelId, computable: true as const, counts: data.counts, coverageDigest: data.coverageDigest } : { modelId, computable: false as const, reason: data?.reason ?? 'model_unknown' as const };
   }) }),
 });
-export const logRulesMock: readonly AnyMockEndpoint[] = [sets, history, rules, detail, catalog, coverage, summary];
+// Names and codes of the four fixture models as the knowledge menu's mock seeds them (A-100 … B-20; menus may not import each other).
+const MODELS: Record<string, { code: string; name: string }> = {
+  [FIXTURE_MODELS.mixed]: { code: 'A-100', name: 'Alpha 100' }, [FIXTURE_MODELS.noSpec]: { code: 'A-200', name: 'Alpha 200' },
+  [FIXTURE_MODELS.noIds]: { code: 'B-10', name: 'Beta 10' }, [FIXTURE_MODELS.full]: { code: 'B-20', name: 'Beta 20' },
+};
+const modelOptions = defineMockEndpoint(modelOptionsEndpoint, { mart: false,
+  validate: ({ params }) => params.q != null && (typeof params.q !== 'string' || params.q.length > 200 || unsafe(params.q)) ? 'search must be a string of at most 200 characters or null'
+    : !Number.isInteger(params.page ?? 0) || (params.page ?? 0) < 0 ? 'page must be a non-negative integer (0-based)'
+    : !Number.isInteger(params.pageSize ?? 20) || (params.pageSize ?? 20) < 1 || (params.pageSize ?? 20) > 200 ? 'pageSize must be an integer from 1 to 200' : null,
+  handle: ({ params }) => {
+    const all = Object.entries(MODELS).map(([id, m]) => ({ id, code: m.code, name: m.name, vendorName: '합성 fixture', active: true }))
+      .filter(m => !params.q || `${m.code} ${m.name}`.toLowerCase().includes(params.q.trim().toLowerCase()));
+    const size = params.pageSize ?? 20, at = params.page ?? 0;
+    return { rows: all.slice(at * size, (at + 1) * size), total: all.length, page: at, pageSize: size };
+  },
+});
+const softwareOptions = defineMockEndpoint(softwareOptionsEndpoint, { mart: false,
+  validate: ({ params }) => isUuid(params.modelId ?? '') ? null : 'modelId must be a UUID',
+  handle: ({ params }) => ({ rows: (fixtureSoftware[params.modelId.toLowerCase()] ?? []).map((id, i) => ({ id, versionLabel: `${i + 1}.0`, name: '합성 fixture', active: true })) }),
+});
+export const logRulesMock: readonly AnyMockEndpoint[] = [sets, history, rules, detail, catalog, coverage, summary, modelOptions, softwareOptions];

@@ -4,6 +4,7 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — `Combobox` 툴바 크기 변형(#1496):** 명세 커버리지 선택기는 32px 툴바 줄에 맞추려고 `Combobox`에 `className`을 주고 이유를 단 `shadcn/no-restyle` 예외 2건을 쓴다. 이유: 지금 소비자가 이 화면 하나뿐이라 SDK 공개 타입을 늘리지 않았다. 다시 여는 조건: 툴바 줄에 `Combobox`를 쓰는 두 번째 화면이 생길 때 `@ap/ui`에 `size="toolbar"`를 넣고 예외를 지운다.
 - **구현 안 함 — log-models의 `node` 없는 개발 건·Round 딥링크 현재 계층 노드 복원(#1449, SDK 소유):** Kernel `navTree.currentNodeId(location)`는 동기 함수다. `projectId`만 있는 개발 건·Round 주소는 서버에서 설비사·공정 경로(복수 공정이면 대표 경로)를 조회해야 하지만 Source 결과를 현재 노드로 넘기는 공개 seam이 없다. 이유: 비동기 해석은 SDK 변경이며 이번 메뉴 수정 범위 밖이다. 모듈 전역 캐시·Registry 변경·React hook을 callback에 숨기지 않는다. 다시 여는 조건: 소유자가 Source/선언의 비동기 현재 노드 해석 seam과 복수 공정 대표 경로 규칙을 SDK 변경으로 결정할 때. 계층이 만든 개발 건·Round 링크는 객체 ID 경로 `node`로, 모델 목록 링크는 `vendorId`·`processId`·`modelId`로 복원하며 프로젝트 내 Round 이동도 `node`를 보존한다.
 
 - **구현 안 함 — 계층 말단 행의 펼침 슬롯 정렬(#1449 리뷰, SDK 소유):** `packages/sdk/components/src/hierarchy/HierarchyNav.tsx`의 자식 없는 행은 펼침 버튼 슬롯을 확보하지 않아 형제 행의 링크 시작점이 어긋난다. 이유: 공통 계층 부품 변경은 이번 메뉴 수정 범위 밖이다. 다시 여는 조건: SDK 계층 행 정렬을 수정하는 작업이 열릴 때.

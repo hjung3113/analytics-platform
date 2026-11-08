@@ -1,6 +1,6 @@
 # Log Rules — 검증 규칙 조회·연결 설계 (v0.31.0, 소유자 답 반영, 구현 전)
 
-> **Status: Candidate → 소유자 답 반영 완료(2026-11-08), ADR-0122 Decided.** R-a~R-d의 보고·저장·읽기와 R-e의 조회 화면이 구현되었다. R-f 연동과 R-g 계약 E2E는 미구현이다. 근거는 [#1486](https://github.com/hjung3113/analytics-platform/issues/1486)이고, [#1346](https://github.com/hjung3113/analytics-platform/issues/1346) §1·§3 P1-3, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic, v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md), 모델 명세 [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0. [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md)는 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
+> **Status: Candidate → 소유자 답 반영 완료(2026-11-08), ADR-0122 Decided.** R-a~R-d의 보고·저장·읽기와 R-e의 조회 화면이 구현되었다. R-f(#1496)의 소비자 연동(Round RuleSet 링크·Dataset 규칙 ID 확인·모델 명세 배지·모델/SW 선택기)도 구현되었고, R-g 계약 E2E는 미구현이다. 근거는 [#1486](https://github.com/hjung3113/analytics-platform/issues/1486)이고, [#1346](https://github.com/hjung3113/analytics-platform/issues/1346) §1·§3 P1-3, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic, v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md), 모델 명세 [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0. [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md)는 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
 >
 > 사내 Validator의 인터페이스·출력·권한은 실사 전이다. 이 설계는 **받는 쪽(플랫폼) 계약과 합성 보고자까지만** 정하고 «연동 완료»를 쓰지 않는다([#1330](https://github.com/hjung3113/analytics-platform/issues/1330)).
 
@@ -132,7 +132,7 @@ POST /api/v1/validation-catalog/report   { sourceSystem, validatorVersion, ruleS
 
 ### 5.3 읽기 포트 (모듈 간)
 
-`RuleCoveragePort.getCoverage(modelId, softwareId?)` → `{ computable, requirements:[{ key, state }], coverageDigest, specPin, ruleSetRevisions:[…] }` 와 `resolveRuleSetRevision(ruleSetKey, revision)`. 소비자(구현은 각 문서의 몫): Gate의 필수 Rule의 명세 커버리지 계산(log-lifecycle §9), Round 화면의 RuleSet 링크, [log-test-datasets](../log-test-datasets/README.md)의 `expected_scope` 규칙 ID 존재 확인(노드 0의 식별 계약 확인 뒤), 이후 `logCross`.
+`RuleCoveragePort.getCoverage(modelId, softwareId?)` → `{ computable, requirements:[{ key, state }], coverageDigest, specPin, ruleSetRevisions:[…] }` 와 `resolveRuleSetRevision(ruleSetKey, revision)`(키를 아는 호출자용, 모호함도 `null`). R-f(#1496)가 더한 메서드: `findRuleSetRevision(ref)` — 저장된 시도·핀 문자열을 현재 카탈로그의 모든 RuleSet에서 정확 일치로 찾아 `matched`(+ `ResolvedRuleSetRevision`)·`ambiguous`(+개수, 같은 문자열이 둘 이상의 Revision에 있음)·`unknown`·`no_catalog`를 구분해 답하고, `checkRuleKeys(ref, ruleIds)` — 정해진 Revision에 `rule_key`(정확 문자열)가 없는 ID를 `checked { missing }`로, Revision이 하나로 정해지지 않으면 `unresolved { reason }`로 답한다. 소비자: Gate의 필수 Rule의 명세 커버리지 계산(log-lifecycle §9), Round 화면의 RuleSet 링크, [log-test-datasets](../log-test-datasets/README.md)의 `expected_scope` 규칙 ID 존재 확인(노드 0의 식별 계약 확인 뒤), 이후 `logCross`.
 
 쓰기 액션은 없다.
 
@@ -165,12 +165,12 @@ log-dev > 기준 (logRules)
 - RuleSet 이력: Revision 사이 추가·제거·지원 변경(읽기).
 
 **명세 커버리지 탭**
-- 상단: 모델·SW 선택(안정 ID, `log-knowledge` 딥링크), `spec_pin`, 상태별 개수 띠(`규칙 있음`·`일부`·`규칙 없음`·`미지원`·`확인 불가`).
+- 상단: 모델·SW 선택(안정 ID를 주소에 두고 이름으로 보이며 원본 ID·«모델 기준» 문구는 선택기 옆에 따로 두지 않는다; SW 목록을 못 읽으면 선택기 옆에 오류와 «다시 시도»), 모델 명세 링크(`log-knowledge` 딥링크), `spec_pin`, 상태별 개수 띠(`규칙 있음`·`일부`·`규칙 없음`·`미지원`·`확인 불가`).
 - 계산할 수 없을 때(Validator가 요구사항 ID를 주지 않음 / 카탈로그 미수신 / 명세 없음): 표 대신 이유를 말하는 상태 하나를 보인다. 0%·«규칙 없음 전부»로 보이지 않는다.
 - 본문: 요구사항 표(모듈/이벤트 키, 상태, 선언한 Rule 수). **«규칙 없음»을 먼저 보이게 정렬 기본값**으로 하고 색만으로 구분하지 않는다. 100%여도 «통과가 아니라 구성 정보입니다» 문구를 둔다.
 - 행 서랍: 선언한 Rule(RuleSet·Revision·지원), 대상 범위 선언. 연결 동작 버튼은 없다.
 
-**연동 표시(다른 화면)**: 모델 명세 화면과 Round 상세에 `coverageSummary` 배지와 이 탭으로의 딥링크를 둔다(각 화면은 해당 노드가 소유). 계산할 수 없는 모델은 배지 대신 «계산 불가».
+**연동 표시(다른 화면, R-f #1496 구현)**: 모델 명세 화면 머리에 `logKnowledge.specCoverage` 배지 «규칙 없음 N · 요구사항 M»(계산할 수 없으면 «명세 커버리지 계산 불가» + 이유)와 이 탭으로의 딥링크를 둔다. 발행된 명세가 없는 모델에도 이유(«발행된 명세가 없습니다»)와 링크를 보인다. 명세 발행·SW 변경점 쓰기는 이 배지를 다시 읽는다. 규칙 없음이 1건 이상이면 경고 아이콘을 함께 둔다. «통과가 아니라 구성 정보» 의미이고 합격·불합격으로 보이지 않는다. Round 상세의 시도 표는 «규칙 세트» 열을 두어 `findRuleSetRevision` 결과를 보인다: `matched`는 `ruleSetKey · revision`(+ 현재 Revision이 아니면 «현재 아님»)이고 RuleSet 이력으로 가는 링크, `ambiguous`는 «여러 RuleSet에 해당 — 연결하지 않음», `unknown`은 «카탈로그에 없음», 카탈로그가 비면 «카탈로그 미수신», 카탈로그 조회가 실패하면 «규칙 세트를 확인하지 못함»(Round 결과는 그대로 보인다), 시도에 Revision이 없으면 «—». 결과를 다시 판정하지 않는다. Round 상세의 `coverageSummary` 배지는 구현하지 않았다(아래 §9).
 
 ### 6.4 Wireframe·URL
 
@@ -178,7 +178,7 @@ log-dev > 기준 (logRules)
 
 **구현(#1495, 시안 A):** 기존 `log-rules`를 lazy 화면으로 바꾸고 `log-rule` 상세 별칭(`/log/rules/:ruleSetKey/:ruleKey`) 하나만 navHidden으로 둔다. Registry의 정규 경로는 각각 `/log-dev/log-rules`, `/log-dev/log-rule/:ruleSetKey/:ruleKey`이며 기존 경로는 별칭으로 유지된다. `tab=rules|coverage`, `q`·`sort`·`page`와 숨은 반복 `filter`는 공용 표 URL 계약이다. `q`는 Rule·이름·요약 검색이고, 대상 범위 원문은 `filter=targetCount:contains:<원문>`으로 보존하여 기존 서버 `targetQ` 인자로 보낸다. `ruleSetKey`만 있으면 RuleSet 이력, `ruleKey`가 함께 있으면 규칙 서랍, 커버리지의 `focus=<요구사항 키>`는 현재 표 페이지의 요구사항 서랍이다.
 
-모델 목록을 타 메뉴에서 중복 선언할 수 없어 모델·SW 선택은 딥링크의 안정 UUID 입력으로 제공한다. `coverageSummary`는 선택한 모델의 모델 기준 요약을 조회하며 목록을 발견하는 API로 사용하지 않는다. 모델 명세 링크는 `log-knowledge-spec`의 기존 ID·module/event 계약을 따른다. 규칙 서랍은 선택한 모델의 커버리지 전체 페이지에서 정확한 키 집합을 읽고, 모든 페이지의 digest가 같을 때만 «명세에 없는 요구사항 ID»를 표시한다. 모델 미선택·읽기 실패·계산 불가는 미확인 안내로 남긴다.
+모델·SW 선택은 R-f(#1496)에서 `logRules.modelOptions`(검색 `q`·서버 페이징)와 `logRules.softwareOptions`(모델의 SW 버전, 릴리스 순) 선택기가 되었다. `KnowledgeLookup.listModels|listSoftware`를 log-rules 메뉴가 선언하며 id와 코드·이름·설비사만 돌려주고 권한은 `platform:view`뿐이다(log-knowledge에 모델 단위 ACL이 없다). 주소 키는 그대로 `modelId`·`softwareId` UUID이고, 목록이 이름을 붙이지 못하는 주소의 id는 오류 없이 id 그대로 보인다. `coverageSummary`는 선택한 모델의 모델 기준 요약을 조회하며 목록을 발견하는 API로 사용하지 않는다. 모델 명세 링크는 `log-knowledge-spec`의 기존 ID·module/event 계약을 따른다. 규칙 서랍은 선택한 모델의 커버리지 전체 페이지에서 정확한 키 집합을 읽고, 모든 페이지의 digest가 같을 때만 «명세에 없는 요구사항 ID»를 표시한다. 모델 미선택·읽기 실패·계산 불가는 미확인 안내로 남긴다.
 
 표는 SDK 기본 크기를 사용하며 내부 높이를 덮어쓰지 않는다. #1473의 선택 `fill`이 병합되면 `menus/log-dev/log-rules/src/pages/SnapshotTable.tsx`에서 한 prop으로 적용한다.
 
@@ -223,10 +223,11 @@ log-dev > 기준 (logRules)
 
 | 항목 | 이유 | 다시 여는 조건 |
 | --- | --- | --- |
-| 모델·SW 이름 목록 선택(미구현, #1495) | 타 메뉴 endpoint 중복 선언 금지, 공용 모델 목록 조회 표면 없음 | 레인에서 승인된 목록 조회 계약을 제공할 때 |
 | 표 높이 채우기(미구현, #1473) | SDK `fill` 병합 대기, 내부 높이 덮어쓰기 금지 | #1473 SDK 선택 prop 사용 가능 시 |
 | Revision별 규칙 탐색(미구현, #1495) | `rules` 읽기는 현재 Revision의 규칙만 제공. 이력 서랍의 «이 RuleSet의 규칙 보기»는 현재 규칙에 RuleSet 필터 적용 | `rules` read gains a Revision parameter or the owner asks for historical Revision rule lists |
-| R-f 소비자 연동·R-g 계약 E2E(미구현) | 이번 R-e는 조회 화면 범위 | 해당 노드 착수 시 |
+| R-g 계약 E2E(미구현) | R-f는 단위·통합 시험까지 | 해당 노드 착수 시 |
+| Round 상세의 `coverageSummary` 배지(미구현, #1496) | R-f 범위는 모델 명세 배지와 시도의 RuleSet 링크 | 소유자가 Round 화면의 배지를 요청할 때 |
+| Dataset 규칙 ID 확인의 «확인 없이 수용»(미구현 한계, #1496) | 핀한 Revision이 없거나 카탈로그가 비었거나 문자열이 모호하면 ID를 검사하지 않는다(카탈로그 부재가 Dataset 작업을 막지 않기 위함). 승인(`baselineApprove`)은 다시 검사하지 않는다 | 핀 없는 기준을 거절해야 한다고 소유자가 정하거나 카탈로그 수신이 운영에서 보장될 때 |
 | 사람이 만드는 연결(수동 연결·확인·폐기) | 소유자 결정(2026-11-08): 플랫폼은 단위를 정하지 않고 Validator 선언만 기록 | 소유자가 사람 연결을 요청하고 연결 단위를 정할 때 |
 | 대상 범위의 해석·정규화(이벤트·필드·컬럼 단위로 변환) | 범위가 이벤트·컬럼보다 다양해 정의하기 어렵다(소유자) | Validator가 안정적인 공통 단위를 내놓고 소유자가 요청할 때 |
 | Validator 요구사항 ID ↔ 명세 키 매핑 | 문자열 일치 외 매핑 규칙을 모름 | Validator 실사에서 ID 체계가 확인되고 소유자가 매핑을 요청할 때 |

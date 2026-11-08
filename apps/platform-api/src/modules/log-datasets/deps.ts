@@ -3,6 +3,7 @@ import type { SourceOwnerAccess } from '../log-explorer/index.js';
 import type { SuiteRequestPort, SuiteResultReadPort } from '../log-lifecycle/index.js';
 import type { KnowledgeLookup } from '../log-knowledge/index.js';
 import type { CheckService } from '../permissions/check-service.js';
+import type { RuleKeyChecker } from './rule-scope-check.js';
 import type { DatasetSourceRead } from './source-check.js';
 
 export interface LogDatasetsDeps {
@@ -25,4 +26,6 @@ export interface LogDatasetsDeps {
   lifecycleRequests: SuiteRequestPort;
   /** The lifecycle barrel read port for the rule results of the latest succeeded attempt of a request (the comparison, #1480). Rule ids and result names only. */
   lifecycleResults: SuiteResultReadPort;
+  /** The rule catalog rule-id check of `expectedScope` (the log-rules `RuleCoveragePort`, injected by the assembly; #1496). Absent = every id accepted unchecked. */
+  ruleCoverage?: RuleKeyChecker | undefined;
 }

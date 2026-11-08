@@ -34,7 +34,7 @@ import type { DrainState } from './lib/shutdown.js';
 import { getStorage } from './lib/storage/factory.js';
 import type { StorageBackend } from './lib/storage/index.js';
 import { SESSION_COOKIE_NAME } from './middleware/require-session.js';
-import { catalogReportRoutes, logRulesContribution } from './modules/log-rules/index.js';
+import { catalogReportRoutes, createRuleCoveragePort, logRulesContribution } from './modules/log-rules/index.js';
 import {
   apiTokenRoutes,
   authResultOf,
@@ -992,17 +992,20 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     ...(opts.logExplorer?.cursorKey ? { cursorKey: opts.logExplorer.cursorKey } : {}),
     ...(opts.logExplorer?.usage ? { usage: opts.logExplorer.usage } : {}),
   };
+  // The one RuleCoveragePort instance behind its three consumers (Round RuleSet link, Dataset rule-id check, spec badge; #1496).
+  const ruleCoverage = createRuleCoveragePort({ knowledgeLookup });
   const menuRegistry = createMenuDispatchRegistry([
     homeNoticesContribution({ db: dbHandle.db, checkService }),
     logKnowledgeContribution({
       db: dbHandle.db,
       checkService,
+      ruleCoverage,
       runnerPool: importApplyRunnerPool,
       ...(opts.logKnowledgeImport?.applyBudgetMs !== undefined ? { applyBudgetMs: opts.logKnowledgeImport.applyBudgetMs } : {}),
       ...(opts.logKnowledgeImport?.hooks ? { applyHooks: opts.logKnowledgeImport.hooks } : {}),
     }),
     improvementItemsContribution({ db: dbHandle.db, checkService, notify }),
-    logLifecycleContribution({ db: dbHandle.db, checkService, knowledgeLookup, entityLinks: entityLinksService }),
+    logLifecycleContribution({ db: dbHandle.db, checkService, knowledgeLookup, entityLinks: entityLinksService, ruleCoverage }),
     logExplorerContribution(logExplorerDeps),
     logRulesContribution({ db: dbHandle.db, checkService, knowledgeLookup }),
     investigationContribution({
@@ -1017,7 +1020,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
         ...(opts.logExplorer?.handoffSourceTotalMs !== undefined ? { sourceTotalMs: opts.logExplorer.handoffSourceTotalMs } : {}),
       },
     }),
-    logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),
+    logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, ruleCoverage, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is

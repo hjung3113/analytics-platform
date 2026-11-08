@@ -154,6 +154,19 @@ describe.skipIf(!runIntegration)('log test dataset baselines (#1478 D-b)', () =>
 
   let foreignBaseline = '';
   const baselineIds: string[] = [];
+  const catalogReportIds: string[] = [];
+  /** One accepted catalog report of the shared workspace, from its own source (one current report per source): a RuleSet with one Revision holding the given rule keys (#1496). */
+  async function seedCatalog(revision: string, ruleKeys: string[]): Promise<void> {
+    const reportId = randomUUID();
+    const revisionId = randomUUID();
+    catalogReportIds.push(reportId);
+    const hex = () => randomUUID().replaceAll('-', '').repeat(2);
+    await sql(`insert into log_rules.catalog_report (id, workspace_id, source_system, reported_by_actor_id, validator_version, report_digest, outcome) values ($1,$2,$3,$4,'0.0-synthetic',$5,'accepted')`, [reportId, WORKSPACE_ID, `${TAG}-src-${reportId.slice(0, 8)}`, admin.id, hex()]);
+    await sql(`insert into log_rules.rule_set_revision (id, workspace_id, report_id, rule_set_key, revision, result_ref, revision_digest, status) values ($1,$2,$3,$4,$5,$5,$6,'active')`, [revisionId, WORKSPACE_ID, reportId, `${TAG}-rs`, revision, hex()]);
+    for (const key of ruleKeys) {
+      await sql(`insert into log_rules.rule (id, workspace_id, rule_set_revision_id, rule_key, title, summary, support, rule_digest) values ($1,$2,$3,$4,'합성 fixture','합성 fixture summary','supported',$5)`, [randomUUID(), WORKSPACE_ID, revisionId, key, hex()]);
+    }
+  }
   const revisionOf = async (ds: string, names: string[] = [`${n++}.log`], who: Person = grantee) => {
     const set = sampleSet(...names);
     const a = await act('revisionCreate', { datasetId: ds, sampleSet: set }, who);
@@ -252,6 +265,23 @@ describe.skipIf(!runIntegration)('log test dataset baselines (#1478 D-b)', () =>
     } finally {
       client.release();
     }
+    if (catalogReportIds.length > 0) {
+      const client = await migrate.pool.connect();
+      try {
+        await client.query('begin');
+        for (const [table, trigger] of [['rule_target', 'rule_target_append_only'], ['rule', 'rule_append_only'], ['rule_set_revision', 'rule_set_revision_append_only'], ['catalog_report', 'catalog_report_no_delete'], ['catalog_report', 'catalog_report_guard']]) await client.query(`alter table log_rules.${table} disable trigger ${trigger}`);
+        await client.query('delete from log_rules.rule where rule_set_revision_id in (select id from log_rules.rule_set_revision where report_id = any($1))', [catalogReportIds]);
+        await client.query('delete from log_rules.rule_set_revision where report_id = any($1)', [catalogReportIds]);
+        await client.query('delete from log_rules.catalog_report where id = any($1)', [catalogReportIds]);
+        for (const [table, trigger] of [['rule_target', 'rule_target_append_only'], ['rule', 'rule_append_only'], ['rule_set_revision', 'rule_set_revision_append_only'], ['catalog_report', 'catalog_report_no_delete'], ['catalog_report', 'catalog_report_guard']]) await client.query(`alter table log_rules.${table} enable trigger ${trigger}`);
+        await client.query('commit');
+      } catch (error) {
+        await client.query('rollback');
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
     await sql('delete from knowledge.model_spec_revision where created_by = any($1)', [actorIds]);
     for (const table of ['software_version', 'equipment_model', 'vendor']) await sql(`delete from knowledge.${table} where created_by = any($1)`, [actorIds]);
     for (const [table, column] of [['core.idempotency_keys', 'actor_id'], ['core.audit_log', 'actor_id'], ['permission.permission_grants', 'actor_id'], ['core.sessions', 'actor_id'], ['core.actors', 'id']]) {
@@ -290,6 +320,39 @@ describe.skipIf(!runIntegration)('log test dataset baselines (#1478 D-b)', () =>
   });
 
   describe('baselineUpdateDraft', () => {
+    it('refuses scope rule ids the pinned RuleSet Revision lacks, only when that Revision resolves (#1496)', async () => {
+      const ds = await makeDataset(admin, { shareScope: 'workspace' });
+      const rev = await revisionOf(ds.id);
+      const d = await newDraft(rev.id);
+      const scope = ['R-1', 'R-9'];
+      // Unresolved pin (no such Revision in the catalog): accepted unchecked.
+      const unchecked = await act('baselineUpdateDraft', { id: d.id, profilePin: { ruleSetRevision: `${TAG}-rv` }, expectedScope: scope }, grantee, d.version);
+      expect(unchecked.outcome, JSON.stringify(unchecked)).toBe('ok');
+      await seedCatalog(`${TAG}-rv`, ['R-1']);
+      const refused = await act('baselineUpdateDraft', { id: d.id, expectedScope: ['R-1', 'R-9'] }, grantee, unchecked.version as string);
+      expect(refused.outcome).toBe('invalid');
+      expect(fe(refused)).toEqual(['expectedScope.1:unknown_rule']);
+      expect((await row(d.id)).expected_scope).toEqual(scope);
+      const ok = await act('baselineUpdateDraft', { id: d.id, expectedScope: ['R-1'] }, grantee, unchecked.version as string);
+      expect(ok.outcome, JSON.stringify(ok)).toBe('ok');
+    });
+
+    it('checks the stored scope against the stored pin on an expectations-only save once the pin resolves (#1496)', async () => {
+      const ds = await makeDataset(admin, { shareScope: 'workspace' });
+      const rev = await revisionOf(ds.id);
+      const d = await newDraft(rev.id);
+      const rv = `${TAG}-rv2`;
+      // Stored while the pin names no catalog Revision: accepted unchecked.
+      const stored = await act('baselineUpdateDraft', { id: d.id, profilePin: { ruleSetRevision: rv }, expectedScope: ['R-1', 'R-9'] }, grantee, d.version);
+      expect(stored.outcome, JSON.stringify(stored)).toBe('ok');
+      await seedCatalog(rv, ['R-1']);
+      // The pin now resolves; a save that sends neither pin nor scope must still be refused.
+      const refused = await act('baselineUpdateDraft', { id: d.id, expectations: [{ ruleId: 'R-1', expected: 'PASS' }] }, grantee, stored.version as string);
+      expect(refused.outcome).toBe('invalid');
+      expect(fe(refused)).toEqual(['expectedScope.1:unknown_rule']);
+      expect((await row(d.id)).row_version).toBe(Number(stored.version));
+    });
+
     it('stores the content by version, records an event and an audit row of names and counts, and a no-op save writes nothing', async () => {
       const ds = await makeDataset(admin, { shareScope: 'workspace' });
       const rev = await revisionOf(ds.id);

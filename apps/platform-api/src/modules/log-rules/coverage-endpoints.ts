@@ -9,9 +9,13 @@ import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import {
   COVERAGE_PARAM_KEYS,
   COVERAGE_SUMMARY_PARAM_KEYS,
+  MODEL_OPTION_PARAM_KEYS,
+  SOFTWARE_OPTION_PARAM_KEYS,
   DECLARED_REF_CAP,
   parseCoverageParams,
   parseCoverageSummaryParams,
+  parseModelOptionParams,
+  parseSoftwareOptionParams,
 } from './domain/coverage-params.js';
 import { sortRequirements } from './domain/coverage.js';
 import type { LogRulesContributionDeps } from './deps.js';
@@ -74,6 +78,19 @@ export function coverageEndpoints(deps: LogRulesContributionDeps): MenuEndpointD
           pageSize: q.pageSize,
         },
       };
+    }),
+    // Picker options (#1496 R-f): ids and display text of models / software versions, paged and searchable. `platform:view`
+    // like every log-knowledge read (no model-level ACL exists); an unknown model answers an empty list.
+    declareRead(deps, 'modelOptions', MODEL_OPTION_PARAM_KEYS, parseModelOptionParams, async (actor, params) => {
+      const parsed = parseModelOptionParams(params);
+      if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
+      const { rows, total } = await deps.knowledgeLookup.listModels(deps.db, actor.workspace_id, parsed.value);
+      return { outcome: 'ok', data: { rows, total, page: parsed.value.page, pageSize: parsed.value.pageSize } };
+    }),
+    declareRead(deps, 'softwareOptions', SOFTWARE_OPTION_PARAM_KEYS, parseSoftwareOptionParams, async (actor, params) => {
+      const parsed = parseSoftwareOptionParams(params);
+      if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
+      return { outcome: 'ok', data: { rows: await deps.knowledgeLookup.listSoftware(deps.db, actor.workspace_id, parsed.value) } };
     }),
     declareRead(deps, 'coverageSummary', COVERAGE_SUMMARY_PARAM_KEYS, parseCoverageSummaryParams, async (actor, params) => {
       const parsed = parseCoverageSummaryParams(params);

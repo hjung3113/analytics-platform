@@ -879,6 +879,19 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logKnowledge.specCoverage",
+    "menuId": "log-knowledge-models",
+    "paramKeys": [
+      "modelId",
+      "softwareId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logKnowledge.specDraft",
     "menuId": "log-knowledge-models",
     "paramKeys": [
@@ -1127,6 +1140,20 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logRules.modelOptions",
+    "menuId": "log-rules",
+    "paramKeys": [
+      "q",
+      "page",
+      "pageSize"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logRules.ruleDetail",
     "menuId": "log-rules",
     "paramKeys": [
@@ -1177,6 +1204,18 @@
       "sorting",
       "filters",
       "targetQ"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logRules.softwareOptions",
+    "menuId": "log-rules",
+    "paramKeys": [
+      "modelId"
     ],
     "permission": "platform:view",
     "requiresScope": false,
