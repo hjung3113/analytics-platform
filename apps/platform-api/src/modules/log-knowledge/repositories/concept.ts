@@ -11,6 +11,7 @@ import { commonConcepts, equipmentModels, specConceptMappings } from '../../../d
 import type { Tx } from '../../../db/tx.js';
 import type { SimilarityBasis } from '../domain/concept-similarity.js';
 import { type Viewer, canSeeModel, ref, visibleModelSql } from './access-visibility.js';
+import { enqueueConceptChange } from './search-outbox.js';
 import { resolveTargets } from './spec-targets.js';
 
 const m = specConceptMappings;
@@ -168,6 +169,7 @@ export async function reviewMapping(
     .where(and(eq(m.workspaceId, workspaceId), eq(m.id, row.id)))
     .returning({ rowVersion: m.rowVersion });
   if (!out) throw new Error('concept mapping review returned no row');
+  await enqueueConceptChange(tx, workspaceId, row.conceptId); // #1506: the Items that name a target of this concept
   return out.rowVersion;
 }
 

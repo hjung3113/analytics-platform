@@ -17,6 +17,7 @@ import {
 import type { Tx } from '../../../db/tx.js';
 import { type Viewer, canSeeModel, canSeeSoftware } from './access-visibility.js';
 import { toCodeKey } from '../domain/code-key.js';
+import { enqueueCatalogChange } from './search-outbox.js';
 
 export type CatalogKind = 'vendor' | 'process' | 'model' | 'software';
 export type ParentKind = 'vendor' | 'process' | 'model';
@@ -238,7 +239,7 @@ export async function insertRow(tx: Tx, kind: CatalogKind, input: NewRow): Promi
   });
 }
 
-export async function updateRow(
+async function updateRowStatement(
   tx: Tx,
   kind: CatalogKind,
   workspaceId: string,
@@ -277,7 +278,7 @@ export async function updateRow(
   });
 }
 
-export async function setRowActive(
+async function setRowActiveStatement(
   tx: Tx,
   kind: CatalogKind,
   workspaceId: string,
@@ -334,4 +335,32 @@ export async function changeModelProcesses(
       .insert(modelProcesses)
       .values(add.map((processId) => ({ workspaceId, modelId, processId, assignedBy: actorId })));
   }
+}
+
+/** Renames / recodes a row; #1506: the Items whose owner chain holds it are notified in the same transaction. */
+export async function updateRow(
+  tx: Tx,
+  kind: CatalogKind,
+  workspaceId: string,
+  id: string,
+  actorId: string,
+  next: { code: string; name: string },
+): Promise<CatalogRow> {
+  const row = await updateRowStatement(tx, kind, workspaceId, id, actorId, next);
+  await enqueueCatalogChange(tx, workspaceId, kind, id);
+  return row;
+}
+
+/** Activates / deactivates a row; #1506: the Items whose owner chain holds it are notified in the same transaction. */
+export async function setRowActive(
+  tx: Tx,
+  kind: CatalogKind,
+  workspaceId: string,
+  id: string,
+  actorId: string,
+  active: boolean,
+): Promise<CatalogRow> {
+  const row = await setRowActiveStatement(tx, kind, workspaceId, id, actorId, active);
+  await enqueueCatalogChange(tx, workspaceId, kind, id);
+  return row;
 }

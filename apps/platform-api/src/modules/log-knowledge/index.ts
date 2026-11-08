@@ -28,3 +28,4 @@ export type { DraftEvidenceRefInput } from './domain/evidence-intake.js';
 export { viewerOf, ref, visibleModelSql, visibleSoftwareSql } from './repositories/access-visibility.js';
 export type { Viewer } from './repositories/access-visibility.js';
 export { lockOwnerAccess } from './repositories/item-write.js';
+export { registerSearchIndexJobs, SEARCH_BACKFILL_QUEUE, SEARCH_DRAIN_QUEUE } from './search-index-jobs.js';

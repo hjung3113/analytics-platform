@@ -19,6 +19,7 @@ import type { Tx } from '../../../db/tx.js';
 import type { EvidencePointer } from '../domain/item-input.js';
 import { type Viewer, canSeeItem, canSeeModel, canSeeSoftware } from './access-visibility.js';
 import { allocateItemNo } from './item-number.js';
+import { enqueueItems } from './search-outbox.js';
 
 export interface ItemRow {
   id: string;
@@ -213,6 +214,7 @@ export async function insertItem(
     .returning(itemColumns);
   if (!row) throw new Error('item insert returned no row');
   await insertRevision(tx, input.workspaceId, row.id, 1, input.actorId, input.content, null, input.evidence);
+  await enqueueItems(tx, input.workspaceId, [row.id], 'published'); // #1506: same transaction as the publish
   return row;
 }
 
@@ -228,7 +230,9 @@ export async function appendRevision(
 ): Promise<ItemRow> {
   const revisionNo = item.latestRevisionNo + 1;
   await insertRevision(tx, workspaceId, item.id, revisionNo, actorId, content, changeNote, evidence);
-  return bump(tx, workspaceId, item.id, actorId, { latestRevisionNo: revisionNo });
+  const bumped = await bump(tx, workspaceId, item.id, actorId, { latestRevisionNo: revisionNo });
+  await enqueueItems(tx, workspaceId, [item.id], 'published'); // #1506
+  return bumped;
 }
 
 /** Records one assessment event and sets the item's projection of that dimension. */
@@ -268,7 +272,9 @@ export async function setPublicationState(
   item: ItemRow,
   publicationState: 'published' | 'archived',
 ): Promise<ItemRow> {
-  return bump(tx, workspaceId, item.id, actorId, { publicationState });
+  const bumped = await bump(tx, workspaceId, item.id, actorId, { publicationState });
+  await enqueueItems(tx, workspaceId, [item.id], publicationState === 'archived' ? 'archived' : 'published'); // #1506
+  return bumped;
 }
 
 /** `derived_from` link: `source` = the new item, `target` = the original, pinned to one of its revisions. */

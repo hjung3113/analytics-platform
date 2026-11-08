@@ -841,6 +841,13 @@
       "when": 1794153544777,
       "tag": "0119_knowledge_audit_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1794170067400,
+      "tag": "0120_search_index",
+      "breakpoints": true
     }
   ]
 }

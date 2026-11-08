@@ -355,9 +355,22 @@ Design: `docs/design/features/log-knowledge-search/README.md` §3.4; decision: [
 | `logKnowledge.accessRuleAdd` | write | `targetKind`, `targetId`, `granteeId` (an Actor of the workspace), `effect`, `validUntil?` (ISO instant with offset, in the future) | `{ ruleId }`; refusals `targetId:not_found`, `granteeId:not_found`, `validUntil:past`, `granteeId:duplicate` (an identical active rule) |
 | `logKnowledge.accessRuleRevoke` | write | `ruleId` | `{ ruleId }`; already revoked = `ok`, no audit; unknown = `ruleId:not_found` |
 
-Audit (same transaction, `core.audit_log`, subject type `knowledge_access`, ids only): `knowledge.access.mode_changed` (`targetKind`, `targetId`, `from`, `to`), `knowledge.access.rule_added` (`ruleId`, `targetKind`, `targetId`, `granteeId`, `effect`, `expires`), `knowledge.access.rule_revoked`. No search outbox row is written: node S-c adds it in `repositories/access-write.ts` (`setAccessMode`, `insertRule`, `revokeRule`).
+Audit (same transaction, `core.audit_log`, subject type `knowledge_access`, ids only): `knowledge.access.mode_changed` (`targetKind`, `targetId`, `from`, `to`), `knowledge.access.rule_added` (`ruleId`, `targetKind`, `targetId`, `granteeId`, `effect`, `expires`), `knowledge.access.rule_revoked`. Each of the three writes also notifies the search index (outbox reason `access_changed`) in the same transaction: the Item itself, or the published Items of the Model / SW version (batched).
 
 **Not implemented.** Team and role grantees (`core.teams` is a schema-only placeholder with no membership table); a management screen; invalidation of the models / items reads after an access write (the engine invalidates within an action's own menu only).
+
+## Search index operations (#1506, S-c)
+
+Design: `docs/design/features/log-knowledge-search/README.md` §3.2–3.3, §5; storage: `apps/platform-api/docs/04-database-and-migrations.md`. No screen. Both entries sit on menu `log-knowledge-access` behind `knowledge:access-manage` (the existing session-only, Admin-by-module-bypass capability `knowledge.access.manage`; `searchIndexStatus` also needs `platform:view`).
+
+| id | kind | params / input | answer |
+| --- | --- | --- | --- |
+| `logKnowledge.searchIndexStatus` | read | none | `{ outbox: { pending, running, failed, dead }, lagSeconds (age of the oldest pending notification, null when none), backfill: { state: running/done/none, generation, done, total }, generation: { active, building, previous } }`, counts of the caller's workspace |
+| `logKnowledge.searchIndexRequeue` | write | none | `{ requeued }`: every Item with a `dead` notification gets a fresh `pending` one (merged into an existing pending row) and the dead rows are closed; no audit row (derived state only) |
+
+- **What notifies the index** (same transaction as the change, `repositories/search-outbox.ts`): Item create / derive / revise / archive / restore (the three functions of `item-write.ts`, so a direct write and a draft approval are covered alike; a subject or Event-relation change only happens inside a revise); access mode, rule add and revoke (an Item target notifies itself, a Model or SW target its published Items in batches of 1000); concept confirm / reject (the Items naming a target of that concept); catalog rename, recode, activate and deactivate (the published Items under the vendor, process category, Model or SW version). Alias approve / revoke: not applicable, no alias exists in code yet (reason `alias_changed` is reserved).
+- **What a document holds**: the latest published Revision's normalized tokens, Event keys of its relation records and subjects, the owner chain's codes and names and the confirmed concept labels. An archived or missing Item has no document.
+- Not in this node: the query, `SearchPort`, ranking and any screen (node S-d and later). Generation build / switch / rollback exist as repository functions (`startReindex`, `switchGeneration`, `rollbackGeneration`, `purgeRetiredGenerations`) without an HTTP entry. Reopen when an operator needs them from a screen.
 
 ## Read port: effective requirement keys (#1493, log-rules R-c)
 
