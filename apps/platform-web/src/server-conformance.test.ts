@@ -73,6 +73,13 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'metrics.definition': { metricId: 'cycle_time', version: '4' },
   'metrics.usage': { metricId: 'cycle_time', version: '4' },
   // Log knowledge catalog reads (#1194 r): the table's page + `filters` shape, no filter = every row.
+  // Read-only validation catalog / coverage (#1495), synthetic fixture stable ids.
+  'logRules.ruleSets': { q: null, ...page },
+  'logRules.ruleSetDetail': { ruleSetKey: 'core' },
+  'logRules.rules': { q: null, targetQ: null, ...page },
+  'logRules.ruleDetail': { ruleSetKey: 'core', ruleKey: 'R-002' },
+  'logRules.coverage': { modelId: '00000003-0000-4000-8000-000000000008', page: 0, pageSize: 50 },
+  'logRules.coverageSummary': { modelIds: ['00000003-0000-4000-8000-000000000008'] },
   'logKnowledge.vendors': { q: null, ...page },
   'logKnowledge.processes': { q: null, ...page },
   'logKnowledge.models': { q: null, ...page },

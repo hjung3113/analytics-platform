@@ -1,6 +1,6 @@
 # Log Rules — 검증 규칙 조회·연결 설계 (v0.31.0, 소유자 답 반영, 구현 전)
 
-> **Status: Candidate → 소유자 답 반영 완료(2026-11-08), ADR-0122 Decided.** 설계만 있고 구현·DB·API·화면은 없다. 근거는 [#1486](https://github.com/hjung3113/analytics-platform/issues/1486)이고, [#1346](https://github.com/hjung3113/analytics-platform/issues/1346) §1·§3 P1-3, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic, v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md), 모델 명세 [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0. [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md)는 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
+> **Status: Candidate → 소유자 답 반영 완료(2026-11-08), ADR-0122 Decided.** R-a~R-d의 보고·저장·읽기와 R-e의 조회 화면이 구현되었다. R-f 연동과 R-g 계약 E2E는 미구현이다. 근거는 [#1486](https://github.com/hjung3113/analytics-platform/issues/1486)이고, [#1346](https://github.com/hjung3113/analytics-platform/issues/1346) §1·§3 P1-3, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic, v0.30.0 [`log-lifecycle`](../log-lifecycle/README.md), 모델 명세 [ADR-0111](../../../adr/0111-log-knowledge-model-spec-is-the-source.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0. [ADR-0122](../../../adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md)는 Decided이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
 >
 > 사내 Validator의 인터페이스·출력·권한은 실사 전이다. 이 설계는 **받는 쪽(플랫폼) 계약과 합성 보고자까지만** 정하고 «연동 완료»를 쓰지 않는다([#1330](https://github.com/hjung3113/analytics-platform/issues/1330)).
 
@@ -154,11 +154,11 @@ log-dev > 기준 (logRules)
 └─ 테스트 데이터셋  log-datasets              (log-test-datasets)
 ```
 
-새 **화면**은 1개(두 탭)이고 소유자가 이 범위를 확정했다(2026-11-08). 구현 전 `?variant=` 시안을 아티팩트로 컨펌한다(이 PR에는 시안이 없다).
+새 **화면**은 1개(두 탭)이고 소유자가 이 범위를 확정했다(2026-11-08). 확정 시안 A(탭 + 표 + 서랍)를 따른다(#1495).
 
 ### 6.3 Conceptual Contract
 
-**규칙 탭 (`PlatformDataTable`, 좌 RuleSet 필터 + 본문 표 + 오른쪽 서랍)**
+**규칙 탭 (`PlatformDataTable`, RuleSet 필터 칩 + 본문 표 + 오른쪽 서랍)**
 - 열: RuleSet, Rule, 짧은 이름, 지원(`지원`·`일부`·`미지원`·`확인 불가`), 지원 범위 요약, 선언한 대상 범위(첫 항목 + 개수, 형식 그대로), 요구사항 ID 수, Revision.
 - 머리에 `catalogStatus`: «Validator <source> · 마지막 보고 <시각>». 보고가 없으면 표 대신 이유 있는 빈 상태 «카탈로그를 아직 받지 못했습니다».
 - Rule 서랍: 요약(정의 본문 아님), 지원 범위, 선언한 대상 범위 목록(형식 이름 + 텍스트, 해석하지 않음), 요구사항 ID 목록(명세와 짝이면 링크, 아니면 «명세에 없는 요구사항 ID»), Revision별 지원 변화. 편집·연결 버튼은 없다.
@@ -175,6 +175,12 @@ log-dev > 기준 (logRules)
 ### 6.4 Wireframe·URL
 
 데스크톱 1440×900과 1280만. 새 컴포넌트를 만들지 않는다(`PlatformDataTable`·`DetailDrawer`·`AuditTimeline`·`DataTrustIndicator`, 탭은 기존 Catalog 패턴). URL은 안정 ID만(`ruleSetKey`·`ruleKey`·`modelId`·`softwareId`)이고 탭·필터는 기존 화면 상태 계약을 따른다.
+
+**구현(#1495, 시안 A):** 기존 `log-rules`를 lazy 화면으로 바꾸고 `log-rule` 상세 별칭(`/log/rules/:ruleSetKey/:ruleKey`) 하나만 navHidden으로 둔다. Registry의 정규 경로는 각각 `/log-dev/log-rules`, `/log-dev/log-rule/:ruleSetKey/:ruleKey`이며 기존 경로는 별칭으로 유지된다. `tab=rules|coverage`, `q`·`sort`·`page`와 숨은 반복 `filter`는 공용 표 URL 계약이다. `q`는 Rule·이름·요약 검색이고, 대상 범위 원문은 `filter=targetCount:contains:<원문>`으로 보존하여 기존 서버 `targetQ` 인자로 보낸다. `ruleSetKey`만 있으면 RuleSet 이력, `ruleKey`가 함께 있으면 규칙 서랍, 커버리지의 `focus=<요구사항 키>`는 현재 표 페이지의 요구사항 서랍이다.
+
+모델 목록을 타 메뉴에서 중복 선언할 수 없어 모델·SW 선택은 딥링크의 안정 UUID 입력으로 제공한다. `coverageSummary`는 선택한 모델의 모델 기준 요약을 조회하며 목록을 발견하는 API로 사용하지 않는다. 모델 명세 링크는 `log-knowledge-spec`의 기존 ID·module/event 계약을 따른다. 규칙 서랍은 선택한 모델의 커버리지 전체 페이지에서 정확한 키 집합을 읽고, 모든 페이지의 digest가 같을 때만 «명세에 없는 요구사항 ID»를 표시한다. 모델 미선택·읽기 실패·계산 불가는 미확인 안내로 남긴다.
+
+표는 SDK 기본 크기를 사용하며 내부 높이를 덮어쓰지 않는다. #1473의 선택 `fill`이 병합되면 `menus/log-dev/log-rules/src/pages/SnapshotTable.tsx`에서 한 prop으로 적용한다.
 
 ## 7. 구현 노드 분할 (제안)
 
@@ -217,6 +223,10 @@ log-dev > 기준 (logRules)
 
 | 항목 | 이유 | 다시 여는 조건 |
 | --- | --- | --- |
+| 모델·SW 이름 목록 선택(미구현, #1495) | 타 메뉴 endpoint 중복 선언 금지, 공용 모델 목록 조회 표면 없음 | 레인에서 승인된 목록 조회 계약을 제공할 때 |
+| 표 높이 채우기(미구현, #1473) | SDK `fill` 병합 대기, 내부 높이 덮어쓰기 금지 | #1473 SDK 선택 prop 사용 가능 시 |
+| Revision별 규칙 탐색(미구현, #1495) | `rules` 읽기는 현재 Revision의 규칙만 제공. 이력 서랍의 «이 RuleSet의 규칙 보기»는 현재 규칙에 RuleSet 필터 적용 | `rules` read gains a Revision parameter or the owner asks for historical Revision rule lists |
+| R-f 소비자 연동·R-g 계약 E2E(미구현) | 이번 R-e는 조회 화면 범위 | 해당 노드 착수 시 |
 | 사람이 만드는 연결(수동 연결·확인·폐기) | 소유자 결정(2026-11-08): 플랫폼은 단위를 정하지 않고 Validator 선언만 기록 | 소유자가 사람 연결을 요청하고 연결 단위를 정할 때 |
 | 대상 범위의 해석·정규화(이벤트·필드·컬럼 단위로 변환) | 범위가 이벤트·컬럼보다 다양해 정의하기 어렵다(소유자) | Validator가 안정적인 공통 단위를 내놓고 소유자가 요청할 때 |
 | Validator 요구사항 ID ↔ 명세 키 매핑 | 문자열 일치 외 매핑 규칙을 모름 | Validator 실사에서 ID 체계가 확인되고 소유자가 매핑을 요청할 때 |

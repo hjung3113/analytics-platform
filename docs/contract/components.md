@@ -129,6 +129,8 @@ Domain Component를 억지로 Platform Component로 승격하지 않는다.
 
 분석 보드의 활동 범위(최대화·최소화·닫기)와 복원 칩·레일 상태 표시는 [docs/16 §4](../design/analysis-board.md#4-화면-구조-decided)와 [ADR-0087](../adr/0087-board-minimize-restore-history.md)이 소유한다.
 
+`focus=` 이외의 식별자로 상세를 복원하는 소비자는 `DetailDrawer`의 선택 prop `focusOnOpen`으로 도착(`false`)과 사용자가 연 상세(`true`)를 전달한다. 생략하면 Kernel의 기존 `focus=` 도착 판정을 따른다. 포커스 이동과 닫힐 때 복귀는 서랍이 소유한다.
+
 **소유 표면 중지(Decided, [ADR-0088](../adr/0088-surface-pause-detail-slot.md)):** 등록자를 소유한 화면이 잠시 가려졌지만 마운트는 남아 있으면(`@ap/ui` `SurfacePauseScope`, 예: 최소화된 보드) 그 등록자는 상세 슬롯의 자리를 지키되 보이지 않는다. 슬롯은 닫힌 것으로 보고(`open` false, 셸 aside 숨김), `activation`을 올리지 않고, `onSuperseded`·`onClose`를 부르지 않는다 — 중지는 종료가 아니다. 더 새 등록자가 슬롯을 가져가면 위 규칙대로 기존 등록자는 종료되고, 재개했을 때 여전히 승자인 등록자만 다시 보이며 그때 `activation`이 +1이라 VOC 드로어는 새로 보이는 상세에게 자리를 내준다. 중지된 상태로 새로 등록하는 등록자는 보이는 상세를 밀어내지 않는다. 중지된 `DetailDrawer`는 자기 transient UI를 닫고 포커스를 가져오거나 앞 화면으로 돌려주지 않는다. 최소화·복원 때 상세 우선권은 [ADR-0088](../adr/0088-surface-pause-detail-slot.md)의 표(①–④)가 정한다.
 
 ## 14. Platform Component Promotion Rule

@@ -9,6 +9,7 @@ import { hwTimeMock } from '@ap/menu-hw-time/mock';
 import { logKnowledgeMock } from '@ap/menu-log-knowledge/mock';
 import { systemsMock } from '@ap/menu-systems/mock';
 import { improvementItemsMock } from '@ap/menu-improvement-items/mock';
+import { logRulesMock } from '@ap/menu-log-rules/mock';
 // </gen:menu-mock-imports>
 // Audit seeds of menu-owned destinations (ADR-0048) — hand-wired, outside the generator's import region.
 import { metricsAuditEvents } from '@ap/menu-metrics/mock';
@@ -39,6 +40,7 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
   ...logKnowledgeMock,
   ...systemsMock,
   ...improvementItemsMock,
+  ...logRulesMock,
   // </gen:menu-mock-spreads>
 ];
 
