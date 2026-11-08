@@ -76,6 +76,10 @@ describe('audit action map vs @ap/contracts AuditAction', () => {
     ['dataset.candidate_created', 'create'],
     ['dataset.candidate_approved', 'retire'],
     ['dataset.candidate_rejected', 'retire'],
+    ['dataset.baseline_created', 'create'],
+    ['dataset.baseline_updated', 'update'],
+    ['dataset.baseline_approved', 'update'],
+    ['dataset.baseline_superseded', 'retire'],
   ] as const)('%s → %s', (type, action) => {
     expect(AUDIT_ACTION_BY_EVENT_TYPE[type]).toBe(action);
   });

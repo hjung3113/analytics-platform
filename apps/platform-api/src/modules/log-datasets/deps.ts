@@ -1,5 +1,6 @@
 import type { Db } from '../../db/client.js';
 import type { SourceOwnerAccess } from '../log-explorer/index.js';
+import type { KnowledgeLookup } from '../log-knowledge/index.js';
 import type { CheckService } from '../permissions/check-service.js';
 import type { DatasetSourceRead } from './source-check.js';
 
@@ -17,4 +18,6 @@ export interface LogDatasetsDeps {
    * the availability check to learn which files an owner holds. A denied owner = no Source call, every file `permission_denied`.
    */
   sourceOwnerAccess: SourceOwnerAccess;
+  /** The log-knowledge read port (barrel): the current effective spec pin a baseline's `specPin` is compared with (기준 낡음 `spec_pin_changed`, #1478). */
+  knowledgeLookup: KnowledgeLookup;
 }

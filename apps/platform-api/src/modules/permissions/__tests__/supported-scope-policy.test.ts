@@ -21,6 +21,7 @@ describe('isOrdinarilyRequestable', () => {
     ['explorer.export', true],
     ['explorer.investigate', true],
     ['dataset.manage', true],
+    ['dataset.baseline.approve', true],
     ['voc.read_public', true],
     ['voc.create', true],
   ] as const)('%s → %s', (capability: Capability, expected) => {
@@ -40,7 +41,7 @@ describe('isOrdinarilyRequestable', () => {
 
 describe('recipient role for the log knowledge capabilities (ADR-0107 decision 3)', () => {
   const tx = {} as Tx;
-  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import', 'knowledge.item.publish', 'knowledge.spec.publish', 'improvement.manage', 'lifecycle.project.manage', 'lifecycle.round.manage', 'explorer.investigate', 'dataset.manage'] as const)(
+  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import', 'knowledge.item.publish', 'knowledge.spec.publish', 'improvement.manage', 'lifecycle.project.manage', 'lifecycle.round.manage', 'explorer.investigate', 'dataset.manage', 'dataset.baseline.approve'] as const)(
     '%s: a User recipient is refused on the ordinary and the approval path',
     async (capability) => {
       await expect(
@@ -55,7 +56,7 @@ describe('recipient role for the log knowledge capabilities (ADR-0107 decision 3
     },
   );
 
-  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import', 'knowledge.item.publish', 'knowledge.spec.publish', 'improvement.manage', 'lifecycle.project.manage', 'lifecycle.round.manage', 'explorer.investigate', 'dataset.manage'] as const)(
+  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import', 'knowledge.item.publish', 'knowledge.spec.publish', 'improvement.manage', 'lifecycle.project.manage', 'lifecycle.round.manage', 'explorer.investigate', 'dataset.manage', 'dataset.baseline.approve'] as const)(
     '%s: a Developer or Admin recipient passes',
     async (capability) => {
       for (const recipientRole of ['developer', 'admin']) {

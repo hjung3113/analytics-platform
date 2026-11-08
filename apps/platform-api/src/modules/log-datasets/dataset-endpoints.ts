@@ -14,14 +14,17 @@ import {
   parseDatasetsParams,
 } from './domain/dataset-params.js';
 import { LOG_DATASETS_MENU_ID } from './menu.js';
+import { baselineCountsByRevision, approvedPinOf } from './repositories/baseline-read.js';
 import { getDatasetHead, listDatasets, toRevisionDetail } from './repositories/dataset-read.js';
+import { staleOf } from './stale-read.js';
+import type { ProfilePin } from './domain/baseline-input.js';
 import { checkSampleSetFilesFor } from './source-check.js';
 import type { SampleSet } from './domain/sample-manifest.js';
 
 type Judge = (params: Record<string, unknown>) => ParamsJudgment;
 type Actor = { actor_id: string; workspace_id: string };
 
-function declareRead(
+export function declareRead(
   deps: LogDatasetsDeps,
   name: string,
   paramKeys: readonly string[],
@@ -72,9 +75,18 @@ export function datasetEndpoints(deps: LogDatasetsDeps): MenuEndpointDeclaration
       // shown as not checked). With no port every file is unchecked and the revision is `unverified`.
       const [latest, ...older] = head.revisions;
       const states = latest ? await checkSampleSetFilesFor(deps.sourceRead, deps.sourceOwnerAccess, actor, latest.sampleSet as SampleSet) : undefined;
+      // Baselines (#1478): per revision the counts by status and the approved one's id and seq; only the latest revision's approved baseline gets
+      // the 기준 낡음 badge, from the file states just computed (no second Source call). Older revisions are not checked: `stale` is null.
+      const counts = await baselineCountsByRevision(deps.db, actor.workspace_id, head.dataset.id);
+      const baselinesOf = async (revisionId: string, pin: ProfilePin | undefined) => {
+        const c = counts.get(revisionId) ?? { draft: 0, superseded: 0, approved: null };
+        const stale = c.approved && pin ? await staleOf(deps, actor.workspace_id, pin, states ?? null) : null;
+        return { draftCount: c.draft, supersededCount: c.superseded, approved: c.approved ? { ...c.approved, stale } : null };
+      };
+      const latestPin = latest ? await approvedPinOf(deps.db, actor.workspace_id, latest.id) : undefined;
       const revisions = [
-        ...(latest ? [toRevisionDetail(latest, states)] : []),
-        ...older.map((row) => toRevisionDetail(row, undefined)),
+        ...(latest ? [{ ...toRevisionDetail(latest, states), baselines: await baselinesOf(latest.id, latestPin) }] : []),
+        ...(await Promise.all(older.map(async (row) => ({ ...toRevisionDetail(row, undefined), baselines: await baselinesOf(row.id, undefined) })))),
       ];
       return { outcome: 'ok', data: { ...head.dataset, revisions } };
     }),

@@ -34,7 +34,9 @@ export type PlatformPermissionRule =
   /** An active workspace grant of `explorer.investigate` (the write capability of the log explorer investigations); no Admin role bypass (sensitive, #1472). */
   | 'explorer-investigate'
   /** Admin role, or an active workspace grant of `dataset.manage` (the write capability of the log test datasets). */
-  | 'dataset-manage';
+  | 'dataset-manage'
+  /** An active workspace grant of `dataset.baseline.approve` (the approval of a log test dataset baseline); no Admin role bypass (sensitive, #1478). */
+  | 'dataset-baseline-approve';
 
 export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'platform:view', rule: 'every-session' },
@@ -61,6 +63,8 @@ export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'explorer:investigate', rule: 'explorer-investigate' },
   // Menu permission of the log test dataset writes (#1477 D-a).
   { permission: 'dataset:manage', rule: 'dataset-manage' },
+  // Menu permission of the log test dataset baseline approval (#1478 D-b); the approve action declares it.
+  { permission: 'dataset:baseline-approve', rule: 'dataset-baseline-approve' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
 /** Capabilities whose active grant (workspace or Managed-System scoped) opens `features:access`. */
@@ -219,6 +223,17 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'dataset.manage', decision).allow;
+    }
+    case 'dataset-baseline-approve': {
+      // The same decision the baseline approve action takes (`log-datasets/baseline-actions.ts`): a User never holds it, even with a live grant.
+      if (actor.role_level === 'user') return false;
+      const decision = await checkService.checkCapability(
+        actor,
+        'dataset.baseline.approve',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'dataset.baseline.approve', decision).allow;
     }
     case 'features-access': {
       // A token call has no role shortcut: only the capability scopes below can open it.

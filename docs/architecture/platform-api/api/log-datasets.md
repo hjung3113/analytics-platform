@@ -1,6 +1,6 @@
 # Log Test Datasets
 
-Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the test datasets of the log domain (#1477 node D-a): two reads and six writes of menu `log-datasets`. Design and decisions: `docs/design/features/log-test-datasets/README.md` §2, §3.1, §3.2, §3.7, §5, §6, §8 and [ADR-0120](../../../adr/0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md). Not here yet: baselines, suites, runs, comparison, review labels (nodes b–d), screens (node e). Dataset ≠ data-collection Source, Baseline ≠ metric Baseline (`GLOSSARY.md`).
+Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the test datasets of the log domain (#1477 node D-a): two reads and six writes of menu `log-datasets`; node b (#1478) adds two baseline reads and three baseline writes (section Baselines). Design and decisions: `docs/design/features/log-test-datasets/README.md` §2, §3.1, §3.2, §3.7, §5, §6, §8 and [ADR-0120](../../../adr/0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md). Not here yet: suites, runs, comparison, review labels (nodes c–d), screens (node e). Dataset ≠ data-collection Source, Baseline ≠ metric Baseline (`GLOSSARY.md`).
 
 ## Transport and permission
 
@@ -15,11 +15,11 @@ Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file
 
 | Endpoint | Params | Answer |
 | --- | --- | --- |
-| `logDataset.datasets` | `q?`, `page?`, `pageSize?`, `sorting?`, `filters?` (ADR-0105) | `{ rows, total }`; row = `id, name, purpose, owner{id,displayName}, shareScope, modelIds, scenarioTags, status, synthetic, revisionCount, latestRevisionSeq, version, createdAt, updatedAt`. **No stale field** (the «기준 낡음 요약» column is node b's). |
+| `logDataset.datasets` | `q?`, `page?`, `pageSize?`, `sorting?`, `filters?` (ADR-0105) | `{ rows, total }`; row = `id, name, purpose, owner{id,displayName}, shareScope, modelIds, scenarioTags, status, synthetic, revisionCount, latestRevisionSeq, version, createdAt, updatedAt`. **No stale field** (a list-wide «기준 낡음 요약» needs one Source check per dataset; not implemented, see Baselines). |
 | `logDataset.datasetDetail` | `datasetId` | the head plus `revisions` (newest first) or `null` |
 
 - Filters of `datasets`: `status` (`in`/`notIn`; `active`, `archived`), `tag` (set cell; `in` = any held, `notIn` = tagged and none of them, `isEmpty` = untagged, `isNotEmpty`), `model` (set cell over `modelIds`; same ops). Sort ids: `updatedAt` (default, desc), `name`, `status`, `createdAt`, `revisionCount`; ties by `id`. `q` matches name and purpose (case-insensitive contains).
-- `datasetDetail.revisions[]`: `id, seq, sourceOwner, fileCount, digest, inputMeta, note, createdBy, createdAt, availability, availabilityChecked`. Only the **latest** revision lists `files[]` (`fileRef, order, sha256, state`, user order) and is checked against the Source **at read time**; older revisions are `availability: 'unverified'` with `availabilityChecked: false` (they are not re-checked: one Source call per file).
+- `datasetDetail.revisions[]`: `id, seq, sourceOwner, fileCount, digest, inputMeta, note, createdBy, createdAt, availability, availabilityChecked, baselines`. Only the **latest** revision lists `files[]` (`fileRef, order, sha256, state`, user order) and is checked against the Source **at read time**; older revisions are `availability: 'unverified'` with `availabilityChecked: false` (they are not re-checked: one Source call per file).
 
 ### Availability
 
@@ -55,9 +55,29 @@ The check uses the injected `SourceReadPort` (log-explorer, ADR-0119); productio
 - **Candidates** hold data references only (`origin` `manual`/`round_evidence`; `roundId` + `evidenceRefs` for the latter, `EvidenceRef` of log-explorer: `fileRef, line, fileSha256, note?`, no line body). No field takes code or a shell command; an unknown key is `unexpected_field`; there is no `llm` origin and no field naming another proposer: the proposer is the session actor. `candidateDecide` is final (`id:illegal_transition` when decided).
 - **Approve** inserts the `dataset` (owner = proposer, `share_scope = 'workspace'`, so the reviewer sees what they decided), its first revision (`created_by` = reviewer) and the decision in **one transaction**; a failure at any step rolls all three back. **Reject** requires a reason and creates nothing.
 
+## Baselines (#1478 D-b)
+
+An expected baseline is the human-approved expectation per rule of ONE dataset revision (design §3.3; not the metric Baseline of the glossary). `draft` is editable; `approved` and `superseded` never change content. A baseline never changes from run results.
+
+| Endpoint / action | Params / input | Answer |
+| --- | --- | --- |
+| `logDataset.baselines` | `datasetRevisionId` | `{ datasetRevisionId, datasetId, revisionSeq, rows }` or `null`; row = `id, datasetRevisionId, seq, status, profilePin, expectationCount, scopeCount, hasParserGolden, author{id,displayName}, approvedBy, approvedAt, supersededAt, version, createdAt, updatedAt, stale` (`stale` only on the approved row, else `null`) |
+| `logDataset.baselineDetail` | `baselineId` | the row plus `datasetId, revisionSeq, expectedScope, expectations, parserGoldenRef, events[]` (`kind, before, after, reason, actor, selfApproved, at`) or `null` |
+| `logDataset.baselineDraftCreate` | `datasetRevisionId`, `fromAttemptId?` | `baselineId, seq, version`; concurrency none |
+| `logDataset.baselineUpdateDraft` | `id`, any of `profilePin, expectedScope, expectations, parserGoldenRef` (`null` clears) | `version`; concurrency version |
+| `logDataset.baselineApprove` | `id`, `reason` (required, ≤ 2000) | `version, supersededBaselineId, selfApproved`; concurrency version |
+
+- **Rights.** Draft actions: `dataset.manage` (menu permission `dataset:manage`). `baselineApprove`: `dataset.baseline.approve` (menu permission `dataset:baseline-approve`), workspace-scoped, **sensitive, session-only, no Admin role bypass**, refused for a User recipient. An Admin without the grant is `forbidden`. **Self-approval is not blocked**: the event (`self_approved`) and the audit row (`selfApproved`) record it. Reads need `platform:view` and are session-only like the dataset reads.
+- **Visibility** is the dataset's: a baseline of a `private` dataset is invisible to everyone but its owner on every read and write (same absence as a missing or other-workspace id: `data: null` / `not_found` / `invalid` `datasetRevisionId:not_found`). An archived dataset's baselines are frozen (`illegal_transition`).
+- **Content.** `expectedScope`: distinct `ruleId`s (≤ 1000). `expectations`: distinct `ruleId`, `expected` ∈ `PASS, FAIL, WARN, NOT_APPLICABLE, EXPECTED_UNSUPPORTED` (anything else `malformed`), optional `exception { reason, scope }` (≤ 500 each) and `evidence [{ fileRef, line }]` (≤ 20; the `fileRef` must belong to the baseline's revision, else `expectations.i.evidence.j.fileRef:not_found`); ≤ 1000 entries. `profilePin` (strict; known values only, absent = unknown): `specPin { modelId, softwareId|null, revisionId, changeSetDigest }`, `ruleSetRevision`, `parserVersion`, `engineProfileRef`. `parserGoldenRef { location, digest }` is a location and digest only, never content. A save that changes nothing answers `ok` with the current version and writes no event or audit row. `ruleId` is not checked against the rule catalog (backlog).
+- **Approve and supersede are one transaction** under the dataset row lock: the revision's previous `approved` baseline becomes `superseded` first, then the draft becomes `approved` (the partial unique index is the wall). Two approvals of one revision are therefore strictly ordered and never leave two approved; the same draft approved twice is one `ok`, one `conflict`. An empty baseline (no expectation) is `invalid` `id:empty`; a baseline that is not a draft is `id:illegal_transition`. Lock order everywhere: dataset, then baselines.
+- **`fromAttemptId`** (copy an attempt's results into a draft) is refused with `invalid` `fromAttemptId:unsupported`: not implemented, because no log-lifecycle read port for attempt results exists yet (reopen when it does).
+- **기준 낡음** (design §3.4) is computed at read time for the **approved** baseline only, never stored and never changing the approval: `stale: { state: 'fresh'|'stale'|'unknown', reasons[], unknown[] }`. `reasons` ⊆ `file_hash_changed, file_unavailable, spec_pin_changed` are asserted only from a comparison that ran: the revision's files through the Source (Source-owner ACL first: a denied owner makes no Source call; the per-call and total deadlines of `source-check.ts`; no port = unchecked), and `profilePin.specPin` against `knowledgeLookup.getEffectiveSpecPin`. What could not be judged is listed in `unknown` (`files`, `spec_pin`, `rule_set`, `parser`, `engine_profile`) and gives `state: 'unknown'` when no reason is asserted — never `stale`. A pinned `ruleSetRevision`, `parserVersion` or `engineProfileRef` is always `unknown` while no engine capability read exists (not implemented; reopen when the engine port is fixed, design §9). `datasetDetail.revisions[].baselines` = `{ draftCount, supersededCount, approved: { id, seq, stale } | null }`; `stale` is filled for the latest revision only (from the file check the read already makes), older revisions have `stale: null`.
+- Codes added: `empty`, `unsupported`.
+
 ## Audit
 
-One `core.audit_log` row per write, in the same transaction, body-free (`packages/feature-shared/src/audit/log-datasets.ts`, strict schemas). Subject types `dataset`, `dataset_revision`, `dataset_candidate`. They are **not** in the `core.platform_audit_events` projection (migration 0110 adds only the capability `dataset.manage` to its permission-row allow-list): the platform audit trail (`POST /api/v1/platform/audit-trail/search`) never returns them, so a private dataset's existence does not reach `console:access` Admins. Not implemented: a dataset audit view needs a caller-aware projection (reopen when one is requested).
+One `core.audit_log` row per write, in the same transaction, body-free (`packages/feature-shared/src/audit/log-datasets.ts`, strict schemas). Subject types `dataset`, `dataset_revision`, `dataset_candidate`, `dataset_baseline`. They are **not** in the `core.platform_audit_events` projection (migration 0110 adds only the capability `dataset.manage` to its permission-row allow-list): the platform audit trail (`POST /api/v1/platform/audit-trail/search`) never returns them, so a private dataset's existence does not reach `console:access` Admins. Not implemented: a dataset audit view needs a caller-aware projection (reopen when one is requested).
 
 | Event | Subject | Detail |
 | --- | --- | --- |
@@ -68,9 +88,13 @@ One `core.audit_log` row per write, in the same transaction, body-free (`package
 | `dataset.candidate_created` (create) | candidate | `origin, fileCount, evidenceCount` |
 | `dataset.candidate_approved` (retire) | candidate | `datasetId, revisionId, fileCount` (approve also writes `dataset.created` and `dataset.revision_created`) |
 | `dataset.candidate_rejected` (retire) | candidate | `reasonLength` |
+| `dataset.baseline_created` (create) | baseline | `datasetId, revisionId, seq, expectationCount, copied` |
+| `dataset.baseline_updated` (update) | baseline | `changed` (field names), `expectationCount` |
+| `dataset.baseline_approved` (update) | baseline | `datasetId, revisionId, seq, expectationCount, supersededSeq, reasonLength, selfApproved` |
+| `dataset.baseline_superseded` (retire) | baseline (the superseded one) | `datasetId, revisionId, seq, bySeq, from` |
 
-Never in an audit row: a `fileRef`, a hash list, sample content, the text of a note, purpose or reason (length only).
+Never in an audit row: a `fileRef`, a hash list, sample content, the text of a note, purpose or reason (length only), an expectation, an exception reason or an evidence location. `baseline_event.before/after` hold status, seq, counts and a content digest only (the approval `reason` text is in the event row's `reason` column, which is readable through `baselineDetail`).
 
 ## Storage
 
-Schema `log_datasets` ([04](../04-database-and-migrations.md#log-test-datasets-1477-d-a)): `dataset`, `dataset_revision`, `dataset_candidate`; every table has `workspace_id` and composite same-workspace FKs (`ON DELETE RESTRICT`). `platform_app`: SELECT and INSERT on the three tables, column-limited UPDATE on `dataset` and `dataset_candidate`, no DELETE anywhere, no UPDATE on `dataset_revision`.
+Schema `log_datasets` ([04](../04-database-and-migrations.md#log-test-datasets-1477-d-a)): `dataset`, `dataset_revision`, `dataset_candidate`, `expected_baseline`, `baseline_event`; every table has `workspace_id` and composite same-workspace FKs (`ON DELETE RESTRICT`). `platform_app`: SELECT and INSERT on the three tables, column-limited UPDATE on `dataset` and `dataset_candidate`, no DELETE anywhere, no UPDATE on `dataset_revision`. `expected_baseline`: SELECT, INSERT and a column-limited UPDATE, guard trigger for the state machine and immutability; `baseline_event`: SELECT, INSERT only, UPDATE/DELETE refused by trigger for every role.

@@ -46,6 +46,7 @@ const NONE: Capability[] = [
   'validation.catalog.report',
   'explorer.export',
   'explorer.investigate',
+  'dataset.baseline.approve',
 ];
 
 describe('applyAdminModuleBypass', () => {

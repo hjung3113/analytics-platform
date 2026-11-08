@@ -1000,7 +1000,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     logExplorerContribution(logExplorerDeps),
     logRulesContribution({ db: dbHandle.db, checkService, knowledgeLookup }),
     investigationContribution({ db: dbHandle.db, checkService, lifecycleRead: lifecycleRoundRead }),
-    logDatasetsContribution({ db: dbHandle.db, checkService, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),
+    logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is

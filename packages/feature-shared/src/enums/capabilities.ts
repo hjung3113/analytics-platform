@@ -37,6 +37,7 @@ export const CAPABILITIES = [
   'explorer.export',
   'explorer.investigate',
   'dataset.manage',
+  'dataset.baseline.approve',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -148,6 +149,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'validation.catalog.report': { sensitive: false, adminModuleBypass: 'none', tokenOnly: true },
   // Log test datasets (#1477 D-a): workspace-scoped, not sensitive, session-only (design §9 defers token calls); datasets, their revisions and candidates. User role refused (supported-scope policy).
   'dataset.manage': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
+  // Log test dataset baseline approval (#1478 D-b, design log-test-datasets §5): workspace-scoped, sensitive (a stated reason; permission rows stay out of the audit projection allow-list), session-only. No Admin role bypass (the approval boundary is a grant, like the sensitive log explorer rights). Self-approval is allowed and recorded. User role refused (supported-scope policy).
+  'dataset.baseline.approve': { sensitive: true, adminModuleBypass: 'none', sessionOnly: true },
 };
 
 export function isCapability(value: string): value is Capability {

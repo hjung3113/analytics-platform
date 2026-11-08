@@ -19,7 +19,7 @@ import { actors, workspaces } from './core.js';
 // dataset, its immutable revisions and the candidates that become datasets. `model_ids` are log-knowledge stable ids and
 // `source_ref.roundId` a log-lifecycle id: plain uuids, no cross-schema FK (module boundary). Every reference inside the
 // schema is a composite same-workspace FK (ON DELETE RESTRICT); actor columns are plain FKs to core.actors, so the write
-// path checks workspace membership where it matters. Baselines, suites and runs arrive with nodes b–d.
+// path checks workspace membership where it matters. Baselines (node b, #1478) are below; suites and runs arrive with nodes c–d.
 export const logDatasetsSchema = pgSchema('log_datasets');
 
 const NAME_MAX = 200;
@@ -162,6 +162,111 @@ export const datasetCandidates = logDatasetsSchema.table(
     decidedCheck: check(
       'dataset_candidate_decided_check',
       sql`(${t.status} = 'draft') = (${t.decidedAt} is null and ${t.reviewerActorId} is null)`,
+    ),
+  }),
+);
+
+const BASELINE_STATUSES = "('draft','approved','superseded')";
+const REASON_MAX = 2000;
+
+// Expected baseline of one dataset revision (#1478 node b, design §3.3): the human-approved expectation per rule. Not the metric
+// Baseline of the glossary. `seq` is 1..n per revision. A draft is editable; `approved` and `superseded` are immutable (guard
+// trigger). At most one `approved` per revision (partial unique index). `expectations` is validated in the app (the vocabulary
+// PASS·FAIL·WARN·NOT_APPLICABLE·EXPECTED_UNSUPPORTED); the database holds the shape (arrays/objects, size).
+export const expectedBaselines = logDatasetsSchema.table(
+  'expected_baseline',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    datasetRevisionId: uuid('dataset_revision_id').notNull(),
+    seq: integer('seq').notNull(),
+    status: text('status').notNull().default('draft'),
+    /** `{ specPin?, ruleSetRevision?, parserVersion?, engineProfileRef? }` — only what is known; no key = unknown. */
+    profilePin: jsonb('profile_pin').notNull().default(sql`'{}'::jsonb`),
+    /** `rule_id[]` the baseline decided to check. */
+    expectedScope: jsonb('expected_scope').notNull().default(sql`'[]'::jsonb`),
+    /** `{ ruleId, expected, exception?, evidence? }[]`. */
+    expectations: jsonb('expectations').notNull().default(sql`'[]'::jsonb`),
+    /** Location + digest of an externally owned parser golden; never its content. */
+    parserGoldenRef: jsonb('parser_golden_ref'),
+    authorActorId: uuid('author_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    approvedByActorId: uuid('approved_by_actor_id').references(() => actors.id),
+    approvedAt: timestamp('approved_at', { withTimezone: true }),
+    supersededAt: timestamp('superseded_at', { withTimezone: true }),
+    rowVersion: integer('row_version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceIdUq: unique('expected_baseline_workspace_id_id_uq').on(t.workspaceId, t.id),
+    revisionFk: foreignKey({
+      name: 'expected_baseline_revision_fk',
+      columns: [t.workspaceId, t.datasetRevisionId],
+      foreignColumns: [datasetRevisions.workspaceId, datasetRevisions.id],
+    }).onDelete('restrict'),
+    seqUq: unique('expected_baseline_revision_seq_uq').on(t.workspaceId, t.datasetRevisionId, t.seq),
+    oneApprovedUq: uniqueIndex('expected_baseline_one_approved_uq')
+      .on(t.workspaceId, t.datasetRevisionId)
+      .where(sql`${t.status} = 'approved'`),
+    statusCheck: check('expected_baseline_status_check', sql`${t.status} in ${sql.raw(BASELINE_STATUSES)}`),
+    seqCheck: check('expected_baseline_seq_check', sql`${t.seq} >= 1`),
+    profilePinCheck: check('expected_baseline_profile_pin_check', sql`jsonb_typeof(${t.profilePin}) = 'object'`),
+    scopeCheck: check('expected_baseline_scope_check', sql`jsonb_typeof(${t.expectedScope}) = 'array'`),
+    expectationsCheck: check('expected_baseline_expectations_check', sql`jsonb_typeof(${t.expectations}) = 'array'`),
+    goldenCheck: check(
+      'expected_baseline_golden_check',
+      sql`${t.parserGoldenRef} is null or jsonb_typeof(${t.parserGoldenRef}) = 'object'`,
+    ),
+    versionCheck: check('expected_baseline_row_version_check', sql`${t.rowVersion} >= 1`),
+    approvedCheck: check(
+      'expected_baseline_approved_check',
+      sql`(${t.status} = 'draft') = (${t.approvedAt} is null and ${t.approvedByActorId} is null)`,
+    ),
+    supersededCheck: check(
+      'expected_baseline_superseded_check',
+      sql`(${t.status} = 'superseded') = (${t.supersededAt} is not null)`,
+    ),
+  }),
+);
+
+// Append-only history of a baseline's state changes (design §3.3): one row per create / update / approve / supersede, written in
+// the same transaction as the change. `before` / `after` are status + seq + counts + digest (never the expectation bodies' notes);
+// no UPDATE and no DELETE for any role (trigger).
+export const baselineEvents = logDatasetsSchema.table(
+  'baseline_event',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    baselineId: uuid('baseline_id').notNull(),
+    kind: text('kind').notNull(),
+    before: jsonb('before'),
+    after: jsonb('after').notNull(),
+    reason: text('reason'),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => actors.id),
+    selfApproved: boolean('self_approved').notNull().default(false),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    baselineFk: foreignKey({
+      name: 'baseline_event_baseline_fk',
+      columns: [t.workspaceId, t.baselineId],
+      foreignColumns: [expectedBaselines.workspaceId, expectedBaselines.id],
+    }).onDelete('restrict'),
+    baselineIdx: index('baseline_event_baseline_idx').on(t.workspaceId, t.baselineId, t.at),
+    kindCheck: check('baseline_event_kind_check', sql`${t.kind} in ('created','updated','approved','superseded')`),
+    beforeCheck: check('baseline_event_before_check', sql`${t.before} is null or jsonb_typeof(${t.before}) = 'object'`),
+    afterCheck: check('baseline_event_after_check', sql`jsonb_typeof(${t.after}) = 'object'`),
+    reasonCheck: check(
+      'baseline_event_reason_check',
+      sql`coalesce(char_length(${t.reason}), 0) <= ${sql.raw(String(REASON_MAX))}`,
     ),
   }),
 );
