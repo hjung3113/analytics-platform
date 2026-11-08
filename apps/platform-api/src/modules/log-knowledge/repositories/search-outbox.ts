@@ -26,10 +26,11 @@ const uuidArray = (ids: readonly string[]) => sql`ARRAY[${sql.join(ids.map((id) 
  * a drain skips it until then, or, if the drain claimed first, this INSERT waits and creates a fresh pending row after it finishes.
  * `available_at` is the request marker; no source payload or additional column is needed. */
 export async function enqueueItems(tx: Tx, workspaceId: string, itemIds: readonly string[], reason: OutboxReason): Promise<void> {
-  for (const batch of chunk([...new Set(itemIds)], ENQUEUE_BATCH)) {
+  // One global ascending Item id order (across batches and inside each INSERT) so two concurrent writers lock pending rows in the same order and cannot deadlock.
+  for (const batch of chunk([...new Set(itemIds)].sort(), ENQUEUE_BATCH)) {
     await tx.execute(sql`
       INSERT INTO knowledge.search_outbox (workspace_id, item_id, reason)
-      SELECT ${workspaceId}::uuid, i, ${reason} FROM unnest(${uuidArray(batch)}) AS i
+      SELECT ${workspaceId}::uuid, i, ${reason} FROM unnest(${uuidArray(batch)}) AS i ORDER BY i
       ON CONFLICT (workspace_id, item_id) WHERE state = 'pending'
       DO UPDATE SET available_at = EXCLUDED.available_at, updated_at = now()`);
   }

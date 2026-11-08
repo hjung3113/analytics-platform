@@ -227,6 +227,31 @@ describe.skipIf(!runIntegration)('log knowledge search index (#1506 S-c)', () =>
     }
   });
 
+  it('two writers enqueueing the same pending Items in opposite input order both commit (sanity; a deterministic deadlock interleave is not reproducible here)', async () => {
+    const a = await newItem(ws, actorId, modelId, `${TAG} lock order a`);
+    const b = await newItem(ws, actorId, modelId, `${TAG} lock order b`);
+    await dbHandle.db.transaction((tx) => enqueueItems(tx, ws, [a, b], 'published'));
+    const c1 = await dbHandle.pool.connect();
+    const c2 = await dbHandle.pool.connect();
+    try {
+      await c1.query('begin');
+      await c2.query('begin');
+      // c1 locks the lower id first; c2 asks for the pair in the opposite input order and must wait, not deadlock.
+      await enqueueItems(dbOnClient(c1), ws, [a, b], 'reindex');
+      const second = enqueueItems(dbOnClient(c2), ws, [b, a], 'reindex');
+      await new Promise((r) => setTimeout(r, 300));
+      await c1.query('commit');
+      await second;
+      await c2.query('commit');
+    } finally {
+      await c1.query('rollback').catch(() => undefined);
+      await c2.query('rollback').catch(() => undefined);
+      c1.release();
+      c2.release();
+    }
+    expect((await outboxOf(a)).some((r) => r.state === 'pending')).toBe(true);
+  });
+
   it('deletes the document when the Item is no longer published', async () => {
     const item = await newItem(ws, actorId, modelId, `${TAG} to archive`);
     await dbHandle.db.transaction((tx) => enqueueItems(tx, ws, [item], 'published'));
