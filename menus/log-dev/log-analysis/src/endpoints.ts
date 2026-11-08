@@ -2,6 +2,7 @@
 import { defineAction, defineEndpoint, menuPermission } from '@ap/contracts';
 
 export const INVESTIGATE_PERMISSION = menuPermission('explorer:investigate');
+export const HANDOFF_PERMISSION = menuPermission('explorer:handoff');
 export type SampleSet = { sourceOwner: string; files: { fileRef: string; order: number; sha256: string }[] };
 export type SourceQuery = { text?: string; logType?: string; module?: string; event?: string; context?: Record<string, string> };
 export type SourceRow = { fileRef: string; fileOrder: number; line: number; text: string; truncated: boolean; timestamp: string | null; timeReversal: boolean; synthetic: boolean };
@@ -16,7 +17,7 @@ export type PeriodsPage = SourceAnswer & { rows: PeriodRow[]; nextCursor: string
 export type PagedRead = { sampleSet: SampleSet; query: SourceQuery; cursor: string | null; limit: number };
 export type InvestigationFilters = Record<string, string | number | boolean | null | (string | number | boolean | null)[]>;
 export type InvestigationSummary = { id: string; title: string; origin: 'standalone' | 'round'; roundId: string | null; status: 'open' | 'archived'; version: string; evidenceCount: number; createdAt: string; updatedAt: string };
-export type Investigation = Omit<InvestigationSummary, 'evidenceCount'> & { filters: InvestigationFilters; sampleSet: SampleSet | null; sampleSetState: 'inline' | 'round' | 'round_unavailable'; canInvestigate: boolean; evidence: { ref: EvidenceRef; state: { code: 'available' } | { code: 'no_access'; reason: string }; sourceAccess: 'unchecked' }[] };
+export type Investigation = Omit<InvestigationSummary, 'evidenceCount'> & { filters: InvestigationFilters; sampleSet: SampleSet | null; sampleSetState: 'inline' | 'round' | 'round_unavailable'; canInvestigate: boolean; handoff: { round: boolean; knowledgeDraft: boolean }; evidence: { ref: EvidenceRef; state: { code: 'available' } | { code: 'no_access'; reason: string }; sourceAccess: 'unchecked' }[] };
 const read = <P, T>(name: string, paramKeys: Record<keyof P & string, true>) => defineEndpoint<P, T>({ id: `logExplorer.${name}`, menuId: 'log-explorer', paramKeys, permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false });
 export const investigationsEndpoint = read<{ status?: 'open' | 'archived'; page: number; pageSize: number }, { rows: InvestigationSummary[]; total: number }>('investigations', { status: true, page: true, pageSize: true });
 export const investigationDetailEndpoint = read<{ investigationId: string }, Investigation | null>('investigationDetail', { investigationId: true });
@@ -25,12 +26,17 @@ export const windowEndpoint = read<{ sourceOwner: string; fileRef: string; line:
 export const parsedEndpoint = read<{ sourceOwner: string; fileRef: string; line: number }, ParsedLine>('parsed', { sourceOwner: true, fileRef: true, line: true });
 export const periodsEndpoint = read<PagedRead, PeriodsPage>('periods', { sampleSet: true, query: true, cursor: true, limit: true });
 export const explorerEndpoints = [investigationsEndpoint, investigationDetailEndpoint, recordsEndpoint, windowEndpoint, parsedEndpoint, periodsEndpoint] as const;
-const write = <I, T>(name: string, inputKeys: Record<keyof I & string, true>, concurrency: 'none' | 'version') => defineAction<I, T>({ id: `logExplorer.${name}`, menuId: 'log-explorer', inputKeys, permission: INVESTIGATE_PERMISSION, requiresScope: false, concurrency, invalidates: [investigationsEndpoint, investigationDetailEndpoint] });
+const write = <I, T>(name: string, inputKeys: Record<keyof I & string, true>, concurrency: 'none' | 'version', permission: typeof INVESTIGATE_PERMISSION | typeof HANDOFF_PERMISSION = INVESTIGATE_PERMISSION) => defineAction<I, T>({ id: `logExplorer.${name}`, menuId: 'log-explorer', inputKeys, permission, requiresScope: false, concurrency, invalidates: [investigationsEndpoint, investigationDetailEndpoint] });
 export type CreateInput = { title: string; origin: 'standalone'; sampleSet: SampleSet; roundId?: never } | { title: string; origin: 'round'; roundId: string; sampleSet?: never };
 export const investigationCreate = write<CreateInput, { id: string; version: string }>('investigationCreate', { title: true, origin: true, sampleSet: true, roundId: true }, 'none');
 export const investigationUpdate = write<{ id: string; title?: string; filters?: InvestigationFilters }, { version: string }>('investigationUpdate', { id: true, title: true, filters: true }, 'version');
 export const evidenceAdd = write<{ id: string; ref: EvidenceRef }, { version: string }>('evidenceAdd', { id: true, ref: true }, 'version');
 export const evidenceRemove = write<{ id: string; ref: Pick<EvidenceRef, 'fileRef' | 'line'> }, { version: string }>('evidenceRemove', { id: true, ref: true }, 'version');
 export const investigationArchive = write<{ id: string }, { version: string }>('investigationArchive', { id: true }, 'version');
-export const explorerActions = [investigationCreate, investigationUpdate, evidenceAdd, evidenceRemove, investigationArchive] as const;
+export type HandoffRef = Pick<EvidenceRef, 'fileRef' | 'line' | 'fileSha256'>;
+/** Only the Round target is wired in the screen; the server also takes knowledgeDraft (own prototype pending). */
+export type HandoffInput = { id: string; refs: HandoffRef[]; target: { kind: 'round'; roundId: string } };
+export type HandoffResult = { targetKind: 'round'; targetId: string; handedOff: number; alreadyAttached: number; byStatus: { match: number; hash_mismatch: number; unresolved: number } };
+export const evidenceHandoff = write<HandoffInput, HandoffResult>('evidenceHandoff', { id: true, refs: true, target: true }, 'version', HANDOFF_PERMISSION);
+export const explorerActions = [investigationCreate, investigationUpdate, evidenceAdd, evidenceRemove, investigationArchive, evidenceHandoff] as const;
 export const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);

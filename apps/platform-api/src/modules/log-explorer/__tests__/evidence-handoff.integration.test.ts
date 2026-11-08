@@ -560,4 +560,27 @@ describe.skipIf(!runIntegration)('log explorer evidence handoff (#1474 X-h)', ()
       expect(await handoffAudit(s.id)).toEqual([]);
     });
   });
+
+  describe('investigationDetail.handoff (what the screen may offer)', () => {
+    async function detailHandoff(who: Person, server: FastifyInstance = app): Promise<unknown> {
+      const s = await seed([REF(2)], who);
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/v1/menu-query',
+        headers: { 'content-type': 'application/json', ...cookieHeader(who.cookie) },
+        payload: JSON.stringify({ endpoint: 'logExplorer.investigationDetail', context: {}, params: { investigationId: s.id } }),
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json<Answer>().data.handoff;
+    }
+
+    it.each([
+      ['every right', () => holder, { round: true, knowledgeDraft: true }],
+      ['no explorer.handoff', () => noHandoff, { round: false, knowledgeDraft: false }],
+      ['no round receiver right', () => noRound, { round: false, knowledgeDraft: true }],
+      ['no draft receiver right', () => noDraft, { round: true, knowledgeDraft: false }],
+    ])('%s', async (_name, who, expected) => {
+      expect(await detailHandoff(who())).toEqual(expected);
+    });
+  });
 });

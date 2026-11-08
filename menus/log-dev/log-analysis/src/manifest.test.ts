@@ -17,8 +17,8 @@ describe('confirmed log explorer registry (#1473)', () => {
   });
   it('declares only merged reads/actions under their corrected owning menu', () => {
     expect(explorerEndpoints.map(e => e.id)).toEqual(['logExplorer.investigations', 'logExplorer.investigationDetail', 'logExplorer.records', 'logExplorer.window', 'logExplorer.parsed', 'logExplorer.periods']);
-    expect(explorerActions).toHaveLength(5);
+    expect(explorerActions).toHaveLength(6);
     expect([...explorerEndpoints, ...explorerActions].every(e => e.menuId === 'log-explorer')).toBe(true);
-    expect(explorerActions.some(a => a.id.includes('Handoff'))).toBe(false);
+    expect(explorerActions.map(a => a.id)).toContain('logExplorer.evidenceHandoff');
   });
 });

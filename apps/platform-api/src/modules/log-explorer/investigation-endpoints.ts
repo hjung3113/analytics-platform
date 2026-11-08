@@ -15,6 +15,7 @@ import { storedEvidence } from './domain/evidence.js';
 import { DETAIL_PARAM_KEYS, LIST_PARAM_KEYS, parseDetailParams, parseListParams } from './domain/investigation-params.js';
 import { refStateOf } from './domain/ref-state.js';
 import { EXPLORER_INVESTIGATE_MENU_PERMISSION } from './investigation-actions.js';
+import { EXPLORER_HANDOFF_MENU_PERMISSION } from './investigation-handoff.js';
 import { INVESTIGATION_MENU_ID } from './menu.js';
 import { getOwned, listMine } from './repositories/investigation-read.js';
 
@@ -67,6 +68,12 @@ export function investigationEndpoints(deps: InvestigationDeps): MenuEndpointDec
       const sampleSet = row.origin === 'round' ? roundSet : row.sampleSet;
       const sampleSetState = row.origin === 'standalone' ? 'inline' : roundSet ? 'round' : 'round_unavailable';
       const holdsInvestigate = await holdsPlatformPermission(deps.checkService, actor, EXPLORER_INVESTIGATE_MENU_PERMISSION);
+      // Same judgment as the action's `authorize`: `explorer.handoff` AND the receiver's pre-check. No handoff deps = nothing to hand to.
+      const holdsHandoff = deps.handoff ? await holdsPlatformPermission(deps.checkService, actor, EXPLORER_HANDOFF_MENU_PERMISSION) : false;
+      const handoff = {
+        round: holdsHandoff && deps.handoff ? await deps.handoff.roundIntake.canAttach(deps.db, actor) : false,
+        knowledgeDraft: holdsHandoff && deps.handoff ? await deps.handoff.draftIntake.canIntake(deps.db, actor) : false,
+      };
       const state = refStateOf({ holdsInvestigate, setResolved: row.origin === 'standalone' || roundSet !== null });
       return {
         outcome: 'ok',
@@ -83,6 +90,7 @@ export function investigationEndpoints(deps: InvestigationDeps): MenuEndpointDec
           sampleSet,
           sampleSetState,
           canInvestigate: holdsInvestigate,
+          handoff,
           evidence: storedEvidence(row.evidence).map((ref) => ({ ref, state, sourceAccess: 'unchecked' as const })),
         },
       };
