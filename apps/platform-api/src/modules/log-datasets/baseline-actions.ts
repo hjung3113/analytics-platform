@@ -40,6 +40,7 @@ import {
   patchDraft,
 } from './repositories/baseline-write.js';
 import { lockDataset } from './repositories/dataset-write.js';
+import { unknownScopeRules } from './rule-scope-check.js';
 import type { SampleSet } from './domain/sample-manifest.js';
 
 export const BASELINE_APPROVE_PERMISSION = 'dataset.baseline.approve';
@@ -158,6 +159,14 @@ export function baselineActions(deps: LogDatasetsDeps): MenuActionDeclaration[] 
       if (pinnedSoftware?.softwareId && !(await deps.knowledgeLookup.getSoftware(tx, ws, pinnedSoftware.modelId, pinnedSoftware.softwareId))) {
         // A software that is not of the pinned model in this workspace names no spec: refused here, `unknown` at read time if it vanishes later.
         throw invalid({ path: ['profilePin', 'specPin', 'softwareId'], code: 'not_found' });
+      }
+      // Rule ids of the effective (submitted, else stored) scope against the effective pinned RuleSet Revision (#1496), on every draft
+      // save: a pin that resolves later must not let an expectations-only save carry an unknown id on. Unresolved Revision: unchecked.
+      {
+        const pin = (value.profilePin ?? baseline.profilePin) as { ruleSetRevision?: string } | null;
+        const scope = (value.expectedScope ?? baseline.expectedScope) as string[] | null;
+        const unknown = await unknownScopeRules(deps.ruleCoverage, tx, ws, pin?.ruleSetRevision, scope ?? []);
+        if (unknown.length > 0) throw invalid(...unknown);
       }
       if (value.profilePin !== undefined && !isDeepStrictEqual(value.profilePin, baseline.profilePin)) {
         patch.profilePin = value.profilePin;

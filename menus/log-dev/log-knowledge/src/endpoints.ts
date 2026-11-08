@@ -146,6 +146,16 @@ export const modelSpecRevisionsEndpoint = defineEndpoint<ModelSpecRevisionsParam
   requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
 });
 
+/** 명세 커버리지 summary for the spec screen badge (#1496 R-f): counts by state, or why it cannot be computed. A configuration summary, never a pass/fail. Server: log-knowledge/spec-coverage-endpoint.ts. */
+export type SpecCoverageState = 'no_rule' | 'unsupported' | 'unknown' | 'partial' | 'covered';
+export type SpecCoverageData =
+  | { computable: true; counts: Record<SpecCoverageState, number> & { total: number }; coverageDigest: string }
+  | { computable: false; reason: 'no_catalog' | 'no_spec' | 'ambiguous_key' | 'no_requirement_ids' | 'unavailable' };
+export const specCoverageEndpoint = defineEndpoint<ModelSpecParams, SpecCoverageData | null>({
+  id: 'logKnowledge.specCoverage', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys: { modelId: true, softwareId: true }, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+
 // ---- model spec writes and the draft read (ADR-0111, #1196 b1) ---------------------------------------------------
 // Owned by the `log-knowledge-models` menu, judged with their own right (`knowledge:spec-publish`; Admin, or a Developer
 // with the workspace grant `knowledge.spec.publish`) although the menu is `platform:view`. The server mirror is
@@ -273,7 +283,7 @@ export const specSubjectItemsEndpoint = defineEndpoint<SpecSubjectItemsParams, P
 
 /** The model spec reads (#1196 a, b1, c, e, f), after the model reads in the server's order. */
 export const modelSpecEndpointSpecs = [
-  modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint, specChangesEndpoint,
+  modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint, specChangesEndpoint, specCoverageEndpoint,
   conceptMappingsEndpoint, conceptSuggestionsEndpoint, specSubjectItemsEndpoint,
 ] as const;
 
@@ -296,7 +306,7 @@ export type SpecPublishResult =
   | { outcome: 'unchanged'; revisionId: string };
 export type SpecRejectResult = { revisionId: string };
 
-const specWrites = [modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint, specChangesEndpoint];
+const specWrites = [modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftEndpoint, specChangesEndpoint, specCoverageEndpoint];
 const specWrite = <I, O>(name: string, inputKeys: Record<keyof I & string, true>, concurrency: 'none' | 'version') =>
   defineAction<I, O>({
     id: `logKnowledge.${name}`, menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, inputKeys, permission: SPEC_PUBLISH_PERMISSION,
@@ -307,7 +317,7 @@ export const specDraftSave = specWrite<SpecDraftSaveInput, SpecDraftSaveResult>(
 export const specPublish = specWrite<SpecPublishInput, SpecPublishResult>('specPublish', { revisionId: true }, 'version');
 export const specReject = specWrite<SpecRejectInput, SpecRejectResult>('specReject', { revisionId: true, reason: true }, 'version');
 
-// SW change writes (#1196 c): same right, `invalidates` = the change list and the model spec (the draft and revision reads do not move).
+// SW change writes (#1196 c): same right, `invalidates` = the change list, the model spec and its coverage badge (the draft and revision reads do not move).
 export type SpecChangeTarget =
   | { module: string }
   | { module: string; event: string }
@@ -323,7 +333,7 @@ export type SpecChangeConfirmInput = { changeId: string };
 export type SpecChangeAddResult = { changeId: string };
 export type SpecChangeRetireResult = { changeId: string; replacementChangeId?: string };
 export type SpecChangeConfirmResult = { changeId: string };
-const specChangeReads = [specChangesEndpoint, modelSpecEndpoint];
+const specChangeReads = [specChangesEndpoint, modelSpecEndpoint, specCoverageEndpoint];
 const specChangeWrite = <I, O>(name: string, inputKeys: Record<keyof I & string, true>, concurrency: 'none' | 'version') =>
   defineAction<I, O>({
     id: `logKnowledge.${name}`, menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, inputKeys, permission: SPEC_PUBLISH_PERMISSION,

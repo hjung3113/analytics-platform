@@ -18,6 +18,7 @@ describe('logRules client/server declarations', () => {
     ['rules', 'RULE_PARAM_KEYS', catalog], ['ruleDetail', 'RULE_DETAIL_PARAM_KEYS', catalog],
     ['catalogStatus', 'CATALOG_STATUS_PARAM_KEYS', catalog], ['coverage', 'COVERAGE_PARAM_KEYS', coverage],
     ['coverageSummary', 'COVERAGE_SUMMARY_PARAM_KEYS', coverage],
+    ['modelOptions', 'MODEL_OPTION_PARAM_KEYS', coverage], ['softwareOptions', 'SOFTWARE_OPTION_PARAM_KEYS', coverage],
   ])('%s mirrors the exact server param keys and owning menu', (name, keys, text) => {
     const client = endpointSpecs.find(e => e.id === `logRules.${name}`);
     expect(client).toMatchObject({ menuId: 'log-rules', permission: 'platform:view', requiresScope: false, context: {}, mergeTimeDomain: false });
@@ -45,7 +46,7 @@ describe('logRules client/server declarations', () => {
   it('matches the report-only server menu id without introducing a cross-menu model-list alias', () => {
     const menu = source('apps/platform-api/src/modules/log-rules/menu.ts');
     expect(menu).toContain("LOG_RULES_MENU_ID = 'log-rules'");
-    expect(endpointSpecs.map(e => e.id)).toHaveLength(7);
+    expect(endpointSpecs.map(e => e.id)).toHaveLength(9);
     expect(source('packages/sdk/contract-schemas/scripts/endpoints.vitest.mjs')).toContain('duplicate endpoint id');
   });
 });

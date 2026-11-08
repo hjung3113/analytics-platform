@@ -2,14 +2,15 @@
 // surfaces). Existence and activity of a model / software version, and the spec pin of the effective spec. Reads
 // `knowledge.*` only, every statement scoped to the workspace; it writes nothing.
 
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
-import { equipmentModels, softwareVersions } from '../../db/schema/knowledge.js';
+import { equipmentModels, softwareVersions, vendors } from '../../db/schema/knowledge.js';
 import type { DrizzleTx, Tx } from '../../db/tx.js';
 import { isUnambiguousSegment, requirementKey } from './domain/requirement-key.js';
 import { applySpecChanges } from './domain/spec-effective.js';
 import { type SpecPin, changeSetDigest } from './domain/spec-pin.js';
 import { lockModelChanges } from './repositories/spec-change.js';
+import { textFilter } from './repositories/catalog-read.js';
 import { getModelSpec, loadApplicableChanges } from './repositories/spec-read.js';
 
 export type { SpecPin };
@@ -23,6 +24,21 @@ export interface KnowledgeSoftwareRef {
   id: string;
   modelId: string;
   versionLabel: string;
+  active: boolean;
+}
+
+/** A model as a picker option: ids and display text only. */
+export interface KnowledgeModelOption {
+  id: string;
+  code: string;
+  name: string;
+  vendorName: string;
+  active: boolean;
+}
+export interface KnowledgeSoftwareOption {
+  id: string;
+  versionLabel: string;
+  name: string;
   active: boolean;
 }
 
@@ -44,6 +60,13 @@ export interface KnowledgeLookup {
   getModel(tx: Tx, workspaceId: string, modelId: string): Promise<KnowledgeModelRef | null>;
   /** The software version when it belongs to that model of the workspace; null otherwise. */
   getSoftware(tx: Tx, workspaceId: string, modelId: string, softwareId: string): Promise<KnowledgeSoftwareRef | null>;
+  /**
+   * Models of the workspace for a picker, searchable (`q`: code key prefix or name contains) and paged, ordered by code then id.
+   * Like `getModel`, no model-level ACL exists in log-knowledge (reads are `platform:view`), so none is applied here (#1496).
+   */
+  listModels(tx: Tx, workspaceId: string, query: { q: string | null; page: number; pageSize: number }): Promise<{ rows: KnowledgeModelOption[]; total: number }>;
+  /** Software versions of one model in release order; empty for an unknown model. */
+  listSoftware(tx: Tx, workspaceId: string, modelId: string): Promise<KnowledgeSoftwareOption[]>;
   /** Null when the model has no published revision; else the revision and the digest of the applicable changes. */
   getEffectiveSpecPin(tx: Tx, workspaceId: string, modelId: string, softwareId: string | null): Promise<SpecPin | null>;
   /**
@@ -69,6 +92,28 @@ export const knowledgeLookup: KnowledgeLookup = {
       .from(s)
       .where(and(eq(s.workspaceId, workspaceId), eq(s.modelId, modelId), eq(s.id, softwareId)));
     return row ?? null;
+  },
+  async listModels(tx, workspaceId, { q, page, pageSize }) {
+    const t = equipmentModels;
+    const where = and(eq(t.workspaceId, workspaceId), textFilter(t.codeKey, t.name, q));
+    const rows = await tx
+      .select({ id: t.id, code: t.code, name: t.name, active: t.active, vendorName: vendors.name })
+      .from(t)
+      .innerJoin(vendors, and(eq(vendors.workspaceId, t.workspaceId), eq(vendors.id, t.vendorId)))
+      .where(where)
+      .orderBy(asc(t.codeKey), asc(t.id))
+      .limit(pageSize)
+      .offset(page * pageSize);
+    const [total] = await tx.select({ n: sql<number>`count(*)::int` }).from(t).where(where);
+    return { rows, total: total?.n ?? 0 };
+  },
+  async listSoftware(tx, workspaceId, modelId) {
+    const s = softwareVersions;
+    return tx
+      .select({ id: s.id, versionLabel: s.versionLabel, name: s.name, active: s.active })
+      .from(s)
+      .where(and(eq(s.workspaceId, workspaceId), eq(s.modelId, modelId)))
+      .orderBy(asc(s.releaseOrder), asc(s.id));
   },
   async getEffectiveSpecPin(tx, workspaceId, modelId, softwareId) {
     // The model lock publish and SW-change writes take: the revision and the change list below are read as one

@@ -2,6 +2,7 @@
 
 import { PAGE_SIZE_MAX } from '../../../lib/list-params/list-params.js';
 import { isUuid } from '../../../lib/input/fields.js';
+import { unsafeText } from '../../../lib/text-safety.js';
 
 type Fail = { ok: false; message: string };
 const fail = (message: string): Fail => ({ ok: false, message });
@@ -49,4 +50,34 @@ export function parseCoverageSummaryParams(params: Record<string, unknown>): { o
   }
   if (!ids.every((id) => typeof id === 'string' && isUuid(id))) return fail('modelIds must hold UUIDs');
   return { ok: true, value: [...new Set((ids as string[]).map((id) => id.toLowerCase()))] };
+}
+
+// ── Picker options (#1496 R-f): model / software names for the Coverage tab ────────────────────────────────────────
+
+export const MODEL_OPTION_PARAM_KEYS = ['q', 'page', 'pageSize'] as const;
+export const SOFTWARE_OPTION_PARAM_KEYS = ['modelId'] as const;
+export const OPTION_Q_MAX = 200;
+export const OPTION_PAGE_SIZE_DEFAULT = 20;
+
+export interface ModelOptionQuery {
+  q: string | null;
+  page: number;
+  pageSize: number;
+}
+
+export function parseModelOptionParams(params: Record<string, unknown>): { ok: true; value: ModelOptionQuery } | Fail {
+  const q = params.q ?? null;
+  if (q !== null && (typeof q !== 'string' || q.length > OPTION_Q_MAX || unsafeText(q))) return fail(`q must be a string of at most ${OPTION_Q_MAX} characters or null`);
+  const page = params.page === undefined ? 0 : params.page;
+  if (typeof page !== 'number' || !Number.isInteger(page) || page < 0 || page > 1_000_000) return fail('page must be a non-negative integer (0-based)');
+  const pageSize = params.pageSize === undefined ? OPTION_PAGE_SIZE_DEFAULT : params.pageSize;
+  if (typeof pageSize !== 'number' || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > PAGE_SIZE_MAX) {
+    return fail(`pageSize must be an integer from 1 to ${PAGE_SIZE_MAX}`);
+  }
+  return { ok: true, value: { q: q as string | null, page, pageSize } };
+}
+
+export function parseSoftwareOptionParams(params: Record<string, unknown>): { ok: true; value: string } | Fail {
+  const modelId = parseId(params, 'modelId', false);
+  return modelId.ok ? { ok: true, value: modelId.value as string } : modelId;
 }

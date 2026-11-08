@@ -14,8 +14,9 @@ const change: SpecChangeRow = { id: '00000007-0000-4000-8000-000000000002', soft
 const registry = knowledgeRegistry(['knowledge:spec-publish', 'knowledge:catalog-manage'], { description: { ko: '로그 개발', en: 'Log development' }, homeMenuId: 'log-knowledge-models' });
 let queries: MenuQuery[], writes: MenuAction[], result: ApiResponse<unknown> | null, allowed: boolean, conflict: boolean, saveInvalid: boolean;
 let extraChanges: SpecChangeRow[];
+let coverage: unknown;
 let restoreGeometry: () => void;
-beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); HTMLElement.prototype.scrollIntoView = vi.fn(); queries = []; writes = []; result = ok(spec); allowed = true; conflict = false; saveInvalid = false; extraChanges = []; });
+beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); HTMLElement.prototype.scrollIntoView = vi.fn(); queries = []; writes = []; result = ok(spec); allowed = true; conflict = false; saveInvalid = false; extraChanges = []; coverage = null; });
 afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks();
   // eslint-disable-next-line no-restricted-syntax -- the kernel owns web storage; the test resets the faked seam it reads
   window.localStorage?.removeItem?.('platform:lang');
@@ -34,6 +35,7 @@ function mount(search = '', draft: Record<string, unknown> | null = null, id = m
     if (req.endpoint === 'logKnowledge.softwareVersions') return ok({ rows: [{ id: sw, versionLabel: 'v1.0', releaseOrder: 1 }], total: 1 });
     if (req.endpoint === 'logKnowledge.specChanges') return ok({ rows: [change, ...extraChanges], total: 1 + extraChanges.length });
     if (req.endpoint === 'logKnowledge.modelSpecRevisions') return ok({ rows: [{ id: rev, revisionNo: 2, state: 'draft', version: 1 }], total: 1 });
+    if (req.endpoint === 'logKnowledge.specCoverage') return ok(coverage);
     if (req.endpoint === 'logKnowledge.specDraft') return ok(draft ?? { ...spec, revision: { ...spec.revision, state: 'draft', version: 1 } });
     return ok(null);
   }, menuAction: async req => { writes.push(req); return saveInvalid ? { outcome: 'invalid', fieldErrors: [{ path: ['text'], code: 'malformed' }] } as unknown as ActionResponse<never> : (conflict ? { outcome: 'conflict', currentVersion: '2' } : { outcome: 'ok', data: { revisionId: rev, version: '2' }, version: '2' }) as unknown as ActionResponse<never>; } });
@@ -107,6 +109,28 @@ describe('production model spec screen', () => {
   it.each(['empty', 'loading', 'error', 'forbidden'] as const)('renders the %s state', async state => {
     result = state === 'empty' ? ok(null) : state === 'loading' ? null : { ...ok(null), outcome: state === 'forbidden' ? 'forbidden' : 'error' };
     mount(); expect(await screen.findByText({ empty: '발행된 모델 명세가 없습니다', loading: '명세를 불러오는 중…', error: '명세를 불러오지 못했습니다', forbidden: '명세를 볼 권한이 없습니다' }[state])).toBeTruthy();
+  });
+
+  // #1496 U1: a valid model without a published spec still shows why its coverage cannot be computed.
+  it('shows the coverage badge (reason and rules link) for a model without a published spec', async () => {
+    result = ok(null); coverage = { computable: false, reason: 'no_spec' };
+    mount();
+    expect(await screen.findByText('발행된 모델 명세가 없습니다')).toBeTruthy();
+    expect(await screen.findByText('명세 커버리지 계산 불가')).toBeTruthy();
+    expect(screen.getByText('발행된 명세가 없습니다')).toBeTruthy();
+  });
+  // #1496 C2: a successful spec write re-reads the mounted badge.
+  it('re-reads the mounted coverage badge after a successful spec write', async () => {
+    coverage = { computable: true, counts: { no_rule: 1, unsupported: 0, unknown: 0, partial: 0, covered: 1, total: 2 }, coverageDigest: 'd' };
+    mount('&drawer=draft&revision=' + rev, { ...spec, revision: { ...spec.revision, state: 'draft', version: 1 } });
+    expect(await screen.findByText('규칙 없음 1 · 요구사항 2')).toBeTruthy();
+    const coverageReads = () => queries.filter(q => q.endpoint === 'logKnowledge.specCoverage').length;
+    const before = coverageReads();
+    await screen.findByLabelText('명세 TSV');
+    fireEvent.change(screen.getByLabelText('문서 버전*'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    await waitFor(() => expect(coverageReads()).toBeGreaterThan(before));
   });
 
   // C1: a loaded draft saves through the structured snapshot, so stored tabs/newlines never enter unquoted TSV.

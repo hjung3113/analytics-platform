@@ -70,6 +70,9 @@ export type CoverageData = { computable: false; reason: CoverageReason; specPin:
 };
 export type CoverageParams = { modelId: string; softwareId?: string | null; page?: number; pageSize?: number };
 export type CoverageSummaryRow = { modelId: string } & ({ computable: false; reason: CoverageReason } | { computable: true; counts: CoverageCounts; coverageDigest: string });
+export type ModelOption = { id: string; code: string; name: string; vendorName: string; active: boolean };
+export type SoftwareOption = { id: string; versionLabel: string; name: string; active: boolean };
+export type ModelOptionParams = { q?: string | null; page?: number; pageSize?: number };
 const listKeys = { q: true, page: true, pageSize: true, sorting: true, filters: true } as const;
 const read = <P, T>(name: string, paramKeys: { [K in keyof P]-?: true }) => defineEndpoint<P, T>({
   id: `logRules.${name}`, menuId: LOG_RULES_MENU_ID, paramKeys, permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
@@ -81,4 +84,7 @@ export const ruleDetailEndpoint = read<{ ruleSetKey: string; ruleKey: string }, 
 export const catalogStatusEndpoint = read<Record<string, never>, CatalogStatus>('catalogStatus', {});
 export const coverageEndpoint = read<CoverageParams, CoverageData | null>('coverage', { modelId: true, softwareId: true, page: true, pageSize: true });
 export const coverageSummaryEndpoint = read<{ modelIds: string[] }, { rows: CoverageSummaryRow[] }>('coverageSummary', { modelIds: true });
-export const endpointSpecs = [ruleSetsEndpoint, ruleSetDetailEndpoint, rulesEndpoint, ruleDetailEndpoint, catalogStatusEndpoint, coverageEndpoint, coverageSummaryEndpoint] as const;
+/** Picker options (#1496 R-f): ids + display text of models / a model's SW versions. Server mirror: log-rules/coverage-endpoints.ts. */
+export const modelOptionsEndpoint = read<ModelOptionParams, { rows: ModelOption[]; total: number; page: number; pageSize: number }>('modelOptions', { q: true, page: true, pageSize: true });
+export const softwareOptionsEndpoint = read<{ modelId: string }, { rows: SoftwareOption[] }>('softwareOptions', { modelId: true });
+export const endpointSpecs = [ruleSetsEndpoint, ruleSetDetailEndpoint, rulesEndpoint, ruleDetailEndpoint, catalogStatusEndpoint, coverageEndpoint, coverageSummaryEndpoint, modelOptionsEndpoint, softwareOptionsEndpoint] as const;

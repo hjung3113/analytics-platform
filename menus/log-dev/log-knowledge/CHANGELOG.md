@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.10.0 — 2026-11-08
+
+- 모델 명세 머리에 명세 커버리지 배지(`logKnowledge.specCoverage`)와 검증 규칙 커버리지 탭 링크(#1496).
+
 ## 0.9.1 — 2026-11-07
 
 - 모델 명세 편집(#1410): Draft·변경점 입력이 dirty이면 Back/Forward·메뉴 이동·딥링크를 셸 이동 확인(#1388, `leaves: 'address'`)으로 막는다. 저장 뒤 Revision 키는 `replace`로 쓴다. UUID 검사는 `endpoints.ts`의 `isUuid` 하나로 모으고, 화면 테스트 하네스는 `src/pages/test-support.tsx`로 옮겼다.

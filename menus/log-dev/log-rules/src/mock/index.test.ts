@@ -53,3 +53,19 @@ describe('synthetic validation catalog', () => {
     expect(run('coverageSummary', { modelIds: [FIXTURE_MODELS.noSpec, FIXTURE_MODELS.full] })).toMatchObject({ rows: [expect.objectContaining({ reason: 'no_spec' }), expect.objectContaining({ computable: true })] });
   });
 });
+
+// #1496: the knowledge menu's mock (log-knowledge `specCoverage`, seeded model names) mirrors these literals; menus cannot import each other,
+// so each package pins the same table and the two stay in agreement by test.
+describe('fixture models agree with the knowledge menu mock', () => {
+  const expected: [string, string, string, unknown][] = [
+    [FIXTURE_MODELS.mixed, 'A-100', 'Alpha 100', { computable: true, counts: { no_rule: 1, unsupported: 1, unknown: 1, partial: 1, covered: 1, total: 5 } }],
+    [FIXTURE_MODELS.noSpec, 'A-200', 'Alpha 200', { computable: false, reason: 'no_spec' }],
+    [FIXTURE_MODELS.noIds, 'B-10', 'Beta 10', { computable: false, reason: 'no_requirement_ids' }],
+    [FIXTURE_MODELS.full, 'B-20', 'Beta 20', { computable: true, counts: { no_rule: 0, unsupported: 0, unknown: 0, partial: 0, covered: 3, total: 3 } }],
+  ];
+  it.each(expected)('%s: name, code and coverage counts', (id, code, name, coverage) => {
+    const options = run('modelOptions') as { rows: { id: string; code: string; name: string }[] };
+    expect(options.rows.find(r => r.id === id)).toMatchObject({ code, name });
+    expect(run('coverage', { modelId: id })).toMatchObject(coverage as Record<string, unknown>);
+  });
+});

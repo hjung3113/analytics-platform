@@ -60,7 +60,7 @@ export function RoundScreen(props: ScreenProps & { roundId: string; project: Pro
         { id: 'lease', header: 'lease 만료 (KST)', sortable: false, cell: q => time(q.leaseExpiresAt) },
         { id: 'heartbeat', header: '마지막 하트비트 (KST)', sortable: false, cell: q => time(q.lastHeartbeatAt) },
       ] })}</ReadView>
-      {requestId ? <ReadView query={request}>{detail => detail.roundId === r.id ? <Attempts attempts={detail.attempts} selected={attempt?.id} onSelect={setAttemptId} ui={ui} /> : <p role="alert">이 Round에 속한 요청이 아닙니다.</p>}</ReadView> : null}</Section>
+      {requestId ? <ReadView query={request}>{detail => detail.roundId === r.id ? <Attempts attempts={detail.attempts} selected={attempt?.id} onSelect={setAttemptId} ui={ui} RuleSetLink={props.RuleSetLink} /> : <p role="alert">이 Round에 속한 요청이 아닙니다.</p>}</ReadView> : null}</Section>
       {attempt ? <RuleTable key={attempt.id} {...props} round={r} attempt={attempt} /> : <p className="text-sm text-text-secondary">규칙 결과 없음 · 완료된 시도가 아직 없습니다.</p>}
     </div><GatePanel {...props} round={r} completedAt={round.completedAt ?? null} /></div>
     {registering ? <RequestRegister {...props} fixedRound={{ id: r.id, seq: r.seq }} onClose={() => setRegistering(false)} /> : closing ? <LifecycleForm {...props} name="roundClose" title="Round 종료" initial={{ id: r.id }} version={r.version} onClose={() => setClosing(false)} /> : null}

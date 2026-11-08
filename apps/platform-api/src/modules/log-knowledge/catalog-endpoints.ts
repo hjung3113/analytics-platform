@@ -28,6 +28,7 @@ import { draftActions } from './draft-actions.js';
 import { reviewActions } from './review-actions.js';
 import { draftEndpoints } from './draft-endpoints.js';
 import { specEndpoints } from './spec-endpoints.js';
+import { specCoverageEndpoint } from './spec-coverage-endpoint.js';
 import { importActions } from './import-actions.js';
 import { importIntakeActions } from './import-intake-actions.js';
 import { importEndpoints } from './import-endpoints.js';
@@ -102,6 +103,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       ...itemEndpoints(deps),
       ...draftEndpoints(deps),
       ...specEndpoints(deps),
+      specCoverageEndpoint(deps),
       ...conceptEndpoints(deps),
       ...subjectEndpoints(deps),
       ...importEndpoints(deps),

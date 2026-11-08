@@ -1,30 +1,20 @@
-import { useId, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DetailDrawer, QueryView, TableUrlWarning, useTableUrlState, type PlatformColumn } from '@ap/components';
 import { PlatformLink, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { Button, FieldLabel, Input } from '@ap/ui';
-import { COVERAGE_STATES, coverageEndpoint, coverageSummaryEndpoint, ruleDetailEndpoint, isUuid, type CoverageData, type DeclaringRule, type RequirementRow } from '../endpoints';
+import { Button } from '@ap/ui';
+import { COVERAGE_STATES, coverageEndpoint, coverageSummaryEndpoint, ruleDetailEndpoint, type CoverageData, type DeclaringRule, type RequirementRow } from '../endpoints';
 import { CoverageBadge, EmptyNote, Original, ReasonState, Section, SupportBadge } from './presentation';
+import { CoveragePicker } from './CoveragePicker';
 import { MissingDrawer } from './RuleDrawer';
 import { SnapshotTable } from './SnapshotTable';
 import { usePageWriter } from './usePageWriter';
 
-/** Stable-id fallback until a sanctioned cross-menu model-list surface exists. No duplicate logKnowledge endpoint declarations. */
 function CoverageSelector({ modelId, softwareId, children }: { modelId: string | null; softwareId: string | null; children: React.ReactNode }) {
   const { setPage } = usePlatform();
-  const id = useId();
-  const [draft, setDraft] = useState({ model: modelId ?? '', software: softwareId ?? '', applied: `${modelId}:${softwareId}` });
-  if (draft.applied !== `${modelId}:${softwareId}`) setDraft({ model: modelId ?? '', software: softwareId ?? '', applied: `${modelId}:${softwareId}` });
-  const [submitted, setSubmitted] = useState(false);
-  const valid = isUuid(draft.model) && (!draft.software || isUuid(draft.software));
-  return <form className="grid min-w-0 grid-cols-1 gap-2" onSubmit={e => {
-    e.preventDefault(); setSubmitted(true);
-    if (valid) { setPage({ modelId: draft.model.toLowerCase(), softwareId: draft.software.toLowerCase() || null, page: null, focus: null }); setSubmitted(false); }
-  }}><div className="flex min-w-0 flex-wrap items-center gap-2">
-    <div className="flex min-w-0 items-center gap-2"><FieldLabel htmlFor={`${id}-model`}>모델 ID</FieldLabel><Input id={`${id}-model`} inputSize="toolbar" className="w-80" value={draft.model} aria-invalid={submitted && !isUuid(draft.model)} placeholder="모델의 안정 ID (UUID)" onChange={e => setDraft({ ...draft, model: e.target.value })} /></div>
-    <div className="flex min-w-0 items-center gap-2"><FieldLabel htmlFor={`${id}-software`}>SW 버전 ID (선택)</FieldLabel><Input id={`${id}-software`} inputSize="toolbar" className="w-80" value={draft.software} aria-invalid={submitted && !!draft.software && !isUuid(draft.software)} placeholder="비우면 모델 기준" onChange={e => setDraft({ ...draft, software: e.target.value })} /></div>
-    <Button type="submit" size="toolbar" variant="secondary">조회</Button>
+  return <div className="grid min-w-0 grid-cols-1 gap-2"><div className="flex min-w-0 flex-wrap items-center gap-2">
+    <CoveragePicker modelId={modelId} softwareId={softwareId} onChange={next => setPage({ modelId: next.modelId, softwareId: next.softwareId, page: null, focus: null })} />
     {children}
-  </div>{submitted && !valid && <p role="alert" className="text-xs text-text-danger-label">모델 ID와 SW 버전 ID는 UUID 형식으로 입력해 주세요.</p>}</form>;
+  </div></div>;
 }
 export function CoverageTab({ modelId, softwareId, onOpenRule }: { modelId: string | null; softwareId: string | null; onOpenRule: () => void }) {
   const { pageParam, setPage, linkTo } = usePlatform();
@@ -35,12 +25,11 @@ export function CoverageTab({ modelId, softwareId, onOpenRule }: { modelId: stri
   const currentSummary = summary.response?.outcome === 'ok' ? summary.response.data?.rows.find(r => r.modelId === modelId) : undefined;
   return <div className="grid min-w-0 grid-cols-1 gap-3">
     <CoverageSelector modelId={modelId} softwareId={softwareId}>
-    {modelId && <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs"><Original>{modelId}</Original>{softwareId ? <Original>{softwareId}</Original> : <span>· 모델 기준</span>}
-      <PlatformLink className="text-accent-primary" href={linkTo('log-knowledge-spec', { params: { modelId }, page: softwareId ? { software: softwareId } : {}, returnTo: true })}>모델 명세</PlatformLink>
+    {modelId && <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs"><PlatformLink className="text-accent-primary" href={linkTo('log-knowledge-spec', { params: { modelId }, page: softwareId ? { software: softwareId } : {}, returnTo: true })}>모델 명세</PlatformLink>
       {softwareId && currentSummary && <span className="text-text-muted">모델 기준: {currentSummary.computable ? `명세 요구사항 ${currentSummary.counts.total}개` : '계산할 수 없음'}</span>}
     </div>}
     </CoverageSelector>
-    {url.invalid ? <TableUrlWarning sentences={url.sentences} recoverKeys={url.recoverKeys} cause={url.cause} /> : !modelId ? <EmptyNote title="모델을 선택해 주세요" body="모델 명세에서 복사한 모델 ID로 명세 커버리지를 조회합니다." /> : <QueryView query={query}>{data => <>
+    {url.invalid ? <TableUrlWarning sentences={url.sentences} recoverKeys={url.recoverKeys} cause={url.cause} /> : !modelId ? <EmptyNote title="모델을 선택해 주세요" body="위에서 모델을 고르면 그 모델의 명세 커버리지를 봅니다." /> : <QueryView query={query}>{data => <>
       {data && !data.computable && data.specPin && <div className="text-xs text-text-muted"><Original>spec_pin: {data.specPin.revisionId} · {data.specPin.changeSetDigest}</Original></div>}
       {!data ? <ReasonState reason="model_unknown" /> : !data.computable ? <ReasonState reason={data.reason} /> : <ComputedCoverage key={JSON.stringify([data.coverageDigest, query.completedAt])} onRefresh={query.refetch} onOpenRule={onOpenRule} data={data} modelId={modelId} softwareId={softwareId} urlState={url.urlState} />}
     </>}</QueryView>}

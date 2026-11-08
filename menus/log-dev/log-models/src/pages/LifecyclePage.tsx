@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { AuditTimeline, DataTrustIndicator, PageKeyWarning, usePageKeyRules, DetailDrawer, PlatformDataTable, PlatformPage } from '@ap/components';
-import { useMenuAction, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
+import { PlatformLink, useMenuAction, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
 import { defineEndpoint, type ApiResponse, type AuditEvent, type GroupedPageResult, type EndpointSpec } from '@ap/contracts';
 import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
 import { actions, endpoints, isUuid, PROJECT_MANAGE, ROUND_MANAGE } from '../endpoints';
@@ -65,7 +65,9 @@ export default function LifecyclePage({ params = {} }: PageProps) {
     else if (url.pathname === '/log/models') navigate(linkTo('log-models'));
     else if (url.pathname === '/log/validation-requests') navigate(linkTo('log-validation-requests', { page: Object.fromEntries(url.searchParams) }));
   }, [navigate, linkTo, params.projectId, pageParam]);
-  const props = useMemo<ScreenProps>(() => ({ api, ui, state: Object.fromEntries(page), setState: patch => setPage(Object.fromEntries(Object.entries(patch).map(([k,v]) => [k, v ?? null]))), actorId: user.id, canProject: can(PROJECT_MANAGE), canRound: can(ROUND_MANAGE), selection: pageParam('request') ?? undefined, setSelection: id => setPage({ request: id ?? null }) }), [page, user.id, can, pageParam, setPage]);
+  const props = useMemo<ScreenProps>(() => ({ api, ui, state: Object.fromEntries(page), setState: patch => setPage(Object.fromEntries(Object.entries(patch).map(([k,v]) => [k, v ?? null]))), actorId: user.id, canProject: can(PROJECT_MANAGE), canRound: can(ROUND_MANAGE), selection: pageParam('request') ?? undefined, setSelection: id => setPage({ request: id ?? null }),
+    // The RuleSet history of the validation rules menu (#1496); a registry without that menu shows the name without a link.
+    RuleSetLink: ({ ruleSetKey, children }) => { let href: string | null = null; try { href = linkTo('log-rules', { page: { ruleSetKey } }); } catch { href = null; } return href ? <PlatformLink className="min-w-0 truncate text-accent-primary hover:underline" href={href}>{children}</PlatformLink> : children; } }), [page, user.id, can, pageParam, setPage, linkTo]);
   const projectId = params.projectId;
   const roundId = params.roundId;
   const selection = pageParam('request');

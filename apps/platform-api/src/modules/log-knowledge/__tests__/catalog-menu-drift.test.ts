@@ -136,11 +136,11 @@ describe('model reads (menu log-knowledge-models) vs the server', () => {
     expect(LOG_KNOWLEDGE_MODELS_MENU_ID).toBe(SERVER_MODELS_MENU_ID);
   });
 
-  // The two model reads of #1197 s1 followed by the model spec reads of #1196 a, b1, c, e (mappings, suggestions) and f (subject items).
+  // The two model reads of #1197 s1 followed by the model spec reads of #1196 a, b1, c, the #1496 coverage badge read, e (mappings, suggestions) and f (subject items).
   const menuModelReads = [...modelEndpointSpecs, ...modelSpecEndpointSpecs];
 
-  it('declares the same nine reads in the same order, with the same keys, right and workspace rule', () => {
-    expect(serverModelEndpoints).toHaveLength(9);
+  it('declares the same ten reads in the same order, with the same keys, right and workspace rule', () => {
+    expect(serverModelEndpoints).toHaveLength(10);
     expect(menuModelReads.map((s) => s.id)).toEqual(serverModelEndpoints.map((e) => e.spec.id));
     menuModelReads.forEach((menu, i) => {
       const spec = serverModelEndpoints[i]?.spec;

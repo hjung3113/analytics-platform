@@ -12,6 +12,8 @@ import { REASON_COPY, type CatalogStatus, type CoverageData, type CoverageReason
 import RulesScreen from './RulesScreen';
 
 const modelId = '00000003-0000-4000-8000-000000000001';
+const otherModelId = '00000003-0000-4000-8000-000000000002';
+const softwareId = '00000004-0000-4000-8000-000000000001';
 const status: CatalogStatus = { received: true, lastReportedAt: '2026-11-08T11:30:00', sourceSystem: '합성 fixture', validatorVersion: 'v0', sources: [], ruleSetCount: 1, ruleCount: 1, requirementIdsDeclared: true };
 const long = 'UNBROKEN_TARGET_'.repeat(28);
 const detail: RuleDetail = { ruleSetKey: 'core', ruleKey: 'R-001', revision: 'r2', title: '합성 규칙', summary: '합성 fixture 요약', support: 'supported', scope: null, requiredDefault: null, inCurrentRevision: true, sourceSystem: '합성 fixture', lastReportedAt: status.lastReportedAt!, targets: [{ position: 0, format: 'original', target: long, requirementIds: ['ROBOT/READY', 'ORPHAN'] }], revisions: [{ revision: 'r2', status: 'active', retired: false, isCurrent: true, support: 'supported' }] };
@@ -22,6 +24,7 @@ let received = true, empty = false, missing = false, noIds = false;
 let data: CoverageData | null = coverage;
 let queries: MenuQuery[] = [];
 let hold: Promise<void> | undefined;
+let softwareFailures = 0;
 let coverageAnswer: ((req: MenuQuery) => Promise<ApiResponse<never>>) | undefined;
 const ok = (value: unknown) => ({ outcome: 'ok', data: value, assessments: [], trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
 const session = testSession(['platform:view']);
@@ -34,6 +37,9 @@ const adapter = testAdapter({ session: () => session, menuQuery: async req => {
   if (req.endpoint === 'logRules.ruleSetDetail') return ok({ ruleSetKey: 'core', revisions: [{ revision: 'r1', retired: true, isCurrent: false, previousRevision: null, changes: null }, { revision: 'r2', retired: false, isCurrent: true, previousRevision: 'r1', changes: { added: ['R-002'], removed: ['R-003'], supportChanged: [{ ruleKey: 'R-001', from: 'unknown', to: 'supported' }], addedCount: 1, removedCount: 1, supportChangedCount: 1, truncated: false } }] });
   if (req.endpoint === 'logRules.coverage') return coverageAnswer ? coverageAnswer(req) : ok(data);
   if (req.endpoint === 'logRules.coverageSummary') return ok({ rows: [] });
+  if (req.endpoint === 'logRules.modelOptions') return ok({ rows: [{ id: modelId, code: 'MX-1', name: '합성 모델', vendorName: '합성 설비사', active: true }, { id: otherModelId, code: 'MX-2', name: '다른 모델', vendorName: '합성 설비사', active: true }], total: 2, page: 0, pageSize: 20 });
+  if (req.endpoint === 'logRules.softwareOptions' && softwareFailures > 0) { softwareFailures -= 1; return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'fixture' } as ApiResponse<never>; }
+  if (req.endpoint === 'logRules.softwareOptions') return ok({ rows: [{ id: softwareId, versionLabel: '2.1', name: '', active: true }] });
   return ok(null);
 } });
 function Slot() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
@@ -43,7 +49,7 @@ const mount = (search = '', params = {}) => {
   return render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider><RulesScreen params={params} /><LinkProbe /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 };
 let restore: () => void;
-beforeEach(() => { received = true; empty = false; missing = false; noIds = false; data = coverage; queries = []; hold = undefined; coverageAnswer = undefined; restore = stubCompactTableGeometry(); });
+beforeEach(() => { received = true; empty = false; missing = false; noIds = false; data = coverage; queries = []; hold = undefined; softwareFailures = 0; coverageAnswer = undefined; restore = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restore(); });
 
 describe('validation rules screen', () => {
@@ -239,21 +245,47 @@ describe('spec coverage', () => {
     let release!: () => void; const gate = new Promise<void>(r => { release = r; });
     coverageAnswer = async () => { await gate; return ok(coverage); };
     mount(`&tab=coverage&modelId=${modelId}`);
-    await screen.findByLabelText('모델 ID');
+    await screen.findByLabelText('모델');
     expect(screen.queryByText(/명세 커버리지 0%/)).toBeNull();
     expect(screen.queryByText('명세 요구사항')).toBeNull();
     await act(async () => { release(); });
     expect(await screen.findByText(/명세 커버리지 100%/)).toBeTruthy();
   });
-  it('validates a stable model/software id and resets the requirement page on a new selection', async () => {
+  it('picks a model by name, writes the UUID keys, and drops the SW version on a model change (#1496)', async () => {
     mount('&tab=coverage');
-    const input = await screen.findByLabelText('모델 ID');
-    fireEvent.change(input, { target: { value: 'bad-id' } }); fireEvent.click(screen.getByRole('button', { name: '조회' }));
-    expect(await screen.findByText('모델 ID와 SW 버전 ID는 UUID 형식으로 입력해 주세요.')).toBeTruthy();
-    expect(queries.some(q => q.endpoint === 'logRules.coverage')).toBe(false);
-    fireEvent.change(input, { target: { value: modelId } }); fireEvent.click(screen.getByRole('button', { name: '조회' }));
+    fireEvent.click(await screen.findByRole('combobox', { name: '모델' }));
+    fireEvent.click(await screen.findByRole('option', { name: /합성 모델/ }));
     expect(await screen.findByText(/명세 커버리지 100%/)).toBeTruthy();
     expect(new URLSearchParams(window.location.search).get('modelId')).toBe(modelId);
+    expect(queries.some(q => q.endpoint === 'logRules.coverage' && (q.params as { modelId: string }).modelId === modelId)).toBe(true);
+    fireEvent.click(screen.getByRole('combobox', { name: 'SW 버전 (선택)' }));
+    fireEvent.click(await screen.findByRole('option', { name: /2\.1/ }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('softwareId')).toBe(softwareId));
+    fireEvent.click(screen.getByRole('combobox', { name: '모델' }));
+    fireEvent.click(await screen.findByRole('option', { name: /다른 모델/ }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('modelId')).toBe(otherModelId));
+    expect(new URLSearchParams(window.location.search).get('softwareId')).toBeNull();
+  });
+  it('shows a failed SW version list next to the picker with a retry that recovers on the same model (#1496)', async () => {
+    softwareFailures = 1;
+    mount(`&tab=coverage&modelId=${modelId}`);
+    expect((await screen.findByRole('alert', { name: '' })).textContent).toContain('SW 버전 목록을 불러오지 못했습니다');
+    expect(screen.queryByText('이 모델에 SW 버전이 없습니다')).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: '다시 시도' }).at(-1) as HTMLElement);
+    await waitFor(() => expect(screen.queryByText(/SW 버전 목록을 불러오지 못했습니다/)).toBeNull());
+    fireEvent.click(screen.getByRole('combobox', { name: 'SW 버전 (선택)' }));
+    expect(await screen.findByRole('option', { name: /2\.1/ })).toBeTruthy();
+    expect(queries.filter(q => q.endpoint === 'logRules.softwareOptions')).toHaveLength(2);
+  });
+  it('labels an address model by name, and shows the raw id when the list cannot label it', async () => {
+    mount(`&tab=coverage&modelId=${modelId}`);
+    expect(await screen.findByRole('combobox', { name: '모델' })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '모델' }).textContent).toContain('합성 모델'));
+    cleanup();
+    const unlisted = '00000003-0000-4000-8000-0000000000ff';
+    mount(`&tab=coverage&modelId=${unlisted}`);
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '모델' }).textContent).toContain(unlisted));
+    expect(screen.queryByText(/불러오지 못했습니다/)).toBeNull();
   });
   it('does not invent a percentage for an empty published requirement set', async () => {
     data = { ...coverage, counts: { ...coverage.counts, covered: 0, total: 0 }, rows: [], total: 0 };

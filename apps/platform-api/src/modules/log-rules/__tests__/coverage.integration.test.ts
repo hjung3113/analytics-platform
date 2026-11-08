@@ -198,7 +198,7 @@ describe.skipIf(!runIntegration)('spec coverage (#1494)', () => {
     await sql(`delete from knowledge.spec_event where spec_rev_id in ${revs}`, [actorIds]);
     await sql(`delete from knowledge.spec_module where spec_rev_id in ${revs}`, [actorIds]);
     await sql('delete from knowledge.model_spec_revision where created_by = any($1)', [actorIds]);
-    for (const table of ['equipment_model', 'vendor']) {
+    for (const table of ['software_version', 'equipment_model', 'vendor']) {
       await sql(`delete from knowledge.${table} where workspace_id = any($1) and created_by = any($2)`, [[WORKSPACE_ID, privateWs], actorIds]);
     }
     await sql('delete from core.sessions where actor_id = any($1)', [actorIds]);
@@ -344,6 +344,44 @@ describe.skipIf(!runIntegration)('spec coverage (#1494)', () => {
       expect(await resolve(`${TAG}-amb`, 'ext-11')).toMatchObject({ revision: '11' });
       await seed(privateWs, 'src', [], { replaces: first });
       expect(await resolve(`${TAG}-rv`, '2')).toBeNull();
+    });
+    it('findRuleSetRevision / checkRuleKeys (#1496): matched, ambiguous across RuleSets, unknown, no_catalog', async () => {
+      await resetPrivate();
+      const find = (ref: string) => dbHandle.db.transaction((tx) => port.findRuleSetRevision(tx, privateWs, ref));
+      const check = (ref: string, ids: string[]) => dbHandle.db.transaction((tx) => port.checkRuleKeys(tx, privateWs, ref, ids));
+      expect(await find('rv-1')).toEqual({ state: 'no_catalog' });
+      expect(await check('rv-1', ['x'])).toEqual({ state: 'unresolved', reason: 'no_catalog' });
+      await seed(privateWs, 'src', [
+        { ruleSetKey: `${TAG}-fa`, revisions: [{ revision: 'fa-1', rules: [{ ruleKey: 'R-1' }, { ruleKey: 'R-2' }] }, { revision: 'fa-2', status: 'active', supersedes: 'fa-1', resultRef: 'ext-fa-2', rules: [{ ruleKey: 'R-1' }] }] },
+        { ruleSetKey: `${TAG}-fb`, revisions: [{ revision: 'shared' }] },
+        { ruleSetKey: `${TAG}-fc`, revisions: [{ revision: 'shared' }] },
+      ]);
+      expect(await find('ext-fa-2')).toMatchObject({ state: 'matched', ruleSetKey: `${TAG}-fa`, revision: 'fa-2', isCurrent: true });
+      expect(await find('fa-1')).toMatchObject({ state: 'matched', isCurrent: false });
+      expect(await find('shared')).toEqual({ state: 'ambiguous', count: 2 });
+      expect(await find('nope')).toEqual({ state: 'unknown' });
+      expect(await check('fa-1', ['R-1', 'R-2', 'R-3'])).toEqual({ state: 'checked', missing: ['R-3'] });
+      expect(await check('fa-2', ['R-1', 'R-2'])).toEqual({ state: 'checked', missing: ['R-2'] });
+      expect(await check('shared', ['R-1'])).toEqual({ state: 'unresolved', reason: 'ambiguous' });
+      expect(await check('nope', ['R-1'])).toEqual({ state: 'unresolved', reason: 'unknown' });
+    });
+  });
+
+  describe('picker options (#1496)', () => {
+    it('modelOptions: q, paging, ids + display text only; softwareOptions in release order; unknown model empty', async () => {
+      const a = await model(WORKSPACE_ID, vendorShared, 'optA');
+      await model(WORKSPACE_ID, vendorShared, 'optB');
+      const sw1 = await one(`insert into knowledge.software_version (workspace_id, model_id, version_label, version_key, name, created_by, updated_by) values ($1,$2,'1.0','1.0','one',$3,$3) returning id`, [WORKSPACE_ID, a, actorId]);
+      const sw2 = await one(`insert into knowledge.software_version (workspace_id, model_id, version_label, version_key, name, created_by, updated_by) values ($1,$2,'2.0','2.0','two',$3,$3) returning id`, [WORKSPACE_ID, a, actorId]);
+      const found = await read('modelOptions', { q: `${TAG}-opt`, pageSize: 1 });
+      expect(found.data.total).toBe(2);
+      expect(found.data.rows).toHaveLength(1);
+      expect(found.data.rows[0]).toEqual({ id: a, code: `${TAG}-optA`, name: `${TAG}-optA`, vendorName: expect.any(String), active: true });
+      expect((await read('modelOptions', { q: `${TAG}-opt`, pageSize: 1, page: 1 })).data.rows).toHaveLength(1);
+      expect((await read('modelOptions', { q: `${TAG}-nothing` })).data).toMatchObject({ total: 0, rows: [] });
+      expect((await read('softwareOptions', { modelId: a })).data.rows.map((r: { id: string }) => r.id)).toEqual([sw1, sw2]);
+      expect((await read('softwareOptions', { modelId: randomUUID() })).data.rows).toEqual([]);
+      expect(await read('modelOptions', { pageSize: 0 })).toMatchObject({ outcome: 'error' });
     });
   });
 

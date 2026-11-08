@@ -9,6 +9,7 @@ import { currentAuthContext } from '../../lib/auth-context.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
+import { withAttemptRuleSets } from './attempt-rule-set.js';
 import type { LogLifecycleDeps } from './deps.js';
 import {
   EXCERPT_PARAM_KEYS,
@@ -73,10 +74,17 @@ export function requestEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclaratio
       outcome: 'ok',
       data: await listRequests(deps.db, actor.workspace_id, query),
     })),
-    declare(deps, 'requestDetail', REQUEST_DETAIL_PARAM_KEYS, parseRequestDetailParams, async (actor, requestId) => ({
-      outcome: 'ok',
-      data: await getRequestDetail(deps.db, actor.workspace_id, requestId),
-    })),
+    declare(deps, 'requestDetail', REQUEST_DETAIL_PARAM_KEYS, parseRequestDetailParams, async (actor, requestId) => {
+      // The core read first, in its own transaction; the RuleSet link lookups (#1496) run after it on the pool, outside that
+      // transaction (a failed statement aborts its transaction) and a rejected lookup only marks the attempts `unavailable`.
+      const detail = await deps.db.transaction((tx) => getRequestDetail(tx, actor.workspace_id, requestId));
+      const data = detail
+        ? await withAttemptRuleSets(deps.ruleCoverage, deps.db, actor.workspace_id, detail, () => {
+            console.warn('logLifecycle.requestDetail: RuleSet catalog lookup failed; attempts carry ruleSet unavailable');
+          })
+        : null;
+      return { outcome: 'ok', data };
+    }),
     declare(deps, 'ruleResults', RULE_RESULT_PARAM_KEYS, parseRuleResultParams, async (actor, query) => ({
       outcome: 'ok',
       data: await listRuleResults(deps.db, actor.workspace_id, query),
