@@ -36,7 +36,7 @@ Shared list: rule 8 of the global worker rules.
 
 ## Git and PRs
 
-- No hand-run force-push or rebase of a pushed branch; to pull main into it by hand, use `git merge origin/main`. The one exception is the ship path (`ship-pr.sh`, [addenda/merge.md](../../.agents/conductor/addenda/merge.md)), which rebases and pushes with `--force-with-lease` under a session's merge grant.
+- No hand-run force-push or rebase of a pushed branch; to pull main into it by hand, use `git merge origin/main`. The one exception is the ship path (`ship-pr.sh`, the engine skill's `references/lane-merge.md`), which rebases and pushes with `--force-with-lease` under a session's merge grant.
 - Parallel PRs conflict in `06`, `DESIGN.md`, the i18n dictionary and E2E helpers; merge them one at a time.
 - Removing an intended CSS class fails CSS selector CI: add the PR label `css-removal-ok` and a reason comment (adding the label re-evaluates).
 - `apps/platform-web/src/style.css` imports `tailwindcss` without sources, so Tailwind scans Markdown under `apps/platform-web/` and class-like strings in tests (`'row-1'` becomes `.row-1`). Deleting such a document can fail selector comparison with "removed", and utility-shaped test IDs fail it with "added". Confirm with `git grep` that the class is absent from source, then add `css-removal-ok`. Moving source code can fail it the same way; confirm the classes belong only to the moved code.
@@ -50,7 +50,7 @@ Shared list: rule 8 of the global worker rules.
 
 - Browser control is `ego-browser`; on failure (`ego-browser nodejs -e 'console.log(1)'`) say you substitute `apps/platform-e2e` Playwright.
 - Capture scripts live under `apps/platform-e2e` (so `@playwright/test` resolves) and are deleted when finished.
-- One dev-server port per worktree: `pnpm exec vite --host 127.0.0.1 --port 517x --strictPort`. E2E defaults to 4190 (`E2E_PORT`; base path 4191, `E2E_BASE_PATH_PORT`) with `reuseExistingServer:false`; "already used" is an environment conflict: pick another port (LANES §Lanes), never touch the other session's process.
+- One dev-server port per worktree: `pnpm exec vite --host 127.0.0.1 --port 517x --strictPort`. E2E defaults to 4190 (`E2E_PORT`; base path 4191, `E2E_BASE_PATH_PORT`) with `reuseExistingServer:false`; "already used" is an environment conflict: pick another port (PROFILE §Lanes), never touch the other session's process.
 - Mock state is in memory: reselect the DevTools response scenario on each page open. The role is `localStorage platform:role`.
 - Real-server previews (`pnpm --filter @ap/platform-api run dev` + `dev:real`): set `HOST=127.0.0.1` in the worktree's `ops/platform-api/.env` first (`.env.example` binds `0.0.0.0`, the file wins over an exported `HOST`, and `AUTH_PROVIDER=mock` would accept LAN logins). Confirm with `lsof -nP -iTCP:3011 -sTCP:LISTEN` showing `127.0.0.1:3011`.
 

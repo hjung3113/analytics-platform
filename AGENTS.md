@@ -31,9 +31,9 @@
 | 시각 규칙 | [`DESIGN.md`](DESIGN.md) |
 | 결정과 그 이유 | [`docs/adr/`](docs/adr/) |
 | 에이전트 운영 메모(작업자 샌드박스, worktree, 캡처 함정) | [`docs/agents/operations.md`](docs/agents/operations.md) |
-| 여러 세션의 흐름 분담·요청 분류(Kernel·SDK 조각·메뉴 몫)·팀장·릴리스 | [`.agents/conductor/LANES.md`](.agents/conductor/LANES.md) |
+| 여러 세션의 흐름 분담·요청 분류(Kernel·SDK 조각·메뉴 몫)·릴리스 순서 | [`PROFILE.md`](.agents/conductor/PROFILE.md). 팀장·레인 절차는 엔진 스킬의 `references/lanes.md` |
 
-**팀장(lead)을 맡거나 이어받으면** HANDOFF의 체크리스트보다 먼저 [`LANES.md`](.agents/conductor/LANES.md) §Lead «Lead rotation» 순서대로 재개하고 [`PROFILE.md`](.agents/conductor/PROFILE.md)를 끝까지 읽는다. 이유: HANDOFF는 작업 상태만 담고, 재개 점검·보드·병렬화 규칙은 이 두 문서에만 있다.
+**팀장(lead)을 맡거나 이어받으면** HANDOFF의 체크리스트보다 먼저 전역 `issue-wave-conductor` 스킬의 `references/lanes.md` §Lead «Lead rotation» 순서대로 재개하고 [`PROFILE.md`](.agents/conductor/PROFILE.md)를 끝까지 읽는다.
 
 작업하는 폴더에 `AGENTS.md`가 있으면 함께 따른다(아래 표). 폴더 지침이 루트와 충돌하면 루트를 따른다.
 
@@ -48,7 +48,7 @@
 - **Desktop capture scope:** Screenshots and visual QA cover desktop viewports only. Mobile and tablet support is not currently planned; skip those captures and responsive checks unless the owner revises this scope.
 
 - 이슈의 첫 구현 커밋 전에는 노드 diff가 `tier.sh`에서 `verify=full`이면 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`가 모두 0으로 끝나야 하고(`verify-root.sh`), `verify=light`면 `lint`·`typecheck`(와 바뀐 패키지 검사)만 돌리고 `test`·`build`는 PR CI에 맡긴다. 경로 목록과 수정 라운드·ship 직전 규칙은 [`PROFILE.md`](.agents/conductor/PROFILE.md) §Verify·§Size and path가 갖는다. `--force` 없이 worktree 공용 turbo 캐시를 쓴다. 작업 중에는 `pnpm --filter <pkg> …`로 충분하다.
-- 검사의 기록은 PR CI다. 전체·cold 실행(`workflow_dispatch`의 `full=true`)은 릴리스 태그 전에만 돌린다 — [`LANES.md`](.agents/conductor/LANES.md) §Lead, Release.
+- 검사의 기록은 PR CI다. 전체·cold 실행(`workflow_dispatch`의 `full=true`)은 릴리스 태그 전에만 돌린다 — [`PROFILE.md`](.agents/conductor/PROFILE.md) §Slice close.
 - 화면이 바뀌면 브라우저로 확인한다. Kernel·셸·공통 컴포넌트·mock 서버를 바꾸면 관련 E2E만 `apps/platform-e2e`에서 `pnpm exec playwright test -g "<describe>"`로 돌린다. 로컬에서 전체 `pnpm e2e`는 돌리지 않는다(CI 실패 재현 때만). CI가 어떤 spec을 돌리는지, 왜 초록 PR이 전체 E2E 기록이 아닌지는 [`PROFILE.md`](.agents/conductor/PROFILE.md) §Verify 3. 항목별 보고는 `apps/platform-e2e/contract-report/`.
 - `main`은 ruleset `main: required CI`(#670 D2)로 보호한다. `Platform workspace (pnpm monorepo)`·`Platform contracts (E2E)` 두 검사가 통과해야 병합되고, force push와 삭제는 막힌다. 브랜치가 최신일 필요는 없다(strict 아님).
 - `pnpm lint`는 디자인 시스템 규칙(`@shadcn/lint`, #228)도 검사한다. 오류 메시지가 대신 쓸 토큰·variant·컴포넌트를 알려 주니 그대로 고친다. `.ts` 파일의 클래스 문자열도 검사한다. 예외 목록 파일은 없다 — 예외는 이유를 단 `eslint-disable-next-line`만 쓰고, 아무것도 막지 않는 disable 주석은 오류다. `@radix-ui/*`는 `@ap/ui`만 import한다.
@@ -58,7 +58,7 @@
 ## 작업 흐름
 
 - 기능·버그 작업은 GitHub 이슈에서 시작하고 PR 본문에 `Closes #n`을 적는다. 오타·문서 정리·작은 수정은 이슈 없이 해도 된다. 작업 중 발견한 별개의 일은 [`PROFILE.md`](.agents/conductor/PROFILE.md) §Fold scope와 `issue-wave-conductor`의 fold·file·note 규칙을 따른다.
-- 병합은 하나씩, CI는 동시에 돈다. 공유 경로(목록은 `.agents/conductor/scripts/shared-paths.sh`)를 건드리는 PR만 CI가 끝나 병합할 때까지 `merge.lock`을 쥐고, 나머지는 병합 직전 구간만 잠근다. 절차와 병합 직전 점검은 [`addenda/merge.md`](.agents/conductor/addenda/merge.md), `main` 깨짐 처리는 [`LANES.md`](.agents/conductor/LANES.md) §Lane session 「Merge」다. 동작 버그를 고칠 때는 고치기 전에 실패하는 회귀 테스트를 함께 넣는다.
+- 병합·CI·`main` 깨짐 처리 절차는 전역 `issue-wave-conductor` 스킬의 `references/lane-merge.md`다. 동작 버그를 고칠 때는 고치기 전에 실패하는 회귀 테스트를 함께 넣는다.
 - 작업자에게 맡기는 이슈는 전역 `issue-wave-conductor` 스킬 절차를 따르고, 이 레포의 부분은 [`.agents/conductor/PROFILE.md`](.agents/conductor/PROFILE.md)다. 리뷰 등급(`tier.sh`)·리뷰·수정 라운드·재리뷰 조건도 PROFILE §Size and path가 갖는다.
 - 이슈가 닫히거나 상태가 바뀌면 `.planning/README.md`의 해당 줄을 같은 PR에서 고친다. 계약이 바뀌면 그 계약의 소유 문서를 고친다(소유권은 `docs/AGENTS.md`).
 - 공간·메뉴 구성의 소유자는 사용자다. 이슈에 "도메인 소유자 합의" 같은 선행이 적혀 있어도 외부 대기로 두지 말고, 추천안과 실제 앱 시안을 사용자에게 올린다(#252).

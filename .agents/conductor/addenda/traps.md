@@ -4,11 +4,11 @@ Append new traps at the end, one bullet each: the symptom, then what to do. No d
 
 - Worker setup pitfalls (new worktree install, pnpm 11, CSS selector CI, captures, mock registration): [`docs/agents/operations.md`](../../../docs/agents/operations.md).
 - ADR numbers follow the one procedure in [`docs/AGENTS.md`](../../../docs/AGENTS.md); recheck `origin/main`'s `docs/adr` before ship, because a reservation does not stop another session.
-- If `gh pr merge` rejects a merge by recommending `--auto`, check `gh pr view <n> --json state` before deleting the remote branch: deleting it closes the PR. Merge commands: [`merge.md`](merge.md).
+- If `gh pr merge` rejects a merge by recommending `--auto`, check `gh pr view <n> --json state` before deleting the remote branch: deleting it closes the PR. Merge commands: `references/lane-merge.md`.
 - Resolve `addenda/` paths from `$CONDUCTOR`, not the repository root.
 - A task with no issue number cannot use `launch-worker.py` (`--issue` needs digits). Create the worktree with `orca worktree create --setup skip`, install, write TASK, use the shared runner.
 - Do not edit source in a worktree while host root tests or E2E run there (Vite HMR causes spurious E2E failures), and never run a host check in a worktree a fix worker is editing.
-- E2E uses `--strictPort`; take your lane's port (LANES §Lanes) and never touch another session's process. A full local run takes `heavy.lock` (LANES §Machine resources).
+- E2E uses `--strictPort`; take your lane's port (PROFILE §Lanes) and never touch another session's process. A full local run takes `heavy.lock` (`references/lanes.md` §Machine resources).
 - After `css-removal-ok`, wait for the reruns before ship (`ship-pr.sh --ci` judges the latest run of each check).
 - Do not run file-writing commands such as `node tooling/gen-menu/scripts/probe.ts` in a reviewer preview worktree; stop the preview first (Vite shows import errors).
 - Put "Do not read the clipboard" at the start of UX review briefs: `navigator.clipboard.readText()` hands the Ego Lite task space to the user. Judge link copying from the success toast and the address bar.
@@ -58,5 +58,5 @@ Append new traps at the end, one bullet each: the symptom, then what to do. No d
 - A copy rename is done only when tests, E2E specs and menu `description`/`label` `ko:` strings are swept too (`git grep` the old word under `platform/`, `apps/feature-screens/src`, `apps/platform-e2e`).
 - A test whose first query waits for a lazily loaded slot body passes `LAZY_MOUNT_WAIT` (`@ap/feature-bridge/testing`); the 1 s default fails under CI load.
 - If bundled Playwright Chromium will not launch, run E2E on installed Chrome with a throwaway config in `apps/platform-e2e`: `import base from './playwright.config'; export default { ...base, use: { ...base.use, channel: 'chrome' } };`, then `E2E_PORT=<port> pnpm exec playwright test -c <that file> <specs>`, and trash the file afterwards.
-- `ship-pr.sh` stopping on a GraphQL 503/504: the PR may already exist. Check `gh pr view`, wait for its checks, then merge per [`merge.md`](merge.md).
+- `ship-pr.sh` stopping on a GraphQL 503/504: the PR may already exist. Check `gh pr view`, wait for its checks, then merge per `references/lane-merge.md`.
 - Pass `worker-wait.sh --state` the exact state file of the worker you launched, never a `W-<n>*.json` glob: an older sibling state (`W-<n>-CAP.json`) matches first and the lane waits on a finished worker while the live one ends unseen.
