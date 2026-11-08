@@ -55,12 +55,12 @@ Authority follows subject; there is no universal conflict ladder.
 
 1. `apps/feature-screens/src/lib/copy/*` and the wording the shipped screen already uses.
 2. The owner-confirmed current prototype for a new surface; historical captures are reference only.
-3. `docs/design/features/specs/*.md`.
+3. `apps/feature-screens/docs/specs/*.md`.
 4. `GLOSSARY.md`.
 
 Shipped user-facing strings are implemented in `apps/feature-screens/src/lib/copy/*`; update the matching module when canonical wording changes.
 
-**Per-domain pointers:** endpoint behavior → `docs/architecture/platform-api/03-api-contracts.md` and `docs/architecture/platform-api/api/`; DB + migrations → `04-database-and-migrations.md`; module ownership → `02-domain-module-boundaries.md`; permissions → `05-permission-policy.md`; entity links → `06-entity-linking-contract.md`; background jobs → `docs/adr/history/feedbackops/0009-background-jobs-with-pg-boss.md`; frontend routes → `docs/design/features/routes-and-layout.md`; component contracts → `docs/design/features/ui-design-system.md` + `component-inventory.md`. Visual token seed: `docs/design/features/tokens.md` (Pack 17 light tokens / FO ADR-0021 supersede Pack 20 prototype dark tokens for impl).
+**Per-domain pointers:** endpoint behavior → `docs/architecture/platform-api/03-api-contracts.md` and `docs/architecture/platform-api/api/`; DB + migrations → `apps/platform-api/docs/04-database-and-migrations.md`; module ownership → `apps/platform-api/docs/02-domain-module-boundaries.md`; permissions → `05-permission-policy.md`; entity links → `06-entity-linking-contract.md`; background jobs → `docs/adr/history/feedbackops/0009-background-jobs-with-pg-boss.md`; frontend routes → `apps/feature-screens/docs/routes-and-layout.md`; component contracts → `apps/feature-screens/docs/ui-design-system.md` + `apps/feature-screens/docs/component-inventory.md`. Visual token seed: `apps/feature-screens/docs/tokens.md` (Pack 17 light tokens / FO ADR-0021 supersede Pack 20 prototype dark tokens for impl).
 
 ## Product Invariants
 

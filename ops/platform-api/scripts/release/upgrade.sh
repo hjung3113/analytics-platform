@@ -26,7 +26,7 @@
 # the original pin file is left untouched. Without that file nothing changes.
 # The whole run holds the per-installation maintenance lock (ops/platform-api/.maintenance/<project>.lock); a second
 # backup/upgrade exits 3 at once. No down migrations. No fixture seed or bootstrap is ever run. A pre-0076 (feedbackops/fops_*) install is refused by the
-# backup step: finish the identity cutover first (docs/architecture/platform-api/release/backup-restore-upgrade.md).
+# backup step: finish the identity cutover first (ops/platform-api/docs/release/backup-restore-upgrade.md).
 
 set -Eeuo pipefail
 set +x

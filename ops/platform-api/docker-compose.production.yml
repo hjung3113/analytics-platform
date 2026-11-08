@@ -2,7 +2,7 @@ name: platform-api
 # PRODUCTION stack (#1266 b1b): real OIDC only, NODE_ENV=production, no fixtures, no mock IdP, no test seed path.
 # docker-compose.release.yml is the LOCAL SMOKE stack (mock IdP, development mode); never deploy it. Run
 # scripts/release/production-preflight.sh <env-file> first: it rejects placeholder/demo secrets and non-https OIDC.
-# Order on a new volume (details: docs/architecture/platform-api/release/oidc-and-images.md "Production stack"):
+# Order on a new volume (details: ops/platform-api/docs/release/oidc-and-images.md "Production stack"):
 #   docker compose --env-file .env.production -f docker-compose.production.yml run --rm set-role-passwords
 #   docker compose --env-file .env.production -f docker-compose.production.yml run --rm cutover
 #   docker compose --env-file .env.production -f docker-compose.production.yml up -d
@@ -282,7 +282,7 @@ services:
 
 volumes:
   # Same pinned names as docker-compose.release.yml: an existing install keeps its data (see "Existing installs: data
-  # volumes" in docs/architecture/platform-api/release/oidc-and-images.md). Override per install when needed.
+  # volumes" in ops/platform-api/docs/release/oidc-and-images.md). Override per install when needed.
   release-postgres-data:
     labels: *ownership
     name: ${RELEASE_POSTGRES_VOLUME:-feedbackops-release-1060_release-postgres-data}

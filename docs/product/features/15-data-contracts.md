@@ -645,7 +645,7 @@ expiry, grantor/time and revoke metadata. No in-place renewal or fake revoke.
 `revoked_at IS NULL AND superseded_at IS NULL`; expiry remains a runtime predicate.
 Checks, scope resolution, active lists, revoke validation and seed existence checks
 exclude superseded rows. An old/expired grant ID remains non-revocable (409).
-See `docs/architecture/platform-api/04-database-and-migrations.md` for rollout and rollback limits.
+See `apps/platform-api/docs/04-database-and-migrations.md` for rollout and rollback limits.
 
 ## Coverage settings and recovery projections (FO ADR-0067; implemented)
 
@@ -713,7 +713,7 @@ Names and application seams are in
 Workspace-qualified composite keys/constraints and transactional validation
 must enforce parent/Survey/response/approval consistency. `fops_app` has no
 SELECT or general DML on either extension; narrow owner-backed functions are
-specified in `docs/architecture/platform-api/04-database-and-migrations.md`. Original UUIDs
+specified in `apps/platform-api/docs/04-database-and-migrations.md`. Original UUIDs
 and historical generated text remain recoverable to the controlled operator.
 
 Public Survey Finding title/summary is deterministic allowlisted source metadata

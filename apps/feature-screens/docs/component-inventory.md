@@ -5,15 +5,15 @@
 This inventory defines the reusable components that should exist before domain screens are built. The shipped feature-owned `@ap/feature-ui` export inventory is `packages/feature-ui/src/index.ts` (shared parts such as `EmptyState` and the shells come from `@ap/ui`); this document describes reusable component contracts and required states.
 
 Component ownership paths live in `apps/feature-screens/docs/component-stack.md`.
-Screen mapping lives in `docs/design/features/ui-design-system.md`.
+Screen mapping lives in `apps/feature-screens/docs/ui-design-system.md`.
 
 ## Token Governance
 
 ```text
-- docs/design/features/tokens.md provides raw visual token seed.
+- apps/feature-screens/docs/tokens.md provides raw visual token seed.
 - Frontend components consume semantic tokens from the design system layer.
 - Screen code must not hard-code colors, radii, or shadows.
-- New tokens require updating this document or docs/design/features/ui-design-system.md.
+- New tokens require updating this document or apps/feature-screens/docs/ui-design-system.md.
 ```
 
 ## Primitive Components

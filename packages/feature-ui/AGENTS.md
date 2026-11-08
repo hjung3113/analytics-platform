@@ -76,7 +76,7 @@ Read the measured traps before editing components or their tests: [`@ap/ui` and 
 - `components.json` here only points `@shadcn/lint` at the app's Tailwind
   entry (ADR-0062). It is not a shadcn CLI config; use the intake guidance in
   `apps/feature-screens/docs/component-stack.md`.
-- Follow `docs/design/features/tokens.md` tokens for light surfaces, spacing, typography, and density; do not introduce a new visual theme from `packages/sdk/ui`.
+- Follow `apps/feature-screens/docs/tokens.md` tokens for light surfaces, spacing, typography, and density; do not introduce a new visual theme from `packages/sdk/ui`.
 - Promote from feature-local code only after a second real consumer proves reuse.
 - Every reusable component must define loading, empty, error, disabled, focus-visible, and permission-limited behavior when applicable.
 - Icon-only controls require accessible labels and tooltips.

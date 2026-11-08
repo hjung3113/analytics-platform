@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document records what the owner decided **not** to ship before the MVP release, and why, so later work starts from a decision instead of rediscovering the gap. It is the companion of `history/13-mvp-roadmap.md` → MVP Close-Out. Delivery status is the GitHub milestones; this is a record of deferrals, not an execution queue.
+This document records what the owner decided **not** to ship before the MVP release, and why, so later work starts from a decision instead of rediscovering the gap. It is the companion of `docs/product/features/history/13-mvp-roadmap.md` → MVP Close-Out. Delivery status is the GitHub milestones; this is a record of deferrals, not an execution queue.
 
 Add an entry whenever a close-out slice defers or drops something. Remove an entry only when it ships or a later decision closes it.
 
@@ -12,7 +12,7 @@ Add an entry whenever a close-out slice defers or drops something. Remove an ent
 | --- | --- | --- |
 | Phase 2: automatic summary, root cause candidates, priority score, advanced clustering, external tool integrations, advanced Audit / Export, Executive Report | Out of the MVP; priorities come from real use after release. | Real users ask for it, or a pilot finding shows the gap blocks a daily job. |
 | Public survey links and external respondents | Rejected: FO ADR-0035 and FO ADR-0036. MVP respondents stay AD-authenticated internal Actors (FOP-OUT-008). | A need for respondents outside the company; start from a new ADR. |
-| Explicit MVP Exclusions (`history/13-mvp-roadmap.md`) | Unchanged. | Each needs its own decision. |
+| Explicit MVP Exclusions (`docs/product/features/history/13-mvp-roadmap.md`) | Unchanged. | Each needs its own decision. |
 
 ## Deferred during the close-out slices
 
@@ -32,7 +32,7 @@ Questions left in merged PR bodies, decided by the owner. Smaller noted items fr
 | Digits-only search (`2240` → `TASK-2240`) on VOC, Task and Finding lists (#1203) | All three lists share one rule: display-id prefix or title contains; changing one list alone breaks consistency | Users ask for number-only search; change the three lists together |
 | Recheck entitlement on an idempotent replay of a VOC write (#1196) | FO ADR-0015 replays the stored response verbatim; a replay after the actor lost `voc.read`/`voc.triage` can return a cached envelope with internal fields (severity, full detail). Needs a revocation, the same key and the 24 h TTL. Accepted for MVP (FO ADR-0015 amendment 2026-10-16) | Post-MVP hardening: on a cache hit, recheck current entitlement and redact or reject without re-running writes or audits |
 | Recovery recorder command-lifetime helper (#1147 item 1; Slice 66 decision) | Each recording owner hand-rolls lock → capture → write → finish; a helper would rewrap ~11 modules' commands around lock-ordered, dependency-expanding capture, with no user gain and real lock-order regression risk. The `requireRecoveryCommandLock` test guard already catches a recorder reached without the workspace lock; a command that never calls the recorder is not caught | A Dashboard recovery-queue drift is traced to a command that never reached its recorder, or a new recording owner is added |
-| One responsibility-target check (Slice 66 quality review Q6) | `managed-systems/responsibility-target.ts`, `voc/responsibility.ts`, `findings/responsibility.ts` and `tasks/responsibility.ts` repeat the same opening checks (invalid pair → team → Actor → `internal_member`); only destination eligibility differs. No user gain today, and destinations own eligibility (`02-domain-module-boundaries.md`) | The next Actor or team eligibility rule change is planned; extract a Core/Managed System helper that takes the destination's eligibility check |
+| One responsibility-target check (Slice 66 quality review Q6) | `managed-systems/responsibility-target.ts`, `voc/responsibility.ts`, `findings/responsibility.ts` and `tasks/responsibility.ts` repeat the same opening checks (invalid pair → team → Actor → `internal_member`); only destination eligibility differs. No user gain today, and destinations own eligibility (`apps/platform-api/docs/02-domain-module-boundaries.md`) | The next Actor or team eligibility rule change is planned; extract a Core/Managed System helper that takes the destination's eligibility check |
 
 ### Slice 62 — #1175 (2026-10-16)
 

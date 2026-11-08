@@ -31,7 +31,7 @@
 # the MinIO key reaches mc through an exported MC_HOST_bk variable that docker passes by name.
 #
 # Supported identity: database `platform` with roles platform_* (v0.24.0 and later). A pre-0076 `feedbackops`/fops_* or
-# mixed install is refused: run the identity cutover first (docs/architecture/platform-api/release/backup-restore-upgrade.md).
+# mixed install is refused: run the identity cutover first (ops/platform-api/docs/release/backup-restore-upgrade.md).
 #
 # Environment: BACKUP_ROOT (required), BACKUP_KEEP (default 7), STORAGE_S3_BUCKET (else read from the env file, default
 # platform-attachments), BACKUP_MC_IMAGE (default: the stack's pinned minio/minio image, entrypoint mc), BACKUP_MIGRATE_IMAGE
@@ -119,7 +119,7 @@ bk_log "project $PROJECT: starting postgres and minio if needed"
 bk_dc up -d --no-deps --wait postgres minio >/dev/null
 ident="$(bk_psql -d postgres -c "select (select count(*) from pg_database where datname='platform') || ' ' || (select count(*) from pg_database where datname='feedbackops') || ' ' || (select count(*) from pg_roles where rolname in ('platform_app','platform_migrate')) || ' ' || (select count(*) from pg_roles where rolname like 'fops\\_%')")"
 if [ "$ident" != '1 0 2 0' ]; then
-  bk_die "unsupported identity (database platform / feedbackops / platform_* roles / fops_* roles = '$ident'). Backup supports installs on the platform identity (v0.24.0 and later). A pre-0076 or mixed install must finish the identity cutover first: docs/architecture/platform-api/release/oidc-and-images.md and docs/architecture/platform-api/04-database-and-migrations.md."
+  bk_die "unsupported identity (database platform / feedbackops / platform_* roles / fops_* roles = '$ident'). Backup supports installs on the platform identity (v0.24.0 and later). A pre-0076 or mixed install must finish the identity cutover first: ops/platform-api/docs/release/oidc-and-images.md and apps/platform-api/docs/04-database-and-migrations.md."
 fi
 IDENTITY=platform
 BUCKET="$(bk_bucket)"

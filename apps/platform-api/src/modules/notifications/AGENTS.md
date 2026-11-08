@@ -37,7 +37,7 @@
 - Failed `notifications.dispatch` jobs are inspected and replayed with
   `src/cli/jobs-inventory.ts` and `src/cli/jobs-replay.ts` (allowlist: this
   queue only; dry run by default). Runbook:
-  `docs/architecture/platform-api/release/failed-jobs-replay.md`.
+  `ops/platform-api/docs/release/failed-jobs-replay.md`.
 
 ## Verification
 

@@ -1,13 +1,13 @@
 # Routes And Layout
 
-Current platform entry and navigation are owned by [ADR-0100](../../adr/0100-feature-navigation-and-independent-access.md). Operator features are in the operations console; personal features use global My Activity and platform entry points. Routes in this document describe feature intents interpreted by the platform bridge, not a separate application or product space.
+Current platform entry and navigation are owned by [ADR-0100](../../../docs/adr/0100-feature-navigation-and-independent-access.md). Operator features are in the operations console; personal features use global My Activity and platform entry points. Routes in this document describe feature intents interpreted by the platform bridge, not a separate application or product space.
 
 ## Purpose
 
 This document defines retained semantic screen URL state and list/detail behavior. #597 retires the standalone host. Paths below are screen intents consumed by the bridge, not deployed standalone routes or a redirect table. Actual platform menu URLs live in the feature suite menu packages under `platform/` and `packages/adapters/feature-bridge/src/feature/*-routes.ts`. Old Home tabs, app rail/sidebar, login/bootstrap and file-route registration are retired; the platform owns those compositions. Test-local adapters may still exercise screen state through a memory router.
 
 Product UI intent lives in `docs/product/features/12-ui-ux-principles.md`.
-Reusable component contracts live in `docs/design/features/ui-design-system.md`.
+Reusable component contracts live in `apps/feature-screens/docs/ui-design-system.md`.
 
 ## Route Contract
 
