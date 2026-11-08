@@ -14,7 +14,7 @@ import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { useReturnNavigation } from './DrillLayout';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
 import { consumePageFocus, drillDestinationOf, focusPageFallback } from '../state/pageFocus';
-import { PageFlowContext } from '../pageFlow';
+import { PageBoundContext, PageFlowContext } from '../pageFlow';
 import { stickyChromeHeight } from '../visibleArea';
 import { StateMessage } from '../StateView';
 import { useInWorkspacePanel } from '../workspace/panelContext';
@@ -163,6 +163,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   // A workspace that shows its rows at their own heights (`PanelWorkspace` stack mode) registers here; the fill page then sizes to it and the main area scrolls.
   const [flowing, setFlowing] = useState(0);
   const registerFlow = useCallback(() => { setFlowing(count => count + 1); return () => { setFlowing(count => count - 1); }; }, []);
+  const [bounding, setBounding] = useState(0);
+  const registerBound = useCallback(() => { setBounding(count => count + 1); return () => { setBounding(count => count - 1); }; }, []);
   const stickyHeader = useRef<HTMLDivElement>(null);
   const pageHeader = useRef<HTMLElement>(null);
   const descriptionText = useRef<HTMLDivElement>(null);
@@ -286,7 +288,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   // A folded bar that is not editing already prints the applied values in its summary (#1170): the strip keeps only the completion time.
   const appliedValuesShown = !(shownBarStatus?.folded && !shownBarStatus.editing);
   const completionShown = queryResult != null && queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing');
-  return <PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
+  return <PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><PageBoundContext.Provider value={layout === 'fill' ? registerBound : null}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
     {!inPane && <div ref={stickyHeader} data-page-sticky-header className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
@@ -351,7 +353,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
       : <div className={cn(pageInsetX(density === 'compact'), 'pt-3')}><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
     {screenMode === 'main' && !gate && carriesReturnTo(registry.carrySetOf(menu)) && <ReturnRow />}
-    <div data-platform-page-content tabIndex={-1} data-body-inset={bodyInset === 'none' ? 'none' : undefined} className={cn(layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', bodyInset === 'none' ? undefined : [pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7'])}>{gate
+    <div data-platform-page-content tabIndex={-1} data-body-inset={bodyInset === 'none' ? 'none' : undefined} className={cn(layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', fixedFill && bounding > 0 && 'min-h-0', bodyInset === 'none' ? undefined : [pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7'])}>{gate
       ? bodyInset === 'none' ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7')}>{gate}</div> : gate
       : <OutcomeScope>
         {bodyInset === 'none'
@@ -360,7 +362,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
         {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
       </OutcomeScope>}</div>
     </div>
-  </div></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider>;
+  </div></PageBoundContext.Provider></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider>;
 }
 
 /** The way back into a carry set that lists `returnTo` (ADR-0081 UX-10): drawn only for an origin `safeReturnTo` and `canOpen` accepted, never for a parent/home fallback. */

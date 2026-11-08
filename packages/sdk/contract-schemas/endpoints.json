@@ -596,6 +596,92 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logExplorer.investigationDetail",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "investigationId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.investigations",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "status",
+      "page",
+      "pageSize"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.parsed",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "sourceOwner",
+      "fileRef",
+      "line"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.periods",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "sampleSet",
+      "query",
+      "cursor",
+      "limit"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.records",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "sampleSet",
+      "query",
+      "cursor",
+      "limit"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.window",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "sourceOwner",
+      "fileRef",
+      "line",
+      "before",
+      "after"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logKnowledge.conceptMappings",
     "menuId": "log-knowledge-models",
     "paramKeys": [

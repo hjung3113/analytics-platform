@@ -31,7 +31,7 @@ Node a (#1467; design `docs/design/features/log-explorer/README.md`, ADR-0119): 
 
 ## Investigations (node b, #1468)
 
-Owns the shareable state of a log investigation: its sample set (or the Round it references), saved filters and the evidence locations (#1468 node b; design `docs/design/features/log-explorer/README.md`, API `docs/architecture/platform-api/api/log-explorer.md`). Not here yet: `evidenceLinks` (d), `evidenceHandoff` (h). The Source reads are node c (above) and use the separate menu `log-explorer`; investigations use menu `log-analysis` (`menu.ts`).
+Owns the shareable state of a log investigation: its sample set (or the Round it references), saved filters and the evidence locations (#1468 node b; design `docs/design/features/log-explorer/README.md`, API `docs/architecture/platform-api/api/log-explorer.md`). Not here yet: `evidenceLinks` (d), `evidenceHandoff` (h). The Source reads are node c (above) and use menu `log-explorer`; investigations use the same menu `log-explorer` (`menu.ts`).
 
 - An `EvidenceRef` is `{ fileRef, line, fileSha256, note? }`: a location, never a body or excerpt. `domain/evidence.ts` refuses any other key; the cap is 100 and a `(fileRef, line)` is held once.
 - `round_id` is a plain uuid, no cross-schema FK. A round origin stores no sample set; the read resolves it through the log-lifecycle barrel port (`lifecycleRead.getRoundSampleSet`), never through lifecycle repositories. Create and every versioned write on a round-origin investigation resolve the Round through the same port on the write transaction before mutating; an unresolvable Round refuses the write (`roundId: not_found`, the create answer), changing nothing and writing no audit row.

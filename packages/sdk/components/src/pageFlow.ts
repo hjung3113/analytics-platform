@@ -15,3 +15,17 @@ export function useRegisterPageFlow(active: boolean): void {
     return register();
   }, [active, register]);
 }
+
+/**
+ * Internal. A `fill` table registers here while it shows so that the nearest fixed-fill `PlatformPage` bounds its body to the container
+ * height (`min-h-0`) and the table can take the room left instead of growing the page. A page without such a table keeps its sizing.
+ */
+export const PageBoundContext = createContext<PageFlowRegister | null>(null);
+
+export function useRegisterPageBound(active: boolean): void {
+  const register = useContext(PageBoundContext);
+  useLayoutEffect(() => {
+    if (!active || !register) return;
+    return register();
+  }, [active, register]);
+}

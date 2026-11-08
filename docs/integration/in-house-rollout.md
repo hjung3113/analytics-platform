@@ -125,3 +125,7 @@
 - [03 백엔드 스택](../architecture/backend-stack.md) — FastAPI·SQL-first·인증 구조·Alembic
 - [적재 워커 상태 스키마](ingest-status-schema.md) — #37
 - [플랫폼 인바운드 링크 계약](platform-inbound-links.md) — M3
+
+## 로그 탐색 Consumer (#1473)
+
+`menus/log-dev/log-analysis` composes the SDK table (`fill`) and `OrderedIntervalTrack` with the merged investigation and Source reads. The synthetic fixture is development-only. Real usage requires a Source adapter and current Source-owner permissions; no connected Source is shown as 원본 없음. The confirmed list/right-drawer screen is implemented; REST export transport, time-range filters, and rule-result evidence linking remain explicitly unimplemented (see [backlog](../../.planning/backlog.md)). Handoff is #1474. Browser/E2E and SDK API snapshot gates must pass before this node is accepted.

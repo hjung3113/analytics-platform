@@ -99,6 +99,7 @@ describe('workspace assembly (#260)', () => {
       ['clas', 'clas'],
       ['logMyWork', 'log-dev'],
       ['logModels', 'log-dev'],
+      ['logAnalysis', 'log-dev'],
       ['logCross', 'log-dev'],
       ['logRules', 'log-dev'],
       ['logKnowledge', 'log-dev'],
@@ -226,7 +227,7 @@ describe('workspace assembly (#260)', () => {
     expect(SPACE_DEFS[4].permission).toBeUndefined();
     const planned = registry.menus.filter(menu => registry.spaceOf(menu)?.id === 'log-dev');
     expect(planned.map(menu => menu.id)).toEqual([
-      'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules', 'log-rule', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-spec', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog',
+      'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules', 'log-rule', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-spec', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog', 'log-explorer', 'log-explorer-view',
     ]);
     // #1194 r: the catalog management menu is the one admin-capability menu (design v0.6 §2.1); the rest stay open to every signed-in user.
     // #1194 b: it has its screen now, so only the others are component-less planned menus.
@@ -240,7 +241,7 @@ describe('workspace assembly (#260)', () => {
       expect(registry.menuById(id).hiddenPageKeys).toEqual(['filter']);
     }
     // #1197 s1: 모델 탐색 (the group's primary) and its hidden 모델 프로파일 child have screens too.
-    expect(planned.filter(menu => menu.component).map(menu => menu.id)).toEqual(['log-rules', 'log-rule', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-spec', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog']);
+    expect(planned.filter(menu => menu.component).map(menu => menu.id)).toEqual(['log-rules', 'log-rule', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-spec', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog', 'log-explorer', 'log-explorer-view']);
     expect(registry.menuById('log-knowledge-model')).toMatchObject({ parent: 'log-knowledge-models', navHidden: true });
     expect(registry.menus.filter(menu => menu.group === 'logKnowledge' && menu.primary).map(menu => menu.id)).toEqual(['log-knowledge-models']);
     // #1197 s2: the item list and its navHidden detail screen have components too.

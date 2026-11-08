@@ -245,7 +245,7 @@ log-dev
 | d | `rule_result_evidence` 사이드 테이블 + `evidenceLinks` | full | v0.30.0 d |
 | e | **시퀀스 SDK 조각** `OrderedIntervalTrack` + 합성 소비자 + 시안(`?variant=`) + `sdk:api` | full, `impl-complex`(공개 API), `ux=required` | 시안 컨펌 |
 | f | 토큰 scope 등록·읽기 예산·내보내기 REST·감사·집계 (**구현됨, #1472**: [`api/log-explorer.md`](../../../architecture/platform-api/api/log-explorer.md) 「Tokens…」·「Export REST」; 마이그레이션 없음 — 카운터는 기존 `core.rate_limits`) | full, `impl-complex`(권한·유출 경계), `flags.permission` | a, c, [ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md) 노드 a(v0.30.0) |
-| g | 「로그 분석」 그룹·`menus/log-dev/log-analysis` + 조사 화면 + `LogInvestigationView` + 시안 | full, `ux=required`, 시각 부분 `impl-complex-sol` high | b, c, e, 시안 컨펌 |
+| g | 「로그 분석」 그룹·`menus/log-dev/log-analysis` + 조사 화면 + navHidden `log-explorer-view` (**#1473 부분 구현, 호스트 검증·연결 결정 대기**; A 목록+오른쪽 서랍, 넘기기 h 대기·REST 내보내기 어댑터 미구현) | full, `ux=required`, 시각 부분 `impl-complex-sol` high | b, c, e, 시안 컨펌 |
 | h | 근거 위치 넘기기: 수신 인터페이스(Round·지식 초안), 확인 문구, 감사 | full, `impl-complex`(교차 모듈 쓰기) | b, **#1198 초안 제출 서비스**, v0.30.0 c |
 | i | Round 상세 «원본/시퀀스» 탭 연결 | full, `ux=required` | g, v0.30.0 f |
 | j | 결함 수신 연결 | full | **결함 수신 객체가 생긴 뒤**(§9) |
