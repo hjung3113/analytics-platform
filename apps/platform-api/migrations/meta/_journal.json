@@ -827,6 +827,20 @@
       "when": 1794125480030,
       "tag": "0117_item_event_relation_record",
       "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1794153534454,
+      "tag": "0118_object_access_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1794153544777,
+      "tag": "0119_knowledge_audit_visibility",
+      "breakpoints": true
     }
   ]
 }
