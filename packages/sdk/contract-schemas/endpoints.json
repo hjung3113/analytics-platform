@@ -596,6 +596,135 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logDataset.baselineDetail",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "baselineId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.baselines",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "datasetRevisionId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.comparison",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "suiteRunId",
+      "ordinal",
+      "q",
+      "page",
+      "pageSize",
+      "sorting",
+      "filters"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.datasetDetail",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "datasetId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.datasets",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "q",
+      "page",
+      "pageSize",
+      "sorting",
+      "filters"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.rerunDiff",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "fromRunId",
+      "toRunId",
+      "page",
+      "pageSize",
+      "kinds"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.suiteDetail",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "suiteId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.suiteRuns",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "suiteId",
+      "page",
+      "pageSize"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.suites",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "q",
+      "page",
+      "pageSize",
+      "sorting",
+      "filters",
+      "datasetId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logExplorer.investigationDetail",
     "menuId": "log-explorer",
     "paramKeys": [

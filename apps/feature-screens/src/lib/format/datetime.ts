@@ -49,9 +49,9 @@ export function formatShortDate(iso: string): string {
   return formatTimestamp(iso, { month: 'long', day: 'numeric' });
 }
 
-export function formatDateTime(iso: string): string {
+export function formatDateTime(iso: string, year: 'numeric' | '2-digit' = 'numeric'): string {
   return formatTimestamp(iso, {
-    year: 'numeric',
+    year,
     month: 'numeric',
     day: 'numeric',
     hour: 'numeric',

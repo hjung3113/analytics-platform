@@ -7,14 +7,18 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Fail = { ok: false; message: string };
 
 export const SUITE_SORT_IDS = ['updatedAt', 'name', 'createdAt'] as const;
-export const SUITES_PARAM_KEYS = ['q', 'page', 'pageSize', 'sorting', 'filters'] as const;
+export const SUITES_PARAM_KEYS = ['q', 'page', 'pageSize', 'sorting', 'filters', 'datasetId'] as const;
 export const SUITE_DETAIL_PARAM_KEYS = ['suiteId'] as const;
 export const SUITE_RUNS_PARAM_KEYS = ['suiteId', 'page', 'pageSize'] as const;
 /** A run page carries every item of every run on it, so the page is small. */
 export const SUITE_RUNS_PAGE_MAX = 50;
 
-export function parseSuitesParams(params: Record<string, unknown>): { ok: true; value: ListQuery } | Fail {
-  return parseListParams(params, SUITE_SORT_IDS, {}, { id: 'updatedAt', desc: true });
+export function parseSuitesParams(params: Record<string, unknown>): { ok: true; value: ListQuery & { datasetId?: string } } | Fail {
+  const parsed = parseListParams(params, SUITE_SORT_IDS, {}, { id: 'updatedAt', desc: true });
+  if (!parsed.ok) return parsed;
+  if (params.datasetId === undefined) return parsed;
+  if (typeof params.datasetId !== 'string' || !UUID.test(params.datasetId)) return { ok: false, message: 'datasetId must be a uuid string' };
+  return { ok: true, value: { ...parsed.value, datasetId: params.datasetId.toLowerCase() } };
 }
 
 export function parseSuiteDetailParams(params: Record<string, unknown>): { ok: true; value: string } | Fail {

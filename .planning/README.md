@@ -1,6 +1,6 @@
 # 남은 일 한눈에 보기
 
-> 마지막 갱신 2026-11-08(v0.30.0 로그 라이프사이클 노드 h 통합; 2026-11-07 v0.29.0·sdk-v0.31.0 릴리스 행, v0.30.0 착수 행). 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
+> 마지막 갱신 2026-11-08(로그 테스트 데이터셋 노드 e 구현 상태; v0.30.0 로그 라이프사이클 노드 h 통합; 2026-11-07 v0.29.0·sdk-v0.31.0 릴리스 행, v0.30.0 착수 행). 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
 
 ## 지금 어디까지
 
@@ -54,6 +54,8 @@
 **`v0.31.0` 로그 테스트 데이터셋 노드 a ([#1477](https://github.com/hjung3113/analytics-platform/issues/1477), 병합됨).** `log_datasets` 스키마·Dataset/Revision/후보 쓰기·읽기·가용성 확인 — 설계 [log-test-datasets](../docs/design/features/log-test-datasets/README.md) §10 노드 a, API [log-datasets.md](../docs/architecture/platform-api/api/log-datasets.md). 가용성은 운영 `SourceReadPort` 어댑터가 없어 운영에서 `unverified`이고, v0 포트에 파일 해시 읽기가 없어 해시 일치(`available`)는 포트에 `describeFile`이 생길 때부터다(미구현, 다시 여는 조건: 운영 Source 어댑터 + 해시 읽기 계약). 이어서 b(Baseline)·c(Suite)·d(비교)·e(화면)·f(통합).
 
 **`v0.31.0` 로그 테스트 데이터셋 노드 d ([#1480](https://github.com/hjung3113/analytics-platform/issues/1480), 병합됨).** 읽기 시 계산하는 비교(`logDataset.comparison`: rule 분류 `unchanged|regressed|fixed|new|not_comparable|missing`, 관측 = 항목 요청의 최신 `succeeded` 시도, `not_comparable`은 PASS로 세지 않음)·coverage(기대 범위 대비 실행/미검사, 필수 Rule 우선)·재실행 diff(`logDataset.rerunDiff`, revision 불일치는 필드 오류), 추가 전용 결과 검토 라벨(`suite_review_label`·`reviewLabelAdd`, 새 capability 없음, Baseline·결과·분류를 바꾸지 않음), lifecycle 읽기 포트 `lifecycleSuiteResults` — API [log-datasets.md](../docs/architecture/platform-api/api/log-datasets.md). 미구현(다시 여는 조건은 설계 README): `required_pin` 판정·발췌 읽기·라벨 이력 목록. 화면은 노드 e([#1481](https://github.com/hjung3113/analytics-platform/issues/1481)).
+
+**`v0.31.0` 로그 테스트 데이터셋 노드 e ([#1481](https://github.com/hjung3113/analytics-platform/issues/1481), 구현 PR 대기).** 소유자 컨펌 variant A의 목록·탭 상세·Baseline 2:1·회귀 실행 요청/결과 검토 라벨 서랍·실행 커버리지/분류 필터·재실행 비교를 구현했다. 기존 Kernel 읽기/쓰기와 공통 부품을 쓰며 `suites.datasetId` 필터로 상세의 Suite를 찾는다. 합성 mock 화면 검증과 실서버 통합 완료는 구분한다. 목록 Baseline/기준 낡음/최근 실행 열·라벨 이력·발췌·Suite 취소·후보/저작 UI는 **구현 안 함** — 사유와 재개 조건은 [설계 Backlog](../docs/design/features/log-test-datasets/README.md#backlog--구현-안-함). 실서버 통합·DB 검증은 노드 f와 conductor가 맡는다.
 
 **`v0.31.0` 로그 테스트 데이터셋 노드 c ([#1479](https://github.com/hjung3113/analytics-platform/issues/1479), 병합됨).** 요청 주체 확장(`round_id` XOR `suite_run_item_id`, [ADR-0117 개정 1](../docs/adr/0117-validation-request-queue-claim-lease-heartbeat.md)), Suite·불변 Suite 실행(고정된 revision·baseline·digest·기준 낡음), 파생 상태, capability `dataset.suite.run`(비민감·세션 전용·사용자당 동시 3건) — API [log-datasets.md](../docs/architecture/platform-api/api/log-datasets.md). 미구현(다시 여는 조건은 설계 README): suite 실행 취소·운영 목록(화면 노드), 회귀 시도 발췌 읽기와 `required_pin` 판정(비교 노드 d). 소유자 확인 대기: 발췌 보관 시계 = suite 실행 종료 시각.
 

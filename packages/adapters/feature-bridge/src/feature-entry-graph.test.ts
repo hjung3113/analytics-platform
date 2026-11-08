@@ -1061,12 +1061,13 @@ describe('retained36 package contract (#597)', () => {
   "./operator-screens/evidence",
   "./operator-screens/integration-dashboard",
   "./operator-screens/analytics-areas",
-  "./operator-screens/log-lifecycle"
+  "./operator-screens/log-lifecycle",
+  "./operator-screens/log-datasets"
 ];
   const graph = walk(Object.values(manifest.exports).map(path => join(screen, 'apps/feature-screens', path)));
-  it('keeps all 37 named public entries and resolves their complete graphs', () => {
+  it('keeps all 38 named public entries and resolves their complete graphs', () => {
     expect(Object.keys(manifest.exports)).toEqual(expected);
-    expect(expected).toHaveLength(37);
+    expect(expected).toHaveLength(38);
     expect(graph.unresolved).toEqual([]);
   });
   it('reaches no retired runtime or test-only host', () => {
@@ -1084,6 +1085,19 @@ describe('log-lifecycle operator entry (#1447)', () => {
     expect(entry.unresolved).toEqual([]);
     const reached = [...entry.files.keys()].map(file => relative(FRONTEND_SRC, file));
     expect(reached).toContain('features/log-lifecycle/RoundScreen.tsx');
+    expect(reached.filter(file => /^(routes|test|lib\/(router|layout|auth))\//.test(file))).toEqual([]);
+    expect([...entry.specifiers].filter(s => /^@tanstack\/(react-)?router/.test(s))).toEqual([]);
+    expect([...entry.files.values()].some(source => /(?<![\w.])fetch\(/.test(source))).toBe(false);
+  });
+});
+
+
+describe('log-datasets operator entry (#1481)', () => {
+  const entry = walk([join(FRONTEND_SRC, 'operator-screens/log-datasets/index.ts')]);
+  it('resolves the dataset screens without a router or network implementation', () => {
+    expect(entry.unresolved).toEqual([]);
+    const reached = [...entry.files.keys()].map(file => relative(FRONTEND_SRC, file));
+    expect(reached).toContain('features/log-datasets/DatasetScreen.tsx');
     expect(reached.filter(file => /^(routes|test|lib\/(router|layout|auth))\//.test(file))).toEqual([]);
     expect([...entry.specifiers].filter(s => /^@tanstack\/(react-)?router/.test(s))).toEqual([]);
     expect([...entry.files.values()].some(source => /(?<![\w.])fetch\(/.test(source))).toBe(false);

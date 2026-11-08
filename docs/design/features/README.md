@@ -12,7 +12,7 @@ Feature designs (implementation status is at the top of each document):
 - [`improvement-items.md`](improvement-items.md): improvement item platform feature (#1328, ADR-0106 amendment 2).
 - [`log-rules/README.md`](log-rules/README.md): read-only validation rule catalog and spec-requirement coverage links (`logRules`) (#1486, ADR-0122).
 - [`log-explorer/README.md`](log-explorer/README.md): general log explorer workbench (source read port, sequence piece, token/export, evidence handoff) (#1344, ADR-0119, ADR-0121).
-- [`log-test-datasets/README.md`](log-test-datasets/README.md): reusable log test datasets and expected baselines with regression comparison (#1345, ADR-0120).
+- [`log-test-datasets/README.md`](log-test-datasets/README.md): reusable log test datasets and expected baselines with regression comparison — nodes a–e implemented, real-server integration node f remains (#1345, ADR-0120).
 
 The current user-facing text guide is [Feature manual](../../user-guide/features/manual.md). Historical interactive guides and captures are retained as history; they do not require synchronized new captures for this release.
 

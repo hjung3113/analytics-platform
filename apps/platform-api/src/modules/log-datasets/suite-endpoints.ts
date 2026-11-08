@@ -22,7 +22,7 @@ export function suiteEndpoints(deps: LogDatasetsDeps): MenuEndpointDeclaration[]
     declareRead(deps, 'suites', SUITES_PARAM_KEYS, (p) => parseSuitesParams(p), async (actor, params) => {
       const parsed = parseSuitesParams(params);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
-      return { outcome: 'ok', data: await listSuites(deps.db, { ...parsed.value, workspaceId: actor.workspace_id }) };
+      return { outcome: 'ok', data: await listSuites(deps.db, { ...parsed.value, workspaceId: actor.workspace_id, actorId: actor.actor_id }) };
     }),
     declareRead(deps, 'suiteDetail', SUITE_DETAIL_PARAM_KEYS, (p) => parseSuiteDetailParams(p), async (actor, params) => {
       const parsed = parseSuiteDetailParams(params);

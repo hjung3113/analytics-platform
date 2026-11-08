@@ -18,6 +18,8 @@ import { metricsAuditEvents } from '@ap/menu-metrics/mock';
 // Menu mock actions (ADR-0054) — hand-wired: the generator writes endpoint markers only (backlog: generator support once a second menu has mock actions).
 import { logAnalysisActionsMock } from '@ap/menu-log-analysis/mock';
 export { stageLifecycleFixture } from '@ap/menu-log-models/mock';
+export { stageDatasetBaseline, stageDatasetSuiteRun } from '@ap/menu-log-rules/mock';
+import { datasetActionsMock } from '@ap/menu-log-rules/mock';
 import { logLifecycleActionsMock } from '@ap/menu-log-models/mock';
 import { logKnowledgeActionsMock } from '@ap/menu-log-knowledge/mock';
 import { improvementItemsActionsMock } from '@ap/menu-improvement-items/mock';
@@ -60,7 +62,7 @@ export const MODULE_MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [...eqvMock];
 /**
  * Every menu mock action the app registers (hand-wired, ADR-0054). The mock adapter below and the conformance test read it.
  */
-export const MOCK_ACTIONS: readonly AnyMockAction[] = [...logAnalysisActionsMock, ...logKnowledgeActionsMock, ...improvementItemsActionsMock, ...logLifecycleActionsMock];
+export const MOCK_ACTIONS: readonly AnyMockAction[] = [...logAnalysisActionsMock, ...logKnowledgeActionsMock, ...improvementItemsActionsMock, ...logLifecycleActionsMock, ...datasetActionsMock];
 
 /**
  * Audit events of menu-owned destinations (ADR-0048). The mock server joins them with its own equipment events,
