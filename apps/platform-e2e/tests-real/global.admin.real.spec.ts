@@ -92,13 +92,14 @@ test.describe('플랫폼 홈과 전역 화면 실서버 (ADR-0070, 06 §9.1)', (
       main.getByText('읽지 않은 알림이 없습니다.'),
     );
 
-    const myVocs = waitForFoRead(page, '/vocs', { view: 'my' });
+    // 소통 › VOC reads the public projection (`GET /vocs/public`, ADR-0110 / #1288), not the reporter's `view=my` list.
+    const publicVocs = waitForFoRead(page, '/vocs/public');
     await page.goto('/voc');
-    await expectSuccessfulFoReads([myVocs]);
+    await expectSuccessfulFoReads([publicVocs]);
     await expect(mainHeading(page)).toHaveText('VOC');
     await expectLoadedOrEmpty(
-      main.getByRole('region', { name: 'VOC 목록' }).getByRole('row'),
-      main.getByText('내가 제출한 VOC가 없습니다'),
+      main.getByRole('region', { name: 'VOC 목록' }).getByRole('listitem'),
+      main.getByText('볼 수 있는 VOC가 없습니다'),
     );
     await evidence(page, testInfo, 'real-global-bridges');
   });
