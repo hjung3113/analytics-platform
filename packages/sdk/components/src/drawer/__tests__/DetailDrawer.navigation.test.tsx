@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import type { ComponentProps, RefObject } from 'react';
+import { useEffect, type ComponentProps, type RefObject } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { DetailPanelSectionNav, DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
@@ -20,10 +20,37 @@ const rect = (top: number, height = 20) => ({ x: 0, y: top, left: 0, right: 100,
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-it('adds no DOM when no navigation is declared', () => {
-  render(<Fixture tabs={[{ id: 'main', label: 'Main', regions: regions() }]} />);
+it.each([
+  ['single tab', [{ id: 'main', label: 'Main', regions: regions() }], '[role="dialog"]'],
+  ['tabbed', [{ id: 'main', label: 'Main', regions: regions() }, { id: 'other', label: 'Other', content: 'Other' }], '[role="tabpanel"]'],
+] as const)('adds no DOM or focus stop when no navigation is declared (%s)', (_name, tabs, parentSelector) => {
+  render(<Fixture tabs={[...tabs]} />);
   expect(document.querySelector('[data-detail-navigation]')).toBeNull();
   expect(screen.queryByRole('navigation')).toBeNull();
+  const root = document.querySelector('[data-detail-main-scroll]')!;
+  const container = root.parentElement!;
+  expect(container).toHaveClass('min-h-0', 'flex-1');
+  expect(container.previousElementSibling?.hasAttribute('data-detail-navigation') ?? false).toBe(false);
+  expect(container.parentElement).toBe(document.querySelector(parentSelector));
+  expect(root.firstElementChild).toHaveAttribute('data-detail-regions');
+  expect(root.querySelectorAll('[tabindex="0"]')).toHaveLength(1); // the properties scrollport only
+});
+
+it('remounts a declared navigation when the two-column width hides it, closing any menu it opened', () => {
+  const observers: ResizeObserverCallback[] = [];
+  vi.stubGlobal('ResizeObserver', class { constructor(callback: ResizeObserverCallback) { observers.push(callback); } observe() {} unobserve() {} disconnect() {} });
+  let mounts = 0;
+  function Nav() { useEffect(() => { mounts += 1; }, []); return <nav aria-label="Sections" />; }
+  render(<Fixture tabs={[{ id: 'main', label: 'Main', regions: regions(() => <Nav />) }]} />);
+  expect(mounts).toBe(1);
+  const wrapper = document.querySelector('[data-detail-navigation]')!;
+  const resize = (width: number) => act(() => { for (const callback of observers) callback([{ target: wrapper, contentRect: { width } as DOMRectReadOnly } as ResizeObserverEntry], {} as ResizeObserver); });
+  resize(400);
+  expect(mounts).toBe(1);
+  resize(0);
+  expect(mounts).toBe(2);
+  resize(0);
+  expect(mounts).toBe(2);
 });
 
 it('renders the declared navigation above the scroll root, hidden at two columns, with the root as its ref', () => {

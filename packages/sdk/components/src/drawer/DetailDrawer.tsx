@@ -1,7 +1,7 @@
 import { detailFocusFallback, paneRootById } from '../state/pageFocus';
 import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { X } from 'lucide-react';
-import { useContext, useEffect, useId, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject, type ReactNode } from 'react';
+import { Fragment, useContext, useEffect, useId, useState, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
@@ -186,16 +186,35 @@ function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions
  * scrolls independently. Size containment supplies its available block size in
  * cqh without geometry observers, reparenting or a second copy of the content.
  */
+function DeclaredNavigation({ render, scrollRoot }: { render: NonNullable<DetailDrawerRegions['navigation']>; scrollRoot: RefObject<HTMLElement | null> }) {
+  const wrapper = useRef<HTMLDivElement>(null);
+  const [generation, setGeneration] = useState(0);
+  // CSS hides this at two columns, but a menu it opened lives in a portal. Remounting closes it.
+  useEffect(() => {
+    const element = wrapper.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    let shown = true;
+    const observer = new ResizeObserver(entries => {
+      const nowShown = (entries[0]?.contentRect.width ?? 0) > 0;
+      if (shown && !nowShown) setGeneration(value => value + 1);
+      shown = nowShown;
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return <div ref={wrapper} data-detail-navigation className="@[60rem]/detail-panel:hidden"><Fragment key={generation}>{render(scrollRoot)}</Fragment></div>;
+}
+
 function DeclaredRegions({ regions }: { regions: DetailDrawerRegions }) {
   const { t } = useI18n();
   const hasProperties = regions.properties !== undefined && regions.properties !== null && regions.properties !== false;
   const hasActivity = regions.activity !== undefined && regions.activity !== null && regions.activity !== false;
-  const scrollRoot = useRef<HTMLElement | null>(null);
+  const scrollRoot = useRef<HTMLDivElement | null>(null);
   // No token covers size containment or a 100cqh cap: properties use this scrollport's height, not the viewport's.
   return <>
-    {regions.navigation && <div data-detail-navigation className="@[60rem]/detail-panel:hidden">{regions.navigation(scrollRoot)}</div>}
+    {regions.navigation && <DeclaredNavigation render={regions.navigation} scrollRoot={scrollRoot} />}
     <div className="min-h-0 flex-1 [container-type:size]">
-    <div ref={scrollRoot as RefObject<HTMLDivElement | null>} role="region" aria-label={t('detailBodyActivity')} tabIndex={0} data-detail-main-scroll
+    <div ref={scrollRoot} role="region" aria-label={t('detailBodyActivity')} tabIndex={0} data-detail-main-scroll
       className="h-full overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0">
       <div data-detail-regions className={cn('grid min-h-full grid-cols-1 content-start', hasProperties && '@[60rem]/detail-panel:grid-cols-[minmax(0,1fr)_18rem] @[60rem]/detail-panel:grid-rows-[auto_1fr]')}>
         <section aria-label={t('detailBody')} data-detail-region="body" className="min-w-0 px-5 py-3 @[60rem]/detail-panel:col-start-1 @[60rem]/detail-panel:row-start-1">{regions.body}</section>

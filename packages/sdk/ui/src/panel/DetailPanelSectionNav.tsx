@@ -207,10 +207,15 @@ export function DetailPanelSectionNav({
     // Declared here so a rebuilt observer (scrollRef/sectionKey change) starts from a clean map.
     const intersectionState = new Map<string, boolean>();
     const selectTopmostIntersecting = () => {
-      const id = topmostAnchor(
-        anchors,
-        (anchor) => intersectionState.get(anchorId(anchor)) === true,
-      );
+      // The last section may be too short to reach the top band; at the end of the scroll it is the current one.
+      const atEnd =
+        root.scrollHeight > root.clientHeight &&
+        root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
+      const last = anchors[anchors.length - 1];
+      const id =
+        atEnd && last
+          ? anchorId(last)
+          : topmostAnchor(anchors, (anchor) => intersectionState.get(anchorId(anchor)) === true);
       if (id) setActiveSection(id);
     };
     const observer = new IntersectionObserver(
