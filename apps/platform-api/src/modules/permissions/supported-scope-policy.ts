@@ -10,7 +10,7 @@ export function isOrdinarilyRequestable(capability: Capability): boolean {
 }
 
 /** ADR-0107 decision 3: Admin and Developer receive these; a User does not (request, approval, direct grant). */
-const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
+export const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'knowledge.catalog.manage',
   'knowledge.catalog.import',
   'knowledge.item.publish',
@@ -24,6 +24,11 @@ const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'lifecycle.gate.decide',
   'dataset.suite.run',
 ]);
+
+/** True when the User role may never exercise this capability, whatever grant rows exist (#1531). */
+export function isNotForUserRole(capability: Capability): boolean {
+  return NOT_FOR_USER_ROLE.has(capability);
+}
 
 export async function supportedScopeCandidates(
   tx: Tx,

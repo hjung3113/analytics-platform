@@ -39,7 +39,7 @@ import { permissionDenies, permissionGrants } from '../../db/schema/permission.j
 import type { Tx } from '../../db/tx.js';
 import { currentAuthContext, noteSessionOnlyDenial } from '../../lib/auth-context.js';
 import { allManagedSystemIds } from '../managed-systems/read-projections.js';
-import { isOrdinarilyRequestable } from './supported-scope-policy.js';
+import { isOrdinarilyRequestable, isNotForUserRole } from './supported-scope-policy.js';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Decision shape — locked verbatim by issue #4. Do not extend without an
@@ -173,20 +173,8 @@ export function createCheckService(deps: CheckServiceDeps) {
     // (2) explicit deny — a workspace-wide active deny blocks every check;
     // an MS-scoped deny blocks only that same MS scope. Both precede grants
     // and role checks. 05-policy:33.
-    const denyRows = await db
-      .select({
-        id: permissionDenies.id,
-        managedSystemId: permissionDenies.managedSystemId,
-      })
-      .from(permissionDenies)
-      .where(
-        and(
-          eq(permissionDenies.workspaceId, actor.workspace_id),
-          eq(permissionDenies.actorId, actor.actor_id),
-          eq(permissionDenies.capability, capability),
-          isNull(permissionDenies.revokedAt),
-        ),
-      );
+    // One loader for decision and scope reads (#1531): it also drops grants the actor's CURRENT role may not exercise.
+    const { denyRows, grantRows } = await loadDenyAndGrantRows(db, actor, capability);
     for (const row of denyRows) {
       if (row.managedSystemId === null || row.managedSystemId === scope.managed_system_id) {
         return { allow: false, reason: 'explicit_deny', requestable: null };
@@ -197,23 +185,6 @@ export function createCheckService(deps: CheckServiceDeps) {
     // OR expires_at > now()). We fetch unsuperseded rows for (actor, capability) and
     // classify rather than filtering in SQL so we can distinguish
     // grant_expired / grant_revoked from no_grant in a single round-trip.
-    const grantRows = await db
-      .select({
-        id: permissionGrants.id,
-        revokedAt: permissionGrants.revokedAt,
-        expiresAt: permissionGrants.expiresAt,
-        managedSystemId: permissionGrants.managedSystemId,
-      })
-      .from(permissionGrants)
-      .where(
-        and(
-          eq(permissionGrants.workspaceId, actor.workspace_id),
-          eq(permissionGrants.actorId, actor.actor_id),
-          eq(permissionGrants.capability, capability),
-          isNull(permissionGrants.supersededAt),
-        ),
-      );
-
     const rightNow = now();
     let sawRevoked = false;
     let sawExpired = false;
@@ -303,7 +274,7 @@ export function createCheckService(deps: CheckServiceDeps) {
 export async function loadDenyAndGrantRows(db: Tx, actor: ActorContext, capability: Capability) {
   const [denyRows, grantRows] = await Promise.all([
     db
-      .select({ managedSystemId: permissionDenies.managedSystemId })
+      .select({ id: permissionDenies.id, managedSystemId: permissionDenies.managedSystemId })
       .from(permissionDenies)
       .where(
         and(
@@ -315,6 +286,7 @@ export async function loadDenyAndGrantRows(db: Tx, actor: ActorContext, capabili
       ),
     db
       .select({
+        id: permissionGrants.id,
         managedSystemId: permissionGrants.managedSystemId,
         revokedAt: permissionGrants.revokedAt,
         expiresAt: permissionGrants.expiresAt,
@@ -329,6 +301,10 @@ export async function loadDenyAndGrantRows(db: Tx, actor: ActorContext, capabili
         ),
       ),
   ]);
+  // #1531: a grant counts only while the CURRENT role may hold the capability. A demoted actor keeps its grant rows (a later
+  // promotion restores them), but a User never exercises a capability that is excluded for the User role (ADR-0107 decision 3).
+  // Every decision and scope read goes through here, so this is the one place the rule lives.
+  if (actor.role_level === 'user' && isNotForUserRole(capability)) return { denyRows, grantRows: [] };
   return { denyRows, grantRows };
 }
 
