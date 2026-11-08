@@ -25,6 +25,7 @@ describe('log lifecycle audit detail schemas (#1444 c)', () => {
     ['lifecycle.excerpt_access.set', { actorId: ID, allowed: false }],
     ['lifecycle.excerpt.deleted', { scope: 'attempt', count: 2, attemptId: ID }],
     ['lifecycle.excerpt.purged', { count: 3, retentionDays: 90 }],
+    ['lifecycle.gate.decided', { projectId: ID, seq: 1, gateDecisionId: ID, decision: 'exception', from: 'beta', targetStage: 'completed', selfApproved: true, attemptCount: 2, evidenceLinkCount: 1, riskAcceptedBy: ID }],
   ] as const)('%s accepts its detail', (type, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(true);
   });
@@ -43,6 +44,8 @@ describe('log lifecycle audit detail schemas (#1444 c)', () => {
     ['lifecycle.request.result_submitted', 'a worker verdict outside the set', { attemptNo: 1, verdict: 'ok', ruleCount: 1, excerptCount: 0, late: false }],
     ['lifecycle.excerpt.read', 'the text read', { attemptId: ID, ruleResultId: ID, evidenceIndex: 0, excerpt: 'x' }],
     ['lifecycle.excerpt.deleted', 'a reason text', { scope: 'round', count: 1, reason: 'x' }],
+    ['lifecycle.gate.decided', 'a reason text', { projectId: ID, seq: 1, gateDecisionId: ID, decision: 'rejected', from: 'beta', targetStage: 'completed', selfApproved: false, attemptCount: 0, evidenceLinkCount: 0, reason: 'x' }],
+    ['lifecycle.gate.decided', 'a closed from stage', { projectId: ID, seq: 1, gateDecisionId: ID, decision: 'approved', from: 'completed', targetStage: 'beta', selfApproved: false, attemptCount: 1, evidenceLinkCount: 0 }],
     ['lifecycle.request.created', 'a priority above 2', { roundId: ID, priority: 3, immediate: false, maxAttempts: 3 }],
   ] as const)('%s rejects %s', (type, _label, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(false);

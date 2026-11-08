@@ -61,6 +61,7 @@ const NO_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>([
   'improvement.manage',
   'lifecycle.project.manage',
   'lifecycle.round.manage',
+  'lifecycle.gate.decide',
   'knowledge.draft.create',
   'explorer.source.read',
   'explorer.export',

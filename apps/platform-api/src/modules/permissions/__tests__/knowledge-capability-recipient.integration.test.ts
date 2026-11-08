@@ -30,6 +30,7 @@ const CAPABILITIES = [
   "explorer.investigate",
   "dataset.manage",
   "dataset.baseline.approve",
+  "lifecycle.gate.decide",
 ] as const;
 // The sensitive tier is 5/min per actor: split the grant calls over several admins.
 const ADMINS = ["admin", "admin2", "admin3", "admin4", "admin5", "admin6"] as const;
@@ -53,12 +54,12 @@ describe.skipIf(!runIntegration)(
       app = await buildServer({ config: loadConfig(), dbHandle });
       await app.ready();
       // `admin2`..`admin5` share (two capabilities each: one refused and one granted call) the grants: the sensitive rate-limit tier is per actor and one admin cannot make them all.
-      for (const role of ["admin", "admin2", "admin3", "admin4", "admin5", "admin6", "developer", "user"] as const) {
+      for (const role of ["admin", "admin2", "admin3", "admin4", "admin5", "admin6", "developer", "user", "user2"] as const) {
         const externalId = `${TAG}-${role}`;
         const { id } = await insertActorRow(dbHandle, {
           workspaceId: WORKSPACE_ID,
           externalId,
-          roleLevel: role === "developer" || role === "user" ? role : "admin",
+          roleLevel: role === "developer" ? role : role === "user" || role === "user2" ? "user" : "admin",
         });
         actorIds.push(id);
         ids[role] = id;
@@ -105,14 +106,16 @@ describe.skipIf(!runIntegration)(
     it.each(CAPABILITIES)(
       "a User request for %s is refused",
       async (capability) => {
-        const res = await post("/permission-requests", "user", {
+        // The mutation tier allows 10 requests/min per actor: the second half of the list is requested by `user2`.
+        const requester = CAPABILITIES.indexOf(capability) < 6 ? "user" : "user2";
+        const res = await post("/permission-requests", requester, {
           requested_capability: capability,
           reason: "needs it",
         });
         expect(res.statusCode).toBe(422);
         const open = await migrate.pool.query(
           "select 1 from permission.permission_requests where requester_actor_id = $1",
-          [ids.user],
+          [ids[requester]],
         );
         expect(open.rowCount).toBe(0);
       },

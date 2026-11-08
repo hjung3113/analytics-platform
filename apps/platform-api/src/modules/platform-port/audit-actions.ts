@@ -156,6 +156,7 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   'lifecycle.excerpt_access.set': 'update',
   'lifecycle.excerpt.deleted': 'retire',
   'lifecycle.excerpt.purged': 'retire',
+  'lifecycle.gate.decided': 'update',
   'knowledge.draft.created': 'create',
   'knowledge.draft.updated': 'update',
   'knowledge.draft.submitted': 'update',

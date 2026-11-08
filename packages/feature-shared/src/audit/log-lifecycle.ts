@@ -25,6 +25,7 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_TYPES = [
   'lifecycle.excerpt_access.set',
   'lifecycle.excerpt.deleted',
   'lifecycle.excerpt.purged',
+  'lifecycle.gate.decided',
 ] as const;
 
 /** Subject id of the project events is the project id; of the round events the round id. */
@@ -128,6 +129,26 @@ export const lifecycleExcerptPurgedDetailSchema = z
   .object({ count: z.number().int().min(1), retentionDays: z.number().int().min(1) })
   .strict();
 
+/**
+ * A Gate decision (#1446 e): ids, enums, a seq and flags only — never the reason, the exception scope or the basis (they
+ * live in `log_lifecycle.gate_decision`). Subject id is the Round id. `riskAcceptedBy` is an actor id, not free text.
+ */
+export const lifecycleGateDecidedDetailSchema = z
+  .object({
+    projectId: z.string().uuid(),
+    seq: z.number().int().min(1),
+    gateDecisionId: z.string().uuid(),
+    decision: z.enum(['approved', 'rejected', 'exception']),
+    from: OPEN_STAGE,
+    targetStage: STAGE,
+    /** True when the decider is the requester of the latest 검증 요청 (or, with none, the opener of the Round). */
+    selfApproved: z.boolean(),
+    attemptCount: z.number().int().min(0),
+    evidenceLinkCount: z.number().int().min(0),
+    riskAcceptedBy: z.string().uuid().optional(),
+  })
+  .strict();
+
 export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.project.created': lifecycleProjectCreatedDetailSchema,
   'lifecycle.project.updated': lifecycleProjectUpdatedDetailSchema,
@@ -148,4 +169,5 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.excerpt_access.set': lifecycleExcerptAccessSetDetailSchema,
   'lifecycle.excerpt.deleted': lifecycleExcerptDeletedDetailSchema,
   'lifecycle.excerpt.purged': lifecycleExcerptPurgedDetailSchema,
+  'lifecycle.gate.decided': lifecycleGateDecidedDetailSchema,
 } as const satisfies Record<(typeof LOG_LIFECYCLE_AUDIT_EVENT_TYPES)[number], z.ZodTypeAny>;

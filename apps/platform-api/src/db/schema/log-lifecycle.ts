@@ -447,3 +447,55 @@ export const excerptReaders = logLifecycleSchema.table(
     ownerCheck: check('excerpt_reader_owner_check', sql`char_length(${t.sourceOwner}) between 1 and 200`),
   }),
 );
+
+// Gate decision (#1446 node e, design §3): the human business approval of a stage, append-only (a DB trigger refuses
+// UPDATE and DELETE for every role). `basis` freezes the evidence the decider saw; `self_approved` is stored, not derived
+// later (requester of the latest 검증 요청 of the Round = decider; the Round's opener when it has no request).
+const GATE_DECISIONS = "('approved','rejected','exception')";
+const GATE_TARGET_STAGES = "('kickoff','alpha','beta','completed')";
+
+export const gateDecisions = logLifecycleSchema.table(
+  'gate_decision',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    roundId: uuid('round_id').notNull(),
+    /** The project's stage when the decision was taken. */
+    fromStage: text('from_stage').notNull(),
+    targetStage: text('target_stage').notNull(),
+    decision: text('decision').notNull(),
+    basis: jsonb('basis').notNull(),
+    reason: text('reason').notNull(),
+    /** `{ riskAcceptedBy, scope, until? }`, only when decision = 'exception'. */
+    exception: jsonb('exception'),
+    selfApproved: boolean('self_approved').notNull(),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => actors.id),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    roundFk: foreignKey({
+      name: 'gate_decision_round_fk',
+      columns: [t.workspaceId, t.roundId],
+      foreignColumns: [validationRounds.workspaceId, validationRounds.id],
+    }).onDelete('restrict'),
+    roundIdx: index('gate_decision_round_idx').on(t.workspaceId, t.roundId, t.at),
+    decisionCheck: check('gate_decision_decision_check', sql`${t.decision} in ${sql.raw(GATE_DECISIONS)}`),
+    stageCheck: check(
+      'gate_decision_stage_check',
+      sql`${t.targetStage} in ${sql.raw(GATE_TARGET_STAGES)} and ${t.fromStage} in ${sql.raw(OPEN_STAGES)}`,
+    ),
+    basisCheck: check('gate_decision_basis_check', sql`jsonb_typeof(${t.basis}) = 'object'`),
+    reasonCheck: check(
+      'gate_decision_reason_check',
+      sql`char_length(${t.reason}) between 1 and ${sql.raw(String(REASON_MAX))}`,
+    ),
+    exceptionCheck: check(
+      'gate_decision_exception_check',
+      sql`(${t.decision} = 'exception') = (${t.exception} is not null) and (${t.exception} is null or jsonb_typeof(${t.exception}) = 'object')`,
+    ),
+  }),
+);

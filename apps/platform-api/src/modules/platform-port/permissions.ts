@@ -29,6 +29,8 @@ export type PlatformPermissionRule =
   | 'lifecycle-project-manage'
   /** Admin role, or an active workspace grant of `lifecycle.round.manage` (the write capability of the validation rounds). */
   | 'lifecycle-round-manage'
+  /** Admin role, or an active workspace grant of `lifecycle.gate.decide` (the Gate decision; a human session only, never a token). */
+  | 'lifecycle-gate-decide'
   /** Admin role, or an active workspace grant of `knowledge.draft.create` (the write capability of the knowledge drafts; Developer and User may hold it). */
   | 'draft-create'
   /** An active workspace grant of `explorer.investigate` (the write capability of the log explorer investigations); no Admin role bypass (sensitive, #1472). */
@@ -57,6 +59,8 @@ export const PLATFORM_PERMISSION_TABLE = [
   // Menu permissions of the log lifecycle writes (#1444 c): project actions and round actions.
   { permission: 'lifecycle:project-manage', rule: 'lifecycle-project-manage' },
   { permission: 'lifecycle:round-manage', rule: 'lifecycle-round-manage' },
+  // Menu permission of the Gate decision (#1446 e).
+  { permission: 'lifecycle:gate-decide', rule: 'lifecycle-gate-decide' },
   // Menu permission of the knowledge draft writes (#1198 a); the four draft actions declare it.
   { permission: 'knowledge:draft-create', rule: 'draft-create' },
   // Menu permission of the log explorer investigation writes (#1468 b); the five investigation actions declare it.
@@ -193,6 +197,16 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'lifecycle.round.manage', decision).allow;
+    }
+    case 'lifecycle-gate-decide': {
+      // The same decision the Gate action takes (`log-lifecycle/gate-actions.ts`); a token call is refused inside checkCapability (session-only).
+      const decision = await checkService.checkCapability(
+        actor,
+        'lifecycle.gate.decide',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'lifecycle.gate.decide', decision).allow;
     }
     case 'draft-create': {
       // The same decision the draft write actions take (`log-knowledge/draft-actions.ts`).

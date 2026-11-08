@@ -205,6 +205,8 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   // Log test dataset baselines (#1478 D-b): expected_baseline is updated by column (asserted below); baseline_event is append-only; nothing is deleted.
   'log_datasets.expected_baseline': ['SELECT', 'INSERT'],
   'log_datasets.baseline_event': ['SELECT', 'INSERT'],
+  // Migration 0113 (#1446 e): the Gate decision is append-only (SELECT, INSERT; a trigger refuses UPDATE and DELETE for every role).
+  'log_lifecycle.gate_decision': ['SELECT', 'INSERT'],
   // Migration 0101 (ADR-0116): tokens are issued and revoked, never edited or deleted. UPDATE is column-scoped to
   // the usage and revocation columns (asserted below); no table-wide UPDATE and no DELETE.
   'core.api_tokens': ['SELECT', 'INSERT'],
@@ -445,6 +447,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     ['execution_attempt', ['outcome', 'ended_at', 'executor_version', 'executor_digest', 'rule_set_revision', 'input_manifest_digest', 'result_digest', 'verdict', 'worker_summary']],
     ['rule_result', []],
     ['rule_result_excerpt', []],
+    ['gate_decision', []],
     ['queue_settings', ['run_window', 'lease_seconds', 'immediate_limit', 'excerpt_retention_days', 'updated_at', 'updated_by']],
     ['excerpt_reader', ['granted_by', 'granted_at', 'revoked_at']],
   ] as const)('platform_app UPDATE on log_lifecycle.%s is limited to the mutable columns', async (table, columns) => {

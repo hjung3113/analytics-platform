@@ -26,7 +26,8 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
         permission !== 'knowledge:draft-create' &&
         permission !== 'explorer:investigate' &&
         permission !== 'dataset:manage' &&
-        permission !== 'dataset:baseline-approve',
+        permission !== 'dataset:baseline-approve' &&
+        permission !== 'lifecycle:gate-decide',
     );
     expect([...tabled].sort()).toEqual([...vocabulary].sort());
     for (const permission of vocabulary) {
@@ -64,6 +65,7 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
   it.each([
     ['lifecycle:project-manage', 'lifecycle-project-manage'],
     ['lifecycle:round-manage', 'lifecycle-round-manage'],
+    ['lifecycle:gate-decide', 'lifecycle-gate-decide'],
     ['knowledge:draft-create', 'draft-create'],
     ['explorer:investigate', 'explorer-investigate'],
     ['dataset:manage', 'dataset-manage'],
