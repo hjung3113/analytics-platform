@@ -443,7 +443,7 @@ describe.skipIf(!runIntegration)('log knowledge catalog write actions (#1194 a)'
         [WORKSPACE_ID, JSON.stringify(AUDIT_ACTION_BY_EVENT_TYPE), [ids.va, ids.pe, ids.m1, ids.sw]],
       );
       expect(rows).toEqual([]);
-      const source = await dbHandle.pool.query('select event_type, subject_type from core.audit_log where workspace_id = $1 and subject_id = any($2)', [WORKSPACE_ID, [ids.va, ids.pe, ids.m1, ids.sw]]);
+      const source = await sql('select event_type, subject_type from core.audit_log where workspace_id = $1 and subject_id = any($2)', [WORKSPACE_ID, [ids.va, ids.pe, ids.m1, ids.sw]]);
       expect(source.rows.map(r => r.subject_type).sort()).toEqual(expect.arrayContaining(['knowledge_vendor', 'knowledge_process', 'knowledge_model', 'knowledge_software']));
       expect(new Set(source.rows.map(r => r.event_type))).toContain('knowledge.catalog.created');
     });

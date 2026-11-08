@@ -440,7 +440,7 @@ describe.skipIf(!runIntegration)('log explorer evidence handoff (#1474 X-h)', ()
     if (kind === 'sourceRound') {
       const made = await act('investigationCreate', { title: `${TAG} round replay`, origin: 'round', roundId });
       expect(made.outcome, JSON.stringify(made)).toBe('ok');
-      const added = await act('evidenceAdd', { id: made.data.id, ref: REF(25) }, { expectedVersion: made.version as string });
+      const added = await act('evidenceAdd', { id: made.data.id, ref: REF(25) }, { expectedVersion: made.data.version as string });
       expect(added.outcome, JSON.stringify(added)).toBe('ok');
       source = { id: made.data.id, version: added.version as string, refs: [REF(25)] };
     }
