@@ -10,7 +10,7 @@ import * as React from 'react';
 import { VocHeaderActions } from './DetailHeader';
 import { DetailPanelNotFound } from './DetailPanelNotFound';
 import { SummaryPermissionBody } from './SummaryPermissionView';
-import { VocDetailBody } from './VocDetailBody';
+import { VocDetailBody, type RenderVocDetailRegions } from './VocDetailBody';
 import { useDetailCloseGuard } from './useDetailCloseGuard';
 
 export interface UseVocDetailPartsArgs extends DetailPartsOptions {
@@ -32,6 +32,8 @@ export type VocDetailView =
 
 export type VocDetailParts = DetailParts & {
   view: VocDetailView;
+  /** Render the same stateful body with semantic regions in a host-owned frame. Render this OR body, never both. */
+  renderRegions?: (renderLayout: RenderVocDetailRegions) => React.ReactNode;
   /** The close a header X calls: asks first while a composer holds an unsent draft. */
   requestClose: () => void;
 };
@@ -170,6 +172,20 @@ export function useVocDetailParts({
     title:
       formatRecordDocumentTitle({ displayId: voc.display_id, title: voc.title }) ?? voc.display_id,
     headerActions: <VocHeaderActions vocId={vocId} displayId={voc.display_id} />,
+    renderRegions: (renderLayout) => (
+      <VocDetailBody
+        key={voc.id}
+        renderRegions={renderLayout}
+        voc={voc}
+        vocId={vocId}
+        closeGuard={closeGuard}
+        {...(managedSystemId !== undefined ? { managedSystemId } : {})}
+        isReporterOnOwnVoc={isReporterOnOwnVoc}
+        canRenderAllowedTask={canRenderAllowedTask}
+        me={me ?? null}
+        {...(titleInHeader ? { titleInHeader } : {})}
+      />
+    ),
     body: (
       <VocDetailBody
         key={voc.id}

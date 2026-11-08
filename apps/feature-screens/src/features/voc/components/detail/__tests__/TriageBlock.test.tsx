@@ -120,3 +120,13 @@ describe('<TriageBlock>', () => {
     }
   });
 });
+
+it('aligns a leading property heading and its action in one centered row without the standalone top gap', () => {
+  render(<TriageBlock voc={DETAIL_ENVELOPE} canTriage onOpenTriage={() => {}} leading />);
+  const title = screen.getByRole('heading', { name: '분류 (읽기 전용)' });
+  const action = screen.getByRole('button', { name: '분류에서 변경' });
+  expect(title.parentElement).toBe(action.parentElement);
+  expect(title.parentElement).toHaveClass('flex', 'items-center', 'mb-4');
+  expect(title).toHaveClass('mb-0');
+  expect(title.parentElement?.parentElement).not.toHaveClass('mt-8');
+});
