@@ -27,6 +27,14 @@ export { LIFECYCLE_ROUND_MENU_PERMISSION, LIFECYCLE_ROUND_PERMISSION } from './r
 export { LIFECYCLE_GATE_MENU_PERMISSION, LIFECYCLE_GATE_PERMISSION } from './gate-actions.js';
 export { readRoundEvidenceLinks, type RoundEvidenceLink } from './round-evidence-links.js';
 export { EXCERPT_PURGE_CRON, EXCERPT_PURGE_QUEUE, purgeExpiredExcerpts, registerExcerptPurge } from './excerpt-purge-job.js';
+export { roundEvidenceRefIntake } from './round-evidence-ref-intake.js';
+export type {
+  RoundEvidenceRefAttachInput,
+  RoundEvidenceRefAttachResult,
+  RoundEvidenceRefIntake,
+  RoundEvidenceRefIntakeDeps,
+} from './round-evidence-ref-intake.js';
+export type { RoundEvidenceRefInput } from './domain/evidence-ref-intake.js';
 export { lifecycleRoundRead } from './round-read-port.js';
 export type { LifecycleRoundRead } from './round-read-port.js';
 export { lifecycleEvidenceRead } from './evidence-link-read-port.js';

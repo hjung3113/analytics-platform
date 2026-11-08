@@ -10,10 +10,8 @@
 // the revision (create / update) and the audit row. Node a never writes a `knowledge_item*` table: review, approval and
 // publish are node b. A refusal only the database can judge is a `MenuActionInvalidError` (field errors, never a 500).
 
-import { createAuditService } from '../core/audit/audit-service.js';
 import { sql } from 'drizzle-orm';
 import type { Tx } from '../../db/tx.js';
-import { currentAuthContext } from '../../lib/auth-context.js';
 import { findWorkspaceActor } from '../auth/index.js';
 import {
   type ActionHandlerResult,
@@ -22,40 +20,23 @@ import {
   MenuActionInvalidError,
 } from '../menu-dispatch/types.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
-import { type PlatformActor, holdsPlatformPermission } from '../platform-port/permissions.js';
+import type { PlatformActor } from '../platform-port/permissions.js';
 import { LOG_KNOWLEDGE_ITEMS_MENU_ID } from './catalog-menu.js';
 import {
   DRAFT_INPUT_KEYS,
   type DraftInput,
   type DraftOp,
-  type NormalizedProposal,
-  deriveOrigin,
-  ownerImmutableErrors,
   parseDraftHead,
   parseProposal,
-  proposalDigest,
   validateDraftInput,
 } from './domain/draft-input.js';
+import { authorAuthNow, draftAnswer, draftCores } from './draft-core.js';
 import { canSubmit, canWithdraw, isFinalDraftStatus } from './domain/draft-transitions.js';
-import {
-  type DraftRow,
-  insertDraft,
-  findDraftByValidatorRef,
-  insertDraftRevision,
-  latestDigest,
-  lockDraft,
-  patchDraft,
-  readTargetItem,
-} from './repositories/draft-write.js';
-import { judgeSubjects, softwareModelId } from './repositories/item-subject.js';
-import { checkOwner } from './repositories/item-write.js';
+import { type DraftRow, findDraftByValidatorRef, latestDigest, patchDraft } from './repositories/draft-write.js';
 
 export const DRAFT_PERMISSION = 'knowledge.draft.create';
 /** The menu permission the four actions declare: bootstrap lists it exactly for the users `DRAFT_PERMISSION` lets write (`platform-port/permissions.ts`). */
 export const DRAFT_MENU_PERMISSION = 'knowledge:draft-create';
-/** Holders of this see submitted drafts of others (the reads' visibility rule); an author-only check never uses it for a write. */
-const REVIEW_MENU_PERMISSION = 'knowledge:item-publish';
-
 /** The reads (same menu) that show what a draft write changes. */
 const INVALIDATES = ['logKnowledge.drafts', 'logKnowledge.draftDetail'] as const;
 
@@ -63,15 +44,11 @@ export interface DraftActionDeps {
   checkService: CheckService;
 }
 
-type AuditType = 'created' | 'updated' | 'submitted' | 'withdrawn';
-
 const invalid = (...errors: FieldError[]) => new MenuActionInvalidError(errors);
 
-/** How the caller authenticated, from the server's request context only (never from input): stored on every revision. */
-const authorAuthNow = (): 'session' | 'token' => (currentAuthContext().kind === 'token' ? 'token' : 'session');
-
 export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
-  const audit = createAuditService();
+  const core = draftCores(deps);
+  const { lockOwn, replayOwn, record } = core;
 
   const authorize = async (actor: PlatformActor, tx: Tx) =>
     applyAdminModuleBypass(
@@ -80,52 +57,11 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
       await deps.checkService.checkCapability(actor, DRAFT_PERMISSION, { workspace_id: actor.workspace_id }, { tx }),
     ).allow;
 
-  const record = (
-    tx: Tx,
-    actor: PlatformActor,
-    type: AuditType,
-    draft: DraftRow,
-    payloadDigest: string,
-    statusBefore: string | null,
-  ) =>
-    audit.record(tx, {
-      workspace_id: actor.workspace_id,
-      actor_id: actor.actor_id,
-      event_type: `knowledge.draft.${type}`,
-      subject_type: 'knowledge_draft',
-      subject_id: draft.id,
-      summary: `knowledge draft ${type}`,
-      detail: {
-        draftId: draft.id,
-        proposalType: draft.proposalType,
-        origin: draft.origin,
-        targetItemId: draft.targetItemId,
-        draftRevNo: draft.latestDraftRev,
-        payloadDigest,
-        statusBefore,
-        statusAfter: draft.status,
-      },
-    });
-
   /** The parsed head; `validate` ran before the handler, so a failure here is a bug. */
   function head<Op extends DraftOp>(op: Op, input: Record<string, unknown>): DraftInput<Op> {
     const result = parseDraftHead(op, input);
     if (!result.ok) throw new Error(`action ${op}: validate passed but parse failed`);
     return result.value;
-  }
-
-  /**
-   * Locks the draft and judges who is asking, BEFORE any version comparison: missing, another workspace's or hidden from
-   * the caller → null (`not_found`, never a version); visible but not theirs → `forbidden_not_author`. A draft is visible to
-   * its author in every status and, once it is not a plain `draft`, to a holder of `knowledge.item.publish`.
-   */
-  async function lockOwn(tx: Tx, actor: PlatformActor, id: string): Promise<DraftRow | null> {
-    const row = await lockDraft(tx, actor.workspace_id, id);
-    if (!row) return null;
-    if (row.submitterActorId === actor.actor_id) return row;
-    const reviewer = await holdsPlatformPermission(deps.checkService, actor, REVIEW_MENU_PERMISSION, { tx });
-    if (reviewer && row.status !== 'draft') throw invalid({ path: ['id'], code: 'forbidden_not_author' });
-    return null;
   }
 
   const currentVersion = async (tx: Tx, actor: PlatformActor, input: Record<string, unknown>) => {
@@ -149,39 +85,7 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
     invalidates: INVALIDATES,
   });
 
-  const answer = (draft: DraftRow, payloadDigest: string): ActionHandlerResult => ({
-    data: { id: draft.id, status: draft.status, latestDraftRev: draft.latestDraftRev, payloadDigest },
-    version: String(draft.rowVersion),
-  });
-
-  /** The owner of a create draft must exist and be active (the item create's check), on the field the caller set. */
-  async function ownerErrors(tx: Tx, ws: string, proposal: NormalizedProposal): Promise<FieldError[]> {
-    const [field, check] = proposal.ownerModelId
-      ? (['ownerModelId', await checkOwner(tx, ws, { modelId: proposal.ownerModelId })] as const)
-      : (['ownerSoftwareId', await checkOwner(tx, ws, { softwareId: proposal.ownerSoftwareId ?? '' })] as const);
-    return check === 'ok' ? [] : [{ path: ['proposal', field], code: check }];
-  }
-
-  /** `subjects` against the owner's model (a SW-owned item: its SW version's model); omitted subjects (a revise) are not judged. */
-  async function subjectErrors(tx: Tx, ws: string, modelId: string | null, proposal: NormalizedProposal): Promise<FieldError[]> {
-    if (proposal.subjects === undefined) return [];
-    const judged = await judgeSubjects(tx, ws, modelId ?? '', proposal.subjects);
-    return judged.errors.map((e) => ({ path: ['proposal', ...e.path], code: e.code }));
-  }
-
-  /** The model the item (or draft) owner belongs to. */
-  async function modelOf(tx: Tx, ws: string, owner: { ownerModelId: string | null; ownerSoftwareId: string | null }): Promise<string | null> {
-    return owner.ownerModelId ?? (owner.ownerSoftwareId ? await softwareModelId(tx, ws, owner.ownerSoftwareId) : null);
-  }
-
-  /**
-   * A resend of a validator ref answers its draft only to that draft's author (review C3): another actor's draft is
-   * private, so another caller learns only that the ref is taken — never its id, status, digest or version.
-   */
-  async function replayOwn(tx: Tx, ws: string, actorId: string, existing: DraftRow): Promise<ActionHandlerResult> {
-    if (existing.submitterActorId !== actorId) throw invalid({ path: ['validatorRef'], code: 'taken' });
-    return answer(existing, await latestDigest(tx, ws, existing));
-  }
+  const answer = draftAnswer;
 
   // ---- create -------------------------------------------------------------------------------------------------
   const draftCreate: MenuActionDeclaration = {
@@ -204,42 +108,14 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
       }
       const parsed = parseProposal(value.proposalType, value.proposal);
       if (!parsed.ok) throw new Error('action draftCreate: validate passed but parse failed');
-      const proposal = parsed.value;
-      let owner: { ownerModelId: string | null; ownerSoftwareId: string | null };
-      let target: { id: string; baseRevisionNo: number } | null = null;
-      const errors: FieldError[] = [];
-      if (value.proposalType === 'create') {
-        errors.push(...(await ownerErrors(tx, ws, proposal)));
-        owner = { ownerModelId: proposal.ownerModelId ?? null, ownerSoftwareId: proposal.ownerSoftwareId ?? null };
-      } else {
-        const item = await readTargetItem(tx, ws, value.targetItemId as string);
-        if (!item) throw invalid({ path: ['targetItemId'], code: 'not_found' });
-        if (item.publicationState === 'archived') throw invalid({ path: ['targetItemId'], code: 'archived' });
-        target = { id: item.id, baseRevisionNo: item.latestRevisionNo };
-        owner = { ownerModelId: item.ownerModelId, ownerSoftwareId: item.ownerSoftwareId };
-      }
-      if (errors.length === 0) errors.push(...(await subjectErrors(tx, ws, await modelOf(tx, ws, owner), proposal)));
-      if (errors.length > 0) throw new MenuActionInvalidError(errors);
-
-      const draft = await insertDraft(tx, {
-        workspaceId: ws,
-        actorId: actor.actor_id,
-        origin: deriveOrigin(authKind, actorType, ref !== undefined),
-        validatorRef: ref,
+      return core.createDraft(tx, actor, {
         proposalType: value.proposalType,
-        targetItemId: target?.id ?? null,
-        baseRevisionNo: target?.baseRevisionNo ?? null,
-        ...owner,
+        targetItemId: value.targetItemId,
+        proposal: parsed.value,
+        authKind,
+        actorType,
+        validatorRef: ref,
       });
-      if (!draft) {
-        // A racing create won the ref's unique index between the lookup and the insert: answer as the replay does.
-        const winner = ref ? await findDraftByValidatorRef(tx, ws, ref) : null;
-        if (!winner) throw new Error('action draftCreate: validator ref conflict but no draft found');
-        return replayOwn(tx, ws, actor.actor_id, winner);
-      }
-      const digest = await insertDraftRevision(tx, ws, draft.id, 1, actor.actor_id, proposal, authKind);
-      await record(tx, actor, 'created', draft, digest, null);
-      return answer(draft, digest);
     },
   };
 
@@ -250,36 +126,13 @@ export function draftActions(deps: DraftActionDeps): MenuActionDeclaration[] {
     validate: (input) => validateDraftInput('draftUpdate', input),
     currentVersion,
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
-      const ws = actor.workspace_id;
       const value = head('draftUpdate', input);
       const before = await lockExisting(tx, actor, value.id, 'draftUpdate');
       // The answer does not depend on the version the caller holds: a final draft is `illegal_transition`.
       if (isFinalDraftStatus(before.status)) throw invalid({ path: ['id'], code: 'illegal_transition' });
       const parsed = parseProposal(before.proposalType as 'create' | 'revise', value.proposal);
       if (!parsed.ok) throw new MenuActionInvalidError(parsed.errors);
-      const proposal = parsed.value;
-      if (before.proposalType === 'create') {
-        const immutable = ownerImmutableErrors(before, proposal);
-        if (immutable.length > 0) throw new MenuActionInvalidError(immutable);
-      }
-      const digest = proposalDigest(proposal);
-      // Same payload as the latest revision: nothing changes, nothing is audited, the current version is answered.
-      if (digest === (await latestDigest(tx, ws, before))) return answer(before, digest);
-
-      const errors: FieldError[] = [];
-      if (before.proposalType === 'create') errors.push(...(await ownerErrors(tx, ws, proposal)));
-      else {
-        const item = await readTargetItem(tx, ws, before.targetItemId as string);
-        if (item?.publicationState === 'archived') errors.push({ path: ['id'], code: 'archived' });
-      }
-      if (errors.length === 0) errors.push(...(await subjectErrors(tx, ws, await modelOf(tx, ws, before), proposal)));
-      if (errors.length > 0) throw new MenuActionInvalidError(errors);
-
-      const revNo = before.latestDraftRev + 1;
-      await insertDraftRevision(tx, ws, before.id, revNo, actor.actor_id, proposal, authorAuthNow());
-      const after = await patchDraft(tx, ws, before.id, actor.actor_id, { latestDraftRev: revNo });
-      await record(tx, actor, 'updated', after, digest, before.status);
-      return answer(after, digest);
+      return core.updateDraft(tx, actor, before, parsed.value);
     },
   };
 

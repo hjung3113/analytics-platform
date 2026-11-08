@@ -14,6 +14,7 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_TYPES = [
   'lifecycle.round.opened',
   'lifecycle.round.closed',
   'lifecycle.round.evidence_attached',
+  'lifecycle.round.evidence_ref_attached',
   'lifecycle.request.created',
   'lifecycle.request.cancelled',
   'lifecycle.request.claimed',
@@ -72,6 +73,21 @@ export const lifecycleRoundClosedDetailSchema = z
 /** Manual validation attachment linked to a round (#1451): ids and a count — never a filename or a storage key. */
 export const lifecycleRoundEvidenceAttachedDetailSchema = z
   .object({ projectId: z.string().uuid(), seq: z.number().int().min(1), count: z.number().int().min(1) })
+  .strict();
+
+/** Evidence locations handed to a round (#1474): counts by status and the origin — never a file location, a hash or a note. */
+export const lifecycleRoundEvidenceRefAttachedDetailSchema = z
+  .object({
+    projectId: z.string().uuid(),
+    seq: z.number().int().min(1),
+    attached: z.number().int().min(1),
+    alreadyAttached: z.number().int().min(0),
+    match: z.number().int().min(0),
+    hashMismatch: z.number().int().min(0),
+    unresolved: z.number().int().min(0),
+    originKind: z.enum(['log_explorer']),
+    originId: z.string().uuid(),
+  })
   .strict();
 
 // Validation request queue (#1445 d, ADR-0117). Subject id of the request events is the request id. Body-free: ids,
@@ -161,6 +177,7 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.round.opened': lifecycleRoundOpenedDetailSchema,
   'lifecycle.round.closed': lifecycleRoundClosedDetailSchema,
   'lifecycle.round.evidence_attached': lifecycleRoundEvidenceAttachedDetailSchema,
+  'lifecycle.round.evidence_ref_attached': lifecycleRoundEvidenceRefAttachedDetailSchema,
   'lifecycle.request.created': lifecycleRequestCreatedDetailSchema,
   'lifecycle.request.cancelled': lifecycleRequestCancelledDetailSchema,
   'lifecycle.request.claimed': lifecycleRequestClaimedDetailSchema,

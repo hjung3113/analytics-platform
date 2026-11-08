@@ -163,11 +163,11 @@ POST /api/v1/log-explorer/export   { investigationId | sampleSet, query, range, 
 
 | 대상 | 받는 쪽 | 매핑 | 선행 |
 | --- | --- | --- | --- |
-| Round | `log-lifecycle` — 수동 검증 첨부 = Core 첨부 + entity link([log-lifecycle D6](../log-lifecycle/README.md#10-open-decisions-이-문서)) | `EvidenceRef` → Round의 등록 entity link(`fileRef`, `line`, `fileSha256`; 이 참조는 `sample_set`에 있는 `fileRef`만 허용) | v0.30.0 노드 c(첨부 type 등록 확인) |
-| 지식 초안 | `log-knowledge` 초안 제출([#1198](https://github.com/hjung3113/analytics-platform/issues/1198)) | `EvidenceRef` → 초안의 `source_asset_ref` + `locator_snapshot`(`fileRef`·`line`·`fileSha256`), `excerpt_digest`는 비움. 초안 본문은 사람이 #1198 화면에서 쓴다 | **#1198 초안 제출 서비스가 먼저**(같은 릴리스, 노드 순서 §7) |
+| Round | `log-lifecycle` 배럴 `roundEvidenceRefIntake`(서비스 함수, 구현됨 #1474) — Round 소유 추가 전용 표 `round_evidence_ref`. 수동 첨부(파일, D6)와 entity link와는 별개(위치는 본문 없는 포인터, 팀장 결정 2026-11-08) | `EvidenceRef` + 탐색의 `sourceResolved` → `(fileRef, line, fileSha256, note)` 한 줄. `sample_set`에 있는 `fileRef`만 허용. 상태는 받는 쪽이 정한다: `unresolved`·`hash_mismatch`·`match`. 같은 위치는 한 번만(`alreadyAttached`) | v0.30.0 노드 c |
+| 지식 초안 | `log-knowledge` 배럴 `draftEvidenceIntake`(서비스 함수, 구현됨 #1474; [#1198](https://github.com/hjung3113/analytics-platform/issues/1198) 초안 서비스와 같은 코어) | `EvidenceRef` → 제안 근거 포인터 `{ sourceKind: 'log_file', sourceRef: fileRef, contentHash: fileSha256, locator: 'line:<n>', note }`(초안에 `source_asset_ref` 열이 없음). `unresolved`는 거절, `hash_mismatch`는 note 앞에 `[해시 불일치]`(팀장 결정 2026-11-08). 새 초안(`needs_check`, 제목·본문은 사람이 씀) 또는 내 초안에 덧붙이기. 근거 최대 20개 | #1198 초안 제출 서비스(병합됨) |
 | 결함 | 결함 객체의 수신 서비스 | `EvidenceRef` → 결함 근거 참조 | **수신 객체가 아직 없음**(lifecycle 결함·재검증은 P3). 수신 인터페이스만 정하고 연결은 객체가 생길 때(질문 상태: 팀장에게 올림) |
 
-- 받는 쪽은 `EvidenceRef`의 `fileSha256`이 Source 현재 값과 다르면 `hash_mismatch` 경고를 붙여 저장하고, 원본이 없으면 `unresolved`로 둔다. 가짜 근거로 대체하지 않는다.
+- 받는 쪽은 `EvidenceRef`의 `fileSha256`이 `sample_set`(Round) 또는 탐색이 알린 값(지식 초안)과 다르면 `hash_mismatch` 경고를 붙여 저장하고, 원본이 없으면 `unresolved`로 둔다(지식 초안은 거절). 가짜 근거로 대체하지 않는다. 받는 쪽은 Source를 모르므로 `unresolved` 판정은 탐색이 `sourceResolved`로 알린다.
 - 같은 요청 재전송은 `idempotencyKey`로 한 번만 반영한다. 받는 쪽 거절(권한·동시성)은 조사 상태를 바꾸지 않는다.
 - 토큰 호출도 가능하지만 받는 쪽 capability(예: 지식 초안 제출)가 토큰에 있어야 하고, 지식 발행·승인 등 고위험 동작은 이 경로에 없다([#1198](https://github.com/hjung3113/analytics-platform/issues/1198): AI/Validator는 Draft 제출 전용).
 

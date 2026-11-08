@@ -34,8 +34,14 @@ const draftDetail = z
   })
   .strict();
 
-export const knowledgeDraftCreatedDetailSchema = draftDetail;
-export const knowledgeDraftUpdatedDetailSchema = draftDetail;
+/** Evidence handoff from the log explorer (#1474): the origin and a count only — no file location, hash or note. */
+const handoffDetail = z
+  .object({ originKind: z.enum(['log_explorer']), originId: z.string().uuid(), refCount: z.number().int().min(1) })
+  .strict();
+const handoffDraftDetail = draftDetail.extend({ handoff: handoffDetail.optional() });
+
+export const knowledgeDraftCreatedDetailSchema = handoffDraftDetail;
+export const knowledgeDraftUpdatedDetailSchema = handoffDraftDetail;
 export const knowledgeDraftSubmittedDetailSchema = draftDetail;
 export const knowledgeDraftWithdrawnDetailSchema = draftDetail;
 

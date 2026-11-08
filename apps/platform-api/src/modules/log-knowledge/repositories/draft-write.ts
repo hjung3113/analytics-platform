@@ -149,6 +149,16 @@ export async function latestDigest(tx: Tx, workspaceId: string, draft: Pick<Draf
   return row.digest;
 }
 
+/** The stored (normalized) proposal of the draft's latest revision. */
+export async function latestProposal(tx: Tx, workspaceId: string, draft: Pick<DraftRow, 'id' | 'latestDraftRev'>): Promise<unknown> {
+  const [row] = await tx
+    .select({ proposal: dr.proposalJson })
+    .from(dr)
+    .where(and(eq(dr.workspaceId, workspaceId), eq(dr.draftId, draft.id), eq(dr.draftRevNo, draft.latestDraftRev)));
+  if (!row) throw new Error(`draft ${draft.id}: latest revision ${draft.latestDraftRev} is missing`);
+  return row.proposal;
+}
+
 /** The mutable columns of `draft` (the column grant lists exactly these). */
 export interface DraftPatch {
   status?: string;

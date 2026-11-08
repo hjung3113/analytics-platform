@@ -7,7 +7,7 @@ import { type AnyPgColumn, alias } from 'drizzle-orm/pg-core';
 
 import { actors } from '../../../db/schema/core.js';
 import { equipmentModels, modelProcesses, processCategories, softwareVersions, vendors } from '../../../db/schema/knowledge.js';
-import { developmentEvents, developmentProjects, validationRounds } from '../../../db/schema/log-lifecycle.js';
+import { developmentEvents, developmentProjects, roundEvidenceRefs, validationRounds } from '../../../db/schema/log-lifecycle.js';
 import type { Tx } from '../../../db/tx.js';
 import type { FilterCondition } from '../../../lib/list-params/catalog-filters.js';
 import type { ListQuery, Page } from '../../../lib/list-params/types.js';
@@ -332,9 +332,24 @@ export interface RoundSummary {
   closedBy: string | null;
   closedAt: string | null;
 }
+/** An evidence location handed to a round (#1474): a body-free pointer with the status the round gave it. */
+export interface RoundEvidenceRefRow {
+  seq: number;
+  fileRef: string;
+  line: number;
+  fileSha256: string;
+  note: string | null;
+  status: string;
+  originKind: string;
+  originId: string;
+  handedOffBy: string;
+  at: string;
+}
 export interface RoundDetail extends Omit<RoundSummary, 'sampleCount'> {
   /** Files in the user's order (`order` 1..n) and the owner of the source. */
   sampleSet: { files: { fileRef: string; order: number; sha256: string }[]; sourceOwner: string };
+  /** Evidence locations handed to this round, newest first (a round holds at most 1000). */
+  evidenceRefs: RoundEvidenceRefRow[];
 }
 
 type RoundDbRow = typeof validationRounds.$inferSelect;
@@ -378,7 +393,35 @@ export async function getRoundDetail(tx: Tx, workspaceId: string, roundId: strin
     .from(r)
     .where(and(eq(r.workspaceId, workspaceId), eq(r.id, roundId)))
     .limit(1);
-  return row ? { ...baseRound(row), sampleSet: filesOf(row) } : null;
+  if (!row) return null;
+  const refs = await tx
+    .select()
+    .from(roundEvidenceRefs)
+    .where(and(eq(roundEvidenceRefs.workspaceId, workspaceId), eq(roundEvidenceRefs.roundId, roundId)))
+    .orderBy(desc(roundEvidenceRefs.seq));
+  const evidenceRefs = refs.map((x) => ({
+    seq: x.seq,
+    fileRef: x.fileRef,
+    line: x.line,
+    fileSha256: x.fileSha256,
+    note: x.note,
+    status: x.status,
+    originKind: x.originKind,
+    originId: x.originId,
+    handedOffBy: x.handedOffBy,
+    at: iso(x.at),
+  }));
+  return { ...baseRound(row), sampleSet: filesOf(row), evidenceRefs };
+}
+
+/** The sample set of a round in the workspace, or null (the cross-module read port: no evidence locations are read). */
+export async function getRoundSampleSet(tx: Tx, workspaceId: string, roundId: string) {
+  const [row] = await tx
+    .select()
+    .from(r)
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, roundId)))
+    .limit(1);
+  return row ? filesOf(row) : null;
 }
 
 /** Whether the round exists in the workspace (the attachment parent reader and the evidence list share it). */

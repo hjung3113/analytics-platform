@@ -13,3 +13,12 @@ export type {
   KnowledgeSoftwareRef,
   SpecPin,
 } from './knowledge-lookup.js';
+export { draftEvidenceIntake } from './draft-evidence-intake.js';
+export type {
+  DraftEvidenceAppendInput,
+  DraftEvidenceCreateInput,
+  DraftEvidenceIntake,
+  DraftEvidenceIntakeDeps,
+  DraftEvidenceResult,
+} from './draft-evidence-intake.js';
+export type { DraftEvidenceRefInput } from './domain/evidence-intake.js';
