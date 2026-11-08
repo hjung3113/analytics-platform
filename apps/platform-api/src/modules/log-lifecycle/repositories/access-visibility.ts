@@ -14,6 +14,10 @@ export function roundVisibleSql(viewer: Viewer, roundId: SQL): SQL {
 export function requestVisibleSql(viewer: Viewer, requestId: SQL): SQL {
   return sql`exists (select 1 from log_lifecycle.execution_request acl_q where acl_q.workspace_id = ${viewer.workspaceId}::uuid and acl_q.id = ${requestId} and ${roundVisibleSql(viewer, sql`acl_q.round_id`)})`;
 }
+/** Workers also process suite requests, which carry pinned samples and have no knowledge parent. Human reads use requestVisibleSql. */
+export function workerRequestVisibleSql(viewer: Viewer, requestId: SQL): SQL {
+  return sql`(${requestVisibleSql(viewer, requestId)} or exists (select 1 from log_lifecycle.execution_request worker_q where worker_q.workspace_id = ${viewer.workspaceId}::uuid and worker_q.id = ${requestId} and worker_q.round_id is null and worker_q.suite_run_item_id is not null))`;
+}
 export function attemptVisibleSql(viewer: Viewer, attemptId: SQL): SQL {
   return sql`exists (select 1 from log_lifecycle.execution_attempt acl_a where acl_a.workspace_id = ${viewer.workspaceId}::uuid and acl_a.id = ${attemptId} and ${requestVisibleSql(viewer, sql`acl_a.request_id`)})`;
 }

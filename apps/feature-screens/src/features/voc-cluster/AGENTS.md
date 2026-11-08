@@ -1,7 +1,5 @@
 # VOC Cluster Feature Agent Guide
 
-#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/feature-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
-
 ## Ownership
 
 VOC Cluster owns frontend route composition and mutations for VOC Cluster list, detail, membership management, cluster-to-existing-Finding association, and cluster-originated Create Finding / Request Task flows (`useCreateVocCluster`, `useConfirmCluster`, `useAddClusterMember`, `useRemoveClusterMember`, `useVocClusterDetail`, `useVocClusterList`, `useCreateFindingFromCluster`, `useLinkExistingFindingToVocCluster`, `useRequestTaskFromCluster`).

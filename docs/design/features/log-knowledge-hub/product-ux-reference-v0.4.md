@@ -961,7 +961,7 @@ VENDOR_DEMO,MODEL_X100,Demo Model X100,ETCH|CLEAN
 1. [`DESIGN.md`](https://github.com/hjung3113/analytics-platform/blob/main/DESIGN.md): Professional / Technical / Calm / Dense / Precise, 테이블·타이포/확장 토큰.
 2. [`packages/sdk/ui/src/styles/tokens.css`](https://github.com/hjung3113/analytics-platform/blob/main/packages/sdk/ui/src/styles/tokens.css): 밝은 표면, 텍스트·선택·간격·패널 치수의 실제 원본.
 3. [`docs/contract/platform-ui-contract.md`](https://github.com/hjung3113/analytics-platform/blob/main/docs/contract/platform-ui-contract.md), [`docs/contract/components.md`](https://github.com/hjung3113/analytics-platform/blob/main/docs/contract/components.md): 플랫폼 UI 규칙·공통 컴포넌트/상태·Table 계약.
-4. [`docs/wireframes/app-shell.md`](https://github.com/hjung3113/analytics-platform/blob/main/docs/wireframes/app-shell.md): 플랫폼 호스트의 52px 레일 / 240px 사이드바 / 50px 페이지 머리·상세 슬롯 배치.
+4. [`docs/design/app-shell.md`](https://github.com/hjung3113/analytics-platform/blob/main/docs/design/app-shell.md): 플랫폼 호스트의 52px 레일 / 240px 사이드바 / 50px 페이지 머리·상세 슬롯 배치.
 5. [`docs/design/features/component-inventory.md`](https://github.com/hjung3113/analytics-platform/blob/main/docs/design/features/component-inventory.md): 설계명과 **실제 구현/export의 차이**. 컴포넌트명만 보고 없는 API를 가정하면 안 된다.
 
 **우선순위:** 실제 소비 SDK 릴리스의 공개 export·토큰 > 플랫폼 Decided 계약 > 이 문서의 후보 화면 배치. 이 문서 자체를 근거로 `@ap/ui` 내부 경로를 직접 import하거나 미구현 컴포넌트가 존재한다고 주장하지 않는다. 독립 웹 화면의 도메인 고유 부분만 `packages/ui` 또는 `features`에 추가한다.

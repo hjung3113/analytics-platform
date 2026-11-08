@@ -14,6 +14,7 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_TYPES = [
   'lifecycle.round.opened',
   'lifecycle.round.closed',
   'lifecycle.round.evidence_attached',
+  'lifecycle.round.evidence_ref_attached',
   'lifecycle.request.created',
   'lifecycle.request.cancelled',
   'lifecycle.request.claimed',
@@ -25,6 +26,7 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_TYPES = [
   'lifecycle.excerpt_access.set',
   'lifecycle.excerpt.deleted',
   'lifecycle.excerpt.purged',
+  'lifecycle.gate.decided',
 ] as const;
 
 /** Subject id of the project events is the project id; of the round events the round id. */
@@ -73,6 +75,21 @@ export const lifecycleRoundEvidenceAttachedDetailSchema = z
   .object({ projectId: z.string().uuid(), seq: z.number().int().min(1), count: z.number().int().min(1) })
   .strict();
 
+/** Evidence locations handed to a round (#1474): counts by status and the origin — never a file location, a hash or a note. */
+export const lifecycleRoundEvidenceRefAttachedDetailSchema = z
+  .object({
+    projectId: z.string().uuid(),
+    seq: z.number().int().min(1),
+    attached: z.number().int().min(1),
+    alreadyAttached: z.number().int().min(0),
+    match: z.number().int().min(0),
+    hashMismatch: z.number().int().min(0),
+    unresolved: z.number().int().min(0),
+    originKind: z.enum(['log_explorer']),
+    originId: z.string().uuid(),
+  })
+  .strict();
+
 // Validation request queue (#1445 d, ADR-0117). Subject id of the request events is the request id. Body-free: ids,
 // numbers and verdicts only. NEVER a log excerpt, an observed / expected text, a file location or a hash; the excerpt
 // read row names the rule result and the evidence index, not what was read. A token call's audit row also carries
@@ -82,12 +99,15 @@ const ATTEMPT_NO = z.number().int().min(1);
 
 export const lifecycleRequestCreatedDetailSchema = z
   .object({
-    roundId: z.string().uuid(),
+    /** The request subject (ADR-0117 amendment, #1479): a Round request names `roundId`, a suite run item request `suiteRunItemId`; exactly one. */
+    roundId: z.string().uuid().optional(),
+    suiteRunItemId: z.string().uuid().optional(),
     priority: z.number().int().min(0).max(2),
     immediate: z.boolean(),
     maxAttempts: z.number().int().min(1).max(10),
   })
-  .strict();
+  .strict()
+  .refine((d) => (d.roundId === undefined) !== (d.suiteRunItemId === undefined), { message: 'exactly one of roundId and suiteRunItemId' });
 export const lifecycleRequestCancelledDetailSchema = z
   .object({ roundId: z.string().uuid(), from: z.enum(['queued', 'claimed']) })
   .strict();
@@ -128,6 +148,26 @@ export const lifecycleExcerptPurgedDetailSchema = z
   .object({ count: z.number().int().min(1), retentionDays: z.number().int().min(1) })
   .strict();
 
+/**
+ * A Gate decision (#1446 e): ids, enums, a seq and flags only — never the reason, the exception scope or the basis (they
+ * live in `log_lifecycle.gate_decision`). Subject id is the Round id. `riskAcceptedBy` is an actor id, not free text.
+ */
+export const lifecycleGateDecidedDetailSchema = z
+  .object({
+    projectId: z.string().uuid(),
+    seq: z.number().int().min(1),
+    gateDecisionId: z.string().uuid(),
+    decision: z.enum(['approved', 'rejected', 'exception']),
+    from: OPEN_STAGE,
+    targetStage: STAGE,
+    /** True when the decider is the requester of the latest 검증 요청 (or, with none, the opener of the Round). */
+    selfApproved: z.boolean(),
+    attemptCount: z.number().int().min(0),
+    evidenceLinkCount: z.number().int().min(0),
+    riskAcceptedBy: z.string().uuid().optional(),
+  })
+  .strict();
+
 export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.project.created': lifecycleProjectCreatedDetailSchema,
   'lifecycle.project.updated': lifecycleProjectUpdatedDetailSchema,
@@ -137,6 +177,7 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.round.opened': lifecycleRoundOpenedDetailSchema,
   'lifecycle.round.closed': lifecycleRoundClosedDetailSchema,
   'lifecycle.round.evidence_attached': lifecycleRoundEvidenceAttachedDetailSchema,
+  'lifecycle.round.evidence_ref_attached': lifecycleRoundEvidenceRefAttachedDetailSchema,
   'lifecycle.request.created': lifecycleRequestCreatedDetailSchema,
   'lifecycle.request.cancelled': lifecycleRequestCancelledDetailSchema,
   'lifecycle.request.claimed': lifecycleRequestClaimedDetailSchema,
@@ -148,4 +189,5 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.excerpt_access.set': lifecycleExcerptAccessSetDetailSchema,
   'lifecycle.excerpt.deleted': lifecycleExcerptDeletedDetailSchema,
   'lifecycle.excerpt.purged': lifecycleExcerptPurgedDetailSchema,
+  'lifecycle.gate.decided': lifecycleGateDecidedDetailSchema,
 } as const satisfies Record<(typeof LOG_LIFECYCLE_AUDIT_EVENT_TYPES)[number], z.ZodTypeAny>;

@@ -120,3 +120,5 @@ export {
 export { useListMotion } from './utils/useListMotion';
 export { isToastTarget } from './utils/toast-target';
 export { TransientOverlayScope } from './components/TransientOverlayScope';
+
+export { navRowVariants, NavCurrentMarker, navDrillAffordance } from './components/NavRow';

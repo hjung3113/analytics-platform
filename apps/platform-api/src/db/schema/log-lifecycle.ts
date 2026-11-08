@@ -192,7 +192,15 @@ export const executionRequests = logLifecycleSchema.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id),
-    roundId: uuid('round_id').notNull(),
+    /** The request subject (ADR-0117 amendment, #1479): exactly one of `roundId` and `suiteRunItemId` is set. */
+    roundId: uuid('round_id'),
+    /** A suite run item of log-datasets: a plain uuid, no cross-schema FK (module boundary); one request per item. */
+    suiteRunItemId: uuid('suite_run_item_id'),
+    /** The suite run the item belongs to (same lifetime as the item): the unit of the per-user run cap and of the excerpt retention clock. */
+    suiteRunId: uuid('suite_run_id'),
+    /** A suite subject's sample list, resolved and pinned when the request is registered (the claim response reads it from here; lifecycle never reads log-datasets). */
+    subjectSampleSet: jsonb('subject_sample_set'),
+    subjectSampleManifestDigest: text('subject_sample_manifest_digest'),
     /** 0..2, a higher number is claimed first. */
     priority: integer('priority').notNull(),
     immediate: boolean('immediate').notNull().default(false),
@@ -226,6 +234,21 @@ export const executionRequests = logLifecycleSchema.table(
     idempotencyUq: unique('execution_request_idempotency_uq').on(t.workspaceId, t.requestedByActorId, t.idempotencyKey),
     claimIdx: index('execution_request_claim_idx').on(t.workspaceId, t.state, t.priority, t.createdAt),
     roundIdx: index('execution_request_round_idx').on(t.workspaceId, t.roundId),
+    suiteItemUq: uniqueIndex('execution_request_suite_item_uq')
+      .on(t.workspaceId, t.suiteRunItemId)
+      .where(sql`${t.suiteRunItemId} is not null`),
+    suiteRunIdx: index('execution_request_suite_run_idx')
+      .on(t.workspaceId, t.suiteRunId, t.state)
+      .where(sql`${t.suiteRunId} is not null`),
+    // The subject is a Round XOR a suite run item; a suite subject carries its run and its pinned sample list, a Round one carries neither.
+    subjectCheck: check(
+      'execution_request_subject_check',
+      sql`(${t.roundId} is not null) <> (${t.suiteRunItemId} is not null) and (${t.suiteRunItemId} is not null) = (${t.suiteRunId} is not null) and (${t.suiteRunItemId} is not null) = (${t.subjectSampleSet} is not null) and (${t.suiteRunItemId} is not null) = (${t.subjectSampleManifestDigest} is not null)`,
+    ),
+    subjectDigestCheck: check(
+      'execution_request_subject_digest_check',
+      sql`${t.subjectSampleManifestDigest} is null or ${t.subjectSampleManifestDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
     stateCheck: check('execution_request_state_check', sql`${t.state} in ${sql.raw(REQUEST_STATES)}`),
     priorityCheck: check('execution_request_priority_check', sql`${t.priority} between 0 and 2`),
     attemptsCheck: check(
@@ -445,5 +468,100 @@ export const excerptReaders = logLifecycleSchema.table(
   (t) => ({
     pk: unique('excerpt_reader_uq').on(t.workspaceId, t.sourceOwner, t.actorId),
     ownerCheck: check('excerpt_reader_owner_check', sql`char_length(${t.sourceOwner}) between 1 and 200`),
+  }),
+);
+
+// Gate decision (#1446 node e, design §3): the human business approval of a stage, append-only (a DB trigger refuses
+// UPDATE and DELETE for every role). `basis` freezes the evidence the decider saw; `self_approved` is stored, not derived
+// later (requester of the latest 검증 요청 of the Round = decider; the Round's opener when it has no request).
+const GATE_DECISIONS = "('approved','rejected','exception')";
+const GATE_TARGET_STAGES = "('kickoff','alpha','beta','completed')";
+
+export const gateDecisions = logLifecycleSchema.table(
+  'gate_decision',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    roundId: uuid('round_id').notNull(),
+    /** The project's stage when the decision was taken. */
+    fromStage: text('from_stage').notNull(),
+    targetStage: text('target_stage').notNull(),
+    decision: text('decision').notNull(),
+    basis: jsonb('basis').notNull(),
+    reason: text('reason').notNull(),
+    /** `{ riskAcceptedBy, scope, until? }`, only when decision = 'exception'. */
+    exception: jsonb('exception'),
+    selfApproved: boolean('self_approved').notNull(),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => actors.id),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    roundFk: foreignKey({
+      name: 'gate_decision_round_fk',
+      columns: [t.workspaceId, t.roundId],
+      foreignColumns: [validationRounds.workspaceId, validationRounds.id],
+    }).onDelete('restrict'),
+    roundIdx: index('gate_decision_round_idx').on(t.workspaceId, t.roundId, t.at),
+    decisionCheck: check('gate_decision_decision_check', sql`${t.decision} in ${sql.raw(GATE_DECISIONS)}`),
+    stageCheck: check(
+      'gate_decision_stage_check',
+      sql`${t.targetStage} in ${sql.raw(GATE_TARGET_STAGES)} and ${t.fromStage} in ${sql.raw(OPEN_STAGES)}`,
+    ),
+    basisCheck: check('gate_decision_basis_check', sql`jsonb_typeof(${t.basis}) = 'object'`),
+    reasonCheck: check(
+      'gate_decision_reason_check',
+      sql`char_length(${t.reason}) between 1 and ${sql.raw(String(REASON_MAX))}`,
+    ),
+    exceptionCheck: check(
+      'gate_decision_exception_check',
+      sql`(${t.decision} = 'exception') = (${t.exception} is not null) and (${t.exception} is null or jsonb_typeof(${t.exception}) = 'object')`,
+    ),
+  }),
+);
+
+// Evidence locations handed to a round (#1474 X-h, lead decision 2026-11-08): a body-free pointer `(file_ref, line,
+// file_sha256)` with the status the round judged on receipt. Append-only (trigger + no UPDATE/DELETE grant); `seq` is
+// 1..n per round without gaps, allocated under the round row lock. The same triple is stored once per round.
+const EVIDENCE_REF_STATUSES = "('match','hash_mismatch','unresolved')";
+export const roundEvidenceRefs = logLifecycleSchema.table(
+  'round_evidence_ref',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    roundId: uuid('round_id').notNull(),
+    seq: integer('seq').notNull(),
+    fileRef: text('file_ref').notNull(),
+    line: bigint('line', { mode: 'number' }).notNull(),
+    fileSha256: text('file_sha256').notNull(),
+    note: text('note'),
+    status: text('status').notNull(),
+    originKind: text('origin_kind').notNull(),
+    originId: uuid('origin_id').notNull(),
+    handedOffBy: uuid('handed_off_by')
+      .notNull()
+      .references(() => actors.id),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    roundFk: foreignKey({
+      name: 'round_evidence_ref_round_fk',
+      columns: [t.workspaceId, t.roundId],
+      foreignColumns: [validationRounds.workspaceId, validationRounds.id],
+    }).onDelete('restrict'),
+    seqUq: unique('round_evidence_ref_round_seq_uq').on(t.workspaceId, t.roundId, t.seq),
+    tripleUq: unique('round_evidence_ref_round_triple_uq').on(t.workspaceId, t.roundId, t.fileRef, t.line, t.fileSha256),
+    seqCheck: check('round_evidence_ref_seq_check', sql`${t.seq} between 1 and 1000`),
+    fileRefCheck: check('round_evidence_ref_file_ref_check', sql`char_length(${t.fileRef}) between 1 and 1024`),
+    lineCheck: check('round_evidence_ref_line_check', sql`${t.line} >= 1`),
+    shaCheck: check('round_evidence_ref_sha_check', sql`${t.fileSha256} ~ '^[0-9a-f]{64}$'`),
+    noteCheck: check('round_evidence_ref_note_check', sql`coalesce(char_length(${t.note}), 0) <= 500`),
+    statusCheck: check('round_evidence_ref_status_check', sql`${t.status} in ${sql.raw(EVIDENCE_REF_STATUSES)}`),
+    originCheck: check('round_evidence_ref_origin_check', sql`${t.originKind} in ('log_explorer')`),
   }),
 );

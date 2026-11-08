@@ -3,6 +3,7 @@ import type pg from 'pg';
 import type { Db } from '../../db/client.js';
 import type { CheckService } from '../permissions/check-service.js';
 import type { ImportApplyHooks } from './import-apply-service.js';
+import type { SpecCoverageSource } from './spec-coverage-endpoint.js';
 
 export interface LogKnowledgeDeps {
   db: Db;
@@ -12,6 +13,8 @@ export interface LogKnowledgeDeps {
    * action's own transaction occupies, so the runner never waits on command capacity.
    */
   runnerPool?: pg.Pool;
+  /** The 명세 커버리지 source of the spec screen badge (the log-rules `RuleCoveragePort`, injected by the assembly; #1496). Absent = «unavailable». */
+  ruleCoverage?: SpecCoverageSource;
   /** Time budget of one apply call (default `IMPORT_APPLY_BUDGET_MS`); tests shrink it. */
   applyBudgetMs?: number;
   /** Test seams (never set in production). `afterApply` runs once `runApply` returned, before the action record is written. */

@@ -128,79 +128,30 @@ export function useAttachmentUploadQueue({
     );
   }, [resetToken]);
 
-  const addFiles = React.useCallback((fileList: FileList | File[] | null): void => {
-    if (!fileList) return;
-    const files = Array.from(fileList);
-    if (files.length === 0) return;
-
-    const newRows: AttachmentUploadQueueRow[] = files.map((file) => {
-      const rejection = clientSideRejection(file);
-      const rowId = mintRowId();
-      const idempotencyKey = mintIdempotencyKey();
-      const abort = new AbortController();
-      if (rejection) {
-        return {
-          rowId,
-          file,
-          idempotencyKey,
-          abort,
-          state: { kind: 'error', code: rejection.code, message: rejection.message },
-        };
-      }
-      return { rowId, file, idempotencyKey, abort, state: { kind: 'uploading' } };
-    });
-
-    setRows((current) => [...current, ...newRows]);
-
-    for (const row of newRows) {
-      if (row.state.kind !== 'uploading') continue;
-      void (async () => {
-        try {
-          const result = await uploadAttachment(row.file, {
-            idempotencyKey: row.idempotencyKey,
-            signal: row.abort.signal,
-          });
-          setRows((current) =>
-            current.map((currentRow) =>
-              currentRow.rowId === row.rowId
-                ? { ...currentRow, state: { kind: 'uploaded', serverId: result.id } }
-                : currentRow,
-            ),
-          );
-        } catch (err) {
-          const apiErr = err as ApiError;
-          if (apiErr.code === 'storage.unavailable') {
-            const mapped = errorMapper(apiErr.envelope);
-            notifyErrorRef.current(mapped.message);
-          }
-          let inlineMessage: string;
-          if (apiErr.code === 'attachment.too_large') inlineMessage = COPY.oversize;
-          else if (apiErr.code === 'attachment.unsupported_type')
-            inlineMessage = COPY.unsupportedType;
-          else {
-            const mapped = errorMapper(
-              apiErr.envelope ?? { code: 'internal.unexpected', message: '' },
-            );
-            inlineMessage = mapped.message;
-          }
-          setRows((current) =>
-            current.map((currentRow) =>
-              currentRow.rowId === row.rowId
-                ? {
-                    ...currentRow,
-                    state: {
-                      kind: 'error',
-                      code: apiErr.code ?? 'internal.unexpected',
-                      message: inlineMessage,
-                    },
-                  }
-                : currentRow,
-            ),
-          );
-        }
-      })();
+  const uploadFile = React.useCallback(async (file: File) => {
+    const rejection = clientSideRejection(file);
+    const row: AttachmentUploadQueueRow = {
+      rowId: mintRowId(), file, idempotencyKey: mintIdempotencyKey(), abort: new AbortController(),
+      state: rejection ? { kind: 'error', ...rejection } : { kind: 'uploading' },
+    };
+    setRows(current => [...current, row]);
+    if (rejection) throw new Error(rejection.message);
+    try {
+      const result = await uploadAttachment(file, { idempotencyKey: row.idempotencyKey, signal: row.abort.signal });
+      setRows(current => current.map(item => item.rowId === row.rowId ? { ...item, state: { kind: 'uploaded', serverId: result.id } } : item));
+      return result;
+    } catch (err) {
+      const apiErr = err as ApiError;
+      const mapped = errorMapper(apiErr.envelope ?? { code: 'internal.unexpected', message: '' });
+      if (apiErr.code === 'storage.unavailable') notifyErrorRef.current(mapped.message);
+      const message = apiErr.code === 'attachment.too_large' ? COPY.oversize : apiErr.code === 'attachment.unsupported_type' ? COPY.unsupportedType : mapped.message;
+      setRows(current => current.map(item => item.rowId === row.rowId ? { ...item, state: { kind: 'error', code: apiErr.code ?? 'internal.unexpected', message } } : item));
+      throw err;
     }
   }, []);
+  const addFiles = React.useCallback((fileList: FileList | File[] | null): void => {
+    for (const file of Array.from(fileList ?? [])) void uploadFile(file).catch(() => {});
+  }, [uploadFile]);
 
   function handleDragOver(event: React.DragEvent<HTMLElement>): void {
     event.preventDefault();
@@ -231,6 +182,7 @@ export function useAttachmentUploadQueue({
   }
 
   return {
+    uploadFile,
     rows,
     dragOver,
     inputRef,

@@ -1,5 +1,5 @@
 {
-  "id": "76162e74-ea0f-4bf2-b904-ad1eb3342d19",
+  "id": "75202d70-a2f3-487c-b46a-5e0458b8c187",
   "prevId": "18cb1f37-8752-440f-bdb5-aee8ab678176",
   "version": "7",
   "dialect": "postgresql",
@@ -786,6 +786,172 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "log_datasets.baseline_event": {
+      "name": "baseline_event",
+      "schema": "log_datasets",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "baseline_id": {
+          "name": "baseline_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "before": {
+          "name": "before",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "after": {
+          "name": "after",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "self_approved": {
+          "name": "self_approved",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "at": {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "baseline_event_baseline_idx": {
+          "name": "baseline_event_baseline_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "baseline_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "baseline_event_workspace_id_workspaces_id_fk": {
+          "name": "baseline_event_workspace_id_workspaces_id_fk",
+          "tableFrom": "baseline_event",
+          "tableTo": "workspaces",
+          "schemaTo": "core",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "baseline_event_actor_id_actors_id_fk": {
+          "name": "baseline_event_actor_id_actors_id_fk",
+          "tableFrom": "baseline_event",
+          "tableTo": "actors",
+          "schemaTo": "core",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "baseline_event_baseline_fk": {
+          "name": "baseline_event_baseline_fk",
+          "tableFrom": "baseline_event",
+          "tableTo": "expected_baseline",
+          "schemaTo": "log_datasets",
+          "columnsFrom": [
+            "workspace_id",
+            "baseline_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "baseline_event_kind_check": {
+          "name": "baseline_event_kind_check",
+          "value": "\"log_datasets\".\"baseline_event\".\"kind\" in ('created','updated','approved','superseded')"
+        },
+        "baseline_event_before_check": {
+          "name": "baseline_event_before_check",
+          "value": "\"log_datasets\".\"baseline_event\".\"before\" is null or jsonb_typeof(\"log_datasets\".\"baseline_event\".\"before\") = 'object'"
+        },
+        "baseline_event_after_check": {
+          "name": "baseline_event_after_check",
+          "value": "jsonb_typeof(\"log_datasets\".\"baseline_event\".\"after\") = 'object'"
+        },
+        "baseline_event_reason_check": {
+          "name": "baseline_event_reason_check",
+          "value": "coalesce(char_length(\"log_datasets\".\"baseline_event\".\"reason\"), 0) <= 2000"
+        }
+      },
       "isRLSEnabled": false
     },
     "knowledge.catalog_import_job": {
@@ -3255,13 +3421,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "access_mode": {
-          "name": "access_mode",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'internal'"
-        },
         "active": {
           "name": "active",
           "type": "boolean",
@@ -3437,10 +3596,6 @@
         "equipment_model_row_version_check": {
           "name": "equipment_model_row_version_check",
           "value": "\"knowledge\".\"equipment_model\".\"row_version\" >= 1"
-        },
-        "equipment_model_access_mode_check": {
-          "name": "equipment_model_access_mode_check",
-          "value": "\"knowledge\".\"equipment_model\".\"access_mode\" in ('internal','restricted')"
         }
       },
       "isRLSEnabled": false
@@ -4310,6 +4465,260 @@
         "execution_request_lease_check": {
           "name": "execution_request_lease_check",
           "value": "(\"log_lifecycle\".\"execution_request\".\"state\" = 'claimed') = (\"log_lifecycle\".\"execution_request\".\"claimed_by_actor_id\" is not null and \"log_lifecycle\".\"execution_request\".\"lease_expires_at\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "log_datasets.expected_baseline": {
+      "name": "expected_baseline",
+      "schema": "log_datasets",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dataset_revision_id": {
+          "name": "dataset_revision_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seq": {
+          "name": "seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "profile_pin": {
+          "name": "profile_pin",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "expected_scope": {
+          "name": "expected_scope",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "expectations": {
+          "name": "expectations",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "parser_golden_ref": {
+          "name": "parser_golden_ref",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "author_actor_id": {
+          "name": "author_actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "approved_by_actor_id": {
+          "name": "approved_by_actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approved_at": {
+          "name": "approved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "row_version": {
+          "name": "row_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "expected_baseline_one_approved_uq": {
+          "name": "expected_baseline_one_approved_uq",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "dataset_revision_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"log_datasets\".\"expected_baseline\".\"status\" = 'approved'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "expected_baseline_workspace_id_workspaces_id_fk": {
+          "name": "expected_baseline_workspace_id_workspaces_id_fk",
+          "tableFrom": "expected_baseline",
+          "tableTo": "workspaces",
+          "schemaTo": "core",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "expected_baseline_author_actor_id_actors_id_fk": {
+          "name": "expected_baseline_author_actor_id_actors_id_fk",
+          "tableFrom": "expected_baseline",
+          "tableTo": "actors",
+          "schemaTo": "core",
+          "columnsFrom": [
+            "author_actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "expected_baseline_approved_by_actor_id_actors_id_fk": {
+          "name": "expected_baseline_approved_by_actor_id_actors_id_fk",
+          "tableFrom": "expected_baseline",
+          "tableTo": "actors",
+          "schemaTo": "core",
+          "columnsFrom": [
+            "approved_by_actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "expected_baseline_revision_fk": {
+          "name": "expected_baseline_revision_fk",
+          "tableFrom": "expected_baseline",
+          "tableTo": "dataset_revision",
+          "schemaTo": "log_datasets",
+          "columnsFrom": [
+            "workspace_id",
+            "dataset_revision_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "expected_baseline_workspace_id_id_uq": {
+          "name": "expected_baseline_workspace_id_id_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        },
+        "expected_baseline_revision_seq_uq": {
+          "name": "expected_baseline_revision_seq_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "dataset_revision_id",
+            "seq"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "expected_baseline_status_check": {
+          "name": "expected_baseline_status_check",
+          "value": "\"log_datasets\".\"expected_baseline\".\"status\" in ('draft','approved','superseded')"
+        },
+        "expected_baseline_seq_check": {
+          "name": "expected_baseline_seq_check",
+          "value": "\"log_datasets\".\"expected_baseline\".\"seq\" >= 1"
+        },
+        "expected_baseline_profile_pin_check": {
+          "name": "expected_baseline_profile_pin_check",
+          "value": "jsonb_typeof(\"log_datasets\".\"expected_baseline\".\"profile_pin\") = 'object'"
+        },
+        "expected_baseline_scope_check": {
+          "name": "expected_baseline_scope_check",
+          "value": "jsonb_typeof(\"log_datasets\".\"expected_baseline\".\"expected_scope\") = 'array'"
+        },
+        "expected_baseline_expectations_check": {
+          "name": "expected_baseline_expectations_check",
+          "value": "jsonb_typeof(\"log_datasets\".\"expected_baseline\".\"expectations\") = 'array'"
+        },
+        "expected_baseline_golden_check": {
+          "name": "expected_baseline_golden_check",
+          "value": "\"log_datasets\".\"expected_baseline\".\"parser_golden_ref\" is null or jsonb_typeof(\"log_datasets\".\"expected_baseline\".\"parser_golden_ref\") = 'object'"
+        },
+        "expected_baseline_row_version_check": {
+          "name": "expected_baseline_row_version_check",
+          "value": "\"log_datasets\".\"expected_baseline\".\"row_version\" >= 1"
+        },
+        "expected_baseline_approved_check": {
+          "name": "expected_baseline_approved_check",
+          "value": "(\"log_datasets\".\"expected_baseline\".\"status\" = 'draft') = (\"log_datasets\".\"expected_baseline\".\"approved_at\" is null and \"log_datasets\".\"expected_baseline\".\"approved_by_actor_id\" is null)"
+        },
+        "expected_baseline_superseded_check": {
+          "name": "expected_baseline_superseded_check",
+          "value": "(\"log_datasets\".\"expected_baseline\".\"status\" = 'superseded') = (\"log_datasets\".\"expected_baseline\".\"superseded_at\" is not null)"
         }
       },
       "isRLSEnabled": false
@@ -8175,13 +8584,6 @@
           "notNull": true,
           "default": "'open'"
         },
-        "access_mode": {
-          "name": "access_mode",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'internal'"
-        },
         "row_version": {
           "name": "row_version",
           "type": "integer",
@@ -8397,10 +8799,6 @@
         "knowledge_item_row_version_check": {
           "name": "knowledge_item_row_version_check",
           "value": "\"knowledge\".\"knowledge_item\".\"row_version\" >= 1"
-        },
-        "knowledge_item_access_mode_check": {
-          "name": "knowledge_item_access_mode_check",
-          "value": "\"knowledge\".\"knowledge_item\".\"access_mode\" in ('internal','restricted')"
         }
       },
       "isRLSEnabled": false
@@ -9669,245 +10067,6 @@
       },
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "knowledge.object_access_rule": {
-      "name": "object_access_rule",
-      "schema": "knowledge",
-      "columns": {
-        "rule_id": {
-          "name": "rule_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_kind": {
-          "name": "target_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_id": {
-          "name": "target_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "grantee_kind": {
-          "name": "grantee_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'actor'"
-        },
-        "grantee_id": {
-          "name": "grantee_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "effect": {
-          "name": "effect",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "valid_until": {
-          "name": "valid_until",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "revoked_at": {
-          "name": "revoked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "revoked_by": {
-          "name": "revoked_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "object_access_rule_lookup_idx": {
-          "name": "object_access_rule_lookup_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "grantee_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "target_kind",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "target_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"knowledge\".\"object_access_rule\".\"revoked_at\" is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "object_access_rule_target_idx": {
-          "name": "object_access_rule_target_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "target_kind",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "target_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "object_access_rule_workspace_id_workspaces_id_fk": {
-          "name": "object_access_rule_workspace_id_workspaces_id_fk",
-          "tableFrom": "object_access_rule",
-          "tableTo": "workspaces",
-          "schemaTo": "core",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "object_access_rule_grantee_id_actors_id_fk": {
-          "name": "object_access_rule_grantee_id_actors_id_fk",
-          "tableFrom": "object_access_rule",
-          "tableTo": "actors",
-          "schemaTo": "core",
-          "columnsFrom": [
-            "grantee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "object_access_rule_created_by_actors_id_fk": {
-          "name": "object_access_rule_created_by_actors_id_fk",
-          "tableFrom": "object_access_rule",
-          "tableTo": "actors",
-          "schemaTo": "core",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "object_access_rule_revoked_by_actors_id_fk": {
-          "name": "object_access_rule_revoked_by_actors_id_fk",
-          "tableFrom": "object_access_rule",
-          "tableTo": "actors",
-          "schemaTo": "core",
-          "columnsFrom": [
-            "revoked_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "object_access_rule_workspace_rule_uq": {
-          "name": "object_access_rule_workspace_rule_uq",
-          "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "rule_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "object_access_rule_target_kind_check": {
-          "name": "object_access_rule_target_kind_check",
-          "value": "\"knowledge\".\"object_access_rule\".\"target_kind\" in ('model','software','item')"
-        },
-        "object_access_rule_grantee_kind_check": {
-          "name": "object_access_rule_grantee_kind_check",
-          "value": "\"knowledge\".\"object_access_rule\".\"grantee_kind\" = 'actor'"
-        },
-        "object_access_rule_effect_check": {
-          "name": "object_access_rule_effect_check",
-          "value": "\"knowledge\".\"object_access_rule\".\"effect\" in ('allow','deny')"
-        },
-        "object_access_rule_revoked_check": {
-          "name": "object_access_rule_revoked_check",
-          "value": "(\"knowledge\".\"object_access_rule\".\"revoked_at\" is null) = (\"knowledge\".\"object_access_rule\".\"revoked_by\" is null)"
-        }
-      },
       "isRLSEnabled": false
     },
     "survey.outcome_follow_up_decisions": {
@@ -14176,13 +14335,6 @@
           "notNull": true,
           "default": 0
         },
-        "access_mode": {
-          "name": "access_mode",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'internal'"
-        },
         "active": {
           "name": "active",
           "type": "boolean",
@@ -14373,10 +14525,6 @@
         "software_version_row_version_check": {
           "name": "software_version_row_version_check",
           "value": "\"knowledge\".\"software_version\".\"row_version\" >= 1"
-        },
-        "software_version_access_mode_check": {
-          "name": "software_version_access_mode_check",
-          "value": "\"knowledge\".\"software_version\".\"access_mode\" in ('internal','restricted')"
         },
         "software_version_release_order_check": {
           "name": "software_version_release_order_check",

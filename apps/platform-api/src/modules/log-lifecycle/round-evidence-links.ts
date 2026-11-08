@@ -5,7 +5,7 @@ import { viewerOf } from '../log-knowledge/index.js';
 // attachment is still active under that Round (the attachment end's read judge is the round's, `roundAttachmentParent`).
 // This function reads; it decides nothing about the Gate.
 
-import type { Db } from '../../db/client.js';
+import type { Tx } from '../../db/tx.js';
 import { listAttachmentsByParent } from '../attachments/index.js';
 import { selectActiveLinksForEndpoint } from '../entity-links/index.js';
 import type { CheckService } from '../permissions/check-service.js';
@@ -24,7 +24,7 @@ export interface RoundEvidenceLink {
 }
 
 export async function readRoundEvidenceLinks(
-  deps: { db: Db; checkService: CheckService },
+  deps: { db: Tx; checkService: CheckService },
   actor: PlatformActor,
   roundId: string,
 ): Promise<RoundEvidenceLink[] | null> {

@@ -1,6 +1,8 @@
 # @ap/shell
 
-App Shell(06 §8–9, 화면 설계 [07](../../../docs/wireframes/app-shell.md)). 메뉴 목록은 주입된 Registry에서, 선택지·세션은 어댑터에서 읽는다.
+- `frame/SidebarHierarchy.tsx` (#1448) mounts menu-declared `navTree` in both `AppSidebar` and `PlatformSidebar`, after that group’s fixed menu rows. Gate visibility/canOpen before mounting Source. Expanded role=group uses the local group-title paragraph; collapsed mode keeps the parent link plus a separate FolderTree popover. Shared per-menu/user/revision state survives expanded/popover reopening. Close only on successful Kernel navigation; do not move focus on deep-link load. Existing rows use @ap/ui shared grammar without changing class output.
+
+App Shell(06 §8–9, 화면 설계 [07](../../../docs/design/app-shell.md)). 메뉴 목록은 주입된 Registry에서, 선택지·세션은 어댑터에서 읽는다.
 
 ## 파일
 

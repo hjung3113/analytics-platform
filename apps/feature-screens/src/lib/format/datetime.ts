@@ -49,9 +49,9 @@ export function formatShortDate(iso: string): string {
   return formatTimestamp(iso, { month: 'long', day: 'numeric' });
 }
 
-export function formatDateTime(iso: string): string {
+export function formatDateTime(iso: string, year: 'numeric' | '2-digit' = 'numeric'): string {
   return formatTimestamp(iso, {
-    year: 'numeric',
+    year,
     month: 'numeric',
     day: 'numeric',
     hour: 'numeric',
@@ -85,4 +85,15 @@ export function formatDateOnly(dateOnly: string): string {
   if (Number.isNaN(date.getTime()) || !date.toISOString().startsWith(`${dateOnly}T`)) return '—';
 
   return formatCalendarDate(date);
+}
+
+/** Compact KST instant for dense lifecycle tables; calendar dates still use formatDateOnly. */
+export function formatCompactDateTime(iso: string): string {
+  return formatTimestamp(iso, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
 }

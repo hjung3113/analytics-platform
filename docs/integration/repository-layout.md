@@ -1,16 +1,14 @@
 # 저장소 구조와 기능 연결
 
-## 현재 단계
+## 현재 구조
 
-기능 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace다. 패키지 추출은 완료됐다([패키지 경계](platform-packages.md)). 기능(`apps/{platform-api,feature-screens}`·`packages/feature-*`)는 루트 workspace의 일부다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). 패키지 이름과 루트 작업·CI는 #1098 r에서 통합했다. 인프라 이름 전환은 #1100의 별도 범위다.
-
-기존 플랫폼 문서는 링크와 소유권을 보존하기 위해 `docs/`에 유지한다. `docs/platform/` 이동이나 공통 코드 추출은 이번 연결에 포함하지 않는다.
+플랫폼 프론트엔드, 코어 서버, 기능 화면은 같은 루트 pnpm workspace의 코드다. 패키지 추출은 완료됐다([패키지 경계](platform-packages.md)). 기능(`apps/{platform-api,feature-screens}`·`packages/feature-*`)는 루트 workspace의 일부다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). 패키지 이름과 루트 작업·CI는 #1098 r에서 통합했다. 인프라 이름 전환은 #1100의 별도 범위다.
 
 ## 폴더별 역할
 
 | 경로 | 역할 |
 | --- | --- |
-| `docs/{overview,product,architecture,contract,wireframes,design}/` | 기존 플랫폼 설계. 전역 계약은 `docs/contract/platform-ui-contract.md`가 소유 |
+| `docs/{overview,product,architecture,contract,design}/` | 기존 플랫폼 설계. 전역 계약은 `docs/contract/platform-ui-contract.md`가 소유 |
 | `docs/adr/` | 결정 기록(ADR). 목록·형식은 `docs/adr/README.md` |
 | `docs/integration/` | 저장소 연결 및 향후 통합 결정. 기존 제품 계약을 암묵적으로 덮어쓰지 않음 |
 | `DESIGN.md`, `GLOSSARY.md` | 플랫폼 디자인 방향, 도메인 용어 |
@@ -26,10 +24,10 @@
 | `tooling/` | 공유 도구: tsconfig, eslint 경계 규칙, `gen-menu`, `css-selectors` |
 | `archive/` | 통합 전 Kernel 단위 프로토타입(개별 npm 프로젝트, workspace 밖). 보존 |
 | `apps/{platform-api,feature-screens}`, `packages/feature-*` | 기능 앱·패키지·문서(루트 workspace의 일부, 이력 합류 `c73c55c5`, [ADR-0090](../adr/0090-repo-structure-by-branch.md)) |
-| `apps/feature-screens/` | 기존 React 프론트엔드. `src/features/`에 업무 화면 구성 |
-| `apps/platform-api/` | 기존 Fastify 백엔드. `src/modules/`에 업무 및 공통 기능 구현 |
+| `apps/feature-screens/` | 기능 화면 라이브러리(플랫폼이 탑재, #597). `src/features/`에 업무 화면 구성 |
+| `apps/platform-api/` | 코어 서버(Fastify). `src/modules/`에 업무 및 공통 기능 구현 |
 | `packages/feature-shared/` | 기능 화면·백엔드 공유 계약. 아직 플랫폼 공통 계약은 아님 |
-| `packages/feature-ui/` | 기능 UI 패키지(`@ap/feature-ui`). `a8d768b8` 기준으로 전체가 `packages/sdk/ui`(`@ap/ui`)에 옮겨졌고(#441–#443) 이 사본은 기능 쪽에 그대로 남는다 |
+| `packages/feature-ui/` | 기능 UI 패키지(`@ap/feature-ui`). 공용 primitive의 원본은 `@ap/ui`(`packages/sdk/ui`)다(ADR-0046) |
 | `docs/{product/features,architecture/platform-api,design/features,user-guide}` | 플랫폼 기능의 요구·구현·화면·사용 안내; 과거 기록은 [보존 색인](feature-history.md) |
 | `ops/platform-api/` | 기능 루트 도구(워크스페이스 패키지 `@ap/platform-api-ops`): 스크립트·게이트·compose·conductor, 앱·패키지 위치 지도 `paths.sh`/`paths.mjs`(713p1, [ADR-0090](../adr/0090-repo-structure-by-branch.md)) |
 
@@ -71,9 +69,9 @@ mock build의 lazy 검사와 SDK 산출물 검사를 먼저 끝낸 뒤 DB-free `
 
 ## FeedbackOps 통합 방식 (Decided, 2026-09-26)
 
-> **2026-10-21: 기능은 플랫폼에 합친다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [합류 설계](feedbackops-merge-design.md)).** 아래 1·2단계는 합류 단계 4까지의 전환 규칙으로만 유효하다. 서브모듈은 합류 단계 1a(#592)에서 일반 디렉터리가 됐다.
+> **2026-10-21: 기능은 플랫폼에 합친다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [합류 설계](history/feedbackops-merge-design.md)).** 아래 1·2단계는 합류 단계 4까지의 전환 규칙으로만 유효하다. 서브모듈은 합류 단계 1a(#592)에서 일반 디렉터리가 됐다.
 
-기능은 플랫폼의 **공통 협업 서비스**다. 모두가 쓰는 기능은 플랫폼 메뉴와 레일에, 관리자·개발자 화면은 운영 콘솔에 배치하며 독립 앱은 은퇴한다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md)). 업무 시스템과 Managed System의 관계는 [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md), 단계와 현재 상태는 [합류 설계](feedbackops-merge-design.md)를 따른다.
+기능은 플랫폼의 **공통 협업 서비스**다. 모두가 쓰는 기능은 플랫폼 메뉴와 레일에, 관리자·개발자 화면은 운영 콘솔에 배치하며 독립 앱은 은퇴한다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md)). 업무 시스템과 Managed System의 관계는 [ADR-0068](../adr/0068-permission-scope-and-business-system-link.md), 단계와 현재 상태는 [합류 설계](history/feedbackops-merge-design.md)를 따른다.
 
 **Milestone:** 정의와 구현 상태는 기능 도메인 계약이 소유하며(`docs/product/features/06-task-project-system.md` FR-TASK-004), 플랫폼 쪽에서 별도 마일스톤 기능을 만들지 않는다.
 

@@ -204,6 +204,15 @@ An existing database created before this change needs a one-time superuser
 dev image is `pgvector/pgvector:pg16` (`docker-compose.dev.yml`); the older
 `postgres:16-alpine` does not carry the extension at all.
 
+### Database prerequisite: pg_trgm (log knowledge search)
+
+The log knowledge search index (`knowledge.search_document`, design
+[`log-knowledge-search`](../../design/features/log-knowledge-search/README.md) §3.2) uses trigram indexes, so every
+database that runs migrations must have the `pg_trgm` extension. It ships with the postgres image (contrib).
+Bootstrap owns it like `vector`: `scripts/db/init.sql` installs it on a fresh volume and the search index migration only
+asserts it is present, with a directive message when it is not. An existing database needs a one-time
+`CREATE EXTENSION IF NOT EXISTS pg_trgm;` (superuser or the database owner; the extension is trusted).
+
 ## Schema Namespaces
 
 Schema namespace does not always imply module ownership. `core.entity_links` is
@@ -295,6 +304,7 @@ log_lifecycle (log lifecycle, #1444 c, design docs/design/features/log-lifecycle
 - development_project (`model_id`/`software_id` plain uuids, `kind`, `stage`, `owner_actor_id`, `target_date date`, `row_version`; partial unique index one open project per model)
 - development_event (append-only history; `seq` per project 1..n, `kind`, `before`/`after` objects, `reason`)
 - validation_round (`seq` per project, `stage`, `status`, `sample_set`, `sample_manifest_digest`, `spec_pin`, `note`, `row_version`; partial unique index one open round per project)
+- round_evidence_ref (evidence locations handed to a round, #1474: `seq` per round 1..n, `file_ref`, `line`, `file_sha256`, `note`, `status`, `origin_kind`, `origin_id`, `handed_off_by`, `at`; append-only; unique per round on `(file_ref, line, file_sha256)`)
 log_rules (validation catalog report, #1491 R-a, migration 0106, design docs/design/features/log-rules/README.md §3)
 - catalog_report (`source_system`, `reported_by_actor_id`, `validator_version`, `report_digest` unique per workspace, `outcome` accepted|rejected, `reject_reason`, `superseded_at` + `superseded_by_report_id`; partial unique index: one current accepted report per source)
 - rule_set_revision (`rule_set_key`, `revision`, `result_ref` = reported value or `revision`, `revision_digest`, `status`, `supersedes`; unique per report on `(rule_set_key, revision)` and on `(rule_set_key, result_ref)`)
@@ -307,6 +317,10 @@ log_datasets (log test datasets, #1477 D-a, design docs/design/features/log-test
 - dataset_revision (immutable; `seq` per dataset, `sample_set`, `sample_manifest_digest` unique per dataset, `input_meta`, `note`)
 - dataset_candidate (`origin` manual|round_evidence, `source_ref`, `proposal`, `status` draft|approved|rejected, `reviewer_actor_id`, `reason`, `dataset_id`, `row_version`)
 - rule_result_evidence (normalized evidence locations of a rule result, #1470; see §Rule result evidence)
+- expected_baseline (#1478 D-b; per `dataset_revision_id`, `seq`, `status` draft|approved|superseded, `profile_pin`, `expected_scope`, `expectations`, `parser_golden_ref` location+digest only, `author_actor_id`, `approved_by_actor_id`, `approved_at`, `superseded_at`, `row_version`; at most one approved per revision)
+- regression_suite (#1479 D-c; `items` jsonb 1–20, `engine_profile_ref`, `required_pin`, `row_version`), suite_run (immutable; `suite_id`, `requested_by_actor_id`, `idempotency_key` unique per suite and actor, snapshot of profile and pin), suite_run_item (immutable; pinned `dataset_revision_id`, `baseline_id`, digests, `baseline_stale`, `request_id` plain id) — no stored run state
+- suite_review_label (#1480 D-d; append-only result review labels: `suite_run_id`, `rule_id`, `dataset_revision_id`, `label` false_positive|false_negative|accepted_change|needs_review, `reason` 1–2000, `actor_id`, `at`; composite same-workspace FKs to `suite_run` and `dataset_revision`)
+- baseline_event (#1478 D-b; append-only: `baseline_id`, `kind` created|updated|approved|superseded, `before`, `after`, `reason`, `actor_id`, `self_approved`, `at`)
 ```
 
 `core.attachments` does not exist as a shared attachment table as of Slice 6;
@@ -656,7 +670,7 @@ Measure grouped query plans around 5k VOCs/5k Tasks before proposing an index; n
 protected `survey.finding_response_bindings` and `survey.highlight_response_bindings`,
 and scoped reader/mutator seams. Existing-DB owner prerequisites, constraints,
 function signatures, cache inventory, standalone legacy-upgrade procedure and #740
-coordination are in [the #739 cutover contract](survey-provenance-cutover-739.md).
+coordination are in [the #739 cutover contract](history/survey-provenance-cutover-739.md).
 The cutover shipped (#739/#740). The cutover contract holds the verification procedure and the
 standing gap: no standalone legacy-upgrade harness exists yet.
 
@@ -793,7 +807,7 @@ migrate/operator history retains Actor, subject and detail. The narrow scoped Co
 question/configuration projections replace the two existing audit readers.
 
 The coordinated rollout, new owner-role prerequisite and consumer inventory are
-recorded in `survey-link-audit-cutover-740.md`. Trusted permitted-definer
+recorded in `history/survey-link-audit-cutover-740.md`. Trusted permitted-definer
 composition is the accepted limit; stolen-app-credential unlinkability is not claimed.
 
 ### #621 platform audit projection (0074)
@@ -814,7 +828,7 @@ function body. `p_offset` is `bigint` so a far page returns no rows and the true
 `meta/0066_snapshot.json`/journal extend the existing Survey provenance and Entity
 Links mutator functions. No storage table changes, new owners, app table grants or
 reader-owner widening are introduced. Exact column privileges and their purposes
-are recorded in [the #1109 cutover section](survey-link-audit-cutover-740.md#1109-approved-attachment-extension-0066).
+are recorded in [the #1109 cutover section](history/survey-link-audit-cutover-740.md#1109-approved-attachment-extension-0066).
 The new approval-addressed response lock has PUBLIC EXECUTE revoked and app EXECUTE
 only. Ownership-transfer schema CREATE is temporary and revoked before commit.
 Deferred 0059 checks allow another response on a target only with its same-transaction
@@ -1006,6 +1020,23 @@ Migration 0108 adds `execution_request`, `execution_attempt`, `rule_result`, `ru
 
 Adds the `log_datasets` schema (`platform_app` and `platform_migrate` get USAGE) with `dataset`, `dataset_revision` and `dataset_candidate` (migration file `*_log_datasets.sql`); no FK into `knowledge` or `log_lifecycle` (module boundary), composite same-workspace FKs inside the schema (`ON DELETE RESTRICT`), actor columns FK `core.actors`. CHECKs: name 1–200, share scope, status, the tag set (`<@` the closed list), 64-hex digest, object-typed jsonb, text lengths, `row_version >= 1`, candidate `draft` ⇔ no decision columns. Unique `(workspace_id, dataset_id, sample_manifest_digest)`: the same content twice in one dataset is refused. `platform_app` gets SELECT and INSERT on the three tables, a column-limited UPDATE on `dataset` (`name, purpose, share_scope, model_ids, scenario_tags, status, row_version, updated_at, updated_by`) and on `dataset_candidate` (`status, reviewer_actor_id, reason, dataset_id, decided_at, row_version`), no DELETE anywhere and no UPDATE on `dataset_revision`. Triggers (`23514`): `dataset_guard` (identity columns fixed, `row_version + 1`, archived is final), `dataset_revision_immutable` (UPDATE and DELETE refused for every role), `candidate_guard` (input columns fixed, `draft` → decided once). The audit projection `core.platform_audit_events` is the **0109** body plus the capability `dataset.manage` in the permission-row allow-list only. The subject types `dataset`, `dataset_revision` and `dataset_candidate` are **not** projected: a private dataset's ids must not reach `console:access` Admins, so those events stay in `core.audit_log` outside the platform audit trail until a caller-aware projection exists (backlog in the design status note). Roles untouched. Contract: [api/log-datasets.md](api/log-datasets.md).
 
+## Log test dataset baselines (#1478 D-b)
+
+Migration `*_log_datasets_baseline.sql` adds `log_datasets.expected_baseline` and `log_datasets.baseline_event` (composite same-workspace FKs, `ON DELETE RESTRICT`; `expected_baseline` → `dataset_revision`, `baseline_event` → `expected_baseline`). `expected_baseline` has the partial unique index `expected_baseline_one_approved_uq` (one `approved` per revision), `UNIQUE (workspace_id, dataset_revision_id, seq)` and CHECKs for the status set, the JSON shapes (`profile_pin` object, `expected_scope`/`expectations` arrays) and the status/approval columns agreeing. The expectation vocabulary (`PASS·FAIL·WARN·NOT_APPLICABLE·EXPECTED_UNSUPPORTED`) is enforced in app code, the DB holds the shape. `platform_app`: SELECT + INSERT on both tables, column-limited UPDATE on `expected_baseline` (`status, profile_pin, expected_scope, expectations, parser_golden_ref, approved_by_actor_id, approved_at, superseded_at, row_version, updated_at`), no DELETE, no UPDATE on `baseline_event`. Guard trigger `expected_baseline_guard` (every role, migrate included): identity columns never change, `row_version` rises by exactly 1, status moves only `draft → approved → superseded`, content is immutable once not `draft` (also in the approving update), approval columns never change, `superseded` is final. Trigger `baseline_event_append_only` refuses UPDATE and DELETE for every role. The audit projection `core.platform_audit_events` is NOT replaced: the subject type `dataset_baseline` stays out of it (a private dataset's ids), and the new capability is sensitive, so its permission rows are not in the allow-list either.
+
+Migration 0113 (#1446 e) adds `log_lifecycle.gate_decision` (append-only; composite same-workspace FK to `validation_round`, `RESTRICT`; actor FK `core.actors`; CHECKs: decision and stage sets, `basis` object, `reason` 1–2000, `exception` set exactly when `decision = 'exception'`). `platform_app`: SELECT and INSERT only; `platform_migrate`: ALL, but the trigger `gate_decision_append_only` refuses UPDATE and DELETE for every role. Additive; no existing grant, trigger or function changes, and `core.platform_audit_events` is **not** redefined (the Gate audit row reuses subject type `validation_round`; the sensitive capability `lifecycle.gate.decide` stays out of the permission-row allow-list).
+## Request subject and regression suites (#1479 D-c)
+
+Migration `*_log_suite_runs.sql` (additive): `log_lifecycle.execution_request.round_id` becomes nullable and the table gains `suite_run_item_id`, `suite_run_id`, `subject_sample_set`, `subject_sample_manifest_digest`; CHECK `execution_request_subject_check` = exactly one of `round_id` / `suite_run_item_id`, and a suite subject has its run id, sample list and a 64-hex digest (`execution_request_subject_digest_check`); partial unique index on `(workspace_id, suite_run_item_id)` (one request per item) and a partial index on `(workspace_id, suite_run_id, state)` for the per-user run count. `request_guard` (replaced) also refuses a change of the four new columns; `erase_excerpts` (replaced, same signature and grants) LEFT-joins the Round and, for a suite subject, uses the finish of its suite run as the retention clock. `log_datasets` gains `regression_suite` (`platform_app`: SELECT, INSERT, UPDATE on `name, items, engine_profile_ref, required_pin, row_version, updated_at, updated_by`; guard trigger: identity columns fixed, `row_version` + 1), `suite_run` and `suite_run_item` (SELECT, INSERT only; trigger refuses UPDATE and DELETE for every role). Composite same-workspace FKs (`ON DELETE RESTRICT`). `core.platform_audit_events` is replaced with the 0110 body + `dataset.suite.run` in the permission-row allow-list only; no dataset or suite subject is projected. No DELETE grant anywhere.
+
+## Result review labels (#1480 D-d)
+
+Migration `*_log_review_labels.sql` (additive): `log_datasets.suite_review_label` (`id`, `workspace_id`, `suite_run_id`, `rule_id` 1–200, `dataset_revision_id`, `label` CHECK in the four names, `reason` CHECK 1–2000, `actor_id` → `core.actors`, `at`); composite same-workspace FKs `(workspace_id, suite_run_id)` → `suite_run` and `(workspace_id, dataset_revision_id)` → `dataset_revision` (`ON DELETE RESTRICT`); index `(workspace_id, suite_run_id, dataset_revision_id, rule_id, at)`. Grants: `platform_app` SELECT and INSERT only; `platform_migrate` ALL. Trigger `suite_review_label_append_only` refuses UPDATE and DELETE for every role (the migrate role included). Roles are untouched. The `core.platform_audit_events` projection is NOT changed: `reviewLabelAdd` needs no new capability and dataset subjects stay out of it (a private dataset's ids must not reach `console:access` Admins).
+
+
+## Round evidence locations (#1474 X-h)
+
+Adds `log_lifecycle.round_evidence_ref` (migration file `*_round_evidence_ref.sql`): the body-free evidence locations the log explorer hands to a Round. Composite same-workspace FK to `validation_round` (`ON DELETE RESTRICT`), `handed_off_by` FK `core.actors`. CHECKs: `seq` 1–1000 (the per-round cap), `file_ref` 1–1024 characters, `line >= 1` (the column is `bigint`, mapped to a JS number: the intake accepts any positive safe integer), `file_sha256` 64 lower-case hex, `note` at most 500, `status` in (`match`, `hash_mismatch`, `unresolved`), `origin_kind` = `log_explorer`. Unique `(workspace_id, round_id, seq)` and `(workspace_id, round_id, file_ref, line, file_sha256)`. `platform_app` gets SELECT and INSERT only; trigger `round_evidence_ref_append_only` (BEFORE UPDATE OR DELETE, `23514`) binds every role including `platform_migrate`. Roles are not touched, and `core.platform_audit_events` is not redefined: `validation_round` is already a listed subject type and the new event type maps through the vocabulary the application passes (`lifecycle.round.evidence_ref_attached` → `update`). Behavior: [api/log-lifecycle.md](api/log-lifecycle.md#evidence-locations-1474-x-h).
 ## Knowledge object access (#1504 S-a, migration `*_medical_diamondback.sql`)
 
 Adds `access_mode text NOT NULL DEFAULT 'internal'` (CHECK `internal|restricted`) to `knowledge.equipment_model`, `software_version` and `knowledge_item` (existing rows stay `internal`), and `knowledge.object_access_rule`: `rule_id` PK, `workspace_id` FK, `target_kind` (`model|software|item`), polymorphic `target_id` (judged by the write service, no FK across three tables), `grantee_kind` (`actor` only), `grantee_id` FK `core.actors`, `effect` (`allow|deny`), `valid_until`, `created_by/at`, `revoked_at/by` (CHECK both or neither). Indexes: partial `(workspace_id, grantee_id, target_kind, target_id) WHERE revoked_at IS NULL` for the per-request lookup, `(workspace_id, target_kind, target_id, created_at)` for the manager's list. Grants (hand-written tail of the migration): `platform_migrate` ALL; `platform_app` SELECT, INSERT and column-limited `UPDATE (revoked_at, revoked_by)` on the rule table, no DELETE; `UPDATE (access_mode)` joins the column list of `knowledge_item` (models and SW versions already hold a table-level UPDATE). Roles untouched. The audit projection `core.platform_audit_events` is unchanged: `knowledge.access.manage` is sensitive and the subject type `knowledge_access` is not projected. Contract: [api/log-knowledge.md](api/log-knowledge.md#object-access-1504-s-a-migration-0112).

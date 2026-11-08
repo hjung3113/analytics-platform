@@ -99,3 +99,9 @@ GRANT CONNECT ON DATABASE platform TO fops_migrate;
 -- separation ADR-0008/ADR-0019 depend on. Bootstrap therefore owns the
 -- extension and migration 0042 only asserts it is present.
 CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Log knowledge search (design `log-knowledge-search`, #1199 node S-0): the PG search adapter uses trigram
+-- indexes (`pg_trgm`, a contrib extension shipped in the postgres image). It is trusted, but bootstrap owns it
+-- like `vector` so the migration role never needs CREATE on extensions; the search index migration (S-c) only
+-- asserts it is present.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;

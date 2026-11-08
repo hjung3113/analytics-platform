@@ -146,3 +146,39 @@ describe.skipIf(!runIntegration)('GET /actors?workspace=current', () => {
     expect(res.json()).toMatchObject({ code: 'validation.failed' });
   });
 });
+
+// #1443: the system-actor picker must not mix human identities into service token issuance.
+describe.skipIf(!runIntegration)('GET /actors actorType filter', () => {
+  let dbHandle: DbHandle;
+  let app: FastifyInstance;
+  let cookie: string;
+  beforeAll(async () => {
+    process.env.NODE_ENV = 'test';
+    dbHandle = createDb(APP_URL);
+    await dbHandle.pool.query("delete from core.rate_limits where key like '127.0.0.%'");
+    app = await buildServer({ config: loadConfig(), dbHandle });
+    await app.ready();
+    cookie = await loginAs(app, 'mock-admin-1');
+  });
+  afterAll(async () => { await app?.close(); await dbHandle?.close(); });
+  it.each(['system', 'internal_member'])('returns only workspace actors of type %s', async actorType => {
+    const response = await app.inject({ method: 'GET', url: `/actors?workspace=current&actorType=${actorType}`, headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } });
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as { actors: { id: string; actor_type: string }[] };
+    const expected = await dbHandle.pool.query<{ id: string }>('select id from core.actors where workspace_id = $1 and actor_type = $2 order by display_name, id', [WORKSPACE_ID, actorType]);
+    expect(body.actors.map(actor => actor.id)).toEqual(expected.rows.map(actor => actor.id));
+    expect(body.actors.length).toBeGreaterThan(0);
+    expect(body.actors.every(actor => actor.actor_type === actorType)).toBe(true);
+  });
+  it('rejects an unknown actor type with validation fields', async () => {
+    const response = await app.inject({ method: 'GET', url: '/actors?workspace=current&actorType=unknown', headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } });
+    expect(response.statusCode).toBe(422);
+    expect(response.json()).toMatchObject({ code: 'validation.failed', detail: { fields: expect.any(Array) } });
+  });
+  it('preserves ordinary-session read access when filtering', async () => {
+    const userCookie = await loginAs(app, 'mock-user-1');
+    const response = await app.inject({ method: 'GET', url: '/actors?workspace=current&actorType=system', headers: { cookie: `${SESSION_COOKIE_NAME}=${userCookie}` } });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().actors.every((actor: { actor_type: string }) => actor.actor_type === 'system')).toBe(true);
+  });
+});

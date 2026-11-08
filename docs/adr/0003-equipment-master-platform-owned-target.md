@@ -6,7 +6,7 @@
 
 ## Consequences
 
-- StGroup·분임조 소속은 외부 시스템에서 공급받아 소비한다(2026-09-24 확인). 플랫폼 소유 목표가 이 소속 정보의 직접 관리까지 뜻하지는 않는다. 다른 필드별 소유권·전환 순서는 Open을 유지한다([01 마스터 데이터 수정 권한의 원천](../architecture/architecture-and-data-contract.md#마스터-데이터-수정-권한의-원천), [09 §8](../wireframes/equipment-master.md#8-design-decisions--open-questions)).
+- StGroup·분임조 소속은 외부 시스템에서 공급받아 소비한다(2026-09-24 확인). 플랫폼 소유 목표가 이 소속 정보의 직접 관리까지 뜻하지는 않는다. 다른 필드별 소유권·전환 순서는 Open을 유지한다([01 마스터 데이터 수정 권한의 원천](../architecture/architecture-and-data-contract.md#마스터-데이터-수정-권한의-원천), [09 §8](../../menus/mars/equipment/docs/equipment-master.md#8-design-decisions--open-questions)).
 
 - 필드별로 "외부 동기화 대상"과 "플랫폼 직접 관리 대상"을 구분해야 한다 — 이 구분과 전환 순서는 아직 Open이다.
 - 외부 DB가 당장 사라지는 것은 아니다 — 전환 시점까지 As-Is(외부 존재)와 To-Be(플랫폼 소유)가 공존하는 기간이 있다.

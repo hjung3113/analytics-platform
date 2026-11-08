@@ -30,8 +30,10 @@ const ALWAYS: Capability[] = [
   'improvement.manage',
   'lifecycle.project.manage',
   'lifecycle.round.manage',
+  'lifecycle.gate.decide',
   'knowledge.draft.create',
   'dataset.manage',
+  'dataset.suite.run',
   'knowledge.access.manage',
 ];
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage', 'voc.create'];
@@ -47,6 +49,8 @@ const NONE: Capability[] = [
   'validation.catalog.report',
   'explorer.export',
   'explorer.investigate',
+  'explorer.handoff',
+  'dataset.baseline.approve',
 ];
 
 describe('applyAdminModuleBypass', () => {

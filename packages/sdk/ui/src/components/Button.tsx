@@ -25,6 +25,7 @@ const buttonVariants = cva(
         outline:
           'border border-border-default bg-transparent text-text-primary hover:bg-surface-card',
         ghost: 'text-text-primary hover:bg-surface-card',
+        navigation: 'text-text-secondary hover:bg-surface-row-hover hover:text-text-primary',
         link: 'text-accent-primary underline-offset-4 hover:underline',
       },
       size: {

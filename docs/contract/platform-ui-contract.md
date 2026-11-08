@@ -6,7 +6,7 @@
 
 ## 문서 소유권과 결정 상태
 
-이 문서는 플랫폼 전역 UX / Scope / Context / URL / Menu Extension / Shell Slot / navigation IA의 단일 authoritative source다. `../product/domain-menus.md`는 도메인 capability catalog, `../architecture/frontend-ui-ux.md`는 구현 후보·리서치·화면 패턴, `../overview/roadmap-and-open-questions.md`는 결정 상태·미결 질문 및 Deferred 구현 가설, `../wireframes/app-shell.md`는 이 계약을 소비하는 셸 설계다. 외부 디자인 참고자료와 에이전트 스킬은 제품 계약의 근거가 아니다.
+이 문서는 플랫폼 전역 UX / Scope / Context / URL / Menu Extension / Shell Slot / navigation IA의 단일 authoritative source다. `../product/domain-menus.md`는 도메인 capability catalog, `../architecture/frontend-ui-ux.md`는 구현 후보·리서치·화면 패턴, `../overview/roadmap-and-open-questions.md`는 결정 상태·미결 질문 및 Deferred 구현 가설, `../design/app-shell.md`는 이 계약을 소비하는 셸 설계다. 외부 디자인 참고자료와 에이전트 스킬은 제품 계약의 근거가 아니다.
 
 - **Decided**: 플랫폼 책임 경계와 명시적인 계약 규칙. 구현 완료를 뜻하지 않는다.
 - **Candidate**: 별도로 Decided라고 명시하지 않은 배치·토큰·페이지 예시와 기술 선택. 아래에 명시한 셸 치수·테이블 밀도 결정은 제외한다. 독립 초안끼리 일치해도 승인으로 간주하지 않는다.
@@ -15,7 +15,7 @@
 
 §5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 구조·치수는 2026-10-04 [ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)로 기능 화면 AppFrame 구조(레일 52px·사이드바 240/56px·상단 바 없음·페이지 머리 50px)로 Decided됐다. 치수 값의 단일 원본은 `packages/sdk/ui/src/styles/tokens.css`의 레이아웃 토큰이다(FeedbackOps `a8d768b8`에서 이전). §15 테이블 밀도(보통 크기 기준 32px, 크기별 값은 §15 Table size)는 2026-09-21 `DESIGN.md` canonical 값으로 Decided다. §23 토큰 값의 원본은 ADR-0011로 Decided이며, 나머지 §23 정책·§25 반응형 정책은 아직 Candidate다. 구현 순서와 남은 일은 [`.planning/README.md`](../../.planning/README.md)가 관리하며 이 문서의 계약 상태와 별개다.
 
-구현 순서·배치 시점은 Deferred이며, 이 문서의 계약은 각 기능이 구현될 때 따라야 할 조건이다. 와이어프레임에 표현됐다는 이유만으로 해당 기능의 구현이 승인되지는 않는다. 구체 셸 배치·사용자 작업·상태 시나리오는 `../wireframes/app-shell.md`가 관리한다.
+구현 순서·배치 시점은 Deferred이며, 이 문서의 계약은 각 기능이 구현될 때 따라야 할 조건이다. 와이어프레임에 표현됐다는 이유만으로 해당 기능의 구현이 승인되지는 않는다. 구체 셸 배치·사용자 작업·상태 시나리오는 `../design/app-shell.md`가 관리한다.
 
 ## 절 → 문서
 

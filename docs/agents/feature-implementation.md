@@ -1,10 +1,8 @@
 # Feature Implementation Guide
 
-DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clusters use `ops/platform-api/scripts/db/cutover-0076-platform-identity.sh`; see `docs/architecture/platform-api/04-database-and-migrations.md` for the staged procedure.
-
 ## Operating Rules
 
-- The standalone runtime is retired (platform ADR-0097). Preserve the 36 `@ap/feature-screens` public entries, backend and bridge seams; the platform owns navigation/session/layout. ADR-0097 and ADR-0100 own current names, identity and navigation.
+- The standalone runtime is retired (platform ADR-0097). Preserve the retained public entries of `@ap/feature-screens`, backend and bridge seams; the platform owns navigation/session/layout. ADR-0097 and ADR-0100 own current names, identity and navigation.
 - Paths are repository-root relative. Root `AGENTS.md` owns repository conduct; this guide covers feature domains only. Workflow, tier, review and merge rules: [`PROFILE.md`](../../.agents/conductor/PROFILE.md).
 
 ## UI Authority
@@ -82,7 +80,7 @@ Shipped user-facing strings are implemented in `apps/feature-screens/src/lib/cop
 - Repositories write only tables owned by their module.
 - Source-shaped routes do not grant write ownership to the source module.
 - Frontend screens compose typed API hooks and shared components; they do not enforce backend permissions as truth.
-- Frontend feature folders follow these ownership boundaries: `home`, `my-work`, `voc`, `findings`, `voc-cluster`, `surveys`, `tasks`, `cross-system`, `integration`, `admin`.
+- Frontend feature folders follow these ownership boundaries: `home`, `my-work`, `voc`, `findings`, `voc-cluster`, `surveys`, `tasks`, `cross-system`, `integration`, `admin`, `api-tokens`, `log-lifecycle`, `log-datasets` (Kernel-hosted list, tab detail and regression comparison).
 - Findings feature code lives in `features/findings/` and is mounted at top-level `/findings`. Integration owns the Evidence, Coverage, and Links UI boundaries. Evidence, Coverage, and Links routes stay under `/integration/*` (FO ADR-0065). VOC Clusters are implemented in `features/voc-cluster/` and mounted at the top-level `/voc-clusters` route.
 - Managed System Registry, Analytics Areas, Permission Requests, and workspace settings live under Admin routes.
 - `packages/feature-shared` must not import either app. `packages/feature-ui` must not call APIs or own domain mutations.

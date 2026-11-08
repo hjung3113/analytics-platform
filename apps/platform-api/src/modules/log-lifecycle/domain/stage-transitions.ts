@@ -40,3 +40,9 @@ export function reopenTarget(from: string, stageBeforeCancel: string | null): Op
   if (from === 'cancelled' && stageBeforeCancel !== null && isOpenStage(stageBeforeCancel)) return stageBeforeCancel;
   return null;
 }
+
+/** The one stage the Gate may take a project to (#1446 e): the next step forward, `beta -> completed` included; `cancelled` is never a Gate target. */
+export function gateTargetFor(from: string): Stage | null {
+  if (from === 'beta') return 'completed';
+  return FORWARD[from as Stage] ?? null;
+}

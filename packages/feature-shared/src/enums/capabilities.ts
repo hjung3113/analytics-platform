@@ -31,12 +31,16 @@ export const CAPABILITIES = [
   'improvement.manage',
   'lifecycle.project.manage',
   'lifecycle.round.manage',
+  'lifecycle.gate.decide',
   'knowledge.draft.create',
   'explorer.source.read',
   'validation.catalog.report',
   'explorer.export',
   'explorer.investigate',
+  'explorer.handoff',
   'dataset.manage',
+  'dataset.baseline.approve',
+  'dataset.suite.run',
   'knowledge.access.manage',
 ] as const;
 
@@ -136,6 +140,10 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // Log lifecycle (#1444 c): workspace-scoped, not sensitive; development projects and validation rounds. User role refused (supported-scope policy).
   'lifecycle.project.manage': { sensitive: false, adminModuleBypass: 'always' },
   'lifecycle.round.manage': { sensitive: false, adminModuleBypass: 'always' },
+  // Log lifecycle Gate (#1446 e, ADR-0116 decision 4): the business approval of a stage. A human decision: sensitive (a request states a reason, and the
+  // permission rows stay out of the audit projection allow-list) and session-only (a token, personal or service, is refused before any write).
+  // Admin passes through the module bypass; a User role is refused by the supported-scope policy; Developer holds it only by an explicit grant.
+  'lifecycle.gate.decide': { sensitive: true, adminModuleBypass: 'always', sessionOnly: true },
   // Log knowledge drafts (#1198 a): workspace-scoped, not sensitive; a human submits a draft of a new or revised item. Admin always; Developer and User by grant (owner answer #1198 Q2).
   'knowledge.draft.create': { sensitive: false, adminModuleBypass: 'always' },
   // Log explorer source read (#1469, design log-explorer §4): reads original log text through the Source adapter. Workspace-wide grant; the Source owner (`sourceOwner`) is judged per request on top (`SourceOwnerAccess`). No Admin role bypass: the text belongs to its Source owner. A token may carry it, with the daily body budget (#1472). Sensitive: a request states a reason, and the permission rows stay out of the platform audit projection allow-list (adding it there is a migration, not part of this node).
@@ -144,11 +152,17 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'explorer.export': { sensitive: true, adminModuleBypass: 'none' },
   // Log explorer investigation (#1472 registers the token scope; the investigation actions are node b): workspace-scoped, no Admin bypass. Sensitive for the same reason as the read: it is granted with a stated reason and stays out of the audit projection allow-list (no migration).
   'explorer.investigate': { sensitive: true, adminModuleBypass: 'none' },
+  // Log explorer evidence-location handoff (#1474 X-h, design log-explorer §4.1): hands body-free pointers to a Round or a knowledge draft. Its own right so a token or person can investigate without handing off; the receiver re-judges its own capability. Workspace-scoped, sensitive, no Admin bypass (same shape as `explorer.investigate`), may be a token scope.
+  'explorer.handoff': { sensitive: true, adminModuleBypass: 'none' },
   // Validation catalog report (#1491, ADR-0122): the Validator posts its rule catalog snapshot over a service token.
   // Token-only (never a human session) and no Admin bypass: the token owner needs the grant itself.
   'validation.catalog.report': { sensitive: false, adminModuleBypass: 'none', tokenOnly: true },
   // Log test datasets (#1477 D-a): workspace-scoped, not sensitive, session-only (design §9 defers token calls); datasets, their revisions and candidates. User role refused (supported-scope policy).
   'dataset.manage': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
+  // Log test dataset baseline approval (#1478 D-b, design log-test-datasets §5): workspace-scoped, sensitive (a stated reason; permission rows stay out of the audit projection allow-list), session-only. No Admin role bypass (the approval boundary is a grant, like the sensitive log explorer rights). Self-approval is allowed and recorded. User role refused (supported-scope policy).
+  'dataset.baseline.approve': { sensitive: true, adminModuleBypass: 'none', sessionOnly: true },
+  // Log test dataset suite runs (#1479 D-c, design log-test-datasets §5): workspace-scoped, NOT sensitive (a run spends worker capacity but exposes no data the actor could not read: the same shape as `lifecycle.round.manage`), session-only (design §9 defers token calls). The Admin role holds it; a Developer by grant; a User never (the CURRENT role is checked on every run, like `dataset.baseline.approve`). A per-user cap on concurrent runs bounds the capacity it can spend.
+  'dataset.suite.run': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
   // Log knowledge object access (#1504 S-a, ADR-0124): sets `access_mode` and adds/revokes allow/deny rules of a model, SW version or Item. Workspace-scoped, session-only (ADR-0116 decision 4: a permission grant is never token-callable). Admin holds it by role but has NO read bypass: reads judge the rules like anyone's. Sensitive: a grant states a reason and its permission rows stay out of the platform audit projection allow-list (adding it there is a migration, not part of this node).
   'knowledge.access.manage': { sensitive: true, adminModuleBypass: 'always', sessionOnly: true },
 };

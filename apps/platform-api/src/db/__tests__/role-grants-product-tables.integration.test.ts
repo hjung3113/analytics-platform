@@ -182,6 +182,8 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_lifecycle.development_project': ['SELECT', 'INSERT'],
   'log_lifecycle.development_event': ['SELECT', 'INSERT'],
   'log_lifecycle.validation_round': ['SELECT', 'INSERT'],
+  // Migration 0116 (#1474): evidence locations handed to a round are append-only.
+  'log_lifecycle.round_evidence_ref': ['SELECT', 'INSERT'],
   // Log rules (#1491): the four tables are insert-only; catalog_report alone has a column-limited UPDATE (asserted below).
   'log_rules.catalog_report': ['SELECT', 'INSERT'],
   'log_rules.rule_set_revision': ['SELECT', 'INSERT'],
@@ -202,6 +204,15 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_datasets.dataset': ['SELECT', 'INSERT'],
   'log_datasets.dataset_revision': ['SELECT', 'INSERT'],
   'log_datasets.dataset_candidate': ['SELECT', 'INSERT'],
+  // Log test dataset baselines (#1478 D-b): expected_baseline is updated by column (asserted below); baseline_event is append-only; nothing is deleted.
+  'log_datasets.expected_baseline': ['SELECT', 'INSERT'],
+  'log_datasets.baseline_event': ['SELECT', 'INSERT'],
+  // Migration 0113 (#1446 e): the Gate decision is append-only (SELECT, INSERT; a trigger refuses UPDATE and DELETE for every role).
+  'log_lifecycle.gate_decision': ['SELECT', 'INSERT'],
+  'log_datasets.regression_suite': ['SELECT', 'INSERT'],
+  'log_datasets.suite_run': ['SELECT', 'INSERT'],
+  'log_datasets.suite_run_item': ['SELECT', 'INSERT'],
+  'log_datasets.suite_review_label': ['SELECT', 'INSERT'],
   // Migration 0101 (ADR-0116): tokens are issued and revoked, never edited or deleted. UPDATE is column-scoped to
   // the usage and revocation columns (asserted below); no table-wide UPDATE and no DELETE.
   'core.api_tokens': ['SELECT', 'INSERT'],
@@ -438,10 +449,12 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     ['development_project', ['software_id', 'stage', 'owner_actor_id', 'target_date', 'row_version', 'updated_at', 'updated_by']],
     ['validation_round', ['status', 'closed_at', 'closed_by', 'row_version', 'updated_at', 'updated_by']],
     ['development_event', []],
+    ['round_evidence_ref', []],
     ['execution_request', ['state', 'attempt_count', 'claimed_by_actor_id', 'lease_expires_at', 'last_heartbeat_at', 'cancel_reason', 'row_version', 'updated_at', 'ended_at']],
     ['execution_attempt', ['outcome', 'ended_at', 'executor_version', 'executor_digest', 'rule_set_revision', 'input_manifest_digest', 'result_digest', 'verdict', 'worker_summary']],
     ['rule_result', []],
     ['rule_result_excerpt', []],
+    ['gate_decision', []],
     ['queue_settings', ['run_window', 'lease_seconds', 'immediate_limit', 'excerpt_retention_days', 'updated_at', 'updated_by']],
     ['excerpt_reader', ['granted_by', 'granted_at', 'revoked_at']],
   ] as const)('platform_app UPDATE on log_lifecycle.%s is limited to the mutable columns', async (table, columns) => {
@@ -481,6 +494,12 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     ['dataset', ['name', 'purpose', 'share_scope', 'model_ids', 'scenario_tags', 'status', 'row_version', 'updated_at', 'updated_by']],
     ['dataset_candidate', ['status', 'reviewer_actor_id', 'reason', 'dataset_id', 'decided_at', 'row_version']],
     ['dataset_revision', []],
+    ['expected_baseline', ['status', 'profile_pin', 'expected_scope', 'expectations', 'parser_golden_ref', 'approved_by_actor_id', 'approved_at', 'superseded_at', 'row_version', 'updated_at']],
+    ['baseline_event', []],
+    ['regression_suite', ['name', 'items', 'engine_profile_ref', 'required_pin', 'row_version', 'updated_at', 'updated_by']],
+    ['suite_run', []],
+    ['suite_run_item', []],
+    ['suite_review_label', []],
   ] as const)('platform_app UPDATE on log_datasets.%s is limited to the mutable columns', async (table, columns) => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name

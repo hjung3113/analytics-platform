@@ -1,3 +1,4 @@
+import { apiHref } from '@/lib/api/client';
 // DescriptionSection — BODY label + tinted body card per
 // `.review/title-reference.png`. Replaces the previous PanelSectionTitle('설명')
 // + NestedTextBlock pair.
@@ -42,6 +43,8 @@ export function DescriptionSection({
             mode="internal"
             attachments={voc.attachments}
             attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
+            surface="voc-description"
+            resolveAttachmentUrl={id => apiHref(`/attachments/${id}/download`)}
           />
         )}
       </div>

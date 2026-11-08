@@ -596,6 +596,221 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logDataset.baselineDetail",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "baselineId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.baselines",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "datasetRevisionId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.comparison",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "suiteRunId",
+      "ordinal",
+      "q",
+      "page",
+      "pageSize",
+      "sorting",
+      "filters"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.datasetDetail",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "datasetId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.datasets",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "q",
+      "page",
+      "pageSize",
+      "sorting",
+      "filters"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.rerunDiff",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "fromRunId",
+      "toRunId",
+      "page",
+      "pageSize",
+      "kinds"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.suiteDetail",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "suiteId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.suiteRuns",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "suiteId",
+      "page",
+      "pageSize"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logDataset.suites",
+    "menuId": "log-datasets",
+    "paramKeys": [
+      "q",
+      "page",
+      "pageSize",
+      "sorting",
+      "filters",
+      "datasetId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.investigationDetail",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "investigationId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.investigations",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "status",
+      "page",
+      "pageSize"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.parsed",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "sourceOwner",
+      "fileRef",
+      "line"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.periods",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "sampleSet",
+      "query",
+      "cursor",
+      "limit"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.records",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "sampleSet",
+      "query",
+      "cursor",
+      "limit"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logExplorer.window",
+    "menuId": "log-explorer",
+    "paramKeys": [
+      "sourceOwner",
+      "fileRef",
+      "line",
+      "before",
+      "after"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logKnowledge.conceptMappings",
     "menuId": "log-knowledge-models",
     "paramKeys": [
@@ -793,6 +1008,19 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logKnowledge.specCoverage",
+    "menuId": "log-knowledge-models",
+    "paramKeys": [
+      "modelId",
+      "softwareId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logKnowledge.specDraft",
     "menuId": "log-knowledge-models",
     "paramKeys": [
@@ -836,6 +1064,174 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logLifecycle.excerpt",
+    "menuId": "log-validation-requests",
+    "paramKeys": [
+      "ruleResultId",
+      "evidenceIndex"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.hierarchy",
+    "menuId": "log-models",
+    "paramKeys": [
+      "op",
+      "parentId",
+      "nodeId",
+      "query",
+      "cursor",
+      "limit"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.models",
+    "menuId": "log-models",
+    "paramKeys": [
+      "q",
+      "page",
+      "pageSize",
+      "sorting",
+      "filters",
+      "includeClosedProjects"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.projectDetail",
+    "menuId": "log-models",
+    "paramKeys": [
+      "projectId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.projectEvents",
+    "menuId": "log-models",
+    "paramKeys": [
+      "projectId",
+      "page",
+      "pageSize"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.queueStatus",
+    "menuId": "log-validation-requests",
+    "paramKeys": [],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.requestDetail",
+    "menuId": "log-validation-requests",
+    "paramKeys": [
+      "requestId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.requests",
+    "menuId": "log-validation-requests",
+    "paramKeys": [
+      "page",
+      "pageSize",
+      "states",
+      "priority",
+      "immediate",
+      "roundId",
+      "modelId",
+      "from",
+      "to"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.roundDetail",
+    "menuId": "log-models",
+    "paramKeys": [
+      "roundId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.roundEvidence",
+    "menuId": "log-models",
+    "paramKeys": [
+      "roundId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.rounds",
+    "menuId": "log-models",
+    "paramKeys": [
+      "projectId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.ruleResults",
+    "menuId": "log-validation-requests",
+    "paramKeys": [
+      "attemptId",
+      "page",
+      "pageSize",
+      "results",
+      "required",
+      "sorting"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logRules.catalogStatus",
     "menuId": "log-rules",
     "paramKeys": [],
@@ -865,6 +1261,20 @@
     "menuId": "log-rules",
     "paramKeys": [
       "modelIds"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logRules.modelOptions",
+    "menuId": "log-rules",
+    "paramKeys": [
+      "q",
+      "page",
+      "pageSize"
     ],
     "permission": "platform:view",
     "requiresScope": false,
@@ -923,6 +1333,18 @@
       "sorting",
       "filters",
       "targetQ"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logRules.softwareOptions",
+    "menuId": "log-rules",
+    "paramKeys": [
+      "modelId"
     ],
     "permission": "platform:view",
     "requiresScope": false,

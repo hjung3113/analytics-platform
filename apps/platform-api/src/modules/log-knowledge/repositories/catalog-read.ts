@@ -63,7 +63,7 @@ export const escapeLike = (text: string): string => text.replace(/[\\%_]/g, (c) 
 
 const iso = (value: Date | string): string => (value instanceof Date ? value : new Date(value)).toISOString();
 
-function textFilter(
+export function textFilter(
   codeKeyColumn: AnyPgColumn,
   nameColumn: AnyPgColumn,
   q: string | null,

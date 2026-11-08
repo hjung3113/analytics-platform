@@ -1,3 +1,4 @@
+import { apiHref } from '@/lib/api/client';
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { CLUSTER_SUGGESTION_COPY as COPY } from '@/lib/copy/voc-cluster';
 import { HostLink } from '@/lib/host/host-seam';
@@ -70,6 +71,8 @@ export function ClusterSuggestionPanel({
                     doc={voc.description_rich_content as TipTapDoc}
                     mode="internal"
                     attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
+                    surface="voc-description"
+                    resolveAttachmentUrl={id => apiHref(`/attachments/${id}/download`)}
                   />
                 ) : (
                   <p className="text-sm text-text-muted">{COPY.noDescription}</p>

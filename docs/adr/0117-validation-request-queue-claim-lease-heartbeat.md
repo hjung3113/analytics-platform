@@ -31,6 +31,15 @@
 9. **권한**(Gate 결정 세션 전용: 소유자 2026-11-07). 작업자 호출은 토큰 scope `validation.worker`만 받는다. 사람 세션에는 이 capability를 주지 않는다. 요청 등록·취소는 `lifecycle.round.manage`(사람 세션 또는 토큰). Gate 결정은 세션 전용이다([ADR-0116](0116-platform-api-tokens-personal-and-service.md) 결정 4).
 10. **잠정 `v0`.** 요청·응답 스키마는 `@ap/contract-schemas`에 `v0`로 낸다. 참조 작업자(통합 테스트·dev 시드용 스크립트)는 «합성 fixture»이고 실제 사내 Validator 연동 증거가 아니다.
 
+## 개정 1 (2026-11-08, [#1479](https://github.com/hjung3113/analytics-platform/issues/1479), 결정자: 소유자 2026-11-07 «요청 주체 확장 B»)
+
+회귀 실행([log-test-datasets §4](../design/features/log-test-datasets/README.md), [ADR-0120](0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md))은 Round가 없다. 아래만 바뀌고 결정 1–10의 나머지(상태 전이, lease, 멱등 결과, 권한)는 그대로다.
+
+1. **요청 주체(subject)는 `round_id` XOR `suite_run_item_id`.** DB CHECK `execution_request_subject_check`가 정확히 하나를 강제한다. 기존 행은 `round_id`를 그대로 가진다(가산 변경). 회귀 항목 요청은 `suite_run_id`와 등록 시점에 고정한 샘플 목록(`subject_sample_set`·`subject_sample_manifest_digest`)을 같은 행에 가진다. 이유: claim 응답이 요청 행만으로 만들어져 log-lifecycle이 log-datasets를 import하지 않는다(의존 방향 유지). `suite_run_item_id`는 평범한 uuid이고 교차 스키마 FK는 없다. 이 열들은 생성 뒤 가드 트리거가 바꾸지 못하게 한다.
+2. **작업자 REST는 그대로(4개 경로).** `claim` 응답의 `request`는 `roundId`와 `suiteRunItemId` 중 하나만 채우고 다른 쪽은 `null`이며, `sampleSet`·`sampleManifestDigest`는 그 주체의 것이다(`specPin`은 회귀 항목에서 `null`). `execution_attempt`·`rule_result`는 변경 없다. 결과의 근거 위치 `fileRef`는 그 주체의 샘플 목록에 있어야 하고, 서버 verdict 규칙(입력 manifest digest 불일치 = `incomplete`)도 같다.
+3. **발췌 보관 시계(결정 7 확장, 소유자 확인 필요).** 회귀 항목에는 Round 닫힘 사건이 없다. 시계는 **그 suite 실행이 끝난 시각**이다: 실행의 모든 요청이 `queued`·`claimed`를 벗어나고 가장 늦은 `ended_at`이 보관 일수(워크스페이스 설정, 기본 90일)보다 오래됐을 때 본문을 지운다. 아직 열린 형제 요청이 있으면 지우지 않는다. 같은 정의기(`erase_excerpts`)가 두 주체를 처리한다. 대안은 «항목 요청 자신의 종료 시각»(구현이 더 단순, 형제 대기가 길면 더 일찍 지워짐)이다.
+4. **Round 요청 화면·취소는 Round 요청만 본다.** `logLifecycle.requests`·`requestDetail`·`requestCancel`은 Round 조인을 하므로 회귀 항목 요청을 목록·열기·취소하지 않는다(suite 실행의 취소와 운영 목록은 backlog). 회귀 항목 요청은 우선순위 0(가장 낮음), 즉시 아님으로 등록한다.
+
 ## 대안과 버리는 이유
 
 - **플랫폼이 Validator를 호출(push):** 사내 API·CLI·인증이 아직 없어 어댑터를 가짜로 만들게 된다(#1330 §9 금지). pull은 인터페이스가 없어도 계약이 선다.
@@ -38,7 +47,7 @@
 - **작업자 스케줄에만 맡김(유휴 판단):** 서버가 부하를 통제하지 못한다.
 - **결과에 원본 전체 저장:** 용량·민감도·소유자 권한 재검증이 모두 플랫폼으로 넘어온다. 그래서 원본은 위치·해시만 두고, 소유자가 허용한 짧은 발췌만 상한·ACL·보관 기한 아래 둔다(결정 7).
 - **발췌 금지(위치·해시만, 추천이었음):** 가장 안전하지만 소유자가 실패 지점 확인에 발췌가 필요하다고 판단했다(2026-11-07).
-- **요청을 Round와 분리(#1420 본문 3번):** 같은 릴리스에 Round가 들어가면 샘플 위치·해시의 모양이 둘이 된다. `round_id`를 필수로 한다(소유자 2026-11-07).
+- **요청을 Round와 분리(#1420 본문 3번):** 같은 릴리스에 Round가 들어가면 샘플 위치·해시의 모양이 둘이 된다. `round_id`를 필수로 한다(소유자 2026-11-07). 개정 1이 회귀 실행을 위해 이를 «Round XOR suite 실행 항목»으로 바꾼다.
 
 ## 결과
 

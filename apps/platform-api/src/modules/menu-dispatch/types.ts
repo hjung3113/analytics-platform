@@ -118,8 +118,11 @@ export interface MenuActionDeclaration {
   spec: ActionDeclarationSpec;
   /** Current object visibility before returning a matched saved answer; false answers not_found without replaying or rewriting. */
   canReplay?(tx: Tx, actor: PlatformActor, input: Record<string, unknown>, saved: ActionAnswer): Promise<boolean>;
-  /** Judged before replay, and again on the transaction after the idempotency lock. */
-  authorize(actor: PlatformActor, tx: Tx): Promise<boolean>;
+  /**
+   * Judged before replay, and again on the transaction after the idempotency lock. `input` is the raw request input (not yet
+   * validated: read it defensively) for a right that depends on it, e.g. the receiver of a handoff, so a cached replay is judged too.
+   */
+  authorize(actor: PlatformActor, tx: Tx, input?: Record<string, unknown>): Promise<boolean>;
   /** Value check of `input` (keys are already judged); an empty list means valid. */
   validate(input: Record<string, unknown>): readonly FieldError[];
   /** Required for `concurrency: 'version'`. `null` = the target does not exist (`not_found`). Lock the target here. */

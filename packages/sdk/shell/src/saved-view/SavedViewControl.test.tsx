@@ -301,7 +301,7 @@ describe('an unapplied draft is not dropped silently (C4)', () => {
     await user.click(selector());
     await user.click(await screen.findByRole('button', row('둘째 뷰')));
     await user.click(await screen.findByRole('button', { name: '저장하고 이동' }));
-    const ask = await screen.findByRole('dialog', { name: '적용하지 않은 변경이 있습니다' });
+    const ask = await screen.findByRole('alertdialog', { name: '적용하지 않은 변경이 있습니다' });
     expect(ask).toHaveTextContent('적용하지 않은 변경');
     expect(ask).toHaveTextContent('사라집니다');
     await user.click(within(ask).getByRole('button', { name: '취소' }));
@@ -322,7 +322,7 @@ describe('an unapplied draft is not dropped silently (C4)', () => {
     await user.click(selector());
     await user.click(await screen.findByRole('button', row('둘째 뷰')));
     await user.click(await screen.findByRole('button', { name: '저장하고 이동' }));
-    await user.click(within(await screen.findByRole('dialog', { name: '적용하지 않은 변경이 있습니다' })).getByRole('button', { name: '적용된 조건만 저장하고 이동' }));
+    await user.click(within(await screen.findByRole('alertdialog', { name: '적용하지 않은 변경이 있습니다' })).getByRole('button', { name: '적용된 조건만 저장하고 이동' }));
     await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 둘째 뷰'));
     expect(store.calls).toContain('update');
   });

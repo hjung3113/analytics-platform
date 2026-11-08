@@ -4,8 +4,9 @@ import { emptyGlobal, type NavView } from '@ap/contracts';
 import { badgeCountText } from '@ap/components';
 import { type MenuEntry, PlatformLink, useI18n, useRecentVisits } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { navRowVariants, NavCurrentMarker, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from '../context/ScopeSelector';
+import { SidebarHierarchy } from './SidebarHierarchy';
 import { useSystemSections } from './systemSections';
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
@@ -19,6 +20,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
     ? (currentSection === null ? [] : [currentSection])
     : (sidebarSpace === null ? [] : registry.groups.filter(g => g.space === sidebarSpace.id))
       .map(group => ({ group, items: visibleMenus.filter(m => !m.navHidden && m.group === group.id) })).filter(g => g.items.length);
+  const hasHierarchy = !collapsed && grouped.some(({ items }) => items.some(menu => menu.navTree && canOpen(menu.id)));
   const sectionName = currentSection === null ? null : tx(currentSection.group.label);
   const favoriteMenus = favorites.map(id => visibleMenus.find(m => m.id === id)).filter((m): m is MenuEntry => !!m);
   // A favorite is a menu id, not an address: it opens the menu's default view and never borrows the current carry-set page state (the global Context still follows).
@@ -45,7 +47,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
         </TooltipTrigger><TooltipContent side="right">{collapsed ? t('expand') : t('collapse')} ([)</TooltipContent></Tooltip>
       </div>
       <SidebarScope collapsed={collapsed} />
-      <div className="shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
+      <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
         <CountsHost>{counts => <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
           {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
             {!collapsed && systems === null && !(group.hideLabelWhenSingle && items.length === 1) && <p className={cn('mx-2 mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
@@ -58,6 +60,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
                 {views !== null && <ul className="mt-0.5 space-y-0.5">{views.map(view => <li key={view.id}><NavViewItem menu={menu} view={view} active={view === currentView} count={counts?.[`${menu.id}/${view.id}`]} /></li>)}</ul>}
               </li>;
             })}</ul>
+            {items.filter(menu => menu.navTree && canOpen(menu.id)).map(menu => <SidebarHierarchy key={menu.id} menu={menu} collapsed={collapsed} />)}
           </div>)}
         </nav>}</CountsHost>
         {!collapsed && sectionSlot !== null && <section aria-label={tx(sectionSlot.label)}>
@@ -140,7 +143,7 @@ function FeatureBlock({ collapsed }: { collapsed: boolean }) {
       const label = tx(entry.label);
       const inShellName = `${label} — ${spaceName}, ${featureName}`;
       const inShell = <PlatformLink via="sidebar" href={resolveLink(entry.menuId, { global: emptyGlobal, page: entry.page, returnTo: true }).href} aria-label={inShellName}
-        className={cn('flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0')}>
+        className={navRowVariants({ feature: true, collapsed })}>
         <Icon className="size-4 shrink-0" aria-hidden />
         {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
       </PlatformLink>;
@@ -159,8 +162,8 @@ export function NavItem({ menu, active, collapsed, href, labelPrefix, label: lab
   const name = labelPrefix ? `${labelPrefix}: ${label}` : label;
   const hasCount = navCount !== undefined && navCount >= 0;
   const link = <PlatformLink via="sidebar" href={href ?? linkTo(menu.id)} aria-label={count > 0 ? t('unreadNamed', { label: name, count }) : hasCount ? t('countNamed', { label: name, count: navCount }) : name} aria-current={active ? 'page' : undefined}
-    className={cn('relative flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0', active && 'bg-surface-row-selected font-semibold text-text-primary')}>
-    {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
+    className={navRowVariants({ collapsed, active })}>
+    {active && <NavCurrentMarker />}
     <Icon className="size-4 shrink-0" aria-hidden />
     {collapsed && count > 0 && <span aria-hidden className="absolute right-2 top-1.5 size-1.5 rounded-pill bg-accent-danger" />}
     {!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span>{!menu.component && !menu.moduleScreen && <span className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{t('planned')}</span>}{count > 0 && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{badgeCountText(count)}</span>}{count === 0 && hasCount && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{badgeCountText(navCount)}</span>}</>}
@@ -175,8 +178,8 @@ function NavViewItem({ menu, view, active, count }: { menu: MenuEntry; view: Nav
   const label = tx(view.label);
   const hasCount = count !== undefined && count >= 0;
   return <PlatformLink via="sidebar" href={linkTo(menu.id, { page: view.page })} aria-label={hasCount ? t('countNamed', { label, count }) : label} aria-current={active ? 'page' : undefined}
-    className={cn('relative flex min-h-8 items-center gap-2 rounded-md py-1.5 pl-9 pr-3 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', active && 'bg-surface-row-selected font-semibold text-text-primary')}>
-    {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
+    className={navRowVariants({ inset: true, active })}>
+    {active && <NavCurrentMarker />}
     <span className="min-w-0 flex-1 truncate">{label}</span>
     {hasCount && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-caption font-semibold text-text-secondary">{badgeCountText(count)}</span>}
   </PlatformLink>;

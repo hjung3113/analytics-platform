@@ -9,10 +9,21 @@ export type {
   EffectiveRequirement,
   EffectiveRequirements,
   KnowledgeLookup,
+  KnowledgeModelOption,
   KnowledgeModelRef,
+  KnowledgeSoftwareOption,
   KnowledgeSoftwareRef,
   SpecPin,
 } from './knowledge-lookup.js';
+export { draftEvidenceIntake } from './draft-evidence-intake.js';
+export type {
+  DraftEvidenceAppendInput,
+  DraftEvidenceCreateInput,
+  DraftEvidenceIntake,
+  DraftEvidenceIntakeDeps,
+  DraftEvidenceResult,
+} from './draft-evidence-intake.js';
+export type { DraftEvidenceRefInput } from './domain/evidence-intake.js';
 
 export { viewerOf, ref, visibleModelSql, visibleSoftwareSql } from './repositories/access-visibility.js';
 export type { Viewer } from './repositories/access-visibility.js';

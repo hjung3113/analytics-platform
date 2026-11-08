@@ -11,7 +11,7 @@ const fail = (message: string): Fail => ({ ok: false, message });
 
 export const REQUEST_PARAM_KEYS = ['page', 'pageSize', 'states', 'priority', 'immediate', 'roundId', 'modelId', 'from', 'to'] as const;
 export const REQUEST_DETAIL_PARAM_KEYS = ['requestId'] as const;
-export const RULE_RESULT_PARAM_KEYS = ['attemptId', 'page', 'pageSize', 'results', 'required'] as const;
+export const RULE_RESULT_PARAM_KEYS = ['attemptId', 'page', 'pageSize', 'results', 'required', 'sorting'] as const;
 export const EXCERPT_PARAM_KEYS = ['ruleResultId', 'evidenceIndex'] as const;
 
 function pageOf(params: Record<string, unknown>, fallbackSize: number): { ok: true; page: number; pageSize: number } | Fail {
@@ -87,6 +87,7 @@ export interface RuleResultListQuery {
   pageSize: number;
   results: string[] | undefined;
   required: boolean | undefined;
+  sorting: { id: string; desc: boolean }[];
 }
 export function parseRuleResultParams(params: Record<string, unknown>): { ok: true; value: RuleResultListQuery } | Fail {
   const id = uuidOf(params, 'attemptId');
@@ -96,7 +97,9 @@ export function parseRuleResultParams(params: Record<string, unknown>): { ok: tr
   const results = enumList(params.results, 'results', RULE_RESULTS);
   if (!results.ok) return results;
   if (params.required !== undefined && typeof params.required !== 'boolean') return fail('required must be a boolean');
-  return { ok: true, value: { attemptId: id.value, page: pg.page, pageSize: pg.pageSize, results: results.value, required: params.required as boolean | undefined } };
+  const sorting = params.sorting ?? [{ id: 'ruleId', desc: false }];
+  if (!Array.isArray(sorting) || sorting.length > 3 || !sorting.every((s) => s && typeof s === 'object' && Object.keys(s).every((k) => k === 'id' || k === 'desc') && ['ruleId', 'result', 'required'].includes(s.id) && typeof s.desc === 'boolean')) return fail('sorting must use ruleId, result or required');
+  return { ok: true, value: { attemptId: id.value, page: pg.page, pageSize: pg.pageSize, results: results.value, required: params.required as boolean | undefined, sorting } };
 }
 
 export function parseExcerptParams(params: Record<string, unknown>): { ok: true; value: { ruleResultId: string; evidenceIndex: number } } | Fail {

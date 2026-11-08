@@ -10,7 +10,7 @@ export function isOrdinarilyRequestable(capability: Capability): boolean {
 }
 
 /** ADR-0107 decision 3: Admin and Developer receive these; a User does not (request, approval, direct grant). */
-const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
+export const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'knowledge.catalog.manage',
   'knowledge.catalog.import',
   'knowledge.item.publish',
@@ -19,9 +19,18 @@ const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'lifecycle.project.manage',
   'lifecycle.round.manage',
   'explorer.investigate',
+  'explorer.handoff',
   'dataset.manage',
+  'dataset.baseline.approve',
+  'lifecycle.gate.decide',
+  'dataset.suite.run',
   'knowledge.access.manage',
 ]);
+
+/** True when the User role may never exercise this capability, whatever grant rows exist (#1531). */
+export function isNotForUserRole(capability: Capability): boolean {
+  return NOT_FOR_USER_ROLE.has(capability);
+}
 
 export async function supportedScopeCandidates(
   tx: Tx,
@@ -38,12 +47,16 @@ export async function supportedScopeCandidates(
     capability === 'improvement.manage' ||
     capability === 'lifecycle.project.manage' ||
     capability === 'lifecycle.round.manage' ||
+    capability === 'lifecycle.gate.decide' ||
     capability === 'knowledge.draft.create' ||
     capability === 'explorer.source.read' ||
     capability === 'validation.catalog.report' ||
     capability === 'explorer.export' ||
     capability === 'explorer.investigate' ||
+    capability === 'explorer.handoff' ||
     capability === 'dataset.manage' ||
+    capability === 'dataset.baseline.approve' ||
+    capability === 'dataset.suite.run' ||
     capability === 'knowledge.access.manage'
   ) {
     return [{ managed_system_id: null }];

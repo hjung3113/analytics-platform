@@ -6,7 +6,8 @@ import { viewerOf } from '../log-knowledge/index.js';
 // (`rounds` and `projectEvents` of an unknown project: an empty page). The reads write nothing.
 
 import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
-import { holdsPlatformPermission } from '../platform-port/permissions.js';
+import { gateAvailability } from './gate-availability.js';
+import { holdsPlatformPermission, type PlatformActor } from '../platform-port/permissions.js';
 import type { LogLifecycleDeps } from './deps.js';
 import { listAttachmentsByParent } from '../attachments/index.js';
 import {
@@ -24,10 +25,14 @@ import {
   parseRoundsParams,
 } from './domain/lifecycle-params.js';
 import { LOG_MODELS_MENU_ID } from './menu.js';
+import { HIERARCHY_PARAM_KEYS, parseHierarchyParams } from './domain/hierarchy-params.js';
+import { hierarchyReader } from './hierarchy-read.js';
+import { gateHistoryOfRound, projectGateState } from './repositories/gate.js';
+import { gateTargetFor } from './domain/stage-transitions.js';
 import { getProjectDetail, getRoundDetail, listModels, listProjectEvents, listRounds, roundInWorkspace } from './repositories/lifecycle-read.js';
 
 type Judge = (params: Record<string, unknown>) => ParamsJudgment;
-type Actor = { actor_id: string; workspace_id: string };
+type Actor = PlatformActor;
 
 function declareRead(
   deps: LogLifecycleDeps,
@@ -59,7 +64,12 @@ function declareRead(
 const judgeOf = (parse: (p: Record<string, unknown>) => ParamsJudgment): Judge => (p) => parse(p);
 
 export function lifecycleEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclaration[] {
+  const readHierarchy = hierarchyReader(deps);
   return [
+    declareRead(deps, 'hierarchy', HIERARCHY_PARAM_KEYS, parseHierarchyParams, async (actor, params) => {
+      const parsed = parseHierarchyParams(params);
+      return parsed.ok ? readHierarchy(actor, parsed.value) : { outcome: 'error', data: null, message: parsed.message };
+    }),
     declareRead(deps, 'models', MODEL_PARAM_KEYS, judgeOf(parseModelParams), async (actor, params) => {
       const parsed = parseModelParams(params);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
@@ -68,7 +78,11 @@ export function lifecycleEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclarat
     declareRead(deps, 'projectDetail', PROJECT_PARAM_KEYS, judgeOf(parseProjectParams), async (actor, params) => {
       const parsed = parseProjectParams(params);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
-      return { outcome: 'ok', data: await getProjectDetail(deps.db, actor.workspace_id, parsed.value, viewerOf(actor)) };
+      const detail = await getProjectDetail(deps.db, actor.workspace_id, parsed.value, viewerOf(actor));
+      if (!detail) return { outcome: 'ok', data: null };
+      // Current Gate state (#1446 e): the stage the Gate would take the project to, and the newest decision (basis summary only).
+      const gate = await projectGateState(deps.db, actor.workspace_id, detail.id, viewerOf(actor));
+      return { outcome: 'ok', data: { ...detail, gateTarget: gateTargetFor(detail.stage), gate } };
     }),
     declareRead(deps, 'projectEvents', EVENT_PARAM_KEYS, judgeOf(parseEventParams), async (actor, params) => {
       const parsed = parseEventParams(params);
@@ -83,7 +97,10 @@ export function lifecycleEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclarat
     declareRead(deps, 'roundDetail', ROUND_PARAM_KEYS, judgeOf(parseRoundParams), async (actor, params) => {
       const parsed = parseRoundParams(params);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
-      return { outcome: 'ok', data: await getRoundDetail(deps.db, actor.workspace_id, parsed.value, viewerOf(actor)) };
+      const detail = await getRoundDetail(deps.db, actor.workspace_id, parsed.value, viewerOf(actor));
+      if (!detail) return { outcome: 'ok', data: null };
+      // The Gate decision history of the Round, oldest first. Readers of the Round read every decider's reason text.
+      return { outcome: 'ok', data: { ...detail, gateDecisions: await gateHistoryOfRound(deps.db, actor.workspace_id, detail.id, viewerOf(actor)), gateAvailability: await gateAvailability(deps, actor, detail) } };
     }),
     // Manual validation attachment of a round (#1451): the attachments linked to it. Same read right and visibility as the round
     // itself; an unknown or other-workspace round answers `ok` with `data: null`. The bytes go through

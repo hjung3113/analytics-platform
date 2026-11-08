@@ -1,6 +1,7 @@
 import { withLifecycleReplayAccess } from './replay-access.js';
 import type { MenuDispatchContribution } from '../menu-dispatch/types.js';
 import type { LogLifecycleDeps } from './deps.js';
+import { gateActions } from './gate-actions.js';
 import { lifecycleEndpoints } from './lifecycle-endpoints.js';
 import { projectActions } from './project-actions.js';
 import { requestActions } from './request-actions.js';
@@ -10,7 +11,7 @@ import { roundActions } from './round-actions.js';
 export function logLifecycleContribution(deps: LogLifecycleDeps): MenuDispatchContribution {
   return {
     endpoints: [...lifecycleEndpoints(deps), ...requestEndpoints(deps)],
-    actions: [...projectActions(deps), ...roundActions(deps), ...requestActions(deps)].map(withLifecycleReplayAccess),
+    actions: [...projectActions(deps), ...roundActions(deps), ...requestActions(deps), ...gateActions(deps)].map(withLifecycleReplayAccess),
   };
 }
 
@@ -24,11 +25,24 @@ export { createQueueService } from './queue-service.js';
 export type { QueueService } from './queue-service.js';
 export { LIFECYCLE_PROJECT_MENU_PERMISSION, LIFECYCLE_PROJECT_PERMISSION } from './project-actions.js';
 export { LIFECYCLE_ROUND_MENU_PERMISSION, LIFECYCLE_ROUND_PERMISSION } from './round-actions.js';
+export { LIFECYCLE_GATE_MENU_PERMISSION, LIFECYCLE_GATE_PERMISSION } from './gate-actions.js';
 export { readRoundEvidenceLinks, type RoundEvidenceLink } from './round-evidence-links.js';
 export { EXCERPT_PURGE_CRON, EXCERPT_PURGE_QUEUE, purgeExpiredExcerpts, registerExcerptPurge } from './excerpt-purge-job.js';
+export { roundEvidenceRefIntake } from './round-evidence-ref-intake.js';
+export type {
+  RoundEvidenceRefAttachInput,
+  RoundEvidenceRefAttachResult,
+  RoundEvidenceRefIntake,
+  RoundEvidenceRefIntakeDeps,
+} from './round-evidence-ref-intake.js';
+export type { RoundEvidenceRefInput } from './domain/evidence-ref-intake.js';
 export { lifecycleRoundRead } from './round-read-port.js';
 export type { LifecycleRoundRead } from './round-read-port.js';
 export { lifecycleEvidenceRead } from './evidence-link-read-port.js';
 export type { EvidenceLinkResult, EvidenceLinkRound, EvidenceLinks, LifecycleEvidenceRead } from './evidence-link-read-port.js';
 export { EVIDENCE_LINK_PAGE_SIZE_MAX, EVIDENCE_LINK_PARAM_KEYS, parseEvidenceLinkParams } from './domain/evidence-link-params.js';
 export type { EvidenceLinkQuery } from './domain/evidence-link-params.js';
+export { SUITE_REQUEST_PRIORITY, lifecycleSuiteRequests, suiteRequestDigest } from './suite-request-port.js';
+export type { SuiteRequestPort, SuiteRequestRegistration, SuiteRequestState } from './suite-request-port.js';
+export { lifecycleSuiteResults } from './suite-result-read-port.js';
+export type { SuiteObservedResult, SuiteObservedRule, SuiteResultReadPort } from './suite-result-read-port.js';

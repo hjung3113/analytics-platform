@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-19, 결정자: 코디네이터 — 사용자는 "#442 진행"만 승인, 설계는 위임. 되돌릴 수 있음)** — 구현은 [#442](https://github.com/hjung3113/analytics-platform/issues/442).
 상태 보충: 개정 — [ADR-0088](0088-surface-pause-detail-slot.md)이 「종료」 의미를 「표시권 일시 정지」로 나눈다.
 
-[ADR-0046](0046-design-system-source-moves-to-platform-whole-package.md)에 따라 FeedbackOps `layout/`을 `@ap/ui`로 옮기면 상세 슬롯이 두 벌이 된다([포괄 목록](../integration/sdk-coverage-inventory.md) §3.6, [탑재 설계](../integration/platform-hosting-design.md) G10).
+[ADR-0046](0046-design-system-source-moves-to-platform-whole-package.md)에 따라 FeedbackOps `layout/`을 `@ap/ui`로 옮기면 상세 슬롯이 두 벌이 된다([포괄 목록](../integration/history/sdk-coverage-inventory.md) §3.6, [탑재 설계](../integration/platform-hosting-design.md) G10).
 
 | | 플랫폼 `DetailPanelSlot`([ADR-0013](0013-detail-panel-shell-docked-slot.md)) | FeedbackOps `layout/useDetailPanelSlot` |
 | --- | --- | --- |

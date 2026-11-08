@@ -48,6 +48,7 @@ const INVALIDATES = [
   'logKnowledge.modelSpecRevisions',
   'logKnowledge.specDraft',
   'logKnowledge.specChanges',
+  'logKnowledge.specCoverage',
 ] as const;
 
 const INPUT_KEYS = {

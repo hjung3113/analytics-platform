@@ -4,7 +4,7 @@
 // `@/lib/api` barrel, no reporter card and no similar/semantic panels. The host seam carries the toasts.
 
 import { mapUnknownError } from '@/lib/api/errorMapper';
-import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
+import { apiHref } from '@/lib/api/client';
 import { VOC_CREATE_COPY } from '@/lib/copy/voc';
 import { createVocRequestSchema, isTipTapDocBlank } from '@ap/feature-shared';
 import { AnalyticsAreaPicker, ManagedSystemPicker } from '@ap/feature-ui';
@@ -62,6 +62,8 @@ export function VocComposeScreen({
     attachmentsUploading,
     hasAttachmentErrors,
     attachmentLimitExceeded,
+    attachmentQueue,
+    uploadEditorAttachment,
     setAttachmentIds,
     setAttachmentsUploading,
     setAttachmentErrorCount,
@@ -123,13 +125,15 @@ export function VocComposeScreen({
             render={({ field }) => (
               <RichEditor
                 surface="voc-description"
+                toolbarStickyOffset="calc(var(--spacing) * -4)"
                 ariaLabel={VOC_CREATE_COPY.descriptionField}
                 value={field.value as TipTapDoc}
                 onChange={(doc) => field.onChange(doc)}
                 placeholder="VOC 내용을 자세히 적어주세요"
                 minHeight={160}
                 toolbar={vocDescriptionToolbar({ onAttachError: handleAttachmentError })}
-                onAttach={uploadRichEditorAttachment}
+                onAttach={uploadEditorAttachment}
+                resolveAttachmentUrl={id => apiHref(`/attachments/${id}/download`)}
               />
             )}
           />
@@ -256,6 +260,7 @@ export function VocComposeScreen({
         </div>
 
         <AttachmentDropzone
+          queue={attachmentQueue}
           testId="attachment-dropzone"
           onChange={setAttachmentIds}
           onUploadingChange={setAttachmentsUploading}

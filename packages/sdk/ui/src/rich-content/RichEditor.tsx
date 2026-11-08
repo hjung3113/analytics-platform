@@ -1,14 +1,6 @@
-import type { JSONContent } from '@tiptap/core';
-import Link from '@tiptap/extension-link';
-import Placeholder from '@tiptap/extension-placeholder';
-import Underline from '@tiptap/extension-underline';
-import { type Editor, EditorContent, useEditor } from '@tiptap/react';
-import StarterKit, { type StarterKitOptions } from '@tiptap/starter-kit';
+import type { Editor, JSONContent } from '@tiptap/core';
 import * as React from 'react';
 import { cn } from '../utils/cn';
-import { type UIRichContentExtensionCapability, getExtensionsForSurface } from './allowlist-local';
-import { AttachmentRef } from './extensions/attachmentRef';
-import { Mention } from './extensions/mention';
 
 // TipTapDoc is a branded alias over JSONContent for type safety at feature boundaries.
 // The `content` array is typed as JSONContent[] to satisfy @tiptap/core's strict overloads.
@@ -40,12 +32,9 @@ export interface RichEditorAttachmentResult {
  * free of TipTap node-schema knowledge.
  */
 export interface RichEditorToolbarApi {
-  /**
-   * Uploads `file` via the injected `onAttach` and, on resolve, inserts an
-   * `attachmentRef` node at the current cursor position carrying
-   * `{ id, name, size_bytes, mime_type }`. On failure, re-throws so the
-   * caller can surface a toast (PLAN-22 C8 acceptance).
-   */
+  /** Render capability-driven SDK controls through an existing toolbar adapter. */
+  renderControls?: (options?: { hideAttach?: boolean; onAttachError?: (error: unknown) => void }) => React.ReactNode;
+  /** Upload and insert: opted-in image files use `{id}`; other toolbar uploads retain attachmentRef metadata. Errors propagate. */
   attach: (file: File) => Promise<RichEditorAttachmentResult>;
 }
 
@@ -65,6 +54,8 @@ export interface RichEditorProps {
   disabled?: boolean;
   minHeight?: string | number;
   className?: string;
+  /** Sticky toolbar offset within the host scroll container; defaults to CSS --rich-editor-toolbar-offset or 0. */
+  toolbarStickyOffset?: string | number;
   /**
    * Toolbar render-prop. Receives the live editor + a toolbar API helper
    * (PLAN-22 C8). If `onAttach` is not provided, `toolbarApi.attach` rejects
@@ -74,203 +65,21 @@ export interface RichEditorProps {
   toolbar?: (editor: Editor | null, toolbarApi: RichEditorToolbarApi) => React.ReactNode;
   /**
    * Uploads a single picked file to the attachments service and returns the
-   * created-attachment envelope (PLAN-22 C8). The editor will insert an
-   * `attachmentRef` node carrying `{ attachment_id, name, size_bytes,
-   * mime_type }` on success. Errors propagate to the caller.
+   * created-attachment envelope. On image-capable surfaces paste/drop inserts
+   * images with `{id}`; other files remain in the consumer attachment list.
+   * Toolbar uploads retain attachmentRef behavior for non-image files.
    */
   onAttach?: (file: File) => Promise<RichEditorAttachmentResult>;
+  /** Resolve an uploaded attachment at view time. URLs are never stored in image JSON. */
+  resolveAttachmentUrl?: (id: string) => string | null;
 }
 
-export function RichEditor({
-  surface,
-  value,
-  defaultValue,
-  onChange,
-  placeholder,
-  ariaLabel,
-  disabled,
-  minHeight,
-  className,
-  toolbar,
-  onAttach,
-}: RichEditorProps) {
-  const extensions = React.useMemo(
-    () => buildExtensionsForSurface(surface, placeholder ?? ''),
-    [surface, placeholder],
-  );
-
-  // `role` is written explicitly: every setOptions call replaces the whole
-  // `attributes` object, which drops the role TipTap only adds at view creation.
-  const editorProps = React.useMemo(
-    () => ({
-      attributes: {
-        role: 'textbox',
-        'aria-multiline': 'true',
-        ...(ariaLabel ? { 'aria-label': ariaLabel } : {}),
-      },
-    }),
-    [ariaLabel],
-  );
-
-  const editor = useEditor({
-    extensions,
-    editorProps,
-    // value can be null (explicit clear); fall through to defaultValue / empty doc.
-    content: (value ??
-      defaultValue ?? { type: 'doc', content: [{ type: 'paragraph' }] }) as TipTapDoc,
-    editable: !disabled,
-    onUpdate({ editor }) {
-      const doc = editor.getJSON() as TipTapDoc;
-      onChange?.(doc);
-    },
-    immediatelyRender: false,
-  });
-
-  // Re-sync value when controlled.
-  // REV-3 Cluster Z: an explicit `null`/`undefined` from a controlled parent
-  // must visually clear the editor. The prior implementation bailed on any
-  // falsy value (`!value`), so submit-success and VOC-switch flows that
-  // flipped the parent draft to null left stale content in the editor body.
-  //
-  // Controlled vs uncontrolled is detected via a ref on the initial render:
-  // if the consumer ever passed a non-undefined `value`, the component is
-  // controlled for the remainder of its life and subsequent null/undefined
-  // values mean "clear me". A component that never receives a `value` prop
-  // is uncontrolled (e.g. `<RichEditor surface="..." defaultValue={...} />`)
-  // and the effect is a no-op for it.
-  const wasControlledRef = React.useRef<boolean>(value !== undefined);
-  React.useEffect(() => {
-    if (!editor) return;
-    if (value !== undefined) {
-      wasControlledRef.current = true;
-    }
-    if (!wasControlledRef.current) return;
-    const targetDoc: TipTapDoc =
-      value ?? ({ type: 'doc', content: [{ type: 'paragraph' }] } as TipTapDoc);
-    const current = editor.getJSON();
-    if (JSON.stringify(current) !== JSON.stringify(targetDoc)) {
-      editor.commands.setContent(targetDoc);
-    }
-  }, [editor, value]);
-
-  // Re-apply editable when disabled changes
-  React.useEffect(() => {
-    if (!editor) return;
-    editor.setEditable(!disabled);
-  }, [editor, disabled]);
-
-  // Stable toolbar API. `attach` uploads via the injected `onAttach`, and on
-  // resolve inserts an `attachmentRef` node at the current selection carrying
-  // the four spec attrs. On failure we re-throw so the caller can toast — the
-  // editor stays in its prior state (no partial node inserted).
-  const onAttachRef = React.useRef(onAttach);
-  React.useEffect(() => {
-    onAttachRef.current = onAttach;
-  }, [onAttach]);
-
-  const toolbarApi = React.useMemo<RichEditorToolbarApi>(
-    () => ({
-      attach: async (file: File) => {
-        const uploader = onAttachRef.current;
-        if (!uploader) {
-          throw new Error('RichEditor: onAttach is not configured for this surface');
-        }
-        const result = await uploader(file);
-        if (editor) {
-          editor
-            .chain()
-            .focus()
-            .insertContent({
-              type: 'attachmentRef',
-              attrs: {
-                id: result.attachment_id,
-                name: result.name,
-                size_bytes: result.size_bytes,
-                mime_type: result.mime_type,
-              },
-            })
-            .run();
-        }
-        return result;
-      },
-    }),
-    [editor],
-  );
-
-  return (
-    <div
-      className={cn(
-        // `rich-editor` is the marker the empty-text rule in styles/compat.css selects (#1167); kept verbatim from FeedbackOps.
-        'rich-editor border border-border-control rounded-md bg-surface-canvas',
-        className,
-      )}
-      data-surface={surface}
-    >
-      {toolbar?.(editor, toolbarApi)}
-      {/*
-        `minHeight` sizes this wrapper, but the editable element TipTap renders
-        inside it (`.ProseMirror`) is only as tall as its content. Everything
-        below the first line was therefore dead space: clicking it hit the
-        wrapper, not the editor, so an 84px composer only took focus on its top
-        line. Laying the wrapper out as a column, letting `.ProseMirror` grow
-        into it, and moving the padding onto `.ProseMirror` itself makes the
-        whole box the click target. Geometry is unchanged: the padding renders
-        at the same offsets, it just belongs to the editable element now, so
-        the inset that used to swallow clicks no longer does.
-      */}
-      <EditorContent
-        editor={editor}
-        className={cn(
-          'flex max-w-none flex-col focus:outline-hidden [&_.ProseMirror]:flex-1 [&_.ProseMirror]:px-3 [&_.ProseMirror]:py-2',
-          minHeight ? 'min-h-(--rich-editor-min-height)' : undefined,
-        )}
-        style={
-          minHeight
-            ? ({
-                '--rich-editor-min-height':
-                  typeof minHeight === 'number' ? `${minHeight}px` : minHeight,
-              } as React.CSSProperties)
-            : undefined
-        }
-      />
-    </div>
-  );
-}
-
-function buildExtensionsForSurface(surface: RichEditorSurface, placeholder: string) {
-  const capabilitySet = new Set<UIRichContentExtensionCapability>(getExtensionsForSurface(surface));
-  const has = (capability: UIRichContentExtensionCapability): boolean =>
-    capabilitySet.has(capability);
-
-  // ADR-0011: image extension is NOT registered. Users cannot author images client-side; backend is authoritative.
-  // Disable built-ins not in the surface capability map, plus built-ins configured separately below. A capability that
-  // IS present is left at StarterKit's default (enabled) by OMITTING the key — never set to `undefined`, which
-  // `exactOptionalPropertyTypes` rejects for an optional prop.
-  const starterKitOptions: Partial<StarterKitOptions> = {
-    blockquote: false,
-    codeBlock: false,
-    hardBreak: false,
-    heading: false,
-    horizontalRule: false,
-    link: false,
-    strike: false,
-    underline: false,
-  };
-  if (!has('bold')) starterKitOptions.bold = false;
-  if (!has('italic')) starterKitOptions.italic = false;
-  if (!has('code')) starterKitOptions.code = false;
-  if (!has('list')) {
-    starterKitOptions.bulletList = false;
-    starterKitOptions.orderedList = false;
-    starterKitOptions.listItem = false;
-  }
-
-  return [
-    StarterKit.configure(starterKitOptions),
-    ...(has('link') ? [Link.configure({ openOnClick: false })] : []),
-    ...(has('underline') ? [Underline] : []),
-    Placeholder.configure({ placeholder }),
-    ...(has('attachmentRef') ? [AttachmentRef] : []),
-    ...(has('mention') ? [Mention] : []),
-  ];
+// The root entry stays cheap; Tiptap editing plugins load only when an editor mounts.
+const LazyEditor = React.lazy(() => import('./RichEditorImpl'));
+export function RichEditor(props: RichEditorProps) {
+  return <div className={cn('rich-editor relative border border-border-control rounded-md bg-surface-canvas', props.className)} data-surface={props.surface}>
+    <React.Suspense fallback={<div role="status" className="px-3 py-2 text-sm text-text-muted">{props.placeholder ?? '내용 준비 중'}</div>}>
+      <LazyEditor {...props} />
+    </React.Suspense>
+  </div>;
 }

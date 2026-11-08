@@ -4,7 +4,7 @@
 - Amended (2026-10-22, #623): 결정 9의 "provider `canRead`"를 "소유 모듈의 상세 읽기 판정(`resolveVocReference`·`getFinding`·`getTask`)"으로, 결정 6의 `entityAudit` 게이트도 같은 판정으로 바꿨다. `entityAudit`의 type은 voc·finding·task 셋으로 좁혔다.
 - Amended (2026-10-22, #651): 결정 3(O13)·결정 4(CSRF)의 FeedbackOps 경로 부분을 [ADR-0071](0071-feedbackops-screen-bridge-and-api-fo-edge-prefix.md) 결정 3·4가 바꿨다(경로는 옮기지 않고 플랫폼 앞단이 `/api/fo`를 뗀다).
 - Amended (2026-10-29, #1091): 전역 `auditTrail`의 `type` **필터** 문법은 [ADR-0101](0101-opaque-audit-target-filter.md)이 소유한다(형식 맞는 미지 유형은 `empty`). 결정 6·7의 SQL 투영(공개 18종·민감 제외)은 그대로이며 유일한 공개 경계다.
-- Scope: [#593](https://github.com/hjung3113/analytics-platform/issues/593)과 단위 이슈 [#620](https://github.com/hjung3113/analytics-platform/issues/620)–[#623](https://github.com/hjung3113/analytics-platform/issues/623). [합류 설계](../integration/feedbackops-merge-design.md) §4·§7의 O9·O10·O11·O13·O14·O16·O19·O20을 닫는다.
+- Scope: [#593](https://github.com/hjung3113/analytics-platform/issues/593)과 단위 이슈 [#620](https://github.com/hjung3113/analytics-platform/issues/620)–[#623](https://github.com/hjung3113/analytics-platform/issues/623). [합류 설계](../integration/history/feedbackops-merge-design.md) §4·§7의 O9·O10·O11·O13·O14·O16·O19·O20을 닫는다.
 - 바탕: [ADR-0066](0066-feedbackops-merges-into-platform.md) 결정 6(실서버는 FeedbackOps 백엔드에서 출발), [ADR-0068](0068-permission-scope-and-business-system-link.md)(부여 체계 하나, `console:access`는 승인 권한이 아님), [HTTP 어댑터 계약](../integration/http-adapter-contract.md)(Candidate).
 
 ## 맥락
@@ -76,7 +76,7 @@
 
 ## 결과
 
-- [합류 설계](../integration/feedbackops-merge-design.md) §7의 O9·O10·O11·O13·O14·O16·O19·O20을 이 ADR로 닫고, O12는 일부 닫는다.
+- [합류 설계](../integration/history/feedbackops-merge-design.md) §7의 O9·O10·O11·O13·O14·O16·O19·O20을 이 ADR로 닫고, O12는 일부 닫는다.
 - 단위 이슈: #620 전송 기반·세션, #621 감사 읽기, #622 활용률·클라이언트 오류·주석, #623 accessDirectory·getEntity.
 - 플랫폼 실어댑터 조립(#154)은 #620의 계약을 소비한다. 이 일은 플랫폼 세션의 영역(`apps/platform-web`)이다.
 

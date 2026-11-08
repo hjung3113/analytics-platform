@@ -122,7 +122,7 @@ grilling 방법론(design tree / frontier / round 단위 질문·추천답변)�
   1. `outcome`(배타): `ok | empty | error | forbidden | too_large | timeout`. `empty` = 성공 0건. 본 조회 실패는 `empty`가 아니라 `error`.
   2. `assessments[]`(이름 Candidate): 그 조회 계약이 선언한 **적용 kind**를 빠짐없이 1회씩, 각 항목은 `state = confirmed | clear | unknown`.
 - `Loading`/`Refreshing same context`는 이 페이로드에 없다(클라이언트 생명주기). `Partial widget failure`는 위젯 결과가 섞일 때 페이지가 도출한다.
-- **근거:** 단일 배타 enum으로는 `docs/wireframes/app-shell.md`가 요구하는 "0건 + 원인 Unknown 공존" 시나리오를 표현할 수 없다.
+- **근거:** 단일 배타 enum으로는 `docs/design/app-shell.md`가 요구하는 "0건 + 원인 Unknown 공존" 시나리오를 표현할 수 없다.
 
 ### 5.2 적용 목록과 3상태
 

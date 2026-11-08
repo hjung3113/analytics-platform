@@ -53,7 +53,7 @@ Filters follow the table filter model (one condition per field, AND across field
 
 ## Coverage (R-d, #1494)
 
-Computed on read from the effective requirement keys of `log-knowledge` (`knowledgeLookup.listEffectiveRequirements`, R-c; keys `moduleKey` / `moduleKey/eventKey` as stored) and the Rules of the **current active** catalog (R-b «current»: accepted, not superseded reports; the active head Revision of each RuleSet; retired Revisions and older Revisions never count). Nothing is stored; no migration; no outbound call.
+Computed on read from the effective requirement keys of `log-knowledge` (`knowledgeLookup.listEffectiveRequirements`, R-c; keys `moduleKey` / `moduleKey/eventKey` as stored, in the normalized code-key spelling such as `ALPHA/START`; matching is exact, so a report must declare that spelling) and the Rules of the **current active** catalog (R-b «current»: accepted, not superseded reports; the active head Revision of each RuleSet; retired Revisions and older Revisions never count). Nothing is stored; no migration; no outbound call.
 
 **Matching.** A requirement id a target declares equals a key only when the strings are identical (no case folding, trimming, prefix or module-vs-event match, no ID mapping). Ids with no matching key are not counted. A Rule naming an id on several targets counts once for it.
 
@@ -86,9 +86,11 @@ Both are `platform:view`, `requiresScope: false`, workspace = the session Actor'
 
 **`RuleCoveragePort`** (`coverage-port.ts`, barrel `createRuleCoveragePort({ knowledgeLookup })`): `getCoverage(tx, workspaceId, modelId, softwareId | null, viewerActorId)` → `{ computable:false, reason, specPin, ambiguousKeys? }` or `{ computable:true, requirements[{ key, state }], coverageDigest, specPin, ruleSetRevisions[] }`; `resolveRuleSetRevision(tx, workspaceId, ruleSetKey, revision)` → `{ ruleSetKey, revision, resultRef, status, isCurrent, revisionDigest }` for a Revision of the current catalog whose `revision` or `resultRef` equals the string exactly, or `null` (unknown key, no match, or more than one match: never guessed). The caller verified the workspace and decides the permission; no consumer is wired in R-d (R-f).
 
-Screen limitation (R-e, #1495): the selector accepts deep-linked `modelId`/`softwareId` UUIDs; `coverageSummary` is a summary of supplied ids, never a model-discovery list. A model-name/software-name picker remains unimplemented until a sanctioned model-list surface is available.
+Picker options (R-f, #1496): `logRules.modelOptions` (params `q` ≤ 200, `page`, `pageSize` 1–200 default 20; data `{ rows: [{ id, code, name, vendorName, active }], total, page, pageSize }`, ordered by code then id, `q` = code-key prefix or name contains) and `logRules.softwareOptions` (param `modelId`; data `{ rows: [{ id, versionLabel, name, active }] }` in release order, empty for an unknown model). Both on menu `log-rules`, `platform:view`, via `KnowledgeLookup.listModels|listSoftware`; they return ids and display text only. There is no model-level ACL in log-knowledge, so every model of the workspace is listed to every `platform:view` holder, exactly as `coverage` shows it. `coverageSummary` is still a summary of supplied ids, never a model-discovery list.
 
-Not implemented: a workspace-wide model page for `coverageSummary` (it would need a model-list method on the `knowledgeLookup` port; reopen with the model-list screen integration, R-f), custom sort/filter of `coverage` rows.
+`RuleCoveragePort` additions (R-f): `findRuleSetRevision(tx, ws, ref)` → `{ state: 'matched', ...ResolvedRuleSetRevision } | { state: 'ambiguous', count } | { state: 'unknown' } | { state: 'no_catalog' }` (exact `revision`/`resultRef` match over every RuleSet of the current catalog; a Revision counts once; `no_catalog` = no accepted, not superseded report with a RuleSet), and `checkRuleKeys(tx, ws, ref, ruleIds)` → `{ state: 'checked', missing } | { state: 'unresolved', reason: 'ambiguous' | 'unknown' | 'no_catalog' }` (rule identity = RuleSet + `rule_key`, exact string, in the resolved Revision). `resolveRuleSetRevision` keeps returning `null` for unknown, no match and ambiguous alike: its callers hold the key and need only «one Revision or none»; a caller that must tell them apart uses `findRuleSetRevision`.
+
+Not implemented: a workspace-wide model page for `coverageSummary` (the model list method now exists as `modelOptions`; reopen when a screen needs a summary over a listed page), custom sort/filter of `coverage` rows.
 
 ## Audit
 

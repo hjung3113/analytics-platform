@@ -4,7 +4,7 @@ import type { Viewer } from '../log-knowledge/index.js';
 
 import type { Tx } from '../../db/tx.js';
 import type { SampleSet } from './domain/sample-set.js';
-import { getRoundDetail } from './repositories/lifecycle-read.js';
+import { getRoundSampleSet } from './repositories/lifecycle-read.js';
 
 export interface LifecycleRoundRead {
   /** The round's sample set (files in the user's order), or null for an unknown or other-workspace round. */
@@ -13,7 +13,6 @@ export interface LifecycleRoundRead {
 
 export const lifecycleRoundRead: LifecycleRoundRead = {
   async getRoundSampleSet(tx, workspaceId, roundId, viewer) {
-    const round = await getRoundDetail(tx, workspaceId, roundId, viewer);
-    return round ? round.sampleSet : null;
+    return getRoundSampleSet(tx, workspaceId, roundId, viewer);
   },
 };

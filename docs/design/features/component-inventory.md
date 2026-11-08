@@ -4,7 +4,7 @@
 
 This inventory defines the reusable components that should exist before domain screens are built. The shipped feature-owned `@ap/feature-ui` export inventory is `packages/feature-ui/src/index.ts` (shared parts such as `EmptyState` and the shells come from `@ap/ui`); this document describes reusable component contracts and required states.
 
-Component ownership paths live in `docs/architecture/platform-api/tech-stack/component-stack.md`.
+Component ownership paths live in `apps/feature-screens/docs/component-stack.md`.
 Screen mapping lives in `docs/design/features/ui-design-system.md`.
 
 ## Token Governance
@@ -265,7 +265,7 @@ only in the permission-blocked states that already offered the detour.
 
 | Component/seam | Location | Contract |
 | --- | --- | --- |
-| `useRecoveryQueue` | `apps/feature-screens/src/features/integration/recovery/useRecoveryQueue.tsx` | ObjectRow/ListToolbar/ListLoadMore composition; bounded operational/actionable reads, hidden/history tabs and URL selection. |
+| `useRecoveryQueueCore` | `apps/feature-screens/src/features/integration/recovery/useRecoveryQueueCore.tsx` | ObjectRow/ListToolbar/ListLoadMore composition; bounded operational/actionable reads, hidden/history tabs and URL selection. |
 | `RecoveryPanel` | `apps/feature-screens/src/features/integration/recovery/RecoveryPanel.tsx` | Existing PageShell detail slot; backend safe summaries/actions, personal presentation, independent loading/error/resolved states and keyboard close/focus. |
 | `RecoveryFreshness` | `apps/feature-screens/src/features/integration/recovery/RecoveryFreshness.tsx` | One line for server computation time, last successful refresh and stale marker; queue/detail suppress matching page timestamps unless stale. `formatRecoveryTime` also formats resolution and snooze timestamps. Shared by Home, Integration and Coverage. |
 | Integration public seam | `apps/feature-screens/src/features/integration/public.ts` | Home consumes recovery composition/freshness only through this module; Home/Integration routes inject `RenderRecoveryAccess` so Integration internals remain Admin-free. |

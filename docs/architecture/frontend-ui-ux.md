@@ -14,7 +14,7 @@
 
 | 계층 | 채택(2026-09-25 결정) | 근거 | 현재 코드(2026-10-05) |
 | --- | --- | --- | --- |
-| Frontend 기반 | React + TypeScript + Vite | 기능 `apps/frontend`와 동일 | 사용 중(Vite 7) |
+| Frontend 기반 | React + TypeScript + Vite | 기능 `apps/feature-screens`와 동일 | 사용 중(Vite 7) |
 | 스타일링 | **Tailwind CSS v4** | Tailwind CSS v4(CSS-first `@theme`). 기능 화면도 v4다(옛 저장소 이슈 #743, ADR-0058). 플랫폼은 `@ap/ui/styles.css`에서 `@ap/feature-ui/styles/*`를 import한다([ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)) | 사용 중(Tailwind 4.3, `@theme`) |
 | UI 컴포넌트 | **shadcn/ui + Radix**(`@ap/ui` 소유) + 플랫폼 공용 부품(`@ap/components`) | 디자인 시스템 primitive는 `@ap/ui`가 소유한다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), ADR-0050). 플랫폼 자체: `StatusBadge`·`DetailPanelSlot` | 사용 중 — `@ap/ui`와 `@ap/components`가 플랫폼 UI를 제공한다 |
 | 라우팅 | TanStack Router | 기능과 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 | **미도입** — Kernel 자체 History + URL codec이 06 §6.4를 소유(Unit A부터 알려진 divergence). 도입·미채택 확정은 Open(05) |
@@ -104,7 +104,7 @@ Perspective(조사 시점 최신 5.x — v5.5.1, 2026-09-18)는 C++ 엔진을 WA
 
 플랫폼 전역 계약은 `../contract/platform-ui-contract.md`가 소유한다: §6은 occurrence 식별자와 목적지 객체 ID 분리, URL 상태, Scope/서버 권한 검증, 시간 의미와 Open 결정; §9는 navigation IA; §11은 Context 변경과 이전 데이터 차단 규칙이다. 이 문서에서 별도 규칙을 재정의하지 않는다.
 
-TanStack Router는 계약의 구현 후보다. URL 직렬화·집합/단일값 키의 중복 규칙은 [06 전역 계약](../contract/platform-ui-contract.md) §6.1, 세션 우선순위·버전 `v` 수명주기·잘못된 값·뒤로가기/미지원 Context 복원 메커니즘은 §6.4에서 Decided다. 공개 필드명·enum 문자열 및 공유 산출물 형식(OpenAPI/JSON Schema/codegen)은 Candidate이며, 구현·라이브러리 채택·완성된 URL API를 이 결정만으로 주장하지 않는다. 구체 셸 배치는 [07 App Shell](../wireframes/app-shell.md)을 참조한다.
+TanStack Router는 계약의 구현 후보다. URL 직렬화·집합/단일값 키의 중복 규칙은 [06 전역 계약](../contract/platform-ui-contract.md) §6.1, 세션 우선순위·버전 `v` 수명주기·잘못된 값·뒤로가기/미지원 Context 복원 메커니즘은 §6.4에서 Decided다. 공개 필드명·enum 문자열 및 공유 산출물 형식(OpenAPI/JSON Schema/codegen)은 Candidate이며, 구현·라이브러리 채택·완성된 URL API를 이 결정만으로 주장하지 않는다. 구체 셸 배치는 [07 App Shell](../design/app-shell.md)을 참조한다.
 
 ## 페이지별 UI 패턴
 

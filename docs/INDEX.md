@@ -19,7 +19,7 @@
 | 신규 합류자 | [00 개요](overview/overview.md) → [17 플랫폼 요구사항](product/platform-requirements.md) → [06 플랫폼 계약](contract/platform-ui-contract.md) | 자기 역할 행 |
 | 기획(PM) — 도메인 | [02 도메인 catalog](product/domain-menus.md) | [GLOSSARY](../GLOSSARY.md), [05](overview/roadmap-and-open-questions.md), [기존 업무 시스템 배경](product/existing-systems.md) |
 | 백엔드·인프라 | [01 아키텍처·데이터 계약](architecture/architecture-and-data-contract.md) | [03 백엔드](architecture/backend-stack.md), [실서버 연결 체크리스트](integration/real-server-checklist.md) |
-| 플랫폼·프론트엔드 | [06 플랫폼 계약](contract/platform-ui-contract.md) | [04 프론트 기술 스택](architecture/frontend-ui-ux.md), [07 셸](wireframes/app-shell.md) |
+| 플랫폼·프론트엔드 | [06 플랫폼 계약](contract/platform-ui-contract.md) | [04 프론트 기술 스택](architecture/frontend-ui-ux.md), [07 셸](design/app-shell.md) |
 | 사내 적용(백엔드·인프라·사내 메뉴 개발자) | [사내 적용 가이드](integration/in-house-rollout.md) | [실서버 연결 체크리스트](integration/real-server-checklist.md), [전송 형식](integration/http-adapter-contract.md) |
 | 시간·기간·지연 완료 계약 변경 | [06 시간 계약](contract/kernel.md#ctx-time) | [01 R/H 정책 원본](architecture/architecture-and-data-contract.md#late-arrival-policy) |
 
@@ -35,19 +35,21 @@
 | Kernel 동작(Registry·전역 Context·URL·Scope·조회 수명주기) | 06 §4–6 | [packages](../packages/AGENTS.md) → [kernel](../packages/sdk/kernel/AGENTS.md) → 타입이 바뀌면 [contracts](../packages/sdk/contracts/AGENTS.md) | `packages/sdk/kernel/src/registry/registry.ts`·`platform/platform.tsx`·`query/query.ts` → 테스트 → 앱 `url-contract.test.ts` |
 | 서버 계약·어댑터(실서버 전환 포함) | [사내 적용 가이드](integration/in-house-rollout.md)(순서) → [실서버 연결 체크리스트](integration/real-server-checklist.md)(규칙) → [전송 형식](integration/http-adapter-contract.md)(HTTP 경계), [ADR-0019](adr/0019-menu-query-endpoint-declaration.md), [ADR-0096](adr/0096-contract-schemas-zod-source-and-reference-implementations.md)(원본·참조 구현 범위), [ADR-0095](adr/0095-dual-backend-fastify-core-fastapi-analytics.md)(서버 분담), 06 §18–19 | [contract-schemas](../packages/sdk/contract-schemas/AGENTS.md)(스키마·산출물 형식) → [contracts](../packages/sdk/contracts/AGENTS.md)(공유 타입) → [mock-server](../packages/adapters/mock-server/AGENTS.md) → [server-conformance](../packages/adapters/server-conformance/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/sdk/contracts/src/adapter/adapter.ts`·`menu-query.ts` → `packages/adapters/mock-server/src/adapter.ts` |
 | 공통 컴포넌트·차트·상태 화면 | 06 §13·§15·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/sdk/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/sdk/ui/AGENTS.md) | `packages/sdk/components/src/` → 소비 화면(`menus/*/*/src/pages`) |
-| 셸(레일·사이드바·페이지 머리·Context 바·상세 슬롯·라우트 상태·공간) | [07 셸](wireframes/app-shell.md), 06 §7–9 | [shell](../packages/sdk/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/sdk/kernel/AGENTS.md) | `packages/sdk/shell/src/` → 앱 `src/main.tsx`(조립) |
+| 셸(레일·사이드바·페이지 머리·Context 바·상세 슬롯·라우트 상태·공간) | [07 셸](design/app-shell.md), 06 §7–9 | [shell](../packages/sdk/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/sdk/kernel/AGENTS.md) | `packages/sdk/shell/src/` → 앱 `src/main.tsx`(조립) |
 | 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md), [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(원본 소유는 플랫폼, 토큰·유틸·primitive 코드는 #441에서 이전, [ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md)), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FO ADR-0058](adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md), [06 §23](contract/components.md#23-design-tokens) | [ui](../packages/sdk/ui/AGENTS.md) | `packages/sdk/ui/src/styles/` |
+| 로그 탐색·저장 조사 (#1473) | [설계](design/features/log-explorer/README.md), [조회·쓰기 API](architecture/platform-api/api/log-explorer.md), [미구현 연결](../.planning/backlog.md) | [메뉴 Consumer](../menus/AGENTS.md) | `menus/log-dev/log-analysis/src/` |
+| 로그 라이프사이클(개발 건·Round·검증 요청 큐·Gate·API 토큰, v0.30.0) | [설계](design/features/log-lifecycle/README.md), [API](architecture/platform-api/api/log-lifecycle.md), [토큰](architecture/platform-api/api/auth.md), [ADR-0116](adr/0116-platform-api-tokens-personal-and-service.md), [ADR-0117](adr/0117-validation-request-queue-claim-lease-heartbeat.md), [ADR-0118](adr/0118-dynamic-hierarchy-navigation-sdk-piece.md) | [menus](../menus/AGENTS.md), [platform-api](../apps/platform-api/AGENTS.md) | `apps/platform-api/src/modules/log-lifecycle/` · `apps/feature-screens/src/features/log-lifecycle/` · `menus/log-dev/log-models/src/` |
 | 로그 지식 허브 카탈로그·모델·Item | [설계와 결정 색인](design/features/log-knowledge-hub/README.md), [조회·쓰기 API 원본](architecture/platform-api/api/log-knowledge.md); 공통 동작은 [체크리스트 §3](integration/real-server-checklist.md) | [menus](../menus/AGENTS.md), [platform-api](../apps/platform-api/AGENTS.md) | `menus/log-dev/log-knowledge/src/` · `apps/platform-api/src/modules/log-knowledge/` |
-| 로그 지식 통합 검색(방향 관계·ACL-aware 색인, #1199 설계, 소유자 답 반영) | [설계](design/features/log-knowledge-search/README.md), [ADR-0124](adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md), [ADR-0125](adr/0125-event-order-search-uses-structured-event-relation-records.md); 선행 [log-knowledge-hub](design/features/log-knowledge-hub/README.md) |
-| 로그 검증 규칙 조회·연결(`logRules`, v0.31.0 설계) | [설계](design/features/log-rules/README.md), [ADR-0122](adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md); 선행 [log-lifecycle](design/features/log-lifecycle/README.md) | [menus](../menus/AGENTS.md), [platform-api](../apps/platform-api/AGENTS.md) | 구현 전(코드 없음) |
-| 로그 탐색 워크벤치(원본·시퀀스·증거 추적, v0.31.0 설계) | [설계](design/features/log-explorer/README.md), [ADR-0119](adr/0119-log-explorer-source-read-port-and-evidence-refs.md), [ADR-0121](adr/0121-ordered-interval-track-sdk-piece.md); 선행 [log-lifecycle](design/features/log-lifecycle/README.md) | [menus](../menus/AGENTS.md), [platform-api](../apps/platform-api/AGENTS.md) | 노드 b(조사 스키마·액션) 구현, 나머지 구현 전 |
-| 로그 테스트 데이터셋·Golden Baseline(회귀 추적, v0.31.0 설계) | [설계](design/features/log-test-datasets/README.md), [API](architecture/platform-api/api/log-datasets.md), [ADR-0120](adr/0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md); 선행 [log-lifecycle](design/features/log-lifecycle/README.md) | [menus](../menus/AGENTS.md), [platform-api](../apps/platform-api/AGENTS.md) | 노드 a 구현됨(`apps/platform-api/src/modules/log-datasets/`), b–f 구현 전 |
+| 로그 지식 통합 검색(방향 관계·ACL-aware 색인, #1199 설계, 소유자 답 반영) | [설계](design/features/log-knowledge-search/README.md), [ADR-0124](adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md), [ADR-0125](adr/0125-event-order-search-uses-structured-event-relation-records.md); 선행 [log-knowledge-hub](design/features/log-knowledge-hub/README.md) | [menus](../menus/AGENTS.md), [platform-api](../apps/platform-api/AGENTS.md) | 구현 전(코드 없음) |
+| 로그 검증 규칙 조회·연결(`logRules`, v0.31.0 설계) | [설계](design/features/log-rules/README.md), [ADR-0122](adr/0122-rule-catalog-is-a-token-submitted-read-only-snapshot.md); 선행 [log-lifecycle](design/features/log-lifecycle/README.md) | [menus](../menus/AGENTS.md), [platform-api](../apps/platform-api/AGENTS.md) | `apps/platform-api/src/modules/log-rules/` · `menus/log-dev/log-rules/src/` |
+| 로그 탐색 워크벤치(원본·시퀀스·증거 추적·넘기기, v0.31.0 As-built) | [설계](design/features/log-explorer/README.md), [API](architecture/platform-api/api/log-explorer.md), [ADR-0119](adr/0119-log-explorer-source-read-port-and-evidence-refs.md), [ADR-0121](adr/0121-ordered-interval-track-sdk-piece.md), [ADR-0128](adr/0128-app-joins-menus-for-embedded-bodies.md); 선행 [log-lifecycle](design/features/log-lifecycle/README.md) | [menus](../menus/AGENTS.md), [platform-api](../apps/platform-api/AGENTS.md) | `apps/platform-api/src/modules/log-explorer/` · `menus/log-dev/log-analysis/src/` |
+| 로그 테스트 데이터셋·Golden Baseline(회귀 추적, v0.31.0 설계) | [설계](design/features/log-test-datasets/README.md), [API](architecture/platform-api/api/log-datasets.md), [ADR-0120](adr/0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md); 선행 [log-lifecycle](design/features/log-lifecycle/README.md) | [menus](../menus/AGENTS.md), [platform-api](../apps/platform-api/AGENTS.md) | `apps/platform-api/src/modules/log-datasets/` |
 | 개선 아이템(만들기·효과 확인·분석 ⋯ 진입) | [설계](design/features/improvement-items.md), [API·DB 원본](architecture/platform-api/api/improvement-items.md), 슬롯 [layout §8](contract/layout.md#8-shell-slots) | [platform](../platform/AGENTS.md), [platform-api](../apps/platform-api/AGENTS.md) | `platform/improvement-items/src/`, `apps/platform-api/src/modules/improvement-items/` |
 | 플랫폼 계약 자동 검사(E2E) | 06 §6·§11·§17·§19·§22 | [apps/platform-e2e](../apps/platform-e2e/AGENTS.md) | `apps/platform-e2e/tests/contract-*.spec.ts` → `contract-helpers.ts`·`support.ts` → 보고 `contract-reporter.ts`. 실서버는 [체크리스트 §8](integration/real-server-checklist.md#8-실서버-브라우저-계약-검사-593) → `apps/platform-e2e/tests-real/*.real.spec.ts` · `playwright.real.config.ts` · `playwright.real-down.config.ts` |
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md), [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](overview/roadmap-and-open-questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
 | 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](architecture/architecture-and-data-contract.md#processing-status-report), 06 §19, [상태 기록 스키마](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` |
-| 기능 화면 연결·운영 화면 탑재 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/platform-inbound-links.md), [합류 설계](integration/feedbackops-merge-design.md), [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) | [feature-bridge](../packages/adapters/feature-bridge/AGENTS.md), [메뉴](../menus/AGENTS.md), [플랫폼 기능 메뉴](../platform/AGENTS.md), [앱 조립](../apps/platform-web/AGENTS.md), [Survey](../apps/feature-screens/src/features/surveys/AGENTS.md), [Admin](../apps/feature-screens/src/features/admin/AGENTS.md), [기능 도메인](agents/feature-implementation.md) | `packages/adapters/feature-bridge/src/feature/` · `apps/feature-screens/src/operator-screens/` · `platform/` |
+| 기능 화면 연결·운영 화면 탑재 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/platform-inbound-links.md), [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) | [feature-bridge](../packages/adapters/feature-bridge/AGENTS.md), [메뉴](../menus/AGENTS.md), [플랫폼 기능 메뉴](../platform/AGENTS.md), [앱 조립](../apps/platform-web/AGENTS.md), [Survey](../apps/feature-screens/src/features/surveys/AGENTS.md), [Admin](../apps/feature-screens/src/features/admin/AGENTS.md), [기능 도메인](agents/feature-implementation.md) | `packages/adapters/feature-bridge/src/feature/` · `apps/feature-screens/src/operator-screens/` · `platform/` |
 | 통합 전 단위 프로토타입 | — | [prototypes](../archive/AGENTS.md) | 각 프로토타입 README |
 
 ## 번호 약칭 → 파일
@@ -63,12 +65,12 @@
 | 04 | [architecture/frontend-ui-ux.md](architecture/frontend-ui-ux.md) |
 | 05 | [overview/roadmap-and-open-questions.md](overview/roadmap-and-open-questions.md) |
 | 06 | [contract/platform-ui-contract.md](contract/platform-ui-contract.md)(색인, 「절 → 문서」 대응표) → 갈래별 문서 [kernel](contract/kernel.md)(§4–6·§9–11·§17·§21)·[components](contract/components.md)(§13–15·§18–20·§23)·[chart](contract/chart.md)(§16)·[layout](contract/layout.md)(§7·§8·§12·§25)·[cross-menu-links](contract/cross-menu-links.md)(§22) |
-| 07 | [wireframes/app-shell.md](wireframes/app-shell.md) |
-| 08 | [wireframes/operations-overview.md](wireframes/operations-overview.md) |
-| 09 | [wireframes/equipment-master.md](wireframes/equipment-master.md) |
-| 11 | [wireframes/productivity-overview.md](wireframes/productivity-overview.md) |
-| 12 | [wireframes/cycle-time-drilldown.md](wireframes/cycle-time-drilldown.md) |
-| 13 | [wireframes/metric-catalog.md](wireframes/metric-catalog.md) |
+| 07 | [design/app-shell.md](design/app-shell.md) |
+| 08 | [../platform/home/docs/operations-overview.md](../platform/home/docs/operations-overview.md) |
+| 09 | [../menus/mars/equipment/docs/equipment-master.md](../menus/mars/equipment/docs/equipment-master.md) |
+| 11 | [../menus/mars/analytics/docs/productivity-overview.md](../menus/mars/analytics/docs/productivity-overview.md) |
+| 12 | [../menus/mars/analytics/docs/cycle-time-drilldown.md](../menus/mars/analytics/docs/cycle-time-drilldown.md) |
+| 13 | [../menus/bravo/metrics/docs/metric-catalog.md](../menus/bravo/metrics/docs/metric-catalog.md) |
 | 14 | [design/drilldown-platform.md](design/drilldown-platform.md) |
 | 15 | [design/multi-workspace-ui.md](design/multi-workspace-ui.md) |
 | 16 | [design/analysis-board.md](design/analysis-board.md) |
@@ -87,8 +89,8 @@
 - [05 결정 상태](overview/roadmap-and-open-questions.md) — ADR 없는 계약 결정 목록, MVP 지원 환경, 메뉴 활용률 계측 정책.
 - [17 플랫폼 요구사항](product/platform-requirements.md) — 플랫폼이 제공해야 하는 기능 전체(된 것·만들 것)를 사용자·운영자·개발자 언어로 모은 요구 목록과 상태. 소개 사이트(#468)의 근거. Candidate.
 - [06 플랫폼 UI 계약](contract/platform-ui-contract.md)(색인; 절은 갈래별 문서에 있고 §번호는 그대로) — Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, 공통 컴포넌트 승격 기준, Data Trust·권한·상태 UX, navigation IA. **전역 계약의 원본.**
-- [07 App Shell](wireframes/app-shell.md) — 셸 구조(ADR-0011·0013·0015로 Decided)와 IA.
-- 견본 메뉴 화면의 계약 메모(사내에서 새로 만들 메뉴라 계약에 닿는 부분만 둔다): [08 운영 개요](wireframes/operations-overview.md), [09 설비 마스터](wireframes/equipment-master.md), [11 생산성 개요](wireframes/productivity-overview.md), [12 사이클타임 드릴다운](wireframes/cycle-time-drilldown.md)(대표 드릴다운 왕복 계약), [13 지표 카탈로그](wireframes/metric-catalog.md)(`metricId`+`metricVersion` 쌍의 원본). 드릴다운 플랫폼 기능: [14 드릴다운 — 플랫폼 기능과 레이아웃](design/drilldown-platform.md)(#225, ADR-0025). 업무 시스템별 공간과 기능 협업 진입: [15 멀티 워크스페이스](design/multi-workspace-ui.md)(#249, ADR-0026). 여러 화면을 한 화면에 나란히 보는 작업대: [16 분석 보드](design/analysis-board.md)(#421, 1차 동작·칸 머리·선택 표시 Decided; 보류 범위는 §10, ADR-0049·ADR-0051).
+- [07 App Shell](design/app-shell.md) — 셸 구조(ADR-0011·0013·0015로 Decided)와 IA.
+- 견본 메뉴 화면의 계약 메모(사내에서 새로 만들 메뉴라 계약에 닿는 부분만 둔다): [08 운영 개요](../platform/home/docs/operations-overview.md), [09 설비 마스터](../menus/mars/equipment/docs/equipment-master.md), [11 생산성 개요](../menus/mars/analytics/docs/productivity-overview.md), [12 사이클타임 드릴다운](../menus/mars/analytics/docs/cycle-time-drilldown.md)(대표 드릴다운 왕복 계약), [13 지표 카탈로그](../menus/bravo/metrics/docs/metric-catalog.md). 드릴다운 플랫폼 기능: [14 드릴다운 — 플랫폼 기능과 레이아웃](design/drilldown-platform.md)(#225, ADR-0025). 업무 시스템별 공간과 기능 협업 진입: [15 멀티 워크스페이스](design/multi-workspace-ui.md)(#249, ADR-0026). 여러 화면을 한 화면에 나란히 보는 작업대: [16 분석 보드](design/analysis-board.md)(#421, 1차 동작·칸 머리·선택 표시 Decided; 보류 범위는 §10, ADR-0049·ADR-0051).
 
 통합 계약(`docs/integration/`):
 
@@ -98,12 +100,12 @@
 - [전송 형식](integration/http-adapter-contract.md) — 메서드별 HTTP 경로·요청/응답, 상태 코드와 `outcome`, 세션·CSRF, 백엔드 담당 질문. 구현 기준(#620–#623, PR #632·#636), `[제안]` 표식 행은 아직 제안.
 - [사내 적용 가이드](integration/in-house-rollout.md) — mock → 실어댑터·실서버 전환 순서, 담당자별 확인 질문, 사내 메뉴 개발 가이드, 완료 기준.
 - [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) — 가공 상태 원천의 기록 구조와 평가 규칙. Decided(2026-10-26, #37 — 이름만 Candidate).
-- [FeedbackOps 합류 설계](integration/feedbackops-merge-design.md) — **과거 기록**(ADR-0097이 `피드백 운영` 업무 시스템과 제품명을 폐기했다). 전역 기능·피드백 운영 업무 시스템 배치, 서버 출발점, 단계, Open. 방향 Decided([ADR-0066](adr/0066-feedbackops-merges-into-platform.md)).
+- [FeedbackOps 합류 설계](integration/history/feedbackops-merge-design.md) — **과거 기록**(ADR-0097이 `피드백 운영` 업무 시스템과 제품명을 폐기했다). 전역 기능·피드백 운영 업무 시스템 배치, 서버 출발점, 단계, Open. 방향 Decided([ADR-0066](adr/0066-feedbackops-merges-into-platform.md)).
 - [플랫폼 인바운드 링크 계약](integration/platform-inbound-links.md) — **과거 기록 + 현행 inbound 계약**(독립 앱 복귀 방향은 #597에서 은퇴). 양방향 딥링크 1단계(확장은 #81).
-- [프레임워크 통합 계획](integration/framework-unification-plan.md) — 기능·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치는 지도(현황·중복·목표·단계·SDK 준비 메모). Proposed(#396의 입력). 목표는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 우선한다.
-- [SDK 포괄 목록](integration/sdk-coverage-inventory.md) — 세 프레임워크(AP·FeedbackOps·EV)의 기능을 SDK가 모두 덮는지 코드로 대조한 목록과 통합 계획 지도 정정. Candidate. 저장소·릴리스 구조 결정은 [ADR-0044](adr/0044-sdk-source-in-platform-repo-released-separately.md)(Decided).
+- [프레임워크 통합 계획](integration/history/framework-unification-plan.md) — **과거 기록**. 기능·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치던 지도. 목표는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 우선한다.
+- [SDK 포괄 목록](integration/history/sdk-coverage-inventory.md) — 세 프레임워크(AP·FeedbackOps·EV)의 기능을 SDK가 모두 덮는지 코드로 대조한 목록과 통합 계획 지도 정정(2026-10-19 기준). **과거 기록**. 저장소·릴리스 구조 결정은 [ADR-0044](adr/0044-sdk-source-in-platform-repo-released-separately.md)(Decided).
 - [SDK 소비 조건·변경 기록](integration/sdk-git-tag-consumption.md) — SDK 버전별 공개 API·이전 방법, 소비 조건과 과거 git 태그 시험. 현행 배포·설치는 [ADR-0056](adr/0056-sdk-release-github-release-tarballs.md)의 Release tarball 계약을 따른다.
-- [SDK TopN·Lane 차트 API·사용 예·변경 기록](integration/sdk-charts.md) — #576, ADR-0064.
+- [SDK TopN·Lane 차트 API·사용 예·변경 기록](../packages/sdk/components/docs/charts.md) — #576, ADR-0064.
 - [플랫폼 탑재 설계](integration/platform-hosting-design.md) — 다른 저장소 업무 모듈(EV·기능)의 호스트 → 모듈 계약, 두 호스트 실행, 패키지 배치, 기능 탑재안. Proposed(선행 조사, ADR-0038·0039 초안). 독립 호스트는 SDK 범위 밖(ADR-0043).
 
 루트 문서: [DESIGN](../DESIGN.md)(공유 디자인 시스템 위의 플랫폼 시각 확장 — 06의 최소 기준·상태·접근성 의무는 바꾸지 않는다), [GLOSSARY](../GLOSSARY.md)(현행 도메인 용어와 관계).
@@ -114,12 +116,15 @@
 - [플랫폼 구축 리서치 종합](research/platform-build-2026-09-22/SYNTHESIS.md) — #165(폴링·계산 세대)·#155(서버) 착수 때 설계 입력.
 - [반도체 도메인 외부 조사](research/semiconductor-domain-2026-09-24/README.md) — SEMI 표준·제품 자료를 우리 용어에 대 본 조사(Operation 이름·CFG 형식은 아직 Open).
 - [플랫폼의 가치 — 사용자·운영자 입장](research/2026-10-19-platform-value-users-operators.md) — 소개 사이트 재구성(#468) 입력: 사용자·운영자 기능 요구(U1–U8·O1–O6), 개선 고리, 비교표(Candidate).
+- [앱 전환기·시스템별 내비 패턴](research/2026-10-18-app-switcher-patterns.md) — #423 입력.
+- [분석 보드 화면 패턴](research/2026-10-19-analysis-board-patterns.md), [보드 다듬기 사례](research/2026-10-20-board-polish-patterns.md) — #421·#536 입력.
+- [차트 종류와 상호작용](research/2026-10-20-chart-kinds-patterns.md), [차트 카탈로그 페이지](research/2026-10-21-chart-catalog-page-patterns.md), [차트 드릴·묶음 축](research/2026-10-21-chart-drill-grouped-axis.md) — 차트 계약·#541 입력.
+- [조회 바 패턴](research/2026-10-21-query-bar-patterns.md), [깊은 드릴·고밀도 작업공간](research/2026-10-23-dense-drill-workspace-patterns.md) — MARS 이관 화면·#690 입력.
+- [백업·복원 리허설 측정](research/2026-11-03-backup-restore-rehearsal.md) — #1266 증거.
 
 ## 상태 표기
 
 문서는 Decided / Candidate / Open / Deferred를 구분한다. 규칙은 [docs/AGENTS.md](AGENTS.md). `.agents/`의 스킬·명령·외부 레퍼런스는 tooling 자산이며 제품 설계를 확정하지 않는다([`.agents/README.md`](../.agents/README.md)).
-
-#597: standalone retirement preserves the 36 screen entries and inbound hop codec. Current ownership and removed outbound contracts: [Platform inbound link contract](integration/platform-inbound-links.md). Historical ADR bodies are unchanged.
 
 ## Platform feature domains
 

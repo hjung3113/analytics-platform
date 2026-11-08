@@ -4,7 +4,7 @@
 // comment composers reduce each node to its `id` (`normalizeAttachmentRefs`) and list those ids with the dropzone's
 // (`mergeAttachmentIds`). `public-update` allows no `attachmentRef`, so its composer offers no editor attach (#745).
 
-import type { TipTapDoc } from '@ap/feature-shared';
+import { collectRichContentAttachmentIds, type TipTapDoc } from '@ap/feature-shared';
 
 interface RichNode {
   type?: unknown;
@@ -13,17 +13,21 @@ interface RichNode {
   [key: string]: unknown;
 }
 
-/** `doc` with every `attachmentRef` reduced to `{ id }`, and the ids found, in document order. */
+/** Normalize attachmentRef/image storage attrs, collecting both IDs in document order. */
 export function normalizeAttachmentRefs<D extends object = TipTapDoc>(
   doc: D,
 ): { doc: D; ids: string[] } {
-  const ids: string[] = [];
+  const ids = collectRichContentAttachmentIds(doc);
   const walk = (node: RichNode): RichNode => {
     const next: RichNode = { ...node };
     if (node.type === 'attachmentRef') {
       const id = node.attrs?.id;
-      if (typeof id === 'string') ids.push(id);
       next.attrs = typeof id === 'string' ? { id } : {};
+    }
+    if (node.type === 'image') {
+      const id = node.attrs?.id;
+      const width = node.attrs?.width;
+      next.attrs = { ...(typeof id === 'string' ? { id } : {}), ...(typeof width === 'number' ? { width } : {}) };
     }
     if (Array.isArray(node.content)) next.content = (node.content as RichNode[]).map(walk);
     return next;

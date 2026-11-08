@@ -75,7 +75,7 @@
 | [0063](0063-consumer-owned-chart-pieces-and-unbounded-drill.md) | 메뉴가 조립하는 차트 활성화·범주 줄·표시 제어, 드릴 깊이 상한 제거 | Decided(2026-10-21, 사용자) — #541·#580 S4, 0025의 깊이 제한 대체 |
 | [0064](0064-topn-bar-and-lane-timeline.md) | TopN은 ChartSpec, Lane 시간선은 독립 Canvas 2D 부품 | Decided(2026-10-21, 코디네이터 위임) — #576 |
 | [0065](0065-log-dev-and-improvement-spaces-work-queue-first.md) | 표준 로그 개발·개선 실행 공간은 내 작업 우선(C) 메뉴 구성, 메뉴는 예정으로 등록 | Decided(2026-10-21, 사용자) — #252. 개정(2026-11-04, #1323): 개선 실행 공간 접음 |
-| [0066](0066-feedbackops-merges-into-platform.md) | FeedbackOps를 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 전역, 관리자·개발자 화면은 업무 시스템 하나, 서버는 FeedbackOps 백엔드에서 출발, 독립 앱 은퇴 | Decided(2026-10-21, 사용자) — 0027·0038 대체, 설계 [합류 설계](../integration/feedbackops-merge-design.md), 지도 #598 |
+| [0066](0066-feedbackops-merges-into-platform.md) | FeedbackOps를 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 전역, 관리자·개발자 화면은 업무 시스템 하나, 서버는 FeedbackOps 백엔드에서 출발, 독립 앱 은퇴 | Decided(2026-10-21, 사용자) — 0027·0038 대체, 설계 [합류 설계](../integration/history/feedbackops-merge-design.md), 지도 #598 |
 | [0067](0067-dockview-layout-engine-board-v2.md) | 보드와 분석 작업 영역은 같은 무료 Dockview 엔진을 쓰고, 보드 저장 모델을 칸 번호 순서의 V2로 옮긴다(grid는 대체 렌더러) | Decided(2026-10-22, 사용자 — #575 P0 추천 채택, 구현 세부는 코디네이터) — 결정 10 칸 수 상한은 0089가 대체 |
 | [0068](0068-permission-scope-and-business-system-link.md) | 권한은 FeedbackOps 부여 체계 하나로 업무 시스템까지 넓히고(`scope_kind`, 누출 테스트가 출시 조건), Managed System은 공간에 연결만 하며(권한을 주지 않음), 관리 화면은 최종적으로 콘솔(승인)과 피드백 운영(도메인 설정)으로 나눈다 | Decided(2026-10-22, 코디네이터, 사용자 위임) — #596, ADR-0045 결정 1 개정. 결정 3 배치는 0110이 대체 |
 | [0069](0069-platform-port-in-feedbackops-backend.md) | 플랫폼 포트는 FeedbackOps 백엔드의 `/api/v1/platform` 모듈로 두고 그 접두사에만 플랫폼 전송 규약(200 envelope·camelCase·no-store·CSRF 토큰)을 적용한다. 권한 이름 대응표, 감사는 definer 투영만, 부트스트랩 임시 값 | Decided(2026-10-22, 코디네이터, 사용자 위임) — #593(#620–#623). 결정 3·4(FO 경로) 0071 갱신 |
@@ -127,7 +127,7 @@
 | [0115](0115-kernel-navigation-guard-for-unsaved-edits.md) | Kernel 이동 가드: 메뉴가 `useUnsavedGuard(dirty, …)`로 선언하면 `commit`·popstate 한 곳에서 이동을 보류하고 셸 대화상자로 확인(`머무르기`/`이동`). 같은 경로 쓰기·재작성·Scope·세션 변경은 보류 안 함, popstate는 `apIdx` 보정, 새로고침은 `beforeunload`만 | Decided(2026-11-06, 소유자, #1388) |
 | [0116](0116-platform-api-tokens-personal-and-service.md) | 개인·서비스 API 토큰으로 기존 업무 API 호출, 고위험 동작은 세션 전용 | Decided(2026-11-07) |
 | [0117](0117-validation-request-queue-claim-lease-heartbeat.md) | 검증 요청 큐: pull 모델 claim·lease·heartbeat·멱등 결과, 서버가 실행 시간대 판단 | Decided(2026-11-07) |
-| [0118](0118-dynamic-hierarchy-navigation-sdk-piece.md) | 동적 계층 탐색을 SDK 범용 조각으로 제공, 메뉴가 단계 선언 | Decided(2026-11-07) |
+| [0118](0118-dynamic-hierarchy-navigation-sdk-piece.md) | 동적 계층 탐색: 메뉴 navTree + SDK HierarchyNav, 기본 drill·선택 tree, 본문 보류 | Decided(2026-11-07) |
 | [0119](0119-log-explorer-source-read-port-and-evidence-refs.md) | 로그 탐색: 서버 `SourceReadPort`로 원본을 요청 때 읽고 플랫폼에는 근거 위치 참조·조사 상태만 저장, 토큰 호출·내보내기 허용(scope 분리·예산·감사), 근거 위치 넘기기는 참조 전달 | Decided(2026-11-07) |
 | [0120](0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md) | 테스트 Dataset·Baseline은 Round와 별도 ID, 회귀 실행은 검증 요청 큐를 요청 주체 확장으로 재사용(ADR-0117 개정 포함), Baseline 자동 갱신 금지 | Decided(2026-11-07) |
 | [0121](0121-ordered-interval-track-sdk-piece.md) | 시퀀스 보기는 도메인을 모르는 SDK 범용 조각 `OrderedIntervalTrack`(순서 축 기본, 열린 구간 표시) | Decided(2026-11-07) |
@@ -136,6 +136,9 @@
 | [0124](0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md) | 지식 검색은 접근 권한을 조회 때 현재 규칙으로 판정하고 색인에 담지 않으며, 표시 값은 최신 Revision에서 그때 읽는다 | Decided(2026-11-08) |
 | [0125](0125-event-order-search-uses-structured-event-relation-records.md) | Event 순서 검색은 본문 해석이 아니라 Revision이 구조화해 적은 Event 관계 기록으로 한다 | Decided(2026-11-08) |
 | [0126](0126-detail-panel-content-region-expansion.md) | 상세 패널 크게 보기: 같은 패널을 본문 영역으로 펼치고 입력·포커스·주소 상태를 유지 | Decided(2026-11-07), 0013 보완 |
+
+| [0127](0127-sdk-rich-editor-extensions-and-inline-attachment-images.md) | SDK 리치 에디터 선택 확장·첨부 ID 기반 본문 이미지, FO ADR-0011 부분 대체·ADR-0052 보충 | Decided(2026-11-07) |
+| [0128](0128-app-joins-menus-for-embedded-bodies.md) | 한 메뉴 화면이 다른 메뉴의 본문을 품을 때는 앱이 둘을 잇는다(main.tsx 슬롯 주입, 메뉴 간 import 금지 유지) | Decided(2026-11-08) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

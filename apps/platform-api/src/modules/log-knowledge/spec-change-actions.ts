@@ -39,7 +39,7 @@ import {
 import { loadHashRows } from './repositories/spec-write.js';
 import { SPEC_MENU_PERMISSION, SPEC_PERMISSION } from './spec-actions.js';
 
-const INVALIDATES = ['logKnowledge.specChanges', 'logKnowledge.modelSpec'] as const;
+const INVALIDATES = ['logKnowledge.specChanges', 'logKnowledge.modelSpec', 'logKnowledge.specCoverage'] as const;
 const INPUT_KEYS = {
   specChangeAdd: ['modelId', 'softwareId', 'endsBeforeSoftwareId', 'targetKind', 'target', 'changeKind', 'change', 'note', 'evidenceRef'],
   specChangeRetire: ['changeId', 'replacement'],

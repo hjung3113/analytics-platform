@@ -26,3 +26,20 @@ export function stubCompactTableGeometry(scrollportWidth = 220): () => void {
     delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetWidth;
   };
 }
+
+export { createSyntheticHierarchySource, type SyntheticHierarchyOptions } from './hierarchy/syntheticHierarchy';
+
+/** Nonzero jsdom geometry for the real hierarchy virtualizer; restores every descriptor it changes. */
+export function stubHierarchyGeometry(): () => void {
+  const names = ['clientHeight', 'clientWidth', 'scrollHeight', 'offsetHeight', 'offsetWidth', 'scrollIntoView', 'scrollTo'] as const;
+  const descriptors = names.map(name => [name, Object.getOwnPropertyDescriptor(HTMLElement.prototype, name)] as const);
+  for (const name of ['clientHeight', 'offsetHeight']) Object.defineProperty(HTMLElement.prototype, name, { configurable: true, get() { return (this as HTMLElement).hasAttribute('data-hierarchy-scroll') ? 340 : 800; } });
+  for (const name of ['clientWidth', 'offsetWidth']) Object.defineProperty(HTMLElement.prototype, name, { configurable: true, get() { return 224; } });
+  Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return parseFloat((this as HTMLElement).firstElementChild instanceof HTMLElement ? ((this as HTMLElement).firstElementChild as HTMLElement).style.getPropertyValue('--hierarchy-total') : '') || 800; } });
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn(function (this: HTMLElement, options: ScrollToOptions) { this.scrollTop = options.top ?? 0; queueMicrotask(() => { if (this.isConnected) this.dispatchEvent(new Event('scroll')); }); }) });
+  const previousObserver = globalThis.ResizeObserver;
+  vi.stubGlobal('ResizeObserver', class { constructor(private callback: ResizeObserverCallback) {} observe(target: Element) { queueMicrotask(() => this.callback([{ target, contentRect: { width: 224, height: target.hasAttribute('data-hierarchy-scroll') ? 340 : 800 }, borderBoxSize: [{ inlineSize: 224, blockSize: 340 }] } as unknown as ResizeObserverEntry], this as unknown as ResizeObserver)); } unobserve() {} disconnect() {} });
+  const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) { const height = this.hasAttribute('data-hierarchy-scroll') ? 340 : 800; return { width: 224, height, x: 0, y: 0, top: 0, left: 0, right: 224, bottom: height, toJSON() {} }; });
+  return () => { rect.mockRestore(); vi.stubGlobal('ResizeObserver', previousObserver); for (const [name, descriptor] of descriptors) { if (descriptor) Object.defineProperty(HTMLElement.prototype, name, descriptor); else delete (HTMLElement.prototype as unknown as Record<string, unknown>)[name]; } };
+}

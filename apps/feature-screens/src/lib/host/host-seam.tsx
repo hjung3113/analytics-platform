@@ -60,6 +60,8 @@ export type HostSeam = {
    * (standalone app, a gated page): the screen then keeps the action in its own toolbar. See `HostPrimaryAction`.
    */
   usePrimaryActionTarget?: () => HTMLElement | null;
+  /** Registers a screen's unsaved value with the host navigation guard; no credential is passed. */
+  useUnsavedGuard?: (dirty: boolean, options?: { message?: string; onDiscard?: () => void }) => void;
   /** An absolute URL for the feature path `to` (copy-link actions), or `null` when this host has no address to give. */
   absoluteHref?: (to: string) => string | null;
 };
@@ -132,4 +134,11 @@ export function useHostHere(): string {
 export function HostLink(props: HostLinkProps): ReactElement {
   const { Link } = useHostSeam();
   return <Link {...props} />;
+}
+
+const useNoUnsavedGuard = (_dirty: boolean, _options?: { message?: string; onDiscard?: () => void }) => {};
+
+export function useHostUnsavedGuard(dirty: boolean, options?: { message?: string; onDiscard?: () => void }): void {
+  const { useUnsavedGuard = useNoUnsavedGuard } = useHostSeam();
+  useUnsavedGuard(dirty, options);
 }

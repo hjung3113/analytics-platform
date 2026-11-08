@@ -1,5 +1,7 @@
 # @ap/kernel
 
+- Dynamic sidebar hierarchy (#1448): `PlatformMenuEntry.navTree` owns the stable render-prop `Source`, label, optional mode/icons/current-node resolver; it is absent from JSON `MenuMeta` and forbidden on module entries. Registry rejects navHidden/navViews coexistence, duplicate declarations in a group, and empty ko/en labels. Source mounting is gated by the shell before menu code runs. See contract/kernel.md §5.
+
 Platform Kernel 런타임(06 §4). 메뉴 목록도, 서버 구현도 모른다. 둘 다 앱이 주입한다.
 
 ## 파일

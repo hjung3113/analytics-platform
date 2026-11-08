@@ -66,6 +66,8 @@ describe('shared rich-content allowlist', () => {
       'link',
       'mention',
       'attachmentRef',
+      'heading', 'strike', 'highlight', 'color', 'blockquote', 'horizontalRule',
+      'codeBlock', 'taskList', 'table', 'details', 'tableOfContents', 'image',
     ]);
     expect(getExtensionsForSurface('voc-description')).toEqual([
       'bold',
@@ -75,6 +77,8 @@ describe('shared rich-content allowlist', () => {
       'list',
       'link',
       'attachmentRef',
+      'heading', 'strike', 'highlight', 'color', 'blockquote', 'horizontalRule',
+      'codeBlock', 'taskList', 'table', 'details', 'tableOfContents', 'image',
     ]);
     expect(getExtensionsForSurface('reporter-reply')).toEqual([
       'bold',

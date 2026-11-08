@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState, type RefObject } from 'react';
 import { encodeFilterParams, type ActionResult, type ActionSpec, type ApiResponse, type PageResult } from '@ap/contracts';
-import { PlatformLink, useMenuAction, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
+import { PlatformLink, useMenuAction, useMenuFetch, useMenuQuery, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -12,6 +12,7 @@ import {
 } from '../endpoints';
 import { ACTIVE_ONLY, TAB_LABEL, failureText, impactText, mapFieldErrors, type Banner, type CatalogKind, type CatalogRow } from './catalogModel';
 import { useOptionPicker, type Option } from './useCatalogOptions';
+import { useCloseGuard, type GuardedLeave } from './items/ItemFormParts';
 
 type Write = ActionSpec<Record<string, unknown>, CatalogSummary>;
 const asWrite = (spec: unknown) => spec as Write;
@@ -116,9 +117,9 @@ function ModelSoftware({ modelId }: { modelId: string }) {
   </div>;
 }
 
-function CatalogForm({ kind, row, options, onWritten, onReload, onClose }: {
+function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDirty, released }: {
   kind: CatalogKind; row: CatalogRow | null; options: { vendors: Option[]; processes: Option[]; models: Option[] };
-  onWritten: () => void; onReload: () => void; onClose: () => void;
+  onWritten: () => void; onReload: () => void; onClose: () => void; markDirty: (dirty: boolean) => void; released: boolean;
 }) {
   const { setPage, toast } = usePlatform();
   const actions = ACTIONS[kind];
@@ -136,6 +137,18 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose }: {
   const [confirming, setConfirming] = useState(false);
   const busy = create.pending || update.pending || setActive.pending;
   const set = (field: string, value: string) => setValues(v => ({ ...v, [field]: value }));
+  // ADR-0115: typed input differs from what the form opened with. Esc, the close button and 취소 ask through the drawer's close guard;
+  // any other address change (Back, a link, another row) asks through the platform guard. The guard is off once the person confirmed the
+  // discard (`released`) or a new row was created, and the focus write happens after that commit so the shell never asks a second time.
+  const snapshot = JSON.stringify({ values, processIds });
+  const [start] = useState(snapshot);
+  const dirty = snapshot !== start;
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  useEffect(() => { markDirty(dirty); }, [dirty, markDirty]);
+  useEffect(() => () => markDirty(false), [markDirty]);
+  useUnsavedGuard(dirty && !released && createdId === null, { leaves: 'address' });
+  const openCreated = useEffectEvent((id: string) => setPage({ focus: id }));
+  useEffect(() => { if (createdId !== null) openCreated(createdId); }, [createdId]);
 
   function settle(res: ActionResult<CatalogSummary>, onOk: (data: CatalogSummary | null) => void) {
     // ok, conflict and unknown may have changed the rows: the table reads again.
@@ -158,7 +171,7 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose }: {
     const run = row ? update.run(input(), { expectedVersion: row.version }) : create.run(input());
     void run.then(res => settle(res, data => {
       toast(row ? '저장했습니다' : `${TAB_LABEL[kind]}을(를) 추가했습니다`, 'info');
-      if (row) onReload(); else if (data) setPage({ focus: data.id });
+      if (row) onReload(); else if (data) setCreatedId(data.id);
     })).catch(() => undefined);
   };
   const toggle = (active: boolean) => {
@@ -222,22 +235,41 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose }: {
   </form>;
 }
 
-export function CatalogDrawer({ kind, focus, rowsRef, options, onWritten }: {
+export function CatalogDrawer({ kind, focus, rowsRef, options, onWritten, leaveRef }: {
   kind: CatalogKind; focus: string; rowsRef: RefObject<Map<string, CatalogRow>>;
   options: { vendors: Option[]; processes: Option[]; models: Option[] }; onWritten: () => void;
+  /** Filled with the guard's `leave` while the drawer is open, so a page view that replaces the drawer (가져오기) asks first (#1542). */
+  leaveRef: RefObject<((next: GuardedLeave) => void) | null>;
 }) {
   const { setPage } = usePlatform();
   const { lookup, reload } = useCatalogRow(kind, focus, rowsRef);
   const [tab, setTab] = useState('info');
-  const close = () => setPage({ focus: null });
+  // Closing turns the unsaved guard off first (`released`) and writes the address after that commit (ADR-0115, as the improvement create drawer).
+  const [released, setReleased] = useState(false);
+  const closeNow = useEffectEvent(() => setPage({ focus: null }));
+  useEffect(() => { if (released) closeNow(); }, [released]);
+  useEffect(() => { setReleased(false); }, [focus]);
+  const guard = useCloseGuard(() => setReleased(true));
+  useEffect(() => { leaveRef.current = guard.leave; return () => { leaveRef.current = null; }; }, [leaveRef, guard.leave]);
+  // The SW 버전 tab unmounts the 정보 form, so switching away from it asks like closing (#1542).
+  const changeTab = (next: string) => {
+    if (tab !== 'info' || next === 'info') { setTab(next); return; }
+    // Tabs activate on focus, and the question returns focus to whatever held it when it opened: hand focus back to the selected 정보 tab
+    // first, or 계속 작성 would refocus SW 버전 and ask again.
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && focused.getAttribute('role') === 'tab') focused.closest('[role="tablist"]')?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
+    guard.leave({ run: () => setTab(next), title: '작성 중인 내용이 사라집니다. 탭을 바꿀까요?', message: '탭을 바꾸면 입력한 내용을 되찾을 수 없습니다.', confirmLabel: '바꾸기' });
+  };
   const row = lookup.state === 'ready' ? lookup.row : null;
   const body = lookup.state === 'loading' ? <p className="text-sm text-text-muted">불러오는 중…</p>
     : lookup.state === 'missing' ? <p role="alert" className="text-sm">항목을 찾을 수 없습니다. 삭제되었거나 주소가 틀렸습니다.</p>
     : lookup.state === 'error' ? <p role="alert" className="text-sm">항목을 불러오지 못했습니다. <Button size="sm" variant="secondary" onClick={reload}>다시 시도</Button></p>
-    : <CatalogForm key={`${focus}:${row?.version ?? 'new'}`} kind={kind} row={row} options={options} onWritten={onWritten} onReload={reload} onClose={close} />;
+    : <CatalogForm key={`${focus}:${row?.version ?? 'new'}`} kind={kind} row={row} options={options} onWritten={onWritten} onReload={reload} onClose={guard.request} markDirty={guard.markDirty} released={released} />;
   const tabs = kind === 'model' && row
     ? [{ id: 'info', label: '정보', content: body }, { id: 'software', label: 'SW 버전', content: <ModelSoftware modelId={row.id} /> }]
     : [{ id: 'info', label: '정보', content: body }];
-  return <DetailDrawer key={focus} title={focus === NO_ROW ? `${TAB_LABEL[kind]} 추가` : row ? <span className="t-mono">{row.code}</span> : TAB_LABEL[kind]}
-    subtitle={`${TAB_LABEL[kind]} · 카탈로그 관리`} onClose={close} tab={tabs.some(t => t.id === tab) ? tab : 'info'} onTabChange={setTab} tabs={tabs} />;
+  return <><DetailDrawer key={focus} title={focus === NO_ROW ? `${TAB_LABEL[kind]} 추가` : row ? <span className="t-mono">{row.code}</span> : TAB_LABEL[kind]}
+    subtitle={`${TAB_LABEL[kind]} · 카탈로그 관리`} onClose={guard.request} tab={tabs.some(t => t.id === tab) ? tab : 'info'} onTabChange={changeTab} tabs={tabs} />
+    {guard.dialog}
+  </>;
 }

@@ -41,4 +41,4 @@
 
 배포 모양을 건드렸으면(패키지 `exports`·CSS `@source`·`tsconfig.build.json`·새 파일 종류) `pnpm sdk:pack --out <임시 폴더>` 뒤 `pnpm sdk:consumer-check <같은 폴더>`를 돌린다. 앞은 다섯 패키지를 `dist`로 빌드해 tarball과 `SHA256SUMS`를 만들고, 뒤는 깨끗한 외부 소비자가 그것을 받아 설치·`tsc`·Vite 빌드·CSS 클래스·Vitest까지 확인한다(CI가 같은 순서로 돌린다, ADR-0056).
 
-다음 단계: 수정할 패키지의 `AGENTS.md`.
+다음 단계: 수정할 패키지의 `AGENTS.md` — SDK [contracts](sdk/contracts/AGENTS.md)·[contract-schemas](sdk/contract-schemas/AGENTS.md)·[ui](sdk/ui/AGENTS.md)·[kernel](sdk/kernel/AGENTS.md)·[components](sdk/components/AGENTS.md)·[shell](sdk/shell/AGENTS.md), 어댑터 [mock-server](adapters/mock-server/AGENTS.md)·[http-adapter](adapters/http-adapter/AGENTS.md)·[server-conformance](adapters/server-conformance/AGENTS.md)·[feature-bridge](adapters/feature-bridge/AGENTS.md), 기능 [feature-shared](feature-shared/AGENTS.md)·[feature-ui](feature-ui/AGENTS.md).

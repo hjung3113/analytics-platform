@@ -77,7 +77,7 @@ describe('workspace assembly (#260)', () => {
     expect(detail.component).toBeDefined();
     expect(registry.matchRoute('/voc/11111111-1111-4111-8111-111111111111')?.menu.id).toBe('voc-detail');
     expect(registry.matchRoute('/voc')?.menu.id).toBe('voc');
-    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.id)).toEqual(['notifications', 'my-tasks', 'permission-requests']);
+    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.id)).toEqual(['notifications', 'my-tasks', 'permission-requests', 'api-tokens']);
     expect(registry.menus.filter(menu => menu.group === 'noticeVoc' && !menu.navHidden).map(menu => menu.id)).toEqual(['notices', 'faq', 'voc', 'surveys']);
   });
 
@@ -99,6 +99,7 @@ describe('workspace assembly (#260)', () => {
       ['clas', 'clas'],
       ['logMyWork', 'log-dev'],
       ['logModels', 'log-dev'],
+      ['logAnalysis', 'log-dev'],
       ['logCross', 'log-dev'],
       ['logRules', 'log-dev'],
       ['logKnowledge', 'log-dev'],
@@ -154,10 +155,12 @@ describe('workspace assembly (#260)', () => {
     const accessMenus = operationsMenus.filter(menu => menu.group === 'access');
     expect(flowMenus.length).toBeGreaterThan(0);
     expect(flowMenus.every(menu => menu.carrySet === 'features')).toBe(true);
-    expect(accessMenus.map(menu => menu.id)).toEqual(['permission-request-review', 'permission-grants']);
-    expect(accessMenus.every(menu => menu.carrySet === 'features')).toBe(true);
+    expect(accessMenus.map(menu => menu.id)).toEqual(['permission-request-review', 'permission-grants', 'service-tokens']);
+    const accessCarryMenus = accessMenus.filter(menu => menu.id !== 'service-tokens');
+    expect(registry.menuById('service-tokens').carrySet).toBeUndefined();
+    expect(accessCarryMenus.every(menu => menu.carrySet === 'features')).toBe(true);
     expect(operationsMenus.filter(menu => menu.group === 'admin').every(menu => menu.carrySet === undefined)).toBe(true);
-    expect(registry.menus.filter(menu => menu.carrySet !== undefined).map(menu => menu.id).sort()).toEqual([...flowMenus.map(menu => menu.id), ...accessMenus.map(menu => menu.id), 'my-tasks'].sort());
+    expect(registry.menus.filter(menu => menu.carrySet !== undefined).map(menu => menu.id).sort()).toEqual([...flowMenus.map(menu => menu.id), ...accessCarryMenus.map(menu => menu.id), 'my-tasks'].sort());
     // Every group has exactly one primary menu (the Kernel enforces it; pinned here so a moved menu cannot leave a group without one).
     for (const group of registry.groups) expect(registry.menus.filter(menu => menu.group === group.id && menu.primary === true)).toHaveLength(1);
     expect(registry.menuById('dashboard')).toMatchObject({ group: 'dashboard', path: '/flow/dashboard', permission: 'features:access', requiresScope: false, pageKeys: ['managedSystem', 'returnTo'] });
@@ -208,7 +211,8 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menus.filter(menu => menu.group === 'flowSettings').map(menu => menu.id)).toEqual(settingsIds);
     expect(registry.menuById('managed-systems')).toMatchObject({ path: '/flow/managed-systems', primary: true });
     const accessIds = ['permission-request-review', 'permission-grants'];
-    expect(registry.menus.filter(menu => menu.group === 'access').map(menu => menu.id)).toEqual(accessIds);
+    expect(registry.menus.filter(menu => menu.group === 'access').map(menu => menu.id)).toEqual([...accessIds, 'service-tokens']);
+    expect(registry.menuById('service-tokens')).toMatchObject({ path: '/operations/service-tokens', permission: 'console:access', additionalPermissions: ['features:access'], pageKeys: ['noExpiry', 'kind'] });
     expect(registry.menuById('permission-request-review')).toMatchObject({ path: '/operations/permission-request-review', primary: true });
     expect(registry.menuById('permission-grants')).toMatchObject({ path: '/operations/permission-grants' });
     expect(registry.menuById('permission-grants').primary).toBeUndefined();
@@ -223,7 +227,7 @@ describe('workspace assembly (#260)', () => {
     expect(SPACE_DEFS[4].permission).toBeUndefined();
     const planned = registry.menus.filter(menu => registry.spaceOf(menu)?.id === 'log-dev');
     expect(planned.map(menu => menu.id)).toEqual([
-      'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules', 'log-rule', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-spec', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog',
+      'log-my-queue', 'log-recent-models', 'log-models', 'log-model-project', 'log-model-round', 'log-validation-requests', 'log-defects', 'log-partner-reviews', 'log-rules', 'log-rule', 'log-datasets', 'log-dataset', 'log-dataset-run', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-spec', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog', 'log-explorer', 'log-explorer-view',
     ]);
     // #1194 r: the catalog management menu is the one admin-capability menu (design v0.6 §2.1); the rest stay open to every signed-in user.
     // #1194 b: it has its screen now, so only the others are component-less planned menus.
@@ -237,7 +241,7 @@ describe('workspace assembly (#260)', () => {
       expect(registry.menuById(id).hiddenPageKeys).toEqual(['filter']);
     }
     // #1197 s1: 모델 탐색 (the group's primary) and its hidden 모델 프로파일 child have screens too.
-    expect(planned.filter(menu => menu.component).map(menu => menu.id)).toEqual(['log-rules', 'log-rule', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-spec', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog']);
+    expect(planned.filter(menu => menu.component).map(menu => menu.id)).toEqual(['log-models', 'log-model-project', 'log-model-round', 'log-validation-requests', 'log-rules', 'log-rule', 'log-datasets', 'log-dataset', 'log-dataset-run', 'log-knowledge-models', 'log-knowledge-model', 'log-knowledge-spec', 'log-knowledge-items', 'log-knowledge-item', 'log-knowledge-catalog', 'log-explorer', 'log-explorer-view']);
     expect(registry.menuById('log-knowledge-model')).toMatchObject({ parent: 'log-knowledge-models', navHidden: true });
     expect(registry.menus.filter(menu => menu.group === 'logKnowledge' && menu.primary).map(menu => menu.id)).toEqual(['log-knowledge-models']);
     // #1197 s2: the item list and its navHidden detail screen have components too.
@@ -259,7 +263,7 @@ describe('workspace assembly (#260)', () => {
     expect(registry.groups.find(group => group.id === 'dashboard')?.hideLabelWhenSingle).toBe(true);
     expect(registry.groups.filter(group => group.space === 'operations').map(group => group.label.ko)).toEqual(['플랫폼 관리', '권한', '시스템']);
     expect(registry.groups.filter(group => group.space === 'operations').map(group => group.id)).toEqual(['admin', 'access', 'systems']);
-    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['알림', '내 Task', '권한 요청']);
+    expect(registry.menus.filter(menu => menu.group === 'myActivity' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['알림', '내 Task', '권한 요청', 'API 토큰']);
     expect(registry.groups.find(group => group.id === 'noticeVoc')?.label).toEqual({ ko: '소통', en: 'Communication' });
     expect(registry.menus.filter(menu => menu.group === 'noticeVoc' && !menu.navHidden).map(menu => menu.label.ko)).toEqual(['공지', 'FAQ', 'VOC', '설문']);
     expect(registry.menus.filter(menu => menu.group === 'noticeVoc').map(menu => menu.id)).toEqual(['notices', 'faq', 'voc', 'voc-detail', 'surveys', 'survey-respond']);

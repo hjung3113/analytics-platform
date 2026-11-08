@@ -6,7 +6,8 @@ import { viewerOf } from '../log-knowledge/index.js';
 // id alike); the origin, the round reference and the sample set never change after create; an archived investigation
 // is final (`illegal_transition`); the version check is the engine's (`conflict`), no silent overwrite. Every write is
 // one transaction: row change and one `core.audit_log` row whose detail carries filter KEYS, counts and a note's
-// LENGTH only. `evidenceHandoff` is node h, not here.
+// LENGTH only. `evidenceHandoff` (node h, #1474) lives in `investigation-handoff.ts` and is declared here when the assembly gives
+// it its receivers (`deps.handoff`).
 
 import type { Tx } from '../../db/tx.js';
 import { createAuditService } from '../core/audit/audit-service.js';
@@ -30,6 +31,7 @@ import {
   parseUpdate,
   validateExplorerInput,
 } from './domain/investigation-input.js';
+import { evidenceHandoffAction } from './investigation-handoff.js';
 import { INVESTIGATION_MENU_ID } from './menu.js';
 import { insertInvestigation, lockOwned, patchInvestigation } from './repositories/investigation-write.js';
 
@@ -222,5 +224,22 @@ export function investigationActions(deps: InvestigationDeps): MenuActionDeclara
     },
   };
 
-  return [create, update, evidenceAdd, evidenceRemove, archive];
+  const handoff = deps.handoff
+    ? [
+        evidenceHandoffAction(deps, deps.handoff, {
+          base: (id, inputKeys, permission) => ({
+            id: `logExplorer.${id}`,
+            menuId: INVESTIGATION_MENU_ID,
+            inputKeys,
+            permission,
+            requiresScope: false,
+            concurrency: 'version',
+            invalidates: INVALIDATES,
+          }),
+          currentVersion,
+          open,
+        }),
+      ]
+    : [];
+  return [create, update, evidenceAdd, evidenceRemove, archive, ...handoff];
 }

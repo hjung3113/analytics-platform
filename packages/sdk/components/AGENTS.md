@@ -1,5 +1,7 @@
 # @ap/components
 
+- `hierarchy/` (#1448): `HierarchyNav` owns cursor paging, cancellation, dedupe, virtualization, drill/tree keyboard, deep-path restoration and explicit failures. `useHierarchyNavState(menuId)` returns shared per-user/revision state for expanded/popover hosts; never cache globally or serialize expansion/search into URLs. Data contracts live in @ap/contracts; source/endpoints belong to the menu. Testing-only exports: `createSyntheticHierarchySource` and `stubHierarchyGeometry` (nonzero virtual DOM assertions).
+
 Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골격(§12). 메뉴가 조립하는 부품이다.
 
 ## 파일
@@ -61,4 +63,4 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 
 ## Detail expansion (ADR-0126, #1459)
 
-`DetailDrawer` consumes the existing UI slot context and shared toggle/Escape handler; do not add a second expansion owner or per-menu option. Preserve DOM nodes, editor values and scroll through toggles. The reading column is 48rem when expanded; the footer remains outside the scroll body. A pane-owned drawer declares `localExpansion` when registering so it cannot write the main URL or pane query. `PlatformPage` alone marks the covered body below its sticky page header inert; leave header, rail and sidebar available. Restoring an expanded address must not claim toggle focus. Labels come from Kernel i18n. Contracts: components §13 and kernel §6.4.
+`DetailDrawer` consumes the existing UI slot context and shared toggle/Escape handler; do not add a second expansion owner or per-menu option. Preserve DOM nodes, editor values and scroll through toggles. Undeclared content keeps the 48rem expanded reading column; the footer remains outside the scroll body. Optional per-tab `regions` (`DetailDrawerRegions`: required body, optional properties/activity) is exclusive with legacy content. Use the panel named container at 60rem, with an 18rem sticky properties track; missing properties reserves no column. Preserve DOM order body/properties/activity and keyboard access to both named scroll regions; never reparent or duplicate content at a width boundary. Declared regions align to the title inset without a reading-width cap. See components §13 for scrolling and state semantics. A pane-owned drawer declares `localExpansion` when registering so it cannot write the main URL or pane query. `PlatformPage` alone marks the covered body below its sticky page header inert; leave header, rail and sidebar available. Restoring an expanded address must not claim toggle focus. Labels come from Kernel i18n. Contracts: components §13 and kernel §6.4.

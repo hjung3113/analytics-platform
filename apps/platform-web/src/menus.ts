@@ -4,7 +4,7 @@
  * live in their own menu package (docs/integration/platform-packages.md §5); the app concatenates them.
  */
 import {
-  BarChart3, BookOpen, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, Gauge, Inbox, KeyRound, Server, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, SlidersHorizontal, Timer, UserRound, Waves, Workflow, CircleGauge,
+  BarChart3, BookOpen, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, ScrollText, Gauge, Inbox, KeyRound, Server, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, SlidersHorizontal, Timer, UserRound, Waves, Workflow, CircleGauge,
 } from 'lucide-react';
 import { carrySetId, groupId, menuPermission, spaceId, type CarrySetDef, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
@@ -40,10 +40,11 @@ import { manifests as logKnowledge } from '@ap/menu-log-knowledge';
 import { manifests as access } from '@ap/menu-access';
 import { manifests as systems } from '@ap/menu-systems';
 import { manifests as improvementItems } from '@ap/menu-improvement-items';
+import { manifests as logAnalysis } from '@ap/menu-log-analysis';
 // </gen:menu-imports>
 
 /** The menu permissions this app's menus use, on top of the kernel's (ADR-0072). Each menu package spells its own with `menuPermission`; `createRegistry` fails on one missing here. */
-export const PERMISSIONS = [menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view'), menuPermission('knowledge:catalog-manage'), menuPermission('knowledge:item-publish'), menuPermission('knowledge:spec-publish'), menuPermission('improvement:manage')];
+export const PERMISSIONS = [menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view'), menuPermission('knowledge:catalog-manage'), menuPermission('knowledge:item-publish'), menuPermission('knowledge:spec-publish'), menuPermission('improvement:manage'), menuPermission('explorer:investigate'), menuPermission('explorer:handoff'), menuPermission('lifecycle:project-manage'), menuPermission('lifecycle:round-manage'), menuPermission('lifecycle:gate-decide'), menuPermission('dataset:manage'), menuPermission('dataset:baseline-approve'), menuPermission('dataset:suite-run')];
 
 export const GROUPS: GroupDef[] = [
   { id: groupId('overview'), label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: null, hideLabelWhenSingle: true },
@@ -62,6 +63,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('clas'), label: { ko: 'CLAS', en: 'CLAS' }, icon: LineChart, space: spaceId('clas') },
   { id: groupId('logMyWork'), label: { ko: '내 작업', en: 'My work' }, icon: Inbox, space: spaceId('log-dev') },
   { id: groupId('logModels'), label: { ko: '모델', en: 'Models' }, icon: Cpu, space: spaceId('log-dev') },
+  { id: groupId('logAnalysis'), label: { ko: '로그 분석', en: 'Log analysis' }, icon: ScrollText, space: spaceId('log-dev') },
   { id: groupId('logCross'), label: { ko: '전체 모아 보기', en: 'Across models' }, icon: FileSearch, space: spaceId('log-dev') },
   { id: groupId('logRules'), label: { ko: '기준', en: 'Rules' }, icon: Ruler, space: spaceId('log-dev') },
   { id: groupId('logKnowledge'), label: { ko: '로그 지식 허브', en: 'Log Knowledge' }, icon: BookOpen, space: spaceId('log-dev') },
@@ -141,12 +143,13 @@ export const MENUS: MenuEntry[] = [
   ...access,
   ...systems,
   ...improvementItems,
+  ...logAnalysis,
   // </gen:menu-spreads>
 ];
 
-/** The global menus in sidebar order, per group. 내 활동 (#1099c): 알림 → 내 Task → 권한 요청; 내 Task is owned by `@ap/menu-tasks`. 소통 (ADR-0110): 공지 → FAQ → VOC → 설문; VOC and 설문 are `@ap/menu-my-activity` screens in the `noticeVoc` group. The app, not a Consumer, decides where they sit. */
+/** The global menus in sidebar order, per group. 내 활동 (#1099c): 알림 → 내 Task → 권한 요청 → API 토큰; 내 Task is owned by `@ap/menu-tasks`. 소통 (ADR-0110): 공지 → FAQ → VOC → 설문; VOC and 설문 are `@ap/menu-my-activity` screens in the `noticeVoc` group. The app, not a Consumer, decides where they sit. */
 const GLOBAL_GROUP_ORDER = [
-  ['notifications', 'my-tasks', 'permission-requests'],
+  ['notifications', 'my-tasks', 'permission-requests', 'api-tokens'],
   ['notices', 'faq', 'voc', 'voc-detail', 'surveys', 'survey-respond'],
 ] as const;
 
@@ -166,7 +169,7 @@ function fail(message: string): never { throw new Error(message); }
 export const CARRY_SETS: readonly CarrySetDef[] = [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }];
 
 /** Roots the app's own screens and feature serve outside the Registry; no space may take one (ADR-0093). The Kernel reserves only its own `board`, `api` and `auth`. */
-export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq'];
+export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq', 'tokens'];
 
 /** External host modules (src/modules.ts) join at the registry call only; GROUPS and MENUS stay the platform's own. */
 export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: placeGlobalGroups(configureHome([...MENUS, ...EQV_MODULE.menus])), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });

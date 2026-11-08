@@ -1,8 +1,8 @@
-# Log Explorer — 범용 로그 탐색 워크벤치 설계 (v0.31.0, 소유자 답 반영, 노드 a·c 구현됨)
+# Log Explorer — 범용 로그 탐색 워크벤치 설계 (v0.31.0, As-built; 결함 수신 j와 지식 초안 넘기기 대화상자만 미완)
 
-> **Status: Candidate → 소유자 답 7개 반영(2026-11-07), ADR 0119·0121 Decided.** 노드 a(읽기 포트·`@ap/contract-schemas v0`·계약 테스트 하니스·합성 어댑터·모듈 골격)는 구현됐고(#1467), 읽기 엔드포인트 네 개(노드 c, #1469: records·window·parsed·periods)도 구현됐다. 조사 상태 DB·화면·실제 Source 연동은 아직 구현되지 않았고, 운영 조립에는 Source 어댑터가 없어 읽기는 «미연결» 상태로 답한다. 근거는 [#1344](https://github.com/hjung3113/analytics-platform/issues/1344)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 설계 [`log-lifecycle`](../log-lifecycle/README.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0(= #1198 + #1344, 소유자 2026-11-07). 결정은 [ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)(읽기 포트·토큰·내보내기)와 [ADR-0121](../../../adr/0121-ordered-interval-track-sdk-piece.md)(시퀀스 SDK 조각)이 소유하고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: As-built (v0.31.0 슬라이스 노드 a–i·k), 소유자 답 7개 반영, ADR 0119·0121·0128 Decided.** 구현된 것: 읽기 포트·합성 어댑터 a(#1467), 조사 상태 b(#1468), 읽기 엔드포인트 c(#1469), `rule_result_evidence` d(#1470), 시퀀스 SDK 조각 e(#1471), 토큰·예산·내보내기 REST f(#1472), 「로그 분석」 그룹과 조사 화면 g(#1473), 근거 위치 넘기기 h(#1474: Round·지식 초안 수신과 `logExplorer.evidenceHandoff`, Round 확인 대화상자; 지식 초안 확인 대화상자는 #1564 진행 중이라 그 전까지 화면에서 «준비 중»), Round 상세 «원본/시퀀스» 탭 i(#1475), 통합 계약 테스트 k(#1476, 아래 §11). 노드 j(결함 수신)는 수신 객체가 없어 구현 전이다. 지식 초안 넘기기는 API·수신 쪽이 구현돼 있고 화면의 확인 대화상자만 #1564에 남았다. 운영 조립에는 Source 어댑터가 없어 읽기는 «미연결» 상태로 답하고, 합성 Source 위의 검사는 사내 Source 연동의 증거가 아니다. 근거는 [#1344](https://github.com/hjung3113/analytics-platform/issues/1344)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 설계 [`log-lifecycle`](../log-lifecycle/README.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0(= #1198 + #1344, 소유자 2026-11-07). 결정은 [ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)(읽기 포트·토큰·내보내기), [ADR-0121](../../../adr/0121-ordered-interval-track-sdk-piece.md)(시퀀스 SDK 조각), [ADR-0128](../../../adr/0128-app-joins-menus-for-embedded-bodies.md)(Round 탭 연결)가 소유하고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 정확한 계약은 [api/log-explorer.md](../../../architecture/platform-api/api/log-explorer.md)가 갖는다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
-> **구현 상태.** 노드 b(조사 스키마·액션·읽기, [#1468](https://github.com/hjung3113/analytics-platform/issues/1468))는 구현됨: 모듈 [`log-explorer`](../../../../apps/platform-api/src/modules/log-explorer/AGENTS.md), 계약 [api/log-explorer.md](../../../architecture/platform-api/api/log-explorer.md). 노드 d(`rule_result_evidence` 사이드 테이블 + `logExplorer.evidenceLinks`, [#1470](https://github.com/hjung3113/analytics-platform/issues/1470))도 구현됐다(계약 [api/log-explorer.md](../../../architecture/platform-api/api/log-explorer.md)). 그 밖의 노드는 구현 전이다. 구현이 이 문서의 §3.2와 다른 곳: 근거 위치의 권한 철회 상태는 읽는 사람 기준 두 가지 사유(`capability_lost`, `round_not_visible`)이고 Source ACL 판정은 노드 c의 이음새로 남는다.
+> **구현이 이 문서와 다른 곳.** (1) 근거 위치의 권한 철회 상태는 읽는 사람 기준 두 가지 사유(`capability_lost`, `round_not_visible`)이고 Source ACL 판정은 읽기·내보내기·넘기기 호출 시점에 한다(§3.2). (2) Round 탭은 읽기 전용이다: 조사 행을 만들지 않고 Round의 샘플 목록으로 읽으며 바구니·저장이 없고, 앱 `main.tsx`가 두 메뉴를 이어 «탭 슬롯에 꽂는다»(§6.2)를 구현한다. (3) 화면의 내보내기 버튼은 REST 어댑터가 없어 이유와 함께 비활성이다([backlog](../../../../.planning/backlog.md)).
 >
 > 원본 로그의 소유자(Source API)·Parser·Top View(#1200)는 사내 쪽에서 개발 중이거나 실사 전이다. 이 슬라이스는 **읽기 포트와 합성 어댑터까지만** 만들고 «연동됨» 표시를 두지 않는다.
 
@@ -163,11 +163,12 @@ POST /api/v1/log-explorer/export   { investigationId | sampleSet, query, range, 
 
 | 대상 | 받는 쪽 | 매핑 | 선행 |
 | --- | --- | --- | --- |
-| Round | `log-lifecycle` — 수동 검증 첨부 = Core 첨부 + entity link([log-lifecycle D6](../log-lifecycle/README.md#10-open-decisions-이-문서)) | `EvidenceRef` → Round의 등록 entity link(`fileRef`, `line`, `fileSha256`; 이 참조는 `sample_set`에 있는 `fileRef`만 허용) | v0.30.0 노드 c(첨부 type 등록 확인) |
-| 지식 초안 | `log-knowledge` 초안 제출([#1198](https://github.com/hjung3113/analytics-platform/issues/1198)) | `EvidenceRef` → 초안의 `source_asset_ref` + `locator_snapshot`(`fileRef`·`line`·`fileSha256`), `excerpt_digest`는 비움. 초안 본문은 사람이 #1198 화면에서 쓴다 | **#1198 초안 제출 서비스가 먼저**(같은 릴리스, 노드 순서 §7) |
+| Round | `log-lifecycle` 배럴 `roundEvidenceRefIntake`(서비스 함수, 구현됨 #1474) — Round 소유 추가 전용 표 `round_evidence_ref`. 수동 첨부(파일, D6)와 entity link와는 별개(위치는 본문 없는 포인터, 팀장 결정 2026-11-08) | `EvidenceRef` + 탐색의 `sourceResolved` → `(fileRef, line, fileSha256, note)` 한 줄. `sample_set`에 있는 `fileRef`만 허용. 상태는 받는 쪽이 정한다: `unresolved`·`hash_mismatch`·`match`. 같은 위치는 한 번만(`alreadyAttached`) | v0.30.0 노드 c |
+| 지식 초안 | `log-knowledge` 배럴 `draftEvidenceIntake`(서비스 함수, 구현됨 #1474; [#1198](https://github.com/hjung3113/analytics-platform/issues/1198) 초안 서비스와 같은 코어) | `EvidenceRef` → 제안 근거 포인터 `{ sourceKind: 'log_file', sourceRef: fileRef, contentHash: fileSha256, locator: 'line:<n>', note }`(초안에 `source_asset_ref` 열이 없음). `unresolved`는 거절, `hash_mismatch`는 note 앞에 `[해시 불일치]`(팀장 결정 2026-11-08). 새 초안(`needs_check`, 제목·본문은 사람이 씀) 또는 내 초안에 덧붙이기. 근거 최대 20개 | #1198 초안 제출 서비스(병합됨) |
 | 결함 | 결함 객체의 수신 서비스 | `EvidenceRef` → 결함 근거 참조 | **수신 객체가 아직 없음**(lifecycle 결함·재검증은 P3). 수신 인터페이스만 정하고 연결은 객체가 생길 때(질문 상태: 팀장에게 올림) |
 
-- 받는 쪽은 `EvidenceRef`의 `fileSha256`이 Source 현재 값과 다르면 `hash_mismatch` 경고를 붙여 저장하고, 원본이 없으면 `unresolved`로 둔다. 가짜 근거로 대체하지 않는다.
+- 받는 쪽은 `EvidenceRef`의 `fileSha256`이 `sample_set`(Round) 또는 탐색이 알린 값(지식 초안)과 다르면 `hash_mismatch` 경고를 붙여 저장하고, 원본이 없으면 `unresolved`로 둔다(지식 초안은 거절). 가짜 근거로 대체하지 않는다. 받는 쪽은 Source를 모르므로 `unresolved` 판정은 탐색이 `sourceResolved`로 알린다.
+- 탐색 액션 구현됨 #1474: `logExplorer.evidenceHandoff`([api/log-explorer.md](../../../architecture/platform-api/api/log-explorer.md) «Evidence handoff»). 결함 대상은 `target: not_available`.
 - 같은 요청 재전송은 `idempotencyKey`로 한 번만 반영한다. 받는 쪽 거절(권한·동시성)은 조사 상태를 바꾸지 않는다.
 - 토큰 호출도 가능하지만 받는 쪽 capability(예: 지식 초안 제출)가 토큰에 있어야 하고, 지식 발행·승인 등 고위험 동작은 이 경로에 없다([#1198](https://github.com/hjung3113/analytics-platform/issues/1198): AI/Validator는 Draft 제출 전용).
 
@@ -239,17 +240,17 @@ log-dev
 | 노드 | 내용 | 기대 티어 | 선행 |
 | --- | --- | --- | --- |
 | 0 | ADR 0119·0121 Decided 반영 + GLOSSARY 용어 확인 | light | 소유자 답(완료) |
-| a | `SourceReadPort` 계약·`@ap/contract-schemas v0`·계약 테스트 하니스·합성 어댑터·모듈 골격 (**구현됨, #1467**: 엔드포인트·테이블·마이그레이션 없음) | full, `impl-complex`(데이터 유출 경계) | 0 |
-| b | `investigation` 스키마·액션·읽기, 권한 철회·낙관적 동시성 | full | 0, v0.30.0 c |
-| c | 읽기 엔드포인트: records·window·parsed·periods (상한·취소·부분 결과) (**구현됨, #1469**: [`api/log-explorer.md`](../../../architecture/platform-api/api/log-explorer.md); 마이그레이션 없음) | full, `impl-complex` | a |
-| d | `rule_result_evidence` 사이드 테이블 + `evidenceLinks` | full | v0.30.0 d |
-| e | **시퀀스 SDK 조각** `OrderedIntervalTrack` + 합성 소비자 + 시안(`?variant=`) + `sdk:api` | full, `impl-complex`(공개 API), `ux=required` | 시안 컨펌 |
-| f | 토큰 scope 등록·읽기 예산·내보내기 REST·감사·집계 (**구현됨, #1472**: [`api/log-explorer.md`](../../../architecture/platform-api/api/log-explorer.md) 「Tokens…」·「Export REST」; 마이그레이션 없음 — 카운터는 기존 `core.rate_limits`) | full, `impl-complex`(권한·유출 경계), `flags.permission` | a, c, [ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md) 노드 a(v0.30.0) |
-| g | 「로그 분석」 그룹·`menus/log-dev/log-analysis` + 조사 화면 + `LogInvestigationView` + 시안 | full, `ux=required`, 시각 부분 `impl-complex-sol` high | b, c, e, 시안 컨펌 |
-| h | 근거 위치 넘기기: 수신 인터페이스(Round·지식 초안), 확인 문구, 감사 | full, `impl-complex`(교차 모듈 쓰기) | b, **#1198 초안 제출 서비스**, v0.30.0 c |
-| i | Round 상세 «원본/시퀀스» 탭 연결 | full, `ux=required` | g, v0.30.0 f |
-| j | 결함 수신 연결 | full | **결함 수신 객체가 생긴 뒤**(§9) |
-| k | 통합: 계약 E2E(합성 Source → 탐색 → 근거 위치 담기 → 넘기기 → 권한 철회, 토큰 읽기·내보내기 한도), 문서 소유 갱신, `.planning` 줄 | full | a–i |
+| a | **As-built** #1467(PR #1487): `SourceReadPort` 계약·`@ap/contract-schemas v0`·계약 테스트 하니스·합성 어댑터·모듈 골격 (**구현됨, #1467**: 엔드포인트·테이블·마이그레이션 없음) | full, `impl-complex`(데이터 유출 경계) | 0 |
+| b | **As-built** #1468(PR #1501): `investigation` 스키마·액션·읽기, 권한 철회·낙관적 동시성 | full | 0, v0.30.0 c |
+| c | 읽기 엔드포인트: records·window·parsed·periods (상한·취소·부분 결과) (**As-built** #1469(PR #1511): [`api/log-explorer.md`](../../../architecture/platform-api/api/log-explorer.md); 마이그레이션 없음) | full, `impl-complex` | a |
+| d | **As-built** #1470(PR #1524): `rule_result_evidence` 사이드 테이블 + `evidenceLinks` | full | v0.30.0 d |
+| e | **As-built** #1471(PR #1517): **시퀀스 SDK 조각** `OrderedIntervalTrack` + 합성 소비자 + 시안(`?variant=`) + `sdk:api` | full, `impl-complex`(공개 API), `ux=required` | 시안 컨펌 |
+| f | 토큰 scope 등록·읽기 예산·내보내기 REST·감사·집계 (**As-built** #1472(PR #1516): [`api/log-explorer.md`](../../../architecture/platform-api/api/log-explorer.md) 「Tokens…」·「Export REST」; 마이그레이션 없음 — 카운터는 기존 `core.rate_limits`) | full, `impl-complex`(권한·유출 경계), `flags.permission` | a, c, [ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md) 노드 a(v0.30.0) |
+| g | 「로그 분석」 그룹·`menus/log-dev/log-analysis` + 조사 화면 + navHidden `log-explorer-view` (**As-built** #1473(PR #1532): A 목록+오른쪽 서랍; REST 내보내기 어댑터는 미구현) | full, `ux=required`, 시각 부분 `impl-complex-sol` high | b, c, e, 시안 컨펌 |
+| h | **As-built**(지식 초안 대화상자 제외, #1564 진행 중) #1474(PR #1534 수신, #1547 `evidenceHandoff`·Round 대화상자): 근거 위치 넘기기: 수신 인터페이스(Round·지식 초안), 확인 문구, 감사 | full, `impl-complex`(교차 모듈 쓰기) | b, **#1198 초안 제출 서비스**, v0.30.0 c |
+| i | **As-built** #1475(PR #1553, ADR-0128): Round 상세 «원본/시퀀스» 탭 연결 | full, `ux=required` | g, v0.30.0 f |
+| j | **미구현**(수신 객체 없음, §9): 결함 수신 연결 | full | **결함 수신 객체가 생긴 뒤**(§9) |
+| k | **As-built** #1476(아래 §11): 통합: 계약 E2E(합성 Source → 탐색 → 근거 위치 담기 → 넘기기 → 권한 철회, 토큰 읽기·내보내기 한도), 문서 소유 갱신, `.planning` 줄 | full | a–i |
 
 병렬: a∥b, d·e는 독립. **순서 의존(레인):** 노드 h는 #1198 초안 제출 서비스 노드가 먼저 병합되어야 하고, #1198이 v0.31.0 안에 없으면 h의 지식 초안 대상만 비활성으로 두고 나머지를 진행한다. 도메인 스키마를 바꾸는 노드(b·d)는 마이그레이션 노드 규칙(전체 백엔드 `test:integration`)을 따른다.
 
@@ -287,6 +288,10 @@ log-dev
 | 원본 본문 검색 색인·알림 본문 | 본문이 ACL 밖으로 나감 | 같은 ACL·감사·상한이 적용되는 설계 |
 | 내보내기 형식 확장(xlsx 등) | 필요 입증 전 | 소비자 요청 |
 | Sequence 별도 메뉴 | 독립 권한·업무 근거 없음 | 충분한 사용 사례 + 독립 권한 확인 |
+| 지식 초안 넘기기 확인 대화상자(화면) | 확정 시안 A 구현이 [#1564](https://github.com/hjung3113/analytics-platform/pull/1564)에서 진행 중이라 바구니의 «지식 초안 · 준비 중»이 비활성이다(API는 구현됨) | #1564 병합 |
+| 화면의 내보내기 실행(REST 어댑터) | `PlatformAdapter`·메뉴 전송에 내보내기 호출이 없어 화면은 범위·한도·미지원 이유만 보인다([backlog](../../../../.planning/backlog.md)) | 어댑터에 내보내기 호출이 생길 때 |
+| 표가 선택한 줄로 이동 | Source 읽기가 처음부터 커서로 읽고 줄 지정 진입점이 없다 | Source 어댑터가 줄 기준 페이지를 제공할 때 |
+| Round 탭에서 근거 위치 담기 | Round 탭은 읽기 전용이다(조사 행을 만들지 않음) | 소유자가 Round 탭에서의 담기를 요청할 때 |
 
 ## 10. Open Decisions
 
@@ -302,3 +307,19 @@ log-dev
 | D8 | 토큰 호출·내보내기 | **결정됨**: 허용, 범위·감사·상한을 설계에 포함(§4.1, 소유자 2026-11-07; 추천 «불허»와 다름), ADR-0119 개정 |
 | D9 | 근거 위치 넘기기 | **결정됨**: 이번 릴리스에 포함, #1198 계약에 맞춤·레인 순서 의존 명시(§5.2·§7, 소유자 2026-11-07; 추천 «보류»와 다름) |
 | D10 | 결함 수신 쪽 | 수신 객체가 없어 전달 계약만 이번에 정하고 연결은 객체 생성 시(팀장에게 확인 요청) |
+
+## 11. 노드 k As-built (#1476)
+
+계약 테스트 한 줄기: [`contract-chain.integration.test.ts`](../../../../apps/platform-api/src/modules/log-explorer/__tests__/contract-chain.integration.test.ts)(실제 HTTP·실제 DB, 인증 모킹 없음, 합성 Source, `-t "contract chain"`). 순서: 개인 토큰 둘 발급(읽기 / 읽기+내보내기) → Round 기원 조사(Round의 샘플 목록을 복사하지 않음) → `records`·`window` 읽기(읽기마다 본문 없는 감사 행) → 근거 위치 둘을 참조만으로 보관 → Round로 넘기기(같은 키 재전송은 같은 답, 새 키는 `alreadyAttached`) → 새 지식 초안으로 넘기기(초안 개정 하나만 만들고 승인·발행 없음) → 읽기 토큰은 읽고 내보내기는 `403 explorer.forbidden`, 내보내기 토큰은 CSV(감사에 토큰 표시) → 권한 철회를 면마다 다음 호출에서 확인 → 체인이 읽은 원본 줄이 감사·조사·Round 참조·초안 개정 어디에도 없음.
+
+| 철회 | 다음 호출에서 |
+| --- | --- |
+| Source 소유자 ACL | 읽기·창·토큰 읽기는 `permission_denied`, 내보내기 `403`, 넘기기 `refs: source_forbidden`; 복구하면 다시 읽힌다 |
+| `explorer.source.read` | 세션·토큰 읽기와 창은 `permission_denied`(감사 행 남음). 내보내기는 자체 권한이라 열려 있다 |
+| `explorer.investigate` | 보관된 위치는 지워지지 않고 `no_access: capability_lost`, 담기는 거절 |
+| `explorer.handoff` | 넘기기 거절, 조사의 `handoff` 플래그 모두 `false`, Round가 이미 가진 참조는 그대로 |
+| `explorer.export` | 토큰·세션 내보내기 모두 `403 explorer.forbidden` |
+
+이 체인이 고정한 계약(구현과 [api/log-explorer.md](../../../architecture/platform-api/api/log-explorer.md)가 같다): 내보내기는 `explorer.export` 하나로 판정하고 읽기 권한은 필요도 충분도 아니다. 넘기기는 `explorer.handoff`와 받는 쪽 권한으로 판정하므로 `explorer.investigate` 철회로 닫히지 않는다(참조만 전달한다).
+
+반복하지 않는 것: 한도·커서·예산·내보내기 임대·넘기기 검증·받는 쪽 규칙은 노드별 통합 테스트(`read-endpoints`·`export`·`evidence-handoff`·`log-explorer`)가 갖는다. 브라우저에서 보이는 쪽은 mock E2E(`features-log-explorer`, `log-lifecycle`)가 갖는다. 합성 Source 위의 검사이므로 사내 Source·Parser·Top View 연동의 증거가 아니다.

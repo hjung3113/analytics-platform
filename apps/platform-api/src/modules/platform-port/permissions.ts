@@ -29,12 +29,20 @@ export type PlatformPermissionRule =
   | 'lifecycle-project-manage'
   /** Admin role, or an active workspace grant of `lifecycle.round.manage` (the write capability of the validation rounds). */
   | 'lifecycle-round-manage'
+  /** Admin role, or an active workspace grant of `lifecycle.gate.decide` (the Gate decision; a human session only, never a token). */
+  | 'lifecycle-gate-decide'
   /** Admin role, or an active workspace grant of `knowledge.draft.create` (the write capability of the knowledge drafts; Developer and User may hold it). */
   | 'draft-create'
   /** An active workspace grant of `explorer.investigate` (the write capability of the log explorer investigations); no Admin role bypass (sensitive, #1472). */
   | 'explorer-investigate'
+  /** An active workspace grant of `explorer.handoff` (handing evidence locations to a Round or a knowledge draft); no Admin role bypass (sensitive, #1474). */
+  | 'explorer-handoff'
   /** Admin role, or an active workspace grant of `dataset.manage` (the write capability of the log test datasets). */
   | 'dataset-manage'
+  /** An active workspace grant of `dataset.baseline.approve` (the approval of a log test dataset baseline); no Admin role bypass (sensitive, #1478). */
+  | 'dataset-baseline-approve'
+  /** Admin role, or an active workspace grant of `dataset.suite.run` (requesting a regression suite run); a User never holds it, even with a live grant (#1479). */
+  | 'dataset-suite-run'
   /** Admin role, or an active workspace grant of `knowledge.access.manage` (sets access mode and rules of a model, SW version or Item). */
   | 'knowledge-access-manage';
 
@@ -57,12 +65,20 @@ export const PLATFORM_PERMISSION_TABLE = [
   // Menu permissions of the log lifecycle writes (#1444 c): project actions and round actions.
   { permission: 'lifecycle:project-manage', rule: 'lifecycle-project-manage' },
   { permission: 'lifecycle:round-manage', rule: 'lifecycle-round-manage' },
+  // Menu permission of the Gate decision (#1446 e).
+  { permission: 'lifecycle:gate-decide', rule: 'lifecycle-gate-decide' },
   // Menu permission of the knowledge draft writes (#1198 a); the four draft actions declare it.
   { permission: 'knowledge:draft-create', rule: 'draft-create' },
   // Menu permission of the log explorer investigation writes (#1468 b); the five investigation actions declare it.
   { permission: 'explorer:investigate', rule: 'explorer-investigate' },
+  // Menu permission of the evidence-location handoff (#1474 X-h); the `logExplorer.evidenceHandoff` action declares it.
+  { permission: 'explorer:handoff', rule: 'explorer-handoff' },
   // Menu permission of the log test dataset writes (#1477 D-a).
   { permission: 'dataset:manage', rule: 'dataset-manage' },
+  // Menu permission of the log test dataset baseline approval (#1478 D-b); the approve action declares it.
+  { permission: 'dataset:baseline-approve', rule: 'dataset-baseline-approve' },
+  // Menu permission of the regression suite run (#1479 D-c); the suiteRun action declares it.
+  { permission: 'dataset:suite-run', rule: 'dataset-suite-run' },
   // Menu permission of the knowledge object access writes (#1504 S-a).
   { permission: 'knowledge:access-manage', rule: 'knowledge-access-manage' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
@@ -194,6 +210,16 @@ async function holds(
       );
       return applyAdminModuleBypass(actor.role_level, 'lifecycle.round.manage', decision).allow;
     }
+    case 'lifecycle-gate-decide': {
+      // The same decision the Gate action takes (`log-lifecycle/gate-actions.ts`); a token call is refused inside checkCapability (session-only).
+      const decision = await checkService.checkCapability(
+        actor,
+        'lifecycle.gate.decide',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'lifecycle.gate.decide', decision).allow;
+    }
     case 'draft-create': {
       // The same decision the draft write actions take (`log-knowledge/draft-actions.ts`).
       const decision = await checkService.checkCapability(
@@ -214,6 +240,16 @@ async function holds(
       );
       return applyAdminModuleBypass(actor.role_level, 'explorer.investigate', decision).allow;
     }
+    case 'explorer-handoff': {
+      // The same decision the handoff action takes (`log-explorer/handoff-action.ts`).
+      const decision = await checkService.checkCapability(
+        actor,
+        'explorer.handoff',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'explorer.handoff', decision).allow;
+    }
     case 'dataset-manage': {
       // The same decision the dataset write actions take (`log-datasets/dataset-actions.ts`).
       const decision = await checkService.checkCapability(
@@ -223,6 +259,28 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'dataset.manage', decision).allow;
+    }
+    case 'dataset-baseline-approve': {
+      // The same decision the baseline approve action takes (`log-datasets/baseline-actions.ts`): a User never holds it, even with a live grant.
+      if (actor.role_level === 'user') return false;
+      const decision = await checkService.checkCapability(
+        actor,
+        'dataset.baseline.approve',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'dataset.baseline.approve', decision).allow;
+    }
+    case 'dataset-suite-run': {
+      // The same decision the suiteRun action takes (`log-datasets/suite-actions.ts`): a User never holds it, even with a live grant.
+      if (actor.role_level === 'user') return false;
+      const decision = await checkService.checkCapability(
+        actor,
+        'dataset.suite.run',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'dataset.suite.run', decision).allow;
     }
     case 'knowledge-access-manage': {
       // The same decision the access actions take (`log-knowledge/access-actions.ts`).

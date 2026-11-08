@@ -12,6 +12,7 @@ import { countsByTarget, proposedQueue, unmappedSuggestions } from './conceptMod
 import { DraftDrawer } from './DraftDrawer';
 import { ChangeDrawer } from './ChangeDrawer';
 import { ChangeComparison } from './ChangeComparison';
+import { SpecCoverageBadge } from './SpecCoverageBadge';
 const TABS = ['spec', 'changes', 'history', 'concept'], DRAWERS = ['event', 'draft', 'add', 'retire', 'confirm'];
 const RULES = [
   { key: 'event', label: { ko: 'Event', en: 'Event' }, valid: (v: string) => v.length > 0 && v.length <= 4096 && !/[\u0000-\u001f]/u.test(v) },
@@ -156,6 +157,7 @@ export default function SpecScreen({ params }: PageProps) {
       {!canWrite && <p role="status" className="text-sm text-text-muted">{w('읽기 전용: 작성·발행·개념 검토는 명세 관리 권한을 관리자에게 요청하세요.', 'Read only: ask an administrator for specification management permission to edit, publish or review concepts.')}</p>}
       <QueryView widgetName={w('SW 버전', 'Software versions')} query={swState}>{() => <SpecSelect label={w('SW 버전', 'Software version')} value={softwareId ?? 'model'} options={[{ value: 'model', label: w('모델 기준', 'Model basis') }, ...software.map(s => ({ value: s.id, label: `${s.releaseOrder}. ${s.versionLabel}` }))]} onChange={value => navigate({ software: value === 'model' ? null : value, drawer: null, change: null })} />}</QueryView>
       {current && <p className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">r{current.revision.revisionNo} · {current.revision.sourceDocRef.docLabel} · {current.revision.sourceDocRef.docVersion} · {current.revision.publishedAt ? instant(current.revision.publishedAt) : '—'} · {current.revision.publishedBy ?? '—'} {softwareId && <span>{'effective' in current && current.effective ? w('실효 명세', 'Effective specification') : w('모델 명세 그대로', 'Same as model specification')}</span>}{changes.response?.outcome === 'ok' && changes.response.data?.rows.some(c => c.needsRevalidation && !c.retiredAt) && <StatusBadge tone="warning">{w('재검토 필요', 'Needs revalidation')}</StatusBadge>}</p>}
+      {enabled && <SpecCoverageBadge modelId={modelId} softwareId={softwareId} enabled={enabled} />}
       {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : content}
       {enabled && eventOpen && current && <EventDrawer spec={current} modelId={modelId} identity={eventKey} rows={mappingRows} count={conceptReady ? conceptCounts.get(eventKey)?.proposed ?? 0 : boundedCount === 0 ? 0 : null} reload={reloadConcepts} onClose={close} connectedChanges={<QueryView widgetName={w('연결된 변경점', 'Connected changes')} query={eventChanges}>{data => <ConnectedChanges rows={data.rows} spec={current} identity={eventKey} onChange={id => navigate({ tab: 'changes', event: null, review: null, drawer: canWrite ? 'retire' : null, change: id })} />}</QueryView>} />}
       {enabled && drawer === 'draft' && canWrite && <DraftDrawer key={`draft:${discardEpoch}`} modelLabel={modelLabel} modelId={modelId} revisionId={revision} onClose={close} onDirtyChange={onDirtyChange} />}

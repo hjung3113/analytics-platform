@@ -36,6 +36,7 @@
     "@ap/menu-hw-time": "workspace:*",
     "@ap/menu-improvement-items": "workspace:*",
     "@ap/menu-integration": "workspace:*",
+    "@ap/menu-log-analysis": "workspace:*",
     "@ap/menu-log-cross": "workspace:*",
     "@ap/menu-log-knowledge": "workspace:*",
     "@ap/menu-log-models": "workspace:*",

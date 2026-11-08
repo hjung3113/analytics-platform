@@ -1,3 +1,4 @@
+import { apiHref } from '@/lib/api/client';
 /**
  * TriagePanel — full read+pick pass (Chunk 2) + mutation wire-up (C3.2).
  *
@@ -199,6 +200,8 @@ export function TriagePanel({
                     mode="internal"
                     attachments={vocDetailQuery.data.attachments}
                     attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
+                    surface="voc-description"
+                    resolveAttachmentUrl={id => apiHref(`/attachments/${id}/download`)}
                   />
                 </div>
               )

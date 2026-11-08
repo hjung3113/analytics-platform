@@ -10,6 +10,7 @@ import { currentAuthContext } from '../../lib/auth-context.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
+import { withAttemptRuleSets } from './attempt-rule-set.js';
 import type { LogLifecycleDeps } from './deps.js';
 import {
   EXCERPT_PARAM_KEYS,
@@ -23,7 +24,9 @@ import {
 } from './domain/queue-params.js';
 import { LOG_VALIDATION_REQUESTS_MENU_ID } from './menu.js';
 import { excerptTarget, getRequestDetail, listRequests, listRuleResults, readExcerpt } from './repositories/queue-read.js';
-import { holdsExcerptRead } from './repositories/queue-write.js';
+import { isWithinRunWindow } from './domain/run-window.js';
+import { sql } from 'drizzle-orm';
+import { getQueueSettings, holdsExcerptRead } from './repositories/queue-write.js';
 
 type Actor = { actor_id: string; workspace_id: string };
 type Judged<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -62,14 +65,27 @@ function declare<T>(
 export function requestEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclaration[] {
   const audit = createAuditService();
   return [
+    declare(deps, 'queueStatus', [], () => ({ ok: true, value: null }), async (actor) => {
+      const settings = await getQueueSettings(deps.db, actor.workspace_id);
+      const now = await deps.db.execute(sql`select now() as at`);
+      const at = new Date(String(now.rows[0]?.at));
+      return { outcome: 'ok', data: { runWindow: settings.runWindow, immediateLimit: settings.immediateLimit, serverAt: at.toISOString(), withinWindow: isWithinRunWindow(settings.runWindow, at) } };
+    }),
     declare(deps, 'requests', REQUEST_PARAM_KEYS, parseRequestListParams, async (actor, query) => ({
       outcome: 'ok',
       data: await listRequests(deps.db, actor.workspace_id, query, viewerOf(actor)),
     })),
-    declare(deps, 'requestDetail', REQUEST_DETAIL_PARAM_KEYS, parseRequestDetailParams, async (actor, requestId) => ({
-      outcome: 'ok',
-      data: await getRequestDetail(deps.db, actor.workspace_id, requestId, viewerOf(actor)),
-    })),
+    declare(deps, 'requestDetail', REQUEST_DETAIL_PARAM_KEYS, parseRequestDetailParams, async (actor, requestId) => {
+      // The core read first, in its own transaction; the RuleSet link lookups (#1496) run after it on the pool, outside that
+      // transaction (a failed statement aborts its transaction) and a rejected lookup only marks the attempts `unavailable`.
+      const detail = await deps.db.transaction((tx) => getRequestDetail(tx, actor.workspace_id, requestId, viewerOf(actor)));
+      const data = detail
+        ? await withAttemptRuleSets(deps.ruleCoverage, deps.db, actor.workspace_id, detail, () => {
+            console.warn('logLifecycle.requestDetail: RuleSet catalog lookup failed; attempts carry ruleSet unavailable');
+          })
+        : null;
+      return { outcome: 'ok', data };
+    }),
     declare(deps, 'ruleResults', RULE_RESULT_PARAM_KEYS, parseRuleResultParams, async (actor, query) => ({
       outcome: 'ok',
       data: await listRuleResults(deps.db, actor.workspace_id, query, viewerOf(actor)),

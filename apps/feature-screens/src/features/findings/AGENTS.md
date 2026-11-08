@@ -1,7 +1,5 @@
 # Findings Feature Agent Guide
 
-#597: paths below describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/feature-bridge`; standalone routes and `*Route` compositions are retired. Adapters under `src/test` are test-only.
-
 ## Ownership
 
 This folder owns Finding screens and hooks: `FindingDetailPanel` and its panel tree (`FullFindingDetail`, `FindingExecutionSection`, the evidence/link modals, the Finding-owned Request Task draft host, `useFindingDetailController`), plus the Finding read/mutation hooks (`useFindingsList`, `useFindingDetail`, `useFindingStatusMutation`, `useEvidenceHighlights`, `useEvidenceMutations`, `useRequestTaskFromFinding`). The neutral `TaskRequestDraftCard` form and read presentation lives in `features/cross-system/request-task/`.

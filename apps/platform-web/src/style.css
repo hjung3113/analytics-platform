@@ -25,4 +25,7 @@
 @import "@ap/menu-notice-voc/styles.css";
 @import "@ap/menu-systems/styles.css";
 @import "@ap/menu-improvement-items/styles.css";
+@import "@ap/menu-log-analysis/styles.css";
+@import "@ap/menu-log-models/styles.css";
+@import "@ap/menu-log-rules/styles.css";
 /* </gen:menu-styles> */

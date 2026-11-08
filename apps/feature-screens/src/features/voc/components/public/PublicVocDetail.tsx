@@ -1,3 +1,4 @@
+import { apiHref } from '@/lib/api/client';
 // PublicVocDetail — one VOC as the public projection shows it (ADR-0110 decision 3): title, status with its stage line,
 // description and the public updates with attachments. It renders `PublicVocView` and nothing else; reporter replies,
 // internal comments and operator fields are not in that object, so there is nothing here to hide.
@@ -40,7 +41,9 @@ export function PublicVocDetail({ voc, variant = 'page' }: PublicVocDetailProps)
             <p className="text-text-muted">설명 없음</p>
           ) : (
             <RichContentRenderer doc={voc.description_rich_content as TipTapDoc} mode="reporter_visible" surface="voc-description"
-              attachments={voc.attachments} attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL} />
+              attachments={voc.attachments} attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
+              resolveAttachmentUrl={id => apiHref(`/attachments/${id}/download`)}
+            />
           )}
         </div>
         <AttachmentChipList attachments={voc.attachments} />

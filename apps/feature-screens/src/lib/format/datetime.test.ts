@@ -1,4 +1,5 @@
 import {
+  formatCompactDateTime,
   formatDate,
   formatDateOnly,
   formatDateTime,
@@ -63,6 +64,10 @@ describe('formatDateTime', () => {
   });
 });
 
+it('formats a two-digit year with the full KST date and time for compact platform tables', () => {
+  expect(formatDateTime('2026-11-07T09:00:00Z', '2-digit')).toBe('26. 11. 7. 오후 6:00');
+});
+
 describe('formatShortDateTime', () => {
   it.each([
     { input: '2026-10-01T06:05:00.000Z', expected: '10월 1일 오후 3:05' },
@@ -91,5 +96,13 @@ describe('formatDateOnly', () => {
     { input: 'invalid', expected: '—' },
   ])('formats $input as $expected', ({ input, expected }) => {
     expect(formatDateOnly(input)).toBe(expected);
+  });
+});
+
+
+describe('formatCompactDateTime', () => {
+  it('keeps a dense 24-hour KST display even when the browser zone is UTC', () => {
+    expect(formatCompactDateTime('2026-11-06T16:30:00.000Z')).toMatch(/11.*07.*01:30/);
+    expect(formatCompactDateTime('invalid')).toBe('—');
   });
 });

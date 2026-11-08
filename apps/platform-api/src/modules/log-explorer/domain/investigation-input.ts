@@ -9,6 +9,7 @@ import { requiredText, uuid } from '../../../lib/input/fields.js';
 import { unsafeText } from '../../../lib/text-safety.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
 import { type SampleSet, parseSampleSet } from '../../log-lifecycle/index.js';
+import { parseHandoff } from './handoff.js';
 import { type EvidenceKey, type EvidenceRef, parseEvidenceKey, parseEvidenceRef } from './evidence.js';
 
 export const TITLE_MAX = 200;
@@ -76,6 +77,7 @@ export const EXPLORER_INPUT_KEYS = {
   evidenceAdd: ['id', 'ref'],
   evidenceRemove: ['id', 'ref'],
   investigationArchive: ['id'],
+  evidenceHandoff: ['id', 'refs', 'target'],
 } as const;
 export type ExplorerOp = keyof typeof EXPLORER_INPUT_KEYS;
 
@@ -150,6 +152,8 @@ export function validateExplorerInput(op: ExplorerOp, input: Record<string, unkn
           ? parseEvidenceAdd(input)
           : op === 'evidenceRemove'
             ? parseEvidenceRemove(input)
-            : parseArchive(input);
+            : op === 'evidenceHandoff'
+              ? parseHandoff(input)
+              : parseArchive(input);
   return parsed.ok ? [] : parsed.errors;
 }

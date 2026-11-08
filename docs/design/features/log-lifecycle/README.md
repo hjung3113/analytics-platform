@@ -1,6 +1,6 @@
-# Log Lifecycle — v0.30.0 최소 슬라이스 설계 (Decided 설계, 구현 전)
+# Log Lifecycle — v0.30.0 최소 슬라이스 설계 (As-built, 사이드바 계층 g2만 부분)
 
-> **Status: Candidate → 구현 착수(2026-11-07), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영. 노드 완료마다 As-built로 바꾼다. 노드 c(#1444)는 As-built: 개발 건·이벤트·Round의 스키마·읽기·쓰기, 노드 d(#1445)는 As-built: 검증 요청 큐(요청·시도·규칙 결과·발췌, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict, 참조 작업자 «합성 fixture»). 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md).** 설계만 있고 구현·DB·API는 없다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: As-built (v0.30.0 슬라이스 노드 a–h), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영.** 구현된 것: API 토큰 a(#1442)·b(#1443), 개발 건·이벤트·Round c(#1444)와 수동 검증 첨부 c2(#1451)·Entity Link c3(#1466), 검증 요청 큐 d(#1445, 참조 작업자는 «합성 fixture»), Gate 결정 e(#1446), 화면 f(#1447, 컨펌 A2), 사이드바 계층 g(#1448 SDK 조각)·g2(#1449), 통합 h(#1450, 토큰 → claim → 결과 → Gate 계약 E2E). **부분 구현은 g2 하나다:** `node` 없는 개발 건·Round 딥링크에서 현재 노드를 찾는 기능은 SDK seam 결정 전 미구현이다(§7, [백로그](../../../../.planning/backlog.md)). 노드 f 화면의 데스크톱 시각 확인은 호스트 몫이다(§12). 이 슬라이스가 만들지 않은 것은 §1 «하지 않는 것»과 §9가 그대로 갖는다. 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md). 노드별 표기는 §7을 따른다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 사내 스크립트 Validator·사내 LLM은 별도 개발 중이다. 인터페이스·출력·권한은 실사 전이므로 **연동 완료로 쓰지 않는다.** 이 슬라이스는 플랫폼 쪽 틀(요청 등록·가져가기·결과 저장·사람 기록)만 만든다.
 
@@ -28,9 +28,9 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 - **모델 명세 원본(stale 문구 정리, #1346 P0-4).** #1330의 «SW별 독립 Spec 원본» 문구는 폐기된 것으로 본다. 현행 결정은 [GLOSSARY](../../../../GLOSSARY.md)의 **모델 명세 Revision**(원본) + SW별 **변경점**(SW X부터 적용, 변경 없으면 행 없음)이고, 그 결과가 **실효 명세**다. Round는 검증 시점의 실효 명세를 `spec_pin`(모델 명세 Revision ID + 적용된 변경점 집합의 digest)으로 고정해 재현성을 얻는다. `spec_pin`은 #1196 구현이 제공하는 값을 읽어 저장할 뿐 이 모듈이 계산하지 않는다.
 - **모델 식별.** `model_id`·`software_id`는 `log-knowledge`의 안정 ID를 쓴다. Log Format 버전은 SW 버전이 아니다(자동 동일시 금지; 레거시 이관 때 명시 매핑). 스키마 사이 FK는 두지 않고(모듈 경계: [02 §](../../../architecture/platform-api/02-domain-module-boundaries.md)) 쓰기 때 `log-knowledge`가 내놓는 읽기 포트로 존재·활성을 확인한다.
 
-## 3. 데이터 모델 (v0.30.0 최소, 확정 DDL 아님)
+## 3. 데이터 모델 (v0.30.0 최소; 실제 컬럼·제약은 마이그레이션과 API 문서가 갖는다)
 
-스키마 이름 후보 `log_lifecycle`. 테이블은 이 슬라이스가 쓰는 것만 둔다. #1330 §3의 아홉 개념과의 대응:
+스키마 `log_lifecycle`. 테이블은 이 슬라이스가 쓰는 것만 둔다. #1330 §3의 아홉 개념과의 대응:
 
 | #1330 개념 | v0.30.0 | 비고 |
 | --- | --- | --- |
@@ -87,12 +87,13 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 - `evidence.fileRef`는 해당 Round `sample_set`에 있는 것만 받는다(없으면 `validation.failed`).
 - 결함(Defect)·재검증 연결은 만들지 않는다. 같은 `rule_id`·`fileRef`·`line`을 Round 사이에 비교하는 보기는 이 테이블로 나중에 가능하다.
 
-### gate_decision (추가 전용)
+### gate_decision (추가 전용) — **As-built(#1446 e)**
 
 `id`, `round_id`, `target_stage`, `decision`(`approved`·`rejected`·`exception`), `basis`(jsonb: 결정 시점의 `execution_attempt` ID들과 각 `verdict`·`rule_set_revision`·`input_manifest_digest`·`spec_pin`), `reason`, `exception`(`decision='exception'`일 때 `{ riskAcceptedBy, scope, until? }`), `actor_id`, `at`.
 
 - 서버 규칙: `approved`는 가장 최근 `succeeded` 시도의 `verdict='pass'`가 있을 때만; 없으면 `exception`(사유·위험 수용자 필수)으로만 통과한다. `fail`·`incomplete`·시도 없음은 `exception`이 아니면 `approved`가 거절된다. **검증 판정과 업무 승인은 별도 행**이고, 승인이 스크립트 판정을 바꾸지 않는다.
 - 승인한 결정은 `development_project.stage`를 같은 트랜잭션에서 옮긴다. 이벤트 `gate_decided`도 같이 쓴다.
+- **As-built(#1446 e, 마이그레이션 0113)**: 위 필드에 `from_stage`(결정 때 단계)·`self_approved`(저장; 결정자 = 최근 검증 요청의 요청자, 요청이 없으면 Round를 연 사람)를 더했다. `basis`는 `version`, `attempts[]`(성공한 모든 시도: 시도 ID·`attemptNo`·`verdict`·`rule_set_revision`·`input_manifest_digest`·종료 시각), `decisiveAttemptId`·`decisiveVerdict`(가장 최근 성공 시도), `specPin`, `sampleManifestDigest`, 요청 digest, `evidenceLinks[]`(수동 검증 첨부의 ID와 연결 시각만)이다. 모든 결정이 개발 건 버전을 올리고(동시 결정은 한 건만 이김), `rejected`는 단계를 옮기지 않는다. 예외는 기계 판정이 `pass`가 아닐 때만 쓴다(`pass` 위의 예외는 거절). Gate는 사람 결정이다: 토큰·`system` 행위자는 결정할 수 없다. 사유·예외 범위는 Round를 읽을 수 있는 누구나 본다(감사 로그에는 없다). 계약: [api/log-lifecycle.md §Gate decision](../../../architecture/platform-api/api/log-lifecycle.md#gate-decision-node-e-1446).
 - 이 슬라이스는 stale/needs_revalidation을 계산하지 않는다. 대신 비교에 필요한 digest(`spec_pin`, `rule_set_revision`, `input_manifest_digest`)를 `basis`에 고정해 두므로 나중에 계산이 추가되어도 과거 행을 고치지 않는다(§9).
 
 ## 4. 서버 모듈 경계
@@ -101,17 +102,17 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 
 ```text
 log-lifecycle/
-  deps.ts                 # 의존 주입: db, clock, knowledgeLookup(읽기 포트), attachments, audit
-  domain/                 # 상태 전이 표, verdict 계산, 매니페스트 digest (순수 함수)
-  repositories/           # development_project, event, round, request, attempt, rule_result, gate_decision
-  project-endpoints.ts    # 읽기(menu-query)
-  project-actions.ts      # 쓰기(menu-action)
-  round-endpoints.ts / round-actions.ts
-  request-endpoints.ts / request-actions.ts   # 사람이 등록·취소
-  gate-actions.ts
-  worker-routes.ts        # 토큰 호출 전용 REST: claim·heartbeat·result·fail (ADR-0117)
-  window.ts               # 실행 시간대 판정 (workspace 설정 읽기)
-  index.ts
+  deps.ts                       # 의존 주입: db, clock, knowledgeLookup(읽기 포트), attachments, entityLinks, audit
+  domain/                       # 상태 전이 표, verdict·Gate 규칙, 매니페스트 digest, 실행 시간대 (순수 함수)
+  repositories/                 # 개발 건·이벤트·Round, 요청·시도·규칙 결과, gate_decision, 계층 읽기
+  lifecycle-endpoints.ts        # 읽기(menu-query): models·projectDetail·rounds·roundDetail …
+  project-actions.ts            # 개발 건 쓰기(menu-action)
+  round-actions.ts              # Round 열기·닫기·수동 검증 첨부
+  request-endpoints.ts / request-actions.ts   # 검증 요청 읽기·등록·취소, 큐 설정, 발췌
+  gate-actions.ts / gate-availability.ts      # Gate 결정과 결정 가능 여부 읽기
+  queue-service.ts / worker-routes.ts         # 토큰 호출 전용 REST: claim·heartbeat·result·fail (ADR-0117)
+  hierarchy-read.ts             # 사이드바 계층 읽기(#1449)
+  index.ts                      # 배럴: 다른 모듈이 쓰는 포트
 ```
 
 - **쓰기·읽기 분리.** 사람의 화면 호출은 기존 방식(`menu-query`·`menu-action`, `idempotencyKey`·`expectedVersion`, 응답 봉투)이다. 작업자 호출은 토큰 인증 REST 4개이고 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)이 계약을 가진다. 둘은 같은 서비스·저장소를 쓰고 인증 진입만 다르다.
@@ -120,7 +121,7 @@ log-lifecycle/
 - **작업자 모의(mock) 조각.** 통합 테스트와 dev 시드를 위한 참조 작업자(claim → heartbeat → 결과 제출 스크립트)를 `tooling` 아래에 둔다. 실제 사내 Validator 연동 증거로 쓰지 않으며 문서·PR에 «합성 fixture»로 적는다(#1330 §8 마지막 항목).
 - **계약 산출물.** 작업자 REST의 요청·응답 스키마는 `@ap/contract-schemas`에 `v0`(잠정)로 낸다. 메뉴 엔드포인트는 기존 `endpoints.json` 규칙을 따른다.
 
-### 권한 (capability, 이름 후보)
+### 권한 (capability)
 
 | capability | 무엇 | 부여 |
 | --- | --- | --- |
@@ -134,6 +135,8 @@ log-lifecycle/
 `log-dev`는 Managed System이 아니므로 `managed_system_id` 없이 Workspace 범위로 부여한다([ADR-0107](../../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 결정 3 보충과 같은 이유). 자기 승인(요청자=결정자)은 막지 않고 이력에 표시한다(소유자 2026-11-07, 질문 9).
 
 ## 5. API 목록 (v0.30.0)
+
+구현된 읽기·쓰기의 정확한 목록과 파라미터는 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md)가 갖는다. 아래 표는 설계 시점의 윤곽이다.
 
 ### 읽기 — `POST /api/v1/menu-query`
 
@@ -193,7 +196,7 @@ log-dev (기존 Space)
    └─ 검증 요청            log-validation-requests /log/validation-requests            [Management, 신규]
 ```
 
-화면 수: 모델 목록(계층 보기 포함, 기존 planned 메뉴의 첫 실구현) + 개발 건·Round 상세 + 검증 요청(+등록·결과 서랍) = **새 화면 3개**이고 범위는 소유자가 확정했다(2026-11-07). 토큰 관리 화면([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md))은 서비스 토큰 1개 화면이며 개인 토큰은 같은 화면의 탭이다(`platform/` 쪽, 소유자 2026-11-07). 각 화면은 실제 앱 시안(`?variant=`) 컨펌 뒤 구현한다.
+화면 수: 모델 목록(계층 보기 포함, 기존 planned 메뉴의 첫 실구현) + 개발 건·Round 상세 + 검증 요청(+등록·결과 서랍) = **새 화면 3개**이고 범위는 소유자가 확정했다(2026-11-07). 토큰 관리 화면([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md))은 내 활동의 개인 토큰(`/tokens`)과 운영 콘솔 권한 그룹의 서비스 토큰(`/operations/service-tokens`) 두 메뉴다(탭 없음, 소유자 2026-11-07). 각 화면은 실제 앱 시안(`?variant=`) 컨펌 뒤 구현한다.
 
 ### 6.3 Conceptual Contract (화면별 최소)
 
@@ -201,7 +204,7 @@ log-dev (기존 Space)
 - 열: 모델, 설비사, 공정, 개발 단계, 검증 상태(`검증 전`·`요청 대기`·`실행 중`·`통과`·`실패`·`불완전`·`Gate 승인됨`), 대기 요청, 갱신.
 - 검증 상태는 **가장 최근 Round의 가장 최근 시도 `verdict`와 요청 `state`에서 파생**한 표시값이고 Gate 승인과 구분해 별도 열(`Gate`)로 둔다. `incomplete`·`미지원`을 `통과`로 보이지 않는다.
 - 개발 건이 없는 모델도 행으로 보인다(`개발 건 없음`) — 행 동작: 「개발 건 만들기」(권한 있을 때).
-- 보기는 둘이다: 필터 표(위 열)와 **설비사→공정→모델→SW 계층 보기**. 계층 보기는 [ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)의 `HierarchyExplorer`(소유자 2026-11-07, 이 릴리스 포함)를 쓰고, 메뉴가 네 단계와 노드 종류를 선언한다. 모델 노드는 개발 단계·검증 상태를 표시하고 선택하면 개발 건 상세로 간다(개발 건 없는 모델은 「개발 건 만들기」). 두 보기는 같은 `logLifecycle.models` 데이터를 쓰되 노드 조회(`listChildren`·`resolveAncestors`)용 읽기 엔드포인트는 노드 f에서 추가한다. 지식 허브 «모델 탐색» 표는 바뀌지 않는다. 최종 화면 배치는 다음 세션에서 확인한다.
+- 필터 표(위 열)와 **사이드바 설비사→공정→모델→SW 계층 탐색**을 함께 쓴다. [ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)의 메뉴 `navTree` + SDK `HierarchyNav`(모델은 `mode: tree`, 소유자 2026-11-07 컨펌)로 네 단계와 노드 종류·목적지를 선언한다. 모델 노드는 안정 객체 ID로 등록된 메뉴·개발 건 상세를 연다. **As-built(#1449, 부분 구현)**: 노드 조회(`listChildren`·`resolveAncestors`·검색)는 메뉴의 `Source`가 `logLifecycle.hierarchy` 선언 엔드포인트로 조립한다. 설비사·공정과 `vendorId`·`processId`·`modelId` 전체 모델 필터 주소는 조상을 복원한다. 모델·SW의 개발 건 링크는 객체 ID 경로 `node`(`v/<vendor>/p/<process|none>/m/<model>[/s/<sw>]`)를 담고, 프로젝트 내 Round 이동에서도 보존해 현재 노드를 표시한다. `node` 없는 개발 건·Round 딥링크에서 현재 노드를 찾는 기능만 **미구현**이다. 동기 `currentNodeId`가 경로 조회 결과를 받을 SDK seam은 [백로그](../../../../.planning/backlog.md)의 확장 결정 뒤 재개한다. 본문 `HierarchyExplorer`·`HierarchyBreadcrumb`은 보류이며 필터 표와 지식 허브 «모델 탐색» 표는 유지한다.
 
 **개발 건 상세 (Management 상세)**
 - 머리: 모델·SW 딥링크(`log-knowledge`), 단계 스테퍼, 담당, 목표일, 현재 Gate 상태. 단계 이동 버튼은 서버가 허용한 다음 단계만 보인다.
@@ -220,30 +223,30 @@ log-dev (기존 Space)
 
 ### 6.4 Wireframe 수준
 
-1440×900과 1280 폭만 다룬다(데스크톱 범위). 전체 높이를 채우는 표 + 오른쪽 서랍 구조이고 새 컴포넌트는 만들지 않는다 — `PlatformDataTable`·`DetailDrawer`·`AuditTimeline`·`DataTrustIndicator`와 기존 단계 스테퍼 후보를 찾는다(없으면 Open Decision D5). **시각이 바뀌는 구현 전에 `?variant=` 시안을 아티팩트로 컨펌**받는다(루트 AGENTS «UI는 프로토타입 컨펌 뒤 구현»). 이 설계 PR에는 시안이 없다.
+1440×900과 1280 폭만 다룬다(데스크톱 범위). 전체 높이를 채우는 표 + 오른쪽 서랍 구조이고 새 컴포넌트는 만들지 않는다 — `PlatformDataTable`·`DetailDrawer`·`AuditTimeline`·`DataTrustIndicator`와 기존 단계 스테퍼 후보를 찾는다(없으면 Open Decision D5). **시각이 바뀌는 구현 전에 `?variant=` 시안을 아티팩트로 컨펌**받는다(루트 AGENTS «UI는 프로토타입 컨펌 뒤 구현»). 컨펌된 안은 §12의 A2다.
 
 ### 6.5 URL
 
 `/log/models/:projectId/rounds/:roundId`처럼 **안정 ID만** 주소에 둔다. 표 필터·정렬·열린 서랍은 기존 화면 상태·복원 계약을 따르고, 원본 로그 위치·토큰·샘플 목록을 주소에 직렬화하지 않는다.
 
-## 7. 구현 노드 분할 (제안)
+## 7. 구현 노드 분할과 상태
 
 티어는 `tier.sh`·PROFILE §Size and path 기준(`apps/platform-api`·`platform-web`·`packages/sdk/*` 비테스트 소스는 full, 문서·메뉴 샘플은 light). 한 노드 = 한 PR 기본.
 
 | 노드 | 내용 | 기대 티어 | 선행 |
 | --- | --- | --- | --- |
 | 0 | ADR 0116·0117·0118 확정(소유자 답) + 이 문서 Candidate→As-built 전환 계획 | light | 소유자 답 |
-| a | **API 토큰 코어**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)): 테이블·발급·폐기·인증 훅·scope ∩ 권한 판정·감사·고위험 거절. **As-built** #1442(PR #1456): `core.api_tokens`(0101), 토큰은 `menu-query`·`menu-action`만 호출 가능, 계약은 [auth.md](../../../architecture/platform-api/api/auth.md)·[05](../../../architecture/platform-api/05-permission-policy.md) | full, `impl-complex` (권한 경계) | 0 |
-| b | 토큰 관리 화면(개인 목록·발급·폐기, 관리자 서비스 토큰) + 시안 | full, `ux=required` | a |
+| a | **API 토큰 코어**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)): 테이블·발급·폐기·인증 훅·scope ∩ 권한 판정·감사·고위험 거절. **As-built** #1442(PR #1456): `core.api_tokens`(0101), 토큰은 `menu-query`·`menu-action`과 검증 작업자 REST 4개(claim·heartbeat·result·fail, ADR-0117)를 호출할 수 있고 Gate 결정 같은 세션 전용 동작은 거절된다, 계약은 [auth.md](../../../architecture/platform-api/api/auth.md)·[05](../../../architecture/platform-api/05-permission-policy.md) | full, `impl-complex` (권한 경계) | 0 |
+| b | **As-built** #1443: 확인된 A안(표 + 발급 서랍), 개인 `/tokens`(내 활동)·`/operations/service-tokens`(운영 콘솔 권한), 복수 권한 묶음·일회 표시·폐기. 화면은 `apps/feature-screens/src/features/api-tokens/`, 묶음은 `packages/feature-shared/src/enums/api-token-bundles.ts`. 서비스 목록은 기본 서비스 토큰만, 「개인 토큰 포함」으로 전체(ADR-0116 3a); review-ux·일관성 점검·impeccable·mock/real E2E 통과. | full, `ux=required` | a |
 | c | `log-lifecycle` 스키마·마이그레이션·개발 건·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 검증 첨부는 c2 #1451, 구현됨) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
 | d **As-built** #1445 | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
-| e | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
-| f | 화면: 모델 목록·개발 건/Round 상세·검증 요청 + 시안(`?variant=`) | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
-| g | **#1108 SDK 조각**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)): `HierarchyExplorer` + `HierarchyBreadcrumb`, 합성 소비자 | full, `impl-complex`(공개 API `sdk:api`) | 시안 컨펌(소비자는 확정) |
-| g2 | `log-models` 계층 보기 연결(source 구현, 노드 표시) | full, `ux=required` | g, c |
-| h | 통합: 계약 E2E(토큰 → claim → 결과 → Gate), 문서 소유 갱신, `.planning` 줄 | full | a–f |
+| e **As-built** #1446 | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
+| f **As-built** #1447 | 컨펌 A2 모델 표·개발 건/Round 상세·검증 요청. `PlatformDataTable`·확장 가능한 `DetailDrawer`·`AuditTimeline`·Gate 우측 고정. 사이드바 계층은 g2 #1449가 연결한다; | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
+| g | **#1108 SDK 조각**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)): `navTree` + `HierarchyNav`, 합성 source·실제 AppShell 테스트 — **As-built**(#1448, 호스트 검증 대기; 본문 조각 보류) | full, `impl-complex`(공개 API `sdk:api`) | 시안 컨펌(소비자는 확정) |
+| g2 **As-built(부분)** #1449 | `log-models` tree 선언·4단계 source·서버/합성 조회·노드 목적지 연결. 계층 링크의 개발 건·Round는 객체 경로 `node`로, 모델 목록은 `vendorId`·`processId`·`modelId`로 현재 노드를 복원한다. `node` 없는 개발 건·Round 딥링크만 SDK seam 결정 전 미구현([백로그](../../../../.planning/backlog.md)) | full, `ux=required` | g, c |
+| h **As-built** #1450 | 통합: 계약 E2E 한 건(서비스 토큰 발급 → 등록 → claim·heartbeat·결과 → verdict → Round 읽기 → 세션 Gate → 단계·이벤트·감사), 소유 문서 갱신, `.planning` 줄. 아래 §13 | full | a–f |
 
-병렬: a∥c, g는 독립 (f의 계층 보기는 g2 이후)(파일이 겹치지 않음). 도메인 스키마를 바꾸는 노드(c·d·e)는 마이그레이션 노드의 규칙(전체 백엔드 `test:integration`)을 따른다([traps](../../../../.agents/conductor/addenda/traps.md)).
+병렬: a∥c, g는 독립(파일이 겹치지 않음). 도메인 스키마를 바꾸는 노드(c·d·e)는 마이그레이션 노드의 규칙(전체 백엔드 `test:integration`)을 따른다([traps](../../../../.agents/conductor/addenda/traps.md)).
 
 ## 8. 반례와 대응 (v0.30.0 범위만)
 
@@ -267,7 +270,7 @@ log-dev (기존 Space)
 | --- | --- | --- |
 | Validator·LLM 호출 어댑터 | 사내 인터페이스 실사 전 | 실제 CLI/API/출력/권한 실사 완료(#1330 §9-1) |
 | LLM 의견(`LlmSuggestionRef`) | P2, 사내 모델 능력 측정 전 | 측정 완료 + #1198 초안 경로 |
-| Gate stale/needs_revalidation 계산 | digest만 고정해 둠 | 두 번째 Round 비교가 필요한 시점 |
+| Gate stale/needs_revalidation(재검증 필요) 계산 | 노드 e는 digest만 `basis`에 고정(구현 안 함) | 두 번째 Round 비교가 필요한 시점 |
 | Defect·재검증·Task/VOC 연결 | P3 | FindingLink의 실제 소비자 |
 | 레거시 이관(키 매핑·7단계 매핑) | 소유자 결정: 이번 릴리스 제외 가정 | 이관 슬라이스 착수 |
 | `logCross`·`logRules`·`logMyWork` 확장 | #1346 P1–P2 | 이 슬라이스 병합 후 |
@@ -287,5 +290,23 @@ log-dev (기존 Space)
 ## 11. 노드 d As-built 메모 (#1445)
 
 - 구현 위치와 계약: [log-lifecycle API §Validation request queue](../../../architecture/platform-api/api/log-lifecycle.md). 설계와 달라진 점: 발췌 열람 권한 `lifecycle.excerpt.read`는 «sourceOwner 범위»를 권한 모듈이 표현하지 못해 `log_lifecycle.excerpt_reader` 표로 둔다(관리자가 부여·철회). `validation.worker`는 capability가 아니라 서비스 토큰 전용 scope(`TOKEN_ONLY_SCOPES`)다. 큐 설정(실행 시간대·lease·«즉시» 한도·발췌 보관일)은 `workspace_settings`가 아니라 `log_lifecycle.queue_settings`에 둔다. 요청 우선순위는 숫자가 클수록 먼저 가져간다. 하트비트는 감사하지 않는다. lease가 끝나 `queued`로 돌아갔지만 아무도 가져가지 않은 시도의 하트비트는 같은 시도에 lease를 되돌려 준다(결정 4). 만료된 lease의 복귀는 claim 호출이 처리한다(주기 작업 없음).
-- 발췌 삭제(결정 7)는 구현했다: Round 종료 + `excerptRetentionDays` 뒤 본문을 물리 삭제하는 일일 작업 `lifecycle.excerpt_purge`와 관리자 즉시 삭제 `logLifecycle.excerptDelete`(Round·시도 범위, 사유 필수, 감사에 본문 없음). 아직 없음(다시 여는 조건): `validation` 목록 필터·대기 요청 수(노드 f 화면), `queued` 요청의 우선순위 변경, Round를 닫을 때 대기 요청 자동 취소(지금은 가져가지 않고 사람이 취소).
+- 발췌 삭제(결정 7)는 구현했다: Round 종료 + `excerptRetentionDays` 뒤 본문을 물리 삭제하는 일일 작업 `lifecycle.excerpt_purge`와 관리자 즉시 삭제 `logLifecycle.excerptDelete`(Round·시도 범위, 사유 필수, 감사에 본문 없음). 아직 없음(다시 여는 조건): `queued` 요청의 우선순위 변경, Round를 닫을 때 대기 요청 자동 취소(지금은 가져가지 않고 사람이 취소).
 
+
+
+## 12. 노드 f As-built (#1447)
+
+- 소유자 2026-11-07 컨펌 A2. 내부 단계 값은 그대로 두고 화면은 등록·착수·알파·베타·완료의 5단계, 취소는 별도 배지로 표시한다. 용어는 «개발 건». Gate는 우측 sticky 패널, 사람 아이콘과 외곽선으로 검증 판정과 구분한다.
+- 모델 표(`/log/models`), 숨은 개발 건·Round 상세(`/log/models/:projectId[/rounds/:roundId]`), 검증 요청(`/log/validation-requests`). 화면은 `apps/feature-screens/src/features/log-lifecycle/`, 메뉴 조립은 `menus/log-dev/log-models/`. 조회·쓰기는 기존 Kernel menu-query/action 훅을 주입하고, 이동은 feature host seam을 통해 `linkTo`로 연결한다. 모델 표는 `includeClosedProjects: true`로 열린 개발 건을 우선하고 없으면 최근 종료·취소 건을 표시한다(A2). 기존 API의 기본값은 열린 개발 건만으로 유지하며, 종료·취소 행에서도 새 개발 건을 만들 수 있다.
+- 모델 검색·단계/검증/설비사/공정/활성 필터·정렬·페이지, 요청 상태/우선순위/모델/기간 필터·선택, 규칙 결과/필수/정렬·선택 시도와 상세 탭을 주소에서 복원한다. 샘플 위치·해시·발췌·사유는 URL에 넣지 않는다.
+- Round의 요청 목록은 `requestsPage`, 규칙 결과는 `rulesPage`(각각 1부터 시작, 생략 = 첫 페이지)를 쓴다. 요청 페이지 변경은 요청·시도 선택과 규칙 페이지를, 요청 선택은 시도·규칙 페이지를, 시도 선택과 규칙 필터·정렬 변경은 규칙 페이지를 한 URL 변경에서 초기화한다. 모델·검증 요청 목록과 이력의 기존 `page`는 유지한다.
+- 신규 개발 건, 속성 수정, 서버 허용 단계 이동·재개, 샘플 순서 확정 후 Round 열기/종료, 고정 Round 또는 모델→Round 선택 요청 등록, 시도·결과·취소를 제공한다. 발췌는 명시적 클릭 때만 열며 권한 없음·삭제 상태를 구분한다. 연결된 원본 도구가 없으므로 근거 위치는 `unresolved`로 표시한다.
+- 서버 보강은 모델·Round·요청 표시용 projection, `roundDetail.gateAvailability`, `queueStatus`, 규칙 결과 서버 정렬뿐이다. 마이그레이션·권한·GRANT 변경 없음. 실제 Validator 연동은 여전히 미구현(§9); mock은 합성 fixture다.
+- 데스크톱 1440×900/1280 실앱 확인·캡처와 `log-lifecycle screens` E2E는 워커의 브라우저 금지 규칙 때문에 호스트 확인 대기다. 이 표기는 시각 검증 통과를 뜻하지 않는다.
+
+## 13. 노드 h As-built (#1450)
+
+- 계약 E2E는 `apps/platform-api/src/modules/log-lifecycle/__tests__/contract-chain.integration.test.ts` 한 건(`-t "contract chain"`)이다. 실제 `buildServer`·인증·토큰·Menu Dispatch와 실제 DB로 노드 a·c·d·e 사이의 이음새만 잇는다: 관리자 세션이 `validation.worker` 서비스 토큰을 발급 → 사람이 Round·샘플·검증 요청 등록(`idempotencyKey`) → 참조 작업자(합성 fixture)가 토큰으로 claim·heartbeat·결과 제출 → 서버가 `verdict` 계산 → Round·요청 읽기에 결과 표시 → `lifecycle.gate.decide`를 가진 세션 사용자가 근거 스냅샷과 함께 Gate 결정 → 단계 이동, 추가 전용 이벤트·감사(작업자 호출의 감사 Actor는 토큰의 Actor, 세부에 토큰 ID).
+- 같은 테스트가 경계도 고정한다: 같은 토큰은 Gate를 결정할 수 없고(세션 전용) 사람처럼 읽을 수 없으며, 사람 세션은 claim할 수 없고, 폐기한 토큰은 다음 작업자 호출에서 거절되며, 다른 작업자가 잡은 요청의 결과는 `queue.lease_lost`로 거절되고, 같은 결과의 두 번째 제출은 멱등이다. 노드별 규칙은 d·e 테스트가 갖고 여기서 되풀이하지 않는다.
+- 브라우저에서 보이는 반쪽은 mock E2E `log-lifecycle screens`(`apps/platform-e2e/tests/log-lifecycle.spec.ts`)가 갖는다. 실서버 브라우저 단계는 두지 않았다.
+- 새 마이그레이션·권한·GRANT·화면은 없다. §1 «하지 않는 것»과 §9는 그대로다: 사내 Validator·LLM 어댑터, Gate 정책 자동 계산, 결함 연결은 미구현이고 참조 작업자는 연동 증거가 아니다.

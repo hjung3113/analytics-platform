@@ -4,8 +4,8 @@
 
 > 이 문서는 **업무 시스템별 화면**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](../contract/kernel.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
-- [승인된 클릭형 v2 프로토타입](../prototypes/multi-workspace-v2/index.html)
-- [프로토타입 사용법 및 구현 차이](../prototypes/multi-workspace-v2/README.md)
+- [승인된 클릭형 v2 프로토타입](history/multi-workspace-v2-prototype/index.html)
+- [프로토타입 사용법 및 구현 차이](history/multi-workspace-v2-prototype/README.md)
 - [결정 근거 ADR-0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)
 - [기능 진입 링크 ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)(ADR-0018 대체)
 - [구현 추적 이슈 #249](https://github.com/hjung3113/analytics-platform/issues/249)
@@ -79,7 +79,7 @@ Equipment Platform
 **불변 UI 원칙**
 
 1. Rail은 플랫폼 레벨: 포털·접근 가능한 워크스페이스·통합 검색·프로필. 모든 워크스페이스에서 같은 위치다.
-2. Sidebar는 *현재 워크스페이스*의 그룹·메뉴만 표시한다. 공간 밖 전역 화면은 예외로 플랫폼 사이드바를 쓴다(§3.2, ADR-0070). 그룹 접기, 최근/즐겨찾기, 검색은 [기존 셸](../wireframes/app-shell.md) 계약을 활용한다.
+2. Sidebar는 *현재 워크스페이스*의 그룹·메뉴만 표시한다. 공간 밖 전역 화면은 예외로 플랫폼 사이드바를 쓴다(§3.2, ADR-0070). 그룹 접기, 최근/즐겨찾기, 검색은 [기존 셸](app-shell.md) 계약을 활용한다.
 3. Sidebar의 VOC·Task·설문은 시스템별 **공통 협업 진입점**이고, 기능 내용은 기능이 소유한다. 진입은 기능을 새 탭으로 여는 링크다(ADR-0027). 메뉴 수가 많아도 쉽게 접근할 수 있는 구역에 둔다. 실제 상시 고정 위치는 화면 높이·권한·메뉴 밀도 검증 대상이다.
 4. Main은 업무 유형에 따라 자유롭게 다르다. 분석 차트, 지표 카탈로그, 로그 검증 표, Task 보드·성과 폼을 하나의 보편적 레이아웃에 억지로 맞추지 않는다.
 5. Right detail은 문맥이 필요한 조회·수정에서 재사용한다. 대용량 검증·원문 로그는 전체폭 Workbench/Drill로 예외 허용.
@@ -250,7 +250,7 @@ SDK가 제공하는 외부 기능 링크의 생성·검증·`platformReturn` 계
 
 ## 9. 프로토타입과 실제 구현의 차이
 
-[HTML](../prototypes/multi-workspace-v2/index.html)은 **UI 상호작용 검토용 Mock**이다. 실제 백엔드, SSO, 서버 권한, 정확한 표준 로그 검증 결과, 실데이터, 정식 XLSX는 포함하지 않는다.
+[HTML](history/multi-workspace-v2-prototype/index.html)은 **UI 상호작용 검토용 Mock**이다. 실제 백엔드, SSO, 서버 권한, 정확한 표준 로그 검증 결과, 실데이터, 정식 XLSX는 포함하지 않는다.
 
 | 항목 | v2 HTML 표현 | 실제 앱 계약/과제 |
 | --- | --- | --- |

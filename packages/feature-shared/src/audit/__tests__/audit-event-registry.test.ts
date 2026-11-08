@@ -144,6 +144,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'lifecycle.round.opened',
   'lifecycle.round.closed',
   'lifecycle.round.evidence_attached',
+  'lifecycle.round.evidence_ref_attached',
   'lifecycle.request.created',
   'lifecycle.request.cancelled',
   'lifecycle.request.claimed',
@@ -155,6 +156,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'lifecycle.excerpt_access.set',
   'lifecycle.excerpt.deleted',
   'lifecycle.excerpt.purged',
+  'lifecycle.gate.decided',
   'knowledge.draft.created',
   'knowledge.draft.updated',
   'knowledge.draft.submitted',
@@ -169,6 +171,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'explorer.investigation.archived',
   'explorer.evidence.added',
   'explorer.evidence.removed',
+  'explorer.evidence_handed_off',
   'dataset.created',
   'dataset.updated',
   'dataset.archived',
@@ -176,6 +179,14 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'dataset.candidate_created',
   'dataset.candidate_approved',
   'dataset.candidate_rejected',
+  'dataset.baseline_created',
+  'dataset.baseline_updated',
+  'dataset.baseline_approved',
+  'dataset.baseline_superseded',
+  'dataset.suite_created',
+  'dataset.suite_updated',
+  'dataset.suite_run_requested',
+  'dataset.review_label_added',
   'knowledge.access.mode_changed',
   'knowledge.access.rule_added',
   'knowledge.access.rule_revoked',
@@ -194,7 +205,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(174);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(185);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });

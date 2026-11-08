@@ -8,15 +8,19 @@ import { manifests } from './index';
 import { harnessMenus } from './test-support';
 
 const byId = (id: string) => manifests.find(entry => entry.id === id)!;
-const IDS = ['permission-request-review', 'permission-grants'];
+const IDS = ['permission-request-review', 'permission-grants', 'service-tokens'];
 
 describe('권한 manifests', () => {
-  it('declares the two screens in order, 권한 요청 검토 the sole primary, all in access under the 운영 콘솔 paths', () => {
+  it('declares the three screens in order, 권한 요청 검토 the sole primary, all in access under the 운영 콘솔 paths', () => {
     expect(manifests.map(entry => entry.id)).toEqual(IDS);
     expect(manifests.filter(entry => entry.primary).map(entry => entry.id)).toEqual(['permission-request-review']);
     expect(manifests.every(entry => entry.group === 'access')).toBe(true);
-    expect(manifests.map(entry => entry.path)).toEqual(['/operations/permission-request-review', '/operations/permission-grants']);
-    expect(manifests.map(entry => entry.label.ko)).toEqual(['권한 요청 검토', '부여 목록']);
+    expect(manifests.map(entry => entry.path)).toEqual(['/operations/permission-request-review', '/operations/permission-grants', '/operations/service-tokens']);
+    expect(manifests.map(entry => entry.label.ko)).toEqual(['권한 요청 검토', '부여 목록', '서비스 토큰']);
+  });
+
+  it('service tokens declares only restorable list filters, with no secret or issuance state', () => {
+    expect(byId('service-tokens').pageKeys).toEqual(['noExpiry', 'kind']);
   });
 
   it('gives every menu its own icon and hides none', () => {

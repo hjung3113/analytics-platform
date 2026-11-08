@@ -251,3 +251,17 @@ describe('mock mirrors the server (fix round 1)', () => {
     ]));
   });
 });
+
+// #1496: these literals mirror the validation rules menu's mock (log-rules `fixtureCoverage` and its model names); the two menus cannot import each other.
+describe('specCoverage mock agrees with the validation rules mock', () => {
+  const expected: [string, string, string, unknown][] = [
+    ['00000003-0000-4000-8000-000000000008', 'A-100', 'Alpha 100', { computable: true, counts: { no_rule: 1, unsupported: 1, unknown: 1, partial: 1, covered: 1, total: 5 } }],
+    ['00000003-0000-4000-8000-000000000009', 'A-200', 'Alpha 200', { computable: false, reason: 'no_spec' }],
+    ['00000003-0000-4000-8000-00000000000a', 'B-10', 'Beta 10', { computable: false, reason: 'no_requirement_ids' }],
+    ['00000003-0000-4000-8000-00000000000b', 'B-20', 'Beta 20', { computable: true, counts: { no_rule: 0, unsupported: 0, unknown: 0, partial: 0, covered: 3, total: 3 } }],
+  ];
+  it.each(expected)('%s: seeded name and the same coverage answer', async (id, code, name, coverage) => {
+    expect(all('model').find(m => m.id === id)).toMatchObject({ code, name });
+    expect(await read('specCoverage', { modelId: id })).toMatchObject(coverage as Record<string, unknown>);
+  });
+});

@@ -37,3 +37,5 @@ export {
   surveyBuilderRoute, surveyFollowUpRoute, surveyOperatorTargets, surveyResultsRoute, surveysRoute, useSurveyBuilderHere, useSurveyBuilderSearch, useSurveyFollowUpHere,
   useSurveyFollowUpSearch, useSurveyResultsHere, useSurveyResultsSearch, useSurveysHere, useSurveysSearch,
 } from './feature/survey-routes';
+export { FeatureDataTable } from './feature/FeatureDataTable';
+export { PrimaryActionTargetProvider as FeaturePrimaryActionTargetProvider } from './feature/primary-action-target';

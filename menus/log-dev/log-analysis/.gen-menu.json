@@ -1,0 +1,13 @@
+{
+  "group": "logAnalysis",
+  "folder": "log-analysis",
+  "space": "log-dev",
+  "placement": "menus",
+  "menuId": "log-explorer",
+  "page": "LogExplorer",
+  "path": "/log/explorer",
+  "pageType": "analysis",
+  "labelKo": "로그 탐색",
+  "labelEn": "Log explorer",
+  "binding": "logAnalysis"
+}

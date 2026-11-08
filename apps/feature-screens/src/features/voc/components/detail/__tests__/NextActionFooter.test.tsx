@@ -5,6 +5,41 @@ import { NextActionFooter } from '../NextActionFooter';
 import { DETAIL_ENVELOPE } from './_fixtures';
 
 describe('<NextActionFooter>', () => {
+  it('preserves standalone footer chrome by default', () => {
+    const { container } = render(
+      <NextActionFooter
+        voc={DETAIL_ENVELOPE}
+        primaryAction={{ label: 'Finding 생성', onClick: () => {} }}
+      />,
+    );
+
+    expect(container.firstElementChild).toHaveAttribute(
+      'class',
+      'sticky bottom-0 bg-surface-canvas border-t border-border-subtle px-4 py-3 flex items-center gap-3',
+    );
+  });
+
+  it('lets the host own footer chrome and padding when embedded', () => {
+    const { container } = render(
+      <NextActionFooter
+        voc={DETAIL_ENVELOPE}
+        embedded
+        primaryAction={{ label: 'Finding 생성', onClick: () => {} }}
+      />,
+    );
+
+    expect(container.firstElementChild).toHaveAttribute('class', 'flex items-center gap-3');
+    expect(screen.getByRole('button', { name: 'Finding 생성' })).toBeEnabled();
+  });
+
+  it('omits an embedded footer when no actions are available', () => {
+    const { container } = render(
+      <NextActionFooter voc={{ ...DETAIL_ENVELOPE, next_actions: [] }} embedded />,
+    );
+
+    expect(container.firstChild).toBeNull();
+  });
+
   it.each([
     { canCreateFinding: false, canRequestTask: false, visible: [] },
     { canCreateFinding: true, canRequestTask: false, visible: ['Finding 생성'] },

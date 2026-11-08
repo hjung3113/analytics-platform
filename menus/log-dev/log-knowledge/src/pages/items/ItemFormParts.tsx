@@ -128,20 +128,26 @@ export function useSyncedVersion(live: string) {
   return { synced: state.synced, sync: () => setState(s => ({ ...s, waiting: true })) };
 }
 
+/** Another way out of a drawer than closing it (a tab that unmounts the form, a view that replaces the drawer), with its own question. */
+export type GuardedLeave = { run: () => void; title: string; message: string; confirmLabel: string };
+
 /**
  * Closing a drawer with unsaved input asks first. `request` is what Escape, the close button and 취소 call; `force` closes without asking
- * (after a save). The form reports whether it differs from its start through `markDirty`; `dialog` is rendered once beside the drawer.
+ * (after a save); `leave` asks the same way before another exit that drops the form (#1542). The form reports whether it differs from its
+ * start through `markDirty`; `dialog` is rendered once beside the drawer.
  */
 export function useCloseGuard(onClose: () => void) {
   const dirty = useRef(false);
-  const [asking, setAsking] = useState(false);
+  const [asking, setAsking] = useState<GuardedLeave | null>(null);
   const closeRef = useRef(onClose);
   useEffect(() => { closeRef.current = onClose; });
-  const request = () => { if (dirty.current) setAsking(true); else closeRef.current(); };
-  const dialog = <DirtyConfirmation open={asking} title="작성 중인 내용이 사라집니다. 닫을까요?" message="닫으면 입력한 내용을 되찾을 수 없습니다." confirmLabel="닫기" cancelLabel="계속 작성"
-    onCancel={() => setAsking(false)} onConfirm={() => { setAsking(false); dirty.current = false; closeRef.current(); }} />;
+  const closing: GuardedLeave = { run: () => closeRef.current(), title: '작성 중인 내용이 사라집니다. 닫을까요?', message: '닫으면 입력한 내용을 되찾을 수 없습니다.', confirmLabel: '닫기' };
+  const leave = useCallback((next: GuardedLeave) => { if (dirty.current) setAsking(next); else next.run(); }, []);
+  const request = () => leave(closing);
+  const dialog = <DirtyConfirmation open={asking !== null} title={asking?.title ?? closing.title} message={asking?.message ?? closing.message} confirmLabel={asking?.confirmLabel ?? closing.confirmLabel} cancelLabel="계속 작성"
+    onCancel={() => setAsking(null)} onConfirm={() => { const next = asking; setAsking(null); dirty.current = false; next?.run(); }} />;
   const markDirty = useCallback((value: boolean) => { dirty.current = value; }, []);
-  return { markDirty, request, force: () => { dirty.current = false; closeRef.current(); }, dialog };
+  return { markDirty, request, leave, force: () => { dirty.current = false; closeRef.current(); }, dialog };
 }
 
 /** Whether `value` differs from what it was when the form first mounted; reports each change to `markDirty`. */

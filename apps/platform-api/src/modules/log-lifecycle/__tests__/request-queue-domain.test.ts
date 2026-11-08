@@ -233,3 +233,12 @@ describe('read params and action inputs', () => {
     expect(parseQueueInput('queueSettingsUpdate', { runWindow: DEFAULT_RUN_WINDOW, immediateLimit: 5 }).ok).toBe(true);
   });
 });
+
+
+describe('screen rule sorting (#1447)', () => {
+  it('accepts a server sort and rejects undeclared sort fields', () => {
+    const attemptId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    expect(parseRuleResultParams({ attemptId, sorting: [{ id: 'result', desc: true }] })).toMatchObject({ ok: true, value: { sorting: [{ id: 'result', desc: true }] } });
+    expect(parseRuleResultParams({ attemptId, sorting: [{ id: 'excerpt', desc: false }] }).ok).toBe(false);
+  });
+});

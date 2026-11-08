@@ -70,20 +70,26 @@ export const validationFailInputSchema = z.strictObject({ attemptNo, reason: z.s
 export const validationFailResponseSchema = z.strictObject({ requestId: uuid, attemptNo, state: z.literal('failed') });
 
 const sampleFileSchema = z.strictObject({ fileRef: z.string(), order: z.number().int().min(1), sha256 });
+// The request subject (ADR-0117 amendment, #1479): a Round request carries `roundId` (and `suiteRunItemId: null`), a regression suite run
+// item request carries `suiteRunItemId` (and `roundId: null`); exactly one is set. `sampleSet` / `sampleManifestDigest` are those of
+// whichever subject the request has. A Round request's response is as before plus `suiteRunItemId: null`; the four worker routes are unchanged.
 export const validationClaimResponseSchema = z.strictObject({
-  request: z.strictObject({
-    id: uuid,
-    roundId: uuid,
-    priority: z.number().int().min(0).max(2),
-    immediate: z.boolean(),
-    engineProfileRef: z.string().nullable(),
-    requestDigest: sha256,
-    attemptNo,
-    maxAttempts: z.number().int().min(1).max(10),
-    sampleSet: z.strictObject({ files: z.array(sampleFileSchema), sourceOwner: z.string() }),
-    sampleManifestDigest: sha256,
-    specPin: z.unknown().nullable(),
-  }),
+  request: z
+    .strictObject({
+      id: uuid,
+      roundId: uuid.nullable(),
+      suiteRunItemId: uuid.nullable(),
+      priority: z.number().int().min(0).max(2),
+      immediate: z.boolean(),
+      engineProfileRef: z.string().nullable(),
+      requestDigest: sha256,
+      attemptNo,
+      maxAttempts: z.number().int().min(1).max(10),
+      sampleSet: z.strictObject({ files: z.array(sampleFileSchema), sourceOwner: z.string() }),
+      sampleManifestDigest: sha256,
+      specPin: z.unknown().nullable(),
+    })
+    .refine((r) => (r.roundId === null) !== (r.suiteRunItemId === null), { message: 'exactly one of roundId and suiteRunItemId' }),
   attempt: z.strictObject({ id: uuid, attemptNo }),
   leaseExpiresAt: instant,
 });

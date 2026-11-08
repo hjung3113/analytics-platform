@@ -19,7 +19,7 @@ import { actors, workspaces } from './core.js';
 // dataset, its immutable revisions and the candidates that become datasets. `model_ids` are log-knowledge stable ids and
 // `source_ref.roundId` a log-lifecycle id: plain uuids, no cross-schema FK (module boundary). Every reference inside the
 // schema is a composite same-workspace FK (ON DELETE RESTRICT); actor columns are plain FKs to core.actors, so the write
-// path checks workspace membership where it matters. Baselines, suites and runs arrive with nodes b–d.
+// path checks workspace membership where it matters. Baselines (node b, #1478) are below; suites and runs arrive with nodes c–d.
 export const logDatasetsSchema = pgSchema('log_datasets');
 
 const NAME_MAX = 200;
@@ -163,5 +163,279 @@ export const datasetCandidates = logDatasetsSchema.table(
       'dataset_candidate_decided_check',
       sql`(${t.status} = 'draft') = (${t.decidedAt} is null and ${t.reviewerActorId} is null)`,
     ),
+  }),
+);
+
+const BASELINE_STATUSES = "('draft','approved','superseded')";
+const REASON_MAX = 2000;
+
+// Expected baseline of one dataset revision (#1478 node b, design §3.3): the human-approved expectation per rule. Not the metric
+// Baseline of the glossary. `seq` is 1..n per revision. A draft is editable; `approved` and `superseded` are immutable (guard
+// trigger). At most one `approved` per revision (partial unique index). `expectations` is validated in the app (the vocabulary
+// PASS·FAIL·WARN·NOT_APPLICABLE·EXPECTED_UNSUPPORTED); the database holds the shape (arrays/objects, size).
+export const expectedBaselines = logDatasetsSchema.table(
+  'expected_baseline',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    datasetRevisionId: uuid('dataset_revision_id').notNull(),
+    seq: integer('seq').notNull(),
+    status: text('status').notNull().default('draft'),
+    /** `{ specPin?, ruleSetRevision?, parserVersion?, engineProfileRef? }` — only what is known; no key = unknown. */
+    profilePin: jsonb('profile_pin').notNull().default(sql`'{}'::jsonb`),
+    /** `rule_id[]` the baseline decided to check. */
+    expectedScope: jsonb('expected_scope').notNull().default(sql`'[]'::jsonb`),
+    /** `{ ruleId, expected, exception?, evidence? }[]`. */
+    expectations: jsonb('expectations').notNull().default(sql`'[]'::jsonb`),
+    /** Location + digest of an externally owned parser golden; never its content. */
+    parserGoldenRef: jsonb('parser_golden_ref'),
+    authorActorId: uuid('author_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    approvedByActorId: uuid('approved_by_actor_id').references(() => actors.id),
+    approvedAt: timestamp('approved_at', { withTimezone: true }),
+    supersededAt: timestamp('superseded_at', { withTimezone: true }),
+    rowVersion: integer('row_version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceIdUq: unique('expected_baseline_workspace_id_id_uq').on(t.workspaceId, t.id),
+    revisionFk: foreignKey({
+      name: 'expected_baseline_revision_fk',
+      columns: [t.workspaceId, t.datasetRevisionId],
+      foreignColumns: [datasetRevisions.workspaceId, datasetRevisions.id],
+    }).onDelete('restrict'),
+    seqUq: unique('expected_baseline_revision_seq_uq').on(t.workspaceId, t.datasetRevisionId, t.seq),
+    oneApprovedUq: uniqueIndex('expected_baseline_one_approved_uq')
+      .on(t.workspaceId, t.datasetRevisionId)
+      .where(sql`${t.status} = 'approved'`),
+    statusCheck: check('expected_baseline_status_check', sql`${t.status} in ${sql.raw(BASELINE_STATUSES)}`),
+    seqCheck: check('expected_baseline_seq_check', sql`${t.seq} >= 1`),
+    profilePinCheck: check('expected_baseline_profile_pin_check', sql`jsonb_typeof(${t.profilePin}) = 'object'`),
+    scopeCheck: check('expected_baseline_scope_check', sql`jsonb_typeof(${t.expectedScope}) = 'array'`),
+    expectationsCheck: check('expected_baseline_expectations_check', sql`jsonb_typeof(${t.expectations}) = 'array'`),
+    goldenCheck: check(
+      'expected_baseline_golden_check',
+      sql`${t.parserGoldenRef} is null or jsonb_typeof(${t.parserGoldenRef}) = 'object'`,
+    ),
+    versionCheck: check('expected_baseline_row_version_check', sql`${t.rowVersion} >= 1`),
+    approvedCheck: check(
+      'expected_baseline_approved_check',
+      sql`(${t.status} = 'draft') = (${t.approvedAt} is null and ${t.approvedByActorId} is null)`,
+    ),
+    supersededCheck: check(
+      'expected_baseline_superseded_check',
+      sql`(${t.status} = 'superseded') = (${t.supersededAt} is not null)`,
+    ),
+  }),
+);
+
+// Append-only history of a baseline's state changes (design §3.3): one row per create / update / approve / supersede, written in
+// the same transaction as the change. `before` / `after` are status + seq + counts + digest (never the expectation bodies' notes);
+// no UPDATE and no DELETE for any role (trigger).
+export const baselineEvents = logDatasetsSchema.table(
+  'baseline_event',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    baselineId: uuid('baseline_id').notNull(),
+    kind: text('kind').notNull(),
+    before: jsonb('before'),
+    after: jsonb('after').notNull(),
+    reason: text('reason'),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => actors.id),
+    selfApproved: boolean('self_approved').notNull().default(false),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    baselineFk: foreignKey({
+      name: 'baseline_event_baseline_fk',
+      columns: [t.workspaceId, t.baselineId],
+      foreignColumns: [expectedBaselines.workspaceId, expectedBaselines.id],
+    }).onDelete('restrict'),
+    baselineIdx: index('baseline_event_baseline_idx').on(t.workspaceId, t.baselineId, t.at),
+    kindCheck: check('baseline_event_kind_check', sql`${t.kind} in ('created','updated','approved','superseded')`),
+    beforeCheck: check('baseline_event_before_check', sql`${t.before} is null or jsonb_typeof(${t.before}) = 'object'`),
+    afterCheck: check('baseline_event_after_check', sql`jsonb_typeof(${t.after}) = 'object'`),
+    reasonCheck: check(
+      'baseline_event_reason_check',
+      sql`coalesce(char_length(${t.reason}), 0) <= ${sql.raw(String(REASON_MAX))}`,
+    ),
+  }),
+);
+
+// Regression suites and their runs (#1479 node c, design §3.5, ADR-0120): a suite is a named list of dataset items with a fixed
+// execution profile; a run pins, at request time, the revision, baseline and digests every item resolved to. A suite run has NO stored
+// state: it is derived from the states of its items' requests in log-lifecycle (`execution_request`, read through the lifecycle port).
+// `suite_run` and `suite_run_item` are immutable (trigger, every role). `request_id` is a log-lifecycle id: a plain uuid, no cross-schema FK.
+const SUITE_ITEMS_MAX = 20;
+
+export const regressionSuites = logDatasetsSchema.table(
+  'regression_suite',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    name: text('name').notNull(),
+    /** `{ datasetId, datasetRevisionId?, baselineId? }[]` in the user's order; an omitted revision is resolved (and pinned) at run time. */
+    items: jsonb('items').notNull(),
+    engineProfileRef: text('engine_profile_ref'),
+    /** The pins a run requires of its baselines (known keys only, as `expected_baseline.profile_pin`). */
+    requiredPin: jsonb('required_pin').notNull().default(sql`'{}'::jsonb`),
+    rowVersion: integer('row_version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid('updated_by')
+      .notNull()
+      .references(() => actors.id),
+  },
+  (t) => ({
+    workspaceIdUq: unique('regression_suite_workspace_id_id_uq').on(t.workspaceId, t.id),
+    nameIdx: index('regression_suite_name_idx').on(t.workspaceId, t.name),
+    nameCheck: check('regression_suite_name_check', sql`char_length(${t.name}) between 1 and ${sql.raw(String(NAME_MAX))}`),
+    itemsCheck: check(
+      'regression_suite_items_check',
+      sql`jsonb_typeof(${t.items}) = 'array' and jsonb_array_length(${t.items}) between 1 and ${sql.raw(String(SUITE_ITEMS_MAX))}`,
+    ),
+    profileCheck: check('regression_suite_profile_check', sql`coalesce(char_length(${t.engineProfileRef}), 0) <= 200`),
+    pinCheck: check('regression_suite_required_pin_check', sql`jsonb_typeof(${t.requiredPin}) = 'object'`),
+    versionCheck: check('regression_suite_row_version_check', sql`${t.rowVersion} >= 1`),
+  }),
+);
+
+export const suiteRuns = logDatasetsSchema.table(
+  'suite_run',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    suiteId: uuid('suite_id').notNull(),
+    requestedByActorId: uuid('requested_by_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    idempotencyKey: text('idempotency_key').notNull(),
+    /** The suite's profile and required pin as they were when the run was requested (a later suite edit never changes a run). */
+    engineProfileRef: text('engine_profile_ref'),
+    requiredPin: jsonb('required_pin').notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceIdUq: unique('suite_run_workspace_id_id_uq').on(t.workspaceId, t.id),
+    suiteFk: foreignKey({
+      name: 'suite_run_suite_fk',
+      columns: [t.workspaceId, t.suiteId],
+      foreignColumns: [regressionSuites.workspaceId, regressionSuites.id],
+    }).onDelete('restrict'),
+    idempotencyUq: unique('suite_run_idempotency_uq').on(t.workspaceId, t.suiteId, t.requestedByActorId, t.idempotencyKey),
+    suiteIdx: index('suite_run_suite_idx').on(t.workspaceId, t.suiteId, t.createdAt),
+    keyCheck: check('suite_run_idempotency_key_check', sql`char_length(${t.idempotencyKey}) between 1 and 200`),
+    profileCheck: check('suite_run_profile_check', sql`coalesce(char_length(${t.engineProfileRef}), 0) <= 200`),
+    pinCheck: check('suite_run_required_pin_check', sql`jsonb_typeof(${t.requiredPin}) = 'object'`),
+  }),
+);
+
+export const suiteRunItems = logDatasetsSchema.table(
+  'suite_run_item',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    suiteRunId: uuid('suite_run_id').notNull(),
+    ordinal: integer('ordinal').notNull(),
+    datasetId: uuid('dataset_id').notNull(),
+    datasetRevisionId: uuid('dataset_revision_id').notNull(),
+    baselineId: uuid('baseline_id').notNull(),
+    /** Pinned at run time: the revision's manifest digest and a digest of the approved baseline's content. */
+    sampleManifestDigest: text('sample_manifest_digest').notNull(),
+    baselineDigest: text('baseline_digest').notNull(),
+    /** The 기준 낡음 summary of the baseline when the run was requested (`{ state, reasons, unknown }`; ids and names only). */
+    baselineStale: jsonb('baseline_stale').notNull(),
+    /** The execution request registered for this item (log-lifecycle id). */
+    requestId: uuid('request_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceIdUq: unique('suite_run_item_workspace_id_id_uq').on(t.workspaceId, t.id),
+    runFk: foreignKey({
+      name: 'suite_run_item_run_fk',
+      columns: [t.workspaceId, t.suiteRunId],
+      foreignColumns: [suiteRuns.workspaceId, suiteRuns.id],
+    }).onDelete('restrict'),
+    datasetFk: foreignKey({
+      name: 'suite_run_item_dataset_fk',
+      columns: [t.workspaceId, t.datasetId],
+      foreignColumns: [datasets.workspaceId, datasets.id],
+    }).onDelete('restrict'),
+    revisionFk: foreignKey({
+      name: 'suite_run_item_revision_fk',
+      columns: [t.workspaceId, t.datasetRevisionId],
+      foreignColumns: [datasetRevisions.workspaceId, datasetRevisions.id],
+    }).onDelete('restrict'),
+    baselineFk: foreignKey({
+      name: 'suite_run_item_baseline_fk',
+      columns: [t.workspaceId, t.baselineId],
+      foreignColumns: [expectedBaselines.workspaceId, expectedBaselines.id],
+    }).onDelete('restrict'),
+    ordinalUq: unique('suite_run_item_run_ordinal_uq').on(t.workspaceId, t.suiteRunId, t.ordinal),
+    requestUq: unique('suite_run_item_request_uq').on(t.workspaceId, t.requestId),
+    datasetIdx: index('suite_run_item_dataset_idx').on(t.workspaceId, t.datasetId),
+    ordinalCheck: check('suite_run_item_ordinal_check', sql`${t.ordinal} >= 1`),
+    digestCheck: check(
+      'suite_run_item_digest_check',
+      sql`${t.sampleManifestDigest} ~ '^[0-9a-f]{64}$' and ${t.baselineDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    staleCheck: check('suite_run_item_stale_check', sql`jsonb_typeof(${t.baselineStale}) = 'object'`),
+  }),
+);
+
+// Result review labels (#1480 node d, design §3.6): a human's note on one rule of one run's result (false positive / false negative /
+// accepted change / needs review). Append-only (trigger, every role): a later label is a new row, the latest wins on read. A label NEVER
+// changes a baseline, a result or a classification. `rule_id` is a log-lifecycle rule id (plain text, checked by the write path against the
+// run item's baseline and results); the reason is capped and never copied into the audit row (its length only).
+export const suiteReviewLabels = logDatasetsSchema.table(
+  'suite_review_label',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    suiteRunId: uuid('suite_run_id').notNull(),
+    ruleId: text('rule_id').notNull(),
+    datasetRevisionId: uuid('dataset_revision_id').notNull(),
+    label: text('label').notNull(),
+    reason: text('reason').notNull(),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => actors.id),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    runFk: foreignKey({
+      name: 'suite_review_label_run_fk',
+      columns: [t.workspaceId, t.suiteRunId],
+      foreignColumns: [suiteRuns.workspaceId, suiteRuns.id],
+    }).onDelete('restrict'),
+    revisionFk: foreignKey({
+      name: 'suite_review_label_revision_fk',
+      columns: [t.workspaceId, t.datasetRevisionId],
+      foreignColumns: [datasetRevisions.workspaceId, datasetRevisions.id],
+    }).onDelete('restrict'),
+    ruleIdx: index('suite_review_label_rule_idx').on(t.workspaceId, t.suiteRunId, t.datasetRevisionId, t.ruleId, t.at),
+    labelCheck: check('suite_review_label_label_check', sql`${t.label} in ('false_positive','false_negative','accepted_change','needs_review')`),
+    ruleCheck: check('suite_review_label_rule_check', sql`char_length(${t.ruleId}) between 1 and 200`),
+    reasonCheck: check('suite_review_label_reason_check', sql`char_length(${t.reason}) between 1 and ${sql.raw(String(REASON_MAX))}`),
   }),
 );
