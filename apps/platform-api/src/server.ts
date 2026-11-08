@@ -76,6 +76,7 @@ import {
   importRoutes as logKnowledgeImportRoutes,
   knowledgeLookup,
   logKnowledgeContribution,
+  draftEvidenceIntake,
 } from './modules/log-knowledge/index.js';
 import {
   VALIDATION_QUEUE_ROUTE_PREFIX,
@@ -87,6 +88,7 @@ import {
   lifecycleRoundRead,
   lifecycleSuiteRequests,
   lifecycleSuiteResults,
+  roundEvidenceRefIntake,
 } from './modules/log-lifecycle/index.js';
 import {
   type SourceOwnerAccess,
@@ -1001,7 +1003,17 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     logLifecycleContribution({ db: dbHandle.db, checkService, knowledgeLookup, entityLinks: entityLinksService }),
     logExplorerContribution(logExplorerDeps),
     logRulesContribution({ db: dbHandle.db, checkService, knowledgeLookup }),
-    investigationContribution({ db: dbHandle.db, checkService, lifecycleRead: lifecycleRoundRead }),
+    investigationContribution({
+      db: dbHandle.db,
+      checkService,
+      lifecycleRead: lifecycleRoundRead,
+      handoff: {
+        roundIntake: roundEvidenceRefIntake({ checkService }),
+        draftIntake: draftEvidenceIntake({ checkService }),
+        sourceReadPort: logExplorerDeps.sourceReadPort,
+        sourceOwnerAccess: logExplorerDeps.sourceOwnerAccess,
+      },
+    }),
     logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),
     ...(opts.menuDispatch ?? []),
   ]);

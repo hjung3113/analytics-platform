@@ -20,7 +20,7 @@ describe('session-only capability registry', () => {
 
 describe('log explorer capabilities are token scopes since node X-f (#1472), each its own scope', () => {
   it('read, export and investigate are requestable token scopes and none is session-only', () => {
-    for (const cap of ['explorer.source.read', 'explorer.export', 'explorer.investigate'] as const) {
+    for (const cap of ['explorer.source.read', 'explorer.export', 'explorer.investigate', 'explorer.handoff'] as const) {
       expect(TOKEN_SCOPE_CAPABILITIES).toContain(cap);
       expect(isSessionOnlyCapability(cap)).toBe(false);
     }

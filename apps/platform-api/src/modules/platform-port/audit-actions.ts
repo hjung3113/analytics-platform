@@ -173,6 +173,7 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   'explorer.investigation.archived': 'retire',
   'explorer.evidence.added': 'update',
   'explorer.evidence.removed': 'update',
+  'explorer.evidence_handed_off': 'update',
   'dataset.created': 'create',
   'dataset.updated': 'update',
   'dataset.archived': 'retire',

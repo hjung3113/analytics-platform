@@ -66,6 +66,7 @@ const NO_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>([
   'explorer.source.read',
   'explorer.export',
   'explorer.investigate',
+  'explorer.handoff',
   'dataset.manage',
   'dataset.baseline.approve',
   'dataset.suite.run',

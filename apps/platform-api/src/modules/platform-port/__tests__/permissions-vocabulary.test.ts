@@ -25,6 +25,7 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
         permission !== 'lifecycle:round-manage' &&
         permission !== 'knowledge:draft-create' &&
         permission !== 'explorer:investigate' &&
+        permission !== 'explorer:handoff' &&
         permission !== 'dataset:manage' &&
         permission !== 'dataset:baseline-approve' &&
         permission !== 'lifecycle:gate-decide' &&
@@ -69,6 +70,7 @@ describe('platform permission table vs @ap/contracts KERNEL_PERMISSIONS', () => 
     ['lifecycle:gate-decide', 'lifecycle-gate-decide'],
     ['knowledge:draft-create', 'draft-create'],
     ['explorer:investigate', 'explorer-investigate'],
+    ['explorer:handoff', 'explorer-handoff'],
     ['dataset:manage', 'dataset-manage'],
     ['dataset:baseline-approve', 'dataset-baseline-approve'],
     ['dataset:suite-run', 'dataset-suite-run'],

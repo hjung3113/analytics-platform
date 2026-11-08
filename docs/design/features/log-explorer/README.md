@@ -168,6 +168,7 @@ POST /api/v1/log-explorer/export   { investigationId | sampleSet, query, range, 
 | 결함 | 결함 객체의 수신 서비스 | `EvidenceRef` → 결함 근거 참조 | **수신 객체가 아직 없음**(lifecycle 결함·재검증은 P3). 수신 인터페이스만 정하고 연결은 객체가 생길 때(질문 상태: 팀장에게 올림) |
 
 - 받는 쪽은 `EvidenceRef`의 `fileSha256`이 `sample_set`(Round) 또는 탐색이 알린 값(지식 초안)과 다르면 `hash_mismatch` 경고를 붙여 저장하고, 원본이 없으면 `unresolved`로 둔다(지식 초안은 거절). 가짜 근거로 대체하지 않는다. 받는 쪽은 Source를 모르므로 `unresolved` 판정은 탐색이 `sourceResolved`로 알린다.
+- 탐색 액션 구현됨 #1474: `logExplorer.evidenceHandoff`([api/log-explorer.md](../../../architecture/platform-api/api/log-explorer.md) «Evidence handoff»). 결함 대상은 `target: not_available`.
 - 같은 요청 재전송은 `idempotencyKey`로 한 번만 반영한다. 받는 쪽 거절(권한·동시성)은 조사 상태를 바꾸지 않는다.
 - 토큰 호출도 가능하지만 받는 쪽 capability(예: 지식 초안 제출)가 토큰에 있어야 하고, 지식 발행·승인 등 고위험 동작은 이 경로에 없다([#1198](https://github.com/hjung3113/analytics-platform/issues/1198): AI/Validator는 Draft 제출 전용).
 

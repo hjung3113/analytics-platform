@@ -27,6 +27,7 @@ export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
   'validation.catalog.report': '규칙 카탈로그 보고(토큰 전용)',
   'explorer.export': '로그 원본 내보내기',
   'explorer.investigate': '로그 조사',
+  'explorer.handoff': '로그 근거 위치 넘기기',
   'dataset.manage': '로그 테스트 데이터셋 관리',
   'dataset.baseline.approve': '로그 테스트 기준 승인',
   'dataset.suite.run': '로그 테스트 회귀 실행',

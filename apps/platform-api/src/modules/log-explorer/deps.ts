@@ -1,7 +1,8 @@
 import type { Db } from '../../db/client.js';
 import type { createAuditService } from '../core/audit/audit-service.js';
 import type { SourceSampleSet } from '@ap/contract-schemas';
-import type { LifecycleEvidenceRead, LifecycleRoundRead } from '../log-lifecycle/index.js';
+import type { DraftEvidenceIntake } from '../log-knowledge/index.js';
+import type { LifecycleEvidenceRead, LifecycleRoundRead, RoundEvidenceRefIntake } from '../log-lifecycle/index.js';
 import type { CheckService } from '../permissions/check-service.js';
 import type { SourceReadPort } from './ports/source-read.js';
 import type { UsageStore } from './usage-store.js';
@@ -72,4 +73,18 @@ export interface InvestigationDeps {
   checkService: CheckService;
   /** The log lifecycle read port: the sample set of a round-origin investigation (never copied into the investigation). */
   lifecycleRead: LifecycleRoundRead;
+  /** The evidence-location handoff (#1474); absent = the action is not declared. */
+  handoff?: HandoffDeps;
+}
+
+/**
+ * What `logExplorer.evidenceHandoff` (#1474 X-h) needs on top of the investigation deps: the two receivers (called inside the
+ * action's transaction, they re-judge their own right) and the Source half of the `unresolved` judgment. A null Source port
+ * (production today) refuses the handoff with `source_unavailable`; it never guesses `resolved`.
+ */
+export interface HandoffDeps {
+  roundIntake: RoundEvidenceRefIntake;
+  draftIntake: DraftEvidenceIntake;
+  sourceReadPort: SourceReadPort | null;
+  sourceOwnerAccess: SourceOwnerAccess;
 }
