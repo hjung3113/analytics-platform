@@ -4,6 +4,7 @@ import type { PlatformActor } from '../platform-port/permissions.js';
 import type { EndpointResult } from '../menu-dispatch/types.js';
 import type { LogLifecycleDeps } from './deps.js';
 import type { HierarchyQuery } from './domain/hierarchy-params.js';
+import { viewerOf } from '../log-knowledge/index.js';
 import { hierarchyNodes } from './repositories/hierarchy-read.js';
 import { escapeLikePattern } from '../../lib/sql-like.js';
 
@@ -15,7 +16,7 @@ export function hierarchyReader(deps: LogLifecycleDeps) {
     if (q.op === 'ancestors') {
       const parts = q.nodeId.split('/');
       const ids = Array.from({ length: parts.length / 2 }, (_, i) => parts.slice(0, (i + 1) * 2).join('/'));
-      const nodes = await hierarchyNodes(deps.db, actor.workspace_id, sql`n.id in (${sql.join(ids.map(id => sql`${id}`), sql`, `)})`, ids.length);
+      const nodes = await hierarchyNodes(deps.db, viewerOf(actor), sql`n.id in (${sql.join(ids.map(id => sql`${id}`), sql`, `)})`, ids.length);
       if (!nodes.some(n => n.id === q.nodeId) || nodes.length !== ids.length) return deleted();
       return { outcome: 'ok', data: nodes.filter(n => n.id !== q.nodeId) };
     }
@@ -35,13 +36,13 @@ export function hierarchyReader(deps: LogLifecycleDeps) {
       }
     }
     if (q.op === 'children' && q.parentId !== null) {
-      const parents = await hierarchyNodes(deps.db, actor.workspace_id, sql`n.id = ${q.parentId}`, 1);
+      const parents = await hierarchyNodes(deps.db, viewerOf(actor), sql`n.id = ${q.parentId}`, 1);
       if (!parents.length) return deleted();
     }
     const filter = q.op === 'children'
       ? q.parentId === null ? sql`n.parent_id is null` : sql`n.parent_id = ${q.parentId}`
       : sql`n.label ilike ${`%${escapeLikePattern(q.query)}%`}`;
-    const rows = await hierarchyNodes(deps.db, actor.workspace_id, sql`(${filter}) and n.id collate "C" > ${after}`, q.limit + 1);
+    const rows = await hierarchyNodes(deps.db, viewerOf(actor), sql`(${filter}) and n.id collate "C" > ${after}`, q.limit + 1);
     const nodes = rows.slice(0, q.limit);
     let nextCursor: string | undefined;
     if (rows.length > q.limit) {

@@ -13,6 +13,7 @@ import type { SampleSet } from './domain/sample-manifest.js';
 import type { LogDatasetsDeps } from './deps.js';
 import { declareRead } from './dataset-endpoints.js';
 import { getBaselineDetail, getVisibleRevision, listBaselinesOf } from './repositories/baseline-read.js';
+import { visibleProfilePin } from './pin-visibility.js';
 import { staleOf } from './stale-read.js';
 import { checkSampleSetFilesFor } from './source-check.js';
 import type { MenuEndpointDeclaration } from '../menu-dispatch/types.js';
@@ -39,7 +40,7 @@ export function baselineEndpoints(deps: LogDatasetsDeps): MenuEndpointDeclaratio
           datasetRevisionId: revision.revisionId,
           datasetId: revision.datasetId,
           revisionSeq: revision.seq,
-          rows: rows.map((r) => ({ ...r, stale: r.id === approved?.id ? stale : null })),
+          rows: await Promise.all(rows.map(async (r) => ({ ...r, profilePin: await visibleProfilePin(deps, actor, r.profilePin), stale: r.id === approved?.id ? stale : null }))),
         },
       };
     }),
@@ -50,7 +51,7 @@ export function baselineEndpoints(deps: LogDatasetsDeps): MenuEndpointDeclaratio
       if (!detail) return { outcome: 'ok', data: null };
       const { revision, ...rest } = detail;
       const stale = detail.status === 'approved' ? await staleForRevision(actor, detail.profilePin, revision.sampleSet) : null;
-      return { outcome: 'ok', data: { ...rest, datasetId: revision.datasetId, revisionSeq: revision.seq, stale } };
+      return { outcome: 'ok', data: { ...rest, profilePin: await visibleProfilePin(deps, actor, detail.profilePin), datasetId: revision.datasetId, revisionSeq: revision.seq, stale } };
     }),
   ];
 }

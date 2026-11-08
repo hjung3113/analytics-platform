@@ -151,7 +151,7 @@ describe.skipIf(!runIntegration)('log explorer contract chain (#1476 k)', () => 
         vendor,
       ])
     ).rows[0].id as string;
-    projectId = (await sql(`insert into log_lifecycle.development_project (workspace_id, model_id, kind, owner_actor_id, created_by, updated_by) values ($1,$2,'new',$3,$3,$3) returning id`, [WORKSPACE_ID, randomUUID(), adminId])).rows[0].id as string;
+    projectId = (await sql(`insert into log_lifecycle.development_project (workspace_id, model_id, kind, owner_actor_id, created_by, updated_by) values ($1,$2,'new',$3,$3,$3) returning id`, [WORKSPACE_ID, modelId, adminId])).rows[0].id as string;
     roundId = (
       await sql(
         `insert into log_lifecycle.validation_round (workspace_id, project_id, seq, stage, sample_set, sample_manifest_digest, created_by, updated_by) values ($1,$2,1,'registered',$3::jsonb,$4,$5,$5) returning id`,

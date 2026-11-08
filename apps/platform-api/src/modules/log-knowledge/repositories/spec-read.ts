@@ -336,6 +336,7 @@ export async function listSpecChanges(
     tx
       .select({
         row: c,
+        retiredByChangeId: sql<string | null>`(select replacement_change.id from knowledge.spec_sw_change replacement_change where replacement_change.workspace_id = ${workspaceId}::uuid and replacement_change.id = ${ref(c.retiredByChangeId)} and ${visibleSoftwareSql(viewer, sql`replacement_change.software_id`)} and (replacement_change.ends_before_software_id is null or ${visibleSoftwareSql(viewer, sql`replacement_change.ends_before_software_id`)}))`,
         softwareLabel: softwareVersions.versionLabel,
         endsBeforeLabel: sql<string | null>`case when ${c.endsBeforeSoftwareId} is null or ${visibleSoftwareSql(viewer, ref(c.endsBeforeSoftwareId))} then ${end.versionLabel} else null end`,
       })
@@ -355,7 +356,7 @@ export async function listSpecChanges(
     .where(where);
   return {
     total: totalRow?.n ?? 0,
-    rows: rows.map(({ row, softwareLabel, endsBeforeLabel }) => ({
+    rows: rows.map(({ row, softwareLabel, endsBeforeLabel, retiredByChangeId }) => ({
       id: row.id,
       softwareId: row.softwareId,
       softwareLabel,
@@ -372,7 +373,7 @@ export async function listSpecChanges(
       revalidationRevNo: row.revalidationRevNo,
       retiredAt: iso(row.retiredAt),
       retiredBy: row.retiredBy,
-      retiredByChangeId: row.retiredByChangeId,
+      retiredByChangeId,
       createdAt: row.createdAt.toISOString(),
       createdBy: row.createdBy,
       version: row.rowVersion,

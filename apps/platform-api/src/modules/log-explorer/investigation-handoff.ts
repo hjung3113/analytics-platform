@@ -28,6 +28,7 @@ import {
   parseHandoff,
   selectStoredRefs,
 } from './domain/handoff.js';
+import { getOwned } from './repositories/investigation-read.js';
 import type { InvestigationRow } from './repositories/investigation-write.js';
 
 export const EXPLORER_HANDOFF_PERMISSION = 'explorer.handoff';
@@ -80,6 +81,19 @@ export function evidenceHandoffAction(deps: InvestigationDeps, handoff: HandoffD
       if (kind === 'round') return handoff.roundIntake.canAttach(tx, actor);
       if (kind === 'knowledgeDraft') return handoff.draftIntake.canIntake(tx, actor);
       return true;
+    },
+    async canReplay(tx, actor, input, saved) {
+      const parsed = parseHandoff(input);
+      if (!parsed.ok) return false;
+      const row = await getOwned(tx, actor.workspace_id, actor.actor_id, parsed.value.id);
+      if (!row) return false;
+      if (row.origin === 'round' && (!row.roundId || !await deps.lifecycleRead.getRoundSampleSet(tx, row.workspaceId, row.roundId, viewerOf(actor)))) return false;
+      const target = parsed.value.target;
+      if (target.kind === 'round') return (await deps.lifecycleRead.getRoundSampleSet(tx, actor.workspace_id, target.roundId, viewerOf(actor))) !== null;
+      // For create, judge the draft produced by the original request, not just the original owner input.
+      const answer = saved.data as { targetId?: unknown } | null;
+      const draftId = target.mode === 'append' ? target.draftId : answer?.targetId;
+      return typeof draftId === 'string' && await handoff.draftIntake.canRead(tx, actor, draftId);
     },
     validate: (input) => {
       const parsed = parseHandoff(input);

@@ -60,7 +60,7 @@ describe('recipient role for the log knowledge capabilities (ADR-0107 decision 3
     },
   );
 
-  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import', 'knowledge.item.publish', 'knowledge.spec.publish', 'improvement.manage', 'lifecycle.project.manage', 'lifecycle.round.manage', 'explorer.investigate', 'explorer.handoff', 'dataset.manage', 'dataset.baseline.approve', 'lifecycle.gate.decide', 'dataset.suite.run', 'knowledge.access.manage'] as const)(
+  it.each(['knowledge.catalog.manage', 'knowledge.catalog.import', 'knowledge.item.publish', 'knowledge.spec.publish', 'improvement.manage', 'lifecycle.project.manage', 'lifecycle.round.manage', 'explorer.investigate', 'explorer.handoff', 'dataset.manage', 'dataset.baseline.approve', 'lifecycle.gate.decide', 'dataset.suite.run'] as const)(
     '%s: a Developer or Admin recipient passes',
     async (capability) => {
       for (const recipientRole of ['developer', 'admin']) {
@@ -81,5 +81,15 @@ describe('recipient role for knowledge.draft.create (owner answer #1198 Q2)', ()
     await expect(
       validateSupportedScope(tx, 'ws', 'knowledge.draft.create', null, null, null, { approval: true, recipientRole }),
     ).resolves.toBeUndefined();
+  });
+});
+
+// #1504: object ACL management has an Admin-only recipient, including approval/direct grant.
+describe('knowledge.access.manage recipient', () => {
+  it.each([false, true])('requires Admin on approval=%s', async approval => {
+    for (const recipientRole of ['user', 'developer']) {
+      await expect(validateSupportedScope({} as Tx, 'ws', 'knowledge.access.manage', null, null, null, { approval, recipientRole })).rejects.toMatchObject({ code: 'validation.failed' });
+    }
+    await expect(validateSupportedScope({} as Tx, 'ws', 'knowledge.access.manage', null, null, null, { approval, recipientRole: 'admin' })).resolves.toBeUndefined();
   });
 });

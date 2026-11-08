@@ -256,7 +256,7 @@ describe.skipIf(!runIntegration)('concept mapping (#1196 e)', () => {
         `select event_type, subject_type from core.platform_audit_events($1, null, null, null, null, null, null, null, $2::jsonb, 'at', true, 200, 0) where subject_id = $3`,
         [WORKSPACE_ID, JSON.stringify(AUDIT_ACTION_BY_EVENT_TYPE), out.mappingId],
       );
-      expect(rows).toEqual([{ event_type: 'knowledge.spec.concept_proposed', subject_type: 'knowledge_model_spec' }]);
+      expect(rows).toEqual([]); // 0119: source event is asserted in `trail` above; no caller-aware Admin projection yet.
     });
 
     it('picks the existing concept of the same label key (a case or spacing variant is the same concept), never merging kinds', async () => {

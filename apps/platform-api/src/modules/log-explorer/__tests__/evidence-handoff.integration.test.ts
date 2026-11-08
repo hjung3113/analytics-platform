@@ -126,10 +126,11 @@ describe.skipIf(!runIntegration)('log explorer evidence handoff (#1474 X-h)', ()
 
   /** An open round whose sample set is the synthetic one. */
   async function makeRound(): Promise<string> {
+    await sql("update log_lifecycle.development_project set stage = 'cancelled', row_version = row_version + 1 where id = any($1) and stage not in ('completed', 'cancelled')", [projectIds]);
     const project = (
       await sql(
         `insert into log_lifecycle.development_project (workspace_id, model_id, kind, owner_actor_id, created_by, updated_by) values ($1,$2,'new',$3,$3,$3) returning id`,
-        [WORKSPACE_ID, randomUUID(), admin.id],
+        [WORKSPACE_ID, modelId, admin.id],
       )
     ).rows[0].id as string;
     projectIds.push(project);
@@ -433,6 +434,45 @@ describe.skipIf(!runIntegration)('log explorer evidence handoff (#1474 X-h)', ()
     });
   });
 
+  it.each(['round', 'create', 'append', 'sourceRound'])('C8: %s handoff replay rechecks source and receiver objects', async kind => {
+    let source = await seed([REF(25)]);
+    const roundId = await makeRound();
+    if (kind === 'sourceRound') {
+      const made = await act('investigationCreate', { title: `${TAG} round replay`, origin: 'round', roundId });
+      expect(made.outcome, JSON.stringify(made)).toBe('ok');
+      const added = await act('evidenceAdd', { id: made.data.id, ref: REF(25) }, { expectedVersion: made.version as string });
+      expect(added.outcome, JSON.stringify(added)).toBe('ok');
+      source = { id: made.data.id, version: added.version as string, refs: [REF(25)] };
+    }
+    let target: Row = kind === 'round' ? toRound(roundId) : toNewDraft();
+    if (kind === 'sourceRound') {
+      const vendor = (await sql('select vendor_id from knowledge.equipment_model where id = $1', [modelId])).rows[0].vendor_id;
+      const receiverModel = (await sql('insert into knowledge.equipment_model (workspace_id, vendor_id, code, code_key, name, created_by, updated_by) values ($1,$2,$3,$3,$3,$4,$4) returning id', [WORKSPACE_ID, vendor, `${TAG}-receiver`, admin.id])).rows[0].id;
+      target = toNewDraft({ owner: { modelId: receiverModel } });
+    }
+    if (kind === 'append') {
+      const draft = await act('evidenceHandoff', { id: source.id, refs: KEYS(source.refs), target }, { expectedVersion: source.version });
+      expect(draft.outcome, JSON.stringify(draft)).toBe('ok');
+      target = { kind: 'knowledgeDraft', mode: 'append', draftId: draft.data.targetId, draftExpectedVersion: draft.data.draftVersion };
+    }
+    const input = { id: source.id, refs: KEYS(source.refs), target };
+    const key = randomUUID();
+    const first = await act('evidenceHandoff', input, { expectedVersion: source.version, key });
+    expect(first.outcome, JSON.stringify(first)).toBe('ok');
+    expect((await act('evidenceHandoff', input, { expectedVersion: source.version, key })).replayed).toBe(true);
+    const auditBefore = await handoffAudit(source.id);
+    const revisionsBefore = kind === 'round' ? await roundRefs(roundId) : await revisions(first.data.targetId);
+    try {
+      await sql("update knowledge.equipment_model set access_mode = 'restricted' where id = $1", [modelId]);
+      const denied = await act('evidenceHandoff', input, { expectedVersion: source.version, key });
+      expect(denied).toMatchObject({ outcome: 'not_found', data: null, version: null, replayed: false });
+      expect(await handoffAudit(source.id)).toEqual(auditBefore);
+      expect(kind === 'round' ? await roundRefs(roundId) : await revisions(first.data.targetId)).toEqual(revisionsBefore);
+    } finally {
+      await sql("update knowledge.equipment_model set access_mode = 'internal' where id = $1", [modelId]);
+    }
+  });
+
   describe('Source wait under the runtime DB budgets (C2)', () => {
     it('a stalled Source past the handoff budget is refs: source_unavailable on a pool with a 2 s idle-in-transaction timeout; nothing written, connection usable', async () => {
       const budgeted = createDb(APP_URL, {
@@ -691,6 +731,33 @@ describe.skipIf(!runIntegration)('log explorer evidence handoff (#1474 X-h)', ()
       const a = await query(name, params, noDraft);
       expect(a.outcome).toBe('ok');
       expect(name === 'handoffSoftware' ? a.data : a.data.rows).toEqual([]);
+    });
+    it.each(['restricted', 'deny'])('C13: picker rows and counts respect %s and current allow revocation', async mode => {
+      const software = (await sql('insert into knowledge.software_version (workspace_id, model_id, version_label, version_key, name, created_by, updated_by) values ($1,$2,$3,$3,$3,$4,$4) returning id', [WORKSPACE_ID, modelId, `${TAG}-sw`, admin.id])).rows[0].id;
+      let ruleId: string | undefined;
+      try {
+        const models = () => query('handoffModels', { q: `${TAG}-m`, page: 0, pageSize: 20 });
+        const sw = () => query('handoffSoftware', { modelId });
+        expect((await models()).data.total).toBe(1);
+        expect((await sw()).data.map((r: Row) => r.id)).toContain(software);
+        if (mode === 'restricted') await sql("update knowledge.equipment_model set access_mode = 'restricted' where id = $1", [modelId]);
+        else ruleId = (await sql("insert into knowledge.object_access_rule (workspace_id, target_kind, target_id, grantee_id, effect, created_by) values ($1,'model',$2,$3,'deny',$4) returning rule_id", [WORKSPACE_ID, modelId, holder.id, admin.id])).rows[0].rule_id;
+        expect((await models()).data).toEqual({ rows: [], total: 0 });
+        expect((await sw()).data).toEqual([]);
+        if (ruleId) await sql('update knowledge.object_access_rule set revoked_at = now(), revoked_by = $2 where rule_id = $1', [ruleId, admin.id]);
+        ruleId = (await sql("insert into knowledge.object_access_rule (workspace_id, target_kind, target_id, grantee_id, effect, created_by) values ($1,'model',$2,$3,'allow',$4) returning rule_id", [WORKSPACE_ID, modelId, holder.id, admin.id])).rows[0].rule_id;
+        expect((await models()).data.total).toBe(1);
+        expect((await sw()).data.map((r: Row) => r.id)).toContain(software);
+        if (mode === 'restricted') {
+          await sql('update knowledge.object_access_rule set revoked_at = now(), revoked_by = $2 where rule_id = $1', [ruleId, admin.id]);
+          expect((await models()).data).toEqual({ rows: [], total: 0 });
+          expect((await sw()).data).toEqual([]);
+        }
+      } finally {
+        await sql('delete from knowledge.object_access_rule where target_id = $1', [modelId]);
+        await sql("update knowledge.equipment_model set access_mode = 'internal' where id = $1", [modelId]);
+        await sql('delete from knowledge.software_version where id = $1', [software]);
+      }
     });
     it('reads model and software options through the catalog port', async () => {
       const models = await query('handoffModels', { q: TAG, page: 0, pageSize: 20 });

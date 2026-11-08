@@ -436,16 +436,16 @@ describe.skipIf(!runIntegration)('log knowledge catalog write actions (#1194 a)'
       expect(await audit(first.data?.id as string)).toHaveLength(1);
     });
 
-    it('the audit projection (0081) lists the four knowledge subject types with their platform actions', async () => {
+    it('the Admin audit projection excludes knowledge subjects while source audit retains their events', async () => {
       const { rows } = await dbHandle.pool.query(
         `select event_type, subject_type, subject_id from core.platform_audit_events($1, null, null, null, null, null, null, null, $2::jsonb, 'at', true, 200, 0)
           where subject_id = any($3)`,
         [WORKSPACE_ID, JSON.stringify(AUDIT_ACTION_BY_EVENT_TYPE), [ids.va, ids.pe, ids.m1, ids.sw]],
       );
-      expect(rows.map((r) => r.subject_type).sort()).toEqual(
-        expect.arrayContaining(['knowledge_vendor', 'knowledge_process', 'knowledge_model', 'knowledge_software']),
-      );
-      expect(new Set(rows.map((r) => r.event_type))).toContain('knowledge.catalog.created');
+      expect(rows).toEqual([]);
+      const source = await dbHandle.pool.query('select event_type, subject_type from core.audit_log where workspace_id = $1 and subject_id = any($2)', [WORKSPACE_ID, [ids.va, ids.pe, ids.m1, ids.sw]]);
+      expect(source.rows.map(r => r.subject_type).sort()).toEqual(expect.arrayContaining(['knowledge_vendor', 'knowledge_process', 'knowledge_model', 'knowledge_software']));
+      expect(new Set(source.rows.map(r => r.event_type))).toContain('knowledge.catalog.created');
     });
 
     it('the read endpoints reflect the writes (counts, status, version)', async () => {

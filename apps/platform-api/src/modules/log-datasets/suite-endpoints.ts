@@ -15,6 +15,7 @@ import {
   parseSuiteRunsParams,
   parseSuitesParams,
 } from './domain/suite-params.js';
+import { visibleProfilePin } from './pin-visibility.js';
 import { getSuiteDetail, listRuns, listSuites } from './repositories/suite-read.js';
 
 export function suiteEndpoints(deps: LogDatasetsDeps): MenuEndpointDeclaration[] {
@@ -27,12 +28,14 @@ export function suiteEndpoints(deps: LogDatasetsDeps): MenuEndpointDeclaration[]
     declareRead(deps, 'suiteDetail', SUITE_DETAIL_PARAM_KEYS, (p) => parseSuiteDetailParams(p), async (actor, params) => {
       const parsed = parseSuiteDetailParams(params);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
-      return { outcome: 'ok', data: await getSuiteDetail(deps.db, actor.workspace_id, actor.actor_id, parsed.value) };
+      const detail = await getSuiteDetail(deps.db, actor.workspace_id, actor.actor_id, parsed.value);
+      return { outcome: 'ok', data: detail ? { ...detail, requiredPin: await visibleProfilePin(deps, actor, detail.requiredPin) } : null };
     }),
     declareRead(deps, 'suiteRuns', SUITE_RUNS_PARAM_KEYS, (p) => parseSuiteRunsParams(p), async (actor, params) => {
       const parsed = parseSuiteRunsParams(params);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
-      return { outcome: 'ok', data: await listRuns(deps.db, deps.lifecycleRequests, actor.workspace_id, actor.actor_id, parsed.value) };
+      const page = await listRuns(deps.db, deps.lifecycleRequests, actor.workspace_id, actor.actor_id, parsed.value);
+      return { outcome: 'ok', data: page ? { ...page, rows: await Promise.all(page.rows.map(async row => ({ ...row, requiredPin: await visibleProfilePin(deps, actor, row.requiredPin) }))) } : null };
     }),
   ];
 }

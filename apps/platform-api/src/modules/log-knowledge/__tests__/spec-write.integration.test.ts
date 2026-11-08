@@ -706,7 +706,7 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
   });
 
   describe('audit projection (0092)', () => {
-    it('lists the spec events with their platform actions, and still lists a voc.read_public grant row', async () => {
+    it('excludes spec events from Admin projection, retains source events and lists a voc.read_public grant row', async () => {
       const draft = await filled(await newModel('audit'));
       await act('specPublish', { revisionId: draft.id }, { expectedVersion: draft.version });
       const grantRow = randomUUID();
@@ -719,8 +719,10 @@ describe.skipIf(!runIntegration)('model spec write actions (#1196 b1)', () => {
         [WORKSPACE_ID, JSON.stringify(AUDIT_ACTION_BY_EVENT_TYPE), [draft.id, grantRow]],
       );
       const spec = rows.filter((r) => r.subject_id === draft.id);
-      expect(new Set(spec.map((r) => r.subject_type))).toEqual(new Set(['knowledge_model_spec']));
-      expect(new Set(spec.map((r) => r.event_type))).toEqual(new Set(['knowledge.spec.draft_saved', 'knowledge.spec.published']));
+      expect(spec).toEqual([]);
+      const source = (await sql('select subject_type, event_type from core.audit_log where workspace_id = $1 and subject_id = $2', [WORKSPACE_ID, draft.id])).rows;
+      expect(new Set(source.map((r) => r.subject_type))).toEqual(new Set(['knowledge_model_spec']));
+      expect(new Set(source.map((r) => r.event_type))).toEqual(new Set(['knowledge.spec.draft_saved', 'knowledge.spec.published']));
       expect(rows.filter((r) => r.subject_id === grantRow)).toHaveLength(1);
     });
 

@@ -233,7 +233,7 @@ export async function listOwnOpenDrafts(tx: Tx, workspaceId: string, actorId: st
   }).from(d).innerJoin(r, joinLatest)
     .leftJoin(sw, and(eq(sw.workspaceId, d.workspaceId), eq(sw.id, d.ownerSoftwareId)))
     .leftJoin(model, and(eq(model.workspaceId, d.workspaceId), eq(model.id, sql`coalesce(${d.ownerModelId}, ${sw.modelId})`)))
-    .where(and(eq(d.workspaceId, workspaceId), eq(d.submitterActorId, actorId), notInArray(d.status, [...FINAL_DRAFT_STATUSES])))
+    .where(and(eq(d.workspaceId, workspaceId), eq(d.submitterActorId, actorId), ownerVisible({ workspaceId, actorId }), notInArray(d.status, [...FINAL_DRAFT_STATUSES])))
     .orderBy(desc(d.updatedAt), desc(d.id)).limit(Math.max(1, Math.min(50, Math.trunc(limit))));
   return rows.map(row => ({ ...row, version: String(row.version), updatedAt: iso(row.updatedAt) }));
 }

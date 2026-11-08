@@ -9,7 +9,7 @@ export function isOrdinarilyRequestable(capability: Capability): boolean {
   return capability !== 'workspace.admin';
 }
 
-/** ADR-0107 decision 3: Admin and Developer receive these; a User does not (request, approval, direct grant). */
+/** ADR-0107: a User cannot receive these (request, approval, direct grant); Admin-only restrictions are judged below. */
 export const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'knowledge.catalog.manage',
   'knowledge.catalog.import',
@@ -103,6 +103,11 @@ export async function validateSupportedScope(
   }
   if (options.recipientRole === 'user' && NOT_FOR_USER_ROLE.has(capability)) {
     throw new HttpError('validation.failed', 'capability is not available to the User role', {
+      fields: [{ path: [options.capabilityField ?? 'requested_capability'], code: 'custom' }],
+    });
+  }
+  if (capability === 'knowledge.access.manage' && options.recipientRole !== 'admin') {
+    throw new HttpError('validation.failed', 'capability requires an Admin recipient', {
       fields: [{ path: [options.capabilityField ?? 'requested_capability'], code: 'custom' }],
     });
   }

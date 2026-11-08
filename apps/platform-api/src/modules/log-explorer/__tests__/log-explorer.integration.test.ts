@@ -117,10 +117,13 @@ describe.skipIf(!runIntegration)('log explorer investigations (#1468 b)', () => 
 
   /** A project and an open round of the session workspace, inserted directly (the lifecycle module owns the real path). */
   async function makeRound(workspace = WORKSPACE_ID, actor = admin.id): Promise<string> {
+    const code = `${TAG}-round-${n++}`;
+    const vendor = (await sql('insert into knowledge.vendor (workspace_id, name, code, code_key, created_by, updated_by) values ($1,$2,$2,$2,$3,$3) returning id', [workspace, code, actor])).rows[0].id;
+    const model = (await sql('insert into knowledge.equipment_model (workspace_id, vendor_id, name, code, code_key, created_by, updated_by) values ($1,$2,$3,$3,$3,$4,$4) returning id', [workspace, vendor, code, actor])).rows[0].id;
     const project = (
       await sql(
         `insert into log_lifecycle.development_project (workspace_id, model_id, kind, owner_actor_id, created_by, updated_by) values ($1,$2,'new',$3,$3,$3) returning id`,
-        [workspace, randomUUID(), actor],
+        [workspace, model, actor],
       )
     ).rows[0].id as string;
     projectIds.push(project);
@@ -182,6 +185,8 @@ describe.skipIf(!runIntegration)('log explorer investigations (#1468 b)', () => 
     await sql('delete from log_explorer.investigation where owner_actor_id = any($1)', [actorIds]);
     await sql('delete from log_lifecycle.validation_round where project_id = any($1)', [projectIds]);
     await sql('delete from log_lifecycle.development_project where id = any($1)', [projectIds]);
+    await sql('delete from knowledge.equipment_model where created_by = any($1)', [actorIds]);
+    await sql('delete from knowledge.vendor where created_by = any($1)', [actorIds]);
     for (const [table, column] of [
       ['core.idempotency_keys', 'actor_id'],
       ['core.audit_log', 'actor_id'],

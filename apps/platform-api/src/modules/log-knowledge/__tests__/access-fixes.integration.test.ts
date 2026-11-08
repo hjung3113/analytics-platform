@@ -9,6 +9,8 @@ import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
 import { createRuleCoveragePort } from '../../log-rules/index.js';
+import { draftEvidenceIntake } from '../draft-evidence-intake.js';
+import { createCheckService } from '../../permissions/check-service.js';
 import { knowledgeLookup } from '../knowledge-lookup.js';
 import { hashToken } from '../../api-tokens/token-format.js';
 import { insertJob, insertRows } from '../repositories/import-repo.js';
@@ -38,6 +40,7 @@ describe.skipIf(!(APP_URL && MIGRATE_URL && WS))('access review regressions (#15
   let serial = 0;
   let beforeRow: (() => Promise<void>) | undefined;
   let vendor: string;
+  let processId: string;
   let model: string;
   let sw1: string;
   let sw2: string;
@@ -59,8 +62,8 @@ describe.skipIf(!(APP_URL && MIGRATE_URL && WS))('access review regressions (#15
     expect(res.statusCode, res.body).toBe(200);
     return res.json<Answer>();
   }
-  async function read(endpoint: string, params: Record<string, unknown>): Promise<Answer> {
-    const res = await app.inject({ method: 'POST', url: '/api/v1/menu-query', headers: headers(), payload: { endpoint, params, context: {} } });
+  async function read(endpoint: string, params: Record<string, unknown>, who: Person = viewer): Promise<Answer> {
+    const res = await app.inject({ method: 'POST', url: '/api/v1/menu-query', headers: headers(who), payload: { endpoint, params, context: {} } });
     expect(res.statusCode, res.body).toBe(200);
     return res.json<Answer>();
   }
@@ -81,12 +84,14 @@ describe.skipIf(!(APP_URL && MIGRATE_URL && WS))('access review regressions (#15
     app = await buildServer({ config: loadConfig(), dbHandle: db, logKnowledgeImport: { hooks: { beforeRow: async () => { await beforeRow?.(); } } } }); await app.ready();
     viewer = await person(); manager = await person();
     vendor = ok(await act('vendorCreate', { code: TAG, name: TAG })).data.id;
+    await sql("insert into permission.permission_grants (workspace_id, actor_id, capability, granted_by_actor_id) values ($1,$2,'explorer.handoff',$3)", [WS, viewer.id, manager.id]);
   });
   beforeEach(async () => {
     beforeRow = undefined;
     await sql('delete from core.rate_limits where key like any($1)', [people.map((id) => `${WS}:${id}%`)]);
     const code = `${TAG}-${serial++}`;
-    model = ok(await act('modelCreate', { vendorId: vendor, code, name: code })).data.id;
+    processId = ok(await act('processCreate', { code, name: `Fixture process ${serial}` })).data.id;
+    model = ok(await act('modelCreate', { vendorId: vendor, code, name: code, processIds: [processId] })).data.id;
     sw1 = ok(await act('softwareCreate', { modelId: model, versionLabel: '1', name: 'First' })).data.id;
     sw2 = ok(await act('softwareCreate', { modelId: model, versionLabel: '2', name: 'Second' })).data.id;
   });
@@ -98,6 +103,12 @@ describe.skipIf(!(APP_URL && MIGRATE_URL && WS))('access review regressions (#15
     const projects = '(select id from log_lifecycle.development_project where created_by = any($1))';
     // Only fixtures of this suite. Append-only guards are restored in the same cleanup transaction.
     const deletes = [
+      ['log_datasets.suite_run_item', 'suite_run_id in (select id from log_datasets.suite_run where requested_by_actor_id = any($1))'],
+      ['log_datasets.suite_run', 'requested_by_actor_id = any($1)'],
+      ['log_datasets.regression_suite', 'created_by = any($1)'],
+      ['log_datasets.expected_baseline', 'author_actor_id = any($1)'],
+      ['log_datasets.dataset_revision', 'created_by = any($1)'],
+      ['log_datasets.dataset', 'created_by = any($1)'],
       ['knowledge.object_access_rule', 'created_by = any($1)'],
       ['knowledge.draft_review', 'reviewer_actor_id = any($1)'], ['knowledge.draft_revision', 'author_actor_id = any($1)'], ['knowledge.draft', 'created_by = any($1)'],
       ['knowledge.item_link', `source_item_id in ${mine} or target_item_id in ${mine}`],
@@ -111,7 +122,7 @@ describe.skipIf(!(APP_URL && MIGRATE_URL && WS))('access review regressions (#15
       ['log_lifecycle.execution_request', `round_id in (select id from log_lifecycle.validation_round where project_id in ${projects})`],
       ['log_lifecycle.validation_round', `project_id in ${projects}`], ['log_lifecycle.development_event', `project_id in ${projects}`], ['log_lifecycle.development_project', 'created_by = any($1)'],
       ['knowledge.model_process', 'assigned_by = any($1)'],
-      ...['software_version', 'equipment_model', 'vendor'].map((t) => [`knowledge.${t}`, 'created_by = any($1)']),
+      ...['software_version', 'equipment_model', 'process_category', 'vendor'].map((t) => [`knowledge.${t}`, 'created_by = any($1)']),
       ['core.api_tokens', 'actor_id = any($1)'],
       ...['core.idempotency_keys', 'core.audit_log', 'permission.permission_grants', 'permission.permission_denies', 'core.sessions'].map((t) => [t, 'actor_id = any($1)']),
       ['core.actors', 'id = any($1)'],
@@ -126,6 +137,86 @@ describe.skipIf(!(APP_URL && MIGRATE_URL && WS))('access review regressions (#15
       await client.query('commit');
     } catch (error) { await client.query('rollback'); throw error; }
     finally { client.release(); await app?.close(); await db?.close(); await migrate?.close(); }
+  });
+
+  it.each(['model', 'software'])('C1: hierarchy filters hidden %s before paths, targets and child flags', async (kind) => {
+    const p = ok(await act('logLifecycle.projectCreate', { modelId: model, softwareId: sw1, kind: 'new', ownerActorId: viewer.id }));
+    const parent = `v/${vendor}/p/${processId}`;
+    const path = `${parent}/m/${model}`;
+    expect((await read('logLifecycle.hierarchy', { op: 'children', parentId: path })).data.nodes).toHaveLength(2);
+    await mode(kind === 'model' ? 'equipment_model' : 'software_version', kind === 'model' ? model : sw1);
+    const hiddenPath = kind === 'model' ? path : `${path}/s/${sw1}`;
+    const absentPath = kind === 'model' ? `${parent}/m/${randomUUID()}` : `${path}/s/${randomUUID()}`;
+    for (const op of ['children', 'ancestors']) {
+      const key = op === 'children' ? 'parentId' : 'nodeId';
+      expect(clean(await read('logLifecycle.hierarchy', { op, [key]: hiddenPath }))).toEqual(clean(await read('logLifecycle.hierarchy', { op, [key]: absentPath })));
+    }
+    const children = (await read('logLifecycle.hierarchy', { op: 'children', parentId: kind === 'model' ? parent : path })).data;
+    expect(JSON.stringify(children)).not.toContain(kind === 'model' ? model : sw1);
+    expect(JSON.stringify(children)).not.toContain(p.data.projectId);
+    const name = (await sql('select name from knowledge.equipment_model where id = $1', [model])).rows[0].name;
+    const search = (await read('logLifecycle.hierarchy', { op: 'search', query: name })).data;
+    expect(search.nodes).toHaveLength(kind === 'model' ? 0 : 1);
+    expect(JSON.stringify(search)).not.toContain(p.data.projectId);
+    if (kind === 'model') {
+      expect((await read('logLifecycle.hierarchy', { op: 'children', parentId: `v/${vendor}` })).data.nodes.map((n: { id: string }) => n.id)).not.toContain(parent);
+    } else {
+      await mode('software_version', sw2);
+      const nodes = (await read('logLifecycle.hierarchy', { op: 'children', parentId: parent })).data.nodes;
+      expect(nodes.find((n: { id: string }) => n.id === path)).toMatchObject({ hasChildren: false });
+    }
+  });
+
+  it('C3: a retired visible change masks its hidden replacement id', async () => {
+    await publish();
+    const first = await change(sw1);
+    const retired = ok(await act('specChangeRetire', { changeId: first.data.changeId, replacement: { softwareId: sw2, targetKind: 'event', target: { module: 'Motor', event: 'Start' }, changeKind: 'changed', change: { before: { name: 'Start', triggerRule: 'on start', detailDocRef: null }, after: { name: 'Start', triggerRule: 'on stop', detailDocRef: null } } } }, { version: '1' }));
+    for (const status of ['all', 'retired']) {
+      expect((await read('logKnowledge.specChanges', { modelId: model, status })).data.rows.find((r: { id: string }) => r.id === first.data.changeId).retiredByChangeId).toBe(retired.data.replacementChangeId);
+    }
+    await mode('software_version', sw2);
+    for (const status of ['all', 'retired']) {
+      const page = (await read('logKnowledge.specChanges', { modelId: model, status })).data;
+      expect(page.total).toBe(1);
+      expect(page.rows[0]).toMatchObject({ id: first.data.changeId, retiredByChangeId: null });
+      expect(JSON.stringify(page)).not.toContain(retired.data.replacementChangeId);
+    }
+  });
+
+  it.each(['model', 'software'])('C13: handoff draft options hide an author-owned draft under a hidden %s', async kind => {
+    const { ownerModelId, ...content } = proposal();
+    const d = ok(await act('draftCreate', { proposalType: 'create', proposal: { ...content, ...(kind === 'model' ? { ownerModelId } : { ownerSoftwareId: sw1 }) } }));
+    expect((await read('logExplorer.handoffDrafts', {})).data.rows.map((r: { draftId: string }) => r.draftId)).toContain(d.data.id);
+    await mode(kind === 'model' ? 'equipment_model' : 'software_version', kind === 'model' ? model : sw1);
+    expect((await read('logExplorer.handoffDrafts', {})).data.rows.map((r: { draftId: string }) => r.draftId)).not.toContain(d.data.id);
+    expect((await draftEvidenceIntake({ checkService: createCheckService({ db: db.db }) }).listOwnOpen(db.db, { workspace_id: WS, actor_id: viewer.id, role_level: 'admin' }, { limit: 50 })).map(r => r.draftId)).not.toContain(d.data.id);
+    expect((await read('logKnowledge.draftDetail', { draftId: d.data.id })).data).toBeNull();
+  });
+
+  it.each(['model', 'software'])('C14: persisted baseline and suite pins mask hidden %s without modifying storage', async kind => {
+    await publish();
+    const effective = await db.db.transaction(tx => knowledgeLookup.getEffectiveSpecPin(tx, WS, model, sw1, viewer.id));
+    if (!effective) throw new Error('fixture published spec missing');
+    const pin = { specPin: { modelId: model, softwareId: sw1, ...effective }, parserVersion: 'fixture-parser' };
+    const dataset = (await sql("insert into log_datasets.dataset (workspace_id, name, share_scope, owner_actor_id, created_by, updated_by) values ($1,$2,'workspace',$3,$3,$3) returning id", [WS, TAG, viewer.id])).rows[0].id;
+    const sample = { sourceOwner: 'fixture', files: [{ fileRef: 'fixture.log', order: 1, sha256: 'a'.repeat(64) }] };
+    const revision = (await sql('insert into log_datasets.dataset_revision (workspace_id, dataset_id, seq, sample_set, sample_manifest_digest, created_by) values ($1,$2,1,$3,$4,$5) returning id', [WS, dataset, sample, 'a'.repeat(64), viewer.id])).rows[0].id;
+    const baseline = (await sql('insert into log_datasets.expected_baseline (workspace_id, dataset_revision_id, seq, profile_pin, author_actor_id) values ($1,$2,1,$3,$4) returning id', [WS, revision, pin, viewer.id])).rows[0].id;
+    const suite = (await sql('insert into log_datasets.regression_suite (workspace_id, name, items, required_pin, created_by, updated_by) values ($1,$2,$3,$4,$5,$5) returning id', [WS, TAG, JSON.stringify([{ datasetId: dataset }]), pin, viewer.id])).rows[0].id;
+    const run = (await sql('insert into log_datasets.suite_run (workspace_id, suite_id, requested_by_actor_id, idempotency_key, required_pin) values ($1,$2,$3,$4,$5) returning id', [WS, suite, viewer.id, randomUUID(), pin])).rows[0].id;
+    await sql("insert into log_datasets.suite_run_item (workspace_id, suite_run_id, ordinal, dataset_id, dataset_revision_id, baseline_id, sample_manifest_digest, baseline_digest, baseline_stale, request_id) values ($1,$2,1,$3,$4,$5,$6,$6,$7,$8)", [WS, run, dataset, revision, baseline, 'a'.repeat(64), { state: 'unknown', reasons: [], unknown: [] }, randomUUID()]);
+    const pins = async () => [
+      (await read('logDataset.baselines', { datasetRevisionId: revision }, manager)).data.rows[0].profilePin,
+      (await read('logDataset.baselineDetail', { baselineId: baseline }, manager)).data.profilePin,
+      (await read('logDataset.suiteDetail', { suiteId: suite }, manager)).data.requiredPin,
+      (await read('logDataset.suiteRuns', { suiteId: suite }, manager)).data.rows[0].requiredPin,
+    ];
+    expect(await pins()).toEqual([pin, pin, pin, pin]);
+    await mode(kind === 'model' ? 'equipment_model' : 'software_version', kind === 'model' ? model : sw1);
+    expect(await pins()).toEqual(Array.from({ length: 4 }, () => ({ parserVersion: 'fixture-parser' })));
+    for (const [table, column, id] of [['expected_baseline', 'profile_pin', baseline], ['regression_suite', 'required_pin', suite], ['suite_run', 'required_pin', run]]) {
+      expect((await sql(`select ${column} as pin from log_datasets.${table} where id = $1`, [id])).rows[0].pin).toEqual(pin);
+    }
   });
 
   it('C2: a real published spec is unknown in summary immediately after model restriction', async () => {
@@ -212,7 +303,7 @@ describe.skipIf(!(APP_URL && MIGRATE_URL && WS))('access review regressions (#15
     const key = randomUUID();
     const code = `${TAG}-${serial++}`;
     const action = `${kind}Create`;
-    const input = kind === 'model' ? { vendorId: vendor, code, name: code }
+    const input = kind === 'model' ? { vendorId: vendor, code, name: code, processIds: [processId] }
       : kind === 'software' ? { modelId: model, versionLabel: code, name: code }
       : kind === 'item' ? proposal() : { proposalType: 'create', proposal: proposal() };
     const made = ok(await act(action, input, { key }));

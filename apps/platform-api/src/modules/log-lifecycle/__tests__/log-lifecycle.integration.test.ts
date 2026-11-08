@@ -880,7 +880,7 @@ describe.skipIf(!runIntegration)('log lifecycle (#1444 c)', () => {
   });
 
   describe('audit projection', () => {
-    it('lists the lifecycle events with their platform actions and subject types, and still lists a lifecycle capability grant', async () => {
+    it('excludes lifecycle events from Admin projection, retains source events and lists a lifecycle capability grant', async () => {
       const project = await makeProject();
       const round = await openRound(project.id);
       const probe = randomUUID();
@@ -894,8 +894,10 @@ describe.skipIf(!runIntegration)('log lifecycle (#1444 c)', () => {
         [WORKSPACE_ID, JSON.stringify(actions), [project.id, round.data.roundId, probe]],
       );
       expect(rows.map((r) => [r.subject_type, r.event_type]).sort()).toEqual(
-        [['development_project', 'lifecycle.project.created'], ['permission_grant', 'permission_granted'], ['validation_round', 'lifecycle.round.opened']].sort(),
+        [['permission_grant', 'permission_granted']],
       );
+      const source = (await sql('select subject_type, event_type from core.audit_log where workspace_id = $1 and subject_id = any($2)', [WORKSPACE_ID, [project.id, round.data.roundId]])).rows;
+      expect(source.map(r => [r.subject_type, r.event_type]).sort()).toEqual([['development_project', 'lifecycle.project.created'], ['validation_round', 'lifecycle.round.opened']].sort());
     });
   });
 });
