@@ -8,7 +8,7 @@ import { memoryStorage, settleQueries, testAdapter, testSession } from '@ap/kern
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { groupId, spaceId, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
-import type { Project, RequestDetail, RoundDetail, RuleResult } from '../endpoints';
+import type { Model, Project, RequestDetail, RoundDetail, RuleResult } from '../endpoints';
 import { GATE_DECIDE, PROJECT_MANAGE, ROUND_MANAGE } from '../endpoints';
 import { manifests } from '../index';
 import LifecyclePage from './LifecyclePage';
@@ -48,6 +48,13 @@ function mount(search = '', count = 1, route = 'round') {
   const adapter = testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => listeners.delete(l); }, menuQuery: async q => {
     queries.push(q as MenuQuery<Record<string, unknown>>);
     const p = q.params as Record<string, unknown>;
+    if (q.endpoint === 'logLifecycle.models') {
+      const filters = (p.filters ?? []) as { id: string; value?: string[] }[];
+      const rows: Model[] = [{ id: B, code: 'MODEL-B', name: '다른 모델', vendorName: '설비사', vendorId: ID, processes: [], updatedAt: AT, validation: 'none', pendingRequests: 0, gateDecision: null, project: { projectId: B, stage: 'alpha', latestRound: { id: B, seq: 1, status: 'open' } } }];
+      const selected = rows.filter(m => !filters.some(f => f.id === 'id' && !f.value?.includes(m.id)));
+      return ok({ rows: selected, total: selected.length });
+    }
+    if (q.endpoint === 'logLifecycle.rounds') return ok({ rows: [{ ...round, createdBy: ID }], total: 1 });
     if (q.endpoint === 'logLifecycle.projectDetail') return ok(project);
     if (q.endpoint === 'logLifecycle.roundDetail') return ok(round);
     if (q.endpoint === 'logLifecycle.requests') return ok({ rows: Array.from({ length: count }, (_, i) => request(i === 0 ? ID : i === 1 ? B : `cccccccc-cccc-4ccc-8ccc-${String(i).padStart(12, '0')}`)).slice(Number(p.page ?? 0) * 25, (Number(p.page ?? 0) + 1) * 25), total: count });
@@ -59,9 +66,9 @@ function mount(search = '', count = 1, route = 'round') {
     }
     return ok(null);
   }, menuAction: req => new Promise(resolve => sent.push({ request: req, resolve })) });
-  window.history.replaceState(null, '', route === 'requests' ? `/logDev/log-validation-requests?v=1${search}` : `/logDev/log-model-round/${ID}/${ID}?v=1${search}`);
+  window.history.replaceState(null, '', route === 'requests' ? `/logDev/log-validation-requests?v=1${search}` : route === 'project' ? `/logDev/log-model-project/${ID}?v=1${search}` : `/logDev/log-model-round/${ID}/${ID}?v=1${search}`);
   const history = vi.spyOn(window.history, 'pushState');
-  act(() => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><LifecyclePage params={route === 'requests' ? {} : { projectId: ID, roundId: ID }} /><DetailHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>));
+  act(() => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><LifecyclePage params={route === 'requests' ? {} : { projectId: ID, ...(route === 'round' ? { roundId: ID } : {}) }} /><DetailHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>));
   return { queries, sent, history, switchSession: () => act(() => { session = testSession(permissions, { user: { id: B } }); listeners.forEach(l => l()); }) };
 }
 function element(selector: string, parent: ParentNode = document): HTMLElement {
@@ -96,6 +103,37 @@ function change(selector: string, value: string) {
 }
 
 describe('lifecycle interactions with the real Kernel host', () => {
+  it.each([['modelId', ID, { id: 'id', op: 'in', value: [ID] }], ['processId', 'none', { id: 'processes', op: 'isEmpty' }]])('projects the hierarchy %s page key into the existing list condition', async (key, value, condition) => {
+    const queries: MenuQuery<Record<string, unknown>>[] = [];
+    const adapter = testAdapter({ menuQuery: async q => { queries.push(q as MenuQuery<Record<string, unknown>>); return ok({ rows: [], total: 0 }); } });
+    window.history.replaceState(null, '', `/logDev/log-models?v=1&${key}=${value}`);
+    act(() => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><LifecyclePage params={{}} /><DetailHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>));
+    await waitFor(() => expect(queries.find(q => q.endpoint === 'logLifecycle.models')?.params.filters).toContainEqual(condition));
+  });
+  it('keeps request registration model search independent from the requests modelId filter', async () => {
+    const t = mount(`&modelId=${ID}`, 1, 'requests');
+    await waitFor(() => expect(t.queries.some(q => q.endpoint === 'logLifecycle.requests' && q.params.modelId === ID)).toBe(true));
+    click(button('요청 등록'));
+    await waitFor(() => expect(document.querySelector('#request-model')).not.toBeNull());
+    change('#request-model', 'MODEL-B');
+    await waitFor(() => {
+      const search = [...t.queries].reverse().find(q => q.endpoint === 'logLifecycle.models' && q.params.q === 'MODEL-B');
+      expect(search).toBeDefined();
+      expect(search?.params.filters ?? []).toEqual([]);
+    });
+    click(element('[role="combobox"][aria-label="개발 건 선택"]'));
+    await waitFor(() => expect(text('MODEL-B · 다른 모델')).toBe(true));
+    expect(query().get('modelId')).toBe(ID);
+  });
+  it('preserves the placement node when opening a Round within the same project', async () => {
+    const node = `v/${ID}/p/none/m/${B}`;
+    mount(`&node=${encodeURIComponent(node)}`, 1, 'project');
+    await waitFor(() => expect(document.body.textContent).not.toContain('주소의 node'));
+    await waitFor(() => expect([...document.querySelectorAll('button')].some(b => b.textContent === 'Round 3')).toBe(true));
+    click(button('Round 3'));
+    await waitFor(() => expect(window.location.pathname).toBe(`/logDev/log-model-round/${ID}/${ID}`));
+    expect(query().get('node')).toBe(node);
+  });
   it('keeps the one request and its results mounted on rule page two and returns with Previous', async () => {
     const t = mount(); await ready();
     click(button('다음', rulesRegion()));

@@ -4,14 +4,22 @@ import { useMenuAction, useMenuQuery, usePlatform, type PageProps } from '@ap/ke
 import { defineEndpoint, type ApiResponse, type AuditEvent, type GroupedPageResult, type EndpointSpec } from '@ap/contracts';
 import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
 import { actions, endpoints, isUuid, PROJECT_MANAGE, ROUND_MANAGE } from '../endpoints';
+import { isModelHierarchyNodeId } from '../hierarchy';
 
 // Lookup mirrors only; these are owned and implemented by log-knowledge, never contributed a second time.
 const lookupEndpoints: Record<string, EndpointSpec<Params, unknown>> = Object.fromEntries(['vendors', 'processes'].map(name => [name, defineEndpoint<Params, unknown>({ id: `logKnowledge.${name}`, menuId: 'log-knowledge-catalog', permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false, paramKeys: { q: true, page: true, pageSize: true, sorting: true, filters: true } })]));
 
 function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> {
+  const { pageParam, route } = usePlatform();
+  const listRead = name === 'models' && route?.menu.id === 'log-models';
+  const modelId = listRead ? pageParam('modelId') : null;
+  const projected = listRead ? { ...params, filters: [
+    ...((params.filters ?? []) as { id: string; op: string; value?: string[] }[]).map(f => f.id === 'processes' && f.value?.includes('none') ? { id: 'processes', op: 'isEmpty' } : f),
+    ...(modelId ? [{ id: 'id', op: 'in', value: [modelId] }] : []),
+  ] } : params;
   const spec = endpoints[name] ?? lookupEndpoints[name];
   if (!spec) throw new Error(`Unknown lifecycle read: ${name}`);
-  const query = useMenuQuery(spec, params, enabled);
+  const query = useMenuQuery(spec, projected, enabled);
   const response = query.response;
   return { status: response ? response.outcome === 'ok' || response.outcome === 'empty' ? 'done' : 'error' : 'loading', completedAt: query.completedAt, data: response?.data as T | null, denied: response?.outcome === 'forbidden', retry: query.refetch };
 }
@@ -52,17 +60,19 @@ export default function LifecyclePage({ params = {} }: PageProps) {
     const url = new URL(to, 'https://host.invalid');
     const match = /^\/log\/models\/([^/]+)(?:\/rounds\/([^/]+))?$/.exec(url.pathname);
     const model = /^\/log\/knowledge\/models\/([^/]+)$/.exec(url.pathname);
-    if (match?.[1] && isUuid(match[1]) && (!match[2] || isUuid(match[2]))) navigate(linkTo(match[2] ? 'log-model-round' : 'log-model-project', { params: { projectId: match[1], ...(match[2] ? { roundId: match[2] } : {}) }, returnTo: true }));
+    if (match?.[1] && isUuid(match[1]) && (!match[2] || isUuid(match[2]))) navigate(linkTo(match[2] ? 'log-model-round' : 'log-model-project', { params: { projectId: match[1], ...(match[2] ? { roundId: match[2] } : {}) }, page: { node: match[1] === params.projectId ? pageParam('node') : null }, returnTo: true }));
     else if (model?.[1] && isUuid(model[1])) navigate(linkTo('log-knowledge-model', { params: { modelId: model[1] }, returnTo: true }));
     else if (url.pathname === '/log/models') navigate(linkTo('log-models'));
     else if (url.pathname === '/log/validation-requests') navigate(linkTo('log-validation-requests', { page: Object.fromEntries(url.searchParams) }));
-  }, [navigate, linkTo]);
+  }, [navigate, linkTo, params.projectId, pageParam]);
   const props = useMemo<ScreenProps>(() => ({ api, ui, state: Object.fromEntries(page), setState: patch => setPage(Object.fromEntries(Object.entries(patch).map(([k,v]) => [k, v ?? null]))), actorId: user.id, canProject: can(PROJECT_MANAGE), canRound: can(ROUND_MANAGE), selection: pageParam('request') ?? undefined, setSelection: id => setPage({ request: id ?? null }) }), [page, user.id, can, pageParam, setPage]);
   const projectId = params.projectId;
   const roundId = params.roundId;
   const selection = pageParam('request');
   const keys = usePageKeyRules([
-    ...['request', 'attempt', 'vendorId', 'processId', 'modelId'].map(key => ({ key, label: { ko: key, en: key }, valid: isUuid })),
+    { key: 'node', label: { ko: '계층 노드', en: 'Hierarchy node' }, valid: isModelHierarchyNodeId },
+    ...['request', 'attempt', 'vendorId', 'modelId'].map(key => ({ key, label: { ko: key, en: key }, valid: isUuid })),
+    { key: 'processId', label: { ko: '공정', en: 'Process' }, valid: v => v === 'none' || isUuid(v) },
     ...['page', 'requestsPage', 'rulesPage'].map(key => ({ key, label: { ko: '페이지', en: 'Page' }, valid: (v: string) => /^[1-9]\d{0,6}$/.test(v) && Number(v) <= 1000001 })),
     { key: 'q', label: { ko: '검색', en: 'Search' }, valid: v => v.length <= 200 },
     { key: 'stage', label: { ko: '개발 단계', en: 'Stage' }, valid: v => ['registered','kickoff','alpha','beta','completed','cancelled','empty'].includes(v) },

@@ -202,7 +202,7 @@ log-dev (기존 Space)
 - 열: 모델, 설비사, 공정, 개발 단계, 검증 상태(`검증 전`·`요청 대기`·`실행 중`·`통과`·`실패`·`불완전`·`Gate 승인됨`), 대기 요청, 갱신.
 - 검증 상태는 **가장 최근 Round의 가장 최근 시도 `verdict`와 요청 `state`에서 파생**한 표시값이고 Gate 승인과 구분해 별도 열(`Gate`)로 둔다. `incomplete`·`미지원`을 `통과`로 보이지 않는다.
 - 개발 건이 없는 모델도 행으로 보인다(`개발 건 없음`) — 행 동작: 「개발 건 만들기」(권한 있을 때).
-- 필터 표(위 열)와 **사이드바 설비사→공정→모델→SW 계층 탐색**을 함께 쓴다. [ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)의 메뉴 `navTree` + SDK `HierarchyNav`(모델은 `mode: tree`, 소유자 2026-11-07 컨펌)로 네 단계와 노드 종류·목적지를 선언한다. 모델 노드는 안정 객체 ID로 등록된 메뉴·개발 건 상세를 연다. 노드 조회(`listChildren`·`resolveAncestors`·검색)는 #1449의 `Source`가 선언 엔드포인트로 조립한다. 본문 `HierarchyExplorer`·`HierarchyBreadcrumb`은 보류이며 필터 표와 지식 허브 «모델 탐색» 표는 유지한다.
+- 필터 표(위 열)와 **사이드바 설비사→공정→모델→SW 계층 탐색**을 함께 쓴다. [ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)의 메뉴 `navTree` + SDK `HierarchyNav`(모델은 `mode: tree`, 소유자 2026-11-07 컨펌)로 네 단계와 노드 종류·목적지를 선언한다. 모델 노드는 안정 객체 ID로 등록된 메뉴·개발 건 상세를 연다. **As-built(#1449, 부분 구현)**: 노드 조회(`listChildren`·`resolveAncestors`·검색)는 메뉴의 `Source`가 `logLifecycle.hierarchy` 선언 엔드포인트로 조립한다. 설비사·공정과 `vendorId`·`processId`·`modelId` 전체 모델 필터 주소는 조상을 복원한다. 모델·SW의 개발 건 링크는 객체 ID 경로 `node`(`v/<vendor>/p/<process|none>/m/<model>[/s/<sw>]`)를 담고, 프로젝트 내 Round 이동에서도 보존해 현재 노드를 표시한다. `node` 없는 개발 건·Round 딥링크에서 현재 노드를 찾는 기능만 **미구현**이다. 동기 `currentNodeId`가 경로 조회 결과를 받을 SDK seam은 [백로그](../../../../.planning/backlog.md)의 확장 결정 뒤 재개한다. 본문 `HierarchyExplorer`·`HierarchyBreadcrumb`은 보류이며 필터 표와 지식 허브 «모델 탐색» 표는 유지한다.
 
 **개발 건 상세 (Management 상세)**
 - 머리: 모델·SW 딥링크(`log-knowledge`), 단계 스테퍼, 담당, 목표일, 현재 Gate 상태. 단계 이동 버튼은 서버가 허용한 다음 단계만 보인다.
@@ -239,12 +239,12 @@ log-dev (기존 Space)
 | c | `log-lifecycle` 스키마·마이그레이션·개발 건·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 검증 첨부는 c2 #1451, 구현됨) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
 | d **As-built** #1445 | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
 | e **As-built** #1446 | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
-| f **As-built** #1447 | 컨펌 A2 모델 표·개발 건/Round 상세·검증 요청. `PlatformDataTable`·확장 가능한 `DetailDrawer`·`AuditTimeline`·Gate 우측 고정. 계층 보기는 g2 #1449에서 구현; | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
+| f **As-built** #1447 | 컨펌 A2 모델 표·개발 건/Round 상세·검증 요청. `PlatformDataTable`·확장 가능한 `DetailDrawer`·`AuditTimeline`·Gate 우측 고정. 사이드바 계층은 g2 #1449가 연결한다; | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
 | g | **#1108 SDK 조각**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)): `navTree` + `HierarchyNav`, 합성 source·실제 AppShell 테스트 — **As-built**(#1448, 호스트 검증 대기; 본문 조각 보류) | full, `impl-complex`(공개 API `sdk:api`) | 시안 컨펌(소비자는 확정) |
-| g2 | `log-models` 계층 보기 연결(source 구현, 노드 표시) | full, `ux=required` | g, c |
+| g2 **As-built(부분)** #1449 | `log-models` tree 선언·4단계 source·서버/합성 조회·노드 목적지 연결. 계층 링크의 개발 건·Round는 객체 경로 `node`로, 모델 목록은 `vendorId`·`processId`·`modelId`로 현재 노드를 복원한다. `node` 없는 개발 건·Round 딥링크만 SDK seam 결정 전 미구현([백로그](../../../../.planning/backlog.md)) | full, `ux=required` | g, c |
 | h | 통합: 계약 E2E(토큰 → claim → 결과 → Gate), 문서 소유 갱신, `.planning` 줄 | full | a–f |
 
-병렬: a∥c, g는 독립 (f의 계층 보기는 g2 이후)(파일이 겹치지 않음). 도메인 스키마를 바꾸는 노드(c·d·e)는 마이그레이션 노드의 규칙(전체 백엔드 `test:integration`)을 따른다([traps](../../../../.agents/conductor/addenda/traps.md)).
+병렬: a∥c, g는 독립(파일이 겹치지 않음). 도메인 스키마를 바꾸는 노드(c·d·e)는 마이그레이션 노드의 규칙(전체 백엔드 `test:integration`)을 따른다([traps](../../../../.agents/conductor/addenda/traps.md)).
 
 ## 8. 반례와 대응 (v0.30.0 범위만)
 

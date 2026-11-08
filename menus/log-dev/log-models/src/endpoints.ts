@@ -8,6 +8,7 @@ export const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
 type Params = Record<string, unknown>;
 const keys = (names: string[]) => Object.fromEntries(names.map(n => [n, true as const]));
 const reads = {
+  hierarchy: ['op', 'parentId', 'nodeId', 'query', 'cursor', 'limit'],
   models: ['q', 'page', 'pageSize', 'sorting', 'filters', 'includeClosedProjects'], projectDetail: ['projectId'], projectEvents: ['projectId', 'page', 'pageSize'], rounds: ['projectId'], roundDetail: ['roundId'], roundEvidence: ['roundId'],
   requests: ['page', 'pageSize', 'states', 'priority', 'immediate', 'roundId', 'modelId', 'from', 'to'], requestDetail: ['requestId'], ruleResults: ['attemptId', 'page', 'pageSize', 'results', 'required', 'sorting'], excerpt: ['ruleResultId', 'evidenceIndex'], queueStatus: [],
 };

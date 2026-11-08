@@ -4,9 +4,51 @@ import { evidence, signInAs } from './support';
 const PROJECT = '14470000-0000-4000-8000-000000000101';
 const ROUND = '14470000-0000-4000-8000-000000000201';
 const REQUEST = '14470000-0000-4000-8000-000000000301';
+const modelNode = 'v/14470000-0000-4000-8000-000000000011/p/14470000-0000-4000-8000-000000000021/m/14470000-0000-4000-8000-000000000001';
 const roundPath = `/log-dev/log-model-round/${PROJECT}/${ROUND}`;
 
 test.describe('log-lifecycle screens', () => {
+  test('sidebar hierarchy expands vendor, process and model and opens its registered project target', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto('/log-dev/log-models');
+    const hierarchy = page.getByRole('group', { name: '모델 계층' });
+    await hierarchy.getByRole('button', { name: '한빛설비 펼치기' }).click();
+    await hierarchy.getByRole('button', { name: '식각 펼치기', exact: true }).click();
+    await hierarchy.getByRole('button', { name: '식각 모델 펼치기' }).click();
+    await expect(hierarchy.getByRole('link', { name: '3.2.1', exact: true })).toBeVisible();
+    await hierarchy.getByRole('link', { name: '식각 모델', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/log-dev/log-model-project/${PROJECT}`));
+    await expect(hierarchy.getByRole('treeitem', { name: '식각 모델', exact: true })).toHaveAttribute('aria-current', 'location');
+    expect(new URL(page.url()).searchParams.get('node')).toBe(modelNode);
+    await page.reload();
+    await expect(hierarchy.getByRole('treeitem', { name: '식각 모델', exact: true })).toHaveAttribute('aria-current', 'location');
+    await page.getByRole('button', { name: 'Round 3', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(roundPath));
+    expect(new URL(page.url()).searchParams.get('node')).toBe(modelNode);
+    await expect(hierarchy.getByRole('treeitem', { name: '식각 모델', exact: true })).toHaveAttribute('aria-current', 'location');
+    await evidence(page, testInfo, 'model-hierarchy-project');
+  });
+
+  test('fresh filter deep link restores the current process and vendor ancestor', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto('/log-dev/log-models?vendorId=14470000-0000-4000-8000-000000000011&processId=14470000-0000-4000-8000-000000000021');
+    const hierarchy = page.getByRole('group', { name: '모델 계층' });
+    await expect(hierarchy.getByRole('treeitem', { name: '식각', exact: true })).toHaveAttribute('aria-current', 'location');
+    await expect(hierarchy.getByRole('treeitem', { name: '한빛설비', exact: true })).toHaveAttribute('aria-expanded', 'true');
+    await evidence(page, testInfo, 'model-hierarchy-filter-restored');
+  });
+
+  test('fresh project SW deep link restores the exact selected node', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    const node = `${modelNode}/s/14470000-0000-4000-8000-000000000031`;
+    await page.goto(`/log-dev/log-model-project/${PROJECT}?node=${encodeURIComponent(node)}`);
+    const hierarchy = page.getByRole('group', { name: '모델 계층' });
+    await expect(hierarchy.getByRole('treeitem', { name: '3.2.1', exact: true })).toHaveAttribute('aria-current', 'location');
+    await expect(hierarchy.getByRole('treeitem', { name: '식각 모델', exact: true })).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByTestId('log-model-project').getByText('3.2.1', { exact: true })).toBeVisible();
+    await evidence(page, testInfo, 'model-hierarchy-sw-restored');
+  });
+
   test('model table opens its stable development project and Round; Gate stays alongside at both desktop widths', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto('/log-dev/log-models');

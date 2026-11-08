@@ -688,6 +688,102 @@ describe.skipIf(!runIntegration)('log lifecycle (#1444 c)', () => {
   });
 
   describe('reads', () => {
+    describe('hierarchy (#1449)', () => {
+      let vendor: string, processA: string, processB: string, model: string, bare: string, sw: string;
+      let project: { id: string; modelId: string; version: string };
+      let v: string, a: string, b: string, u: string, m: string, s: string;
+      beforeAll(async () => {
+        vendor = await catalog('vendor', WORKSPACE_ID, `${TAG}-hierarchy`, { active: false });
+        processA = await catalog('process_category', WORKSPACE_ID, `${TAG}-hpa`);
+        processB = await catalog('process_category', WORKSPACE_ID, `${TAG}-hpb`);
+        model = await newModel({ vendor_id: vendor, active: false });
+        bare = await newModel({ vendor_id: vendor });
+        sw = await newSoftware(model);
+        await sql('update knowledge.software_version set active = false, row_version = row_version + 1 where id = $1', [sw]);
+        project = await makeProject({ modelId: bare });
+        await sql('insert into knowledge.model_process (workspace_id, model_id, process_id, assigned_by) values ($1,$2,$3,$4),($1,$2,$5,$4)', [WORKSPACE_ID, model, processA, admin.id, processB]);
+        v = `v/${vendor}`; a = `${v}/p/${processA}`; b = `${v}/p/${processB}`; u = `${v}/p/none`;
+        m = `${a}/m/${model}`; s = `${m}/s/${sw}`;
+      });
+      afterAll(async () => {
+        await sql('delete from knowledge.model_process where model_id = $1', [model]);
+        await sql('delete from knowledge.process_category where id = any($1)', [[processA, processB]]);
+      });
+      it('reads all four levels with exact leaf flags and stable Registry targets', async () => {
+        const root = await read('hierarchy', { op: 'children', limit: 999 });
+        expect(root.outcome).toBe('ok');
+        expect(root.data.nodes.length).toBeLessThanOrEqual(200);
+        expect(root.data.nodes).toContainEqual(expect.objectContaining({ id: v, kind: 'vendor', hasChildren: true, target: { menuId: 'log-models', page: { vendorId: vendor } } }));
+        expect((await read('hierarchy', { op: 'children', parentId: v })).data.nodes).toContainEqual(expect.objectContaining({ id: u, label: '미분류' }));
+        expect((await read('hierarchy', { op: 'children', parentId: v })).data.nodes.map((x: { id: string }) => x.id).sort()).toEqual([a, b, u].sort());
+        expect((await read('hierarchy', { op: 'children', parentId: m })).data.nodes).toEqual([expect.objectContaining({ id: s, kind: 'software', hasChildren: false, target: { menuId: 'log-models', page: { vendorId: vendor, processId: processA, modelId: model } } })]);
+        expect((await read('hierarchy', { op: 'children', parentId: s })).data.nodes).toEqual([]);
+      });
+      it('pages by a request-bound opaque cursor and rejects tampering or cross-parent/cross-actor replay', async () => {
+        const first = await read('hierarchy', { op: 'children', parentId: v, limit: 1 });
+        const second = await read('hierarchy', { op: 'children', parentId: v, limit: 1, cursor: first.data.nextCursor });
+        expect(second.data.nodes).toHaveLength(1);
+        expect(second.data.nodes[0].id).not.toBe(first.data.nodes[0].id);
+        for (const params of [
+          { op: 'children', parentId: v, limit: 1, cursor: `${first.data.nextCursor}x` },
+          { op: 'children', parentId: a, limit: 1, cursor: first.data.nextCursor },
+          { op: 'children', parentId: v, limit: 2, cursor: first.data.nextCursor },
+          { op: 'search', query: TAG, limit: 1, cursor: first.data.nextCursor },
+        ]) expect((await read('hierarchy', params)).outcome).toBe('error');
+        expect((await read('hierarchy', { op: 'children', parentId: v, limit: 1, cursor: first.data.nextCursor }, user)).outcome).toBe('error');
+      });
+      it('keeps a model reachable on both process paths, includes inactive models, and routes unassigned models to an open project', async () => {
+        for (const parentId of [a, b]) {
+          expect((await read('hierarchy', { op: 'children', parentId })).data.nodes).toEqual([expect.objectContaining({ id: `${parentId}/m/${model}`, kind: 'model', hasChildren: true, target: { menuId: 'log-models', page: { vendorId: vendor, processId: parentId === a ? processA : processB, modelId: model } } })]);
+        }
+        expect((await read('hierarchy', { op: 'children', parentId: u })).data.nodes).toEqual([expect.objectContaining({ id: `${u}/m/${bare}`, target: { menuId: 'log-model-project', params: { projectId: project.id }, page: { node: `${u}/m/${bare}` } }, hasChildren: false })]);
+      });
+      it('preserves the selected model and SW placement in open-project targets', async () => {
+        await sql('update knowledge.equipment_model set active = true, row_version = row_version + 1 where id = $1', [model]);
+        const open = await makeProject({ modelId: model });
+        await sql('update knowledge.equipment_model set active = false, row_version = row_version + 1 where id = $1', [model]);
+        for (const parentId of [a, b]) {
+          const modelId = `${parentId}/m/${model}`;
+          expect((await read('hierarchy', { op: 'children', parentId })).data.nodes).toContainEqual(expect.objectContaining({ target: { menuId: 'log-model-project', params: { projectId: open.id }, page: { node: modelId } } }));
+          expect((await read('hierarchy', { op: 'children', parentId: modelId })).data.nodes).toContainEqual(expect.objectContaining({ target: { menuId: 'log-model-project', params: { projectId: open.id }, page: { node: `${modelId}/s/${sw}` } } }));
+        }
+      });
+      it('resolves root to parent ancestors for every kind, excluding the requested node', async () => {
+        for (const [nodeId, ancestors] of [[v, []], [a, [v]], [m, [v, a]], [s, [v, a, m]]] as const) {
+          expect((await read('hierarchy', { op: 'ancestors', nodeId })).data.map((x: { id: string }) => x.id)).toEqual(ancestors);
+        }
+      });
+      it('searches labels on all four kinds with cursor paging and literal substring matching', async () => {
+        const search = await read('hierarchy', { op: 'search', query: TAG, limit: 2 });
+        expect(search.data.nodes).toHaveLength(2);
+        const next = await read('hierarchy', { op: 'search', query: TAG, limit: 2, cursor: search.data.nextCursor });
+        expect(next.data.nodes.map((n: { id: string }) => n.id).some((id: string) => search.data.nodes.some((n: { id: string }) => n.id === id))).toBe(false);
+        const modelName = (await sql('select name from knowledge.equipment_model where id = $1', [model])).rows[0].name as string;
+        const swName = (await sql('select version_label from knowledge.software_version where id = $1', [sw])).rows[0].version_label as string;
+        for (const [query, kind] of [[`${TAG}-hierarchy`, 'vendor'], [`${TAG}-hpa`, 'process'], [modelName, 'model'], [swName, 'software']]) {
+          expect((await read('hierarchy', { op: 'search', query, limit: 200 })).data.nodes).toContainEqual(expect.objectContaining({ kind }));
+        }
+        expect((await read('hierarchy', { op: 'search', query: '%' })).data.nodes).toEqual([]);
+      });
+      it('returns deleted for unknown, moved and foreign workspace paths without leaking foreign labels', async () => {
+        expect((await read('hierarchy', { op: 'ancestors', nodeId: `v/${vendorOther}` })).data).toEqual({ failure: 'deleted' });
+        expect((await read('hierarchy', { op: 'children', parentId: `v/${randomUUID()}` })).data).toEqual({ failure: 'deleted' });
+        expect((await read('hierarchy', { op: 'ancestors', nodeId: `${b}/m/${bare}` })).data).toEqual({ failure: 'deleted' });
+        expect((await read('hierarchy', { op: 'search', query: `${TAG}-vo` })).data.nodes).toEqual([]);
+        expect((await read('hierarchy', { op: 'children', workspaceId: otherWorkspace })).outcome).toBe('error');
+      });
+      it('keeps stable identity after a rename and writes no catalog, lifecycle or audit rows', async () => {
+        await sql('update knowledge.vendor set name = $2, row_version = row_version + 1 where id = $1', [vendor, `${TAG}-renamed`]);
+        const before = await sql(`select (select count(*) from core.audit_log) as audit, (select count(*) from knowledge.vendor) as vendors, (select count(*) from log_lifecycle.development_project) as projects`);
+        const root = await read('hierarchy', { op: 'children' }, user);
+        expect(root.data.nodes).toContainEqual(expect.objectContaining({ id: v, label: `${TAG}-renamed` }));
+        await read('hierarchy', { op: 'ancestors', nodeId: s }, user);
+        await read('hierarchy', { op: 'search', query: TAG }, user);
+        const after = await sql(`select (select count(*) from core.audit_log) as audit, (select count(*) from knowledge.vendor) as vendors, (select count(*) from log_lifecycle.development_project) as projects`);
+        expect(after.rows).toEqual(before.rows);
+      });
+    });
+
     it('models lists models without a project (project: null) and the open project with its latest round', async () => {
       const bare = await newModel();
       const project = await makeProject();
