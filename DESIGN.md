@@ -116,7 +116,7 @@ components:
 | --- | --- | --- |
 | 플랫폼 [tokens.css](packages/sdk/ui/src/styles/tokens.css)·[semantic.css](packages/sdk/ui/src/styles/semantic.css)(FeedbackOps `a8d768b8`에서 이전, ADR-0046), 기능 화면 [tokens.md](docs/design/features/tokens.md)(이전 시점 설명) | 공유 색·표면·간격·반경·폰트·본문 타이포·AA 의미 label 쌍 | 원본은 플랫폼; 값 스케일을 복제하지 않고 semantic token을 소비 |
 | 플랫폼 `@ap/ui`(원본, ADR-0046). 기능 화면 [ui-design-system.md](docs/design/features/ui-design-system.md)·[ADR-0058](docs/adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md)는 이전 시점(`a8d768b8`)의 참고 문서 | primitive의 모양·상태, CSS-first 소비·폰트 로딩 계약. 이전 뒤 변경은 `@ap/ui`에서 한다 | `@ap/ui`를 통한 공개 primitive·CSS 소비 |
-| [06 §7–9](docs/contract/layout.md#7-application-shell), [07](docs/wireframes/app-shell.md) | 셸 구조·치수·슬롯·navigation IA·시나리오 | 구조를 복사하지 않고 플랫폼 시각 보완만 정의 |
+| [06 §7–9](docs/contract/layout.md#7-application-shell), [07](docs/design/app-shell.md) | 셸 구조·치수·슬롯·navigation IA·시나리오 | 구조를 복사하지 않고 플랫폼 시각 보완만 정의 |
 | DESIGN.md | 플랫폼 확장 token의 역할·값 출처, 허용 전경/표면, 분석·KPI·표·차트 시각 패턴 | 아래 정의가 원본 |
 | [플랫폼 확장 CSS](packages/sdk/ui/src/styles/platform-tokens.css), [매핑·역할 유틸리티](packages/sdk/ui/src/styles/index.css) | 확장 구현 | 문서와 대조; 불일치는 별도 보고 |
 
@@ -214,7 +214,7 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 
 ## Shell visual rules
 
-셸 구조·치수·본문 여백·gap·sticky 배치의 원본은 [06 §7 Baseline](docs/contract/layout.md#7-application-shell)과 [07 §4](docs/wireframes/app-shell.md)다. 이 문서는 아래 시각 보완만 소유하며 구조 값을 다시 정의하지 않는다.
+셸 구조·치수·본문 여백·gap·sticky 배치의 원본은 [06 §7 Baseline](docs/contract/layout.md#7-application-shell)과 [07 §4](docs/design/app-shell.md)다. 이 문서는 아래 시각 보완만 소유하며 구조 값을 다시 정의하지 않는다.
 
 - B안 Context 바는 적용 배지를 생략하고 참조/미지원 capability만 배지로 표시한다. control 표면은 유지한다. 넘침 버튼은 숨은 조건을 대신하는 Context 칩이라 이웃 칩과 같은 칩 모양(플랫폼 확장, `packages/sdk/shell/src/context/contextChip.ts`)을 쓰며 숨은 조건 수와 적용 수를 표시하고, 축약된 기간·아이콘 동작은 전체 접근 이름과 title을 제공한다(06 §7, ADR-0015).
 - 상세 슬롯은 공유 `surface-detail` 표면과 왼쪽 1px `border-subtle` 구분선으로 본문과 나눈다. 셸 전체 높이를 쓰고 그림자·scrim은 없다. 내부 상세 탭 내용은 독립 스크롤하며 폭은 06 §7 Baseline을 소비한다(ADR-0013).

@@ -131,7 +131,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - 한 셸에 상세 슬롯은 하나이며 마지막 등록이 이기고 개발 환경에서 중복 등록을 경고한다. 등록자가 unmount되면 해제하고, 이전 등록자가 살아 있으면 그 내용이 다시 보인다. 분석 보드에서는 다른 칸의 상세가 슬롯을 차지하면 앞 칸의 상세는 복귀하지 않고 닫힌다([16 §6](../design/analysis-board.md#6-메뉴-쪽-요구-decided)). 내용 갱신만으로 등록 우선순위를 바꾸지 않는다. 등록 방식은 둘(DOM host에 직접 portal / 노드를 맡기는 `useDetailPanelContent`, 셸 `detailPanel` prop)이지만 활성 등록자는 하나다([ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md)). 등록 primitive는 `@ap/ui`에 있으며 DetailDrawer는 AppShell(또는 같은 슬롯 Provider·host) 아래에서 사용한다.
 - 오른쪽 자리는 한 번에 하나다. 상세와 VOC 등록 드로어(§8)은 서로 바꿔 열린다. 바꿔 열어도 등록 초안과 상세 선택(`focus`)은 남고, 돌아오면 다시 보인다. 상세에 저장하지 않은 편집이 있을 때의 처리는 아래 `activation` 규칙이 정한다([ADR-0070](../adr/0070-global-features-platform-menu-and-voc-drawer.md)). 상세가 **새로 보이게 되면**(새 등록자, 닫힘→열림; 열려 있는 상세의 재렌더·닫힘·해제·복귀는 아니다. 호스트 hook의 `activation`) 그 상세가 오른쪽 자리를 가져가고 열려 있던 VOC 등록 드로어는 초안을 둔 채 숨는다. 레일 버튼이 다시 패널을 보이고 상세를 숨긴다.
 
-결정과 비교 선택지는 [ADR-0013](../adr/0013-detail-panel-shell-docked-slot.md), 배치는 [07](../wireframes/app-shell.md), 시각 규칙은 [DESIGN](../../DESIGN.md#shell-visual-rules)을 따른다.
+결정과 비교 선택지는 [ADR-0013](../adr/0013-detail-panel-shell-docked-slot.md), 배치는 [07](../design/app-shell.md), 시각 규칙은 [DESIGN](../../DESIGN.md#shell-visual-rules)을 따른다.
 
 ### Domain Component
 

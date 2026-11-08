@@ -11,14 +11,14 @@ Desktop-first를 기본으로 한다.
 
 구조는 기능 AppFrame을 따른다(Decided, 2026-10-04, [ADR-0011](../adr/0011-design-direction-feedbackops-shell.md)). 셸은 플랫폼 `@ap/shell`이 그리며 기능 앱 코드를 가져오지 않는다.
 
-셸 배치도(레일·사이드바·페이지 머리·Context 바·콘텐츠 슬롯, 상세가 열린 상태 포함)는 [07 §4](../wireframes/app-shell.md#4-wireframe-decided-구조-2026-10-04--adr-0011)에 하나만 둔다.
+셸 배치도(레일·사이드바·페이지 머리·Context 바·콘텐츠 슬롯, 상세가 열린 상태 포함)는 [07 §4](../design/app-shell.md#4-wireframe-decided-구조-2026-10-04--adr-0011)에 하나만 둔다.
 
 - **레일** (위 → 아래): `시스템 및 플랫폼 메뉴` 전환기(맨 위, §9.1, ADR-0070) → 현재 시스템의 섹션 버튼(그룹 단위, 공간 밖 화면에서는 비어 있음) → 공통 도구(명령 팔레트 §10) → 앱이 주입하는 도구 슬롯(`topBarTools`, ADR-0009 이름 유지), 도움말, 사용자 메뉴(`언어`를 품는다, ADR-0070; `기능 전체` 링크는 없앴다, ADR-0081 결정 6, #764 p2). 공통 도구는 시스템을 바꿔도 같은 자리다. 배치·치수 원본은 [15 §3.2](../design/multi-workspace-ui.md#32-시스템별-레일-decided-2026-10-19-adr-0042), 방향은 [ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)다.
 - **사이드바**: 머리에 공간 이름과 현재 섹션 이름(같으면 한 줄)과 접기. 그 아래 Scope 선택기와 검증 상태가 있고, 현재 섹션(그룹)의 메뉴, 즐겨찾기·최근이 이어진다(§9). 미등록 경로·공간 진입 거부의 fallback 사이드바는 접근 가능한 공간의 모든 그룹을 그대로 그린다.
   메뉴가 `navTree`를 선언하면 고정 메뉴 목록 끝, 그 선언 메뉴가 속한 그룹 안에 제목 있는 `role="group"` 구역을 그린다(업무 시스템·플랫폼 사이드바 모두). 제목은 기존 그룹-title 클래스의 `<p>`이며 섹션 이름이 머리에 있어 기존 그룹 제목을 숨긴 경우에도 보인다. 데이터 노드와 고정 메뉴의 선택 표시는 함께 남는다. 240px 확장 상태는 남은 공간을 쓰는 목록, 56px 접힘 상태는 부모 메뉴 링크와 별도의 FolderTree 버튼이다. 버튼의 팝오버는 오른쪽·start·4px 간격, padding 없음, 50px 머리·닫기다. 실제로 이동한 선택만 닫고 드릴·펼침·거부된 이동은 유지한다. 데이터·제한은 [§13 HierarchyNav](components.md#hierarchynav), 선언 검증은 [§5](kernel.md#5-menu-extension-contract)가 소유한다.
 - **상단 바는 없다.** 페이지 머리는 한 줄에 위치·제목·설명·동작을 둔다(§8 슬롯).
 
-Scope는 개념적으로 Global Context에 포함되지만 선택기는 **사이드바 머리에 하나만** 둔다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 예외: 분석 보드([16](../design/analysis-board.md))에는 업무 시스템 사이드바가 없으므로, 보드 Context 바의 Scope가 **선택된 칸의 Scope이자 그 화면의 유일한 Scope 선택기**다(§6.5, [ADR-0051](../adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md)). 구체 셸 배치는 `../wireframes/app-shell.md`를 따른다.
+Scope는 개념적으로 Global Context에 포함되지만 선택기는 **사이드바 머리에 하나만** 둔다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 예외: 분석 보드([16](../design/analysis-board.md))에는 업무 시스템 사이드바가 없으므로, 보드 Context 바의 Scope가 **선택된 칸의 Scope이자 그 화면의 유일한 Scope 선택기**다(§6.5, [ADR-0051](../adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md)). 구체 셸 배치는 `../design/app-shell.md`를 따른다.
 
 ### Context 바 우선순위 넘침 (Decided, 2026-10-04 — #56, [ADR-0015](../adr/0015-context-bar-priority-overflow.md))
 
