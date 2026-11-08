@@ -300,3 +300,55 @@ describe('screen details (U2, U4, U5)', () => {
     await waitFor(() => expect(writes.at(-1)).toMatchObject({ action: 'logKnowledge.vendorSetActive', input: { active: true } }));
   });
 });
+
+describe('unsaved drawer input (#1519, ADR-0115)', () => {
+  const asked = () => screen.findByText('작성 중인 내용이 사라집니다. 닫을까요?');
+  const keepWriting = async () => {
+    fireEvent.click(screen.getByRole('button', { name: '계속 작성' }));
+    await waitFor(() => expect(screen.queryByText('작성 중인 내용이 사라집니다. 닫을까요?')).toBeNull());
+  };
+  it('asks before Esc, the close button or 취소 drops typed input; 계속 작성 keeps it and 닫기 closes', async () => {
+    mount(`&tab=vendor${activeOnly()}&focus=new`);
+    const code = await screen.findByLabelText(/^코드/, {}, slow);
+    fireEvent.change(code, { target: { value: 'NEWCO' } });
+    fireEvent.change(screen.getByLabelText(/^이름/), { target: { value: 'New Co' } });
+
+    fireEvent.keyDown(code, { key: 'Escape' });
+    await asked();
+    await keepWriting();
+    fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
+    await asked();
+    await keepWriting();
+    fireEvent.click(screen.getByRole('button', { name: '취소' }));
+    await asked();
+    await keepWriting();
+    expect(url().get('focus')).toBe('new');
+    expect((screen.getByLabelText(/^코드/) as HTMLInputElement).value).toBe('NEWCO');
+    expect((screen.getByLabelText(/^이름/) as HTMLInputElement).value).toBe('New Co');
+
+    fireEvent.keyDown(screen.getByLabelText(/^코드/), { key: 'Escape' });
+    await asked();
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '닫기' }));
+    await waitFor(() => expect(url().get('focus')).toBeNull(), slow);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('opens the created row without asking (the guard is off before the focus write)', async () => {
+    mount(`&tab=vendor${activeOnly()}&focus=new`);
+    fireEvent.change(await screen.findByLabelText(/^코드/, {}, slow), { target: { value: 'ZETA' } });
+    fireEvent.change(screen.getByLabelText(/^이름/), { target: { value: 'Zeta Corp' } });
+    answer = () => ({ outcome: 'ok', data: { id: zeta.id, version: '1' } });
+    held.set(zeta.id, zeta);
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(url().get('focus')).toBe(zeta.id), slow);
+    expect(screen.queryByText('작성 중인 내용이 사라집니다. 닫을까요?')).toBeNull();
+  });
+
+  it('closes an untouched drawer at once', async () => {
+    mount(`&tab=vendor${activeOnly()}&focus=${vendorRow.id}`);
+    const code = await screen.findByLabelText(/^코드/, {}, slow);
+    fireEvent.keyDown(code, { key: 'Escape' });
+    await waitFor(() => expect(url().get('focus')).toBeNull());
+    expect(screen.queryByText('작성 중인 내용이 사라집니다. 닫을까요?')).toBeNull();
+  });
+});
