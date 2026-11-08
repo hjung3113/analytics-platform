@@ -74,6 +74,8 @@ describe.skipIf(!runIntegration)('log explorer reads (#1469)', () => {
     expect(res.statusCode, res.body).toBe(200);
     return res.json<Answer>();
   }
+  let enterSource: () => void = () => undefined;
+  const sourceEntered = new Promise<void>((resolve) => { enterSource = resolve; });
   let listening: Promise<string> | null = null;
   const slowAddress = () => (listening ??= slow.listen({ port: 0, host: '127.0.0.1' }));
   const page = (extra: Record<string, unknown> = {}) => ({ sampleSet: synthetic.sampleSet, query: {}, limit: 10, ...extra });
@@ -89,7 +91,20 @@ describe.skipIf(!runIntegration)('log explorer reads (#1469)', () => {
     migrate = createDb(MIGRATE_URL);
     app = await buildServer({ config: loadConfig(), dbHandle, logExplorer: devLogExplorerServerOptions(access, 'typical') });
     bare = await buildServer({ config: loadConfig(), dbHandle });
-    slow = await buildServer({ config: loadConfig(), dbHandle, logExplorer: devLogExplorerServerOptions(access, 'slow') });
+    const slowOptions = devLogExplorerServerOptions(access, 'slow');
+    const slowPort = createSyntheticScenario('slow').port;
+    // The slow Source reports the first call it receives, so a cancel test can abandon the request while the Source call is running.
+    const watched = new Proxy(slowPort, {
+      get(target, key, receiver) {
+        const value = Reflect.get(target, key, receiver);
+        if (typeof value !== 'function') return value;
+        return (...args: unknown[]) => {
+          enterSource();
+          return value.apply(target, args);
+        };
+      },
+    });
+    slow = await buildServer({ config: loadConfig(), dbHandle, logExplorer: { ...slowOptions, sourceReadPort: watched } });
     await Promise.all([app.ready(), bare.ready(), slow.ready()]);
     admin = await person('admin');
     reader = await person('user');
@@ -223,7 +238,8 @@ describe.skipIf(!runIntegration)('log explorer reads (#1469)', () => {
       body: JSON.stringify({ endpoint: 'logExplorer.records', context: {}, params: page({ limit: 5 }) }),
       signal: ctl.signal,
     }).catch(() => null);
-    setTimeout(() => ctl.abort(), 150);
+    await sourceEntered; // abandon only once the read is inside the Source call (a client that leaves earlier starts no read, so there is nothing to audit; a fixed delay loses that race on a cold runner)
+    ctl.abort();
     await pending;
     let aborted = false;
     for (let i = 0; i < 30 && !aborted; i += 1) {
