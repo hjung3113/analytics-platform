@@ -29,6 +29,7 @@ export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
   'explorer.investigate': '로그 조사',
   'dataset.manage': '로그 테스트 데이터셋 관리',
   'dataset.baseline.approve': '로그 테스트 기준 승인',
+  'dataset.suite.run': '로그 테스트 회귀 실행',
 };
 
 export function getCapabilityDisplayLabel(capability: string): string {

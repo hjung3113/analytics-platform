@@ -33,6 +33,7 @@ const ALWAYS: Capability[] = [
   'lifecycle.gate.decide',
   'knowledge.draft.create',
   'dataset.manage',
+  'dataset.suite.run',
 ];
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage', 'voc.create'];
 const NONE: Capability[] = [

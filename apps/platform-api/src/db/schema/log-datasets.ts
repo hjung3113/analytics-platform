@@ -270,3 +270,133 @@ export const baselineEvents = logDatasetsSchema.table(
     ),
   }),
 );
+
+// Regression suites and their runs (#1479 node c, design §3.5, ADR-0120): a suite is a named list of dataset items with a fixed
+// execution profile; a run pins, at request time, the revision, baseline and digests every item resolved to. A suite run has NO stored
+// state: it is derived from the states of its items' requests in log-lifecycle (`execution_request`, read through the lifecycle port).
+// `suite_run` and `suite_run_item` are immutable (trigger, every role). `request_id` is a log-lifecycle id: a plain uuid, no cross-schema FK.
+const SUITE_ITEMS_MAX = 20;
+
+export const regressionSuites = logDatasetsSchema.table(
+  'regression_suite',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    name: text('name').notNull(),
+    /** `{ datasetId, datasetRevisionId?, baselineId? }[]` in the user's order; an omitted revision is resolved (and pinned) at run time. */
+    items: jsonb('items').notNull(),
+    engineProfileRef: text('engine_profile_ref'),
+    /** The pins a run requires of its baselines (known keys only, as `expected_baseline.profile_pin`). */
+    requiredPin: jsonb('required_pin').notNull().default(sql`'{}'::jsonb`),
+    rowVersion: integer('row_version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid('updated_by')
+      .notNull()
+      .references(() => actors.id),
+  },
+  (t) => ({
+    workspaceIdUq: unique('regression_suite_workspace_id_id_uq').on(t.workspaceId, t.id),
+    nameIdx: index('regression_suite_name_idx').on(t.workspaceId, t.name),
+    nameCheck: check('regression_suite_name_check', sql`char_length(${t.name}) between 1 and ${sql.raw(String(NAME_MAX))}`),
+    itemsCheck: check(
+      'regression_suite_items_check',
+      sql`jsonb_typeof(${t.items}) = 'array' and jsonb_array_length(${t.items}) between 1 and ${sql.raw(String(SUITE_ITEMS_MAX))}`,
+    ),
+    profileCheck: check('regression_suite_profile_check', sql`coalesce(char_length(${t.engineProfileRef}), 0) <= 200`),
+    pinCheck: check('regression_suite_required_pin_check', sql`jsonb_typeof(${t.requiredPin}) = 'object'`),
+    versionCheck: check('regression_suite_row_version_check', sql`${t.rowVersion} >= 1`),
+  }),
+);
+
+export const suiteRuns = logDatasetsSchema.table(
+  'suite_run',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    suiteId: uuid('suite_id').notNull(),
+    requestedByActorId: uuid('requested_by_actor_id')
+      .notNull()
+      .references(() => actors.id),
+    idempotencyKey: text('idempotency_key').notNull(),
+    /** The suite's profile and required pin as they were when the run was requested (a later suite edit never changes a run). */
+    engineProfileRef: text('engine_profile_ref'),
+    requiredPin: jsonb('required_pin').notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceIdUq: unique('suite_run_workspace_id_id_uq').on(t.workspaceId, t.id),
+    suiteFk: foreignKey({
+      name: 'suite_run_suite_fk',
+      columns: [t.workspaceId, t.suiteId],
+      foreignColumns: [regressionSuites.workspaceId, regressionSuites.id],
+    }).onDelete('restrict'),
+    idempotencyUq: unique('suite_run_idempotency_uq').on(t.workspaceId, t.suiteId, t.requestedByActorId, t.idempotencyKey),
+    suiteIdx: index('suite_run_suite_idx').on(t.workspaceId, t.suiteId, t.createdAt),
+    keyCheck: check('suite_run_idempotency_key_check', sql`char_length(${t.idempotencyKey}) between 1 and 200`),
+    profileCheck: check('suite_run_profile_check', sql`coalesce(char_length(${t.engineProfileRef}), 0) <= 200`),
+    pinCheck: check('suite_run_required_pin_check', sql`jsonb_typeof(${t.requiredPin}) = 'object'`),
+  }),
+);
+
+export const suiteRunItems = logDatasetsSchema.table(
+  'suite_run_item',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    suiteRunId: uuid('suite_run_id').notNull(),
+    ordinal: integer('ordinal').notNull(),
+    datasetId: uuid('dataset_id').notNull(),
+    datasetRevisionId: uuid('dataset_revision_id').notNull(),
+    baselineId: uuid('baseline_id').notNull(),
+    /** Pinned at run time: the revision's manifest digest and a digest of the approved baseline's content. */
+    sampleManifestDigest: text('sample_manifest_digest').notNull(),
+    baselineDigest: text('baseline_digest').notNull(),
+    /** The 기준 낡음 summary of the baseline when the run was requested (`{ state, reasons, unknown }`; ids and names only). */
+    baselineStale: jsonb('baseline_stale').notNull(),
+    /** The execution request registered for this item (log-lifecycle id). */
+    requestId: uuid('request_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceIdUq: unique('suite_run_item_workspace_id_id_uq').on(t.workspaceId, t.id),
+    runFk: foreignKey({
+      name: 'suite_run_item_run_fk',
+      columns: [t.workspaceId, t.suiteRunId],
+      foreignColumns: [suiteRuns.workspaceId, suiteRuns.id],
+    }).onDelete('restrict'),
+    datasetFk: foreignKey({
+      name: 'suite_run_item_dataset_fk',
+      columns: [t.workspaceId, t.datasetId],
+      foreignColumns: [datasets.workspaceId, datasets.id],
+    }).onDelete('restrict'),
+    revisionFk: foreignKey({
+      name: 'suite_run_item_revision_fk',
+      columns: [t.workspaceId, t.datasetRevisionId],
+      foreignColumns: [datasetRevisions.workspaceId, datasetRevisions.id],
+    }).onDelete('restrict'),
+    baselineFk: foreignKey({
+      name: 'suite_run_item_baseline_fk',
+      columns: [t.workspaceId, t.baselineId],
+      foreignColumns: [expectedBaselines.workspaceId, expectedBaselines.id],
+    }).onDelete('restrict'),
+    ordinalUq: unique('suite_run_item_run_ordinal_uq').on(t.workspaceId, t.suiteRunId, t.ordinal),
+    requestUq: unique('suite_run_item_request_uq').on(t.workspaceId, t.requestId),
+    datasetIdx: index('suite_run_item_dataset_idx').on(t.workspaceId, t.datasetId),
+    ordinalCheck: check('suite_run_item_ordinal_check', sql`${t.ordinal} >= 1`),
+    digestCheck: check(
+      'suite_run_item_digest_check',
+      sql`${t.sampleManifestDigest} ~ '^[0-9a-f]{64}$' and ${t.baselineDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    staleCheck: check('suite_run_item_stale_check', sql`jsonb_typeof(${t.baselineStale}) = 'object'`),
+  }),
+);

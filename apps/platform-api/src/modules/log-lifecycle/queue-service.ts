@@ -31,11 +31,11 @@ import {
   finishRequest,
   getAttempt,
   getQueueSettings,
-  getRound,
   insertRuleResults,
   lockRequest,
   reclaimLease,
   requeueExpiredLeases,
+  subjectOf,
 } from './repositories/queue-write.js';
 import { countRuleResults } from './repositories/queue-read.js';
 import type { SampleSet } from './domain/sample-set.js';
@@ -56,7 +56,9 @@ export interface WorkerCaller {
 export interface ClaimBody {
   request: {
     id: string;
-    roundId: string;
+    /** The Round of a Round request; null for a suite subject (ADR-0117 amendment): exactly one of `roundId` and `suiteRunItemId` is set. */
+    roundId: string | null;
+    suiteRunItemId: string | null;
     priority: number;
     immediate: boolean;
     engineProfileRef: string | null;
@@ -136,7 +138,7 @@ export function createQueueService(deps: QueueServiceDeps) {
         { windowOpen: isWithinRunWindow(settings.runWindow, now()), leaseSeconds: settings.leaseSeconds },
       );
       if (!claimed) return null;
-      const { request, attempt, round } = claimed;
+      const { request, attempt, subject } = claimed;
       await audit.record(tx, {
         workspace_id: caller.workspaceId,
         actor_id: caller.actorId,
@@ -146,11 +148,12 @@ export function createQueueService(deps: QueueServiceDeps) {
         summary: 'validation request claimed',
         detail: { attemptNo: attempt.attemptNo, immediate: request.immediate },
       });
-      const set = round.sampleSet as SampleSet;
+      const set = subject.sampleSet;
       return {
         request: {
           id: request.id,
-          roundId: request.roundId,
+          roundId: subject.roundId,
+          suiteRunItemId: subject.suiteRunItemId,
           priority: request.priority,
           immediate: request.immediate,
           engineProfileRef: request.engineProfileRef,
@@ -158,8 +161,8 @@ export function createQueueService(deps: QueueServiceDeps) {
           attemptNo: attempt.attemptNo,
           maxAttempts: request.maxAttempts,
           sampleSet: { files: [...set.files].sort((x, y) => x.order - y.order), sourceOwner: set.sourceOwner },
-          sampleManifestDigest: round.sampleManifestDigest,
-          specPin: round.specPin ?? null,
+          sampleManifestDigest: subject.sampleManifestDigest,
+          specPin: subject.specPin,
         },
         attempt: { id: attempt.id, attemptNo: attempt.attemptNo },
         leaseExpiresAt: iso(request.leaseExpiresAt as Date),
@@ -189,9 +192,9 @@ export function createQueueService(deps: QueueServiceDeps) {
     }
     return deps.db.transaction(async (tx) => {
       const { request, attempt } = await locate(tx, caller, requestId, attemptNo);
-      const round = await getRound(tx, caller.workspaceId, request.roundId);
-      if (!round) throw new Error('execution request without a round');
-      const set = round.sampleSet as SampleSet;
+      const subject = await subjectOf(tx, caller.workspaceId, request);
+      if (!subject) throw new Error('execution request without a subject');
+      const set = subject.sampleSet;
       const parsed = parseResultBody(rawBody, new Set(set.files.map((f) => f.fileRef)));
       if (!parsed.ok) throw new HttpError('validation.failed', 'result refused', { fields: parsed.errors.map((e) => ({ path: [...e.path], code: e.code })) });
       const result: ParsedResult = parsed.value;
@@ -214,7 +217,7 @@ export function createQueueService(deps: QueueServiceDeps) {
       const late = isLate(request, attempt);
       if (!isCurrent(request, attempt) && !late) throw new LeaseLostError();
 
-      const verdict = computeVerdict(result.results, result.inputManifestDigest === round.sampleManifestDigest);
+      const verdict = computeVerdict(result.results, result.inputManifestDigest === subject.sampleManifestDigest);
       const excerptCount = await insertRuleResults(tx, caller.workspaceId, attempt.id, result.results);
       await finishAttemptSucceeded(tx, attempt.id, {
         executorVersion: result.executorVersion,

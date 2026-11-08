@@ -192,7 +192,15 @@ export const executionRequests = logLifecycleSchema.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id),
-    roundId: uuid('round_id').notNull(),
+    /** The request subject (ADR-0117 amendment, #1479): exactly one of `roundId` and `suiteRunItemId` is set. */
+    roundId: uuid('round_id'),
+    /** A suite run item of log-datasets: a plain uuid, no cross-schema FK (module boundary); one request per item. */
+    suiteRunItemId: uuid('suite_run_item_id'),
+    /** The suite run the item belongs to (same lifetime as the item): the unit of the per-user run cap and of the excerpt retention clock. */
+    suiteRunId: uuid('suite_run_id'),
+    /** A suite subject's sample list, resolved and pinned when the request is registered (the claim response reads it from here; lifecycle never reads log-datasets). */
+    subjectSampleSet: jsonb('subject_sample_set'),
+    subjectSampleManifestDigest: text('subject_sample_manifest_digest'),
     /** 0..2, a higher number is claimed first. */
     priority: integer('priority').notNull(),
     immediate: boolean('immediate').notNull().default(false),
@@ -226,6 +234,21 @@ export const executionRequests = logLifecycleSchema.table(
     idempotencyUq: unique('execution_request_idempotency_uq').on(t.workspaceId, t.requestedByActorId, t.idempotencyKey),
     claimIdx: index('execution_request_claim_idx').on(t.workspaceId, t.state, t.priority, t.createdAt),
     roundIdx: index('execution_request_round_idx').on(t.workspaceId, t.roundId),
+    suiteItemUq: uniqueIndex('execution_request_suite_item_uq')
+      .on(t.workspaceId, t.suiteRunItemId)
+      .where(sql`${t.suiteRunItemId} is not null`),
+    suiteRunIdx: index('execution_request_suite_run_idx')
+      .on(t.workspaceId, t.suiteRunId, t.state)
+      .where(sql`${t.suiteRunId} is not null`),
+    // The subject is a Round XOR a suite run item; a suite subject carries its run and its pinned sample list, a Round one carries neither.
+    subjectCheck: check(
+      'execution_request_subject_check',
+      sql`(${t.roundId} is not null) <> (${t.suiteRunItemId} is not null) and (${t.suiteRunItemId} is not null) = (${t.suiteRunId} is not null) and (${t.suiteRunItemId} is not null) = (${t.subjectSampleSet} is not null) and (${t.suiteRunItemId} is not null) = (${t.subjectSampleManifestDigest} is not null)`,
+    ),
+    subjectDigestCheck: check(
+      'execution_request_subject_digest_check',
+      sql`${t.subjectSampleManifestDigest} is null or ${t.subjectSampleManifestDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
     stateCheck: check('execution_request_state_check', sql`${t.state} in ${sql.raw(REQUEST_STATES)}`),
     priorityCheck: check('execution_request_priority_check', sql`${t.priority} between 0 and 2`),
     attemptsCheck: check(

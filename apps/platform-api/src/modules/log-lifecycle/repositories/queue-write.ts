@@ -20,6 +20,7 @@ import type { Tx } from '../../../db/tx.js';
 import { type RunWindow, DEFAULT_RUN_WINDOW, parseRunWindow } from '../domain/run-window.js';
 import type { ParsedRuleResult } from '../domain/result-payload.js';
 import { type Verdict, stateAfterLeaseExpiry } from '../domain/request-states.js';
+import type { SampleSet } from '../domain/sample-set.js';
 
 export type RequestRow = typeof executionRequests.$inferSelect;
 export type AttemptRow = typeof executionAttempts.$inferSelect;
@@ -94,9 +95,13 @@ export async function countActiveImmediate(tx: Tx, workspaceId: string, actorId:
   return Number(row?.n ?? 0);
 }
 
-export interface NewRequest {
+/** A Round subject, or a suite run item subject with its run id and the sample list pinned at registration (ADR-0117 amendment): never both. */
+export type RequestSubject =
+  | { roundId: string }
+  | { suiteRunItemId: string; suiteRunId: string; subjectSampleSet: SampleSet; subjectSampleManifestDigest: string };
+
+export type NewRequest = RequestSubject & {
   workspaceId: string;
-  roundId: string;
   priority: number;
   immediate: boolean;
   requestDigest: string;
@@ -104,7 +109,7 @@ export interface NewRequest {
   requestedByActorId: string;
   idempotencyKey: string;
   maxAttempts: number;
-}
+};
 
 export async function insertRequest(tx: Tx, v: NewRequest): Promise<RequestRow> {
   const [row] = await tx.insert(q).values(v).returning();
@@ -195,10 +200,36 @@ export async function requeueExpiredLeases(tx: Tx, workspaceId: string, limit = 
   return out;
 }
 
+/** What a request is for, with the sample list the worker must use: a Round's, or the one pinned on a suite subject. */
+export interface ClaimSubject {
+  roundId: string | null;
+  suiteRunItemId: string | null;
+  sampleSet: SampleSet;
+  sampleManifestDigest: string;
+  specPin: unknown;
+}
+
 export interface Claimed {
   request: RequestRow;
   attempt: AttemptRow;
-  round: RoundRow;
+  subject: ClaimSubject;
+}
+
+/** The sample list of a request's subject; null when its Round is gone (cannot happen: the FK restricts). */
+export async function subjectOf(tx: Tx, workspaceId: string, request: RequestRow): Promise<ClaimSubject | null> {
+  if (request.roundId === null) {
+    if (request.suiteRunItemId === null || request.subjectSampleSet === null || request.subjectSampleManifestDigest === null) return null;
+    return {
+      roundId: null,
+      suiteRunItemId: request.suiteRunItemId,
+      sampleSet: request.subjectSampleSet as SampleSet,
+      sampleManifestDigest: request.subjectSampleManifestDigest,
+      specPin: null,
+    };
+  }
+  const round = await getRound(tx, workspaceId, request.roundId);
+  if (!round) return null;
+  return { roundId: round.id, suiteRunItemId: null, sampleSet: round.sampleSet as SampleSet, sampleManifestDigest: round.sampleManifestDigest, specPin: round.specPin ?? null };
 }
 
 /**
@@ -225,19 +256,17 @@ export async function claimNext(
         eq(q.state, 'queued'),
         sql`(${q.notBefore} is null or ${q.notBefore} <= now())`,
         opts.windowOpen ? sql`true` : eq(q.immediate, true),
-        sql`exists (select 1 from log_lifecycle.validation_round v where v.workspace_id = ${workspaceId} and v.id = log_lifecycle.execution_request.round_id and v.status = 'open')`,
+        // A Round subject needs its round open; a suite subject has no round and is claimable whenever it is queued.
+        sql`(log_lifecycle.execution_request.round_id is null or exists (select 1 from log_lifecycle.validation_round v where v.workspace_id = ${workspaceId} and v.id = log_lifecycle.execution_request.round_id and v.status = 'open'))`,
       ),
     )
     .orderBy(desc(q.priority), asc(q.createdAt), asc(q.id))
     .limit(1)
     .for('update', { skipLocked: true });
   if (!locked) return null;
-  const [roundRow] = await tx
-    .select()
-    .from(validationRounds)
-    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.id, locked.roundId)));
-  if (!roundRow) return null;
-  const found = { request: locked, round: roundRow };
+  const subject = await subjectOf(tx, workspaceId, locked);
+  if (!subject) return null;
+  const found = { request: locked, subject };
   const attemptNo = found.request.attemptCount + 1;
   const [request] = await tx
     .update(q)
@@ -261,11 +290,11 @@ export async function claimNext(
       workerActorId: worker.actorId,
       tokenId: worker.tokenId,
       // Until the worker reports the manifest it used, the attempt carries the one it was handed.
-      inputManifestDigest: found.round.sampleManifestDigest,
+      inputManifestDigest: found.subject.sampleManifestDigest,
     })
     .returning();
   if (!request || !attempt) throw new Error('claim wrote no row');
-  return { request, attempt, round: found.round };
+  return { request, attempt, subject: found.subject };
 }
 
 export async function getAttempt(tx: Tx, requestId: string, attemptNo: number): Promise<AttemptRow | null> {
@@ -447,7 +476,7 @@ export async function eraseExcerpts(
 }
 
 /** The Round and request an attempt belongs to (workspace-scoped); null when unknown. */
-export async function attemptOwner(tx: Tx, workspaceId: string, attemptId: string): Promise<{ requestId: string; roundId: string } | null> {
+export async function attemptOwner(tx: Tx, workspaceId: string, attemptId: string): Promise<{ requestId: string; roundId: string | null } | null> {
   const [row] = await tx
     .select({ requestId: a.requestId, roundId: q.roundId })
     .from(a)

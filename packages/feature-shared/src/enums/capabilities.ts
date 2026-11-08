@@ -39,6 +39,7 @@ export const CAPABILITIES = [
   'explorer.investigate',
   'dataset.manage',
   'dataset.baseline.approve',
+  'dataset.suite.run',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -156,6 +157,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'dataset.manage': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
   // Log test dataset baseline approval (#1478 D-b, design log-test-datasets §5): workspace-scoped, sensitive (a stated reason; permission rows stay out of the audit projection allow-list), session-only. No Admin role bypass (the approval boundary is a grant, like the sensitive log explorer rights). Self-approval is allowed and recorded. User role refused (supported-scope policy).
   'dataset.baseline.approve': { sensitive: true, adminModuleBypass: 'none', sessionOnly: true },
+  // Log test dataset suite runs (#1479 D-c, design log-test-datasets §5): workspace-scoped, NOT sensitive (a run spends worker capacity but exposes no data the actor could not read: the same shape as `lifecycle.round.manage`), session-only (design §9 defers token calls). The Admin role holds it; a Developer by grant; a User never (the CURRENT role is checked on every run, like `dataset.baseline.approve`). A per-user cap on concurrent runs bounds the capacity it can spend.
+  'dataset.suite.run': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
 };
 
 export function isCapability(value: string): value is Capability {

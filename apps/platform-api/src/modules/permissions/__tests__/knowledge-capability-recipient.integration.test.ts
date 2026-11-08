@@ -31,6 +31,7 @@ const CAPABILITIES = [
   "dataset.manage",
   "dataset.baseline.approve",
   "lifecycle.gate.decide",
+  "dataset.suite.run",
 ] as const;
 // The sensitive tier is 5/min per actor: split the grant calls over several admins.
 const ADMINS = ["admin", "admin2", "admin3", "admin4", "admin5", "admin6"] as const;

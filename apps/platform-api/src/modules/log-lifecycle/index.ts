@@ -33,3 +33,5 @@ export { lifecycleEvidenceRead } from './evidence-link-read-port.js';
 export type { EvidenceLinkResult, EvidenceLinkRound, EvidenceLinks, LifecycleEvidenceRead } from './evidence-link-read-port.js';
 export { EVIDENCE_LINK_PAGE_SIZE_MAX, EVIDENCE_LINK_PARAM_KEYS, parseEvidenceLinkParams } from './domain/evidence-link-params.js';
 export type { EvidenceLinkQuery } from './domain/evidence-link-params.js';
+export { SUITE_REQUEST_PRIORITY, lifecycleSuiteRequests, suiteRequestDigest } from './suite-request-port.js';
+export type { SuiteRequestPort, SuiteRequestRegistration, SuiteRequestState } from './suite-request-port.js';

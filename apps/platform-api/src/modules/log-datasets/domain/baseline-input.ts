@@ -39,7 +39,7 @@ const specPin = z
   .transform((v) => ({ ...v, modelId: v.modelId.toLowerCase(), softwareId: v.softwareId?.toLowerCase() ?? null, revisionId: v.revisionId.toLowerCase() }));
 
 /** Known pins only (design §3.3): a key is present or absent, never a guess. */
-const profilePin = z
+export const profilePin = z
   .object({
     specPin: specPin.optional(),
     ruleSetRevision: requiredText(PIN_TEXT_MAX).optional(),

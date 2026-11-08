@@ -17,10 +17,13 @@ export const LOG_DATASETS_AUDIT_EVENT_TYPES = [
   'dataset.baseline_updated',
   'dataset.baseline_approved',
   'dataset.baseline_superseded',
+  'dataset.suite_created',
+  'dataset.suite_updated',
+  'dataset.suite_run_requested',
 ] as const;
 
-/** Subject id: the dataset id (`dataset.*`), the revision id (`dataset.revision_created`), the candidate id (`dataset.candidate_*`), the baseline id (`dataset.baseline_*`). */
-export const LOG_DATASETS_SUBJECT_TYPES = ['dataset', 'dataset_revision', 'dataset_candidate', 'dataset_baseline'] as const;
+/** Subject id: the dataset id (`dataset.*`), the revision id (`dataset.revision_created`), the candidate id (`dataset.candidate_*`), the baseline id (`dataset.baseline_*`), the suite id (`dataset.suite_created|updated`), the suite run id (`dataset.suite_run_requested`). */
+export const LOG_DATASETS_SUBJECT_TYPES = ['dataset', 'dataset_revision', 'dataset_candidate', 'dataset_baseline', 'regression_suite', 'suite_run'] as const;
 
 const SCENARIO_TAG = z.enum(['normal', 'exception', 'boundary', 'regression', 'file_boundary', 'carryover', 'partial_support']);
 const SHARE_SCOPE = z.enum(['private', 'workspace']);
@@ -117,6 +120,30 @@ export const datasetBaselineSupersededDetailSchema = z
   })
   .strict();
 
+// Regression suites (#1479 D-c): ids, counts and state names only. Never an item list, a dataset or file name, a pin value or the idempotency key.
+export const datasetSuiteCreatedDetailSchema = z
+  .object({ itemCount: z.number().int().min(1).max(20), hasEngineProfile: z.boolean(), hasRequiredPin: z.boolean() })
+  .strict();
+
+export const datasetSuiteUpdatedDetailSchema = z
+  .object({
+    /** Names of the fields the call changed (`name`, `items`, `engineProfileRef`, `requiredPin`). */
+    changed: z.array(z.string()).min(1),
+    itemCount: z.number().int().min(1).max(20),
+  })
+  .strict();
+
+export const datasetSuiteRunRequestedDetailSchema = z
+  .object({
+    suiteId: z.string().uuid(),
+    itemCount: z.number().int().min(1).max(20),
+    /** The 기준 낡음 states of the pinned baselines when the run was requested. */
+    stale: z.object({ fresh: COUNT, stale: COUNT, unknown: COUNT }).strict(),
+    /** Runs of the user that were still active when this one was requested (the cap counts them). */
+    activeRuns: COUNT,
+  })
+  .strict();
+
 export const LOG_DATASETS_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'dataset.created': datasetCreatedDetailSchema,
   'dataset.updated': datasetUpdatedDetailSchema,
@@ -129,4 +156,7 @@ export const LOG_DATASETS_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'dataset.baseline_updated': datasetBaselineUpdatedDetailSchema,
   'dataset.baseline_approved': datasetBaselineApprovedDetailSchema,
   'dataset.baseline_superseded': datasetBaselineSupersededDetailSchema,
+  'dataset.suite_created': datasetSuiteCreatedDetailSchema,
+  'dataset.suite_updated': datasetSuiteUpdatedDetailSchema,
+  'dataset.suite_run_requested': datasetSuiteRunRequestedDetailSchema,
 } as const;
