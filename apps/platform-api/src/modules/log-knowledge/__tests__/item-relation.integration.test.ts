@@ -1,7 +1,7 @@
-// #1505 S-b — Item Event relation record (migration 0112): `relations[]` on itemCreate / itemRevise and the
+// #1505 S-b — Item Event relation record (migration 0117): `relations[]` on itemCreate / itemRevise and the
 // `relations` of itemDetail, through the real `buildServer` over
 // `/api/v1/menu-action` and `/api/v1/menu-query` against a real Postgres (throwaway DB only; app as platform_app,
-// fixtures and cleanup as platform_migrate). Needs migration 0112 (the conductor migrates).
+// fixtures and cleanup as platform_migrate). Needs migration 0117 (the conductor migrates).
 
 import { randomUUID } from 'node:crypto';
 

@@ -383,7 +383,7 @@ Reads (`concept-endpoints.ts`, `platform:view`, 0-based `page`, `pageSize` 1–2
 Menu mirror: `menus/log-dev/log-knowledge/src/endpoints.ts` (types and declarations only; mock server and screens later, backlog), compared by `catalog-menu-drift.test.ts`.
 
 
-### Item Event relation records (#1505 S-b, migration 0112)
+### Item Event relation records (#1505 S-b, migration 0117)
 
 `itemCreate` and `itemRevise` accept optional `relations[]` (≤ 20), the structured «Event 관계 기록» of ADR-0125: `{ kind (observed|expected), source: { module, event }, target: { module, event }, predicate? (before default | after) }`. Keys are stored as stable `MODULE/EVENT` keys (`toCodeKey`, same grammar as subjects). `after` is **not stored**: `A after B` becomes the row `B before A`, so both spellings are one row and the reverse pair is a different row. Codes: `relations:malformed|too_long`, `relations.N.kind|source|target|predicate: required|malformed`, `relations.N.target:self_relation` (same event), `relations.N:duplicate` (same kind, source, target after the swap). `itemRevise` without `relations` copies the previous revision's rows (`resolved` as written); a list (even empty) replaces them. Draft proposals take no `relations` yet (a draft revise approval carries the previous rows).
 
