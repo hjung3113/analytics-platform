@@ -54,7 +54,7 @@ export const vocDetailEnvelopeSchema = vocDetailBaseSchema.extend({
   }),
   // Optional gate: present when a linked-task state blocks a reporter status transition.
   // Frontend uses this to surface amber <Callout> + disable Publish.
-  // See docs/design/features/specs/voc.md §5.10 item 4.
+  // See apps/feature-screens/docs/specs/voc.md §5.10 item 4.
   reporter_status_gate: z
     .object({
       blocking_for: z.array(reporterFacingStatusEnumSchema),

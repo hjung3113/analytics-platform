@@ -67,7 +67,7 @@ Every step must exit 0 before commit.
    - Integration: `PLATFORM_API_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @ap/platform-api test:integration`, not `gate.sh integration` (it truncates the source DB). A migration node runs the full suite on its recreated DB. One issue DB serves one run at a time: wait for the worker to end first.
 6. Hygiene: `python3 $ENGINE/worker-hygiene.py <worktree>`.
 7. Gates that run only in CI — run them locally when their inputs change:
-   - Public SDK types or exports change → `pnpm build`, then `pnpm sdk:api` (intended changes: `--update` plus one line in `docs/integration/sdk-git-tag-consumption.md`), `pnpm sdk:test`.
+   - Public SDK types or exports change → `pnpm build`, then `pnpm sdk:api` (intended changes: `--update` plus one line in `packages/sdk/CHANGELOG.md`), `pnpm sdk:test`.
    - SDK files move or are renamed → `pnpm sdk:pack --out <d> && pnpm sdk:consumer-check <d>`.
    - A CSS rule is removed → add the `css-removal-ok` label and wait for the rerun before ship.
 

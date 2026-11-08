@@ -1,7 +1,7 @@
 // Permission check application service.
 //
 // Owns the read-side of the Permission module per
-// docs/architecture/platform-api/02-domain-module-boundaries.md. All capability checks
+// apps/platform-api/docs/02-domain-module-boundaries.md. All capability checks
 // in the codebase MUST go through `checkCapability` — controllers and other
 // modules never reach into `permission_grants` / `permission_denies` /
 // `permission_requests` directly. AGENTS.md:65-66 ("Backend application

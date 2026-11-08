@@ -39,7 +39,7 @@ Take the first match:
 - `apps/platform-web/src/menus.ts`, 06 contract docs
 - Root `package.json`, `pnpm-lock.yaml`, `turbo.json`, `.github/workflows`
 - `apps/platform-e2e`
-- The "next release" row in `docs/integration/sdk-git-tag-consumption.md`, the `docs/adr/README.md` table, ADR numbers (reservation: [addenda/traps.md](addenda/traps.md))
+- The "next release" row in `packages/sdk/CHANGELOG.md`, the `docs/adr/README.md` table, ADR numbers (reservation: [addenda/traps.md](addenda/traps.md))
 - `addenda/traps.md`, `docs/agents/operations.md` (append only)
 - The four screen bridge entry lists ([addenda/traps.md](addenda/traps.md))
 - `.planning/README.md`: lanes edit only their own issue rows. The lead owns order and layout.
@@ -109,7 +109,7 @@ Take the first match:
 - **Periodic check (every 2 h, armed with CronCreate; a safety net for missed events):** run `bash .agents/conductor/scripts/lead-check.sh` and act on every finding it prints (exit 10); it measures every lane host, so read each `host=` line and rebalance new starts (§Machine resources «Lane hosts»). Read the first line (`lanes seen N/M`) first: a `host-unknown` finding or `N < M` means lanes were not seen, which is not «all clear». Then read `gh pr list` and new issues for duplicates, and report only the board diff.
 - **Stall watch (every 10 min):** `bash .agents/conductor/scripts/lead-check.sh --nudge` (cron on the lead's machine; the owner approves the crontab entry). It nudges an idle lane once per idle interval and wakes the lead once per `blocked-lane`, `monitoring-lane`, `gone-lane` or `host-unknown` finding. Reason: a lane cannot wake itself when its notifications stop or a dialog blocks it, and the 2 h check is too slow to catch that.
 - **Board `updated` is progress, not editing:** `board.py set` refreshes `updated` only when `state`, `pr` or `worker` changes, so fixing a line's `next` does not silence the stale alarm; `board.py check` also alarms when a release with unfinished lines has had no line reach `done` for 4 h.
-- **SDK release timing:** a lane adds only the "next release" row in `docs/integration/sdk-git-tag-consumption.md`. The lead releases the SDK when that row exists and main CI is green, and at once if a lane is waiting for it.
+- **SDK release timing:** a lane adds only the "next release" row in `packages/sdk/CHANGELOG.md`. The lead releases the SDK when that row exists and main CI is green, and at once if a lane is waiting for it.
 - **Release:**
   1. Run the slice-close `review-quality` (plus a `review-ux` walk-through if screens changed).
   2. Draft the release-docs PR. Do steps 1–2 alongside the last PRs' reviews. In it, set consumer packages in `menus/` and `platform/` `ap.sdk` and the gen-menu `SDK_RANGE` to the new SDK range (`menus/AGENTS.md`, `platform/AGENTS.md`); (nothing else updates them).

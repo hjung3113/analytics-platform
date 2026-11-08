@@ -86,7 +86,7 @@ function installedVersion(name) {
   return JSON.parse(readFileSync(manifest, 'utf8')).version;
 }
 
-/** The `overrides:` lines of this repo's pnpm-workspace.yaml that pin @tiptap/* (consumer condition, sdk-git-tag-consumption.md). */
+/** The `overrides:` lines of this repo's pnpm-workspace.yaml that pin @tiptap/* (consumer condition, packages/sdk/CHANGELOG.md). */
 function tiptapOverrides() {
   const workspaceYaml = readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8');
   const block = readWorkspaceBlock(workspaceYaml, 'overrides');

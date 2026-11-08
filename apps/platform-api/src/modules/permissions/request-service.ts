@@ -3,7 +3,7 @@ import type { RecoveryRecorder } from '../dashboard/recorder.js';
 import { RECOVERY_PERMISSION_ACTIVE_STATUSES } from './recovery-read.js';
 // Permission-request application service. Owns permission request commands and
 // permission_requests read models per
-// docs/architecture/platform-api/02-domain-module-boundaries.md and
+// apps/platform-api/docs/02-domain-module-boundaries.md and
 // docs/architecture/platform-api/05-permission-policy.md.
 //
 // Single transaction contract (AGENTS.md, ADR-0008):

@@ -106,7 +106,7 @@ Implementation agents should read these required documents in order:
 Reference and draft documents:
 
 ```text
-- docs/design/features/tokens.md: visual token seed only; not a component or route contract.
+- apps/feature-screens/docs/tokens.md: visual token seed only; not a component or route contract.
 - 15-data-contracts.md: field and enum authority (not superseded by migrations; see docs/product/features/README.md).
 ```
 

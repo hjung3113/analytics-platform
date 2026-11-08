@@ -7,14 +7,14 @@ This document records the recommended frontend component stack for the feature s
 It complements:
 
 ```text
-docs/design/features/ui-design-system.md
-docs/design/features/tokens.md
+apps/feature-screens/docs/ui-design-system.md
+apps/feature-screens/docs/tokens.md
 docs/product/features/12-ui-ux-principles.md
 ```
 
 It is not a generic package list. The feature suite has product-specific UI contracts that no third-party component library should own.
 
-The shipped component inventory is `packages/feature-ui/src/index.ts`. Component contracts and required states live in `docs/design/features/component-inventory.md`. This document owns library governance: which libraries are approved, which are not adopted, and how a new one is added.
+The shipped component inventory is `packages/feature-ui/src/index.ts`. Component contracts and required states live in `apps/feature-screens/docs/component-inventory.md`. This document owns library governance: which libraries are approved, which are not adopted, and how a new one is added.
 
 ## Decision
 
@@ -97,7 +97,7 @@ Rules:
 ```text
 - These components expose visual tokens and accessibility behavior.
 - They do not know feature domain concepts.
-- They must be normalized to frontend semantic tokens derived from docs/design/features/tokens.md.
+- They must be normalized to frontend semantic tokens derived from apps/feature-screens/docs/tokens.md.
 - Feature screens must not import @radix-ui/* directly (scripts/check-boundaries.mjs rule 3). They import the primitive from @ap/ui.
 ```
 
@@ -140,7 +140,7 @@ Rules:
 
 ```text
 - Screens should not create one-off list, badge, permission, or detail panel implementations.
-- If a screen needs a new shared state or variant, add it to docs/design/features/ui-design-system.md and the relevant shared component first.
+- If a screen needs a new shared state or variant, add it to apps/feature-screens/docs/ui-design-system.md and the relevant shared component first.
 - Keep components feature-local until a second real feature needs the same behavior.
 - Promote reusable components to packages/feature-ui only after their props, states, and token usage are stable enough for multiple consumers.
 ```
@@ -172,7 +172,7 @@ Constraints:
 
 ```text
 - sonner is only for transient feedback. Meaningful workflow state must also appear inline in rows, detail panels, or activity history.
-- cmdk is only the visual/interaction primitive. The product command palette is apps/feature-screens/src/lib/layout/command-palette/ (see docs/design/features/routes-and-layout.md, Global command palette).
+- cmdk is only the visual/interaction primitive. The product command palette is apps/feature-screens/src/lib/layout/command-palette/ (see apps/feature-screens/docs/routes-and-layout.md, Global command palette).
 - lucide-react requires an icon vocabulary so the same icon is not reused inconsistently across evidence, links, permissions, public updates, task requests, and risk signals.
 ```
 
@@ -297,7 +297,7 @@ Any component copied from a registry must go through this process:
 
 ```text
 1. For a bundle-1 primitive, update the upstream analytics-platform SDK and consume a tagged `@ap/ui` release. Put feature product and domain components in the matching `packages/feature-ui/src/<area>` folder.
-2. Normalize colors, spacing, radius, typography, focus rings, and density to `docs/design/features/ui-design-system.md` semantic tokens.
+2. Normalize colors, spacing, radius, typography, focus rings, and density to `apps/feature-screens/docs/ui-design-system.md` semantic tokens.
 3. Remove unrelated variants and decorative styling.
 4. Verify accessibility behavior.
 5. Add or update examples for default, loading, empty, error, permission-limited, and responsive states when applicable.

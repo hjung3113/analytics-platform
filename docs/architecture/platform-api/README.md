@@ -4,14 +4,14 @@ These documents convert product design into implementation constraints.
 
 ## Required Reading Order
 
-1. [00-architecture.md](00-architecture.md)
-2. [01-coding-conventions.md](01-coding-conventions.md)
-3. [02-domain-module-boundaries.md](02-domain-module-boundaries.md)
+1. [00-architecture.md](../../../apps/platform-api/docs/00-architecture.md)
+2. [01-coding-conventions.md](../../../apps/platform-api/docs/01-coding-conventions.md)
+3. [02-domain-module-boundaries.md](../../../apps/platform-api/docs/02-domain-module-boundaries.md)
 4. [03-api-contracts.md](03-api-contracts.md). Domain contracts are in [`api/`](api/).
-5. [04-database-and-migrations.md](04-database-and-migrations.md)
+5. [04-database-and-migrations.md](../../../apps/platform-api/docs/04-database-and-migrations.md)
 6. [05-permission-policy.md](05-permission-policy.md): check order, audit event verbs, sensitive capabilities, decision endpoints. The capability matrix and default-user boundary are in [09-permission-access.md](../../product/features/09-permission-access.md); link to it instead of repeating the matrix here.
 7. [06-entity-linking-contract.md](06-entity-linking-contract.md)
-8. [07-testing-strategy.md](07-testing-strategy.md)
+8. [07-testing-strategy.md](../../../apps/platform-api/docs/07-testing-strategy.md)
 
 ## Implementation Gates
 
@@ -31,7 +31,7 @@ Implementation should not start until these are reviewed for the target slice:
 
 ```text
 - Follow the `docs/agents/feature-implementation.md` Source Of Truth rules: GLOSSARY.md owns vocabulary and invariants, and docs/adr/history/feedbackops/*.md own architectural decisions; ADR authority does not end when a decision is incorporated into design docs.
-- 04-database-and-migrations.md owns migration mechanism only.
+- apps/platform-api/docs/04-database-and-migrations.md owns migration mechanism only.
 - docs/product/features/15-data-contracts.md is the field and enum authority.
 - docs/architecture/platform-api/06-entity-linking-contract.md owns relation type meaning and visibility rules.
 - Endpoint authority is docs/architecture/platform-api/03-api-contracts.md (index, global rules, error codes, contract template) together with docs/architecture/platform-api/api/*.md (behavior and catalog in the same domain file). No other document is an endpoint authority.
