@@ -1,3 +1,5 @@
+import { type Viewer, ref } from '../../log-knowledge/index.js';
+import { attemptVisibleSql, requestVisibleSql, workerRequestVisibleSql, roundVisibleSql, lockRoundOwner } from './access-visibility.js';
 // Write side of the validation request queue (#1445 d, ADR-0117). Every statement is scoped to a workspace and runs on
 // the caller's transaction. Time is the database's (`now()`), so a lease and its expiry never depend on an app clock;
 // only the run-window judgment takes an app `Date` (the injected clock). `platform_app` holds INSERT + a column-limited
@@ -117,21 +119,21 @@ export async function insertRequest(tx: Tx, v: NewRequest): Promise<RequestRow> 
   return row;
 }
 
-export async function lockRequest(tx: Tx, workspaceId: string, requestId: string): Promise<RequestRow | null> {
+export async function lockRequest(tx: Tx, workspaceId: string, requestId: string, viewer: Viewer, includeSuite = false): Promise<RequestRow | null> {
   const [row] = await tx
     .select()
     .from(q)
-    .where(and(eq(q.workspaceId, workspaceId), eq(q.id, requestId)))
+    .where(and(eq(q.workspaceId, workspaceId), eq(q.id, requestId), (includeSuite ? workerRequestVisibleSql : requestVisibleSql)(viewer, ref(q.id))))
     .for('update');
-  return row ?? null;
+  return row && (row.roundId === null || await lockRoundOwner(tx, viewer, row.roundId)) ? row : null;
 }
 
-export async function getRound(tx: Tx, workspaceId: string, roundId: string): Promise<RoundRow | null> {
+export async function getRound(tx: Tx, workspaceId: string, roundId: string, viewer: Viewer): Promise<RoundRow | null> {
   const [row] = await tx
     .select()
     .from(validationRounds)
-    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.id, roundId)));
-  return row ?? null;
+    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.id, roundId), roundVisibleSql(viewer, ref(validationRounds.id))));
+  return row && await lockRoundOwner(tx, viewer, row.id) ? row : null;
 }
 
 /** Human cancel of a queued or claimed request; a claimed one loses its lease (the worker's next call is `lease_lost`). */
@@ -169,16 +171,17 @@ export interface ExpiredLease {
  * (attempt_count / max_attempts left) or to `expired`; its running attempt ends `lease_expired`. `skip locked`, so two
  * claim calls never wait on each other and never expire a row twice.
  */
-export async function requeueExpiredLeases(tx: Tx, workspaceId: string, limit = 50): Promise<ExpiredLease[]> {
+export async function requeueExpiredLeases(tx: Tx, workspaceId: string, viewer: Viewer, limit = 50): Promise<ExpiredLease[]> {
   const due = await tx
     .select()
     .from(q)
-    .where(and(eq(q.workspaceId, workspaceId), eq(q.state, 'claimed'), sql`${q.leaseExpiresAt} < now()`))
+    .where(and(eq(q.workspaceId, workspaceId), eq(q.state, 'claimed'), workerRequestVisibleSql(viewer, ref(q.id)), sql`${q.leaseExpiresAt} < now()`))
     .orderBy(asc(q.leaseExpiresAt))
     .limit(limit)
     .for('update', { skipLocked: true });
   const out: ExpiredLease[] = [];
   for (const row of due) {
+    if (row.roundId !== null && !(await lockRoundOwner(tx, viewer, row.roundId))) continue;
     const to = stateAfterLeaseExpiry(row.attemptCount, row.maxAttempts);
     await tx
       .update(q)
@@ -216,7 +219,7 @@ export interface Claimed {
 }
 
 /** The sample list of a request's subject; null when its Round is gone (cannot happen: the FK restricts). */
-export async function subjectOf(tx: Tx, workspaceId: string, request: RequestRow): Promise<ClaimSubject | null> {
+export async function subjectOf(tx: Tx, workspaceId: string, request: RequestRow, viewer: Viewer): Promise<ClaimSubject | null> {
   if (request.roundId === null) {
     if (request.suiteRunItemId === null || request.subjectSampleSet === null || request.subjectSampleManifestDigest === null) return null;
     return {
@@ -227,7 +230,7 @@ export async function subjectOf(tx: Tx, workspaceId: string, request: RequestRow
       specPin: null,
     };
   }
-  const round = await getRound(tx, workspaceId, request.roundId);
+  const round = await getRound(tx, workspaceId, request.roundId, viewer);
   if (!round) return null;
   return { roundId: round.id, suiteRunItemId: null, sampleSet: round.sampleSet as SampleSet, sampleManifestDigest: round.sampleManifestDigest, specPin: round.specPin ?? null };
 }
@@ -253,7 +256,7 @@ export async function claimNext(
     .where(
       and(
         eq(q.workspaceId, workspaceId),
-        eq(q.state, 'queued'),
+        eq(q.state, 'queued'), workerRequestVisibleSql({ workspaceId, actorId: worker.actorId }, ref(q.id)),
         sql`(${q.notBefore} is null or ${q.notBefore} <= now())`,
         opts.windowOpen ? sql`true` : eq(q.immediate, true),
         // A Round subject needs its round open; a suite subject has no round and is claimable whenever it is queued.
@@ -264,7 +267,7 @@ export async function claimNext(
     .limit(1)
     .for('update', { skipLocked: true });
   if (!locked) return null;
-  const subject = await subjectOf(tx, workspaceId, locked);
+  const subject = await subjectOf(tx, workspaceId, locked, { workspaceId, actorId: worker.actorId });
   if (!subject) return null;
   const found = { request: locked, subject };
   const attemptNo = found.request.attemptCount + 1;
@@ -476,11 +479,11 @@ export async function eraseExcerpts(
 }
 
 /** The Round and request an attempt belongs to (workspace-scoped); null when unknown. */
-export async function attemptOwner(tx: Tx, workspaceId: string, attemptId: string): Promise<{ requestId: string; roundId: string | null } | null> {
+export async function attemptOwner(tx: Tx, workspaceId: string, attemptId: string, viewer: Viewer): Promise<{ requestId: string; roundId: string | null } | null> {
   const [row] = await tx
     .select({ requestId: a.requestId, roundId: q.roundId })
     .from(a)
     .innerJoin(q, and(eq(q.workspaceId, a.workspaceId), eq(q.id, a.requestId)))
-    .where(and(eq(a.workspaceId, workspaceId), eq(a.id, attemptId)));
+    .where(and(eq(a.workspaceId, workspaceId), eq(a.id, attemptId), attemptVisibleSql(viewer, ref(a.id))));
   return row ?? null;
 }

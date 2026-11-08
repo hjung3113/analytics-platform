@@ -41,6 +41,7 @@ export const CAPABILITIES = [
   'dataset.manage',
   'dataset.baseline.approve',
   'dataset.suite.run',
+  'knowledge.access.manage',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -162,6 +163,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'dataset.baseline.approve': { sensitive: true, adminModuleBypass: 'none', sessionOnly: true },
   // Log test dataset suite runs (#1479 D-c, design log-test-datasets §5): workspace-scoped, NOT sensitive (a run spends worker capacity but exposes no data the actor could not read: the same shape as `lifecycle.round.manage`), session-only (design §9 defers token calls). The Admin role holds it; a Developer by grant; a User never (the CURRENT role is checked on every run, like `dataset.baseline.approve`). A per-user cap on concurrent runs bounds the capacity it can spend.
   'dataset.suite.run': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
+  // Log knowledge object access (#1504 S-a, ADR-0124): sets `access_mode` and adds/revokes allow/deny rules of a model, SW version or Item. Workspace-scoped, session-only (ADR-0116 decision 4: a permission grant is never token-callable). Admin holds it by role but has NO read bypass: reads judge the rules like anyone's. Sensitive: a grant states a reason and its permission rows stay out of the platform audit projection allow-list (adding it there is a migration, not part of this node).
+  'knowledge.access.manage': { sensitive: true, adminModuleBypass: 'always', sessionOnly: true },
 };
 
 export function isCapability(value: string): value is Capability {

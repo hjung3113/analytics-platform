@@ -650,7 +650,7 @@ describe.skipIf(!runIntegration)('log test dataset baselines (#1478 D-b)', () =>
       const swB = await software(modelB, `${TAG}-1`);
       const specRev = await one(`insert into knowledge.model_spec_revision (workspace_id, model_id, revision_no, state, source_doc_ref, schema_version, created_by) values ($1,$2,1,'draft',$3::jsonb,1,$4) returning id`, [WORKSPACE_ID, modelA, JSON.stringify({ docLabel: 'Synthetic log spec', docVersion: 'v1' }), actor]);
       await sql(`update knowledge.model_spec_revision set state = 'published', content_sha256 = $2, published_by = $3, published_at = now() where id = $1`, [specRev, '1'.padStart(64, '0'), actor]);
-      const effective = await dbHandle.db.transaction((tx) => knowledgeLookup.getEffectiveSpecPin(tx, WORKSPACE_ID, modelA, swA));
+      const effective = await dbHandle.db.transaction((tx) => knowledgeLookup.getEffectiveSpecPin(tx, WORKSPACE_ID, modelA, swA, actor));
       if (!effective) throw new Error('the published model has an effective pin');
       const pinWith = (softwareId: string) => ({ profilePin: { specPin: { modelId: modelA, softwareId, revisionId: effective.revisionId, changeSetDigest: effective.changeSetDigest } } });
 

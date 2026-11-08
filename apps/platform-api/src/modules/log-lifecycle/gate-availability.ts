@@ -1,3 +1,4 @@
+import { viewerOf } from '../log-knowledge/index.js';
 // Screen hint only. gateDecide rechecks under locks; this read never reserves a decision or writes a verdict.
 import { currentAuthContext } from '../../lib/auth-context.js';
 import { applyAdminModuleBypass } from '../permissions/check-service.js';
@@ -12,7 +13,7 @@ import { readRoundEvidenceLinks } from './round-evidence-links.js';
 export async function gateAvailability(deps: LogLifecycleDeps, actor: PlatformActor, round: RoundDetail) {
   const ws = actor.workspace_id;
   const [project, attempts, request, latest, links] = await Promise.all([
-    getProjectDetail(deps.db, ws, round.projectId), succeededAttempts(deps.db, ws, round.id), latestRequest(deps.db, ws, round.id), latestRoundId(deps.db, ws, round.projectId), readRoundEvidenceLinks(deps, actor, round.id),
+    getProjectDetail(deps.db, ws, round.projectId, viewerOf(actor)), succeededAttempts(deps.db, ws, round.id, viewerOf(actor)), latestRequest(deps.db, ws, round.id, viewerOf(actor)), latestRoundId(deps.db, ws, round.projectId, viewerOf(actor)), readRoundEvidenceLinks(deps, actor, round.id),
   ]);
   const reasons: string[] = [];
   if (currentAuthContext().kind !== 'session' || !(await actorIsHuman(deps.db, ws, actor.actor_id))) reasons.push('session_required');

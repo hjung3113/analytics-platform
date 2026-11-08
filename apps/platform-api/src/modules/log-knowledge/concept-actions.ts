@@ -14,6 +14,7 @@ import type { Tx } from '../../db/tx.js';
 import { type ActionHandlerResult, type MenuActionDeclaration, MenuActionInvalidError } from '../menu-dispatch/types.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
+import { type Viewer, viewerOf } from './repositories/access-visibility.js';
 import { LOG_KNOWLEDGE_MODELS_MENU_ID } from './catalog-menu.js';
 import { toCodeKey } from './domain/code-key.js';
 import { type ConceptTarget, parseConceptConfirm, parseConceptPropose, parseConceptReject, validateConcept } from './domain/concept-input.js';
@@ -82,9 +83,9 @@ export function conceptActions(deps: ConceptActionDeps): MenuActionDeclaration[]
   });
 
   /** The target in the model's current published revision; `none_published` / `not_found` otherwise. */
-  async function requireTarget(tx: Tx, ws: string, modelId: string, t: { targetKind: string; targetKey: string }, prefix: readonly string[]): Promise<SpecTarget> {
-    if (!(await modelExists(tx, ws, modelId))) return refuse([...prefix, 'modelId'], 'not_found');
-    const resolved = await resolveTargets(tx, ws, [{ modelId, targetKind: t.targetKind, targetKey: t.targetKey }]);
+  async function requireTarget(tx: Tx, viewer: Viewer, modelId: string, t: { targetKind: string; targetKey: string }, prefix: readonly string[]): Promise<SpecTarget> {
+    if (!(await modelExists(tx, viewer, modelId))) return refuse([...prefix, 'modelId'], 'not_found');
+    const resolved = await resolveTargets(tx, viewer.workspaceId, [{ modelId, targetKind: t.targetKind, targetKey: t.targetKey }]);
     if (!resolved.revisions.has(modelId.toLowerCase())) return refuse([...prefix, 'revision'], 'none_published');
     const found = resolved.get(modelId, t.targetKind, t.targetKey);
     if (!found) return refuse([...prefix, 'targetKey'], 'not_found');
@@ -127,8 +128,8 @@ export function conceptActions(deps: ConceptActionDeps): MenuActionDeclaration[]
       const value = parsed.value;
       await lockModelConcepts(tx, ws, [value.modelId, ...(value.pairWith ? [value.pairWith.modelId] : [])]);
 
-      const mine = await requireTarget(tx, ws, value.modelId, value, []);
-      const pair = value.pairWith ? await requireTarget(tx, ws, value.pairWith.modelId, value.pairWith, ['pairWith']) : null;
+      const mine = await requireTarget(tx, viewerOf(actor), value.modelId, value, []);
+      const pair = value.pairWith ? await requireTarget(tx, viewerOf(actor), value.pairWith.modelId, value.pairWith, ['pairWith']) : null;
 
       let concept;
       if (value.conceptId) {
@@ -175,10 +176,10 @@ export function conceptActions(deps: ConceptActionDeps): MenuActionDeclaration[]
   const lockedVersion = async (tx: Tx, actor: PlatformActor, input: Record<string, unknown>) => {
     const ws = actor.workspace_id;
     const mappingId = input.mappingId as string;
-    const modelId = await mappingModelId(tx, ws, mappingId);
+    const modelId = await mappingModelId(tx, viewerOf(actor), mappingId);
     if (!modelId) return null;
     await lockModelConcepts(tx, ws, [modelId]);
-    const row = await lockMapping(tx, ws, mappingId);
+    const row = await lockMapping(tx, viewerOf(actor), mappingId);
     return row ? String(row.rowVersion) : null;
   };
 
@@ -191,10 +192,10 @@ export function conceptActions(deps: ConceptActionDeps): MenuActionDeclaration[]
       const ws = actor.workspace_id;
       const parsed = parseConceptConfirm(input);
       if (!parsed.ok) throw new Error('action conceptConfirm: validate passed but parse failed');
-      const row = await lockMapping(tx, ws, parsed.value.mappingId);
+      const row = await lockMapping(tx, viewerOf(actor), parsed.value.mappingId);
       if (!row) return refuse(['mappingId'], 'not_found');
       if (row.reviewState !== 'proposed') return refuse(['mapping'], row.reviewState === 'rejected' ? 'already_rejected' : 'already_confirmed');
-      await requireTarget(tx, ws, row.modelId, { targetKind: row.targetKind, targetKey: row.targetKey }, []);
+      await requireTarget(tx, viewerOf(actor), row.modelId, { targetKind: row.targetKind, targetKey: row.targetKey }, []);
       if (row.relationKind === 'equivalent' && (await hasConfirmedEquivalent(tx, ws, row.modelId, row.targetKey, row.id))) {
         return refuse(['target'], 'already_confirmed');
       }
@@ -213,7 +214,7 @@ export function conceptActions(deps: ConceptActionDeps): MenuActionDeclaration[]
       const ws = actor.workspace_id;
       const parsed = parseConceptReject(input);
       if (!parsed.ok) throw new Error('action conceptReject: validate passed but parse failed');
-      const row = await lockMapping(tx, ws, parsed.value.mappingId);
+      const row = await lockMapping(tx, viewerOf(actor), parsed.value.mappingId);
       if (!row) return refuse(['mappingId'], 'not_found');
       if (row.reviewState === 'rejected') return refuse(['mapping'], 'already_rejected');
       const version = await reviewMapping(tx, ws, row, actor.actor_id, { state: 'rejected', reason: parsed.value.reason });

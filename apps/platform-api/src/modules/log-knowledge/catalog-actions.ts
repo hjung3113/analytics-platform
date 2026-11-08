@@ -16,6 +16,7 @@ import {
 } from '../menu-dispatch/types.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
+import { viewerOf } from './repositories/access-visibility.js';
 import { recordCatalogAudit } from './catalog-audit.js';
 import { LOG_KNOWLEDGE_MENU_ID } from './catalog-menu.js';
 import { type CatalogOp, createCodeOf, validateCatalogInput } from './domain/catalog-input.js';
@@ -123,7 +124,7 @@ export function catalogActions(deps: CatalogActionDeps): MenuActionDeclaration[]
     id: string,
     path: readonly string[],
   ) {
-    const parent = await shareLockParent(tx, kind, actor.workspace_id, id);
+    const parent = await shareLockParent(tx, kind, viewerOf(actor), id);
     if (!parent) throw new MenuActionInvalidError([{ path, code: 'not_found' }]);
     if (!parent.active) throw new MenuActionInvalidError([{ path, code: 'inactive' }]);
   }
@@ -196,7 +197,7 @@ export function catalogActions(deps: CatalogActionDeps): MenuActionDeclaration[]
   }
 
   const currentVersion = (kind: CatalogKind) => async (tx: Tx, actor: PlatformActor, input: Record<string, unknown>) => {
-    const row = await lockRow(tx, kind, actor.workspace_id, input.id as string);
+    const row = await lockRow(tx, kind, viewerOf(actor), input.id as string);
     return row ? String(row.rowVersion) : null;
   };
 
@@ -216,7 +217,7 @@ export function catalogActions(deps: CatalogActionDeps): MenuActionDeclaration[]
       currentVersion: currentVersion(kind),
       async handle(tx, actor, input): Promise<ActionHandlerResult> {
         const ws = actor.workspace_id;
-        const before = await lockRow(tx, kind, ws, input.id as string);
+        const before = await lockRow(tx, kind, viewerOf(actor), input.id as string);
         if (!before) throw new Error(`action ${kind}Update: currentVersion judged not_found first`);
         const code = input[codeField(kind)] as string;
         const name = input.name as string;
@@ -274,7 +275,7 @@ export function catalogActions(deps: CatalogActionDeps): MenuActionDeclaration[]
       validate: (input) => validateCatalogInput(kind, 'setActive', input),
       currentVersion: currentVersion(kind),
       async handle(tx, actor, input): Promise<ActionHandlerResult> {
-        const before = await lockRow(tx, kind, actor.workspace_id, input.id as string);
+        const before = await lockRow(tx, kind, viewerOf(actor), input.id as string);
         if (!before) throw new Error(`action ${kind}SetActive: currentVersion judged not_found first`);
         const active = input.active as boolean;
         // Same value: nothing changes, nothing is audited, the current version is answered. No cascade either way.

@@ -86,6 +86,9 @@ describe('audit action map vs @ap/contracts AuditAction', () => {
     ['dataset.suite_updated', 'update'],
     ['dataset.suite_run_requested', 'create'],
     ['dataset.review_label_added', 'create'],
+    ['knowledge.access.mode_changed', 'update'],
+    ['knowledge.access.rule_added', 'create'],
+    ['knowledge.access.rule_revoked', 'retire'],
   ] as const)('%s → %s', (type, action) => {
     expect(AUDIT_ACTION_BY_EVENT_TYPE[type]).toBe(action);
   });

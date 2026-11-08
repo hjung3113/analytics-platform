@@ -296,9 +296,9 @@ describe.skipIf(!runIntegration)('round evidence-location intake (#1474 X-h)', (
 
   it('roundDetail carries evidenceRefs, newest first, with status and origin; a round without any answers an empty list', async () => {
     const round = await makeRound();
-    expect((await run((tx) => getRoundDetail(tx, WORKSPACE_ID, round.id)))?.evidenceRefs).toEqual([]);
+    expect((await run((tx) => getRoundDetail(tx, WORKSPACE_ID, round.id, { workspaceId: WORKSPACE_ID, actorId: grantee.actor_id })))?.evidenceRefs).toEqual([]);
     await attach(grantee, round.id, [ref({ line: 1, note: 'n1' }), ref({ line: 2, sourceResolved: false })]);
-    const detail = await run((tx) => getRoundDetail(tx, WORKSPACE_ID, round.id));
+    const detail = await run((tx) => getRoundDetail(tx, WORKSPACE_ID, round.id, { workspaceId: WORKSPACE_ID, actorId: grantee.actor_id }));
     expect(detail?.evidenceRefs.map((r) => [r.seq, r.line, r.status])).toEqual([
       [2, 2, 'unresolved'],
       [1, 1, 'match'],
@@ -312,14 +312,14 @@ describe.skipIf(!runIntegration)('round evidence-location intake (#1474 X-h)', (
       handedOffBy: grantee.actor_id,
     });
     expect(typeof detail?.evidenceRefs[1]?.at).toBe('string');
-    expect((await run((tx) => getRoundDetail(tx, WORKSPACE_ID, foreignRound))) === null).toBe(true);
+    expect((await run((tx) => getRoundDetail(tx, WORKSPACE_ID, foreignRound, { workspaceId: WORKSPACE_ID, actorId: grantee.actor_id }))) === null).toBe(true);
   });
 
   it('stores any positive safe-integer line (above 2^31 and the safe maximum) and roundDetail reads the same numbers back', async () => {
     const round = await makeRound();
     const lines = [2147483648, Number.MAX_SAFE_INTEGER];
     expect(await attach(grantee, round.id, lines.map((line) => ref({ line })))).toMatchObject({ attached: 2 });
-    const detail = await run((tx) => getRoundDetail(tx, WORKSPACE_ID, round.id));
+    const detail = await run((tx) => getRoundDetail(tx, WORKSPACE_ID, round.id, { workspaceId: WORKSPACE_ID, actorId: grantee.actor_id }));
     expect(detail?.evidenceRefs.map((r) => r.line).sort((a, b) => a - b)).toEqual(lines);
     expect(detail?.evidenceRefs.every((r) => typeof r.line === 'number')).toBe(true);
   });

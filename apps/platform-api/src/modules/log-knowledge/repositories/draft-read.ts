@@ -11,6 +11,7 @@ import { knowledgeDraftReviews, knowledgeDraftRevisions, knowledgeDrafts, knowle
 import type { Tx } from '../../../db/tx.js';
 import type { FilterCondition } from '../../../lib/list-params/catalog-filters.js';
 import { escapeLike, type ListQuery, type Page } from './catalog-read.js';
+import { type Viewer, ref, visibleItemSql, visibleOwnerSql } from './access-visibility.js';
 import { FINAL_DRAFT_STATUSES } from '../domain/draft-transitions.js';
 import { listReviews } from './draft-review.js';
 
@@ -18,6 +19,7 @@ export const DRAFT_SORT_IDS = ['updatedAt', 'submittedAt', 'createdAt'] as const
 
 /** Who is looking: their actor id and whether they hold `knowledge.item.publish` (Admin through the module bypass). */
 export interface DraftViewer {
+  workspaceId: string;
   actorId: string;
   holdsPublish: boolean;
 }
@@ -50,10 +52,24 @@ const rv = knowledgeDraftReviews;
 /** The approval's item, if any (a draft has at most one `approved` review: `draft_review_final_uq`). */
 const postedItem = sql<string | null>`(select ${rv.postedItemId} from ${rv} where ${rv.workspaceId} = ${d.workspaceId} and ${rv.draftId} = ${d.id} and ${rv.decision} = 'approved')`;
 
+/**
+ * Object access (#1504): a draft whose owner (model or SW version), or whose target item, the viewer cannot see is hidden from
+ * everyone, its author included. A revise draft stores the owner of its target item, and the item itself is judged too.
+ */
+export function ownerVisible(viewer: Viewer): SQL {
+  const owner = visibleOwnerSql(viewer, {
+    modelId: sql`${ref(d.ownerModelId)}`,
+    softwareId: null,
+  });
+  const software = visibleOwnerSql(viewer, { modelId: null, softwareId: sql`${ref(d.ownerSoftwareId)}` });
+  return sql`(case when ${ref(d.ownerSoftwareId)} is not null then ${software} else ${owner} end and (${ref(d.targetItemId)} is null or ${visibleItemSql(viewer, sql`${ref(d.targetItemId)}`)}) and (${postedItem} is null or ${visibleItemSql(viewer, postedItem)}))`;
+}
+
 /** The visibility rule as a WHERE fragment. */
 export function visibleTo(viewer: DraftViewer): SQL {
   const own = eq(d.submitterActorId, viewer.actorId);
-  return viewer.holdsPublish ? (or(own, sql`${d.status} <> 'draft'`) as SQL) : own;
+  const byStatus = viewer.holdsPublish ? (or(own, sql`${d.status} <> 'draft'`) as SQL) : own;
+  return and(byStatus, ownerVisible({ workspaceId: viewer.workspaceId, actorId: viewer.actorId })) as SQL;
 }
 
 function inOrNot(column: AnyPgColumn, condition: FilterCondition | undefined): SQL | undefined {
@@ -217,7 +233,7 @@ export async function listOwnOpenDrafts(tx: Tx, workspaceId: string, actorId: st
   }).from(d).innerJoin(r, joinLatest)
     .leftJoin(sw, and(eq(sw.workspaceId, d.workspaceId), eq(sw.id, d.ownerSoftwareId)))
     .leftJoin(model, and(eq(model.workspaceId, d.workspaceId), eq(model.id, sql`coalesce(${d.ownerModelId}, ${sw.modelId})`)))
-    .where(and(eq(d.workspaceId, workspaceId), eq(d.submitterActorId, actorId), notInArray(d.status, [...FINAL_DRAFT_STATUSES])))
+    .where(and(eq(d.workspaceId, workspaceId), eq(d.submitterActorId, actorId), ownerVisible({ workspaceId, actorId }), notInArray(d.status, [...FINAL_DRAFT_STATUSES])))
     .orderBy(desc(d.updatedAt), desc(d.id)).limit(Math.max(1, Math.min(50, Math.trunc(limit))));
   return rows.map(row => ({ ...row, version: String(row.version), updatedAt: iso(row.updatedAt) }));
 }

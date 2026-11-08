@@ -108,6 +108,8 @@ export const equipmentModels = knowledgeSchema.table(
     code: text('code').notNull(),
     codeKey: text('code_key').notNull(),
     name: text('name').notNull(),
+    // Object access (#1504 S-a, ADR-0124): `internal` = every logged-in workspace member; `restricted` = only actors an active allow rule names.
+    accessMode: text('access_mode').notNull().default('internal'),
     active: boolean('active').notNull().default(true),
     rowVersion: integer('row_version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -141,6 +143,7 @@ export const equipmentModels = knowledgeSchema.table(
       sql`char_length(${t.name}) between 1 and ${sql.raw(String(NAME_MAX))}`,
     ),
     versionCheck: check('equipment_model_row_version_check', sql`${t.rowVersion} >= 1`),
+    accessModeCheck: check('equipment_model_access_mode_check', sql`${t.accessMode} in ('internal','restricted')`),
   }),
 );
 
@@ -191,6 +194,8 @@ export const softwareVersions = knowledgeSchema.table(
     // editing action swaps two orders). 0 = "not assigned": a BEFORE INSERT trigger (migration 0091) turns it into
     // max + 1 of the model, so every insert path (create action, import, fixtures) gets the registration order.
     releaseOrder: integer('release_order').notNull().default(0),
+    // Object access (#1504 S-a, ADR-0124): `internal` = every logged-in workspace member; `restricted` = only actors an active allow rule names.
+    accessMode: text('access_mode').notNull().default('internal'),
     active: boolean('active').notNull().default(true),
     rowVersion: integer('row_version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -226,6 +231,7 @@ export const softwareVersions = knowledgeSchema.table(
       sql`char_length(${t.name}) between 0 and ${sql.raw(String(NAME_MAX))}`,
     ),
     versionCheck: check('software_version_row_version_check', sql`${t.rowVersion} >= 1`),
+    accessModeCheck: check('software_version_access_mode_check', sql`${t.accessMode} in ('internal','restricted')`),
     releaseOrderCheck: check('software_version_release_order_check', sql`${t.releaseOrder} >= 1`),
   }),
 );
@@ -306,6 +312,8 @@ export const knowledgeItems = knowledgeSchema.table(
     publicationState: text('publication_state').notNull(),
     verificationState: text('verification_state').notNull().default('not_checked'),
     processingState: text('processing_state').notNull().default('open'),
+    // Object access (#1504 S-a, ADR-0124): `internal` = every logged-in workspace member; `restricted` = only actors an active allow rule names.
+    accessMode: text('access_mode').notNull().default('internal'),
     rowVersion: integer('row_version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -347,6 +355,7 @@ export const knowledgeItems = knowledgeSchema.table(
       sql`${t.processingState} in ${sql.raw(PROCESSING_STATES)}`,
     ),
     versionCheck: check('knowledge_item_row_version_check', sql`${t.rowVersion} >= 1`),
+    accessModeCheck: check('knowledge_item_access_mode_check', sql`${t.accessMode} in ('internal','restricted')`),
   }),
 );
 
@@ -1336,5 +1345,45 @@ export const knowledgeDraftReviews = knowledgeSchema.table(
       'draft_review_posted_check',
       sql`(${t.decision} = 'approved') = (${t.postedItemId} is not null and ${t.postedRevisionNo} is not null) and (${t.postedItemId} is null) = (${t.postedRevisionNo} is null)`,
     ),
+  }),
+);
+
+// Object access rules (#1504 S-a, ADR-0124, design log-knowledge-search §3.4): who may see a restricted model, SW version or
+// Item, and who is denied outright. Append-friendly: a rule is revoked (`revoked_at`), never deleted. `target_id` is
+// polymorphic over three tables (like `external_identity_map`): its existence is judged by the write service. The grantee
+// is an Actor only: `core.teams` has no membership table yet, so team / role grantees are not stored.
+export const objectAccessRules = knowledgeSchema.table(
+  'object_access_rule',
+  {
+    ruleId: uuid('rule_id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    targetKind: text('target_kind').notNull(),
+    targetId: uuid('target_id').notNull(),
+    granteeKind: text('grantee_kind').notNull().default('actor'),
+    granteeId: uuid('grantee_id')
+      .notNull()
+      .references(() => actors.id),
+    effect: text('effect').notNull(),
+    validUntil: timestamp('valid_until', { withTimezone: true }),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    revokedBy: uuid('revoked_by').references(() => actors.id),
+  },
+  (t) => ({
+    workspaceRuleUq: unique('object_access_rule_workspace_rule_uq').on(t.workspaceId, t.ruleId),
+    // The per-request lookup: the active rules of one grantee over one target.
+    lookupIdx: index('object_access_rule_lookup_idx')
+      .on(t.workspaceId, t.granteeId, t.targetKind, t.targetId)
+      .where(sql`${t.revokedAt} is null`),
+    targetIdx: index('object_access_rule_target_idx').on(t.workspaceId, t.targetKind, t.targetId, t.createdAt),
+    targetKindCheck: check('object_access_rule_target_kind_check', sql`${t.targetKind} in ('model','software','item')`),
+    granteeKindCheck: check('object_access_rule_grantee_kind_check', sql`${t.granteeKind} = 'actor'`),
+    effectCheck: check('object_access_rule_effect_check', sql`${t.effect} in ('allow','deny')`),
+    revokedCheck: check('object_access_rule_revoked_check', sql`(${t.revokedAt} is null) = (${t.revokedBy} is null)`),
   }),
 );

@@ -34,6 +34,7 @@ const ALWAYS: Capability[] = [
   'knowledge.draft.create',
   'dataset.manage',
   'dataset.suite.run',
+  'knowledge.access.manage',
 ];
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage', 'voc.create'];
 const NONE: Capability[] = [

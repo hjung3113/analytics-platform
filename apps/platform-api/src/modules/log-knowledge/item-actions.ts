@@ -16,6 +16,7 @@ import {
 } from '../menu-dispatch/types.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
+import { viewerOf } from './repositories/access-visibility.js';
 import { LOG_KNOWLEDGE_ITEMS_MENU_ID } from './catalog-menu.js';
 import { type ItemInput, parseItemInput, validateItemInput } from './domain/item-input.js';
 import { type ItemAuditType, ownerErrors, publishCreate, publishRevise, recordItemAudit } from './repositories/item-publish.js';
@@ -89,12 +90,12 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
   }
 
   const currentVersion = async (tx: Tx, actor: PlatformActor, input: Record<string, unknown>) => {
-    const item = await lockItem(tx, actor.workspace_id, input.id as string);
+    const item = await lockItem(tx, viewerOf(actor), input.id as string);
     return item ? String(item.rowVersion) : null;
   };
 
   async function lockExisting(tx: Tx, actor: PlatformActor, id: string, action: string): Promise<ItemRow> {
-    const item = await lockItem(tx, actor.workspace_id, id);
+    const item = await lockItem(tx, viewerOf(actor), id);
     if (!item) throw new Error(`action ${action}: currentVersion judged not_found first`);
     return item;
   }
@@ -170,12 +171,12 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
       const ws = actor.workspace_id;
       const value = parsed('derive', input);
       const errors: FieldError[] = [];
-      if (!(await itemExists(tx, ws, value.sourceItemId))) {
+      if (!(await itemExists(tx, viewerOf(actor), value.sourceItemId))) {
         errors.push({ path: ['sourceItemId'], code: 'not_found' });
       } else if (!(await revisionExists(tx, ws, value.sourceItemId, value.sourceRevisionNo))) {
         errors.push({ path: ['sourceRevisionNo'], code: 'not_found' });
       }
-      errors.push(...(await ownerErrors(tx, ws, value)));
+      errors.push(...(await ownerErrors(tx, viewerOf(actor), value)));
       if (errors.length > 0) throw new MenuActionInvalidError(errors);
       const { sourceItemId, sourceRevisionNo, ownerModelId, ownerSoftwareId, ...content } = value;
       const item = await insertItem(tx, {

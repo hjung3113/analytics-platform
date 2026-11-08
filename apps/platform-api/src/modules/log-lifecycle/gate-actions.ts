@@ -13,6 +13,7 @@
 // the audit row (ids, enums and counts only; the reason, the exception scope and the basis stay out of audit).
 // It never touches a verdict, a rule result or a request.
 
+import { viewerOf } from '../log-knowledge/index.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import { currentAuthContext } from '../../lib/auth-context.js';
 import type { Tx } from '../../db/tx.js';
@@ -86,9 +87,9 @@ export function gateActions(deps: GateActionDeps): MenuActionDeclaration[] {
     /** The project's row version, read under the project row lock (the Round names the project). `null` = the Round is unknown here. */
     async currentVersion(tx, actor, input) {
       const ws = actor.workspace_id;
-      const projectId = await projectIdOfRound(tx, ws, input.roundId as string);
+      const projectId = await projectIdOfRound(tx, ws, input.roundId as string, viewerOf(actor));
       if (!projectId) return null;
-      const project = await lockProject(tx, ws, projectId);
+      const project = await lockProject(tx, ws, projectId, viewerOf(actor));
       return project ? String(project.rowVersion) : null;
     },
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
@@ -98,22 +99,22 @@ export function gateActions(deps: GateActionDeps): MenuActionDeclaration[] {
       const value = parsed.value;
 
       // Lock order: project, then Round (as `roundOpen`), so a decision, an open and an attach cannot deadlock.
-      const projectId = await projectIdOfRound(tx, ws, value.roundId);
-      const project = projectId ? await lockProject(tx, ws, projectId) : null;
-      const round = project ? await lockRound(tx, ws, value.roundId) : null;
+      const projectId = await projectIdOfRound(tx, ws, value.roundId, viewerOf(actor));
+      const project = projectId ? await lockProject(tx, ws, projectId, viewerOf(actor)) : null;
+      const round = project ? await lockRound(tx, ws, value.roundId, viewerOf(actor)) : null;
       if (!project || !round) throw new Error('action gateDecide: currentVersion judged not_found first');
 
       // The decision rests on the project's current Round and the stage it was opened for.
       if (!isOpenStage(project.stage)) throw invalid({ path: ['roundId'], code: 'project_not_open' });
-      if ((await latestRoundId(tx, ws, project.id)) !== round.id) throw invalid({ path: ['roundId'], code: 'round_not_current' });
+      if ((await latestRoundId(tx, ws, project.id, viewerOf(actor))) !== round.id) throw invalid({ path: ['roundId'], code: 'round_not_current' });
       if (round.stage !== project.stage) throw invalid({ path: ['roundId'], code: 'round_stage_mismatch' });
       const target = judgeTarget(project.stage, value.targetStage, project.softwareId, movesStage(value.decision));
       if (!target.ok) throw invalid(target.error);
 
       // The evidence as it is now: the Round lock above also orders this read after any attach that committed first.
-      const attempts = await succeededAttempts(tx, ws, round.id);
+      const attempts = await succeededAttempts(tx, ws, round.id, viewerOf(actor));
       const decisive = decisiveAttempt(attempts);
-      const request = await latestRequest(tx, ws, round.id);
+      const request = await latestRequest(tx, ws, round.id, viewerOf(actor));
       const refusal = judgeDecision({ decision: value.decision, verdict: decisive?.verdict ?? null });
       if (refusal) throw invalid(refusal);
       if (value.decision === 'exception' && value.exception) {

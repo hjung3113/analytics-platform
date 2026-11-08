@@ -116,6 +116,9 @@ Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file
 
 ### Evidence handoff (`logExplorer.evidenceHandoff`, #1474 X-h)
 
+Matched handoff replays recheck the source Round and the current receiver visibility, including a draft created by the saved request. A hidden source or receiver answers `not_found` with no saved ids, counts or versions, and no repeated write. Handoff draft/model/SW options use the current actor’s object visibility before limits and counts.
+
+
 Hands body-free evidence locations of the caller's own investigation to a validation Round or a knowledge draft ([design §5.2](../../../design/features/log-explorer/README.md)). Menu permission `explorer:handoff` (capability `explorer.handoff`, [05-permission-policy.md](../05-permission-policy.md)), `requiresScope: false`, `concurrency: 'version'` on the investigation. The investigation row is **not** modified: `expectedVersion` guards the ref set the person saw and the returned `version` is the current one. The action is declared only when the assembly gives it the two receivers (`InvestigationDeps.handoff`; production wires them in `server.ts`).
 
 | Input | Rule |

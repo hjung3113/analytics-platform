@@ -1,6 +1,8 @@
 // Same direct knowledge read projection as lifecycle-read.ts; no active filter (the model list includes inactive rows).
 import { sql, type SQL } from 'drizzle-orm';
 import type { Tx } from '../../../db/tx.js';
+import { type Viewer, visibleModelSql, visibleSoftwareSql } from '../../log-knowledge/index.js';
+import { projectVisibleSql } from './access-visibility.js';
 
 export interface HierarchyNode {
   id: string;
@@ -12,14 +14,15 @@ export interface HierarchyNode {
 }
 
 /** One workspace-scoped graph, projected in SQL so children/search pages never load an entire graph into the app. */
-function graph(workspaceId: string): SQL {
+function graph(viewer: Viewer): SQL {
+  const workspaceId = viewer.workspaceId;
   return sql`with
     v as (select id, name from knowledge.vendor where workspace_id = ${workspaceId}),
-    m as (select id, vendor_id, name from knowledge.equipment_model where workspace_id = ${workspaceId}),
+    m as (select id, vendor_id, name from knowledge.equipment_model hm where workspace_id = ${workspaceId} and ${visibleModelSql(viewer, sql`hm.id`)}),
     pc as (select id, name from knowledge.process_category where workspace_id = ${workspaceId}),
     mp as (select model_id, process_id from knowledge.model_process where workspace_id = ${workspaceId}),
-    sw as (select id, model_id, version_label as name from knowledge.software_version where workspace_id = ${workspaceId}),
-    dp as (select id, model_id from log_lifecycle.development_project where workspace_id = ${workspaceId} and stage not in ('completed','cancelled')),
+    sw as (select id, model_id, version_label as name from knowledge.software_version hs where workspace_id = ${workspaceId} and ${visibleSoftwareSql(viewer, sql`hs.id`)}),
+    dp as (select id, model_id from log_lifecycle.development_project hp where workspace_id = ${workspaceId} and ${projectVisibleSql(viewer, sql`hp.id`)} and stage not in ('completed','cancelled')),
     paths as (
       select m.id as model_id, m.vendor_id, m.name, pc.id::text as process_id, pc.name as process_name,
         'v/' || m.vendor_id || '/p/' || pc.id as process_path
@@ -50,8 +53,8 @@ function graph(workspaceId: string): SQL {
     )`;
 }
 
-export async function hierarchyNodes(tx: Tx, workspaceId: string, where: SQL, limit: number): Promise<HierarchyNode[]> {
-  const result = await tx.execute<HierarchyNode & Record<string, unknown>>(sql`${graph(workspaceId)}
+export async function hierarchyNodes(tx: Tx, viewer: Viewer, where: SQL, limit: number): Promise<HierarchyNode[]> {
+  const result = await tx.execute<HierarchyNode & Record<string, unknown>>(sql`${graph(viewer)}
     select n.id, n.parent_id as "parentId", n.kind, n.label, n.target,
       exists(select 1 from nodes child where child.parent_id = n.id) as "hasChildren"
     from nodes n where ${where} order by n.id collate "C" limit ${limit}`);

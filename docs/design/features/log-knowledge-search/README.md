@@ -75,8 +75,9 @@ Item당 한 행(`item_id` PK, `index_generation`). 최신 **발행** Revision만
 
 - **제한 대상은 Model, SW, Item** 셋. `access_mode`(Entity Link·VOC의 `Visibility`와 다른 knowledge 전용 열): `internal`(기본: 로그인한 내부 사용자 공개)·`restricted`(허용 규칙에 든 주체만).
 - **상속은 위에서 아래로, 거절 우선**: 상위(Model)가 `restricted`이고 주체가 허용되지 않으면 그 아래 SW·Item도 보이지 않는다. 하위 허용 규칙으로 상위 제한을 풀 수 없다.
-- 주체: Actor 또는 팀(팀·역할은 Core 현재 projection을 조회 때 읽고 복제하지 않는다). 규칙: `rule_id`, `target_kind`, `target_id`, `grantee_kind`, `grantee_id`, `effect`(`allow`·`deny`), `valid_until?`.
-- 규칙 변경은 감사 + outbox(`access_changed`)와 같은 트랜잭션. 변경 권한 capability는 새로 하나(`knowledge.access.manage`, 이름 후보, 세션 전용 — 권한 부여는 토큰 불가 목록, [ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md) 결정 4).
+- 주체: **Actor만** 저장한다. 팀·역할은 Core에 멤버십 테이블이 생긴 뒤 현재 projection을 조회 때 읽는 방식으로 추가한다(복제하지 않는다). 규칙: `rule_id`, `target_kind`, `target_id`, `grantee_kind`(`actor`), `grantee_id`, `effect`(`allow`·`deny`), `valid_until?`, 생성·회수(`revoked_at/by`) — 규칙은 지우지 않고 회수한다. 만료·회수된 규칙은 세지 않는다.
+- 규칙 변경은 감사와 같은 트랜잭션(`knowledge.access.mode_changed`·`rule_added`·`rule_revoked`, id만). 검색 outbox(`access_changed`)는 노드 c가 같은 쓰기 지점에 더한다. 변경 권한 capability는 `knowledge.access.manage`(세션 전용 — 권한 부여는 토큰 불가 목록, [ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md) 결정 4). 관리는 capability로 판정하고 가시성으로 판정하지 않는다: 관리자는 자신에게 보이지 않는 대상도 다루고 자신에게 허용을 줄 수 있다(감사). 읽기에는 Admin 우회가 없다.
+- 구현: API·저장은 [api/log-knowledge.md](../../../architecture/platform-api/api/log-knowledge.md#object-access-1504-s-a-migration-0112).
 - 서비스 Actor(Agent·Validator)는 검색 읽기에 명시된 grant가 있어야 하고 승인·발행 경로는 여전히 없다.
 - **Evidence 원천 ACL은 이 규칙에 없다.** 원본 소유자의 판정이므로 #1200/#1201의 어댑터 몫이다. 그 전에는 Item이 보여도 근거는 «근거 있음(접근 제한 확인 전)» 메타로만 나가고 검색은 근거를 색인·미리보기하지 않는다(§3.2).
 
@@ -205,6 +206,11 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 
 | 항목 | 이유 | 다시 여는 조건 |
 | --- | --- | --- |
+| 팀·역할 주체의 접근 규칙(§3.4) | `core.teams`는 멤버십 테이블이 없는 스키마 자리뿐이라 현재 projection을 읽을 수 없다. 규칙의 주체는 Actor만 | Core에 팀 멤버십 projection이 생김 |
+| 접근 규칙 관리 화면 | 노드 a는 API만(화면 없음). 관리 UI는 시안 컨펌이 필요 | 소유자가 관리 화면 범위를 정함 |
+| C7 숨은 코드의 충돌 응답 차단 — **미구현** | 생성·코드 변경의 `duplicate` 및 import의 `taken` 응답이 숨은 Model/SW 코드가 사용 중임을 확인해 준다. 전역 고유키를 유지하면서 응답·쓰기 선행 권한을 어떻게 바꿀지는 소유자 결정이 필요 | 소유자가 namespace 쓰기 권한 또는 충돌 비공개 응답 계약을 결정 |
+| C12 연속 Item 번호의 숨은 건수 유추 차단 — **미구현** | 연속 Item 번호와 visible total을 함께 보면 숨은 Item 건수를 역산할 수 있다. 기존 `KI-n` 식별자 호환 정책은 소유자 결정이 필요 | 소유자가 비연속 번호·공개 표시 번호 등 식별자 정책 또는 이 채널의 허용 여부를 결정 |
+| Knowledge/lifecycle 이벤트의 caller-aware 감사 projection — **미구현** | 제한된 객체 ID가 Admin에게도 노출되면 안 되므로 일반 Admin projection에서 제외. `core.audit_log` 원본은 보존 | 호출자의 현재 객체 접근 권한을 판정하는 projection 구현 |
 | Evidence 원천 ACL을 검색에 반영 | 원본 소유자 판정이 어댑터 실사 전 | #1200/#1201의 원천 ACL 어댑터 확정 |
 | 순서 외 관계 술어(`requires`·`excludes` 등) | 필요가 입증되지 않음 | 소비자가 두 번째 술어를 요구 |
 | 본문 소급 해석으로 기존 Item의 방향 채우기 | 부정문·역순 문장에서 틀림. 외부 AI 금지 | 사람이 기록을 채우는 도구 요구가 있을 때(사람 확인 흐름 포함) |

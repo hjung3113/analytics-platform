@@ -1,3 +1,4 @@
+import { viewerOf } from '../log-knowledge/index.js';
 // The Gate read port (#1466, ADR-0123): the 수동 검증 첨부 links of a Round, for the Gate's evidence snapshot (#1446).
 // Same visibility as the Round: `platform:view` and the round in the actor's workspace; anything else answers `null`,
 // never "no links", so a caller cannot tell an unreadable Round from an unknown one. A link is returned only while its
@@ -28,7 +29,7 @@ export async function readRoundEvidenceLinks(
   roundId: string,
 ): Promise<RoundEvidenceLink[] | null> {
   if (!(await holdsPlatformPermission(deps.checkService, actor, 'platform:view'))) return null;
-  if (!(await roundInWorkspace(deps.db, actor.workspace_id, roundId))) return null;
+  if (!(await roundInWorkspace(deps.db, actor.workspace_id, roundId, viewerOf(actor)))) return null;
   const [links, attachments] = await Promise.all([
     selectActiveLinksForEndpoint(deps.db, {
       workspaceId: actor.workspace_id,

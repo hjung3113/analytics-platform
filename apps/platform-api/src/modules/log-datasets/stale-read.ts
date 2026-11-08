@@ -12,7 +12,7 @@ import { type CurrentSpecPin, type StaleSummary, computeStale } from './domain/b
  * The 기준 낡음 badge of an approved baseline from already-known file states (`null` = no check was made). The pinned spec is read from the
  * knowledge catalog port; a port failure, an unreadable spec or a missing port is `unknown` for that aspect.
  */
-export async function staleOf(deps: LogDatasetsDeps, workspaceId: string, pin: ProfilePin, files: readonly FileCheckState[] | null, tx?: Tx): Promise<StaleSummary> {
+export async function staleOf(deps: LogDatasetsDeps, workspaceId: string, pin: ProfilePin, files: readonly FileCheckState[] | null, viewerActorId: string, tx?: Tx): Promise<StaleSummary> {
   let currentSpecPin: CurrentSpecPin | null = null;
   if (pin.specPin) {
     const { modelId, softwareId } = pin.specPin;
@@ -22,8 +22,8 @@ export async function staleOf(deps: LogDatasetsDeps, workspaceId: string, pin: P
       // A caller already inside a transaction (the suite run action) passes it: opening another one would need a second pooled connection
       // while the caller holds its own (starves a small pool).
       const read = async (t: Tx): Promise<CurrentSpecPin | null> => {
-        if (softwareId !== null && !(await deps.knowledgeLookup.getSoftware(t, workspaceId, modelId, softwareId))) return null;
-        return deps.knowledgeLookup.getEffectiveSpecPin(t, workspaceId, modelId, softwareId);
+        if (softwareId !== null && !(await deps.knowledgeLookup.getSoftware(t, workspaceId, modelId, softwareId, viewerActorId))) return null;
+        return deps.knowledgeLookup.getEffectiveSpecPin(t, workspaceId, modelId, softwareId, viewerActorId);
       };
       currentSpecPin = tx ? await read(tx) : await deps.db.transaction(read);
     } catch {

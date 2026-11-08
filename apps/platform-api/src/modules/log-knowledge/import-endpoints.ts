@@ -13,7 +13,8 @@ import { parseListParams } from '../../lib/list-params/list-params.js';
 import { APPLY_STATUSES } from './domain/import-apply.js';
 import { IMPORT_PLAN_STATES } from './domain/import-plan.js';
 import { applyCounts } from './repositories/import-apply-repo.js';
-import { type ImportJob, getJob, listRows } from './repositories/import-repo.js';
+import { type ImportJob, getVisibleJob, listRows } from './repositories/import-repo.js';
+import { viewerOf } from './repositories/access-visibility.js';
 
 export const IMPORT_ROW_SORT_IDS = ['rowNo'] as const;
 export const IMPORT_ROW_FILTER_SPECS = {
@@ -61,7 +62,7 @@ export function importEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration
           return { outcome: 'forbidden', data: null, message: 'No permission knowledge.catalog.import' };
         }
         const ws = actor.workspace_id;
-        const job = await getJob(deps.db, ws, judged.jobId);
+        const job = await getVisibleJob(deps.db, viewerOf(actor), judged.jobId);
         if (!job) return { outcome: 'error', data: null, message: 'not_found' };
         const asFilter = (f: (typeof judged.query.conditions)[string] | undefined) =>
           f && (f.op === 'in' || f.op === 'notIn') ? { op: f.op, values: f.values } : null;

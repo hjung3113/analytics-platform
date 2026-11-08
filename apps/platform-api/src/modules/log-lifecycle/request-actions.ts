@@ -1,3 +1,4 @@
+import { viewerOf } from '../log-knowledge/index.js';
 // The validation request write actions (#1445 d, design §5, ADR-0117 decisions 2, 8, 9): register and cancel a request
 // (`lifecycle.round.manage`, human session or token), plus the two admin settings of the queue: `queueSettingsUpdate`
 // (run window, lease, immediate limit, excerpt retention), `excerptDelete` (erase excerpt bodies of a Round or attempt) and `excerptAccessSet` (who may read the excerpts of a source
@@ -82,7 +83,7 @@ export function requestActions(deps: RequestActionDeps): MenuActionDeclaration[]
       const parsed = parseQueueInput('requestCreate', input);
       if (!parsed.ok) throw new Error('action requestCreate: validate passed but parse failed');
       const v = parsed.value;
-      const round = await getRound(tx, ws, v.roundId);
+      const round = await getRound(tx, ws, v.roundId, viewerOf(actor));
       if (!round) throw invalid({ path: ['roundId'], code: 'not_found' });
       if (round.status !== 'open') throw invalid({ path: ['roundId'], code: 'round_closed' });
       const immediate = v.immediate === true;
@@ -125,7 +126,7 @@ export function requestActions(deps: RequestActionDeps): MenuActionDeclaration[]
     authorize: authorizeManage,
     validate: (input) => validateQueueInput('requestCancel', input),
     async currentVersion(tx, actor, input) {
-      const row = await lockRequest(tx, actor.workspace_id, input.id as string);
+      const row = await lockRequest(tx, actor.workspace_id, input.id as string, viewerOf(actor));
       // A suite subject's request belongs to its suite run, not to a Round: this action does not see it (cancelling a suite run is backlog).
       return row && row.roundId !== null ? String(row.rowVersion) : null;
     },
@@ -133,7 +134,7 @@ export function requestActions(deps: RequestActionDeps): MenuActionDeclaration[]
       const ws = actor.workspace_id;
       const parsed = parseQueueInput('requestCancel', input);
       if (!parsed.ok) throw new Error('action requestCancel: validate passed but parse failed');
-      const row = await lockRequest(tx, ws, parsed.value.id);
+      const row = await lockRequest(tx, ws, parsed.value.id, viewerOf(actor));
       if (!row || row.roundId === null) throw new Error('action requestCancel: currentVersion judged not_found first');
       // Terminal states never move again; a finished request is cancelled by a new request, not by this action.
       if (row.state !== 'queued' && row.state !== 'claimed') throw invalid({ path: ['id'], code: 'illegal_transition' });
@@ -221,7 +222,7 @@ export function requestActions(deps: RequestActionDeps): MenuActionDeclaration[]
       let subject: { type: 'validation_round' | 'execution_request'; id: string };
       let count = 0;
       if (v.scope === 'round') {
-        const round = await getRound(tx, ws, v.id);
+        const round = await getRound(tx, ws, v.id, viewerOf(actor));
         if (!round) throw invalid({ path: ['id'], code: 'not_found' });
         subject = { type: 'validation_round', id: round.id };
         for (;;) {
@@ -230,7 +231,7 @@ export function requestActions(deps: RequestActionDeps): MenuActionDeclaration[]
           if (n < EXCERPT_ERASE_BATCH) break;
         }
       } else {
-        const owner = await attemptOwner(tx, ws, v.id);
+        const owner = await attemptOwner(tx, ws, v.id, viewerOf(actor));
         if (!owner) throw invalid({ path: ['id'], code: 'not_found' });
         subject = { type: 'execution_request', id: owner.requestId };
         for (;;) {

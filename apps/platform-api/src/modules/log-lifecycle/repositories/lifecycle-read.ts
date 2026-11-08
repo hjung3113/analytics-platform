@@ -12,10 +12,12 @@ import type { Tx } from '../../../db/tx.js';
 import type { FilterCondition } from '../../../lib/list-params/catalog-filters.js';
 import type { ListQuery, Page } from '../../../lib/list-params/types.js';
 import { escapeLikePattern } from '../../../lib/sql-like.js';
-import { toCodeKey } from '../../log-knowledge/index.js';
+import { type Viewer, ref, visibleModelSql, visibleSoftwareSql, toCodeKey } from '../../log-knowledge/index.js';
 import type { EventQuery } from '../domain/lifecycle-params.js';
 import { canSetStage, reopenTarget, STAGES } from '../domain/stage-transitions.js';
 import { stageBeforeLastCancel } from './lifecycle-write.js';
+
+import { projectVisibleSql, roundVisibleSql } from './access-visibility.js';
 
 const iso = (value: Date | string): string => (value instanceof Date ? value : new Date(value)).toISOString();
 
@@ -113,9 +115,10 @@ const pendingRequests = sql<number>`(select count(*)::int from log_lifecycle.exe
 const gateDecision = sql<string | null>`(select gd.decision from log_lifecycle.gate_decision gd where gd.workspace_id = ${m.workspaceId} and gd.round_id = ${latestRoundId} order by gd.at desc, gd.id desc limit 1)`;
 
 /** Every knowledge model as a base row with its open project and that project's latest round. */
-export async function listModels(tx: Tx, q: ListQuery & { includeClosedProjects?: boolean }): Promise<Page<ModelRow>> {
+export async function listModels(tx: Tx, q: ListQuery & { includeClosedProjects?: boolean }, viewer: Viewer): Promise<Page<ModelRow>> {
   const where = and(
     eq(m.workspaceId, q.workspaceId),
+    visibleModelSql(viewer, ref(m.id)),
     columnFilter(m.active, q.conditions.active, (v) => v === 'true'),
     columnFilter(m.id, q.conditions.id),
     columnFilter(m.vendorId, q.conditions.vendorId),
@@ -125,11 +128,11 @@ export async function listModels(tx: Tx, q: ListQuery & { includeClosedProjects?
     q.conditions.validation ? (q.conditions.validation.op === 'notIn' ? notInArray(validation, q.conditions.validation.values) : inArray(validation, q.conditions.validation.values)) : undefined,
   );
   const projectChoice = q.includeClosedProjects
-    ? eq(p.id, sql`(select dp.id from ${p} dp where dp.workspace_id = ${m.workspaceId} and dp.model_id = ${m.id} order by (dp.stage not in ('completed','cancelled')) desc, dp.created_at desc, dp.id desc limit 1)`)
+    ? eq(p.id, sql`(select dp.id from ${p} dp where dp.workspace_id = ${m.workspaceId} and dp.model_id = ${m.id} and ${projectVisibleSql(viewer, sql`dp.id`)} order by (dp.stage not in ('completed','cancelled')) desc, dp.created_at desc, dp.id desc limit 1)`)
     : sql`${p.stage} not in ('completed','cancelled')`;
   const round = (column: string) =>
     sql`(select lr.${sql.raw(column)} from ${r} lr where lr.workspace_id = ${m.workspaceId} and lr.project_id = ${p.id} order by lr.seq desc limit 1)`;
-  const softwareCount = sql<number>`(select count(*)::int from ${softwareVersions} s where s.workspace_id = ${m.workspaceId} and s.model_id = ${m.id} and s.active)`;
+  const softwareCount = sql<number>`(select count(*)::int from ${softwareVersions} s where s.workspace_id = ${m.workspaceId} and s.model_id = ${m.id} and s.active and ${visibleSoftwareSql(viewer, sql`s.id`)})`;
   const sortable: Record<string, SQL | AnyPgColumn> = {
     code: m.codeKey,
     name: m.name,
@@ -154,7 +157,7 @@ export async function listModels(tx: Tx, q: ListQuery & { includeClosedProjects?
     .innerJoin(vendors, and(eq(vendors.workspaceId, m.workspaceId), eq(vendors.id, m.vendorId)))
     .leftJoin(
       p,
-      and(eq(p.workspaceId, m.workspaceId), eq(p.modelId, m.id), projectChoice),
+      and(eq(p.workspaceId, m.workspaceId), eq(p.modelId, m.id), projectVisibleSql(viewer, ref(p.id)), projectChoice),
     )
     .where(where)
     // `id` makes every order total, so a page never repeats a row.
@@ -167,7 +170,7 @@ export async function listModels(tx: Tx, q: ListQuery & { includeClosedProjects?
     .innerJoin(vendors, and(eq(vendors.workspaceId, m.workspaceId), eq(vendors.id, m.vendorId)))
     .leftJoin(
       p,
-      and(eq(p.workspaceId, m.workspaceId), eq(p.modelId, m.id), projectChoice),
+      and(eq(p.workspaceId, m.workspaceId), eq(p.modelId, m.id), projectVisibleSql(viewer, ref(p.id)), projectChoice),
     )
     .where(where);
   const ids = rows.map((x) => x.row.id);
@@ -235,7 +238,7 @@ export interface ProjectDetail {
 }
 
 /** One project; null when it does not exist in the workspace. */
-export async function getProjectDetail(tx: Tx, workspaceId: string, projectId: string): Promise<ProjectDetail | null> {
+export async function getProjectDetail(tx: Tx, workspaceId: string, projectId: string, viewer: Viewer): Promise<ProjectDetail | null> {
   const owner = alias(actors, 'owner');
   const [found] = await tx
     .select({ project: p, ownerName: owner.displayName, code: m.code, name: m.name, vendorName: vendors.name, softwareLabel: sql<string | null>`(select s.version_label from ${softwareVersions} s where s.workspace_id = ${p.workspaceId} and s.id = ${p.softwareId})` })
@@ -243,7 +246,7 @@ export async function getProjectDetail(tx: Tx, workspaceId: string, projectId: s
     .leftJoin(owner, and(eq(owner.id, p.ownerActorId), eq(owner.workspaceId, p.workspaceId)))
     .leftJoin(m, and(eq(m.workspaceId, p.workspaceId), eq(m.id, p.modelId)))
     .leftJoin(vendors, and(eq(vendors.workspaceId, m.workspaceId), eq(vendors.id, m.vendorId)))
-    .where(and(eq(p.workspaceId, workspaceId), eq(p.id, projectId)))
+    .where(and(eq(p.workspaceId, workspaceId), eq(p.id, projectId), projectVisibleSql(viewer, ref(p.id))))
     .limit(1);
   if (!found) return null;
   const x = found.project;
@@ -286,10 +289,12 @@ export interface ProjectEventRow {
 }
 
 /** The history of one project, newest first (`seq desc`). */
-export async function listProjectEvents(tx: Tx, workspaceId: string, q: EventQuery): Promise<Page<ProjectEventRow>> {
+export async function listProjectEvents(tx: Tx, workspaceId: string, q: EventQuery, viewer: Viewer): Promise<Page<ProjectEventRow>> {
   const e = developmentEvents;
   const actor = alias(actors, 'event_actor');
-  const where = and(eq(e.workspaceId, workspaceId), eq(e.projectId, q.projectId));
+  const where = and(eq(e.workspaceId, workspaceId), eq(e.projectId, q.projectId), projectVisibleSql(viewer, ref(e.projectId)),
+    sql`((${e.before}->>'softwareId') is null or ${visibleSoftwareSql(viewer, sql`(${ref(e.before)}->>'softwareId')::uuid`)})`,
+    sql`((${e.after}->>'softwareId') is null or ${visibleSoftwareSql(viewer, sql`(${ref(e.after)}->>'softwareId')::uuid`)})`);
   const rows = await tx
     .select({ event: e, actorName: actor.displayName })
     .from(e)
@@ -374,24 +379,24 @@ const baseRound = (row: RoundDbRow) => ({
 });
 
 /** The rounds of one project, newest first. */
-export async function listRounds(tx: Tx, workspaceId: string, projectId: string): Promise<{ rows: RoundSummary[] }> {
+export async function listRounds(tx: Tx, workspaceId: string, projectId: string, viewer: Viewer): Promise<{ rows: RoundSummary[] }> {
   const rows = await tx
     .select({ row: r,
       validation: sql<string>`coalesce((select coalesce(ea.verdict, case when eq.state in ('queued','claimed') then eq.state end) from log_lifecycle.execution_request eq left join lateral (select a.verdict from log_lifecycle.execution_attempt a where a.workspace_id = eq.workspace_id and a.request_id = eq.id order by a.attempt_no desc limit 1) ea on true where eq.workspace_id = ${sql.raw('"validation_round"."workspace_id"')} and eq.round_id = ${sql.raw('"validation_round"."id"')} order by eq.created_at desc, eq.id desc limit 1), 'none')`,
       gateDecision: sql<string | null>`(select gd.decision from log_lifecycle.gate_decision gd where gd.workspace_id = ${sql.raw('"validation_round"."workspace_id"')} and gd.round_id = ${sql.raw('"validation_round"."id"')} order by gd.at desc, gd.id desc limit 1)`,
     })
     .from(r)
-    .where(and(eq(r.workspaceId, workspaceId), eq(r.projectId, projectId)))
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.projectId, projectId), projectVisibleSql(viewer, ref(r.projectId))))
     .orderBy(desc(r.seq));
   return { rows: rows.map(({ row, validation, gateDecision }) => ({ ...baseRound(row), sampleCount: filesOf(row).files.length, validation, gateDecision })) };
 }
 
 /** One round with its ordered sample list; null when it does not exist in the workspace. */
-export async function getRoundDetail(tx: Tx, workspaceId: string, roundId: string): Promise<RoundDetail | null> {
+export async function getRoundDetail(tx: Tx, workspaceId: string, roundId: string, viewer: Viewer): Promise<RoundDetail | null> {
   const [row] = await tx
     .select()
     .from(r)
-    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, roundId)))
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, roundId), roundVisibleSql(viewer, ref(r.id))))
     .limit(1);
   if (!row) return null;
   const refs = await tx
@@ -415,21 +420,21 @@ export async function getRoundDetail(tx: Tx, workspaceId: string, roundId: strin
 }
 
 /** The sample set of a round in the workspace, or null (the cross-module read port: no evidence locations are read). */
-export async function getRoundSampleSet(tx: Tx, workspaceId: string, roundId: string) {
+export async function getRoundSampleSet(tx: Tx, workspaceId: string, roundId: string, viewer: Viewer) {
   const [row] = await tx
     .select()
     .from(r)
-    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, roundId)))
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, roundId), roundVisibleSql(viewer, ref(r.id))))
     .limit(1);
   return row ? filesOf(row) : null;
 }
 
 /** Whether the round exists in the workspace (the attachment parent reader and the evidence list share it). */
-export async function roundInWorkspace(tx: Tx, workspaceId: string, roundId: string): Promise<boolean> {
+export async function roundInWorkspace(tx: Tx, workspaceId: string, roundId: string, viewer: Viewer): Promise<boolean> {
   const [row] = await tx
     .select({ id: r.id })
     .from(r)
-    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, roundId)))
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, roundId), roundVisibleSql(viewer, ref(r.id))))
     .limit(1);
   return row !== undefined;
 }

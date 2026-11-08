@@ -165,7 +165,7 @@ Importing another module's `repo.ts` or `repo-read.ts` is not a surface. A modul
 
 Log-lifecycle screen projections (#1447) read knowledge model codes/vendor names and software version labels directly for lists and detail metadata; they write no knowledge tables. Existence/active checks for writes continue through `knowledgeLookup`.
 
-The log-knowledge barrel read port `knowledgeLookup` (`getModel`, `getSoftware`, `getEffectiveSpecPin`, `listModels`/`listSoftware` for lifecycle and explorer owner pickers, and `listEffectiveRequirements` for log-rules, #1493) is an approved read surface; it takes a caller-verified workspace and applies no permission itself (docs/architecture/platform-api/api/log-knowledge.md «Read port: effective requirement keys»).
+The log-knowledge barrel read port `knowledgeLookup` (`getModel`, `getSoftware`, `getEffectiveSpecPin`, `listModels`/`listSoftware` for lifecycle and explorer owner pickers, and `listEffectiveRequirements` for log-rules, #1493) is an approved read surface; it takes a caller-verified workspace and applies no permission itself; object access (#1504) requires the trailing `viewerActorId` (api/log-knowledge.md «Read port: effective requirement keys», «Object access»).
 
 The knowledge intake also exposes the read-only `listOwnOpen` projection for the explorer handoff dialog (#1474c): caller-owned non-final drafts, title/owner/count/version only, no proposal body or pointers.
 

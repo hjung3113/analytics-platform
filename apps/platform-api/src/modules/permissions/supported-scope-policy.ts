@@ -9,7 +9,7 @@ export function isOrdinarilyRequestable(capability: Capability): boolean {
   return capability !== 'workspace.admin';
 }
 
-/** ADR-0107 decision 3: Admin and Developer receive these; a User does not (request, approval, direct grant). */
+/** ADR-0107: a User cannot receive these (request, approval, direct grant); Admin-only restrictions are judged below. */
 export const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'knowledge.catalog.manage',
   'knowledge.catalog.import',
@@ -24,6 +24,7 @@ export const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'dataset.baseline.approve',
   'lifecycle.gate.decide',
   'dataset.suite.run',
+  'knowledge.access.manage',
 ]);
 
 /** True when the User role may never exercise this capability, whatever grant rows exist (#1531). */
@@ -55,7 +56,8 @@ export async function supportedScopeCandidates(
     capability === 'explorer.handoff' ||
     capability === 'dataset.manage' ||
     capability === 'dataset.baseline.approve' ||
-    capability === 'dataset.suite.run'
+    capability === 'dataset.suite.run' ||
+    capability === 'knowledge.access.manage'
   ) {
     return [{ managed_system_id: null }];
   }
@@ -101,6 +103,11 @@ export async function validateSupportedScope(
   }
   if (options.recipientRole === 'user' && NOT_FOR_USER_ROLE.has(capability)) {
     throw new HttpError('validation.failed', 'capability is not available to the User role', {
+      fields: [{ path: [options.capabilityField ?? 'requested_capability'], code: 'custom' }],
+    });
+  }
+  if (capability === 'knowledge.access.manage' && options.recipientRole !== 'admin') {
+    throw new HttpError('validation.failed', 'capability requires an Admin recipient', {
       fields: [{ path: [options.capabilityField ?? 'requested_capability'], code: 'custom' }],
     });
   }

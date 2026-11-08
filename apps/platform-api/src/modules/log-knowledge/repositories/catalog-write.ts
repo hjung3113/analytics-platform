@@ -1,3 +1,4 @@
+import { lockOwnerAccess } from './item-write.js';
 // Write side of the log knowledge catalog (#1194 a): `knowledge.*` tables only, every statement scoped to
 // the actor's workspace, no hard delete (only `model_process` rows are removed). The caller owns the
 // transaction and the audit rows. Row locks: the write target is locked `FOR UPDATE` by `lockRow` (the
@@ -14,6 +15,7 @@ import {
   vendors,
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
+import { type Viewer, canSeeModel, canSeeSoftware } from './access-visibility.js';
 import { toCodeKey } from '../domain/code-key.js';
 
 export type CatalogKind = 'vendor' | 'process' | 'model' | 'software';
@@ -65,28 +67,33 @@ const fromSoftware = (row: typeof softwareVersions.$inferSelect): CatalogRow => 
   parentId: row.modelId,
 });
 
-/** Locks the target row `FOR UPDATE`; null when it is not in the workspace. */
+/** Locks the target row `FOR UPDATE`; null when it is not in the workspace or (model, SW version) hidden from the viewer (#1504). */
 export async function lockRow(
   tx: Tx,
   kind: CatalogKind,
-  workspaceId: string,
+  viewer: Viewer,
   id: string,
 ): Promise<CatalogRow | null> {
+  const workspaceId = viewer.workspaceId;
   if (kind === 'model') {
+    if (!(await canSeeModel(tx, viewer, id))) return null;
     const [row] = await tx
       .select()
       .from(equipmentModels)
       .where(and(eq(equipmentModels.workspaceId, workspaceId), eq(equipmentModels.id, id)))
       .for('update');
-    return row ? fromModel(row) : null;
+    return row && (await canSeeModel(tx, viewer, row.id)) ? fromModel(row) : null;
   }
   if (kind === 'software') {
+    if (!(await canSeeSoftware(tx, viewer, id))) return null;
+    const [parent] = await tx.select({ modelId: softwareVersions.modelId }).from(softwareVersions).where(and(eq(softwareVersions.workspaceId, workspaceId), eq(softwareVersions.id, id)));
+    if (!parent || !(await lockOwnerAccess(tx, viewer, { ownerModelId: parent.modelId, ownerSoftwareId: null }))) return null;
     const [row] = await tx
       .select()
       .from(softwareVersions)
       .where(and(eq(softwareVersions.workspaceId, workspaceId), eq(softwareVersions.id, id)))
       .for('update');
-    return row ? fromSoftware(row) : null;
+    return row && (await canSeeSoftware(tx, viewer, row.id)) ? fromSoftware(row) : null;
   }
   const t = simpleTable(kind);
   const [row] = await tx
@@ -101,9 +108,11 @@ export async function lockRow(
 export async function shareLockParent(
   tx: Tx,
   kind: ParentKind,
-  workspaceId: string,
+  viewer: Viewer,
   id: string,
 ): Promise<{ id: string; active: boolean } | null> {
+  const workspaceId = viewer.workspaceId;
+  if (kind === 'model' && !(await canSeeModel(tx, viewer, id))) return null;
   const t =
     kind === 'model' ? (equipmentModels as unknown as typeof vendors) : simpleTable(kind);
   const [row] = await tx
@@ -111,6 +120,7 @@ export async function shareLockParent(
     .from(t)
     .where(and(eq(t.workspaceId, workspaceId), eq(t.id, id)))
     .for('share');
+  if (row && kind === 'model' && !(await canSeeModel(tx, viewer, row.id))) return null;
   return row ?? null;
 }
 

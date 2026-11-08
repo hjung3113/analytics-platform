@@ -25,7 +25,7 @@ describe('logKnowledge.specCoverage (#1496)', () => {
       requirements: [{ key: 'a', state: 'no_rule' }, { key: 'b', state: 'no_rule' }, { key: 'c', state: 'covered' }],
     });
     const out = await run(getCoverage, { modelId: UUID, softwareId: SW });
-    expect(getCoverage).toHaveBeenCalledWith(expect.anything(), 'ws', UUID, SW);
+    expect(getCoverage).toHaveBeenCalledWith(expect.anything(), 'ws', UUID, SW, actor.actor_id);
     expect(out).toEqual({
       outcome: 'ok',
       data: { computable: true, counts: { no_rule: 2, unsupported: 0, unknown: 0, partial: 0, covered: 1, total: 3 }, coverageDigest: 'dg' },
@@ -43,5 +43,13 @@ describe('logKnowledge.specCoverage (#1496)', () => {
 
   it('no port wired: unavailable, not a coverage number', async () => {
     expect(await run(null, { modelId: UUID })).toEqual({ outcome: 'ok', data: { computable: false, reason: 'unavailable' } });
+  });
+});
+
+describe('spec coverage object access (#1504 merge)', () => {
+  it('passes the current actor to the coverage port before returning hidden as missing', async () => {
+    const getCoverage = vi.fn().mockResolvedValue({ computable: false, reason: 'model_unknown' });
+    expect(await run(getCoverage, { modelId: UUID, softwareId: SW })).toEqual({ outcome: 'ok', data: null });
+    expect(getCoverage).toHaveBeenCalledWith(expect.anything(), actor.workspace_id, UUID, SW, actor.actor_id);
   });
 });

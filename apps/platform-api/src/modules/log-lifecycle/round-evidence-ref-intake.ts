@@ -10,6 +10,7 @@
 // `byStatus` counts the newly attached pointers. `seq` is gapless per round under the round row lock; one round holds at most
 // 1000 pointers (`['refs'] round_full`). Audit `lifecycle.round.evidence_ref_attached` only when something was attached.
 
+import { viewerOf } from '../log-knowledge/index.js';
 import type { Tx } from '../../db/tx.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import { type FieldError, MenuActionInvalidError } from '../menu-dispatch/types.js';
@@ -81,7 +82,7 @@ export function roundEvidenceRefIntake(deps: RoundEvidenceRefIntakeDeps): RoundE
       if (!origin.ok) errors.push(...origin.errors);
       if (errors.length > 0 || !roundId || !refs.ok || !origin.ok) throw new MenuActionInvalidError(errors);
 
-      const round = await lockRound(tx, ws, roundId);
+      const round = await lockRound(tx, ws, roundId, viewerOf(actor));
       if (!round) throw invalid({ path: ['target', 'roundId'], code: 'not_found' });
       if (round.status !== 'open') throw invalid({ path: ['target', 'roundId'], code: 'round_closed' });
 

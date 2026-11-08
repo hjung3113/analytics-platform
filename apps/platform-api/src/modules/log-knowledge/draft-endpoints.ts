@@ -55,7 +55,7 @@ export function draftEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[
         const page = await listDrafts(
           deps.db,
           { ...parsed.value, workspaceId: args.actor.workspace_id },
-          { actorId: args.actor.actor_id, holdsPublish },
+          { workspaceId: args.actor.workspace_id, actorId: args.actor.actor_id, holdsPublish },
         );
         return { outcome: 'ok', data: page };
       },
@@ -69,6 +69,7 @@ export function draftEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[
         if (draftId === null) return { outcome: 'error', data: null, message: 'draftId must be a uuid string' };
         const holdsPublish = await holdsPlatformPermission(deps.checkService, args.actor, 'knowledge:item-publish');
         const detail = await getDraftDetail(deps.db, args.actor.workspace_id, draftId, {
+          workspaceId: args.actor.workspace_id,
           actorId: args.actor.actor_id,
           holdsPublish,
         });

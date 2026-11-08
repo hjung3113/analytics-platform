@@ -32,7 +32,7 @@ import {
 import { EVIDENCE_MAX, type EvidencePointer } from './domain/item-input.js';
 import { DRAFT_PERMISSION } from './draft-actions.js';
 import { authorAuthNow, draftCores } from './draft-core.js';
-import { listOwnOpenDrafts } from './repositories/draft-read.js';
+import { getDraftDetail, listOwnOpenDrafts } from './repositories/draft-read.js';
 import { latestProposal } from './repositories/draft-write.js';
 
 export interface DraftEvidenceIntakeDeps {
@@ -64,6 +64,8 @@ export interface DraftEvidenceResult {
 }
 
 export interface DraftEvidenceIntake {
+  /** Current author and owner visibility for replay; no write or version disclosure. */
+  canRead(tx: Tx, actor: PlatformActor, draftId: string): Promise<boolean>;
   /** Caller-owned, non-final drafts, newest first, at most 50; empty without the intake right. */
   listOwnOpen(tx: Tx, actor: PlatformActor, options: { limit: number }): Promise<Awaited<ReturnType<typeof listOwnOpenDrafts>>>;
   create(tx: Tx, actor: PlatformActor, input: DraftEvidenceCreateInput): Promise<DraftEvidenceResult>;
@@ -154,6 +156,9 @@ export function draftEvidenceIntake(deps: DraftEvidenceIntakeDeps): DraftEvidenc
   }
 
   return {
+    async canRead(tx, actor, draftId) {
+      return (await getDraftDetail(tx, actor.workspace_id, draftId, { workspaceId: actor.workspace_id, actorId: actor.actor_id, holdsPublish: false })) !== null;
+    },
     canIntake,
     async listOwnOpen(tx, actor, { limit }) {
       if (!(await canIntake(tx, actor))) return [];

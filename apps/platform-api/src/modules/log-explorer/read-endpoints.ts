@@ -1,3 +1,4 @@
+import { viewerOf } from '../log-knowledge/index.js';
 // `logExplorer.records|window|parsed|periods` as menu-dispatch declarations (#1469, design §5). Entry right: every active workspace
 // session (`platform:view`, the rule the other direct list menus use). The data right `explorer.source.read` is judged per request inside
 // the read (read-service.ts), because it depends on the Source owner named in the params and must answer as a state, not a refusal.
@@ -85,7 +86,7 @@ function evidenceLinksEndpoint(deps: LogExplorerReadDeps, read: LifecycleEvidenc
     async handle(args) {
       const parsed = parseEvidenceLinkParams(args.params);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
-      return { outcome: 'ok', data: await read.findEvidenceLinks(deps.db, args.actor.workspace_id, parsed.value) };
+      return { outcome: 'ok', data: await read.findEvidenceLinks(deps.db, args.actor.workspace_id, parsed.value, viewerOf(args.actor)) };
     },
   };
 }

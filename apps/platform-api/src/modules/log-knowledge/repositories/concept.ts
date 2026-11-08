@@ -10,6 +10,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { commonConcepts, equipmentModels, specConceptMappings } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
 import type { SimilarityBasis } from '../domain/concept-similarity.js';
+import { type Viewer, canSeeModel, ref, visibleModelSql } from './access-visibility.js';
 import { resolveTargets } from './spec-targets.js';
 
 const m = specConceptMappings;
@@ -50,14 +51,16 @@ export async function lockModelConcepts(tx: Tx, workspaceId: string, modelIds: r
   }
 }
 
-export async function mappingModelId(tx: Tx, workspaceId: string, id: string): Promise<string | null> {
-  const [row] = await tx.select({ modelId: m.modelId }).from(m).where(and(eq(m.workspaceId, workspaceId), eq(m.id, id)));
-  return row?.modelId ?? null;
+export async function mappingModelId(tx: Tx, viewer: Viewer, id: string): Promise<string | null> {
+  const [row] = await tx.select({ modelId: m.modelId }).from(m).where(and(eq(m.workspaceId, viewer.workspaceId), eq(m.id, id)));
+  // A mapping of a hidden model is not found (#1504).
+  return row && (await canSeeModel(tx, viewer, row.modelId)) ? row.modelId : null;
 }
 
-export async function lockMapping(tx: Tx, workspaceId: string, id: string): Promise<MappingRow | null> {
-  const [row] = await tx.select(mappingColumns).from(m).where(and(eq(m.workspaceId, workspaceId), eq(m.id, id))).for('update');
-  return row ?? null;
+export async function lockMapping(tx: Tx, viewer: Viewer, id: string): Promise<MappingRow | null> {
+  const [row] = await tx.select(mappingColumns).from(m).where(and(eq(m.workspaceId, viewer.workspaceId), eq(m.id, id))).for('update');
+  if (!row || !(await canSeeModel(tx, viewer, row.modelId))) return null;
+  return row;
 }
 
 export async function conceptById(tx: Tx, workspaceId: string, id: string): Promise<ConceptRow | null> {
@@ -180,7 +183,7 @@ export interface EquivalentTarget {
  * `equivalent` rows of that target's concept. Nothing else counts — not a proposal (whatever its similarity score), not
  * a rejected row, not a `related` row, and never a shared name. For search and cross-model reads.
  */
-export async function findEquivalents(tx: Tx, workspaceId: string, modelId: string, targetKey: string): Promise<EquivalentTarget[]> {
+export async function findEquivalents(tx: Tx, workspaceId: string, modelId: string, targetKey: string, viewer?: Viewer): Promise<EquivalentTarget[]> {
   const mine = alias(specConceptMappings, 'mine');
   return tx
     .select({ conceptId: m.conceptId, modelId: m.modelId, targetKind: m.targetKind, targetKey: m.targetKey })
@@ -196,7 +199,7 @@ export async function findEquivalents(tx: Tx, workspaceId: string, modelId: stri
         eq(mine.relationKind, 'equivalent'),
       ),
     )
-    .where(and(eq(m.workspaceId, workspaceId), eq(m.reviewState, 'confirmed'), eq(m.relationKind, 'equivalent'), sql`${m.id} <> ${mine.id}`))
+    .where(and(eq(m.workspaceId, workspaceId), eq(m.reviewState, 'confirmed'), eq(m.relationKind, 'equivalent'), sql`${m.id} <> ${mine.id}`, viewer ? visibleModelSql(viewer, ref(m.modelId)) : undefined))
     .orderBy(asc(m.modelId), asc(m.targetKey));
 }
 
@@ -235,12 +238,14 @@ export interface ConceptMappingView {
 
 export async function listConceptMappings(
   tx: Tx,
+  viewer: Viewer,
   workspaceId: string,
   filters: ConceptMappingFilters,
   paging: { page: number; pageSize: number },
 ): Promise<{ total: number; rows: ConceptMappingView[] }> {
   const where = and(
     eq(m.workspaceId, workspaceId),
+    visibleModelSql(viewer, ref(m.modelId)),
     filters.modelId ? eq(m.modelId, filters.modelId) : undefined,
     filters.conceptId ? eq(m.conceptId, filters.conceptId) : undefined,
     filters.reviewState ? eq(m.reviewState, filters.reviewState) : undefined,

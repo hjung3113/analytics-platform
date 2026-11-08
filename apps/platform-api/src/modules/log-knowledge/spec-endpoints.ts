@@ -18,6 +18,7 @@ import {
   listSpecChanges,
 } from './repositories/spec-read.js';
 import { SPEC_MENU_PERMISSION } from './spec-actions.js';
+import { type Viewer, canSeeModel, canSeeSoftware } from './repositories/access-visibility.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -50,7 +51,7 @@ function declareSpecRead(
   id: string,
   paramKeys: readonly string[],
   paged: boolean,
-  run: (workspaceId: string, judged: Extract<Judged, { ok: true }>) => Promise<EndpointResult>,
+  run: (viewer: Viewer, judged: Extract<Judged, { ok: true }>) => Promise<EndpointResult>,
 ): MenuEndpointDeclaration {
   return {
     spec: {
@@ -70,7 +71,7 @@ function declareSpecRead(
     async handle(args) {
       const judged = judgeParams(args.params, paged);
       if (!judged.ok) return { outcome: 'error', data: null, message: judged.message };
-      return run(args.actor.workspace_id, judged);
+      return run({ workspaceId: args.actor.workspace_id, actorId: args.actor.actor_id }, judged);
     },
   };
 }
@@ -100,7 +101,8 @@ function declareSpecDraft(deps: LogKnowledgeDeps): MenuEndpointDeclaration {
     async handle(args) {
       const judged = judge(args.params);
       if (!judged.ok) return { outcome: 'error', data: null, message: judged.message };
-      return { outcome: 'ok', data: await getSpecDraft(deps.db, args.actor.workspace_id, judged.revisionId) };
+      const viewer = { workspaceId: args.actor.workspace_id, actorId: args.actor.actor_id };
+      return { outcome: 'ok', data: await getSpecDraft(deps.db, viewer, judged.revisionId) };
     },
   };
 }
@@ -150,28 +152,39 @@ function declareSpecChanges(deps: LogKnowledgeDeps): MenuEndpointDeclaration {
       const judged = judge(args.params);
       if (!judged.ok) return { outcome: 'error', data: null, message: judged.message };
       const { modelId, page, pageSize, ...filters } = judged.value;
-      return { outcome: 'ok', data: await listSpecChanges(deps.db, args.actor.workspace_id, modelId, filters, { page, pageSize }) };
+      const viewer = { workspaceId: args.actor.workspace_id, actorId: args.actor.actor_id };
+      // A model the viewer cannot see answers like a model that does not exist: an empty page.
+      if (!(await canSeeModel(deps.db, viewer, modelId))) return { outcome: 'ok', data: { total: 0, rows: [] } };
+      return { outcome: 'ok', data: await listSpecChanges(deps.db, viewer, modelId, filters, { page, pageSize }) };
     },
   };
 }
 
 export function specEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[] {
   return [
-    declareSpecRead(deps, 'logKnowledge.modelSpec', ['modelId', 'softwareId'], false, async (workspaceId, { modelId, softwareId }) => ({
-      outcome: 'ok',
-      data:
-        softwareId === null
-          ? await getModelSpec(deps.db, workspaceId, modelId)
-          : await getEffectiveModelSpec(deps.db, workspaceId, modelId, softwareId),
-    })),
+    declareSpecRead(deps, 'logKnowledge.modelSpec', ['modelId', 'softwareId'], false, async (viewer, { modelId, softwareId }) => {
+      const { workspaceId } = viewer;
+      // Hidden model or SW version: `null`, exactly like an id that does not exist.
+      if (!(await canSeeModel(deps.db, viewer, modelId))) return { outcome: 'ok', data: null };
+      if (softwareId !== null && !(await canSeeSoftware(deps.db, viewer, softwareId))) return { outcome: 'ok', data: null };
+      return {
+        outcome: 'ok',
+        data:
+          softwareId === null
+            ? await getModelSpec(deps.db, workspaceId, modelId)
+            : await getEffectiveModelSpec(deps.db, workspaceId, modelId, softwareId),
+      };
+    }),
     declareSpecRead(
       deps,
       'logKnowledge.modelSpecRevisions',
       ['modelId', 'page', 'pageSize'],
       true,
-      async (workspaceId, { modelId, page, pageSize }) => ({
+      async (viewer, { modelId, page, pageSize }) => ({
         outcome: 'ok',
-        data: await listModelSpecRevisions(deps.db, workspaceId, modelId, { page, pageSize }),
+        data: (await canSeeModel(deps.db, viewer, modelId))
+          ? await listModelSpecRevisions(deps.db, viewer.workspaceId, modelId, { page, pageSize })
+          : { total: 0, rows: [] },
       }),
     ),
     declareSpecDraft(deps),

@@ -1,3 +1,4 @@
+import { viewerOf } from '../log-knowledge/index.js';
 // The log explorer investigation write actions (#1468 b, design §3.2/§5): create, update (title / filters), add and
 // remove an evidence location, archive. Right: `explorer.investigate` (workspace-scoped; menu permission
 // `explorer:investigate`). Rules: the investigation belongs to its creator, and every action other than create finds
@@ -76,7 +77,7 @@ export function investigationActions(deps: InvestigationDeps): MenuActionDeclara
     // A round origin stays writable only while its Round resolves: the same port and answer as create, judged
     // on the write transaction before any mutation, so a lost Round refuses with nothing changed, no version
     // bump and no audit row. Standalone investigations are unaffected.
-    if (row.origin === 'round' && (row.roundId === null || (await deps.lifecycleRead.getRoundSampleSet(tx, row.workspaceId, row.roundId)) === null)) {
+    if (row.origin === 'round' && (row.roundId === null || (await deps.lifecycleRead.getRoundSampleSet(tx, row.workspaceId, row.roundId, viewerOf(actor))) === null)) {
       throw invalid({ path: ['roundId'], code: 'not_found' });
     }
     return row;
@@ -91,7 +92,7 @@ export function investigationActions(deps: InvestigationDeps): MenuActionDeclara
       const parsed = parseCreate(input);
       if (!parsed.ok) throw new Error('action investigationCreate: validate passed but parse failed');
       const value = parsed.value;
-      if (value.origin === 'round' && (await deps.lifecycleRead.getRoundSampleSet(tx, ws, value.roundId)) === null) {
+      if (value.origin === 'round' && (await deps.lifecycleRead.getRoundSampleSet(tx, ws, value.roundId, viewerOf(actor))) === null) {
         throw invalid({ path: ['roundId'], code: 'not_found' });
       }
       const row = await insertInvestigation(tx, {

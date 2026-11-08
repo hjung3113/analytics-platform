@@ -156,7 +156,7 @@ export function baselineActions(deps: LogDatasetsDeps): MenuActionDeclaration[] 
       const patch: DraftPatch = {};
       const changed: string[] = [];
       const pinnedSoftware = value.profilePin?.specPin;
-      if (pinnedSoftware?.softwareId && !(await deps.knowledgeLookup.getSoftware(tx, ws, pinnedSoftware.modelId, pinnedSoftware.softwareId))) {
+      if (pinnedSoftware?.softwareId && !(await deps.knowledgeLookup.getSoftware(tx, ws, pinnedSoftware.modelId, pinnedSoftware.softwareId, actor.actor_id))) {
         // A software that is not of the pinned model in this workspace names no spec: refused here, `unknown` at read time if it vanishes later.
         throw invalid({ path: ['profilePin', 'specPin', 'softwareId'], code: 'not_found' });
       }

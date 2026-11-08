@@ -17,6 +17,7 @@ import {
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
 import type { EvidencePointer } from '../domain/item-input.js';
+import { type Viewer, canSeeItem, canSeeModel, canSeeSoftware } from './access-visibility.js';
 import { allocateItemNo } from './item-number.js';
 
 export interface ItemRow {
@@ -48,18 +49,24 @@ const itemColumns = {
   rowVersion: knowledgeItems.rowVersion,
 };
 
-/** Locks the item `FOR UPDATE`; null when it is not in the workspace. */
-export async function lockItem(tx: Tx, workspaceId: string, id: string): Promise<ItemRow | null> {
+/** Locks the item `FOR UPDATE`; null when it is not in the workspace or the viewer cannot see it (#1504: a hidden item is not found). */
+export async function lockItem(tx: Tx, viewer: Viewer, id: string): Promise<ItemRow | null> {
+  const workspaceId = viewer.workspaceId;
+  if (!(await canSeeItem(tx, viewer, id))) return null;
+  const [owner] = await tx.select({ ownerModelId: knowledgeItems.ownerModelId, ownerSoftwareId: knowledgeItems.ownerSoftwareId }).from(knowledgeItems).where(and(eq(knowledgeItems.workspaceId, workspaceId), eq(knowledgeItems.id, id)));
+  if (!owner || !(await lockOwnerAccess(tx, viewer, owner))) return null;
   const [row] = await tx
     .select(itemColumns)
     .from(knowledgeItems)
     .where(and(eq(knowledgeItems.workspaceId, workspaceId), eq(knowledgeItems.id, id)))
     .for('update');
-  return row ?? null;
+  return row && await canSeeItem(tx, viewer, id) ? row : null;
 }
 
-/** Whether the workspace holds this item (unlocked: items are never deleted). */
-export async function itemExists(tx: Tx, workspaceId: string, id: string): Promise<boolean> {
+/** Whether the workspace holds this item AND the viewer may see it (unlocked: items are never deleted). */
+export async function itemExists(tx: Tx, viewer: Viewer, id: string): Promise<boolean> {
+  const workspaceId = viewer.workspaceId;
+  if (!(await canSeeItem(tx, viewer, id))) return false;
   const [row] = await tx
     .select({ id: knowledgeItems.id })
     .from(knowledgeItems)
@@ -91,16 +98,19 @@ export type OwnerCheck = 'ok' | 'not_found' | 'inactive';
  */
 export async function checkOwner(
   tx: Tx,
-  workspaceId: string,
+  viewer: Viewer,
   owner: { modelId: string } | { softwareId: string },
 ): Promise<OwnerCheck> {
+  const workspaceId = viewer.workspaceId;
+  // An owner the viewer cannot see is `not_found`, exactly like one that does not exist (#1504).
+  if (!(await lockOwnerAccess(tx, viewer, { ownerModelId: 'modelId' in owner ? owner.modelId : null, ownerSoftwareId: 'softwareId' in owner ? owner.softwareId : null }))) return 'not_found';
   if ('modelId' in owner) {
     const [model] = await tx
       .select({ active: equipmentModels.active })
       .from(equipmentModels)
       .where(and(eq(equipmentModels.workspaceId, workspaceId), eq(equipmentModels.id, owner.modelId)))
       .for('share');
-    if (!model) return 'not_found';
+    if (!model || !(await canSeeModel(tx, viewer, owner.modelId))) return 'not_found';
     return model.active ? 'ok' : 'inactive';
   }
   const [software] = await tx
@@ -114,7 +124,8 @@ export async function checkOwner(
     .from(equipmentModels)
     .where(and(eq(equipmentModels.workspaceId, workspaceId), eq(equipmentModels.id, software.modelId)))
     .for('share');
-  return software.active && model?.active ? 'ok' : 'inactive';
+  if (!model || !(await canSeeSoftware(tx, viewer, owner.softwareId))) return 'not_found';
+  return software.active && model.active ? 'ok' : 'inactive';
 }
 
 /** Whether the workspace holds this revision of this item (`derive` pins a link to it). */
@@ -303,4 +314,19 @@ async function bump(
     .returning(itemColumns);
   if (!row) throw new Error(`item ${id}: update returned no row`);
   return row;
+}
+
+/** Stabilizes the owner chain against mode changes, deny additions and allow revocations until commit. */
+export async function lockOwnerAccess(tx: Tx, viewer: Viewer, owner: { ownerModelId: string | null; ownerSoftwareId: string | null }): Promise<boolean> {
+  if (owner.ownerSoftwareId) {
+    if (!(await canSeeSoftware(tx, viewer, owner.ownerSoftwareId))) return false;
+    const [software] = await tx.select({ modelId: softwareVersions.modelId }).from(softwareVersions).where(and(eq(softwareVersions.workspaceId, viewer.workspaceId), eq(softwareVersions.id, owner.ownerSoftwareId)));
+    if (!software) return false;
+    await tx.select({ id: equipmentModels.id }).from(equipmentModels).where(and(eq(equipmentModels.workspaceId, viewer.workspaceId), eq(equipmentModels.id, software.modelId))).for('share');
+    await tx.select({ id: softwareVersions.id }).from(softwareVersions).where(and(eq(softwareVersions.workspaceId, viewer.workspaceId), eq(softwareVersions.id, owner.ownerSoftwareId))).for('share');
+    return canSeeSoftware(tx, viewer, owner.ownerSoftwareId);
+  }
+  if (!owner.ownerModelId || !(await canSeeModel(tx, viewer, owner.ownerModelId))) return false;
+  await tx.select({ id: equipmentModels.id }).from(equipmentModels).where(and(eq(equipmentModels.workspaceId, viewer.workspaceId), eq(equipmentModels.id, owner.ownerModelId))).for('share');
+  return canSeeModel(tx, viewer, owner.ownerModelId);
 }

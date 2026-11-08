@@ -15,7 +15,7 @@ export const SPEC_COVERAGE_STATES = ['no_rule', 'unsupported', 'unknown', 'parti
 
 /** What the badge needs of `RuleCoveragePort.getCoverage` (structural: the port's own type satisfies it). */
 export interface SpecCoverageSource {
-  getCoverage(tx: Tx, workspaceId: string, modelId: string, softwareId?: string | null): Promise<
+  getCoverage(tx: Tx, workspaceId: string, modelId: string, softwareId: string | null, viewerActorId: string): Promise<
     | { computable: false; reason: string }
     | { computable: true; requirements: readonly { key: string; state: string }[]; coverageDigest: string }
   >;
@@ -48,7 +48,7 @@ export function specCoverageEndpoint(deps: LogKnowledgeDeps): MenuEndpointDeclar
       if (!judged.ok) return { outcome: 'error', data: null, message: judged.message };
       // Not wired (a deployment without the rule catalog module): said as a reason, never as 0 coverage.
       if (!deps.ruleCoverage) return { outcome: 'ok', data: { computable: false, reason: 'unavailable' } };
-      const result = await deps.ruleCoverage.getCoverage(deps.db, args.actor.workspace_id, judged.modelId, judged.softwareId);
+      const result = await deps.ruleCoverage.getCoverage(deps.db, args.actor.workspace_id, judged.modelId, judged.softwareId, args.actor.actor_id);
       if (!result.computable) {
         if (result.reason === 'model_unknown') return { outcome: 'ok', data: null };
         return { outcome: 'ok', data: { computable: false, reason: result.reason } };

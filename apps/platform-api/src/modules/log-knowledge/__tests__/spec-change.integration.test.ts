@@ -287,14 +287,15 @@ describe.skipIf(!runIntegration)('SW change rows (#1196 c)', () => {
       expect(JSON.stringify(trail)).not.toContain('SPINDLE/START');
     });
 
-    it('is visible through the audit projection (the existing subject type and capability)', async () => {
+    it('is excluded from the Admin audit projection and retained in source audit', async () => {
       const f = await fixture('auditproj');
       const id = await add(f.model, f.sw1);
       const { rows } = await appSql(
         `select event_type, subject_type from core.platform_audit_events($1, null, null, null, null, null, null, null, $2::jsonb, 'at', true, 200, 0) where subject_id = $3`,
         [WORKSPACE_ID, JSON.stringify(AUDIT_ACTION_BY_EVENT_TYPE), id],
       );
-      expect(rows).toEqual([{ event_type: 'knowledge.spec.change_added', subject_type: 'knowledge_model_spec' }]);
+      expect(rows).toEqual([]);
+      expect((await sql('select event_type, subject_type from core.audit_log where workspace_id = $1 and subject_id = $2', [WORKSPACE_ID, id])).rows).toEqual([{ event_type: 'knowledge.spec.change_added', subject_type: 'knowledge_model_spec' }]);
     });
 
     it('a replay with the same idempotency key answers the stored result and writes one row', async () => {

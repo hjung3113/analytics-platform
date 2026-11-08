@@ -1,3 +1,4 @@
+import { viewerOf } from '../log-knowledge/index.js';
 // The `validation_round` attachment parent (#1451, design D6): who may download a round's manual validation attachment. Read right =
 // the right to read the round itself: `platform:view` (every workspace user) and the round exists in the actor's
 // workspace. A round of another workspace, an unknown round id and a missing `platform:view` all answer
@@ -18,7 +19,7 @@ export function roundAttachmentParent(deps: Pick<LogLifecycleDeps, 'db' | 'check
     async assertCanRead({ actor, row }) {
       if (!row.parent_id) throw denied();
       if (!(await holdsPlatformPermission(deps.checkService, actor, 'platform:view'))) throw denied();
-      if (!(await roundInWorkspace(deps.db, actor.workspace_id, row.parent_id))) throw denied();
+      if (!(await roundInWorkspace(deps.db, actor.workspace_id, row.parent_id, viewerOf(actor)))) throw denied();
     },
   };
 }

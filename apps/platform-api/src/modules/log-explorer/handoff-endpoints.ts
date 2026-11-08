@@ -1,6 +1,7 @@
 // Dialog reads: pointers and receiver-owned projections only. No Source body, persistence or audit.
 import type { SourceSampleSet } from '@ap/contract-schemas';
 import { isUuid } from '../../lib/input/fields.js';
+import { viewerOf } from '../log-knowledge/index.js';
 import { MenuActionInvalidError, type MenuEndpointDeclaration, type ParamsJudgment } from '../menu-dispatch/types.js';
 import { holdsPlatformPermission, type PlatformActor } from '../platform-port/permissions.js';
 import type { InvestigationDeps } from './deps.js';
@@ -37,7 +38,7 @@ export function handoffEndpoints(deps: InvestigationDeps): MenuEndpointDeclarati
       const row = await getOwned(deps.db, actor.workspace_id, actor.actor_id, String(params.investigationId).toLowerCase());
       if (!row) return null;
       const sample = row.origin === 'round' && row.roundId
-        ? await deps.lifecycleRead.getRoundSampleSet(deps.db, actor.workspace_id, row.roundId)
+        ? await deps.lifecycleRead.getRoundSampleSet(deps.db, actor.workspace_id, row.roundId, viewerOf(actor))
         : row.sampleSet as SourceSampleSet | null;
       const unavailable = { state: 'source_unavailable', refs: [] };
       if (!sample || handoff.sourceReadPort === null) return unavailable;
@@ -55,11 +56,11 @@ export function handoffEndpoints(deps: InvestigationDeps): MenuEndpointDeclarati
     declare('handoffDrafts', [], () => yes, async actor => ({ rows: await handoff.draftIntake.listOwnOpen(deps.db, actor, { limit: 50 }) })),
     declare('handoffModels', ['q', 'page', 'pageSize'], modelsParams, async (actor, params) => {
       if (!(await canIntake(actor))) return { rows: [], total: 0 };
-      return handoff.knowledgeLookup.listModels(deps.db, actor.workspace_id, { q: params.q as string | null, page: Number(params.page), pageSize: Number(params.pageSize) });
+      return handoff.knowledgeLookup.listModels(deps.db, actor.workspace_id, { q: params.q as string | null, page: Number(params.page), pageSize: Number(params.pageSize) }, actor.actor_id);
     }),
     declare('handoffSoftware', ['modelId'], p => typeof p.modelId === 'string' && isUuid(p.modelId) ? yes : { ok: false, message: 'modelId must be a uuid string' }, async (actor, params) => {
       if (!(await canIntake(actor))) return [];
-      return handoff.knowledgeLookup.listSoftware(deps.db, actor.workspace_id, String(params.modelId).toLowerCase());
+      return handoff.knowledgeLookup.listSoftware(deps.db, actor.workspace_id, String(params.modelId).toLowerCase(), actor.actor_id);
     }),
   ];
 }

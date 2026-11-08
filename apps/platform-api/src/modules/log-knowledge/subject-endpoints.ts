@@ -54,7 +54,7 @@ export function subjectEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaratio
         const judged = judge(args.params);
         if (!judged.ok) return { outcome: 'error', data: null, message: judged.message };
         const { modelId, targetKey, page, pageSize } = judged;
-        return { outcome: 'ok', data: await listSubjectItems(deps.db, args.actor.workspace_id, modelId, targetKey, { page, pageSize }) };
+        return { outcome: 'ok', data: await listSubjectItems(deps.db, { workspaceId: args.actor.workspace_id, actorId: args.actor.actor_id }, args.actor.workspace_id, modelId, targetKey, { page, pageSize }) };
       },
     },
   ];

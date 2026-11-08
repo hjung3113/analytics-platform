@@ -37,6 +37,7 @@ import { type DraftRow, lockDraft, patchDraft } from './repositories/draft-write
 import { authorAuthsOf, insertReview, readRevision } from './repositories/draft-review.js';
 import { publishCreate, publishRevise } from './repositories/item-publish.js';
 import { lockItem } from './repositories/item-write.js';
+import { viewerOf } from './repositories/access-visibility.js';
 
 const APPROVE_INVALIDATES = [
   'logKnowledge.drafts',
@@ -82,14 +83,14 @@ export function reviewActions(deps: ReviewActionDeps): MenuActionDeclaration[] {
    * are not authors.
    */
   const currentVersion = async (tx: Tx, actor: PlatformActor, input: Record<string, unknown>) => {
-    const row = await lockDraft(tx, actor.workspace_id, input.id as string);
+    const row = await lockDraft(tx, viewerOf(actor), input.id as string);
     if (!row) return null;
     if (row.status === 'draft' && row.submitterActorId !== actor.actor_id) return null;
     return String(row.rowVersion);
   };
 
   async function lockSubmitted(tx: Tx, actor: PlatformActor, id: string, action: string): Promise<DraftRow> {
-    const row = await lockDraft(tx, actor.workspace_id, id);
+    const row = await lockDraft(tx, viewerOf(actor), id);
     if (!row) throw new Error(`action ${action}: currentVersion judged not_found first`);
     if (row.status !== 'submitted') throw invalid({ path: ['id'], code: 'illegal_transition' });
     return row;
@@ -160,7 +161,7 @@ export function reviewActions(deps: ReviewActionDeps): MenuActionDeclaration[] {
         );
         [itemId, itemNo, revisionNo] = [item.id, item.itemNo, 1];
       } else {
-        const target = await lockItem(tx, ws, draft.targetItemId as string);
+        const target = await lockItem(tx, viewerOf(actor), draft.targetItemId as string);
         const targetError = reviseTargetError(target, value.expectedItemVersion as number);
         if (targetError || !target) throw invalid(targetError as FieldError);
         const item = await publishRevise(tx, actor, target, { content, evidence, subjects, changeNote: changeNote ?? '' }, ['proposal']);

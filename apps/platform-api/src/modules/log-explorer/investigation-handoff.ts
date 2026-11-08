@@ -10,6 +10,7 @@
 // discarded at once: nothing from it is stored, returned or audited. Pointers only.
 
 import type { Tx } from '../../db/tx.js';
+import { viewerOf } from '../log-knowledge/index.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import {
   type ActionHandlerResult,
@@ -27,6 +28,7 @@ import {
   parseHandoff,
   selectStoredRefs,
 } from './domain/handoff.js';
+import { getOwned } from './repositories/investigation-read.js';
 import type { InvestigationRow } from './repositories/investigation-write.js';
 
 export const EXPLORER_HANDOFF_PERMISSION = 'explorer.handoff';
@@ -53,10 +55,10 @@ export interface HandoffShared {
 export function evidenceHandoffAction(deps: InvestigationDeps, handoff: HandoffDeps, shared: HandoffShared): MenuActionDeclaration {
   const audit = createAuditService();
 
-  const sampleSetOf = async (tx: Tx, row: InvestigationRow): Promise<SampleLike> => {
+  const sampleSetOf = async (tx: Tx, row: InvestigationRow, actor: PlatformActor): Promise<SampleLike> => {
     const set =
       row.origin === 'round' && row.roundId !== null
-        ? await deps.lifecycleRead.getRoundSampleSet(tx, row.workspaceId, row.roundId)
+        ? await deps.lifecycleRead.getRoundSampleSet(tx, row.workspaceId, row.roundId, viewerOf(actor))
         : (row.sampleSet as SampleLike | null);
     if (!set) throw invalid({ path: ['roundId'], code: 'not_found' });
     return set;
@@ -80,6 +82,19 @@ export function evidenceHandoffAction(deps: InvestigationDeps, handoff: HandoffD
       if (kind === 'knowledgeDraft') return handoff.draftIntake.canIntake(tx, actor);
       return true;
     },
+    async canReplay(tx, actor, input, saved) {
+      const parsed = parseHandoff(input);
+      if (!parsed.ok) return false;
+      const row = await getOwned(tx, actor.workspace_id, actor.actor_id, parsed.value.id);
+      if (!row) return false;
+      if (row.origin === 'round' && (!row.roundId || !await deps.lifecycleRead.getRoundSampleSet(tx, row.workspaceId, row.roundId, viewerOf(actor)))) return false;
+      const target = parsed.value.target;
+      if (target.kind === 'round') return (await deps.lifecycleRead.getRoundSampleSet(tx, actor.workspace_id, target.roundId, viewerOf(actor))) !== null;
+      // For create, judge the draft produced by the original request, not just the original owner input.
+      const answer = saved.data as { targetId?: unknown } | null;
+      const draftId = target.mode === 'append' ? target.draftId : answer?.targetId;
+      return typeof draftId === 'string' && await handoff.draftIntake.canRead(tx, actor, draftId);
+    },
     validate: (input) => {
       const parsed = parseHandoff(input);
       return parsed.ok ? [] : parsed.errors;
@@ -100,7 +115,7 @@ export function evidenceHandoffAction(deps: InvestigationDeps, handoff: HandoffD
       const holds = target.kind === 'round' ? await handoff.roundIntake.canAttach(tx, actor) : await handoff.draftIntake.canIntake(tx, actor);
       if (!holds) throw invalid({ path: ['target'], code: 'forbidden' });
 
-      const sample = await sampleSetOf(tx, row);
+      const sample = await sampleSetOf(tx, row, actor);
       const resolved = await resolveHandoffRefs(handoff, actor, sample.sourceOwner, refs, tx);
       const resolvedCount = resolved.filter(Boolean).length;
       const origin = { kind: 'log_explorer' as const, id: row.id };

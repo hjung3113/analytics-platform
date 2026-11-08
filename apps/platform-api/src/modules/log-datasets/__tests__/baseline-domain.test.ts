@@ -107,8 +107,8 @@ describe('staleOf (the knowledge catalog port)', () => {
 
   it('asks the port for the pinned model and software, and compares', async () => {
     const lookup = vi.fn().mockResolvedValue({ revisionId: ID, changeSetDigest: DIGEST });
-    const out = await staleOf(depsWith(lookup), 'ws', { specPin }, files('match'));
-    expect(lookup).toHaveBeenCalledWith(TX, 'ws', ID, null); // the transaction handle: the model lock must live through the pin reads
+    const out = await staleOf(depsWith(lookup), 'ws', { specPin }, files('match'), 'viewer');
+    expect(lookup).toHaveBeenCalledWith(TX, 'ws', ID, null, 'viewer'); // the transaction handle: the model lock must live through the pin reads
     expect(out).toMatchObject({ state: 'stale', reasons: ['spec_pin_changed'] });
   });
 
@@ -116,16 +116,16 @@ describe('staleOf (the knowledge catalog port)', () => {
     const lookup = vi.fn().mockResolvedValue({ revisionId: ID, changeSetDigest: DIGEST });
     const getSoftware = vi.fn().mockResolvedValue(null);
     const pinned = { ...specPin, softwareId: '33333333-3333-4333-8333-333333333333' };
-    expect(await staleOf(depsWith(lookup, getSoftware), 'ws', { specPin: pinned }, files('match'))).toEqual({ state: 'unknown', reasons: [], unknown: ['spec_pin'] });
-    expect(getSoftware).toHaveBeenCalledWith(TX, 'ws', ID, pinned.softwareId);
+    expect(await staleOf(depsWith(lookup, getSoftware), 'ws', { specPin: pinned }, files('match'), 'viewer')).toEqual({ state: 'unknown', reasons: [], unknown: ['spec_pin'] });
+    expect(getSoftware).toHaveBeenCalledWith(TX, 'ws', ID, pinned.softwareId, 'viewer');
     expect(lookup).not.toHaveBeenCalled();
   });
 
   it('a port that throws is unknown, and a baseline without a pinned spec never calls it', async () => {
     const lookup = vi.fn().mockRejectedValue(new Error('db down'));
-    expect(await staleOf(depsWith(lookup), 'ws', { specPin }, files('match'))).toEqual({ state: 'unknown', reasons: [], unknown: ['spec_pin'] });
+    expect(await staleOf(depsWith(lookup), 'ws', { specPin }, files('match'), 'viewer')).toEqual({ state: 'unknown', reasons: [], unknown: ['spec_pin'] });
     const unused = vi.fn();
-    expect(await staleOf(depsWith(unused), 'ws', {}, files('match'))).toMatchObject({ state: 'fresh' });
+    expect(await staleOf(depsWith(unused), 'ws', {}, files('match'), 'viewer')).toMatchObject({ state: 'fresh' });
     expect(unused).not.toHaveBeenCalled();
   });
 });

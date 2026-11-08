@@ -1,3 +1,5 @@
+import { type Viewer, ref } from '../../log-knowledge/index.js';
+import { projectVisibleSql, roundVisibleSql } from './access-visibility.js';
 // Gate decision storage (#1446 e). Writes run on the caller's transaction after the project and Round rows are locked;
 // `platform_app` holds SELECT and INSERT on `gate_decision` and nothing else (migration 0113 + the append-only trigger).
 // Reads are scoped to the session workspace.
@@ -20,28 +22,28 @@ const g = gateDecisions;
 const iso = (d: Date | string): string => (d instanceof Date ? d : new Date(d)).toISOString();
 
 /** The newest Round (highest seq) of a project: the one a Gate decision may rest on. */
-export async function latestRoundId(tx: Tx, workspaceId: string, projectId: string): Promise<string | null> {
+export async function latestRoundId(tx: Tx, workspaceId: string, projectId: string, viewer: Viewer): Promise<string | null> {
   const [row] = await tx
     .select({ id: validationRounds.id })
     .from(validationRounds)
-    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.projectId, projectId)))
+    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.projectId, projectId), projectVisibleSql(viewer, ref(validationRounds.projectId))))
     .orderBy(desc(validationRounds.seq))
     .limit(1);
   return row?.id ?? null;
 }
 
 /** The project of a Round without locking either row (the action locks the project first, then the Round). */
-export async function projectIdOfRound(tx: Tx, workspaceId: string, roundId: string): Promise<string | null> {
+export async function projectIdOfRound(tx: Tx, workspaceId: string, roundId: string, viewer: Viewer): Promise<string | null> {
   const [row] = await tx
     .select({ projectId: validationRounds.projectId })
     .from(validationRounds)
-    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.id, roundId)))
+    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.id, roundId), roundVisibleSql(viewer, ref(validationRounds.id))))
     .limit(1);
   return row?.projectId ?? null;
 }
 
 /** Every `succeeded` attempt of the Round, oldest first (the last one is the decisive attempt). */
-export async function succeededAttempts(tx: Tx, workspaceId: string, roundId: string): Promise<(GateAttempt & { requestDigest: string })[]> {
+export async function succeededAttempts(tx: Tx, workspaceId: string, roundId: string, viewer: Viewer): Promise<(GateAttempt & { requestDigest: string })[]> {
   const rows = await tx
     .select({
       id: executionAttempts.id,
@@ -63,6 +65,7 @@ export async function succeededAttempts(tx: Tx, workspaceId: string, roundId: st
       and(
         eq(executionAttempts.workspaceId, workspaceId),
         eq(executionRequests.roundId, roundId),
+        roundVisibleSql(viewer, ref(executionRequests.roundId)),
         eq(executionAttempts.outcome, 'succeeded'),
       ),
     )
@@ -80,11 +83,11 @@ export async function succeededAttempts(tx: Tx, workspaceId: string, roundId: st
 }
 
 /** The newest 검증 요청 of the Round: who asked for it and its digest. Null = the Round has no request. */
-export async function latestRequest(tx: Tx, workspaceId: string, roundId: string): Promise<{ requesterId: string; requestDigest: string } | null> {
+export async function latestRequest(tx: Tx, workspaceId: string, roundId: string, viewer: Viewer): Promise<{ requesterId: string; requestDigest: string } | null> {
   const [row] = await tx
     .select({ requesterId: executionRequests.requestedByActorId, requestDigest: executionRequests.requestDigest })
     .from(executionRequests)
-    .where(and(eq(executionRequests.workspaceId, workspaceId), eq(executionRequests.roundId, roundId)))
+    .where(and(eq(executionRequests.workspaceId, workspaceId), eq(executionRequests.roundId, roundId), roundVisibleSql(viewer, ref(executionRequests.roundId))))
     .orderBy(desc(executionRequests.createdAt), desc(executionRequests.id))
     .limit(1);
   return row ?? null;
@@ -159,14 +162,14 @@ function summaryOf(basis: unknown): GateDecisionOut['basisSummary'] {
   };
 }
 
-async function readDecisions(tx: Tx, workspaceId: string, roundIds: readonly string[]): Promise<GateDecisionOut[]> {
+async function readDecisions(tx: Tx, workspaceId: string, roundIds: readonly string[], viewer: Viewer): Promise<GateDecisionOut[]> {
   if (roundIds.length === 0) return [];
   const decider = alias(actors, 'gate_decider');
   const rows = await tx
     .select({ row: g, name: decider.displayName })
     .from(g)
     .leftJoin(decider, and(eq(decider.id, g.actorId), eq(decider.workspaceId, g.workspaceId)))
-    .where(and(eq(g.workspaceId, workspaceId), inArray(g.roundId, [...roundIds])))
+    .where(and(eq(g.workspaceId, workspaceId), inArray(g.roundId, [...roundIds]), roundVisibleSql(viewer, ref(g.roundId))))
     .orderBy(asc(g.at), asc(g.id));
   return rows.map(({ row, name }) => ({
     id: row.id,
@@ -185,7 +188,7 @@ async function readDecisions(tx: Tx, workspaceId: string, roundIds: readonly str
 }
 
 /** The Gate decision history of one Round, oldest first. */
-export const gateHistoryOfRound = (tx: Tx, workspaceId: string, roundId: string) => readDecisions(tx, workspaceId, [roundId]);
+export const gateHistoryOfRound = (tx: Tx, workspaceId: string, roundId: string, viewer: Viewer) => readDecisions(tx, workspaceId, [roundId], viewer);
 
 export interface ProjectGateState {
   /** The newest decision of any Round of the project, or null when the Gate never decided. */
@@ -196,13 +199,13 @@ export interface ProjectGateState {
 }
 
 /** The current Gate state of a project: the newest decision (with its basis summary, not the basis) and the count. */
-export async function projectGateState(tx: Tx, workspaceId: string, projectId: string): Promise<ProjectGateState> {
+export async function projectGateState(tx: Tx, workspaceId: string, projectId: string, viewer: Viewer): Promise<ProjectGateState> {
   const rounds = await tx
     .select({ id: validationRounds.id })
     .from(validationRounds)
-    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.projectId, projectId)))
+    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.projectId, projectId), projectVisibleSql(viewer, ref(validationRounds.projectId))))
     .orderBy(desc(validationRounds.seq));
-  const all = await readDecisions(tx, workspaceId, rounds.map((r) => r.id));
+  const all = await readDecisions(tx, workspaceId, rounds.map((r) => r.id), viewer);
   const last = all.length === 0 ? null : (all[all.length - 1] as GateDecisionOut);
   const newest = rounds[0]?.id ?? null;
   const latest = last === null ? null : brief(last);

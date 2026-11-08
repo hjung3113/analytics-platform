@@ -68,7 +68,7 @@ describe.skipIf(!runIntegration)('spec coverage (#1494)', () => {
   const one = async (text: string, params: unknown[]) => (await sql(text, params)).rows[0].id as string;
   const digest = () => createHash('sha256').update(randomUUID()).digest('hex');
   const getCoverage = (ws: string, modelId: string, software: string | null = null) =>
-    dbHandle.db.transaction((tx) => port.getCoverage(tx, ws, modelId, software));
+    dbHandle.db.transaction((tx) => port.getCoverage(tx, ws, modelId, software, actorId));
   const stateMap = (r: Awaited<ReturnType<typeof getCoverage>>) => {
     if (!r.computable) throw new Error(`not computable: ${r.reason}`);
     return Object.fromEntries(r.requirements.map((x) => [x.key, x.state]));

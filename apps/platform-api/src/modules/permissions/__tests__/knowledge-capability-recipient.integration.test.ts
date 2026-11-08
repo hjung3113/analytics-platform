@@ -1,5 +1,5 @@
 // #1193 / ADR-0107 decision 3 — the log knowledge capabilities are for Admin and Developer, never a User:
-// an ordinary request and a direct grant to a User are refused, a direct grant to a Developer succeeds.
+// an ordinary request and a direct grant to a User are refused. Object ACL management additionally requires an Admin recipient.
 // Throwaway DB only (run through `pnpm --filter @ap/platform-api test:integration`).
 
 import { randomUUID } from "node:crypto";
@@ -32,11 +32,12 @@ const CAPABILITIES = [
   "dataset.baseline.approve",
   "lifecycle.gate.decide",
   "dataset.suite.run",
+  "knowledge.access.manage",
 ] as const;
 // The sensitive tier is 5/min per actor: split the grant calls over several admins.
-const ADMINS = ["admin", "admin2", "admin3", "admin4", "admin5", "admin6"] as const;
+const ADMINS = ["admin", "admin2", "admin3", "admin4", "admin5", "admin6", "admin7"] as const;
 const adminFor = (capability: (typeof CAPABILITIES)[number]) =>
-  ADMINS[Math.floor(CAPABILITIES.indexOf(capability) / 2)] ?? "admin6";
+  ADMINS[Math.floor(CAPABILITIES.indexOf(capability) / 2)] ?? "admin7";
 
 describe.skipIf(!runIntegration)(
   "log knowledge capability recipients (ADR-0107)",
@@ -55,7 +56,7 @@ describe.skipIf(!runIntegration)(
       app = await buildServer({ config: loadConfig(), dbHandle });
       await app.ready();
       // `admin2`..`admin5` share (two capabilities each: one refused and one granted call) the grants: the sensitive rate-limit tier is per actor and one admin cannot make them all.
-      for (const role of ["admin", "admin2", "admin3", "admin4", "admin5", "admin6", "developer", "user", "user2"] as const) {
+      for (const role of ["admin", "admin2", "admin3", "admin4", "admin5", "admin6", "admin7", "developer", "user", "user2"] as const) {
         const externalId = `${TAG}-${role}`;
         const { id } = await insertActorRow(dbHandle, {
           workspaceId: WORKSPACE_ID,
@@ -139,7 +140,7 @@ describe.skipIf(!runIntegration)(
       },
     );
 
-    it.each(CAPABILITIES)(
+    it.each(CAPABILITIES.filter(c => c !== "knowledge.access.manage"))(
       "a direct grant of %s to a Developer succeeds",
       async (capability) => {
         const res = await post("/permissions/grants", adminFor(capability), {
@@ -150,6 +151,17 @@ describe.skipIf(!runIntegration)(
         expect(res.statusCode).toBe(201);
       },
     );
+
+    it("knowledge.access.manage refuses a Developer and permits an Admin recipient", async () => {
+      const before = await migrate.pool.query("select 1 from permission.permission_grants where actor_id = $1 and capability = 'knowledge.access.manage'", [ids.developer]);
+      expect(before.rowCount).toBe(0);
+      const denied = await post("/permissions/grants", "admin7", { actor_id: ids.developer, capability: "knowledge.access.manage", reason: "test" });
+      expect(denied.statusCode, denied.body).toBe(422);
+      const after = await migrate.pool.query("select 1 from permission.permission_grants where actor_id = $1 and capability = 'knowledge.access.manage'", [ids.developer]);
+      expect(after.rowCount).toBe(0);
+      const allowed = await post("/permissions/grants", "admin7", { actor_id: ids.admin, capability: "knowledge.access.manage", reason: "test" });
+      expect(allowed.statusCode, allowed.body).toBe(201);
+    });
 
     // #1198 a (owner answer Q2): knowledge.draft.create is NOT for Admin and Developer only; a User may hold it.
     // The grants route allows 5 calls/min per actor and each admin already made 4 above (9 capabilities x 2 calls over 5 admins),

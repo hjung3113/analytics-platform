@@ -20,6 +20,7 @@ import {
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
 import type { FilterCondition } from '../../../lib/list-params/catalog-filters.js';
+import { type Viewer, ref, visibleItemSql, visibleModelSql, visibleSoftwareSql } from './access-visibility.js';
 import { escapeLike, type ListQuery, type Page } from './catalog-read.js';
 import { type ItemRelationRow, itemRelations } from './item-relation.js';
 import { type ResolvedSubject, resolvedSubjects } from './item-subject.js';
@@ -131,11 +132,12 @@ function textFilter(q: string | null): SQL | undefined {
   return no ? or(eq(i.itemNo, Number(no[1])), byTitle) : byTitle;
 }
 
-export async function listItems(tx: Tx, q: ListQuery): Promise<Page<ItemRow>> {
+export async function listItems(tx: Tx, q: ListQuery, viewer: Viewer): Promise<Page<ItemRow>> {
   const c = q.conditions;
   const includeSoftware = c.includeSoftware?.values[0] === 'true';
   const where = and(
     eq(i.workspaceId, q.workspaceId),
+    visibleItemSql(viewer, ref(i.id)),
     // Default: published only. An explicit publicationState condition is the caller's choice.
     c.publicationState ? inOrNot(i.publicationState, c.publicationState) : eq(i.publicationState, 'published'),
     ownerKindFilter(c.ownerKind),
@@ -220,11 +222,13 @@ export interface ItemDetail {
 /** One item with one revision (`revisionNo`, default the latest); null when the item or the revision does not exist in the workspace. */
 export async function getItemDetail(
   tx: Tx,
+  viewer: Viewer,
   workspaceId: string,
   itemId: string,
   revisionNo: number | null,
 ): Promise<ItemDetail | null> {
-  const [found] = await itemSelect(tx).where(and(eq(i.workspaceId, workspaceId), eq(i.id, itemId))).limit(1);
+  // A hidden item is not found: the same `null` as an id that does not exist (ADR-0124).
+  const [found] = await itemSelect(tx).where(and(eq(i.workspaceId, workspaceId), eq(i.id, itemId), visibleItemSql(viewer, ref(i.id)))).limit(1);
   if (!found) return null;
   const wanted = revisionNo ?? found.item.latestRevisionNo;
   const [rev] = await tx
@@ -270,7 +274,7 @@ export async function getItemDetail(
   const otherIds = [...new Set(linkRows.map((x) => (x.sourceItemId === itemId ? x.targetItemId : x.sourceItemId)))];
   const others = new Map<string, ItemRow>();
   if (otherIds.length > 0) {
-    const rows = await itemSelect(tx).where(and(eq(i.workspaceId, workspaceId), inArray(i.id, otherIds)));
+    const rows = await itemSelect(tx).where(and(eq(i.workspaceId, workspaceId), inArray(i.id, otherIds), visibleItemSql(viewer, ref(i.id))));
     for (const row of rows) others.set(row.item.id, toRow(row));
   }
 
@@ -354,13 +358,14 @@ export interface SubjectItemRow extends ItemRow {
  */
 export async function listSubjectItems(
   tx: Tx,
+  viewer: Viewer,
   workspaceId: string,
   modelId: string,
   targetKey: string,
   paging: { page: number; pageSize: number },
 ): Promise<Page<SubjectItemRow>> {
   const match = sql`exists (select 1 from knowledge.item_revision_subject sub where sub.workspace_id = ${i.workspaceId} and sub.item_id = ${i.id} and sub.revision_no = ${i.latestRevisionNo} and sub.model_id = ${modelId} and sub.target_key = ${targetKey})`;
-  const where = and(eq(i.workspaceId, workspaceId), eq(i.publicationState, 'published'), match);
+  const where = and(eq(i.workspaceId, workspaceId), eq(i.publicationState, 'published'), visibleItemSql(viewer, ref(i.id)), match);
   const rows = await itemSelect(tx)
     .where(where)
     .orderBy(desc(i.updatedAt), asc(i.id))
@@ -418,14 +423,14 @@ export interface ModelProfile {
  * Published items owned directly by the outer row's SW version. The outer columns are written qualified:
  * a single-table select renders a bare column unqualified, which would bind to the subquery's own table.
  */
-const publishedItemsOfSoftware = sql<number>`(select count(*)::int from ${i} ki where ki.workspace_id = "knowledge"."software_version"."workspace_id" and ki.owner_software_id = "knowledge"."software_version"."id" and ki.publication_state = 'published')`;
+const publishedItemsOfSoftware = (viewer: Viewer) => sql<number>`(select count(*)::int from ${i} ki where ki.workspace_id = "knowledge"."software_version"."workspace_id" and ki.owner_software_id = "knowledge"."software_version"."id" and ki.publication_state = 'published' and ${visibleItemSql(viewer, sql`ki.id`)})`;
 
-export async function getModelProfile(tx: Tx, workspaceId: string, modelId: string): Promise<ModelProfile | null> {
+export async function getModelProfile(tx: Tx, viewer: Viewer, workspaceId: string, modelId: string): Promise<ModelProfile | null> {
   const [row] = await tx
     .select({ model: equipmentModels, vendor: vendors })
     .from(equipmentModels)
     .innerJoin(vendors, and(eq(vendors.workspaceId, equipmentModels.workspaceId), eq(vendors.id, equipmentModels.vendorId)))
-    .where(and(eq(equipmentModels.workspaceId, workspaceId), eq(equipmentModels.id, modelId)));
+    .where(and(eq(equipmentModels.workspaceId, workspaceId), eq(equipmentModels.id, modelId), visibleModelSql(viewer, ref(equipmentModels.id))));
   if (!row) return null;
   const processes = await tx
     .select({ id: processCategories.id, code: processCategories.code, name: processCategories.name })
@@ -436,17 +441,17 @@ export async function getModelProfile(tx: Tx, workspaceId: string, modelId: stri
     )
     .where(and(eq(modelProcesses.workspaceId, workspaceId), eq(modelProcesses.modelId, modelId)))
     .orderBy(asc(processCategories.name), asc(processCategories.id));
-  const itemCount = publishedItemsOfSoftware;
+  const itemCount = publishedItemsOfSoftware(viewer);
   const versions = await tx
     .select({ sw: softwareVersions, itemCount })
     .from(softwareVersions)
-    .where(and(eq(softwareVersions.workspaceId, workspaceId), eq(softwareVersions.modelId, modelId)))
+    .where(and(eq(softwareVersions.workspaceId, workspaceId), eq(softwareVersions.modelId, modelId), visibleSoftwareSql(viewer, ref(softwareVersions.id))))
     .orderBy(desc(softwareVersions.createdAt), desc(softwareVersions.id))
     .limit(SOFTWARE_LIST_CAP + 1);
   const [own] = await tx
     .select({ n: count() })
     .from(i)
-    .where(and(eq(i.workspaceId, workspaceId), eq(i.ownerModelId, modelId), eq(i.publicationState, 'published')));
+    .where(and(eq(i.workspaceId, workspaceId), eq(i.ownerModelId, modelId), eq(i.publicationState, 'published'), visibleItemSql(viewer, ref(i.id))));
   const { model, vendor } = row;
   return {
     model: {

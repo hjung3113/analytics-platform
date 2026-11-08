@@ -1,8 +1,8 @@
 // RuleCoveragePort (#1494 R-d, design log-rules §5.3): the read surface other modules use for spec coverage and RuleSet
 // Revision resolution; consumers wired in R-f (#1496): the Round attempt RuleSet link (log-lifecycle), the Dataset rule-id
 // check (log-datasets) and the model spec badge (log-knowledge). Workspace-parameterised like the other
-// ports: the caller verified the workspace and decides the permission; this port applies none (coverage visibility equals
-// `platform:view`, as log-knowledge reads, see the module AGENTS.md). Reads only; no outbound call.
+// ports: the caller verified the workspace and decides the entry permission; required `viewerActorId` applies
+// knowledge object visibility. Reads only; no outbound call.
 
 import { and, eq, inArray } from 'drizzle-orm';
 
@@ -50,7 +50,7 @@ export type RuleKeyCheck =
   | { state: 'unresolved'; reason: 'ambiguous' | 'unknown' | 'no_catalog' };
 
 export interface RuleCoveragePort {
-  getCoverage(tx: Tx, workspaceId: string, modelId: string, softwareId?: string | null): Promise<RuleCoverage>;
+  getCoverage(tx: Tx, workspaceId: string, modelId: string, softwareId: string | null, viewerActorId: string): Promise<RuleCoverage>;
   /**
    * Which RuleSet Revision of the CURRENT catalog a stored attempt / pin string names: the reported `revision` or its
    * `resultRef`, compared exactly, over every RuleSet. `ambiguous` and `unknown` are told apart; callers that link must
@@ -95,8 +95,8 @@ export function createRuleCoveragePort(deps: { knowledgeLookup: CoverageKnowledg
     return { state: 'matched' as const, revisionId: revision.id, resolved };
   }
   return {
-    async getCoverage(tx, workspaceId, modelId, softwareId = null) {
-      const result = await computeModelCoverage({ knowledge: deps.knowledgeLookup }, tx, workspaceId, modelId, softwareId);
+    async getCoverage(tx, workspaceId, modelId, softwareId, viewerActorId) {
+      const result = await computeModelCoverage({ knowledge: deps.knowledgeLookup }, tx, workspaceId, modelId, softwareId, viewerActorId);
       if (!result.computable) return result;
       return {
         computable: true,

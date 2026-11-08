@@ -4,6 +4,8 @@
 // code path. Behaviour-preserving extraction: every error code, path and audit row is what the handlers produced before.
 // The caller owns the transaction. `handoff` (#1474) is the optional audit key of a log-explorer evidence handoff.
 
+import { draftAccessVisible } from './replay-access.js';
+import { type Viewer, viewerOf } from './repositories/access-visibility.js';
 import type { Tx } from '../../db/tx.js';
 import { currentAuthContext } from '../../lib/auth-context.js';
 import { createAuditService } from '../core/audit/audit-service.js';
@@ -100,7 +102,7 @@ export function draftCores(deps: { checkService: CheckService }) {
    * its author in every status and, once it is not a plain `draft`, to a holder of `knowledge.item.publish`.
    */
   async function lockOwn(tx: Tx, actor: PlatformActor, id: string): Promise<DraftRow | null> {
-    const row = await lockDraft(tx, actor.workspace_id, id);
+    const row = await lockDraft(tx, viewerOf(actor), id);
     if (!row) return null;
     if (row.submitterActorId === actor.actor_id) return row;
     const reviewer = await holdsPlatformPermission(deps.checkService, actor, REVIEW_MENU_PERMISSION, { tx });
@@ -109,10 +111,10 @@ export function draftCores(deps: { checkService: CheckService }) {
   }
 
   /** The owner of a create draft must exist and be active (the item create's check), on the field the caller set. */
-  async function ownerErrors(tx: Tx, ws: string, proposal: NormalizedProposal): Promise<FieldError[]> {
+  async function ownerErrors(tx: Tx, viewer: Viewer, proposal: NormalizedProposal): Promise<FieldError[]> {
     const [field, check] = proposal.ownerModelId
-      ? (['ownerModelId', await checkOwner(tx, ws, { modelId: proposal.ownerModelId })] as const)
-      : (['ownerSoftwareId', await checkOwner(tx, ws, { softwareId: proposal.ownerSoftwareId ?? '' })] as const);
+      ? (['ownerModelId', await checkOwner(tx, viewer, { modelId: proposal.ownerModelId })] as const)
+      : (['ownerSoftwareId', await checkOwner(tx, viewer, { softwareId: proposal.ownerSoftwareId ?? '' })] as const);
     return check === 'ok' ? [] : [{ path: ['proposal', field], code: check }];
   }
 
@@ -133,6 +135,7 @@ export function draftCores(deps: { checkService: CheckService }) {
    * private, so another caller learns only that the ref is taken — never its id, status, digest or version.
    */
   async function replayOwn(tx: Tx, ws: string, actorId: string, existing: DraftRow): Promise<ActionHandlerResult> {
+    if (!(await draftAccessVisible(tx, { workspaceId: ws, actorId }, existing.id))) throw invalid({ path: ['validatorRef'], code: 'not_found' });
     if (existing.submitterActorId !== actorId) throw invalid({ path: ['validatorRef'], code: 'taken' });
     return draftAnswer(existing, await latestDigest(tx, ws, existing));
   }
@@ -145,10 +148,10 @@ export function draftCores(deps: { checkService: CheckService }) {
     let target: { id: string; baseRevisionNo: number } | null = null;
     const errors: FieldError[] = [];
     if (input.proposalType === 'create') {
-      errors.push(...(await ownerErrors(tx, ws, proposal)));
+      errors.push(...(await ownerErrors(tx, viewerOf(actor), proposal)));
       owner = { ownerModelId: proposal.ownerModelId ?? null, ownerSoftwareId: proposal.ownerSoftwareId ?? null };
     } else {
-      const item = await readTargetItem(tx, ws, input.targetItemId as string);
+      const item = await readTargetItem(tx, viewerOf(actor), input.targetItemId as string);
       if (!item) throw invalid({ path: ['targetItemId'], code: 'not_found' });
       if (item.publicationState === 'archived') throw invalid({ path: ['targetItemId'], code: 'archived' });
       target = { id: item.id, baseRevisionNo: item.latestRevisionNo };
@@ -199,9 +202,9 @@ export function draftCores(deps: { checkService: CheckService }) {
     if (digest === (await latestDigest(tx, ws, before))) return draftAnswer(before, digest);
 
     const errors: FieldError[] = [];
-    if (before.proposalType === 'create') errors.push(...(await ownerErrors(tx, ws, proposal)));
+    if (before.proposalType === 'create') errors.push(...(await ownerErrors(tx, viewerOf(actor), proposal)));
     else {
-      const item = await readTargetItem(tx, ws, before.targetItemId as string);
+      const item = await readTargetItem(tx, viewerOf(actor), before.targetItemId as string);
       if (item?.publicationState === 'archived') errors.push({ path: ['id'], code: 'archived' });
     }
     if (errors.length === 0) errors.push(...(await subjectErrors(tx, ws, await modelOf(tx, ws, before), proposal)));

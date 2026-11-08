@@ -18,6 +18,7 @@ import { appliesAt } from '../domain/spec-range.js';
 import type { SpecChangeKind } from '../domain/spec-effective.js';
 import type { SpecTargetKind } from '../domain/spec-target-key.js';
 import type { Tx } from '../../../db/tx.js';
+import { type Viewer, ref, visibleModelSql, visibleSoftwareSql } from './access-visibility.js';
 import type { Page } from './catalog-read.js';
 
 export interface SpecRevisionHeader {
@@ -158,12 +159,13 @@ export interface SpecDraftData {
 }
 
 /** A draft revision with its rows; null when the id is not a draft of the workspace (published and rejected revisions are not served here). */
-export async function getSpecDraft(tx: Tx, workspaceId: string, revisionId: string): Promise<SpecDraftData | null> {
+export async function getSpecDraft(tx: Tx, viewer: Viewer, revisionId: string): Promise<SpecDraftData | null> {
   const r = modelSpecRevisions;
+  const workspaceId = viewer.workspaceId;
   const [rev] = await tx
     .select()
     .from(r)
-    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, revisionId), eq(r.state, 'draft')));
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.id, revisionId), eq(r.state, 'draft'), visibleModelSql(viewer, ref(r.modelId))));
   if (!rev) return null;
   const content = await loadSpecContent(tx, workspaceId, rev.id);
   return {
@@ -310,17 +312,20 @@ export interface SpecChangeFilters {
 /** Changes of one model, newest first. `softwareId` keeps the changes whose range contains that version (open-ended or before its end). */
 export async function listSpecChanges(
   tx: Tx,
-  workspaceId: string,
+  viewer: Viewer,
   modelId: string,
   filters: SpecChangeFilters,
   paging: { page: number; pageSize: number },
 ): Promise<Page<SpecChangeRow>> {
+  const workspaceId = viewer.workspaceId;
   const c = specSwChanges;
   const end = alias(softwareVersions, 'end_sw');
-  const at = sql`(select s.release_order from knowledge.software_version s where s.workspace_id = ${workspaceId} and s.model_id = ${modelId} and s.id = ${filters.softwareId ?? null}::uuid)`;
+  const at = sql`(select s.release_order from knowledge.software_version s where s.workspace_id = ${workspaceId} and s.model_id = ${modelId} and s.id = ${filters.softwareId ?? null}::uuid and ${visibleSoftwareSql(viewer, sql`s.id`)})`;
   const where = and(
     eq(c.workspaceId, workspaceId),
     eq(c.modelId, modelId),
+    // A change that starts at a SW version the viewer cannot see is not listed (#1504); a hidden end version shows no label.
+    visibleSoftwareSql(viewer, ref(c.softwareId)),
     filters.status === 'open' ? isNull(c.retiredAt) : filters.status === 'retired' ? isNotNull(c.retiredAt) : undefined,
     filters.needsRevalidation === undefined ? undefined : eq(c.needsRevalidation, filters.needsRevalidation),
     filters.softwareId === undefined
@@ -329,7 +334,12 @@ export async function listSpecChanges(
   );
   const from = () =>
     tx
-      .select({ row: c, softwareLabel: softwareVersions.versionLabel, endsBeforeLabel: end.versionLabel })
+      .select({
+        row: c,
+        retiredByChangeId: sql<string | null>`(select replacement_change.id from knowledge.spec_sw_change replacement_change where replacement_change.workspace_id = ${workspaceId}::uuid and replacement_change.id = ${ref(c.retiredByChangeId)} and ${visibleSoftwareSql(viewer, sql`replacement_change.software_id`)} and (replacement_change.ends_before_software_id is null or ${visibleSoftwareSql(viewer, sql`replacement_change.ends_before_software_id`)}))`,
+        softwareLabel: softwareVersions.versionLabel,
+        endsBeforeLabel: sql<string | null>`case when ${c.endsBeforeSoftwareId} is null or ${visibleSoftwareSql(viewer, ref(c.endsBeforeSoftwareId))} then ${end.versionLabel} else null end`,
+      })
       .from(c)
       .innerJoin(softwareVersions, and(eq(softwareVersions.workspaceId, c.workspaceId), eq(softwareVersions.id, c.softwareId)))
       .leftJoin(end, and(eq(end.workspaceId, c.workspaceId), eq(end.id, c.endsBeforeSoftwareId)))
@@ -346,11 +356,11 @@ export async function listSpecChanges(
     .where(where);
   return {
     total: totalRow?.n ?? 0,
-    rows: rows.map(({ row, softwareLabel, endsBeforeLabel }) => ({
+    rows: rows.map(({ row, softwareLabel, endsBeforeLabel, retiredByChangeId }) => ({
       id: row.id,
       softwareId: row.softwareId,
       softwareLabel,
-      endsBeforeSoftwareId: row.endsBeforeSoftwareId,
+      endsBeforeSoftwareId: endsBeforeLabel === null ? null : row.endsBeforeSoftwareId,
       endsBeforeLabel,
       targetKind: row.targetKind,
       targetKey: row.targetKey,
@@ -363,7 +373,7 @@ export async function listSpecChanges(
       revalidationRevNo: row.revalidationRevNo,
       retiredAt: iso(row.retiredAt),
       retiredBy: row.retiredBy,
-      retiredByChangeId: row.retiredByChangeId,
+      retiredByChangeId,
       createdAt: row.createdAt.toISOString(),
       createdBy: row.createdBy,
       version: row.rowVersion,

@@ -16,6 +16,7 @@ import { SUGGESTION_CAP, type ScanTarget, scanSuggestions } from './domain/conce
 import type { LogKnowledgeDeps } from './deps.js';
 import { decidedMembers, listConceptMappings } from './repositories/concept.js';
 import { scanCurrentTargets } from './repositories/spec-targets.js';
+import type { Viewer } from './repositories/access-visibility.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -45,7 +46,7 @@ function declare<Q>(
   id: string,
   paramKeys: readonly string[],
   judge: (params: Record<string, unknown>) => Judged<Q>,
-  run: (workspaceId: string, query: Q) => Promise<EndpointResult>,
+  run: (viewer: Viewer, query: Q) => Promise<EndpointResult>,
 ): MenuEndpointDeclaration {
   return {
     spec: { id, menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys, permission: 'platform:view', requiresScope: false, context: {}, mergeTimeDomain: false },
@@ -57,7 +58,7 @@ function declare<Q>(
     async handle(args) {
       const judged = judge(args.params);
       if (!judged.ok) return { outcome: 'error', data: null, message: judged.message };
-      return run(args.actor.workspace_id, judged.value);
+      return run({ workspaceId: args.actor.workspace_id, actorId: args.actor.actor_id }, judged.value);
     },
   };
 }
@@ -112,13 +113,14 @@ function judgeSuggestions(params: Record<string, unknown>): Judged<SuggestionsQu
 
 export function conceptEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[] {
   return [
-    declare(deps, 'logKnowledge.conceptMappings', ['modelId', 'conceptId', 'reviewState', 'kind', 'page', 'pageSize'], judgeMappings, async (workspaceId, q) => {
+    declare(deps, 'logKnowledge.conceptMappings', ['modelId', 'conceptId', 'reviewState', 'kind', 'page', 'pageSize'], judgeMappings, async (viewer, q) => {
       const { page, pageSize, ...filters } = q;
-      return { outcome: 'ok', data: await listConceptMappings(deps.db, workspaceId, filters, { page, pageSize }) };
+      return { outcome: 'ok', data: await listConceptMappings(deps.db, viewer, viewer.workspaceId, filters, { page, pageSize }) };
     }),
-    declare(deps, 'logKnowledge.conceptSuggestions', ['modelId', 'kind', 'page', 'pageSize'], judgeSuggestions, async (workspaceId, q) => {
+    declare(deps, 'logKnowledge.conceptSuggestions', ['modelId', 'kind', 'page', 'pageSize'], judgeSuggestions, async (viewer, q) => {
+      const { workspaceId } = viewer;
       // The BOUNDED scan: `truncated` tells the caller when a cap made the list a partial view.
-      const { models: all, truncated: scanTruncated } = await scanCurrentTargets(deps.db, workspaceId);
+      const { models: all, truncated: scanTruncated } = await scanCurrentTargets(deps.db, workspaceId, undefined, viewer);
       const mine = all.get(q.modelId);
       if (!mine) return { outcome: 'ok', data: { total: 0, rows: [], ...(scanTruncated ? { truncated: true } : {}) } };
       const scan = (modelId: string, kinds: readonly string[]): ScanTarget[] =>

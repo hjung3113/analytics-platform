@@ -215,7 +215,7 @@ export function suiteActions(deps: LogDatasetsDeps): MenuActionDeclaration[] {
       await Promise.all(
         [...new Map(resolved.map((x) => [x.revisionId, x])).values()].map(async (x) => {
           const files = await checkSampleSetFilesFor(deps.sourceRead, deps.sourceOwnerAccess, actor, x.sampleSet);
-          staleByRevision.set(x.revisionId, await staleOf(deps, ws, x.profilePin, files, tx));
+          staleByRevision.set(x.revisionId, await staleOf(deps, ws, x.profilePin, files, actor.actor_id, tx));
         }),
       );
 

@@ -111,6 +111,7 @@ The backend returns effective navigation and capability states for the current w
 | Manage log test datasets (`dataset.manage`) | no | permission required (workspace-wide) | yes |
 | Approve a log test dataset baseline (`dataset.baseline.approve`; sensitive, session only) | no | permission required (workspace-wide) | permission required (explicit grant, no role bypass) |
 | Run a log test regression suite (`dataset.suite.run`; session only, max 3 concurrent runs per user) | no | permission required (workspace-wide) | yes |
+| Manage who can see a restricted knowledge model, SW version or Item (`knowledge.access.manage`; session only, no token) | no | permission required (workspace-wide) | yes |
 | Approve Permission Request | no | no | yes |
 
 Notes:

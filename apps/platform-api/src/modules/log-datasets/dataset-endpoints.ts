@@ -80,7 +80,7 @@ export function datasetEndpoints(deps: LogDatasetsDeps): MenuEndpointDeclaration
       const counts = await baselineCountsByRevision(deps.db, actor.workspace_id, head.dataset.id);
       const baselinesOf = async (revisionId: string, pin: ProfilePin | undefined) => {
         const c = counts.get(revisionId) ?? { draft: 0, superseded: 0, approved: null };
-        const stale = c.approved && pin ? await staleOf(deps, actor.workspace_id, pin, states ?? null) : null;
+        const stale = c.approved && pin ? await staleOf(deps, actor.workspace_id, pin, states ?? null, actor.actor_id) : null;
         return { draftCount: c.draft, supersededCount: c.superseded, approved: c.approved ? { ...c.approved, stale } : null };
       };
       const latestPin = latest ? await approvedPinOf(deps.db, actor.workspace_id, latest.id) : undefined;

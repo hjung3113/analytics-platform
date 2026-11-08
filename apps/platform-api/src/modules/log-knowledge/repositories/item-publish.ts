@@ -13,6 +13,7 @@ import type { ItemRelationValue } from '../domain/item-relation-input.js';
 import type { ItemSubjectValue } from '../domain/item-subject-input.js';
 import { carryRelations, insertRelations, judgeRelations, relationOwnerOf } from './item-relation.js';
 import { carrySubjects, insertSubjects, judgeSubjects, ownerModelOf, softwareModelId } from './item-subject.js';
+import { type Viewer, viewerOf } from './access-visibility.js';
 import { type ItemRow, type RevisionContent, appendRevision, checkOwner, insertItem } from './item-write.js';
 
 export type ItemAuditType = 'created' | 'revised' | 'assessed' | 'derived' | 'archived' | 'restored';
@@ -45,13 +46,13 @@ const prefixed = (prefix: readonly string[], errors: readonly FieldError[]): Fie
 /** The owner of a new item: unknown → `not_found`, inactive → `inactive`, on the owner field the caller set. */
 export async function ownerErrors(
   tx: Tx,
-  workspaceId: string,
+  viewer: Viewer,
   value: { ownerModelId?: string | null | undefined; ownerSoftwareId?: string | null | undefined },
   prefix: readonly string[] = [],
 ): Promise<FieldError[]> {
   const [path, check] = value.ownerModelId
-    ? (['ownerModelId', await checkOwner(tx, workspaceId, { modelId: value.ownerModelId })] as const)
-    : (['ownerSoftwareId', await checkOwner(tx, workspaceId, { softwareId: value.ownerSoftwareId ?? '' })] as const);
+    ? (['ownerModelId', await checkOwner(tx, viewer, { modelId: value.ownerModelId })] as const)
+    : (['ownerSoftwareId', await checkOwner(tx, viewer, { softwareId: value.ownerSoftwareId ?? '' })] as const);
   return check === 'ok' ? [] : [{ path: [...prefix, path], code: check }];
 }
 
@@ -73,7 +74,7 @@ export async function publishCreate(
   prefix: readonly string[] = [],
 ): Promise<ItemRow> {
   const ws = actor.workspace_id;
-  const errors = await ownerErrors(tx, ws, input, prefix);
+  const errors = await ownerErrors(tx, viewerOf(actor), input, prefix);
   if (errors.length > 0) throw new MenuActionInvalidError(errors);
   // #1196 f: the subjects name the owner's model (a SW-owned item: its SW version's model) and a target of its spec.
   const subjectModelId = input.ownerModelId ?? (await softwareModelId(tx, ws, input.ownerSoftwareId ?? ''));

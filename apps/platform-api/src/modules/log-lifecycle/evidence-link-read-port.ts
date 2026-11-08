@@ -1,3 +1,5 @@
+import { type Viewer, ref } from '../log-knowledge/index.js';
+import { attemptVisibleSql } from './repositories/access-visibility.js';
 // The read port the log explorer uses for the reverse lookup of an evidence location (#1470, log-explorer D4): which rule results
 // cite `(fileRef, line, fileSha256)` and which Rounds those results belong to. Reads only the side table `rule_result_evidence`
 // and its rule result / attempt / request / Round rows, all filtered by the caller's workspace (the same visibility as the
@@ -46,7 +48,7 @@ export interface EvidenceLinks {
 
 export interface LifecycleEvidenceRead {
   /** Rule results and Rounds that cite the location in `workspaceId`, newest first, page-limited. */
-  findEvidenceLinks(tx: Tx, workspaceId: string, query: EvidenceLinkQuery): Promise<EvidenceLinks>;
+  findEvidenceLinks(tx: Tx, workspaceId: string, query: EvidenceLinkQuery, viewer: Viewer): Promise<EvidenceLinks>;
 }
 
 const ev = ruleResultEvidence;
@@ -57,8 +59,8 @@ const rd = validationRounds;
 const iso = (d: Date) => d.toISOString();
 
 export const lifecycleEvidenceRead: LifecycleEvidenceRead = {
-  async findEvidenceLinks(tx, workspaceId, query) {
-    const match = and(eq(ev.workspaceId, workspaceId), eq(ev.fileRef, query.fileRef), eq(ev.line, query.line), eq(ev.fileSha256, query.fileSha256));
+  async findEvidenceLinks(tx, workspaceId, query, viewer) {
+    const match = and(eq(ev.workspaceId, workspaceId), eq(ev.fileRef, query.fileRef), eq(ev.line, query.line), eq(ev.fileSha256, query.fileSha256), sql`exists (select 1 from log_lifecycle.rule_result acl_rr where acl_rr.workspace_id = ${workspaceId}::uuid and acl_rr.id = ${ref(ev.ruleResultId)} and ${attemptVisibleSql(viewer, sql`acl_rr.attempt_id`)})`);
     const when = sql<Date>`coalesce(${at.endedAt}, ${at.startedAt})`;
     const offset = query.page * query.pageSize;
 
