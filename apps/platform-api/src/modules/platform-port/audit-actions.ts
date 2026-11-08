@@ -186,6 +186,7 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   'dataset.suite_created': 'create',
   'dataset.suite_updated': 'update',
   'dataset.suite_run_requested': 'create',
+  'dataset.review_label_added': 'create',
   actor_role_changed: 'update',
   platform_notice_created: 'create',
   platform_notice_updated: 'update',

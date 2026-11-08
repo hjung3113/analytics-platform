@@ -400,3 +400,42 @@ export const suiteRunItems = logDatasetsSchema.table(
     staleCheck: check('suite_run_item_stale_check', sql`jsonb_typeof(${t.baselineStale}) = 'object'`),
   }),
 );
+
+// Result review labels (#1480 node d, design §3.6): a human's note on one rule of one run's result (false positive / false negative /
+// accepted change / needs review). Append-only (trigger, every role): a later label is a new row, the latest wins on read. A label NEVER
+// changes a baseline, a result or a classification. `rule_id` is a log-lifecycle rule id (plain text, checked by the write path against the
+// run item's baseline and results); the reason is capped and never copied into the audit row (its length only).
+export const suiteReviewLabels = logDatasetsSchema.table(
+  'suite_review_label',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    suiteRunId: uuid('suite_run_id').notNull(),
+    ruleId: text('rule_id').notNull(),
+    datasetRevisionId: uuid('dataset_revision_id').notNull(),
+    label: text('label').notNull(),
+    reason: text('reason').notNull(),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => actors.id),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    runFk: foreignKey({
+      name: 'suite_review_label_run_fk',
+      columns: [t.workspaceId, t.suiteRunId],
+      foreignColumns: [suiteRuns.workspaceId, suiteRuns.id],
+    }).onDelete('restrict'),
+    revisionFk: foreignKey({
+      name: 'suite_review_label_revision_fk',
+      columns: [t.workspaceId, t.datasetRevisionId],
+      foreignColumns: [datasetRevisions.workspaceId, datasetRevisions.id],
+    }).onDelete('restrict'),
+    ruleIdx: index('suite_review_label_rule_idx').on(t.workspaceId, t.suiteRunId, t.datasetRevisionId, t.ruleId, t.at),
+    labelCheck: check('suite_review_label_label_check', sql`${t.label} in ('false_positive','false_negative','accepted_change','needs_review')`),
+    ruleCheck: check('suite_review_label_rule_check', sql`char_length(${t.ruleId}) between 1 and 200`),
+    reasonCheck: check('suite_review_label_reason_check', sql`char_length(${t.reason}) between 1 and ${sql.raw(String(REASON_MAX))}`),
+  }),
+);

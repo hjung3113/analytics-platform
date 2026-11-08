@@ -20,9 +20,10 @@ export const LOG_DATASETS_AUDIT_EVENT_TYPES = [
   'dataset.suite_created',
   'dataset.suite_updated',
   'dataset.suite_run_requested',
+  'dataset.review_label_added',
 ] as const;
 
-/** Subject id: the dataset id (`dataset.*`), the revision id (`dataset.revision_created`), the candidate id (`dataset.candidate_*`), the baseline id (`dataset.baseline_*`), the suite id (`dataset.suite_created|updated`), the suite run id (`dataset.suite_run_requested`). */
+/** Subject id: the dataset id (`dataset.*`), the revision id (`dataset.revision_created`), the candidate id (`dataset.candidate_*`), the baseline id (`dataset.baseline_*`), the suite id (`dataset.suite_created|updated`), the suite run id (`dataset.suite_run_requested`, `dataset.review_label_added`). */
 export const LOG_DATASETS_SUBJECT_TYPES = ['dataset', 'dataset_revision', 'dataset_candidate', 'dataset_baseline', 'regression_suite', 'suite_run'] as const;
 
 const SCENARIO_TAG = z.enum(['normal', 'exception', 'boundary', 'regression', 'file_boundary', 'carryover', 'partial_support']);
@@ -144,6 +145,16 @@ export const datasetSuiteRunRequestedDetailSchema = z
   })
   .strict();
 
+// Review labels (#1480 D-d): ids, the label name and the reason LENGTH only. Never the reason text, a file location or an observed value.
+export const datasetReviewLabelAddedDetailSchema = z
+  .object({
+    datasetRevisionId: z.string().uuid(),
+    ruleId: z.string().min(1).max(200),
+    label: z.enum(['false_positive', 'false_negative', 'accepted_change', 'needs_review']),
+    reasonLength: z.number().int().min(1),
+  })
+  .strict();
+
 export const LOG_DATASETS_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'dataset.created': datasetCreatedDetailSchema,
   'dataset.updated': datasetUpdatedDetailSchema,
@@ -159,4 +170,5 @@ export const LOG_DATASETS_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'dataset.suite_created': datasetSuiteCreatedDetailSchema,
   'dataset.suite_updated': datasetSuiteUpdatedDetailSchema,
   'dataset.suite_run_requested': datasetSuiteRunRequestedDetailSchema,
+  'dataset.review_label_added': datasetReviewLabelAddedDetailSchema,
 } as const;

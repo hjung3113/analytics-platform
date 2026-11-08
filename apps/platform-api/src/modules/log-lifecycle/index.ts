@@ -35,3 +35,5 @@ export { EVIDENCE_LINK_PAGE_SIZE_MAX, EVIDENCE_LINK_PARAM_KEYS, parseEvidenceLin
 export type { EvidenceLinkQuery } from './domain/evidence-link-params.js';
 export { SUITE_REQUEST_PRIORITY, lifecycleSuiteRequests, suiteRequestDigest } from './suite-request-port.js';
 export type { SuiteRequestPort, SuiteRequestRegistration, SuiteRequestState } from './suite-request-port.js';
+export { lifecycleSuiteResults } from './suite-result-read-port.js';
+export type { SuiteObservedResult, SuiteObservedRule, SuiteResultReadPort } from './suite-result-read-port.js';
