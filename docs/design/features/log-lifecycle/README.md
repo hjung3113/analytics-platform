@@ -1,6 +1,6 @@
 # Log Lifecycle — v0.30.0 최소 슬라이스 설계 (Decided 설계, 부분 As-built)
 
-> **Status: Candidate → 구현 착수(2026-11-07), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영. 노드 완료마다 As-built로 바꾼다. 노드 c(#1444)는 As-built: 개발 건·이벤트·Round의 스키마·읽기·쓰기, 노드 d(#1445)는 As-built: 검증 요청 큐(요청·시도·규칙 결과·발췌, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict, 참조 작업자 «합성 fixture»), 노드 e(#1446)는 As-built: Gate 결정·근거 스냅샷·단계 연동. 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md).** 구현 범위는 §7의 노드별 As-built 표기를 따른다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: Candidate → 구현 착수(2026-11-07), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영. 노드 완료마다 As-built로 바꾼다. 노드 c(#1444)는 As-built: 개발 건·이벤트·Round의 스키마·읽기·쓰기, 노드 d(#1445)는 As-built: 검증 요청 큐(요청·시도·규칙 결과·발췌, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict, 참조 작업자 «합성 fixture»), 노드 e(#1446)는 As-built: Gate 결정·근거 스냅샷·단계 연동. 노드 f(#1447)는 As-built: 컨펌 A2 모델 표·개발 건/Round·검증 요청 화면(호스트 데스크톱 시각 확인 대기). 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md).** 구현 범위는 §7의 노드별 As-built 표기를 따른다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 사내 스크립트 Validator·사내 LLM은 별도 개발 중이다. 인터페이스·출력·권한은 실사 전이므로 **연동 완료로 쓰지 않는다.** 이 슬라이스는 플랫폼 쪽 틀(요청 등록·가져가기·결과 저장·사람 기록)만 만든다.
 
@@ -239,7 +239,7 @@ log-dev (기존 Space)
 | c | `log-lifecycle` 스키마·마이그레이션·개발 건·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 검증 첨부는 c2 #1451, 구현됨) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
 | d **As-built** #1445 | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
 | e **As-built** #1446 | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
-| f | 화면: 모델 목록·개발 건/Round 상세·검증 요청 + 시안(`?variant=`) | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
+| f **As-built** #1447 | 컨펌 A2 모델 표·개발 건/Round 상세·검증 요청. `PlatformDataTable`·확장 가능한 `DetailDrawer`·`AuditTimeline`·Gate 우측 고정. 계층 보기는 g2 #1449에서 구현; | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
 | g | **#1108 SDK 조각**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)): `navTree` + `HierarchyNav`, 합성 source·실제 AppShell 테스트 — **As-built**(#1448, 호스트 검증 대기; 본문 조각 보류) | full, `impl-complex`(공개 API `sdk:api`) | 시안 컨펌(소비자는 확정) |
 | g2 | `log-models` 계층 보기 연결(source 구현, 노드 표시) | full, `ux=required` | g, c |
 | h | 통합: 계약 E2E(토큰 → claim → 결과 → Gate), 문서 소유 갱신, `.planning` 줄 | full | a–f |
@@ -290,3 +290,14 @@ log-dev (기존 Space)
 - 구현 위치와 계약: [log-lifecycle API §Validation request queue](../../../architecture/platform-api/api/log-lifecycle.md). 설계와 달라진 점: 발췌 열람 권한 `lifecycle.excerpt.read`는 «sourceOwner 범위»를 권한 모듈이 표현하지 못해 `log_lifecycle.excerpt_reader` 표로 둔다(관리자가 부여·철회). `validation.worker`는 capability가 아니라 서비스 토큰 전용 scope(`TOKEN_ONLY_SCOPES`)다. 큐 설정(실행 시간대·lease·«즉시» 한도·발췌 보관일)은 `workspace_settings`가 아니라 `log_lifecycle.queue_settings`에 둔다. 요청 우선순위는 숫자가 클수록 먼저 가져간다. 하트비트는 감사하지 않는다. lease가 끝나 `queued`로 돌아갔지만 아무도 가져가지 않은 시도의 하트비트는 같은 시도에 lease를 되돌려 준다(결정 4). 만료된 lease의 복귀는 claim 호출이 처리한다(주기 작업 없음).
 - 발췌 삭제(결정 7)는 구현했다: Round 종료 + `excerptRetentionDays` 뒤 본문을 물리 삭제하는 일일 작업 `lifecycle.excerpt_purge`와 관리자 즉시 삭제 `logLifecycle.excerptDelete`(Round·시도 범위, 사유 필수, 감사에 본문 없음). 아직 없음(다시 여는 조건): `validation` 목록 필터·대기 요청 수(노드 f 화면), `queued` 요청의 우선순위 변경, Round를 닫을 때 대기 요청 자동 취소(지금은 가져가지 않고 사람이 취소).
 
+
+
+## 12. 노드 f As-built (#1447)
+
+- 소유자 2026-11-07 컨펌 A2. 내부 단계 값은 그대로 두고 화면은 등록·착수·알파·베타·완료의 5단계, 취소는 별도 배지로 표시한다. 용어는 «개발 건». Gate는 우측 sticky 패널, 사람 아이콘과 외곽선으로 검증 판정과 구분한다.
+- 모델 표(`/log/models`), 숨은 개발 건·Round 상세(`/log/models/:projectId[/rounds/:roundId]`), 검증 요청(`/log/validation-requests`). 화면은 `apps/feature-screens/src/features/log-lifecycle/`, 메뉴 조립은 `menus/log-dev/log-models/`. 조회·쓰기는 기존 Kernel menu-query/action 훅을 주입하고, 이동은 feature host seam을 통해 `linkTo`로 연결한다. 모델 표는 `includeClosedProjects: true`로 열린 개발 건을 우선하고 없으면 최근 종료·취소 건을 표시한다(A2). 기존 API의 기본값은 열린 개발 건만으로 유지하며, 종료·취소 행에서도 새 개발 건을 만들 수 있다.
+- 모델 검색·단계/검증/설비사/공정/활성 필터·정렬·페이지, 요청 상태/우선순위/모델/기간 필터·선택, 규칙 결과/필수/정렬·선택 시도와 상세 탭을 주소에서 복원한다. 샘플 위치·해시·발췌·사유는 URL에 넣지 않는다.
+- Round의 요청 목록은 `requestsPage`, 규칙 결과는 `rulesPage`(각각 1부터 시작, 생략 = 첫 페이지)를 쓴다. 요청 페이지 변경은 요청·시도 선택과 규칙 페이지를, 요청 선택은 시도·규칙 페이지를, 시도 선택과 규칙 필터·정렬 변경은 규칙 페이지를 한 URL 변경에서 초기화한다. 모델·검증 요청 목록과 이력의 기존 `page`는 유지한다.
+- 신규 개발 건, 속성 수정, 서버 허용 단계 이동·재개, 샘플 순서 확정 후 Round 열기/종료, 고정 Round 또는 모델→Round 선택 요청 등록, 시도·결과·취소를 제공한다. 발췌는 명시적 클릭 때만 열며 권한 없음·삭제 상태를 구분한다. 연결된 원본 도구가 없으므로 근거 위치는 `unresolved`로 표시한다.
+- 서버 보강은 모델·Round·요청 표시용 projection, `roundDetail.gateAvailability`, `queueStatus`, 규칙 결과 서버 정렬뿐이다. 마이그레이션·권한·GRANT 변경 없음. 실제 Validator 연동은 여전히 미구현(§9); mock은 합성 fixture다.
+- 데스크톱 1440×900/1280 실앱 확인·캡처와 `log-lifecycle screens` E2E는 워커의 브라우저 금지 규칙 때문에 호스트 확인 대기다. 이 표기는 시각 검증 통과를 뜻하지 않는다.

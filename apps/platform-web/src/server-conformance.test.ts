@@ -7,7 +7,7 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
 import { describe, expect, it } from 'vitest';
 import { createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
-import { MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
+import { stageLifecycleFixture, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
 import { GROUPS, MENUS, PERMISSIONS, registry } from './menus';
 import { modulePermissions } from './modules';
@@ -80,6 +80,16 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'metrics.catalog.page': { q: null, lang: 'ko', ...page },
   'metrics.definition': { metricId: 'cycle_time', version: '4' },
   'metrics.usage': { metricId: 'cycle_time', version: '4' },
+  'logLifecycle.models': { q: null, ...page },
+  'logLifecycle.projectDetail': { projectId: '14470000-0000-4000-8000-000000000101' },
+  'logLifecycle.projectEvents': { projectId: '14470000-0000-4000-8000-000000000101', page: 0, pageSize: 25 },
+  'logLifecycle.rounds': { projectId: '14470000-0000-4000-8000-000000000101' },
+  'logLifecycle.roundDetail': { roundId: '14470000-0000-4000-8000-000000000201' },
+  'logLifecycle.roundEvidence': { roundId: '14470000-0000-4000-8000-000000000201' },
+  'logLifecycle.requests': { page: 0, pageSize: 25 },
+  'logLifecycle.requestDetail': { requestId: '14470000-0000-4000-8000-000000000301' },
+  'logLifecycle.ruleResults': { attemptId: '14470000-0000-4000-8000-000000000401', page: 0, pageSize: 25 },
+  'logLifecycle.excerpt': { ruleResultId: '14470000-0000-4000-8000-000000000501', evidenceIndex: 0 },
   // Log knowledge catalog reads (#1194 r): the table's page + `filters` shape, no filter = every row.
   // Read-only validation catalog / coverage (#1495), synthetic fixture stable ids.
   'logRules.ruleSets': { q: null, ...page },
@@ -252,10 +262,23 @@ const explorerSamples = {
   evidenceRemove: () => ({ id: freshInvestigation(true), ref: { fileRef: EXPLORER_REF.fileRef, line: EXPLORER_REF.line } }),
   investigationArchive: () => ({ id: freshInvestigation() }),
 };
+// #1447 lifecycle actions are stateful; stage fresh mock-only targets for each conformance request.
+const lifecycleSamples: Record<string, () => Record<string, unknown>> = {
+  projectCreate: () => ({ modelId: stageLifecycleFixture({ withoutProject: true }).modelId, kind: 'new', ownerActorId: 'admin' }),
+  projectSetStage: () => ({ id: stageLifecycleFixture().projectId, toStage: 'beta', reason: '적합성 단계 이동' }),
+  projectReopen: () => ({ id: stageLifecycleFixture({ cancelled: true }).projectId, reason: '적합성 재개' }),
+  projectUpdate: () => ({ id: stageLifecycleFixture().projectId, targetDate: '2026-12-01' }),
+  roundOpen: () => ({ projectId: stageLifecycleFixture({ noOpenRound: true }).projectId, sampleSet: { sourceOwner: 'synthetic', files: [{ fileRef: 's3://synthetic/conformance.log', order: 1, sha256: 'a'.repeat(64) }] } }),
+  roundClose: () => ({ id: stageLifecycleFixture().roundId }),
+  requestCreate: () => ({ roundId: stageLifecycleFixture().roundId, priority: 1, immediate: false }),
+  requestCancel: () => ({ id: stageLifecycleFixture().requestId, reason: '적합성 취소' }),
+  gateDecide: () => ({ roundId: stageLifecycleFixture().roundId, targetStage: 'beta', decision: 'rejected', reason: '적합성 검토' }),
+};
 const writeSamples: Record<string, Record<string, () => Record<string, unknown>>> = {
   logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples, ...specSamples, ...conceptSamples },
   improvement: improvementSamples,
   logExplorer: explorerSamples,
+  logLifecycle: lifecycleSamples,
 };
 const actionCases = MOCK_ACTIONS.map(action => {
   const dot = action.spec.id.indexOf('.');
@@ -324,7 +347,7 @@ const conformanceAdapter = Object.assign(Object.create(adapter), {
     try { return adapter.menuQuery(req); } finally { setRole(previous); }
   },
   menuAction: (req: Parameters<typeof adapter.menuAction>[0]) =>
-    req.action.startsWith('logKnowledge.') || req.action.startsWith('improvement.') || req.action.startsWith('logExplorer.') ? asRole('admin', () => adapter.menuAction(req)) : adapter.menuAction(req),
+    req.action.startsWith('logKnowledge.') || req.action.startsWith('improvement.') || req.action.startsWith('logExplorer.') || req.action.startsWith('logLifecycle.') ? asRole('admin', () => adapter.menuAction(req)) : adapter.menuAction(req),
 }) as typeof adapter;
 
 describeServerConformance('server boundary conformance — mock adapter', {
@@ -375,7 +398,7 @@ describeServerConformance('server boundary conformance — mock adapter', {
   },
   withoutPermission: async (permission: Permission, fn) => {
     const previous = getRole();
-    setRole(permission === CATALOG_PERMISSION || permission === ITEM_PUBLISH || permission === IMPROVEMENT_MANAGE || permission === SPEC_PUBLISH || permission === EXPLORER_INVESTIGATE ? 'admin' : GRANTED);
+    setRole(permission === CATALOG_PERMISSION || permission === ITEM_PUBLISH || permission === IMPROVEMENT_MANAGE || permission === SPEC_PUBLISH || permission === EXPLORER_INVESTIGATE || String(permission).startsWith('lifecycle:') ? 'admin' : GRANTED);
     // The adapter's world is built from the vocabulary above, not the default USERS, so the granted role's list is the session's own array.
     const permissions = adapter.session().user.permissions as Permission[];
     const kept = [...permissions];

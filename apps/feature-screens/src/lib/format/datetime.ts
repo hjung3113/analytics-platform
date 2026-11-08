@@ -86,3 +86,14 @@ export function formatDateOnly(dateOnly: string): string {
 
   return formatCalendarDate(date);
 }
+
+/** Compact KST instant for dense lifecycle tables; calendar dates still use formatDateOnly. */
+export function formatCompactDateTime(iso: string): string {
+  return formatTimestamp(iso, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+}

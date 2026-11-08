@@ -517,6 +517,34 @@ describe.skipIf(!runIntegration)('log lifecycle Gate decision (#1446 e)', () => 
   });
 
   describe('reads', () => {
+    it('a token can read a Round hint but cannot decide; a read adds no denied-mutation audit (#1447)', async () => {
+      const round = await makeRound();
+      const issued = await app.inject({ method: 'POST', url: '/api-tokens', headers: cookieHeader(admin.cookie), payload: { name: `${TAG}-hint`, scopes: ['workspace.read'] } });
+      expect(issued.statusCode).toBe(201);
+      const item = issued.json<{ token: string; item: { id: string } }>();
+      const res = await app.inject({ method: 'POST', url: '/api/v1/menu-query', headers: { authorization: `Bearer ${item.token}` }, payload: { endpoint: 'logLifecycle.roundDetail', context: {}, params: { roundId: round.roundId } } });
+      expect(res.statusCode).toBe(200);
+      expect(res.json<Answer>().outcome, res.body).toBe('ok');
+      expect(res.json<Answer>().data.gateAvailability.reasons).toContain('session_required');
+      expect(res.json<Answer>().data.gateAvailability.decisions.rejected.allowed).toBe(false);
+      expect((await sql("select id from core.audit_log where event_type = 'api_token.session_required_denied' and detail::text like $1", [`%${item.item.id}%`])).rows).toEqual([]);
+      expect(await decisions(round.roundId)).toHaveLength(0);
+    });
+
+    it('roundDetail supplies human decision availability and server refusal reasons (#1447)', async () => {
+      const round = await makeRound();
+      const before = await read('roundDetail', { roundId: round.roundId }, decider);
+      expect(before.data.gateAvailability).toMatchObject({ targetStage: 'kickoff', decisions: { approved: { allowed: false, reasons: ['verdict_not_pass'] }, rejected: { allowed: true }, exception: { allowed: true } } });
+      const denied = await read('roundDetail', { roundId: round.roundId }, plain);
+      expect(denied.data.gateAvailability.reasons).toContain('permission_denied');
+      await seedAttempt(round.roundId, 'pass');
+      const ready = await read('roundDetail', { roundId: round.roundId }, decider);
+      expect(ready.data.gateAvailability.decisions.approved.allowed).toBe(true);
+      expect(ready.data.gateAvailability.decisions.exception.reasons).toContain('exception_not_needed');
+      expect(ready.data.gateAvailability.projectVersion).toBe(await version(round.projectId));
+      expect(await decisions(round.roundId)).toHaveLength(0);
+    });
+
     it('roundDetail carries the Gate history oldest first with selfApproved and the basis summary; projectDetail the current Gate state', async () => {
       const round = await makeRound();
       await seedAttempt(round.roundId, 'pass', decider);

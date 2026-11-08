@@ -189,7 +189,7 @@ SkeletonBlocksProps | interface | interface SkeletonBlocksProps { blocks: readon
 SkeletonRows | function | function SkeletonRows({ count, size }: @ap/ui#SkeletonRowsProps): import("react").JSX.Element
 SkeletonRowsProps | interface | interface SkeletonRowsProps { count: number; size: 'compact' | 'regular'; }
 SortOption | interface | interface SortOption { label: string; value: string; }
-StatusBadge | function | function StatusBadge({ tone, children, dot, className }: { children: ReactNode; className?: string; dot?: boolean; tone: @ap/ui#Tone; }): import("react").JSX.Element
+StatusBadge | function | function StatusBadge({ tone, children, dot, variant, className }: { children: ReactNode; className?: string; dot?: boolean; tone: @ap/ui#Tone; variant?: 'outline' | 'soft'; }): import("react").JSX.Element
 StatusBadgeAppearance | type | type StatusBadgeAppearance = 'compact' | 'compact-identity' | 'compact-outline' | 'link' | 'reporter' | 'severity' | 'task'
 StatusBadgeFrame | function | function StatusBadgeFrame({ appearance, ariaLabel, tone, children, indicator, textClassName, tintClassName, className, style, token, }: @ap/ui#StatusBadgeFrameProps): React.JSX.Element
 StatusBadgeFrameProps | interface | interface StatusBadgeFrameProps { appearance: @ap/ui#StatusBadgeAppearance; ariaLabel?: string; children: React.ReactNode; className?: string; indicator?: React.ReactNode; style?: React.CSSProperties; textClassName?: string; tintClassName?: string; token?: string; tone?: @ap/ui#StatusBadgeTone; }

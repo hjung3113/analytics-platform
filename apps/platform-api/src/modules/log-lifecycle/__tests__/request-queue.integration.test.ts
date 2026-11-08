@@ -281,6 +281,35 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
     await migrate?.close();
   });
 
+  describe('screen projections (#1447)', () => {
+    it('returns the current queue settings and a server timestamp to a reader', async () => {
+      await sql('insert into log_lifecycle.queue_settings (workspace_id, run_window, immediate_limit, updated_by) values ($1,$2::jsonb,3,$3)', [WORKSPACE_ID, JSON.stringify({ timezone: 'UTC', weekday: { fromHour: 1, toHour: 2 }, weekendAllDay: false }), admin.id]);
+      const result = await read('queueStatus', {}, user);
+      expect(result.data).toMatchObject({ runWindow: { timezone: 'UTC', weekday: { fromHour: 1, toHour: 2 }, weekendAllDay: false }, immediateLimit: 3 });
+      expect(Number.isFinite(Date.parse(result.data.serverAt))).toBe(true);
+      const stored = await sql('select immediate_limit from log_lifecycle.queue_settings where workspace_id = $1', [WORKSPACE_ID]);
+      expect(stored.rows[0]?.immediate_limit).toBe(3);
+    });
+    it('projects current validation and request counts, sorts rule results before paging, and counts only required unchecked rules', async () => {
+      const round = await makeRound();
+      const request = await makeRequest(round.roundId);
+      const modelBefore = await read('models', { filters: [{ id: 'id', op: 'in', value: [round.modelId] }] });
+      expect(modelBefore.data.rows[0]).toMatchObject({ validation: 'queued', pendingRequests: 1 });
+      const claimed = (await claim()).json();
+      const saved = await post(workerA, `/requests/${request.id}/result`, resultBody(claimed, [rule('A', 'PASS'), rule('B', 'ERROR'), rule('C', 'NOT_CHECKED', false)]));
+      expect(saved.statusCode).toBe(200);
+      const sorted = await read('ruleResults', { attemptId: claimed.attempt.id, pageSize: 1, sorting: [{ id: 'ruleId', desc: true }] });
+      expect(sorted.data.rows.map((r: Row) => r.ruleId)).toEqual(['C']);
+      expect(sorted.data.total).toBe(3);
+      const detail = await read('requestDetail', { requestId: request.id });
+      expect(detail.data).toMatchObject({ modelCode: expect.any(String), roundSeq: 1, softwareLabel: null });
+      expect(detail.data.attempts[0]).toMatchObject({ requiredUnchecked: 1, verdict: 'incomplete' });
+      const after = await read('models', { filters: [{ id: 'id', op: 'in', value: [round.modelId] }] });
+      expect(after.data.rows[0]).toMatchObject({ validation: 'incomplete', pendingRequests: 0 });
+      expect((await read('rounds', { projectId: round.projectId })).data.rows[0]).toMatchObject({ validation: 'incomplete', gateDecision: null });
+    });
+  });
+
   describe('register and cancel (human side)', () => {
     it('registers a request on an open round with the right, audits it, and lists it', async () => {
       const round = await makeRound();

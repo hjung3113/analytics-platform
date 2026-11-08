@@ -1060,12 +1060,13 @@ describe('retained36 package contract (#597)', () => {
   "./operator-screens/voc-triage",
   "./operator-screens/evidence",
   "./operator-screens/integration-dashboard",
-  "./operator-screens/analytics-areas"
+  "./operator-screens/analytics-areas",
+  "./operator-screens/log-lifecycle"
 ];
   const graph = walk(Object.values(manifest.exports).map(path => join(screen, 'apps/feature-screens', path)));
-  it('keeps all 36 named public entries and resolves their complete graphs', () => {
+  it('keeps all 37 named public entries and resolves their complete graphs', () => {
     expect(Object.keys(manifest.exports)).toEqual(expected);
-    expect(expected).toHaveLength(36);
+    expect(expected).toHaveLength(37);
     expect(graph.unresolved).toEqual([]);
   });
   it('reaches no retired runtime or test-only host', () => {
@@ -1073,5 +1074,18 @@ describe('retained36 package contract (#597)', () => {
     expect(reached.filter(file => /^(routes|test|lib\/(router|layout|auth))\//.test(file))).toEqual([]);
     expect([...graph.specifiers].filter(specifier => /^@tanstack\/(react-)?router/.test(specifier))).toEqual([]);
     for (const path of ['main.tsx', 'routeTree.gen.ts', 'lib/router/app-router.ts', 'features/home/HomeScreen.tsx', 'features/integration/recovery/useRecoveryQueue.tsx']) expect(existsSync(join(FRONTEND_SRC, path)), path).toBe(false);
+  });
+});
+
+
+describe('log-lifecycle operator entry (#1447)', () => {
+  const entry = walk([join(FRONTEND_SRC, 'operator-screens/log-lifecycle/index.ts')]);
+  it('resolves every screen and reaches no router, runtime or network implementation', () => {
+    expect(entry.unresolved).toEqual([]);
+    const reached = [...entry.files.keys()].map(file => relative(FRONTEND_SRC, file));
+    expect(reached).toContain('features/log-lifecycle/RoundScreen.tsx');
+    expect(reached.filter(file => /^(routes|test|lib\/(router|layout|auth))\//.test(file))).toEqual([]);
+    expect([...entry.specifiers].filter(s => /^@tanstack\/(react-)?router/.test(s))).toEqual([]);
+    expect([...entry.files.values()].some(source => /(?<![\w.])fetch\(/.test(source))).toBe(false);
   });
 });

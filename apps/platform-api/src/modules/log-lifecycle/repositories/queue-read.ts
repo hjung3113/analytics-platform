@@ -4,9 +4,10 @@
 // id answers null (the dispatch has no `not_found` outcome). List responses expose `hasExcerpt` only: the excerpt body is
 // read by `readExcerpt` alone, which the endpoint gates on the source owner's right and audits per read.
 
-import { and, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
+import { equipmentModels, softwareVersions } from '../../../db/schema/knowledge.js';
 import { actors } from '../../../db/schema/core.js';
 import {
   developmentProjects,
@@ -39,6 +40,9 @@ export interface RequestRowOut {
   roundId: string;
   projectId: string;
   modelId: string;
+  modelCode: string;
+  softwareLabel: string | null;
+  roundSeq: number;
   priority: number;
   immediate: boolean;
   state: string;
@@ -74,7 +78,7 @@ export async function listRequests(
     query.to ? sql`${q.createdAt} < ${query.to}` : undefined,
   );
   const base = tx
-    .select({ request: q, projectId: validationRounds.projectId, modelId: p.modelId, requesterName: who.displayName, latestVerdict: verdictOfLatest })
+    .select({ request: q, projectId: validationRounds.projectId, modelId: p.modelId, modelCode: sql<string>`(select m.code from ${equipmentModels} m where m.workspace_id = ${q.workspaceId} and m.id = ${developmentProjects.modelId})`, softwareLabel: sql<string | null>`(select s.version_label from ${softwareVersions} s where s.workspace_id = ${q.workspaceId} and s.id = ${developmentProjects.softwareId})`, roundSeq: validationRounds.seq, requesterName: who.displayName, latestVerdict: verdictOfLatest })
     .from(q)
     .innerJoin(validationRounds, and(eq(validationRounds.workspaceId, q.workspaceId), eq(validationRounds.id, q.roundId)))
     .innerJoin(p, and(eq(p.workspaceId, validationRounds.workspaceId), eq(p.id, validationRounds.projectId)))
@@ -98,6 +102,7 @@ export async function listRequests(
       roundId: r.request.roundId as string, // the inner join on the round: a suite subject has none and never appears here
       projectId: r.projectId,
       modelId: r.modelId,
+      modelCode: r.modelCode, softwareLabel: r.softwareLabel, roundSeq: r.roundSeq,
       priority: r.request.priority,
       immediate: r.request.immediate,
       state: r.request.state,
@@ -130,6 +135,7 @@ export interface AttemptOut {
   resultDigest: string | null;
   verdict: string | null;
   ruleCount: number;
+  requiredUnchecked: number;
   /** Rule results by result value, e.g. `{ PASS: 8, FAIL: 1 }`. */
   counts: Record<string, number>;
 }
@@ -156,7 +162,7 @@ export async function getRequestDetail(tx: Tx, workspaceId: string, requestId: s
     .where(and(eq(a.workspaceId, workspaceId), eq(a.requestId, requestId)))
     .orderBy(a.attemptNo);
   const tallies = await tx
-    .select({ attemptId: rr.attemptId, result: rr.result, n: count() })
+    .select({ attemptId: rr.attemptId, result: rr.result, n: count(), unchecked: sql<number>`count(*) filter (where ${rr.required} and ${rr.result} in ('ERROR', 'NOT_CHECKED', 'SKIPPED'))::int` })
     .from(rr)
     .innerJoin(a, and(eq(a.workspaceId, rr.workspaceId), eq(a.id, rr.attemptId)))
     .where(and(eq(rr.workspaceId, workspaceId), eq(a.requestId, requestId)))
@@ -184,6 +190,7 @@ export async function getRequestDetail(tx: Tx, workspaceId: string, requestId: s
         manifestMatches: x.inputManifestDigest === roundRow.sampleManifestDigest,
         resultDigest: x.resultDigest,
         verdict: x.verdict,
+        requiredUnchecked: mine.reduce((s, t) => s + Number(t.unchecked), 0),
         ruleCount: mine.reduce((s, t) => s + Number(t.n), 0),
         counts: Object.fromEntries(mine.map((t) => [t.result, Number(t.n)])),
       };
@@ -194,7 +201,7 @@ export async function getRequestDetail(tx: Tx, workspaceId: string, requestId: s
 async function listRequestsById(tx: Tx, workspaceId: string, requestId: string) {
   const who = alias(actors, 'requester');
   const [found] = await tx
-    .select({ request: q, projectId: validationRounds.projectId, modelId: developmentProjects.modelId, requesterName: who.displayName, latestVerdict: verdictOfLatest })
+    .select({ request: q, projectId: validationRounds.projectId, modelId: developmentProjects.modelId, modelCode: sql<string>`(select m.code from ${equipmentModels} m where m.workspace_id = ${q.workspaceId} and m.id = ${developmentProjects.modelId})`, softwareLabel: sql<string | null>`(select s.version_label from ${softwareVersions} s where s.workspace_id = ${q.workspaceId} and s.id = ${developmentProjects.softwareId})`, roundSeq: validationRounds.seq, requesterName: who.displayName, latestVerdict: verdictOfLatest })
     .from(q)
     .innerJoin(validationRounds, and(eq(validationRounds.workspaceId, q.workspaceId), eq(validationRounds.id, q.roundId)))
     .innerJoin(developmentProjects, and(eq(developmentProjects.workspaceId, validationRounds.workspaceId), eq(developmentProjects.id, validationRounds.projectId)))
@@ -208,6 +215,7 @@ async function listRequestsById(tx: Tx, workspaceId: string, requestId: string) 
     roundId: r.roundId as string, // the inner join on the round guarantees it
     projectId: found.projectId,
     modelId: found.modelId,
+    modelCode: found.modelCode, softwareLabel: found.softwareLabel, roundSeq: found.roundSeq,
     priority: r.priority,
     immediate: r.immediate,
     state: r.state,
@@ -249,7 +257,9 @@ export async function listRuleResults(tx: Tx, workspaceId: string, query: RuleRe
     query.results ? inArray(rr.result, [...query.results]) : undefined,
     query.required === undefined ? undefined : eq(rr.required, query.required),
   );
-  const rows = await tx.select().from(rr).where(where).orderBy(rr.ruleId).limit(query.pageSize).offset(query.page * query.pageSize);
+  const sortColumns = { ruleId: rr.ruleId, result: rr.result, required: rr.required };
+  const order = query.sorting.map((s) => (s.desc ? desc : asc)(sortColumns[s.id as keyof typeof sortColumns]));
+  const rows = await tx.select().from(rr).where(where).orderBy(...order, asc(rr.id)).limit(query.pageSize).offset(query.page * query.pageSize);
   const [totalRow] = await tx.select({ n: count() }).from(rr).where(where);
   return {
     total: Number(totalRow?.n ?? 0),

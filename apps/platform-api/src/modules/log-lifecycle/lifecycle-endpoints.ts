@@ -5,7 +5,8 @@
 // (`rounds` and `projectEvents` of an unknown project: an empty page). The reads write nothing.
 
 import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
-import { holdsPlatformPermission } from '../platform-port/permissions.js';
+import { gateAvailability } from './gate-availability.js';
+import { holdsPlatformPermission, type PlatformActor } from '../platform-port/permissions.js';
 import type { LogLifecycleDeps } from './deps.js';
 import { listAttachmentsByParent } from '../attachments/index.js';
 import {
@@ -28,7 +29,7 @@ import { gateTargetFor } from './domain/stage-transitions.js';
 import { getProjectDetail, getRoundDetail, listModels, listProjectEvents, listRounds, roundInWorkspace } from './repositories/lifecycle-read.js';
 
 type Judge = (params: Record<string, unknown>) => ParamsJudgment;
-type Actor = { actor_id: string; workspace_id: string };
+type Actor = PlatformActor;
 
 function declareRead(
   deps: LogLifecycleDeps,
@@ -91,7 +92,7 @@ export function lifecycleEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclarat
       const detail = await getRoundDetail(deps.db, actor.workspace_id, parsed.value);
       if (!detail) return { outcome: 'ok', data: null };
       // The Gate decision history of the Round, oldest first. Readers of the Round read every decider's reason text.
-      return { outcome: 'ok', data: { ...detail, gateDecisions: await gateHistoryOfRound(deps.db, actor.workspace_id, detail.id) } };
+      return { outcome: 'ok', data: { ...detail, gateDecisions: await gateHistoryOfRound(deps.db, actor.workspace_id, detail.id), gateAvailability: await gateAvailability(deps, actor, detail) } };
     }),
     // Manual validation attachment of a round (#1451): the attachments linked to it. Same read right and visibility as the round
     // itself; an unknown or other-workspace round answers `ok` with `data: null`. The bytes go through

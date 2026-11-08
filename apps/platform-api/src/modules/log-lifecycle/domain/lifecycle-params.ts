@@ -22,6 +22,7 @@ export const MODEL_FILTER_SPECS = {
   id: { ops: SCALAR_OPS, multiple: true, cell: 'scalar', values: 'uuid' },
   vendorId: { ops: SCALAR_OPS, multiple: true, cell: 'scalar', values: 'uuid' },
   processes: { ops: ['in', 'notIn', 'isEmpty', 'isNotEmpty'], multiple: true, cell: 'many', values: 'uuid' },
+  validation: { ops: SCALAR_OPS, multiple: true, cell: 'scalar', values: 'enum', allowed: ['none', 'queued', 'claimed', 'pass', 'fail', 'incomplete'] },
   stage: {
     ops: ['in', 'notIn', 'isEmpty', 'isNotEmpty'],
     multiple: true,
@@ -32,16 +33,18 @@ export const MODEL_FILTER_SPECS = {
 } as const satisfies Record<string, CatalogFilterFieldSpec>;
 
 export const MODEL_SORT_IDS = ['code', 'name', 'vendorName', 'active', 'softwareCount', 'stage', 'createdAt', 'updatedAt'] as const;
-export const MODEL_PARAM_KEYS = ['q', 'page', 'pageSize', 'sorting', 'filters'] as const;
+export const MODEL_PARAM_KEYS = ['q', 'page', 'pageSize', 'sorting', 'filters', 'includeClosedProjects'] as const;
 export const PROJECT_PARAM_KEYS = ['projectId'] as const;
 export const EVENT_PARAM_KEYS = ['projectId', 'page', 'pageSize'] as const;
 export const ROUNDS_PARAM_KEYS = ['projectId'] as const;
 export const ROUND_PARAM_KEYS = ['roundId'] as const;
 export const EVIDENCE_PARAM_KEYS = ['roundId'] as const;
 
-export type ModelParse = { ok: true; value: ListQuery } | Fail;
+export type ModelParse = { ok: true; value: ListQuery & { includeClosedProjects: boolean } } | Fail;
 export function parseModelParams(params: Record<string, unknown>): ModelParse {
-  return parseListParams(params, MODEL_SORT_IDS, MODEL_FILTER_SPECS);
+  if (params.includeClosedProjects !== undefined && typeof params.includeClosedProjects !== 'boolean') return fail('includeClosedProjects must be a boolean');
+  const parsed = parseListParams(params, MODEL_SORT_IDS, MODEL_FILTER_SPECS);
+  return parsed.ok ? { ok: true, value: { ...parsed.value, includeClosedProjects: params.includeClosedProjects === true } } : parsed;
 }
 
 function parseId(key: string, params: Record<string, unknown>): { ok: true; value: string } | Fail {
