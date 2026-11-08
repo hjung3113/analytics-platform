@@ -253,8 +253,12 @@ export function CatalogDrawer({ kind, focus, rowsRef, options, onWritten, leaveR
   useEffect(() => { leaveRef.current = guard.leave; return () => { leaveRef.current = null; }; }, [leaveRef, guard.leave]);
   // The SW 버전 tab unmounts the 정보 form, so switching away from it asks like closing (#1542).
   const changeTab = (next: string) => {
-    if (tab !== 'info' || next === 'info') setTab(next);
-    else guard.leave({ run: () => setTab(next), title: '작성 중인 내용이 사라집니다. 탭을 바꿀까요?', message: '탭을 바꾸면 입력한 내용을 되찾을 수 없습니다.', confirmLabel: '바꾸기' });
+    if (tab !== 'info' || next === 'info') { setTab(next); return; }
+    // Tabs activate on focus, and the question returns focus to whatever held it when it opened: hand focus back to the selected 정보 tab
+    // first, or 계속 작성 would refocus SW 버전 and ask again.
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && focused.getAttribute('role') === 'tab') focused.closest('[role="tablist"]')?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
+    guard.leave({ run: () => setTab(next), title: '작성 중인 내용이 사라집니다. 탭을 바꿀까요?', message: '탭을 바꾸면 입력한 내용을 되찾을 수 없습니다.', confirmLabel: '바꾸기' });
   };
   const row = lookup.state === 'ready' ? lookup.row : null;
   const body = lookup.state === 'loading' ? <p className="text-sm text-text-muted">불러오는 중…</p>

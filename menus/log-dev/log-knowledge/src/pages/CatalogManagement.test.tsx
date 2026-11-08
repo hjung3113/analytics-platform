@@ -369,6 +369,19 @@ describe('unsaved drawer input (#1519, ADR-0115)', () => {
     expect(writes).toHaveLength(0);
   });
 
+  it('a keyboard move onto SW 버전 asks once; 계속 작성 returns focus to 정보 without asking again', async () => {
+    mount(`&tab=model${activeOnly()}&focus=${modelRow.id}`);
+    fireEvent.change(await screen.findByLabelText(/^이름/, {}, slow), { target: { value: 'Alpha 100 renamed' } });
+    act(() => drawerTab('SW 버전').focus());
+    await screen.findByText(lost);
+    fireEvent.click(screen.getByRole('button', { name: '계속 작성' }));
+    await waitFor(() => expect(document.activeElement).toBe(drawerTab('정보')));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(screen.queryByText(lost)).toBeNull();
+    expect(drawerTab('정보').getAttribute('aria-selected')).toBe('true');
+    expect((screen.getByLabelText(/^이름/) as HTMLInputElement).value).toBe('Alpha 100 renamed');
+  });
+
   it('asks before 가져오기 drops typed input; 계속 작성 keeps the drawer and 가져오기로 이동 opens the wizard', async () => {
     mount(`&tab=vendor${activeOnly()}&focus=new`);
     fireEvent.change(await screen.findByLabelText(/^코드/, {}, slow), { target: { value: 'NEWCO' } });
