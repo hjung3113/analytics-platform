@@ -115,7 +115,7 @@ describe.skipIf(!runIntegration)('log explorer contract chain (#1476 k)', () => 
       headers: { 'content-type': 'application/json', ...cookieHeader(analyst.cookie), 'x-csrf-token': analyst.csrf },
       payload: JSON.stringify({ name: `${TAG}-${name}`, scopes }),
     });
-    expect(res.statusCode, res.body).toBe(201);
+    expect(res.statusCode).toBe(201); // no body in the message: a 201 body carries the raw token
     return { value: res.json<{ token: string }>().token, id: res.json<{ item: { id: string } }>().item.id };
   };
   const auditRows = async (event: string): Promise<Row[]> =>
@@ -182,7 +182,8 @@ describe.skipIf(!runIntegration)('log explorer contract chain (#1476 k)', () => 
     } finally {
       client.release();
     }
-    await sql(`delete from core.rate_limits where route_group in ('explorer_usage','explorer_export_lease') and key like $1`, [`${WORKSPACE_ID}:%`]).catch(() => undefined);
+    // Only this chain's counters and leases: their keys carry the Actor or token id, so other suites' quota fixtures are untouched.
+    await sql(`delete from core.rate_limits where route_group in ('explorer_usage','explorer_export_lease') and key like any($1)`, [[...actorIds, readToken.id, exportToken.id].filter(Boolean).map((id) => `%${id}%`)]);
     for (const [table, column] of [
       ['core.idempotency_keys', 'actor_id'],
       ['core.audit_log', 'actor_id'],
@@ -225,8 +226,9 @@ describe.skipIf(!runIntegration)('log explorer contract chain (#1476 k)', () => 
     const window = await query('logExplorer.window', { sourceOwner: SET.sourceOwner, fileRef: FILE_A, line: 3, before: 1, after: 1 });
     expect(window.data.state).toBe('ok');
     expect(rowsOf(window).map((r) => r.line)).toEqual([2, 3, 4]);
-    seenText = [...rowsOf(records), ...rowsOf(window)].map((r) => r.text).filter((t) => t.length >= 8);
-    expect(seenText.length).toBeGreaterThan(0);
+    // Needles: every line of the synthetic fixture (the exports below read 20 rows, more than these two reads return) plus what these reads returned.
+    seenText = [...new Set([...rowsOf(records), ...rowsOf(window)].map((r) => r.text).concat(syntheticFixture('typical').files.flatMap((f) => f.lines.map((l) => l.text))))].filter((t) => t.length >= 8);
+    expect(seenText.length).toBeGreaterThan(20);
     const reads = await auditRows('explorer.source.read');
     expect(reads.length).toBeGreaterThanOrEqual(2);
     expect(reads.every((r) => (r.detail as Row).result === 'ok')).toBe(true);
@@ -269,6 +271,10 @@ describe.skipIf(!runIntegration)('log explorer contract chain (#1476 k)', () => 
     expect(revisions).toHaveLength(1);
     expect(revisions[0]).toMatchObject({ author_actor_id: analyst.id, author_auth: 'session' });
     expect(((await sql('select count(*)::int as n from knowledge.draft_review where draft_id = $1', [toDraft.data.targetId])).rows[0] as { n: number }).n).toBe(0);
+    // The receiver stored the handed pointer itself (location + hash), not only a count.
+    const proposal = (await sql('select proposal_json from knowledge.draft_revision where draft_id = $1', [toDraft.data.targetId])).rows[0].proposal_json as { evidence: Row[] };
+    expect(proposal.evidence).toHaveLength(1);
+    expect(proposal.evidence[0]).toMatchObject({ sourceKind: 'log_file', sourceRef: FILE_A, locator: 'line:3', contentHash: SHA_A });
     const handoffAudit = await auditRows('explorer.evidence_handed_off');
     expect(handoffAudit.map((r) => (r.detail as Row).targetKind)).toEqual(expect.arrayContaining(['round', 'knowledgeDraft']));
 
@@ -291,6 +297,7 @@ describe.skipIf(!runIntegration)('log explorer contract chain (#1476 k)', () => 
     const aclRecords = await query('logExplorer.records', { sampleSet: SET, query: {}, limit: 5 });
     expect(aclRecords.data).toMatchObject({ state: 'permission_denied' });
     expect(rowsOf(aclRecords)).toEqual([]);
+    expect((await query('logExplorer.window', { sourceOwner: SET.sourceOwner, fileRef: FILE_A, line: 3, before: 0, after: 0 })).data).toMatchObject({ state: 'permission_denied' });
     expect((await query('logExplorer.records', { sampleSet: SET, query: {}, limit: 5 }, bearer(readToken.value))).data).toMatchObject({ state: 'permission_denied' });
     expect((await exportCall(bearer(exportToken.value))).statusCode).toBe(403);
     const aclHandoff = await act('evidenceHandoff', { id: investigationId, refs: [REF(5)], target: { kind: 'round', roundId } }, { expectedVersion: version });
@@ -319,11 +326,19 @@ describe.skipIf(!runIntegration)('log explorer contract chain (#1476 k)', () => 
       { code: 'no_access', reason: 'capability_lost' },
     ]);
     const writeAfter = await act('evidenceAdd', { id: investigationId, ref: REF(7) }, { expectedVersion: version });
-    expect(writeAfter.outcome).not.toBe('ok');
-    // The handoff has its own capability (api/log-explorer.md: `explorer.handoff` held AND the receiver's right): revoking it closes the handoff.
+    expect(writeAfter.outcome).toBe('forbidden');
+    // The handoff has its own capability (api/log-explorer.md: `explorer.handoff` held AND the receiver's right): revoking `explorer.investigate`
+    // did not close it (a fresh key finds the pointers already attached) ...
+    const stillOpen = await query('logExplorer.investigationDetail', { investigationId });
+    expect(stillOpen.data.handoff).toEqual({ round: true, knowledgeDraft: true });
+    const attachedAgain = await act('evidenceHandoff', { id: investigationId, refs: [REF(3)], target: { kind: 'round', roundId } }, { expectedVersion: version });
+    expect(attachedAgain.outcome, JSON.stringify(attachedAgain)).toBe('ok');
+    expect(attachedAgain.data).toMatchObject({ handedOff: 0, alreadyAttached: 1 });
+    // ... revoking `explorer.handoff` does, and the refusal is the permission one, not any failure.
     await revokeCapabilityGrant(dbHandle, grants.get('explorer.handoff') as string, adminId);
     const handoffAfter = await act('evidenceHandoff', { id: investigationId, refs: [REF(3)], target: { kind: 'round', roundId } }, { expectedVersion: version });
-    expect(handoffAfter.outcome).not.toBe('ok');
+    expect(handoffAfter.outcome).toBe('forbidden');
+    expect(handoffAfter.data).toBeNull();
     expect((await query('logExplorer.investigationDetail', { investigationId })).data.handoff).toEqual({ round: false, knowledgeDraft: false });
     expect((await roundDetail()).evidenceRefs).toHaveLength(2); // what the Round already holds is the receiver's data, unchanged
 
