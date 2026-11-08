@@ -91,6 +91,9 @@
 
 8. **상세 패널 크게 보기 [#1459](https://github.com/hjung3113/analytics-platform/issues/1459), v0.30.0·sdk-v0.32.0.** 소유자 A안 컨펌, [ADR-0126](../docs/adr/0126-detail-panel-content-region-expansion.md). SDK 상세·VOC 공용 펼침, 입력·포커스·Escape 가드·예약 `expand=1`과 보드 메모리 예외 구현·병합. 호스트 전체 게이트·SDK API snapshot·E2E·1440×900 실제 앱 캡처·일관성/UX 리뷰는 릴리스 점검에서 확인한다(병합은 출하 검증 완료가 아님).
 
+9. **상세 패널 폭별 배치 [#1530](https://github.com/hjung3113/analytics-platform/issues/1530), v0.31.0·sdk.** 소유자 A안 컨펌, [ADR-0126 개정](../docs/adr/0126-detail-panel-content-region-expansion.md#개정--폭별-배치). `DetailDrawer.regions`와 VOC 처리함 적용 구현 중. 미완료: 호스트 SDK API snapshot·전체 게이트·1440/1280 실제 앱 캡처·E2E 실행. mock 조립은 기능 API가 없어 VOC 상세를 마운트하지 않으므로 real-suite의 폭별 검사(`features.admin.real.spec.ts`)를 추가했으며 기능 API를 제공하는 검증 호스트에서 실행한다. 스크롤은 필수 DOM 순서를 유지하는 중첩 sticky 방식이며, literal sibling scrollport와의 차이는 출하 전 검토한다.
+
+
 작업 규칙은 루트 `AGENTS.md`, 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 작업자 배정은 전역 `routing.tsv`가 원본이다.
 
 ## 결정 대기 — 사람이 고를 것

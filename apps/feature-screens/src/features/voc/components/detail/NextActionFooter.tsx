@@ -8,6 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  cn,
 } from '@ap/ui';
 import { Ellipsis } from 'lucide-react';
 import * as React from 'react';
@@ -32,6 +33,8 @@ function isNextAction(v: unknown): v is NextAction {
 
 export interface NextActionFooterProps {
   voc: VocDetailEnvelope;
+  /** The host supplies the footer surface, border, padding and sticky positioning. */
+  embedded?: boolean;
   primaryAction?: {
     label: string;
     onClick: () => void;
@@ -52,6 +55,7 @@ export interface NextActionFooterProps {
 
 export function NextActionFooter({
   voc,
+  embedded = false,
   primaryAction,
   secondaryAction,
   overflowActions,
@@ -73,7 +77,12 @@ export function NextActionFooter({
   }
 
   return (
-    <div className="sticky bottom-0 bg-surface-canvas border-t border-border-subtle px-4 py-3 flex items-center gap-3">
+    <div
+      className={cn(
+        !embedded && 'sticky bottom-0 bg-surface-canvas border-t border-border-subtle px-4 py-3',
+        'flex items-center gap-3',
+      )}
+    >
       {backendPrimaryAction !== undefined && (
         <span className="text-sm text-text-muted">{backendPrimaryAction.label}</span>
       )}
