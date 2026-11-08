@@ -235,7 +235,7 @@ up() {
     [[ -n "$migrate_role" ]] || fail 'neither platform_migrate nor fops_migrate exists; the container was not initialised by init.sql' 1
     PGPASSWORD=postgres psql -X "$ADMIN_URL" -v ON_ERROR_STOP=1 -c "CREATE DATABASE platform OWNER $migrate_role" || fail 'could not create template database platform' 1
     PGPASSWORD=postgres psql -X -h "$DB_HOST" -p "$DB_PORT" -U postgres -d platform -v ON_ERROR_STOP=1 \
-      -c 'CREATE EXTENSION IF NOT EXISTS vector' -c "GRANT CONNECT ON DATABASE platform TO ${migrate_role/migrate/app}, $migrate_role" || fail 'could not initialize template database extensions and grants' 1
+      -c 'CREATE EXTENSION IF NOT EXISTS vector' -c 'CREATE EXTENSION IF NOT EXISTS pg_trgm' -c "GRANT CONNECT ON DATABASE platform TO ${migrate_role/migrate/app}, $migrate_role" || fail 'could not initialize template database extensions and grants' 1
     owner=$migrate_role
   fi
   [[ "$owner" == platform_migrate || "$owner" == fops_migrate ]] || fail "template platform is owned by $owner, expected the migrate role" 1
