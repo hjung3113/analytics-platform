@@ -9,7 +9,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { loadConfig } from '../../../config.js';
-import { type DbHandle, createDb } from '../../../db/client.js';
+import { type DbHandle, createDb, dbOnClient } from '../../../db/client.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
@@ -89,6 +89,16 @@ describe.skipIf(!runIntegration)('log knowledge search index (#1506 S-c)', () =>
     });
     expect(res.statusCode).toBe(200);
     return res.json<{ outcome: string; data: any }>(); // eslint-disable-line @typescript-eslint/no-explicit-any -- wire JSON read by path
+  }
+
+  async function waitForBlocker(waitingPid: number | undefined, blockerPid: number | undefined) {
+    const deadline = Date.now() + 5000;
+    for (;;) {
+      const waiting = await dbHandle.pool.query<{ waiting: boolean }>('select $1::int = any(pg_blocking_pids($2::int)) as waiting', [blockerPid, waitingPid]);
+      if (waiting.rows[0]?.waiting) return;
+      if (Date.now() >= deadline) throw new Error('expected transaction did not reach its lock wait');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
   }
 
   beforeAll(async () => {
@@ -190,6 +200,33 @@ describe.skipIf(!runIntegration)('log knowledge search index (#1506 S-c)', () =>
     expect(await docsOf(item)).toMatchObject([{ revision_no: 7, source_row_version: 99, search_text: 'newer text' }]);
   });
 
+  it('keeps a coalesced notification pending while its source writer is uncommitted', async () => {
+    const item = await newItem(ws, actorId, modelId, `${TAG} coalesced archive`);
+    await dbHandle.db.transaction((tx) => enqueueItems(tx, ws, [item], 'published'));
+    await drainAll();
+    expect(await docsOf(item)).toHaveLength(1);
+    await dbHandle.db.transaction((tx) => enqueueItems(tx, ws, [item], 'reindex'));
+    const writer = await dbHandle.pool.connect();
+    const drainer = await dbHandle.pool.connect();
+    try {
+      await writer.query('begin');
+      const itemRow = { id: item, itemNo: 0, latestRevisionNo: 1, publicationState: 'published', verificationState: 'not_checked', processingState: 'open', rowVersion: 1 };
+      await setPublicationState(dbOnClient(writer), ws, actorId, itemRow, 'archived');
+      // A different connection claims while the archive transaction remains open.
+      // DO NOTHING would allow it to consume the sole notification against the old source.
+      expect((await drainBatch(dbOnClient(drainer), { workspaceId: ws })).claimed).toBe(0);
+      await writer.query('commit');
+      expect((await outboxOf(item)).map((r) => r.state)).toEqual(['done', 'pending']);
+      await drainAll();
+      expect(await docsOf(item)).toEqual([]);
+      expect((await outboxOf(item)).every((r) => r.state === 'done')).toBe(true);
+    } finally {
+      await writer.query('rollback');
+      writer.release();
+      drainer.release();
+    }
+  });
+
   it('deletes the document when the Item is no longer published', async () => {
     const item = await newItem(ws, actorId, modelId, `${TAG} to archive`);
     await dbHandle.db.transaction((tx) => enqueueItems(tx, ws, [item], 'published'));
@@ -228,6 +265,56 @@ describe.skipIf(!runIntegration)('log knowledge search index (#1506 S-c)', () =>
     const result = await drainLoop(dbHandle.db, { maxMs: 5000, pollMs: 2000, now: () => clock, sleep: async (ms) => void (clock += ms) });
     expect(result.done).toBeGreaterThanOrEqual(1);
     expect(clock).toBeGreaterThan(0);
+  });
+
+  it('requeue leaves a newly dead notification open when it was not selected for re-enqueue', async () => {
+    const first = await newItem(ws, actorId, modelId, `${TAG} selected dead`);
+    const later = await newItem(ws, actorId, modelId, `${TAG} newly dead`);
+    await dbHandle.db.transaction((tx) => enqueueItems(tx, ws, [first], 'published'));
+    await sql(`update knowledge.search_outbox set state = 'dead', attempt_count = 8 where item_id = $1`, [first]);
+    await dbHandle.db.transaction((tx) => enqueueItems(tx, ws, [first, later], 'published'));
+    await sql(`update knowledge.search_outbox set attempt_count = 7 where item_id = $1`, [later]);
+    const blocker = await dbHandle.pool.connect();
+    const requeuer = await dbHandle.pool.connect();
+    let requeue: Promise<number> | undefined;
+    try {
+      await blocker.query('begin');
+      await blocker.query(`select outbox_id from knowledge.search_outbox where item_id = $1 and state = 'pending' for update`, [first]);
+      const blockerPid = (await blocker.query<{ pid: number }>('select pg_backend_pid() as pid')).rows[0]?.pid;
+      const requeuePid = (await requeuer.query<{ pid: number }>('select pg_backend_pid() as pid')).rows[0]?.pid;
+      requeue = dbOnClient(requeuer).transaction((tx) => requeueDead(tx, ws));
+      // Enqueue of the selected Item waits on its already-pending row. Only now
+      // let the other drain commit a new dead row, between selection and closure.
+      await waitForBlocker(requeuePid, blockerPid);
+      expect((await drainBatch(dbHandle.db, { workspaceId: ws, apply: async () => { throw new Error('eighth failure'); } })).dead).toBe(1);
+      await blocker.query('commit');
+      expect(await requeue).toBe(1);
+      expect((await outboxOf(first)).map((r) => r.state)).toEqual(['done', 'pending']);
+      expect(await outboxOf(later)).toMatchObject([{ state: 'dead', attempt_count: 8 }]);
+      expect(await dbHandle.db.transaction((tx) => requeueDead(tx, ws))).toBe(1);
+      await drainAll();
+      expect(await docsOf(later)).toHaveLength(1);
+    } finally {
+      await blocker.query('rollback');
+      await requeue?.catch(() => undefined);
+      blocker.release();
+      requeuer.release();
+    }
+  });
+
+  it('drainLoop yields at its deadline even when every processed batch is full', async () => {
+    const items: string[] = [];
+    for (let i = 0; i < 4; i++) items.push(await newItem(ws, actorId, modelId, `${TAG} full batch ${i}`));
+    await dbHandle.db.transaction((tx) => enqueueItems(tx, ws, items, 'published'));
+    let clock = 0;
+    const result = await drainLoop(dbHandle.db, {
+      batchSize: 1,
+      maxMs: 2,
+      now: () => clock++,
+      sleep: async () => { throw new Error('a full batch should not poll'); },
+    });
+    expect(result.claimed).toBe(2);
+    expect((await rows(`select item_id from knowledge.search_outbox where workspace_id = $1 and state = 'pending'`, [ws])).length).toBeGreaterThan(0);
   });
 
   it('backfills in keyset batches, resumes after an interruption, and completes at once on an empty workspace', async () => {
@@ -273,6 +360,36 @@ describe.skipIf(!runIntegration)('log knowledge search index (#1506 S-c)', () =>
     await purgeRetiredGenerations(dbHandle.db, ws);
     expect((await docsOf(item)).map((d) => d.index_generation)).toEqual([2]);
     expect(await dbHandle.db.transaction((tx) => readPointer(tx, ws))).toMatchObject({ activeGeneration: 2, previousGeneration: null });
+  });
+
+  it.each([false, true])('restarts an abandoned generation after rollback and archive (abandoned documents purged: %s)', async (purge) => {
+    const item = await newItem(ws, actorId, modelId, `${TAG} abandoned build`);
+    await backfillWorkspace(dbHandle.db, ws);
+    await drainAll();
+    expect((await startReindex(dbHandle.db, ws)).ok).toBe(true);
+    await backfillWorkspace(dbHandle.db, ws);
+    await drainAll();
+    expect(await switchGeneration(dbHandle.db, ws)).toMatchObject({ ok: true, pointer: { activeGeneration: 2 } });
+    expect(await startReindex(dbHandle.db, ws)).toMatchObject({ ok: true, pointer: { buildingGeneration: 3 } });
+    await backfillWorkspace(dbHandle.db, ws);
+    await drainAll();
+    expect((await docsOf(item)).map((d) => d.index_generation)).toEqual([1, 2, 3]);
+    expect(await rollbackGeneration(dbHandle.db, ws)).toMatchObject({ ok: true, pointer: { activeGeneration: 1, previousGeneration: 2, buildingGeneration: null } });
+    await sql(`update knowledge.knowledge_item set publication_state = 'archived', row_version = row_version + 1 where id = $1`, [item]);
+    await dbHandle.db.transaction((tx) => enqueueItems(tx, ws, [item], 'archived'));
+    await drainAll();
+    expect((await docsOf(item)).map((d) => d.index_generation)).toEqual([3]);
+    if (purge) {
+      await purgeRetiredGenerations(dbHandle.db, ws);
+      expect(await docsOf(item)).toEqual([]);
+    }
+    // The allocation watermark must survive rollback and document retention alike.
+    expect(await startReindex(dbHandle.db, ws)).toMatchObject({ ok: true, pointer: { buildingGeneration: 4 } });
+    await backfillWorkspace(dbHandle.db, ws);
+    await drainAll();
+    const switched = await switchGeneration(dbHandle.db, ws);
+    expect(switched.ok).toBe(true);
+    expect((await docsOf(item)).map((d) => d.index_generation)).not.toContain(switched.ok ? switched.pointer.activeGeneration : -1);
   });
 
   it('holds no ACL, excerpt or 지식 근거 column', async () => {

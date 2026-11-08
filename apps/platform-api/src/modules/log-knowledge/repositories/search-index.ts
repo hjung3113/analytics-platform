@@ -218,13 +218,15 @@ export async function pruneDone(db: Db, limit = 1000): Promise<number> {
 
 /** Dead rows -> a fresh `pending` row per Item (merged with an existing pending one), the dead rows are closed as `done`. Returns the Items requeued. */
 export async function requeueDead(tx: Tx, workspaceId: string): Promise<number> {
-  const dead = rowsOf<{ item_id: string }>(
-    await tx.execute(sql`SELECT DISTINCT item_id FROM knowledge.search_outbox WHERE workspace_id = ${workspaceId} AND state = 'dead'`),
+  const dead = rowsOf<{ outbox_id: string; item_id: string }>(
+    await tx.execute(sql`SELECT outbox_id, item_id FROM knowledge.search_outbox WHERE workspace_id = ${workspaceId} AND state = 'dead' ORDER BY outbox_id FOR UPDATE`),
   );
   if (dead.length === 0) return 0;
-  await enqueueItems(tx, workspaceId, dead.map((d) => d.item_id), 'reindex');
-  await tx.execute(sql`UPDATE knowledge.search_outbox SET state = 'done', updated_at = now() WHERE workspace_id = ${workspaceId} AND state = 'dead'`);
-  return dead.length;
+  const itemIds = [...new Set(dead.map((d) => d.item_id))];
+  await enqueueItems(tx, workspaceId, itemIds, 'reindex');
+  // A drain may have committed another dead row since the SELECT. Close only our locked selection.
+  await tx.execute(sql`UPDATE knowledge.search_outbox SET state = 'done', updated_at = now() WHERE workspace_id = ${workspaceId} AND outbox_id = ANY(${sql.param(dead.map((d) => d.outbox_id))}::bigint[])`);
+  return itemIds.length;
 }
 
 // ---- Backfill ---------------------------------------------------------------------------------------------------------
@@ -292,12 +294,18 @@ export async function workspaceIds(db: Db): Promise<string[]> {
 
 export type GenerationOutcome = { ok: true; pointer: Pointer } | { ok: false; reason: 'already_building' | 'not_building' | 'not_ready' | 'nothing_to_roll_back' };
 
-/** Starts building generation `n + 1` next to the active one and restarts the backfill for it. The consumer then writes both generations. */
+/** Starts a fresh generation after the last allocated one and restarts its backfill. The consumer then writes it alongside the kept generations. */
 export async function startReindex(db: Db, workspaceId: string): Promise<GenerationOutcome> {
   return db.transaction(async (tx) => {
     const pointer = await readPointer(tx, workspaceId, true);
     if (pointer.buildingGeneration !== null) return { ok: false as const, reason: 'already_building' as const };
-    const next = Math.max(pointer.activeGeneration, pointer.previousGeneration ?? 0) + 1;
+    // Progress survives rollback and retention, so its generation is also the allocation
+    // watermark. The pointer lock serialises allocators; the progress upsert below commits
+    // the new watermark atomically. Old consumers can only write abandoned numbers.
+    const [progress] = rowsOf<{ generation: number }>(
+      await tx.execute(sql`SELECT generation FROM knowledge.search_backfill_progress WHERE workspace_id = ${workspaceId}`),
+    );
+    const next = Math.max(pointer.activeGeneration, pointer.previousGeneration ?? 0, progress?.generation ?? 0) + 1;
     await tx.execute(sql`UPDATE knowledge.search_index_pointer SET building_generation = ${next}, updated_at = now() WHERE workspace_id = ${workspaceId}`);
     const total = await publishedCount(tx, workspaceId);
     await tx.execute(sql`

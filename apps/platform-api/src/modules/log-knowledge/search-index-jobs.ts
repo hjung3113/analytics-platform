@@ -36,6 +36,7 @@ export async function drainLoop(db: Db, options: DrainLoopOptions = {}): Promise
     total.done += batch.done;
     total.failed += batch.failed;
     total.dead += batch.dead;
+    if (now() >= deadline) break;
     if (batch.claimed >= (options.batchSize ?? DRAIN_BATCH)) continue; // a full batch: more is probably due
     if (now() + (options.pollMs ?? 2000) >= deadline) break;
     await sleep(options.pollMs ?? 2000);

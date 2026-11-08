@@ -1,7 +1,7 @@
 // Outbox writers of the search index (#1506 S-c, design log-knowledge-search §3.3). Called from the single write functions of
 // the source change (`item-write.ts`, `access-write.ts`, `concept.ts`, `catalog-write.ts`), so the notification commits or rolls
 // back with the change itself. A notification carries NO payload: «rebuild Item X». At most one `pending` row exists per Item
-// (partial unique), a second request merges into it. The consumer (`search-drain.ts`) reads the source's current values.
+// (partial unique), a second request merges into it. The consumer (`search-index.ts`) reads the source's current values.
 // A change to a Model / SW version / vendor / process / concept reaches its Items in keyset batches inside the same transaction.
 
 import { type SQL, sql } from 'drizzle-orm';
@@ -22,13 +22,16 @@ export const rowsOf = <T>(result: unknown): T[] => (result as { rows: T[] }).row
 
 const uuidArray = (ids: readonly string[]) => sql`ARRAY[${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}]::uuid[]`;
 
-/** Notifies these Items (any state). Duplicates, and an Item that already has a `pending` row, merge into one row. */
+/** Notifies these Items (any state). Coalescing UPDATE locks the pending row through the source commit:
+ * a drain skips it until then, or, if the drain claimed first, this INSERT waits and creates a fresh pending row after it finishes.
+ * `available_at` is the request marker; no source payload or additional column is needed. */
 export async function enqueueItems(tx: Tx, workspaceId: string, itemIds: readonly string[], reason: OutboxReason): Promise<void> {
   for (const batch of chunk([...new Set(itemIds)], ENQUEUE_BATCH)) {
     await tx.execute(sql`
       INSERT INTO knowledge.search_outbox (workspace_id, item_id, reason)
       SELECT ${workspaceId}::uuid, i, ${reason} FROM unnest(${uuidArray(batch)}) AS i
-      ON CONFLICT (workspace_id, item_id) WHERE state = 'pending' DO NOTHING`);
+      ON CONFLICT (workspace_id, item_id) WHERE state = 'pending'
+      DO UPDATE SET available_at = EXCLUDED.available_at, updated_at = now()`);
   }
 }
 
