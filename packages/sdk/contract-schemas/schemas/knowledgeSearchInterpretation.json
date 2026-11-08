@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "original": {
+      "type": "string"
+    },
+    "tokens": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "direction": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "origin": {
+              "type": "string",
+              "enum": [
+                "explicit",
+                "operator"
+              ]
+            },
+            "source": {
+              "type": "string"
+            },
+            "target": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "observed",
+                "expected",
+                "all"
+              ]
+            },
+            "swapped": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "origin",
+            "source",
+            "target",
+            "kind",
+            "swapped"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "original",
+    "tokens",
+    "direction"
+  ],
+  "additionalProperties": false
+}

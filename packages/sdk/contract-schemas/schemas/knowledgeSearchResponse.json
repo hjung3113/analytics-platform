@@ -1,0 +1,421 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "v0"
+    },
+    "interpretation": {
+      "type": "object",
+      "properties": {
+        "original": {
+          "type": "string"
+        },
+        "tokens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "origin": {
+                  "type": "string",
+                  "enum": [
+                    "explicit",
+                    "operator"
+                  ]
+                },
+                "source": {
+                  "type": "string"
+                },
+                "target": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "observed",
+                    "expected",
+                    "all"
+                  ]
+                },
+                "swapped": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "origin",
+                "source",
+                "target",
+                "kind",
+                "swapped"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "original",
+        "tokens",
+        "direction"
+      ],
+      "additionalProperties": false
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "itemNo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": "string"
+          },
+          "excerpt": {
+            "type": "string"
+          },
+          "typeCode": {
+            "type": "string"
+          },
+          "revisionNo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "publicationState": {
+            "type": "string"
+          },
+          "verificationState": {
+            "type": "string"
+          },
+          "processingState": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "object",
+            "properties": {
+              "modelId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "modelCode": {
+                "type": "string"
+              },
+              "modelName": {
+                "type": "string"
+              },
+              "softwareId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "softwareLabel": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "modelId",
+              "modelCode",
+              "modelName",
+              "softwareId",
+              "softwareLabel"
+            ],
+            "additionalProperties": false
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "observed_same_direction",
+                "expected_same_direction",
+                "exact_token",
+                "concept_mapping",
+                "approved_alias",
+                "text"
+              ]
+            }
+          },
+          "stage": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "expectedOnly": {
+            "type": "boolean"
+          },
+          "relatedCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "itemId",
+          "itemNo",
+          "title",
+          "excerpt",
+          "typeCode",
+          "revisionNo",
+          "publicationState",
+          "verificationState",
+          "processingState",
+          "publishedAt",
+          "owner",
+          "reasons",
+          "stage",
+          "expectedOnly",
+          "relatedCount"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "opposite": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "itemNo": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "title": {
+                "type": "string"
+              },
+              "excerpt": {
+                "type": "string"
+              },
+              "typeCode": {
+                "type": "string"
+              },
+              "revisionNo": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "publicationState": {
+                "type": "string"
+              },
+              "verificationState": {
+                "type": "string"
+              },
+              "processingState": {
+                "type": "string"
+              },
+              "publishedAt": {
+                "type": "string"
+              },
+              "owner": {
+                "type": "object",
+                "properties": {
+                  "modelId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  "modelCode": {
+                    "type": "string"
+                  },
+                  "modelName": {
+                    "type": "string"
+                  },
+                  "softwareId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "softwareLabel": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "modelId",
+                  "modelCode",
+                  "modelName",
+                  "softwareId",
+                  "softwareLabel"
+                ],
+                "additionalProperties": false
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "observed_same_direction",
+                    "expected_same_direction",
+                    "exact_token",
+                    "concept_mapping",
+                    "approved_alias",
+                    "text"
+                  ]
+                }
+              },
+              "stage": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 6
+              },
+              "expectedOnly": {
+                "type": "boolean"
+              },
+              "relatedCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "itemId",
+              "itemNo",
+              "title",
+              "excerpt",
+              "typeCode",
+              "revisionNo",
+              "publicationState",
+              "verificationState",
+              "processingState",
+              "publishedAt",
+              "owner",
+              "reasons",
+              "stage",
+              "expectedOnly",
+              "relatedCount"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "oppositeHasMore": {
+      "type": "boolean"
+    },
+    "hasMore": {
+      "type": "boolean"
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "capped": {
+      "type": "boolean"
+    },
+    "indexLag": {
+      "type": "object",
+      "properties": {
+        "lagSeconds": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "backfill": {
+          "type": "object",
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "running",
+                "done",
+                "none"
+              ]
+            },
+            "percent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "state",
+            "percent"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "lagSeconds",
+        "backfill"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "version",
+    "interpretation",
+    "items",
+    "opposite",
+    "oppositeHasMore",
+    "hasMore",
+    "nextCursor",
+    "capped",
+    "indexLag"
+  ],
+  "additionalProperties": false
+}
