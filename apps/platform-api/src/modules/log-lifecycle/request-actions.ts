@@ -126,14 +126,15 @@ export function requestActions(deps: RequestActionDeps): MenuActionDeclaration[]
     validate: (input) => validateQueueInput('requestCancel', input),
     async currentVersion(tx, actor, input) {
       const row = await lockRequest(tx, actor.workspace_id, input.id as string);
-      return row ? String(row.rowVersion) : null;
+      // A suite subject's request belongs to its suite run, not to a Round: this action does not see it (cancelling a suite run is backlog).
+      return row && row.roundId !== null ? String(row.rowVersion) : null;
     },
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
       const ws = actor.workspace_id;
       const parsed = parseQueueInput('requestCancel', input);
       if (!parsed.ok) throw new Error('action requestCancel: validate passed but parse failed');
       const row = await lockRequest(tx, ws, parsed.value.id);
-      if (!row) throw new Error('action requestCancel: currentVersion judged not_found first');
+      if (!row || row.roundId === null) throw new Error('action requestCancel: currentVersion judged not_found first');
       // Terminal states never move again; a finished request is cancelled by a new request, not by this action.
       if (row.state !== 'queued' && row.state !== 'claimed') throw invalid({ path: ['id'], code: 'illegal_transition' });
       const version = await cancelRequest(tx, ws, row.id, parsed.value.reason);

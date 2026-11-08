@@ -38,16 +38,25 @@ describe('validation queue worker REST v0', () => {
     expect(validationResultResponseSchema.safeParse({ requestId: ID, attemptNo: 1, state: 'succeeded', verdict: 'incomplete', resultDigest: H('c'), ruleCount: 3 }).success).toBe(true);
     expect(validationResultResponseSchema.safeParse({ requestId: ID, attemptNo: 1, state: 'succeeded', verdict: 'ok', resultDigest: H('c'), ruleCount: 3 }).success).toBe(false);
   });
-  it('the claim response carries the samples the worker must use', () => {
-    const claim = {
-      request: {
-        id: ID, roundId: ID, priority: 1, immediate: false, engineProfileRef: null, requestDigest: H('d'), attemptNo: 1, maxAttempts: 3,
-        sampleSet: { files: [{ fileRef: 's3://a/b.log', order: 1, sha256: H('b') }], sourceOwner: 'fab-team' },
-        sampleManifestDigest: H('e'), specPin: null,
-      },
-      attempt: { id: ID, attemptNo: 1 },
-      leaseExpiresAt: '2026-11-09T01:05:00.000Z',
-    };
-    expect(validationClaimResponseSchema.safeParse(claim).success).toBe(true);
+  const claimOf = (subject: { roundId: string | null; suiteRunItemId: string | null }) => ({
+    request: {
+      id: ID, ...subject, priority: 1, immediate: false, engineProfileRef: null, requestDigest: H('d'), attemptNo: 1, maxAttempts: 3,
+      sampleSet: { files: [{ fileRef: 's3://a/b.log', order: 1, sha256: H('b') }], sourceOwner: 'fab-team' },
+      sampleManifestDigest: H('e'), specPin: null,
+    },
+    attempt: { id: ID, attemptNo: 1 },
+    leaseExpiresAt: '2026-11-09T01:05:00.000Z',
+  });
+  it.each([
+    ['a Round request', { roundId: ID, suiteRunItemId: null }],
+    ['a suite run item request', { roundId: null, suiteRunItemId: ID }],
+  ])('the claim response carries the samples the worker must use: %s', (_label, subject) => {
+    expect(validationClaimResponseSchema.safeParse(claimOf(subject)).success).toBe(true);
+  });
+  it.each([
+    ['both subjects', { roundId: ID, suiteRunItemId: ID }],
+    ['no subject', { roundId: null, suiteRunItemId: null }],
+  ])('the claim response refuses %s', (_label, subject) => {
+    expect(validationClaimResponseSchema.safeParse(claimOf(subject)).success).toBe(false);
   });
 });

@@ -31,6 +31,7 @@ const CAPABILITIES = [
   "dataset.manage",
   "dataset.baseline.approve",
   "lifecycle.gate.decide",
+  "dataset.suite.run",
 ] as const;
 // The sensitive tier is 5/min per actor: split the grant calls over several admins.
 const ADMINS = ["admin", "admin2", "admin3", "admin4", "admin5", "admin6"] as const;
@@ -109,6 +110,9 @@ describe.skipIf(!runIntegration)(
         // The mutation tier allows 10 requests/min per actor: the second half of the list is requested by `user2`.
         const requester = CAPABILITIES.indexOf(capability) < 6 ? "user" : "user2";
         const res = await post("/permission-requests", requester, {
+        // One user files one request per capability: the list outgrew the per-minute mutation window, so each starts on a clean window.
+        await migrate.pool.query("delete from core.rate_limits");
+        const res = await post("/permission-requests", "user", {
           requested_capability: capability,
           reason: "needs it",
         });

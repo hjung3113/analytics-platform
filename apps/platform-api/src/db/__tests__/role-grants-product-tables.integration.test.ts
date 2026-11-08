@@ -207,6 +207,9 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_datasets.baseline_event': ['SELECT', 'INSERT'],
   // Migration 0113 (#1446 e): the Gate decision is append-only (SELECT, INSERT; a trigger refuses UPDATE and DELETE for every role).
   'log_lifecycle.gate_decision': ['SELECT', 'INSERT'],
+  'log_datasets.regression_suite': ['SELECT', 'INSERT'],
+  'log_datasets.suite_run': ['SELECT', 'INSERT'],
+  'log_datasets.suite_run_item': ['SELECT', 'INSERT'],
   // Migration 0101 (ADR-0116): tokens are issued and revoked, never edited or deleted. UPDATE is column-scoped to
   // the usage and revocation columns (asserted below); no table-wide UPDATE and no DELETE.
   'core.api_tokens': ['SELECT', 'INSERT'],
@@ -489,6 +492,9 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     ['dataset_revision', []],
     ['expected_baseline', ['status', 'profile_pin', 'expected_scope', 'expectations', 'parser_golden_ref', 'approved_by_actor_id', 'approved_at', 'superseded_at', 'row_version', 'updated_at']],
     ['baseline_event', []],
+    ['regression_suite', ['name', 'items', 'engine_profile_ref', 'required_pin', 'row_version', 'updated_at', 'updated_by']],
+    ['suite_run', []],
+    ['suite_run_item', []],
   ] as const)('platform_app UPDATE on log_datasets.%s is limited to the mutable columns', async (table, columns) => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name

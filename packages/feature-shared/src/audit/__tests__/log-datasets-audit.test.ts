@@ -19,6 +19,11 @@ describe('log test dataset audit detail schemas (#1477 D-a)', () => {
     ['dataset.baseline_approved', { datasetId: ID, revisionId: ID, seq: 2, expectationCount: 3, supersededSeq: 1, reasonLength: 9, selfApproved: true }],
     ['dataset.baseline_approved', { datasetId: ID, revisionId: ID, seq: 1, expectationCount: 3, supersededSeq: null, reasonLength: 9, selfApproved: false }],
     ['dataset.baseline_superseded', { datasetId: ID, revisionId: ID, seq: 1, bySeq: 2, from: 'approved' }],
+    ['lifecycle.request.created', { roundId: ID, priority: 1, immediate: false, maxAttempts: 3 }],
+    ['lifecycle.request.created', { suiteRunItemId: ID, priority: 0, immediate: false, maxAttempts: 3 }],
+    ['dataset.suite_created', { itemCount: 3, hasEngineProfile: true, hasRequiredPin: false }],
+    ['dataset.suite_updated', { changed: ['items', 'name'], itemCount: 2 }],
+    ['dataset.suite_run_requested', { suiteId: ID, itemCount: 3, stale: { fresh: 1, stale: 1, unknown: 1 }, activeRuns: 2 }],
   ] as const)('%s accepts its detail', (type, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(true);
   });
@@ -40,6 +45,13 @@ describe('log test dataset audit detail schemas (#1477 D-a)', () => {
     ['dataset.baseline_approved', 'a missing self-approval marker', { datasetId: ID, revisionId: ID, seq: 1, expectationCount: 1, supersededSeq: null, reasonLength: 3 }],
     ['dataset.baseline_approved', 'an empty reason', { datasetId: ID, revisionId: ID, seq: 1, expectationCount: 1, supersededSeq: null, reasonLength: 0, selfApproved: false }],
     ['dataset.baseline_superseded', 'an unknown prior status', { datasetId: ID, revisionId: ID, seq: 1, bySeq: 2, from: 'final' }],
+    ['dataset.suite_created', 'the item list', { itemCount: 1, hasEngineProfile: false, hasRequiredPin: false, items: [] }],
+    ['dataset.suite_created', 'no item', { itemCount: 0, hasEngineProfile: false, hasRequiredPin: false }],
+    ['dataset.suite_updated', 'no changed field', { changed: [], itemCount: 1 }],
+    ['dataset.suite_run_requested', 'the idempotency key', { suiteId: ID, itemCount: 1, stale: { fresh: 1, stale: 0, unknown: 0 }, activeRuns: 0, idempotencyKey: 'k' }],
+    ['dataset.suite_run_requested', 'a stale state without counts', { suiteId: ID, itemCount: 1, stale: { fresh: 1 }, activeRuns: 0 }],
+    ['lifecycle.request.created', 'both subjects', { roundId: ID, suiteRunItemId: ID, priority: 0, immediate: false, maxAttempts: 3 }],
+    ['lifecycle.request.created', 'no subject', { priority: 0, immediate: false, maxAttempts: 3 }],
   ] as const)('%s rejects %s', (type, _label, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(false);
   });

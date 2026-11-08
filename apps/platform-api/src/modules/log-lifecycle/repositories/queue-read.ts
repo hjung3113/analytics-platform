@@ -1,4 +1,6 @@
-// Read side of the validation request queue (#1445 d). Every read filters by the session workspace; an unknown or foreign
+// Read side of the validation request queue (#1445 d). These reads are the ROUND requests': every list and detail joins the round, so a
+// request whose subject is a suite run item (#1479, no round) is never listed or opened here; its run is read through log-datasets.
+// Every read filters by the session workspace; an unknown or foreign
 // id answers null (the dispatch has no `not_found` outcome). List responses expose `hasExcerpt` only: the excerpt body is
 // read by `readExcerpt` alone, which the endpoint gates on the source owner's right and audits per read.
 
@@ -93,7 +95,7 @@ export async function listRequests(
     immediateTotal: Number(totals?.imm ?? 0),
     rows: rows.map((r) => ({
       id: r.request.id,
-      roundId: r.request.roundId,
+      roundId: r.request.roundId as string, // the inner join on the round: a suite subject has none and never appears here
       projectId: r.projectId,
       modelId: r.modelId,
       priority: r.request.priority,
@@ -146,7 +148,7 @@ export async function getRequestDetail(tx: Tx, workspaceId: string, requestId: s
   const [roundRow] = await tx
     .select()
     .from(validationRounds)
-    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.id, list.request.roundId)));
+    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.id, list.request.roundId as string)));
   if (!roundRow) return null;
   const attempts = await tx
     .select()
@@ -203,7 +205,7 @@ async function listRequestsById(tx: Tx, workspaceId: string, requestId: string) 
   const r = found.request;
   const row: RequestRowOut = {
     id: r.id,
-    roundId: r.roundId,
+    roundId: r.roundId as string, // the inner join on the round guarantees it
     projectId: found.projectId,
     modelId: found.modelId,
     priority: r.priority,

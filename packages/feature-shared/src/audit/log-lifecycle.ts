@@ -83,12 +83,15 @@ const ATTEMPT_NO = z.number().int().min(1);
 
 export const lifecycleRequestCreatedDetailSchema = z
   .object({
-    roundId: z.string().uuid(),
+    /** The request subject (ADR-0117 amendment, #1479): a Round request names `roundId`, a suite run item request `suiteRunItemId`; exactly one. */
+    roundId: z.string().uuid().optional(),
+    suiteRunItemId: z.string().uuid().optional(),
     priority: z.number().int().min(0).max(2),
     immediate: z.boolean(),
     maxAttempts: z.number().int().min(1).max(10),
   })
-  .strict();
+  .strict()
+  .refine((d) => (d.roundId === undefined) !== (d.suiteRunItemId === undefined), { message: 'exactly one of roundId and suiteRunItemId' });
 export const lifecycleRequestCancelledDetailSchema = z
   .object({ roundId: z.string().uuid(), from: z.enum(['queued', 'claimed']) })
   .strict();
