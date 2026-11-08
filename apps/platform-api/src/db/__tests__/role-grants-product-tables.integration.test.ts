@@ -210,6 +210,7 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_datasets.regression_suite': ['SELECT', 'INSERT'],
   'log_datasets.suite_run': ['SELECT', 'INSERT'],
   'log_datasets.suite_run_item': ['SELECT', 'INSERT'],
+  'log_datasets.suite_review_label': ['SELECT', 'INSERT'],
   // Migration 0101 (ADR-0116): tokens are issued and revoked, never edited or deleted. UPDATE is column-scoped to
   // the usage and revocation columns (asserted below); no table-wide UPDATE and no DELETE.
   'core.api_tokens': ['SELECT', 'INSERT'],
@@ -495,6 +496,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     ['regression_suite', ['name', 'items', 'engine_profile_ref', 'required_pin', 'row_version', 'updated_at', 'updated_by']],
     ['suite_run', []],
     ['suite_run_item', []],
+    ['suite_review_label', []],
   ] as const)('platform_app UPDATE on log_datasets.%s is limited to the mutable columns', async (table, columns) => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name
