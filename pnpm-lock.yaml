@@ -728,6 +728,18 @@ importers:
 
   menus/log-dev/log-models:
     dependencies:
+      '@ap/components':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/components
+      '@ap/ui':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/ui
+      '@ap/feature-screens':
+        specifier: workspace:*
+        version: link:../../../apps/feature-screens
+      '@ap/mock-server':
+        specifier: workspace:*
+        version: link:../../../packages/adapters/mock-server
       '@ap/contracts':
         specifier: workspace:*
         version: link:../../../packages/sdk/contracts
@@ -738,6 +750,9 @@ importers:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
     devDependencies:
+      '@types/node':
+        specifier: ^26.6.3
+        version: 26.6.3
       '@ap/eslint-config':
         specifier: workspace:*
         version: link:../../../tooling/eslint
@@ -762,6 +777,9 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(yaml@2.9.1)
 
   menus/log-dev/log-my-work:
     dependencies:

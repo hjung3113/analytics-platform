@@ -1,4 +1,5 @@
 import {
+  formatCompactDateTime,
   formatDate,
   formatDateOnly,
   formatDateTime,
@@ -91,5 +92,13 @@ describe('formatDateOnly', () => {
     { input: 'invalid', expected: '—' },
   ])('formats $input as $expected', ({ input, expected }) => {
     expect(formatDateOnly(input)).toBe(expected);
+  });
+});
+
+
+describe('formatCompactDateTime', () => {
+  it('keeps a dense 24-hour KST display even when the browser zone is UTC', () => {
+    expect(formatCompactDateTime('2026-11-06T16:30:00.000Z')).toMatch(/11.*07.*01:30/);
+    expect(formatCompactDateTime('invalid')).toBe('—');
   });
 });

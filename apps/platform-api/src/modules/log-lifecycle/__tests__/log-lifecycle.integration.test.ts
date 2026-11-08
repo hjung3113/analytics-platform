@@ -145,6 +145,18 @@ describe.skipIf(!runIntegration)('log lifecycle (#1444 c)', () => {
     expect(a.outcome, JSON.stringify(a)).toBe('ok');
     return { id: a.data.projectId as string, modelId, version: a.data.version as string };
   }
+  it('models expose server validation, Gate and pending-request summaries (#1447)', async () => {
+    const project = await makeProject();
+    const rows = await read('models', { filters: [{ id: 'id', op: 'in', value: [project.modelId] }] });
+    expect(rows.data.rows[0]).toMatchObject({ validation: 'none', pendingRequests: 0, gateDecision: null });
+  });
+  it('screen opt-in shows the latest closed project without changing the default open-project list (#1447)', async () => {
+    const p = await makeProject();
+    await setStage(p.id, p.version, 'cancelled', 'stop');
+    const params = { filters: [{ id: 'id', op: 'in', value: [p.modelId] }] };
+    expect((await read('models', params)).data.rows[0].project).toBeNull();
+    expect((await read('models', { ...params, includeClosedProjects: true })).data.rows[0].project).toMatchObject({ projectId: p.id, stage: 'cancelled' });
+  });
   async function setStage(id: string, version: string, toStage: string, reason?: string) {
     const a = await act('projectSetStage', { id, toStage, ...(reason ? { reason } : {}) }, { expectedVersion: version });
     expect(a.outcome, JSON.stringify(a)).toBe('ok');

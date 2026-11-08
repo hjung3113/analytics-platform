@@ -16,8 +16,9 @@
 | `@ap/menu-configuration` | `menus/mars/configuration` | `configuration` | 없음(계획 메뉴 manifest만) |
 | `@ap/menu-metrics` | `menus/bravo/metrics` | `metrics` | MetricCatalog(상태·도메인은 표 필터 선언의 숨은 반복 키 `filter`, 틀린 값은 고치지 않고 `TableUrlWarning`으로 거부, #1218), MetricDetail |
 | `@ap/menu-clas` | `menus/clas/clas` | `clas` | OperationTime |
-| `@ap/menu-log-my-work`·`-log-models`·`-log-cross` | `menus/log-dev/*` | `logMyWork`·`logModels`·`logCross` | 없음(계획 메뉴 manifest만, ADR-0065) |
+| `@ap/menu-log-my-work`·`-log-cross` | `menus/log-dev/*` | `logMyWork`·`logCross` | Planned manifests (ADR-0065). |
 | `@ap/menu-log-analysis` | `menus/log-dev/log-analysis` | `logAnalysis` | `log-explorer`·navHidden `log-explorer-view`: saved investigation reads/actions, bounded Source cursor reads, raw table + sequence track + evidence-location drawer. Handoff disabled pending #1474; REST export adapter not implemented. |
+| `@ap/menu-log-models` | `menus/log-dev/log-models` | `logModels` | A2 lifecycle model table, project/Round details and validation request drawers; native Kernel dispatch hooks with `feature-screens/operator-screens/log-lifecycle` (#1447). Hierarchy view remains #1449. |
 | `@ap/menu-log-rules` | `menus/log-dev/log-rules` | `logRules` | Read-only validation catalog and specification coverage tabs, Rule/RuleSet history/requirement drawers; lazy `log-rules` + navHidden `log-rule`; declarations `src/endpoints.ts`, synthetic `./mock` (#1495, ADR-0122) |
 | `@ap/menu-log-knowledge` | `menus/log-dev/log-knowledge` | `logKnowledge` | `logKnowledge.*` 조회·쓰기 선언(원본 `src/endpoints.ts`), mock `./mock`(조회 + `logKnowledgeActionsMock`). 카탈로그 관리(설비사·공정·모델 탭의 가져오기 마법사 포함)와 모델 탐색·모델 프로파일·전체 기술 Item·Item 상세(Item 편집의 모델 명세 대상 선택·상세의 «대상» 칩) 화면, 모델 명세(Module 트리·명세/변경점/개념/Revision 이력 탭, 고정 footer 서랍, 개념 매핑 검토). 읽기 `platform:view`, 카탈로그 관리 `knowledge:catalog-manage`, Item 쓰기 `knowledge:item-publish`, 명세·개념 쓰기 `knowledge:spec-publish`. API 원본은 [`docs/architecture/platform-api/api/log-knowledge.md`](../docs/architecture/platform-api/api/log-knowledge.md) |
 

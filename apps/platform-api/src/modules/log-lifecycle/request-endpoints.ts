@@ -22,7 +22,9 @@ import {
 } from './domain/queue-params.js';
 import { LOG_VALIDATION_REQUESTS_MENU_ID } from './menu.js';
 import { excerptTarget, getRequestDetail, listRequests, listRuleResults, readExcerpt } from './repositories/queue-read.js';
-import { holdsExcerptRead } from './repositories/queue-write.js';
+import { isWithinRunWindow } from './domain/run-window.js';
+import { sql } from 'drizzle-orm';
+import { getQueueSettings, holdsExcerptRead } from './repositories/queue-write.js';
 
 type Actor = { actor_id: string; workspace_id: string };
 type Judged<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -61,6 +63,12 @@ function declare<T>(
 export function requestEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclaration[] {
   const audit = createAuditService();
   return [
+    declare(deps, 'queueStatus', [], () => ({ ok: true, value: null }), async (actor) => {
+      const settings = await getQueueSettings(deps.db, actor.workspace_id);
+      const now = await deps.db.execute(sql`select now() as at`);
+      const at = new Date(String(now.rows[0]?.at));
+      return { outcome: 'ok', data: { runWindow: settings.runWindow, immediateLimit: settings.immediateLimit, serverAt: at.toISOString(), withinWindow: isWithinRunWindow(settings.runWindow, at) } };
+    }),
     declare(deps, 'requests', REQUEST_PARAM_KEYS, parseRequestListParams, async (actor, query) => ({
       outcome: 'ok',
       data: await listRequests(deps.db, actor.workspace_id, query),

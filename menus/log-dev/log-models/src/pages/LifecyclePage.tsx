@@ -1,0 +1,82 @@
+import { useCallback, useMemo, useState } from 'react';
+import { AuditTimeline, DataTrustIndicator, PageKeyWarning, usePageKeyRules, DetailDrawer, PlatformDataTable, PlatformPage } from '@ap/components';
+import { useMenuAction, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
+import { defineEndpoint, type ApiResponse, type AuditEvent, type GroupedPageResult, type EndpointSpec } from '@ap/contracts';
+import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
+import { actions, endpoints, isUuid, PROJECT_MANAGE, ROUND_MANAGE } from '../endpoints';
+
+// Lookup mirrors only; these are owned and implemented by log-knowledge, never contributed a second time.
+const lookupEndpoints: Record<string, EndpointSpec<Params, unknown>> = Object.fromEntries(['vendors', 'processes'].map(name => [name, defineEndpoint<Params, unknown>({ id: `logKnowledge.${name}`, menuId: 'log-knowledge-catalog', permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false, paramKeys: { q: true, page: true, pageSize: true, sorting: true, filters: true } })]));
+
+function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> {
+  const spec = endpoints[name] ?? lookupEndpoints[name];
+  if (!spec) throw new Error(`Unknown lifecycle read: ${name}`);
+  const query = useMenuQuery(spec, params, enabled);
+  const response = query.response;
+  return { status: response ? response.outcome === 'ok' || response.outcome === 'empty' ? 'done' : 'error' : 'loading', completedAt: query.completedAt, data: response?.data as T | null, denied: response?.outcome === 'forbidden', retry: query.refetch };
+}
+function useAction(name: string): Action {
+  const spec = actions[name];
+  if (!spec) throw new Error(`Unknown lifecycle action: ${name}`);
+  return useMenuAction(spec);
+}
+const api: LifecycleApi = { useRead, useAction };
+function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, preferenceKey }: TableParts<T>) {
+  const [snapshot, setSnapshot] = useState({ rows, version: 0 });
+  if (snapshot.rows !== rows) setSnapshot({ rows, version: snapshot.version + 1 });
+  const loadPage = useCallback(async (): Promise<ApiResponse<GroupedPageResult<T>>> => ({ outcome: rows.length ? 'ok' : 'empty', data: { rows, total: rows.length }, assessments: [], trust: null, correlationId: 'log-lifecycle-screen' }), [rows]);
+  return <div className="grid min-w-0 grid-cols-1"><PlatformDataTable title={title} hideTitle ariaLabel={title} getRowId={r => r.id} columns={columns} loadPage={loadPage} filterKey={String(snapshot.version)} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
+}
+const eventLabels: Record<string, string> = { created: '개발 건 등록', stage_changed: '개발 단계', owner_changed: '담당', target_changed: '목표일·SW', cancelled: '취소', reopened: '재개', gate_decided: 'Gate 결정' };
+const fieldLabels: Record<string, string> = { stage: '단계', ownerActorId: '담당 ID', targetDate: '목표일', softwareId: 'SW ID', decision: '결정', targetStage: '대상 단계', gateDecisionId: '결정 ID', selfApproved: '자기 승인' };
+function snapshot(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'object') return String(value);
+  return Object.entries(value).map(([key, entry]) => `${fieldLabels[key] ?? key}: ${key === 'stage' || key === 'targetStage' ? STAGE_LABEL[String(entry)] ?? entry : key === 'decision' ? GATE_LABEL[String(entry)] ?? entry : entry === null ? '미지정' : String(entry)}`).join(' · ');
+}
+function timeline(events: ProjectEvent[], projectId: string) {
+  const mapped: AuditEvent[] = events.map(e => ({ id: e.id, at: e.at, actor: e.actor.displayName || '이름 확인 불가', action: e.kind === 'created' ? 'create' : 'update', source: 'user', target: { type: 'log_project', id: projectId, scopeId: null }, reason: e.reason ?? undefined, changes: { [eventLabels[e.kind] ?? e.kind]: [snapshot(e.before), snapshot(e.after)] } }));
+  return <AuditTimeline events={mapped} />;
+}
+const ui: Presentation = {
+  table: parts => <MetadataTable {...parts} />,
+  drawer: parts => <DetailDrawer title={parts.title} subtitle={parts.subtitle} onClose={parts.requestClose} returnFocusRef={parts.returnFocusRef} tabs={[{ id: 'detail', label: '상세', content: parts.body }]} />,
+  timeline,
+  trust: (reasons, completedAt) => completedAt ? <DataTrustIndicator summary wrap trust={{ updatedAt: new Date(completedAt).toISOString(), dataThrough: null, coverage: null, provisional: false, source: 'Gate 서버 결정 가능 여부' }} assessments={reasons.length ? [{ kind: 'coverage', state: 'unknown', reason: 'check_failed', detail: reasons.join(', ') }] : []} /> : null,
+};
+
+export default function LifecyclePage({ params = {} }: PageProps) {
+  const platform = usePlatform();
+  const { page, pageParam, setPage, navigate, linkTo, can, user, revision } = platform;
+  const navigateScreen = useCallback((to: string) => {
+    const url = new URL(to, 'https://host.invalid');
+    const match = /^\/log\/models\/([^/]+)(?:\/rounds\/([^/]+))?$/.exec(url.pathname);
+    const model = /^\/log\/knowledge\/models\/([^/]+)$/.exec(url.pathname);
+    if (match?.[1] && isUuid(match[1]) && (!match[2] || isUuid(match[2]))) navigate(linkTo(match[2] ? 'log-model-round' : 'log-model-project', { params: { projectId: match[1], ...(match[2] ? { roundId: match[2] } : {}) }, returnTo: true }));
+    else if (model?.[1] && isUuid(model[1])) navigate(linkTo('log-knowledge-model', { params: { modelId: model[1] }, returnTo: true }));
+    else if (url.pathname === '/log/models') navigate(linkTo('log-models'));
+    else if (url.pathname === '/log/validation-requests') navigate(linkTo('log-validation-requests', { page: Object.fromEntries(url.searchParams) }));
+  }, [navigate, linkTo]);
+  const props = useMemo<ScreenProps>(() => ({ api, ui, state: Object.fromEntries(page), setState: patch => setPage(Object.fromEntries(Object.entries(patch).map(([k,v]) => [k, v ?? null]))), actorId: user.id, canProject: can(PROJECT_MANAGE), canRound: can(ROUND_MANAGE), selection: pageParam('request') ?? undefined, setSelection: id => setPage({ request: id ?? null }) }), [page, user.id, can, pageParam, setPage]);
+  const projectId = params.projectId;
+  const roundId = params.roundId;
+  const selection = pageParam('request');
+  const keys = usePageKeyRules([
+    ...['request', 'attempt', 'vendorId', 'processId', 'modelId'].map(key => ({ key, label: { ko: key, en: key }, valid: isUuid })),
+    ...['page', 'requestsPage', 'rulesPage'].map(key => ({ key, label: { ko: '페이지', en: 'Page' }, valid: (v: string) => /^[1-9]\d{0,6}$/.test(v) && Number(v) <= 1000001 })),
+    { key: 'q', label: { ko: '검색', en: 'Search' }, valid: v => v.length <= 200 },
+    { key: 'stage', label: { ko: '개발 단계', en: 'Stage' }, valid: v => ['registered','kickoff','alpha','beta','completed','cancelled','empty'].includes(v) },
+    { key: 'validation', label: { ko: '검증 상태', en: 'Validation' }, valid: v => ['none','queued','claimed','pass','fail','incomplete'].includes(v) },
+    { key: 'state', label: { ko: '요청 상태', en: 'Request state' }, valid: v => ['queued','claimed','succeeded','failed','cancelled','expired'].includes(v) },
+    { key: 'priority', label: { ko: '우선순위', en: 'Priority' }, valid: v => ['0','1','2'].includes(v) },
+    { key: 'tab', label: { ko: '탭', en: 'Tab' }, valid: v => ['rounds','history'].includes(v) },
+    { key: 'result', label: { ko: '규칙 결과', en: 'Rule result' }, valid: v => ['PASS','FAIL','ERROR','WARN','NOT_CHECKED','SKIPPED','NOT_APPLICABLE'].includes(v) },
+    ...['required','active'].map(key => ({ key, label: { ko: key, en: key }, valid: (v: string) => ['true','false'].includes(v) })),
+    { key: 'sort', label: { ko: '정렬', en: 'Sort' }, valid: v => ['code','vendorName','stage','updatedAt','ruleId','result','required'].includes(v) },
+    ...['requestedFrom','requestedTo'].map(key => ({ key, label: { ko: key, en: key }, valid: (v: string) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) && Number.isFinite(Date.parse(`${v}:00+09:00`)) })),
+  ]);
+  const invalid = (projectId && !isUuid(projectId)) || (roundId && !isUuid(roundId)) || (selection && !isUuid(selection));
+  return <PlatformPage><LifecycleHost navigate={navigateScreen}><div key={`${user.id}:${revision}`} className="min-w-0">
+    {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : invalid ? <p role="alert" className="text-sm">주소의 ID가 올바르지 않습니다.</p> : projectId ? <ProjectScreen key={projectId} {...props} projectId={projectId} {...(roundId ? { roundId } : {})} /> : platform.route?.menu.id === 'log-validation-requests' ? <RequestsScreen {...props} /> : <ModelsScreen {...props} />}
+  </div></LifecycleHost></PlatformPage>;
+}

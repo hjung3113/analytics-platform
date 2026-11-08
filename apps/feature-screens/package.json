@@ -39,7 +39,8 @@
     "./operator-screens/voc-triage": "./src/operator-screens/voc-triage/index.ts",
     "./operator-screens/evidence": "./src/operator-screens/evidence/index.ts",
     "./operator-screens/integration-dashboard": "./src/operator-screens/integration-dashboard/index.ts",
-    "./operator-screens/analytics-areas": "./src/operator-screens/analytics-areas/index.ts"
+    "./operator-screens/analytics-areas": "./src/operator-screens/analytics-areas/index.ts",
+    "./operator-screens/log-lifecycle": "./src/operator-screens/log-lifecycle/index.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",

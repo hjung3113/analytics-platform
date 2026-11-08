@@ -13,10 +13,13 @@ const tones: Record<Tone, string> = {
 const dots: Record<Tone, string> = {
   success: 'bg-accent-success', warning: 'bg-accent-warn', danger: 'bg-accent-danger', neutral: 'bg-accent-neutral', info: 'bg-accent-primary',
 };
+const outlineTones: Record<Tone, string> = {
+  success: 'text-text-success-label', warning: 'text-text-warning-label', danger: 'text-text-danger-label', neutral: 'text-text-secondary', info: 'text-text-info-label',
+};
 
 /** The only four-plus-info semantic badge vocabulary (DESIGN.md Status & Badges); never invent per-screen colors. */
-export function StatusBadge({ tone, children, dot = false, className }: { tone: Tone; children: ReactNode; dot?: boolean; className?: string }) {
-  return <span className={cn('t-badge inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill px-2 py-0.5', tones[tone], className)}>
+export function StatusBadge({ tone, children, dot = false, variant = 'soft', className }: { tone: Tone; children: ReactNode; dot?: boolean; variant?: 'soft' | 'outline'; className?: string }) {
+  return <span className={cn('t-badge inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill px-2 py-0.5', variant === 'outline' ? cn('border border-border-subtle', outlineTones[tone]) : tones[tone], className)}>
     {dot && <span aria-hidden className={cn('size-1.5 rounded-pill', dots[tone])} />}
     {children}
   </span>;
