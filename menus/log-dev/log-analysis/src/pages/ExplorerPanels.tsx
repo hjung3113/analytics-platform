@@ -4,6 +4,7 @@ import type { ActionResult } from '@ap/contracts';
 import { useMenuAction, usePlatform } from '@ap/kernel';
 import { DetailDrawer, StateMessage } from '@ap/components';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Skeleton, StatusBadge, Textarea } from '@ap/ui';
+import { usePageKeys } from './pageKeys';
 import { evidenceAdd, evidenceHandoff, evidenceRemove, investigationCreate, parsedEndpoint, windowEndpoint, type HandoffResult, type Investigation, type SampleSet, type SourceAnswer } from '../endpoints';
 import { evidenceFor, exportRange, sourceReadable } from './explorerModel';
 import { useSourceRead } from './useSourceRead';
@@ -55,6 +56,7 @@ function RoundHandoffDialog({ investigation, onOpenChange, onDone, onCloseAutoFo
 }
 export function BasketDrawer({ investigation, onClose }: { investigation: Investigation; onClose: () => void }) {
   const { setPage } = usePlatform();
+  const keys = usePageKeys();
   const remove = useMenuAction(evidenceRemove);
   const [notice, setNotice] = useState('');
   const [round, setRound] = useState(false);
@@ -68,13 +70,13 @@ export function BasketDrawer({ investigation, onClose }: { investigation: Invest
     {round && <RoundHandoffDialog investigation={investigation} onOpenChange={open => { if (!open) setRound(false); }} onDone={message => { setRound(false); setNotice(message); }} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }} />}
     {investigation.evidence.length === 0 && <p className="text-text-secondary">담은 근거 위치가 없습니다.</p>}
     {investigation.evidence.map(({ ref, state }) => <div key={`${ref.fileRef}:${ref.line}`} className="flex items-start gap-2">
-      <div className="min-w-0 flex-1"><Button variant="link" size="sm" disabled={state.code === 'no_access'} onClick={() => { const file = investigation.sampleSet?.files.find(f => f.fileRef === ref.fileRef); if (file) setPage({ focus: `${file.order}:${ref.line}`, drawer: 'record' }); }}>{ref.fileRef}:{ref.line}</Button>
+      <div className="min-w-0 flex-1"><Button variant="link" size="sm" disabled={state.code === 'no_access'} onClick={() => { const file = investigation.sampleSet?.files.find(f => f.fileRef === ref.fileRef); if (file) setPage({ [keys.focus]: `${file.order}:${ref.line}`, [keys.drawer]: 'record' }); }}>{ref.fileRef}:{ref.line}</Button>
         <p className="text-xs text-text-secondary">파일 해시</p><p className="t-mono break-all">{ref.fileSha256}</p>{ref.note && <p>{ref.note}</p>}{state.code === 'no_access' && <p className="text-xs text-text-secondary">원본 접근 불가 · {state.reason}</p>}</div>
       <Button variant="ghost" size="toolbar" disabled={!investigation.canInvestigate || investigation.status !== 'open' || remove.pending} onClick={() => { void remove.run({ id: investigation.id, ref: { fileRef: ref.fileRef, line: ref.line } }, { expectedVersion: investigation.version }).then(r => setNotice(r.outcome === 'ok' ? '근거 위치를 뺐습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : '근거 위치를 빼지 못했습니다.')).catch(() => undefined); }}>빼기</Button>
     </div>)}<p role="status" className="text-xs text-text-secondary">{notice}</p>
   </div> }]} />;
 }
-export function RecordDrawer({ investigation, set, selection, blocked, onDenied, onClose }: { blocked: boolean; onDenied: () => void; investigation: Investigation; set: SampleSet; selection: { fileRef: string; line: number }; onClose: () => void }) {
+export function RecordDrawer({ investigation, set, selection, blocked, embedded = false, onDenied, onClose }: { blocked: boolean; embedded?: boolean; onDenied: () => void; investigation: Investigation; set: SampleSet; selection: { fileRef: string; line: number }; onClose: () => void }) {
   const location = { fileRef: selection.fileRef, line: selection.line }; // the read contracts reject unknown keys such as fileOrder
   const windowRead = useSourceRead(windowEndpoint, { sourceOwner: set.sourceOwner, ...location, before: 3, after: 3 });
   const parsedRead = useSourceRead(parsedEndpoint, { sourceOwner: set.sourceOwner, ...location });
@@ -91,8 +93,8 @@ export function RecordDrawer({ investigation, set, selection, blocked, onDenied,
   const writable = investigation.canInvestigate && investigation.status === 'open' && !!row && !!ref && !already && investigation.evidence.length < 100;
   return <DetailDrawer title="레코드 상세" subtitle={`${selection.fileRef}:${selection.line}`} onClose={onClose} tabs={[{ id: 'record', label: '레코드 상세', content: <div className="flex flex-col gap-5 break-keep text-xs">
     <section className="flex flex-col gap-2"><h3 className="text-xs font-semibold text-text-secondary">근거 위치</h3><p className="t-mono break-all">{selection.fileRef}:{selection.line}</p><p className="text-text-secondary">파일 해시</p><p className="t-mono break-all">{ref?.fileSha256}</p>
-      <Button variant="secondary" size="toolbar" disabled={!writable || add.pending} onClick={() => { if (!ref) return; void add.run({ id: investigation.id, ref }, { expectedVersion: investigation.version }).then(r => setNotice(r.outcome === 'ok' ? '근거 위치를 담았습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : '근거 위치를 담지 못했습니다.')).catch(() => undefined); }}>{already ? '담은 근거 위치' : '근거 위치 담기'}</Button>
-      {!investigation.canInvestigate && <p>조사 쓰기 권한이 없습니다.</p>}<p role="status">{notice}</p>
+      {!embedded && <><Button variant="secondary" size="toolbar" disabled={!writable || add.pending} onClick={() => { if (!ref) return; void add.run({ id: investigation.id, ref }, { expectedVersion: investigation.version }).then(r => setNotice(r.outcome === 'ok' ? '근거 위치를 담았습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : '근거 위치를 담지 못했습니다.')).catch(() => undefined); }}>{already ? '담은 근거 위치' : '근거 위치 담기'}</Button>
+      {!investigation.canInvestigate && <p>조사 쓰기 권한이 없습니다.</p>}<p role="status">{notice}</p></>}
     </section>
     {windowRead.loading || parsedRead.loading ? <div aria-busy="true"><Skeleton className="h-16" /><p>원문 불러오는 중</p></div> : null}
     {denied ? <SourceNotice answer={{ state: 'permission_denied', reason: null, synthetic: false, label: null }} /> : <><SourceNotice answer={windowData} /><SourceNotice answer={parsed} />

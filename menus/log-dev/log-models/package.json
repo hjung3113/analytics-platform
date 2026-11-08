@@ -1,12 +1,13 @@
 {
   "name": "@ap/menu-log-models",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "ap": { "sdk": ">=0.32.0 <0.33.0" },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./mock": "./src/mock/index.ts",
+    "./round-source-slot": "./src/round-source-slot.ts",
     "./styles.css": "./src/styles.css"
   },
   "scripts": {

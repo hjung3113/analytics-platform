@@ -1,7 +1,7 @@
 import { emptyGlobal } from '@ap/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { logAnalysisMock, logAnalysisActionsMock, resetExplorer } from './index';
-import { recordsEndpoint, investigationDetailEndpoint, evidenceAdd, evidenceHandoff, periodsEndpoint } from '../endpoints';
+import { recordsEndpoint, investigationDetailEndpoint, evidenceAdd, evidenceHandoff, periodsEndpoint, windowEndpoint } from '../endpoints';
 
 const endpoint = (id: string) => logAnalysisMock.find(e => e.spec.id === id)!;
 const input = (params: unknown) => ({ params, actor: 'engineer' as const, equipment: [], context: { ...emptyGlobal } });
@@ -49,5 +49,20 @@ describe('synthetic log explorer (#1473)', () => {
   });
   it('does not reveal another actor’s saved investigation', () => {
     expect(endpoint(investigationDetailEndpoint.id).handle({ ...input({ investigationId: '14730000-0000-4000-8000-000000000001' }), actor: 'viewer' })).toBeNull();
+  });
+});
+
+describe('synthetic window read for a Round sample list (#1475)', () => {
+  it('answers the selected line for a file the explorer catalog does not know, from the supplied source owner and file', () => {
+    const answer = endpoint(windowEndpoint.id).handle(input({ sourceOwner: 'synthetic-team', fileRef: 's3://synthetic/sample-01.log', line: 186, before: 1, after: 1 }));
+    expect(answer.state).toBe('ok');
+    expect(answer.rows.map((r: { line: number }) => r.line)).toEqual([185, 186, 187]);
+    expect(answer.rows.every((r: { fileRef: string }) => r.fileRef === 's3://synthetic/sample-01.log')).toBe(true);
+    expect(answer.rows[1].text).toMatch(/^186 Module 1 End Job-1/);
+  });
+  it('still answers no rows for a revoked or absent source owner', () => {
+    for (const owner of ['synthetic-revoked', 'synthetic-absent']) {
+      expect(endpoint(windowEndpoint.id).handle(input({ sourceOwner: owner, fileRef: 's3://synthetic/sample-01.log', line: 1, before: 0, after: 0 })).rows).toEqual([]);
+    }
   });
 });

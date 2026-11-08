@@ -11,6 +11,7 @@ import { groupId, spaceId, type ActionResponse, type ApiResponse, type MenuActio
 import type { Model, Project, RequestDetail, RoundDetail, RuleResult } from '../endpoints';
 import { GATE_DECIDE, PROJECT_MANAGE, ROUND_MANAGE } from '../endpoints';
 import { manifests } from '../index';
+import { setRoundSourceView } from '../round-source-slot';
 import LifecyclePage from './LifecyclePage';
 
 const ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -218,5 +219,83 @@ describe('lifecycle interactions with the real Kernel host', () => {
     await act(async () => { t.sent[1]!.resolve({ outcome: 'ok', data: null, fieldErrors: [], version: '8', replayed: true, correlationId: 'retry-test' }); await settleQueries(); });
     expect(text('Gate 결정을 기록했습니다.')).toBe(false);
     // Vitest also fails this test on any unhandled AbortError from the actual retry callback.
+  });
+});
+
+describe('Round «원본/시퀀스» tab (#1475)', () => {
+  const FILE = { fileRef: 's3://synthetic/a.log', order: 2, sha256: 'a'.repeat(64) };
+  const original = { sampleSet: round.sampleSet, first: rules[0]! };
+  const tabs = () => document.querySelector('[role="tablist"][aria-label="Round 상세 보기"]');
+  const tab = (name: string) => { const found = [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find(n => n.textContent?.startsWith(name)); if (!found) throw new Error('Missing tab ' + name + ' among ' + [...document.querySelectorAll('[role="tab"]')].map(n => JSON.stringify(n.textContent)).join()); return found; };
+  // Radix Tabs activates on mouse down, not on click.
+  const activate = (node: HTMLElement) => act(() => { node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); });
+  function wire(sha = FILE.sha256) {
+    round.sampleSet = { sourceOwner: 'team', files: [FILE] };
+    rules[0] = { ...original.first, evidence: [{ fileRef: FILE.fileRef, line: 7, fileSha256: sha, hasExcerpt: false }] };
+    setRoundSourceView(({ roundId, sampleSet }) => <div data-testid="fake-source">{roundId}|{sampleSet.files.map(f => `${f.order}:${f.fileRef}`).join(',')}</div>);
+  }
+  afterEach(() => { setRoundSourceView(null); round.sampleSet = original.sampleSet; rules[0] = original.first; });
+
+  it('has no tab and the unchanged verification layout when the app injects nothing', async () => {
+    mount(); await ready();
+    expect(tabs()).toBeNull();
+    expect(document.querySelector('[data-testid="round-gate-layout"]')).not.toBeNull();
+  });
+  it('shows the verification tab first, then mounts the injected body with this Round only after the tab opens', async () => {
+    wire(); mount(); await ready();
+    expect(tabs()).not.toBeNull();
+    expect(document.querySelector('[data-testid="fake-source"]')).toBeNull();
+    activate(tab('원본/시퀀스'));
+    await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')?.textContent).toBe(`${ID}|2:${FILE.fileRef}`));
+    expect(query().get('view')).toBe('source');
+    expect(element('[data-testid="round-gate-layout"]').closest('[hidden]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="round-source-slot"]')?.textContent).toContain('읽기 전용');
+    activate(tab('검증 · Gate'));
+    await ready();
+    expect(query().has('view')).toBe(false);
+  });
+  it('keeps a Gate draft while the Source tab is open and brings it back', async () => {
+    wire(); mount(); await ready();
+    change('textarea[id^="gate-reason"]', '근거 확인 중');
+    activate(tab('원본/시퀀스'));
+    await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')).not.toBeNull());
+    expect(element('textarea[id^="gate-reason"]').closest('[hidden]')).not.toBeNull();
+    activate(tab('검증 · Gate'));
+    await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')).toBeNull());
+    expect((element('textarea[id^="gate-reason"]') as HTMLTextAreaElement).value).toBe('근거 확인 중');
+    expect(element('textarea[id^="gate-reason"]').closest('[hidden]')).toBeNull();
+  });
+  it('「원본에서 보기」 on a rule result opens the tab on that line in one host write', async () => {
+    wire(); const t = mount(); await ready(); t.history.mockClear();
+    const link = button('원본에서 보기', rulesRegion());
+    expect(link.getAttribute('aria-label')).toMatch(/^R-\d{3} s3:\/\/synthetic\/a\.log:7 원본에서 보기$/);
+    click(link);
+    await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')).not.toBeNull());
+    expect(query().get('view')).toBe('source');
+    expect(query().get('sourceFocus')).toBe('2:7');
+    expect(query().get('sourceDrawer')).toBe('record');
+    expect(t.history).toHaveBeenCalledTimes(1);
+  });
+  it('keeps 원본 확인 불가 with a hash warning when the evidence hash differs from the pinned sample', async () => {
+    wire('b'.repeat(64)); mount(); await ready();
+    expect(() => button('원본에서 보기', rulesRegion())).toThrow();
+    expect(text('해시 불일치', rulesRegion())).toBe(true);
+    expect(text('원본 확인 불가', rulesRegion())).toBe(true);
+  });
+  it('refuses a wrong view value with the invalid-value panel, and recovery clears only that key', async () => {
+    wire(); mount('&view=bogus&request=' + ID);
+    await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain('보기 “bogus”는 이 화면에서 쓸 수 없는 값입니다'));
+    expect(document.querySelector('[data-testid="fake-source"]')).toBeNull();
+    expect(tabs()).toBeNull();
+    click(button('초기화'));
+    await ready();
+    expect(query().has('view')).toBe(false);
+    expect(query().get('request')).toBe(ID);
+    expect(tabs()).not.toBeNull();
+  });
+  it('accepts any positive safe-integer source line in the address, as the body does', async () => {
+    wire(); mount('&view=source&sourceFocus=1:10000000000');
+    await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')).not.toBeNull());
+    expect(document.querySelector('[role="alert"]')).toBeNull();
   });
 });
