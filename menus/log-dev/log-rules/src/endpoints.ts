@@ -1,5 +1,5 @@
 /** Client-safe snapshot declarations. Server mirror: log-rules/{catalog,coverage}-endpoints.ts (ADR-0122). */
-import { defineEndpoint, type ColumnFilter, type ColumnFilterSpec, type PageResult, type PageSort } from '@ap/contracts';
+import { defineAction, menuPermission, type EndpointSpec, type ActionSpec, defineEndpoint, type ColumnFilter, type ColumnFilterSpec, type PageResult, type PageSort } from '@ap/contracts';
 
 export const LOG_RULES_MENU_ID = 'log-rules';
 export const SUPPORTS = ['supported', 'partial', 'unsupported', 'unknown'] as const;
@@ -88,3 +88,19 @@ export const coverageSummaryEndpoint = read<{ modelIds: string[] }, { rows: Cove
 export const modelOptionsEndpoint = read<ModelOptionParams, { rows: ModelOption[]; total: number; page: number; pageSize: number }>('modelOptions', { q: true, page: true, pageSize: true });
 export const softwareOptionsEndpoint = read<{ modelId: string }, { rows: SoftwareOption[] }>('softwareOptions', { modelId: true });
 export const endpointSpecs = [ruleSetsEndpoint, ruleSetDetailEndpoint, rulesEndpoint, ruleDetailEndpoint, catalogStatusEndpoint, coverageEndpoint, coverageSummaryEndpoint, modelOptionsEndpoint, softwareOptionsEndpoint] as const;
+
+/** Dataset menu-dispatch mirror (#1481). The server is authoritative for session-only capability and Source-owner ACL checks. */
+export const DATASET_MANAGE = menuPermission('dataset:manage');
+export const DATASET_APPROVE = menuPermission('dataset:baseline-approve');
+export const DATASET_RUN = menuPermission('dataset:suite-run');
+type DatasetParams = Record<string, unknown>;
+const datasetReads: Record<string, string[]> = {
+  datasets: ['q', 'page', 'pageSize', 'sorting', 'filters'], datasetDetail: ['datasetId'], baselines: ['datasetRevisionId'], baselineDetail: ['baselineId'],
+  suites: ['q', 'page', 'pageSize', 'sorting', 'filters', 'datasetId'], suiteDetail: ['suiteId'], suiteRuns: ['suiteId', 'page', 'pageSize'],
+  comparison: ['suiteRunId', 'ordinal', 'q', 'page', 'pageSize', 'sorting', 'filters'], rerunDiff: ['fromRunId', 'toRunId', 'page', 'pageSize', 'kinds'],
+};
+const datasetKeys = (names: string[]) => Object.fromEntries(names.map(n => [n, true as const]));
+export const datasetEndpoints: Record<string, EndpointSpec<DatasetParams, unknown>> = Object.fromEntries(Object.entries(datasetReads).map(([name, params]) => [name, defineEndpoint<DatasetParams, unknown>({ id: `logDataset.${name}`, menuId: 'log-datasets', permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false, paramKeys: datasetKeys(params) })]));
+const datasetInputs: Record<string, string[]> = { baselineApprove: ['id', 'reason'], suiteRun: ['suiteId', 'idempotencyKey'], reviewLabelAdd: ['suiteRunId', 'datasetRevisionId', 'ruleId', 'label', 'reason'] };
+export const datasetActions: Record<string, ActionSpec<DatasetParams, Record<string, unknown>>> = Object.fromEntries(Object.entries(datasetInputs).map(([name, input]) => [name, defineAction<DatasetParams, Record<string, unknown>>({ id: `logDataset.${name}`, menuId: 'log-datasets', permission: name === 'baselineApprove' ? DATASET_APPROVE : name === 'suiteRun' ? DATASET_RUN : DATASET_MANAGE, requiresScope: false, inputKeys: datasetKeys(input), concurrency: name === 'baselineApprove' ? 'version' : 'none', invalidates: Object.values(datasetEndpoints) })]));
+export const datasetEndpointSpecs = Object.values(datasetEndpoints);

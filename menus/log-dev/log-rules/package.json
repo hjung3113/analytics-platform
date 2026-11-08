@@ -1,14 +1,15 @@
 {
   "name": "@ap/menu-log-rules",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "ap": {
     "sdk": ">=0.32.0 <0.33.0"
   },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./mock": "./src/mock/index.ts"
+    "./mock": "./src/mock/index.ts",
+    "./styles.css": "./src/styles.css"
   },
   "scripts": {
     "lint": "eslint .",
@@ -21,7 +22,8 @@
     "lucide-react": "^1.48.0",
     "@ap/components": "workspace:*",
     "@ap/ui": "workspace:*",
-    "@ap/mock-server": "workspace:*"
+    "@ap/mock-server": "workspace:*",
+    "@ap/feature-screens": "workspace:*"
   },
   "peerDependencies": {
     "react": "^19.3.0",

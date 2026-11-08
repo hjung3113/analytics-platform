@@ -64,6 +64,10 @@ describe('formatDateTime', () => {
   });
 });
 
+it('formats a two-digit year with the full KST date and time for compact platform tables', () => {
+  expect(formatDateTime('2026-11-07T09:00:00Z', '2-digit')).toBe('26. 11. 7. 오후 6:00');
+});
+
 describe('formatShortDateTime', () => {
   it.each([
     { input: '2026-10-01T06:05:00.000Z', expected: '10월 1일 오후 3:05' },

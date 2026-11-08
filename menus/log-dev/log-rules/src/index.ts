@@ -1,6 +1,6 @@
 /** @ap/menu-log-rules — read-only Validator snapshot and spec coverage (ADR-0122, #1495). Screens stay lazy. */
 import { lazy } from 'react';
-import { Ruler } from 'lucide-react';
+import { Database, Ruler } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 
@@ -19,5 +19,23 @@ export const manifests: MenuEntry[] = [
     path: '/log/rules/:ruleSetKey/:ruleKey', icon: Ruler, permission: 'platform:view', requiresScope: false, pageType: 'catalog',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys, repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], contextResetKeys: ['page'],
     component: lazy(() => import('./pages/RulesScreen')),
+  },
+  {
+    id: 'log-datasets', group: groupId('logRules'), label: { ko: '테스트 데이터셋', en: 'Test datasets' },
+    description: { ko: '반복 검증에 쓰는 샘플 목록과 기대 결과를 관리합니다.', en: 'Reusable samples, approved expectations and regression comparisons' },
+    path: '/log/datasets', icon: Database, permission: 'platform:view', requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: [], component: lazy(() => import('./pages/DatasetsPage')),
+  },
+  {
+    id: 'log-dataset', path: '/log/datasets/:datasetId', parent: 'log-datasets', navHidden: true, group: groupId('logRules'), label: { ko: '테스트 데이터셋 상세', en: 'Test dataset detail' },
+    description: { ko: 'Revision·Baseline·회귀 실행·비교', en: 'Revision, baseline, regression runs and comparison' },
+    icon: Database, permission: 'platform:view', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES,
+    pageKeys: [], component: lazy(() => import('./pages/DatasetsPage')),
+  },
+  {
+    id: 'log-dataset-run', path: '/log/datasets/:datasetId/regression-runs/:suiteRunId', parent: 'log-datasets', navHidden: true, group: groupId('logRules'), label: { ko: '회귀 실행 비교', en: 'Regression run comparison' },
+    description: { ko: 'Revision·Baseline·회귀 실행·비교', en: 'Revision, baseline, regression runs and comparison' },
+    icon: Database, permission: 'platform:view', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES,
+    pageKeys: [], component: lazy(() => import('./pages/DatasetsPage')),
   },
 ];
