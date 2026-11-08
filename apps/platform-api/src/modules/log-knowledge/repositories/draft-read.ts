@@ -7,11 +7,12 @@
 import { type SQL, and, asc, count, desc, eq, ilike, inArray, notInArray, or, sql } from 'drizzle-orm';
 import { type AnyPgColumn, alias } from 'drizzle-orm/pg-core';
 
-import { knowledgeDraftReviews, knowledgeDraftRevisions, knowledgeDrafts, knowledgeItems, softwareVersions } from '../../../db/schema/knowledge.js';
+import { knowledgeDraftReviews, knowledgeDraftRevisions, knowledgeDrafts, knowledgeItems, equipmentModels, softwareVersions } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
 import type { FilterCondition } from '../../../lib/list-params/catalog-filters.js';
 import { escapeLike, type ListQuery, type Page } from './catalog-read.js';
 import { type Viewer, ref, visibleItemSql, visibleOwnerSql } from './access-visibility.js';
+import { FINAL_DRAFT_STATUSES } from '../domain/draft-transitions.js';
 import { listReviews } from './draft-review.js';
 
 export const DRAFT_SORT_IDS = ['updatedAt', 'submittedAt', 'createdAt'] as const;
@@ -219,4 +220,20 @@ export async function getDraftDetail(tx: Tx, workspaceId: string, draftId: strin
     targetItemVersion,
     proposal: row.proposal,
   };
+}
+
+
+/** Author-only projection for evidence intake. No proposal body or pointers leave this module. */
+export async function listOwnOpenDrafts(tx: Tx, workspaceId: string, actorId: string, limit: number) {
+  const model = equipmentModels;
+  const rows = await tx.select({
+    draftId: d.id, title, status: d.status, version: d.rowVersion, updatedAt: d.updatedAt,
+    ownerLabel: sql<string>`concat_ws(' · ', ${model.code}, ${sw.versionLabel})`,
+    evidenceCount: sql<number>`jsonb_array_length(coalesce(${r.proposalJson} -> 'evidence', '[]'::jsonb))`,
+  }).from(d).innerJoin(r, joinLatest)
+    .leftJoin(sw, and(eq(sw.workspaceId, d.workspaceId), eq(sw.id, d.ownerSoftwareId)))
+    .leftJoin(model, and(eq(model.workspaceId, d.workspaceId), eq(model.id, sql`coalesce(${d.ownerModelId}, ${sw.modelId})`)))
+    .where(and(eq(d.workspaceId, workspaceId), eq(d.submitterActorId, actorId), notInArray(d.status, [...FINAL_DRAFT_STATUSES])))
+    .orderBy(desc(d.updatedAt), desc(d.id)).limit(Math.max(1, Math.min(50, Math.trunc(limit))));
+  return rows.map(row => ({ ...row, version: String(row.version), updatedAt: iso(row.updatedAt) }));
 }

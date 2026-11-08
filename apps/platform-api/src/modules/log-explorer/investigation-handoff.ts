@@ -9,10 +9,8 @@
 // no port configured) refuses `['refs'] source_unavailable` — an unknown state is never stored as «원본 없음». The window body is
 // discarded at once: nothing from it is stored, returned or audited. Pointers only.
 
-import { sql } from 'drizzle-orm';
-
-import { viewerOf } from '../log-knowledge/index.js';
 import type { Tx } from '../../db/tx.js';
+import { viewerOf } from '../log-knowledge/index.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import {
   type ActionHandlerResult,
@@ -24,28 +22,20 @@ import { applyAdminModuleBypass } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 import type { HandoffDeps, InvestigationDeps } from './deps.js';
 import { storedEvidence } from './domain/evidence.js';
-import { PLATFORM_SOURCE_LIMITS } from './domain/limits.js';
 import {
   type HandoffInput,
   hashMismatchOf,
   parseHandoff,
-  resolutionOf,
   selectStoredRefs,
 } from './domain/handoff.js';
-import type { EvidenceRef } from './domain/evidence-ref.js';
-import { guardSourceReadPort } from './ports/guarded.js';
-import type { SourceReadPort } from './ports/source-read.js';
 import type { InvestigationRow } from './repositories/investigation-write.js';
 
 export const EXPLORER_HANDOFF_PERMISSION = 'explorer.handoff';
 export const EXPLORER_HANDOFF_MENU_PERMISSION = 'explorer:handoff';
 export const EXPLORER_HANDOFF_INPUT_KEYS = ['id', 'refs', 'target'] as const;
 
-/** Wall-clock cap of all Source existence checks of one handoff (the transaction is open meanwhile). */
-export const HANDOFF_SOURCE_TOTAL_MS = 30_000;
-const SOURCE_PARALLEL = 10;
-/** Headroom the transaction's idle budget keeps over the Source cap, so the Source budget always expires first. */
-const IDLE_HEADROOM_MS = 15_000;
+export { HANDOFF_SOURCE_TOTAL_MS } from './handoff-source.js';
+import { resolveHandoffRefs } from './handoff-source.js';
 
 const invalid = (...errors: FieldError[]) => new MenuActionInvalidError(errors);
 
@@ -63,7 +53,6 @@ export interface HandoffShared {
 
 export function evidenceHandoffAction(deps: InvestigationDeps, handoff: HandoffDeps, shared: HandoffShared): MenuActionDeclaration {
   const audit = createAuditService();
-  const port: SourceReadPort | null = handoff.sourceReadPort ? guardSourceReadPort(handoff.sourceReadPort) : null;
 
   const sampleSetOf = async (tx: Tx, row: InvestigationRow, actor: PlatformActor): Promise<SampleLike> => {
     const set =
@@ -74,48 +63,6 @@ export function evidenceHandoffAction(deps: InvestigationDeps, handoff: HandoffD
     return set;
   };
 
-  /** One guarded existence check per ref; `null` = not known. The answer's rows are dropped on the spot. */
-  async function resolveRefs(tx: Tx, actor: PlatformActor, sourceOwner: string, refs: readonly EvidenceRef[]): Promise<boolean[]> {
-    const totalMs = handoff.sourceTotalMs ?? HANDOFF_SOURCE_TOTAL_MS;
-    if (!(await handoff.sourceOwnerAccess.allows(actor, sourceOwner))) throw invalid({ path: ['refs'], code: 'source_forbidden' });
-    if (port === null) throw invalid({ path: ['refs'], code: 'source_unavailable' });
-    // The transaction sits idle while the Source answers. The runtime pool's idle-in-transaction budget (default 30 s) may be
-    // as short as the Source cap, and its clock started earlier: the DB would then cut the connection before the Source budget
-    // expires and the answer would be a connection loss, not `refs: source_unavailable`. Lift it for this transaction only
-    // (it ends with it) above the Source cap, so the Source budget always expires first.
-    await tx.execute(sql.raw(`SET LOCAL idle_in_transaction_session_timeout = ${Math.trunc(totalMs + IDLE_HEADROOM_MS)}`));
-    const controller = new AbortController();
-    const startedAt = Date.now();
-    const timer = setTimeout(() => controller.abort(), totalMs);
-    const out: boolean[] = [];
-    try {
-      for (let from = 0; from < refs.length; from += SOURCE_PARALLEL) {
-        const batch = refs.slice(from, from + SOURCE_PARALLEL);
-        const remaining = totalMs - (Date.now() - startedAt);
-        if (remaining <= 0) throw invalid({ path: ['refs'], code: 'source_unavailable' });
-        const answers = await Promise.all(
-          batch.map(async (ref): Promise<boolean | null> => {
-            try {
-              const answer = await port.getWindow(
-                { sourceOwner, fileRef: ref.fileRef, line: ref.line, before: 0, after: 0 },
-                { signal: controller.signal, timeBudgetMs: Math.min(PLATFORM_SOURCE_LIMITS.timeBudgetMs, remaining) },
-              );
-              return resolutionOf(answer.status);
-            } catch {
-              return null;
-            }
-          }),
-        );
-        for (const resolved of answers) {
-          if (resolved === null) throw invalid({ path: ['refs'], code: 'source_unavailable' });
-          out.push(resolved);
-        }
-      }
-    } finally {
-      clearTimeout(timer);
-    }
-    return out;
-  }
 
   return {
     spec: shared.base('evidenceHandoff', EXPLORER_HANDOFF_INPUT_KEYS, EXPLORER_HANDOFF_MENU_PERMISSION),
@@ -155,7 +102,7 @@ export function evidenceHandoffAction(deps: InvestigationDeps, handoff: HandoffD
       if (!holds) throw invalid({ path: ['target'], code: 'forbidden' });
 
       const sample = await sampleSetOf(tx, row, actor);
-      const resolved = await resolveRefs(tx, actor, sample.sourceOwner, refs);
+      const resolved = await resolveHandoffRefs(handoff, actor, sample.sourceOwner, refs, tx);
       const resolvedCount = resolved.filter(Boolean).length;
       const origin = { kind: 'log_explorer' as const, id: row.id };
       const common = { refCount: refs.length, resolvedCount, unresolvedCount: refs.length - resolvedCount };

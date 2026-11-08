@@ -25,7 +25,16 @@ export const recordsEndpoint = read<PagedRead, RecordsPage>('records', { sampleS
 export const windowEndpoint = read<{ sourceOwner: string; fileRef: string; line: number; before: number; after: number }, WindowPage>('window', { sourceOwner: true, fileRef: true, line: true, before: true, after: true });
 export const parsedEndpoint = read<{ sourceOwner: string; fileRef: string; line: number }, ParsedLine>('parsed', { sourceOwner: true, fileRef: true, line: true });
 export const periodsEndpoint = read<PagedRead, PeriodsPage>('periods', { sampleSet: true, query: true, cursor: true, limit: true });
-export const explorerEndpoints = [investigationsEndpoint, investigationDetailEndpoint, recordsEndpoint, windowEndpoint, parsedEndpoint, periodsEndpoint] as const;
+export type HandoffCheck = { state: 'ok' | 'source_forbidden' | 'source_unavailable'; refs: { fileRef: string; line: number; status: 'ok' | 'hash_mismatch' | 'unresolved' }[] };
+export type HandoffDraft = { draftId: string; title: string; ownerLabel: string; status: string; evidenceCount: number; version: string; updatedAt: string };
+export type HandoffModel = { id: string; code: string; name: string; vendorName: string; active: boolean };
+export type HandoffSoftware = { id: string; versionLabel: string; name: string; active: boolean };
+const handoffRead = <P, T>(name: string, paramKeys: Record<keyof P & string, true>) => defineEndpoint<P, T>({ id: `logExplorer.${name}`, menuId: 'log-explorer', paramKeys, permission: HANDOFF_PERMISSION, requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false });
+export const handoffCheckEndpoint = handoffRead<{ investigationId: string }, HandoffCheck | null>('handoffCheck', { investigationId: true });
+export const handoffDraftsEndpoint = handoffRead<Record<string, never>, { rows: HandoffDraft[] }>('handoffDrafts', {});
+export const handoffModelsEndpoint = handoffRead<{ q: string | null; page: number; pageSize: number }, { rows: HandoffModel[]; total: number }>('handoffModels', { q: true, page: true, pageSize: true });
+export const handoffSoftwareEndpoint = handoffRead<{ modelId: string }, HandoffSoftware[]>('handoffSoftware', { modelId: true });
+export const explorerEndpoints = [investigationsEndpoint, investigationDetailEndpoint, recordsEndpoint, windowEndpoint, parsedEndpoint, periodsEndpoint, handoffCheckEndpoint, handoffDraftsEndpoint, handoffModelsEndpoint, handoffSoftwareEndpoint] as const;
 const write = <I, T>(name: string, inputKeys: Record<keyof I & string, true>, concurrency: 'none' | 'version', permission: typeof INVESTIGATE_PERMISSION | typeof HANDOFF_PERMISSION = INVESTIGATE_PERMISSION) => defineAction<I, T>({ id: `logExplorer.${name}`, menuId: 'log-explorer', inputKeys, permission, requiresScope: false, concurrency, invalidates: [investigationsEndpoint, investigationDetailEndpoint] });
 export type CreateInput = { title: string; origin: 'standalone'; sampleSet: SampleSet; roundId?: never } | { title: string; origin: 'round'; roundId: string; sampleSet?: never };
 export const investigationCreate = write<CreateInput, { id: string; version: string }>('investigationCreate', { title: true, origin: true, sampleSet: true, roundId: true }, 'none');
@@ -34,9 +43,12 @@ export const evidenceAdd = write<{ id: string; ref: EvidenceRef }, { version: st
 export const evidenceRemove = write<{ id: string; ref: Pick<EvidenceRef, 'fileRef' | 'line'> }, { version: string }>('evidenceRemove', { id: true, ref: true }, 'version');
 export const investigationArchive = write<{ id: string }, { version: string }>('investigationArchive', { id: true }, 'version');
 export type HandoffRef = Pick<EvidenceRef, 'fileRef' | 'line' | 'fileSha256'>;
-/** Only the Round target is wired in the screen; the server also takes knowledgeDraft (own prototype pending). */
-export type HandoffInput = { id: string; refs: HandoffRef[]; target: { kind: 'round'; roundId: string } };
-export type HandoffResult = { targetKind: 'round'; targetId: string; handedOff: number; alreadyAttached: number; byStatus: { match: number; hash_mismatch: number; unresolved: number } };
+export type HandoffTarget = { kind: 'round'; roundId: string }
+  | { kind: 'knowledgeDraft'; mode: 'create'; owner: { modelId: string } | { softwareId: string }; title: string; observation: string }
+  | { kind: 'knowledgeDraft'; mode: 'append'; draftId: string; draftExpectedVersion: string };
+export type HandoffInput = { id: string; refs: HandoffRef[]; target: HandoffTarget };
+export type HandoffResult = { targetKind: 'round'; targetId: string; handedOff: number; alreadyAttached: number; byStatus: { match: number; hash_mismatch: number; unresolved: number } }
+  | { targetKind: 'knowledgeDraft'; targetId: string; handedOff: number; draftVersion: string };
 export const evidenceHandoff = write<HandoffInput, HandoffResult>('evidenceHandoff', { id: true, refs: true, target: true }, 'version', HANDOFF_PERMISSION);
 export const explorerActions = [investigationCreate, investigationUpdate, evidenceAdd, evidenceRemove, investigationArchive, evidenceHandoff] as const;
 export const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);

@@ -1,6 +1,6 @@
-# 로그 지식 통합 검색 — 방향 관계·ACL-aware 색인 설계 (구현 전)
+# 로그 지식 통합 검색 — 방향 관계·ACL-aware 색인 설계 (일부 구현)
 
-> **Status: Candidate → 소유자 답 3개 반영(2026-11-08), ADR-0124·0125 Decided.** 구현·DB·API·화면은 없다. 근거는 [#1199](https://github.com/hjung3113/analytics-platform/issues/1199)이고 Epic [#1192](https://github.com/hjung3113/analytics-platform/issues/1192)의 불변식과 [v0.6 통합 설계](../log-knowledge-hub/design-v0.6-candidate.md) §5.4·§9를 **구체화**한다(같은 내용을 다시 쓰지 않는다). 결정은 [ADR-0124](../../../adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)(ACL은 조회 때, 표시는 live)와 [ADR-0125](../../../adr/0125-event-order-search-uses-structured-event-relation-records.md)(방향 검색은 구조화된 Event 관계 기록)이 소유하며 둘 다 **Decided**(소유자 2026-11-08)다. 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
+> **Status: Candidate → 소유자 답 3개 반영(2026-11-08), ADR-0124·0125 Decided.** 구현됨(S-b): `item_event_relation_record` 표, `itemCreate`/`itemRevise`의 `relations[]` 쓰기 입력, `itemDetail`의 `relations` 읽기. 설계만 있음: 검색 색인(`search_document`), 접근 규칙, 화면. 근거는 [#1199](https://github.com/hjung3113/analytics-platform/issues/1199)이고 Epic [#1192](https://github.com/hjung3113/analytics-platform/issues/1192)의 불변식과 [v0.6 통합 설계](../log-knowledge-hub/design-v0.6-candidate.md) §5.4·§9를 **구체화**한다(같은 내용을 다시 쓰지 않는다). 결정은 [ADR-0124](../../../adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)(ACL은 조회 때, 표시는 live)와 [ADR-0125](../../../adr/0125-event-order-search-uses-structured-event-relation-records.md)(방향 검색은 구조화된 Event 관계 기록)이 소유하며 둘 다 **Decided**(소유자 2026-11-08)다. 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
 >
 > 공개 저장소다. 예시는 합성 데이터만 쓴다.
 
@@ -41,9 +41,9 @@
 
 ### 3.1 `item_event_relation_record` — 방향의 원천 (ADR-0125)
 
-현재 코드에는 Item이 방향을 말하는 구조화 필드가 없다. Item의 «관찰»·«기대»는 자유 텍스트이고, `spec_event_relation`은 **모델 명세가 선언한** 순서(기대 쪽)일 뿐 Item이 «실제로 거꾸로 관찰했다»를 담지 못한다. 본문 문장을 해석해 방향을 뽑으면 `A 전에 B`/`B 후에 A`/부정문에서 틀린다(§8). 그래서 Revision이 방향을 **구조화해서 직접 적는다.**
+Item의 «관찰»·«기대» 본문은 자유 텍스트이고 방향은 거기서 읽을 수 없다. 방향은 S-b가 만든 `item_event_relation_record` 표(쓰기 입력 `relations[]`, 상세 응답 `relations`)가 담는다. 방향 검색(색인·질의)은 아직 없다. `spec_event_relation`은 **모델 명세가 선언한** 순서(기대 쪽)일 뿐 Item이 «실제로 거꾸로 관찰했다»를 담지 못한다. 본문 문장을 해석해 방향을 뽑으면 `A 전에 B`/`B 후에 A`/부정문에서 틀린다(§8). 그래서 Revision이 방향을 **구조화해서 직접 적는다.**
 
-`item_id`, `revision_no`, `ordinal`, `kind`(`observed`·`expected`), `source_key`·`target_key`(`moduleKey/eventKey`, [spec-target-key](../../../../apps/platform-api/src/modules/log-knowledge/domain/spec-target-key.ts)와 같은 안정 키), `predicate`.
+`item_id`, `revision_no`, `ordinal`, `kind`(`observed`·`expected`), `source_key`·`target_key`(`moduleKey/eventKey`, [spec-target-key](../../../../apps/platform-api/src/modules/log-knowledge/domain/spec-target-key.ts)와 같은 안정 키), `predicate`, `resolved`(쓸 때 소유자의 실효 명세에 두 키가 모두 있었는지).
 
 - Revision 불변이므로 이 표도 추가 전용이다(UPDATE/DELETE 금지, ADR-0109 2).
 - `predicate`는 닫힌 목록 `before`(source가 target보다 먼저)로 시작한다. `after`는 **저장하지 않고** 입력 때 `before`로 뒤집어 저장한다(`B after A` → `A before B`). 이래야 «같은 사실의 두 표기»가 한 행으로 모이고, 반대 방향은 행이 다르다. 순서 외 술어(`requires`, `excludes` 등)는 이번에 없다(§9).

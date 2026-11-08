@@ -1118,6 +1118,53 @@ export const itemRevisionSubjects = knowledgeSchema.table(
   }),
 );
 
+// ---- Item Event relation record (#1505 S-b, ADR-0125) ----------------------------------------------------------------
+// A structured «A before B» pair of events of one immutable item revision. Only `before` is stored (`after` is the swapped
+// row). Keys are stable `module/event` keys with no FK to spec rows; `resolved` is whether the owner's effective spec held
+// both keys at write time. Insert-only for the runtime role (SELECT + INSERT grants).
+export const itemEventRelationRecords = knowledgeSchema.table(
+  'item_event_relation_record',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    itemId: uuid('item_id').notNull(),
+    revisionNo: integer('revision_no').notNull(),
+    ordinal: integer('ordinal').notNull(),
+    kind: text('kind').notNull(),
+    sourceKey: text('source_key').notNull(),
+    predicate: text('predicate').notNull(),
+    targetKey: text('target_key').notNull(),
+    resolved: boolean('resolved').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ name: 'item_event_relation_record_pk', columns: [t.workspaceId, t.itemId, t.revisionNo, t.ordinal] }),
+    revisionFk: foreignKey({
+      name: 'item_event_relation_record_revision_fk',
+      columns: [t.workspaceId, t.itemId, t.revisionNo],
+      foreignColumns: [knowledgeItemRevisions.workspaceId, knowledgeItemRevisions.itemId, knowledgeItemRevisions.revisionNo],
+    }).onDelete('restrict'),
+    // Keys are up to 1200 characters (4800 bytes) and need not compress, so a raw-key B-tree entry can exceed the ~1/3 page
+    // limit. Both indexes hold md5() of the keys (fixed 32 bytes). Lookups MUST filter `md5(source_key) = md5($n)` (and
+    // `md5(target_key) = md5($n)`) for the planner to use them; the raw-key comparison is the exact re-check.
+    pairUq: uniqueIndex('item_event_relation_record_pair_uq').on(
+      t.workspaceId, t.itemId, t.revisionNo, t.kind, sql`md5(${t.sourceKey})`, t.predicate, sql`md5(${t.targetKey})`,
+    ),
+    directionIdx: index('item_event_relation_record_direction_idx').on(
+      t.workspaceId, sql`md5(${t.sourceKey})`, t.predicate, sql`md5(${t.targetKey})`, t.kind,
+    ),
+    ordinalCheck: check('item_event_relation_record_ordinal_check', sql`${t.ordinal} between 1 and 20`),
+    kindCheck: check('item_event_relation_record_kind_check', sql`${t.kind} in ('observed','expected')`),
+    predicateCheck: check('item_event_relation_record_predicate_check', sql`${t.predicate} = 'before'`),
+    keyCheck: check(
+      'item_event_relation_record_key_check',
+      sql`char_length(${t.sourceKey}) between 1 and 1200 and char_length(${t.targetKey}) between 1 and 1200`,
+    ),
+    selfCheck: check('item_event_relation_record_self_check', sql`${t.sourceKey} <> ${t.targetKey}`),
+  }),
+);
+
 // Log knowledge drafts (#1198 a, design v0.6 §5 rows 33–35 without `draft_review`): a proposal for a new or revised
 // item, kept as immutable revisions with a payload digest until a reviewer decides (node b). A draft never writes the
 // `knowledge_item*` tables in node a. `origin` and `author_auth` are set by the server from the authenticated actor.

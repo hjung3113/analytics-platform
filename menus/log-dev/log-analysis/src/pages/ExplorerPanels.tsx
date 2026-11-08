@@ -7,6 +7,7 @@ import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescript
 import { usePageKeys } from './pageKeys';
 import { evidenceAdd, evidenceHandoff, evidenceRemove, investigationCreate, parsedEndpoint, windowEndpoint, type HandoffResult, type Investigation, type SampleSet, type SourceAnswer } from '../endpoints';
 import { evidenceFor, exportRange, sourceReadable } from './explorerModel';
+import { KnowledgeHandoffDialog, knowledgeHandoffBlock } from './KnowledgeHandoffDialog';
 import { useSourceRead } from './useSourceRead';
 
 const SOURCE_REASON: Record<string, string> = { source_not_connected: 'Source가 연결되지 않았습니다.', source_missing: '파일을 찾을 수 없습니다.', capability_not_held: '원본 조회 권한이 없습니다.', source_owner_not_granted: '이 Source의 접근 권한이 없습니다.', source_denied: 'Source 접근 권한이 철회되었습니다.', parser_not_connected: 'Parser가 연결되지 않았습니다.', periods_not_supported: '기간 행을 제공하지 않습니다.', capability_missing: '이 조회를 지원하지 않습니다.' };
@@ -36,7 +37,7 @@ function RoundHandoffDialog({ investigation, onOpenChange, onDone, onCloseAutoFo
   const refs = investigation.evidence.map(({ ref }) => ({ fileRef: ref.fileRef, line: ref.line, fileSha256: ref.fileSha256 }));
   function settle(r: HandoffAnswer) {
     setBusy(false);
-    if (r.outcome === 'ok' && r.data) { setAgain(null); onDone(`Round에 ${r.data.handedOff}개 넘김 · 이미 있던 위치 ${r.data.alreadyAttached}개 · 원본 없음 ${r.data.byStatus.unresolved}개`); return; }
+    if (r.outcome === 'ok' && r.data?.targetKind === 'round') { setAgain(null); onDone(`Round에 ${r.data.handedOff}개 넘김 · 이미 있던 위치 ${r.data.alreadyAttached}개 · 원본 없음 ${r.data.byStatus.unresolved}개`); return; }
     if ((r.outcome === 'unknown' || r.outcome === 'error') && r.retry) { setAgain(() => r.retry!); setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 넘겨졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '넘기지 못했습니다. 같은 요청으로 다시 시도할 수 있습니다.'); return; }
     setAgain(null);
     setError(r.outcome === 'conflict' ? '조사가 바뀌었습니다. 다시 열어 주세요' : r.outcome === 'forbidden' ? HANDOFF_ERROR.forbidden! : HANDOFF_ERROR[r.fieldErrors[0]?.code ?? ''] ?? '근거 위치를 넘기지 못했습니다');
@@ -60,14 +61,17 @@ export function BasketDrawer({ investigation, onClose }: { investigation: Invest
   const remove = useMenuAction(evidenceRemove);
   const [notice, setNotice] = useState('');
   const [round, setRound] = useState(false);
+  const [knowledge, setKnowledge] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const block = roundHandoffBlock(investigation);
+  const knowledgeBlock = knowledgeHandoffBlock(investigation);
   return <DetailDrawer title="근거 위치 바구니" subtitle={`담은 근거 위치 ${investigation.evidence.length}/100`} onClose={onClose} tabs={[{ id: 'basket', label: '근거 위치', content: <div className="flex flex-col gap-4 break-keep text-sm">
     <p className="text-xs text-text-secondary">{HANDOFF_CONFIRM}</p>
     <DropdownMenu><DropdownMenuTrigger asChild><Button ref={trigger} variant="secondary" size="toolbar">넘기기</Button></DropdownMenuTrigger><DropdownMenuContent align="start" side="bottom" className="min-w-64"><DropdownMenuGroup>
-      <DropdownMenuItem disabled={block !== null} onSelect={() => setRound(true)}>{block ? `Round · ${block}` : 'Round'}</DropdownMenuItem><DropdownMenuItem disabled>지식 초안 · 준비 중</DropdownMenuItem><DropdownMenuItem disabled>결함 · 수신 대상 없음</DropdownMenuItem>
+      <DropdownMenuItem disabled={block !== null} onSelect={() => setRound(true)}>{block ? `Round · ${block}` : 'Round'}</DropdownMenuItem><DropdownMenuItem disabled={knowledgeBlock !== null} onSelect={() => setKnowledge(true)}>{knowledgeBlock ? `지식 초안 · ${knowledgeBlock}` : '지식 초안'}</DropdownMenuItem><DropdownMenuItem disabled>결함 · 수신 대상 없음</DropdownMenuItem>
     </DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
     {round && <RoundHandoffDialog investigation={investigation} onOpenChange={open => { if (!open) setRound(false); }} onDone={message => { setRound(false); setNotice(message); }} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }} />}
+    {knowledge && <KnowledgeHandoffDialog investigation={investigation} onClose={() => setKnowledge(false)} onDone={message => { setKnowledge(false); setNotice(message); }} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }} />}
     {investigation.evidence.length === 0 && <p className="text-text-secondary">담은 근거 위치가 없습니다.</p>}
     {investigation.evidence.map(({ ref, state }) => <div key={`${ref.fileRef}:${ref.line}`} className="flex items-start gap-2">
       <div className="min-w-0 flex-1"><Button variant="link" size="sm" disabled={state.code === 'no_access'} onClick={() => { const file = investigation.sampleSet?.files.find(f => f.fileRef === ref.fileRef); if (file) setPage({ [keys.focus]: `${file.order}:${ref.line}`, [keys.drawer]: 'record' }); }}>{ref.fileRef}:{ref.line}</Button>

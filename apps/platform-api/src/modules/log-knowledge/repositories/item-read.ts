@@ -22,6 +22,7 @@ import type { Tx } from '../../../db/tx.js';
 import type { FilterCondition } from '../../../lib/list-params/catalog-filters.js';
 import { type Viewer, ref, visibleItemSql, visibleModelSql, visibleSoftwareSql } from './access-visibility.js';
 import { escapeLike, type ListQuery, type Page } from './catalog-read.js';
+import { type ItemRelationRow, itemRelations } from './item-relation.js';
 import { type ResolvedSubject, resolvedSubjects } from './item-subject.js';
 
 export const ITEM_SORT_IDS = ['itemNo', 'title', 'updatedAt'] as const;
@@ -214,6 +215,8 @@ export interface ItemDetail {
   }[];
   /** The targets the shown revision is about (#1196 f), resolved against each model's current published spec. */
   subjects: ResolvedSubject[];
+  /** The Event relation records of the shown revision (#1505): `before` pairs, empty for an item without any. */
+  relations: ItemRelationRow[];
 }
 
 /** One item with one revision (`revisionNo`, default the latest); null when the item or the revision does not exist in the workspace. */
@@ -276,6 +279,7 @@ export async function getItemDetail(
   }
 
   const subjects = await resolvedSubjects(tx, workspaceId, itemId, wanted);
+  const relations = await itemRelations(tx, workspaceId, itemId, wanted);
 
   return {
     item: {
@@ -340,6 +344,7 @@ export async function getItemDetail(
       ];
     }),
     subjects,
+    relations,
   };
 }
 

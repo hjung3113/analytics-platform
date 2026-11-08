@@ -64,6 +64,7 @@ function detailOf(r: Rec, revisionNo?: number): ItemDetailData | null {
   if (!rev) return null;
   return {
     subjects: [],
+    relations: [],
     item: { ...rowOf(r), version: String(r.version), createdBy: 'actor-aaaa-1111', createdAt: r.createdAt }, revision: rev,
     revisions: [...r.revisions].reverse().map(x => ({ revisionNo: x.revisionNo, title: x.title, publishedBy: x.publishedBy, publishedAt: x.publishedAt, changeNote: x.changeNote })),
     assessments: [...r.assessments].reverse(), links: r.links,
