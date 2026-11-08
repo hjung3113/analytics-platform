@@ -8,7 +8,7 @@
 
 ## 결정
 
-- Tiptap 3.23.5를 유지한다. surface별 capability가 편집 확장·툴바·슬래시 메뉴·선택 말풍선·블록 손잡이를 함께 제어한다. `voc-description`의 표현 범위와 속성 경계는 [VOC 화면 계약 §5.7](../design/features/specs/voc.md#57-richeditor-per-surface-contract)이 소유한다. 이 surface에는 멘션을 켜지 않는다.
+- Tiptap 3.23.5를 유지한다. surface별 capability가 편집 확장·툴바·슬래시 메뉴·선택 말풍선·블록 손잡이를 함께 제어한다. `voc-description`의 표현 범위와 속성 경계는 [VOC 화면 계약 §5.7](../../apps/feature-screens/docs/specs/voc.md#57-richeditor-per-surface-contract)이 소유한다. 이 surface에는 멘션을 켜지 않는다.
 - 이미지 JSON은 첨부 UUID `id`와 선택 정수 `width`만 가진다. 자유 URL·외부 HTML 이미지·markdown 이미지 입력 규칙으로 이미지를 만들지 않는다. 읽기와 편집은 `resolveAttachmentUrl`로 URL을 그릴 때 구하고, URL이 없으면 첨부 칩을 그린다. 서버가 거절하는 속성·오류와 VOC 연결 규칙은 §5.7이 소유한다.
 - 파일 붙여넣기·드롭은 기존 `onAttach`를 사용한다. VOC 작성은 업로드 큐 하나를 첨부 목록과 공유한다. 이미지 파일은 목록과 본문에 모두 나타나고 나머지 파일은 목록에 나타난다. 실패하면 본문 노드를 만들지 않는다. 편집 화면은 기존 첨부 경로를 유지하고 새 본문 업로드는 켜지 않는다.
 - SDK 내부 `RichEditor` 지연 경계 뒤에 편집 플러그인을 둔다. 읽기는 에디터 인스턴스를 만들지 않고 schema/render 정의와 순수 목차 계산을 사용한다. 문법 강조는 7개 언어만 직접 등록하고 읽기에서도 정적 강조를 수행한다. 나머지 언어는 번들에 넣지 않는다. 색은 토큰 팔레트 키로 저장한다.

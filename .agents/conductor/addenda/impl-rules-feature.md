@@ -3,7 +3,7 @@
 The feature code is `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/feature-ui` and the documentation roots in `ops/platform-api/paths.mjs`, with tools in `ops/platform-api/` (`@ap/platform-api-ops`); all are in the root pnpm workspace (ADR-0066), so the launcher's root install covers them. Lint: ESLint for the four packages (package `lint`, whole package); Biome only for the feature documentation roots and `ops/platform-api` (`FEATURE_BIOME_SCOPE`). Run every feature command **from the repository root** (`pnpm --filter @ap/platform-api-ops <script>`); root lint/typecheck/test/build stay conductor-owned.
 
 1. Read `docs/agents/feature-implementation.md`, `apps/platform-api/AGENTS.md` and every module `AGENTS.md`
-   you touch, plus `docs/architecture/platform-api/02-domain-module-boundaries.md` §Approved cross-module
+   you touch, plus `apps/platform-api/docs/02-domain-module-boundaries.md` §Approved cross-module
    surfaces.
 2. Backend integration suites are env-gated: they skip without a DB. Your task names **your own throwaway issue
    database** (port 5439) and the exact command, run from the repository root:

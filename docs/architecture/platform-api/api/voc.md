@@ -24,7 +24,7 @@ every field unchanged. Absent means hidden; `null` means visible but unset. `tri
 stays on every surface for the arm: the Reporter's own description-edit gate
 reads it and the edit endpoint's 409 returns `detail.current_triage_state`.
 Replacing it needs a Reporter capability field (deferred, see
-`docs/product/features/14-post-mvp-backlog.md`). Explicit Admin denies are honoured. Denied
+`.planning/post-mvp-feature-backlog.md`). Explicit Admin denies are honoured. Denied
 non-owners keep the existing not-found response.
 
 `view=my` is the reporter-perspective list for every actor. It rejects

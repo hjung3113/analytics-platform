@@ -22,7 +22,7 @@
 
 ## 결과
 
-`@ap/kernel` 깨지는 변경이다. 저장소 밖 소비자가 없어 `@deprecated` 재export 없이 root에서 뺐고, [변경 기록](../integration/sdk-git-tag-consumption.md#변경-기록)에 남겼다. ADR-0053의 "견본 메뉴는 `usePlatform()`을 계속 쓴다"는 유효하다. 다시 볼 조건: 메뉴가 host 필드를 필요로 하는 사례가 생기면 그 필드를 `MenuPlatform`으로 올리는 것으로 푼다(host 허용이 아니라). 첫 적용: `homeTodo`(#657) — 홈 ↔ FeedbackOps 경계. 기각: 홈을 my-activity로 옮기기, 메뉴에 host 허용.
+`@ap/kernel` 깨지는 변경이다. 저장소 밖 소비자가 없어 `@deprecated` 재export 없이 root에서 뺐고, [변경 기록](../../packages/sdk/CHANGELOG.md#변경-기록)에 남겼다. ADR-0053의 "견본 메뉴는 `usePlatform()`을 계속 쓴다"는 유효하다. 다시 볼 조건: 메뉴가 host 필드를 필요로 하는 사례가 생기면 그 필드를 `MenuPlatform`으로 올리는 것으로 푼다(host 허용이 아니라). 첫 적용: `homeTodo`(#657) — 홈 ↔ FeedbackOps 경계. 기각: 홈을 my-activity로 옮기기, 메뉴에 host 허용.
 
 ## 보충 (#824, 2026-10-26)
 
@@ -51,5 +51,5 @@
   - (c) 한 묶음 `useShellState()` — 토스트가 팔레트·사이드바를 깨운다.
   - (d) `favorites`·`lastScope`까지 이동 — `PlatformPage`가 모든 페이지에서 읽어 이득이 없다.
   - (e) root `useToasts()` — 메뉴 프로덕션 소비자가 0이고 테스트 전용은 testing 진입점(ADR-0040)이다.
-- 결과: `@ap/kernel` 깨지는 변경이다(저장소 밖 소비자가 없어 `@deprecated` 재export 없이 뺐다). 기록은 [변경 기록](../integration/sdk-git-tag-consumption.md#변경-기록).
+- 결과: `@ap/kernel` 깨지는 변경이다(저장소 밖 소비자가 없어 `@deprecated` 재export 없이 뺐다). 기록은 [변경 기록](../../packages/sdk/CHANGELOG.md#변경-기록).
 

@@ -2,7 +2,7 @@
 
 The feature suite already speaks OIDC (`AUTH_PROVIDER=oidc`, authorization code + PKCE S256), so in-house use can start on a self-hosted Keycloak before the company SSO answer (#150, #151). No application code changes: this page, the realm file and the local compose services are the whole change (#603).
 
-Files: realm [`deploy/keycloak/platform-realm.json`](../../../../ops/platform-api/deploy/keycloak/platform-realm.json), local services in [`docker-compose.dev.yml`](../../../../ops/platform-api/docker-compose.dev.yml) (compose profile `auth`), env block in [`.env.example`](../../../../ops/platform-api/.env.example). OIDC contract: [oidc-and-images.md](oidc-and-images.md).
+Files: realm [`deploy/keycloak/platform-realm.json`](../../deploy/keycloak/platform-realm.json), local services in [`docker-compose.dev.yml`](../../docker-compose.dev.yml) (compose profile `auth`), env block in [`.env.example`](../../.env.example). OIDC contract: [oidc-and-images.md](oidc-and-images.md).
 
 ## What the realm `platform` does
 
@@ -50,7 +50,7 @@ Email domain, SMTP relay and public HTTPS hostname are unknown until #150/#151 a
 | Item | Reason | Reopen when |
 | --- | --- | --- |
 | RP-initiated logout (`POST /auth/logout` stays feature-only) | Keycloak's SSO session survives feature logout, so the next login may skip the password. Acceptable for personal PCs. | A shared or kiosk PC requirement, or the company SSO switch |
-| Account linking for the company-SSO switch ([merge design §6](../../../integration/history/feedbackops-merge-design.md), #603) | The company IdP's `sub` is unknown. Rule when it happens: verified email match → move the Actor's `external_id` to the new `sub`, audited, only during the switch window. | #150 is answered |
+| Account linking for the company-SSO switch ([merge design §6](../../../../docs/integration/history/feedbackops-merge-design.md), #603) | The company IdP's `sub` is unknown. Rule when it happens: verified email match → move the Actor's `external_id` to the new `sub`, audited, only during the switch window. | #150 is answered |
 
 ## Realm and client rename (#1100 b)
 

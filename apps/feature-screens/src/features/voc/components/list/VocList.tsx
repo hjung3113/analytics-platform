@@ -8,7 +8,7 @@
  * hooks inside .map() and keeps fetch count constant regardless of row count.
  *
  * There is no bulk selection: no batch VOC endpoint exists (deferred, see
- * docs/product/features/14-post-mvp-backlog.md Slice 62).
+ * .planning/post-mvp-feature-backlog.md Slice 62).
  */
 
 import { ListStateMessage } from '@/components/ListStateMessage';

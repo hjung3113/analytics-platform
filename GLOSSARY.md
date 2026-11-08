@@ -268,7 +268,7 @@ _Avoid_: 플랫폼 — 플랫폼 전체와 섞인다.
 
 **업무 시스템** (코드 이름 `Space`):
 플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 업무 흐름, 운영 콘솔이다. 개선 실행 공간은 2026-11-04에 접었다(ADR-0106 개정 2). VOC·설문·Task·Finding은 플랫폼 기능이고, 담당자 처리 화면은 `업무 흐름`, 플랫폼 관리는 `운영 콘솔`에 있다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md), [ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md)).
-CLAS는 약어 그대로 쓰고 영어 풀이 이름은 쓰지 않는다(어차피 바뀔 이름, 사용자 2026-10-27). 메뉴·설명에도 `Equipment operation`·`operation time` 같은 풀이를 두지 않는다. MARS와 CLAS는 메뉴가 달라 별도 시스템으로 둔다(이 플랫폼의 CLAS에는 견본 메뉴 하나가 있고, 기존 CLAS 화면 이전은 계획).
+CLAS는 약어 그대로 쓰고 영어 풀이 이름은 쓰지 않는다(어차피 바뀔 이름, 사용자 2026-10-27). 메뉴·설명에도 `Equipment operation`·`operation time` 같은 풀이를 두지 않는다. MARS와 CLAS는 지표 정의가 달라 별도 시스템으로 둔다(이 플랫폼의 CLAS에는 견본 메뉴 하나가 있고, 기존 CLAS 화면 이전은 계획).
 _Avoid_: 워크스페이스, 공간, 앱, 모듈 — 워크스페이스는 코어 서버의 workspace(테넌트)·작업 영역과, 모듈은 호스트 모듈·설비 Module과 섞인다. 화면 문구는 `업무 시스템`(짧게 `시스템`)이고, `Space`는 코드 이름으로만 쓴다. 화면의 `시스템`은 Managed System도 함께 뜻한다(셀프 등록으로 업무 시스템마다 같은 이름의 Managed System이 생긴다, [ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md) 결정 6).
 
 **업무 흐름** (공간 id `flow`):

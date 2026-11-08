@@ -50,7 +50,7 @@ Common list params follow [log-knowledge.md §Common params](log-knowledge.md) (
 
 ## Storage (migration 0093)
 
-Schema `improvement`; `src/db/schema/improvement.ts`. See also [04-database-and-migrations.md](../04-database-and-migrations.md).
+Schema `improvement`; `src/db/schema/improvement.ts`. See also [04-database-and-migrations.md](../../../../apps/platform-api/docs/04-database-and-migrations.md).
 
 | Table | Content |
 | --- | --- |

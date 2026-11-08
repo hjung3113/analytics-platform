@@ -104,7 +104,7 @@
 - [플랫폼 인바운드 링크 계약](integration/platform-inbound-links.md) — **과거 기록 + 현행 inbound 계약**(독립 앱 복귀 방향은 #597에서 은퇴). 양방향 딥링크 1단계(확장은 #81).
 - [프레임워크 통합 계획](integration/history/framework-unification-plan.md) — **과거 기록**. 기능·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치던 지도. 목표는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 우선한다.
 - [SDK 포괄 목록](integration/history/sdk-coverage-inventory.md) — 세 프레임워크(AP·FeedbackOps·EV)의 기능을 SDK가 모두 덮는지 코드로 대조한 목록과 통합 계획 지도 정정(2026-10-19 기준). **과거 기록**. 저장소·릴리스 구조 결정은 [ADR-0044](adr/0044-sdk-source-in-platform-repo-released-separately.md)(Decided).
-- [SDK 소비 조건·변경 기록](integration/sdk-git-tag-consumption.md) — SDK 버전별 공개 API·이전 방법, 소비 조건과 과거 git 태그 시험. 현행 배포·설치는 [ADR-0056](adr/0056-sdk-release-github-release-tarballs.md)의 Release tarball 계약을 따른다.
+- [SDK 소비 조건·변경 기록](../packages/sdk/CHANGELOG.md) — SDK 버전별 공개 API·이전 방법, 소비 조건과 과거 git 태그 시험. 현행 배포·설치는 [ADR-0056](adr/0056-sdk-release-github-release-tarballs.md)의 Release tarball 계약을 따른다.
 - [SDK TopN·Lane 차트 API·사용 예·변경 기록](../packages/sdk/components/docs/charts.md) — #576, ADR-0064.
 - [플랫폼 탑재 설계](integration/platform-hosting-design.md) — 다른 저장소 업무 모듈(EV·기능)의 호스트 → 모듈 계약, 두 호스트 실행, 패키지 배치, 기능 탑재안. Proposed(선행 조사, ADR-0038·0039 초안). 독립 호스트는 SDK 범위 밖(ADR-0043).
 
@@ -133,7 +133,7 @@ For feature-domain implementation, read [the implementation guide](agents/featur
 | Task | Source |
 | --- | --- |
 | Product intent, domain model and fields | [Product requirements](product/features/README.md) and [purpose](product/features/purpose.md) |
-| Core server, per-domain API and release operations | [Architecture and contracts](architecture/platform-api/README.md), [API](architecture/platform-api/api/), [release/OIDC](architecture/platform-api/release/oidc-and-images.md) |
+| Core server, per-domain API and release operations | [Architecture and contracts](architecture/platform-api/README.md), [API](architecture/platform-api/api/), [release/OIDC](../ops/platform-api/docs/release/oidc-and-images.md) |
 | Feature screen contracts and token reference | [Screen contracts](design/features/README.md); root DESIGN owns visual direction |
 | Operator task instructions | [Manual](user-guide/features/manual.md) |
 | Local development and code ownership | [Development entry](integration/feature-development.md), [code index](integration/feature-code-index.md) |

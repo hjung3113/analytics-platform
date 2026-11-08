@@ -1,7 +1,7 @@
 # Code Index
 
 This map is derived from the current source tree and
-`docs/architecture/platform-api/02-domain-module-boundaries.md`. The backend composes
+`apps/platform-api/docs/02-domain-module-boundaries.md`. The backend composes
 module routes and services in `apps/platform-api/src/server.ts`; each module keeps
 its owned writes and exposes explicit cross-module seams. Entity Links owns
 canonical cross-system links, Core provides shared audit and idempotency

@@ -9,7 +9,7 @@ It is limited to UI design, component behavior, states, layout, responsive behav
 Visual foundation:
 
 ```text
-docs/design/features/tokens.md
+apps/feature-screens/docs/tokens.md
 ```
 
 Product UI intent:
@@ -20,7 +20,7 @@ docs/product/features/12-ui-ux-principles.md
 
 ## Relationship To The Token Seed
 
-`docs/design/features/tokens.md` is the visual reference and token seed:
+`apps/feature-screens/docs/tokens.md` is the visual reference and token seed:
 
 ```text
 - light Samsung One UI aesthetic
@@ -35,11 +35,11 @@ docs/product/features/12-ui-ux-principles.md
 Implementation precedence:
 
 ```text
-- docs/design/features/tokens.md owns raw visual token seed.
-- docs/design/features/ui-design-system.md owns reusable UI pattern contracts.
-- docs/design/features/component-inventory.md owns component inventory and required states.
-- docs/design/features/routes-and-layout.md owns route and URL state behavior.
-- docs/design/features/interaction-patterns.md owns workflow-level UX transitions.
+- apps/feature-screens/docs/tokens.md owns raw visual token seed.
+- apps/feature-screens/docs/ui-design-system.md owns reusable UI pattern contracts.
+- apps/feature-screens/docs/component-inventory.md owns component inventory and required states.
+- apps/feature-screens/docs/routes-and-layout.md owns route and URL state behavior.
+- apps/feature-screens/docs/interaction-patterns.md owns workflow-level UX transitions.
 - App code should consume semantic tokens, not raw color tokens directly.
 ```
 
@@ -145,7 +145,7 @@ Desktop:
 
 ## Core Components
 
-Component names in this section are design-time names; see `docs/design/features/component-inventory.md` "Built Mapping" for what shipped.
+Component names in this section are design-time names; see `apps/feature-screens/docs/component-inventory.md` "Built Mapping" for what shipped.
 
 ### Shared Component Variants
 
@@ -733,7 +733,7 @@ Sections:
 - Admin / Settings when allowed
 ```
 
-Shipped as `CommandPalette` with the groups `이동`, `생성`, and `열기`; see `docs/design/features/routes-and-layout.md` "Global command palette (#611)".
+Shipped as `CommandPalette` with the groups `이동`, `생성`, and `열기`; see `apps/feature-screens/docs/routes-and-layout.md` "Global command palette (#611)".
 
 Command row anatomy:
 
@@ -878,7 +878,7 @@ Rules:
 
 ## Semantic Tokens (shipped in `@ap/ui/styles/tokens.css`)
 
-The semantic token set is defined in `@ap/ui/styles/tokens.css`; `docs/design/features/tokens.md` is the seed and documents the `-label` text pairs under "Semantic Text Label Tokens". Application code consumes these groups, not the raw color tokens:
+The semantic token set is defined in `@ap/ui/styles/tokens.css`; `apps/feature-screens/docs/tokens.md` is the seed and documents the `-label` text pairs under "Semantic Text Label Tokens". Application code consumes these groups, not the raw color tokens:
 
 ```text
 Text: --text-*
@@ -1140,5 +1140,5 @@ Admin review detail:
 - Build reusable components from this document before building domain screens.
 - Prefer composition over one-off screen-specific components.
 - If a screen needs a new status, signal, or row pattern, add it here before implementing.
-- Keep docs/design/features/tokens.md as the visual token reference; do not duplicate full token tables here.
+- Keep apps/feature-screens/docs/tokens.md as the visual token reference; do not duplicate full token tables here.
 ```

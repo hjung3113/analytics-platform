@@ -1,15 +1,15 @@
 # Backend Agent Guide
 
-DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clusters use `ops/platform-api/scripts/db/cutover-0076-platform-identity.sh`; see `docs/architecture/platform-api/04-database-and-migrations.md` for the staged procedure.
+DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clusters use `ops/platform-api/scripts/db/cutover-0076-platform-identity.sh`; see `apps/platform-api/docs/04-database-and-migrations.md` for the staged procedure.
 
 ## Required Docs
 
 - Read `docs/architecture/platform-api/README.md` before backend changes.
 - Use `docs/architecture/platform-api/03-api-contracts.md` and `docs/architecture/platform-api/api/` for endpoint behavior.
-- Use `docs/architecture/platform-api/04-database-and-migrations.md` for storage.
+- Use `apps/platform-api/docs/04-database-and-migrations.md` for storage.
 - Use `docs/architecture/platform-api/05-permission-policy.md` for access control.
 - Use `docs/architecture/platform-api/06-entity-linking-contract.md` for links.
-- Use `docs/architecture/platform-api/02-domain-module-boundaries.md` before adding or moving modules.
+- Use `apps/platform-api/docs/02-domain-module-boundaries.md` before adding or moving modules.
 - Read the measured traps before editing tests or migrations: [integration tests](../../.claude/rules/feature-api-integration-tests.md), [database and migrations](../../.claude/rules/feature-db-migrations.md).
 
 ## Layer Rules
@@ -28,7 +28,7 @@ Backend-specific additions to those boundaries:
 
 Every cross-system command must validate workspace ownership, check permissions, write the target object, write required `entity_links`, append required audit events, and return data suitable for pending or optimistic UI states.
 
-Source-shaped routes may host request parsing, but target object writes must use the target module's application command or an orchestration service documented in `docs/architecture/platform-api/02-domain-module-boundaries.md`.
+Source-shaped routes may host request parsing, but target object writes must use the target module's application command or an orchestration service documented in `apps/platform-api/docs/02-domain-module-boundaries.md`.
 
 Backend-specific additions to the Managed System invariant in `docs/agents/feature-implementation.md` → Product Invariants: Analytics Area is business
 context inside one Managed System, not an MVP permission boundary. Project or

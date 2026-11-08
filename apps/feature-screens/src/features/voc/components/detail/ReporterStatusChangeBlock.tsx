@@ -4,7 +4,7 @@
 //
 // C4.1 (slice3 #21)
 // Prototype ref: docs/design/history/feedbackops-prototype/screen-voc.jsx:510-657 (quoted block: :537-655)
-// Spec: docs/design/features/specs/voc.md §5.10
+// Spec: apps/feature-screens/docs/specs/voc.md §5.10
 //
 // Out of scope: mutation, submit, wiring into PublicUpdateComposer (C5.2).
 //
