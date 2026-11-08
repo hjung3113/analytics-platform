@@ -1,7 +1,7 @@
 // Drizzle schema for the `permission` namespace.
 // Spec sources:
 // - GLOSSARY.md: Capability, Sensitive Permission, Permission Request.
-// - docs/architecture/platform-api/02-domain-module-boundaries.md: Permission module owns
+// - apps/platform-api/docs/02-domain-module-boundaries.md: Permission module owns
 //   permission_requests, permission_grants, permission_denies.
 // - docs/architecture/platform-api/05-permission-policy.md: explicit deny overrides allow;
 //   grants carry workspace_id (required), managed_system_id (optional for

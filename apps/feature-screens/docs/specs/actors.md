@@ -30,7 +30,7 @@ FO ADR-0006). The `kind: 'user' | 'team'` taxonomy used by `<OwnerPicker>` is a
 FE-only mapping in the Triage controller. Its VOC-scoped candidate API returns
 Actors only; teams retain their existing source (FO ADR-0018 teams stub).
 
-The normative query and response contract is [Workspace actors](../../../architecture/platform-api/api/auth.md#workspace-actors). Actor activity status is not represented in the current schema.
+The normative query and response contract is [Workspace actors](../../../../docs/architecture/platform-api/api/auth.md#workspace-actors). Actor activity status is not represented in the current schema.
 
 ## Schema
 

@@ -12,7 +12,7 @@ the same `.env.production` as the stack. DB tools run inside the `postgres` cont
   size). The restore is a copy, not a rebuild: verified restore time is the number below.
 - The 4-hour RTO has not been measured on production-size data. Rehearse on a copy of the real installation before
   relying on it. Small-data timings and failure-path observations are kept in the
-  [backup/restore rehearsal record](../../../research/2026-11-03-backup-restore-rehearsal.md).
+  [backup/restore rehearsal record](../../../../docs/research/2026-11-03-backup-restore-rehearsal.md).
 - Not covered: point-in-time recovery, online backup, HA, and shipping backups off the host (the operator's job).
 
 ## Supported installs
@@ -20,7 +20,7 @@ the same `.env.production` as the stack. DB tools run inside the `postgres` cont
 Backup, restore and `upgrade.sh` support installs on the **platform identity**: database `platform`, roles `platform_*`
 (v0.24.0 and later). `backup.sh` records the identity in the manifest and refuses `feedbackops`/`fops_*` or mixed states.
 A pre-0076 install finishes the identity cutover first (`scripts/db/cutover-0076-platform-identity.sh`, resumable;
-procedure in [04-database-and-migrations.md](../04-database-and-migrations.md) and [oidc-and-images.md](oidc-and-images.md)),
+procedure in [04-database-and-migrations.md](../../../../apps/platform-api/docs/04-database-and-migrations.md) and [oidc-and-images.md](oidc-and-images.md)),
 which has its own backup and resume steps.
 
 ## Backup

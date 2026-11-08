@@ -11,7 +11,7 @@
 - [09-permission-access.md](09-permission-access.md): permission UX and what each role can do: default user can/cannot, and the only capability matrix. It does not own check order or audit event verbs; those are in [05-permission-policy.md](../../architecture/platform-api/05-permission-policy.md).
 - [12-ui-ux-principles.md](12-ui-ux-principles.md): product-level UI intent and workflow traceability.
 - [13-mvp-roadmap.md](history/13-mvp-roadmap.md): release grouping and recommended success flow of the shipped MVP. Historical record.
-- [14-post-mvp-backlog.md](14-post-mvp-backlog.md): what the owner decided not to ship before the MVP release, and when to reopen each item.
+- [post-mvp-feature-backlog.md](../../../.planning/post-mvp-feature-backlog.md): what the owner decided not to ship before the MVP release, and when to reopen each item.
 - [15-data-contracts.md](15-data-contracts.md): field and enum authority. Not a draft, and not replaced by migrations.
 
 Endpoint authority is `docs/architecture/platform-api/03-api-contracts.md` (index, global rules, error codes, contract template) together with `docs/architecture/platform-api/api/*.md` (behavior and catalog in the same domain file). No other document is an endpoint authority.
@@ -21,7 +21,7 @@ Endpoint authority is `docs/architecture/platform-api/03-api-contracts.md` (inde
 ```text
 - System documents may explain local behavior, but must not redefine canonical entity names.
 - Schema blocks in system documents are explanatory drafts.
-- Field and enum contracts belong in docs/product/features/15-data-contracts.md. docs/architecture/platform-api/04-database-and-migrations.md owns migration mechanism only.
+- Field and enum contracts belong in docs/product/features/15-data-contracts.md. apps/platform-api/docs/04-database-and-migrations.md owns migration mechanism only.
 - Scope changes must update docs/product/features/02-requirements-matrix.md before roadmap prose.
 - Do not copy the 09 capability matrix into docs/architecture/platform-api/05-permission-policy.md, and do not copy check order or audit verbs back into 09.
 ```

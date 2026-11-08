@@ -1,6 +1,6 @@
 # Backup/restore rehearsal (2026-11-03, #1266)
 
-Evidence record for [backup-restore-upgrade.md](../architecture/platform-api/release/backup-restore-upgrade.md). The
+Evidence record for [backup-restore-upgrade.md](../../ops/platform-api/docs/release/backup-restore-upgrade.md). The
 runbook holds the procedure; this file keeps the measured run.
 
 Rehearsal (#1266 node b6): disposable source and target projects with real images on one host,

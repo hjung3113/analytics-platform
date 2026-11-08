@@ -4,8 +4,8 @@ Frontend docs translate product intent into implementable UI contracts. Since #5
 
 Surface specs:
 
-- [`specs/voc.md`](specs/voc.md): as-built VOC surface spec. API authority is [`api/voc.md`](../../architecture/platform-api/api/voc.md).
-- [`specs/actors.md`](specs/actors.md): the general `GET /actors` workspace identity list contract. Triage owner candidates follow [`api/voc.md`](../../architecture/platform-api/api/voc.md).
+- [`specs/voc.md`](../../../apps/feature-screens/docs/specs/voc.md): as-built VOC surface spec. API authority is [`api/voc.md`](../../architecture/platform-api/api/voc.md).
+- [`specs/actors.md`](../../../apps/feature-screens/docs/specs/actors.md): the general `GET /actors` workspace identity list contract. Triage owner candidates follow [`api/voc.md`](../../architecture/platform-api/api/voc.md).
 
 Feature designs (implementation status is at the top of each document):
 
@@ -18,16 +18,16 @@ The current user-facing text guide is [Feature manual](../../user-guide/features
 
 ## Precedence
 
-1. [routes-and-layout.md](routes-and-layout.md) owns semantic screen URL state, list/detail behavior and panel behavior; actual mounted URLs and navigation belong to platform menus and the bridge.
-2. [ui-design-system.md](ui-design-system.md) owns reusable component patterns, state contracts, screen mapping, responsive behavior, and accessibility.
-3. [component-inventory.md](component-inventory.md) owns implementation component inventory, variants, and required states.
-4. [interaction-patterns.md](interaction-patterns.md) owns workflow-level UX state machines, cross-system creation flows, and permission UX.
+1. [routes-and-layout.md](../../../apps/feature-screens/docs/routes-and-layout.md) owns semantic screen URL state, list/detail behavior and panel behavior; actual mounted URLs and navigation belong to platform menus and the bridge.
+2. [ui-design-system.md](../../../apps/feature-screens/docs/ui-design-system.md) owns reusable component patterns, state contracts, screen mapping, responsive behavior, and accessibility.
+3. [component-inventory.md](../../../apps/feature-screens/docs/component-inventory.md) owns implementation component inventory, variants, and required states.
+4. [interaction-patterns.md](../../../apps/feature-screens/docs/interaction-patterns.md) owns workflow-level UX state machines, cross-system creation flows, and permission UX.
 5. [12-ui-ux-principles.md](../../product/features/12-ui-ux-principles.md) owns product UI intent and traceability to requirements.
 6. [component-stack.md](../../../apps/feature-screens/docs/component-stack.md) owns approved frontend library stack and third-party component intake rules.
 
 ## Visual Input
 
-`docs/design/features/tokens.md` is a raw visual token seed. It does not own component behavior,
+`apps/feature-screens/docs/tokens.md` is a raw visual token seed. It does not own component behavior,
 route behavior, workflow states, accessibility behavior, or frontend source
 paths.
 

@@ -335,7 +335,7 @@ not report-owned storage. Snooze/history UI is not a dependency for this report.
 No Reporter report, new route tree, derived Task Request Area, Area grants, hierarchy, mandatory classification,
 backfill, persisted report lifecycle, composite score, trend/cohort controls, export or chart builder.
 No stronger claim that every linked reporter has been updated after release. Deferred extensions and reopen conditions
-are in `docs/product/features/14-post-mvp-backlog.md`. Ordered implementation and acceptance are in FO ADR-0069.
+are in `.planning/post-mvp-feature-backlog.md`. Ordered implementation and acceptance are in FO ADR-0069.
 
 ### FR-DASH-003: Show Coverage
 

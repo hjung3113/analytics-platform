@@ -36,3 +36,6 @@ apps/platform-web/*
 **/.turbo
 **/.env*
 !**/.env.example
+
+# Documentation stays out of the image build context.
+apps/platform-api/docs

@@ -1,9 +1,9 @@
-Lead reads: §Flow, §Size and path, §Launch, §Verify
+Lead reads: §Flow, §Size and path, §Lanes, §Launch, §Verify
 Lane sessions read only those sections (SKILL §0 full read does not apply; this profile wins). Reviewers read only their lens section.
 
 # Conductor profile — analytics-platform
 
-Repository-specific settings for the global `issue-wave-conductor` skill. Shared procedure lives in the skill. Work rules live in root `AGENTS.md`, which wins on conflict. `$CONDUCTOR` = this folder. `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`. Settings: [`conductor.json`](conductor.json). Multi-session rules: [`LANES.md`](LANES.md). Brief and worker traps: §Traps.
+Repository-specific settings for the global `issue-wave-conductor` skill. Shared procedure lives in the skill. Work rules live in root `AGENTS.md`, which wins on conflict. `$CONDUCTOR` = this folder. `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`. Settings: [`conductor.json`](conductor.json). Multi-session procedure: the global `issue-wave-conductor` skill's `references/lanes.md` (`$LANES` there = the lane tools). Repo values the tools read: `conductor.json` `lanes`. Brief and worker traps: §Traps.
 
 There is no database or login (mock adapter). Evidence comes from Playwright E2E (`apps/platform-e2e`) and the mock preview.
 
@@ -16,22 +16,58 @@ There is no database or login (mock adapter). Evidence comes from Playwright E2E
 
 ## Size and path
 
-The lead writes the planned tier in the assignment comment (`tier=full|light`). Before ship, the lane runs `bash .agents/conductor/scripts/tier.sh origin/main HEAD` on the committed branch. If it says `tier=full` but the issue was planned light, run one `review-final` before merge.
+Tiers, PR count, round cap, brief check and ship-check: the global `issue-wave-conductor` skill's `references/lanes.md` §Size and path. Full-tier paths are `lanes.tier_full_regex`. AP specifics:
 
-| tier | When (any of) | Workers | Review | Fix rounds |
-| --- | --- | --- | --- | --- |
-| **full** | non-test, non-`.md` source under `packages/sdk/{kernel,components,shell,ui,contracts}`, `packages/adapters/*`, `apps/platform-web`, `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared` (either side of a rename); `review-plan.py` `flags.permission`; `ux=required`; the issue is `impl-complex` | ≤ 3 per PR: implementer + `review-final` (+ `review-ux` when screens change) + one fix | 1 | 1 (round cap: see below). Re-review only after a permission or data-leak fix. |
-| **light** | everything else: pure renames (R100), moves, docs, copy, generator output, sample-menu changes without permission or URL/Context logic | none — the lane edits directly | none — the host reads the diff and records `tier=light` plus `git diff --numstat` in VERIFY | — |
-
-- Do not widen `light` without a new replay measurement (#1041).
 - **Domain-noun docs (`review-doc` terms):** a light PR that adds domain nouns under `docs/design/**`, a new ADR, `docs/product/**`, a new API contract file or `GLOSSARY.md` gets one `review-doc` terms run (persona `doc-steward`). Design PRs of the same domain opened the same day share one run. Skip it when the changed lines add no bold term outside the glossary, no new enum/table/capability name and no new menu label. Reason: terms caught before code avoid renames that need migrations; sharing a run keeps the cost at one run per design batch.
-- **PR count:** at most 3 PRs per issue. Bundle mechanical work into one PR. Split only where a full-tier review needs isolation.
-- **Copy-only edits under full paths:** the lead may mark the PR light with a numstat line ("copy only"), unless `flags.permission` fires.
-- **Round cap (the only place; replaces global skill step 7f):** the full row allows one fix round; a blocker or major still open after it sends the second round to `impl-complex` with a fix-diff check. More than 2 `review-final` runs on one issue need an `over-cap: <reason>` line in VERIFY (`ship-check.sh` blocks without it); the lane asks `질문 #n 한도 <rounds>`. A minor or nit never starts a round past the cap.
-- Before merge, run `bash .agents/conductor/scripts/ship-check.sh <issue> <worktree>` on both merge paths ([addenda/merge.md](addenda/merge.md)): it fails when a full-tier diff has no `review-plan:` line or review-final record in VERIFY, or a `ux=required` diff has no UX record and no existing `ux-skip:` evidence path.
-- **Brief check:** only for `impl-complex` briefs, plus a `review-quality` plan review when a brief changes 06 contracts, package boundaries or `sdk:api`. No separate doc-sync workers; the implementer updates the owning docs in the same PR ([`docs/AGENTS.md`](../../docs/AGENTS.md)).
-- **Review findings:** blocker or major → the fix round. Minor or nit → fixed inline before merge if trivial, otherwise one backlog line.
-- **Keep review reports:** `ship-pr.sh --archive-review` writes them to `$WAVE_BRIEFS/<n>/`.
+- **Plan review:** the `review-quality` plan review applies when a brief changes 06 contracts, package boundaries or `sdk:api`. Owning docs follow [`docs/AGENTS.md`](../../docs/AGENTS.md).
+
+## Lanes
+
+| Label | Owns | Main paths | E2E port |
+| --- | --- | --- | --- |
+| `lane:sdk` | Public package contracts and parts, analysis workspace, SDK quality | `packages/sdk/*`, `tooling/sdk/`, `docs/contract/`, `docs/integration/sdk-*` | 4190 |
+| `lane:platform` | App assembly, mock/real adapters, server conformance, sample menus, in-house rollout | `apps/platform-web`, `packages/adapters/{mock-server,http-adapter,server-conformance}`, `menus/*`, `platform/{admin,home,my-activity,notice-voc}` (not screen bridge consumers) | 4590 |
+| `lane:arch` | Refactors, folder structure, glossary, boundary lint, CI, doc structure | `tooling/{eslint,gen-menu,tsconfig,css-selectors}`, `.github/workflows`, `docs/INDEX.md`, `docs/AGENTS.md`, `GLOSSARY.md` | 4690 |
+| `lane:features` | Platform feature screens and core-server feature domains | `apps/platform-api`, `apps/feature-screens`, `packages/feature-{shared,ui}`, `packages/adapters/feature-bridge`, `ops/platform-api`, `platform/{dashboard,voc,findings,tasks,integration,surveys,feature-admin}`, feature bridges in `platform/{home,my-activity,notice-voc}`; `docs/{product/features,architecture/platform-api,design/features,user-guide/features}` | 4390 |
+| `lane:ev` | equipment-visualization, AP side | `tools` space, host-module fixtures, EV tarball bumps | 4490 |
+| `lane:site` | Intro site | `site/` | 4790 |
+| `lane:ops` | Conductor profile, agent assets, owner-requested reports | `.agents/` (not this file), `docs/agents/` | 4990 |
+| lead | Assignment, conflicts, release, board | `.planning/`, release notes, this file | 4890 |
+
+Run E2E with `E2E_PORT=<port>` and base-path E2E with `E2E_BASE_PATH_PORT=<port+1>`.
+
+## Request classification
+
+Take the first match:
+
+1. **Kernel duty** (06 §4 list, `packages/sdk/kernel/AGENTS.md`): contracts/runtime → `lane:sdk`; wiring into the app → `lane:platform`. Changing an 06 contract is an owner decision.
+2. **SDK piece:** if the rest is a domain-free part another menu could use once menu-specific parts become menu declarations → `lane:sdk` ([ADR-0052](../../docs/adr/0052-rich-content-stays-in-the-sdk.md)).
+3. **Menu share:** sample menu → `lane:platform` (touch only what the platform contract needs). Feature consumer/bridge → `lane:features`. EV module → `lane:ev`. In-house menus are not built here: point to `docs/integration/in-house-rollout.md` §5 and close the issue.
+
+- **Mixed request:** split it by class. The SDK issue goes first.
+- **Bugs:** go to the lane that owns the confirmed cause, not the symptom.
+- **Promotion candidates:** go in `.planning/backlog.md` with their current consumers. Promote when 2–3 real consumers exist.
+
+## Start coordination paths
+
+Procedure: the global `issue-wave-conductor` skill's `references/lanes.md` §Start coordination paths. The paths:
+
+- Public API of `packages/sdk/{contracts,kernel,components,shell}`
+- `apps/platform-web/src/menus.ts`, 06 contract docs
+- Root `package.json`, `pnpm-lock.yaml`, `turbo.json`, `.github/workflows`
+- `apps/platform-e2e`
+- The "next release" row in `packages/sdk/CHANGELOG.md`, the `docs/adr/README.md` table, ADR numbers (reservation: [`addenda/traps.md`](addenda/traps.md))
+- `addenda/traps.md`, `docs/agents/operations.md` (append only)
+- The four screen bridge entry lists ([`addenda/traps.md`](addenda/traps.md))
+- `.planning/README.md`: lanes edit only their own issue rows. The lead owns order and layout.
+
+## Owner gates
+
+On top of the shared list in `references/lanes.md` §Lane session: 06 contract changes and 3+ new menu screens.
+
+## Heavy steps
+
+`heavy.lock` also covers: Root `pnpm test` and `build`, `probe.ts`, screen integration, and a full local `pnpm e2e` (only to reproduce a CI failure — send `<lane>: E2E` at start and end). Narrowed E2E (`-g`) and package checks take no lock.
 
 ## Complexity
 
@@ -43,7 +79,7 @@ Route to `impl-complex` (always full) if any of these hold:
 ## Launch
 
 - `python3 $ENGINE/launch-worker.py <n> <slug>` creates the worktree, installs, merges [`addenda/`](addenda/) into `.review/00-IMPL-RULES.md` / `00-REVIEW-RULES.md` and starts the runner. Environment: `WAVE_STATE`, `WAVE_BRIEFS`, `AP_MAIN`. Role: `WORKER_ROLE`; overrides `WORKER_MODEL`, `WORKER_EFFORT`.
-- Capacity, slots and waiting: [`LANES.md`](LANES.md) §Machine resources. Run issues in parallel only when their files do not overlap. Parallelism otherwise follows SKILL §Loop; here only local root test/build/E2E is serial (`heavy.lock`).
+- Capacity, slots and waiting: `references/lanes.md` §Machine resources. Run issues in parallel only when their files do not overlap. Parallelism otherwise follows SKILL §Loop; here only local root test/build/E2E is serial (`heavy.lock`).
 - **Stacking:** a node whose dependencies are committed on an in-flight branch starts on it (`orca worktree create --base-branch <branch>`, then `launch-worker.py --reuse`). Its brief names the base branch's in-flight files it must not edit; it rebases onto `main` after the base merges, and only after its own worker or reviewer has finished.
 - **Visual-judgment floor:** work that decides how a screen looks (layout, spacing, hierarchy, new component visuals, `?variant=` prototypes, screen-shape fix rounds, `site/` design) runs on role `impl-complex-sol` at effort `high`. Plain coding stays on the routing default. Split an issue so only its visual part goes to that worker. Reason: lower models code fine but make the UI ugly.
 - Feature issues: `launch-worker.py <n> <slug> feature`; rules in `addenda/impl-rules-feature.md`.
@@ -58,7 +94,7 @@ Every step must exit 0 before commit.
 
 1. Changed-package checks.
 2. Root checks:
-   - `verify=full`: `bash .agents/conductor/scripts/verify-root.sh <log-dir>` (lint → typecheck → test+build under `heavy.lock`; exits 3 if capacity says `start=no`, 75 if `heavy.lock` is held). Only a summary with `step=test` and `step=build` counts.
+   - `verify=full`: `bash $LANES/verify-root.sh <log-dir>` (lint → typecheck → test+build under `heavy.lock`; exits 3 if capacity says `start=no`, 75 if `heavy.lock` is held). Only a summary with `step=test` and `step=build` counts.
    - `verify=light`: `verify-root.sh --light <log-dir>` (lint + typecheck); test and build are left to PR CI. `tier.sh` gives `verify=full` for any change under the full paths, tests included.
 3. E2E, only when Kernel, shell, shared components or the mock server change. Run the new describe first, then the brief's Impact describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the affected specs (`.github/scripts/select-e2e.mjs`), so a green PR is not a full E2E record; the release `full=true` run is.
 4. Menu manifests, `menus.ts`, contract menu types or `tooling/gen-menu` changed: `node tooling/gen-menu/scripts/probe.ts`, never in a worktree with a live preview.
@@ -67,7 +103,7 @@ Every step must exit 0 before commit.
    - Integration: `PLATFORM_API_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @ap/platform-api test:integration`, not `gate.sh integration` (it truncates the source DB). A migration node runs the full suite on its recreated DB. One issue DB serves one run at a time: wait for the worker to end first.
 6. Hygiene: `python3 $ENGINE/worker-hygiene.py <worktree>`.
 7. Gates that run only in CI — run them locally when their inputs change:
-   - Public SDK types or exports change → `pnpm build`, then `pnpm sdk:api` (intended changes: `--update` plus one line in `docs/integration/sdk-git-tag-consumption.md`), `pnpm sdk:test`.
+   - Public SDK types or exports change → `pnpm build`, then `pnpm sdk:api` (intended changes: `--update` plus one line in `packages/sdk/CHANGELOG.md`), `pnpm sdk:test`.
    - SDK files move or are renamed → `pnpm sdk:pack --out <d> && pnpm sdk:consumer-check <d>`.
    - A CSS rule is removed → add the `css-removal-ok` label and wait for the rerun before ship.
 
@@ -76,7 +112,7 @@ Every step must exit 0 before commit.
 
 ## Browser evidence
 
-- UX reviewers drive the previews themselves: `$ENGINE/app-preview.py start <checkout> --name <n>-branch` (baseline `<n>-main`). Ports 5180–5199. Stop the preview in the same turn and close the ego tabs (LANES §Machine resources).
+- UX reviewers drive the previews themselves: `$ENGINE/app-preview.py start <checkout> --name <n>-branch` (baseline `<n>-main`). Ports 5180–5199. Stop the preview in the same turn and close the ego tabs (`references/lanes.md` §Machine resources).
 - Browser control is `ego-browser`; if it is blocked, use a one-off Playwright capture from `apps/platform-e2e` and record the substitution in VERIFY.
 - A PR that changes behavior (state, request shape, response fields) gets one real-server check by the conductor, recorded in VERIFY: `verify-db.sh create <n>`, then `python3 ops/platform-api/conductor/scripts/app-preview.py start <checkout> --backend --env $WAVE_STATE/env.verify.<n> --seed --name <n>-real`, and `stop <n>-real` in the same turn.
 - Worker briefs take the mock app start command from `conductor.json` `app_preview.command`; never hardcode one.
@@ -136,26 +172,21 @@ Every item not done now — a `minor`/`nit` outside the touched area, an accepte
 
 ## Slice close
 
-Release order: [`LANES.md`](LANES.md) §Lead. Quality review scope `<last tag>...origin/main`, plus a `review-ux` walk-through on the `origin/main` preview if screens changed. Tag with the full SHA (`git rev-parse origin/main`, `gh release create --target "$SHA"`). `app-preview.py status` must show no tracked previews at the end.
+Release order:
+
+  1. Run the slice-close `review-quality` (plus a `review-ux` walk-through if screens changed).
+  2. Draft the release-docs PR. Do steps 1–2 alongside the last PRs' reviews. In it, set consumer packages in `menus/` and `platform/` `ap.sdk` and the gen-menu `SDK_RANGE` to the new SDK range (`menus/AGENTS.md`, `platform/AGENTS.md`); (nothing else updates them).
+  3. Run a one-off doc audit with [addenda/doc-audit.md](addenda/doc-audit.md) (`review-doc`, persona doc-steward, as its work order says). Fold its findings into the release-docs PR.
+  4. Run a full cold CI on the SHA to tag: `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`), so this run is the only whole, cold gate. Take the run id from `gh run list --workflow ci.yml --event workflow_dispatch --limit 1 --json databaseId` and require `headSha` = tag SHA and `success`. Rerun it if the SHA moves.
+  5. Tag `sdk-v*` with the tarballs and a GitHub Release; at tag time also run `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>` and `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`. Ask the owner before tagging an app `v0.x`. For an app release, the site lane updates `site/`.
+
+- **SDK release timing:** a lane adds only the "next release" row in `packages/sdk/CHANGELOG.md`. The lead releases the SDK when that row exists and main CI is green, and at once if a lane is waiting for it.
+
+Quality review scope `<last tag>...origin/main`, plus a `review-ux` walk-through on the `origin/main` preview if screens changed. Tag with the full SHA (`git rev-parse origin/main`, `gh release create --target "$SHA"`). `app-preview.py status` must show no tracked previews at the end.
 
 ## Tools
 
-Engine tools are listed in SKILL §0; run `install.sh --check` if a warning says the install is stale. Repo scripts (in `scripts/`):
-
-| Tool | Purpose |
-| --- | --- |
-| `tier.sh [<base>] [<head>]` | Tier, verify and merge mode for a diff |
-| `capacity.sh` | Machine capacity stage |
-| `hosts-capacity.sh` | Capacity of every lane host (`.review/lanes/hosts.tsv`), logged to `capacity-log.tsv` (LANES «Lane hosts») |
-| `with-lock.sh <lock> "<purpose>" -- <cmd>` | Take a lock or slot for the command's lifetime |
-| `verify-root.sh [--light] <log-dir>` | Verify step 2 |
-| `lock-audit.sh` | Find locks left by finished work |
-| `lead-check.sh` | Lead resume and 2-hour check (LANES §Lead) |
-| `ship-check.sh <issue> <worktree>` | Pre-merge record gate |
-| `merge-precheck.sh [--main-fix] <pr> <branch> <sha>` | Pre-merge main-CI and shared-path gate |
-| `main-ci-watch.sh <sha>` | Watch the main push CI after a merge; writes or clears the `main-red` marker |
-| `board.py {init\|add\|set\|show\|ready\|check}` | Lane board at `$AP_MAIN/.review/lanes/board.json` (`--help` has the schema) |
-| `bash tooling/scripts/next-adr.sh` | Next ADR number; reservation rule in §Traps |
+Lane tools: `~/.agents/skills/issue-wave-conductor/scripts/lanes/` (`references/lanes.md`). Repo script: `bash tooling/scripts/next-adr.sh` (next ADR number; reservation rule in §Traps).
 
 ## Traps
 

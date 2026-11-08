@@ -26,7 +26,7 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 - 원본은 **위치(locator)와 해시만** 보관하고, 실패 지점 확인용 **짧은 로그 발췌**는 상한·열람 권한·보관 기한 아래 별도 저장한다(소유자 2026-11-07). 원본 전체 열람은 그쪽 권한을 다시 따른다. 원본이 없으면 `unresolved`로 보이고 가짜 근거로 대체하지 않는다.
 - **판정 축 분리.** 스크립트 판정(`rule_result`)·AI 의견·사람 검토·Gate 결정·Knowledge 발행은 서로 다른 상태 축이다. 이 슬라이스에는 AI 의견 저장이 없지만, 어떤 쓰기 경로도 AI 의견으로 스크립트 판정을 바꿀 수 없다는 불변식은 지금 정한다([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md) 결정 6).
 - **모델 명세 원본(stale 문구 정리, #1346 P0-4).** #1330의 «SW별 독립 Spec 원본» 문구는 폐기된 것으로 본다. 현행 결정은 [GLOSSARY](../../../../GLOSSARY.md)의 **모델 명세 Revision**(원본) + SW별 **변경점**(SW X부터 적용, 변경 없으면 행 없음)이고, 그 결과가 **실효 명세**다. Round는 검증 시점의 실효 명세를 `spec_pin`(모델 명세 Revision ID + 적용된 변경점 집합의 digest)으로 고정해 재현성을 얻는다. `spec_pin`은 #1196 구현이 제공하는 값을 읽어 저장할 뿐 이 모듈이 계산하지 않는다.
-- **모델 식별.** `model_id`·`software_id`는 `log-knowledge`의 안정 ID를 쓴다. Log Format 버전은 SW 버전이 아니다(자동 동일시 금지; 레거시 이관 때 명시 매핑). 스키마 사이 FK는 두지 않고(모듈 경계: [02 §](../../../architecture/platform-api/02-domain-module-boundaries.md)) 쓰기 때 `log-knowledge`가 내놓는 읽기 포트로 존재·활성을 확인한다.
+- **모델 식별.** `model_id`·`software_id`는 `log-knowledge`의 안정 ID를 쓴다. Log Format 버전은 SW 버전이 아니다(자동 동일시 금지; 레거시 이관 때 명시 매핑). 스키마 사이 FK는 두지 않고(모듈 경계: [02 §](../../../../apps/platform-api/docs/02-domain-module-boundaries.md)) 쓰기 때 `log-knowledge`가 내놓는 읽기 포트로 존재·활성을 확인한다.
 
 ## 3. 데이터 모델 (v0.30.0 최소; 실제 컬럼·제약은 마이그레이션과 API 문서가 갖는다)
 

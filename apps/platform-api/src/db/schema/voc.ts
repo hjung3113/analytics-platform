@@ -2,8 +2,8 @@
 // 1:1 mirror of migration 0010_slice3_voc_foundation.sql (vocs portion).
 //
 // Spec sources:
-//   docs/architecture/platform-api/04-database-and-migrations.md §voc tables
-//   docs/design/features/specs/voc.md §VOC data model
+//   apps/platform-api/docs/04-database-and-migrations.md §voc tables
+//   apps/feature-screens/docs/specs/voc.md §VOC data model
 //   ADR-0011 (rich content as jsonb), ADR-0015 (timestamps/uuid conventions),
 //   ADR-0017 (audit detail), ADR-0019 (role grants pattern)
 //
@@ -516,7 +516,7 @@ export const vocPermissionDecisionsSeedFixture = vocSchema.table(
 
 // ─────────────────────────────────────────────────────────────────────────
 // voc.reporter_facing_status_transitions — seed table for the status
-// transition matrix per docs/design/features/specs/voc.md §4.5.
+// transition matrix per apps/feature-screens/docs/specs/voc.md §4.5.
 // nextReporterStates(currentStatus, tx) reads this table; service code
 // MUST NOT hard-code transitions.
 // platform_app gets SELECT only (data is seeded at migration time).

@@ -701,6 +701,18 @@ describe('DetailPanelSectionNav', () => {
     expect(anchor('body').style.scrollMarginTop).toBe(row.expectedMargin);
   });
 
+  it('marks the last section current at the end of the scroll, even when it never reaches the top band (#1570)', () => {
+    const observer = stubIntersectionObserver();
+    const { anchor, scrollEl } = renderNavOverAnchors(['alpha', 'beta'], { alpha: 12, beta: 180 });
+    setScrollRange(scrollEl, 2000, 200);
+    observer.fire([entry(anchor('alpha'), true, 12)]);
+    expect(screen.getByRole('button', { name: 'Alpha' })).toHaveAttribute('aria-current', 'true');
+
+    scrollEl.scrollTop = 1800;
+    observer.fire([entry(anchor('alpha'), true, 12)]);
+    expect(screen.getByRole('button', { name: 'Beta' })).toHaveAttribute('aria-current', 'true');
+  });
+
   it('recomputes the topmost intersecting anchor on the first scroll after a jump', () => {
     const observer = stubIntersectionObserver();
     const { anchor, scrollEl } = renderNavOverAnchors(['alpha', 'beta'], {

@@ -609,8 +609,8 @@ Human UI: GET Draft(DraftVersion+Digest), 편집/근거 Diff 확인
 - [Platform hierarchy UX issue #1108](https://github.com/hjung3113/analytics-platform/issues/1108) (제품 기능 구현 범위 아님)
 - [Site Scope Permission issue #1087](https://github.com/hjung3113/analytics-platform/issues/1087)
 - [Repository layout](https://github.com/hjung3113/analytics-platform/blob/main/docs/integration/repository-layout.md)
-- [Backend modules](https://github.com/hjung3113/analytics-platform/blob/main/docs/architecture/platform-api/02-domain-module-boundaries.md)
-- [Database migrations](https://github.com/hjung3113/analytics-platform/blob/main/docs/architecture/platform-api/04-database-and-migrations.md)
+- [Backend modules](https://github.com/hjung3113/analytics-platform/blob/main/apps/platform-api/docs/02-domain-module-boundaries.md)
+- [Database migrations](https://github.com/hjung3113/analytics-platform/blob/main/apps/platform-api/docs/04-database-and-migrations.md)
 - [Backend AGENTS](https://github.com/hjung3113/analytics-platform/blob/main/apps/platform-api/AGENTS.md)
 
 ---
@@ -659,7 +659,7 @@ P0 #1193 구현됨: 스키마 표 1–6(`knowledge` 스키마, migration 0080)�
 - **`confirm`.** 내용은 그대로 두고 `needs_revalidation`만 끈다(`row_version` +1). 켜져 있지 않으면 `needsRevalidation:not_set`.
 - **`needs_revalidation`.** 새 모델 명세 Revision이 발행될 때, 그 Revision이 건드린 `target_key`를 가진 열린 변경점에 같은 트랜잭션에서 `needs_revalidation = true`와 원인 `revalidation_rev_no`(그 Revision 번호)를 쓴다. 「건드림」은 직전 발행 Revision과 정규 행 내용 비교(모듈 이름·부모, 이벤트 이름·`triggerRule`·`detailDocRef`·필드 목록, 필드별 `모듈/이벤트#필드`, 관계 추가·삭제·`ruleRef`)이고, 추가·삭제된 모듈/이벤트는 그 아래 이벤트·필드·관계도 건드린 것으로 센다. 직전 Revision이 없거나 `unchanged`면 깃발이 없다. 모델 단위 advisory 잠금(`spec-change:`)이 발행·추가·대체를 직렬화해, 발행과 겹친 추가가 깃발 없이 남지 않는다. 사람이 변경점을 그대로 두거나(`confirm`) 새 줄로 고치면 꺼진다. 모델 공통 프로파일이라는 별도 승인본은 두지 않는다: 모델 명세 Revision이 곧 그것이다.
 - **후보(candidate).** 새 모델 명세는 `draft`로 쓰고 사람이 발행한다. 변경점이 여러 모델·버전에서 반복돼 모델 명세에 올리고 싶으면 새 Revision `draft`에 그 내용을 반영해 발행한다(자동 승격 없음). 자기 승인 여부는 §12 3번(#1198)이며 15.7 Q6.
-- **SW 순서.** 「X부터」가 말이 되려면 한 모델의 SW 버전에 순서가 있어야 한다. `software_version.release_order`(모델별 1..n)는 마이그레이션 0091에 구현됐다: 기존 행은 모델별 등록 순으로 백필됐고 새 SW 행은 트리거로 max+1을 받는다(`release_order` 0은 미배정). 규칙 원본은 `04-database-and-migrations.md` §Model spec tables and software release order다. 15.7 Q2.
+- **SW 순서.** 「X부터」가 말이 되려면 한 모델의 SW 버전에 순서가 있어야 한다. `software_version.release_order`(모델별 1..n)는 마이그레이션 0091에 구현됐다: 기존 행은 모델별 등록 순으로 백필됐고 새 SW 행은 트리거로 max+1을 받는다(`release_order` 0은 미배정). 규칙 원본은 `apps/platform-api/docs/04-database-and-migrations.md` §Model spec tables and software release order다. 15.7 Q2.
 
 ### 15.3 실효 명세(읽기 투영)
 
