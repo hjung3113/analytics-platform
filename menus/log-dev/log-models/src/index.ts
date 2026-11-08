@@ -26,7 +26,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'log-model-round', parent: 'log-models', navHidden: true, group: groupId('logModels'), label: { ko: 'Round 상세', en: 'Round 상세' },
     description: { ko: '샘플·검증 결과와 사람의 Gate 결정', en: 'Samples, validation results and human Gate decisions' }, path: '/log/models/:projectId/rounds/:roundId', icon: Cpu, permission: 'platform:view', requiresScope: false, pageType: 'management',
-    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['node', 'tab', 'page', 'requestsPage', 'rulesPage', 'request', 'attempt', 'result', 'required', 'sort'],
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['node', 'tab', 'page', 'requestsPage', 'rulesPage', 'request', 'attempt', 'result', 'required', 'sort', 'view', 'sourceTab', 'sourceFocus', 'sourceDrawer'],
     component: lazy(() => import('./pages/LifecyclePage')),
   },
   {

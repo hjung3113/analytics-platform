@@ -44,6 +44,8 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'packages/adapters/feature-bridge': featureBridgePreset,
   'platform/my-activity': featureBridgeMenuPreset,
   'platform/voc': featureBridgeMenuPreset,
+  'menus/log-dev/log-models': featureBridgeMenuPreset,
+  'menus/log-dev/log-analysis': menu,
   'apps/platform-web': app,
 };
 
@@ -719,6 +721,16 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-improvement-items/analysis-actions/x';`, rule: 'no-restricted-imports' },
 );
 
+// The Round tab (#1475): the app joins menu-log-analysis's body to menu-log-models's slot in main.tsx only; the menus never import each other, and no other app file or subpath is open.
+rows.push(
+  { file: 'apps/platform-web/src/main.tsx', code: `import { RoundSourceView } from '@ap/menu-log-analysis/view';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { setRoundSourceView } from '@ap/menu-log-models/round-source-slot';`, rule: '' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { RoundSourceView } from '@ap/menu-log-analysis/view';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { setRoundSourceView } from '@ap/menu-log-models/round-source-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-log-analysis/src/view';`, rule: 'no-restricted-imports' },
+  { file: 'menus/log-dev/log-models/src/pages/LifecyclePage.tsx', code: `import { RoundSourceView } from '@ap/menu-log-analysis/view';`, rule: 'no-restricted-imports' },
+  { file: 'menus/log-dev/log-analysis/src/view.tsx', code: `import { setRoundSourceView } from '@ap/menu-log-models/round-source-slot';`, rule: 'no-restricted-imports' },
+);
 // The home 내 할 일 slot is main.tsx-only too (#657); `src/slots.ts` receives the value as a parameter.
 rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { homeTodoSlot } from '@ap/feature-bridge/home-todo-slot';`, rule: '' },

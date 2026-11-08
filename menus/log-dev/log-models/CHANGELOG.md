@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.4.0 — 2026-11-08
+
+- #1475: Round 상세 «원본/시퀀스» 탭(앱이 `./round-source-slot`으로 본문을 꽂을 때만 보임)과 규칙 결과의 「원본에서 보기」. 주소 키 `view`·`sourceTab`·`sourceFocus`·`sourceDrawer` 추가.
+
 ## 0.3.0 — 2026-11-08
 
 - 시도 이력에 «규칙 세트» 열(RuleSet 링크·상태 문구)과 `LifecyclePage`의 `RuleSetLink`(#1496).

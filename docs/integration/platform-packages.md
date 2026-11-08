@@ -37,7 +37,7 @@
 | `apps/platform-e2e` | (검사) | 조립된 앱을 브라우저로 띄워 플랫폼 계약을 검사하는 Playwright 블랙박스 테스트와 항목별 보고(#44) | 없음 | 없음(`@ap/*` import 금지, 브라우저로만 관찰) |
 | `tooling/*` | 개발 환경 | 공유 tsconfig, lint 설정(경계·계약 규칙), 메뉴 생성기 | — | — |
 
-`@ap/menu-log-analysis` (`menus/log-dev/log-analysis`, #1473) owns the logAnalysis group’s explorer and hidden investigation view. Its `logExplorer.*` reads/actions use the existing menu transport; its `/mock` contributes synthetic reads and versioned writes only to the dev assembly.
+`@ap/menu-log-analysis` (`menus/log-dev/log-analysis`, #1473) owns the logAnalysis group’s explorer and hidden investigation view. Its `logExplorer.*` reads/actions use the existing menu transport; its `/mock` contributes synthetic reads and versioned writes only to the dev assembly. Its exact `./view` subpath (`RoundSourceView`) is the Round detail tab body (#1475): `apps/platform-web/src/main.tsx` alone imports it and hands it to `@ap/menu-log-models` through that menu's exact `./round-source-slot` subpath (`setRoundSourceView`), so the two menus never import each other ([ADR-0128](../adr/0128-app-joins-menus-for-embedded-bodies.md)).
 
 ### 플랫폼 기능 Consumer 루트 (Decided 2026-10-28)
 

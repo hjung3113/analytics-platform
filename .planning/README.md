@@ -44,6 +44,8 @@
 
 **`v0.31.0` 로그 탐색 노드 g [#1473](https://github.com/hjung3113/analytics-platform/issues/1473): A 목록+오른쪽 서랍 부분 구현, 호스트 검증·연결 결정 대기. 새 로그 분석 그룹·로그 탐색/조사·근거 위치 바구니·시퀀스와 SDK `fill`. REST 내보내기 어댑터·기간 필터·규칙 결과 연결은 미구현([backlog](backlog.md)); 넘기기는 노드 h #1474 준비 중.**
 
+**`v0.31.0` 로그 탐색 노드 i [#1475](https://github.com/hjung3113/analytics-platform/issues/1475): Round 상세 «원본/시퀀스» 탭 병합됨, 소유자가 A안(본문 위 탭, 원본 탭에서 Gate 숨김)·읽기 전용을 확정(2026-11-08). 앱이 두 메뉴를 잇는 방식([ADR-0128](../docs/adr/0128-app-joins-menus-for-embedded-bodies.md)), 읽기 전용 본문, 규칙 결과 「원본에서 보기」. 선택한 줄로 표가 이동하지 않는 한계는 [backlog](backlog.md).**
+
 **`v0.31.0` 로그 탐색 노드 b [#1468](https://github.com/hjung3113/analytics-platform/issues/1468)(조사 스키마·액션·읽기·권한 철회·낙관적 동시성): 병합됨. 모듈 `log-explorer`, capability `explorer.investigate`(sensitive·Admin 우회 없음), 마이그레이션 0109. Source 읽기는 #1467·#1469, 화면은 #1473(검증 대기), 넘기기는 #1474.**
 **`v0.31.0` 로그 탐색 노드 d [#1470](https://github.com/hjung3113/analytics-platform/issues/1470)(`rule_result_evidence` 사이드 테이블 + `logExplorer.evidenceLinks`): 병합됨.** 마이그레이션 `*_rule_result_evidence.sql`(번호는 병합 때 레인이 매김), lifecycle 읽기 포트 `lifecycleEvidenceRead`, 새 capability 없음, 감사 없음(읽기). DB 통합 검사는 호스트에서 실행.
 

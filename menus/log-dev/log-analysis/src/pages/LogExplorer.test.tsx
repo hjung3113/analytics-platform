@@ -9,7 +9,8 @@ import { stubCompactTableGeometry } from '@ap/components/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { manifests } from '../index';
 import type { Investigation, SourceRow, SourceState } from '../endpoints';
-import LogExplorer from './LogExplorer';
+import LogExplorer, { InvestigationScreen } from './LogExplorer';
+import { RoundSourceView } from '../view';
 const id = '14730000-0000-4000-8000-000000000001';
 const set = { sourceOwner: 'synthetic-ok', files: [{ fileRef: 'source-b', order: 1, sha256: 'b'.repeat(64) }] };
 const row: SourceRow = { fileRef: 'source-b', fileOrder: 1, line: 1, text: '<script>private-source</script>', timestamp: '2026-11-08T09:00:01', truncated: false, timeReversal: true, synthetic: true };
@@ -36,11 +37,11 @@ const write = vi.fn<PlatformAdapter['menuAction']>(async req => {
   return { outcome: 'ok', data: { version: '2' }, version: '2', fieldErrors: [], replayed: false, correlationId: 'test' };
 });
 function Slot() { const slot = useDetailPanelSlotHost(); return <aside aria-label="상세" ref={slot.ref} />; }
-function mount() {
-  const registry = createRegistry({ permissions: [menuPermission('explorer:investigate'), menuPermission('explorer:handoff')], spaces: [{ id: spaceId('log-dev'), label: { ko: '로그', en: 'Logs' }, description: { ko: '조사', en: 'Investigations' }, homeMenuId: 'log-explorer' }], groups: [{ id: groupId('logAnalysis'), label: { ko: '로그 분석', en: 'Log analysis' }, icon: ScrollText, space: spaceId('log-dev') }], menus: manifests });
+function mount(body?: React.ReactNode, hostKeys: string[] = []) {
+  const registry = createRegistry({ permissions: [menuPermission('explorer:investigate'), menuPermission('explorer:handoff')], spaces: [{ id: spaceId('log-dev'), label: { ko: '로그', en: 'Logs' }, description: { ko: '조사', en: 'Investigations' }, homeMenuId: 'log-explorer' }], groups: [{ id: groupId('logAnalysis'), label: { ko: '로그 분석', en: 'Log analysis' }, icon: ScrollText, space: spaceId('log-dev') }], menus: hostKeys.length ? manifests.map(m => ({ ...m, pageKeys: [...(m.pageKeys ?? []), ...hostKeys] })) : manifests });
   const session = testSession(['platform:view', menuPermission('explorer:investigate'), menuPermission('explorer:handoff')]);
   const adapter = testAdapter({ session: () => session, menuQuery: read, menuAction: write });
-  return render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider><LogExplorer params={{}} /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider>{body ?? <LogExplorer params={{}} />}<Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 }
 beforeEach(() => {
   restore = stubCompactTableGeometry(800);
@@ -250,5 +251,58 @@ describe('Round evidence handoff dialog (#1474, confirmed prototype A)', () => {
     expect(within(dialog).queryByRole('button', { name: '참조 전달' })).toBeNull();
     expect(await screen.findByText('Round에 2개 넘김 · 이미 있던 위치 1개 · 원본 없음 3개')).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeNull());
+  });
+});
+
+describe('embedded read-only body (#1475, Round detail tab)', () => {
+  const embedded = () => mount(<InvestigationScreen embedded picker={null} investigation={investigation} frame={({ contextExtension, children }) => <div className="flex h-full flex-col">{contextExtension}{children}</div>} />);
+  it('shows the Source table and the record drawer but offers no write: no saved conditions, no basket, no add-to-basket', async () => {
+    embedded();
+    fireEvent.click(await screen.findByRole('button', { name: 'source-b:1 상세' }));
+    expect(await screen.findByRole('heading', { name: '원문 줄' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /근거 위치 바구니/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: '조건 저장' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '근거 위치 담기' })).toBeNull();
+    expect(screen.queryByText('조사 쓰기 권한이 없습니다.')).toBeNull();
+    expect(write).not.toHaveBeenCalled();
+  });
+  it('keeps the 원본 ↔ 시퀀스 switch and the selected line', async () => {
+    embedded();
+    fireEvent.click(await screen.findByRole('button', { name: 'source-b:1 상세' }));
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: '시퀀스' }), { button: 0 });
+    fireEvent.click(screen.getByRole('tab', { name: '시퀀스' }));
+    expect(await screen.findByText(/선택 source-b:1/)).toBeTruthy();
+  });
+  it('the saved screen still offers basket and save (embedded off by default)', async () => {
+    mount();
+    expect(await screen.findByRole('button', { name: '근거 위치 바구니 · 0' })).toBeTruthy();
+  });
+});
+
+describe('RoundSourceView, the Round tab body the app injects (#1475)', () => {
+  // The host route (the Round detail) declares these keys in its manifest; here the test route stands in for it.
+  const view = () => mount(<RoundSourceView roundId="14750000-0000-4000-8000-000000000001" sampleSet={set} />, ['sourceTab', 'sourceFocus', 'sourceDrawer']);
+  it('reads the Round\'s own sample list with no investigation row and no write', async () => {
+    view();
+    fireEvent.click(await screen.findByRole('button', { name: 'source-b:1 상세' }));
+    expect(await screen.findByRole('heading', { name: '원문 줄' })).toBeTruthy();
+    const records = read.mock.calls.map(([request]) => request).find(request => request.endpoint === 'logExplorer.records');
+    expect((records?.params as { sampleSet: typeof set }).sampleSet).toEqual(set);
+    expect(read.mock.calls.some(([request]) => request.endpoint === 'logExplorer.investigationDetail' || request.endpoint === 'logExplorer.investigations')).toBe(false);
+    expect(screen.queryByRole('button', { name: /근거 위치 바구니|조건 저장|근거 위치 담기/ })).toBeNull();
+    expect(write).not.toHaveBeenCalled();
+  });
+  it('keeps its address keys apart from the host: sourceFocus and sourceDrawer, never tab, focus or drawer', async () => {
+    view();
+    fireEvent.click(await screen.findByRole('button', { name: 'source-b:1 상세' }));
+    await screen.findByRole('heading', { name: '원문 줄' });
+    const query = new URLSearchParams(window.location.search);
+    expect(query.get('sourceFocus')).toBe('1:1');
+    expect(query.get('sourceDrawer')).toBe('record');
+    for (const key of ['tab', 'focus', 'drawer']) expect(query.has(key)).toBe(false);
+    fireEvent.mouseDown(screen.getByRole('tab', { name: '시퀀스' }), { button: 0 });
+    fireEvent.click(screen.getByRole('tab', { name: '시퀀스' }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('sourceTab')).toBe('sequence'));
+    expect(new URLSearchParams(window.location.search).has('tab')).toBe(false);
   });
 });

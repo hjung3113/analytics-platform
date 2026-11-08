@@ -138,6 +138,7 @@
 | [0126](0126-detail-panel-content-region-expansion.md) | 상세 패널 크게 보기: 같은 패널을 본문 영역으로 펼치고 입력·포커스·주소 상태를 유지 | Decided(2026-11-07), 0013 보완 |
 
 | [0127](0127-sdk-rich-editor-extensions-and-inline-attachment-images.md) | SDK 리치 에디터 선택 확장·첨부 ID 기반 본문 이미지, FO ADR-0011 부분 대체·ADR-0052 보충 | Decided(2026-11-07) |
+| [0128](0128-app-joins-menus-for-embedded-bodies.md) | 한 메뉴 화면이 다른 메뉴의 본문을 품을 때는 앱이 둘을 잇는다(main.tsx 슬롯 주입, 메뉴 간 import 금지 유지) | Decided(2026-11-08) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
