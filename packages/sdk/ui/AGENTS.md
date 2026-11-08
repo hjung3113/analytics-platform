@@ -1,5 +1,7 @@
 # @ap/ui
 
+- Sidebar grammar (#1448): public `navRowVariants` (CVA-backed active/collapsed/inset/feature), `NavCurrentMarker` (`data-current-marker`), and `navDrillAffordance` preserve existing row class output. `Button variant="navigation"` and `SearchInput size="toolbar"`/`aria-label`/`clearLabel` are opt-in; default rendering stays unchanged. Keep PUBLIC_EXPORTS and the shell characterization test green.
+
 UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, Scope, 메뉴)을 모른다.
 
 ## 파일

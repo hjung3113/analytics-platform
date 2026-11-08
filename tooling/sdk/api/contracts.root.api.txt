@@ -81,6 +81,10 @@ GroupId | type | type GroupId = Brand<'GroupId'>
 GroupMember | type | type GroupMember = { affiliation: string; displayName: string; userId: string; }
 GroupedPageResult | type | type GroupedPageResult<T> = @ap/contracts#PageResult<T> & { groups?: @ap/contracts#PageGroup[]; }
 HOST_CONTRACTS | const | const HOST_CONTRACTS: readonly [ 1 ]
+HierarchyFailure | class | class HierarchyFailure extends Error { readonly kind: 'deleted' | 'error' | 'forbidden'; constructor(kind: 'deleted' | 'error' | 'forbidden', message?: string); }
+HierarchyNode | type | type HierarchyNode = { hasChildren: boolean; id: string; kind: string; label: string; parentId?: null | string; target?: { menuId: string; page?: Record<string, string>; params?: Record<string, string>; }; }
+HierarchyPage | type | type HierarchyPage = { nextCursor?: string; nodes: @ap/contracts#HierarchyNode[]; totalCount?: number; }
+HierarchySource | type | type HierarchySource = { listChildren(args: { cursor?: string; limit?: number; parentId: null | string; signal?: AbortSignal; }): Promise<@ap/contracts#HierarchyPage>; resolveAncestors(nodeId: string, signal?: AbortSignal): Promise<@ap/contracts#HierarchyNode[]>; searchNodes?: (args: { cursor?: string; limit?: number; query: string; signal?: AbortSignal; }) => Promise<@ap/contracts#HierarchyPage>; }
 HostContract | type | type HostContract = 1
 HostFeature | type | type HostFeature = 'detailSlot' | 'query' | 'write'
 INSTANT_OPS | const | const INSTANT_OPS: readonly [ "between", "isEmpty", "isNotEmpty" ]
@@ -230,6 +234,7 @@ incompleteMetricPair | function | function incompleteMetricPair(menu: null | { i
 instantEpochMs | function | function instantEpochMs(instant: string): number
 isAppRelativePath | function | function isAppRelativePath(value: string): boolean
 isForbiddenSavedViewKey | const | const isForbiddenSavedViewKey: (key: string) => boolean
+isHierarchyFailure | function | function isHierarchyFailure(value: unknown): value is @ap/contracts#HierarchyFailure
 isIsoInstant | function | function isIsoInstant(value: unknown): value is string
 isPortError | function | function isPortError(e: unknown): e is @ap/contracts#PortError
 isRecord | const | const isRecord: (value: unknown) => value is Record<string, unknown>

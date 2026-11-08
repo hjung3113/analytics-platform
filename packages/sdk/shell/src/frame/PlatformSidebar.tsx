@@ -1,8 +1,10 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { useHostPlatform } from '@ap/kernel/host';
 import { NavItem } from './AppSidebar';
 import { usePlatformMenu } from './platformMenu';
+import { SidebarHierarchy } from './SidebarHierarchy';
 import { MenuUnread } from './unread';
 
 /**
@@ -11,8 +13,10 @@ import { MenuUnread } from './unread';
  */
 export function PlatformSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const { route } = usePlatform();
+  const { canOpen } = useHostPlatform();
   const { t, tx } = useI18n();
   const { sections, labelOf } = usePlatformMenu();
+  const hasHierarchy = !collapsed && sections.some(({ items }) => items.some(menu => menu.navTree && canOpen(menu.id)));
   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
 
   return <TooltipProvider delayDuration={200}>
@@ -26,7 +30,7 @@ export function PlatformSidebar({ collapsed, onToggle }: { collapsed: boolean; o
           </button>
         </TooltipTrigger><TooltipContent side="right">{collapsed ? t('expand') : t('collapse')} ([)</TooltipContent></Tooltip>
       </div>
-      <div className="shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
+      <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
         <nav aria-label={t('platformMenu')}>
           {sections.map(({ group, items }, index) => {
             const headed = !(group.hideLabelWhenSingle && items.length === 1);
@@ -34,6 +38,7 @@ export function PlatformSidebar({ collapsed, onToggle }: { collapsed: boolean; o
               {!collapsed && headed && <p className={cn('mx-2 mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
               {((collapsed && index > 0) || (!collapsed && !headed && index > 0)) && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
               <ul className="space-y-0.5">{items.map(menu => <li key={menu.id}><MenuUnread menuId={menu.id}>{count => <NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} label={labelOf(menu)} unread={count} />}</MenuUnread></li>)}</ul>
+              {items.filter(menu => menu.navTree && canOpen(menu.id)).map(menu => <SidebarHierarchy key={menu.id} menu={menu} collapsed={collapsed} />)}
             </div>;
           })}
         </nav>

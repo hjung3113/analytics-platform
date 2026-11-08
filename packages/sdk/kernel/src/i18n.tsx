@@ -8,6 +8,16 @@ export type { Text };
 
 // UI copy only (docs/06 §23): master values and identifiers are never translated.
 const dict = {
+  hierarchyBack: { ko: '뒤로', en: 'Back' },
+  hierarchySearch: { ko: '항목 검색…', en: 'Search items…' },
+  hierarchyLoading: { ko: '불러오는 중…', en: 'Loading…' },
+  hierarchyRetry: { ko: '다시 시도', en: 'Retry' },
+  hierarchyError: { ko: '항목을 불러오지 못했습니다.', en: 'Could not load items.' },
+  hierarchyPermission: { ko: '권한이 있는 항목만 표시합니다.', en: 'Only items you can access are shown.' },
+  hierarchyForbidden: { ko: '표시할 수 있는 항목이 없습니다. 접근 권한을 확인하세요.', en: 'No items can be displayed. Check your access permissions.' },
+  hierarchyDeleted: { ko: '삭제되었거나 이동된 항목입니다.', en: 'This item was deleted or moved.' },
+  hierarchyEmpty: { ko: '항목이 없습니다.', en: 'No items.' },
+  hierarchyMore: { ko: '더 불러오기', en: 'Load more' },
   close: { ko: '닫기', en: 'Close' },
   appName: { ko: 'Analytics Platform', en: 'Analytics Platform' },
   appTagline: { ko: '설비 로그 분석 플랫폼', en: 'Equipment log analytics' },
