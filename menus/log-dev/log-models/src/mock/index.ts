@@ -2,6 +2,7 @@ import { type ColumnFilter, type FieldError, type PageSort } from '@ap/contracts
 import { defineMockAction, defineMockEndpoint, MockActionInvalid, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { actions, endpoints, isUuid, type Project, type RoundDetail } from '../endpoints';
 import { ATTEMPT_ID, events, models, projects, requests, rounds, rules } from './fixtures';
+import { readHierarchy, validateHierarchy } from './hierarchy';
 export { PROJECT_ID, ROUND_ID, REQUEST_ID, ATTEMPT_ID, fixtureId, resetLifecycle, stageLifecycleFixture } from './fixtures';
 
 type Params = Record<string, unknown>;
@@ -26,6 +27,7 @@ function availability(r: RoundDetail, actor: string) {
   return { targetStage: p?.gateTarget ?? null, projectVersion: p?.version ?? '', reasons, decisions: { approved: { allowed: reasons.length === 0 && verdict === 'pass', reasons: [...reasons, ...(verdict === 'pass' ? [] : ['verdict_not_pass'])] }, rejected: { allowed: reasons.length === 0, reasons }, exception: { allowed: reasons.length === 0 && verdict !== 'pass', reasons: [...reasons, ...(verdict === 'pass' ? ['exception_not_needed'] : [])] } }, basis: { decisiveVerdict: verdict ?? null, specPin: r.specPin, sampleManifestDigest: r.sampleManifestDigest } };
 }
 function read(name: string, p: Params, actor: string): unknown {
+  if (name === 'hierarchy') return readHierarchy(p, actor);
   if (name === 'queueStatus') return { runWindow: { timezone: 'Asia/Seoul', weekday: { fromHour: 22, toHour: 6 }, weekendAllDay: true }, immediateLimit: 5, serverAt: '2026-11-07T00:30:00Z', withinWindow: true };
   if (name === 'models') {
     let rows = models.map(m => p.includeClosedProjects || !m.project || !['completed','cancelled'].includes(m.project.stage) ? m : { ...m, project: null }).filter(m => !p.q || `${m.code} ${m.name}`.toLowerCase().includes(String(p.q).toLowerCase()));
@@ -33,6 +35,8 @@ function read(name: string, p: Params, actor: string): unknown {
       if (f.id === 'stage') rows = rows.filter(m => f.op === 'isEmpty' ? m.project === null : f.op === 'in' && f.value.includes(m.project?.stage ?? ''));
       if (f.id === 'validation' && f.op === 'in') rows = rows.filter(m => f.value.includes(m.validation));
       if (f.id === 'vendorId' && f.op === 'in') rows = rows.filter(m => f.value.includes(m.vendorId));
+      if (f.id === 'id' && f.op === 'in') rows = rows.filter(m => f.value.includes(m.id));
+      if (f.id === 'processes' && f.op === 'isEmpty') rows = rows.filter(m => m.processes.length === 0);
       if (f.id === 'processes' && f.op === 'in') rows = rows.filter(m => m.processes.some(x => f.value.includes(x.id)));
     }
     return page(rows, p);
@@ -55,6 +59,7 @@ function read(name: string, p: Params, actor: string): unknown {
   return null;
 }
 export const logLifecycleMock: readonly AnyMockEndpoint[] = Object.entries(endpoints).map(([name, spec]) => defineMockEndpoint(spec, { mart: false, validate: ({ params }) => {
+  if (name === 'hierarchy') return validateHierarchy(params);
   const idKey = { projectDetail: 'projectId', projectEvents: 'projectId', rounds: 'projectId', roundDetail: 'roundId', roundEvidence: 'roundId', requestDetail: 'requestId', ruleResults: 'attemptId', excerpt: 'ruleResultId' }[name];
   return idKey && (typeof params[idKey] !== 'string' || !isUuid(params[idKey] as string)) ? `${idKey} must be UUID` : null;
 }, handle: ({ params, actor }) => read(name, params, actor) }));

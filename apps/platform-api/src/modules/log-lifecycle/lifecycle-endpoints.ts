@@ -24,6 +24,8 @@ import {
   parseRoundsParams,
 } from './domain/lifecycle-params.js';
 import { LOG_MODELS_MENU_ID } from './menu.js';
+import { HIERARCHY_PARAM_KEYS, parseHierarchyParams } from './domain/hierarchy-params.js';
+import { hierarchyReader } from './hierarchy-read.js';
 import { gateHistoryOfRound, projectGateState } from './repositories/gate.js';
 import { gateTargetFor } from './domain/stage-transitions.js';
 import { getProjectDetail, getRoundDetail, listModels, listProjectEvents, listRounds, roundInWorkspace } from './repositories/lifecycle-read.js';
@@ -61,7 +63,12 @@ function declareRead(
 const judgeOf = (parse: (p: Record<string, unknown>) => ParamsJudgment): Judge => (p) => parse(p);
 
 export function lifecycleEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclaration[] {
+  const readHierarchy = hierarchyReader(deps);
   return [
+    declareRead(deps, 'hierarchy', HIERARCHY_PARAM_KEYS, parseHierarchyParams, async (actor, params) => {
+      const parsed = parseHierarchyParams(params);
+      return parsed.ok ? readHierarchy(actor, parsed.value) : { outcome: 'error', data: null, message: parsed.message };
+    }),
     declareRead(deps, 'models', MODEL_PARAM_KEYS, judgeOf(parseModelParams), async (actor, params) => {
       const parsed = parseModelParams(params);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };

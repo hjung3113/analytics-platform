@@ -935,6 +935,23 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logLifecycle.hierarchy",
+    "menuId": "log-models",
+    "paramKeys": [
+      "op",
+      "parentId",
+      "nodeId",
+      "query",
+      "cursor",
+      "limit"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logLifecycle.models",
     "menuId": "log-models",
     "paramKeys": [

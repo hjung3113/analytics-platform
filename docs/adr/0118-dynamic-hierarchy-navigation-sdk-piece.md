@@ -17,7 +17,7 @@
 4. **ID와 URL.** 노드는 안정 ID로 식별하고 열리는 대상은 `target.menuId + params? + page?`(Registry의 기존 메뉴)다. page key로 객체를 여는 메뉴도 지원한다. 주소에는 대상 객체 ID만 두고 조상 라벨·펼침 상태·검색어는 직렬화하지 않는다. 새 탭은 노드를 제외한 조상을 `resolveAncestors`로 복원한다. 삭제·이동·권한 없음은 명시 상태로 표시하고 다른 객체로 조용히 보내지 않는다.
 5. **SDK 제약은 이유 있는 것만.** 한 번에 불러오는 노드 수 상한과 취소 규칙은 성능·정합성 이유, `role=tree` 키보드는 접근성 이유라서 계약에 둔다. 깊이 상한·한 번에 하나만 선택 같은 정책은 두지 않는다(메뉴가 선언).
 6. **사이드바 채택(소유자 2026-11-07).** [컨펌 Artifact JAMf3g2Z2yGUDHynCwfYGh](https://claude.ai/artifact/JAMf3g2Z2yGUDHynCwfYGh): 기본 sb(한 단계씩), 메뉴 선택 sa(펼친 트리); 모델=sa, 게시판=sb. 고정 메뉴와 현재 데이터 노드 표시를 함께 남기고 접힌 팝오버는 실제 이동한 선택만 닫는다. `navTree`를 쓰지 않는 메뉴의 기존 행 클래스·동작은 유지한다. 본문 탐색기는 소유자가 보류했으며 실제 본문 소비자가 요청하면 다시 연다.
-7. **검증용 합성 소비자.** 제품 Registry나 DEV 메뉴를 추가하지 않는다. `@ap/components/testing`의 5,000노드·6단계 source와 geometry stub을 실제 `AppShell`의 drill·tree 테스트 Registry에 주입한다. 제품 소비자 연결은 #1449다.
+7. **검증용 합성 소비자.** 제품 Registry나 DEV 메뉴를 추가하지 않는다. `@ap/components/testing`의 5,000노드·6단계 source와 geometry stub을 실제 `AppShell`의 drill·tree 테스트 Registry에 주입한다. 제품 소비자 `log-models`는 #1449에서 tree·Source·계층 조회를 연결했다. 계층에서 만든 개발 건·Round 링크는 객체 ID만으로 만든 `node` page key로 현재 모델/SW를 복원하고, 모델 목록 링크는 `vendorId`·`processId`·`modelId`로 경로를 복원한다. `node` 없는 개발 건·Round 딥링크의 현재 노드 복원만 동기 `currentNodeId`의 SDK 확장 결정 전 미구현이다([백로그](../../.planning/backlog.md)).
 
 ## 대안과 버리는 이유
 
