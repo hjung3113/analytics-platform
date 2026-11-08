@@ -1,7 +1,7 @@
 import { act, lazy } from 'react';
 import { Inbox } from 'lucide-react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NO_FEATURES, contextCapabilities, carrySetId, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession, useToastsForTest } from '@ap/kernel/testing';
@@ -84,6 +84,9 @@ async function type(value: string) {
   await act(async () => { host!.querySelector('form')!.requestSubmit(); });
   await settle();
 }
+
+// The first mount lazily imports the whole SavedViews page graph: about 2 s cold on a quiet machine, over 5 s on a loaded CI runner. Pay it in a hook with its own budget so the first test never races the default 5 s timeout (the rest of the file failed with it).
+beforeAll(async () => { await import('./pages/SavedViews'); }, 60_000);
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
