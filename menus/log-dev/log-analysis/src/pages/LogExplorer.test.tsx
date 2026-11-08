@@ -181,7 +181,7 @@ describe('Round evidence handoff dialog (#1474, confirmed prototype A)', () => {
     write.mockResolvedValueOnce({ outcome: 'ok', data: { targetKind: 'round', targetId: investigation.roundId, handedOff: 2, alreadyAttached: 1, byStatus: { match: 2, hash_mismatch: 0, unresolved: 3 } }, version: '1', fieldErrors: [], replayed: false, correlationId: 'h' });
     mount(); await openMenu();
     fireEvent.keyDown(await screen.findByRole('menuitem', { name: 'Round' }), { key: 'Enter' });
-    const dialog = await screen.findByRole('dialog', { name: /Round에 근거 위치/ });
+    const dialog = await screen.findByRole('alertdialog', { name: /Round에 근거 위치/ });
     expect(within(dialog).getByText('Round에 근거 위치 1개 넘기기')).toBeTruthy();
     expect(within(dialog).getByText('참조만 전달됩니다. 공식 FAIL·기술 지식 확정이 아닙니다')).toBeTruthy();
     expect(within(dialog).getByText('fileRef · line · fileSha256만 전달 · 본문 없음')).toBeTruthy();
@@ -189,7 +189,7 @@ describe('Round evidence handoff dialog (#1474, confirmed prototype A)', () => {
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
     expect(write.mock.calls[0]![0]).toMatchObject({ action: 'logExplorer.evidenceHandoff', expectedVersion: '1', input: { id, refs: [ref], target: { kind: 'round', roundId: '14740000-0000-4000-8000-000000000001' } } });
     expect(await screen.findByText('Round에 2개 넘김 · 이미 있던 위치 1개 · 원본 없음 3개')).toBeTruthy();
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: /Round에 근거 위치/ })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: '넘기기' })));
   });
   it.each([
@@ -203,19 +203,52 @@ describe('Round evidence handoff dialog (#1474, confirmed prototype A)', () => {
     write.mockResolvedValueOnce({ outcome: 'invalid', data: null, version: null, fieldErrors: [{ path: ['refs'], code }], replayed: false, correlationId: 'h' });
     mount(); await openMenu();
     fireEvent.keyDown(await screen.findByRole('menuitem', { name: 'Round' }), { key: 'Enter' });
-    fireEvent.click(within(await screen.findByRole('dialog', { name: /Round에 근거 위치/ })).getByRole('button', { name: '참조 전달' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog', { name: /Round에 근거 위치/ })).getByRole('button', { name: '참조 전달' }));
     expect((await screen.findByRole('alert')).textContent).toBe(text);
-    expect(screen.getByRole('dialog', { name: /Round에 근거 위치/ })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeTruthy();
   });
   it('explains a conflict and lets the person cancel', async () => {
     investigation = roundOf();
     write.mockResolvedValueOnce({ outcome: 'conflict', data: null, version: '3', fieldErrors: [], replayed: false, correlationId: 'h' });
     mount(); await openMenu();
     fireEvent.keyDown(await screen.findByRole('menuitem', { name: 'Round' }), { key: 'Enter' });
-    const dialog = await screen.findByRole('dialog', { name: /Round에 근거 위치/ });
+    const dialog = await screen.findByRole('alertdialog', { name: /Round에 근거 위치/ });
     fireEvent.click(within(dialog).getByRole('button', { name: '참조 전달' }));
     expect((await within(dialog).findByRole('alert')).textContent).toBe('조사가 바뀌었습니다. 다시 열어 주세요');
     fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: /Round에 근거 위치/ })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeNull());
+  });
+  const okCounts = { outcome: 'ok' as const, data: { targetKind: 'round' as const, targetId: 'r', handedOff: 2, alreadyAttached: 1, byStatus: { match: 2, hash_mismatch: 0, unresolved: 3 } }, version: '1', fieldErrors: [], replayed: false, correlationId: 'h' };
+  const openDialog = async () => { mount(); await openMenu(); fireEvent.keyDown(await screen.findByRole('menuitem', { name: 'Round' }), { key: 'Enter' }); return screen.findByRole('alertdialog', { name: /Round에 근거 위치/ }); };
+  it('cannot be dismissed while the request is pending', async () => {
+    investigation = roundOf();
+    let release: (value: Awaited<ReturnType<PlatformAdapter['menuAction']>>) => void = () => undefined;
+    write.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: '참조 전달' }));
+    const cancel = await within(dialog).findByRole('button', { name: '취소' });
+    await waitFor(() => expect((cancel as HTMLButtonElement).disabled).toBe(true));
+    expect(within(dialog).getByRole('button', { name: '전달 중…' })).toBeTruthy();
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.getByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeTruthy();
+    await act(async () => { release(okCounts); });
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeNull());
+  });
+  it.each([
+    ['unknown', '응답을 받지 못했습니다. 넘겨졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.'],
+    ['error', '넘기지 못했습니다. 같은 요청으로 다시 시도할 수 있습니다.'],
+  ] as const)('resends the same request (same idempotency key) after %s', async (outcome, text) => {
+    investigation = roundOf();
+    write.mockResolvedValueOnce({ outcome, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'lost' });
+    write.mockResolvedValueOnce(okCounts);
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: '참조 전달' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toBe(text);
+    fireEvent.click(within(dialog).getByRole('button', { name: '같은 요청 다시 시도' }));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+    expect(write.mock.calls[1]![0].idempotencyKey).toBe(write.mock.calls[0]![0].idempotencyKey);
+    expect(within(dialog).queryByRole('button', { name: '참조 전달' })).toBeNull();
+    expect(await screen.findByText('Round에 2개 넘김 · 이미 있던 위치 1개 · 원본 없음 3개')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: /Round에 근거 위치/ })).toBeNull());
   });
 });

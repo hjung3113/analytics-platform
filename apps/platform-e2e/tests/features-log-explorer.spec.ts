@@ -33,7 +33,7 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     const trigger = page.getByRole('button', { name: '넘기기', exact: true });
     await trigger.click();
     await page.getByRole('menuitem', { name: 'Round', exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: 'Round에 근거 위치 1개 넘기기' });
+    const dialog = page.getByRole('alertdialog', { name: 'Round에 근거 위치 1개 넘기기' });
     await expect(dialog.getByText('참조만 전달됩니다. 공식 FAIL·기술 지식 확정이 아닙니다')).toBeVisible();
     await expect(dialog.getByText('fileRef · line · fileSha256만 전달 · 본문 없음')).toBeVisible();
     await dialog.getByRole('button', { name: '참조 전달', exact: true }).click();

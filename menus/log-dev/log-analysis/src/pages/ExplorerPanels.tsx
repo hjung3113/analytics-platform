@@ -3,8 +3,8 @@ import { Info } from 'lucide-react';
 import type { ActionResult } from '@ap/contracts';
 import { useMenuAction, usePlatform } from '@ap/kernel';
 import { DetailDrawer, StateMessage } from '@ap/components';
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Skeleton, StatusBadge, Textarea } from '@ap/ui';
-import { evidenceAdd, evidenceHandoff, evidenceRemove, investigationCreate, parsedEndpoint, windowEndpoint, type Investigation, type SampleSet, type SourceAnswer } from '../endpoints';
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Skeleton, StatusBadge, Textarea } from '@ap/ui';
+import { evidenceAdd, evidenceHandoff, evidenceRemove, investigationCreate, parsedEndpoint, windowEndpoint, type HandoffResult, type Investigation, type SampleSet, type SourceAnswer } from '../endpoints';
 import { evidenceFor, exportRange, sourceReadable } from './explorerModel';
 import { useSourceRead } from './useSourceRead';
 
@@ -24,23 +24,34 @@ export function roundHandoffBlock(investigation: Investigation): string | null {
   if (investigation.evidence.length === 0) return '담은 근거 위치 없음';
   return null;
 }
+type HandoffAnswer = ActionResult<HandoffResult>;
 function RoundHandoffDialog({ investigation, onOpenChange, onDone, onCloseAutoFocus }: { investigation: Investigation; onOpenChange: (open: boolean) => void; onDone: (message: string) => void; onCloseAutoFocus: (event: Event) => void }) {
   const send = useMenuAction(evidenceHandoff);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  // An unknown answer is uncertain: the next click resends the same request (same idempotency key), never a new handoff.
+  const [again, setAgain] = useState<null | (() => Promise<HandoffAnswer>)>(null);
+  const pending = busy || send.pending;
   const refs = investigation.evidence.map(({ ref }) => ({ fileRef: ref.fileRef, line: ref.line, fileSha256: ref.fileSha256 }));
+  function settle(r: HandoffAnswer) {
+    setBusy(false);
+    if (r.outcome === 'ok' && r.data) { setAgain(null); onDone(`Round에 ${r.data.handedOff}개 넘김 · 이미 있던 위치 ${r.data.alreadyAttached}개 · 원본 없음 ${r.data.byStatus.unresolved}개`); return; }
+    if ((r.outcome === 'unknown' || r.outcome === 'error') && r.retry) { setAgain(() => r.retry!); setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 넘겨졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '넘기지 못했습니다. 같은 요청으로 다시 시도할 수 있습니다.'); return; }
+    setAgain(null);
+    setError(r.outcome === 'conflict' ? '조사가 바뀌었습니다. 다시 열어 주세요' : r.outcome === 'forbidden' ? HANDOFF_ERROR.forbidden! : HANDOFF_ERROR[r.fieldErrors[0]?.code ?? ''] ?? '근거 위치를 넘기지 못했습니다');
+  }
+  function fail() { setBusy(false); setAgain(null); setError('근거 위치를 넘기지 못했습니다'); }
   function confirm() {
     if (!investigation.roundId) return;
-    setError('');
-    void send.run({ id: investigation.id, refs, target: { kind: 'round', roundId: investigation.roundId } }, { expectedVersion: investigation.version }).then(r => {
-      if (r.outcome === 'ok' && r.data) { onDone(`Round에 ${r.data.handedOff}개 넘김 · 이미 있던 위치 ${r.data.alreadyAttached}개 · 원본 없음 ${r.data.byStatus.unresolved}개`); return; }
-      setError(r.outcome === 'conflict' ? '조사가 바뀌었습니다. 다시 열어 주세요' : r.outcome === 'forbidden' ? HANDOFF_ERROR.forbidden! : HANDOFF_ERROR[r.fieldErrors[0]?.code ?? ''] ?? '근거 위치를 넘기지 못했습니다');
-    }).catch(() => setError('근거 위치를 넘기지 못했습니다'));
+    setError(''); setBusy(true);
+    if (again) { void again().then(settle).catch(fail); return; }
+    void send.run({ id: investigation.id, refs, target: { kind: 'round', roundId: investigation.roundId } }, { expectedVersion: investigation.version }).then(settle).catch(fail);
   }
-  return <Dialog open onOpenChange={onOpenChange}><DialogContent onCloseAutoFocus={onCloseAutoFocus}><DialogHeader><DialogTitle>Round에 근거 위치 {refs.length}개 넘기기</DialogTitle><DialogDescription className="break-keep">참조만 전달됩니다. 공식 FAIL·기술 지식 확정이 아닙니다</DialogDescription></DialogHeader>
+  return <AlertDialog open onOpenChange={open => { if (!open && !pending) onOpenChange(false); }}><AlertDialogContent onCloseAutoFocus={onCloseAutoFocus} onEscapeKeyDown={event => { if (pending) event.preventDefault(); }}><AlertDialogHeader><AlertDialogTitle>Round에 근거 위치 {refs.length}개 넘기기</AlertDialogTitle><AlertDialogDescription className="break-keep">참조만 전달됩니다. 공식 FAIL·기술 지식 확정이 아닙니다</AlertDialogDescription></AlertDialogHeader>
     <p className="break-keep text-xs text-text-secondary">fileRef · line · fileSha256만 전달 · 본문 없음</p>
-    {error && <p role="alert" className="break-keep text-sm">{error}</p>}
-    <DialogFooter><Button variant="ghost" onClick={() => onOpenChange(false)}>취소</Button><Button disabled={send.pending} onClick={confirm}>참조 전달</Button></DialogFooter>
-  </DialogContent></Dialog>;
+    {error && <p role="alert" className="break-keep text-sm text-text-danger-label">{error}</p>}
+    <AlertDialogFooter><AlertDialogCancel disabled={pending}>취소</AlertDialogCancel>{/* A plain button, not AlertDialogAction: a refusal keeps the dialog open. */}<Button disabled={pending} onClick={confirm}>{pending ? '전달 중…' : again ? '같은 요청 다시 시도' : '참조 전달'}</Button></AlertDialogFooter>
+  </AlertDialogContent></AlertDialog>;
 }
 export function BasketDrawer({ investigation, onClose }: { investigation: Investigation; onClose: () => void }) {
   const { setPage } = usePlatform();
