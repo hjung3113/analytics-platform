@@ -280,11 +280,13 @@ def entries(data):
 def lift(e):
     """Orca reports a lane's state on the worktree's agents, not on the row: lift the main agent's state, workingMode and
     stateStartedAt onto the row unless the row has them (the newest agent without a parent pane is the lane's own)."""
-    if e.get('state') is None and isinstance(e.get('agents'), list):
+    if isinstance(e.get('agents'), list):
         own = [a for a in e['agents'] if isinstance(a, dict) and not a.get('parentPaneKey')]
         if own:
             a = max(own, key=lambda x: x.get('updatedAt') or 0)
-            e = dict(e, state=a.get('state'), workingMode=a.get('workingMode'), stateStartedAt=a.get('stateStartedAt'))
+            e = dict(e, _pane=a.get('paneKey'))
+            if e.get('state') is None:
+                e = dict(e, state=a.get('state'), workingMode=a.get('workingMode'), stateStartedAt=a.get('stateStartedAt'))
     return e
 
 def ps(host):
@@ -366,14 +368,56 @@ for n in not_seen:
 for key, text, *_ in findings:
     print(f'lead-check: {text}')
 
+def screen_draft(host, handle):
+    """True when the composer holds typed text, False when it is empty, None when the screen cannot be read.
+    Reads the rendered screen (`--screen --json`), not the accumulated output: old submitted input stays in the latter."""
+    out = run_orca(host, 'terminal', 'read', '--terminal', handle, '--screen', '--json')
+    if not out:
+        return None
+    try:
+        r = json.loads(out)
+    except ValueError:
+        return None
+    r = r.get('result', r) if isinstance(r, dict) else None
+    for k in ('read', 'terminal'):  # real shape: result.terminal.tail is a list of rendered lines
+        if isinstance(r, dict) and isinstance(r.get(k), dict):
+            r = r[k]
+    if not isinstance(r, dict):
+        return None
+    if isinstance(r.get('draft'), str):
+        return bool(r['draft'].strip())
+    text = next((r[k] for k in ('screen', 'tail', 'text', 'content') if isinstance(r.get(k), str)), None)
+    for k in ('tail', 'lines'):
+        if text is None and isinstance(r.get(k), list):
+            text = '\n'.join(str(x) for x in r[k])
+    if text is None:
+        return None
+    last = next((l for l in reversed(text.splitlines()) if re.match(r'^\s*[❯>›]', l)), None)
+    return bool(last and re.match(r'^\s*[❯>›]\s*\S', last))
+
+def lane_handle(host, e):
+    """The terminal of the lane's own agent: terminal-list tabId:leafId joined to the agent's paneKey."""
+    pane = e.get('_pane')
+    if not pane:
+        return None
+    out = run_orca(host, 'terminal', 'list', '--json')
+    if not out:
+        return None
+    r = json.loads(out)
+    for t in (r.get('result', r) or {}).get('terminals', []):
+        if f"{t.get('tabId')}:{t.get('leafId')}" == pane and t.get('handle'):
+            return t['handle']
+    return None
+
 def nudge_all():
     path = main / '.review' / 'lanes' / 'nudge-state.json'
     try:
         sent = json.loads(path.read_text())
     except (OSError, ValueError):
         sent = {}
+    # A finding that cleared may fire again later, but an unreadable host says nothing about its lanes: keep their keys.
     keys = {k for k, *_ in findings}
-    sent = {k: v for k, v in sent.items() if k in keys}  # a finding that cleared may fire again later
+    sent = {k: v for k, v in sent.items() if k in keys or (isinstance(v, dict) and v.get('host') in unknown_hosts)}
     run = os.environ.get('LEAD_RUN') or ''
     if not run:
         lead = main / '.review' / 'lanes' / 'lead.md'
@@ -383,21 +427,17 @@ def nudge_all():
         if key in sent:
             continue
         if key.startswith('idle:') and e is not None:
-            handle = None
-            out = run_orca(host, 'terminal', 'list', '--json')
-            if out:
-                for t in json.loads(out).get('result', {}).get('terminals', []):
-                    if t.get('worktreeId') == wt_id(e) and t.get('handle'):
-                        handle = t['handle']
-                        break
+            handle = lane_handle(host, e)
             if handle:
-                screen = run_orca(host, 'terminal', 'read', '--terminal', handle) or ''
-                last = next((l for l in reversed(screen.splitlines()) if re.match(r'^\s*[❯>›]', l)), '')
-                if re.match(r'^\s*[❯>›]\s*\S', last):
+                draft = screen_draft(host, handle)
+                if draft is None:
+                    print(f'lead-check: nudge skipped for {key}: the lane screen is unreadable')
+                    continue
+                if draft:
                     print(f'lead-check: nudge skipped for {key}: a draft is on the lane screen')
                     continue
                 if run_orca(host, 'terminal', 'send', '--terminal', handle, '--text', IDLE_TEXT, '--enter') is not None:
-                    sent[key] = int(now)
+                    sent[key] = {'at': int(now), 'host': host}
                     print(f'lead-check: nudged {key}')
                 continue
         if not run:
@@ -408,7 +448,7 @@ def nudge_all():
         if os.environ.get('ORCA_TERMINAL_HANDLE'):
             args += ['--from', os.environ['ORCA_TERMINAL_HANDLE']]
         if run_orca('local', *args) is not None:
-            sent[key] = int(now)
+            sent[key] = {'at': int(now), 'host': host}
             print(f'lead-check: lead woken for {key}')
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + '.tmp')
@@ -578,8 +618,11 @@ import json, sys
 now, am = int(sys.argv[1]), int(sys.argv[2])
 ms = lambda m: (now - m * 60) * 1000
 def wt(i, name, state, m, mode=None, live=1, parent=None):
-    return {'id': i, 'displayName': name, 'path': '/w/' + name, 'state': state, 'workingMode': mode,
-            'stateStartedAt': ms(m), 'parentWorktreeId': parent, 'liveTerminalCount': live}
+    r = {'id': i, 'displayName': name, 'path': '/w/' + name, 'state': state, 'workingMode': mode,
+         'stateStartedAt': ms(m), 'parentWorktreeId': parent, 'liveTerminalCount': live}
+    if i in ('wA', 'wR'):  # the lane's own agent pane, joined to terminal-list tabId:leafId
+        r['agents'] = [{'paneKey': 'tab' + i + ':leaf' + i, 'parentPaneKey': None, 'state': state, 'updatedAt': 1}]
+    return r
 local = {'result': {'worktrees': [
     wt('wA', 'lane-alpha-v030', 'done', am), wt('wB', 'lane-beta', 'blocked', 5),
     wt('wC', 'lane-gamma', 'done', 30), wt('wC1', '1566-child', 'working', 3, parent='wC'),
@@ -624,13 +667,20 @@ $out" ;; esac; done
 #!/usr/bin/env bash
 echo "$*" >>"$STUB_LOG"
 case "$1 $2" in
-  "terminal list") echo '{"result":{"terminals":[{"handle":"h_alpha","worktreeId":"wA"},{"handle":"h_remote","worktreeId":"wR"}]}}' ;;
-  "terminal read") case "$*" in *h_remote*) printf 'work\n❯ half typed draft\n' ;; *) printf 'work\n❯ \n' ;; esac ;;
+  "terminal list") echo '{"result":{"terminals":[{"handle":"h_shell","worktreeId":"wA","tabId":"tabX","leafId":"leafX"},{"handle":"h_alpha","worktreeId":"wA","tabId":"tabwA","leafId":"leafwA"},{"handle":"h_remote","worktreeId":"wR","tabId":"tabwR","leafId":"leafwR"}]}}' ;;
+  "terminal read")
+    case "$*" in *--screen*--json*) ;; *) echo "read without --screen --json" >&2; exit 1 ;; esac
+    case "$*" in
+      *h_remote*) echo '{"result":{"terminal":{"handle":"h_remote","status":"running","tail":["work","❯ half typed draft"]}}}' ;;
+      *) [ -f "$STUB_UNREADABLE" ] && exit 1
+         # old submitted input above, empty composer now
+         echo '{"result":{"terminal":{"handle":"h_alpha","status":"running","tail":["❯ earlier submitted text","work","❯ "]}}}' ;;
+    esac ;;
 esac
 exit 0
 STUB
   chmod +x "$T/stub-orca"; : >"$T/orca.log"
-  nudge() { (unset BOARD; export LEAD_CHECK_NOW=$NOW LEAD_CHECK_PS="$(cat "$T/ps.json")" LEAD_CHECK_ORCA="$T/stub-orca" STUB_LOG="$T/orca.log" \
+  nudge() { (unset BOARD; export LEAD_CHECK_NOW=$NOW LEAD_CHECK_PS="$(cat "$T/ps.json")" LEAD_CHECK_ORCA="$T/stub-orca" STUB_LOG="$T/orca.log" STUB_UNREADABLE="$T/unreadable" \
       LEAD_RUN=run_abc LEAD_CHECK_NUDGE=1; lane_liveness "$T/main" $(printf '%s' "$dirs" | tr ':' ' ')) >"$T/out12" 2>&1; }
   nudge
   [ "$(grep -c '^terminal send' "$T/orca.log")" -eq 1 ] || fail "first run: expected one lane nudge:
@@ -650,9 +700,36 @@ d = json.load(open(sys.argv[1])); now = int(sys.argv[2])
 d['local']['result']['worktrees'][0]['stateStartedAt'] = (now - 50 * 60) * 1000  # idle again, a new interval
 json.dump(d, open(sys.argv[1], 'w'))
 PYX
+  : >"$T/unreadable"  # read failure: skip, do not treat as an empty composer
+  nudge
+  [ "$(grep -c '^terminal send' "$T/orca.log")" -eq 1 ] || fail "unreadable screen was nudged:
+$(cat "$T/orca.log")"
+  check_has "lane screen is unreadable" "$(cat "$T/out12")"
+  rm -f "$T/unreadable"
   nudge
   [ "$(grep -c '^terminal send' "$T/orca.log")" -eq 2 ] || fail "new idle interval was not nudged:
 $(cat "$T/orca.log")"
+  grep -q '^terminal send --terminal h_shell' "$T/orca.log" && fail "nudge went to an unrelated terminal"
+  # reachable -> unreachable -> reachable with the same idle interval: no second nudge
+  python3 - "$T/ps.json" <<'PYX'
+import json, sys
+d = json.load(open(sys.argv[1])); d['local'] = None
+json.dump(d, open(sys.argv[1] + '.down', 'w'))
+PYX
+  cp "$T/ps.json" "$T/ps.up"; cp "$T/ps.json.down" "$T/ps.json"
+  nudge
+  cp "$T/ps.up" "$T/ps.json"
+  nudge
+  [ "$(grep -c '^terminal send' "$T/orca.log")" -eq 2 ] || fail "host outage reset the nudge history:
+$(cat "$T/orca.log")"
+  pass=$((pass + 1))
+
+  # --lanes-only with no local state-* dir still reads Orca (remote-only lead)
+  mkdir -p "$T/bare/.review/lanes"
+  out=$(AP_MAIN="$T/bare" WAVE_STATE= LEAD_CHECK_NOW=$NOW LEAD_CHECK_PS="$(cat "$T/ps.json")" bash "$SCRIPT_DIR/lead-check.sh" --lanes-only 2>&1); rc=$?
+  [ "$rc" -eq 10 ] || fail "--lanes-only without state dirs exited $rc:
+$out"
+  check_has "idle-lane: lane-remote on desktop" "$out"
   pass=$((pass + 1))
 
   cleanup
@@ -678,15 +755,18 @@ if [ -n "${WAVE_STATE:-}" ] && [ ! -d "$WAVE_STATE" ]; then
   echo "lead-check: WAVE_STATE $WAVE_STATE is not a directory" >&2; exit 2
 fi
 STATE_DIRS=$(collect_state_dirs "$AP_MAIN")
-[ -n "$STATE_DIRS" ] || { echo "lead-check: WAVE_STATE is not set and $AP_MAIN/.review/wave has no state-* dir" >&2; exit 2; }
+# Only the full worker audit needs worker state; --lanes-only/--nudge read Orca alone (a lead that supervises only remote
+# lanes keeps no local state-* dir).
+[ -n "$STATE_DIRS" ] || [ "$lanes_only" = 1 ] || { echo "lead-check: WAVE_STATE is not set and $AP_MAIN/.review/wave has no state-* dir" >&2; exit 2; }
 export STATE_DIRS
 
 rc=0
 export LEAD_CHECK_SCRIPT_DIR=$SCRIPT_DIR
-IFS=: read -r -a dirs <<<"$STATE_DIRS"
+dirs=()
+[ -z "$STATE_DIRS" ] || IFS=: read -r -a dirs <<<"$STATE_DIRS"
 
 # Lane liveness first: its `lanes seen N/M` line opens the output, and --lanes-only/--nudge (cron) stop here.
-lane_liveness "$AP_MAIN" "${dirs[@]}"
+lane_liveness "$AP_MAIN" ${dirs[@]+"${dirs[@]}"}
 lrc=$?
 [ "$lanes_only" = 1 ] && exit $lrc
 [ "$lrc" -eq 10 ] && rc=10

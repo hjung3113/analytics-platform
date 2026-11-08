@@ -11,7 +11,8 @@ automatically. Schema, documented here and in LANES.md §Lead:
                   "state": "planned|running|review|blocked|done|dropped",
                   "release": str,          # optional; missing = the board's current release
                   "worker": str|null,      # worker state JSON name in $WAVE_STATE, e.g. "W-1142"
-                  "worktree": str, "pr": int|str|null, "next": str, "updated": ISO-8601 str } ] }
+                  "worktree": str, "pr": int|str|null, "next": str, "updated": ISO-8601 str,
+                  "done_at": ISO-8601 str  # set once when the line enters done } ] }
 
 Commands: init | add <issue> <title> [key=value...] | add decision <text> [by=<who>] [date=<YYYY-MM-DD>]
 | set <id|board> key=value... [--owner-ok "<quote>"] | show | ready | check.
@@ -31,7 +32,7 @@ quote is stored on the line as `owner_ok`. `add decision` writes only to `decisi
 state JSON in $WAVE_STATE is done/stopped/closed/missing (a dead pid counts as stopped); a running
 worker in $WAVE_STATE is on no board line; two running lines with write roles (impl*, fix) share a
 worktree; a line in running/review/blocked was not updated for 4 h (planned lines wait by design and a `review`
-line may have no worker); a release with an unfinished line has had no line reach `done` for 4 h (the newest `updated`
+line may have no worker); a release with an unfinished line has had no line reach `done` for 4 h (the newest `done_at`
 of its done lines). A missing board or missing WAVE_STATE is a note, not a finding.
 
 Env: AP_MAIN (default: the git common dir of the checkout holding this script), BOARD (board path
@@ -190,6 +191,8 @@ def cmd_add(path, args):
             'pr': None, 'next': '', 'updated': now_iso()}
     apply_kv(line, args[2:], LINE_KEYS)
     guard_release(board, line, args[2:], owner_ok)
+    if line.get('state') == 'done':
+        line['done_at'] = line['updated']
     board['lines'].append(line)
     save(path, board)
     print(f'board: added line {line["id"]} #{line["issue"]} {line["title"]} (release {line_release(board, line) or "-"})')
@@ -205,12 +208,13 @@ def release_groups(board):
 
 
 def last_done(lines):
-    """Newest `updated` among the done lines (set when the line became done), or None."""
+    """Newest completion time among the done lines, or None. `done_at` is set when a line enters done and never moves
+    again; lines from before that field fall back to `updated`."""
     stamps = []
     for l in lines:
         if l.get('state') == 'done':
             try:
-                stamps.append(datetime.fromisoformat(str(l.get('updated', ''))))
+                stamps.append(datetime.fromisoformat(str(l.get('done_at') or l.get('updated', ''))))
             except ValueError:
                 pass
     return max(stamps) if stamps else None
@@ -257,6 +261,8 @@ def cmd_set(path, args):
     before = {k: line.get(k) for k in PROGRESS_KEYS}
     apply_kv(line, args[1:], LINE_KEYS)
     guard_release(board, line, args[1:], owner_ok)
+    if line.get('state') == 'done' and before['state'] != 'done':
+        line['done_at'] = now_iso()  # completion time: later pr/worker corrections must not renew it
     if any(line.get(k) != before[k] for k in PROGRESS_KEYS):
         line['updated'] = now_iso()  # `next`/title edits are bookkeeping: they must not hide a stalled line
     save(path, board)
@@ -558,7 +564,10 @@ def self_test():
 
     def age_line(lid, stamp):
         d = json.loads(board.read_text())
-        next(l for l in d['lines'] if l['id'] == lid)['updated'] = stamp
+        ln = next(l for l in d['lines'] if l['id'] == lid)
+        ln['updated'] = stamp
+        if 'done_at' in ln:
+            ln['done_at'] = stamp
         board.write_text(json.dumps(d))
 
     def line(lid):
@@ -588,11 +597,18 @@ def self_test():
     assert line(2)['updated'] == before, line(2)  # an unchanged value is not progress
     expect(0, run('set', '3', 'pr=12'), 'set pr')
     assert line(3)['updated'] != old, line(3)
-    r = run('check')  # line 3's done stamp is fresh now: the release alarm clears
-    assert 'release v1 has' not in r.stdout, r.stdout
+    assert line(3)['done_at'] == old, line(3)  # correcting a done line's pr does not renew its completion time
+    r = run('check')
+    assert 'release v1 has 2 unfinished line(s) and no line done for 4 h' in r.stdout, r.stdout  # alarm stays
+    expect(0, run('set', '2', 'state=done'), 'line 2 enters done')
+    assert line(2)['done_at'] != old and line(2)['done_at'] == line(2)['updated'], line(2)
+    expect(0, run('set', '2', 'state=running'), 'line 2 back to running')
+    expect(0, run('set', '2', 'state=done'), 'line 2 done again')
+    r = run('check')
+    assert 'release v1 has' not in r.stdout, r.stdout  # a line entering done now clears the alarm
     r = run('ready')
     expect(0, r, 'ready with release lines')
-    assert 'release v1: planned 1, running 1, review 0, blocked 0, done 1 (last done 0.0 h ago) [current]' in r.stdout, r.stdout
+    assert 'release v1: planned 1, running 0, review 0, blocked 0, done 2 (last done 0.0 h ago) [current]' in r.stdout, r.stdout
     assert 'release v0: planned 0, running 0, review 0, blocked 0, done 1 (last done 10.0 h ago)' in r.stdout, r.stdout
     print('board.py self-test passed: init/add/set/show, enum guard, clean check, worker missing/done/stopped, '
           'off-board worker, shared worktree, stale line, two state dirs, missing board, release scope '
