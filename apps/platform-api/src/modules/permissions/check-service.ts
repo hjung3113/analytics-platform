@@ -238,8 +238,11 @@ export function createCheckService(deps: CheckServiceDeps) {
     // because revocation is an intentional action vs. passive expiry.
     // A capability that cannot be requested ordinarily (workspace.admin) carries
     // no requestable scope on any of these denies, like explicit_deny.
-    const requestableScope: RequestableScope[] | null = isOrdinarilyRequestable(capability)
-      ? [{ workspace_id: actor.workspace_id }]
+    // Likewise for a User and a User-excluded capability: the request path refuses it (#1531), so no request is offered.
+    const requestableScope: RequestableScope[] | null =
+      isOrdinarilyRequestable(capability) &&
+      !(actor.role_level === 'user' && isNotForUserRole(capability))
+        ? [{ workspace_id: actor.workspace_id }]
       : null;
     if (sawRevoked) {
       return { allow: false, reason: 'grant_revoked', requestable: requestableScope };

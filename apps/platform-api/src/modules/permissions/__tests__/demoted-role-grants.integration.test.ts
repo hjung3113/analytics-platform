@@ -80,7 +80,7 @@ describe.skipIf(!runIntegration)('grants of User-excluded capabilities after a d
 
     // The grant row is untouched; only the current role changes.
     const asUser = await svc.checkCapability(asRole('user'), capability, scope);
-    expect(asUser.allow).toBe(false);
+    expect(asUser).toMatchObject({ allow: false, reason: 'no_grant', requestable: null });
     await expect(
       actorScopeForCapability(handle.db, asRole('user'), capability),
     ).resolves.toMatchObject({ kind: 'scoped', managedSystemIds: [] });
