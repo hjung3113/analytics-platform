@@ -247,3 +247,17 @@ describe('MenuActionInvalidError (step 8 channel for DB-judged refusals)', () =>
     expect(recorded).toHaveLength(1);
   });
 });
+
+describe('authorize receives the raw request input (before replay and after the idempotency lock)', () => {
+  it('passes `input` at both call sites', async () => {
+    const { declaration } = testAction();
+    const authorize = vi.fn(async () => true);
+    declaration.authorize = authorize;
+    const db = { transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({ execute: async () => undefined }) };
+    const engine = createMenuActionEngine({ db: db as never, registry: registryOf([], [declaration]) });
+    const result = await engine.run({ actor_id: 'a', workspace_id: 'w', role_level: 'admin' } as never, base, 'corr-2');
+    expect(result.outcome).toBe('ok');
+    expect(authorize).toHaveBeenCalledTimes(2);
+    for (const call of authorize.mock.calls as unknown[][]) expect(call[2]).toEqual({ name: 'a' });
+  });
+});

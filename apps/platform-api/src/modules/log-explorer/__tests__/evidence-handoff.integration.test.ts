@@ -16,7 +16,7 @@ import { loginAs } from '../../../test-support/auth.js';
 import { devLogExplorerServerOptions } from '../../../test-support/log-explorer-dev-assembly.js';
 import { hashToken } from '../../api-tokens/token-format.js';
 import { toCodeKey } from '../../log-knowledge/index.js';
-import { sampleSetOf, syntheticFixture } from '../adapters/synthetic/index.js';
+import { createSyntheticScenario, sampleSetOf, syntheticFixture } from '../adapters/synthetic/index.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -387,6 +387,85 @@ describe.skipIf(!runIntegration)('log explorer evidence handoff (#1474 X-h)', ()
     });
   });
 
+  describe('receiver right on an idempotency replay (C1)', () => {
+    const grantOf = (actorId: string, capability: string) =>
+      sql('delete from permission.permission_grants where actor_id = $1 and capability = $2', [actorId, capability]);
+
+    it('a replay with the same key is forbidden once the receiver grant is revoked (no cached answer)', async () => {
+      const who = await person(['explorer.investigate', 'explorer.handoff', 'lifecycle.round.manage']);
+      const s = await seed([REF(22)], who);
+      const roundId = await makeRound();
+      const key = randomUUID();
+      const input = { id: s.id, refs: KEYS(s.refs), target: toRound(roundId) };
+      const first = await act('evidenceHandoff', input, { who, expectedVersion: s.version, key });
+      expect(first.outcome, JSON.stringify(first)).toBe('ok');
+      await grantOf(who.id, 'lifecycle.round.manage');
+      const again = await act('evidenceHandoff', input, { who, expectedVersion: s.version, key });
+      expect(again).toMatchObject({ outcome: 'forbidden', data: null, replayed: false });
+    });
+
+    it('a second token of the same actor holding only explorer.handoff cannot replay a successful request', async () => {
+      const who = await person(['explorer.investigate', 'explorer.handoff', 'lifecycle.round.manage']);
+      const s = await seed([REF(23)], who);
+      const roundId = await makeRound();
+      const key = randomUUID();
+      const input = { id: s.id, refs: KEYS(s.refs), target: toRound(roundId) };
+      const first = await act('evidenceHandoff', input, { who, expectedVersion: s.version, key });
+      expect(first.outcome, JSON.stringify(first)).toBe('ok');
+      const prefix = randomUUID().replace(/-/g, '').slice(0, 8);
+      const value = `ap_${prefix}_${Buffer.from(randomUUID() + randomUUID()).toString('base64url').slice(0, 43)}`;
+      const tokenId = (
+        await sql(
+          `insert into core.api_tokens (workspace_id, actor_id, kind, name, prefix, secret_hash, scopes, created_by) values ($1,$2,'personal','raw',$3,$4,$5,$2) returning id`,
+          [WORKSPACE_ID, who.id, prefix, hashToken(value), ['explorer.handoff']],
+        )
+      ).rows[0].id as string;
+      tokenIds.push(tokenId);
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/menu-action',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${value}` },
+        payload: JSON.stringify({ action: 'logExplorer.evidenceHandoff', context: {}, input, idempotencyKey: key, expectedVersion: s.version }),
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json<Answer>()).toMatchObject({ outcome: 'forbidden', data: null, replayed: false });
+    });
+  });
+
+  describe('Source wait under the runtime DB budgets (C2)', () => {
+    it('a stalled Source past the handoff budget is refs: source_unavailable on a pool with a 2 s idle-in-transaction timeout; nothing written, connection usable', async () => {
+      const budgeted = createDb(APP_URL, {
+        budgets: { poolMax: 5, acquireTimeoutMs: 5000, statementTimeoutMs: 30_000, lockTimeoutMs: 5000, idleInTransactionTimeoutMs: 2000 },
+      });
+      const stalled = await buildServer({
+        config: loadConfig(),
+        dbHandle: budgeted,
+        logExplorer: {
+          sourceReadPort: { ...createSyntheticScenario('typical').port, getWindow: () => new Promise(() => undefined) },
+          sourceOwnerAccess: access,
+          handoffSourceTotalMs: 3000,
+        },
+      });
+      await stalled.ready();
+      try {
+        const who = await person(['explorer.investigate', 'explorer.handoff', 'lifecycle.round.manage']);
+        const s = await seed([REF(24)], who);
+        const roundId = await makeRound();
+        const a = await act('evidenceHandoff', { id: s.id, refs: KEYS(s.refs), target: toRound(roundId) }, { who, server: stalled, expectedVersion: s.version });
+        expect(a.outcome, JSON.stringify(a)).toBe('invalid');
+        expect(fe(a)).toEqual(['refs:source_unavailable']);
+        expect(await roundRefs(roundId)).toEqual([]);
+        expect(await handoffAudit(s.id)).toEqual([]);
+        const again = await act('investigationCreate', { title: `${TAG} after`, origin: 'standalone', sampleSet: SET }, { who, server: stalled });
+        expect(again.outcome, JSON.stringify(again)).toBe('ok');
+        expect((await budgeted.pool.query('select 1 as one')).rows[0]).toEqual({ one: 1 });
+      } finally {
+        await stalled.close();
+        await budgeted.close();
+      }
+    }, 30_000);
+  });
+
   describe('refusals write nothing', () => {
     const expectUntouched = async (id: string, before: Row, drafts: number) => {
       expect(await inv(id)).toEqual(before);
@@ -441,14 +520,13 @@ describe.skipIf(!runIntegration)('log explorer evidence handoff (#1474 X-h)', ()
     it.each([
       ['round', () => noRound, (roundId: string) => toRound(roundId)],
       ['knowledge draft', () => noDraft, () => toNewDraft()],
-    ])('without the %s receiver right the target is a plain refusal and nothing is written', async (_label, who, target) => {
+    ])('without the %s receiver right the action is forbidden (judged in authorize) and nothing is written', async (_label, who, target) => {
       const s = await seed([REF(19)], who());
       const roundId = await makeRound();
       const drafts = await draftCount();
       const before = await inv(s.id);
       const a = await act('evidenceHandoff', { id: s.id, refs: KEYS(s.refs), target: target(roundId) }, { who: who(), expectedVersion: s.version });
-      expect(a.outcome).toBe('invalid');
-      expect(fe(a)).toEqual(['target:forbidden']);
+      expect(a.outcome).toBe('forbidden');
       expect(await roundRefs(roundId)).toEqual([]);
       await expectUntouched(s.id, before, drafts);
     });

@@ -251,6 +251,8 @@ export interface BuildServerOptions {
     exportChunkBytes?: number;
     beforeExportChunk?: LogExplorerExportDeps['beforeExportChunk'];
     exportTotalMs?: number;
+    /** Test seam of the evidence handoff (#1474): a shorter wall-clock cap of its Source checks. */
+    handoffSourceTotalMs?: number;
   };
   /** Test seam of the catalog import apply (#1195 b): a shorter time budget and failure/barrier hooks. */
   /** Test seam of the log test datasets (#1477): the Source read port that settles file availability. Production injects none until a real adapter exists, so availability is `unverified`. */
@@ -1012,6 +1014,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
         draftIntake: draftEvidenceIntake({ checkService }),
         sourceReadPort: logExplorerDeps.sourceReadPort,
         sourceOwnerAccess: logExplorerDeps.sourceOwnerAccess,
+        ...(opts.logExplorer?.handoffSourceTotalMs !== undefined ? { sourceTotalMs: opts.logExplorer.handoffSourceTotalMs } : {}),
       },
     }),
     logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),

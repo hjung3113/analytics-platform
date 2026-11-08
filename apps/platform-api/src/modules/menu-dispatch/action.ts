@@ -133,7 +133,7 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
     const forbidden = () =>
       answer(correlationId, 'forbidden', { message: `No permission ${spec.permission}` });
     // Step 3, before any lock: a caller without permission takes no lock and reads nothing.
-    if (!(await declaration.authorize(actor, deps.db))) return forbidden();
+    if (!(await declaration.authorize(actor, deps.db, input))) return forbidden();
 
     const requestHash = hashRequestBody({
       action: spec.id,
@@ -149,7 +149,7 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
           sql`SELECT pg_advisory_xact_lock(hashtext(${actor.actor_id}), hashtext(${key}))`,
         );
         // Judged on the transaction after the lock wait: a grant lost while queued writes nothing.
-        if (!(await declaration.authorize(actor, tx))) return forbidden();
+        if (!(await declaration.authorize(actor, tx, input))) return forbidden();
 
         // Step 5: replay.
         const hit = await idempotency.lookup(tx, actor.actor_id, key, requestHash);
@@ -180,7 +180,7 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
             throw new Error(`action ${spec.id}: concurrency 'version' without a currentVersion reader`);
           }
           // The read may have queued behind a writer; judge permission again before revealing anything.
-          if (!(await declaration.authorize(actor, tx))) return forbidden();
+          if (!(await declaration.authorize(actor, tx, input))) return forbidden();
           if (current === null) return answer(correlationId, 'not_found');
           if (current !== expectedVersion) {
             return answer(correlationId, 'conflict', { version: current });

@@ -87,4 +87,6 @@ export interface HandoffDeps {
   draftIntake: DraftEvidenceIntake;
   sourceReadPort: SourceReadPort | null;
   sourceOwnerAccess: SourceOwnerAccess;
+  /** Test seam: wall-clock cap of all Source checks of one handoff. Default 30 s (`HANDOFF_SOURCE_TOTAL_MS`). */
+  sourceTotalMs?: number;
 }

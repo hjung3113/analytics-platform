@@ -9,6 +9,8 @@
 // no port configured) refuses `['refs'] source_unavailable` — an unknown state is never stored as «원본 없음». The window body is
 // discarded at once: nothing from it is stored, returned or audited. Pointers only.
 
+import { sql } from 'drizzle-orm';
+
 import type { Tx } from '../../db/tx.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import {
@@ -41,6 +43,8 @@ export const EXPLORER_HANDOFF_INPUT_KEYS = ['id', 'refs', 'target'] as const;
 /** Wall-clock cap of all Source existence checks of one handoff (the transaction is open meanwhile). */
 export const HANDOFF_SOURCE_TOTAL_MS = 30_000;
 const SOURCE_PARALLEL = 10;
+/** Headroom the transaction's idle budget keeps over the Source cap, so the Source budget always expires first. */
+const IDLE_HEADROOM_MS = 15_000;
 
 const invalid = (...errors: FieldError[]) => new MenuActionInvalidError(errors);
 
@@ -70,17 +74,23 @@ export function evidenceHandoffAction(deps: InvestigationDeps, handoff: HandoffD
   };
 
   /** One guarded existence check per ref; `null` = not known. The answer's rows are dropped on the spot. */
-  async function resolveRefs(actor: PlatformActor, sourceOwner: string, refs: readonly EvidenceRef[]): Promise<boolean[]> {
+  async function resolveRefs(tx: Tx, actor: PlatformActor, sourceOwner: string, refs: readonly EvidenceRef[]): Promise<boolean[]> {
+    const totalMs = handoff.sourceTotalMs ?? HANDOFF_SOURCE_TOTAL_MS;
     if (!(await handoff.sourceOwnerAccess.allows(actor, sourceOwner))) throw invalid({ path: ['refs'], code: 'source_forbidden' });
     if (port === null) throw invalid({ path: ['refs'], code: 'source_unavailable' });
+    // The transaction sits idle while the Source answers. The runtime pool's idle-in-transaction budget (default 30 s) may be
+    // as short as the Source cap, and its clock started earlier: the DB would then cut the connection before the Source budget
+    // expires and the answer would be a connection loss, not `refs: source_unavailable`. Lift it for this transaction only
+    // (it ends with it) above the Source cap, so the Source budget always expires first.
+    await tx.execute(sql.raw(`SET LOCAL idle_in_transaction_session_timeout = ${Math.trunc(totalMs + IDLE_HEADROOM_MS)}`));
     const controller = new AbortController();
     const startedAt = Date.now();
-    const timer = setTimeout(() => controller.abort(), HANDOFF_SOURCE_TOTAL_MS);
+    const timer = setTimeout(() => controller.abort(), totalMs);
     const out: boolean[] = [];
     try {
       for (let from = 0; from < refs.length; from += SOURCE_PARALLEL) {
         const batch = refs.slice(from, from + SOURCE_PARALLEL);
-        const remaining = HANDOFF_SOURCE_TOTAL_MS - (Date.now() - startedAt);
+        const remaining = totalMs - (Date.now() - startedAt);
         if (remaining <= 0) throw invalid({ path: ['refs'], code: 'source_unavailable' });
         const answers = await Promise.all(
           batch.map(async (ref): Promise<boolean | null> => {
@@ -108,12 +118,21 @@ export function evidenceHandoffAction(deps: InvestigationDeps, handoff: HandoffD
 
   return {
     spec: shared.base('evidenceHandoff', EXPLORER_HANDOFF_INPUT_KEYS, EXPLORER_HANDOFF_MENU_PERMISSION),
-    authorize: async (actor, tx) =>
-      applyAdminModuleBypass(
+    // Judged before an idempotency replay too, so the receiver's right is part of it: read from the raw input without throwing
+    // (an unknown or missing kind adds nothing; `validate` refuses it later). Only the selected receiver's right is required.
+    authorize: async (actor, tx, input) => {
+      const own = applyAdminModuleBypass(
         actor.role_level,
         EXPLORER_HANDOFF_PERMISSION,
         await deps.checkService.checkCapability(actor, EXPLORER_HANDOFF_PERMISSION, { workspace_id: actor.workspace_id }, { tx }),
-      ).allow,
+      ).allow;
+      if (!own) return false;
+      const target: unknown = input?.target;
+      const kind = typeof target === 'object' && target !== null ? (target as { kind?: unknown }).kind : undefined;
+      if (kind === 'round') return handoff.roundIntake.canAttach(tx, actor);
+      if (kind === 'knowledgeDraft') return handoff.draftIntake.canIntake(tx, actor);
+      return true;
+    },
     validate: (input) => {
       const parsed = parseHandoff(input);
       return parsed.ok ? [] : parsed.errors;
@@ -135,7 +154,7 @@ export function evidenceHandoffAction(deps: InvestigationDeps, handoff: HandoffD
       if (!holds) throw invalid({ path: ['target'], code: 'forbidden' });
 
       const sample = await sampleSetOf(tx, row);
-      const resolved = await resolveRefs(actor, sample.sourceOwner, refs);
+      const resolved = await resolveRefs(tx, actor, sample.sourceOwner, refs);
       const resolvedCount = resolved.filter(Boolean).length;
       const origin = { kind: 'log_explorer' as const, id: row.id };
       const common = { refCount: refs.length, resolvedCount, unresolvedCount: refs.length - resolvedCount };
