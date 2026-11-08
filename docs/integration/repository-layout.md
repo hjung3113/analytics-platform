@@ -8,7 +8,7 @@
 
 | 경로 | 역할 |
 | --- | --- |
-| `docs/{overview,product,architecture,contract,wireframes,design}/` | 기존 플랫폼 설계. 전역 계약은 `docs/contract/platform-ui-contract.md`가 소유 |
+| `docs/{overview,product,architecture,contract,design}/` | 기존 플랫폼 설계. 전역 계약은 `docs/contract/platform-ui-contract.md`가 소유 |
 | `docs/adr/` | 결정 기록(ADR). 목록·형식은 `docs/adr/README.md` |
 | `docs/integration/` | 저장소 연결 및 향후 통합 결정. 기존 제품 계약을 암묵적으로 덮어쓰지 않음 |
 | `DESIGN.md`, `GLOSSARY.md` | 플랫폼 디자인 방향, 도메인 용어 |

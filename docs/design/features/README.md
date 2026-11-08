@@ -23,7 +23,7 @@ The current user-facing text guide is [Feature manual](../../user-guide/features
 3. [component-inventory.md](component-inventory.md) owns implementation component inventory, variants, and required states.
 4. [interaction-patterns.md](interaction-patterns.md) owns workflow-level UX state machines, cross-system creation flows, and permission UX.
 5. [12-ui-ux-principles.md](../../product/features/12-ui-ux-principles.md) owns product UI intent and traceability to requirements.
-6. [component-stack.md](../../architecture/platform-api/tech-stack/component-stack.md) owns approved frontend library stack and third-party component intake rules.
+6. [component-stack.md](../../../apps/feature-screens/docs/component-stack.md) owns approved frontend library stack and third-party component intake rules.
 
 ## Visual Input
 
