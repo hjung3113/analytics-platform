@@ -1,16 +1,18 @@
 import type { MenuDispatchContribution } from '../menu-dispatch/types.js';
+import { comparisonEndpoints } from './comparison-endpoints.js';
 import { baselineActions } from './baseline-actions.js';
 import { baselineEndpoints } from './baseline-endpoints.js';
 import { datasetActions } from './dataset-actions.js';
 import { datasetEndpoints } from './dataset-endpoints.js';
+import { reviewLabelActions } from './review-label-actions.js';
 import { suiteActions } from './suite-actions.js';
 import { suiteEndpoints } from './suite-endpoints.js';
 import type { LogDatasetsDeps } from './deps.js';
 
 export function logDatasetsContribution(deps: LogDatasetsDeps): MenuDispatchContribution {
   return {
-    endpoints: [...datasetEndpoints(deps), ...baselineEndpoints(deps), ...suiteEndpoints(deps)],
-    actions: [...datasetActions(deps), ...baselineActions(deps), ...suiteActions(deps)],
+    endpoints: [...datasetEndpoints(deps), ...baselineEndpoints(deps), ...suiteEndpoints(deps), ...comparisonEndpoints(deps)],
+    actions: [...datasetActions(deps), ...baselineActions(deps), ...suiteActions(deps), ...reviewLabelActions(deps)],
   };
 }
 
