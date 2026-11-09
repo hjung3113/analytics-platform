@@ -10,6 +10,7 @@ import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import { isUuid, ITEM_SORT_IDS, itemDetailEndpoint, itemFilterSpecs, itemsEndpoint, specSubjectItemsEndpoint, type CatalogPageParams, type ItemDetail, type ItemDetailParams, type ItemRow, type SpecSubjectItemRow } from '../endpoints';
 import { allItems, allLinks, itemById, latestRevision, ownerOf, type ItemRec } from './items';
 import { resolvedSubjects } from './subjectLinks';
+import { relationsForRead } from './itemRelations';
 
 const PAGE_SIZE_MAX = 200, Q_MAX = 200, SORT_KEYS_MAX = 3, FILTER_VALUES_MAX = 200, REVISION_NO_MAX = 1_000_000;
 const LIST_KEYS = ['q', 'page', 'pageSize', 'sorting', 'filters'];
@@ -126,7 +127,7 @@ function detail(params: ItemDetailParams): ItemDetail | null {
     assessments: [...rec.assessments].sort((a, b) => (a.observedAt === b.observedAt ? (a.id < b.id ? 1 : -1) : a.observedAt < b.observedAt ? 1 : -1)),
     links: linkRows,
     subjects: resolvedSubjects(rec, rev.revisionNo),
-    relations: [],
+    relations: relationsForRead(rec, rev),
   };
 }
 

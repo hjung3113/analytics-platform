@@ -27,6 +27,10 @@ export function resetSpecs() {
   const chamber = specId(), robot = specId(), arm = specId();
   revisions.push({ revision, modules: [{ id: chamber, moduleKey: 'CHAMBER', name: 'Chamber', parentModuleId: null }, { id: robot, moduleKey: 'ROBOT', name: 'Robot', parentModuleId: null }, { id: arm, moduleKey: 'ARM', name: 'Arm', parentModuleId: robot }],
     events: [{ id: specId(), moduleId: chamber, eventKey: 'START', name: 'Start', fields: [{ name: 'temperature', type: 'float', unit: 'C', description: 'Temperature' }], triggerRule: 'on start', detailDocRef: '§1' }, { id: specId(), moduleId: robot, eventKey: 'MOVE', name: 'Move', fields: [], triggerRule: 'on move', detailDocRef: '§2' }, { id: specId(), moduleId: arm, eventKey: 'STOP', name: 'Stop', fields: [], triggerRule: null, detailDocRef: null }], relations: [] });
+  revisions[0]!.events.push(
+    { id: specId(), moduleId: chamber, eventKey: 'STEP_PROCESS', name: 'Step process', fields: [], triggerRule: null, detailDocRef: null },
+    { id: specId(), moduleId: chamber, eventKey: 'PROCESS_START', name: 'Process start', fields: [], triggerRule: null, detailDocRef: null },
+  );
   revision.contentSha256 = specHash(specCanonical(revisions[0]!));
   const sw = all('software').filter(s => s.parentId === SPEC_MODEL);
   const seed = (targetKey: string, changeKind: Change['changeKind'], change: Change['change'], patch: Partial<Change> = {}) => {

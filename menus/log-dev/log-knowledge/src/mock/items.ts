@@ -5,6 +5,7 @@
  * `index.ts`; the write actions (`itemActions.ts`, #1197 s3a) change this same store through the mutators at the end.
  */
 import { all, byId } from './store';
+import type { ItemRelation } from '../endpoints';
 
 export type ItemRec = {
   id: string; itemNo: number; ownerModelId: string | null; ownerSoftwareId: string | null;
@@ -18,6 +19,7 @@ export type RevisionRec = {
   revisionNo: number; title: string; typeCode: string; observation: string | null; expected: string | null;
   analysisOpinion: string | null; improvement: string | null; changeNote: string | null; publishedBy: string; publishedAt: string;
   evidence: { ordinal: number; sourceKind: string; sourceOwner: string; sourceRef: string; sourceVersion: string | null; contentHash: string | null; locator: string | null; note: string | null }[];
+  relations?: ItemRelation[];
 };
 export type AssessmentRec = {
   id: string; dimension: string; priorState: string; newState: string; rationale: string; actorId: string; basedOnRevisionNo: number; observedAt: string;
@@ -96,6 +98,12 @@ export function resetItems(): void {
     });
   }
   seedSubjects(modelId);
+  // Synthetic order-search fixtures, without adding Items or changing the existing list seed.
+  for (const [n, kind, reverse] of [[1, 'observed', false], [2, 'expected', false], [5, 'observed', false], [6, 'observed', true]] as const) {
+    const rec = items.find(item => item.itemNo === n)!;
+    rec.revisions.at(-1)!.relations = [{ ordinal: 1, kind, source: reverse ? 'CHAMBER/PROCESS_START' : 'CHAMBER/STEP_PROCESS', predicate: 'before', target: reverse ? 'CHAMBER/STEP_PROCESS' : 'CHAMBER/PROCESS_START', resolved: false, sourceLabel: null, targetLabel: null }];
+  }
+  items.find(item => item.itemNo === 1)!.revisions.at(-1)!.relations!.push({ ordinal: 2, kind: 'expected', source: 'CHAMBER/PROCESS_START', predicate: 'before', target: 'CHAMBER/CUSTOM_READY', resolved: false, sourceLabel: null, targetLabel: null });
   // KI-5 (SW-owned) was derived from KI-1 at its revision 2; KI-2 and KI-6 are related.
   links.push({ kind: 'derived_from', sourceItemId: itemUuid(5), targetItemId: itemUuid(1), sourceRevisionNo: 2 });
   links.push({ kind: 'related', sourceItemId: itemUuid(2), targetItemId: itemUuid(6), sourceRevisionNo: null });
@@ -166,7 +174,9 @@ export function insertItem(owner: { modelId: string | null; softwareId: string |
 /** Appends revision `latest + 1`; the evidence belongs to it, the earlier revisions stay as they are. `subjects` omitted carries the previous revision's links (link-time spec revision included); a list, even empty, replaces them. */
 export function appendRevision(rec: ItemRec, content: RevisionContent, changeNote: string, evidence: readonly Omit<EvidenceRec, 'ordinal'>[], subjects?: readonly SubjectRec[]): ItemRec {
   const previous = latestRevision(rec).revisionNo;
+  const relations = structuredClone(latestRevision(rec).relations ?? []);
   rec.revisions.push(revisionOf(previous + 1, content, changeNote, evidence));
+  latestRevision(rec).relations = relations;
   rec.subjects[previous + 1] = (subjects ?? rec.subjects[previous] ?? []).map(s => ({ ...s }));
   return bump(rec);
 }

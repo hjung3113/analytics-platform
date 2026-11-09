@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { KERNEL_PERMISSIONS, emptyGlobal, groupId, type ColumnFilter, type FieldError, type MenuMeta } from '@ap/contracts';
 import { createMockAdapter, setRole, type AnyMockAction } from '@ap/mock-server';
-import { SPEC_PUBLISH_PERMISSION, modelSpecEndpointSpecs, specActionSpecs, CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION, LOG_KNOWLEDGE_MODELS_MENU_ID, catalogActionSpecs, catalogEndpointSpecs, itemActionSpecs, importApply, importCancel, importDetailEndpoint, importPaste, importResolve, importValidate, itemEndpointSpecs, modelEndpointSpecs } from '../endpoints';
+import { SPEC_PUBLISH_PERMISSION, modelSpecEndpointSpecs, specActionSpecs, CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION, LOG_KNOWLEDGE_MODELS_MENU_ID, catalogActionSpecs, catalogEndpointSpecs, itemActionSpecs, importApply, importCancel, importDetailEndpoint, importPaste, importResolve, importValidate, itemEndpointSpecs, modelEndpointSpecs, searchEndpointSpecs } from '../endpoints';
 import { logKnowledgeActionsMock, logKnowledgeMock, resetCatalog } from './index';
 
 type Row = Record<string, unknown>;
@@ -211,13 +211,13 @@ describe('registration with the mock adapter', () => {
     }) as unknown as MenuMeta;
   const adapter = () => createMockAdapter({
     endpoints: logKnowledgeMock, actions: logKnowledgeActionsMock,
-    registry: { menus: [menu('log-knowledge-catalog', CATALOG_MANAGE_PERMISSION), menu(LOG_KNOWLEDGE_MODELS_MENU_ID, 'platform:view'), menu('log-knowledge-items', 'platform:view'), menu('home', 'platform:view')] },
+    registry: { menus: [menu('log-knowledge-catalog', CATALOG_MANAGE_PERMISSION), menu(LOG_KNOWLEDGE_MODELS_MENU_ID, 'platform:view'), menu('log-knowledge-items', 'platform:view'), menu('log-knowledge-search', 'platform:view'), menu('home', 'platform:view')] },
     permissions: [...KERNEL_PERMISSIONS, CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION, SPEC_PUBLISH_PERMISSION],
   });
 
   it('registers the reads, the twelve catalog writes, the five item writes and the five import wizard actions and read, and the spec reads and writes (importMap stays API-only) (menu, permission and invalidates are valid)', () => {
     expect(() => adapter()).not.toThrow();
-    expect(logKnowledgeMock.map(e => e.spec)).toEqual([...catalogEndpointSpecs, ...modelEndpointSpecs, ...modelSpecEndpointSpecs, ...itemEndpointSpecs, importDetailEndpoint]);
+    expect(logKnowledgeMock.map(e => e.spec)).toEqual([...searchEndpointSpecs, ...catalogEndpointSpecs, ...modelEndpointSpecs, ...modelSpecEndpointSpecs, ...itemEndpointSpecs, importDetailEndpoint]);
     expect(logKnowledgeActionsMock.map(a => a.spec)).toEqual([...catalogActionSpecs, ...specActionSpecs, ...itemActionSpecs, importPaste, importValidate, importResolve, importCancel, importApply]);
   });
 

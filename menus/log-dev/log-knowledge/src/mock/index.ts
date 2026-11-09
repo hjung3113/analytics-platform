@@ -18,6 +18,7 @@ import { isUuid,
   vendorUpdate, vendorsEndpoint, type CatalogPageParams, type CatalogSummary, type ModelRow,
 } from '../endpoints';
 import { specReadsMock } from './specReads';
+import { searchReadsMock } from './search';
 import { specWritesMock } from './specWrites';
 export { resetSpecs } from './specStore';
 export { resetConcepts } from './conceptStore';
@@ -138,6 +139,7 @@ const readMock = <T>(spec: Parameters<typeof defineMockEndpoint<CatalogPageParam
   });
 
 export const logKnowledgeMock: readonly AnyMockEndpoint[] = [
+  ...searchReadsMock,
   readMock(vendorsEndpoint, 'vendor'), readMock(processesEndpoint, 'process'), readMock(modelsEndpoint, 'model'), readMock(softwareVersionsEndpoint, 'software'),
   ...modelReadsMock({ message: params => paramsMessage(params, SHAPES.model), page: params => read('model', params) as unknown as PageResult<ModelRow> }),
   ...specReadsMock,
