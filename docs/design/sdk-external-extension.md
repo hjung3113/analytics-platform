@@ -1,181 +1,204 @@
-# SDK 외부 확장 계약 — 모듈 엔드포인트 권한(#492)과 새 시스템 등록·메뉴 기여(#428)
+# SDK 외부 확장 계약 — 모듈 엔드포인트 권한(#492)과 새 시스템·메뉴 기여(#428)
 
-상태: **Candidate** (2026-11-09, 설계 단계; 소유자 컨펌 전에는 구현하지 않는다). 구현 이슈는 컨펌 뒤에 연다. 결정이 나면 아래 「ADR 초안」이 ADR이 되고, 계약은 [kernel §4–6](../contract/kernel.md)·[ADR-0053](../adr/0053-host-module-contract-v1.md)의 소유 문서를 고친다.
+상태: **Candidate** (2026-11-10 개정, 설계 단계; 소유자 컨펌 전에는 구현하지 않는다). 결정이 나면 아래 「ADR 초안」이 ADR이 되고, 계약은 [kernel §4–6](../contract/kernel.md)·[ADR-0053](../adr/0053-host-module-contract-v1.md)의 소유 문서를 고친다.
 
-이 문서는 두 이슈의 본문을 현재 코드와 대조한 결과, 옵션, 권고, 소유자에게 물을 선택지를 담는다. 읽은 결정: [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md)(원본은 이 저장소, SDK 따로 릴리스), [ADR-0053](../adr/0053-host-module-contract-v1.md)(호스트 모듈 계약 1판), [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md)(Release tarball), [ADR-0072](../adr/0072-open-menu-vocabulary-app-declared-branded-ids.md)(열린 어휘), [#1207](https://github.com/hjung3113/analytics-platform/issues/1207) 소유자 결정(다른 저장소의 에이전트는 릴리스 tarball만 쓴다).
+읽은 결정: [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md)(원본은 이 저장소, SDK 따로 릴리스), [ADR-0053](../adr/0053-host-module-contract-v1.md), [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md)(Release tarball), [ADR-0072](../adr/0072-open-menu-vocabulary-app-declared-branded-ids.md)(열린 어휘), [#1207](https://github.com/hjung3113/analytics-platform/issues/1207) 소유자 결정(다른 저장소의 에이전트는 릴리스 tarball만 쓴다).
 
-용어: 이 문서에서 «모듈»은 **호스트 모듈**(ADR-0053), «시스템»은 화면 문구상 `업무 시스템`(코드 이름 `Space`/`SpaceDef`, GLOSSARY가 `공간`을 피하라고 한다)이다. 본문의 «공간»은 코드 이름을 가리킬 때만 쓴다. 설비의 Module/Slot([GLOSSARY](../../GLOSSARY.md))과 셸 슬롯과 겹치지 않도록 issue의 `targetSlot`은 «기여 지점»(보류된 후보명이라 GLOSSARY에는 넣지 않는다)으로 쓴다. `contributors`·«기여»는 구현이 확정되면 GLOSSARY에 등재한다.
+용어: «모듈»은 **호스트 모듈**(ADR-0053)이다. «시스템»은 화면 문구상 `업무 시스템`(코드 이름 `Space`/`SpaceDef`; GLOSSARY가 `공간`을 피하라고 하므로 «공간»은 코드 이름을 가리킬 때만 쓴다). 설비의 Module/Slot, 셸 슬롯과 겹치지 않도록 issue의 `targetSlot`은 «기여 지점»(보류된 후보명이라 GLOSSARY에는 넣지 않는다)으로 쓴다.
 
-## 1. 요약과 권고
+## 1. 요약
+
+이 문서의 초판은 «타입 확장 + 호출 때 검사», «manifest 필드», «`contributors` 허용 목록»을 권고했다. 독립 리뷰(PR #1602 댓글, Opus high)와 코드 대조 결과 **세 권고가 모두 과했다.** 지금 권고는 훨씬 작다.
 
 | # | 질문 | 권고 |
 | --- | --- | --- |
-| 1 | #492: 모듈 화면이 부르는 엔드포인트·쓰기가 모듈 권한(`<모듈 id>:*`)을 선언하게 할까 | **A.** `EndpointSpec`·`ActionSpec`의 `permission` 타입만 `Permission \| ModuleScopedId`로 열고, `host.query`·`host.act` 호출 때 «Kernel·앱 선언·내 접두사» 밖의 권한이면 거부한다 |
-| 2 | #428: 외부 패키지가 새 시스템(공간)을 내놓는 방법 | **B.** `ModuleManifest`에 선택 필드 `businessSystem`을 더하고 `mountModule`이 `SpaceDef`를 함께 돌려준다. 앱이 쓰겠다고 켠 때만 공간이 생긴다 |
-| 3 | #428: 외부 패키지가 기존 시스템에 메뉴를 기여하는 방법 | **B.** 대상 공간이 `contributors`(허용 모듈 id 목록)를 선언하면 Registry가 그 밖의 기여를 거부한다. 목록이 없으면 지금처럼 앱 조립자가 정한다 |
-| 4 | 기여 지점(extension point) 세분 | **공간 단위만.** 이름 붙인 지점(issue의 `targetSlot`)은 소비자가 둘 이상 생길 때 연다(06 §24) |
-| 5 | 배포 | 새 런타임 설치 없음. 정적 조립을 유지하고, 새 API는 기존 `@ap/contracts`·`@ap/kernel` tarball로 나가며 `ap-devkit` Catalog에 항목을 더한다(#1207) |
+| Q1 | #492: 모듈 엔드포인트·쓰기 권한 | **타입은 그대로.** 모듈은 `menuPermission('<모듈 id>:<이름>')`으로 적는다고 계약에 쓰고, 고정 모듈을 바꾸고, mock 등록 검사를 다듬는다. 호출 때 거부는 하지 않는다 |
+| Q2 | #428: 새 시스템 | **패키지가 `SpaceDef`를 함께 export**하고 앱이 `spaces`에 합친다. Registry는 «홈이 모듈 메뉴이고 공간 권한이 그 모듈 접두사»일 때 공간 권한을 받아들인다. manifest 필드는 만들지 않는다 |
+| Q3 | #428: 기존 시스템에 기여 | **지금 그대로.** 배치는 앱 조립의 결정이다. 허용 목록(`contributors`)은 만들지 않는다 |
+| Q4 | 범위 | **한 PR로 축소**(§7) |
+| Q5 | 파일럿 | 새 시스템 시험은 고정 모듈, 권한 확인은 EV(이미 마운트됨, 위치는 소유자가 정한 `tools`) |
+| Q6 | 필드 이름 | manifest 필드를 **만들지 않으므로 이름은 보류.** 나중에 만들면 `providesSpace` + `HostFeature` `'moduleSpace'` |
+| **P5** | 실서버에 모듈 권한을 주는 경로 | **출시 전 필수 선행 결정**(§5). 정하기 전에는 모듈 권한을 업무 시스템 진입 권한으로 쓰지 않는다 |
 
-세 변경은 모두 **옵션만 더한다.** 새 필드를 쓰지 않는 기존 앱·모듈은 동작도 공개 API 스냅샷의 기존 줄도 그대로다. `contract` 정수는 올리지 않는다(ADR-0053 개정 #1217의 선택 능력 규칙).
-
-## 2. 이슈 주장 점검 (2026-11-09 코드 기준)
+## 2. 이슈 주장 점검 (2026-11-10, 코드 기준)
 
 ### #492
 
 | 이슈의 주장 | 지금 | 판정 |
 | --- | --- | --- |
-| `EndpointSpec.permission`이 닫힌 `Permission` | `Permission = KernelPermission \| MenuPermission`이다(`packages/sdk/contracts/src/menu/menu.ts`). 브랜드 문자열이라 «모듈 접두사 문자열»은 앱이 `menuPermission(...)`으로 선언하지 않으면 타입에 들어가지 않는다 | **부분만 유효.** 닫힌 목록은 아니지만 모듈 권한 문자열은 여전히 못 쓴다 |
-| 경로 `packages/contracts/src/menu-query.ts` | `packages/sdk/contracts/src/menu/menu-query.ts` | 경로만 낡음 |
-| 고정 모듈이 `platform:view`로 우회 | `packages/sdk/shell/src/__fixtures__/module-fixture/ListScreen.tsx`·`ItemScreen.tsx`가 `platform:view`를 쓰고 «#492까지»라 적는다 | **유효** |
-| 같은 문제가 쓰기에도 있다 | `ActionSpec.permission`도 `Permission`이다(`contracts/src/adapter/action.ts:13`) | 이슈에 없던 것. 같은 결정으로 묶는다 |
-| 등록 때 검사 | 엔드포인트 spec은 `host.query(spec, …)` 호출 때 처음 보인다. 등록 시점(`mountModule`)에는 spec이 없다 | **틀림.** 검사 자리는 호출 때다 |
-| 서버가 매 요청 재검사 | `apps/platform-api/src/modules/menu-dispatch/query.ts`가 `declaration.authorize(actor)`로 판정한다. `spec.permission`은 요청에 실리지 않는다(주석 «not sent in the request») | **유효.** 권한의 최종 판정은 서버 선언이고 클라이언트 spec은 문서 역할이다 |
-| 다시 열 조건: 첫 실제 모듈이 자기 권한으로 플랫폼 조회 | EV `eqv`가 tarball로 마운트됐다(#801). EV가 `host.query`를 자기 권한으로 쓰는지는 이 설계에서 **확인하지 못했다**(소비자 코드는 저장소 밖) | 조건 충족 여부 미확인 |
+| `EndpointSpec.permission`이 닫힌 타입 | `Permission = KernelPermission \| MenuPermission`(브랜드 문자열). `menuPermission(id)`는 공개 항등 캐스트이고 모듈도 `@ap/contracts`를 import할 수 있다 | **우회로가 이미 있다.** EV 설치본(`@eqv/platform-adapter/dist/endpoints.js`)이 `menuPermission('eqv:view')`를 쓴다 |
+| 고정 모듈이 `platform:view`로 우회 | `module-fixture/ListScreen.tsx`·`ItemScreen.tsx`가 아직 그렇다 | 유효. 고정 모듈만 낡았다 |
+| 등록 때 검사 | 엔드포인트 spec은 `host.query` 호출 때 처음 보인다 | 이슈 주장 틀림 |
+| 서버가 매 요청 재검사 | 서버 `authorize`가 판정하고 `spec.permission`은 요청에 실리지 않는다. 클라이언트의 어디에서도 `spec.permission`을 판정에 쓰지 않는다(`kernel/src/query`) | 유효 |
+| 다시 열 조건: 첫 모듈이 자기 권한으로 조회 | 충족. EV가 이미 `eqv:view`로 선언한다 | 충족 |
+| 쓰기도 같은 문제 | `ActionSpec.permission`도 같은 `Permission` | 같은 결정으로 묶는다 |
 
 ### #428
 
 | 이슈의 주장 | 지금 | 판정 |
 | --- | --- | --- |
-| `SpaceId`·`GroupId`·`Permission`이 닫힌 목록 | ADR-0072로 브랜드 문자열이고 목록은 앱이 선언한다 | **낡음** |
-| `packages/kernel/src/registry.ts`의 `createRegistry` 검증은 재사용 가능 | `packages/sdk/kernel/src/registry/registry.ts`. 중복 id·경로·그룹/홈·parent·page key·예약 네임스페이스를 fail closed로 검증한다 | 유효(경로만 바뀜) |
-| 외부 시스템별 소유권·기여 허가 모델 없음 | 없다 | **유효** |
-| `ModuleManifest`·`ModuleHost`(#403)와의 관계를 먼저 정한다 | 둘 다 구현됐다. `ModuleManifest`는 «모듈 id, 그룹, 화면»을 담고 `mountModule`이 `MenuEntry`·`GroupDef`를 만든다(ADR-0053) | **낡음.** 질문의 답은 «`ModuleManifest`를 확장한다»가 이미 정해져 있다 |
-| 정적 `SPACES`·`GROUPS`·`MENUS` 수동 연결 | `apps/platform-web/src/menus.ts`가 앱 소유 배열에 `modules.ts`의 `mountModule` 결과(EV)를 더한다 | 유효. 단 외부 패키지를 실제로 조립한 사례가 이미 있다 |
-| 06 §5: 런타임 설치·원격 로딩은 Deferred | 그대로 | 유효 |
-| 첫 수직 파일럿 = 새 시스템 1건 + 기존 시스템 기여 1건 | EV는 «기존 `tools` 공간에 그룹 하나를 기여»하는 모양으로 이미 마운트돼 있다. 그 공간은 앱이 선언했고 EV는 허가를 받은 것이 아니라 앱이 직접 연결했다 | 부분 충족. 새 시스템 쪽과 «대상 소유자 허가»는 없다 |
-| `defineSystem`·`defineMenuContribution`·`targetSlot` | 없다. issue가 이름 모두 Candidate라 적었다 | 후보 |
+| `SpaceId`·`GroupId`·`Permission`이 닫힌 목록 | ADR-0072로 브랜드 문자열, 목록은 앱이 선언 | 낡음 |
+| `createRegistry` 검증은 재사용 가능 | `packages/sdk/kernel/src/registry/registry.ts` | 유효(경로만 바뀜) |
+| 외부 시스템별 소유권·기여 허가 모델 없음 | 없다 | 유효 |
+| `ModuleManifest`·`ModuleHost`와의 관계를 정한다 | 구현됨. `mountModule`이 `MenuEntry`·`GroupDef`를 만든다 | 낡음 |
+| 정적 조립 | `apps/platform-web/src/menus.ts`가 앱 배열에 `modules.ts`의 `mountModule` 결과(EV)를 더한다 | 유효. 외부 패키지 조립 사례가 이미 있다 |
+| 런타임 설치는 Deferred | 그대로 | 유효 |
+| 새 시스템·기여 첫 파일럿 | EV는 앱이 정한 `tools` 업무 시스템에 그룹 하나를 낸다. #332는 2026-10-26 not planned로 닫혀 게이트가 아니다 | 낡음 |
+| `defineSystem`·`defineMenuContribution`·`targetSlot` | 없음(후보 이름) | 후보 |
 
-### 지금 이미 되는 것과 빈 곳
+### 지금 되는 것과 진짜 빈 곳
 
-되는 것: 외부 패키지가 manifest+화면을 내고, 앱이 `mountModule`로 마운트하며, 그룹은 앱이 고른 공간(`groupSpace`)에 들어간다. 권한·그룹은 `<모듈 id>:` 접두사로 격리되고 다른 모듈·Kernel 네임스페이스는 쓸 수 없다(`RegistryError`).
+되는 것: 패키지가 manifest+화면을 내고, 앱이 `mountModule`로 마운트하고, 그룹은 앱이 고른 업무 시스템에 들어간다. 패키지는 `const x: SpaceDef`를 export할 수 있고 앱은 `spaces: [...SPACES, x]` 한 줄로 받을 수 있다(`SpaceDef`·`spaceId`는 `@ap/contracts`에 있다). 모듈 권한·그룹은 `<모듈 id>:` 접두사로 격리된다.
 
-빈 곳:
+진짜 빈 곳은 둘이다.
 
-1. **공간 자체**를 패키지가 담아 오지 못한다. `SpaceDef`(라벨·설명·홈 메뉴·진입 권한)는 앱이 손으로 쓴다. 외부 패키지를 «새 시스템»으로 받으려면 앱 코드에 공간을 한 벌 더 써야 한다.
-2. **대상 소유자의 허가**가 없다. 어느 앱 조립자든 `groupSpace`로 아무 모듈 그룹을 아무 공간에 넣을 수 있다.
-3. **엔드포인트·쓰기 권한**이 모듈 어휘를 못 쓴다(#492).
+1. **Registry가 모듈 권한을 업무 시스템 진입 권한으로 받지 않는다.** `registry.ts`: 공간 권한은 Kernel·앱 선언만(`Space … is not a platform permission`), 홈 메뉴 권한은 공간 권한과 같아야 하고(`home permission must be`), 모듈 메뉴 권한이 플랫폼 권한이면 거부한다. 그래서 모듈이 홈인 업무 시스템에는 진입 권한을 걸 수 없다(`workspace-assembly.test.tsx`도 이를 적는다).
+2. **실서버가 모듈 권한을 누구에게도 주지 않는다**(§5).
 
-## 3. #492 — 모듈 엔드포인트 권한
+## 3. Q1 — #492 모듈 엔드포인트·쓰기 권한
 
-### 옵션
+- **채택(리뷰 수용): 타입을 넓히지 않는다.** 모듈은 `menuPermission('<모듈 id>:<이름>')`으로 적는다. 계약(kernel §)에 한 줄로 쓰고 고정 모듈 두 곳을 바꾼다.
+- **넓히기를 기각한 이유(초판의 `Permission | ModuleScopedId`).** `ModuleScopedId`는 `` `${string}:${string}` ``이라 유니온에 넣으면 `'platform:veiw'`도 컴파일되고, 모든 메뉴에서 `Permission` 브랜드가 사실상 사라진다. ADR-0072가 일반 문자열안을 버린 이유(«실수가 모두 런타임까지 간다»)와 어긋나고, 맨 문자열이 퍼진 뒤 다시 좁히면 깨지는 변경이다. 또 스냅샷의 타입 줄이 모두 바뀌어 «기존 줄은 그대로»도 성립하지 않았다.
+- **호출 때 거부를 기각한 이유.** `spec.permission`은 요청에 실리지 않고 클라이언트가 판정에 쓰지 않으며, 모듈이 자기 spec을 쓰므로 우회도 된다. 보안도 데이터 무결성도 아닌 «문서 필드 오기 검출»이라 루트 AGENTS의 SDK 제약 기준(보안·무결성·접근성)을 넘지 못한다.
+- **실수 검출의 자리.** `mock-server/src/adapter.ts`의 등록 검사(`permissionDeclared`)다. 거기서 두 가지를 고친다: ① 어떤 메뉴의 진입 권한도 아닌 `<모듈>:edit` 같은 쓰기 권한을 거부하는 문제(마운트된 모듈 id의 접두사면 선언된 것으로 본다), ② 다른 모듈의 접두사를 쓰는 spec 거부.
+- 적합성 검사는 이미 돈다. `server-conformance`가 EV 엔드포인트를 돌리고 `plan/endpoints.ts`가 `without eqv:view → forbidden`을 검사한다(mock 기준). 초판의 «확인 대상 없음»은 틀렸다. `apps/platform-api`에는 모듈 엔드포인트가 없다.
+- `spec.menuId`가 자기 모듈 메뉴인지 확인하는 안은 같은 이유(보안이 아님)로 뺀다.
 
-- **A (권고). 타입을 열고 호출 때 검사.**
-  - `EndpointSpec.permission`·`ActionSpec.permission`: `Permission | ModuleScopedId`. `defineEndpoint`의 입력만 넓어지고 읽는 쪽(`menuPermissions` 등)이 쓰는 `Permission`은 그대로다.
-  - `host.query`·`host.act`는 spec을 받은 순간 `spec.permission`이 «`registry.permissions`(Kernel+앱 선언)에 있음» 또는 «`<내 모듈 id>:` 접두사»인지 본다. 아니면 요청을 보내지 않고 거부한다(다른 모듈의 접두사, 선언 안 된 어휘). 거부는 프로그래밍 오류이므로 `forbidden` 응답이 아니라 거부된 Promise(`Error`)로 알린다.
-  - 플랫폼 메뉴의 엔드포인트는 지금과 같다. 앱 코드에는 이 검사가 닿지 않는다(호스트 포트에만 있다).
-  - mock 서버·서버 구현은 권한을 불투명 문자열로 다룬다. mock 조립은 이미 `modulePermissions(registry)`로 모듈 권한을 역할 어휘에 더하므로 따로 바꾸지 않는다. `@ap/server-conformance`는 타입 확장(포트의 `permission: Permission`을 `Permission | ModuleScopedId`)만 한다.
-  - 이유: 서버 판정이 최종이고 spec 권한은 요청에 실리지 않는다. 클라이언트 검사의 몫은 «모듈이 남의 어휘를 문서에 적는 실수»를 막는 것뿐이므로 호출 자리에서 한 줄이면 충분하다.
-- **B. A + 적합성 검사.** 서버가 모듈 접두사 권한 엔드포인트를 해당 권한이 없는 호출자에게 거절하는지 `@ap/server-conformance`가 확인한다. 서버 구현자가 모듈 엔드포인트를 실제로 낼 때까지 확인 대상이 없다. 그때 연다.
-- **C. 하지 않는다.** 고정 모듈은 `platform:view`를 계속 쓴다. 해로운 점: 모듈 화면이 «보이는 권한»과 «부르는 엔드포인트 권한»이 다르게 읽히고, 모듈 권한만 가진 사용자는 같은 모듈의 조회를 못 한다.
+## 4. Q2·Q3 — #428 새 시스템과 기존 시스템 기여
 
-### 변경 표면과 영향
+### 4.1 새 시스템 (채택: `SpaceDef` 함께 export)
 
-- `packages/sdk/contracts/src/menu/menu-query.ts`, `…/adapter/action.ts`: 타입 한 줄씩. `sdk:api` 스냅샷이 «넓어짐»으로 바뀐다(소비자가 읽는 `Permission`은 그대로라 깨지는 변경이 아니다. `AnyEndpointSpec`을 읽어 `permission`을 `Permission`으로 좁혀 쓰는 소비자가 있는지 `rg`로 확인한다 — 구현 이슈의 Impact).
-- `packages/sdk/kernel/src/registry/module-host.ts`의 `host.query`·`host.act`: 호출 시 검사 한 곳. 검사에 `registry.permissions`가 필요하다. `registry.permissions`는 `module-host`가 이미 쓰는 `useHostPlatform()`의 `registry`로 닿는다(새 포트 불필요, plan 리뷰 확인). 같은 자리에서 `spec.menuId`가 자기 모듈의 메뉴인지도 확인한다(남의 메뉴 id로 부르는 실수 방지).
-- 접두사 판정(`<모듈 id>:`)은 지금 여러 곳에 있으므로 `isModuleScoped` 한 곳으로 모은다.
-- **expand → migrate 순서.** 타입을 넓히면 `spec.permission`을 `Permission`으로 읽는 코드가 컴파일 오류가 난다: `mock-server/src/actions/actions.ts`, `mock-server/src/query/endpoints.ts`, `server-conformance` 여러 줄. 구현은 읽는 쪽을 `Permission | ModuleScopedId`로 같이 고치는 한 PR이고, 저장소 밖 서버 구현체의 영향은 CHANGELOG 한 줄로 알린다.
-- mock의 `permissionDeclared`는 어떤 메뉴의 진입 권한도 아닌 `<모듈>:edit` 같은 쓰기 권한을 거부하므로, 모듈 접두사 권한은 «모듈 id가 마운트된 모듈 중 하나»이면 선언된 것으로 본다. 서버가 모듈 권한 어휘를 아는 방식(`vocab.json`)은 구현 때 확인한다(**미확인**).
-- 타입을 템플릿 `${string}:${string}`로 열면 `platform:veiw` 같은 오타도 컴파일된다. 호출 때 검사가 잡지만 컴파일 시점은 아니다. `ModulePermission` 브랜드는 대안이며 follow-up으로 둔다.
-- `packages/sdk/shell/src/__fixtures__/module-fixture/`: `platform:view`를 모듈 권한으로 바꿔 회귀 시험으로 쓴다(바꾸기 전 실패, 바꾼 뒤 통과).
-- 서버: `apps/platform-api`의 `menu-dispatch`는 권한을 `authorize` 선언으로 판정하므로 코드 변경이 없다.
+- 패키지는 manifest 옆에 `SpaceDef`를 export한다(`feedbackTracking`·`scopePresentation`을 포함한 모든 필드를 그대로 담는다). 앱은 `createRegistry({ spaces: [...SPACES, eqvSpace] })`로 합친다. 합치는 한 줄이 «이 시스템을 받겠다»는 동의다.
+- 업무 시스템 id는 **패키지가 정하는 별도 값**이다. 초판의 «공간 id = 모듈 id»는 기각한다: 정규 경로가 `/{공간 id}/{메뉴 슬러그}`(ADR-0093)라 URL 뿌리와 서버가 주는 권한 네임스페이스를 따로 바꿀 수 없게 묶이고, 앱의 공간·예약 루트와 겹치면 패키지가 권한까지 개명해 다시 릴리스해야 한다. 충돌은 `createRegistry`가 이미 거부한다.
+- **Registry 변경은 한 곳이다.** 공간 권한 검사를 «메뉴가 만들어진 뒤의 공간 반복»으로 옮겨, 홈이 모듈 메뉴이고 공간 권한이 `<그 모듈 id>:` 접두사이면 허용한다. `SpaceDef.permission` 타입은 그대로이고(`menuPermission` 캐스트), 그 한 줄의 주석(「공간 권한은 Kernel·앱 선언」)을 맞게 고친다. 홈 메뉴 권한 = 공간 권한 검사는 그대로다.
+- 약점: 패키지가 `homeMenuId`를 `<모듈 id>:<화면 id>` 문자열로 직접 쓴다. 어긋나면 Registry가 시작 때 `is unknown`/`is not in that space`로 거부하므로 fail closed다.
+- **Managed System 자동 등록은 합친 목록을 읽어야 한다.** 지금 `platform-systems.json`은 `buildPlatformSystemsFile(SPACES)`로 앱의 `SPACES`만 읽는다(`apps/platform-web/src/platform-systems.test.ts`). 패키지 공간을 `[...SPACES, x]`로 합치면 여기서 빠진다. 구현에서 생성기·테스트 입력을 합친 목록으로 바꾼다(ADR-0110 결정 5가 대상이며 본문은 이번에 읽지 못했다).
 
-시험: (1) 모듈이 자기 접두사 권한 spec으로 `host.query`를 부르면 통과, (2) 다른 모듈의 접두사 spec은 거부되고 전송되지 않음, (3) 선언 안 된 어휘는 거부, (4) Kernel·앱 권한 spec은 지금처럼 통과, (5) `host.act`도 같은 규칙.
+#### 보류한 안: manifest 필드
 
-## 4. #428 — 새 시스템 등록과 기존 시스템 메뉴 기여
+`ModuleManifest.providesSpace?` + `HostFeature 'moduleSpace'`는 «한 줄 절약, `homeScreen`→`homeMenuId` 변환» 정도를 얻는 대신 공개 필드·호스트 기능·`MountOptions.groupSpace` 부분화·`SpaceDef` 필드 동기화(새 필드가 생길 때마다 manifest에 넣을지 다시 정함)를 낳는다. 방향도 비대칭이다: 지금 안에서 필드로 가는 것은 더하기만으로 되지만 필드를 만든 뒤 없애는 것은 깨지는 변경이다. 다시 여는 조건: 같은 요구(패키지가 업무 시스템을 내놓는 것)가 외부 패키지 둘 이상에서 나올 때. 그때 이름은 `providesSpace`(내놓는다는 뜻이 `requires`와 나란히 읽힌다)이고 기능 이름은 `moduleSpace`(`moduleScreen`·`moduleFeatures`와 같은 꼴)이다. 필드가 있는데 `requires`에 `'moduleSpace'`가 없으면 `mountModule`이 `RegistryError`로 거부하고, 기본 `features`에 더한다. 초판의 `businessSystem`은 코드에 세 번째 이름을 만들고 GLOSSARY(코드 이름 `Space`)와 어긋나므로 쓰지 않는다.
 
-### 4.1 새 시스템(System Extension)
+### 4.2 기존 시스템에 메뉴 기여 (채택: 지금 그대로)
 
-«시스템» = 독립 Workspace/Sidebar/홈을 가진 공간(`SpaceDef`, ADR-0026). 두 번째 App Shell·전역 Provider·로그인은 만들지 않는다.
+초판의 `SpaceDef.contributors`는 기각한다.
 
-- **A. 지금 그대로.** 앱 조립자가 `SpaceDef`를 직접 쓰고 `groupSpace`로 모듈 그룹을 넣는다. 추가 코드 없음. 대가: 외부 패키지 하나가 시스템 하나를 내놓는 경우에도 공간 선언을 패키지 밖에서 손으로 맞춰야 하고, 홈 메뉴 id(`<모듈>:<화면>`)가 어긋나면 Registry 시작 때 알게 된다.
-- **B (권고). 선택 `businessSystem` 필드.** `ModuleManifest.system?: { space: { id; label; subtitle?; description; permission?; homeScreen } }`를 더한다. `homeScreen`은 같은 manifest의 화면 id이고, `mountModule`이 `<모듈 id>:<homeScreen>`으로 바꿔 `SpaceDef.homeMenuId`에 넣는다.
-  - `mountModule`은 반환값에 `spaces: SpaceDef[]`(필드가 없으면 빈 배열)를 더한다. 앱은 이를 `createRegistry({ spaces: [...SPACES, ...mod.spaces] })`로 직접 합친다 — 합치는 한 줄이 «이 시스템을 받겠다»는 동의다.
-  - 공간 id는 `<모듈 id>`와 같다(규칙 한 가지). Registry의 기존 검사(예약 루트, 홈 메뉴가 그 공간에 속함, 홈 경로에 `:param` 없음)가 그대로 적용된다. 모듈 그룹의 `groupSpace`는 `businessSystem`이 있으면 그 공간이 기본값이다.
-  - `businessSystem.space.permission`은 `<모듈 id>:` 접두사를 요구한다(Kernel·다른 모듈 어휘 금지, 격상 불가). **현재 Registry는 이를 거부한다**(공간 권한은 Kernel·앱 선언만, 홈 메뉴 권한은 공간 권한과 같아야 함; `SpaceDef.permission` 타입도 `Permission`). 그래서 구현에 ① `SpaceDef.permission` 타입 확장 ② 모듈 공간만 «자기 접두사 허용» 분기 ③ 홈 화면 권한 = 공간 권한 검사 유지가 든다.
-  - 필드를 모르는 옛 호스트가 `businessSystem`을 조용히 무시하지 않도록, `businessSystem`을 쓰는 manifest는 새 `HostFeature` `'businessSystem'`을 `requires`에 넣어야 한다. 옛 호스트는 `requires` 검사로 fail closed하고 `contract` 정수는 그대로다.
-  - `businessSystem.space.contributors?`로 시스템 소유 패키지가 허용 목록을 함께 낸다(§4.2).
-  - 필드가 없는 기존 manifest(EV 포함)는 변하지 않는다.
-- **C. 별도 공개 계약 `defineSystem({ groups, menus, modules })`.** 한 시스템이 여러 모듈을 묶을 때 편하다. 그러나 `ModuleManifest`와 «그룹·화면»이 겹쳐 ADR-0053이 피하려던 중복 개념이 된다. 시스템 하나 = 모듈 하나가 아닌 소비자가 생기면 다시 본다(**소비자 0**).
+- 강제되지 않는 허가다. 정적 조립이라 앱이 `{ ...space, contributors: undefined }`로 지우거나 `SpaceDef`를 다시 쓸 수 있다. 앱이 선언한 공간에서는 자기 자신에게 거는 제약이고, 배치는 호스트(앱) 결정이다(`host.ts`).
+- 실제 통제는 조립 파일(`modules.ts`) 리뷰와 서버 `authorize`다.
+- 소유 모듈 자신, 모듈이 없는 플랫폼 그룹에 대한 규칙이 비어 있었고, 기여자를 더하려면 대상 패키지를 다시 릴리스해야 해 정확 버전 peer(ADR-0056)와 겹쳐 팀 간 릴리스가 묶인다.
+- 다시 여는 조건: 조립자와 대상 업무 시스템 소유자가 다른 조립(런타임 설치·원격 로딩)이 생길 때.
 
-### 4.2 기존 시스템에 메뉴 기여(Menu Contribution)
+이름 붙은 기여 지점(`targetSlot`)은 기여 메뉴가 대상의 기존 그룹 안에 들어가야 하므로 «그룹 id는 모듈 접두사» 불변식을 건드린다. 범용 조각은 ADR-0052를 따르므로 소비자 수가 아니라 이 불변식 때문에 미룬다. `defineSystem`은 `ModuleManifest`와 개념이 겹쳐 기각한다.
 
-- **A. 지금 그대로.** 앱 조립자가 `groupSpace`로 정한다. 대상 시스템 소유자의 허가 수단이 없다.
-- **B (권고). 대상 공간이 허용 모듈을 선언한다.** `SpaceDef.contributors?: readonly string[]`(모듈 id). 규칙:
-  - 소유자: 앱이 선언한 공간은 앱 조립자 자신이 소유자라 `SpaceDef.contributors`는 자기 정책을 코드에 박는 것이다. 외부 패키지가 소유한 시스템은 §4.1의 `businessSystem.space.contributors`로 패키지가 직접 선언한다. 이때 앱이 합쳐도 목록 밖 기여는 거부된다. 기여 쪽에서 `contributesTo`를 선언하는 방식(기여자가 대상을 가리킴)도 비교했으나 목록이 대상에 있어야 «허가»가 되므로 채택하지 않는다.
-  - `contributors`가 **없으면 지금과 같다**(앱 조립자 자유). 있으면 그 목록에 없는 모듈의 그룹을 그 공간에 넣는 `createRegistry`가 `RegistryError`다(fail closed).
-  - 기여는 모듈 **자신의 그룹**으로만 들어간다(ADR-0053의 접두사 불변식). 대상의 기존 그룹·메뉴를 바꾸거나 순서를 끼워 넣지 못한다. 사이드바에서는 대상 공간의 Sidebar에만 나타난다.
-  - 권한: 기여 메뉴의 권한은 `<모듈 id>:*`다. 대상 시스템의 권한을 만들거나 격상하지 못한다. 서버 판정이 최종이다(§3).
-  - 기여가 어느 공간으로 갈지는 여전히 앱 조립이 `groupSpace`로 고른다. `contributors`는 «허용 목록 밖은 거부»만 더한다.
-- **C. 이름 붙은 기여 지점(`targetSlot`).** 대상이 지점 목록(`slots: [{ id, group }]`)을 공개하고 기여가 지점을 가리키는 형태. 대상의 기존 그룹 안에 메뉴를 끼우려면 «그룹 id는 모듈 접두사»라는 불변식을 깨야 한다. 소비자가 없고(§24 기준: 실소비자 2–3) 불변식을 건드리므로 **미룬다.**
+### 4.3 호환성과 외부 배포 (#1207)
 
-### 4.3 호환성과 소유
+- SDK 버전 호환은 ADR-0056의 정확 버전 peer와 `contract` 정수가 맡는다. 새 공개 타입이 없으므로 `sdk:api` 스냅샷이 바뀌는지는 구현 때 `pnpm sdk:api`로 확인한다(**미확인**).
+- 저장소 밖 에이전트는 tarball만 쓴다. 이 변경은 Registry 동작(`@ap/kernel`)과 계약 문서뿐이라 tarball 모양은 그대로다. `sdk:consumer-check`에 «패키지가 `SpaceDef`를 export하고 앱이 합쳐 Registry를 만든다» 시험을 더하고, `ap-devkit` Catalog에 이 패턴 항목을 요청한다(devkit 구조는 바꾸지 않는다).
 
-- SDK 버전 호환은 이미 ADR-0056의 정확 버전 `peerDependencies`와 `contract` 정수(`HOST_CONTRACTS`)가 맡는다. manifest에 SDK 범위 필드를 더하지 않는다.
-- 기여 패키지의 업데이트 책임은 소유 팀에 있고(독립 릴리스), 탑재본 변경은 플랫폼 재빌드·재배포가 필요하다(정적 조립, issue 원칙 5와 같다).
-- ID·경로 충돌, 홈·primary, parent, page key는 `createRegistry`가 이미 거부한다. 이 설계가 새로 거부하는 것은 ① `businessSystem` 공간의 접두사 위반, ② `contributors` 밖의 기여, ③ 모듈 접두사 밖 권한(§3)이다.
+## 5. P5 — 실서버에 모듈 권한을 주는 경로 (출시 전 필수)
 
-### 4.4 외부 배포 (#1207)
+코드만 읽은 결과(실제 배포에서 확인하지 않았다):
 
-저장소 밖 에이전트는 SDK Release tarball만 설치해 쓴다. 따라서 새 API는 ① `@ap/contracts`·`@ap/kernel`의 공개 진입점에만 두고(`sdk:api` 스냅샷), ② 깨끗한 외부 소비자(`sdk:consumer-check`)에 «새 시스템 모듈 1개 + 기여 모듈 1개를 마운트해 Registry를 만든다»는 시험을 더하고, ③ `ap-devkit` Catalog에 항목(`mountModule`의 `businessSystem`, `SpaceDef.contributors`)을 더한다. 외부 `check`가 Registry 구성 오류를 읽어 안내할 수 있도록 `RegistryError` 메시지에 위반한 id를 항상 넣는다(지금도 그렇다).
+- `apps/platform-api/src/modules/platform-port/permissions.ts`의 `resolvePlatformPermissions`는 `PLATFORM_PERMISSION_TABLE`만 돌려준다. 머리 주석이 «앱이 선언한 메뉴 권한은 나열하지 않는다, feature는 그중 어느 것도 주지 않는다»고 적는다. 메뉴 권한도 지금까지 행을 하나씩 더해 왔다.
+- `apps/platform-api/src`(시험 제외)에서 `eqv`·`ModuleScopedId` 검색 결과가 없다.
+- 따라서 실서버에서 `eqv:view`를 받는 사람이 없다. `PlatformProvider`는 진입 불가 업무 시스템을 걸러내므로, 모듈 권한을 건 업무 시스템은 **경고 없이 모두에게 사라진다.** 모듈 메뉴도 같다.
+- 고정 모듈과 mock 파일럿은 이를 드러내지 못한다. mock 조립의 `modulePermissions(registry)`가 mock 역할 어휘에만 모듈 권한을 더하기 때문이다.
 
-devkit 쪽 변경은 `ap-devkit` 레인 소유다. 이 설계는 항목 추가만 요청하고 devkit 구조는 바꾸지 않는다.
+선택지(이 설계는 고르지 않고 소유자·백엔드 결정으로 올린다):
 
-### 4.5 시험 매트릭스 (구현 단계)
+- **P5-a.** `PLATFORM_PERMISSION_TABLE`에 모듈 권한마다 행을 더한다. 간단하나 외부 패키지가 생길 때마다 플랫폼 코드를 고쳐야 해 «외부 패키지만으로 확장» 목표와 어긋난다.
+- **P5-b.** 서버 설정으로 «모듈 권한 → 규칙(예: 특정 workspace 권한 부여 기능 이름)» 표를 둔다. 플랫폼 코드는 한 번만 바꾼다. 어휘 일치 시험(`permissions-vocabulary.test.ts`)이 이 표도 읽어야 하고, 서버가 모듈 권한 어휘(`vocab.json`)를 어떻게 아는지 정해야 한다.
+- **P5-c.** 모듈 권한은 `platform:view`처럼 모두에게 허용하고 권한 판정은 서버 `authorize`에만 맡긴다. 화면 표시 권한이 의미 없어진다.
 
-| 시험 | 기대 |
-| --- | --- |
-| 새 시스템 단독 1개 | 공간·홈·그룹·메뉴가 Registry에 선다. 홈 경로에 `:param`이 있으면 거부 |
-| 새 시스템 여러 개 | 공간 id 충돌은 거부, 서로의 접두사 권한 사용은 거부 |
-| `contributors` 있는 공간에 허용된 모듈 | 대상 Sidebar에 나타난다 |
-| `contributors` 있는 공간에 허용 안 된 모듈 | `RegistryError`(모듈 id 포함) |
-| `contributors` 없는 공간(기존 앱) | 지금과 같다 — 기존 시험이 그대로 통과 |
-| 중복 id·경로 충돌·없는 공간 | 기존 `RegistryError` |
-| 권한 변경·Scope 변경·로그아웃 | 기존 모듈 호스트 시험(세대·요청 취소·잔상)이 그대로 통과 |
-| 외부 소비자(tarball) | `sdk:consumer-check`에서 새 시스템+기여 마운트 통과 |
-| 공개 API | `sdk:api`는 넓어짐만 보인다. 기존 줄이 바뀌면 실패 |
+권고: **P5-b를 설계하되 정하기 전에는 모듈 권한을 업무 시스템 진입 권한으로 쓰지 않는다.** 모듈 메뉴 자체는 EV처럼 이미 쓰이고 있으므로 이 제한은 §4.1의 새 Registry 허용에만 걸린다: 허용은 코드로 넣되 사용은 P5가 정해진 뒤다.
 
-경계: 브라우저 새로고침·뒤로가기·CSS·Provider 충돌은 모듈 화면이 이미 `ModuleScreen` 안에서 같은 셸을 쓰므로 새로 생기지 않는다. 새 화면 시안이 없고 UI 변경도 없다(공간·그룹은 기존 사이드바가 그린다).
+## 6. 개발자에게 무엇이 달라지나 (쉬운 설명)
 
-## 5. 하지 않는 것(Deferred, 모두 구현 안 함)
+외부 패키지를 만드는 개발자 입장에서, 살아남은 세 가지를 예시로 비교한다.
 
-- **런타임 설치·원격 로딩.** 이유: 06 §5 Deferred, 소비자 없음. 다시 여는 조건: 재빌드 없이 모듈을 바꿔야 하는 요구가 확인될 때.
-- **이름 붙은 기여 지점(`targetSlot`)과 대상 그룹 안 끼워 넣기.** 이유: 접두사 불변식을 건드리고 소비자 0. 다시 여는 조건: 같은 요구가 외부 소비자 2곳 이상에서 나올 때.
-- **`defineSystem`(여러 모듈을 한 시스템으로 묶음).** 이유: `ModuleManifest`와 개념 중복, 소비자 0. 다시 여는 조건: 한 시스템이 두 모듈 이상을 낼 때.
-- **엔드포인트 권한 적합성 검사(§3의 B).** 이유: 서버 쪽 모듈 엔드포인트가 아직 없다. 다시 여는 조건: 서버 구현자가 모듈 접두사 권한 엔드포인트를 처음 낼 때.
-- **기여자 업데이트·호환 매트릭스 자동화.** 이유: 정확 버전 peer와 `contract` 정수로 충분하다. 다시 여는 조건: 외부 모듈이 둘 이상이고 호환 어긋남이 실제로 나올 때.
+### Q1 — 모듈이 자기 권한으로 엔드포인트를 적는다
 
-## 6. 소유자에게 묻는 것 (`질문 #428` 한 묶음)
+지금: 문서에는 «모듈 권한을 쓰라»는 말이 없어서, 저장소 안 고정 모듈은 타입 때문에 `platform:view`로 돌려 쓰고, EV는 `menuPermission`으로 알아서 우회했다.
+
+```ts
+// 전: 고정 모듈 — 모든 사용자에게 열린 권한으로 적어 둠
+defineEndpoint({ id: 'fixture.items', menuId: 'fixture:list', permission: 'platform:view', … })
+
+// 후: 모듈 자기 권한. 계약에 이 방법이 적혀 있다 (EV가 이미 이렇게 쓴다)
+defineEndpoint({ id: 'fixture.items', menuId: 'fixture:list', permission: menuPermission('fixture:view'), … })
+```
+
+달라지는 점: 타입은 그대로고, 문서가 한 줄 늘고, mock이 `fixture:edit` 같은 쓰기 권한을 잘못 거부하지 않는다. 남의 모듈 접두사를 적으면 mock 등록 때 바로 알려 준다.
+
+### Q2 — 패키지가 자기 업무 시스템을 함께 낸다
+
+지금: 앱 담당자가 패키지 설명서를 보고 업무 시스템 정의를 `menus.ts`에 손으로 써야 하고, 모듈 권한을 진입 권한으로 걸면 Registry가 시작 때 거부한다.
+
+```ts
+// 전: 앱 menus.ts에서 직접 작성 (패키지가 무엇을 기대하는지 앱이 맞춰야 함)
+const SPACES = [ …, { id: spaceId('std-log'), label: …, homeMenuId: 'stdlog:overview', permission: undefined } ];
+
+// 후: 패키지가 export, 앱은 합치기만 함
+// 패키지(@acme/std-log): export const stdLogSpace: SpaceDef = { id: spaceId('std-log'), homeMenuId: 'stdlog:overview',
+//                                 permission: menuPermission('stdlog:view'), … };
+// 앱: createRegistry({ spaces: [...SPACES, stdLogSpace], … })
+```
+
+달라지는 점: 패키지가 자기 시스템 정의를 소유하고 앱은 한 줄로 받는다. 단 모듈 권한을 진입 권한으로 거는 것은 §5가 정해진 뒤에만 쓴다. Managed System 자동 등록 파일은 합친 목록으로 만들어진다.
+
+### Q3 — 기존 시스템에 메뉴를 더한다 (바뀌는 것 없음)
+
+```ts
+// 전·후 동일: 어느 업무 시스템에 넣을지는 앱 조립자가 정한다
+mountModule(eqvManifest, screens, { prefix: '/tools/topview', groupSpace: { 'eqv:equipment': spaceId('tools') }, … })
+```
+
+달라지는 점: 없다. 대상 업무 시스템 소유자가 막는 장치는 만들지 않는다. 막는 곳은 앱의 조립 파일 리뷰와 서버 권한 판정이다. 소유자가 다른 조립이 생기면 다시 연다.
+
+## 7. 구현 범위 (컨펌 뒤, 한 PR)
+
+1. `registry.ts`: 모듈이 홈인 업무 시스템의 모듈 접두사 공간 권한 허용(+ 주석 정정, `isModuleScoped` 한 곳으로 모음 — `module.ts`·`registry.ts`를 함께 고치므로 다른 PR과 겹치지 않게 순서를 맞춘다).
+2. `mock-server` 등록 검사: `<모듈>:edit` 허용, 남의 접두사 거부.
+3. 고정 모듈 두 곳을 `menuPermission('fixture:…')`로 교체(교체 전 실패하는 회귀 시험).
+4. 계약 문서(kernel §)에 «모듈 권한은 `menuPermission('<모듈 id>:<이름>')`», 패키지가 `SpaceDef`를 export하는 패턴, `docs/integration/platform-packages.md` §3·kernel/contracts `AGENTS.md` 갱신.
+5. `platform-systems` 생성기 입력을 합친 목록으로.
+6. `sdk:consumer-check` 시험, devkit Catalog 항목 요청.
+7. P5는 별도 결정과 별도 이슈(백엔드). 이 PR에 넣지 않는다.
+
+시험: 모듈 접두사 공간 권한 허용/다른 모듈 접두사·플랫폼 권한과 홈 권한 불일치는 거부, 기존 Registry 시험 그대로 통과, mock의 `<모듈>:edit` 등록 통과·남의 접두사 거부, 외부 소비자에서 합쳐 Registry 구성.
+
+## 8. 하지 않는 것(Deferred, 모두 구현 안 함)
+
+- **`ModuleManifest` 필드(`providesSpace`).** 이유: §4.1. 다시 여는 조건: 같은 요구가 외부 패키지 둘 이상에서 나올 때.
+- **`contributors` 허용 목록, 이름 붙은 기여 지점, `defineSystem`.** 이유: §4.2. 다시 여는 조건: 조립자와 대상 소유자가 다른 조립이 생길 때; 지점은 접두사 불변식을 바꾸는 요구가 나올 때.
+- **런타임 설치·원격 로딩.** 이유: 06 §5 Deferred.
+- **권한 타입 넓히기, `ModulePermission` 브랜드.** 이유: §3. 다시 여는 조건: `menuPermission` 캐스트 오용이 실제로 나올 때.
+
+## 9. 소유자에게 묻는 것 (`질문 #428` 한 묶음)
 
 | # | 질문 | 선택지 | 권고 |
 | --- | --- | --- | --- |
-| Q1 | #492를 §3 A로 구현할까 | A(타입 열기+호출 때 검사) / B(+적합성 검사) / C(하지 않음) | A |
-| Q2 | 새 시스템 방식 | A(지금 그대로) / B(`businessSystem` 선택 필드) / C(`defineSystem`) | B |
-| Q3 | 기존 시스템 기여 허가 | A(지금 그대로) / B(`SpaceDef.contributors` 허용 목록) / C(이름 붙은 지점) | B |
-| Q4 | 구현 범위 | 모두(#492 → #428 B/B) / #492만 / #428만 | 모두, 두 PR |
-| Q6 | `system` 필드·`HostFeature` 이름이 Managed System·`AuditSource 'system'`과 겹침(용어 검토 T2) | `businessSystem`(문서 기본) / `system` 유지 / 다른 이름 | `businessSystem` |
-| Q5 | 파일럿 | 저장소 안 고정 모듈 둘(새 시스템 1+기여 1)로 시험 / EV를 기여 예시로 연결 | 고정 모듈. EV는 #332 게이트를 건너뛰지 않는다 |
+| Q1 | #492 | A 타입 그대로 + 계약에 `menuPermission` 명시 + mock 검사 / B 타입 넓히기+호출 때 거부(초판) | A |
+| Q2 | 새 시스템 | A `SpaceDef` export + Registry 모듈 접두사 공간 권한 허용 / B manifest 필드 `providesSpace` | A |
+| Q3 | 기여 허가 | A 지금 그대로 / B `contributors` 허용 목록 | A |
+| Q4 | 범위 | §7 한 PR / 더 작게 | 한 PR |
+| Q5 | 파일럿 | 고정 모듈(새 시스템) + EV(권한) | 이대로 |
+| Q6 | 필드 이름 | 필드를 만들 때만: `providesSpace`+`moduleSpace` | 보류 |
+| P5 | 실서버 모듈 권한 부여 | a 행 추가 / b 서버 설정 표 / c 모두에게 열기 | b, 별도 이슈 |
 
-## 7. ADR 초안 (번호는 컨펌 뒤 `next-adr.sh`로 정해 #598에 예약한다)
+## 10. ADR 초안 (번호는 컨펌 뒤 `next-adr.sh`로 정해 #598에 예약한다)
 
-> # 외부 확장은 `ModuleManifest`를 선택 필드로 넓혀 받고, 대상 공간이 허용 모듈을 선언해야 기여를 거부할 수 있다
+> # 외부 패키지는 모듈 권한을 `menuPermission`으로 적고 자기 업무 시스템 정의를 export한다. Registry는 모듈 접두사 진입 권한을 받아들인다
 >
 > 상태: **Candidate** — 소유자 컨펌 대기. 결정자: 소유자(미정). 관련: [#492](https://github.com/hjung3113/analytics-platform/issues/492), [#428](https://github.com/hjung3113/analytics-platform/issues/428), [ADR-0053](../adr/0053-host-module-contract-v1.md), [ADR-0072](../adr/0072-open-menu-vocabulary-app-declared-branded-ids.md), [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md).
 >
 > ## 결정 (권고안)
-> 1. `EndpointSpec.permission`·`ActionSpec.permission`은 `Permission | ModuleScopedId`다. `host.query`·`host.act`는 Kernel·앱 선언 권한 또는 자기 모듈 접두사 밖이면 요청을 보내지 않고 거부한다. 권한의 최종 판정은 서버다.
-> 2. `ModuleManifest`는 선택 필드 `businessSystem`으로 공간 하나를 담아 올 수 있고, `mountModule`이 `SpaceDef`를 돌려준다. 앱이 합칠 때만 공간이 생긴다.
-> 3. `SpaceDef.contributors`가 있으면 그 목록의 모듈만 이 공간에 그룹을 둘 수 있다. 없으면 지금과 같다. 기여는 자기 접두사 그룹·권한으로만 들어간다.
-> 4. 호스트 `contract` 정수는 그대로다(선택 능력 규칙). 배포는 기존 Release tarball이다.
+> 1. 모듈의 엔드포인트·쓰기 권한 타입은 넓히지 않는다. 모듈은 `menuPermission('<모듈 id>:<이름>')`으로 적는다. 판정은 서버 `authorize`이고 클라이언트는 판정하지 않는다. 등록 실수는 mock 등록 검사가 잡는다.
+> 2. 패키지는 `SpaceDef`를 export하고 앱이 `spaces`에 합친다. 업무 시스템 id는 패키지가 정하는 별도 값이다. Registry는 홈이 모듈 메뉴이고 공간 권한이 그 모듈의 접두사일 때 공간 권한을 받아들인다.
+> 3. 기존 업무 시스템에 메뉴를 더하는 배치는 앱 조립의 결정이다. 허용 목록은 만들지 않는다.
+> 4. 모듈 권한을 서버가 누구에게 주는지는 별도 결정이며, 정해지기 전에는 모듈 권한을 업무 시스템 진입 권한으로 쓰지 않는다.
 >
 > ## Considered Options
-> 새 시스템: (A) 앱이 공간을 직접 씀 / **(B, 권고) manifest 선택 필드** / (C) `defineSystem` 별도 계약. 기여: (A) 조립자 자유 / **(B, 권고) 대상 허용 목록** / (C) 이름 붙은 기여 지점. 권한: (A, 권고) 타입 열기+호출 때 검사 / (B) +적합성 검사 / (C) 유지.
+> 권한: (A, 권고) 타입 그대로 / (B) `Permission | ModuleScopedId`+호출 때 거부 — 브랜드가 사라지고 보안 이유가 없어 기각. 새 시스템: (A, 권고) `SpaceDef` export / (B) manifest 필드 / (C) `defineSystem`. 기여: (A, 권고) 조립자 결정 / (B) `contributors` — 앱이 지울 수 있어 허가가 아니므로 기각 / (C) 이름 붙은 지점.
 >
 > ## 결과
-> 기존 앱·모듈은 변하지 않는다. 대가: 공간 id가 모듈 id와 같아야 하므로 한 모듈이 여러 시스템을 낼 수 없다. 이름 붙은 지점과 `defineSystem`은 §5 조건에서 다시 연다.
-
-## 8. 구현 노드 (컨펌 뒤)
-
-1. #492(§3 A): contracts 타입 + 읽는 쪽(mock-server·server-conformance) 동시 수정 + `isModuleScoped` + `module-host` 검사 + 고정 모듈 권한 교체 + 시험 5개 + `sdk:api` `--update` 한 줄.
-2. #428(§4 B/B): manifest `businessSystem` + `mountModule` 반환 `spaces` + `SpaceDef.contributors` + Registry 검사 + 고정 모듈 둘 + `sdk:consumer-check` 시험 + kernel §4–6·`docs/integration/platform-packages.md` §3·kernel/contracts `AGENTS.md`·ADR 정리 + devkit Catalog 항목 요청.
-
-둘 다 `packages/sdk/*`와 Registry를 건드리므로 full 티어 + 리뷰 1회다. 두 PR은 파일이 겹치지 않으나(`menu-query.ts`·`module-host.ts` 대 `registry.ts`·`module.ts`) `sdk:api` 스냅샷과 `CHANGELOG.md`는 순서대로 쓴다.
+> 공개 타입은 늘지 않는다. 대가: 패키지가 `homeMenuId` 문자열을 직접 맞춰야 한다(어긋나면 시작 때 거부). 기여 허가 장치가 없다. 보류한 안은 §8 조건에서 다시 연다.
