@@ -222,7 +222,11 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   /** `keep`: an edit; rows follow the panels (`created`: the panel the edit moved into a row of its own, which is then a new row). `enter`: preset or reset; rows come from the new shares and the fit baseline, so repeating it cannot add height. `raw`: the edit decided the rows itself. */
   const update = useCallback((change: (current: WorkspaceState) => WorkspaceState, settle: 'keep' | 'enter' | 'raw' = 'keep', created?: string) => {
     if (live.current.compact) setCompactState(previous => change(previous ?? live.current.derived));
-    else setStored(previous => { const next = change(previous); return settle === 'raw' ? next : settleRows(previous, next, settle, rowEnv(), created); });
+    else {
+      // One snapshot at the command boundary: the updater stays pure (React may replay it) and never reads the DOM.
+      const env = settle === 'raw' ? null : rowEnv();
+      setStored(previous => { const next = change(previous); return settle === 'raw' || env === null ? next : settleRows(previous, next, settle, env, created); });
+    }
   }, [rowEnv]);
   // Reveal request (#690): the active tab only, persisted like a user activation. The seq present at mount counts as handled.
   const knownIds = panels.map(panel => panel.id).join('|');
@@ -247,14 +251,15 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const setMode = useCallback((mode: 'fit' | 'stack') => {
     if (live.current.narrow) return;
     if (mode === 'stack' && fitSlot.current && !live.current.stackActive) { const height = fitSlot.current.getBoundingClientRect().height; if (height > 0) lastFit.current = height; }
-    update(current => changeMode(current, mode, { presets: live.current.presets, initialPreset: live.current.initialPreset, stackPreset: live.current.stackPreset }, rowEnv()), 'raw');
+    const env = rowEnv();
+    update(current => changeMode(current, mode, { presets: live.current.presets, initialPreset: live.current.initialPreset, stackPreset: live.current.stackPreset }, env), 'raw');
   }, [update, rowEnv]);
   // Stack mode whose rows are not known (a stored mode without usable rows): measured once, before paint.
   useLayoutEffect(() => {
     if (!stackActive || narrowNow.current || storedRows !== undefined || visible === null) return;
+    const env = rowEnv();
     setStored(previous => {
       if (previous.mode !== 'stack' || previous.rows?.length === topLevelRows(previous.layout).length) return previous;
-      const env = rowEnv();
       return withRows(previous, 'stack', enterRows(previous.layout, env.baseline, env.minimum, env.maximum, env));
     });
   }, [stackActive, storedRows, visible, rowEnv]);
@@ -284,12 +289,12 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     const preset = (id: string) => live.current.presets.find(candidate => candidate.id === id);
     return [
       ...parsed.presets.map(([id, text]): WorkspaceCommand => ({
-        id: `${PRESET_PREFIX}${id}`, label: text, kind: 'radio', checked: id === parsed.current, disabled: parsed.narrow,
+        id: `${PRESET_PREFIX}${id}`, label: text, kind: 'radio', checked: id === parsed.current, disabled: parsed.narrow, description: parsed.narrow ? tx(workspaceText.compactPresetOff) : undefined,
         run: () => { const next = preset(id); if (next && !live.current.narrow) update(current => applyPreset(current, next), 'enter'); },
       })),
       ...(['fit', 'stack'] as const).map((mode): WorkspaceCommand => ({
         id: `${MODE_PREFIX}${mode}`, label: tx(mode === 'fit' ? workspaceText.modeFit : workspaceText.modeStack), kind: 'radio', group: 'mode', groupLabel: tx(workspaceText.heightMode),
-        checked: (mode === 'stack') === parsed.stack, disabled: parsed.narrow, run: () => { setMode(mode); },
+        checked: (mode === 'stack') === parsed.stack, disabled: parsed.narrow, description: parsed.narrow ? tx(workspaceText.modeOff) : undefined, run: () => { setMode(mode); },
       })),
       ...parsed.hidden.map(([id, text, description, warning]): WorkspaceCommand => ({
         id: `${SHOW_PREFIX}${id}`, label: tx(workspaceText.showPanel(text)), kind: 'action', description: description ?? undefined, warning: warning || undefined,
@@ -400,13 +405,20 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const maximizing = hasRows && maximizedId !== null;
   const wasMaximizing = useRef(false);
   const savedScroll = useRef<number | null>(null);
+  /** Every maximize request goes through here: the scroll position is read before the render that drops the strip and shrinks the box can clamp it. */
+  const requestMaximized = (panelId: string | null) => {
+    if (panelId !== null && maximizedId === null && live.current.stackActive && root.current) {
+      const container = scrollContainerOf(root.current);
+      savedScroll.current = container ? container.scrollTop : null;
+    }
+    setMaximized(panelId);
+  };
   useLayoutEffect(() => {
     const was = wasMaximizing.current;
     wasMaximizing.current = maximizing;
     const element = root.current;
     const container = element ? scrollContainerOf(element) : null;
     if (maximizing && !was && element) {
-      savedScroll.current = container ? container.scrollTop : null;
       const toolbar = element.querySelector<HTMLElement>('[data-workspace-toolbar]');
       setMaximizeChrome(toolbar ? toolbar.getBoundingClientRect().height + (parseFloat(getComputedStyle(element).rowGap) || 0) : 0);
       alignUnderChrome(element, element);
@@ -414,14 +426,14 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       const saved = savedScroll.current;
       savedScroll.current = null;
       if (hasRows && saved !== null && container) container.scrollTop = saved;
-    }
+    } else if (!maximizing && !hasRows) savedScroll.current = null;
   }, [maximizing, hasRows]);
 
   const groupActions = (group: { panels: string[]; active: string }) => {
     const id = group.active;
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
     return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus}
-      onMaximize={maximize => { setMaximized(maximize ? id : null); }}
+      onMaximize={(maximize, fromMenu) => { if (!maximize && fromMenu) closeFocus.current = () => { focusTab(id); }; requestMaximized(maximize ? id : null); }}
       onSplit={position => { if (!menu.maximized && menu.split) { closeFocus.current = () => { focusTab(id); }; const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) }), id); } }}
       onMove={target => { closeFocus.current = () => { focusTab(id); }; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}
       onMoveBelow={rows && canMoveBelow(state.layout, id) ? () => { closeFocus.current = () => { focusTab(id); }; moveBelow(id); } : undefined}
@@ -440,7 +452,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
         <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
           onLayoutChange={next => { const moved = dropped.current ?? undefined; dropped.current = null; layoutChange(current => ({ ...current, layout: next }), moved); }}
           onActivate={id => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current)); }}
-          maximizedPanelId={maximizedId} onMaximizedChange={setMaximized}
+          maximizedPanelId={maximizedId} onMaximizedChange={requestMaximized}
           renderGroupActions={groupActions}
           separatorLabel={info => tx(info.after.length === 0 ? workspaceText.separatorRowBottom(titleOf(info.before[0]!)) : (info.dir === 'row' ? workspaceText.separatorColumns : workspaceText.separatorRows)(titleOf(info.before[0]!), titleOf(info.after[0]!)))}
           stackBelow={compactSpec ? undefined : compactBelow} />

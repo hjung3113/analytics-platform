@@ -1900,6 +1900,44 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     expect(Math.abs((await scrollTop(page)) - before)).toBeLessThanOrEqual(ROUNDING);
   });
 
+  test('최대화: 긴 쌓기 맨 아래에서 최대화·복원을 두 번 반복해도 버튼·메뉴·Esc 모두 스크롤 위치가 돌아온다', async ({ page }) => {
+    await open(page);
+    // The last row: its button is on screen at the bottom of the page, so nothing scrolls before the maximize.
+    const group = groupOf(page, TITLES.slow);
+    const restore = group.getByRole('button', { name: '원래 크기로' });
+    const toBottom = async () => { await main(page).evaluate(element => { element.scrollTop = element.scrollHeight; }); return scrollTop(page); };
+    const restorers = [
+      async () => { await restore.click(); },
+      async () => { await group.getByRole('button', { name: `${TITLES.slow} 동작` }).click(); await page.getByRole('menuitem', { name: '원래 크기로' }).click(); },
+      async () => { await page.keyboard.press('Escape'); },
+    ];
+    for (const restoreBy of restorers) {
+      const bottom = await toBottom();
+      // Twice per way: the second maximize starts from a workspace that already was maximized once.
+      for (let round = 0; round < 2; round++) {
+        await group.getByRole('button', { name: `${TITLES.slow} 최대화` }).click();
+        await expect(restore).toBeVisible();
+        await restoreBy();
+        await expect(restore).toHaveCount(0);
+        await expect.poll(async () => Math.abs((await scrollTop(page)) - bottom)).toBeLessThanOrEqual(ROUNDING);
+      }
+    }
+  });
+
+  test('패널 메뉴의 원래 크기로: 메뉴가 닫힌 뒤 포커스가 그 패널의 탭에 있다', async ({ page }) => {
+    await open(page);
+    const group = groupOf(page, TITLES.trend);
+    await group.getByRole('button', { name: `${TITLES.trend} 최대화` }).focus();
+    await page.keyboard.press('Enter');
+    await expect(group.getByRole('button', { name: '원래 크기로' })).toBeVisible();
+    await group.getByRole('button', { name: `${TITLES.trend} 동작` }).focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('menuitem', { name: '원래 크기로' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(group.getByRole('button', { name: '원래 크기로' })).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: TITLES.trend })).toBeFocused();
+  });
+
   test('Tab으로 아래 줄의 패널에 닿으면 고정 머리 아래에 보이게 스크롤된다', async ({ page }) => {
     await open(page);
     await main(page).evaluate(element => { element.scrollTop = 0; });

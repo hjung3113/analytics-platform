@@ -102,6 +102,26 @@ describe('revealInScrollContainer (focus reveal, ADR-0130)', () => {
     expect(main.scrollTop).toBe(1000);
   });
 
+  it('leaves a target that spans the whole visible area alone', () => {
+    const { main, root, target } = mount();
+    rect(document.querySelector('[data-dock-panel]')!, 0, 2000);
+    rect(target, 0, 1000);
+    revealInScrollContainer(target, root);
+    expect(main.scrollTop).toBe(1000);
+  });
+
+  it('with one edge of a target inside the area keeps the nearest rule', () => {
+    const { main, root, target } = mount();
+    rect(document.querySelector('[data-dock-panel]')!, 0, 3000);
+    rect(target, 50, 500);
+    revealInScrollContainer(target, root);
+    expect(main.scrollTop).toBe(1000 + 50 - 100);
+    main.scrollTop = 1000;
+    rect(target, 400, 1500);
+    revealInScrollContainer(target, root);
+    expect(main.scrollTop).toBe(1000 + Math.min(1500 - 800, 400 - 100));
+  });
+
   it('is a no-op for an element outside the scroll container or inside the sticky chrome', () => {
     const { main, root } = mount();
     const scrollIntoView = vi.fn();

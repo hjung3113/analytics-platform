@@ -88,6 +88,8 @@ export function revealInScrollContainer(element: HTMLElement, workspaceRoot: HTM
   const box = container.getBoundingClientRect();
   const top = box.top + stickyChromeHeight(page);
   const bottom = box.top + container.clientHeight;
+  // A target larger than the visible area that spans it already shows as much as it can: nearest means no scroll.
+  if (rectTop < top && rectBottom > bottom) return;
   if (rectTop < top) container.scrollTop += rectTop - top;
   else if (rectBottom > bottom) container.scrollTop += Math.min(rectBottom - bottom, rectTop - top);
 }

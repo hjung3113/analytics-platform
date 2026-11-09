@@ -37,9 +37,10 @@ const PRESETS = [
   { id: 'balanced', label: { ko: '기본', en: 'Balanced' }, layout: { type: 'branch' as const, dir: 'row' as const, sizes: [6, 4], children: [group(['main']), group(['side'])] } },
   { id: 'focus', label: { ko: '집중', en: 'Focus' }, layout: group(['main', 'side']) },
 ];
+let compactBelow: number | undefined;
 function Workspace() {
   return <PlatformPage>
-    <PanelWorkspace persistKey="ws" label={{ ko: '작업 영역', en: 'Workspace' }} initialPreset="balanced" presets={PRESETS}
+    <PanelWorkspace compactBelow={compactBelow} persistKey="ws" label={{ ko: '작업 영역', en: 'Workspace' }} initialPreset="balanced" presets={PRESETS}
       panels={[{ id: 'main', title: { ko: '본문', en: 'Main' }, primary: true, render: () => <p>main panel</p> }, { id: 'side', title: { ko: '곁', en: 'Side' }, render: () => <p>side panel</p> }]} />
   </PlatformPage>;
 }
@@ -78,7 +79,7 @@ beforeEach(() => {
   localStorage.setItem(BOARD_LAYOUT_ENGINE_KEY, 'dock');
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { compactBelow = undefined; cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('board pane hosts menu workspace commands (ADR-0067 decision 3)', () => {
   it('a workspace in the pane draws no toolbar and lists its presets as radios, then 기본 배치, in the pane menu', async () => {
@@ -100,6 +101,30 @@ describe('board pane hosts menu workspace commands (ADR-0067 decision 3)', () =>
     const label = screen.getByText('화면 배치');
     expect(label.closest('[role="menuitem"], [role="menuitemradio"]')).toBeNull();
     expect(label.compareDocumentPosition(radios[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('a narrow workspace pane says once under each radio group why its radios are off (§12.8)', async () => {
+    compactBelow = 1400;
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane('ws'), pane('beta')] })]));
+    mount();
+    await ready();
+    await openActions(1);
+    const radios = await screen.findAllByRole('menuitemradio');
+    expect(radios.every(radio => radio.getAttribute('aria-disabled') === 'true')).toBe(true);
+    const [presets, mode] = [radios[0]!.closest('[role="group"]')!, radios[2]!.closest('[role="group"]')!];
+    expect(document.getElementById(presets.getAttribute('aria-describedby')!)).toHaveTextContent('좁은 폭에서는 한 묶음으로 보입니다');
+    expect(document.getElementById(mode.getAttribute('aria-describedby')!)).toHaveTextContent('좁은 폭에서는 화면 맞춤으로 보입니다');
+    expect(screen.getAllByText('좁은 폭에서는 한 묶음으로 보입니다')).toHaveLength(1);
+  });
+
+  it('a wide workspace pane has no reason line and no aria-describedby on its radio groups', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane('ws'), pane('beta')] })]));
+    mount();
+    await ready();
+    await openActions(1);
+    const radios = await screen.findAllByRole('menuitemradio');
+    expect(radios[0]!.closest('[role="group"]')).not.toHaveAttribute('aria-describedby');
+    expect(screen.queryByText('좁은 폭에서는 한 묶음으로 보입니다')).toBeNull();
   });
 
   it('names the height-mode group with a visible label of its own; the preset group keeps 화면 배치', async () => {

@@ -1,5 +1,5 @@
 import { PageDensityProvider } from '../pageDensity';
-import { useEffect, useState, type ReactNode } from 'react';
+import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
@@ -1096,5 +1096,56 @@ describe('PanelWorkspace: 쌓기 기본값과 stackPreset (#701, ADR-0130)', () 
       await sleep(400);
       expect(written().every(([, value]) => (JSON.parse(value) as { rows?: number[] }).rows === undefined)).toBe(true);
     } finally { rect.mockRestore(); }
+  });
+});
+
+describe('row geometry and focus at the command boundary (#701 fix round)', () => {
+  const COLUMN: PanelWorkspaceProps['presets'][number] = { id: 'column', label: { ko: '세로', en: 'Column' }, layout: { type: 'branch', dir: 'column', sizes: [1, 1, 1, 1], children: PANELS.map(panel => group([panel.id])) } };
+  const stackProps: Partial<PanelWorkspaceProps> = { presets: [COLUMN, ...PRESETS], initialPreset: 'column', initialMode: 'stack' };
+  /** getComputedStyle calls on the workspace root made by the workspace itself (the row measurement `oneRowHeight`; testing-library's own queries read it too, so the call site is filtered). */
+  const rootStyleReads = async (strict: boolean) => {
+    const real = window.getComputedStyle.bind(window);
+    const reads = vi.fn();
+    storage.removeItem(KEY());
+    Error.stackTraceLimit = 60;
+    vi.spyOn(window, 'getComputedStyle').mockImplementation(((element: Element, pseudo?: string | null) => { if (element.hasAttribute('data-panel-workspace')) { reads(new Error().stack); } return real(element, pseudo); }) as typeof window.getComputedStyle);
+    try {
+      const view = render(strict ? <StrictMode>{shell(<PanelWorkspace {...BASE} {...stackProps} />)}</StrictMode> : shell(<PanelWorkspace {...BASE} {...stackProps} />));
+      await ready();
+      await settle();
+      reads.mockClear();
+      fireEvent.click(await screen.findByRole('radio', { name: '집중' }));
+      await settle();
+      const count = reads.mock.calls.filter(([stack]) => String(stack).includes('PanelWorkspace.tsx')).length;
+      view.unmount();
+      return count;
+    } finally { vi.restoreAllMocks(); }
+  };
+
+  it('a replayed state updater does not measure the DOM again: StrictMode (updaters run twice) reads as often as a plain render', async () => {
+    const plain = await rootStyleReads(false);
+    cleanup();
+    const strict = await rootStyleReads(true);
+    expect(plain).toBeGreaterThan(0);
+    expect(strict).toBe(plain);
+  });
+
+  it('restoring from the panel menu puts focus on that panel\'s tab, not on body', async () => {
+    mountWorkspace({ ...stackProps, initialMode: 'fit' });
+    await ready();
+    await userEvent.click(screen.getAllByRole('button', { name: '추세 최대화' })[0]!);
+    await waitFor(() => { expect(screen.getByRole('button', { name: '원래 크기로' })).toBeInTheDocument(); });
+    await chooseFromMenu('추세 동작', '원래 크기로');
+    await waitFor(() => { expect(document.activeElement).toBe(document.querySelector('[role="tab"][data-tab-panel-id="trend"]')); });
+  });
+
+  it('the maximize toggle button path keeps its own focus', async () => {
+    mountWorkspace({ ...stackProps, initialMode: 'fit' });
+    await ready();
+    await userEvent.click(screen.getAllByRole('button', { name: '추세 최대화' })[0]!);
+    const restore = await screen.findByRole('button', { name: '원래 크기로' });
+    await userEvent.click(restore);
+    await settle();
+    expect(document.activeElement).not.toBe(document.body);
   });
 });
