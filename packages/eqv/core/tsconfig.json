@@ -1,0 +1,6 @@
+{
+  "extends": "@ap/tsconfig/base.json",
+  // Pure domain package (ADR-0132): no React, no @ap/*. EV's stricter flags are kept.
+  "compilerOptions": { "lib": ["ES2023"], "target": "ES2023", "types": ["node"], "noUncheckedIndexedAccess": true, "isolatedModules": true, "declaration": true },
+  "include": ["src", "test"]
+}

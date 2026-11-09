@@ -35,6 +35,7 @@
         "$TURBO_ROOT$/apps/platform-web/src/style.css",
         "$TURBO_ROOT$/tooling/eslint/src/**",
         "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/packages/eqv/*/package.json",
         "$TURBO_ROOT$/packages/sdk/*/package.json",
         "$TURBO_ROOT$/packages/adapters/*/package.json",
         "$TURBO_ROOT$/menus/*/*/package.json",

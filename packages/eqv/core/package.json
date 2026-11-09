@@ -3,12 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
+    ".": "./src/index.ts",
     "./layout.schema.json": "./schema/layout.schema.json",
     "./occurrence-batch.schema.json": "./schema/occurrence-batch.schema.json",
     "./type-dictionary.schema.json": "./schema/type-dictionary.schema.json",
@@ -20,11 +16,14 @@
     "./alias-metadata.schema.json": "./schema/alias-metadata.schema.json"
   },
   "scripts": {
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "build": "tsc -p tsconfig.build.json"
+    "test": "vitest run"
   },
   "devDependencies": {
+    "@ap/eslint-config": "workspace:*",
+    "@ap/tsconfig": "workspace:*",
+    "eslint": "^10.11.0",
     "typescript": "5.9.3",
     "vitest": "3.2.7"
   },
