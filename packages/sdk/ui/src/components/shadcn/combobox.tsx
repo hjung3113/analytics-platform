@@ -104,11 +104,23 @@ export function Combobox({
 
   const selected = options.find((o) => o.value === value);
 
-  // Reset active index when filtered list changes or popover closes.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — filtered is a derived value from useMemo; open is a signal not a dep of setActiveIndex
+  // Typing or opening starts a new choice: nothing stays highlighted.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — search and open are signals, not values read here.
   React.useEffect(() => {
     setActiveIndex(-1);
-  }, [filtered, open]);
+  }, [search, open]);
+
+  // Anything else that changes the list (a parent re-render, a late server result) keeps the highlight on the same option, or clears it if that option is gone.
+  const previousFiltered = React.useRef(filtered);
+  React.useEffect(() => {
+    const before = previousFiltered.current;
+    previousFiltered.current = filtered;
+    setActiveIndex((index) => {
+      if (index < 0 || before === filtered) return index;
+      const value = before[index]?.value;
+      return value === undefined ? -1 : filtered.findIndex((option) => option.value === value);
+    });
+  }, [filtered]);
 
   const activeOptionId =
     activeIndex >= 0 && activeIndex < filtered.length
