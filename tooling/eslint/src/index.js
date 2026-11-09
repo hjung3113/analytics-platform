@@ -656,7 +656,7 @@ export const tooling = [
 
 // Feature packages have no layer allowlist; they take the EV ban alone (static, dynamic, type).
 const eqvBanOnly = {
-  files: ['**/*.{ts,tsx}'],
+  files: ['**/*.{ts,tsx,js,mjs}'],
   plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource } } },
   rules: {
     'no-restricted-imports': ['error', { patterns: [{ regex: eqvRegex(), message: EQV_MESSAGE }] }],
