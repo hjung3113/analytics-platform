@@ -8,7 +8,7 @@
 - `q`: 검색 원문(200자 이하). 검색 버튼 또는 Enter로 적용한다. 입력에서 제안 버튼으로 포커스를 옮길 때는 적용하지 않는다.
 - `relation`: JSON 문자열 `{ "source": "CHAMBER/STEP_PROCESS", "predicate": "before", "target": "CHAMBER/PROCESS_START" }`. `after`도 허용하며 서버가 정방향으로 돌려준다. 종류는 `kind=all|observed|expected`, 반대 방향은 `opposite=true`일 때만 보인다(기본 꺼짐).
 - 해석 칩은 서버가 돌려준 방향을 항상 보인다. ×를 누르면 명시 관계를 지우고, 원문이 닫힌 순서 연산 질의이면 연산어를 빼 평문 검색으로 바꾼다. 그래야 같은 원문이 즉시 다시 방향으로 해석되지 않는다. 필터 초기화는 종류·반대 방향도 기본값으로 돌린다.
-- 주소가 잘못되면 `PageKeyWarning`으로 문제 키와 복구 버튼을 보인다. 키셋 커서는 주소에 저장하지 않는다. 더 보기는 같은 질의의 다음 페이지를 붙이며 각 페이지도 Kernel 조회 수명주기를 따른다.
+- 주소가 잘못되면 `usePageKeyRules`(`SEARCH_KEY_RULES`: 검색어·순서 조건·종류·반대 방향)가 사용자용 이름과 입력한 값을 `PageKeyWarning`에 보이고, 복구 버튼은 잘못된 키만 지운다. 순서 검색 폼은 Event A·B를 비운 채로 시작하고 둘 다 고르기 전에는 검색 단추가 꺼져 있다. 키셋 커서는 주소에 저장하지 않는다. 더 보기는 같은 질의의 다음 페이지를 붙이며 각 페이지도 Kernel 조회 수명주기를 따른다.
 
 검색 줄 → 순서 검색(도움말, Event A/먼저·나중/Event B/종류/순서 검색 버튼) → 방향 해석 칩 → 결과 카드 순서다. `PlatformPage`, `SearchInput`, `Combobox`, `RadioGroup`, `Select`, `ListToolbar`, `ObjectRow`, 기존 소유·유형·상태 배지를 조합한다. 검색 선택기는 `density="compact"`, Event 키는 `font="mono"`다. 이 화면의 ObjectRow는 비어 있는 선행 셀을 숨겨 들여쓰기를 남기지 않는다.
 

@@ -4,6 +4,7 @@
 //   «관련 Item n건» counting visible targets only. Nothing here caches: a revoked right is gone with the next request.
 // There is no exact total anywhere: `capped` only says «more than 100 visible matches» (ADR-0124).
 
+import { KNOWLEDGE_SEARCH_CAP, KNOWLEDGE_SEARCH_OPPOSITE_LIMIT, KNOWLEDGE_SUGGEST_LIMIT_MAX } from '@ap/contract-schemas';
 import { sql } from 'drizzle-orm';
 
 import type { Tx } from '../../../db/tx.js';
@@ -11,13 +12,9 @@ import { decodeSearchCursor, encodeSearchCursor, queryDigest } from '../domain/s
 import { type ExplicitRelation, type Interpretation, type RelationKind, eventTokenOf, interpretQuery } from '../domain/search-query.js';
 import { type Viewer, visibleItemSql, visibleModelSql } from './access-visibility.js';
 import { pgSearchPort } from './search-pg-adapter.js';
-import { rowsOf } from './search-outbox.js';
+import { eventPartSql, rowsOf, textArray, uuidArray } from './search-sql.js';
 import type { Candidate, CandidateGuard, ConceptKey, KeyMatcher, RelationRecordKind, SearchPlan, SearchPort, SearchReason } from './search-port.js';
 
-export const SEARCH_CAP = 100;
-export const SEARCH_LIMIT_DEFAULT = 20;
-export const SEARCH_OPPOSITE_LIMIT = 20;
-export const SUGGEST_LIMIT = 12;
 const EXCERPT_MAX = 160;
 
 export interface SearchInput {
@@ -63,8 +60,6 @@ export interface SearchResponse {
 export type SearchOutcome = { ok: true; response: SearchResponse } | { ok: false; message: string };
 
 const guardOf = (viewer: Viewer): CandidateGuard => (itemId) => visibleItemSql(viewer, itemId);
-const uuidArray = (ids: readonly string[]) => sql`ARRAY[${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}]::uuid[]`;
-const textArray = (values: readonly string[]) => (values.length === 0 ? sql`ARRAY[]::text[]` : sql`ARRAY[${sql.join(values.map((v) => sql`${v}`), sql`, `)}]::text[]`);
 
 /**
  * Model/key pairs of the Events a CONFIRMED + EQUIVALENT concept mapping ties to any of `tokens` (a whole key or its Event part).
@@ -80,7 +75,7 @@ export async function conceptKeysFor(tx: Tx, viewer: Viewer, tokens: readonly st
     JOIN knowledge.spec_concept_mapping m2 ON m2.workspace_id = m1.workspace_id AND m2.concept_id = m1.concept_id AND m2.id <> m1.id
       AND m2.review_state = 'confirmed' AND m2.relation_kind = 'equivalent' AND m2.target_kind = 'event'
     WHERE m1.workspace_id = ${viewer.workspaceId}::uuid AND m1.review_state = 'confirmed' AND m1.relation_kind = 'equivalent' AND m1.target_kind = 'event'
-      AND (lower(m1.target_key) = ANY(${t}) OR regexp_replace(lower(m1.target_key), '^.*/', '') = ANY(${t}))
+      AND (lower(m1.target_key) = ANY(${t}) OR ${eventPartSql('lower(m1.target_key)')} = ANY(${t}))
       AND ${visibleModelSql(viewer, sql`m1.model_id`)} AND ${visibleModelSql(viewer, sql`m2.model_id`)}`);
   return rowsOf<{ model_id: string; k: string }>(res).map((r) => ({ modelId: r.model_id, key: r.k }));
 }
@@ -226,13 +221,13 @@ export async function runSearch(tx: Tx, viewer: Viewer, input: SearchInput, port
   const page = found.slice(0, input.limit);
   const items = await display(tx, viewer, page, false);
   const last = page[page.length - 1];
-  const capped = (await port.countUpTo(tx, plan, guard, SEARCH_CAP + 1)) > SEARCH_CAP;
+  const capped = (await port.countUpTo(tx, plan, guard, KNOWLEDGE_SEARCH_CAP + 1)) > KNOWLEDGE_SEARCH_CAP;
   let opposite: SearchItem[] | null = null;
   let oppositeHasMore = false;
   if (input.includeOpposite && after === null && plan.direction) {
-    const o = await port.searchOpposite(tx, plan, guard, SEARCH_OPPOSITE_LIMIT + 1);
-    oppositeHasMore = o.length > SEARCH_OPPOSITE_LIMIT;
-    opposite = await display(tx, viewer, o.slice(0, SEARCH_OPPOSITE_LIMIT), true);
+    const o = await port.searchOpposite(tx, plan, guard, KNOWLEDGE_SEARCH_OPPOSITE_LIMIT + 1);
+    oppositeHasMore = o.length > KNOWLEDGE_SEARCH_OPPOSITE_LIMIT;
+    opposite = await display(tx, viewer, o.slice(0, KNOWLEDGE_SEARCH_OPPOSITE_LIMIT), true);
   }
   return {
     ok: true,
@@ -252,6 +247,6 @@ export async function runSearch(tx: Tx, viewer: Viewer, input: SearchInput, port
 
 /** Prefix suggestions through the same guard, at most 12. */
 export async function runSuggest(tx: Tx, viewer: Viewer, q: string, owner: SearchInput['owner'], port: SearchPort = pgSearchPort) {
-  const suggestions = await port.suggest(tx, { workspaceId: viewer.workspaceId, owner }, guardOf(viewer), q.trim(), SUGGEST_LIMIT);
+  const suggestions = await port.suggest(tx, { workspaceId: viewer.workspaceId, owner }, guardOf(viewer), q.trim(), KNOWLEDGE_SUGGEST_LIMIT_MAX);
   return { version: 'v0' as const, suggestions };
 }

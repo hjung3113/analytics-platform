@@ -1,12 +1,12 @@
 import { useEffect, useId, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { useMenuQuery, usePlatform } from '@ap/kernel';
-import { PageKeyWarning, PlatformPage } from '@ap/components';
+import { PageKeyWarning, PlatformPage, usePageKeyRules } from '@ap/components';
 import { Button, Callout, Checkbox, EmptyState, ListToolbar, RadioGroup, RadioGroupItem, SearchInput, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
 import { searchEndpoint, searchSuggestEndpoint, type SearchDirection, type SearchKind, type SearchRelation } from '../../endpoints';
 import { EventKeyPicker } from '../items/EventKeyPicker';
 import { useSpecWords } from '../spec/SpecControls';
-import { parseSearchAddress, plainQuery, SEARCH_KIND_LABEL } from './searchModel';
+import { parseSearchAddress, plainQuery, SEARCH_KEY_RULES, SEARCH_KIND_LABEL } from './searchModel';
 import { SearchFailure, SearchMore, SearchRows } from './SearchResults';
 
 function useSuggestions(text: string) {
@@ -23,7 +23,7 @@ function KindSelect({ value, onChange, compact = false }: { value: SearchKind; o
 }
 function OrderSelector({ direction, kind, onSearch }: { direction: SearchDirection | null; kind: SearchKind; onSearch: (relation: SearchRelation, kind: SearchKind) => void }) {
   const w = useSpecWords(), uid = useId();
-  const [source, setSource] = useState(direction?.source ?? 'CHAMBER/STEP_PROCESS'), [target, setTarget] = useState(direction?.target ?? 'CHAMBER/PROCESS_START');
+  const [source, setSource] = useState(direction?.source ?? ''), [target, setTarget] = useState(direction?.target ?? '');
   const [predicate, setPredicate] = useState<'before' | 'after'>('before'), [chosenKind, setKind] = useState(kind);
   const [sourceQuery, setSourceQuery] = useState(''), [targetQuery, setTargetQuery] = useState('');
   const sourceOptions = useSuggestions(sourceQuery), targetOptions = useSuggestions(targetQuery);
@@ -45,10 +45,11 @@ function OrderSelector({ direction, kind, onSearch }: { direction: SearchDirecti
 export default function KnowledgeSearch() {
   const w = useSpecWords(), uid = useId(), { pageParam, setPage } = usePlatform();
   const q = pageParam('q') ?? '', relation = pageParam('relation'), kind = pageParam('kind'), opposite = pageParam('opposite');
+  const keys = usePageKeyRules(SEARCH_KEY_RULES);
   const address = parseSearchAddress({ q, relation, kind, opposite });
   const [draft, setDraft] = useState({ applied: q, text: q }), [filtersOpen, setFiltersOpen] = useState(false);
   if (draft.applied !== q) setDraft({ applied: q, text: q });
-  const query = useMenuQuery(searchEndpoint, address.params, address.active && address.errors.length === 0);
+  const query = useMenuQuery(searchEndpoint, address.params, address.active && !keys.invalid);
   const response = query.response, data = response && ['ok', 'empty'].includes(response.outcome) ? response.data : null;
   const interpretationKey = JSON.stringify([q, relation, kind]);
   const [interpretation, setInterpretation] = useState<{ key: string; direction: SearchDirection | null }>({ key: '', direction: null });
@@ -86,7 +87,7 @@ export default function KnowledgeSearch() {
         <span className="py-1">{w('방향으로 해석:', 'Interpreted direction:')} <span className="break-all">{direction.source} → {direction.target}</span> ({w(SEARCH_KIND_LABEL[direction.kind].ko, SEARCH_KIND_LABEL[direction.kind].en)})</span>
         <Button type="button" variant="ghost" size="icon-xs" aria-label={w('방향 해석 끄기', 'Turn off direction interpretation')} onClick={clearDirection}><X className="size-3" aria-hidden /></Button>
       </span><Button type="button" variant="link" size="sm" onClick={reset}>{w('필터 초기화', 'Reset filters')}</Button></div>}
-      {address.errors.length > 0 ? <PageKeyWarning sentences={[w(`검색 주소의 값을 확인하세요: ${address.errors.join(', ')}`, `Check search address values: ${address.errors.join(', ')}`)]} onRecover={() => setPage(Object.fromEntries(address.errors.map(key => [key, null])))} /> : <>
+      {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : <>
       <section aria-label={w('검색 결과', 'Search results')} aria-busy={query.status === 'loading' || query.status === 'refreshing'} className="overflow-clip rounded-md border border-border-subtle bg-surface-card">
         <ListToolbar title={resultTitle} action={<div className="flex flex-wrap items-center gap-3">
           {data?.capped && <span className="text-xs text-text-secondary">{w('100건 이상', '100+ matches')}</span>}

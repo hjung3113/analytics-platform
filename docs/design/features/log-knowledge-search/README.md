@@ -247,6 +247,8 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | 반대 방향 구역의 페이지 이동 — **미구현** | 반대 구역은 첫 묶음만 준다(`oppositeHasMore`) | 소비자가 반대 구역을 더 넘겨 보려 함 |
 | 클라이언트 이용 이벤트에 질의 원문이 없다는 검증 — **미구현** | 서버가 저장한 감사·이용 이벤트만 검사한다. 클라이언트의 진입·체류 이벤트 생산자는 이 테스트가 구동하지 않는다 | Kernel/클라이언트 이용 이벤트 단위 테스트에 검색 주소 비포함 단언을 더할 때 |
 | 다른 메뉴 쓰기 직후 열린 검색의 자동 갱신 — **미구현** | 무효화 선언은 같은 메뉴 endpoint만 허용한다. 재진입·재실행으로 새 값을 읽는다 | Kernel이 메뉴 간 무효화 선언을 허용 |
+| 재색인 실행 경로 없음 — **미구현** | `startReindex`·`switchGeneration`·`rollbackGeneration`(`search-index.ts`)을 부르는 곳이 `search-index.integration.test.ts`뿐이고 `ops/`·`package.json`에 실행 수단이 없다. 정규화 규칙(`domain/search-normalize.ts`)을 바꾸면 기존 문서를 안전하게 다시 만들 길이 없고, backfill은 `done`이면 다시 돌지 않는다. 위험표의 «전체 재색인(새 생성)» 복구 약속이 운영에서 실행되지 않는다(후속 1순위, #1594 A-Q10) | 정규화 규칙을 바꾸는 변경, 색인 손상 의심, 또는 운영자가 화면에서 요구할 때 — throwaway가 아닌 운영 DB용 `ops/` 스크립트나 `knowledge.access.manage` 뒤의 운영 액션으로 연다 |
+| 재실행 판정의 모르는 키 기본 통과 — **미구현** | `menu-dispatch`의 `canReplay`가 세 벌이다(탐색기는 액션별 명시, 지식 `replay-access.ts`와 lifecycle `replay-access.ts`는 키 이름 표). 두 표 모두 모르는 키를 통과시키고 중첩 탐색 여부도 다르다. 지금 표에 빠진 키는 없으나(item·draft·review·spec·specChange·concept·import·lifecycle `inputKeys`와 저장 응답 대조, 카탈로그 `summary`는 필드까지 보지 않음), `fooItemId`를 받는 새 액션은 재실행 때 숨은 객체의 저장 응답을 돌려줘도 어떤 시험도 실패하지 않는다(후속 2순위, #1594 A-Q11) | 새 액션이 객체 id 입력을 추가할 때, 또는 `canReplay`를 손볼 때 — 등록된 모든 액션의 `inputKeys`를 순회해 `Id`로 끝나거나 `id`인 키가 표에 있거나 «객체 아님»으로 분류됐는지 확인하는 drift 시험을 더하고, 그다음 공통 탐색기로 합친다 |
 
 ## 10. Open Decisions
 

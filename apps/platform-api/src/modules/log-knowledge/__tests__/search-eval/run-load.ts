@@ -17,7 +17,7 @@ import { sql } from 'drizzle-orm';
 
 import { createDb } from '../../../../db/client.js';
 import { visibleItemSql } from '../../repositories/access-visibility.js';
-import { rowsOf } from '../../repositories/search-outbox.js';
+import { rowsOf } from '../../repositories/search-sql.js';
 import { type SearchInput, runSearch } from '../../repositories/search-read.js';
 import { explainSearch } from './explain.js';
 import { guardDatabase } from './guard.js';

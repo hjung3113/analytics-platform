@@ -3,7 +3,7 @@ import { validationRounds } from '../../db/schema/log-lifecycle.js';
 import { viewerOf } from '../log-knowledge/index.js';
 // The `validation_round` Entity Link endpoint (ADR-0123, #1466). A Round has no Managed System: it is judged by its own
 // read right, the same one `roundAttachmentParent` and the round reads use (`platform:view`, round in the actor's
-// workspace). It is the target end of the 수동 검증 첨부 link and is never written or listed through the generic
+// workspace and visible to the actor, #1504). It is the target end of the 수동 검증 첨부 link and is never written or listed through the generic
 // Entity Link surfaces.
 
 import type { Db } from '../../db/client.js';

@@ -17,7 +17,7 @@ import {
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
 import type { EvidencePointer } from '../domain/item-input.js';
-import { type Viewer, canSeeItem, canSeeModel, canSeeSoftware } from './access-visibility.js';
+import { type Viewer, canSeeItem, canSeeModel, canSeeSoftware, lockOwnerAccess } from './access-visibility.js';
 import { allocateItemNo } from './item-number.js';
 import { enqueueItems } from './search-outbox.js';
 
@@ -320,19 +320,4 @@ async function bump(
     .returning(itemColumns);
   if (!row) throw new Error(`item ${id}: update returned no row`);
   return row;
-}
-
-/** Stabilizes the owner chain against mode changes, deny additions and allow revocations until commit. */
-export async function lockOwnerAccess(tx: Tx, viewer: Viewer, owner: { ownerModelId: string | null; ownerSoftwareId: string | null }): Promise<boolean> {
-  if (owner.ownerSoftwareId) {
-    if (!(await canSeeSoftware(tx, viewer, owner.ownerSoftwareId))) return false;
-    const [software] = await tx.select({ modelId: softwareVersions.modelId }).from(softwareVersions).where(and(eq(softwareVersions.workspaceId, viewer.workspaceId), eq(softwareVersions.id, owner.ownerSoftwareId)));
-    if (!software) return false;
-    await tx.select({ id: equipmentModels.id }).from(equipmentModels).where(and(eq(equipmentModels.workspaceId, viewer.workspaceId), eq(equipmentModels.id, software.modelId))).for('share');
-    await tx.select({ id: softwareVersions.id }).from(softwareVersions).where(and(eq(softwareVersions.workspaceId, viewer.workspaceId), eq(softwareVersions.id, owner.ownerSoftwareId))).for('share');
-    return canSeeSoftware(tx, viewer, owner.ownerSoftwareId);
-  }
-  if (!owner.ownerModelId || !(await canSeeModel(tx, viewer, owner.ownerModelId))) return false;
-  await tx.select({ id: equipmentModels.id }).from(equipmentModels).where(and(eq(equipmentModels.workspaceId, viewer.workspaceId), eq(equipmentModels.id, owner.ownerModelId))).for('share');
-  return canSeeModel(tx, viewer, owner.ownerModelId);
 }

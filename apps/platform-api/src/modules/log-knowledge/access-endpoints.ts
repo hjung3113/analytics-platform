@@ -5,8 +5,7 @@
 
 import { PAGE_SIZE_MAX } from '../../lib/list-params/list-params.js';
 import type { MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
-import { holdsPlatformPermission } from '../platform-port/permissions.js';
-import { ACCESS_MENU_PERMISSION } from './access-actions.js';
+import { ACCESS_MENU_PERMISSION, accessMenuAuthorize } from './access-actions.js';
 import { LOG_KNOWLEDGE_ACCESS_MENU_ID } from './catalog-menu.js';
 import type { LogKnowledgeDeps } from './deps.js';
 import { ACCESS_TARGET_KINDS, type AccessTargetKind, ruleIsActive } from './domain/access-visibility.js';
@@ -45,9 +44,7 @@ export function accessEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration
         context: {},
         mergeTimeDomain: false,
       },
-      authorize: async (actor, tx) =>
-        (await holdsPlatformPermission(deps.checkService, actor, 'platform:view', tx ? { tx } : {})) &&
-        (await holdsPlatformPermission(deps.checkService, actor, ACCESS_MENU_PERMISSION, tx ? { tx } : {})),
+      authorize: accessMenuAuthorize(deps.checkService),
       validate(params): ParamsJudgment {
         const judged = judge(params);
         return judged.ok ? { ok: true } : judged;

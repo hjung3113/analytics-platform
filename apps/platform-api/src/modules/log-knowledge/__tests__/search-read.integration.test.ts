@@ -5,6 +5,7 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { knowledgeSearchResponseSchema, knowledgeSearchSuggestResponseSchema } from '@ap/contract-schemas';
 import { sql as dsql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -501,6 +502,8 @@ describe.skipIf(!runIntegration)('log knowledge search read (#1507 S-d)', () => 
     const ok = await call('logKnowledge.search', { q: 'anything' }, { cookie: admin.cookie });
     expect(ok.outcome).toBe('ok');
     expect(ok.data.version).toBe('v0');
+    // The strict wire schema is the contract: a field the server adds or drops fails here, not in a consumer (#1594 A-Q8).
+    expect(knowledgeSearchResponseSchema.parse(ok.data)).toBeTruthy();
     expect((await call('logKnowledge.search', { limit: 500 }, { cookie: admin.cookie })).outcome).toBe('error');
     const hiddenItem = await item(WORKSPACE_ID, { model: seededModel }, `${TAG} httpword`);
     await index(WORKSPACE_ID, hiddenItem);
@@ -511,6 +514,7 @@ describe.skipIf(!runIntegration)('log knowledge search read (#1507 S-d)', () => 
     expect((await call('logKnowledge.search', { q: 'httpword' }, { cookie: admin.cookie })).data.items).toEqual([]); // Admin has no read bypass
     const sug = await call('logKnowledge.searchSuggest', { q: 'httpw' }, { cookie: admin.cookie });
     expect(sug.outcome).toBe('ok');
+    expect(knowledgeSearchSuggestResponseSchema.parse(sug.data)).toBeTruthy();
     expect(sug.data.suggestions).toEqual([]);
   });
 

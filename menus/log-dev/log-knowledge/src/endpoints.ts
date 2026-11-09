@@ -523,6 +523,16 @@ export const itemEndpointSpecs = [itemsEndpoint, itemDetailEndpoint] as const;
 export const LOG_KNOWLEDGE_SEARCH_MENU_ID = 'log-knowledge-search';
 export type SearchKind = 'all' | 'observed' | 'expected';
 export type SearchRelation = { source: string; predicate: 'before' | 'after'; target: string };
+/** The closed order operators of the search grammar (the server's `domain/search-query.ts`): the screen and the mock both read this one list. */
+export const SEARCH_ORDER_OPERATORS = ['before', 'after', '먼저', '이전', '나중', '이후', '→'] as const;
+/** An Event token of the free-text grammar: a key with `_`/`/`, or an all-caps word; never an operator or a plain word. */
+export const isSearchEventToken = (word: string): boolean => /^[\p{L}\p{N}_./-]+$/u.test(word) && !(SEARCH_ORDER_OPERATORS as readonly string[]).includes(word.toLowerCase()) && /\p{L}/u.test(word) &&
+  (/[_/]/.test(word) || word.length >= 2 && /\p{Lu}/u.test(word) && !/\p{Ll}/u.test(word));
+/** `q` and the explicit `relation` pass the same shape check on the screen and in the mock (the server's schema is the authority). */
+export const isSearchRelation = (value: unknown): value is SearchRelation =>
+  typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).every(k => ['source', 'predicate', 'target'].includes(k)) &&
+  typeof (value as { predicate?: unknown }).predicate === 'string' && ['before', 'after'].includes((value as { predicate: string }).predicate) &&
+  [(value as { source?: unknown }).source, (value as { target?: unknown }).target].every(v => typeof v === 'string' && v.trim() !== '' && v === v.trim() && v.length <= 1200);
 export type SearchOwnerFilter = { modelId?: string | null; softwareId?: string | null; includeSoftware?: boolean };
 export type KnowledgeSearchParams = { q?: string | null; ownerFilter?: SearchOwnerFilter | null; relation?: SearchRelation | null; kind?: SearchKind | null; includeOpposite?: boolean; cursor?: string | null; limit?: number };
 export type SearchReason = 'observed_same_direction' | 'expected_same_direction' | 'exact_token' | 'concept_mapping' | 'approved_alias' | 'text';

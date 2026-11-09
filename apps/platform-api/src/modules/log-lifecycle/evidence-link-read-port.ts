@@ -2,8 +2,8 @@ import { type Viewer, ref } from '../log-knowledge/index.js';
 import { attemptVisibleSql } from './repositories/access-visibility.js';
 // The read port the log explorer uses for the reverse lookup of an evidence location (#1470, log-explorer D4): which rule results
 // cite `(fileRef, line, fileSha256)` and which Rounds those results belong to. Reads only the side table `rule_result_evidence`
-// and its rule result / attempt / request / Round rows, all filtered by the caller's workspace (the same visibility as the
-// lifecycle request reads: `platform:view`, judged by the caller's endpoint). Locations and ids only: no excerpt, no log text.
+// and its rule result / attempt / request / Round rows, all filtered by the caller's workspace and by object access for the
+// caller's `Viewer` (#1504; the same visibility as the lifecycle request reads, `platform:view` judged by the caller's endpoint). Locations and ids only: no excerpt, no log text.
 // An unknown location, or one only another workspace cites, answers the same empty page.
 
 import { and, count, desc, eq, sql } from 'drizzle-orm';

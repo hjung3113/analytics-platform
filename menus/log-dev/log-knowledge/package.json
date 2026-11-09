@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-log-knowledge",
   "private": true,
-  "version": "0.11.0",
+  "version": "0.11.1",
   "ap": {
     "sdk": ">=0.32.0 <0.33.0"
   },

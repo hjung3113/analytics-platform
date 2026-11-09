@@ -8,10 +8,8 @@ import { type SQL, sql } from 'drizzle-orm';
 
 import { escapeLikePattern } from '../../../lib/sql-like.js';
 import { type Candidate, type CandidateGuard, type ConceptKey, type KeyMatcher, REASON_ORDER, type SearchAfter, type SearchPlan, type SearchPort, type SearchReason, type Suggestion } from './search-port.js';
-import { rowsOf } from './search-outbox.js';
+import { eventPartSql, rowsOf, textArray, uuidParam as uuid } from './search-sql.js';
 
-const textArray = (values: readonly string[]): SQL => (values.length === 0 ? sql`ARRAY[]::text[]` : sql`ARRAY[${sql.join(values.map((v) => sql`${v}`), sql`, `)}]::text[]`);
-const uuid = (value: string): SQL => sql`${value}::uuid`;
 
 /**
  * Published Items of the workspace that pass the owner filter, with their latest Revision. With a `guard` it also applies it (the suggestion
@@ -44,7 +42,7 @@ function itemsCte(plan: Pick<SearchPlan, 'workspaceId' | 'owner'>, guard: Candid
 
 /** Event key column `col` (a lower-cased key) matches the tokens: it is a whole token, or its Event part (after the last `/`) is one. */
 const tokenMatch = (col: string, tokens: readonly string[]): SQL =>
-  tokens.length === 0 ? sql`false` : sql`(${sql.raw(col)} = ANY(${textArray(tokens)}) OR regexp_replace(${sql.raw(col)}, '^.*/', '') = ANY(${textArray(tokens)}))`;
+  tokens.length === 0 ? sql`false` : sql`(${sql.raw(col)} = ANY(${textArray(tokens)}) OR ${eventPartSql(col)} = ANY(${textArray(tokens)}))`;
 const conceptMatch = (col: string, modelCol: string, keys: readonly ConceptKey[]): SQL =>
   keys.length === 0 ? sql`false` : sql`(${sql.join(keys.map((k) => sql`(${sql.raw(modelCol)} = ${uuid(k.modelId)} AND ${sql.raw(col)} = ${k.key})`), sql` OR `)})`;
 
@@ -184,7 +182,7 @@ export const pgSearchPort: SearchPort = {
       )
       SELECT kind, text FROM (
         SELECT 'title' AS kind, it.title AS text, 0 AS ord FROM items it WHERE lower(it.title) LIKE ${like}
-        UNION SELECT 'eventKey', k.k, 1 FROM keys k WHERE lower(k.k) LIKE ${like} OR regexp_replace(lower(k.k), '^.*/', '') LIKE ${like}
+        UNION SELECT 'eventKey', k.k, 1 FROM keys k WHERE lower(k.k) LIKE ${like} OR ${eventPartSql('lower(k.k)')} LIKE ${like}
       ) s ORDER BY ord, text LIMIT ${limit}`);
     return rowsOf<{ kind: 'title' | 'eventKey'; text: string }>(res).map((r) => ({ kind: r.kind, text: r.text }));
   },

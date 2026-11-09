@@ -185,7 +185,7 @@ export interface EquivalentTarget {
  * `equivalent` rows of that target's concept. Nothing else counts — not a proposal (whatever its similarity score), not
  * a rejected row, not a `related` row, and never a shared name. For search and cross-model reads.
  */
-export async function findEquivalents(tx: Tx, workspaceId: string, modelId: string, targetKey: string, viewer?: Viewer): Promise<EquivalentTarget[]> {
+export async function findEquivalents(tx: Tx, workspaceId: string, modelId: string, targetKey: string, viewer: Viewer): Promise<EquivalentTarget[]> {
   const mine = alias(specConceptMappings, 'mine');
   return tx
     .select({ conceptId: m.conceptId, modelId: m.modelId, targetKind: m.targetKind, targetKey: m.targetKey })
@@ -201,7 +201,7 @@ export async function findEquivalents(tx: Tx, workspaceId: string, modelId: stri
         eq(mine.relationKind, 'equivalent'),
       ),
     )
-    .where(and(eq(m.workspaceId, workspaceId), eq(m.reviewState, 'confirmed'), eq(m.relationKind, 'equivalent'), sql`${m.id} <> ${mine.id}`, viewer ? visibleModelSql(viewer, ref(m.modelId)) : undefined))
+    .where(and(eq(m.workspaceId, workspaceId), eq(m.reviewState, 'confirmed'), eq(m.relationKind, 'equivalent'), sql`${m.id} <> ${mine.id}`, visibleModelSql(viewer, ref(m.modelId))))
     .orderBy(asc(m.modelId), asc(m.targetKey));
 }
 

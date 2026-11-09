@@ -16,7 +16,7 @@ import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '..
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import { LOG_KNOWLEDGE_SEARCH_MENU_ID } from './catalog-menu.js';
 import type { LogKnowledgeDeps } from './deps.js';
-import type { Viewer } from './repositories/access-visibility.js';
+import { viewerOf } from './repositories/access-visibility.js';
 import { runSearch, runSuggest, type SearchInput } from './repositories/search-read.js';
 
 type OwnerFilter = z.infer<typeof knowledgeSearchRequestSchema>['ownerFilter'];
@@ -67,7 +67,6 @@ export function parseSuggestParams(params: Record<string, unknown>): { ok: true;
 
 export function searchEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[] {
   const authorize: MenuEndpointDeclaration['authorize'] = (actor, tx) => holdsPlatformPermission(deps.checkService, actor, 'platform:view', tx ? { tx } : {});
-  const viewerOf = (actor: { workspace_id: string; actor_id: string }): Viewer => ({ workspaceId: actor.workspace_id, actorId: actor.actor_id });
   return [
     {
       spec: spec('logKnowledge.search', SEARCH_PARAM_KEYS),

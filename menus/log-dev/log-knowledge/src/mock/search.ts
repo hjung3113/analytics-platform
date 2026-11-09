@@ -1,12 +1,11 @@
 /** Synthetic preview only. Production ranking, visibility and authenticated cursors remain owned by S-d. */
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
-import { isUuid, searchEndpoint, searchSuggestEndpoint, type KnowledgeSearchData, type KnowledgeSearchItem, type KnowledgeSearchParams, type SearchDirection, type SearchReason } from '../endpoints';
+import { isSearchEventToken, isSearchRelation, isUuid, searchEndpoint, searchSuggestEndpoint, type KnowledgeSearchData, type KnowledgeSearchItem, type KnowledgeSearchParams, type SearchDirection, type SearchReason } from '../endpoints';
 import { allItems, allLinks, latestRevision, ownerOf, type ItemRec } from './items';
 import { byId } from './store';
 
 const object = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
-const operators = ['before', 'after', '먼저', '이전', '나중', '이후', '→'];
-const eventToken = (s: string) => /^[\p{L}\p{N}_./-]+$/u.test(s) && !operators.includes(s.toLowerCase()) && /\p{L}/u.test(s) && (/[_/]/.test(s) || s.length >= 2 && /\p{Lu}/u.test(s) && !/\p{Ll}/u.test(s));
+const eventToken = isSearchEventToken;
 function interpretation(params: KnowledgeSearchParams): KnowledgeSearchData['interpretation'] {
   const original = params.q ?? '', words = original.replace(/→/gu, ' → ').normalize('NFKC').trim().split(/\s+/u), kind = params.kind ?? 'all';
   let direction: SearchDirection | null = null;
@@ -31,7 +30,7 @@ function message(p: KnowledgeSearchParams): string | null {
   if (p.kind != null && !['all', 'observed', 'expected'].includes(p.kind)) return 'invalid kind';
   if (p.includeOpposite !== undefined && typeof p.includeOpposite !== 'boolean') return 'invalid includeOpposite';
   if (p.limit !== undefined && (!Number.isInteger(p.limit) || p.limit < 1 || p.limit > 50)) return 'invalid limit';
-  if (p.relation != null && (!object(p.relation) || Object.keys(p.relation).some(k => !['source', 'predicate', 'target'].includes(k)) || !['before', 'after'].includes(p.relation.predicate) || ![p.relation.source, p.relation.target].every(s => typeof s === 'string' && s.trim() && s === s.trim() && s.length <= 1200))) return 'invalid relation';
+  if (p.relation != null && !isSearchRelation(p.relation)) return 'invalid relation';
   if (p.ownerFilter != null && (!object(p.ownerFilter) || Object.keys(p.ownerFilter).some(k => !['modelId', 'softwareId', 'includeSoftware'].includes(k)) || [p.ownerFilter.modelId, p.ownerFilter.softwareId].some(v => v != null && (typeof v !== 'string' || !isUuid(v))) || p.ownerFilter.includeSoftware !== undefined && typeof p.ownerFilter.includeSoftware !== 'boolean')) return 'invalid ownerFilter';
   if (p.cursor != null && (typeof p.cursor !== 'string' || !new RegExp(`^mock:${signature(p)}:[0-9]+$`).test(p.cursor))) return 'invalid cursor';
   return p.q === 'mock-error' ? 'synthetic search failure' : null;
