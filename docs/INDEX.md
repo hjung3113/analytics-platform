@@ -92,6 +92,7 @@
 - [17 플랫폼 요구사항](product/platform-requirements.md) — 플랫폼이 제공해야 하는 기능 전체(된 것·만들 것)를 사용자·운영자·개발자 언어로 모은 요구 목록과 상태. 소개 사이트(#468)의 근거. Candidate.
 - [06 플랫폼 UI 계약](contract/platform-ui-contract.md)(색인; 절은 갈래별 문서에 있고 §번호는 그대로) — Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, 공통 컴포넌트 승격 기준, Data Trust·권한·상태 UX, navigation IA. **전역 계약의 원본.**
 - [07 App Shell](design/app-shell.md) — 셸 구조(ADR-0011·0013·0015로 Decided)와 IA.
+- [첫 메뉴 화면 만들기](guides/first-menu-screen.md) — 그룹 행 추가 → `pnpm gen:menu` → 검사 → 화면 확인까지 따라 하는 글(#1603). 서버 실행은 [배포판 실행 안내](../ops/platform-api/docs/release/run-guide.md)(#1606).
 - [가이드 문서 지도](design/guide-doc-map.md) — 독자별(메뉴 개발자·외부 SDK 소비자·호스트 모듈·에이전트·백엔드·SDK 기여자) 첫 문서·다음 문서·할 수 있게 되는 것과 빈 곳 목록(#1603). Candidate.
 - 견본 메뉴 화면의 계약 메모(사내에서 새로 만들 메뉴라 계약에 닿는 부분만 둔다): [08 운영 개요](../platform/home/docs/operations-overview.md), [09 설비 마스터](../menus/mars/equipment/docs/equipment-master.md), [11 생산성 개요](../menus/mars/analytics/docs/productivity-overview.md), [12 사이클타임 드릴다운](../menus/mars/analytics/docs/cycle-time-drilldown.md)(대표 드릴다운 왕복 계약), [13 지표 카탈로그](../menus/bravo/metrics/docs/metric-catalog.md). 드릴다운 플랫폼 기능: [14 드릴다운 — 플랫폼 기능과 레이아웃](design/drilldown-platform.md)(#225, ADR-0025). 업무 시스템별 공간과 기능 협업 진입: [15 멀티 워크스페이스](design/multi-workspace-ui.md)(#249, ADR-0026). 여러 화면을 한 화면에 나란히 보는 작업대: [16 분석 보드](design/analysis-board.md)(#421, 1차 동작·칸 머리·선택 표시 Decided; 보류 범위는 §10, ADR-0049·ADR-0051).
 
