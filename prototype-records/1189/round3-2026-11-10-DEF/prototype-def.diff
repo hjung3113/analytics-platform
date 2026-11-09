@@ -1,0 +1,865 @@
+diff --git a/apps/platform-e2e/w1189q-selfcheck.mjs b/apps/platform-e2e/w1189q-selfcheck.mjs
+new file mode 100644
+index 000000000..6800ffc9b
+--- /dev/null
++++ b/apps/platform-e2e/w1189q-selfcheck.mjs
+@@ -0,0 +1,157 @@
++// One-off #1189q visual harness, adapted from w1189p; not an E2E spec.
++const { writeFile } = await import('node:fs/promises');
++const keepSpace = globalThis.w1189qKeepSpace === true;
++const root = '/Users/hyojung/orca/workspaces/analytics-platform/1189q-home-unified-proto';
++const out = `${root}/.review/selfcheck/`;
++const task = await taskSpace('W-1189q self-check');
++console.log({ spaceId: task.spaceId });
++const page = task.page('p1');
++await page.cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
++const observations = [];
++async function capture(path) {
++  await page.evaluate(async () => {
++    const dialog = document.querySelector('[role="dialog"]');
++    if (dialog) await Promise.all(dialog.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
++  });
++  const shot = await page.cdp('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
++  await writeFile(path, Buffer.from(shot.data, 'base64'));
++}
++// Restore pre-existing state for this dedicated local origin at completion; no profile-wide clearing.
++await page.goto('http://127.0.0.1:4198/home?v=1&scopeId=MEM');
++const original = await page.evaluate(() => ({ local: { ...localStorage }, session: { ...sessionStorage } }));
++const batches = ['current', 'D', 'E', 'F', 'D-merged', 'E-merged', 'F-merged'];
++try {
++for (const batch of batches) {
++  const variant = batch.split('-')[0];
++  const suffix = variant === 'current' ? '' : `&variant=${variant}${batch.endsWith('-merged') ? '&merged=1' : ''}`;
++  await page.evaluate(() => {
++    localStorage.clear(); sessionStorage.clear();
++    localStorage.setItem('platform:role', JSON.stringify('admin'));
++    localStorage.setItem('platform:lang', 'ko');
++    localStorage.setItem('platform:sidebar-collapsed', '0');
++  });
++  async function load(path) {
++    await page.goto(`http://127.0.0.1:4198${path}?v=1&scopeId=MEM${suffix}`);
++    await page.waitForSelector('#platform-main h1', { state: 'attached' });
++    await page.evaluate(() => document.fonts.ready);
++    await page.waitForTimeout(400);
++    await page.evaluate(() => { const main = document.getElementById('platform-main'); if (main) main.scrollTop = 0; });
++    await page.mouse.move(1438, 898);
++  }
++  await load('/home');
++  if (batch === 'current') await writeFile(`${out}snapshot-current.txt`, await page.snapshot());
++  await capture(`${out}home-empty-${batch}.png`);
++  await load('/mars/productivity-overview');
++  await page.click('loc=role:button[name="즐겨찾기에 추가"]');
++  await load('/clas/operation-time');
++  await load('/home');
++  await capture(`${out}home-${batch}.png`);
++  if (variant === 'D') {
++    observations.push({ batch, kind: 'homeCollapse', state: await page.evaluate(() => ({ collapsed: document.querySelector('[data-proto-stage-sidebar]')?.getAttribute('data-collapsed'), saved: localStorage.getItem('platform:sidebar-collapsed') })) });
++    await page.click('button[aria-label="사이드바 펼치기"]');
++    observations.push({ batch, kind: 'homeDisplayToggle', saved: await page.evaluate(() => localStorage.getItem('platform:sidebar-collapsed')) });
++    await page.keyboard.press('[');
++  }
++  observations.push({ batch, kind: 'home', geometry: await page.evaluate(() => ({ width: innerWidth, height: innerHeight, scale: devicePixelRatio, mainScroll: document.getElementById('platform-main')?.scrollWidth, headings: [...document.querySelectorAll('#platform-main h2')].map(el => el.textContent) })) });
++  await load('/mars/productivity-overview');
++  if (variant !== 'current') await writeFile(`${out}snapshot-${batch}.txt`, await page.snapshot());
++  const trigger = variant === 'current' ? 'button[aria-label*="시스템 및 플랫폼 메뉴"]' : '[data-proto-nav-trigger]';
++  await page.click(trigger);
++  await page.waitForSelector('[role="dialog"]');
++  await page.mouse.move(1438, 898);
++  await capture(`${out}nav-${batch}.png`);
++  observations.push({ batch, kind: 'open', focus: await page.evaluate(() => ({ tag: document.activeElement?.tagName, text: document.activeElement?.textContent, inside: !!document.activeElement?.closest('[role="dialog"]') })) });
++  const focusWalk = [];
++  for (let i = 0; i < 12; i++) {
++    await page.keyboard.press('Tab');
++    focusWalk.push(await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')));
++  }
++  observations.push({ batch, kind: 'focusTrap', allInside: focusWalk.every(Boolean) });
++  await page.keyboard.press('Escape');
++  await page.waitForSelector('[role="dialog"]', { state: 'hidden' });
++  await page.waitForFunction(selector => document.activeElement === document.querySelector(selector), trigger, { timeout: 4000 });
++  observations.push({ batch, kind: 'escape', returned: await page.evaluate(selector => document.activeElement === document.querySelector(selector), trigger) });
++  if (batch === 'D') {
++    await page.click('button[aria-label="분석 출처"]');
++    await page.waitForSelector('[role="menuitemradio"]');
++    await page.click('[role="menuitemradio"]:text-is("CLAS")');
++    await page.waitForSelector('[role="menu"]', { state: 'hidden' });
++    await page.waitForFunction(() => document.body.style.pointerEvents !== 'none' && document.activeElement === document.querySelector('button[aria-label="분석 출처"]'));
++    observations.push({ batch, kind: 'sourceGap', disabled: await page.evaluate(() => document.querySelectorAll('[data-proto-stage-sidebar] [aria-disabled="true"]').length) });
++    await page.click(trigger);
++    await page.waitForSelector('[role="dialog"]');
++    await page.mouse.move(1438, 898);
++    await capture(`${out}nav-D-source-CLAS.png`);
++    await page.keyboard.press('Escape');
++    await page.waitForSelector('[role="dialog"]', { state: 'hidden' });
++    await page.waitForFunction(selector => document.activeElement === document.querySelector(selector), trigger);
++    await page.click('button[aria-label="분석 출처"]');
++    await page.waitForSelector('[role="menuitemradio"]');
++    await page.click('[role="menuitemradio"]:text-is("전체")');
++    await page.waitForSelector('[role="menu"]', { state: 'hidden' });
++    await page.waitForFunction(() => document.body.style.pointerEvents !== 'none' && document.activeElement === document.querySelector('button[aria-label="분석 출처"]'));
++  }
++  const hasSidebar = await page.evaluate(() => !!document.querySelector('aside[data-collapsed]'));
++  if (hasSidebar) {
++    await page.focus('button[aria-label="사이드바 접기"]');
++    await page.keyboard.press('Enter');
++    await page.waitForSelector('aside[data-collapsed="true"]');
++    await page.click(trigger);
++    await page.waitForSelector('[role="dialog"]');
++    await page.mouse.move(1438, 898);
++    await capture(`${out}collapsed-${batch}.png`);
++    await page.keyboard.press('Escape');
++    await page.waitForSelector('[role="dialog"]', { state: 'hidden' });
++    await page.waitForFunction(selector => document.activeElement === document.querySelector(selector), trigger, { timeout: 4000 });
++  } else observations.push({ batch, kind: 'collapsed', status: 'N/A: no sidebar' });
++  // Exercise selection only after capturing the specified states.
++  if (hasSidebar) { await page.focus('button[aria-label="사이드바 펼치기"]'); await page.keyboard.press('Enter'); await page.waitForSelector('aside[data-collapsed="false"]'); }
++  await page.click(trigger);
++  await page.waitForSelector('[role="dialog"]');
++  if (variant === 'E' || variant === 'F') {
++    await page.fill(variant === 'E' ? 'input[aria-label="메뉴판 검색"]' : 'input[aria-label="이동할 메뉴 검색"]', 'CLAS');
++    observations.push({ batch, kind: 'oldNameAlias', matches: await page.evaluate(() => [...document.querySelectorAll('[role="dialog"] a')].map(el => el.textContent)) });
++    await page.click(variant === 'E' ? 'nav[aria-label="전체 메뉴"] a[href*="/clas/operation-time"]' : 'nav[aria-label="검색 결과"] a[href*="/clas/operation-time"]');
++    await page.waitForURL('**/clas/operation-time?**');
++  } else if (variant === 'D') {
++    await page.click('[role="dialog"] a[href*="/log-dev/"]');
++    await page.waitForURL('**/log-dev/**');
++  } else {
++    await page.click('[data-switcher-card]:has-text("BRAVO")');
++    await page.waitForURL('**/bravo/**');
++  }
++  await page.waitForSelector('[role="dialog"]', { state: 'hidden' });
++  await page.waitForFunction(() => document.activeElement?.tagName === 'H1', undefined, { timeout: 4000 });
++  observations.push({ batch, kind: 'arrival', url: await page.url(), titleFocused: await page.evaluate(() => document.activeElement?.tagName === 'H1') });
++  await load('/home');
++  if (variant === 'E') {
++    if (!batch.endsWith('-merged')) {
++      await page.focus('[role="radio"]:text-is("시스템별")');
++      await page.keyboard.press('ArrowRight');
++      observations.push({ batch, kind: 'alternateGrouping', stages: await page.evaluate(() => [...document.querySelectorAll('#platform-main h2')].map(el => el.textContent)) });
++    }
++    await page.fill('#platform-main input[aria-label="메뉴판 검색"]', 'no-such-menu-1189');
++    observations.push({ batch, kind: 'emptySearch', shown: await page.evaluate(() => document.getElementById('platform-main')?.textContent?.includes('검색 결과가 없습니다')) });
++    await page.fill('#platform-main input[aria-label="메뉴판 검색"]', '');
++  }
++  await page.focus('loc=role:button[name="즐겨찾기에서 제거"]');
++  await page.keyboard.press('Enter');
++  await page.waitForFunction(() => document.activeElement?.tagName === 'P');
++  observations.push({ batch, kind: 'favoriteRemoval', focus: await page.evaluate(() => document.activeElement?.textContent) });
++  const noticeCount = await page.evaluate(() => document.querySelectorAll('button[aria-label="이번 방문 동안 닫기"]').length);
++  if (noticeCount) {
++    await page.click('button[aria-label="이번 방문 동안 닫기"]');
++    observations.push({ batch, kind: 'noticeDismiss', before: noticeCount, after: await page.evaluate(() => document.querySelectorAll('button[aria-label="이번 방문 동안 닫기"]').length) });
++  }
++  console.log(`captured ${batch}`);
++}
++} finally {
++await page.evaluate(state => {
++  localStorage.clear(); sessionStorage.clear();
++  for (const [key, value] of Object.entries(state.local)) localStorage.setItem(key, value);
++  for (const [key, value] of Object.entries(state.session)) sessionStorage.setItem(key, value);
++}, original);
++await writeFile(`${out}observations.json`, JSON.stringify(observations, null, 2));
++}
++if (!keepSpace) await task.finish({ keep: [] });
++console.log({ spaceId: task.spaceId, done: true, kept: keepSpace });
+diff --git a/apps/platform-web/src/menus.ts b/apps/platform-web/src/menus.ts
+index a3be19946..fbf329a55 100644
+--- a/apps/platform-web/src/menus.ts
++++ b/apps/platform-web/src/menus.ts
+@@ -172,4 +172,23 @@ export const CARRY_SETS: readonly CarrySetDef[] = [{ id: carrySetId('features'),
+ export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq', 'tokens'];
+ 
+ /** External host modules (src/modules.ts) join at the registry call only; GROUPS and MENUS stay the platform's own. */
+-export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: placeGlobalGroups(configureHome([...MENUS, ...EQV_MODULE.menus])), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });
++// #1189q throwaway: app-owned draft grouping; never added to the public Registry types.
++const prototypeValue = new URLSearchParams(window.location.search).get('variant');
++const homePrototype = ['D', 'E', 'F'].includes(prototypeValue ?? '');
++const stageNames = ['지표 분석', '상세 분석', '이상 동작 발굴 / 로스 발굴', '개선·효과 확인', '기준 정보'];
++const stageFor = (menu: MenuEntry): number | null => {
++  if (['metric-catalog', 'productivity-overview'].includes(menu.id)) return 0;
++  if (['cycle-time', 'operation-time', 'mcc', 'rcc', 'wpt'].includes(menu.id) || menu.group === 'hwTime') return 1;
++  if (['execution-detail', 'wafer-journey'].includes(menu.id)) return 2;
++  if (menu.id === 'improvement-items') return 3;
++  if (['configuration', 'chart-catalog', 'equipment-master', 'master-process', 'master-recipe'].includes(menu.id)) return 4;
++  return null;
++};
++const composedMenus = placeGlobalGroups(configureHome([...MENUS, ...EQV_MODULE.menus]));
++const prototypeMenus = composedMenus.map(menu => {
++  const stage = stageFor(menu);
++  const source = GROUPS.find(group => group.id === menu.group)?.space;
++  return { ...menu, pageKeys: [...new Set([...(menu.pageKeys ?? []), 'variant', 'merged'])],
++    ...(stage === null ? {} : { prototype1189: { stage, stageLabel: stageNames[stage], source: source ?? null, sourceOrder: source ? ['mars', 'clas', 'bravo'].indexOf(source) : -1, sourceLabel: source ? SPACES.find(space => space.id === source)?.label.ko : undefined, ...(menu.id === 'operation-time' ? { mergedLabel: '동작시간 분석' } : {}) } }) };
++});
++export const registry = createRegistry({ spaces: homePrototype && new URLSearchParams(window.location.search).get('merged') === '1' ? SPACES.map(space => ['mars', 'clas', 'bravo'].includes(space.id) ? { ...space, label: { ko: '분석', en: 'Analysis' } } : space) : SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: homePrototype ? prototypeMenus : composedMenus, permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });
+diff --git a/packages/sdk/shell/src/frame/AppRail.tsx b/packages/sdk/shell/src/frame/AppRail.tsx
+index 07a5d3010..eec424ca4 100644
+--- a/packages/sdk/shell/src/frame/AppRail.tsx
++++ b/packages/sdk/shell/src/frame/AppRail.tsx
+@@ -4,6 +4,7 @@ import { useI18n } from '@ap/kernel';
+ import { useHostPlatform } from '@ap/kernel/host';
+ import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+ import { SystemSwitcher } from './SystemSwitcher';
++import { PrototypeHomeLink, prototype1189, prototypeHref } from './prototype1189q';
+ import { placeableMenus } from '../board/boardMenus';
+ import { useBoardPresentation } from '../board/boardPresentation';
+ import { boardText } from '../board/text';
+@@ -13,6 +14,7 @@ import { VocDrawerContext } from '../voc/VocDrawer';
+ 
+ /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
+ export function AppRail() {
++  const prototype = prototype1189();
+   const voc = useContext(VocDrawerContext);
+   const { slots, user, setPaletteOpen, navigate, linkTo, canOpen, registry } = useHostPlatform();
+   const { t, tx, lang, setLang } = useI18n();
+@@ -26,16 +28,16 @@ export function AppRail() {
+   const vocLabel = lang === 'ko' ? 'VOC 등록' : 'File a VOC';
+   return <TooltipProvider delayDuration={200}>
+     <nav aria-label={lang === 'ko' ? '시스템 레일' : 'System rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
+-      <SystemSwitcher />
++      {prototype.variant ? <PrototypeHomeLink /> : <SystemSwitcher />}
+       <div className="mb-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
+-      {systems !== null && systems.sections.length > 0 && <div role="group" aria-label={t('railSections')} className="flex min-h-8 shrink flex-col items-center gap-1.5 overflow-y-auto">
++      {!prototype.variant && systems !== null && systems.sections.length > 0 && <div role="group" aria-label={t('railSections')} className="flex min-h-8 shrink flex-col items-center gap-1.5 overflow-y-auto">
+         {systems.sections.map(({ group, items }) => {
+           const Icon = group.icon;
+           const active = group.id === systems.currentGroupId;
+           const name = tx(group.label);
+           return <Tooltip key={group.id}><TooltipTrigger asChild>
+             <button type="button" aria-label={name} aria-current={active ? 'true' : undefined}
+-              onClick={() => { if (!active) navigate(linkTo(firstOpenableMenu(items).id), { focus: 'page', via: 'sidebar' }); }}
++              onClick={() => { if (!active) navigate(prototypeHref(linkTo(firstOpenableMenu(items).id)), { focus: 'page', via: 'sidebar' }); }}
+               className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>
+               {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
+               <Icon className="size-4" aria-hidden />
+@@ -44,10 +46,10 @@ export function AppRail() {
+         })}
+       </div>}
+       <div className="min-h-3 flex-1" />
+-      <Tooltip><TooltipTrigger asChild>
++      {prototype.variant !== 'E' && prototype.variant !== 'F' && <Tooltip><TooltipTrigger asChild>
+         <button type="button" onClick={() => setPaletteOpen(true)} aria-label={t('searchPlaceholder')} aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K"
+           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><Search className="size-4" aria-hidden /></button>
+-      </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {shortcutLabel('K')}</TooltipContent></Tooltip>
++      </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {shortcutLabel('K')}</TooltipContent></Tooltip>}
+       {showBoard && <Tooltip><TooltipTrigger asChild>
+         <button type="button" data-board-state={board.maximized ? 'open' : board.floating ? 'floating' : board.minimized ? 'minimized' : 'closed'} aria-label={boardLabel} aria-current={board.maximized ? 'page' : undefined}
+           onClick={() => { if (board.floating) board.focusWindow(); else if (board.minimized) board.restore(boardCopy.announceRestored); else if (!board.maximized) board.open(); }}
+diff --git a/packages/sdk/shell/src/frame/AppShell.tsx b/packages/sdk/shell/src/frame/AppShell.tsx
+index 3d09c0864..12d67f54f 100644
+--- a/packages/sdk/shell/src/frame/AppShell.tsx
++++ b/packages/sdk/shell/src/frame/AppShell.tsx
+@@ -9,6 +9,7 @@ import { LeaveConfirmDialog } from '../routing/LeaveConfirmDialog';
+ import { AppSidebar } from './AppSidebar';
+ import { PlatformSidebar } from './PlatformSidebar';
+ import { AppRail } from './AppRail';
++import { PrototypeStageSidebar, PrototypeTopbar, draft1189, prototype1189, prototypeHref } from './prototype1189q';
+ import { useVocDrawer, VocDrawer, VocDrawerContext } from '../voc/VocDrawer';
+ import { BoardRestoreChip } from '../board/BoardRestoreChip';
+ import { useBoardPresentation } from '../board/boardPresentation';
+@@ -25,17 +26,22 @@ export function AppShell({ children }: { children: ReactNode }) {
+ }
+ 
+ function ShellLayout({ children }: { children: ReactNode }) {
++  const prototype = prototype1189();
+   const detail = useDetailPanelSlotHost();
+   const { lang, t } = useI18n();
+-  const { route, registry, sidebarSpace, platformScreen, slots, global, page, absoluteUrl, session } = useHostPlatform();
++  const { route, registry, sidebarSpace, platformScreen, slots, global, page, absoluteUrl, session, navigate } = useHostPlatform();
+   // The board is a platform screen like the home and global utilities: no business-system sidebar (docs/16 §4).
+   const globalScreen = platformScreen === 'board' || (route !== null && registry.spaceOf(route.menu) === null);
+   const showSidebar = sidebarSpace !== null && !globalScreen;
++  const prototypeHome = !!route && route.menu.id === registry.platformHome?.id;
++  const stageSidebar = (prototype.variant === 'D' && (globalScreen || !!(route && draft1189(route.menu)))) || (prototype.variant === 'F' && prototype.merged && !!(route && draft1189(route.menu)));
++  const collapseHome = prototype.variant === 'D' && prototypeHome;
+   // Registry screens outside every space (home, 내 활동, 공지) draw the platform sidebar; the board and unmatched paths do not (ADR-0070).
+   const showPlatformSidebar = route !== null && registry.spaceOf(route.menu) === null;
+   const [collapsed, setCollapsed] = useState(() => {
+     return readLocalStorage(COLLAPSE_KEY, v => v === null ? window.innerWidth < 1440 : v === '1', false);
+   });
++  const [homeExpanded, setHomeExpanded] = useState(false);
+   // The VOC drawer and the detail aside share one right position; a newly visible detail (activation) takes it from the drawer (06 §13).
+   const axes = useEquipmentAxes();
+   const voc = useVocDrawer(slots.vocCompose, () => ({ route, platformScreen, global, page, absoluteUrl, registry, lang, axes, asOf: t('membershipAsOf') }), detail.activation, session);
+@@ -55,22 +61,38 @@ function ShellLayout({ children }: { children: ReactNode }) {
+   const mainArea = useRef<HTMLDivElement>(null);
+   const expandedStyle = useExpandedDetailArea(mainArea, expanded);
+   const board = useBoardPresentation();
+-  const toggle = () => setCollapsed(c => { writeLocalStorage(COLLAPSE_KEY, c ? '0' : '1'); return !c; });
++  const toggle = () => { if (collapseHome) setHomeExpanded(value => !value); else setCollapsed(c => { writeLocalStorage(COLLAPSE_KEY, c ? '0' : '1'); return !c; }); };
+   useEffect(() => {
+     const onKey = (e: KeyboardEvent) => {
+       const target = e.target as HTMLElement;
+-      if (e.key === '[' && !e.metaKey && !e.ctrlKey && !['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) && !target.isContentEditable) toggle();
++      if (e.key === '[' && !e.metaKey && !e.ctrlKey && !['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) && !target.isContentEditable) {
++        if (collapseHome) setHomeExpanded(value => !value);
++        else setCollapsed(c => { writeLocalStorage(COLLAPSE_KEY, c ? '0' : '1'); return !c; });
++      }
+     };
+     window.addEventListener('keydown', onKey);
+     return () => window.removeEventListener('keydown', onKey);
+-  }, []);
++  }, [collapseHome]);
+ 
+   // The provider wraps the whole layout (not only the rail), so a screen's error view can open the drawer too (#606).
+-  return <DetailPanelFullscreenContext.Provider value={fullscreen}><VocDrawerContext.Provider value={voc}><div className="flex h-full overflow-hidden">
++  return <DetailPanelFullscreenContext.Provider value={fullscreen}><VocDrawerContext.Provider value={voc}><div className="flex h-full overflow-hidden" onClickCapture={event => {
++    // Private prototype boundary keeps flags on existing page/sidebar links too.
++    if (!prototype.variant || event.defaultPrevented || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
++    const anchor = (event.target as Element).closest<HTMLAnchorElement>('a[href]');
++    if (!anchor || anchor.target || anchor.hasAttribute('download') || anchor.getAttribute('href')?.startsWith('#')) return;
++    const url = new URL(anchor.href);
++    if (url.origin !== window.location.origin || (url.searchParams.get('variant') === prototype.variant && (!prototype.merged || url.searchParams.get('merged') === '1'))) return;
++    event.preventDefault();
++    navigate(prototypeHref(url.pathname + url.search + url.hash), { focus: 'page', via: 'link' });
++  }}>
+     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
+     <AppRail />
+-    {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
+-    {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
++    <div className="flex min-w-0 flex-1 flex-col">
++    {(prototype.variant === 'E' || prototype.variant === 'F') && <PrototypeTopbar />}
++    <div className="flex min-h-0 flex-1">
++    {stageSidebar && <PrototypeStageSidebar collapsed={collapseHome ? !homeExpanded : collapsed} onToggle={toggle} navigation={prototype.variant !== 'F'} />}
++    {showSidebar && !stageSidebar && prototype.variant !== 'E' && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
++    {showPlatformSidebar && !prototype.variant && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
+     {/* The column stays unpositioned: a `relative` column would become the containing block of every `absolute` element inside main (sr-only text, popovers) and let them overflow it unclipped. */}
+     <div data-shell-content className="flex min-w-0 flex-1 flex-col">
+       {/* The board window's area (893d2): a positioned box around main only, so a window is placed against main, not against its scrolling content, and never covers the rail, sidebar, or the chip row. It is `relative`, so every `absolute` element inside main (sr-only text, …) now has it as containing block: `contain: paint` clips what overflows it (as the root's clipping did before) without an `overflow` clip, which `contract-components` (PageFilterBar 접힘 요약) reads as a clipped ancestor of text. */}
+@@ -87,6 +109,8 @@ function ShellLayout({ children }: { children: ReactNode }) {
+       className={expanded && detailShown ? expandedDetailClass : cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',
+         detailShown ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')} />
+     {voc && <VocDrawer voc={voc} lang={lang} expandedStyle={expandedStyle} />}
++    </div>
++    </div>
+     <CommandPalette />
+     <LeaveConfirmDialog />
+   </div></VocDrawerContext.Provider></DetailPanelFullscreenContext.Provider>;
+diff --git a/packages/sdk/shell/src/frame/AppSidebar.tsx b/packages/sdk/shell/src/frame/AppSidebar.tsx
+index 640be5faf..8fc8d1e05 100644
+--- a/packages/sdk/shell/src/frame/AppSidebar.tsx
++++ b/packages/sdk/shell/src/frame/AppSidebar.tsx
+@@ -5,6 +5,7 @@ import { badgeCountText } from '@ap/components';
+ import { type MenuEntry, PlatformLink, useI18n, useRecentVisits } from '@ap/kernel';
+ import { useHostPlatform } from '@ap/kernel/host';
+ import { navRowVariants, NavCurrentMarker, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
++import { draft1189, prototype1189, prototypeHref } from './prototype1189q';
+ import { ScopeSelector } from '../context/ScopeSelector';
+ import { SidebarHierarchy } from './SidebarHierarchy';
+ import { useSystemSections } from './systemSections';
+@@ -12,6 +13,8 @@ import { useSystemSections } from './systemSections';
+ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+   const { visibleMenus, route, favorites, registry, sidebarSpace, slots, page, linkTo, canOpen } = useHostPlatform();
+   const { t, tx, lang } = useI18n();
++  const prototype = prototype1189();
++  const spaceLabel = prototype.merged && route && draft1189(route.menu) ? '분석' : sidebarSpace ? tx(sidebarSpace.label) : '';
+   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
+   const systems = useSystemSections();
+   // In a real system only the current section is drawn (15 §3.2). Fallback screens (unmatched, entry denied) keep every group.
+@@ -36,7 +39,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
+       <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
+         {!collapsed && (sidebarSpace === null
+           ? <p className="min-w-0 truncate text-sm font-semibold">{t('appName')}</p>
+-          : <div className="min-w-0"><p className="truncate text-sm font-semibold">{tx(sidebarSpace.label)}</p>
++          : <div className="min-w-0"><p className="truncate text-sm font-semibold">{spaceLabel}</p>
+             {systems === null ? <p className="truncate text-caption text-text-muted">{t('appName')}</p>
+               : sectionName !== null && sectionName !== tx(sidebarSpace.label) && <p className="truncate text-caption text-text-muted">{sectionName}</p>}</div>)}
+         <Tooltip><TooltipTrigger asChild>
+@@ -77,7 +80,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
+         {!collapsed && <SidebarRecent />}
+       </div>
+       <FeatureBlock collapsed={collapsed} />
+-      {!collapsed && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
++      {!collapsed && !prototype.variant && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
+     </aside>
+   </TooltipProvider>;
+ }
+@@ -93,7 +96,7 @@ function SidebarRecent() {
+   return <section aria-label={t('recent')}>
+     <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-caption font-semibold uppercase tracking-wide text-text-muted"><Clock3 className="size-3" aria-hidden />{t('recent')}</p>
+     {recentItems.length > 0
+-      ? <ul className="space-y-0.5">{recentItems.map(r => <li key={r.menuId}><NavItem menu={registry.menuById(r.menuId)} active={false} collapsed={false} href={r.url} labelPrefix={t('recent')} /></li>)}</ul>
++      ? <ul className="space-y-0.5">{recentItems.map(r => <li key={r.menuId}><NavItem menu={registry.menuById(r.menuId)} active={false} collapsed={false} href={prototypeHref(r.url)} labelPrefix={t('recent')} /></li>)}</ul>
+       : <p className="px-3 py-1 text-xs leading-4 text-text-muted">{t('noRecent')}</p>}
+   </section>;
+ }
+@@ -157,11 +160,11 @@ export function NavItem({ menu, active, collapsed, href, labelPrefix, label: lab
+   const { linkTo } = useHostPlatform();
+   const { tx, t } = useI18n();
+   const Icon = menu.icon;
+-  const label = labelOverride ?? tx(menu.label);
++  const label = labelOverride ?? (prototype1189().variant && prototype1189().merged && draft1189(menu)?.mergedLabel || tx(menu.label));
+   const count = unread !== undefined && unread !== null && unread > 0 ? unread : 0;
+   const name = labelPrefix ? `${labelPrefix}: ${label}` : label;
+   const hasCount = navCount !== undefined && navCount >= 0;
+-  const link = <PlatformLink via="sidebar" href={href ?? linkTo(menu.id)} aria-label={count > 0 ? t('unreadNamed', { label: name, count }) : hasCount ? t('countNamed', { label: name, count: navCount }) : name} aria-current={active ? 'page' : undefined}
++  const link = <PlatformLink via="sidebar" href={prototypeHref(href ?? linkTo(menu.id))} aria-label={count > 0 ? t('unreadNamed', { label: name, count }) : hasCount ? t('countNamed', { label: name, count: navCount }) : name} aria-current={active ? 'page' : undefined}
+     className={navRowVariants({ collapsed, active })}>
+     {active && <NavCurrentMarker />}
+     <Icon className="size-4 shrink-0" aria-hidden />
+@@ -177,7 +180,7 @@ function NavViewItem({ menu, view, active, count }: { menu: MenuEntry; view: Nav
+   const { tx, t } = useI18n();
+   const label = tx(view.label);
+   const hasCount = count !== undefined && count >= 0;
+-  return <PlatformLink via="sidebar" href={linkTo(menu.id, { page: view.page })} aria-label={hasCount ? t('countNamed', { label, count }) : label} aria-current={active ? 'page' : undefined}
++  return <PlatformLink via="sidebar" href={prototypeHref(linkTo(menu.id, { page: view.page }))} aria-label={hasCount ? t('countNamed', { label, count }) : label} aria-current={active ? 'page' : undefined}
+     className={navRowVariants({ inset: true, active })}>
+     {active && <NavCurrentMarker />}
+     <span className="min-w-0 flex-1 truncate">{label}</span>
+diff --git a/packages/sdk/shell/src/frame/prototype1189q.tsx b/packages/sdk/shell/src/frame/prototype1189q.tsx
+new file mode 100644
+index 000000000..72b997b80
+--- /dev/null
++++ b/packages/sdk/shell/src/frame/prototype1189q.tsx
+@@ -0,0 +1,183 @@
++// Throwaway #1189q. Private presentation only; the app declares all stage metadata.
++import { useEffect, useRef, useState, type MouseEvent } from 'react';
++import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Home, LayoutGrid, Route } from 'lucide-react';
++import { PlatformLink, useI18n, useRecentVisits, type MenuEntry } from '@ap/kernel';
++import { useHostPlatform, useOverlayState } from '@ap/kernel/host';
++import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, NavCurrentMarker, navRowVariants, Popover, PopoverContent, PopoverTrigger, SearchInput, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
++import { SegmentedRadio } from '@ap/components';
++import { SIDEBAR_GROUP_TITLE } from './SidebarHierarchy';
++import { CONTEXT_CHIP } from '../context/contextChip';
++import { ScopeSelector } from '../context/ScopeSelector';
++
++type Draft = { stage: number; stageLabel: string; source: string | null; mergedLabel?: string; sourceLabel?: string; sourceOrder?: number };
++export const draft1189 = (menu: MenuEntry) => (menu as MenuEntry & { prototype1189?: Draft }).prototype1189;
++export function prototype1189() {
++  const params = new URLSearchParams(window.location.search);
++  const value = params.get('variant');
++  return { variant: value === 'D' || value === 'E' || value === 'F' ? value : null, merged: params.get('merged') === '1' };
++}
++export function prototypeHref(href: string) {
++  const { variant, merged } = prototype1189();
++  if (!variant) return href;
++  const url = new URL(href, window.location.origin);
++  url.searchParams.set('variant', variant);
++  if (merged) url.searchParams.set('merged', '1');
++  return url.pathname + url.search + url.hash;
++}
++
++export function PrototypeHomeLink() {
++  const { registry, linkTo, canOpen } = useHostPlatform();
++  const home = registry.platformHome;
++  return home && canOpen(home.id) ? <Tooltip><TooltipTrigger asChild><PlatformLink aria-label="플랫폼 홈" href={prototypeHref(linkTo(home.id))} className="my-2 grid size-8 place-items-center rounded-md text-accent-primary hover:bg-surface-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring"><Home className="size-4" aria-hidden /></PlatformLink></TooltipTrigger><TooltipContent side="right">홈</TooltipContent></Tooltip> : null;
++}
++
++/** Shared focus session follows the existing switcher, including deferred selection after trap teardown. */
++export function PrototypeNavigation({ compact = false }: { compact?: boolean }) {
++  const { variant } = prototype1189();
++  const { setSwitcherOpen, navigate, pathname } = useHostPlatform();
++  const { switcherOpen: open, switcherSession: session } = useOverlayState();
++  const trigger = useRef<HTMLButtonElement>(null);
++  const body = useRef<HTMLDivElement>(null);
++  const owner = useRef(Symbol('prototype1189q'));
++  const pending = useRef<string | null>(null);
++  const openedAt = useRef(pathname);
++  useEffect(() => {
++    const own = owner.current;
++    return () => { pending.current = null; if (session) setTimeout(() => session.release(own), 0); };
++  }, [session]);
++  useEffect(() => {
++    if (open && pathname !== openedAt.current) { session?.select(); setSwitcherOpen(false); }
++  }, [open, pathname, session, setSwitcherOpen]);
++  const select = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
++    if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
++    event.preventDefault(); pending.current = href; setSwitcherOpen(false);
++  };
++  const name = variant === 'D' ? '분석' : variant === 'E' ? '메뉴' : '이동';
++  return <Popover modal open={open} onOpenChange={next => { if (next) { pending.current = null; openedAt.current = pathname; } setSwitcherOpen(next); }}>
++    <PopoverTrigger asChild><Button ref={trigger} data-proto-nav-trigger type="button" variant={variant === 'F' ? 'secondary' : 'ghost'} size={compact ? 'icon-sm' : 'toolbar'} className={!compact && variant === 'D' ? 'w-full justify-start' : undefined} aria-label={variant === 'D' ? '다른 목적지로 이동' : name}>
++      {variant === 'D' && <Route className="size-4" aria-hidden />}{variant === 'E' && <LayoutGrid className="size-4" aria-hidden />}
++      {!compact && <><span>{name}</span><ChevronDown className="size-3.5" aria-hidden /></>}
++    </Button></PopoverTrigger>
++    <PopoverContent ref={body} side={variant === 'D' ? 'right' : 'bottom'} align="start" padding="none" aria-label={name}
++      className={cn('max-h-[80vh] overflow-y-auto', variant === 'E' ? 'w-[min(72rem,90vw)]' : variant === 'F' ? 'w-[min(42rem,90vw)]' : 'w-80')}
++      onOpenAutoFocus={event => { event.preventDefault(); session?.claim(owner.current); body.current?.querySelector<HTMLElement>('input, a, button')?.focus(); }}
++      onCloseAutoFocus={event => { event.preventDefault(); const href = pending.current; pending.current = null; session?.release(owner.current); if (!session?.isCurrent()) return; if (href) { if (!navigate(href, { focus: 'page', via: 'switcher' })) trigger.current?.focus(); } else if (!session.isSelecting()) trigger.current?.focus(); }}>
++      <h2 className="sr-only">{name}</h2>
++      {variant === 'E' ? <PrototypeMenuBoard select={select} /> : <PrototypeMoveList select={select} search={variant === 'F'} />}
++    </PopoverContent>
++  </Popover>;
++}
++
++type Select = (event: MouseEvent<HTMLAnchorElement>, href: string) => void;
++function MenuRow({ menu, select, href, showOrigin = true }: { menu: MenuEntry; select?: Select; href?: string; showOrigin?: boolean }) {
++  const { linkTo, registry, route } = useHostPlatform();
++  const { tx } = useI18n();
++  const { merged } = prototype1189();
++  const target = prototypeHref(href ?? linkTo(menu.id));
++  const source = registry.spaceOf(menu);
++  const draft = draft1189(menu);
++  const label = merged && draft?.mergedLabel ? draft.mergedLabel : tx(menu.label);
++  return <PlatformLink href={target} onClick={select ? e => select(e, target) : undefined} aria-current={route?.menu.id === menu.id ? 'page' : undefined} className={cn(navRowVariants({ active: route?.menu.id === menu.id }), 'w-full justify-between break-keep')}>
++    <span className="min-w-0 break-keep">{label}</span>{showOrigin && !merged && draft && source && <span className="ml-auto shrink-0 text-caption font-normal text-text-muted">{tx(source.label)}</span>}
++  </PlatformLink>;
++}
++
++function DestinationLinks({ select, splitSources = false }: { select?: Select; splitSources?: boolean }) {
++  const { accessibleSpaces, spaceEntry, registry, canOpen, linkTo, route } = useHostPlatform();
++  const { tx } = useI18n();
++  const recent = useRecentVisits();
++  const analysis = accessibleSpaces.filter(space => registry.menus.some(menu => registry.spaceOf(menu)?.id === space.id && draft1189(menu)));
++  const last = recent.find(visit => { const menu = registry.menus.find(m => m.id === visit.menuId); return menu && canOpen(menu.id) && draft1189(menu) && registry.spaceOf(menu); });
++  const first = analysis[0] && spaceEntry(analysis[0].id);
++  const target = last?.url ?? first?.href;
++  const link = (href: string, label: string) => { const url = prototypeHref(href); const active = label === '분석' ? !!(route && draft1189(route.menu)) : new URL(url, window.location.origin).pathname === window.location.pathname || (route && registry.spaceOf(route.menu)?.id === accessibleSpaces.find(space => tx(space.label) === label)?.id); return <PlatformLink key={label} href={url} onClick={select ? e => select(e, url) : undefined} aria-current={active ? 'page' : undefined} className={cn(navRowVariants({ active: !!active }), 'w-full break-keep')}>{label}<ArrowRight className="ml-auto size-3.5 text-text-muted" aria-hidden /></PlatformLink>; };
++  return <>{registry.platformHome && canOpen(registry.platformHome.id) && link(linkTo(registry.platformHome.id), '홈')}{!splitSources && target && link(target, '분석')}
++    {accessibleSpaces.filter(space => splitSources || !analysis.includes(space)).map(space => { const entry = spaceEntry(space.id); return entry ? link(entry.href, tx(space.label)) : null; })}
++    {accessibleSpaces.length === 0 && <p className="p-3 text-sm text-text-secondary">접근 가능한 업무 시스템이 없습니다</p>}
++    <div className="my-2 border-t border-border-subtle" />
++    <div className="grid grid-cols-3">{registry.menus.filter(menu => registry.spaceOf(menu) === null && !menu.navHidden && canOpen(menu.id) && menu.id !== registry.platformHome?.id && !draft1189(menu)).map(menu => <MenuRow key={menu.id} menu={menu} select={select} />)}</div>
++  </>;
++}
++
++function PrototypeMoveList({ select, search }: { select: Select; search: boolean }) {
++  const { registry, canOpen } = useHostPlatform();
++  const { t } = useI18n();
++  const { merged } = prototype1189();
++  const recent = useRecentVisits();
++  const [query, setQuery] = useState('');
++  const menus = registry.menus.filter(menu => !menu.navHidden && canOpen(menu.id));
++  const matches = menus.filter(menu => [menu.label.ko, menu.label.en, draft1189(menu)?.sourceLabel, registry.spaceOf(menu)?.label.ko, registry.spaceOf(menu)?.label.en, registry.groupById(menu.group).label.ko].some(label => label?.toLowerCase().includes(query.toLowerCase())));
++  return <div className="p-3 break-keep">{search && <SearchInput className="mb-4 w-full" aria-label="이동할 메뉴 검색" placeholder="메뉴 검색" value={query} onValueChange={setQuery} />}
++    {query ? <nav aria-label="검색 결과">{matches.map(menu => <MenuRow key={menu.id} menu={menu} select={select} />)}{matches.length === 0 && <p className="p-3 text-sm text-text-secondary">검색 결과가 없습니다</p>}</nav> : <>
++      {search && <section className="mb-4"><h3 className="px-3 py-2 t-card-title">{t('recent')}</h3>{recent.filter(row => row.menuId !== registry.platformHome?.id && registry.menus.some(menu => menu.id === row.menuId && canOpen(menu.id))).slice(0, 5).map(row => <MenuRow key={row.menuId} menu={registry.menuById(row.menuId)} href={row.url} select={select} />)}{recent.filter(row => row.menuId !== registry.platformHome?.id && registry.menus.some(menu => menu.id === row.menuId && canOpen(menu.id))).length === 0 && <p className="px-3 py-2 text-xs text-text-muted">{t('noRecent')}</p>}</section>}
++      <nav aria-label="목적지"><h3 className="px-3 py-2 t-card-title">목적지</h3><DestinationLinks select={select} splitSources={search && !merged} />
++      </nav></>}
++  </div>;
++}
++
++function PrototypeMenuBoard({ select }: { select: Select }) {
++  const { registry, canOpen, favorites } = useHostPlatform();
++  const { tx, t } = useI18n();
++  const { merged } = prototype1189();
++  const recent = useRecentVisits();
++  const [query, setQuery] = useState('');
++  const [grouping, setGrouping] = useState(merged ? 'stage' : 'system');
++  const menus = registry.menus.filter(menu => !menu.navHidden && canOpen(menu.id) && menu.id !== registry.platformHome?.id);
++  const matches = menus.filter(menu => [menu.label.ko, menu.label.en, draft1189(menu)?.sourceLabel, registry.spaceOf(menu)?.label.ko, registry.groupById(menu.group).label.ko].some(label => label?.toLowerCase().includes(query.toLowerCase())));
++  const groups = new Map<string, MenuEntry[]>();
++  for (const menu of matches) {
++    const draft = draft1189(menu);
++    const name = (merged || grouping === 'stage') && draft ? draft.stageLabel : tx(registry.spaceOf(menu)?.label ?? registry.groupById(menu.group).label);
++    groups.set(name, [...(groups.get(name) ?? []), menu]);
++  }
++  const columns = (analysis: boolean) => {
++    const result: [string, MenuEntry[]][][] = [[], [], [], []];
++    const heights = [0, 0, 0, 0];
++    for (const group of ordered.filter(([, items]) => !!draft1189(items[0]!) === analysis)) {
++      const column = heights.indexOf(Math.min(...heights));
++      result[column]!.push(group); heights[column]! += group[1].length + 3;
++    }
++    return result;
++  };
++  const ordered = [...groups].sort(([a, itemsA], [b, itemsB]) => {
++    const rank = (label: string, items: MenuEntry[]) => {
++      const stage = draft1189(items[0]!);
++      if (merged || grouping === 'stage') return stage?.stage ?? 10;
++      const space = registry.spaceOf(items[0]!);
++      return space ? registry.spaces.findIndex(item => item.id === space.id) : 20 + registry.groups.findIndex(group => tx(group.label) === label);
++    };
++    return rank(a, itemsA) - rank(b, itemsB);
++  });
++  return <div className="p-5 break-keep"><div className="mb-5 flex items-center gap-4"><SearchInput aria-label="메뉴판 검색" placeholder="메뉴 검색" value={query} onValueChange={setQuery} className="w-80" />{!merged && <SegmentedRadio label="메뉴 묶음" value={grouping} onChange={setGrouping} options={[{ value: 'system', label: '시스템별' }, { value: 'stage', label: '분석 순서별' }]} />}</div>
++    <div className="grid grid-cols-5 gap-6"><div className="border-r border-border-subtle pr-5"><h3 className="mb-2 t-card-title">{t('favorites')}</h3>{favorites.filter(id => registry.menus.some(menu => menu.id === id && canOpen(menu.id))).map(id => <MenuRow key={id} menu={registry.menuById(id)} select={select} />)}{favorites.filter(id => registry.menus.some(menu => menu.id === id && canOpen(menu.id))).length === 0 && <p className="text-xs text-text-muted">{t('noFavorites')}</p>}
++      <h3 className="mb-2 mt-6 t-card-title">{t('recent')}</h3>{recent.filter(row => row.menuId !== registry.platformHome?.id && registry.menus.some(menu => menu.id === row.menuId && canOpen(menu.id))).slice(0, 5).map(row => <MenuRow key={row.menuId} menu={registry.menuById(row.menuId)} href={row.url} select={select} />)}</div>
++      <nav aria-label="전체 메뉴" className="col-span-4 space-y-6">{[true, false].map(analysis => <section key={String(analysis)}><h3 className={analysis ? 'mb-3 px-3 t-section-title' : 'mb-3 border-t border-border-subtle px-3 pt-4 t-card-title'}>{analysis ? '분석' : '다른 목적지'}</h3><div className="grid grid-cols-4 gap-5">{columns(analysis).map((column, index) => <div key={index} className="space-y-5">{column.map(([label, items]) => <section key={label}><h4 className="mb-2 px-3 t-card-title">{label}</h4>{items.map(menu => <MenuRow key={menu.id} menu={menu} select={select} showOrigin={grouping === 'stage'} />)}</section>)}</div>)}</div></section>)}{matches.length === 0 && <p className="text-sm text-text-muted">검색 결과가 없습니다</p>}</nav>
++    </div>
++  </div>;
++}
++
++export function PrototypeStageSidebar({ collapsed, onToggle, navigation = true }: { collapsed: boolean; onToggle: () => void; navigation?: boolean }) {
++  const { registry, canOpen, route, linkTo } = useHostPlatform();
++  const { tx, t } = useI18n();
++  const { merged } = prototype1189();
++  const [source, setSource] = useState('all');
++  const menus = registry.menus.filter(menu => !menu.navHidden && canOpen(menu.id) && draft1189(menu));
++  const sources = [...new Set(menus.map(menu => draft1189(menu)?.source).filter((id): id is string => !!id))].sort((a, b) => (draft1189(menus.find(menu => draft1189(menu)?.source === a)!)?.sourceOrder ?? 0) - (draft1189(menus.find(menu => draft1189(menu)?.source === b)!)?.sourceOrder ?? 0));
++  const stages = [...new Map(menus.map(menu => [draft1189(menu)!.stage, draft1189(menu)!.stageLabel])).entries()].sort(([a], [b]) => a - b);
++  return <TooltipProvider><aside data-proto-stage-sidebar data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar break-keep', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
++    <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-2">{navigation ? <PrototypeNavigation compact={collapsed} /> : !collapsed && <span className="px-2 text-sm font-semibold">분석</span>}{!collapsed && <button type="button" aria-label={t('collapse')} onClick={onToggle} className="grid size-7 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring"><ChevronLeft className="size-4" aria-hidden /></button>}</div>
++    {collapsed && <button type="button" aria-label={t('expand')} onClick={onToggle} className="mx-auto my-2 grid size-7 place-items-center rounded-md hover:bg-surface-row-hover focus-visible:ring-2 focus-visible:ring-focus-ring"><ChevronRight className="size-4" aria-hidden /></button>}
++    <ScopeSelector collapsed={collapsed} />
++    {!collapsed && !merged && <div className="px-2 py-2"><DropdownMenu><DropdownMenuTrigger asChild><button type="button" aria-label="분석 출처" className={cn(CONTEXT_CHIP, 'border-border-subtle text-text-primary focus-visible:ring-2 focus-visible:ring-focus-ring')}>출처 {source === 'all' ? '전체' : tx(registry.spaces.find(space => space.id === source)!.label)}<ChevronDown className="size-3.5 text-text-muted" aria-hidden /></button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={source} onValueChange={setSource}>{['all', ...sources].map(id => <DropdownMenuRadioItem key={id} value={id}>{id === 'all' ? '전체' : tx(registry.spaces.find(space => space.id === id)!.label)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>}
++    <nav aria-label="분석 순서" className="min-h-0 flex-1 space-y-3 overflow-y-auto px-2 py-1">{stages.map(([stage, label]) => <section key={stage}>{!collapsed && <h2 className={cn(SIDEBAR_GROUP_TITLE, 'mt-0')}>{label}</h2>}{menus.filter(menu => draft1189(menu)!.stage === stage).map(menu => {
++      const enabled = merged || source === 'all' || !draft1189(menu)?.source || draft1189(menu)?.source === source;
++      const label = merged && draft1189(menu)?.mergedLabel ? draft1189(menu)!.mergedLabel! : tx(menu.label);
++      const row = enabled ? <PlatformLink href={prototypeHref(linkTo(menu.id))} aria-label={label} aria-current={route?.menu.id === menu.id ? 'page' : undefined} className={navRowVariants({ collapsed, active: route?.menu.id === menu.id })}>{route?.menu.id === menu.id && <NavCurrentMarker />}<menu.icon className="size-4 shrink-0" aria-hidden />{!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span>{!merged && draft1189(menu)?.source && <span className="text-caption font-normal text-text-muted">{tx(registry.spaceOf(menu)!.label)}</span>}</>}</PlatformLink> : <span aria-disabled="true" className={cn(navRowVariants({ collapsed }), 'text-text-disabled')}><menu.icon className="size-4 shrink-0" aria-hidden />{!collapsed && <span className="truncate">{label} · 미제공</span>}</span>;
++      return collapsed ? <Tooltip key={menu.id}><TooltipTrigger asChild>{row}</TooltipTrigger><TooltipContent side="right">{label}</TooltipContent></Tooltip> : <div key={menu.id}>{row}</div>;
++    })}</section>)}</nav>
++  </aside></TooltipProvider>;
++}
++
++export function PrototypeTopbar() {
++  return <div className="flex h-[50px] shrink-0 items-center gap-8 border-b border-border-subtle bg-surface-sidebar px-4 break-keep"><span className="text-sm font-semibold">i-MAP</span><PrototypeNavigation /></div>;
++}
+diff --git a/packages/sdk/shell/src/routing/CommandPalette.tsx b/packages/sdk/shell/src/routing/CommandPalette.tsx
+index cda5b93aa..8946d8f0d 100644
+--- a/packages/sdk/shell/src/routing/CommandPalette.tsx
++++ b/packages/sdk/shell/src/routing/CommandPalette.tsx
+@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
+ import { type MenuEntry, useI18n, useRecentVisits } from '@ap/kernel';
+ import { useHostPlatform, useLeaveRequest, useOverlayState } from '@ap/kernel/host';
+ import type { Text } from '@ap/contracts';
++import { prototype1189, prototypeHref, draft1189 } from '../frame/prototype1189q';
+ import { usePlatformMenu } from '../frame/platformMenu';
+ import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
+ 
+@@ -54,12 +55,12 @@ export function CommandPalette() {
+     const matches = (m: MenuEntry, names: readonly string[]) => {
+       if (!needle) return true;
+       const group = registry.groupById(m.group);
+-      return [m.label.ko, m.label.en, ...names, group.label.ko, group.label.en].some(s => s.toLowerCase().includes(needle));
++      return [m.label.ko, m.label.en, draft1189(m)?.sourceLabel ?? '', ...names, group.label.ko, group.label.en].some(s => s.toLowerCase().includes(needle));
+     };
+     const bundles: { key: string; label: Text; items: MenuEntry[] }[] = [];
+     for (const space of accessibleSpaces) {
+       const items = sort(menusInSpace(space.id)).filter(m => matches(m, [space.label.ko, space.label.en]));
+-      if (items.length) bundles.push({ key: space.id, label: space.label, items });
++      if (items.length) bundles.push({ key: space.id, label: prototype1189().variant && prototype1189().merged && items.some(draft1189) ? { ko: '분석', en: 'Analysis' } : space.label, items });
+     }
+     const globals = sort(platformMenus).filter(m => matches(m, [platformLabel.ko, platformLabel.en]));
+     if (globals.length) bundles.push({ key: 'platform', label: platformLabel, items: globals });
+@@ -76,7 +77,7 @@ export function CommandPalette() {
+   const go = (index: number) => {
+     const m = items[index];
+     if (!m) return;
+-    const href = linkTo(m.id);
++    const href = prototypeHref(linkTo(m.id));
+     const changesPage = href.split('?')[0] !== pathname;
+     const moved = navigate(href, changesPage ? { focus: 'page', via: 'palette' } : { via: 'palette' });
+     // A held move keeps the search and active option mounted beneath the confirmation.
+@@ -126,12 +127,12 @@ export function CommandPalette() {
+                   const i = index++;
+                   const Icon = m.icon;
+                   // <system> › <section> › <menu> (15 §3.2); a name repeated right after itself is written once.
+-                  const base = [tx(section.label), tx(registry.groupById(m.group).label), tx(m.label)].filter((name, at, names) => at === 0 || name !== names[at - 1]).join(' › ');
++                  const base = [tx(section.label), tx(registry.groupById(m.group).label), prototype1189().variant && prototype1189().merged && draft1189(m)?.mergedLabel || tx(m.label)].filter((name, at, names) => at === 0 || name !== names[at - 1]).join(' › ');
+                   return <li key={m.id} id={`palette-${m.id}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => go(i)}
+                     className={cn('flex cursor-pointer items-center gap-3 rounded-md px-3 py-2', i === active && 'bg-accent-primary-soft')}>
+                     <Icon className="size-4 text-text-muted" aria-hidden />
+                     <span className="flex-1">
+-                      <span className="block text-sm font-medium">{tx(m.label)}</span>
++                      <span className="block text-sm font-medium">{prototype1189().variant && prototype1189().merged && draft1189(m)?.mergedLabel || tx(m.label)}</span>
+                       <span className="block text-tiny text-text-secondary">{!m.component && !m.moduleScreen ? `${base} · ${t('planned')}` : base}</span>
+                     </span>
+                     {i === active && <CornerDownLeft className="size-3.5 text-text-muted" aria-hidden />}
+diff --git a/platform/home/src/pages/HomePrototype.tsx b/platform/home/src/pages/HomePrototype.tsx
+new file mode 100644
+index 000000000..6da488867
+--- /dev/null
++++ b/platform/home/src/pages/HomePrototype.tsx
+@@ -0,0 +1,89 @@
++// #1189q private, throwaway presentation. Stage mapping is supplied by the app.
++import { useState, type ReactNode } from 'react';
++import { ArrowRight, Clock3, Star } from 'lucide-react';
++import { PlatformLink, useI18n, usePlatform, useRecentVisits, type MenuEntry } from '@ap/kernel';
++import { formatPeriod } from '@ap/contracts';
++import { SegmentedRadio } from '@ap/components';
++import { cn, navRowVariants, SearchInput } from '@ap/ui';
++
++type Draft = { stage: number; stageLabel: string; source: string | null; mergedLabel?: string; sourceLabel?: string };
++const draftOf = (menu: MenuEntry) => (menu as MenuEntry & { prototype1189?: Draft }).prototype1189;
++export function homePrototype() {
++  const params = new URLSearchParams(window.location.search);
++  const value = params.get('variant');
++  return { variant: value === 'D' || value === 'E' || value === 'F' ? value : null, merged: params.get('merged') === '1' };
++}
++export function homePrototypeHref(href: string) {
++  const { variant, merged } = homePrototype();
++  if (!variant) return href;
++  const url = new URL(href, window.location.origin);
++  url.searchParams.set('variant', variant);
++  if (merged) url.searchParams.set('merged', '1');
++  return url.pathname + url.search + url.hash;
++}
++
++export function HomePrototype({ favoriteBody, recentBody, todo, notices, zeroState }: { favoriteBody: ReactNode; recentBody: ReactNode; todo: ReactNode; notices: ReactNode; zeroState: ReactNode }) {
++  const { registry, canOpen, linkTo, accessibleSpaces, spaceEntry, global } = usePlatform();
++  const { tx, t, lang } = useI18n();
++  const recent = useRecentVisits();
++  const { variant, merged } = homePrototype();
++  const [query, setQuery] = useState('');
++  const [grouping, setGrouping] = useState(merged ? 'stage' : 'system');
++  const menus = registry.menus.filter(menu => !menu.navHidden && canOpen(menu.id) && menu.id !== registry.platformHome?.id);
++  const analysis = menus.filter(menu => draftOf(menu));
++  const stageGroups = [...new Map(analysis.map(menu => [draftOf(menu)!.stage, draftOf(menu)!.stageLabel])).entries()].sort(([a], [b]) => a - b);
++  const name = (menu: MenuEntry) => merged && draftOf(menu)?.mergedLabel ? draftOf(menu)!.mergedLabel! : tx(menu.label);
++  const row = (menu: MenuEntry) => <PlatformLink key={menu.id} href={homePrototypeHref(linkTo(menu.id))} className={cn(navRowVariants(), 'justify-between break-keep')}><span>{name(menu)}</span>{!merged && (variant !== 'E' || grouping === 'stage') && draftOf(menu) && registry.spaceOf(menu) && <span className="ml-auto shrink-0 text-caption font-normal text-text-muted">{tx(registry.spaceOf(menu)!.label)}</span>}</PlatformLink>;
++  const favorites = <section aria-label={t('favorites')}><h2 className="mb-3 flex items-center gap-2 t-card-title"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</h2>{favoriteBody}</section>;
++  const recents = <section aria-label={t('recent')}><h2 className="mb-3 flex items-center gap-2 t-card-title"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</h2>{recentBody}</section>;
++  const last = recent.find(row => row.menuId !== registry.platformHome?.id && registry.menus.some(menu => menu.id === row.menuId && canOpen(menu.id)));
++  const lead = last && registry.menuById(last.menuId);
++  const lastParams = last ? new URL(last.url, window.location.origin).searchParams : null;
++  const conditions = [lastParams?.get('scopeId') ?? global.scopeId,
++    lastParams?.get('from') || lastParams?.get('to') ? formatPeriod(lastParams.get('from'), lastParams.get('to'), lang) : null,
++  ].filter(Boolean).join(' · ');
++  const taskColumn = <div className="min-w-0 space-y-4 [&_section]:border-0 [&_section]:bg-transparent [&_section]:p-0">{todo}</div>;
++  const groups = new Map<string, MenuEntry[]>();
++  for (const menu of menus) {
++    if (![menu.label.ko, menu.label.en, draftOf(menu)?.sourceLabel, registry.spaceOf(menu)?.label.ko, registry.groupById(menu.group).label.ko].some(label => label?.toLowerCase().includes(query.toLowerCase()))) continue;
++    const draft = draftOf(menu);
++    const label = (merged || grouping === 'stage') && draft ? draft.stageLabel : tx(registry.spaceOf(menu)?.label ?? registry.groupById(menu.group).label);
++    groups.set(label, [...(groups.get(label) ?? []), menu]);
++  }
++  const columns = (analysis: boolean) => {
++    const result: [string, MenuEntry[]][][] = [[], [], [], []];
++    const heights = [0, 0, 0, 0];
++    for (const group of ordered.filter(([, items]) => !!draftOf(items[0]!) === analysis)) {
++      const column = heights.indexOf(Math.min(...heights));
++      result[column]!.push(group); heights[column]! += group[1].length + 3;
++    }
++    return result;
++  };
++  const ordered = [...groups].sort(([a, itemsA], [b, itemsB]) => {
++    const rank = (label: string, items: MenuEntry[]) => {
++      const stage = draftOf(items[0]!);
++      if (merged || grouping === 'stage') return stage?.stage ?? 10;
++      const space = registry.spaceOf(items[0]!);
++      return space ? registry.spaces.findIndex(item => item.id === space.id) : 20 + registry.groups.findIndex(group => tx(group.label) === label);
++    };
++    return rank(a, itemsA) - rank(b, itemsB);
++  });
++  const destinations = <nav aria-label="다른 목적지" className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border-subtle pt-4">{accessibleSpaces.filter(space => !analysis.some(menu => registry.spaceOf(menu)?.id === space.id)).map(space => { const entry = spaceEntry(space.id); return entry ? <PlatformLink key={space.id} href={homePrototypeHref(entry.href)} className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-accent-primary focus-visible:ring-2 focus-visible:ring-focus-ring">{tx(space.label)}<ArrowRight className="size-3.5" aria-hidden /></PlatformLink> : null; })}</nav>;
++  return <div className="space-y-4 break-keep" data-proto-home={variant}>
++    {accessibleSpaces.length === 0 && zeroState}
++    {variant === 'D' && <>
++      <section aria-label="분석 순서" className="border-b border-border-subtle pb-4"><h2 className="mb-5 t-section-title">분석</h2><div className="grid grid-cols-4 gap-6">{stageGroups.filter(([stage]) => stage < 4).map(([stage, label]) => <section key={stage} className="min-w-0"><div className="mb-3 flex items-center gap-3 border-b border-border-subtle pb-3"><span className="grid size-7 place-items-center rounded-pill bg-accent-primary-soft text-sm font-semibold text-accent-primary">{stage + 1}</span><h3 className="t-card-title">{label}</h3>{stage < 3 && <ArrowRight className="ml-auto size-4 shrink-0 text-text-muted" aria-hidden />}</div>{analysis.filter(menu => draftOf(menu)!.stage === stage).map(row)}</section>)}</div></section>
++      <div className="grid grid-cols-3 gap-8">{recents}{favorites}{taskColumn}</div>{destinations}{notices}
++    </>}
++    {variant === 'E' && <>
++      <section aria-label="메뉴판"><div className="mb-6 flex items-center justify-between gap-4"><SearchInput className="w-80" aria-label="메뉴판 검색" placeholder="메뉴 검색" value={query} onValueChange={setQuery} />{!merged && <SegmentedRadio label="메뉴 묶음" value={grouping} onChange={setGrouping} options={[{ value: 'system', label: '시스템별' }, { value: 'stage', label: '분석 순서별' }]} />}</div>
++        <div className="grid grid-cols-4 gap-8"><div className="space-y-6 border-r border-border-subtle pr-6">{taskColumn}{notices}{favorites}{recents}</div><nav aria-label="전체 메뉴" className="col-span-3 space-y-6">{[true, false].map(analysis => <section key={String(analysis)}><h2 className={analysis ? 'mb-3 px-3 t-section-title' : 'mb-3 border-t border-border-subtle px-3 pt-4 t-card-title'}>{analysis ? '분석' : '다른 목적지'}</h2><div className="grid grid-cols-4 gap-5">{columns(analysis).map((column, index) => <div key={index} className="space-y-5">{column.map(([label, items]) => <section key={label}><h3 className="mb-2 px-3 t-card-title">{label}</h3>{items.map(row)}</section>)}</div>)}</div></section>)}{groups.size === 0 && <p className="text-sm text-text-secondary">검색 결과가 없습니다</p>}</nav></div>
++      </section>
++    </>}
++
++    {variant === 'F' && <div className="mx-auto max-w-5xl space-y-8 py-4">
++      <section aria-label="이어서 작업"><h2 className="mb-4 t-section-title">이어서 작업</h2>{lead && last ? <PlatformLink href={homePrototypeHref(last.url)} className="group flex items-center justify-between gap-6 border-y border-border-subtle py-8 hover:text-accent-primary focus-visible:ring-2 focus-visible:ring-focus-ring"><span><span className="mb-2 block text-xs text-text-secondary">{!merged && registry.spaceOf(lead) ? `${tx(registry.spaceOf(lead)!.label)} · ` : ''}최근 방문</span><span className="block t-page-title">{name(lead)}</span><span className="mt-3 block text-sm text-text-secondary">{conditions || '전체'}</span></span><ArrowRight className="size-6 text-accent-primary" aria-hidden /></PlatformLink> : <div className="border-y border-border-subtle py-8"><p className="text-sm text-text-secondary">{t('noRecent')}</p><p className="mt-2 text-xs text-text-muted">이동에서 메뉴를 찾아 시작하세요.</p></div>}</section>
++      <div className="grid grid-cols-3 gap-8">{favorites}{recents}{taskColumn}</div>{notices}
++    </div>}
++  </div>;
++}
+diff --git a/platform/home/src/pages/OperationsHome.tsx b/platform/home/src/pages/OperationsHome.tsx
+index ff0288adb..489cc3f03 100644
+--- a/platform/home/src/pages/OperationsHome.tsx
++++ b/platform/home/src/pages/OperationsHome.tsx
+@@ -1,3 +1,4 @@
++import { HomePrototype, homePrototype, homePrototypeHref } from './HomePrototype';
+ import { useRef } from 'react';
+ import { Clock3, Megaphone, Star, X } from 'lucide-react';
+ import { type MenuEntry, type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform, useRecentVisits } from '@ap/kernel';
+@@ -12,6 +13,7 @@ const NO_LAUNCHER_GROUPS: readonly HomeLauncherGroup[] = [];
+ 
+ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: Partial<PageProps> & { launcherGroups?: readonly HomeLauncherGroup[] } = {}) {
+   const { favorites, toggleFavorite, linkTo, global, registry, accessibleSpaces, canOpen, resolveLink, spaceEntry, homeTodo } = usePlatform();
++  const prototype = homePrototype();
+   const recent = useRecentVisits();
+   const { t, tx, lang } = useI18n();
+ 
+@@ -28,7 +30,9 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }:
+     .map(group => tx(group.label));
+ 
+   const favoriteMenus = favorites.map(id => registry.menus.find(menu => menu.id === id)).filter((menu): menu is MenuEntry => !!menu && canOpen(menu.id));
+-  const recentRows = recent.filter(row => row.menuId !== homeId).map(row => {
++  const prototypeHeading = useRef<HTMLHeadingElement>(null);
++  const leadId = prototype.variant === 'F' ? recent.find(row => row.menuId !== homeId && registry.menus.some(menu => menu.id === row.menuId && canOpen(menu.id)))?.menuId : null;
++  const recentRows = recent.filter(row => row.menuId !== homeId && row.menuId !== leadId).map(row => {
+     const menu = registry.menus.find(item => item.id === row.menuId);
+     return menu && canOpen(menu.id) ? { ...row, menu } : null;
+   }).filter((row): row is { menuId: string; url: string; at: number; menu: MenuEntry } => row !== null).slice(0, 5);
+@@ -38,7 +42,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }:
+   };
+   const affiliation = (menu: MenuEntry) => {
+     const space = registry.spaceOf(menu);
+-    return space ? tx(space.label) : (lang === 'ko' ? '플랫폼' : 'Platform');
++    return prototype.variant && prototype.merged && ['mars', 'clas', 'bravo'].includes(space?.id ?? '') ? '' : space ? tx(space.label) : (lang === 'ko' ? '플랫폼' : 'Platform');
+   };
+ 
+   // 06 §26 (#398): the row's remove button disappears with the row it removes. Only from that
+@@ -78,6 +82,48 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }:
+     </PlatformLink>;
+   };
+ 
++  if (prototype.variant) return <div className={prototype.variant === 'E' || prototype.variant === 'F' ? '[&_[data-page-sticky-header]>header]:hidden' : undefined}><PlatformPage description="" arrivalTarget={prototype.variant === 'E' || prototype.variant === 'F' ? () => prototypeHeading.current : undefined}>
++    {(prototype.variant === 'E' || prototype.variant === 'F') && <h1 ref={prototypeHeading} tabIndex={-1} className="sr-only">{tx(registry.platformHome!.label)}</h1>}
++    <HomePrototype
++      favoriteBody={favoriteMenus.length === 0 ? <p ref={noFavoritesRef} tabIndex={-1}
++            className="text-xs text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('noFavorites')}</p> :
++            <ul className="divide-y divide-border-subtle">{favoriteMenus.map(menu => <li key={menu.id} className="flex items-center gap-3 py-2">
++              <menu.icon className="size-4 text-text-muted" aria-hidden />
++              <PlatformLink href={homePrototypeHref(linkTo(menu.id, { page: Object.fromEntries((registry.carrySetOf(menu)?.pageKeys ?? []).map(key => [key, null])) }))} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{prototype.variant && prototype.merged && (menu as MenuEntry & { prototype1189?: { mergedLabel?: string } }).prototype1189?.mergedLabel || tx(menu.label)}</PlatformLink>
++              <span className="text-tiny text-text-muted">{affiliation(menu)}</span>
++              <button type="button" onClick={event => removeFavoriteRow(menu.id, event.currentTarget)} className="rounded-xs px-2 py-1 text-xs text-text-secondary hover:bg-surface-sunken">{prototype.variant ? <><span aria-hidden>제거</span><span className="sr-only">{t('removeFavorite')}</span></> : t('removeFavorite')}</button>
++            </li>)}</ul>}
++      recentBody={recentRows.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noRecent')}</p> :
++            <ul className="divide-y divide-border-subtle">{recentRows.map(row => <li key={row.menuId} className="flex items-center gap-3 py-2">
++              <row.menu.icon className="size-4 text-text-muted" aria-hidden />
++              <PlatformLink href={homePrototypeHref(row.url)} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{prototype.variant && prototype.merged && (row.menu as MenuEntry & { prototype1189?: { mergedLabel?: string } }).prototype1189?.mergedLabel || tx(row.menu.label)}</PlatformLink>
++              <span className="text-tiny text-text-muted">{affiliation(row.menu)}</span>
++              <StatusBadge tone="neutral">{ago(row.at)}</StatusBadge>
++            </li>)}</ul>}
++      todo={homeTodo ? <homeTodo.Todo /> : null}
++      notices={<section aria-label={lang === 'ko' ? '공지' : 'Notices'} className="space-y-2 border-t border-border-subtle pt-4">
++        <div className="flex items-center justify-between gap-3"><h2 className="t-card-title">{lang === 'ko' ? '공지' : 'Notices'}</h2>{canOpen('notices') && <PlatformLink href={homePrototypeHref(noticesLink.href)} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '공지 목록' : 'Notice list'}</PlatformLink>}</div>
++        {notices.response && notices.response.outcome === 'ok' && notices.response.data!.filter(notice => !dismissed.includes(notice.id)).map(notice =>
++          <div key={notice.id} role="status" className="flex items-start gap-3 border-t border-border-subtle py-2.5 text-sm">
++            <Megaphone className="mt-0.5 size-4 shrink-0 text-text-muted" aria-hidden />
++            <span className="flex-1"><span className="t-mono mr-2 text-tiny text-text-muted">{notice.id}</span>{tx(notice.title)}</span>
++            <button type="button" aria-label={lang === 'ko' ? '이번 방문 동안 닫기' : 'Dismiss for this visit'} className="grid size-6 place-items-center rounded-xs text-text-muted hover:bg-surface-card"
++              onClick={() => dismissNotice(notice.id)}><X className="size-3.5" aria-hidden /></button>
++          </div>)}
++        {notices.response && !['ok', 'empty'].includes(notices.response.outcome) && <QueryView widgetName={lang === 'ko' ? '공지' : 'Notices'} hideWidgetName query={notices} compact>{() => null}</QueryView>}
++      </section>}
++      zeroState={<div className="rounded-lg border border-border-subtle bg-surface-card p-4">
++              <h2 className="t-section-title">{lang === 'ko' ? '접근 가능한 업무 시스템이 없습니다' : 'No work systems are available'}</h2>
++              {canOpen('permission-requests')
++                ? <>
++                    <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 기능 권한이 필요하면 요청하세요.' : 'Work system access is granted by a platform administrator. Request the feature access you need.'}</p>
++                    <Button asChild size="sm" className="mt-3"><PlatformLink href={homePrototypeHref(permissionRequests.href)}>{lang === 'ko' ? '권한 요청' : 'Request access'}</PlatformLink></Button>
++                  </>
++                : <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '필요한 업무 시스템의 접근 권한을 플랫폼 관리자에게 요청하세요.' : 'Ask a platform administrator for access to the work system you need.'}</p>}
++            </div>}
++    />
++  </PlatformPage></div>;
++
+   return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? 'VOC' : 'VOC'}</PlatformLink> : undefined}>
+     {/* #1167 B-3/C-4: the container the launcher grids answer to is the page body, so a detail slot narrows it. */}
+     <div className="@container space-y-4">
+@@ -88,7 +134,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }:
+               {canOpen('permission-requests')
+                 ? <>
+                     <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 기능 권한이 필요하면 요청하세요.' : 'Work system access is granted by a platform administrator. Request the feature access you need.'}</p>
+-                    <Button asChild size="sm" className="mt-3"><PlatformLink href={permissionRequests.href}>{lang === 'ko' ? '권한 요청' : 'Request access'}</PlatformLink></Button>
++                    <Button asChild size="sm" className="mt-3"><PlatformLink href={homePrototypeHref(permissionRequests.href)}>{lang === 'ko' ? '권한 요청' : 'Request access'}</PlatformLink></Button>
+                   </>
+                 : <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '필요한 업무 시스템의 접근 권한을 플랫폼 관리자에게 요청하세요.' : 'Ask a platform administrator for access to the work system you need.'}</p>}
+             </div>
+@@ -124,16 +170,16 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }:
+             className="text-xs text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('noFavorites')}</p> :
+             <ul className="divide-y divide-border-subtle">{favoriteMenus.map(menu => <li key={menu.id} className="flex items-center gap-3 py-2">
+               <menu.icon className="size-4 text-text-muted" aria-hidden />
+-              <PlatformLink href={linkTo(menu.id, { page: Object.fromEntries((registry.carrySetOf(menu)?.pageKeys ?? []).map(key => [key, null])) })} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(menu.label)}</PlatformLink>
++              <PlatformLink href={homePrototypeHref(linkTo(menu.id, { page: Object.fromEntries((registry.carrySetOf(menu)?.pageKeys ?? []).map(key => [key, null])) }))} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{prototype.variant && prototype.merged && (menu as MenuEntry & { prototype1189?: { mergedLabel?: string } }).prototype1189?.mergedLabel || tx(menu.label)}</PlatformLink>
+               <span className="text-tiny text-text-muted">{affiliation(menu)}</span>
+-              <button type="button" onClick={event => removeFavoriteRow(menu.id, event.currentTarget)} className="rounded-xs px-2 py-1 text-xs text-text-secondary hover:bg-surface-sunken">{t('removeFavorite')}</button>
++              <button type="button" onClick={event => removeFavoriteRow(menu.id, event.currentTarget)} className="rounded-xs px-2 py-1 text-xs text-text-secondary hover:bg-surface-sunken">{prototype.variant ? <><span aria-hidden>제거</span><span className="sr-only">{t('removeFavorite')}</span></> : t('removeFavorite')}</button>
+             </li>)}</ul>}
+         </Panel>
+         <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문했던 조회 조건으로 돌아갑니다. 권한은 다시 확인합니다.' : 'Returns with the filters you used. Access is checked again.'}>
+           {recentRows.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noRecent')}</p> :
+             <ul className="divide-y divide-border-subtle">{recentRows.map(row => <li key={row.menuId} className="flex items-center gap-3 py-2">
+               <row.menu.icon className="size-4 text-text-muted" aria-hidden />
+-              <PlatformLink href={row.url} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(row.menu.label)}</PlatformLink>
++              <PlatformLink href={homePrototypeHref(row.url)} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{prototype.variant && prototype.merged && (row.menu as MenuEntry & { prototype1189?: { mergedLabel?: string } }).prototype1189?.mergedLabel || tx(row.menu.label)}</PlatformLink>
+               <span className="text-tiny text-text-muted">{affiliation(row.menu)}</span>
+               <StatusBadge tone="neutral">{ago(row.at)}</StatusBadge>
+             </li>)}</ul>}
+@@ -141,7 +187,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }:
+       </div>
+ 
+       <section aria-label={lang === 'ko' ? '공지' : 'Notices'} className="space-y-2">
+-        {canOpen('notices') && <PlatformLink href={noticesLink.href} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '공지 목록' : 'Notice list'}</PlatformLink>}
++        {canOpen('notices') && <PlatformLink href={homePrototypeHref(noticesLink.href)} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '공지 목록' : 'Notice list'}</PlatformLink>}
+         {notices.response && notices.response.outcome === 'ok' && notices.response.data!.filter(notice => !dismissed.includes(notice.id)).map(notice =>
+           <div key={notice.id} role="status" className="flex items-start gap-3 rounded-md border border-accent-primary/30 bg-accent-primary-soft px-4 py-2.5 text-sm">
+             <Megaphone className="mt-0.5 size-4 shrink-0 text-accent-primary" aria-hidden />

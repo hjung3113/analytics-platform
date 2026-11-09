@@ -1,0 +1,662 @@
+diff --git a/apps/platform-e2e/w1189p-selfcheck.mjs b/apps/platform-e2e/w1189p-selfcheck.mjs
+new file mode 100644
+index 000000000..12aca540c
+--- /dev/null
++++ b/apps/platform-e2e/w1189p-selfcheck.mjs
+@@ -0,0 +1,110 @@
++// One-off visual self-check for W-1189p; not a committed E2E spec.
++import { chromium } from '@playwright/test';
++import { writeFile } from 'node:fs/promises';
++const out = new URL('../../.review/selfcheck/', import.meta.url).pathname;
++const observations = [];
++let browser;
++try { browser = await chromium.launch(); }
++catch { browser = await chromium.launch({ channel: 'chrome' }); }
++try {
++  for (const variant of (process.env.SELFCHECK_VARIANTS?.split(',') ?? ['A', 'B', 'C', 'now'])) {
++    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
++    await context.addInitScript(() => {
++      localStorage.setItem('platform:role', JSON.stringify('admin'));
++      localStorage.setItem('platform:lang', 'ko');
++      localStorage.setItem('platform:sidebar-collapsed', '0');
++    });
++    const page = await context.newPage();
++    const errors = [];
++    page.on('pageerror', error => errors.push(error.message));
++    const suffix = variant === 'now' ? '' : `&variant=${variant}`;
++    async function load(path) {
++      await page.goto(`http://127.0.0.1:4198${path}?v=1&scopeId=MEM${suffix}`);
++      await page.locator('#platform-main h1').waitFor();
++      await page.evaluate(() => document.fonts.ready);
++      await page.waitForTimeout(600);
++      await page.mouse.move(1400, 880);
++    }
++    await load('/home');
++    await page.screenshot({ path: `${out}home-empty-${variant}.png` });
++    await load('/mars/productivity-overview');
++    const add = page.getByRole('button', { name: '즐겨찾기에 추가', exact: true });
++    if (await add.count()) await add.click();
++    await load('/clas/operation-time');
++    await load('/home');
++    await page.screenshot({ path: `${out}home-${variant}.png` });
++    observations.push({ variant, kind: 'homeGroups', headings: await page.getByRole('region', { name: '업무 시스템', exact: true }).getByRole('heading').evaluateAll(els => els.map(el => ({ text: el.textContent, x: el.getBoundingClientRect().x, width: el.getBoundingClientRect().width, parentX: el.parentElement.getBoundingClientRect().x, parentWidth: el.parentElement.getBoundingClientRect().width }))) });
++    observations.push({ variant, kind: 'home', systems: await page.getByRole('region', { name: '업무 시스템', exact: true }).getByRole('link').evaluateAll(els => els.map(el => ({ text: el.textContent, href: el.getAttribute('href'), height: el.getBoundingClientRect().height }))) });
++    const remove = page.locator('#platform-main').getByRole('button', { name: '즐겨찾기에서 제거', exact: true });
++    if (await remove.count()) {
++      await remove.focus();
++      await remove.click();
++      await page.waitForTimeout(100);
++      observations.push({ variant, kind: 'favoriteRemoval', active: await page.evaluate(() => ({ tag: document.activeElement?.tagName, text: document.activeElement?.textContent })) });
++    }
++    const dismiss = page.getByRole('button', { name: '이번 방문 동안 닫기', exact: true }).first();
++    if (await dismiss.count()) { await dismiss.click(); observations.push({ variant, kind: 'noticeDismiss', remaining: await page.getByRole('button', { name: '이번 방문 동안 닫기', exact: true }).count() }); }
++
++    await load('/mars/productivity-overview');
++    const trigger = variant === 'now' ? page.getByRole('button', { name: /시스템 및 플랫폼 메뉴/, includeHidden: true }) : page.locator('[data-proto-switcher-trigger]');
++    if (variant === 'C') {
++      await trigger.hover();
++      await page.waitForTimeout(350);
++      observations.push({ variant, kind: 'expandedTooltip', count: await page.getByRole('tooltip').count() });
++      await page.mouse.move(1400, 880);
++    }
++    await trigger.click();
++    await page.waitForTimeout(300);
++    const dialog = page.getByRole('dialog');
++    await dialog.waitFor();
++    observations.push({ variant, kind: 'open', active: await page.evaluate(() => document.activeElement?.textContent), box: await dialog.boundingBox(), cards: await dialog.locator('[data-switcher-card]').count(), rows: await dialog.locator('[data-switcher-card]').evaluateAll(els => els.map(el => ({ height: el.getBoundingClientRect().height, weight: getComputedStyle(el).fontWeight, background: getComputedStyle(el).backgroundColor, current: el.getAttribute('aria-current'), icons: el.querySelectorAll('svg').length }))) });
++    observations.push({ variant, kind: 'triggerGeometry', geometry: await trigger.evaluate(el => {
++      const box = node => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
++      return { target: box(el), visual: box(el.firstElementChild), glyph: box(el.firstElementChild.firstElementChild), headHeight: el.closest('aside')?.firstElementChild.getBoundingClientRect().height };
++    }) });
++    await page.mouse.move(1400, 880);
++    await page.screenshot({ path: `${out}switcher-${variant}.png` });
++    const focusWalk = [];
++    for (let step = 0; step < 20; step++) {
++      await page.keyboard.press('Tab');
++      focusWalk.push(await page.evaluate(() => ({ inside: !!document.activeElement?.closest('[role=dialog]'), name: document.activeElement?.textContent })));
++    }
++    observations.push({ variant, kind: 'focusTrap', allInside: focusWalk.every(item => item.inside), focused: focusWalk.map(item => item.name) });
++
++    await page.keyboard.press('Escape');
++    await dialog.waitFor({ state: 'hidden' });
++    await page.waitForTimeout(300);
++    observations.push({ variant, kind: 'escape', focusReturned: await trigger.evaluate(el => el === document.activeElement) });
++    await trigger.click();
++    await page.waitForTimeout(300);
++    await page.locator('[data-switcher-card]').filter({ hasText: 'BRAVO' }).click();
++    await page.waitForURL('**/bravo/**');
++    await page.waitForTimeout(400);
++    observations.push({ variant, kind: 'arrival', url: page.url(), focus: await page.evaluate(() => ({ tag: document.activeElement?.tagName, text: document.activeElement?.textContent })) });
++    if (variant === 'C' || variant === 'now') {
++      await page.getByRole('button', { name: '사이드바 접기', exact: true }).click();
++      const collapsedTrigger = variant === 'now' ? page.getByRole('button', { name: /시스템 및 플랫폼 메뉴/, includeHidden: true }) : page.locator('[data-proto-switcher-trigger]');
++      observations.push({ variant, kind: 'collapsedGeometry', head: await page.locator('aside[data-collapsed="true"] > div').first().boundingBox(), expand: await page.getByRole('button', { name: '사이드바 펼치기', exact: true }).boundingBox(), trigger: await collapsedTrigger.boundingBox() });
++      await collapsedTrigger.click();
++      await page.waitForTimeout(300);
++      await page.mouse.move(1400, 880);
++      await page.screenshot({ path: `${out}switcher-${variant}-collapsed.png` });
++      await page.keyboard.press('Escape');
++      await page.getByRole('dialog').waitFor({ state: 'hidden' });
++      await page.waitForTimeout(300);
++      observations.push({ variant, kind: 'collapsed', triggerVisible: await collapsedTrigger.isVisible(), expandVisible: await page.getByRole('button', { name: '사이드바 펼치기', exact: true }).isVisible(), focusReturned: await collapsedTrigger.evaluate(el => el === document.activeElement) });
++    }
++    const homeLink = variant === 'C' ? page.getByRole('navigation', { name: '시스템 레일' }).getByRole('link', { name: '플랫폼 홈', exact: true }) : null;
++    if (homeLink) {
++      await homeLink.click();
++      await page.waitForURL('**/home?**');
++      observations.push({ variant, kind: 'railHome', url: page.url() });
++    }
++    observations.push({ variant, kind: 'pageerrors', errors });
++    await context.close();
++    console.log(`captured ${variant}`);
++  }
++} finally {
++  await browser.close();
++  await writeFile(`${out}${process.env.SELFCHECK_VARIANTS ? `observations-fix1-confirm-${process.env.SELFCHECK_VARIANTS}` : 'observations-fix1'}.json`, JSON.stringify(observations, null, 2));
++}
+diff --git a/apps/platform-web/src/menus.ts b/apps/platform-web/src/menus.ts
+index a3be19946..9d4481e21 100644
+--- a/apps/platform-web/src/menus.ts
++++ b/apps/platform-web/src/menus.ts
+@@ -172,4 +172,12 @@ export const CARRY_SETS: readonly CarrySetDef[] = [{ id: carrySetId('features'),
+ export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq', 'tokens'];
+ 
+ /** External host modules (src/modules.ts) join at the registry call only; GROUPS and MENUS stay the platform's own. */
+-export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: placeGlobalGroups(configureHome([...MENUS, ...EQV_MODULE.menus])), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });
++// #1189 throwaway visual prototype: canonical exports above remain unchanged.
++const prototypeValue = new URLSearchParams(window.location.search).get('variant');
++const homePrototype = prototypeValue === 'A' || prototypeValue === 'B' || prototypeValue === 'C';
++const prototypeSubtitles: Record<string, { ko: string; en: string }> = {
++  mars: { ko: '생산성·사이클타임', en: 'Productivity · cycle time' },
++  clas: { ko: '동작시간 분석', en: 'Operation time' },
++};
++const composedMenus = placeGlobalGroups(configureHome([...MENUS, ...EQV_MODULE.menus]));
++export const registry = createRegistry({ spaces: homePrototype ? SPACES.map(space => ({ ...space, ...(prototypeSubtitles[space.id] ? { subtitle: prototypeSubtitles[space.id] } : {}) })) : SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: homePrototype ? composedMenus.map(menu => ({ ...menu, pageKeys: [...new Set([...(menu.pageKeys ?? []), 'variant'])] })) : composedMenus, permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });
+diff --git a/packages/sdk/shell/src/frame/AppRail.tsx b/packages/sdk/shell/src/frame/AppRail.tsx
+index 07a5d3010..e523b37ac 100644
+--- a/packages/sdk/shell/src/frame/AppRail.tsx
++++ b/packages/sdk/shell/src/frame/AppRail.tsx
+@@ -1,9 +1,10 @@
+ import { useContext } from 'react';
+-import { CircleHelp, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
+-import { useI18n } from '@ap/kernel';
++import { CircleHelp, House, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
++import { PlatformLink, useI18n } from '@ap/kernel';
+ import { useHostPlatform } from '@ap/kernel/host';
+ import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+ import { SystemSwitcher } from './SystemSwitcher';
++import { PrototypeHeadSwitcher, prototype1189Href } from './prototype1189';
+ import { placeableMenus } from '../board/boardMenus';
+ import { useBoardPresentation } from '../board/boardPresentation';
+ import { boardText } from '../board/text';
+@@ -13,6 +14,7 @@ import { VocDrawerContext } from '../voc/VocDrawer';
+ 
+ /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
+ export function AppRail() {
++  const headSwitcher = useContext(PrototypeHeadSwitcher);
+   const voc = useContext(VocDrawerContext);
+   const { slots, user, setPaletteOpen, navigate, linkTo, canOpen, registry } = useHostPlatform();
+   const { t, tx, lang, setLang } = useI18n();
+@@ -26,7 +28,10 @@ export function AppRail() {
+   const vocLabel = lang === 'ko' ? 'VOC 등록' : 'File a VOC';
+   return <TooltipProvider delayDuration={200}>
+     <nav aria-label={lang === 'ko' ? '시스템 레일' : 'System rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
+-      <SystemSwitcher />
++      {headSwitcher ? <div className="flex h-12.5 w-full shrink-0 items-center justify-center"><Tooltip><TooltipTrigger asChild>
++        {registry.platformHome && canOpen(registry.platformHome.id) ? <PlatformLink href={prototype1189Href(linkTo(registry.platformHome.id))} aria-label={tx(registry.platformHome.label)}
++          className="grid size-10 place-items-center rounded-md text-text-secondary hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"><House className="size-4" aria-hidden /></PlatformLink> : <span className="size-10" />}
++      </TooltipTrigger><TooltipContent side="right">{registry.platformHome ? tx(registry.platformHome.label) : t('platformName')}</TooltipContent></Tooltip></div> : <SystemSwitcher />}
+       <div className="mb-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
+       {systems !== null && systems.sections.length > 0 && <div role="group" aria-label={t('railSections')} className="flex min-h-8 shrink flex-col items-center gap-1.5 overflow-y-auto">
+         {systems.sections.map(({ group, items }) => {
+@@ -35,7 +40,7 @@ export function AppRail() {
+           const name = tx(group.label);
+           return <Tooltip key={group.id}><TooltipTrigger asChild>
+             <button type="button" aria-label={name} aria-current={active ? 'true' : undefined}
+-              onClick={() => { if (!active) navigate(linkTo(firstOpenableMenu(items).id), { focus: 'page', via: 'sidebar' }); }}
++              onClick={() => { if (!active) navigate(prototype1189Href(linkTo(firstOpenableMenu(items).id)), { focus: 'page', via: 'sidebar' }); }}
+               className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>
+               {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
+               <Icon className="size-4" aria-hidden />
+diff --git a/packages/sdk/shell/src/frame/AppShell.tsx b/packages/sdk/shell/src/frame/AppShell.tsx
+index 3d09c0864..2c6707af0 100644
+--- a/packages/sdk/shell/src/frame/AppShell.tsx
++++ b/packages/sdk/shell/src/frame/AppShell.tsx
+@@ -9,6 +9,7 @@ import { LeaveConfirmDialog } from '../routing/LeaveConfirmDialog';
+ import { AppSidebar } from './AppSidebar';
+ import { PlatformSidebar } from './PlatformSidebar';
+ import { AppRail } from './AppRail';
++import { homePrototypeVariant, PrototypeHeadSwitcher } from './prototype1189';
+ import { useVocDrawer, VocDrawer, VocDrawerContext } from '../voc/VocDrawer';
+ import { BoardRestoreChip } from '../board/BoardRestoreChip';
+ import { useBoardPresentation } from '../board/boardPresentation';
+@@ -68,7 +69,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
+   // The provider wraps the whole layout (not only the rail), so a screen's error view can open the drawer too (#606).
+   return <DetailPanelFullscreenContext.Provider value={fullscreen}><VocDrawerContext.Provider value={voc}><div className="flex h-full overflow-hidden">
+     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
+-    <AppRail />
++    <PrototypeHeadSwitcher.Provider value={homePrototypeVariant() === 'C' && (showSidebar || showPlatformSidebar)}><AppRail /></PrototypeHeadSwitcher.Provider>
+     {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
+     {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
+     {/* The column stays unpositioned: a `relative` column would become the containing block of every `absolute` element inside main (sr-only text, popovers) and let them overflow it unclipped. */}
+diff --git a/packages/sdk/shell/src/frame/AppSidebar.tsx b/packages/sdk/shell/src/frame/AppSidebar.tsx
+index 640be5faf..173fc1bd5 100644
+--- a/packages/sdk/shell/src/frame/AppSidebar.tsx
++++ b/packages/sdk/shell/src/frame/AppSidebar.tsx
+@@ -8,6 +8,8 @@ import { navRowVariants, NavCurrentMarker, cn, Tooltip, TooltipContent, TooltipP
+ import { ScopeSelector } from '../context/ScopeSelector';
+ import { SidebarHierarchy } from './SidebarHierarchy';
+ import { useSystemSections } from './systemSections';
++import { SystemSwitcher } from './SystemSwitcher';
++import { homePrototypeVariant, prototype1189Href } from './prototype1189';
+ 
+ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+   const { visibleMenus, route, favorites, registry, sidebarSpace, slots, page, linkTo, canOpen } = useHostPlatform();
+@@ -31,21 +33,25 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
+   const CountsHost = (sidebarSpace === null || slotMenu === undefined ? null : slots.navCounts?.For(sidebarSpace.id, slotMenu)) ?? NoCounts;
+   const sectionSlot = sidebarSpace === null || slotMenu === undefined ? null : slots.spaceNavSection?.For(sidebarSpace.id, slotMenu) ?? null;
+ 
++  const compactHead = homePrototypeVariant() === 'C' && collapsed;
++  const toggleControl = <Tooltip><TooltipTrigger asChild>
++    <button type="button" onClick={onToggle} aria-label={collapsed ? t('expand') : t('collapse')} aria-keyshortcuts="["
++      className={cn('ml-auto grid size-7 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-text-primary', compactHead && 'mx-0')}>
++      {collapsed ? <ChevronRight className="size-4" aria-hidden /> : <ChevronLeft className="size-4" aria-hidden />}
++    </button>
++  </TooltipTrigger><TooltipContent side="right">{collapsed ? t('expand') : t('collapse')} ([)</TooltipContent></Tooltip>;
++
+   return <TooltipProvider delayDuration={200}>
+     <aside data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
+-      <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
+-        {!collapsed && (sidebarSpace === null
++      <div className={cn('flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle', homePrototypeVariant() === 'C' ? collapsed ? 'justify-center px-1' : 'gap-1 px-2' : 'px-3')}>
++        {homePrototypeVariant() === 'C' ? <SystemSwitcher head collapsed={collapsed} sectionName={sectionName !== null && sidebarSpace !== null && sectionName !== tx(sidebarSpace.label) ? sectionName : null} /> : !collapsed && (sidebarSpace === null
+           ? <p className="min-w-0 truncate text-sm font-semibold">{t('appName')}</p>
+           : <div className="min-w-0"><p className="truncate text-sm font-semibold">{tx(sidebarSpace.label)}</p>
+             {systems === null ? <p className="truncate text-caption text-text-muted">{t('appName')}</p>
+               : sectionName !== null && sectionName !== tx(sidebarSpace.label) && <p className="truncate text-caption text-text-muted">{sectionName}</p>}</div>)}
+-        <Tooltip><TooltipTrigger asChild>
+-          <button type="button" onClick={onToggle} aria-label={collapsed ? t('expand') : t('collapse')} aria-keyshortcuts="["
+-            className="ml-auto grid size-7 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-text-primary">
+-            {collapsed ? <ChevronRight className="size-4" aria-hidden /> : <ChevronLeft className="size-4" aria-hidden />}
+-          </button>
+-        </TooltipTrigger><TooltipContent side="right">{collapsed ? t('expand') : t('collapse')} ([)</TooltipContent></Tooltip>
++        {!compactHead && toggleControl}
+       </div>
++      {compactHead && <div className="flex shrink-0 justify-center py-1">{toggleControl}</div>}
+       <SidebarScope collapsed={collapsed} />
+       <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
+         <CountsHost>{counts => <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
+@@ -142,7 +148,7 @@ function FeatureBlock({ collapsed }: { collapsed: boolean }) {
+       const Icon = entry.icon;
+       const label = tx(entry.label);
+       const inShellName = `${label} — ${spaceName}, ${featureName}`;
+-      const inShell = <PlatformLink via="sidebar" href={resolveLink(entry.menuId, { global: emptyGlobal, page: entry.page, returnTo: true }).href} aria-label={inShellName}
++      const inShell = <PlatformLink via="sidebar" href={prototype1189Href(resolveLink(entry.menuId, { global: emptyGlobal, page: entry.page, returnTo: true }).href)} aria-label={inShellName}
+         className={navRowVariants({ feature: true, collapsed })}>
+         <Icon className="size-4 shrink-0" aria-hidden />
+         {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
+@@ -161,7 +167,7 @@ export function NavItem({ menu, active, collapsed, href, labelPrefix, label: lab
+   const count = unread !== undefined && unread !== null && unread > 0 ? unread : 0;
+   const name = labelPrefix ? `${labelPrefix}: ${label}` : label;
+   const hasCount = navCount !== undefined && navCount >= 0;
+-  const link = <PlatformLink via="sidebar" href={href ?? linkTo(menu.id)} aria-label={count > 0 ? t('unreadNamed', { label: name, count }) : hasCount ? t('countNamed', { label: name, count: navCount }) : name} aria-current={active ? 'page' : undefined}
++  const link = <PlatformLink via="sidebar" href={prototype1189Href(href ?? linkTo(menu.id))} aria-label={count > 0 ? t('unreadNamed', { label: name, count }) : hasCount ? t('countNamed', { label: name, count: navCount }) : name} aria-current={active ? 'page' : undefined}
+     className={navRowVariants({ collapsed, active })}>
+     {active && <NavCurrentMarker />}
+     <Icon className="size-4 shrink-0" aria-hidden />
+@@ -177,7 +183,7 @@ function NavViewItem({ menu, view, active, count }: { menu: MenuEntry; view: Nav
+   const { tx, t } = useI18n();
+   const label = tx(view.label);
+   const hasCount = count !== undefined && count >= 0;
+-  return <PlatformLink via="sidebar" href={linkTo(menu.id, { page: view.page })} aria-label={hasCount ? t('countNamed', { label, count }) : label} aria-current={active ? 'page' : undefined}
++  return <PlatformLink via="sidebar" href={prototype1189Href(linkTo(menu.id, { page: view.page }))} aria-label={hasCount ? t('countNamed', { label, count }) : label} aria-current={active ? 'page' : undefined}
+     className={navRowVariants({ inset: true, active })}>
+     {active && <NavCurrentMarker />}
+     <span className="min-w-0 flex-1 truncate">{label}</span>
+diff --git a/packages/sdk/shell/src/frame/PlatformSidebar.tsx b/packages/sdk/shell/src/frame/PlatformSidebar.tsx
+index c9594affa..cb8a98d73 100644
+--- a/packages/sdk/shell/src/frame/PlatformSidebar.tsx
++++ b/packages/sdk/shell/src/frame/PlatformSidebar.tsx
+@@ -6,6 +6,8 @@ import { NavItem } from './AppSidebar';
+ import { usePlatformMenu } from './platformMenu';
+ import { SidebarHierarchy } from './SidebarHierarchy';
+ import { MenuUnread } from './unread';
++import { SystemSwitcher } from './SystemSwitcher';
++import { homePrototypeVariant } from './prototype1189';
+ 
+ /**
+  * Sidebar of the global screens outside any space (home, 내 활동, 공지; 15 §3.2, ADR-0070). Same shell, collapse
+@@ -19,17 +21,21 @@ export function PlatformSidebar({ collapsed, onToggle }: { collapsed: boolean; o
+   const hasHierarchy = !collapsed && sections.some(({ items }) => items.some(menu => menu.navTree && canOpen(menu.id)));
+   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
+ 
++  const compactHead = homePrototypeVariant() === 'C' && collapsed;
++  const toggleControl = <Tooltip><TooltipTrigger asChild>
++    <button type="button" onClick={onToggle} aria-label={collapsed ? t('expand') : t('collapse')} aria-keyshortcuts="["
++      className={cn('ml-auto grid size-7 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-text-primary', compactHead && 'mx-0')}>
++      {collapsed ? <ChevronRight className="size-4" aria-hidden /> : <ChevronLeft className="size-4" aria-hidden />}
++    </button>
++  </TooltipTrigger><TooltipContent side="right">{collapsed ? t('expand') : t('collapse')} ([)</TooltipContent></Tooltip>;
++
+   return <TooltipProvider delayDuration={200}>
+     <aside data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
+-      <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
+-        {!collapsed && <p className="min-w-0 truncate text-sm font-semibold">{t('platformName')}</p>}
+-        <Tooltip><TooltipTrigger asChild>
+-          <button type="button" onClick={onToggle} aria-label={collapsed ? t('expand') : t('collapse')} aria-keyshortcuts="["
+-            className="ml-auto grid size-7 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-text-primary">
+-            {collapsed ? <ChevronRight className="size-4" aria-hidden /> : <ChevronLeft className="size-4" aria-hidden />}
+-          </button>
+-        </TooltipTrigger><TooltipContent side="right">{collapsed ? t('expand') : t('collapse')} ([)</TooltipContent></Tooltip>
++      <div className={cn('flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle', homePrototypeVariant() === 'C' ? collapsed ? 'justify-center px-1' : 'gap-1 px-2' : 'px-3')}>
++        {homePrototypeVariant() === 'C' ? <SystemSwitcher head collapsed={collapsed} /> : !collapsed && <p className="min-w-0 truncate text-sm font-semibold">{t('platformName')}</p>}
++        {!compactHead && toggleControl}
+       </div>
++      {compactHead && <div className="flex shrink-0 justify-center py-1">{toggleControl}</div>}
+       <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
+         <nav aria-label={t('platformMenu')}>
+           {sections.map(({ group, items }, index) => {
+diff --git a/packages/sdk/shell/src/frame/SystemSwitcher.tsx b/packages/sdk/shell/src/frame/SystemSwitcher.tsx
+index 9f6908085..fdb96e7ac 100644
+--- a/packages/sdk/shell/src/frame/SystemSwitcher.tsx
++++ b/packages/sdk/shell/src/frame/SystemSwitcher.tsx
+@@ -1,11 +1,12 @@
+-import { Check, ChevronDown, LayoutGrid } from 'lucide-react';
++import { Check, ChevronDown, ChevronsUpDown, Layers, LayoutGrid } from 'lucide-react';
+ import { useEffect, useId, useRef, type MouseEvent } from 'react';
+ import { badgeCountText } from '@ap/components';
+ import { PlatformLink, useI18n } from '@ap/kernel';
+ import { useHostPlatform, useOverlayState } from '@ap/kernel/host';
+ import { usePlatformMenu } from './platformMenu';
+ import { MenuUnread } from './unread';
+-import { cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
++import { homePrototypeVariant, prototype1189Href } from './prototype1189';
++import { cn, navRowVariants, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
+ 
+ const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-left hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
+ 
+@@ -14,7 +15,8 @@ const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-l
+  * with a `spaceEntry`; planned rows are display-only slots. A real move closes the popover first and runs
+  * from `onCloseAutoFocus`, after the focus trap is gone, so the Kernel arrival focus (ADR-0032) lands on the new title.
+  */
+-export function SystemSwitcher() {
++export function SystemSwitcher({ head = false, collapsed = false, sectionName }: { head?: boolean; collapsed?: boolean; sectionName?: string | null } = {}) {
++  const variant = homePrototypeVariant();
+   const { currentSpace: routeSpace, accessibleSpaces, spaceEntry, switchSpace, registry, resolveLink, navigate, pathname, route, slots, setSwitcherOpen } = useHostPlatform();
+   const { switcherOpen: open, switcherSession } = useOverlayState();
+   const { t, tx } = useI18n();
+@@ -75,17 +77,49 @@ export function SystemSwitcher() {
+     });
+   };
+ 
+-  return <div className="flex h-[50px] w-full shrink-0 items-center justify-center">
++  // Same platform destinations and unread semantics in every layout. Only the variant moves this block below systems.
++  const platformLinks = platformItems.length > 0 && <nav aria-label={t('platformMenu')} className={variant ? 'border-t border-border-subtle p-3' : 'border-b border-border-subtle px-4 py-3'}>
++    <p className={variant ? 'mb-2 px-2 t-nav-group text-text-secondary' : 'mb-1.5 text-caption font-semibold text-text-muted'}>{t('platformMenu')}{!variant && <span className="font-normal"> · {t('platformMenuShared')}</span>}</p>
++    <ul className={variant ? cn('grid gap-0.5 text-sm', variant === 'A' ? 'grid-cols-5' : 'grid-cols-3') : 'flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm'}>{platformItems.map((menu, at) => {
++      const link = resolveLink(menu.id);
++      const href = prototype1189Href(link.href);
++      return <li key={menu.id} className={variant ? 'min-w-0' : 'flex items-center gap-1.5'}>
++        {!variant && at > 0 && <span aria-hidden className="text-text-muted">·</span>}
++        <MenuUnread menuId={menu.id}>{count => {
++          const name = platform.labelOf(menu);
++          const unread = count !== null && count > 0 ? count : 0;
++          return <PlatformLink data-switcher-platform href={href} aria-current={route?.menu.id === menu.id ? 'page' : undefined} onClick={event => goPlatform(event, href)}
++            {...(unread > 0 ? { 'aria-label': t('unreadNamed', { label: name, count: unread }) } : {})}
++            className={cn('rounded-md text-text-secondary hover:bg-surface-row-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring aria-[current=page]:font-semibold aria-[current=page]:text-text-primary', variant ? 'flex min-h-8 items-center gap-2 break-keep px-2 py-1.5' : 'px-1.5 py-0.5')}>
++            {name}
++            {unread > 0 && <span aria-hidden className="ml-1 rounded-pill bg-surface-row-selected px-1.5 text-caption font-semibold text-text-secondary">{badgeCountText(unread)}</span>}
++          </PlatformLink>;
++        }}</MenuUnread>
++      </li>;
++    })}</ul>
++  </nav>;
++
++  const trigger = <PopoverTrigger asChild>
++    <button ref={triggerRef} type="button" aria-label={label} aria-haspopup="dialog" aria-expanded={open}
++      data-proto-switcher-trigger={variant || undefined}
++      className={cn('rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring', head && !collapsed ? 'flex min-h-10 min-w-0 flex-1 items-center gap-2 px-2 text-left text-text-primary hover:bg-surface-row-hover' : 'relative grid size-10 place-items-center', head && !collapsed && open && 'bg-surface-row-selected')}>
++      {head && !collapsed ? <>
++        <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{currentSpace ? tx(currentSpace.label) : t('platformName')}</span>
++          {sectionName && <span className="block truncate text-caption text-text-secondary">{sectionName}</span>}
++        </span><ChevronsUpDown className="size-3.5 shrink-0 text-text-secondary" aria-hidden />
++      </> : variant ? <span className={cn('grid size-8 place-items-center rounded-md text-text-secondary hover:bg-surface-row-hover', open && 'bg-surface-row-selected')}>
++        {currentSpace && /^[A-Za-z]/.test(tx(currentSpace.label)) ? <span className="grid size-4 place-items-center text-sm font-semibold" aria-hidden>{tx(currentSpace.label).slice(0, 1)}</span> : <Layers className="size-4" aria-hidden />}
++        <ChevronsUpDown className="absolute right-0.5 top-1/2 size-2 -translate-y-1/2" aria-hidden />
++      </span> : <span className="relative grid size-8 place-items-center rounded-md bg-accent-primary-soft text-accent-primary hover:bg-surface-row-hover">
++        <TriggerIcon className="size-4" aria-hidden /><ChevronDown className="absolute bottom-0.5 right-0.5 size-2.5" aria-hidden />
++      </span>}
++    </button>
++  </PopoverTrigger>;
++
++  return <div className={head ? cn('flex min-w-0 flex-1 items-center', collapsed && 'justify-center') : 'flex h-[50px] w-full shrink-0 items-center justify-center'}>
+     <Popover modal open={open} onOpenChange={onOpenChange}>
+-      <Tooltip><TooltipTrigger asChild><PopoverTrigger asChild>
+-        <button ref={triggerRef} type="button" aria-label={label} aria-haspopup="dialog" aria-expanded={open}
+-          className="grid size-10 place-items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
+-          <span className="relative grid size-8 place-items-center rounded-md bg-accent-primary-soft text-accent-primary hover:bg-surface-row-hover">
+-            <TriggerIcon className="size-4" aria-hidden /><ChevronDown className="absolute bottom-0.5 right-0.5 size-2.5" aria-hidden />
+-          </span>
+-        </button>
+-      </PopoverTrigger></TooltipTrigger><TooltipContent side="right">{label}</TooltipContent></Tooltip>
+-      <PopoverContent ref={contentRef} side="right" align="start" padding="none" className="w-[520px]" aria-labelledby={titleId}
++      {collapsed || !head ? <Tooltip><TooltipTrigger asChild>{trigger}</TooltipTrigger><TooltipContent side="right">{label}</TooltipContent></Tooltip> : trigger}
++      <PopoverContent ref={contentRef} side={head ? 'bottom' : 'right'} align="start" padding="none" className={variant ? variant === 'A' ? 'w-lg' : 'w-80' : 'w-[520px]'} aria-labelledby={titleId}
+         onOpenAutoFocus={event => {
+           event.preventDefault();
+           switcherSession?.claim(owner.current);
+@@ -113,65 +147,48 @@ export function SystemSwitcher() {
+           if (active && document.getElementById('platform-main')?.contains(active)) return;
+           triggerRef.current?.focus({ preventScroll: true });
+         }}>
+-        <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
++        <div className={variant ? 'sr-only' : 'flex items-center justify-between border-b border-border-subtle px-4 py-3'}>
+           <h2 id={titleId} className="text-sm font-semibold">{t('switcherTitle')}</h2>
+         </div>
+-        {platformItems.length > 0 && <nav aria-label={t('platformMenu')} className="border-b border-border-subtle px-4 py-3">
+-          <p className="mb-1.5 text-caption font-semibold text-text-muted">{t('platformMenu')} <span className="font-normal">· {t('platformMenuShared')}</span></p>
+-          <ul className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">{platformItems.map((menu, at) => {
+-            const link = resolveLink(menu.id);
+-            return <li key={menu.id} className="flex items-center gap-1.5">
+-              {at > 0 && <span aria-hidden className="text-text-muted">·</span>}
+-              <MenuUnread menuId={menu.id}>{count => {
+-                const name = platform.labelOf(menu);
+-                const unread = count !== null && count > 0 ? count : 0;
+-                return <PlatformLink data-switcher-platform href={link.href} aria-current={route?.menu.id === menu.id ? 'page' : undefined} onClick={event => goPlatform(event, link.href)}
+-                  {...(unread > 0 ? { 'aria-label': t('unreadNamed', { label: name, count: unread }) } : {})}
+-                  className="rounded-md px-1.5 py-0.5 text-text-secondary hover:bg-surface-row-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring aria-[current=page]:font-semibold aria-[current=page]:text-text-primary">
+-                  {name}
+-                  {unread > 0 && <span aria-hidden className="ml-1 rounded-pill bg-surface-row-selected px-1.5 text-caption font-semibold text-text-secondary">{badgeCountText(unread)}</span>}
+-                </PlatformLink>;
+-              }}</MenuUnread>
+-            </li>;
+-          })}</ul>
+-        </nav>}
+-        <p className="px-4 pt-3 text-caption font-semibold text-text-muted">{t('switcherSystemsHeading')}</p>
++        {!variant && platformLinks}
++        <p className={variant ? 'px-5 pt-4 t-nav-group text-text-secondary' : 'px-4 pt-3 text-caption font-semibold text-text-muted'}>{t('switcherSystemsHeading')}</p>
+         {cards.length === 0
+           ? <p data-switcher-empty tabIndex={-1} className="px-4 py-6 text-center text-sm text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('switcherEmpty')}</p>
+-          : <ul className="grid grid-cols-2 gap-2 p-3">{cards.map(({ space, entry }) => {
++          : <ul className={variant ? cn('grid gap-0.5 p-3', variant === 'A' ? 'grid-cols-2' : 'grid-cols-1') : 'grid grid-cols-2 gap-2 p-3'}>{cards.map(({ space, entry }) => {
+             const Icon = spaceIcon(space.homeMenuId);
+             const current = currentSpace?.id === space.id;
+             const menuName = tx(registry.menuById(entry.menuId).label);
+             return <li key={space.id}>
+               <button type="button" {...(current ? { 'data-switcher-current': true, 'aria-current': 'true' as const } : {})} data-switcher-card
+-                onClick={() => close(current ? null : () => switchSpace(space.id))}
+-                className={cn(CARD, current ? 'border-accent-primary bg-accent-primary-soft' : 'border-border-subtle')}>
+-                <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
+-                <span className="min-w-0 flex-1">
+-                  <span className="block truncate text-sm font-medium">{tx(space.label)}</span>
+-                  {space.subtitle && <span className="block truncate text-caption text-text-muted">{tx(space.subtitle)}</span>}
+-                  <span className="block truncate text-caption text-text-muted">{entry.resumed ? t('switcherResume', { menu: menuName }) : t('switcherStart', { menu: menuName })}</span>
++                onClick={() => close(current ? null : variant ? () => { navigate(prototype1189Href(entry.href), { focus: 'page', via: 'switcher' }); } : () => switchSpace(space.id))}
++                className={variant ? cn(navRowVariants({ active: current }), 'w-full px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring') : cn(CARD, current ? 'border-accent-primary bg-accent-primary-soft' : 'border-border-subtle')}>
++                <Icon className={variant ? 'size-4 shrink-0 text-text-secondary' : 'mt-0.5 size-4 shrink-0'} aria-hidden />
++                <span className={variant ? 'flex min-w-0 flex-1 items-baseline gap-2' : 'min-w-0 flex-1'}>
++                  <span className={variant ? 'shrink-0 text-sm' : 'block truncate text-sm font-medium'}>{tx(space.label)}</span>
++                  {space.subtitle && <span className={variant ? 'truncate text-caption text-text-secondary' : 'block truncate text-caption text-text-muted'}>{tx(space.subtitle)}</span>}
++                  <span className={variant ? 'sr-only' : 'block truncate text-caption text-text-muted'}>{entry.resumed ? t('switcherResume', { menu: menuName }) : t('switcherStart', { menu: menuName })}</span>
+                 </span>
+-                {current && <span className="flex items-center gap-0.5 text-caption font-semibold text-accent-primary"><Check className="size-3" aria-hidden />{t('switcherCurrentBadge')}</span>}
++                {current && (variant ? <span className="sr-only">{t('switcherCurrentBadge')}</span> : <span className="flex items-center gap-0.5 text-caption font-semibold text-accent-primary"><Check className="size-3" aria-hidden /><span>{t('switcherCurrentBadge')}</span></span>)}
+               </button>
+             </li>;
+           })}</ul>}
+         {planned.length > 0 && <div className="border-t border-border-subtle p-3">
+-          <p className="mb-2 text-caption font-semibold text-text-muted">{t('switcherPlannedHeading')}</p>
+-          <ul className="grid grid-cols-2 gap-2">{planned.map(item => {
++          <p className={variant ? 'mb-2 px-2 t-nav-group text-text-secondary' : 'mb-2 text-caption font-semibold text-text-muted'}>{t('switcherPlannedHeading')}</p>
++          <ul className={variant ? cn('grid gap-0.5', variant === 'A' ? 'grid-cols-2' : 'grid-cols-1') : 'grid grid-cols-2 gap-2'}>{planned.map(item => {
+             const Icon = item.icon;
+             return <li key={item.id}>
+-              <button type="button" data-switcher-planned aria-disabled="true" className={cn(CARD, 'cursor-default border-border-subtle text-text-muted')}>
+-                <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
++              <button type="button" data-switcher-planned aria-disabled="true" className={variant ? cn(navRowVariants(), 'w-full cursor-default px-2 text-left hover:bg-transparent hover:text-text-secondary') : cn(CARD, 'cursor-default border-border-subtle text-text-muted')}>
++                <Icon className={variant ? 'size-4 shrink-0 text-text-secondary' : 'mt-0.5 size-4 shrink-0'} aria-hidden />
+                 <span className="min-w-0 flex-1">
+                   <span className="block truncate text-sm font-medium">{tx(item.label)}</span>
+-                  {item.subtitle && <span className="block truncate text-caption">{tx(item.subtitle)}</span>}
+-                  <span className="block truncate text-caption">{t('switcherPlannedBody')}</span>
++                  {!variant && item.subtitle && <span className="block truncate text-caption">{tx(item.subtitle)}</span>}
++                  <span className={variant ? 'sr-only' : 'block truncate text-caption'}>{t('switcherPlannedBody')}</span>
+                 </span>
+               </button>
+             </li>;
+           })}</ul>
+         </div>}
++        {variant && platformLinks}
+       </PopoverContent>
+     </Popover>
+   </div>;
+diff --git a/packages/sdk/shell/src/frame/prototype1189.ts b/packages/sdk/shell/src/frame/prototype1189.ts
+new file mode 100644
+index 000000000..89f754497
+--- /dev/null
++++ b/packages/sdk/shell/src/frame/prototype1189.ts
+@@ -0,0 +1,15 @@
++import { createContext } from 'react';
++
++/** #1189 throwaway only. No public barrel export or persisted setting. */
++export const PrototypeHeadSwitcher = createContext(false);
++export function homePrototypeVariant() {
++  const value = new URLSearchParams(window.location.search).get('variant');
++  return value === 'A' || value === 'B' || value === 'C' ? value : null;
++}
++export function prototype1189Href(href: string) {
++  const variant = homePrototypeVariant();
++  if (!variant) return href;
++  const url = new URL(href, window.location.origin);
++  url.searchParams.set('variant', variant);
++  return url.pathname + url.search + url.hash;
++}
+diff --git a/platform/home/src/pages/OperationsHome.tsx b/platform/home/src/pages/OperationsHome.tsx
+index ff0288adb..0641b1cb4 100644
+--- a/platform/home/src/pages/OperationsHome.tsx
++++ b/platform/home/src/pages/OperationsHome.tsx
+@@ -1,11 +1,11 @@
+-import { useRef } from 'react';
++import { useRef, type ReactNode } from 'react';
+ import { Clock3, Megaphone, Star, X } from 'lucide-react';
+ import { type MenuEntry, type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform, useRecentVisits } from '@ap/kernel';
+ import { groupHomeSpaces, type HomeLauncherGroup } from '../launcher-groups';
+ import { noticesEndpoint } from '../endpoints';
+ import { dismissNotice, useDismissedNotices } from './dismissed-notices';
+ import { Panel, PlatformPage, QueryView } from '@ap/components';
+-import { Button, StatusBadge } from '@ap/ui';
++import { Button, cn, StatusBadge } from '@ap/ui';
+ 
+ /** Platform home (ADR-0028, 15 §3.1): space cards, then `내 할 일` (a Kernel slot, ADR-0070 decision 8), then favorites and recent, then notices. */
+ const NO_LAUNCHER_GROUPS: readonly HomeLauncherGroup[] = [];
+@@ -15,6 +15,18 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }:
+   const recent = useRecentVisits();
+   const { t, tx, lang } = useI18n();
+ 
++  // #1189 throwaway visual comparison on the real home route; no param keeps today's markup.
++  const value = new URLSearchParams(window.location.search).get('variant');
++  const variant = value === 'A' || value === 'B' || value === 'C' ? value : null;
++  const quiet = variant === 'B' || variant === 'C';
++  const HomePanel = quiet ? QuietHomeSection : Panel;
++  const prototypeHref = (href: string) => {
++    if (!variant) return href;
++    const url = new URL(href, window.location.origin);
++    url.searchParams.set('variant', variant);
++    return url.pathname + url.search + url.hash;
++  };
++
+   const dismissed = useDismissedNotices();
+   const noFavoritesRef = useRef<HTMLParagraphElement>(null);
+   const notices = useMenuQuery(noticesEndpoint, { targetScopeId: global.scopeId });
+@@ -68,6 +80,14 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }:
+     const home = registry.menuById(space.homeMenuId);
+     const Icon = registry.groupById(home.group).icon;
+     const resumeMenu = entry.resumed ? registry.menus.find(menu => menu.id === entry.menuId) : undefined;
++    if (variant) return <PlatformLink key={space.id} href={prototypeHref(entry.href)} className={cn('group flex min-w-0 items-start gap-3 hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring', variant === 'A' ? 'min-h-12 rounded-lg border border-border-subtle bg-surface-card p-3 hover:border-accent-primary' : 'min-h-9 rounded-md px-3 py-2')}>
++      <Icon className="mt-0.5 size-4 shrink-0 text-text-secondary" aria-hidden />
++      <span className="flex min-w-0 flex-1 items-baseline gap-2">
++        <span className="shrink-0 t-card-title">{tx(space.label)}</span>
++        {space.subtitle && !(variant === 'C' && resumeMenu) && <span className="truncate text-xs text-text-secondary">{tx(space.subtitle)}</span>}
++        {resumeMenu && <span className="ml-auto shrink-0 text-xs text-text-secondary">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
++      </span>
++    </PlatformLink>;
+     return <PlatformLink key={space.id} href={entry.href} className="flex min-h-16 min-w-0 items-start gap-3 rounded-lg border border-border-subtle bg-surface-card p-3 hover:border-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
+       <span className="grid size-9 shrink-0 place-items-center rounded-md bg-icon-blue-soft text-accent-primary"><Icon className="size-5" strokeWidth={1.75} aria-hidden /></span>
+       <span className="min-w-0 flex-1"><span className="block t-card-title">{tx(space.label)}</span>
+@@ -78,9 +98,14 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }:
+     </PlatformLink>;
+   };
+ 
+-  return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? 'VOC' : 'VOC'}</PlatformLink> : undefined}>
++  const listGroup = (group: typeof launcherSections[number], index: number) => <section key={index} className="min-w-0 space-y-2">
++    <h2 className="t-nav-group text-text-secondary">{tx(group.label)}</h2>
++    <div className="-mx-3 space-y-1">{group.spaces.map(compactEntry)}</div>
++  </section>;
++
++  return <PlatformPage description={variant && accessibleSpaces.length > 0 ? '' : undefined} secondaryActions={canOpen('voc') ? <PlatformLink href={prototypeHref(voc.href)} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? 'VOC' : 'VOC'}</PlatformLink> : undefined}>
+     {/* #1167 B-3/C-4: the container the launcher grids answer to is the page body, so a detail slot narrows it. */}
+-    <div className="@container space-y-4">
++    <div className={cn('@container', quiet ? 'space-y-6' : 'space-y-4')}>
+       <section aria-label={lang === 'ko' ? '업무 시스템' : 'Work systems'}>
+         {accessibleSpaces.length === 0
+           ? <div className="rounded-lg border border-border-subtle bg-surface-card p-4">
+@@ -92,6 +117,19 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }:
+                   </>
+                 : <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '필요한 업무 시스템의 접근 권한을 플랫폼 관리자에게 요청하세요.' : 'Ask a platform administrator for access to the work system you need.'}</p>}
+             </div>
++          : variant === 'B' ? <div className="grid grid-cols-2 items-start gap-6">
++              <div className="min-w-0 space-y-5">{launcherSections.slice(0, 1).map(listGroup)}</div>
++              <div className="min-w-0 space-y-5">
++                {launcherSections.slice(1, 2).map(listGroup)}
++                <div className="grid grid-cols-2 gap-6">{launcherSections.slice(2).map(listGroup)}</div>
++              </div>
++            </div>
++          : variant ? <div className={cn('grid', variant === 'A' ? 'grid-cols-3 gap-x-2 gap-y-4' : 'grid-cols-4 gap-x-6 gap-y-5')}>
++              {launcherSections.map((group, index) => <section key={index} className={cn('min-w-0 space-y-2', variant === 'A' && group.spaces.length > 1 && 'col-span-3')}>
++                <h2 className="t-nav-group text-text-secondary">{tx(group.label)}</h2>
++                <div className={cn(variant === 'A' ? 'grid grid-cols-3 gap-2' : '-mx-3 space-y-1', variant === 'A' && group.spaces.length === 1 && 'grid-cols-1')}>{group.spaces.map(compactEntry)}</div>
++              </section>)}
++            </div>
+           : launcherGroups.length > 0 ? <div className="space-y-4">{launcherSections.map((group, index) => <section key={index} className="space-y-2">
+               <h2 className="t-section-title">{tx(group.label)}</h2>
+               {/* #1167 B-3: columns follow the body width (a detail slot narrows it), not the viewport. */}
+@@ -118,39 +156,44 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }:
+ 
+       {homeTodo && <homeTodo.Todo />}
+ 
+-      <div className="grid gap-3 lg:grid-cols-2">
+-        <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={lang === 'ko' ? '지금 조회 조건을 유지하고 그 화면의 기본 보기로 이동합니다.' : "Opens the screen's default view with your current filters."}>
++      <div className={cn('grid lg:grid-cols-2', quiet ? 'gap-6 border-t border-border-subtle pt-5' : 'gap-3')}>
++        <HomePanel title={<span className="inline-flex items-center gap-2"><Star className={quiet ? 'size-3 text-text-secondary' : 'size-4 text-accent-warn'} aria-hidden />{t('favorites')}</span>} subtitle={variant ? undefined : lang === 'ko' ? '지금 조회 조건을 유지하고 그 화면의 기본 보기로 이동합니다.' : "Opens the screen's default view with your current filters."}>
+           {favoriteMenus.length === 0 ? <p ref={noFavoritesRef} tabIndex={-1}
+             className="text-xs text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('noFavorites')}</p> :
+             <ul className="divide-y divide-border-subtle">{favoriteMenus.map(menu => <li key={menu.id} className="flex items-center gap-3 py-2">
+               <menu.icon className="size-4 text-text-muted" aria-hidden />
+-              <PlatformLink href={linkTo(menu.id, { page: Object.fromEntries((registry.carrySetOf(menu)?.pageKeys ?? []).map(key => [key, null])) })} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(menu.label)}</PlatformLink>
++              <PlatformLink href={prototypeHref(linkTo(menu.id, { page: Object.fromEntries((registry.carrySetOf(menu)?.pageKeys ?? []).map(key => [key, null])) }))} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(menu.label)}</PlatformLink>
+               <span className="text-tiny text-text-muted">{affiliation(menu)}</span>
+               <button type="button" onClick={event => removeFavoriteRow(menu.id, event.currentTarget)} className="rounded-xs px-2 py-1 text-xs text-text-secondary hover:bg-surface-sunken">{t('removeFavorite')}</button>
+             </li>)}</ul>}
+-        </Panel>
+-        <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문했던 조회 조건으로 돌아갑니다. 권한은 다시 확인합니다.' : 'Returns with the filters you used. Access is checked again.'}>
+-          {recentRows.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noRecent')}</p> :
++        </HomePanel>
++        <HomePanel title={<span className="inline-flex items-center gap-2"><Clock3 className={quiet ? 'size-3 text-text-secondary' : 'size-4 text-text-muted'} aria-hidden />{t('recent')}</span>} subtitle={variant ? undefined : lang === 'ko' ? '방문했던 조회 조건으로 돌아갑니다. 권한은 다시 확인합니다.' : 'Returns with the filters you used. Access is checked again.'}>
++          {recentRows.length === 0 ? <p className={variant ? 'text-xs text-text-secondary' : 'rounded-md bg-surface-sunken p-3 text-xs text-text-secondary'}>{t('noRecent')}</p> :
+             <ul className="divide-y divide-border-subtle">{recentRows.map(row => <li key={row.menuId} className="flex items-center gap-3 py-2">
+               <row.menu.icon className="size-4 text-text-muted" aria-hidden />
+-              <PlatformLink href={row.url} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(row.menu.label)}</PlatformLink>
++              <PlatformLink href={prototypeHref(row.url)} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(row.menu.label)}</PlatformLink>
+               <span className="text-tiny text-text-muted">{affiliation(row.menu)}</span>
+-              <StatusBadge tone="neutral">{ago(row.at)}</StatusBadge>
++              {quiet ? <span className="text-tiny text-text-secondary">{ago(row.at)}</span> : <StatusBadge tone="neutral">{ago(row.at)}</StatusBadge>}
+             </li>)}</ul>}
+-        </Panel>
++        </HomePanel>
+       </div>
+ 
+-      <section aria-label={lang === 'ko' ? '공지' : 'Notices'} className="space-y-2">
+-        {canOpen('notices') && <PlatformLink href={noticesLink.href} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '공지 목록' : 'Notice list'}</PlatformLink>}
+-        {notices.response && notices.response.outcome === 'ok' && notices.response.data!.filter(notice => !dismissed.includes(notice.id)).map(notice =>
+-          <div key={notice.id} role="status" className="flex items-start gap-3 rounded-md border border-accent-primary/30 bg-accent-primary-soft px-4 py-2.5 text-sm">
++      <section aria-label={lang === 'ko' ? '공지' : 'Notices'} className={cn('space-y-2', quiet && 'border-t border-border-subtle pt-5')}>
++        {canOpen('notices') && <PlatformLink href={prototypeHref(noticesLink.href)} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '공지 목록' : 'Notice list'}</PlatformLink>}
++        {notices.response && notices.response.outcome === 'ok' && <div className={quiet ? 'divide-y divide-border-subtle' : 'space-y-2'}>{notices.response.data!.filter(notice => !dismissed.includes(notice.id)).map(notice =>
++          <div key={notice.id} role="status" className={quiet ? 'flex items-start gap-3 py-2.5 text-sm' : variant === 'A' ? 'flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-card px-4 py-2.5 text-sm' : 'flex items-start gap-3 rounded-md border border-accent-primary/30 bg-accent-primary-soft px-4 py-2.5 text-sm'}>
+             <Megaphone className="mt-0.5 size-4 shrink-0 text-accent-primary" aria-hidden />
+-            <span className="flex-1"><span className="t-mono mr-2 text-tiny text-text-muted">{notice.id}</span>{tx(notice.title)}</span>
++            <span className={cn('flex-1', variant && 'break-keep')}><span className="t-mono mr-2 text-tiny text-text-muted">{notice.id}</span>{tx(notice.title)}</span>
+             <button type="button" aria-label={lang === 'ko' ? '이번 방문 동안 닫기' : 'Dismiss for this visit'} className="grid size-6 place-items-center rounded-xs text-text-muted hover:bg-surface-card"
+               onClick={() => dismissNotice(notice.id)}><X className="size-3.5" aria-hidden /></button>
+-          </div>)}
++          </div>)}</div>}
+         {notices.response && !['ok', 'empty'].includes(notices.response.outcome) && <QueryView widgetName={lang === 'ko' ? '공지' : 'Notices'} hideWidgetName query={notices} compact>{() => null}</QueryView>}
+       </section>
+     </div>
+   </PlatformPage>;
+ }
++
++/** Prototype B/C use the same list grammar below the launcher, without nested panel surfaces. */
++function QuietHomeSection({ title, children }: { title?: ReactNode; subtitle?: ReactNode; children: ReactNode }) {
++  return <section className="min-w-0 space-y-3"><h2 className="t-nav-group text-text-secondary">{title}</h2>{children}</section>;
++}
