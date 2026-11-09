@@ -1107,6 +1107,7 @@ describe('row geometry and focus at the command boundary (#701 fix round)', () =
     const real = window.getComputedStyle.bind(window);
     const reads = vi.fn();
     storage.removeItem(KEY());
+    const stackLimit = Error.stackTraceLimit;
     Error.stackTraceLimit = 60;
     vi.spyOn(window, 'getComputedStyle').mockImplementation(((element: Element, pseudo?: string | null) => { if (element.hasAttribute('data-panel-workspace')) { reads(new Error().stack); } return real(element, pseudo); }) as typeof window.getComputedStyle);
     try {
@@ -1119,7 +1120,7 @@ describe('row geometry and focus at the command boundary (#701 fix round)', () =
       const count = reads.mock.calls.filter(([stack]) => String(stack).includes('PanelWorkspace.tsx')).length;
       view.unmount();
       return count;
-    } finally { vi.restoreAllMocks(); }
+    } finally { vi.restoreAllMocks(); Error.stackTraceLimit = stackLimit; }
   };
 
   it('a replayed state updater does not measure the DOM again: StrictMode (updaters run twice) reads as often as a plain render', async () => {
