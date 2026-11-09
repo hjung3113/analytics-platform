@@ -233,7 +233,7 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | 정확한 총 건수 | 존재 유추 위험 | 가려진 건수를 못 알아내게 하는 방법이 있을 때 |
 | 원본 로그 본문 검색 | 본문이 ACL 밖으로 나감 | [log-explorer §9](../log-explorer/README.md#9-미구현-목록-다시-여는-조건)의 조건 |
 | 그림자 비교의 자동 승격 | 첫 교체 전에는 불필요 | 어댑터를 실제로 바꿀 때 |
-| 후보 질의 지연 p95 ≤ 300 ms 미달 — **미구현** | #1593에서 가시성 판정을 적중 행에만 돌리도록 바꿔(판정 규칙은 `visibleItemSql` 하나 그대로) 10만 Item p95가 108/83/64 s에서 19.7/20.2/21.3 s로, 단독 문장은 22 s에서 0.8 s로 줄었으나 목표는 아직 못 맞춘다. 남은 원인은 6단계 `tsv @@ … OR <% term_text`가 인덱스 없이 `search_document` 전체를 병렬 순차 훑는 것(약 0.7 s)과 동시 30 대기열이다([results.md](results.md)) | 6단계를 전문 검색 가지와 트라이그램 가지로 나눠 각 GIN 인덱스를 타게 하고 `search:load`를 0/5/30 %에서 다시 돌려 p95 ≤ 300 ms 요구 |
+| 후보 질의 지연 p95 ≤ 300 ms 미달 — **미구현** | #1593에서 가시성 판정을 적중 행에만 돌리도록 바꿔(판정 규칙은 `visibleItemSql` 하나 그대로) 10만 Item p95가 108/83/64 s에서 19.7/20.2/21.3 s로, 단독 문장은 22 s에서 0.8 s로 줄었으나 목표는 아직 못 맞춘다. 남은 원인은 6단계 `tsv @@ … OR <% term_text`가 인덱스 없이 `search_document` 전체를 병렬 순차 훑는 것(약 0.7 s)과 동시 30 대기열이다([results.md](results.md)) | [#1599](https://github.com/hjung3113/analytics-platform/issues/1599): 측정 구간 실패 이유를 분류하고, 6단계를 전문 검색 가지와 트라이그램 가지로 나눠 각 GIN 인덱스를 타게 하고 `search:load`를 0/5/30 %에서 다시 돌려 p95 ≤ 300 ms 요구 |
 | 색인 표 `ANALYZE` — **미구현** | 새 표에는 통계가 없어 같은 질의가 440건 말뭉치에서도 수 초 걸린다 | 첫 운영 backfill 전 또는 backfill 작업에 후처리 단계가 생길 때 |
 | camelCase 질의가 snake_case 본문을 못 찾음 — **미구현** | 질의 단어가 원형 소문자(`gaslineclog`)로만 남아 문서의 분리 토큰과 맞지 않는다 | 소유자가 `search-normalize`의 변형 접기를 결정 |
 | 글자 순서가 바뀐 오타 미적중 — **미구현** | trigram 유사도가 기본 문턱 아래. §4.2: 자동 교정 없음 | 실제 본문 오타 측정에서 놓치는 비율이 문제로 확인됨 |
