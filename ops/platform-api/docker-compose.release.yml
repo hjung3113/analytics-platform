@@ -31,6 +31,11 @@ services:
     volumes:
       - release-postgres-data:/var/lib/postgresql/data
       - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/10-platform-init.sql:ro
+    # Parallel queries (knowledge search runs them) keep their hash and sort segments in /dev/shm. Docker's 64 MB default
+    # failed 243-268 of 3,000 search requests with «could not resize shared memory segment … No space left on device»
+    # at 30 clients (#1599). 256m is sized as the pool (DB_POOL_MAX 10) times about 24 MB per parallel query (2 workers
+    # + leader, work_mem 4 MB x hash_mem_multiplier 2); it is charged to the container memory limit, not added to it.
+    shm_size: 256m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 5s
