@@ -122,6 +122,8 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'logKnowledge.modelProfile': { modelId: '00000003-0000-4000-8000-000000000008' },
   // Knowledge item reads (#1197 s2): the mock seed's first item (uuid by sequence, `src/mock/items.ts`).
   'logKnowledge.items': { q: null, ...page },
+  'logKnowledge.search': { q: 'STEP_PROCESS', limit: 10 },
+  'logKnowledge.searchSuggest': { q: 'STEP' },
   'logKnowledge.itemDetail': { itemId: '00000005-0000-4000-8000-000000000001' },
   'logKnowledge.modelSpec': { modelId: '00000003-0000-4000-8000-000000000008' },
   'logKnowledge.specCoverage': { modelId: '00000003-0000-4000-8000-000000000008' },
