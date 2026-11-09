@@ -40,6 +40,8 @@ test.describe('통합 검색 URL·상세·키보드 계약 (#1509, §6.4·§13·
     await source.press('ArrowDown');
     const search = page.getByPlaceholder('Event 키 입력', { exact: true });
     await search.fill('CHAMBER/CUSTOM_READY');
+    // The option list settles after the keystroke: the highlight must land on the list the user is shown.
+    await expect(page.getByRole('listbox', { name: 'Event 키' }).getByRole('option').first()).toContainText('CHAMBER/CUSTOM_READY');
     await search.press('ArrowDown');
     await search.press('Enter');
     await expect(source).toContainText('CHAMBER/CUSTOM_READY');
