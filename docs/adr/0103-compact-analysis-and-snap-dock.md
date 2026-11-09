@@ -20,7 +20,7 @@ Independent public density/chrome props on every component would allow inconsist
 - [Analysis board](../design/analysis-board.md): native Dock previews.
 - [DESIGN.md](../../DESIGN.md#compact-analysis--decided-1141): visual composition.
 
-The operational capture scope is owned by [root AGENTS.md](../../AGENTS.md#검증).
+The operational capture scope is owned by [root AGENTS.md](../../AGENTS.md#verification).
 
 ## Amendment (#1166, 2026-10-31): embedded chrome no longer depends on density
 

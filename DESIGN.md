@@ -244,7 +244,7 @@ Opt-in page density and embedded chart/table chrome follow [06 §12](docs/contra
 
 산업 로그 분석 reference는 5개 KPI → pipeline 왼쪽/operations 오른쪽(약 64/36) → lifecycle 왼쪽/quality 오른쪽(약 47/53) → 전체 폭 equipment table의 구성이었다. quality는 **3개 ring + 1개 bar**이며 네 번째 donut을 만들지 않는다. pipeline-status가 첫 주요 행의 넓은 focal region이라는 판단은 **Candidate**다. 실제 사용자 과제가 예외 처리를 우선하면 재검토한다. 모든 메뉴의 필수 배치가 아니다.
 
-넓은 화면은 비교 패널을 나란히 두고 좁은 desktop은 column 수를 줄이거나 보조 패널을 접근 가능한 drawer로 옮긴다(06 §25 Candidate). pipeline 순서는 유지하고 필요하면 영역 안에서 가로 스크롤한다. 표 글자를 줄여 맞추지 않는다. 지원·캡처 범위는 루트 [AGENTS.md의 Desktop capture scope](AGENTS.md#검증)를 따른다.
+넓은 화면은 비교 패널을 나란히 두고 좁은 desktop은 column 수를 줄이거나 보조 패널을 접근 가능한 drawer로 옮긴다(06 §25 Candidate). pipeline 순서는 유지하고 필요하면 영역 안에서 가로 스크롤한다. 표 글자를 줄여 맞추지 않는다. 지원·캡처 범위는 루트 [AGENTS.md의 Desktop capture scope](AGENTS.md#verification)를 따른다.
 
 ### KPI tiles and supporting copy
 
