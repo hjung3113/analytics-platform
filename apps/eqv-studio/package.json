@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "build": "vite build --configLoader runner",
-    "demo:generate": "tsx scripts/demo/write.ts ../../packages/eqv/assets"
+    "demo:generate": "node --import ./scripts/demo/register-ts.mjs scripts/demo/write.ts ../../packages/eqv/assets"
   },
   "dependencies": {
     "@ap/ui": "workspace:*",
@@ -39,7 +39,6 @@
     "eslint": "^10.11.0",
     "jsdom": "^26.1.0",
     "tailwindcss": "^4.3.3",
-    "tsx": "4.23.15",
     "typescript": "^5.9.3",
     "vite": "^7.3.6",
     "vitest": "^3.2.7"
