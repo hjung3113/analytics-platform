@@ -13,8 +13,8 @@ const FORBIDDEN: { label: string; test: (id: string) => boolean }[] = [
   { label: 'menus/*/*/src/mock/', test: id => /\/menus\/[^/]+\/[^/]+\/src\/mock\//.test(id) },
   { label: 'platform/*/src/mock/', test: id => /\/platform\/[^/]+\/src\/mock\//.test(id) },
   { label: 'apps/platform-web/src/dev/', test: id => id.includes('/apps/platform-web/src/dev/') },
-  // EV's synthetic endpoint data (#801): the bare specifier, or the resolved dist file (pnpm store path or node_modules link).
-  { label: '@eqv/platform-adapter/mock-data', test: id => /@eqv\/platform-adapter\/(dist\/)?mock-data(\/|$)/.test(id) },
+  // EV's synthetic endpoint data (#801): the bare specifier, or the resolved workspace source (packages/eqv/platform-adapter/src/mock-data, #1614); the old dist form stays harmless.
+  { label: '@eqv/platform-adapter/mock-data', test: id => /@eqv\/platform-adapter\/(dist\/)?mock-data(\/|$)/.test(id) || /\/packages\/eqv\/platform-adapter\/src\/mock-data(\/|$)/.test(id) },
 ];
 
 /** Offending ids with the rule each one broke; Windows separators are normalised first. */
