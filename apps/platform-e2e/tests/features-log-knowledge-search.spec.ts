@@ -29,7 +29,7 @@ test.describe('통합 검색 URL·상세·키보드 계약 (#1509, §6.4·§13·
     await signInAs(page, 'admin');
     await page.goto(`/log/knowledge/search?v=1&q=${encodeURIComponent(query)}`);
     await page.getByRole('region', { name: '검색 결과', exact: true }).getByRole('link', { name: 'KI-1', exact: true }).click();
-    await expect(page.getByRole('heading', { name: /Chamber pressure/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /챔버 압력 로그 지연/ })).toBeVisible();
     await page.getByRole('button', { name: '수정', exact: true }).click();
     const drawer = page.getByRole('dialog', { name: '기술 Item 수정', exact: true });
     const relation = drawer.getByRole('group', { name: '관계 1', exact: true });
