@@ -99,6 +99,43 @@
         "$TURBO_ROOT$/packages/eqv/assets/**",
         "$TURBO_ROOT$/packages/eqv/fixtures/**"
       ]
+    },
+    "@eqv/replay#test": {
+      "dependsOn": [
+        "transit"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/eqv/fixtures/**"
+      ]
+    },
+    "@eqv/views#test": {
+      "dependsOn": [
+        "transit"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/eqv/fixtures/**"
+      ]
+    },
+    "@eqv/editor#test": {
+      "dependsOn": [
+        "transit"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/eqv/assets/**",
+        "$TURBO_ROOT$/packages/eqv/fixtures/**"
+      ]
+    },
+    "@eqv/platform-adapter#test": {
+      "dependsOn": [
+        "transit"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/eqv/fixtures/**"
+      ]
     }
   }
 }
