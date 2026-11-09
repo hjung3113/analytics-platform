@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { generateDemo } from './generate.ts';
 
-// Usage: node scripts/demo/write.ts <data-root>
+// Usage: tsx scripts/demo/write.ts <data-root>
 const dataRoot = process.argv[2];
 if (dataRoot === undefined) {
   console.error('usage: write.ts <data-root>');

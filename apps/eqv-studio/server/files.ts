@@ -1,6 +1,6 @@
 import { layoutPath } from '../src/paths.js';
 import { link, lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import {
   layoutRevision, mappingVersionSchema, observedInventorySchema, validateAliasRules, validateBindings, validateLayout,
@@ -290,11 +290,21 @@ export function createFileApi({ root, repoRoot, hooks }: { root: string; repoRoo
     }
   }
 
+  /** The bundled catalog (packages/eqv/assets) is read-only for every write path, whatever the data root or a symlink points at. */
+  async function assertNotBundled(base: string): Promise<void> {
+    if (repoRoot === undefined) return;
+    const bundled = await realpath(join(repoRoot, BUNDLED_ASSETS_DIR)).catch(() => undefined);
+    if (bundled === undefined) return;
+    const target = await realpath(base);
+    if (target === bundled || target.startsWith(`${bundled}${sep}`)) fail(403, 'The bundled assets folder is read-only; point EQV_STUDIO_ASSETS at a folder outside this repository');
+  }
+
   async function write(
     segments: string[], value: unknown, immutable: boolean, createOnly = false, requestScope?: WriteScope,
   ): Promise<{ created: boolean; conflict: boolean; exists?: boolean }> {
     await hooks?.beforeWrite?.();
     const scope = requestScope ?? { base: await rootReal() };
+    await assertNotBundled(scope.base);
     const absolute = join(scope.base, ...segments);
     const text = `${JSON.stringify(value, null, 2)}\n`;
     if (createOnly || immutable) {

@@ -118,6 +118,25 @@ describe('data-root guard', () => {
     expect(result.status).toBe(201);
   });
 
+  it('never writes into the bundled assets folder, even as the data root, below it, or through a symlink', async () => {
+    const bundled = join(base, 'packages/eqv/assets');
+    const below = join(bundled, 'sub');
+    await mkdir(below, { recursive: true });
+    const linked = join(base, 'linked-root');
+    await symlink(bundled, linked);
+    const template = await readFile(join(ev, 'assets/templates/cluster-single.template.json'), 'utf8');
+    const body = JSON.stringify({ ...JSON.parse(template), id: 'cluster-single' });
+    const url = `/api/files${query({ path: 'layouts/cluster-single/draft.layout.json' })}`;
+    for (const root of [bundled, below, linked]) {
+      const result = await send(createFileApi({ root, repoRoot: base }), 'PUT', url, body);
+      expect(result.status).toBe(403);
+    }
+    expect(await readdir(bundled)).toEqual(['sub']);
+    const outside = join(base, 'assets/sub/deeper');
+    await mkdir(outside, { recursive: true });
+    expect((await send(createFileApi({ root: outside, repoRoot: base }), 'PUT', url, body)).status).toBe(201);
+  });
+
   it('fails closed when the data root is missing', async () => {
     const missing = createFileApi({ root: join(base, 'nope'), repoRoot: repo });
     expect(await send(missing, 'GET', '/api/import/status')).toEqual({

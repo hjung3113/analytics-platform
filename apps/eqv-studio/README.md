@@ -177,7 +177,7 @@ Written only through `/api/import/*`; the general `PUT /api/files` gets 403 for 
 
 `templates/` and `primitives/` are not writable through `PUT /api/files` (403); `templates/<id>.template.json` is written only by `POST /api/template-promotions`, which promotes one published Layout Revision (the Layouts page's **Template으로 승격**; `promotedFrom` records the source). The Template catalog is the bundled `<repo>/packages/eqv/assets/templates/` when the data root is inside the repo (status `catalog: 'bundled'`), and the bundle plus the data root's `templates/` when it is outside (`'bundled+data-root'`; the Template list is `GET /api/templates` (the Layouts page and Onboarding both use it) and a file read tries the bundle first, then the data root). Without a repository root (test seam) the data root's `templates/` is the whole catalog and the status says `'bundled'`. `equipment/` and `observations/` are written only through `/api/import/*`. Fleet and Onboarding read `equipment/<equipmentId>.json`, `observations/<equipmentId>/alias-metadata.json` and the `onboarding/` files above, and validate each at read time; the Studio reads `observations/<equipmentId>/windows/*.batch.json` (one selected Sample Window). Files are written as received (`JSON.stringify(value, null, 2)` plus a newline); mutable files are replaced atomically.
 
-## Mapping Board (#14b)
+## Mapping Board (EV#14b)
 
 `/onboarding/:equipmentId/board` is step ④ of the Onboarding flow. It reads, through the same loader as the Onboarding page:
 the equipment record, its observations and the `onboarding/` files above (including the maker, model and equipment `alias-rules.json`
@@ -195,7 +195,7 @@ The Board writes only:
 It never writes a Mapping Version or a binding, so published mappings are unchanged (EV ADR-0005). Unsaved edits ask before Studio
 navigation leaves the page, and the browser prompts on reload or close.
 
-## Validate and Publish (#14d)
+## Validate and Publish (EV#14d)
 
 Above the Mapping Board, the page shows steps ⑤ and ⑥ (EV ADR-0007).
 
