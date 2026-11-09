@@ -19,7 +19,7 @@ import { hashToken } from '../../api-tokens/token-format.js';
 import { toCodeKey } from '../domain/code-key.js';
 import { visibleItemSql } from '../repositories/access-visibility.js';
 import { pgSearchPort } from '../repositories/search-pg-adapter.js';
-import { applyItem } from '../repositories/search-index.js';
+import { applyItem, backfillWorkspace, drainBatch, ensureBackfill } from '../repositories/search-index.js';
 import { type SearchInput, type SearchResponse, runSearch, runSuggest } from '../repositories/search-read.js';
 import { describeSearchPortContract } from './search-port-contract.js';
 
@@ -401,10 +401,27 @@ describe.skipIf(!runIntegration)('log knowledge search read (#1507 S-d)', () => 
     expect(r.capped).toBe(false);
     expect(Object.keys(r).sort()).toEqual(['capped', 'hasMore', 'indexLag', 'interpretation', 'items', 'nextCursor', 'opposite', 'oppositeHasMore', 'version']);
     expect(JSON.stringify(r)).not.toMatch(/"(total|totalCount|count|matchCount|hiddenCount)"/i);
-    await bulk(3, 'internal', 'capword');
+    const extra = await bulk(3, 'internal', 'capword');
     r = await search({ q: 'capword', limit: 50 });
     expect(r.capped).toBe(true);
     expect(r.hasMore).toBe(true);
+    // Archived before the drain: the three no longer count as visible matches, with no reindex.
+    await sql(`update knowledge.knowledge_item set publication_state = 'archived', row_version = row_version + 1 where id = any($1)`, [extra]);
+    r = await search({ q: 'capword', limit: 50 });
+    expect(r.capped).toBe(false);
+  });
+
+  it('an archived Item leaves the results and the suggestions at once, before the drain', async () => {
+    const target = await item(ws, { model: models.MD }, `${TAG} archtarget kappa`);
+    const linker = await item(ws, { model: models.MD }, `${TAG} archlinker`);
+    await sql(`insert into knowledge.item_link (workspace_id, source_item_id, target_item_id, link_kind, created_by) values ($1,$2,$3,'related',$4)`, [ws, linker, target, creator]);
+    await index(ws, target, linker);
+    expect((await search({ q: 'archlinker' })).items[0]?.relatedCount).toBe(1);
+    expect((await runSuggest(dbHandle.db, view(viewerA), `${TAG.toLowerCase()} archtarget`, null)).suggestions.map((s) => s.text)).toEqual([`${TAG} archtarget kappa`]);
+    await sql(`update knowledge.knowledge_item set publication_state = 'archived', row_version = row_version + 1 where id = $1`, [target]);
+    // Not asserted: `relatedCount` still counts an archived linked Item (relatedCounts checks ACL visibility only) — recorded as a gap in design §9.
+    expect((await runSuggest(dbHandle.db, view(viewerA), `${TAG.toLowerCase()} archtarget`, null)).suggestions).toEqual([]);
+    expect((await search({ q: 'archtarget' })).items).toEqual([]);
   });
 
   it('keyset pages are stable: no duplicate, no gap, a foreign cursor is refused', async () => {
@@ -496,20 +513,33 @@ describe.skipIf(!runIntegration)('log knowledge search read (#1507 S-d)', () => 
     expect(sug.data.suggestions).toEqual([]);
   });
 
-  it('a Draft (create or revise proposal) is never indexed and never returned, before or after the owner is reindexed', async () => {
+  it('a Draft (human create/revise, Validator candidate) is never indexed and never returned, before or after a workspace backfill and drain', async () => {
     const word = `${TAG.toLowerCase()}draftonly`;
     const published = await item(ws, { model: models.MA }, `${TAG} published base`);
     const createDraft = (await sql(`insert into knowledge.draft (workspace_id, origin, proposal_type, owner_model_id, submitter_actor_id, created_by, updated_by) values ($1,'human','create',$2,$3,$3,$3) returning id`, [ws, models.MA, creator])).rows[0].id as string;
     const reviseDraft = (await sql(`insert into knowledge.draft (workspace_id, origin, proposal_type, owner_model_id, target_item_id, base_revision_no, submitter_actor_id, created_by, updated_by) values ($1,'human','revise',$2,$3,1,$4,$4,$4) returning id`, [ws, models.MA, published, creator])).rows[0].id as string;
-    for (const d of [createDraft, reviseDraft]) {
+    const validatorDraft = (await sql(`insert into knowledge.draft (workspace_id, origin, proposal_type, owner_model_id, submitter_actor_id, created_by, updated_by, validator_source_system, validator_run_id, validator_finding_id) values ($1,'validator','create',$2,$3,$3,$3,'fixture',$4,'f1') returning id`, [ws, models.MA, creator, TAG])).rows[0].id as string;
+    for (const d of [createDraft, reviseDraft, validatorDraft]) {
       await sql(`insert into knowledge.draft_revision (workspace_id, draft_id, draft_rev_no, proposal_json, payload_digest, author_actor_id, author_auth) values ($1,$2,1,$3::jsonb,$4,$5,'session')`, [ws, d, JSON.stringify({ title: `${word} title`, observation: `${word} body` }), 'a'.repeat(64), creator]);
     }
+    const leaks = async () => {
+      expect((await search({ q: word })).items).toEqual([]);
+      expect((await runSuggest(dbHandle.db, view(viewerA), word, null)).suggestions).toEqual([]);
+      expect((await sql(`select 1 from knowledge.search_document where workspace_id = $1 and (search_text like $2 or term_text like $2)`, [ws, `%${word}%`])).rows).toEqual([]);
+    };
+    await leaks(); // before any indexing
     await index(ws, published);
-    expect((await search({ q: word })).items).toEqual([]);
-    expect((await runSuggest(dbHandle.db, view(viewerA), word, null)).suggestions).toEqual([]);
-    const docs = await sql(`select 1 from knowledge.search_document where workspace_id = $1 and (search_text like $2 or term_text like $2)`, [ws, `%${word}%`]);
-    expect(docs.rows).toEqual([]);
-    expect((await search({ q: 'published base' })).items.map((i) => i.itemId)).toContain(published);
+    await leaks();
+    // The workspace backfill enqueues every published Item, the drain builds the documents: Drafts must not enter through that path either.
+    try {
+      await dbHandle.db.transaction((tx) => ensureBackfill(tx, ws));
+      await backfillWorkspace(dbHandle.db, ws);
+      for (let n = 0; n < 50 && (await drainBatch(dbHandle.db)).claimed > 0; n += 1);
+      await leaks();
+      expect((await search({ q: 'published base' })).items.map((i) => i.itemId)).toContain(published);
+    } finally {
+      await sql('delete from knowledge.search_backfill_progress where workspace_id = $1', [ws]);
+    }
   });
 
   it('Items with the same title in different owners stay separate rows, each with its own owner', async () => {
@@ -521,7 +551,7 @@ describe.skipIf(!runIntegration)('log knowledge search read (#1507 S-d)', () => 
     expect(r.items.map((i) => i.itemId).sort()).toEqual([a, b].sort());
   });
 
-  it('the query text is not written to the audit log or the usage events', async () => {
+  it('the query text is not written to the audit log or to server-persisted usage events (client emission is not driven here)', async () => {
     const word = `${TAG.toLowerCase()}noleakquery`;
     expect((await call('logKnowledge.search', { q: word }, { cookie: admin.cookie })).outcome).toBe('ok');
     expect((await call('logKnowledge.searchSuggest', { q: word }, { cookie: admin.cookie })).outcome).toBe('ok');
