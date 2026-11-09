@@ -174,4 +174,4 @@
 
 결정자는 사용자 결정과 플랫폼(에이전트)이 계약에서 유도한 결정을 섞지 않는다. 사용자가 코디네이터에게 위임한 결정은 `Candidate`로 남기지 않고 `Decided`로 기록하며, 결정자를 `코디네이터(사용자 위임)`로 적고 되돌릴 수 있음을 함께 적는다.
 
-Historical feature decisions keep the separate **FO ADR-NNNN** namespace: [preservation context](../integration/feature-history.md) and [original index](history/feedbackops/README.md). Current platform decisions above supersede historical standalone identity/navigation where stated.
+Historical feature decisions keep the separate **FO ADR-NNNN** namespace: [preservation context](../integration/feature-history.md) and [original index](history/feedbackops/README.md). EV's own 16 ADRs are frozen under [history/eqv](history/eqv/README.md) and cited as **EV ADR-NNNN**; ADR-0132 is the platform decision that merged them. Current platform decisions above supersede historical standalone identity/navigation where stated.

@@ -41,6 +41,6 @@ ADR-0027은 FeedbackOps를 독립 앱으로 두고 업무 공간에서 새 탭 �
 
 - 단계와 Open 항목은 [합류 설계](../integration/history/feedbackops-merge-design.md) §6·§7이 소유한다. 단계 이슈: [#592](https://github.com/hjung3113/analytics-platform/issues/592) 저장소, [#593](https://github.com/hjung3113/analytics-platform/issues/593) 실서버, [#594](https://github.com/hjung3113/analytics-platform/issues/594) 전역 기능, [#595](https://github.com/hjung3113/analytics-platform/issues/595) 피드백 운영 시스템, [#596](https://github.com/hjung3113/analytics-platform/issues/596) 권한 결정, [#597](https://github.com/hjung3113/analytics-platform/issues/597) 독립 앱 은퇴.
 - M5 FeedbackOps 2단계(지도 #213)는 이 결정으로 대체된다. M3의 1단계 읽기 화면 이슈(#84–#86)는 #594에 흡수된다.
-- 호스트 → 모듈 계약(ADR-0053, #402)은 equipment-visualization과 사내 새 앱을 위해 그대로 둔다. FeedbackOps는 그 계약의 소비자가 아니다.
+- 호스트 → 모듈 계약(ADR-0053, #402)은 equipment-visualization과 사내 새 앱을 위해 그대로 둔다. FeedbackOps는 그 계약의 소비자가 아니다. (2026-11-10 정정: equipment-visualization은 외부 저장소가 아니라 [ADR-0132](0132-eqv-merges-into-platform.md)로 `packages/eqv/*`에 합쳐졌고, 계약은 그대로다.)
 - 화면 모양이 바뀌는 단계(#594·#595)는 루트 AGENTS의 `?variant=` 시안 컨펌을 먼저 받는다.
 - 운영 배포는 #150·#151 답 뒤다. 단계 1–4는 mock 인증과 throwaway DB로 진행할 수 있다.

@@ -517,6 +517,22 @@ _Avoid_: 드릴다운 메뉴 — 별도 메뉴가 아니라 한 메뉴 안의 �
 **Data Trust** (`trust`):
 조회 결과 숫자의 상태 — 갱신 시각(`updatedAt`), 데이터 기준 시각(`dataThrough`), Coverage, 지표 버전, 잠정(provisional) 여부, 원천. 응답 봉투의 `trust`로 오고 `DataTrustIndicator`가 같은 어휘로 보인다. 그 조회의 신뢰이며 화면이 말하는 대상의 상태가 아니다([06 §18](docs/contract/components.md#18-data-trust-contract)). Coverage는 늘 이 Data Trust 필드를 뜻하며, 견본 표시나 기능 연동 화면에 쓰지 않는다.
 
+### 설비 시각화(EV)
+
+설비 시각화 도메인(`packages/eqv/*`, [ADR-0132](docs/adr/0132-eqv-merges-into-platform.md))의 어휘는 [EV 용어집](docs/design/features/equipment-visualization/GLOSSARY.md)이 소유한다. 아래는 AP 용어와 같은 낱말을 다른 뜻으로 쓰는 EV 용어다. 겹치는 낱말은 AP 정의를 그대로 두고 EV 뜻에 «EV …» 이름을 붙인다. EV 안에서 쓰는 한정 없는 낱말은 EV 용어집 뜻이다.
+
+**EV Occurrence**:
+원천(parser)이 Start/End를 이미 짝지어 확정한 하나의 실행·이송·체류 구간 자체. 끝이 아직 없으면 열린 Occurrence(`end=null`)다. Replay의 입력 단위다. 같은 실행 한 건을 AP의 **Occurrence**는 식별 키(`equipmentId`, `entityType`, `anchor`)로, EV는 구간 데이터로 가리킨다. EV Occurrence의 `anchor`가 AP **Occurrence**의 `anchor`이며 둘은 같은 RecordSequence에서 온다.
+_Avoid_: event(점 이벤트를 뜻할 때만 사용), interval
+
+**EV Template**:
+한 설비 구조 아키타입의 재사용 레이아웃(`roleCardinality`로 Role별 허용 개수를 가지며 매칭 후보가 된다). 게시된 Layout Revision에서 승격하면 출처 `promotedFrom`을 가진다. **페이지 유형**(Page Archetype)이나 **Workflow Template**(기능 도메인의 기본 상태 구성)과 무관하다.
+_Avoid_: 단독 Template(AP 문서에서), archetype(구조 분류 이름으로만)
+
+**EV Coverage**:
+샘플 기간 Occurrence의 alias 참조 중 매핑으로 해석된 비율(건수 가중). Ignored Alias는 분모에서 뺀다. Onboarding의 매핑 완성도이며 **Data Trust**의 Coverage나 기능 연동 Coverage와 다르다.
+_Avoid_: 단독 Coverage(AP 문서에서)
+
 ### 기능 도메인
 
 Workspace는 기능 데이터의 tenant 경계이며 분석 작업 영역과 다르다. Managed System Permission Scope는 Scope(room_name)와 별개의 권한 개념이다.
@@ -1031,3 +1047,4 @@ _Avoid_: Cluster member as a single bulk target, merged record, bare "candidate"
 - "Customer" was used for the people who provide VOC. Resolved: this product is internal-only, so use **User** for the lowest internal role level; avoid external-customer language in MVP domain docs.
 - "Project" can be confused with **Managed System** when users say things like "Tableau project" or "Power BI project." Resolved for MVP discussion: Tableau, Power BI, and Looker-like independent analytics programs are **Managed Systems**, and every **VOC** must select one.
 - "Project Registry" was carrying Managed System responsibilities such as scope, defaults, and filters. Resolved: MVP uses **Managed System Registry** for those responsibilities; broader execution grouping should use **Work Initiative** only if it becomes necessary.
+- "Occurrence", "Template" and "Coverage" were used by the equipment-visualization (EV) repository with other meanings than AP. Resolved: AP keeps its definitions; the EV meanings are **EV Occurrence**, **EV Template**, **EV Coverage** (section 설비 시각화(EV)). **Carrier** agrees in both (a physical wafer container; EV adds that its wafers sit in the LoadPort Holding Site).
