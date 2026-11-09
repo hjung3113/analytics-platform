@@ -17,7 +17,9 @@
     "db:generate": "node scripts/bundle-schema.mjs && drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:check": "drizzle-kit check",
-    "db:seed": "tsx src/seed/index.ts"
+    "db:seed": "tsx src/seed/index.ts",
+    "search:eval": "tsx --env-file=${PLATFORM_API_ENV_FILE:?set PLATFORM_API_ENV_FILE to the throwaway database env file} src/modules/log-knowledge/__tests__/search-eval/run-eval.ts",
+    "search:load": "tsx --env-file=${PLATFORM_API_ENV_FILE:?set PLATFORM_API_ENV_FILE to the throwaway database env file} src/modules/log-knowledge/__tests__/search-eval/run-load.ts"
   },
   "dependencies": {
     "@ap/contract-schemas": "workspace:*",
