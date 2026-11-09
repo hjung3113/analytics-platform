@@ -70,12 +70,17 @@ function textHits(plan: SearchPlan): SQL[] {
   );
   hits.push(sql`SELECT it.item_id, 3 AS stage, 1000000 AS score_micro, 'exact_token' AS reason, false AS expected_only
     FROM items it JOIN knowledge.search_document d ON d.workspace_id = ${ws} AND d.item_id = it.item_id AND d.index_generation = ${gen} WHERE ${exact}`);
-  // Stage 6: full text (all words) or trigram word similarity of the whole query.
-  hits.push(sql`SELECT it.item_id, 6 AS stage,
-      round(greatest(CASE WHEN d.tsv @@ plainto_tsquery('simple', ${t.normalized}) THEN ts_rank(d.tsv, plainto_tsquery('simple', ${t.normalized})) ELSE 0 END, word_similarity(${t.normalized}, d.term_text)) * 1000000)::int AS score_micro,
-      'text' AS reason, false AS expected_only
-    FROM items it JOIN knowledge.search_document d ON d.workspace_id = ${ws} AND d.item_id = it.item_id AND d.index_generation = ${gen}
-    WHERE d.tsv @@ plainto_tsquery('simple', ${t.normalized}) OR ${t.normalized} <% d.term_text`);
+  // Stage 6: full text (all words) or trigram word similarity of the whole query. One select per index: an `OR` of the two
+  // conditions has no usable index and scans every document. The trigram branch skips what full text already matched, so
+  // no Item appears twice.
+  // The document scan is planned on its own (`OFFSET 0` fence): joined to `items` the planner chose a parallel sequential scan
+  // for the trigram branch (about 0.8 s at 100,000 Items) although the trigram index answers it in about 0.15 s.
+  const score = sql`round(greatest(CASE WHEN d.tsv @@ plainto_tsquery('simple', ${t.normalized}) THEN ts_rank(d.tsv, plainto_tsquery('simple', ${t.normalized})) ELSE 0 END, word_similarity(${t.normalized}, d.term_text)) * 1000000)::int`;
+  const stage6 = (where: SQL) => sql`SELECT it.item_id, 6 AS stage, d.score_micro, 'text' AS reason, false AS expected_only
+    FROM (SELECT d.item_id, ${score} AS score_micro FROM knowledge.search_document d WHERE d.workspace_id = ${ws} AND d.index_generation = ${gen} AND ${where} OFFSET 0) d
+    JOIN items it ON it.item_id = d.item_id`;
+  hits.push(stage6(sql`d.tsv @@ plainto_tsquery('simple', ${t.normalized})`));
+  hits.push(stage6(sql`${t.normalized} <% d.term_text AND NOT d.tsv @@ plainto_tsquery('simple', ${t.normalized})`));
   if (t.conceptKeys.length > 0) {
     // Stage 4 (text): Items about an Event that a confirmed equivalent concept mapping ties to what the query names.
     hits.push(sql`SELECT it.item_id, 4 AS stage, 1000000 AS score_micro, 'concept_mapping' AS reason, false AS expected_only
