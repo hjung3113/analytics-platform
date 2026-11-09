@@ -1,0 +1,25 @@
+@import "tailwindcss";
+@import "@ap/ui/styles.css";
+@import "@eqv/ui/styles.css";
+@import "@eqv/ui/theme.css";
+@import "@eqv/editor/styles.css";
+@import "@eqv/replay/styles.css";
+@import "@eqv/views/styles.css";
+@import "sonner/dist/styles.css";
+@source ".";
+
+/* Studio base: body typography, mono `code` and inline text links, the only bare elements left: @ap/ui has no link component.
+   Headings, lists, sections and alerts come from @eqv/ui / @ap/ui components. @ap/ui tokens only; layered, so utilities still win. */
+@layer base {
+  body {
+    margin: 0;
+    background: rgb(var(--surface-canvas));
+    color: rgb(var(--text-primary));
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--leading-normal);
+  }
+  code { font-family: var(--font-mono); }
+  main a { color: var(--color-accent-primary); }
+  main a:focus-visible { outline: 2px solid rgb(var(--focus-ring)); outline-offset: 2px; }
+}
