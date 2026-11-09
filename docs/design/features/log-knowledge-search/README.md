@@ -55,9 +55,7 @@ Item의 «관찰»·«기대» 본문은 자유 텍스트이고 방향은 거기
 
 구현됨(S-c): 표·GIN 색인 둘·정규화(`domain/search-normalize.ts`)가 있다. 열 구성과 저장 규칙은 [04-database-and-migrations](../../../../apps/platform-api/docs/04-database-and-migrations.md#search-index-1506-s-c-migration-file-_search_indexsql)이 갖는다. `term_text`는 토큰·Event 키(관계 기록·대상)·소유 Model/SW/업체/공정의 코드와 이름·확정된 개념 레이블이다. 승인 alias는 코드에 alias가 없어 아직 넣지 않는다.
 
-Item당 한 행(`item_id` PK, `index_generation`). 최신 **발행** Revision만 반영한다.
-
-`item_id`, `workspace_id`, `revision_no`(색인한 Revision), `source_row_version`(색인 당시 Item `row_version`), `search_text`(제목·유형·관찰·기대·분석 의견·개선·변경 메모 정규화본), `tsv`(GIN), `term_text`(토큰·Event 키·승인 alias, trigram GIN), `index_generation`, `indexed_at`.
+Item의 최신 **발행** Revision을 세대별로 파생 저장한다. 키·열·색인·갱신 조건은 [저장 계약](../../../../apps/platform-api/docs/04-database-and-migrations.md#search-index-1506-s-c-migration-file-_search_indexsql) 한 곳에서 정의한다.
 
 - **ACL을 담지 않는다**: 접근 방식·소유 Model/SW의 제한 여부 같은 열이 없다(ADR-0124). 소유자 열(`owner_model_id`/`owner_software_id`)은 필터용 복사가 아니라 조회 때 Item 행에서 읽는다.
 - **지식 근거를 담지 않는다**: Item의 지식 근거(원천 참조·`locator`·`note`)와 발췌는 색인하지 않는다.
@@ -75,13 +73,13 @@ Item당 한 행(`item_id` PK, `index_generation`). 최신 **발행** Revision만
 
 ### 3.4 객체 접근 규칙 — 이 슬라이스의 선행 (소유자 2026-11-08: 포함)
 
-현재 `knowledge` 스키마에는 `access_mode`나 `object_access_rule`이 **없다**. Item·Model·SW 읽기는 메뉴 권한(`platform:view`, 토큰은 `workspace.read` grant·scope 포함)과 Actor의 workspace만 본다(쓰기 capability는 읽기에 쓰이지 않는다). «ACL-aware 색인»은 ACL이 있어야 성립하므로, 최소 규칙을 이 슬라이스에 넣는다(v0.6 §5.2 36번, §8). 소유자가 이 슬라이스에 포함하기로 했다(§10 Q1, 추천대로). 범위:
+구현됨(S-a, #1504): Model·SW·Item의 `access_mode`와 `object_access_rule`을 요청마다 읽어 객체 가시성을 판정한다. 메뉴 권한·Actor의 workspace 판정 위에 적용하며, 관리 권한과 읽기 가시성은 별개다. 현재 계약은 [API의 Object access](../../../architecture/platform-api/api/log-knowledge.md#object-access-1504-s-a-migration-0118)가 소유한다.
 
 - **제한 대상은 Model, SW, Item** 셋. `access_mode`(Entity Link·VOC의 `Visibility`와 다른 knowledge 전용 열): `internal`(기본: 로그인한 내부 사용자 공개)·`restricted`(허용 규칙에 든 주체만).
 - **상속은 위에서 아래로, 거절 우선**: 상위(Model)가 `restricted`이고 주체가 허용되지 않으면 그 아래 SW·Item도 보이지 않는다. 하위 허용 규칙으로 상위 제한을 풀 수 없다.
 - 주체: **Actor만** 저장한다. 팀·역할은 Core에 멤버십 테이블이 생긴 뒤 현재 projection을 조회 때 읽는 방식으로 추가한다(복제하지 않는다). 규칙: `rule_id`, `target_kind`, `target_id`, `grantee_kind`(`actor`), `grantee_id`, `effect`(`allow`·`deny`), `valid_until?`, 생성·회수(`revoked_at/by`) — 규칙은 지우지 않고 회수한다. 만료·회수된 규칙은 세지 않는다.
 - 규칙 변경은 감사와 같은 트랜잭션(`knowledge.access.mode_changed`·`rule_added`·`rule_revoked`, id만). 검색 outbox(`access_changed`)는 노드 c가 같은 쓰기 지점에 더한다. 변경 권한 capability는 `knowledge.access.manage`(세션 전용 — 권한 부여는 토큰 불가 목록, [ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md) 결정 4). 관리는 capability로 판정하고 가시성으로 판정하지 않는다: 관리자는 자신에게 보이지 않는 대상도 다루고 자신에게 허용을 줄 수 있다(감사). 읽기에는 Admin 우회가 없다.
-- 구현: API·저장은 [api/log-knowledge.md](../../../architecture/platform-api/api/log-knowledge.md#object-access-1504-s-a-migration-0112).
+- 구현: API·저장은 [api/log-knowledge.md](../../../architecture/platform-api/api/log-knowledge.md#object-access-1504-s-a-migration-0118).
 - 서비스 Actor(Agent·Validator)는 검색 읽기에 명시된 grant가 있어야 하고 승인·발행 경로는 여전히 없다.
 - **Evidence 원천 ACL은 이 규칙에 없다.** 원본 소유자의 판정이므로 #1200/#1201의 어댑터 몫이다. 그 전에는 Item이 보여도 근거는 «근거 있음(접근 제한 확인 전)» 메타로만 나가고 검색은 근거를 색인·미리보기하지 않는다(§3.2).
 
@@ -143,7 +141,7 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 
 1. 알림의 `item_id`를 **원본에서 지금 값으로** 읽는다(Item 행의 발행 상태, 최신 발행 Revision, 대상, 매핑, alias).
 2. 발행되지 않았거나 보관됐으면 문서를 지운다(또는 `index_state=hidden`). 그렇지 않으면 문서를 만든다.
-3. `INSERT … ON CONFLICT (item_id) DO UPDATE … WHERE search_document.source_row_version <= EXCLUDED.source_row_version` — 오래된 처리가 새 문서를 덮지 못한다.
+3. 보존 중인 각 세대에 문서를 갱신하되 오래된 처리가 새 문서를 덮지 못하게 한다. 충돌 키와 버전 가드는 [저장 계약](../../../../apps/platform-api/docs/04-database-and-migrations.md#search-index-1506-s-c-migration-file-_search_indexsql)을 따른다.
 4. 알림을 `done`으로. 실패하면 지수 후퇴로 `failed`, `attempt_count` 상한(시작값 8) 뒤 `dead`.
 
 - 처리가 원본의 현재 값을 읽으므로 순서 역전·중복이 안전하다. 같은 알림을 두 번 처리해도 같은 문서가 된다(멱등).
@@ -233,7 +231,7 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | 정확한 총 건수 | 존재 유추 위험 | 가려진 건수를 못 알아내게 하는 방법이 있을 때 |
 | 원본 로그 본문 검색 | 본문이 ACL 밖으로 나감 | [log-explorer §9](../log-explorer/README.md#9-미구현-목록-다시-여는-조건)의 조건 |
 | 그림자 비교의 자동 승격 | 첫 교체 전에는 불필요 | 어댑터를 실제로 바꿀 때 |
-| 후보 질의 지연 p95 ≤ 300 ms 미달 — **미구현** | #1593에서 가시성 판정을 적중 행에만 돌리도록 바꿔(판정 규칙은 `visibleItemSql` 하나 그대로) 10만 Item p95가 108/83/64 s에서 19.7/20.2/21.3 s로, 단독 문장은 22 s에서 0.8 s로 줄었으나 목표는 아직 못 맞춘다. 남은 원인은 6단계 `tsv @@ … OR <% term_text`가 인덱스 없이 `search_document` 전체를 병렬 순차 훑는 것(약 0.7 s)과 동시 30 대기열이다([results.md](results.md)) | 6단계를 전문 검색 가지와 트라이그램 가지로 나눠 각 GIN 인덱스를 타게 하고 `search:load`를 0/5/30 %에서 다시 돌려 p95 ≤ 300 ms 요구 |
+| 후보 질의 지연 p95 ≤ 300 ms 미달 — **미구현** | #1593에서 가시성 판정을 적중 행에만 돌리도록 바꿔(판정 규칙은 `visibleItemSql` 하나 그대로) 10만 Item p95가 108/83/64 s에서 19.7/20.2/21.3 s로, 단독 문장은 22 s에서 0.8 s로 줄었으나 목표는 아직 못 맞춘다. 남은 원인은 6단계 `tsv @@ … OR <% term_text`가 인덱스 없이 `search_document` 전체를 병렬 순차 훑는 것(약 0.7 s)과 동시 30 대기열이다([results.md](results.md)) | [#1599](https://github.com/hjung3113/analytics-platform/issues/1599): 측정 구간 실패 이유를 분류하고, 6단계를 전문 검색 가지와 트라이그램 가지로 나눠 각 GIN 인덱스를 타게 하고 `search:load`를 0/5/30 %에서 다시 돌려 p95 ≤ 300 ms 요구 |
 | 색인 표 `ANALYZE` — **미구현** | 새 표에는 통계가 없어 같은 질의가 440건 말뭉치에서도 수 초 걸린다 | 첫 운영 backfill 전 또는 backfill 작업에 후처리 단계가 생길 때 |
 | camelCase 질의가 snake_case 본문을 못 찾음 — **미구현** | 질의 단어가 원형 소문자(`gaslineclog`)로만 남아 문서의 분리 토큰과 맞지 않는다 | 소유자가 `search-normalize`의 변형 접기를 결정 |
 | 글자 순서가 바뀐 오타 미적중 — **미구현** | trigram 유사도가 기본 문턱 아래. §4.2: 자동 교정 없음 | 실제 본문 오타 측정에서 놓치는 비율이 문제로 확인됨 |
@@ -248,7 +246,7 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | 클라이언트 이용 이벤트에 질의 원문이 없다는 검증 — **미구현** | 서버가 저장한 감사·이용 이벤트만 검사한다. 클라이언트의 진입·체류 이벤트 생산자는 이 테스트가 구동하지 않는다 | Kernel/클라이언트 이용 이벤트 단위 테스트에 검색 주소 비포함 단언을 더할 때 |
 | 다른 메뉴 쓰기 직후 열린 검색의 자동 갱신 — **미구현** | 무효화 선언은 같은 메뉴 endpoint만 허용한다. 재진입·재실행으로 새 값을 읽는다 | Kernel이 메뉴 간 무효화 선언을 허용 |
 | 재색인 실행 경로 없음 — **미구현** | `startReindex`·`switchGeneration`·`rollbackGeneration`(`search-index.ts`)을 부르는 곳이 `search-index.integration.test.ts`뿐이고 `ops/`·`package.json`에 실행 수단이 없다. 정규화 규칙(`domain/search-normalize.ts`)을 바꾸면 기존 문서를 안전하게 다시 만들 길이 없고, backfill은 `done`이면 다시 돌지 않는다. 위험표의 «전체 재색인(새 생성)» 복구 약속이 운영에서 실행되지 않는다(후속 1순위, #1594 A-Q10) | 정규화 규칙을 바꾸는 변경, 색인 손상 의심, 또는 운영자가 화면에서 요구할 때 — throwaway가 아닌 운영 DB용 `ops/` 스크립트나 `knowledge.access.manage` 뒤의 운영 액션으로 연다 |
-| 재실행 판정의 모르는 키 기본 통과 — **미구현** | `menu-dispatch`의 `canReplay`가 세 벌이다(탐색기는 액션별 명시, 지식 `replay-access.ts`와 lifecycle `replay-access.ts`는 키 이름 표). 두 표 모두 모르는 키를 통과시키고 중첩 탐색 여부도 다르다. 지금 표에 빠진 키는 없으나(item·draft·review·spec·specChange·concept·import·lifecycle `inputKeys`와 저장 응답 대조, 카탈로그 `summary`는 필드까지 보지 않음), `fooItemId`를 받는 새 액션은 재실행 때 숨은 객체의 저장 응답을 돌려줘도 어떤 시험도 실패하지 않는다(후속 2순위, #1594 A-Q11) | 새 액션이 객체 id 입력을 추가할 때, 또는 `canReplay`를 손볼 때 — 등록된 모든 액션의 `inputKeys`를 순회해 `Id`로 끝나거나 `id`인 키가 표에 있거나 «객체 아님»으로 분류됐는지 확인하는 drift 시험을 더하고, 그다음 공통 탐색기로 합친다 |
+| 재실행 판정의 모르는 키 기본 통과 — **미구현** | 지식·lifecycle의 `canReplay`는 키 이름 표에 없는 입력을 통과시킨다. 새 액션이 객체 id 입력을 추가할 때 판정 누락을 자동으로 검출하는 시험이 없어 숨은 객체의 저장 응답이 반환될 위험이 있다 | 새 액션이 객체 id 입력을 추가하거나 `canReplay`를 손볼 때 — 등록된 모든 액션의 객체 id 입력을 판정 대상 또는 객체가 아닌 입력으로 명시적으로 분류하고 누락을 검출한다 |
 
 ## 10. Open Decisions
 

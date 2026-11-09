@@ -88,6 +88,12 @@ _Avoid_: 증거(화면 문구), 근거 위치를 첨부와 같은 이름으로 �
 지식 Item의 Revision이 «Event A가 Event B보다 먼저 일어난다»를 **관찰했는지(`observed`) 명세가 기대하는지(`expected`)** 구조화해 적은 한 줄. 안정 키(`moduleKey/eventKey`)로 명세를 가리키고 본문 문장과 별개이며 추가 전용이다. 방향 검색은 이 기록에서만 만든다([ADR-0125](docs/adr/0125-event-order-search-uses-structured-event-relation-records.md)). 모델 명세가 선언한 순서(`spec_event_relation`)와 다른 객체다.
 _Avoid_: 이벤트 관계(명세의 순서 선언과 섞임), Finding
 
+**객체 접근 규칙**:
+로그 지식 허브의 Model·SW·Item을 어느 Actor가 볼 수 있는지 정하는 허용·거절 규칙으로, 상위 제한과 거절이 하위 허용보다 우선한다. Entity Link의 Visibility나 지식 근거 원천의 ACL과는 별개의 규칙이다([ADR-0124](docs/adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)).
+
+**접근 방식** (`access_mode`):
+객체 접근 규칙에서 대상의 공개 범위를 구분하는 값으로, 내부 공개(`internal`)와 허용 규칙에 든 주체로 제한하는 `restricted` 두 가지다.
+
 **색인 지연** (`indexLag`):
 검색에 반영할 최신 원본 변경(새 Revision, 개념·alias·카탈로그 변경)이 검색 색인에 아직 반영되지 않은 상태. 검색 결과 행에 칩으로 보이며 옛 본문은 나가지 않고 순위만 낡을 수 있다([ADR-0124](docs/adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)).
 _Avoid_: 기준 낡음, 재검증 필요(다른 객체)
