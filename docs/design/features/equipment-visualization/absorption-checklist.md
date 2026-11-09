@@ -1,17 +1,19 @@
 # EV 흡수 점검표 — 아카이브 전에 참이어야 할 것
 
+상태: **Open** — 아카이브 전 조건 8개 모두 미충족.
+
 소유: [ADR-0132](../../../adr/0132-eqv-merges-into-platform.md), 이슈 [#1607](https://github.com/hjung3113/analytics-platform/issues/1607). EV 저장소의 아카이브는 소유자가 확인한 뒤에만 한다. 삭제하지 않는다.
 
 | # | 조건 | 확인 방법 | 상태 |
 | --- | --- | --- | --- |
-| 1 | EV `develop`과 `main` 내용이 전부 들어왔고 기준 SHA가 이력 합치기 PR에 적혀 있다 | PR 본문, `git log products/eqv` | 미완 |
-| 2 | `pnpm-lock.yaml`과 모든 `package.json`에 `equipment-visualization/releases` URL이 없다 | `rg equipment-visualization/releases` | 미완 |
-| 3 | EV 테스트 95파일이 AP CI에서 돌고 `eqv.spec.ts`가 수정 없이 통과한다 | PR CI | 미완 |
-| 4 | Studio가 AP에서 개발 도구로 뜨고 저장·게시가 된다 | `apps/eqv-studio` 시험 | 미완 |
-| 5 | EV 문서, ADR, 용어가 옮겨졌고 AP 문서의 EV 저장소 링크가 고쳐졌다 | `pnpm docs:links`, `rg equipment-visualization` | 미완 |
-| 6 | EV 열린 이슈를 AP로 옮기거나 닫았다(아래 목록) | 소유자 확인 | 미완 |
-| 7 | 저자들의 `EQV_STUDIO_ASSETS` 데이터 루트를 백업했다 | 소유자 확인 | 미완 |
-| 8 | 저장소를 지우지 않고 보관만 한다. 옛 AP 태그의 `pnpm install`이 릴리스 파일을 받는다 | 소유자 확인 | 미완 |
+| 1 | EV `develop`과 `main` 내용이 전부 들어왔고 기준 SHA가 이력 합치기 PR에 적혀 있다 | PR 본문, `git log products/eqv` | Open |
+| 2 | `pnpm-lock.yaml`과 모든 `package.json`에 `equipment-visualization/releases` URL이 없다 | `rg equipment-visualization/releases` | Open |
+| 3 | EV 테스트 92파일(`*.test.ts(x)`, 릴리스용 `.mjs` 시험 2개는 가져오지 않는다)이 AP CI에서 돌고 `eqv.spec.ts`가 수정 없이 통과한다 | PR CI | Open |
+| 4 | Studio가 AP에서 개발 도구로 뜨고 저장·발행이 된다 | `apps/eqv-studio` 시험 | Open |
+| 5 | EV 문서, ADR, 용어가 옮겨졌고 AP 문서의 EV 저장소 링크가 고쳐졌다 | `pnpm docs:links`, `rg equipment-visualization` | Open |
+| 6 | EV 열린 이슈를 AP로 옮기거나 닫았다(아래 목록) | 소유자 확인 | Open |
+| 7 | 저자들의 `EQV_STUDIO_ASSETS` 데이터 루트를 백업했다 | 소유자 확인 | Open |
+| 8 | 저장소를 지우지 않고 보관만 한다. 옛 AP 태그의 `pnpm install`이 릴리스 파일을 받는다 | 소유자 확인 | Open |
 
 DB 이전 완료는 조건이 아니다. Studio는 AP 안에서 개발 도구로 계속 동작한다.
 
