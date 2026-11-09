@@ -50,6 +50,10 @@ export interface ComboboxProps {
   emptyText?: string;
   footerText?: string;
   className?: string;
+  /** Compact (32px) trigger; omitted keeps the existing 40px control. */
+  density?: 'default' | 'compact';
+  /** Monospace trigger and options for identifiers; omitted preserves the inherited font. */
+  font?: 'default' | 'mono';
   id?: string;
   'aria-invalid'?: boolean;
   'aria-describedby'?: string;
@@ -75,6 +79,8 @@ export function Combobox({
   emptyText = '결과 없음',
   footerText,
   className,
+  density = 'default',
+  font = 'default',
   id,
   'aria-invalid': ariaInvalid,
   'aria-describedby': ariaDescribedBy,
@@ -202,7 +208,9 @@ export function Combobox({
           disabled={disabled}
           onKeyDown={handleTriggerKeyDown}
           className={cn(
-            'flex h-10 w-full items-center justify-between rounded-md border border-border-control bg-surface-field px-3 py-2 text-sm text-text-primary',
+            'flex w-full items-center justify-between rounded-md border border-border-control bg-surface-field text-sm text-text-primary',
+            density === 'compact' ? 'h-8 px-2 py-1' : 'h-10 px-3 py-2',
+            font === 'mono' && 'font-mono',
             'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2',
             'disabled:cursor-not-allowed disabled:opacity-50',
             !selected && 'text-text-muted',
@@ -213,7 +221,7 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
+      <PopoverContent className={cn('w-(--radix-popover-trigger-width) p-0', font === 'mono' && 'font-mono')}>
         <div className="border-b border-border-subtle px-3 py-2">
           <input
             // biome-ignore lint/a11y/noAutofocus: WAI-ARIA APG §combobox requires search input to auto-focus when popup opens so keyboard users can immediately type to filter

@@ -22,6 +22,7 @@ import { appendAssessment, appendRevision, insertDerivedLink, insertItem, itemBy
 import { byId } from './store';
 import { parseSubjects } from './conceptInput';
 import { itemModelId, judgeSubjects } from './subjectLinks';
+import { parseRelations, relationsForWrite } from './itemRelations';
 
 type Input = Record<string, unknown>;
 const REVISION_NO_MAX = 1_000_000;
@@ -106,8 +107,8 @@ const subjectShape = (i: Input): FieldError[] => { const parsed = parseSubjects(
 const subjectsOf = (ownerModelId: string, i: Input) => { const parsed = parseSubjects(i.subjects); return parsed.ok && parsed.value ? judgeSubjects(ownerModelId, parsed.value) : undefined; };
 
 const SHAPE: Record<'create' | 'revise' | 'assess' | 'derive' | 'setArchived', (i: Input) => FieldError[]> = {
-  create: i => [...collect([...ownerChecks(i), ...contentChecks(i), ...evidenceChecks(i.evidence), ...contentRule(i)]), ...subjectShape(i)],
-  revise: i => [...collect([[['id'], uuidError(i.id)], ...contentChecks(i), ...evidenceChecks(i.evidence), [['changeNote'], requiredTextError(i.changeNote, ITEM_LIMITS.changeNote)], ...contentRule(i)]), ...subjectShape(i)],
+  create: i => [...collect([...ownerChecks(i), ...contentChecks(i), ...evidenceChecks(i.evidence), ...contentRule(i)]), ...subjectShape(i), ...parseRelations(i.relations).errors],
+  revise: i => [...collect([[['id'], uuidError(i.id)], ...contentChecks(i), ...evidenceChecks(i.evidence), [['changeNote'], requiredTextError(i.changeNote, ITEM_LIMITS.changeNote)], ...contentRule(i)]), ...subjectShape(i), ...parseRelations(i.relations).errors],
   assess: i => {
     const dimensionError = enumError(i.dimension, ASSESSMENT_DIMENSIONS);
     const allowed: readonly string[] = i.dimension === 'verification' ? VERIFICATION_STATES : PROCESSING_STATES;
@@ -176,7 +177,9 @@ export const itemActionsMock: readonly AnyMockAction[] = [
     validate: validate('create', ownerStateErrors),
     handle: ({ input }: { input: Input }) => {
       const owner = ownerOfInput(input);
-      return done(insertItem(owner, contentOf(input), evidenceOf(input.evidence), subjectsOf(itemModelId({ ownerModelId: owner.modelId, ownerSoftwareId: owner.softwareId }), input) ?? []));
+      const rec = insertItem(owner, contentOf(input), evidenceOf(input.evidence), subjectsOf(itemModelId({ ownerModelId: owner.modelId, ownerSoftwareId: owner.softwareId }), input) ?? []);
+      latestRevision(rec).relations = relationsForWrite(rec, input.relations) ?? [];
+      return done(rec);
     },
   }),
   defineMockAction(itemRevise, {
@@ -184,6 +187,8 @@ export const itemActionsMock: readonly AnyMockAction[] = [
     handle: ({ input }: { input: Input }) => {
       const before = itemById(input.id)!;
       const rec = appendRevision(before, contentOf(input), (input.changeNote as string).trim(), evidenceOf(input.evidence), subjectsOf(itemModelId(before), input));
+      const relations = relationsForWrite(rec, input.relations);
+      if (relations) latestRevision(rec).relations = relations;
       return done(rec, { revisionNo: latestRevision(rec).revisionNo });
     },
   }),

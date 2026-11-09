@@ -374,7 +374,7 @@ Design: `docs/design/features/log-knowledge-search/README.md` §3.2–3.3, §5; 
 
 ## Knowledge search (#1507, S-d)
 
-Design: `docs/design/features/log-knowledge-search/README.md` §4, ADR-0124 (access judged at query time, display read live, no exact total), ADR-0125 (direction only from structured relation records). Schemas: `packages/sdk/contract-schemas/src/knowledge-search.ts` (`knowledgeSearchRequest`, `knowledgeSearchResponse`, `knowledgeSearchSuggestRequest`, `knowledgeSearchSuggestResponse`, version `v0`, provisional). No screen and no menu entry yet (node S-f); both reads sit on the server-only menu id `log-knowledge-search`. Right: `platform:view` like every knowledge read; a token call additionally needs `workspace.read` in its scopes and held by its Actor (a service Actor has no other way in and no visibility bypass).
+Design: `docs/design/features/log-knowledge-search/README.md` §4, ADR-0124 (access judged at query time, display read live, no exact total), ADR-0125 (direction only from structured relation records). Schemas: `packages/sdk/contract-schemas/src/knowledge-search.ts` (`knowledgeSearchRequest`, `knowledgeSearchResponse`, `knowledgeSearchSuggestRequest`, `knowledgeSearchSuggestResponse`, version `v0`, provisional). Both reads belong to `log-knowledge-search`, the first menu of the knowledge group (node S-f, #1509); the [menu screen contract](../../../../menus/log-dev/log-knowledge/docs/search.md) owns its URL and layout. Right: `platform:view` like every knowledge read; a token call additionally needs `workspace.read` in its scopes and held by its Actor (a service Actor has no other way in and no visibility bypass).
 
 | id | kind | params | answer |
 | --- | --- | --- | --- |

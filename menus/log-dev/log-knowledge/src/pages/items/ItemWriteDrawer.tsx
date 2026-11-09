@@ -7,6 +7,8 @@ import { ITEM_LIMITS, ITEM_TYPE_CODES, ITEM_TYPE_LABEL, itemCreate, itemDerive, 
 import { EvidenceEditor, Field, OwnerPicker, useCloseGuard, useDirtyReport } from './ItemFormParts';
 import { useSpecWords } from '../spec/SpecControls';
 import { SubjectPicker } from './ItemSubjects';
+import { ItemRelations } from './ItemRelations';
+import { relationInputs, relationRowsOf, validateRelations } from './itemRelationModel';
 import { picksOf, subjectsPayload, toSubjectInputs, subjectErrorText, type SubjectPick } from './subjectModel';
 import { itemNoLabel, ownerText } from './itemModel';
 import {
@@ -33,6 +35,8 @@ function WriteFormBody({ target, onReload, guard }: { target: ItemWriteTarget; o
   // The version this form was built on: a re-read after a conflict must not let a retry overwrite what the user has not seen.
   const [baseVersion, setBaseVersion] = useState(() => (target.mode === 'create' ? '' : target.detail.item.version));
   const [picks, setPicks] = useState<SubjectPick[]>(() => target.mode === 'revise' ? picksOf(target.detail.subjects) : []);
+  const [relations, setRelations] = useState(() => relationRowsOf(target.mode === 'revise' ? target.detail.relations : []));
+  const [initialRelations] = useState(() => JSON.stringify(relations));
   const [subjectOwner, setSubjectOwner] = useState(form.modelId);
   const ownerModelId = target.mode === 'revise' ? target.detail.item.owner.modelId : form.modelId;
   if (subjectOwner !== form.modelId) { setSubjectOwner(form.modelId); setPicks([]); }
@@ -40,7 +44,7 @@ function WriteFormBody({ target, onReload, guard }: { target: ItemWriteTarget; o
   const [errors, setErrors] = useState<FormErrors>({});
   const [banner, setBanner] = useState<Banner | null>(null);
   if (reloadRequested && target.mode === 'revise' && target.detail.item.version !== baseVersion) { setBaseVersion(target.detail.item.version); setReloadRequested(false); setBanner(null); }
-  useDirtyReport({ form, picks }, guard.markDirty);
+  useDirtyReport({ form, picks, relations }, guard.markDirty);
   const busy = create.pending || revise.pending || derive.pending;
   const set = (patch: Partial<WriteForm>) => { setForm(f => ({ ...f, ...patch })); };
   const err = (key: string) => errors[key];
@@ -54,23 +58,27 @@ function WriteFormBody({ target, onReload, guard }: { target: ItemWriteTarget; o
     if (res.outcome === 'ok') { setBanner(null); setErrors({}); onOk(res.data); return; }
     if (res.outcome === 'conflict') { setBanner({ kind: 'conflict' }); return; }
     const subjectErrors = res.outcome === 'invalid' ? res.fieldErrors.filter(e => e.path[0] === 'subjects') : [];
-    const mapped = res.outcome === 'invalid' ? mapItemErrors(res.fieldErrors.filter(e => e.path[0] !== 'subjects'), CONTENT_FIELDS, form.evidence.length) : {};
+    const mapped = res.outcome === 'invalid' ? mapItemErrors(res.fieldErrors.filter(e => e.path[0] !== 'subjects' && e.path[0] !== 'relations'), CONTENT_FIELDS, form.evidence.length) : {};
     if (subjectErrors.length) mapped['subjects'] = subjectErrors.map(e => w(subjectErrorText(e.code).ko, subjectErrorText(e.code).en)).join(' ');
+    if (res.outcome === 'invalid') for (const e of res.fieldErrors.filter(e => e.path[0] === 'relations')) {
+      const key = e.path[1] !== undefined ? `relations.${e.path[1]}` : 'relations';
+      mapped[key] = w('Event 관계 기록의 종류와 Event 키를 확인하세요.', 'Check the relation kind and Event keys.');
+    }
     setErrors(mapped);
     if (res.outcome === 'invalid' && Object.keys(mapped).length > 0) { setBanner(null); return; }
     setBanner({ kind: 'failed', text: failureText(res.outcome), ...(res.retry ? { retry: () => { const retry = res.retry; if (retry) void retry().then(next => settle(next as ActionResult<T>, onOk)).catch(() => undefined); } } : {}) });
   }
   const save = () => {
-    const found = validateForm(form, mode);
+    const found = { ...validateForm(form, mode), ...(mode !== 'derive' ? validateRelations(relations) : {}) };
     const subjectPayload = target.mode === 'revise' ? subjectsPayload(ownerModelId, target.detail.subjects, picks) : null;
     if (subjectPayload?.send && subjectPayload.blocked.length) found['subjects'] = w('대상 목록을 바꾸려면 사라진 대상을 먼저 빼 주세요.', 'Remove missing targets before changing the subject list.');
     setErrors(found);
     if (Object.keys(found).length > 0) { setBanner(null); return; }
     if (target.mode === 'create') {
-      void create.run({ ...createInput(form), subjects: toSubjectInputs(ownerModelId, picks) }).then(res => settle(res, data => { toast('기술 Item을 등록했습니다', 'info'); goToItem(data); })).catch(() => undefined);
+      void create.run({ ...createInput(form), subjects: toSubjectInputs(ownerModelId, picks), relations: relationInputs(relations) }).then(res => settle(res, data => { toast('기술 Item을 등록했습니다', 'info'); goToItem(data); })).catch(() => undefined);
     } else if (target.mode === 'revise') {
       const { detail } = target;
-      void revise.run({ ...reviseInput(detail.item.id, form), ...(subjectPayload?.send ? { subjects: subjectPayload.subjects } : {}) }, { expectedVersion: baseVersion })
+      void revise.run({ ...reviseInput(detail.item.id, form), ...(subjectPayload?.send ? { subjects: subjectPayload.subjects } : {}), ...(JSON.stringify(relations) !== initialRelations ? { relations: relationInputs(relations) } : {}) }, { expectedVersion: baseVersion })
         .then(res => settle(res, () => { toast('새 리비전을 저장했습니다', 'info'); setPage({ drawer: null, rev: null }); })).catch(() => undefined);
     } else {
       const { detail } = target;
@@ -118,6 +126,7 @@ function WriteFormBody({ target, onReload, guard }: { target: ItemWriteTarget; o
     {target.mode === 'derive'
       ? <p className="rounded-md bg-surface-sunken p-3 text-sm text-text-secondary">근거는 파생 작성에서 추가할 수 없습니다. 작성한 뒤 새 리비전에서 추가합니다.</p>
       : <div className="grid gap-1.5"><h3 className="text-sm font-medium text-text-primary">근거 포인터</h3><EvidenceEditor uid={uid} rows={form.evidence} onChange={evidence => set({ evidence })} errors={errors} /></div>}
+    {target.mode !== 'derive' && <ItemRelations modelId={ownerModelId} softwareId={target.mode === 'revise' ? target.detail.item.owner.softwareId : form.ownerKind === 'software' ? form.softwareId || undefined : undefined} rows={relations} onChange={setRelations} errors={errors} disabled={busy} />}
     {target.mode !== 'derive' && <><SubjectPicker subjects={target.mode === 'revise' ? target.detail.subjects : undefined} modelId={ownerModelId} picks={picks} onChange={setPicks} disabled={busy} />{errors['subjects'] && <p role="alert" className="text-sm text-text-danger-label">{errors['subjects']}</p>}</>}
     {target.mode === 'revise' && <Field id={`${uid}-changeNote`} label="변경 사유" required error={err('changeNote')} hint={`리비전 목록에 표시됩니다 (${ITEM_LIMITS.changeNote}자 이하)`}>
       <Input id={`${uid}-changeNote`} value={form.changeNote} onChange={e => set({ changeNote: e.target.value })} aria-invalid={err('changeNote') !== undefined} aria-describedby={describedBy('changeNote')} />

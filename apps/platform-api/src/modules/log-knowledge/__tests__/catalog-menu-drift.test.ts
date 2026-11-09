@@ -27,6 +27,7 @@ import {
   catalogEndpointSpecs,
   itemActionSpecs,
   itemEndpointSpecs,
+  searchEndpointSpecs,
   itemFilterSpecs,
   modelEndpointSpecs,
   modelFilterSpecs,
@@ -266,6 +267,18 @@ describe('log knowledge item writes vs the server', () => {
       title: TITLE_MAX, body: BODY_MAX, evidence: EVIDENCE_MAX, evidenceField: EVIDENCE_FIELD_MAX,
       evidenceNote: EVIDENCE_NOTE_MAX, changeNote: CHANGE_NOTE_MAX, rationale: RATIONALE_MAX,
     });
+  });
+});
+
+describe('log knowledge search menu vs the server', () => {
+  it('declares the same search and suggestion requests without Context coupling', () => {
+    for (const menu of searchEndpointSpecs) {
+      const spec = server.endpoints?.find(endpoint => endpoint.spec.id === menu.id)?.spec;
+      expect(spec, menu.id).toBeDefined();
+      expect(Object.keys(menu.paramKeys).sort(), menu.id).toEqual([...(spec?.paramKeys ?? [])].sort());
+      expect({ menuId: menu.menuId, permission: menu.permission, context: menu.context, requiresScope: menu.requiresScope, mergeTimeDomain: menu.mergeTimeDomain }, menu.id)
+        .toEqual({ menuId: spec?.menuId, permission: spec?.permission, context: spec?.context, requiresScope: spec?.requiresScope, mergeTimeDomain: spec?.mergeTimeDomain });
+    }
   });
 });
 
