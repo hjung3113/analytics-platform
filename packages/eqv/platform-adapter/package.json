@@ -13,14 +13,14 @@
     "./mock-data": "./src/mock-data/index.ts"
   },
   "scripts": {
+    "lint": "eslint .",
     "gen:mock-data": "node scripts/gen-mock-data.mjs",
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json && node ../../tooling/scripts/eqv-finalize-dist.mjs",
     "test": "vitest run --config vitest.config.ts"
   },
   "peerDependencies": {
-    "@ap/contracts": "0.19.0",
-    "@ap/ui": "0.19.0",
+    "@ap/contracts": "workspace:*",
+    "@ap/ui": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -30,20 +30,24 @@
     "@eqv/replay": "workspace:*",
     "@eqv/ui": "workspace:*",
     "@eqv/views": "workspace:*",
-    "lucide-react": "0.469.0"
+    "lucide-react": "^1.48.0"
   },
   "devDependencies": {
-    "@ap/contracts": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-v0.19.0/ap-contracts-0.19.0.tgz",
-    "@ap/ui": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-v0.19.0/ap-ui-0.19.0.tgz",
-    "@testing-library/dom": "10.4.2",
-    "@testing-library/react": "16.3.3",
-    "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0",
-    "jsdom": "30.1.1",
-    "react": "19.3.1",
-    "react-dom": "19.3.1",
-    "typescript": "5.9.3",
-    "vite": "7.3.7",
-    "vitest": "3.2.7"
+    "@ap/contracts": "workspace:*",
+    "@ap/eslint-config": "workspace:*",
+    "@ap/tsconfig": "workspace:*",
+    "@ap/ui": "workspace:*",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^10.11.0",
+    "jsdom": "^26.1.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.7"
   }
 }
