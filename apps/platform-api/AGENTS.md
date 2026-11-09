@@ -45,7 +45,7 @@ Layer boundaries live in `docs/agents/feature-implementation.md` → Implementat
   - `TEST_DB_NO_RESET=1` opts back into non-reproducible counts; `NODE_ENV=production` is refused. A bare `describe` (not `skipIf`) runs its `beforeAll` in the default gate and fails — deviating from the idiom is a bug.
 - **Seeds.**
   - `SEED_MODE=personas pnpm --filter @ap/platform-api db:seed` = unchanged core seed + mock Admin/User/Developer personas with test-only grants; omit `SEED_MODE` (or `core`) for the canonical core-only seed.
-  - `SEED_MODE=scale`, throwaway preview DBs only: adds a synthetic demo cohort on top of core/personas prerequisites (reporters, VOCs, Tasks, Findings, Task Requests, Clusters, Milestones — counts live in the seed). Existing rows are preserved; a workspace-scoped actor marker makes the cohort atomic, and retries fill missing rows when the marker is absent.
+  - `SEED_MODE=scale`, throwaway preview DBs only: adds a synthetic demo cohort on top of core/personas prerequisites (40 reporters, 5,000 VOCs, 5,000 Tasks, 300 Findings, 250 Task Requests, 60 Clusters, 25 Milestones). Existing rows are preserved; a workspace-scoped actor marker makes the cohort atomic, and retries fill missing rows when the marker is absent.
 - **How a run can lie.**
   - A narrow filter can false-PASS — gate on the whole touched module.
   - A superuser connection false-FAILs the role-grant assertions (a superuser bypasses every GRANT): run as `platform_app`, migrate as `platform_migrate`.

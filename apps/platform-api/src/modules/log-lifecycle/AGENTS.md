@@ -18,7 +18,8 @@ Owns the development project of a model, its append-only history and its validat
 - Evidence locations (`round_evidence_ref`) are append-only, written only by the barrel service `roundEvidenceRefIntake` (`round-evidence-ref-intake.ts`; the explorer calls it inside its own transaction; it never imports `log-explorer`, its input type is declared in `domain/evidence-ref-intake.ts`).
   - It re-judges `lifecycle.round.manage` (denied = `MenuActionInvalidError` `['target'] forbidden`), the Round (workspace, `open`) and the shape, decides each pointer's status itself, takes `seq` under the Round row lock and inserts with `ON CONFLICT DO NOTHING` (never catch `23505` on the caller's tx).
   - Not the manual attachment of `round-actions.ts` / `round-evidence-links.ts` (files).
-- Reads filter by the session workspace; a foreign id answers `ok` with `data: null` (empty page for lists). No read or action accepts an unknown param/input key.
+- Object access: a new read or write takes a `Viewer` and goes through the `log-knowledge/repositories/access-visibility.ts` barrel (`viewerOf`, `ref`, `visibleModelSql`, `visibleSoftwareSql`, `lockOwnerAccess`); what the actor may not see is treated as missing, never as forbidden.
+- Reads filter by the session workspace and by object access; a foreign or hidden id answers `ok` with `data: null` (empty page for lists). No read or action accepts an unknown param/input key.
   - The hierarchy read answers `{ failure: 'deleted' }` for an unknown, moved or foreign path so the menu Source can produce `HierarchyFailure('deleted')`; contract: [log-lifecycle.md](../../../../../docs/architecture/platform-api/api/log-lifecycle.md#hierarchy-1449).
 
 ## Validation request queue

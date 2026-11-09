@@ -1,6 +1,6 @@
 # log-explorer module
 
-The `SourceReadPort` seam (ADR-0119), the four reads `logExplorer.records|window|parsed|periods`, token scopes, the daily body budget, the export `POST /api/v1/log-explorer/export`, and the admin `logExplorer.usage` — this side adds no tables, repositories or migrations of its own.
+The Source side of this module (the `SourceReadPort` seam ADR-0119, the four reads `logExplorer.records|window|parsed|periods`, token scopes, the daily body budget, the export `POST /api/v1/log-explorer/export`, the admin `logExplorer.usage`) has no tables, repositories or migrations of its own; the only storage is the Investigations section below (`repositories/`) plus `core.rate_limits` counters.
 Design: `docs/design/features/log-explorer/README.md`; contract: `docs/architecture/platform-api/api/log-explorer.md`.
 
 ## Invariants
@@ -23,7 +23,7 @@ Design: `docs/design/features/log-explorer/README.md`; contract: `docs/architect
 - **Page cursors are encrypted (AES-256-GCM) and request-bound** (`domain/cursor.ts`): the client never holds or can read an adapter cursor (it may carry log text); `WIRE_CURSOR_MAX` derives from the worst permitted adapter cursor.
   - Change the binding fields together with the contract doc.
 - **`read-service.ts` is the only writer of the read event** `explorer.source.read` (closed schema in `@ap/feature-shared`): counts, digest, filter KEYS, result code; if the audit write fails, the read fails.
-  - `leak-boundary.test.ts` allows `audit.record` in the two audit writers and the investigation files (`INVESTIGATION_AUDIT_OK`) only; `read-endpoints.test.ts` pins that the row holds no body, filter value or file reference.
+  - `leak-boundary.test.ts` allows `audit.record` in `read-service.ts`, `export-service.ts` and the investigation files (`INVESTIGATION_AUDIT_OK`) only; `read-endpoints.test.ts` pins that the row holds no body, filter value or file reference.
 - Param errors name the field path and the schema's static message, never the value (`domain/read-params.ts`).
 - The signal comes from `EndpointHandlerArgs.signal`; menu dispatch aborts it when the client closes the connection.
 
