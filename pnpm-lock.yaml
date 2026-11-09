@@ -731,34 +731,34 @@ importers:
       '@ap/components':
         specifier: workspace:*
         version: link:../../../packages/sdk/components
-      '@ap/ui':
-        specifier: workspace:*
-        version: link:../../../packages/sdk/ui
-      '@ap/feature-screens':
-        specifier: workspace:*
-        version: link:../../../apps/feature-screens
-      '@ap/mock-server':
-        specifier: workspace:*
-        version: link:../../../packages/adapters/mock-server
       '@ap/contracts':
         specifier: workspace:*
         version: link:../../../packages/sdk/contracts
+      '@ap/feature-screens':
+        specifier: workspace:*
+        version: link:../../../apps/feature-screens
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
+      '@ap/mock-server':
+        specifier: workspace:*
+        version: link:../../../packages/adapters/mock-server
+      '@ap/ui':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
     devDependencies:
-      '@types/node':
-        specifier: ^26.6.3
-        version: 26.6.3
       '@ap/eslint-config':
         specifier: workspace:*
         version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/tsconfig
+      '@types/node':
+        specifier: ^26.6.3
+        version: 26.6.3
       '@types/react':
         specifier: ^19.3.0
         version: 19.3.0
@@ -823,12 +823,12 @@ importers:
       '@ap/components':
         specifier: workspace:*
         version: link:../../../packages/sdk/components
-      '@ap/feature-screens':
-        specifier: workspace:*
-        version: link:../../../apps/feature-screens
       '@ap/contracts':
         specifier: workspace:*
         version: link:../../../packages/sdk/contracts
+      '@ap/feature-screens':
+        specifier: workspace:*
+        version: link:../../../apps/feature-screens
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
@@ -1361,6 +1361,80 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(yaml@2.9.1)
+
+  packages/eqv/core:
+    dependencies:
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@types/node':
+        specifier: ^26.6.3
+        version: 26.6.3
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(yaml@2.9.1)
+
+  packages/eqv/renderer:
+    dependencies:
+      '@eqv/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@testing-library/dom':
+        specifier: ^10.4.2
+        version: 10.4.2
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/node':
+        specifier: ^26.6.3
+        version: 26.6.3
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^7.3.6
+        version: 7.3.6(@types/node@26.6.3)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.1)
       vitest:
         specifier: ^3.2.7
         version: 3.2.7(@types/debug@4.1.13)(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(yaml@2.9.1)
@@ -11248,8 +11322,8 @@ snapshots:
       '@babel/parser': 7.29.9
       eslint: 10.11.0(jiti@2.7.0)
       hermes-parser: 0.25.1
-      zod: 3.25.67
-      zod-validation-error: 4.0.2(zod@3.25.67)
+      zod: 4.6.5
+      zod-validation-error: 4.0.2(zod@4.6.5)
     transitivePeerDependencies:
       - supports-color
 
@@ -13641,9 +13715,9 @@ snapshots:
     dependencies:
       zod: 3.25.67
 
-  zod-validation-error@4.0.2(zod@3.25.67):
+  zod-validation-error@4.0.2(zod@4.6.5):
     dependencies:
-      zod: 3.25.67
+      zod: 4.6.5
 
   zod@3.25.67: {}
 

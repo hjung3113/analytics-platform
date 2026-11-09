@@ -35,6 +35,7 @@
         "$TURBO_ROOT$/apps/platform-web/src/style.css",
         "$TURBO_ROOT$/tooling/eslint/src/**",
         "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/packages/eqv/*/package.json",
         "$TURBO_ROOT$/packages/sdk/*/package.json",
         "$TURBO_ROOT$/packages/adapters/*/package.json",
         "$TURBO_ROOT$/menus/*/*/package.json",
@@ -77,6 +78,26 @@
       "dependsOn": [
         "transit",
         "@ap/contract-schemas#build"
+      ]
+    },
+    "@eqv/core#test": {
+      "dependsOn": [
+        "transit"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/eqv/assets/**",
+        "$TURBO_ROOT$/packages/eqv/fixtures/**"
+      ]
+    },
+    "@eqv/renderer#test": {
+      "dependsOn": [
+        "transit"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/eqv/assets/**",
+        "$TURBO_ROOT$/packages/eqv/fixtures/**"
       ]
     }
   }
