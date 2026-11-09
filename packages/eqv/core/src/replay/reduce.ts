@@ -11,11 +11,11 @@ import type { SiteWallClock } from '../site-wall-clock.js';
 export const RULESET_VERSION = 'scene-rules-2';
 export type ReplayInput = {
   batch: OccurrenceBatch; layouts: EquipmentLayoutDocument[]; bindings: BindingsFile; mappings: MappingVersion[];
-  /** Published Layout Revisions by `sha256:<hex>`; the caller verified each key against its content (ADR-0011). */
+  /** Published Layout Revisions by `sha256:<hex>`; the caller verified each key against its content (EV ADR-0011). */
   layoutRevisions?: Readonly<{ [revision: string]: EquipmentLayoutDocument }>;
 };
 /**
- * The one Layout lookup (ADR-0011). A Binding that pins `layoutRevision` resolves by that revision only; a revision the
+ * The one Layout lookup (EV ADR-0011). A Binding that pins `layoutRevision` resolves by that revision only; a revision the
  * input lacks is no Layout, never the `layoutId` Layout. An unpinned Binding resolves by `layoutId` in `layouts`.
  */
 export function bindingLayout(input: ReplayInput, binding: Pick<Binding, 'layoutId' | 'layoutRevision'> | null | undefined): EquipmentLayoutDocument | null {

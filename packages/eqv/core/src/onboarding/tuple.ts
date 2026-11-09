@@ -3,7 +3,7 @@ import type { LayoutDocument } from '../layout/schema.js';
 import type { MappingVersion } from '../mapping/schema.js';
 
 // Onboarding analyses compare alias strings and component IDs only; a tuple from another equipment or Layout
-// would match by accident and report plausible but wrong results, so reject it like replay does (#29).
+// would match by accident and report plausible but wrong results, so reject it like replay does (EV#29).
 export function assertOnboardingTuple(mapping: Omit<MappingVersion, 'hash'>, inventories: Record<string, ObservedInventory>, layout?: LayoutDocument): void {
   for (const [name, inventory] of Object.entries(inventories)) {
     if (inventory.equipmentId !== mapping.equipmentId) {

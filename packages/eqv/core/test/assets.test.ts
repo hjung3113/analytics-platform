@@ -7,7 +7,7 @@ import {
   proposeTemplates, sceneStateSchema, typeDictionaryFileSchema, validateLayout, type TemplateDocument,
 } from '../src/index.js';
 
-const root = new URL('../../../', import.meta.url);
+const root = new URL('../../', import.meta.url);
 const read = (path: string) => JSON.parse(readFileSync(new URL(path, root), 'utf8'));
 const cases = [
   ['cluster-single', 26], ['cluster-dual-hub', 29], ['wet-linear', 2340],
@@ -218,7 +218,7 @@ it.each(cases)('%s conforms to v0.4 with assumed evidence and module-to-module c
   checkEvidence(layout);
   for (const [role, range] of Object.entries(layout.roleCardinality)) {
     const drawn = layout.components.filter((component) => component.role === role).length;
-    // #27: assumed ranges for repeated cluster module Roles (NOTICE); every other Role keeps its drawn count.
+    // EV#27: assumed ranges for repeated cluster module Roles (NOTICE); every other Role keeps its drawn count.
     expect(range).toEqual(id.startsWith('cluster-') && clusterRanges[role] || { min: drawn, max: drawn });
   }
 });
@@ -261,7 +261,7 @@ it('lets the wet-linear wafer robot move wafers between load ports', () => {
   }));
 });
 
-// ADR-0016: assumed, synthetic station coordinates; the six converted templates declare none.
+// EV ADR-0016: assumed, synthetic station coordinates; the six converted templates declare none.
 it('declares four distinct in-footprint station positions on each rotary PM and none on the six archetypes', () => {
   const layout = template('cluster-rotary-stations');
   expect(validateLayout(layout)).toMatchObject({ ok: true });

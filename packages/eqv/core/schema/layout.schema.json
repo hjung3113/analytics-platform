@@ -164,7 +164,7 @@
                 "description": "Finite geometry local to the parent; geometry never establishes connectivity."
               },
               "size": {
-                "description": "ADR-0006: footprint in layout units in the Component local frame before rotation, multiplied by transform.scale. Absence means unknown; renderers fall back to primitive natural size. Structural Roles stretch to the footprint; module and robot symbols fit centred with aspect ratio preserved. Geometry never establishes connectivity.",
+                "description": "EV ADR-0006: footprint in layout units in the Component local frame before rotation, multiplied by transform.scale. Absence means unknown; renderers fall back to primitive natural size. Structural Roles stretch to the footprint; module and robot symbols fit centred with aspect ratio preserved. Geometry never establishes connectivity.",
                 "type": "object",
                 "properties": {
                   "width": {
@@ -727,7 +727,7 @@
               "steps"
             ],
             "additionalProperties": false,
-            "description": "Explanatory Component sequence only, never Replay evidence (ADR-0004)."
+            "description": "Explanatory Component sequence only, never Replay evidence (EV ADR-0004)."
           }
         },
         "kind": {
@@ -762,7 +762,7 @@
           }
         },
         "promotedFrom": {
-          "description": "ADR-0015: the published Layout Revision this Template was promoted from; absent on bundled Templates.",
+          "description": "EV ADR-0015: the published Layout Revision this Template was promoted from; absent on bundled Templates.",
           "type": "object",
           "properties": {
             "layoutId": {
@@ -961,7 +961,7 @@
                 "description": "Finite geometry local to the parent; geometry never establishes connectivity."
               },
               "size": {
-                "description": "ADR-0006: footprint in layout units in the Component local frame before rotation, multiplied by transform.scale. Absence means unknown; renderers fall back to primitive natural size. Structural Roles stretch to the footprint; module and robot symbols fit centred with aspect ratio preserved. Geometry never establishes connectivity.",
+                "description": "EV ADR-0006: footprint in layout units in the Component local frame before rotation, multiplied by transform.scale. Absence means unknown; renderers fall back to primitive natural size. Structural Roles stretch to the footprint; module and robot symbols fit centred with aspect ratio preserved. Geometry never establishes connectivity.",
                 "type": "object",
                 "properties": {
                   "width": {
@@ -1524,7 +1524,7 @@
               "steps"
             ],
             "additionalProperties": false,
-            "description": "Explanatory Component sequence only, never Replay evidence (ADR-0004)."
+            "description": "Explanatory Component sequence only, never Replay evidence (EV ADR-0004)."
           }
         },
         "kind": {

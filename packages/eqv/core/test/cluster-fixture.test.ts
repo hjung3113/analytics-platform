@@ -7,7 +7,7 @@ import {
   validateBindings, validateLayout, verifyMappingHash, type SceneState,
 } from '../src/index.js';
 
-const root = new URL('../../../fixtures/cluster-single/', import.meta.url);
+const root = new URL('../../fixtures/cluster-single/', import.meta.url);
 const read = (path: string): unknown => JSON.parse(readFileSync(new URL(path, root), 'utf8'));
 const batch = () => occurrenceBatchSchema.parse(read('occurrence-batch.json'));
 const aliases = () => [...new Set(batch().occurrences.flatMap((row) =>

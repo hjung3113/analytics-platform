@@ -1,19 +1,19 @@
 # Synthetic cluster-single OccurrenceBatch
 
-This source-shaped fixture is synthetic: generic aliases, materials and times, with no real equipment vocabulary or logs. It supplies contract examples for reducer and Onboarding tests, not a physical layout or validated kinematics. The #9b files below supply the expected ObservedInventory, published Mappings, Bindings and Scene States.
+This source-shaped fixture is synthetic: generic aliases, materials and times, with no real equipment vocabulary or logs. It supplies contract examples for reducer and Onboarding tests, not a physical layout or validated kinematics. The EV#9b files below supply the expected ObservedInventory, published Mappings, Bindings and Scene States.
 
 The batch is for `eq-synth-01`, `timeDomain: site-synth`, `parserContractVersion: synthetic-1`, `dataGeneration: g1`, with window `[2026-01-01T10:00:00.000, 2026-01-01T10:30:00.000)`. All times are naive Site Wall-clock strings, compared as strings without timezone conversion. Intervals are `[start, end)` and the source has already paired each Occurrence. Record Sequence is global per equipment across boundaries and Data Quality Issues; timestamps do not determine application order.
 
 ## Conventions
 
 - `VISIT`: material resting at `location`.
-- `TRANSFER`: handler move; `location` is the handler alias (plus arm slot when known), with `from` and `to` source aliases. Normal handler transfers have observed exact/normal boundaries and observed Resolved identity, but material location during transfer is derived (ADR-0003 and REPLAY-CONTRACT “이송 중”). An arm slot is only a source alias until a Mapping resolves it; geometry establishes neither connectivity nor trajectory.
+- `TRANSFER`: handler move; `location` is the handler alias (plus arm slot when known), with `from` and `to` source aliases. Normal handler transfers have observed exact/normal boundaries and observed Resolved identity, but material location during transfer is derived (EV ADR-0003 and REPLAY-CONTRACT “이송 중”). An arm slot is only a source alias until a Mapping resolves it; geometry establishes neither connectivity nor trajectory.
 - `PROCESS`, `POST_PROCESS`, `FUNCTION`: module activity at `location`. Activity does not itself prove a material's location when no material is provided.
 - `CARRIER_PRESENCE`: carrier at a load port, independently of wafer visits. No wafer is generated from carrier presence.
 - `LP1`: load port, carrier plus wafer slots `1` and `2`; `EFEM_R1`: EFEM handler; `LLA`: load lock slots `1` and `2`; `TM_R1`: TM handler arm slots `1` and `2`; `PM1`: single-site process module; `PM2`: process module with independent slots `1` and `2`; `PM9`: deliberately unmapped in the published Mappings; `VIRT_SCH`: virtual module ignored by the published Mappings. These roles are scenario documentation, not Mapping data.
 - Materials are `W01` through `W11`, carrier `C01`, and lots `LOT-A` and `LOT-B`. Empty and Unknown are distinct documented source-resolution cases with the same DTO shape (`id: null`, identity evidence unknown); no resolution-state field is invented.
 
-T_BIND = `2026-01-01T10:04:30.000`. The outbound TM transfer spans this Binding switch. #9b supplies the Bindings below; location resets to unknown immediately after the switch until new evidence, without changing input boundary/identity labels.
+T_BIND = `2026-01-01T10:04:30.000`. The outbound TM transfer spans this Binding switch. EV#9b supplies the Bindings below; location resets to unknown immediately after the switch until new evidence, without changing input boundary/identity labels.
 
 Watermark is `2026-01-01T10:25:00.000`. ABSENT_RECORD = `2026-01-01T10:27:00.000`: a hypothetical completed-result boundary at this time is deliberately absent, with no fabricated DTO record or material. This models the source's completed-results-only gap; the separate open-occurrence view is represented by the open process. Beyond Watermark, location is unknown, never a claim of continued observed occupancy or idle state.
 
@@ -52,10 +52,10 @@ The second column quotes the applicable bullet from REPLAY-CONTRACT's test matri
 
 Schema validation deliberately transcribes the DTO without pairing, chronology, mapping or occupancy refinements. The case tests pin these relationships in this fixture, not additional acceptance rules for every source batch. Full replay controls, permissions, caps and cache behavior from the remaining matrix bullets require later implementations.
 
-## #9b answer-key files
+## EV#9b answer-key files
 
-- `onboarding/alias-metadata.json`: synthetic adapter metadata for #11; explicit ModuleType, Port and Robot flags, supplied separately from OccurrenceBatch.
-- `onboarding/scopes/model/synth-maker/synth-model/type-dictionary.json`: synthetic model-scope Type Dictionary for #11; SYN_VIRTUAL deliberately has no Role entry.
+- `onboarding/alias-metadata.json`: synthetic adapter metadata for EV#11; explicit ModuleType, Port and Robot flags, supplied separately from OccurrenceBatch.
+- `onboarding/scopes/model/synth-maker/synth-model/type-dictionary.json`: synthetic model-scope Type Dictionary for EV#11; SYN_VIRTUAL deliberately has no Role entry.
 
 - `layout.json`: eight Components using the primitive catalog (`primitive:*` assetRefs, illustrative symbols), explicit ports, Physical Interfaces, Transfer Capabilities and one Process Route. All geometry/connectivity provenance is synthetic and assumed; no arm count or kinematics is claimed. The LP carrier site exists but the carrier Occurrence supplies no slot, so its mapped Location remains Component-level.
 - `onboarding/scopes/model/synth-maker/synth-model/alias-rules.json`: verified model rules, slot-free `PM{n}` pattern and exact PM2 station map. PM1 has no station-2, so a shared two-station pattern would be invalid. PM9 has no target Component and stays unmapped. EFEM has no SlotMap, so no blade is inferred.
@@ -64,7 +64,7 @@ Schema validation deliberately transcribes the DTO without pairing, chronology, 
 - `onboarding/mappings/eq-synth-01/0abf3e9ff0b22cb0e7993bfe143461f44ef1b8828df2cdce8e25af3d02987aef.mapping.json`: v2, published from model and equipment files. Both filenames are the canonical SHA-256 hash without `sha256:`; the full hash is in each document.
 - `onboarding/bindings/eq-synth-01.bindings.json`: v1 `[09:00:00, T_BIND)`, v2 `[T_BIND, open)` on eq-synth-01-layout.
 - `expected-inventory.json`: hand-counted over all 29 Occurrences, eight aliases and six directed transfer pairs (seven transfers). Each alias reference counts once per Occurrence; boundaries outside the query window are retained. ModuleType/Port/Robot metadata is absent because the batch cannot supply it. Role is not a DTO field.
-- `expected-scene-states.json`: sixteen static answers using the nine numbered rules in [Scene State 계약 (#9b)](../../docs/REPLAY-CONTRACT.md#scene-state-계약-9b). These are fixtures for #10, not reducer output. Each lists all eight bound Components in code-unit order; unlisted activities below mean `no recorded activity`/`unknown`/`[]`.
+- `expected-scene-states.json`: sixteen static answers using the nine numbered rules in [Scene State 계약 (EV#9b)](../../../../products/eqv/docs/REPLAY-CONTRACT.md#scene-state-계약-9b). These are fixtures for EV#10, not reducer output. Each lists all eight bound Components in code-unit order; unlisted activities below mean `no recorded activity`/`unknown`/`[]`.
 
 ## Per-time rationale
 

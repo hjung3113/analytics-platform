@@ -6,7 +6,7 @@ import {
   type AliasRule, type AliasRulesFile, type EquipmentLayoutDocument, type MappingScope, type TemplateDocument,
 } from '../src/index.js';
 
-const read = (path: string): unknown => JSON.parse(readFileSync(new URL(`../../../fixtures/${path}`, import.meta.url), 'utf8'));
+const read = (path: string): unknown => JSON.parse(readFileSync(new URL(`../../fixtures/${path}`, import.meta.url), 'utf8'));
 const layout = () => layoutDocumentSchema.parse(read('cluster-single/layout.json'));
 const model = () => aliasRulesFileSchema.parse(read('cluster-single/onboarding/scopes/model/synth-maker/synth-model/alias-rules.json'));
 const equipment = () => aliasRulesFileSchema.parse(read('cluster-single/onboarding/scopes/equipment/eq-synth-01/alias-rules.json'));

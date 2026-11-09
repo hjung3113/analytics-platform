@@ -10,7 +10,7 @@ const ORDER = [
 
 const STAGE_W = 960;
 
-const files = import.meta.glob('../../../assets/templates/*.template.json', { eager: true, import: 'default' }) as Record<string, unknown>;
+const files = import.meta.glob('../../assets/templates/*.template.json', { eager: true, import: 'default' }) as Record<string, unknown>;
 
 const templates = ORDER.map((id) => {
   const entry = Object.entries(files).find(([path]) => path.endsWith(`/${id}.template.json`));

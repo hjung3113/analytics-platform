@@ -244,6 +244,7 @@ export function TopViewer({
       selectedId: selection, hoveredId: hover, focusedId: focusForOverlay, showAllCapabilities: showAll, highlight,
       suppressCapabilities: journey != null,
     }, 1 / scene.pxPerUnit),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberate: only whether a journey exists matters, not its identity
     [scene, selection, hover, focusForOverlay, showAll, highlight, journey != null],
   );
   const overlayNodes = useMemo(() => ({
@@ -293,6 +294,7 @@ export function TopViewer({
         relayoutTimer.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberate: settle again only on layout/size/label/layer changes, not on every scenePx tick
   }, [layout, width, height, labels, layers, visibleLevelIds]);
 
   useLayoutEffect(() => {
@@ -320,6 +322,7 @@ export function TopViewer({
       return next.cx === prev.cx && next.cy === prev.cy && next.zoom === prev.zoom ? prev : next;
     });
     // Only when keyboard focus lands. A later resize or settled relayout must not pull the centre back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberate: runs only when keyboard focus lands (see comment above)
   }, [focused, mode]);
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { idSchema, type EquipmentLayoutDocument, type TemplateDocument } from '../layout/schema.js';
 
 /**
- * Copies a published Layout Revision into a Template document (ADR-0015); only identity fields change.
+ * Copies a published Layout Revision into a Template document (EV ADR-0015); only identity fields change.
  * `roleCardinality` is the exact Component count per Role; Component IDs and all other fields are copied verbatim.
  */
 export function promoteLayout(

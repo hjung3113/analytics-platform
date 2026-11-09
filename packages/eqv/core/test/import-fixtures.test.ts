@@ -8,7 +8,7 @@ import {
 } from '../src/index.js';
 
 const read = (path: string): unknown => JSON.parse(readFileSync(
-  new URL(`../../../fixtures/import/${path}`, import.meta.url), 'utf8')) as unknown;
+  new URL(`../../fixtures/import/${path}`, import.meta.url), 'utf8')) as unknown;
 const equipment = () => equipmentRecordSchema.parse(read('eq-synth-03.equipment.json'));
 const dictionary = () => typeDictionaryFileSchema.parse(read('synth-maker-b.synth-wet.type-dictionary.json'));
 const metadata = () => aliasMetadataFileSchema.parse(read('eq-synth-03.alias-metadata.json'));
@@ -17,11 +17,11 @@ const recordSequences = (input: OccurrenceBatch) => [
   ...input.occurrences.flatMap(({ start, end }) => [start.seq, ...(end ? [end.seq] : [])]),
   ...input.issues.map(({ seq }) => seq),
 ];
-const templates = (): TemplateDocument[] => readdirSync(new URL('../../../assets/templates/', import.meta.url))
+const templates = (): TemplateDocument[] => readdirSync(new URL('../../assets/templates/', import.meta.url))
   .filter((file) => file.endsWith('.template.json'))
   .sort()
   .map((file) => layoutDocumentSchema.parse(JSON.parse(readFileSync(
-    new URL(`../../../assets/templates/${file}`, import.meta.url), 'utf8'),
+    new URL(`../../assets/templates/${file}`, import.meta.url), 'utf8'),
   ) as unknown))
   .filter((document): document is TemplateDocument => document.kind === 'template');
 

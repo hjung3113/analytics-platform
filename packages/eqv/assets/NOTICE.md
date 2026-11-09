@@ -2,14 +2,14 @@
 
 Every asset below originates in `equipment-visualization-design-v0.3.zip`, SHA-256 `9e510a228bfa6da20e3a80749d991c91e5b8ed826bab62f51b127e355730aac2`. All are synthetic/illustrative generic concepts, not OEM drawings, measured dimensions or validated kinematics. Public references provide background only: their URLs do not confer a redistribution licence for manufacturer photographs, diagrams or other material. No such images are included.
 
-Templates are converted v0.4 semantic documents; primitives were restyled in #34 as redrawn generic glyphs from the owner-approved prototype (2026-10-15), with semantic theme tokens. They remain synthetic, not OEM depictions. Primitive references are pack-wide background, not claims about individual symbol geometry. All layout provenance cites the synthetic pack as assumed.
+Templates are converted v0.4 semantic documents; primitives were restyled in EV#34 as redrawn generic glyphs from the owner-approved prototype (2026-10-15), with semantic theme tokens. They remain synthetic, not OEM depictions. Primitive references are pack-wide background, not claims about individual symbol geometry. All layout provenance cites the synthetic pack as assumed.
 
-The Korean Endura reference row states an upper bound of nine process chambers; it supplies no complete range. #27 therefore records **assumed** ranges (owner decision, 2026-10-15) for the repeated module Roles of the two cluster templates: `pm` 1–9 (upper bound from the Endura row, lower bound assumed), `ll` 1–2 and `lp` 1–4 (assumed). They are not measured on any specific equipment. Every other Role, and every Role of the other four templates, keeps min = max = its drawn count.
+The Korean Endura reference row states an upper bound of nine process chambers; it supplies no complete range. EV#27 therefore records **assumed** ranges (owner decision, 2026-10-15) for the repeated module Roles of the two cluster templates: `pm` 1–9 (upper bound from the Endura row, lower bound assumed), `ll` 1–2 and `lp` 1–4 (assumed). They are not measured on any specific equipment. Every other Role, and every Role of the other four templates, keeps min = max = its drawn count.
 
 ## Conversion rules (one-off converter, not committed)
 
-- #32 restored the v0.3 `bounds.w/h` as Component footprint `size.width/height` in layout units (ADR-0006).
-- #33 re-authored positions, rotations and footprints from the owner-approved prototype (2026-10-15): radial cluster PMs on TM facets, LLs between EFEM and TM, robots inside their housing (centred in EFEM/TM), and LPs docked on the EFEM front. Geometry remains generic, synthetic and not OEM-faithful, with `transform` and `size` assumed from `src-v03-pack` and `src-geometry-2026-10`. Ports retain their relative footprint positions; connectivity was not derived from the new geometry.
+- EV#32 restored the v0.3 `bounds.w/h` as Component footprint `size.width/height` in layout units (EV ADR-0006).
+- EV#33 re-authored positions, rotations and footprints from the owner-approved prototype (2026-10-15): radial cluster PMs on TM facets, LLs between EFEM and TM, robots inside their housing (centred in EFEM/TM), and LPs docked on the EFEM front. Geometry remains generic, synthetic and not OEM-faithful, with `transform` and `size` assumed from `src-v03-pack` and `src-geometry-2026-10`. Ports retain their relative footprint positions; connectivity was not derived from the new geometry.
 - Transfer Capabilities come only from v0.3 `transfer-access` edges. Each edge names a hub (or robot) and a module; the serving robot is the robot endpoint or the hub's single robot child. Every pair of distinct modules served by one robot gets one capability per pair of Holding Sites that share a material kind **the robot's blades can hold**, handler = that robot, Certainty `assumed`. This is possibility, not evidence of transfer. A wafer robot therefore links wafer slots (including load port to load port) but never carrier or boat places.
 - Edges with no robot endpoint and no robot child are skipped, never given an inferred handler: lithography `edge-03` (STAGE_A→EXPOSE), `edge-04` (STAGE_B→METRO); furnace `edge-02` (STOCK→BOAT1), `edge-03` (STOCK→BOAT2).
 - Holding Sites (all `assumed`): process-like modules `station-1`; `ll` `slot-1`, `slot-2`; robots one `blade-*` per v0.3 `bladeCount` (arm count is not a site count); `lp` `carrier` + `slot-1`…`slot-25`; boat `load`; reactor `boat`; stocker one `place-*` per v0.3 port; structural Roles none.
@@ -24,7 +24,7 @@ Background references only:
 
 ## assets/templates/cluster-rotary-stations.template.json
 
-Origin: authored in this repository for #224 (ADR-0016). Synthetic, assumed generic geometry (hub, one robot, two PMs with four `station-1`…`station-4` Holding Site positions each); not derived from the v0.3 pack and not an OEM drawing. `fixtures/cluster-rotary/` holds its Equipment Layout and Scene States.
+Origin: authored in this repository for EV#224 (EV ADR-0016). Synthetic, assumed generic geometry (hub, one robot, two PMs with four `station-1`…`station-4` Holding Site positions each); not derived from the v0.3 pack and not an OEM drawing. `fixtures/cluster-rotary/` holds its Equipment Layout and Scene States.
 
 ## assets/templates/cluster-single.template.json
 
@@ -69,9 +69,9 @@ Background references only:
 
 - <https://www.semes.com/en/product/process>
 
-## Primitive restyle (#34)
+## Primitive restyle (EV#34)
 
-All 25 primitives below use the owner-approved prototype’s symbol-only glyphs and body frames, generated at `k = 1`. The pack identifies their original archetype lineage; the #34 geometry and palette replace the original shapes and colours. No OEM image, label or validated kinematic claim is included. Robot arm count does not imply blade count. Templates and connectivity are unchanged by this restyle. See [primitive tokens and sizing](primitives/README.md).
+All 25 primitives below use the owner-approved prototype’s symbol-only glyphs and body frames, generated at `k = 1`. The pack identifies their original archetype lineage; the EV#34 geometry and palette replace the original shapes and colours. No OEM image, label or validated kinematic claim is included. Robot arm count does not imply blade count. Templates and connectivity are unchanged by this restyle. See [primitive tokens and sizing](primitives/README.md).
 
 ## assets/primitives/aligner.svg
 
@@ -450,12 +450,12 @@ Background references only:
 
 ## assets/equipment, assets/observations, assets/onboarding
 
-Synthetic copies of the `fixtures/cluster-single/` fixture (#14), used as read-only Studio seed data for the equipment `eq-synth-01`: `observations/eq-synth-01/windows/<name>.batch.json` (a Sample Window) and `alias-metadata.json`, and the `onboarding/{scopes,mappings,bindings}` tree are byte copies; `equipment/eq-synth-01.json` is the equipment record. They contain no OEM, customer or measured data.
+Synthetic copies of the `fixtures/cluster-single/` fixture (EV#14), used as read-only Studio seed data for the equipment `eq-synth-01`: `observations/eq-synth-01/windows/<name>.batch.json` (a Sample Window) and `alias-metadata.json`, and the `onboarding/{scopes,mappings,bindings}` tree are byte copies; `equipment/eq-synth-01.json` is the equipment record. They contain no OEM, customer or measured data.
 
 ## assets/layouts
 
-`layouts/eq-synth-01-layout/draft.layout.json` is a byte copy of `fixtures/cluster-single/layout.json` (#14b): the synthetic Equipment Layout draft of `eq-synth-01` that the Studio Mapping Board edits aliases onto. It is not an OEM drawing and carries no measured data.
+`layouts/eq-synth-01-layout/draft.layout.json` is a byte copy of `fixtures/cluster-single/layout.json` (EV#14b): the synthetic Equipment Layout draft of `eq-synth-01` that the Studio Mapping Board edits aliases onto. It is not an OEM drawing and carries no measured data.
 
-## assets/…/eq-demo-01 (demo equipment, #143)
+## assets/…/eq-demo-01 (demo equipment, EV#143)
 
 Every file for the equipment `eq-demo-01` (maker `synth-maker`, model `synth-demo`) is generated by `apps/studio/scripts/demo/generate.ts`; none is hand-edited and none comes from a log, an OEM or a customer. The equipment record, Model and Equipment alias rules, Type Dictionary, alias metadata, the draft and published Layout (instantiated from `cluster-single`), Mapping Version, baseline Inventory, Bindings and the two Sample Windows (2026-01-02 08:00–10:00 and 10:00–12:00, 25 synthetic wafers each, seeded pseudo-random timings) are paths under `equipment/`, `observations/`, `layouts/` and `onboarding/`. The Occurrences are a made-up scenario that exercises replay (parallel chambers, both blades of the EFEM robot); they carry no process knowledge. Regenerate from the repository root with `pnpm --filter @eqv/studio demo:generate`; `apps/studio/test/demo-assets.test.ts` fails when a committed file differs from the generator output.

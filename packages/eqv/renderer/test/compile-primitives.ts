@@ -18,7 +18,7 @@ export interface PrimitiveParts {
 }
 
 export function readAssets(): Record<string, string> {
-  const dir = fileURLToPath(new URL('../../../assets/primitives/', import.meta.url));
+  const dir = fileURLToPath(new URL('../../assets/primitives/', import.meta.url));
   const out: Record<string, string> = {};
   for (const file of readdirSync(dir).filter((name) => name.endsWith('.svg')).sort()) {
     out[file.replace(/\.svg$/, '')] = readFileSync(`${dir}/${file}`, 'utf8');

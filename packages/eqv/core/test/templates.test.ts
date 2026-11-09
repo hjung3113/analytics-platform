@@ -7,7 +7,7 @@ import {
 } from '../src/index.js';
 import { compareNatural } from '../src/onboarding/order.js';
 
-const read = (path: string) => JSON.parse(readFileSync(new URL(`../../../fixtures/${path}`, import.meta.url), 'utf8'));
+const read = (path: string) => JSON.parse(readFileSync(new URL(`../../fixtures/${path}`, import.meta.url), 'utf8'));
 const dictionaries = [typeDictionaryFileSchema.parse(read('cluster-single/onboarding/scopes/model/synth-maker/synth-model/type-dictionary.json'))];
 const inventory = () => buildInventory(occurrenceBatchSchema.parse(read('cluster-single/occurrence-batch.json')),
   aliasMetadataFileSchema.parse(read('cluster-single/onboarding/alias-metadata.json')));

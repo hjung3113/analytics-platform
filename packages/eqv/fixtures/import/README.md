@@ -47,4 +47,4 @@ The six generic dictionary entries are `SYN_LOADPORT → lp`, `SYN_RAIL → rail
   }
   ```
 
-- **Expected #97 rejection codes:** `invalid/sub-ms.batch.json` → `fraction-too-long`; `invalid/continuation.batch.json` → `continuation`; `invalid/point-events.json` → `schema`.
+- **Expected EV#97 rejection codes:** `invalid/sub-ms.batch.json` → `fraction-too-long`; `invalid/continuation.batch.json` → `continuation`; `invalid/point-events.json` → `schema`.

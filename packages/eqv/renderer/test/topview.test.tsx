@@ -12,7 +12,7 @@ import { estimateTextWidth } from '../src/text.js';
 import { primitives } from '../src/primitives.generated.js';
 import { buildOverlay } from '../src/overlay.js';
 
-const root = new URL('../../../', import.meta.url);
+const root = new URL('../../', import.meta.url);
 const TEMPLATE_IDS = [
   'cluster-single', 'cluster-dual-hub', 'wet-linear', 'track-stacked',
   'lithography-dual-stage', 'vertical-batch-furnace',

@@ -44,7 +44,7 @@ const componentSchema = z.strictObject({
   }).describe('Finite geometry local to the parent; geometry never establishes connectivity.'),
   size: z.strictObject({
     width: z.number().positive(), height: z.number().positive(),
-  }).optional().describe('ADR-0006: footprint in layout units in the Component local frame before rotation, multiplied by transform.scale. Absence means unknown; renderers fall back to primitive natural size. Structural Roles stretch to the footprint; module and robot symbols fit centred with aspect ratio preserved. Geometry never establishes connectivity.'),
+  }).optional().describe('EV ADR-0006: footprint in layout units in the Component local frame before rotation, multiplied by transform.scale. Absence means unknown; renderers fall back to primitive natural size. Structural Roles stretch to the footprint; module and robot symbols fit centred with aspect ratio preserved. Geometry never establishes connectivity.'),
   ports: z.array(portSchema),
   holdingSites: z.array(holdingSiteSchema),
   provenance: z.strictObject({
@@ -77,7 +77,7 @@ const transferCapabilitySchema = z.strictObject({
 }).describe('Explicit undirected Holding Site capability via a robot Component; possible transfer is not evidence of an actual transfer.');
 const processRouteSchema = z.strictObject({
   id: idSchema, label: z.string(), steps: z.array(idSchema).min(2),
-}).describe('Explanatory Component sequence only, never Replay evidence (ADR-0004).');
+}).describe('Explanatory Component sequence only, never Replay evidence (EV ADR-0004).');
 const cardinalitySchema = z.strictObject({
   min: z.int().nonnegative(), max: z.int().nonnegative(),
 }).refine(({ min, max }) => max >= min, { path: ['max'], message: 'max must be at least min' });
@@ -101,7 +101,7 @@ const templateDocumentSchema = z.strictObject({
   ...body, kind: z.literal('template'), roleCardinality: z.record(idSchema, cardinalitySchema),
   promotedFrom: z.strictObject({
     layoutId: idSchema, layoutRevision: z.string().regex(/^sha256:[0-9a-f]{64}$/),
-  }).optional().describe('ADR-0015: the published Layout Revision this Template was promoted from; absent on bundled Templates.'),
+  }).optional().describe('EV ADR-0015: the published Layout Revision this Template was promoted from; absent on bundled Templates.'),
 });
 const equipmentLayoutDocumentSchema = z.strictObject({
   ...body, kind: z.literal('equipment-layout'), templateId: idSchema,

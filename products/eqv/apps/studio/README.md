@@ -118,7 +118,7 @@ Follow this order:
 Studio accepts only source-paired `OccurrenceBatch` JSON. Put raw-log conversion in a separate, permissioned deployment layer;
 keep examples and tests synthetic, as required by [AGENTS.md: “Use synthetic test data”](../../EV-AGENTS.md).
 
-Try the synthetic files in [`fixtures/import/README.md`](../../fixtures/import/README.md):
+Try the synthetic files in [`fixtures/import/README.md`](../../../../packages/eqv/fixtures/import/README.md):
 `eq-synth-03.equipment.json`, `synth-maker-b.synth-wet.type-dictionary.json`, `eq-synth-03.alias-metadata.json`,
 `eq-synth-03.w1.batch.json`, and `eq-synth-03.w2.batch.json`. Negative examples are
 `invalid/sub-ms.batch.json`, `invalid/continuation.batch.json`, and `invalid/point-events.json`.

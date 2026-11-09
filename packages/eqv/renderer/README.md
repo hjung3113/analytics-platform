@@ -1,6 +1,6 @@
 # @eqv/renderer
 
-SVG Top View for a v0.4 Layout document (issue #12, slice S7). `TopView` is the static read-only picture. `TopViewer` adds selection, keyboard focus, pan/zoom and selection-scoped Transfer Capability segments. Port marks are not in this package.
+SVG Top View for a v0.4 Layout document (issue EV#12, slice S7). `TopView` is the static read-only picture. `TopViewer` adds selection, keyboard focus, pan/zoom and selection-scoped Transfer Capability segments. Port marks are not in this package.
 
 The picture is derived. Connectivity is only what the layout states: a Physical Interface mark is one explicit `physicalInterfaces` entry, and a Transfer Capability segment is one explicit handler endpoint. Neither is inferred from adjacency, overlap or port coordinates. Footprint and pose are illustrative. A capability segment means a transfer is possible, not that one was observed. An assumed badge is a certainty cue, not evidence.
 

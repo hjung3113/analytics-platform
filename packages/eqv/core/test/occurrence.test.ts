@@ -4,8 +4,8 @@ import { z } from 'zod';
 
 import { occurrenceBatchSchema, type Occurrence, type OccurrenceBatch } from '../src/index.js';
 
-const fixtureUrl = new URL('../../../fixtures/cluster-single/occurrence-batch.json', import.meta.url);
-const readmeUrl = new URL('../../../fixtures/cluster-single/README.md', import.meta.url);
+const fixtureUrl = new URL('../../fixtures/cluster-single/occurrence-batch.json', import.meta.url);
+const readmeUrl = new URL('../../fixtures/cluster-single/README.md', import.meta.url);
 const readFixture = (): unknown => JSON.parse(readFileSync(fixtureUrl, 'utf8'));
 const batch = (): OccurrenceBatch => occurrenceBatchSchema.parse(readFixture());
 const readme = () => readFileSync(readmeUrl, 'utf8');

@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 const layout: LayoutDocument = layoutDocumentSchema.parse(
-  JSON.parse(readFileSync(resolve(process.cwd(), '../../assets/templates/cluster-single.template.json'), 'utf8')));
+  JSON.parse(readFileSync(resolve(process.cwd(), '../assets/templates/cluster-single.template.json'), 'utf8')));
 const scene = buildScene(layout, { width: 1000, height: 700, pxPerUnit: 4, interactive: true });
 const k = 1 / scene.pxPerUnit;
 const hop = (number: number, componentId: string, evidence: JourneyHopMark['evidence'] = 'observed'): JourneyHopMark => ({ number, componentId, evidence });

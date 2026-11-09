@@ -4,7 +4,7 @@ import {
   instantiateLayout, layoutDocumentSchema, layoutRevision, promoteLayout, validateLayout, type EquipmentLayoutDocument, type TemplateDocument,
 } from '../src/index.js';
 
-const read = (path: string) => JSON.parse(readFileSync(new URL(`../../../${path}`, import.meta.url), 'utf8'));
+const read = (path: string) => JSON.parse(readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8'));
 const layout = () => layoutDocumentSchema.parse(read('fixtures/cluster-single/layout.json')) as EquipmentLayoutDocument;
 const revision = `sha256:${'a'.repeat(64)}`;
 const input = { templateId: 'promoted-one', name: 'Promoted', layoutRevision: revision };

@@ -6,7 +6,7 @@ import {
 } from '../src/index.js';
 import { canonicalJson, sha256Hex } from '../src/canonical.js';
 
-const root = new URL('../../../fixtures/cluster-single/', import.meta.url);
+const root = new URL('../../fixtures/cluster-single/', import.meta.url);
 const read = (path: string): unknown => JSON.parse(readFileSync(new URL(path, root), 'utf8'));
 const directory = 'onboarding/mappings/eq-synth-01/';
 const bindings = bindingsFileSchema.parse(read('onboarding/bindings/eq-synth-01.bindings.json')).bindings;
@@ -49,7 +49,7 @@ describe('checkBindingLayout', () => {
 
   it.each([
     ['a bad schema', () => checkBindingLayout({ ...rawLayout, components: 'x' }, 'eq-synth-01-layout', undefined), /^\S+: /],
-    ['a template file', () => checkBindingLayout(JSON.parse(readFileSync(new URL('../../../fixtures/templates/cluster-single.template.json', import.meta.url), 'utf8')), 'x', undefined), /^equipment-layout이 아닙니다 \(template\)$/],
+    ['a template file', () => checkBindingLayout(JSON.parse(readFileSync(new URL('../../fixtures/templates/cluster-single.template.json', import.meta.url), 'utf8')), 'x', undefined), /^equipment-layout이 아닙니다 \(template\)$/],
     ['another layout id', () => checkBindingLayout(rawLayout, 'other-layout', undefined), /^id\(eq-synth-01-layout\)가 other-layout와 다릅니다$/],
     ['a revision hash mismatch', () => checkBindingLayout(rawLayout, 'eq-synth-01-layout', `sha256:${'0'.repeat(64)}`), /^내용 hash가 binding의 layoutRevision과 다릅니다$/],
   ])('rejects %s', async (_name, check, problem) => {

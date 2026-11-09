@@ -5,7 +5,7 @@ import {
   replayKey, type LayoutDocument, type ReplayInput, type SiteWallClock,
 } from '../src/index.js';
 
-const root = new URL('../../../fixtures/cluster-single/', import.meta.url);
+const root = new URL('../../fixtures/cluster-single/', import.meta.url);
 const read = (path: string): unknown => JSON.parse(readFileSync(new URL(path, root), 'utf8'));
 const layout = (): LayoutDocument => layoutDocumentSchema.parse(read('layout.json'));
 const reorder = (value: unknown): unknown => Array.isArray(value) ? value.map(reorder)

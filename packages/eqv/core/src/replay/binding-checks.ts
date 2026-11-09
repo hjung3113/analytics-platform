@@ -24,7 +24,7 @@ export async function checkBindingMapping(raw: unknown, binding: Binding, equipm
 
 /**
  * Content checks of a Layout file read for a Binding's `layoutId`: `revision` is the pinned Layout Revision, undefined for the draft
- * (ADR-0011). `notice` is set for the draft, which a Binding without a pin replays.
+ * (EV ADR-0011). `notice` is set for the draft, which a Binding without a pin replays.
  */
 export async function checkBindingLayout(raw: unknown, layoutId: string, revision: string | undefined):
 Promise<BindingCheck<EquipmentLayoutDocument> & { notice?: string }> {
@@ -61,7 +61,7 @@ export type BindingContext =
   | { ok: false; problem: string | null; at: BindingContextRef };
 
 /**
- * Server and file data is not trusted to be self-consistent (ADR-0011): checks each distinct (mappingHash, layoutId)
+ * Server and file data is not trusted to be self-consistent (EV ADR-0011): checks each distinct (mappingHash, layoutId)
  * relationship once, each unpinned `layoutId` once as the draft, and each pinned Layout Revision once. Stops at the first failure
  * (Mapping Versions first, then drafts, then pinned revisions). Both hosts (Studio, platform adapter) use this one order, so the
  * same bad input reports the same first failure everywhere (#177 slice close; the adapter used a per-Binding order before).

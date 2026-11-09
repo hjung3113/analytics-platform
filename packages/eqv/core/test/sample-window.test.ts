@@ -5,7 +5,7 @@ import {
   type ImportRejectCode, type OccurrenceBatch, type SampleWindowRef,
 } from '../src/index.js';
 
-const root = new URL('../../../fixtures/cluster-single/', import.meta.url);
+const root = new URL('../../fixtures/cluster-single/', import.meta.url);
 const base = (): OccurrenceBatch => JSON.parse(readFileSync(new URL('occurrence-batch.json', root), 'utf8'));
 const ctx = (existing: SampleWindowRef[] = []) => ({ equipmentId: 'eq-synth-01', existing });
 const ref = (from: string, to: string, timeDomain = 'site-synth', hash = `sha256:${'a'.repeat(64)}`): SampleWindowRef => ({ from, to, timeDomain, hash });

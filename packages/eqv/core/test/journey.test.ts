@@ -4,7 +4,7 @@ import {
   layoutDocumentSchema, materialJourney, stepSceneState, type MappingVersion, type Occurrence, type ReplayInput, type SiteWallClock,
 } from '../src/index.js';
 
-const root = new URL('../../../fixtures/cluster-single/', import.meta.url);
+const root = new URL('../../fixtures/cluster-single/', import.meta.url);
 const layout = layoutDocumentSchema.parse(JSON.parse(readFileSync(new URL('layout.json', root), 'utf8')));
 if (layout.kind !== 'equipment-layout') throw new Error('Expected equipment layout');
 const hash = (c: string) => `sha256:${c.repeat(64)}`;

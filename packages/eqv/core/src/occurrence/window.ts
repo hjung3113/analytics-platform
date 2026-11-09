@@ -5,7 +5,7 @@ import { occurrenceOverlapsWindow } from './overlap.js';
 import { occurrenceBatchSchema, type EvidenceLevel, type OccurrenceBatch } from './schema.js';
 import { batchRecordProblems } from './validate.js';
 
-// Sample Window validation (ADR-0009, ADR-0010): collects every problem and never fixes the input. The returned batch is the input content.
+// Sample Window validation (EV ADR-0009, EV ADR-0010): collects every problem and never fixes the input. The returned batch is the input content.
 export type SampleWindowRef = { from: SiteWallClock; to: SiteWallClock; hash: string; timeDomain: string };
 export type ImportRejectCode = 'schema' | 'fraction-too-long' | 'fraction-missing' | 'offset' | 'malformed-time' | 'empty-range'
   | 'empty-time-domain' | 'continuation' | 'equipment-mismatch' | 'record-owner' | 'duplicate-seq' | 'duplicate-id'

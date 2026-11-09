@@ -7,14 +7,14 @@ import {
   typeDictionaryFileSchema, type EquipmentLayoutDocument, type Occurrence,
 } from '../src/index.js';
 
-const read = (path: string) => JSON.parse(readFileSync(new URL(`../../../fixtures/cluster-single/${path}`, import.meta.url), 'utf8'));
+const read = (path: string) => JSON.parse(readFileSync(new URL(`../../fixtures/cluster-single/${path}`, import.meta.url), 'utf8'));
 const batch = () => occurrenceBatchSchema.parse(read('occurrence-batch.json'));
 const expected = () => observedInventorySchema.parse(read('expected-inventory.json'));
 const metadata = () => aliasMetadataFileSchema.parse(read('onboarding/alias-metadata.json'));
 const dictionary = () => typeDictionaryFileSchema.parse(read('onboarding/scopes/model/synth-maker/synth-model/type-dictionary.json'));
 const layout = () => layoutDocumentSchema.parse(read('layout.json')) as EquipmentLayoutDocument;
 const mapping = (prefix = '0abf') => {
-  const file = readdirSync(new URL('../../../fixtures/cluster-single/onboarding/mappings/eq-synth-01/', import.meta.url)).find((name) => name.startsWith(prefix));
+  const file = readdirSync(new URL('../../fixtures/cluster-single/onboarding/mappings/eq-synth-01/', import.meta.url)).find((name) => name.startsWith(prefix));
   return mappingVersionSchema.parse(read(`onboarding/mappings/eq-synth-01/${file}`));
 };
 const inventory = () => buildInventory(batch(), metadata());

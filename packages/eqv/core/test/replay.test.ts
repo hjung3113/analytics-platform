@@ -5,7 +5,7 @@ import {
   seekSceneState, stepSceneState, replayKey, replayTimeline, sceneStateHash, layoutRevision, bindingLayout, assertReplayInput, type ReplayInput, type SiteWallClock,
 } from '../src/index.js';
 
-const root = new URL('../../../fixtures/cluster-single/', import.meta.url);
+const root = new URL('../../fixtures/cluster-single/', import.meta.url);
 const read = (path: string): unknown => JSON.parse(readFileSync(new URL(path, root), 'utf8'));
 const time = (value: string): SiteWallClock => `2026-01-01T${value}.000`;
 const input = (): ReplayInput => {
@@ -247,7 +247,7 @@ it('preserves open placement and activity evidence exactly at the watermark', ()
   expect(state.markers).toEqual([]);
 });
 
-// Layout Revision lookup (ADR-0011): two revisions of one layoutId, each pinned by one of the two Bindings (boundary 10:04:30).
+// Layout Revision lookup (EV ADR-0011): two revisions of one layoutId, each pinned by one of the two Bindings (boundary 10:04:30).
 const revisions = async () => {
   const data = input();
   const base = data.layouts[0]!;

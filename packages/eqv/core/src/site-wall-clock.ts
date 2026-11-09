@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const siteWallClockSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/);
 export type SiteWallClock = z.infer<typeof siteWallClockSchema>;
 
-// Why a string is not a Site Wall-clock (ADR-0009). Diagnosis only: it never fixes, truncates or pads the value, and
+// Why a string is not a Site Wall-clock (EV ADR-0009). Diagnosis only: it never fixes, truncates or pads the value, and
 // it is exactly the regex above (calendar validity is not judged here).
 export type WallClockDiagnosis =
   | { ok: true }

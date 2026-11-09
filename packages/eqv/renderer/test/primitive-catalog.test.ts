@@ -4,7 +4,7 @@ import { PRIMITIVE_CATALOG } from '../src/index.js';
 import { primitives } from '../src/primitives.generated.js';
 
 it('exports all 25 bundled primitives with their natural sizes and class labels', async () => {
-  const names = (await readdir(new URL('../../../assets/primitives/', import.meta.url))).filter((name) => name.endsWith('.svg')).map((name) => name.slice(0, -4));
+  const names = (await readdir(new URL('../../assets/primitives/', import.meta.url))).filter((name) => name.endsWith('.svg')).map((name) => name.slice(0, -4));
   expect(PRIMITIVE_CATALOG).toHaveLength(25);
   expect(PRIMITIVE_CATALOG.map((entry) => entry.name).sort()).toEqual(names.sort());
   for (const entry of PRIMITIVE_CATALOG) {

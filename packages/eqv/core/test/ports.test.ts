@@ -5,7 +5,7 @@ import {
   type Component, type LayoutDocument, type TemplateDocument,
 } from '../src/index.js';
 
-const root = new URL('../../../', import.meta.url);
+const root = new URL('../../', import.meta.url);
 const read = (path: string) => JSON.parse(readFileSync(new URL(path, root), 'utf8'));
 const templateIds = [
   'cluster-dual-hub', 'cluster-single', 'lithography-dual-stage', 'track-stacked',

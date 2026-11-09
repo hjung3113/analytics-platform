@@ -6,7 +6,7 @@ import {
   type SiteWallClock, type TimelineRange,
 } from '../src/index.js';
 
-const root = new URL('../../../fixtures/cluster-single/', import.meta.url);
+const root = new URL('../../fixtures/cluster-single/', import.meta.url);
 const read = (path: string): unknown => JSON.parse(readFileSync(new URL(path, root), 'utf8'));
 const time = (value: string): SiteWallClock => `2026-01-01T${value}.000`;
 const input = (): ReplayInput => {
@@ -88,7 +88,7 @@ it('rejects an empty or reversed range and foreign equipment', () => {
   expect(() => replayTimeline(foreign, window)).toThrow('must match batch.equipmentId');
 });
 
-const importRoot = new URL('../../../fixtures/import/', import.meta.url);
+const importRoot = new URL('../../fixtures/import/', import.meta.url);
 const importInput = (name: string): ReplayInput => {
   const batch = occurrenceBatchSchema.parse(JSON.parse(readFileSync(new URL(`eq-synth-03.${name}.batch.json`, importRoot), 'utf8')));
   return { batch, layouts: [], bindings: { schemaVersion: '0.4', equipmentId: batch.equipmentId, bindings: [] }, mappings: [] };

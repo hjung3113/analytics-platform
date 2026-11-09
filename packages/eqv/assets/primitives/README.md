@@ -1,12 +1,12 @@
 # Equipment primitives
 
-25 synthetic, illustrative symbols redrawn from the owner-approved prototype for #34. Not OEM drawings, measured dimensions or validated robot kinematics. Arms do not specify blade counts or establish kinematics. Labels belong to the consuming renderer.
+25 synthetic, illustrative symbols redrawn from the owner-approved prototype for EV#34. Not OEM drawings, measured dimensions or validated robot kinematics. Arms do not specify blade counts or establish kinematics. Labels belong to the consuming renderer.
 
 Geometry is generated from the prototype’s symbol-only primitive-sheet recipe at `k = 1`, using its default sizes and centred origin. The centred viewBox encloses every shape, including transformed robot blades, plus half its stroke width. Coordinates are rounded to two decimals. No labels or element IDs are baked in.
 
 ## Theme tokens
 
-The standalone assets read only `--eqv-*` custom properties with the approved light fallback below. Inside analytics-platform the platform adapter imports the `@eqv/ui/theme.css` mapping of the listed platform token values; the standalone Studio sets a row from a `@ap/ui` variable only when `@ap/ui` defines it (for example `rgb(var(--surface-canvas))`) and keeps the hex fallback for platform-extension rows such as `--chart-blue-stroke` or `--surface-sunken` (ADR-0008). The primitives have no platform or design-system dependency. Tokens for canvas, overlays and labels are listed for the shared renderer theme even where the primitive symbols do not use them. Robot and material fills are literal approved palette values with no corresponding prototype platform token.
+The standalone assets read only `--eqv-*` custom properties with the approved light fallback below. Inside analytics-platform the platform adapter imports the `@eqv/ui/theme.css` mapping of the listed platform token values; the standalone Studio sets a row from a `@ap/ui` variable only when `@ap/ui` defines it (for example `rgb(var(--surface-canvas))`) and keeps the hex fallback for platform-extension rows such as `--chart-blue-stroke` or `--surface-sunken` (EV ADR-0008). The primitives have no platform or design-system dependency. Tokens for canvas, overlays and labels are listed for the shared renderer theme even where the primitive symbols do not use them. Robot and material fills are literal approved palette values with no corresponding prototype platform token.
 
 The adapter must inject complete CSS colours. analytics-platform tokens hold RGB channel lists (for example `--chart-blue-stroke: 37 119 204`), so map them as `--eqv-process-stroke: rgb(var(--chart-blue-stroke)); --eqv-process-fill: rgb(var(--icon-blue-soft));`. A defined custom property with the wrong value type is not rescued by the SVG fallback.
 
@@ -47,11 +47,11 @@ The adapter must inject complete CSS colours. analytics-platform tokens hold RGB
 
 Each symbol uses its own class’s fill/stroke and `--eqv-detail-fill`. The housing body uses `--eqv-board` instead of structure fill, as in the approved prototype.
 
-Under ADR-0006, structural primitives (efem, tm, rail, housing) carry `preserveAspectRatio="none"` and stretch to the Component footprint. Module and robot symbols keep the SVG default, preserving aspect ratio and fitting centrally inside the footprint. Every stroked shape carries `vector-effect="non-scaling-stroke"`, so line weights stay at their drawn screen width when a symbol is fitted or stretched (the approved prototype compensated stroke width for scale); this applies when the SVG is inlined, which is how the renderer uses it. Because a screen-width stroke does not shrink with the symbol, the root `<svg>` also carries `overflow="visible"`: at reduced scale the outermost half-stroke may extend past the viewBox edge and must not be clipped; the renderer leaves a few pixels of clearance between neighbouring symbols. Footprint and pose are illustrative geometry, never evidence of connectivity or motion.
+Under EV ADR-0006, structural primitives (efem, tm, rail, housing) carry `preserveAspectRatio="none"` and stretch to the Component footprint. Module and robot symbols keep the SVG default, preserving aspect ratio and fitting centrally inside the footprint. Every stroked shape carries `vector-effect="non-scaling-stroke"`, so line weights stay at their drawn screen width when a symbol is fitted or stretched (the approved prototype compensated stroke width for scale); this applies when the SVG is inlined, which is how the renderer uses it. Because a screen-width stroke does not shrink with the symbol, the root `<svg>` also carries `overflow="visible"`: at reduced scale the outermost half-stroke may extend past the viewBox edge and must not be clipped; the renderer leaves a few pixels of clearance between neighbouring symbols. Footprint and pose are illustrative geometry, never evidence of connectivity or motion.
 
 The first shape after `<title>` is the body. In the 17 module and holding primitives, every element after the body is wrapped in one `<g data-part="glyph">`. The body bytes and the glyph element bytes are unchanged. That group is the interior symbol the renderer may shrink or offset when a label needs room inside the footprint. Robot and structure primitives have no glyph group.
 
-## Removed #7 tokens
+## Removed EV#7 tokens
 
 No consumer existed for the removed names: `--eqv-accent-fill`, `--eqv-accent-stroke`, `--eqv-detail-stroke`, `--eqv-handler-fill`, `--eqv-handler-primary`, `--eqv-handler-secondary`, `--eqv-handler-stroke`, `--eqv-module-fill`, `--eqv-module-stroke`. The retained `--eqv-detail-fill`, `--eqv-structure-fill` and `--eqv-structure-stroke` names take the new defaults above.
 

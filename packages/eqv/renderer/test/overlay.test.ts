@@ -9,7 +9,7 @@ import { robotR, shapeLocal } from '../src/geom.js';
 import { outsideLabelBottomPx } from '../src/scene.js';
 import { formatNum, renderNode } from '../src/svg.js';
 
-const root = new URL('../../../', import.meta.url);
+const root = new URL('../../', import.meta.url);
 const TEMPLATE_IDS = [
   'cluster-single', 'cluster-dual-hub', 'wet-linear', 'track-stacked',
   'lithography-dual-stage', 'vertical-batch-furnace',
