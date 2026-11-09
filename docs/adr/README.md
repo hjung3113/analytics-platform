@@ -2,7 +2,7 @@
 
 실제 대안 중에서 고른 결정, 되돌리기 어려운 결정을 남긴다. ADR은 **결정과 이유**만 둔다. 세부 규칙은 소유 문서(06·01·DESIGN.md·`integration/*`)에 두고 ADR은 그쪽을 링크한다. 결정 상태 한눈 보기는 [05 결정 상태](../overview/roadmap-and-open-questions.md), 아직 답이 없는 결정은 [`.planning/README.md`](../../.planning/README.md) "결정 대기".
 
-이 목록의 번호는 플랫폼 ADR이고 `ADR-NNNN`으로 부른다. FeedbackOps ADR(`docs/adr/history/feedbackops/`)은 번호를 따로 매겨 플랫폼 번호와 겹치므로(예: 0070은 양쪽에 있다) 플랫폼 문서와 코드 주석에서 항상 `FO ADR-NNNN`으로 쓴다.
+이 목록의 번호는 플랫폼 ADR이고 `ADR-NNNN`으로 부른다. FeedbackOps ADR(`docs/adr/history/feedbackops/`)은 번호를 따로 매겨 플랫폼 번호와 겹치므로(예: 0070은 양쪽에 있다) 플랫폼 문서와 코드 주석에서 항상 `FO ADR-NNNN`으로 쓴다. 설비 시각화(EV) ADR(`docs/adr/history/eqv/`, [ADR-0132](0132-eqv-merges-into-platform.md))도 번호가 겹치므로 `EV ADR-NNNN`으로 쓴다.
 
 #597 retires the standalone portions of ADR-0027/0045 and FO ADR-0071 under [ADR-0097](0097-platform-features-and-role-based-names.md). Their bodies remain historical; the live link contract is [platform-inbound-links.md](../integration/platform-inbound-links.md). Inbound platform hops remain supported.
 
@@ -48,7 +48,7 @@
 | [0036](0036-chart-range-keyboard-snap-compare-clip.md) | 차트 구간은 키보드로 고르고 막대 경계에 맞추며 비교 중에는 현재 기간만 선택한다 | Decided(2026-10-16) |
 | [0037](0037-table-filter-consistency.md) | 관리 표는 내용만큼 커지고 동작 열은 오른쪽에 고정하며, 필터는 초안을 적용으로 한 번에 반영한다 | Decided(2026-10-16) |
 | [0038](0038-host-module-contract-and-feedbackops-mounting.md) | 업무 모듈은 한 원본을 두 호스트에 탑재하고, FeedbackOps 화면은 플랫폼 셸의 협업 공간에 모듈로 올린다 | Superseded(2026-10-21) — 0066(FeedbackOps 부분). 호스트 계약은 0053 |
-| [0039](0039-equipment-visualization-platform-first-host-contract.md) | equipment-visualization은 플랫폼 탑재가 기본이고, 플랫폼이 `@ap/contracts`로 호스트 → 모듈 계약을 낸다 | Candidate(2026-10-17, 선행 조사) — 방향은 사용자 코멘트(#332·#396). 계약 부분은 0053이 구현 |
+| [0039](0039-equipment-visualization-platform-first-host-contract.md) | equipment-visualization은 플랫폼 탑재가 기본이고, 플랫폼이 `@ap/contracts`로 호스트 → 모듈 계약을 낸다 | Candidate(2026-10-17, 선행 조사) — 방향은 사용자 코멘트(#332·#396). 계약 부분은 0053이 구현 — "EV는 외부 저장소" 서술은 0132가 대체 |
 | [0040](0040-public-test-adapter-entry.md) | 어댑터·세션·공간 테스트 fixture는 `@ap/kernel/testing` 한 곳에서 공개하고 테스트 파일에서만 import한다 | Decided(2026-10-16) — #265의 패키지 내부 fixture를 바꿈 |
 | [0041](0041-annotation-author-delete-audit.md) | 차트 주석은 작성자만 지울 수 있고, 삭제는 감사 기록에 남긴다 | Decided(2026-10-17) — #399 |
 | [0042](0042-system-switcher-and-system-owned-rail.md) | 업무 시스템은 레일 맨 위 전환기 하나로 바꾸고, 레일은 현재 시스템의 섹션으로 쓴다 | Decided(2026-10-18 방향, 2026-10-19 화면 A안) — 0028 부분 대체, FeedbackOps 셸 안 열기는 0038이었으나 0038은 대체됨(0066·0097). 구현 #423. 전환기 이름·팝오버 구성·레일 도구는 0070 부분 대체(2026-10-22) |
@@ -62,7 +62,7 @@
 | [0050](0050-domain-coupled-ui-returns-to-feedbackops.md) | FeedbackOps 도메인에 묶인 UI 부품과 rich-content는 FeedbackOps 소유로 되돌리고, SDK에는 도메인을 모르는 부품만 남긴다 | 일부 대체(2026-10-19) — rich-content 부분은 0052가 대체, 나머지는 Decided(사용자 승인·되돌릴 수 있음), 구현 #479 |
 | [0051](0051-analysis-board-pane-header-signal-chips-numbered-selection.md) | 분석 보드 칸 머리는 다른 키만 칩(`같음 N` 팝오버, 동작 `⋯`), 선택된 칸은 번호 배지 + 왼쪽 2px 막대 + 머리 선택 표면 | Decided(2026-10-19, 코디네이터 — 사용자가 UX 리뷰 판정에 위임) — #421 |
 | [0052](0052-rich-content-stays-in-the-sdk.md) | rich-content는 SDK에 둔다 — 도메인 데이터를 박지 않은 범용 부품은 쓸 곳이 없어도 SDK에 남긴다 | Decided(2026-10-19, 사용자·되돌릴 수 있음) — ADR-0050의 rich-content 부분 대체, 구현 #483 |
-| [0053](0053-host-module-contract-v1.md) | 호스트 → 모듈 계약 1판을 `@ap/contracts`에 내고, Kernel이 모듈을 등록해 화면에 호스트 포트를 준다(첫 소비자는 저장소 안 고정 모듈, 2026-10-25 개정: 첫 외부 소비자 EV 마운트 #801) | Decided(2026-10-19, 코디네이터·되돌릴 수 있음) — 탑재 설계 §2 확정, 0039의 계약 부분 구현 범위, 구현 #403·#489. 개정(2026-10-25, #804): 호스트가 제목 줄·Context 바·상세 패널을 그림 |
+| [0053](0053-host-module-contract-v1.md) | 호스트 → 모듈 계약 1판을 `@ap/contracts`에 내고, Kernel이 모듈을 등록해 화면에 호스트 포트를 준다(첫 소비자는 저장소 안 고정 모듈, 2026-10-25 개정: 첫 외부 소비자 EV 마운트 #801) | Decided(2026-10-19, 코디네이터·되돌릴 수 있음) — 탑재 설계 §2 확정, 0039의 계약 부분 구현 범위, 구현 #403·#489. 개정(2026-10-25, #804): 호스트가 제목 줄·Context 바·상세 패널을 그림 — "EV는 외부 저장소" 서술은 0132가 대체 |
 | [0054](0054-write-port-declared-actions-idempotency-version.md) | 쓰기는 메뉴가 선언한 동작과 범용 요청 하나로 하고, Kernel이 멱등 키를 붙이며 동시성은 불투명 버전으로 확인한다 | Decided(2026-10-20, 코디네이터·되돌릴 수 있음) — 포괄 목록 §5-3, 구현 #501·#502 |
 | [0055](0055-theme-contract-css-source-dtcg-json-typed-names.md) | CSS를 원본으로 DTCG 테마 JSON과 색 토큰 이름 타입·런타임 읽기 함수를 생성한다 | Decided(2026-10-20, 코디네이터·되돌릴 수 있음) — 포괄 목록 §5-5, 구현 #512 |
 | [0056](0056-sdk-release-github-release-tarballs.md) | SDK 배포물은 `sdk-v*` GitHub Release에 붙인 다섯 패키지의 빌드된 tarball이다 | Decided(2026-10-20, 코디네이터·되돌릴 수 있음) — 포괄 목록 §5-8, 구현 #519(tarball·외부 소비자 게이트)·#520(공개 API 스냅샷) |
@@ -141,6 +141,7 @@
 | [0128](0128-app-joins-menus-for-embedded-bodies.md) | 한 메뉴 화면이 다른 메뉴의 본문을 품을 때는 앱이 둘을 잇는다(main.tsx 슬롯 주입, 메뉴 간 import 금지 유지) | Decided(2026-11-08) |
 | [0129](0129-prototype-only-for-new-or-hard-to-undo-ui.md) | 시안은 새 화면이거나 되돌리기 어려운 변경에만 만든다(나머지는 전후 캡처와 PR의 Decisions) | Decided(2026-11-09) |
 | [0130](0130-workspace-stack-default-and-declared-stack-layout.md) | 작업 영역은 아래로 쌓기로 시작하고, 메뉴가 쌓기용 배치(`stackPreset`)와 패널 선호 높이를 선언한다 | Decided(2026-11-09) |
+| [0132](0132-eqv-merges-into-platform.md) | 설비 시각화(EV)를 플랫폼에 합친다: 이력은 `products/eqv/`로 보존하고 패키지는 `packages/eqv/*`로 옮기며 EV 저장소는 소유자 확인 뒤 아카이브 | Decided(2026-11-10, 사용자) — 0039·0053의 "EV는 외부 저장소" 서술을 대체, 구현은 #1607 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
