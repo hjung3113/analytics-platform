@@ -2,7 +2,7 @@
 
 The 16 ADRs of the equipment-visualization (EV) repository, copied unchanged in body when EV merged into the platform ([ADR-0132](../../0132-eqv-merges-into-platform.md), #1607). Each file carries a banner; do not edit them. New EV decisions are written as AP ADRs in `docs/adr/`.
 
-Citation forms: `EV ADR-NNNN` is a file here; bare `ADR-NNNN` is an AP ADR in `docs/adr/`. `EV#N` is an issue or PR of the EV repository; bare `#N` is AP. In the copies, bare `#N` and bare `ADR-NNNN` were rewritten to the EV forms (39 `#N` and 59 `ADR-` references; the ones that cite AP, such as «AP ADR-0010», «analytics-platform #332», «AP #806», were left). Frontmatter `status` is as written in each file (only the ADR number inside was rewritten to `EV ADR-`).
+Citation forms: `EV ADR-NNNN` is a file here; bare `ADR-NNNN` is an AP ADR in `docs/adr/`. `EV#N` is an issue or PR of the EV repository; bare `#N` is AP. In the copies, bare `#N` and bare `ADR-NNNN` were rewritten to the EV forms (38 `#N` and 58 `ADR-` references; the ones that cite AP, such as «AP ADR-0010», «analytics-platform #332», «AP #806», were left). Frontmatter `status` is as written in each file (only the ADR number inside was rewritten to `EV ADR-`).
 
 | EV ADR | Title | Status as written | Relation to AP decisions |
 | --- | --- | --- | --- |

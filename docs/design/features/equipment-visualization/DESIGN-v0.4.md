@@ -1,6 +1,6 @@
 # Equipment Visualization Framework — 설계 초안 v0.4
 
-**상태:** 설계 기준 문서. 구현된 범위는 [README](INDEX.md) Status가 기준이고, 아직 Proposed인 항목은 §11 Open과 #177의 미추적 표다. v0.3(2026-10-14) → v0.4(2026-10-14, 설계 grilling 반영).
+**상태:** 설계 기준 문서. 구현된 범위는 [README](INDEX.md) Status가 기준이고, 아직 Proposed인 항목은 §11 Open과 EV#177의 미추적 표다. v0.3(2026-10-14) → v0.4(2026-10-14, 설계 grilling 반영).
 용어는 [`GLOSSARY.md`](GLOSSARY.md), 확정 결정은 [`docs/adr/`](../../../adr/history/eqv/)가 authoritative다.
 
 ## 1. 제품 목표 / 비목표
@@ -158,7 +158,7 @@ P0+P1의 6종이 conformance fixture 대상이며 P2 2종은 설계 검토용이
 - Publish = 내용 hash가 붙은 불변 Layout Revision 파일 생성. 이력·리뷰는 git diff.
 - 구현 규칙(EV#13): 작업 파일은 `layouts/<layoutId>/draft.layout.json`(덮어쓰기), Publish는 `layouts/<layoutId>/<hex>.layout.json`(불변, 덮어쓰지 않음)이다. `<hex>`는 `canonicalJson(layout)`의 SHA-256 64자리이며 Replay Key의 `layoutHash`(`sha256:` 접두 제외)와 같은 값이다(`layoutRevision`). Layout 스키마는 바뀌지 않는다.
 - 쓰기 범위: 일반 `PUT /api/files`는 `layouts/**`와 `onboarding/**`를 쓰며, `equipment/`와 `observations/`는 `/api/import/*`로만 쓴다(EV ADR-0010). `primitives/`는 읽기 전용이다. `templates/`는 Template 승격 endpoint로만 쓴다([EV ADR-0015](../../../adr/history/eqv/0015-template-promotion.md), 구현됨 EV#159).
-- 가져온 데이터(설비 기록, Sample Window)는 git 이력이 아니라 저장소 밖 데이터 루트에 있다([EV ADR-0010](../../../adr/history/eqv/0010-studio-data-import.md), 구현: EV#99/#100). 저장소의 `assets/`에는 synthetic 데모만 둔다.
+- 가져온 데이터(설비 기록, Sample Window)는 git 이력이 아니라 저장소 밖 데이터 루트에 있다([EV ADR-0010](../../../adr/history/eqv/0010-studio-data-import.md), 구현: EV#99/EV#100). 저장소의 `assets/`에는 synthetic 데모만 둔다.
 - 플랫폼 메타 DB 소유권은 통합 단계의 Open(§11).
 
 ## 7. Replay 기능 분리

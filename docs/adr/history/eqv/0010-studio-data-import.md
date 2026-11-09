@@ -38,7 +38,7 @@ Studio는 다음 네 가지를 **가져오기 endpoint**(`/api/import/*`, dev �
 
 **고치기와 지우기는 Studio 밖이다.** 정정·재처리로 Data Generation이 바뀐 window는 기존 window와 겹치므로 거부된다. v1에는 대체·폐기 동작이 없다. 운영자는 데이터 루트의 파일을 직접 옮긴다(로컬 단일 사용자 도구). 재개 조건: 재처리된 세대를 가져와야 하는 실제 사례가 생길 때. 그때는 window 폐기(이동, 삭제 아님)와 Binding·Baseline 영향 표시를 함께 설계한다.
 
-**dev 서버 전용, 운영 저장소 없음.** 가져오기는 기존 파일 API와 같이 `vite serve`에서만 존재한다(`apps/studio/server/plugin.ts`, `apply: 'serve'`). 인증·권한·동시성은 없다(ONBOARDING §8, #60의 last-write-wins 행). Studio는 저작·검증용 로컬 도구이고, 운영 사용자 화면의 기본 호스트는 플랫폼이다(EV#70, AP `docs/integration/platform-hosting-design.md` §6.3). 이 ADR은 배포 가능한 Studio 서버나 팀 공유 저장소를 만들지 않는다. 재개 조건: 소유자가 빌드된 Studio를 여러 사람이 쓰게 하려 할 때. 그때는 인증, 저장소, 동시성, 감사를 다룰 별도 ADR이 필요하다.
+**dev 서버 전용, 운영 저장소 없음.** 가져오기는 기존 파일 API와 같이 `vite serve`에서만 존재한다(`apps/studio/server/plugin.ts`, `apply: 'serve'`). 인증·권한·동시성은 없다(ONBOARDING §8, EV#60의 last-write-wins 행). Studio는 저작·검증용 로컬 도구이고, 운영 사용자 화면의 기본 호스트는 플랫폼이다(EV#70, AP `docs/integration/platform-hosting-design.md` §6.3). 이 ADR은 배포 가능한 Studio 서버나 팀 공유 저장소를 만들지 않는다. 재개 조건: 소유자가 빌드된 Studio를 여러 사람이 쓰게 하려 할 때. 그때는 인증, 저장소, 동시성, 감사를 다룰 별도 ADR이 필요하다.
 
 **플랫폼 호스트는 가져오기가 없다.** 플랫폼에서는 설비 식별이 플랫폼 설비 마스터 소유(AP ADR-0003)다. Occurrence는 플랫폼 서버 read view `equipment.topview.events`가 `OccurrenceBatch`로 준다(EV ADR-0002, `docs/INTEGRATION.md`). 그 view는 구간 조회이며 page(`continuationToken`)로 올 수 있고, `platform-adapter`가 전체 batch를 모은 뒤 replay에 넘긴다. Alias metadata와 긴 기간 Inventory는 `equipment.topview.inventory`가 준다. EV는 어느 호스트에서도 원시 로그를 파싱하지 않고 Start/End를 짝짓지 않는다. 두 호스트의 동등성은 같은 core 검증(`validateSampleWindow`의 형식·전제 검사)을 같은 입력에 적용해 확인한다(AP #335의 패키지 수준 동등성). 플랫폼 쪽 쓰기(초안·Publish)는 AP 쓰기 포트 ADR 뒤의 일이다(AP 설계 Q8).
 
@@ -56,7 +56,7 @@ Studio는 다음 네 가지를 **가져오기 endpoint**(`/api/import/*`, dev �
 
 ## Consequences
 
-- **구현 상태:** 이 ADR의 결정은 EV#97–#103에서 구현되었다(문서 정리 EV#104). 구현 이슈: core 검증 EV#97, synthetic fixture EV#98, windows 배치와 loader EV#99, import endpoint EV#100, 등록·Fleet 진입·데이터 페이지 EV#101, 가져오기 흐름 EV#102, window 선택 EV#103, 문서 정리 EV#104. 보류 항목은 EV#105, replay 성능은 #106이 맡는다.
+- **구현 상태:** 이 ADR의 결정은 EV#97–EV#103에서 구현되었다(문서 정리 EV#104). 구현 이슈: core 검증 EV#97, synthetic fixture EV#98, windows 배치와 loader EV#99, import endpoint EV#100, 등록·Fleet 진입·데이터 페이지 EV#101, 가져오기 흐름 EV#102, window 선택 EV#103, 문서 정리 EV#104. 보류 항목은 EV#105, replay 성능은 EV#106이 맡는다.
 - **ONBOARDING §7 규칙 변경:** "`equipment/`와 `observations/`는 Studio에서 읽기 전용이다(쓰기는 403)"를 다음으로 바꾼다. "일반 파일 API로는 쓰지 않는다(403). 가져오기 endpoint만 쓴다. 설비 기록은 create-only, Sample Window는 불변 추가, alias metadata는 확인 후 교체다. 데이터 루트가 이 저장소 안이면 가져오기를 거부한다." §7 파일 배치의 `occurrence-batch.json` 줄은 `windows/<from>_<to>_<hex>.batch.json`(불변)으로 바뀐다. "저장소에는 synthetic 설비만 둔다"는 그대로이며, 이제 서버가 강제한다.
 - **`GLOSSARY.md`에 Sample Window를 추가한다:** "한 설비에 대해 가져온 완전한 OccurrenceBatch 하나와 그 조회 구간 `[from, to)`. 불변이며 Inventory와 Replay의 단위다. Studio는 window를 합치지 않는다. _Avoid_: Observation(입력 단위로서), snapshot." ONBOARDING §2의 "샘플 기간"은 Sample Window의 구간이다.
 - **core:** `validateSampleWindow`, window 이름 계산·해석, 관측 집합 해시 함수(`replayKey`와 공유), EV ADR-0009 시각 진단, `assertBatchRecords`의 id 유일성 검사가 추가된다. 기존 batch와 fixture는 id가 유일하므로 계속 유효하다.
@@ -65,11 +65,11 @@ Studio는 다음 네 가지를 **가져오기 endpoint**(`/api/import/*`, dev �
 - **알려진 한계(기록, 미구현):**
   - window 대체·폐기, 설비 기록 수정, 이름 규칙(`[A-Za-z0-9][A-Za-z0-9._-]*`) 밖의 실제 equipmentId는 지원하지 않는다. 이름은 바꾸지 않고 거부하며, 경로 인코딩은 별도 ADR이다.
   - 동시 가져오기의 겹침 검사는 원자적이지 않다. 단일 사용자 로컬 도구이므로 EV#60 last-write-wins 행과 같은 판단이다.
-  - 큰 window의 Focus는 #106의 한 번의 정렬된 pass로 계산하고, Binding·Layout 탐색과 위치 해석을 포함한 timeline 계산 한도 또는 Gantt span 5,000개 한도를 넘으면 범위 안내를 보인다.
-- **#53과의 관계:** 실제 설비로 여러 번 Publish하면 같은 `layoutId`의 Layout Revision이 여럿 생긴다. 그러면 #53의 재개 조건(한 소비자가 두 revision을 읽음)에 가까워진다. 이 ADR은 #53을 풀지 않는다. (EV#53/EV ADR-0011에서 해결: 각 Binding이 자기 Layout Revision을 읽고, 최신 Binding의 revision을 쓴다는 Focus loader 알림은 없어졌다.)
+  - 큰 window의 Focus는 EV#106의 한 번의 정렬된 pass로 계산하고, Binding·Layout 탐색과 위치 해석을 포함한 timeline 계산 한도 또는 Gantt span 5,000개 한도를 넘으면 범위 안내를 보인다.
+- **EV#53과의 관계:** 실제 설비로 여러 번 Publish하면 같은 `layoutId`의 Layout Revision이 여럿 생긴다. 그러면 EV#53의 재개 조건(한 소비자가 두 revision을 읽음)에 가까워진다. 이 ADR은 EV#53을 풀지 않는다. (EV#53/EV ADR-0011에서 해결: 각 Binding이 자기 Layout Revision을 읽고, 최신 Binding의 revision을 쓴다는 Focus loader 알림은 없어졌다.)
 - **같은 PR에서 고칠 문서:**
   - `docs/ONBOARDING.md`: §7, :208 규칙, §2 샘플 기간 문장, 낡은 :3 상태 줄.
   - `GLOSSARY.md`: Sample Window.
-  - `docs/INTEGRATION.md`: 플랫폼 호스트에는 가져오기가 없다는 문장, #44가 요청한 경로 정정.
+  - `docs/INTEGRATION.md`: 플랫폼 호스트에는 가져오기가 없다는 문장, EV#44가 요청한 경로 정정.
   - `docs/DESIGN-v0.4.md` "Studio 저장": 가져온 데이터는 git 이력이 아니라 데이터 루트에 있다.
   - `apps/studio/README.md` File API 표: 구현 PR에서 고친다.

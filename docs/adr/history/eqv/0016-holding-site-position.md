@@ -6,7 +6,7 @@ status: accepted
 
 # Holding Site에 선택적 Component-local 좌표 `position`을 둔다
 
-결정자: conductor — #224의 범위(선택 필드, 렌더러 배치, 합성 rotary 자산)를 따른다. 아래 세부는 되돌릴 수 있다. `schemaVersion`은 올리지 않는다.
+결정자: conductor — EV#224의 범위(선택 필드, 렌더러 배치, 합성 rotary 자산)를 따른다. 아래 세부는 되돌릴 수 있다. `schemaVersion`은 올리지 않는다.
 
 회전 stage 같은 한 PM 안의 여러 자리(station)를 Top View에서 각 자리에 놓고 싶다. 지금 Holding Site에는 좌표가 없어 렌더러는 위치가 있는 Material을 Component 아래의 한 줄에 Site 순서로 늘어놓는다([VIEWS](../../../design/features/equipment-visualization/VIEWS.md) Top View 재생 레이어: "이 자리는 표시용 순서일 뿐 Holding Site 좌표가 아니다"). 이 줄은 자리의 물리적 위치를 말해 주지 못한다.
 

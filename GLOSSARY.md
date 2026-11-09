@@ -522,7 +522,7 @@ _Avoid_: 드릴다운 메뉴 — 별도 메뉴가 아니라 한 메뉴 안의 �
 설비 시각화 도메인(`packages/eqv/*`, [ADR-0132](docs/adr/0132-eqv-merges-into-platform.md))의 어휘는 [EV 용어집](docs/design/features/equipment-visualization/GLOSSARY.md)이 소유한다. 아래는 AP 용어와 같은 낱말을 다른 뜻으로 쓰는 EV 용어다. 겹치는 낱말은 AP 정의를 그대로 두고 EV 뜻에 «EV …» 이름을 붙인다. EV 안에서 쓰는 한정 없는 낱말은 EV 용어집 뜻이다.
 
 **EV Occurrence**:
-원천(parser)이 Start/End를 이미 짝지어 확정한 하나의 실행·이송·체류 구간 자체. 끝이 아직 없으면 열린 Occurrence(`end=null`)다. Replay의 입력 단위다. 같은 실행 한 건을 AP의 **Occurrence**는 식별 키(`equipmentId`, `entityType`, `anchor`)로, EV는 구간 데이터로 가리킨다. EV Occurrence의 `anchor`가 AP **Occurrence**의 `anchor`이며 둘은 같은 RecordSequence에서 온다.
+원천(parser)이 Start/End를 이미 짝지어 확정한 하나의 실행·이송·체류 구간 자체. 끝이 아직 없으면 열린 Occurrence(`end=null`)다. Replay의 입력 단위다. 같은 실행 한 건을 AP의 **Occurrence**는 식별 키(`equipmentId`, `entityType`, `anchor`)로, EV는 구간 데이터로 가리킨다. EV Occurrence에는 `anchor` 필드가 없다. AP `job` 진입 키의 `anchor`는 대응하는 EV Occurrence의 `start.seq`를 문자열로 쓴 값이며 둘은 같은 RecordSequence에서 온다.
 _Avoid_: event(점 이벤트를 뜻할 때만 사용), interval
 
 **EV Template**:

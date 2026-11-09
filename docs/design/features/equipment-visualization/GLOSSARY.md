@@ -138,7 +138,7 @@ _Avoid_: parserRevision
 _Avoid_: ingestionGeneration, eventGeneration, generation
 
 **Sample Window**:
-한 설비에 대해 가져온 완전한 OccurrenceBatch 하나와 그 조회 구간 `[from, to)`. 불변이며 Inventory와 Replay의 단위다. Studio는 window를 합치지 않는다(EV ADR-0010, 구현: EV#99/#100).
+한 설비에 대해 가져온 완전한 OccurrenceBatch 하나와 그 조회 구간 `[from, to)`. 불변이며 Inventory와 Replay의 단위다. Studio는 window를 합치지 않는다(EV ADR-0010, 구현: EV#99/EV#100).
 _Avoid_: Observation(입력 단위로서), snapshot
 
 **Replay Key**:

@@ -12,7 +12,7 @@ Equipment-visualization (EV) domain packages: a reusable semantic equipment Top 
 ## Package boundaries
 
 - `core` and `renderer` import no `@ap/*`. Reason: the domain model and renderer must build and test without the platform (EV ADR-0001, kept by ADR-0132).
-- `editor`, `replay`, `ui`, `views`, `platform-adapter` and `apps/eqv-studio` import only `@ap/ui` and `@ap/contracts`; never `@ap/kernel`, `@ap/shell` or `@ap/components`. The boundary lint (`tooling/eslint`, `eqv-packages.js`) enforces it. Reason: one design system, no dependency on Kernel internals.
+- `editor`, `replay`, `ui`, `views` and `apps/eqv-studio` import only `@ap/ui` (plus EV siblings); `platform-adapter` imports only `@ap/contracts` and `@ap/ui`; no EV package imports `@ap/kernel`, `@ap/shell` or `@ap/components`. The boundary lint (`tooling/eslint`, `eqv-packages.js`) enforces it. Reason: one design system, no dependency on Kernel internals.
 - Only `platform-adapter` reads the host port. It reads data through declared `defineEndpoint` endpoints with `host.query`; no domain methods are added to the host contract. Reason: auth, Scope, time, route, context, permissions and audit stay with the platform.
 - Import another package only through its `package.json` `exports`. Dependencies are `workspace:*`; there are no tarball URLs.
 - A UI pattern `@ap/ui` lacks (dense table, evidence badge, time slider) gets an EV component in `@eqv/ui` built on `@ap/ui` primitives and tokens, then screens use it. No screen-local restyling. Reason: the platform design system stays the only source of look.
