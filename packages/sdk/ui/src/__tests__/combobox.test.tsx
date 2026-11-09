@@ -87,6 +87,34 @@ describe('Combobox', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
+  it('keeps the highlight when a parent re-render passes a new options array with the same content', () => {
+    const { rerender } = render(<Combobox options={OPTIONS} value={null} onChange={() => {}} />);
+    fireEvent.click(screen.getByRole('combobox'));
+    const input = screen.getByRole('textbox');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const highlighted = input.getAttribute('aria-activedescendant');
+    expect(highlighted).toBeTruthy();
+    rerender(<Combobox options={[...OPTIONS]} value={null} onChange={() => {}} />);
+    expect(input.getAttribute('aria-activedescendant')).toBe(highlighted);
+  });
+
+  it('Enter selects the highlighted option after the list changes around it, and clears the highlight if it is gone', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<Combobox options={OPTIONS} value={null} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('combobox'));
+    const input = screen.getByRole('textbox');
+    fireEvent.keyDown(input, { key: 'ArrowDown' }); // apple
+    rerender(<Combobox options={[{ value: 'avocado', label: 'Avocado' }, ...OPTIONS]} value={null} onChange={onChange} />);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledWith('apple');
+
+    fireEvent.click(screen.getByRole('combobox'));
+    const next = screen.getByRole('textbox');
+    fireEvent.keyDown(next, { key: 'ArrowDown' });
+    rerender(<Combobox options={[{ value: 'cherry', label: 'Cherry' }]} value={null} onChange={onChange} />);
+    expect(next.getAttribute('aria-activedescendant')).toBeNull();
+  });
+
   it('ArrowDown on closed trigger opens popover', () => {
     render(<Combobox options={OPTIONS} value={null} onChange={() => {}} />);
     const trigger = screen.getByRole('combobox');
