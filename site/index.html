@@ -2637,6 +2637,8 @@
               </li>
               <li><strong>v0.7.0–v0.13.0</strong> — 정비 슬라이스 9–15(포커스·표·필터 일관성·문구), 업무 시스템 전환기, 업무 시스템별 기능 진입 링크와 복귀(#251·#448).</li>
               <li><strong>v0.14.0–v0.15.0</strong> — 분석 보드 1차(칸 Context·보드 화면·메뉴 보드 지원, #496–#498)와 보드 첫 사용 다듬기(#526). SDK는 <code>sdk-v0.12.0</code>(2026-10-23)까지 릴리스됐습니다.</li>
+              <li><strong>v0.31.0</strong>(2026-11-09, v0.30.0 범위 포함) — 플랫폼 API 토큰(개인·서비스) · 로그 라이프사이클(개발 건·Round·검증 요청 큐·Gate 결정) · 동적 계층 탐색 · 로그 탐색/조사 · 로그 테스트 데이터셋 · 검증 규칙. <a class="source-ref" href="#source-L163">L163</a></li>
+              <li><strong>sdk-v0.32.0</strong>(2026-11-09) — 동적 계층 탐색 조각 · 리치 에디터 확장과 본문 이미지 · 상세 패널 크게 보기. 깨지는 변경 없음, 모두 선택 옵션. <a class="source-ref" href="#source-L163">L163</a></li>
             </ul>
             <p>완료된 것은 플랫폼과 mock 계약의 기반이며 사내 SSO·서버 운영 완료가 아닙니다.</p>
             <p class="caption">
@@ -3252,12 +3254,12 @@ export type ModuleHost = {
           </p>
         </details>
         <details class="source-ledger">
-          <summary>콘텐츠 원장 L01–L162</summary>
+          <summary>콘텐츠 원장 L01–L163</summary>
           <div id="source-L01">
             <h3>L01</h3>
-            <a href="https://github.com/hjung3113/analytics-platform/releases/tag/v0.29.0">공개 원본 보기</a>
-            <p>최신 앱 릴리스 v0.29.0(2026-11-07), 최신 SDK 릴리스 sdk-v0.31.0(2026-11-07), .planning/README.md와 GitHub Release 기준. SDK 릴리스: <a href="https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.31.0">sdk-v0.31.0</a></p>
-            <p class="caption"><code>.planning/README.md</code> 「끝난 것」, GitHub Release <code>v0.29.0</code>·<code>sdk-v0.31.0</code> · 2026-11-07 최신 릴리스로 갱신(앱 날짜는 앱 태그 발행 시점에 맞춤)</p>
+            <a href="https://github.com/hjung3113/analytics-platform/releases/tag/v0.31.0">공개 원본 보기</a>
+            <p>최신 앱 릴리스 v0.31.0(2026-11-09), 최신 SDK 릴리스 sdk-v0.32.0(2026-11-09), .planning/release-history.md와 GitHub Release 기준. SDK 릴리스: <a href="https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.32.0">sdk-v0.32.0</a></p>
+            <p class="caption"><code>.planning/release-history.md</code>, GitHub Release <code>v0.31.0</code>·<code>sdk-v0.32.0</code>, 태그 커밋 <code>266a98846</code> · 2026-11-09 최신 릴리스로 갱신(앱 날짜는 앱 태그 발행 시점에 맞춤). <code>v0.30.0</code>은 태그 없이 <code>v0.31.0</code>에 묶임</p>
           </div>
           <div id="source-L02">
             <h3>L02</h3>
@@ -3983,6 +3985,7 @@ export type ModuleHost = {
           <div id="source-L160"><h3>L160</h3><p>탭·카드·드릴을 바꿀 때 페이지 입력만 바뀌면 받은 결과를 「이전 선택의 결과 · 갱신 중」으로 남기는 SDK 선택 옵션(<code>useMenuQuery … { keepPrevious }</code>)이 있고, 생산성 개요·사이클타임·HW 시간·지표 상세·Item 상세·CLAS 운영시간이 켠다. 켜지 않은 메뉴의 동작은 그대로다</p><p class="caption">GitHub #1365, ADR-0114, <code>sdk-v0.30.0</code> 릴리스 노트, <code>.planning/README.md</code> <code>sdk-v0.30.0</code> · 2026-11-06 추가(v0.28.0·sdk-v0.30.0)</p></div>
           <div id="source-L161"><h3>L161</h3><p>로그 지식 허브(로그 개발 업무 시스템)에 v0.28.0 기준 모델 명세 화면(Module 트리·탭·하단 고정 서랍·발행/반려·SW 변경점), 개념 매핑 검토 탭, Event별 제안, Item 대상 연결, 연결 관계 목록 검색이 있다. 저장 안 한 편집 중 이동 확인(#1388·#1394)은 v0.29.0에 들어갔다: 개선 아이템 만들기 서랍·상태 이동 대화상자와 모델 명세 편집 중 뒤로가기·메뉴 이동 때 「저장하지 않은 변경이 있습니다」를 묻는다</p><p class="caption">GitHub #1196·#1374·#1388·#1394·#1430, 앱 릴리스 v0.28.0·v0.29.0 노트, <code>.planning/README.md</code> <code>v0.29.0</code> · 2026-11-06 추가(v0.28.0), 2026-11-07 갱신(v0.29.0: 이동 확인 포함)</p></div>
           <div id="source-L162"><h3>L162</h3><p>VOC 등록 권한은 업무 시스템 단위다. 운영 콘솔에서 시스템별 등록 모드(열림·제한)와 허용할 사람을 정하고, VOC 작성 화면은 등록할 수 없는 시스템을 이유와 함께 비활성으로 보인다</p><p class="caption">GitHub #1358, ADR-0113, 앱 릴리스 v0.28.0 노트 · 2026-11-06 추가(v0.28.0). 실서버 화면은 다시 찍지 않음</p></div>
+          <div id="source-L163"><h3>L163</h3><p><code>v0.31.0</code>(2026-11-09)은 <code>v0.30.0</code> 범위를 함께 냈다: 플랫폼 API 토큰(개인·서비스)과 토큰 화면, 로그 라이프사이클(개발 건·Round·검증 요청 큐·Gate 결정), 동적 계층 탐색, 로그 탐색/조사, 로그 테스트 데이터셋, 검증 규칙. <code>sdk-v0.32.0</code>(2026-11-09)에는 동적 계층 탐색 조각, 리치 에디터 확장·본문 이미지, 상세 패널 크게 보기가 있고 깨지는 변경은 없다(모두 선택 옵션)</p><p class="caption"><code>.planning/release-history.md</code> <code>v0.30.0</code>·<code>v0.31.0</code>·<code>sdk-v0.32.0</code> 문단, <code>packages/sdk/CHANGELOG.md</code> <code>sdk-v0.32.0</code> 행, ADR-0116·ADR-0126, GitHub #1448·#1450·#1449·#1452·#1459·#1473·#1474·#1477–#1481·#1491–#1497, 태그 커밋 <code>266a98846</code> · 2026-11-09 추가(#1585). <code>v0.30.0</code>은 태그·GitHub Release가 없어 <code>v0.31.0</code>에 포함해 적는다</p></div>
         </details>
       </footer>
 

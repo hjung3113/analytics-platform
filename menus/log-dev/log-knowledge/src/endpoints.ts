@@ -519,6 +519,39 @@ export const itemDetailEndpoint = defineEndpoint<ItemDetailParams, ItemDetail | 
 });
 export const itemEndpointSpecs = [itemsEndpoint, itemDetailEndpoint] as const;
 
+// ---- Knowledge search (#1509 S-f; wire schema: sdk/contract-schemas/knowledge-search.ts) --------------------------
+export const LOG_KNOWLEDGE_SEARCH_MENU_ID = 'log-knowledge-search';
+export type SearchKind = 'all' | 'observed' | 'expected';
+export type SearchRelation = { source: string; predicate: 'before' | 'after'; target: string };
+export type SearchOwnerFilter = { modelId?: string | null; softwareId?: string | null; includeSoftware?: boolean };
+export type KnowledgeSearchParams = { q?: string | null; ownerFilter?: SearchOwnerFilter | null; relation?: SearchRelation | null; kind?: SearchKind | null; includeOpposite?: boolean; cursor?: string | null; limit?: number };
+export type SearchReason = 'observed_same_direction' | 'expected_same_direction' | 'exact_token' | 'concept_mapping' | 'approved_alias' | 'text';
+export type SearchDirection = { origin: 'explicit' | 'operator'; source: string; target: string; kind: SearchKind; swapped: boolean };
+export type KnowledgeSearchItem = {
+  itemId: string; itemNo: number; title: string; excerpt: string; typeCode: string; revisionNo: number;
+  publicationState: string; verificationState: string; processingState: string; publishedAt: string;
+  owner: { modelId: string; modelCode: string; modelName: string; softwareId: string | null; softwareLabel: string | null };
+  reasons: SearchReason[]; stage: number; expectedOnly: boolean; relatedCount: number;
+};
+export type KnowledgeSearchData = {
+  version: 'v0'; interpretation: { original: string; tokens: string[]; direction: SearchDirection | null };
+  items: KnowledgeSearchItem[]; opposite: KnowledgeSearchItem[] | null; oppositeHasMore: boolean;
+  hasMore: boolean; nextCursor: string | null; capped: boolean;
+  indexLag: { lagSeconds: number | null; backfill: { state: 'running' | 'done' | 'none'; percent: number } };
+};
+export type SearchSuggestParams = { q: string; ownerFilter?: SearchOwnerFilter | null };
+export type SearchSuggestData = { version: 'v0'; suggestions: { kind: 'title' | 'eventKey'; text: string }[] };
+export const searchEndpoint = defineEndpoint<KnowledgeSearchParams, KnowledgeSearchData>({
+  id: 'logKnowledge.search', menuId: LOG_KNOWLEDGE_SEARCH_MENU_ID,
+  paramKeys: { q: true, ownerFilter: true, relation: true, kind: true, includeOpposite: true, cursor: true, limit: true },
+  permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+export const searchSuggestEndpoint = defineEndpoint<SearchSuggestParams, SearchSuggestData>({
+  id: 'logKnowledge.searchSuggest', menuId: LOG_KNOWLEDGE_SEARCH_MENU_ID, paramKeys: { q: true, ownerFilter: true },
+  permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+export const searchEndpointSpecs = [searchEndpoint, searchSuggestEndpoint] as const;
+
 // ---- knowledge item writes (ADR-0109, #1197 s3a) -----------------------------------------------------------------
 // Owned by the `log-knowledge-items` menu, judged with its own right (`knowledge:item-publish`) although the menu itself
 // is `platform:view` — reading is open, publishing is not. The server mirror is

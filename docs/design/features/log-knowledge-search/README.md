@@ -1,6 +1,6 @@
 # 로그 지식 통합 검색 — 방향 관계·ACL-aware 색인 설계 (일부 구현)
 
-> **Status: Candidate → 소유자 답 3개 반영(2026-11-08), ADR-0124·0125 Decided.** 구현됨: `item_event_relation_record` 표와 `relations[]` 쓰기·읽기(S-b), 접근 규칙(S-a), 색인 저장·갱신(S-c: `search_document`, `search_outbox`, 소비자, backfill, 생성 포인터, 운영 읽기). 검색 질의(S-d: `SearchPort`·PG 어댑터·`logKnowledge.search`/`searchSuggest`·계약 스키마). 평가 세트·부하 보고(S-e, [results.md](results.md)). 설계만 있음: 화면. 근거는 [#1199](https://github.com/hjung3113/analytics-platform/issues/1199)이고 Epic [#1192](https://github.com/hjung3113/analytics-platform/issues/1192)의 불변식과 [v0.6 통합 설계](../log-knowledge-hub/design-v0.6-candidate.md) §5.4·§9를 **구체화**한다(같은 내용을 다시 쓰지 않는다). 결정은 [ADR-0124](../../../adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)(ACL은 조회 때, 표시는 live)와 [ADR-0125](../../../adr/0125-event-order-search-uses-structured-event-relation-records.md)(방향 검색은 구조화된 Event 관계 기록)이 소유하며 둘 다 **Decided**(소유자 2026-11-08)다. 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
+> **Status: Candidate → 소유자 답 3개 반영(2026-11-08), ADR-0124·0125 Decided.** 구현됨: `item_event_relation_record` 표와 `relations[]` 쓰기·읽기(S-b), 접근 규칙(S-a), 색인 저장·갱신(S-c: `search_document`, `search_outbox`, 소비자, backfill, 생성 포인터, 운영 읽기). 검색 질의(S-d: `SearchPort`·PG 어댑터·`logKnowledge.search`/`searchSuggest`·계약 스키마). 화면(S-f, #1509): 통합 검색 A(선택기 줄)·Item 편집 C(접힌 관계 요약), 소유자 확인 2026-11-08. 평가 세트·부하 보고(S-e, [results.md](results.md)). 통합 수용 검증(S-g)은 별도 노드다. 근거는 [#1199](https://github.com/hjung3113/analytics-platform/issues/1199)이고 Epic [#1192](https://github.com/hjung3113/analytics-platform/issues/1192)의 불변식과 [v0.6 통합 설계](../log-knowledge-hub/design-v0.6-candidate.md) §5.4·§9를 **구체화**한다(같은 내용을 다시 쓰지 않는다). 결정은 [ADR-0124](../../../adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)(ACL은 조회 때, 표시는 live)와 [ADR-0125](../../../adr/0125-event-order-search-uses-structured-event-relation-records.md)(방향 검색은 구조화된 Event 관계 기록)이 소유하며 둘 다 **Decided**(소유자 2026-11-08)다. 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
 >
 > 공개 저장소다. 예시는 합성 데이터만 쓴다.
 
@@ -187,10 +187,10 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | c | `search_document`·`search_outbox`·소비자·backfill·재색인 생성 포인터·운영 가시성 | full, 마이그레이션, `impl-complex` | 0, a(알림 대상), b |
 | d | `SearchPort` 계약 + PG 어댑터 + `logKnowledge.search` 읽기(해석·방향·가시성·표시값·커서)·계약 스키마 | full, `impl-complex` | c |
 | e | 평가 세트 + 부하·EXPLAIN 보고 — **구현됨**, 결과·미달·미구현 목록은 [results.md](results.md) | light(문서·스크립트) 또는 full(CI 포함 시) | d |
-| f | 검색 화면 1개 + Item 편집 서랍의 «Event 관계 기록» 입력 + 시안(`?variant=` 2–3안) | full, `ux=required`, 시각 부분 `impl-complex-sol` high | d, 시안 컨펌 |
+| f | 검색 화면 1개 + Item 편집 서랍의 «Event 관계 기록» 입력(구현됨, #1509; 확인된 검색 A·서랍 C) | full, `ux=required`, 시각 부분 `impl-complex-sol` high | d, 시안 컨펌 |
 | g | 통합: 계약 E2E(권한 회수·방향·SW 구분·Draft 미노출·backfill 중 표시), `.planning` 줄, 소유 문서 갱신 | full | a–f |
 
-병렬: a∥b, e는 d 뒤 f와 병렬. 화면이 한 개라 «메뉴 3개 이상 연속 신규» 확인 대상이 아니다. 시각이 바뀌므로 f는 구현 전 시안 컨펌이 필요하다(설계 PR에 시안 없음).
+병렬: a∥b, e는 d 뒤 f와 병렬. 화면이 한 개라 «메뉴 3개 이상 연속 신규» 확인 대상이 아니다. f의 시안은 소유자가 2026-11-08 검색 A·서랍 C로 확인했다. 화면 주소·입력·상태·합성 검증 경로는 [메뉴 화면 계약](../../../../menus/log-dev/log-knowledge/docs/search.md)이 소유한다.
 
 ## 8. 반례와 대응
 

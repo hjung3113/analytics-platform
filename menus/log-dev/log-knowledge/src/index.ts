@@ -3,14 +3,21 @@
  * The catalog screen is #1194 (variant A: tabs + right drawer); the server reads are `logKnowledge.*` (apps/platform-api).
  */
 import { lazy } from 'react';
-import { BookOpen, Cpu, FileText, ListChecks } from 'lucide-react';
+import { BookOpen, Cpu, FileText, ListChecks, Search } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
 import { CATALOG_MANAGE_PERMISSION } from './endpoints';
 import type { MenuEntry } from '@ap/kernel';
 
 export const manifests: MenuEntry[] = [
   {
-    id: 'log-knowledge-models', primary: true, group: groupId('logKnowledge'), label: { ko: '모델 탐색', en: 'Models' },
+    id: 'log-knowledge-search', primary: true, group: groupId('logKnowledge'), label: { ko: '통합 검색', en: 'Knowledge search' },
+    description: { ko: '발행된 기술 Item을 모델·SW에 걸쳐 찾고, 일치한 이유와 Event 순서를 확인합니다.', en: 'Search published technical Items across models and software, with match reasons and Event order.' },
+    path: '/log/knowledge/search', icon: Search, permission: 'platform:view', requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['q', 'relation', 'kind', 'opposite'],
+    component: lazy(() => import('./pages/search/KnowledgeSearch')),
+  },
+  {
+    id: 'log-knowledge-models', group: groupId('logKnowledge'), label: { ko: '모델 탐색', en: 'Models' },
     description: { ko: '설비 모델을 설비사·공정으로 좁혀 찾고 모델 공통 프로파일을 엽니다', en: 'Find equipment models by vendor and process and open the model profile' },
     path: '/log/knowledge/models', icon: Cpu, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['q', 'filter', 'sort', 'page'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], contextResetKeys: ['page'],

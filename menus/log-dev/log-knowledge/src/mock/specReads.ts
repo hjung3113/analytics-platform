@@ -1,5 +1,5 @@
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
-import { isUuid, modelSpecEndpoint, modelSpecRevisionsEndpoint, specChangesEndpoint, specCoverageEndpoint, specDraftEndpoint, type ModelSpecData, type SpecChangesParams, type SpecCoverageData, type SpecDraftData } from '../endpoints';
+import { isUuid, modelSpecEndpoint, modelSpecRevisionsEndpoint, specChangesEndpoint, specCoverageEndpoint, specDraftEndpoint, type ModelSpecData, type ModelSpecEffective, type ModelSpecParams, type ModelSpecUnchanged, type SpecChangesParams, type SpecCoverageData, type SpecDraftData } from '../endpoints';
 import { all, byId, releaseOrderOf } from './store';
 import { latestSpec, revisionById, specChanges, specRevisions, type Change } from './specStore';
 import { project } from './specProjection';
@@ -15,9 +15,8 @@ const RULES_MOCK_COVERAGE: Record<string, SpecCoverageData> = {
   '00000003-0000-4000-8000-00000000000a': { computable: false, reason: 'no_requirement_ids' },
   '00000003-0000-4000-8000-00000000000b': { computable: true, counts: { no_rule: 0, unsupported: 0, unknown: 0, partial: 0, covered: 3, total: 3 }, coverageDigest: 'f'.repeat(64) },
 };
-export const specReadsMock: readonly AnyMockEndpoint[] = [
-  defineMockEndpoint(modelSpecEndpoint, { mart: false, validate: ({ params: p }) => !uuid(p.modelId) || (p.softwareId !== undefined && !uuid(p.softwareId)) ? 'invalid uuid' : null,
-    handle: ({ params: p }) => {
+/** Shared with the Item relation mock: SW keys must resolve against the same effective specification as its picker. */
+export function readModelSpec(p: ModelSpecParams): ModelSpecData | ModelSpecEffective | ModelSpecUnchanged | null {
       const base = latestSpec(p.modelId);
       if (!base || p.softwareId && !all('software').some(s => s.id === p.softwareId?.toLowerCase() && s.parentId === p.modelId.toLowerCase())) return null;
       const r = base.revision;
@@ -27,7 +26,10 @@ export const specReadsMock: readonly AnyMockEndpoint[] = [
       const changes = specChanges().filter(c => !c.retiredAt && c.modelId === p.modelId.toLowerCase() && applies(c, p.softwareId!))
         .sort((a, b) => releaseOrderOf(byId(a.softwareId)!) - releaseOrderOf(byId(b.softwareId)!) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
       return changes.length ? { revision, effective: true as const, softwareId: p.softwareId.toLowerCase(), ...project(base, changes) } : { ...plain, effective: false as const };
-    } }),
+}
+export const specReadsMock: readonly AnyMockEndpoint[] = [
+  defineMockEndpoint(modelSpecEndpoint, { mart: false, validate: ({ params: p }) => !uuid(p.modelId) || (p.softwareId !== undefined && !uuid(p.softwareId)) ? 'invalid uuid' : null,
+    handle: ({ params }) => readModelSpec(params) }),
   defineMockEndpoint(modelSpecRevisionsEndpoint, { mart: false, validate: ({ params: p }) => !uuid(p.modelId) ? 'invalid modelId' : pageError(p), handle: ({ params: p }) => {
     const rows = specRevisions().filter(r => r.revision.modelId === p.modelId.toLowerCase()).sort((a, b) => b.revision.revisionNo - a.revision.revisionNo)
       .map(r => ({ id: r.revision.id, revisionNo: r.revision.revisionNo, state: r.revision.state, publishedAt: r.revision.publishedAt, publishedBy: r.revision.publishedBy, contentSha256: r.revision.contentSha256, eventCount: r.events.length, version: r.revision.version }));
