@@ -9,7 +9,7 @@ Measures the criteria of [README §6](README.md#6-품질성능-측정-수용-기
 - **Load run**: `... pnpm --filter @ap/platform-api search:load` (`run-load.ts`). Fixed workspace, 100,000 Items by SQL `generate_series` (batches of 5,000; one relation record per Item, 20 Models), index by the real consumer, `ANALYZE`, then per coverage: 30 concurrent clients, page size 20, a fixed mix of query shapes (word 25 %, phrase 15 %, Event key 10 %, direction 20 % + 8 % with the opposite section, Korean 12 %, typo 10 %). Resumable (items continue from the highest `item_no`, the index from its backfill progress, a coverage with a result file is skipped); Node runs under `--max-old-space-size=1024`.
 - **Latency scope**: wall time of `runSearch` against a 32-connection pool (database + application work of the read: page statement, capped count, display read, related counts, index-lag hint). It does **not** include HTTP, JSON or the session layer, so a real request is slower. Statement timeout of the pool: 60 s. The runner counts any failed request (not classified; a timeout is the likely cause but the reason is not recorded) inside the measured sample as `failures`, and failures of the 100 warmup requests separately as `warmupFailures`.
 - **Access coverage c %**: c % of the Items are `restricted` (a third of those have an allow rule for the viewer), c % of the 20 Models are `restricted` (every second one has an allow rule). The visibility predicate is the unchanged `visibleItemSql`; nothing was weakened. The visible count is measured, not assumed.
-- **Postgres limits the lane needs** for the 100k run: the index build keeps ~100k rows of `search_document` with two GIN indexes (about 1–2 GB on disk with the corpus); give the container `--memory=4g`, `shared_buffers=1GB`, default `work_mem` (4 MB) to reproduce the numbers below (the temp-file spill in the EXPLAIN excerpts depends on it). I could not inspect the actual container of the measuring database, so its settings are not recorded here; treat the absolute numbers as indicative.
+- **Postgres limits the lane needs** for the 100k run: the index build keeps ~100k rows of `search_document` with two GIN indexes (about 1–2 GB on disk with the corpus); give the container `--memory=4g`, `shared_buffers=1GB`, default `work_mem` (4 MB) to reproduce the numbers below (the temp-file spill in the EXPLAIN excerpts depends on it). For the #1508 baseline I could not inspect the actual container of the measuring database, so its settings are not recorded; the #1593 re-measurement used exactly these settings. Treat the absolute numbers as indicative.
 - **Hardware**: WSL2 on a developer machine (shared with other lanes while this ran). No isolation, no repeated runs.
 
 ## Quality (5,140 Items: 140 probe + 5,000 filler; 72 queries)
@@ -34,53 +34,52 @@ Measures the criteria of [README §6](README.md#6-품질성능-측정-수용-기
 
 ## Load (100,000 Items, concurrency 30, page size 20)
 
-| Access coverage | Visible Items | Requests | Failed requests (unclassified) | p50 ms | p95 ms | p99 ms |
-| --- | --- | --- | --- | --- | --- | --- |
-| 0 % | 100,000 | 3,000 | 93 (see note) | 9,664 | 107,892 | 116,916 |
-| 5 % | 92,333 | 300 | 0 | 15,180 | 82,515 | 88,847 |
-| 30 % | 69,000 | 300 | 0 | 13,590 | 63,744 | 68,167 |
+Measured again for #1593 after two changes: the guard now runs on the matched hit rows instead of every Item (see «What changed»), and `relatedCounts` counts published Items only. Same runner, same 300 measured requests per coverage, same query mix; one run per coverage, so read the figures as indicative. Database: a container of its own (`--memory=4g`, `shared_buffers=1GB`, default `work_mem`), removed afterwards. The earlier figures are kept in the «Before» column.
 
-**Failure figure.** The 93 was counted by the earlier runner over warmup + measured requests together (3,100 requests) and the error reasons were not kept, so it is neither a measured-only count nor known to be timeouts. The measured-only count for the 0 % row is **not re-measured**; reopen: rerun `search:load` (about 47 minutes at 3,000 requests), which now reports `failures` (measured sample) and `warmupFailures` separately. The 5 % and 30 % rows (0) were counted by the same earlier runner, so they bound both parts at 0.
+| Access coverage | Visible Items | Requests | Failed requests (measured sample / warmup, unclassified) | p50 ms | p95 ms | p99 ms | p95 before (#1508) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 % | 100,000 | 300 | 13 / 7 | 4,946 | 19,668 | 23,286 | 107,892 |
+| 5 % | 92,333 | 300 | 17 / 8 | 4,632 | 20,206 | 23,431 | 82,515 |
+| 30 % | 69,000 | 300 | 33 / 4 | 4,235 | 21,304 | 23,824 | 63,744 |
 
-The 0 % row used 3,000 requests (47 minutes); the 5 % and 30 % rows used 300 each because of that duration, so their tails rest on fewer samples. p95 per query shape at 0 %: phrase 9.2 s, typo 10.1 s, direction 13.6 s, opposite 17.7 s, Event key 23.3 s, word 113 s, Korean 115 s. With 30 clients all sharing the machine, the numbers include queueing; the single-statement times below show the cost without it.
+**Failure figure.** `failures` is now counted over the measured sample only (`warmupFailures` apart). The runner records that `runSearch` rejected, not why; the reasons were not kept, so the failures are unclassified and may be timeouts under 30-way queueing. They are not zero, so the earlier «0 failures at 5 % and 30 %» no longer stands. An intermediate run (only `NOT MATERIALIZED`, 300 requests) gave p95 60,175 / 64,971 / 52,202 ms with 79 / 0 / 0 failures.
 
-**Result: the 300 ms p95 hypothesis is missed by two orders of magnitude** — not by tuning distance.
+p95 per query shape at 0 % (ms): phrase 7,563, typo 5,623, direction 5,278, direction + opposite 5,738, word 21,276, Korean 21,132, Event key 24,295. With 30 clients all sharing the machine the numbers include queueing; the single-statement times below show the cost without it.
+
+**Result: the 300 ms p95 hypothesis is still missed**, now by about 65×, down from about 360×. One statement alone is 0.8 s for a word query and 0.05–0.15 s for a direction query, so the miss under load is mostly queueing of 0.8 s statements on a machine shared by 30 clients.
+
+### What changed
+
+The `items` CTE (published Items that pass the guard) was referenced by every hit stage, so Postgres materialized it and ran the guard over all 100,000 Items before any hit narrowed the set. `NOT MATERIALIZED` alone did not fix it: the guard is an `exists(...)` that the planner turns into a semi join over the whole Item table and drives the plan from. So the guard moved: `items` is now an unguarded, inlined CTE, and the hit rows of every stage go through `hits_raw AS MATERIALIZED (…)` and then `hits AS (… WHERE <guard>(item_id))`. The guard is still the one `visibleItemSql` predicate, applied at one place in the adapter, before ranking, counting, paging and the opposite section; the suggestion statement keeps the guard on its Item set. No ACL is copied into the index (ADR-0124, design D6).
 
 ### EXPLAIN (ANALYZE, BUFFERS), one client alone
 
-| Query | Coverage | Page statement ms | Count statement ms |
+| Query | Coverage | Page statement ms (before) | Count statement ms (before) |
 | --- | --- | --- | --- |
-| word | 0 % | 22,048 | 21,342 |
-| word | 5 % | 14,943 | 15,235 |
-| word | 30 % | 11,451 | 11,394 |
-| Korean term | 0 % | 20,717 | 20,962 |
-| Korean term | 5 % | 14,794 | 14,776 |
-| Korean term | 30 % | 11,330 | 11,167 |
-| direction (+ opposite section) | 0 % | 1,549 (opposite 892) | 1,448 |
-| direction (+ opposite section) | 5 % | 1,609 (opposite 1,156) | 1,534 |
-| direction (+ opposite section) | 30 % | 1,152 (opposite 1,094) | 1,116 |
+| word | 0 % | 810 (22,048) | 780 (21,342) |
+| word | 5 % | 808 (14,943) | 777 (15,235) |
+| word | 30 % | 793 (11,451) | 837 (11,394) |
+| Korean term | 0 % | 889 (20,717) | 882 (20,962) |
+| Korean term | 5 % | 852 (14,794) | 840 (14,776) |
+| Korean term | 30 % | 863 (11,330) | 813 (11,167) |
+| direction (+ opposite section) | 0 % | 51 (opposite 134) (1,549 / 892) | 51 (1,448) |
+| direction (+ opposite section) | 5 % | 51 (opposite 133) (1,609 / 1,156) | 50 (1,534) |
+| direction (+ opposite section) | 30 % | 53 (opposite 153) (1,152 / 1,094) | 51 (1,116) |
+
+Word query at 0 % now: the exact-token stage reads 1,708 rows through `search_document_term_trgm_idx` in about 12 ms and probes the Item by primary key; the guard runs on the 5,856 hit rows (a nested-loop semi join). What remains is stage 6: `d.tsv @@ plainto_tsquery(…) OR <query> <% d.term_text` is one OR condition and the planner answers it with a **parallel sequential scan of `search_document`** (about 700 ms for 100,000 documents). That is candidate generation, not access judgement.
+
+Reopen condition and next step are in the backlog (design §9): split stage 6 into a full-text branch and a trigram branch that each use their GIN index, then rerun `search:load`.
 
 Excerpt, word query at 0 % (full plans: `explain-<coverage>-<name>.txt` in `SEARCH_EVAL_OUT`):
 
 ```
-Limit (actual time=22045.625..22045.646 rows=21)
-  Buffers: shared hit=811432, temp read=1931170 written=1130
-  CTE items
-    -> Hash Left Join (rows=4975 estimated, 100000 actual, 234..689 ms)
-         -> HashAggregate  Group Key: acc_i.id           (the visibility predicate, evaluated for all 100,000 Items)
-              -> Nested Loop Anti Join ... Seq Scan on knowledge_item acc_i
-    -> CTE Scan on items (rows=100000, loops=1708)
-  ... Bitmap Index Scan on search_document_term_trgm_idx  (rows=3416, 1.3 ms)
-       Bitmap Heap Scan: rows=1708 kept, 1708 removed by filter (19.6 ms)
+Append (hits_raw, rows=5856, 721 ms)
+  -> Nested Loop (exact_token)  Bitmap Index Scan on search_document_term_trgm_idx (rows=3416, 2 ms), Items by pkey (rows=1708, 12 ms)
+  -> Gather (text)  Parallel Seq Scan on search_document (rows=1383 x 3, ~670 ms)    <- tsv OR trigram, no index used
+Nested Loop Semi Join (guard on the hit rows)  rows=5856, ~740 ms total
 ```
 
-What this shows:
-
-1. The statement is built as `WITH items AS (published Items that pass the guard) …`; the `items` CTE is referenced by the hit queries, the ranking and the dedupe, so Postgres materializes it. The guard is therefore evaluated for **every published Item of the workspace** (0.7 s for 100k) before the text/trigram hit narrows anything; the trigram index returns 3,416 candidate rows in 1.3 ms and the heap filter keeps 1,708 documents, but the join back to the 100,000-row materialized `items` rescans that CTE once per kept document (`loops=1708`), reading a spilled temp file (`temp read=1.93M` blocks). The planner estimates 4,975 rows for the CTE and gets 100,000.
-2. Restricting access makes the statement *faster* (fewer rows survive the guard), so the cost is not the rule lookup itself; at 30 % coverage the rule indexes (`object_access_rule_target_idx`) are used and the CTE is still full-size. The 0 / 5 / 30 % spread is small compared with the CTE cost.
-3. Direction queries (≈1.1–1.6 s) go through the relation-record index and avoid the text stage; they are also far over 300 ms.
-
-Design D6 («do not move the access decision into the index to save time») is **not** triggered by these numbers: the cost comes from where the guard sits in the statement, not from the live rule check. No ranking or adapter code was changed in this node.
+Design D6 («do not move the access decision into the index to save time») is **not** triggered: the guard cost is gone from the plan and nothing was weakened. The remaining time is in the text stage.
 
 ## Backlog (not implemented)
 

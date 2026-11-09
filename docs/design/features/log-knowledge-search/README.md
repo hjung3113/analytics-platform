@@ -172,7 +172,7 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 
 - **평가 세트**: 합성 Item(공개 저장소이므로 합성)을 질의 유형별로 만든다 — 정확 토큰, snake/camel 변형, alias, 오타, 한국어 기술 용어(조사 붙은 형태 포함), 방향(정/역), 관찰/기대, 같은 Event 이름의 다른 SW. 각 질의에 정답 Item 집합을 적는다. 승인된 사내 샘플은 소유자가 허용한 뒤에만 비공개 환경에서 쓰고 이 저장소에 올리지 않는다.
 - **지표**: Recall@20, Precision@10, MRR(유형별), 방향 반례 통과율(정/역을 섞어 본 실패 수 = 0이어야 한다).
-- **부하**: 합성 10만 Item, 동시 30, 기본 20건/페이지, 접근 규칙이 걸린 비율 0%·5%·30%에서 서버 p95와 `EXPLAIN (ANALYZE, BUFFERS)`를 보고한다. 목표 p95 ≤ 300ms는 **가설**이며 결과가 목표를 못 넘으면 보고서에 그 숫자를 적는다(숫자를 맞추려고 ACL 판정을 약하게 하지 않는다 — 그럴 때의 선택지는 §10 D6).
+- **부하**: 합성 10만 Item, 동시 30, 기본 20건/페이지, 접근 규칙이 걸린 비율 0%·5%·30%에서 서버 p95와 `EXPLAIN (ANALYZE, BUFFERS)`를 보고한다. 목표 p95 ≤ 300ms는 **가설**이며 결과가 목표를 못 넘으면 보고서에 그 숫자를 적는다(#1593 재측정: 10만 Item p95 약 20 s, 단독 문장 0.8 s — 못 넘음)(숫자를 맞추려고 ACL 판정을 약하게 하지 않는다 — 그럴 때의 선택지는 §10 D6).
 - 산출물: 평가 세트와 스크립트(저장소), 측정 보고서(`docs/`의 결과 문서 한 편). 합성 결과를 운영 품질로 쓰지 않는다.
 
 ## 7. 구현 노드 분할 (제안)
@@ -233,7 +233,7 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | 정확한 총 건수 | 존재 유추 위험 | 가려진 건수를 못 알아내게 하는 방법이 있을 때 |
 | 원본 로그 본문 검색 | 본문이 ACL 밖으로 나감 | [log-explorer §9](../log-explorer/README.md#9-미구현-목록-다시-여는-조건)의 조건 |
 | 그림자 비교의 자동 승격 | 첫 교체 전에는 불필요 | 어댑터를 실제로 바꿀 때 |
-| 후보 질의 지연 p95 ≤ 300 ms 미달 — **미구현** | 10만 Item 합성 부하에서 목표를 두 자릿수 배 넘는다. 후보 문장이 가시성 판정을 전체 Item에 먼저 돌린 뒤 적중으로 좁힌다([results.md](results.md)). 이 슬라이스는 어댑터·순위를 바꾸지 않는다 | 소유자가 어댑터 성능 노드를 잡음. `search:load`를 0/5/30 %에서 다시 돌려 p95 ≤ 300 ms 요구 |
+| 후보 질의 지연 p95 ≤ 300 ms 미달 — **미구현** | #1593에서 가시성 판정을 적중 행에만 돌리도록 바꿔(판정 규칙은 `visibleItemSql` 하나 그대로) 10만 Item p95가 108/83/64 s에서 19.7/20.2/21.3 s로, 단독 문장은 22 s에서 0.8 s로 줄었으나 목표는 아직 못 맞춘다. 남은 원인은 6단계 `tsv @@ … OR <% term_text`가 인덱스 없이 `search_document` 전체를 병렬 순차 훑는 것(약 0.7 s)과 동시 30 대기열이다([results.md](results.md)) | 6단계를 전문 검색 가지와 트라이그램 가지로 나눠 각 GIN 인덱스를 타게 하고 `search:load`를 0/5/30 %에서 다시 돌려 p95 ≤ 300 ms 요구 |
 | 색인 표 `ANALYZE` — **미구현** | 새 표에는 통계가 없어 같은 질의가 440건 말뭉치에서도 수 초 걸린다 | 첫 운영 backfill 전 또는 backfill 작업에 후처리 단계가 생길 때 |
 | camelCase 질의가 snake_case 본문을 못 찾음 — **미구현** | 질의 단어가 원형 소문자(`gaslineclog`)로만 남아 문서의 분리 토큰과 맞지 않는다 | 소유자가 `search-normalize`의 변형 접기를 결정 |
 | 글자 순서가 바뀐 오타 미적중 — **미구현** | trigram 유사도가 기본 문턱 아래. §4.2: 자동 교정 없음 | 실제 본문 오타 측정에서 놓치는 비율이 문제로 확인됨 |
@@ -245,7 +245,6 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | 「혹시 이 토큰?」 오타 제안 — **미구현** | 자동 교정은 두지 않는다(§4.2)이고 제안 UI·endpoint도 없다 | 실제 본문 오타 측정에서 놓침이 문제로 확인됨 |
 | `typeCode` 필터 — **미구현** | 검색 요청에 유형 축이 없다 | 소비자가 유형별 검색을 요구 |
 | 반대 방향 구역의 페이지 이동 — **미구현** | 반대 구역은 첫 묶음만 준다(`oppositeHasMore`) | 소비자가 반대 구역을 더 넘겨 보려 함 |
-| 보관한 Item이 관련 Item 건수에 남음 — **미구현** | `relatedCount`가 접근 가시성만 보고 발행 상태를 보지 않아, 보관한 연결 Item이 건수에 든다(결과·자동완성·`capped`는 즉시 빠짐을 검증함) | 건수가 틀렸다는 보고, 또는 관련 Item 건수 SQL을 고칠 때 |
 | 클라이언트 이용 이벤트에 질의 원문이 없다는 검증 — **미구현** | 서버가 저장한 감사·이용 이벤트만 검사한다. 클라이언트의 진입·체류 이벤트 생산자는 이 테스트가 구동하지 않는다 | Kernel/클라이언트 이용 이벤트 단위 테스트에 검색 주소 비포함 단언을 더할 때 |
 | 다른 메뉴 쓰기 직후 열린 검색의 자동 갱신 — **미구현** | 무효화 선언은 같은 메뉴 endpoint만 허용한다. 재진입·재실행으로 새 값을 읽는다 | Kernel이 메뉴 간 무효화 선언을 허용 |
 
@@ -282,7 +281,7 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | 정확한 총 건수 없음, 숨은 Item은 `capped`에 안 셈 | search-read «the response has no exact total; `capped` ignores hidden Items…» |
 | Admin·서비스 Actor에 읽기 우회 없음 | access «Admin has no read bypass…»; search-read «a service Actor reads only through a token that carries workspace.read…» |
 | Draft·Validator 후보는 색인·결과에 없음 | search-read «a Draft (human create/revise, Validator candidate) is never indexed and never returned, before or after a workspace backfill and drain…»(Validator 후보 fixture, 색인 전·후, 워크스페이스 backfill+drain 뒤 결과·자동완성·문서 표) |
-| 발행 해제(보관)는 drain 전에 결과·자동완성·`capped`에서 즉시 사라지고 색인에서 지워짐 | search-read «display is read live…»(보관 단계), «an archived Item leaves the results and the suggestions at once, before the drain», «the response has no exact total…»(보관 3건 뒤 `capped` 해제); search-index «deletes the document when the Item is no longer published». 관련 Item 건수는 보관을 아직 빼지 않는다(§9) |
+| 발행 해제(보관)는 drain 전에 결과·자동완성·`capped`에서 즉시 사라지고 색인에서 지워짐 | search-read «display is read live…»(보관 단계), «an archived Item leaves the results and the suggestions at once, before the drain», «the response has no exact total…»(보관 3건 뒤 `capped` 해제); search-index «deletes the document when the Item is no longer published». 보관한 Item은 관련 Item 건수에서도 빠진다(#1593, 같은 시험) |
 | backfill 중 표시: 가시 범위 진행률, 숨은 Item이 힌트를 못 바꿈 | search-read «the index hint is a lag age and a whole percent…», «C1: hidden pending changes…», «C1: hidden backfill Items and operational counters…»; search-index «backfills in keyset batches, resumes…» |
 | 색인 지연 중 옛 본문이 나오지 않음 | search-read «display is read live: during index lag…» |
 | 오래된 알림·중복 알림이 새 문서를 덮지 못함 | search-index «does not let a stale build overwrite a newer document», «merges duplicate notifications…» |

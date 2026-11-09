@@ -175,14 +175,15 @@ async function display(tx: Tx, viewer: Viewer, candidates: readonly Candidate[],
   return out;
 }
 
-/** «관련 Item n건»: the other end of each link, judged by the same visibility predicate. */
+/** «관련 Item n건»: the other end of each link, published and judged by the same visibility predicate (an archived Item is not counted, #1593). */
 async function relatedCounts(tx: Tx, viewer: Viewer, ids: readonly string[]): Promise<Map<string, number>> {
   const res = await tx.execute(sql`
     SELECT x.id, count(DISTINCT x.other)::int AS n FROM (
       SELECT l.source_item_id AS id, l.target_item_id AS other FROM knowledge.item_link l WHERE l.workspace_id = ${viewer.workspaceId}::uuid AND l.source_item_id = ANY(${uuidArray(ids)})
       UNION ALL
       SELECT l.target_item_id, l.source_item_id FROM knowledge.item_link l WHERE l.workspace_id = ${viewer.workspaceId}::uuid AND l.target_item_id = ANY(${uuidArray(ids)})
-    ) x WHERE ${visibleItemSql(viewer, sql`x.other`)} GROUP BY x.id`);
+    ) x JOIN knowledge.knowledge_item o ON o.workspace_id = ${viewer.workspaceId}::uuid AND o.id = x.other AND o.publication_state = 'published'
+    WHERE ${visibleItemSql(viewer, sql`x.other`)} GROUP BY x.id`);
   return new Map(rowsOf<{ id: string; n: number }>(res).map((r) => [r.id, r.n]));
 }
 

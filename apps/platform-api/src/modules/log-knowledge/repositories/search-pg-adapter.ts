@@ -1,6 +1,7 @@
 // The PG adapter of the SearchPort (#1507 S-d): FTS (`tsv`) and trigram (`term_text`) over the ACTIVE generation of `search_document`, plus the
 // Event relation records of each published Item's latest Revision for direction queries. One statement per call; the caller's guard is
-// applied to the Item id in the first CTE, so every later stage (hits, ranking, count, opposite section, suggestions) sees visible Items only.
+// applied to the Item id of every HIT row (`guarded` below) and to the Items of the suggestion statement, so ranking, count, the opposite
+// section and suggestions only ever see visible Items. Hit-first (#1593): the guard runs on the few matched Items, not on every Item.
 // This file knows nothing about access rules: it never imports the visibility module.
 
 import { type SQL, sql } from 'drizzle-orm';
@@ -12,8 +13,12 @@ import { rowsOf } from './search-outbox.js';
 const textArray = (values: readonly string[]): SQL => (values.length === 0 ? sql`ARRAY[]::text[]` : sql`ARRAY[${sql.join(values.map((v) => sql`${v}`), sql`, `)}]::text[]`);
 const uuid = (value: string): SQL => sql`${value}::uuid`;
 
-/** Published Items of the workspace that pass the owner filter and the guard, with their latest Revision. The ONE place the guard is applied. */
-function itemsCte(plan: Pick<SearchPlan, 'workspaceId' | 'owner'>, guard: CandidateGuard): SQL {
+/**
+ * Published Items of the workspace that pass the owner filter, with their latest Revision. With a `guard` it also applies it (the suggestion
+ * statement); the hit stages pass none and are guarded once, row by row, by `guardedHits`. Not materialized, so a hit stage drives the join
+ * from its index and probes this by primary key instead of building all Items first.
+ */
+function itemsCte(plan: Pick<SearchPlan, 'workspaceId' | 'owner'>, guard: CandidateGuard | null): SQL {
   const o = plan.owner;
   const parts: SQL[] = [];
   if (o?.modelId) {
@@ -25,14 +30,15 @@ function itemsCte(plan: Pick<SearchPlan, 'workspaceId' | 'owner'>, guard: Candid
   }
   if (o?.softwareId) parts.push(sql`i.owner_software_id = ${uuid(o.softwareId)}`);
   const ownerFilter = parts.length > 0 ? sql`AND ${sql.join(parts, sql` AND `)}` : sql``;
-  return sql`items AS (
+  const guardClause = guard ? sql`AND ${guard(sql`i.id`)}` : sql``;
+  return sql`items AS ${guard ? sql.raw('MATERIALIZED') : sql.raw('NOT MATERIALIZED')} (
     SELECT i.id AS item_id, i.latest_revision_no AS revision_no, rv.title AS title, rv.published_at AS published_at,
       coalesce(i.owner_model_id, sv.model_id) AS model_id,
       (extract(epoch FROM rv.published_at) * 1000000)::bigint AS pub
     FROM knowledge.knowledge_item i
     JOIN knowledge.knowledge_item_revision rv ON rv.workspace_id = i.workspace_id AND rv.item_id = i.id AND rv.revision_no = i.latest_revision_no
     LEFT JOIN knowledge.software_version sv ON sv.workspace_id = i.workspace_id AND sv.id = i.owner_software_id
-    WHERE i.workspace_id = ${uuid(plan.workspaceId)} AND i.publication_state = 'published' ${ownerFilter} AND ${guard(sql`i.id`)}
+    WHERE i.workspace_id = ${uuid(plan.workspaceId)} AND i.publication_state = 'published' ${ownerFilter} ${guardClause}
   )`;
 }
 
@@ -41,6 +47,11 @@ const tokenMatch = (col: string, tokens: readonly string[]): SQL =>
   tokens.length === 0 ? sql`false` : sql`(${sql.raw(col)} = ANY(${textArray(tokens)}) OR regexp_replace(${sql.raw(col)}, '^.*/', '') = ANY(${textArray(tokens)}))`;
 const conceptMatch = (col: string, modelCol: string, keys: readonly ConceptKey[]): SQL =>
   keys.length === 0 ? sql`false` : sql`(${sql.join(keys.map((k) => sql`(${sql.raw(modelCol)} = ${uuid(k.modelId)} AND ${sql.raw(col)} = ${k.key})`), sql` OR `)})`;
+
+/** The ONE place the guard meets a candidate: every hit row (all stages, both sections) passes it before ranking, counting or paging. Materialized, so it runs once per hit row. */
+function guardedHits(raw: SQL, guard: CandidateGuard): SQL[] {
+  return [sql`hits_raw AS MATERIALIZED (${raw})`, sql`hits AS (SELECT h.* FROM hits_raw h WHERE ${guard(sql`h.item_id`)})`];
+}
 
 interface Built {
   /** Complete `WITH …` prefix (no trailing comma) defining `items` and `hits` (main section). */
@@ -77,7 +88,7 @@ function textHits(plan: SearchPlan): SQL[] {
 }
 
 function build(plan: SearchPlan, guard: CandidateGuard): Built {
-  const ctes: SQL[] = [itemsCte(plan, guard)];
+  const ctes: SQL[] = [itemsCte(plan, null)];
   const hitSelects: SQL[] = [];
   const d = plan.direction;
   if (d) {
@@ -87,7 +98,7 @@ function build(plan: SearchPlan, guard: CandidateGuard): Built {
   }
   hitSelects.push(...textHits(plan).map((hit) => d ? sql`SELECT t.* FROM (${hit}) t WHERE t.item_id NOT IN (SELECT item_id FROM reverse_only)` : hit));
   if (hitSelects.length === 0) return { with: sql`WITH ${sql.join(ctes, sql`, `)}`, active: false };
-  ctes.push(sql`hits AS (${sql.join(hitSelects.map((s) => sql`(${s})`), sql` UNION ALL `)})`);
+  ctes.push(...guardedHits(sql.join(hitSelects.map((s) => sql`(${s})`), sql` UNION ALL `), guard));
   return { with: sql`WITH ${sql.join(ctes, sql`, `)}`, active: true };
 }
 
@@ -146,9 +157,9 @@ export const pgSearchPort: SearchPort = {
   async searchOpposite(tx, plan, guard, limit) {
     const d = plan.direction;
     if (!d) return [];
-    const ctes: SQL[] = [itemsCte(plan, guard)];
+    const ctes: SQL[] = [itemsCte(plan, null)];
     ctes.push(sql`same AS (${recordHitsBody(plan, d.source, d.target, d.kinds)})`);
-    ctes.push(sql`hits AS (SELECT * FROM (${recordHitsBody(plan, d.target, d.source, d.kinds)}) o WHERE o.item_id NOT IN (SELECT item_id FROM same))`);
+    ctes.push(...guardedHits(sql`SELECT * FROM (${recordHitsBody(plan, d.target, d.source, d.kinds)}) o WHERE o.item_id NOT IN (SELECT item_id FROM same)`, guard));
     const res = await tx.execute(sql`WITH ${sql.join(ctes, sql`, `)}, ${RANKED}
       SELECT r.* FROM ranked r ORDER BY r.stage, r.score_micro DESC, r.pub DESC, r.item_id ASC LIMIT ${limit}`);
     return rowsOf<RankedRow>(res).map(toCandidate);
