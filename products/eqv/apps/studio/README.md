@@ -116,7 +116,7 @@ Follow this order:
 ### Keep source converters outside this repository
 
 Studio accepts only source-paired `OccurrenceBatch` JSON. Put raw-log conversion in a separate, permissioned deployment layer;
-keep examples and tests synthetic, as required by [AGENTS.md: “Use synthetic test data”](../../AGENTS.md).
+keep examples and tests synthetic, as required by [AGENTS.md: “Use synthetic test data”](../../EV-AGENTS.md).
 
 Try the synthetic files in [`fixtures/import/README.md`](../../fixtures/import/README.md):
 `eq-synth-03.equipment.json`, `synth-maker-b.synth-wet.type-dictionary.json`, `eq-synth-03.alias-metadata.json`,
