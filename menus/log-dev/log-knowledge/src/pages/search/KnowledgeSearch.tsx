@@ -98,7 +98,7 @@ export default function KnowledgeSearch() {
           : !response ? <p role="status" className="p-6 text-center text-sm text-text-secondary">{w('검색 중…', 'Searching…')}</p>
           : !data ? <SearchFailure retry={query.refetch} />
           : data.items.length === 0 ? <EmptyState size="sm" title={w('일치하는 기술 Item을 찾지 못했습니다', 'No matching technical Items')} body={w('방금 발행한 Item은 잠시 뒤 검색됩니다', 'Recently published Items will appear shortly')} />
-          : <><SearchRows items={data.items} lag={lag} /><SearchMore key={JSON.stringify([address.params, query.completedAt])} params={address.params} data={data} /></>}
+          : <><SearchRows items={data.items} lag={lag} />{query.status === 'done' && <SearchMore key={JSON.stringify([address.params, query.completedAt])} params={address.params} data={data} restart={query.refetch} />}</>}
       </section>
       {direction && address.params.includeOpposite && data?.opposite && <section aria-label={w('반대 방향', 'Opposite direction')} className="overflow-clip rounded-md border border-border-subtle bg-surface-card">
         <ListToolbar title={w('반대 방향', 'Opposite direction')} />

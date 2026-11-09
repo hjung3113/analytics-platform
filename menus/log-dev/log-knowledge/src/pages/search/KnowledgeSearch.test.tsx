@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import type { ApiResponse, MenuQuery } from '@ap/contracts';
-import type { KnowledgeSearchData, KnowledgeSearchItem } from '../../endpoints';
+import type { KnowledgeSearchData, KnowledgeSearchItem, KnowledgeSearchParams } from '../../endpoints';
 import { knowledgeRegistry, treeWith } from '../test-support';
 import KnowledgeSearch from './KnowledgeSearch';
 
@@ -20,7 +20,7 @@ const initialData = (): KnowledgeSearchData => ({
   items: [item], opposite: null, oppositeHasMore: false, hasMore: false, nextCursor: null, capped: false,
   indexLag: { lagSeconds: null, backfill: { state: 'done', percent: 100 } },
 });
-let data = initialData(), fail = false, requests: MenuQuery[] = [], hold: Promise<void> | null = null;
+let data = initialData(), fail = false, rejectedCursor: string | null = null, requests: MenuQuery[] = [], hold: Promise<void> | null = null;
 const ok = (value: unknown): ApiResponse<never> => ({ outcome: 'ok', data: value, assessments: [], trust: null, correlationId: 'search-test' }) as ApiResponse<never>;
 const session = testSession(['platform:view']);
 const adapter = testAdapter({
@@ -31,7 +31,8 @@ const adapter = testAdapter({
     if (request.endpoint !== 'logKnowledge.search') return ok({ rows: [], total: 0 });
     if (hold) await hold;
     if (fail) return { ...ok(null), outcome: 'error' };
-    const params = request.params as { includeOpposite?: boolean; q?: string; cursor?: string };
+    const params = request.params as KnowledgeSearchParams;
+    if (params.cursor === rejectedCursor) return { ...ok(null), outcome: 'error' };
     const reply = structuredClone(data);
     if (params.q === 'STEP_PROCESS PROCESS_START') reply.interpretation.direction = null;
     if (params.cursor) { reply.items = [{ ...item, itemId: '00000005-0000-4000-8000-000000000003', itemNo: 1503, title: '다음 페이지 Item' }]; reply.hasMore = false; reply.nextCursor = null; }
@@ -45,7 +46,7 @@ function mount(q = query) {
   return render(treeWith({ registry, adapter, ui: <KnowledgeSearch /> }));
 }
 let restoreGeometry = () => {};
-beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); data = initialData(); fail = false; requests = []; hold = null; });
+beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); data = initialData(); fail = false; rejectedCursor = null; requests = []; hold = null; });
 afterEach(() => { cleanup(); restoreGeometry(); });
 
 describe('confirmed knowledge search', () => {
@@ -93,6 +94,30 @@ describe('confirmed knowledge search', () => {
     expect(screen.getByText(item.title)).toBeTruthy();
     expect(requests.some(r => r.endpoint === 'logKnowledge.search' && (r.params as { cursor?: string }).cursor === 'next')).toBe(true);
   });
+  it('restarts page one with every search parameter after a continuation is rejected', async () => {
+    data.hasMore = true; data.nextCursor = 'expired'; rejectedCursor = 'expired';
+    const relation = { source: 'STEP_PROCESS', predicate: 'after', target: 'PROCESS_START' };
+    mount(new URLSearchParams({ q: 'step log', relation: JSON.stringify(relation), kind: 'expected', opposite: 'true' }).toString());
+    fireEvent.click(await screen.findByRole('button', { name: '더 보기' }));
+    await screen.findByText('검색하지 못했습니다');
+    data.nextCursor = 'fresh'; data.items = [{ ...item, title: '새 첫 페이지 Item' }];
+    let release = () => {};
+    hold = new Promise<void>(resolve => { release = resolve; });
+    fireEvent.click(screen.getByRole('button', { name: '처음부터 다시 검색' }));
+    await waitFor(() => expect(requests.filter(r => r.endpoint === 'logKnowledge.search')).toHaveLength(3));
+    expect(screen.queryByText('검색하지 못했습니다')).toBeNull();
+    expect(screen.queryByRole('button', { name: '더 보기' })).toBeNull();
+    await act(async () => { hold = null; release(); });
+    await screen.findByText('새 첫 페이지 Item');
+    fireEvent.click(screen.getByRole('button', { name: '더 보기' }));
+    await screen.findByText('다음 페이지 Item');
+    const params = { q: 'step log', relation, kind: 'expected', includeOpposite: true };
+    expect(requests.filter(r => r.endpoint === 'logKnowledge.search').map(r => r.params)).toEqual([
+      params, { ...params, cursor: 'expired' }, params, { ...params, cursor: 'fresh' },
+    ]);
+    expect(screen.queryByText(item.title)).toBeNull();
+    expect(new URLSearchParams(window.location.search).get('q')).toBe('step log');
+  });
   it('submits an explicit order through the shareable relation key', async () => {
     mount('');
     const selector = await screen.findByRole('region', { name: '순서 검색' });
@@ -130,14 +155,29 @@ describe('confirmed knowledge search', () => {
     fireEvent.click(screen.getByRole('button', { name: '필터' }));
     expect(screen.getAllByRole('button', { name: '필터 초기화' })).toHaveLength(1);
   });
-  it('removes the interpreted direction without reinterpreting the same operator query', async () => {
-    mount();
+  it.each(['STEP_PROCESS before PROCESS_START', 'STEP_PROCESS→PROCESS_START', 'STEP_PROCESS →PROCESS_START', 'STEP_PROCESS→ PROCESS_START'])('removes direction and preserves plain terms after reload for %s', async q => {
+    const view = mount(new URLSearchParams({ q }).toString());
     await screen.findByText(/방향으로 해석:/);
     fireEvent.click(screen.getByRole('button', { name: '방향 해석 끄기' }));
     await waitFor(() => expect(screen.queryByText(/방향으로 해석:/)).toBeNull());
     const params = new URLSearchParams(window.location.search);
     expect(params.get('q')).toBe('STEP_PROCESS PROCESS_START');
     expect(params.get('relation')).toBeNull();
+    const address = window.location.search.slice(1);
+    view.unmount();
+    mount(address);
+    await screen.findByText(item.title);
+    expect(screen.queryByText(/방향으로 해석:/)).toBeNull();
+    expect(screen.getByRole('searchbox', { name: '통합 검색어' }).getAttribute('value')).toBe('STEP_PROCESS PROCESS_START');
+  });
+  it('preserves every ordinary text word when resetting filters', async () => {
+    data.interpretation.direction = null;
+    mount(new URLSearchParams({ q: 'step before process', kind: 'expected' }).toString());
+    await screen.findByText(item.title);
+    fireEvent.click(screen.getByRole('button', { name: '필터' }));
+    fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('kind')).toBeNull());
+    expect(new URLSearchParams(window.location.search).get('q')).toBe('step before process');
   });
   it('shows loading and recovers from a failed read with Retry', async () => {
     let release = () => {};

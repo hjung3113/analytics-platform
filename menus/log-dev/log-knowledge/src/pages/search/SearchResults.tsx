@@ -30,24 +30,24 @@ export function SearchRows({ items, lag }: { items: KnowledgeSearchItem[]; lag: 
   })}</>;
 }
 
-export function SearchFailure({ retry }: { retry: () => void }) {
+export function SearchFailure({ retry, fromFirstPage = false }: { retry: () => void; fromFirstPage?: boolean }) {
   const w = useSpecWords();
   return <div className="p-3"><Callout tone="red" title={w('검색하지 못했습니다', 'Search failed')}
-    action={<Button type="button" size="sm" variant="secondary" onClick={retry}>{w('다시 시도', 'Retry')}</Button>}>
-    {w('잠시 뒤 다시 시도해 주세요.', 'Try again in a moment.')}
+    action={<Button type="button" size="sm" variant="secondary" onClick={retry}>{fromFirstPage ? w('처음부터 다시 검색', 'Restart search') : w('다시 시도', 'Retry')}</Button>}>
+    {fromFirstPage ? w('검색 조건을 유지하고 첫 페이지부터 다시 검색합니다.', 'Restart from the first page with the same search conditions.') : w('잠시 뒤 다시 시도해 주세요.', 'Try again in a moment.')}
   </Callout></div>;
 }
 
 /** Each continuation uses the Kernel lifecycle, so a permission/session change also hides previously loaded pages. */
-function Continuation({ params, cursor }: { params: KnowledgeSearchParams; cursor: string }) {
+function Continuation({ params, cursor, restart }: { params: KnowledgeSearchParams; cursor: string; restart: () => void }) {
   const w = useSpecWords(), query = useMenuQuery(searchEndpoint, { ...params, cursor });
   const response = query.response;
   if (!response) return <p role="status" className="p-4 text-sm text-text-secondary">{w('검색 중…', 'Searching…')}</p>;
-  if (!['ok', 'empty'].includes(response.outcome) || !response.data) return <SearchFailure retry={query.refetch} />;
-  return <><SearchRows items={response.data.items} lag={response.data.indexLag.lagSeconds !== null} /><SearchMore key={cursor} params={params} data={response.data} /></>;
+  if (!['ok', 'empty'].includes(response.outcome) || !response.data) return <SearchFailure retry={restart} fromFirstPage />;
+  return <><SearchRows items={response.data.items} lag={response.data.indexLag.lagSeconds !== null} /><SearchMore key={cursor} params={params} data={response.data} restart={restart} /></>;
 }
-export function SearchMore({ params, data }: { params: KnowledgeSearchParams; data: KnowledgeSearchData }) {
+export function SearchMore({ params, data, restart }: { params: KnowledgeSearchParams; data: KnowledgeSearchData; restart: () => void }) {
   const w = useSpecWords(), [expanded, setExpanded] = useState(false);
   if (!data.hasMore || !data.nextCursor) return null;
-  return expanded ? <Continuation params={params} cursor={data.nextCursor} /> : <div className="flex justify-center p-3"><Button type="button" size="toolbar" variant="secondary" onClick={() => setExpanded(true)}>{w('더 보기', 'Load more')}</Button></div>;
+  return expanded ? <Continuation params={params} cursor={data.nextCursor} restart={restart} /> : <div className="flex justify-center p-3"><Button type="button" size="toolbar" variant="secondary" onClick={() => setExpanded(true)}>{w('더 보기', 'Load more')}</Button></div>;
 }

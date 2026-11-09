@@ -15,6 +15,14 @@ const write = async (name: string, input: Record<string, unknown>) => {
 };
 beforeEach(() => { resetCatalog(); resetSpecs(); resetItems(); });
 describe('knowledge search preview contract', () => {
+  it.each(['STEP_PROCESS→PROCESS_START', 'STEP_PROCESS →PROCESS_START', 'STEP_PROCESS→ PROCESS_START'])('interprets the server-recognized arrow in %s', async q => {
+    const result = await read<KnowledgeSearchData>('search', { q });
+    expect(result.interpretation.direction).toMatchObject({ origin: 'operator', source: 'STEP_PROCESS', target: 'PROCESS_START' });
+    expect(result.interpretation.tokens).toEqual([]);
+  });
+  it.each(['step before process', 'BEFORE before PROCESS_START', 'STEP_PROCESS after AFTER'])('keeps ordinary words out of direction interpretation: %s', async q => {
+    expect((await read<KnowledgeSearchData>('search', { q })).interpretation.direction).toBeNull();
+  });
   it('keeps reverse-only records separate and distinguishes observed from expected', async () => {
     const normal = await read<KnowledgeSearchData>('search', { q: 'STEP_PROCESS before PROCESS_START' });
     expect(normal.opposite).toBeNull();

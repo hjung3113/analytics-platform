@@ -25,8 +25,12 @@ export function parseSearchAddress(page: Record<string, string | null | undefine
   return { params, active: q.trim() !== '' || relation !== null, errors };
 }
 
-/** The server interprets an exact three-token operator query again unless its operator is removed with the chip. */
+const operators = ['before', 'after', '먼저', '이전', '나중', '이후', '→'];
+const eventToken = (word: string) => /^[\p{L}\p{N}_.\-/]+$/u.test(word) && !operators.includes(word.toLowerCase()) && /\p{L}/u.test(word) &&
+  (/[_/]/.test(word) || word.length >= 2 && /\p{Lu}/u.test(word) && !/\p{Ll}/u.test(word));
+
+/** Mirror the server's Event/operator/Event grammar; ordinary text must keep every word. */
 export function plainQuery(q: string): string {
-  const words = q.normalize('NFKC').trim().split(/\s+/u);
-  return words.length === 3 && ['before', 'after', '먼저', '이전', '나중', '이후', '→'].includes(words[1]!.toLowerCase()) ? `${words[0]} ${words[2]}` : q;
+  const words = q.replace(/→/gu, ' → ').normalize('NFKC').trim().split(/\s+/u);
+  return words.length === 3 && operators.includes(words[1]!.toLowerCase()) && eventToken(words[0]!) && eventToken(words[2]!) ? `${words[0]} ${words[2]}` : q;
 }

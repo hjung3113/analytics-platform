@@ -17,4 +17,10 @@ describe('knowledge search address', () => {
     expect(plainQuery('B_EVENT 나중 A_EVENT')).toBe('B_EVENT A_EVENT');
     expect(plainQuery('압력 로그')).toBe('압력 로그');
   });
+  it.each(['STEP_PROCESS→PROCESS_START', 'STEP_PROCESS →PROCESS_START', 'STEP_PROCESS→ PROCESS_START', 'ＳＴＥＰ_PROCESS→PROCESS_START'])('removes the server-recognized arrow in %s', q => {
+    expect(plainQuery(q)).toBe('STEP_PROCESS PROCESS_START');
+  });
+  it.each(['step before process', 'step → process', 'BEFORE before PROCESS_START', 'STEP_PROCESS after AFTER', 'STEP_PROCESS before PROCESS_START extra', '  압력 before 로그  '])('preserves non-operator text: %s', q => {
+    expect(plainQuery(q)).toBe(q);
+  });
 });

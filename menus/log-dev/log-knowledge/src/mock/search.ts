@@ -5,9 +5,10 @@ import { allItems, allLinks, latestRevision, ownerOf, type ItemRec } from './ite
 import { byId } from './store';
 
 const object = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
-const eventToken = (s: string) => /^[\p{L}\p{N}_./-]+$/u.test(s) && /\p{L}/u.test(s) && (/[_/]/.test(s) || s.length >= 2 && /\p{Lu}/u.test(s) && !/\p{Ll}/u.test(s));
+const operators = ['before', 'after', '먼저', '이전', '나중', '이후', '→'];
+const eventToken = (s: string) => /^[\p{L}\p{N}_./-]+$/u.test(s) && !operators.includes(s.toLowerCase()) && /\p{L}/u.test(s) && (/[_/]/.test(s) || s.length >= 2 && /\p{Lu}/u.test(s) && !/\p{Ll}/u.test(s));
 function interpretation(params: KnowledgeSearchParams): KnowledgeSearchData['interpretation'] {
-  const original = params.q ?? '', words = original.normalize('NFKC').trim().split(/\s+/u), kind = params.kind ?? 'all';
+  const original = params.q ?? '', words = original.replace(/→/gu, ' → ').normalize('NFKC').trim().split(/\s+/u), kind = params.kind ?? 'all';
   let direction: SearchDirection | null = null;
   if (params.relation) {
     const r = params.relation, swapped = r.predicate === 'after';
