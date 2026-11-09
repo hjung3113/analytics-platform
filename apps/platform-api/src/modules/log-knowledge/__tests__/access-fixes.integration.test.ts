@@ -272,6 +272,11 @@ describe.skipIf(!(APP_URL && MIGRATE_URL && WS))('access review regressions (#15
     for (const [action, extra, id] of [['projectUpdate', { targetDate: '2027-01-01' }, projectId], ['projectSetStage', { toStage: 'cancelled', reason: 'test' }, projectId], ['projectReopen', { reason: 'test' }, projectId], ['roundClose', {}, roundId], ['requestCancel', { reason: 'test' }, q.data.requestId]] as const) {
       expect(clean(await act(`logLifecycle.${action}`, { id, ...extra }, { version: '999' }))).toEqual(clean(await act(`logLifecycle.${action}`, { id: randomUUID(), ...extra }, { version: '999' })));
     }
+    // gateDecide names its Round by `roundId` (the loop above sends `id`), so it gets its own case (#1594 A-Q9).
+    const gate = { targetStage: 'kickoff', decision: 'approved', reason: 'test' };
+    const hiddenGate = await act('logLifecycle.gateDecide', { roundId, ...gate }, { version: '999' });
+    expect(clean(hiddenGate)).toEqual(clean(await act('logLifecycle.gateDecide', { roundId: randomUUID(), ...gate }, { version: '999' })));
+    expect(hiddenGate.outcome, 'a hidden Round is not found, not forbidden or invalid').toBe('not_found');
     const denied = await act('logLifecycle.roundOpen', { projectId, sampleSet });
     expect(denied.fieldErrors).toEqual([{ path: ['projectId'], code: 'not_found' }]);
     expect((await sql('select count(*)::int as n from log_lifecycle.validation_round where project_id = $1', [projectId])).rows[0].n).toBe(1);

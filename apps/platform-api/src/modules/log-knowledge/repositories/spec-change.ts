@@ -1,4 +1,3 @@
-import { lockOwnerAccess } from './item-write.js';
 // Write side of the SW change rows (#1196 c, design v0.6 §15.2): `knowledge.spec_sw_change` only, every statement scoped
 // to the actor's workspace, no delete. The caller owns the transaction and the audit row. LOCK ORDER everywhere:
 // revision row, then the model's advisory lock (`lockModelChanges`), then change rows. The advisory lock serialises
@@ -10,7 +9,7 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { modelSpecRevisions, softwareVersions, specSwChanges } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
-import { type Viewer, canSeeModel, canSeeSoftware, ref, visibleSoftwareSql } from './access-visibility.js';
+import { type Viewer, canSeeModel, canSeeSoftware, lockOwnerAccess, ref, visibleSoftwareSql } from './access-visibility.js';
 import type { OrderRange } from '../domain/spec-range.js';
 
 const c = specSwChanges;

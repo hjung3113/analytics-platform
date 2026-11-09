@@ -10,11 +10,12 @@
 // Outer columns: pass them through `ref()` (always qualified). A bare drizzle column renders unqualified in a single-table
 // select and would bind to this subquery's own table.
 
-import { type SQL, Table, and, eq, getTableName, inArray, sql } from 'drizzle-orm';
+import { type SQL, Table, and, eq, getTableName, sql } from 'drizzle-orm';
 import type { AnyPgColumn, PgTable } from 'drizzle-orm/pg-core';
 
-import { equipmentModels, knowledgeItems, softwareVersions } from '../../../db/schema/knowledge.js';
+import { equipmentModels, softwareVersions } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
+import { uuidParam } from './search-sql.js';
 
 /** Who is looking: the workspace of the session and the actor. */
 export interface Viewer {
@@ -37,8 +38,6 @@ export function ref(column: AnyPgColumn): SQL {
   const prefix = !isAlias && typeof schema === 'string' ? `${q(schema)}.` : '';
   return sql.raw(`${prefix}${q(name)}.${q(column.name)}`);
 }
-
-const uuidParam = (value: string): SQL => sql`${value}::uuid`;
 
 /** The level test for one table alias holding `id` and `access_mode`: no active deny, and `internal` or an active allow. */
 function level(alias: string, kind: 'model' | 'software' | 'item', viewer: Viewer): SQL {
@@ -79,50 +78,17 @@ export const canSeeModel = (tx: Tx, viewer: Viewer, modelId: string): Promise<bo
 export const canSeeSoftware = (tx: Tx, viewer: Viewer, softwareId: string): Promise<boolean> => judge(tx, visibleSoftwareSql(viewer, uuidParam(softwareId)));
 export const canSeeItem = (tx: Tx, viewer: Viewer, itemId: string): Promise<boolean> => judge(tx, visibleItemSql(viewer, uuidParam(itemId)));
 
-/**
- * Whether the viewer may see the owner an item or draft hangs under (a SW version, else a model) and, when given, the item a
- * revise draft targets. `false` is «not found» to the caller.
- */
-export async function canSeeOwner(
-  tx: Tx,
-  viewer: Viewer,
-  owner: { ownerModelId: string | null; ownerSoftwareId: string | null; targetItemId?: string | null },
-): Promise<boolean> {
-  const ownerOk = owner.ownerSoftwareId
-    ? visibleSoftwareSql(viewer, uuidParam(owner.ownerSoftwareId))
-    : owner.ownerModelId
-      ? visibleModelSql(viewer, uuidParam(owner.ownerModelId))
-      : sql`false`;
-  const itemOk = owner.targetItemId ? visibleItemSql(viewer, uuidParam(owner.targetItemId)) : sql`true`;
-  return judge(tx, sql`(${ownerOk} and ${itemOk})`);
-}
-
-/** The subset of `modelIds` the viewer may see (canonical lower-case ids). */
-export async function visibleModelIds(tx: Tx, viewer: Viewer, modelIds: readonly string[]): Promise<Set<string>> {
-  if (modelIds.length === 0) return new Set();
-  const rows = await tx
-    .select({ id: equipmentModels.id })
-    .from(equipmentModels)
-    .where(and(eq(equipmentModels.workspaceId, viewer.workspaceId), inArray(equipmentModels.id, [...modelIds]), visibleModelSql(viewer, ref(equipmentModels.id))));
-  return new Set(rows.map((r) => r.id));
-}
-
-/** The subset of `softwareIds` the viewer may see. */
-export async function visibleSoftwareIds(tx: Tx, viewer: Viewer, softwareIds: readonly string[]): Promise<Set<string>> {
-  if (softwareIds.length === 0) return new Set();
-  const rows = await tx
-    .select({ id: softwareVersions.id })
-    .from(softwareVersions)
-    .where(and(eq(softwareVersions.workspaceId, viewer.workspaceId), inArray(softwareVersions.id, [...softwareIds]), visibleSoftwareSql(viewer, ref(softwareVersions.id))));
-  return new Set(rows.map((r) => r.id));
-}
-
-/** The subset of `itemIds` the viewer may see. */
-export async function visibleItemIds(tx: Tx, viewer: Viewer, itemIds: readonly string[]): Promise<Set<string>> {
-  if (itemIds.length === 0) return new Set();
-  const rows = await tx
-    .select({ id: knowledgeItems.id })
-    .from(knowledgeItems)
-    .where(and(eq(knowledgeItems.workspaceId, viewer.workspaceId), inArray(knowledgeItems.id, [...itemIds]), visibleItemSql(viewer, ref(knowledgeItems.id))));
-  return new Set(rows.map((r) => r.id));
+/** Stabilizes the owner chain against mode changes, deny additions and allow revocations until commit. */
+export async function lockOwnerAccess(tx: Tx, viewer: Viewer, owner: { ownerModelId: string | null; ownerSoftwareId: string | null }): Promise<boolean> {
+  if (owner.ownerSoftwareId) {
+    if (!(await canSeeSoftware(tx, viewer, owner.ownerSoftwareId))) return false;
+    const [software] = await tx.select({ modelId: softwareVersions.modelId }).from(softwareVersions).where(and(eq(softwareVersions.workspaceId, viewer.workspaceId), eq(softwareVersions.id, owner.ownerSoftwareId)));
+    if (!software) return false;
+    await tx.select({ id: equipmentModels.id }).from(equipmentModels).where(and(eq(equipmentModels.workspaceId, viewer.workspaceId), eq(equipmentModels.id, software.modelId))).for('share');
+    await tx.select({ id: softwareVersions.id }).from(softwareVersions).where(and(eq(softwareVersions.workspaceId, viewer.workspaceId), eq(softwareVersions.id, owner.ownerSoftwareId))).for('share');
+    return canSeeSoftware(tx, viewer, owner.ownerSoftwareId);
+  }
+  if (!owner.ownerModelId || !(await canSeeModel(tx, viewer, owner.ownerModelId))) return false;
+  await tx.select({ id: equipmentModels.id }).from(equipmentModels).where(and(eq(equipmentModels.workspaceId, viewer.workspaceId), eq(equipmentModels.id, owner.ownerModelId))).for('share');
+  return canSeeModel(tx, viewer, owner.ownerModelId);
 }

@@ -1,4 +1,3 @@
-import { lockOwnerAccess } from './item-write.js';
 // Write side of the log knowledge catalog (#1194 a): `knowledge.*` tables only, every statement scoped to
 // the actor's workspace, no hard delete (only `model_process` rows are removed). The caller owns the
 // transaction and the audit rows. Row locks: the write target is locked `FOR UPDATE` by `lockRow` (the
@@ -15,7 +14,7 @@ import {
   vendors,
 } from '../../../db/schema/knowledge.js';
 import type { Tx } from '../../../db/tx.js';
-import { type Viewer, canSeeModel, canSeeSoftware } from './access-visibility.js';
+import { type Viewer, canSeeModel, canSeeSoftware, lockOwnerAccess } from './access-visibility.js';
 import { toCodeKey } from '../domain/code-key.js';
 import { enqueueCatalogChange } from './search-outbox.js';
 

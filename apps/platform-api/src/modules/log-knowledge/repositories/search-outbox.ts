@@ -9,18 +9,13 @@ import { type SQL, sql } from 'drizzle-orm';
 import type { Tx } from '../../../db/tx.js';
 import type { AccessTargetKind } from '../domain/access-visibility.js';
 import { chunk } from '../domain/search-normalize.js';
+import { rowsOf, uuidArray, ZERO_UUID } from './search-sql.js';
 
 export const OUTBOX_REASONS = ['published', 'archived', 'access_changed', 'concept_changed', 'alias_changed', 'subject_changed', 'catalog_changed', 'reindex'] as const;
 export type OutboxReason = (typeof OUTBOX_REASONS)[number];
 
 /** Items per INSERT and per keyset page of an affected-set enqueue. */
 export const ENQUEUE_BATCH = 1000;
-
-const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
-
-export const rowsOf = <T>(result: unknown): T[] => (result as { rows: T[] }).rows;
-
-const uuidArray = (ids: readonly string[]) => sql`ARRAY[${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}]::uuid[]`;
 
 /** Notifies these Items (any state). Coalescing UPDATE locks the pending row through the source commit:
  * a drain skips it until then, or, if the drain claimed first, this INSERT waits and creates a fresh pending row after it finishes.

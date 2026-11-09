@@ -34,8 +34,11 @@ interface CurrentRevision {
   revisionNo: number;
 }
 
-/** The current published revision of each model (every model of the workspace when `modelIds` is undefined). Uncapped: one row per model. */
-async function currentRevisions(tx: Tx, workspaceId: string, modelIds?: readonly string[], viewer?: Viewer): Promise<Map<string, CurrentRevision>> {
+/**
+ * The current published revision of each model (every model of the workspace when `modelIds` is undefined). Uncapped: one row per model.
+ * `viewer: null` is the exact key resolver (`resolveTargets`): its callers validate the model/owner access themselves before they ask (writes under `lockOwnerAccess`; the concept-mapping and Item-subject reads after their own `canSeeModel` / owner checks), so it adds no second rule. Every scan that lists models for a user passes a Viewer.
+ */
+async function currentRevisions(tx: Tx, workspaceId: string, modelIds: readonly string[] | undefined, viewer: Viewer | null): Promise<Map<string, CurrentRevision>> {
   const r = modelSpecRevisions;
   if (modelIds && modelIds.length === 0) return new Map();
   const rows = await tx
@@ -54,9 +57,9 @@ export interface TargetScan {
 
 /**
  * The BOUNDED scan of every model's current targets, for suggestions only. Never use it to decide that a key is absent.
- * `viewer`: only the models that actor may see (#1504); every caller that answers a user passes it.
+ * `viewer`: only the models that actor may see (#1504); required, so no caller can skip the rule.
  */
-export async function scanCurrentTargets(tx: Tx, workspaceId: string, cap: number = TARGET_SCAN_CAP, viewer?: Viewer): Promise<TargetScan> {
+export async function scanCurrentTargets(tx: Tx, workspaceId: string, viewer: Viewer, cap: number = TARGET_SCAN_CAP): Promise<TargetScan> {
   const revisions = await currentRevisions(tx, workspaceId, undefined, viewer);
   const models = new Map<string, ModelTargets>();
   if (revisions.size === 0) return { models, truncated: false };
@@ -113,7 +116,7 @@ const refId = (modelId: string, kind: string, key: string): string => `${modelId
  */
 export async function resolveTargets(tx: Tx, workspaceId: string, refs: readonly TargetRef[]): Promise<ResolvedTargets> {
   const wanted = refs.map((x) => ({ ...x, modelId: x.modelId.toLowerCase() }));
-  const revisions = await currentRevisions(tx, workspaceId, [...new Set(wanted.map((x) => x.modelId))]);
+  const revisions = await currentRevisions(tx, workspaceId, [...new Set(wanted.map((x) => x.modelId))], null);
   const found = new Map<string, SpecTarget>();
   for (const [modelId, rev] of revisions) {
     const moduleKeys = new Set<string>();

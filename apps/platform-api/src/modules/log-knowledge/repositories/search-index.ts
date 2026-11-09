@@ -8,12 +8,12 @@ import { sql } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import type { Tx } from '../../../db/tx.js';
 import { MAX_ATTEMPTS, backoffSeconds, buildDocumentText } from '../domain/search-normalize.js';
-import { enqueueItems, rowsOf } from './search-outbox.js';
+import { enqueueItems } from './search-outbox.js';
+import { rowCountOf, rowsOf, ZERO_UUID } from './search-sql.js';
 
 export const DRAIN_BATCH = 100;
 export const BACKFILL_BATCH = 500;
 export const GENERATION_RETENTION_DAYS = 7;
-const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
 
 // ---- Generation pointer ---------------------------------------------------------------------------------------------
 
@@ -213,7 +213,7 @@ export async function pruneDone(db: Db, limit = 1000): Promise<number> {
   const res = await db.execute(sql`
     DELETE FROM knowledge.search_outbox WHERE outbox_id IN (
       SELECT outbox_id FROM knowledge.search_outbox WHERE state = 'done' AND updated_at < now() - interval '1 day' LIMIT ${limit})`);
-  return (res as unknown as { rowCount?: number }).rowCount ?? 0;
+  return rowCountOf(res);
 }
 
 /** Dead rows -> a fresh `pending` row per Item (merged with an existing pending one), the dead rows are closed as `done`. Returns the Items requeued. */
@@ -366,7 +366,7 @@ export async function purgeRetiredGenerations(db: Db, workspaceId: string, reten
       DELETE FROM knowledge.search_document d USING knowledge.search_index_pointer p
       WHERE d.workspace_id = ${workspaceId} AND p.workspace_id = d.workspace_id
         AND d.index_generation NOT IN (p.active_generation, COALESCE(p.building_generation, -1), COALESCE(p.previous_generation, -1))`);
-    return (res as unknown as { rowCount?: number }).rowCount ?? 0;
+    return rowCountOf(res);
   });
 }
 

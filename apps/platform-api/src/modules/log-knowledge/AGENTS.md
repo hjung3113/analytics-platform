@@ -22,7 +22,7 @@ Owns the `knowledge` schema: catalog, model spec revisions, SW changes, Items, d
 
 ## Object access (#1504 S-a)
 
-- One rule, one place: `domain/access-visibility.ts` (pure) and `repositories/access-visibility.ts` (SQL: `visibleModelSql`, `visibleSoftwareSql`, `visibleItemSql`, `canSee*`, `visible*Ids`). Never write a second copy of the rule; a new read or write that reaches a model, SW version or Item (or a row that names one) takes a `Viewer` and goes through these.
+- One rule, one place: `domain/access-visibility.ts` (pure) and `repositories/access-visibility.ts` (SQL: `visibleModelSql`, `visibleSoftwareSql`, `visibleItemSql`, `canSee*`, `lockOwnerAccess`). Never write a second copy of the rule; a new read or write that reaches a model, SW version or Item (or a row that names one) takes a `Viewer` and goes through these.
 - A hidden object is **not found**: same outcome, `data: null` / empty page / `not_found` field error as a missing id. No name, count, version or id of a hidden object in a list, total, count, error text or audit detail of another actor.
 - Lock helpers (`lockRow`, `lockItem`, `lockDraft`, `lockRevision`, `lockChange`, `lockMapping`, `shareLockParent`, `checkOwner`, `readTargetItem`, `softwareOrders`, `modelExists`) take a `Viewer` and return null / not found when hidden. Their callers pass `viewerOf(actor)`.
 - Managing (`access-actions.ts`, `access-endpoints.ts`, `repositories/access-write.ts`) is judged by `knowledge.access.manage`, not by visibility, and is where the access changes enter the search outbox (`setAccessMode`, `insertRule`, `revokeRule`).

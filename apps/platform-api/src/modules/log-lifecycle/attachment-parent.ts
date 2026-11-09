@@ -1,7 +1,7 @@
 import { viewerOf } from '../log-knowledge/index.js';
 // The `validation_round` attachment parent (#1451, design D6): who may download a round's manual validation attachment. Read right =
 // the right to read the round itself: `platform:view` (every workspace user) and the round exists in the actor's
-// workspace. A round of another workspace, an unknown round id and a missing `platform:view` all answer
+// workspace and its model / SW version is visible to the actor (#1504). A round of another workspace, a hidden round, an unknown round id and a missing `platform:view` all answer
 // `permission.denied`; nothing here consults VOC rights, and VOC rights never reach this kind. The write right
 // (`lifecycle.round.manage`) is the `roundEvidenceAttach` action's. The workspace is also gated by the attachment's
 // storage-key prefix before this runs.

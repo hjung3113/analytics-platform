@@ -13,9 +13,10 @@ import {
   type FieldError,
   type MenuActionDeclaration,
   MenuActionInvalidError,
+  type MenuEndpointDeclaration,
 } from '../menu-dispatch/types.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
-import type { PlatformActor } from '../platform-port/permissions.js';
+import { holdsPlatformPermission, type PlatformActor } from '../platform-port/permissions.js';
 import { findWorkspaceActor } from '../auth/index.js';
 import { LOG_KNOWLEDGE_ACCESS_MENU_ID } from './catalog-menu.js';
 import { ACCESS_INPUT_KEYS, type AccessOp, parseAccessInput, validateAccessInput } from './domain/access-input.js';
@@ -37,15 +38,19 @@ const INVALIDATES = ['logKnowledge.accessRules'] as const;
 
 const invalid = (...errors: FieldError[]) => new MenuActionInvalidError(errors);
 
+/** An action on the access-management menu: `knowledge.access.manage`, Admin through the module bypass. The one judgement for every action there (access rules, search index ops). */
+export const accessManageAuthorize = (checkService: CheckService) => async (actor: PlatformActor, tx: Tx): Promise<boolean> =>
+  applyAdminModuleBypass(actor.role_level, ACCESS_PERMISSION, await checkService.checkCapability(actor, ACCESS_PERMISSION, { workspace_id: actor.workspace_id }, { tx })).allow;
+
+/** An endpoint on the access-management menu: `platform:view` and the menu permission. */
+export const accessMenuAuthorize = (checkService: CheckService): MenuEndpointDeclaration['authorize'] => async (actor, tx) =>
+  (await holdsPlatformPermission(checkService, actor, 'platform:view', tx ? { tx } : {})) &&
+  (await holdsPlatformPermission(checkService, actor, ACCESS_MENU_PERMISSION, tx ? { tx } : {}));
+
 export function accessActions(deps: { checkService: CheckService }): MenuActionDeclaration[] {
   const audit = createAuditService();
 
-  const authorize = async (actor: PlatformActor, tx: Tx) =>
-    applyAdminModuleBypass(
-      actor.role_level,
-      ACCESS_PERMISSION,
-      await deps.checkService.checkCapability(actor, ACCESS_PERMISSION, { workspace_id: actor.workspace_id }, { tx }),
-    ).allow;
+  const authorize = accessManageAuthorize(deps.checkService);
 
   const record = (tx: Tx, actor: PlatformActor, eventType: 'knowledge.access.mode_changed' | 'knowledge.access.rule_added' | 'knowledge.access.rule_revoked', subjectId: string, detail: Record<string, unknown>) =>
     audit.record(tx, {

@@ -121,8 +121,21 @@ describe('confirmed knowledge search', () => {
   it('submits an explicit order through the shareable relation key', async () => {
     mount('');
     const selector = await screen.findByRole('region', { name: '순서 검색' });
+    // No pre-filled Event pair (#1594 B-Q1): the button stays off until the user names both Events.
+    const submit = within(selector).getByRole('button', { name: '순서 검색' }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    const choose = (name: string, key: string) => {
+      fireEvent.click(within(selector).getByRole('combobox', { name }));
+      const input = screen.getByRole('textbox', { name: '' });
+      fireEvent.change(input, { target: { value: key } });
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+      fireEvent.keyDown(input, { key: 'Enter' });
+    };
+    choose('Event A', 'CHAMBER/STEP_PROCESS');
+    expect(submit.disabled).toBe(true);
+    choose('Event B', 'CHAMBER/PROCESS_START');
     fireEvent.click(within(selector).getByRole('radio', { name: '나중' }));
-    fireEvent.click(within(selector).getByRole('button', { name: '순서 검색' }));
+    fireEvent.click(submit);
     await waitFor(() => expect(requests.some(r => r.endpoint === 'logKnowledge.search')).toBe(true));
     expect(JSON.parse(new URLSearchParams(window.location.search).get('relation')!)).toEqual({ source: 'CHAMBER/STEP_PROCESS', predicate: 'after', target: 'CHAMBER/PROCESS_START' });
   });

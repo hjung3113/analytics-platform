@@ -4,23 +4,16 @@
 // be counted, nor be suggested (ADR-0124). Display values (title, excerpt, state) are NOT the port's business: they are read live
 // afterwards (§4 step 4). Any adapter must pass `search-port-contract.ts`.
 
+import { KNOWLEDGE_SEARCH_REASONS } from '@ap/contract-schemas';
 import type { SQL } from 'drizzle-orm';
 
 import type { Tx } from '../../../db/tx.js';
 
 export type RelationRecordKind = 'observed' | 'expected';
-export type SearchReason = 'observed_same_direction' | 'expected_same_direction' | 'exact_token' | 'concept_mapping' | 'approved_alias' | 'text';
+export type SearchReason = (typeof KNOWLEDGE_SEARCH_REASONS)[number];
 
-/** Stage of a reason, 1 (strongest) to 6 (design §4.2). */
-export const REASON_STAGE: Readonly<Record<SearchReason, number>> = {
-  observed_same_direction: 1,
-  expected_same_direction: 2,
-  exact_token: 3,
-  concept_mapping: 4,
-  approved_alias: 5,
-  text: 6,
-};
-export const REASON_ORDER = Object.keys(REASON_STAGE) as SearchReason[];
+/** Reasons strongest first (design §4.2 stages 1-6): the contract's list, so the wire order and the sort order are one list. */
+export const REASON_ORDER: readonly SearchReason[] = KNOWLEDGE_SEARCH_REASONS;
 
 /** A complete lower-case key reached through a confirmed equivalent mapping, bound to its Model. */
 export interface ConceptKey {

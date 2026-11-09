@@ -45,5 +45,3 @@ export function levelVisible(level: AccessLevel, now: Date): boolean {
 export function chainVisible(chain: readonly AccessLevel[], now: Date): boolean {
   return chain.length > 0 && chain.every((level) => levelVisible(level, now));
 }
-
-export const isAccessMode = (value: unknown): value is AccessMode => (ACCESS_MODES as readonly unknown[]).includes(value);

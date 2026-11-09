@@ -555,10 +555,10 @@ describe.skipIf(!runIntegration)('concept mapping (#1196 e)', () => {
     it('suggestions say when the bounded scan stopped early; the exact lookup does not use the cap', async () => {
       const { a } = await pair('cap');
       expect((await read('conceptSuggestions', { modelId: a, pageSize: 5 })).data.truncated).toBe(false);
-      const all = await scanCurrentTargets(migrate.db, WORKSPACE_ID);
+      const all = await scanCurrentTargets(migrate.db, WORKSPACE_ID, { workspaceId: WORKSPACE_ID, actorId: admin.id });
       const full = all.models.get(a)?.targets.size ?? 0;
       expect(full).toBeGreaterThanOrEqual(3);
-      const capped = await scanCurrentTargets(migrate.db, WORKSPACE_ID, 1);
+      const capped = await scanCurrentTargets(migrate.db, WORKSPACE_ID, { workspaceId: WORKSPACE_ID, actorId: admin.id }, 1);
       expect(capped.truncated).toBe(true);
       expect(capped.models.get(a)?.targets.size ?? 0).toBeLessThan(full);
       // exact: every key of the spec resolves however the scan was cut; a ghost key and a wrong kind do not; a model without a spec has no revision
@@ -603,7 +603,7 @@ describe.skipIf(!runIntegration)('concept mapping (#1196 e)', () => {
       const e = await newModel('eq-e');
       await publishRevision(e, content('eq'));
       const key = eventKey('eq');
-      const lookup = async (model: string) => (await findEquivalents(dbHandle.db, WORKSPACE_ID, model, key)).map((x) => x.modelId).sort();
+      const lookup = async (model: string) => (await findEquivalents(dbHandle.db, WORKSPACE_ID, model, key, { workspaceId: WORKSPACE_ID, actorId: admin.id })).map((x) => x.modelId).sort();
 
       const root = await proposeOk(a, 'eq');
       await act('conceptConfirm', { mappingId: root.mappingId }, { expectedVersion: '1' });

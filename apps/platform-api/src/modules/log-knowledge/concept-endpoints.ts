@@ -120,7 +120,7 @@ export function conceptEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaratio
     declare(deps, 'logKnowledge.conceptSuggestions', ['modelId', 'kind', 'page', 'pageSize'], judgeSuggestions, async (viewer, q) => {
       const { workspaceId } = viewer;
       // The BOUNDED scan: `truncated` tells the caller when a cap made the list a partial view.
-      const { models: all, truncated: scanTruncated } = await scanCurrentTargets(deps.db, workspaceId, undefined, viewer);
+      const { models: all, truncated: scanTruncated } = await scanCurrentTargets(deps.db, workspaceId, viewer);
       const mine = all.get(q.modelId);
       if (!mine) return { outcome: 'ok', data: { total: 0, rows: [], ...(scanTruncated ? { truncated: true } : {}) } };
       const scan = (modelId: string, kinds: readonly string[]): ScanTarget[] =>
