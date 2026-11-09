@@ -84,15 +84,7 @@ Design D6 («do not move the access decision into the index to save time») is *
 
 ## Backlog (not implemented)
 
-| Item | Reason | Reopen when |
-| --- | --- | --- |
-| Make the candidate statement filter by text/relation hit first and apply the guard to the hit set (e.g. `MATERIALIZED`/`NOT MATERIALIZED` CTE or hit-first join order), keeping the single `visibleItemSql` predicate | The 100k text query costs 11–22 s alone because the guard runs over all Items before the hit narrows them (EXPLAIN above). Out of scope: this node does not touch adapter code | Owner schedules an adapter performance node; re-run `search:load` and require p95 ≤ 300 ms at 0 / 5 / 30 % |
-| `ANALYZE` of the search tables after a backfill / reindex generation switch | Fresh tables had no statistics; the same queries ran 7.5 s instead of ~40 ms on a 440-Item corpus | Before the first production backfill, or when the backfill job gains a post-step |
-| camelCase queries do not find snake_case text (`gasLineClog` vs `gas_line_clog`) | Recall@20 = 0 for 2 of 8 snake/camel queries: the query word keeps its original lower-cased form (`gaslineclog`), which the document does not contain | Owner decides variant folding in `domain/search-normalize.ts` |
-| Transposed-letter typos (`intelrock`) miss | Recall 0 for that query; trigram similarity under the default threshold. Design §4.2: no auto-correction | Real-text typo measurements show the miss rate matters |
-| Alias query type | No alias exists in code | Alias node lands (README §3.3, D8) |
-| Real-text Korean quality | The synthetic Korean vocabulary has six terms; the 1.000 says nothing about real particles, compounds or spacing | Owner allows an approved sample in a private environment (README §6) |
-| Latency through HTTP and a single viewer pool | The load script times the read function, not the route, and uses one viewer | The integration node (g) adds a route-level load check |
+The backlog (reason and reopen condition per item) lives once, in the [design README §9](README.md#9-미구현-목록-다시-여는-조건).
 
 ## Reproduce
 

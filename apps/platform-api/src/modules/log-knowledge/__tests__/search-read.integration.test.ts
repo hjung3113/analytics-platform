@@ -200,6 +200,21 @@ describe.skipIf(!runIntegration)('log knowledge search read (#1507 S-d)', () => 
   });
 
   afterAll(async () => {
+    // draft_revision refuses DELETE for every role: lift its trigger inside the cleanup transaction (the migrate role owns it).
+    const cleanup = await migrate.pool.connect();
+    try {
+      await cleanup.query('begin');
+      await cleanup.query('alter table knowledge.draft_revision disable trigger draft_revision_append_only');
+      await cleanup.query('delete from knowledge.draft_revision where workspace_id = any($1)', [workspaces]);
+      await cleanup.query('alter table knowledge.draft_revision enable trigger draft_revision_append_only');
+      await cleanup.query('delete from knowledge.draft where workspace_id = any($1)', [workspaces]);
+      await cleanup.query('commit');
+    } catch (error) {
+      await cleanup.query('rollback');
+      throw error;
+    } finally {
+      cleanup.release();
+    }
     await sql('delete from knowledge.search_document where workspace_id = any($1) or item_id = any($2)', [workspaces, seededItems]);
     await sql('delete from knowledge.search_outbox where workspace_id = any($1)', [workspaces]).catch(() => undefined);
     await sql('delete from knowledge.search_backfill_progress where workspace_id = any($1)', [workspaces]);
@@ -479,6 +494,41 @@ describe.skipIf(!runIntegration)('log knowledge search read (#1507 S-d)', () => 
     const sug = await call('logKnowledge.searchSuggest', { q: 'httpw' }, { cookie: admin.cookie });
     expect(sug.outcome).toBe('ok');
     expect(sug.data.suggestions).toEqual([]);
+  });
+
+  it('a Draft (create or revise proposal) is never indexed and never returned, before or after the owner is reindexed', async () => {
+    const word = `${TAG.toLowerCase()}draftonly`;
+    const published = await item(ws, { model: models.MA }, `${TAG} published base`);
+    const createDraft = (await sql(`insert into knowledge.draft (workspace_id, origin, proposal_type, owner_model_id, submitter_actor_id, created_by, updated_by) values ($1,'human','create',$2,$3,$3,$3) returning id`, [ws, models.MA, creator])).rows[0].id as string;
+    const reviseDraft = (await sql(`insert into knowledge.draft (workspace_id, origin, proposal_type, owner_model_id, target_item_id, base_revision_no, submitter_actor_id, created_by, updated_by) values ($1,'human','revise',$2,$3,1,$4,$4,$4) returning id`, [ws, models.MA, published, creator])).rows[0].id as string;
+    for (const d of [createDraft, reviseDraft]) {
+      await sql(`insert into knowledge.draft_revision (workspace_id, draft_id, draft_rev_no, proposal_json, payload_digest, author_actor_id, author_auth) values ($1,$2,1,$3::jsonb,$4,$5,'session')`, [ws, d, JSON.stringify({ title: `${word} title`, observation: `${word} body` }), 'a'.repeat(64), creator]);
+    }
+    await index(ws, published);
+    expect((await search({ q: word })).items).toEqual([]);
+    expect((await runSuggest(dbHandle.db, view(viewerA), word, null)).suggestions).toEqual([]);
+    const docs = await sql(`select 1 from knowledge.search_document where workspace_id = $1 and (search_text like $2 or term_text like $2)`, [ws, `%${word}%`]);
+    expect(docs.rows).toEqual([]);
+    expect((await search({ q: 'published base' })).items.map((i) => i.itemId)).toContain(published);
+  });
+
+  it('Items with the same title in different owners stay separate rows, each with its own owner', async () => {
+    const title = `${TAG} twin title`;
+    const a = await item(ws, { model: models.MA }, title);
+    const b = await item(ws, { model: models.MB }, title);
+    await index(ws, a, b);
+    const r = await search({ q: 'twin title' });
+    expect(r.items.map((i) => i.itemId).sort()).toEqual([a, b].sort());
+  });
+
+  it('the query text is not written to the audit log or the usage events', async () => {
+    const word = `${TAG.toLowerCase()}noleakquery`;
+    expect((await call('logKnowledge.search', { q: word }, { cookie: admin.cookie })).outcome).toBe('ok');
+    expect((await call('logKnowledge.searchSuggest', { q: word }, { cookie: admin.cookie })).outcome).toBe('ok');
+    for (const table of ['core.audit_log', 'platform.usage_events']) {
+      const hit = await sql(`select 1 from ${table} t where to_jsonb(t)::text ilike $1`, [`%${word}%`]);
+      expect(hit.rows, table).toEqual([]);
+    }
   });
 
   it('C1: hidden pending changes leave the lag hint identical to absent changes', async () => {

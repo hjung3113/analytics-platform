@@ -1,6 +1,6 @@
 # 통합 검색과 Event 관계 기록 (#1509, S-f)
 
-화면 기준은 소유자가 2026-11-08 확인한 검색 A(선택기 줄)와 Item 편집 C(접힌 요약)다. 검색 의미·권한·순위는 [검색 설계](../../../../docs/design/features/log-knowledge-search/README.md) §4와 [API 계약](../../../../docs/architecture/platform-api/api/log-knowledge.md#knowledge-search-1507-s-d)이 소유한다. 이 문서는 메뉴의 화면 조합과 주소를 소유한다.
+화면 기준은 소유자가 2026-11-08 확인한 검색 A(선택기 줄)와 Item 편집 C(접힌 요약)다. 수용 매트릭스는 [검색 설계 §11](../../../../docs/design/features/log-knowledge-search/README.md#11-수용-매트릭스-s-g-1510)이다. 검색 의미·권한·순위는 [검색 설계](../../../../docs/design/features/log-knowledge-search/README.md) §4와 [API 계약](../../../../docs/architecture/platform-api/api/log-knowledge.md#knowledge-search-1507-s-d)이 소유한다. 이 문서는 메뉴의 화면 조합과 주소를 소유한다.
 
 ## 화면과 주소
 
