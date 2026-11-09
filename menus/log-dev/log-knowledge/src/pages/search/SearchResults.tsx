@@ -16,10 +16,10 @@ export function SearchRows({ items, lag }: { items: KnowledgeSearchItem[]; lag: 
   return <>{items.map(item => {
     const href = linkTo('log-knowledge-item', { params: { itemId: item.itemId }, returnTo: true });
     const owner = { kind: item.owner.softwareId ? 'software' as const : 'model' as const, modelId: item.owner.modelId, modelName: item.owner.modelName, ...(item.owner.softwareId ? { softwareId: item.owner.softwareId, versionLabel: item.owner.softwareLabel ?? '' } : {}) };
-    return <ObjectRow key={item.itemId} density="default" className="grid-cols-1 [&>div:empty]:hidden"
+    return <ObjectRow key={item.itemId} density="default" leadingCell="auto"
       title={<span className="inline-flex max-w-full items-center gap-2"><PlatformLink href={href} className="truncate hover:underline">{item.title}</PlatformLink><OwnerChip owner={owner} /></span>}
       badges={<><PlatformLink href={href} className="t-mono text-accent-primary hover:underline">KI-{item.itemNo}</PlatformLink><TypeBadge code={item.typeCode} /><StateBadges item={item} /></>}>
-      <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary"><span>{w('일치 이유', 'Match reasons')}</span>
+      <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">{(item.reasons.length > 0 || item.expectedOnly) && <span>{w('일치 이유', 'Match reasons')}</span>}
         {item.reasons.map(reason => <StatusBadge key={reason} tone={reason === 'expected_same_direction' ? 'warning' : 'neutral'}>{w(REASON[reason].ko, REASON[reason].en)}</StatusBadge>)}
         {item.expectedOnly && !item.reasons.includes('expected_same_direction') && <StatusBadge tone="warning">{w('명세상 기대', 'Expected by specification')}</StatusBadge>}
         {lag && <StatusBadge tone="warning">{w('색인 지연', 'Index lag')}</StatusBadge>}
@@ -32,10 +32,10 @@ export function SearchRows({ items, lag }: { items: KnowledgeSearchItem[]; lag: 
 
 export function SearchFailure({ retry }: { retry: () => void }) {
   const w = useSpecWords();
-  return <Callout tone="red" title={w('검색하지 못했습니다', 'Search failed')}
+  return <div className="p-3"><Callout tone="red" title={w('검색하지 못했습니다', 'Search failed')}
     action={<Button type="button" size="sm" variant="secondary" onClick={retry}>{w('다시 시도', 'Retry')}</Button>}>
     {w('잠시 뒤 다시 시도해 주세요.', 'Try again in a moment.')}
-  </Callout>;
+  </Callout></div>;
 }
 
 /** Each continuation uses the Kernel lifecycle, so a permission/session change also hides previously loaded pages. */

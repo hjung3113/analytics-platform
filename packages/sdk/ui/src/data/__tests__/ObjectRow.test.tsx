@@ -48,4 +48,28 @@ describe('ObjectRow', () => {
     expect(screen.getByText('High')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open' })).toBeInTheDocument();
   });
+
+  it('preserves the empty leading cell by default', () => {
+    const { container } = render(<ObjectRow title="Default row" trailing={<button>Open</button>} />);
+    expect(container.firstElementChild).toHaveClass('grid-cols-[auto_1fr_auto]');
+    expect(container.firstElementChild?.firstElementChild).toBeEmptyDOMElement();
+  });
+
+  it('omits the empty leading cell in auto mode while keeping a trailing column', () => {
+    const { container } = render(<ObjectRow leadingCell="auto" title="Auto row" trailing={<button>Open</button>} />);
+    expect(container.firstElementChild).toHaveClass('grid-cols-[1fr_auto]');
+    expect(container.firstElementChild?.children).toHaveLength(2);
+    expect(container.firstElementChild?.firstElementChild).toHaveTextContent('Auto row');
+    expect(container.firstElementChild?.lastElementChild).toContainElement(screen.getByRole('button', { name: 'Open' }));
+  });
+
+  it.each([
+    { severity: 'critical' as const },
+    { selectable: true },
+    { icon: <span>Icon</span> },
+  ])('keeps leading content in auto mode: %s', props => {
+    const { container } = render(<ObjectRow leadingCell="auto" title="Auto row" {...props} />);
+    expect(container.firstElementChild).toHaveClass('grid-cols-[auto_1fr_auto]');
+    expect(container.firstElementChild?.firstElementChild).not.toBeEmptyDOMElement();
+  });
 });

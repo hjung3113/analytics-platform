@@ -117,10 +117,18 @@ describe('confirmed knowledge search', () => {
     fireEvent.click(toggle);
     const section = await screen.findByRole('region', { name: '반대 방향' });
     expect(within(section).getByText('역방향 관찰')).toBeTruthy();
+    expect(within(section).queryByText('일치 이유')).toBeNull();
+    expect(within(section).getByRole('link', { name: '관련 Item 2건' })).toBeTruthy();
     expect(within(screen.getByRole('region', { name: '검색 결과' })).queryByText('역방향 관찰')).toBeNull();
     expect(new URLSearchParams(window.location.search).get('opposite')).toBe('true');
     fireEvent.click(toggle);
     await waitFor(() => expect(screen.queryByRole('region', { name: '반대 방향' })).toBeNull());
+  });
+  it('offers one filter reset while the interpreted direction and filter panel are visible', async () => {
+    mount();
+    await screen.findByText(item.title);
+    fireEvent.click(screen.getByRole('button', { name: '필터' }));
+    expect(screen.getAllByRole('button', { name: '필터 초기화' })).toHaveLength(1);
   });
   it('removes the interpreted direction without reinterpreting the same operator query', async () => {
     mount();

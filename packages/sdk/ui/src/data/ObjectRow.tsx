@@ -12,6 +12,8 @@ export interface ObjectRowProps {
   badges?: React.ReactNode;
   trailing?: React.ReactNode;
   icon?: React.ReactNode;
+  /** Keep the leading cell by default; auto omits it when no leading content is set. */
+  leadingCell?: 'always' | 'auto';
   severity?: ObjectRowSeverity;
   selected?: boolean;
   density?: ObjectRowDensity;
@@ -45,6 +47,7 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
       badges,
       trailing,
       icon,
+      leadingCell = 'always',
       severity,
       selected = false,
       density = 'default',
@@ -57,6 +60,7 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
     },
     ref,
   ) => {
+    const showLeadingCell = leadingCell === 'always' || !!(severity || selectable || icon);
     const clickableProps = onClick
       ? {
           role:    'button',
@@ -74,7 +78,8 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
       <div
         ref={ref}
         className={cn(
-          'relative grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-border-subtle transition-colors duration-75',
+          'relative grid items-center gap-3 border-b border-border-subtle transition-colors duration-75',
+          showLeadingCell ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[1fr_auto]',
           selected ? 'bg-surface-row-selected' : 'hover:bg-surface-row-hover',
           onClick && 'cursor-pointer',
           densityClassName[density],
@@ -91,7 +96,7 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
           />
         )}
 
-        <div className="flex shrink-0 items-center gap-2.5">
+        {showLeadingCell && <div className="flex shrink-0 items-center gap-2.5">
           {severity && (
             <span
               aria-hidden="true"
@@ -108,7 +113,7 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
             />
           )}
           {icon && <span className="flex shrink-0 text-text-muted">{icon}</span>}
-        </div>
+        </div>}
 
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex min-w-0 items-center gap-2">

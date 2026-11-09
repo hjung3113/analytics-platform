@@ -50,6 +50,24 @@ describe('confirmed collapsed Event relation editor', () => {
     fireEvent.click(within(relation).getByRole('button', { name: '관계 20 빼기' }));
     expect((screen.getByRole('button', { name: '관계 추가' }) as HTMLButtonElement).disabled).toBe(false);
   });
+  it.each([0, 1])('keeps keyboard focus in the expanded remaining row when removing row %s', removed => {
+    render(<Harness initial={[row, { ...row, kind: 'expected' }]} />);
+    fireEvent.click(screen.getByRole('button', { name: `관계 ${2 - removed} 수정` }));
+    const remove = screen.getByRole('button', { name: `관계 ${removed + 1} 빼기` });
+    remove.focus();
+    // jsdom does not perform a native button's default Enter activation.
+    fireEvent.keyDown(remove, { key: 'Enter' });
+    fireEvent.click(remove);
+    expect(screen.getAllByRole('group', { name: /^관계 \d+$/ })).toHaveLength(1);
+    expect(document.activeElement).toBe(screen.getByRole('combobox', { name: '종류' }));
+  });
+  it.each([0, 1])('returns focus to the collapsed remaining row when removing row %s', removed => {
+    render(<Harness initial={[row, row]} />);
+    const remove = screen.getByRole('button', { name: `관계 ${removed + 1} 빼기` });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '관계 1 수정' }));
+  });
   it('shows unknown stable keys in the collapsed summary', () => {
     render(<Harness initial={[{ ...row, target: 'CHAMBER/CUSTOM_READY' }]} />);
     expect(screen.getByText('명세에 없는 Event')).toBeTruthy();
