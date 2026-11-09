@@ -113,6 +113,7 @@ trap 'exit 143' TERM
 trap 'exit 129' HUP
 trap cleanup EXIT
 bk_lock_acquire backup
+bk_require_mc_image
 
 # 1. Data services up (no dependencies started), identity check.
 bk_log "project $PROJECT: starting postgres and minio if needed"

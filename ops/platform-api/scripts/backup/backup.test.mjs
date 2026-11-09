@@ -796,6 +796,27 @@ function backupRun(extraEnv = {}) {
   return { ...r, root, calls: readCalls(log) };
 }
 
+describe('mc image is never pulled (#1617, stub docker)', () => {
+  test('backup refuses before stopping anything when the mc image is not loaded, and prints the load command', () => {
+    const r = backupRun({ STUB_MISSING_IMAGE: 'minio/minio:RELEASE.2024-12-18T13-15-44Z' });
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /is not on this host and is never pulled/);
+    assert.match(r.err, /docker load -i <path>\/minio-image\.tar/);
+    assert.equal(
+      r.calls.findIndex((c) => /^compose /.test(c)),
+      -1,
+      `no compose call:\n${r.calls.join('\n')}`,
+    );
+  });
+
+  test('every mc run carries --pull never', () => {
+    const r = backupRun();
+    const mc = r.calls.filter((c) => /--entrypoint mc /.test(c));
+    assert.ok(mc.length > 0, r.calls.join('\n'));
+    for (const c of mc) assert.match(c, /--pull never/);
+  });
+});
+
 describe('OPS-04 backup records the images that produced the data (stub docker)', () => {
   test('container image ids, not the :local tags, after :local was retagged', () => {
     const r = backupRun({ STUB_LOCAL_BACKEND_ID: 'sha256:retagged' });

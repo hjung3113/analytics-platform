@@ -6,8 +6,9 @@ BK_IMAGE_BACKEND_DEFAULT='platform-release-backend:local'
 BK_IMAGE_MIGRATE_DEFAULT='platform-release-migrate:local'
 BK_IMAGE_WEB_DEFAULT='platform-release-web:local'
 # mc runs from the stack's own pinned MinIO server image (it ships the mc binary): no extra image to pull, and the
-# separate minio/mc images are no longer published on Docker Hub. Override with BACKUP_MC_IMAGE only to use an internal
-# registry copy of the same image; the entrypoint is always mc.
+# separate minio/mc images are no longer published on Docker Hub. The image is never pulled (no registry; #1617): load it
+# from the `docker save` tar of the run guide. Override with BACKUP_MC_IMAGE only to use another locally loaded copy of
+# the same image; the entrypoint is always mc.
 BK_MC_IMAGE_DEFAULT='minio/minio:RELEASE.2024-12-18T13-15-44Z'
 BK_STAMP_RE='^[0-9]{8}T[0-9]{6}Z$'
 # Fixed list of key tables whose row counts the manifest records (a table missing in an older schema is skipped;
@@ -268,13 +269,17 @@ bk_mc_env() {
   [[ "$u$p" =~ ^[A-Za-z0-9_.-]+$ ]] || bk_die 'MinIO credentials with characters outside [A-Za-z0-9_.-] are not supported by the backup scripts'
   export MC_HOST_bk="http://$u:$p@minio:9000"
 }
+bk_require_mc_image() { # refuse before anything is stopped when the mc image is not on this host (it is never pulled)
+  local img="${BACKUP_MC_IMAGE:-$BK_MC_IMAGE_DEFAULT}"
+  docker image inspect "$img" >/dev/null 2>&1 || bk_die "image $img is not on this host and is never pulled; load it first: docker load -i <path>/minio-image.tar (made with 'docker save $img -o minio-image.tar' on the same CPU architecture; docs/release/run-guide.md «MinIO image»). Nothing was stopped or dumped." 2
+}
 bk_mc() { # bk_mc <host-dir-or-empty> <mc args...> ; the compose network of $PROJECT; credentials via -e MC_HOST_bk (no value in argv)
   local dir="$1"; shift
   if [ -n "$dir" ]; then
-    docker run --rm --network "${PROJECT}_default" -e MC_HOST_bk -e HOME=/tmp --user "$(id -u):$(id -g)" --entrypoint mc \
+    docker run --rm --pull never --network "${PROJECT}_default" -e MC_HOST_bk -e HOME=/tmp --user "$(id -u):$(id -g)" --entrypoint mc \
       -v "$dir:/data" "${BACKUP_MC_IMAGE:-$BK_MC_IMAGE_DEFAULT}" --quiet "$@"
   else
-    docker run --rm --network "${PROJECT}_default" -e MC_HOST_bk -e HOME=/tmp --user "$(id -u):$(id -g)" --entrypoint mc \
+    docker run --rm --pull never --network "${PROJECT}_default" -e MC_HOST_bk -e HOME=/tmp --user "$(id -u):$(id -g)" --entrypoint mc \
       "${BACKUP_MC_IMAGE:-$BK_MC_IMAGE_DEFAULT}" --quiet "$@"
   fi
 }

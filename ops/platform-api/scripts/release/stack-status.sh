@@ -45,6 +45,18 @@ for image in platform-release-backend:local platform-release-migrate:local platf
   fi
 done
 
+# MinIO is not built here and no registry serves it: it must be loaded from a `docker save` tar (#1617). compose has
+# pull_policy never for it, so a missing image stops `up`; say so here with the exact command.
+minio_image="$(sed -n 's#^ *image: *\(minio/minio:[^ ]*\).*#\1#p' docker-compose.production.yml | head -1)"
+if [ -z "$minio_image" ]; then
+  need "could not read the MinIO image tag from docker-compose.production.yml" "check the minio service in docker-compose.production.yml"
+elif docker image inspect "$minio_image" >/dev/null 2>&1; then
+  ok "image $minio_image exists ($(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$minio_image" 2>/dev/null))"
+else
+  need "image $minio_image is missing (minio and, through minio-bootstrap, the backend cannot start; no registry is used)" \
+    "docker load -i <path>/minio-image.tar   (make the tar with 'docker save $minio_image -o minio-image.tar' on a machine of the same CPU architecture, see docs/release/run-guide.md «MinIO image»)"
+fi
+
 # 3. services
 services="$($P ps -a --format '{{.Service}}|{{.State}}|{{.Health}}|{{.ExitCode}}' 2>/dev/null)" || services=""
 if [ -z "$services" ] && ! $P config -q >/dev/null 2>&1; then
