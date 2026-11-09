@@ -257,3 +257,106 @@ describe('DockLayout rows (workspace stack mode)', () => {
     expect(loads.current.at(-1)!.layoutHeight).toBeGreaterThan(730);
   });
 });
+
+describe('DockLayout rows: maximize, tab drag and edge scroll (#701, ADR-0130)', () => {
+  const layout = column([40, 60], group(['a']), group(['c']));
+  const rowsProps = (extra: Partial<DockRows> = {}): DockRows => ({ heights: [300, 400], minimums: [200, 200], maximum: 700, onHeightsChange: vi.fn(), onDropBelow: vi.fn(), dropBelowLabel: '여기에 놓으면 아래에 새 줄', ...extra });
+  const mountBase = (rows: DockRows, maximizedPanelId: string | null = null) => render(<I18nProvider><DockLayoutBase panels={panels} layout={layout} onLayoutChange={vi.fn()} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }} rows={rows} maximizedPanelId={maximizedPanelId} /></I18nProvider>);
+
+  it('the root clips instead of hiding in row mode (no scroll container, so the strip can stick to the page), and keeps hiding otherwise', async () => {
+    mountBase(rowsProps());
+    await ready();
+    expect(document.querySelector('[data-dock-layout]')).toHaveClass('overflow-clip');
+    expect(document.querySelector('[data-dock-layout]')).not.toHaveClass('overflow-hidden');
+    cleanup();
+    render(<I18nProvider><DockLayout panels={panels} layout={layout} onLayoutChange={vi.fn()} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }} /></I18nProvider>);
+    await ready();
+    expect(document.querySelector('[data-dock-layout]')).toHaveClass('overflow-hidden');
+  });
+
+  it('the strip sticks to the bottom of the visible area only while a tab drag runs, from dragstart to dragend or drop', async () => {
+    mountBase(rowsProps());
+    await ready();
+    const strip = () => document.querySelector<HTMLElement>('[data-dock-drop-below]')!;
+    expect(strip().className).not.toContain('sticky');
+    act(() => { document.querySelector('[role="tab"]')!.dispatchEvent(new Event('dragstart', { bubbles: true })); });
+    expect(strip().className).toContain('sticky bottom-0 z-20');
+    act(() => { document.querySelector('[role="tab"]')!.dispatchEvent(new Event('dragend', { bubbles: true })); });
+    expect(strip().className).not.toContain('sticky');
+    act(() => { document.querySelector('[role="tab"]')!.dispatchEvent(new Event('dragstart', { bubbles: true })); });
+    expect(strip().className).toContain('sticky');
+    act(() => { window.dispatchEvent(new Event('drop')); });
+    expect(strip().className).not.toContain('sticky');
+  });
+
+  it('while a panel is maximized the strip is gone and the box takes maximizedHeight; rows keep their px', async () => {
+    const view = mountBase(rowsProps({ maximizedHeight: 520 }));
+    await ready();
+    const wrapper = () => document.querySelector<HTMLElement>('[data-dock-rows]')!;
+    expect(wrapper().style.getPropertyValue('--dock-rows-box')).toBe('706px');
+    view.rerender(<I18nProvider><DockLayoutBase panels={panels} layout={layout} onLayoutChange={vi.fn()} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }} rows={rowsProps({ maximizedHeight: 520 })} maximizedPanelId="a" /></I18nProvider>);
+    await waitFor(() => { expect(document.querySelector('[data-dock-drop-below]')).toBeNull(); });
+    expect(wrapper().style.getPropertyValue('--dock-rows-box')).toBe('520px');
+    expect(wrapper().style.getPropertyValue('--dock-rows-height')).toBe('700px');
+    view.rerender(<I18nProvider><DockLayoutBase panels={panels} layout={layout} onLayoutChange={vi.fn()} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }} rows={rowsProps({ maximizedHeight: 520 })} maximizedPanelId={null} /></I18nProvider>);
+    await waitFor(() => { expect(document.querySelector('[data-dock-drop-below]')).not.toBeNull(); });
+    expect(wrapper().style.getPropertyValue('--dock-rows-box')).toBe('706px');
+  });
+
+  describe('row separator drag near the edge of the visible area', () => {
+    const mountScroll = (onHeightsChange: DockRows['onHeightsChange']) => {
+      const view = render(<I18nProvider><main data-testid="scroll" style={{ overflowY: 'auto' }}><DockLayoutBase panels={panels} layout={layout} onLayoutChange={vi.fn()} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }} rows={rowsProps({ onHeightsChange, maximum: 900 })} /></main></I18nProvider>);
+      const main = screen.getByTestId('scroll');
+      Object.defineProperty(main, 'clientHeight', { configurable: true, value: 800 });
+      vi.spyOn(main, 'getBoundingClientRect').mockReturnValue({ top: 0, bottom: 800, height: 800 } as DOMRect);
+      return { view, main };
+    };
+    const at = (clientY: number) => ({ clientY, button: 0, pointerId: 1 });
+
+    it('scrolls the page while the pointer rests in the bottom 48px, the row keeps following it, and everything stops on release', async () => {
+      const onHeightsChange = vi.fn();
+      const { main } = mountScroll(onHeightsChange);
+      await ready();
+      const separator = screen.getAllByRole('separator')[0]!;
+      fireEvent.pointerDown(separator, at(500));
+      fireEvent.pointerMove(separator, at(790));
+      await waitFor(() => { expect(main.scrollTop).toBeGreaterThan(40); });
+      const heights = onHeightsChange.mock.calls.map(call => (call[0] as number[])[0]!);
+      expect(heights.at(-1)!).toBeGreaterThan(300 + (790 - 500));
+      // The untouched row never changes.
+      expect(onHeightsChange.mock.calls.every(call => (call[0] as number[])[1] === 400)).toBe(true);
+      fireEvent.pointerUp(separator, at(790));
+      const stopped = main.scrollTop;
+      await new Promise(resolve => { setTimeout(resolve, 80); });
+      expect(main.scrollTop).toBe(stopped);
+    });
+
+    it('does not scroll outside the edge zone, and stops when the row has reached its maximum', async () => {
+      const onHeightsChange = vi.fn();
+      const { main } = mountScroll(onHeightsChange);
+      await ready();
+      const separator = screen.getAllByRole('separator')[0]!;
+      fireEvent.pointerDown(separator, at(400));
+      fireEvent.pointerMove(separator, at(450));
+      await new Promise(resolve => { setTimeout(resolve, 80); });
+      expect(main.scrollTop).toBe(0);
+      fireEvent.pointerMove(separator, at(795));
+      await waitFor(() => { expect(Math.max(...onHeightsChange.mock.calls.map(call => (call[0] as number[])[0]!))).toBe(900); });
+      const stopped = main.scrollTop;
+      await new Promise(resolve => { setTimeout(resolve, 80); });
+      expect(main.scrollTop).toBe(stopped);
+      fireEvent.pointerUp(separator, at(795));
+    });
+
+    it('lost pointer capture ends the drag', async () => {
+      const { main } = mountScroll(vi.fn());
+      await ready();
+      const separator = screen.getAllByRole('separator')[0]!;
+      fireEvent.pointerDown(separator, at(500));
+      fireEvent.lostPointerCapture(separator);
+      fireEvent.pointerMove(separator, at(795));
+      await new Promise(resolve => { setTimeout(resolve, 80); });
+      expect(main.scrollTop).toBe(0);
+    });
+  });
+});

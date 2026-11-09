@@ -231,6 +231,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
           persistKey="drilldown"
           label={{ ko: '사이클타임 분석 영역', en: 'Cycle time workspace' }}
           initialPreset="balanced"
+          stackPreset="column"
           presets={[
             { id: 'balanced', label: { ko: '기본', en: 'Balanced' }, layout: { type: 'branch', dir: 'row', sizes: [68, 32], children: [
               { type: 'group', panels: ['trend'] },
@@ -248,7 +249,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             ] } },
           ]}
           panels={[
-          { id: 'summary', title: { ko: '사이클타임 요약', en: 'Cycle time summary' }, render: () => <div className="space-y-3 p-3">
+          { id: 'summary', preferredHeight: 360, title: { ko: '사이클타임 요약', en: 'Cycle time summary' }, render: () => <div className="space-y-3 p-3">
           <div className="relative" data-testid="cycle-kpi">
             <QueryView widgetName={ko ? '사이클타임 요약' : 'Cycle time summary'} query={kpi}>
               {data => <div className="grid grid-cols-2 gap-3">
@@ -263,7 +264,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             ? '0.1분 단위로 반올림합니다. 진행 중인 Job은 넣지 않습니다. 느린 실행은 표시된 P95 이상(같은 값 포함)입니다. 증감은 직전 같은 길이의 기간과 비교하며, 줄어든 것을 개선으로 칠합니다. 빈 구간은 0이 아닙니다.'
             : 'Rounded to 0.1 min. In-progress jobs are not included. Slow means at or above the displayed P95, including ties. Deltas compare with the previous period of the same length and treat a decrease as an improvement. An empty bucket is not zero.'}</p>
           </div> },
-            { id: 'trend', primary: true, minWidth: 480, minHeight: 320, title: { ko: '사이클타임 추세', en: 'Cycle time trend' }, render: () =>
+            { id: 'trend', primary: true, minWidth: 480, minHeight: 320, preferredHeight: 420, title: { ko: '사이클타임 추세', en: 'Cycle time trend' }, render: () =>
             <QueryView widgetName={ko ? '사이클타임 추세' : 'Cycle time trend'} query={trend} skeletonHeight={280}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-trend"
@@ -303,7 +304,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               />}
             </QueryView>
             },
-            { id: 'distribution', title: { ko: '사이클타임 분포', en: 'Cycle time distribution' }, render: () =>
+            { id: 'distribution', preferredHeight: 440, title: { ko: '사이클타임 분포', en: 'Cycle time distribution' }, render: () =>
             <QueryView widgetName={ko ? '사이클타임 분포' : 'Cycle time distribution'} query={dist} skeletonHeight={220}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-distribution"
@@ -320,7 +321,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               />}
             </QueryView>
             },
-          { id: 'slow', title: { ko: '느린 실행', en: 'Slow executions' }, render: () => <div className="space-y-3 p-3">
+          { id: 'slow', preferredHeight: 420, title: { ko: '느린 실행', en: 'Slow executions' }, render: () => <div className="flex h-full min-h-0 flex-col gap-3 p-3">
           <PlatformDataTable<SlowRow>
             title={ko ? '느린 실행' : 'Slow executions'}
             subtitle={ko
@@ -332,7 +333,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             preferenceKey="cycle-time-slow"
             filterKey={filterKey}
             pageSize={50}
-            height={420}
+            fill
             urlState={{
               page: pageResult.ok && pageResult.page !== 1 ? pageResult.page : null,
               sorting: [{ id: sortSpec.id, desc: sortSpec.desc }],
@@ -365,10 +366,10 @@ export default function CycleTimeDrilldown(_: PageProps) {
             }}>{ko ? '선택 설비로 분석 좁히기' : 'Narrow analysis to selected equipment'}</Button>}
             loadPage={(query, signal) => slowPages.fetch({ ...listFilter, ...query, sorting: [{ id: sortSpec.id, desc: sortSpec.desc }] }, signal)}
           />
-          <p className="text-xs text-text-muted">{ko
+          <p className="shrink-0 text-xs text-text-muted">{ko
             ? '미확정은 정상으로 채우지 않습니다. 검토 표시는 불량·수율이 아닙니다.'
             : 'Unconfirmed is not filled in as pass. A review flag is not a defect or a yield.'}</p>
-          {kpi.response && kpi.response.outcome === 'ok' && <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} />}
+          {kpi.response && kpi.response.outcome === 'ok' && <div className="shrink-0"><DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /></div>}
           </div> },
           ]}
         />}

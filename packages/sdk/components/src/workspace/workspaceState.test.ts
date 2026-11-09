@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { groupOf, panelOrder } from '../dock/commands';
 import { dockGroups, isValidDockTree, type DockNode } from '../dock/schema';
-import { applyPreset, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, type PanelWorkspaceLayout, type WorkspacePreset, type WorkspaceSpec } from './workspaceState';
+import { applyPreset, changeMode, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, type PanelWorkspaceLayout, type WorkspacePreset, type WorkspaceSpec } from './workspaceState';
 
 const IDS = ['trend', 'selector', 'detail', 'kpi'];
 const group = (panels: string[], active?: string): PanelWorkspaceLayout => ({ type: 'group', panels, active });
@@ -49,11 +49,12 @@ describe('initialMode (#690)', () => {
   const stackSpec: WorkspaceSpec = { ...spec, initialMode: 'stack' };
   const saved = { v: 1, preset: 'focus', layout: presetTree(focus.layout, IDS), hidden: [] };
 
-  it('an untouched workspace starts in stack mode, rows still to be measured; without initialMode it is fit', () => {
+  it('an untouched workspace starts in stack mode, rows still to be measured; initialMode fit starts fitted, and so does a stored value without mode', () => {
     expect(initialWorkspaceState(stackSpec)).toMatchObject({ v: 1, preset: 'balanced', hidden: [], mode: 'stack' });
     expect(initialWorkspaceState(stackSpec).rows).toBeUndefined();
     expect(initialWorkspaceState({ ...spec, initialMode: 'fit' }).mode).toBeUndefined();
-    expect(initialWorkspaceState(spec).mode).toBeUndefined();
+    // ADR-0130: without initialMode the start is stack as well.
+    expect(initialWorkspaceState(spec)).toMatchObject({ mode: 'stack' });
   });
 
   it('a saved fit wins over initialMode, and so does a saved stack over initialMode fit', () => {
@@ -246,10 +247,10 @@ describe('commands', () => {
 
 describe('height mode and rows (#686)', () => {
   const columns: PanelWorkspacePresetLayout = { type: 'branch', dir: 'column', sizes: [1, 1, 1], children: [group(['trend']), group(['selector', 'detail']), group(['kpi'])] };
-  const rowSpec: WorkspaceSpec = { ...spec, presets: [{ id: 'column', layout: columns }, balanced, focus], initialPreset: 'column' };
+  const rowSpec: WorkspaceSpec = { ...spec, presets: [{ id: 'column', layout: columns }, balanced, focus], initialPreset: 'column', initialMode: 'fit' };
   const base = initialWorkspaceState(rowSpec);
   const stored = (extra: Record<string, unknown>) => ({ v: 1, preset: base.preset, layout: base.layout, hidden: [], ...extra });
-  const env = { minimum: () => 200, maximum: 700, baseline: 900 };
+  const env = { minimum: () => 200, maximum: 700, baseline: 900, oneRow: 600 };
 
   it('a state written before the mode existed loads as fit, keeping preset, layout and hidden', () => {
     const state = normalizeWorkspaceState(stored({}), rowSpec);
@@ -330,3 +331,80 @@ describe('height mode and rows (#686)', () => {
 
 type PanelWorkspacePresetLayout = PanelWorkspaceLayout;
 const topLevelRowCount = (state: { layout: DockNode }) => (state.layout.type === 'branch' && state.layout.dir === 'column' ? state.layout.children.length : 1);
+
+describe('default start and stackPreset (ADR-0130)', () => {
+  const column: WorkspacePreset = { id: 'column', layout: { type: 'branch', dir: 'column', sizes: [1, 1, 1], children: [group(['trend']), group(['selector', 'detail']), group(['kpi'])] } };
+  const withStack: WorkspaceSpec = { ...spec, presets: [balanced, focus, column], stackPreset: 'column' };
+  const env = { minimum: () => 200, maximum: 700, baseline: 900, oneRow: 600 };
+  const fit = (state: ReturnType<typeof initialWorkspaceState>) => withRows(state, 'fit');
+
+  it('an untouched workspace starts in stack on stackPreset; initialMode fit starts on initialPreset; no stackPreset starts on initialPreset', () => {
+    expect(initialWorkspaceState(withStack)).toMatchObject({ preset: 'column', mode: 'stack' });
+    expect(initialWorkspaceState({ ...withStack, initialMode: 'fit' })).toMatchObject({ preset: 'balanced' });
+    expect(initialWorkspaceState({ ...withStack, initialMode: 'fit' }).mode).toBeUndefined();
+    expect(initialWorkspaceState(spec)).toMatchObject({ preset: 'balanced', mode: 'stack' });
+  });
+
+  it('an unknown stackPreset is ignored (exact lookup, never the first preset)', () => {
+    expect(initialWorkspaceState({ ...withStack, stackPreset: 'nope' })).toMatchObject({ preset: 'balanced', mode: 'stack' });
+    const fitState = fit(initialWorkspaceState({ ...withStack, stackPreset: 'nope', initialMode: 'fit' }));
+    expect(changeMode(fitState, 'stack', { ...withStack, stackPreset: 'nope' }, env).layout).toEqual(fitState.layout);
+  });
+
+  it('storage is never rewritten on load: a stored fit, a stored stack and a value without mode keep their layout', () => {
+    const stored = { v: 1, preset: 'balanced', layout: presetTree(balanced.layout, IDS), hidden: [] };
+    expect(normalizeWorkspaceState(stored, withStack)).toMatchObject({ preset: 'balanced' });
+    expect(normalizeWorkspaceState(stored, withStack).mode).toBeUndefined();
+    expect(normalizeWorkspaceState({ ...stored, mode: 'stack', rows: [300] }, withStack)).toMatchObject({ preset: 'balanced', mode: 'stack' });
+    expect(normalizeWorkspaceState(null, withStack)).toMatchObject({ preset: 'column', mode: 'stack' });
+  });
+
+  it('fit to stack applies stackPreset only while the layout still is the initial preset', () => {
+    const untouched = fit(initialWorkspaceState({ ...withStack, initialMode: 'fit' }));
+    const switched = changeMode(untouched, 'stack', withStack, env);
+    expect(switched).toMatchObject({ preset: 'column', mode: 'stack' });
+    expect(groupsOf(switched.layout)).toEqual([['trend'], ['selector', 'detail'], ['kpi']]);
+    const moved = { ...untouched, layout: presetTree(focus.layout, IDS) };
+    expect(changeMode(moved, 'stack', withStack, env).layout).toEqual(moved.layout);
+  });
+
+  it('stack to fit applies the initial preset only while the layout still is the stackPreset arrangement', () => {
+    const stacked = initialWorkspaceState(withStack);
+    expect(changeMode(stacked, 'fit', withStack, env)).toMatchObject({ preset: 'balanced' });
+    expect(changeMode(stacked, 'fit', withStack, env).mode).toBeUndefined();
+    const moved = { ...stacked, layout: presetTree(focus.layout, IDS) };
+    const back = changeMode(moved, 'fit', withStack, env);
+    expect(back.layout).toEqual(moved.layout);
+    expect(back.mode).toBeUndefined();
+  });
+
+  it('sizes, the active tab and the tab order do not make an arrangement the user\'s', () => {
+    const untouched = fit(initialWorkspaceState({ ...withStack, initialMode: 'fit' }));
+    const tweaked = { ...untouched, layout: presetTree({ ...balanced.layout, sizes: [9, 1, 5] } as PanelWorkspaceLayout, IDS) };
+    expect(changeMode(tweaked, 'stack', withStack, env).preset).toBe('column');
+    const tabs = fit(initialWorkspaceState({ ...withStack, initialMode: 'fit', presets: [{ id: 'balanced', layout: { type: 'group', panels: ['trend', 'selector', 'detail', 'kpi'] } }, column] }));
+    const reordered = { ...tabs, layout: { type: 'group' as const, panels: ['kpi', 'detail', 'selector', 'trend'], active: 'detail' } };
+    const spec2 = { ...withStack, presets: [{ id: 'balanced', layout: { type: 'group' as const, panels: ['trend', 'selector', 'detail', 'kpi'] } }, column] };
+    expect(changeMode(reordered, 'stack', spec2, env).preset).toBe('column');
+  });
+
+  it('hidden panels: the layout is compared with the preset arranged over the panels now shown', () => {
+    const untouched = fit(initialWorkspaceState({ ...withStack, initialMode: 'fit' }));
+    const hidden = hidePanel(untouched, 'detail', 'trend');
+    const switched = changeMode(hidden, 'stack', withStack, env);
+    expect(switched.preset).toBe('column');
+    expect(panelOrder(switched.layout).sort()).toEqual(['kpi', 'selector', 'trend']);
+    expect(switched.hidden).toEqual(['detail']);
+  });
+
+  it('without a stackPreset every transition keeps the arrangement', () => {
+    const untouched = fit(initialWorkspaceState({ ...spec, initialMode: 'fit' }));
+    expect(changeMode(untouched, 'stack', spec, env).layout).toEqual(untouched.layout);
+    expect(changeMode(changeMode(untouched, 'stack', spec, env), 'fit', spec, env).layout).toEqual(untouched.layout);
+  });
+
+  it('기본 배치 keeps the current preset and the mode', () => {
+    const stacked = initialWorkspaceState(withStack);
+    expect(resetLayout(stacked, column)).toMatchObject({ preset: 'column', mode: 'stack' });
+  });
+});

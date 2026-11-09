@@ -73,6 +73,12 @@ async function renderPage(search: string) {
 const openRail = async (name: string) => { fireEvent.pointerDown(screen.getByRole('button', { name })); await act(async () => { fireEvent.click(screen.getByRole('button', { name })); }); };
 const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
 
+/** The height mode lives in the toolbar's `⋯` menu (ADR-0130). */
+const chooseMode = async (name: string) => {
+  fireEvent.keyDown(await screen.findByRole('button', { name: '높이 방식' }), { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitemradio', { name }));
+};
+
 describe('HW Time overview: UI state never re-queries (real data hooks, counted adapter requests)', () => {
   it('layout commands, rail peeks and option toggles leave the level and trend request counts unchanged', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump&trend=EQ-001.H1');
@@ -83,9 +89,8 @@ describe('HW Time overview: UI state never re-queries (real data hooks, counted 
     const unchanged = () => { expect(levelRequests()).toHaveLength(level); expect(trendRequests()).toHaveLength(trend); };
 
     // Workspace layout commands: a fresh session starts stacked, so fit first, then back; and 기본 배치.
-    expect(await screen.findByRole('radio', { name: '아래로 쌓기', checked: true })).toBeTruthy();
-    fireEvent.click(screen.getByRole('radio', { name: '화면 맞춤' })); await settle(); unchanged();
-    fireEvent.click(screen.getByRole('radio', { name: '아래로 쌓기' })); await settle(); unchanged();
+    await chooseMode('화면 맞춤'); await settle(); unchanged();
+    await chooseMode('아래로 쌓기'); await settle(); unchanged();
     fireEvent.click(screen.getByRole('button', { name: '기본 배치' })); await settle(); unchanged();
 
     // The legend lives in its panel: hiding and showing a series asks for nothing.

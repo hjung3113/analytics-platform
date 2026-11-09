@@ -1091,7 +1091,9 @@ try {
     async () => {
       await cycleWorkspace(1400);
       await page.getByRole("radio", { name: "세로", exact: true }).click();
-      await page.getByRole("radiogroup", { name: "높이 방식" }).getByRole("radio", { name: "아래로 쌓기" }).click();
+      // 높이 방식은 도구줄 끝 ⋯ 메뉴에 있다. 기본이 아래로 쌓기라 이미 선택돼 있어도 항목을 눌러 확인한다.
+      await page.getByRole("button", { name: "높이 방식" }).click();
+      await page.getByRole("menuitemradio", { name: "아래로 쌓기" }).click();
       await expect(page.locator("[data-panel-workspace]")).toHaveAttribute("data-workspace-mode", "stack");
       await expect(page.locator("[data-dock-row-separator]").first()).toBeVisible();
       // 줄마다 자기 px 높이를 가져 세 줄이 위에서 아래로 이어진다. 맨 위에서 찍어 고정 머리가 패널을 가리지 않게 한다.

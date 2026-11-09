@@ -91,7 +91,7 @@ describe('board pane hosts menu workspace commands (ADR-0067 decision 3)', () =>
     const radios = await screen.findAllByRole('menuitemradio');
     // Two groups, one checked item in each: the presets, then the height mode.
     expect(radios.map(radio => radio.textContent)).toEqual(['기본', '집중', '화면 맞춤', '아래로 쌓기']);
-    expect(radios.map(radio => radio.getAttribute('aria-checked'))).toEqual(['true', 'false', 'true', 'false']);
+    expect(radios.map(radio => radio.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false', 'true']);
     expect(screen.getAllByRole('group').length).toBeGreaterThanOrEqual(2);
     const items = screen.getAllByRole('menuitem').map(item => item.textContent);
     expect(items).toContain('기본 배치');
@@ -135,11 +135,12 @@ describe('board pane hosts menu workspace commands (ADR-0067 decision 3)', () =>
     mount();
     await ready();
     await openActions(1);
-    fireEvent.click(await screen.findByRole('menuitemradio', { name: '아래로 쌓기' }));
+    // A workspace starts stacked (ADR-0130): choose fit.
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: '화면 맞춤' }));
     await settle();
     await openActions(1);
-    expect(await screen.findByRole('menuitemradio', { name: '아래로 쌓기' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('menuitemradio', { name: '화면 맞춤' })).toHaveAttribute('aria-checked', 'false');
+    expect(await screen.findByRole('menuitemradio', { name: '화면 맞춤' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('menuitemradio', { name: '아래로 쌓기' })).toHaveAttribute('aria-checked', 'false');
     expect(screen.getByRole('menuitemradio', { name: '기본' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('menuitemradio', { name: '집중' })).toHaveAttribute('aria-checked', 'false');
   });

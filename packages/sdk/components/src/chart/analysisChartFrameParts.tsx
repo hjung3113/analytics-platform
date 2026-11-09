@@ -33,7 +33,7 @@ export function ChartHeading({ titleId, title, description, metricVersion, compa
 
 export function ChartTrustFooter({ trust }: { trust?: { source: string; updated: string; coverage: string } }) {
   const { t } = useI18n();
-  return trust && <footer className="border-t border-border-subtle px-4 py-2 text-tiny text-text-muted tabular">
+  return trust && <footer className="shrink-0 border-t border-border-subtle px-4 py-2 text-tiny text-text-muted tabular">
     {t('source')}: <span className="t-mono text-tiny">{trust.source}</span> · {t('updated')}: {trust.updated} · {t('coverage')}: {trust.coverage}
   </footer>;
 }

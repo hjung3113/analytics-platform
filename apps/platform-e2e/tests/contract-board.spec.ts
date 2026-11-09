@@ -1034,11 +1034,22 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await page.getByRole('button', { name: '페이지 필터 접기' }).click();
     await page.getByRole('button', { name: '페이지 머리 접기' }).click();
   }
-  async function workspaceReady(page: Page) {
+  /** A fresh session starts stacked (ADR-0130); these checks are about the fitted arrangement, so `화면 맞춤` is chosen once the workspace shows. It applies the 기본 preset because the layout is still the 세로 one. */
+  async function fitMode(page: Page) {
+    const root = page.locator('[data-panel-workspace]');
+    if ((await root.getAttribute('data-workspace-mode')) === 'fit') return;
+    await page.getByRole('button', { name: '높이 방식', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: '화면 맞춤' }).click();
+    await expect(root).toHaveAttribute('data-workspace-mode', 'fit');
+    await expect(page.getByRole('radio', { name: '기본', exact: true })).toBeChecked();
+    await page.evaluate(() => new Promise(done => { requestAnimationFrame(() => { requestAnimationFrame(done); }); }));
+  }
+  async function workspaceReady(page: Page, { fit = true } = {}) {
     await expect(workspace(page)).toBeVisible();
     await expect(trendPlot(page)).toBeVisible();
     await expect(page.getByRole('img', { name: /^사이클타임 분포/ })).toBeVisible();
     await expect(page.getByTestId('cycle-kpi')).toBeVisible();
+    if (fit) await fitMode(page);
   }
   /** Requests the cycle endpoints took, counted by the mock server's marks (export excluded). */
   const cycleRequests = (page: Page) => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query')
@@ -1233,11 +1244,12 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await seedDockBoard(page, '1x1', [cyclePane()]);
     await page.goto('/board?sheet=ws');
     await expect(workspace(page)).toBeVisible();
-    await expect(workspace(page).locator('.dv-groupview')).toHaveCount(3);
+    // An untouched workspace starts stacked, on the menu's declared stack preset (ADR-0130): 세로 has four groups.
+    await expect(workspace(page).locator('.dv-groupview')).toHaveCount(4);
     await expect(page.getByRole('toolbar', { name: '배치' })).toHaveCount(0);
 
     await page.getByRole('button', { name: '칸 1 동작' }).click();
-    await expect(page.getByRole('menuitemradio', { name: '기본', exact: true })).toBeChecked();
+    await expect(page.getByRole('menuitemradio', { name: '세로', exact: true })).toBeChecked();
     await expect(page.getByRole('menuitemradio', { name: '집중' })).not.toBeChecked();
     await expect(page.getByRole('menuitem', { name: '기본 배치', exact: true })).toBeVisible();
     await evidence(page, testInfo, 'board-pane-menu-workspace-commands');
@@ -1352,7 +1364,8 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
   const STORE = /^platform:workspace:v1:.+:cycle-time:drilldown$/;
   const TITLES = { summary: '사이클타임 요약', trend: '사이클타임 추세', distribution: '사이클타임 분포', slow: '느린 실행' } as const;
   const ROUNDING = 2;
-  const NEW_ROW = 360;
+  /** A row created from a panel takes that panel's `preferredHeight` plus the 40px strip (ADR-0130, cycle time's declarations). */
+  const NEW_ROW = { summary: 400, distribution: 480 } as const;
   const STEP = 24;
   /** The engine's gap between two top-level rows; the workspace box is the rows' px plus one gap per boundary, so a row added or removed moves the height by its px and one gap. */
   const GAP = 6;
@@ -1362,7 +1375,15 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
   const rowSeparators = (page: Page) => workspace(page).locator('[data-dock-row-separator]');
   const dropStrip = (page: Page) => workspace(page).locator('[data-dock-drop-below]');
   const root = (page: Page) => page.locator('[data-panel-workspace]');
-  const modeRadio = (page: Page, name: '화면 맞춤' | '아래로 쌓기') => page.getByRole('radiogroup', { name: '높이 방식' }).getByRole('radio', { name });
+  /** The height mode lives in the toolbar's `⋯` menu (ADR-0130): the item of the open menu. */
+  const modeRadio = (page: Page, name: '화면 맞춤' | '아래로 쌓기') => page.getByRole('menuitemradio', { name });
+  const modeMenu = (page: Page) => page.getByRole('button', { name: '높이 방식', exact: true });
+  /** Opens the menu if it is not open and returns the item. */
+  async function modeItem(page: Page, name: '화면 맞춤' | '아래로 쌓기') {
+    if (!(await modeRadio(page, name).isVisible())) await modeMenu(page).click();
+    return modeRadio(page, name);
+  }
+  async function chooseMode(page: Page, name: '화면 맞춤' | '아래로 쌓기') { await (await modeItem(page, name)).click(); }
   const mainScrolls = (page: Page) => page.locator('#platform-main').evaluate(element => element.scrollHeight > element.clientHeight + 1);
   const heightOf = async (locator: Locator) => (await locator.boundingBox())!.height;
   const rowPx = (page: Page) => rowSeparators(page).evaluateAll(items => items.map(item => Number(item.getAttribute('aria-valuenow'))));
@@ -1384,15 +1405,15 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await page.goto(CYCLE);
     await ready(page);
     await page.getByRole('radio', { name: preset, exact: true }).click();
-    await modeRadio(page, '아래로 쌓기').click();
+    await chooseMode(page, '아래로 쌓기');
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
     await expect(rowSeparators(page).first()).toBeVisible();
   }
   /** Drags like a person (press, stepped move, small moves over the target, release). */
   async function dragLike(page: Page, source: Locator, target: Locator, position: { x: number; y: number }) {
+    await target.scrollIntoViewIfNeeded();
     await source.scrollIntoViewIfNeeded();
     const from = (await source.boundingBox())!;
-    await target.scrollIntoViewIfNeeded();
     const box = (await target.boundingBox())!;
     const x = box.x + position.x;
     const y = box.y + position.y;
@@ -1411,12 +1432,14 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await page.goto(CYCLE);
     await ready(page);
     await page.getByRole('radio', { name: '세로', exact: true }).click();
+    // A fresh session starts stacked (ADR-0130): fit first.
+    await chooseMode(page, '화면 맞춤');
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
     await expect(page.locator('[data-platform-page]')).toHaveClass(/(^|\s)h-full(\s|$)/);
     const requests = await cycleRequests(page);
     const fitHeight = await heightOf(root(page));
 
-    await modeRadio(page, '아래로 쌓기').click();
+    await chooseMode(page, '아래로 쌓기');
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
     await expect(page.locator('[data-platform-page]')).not.toHaveClass(/(^|\s)h-full(\s|$)/);
     await expect(rowSeparators(page)).toHaveCount(3);
@@ -1430,7 +1453,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await expect(dropStrip(page)).toHaveText('여기에 놓으면 아래에 새 줄');
     await evidence(page, testInfo, 'workspace-stack-scrolls');
 
-    await modeRadio(page, '화면 맞춤').click();
+    await chooseMode(page, '화면 맞춤');
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
     await expect(page.locator('[data-platform-page]')).toHaveClass(/(^|\s)h-full(\s|$)/);
     await expect(rowSeparators(page)).toHaveCount(0);
@@ -1528,7 +1551,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await expect.poll(async () => (await rowPx(page))[0]).toBe(start + STEP);
   });
 
-  test('아래 새 줄로 옮기기: 줄이 하나 늘고 작업 영역이 360px 자라며 다른 줄은 그대로다. 마지막 줄에 혼자 있으면 항목이 없다', async ({ page }) => {
+  test('아래 새 줄로 옮기기: 줄이 하나 늘고 작업 영역이 패널 선호 높이만큼 자라며 다른 줄은 그대로다. 마지막 줄에 혼자 있으면 항목이 없다', async ({ page }) => {
     await openStack(page);
     const before = await rowPx(page);
     const total = await heightOf(root(page));
@@ -1537,7 +1560,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await expect(rowSeparators(page)).toHaveCount(4);
     const after = await rowPx(page);
     expect(after.slice(0, 3)).toEqual(before);
-    expect(near(after[3]!, NEW_ROW, 1)).toBe(true);
+    expect(near(after[3]!, NEW_ROW.summary, 1)).toBe(true);
     expect(near(await heightOf(root(page)), total + after[3]! + GAP, 3)).toBe(true);
     await groupOf(page, TITLES.summary).getByRole('button', { name: `${TITLES.summary} 동작` }).click();
     await expect(page.getByRole('menuitem', { name: '숨기기' })).toBeVisible();
@@ -1575,11 +1598,25 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     expect(await rowPx(page)).toEqual(before);
 
     // A single tab of this workspace: a real drag.
-    await dragLike(page, workspace(page).getByRole('tab', { name: TITLES.distribution }), dropStrip(page), { x: 40, y: 30 });
+    // The page is taller than the screen, so the strip comes to the pointer: it sticks to the bottom of the visible area while a tab is dragged.
+    const tab = workspace(page).getByRole('tab', { name: TITLES.distribution });
+    await tab.scrollIntoViewIfNeeded();
+    const from = (await tab.boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + from.width / 2 + 30, from.y + from.height / 2 + 30, { steps: 6 });
+    await expect(dropStrip(page)).toHaveClass(/sticky/);
+    const zone = (await dropStrip(page).boundingBox())!;
+    await page.mouse.move(zone.x + 40, zone.y + 30, { steps: 8 });
+    for (let i = 0; i < 6; i++) {
+      await page.waitForTimeout(80);
+      await page.mouse.move(zone.x + 40 + (i % 2 === 0 ? -2 : 2), zone.y + 30);
+    }
+    await page.mouse.up();
     await expect(rowSeparators(page)).toHaveCount(4);
     const after = await rowPx(page);
     expect(after.slice(0, 3)).toEqual(before);
-    expect(near(after[3]!, NEW_ROW, 1)).toBe(true);
+    expect(near(after[3]!, NEW_ROW.distribution, 1)).toBe(true);
     expect(near(await heightOf(root(page)), total + after[3]! + GAP, 3)).toBe(true);
     await expect(workspace(page).getByRole('separator', { name: `${TITLES.distribution} 아래 높이` })).toBeVisible();
     await expect.poll(async () => JSON.stringify(await stored(page))).not.toBe(storedBefore);
@@ -1587,7 +1624,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await evidence(page, testInfo, 'workspace-stack-drop-below');
   });
 
-  test('엔진 끌기로 탭을 첫 줄 위쪽 가장자리에 놓으면 새 첫 줄이 360이고 나머지 줄은 px를 지킨다', async ({ page }) => {
+  test('엔진 끌기로 탭을 첫 줄 위쪽 가장자리에 놓으면 새 첫 줄이 패널 선호 높이이고 나머지 줄은 px를 지킨다', async ({ page }) => {
     await openStack(page);
     await page.locator('#platform-main').evaluate(element => { element.scrollTo(0, 0); });
     const before = await rowPx(page);
@@ -1595,8 +1632,10 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     // `세로`: rows [추세], [요약 | 분포], [느린 실행]. 요약 leaves a shared row, so that row stays (분포 alone) and keeps its px.
     const source = groupOf(page, TITLES.summary);
     await expect(source.getByRole('tab')).toHaveCount(1);
-    const expected = [NEW_ROW, ...before];
+    const expected = [NEW_ROW.summary, ...before];
     const first = groupOf(page, TITLES.trend);
+    // Both ends of the drag on screen, the target's top clear of the sticky page head.
+    await page.locator('#platform-main').evaluate((element, delta) => { element.scrollTop += delta; }, (await first.boundingBox())!.y - 180);
     // The top edge of the first group's content area, just under its 40px tab strip.
     await dragLike(page, source.getByRole('tab'), first, { x: (await first.boundingBox())!.width / 2, y: 52 });
     await expect(rowSeparators(page)).toHaveCount(expected.length);
@@ -1632,7 +1671,8 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await page.reload();
     await ready(page);
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
-    await expect(modeRadio(page, '아래로 쌓기')).toBeChecked();
+    await expect(await modeItem(page, '아래로 쌓기')).toBeChecked();
+    await page.keyboard.press('Escape');
     expect(await rowPx(page)).toEqual(resized);
 
     const requests = await cycleRequests(page);
@@ -1644,10 +1684,10 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await page.waitForTimeout(300);
     expect(await rowPx(page)).toEqual(reset);
 
-    await modeRadio(page, '화면 맞춤').click();
-    await modeRadio(page, '아래로 쌓기').click();
-    await modeRadio(page, '화면 맞춤').click();
-    await modeRadio(page, '아래로 쌓기').click();
+    await chooseMode(page, '화면 맞춤');
+    await chooseMode(page, '아래로 쌓기');
+    await chooseMode(page, '화면 맞춤');
+    await chooseMode(page, '아래로 쌓기');
     await page.waitForTimeout(300);
     const roundTrip = await rowPx(page);
     roundTrip.forEach((px, index) => { expect(near(px, reset[index]!, 3)).toBe(true); });
@@ -1666,8 +1706,9 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await page.setViewportSize({ width: 800, height: 900 });
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
     await expect(rowSeparators(page)).toHaveCount(0);
-    await expect(modeRadio(page, '아래로 쌓기')).toBeDisabled();
-    await expect(page.getByRole('radiogroup', { name: '높이 방식' })).toHaveAccessibleDescription('좁은 폭에서는 화면 맞춤으로 보입니다');
+    await expect(await modeItem(page, '아래로 쌓기')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByRole('menu').getByRole('group')).toHaveAccessibleDescription('좁은 폭에서는 화면 맞춤으로 보입니다');
+    await page.keyboard.press('Escape');
     // Pacing, not a save: the narrow display must write nothing, so there is no state to poll for.
     await page.waitForTimeout(600);
     expect(JSON.stringify(await stored(page))).toBe(snapshot);
@@ -1752,6 +1793,219 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
   });
 });
 
+
+// #701 (ADR-0130): the stack default and the interaction finish. Written by the worker, who cannot run E2E: the host runs it first and derives the
+// tolerances from browser measurements (`ROUNDING` is a placeholder for the engine's pixel rounding, not a measurement).
+test.describe('쌓기 기본값과 상호작용 (#701)', () => {
+  const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
+  const COMPARE = '/mars/hw-time-compare?v=1&scopeId=MEM';
+  const STORE = /^platform:workspace:v1:.+:cycle-time:drilldown$/;
+  const TITLES = { summary: '사이클타임 요약', trend: '사이클타임 추세', distribution: '사이클타임 분포', slow: '느린 실행' } as const;
+  const ROUNDING = 2;
+
+  const workspace = (page: Page) => page.getByRole('region', { name: '사이클타임 분석 영역', exact: true });
+  const root = (page: Page) => page.locator('[data-panel-workspace]');
+  const main = (page: Page) => page.locator('#platform-main');
+  const groupOf = (page: Page, title: string) => workspace(page).locator('.dv-groupview').filter({ has: page.getByRole('tab', { name: title }) });
+  const rowSeparators = (page: Page) => workspace(page).locator('[data-dock-row-separator]');
+  const dropStrip = (page: Page) => workspace(page).locator('[data-dock-drop-below]');
+  const rowPx = (page: Page) => rowSeparators(page).evaluateAll(items => items.map(item => Number(item.getAttribute('aria-valuenow'))));
+  const stored = (page: Page) => page.evaluate(pattern => Object.entries(localStorage).filter(([key]) => new RegExp(pattern).test(key)).map(([, value]) => JSON.parse(value) as { preset: string; mode?: string; rows?: number[] }), STORE.source);
+  const more = (page: Page) => page.getByRole('button', { name: '높이 방식', exact: true });
+  const mode = (page: Page, name: '화면 맞춤' | '아래로 쌓기') => page.getByRole('menuitemradio', { name });
+  async function chooseMode(page: Page, name: '화면 맞춤' | '아래로 쌓기') { await more(page).click(); await mode(page, name).click(); }
+  const scrollTop = (page: Page) => main(page).evaluate(element => element.scrollTop);
+  /** The bottom edge of everything that stays stuck over `#platform-main`, in viewport px. */
+  const chromeBottom = (page: Page) => page.evaluate(() => {
+    const container = document.querySelector('#platform-main')!;
+    const page_ = document.querySelector('[data-platform-page]')!;
+    const stuck = [page_.querySelector('[data-page-sticky-header]'), page_.querySelector('[data-query-bar][data-query-bar-collapsed]')].filter((item): item is Element => item !== null);
+    return Math.max(container.getBoundingClientRect().top, ...stuck.map(item => item.getBoundingClientRect().bottom));
+  });
+  async function ready(page: Page) {
+    await expect(workspace(page)).toBeVisible();
+    await expect(page.getByTestId('cycle-kpi')).toBeVisible();
+    await expect(page.getByRole('img', { name: /^사이클타임 추세/ })).toBeVisible();
+  }
+  async function open(page: Page) {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(CYCLE);
+    await ready(page);
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
+    await expect(rowSeparators(page)).toHaveCount(3);
+  }
+
+  test('처음 열면 쌓기이고 세로 배치로 시작하며, 저장된 화면 맞춤은 그대로 화면 맞춤이다', async ({ page }) => {
+    await open(page);
+    await expect(page.getByRole('radio', { name: '세로', exact: true })).toBeChecked();
+    await chooseMode(page, '화면 맞춤');
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
+    await expect.poll(async () => (await stored(page))[0]?.mode).toBeUndefined();
+    await expect.poll(async () => (await stored(page)).length).toBe(1);
+    await page.reload();
+    await expect(workspace(page)).toBeVisible();
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
+    await expect(page.getByRole('radio', { name: '기본', exact: true })).toBeChecked();
+  });
+
+  test('⋯ 메뉴: 높이 방식을 고르면 메뉴가 닫히고 포커스는 ⋯로 돌아온다', async ({ page }) => {
+    await open(page);
+    await more(page).click();
+    await expect(page.getByRole('menu').getByText('높이 방식', { exact: true })).toBeVisible();
+    await expect(mode(page, '아래로 쌓기')).toBeChecked();
+    await expect(mode(page, '화면 맞춤')).not.toBeChecked();
+    await mode(page, '화면 맞춤').click();
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(more(page)).toBeFocused();
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
+  });
+
+  test('배치 전환: 화면 맞춤 ↔ 쌓기는 만지지 않은 배치만 프리셋으로 바꾸고 사용자가 고른 배치는 지킨다', async ({ page }) => {
+    await open(page);
+    await chooseMode(page, '화면 맞춤');
+    await expect(page.getByRole('radio', { name: '기본', exact: true })).toBeChecked();
+    await chooseMode(page, '아래로 쌓기');
+    await expect(page.getByRole('radio', { name: '세로', exact: true })).toBeChecked();
+    // A preset the user picked is theirs: neither switch replaces it.
+    await page.getByRole('radio', { name: '집중', exact: true }).click();
+    await chooseMode(page, '화면 맞춤');
+    await expect(page.getByRole('radio', { name: '집중', exact: true })).toBeChecked();
+    await chooseMode(page, '아래로 쌓기');
+    await expect(page.getByRole('radio', { name: '집중', exact: true })).toBeChecked();
+    await expect.poll(() => stored(page)).toMatchObject([{ preset: 'focus', mode: 'stack' }]);
+  });
+
+  test('최대화: 도구줄 아래 보이는 영역 높이이고 복원 버튼이 화면 안에 있으며, 복원하면 스크롤 위치가 돌아오고 최대화 중에는 띠가 없다', async ({ page }, testInfo) => {
+    await open(page);
+    await main(page).evaluate(element => { element.scrollTop = 300; });
+    const before = await scrollTop(page);
+    const group = groupOf(page, TITLES.trend);
+    await group.getByRole('button', { name: `${TITLES.trend} 최대화` }).click();
+    await expect(dropStrip(page)).toHaveCount(0);
+    const restore = group.getByRole('button', { name: '원래 크기로' });
+    await expect(restore).toBeVisible();
+    const area = await main(page).evaluate(element => { const box = element.getBoundingClientRect(); return { top: box.top, bottom: box.top + element.clientHeight }; });
+    const top = await chromeBottom(page);
+    const restoreBox = (await restore.boundingBox())!;
+    expect(restoreBox.y).toBeGreaterThanOrEqual(top - ROUNDING);
+    expect(restoreBox.y + restoreBox.height).toBeLessThanOrEqual(area.bottom + ROUNDING);
+    // The workspace top sits directly under the sticky chrome, and the maximized box ends within the visible area.
+    expect(Math.abs((await root(page).boundingBox())!.y - top)).toBeLessThanOrEqual(ROUNDING + 1);
+    const maximized = (await group.boundingBox())!;
+    expect(maximized.y + maximized.height).toBeLessThanOrEqual(area.bottom + ROUNDING);
+    await evidence(page, testInfo, 'workspace-maximized-visible-area');
+    await page.keyboard.press('Escape');
+    await expect(restore).toHaveCount(0);
+    await expect(dropStrip(page)).toHaveCount(1);
+    expect(Math.abs((await scrollTop(page)) - before)).toBeLessThanOrEqual(ROUNDING);
+  });
+
+  test('Tab으로 아래 줄의 패널에 닿으면 고정 머리 아래에 보이게 스크롤된다', async ({ page }) => {
+    await open(page);
+    await main(page).evaluate(element => { element.scrollTop = 0; });
+    await page.getByRole('tab', { name: TITLES.trend }).focus();
+    const slow = groupOf(page, TITLES.slow);
+    let inSlow = false;
+    // The bound is generous: the order of stops, not their count, decides (tab, header buttons, content stops of each group).
+    for (let step = 0; step < 80 && !inSlow; step++) {
+      await page.keyboard.press('Tab');
+      inSlow = await page.evaluate(() => document.activeElement?.closest('[data-dock-panel="slow"]') != null || document.activeElement?.getAttribute('data-tab-panel-id') === 'slow');
+    }
+    expect(inSlow).toBe(true);
+    const focus = await page.evaluate(() => { const box = document.activeElement!.getBoundingClientRect(); return { top: box.top, bottom: box.bottom }; });
+    const area = await main(page).evaluate(element => element.getBoundingClientRect().top + element.clientHeight);
+    expect(focus.top).toBeGreaterThanOrEqual((await chromeBottom(page)) - ROUNDING);
+    expect(focus.bottom).toBeLessThanOrEqual(area + ROUNDING);
+    // Only the page container moved: the panels' own scroll containers stayed at the top.
+    expect(await slow.evaluate(group => Array.from(group.querySelectorAll('[data-dock-panel]')).every(panel => panel.scrollTop === 0))).toBe(true);
+  });
+
+  test('아래 새 줄로 옮기기 뒤 새 줄의 머리가 고정 머리 바로 아래로 스크롤된다', async ({ page }) => {
+    await open(page);
+    await main(page).evaluate(element => { element.scrollTop = 0; });
+    // 요약 shares its row, so moving it adds a row at the end of the page. The page bottom can stop the scroll short of the sticky chrome: the row must be on screen, below the chrome.
+    const group = groupOf(page, TITLES.summary);
+    await group.scrollIntoViewIfNeeded();
+    await group.getByRole('button', { name: `${TITLES.summary} 동작` }).click();
+    await page.getByRole('menuitem', { name: '아래 새 줄로 옮기기' }).click();
+    await expect(rowSeparators(page)).toHaveCount(4);
+    const moved = groupOf(page, TITLES.summary);
+    await expect.poll(() => scrollTop(page)).toBeGreaterThan(0);
+    await expect.poll(async () => {
+      const box = (await moved.boundingBox())!;
+      const area = await main(page).evaluate(element => element.getBoundingClientRect().top + element.clientHeight);
+      return box.y >= (await chromeBottom(page)) - ROUNDING && box.y + box.height <= area + ROUNDING;
+    }).toBe(true);
+  });
+
+  test('줄 경계를 가장자리로 끌면 페이지가 스크롤되고 손대지 않은 줄의 px는 그대로다', async ({ page }) => {
+    await open(page);
+    await main(page).evaluate(element => { element.scrollTop = 0; });
+    const rows = await rowPx(page);
+    const separator = rowSeparators(page).first();
+    // Place the boundary low on the screen, so the pointer reaches the edge zone while the row is still under its maximum.
+    await main(page).evaluate((element, delta) => { element.scrollTop += delta; }, (await separator.boundingBox())!.y - 700);
+    const startScroll = await scrollTop(page);
+    const box = (await separator.boundingBox())!;
+    const area = await main(page).evaluate(element => { const rect = element.getBoundingClientRect(); return { bottom: rect.top + element.clientHeight }; });
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, area.bottom - 10, { steps: 10 });
+    await expect.poll(() => scrollTop(page), { timeout: 5000 }).toBeGreaterThan(startScroll + 40);
+    const during = await rowPx(page);
+    expect(during[1]).toBe(rows[1]);
+    expect(during[2]).toBe(rows[2]);
+    await page.mouse.up();
+    const after = await rowPx(page);
+    expect(after[1]).toBe(rows[1]);
+    expect(after[2]).toBe(rows[2]);
+    await expect.poll(async () => (await stored(page))[0]?.rows).toEqual(after);
+  });
+
+  test('탭을 끄는 동안 아래 띠가 화면 아래에 붙고, 끝나면 제자리로 돌아간다', async ({ page }) => {
+    await open(page);
+    await main(page).evaluate(element => { element.scrollTop = 0; });
+    const strip = dropStrip(page);
+    await expect(strip).not.toHaveClass(/sticky/);
+    const tab = page.getByRole('tab', { name: TITLES.summary });
+    await tab.scrollIntoViewIfNeeded();
+    const from = (await tab.boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + from.width / 2 + 30, from.y + from.height / 2 + 30, { steps: 6 });
+    await expect(strip).toHaveClass(/sticky/);
+    const area = await main(page).evaluate(element => element.getBoundingClientRect().top + element.clientHeight);
+    const stuck = (await strip.boundingBox())!;
+    expect(Math.abs(stuck.y + stuck.height - area)).toBeLessThanOrEqual(ROUNDING + 2);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(strip).not.toHaveClass(/sticky/);
+  });
+
+  test('HW Time 비교: 줄 하나로 시작해도 첫 로드에 페이지 스크롤바가 없다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(COMPARE);
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
+    await expect(root(page).locator('canvas')).not.toHaveCount(0);
+    await expect.poll(() => main(page).evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(0);
+  });
+
+  test('사이클타임: 처음 열면 차트·요약 패널 안이 넘치지 않는다(패널 선호 높이)', async ({ page }) => {
+    await open(page);
+    for (const id of ['trend', 'summary', 'distribution']) {
+      const panel = workspace(page).locator(`[data-dock-panel="${id}"]`);
+      // A background tab (distribution shares a group with the table only in the 기본 preset) is inert; the 세로 preset shows each.
+      await expect(panel).toBeVisible();
+      await expect.poll(() => panel.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+    }
+    // The table fills its panel instead of keeping a fixed height.
+    const slow = workspace(page).locator('[data-dock-panel="slow"]');
+    await expect(slow).toBeVisible();
+    const tableBox = (await slow.locator('section').first().boundingBox())!;
+    const panelBox = (await slow.boundingBox())!;
+    expect(tableBox.y + tableBox.height).toBeLessThanOrEqual(panelBox.y + panelBox.height + ROUNDING);
+  });
+});
 
 test.describe('fill 페이지의 표 높이 (06 §12.8, #690k)', () => {
   test('1440×900 HW Time 표의 행 영역이 fill 슬롯 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {

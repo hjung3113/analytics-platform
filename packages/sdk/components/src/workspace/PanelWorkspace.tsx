@@ -6,6 +6,7 @@ import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands'
 import { focusTabSoon } from '../dock/focusTab';
 import { DockLayoutBase } from '../dock/DockLayout';
 import type { DockPanel, DockRows } from '../dock/dockTypes';
+import { DOCK_DROP_STRIP_CHROME, dockTheme } from '../dock/dockPresentation';
 import { dockLayoutMenu } from '../dock/layoutMenu';
 import { dockGroupsInReadingOrder } from '../dock/schema';
 import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider, type WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
@@ -15,10 +16,10 @@ import { workspaceText } from './text';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS } from './workspaceStorage';
-import { applyPreset, hidePanel, initialWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
-import { canMoveBelow, clampRow, enterRows, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, topLevelRows } from './workspaceRows';
+import { applyPreset, changeMode, hidePanel, initialWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { canMoveBelow, clampRow, enterRows, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
-import { useVisibleAreaHeight } from '../visibleArea';
+import { alignUnderChrome, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
 
 export type { PanelWorkspaceLayout } from './workspaceState';
 
@@ -32,6 +33,12 @@ export type PanelWorkspacePanel = {
   /** px; default 240 × 160. */
   minWidth?: number;
   minHeight?: number;
+  /**
+   * px of the panel body (below the 40px strip) at which its content does not overflow. A stacked row whose panels declare it starts that tall (the
+   * tallest panel of a row; rows stacked inside a row add up), within the row's minimum and the visible height. Undeclared rows keep the default.
+   * A stored height is never changed by it.
+   */
+  preferredHeight?: number;
   /**
    * Signals that the panel holds something while it is a background tab or hidden (`추세 · 2 rows added`, partial data). Drawn in the tab (count above 99
    * as `99+`; `warning` adds a triangle, never colour alone) and spoken as the tab's `aria-description`; the title and the tab's name never change.
@@ -55,8 +62,14 @@ export type PanelWorkspaceProps = {
   label: Text;
   /** Container width in px under which the compact arrangement is shown. Default 900. */
   compactBelow?: number;
-  /** Height mode of a workspace nobody has touched. A saved preference, a saved `화면 맞춤` included, always wins; `기본 배치` keeps the user's mode. Below `compactBelow` fit shows and the stored mode is untouched. Default `fit`. */
+  /** Height mode of a workspace nobody has touched. A saved preference, a saved `화면 맞춤` included, always wins; `기본 배치` keeps the user's mode. Below `compactBelow` fit shows and the stored mode is untouched. Default `stack` (`fit` keeps the old start; the user switches in the toolbar's `⋯`). */
   initialMode?: 'fit' | 'stack';
+  /**
+   * Preset id the menu arranges its panels in while stacked. A workspace nobody has touched that starts in stack starts on it (else on `initialPreset`).
+   * Switching `화면 맞춤` → `아래로 쌓기` applies it only while the layout is still `initialPreset`'s arrangement, and switching back applies
+   * `initialPreset` only while it is still `stackPreset`'s: a layout the user changed is kept. An unknown id is ignored. Nothing stored is rewritten on load.
+   */
+  stackPreset?: string;
   /**
    * Brings `panelId` to the front of its tab group when `seq` changes (a menu counts up: `{ panelId: 'trend', seq: n + 1 }`). Only the active tab
    * changes: a hidden panel stays hidden (hiding is the user's decision), another panel's maximize is kept (it is a no-op, not queued) and focus
@@ -73,8 +86,8 @@ const TOOLBAR_CHROME = 48;
 
 /** Development-only diagnostics; production renders on with the repair rules of the state. */
 function useDevChecks(props: PanelWorkspaceProps) {
-  const { panels, presets, initialPreset, compactPreset, persistKey } = props;
-  const signature = JSON.stringify([panels.map(panel => [panel.id, panel.primary === true]), presets.map(preset => preset.id), initialPreset, compactPreset, persistKey]);
+  const { panels, presets, initialPreset, compactPreset, stackPreset, persistKey } = props;
+  const signature = JSON.stringify([panels.map(panel => [panel.id, panel.primary === true]), presets.map(preset => preset.id), initialPreset, compactPreset, stackPreset, persistKey]);
   useEffect(() => {
     if (isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) return;
     const problems: string[] = [];
@@ -84,6 +97,7 @@ function useDevChecks(props: PanelWorkspaceProps) {
     if (new Set(panels.map(panel => panel.id)).size !== panels.length) problems.push('panel ids must be unique');
     if (!presets.some(preset => preset.id === initialPreset)) problems.push(`initialPreset "${initialPreset}" is not a preset`);
     if (compactPreset !== undefined && !presets.some(preset => preset.id === compactPreset)) problems.push(`compactPreset "${compactPreset}" is not a preset`);
+    if (stackPreset !== undefined && !presets.some(preset => preset.id === stackPreset)) problems.push(`stackPreset "${stackPreset}" is not a preset`);
     if (problems.length > 0) console.error(`[PanelWorkspace] ${problems.join('; ')}`);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `signature` serialises exactly the inputs read above, so the check re-runs only when they change, not on every new array identity
   }, [signature]);
@@ -105,10 +119,10 @@ function useDevChecks(props: PanelWorkspaceProps) {
  *   unmount and `pagehide`); read once on mount, never by a query. Without a user or a routed menu it stays in memory. Two panes showing
  *   the same menu and `persistKey` share it; the last writer wins. Maximize is never stored.
  * - **Fill.** Give the page `layout="fill"` so the workspace takes the height under the header.
- * - **Height mode.** `화면 맞춤` (default): the workspace fills the remaining height and the panels share it. `아래로 쌓기`: the top-level rows keep
- *   their own px heights, the workspace is as tall as they are (plus a strip that takes a tab for a new row) and the page scrolls. The user
- *   chooses per workspace in the toolbar or the host menu; it is stored with the layout. Below `compactBelow` it is off (fit shows) and comes
- *   back on widening.
+ * - **Height mode.** `아래로 쌓기` (default, ADR-0130): the top-level rows keep
+ *   their own px heights, the workspace is as tall as they are (plus a strip that takes a tab for a new row) and the page scrolls; a workspace with one
+ *   row fills what the page shows. `화면 맞춤`: the workspace fills the remaining height and the panels share it. The user chooses per workspace in the
+ *   toolbar's `⋯` or the host menu; it is stored with the layout. Below `compactBelow` stack is off (fit shows) and comes back on widening.
  */
 export function PanelWorkspace(props: PanelWorkspaceProps) {
   const { session, route } = usePlatform();
@@ -121,14 +135,17 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
   return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, storageKey }: PanelWorkspaceProps & { storageKey: string | null }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, storageKey }: PanelWorkspaceProps & { storageKey: string | null }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const depth = useWorkspaceDepth() + 1;
   const primaryId = (panels.find(panel => panel.primary) ?? panels[0]!).id;
   const presets: readonly PanelWorkspacePreset[] = given.length > 0 ? given : [{ id: initialPreset, label: workspaceText.layout, layout: { type: 'group', panels: panels.map(panel => panel.id) } }];
-  const rowMinimum = rowMinimumOf(new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])));
-  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode };
+  const panelMinimums = new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }]));
+  const rowMinimum = rowMinimumOf(panelMinimums);
+  const declaredHeights = new Map(panels.flatMap(panel => (panel.preferredHeight === undefined ? [] : [[panel.id, panel.preferredHeight] as const])));
+  const rowPreferred = declaredHeights.size > 0 ? rowPreferredOf(declaredHeights, panelMinimums, dockTheme(true).gap) : undefined;
+  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode, stackPreset };
   const titleOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); return panel ? tx(panel.title) : id; };
   /** The panel's badge with its description localised. */
   const badgeOf = (id: string) => { const badge = panels.find(candidate => candidate.id === id)?.badge; return badge ? { count: badge.count, tone: badge.tone ?? 'neutral', description: tx(badge.description) } : undefined; };
@@ -139,10 +156,15 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const root = useRef<HTMLDivElement>(null);
   // Only the side of `compactBelow` is state: a resize that stays on one side re-renders nothing (#823).
   const [narrow, setNarrow] = useState(false);
+  // The side of `compactBelow` as the effects below must see it in the very commit that learns it (the state is still last render's there).
+  const narrowNow = useRef(false);
   useLayoutEffect(() => {
     const element = root.current;
     if (!element) return;
-    const observer = new ResizeObserver(entries => { const entry = entries[entries.length - 1]; if (entry) setNarrow(entry.contentRect.width < compactBelow); });
+    // Seeded before the first paint: a narrow first view must not measure or store rows.
+    const width = element.getBoundingClientRect().width;
+    if (width > 0) { narrowNow.current = width < compactBelow; setNarrow(narrowNow.current); }
+    const observer = new ResizeObserver(entries => { const entry = entries[entries.length - 1]; if (entry) { narrowNow.current = entry.contentRect.width < compactBelow; setNarrow(narrowNow.current); } });
     observer.observe(element);
     return () => { observer.disconnect(); };
   }, [compactBelow]);
@@ -154,6 +176,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const state = compact ? (compactState ?? derived) : stored;
 
   const [maximized, setMaximized] = useState<string | null>(null);
+  /** px above the rows (toolbar and its gap) read when a stacked maximize starts; the maximized box is the visible height less this. */
+  const [maximizeChrome, setMaximizeChrome] = useState<number | null>(null);
   const shown = panelOrder(state.layout);
   const maximizedId = maximized !== null && shown.includes(maximized) ? maximized : null;
 
@@ -179,14 +203,27 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   useRegisterPageFlow(stackActive);
 
   // Commands read the latest render at call time, so their identity depends on what they display only.
-  const live = useRef({ compact, narrow, derived, presets, primaryId, rowMinimum, maxRow, stackActive, maximizedId });
-  useLayoutEffect(() => { live.current = { compact, narrow, derived, presets, primaryId, rowMinimum, maxRow, stackActive, maximizedId }; });
-  const rowEnv = (): RowEnv => ({ minimum: live.current.rowMinimum, maximum: live.current.maxRow, baseline: lastFit.current ?? Math.max(NEW_ROW_HEIGHT, live.current.maxRow - TOOLBAR_CHROME) });
+  const live = useRef({ compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset });
+  useLayoutEffect(() => { live.current = { compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset }; });
+  /** px that make one row fill what the page shows: the scroll container less what sits above the rows (the workspace's offset, the toolbar and its gap), the drop strip and the page's bottom padding. */
+  const oneRowHeight = useCallback(() => {
+    const element = root.current;
+    const container = element ? scrollContainerOf(element) : null;
+    if (!element) return NEW_ROW_HEIGHT;
+    const area = container ? container.clientHeight : window.innerHeight;
+    const offset = container ? element.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop : 0;
+    const toolbar = element.querySelector<HTMLElement>('[data-workspace-toolbar]');
+    const above = toolbar ? toolbar.getBoundingClientRect().height + (parseFloat(getComputedStyle(element).rowGap) || 0) : 0;
+    const page = element.closest('[data-platform-page-content]');
+    const padding = page ? parseFloat(getComputedStyle(page).paddingBottom) || 0 : 0;
+    return Math.floor(area - offset - above - DOCK_DROP_STRIP_CHROME - padding);
+  }, []);
+  const rowEnv = useCallback((): RowEnv => ({ minimum: live.current.rowMinimum, maximum: live.current.maxRow, baseline: lastFit.current ?? Math.max(NEW_ROW_HEIGHT, live.current.maxRow - TOOLBAR_CHROME), oneRow: oneRowHeight(), preferred: live.current.rowPreferred }), [oneRowHeight]);
   /** `keep`: an edit; rows follow the panels (`created`: the panel the edit moved into a row of its own, which is then a new row). `enter`: preset or reset; rows come from the new shares and the fit baseline, so repeating it cannot add height. `raw`: the edit decided the rows itself. */
   const update = useCallback((change: (current: WorkspaceState) => WorkspaceState, settle: 'keep' | 'enter' | 'raw' = 'keep', created?: string) => {
     if (live.current.compact) setCompactState(previous => change(previous ?? live.current.derived));
     else setStored(previous => { const next = change(previous); return settle === 'raw' ? next : settleRows(previous, next, settle, rowEnv(), created); });
-  }, []);
+  }, [rowEnv]);
   // Reveal request (#690): the active tab only, persisted like a user activation. The seq present at mount counts as handled.
   const knownIds = panels.map(panel => panel.id).join('|');
   const handledSeq = useRef(revealRequest?.seq);
@@ -210,26 +247,22 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const setMode = useCallback((mode: 'fit' | 'stack') => {
     if (live.current.narrow) return;
     if (mode === 'stack' && fitSlot.current && !live.current.stackActive) { const height = fitSlot.current.getBoundingClientRect().height; if (height > 0) lastFit.current = height; }
-    update(current => {
-      if (mode === 'fit') return current.mode === 'stack' ? withRows(current, 'fit') : current;
-      const env = rowEnv();
-      return current.mode === 'stack' ? current : withRows(current, 'stack', enterRows(current.layout, env.baseline, env.minimum, env.maximum));
-    }, 'raw');
-  }, [update]);
+    update(current => changeMode(current, mode, { presets: live.current.presets, initialPreset: live.current.initialPreset, stackPreset: live.current.stackPreset }, rowEnv()), 'raw');
+  }, [update, rowEnv]);
   // Stack mode whose rows are not known (a stored mode without usable rows): measured once, before paint.
   useLayoutEffect(() => {
-    if (!stackActive || storedRows !== undefined || visible === null) return;
+    if (!stackActive || narrowNow.current || storedRows !== undefined || visible === null) return;
     setStored(previous => {
       if (previous.mode !== 'stack' || previous.rows?.length === topLevelRows(previous.layout).length) return previous;
       const env = rowEnv();
-      return withRows(previous, 'stack', enterRows(previous.layout, env.baseline, env.minimum, env.maximum));
+      return withRows(previous, 'stack', enterRows(previous.layout, env.baseline, env.minimum, env.maximum, env));
     });
-  }, [stackActive, storedRows, visible]);
+  }, [stackActive, storedRows, visible, rowEnv]);
 
   // Restored rows obey the visible-height cap once, when a scrollport measurement first exists. Not again: a later window resize never rewrites the preference.
   const restoreClamped = useRef(false);
   useLayoutEffect(() => {
-    if (restoreClamped.current || !stackActive || storedRows === undefined || visible === null) return;
+    if (restoreClamped.current || !stackActive || narrowNow.current || storedRows === undefined || visible === null) return;
     restoreClamped.current = true;
     setStored(previous => {
       if (previous.mode !== 'stack' || previous.rows === undefined || previous.rows.length !== topLevelRows(previous.layout).length) return previous;
@@ -316,7 +349,22 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
   const focusTab = (panelId: string) => { focusTabSoon(() => root.current, panelId); };
   const closeFocus = useRef<(() => void) | null>(null);
   const layoutChange = (change: (current: WorkspaceState) => WorkspaceState, created?: string) => { update(change, 'keep', created); };
-  const moveBelow = (id: string) => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: moveToNewRow(current.layout, id) } : current), id); };
+  const moveBelow = (id: string) => {
+    layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: moveToNewRow(current.layout, id) } : current), id);
+    revealRow(id);
+  };
+  /** The new row's header goes under the sticky chrome once the engine has laid the row out (it grows the box over a few frames, so the alignment is repeated). */
+  const revealRow = (panelId: string) => {
+    for (const delay of [0, 40, 120, 300]) {
+      setTimeout(() => {
+        const element = root.current;
+        if (!element?.isConnected || !live.current.stackActive) return;
+        const tab = Array.from(element.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]')).find(item => item.dataset.tabPanelId === panelId);
+        const header = tab?.closest<HTMLElement>('.dv-groupview');
+        if (header) alignUnderChrome(header, element);
+      }, delay);
+    }
+  };
 
   // Stack rows: stored px raised to each row's current minimum (a panel's minimum can change); the maximum only limits what the user asks for.
   const stackRows = stackActive ? storedRows : undefined;
@@ -334,7 +382,40 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, l
       });
     },
     onDropBelow: moveBelow, onPanelDrop, dropBelowLabel: tx(workspaceText.dropBelow),
+    maximizedHeight: maximizeChrome !== null && maximizedId !== null ? Math.max(0, maxRow - maximizeChrome) : undefined,
   } : undefined;
+
+  // Page scroll padding (D8): the browser's own scrolling to a focused element stops under the sticky chrome. The CSS variable is defined below the scroll container, so px it is.
+  useLayoutEffect(() => {
+    const element = root.current;
+    const container = element && stackActive ? scrollContainerOf(element) : null;
+    if (!element || !container) return;
+    const previous = container.style.scrollPaddingTop;
+    container.style.scrollPaddingTop = `${stickyChromeHeight(element.closest('[data-platform-page]'))}px`;
+    return () => { container.style.scrollPaddingTop = previous; };
+  }, [stackActive, visible]);
+
+  // Maximize in stack mode (D7): the box is the visible height under the toolbar and the workspace top goes under the sticky chrome; restoring returns the scroll position.
+  const hasRows = rows !== undefined;
+  const maximizing = hasRows && maximizedId !== null;
+  const wasMaximizing = useRef(false);
+  const savedScroll = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const was = wasMaximizing.current;
+    wasMaximizing.current = maximizing;
+    const element = root.current;
+    const container = element ? scrollContainerOf(element) : null;
+    if (maximizing && !was && element) {
+      savedScroll.current = container ? container.scrollTop : null;
+      const toolbar = element.querySelector<HTMLElement>('[data-workspace-toolbar]');
+      setMaximizeChrome(toolbar ? toolbar.getBoundingClientRect().height + (parseFloat(getComputedStyle(element).rowGap) || 0) : 0);
+      alignUnderChrome(element, element);
+    } else if (!maximizing && was) {
+      const saved = savedScroll.current;
+      savedScroll.current = null;
+      if (hasRows && saved !== null && container) container.scrollTop = saved;
+    }
+  }, [maximizing, hasRows]);
 
   const groupActions = (group: { panels: string[]; active: string }) => {
     const id = group.active;

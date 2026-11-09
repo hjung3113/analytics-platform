@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { evidence, expectScopeValid, query, setScenario, signInAs } from './support';
+import { evidence, expectScopeValid, fitWorkspace, query, setScenario, signInAs } from './support';
 
 /**
  * HW Time (#690, node 690m): the four menus share one drill contract (06 §12.7) and one workspace/board contract (§12.8).
@@ -240,6 +240,8 @@ test.describe('approved analysis B (#1141)', () => {
       const workspace = page.locator('[data-panel-workspace]');
       await expect(workspace).toHaveCSS('row-gap', '6px');
       await expect(workspace.locator('canvas')).not.toHaveCount(0);
+      // A fresh workspace starts stacked (ADR-0130); the drag geometry below is the fitted arrangement.
+      await fitWorkspace(page);
       const summaryTab = page.getByRole('tab', { name: /^Module별/ });
       const moduleTab = page.getByRole('tab', { name: /^Module PM1 구성/ });
       const groups = workspace.locator('.dv-groupview');

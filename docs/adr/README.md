@@ -140,6 +140,7 @@
 | [0127](0127-sdk-rich-editor-extensions-and-inline-attachment-images.md) | SDK 리치 에디터 선택 확장·첨부 ID 기반 본문 이미지, FO ADR-0011 부분 대체·ADR-0052 보충 | Decided(2026-11-07) |
 | [0128](0128-app-joins-menus-for-embedded-bodies.md) | 한 메뉴 화면이 다른 메뉴의 본문을 품을 때는 앱이 둘을 잇는다(main.tsx 슬롯 주입, 메뉴 간 import 금지 유지) | Decided(2026-11-08) |
 | [0129](0129-prototype-only-for-new-or-hard-to-undo-ui.md) | 시안은 새 화면이거나 되돌리기 어려운 변경에만 만든다(나머지는 전후 캡처와 PR의 Decisions) | Decided(2026-11-09) |
+| [0130](0130-workspace-stack-default-and-declared-stack-layout.md) | 작업 영역은 아래로 쌓기로 시작하고, 메뉴가 쌓기용 배치(`stackPreset`)와 패널 선호 높이를 선언한다 | Decided(2026-11-09) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

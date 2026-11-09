@@ -62,7 +62,7 @@ const PRESETS: PanelWorkspaceProps['presets'] = [
   { id: 'focus', label: { ko: '집중', en: 'Focus' }, layout: { type: 'branch', dir: 'row', sizes: [7, 3], children: [group(['trend']), group(['selector', 'detail', 'kpi'])] } },
   { id: 'stack', label: { ko: '쌓기', en: 'Stack' }, layout: group(['trend', 'kpi', 'selector', 'detail'], 'detail') },
 ];
-const BASE: PanelWorkspaceProps = { panels: PANELS, presets: PRESETS, initialPreset: 'balanced', persistKey: 'main', label: { ko: '작업 영역 패널', en: 'Analysis panels' } };
+const BASE: PanelWorkspaceProps = { panels: PANELS, presets: PRESETS, initialPreset: 'balanced', initialMode: 'fit', persistKey: 'main', label: { ko: '작업 영역 패널', en: 'Analysis panels' } };
 const KEY = (persistKey = 'main') => `platform:workspace:v1:u1:home:${persistKey}`;
 
 let storage: Storage;
@@ -86,7 +86,16 @@ const ready = async () => {
 const settle = () => act(() => new Promise<void>(resolve => { setTimeout(resolve, 30); }));
 const groups = () => groupsOnScreen().map(panels => [...panels].sort());
 const sleep = (ms: number) => act(() => new Promise<void>(resolve => { setTimeout(resolve, ms); }));
-const choose = async (name: string) => { fireEvent.click(await screen.findByRole('radio', { name })); await settle(); };
+/** The height mode lives in the toolbar's `⋯` menu (ADR-0130): opens it when it is not open and returns the item. */
+const modeItem = async (name: string) => {
+  if (!screen.queryByRole('menuitemradio', { name })) await userEvent.click(screen.getByRole('button', { name: '높이 방식' }));
+  return screen.findByRole('menuitemradio', { name });
+};
+const choose = async (name: string) => {
+  if (name === '화면 맞춤' || name === '아래로 쌓기') await userEvent.click(await modeItem(name));
+  else fireEvent.click(await screen.findByRole('radio', { name }));
+  await settle();
+};
 const chooseFromMenu = async (menuButton: string, item: string) => {
   await userEvent.click(screen.getAllByRole('button', { name: menuButton })[0]!);
   await userEvent.click(await screen.findByRole('menuitem', { name: item }));
@@ -534,7 +543,6 @@ describe('PanelWorkspace: height mode (#686)', () => {
     layout: { type: 'branch', dir: 'column', sizes: [1, 1, 1], children: [group(['trend']), { type: 'branch', dir: 'row', sizes: [1, 1], children: [group(['selector']), group(['detail'])] }, group(['kpi'])] },
   };
   const ROWS_PROPS: Partial<PanelWorkspaceProps> = { presets: [COLUMN, ...PRESETS], initialPreset: 'column' };
-  const modeGroup = () => screen.getByRole('radiogroup', { name: '높이 방식' });
   const rowSeparators = () => Array.from(document.querySelectorAll<HTMLElement>('[data-dock-row-separator]'));
   const rowHeights = () => rowSeparators().map(separator => Number(separator.getAttribute('aria-valuenow')));
   const lastStored = () => JSON.parse(written().at(-1)![1]) as { preset: string; mode?: string; rows?: number[]; layout: { sizes: number[] } };
@@ -546,25 +554,28 @@ describe('PanelWorkspace: height mode (#686)', () => {
   /** Seeds the stored state without counting the seeding as a write. */
   const seed = (value: string) => { storage.setItem(KEY(), value); setItem.mockClear(); };
 
-  it('offers the mode as its own radio group beside the presets; fit is the default', async () => {
+  it('offers the mode in the `⋯` menu at the end of the toolbar, not as a radio group; fit is checked here as the BASE starts fitted', async () => {
     mountWorkspace(ROWS_PROPS);
     await ready();
-    expect(within(modeGroup()).getAllByRole('radio').map(radio => radio.textContent)).toEqual(['화면 맞춤', '아래로 쌓기']);
-    expect(within(modeGroup()).getByRole('radio', { name: '화면 맞춤' })).toBeChecked();
+    expect(screen.queryByRole('radiogroup', { name: '높이 방식' })).toBeNull();
     expect(screen.getByRole('radio', { name: '세로' })).toBeChecked();
+    expect(await modeItem('화면 맞춤')).toBeChecked();
+    expect(await modeItem('아래로 쌓기')).not.toBeChecked();
+    expect(within(screen.getByRole('menu')).getByText('높이 방식')).toBeInTheDocument();
     expect(workspace()).toHaveAttribute('data-workspace-mode', 'fit');
     expect(document.querySelector('[data-dock-rows]')).toBeNull();
     expect(rowSeparators()).toEqual([]);
   });
 
-  it('each mode says what it does in a tooltip', async () => {
+  it('the `⋯` is the last control of the toolbar row and returns focus to itself after a choice', async () => {
     mountWorkspace(ROWS_PROPS);
     await ready();
-    await userEvent.hover(within(modeGroup()).getByText('아래로 쌓기'));
-    expect((await screen.findAllByText('아래로 쌓기: 줄마다 높이를 갖고 페이지가 스크롤됩니다')).length).toBeGreaterThan(0);
-    await userEvent.unhover(within(modeGroup()).getByText('아래로 쌓기'));
-    await userEvent.hover(within(modeGroup()).getByText('화면 맞춤'));
-    expect((await screen.findAllByText('화면 맞춤: 패널이 화면 높이를 나눠 씁니다')).length).toBeGreaterThan(0);
+    const more = screen.getByRole('button', { name: '높이 방식' });
+    expect(more).toHaveAttribute('title', '높이 방식');
+    const toolbar = screen.getByRole('toolbar');
+    expect(Array.from(toolbar.querySelectorAll('button')).at(-1)).toBe(more);
+    await userEvent.click(await modeItem('아래로 쌓기'));
+    await waitFor(() => { expect(more).toHaveFocus(); });
   });
 
   it('switching to 아래로 쌓기 gives each row its px, stores mode and rows, keeps the preset, and remounts and queries nothing; switching back is fit again', async () => {
@@ -596,7 +607,7 @@ describe('PanelWorkspace: height mode (#686)', () => {
     await ready();
     expect(workspace()).toHaveAttribute('data-workspace-mode', 'stack');
     expect(rowHeights()).toEqual([300, 400, 500]);
-    expect(within(modeGroup()).getByRole('radio', { name: '아래로 쌓기' })).toBeChecked();
+    expect(await modeItem('아래로 쌓기')).toBeChecked();
     expect(document.querySelector<HTMLElement>('[data-dock-rows]')!.style.getPropertyValue('--dock-rows-height')).toBe('1200px');
   });
 
@@ -658,7 +669,8 @@ describe('PanelWorkspace: height mode (#686)', () => {
     await ready();
     await choose('아래로 쌓기');
     await choose('집중');
-    await waitFor(() => { expect(rowHeights()).toEqual([600]); });
+    // One row with nothing declared fills what the page shows (ADR-0130): jsdom's window (768) less the 80px drop strip.
+    await waitFor(() => { expect(rowHeights()).toEqual([688]); });
     await choose('세로');
     await waitFor(() => { expect(rowHeights()).toEqual([360, 360, 360]); });
   });
@@ -749,8 +761,8 @@ describe('PanelWorkspace: height mode (#686)', () => {
     observer.resize(600);
     await waitFor(() => { expect(workspace()).toHaveAttribute('data-workspace-mode', 'fit'); });
     expect(document.querySelector('[data-dock-rows]')).toBeNull();
-    within(modeGroup()).getAllByRole('radio').forEach(radio => { expect(radio).toBeDisabled(); });
-    expect(document.getElementById(modeGroup().getAttribute('aria-describedby')!)).toHaveTextContent('좁은 폭에서는 화면 맞춤으로 보입니다');
+    for (const name of ['화면 맞춤', '아래로 쌓기']) expect(await modeItem(name)).toHaveAttribute('aria-disabled', 'true');
+    expect(document.getElementById(within(screen.getByRole('menu')).getByRole('group').getAttribute('aria-describedby')!)).toHaveTextContent('좁은 폭에서는 화면 맞춤으로 보입니다');
     await sleep(400);
     expect(written()).toEqual([]);
     observer.resize(1200);
@@ -796,7 +808,6 @@ describe('PanelWorkspace: initialMode (#690)', () => {
   };
   const PROPS: Partial<PanelWorkspaceProps> = { presets: [COLUMN, ...PRESETS], initialPreset: 'column' };
   const workspace = () => document.querySelector<HTMLElement>('[data-panel-workspace]')!;
-  const modeGroup = () => screen.getByRole('radiogroup', { name: '높이 방식' });
   const saved = (extra: Record<string, unknown> = {}) => JSON.stringify({
     v: 1, preset: 'column', hidden: [], layout: { type: 'branch', dir: 'column', sizes: [34, 33, 33], children: [group(['trend']), { type: 'branch', dir: 'row', sizes: [50, 50], children: [group(['selector']), group(['detail'])] }, group(['kpi'])] }, ...extra,
   });
@@ -805,7 +816,7 @@ describe('PanelWorkspace: initialMode (#690)', () => {
     mountWorkspace({ ...PROPS, initialMode: 'stack' });
     await ready();
     expect(workspace()).toHaveAttribute('data-workspace-mode', 'stack');
-    expect(within(modeGroup()).getByRole('radio', { name: '아래로 쌓기' })).toBeChecked();
+    expect(await modeItem('아래로 쌓기')).toBeChecked();
     expect(document.querySelectorAll('[data-dock-row-separator]')).toHaveLength(3);
   });
 
@@ -824,7 +835,7 @@ describe('PanelWorkspace: initialMode (#690)', () => {
     mountWorkspace({ ...PROPS, initialMode: 'stack' });
     await ready();
     expect(workspace()).toHaveAttribute('data-workspace-mode', 'fit');
-    expect(within(modeGroup()).getByRole('radio', { name: '화면 맞춤' })).toBeChecked();
+    expect(await modeItem('화면 맞춤')).toBeChecked();
   });
 
   it('narrow: fit shows, the stored mode is untouched, and stack returns on widening; 기본 배치 keeps the mode', async () => {
@@ -1017,5 +1028,73 @@ describe('visual density is independent of panel admission (#1141)', () => {
     await waitFor(() => expect(workspace).toHaveAttribute('data-workspace-compact'));
     expect(workspace.getAttribute('data-workspace-density')).toBe(density === 'compact' ? 'compact' : null);
     expect(workspace).toHaveClass(density === 'compact' ? 'gap-1.5' : 'gap-2');
+  });
+});
+
+describe('PanelWorkspace: 쌓기 기본값과 stackPreset (#701, ADR-0130)', () => {
+  const COLUMN: PanelWorkspaceProps['presets'][number] = {
+    id: 'column', label: { ko: '세로', en: 'Column' },
+    layout: { type: 'branch', dir: 'column', sizes: [1, 1, 1], children: [group(['trend']), { type: 'branch', dir: 'row', sizes: [1, 1], children: [group(['selector']), group(['detail'])] }, group(['kpi'])] },
+  };
+  const WITH_STACK: Partial<PanelWorkspaceProps> = { presets: [...PRESETS, COLUMN], initialPreset: 'balanced', stackPreset: 'column', initialMode: undefined };
+  const workspace = () => document.querySelector<HTMLElement>('[data-panel-workspace]')!;
+  const lastStored = () => JSON.parse(written().at(-1)![1]) as { preset: string; mode?: string; rows?: number[] };
+
+  it('without initialMode an untouched workspace starts in stack, on stackPreset', async () => {
+    mountWorkspace(WITH_STACK);
+    await ready();
+    expect(workspace()).toHaveAttribute('data-workspace-mode', 'stack');
+    expect(screen.getByRole('radio', { name: '세로' })).toBeChecked();
+    expect(document.querySelectorAll('[data-dock-row-separator]')).toHaveLength(3);
+  });
+
+  it('initialMode fit still starts fitted on initialPreset', async () => {
+    mountWorkspace({ ...WITH_STACK, initialMode: 'fit' });
+    await ready();
+    expect(workspace()).toHaveAttribute('data-workspace-mode', 'fit');
+    expect(screen.getByRole('radio', { name: '균형' })).toBeChecked();
+  });
+
+  it('a stored fit (and a value written before modes) stays fit on its stored preset: the load rewrites nothing', async () => {
+    storage.setItem(KEY(), JSON.stringify({ v: 1, preset: 'balanced', hidden: [], layout: { type: 'branch', dir: 'row', sizes: [20, 60, 20], children: [group(['selector']), { type: 'branch', dir: 'column', sizes: [25, 75], children: [group(['kpi']), group(['trend'])] }, group(['detail'])] } }));
+    setItem.mockClear();
+    mountWorkspace(WITH_STACK);
+    await ready();
+    expect(workspace()).toHaveAttribute('data-workspace-mode', 'fit');
+    expect(screen.getByRole('radio', { name: '균형' })).toBeChecked();
+    await sleep(400);
+    expect(written()).toEqual([]);
+  });
+
+  it('the mode switch moves between the two presets while the arrangement is untouched, and keeps a layout the user chose', async () => {
+    mountWorkspace(WITH_STACK);
+    await ready();
+    await choose('화면 맞춤');
+    await waitFor(() => { expect(screen.getByRole('radio', { name: '균형' })).toBeChecked(); });
+    await choose('아래로 쌓기');
+    await waitFor(() => { expect(screen.getByRole('radio', { name: '세로' })).toBeChecked(); });
+    // The user's own arrangement (a preset that is neither of the two) survives both switches.
+    await choose('집중');
+    await choose('화면 맞춤');
+    expect(screen.getByRole('radio', { name: '집중' })).toBeChecked();
+    await choose('아래로 쌓기');
+    expect(screen.getByRole('radio', { name: '집중' })).toBeChecked();
+    await sleep(400);
+    expect(lastStored()).toMatchObject({ preset: 'focus', mode: 'stack' });
+  });
+
+  it('a first view narrower than compactBelow shows fit at once and measures and stores no rows', async () => {
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.hasAttribute('data-panel-workspace') ? 600 : 0;
+      return { x: 0, y: 0, top: 0, left: 0, right: width, bottom: 0, width, height: 0, toJSON: () => ({}) };
+    });
+    observer.resize(600);
+    try {
+      mountWorkspace(WITH_STACK);
+      await ready();
+      expect(workspace()).toHaveAttribute('data-workspace-mode', 'fit');
+      await sleep(400);
+      expect(written().every(([, value]) => (JSON.parse(value) as { rows?: number[] }).rows === undefined)).toBe(true);
+    } finally { rect.mockRestore(); }
   });
 });

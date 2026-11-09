@@ -29,6 +29,8 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 (#701) | components | **동작 바뀜** — `PanelWorkspace`의 `initialMode` 기본값이 `fit`에서 `stack`으로 바뀐다([ADR-0130](../../docs/adr/0130-workspace-stack-default-and-declared-stack-layout.md)). 저장된 값은 그대로 읽는다(저장된 `fit`과 `mode`가 없는 옛 값은 화면 맞춤). 화면 맞춤은 도구줄 끝 `⋯` 메뉴에서 고르고 도구줄의 `높이 방식` 라디오는 사라진다(호스트 메뉴의 명령은 그대로). 최상위 줄이 하나인 작업 영역은 보이는 영역을 채운다. 쌓기의 최대화는 보이는 영역 높이를 쓴다. Snapshot: `components.root.api.txt`. | 예전 시작을 원하는 메뉴는 `initialMode="fit"`을 준다. 도구줄의 `높이 방식` 라디오를 찾던 테스트는 `⋯`(이름 `높이 방식`)를 열어 `menuitemradio`를 쓴다 |
+| 다음 릴리스 (#701) | components | 선택 옵션 추가(기본 동작 불변): `PanelWorkspaceProps.stackPreset?: string`(쌓기용 프리셋 id)과 `PanelWorkspacePanel.preferredHeight?: number`(본문이 넘치지 않는 px; 새로 정해지는 줄의 시작 높이). Snapshot: `components.root.api.txt`. | 없음 — 쌓기에서 다른 배치를 쓰거나 줄의 시작 높이를 알려 주려는 메뉴만 선언한다 |
 | 다음 릴리스 (#1509) | ui | 선택 옵션 추가(기본 동작 불변): `ObjectRowProps.leadingCell?: 'always' \| 'auto'`. 기본 `always`는 선행 칸을 유지하고, `auto`는 severity·선택·아이콘이 없을 때 선행 칸을 생략하며 본문과 trailing의 두 열을 유지한다. Snapshot: `ui.root.api.txt`. | 없음 — 선행 내용이 없는 행의 들여쓰기를 없애려는 소비자만 `leadingCell="auto"`를 선택한다. |
 | 다음 릴리스 (#1509) | ui | 선택 옵션 추가(기본 동작 불변): `ComboboxProps.density?: 'default' \| 'compact'`(40px 기본, 32px compact), `font?: 'default' \| 'mono'`(기본 글꼴 유지, mono는 안정 키의 트리거·검색·옵션에 적용). Snapshot: `ui.root.api.txt`. | 없음 — 확인된 검색 선택기의 크기와 Event 키의 고정폭 표기가 필요한 소비자만 선택한다. |
 | [`sdk-v0.32.0`](https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.32.0) (#1447 fix) | ui | 선택 옵션 추가(기본 동작 불변): `StatusBadge.variant?: 'soft' \| 'outline'`. 기본 `soft`는 기존 모양, `outline`은 같은 tone·크기의 배경 없는 외곽선 배지다. Snapshot: `ui.root.api.txt`. | 없음 — 외곽선이 필요한 소비자만 선택한다. |

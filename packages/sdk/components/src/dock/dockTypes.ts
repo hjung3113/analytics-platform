@@ -104,4 +104,6 @@ export type DockRows = {
    * keeps the id until the next layout report and uses it once.
    */
   onPanelDrop?: (panelId: string | null) => void;
+  /** px: while a panel is maximized the box is this tall instead of `sum(heights)` + gaps (the visible height under the toolbar); rows keep their px. */
+  maximizedHeight?: number;
 };

@@ -322,30 +322,31 @@ describe('CycleTimeDrilldown workspace (ADR-0067 3b)', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
   const period = '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00';
 
-  it('draws the four panels in the balanced preset, in a fill page, with the preset toolbar', async () => {
+  const groupsOfTabs = () => ['사이클타임 추세', '사이클타임 요약', '사이클타임 분포', '느린 실행'].map(name => screen.getByRole('tab', { name }).closest('.dv-groupview'));
+
+  it('draws the four panels starting stacked in the 세로 preset (stackPreset), in a fill page, with the preset toolbar', async () => {
     renderPage(period);
     expect(await screen.findByRole('region', { name: '사이클타임 분석 영역' })).toBeTruthy();
     expect(document.querySelector('[data-platform-page]')!.getAttribute('data-page-layout')).toBe('fill');
     for (const name of ['사이클타임 요약', '사이클타임 추세', '사이클타임 분포', '느린 실행']) expect(await screen.findByRole('tab', { name })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: '기본' }).getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByRole('radio', { name: '집중' }).getAttribute('aria-checked')).not.toBe('true');
-    // balanced: trend and summary each have a group; distribution (active) and slow share the third one.
-    const groups = ['사이클타임 추세', '사이클타임 요약', '사이클타임 분포', '느린 실행'].map(name => screen.getByRole('tab', { name }).closest('.dv-groupview'));
-    expect(new Set(groups).size).toBe(3);
-    expect(groups[2]).toBe(groups[3]);
-    expect(screen.getByRole('tab', { name: '사이클타임 분포' }).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByRole('tab', { name: '느린 실행' }).getAttribute('aria-selected')).toBe('false');
+    expect(screen.getByRole('radio', { name: '세로' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('radio', { name: '기본' }).getAttribute('aria-checked')).not.toBe('true');
+    // column: trend / summary | distribution / slow — one group per panel.
+    expect(new Set(groupsOfTabs()).size).toBe(4);
+    expect(document.querySelector('[data-panel-workspace]')!.getAttribute('data-workspace-mode')).toBe('stack');
   });
 
-  it('offers the 세로 preset (one row per question) and the height mode, starting in 화면 맞춤', async () => {
+  it('offers the height mode in the ⋯ menu; 화면 맞춤 applies the 기본 preset while the layout is still 세로, and 아래로 쌓기 returns', async () => {
     renderPage(period);
     await screen.findByRole('region', { name: '사이클타임 분석 영역' });
-    const modes = screen.getByRole('radiogroup', { name: '높이 방식' });
-    expect(modes.querySelector('[aria-checked="true"]')!.textContent).toBe('화면 맞춤');
-    fireEvent.click(await screen.findByRole('radio', { name: '세로' }));
-    // column: trend / summary | distribution / slow — three top-level rows, so four groups in three rows.
-    await waitFor(() => { expect(new Set(['사이클타임 추세', '사이클타임 요약', '사이클타임 분포', '느린 실행'].map(name => screen.getByRole('tab', { name }).closest('.dv-groupview'))).size).toBe(4); });
-    expect(document.querySelector('[data-panel-workspace]')!.getAttribute('data-workspace-mode')).toBe('fit');
+    expect(screen.queryByRole('radiogroup', { name: '높이 방식' })).toBeNull();
+    fireEvent.keyDown(screen.getByRole('button', { name: '높이 방식' }), { key: 'Enter' });
+    expect((await screen.findByRole('menuitemradio', { name: '아래로 쌓기' })).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('menuitemradio', { name: '화면 맞춤' }));
+    await waitFor(() => { expect(document.querySelector('[data-panel-workspace]')!.getAttribute('data-workspace-mode')).toBe('fit'); });
+    await waitFor(() => { expect(screen.getByRole('radio', { name: '기본' }).getAttribute('aria-checked')).toBe('true'); });
+    // balanced: trend and summary each have a group; distribution (active) and slow share the third one.
+    expect(new Set(groupsOfTabs()).size).toBe(3);
   });
 
   it('keeps showing the invalid-page message instead of the workspace', async () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { movePanel } from '../dock/commands';
 import { column, group, row } from '../dock/__tests__/harness';
 import type { DockNode } from '../dock/schema';
-import { canMoveBelow, clampRow, enterRows, moveToNewRow, NEW_ROW_HEIGHT, reconcileRows, rowMinimumOf, ROW_MIN_HEIGHT, topLevelRows, withRowShares } from './workspaceRows';
+import { canMoveBelow, clampRow, enterRows, moveToNewRow, NEW_ROW_HEIGHT, reconcileRows, rowMinimumOf, rowPreferredOf, ROW_MIN_HEIGHT, topLevelRows, withRowShares } from './workspaceRows';
 
 const min200 = () => ROW_MIN_HEIGHT;
 const ids = (tree: DockNode): string[] => (tree.type === 'group' ? tree.panels : tree.children.flatMap(ids));
@@ -151,5 +151,52 @@ describe('moveToNewRow and canMoveBelow', () => {
     const before = JSON.stringify(tree);
     moveToNewRow(tree, 'x');
     expect(JSON.stringify(tree)).toBe(before);
+  });
+});
+
+describe('preferred row height and one-row start (ADR-0130)', () => {
+  const declared = new Map([['chart', 400], ['kpi', 300], ['table', 420]]);
+  const mins = new Map<string, { minHeight?: number }>();
+  const preferred = rowPreferredOf(declared, mins, 6);
+
+  it.each<[string, DockNode, number | undefined]>([
+    ['a group: its tallest declared body plus the strip', group(['chart', 'kpi']), 440],
+    ['a side-by-side row takes its tallest child', row([50, 50], group(['kpi']), group(['chart'])), 440],
+    ['a column branch adds its children and the engine gaps', column([50, 50], group(['kpi']), group(['table'])), 340 + 460 + 6],
+    ['an undeclared part contributes its own minimum (160 + strip)', column([50, 50], group(['kpi']), group(['plain'])), 340 + 200 + 6],
+    ['a row where nothing is declared has none', group(['plain']), undefined],
+  ])('%s', (_name, tree, expected) => { expect(preferred(tree)).toBe(expected); });
+
+  it('a declared body below the panel minimum never goes under the minimum', () => {
+    expect(rowPreferredOf(new Map([['chart', 100]]), new Map([['chart', { minHeight: 300 }]]), 6)(group(['chart']))).toBe(340);
+  });
+
+  it('enterRows: a declared row takes its preferred height within bounds, the others the share formula', () => {
+    const tree = column([50, 50], group(['chart']), group(['plain']));
+    expect(enterRows(tree, 1000, min200, 900, { oneRow: 500, preferred })).toEqual([440, 500]);
+    expect(enterRows(tree, 1000, min200, 300, { oneRow: 500, preferred })).toEqual([300, 300]);
+  });
+
+  it('enterRows: exactly one row with nothing declared is oneRow, bypassing the 360 floor, within bounds', () => {
+    expect(enterRows(group(['plain']), 900, min200, 900, { oneRow: 250, preferred })).toEqual([250]);
+    expect(enterRows(group(['plain']), 900, min200, 900, { oneRow: 120, preferred })).toEqual([200]);
+    expect(enterRows(group(['plain']), 900, min200, 400, { oneRow: 650, preferred })).toEqual([400]);
+    expect(enterRows(group(['plain']), 900, min200, 900)).toEqual([900]);
+  });
+
+  it('enterRows: one declared row is its preferred height, not oneRow', () => {
+    expect(enterRows(group(['chart']), 900, min200, 900, { oneRow: 250, preferred })).toEqual([440]);
+  });
+
+  it('enterRows: several undeclared rows keep the 360 floor', () => {
+    expect(enterRows(column([50, 50], group(['plain']), group(['plain2'])), 500, min200, 900, { oneRow: 250, preferred })).toEqual([360, 360]);
+  });
+
+  it('reconcileRows: a new row uses its preferred height when declared, else 360', () => {
+    const stack = column([50, 50], group(['plain']), group(['plain2']));
+    const next = column([34, 33, 33], group(['plain']), group(['plain2']), group(['chart']));
+    expect(reconcileRows(stack, [300, 400], next, min200, 900, undefined, preferred)).toEqual([300, 400, 440]);
+    expect(reconcileRows(stack, [300, 400], next, min200, 900)).toEqual([300, 400, NEW_ROW_HEIGHT]);
+    expect(reconcileRows(stack, [300, 400], next, min200, 420, undefined, preferred)).toEqual([300, 400, 420]);
   });
 });
