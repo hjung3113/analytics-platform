@@ -1,44 +1,149 @@
 # platform/ — built-in feature consumers
 
-These one-level `platform/<feature>/` packages assemble built-in home, activity, notice, administration and platform feature (VOC, survey, task, finding) menus. They are Consumer-tier packages, never SDK packages ([ADR-0097](../docs/adr/0097-platform-features-and-role-based-names.md); placement authority: [platform-packages §3](../docs/integration/platform-packages.md)). Domain-system consumers remain at `menus/<system>/<group>/` ([rules](../menus/AGENTS.md)).
+One-level `platform/<feature>/` packages assemble the built-in home, activity, notice, administration and platform feature (VOC, survey, task, finding) menus. They are Consumer-tier packages, never SDK packages ([ADR-0097](../docs/adr/0097-platform-features-and-role-based-names.md); placement authority: [platform-packages §3](../docs/integration/platform-packages.md)). Domain-system consumers stay at `menus/<system>/<group>/` ([rules](../menus/AGENTS.md)).
+
+## Placement and wiring
 
 - Read each feature's space only from `GROUPS`. Directory placement does not determine space: null-space and named-space features coexist here. Check group ownership and duplicates across both consumer roots.
-- These packages declare `manifests`; reusable screen/bridge runtime implementations live in `apps/feature-screens`, `packages/adapters/feature-bridge`, `packages/feature-ui` and `packages/feature-shared`. Consume their permitted public entry points; the `featureBridgeMenuPreset` ESLint preset enforces the exact bridge exceptions.
-- Runtime identities follow ADR-0097/0100/0110: group IDs `dashboard`, `voc`, `findings`, `tasks`, `integration`, `surveys`, `flowSettings` (업무 흐름 `설정` group), `access` (운영 콘솔 `권한` group), `systems` (운영 콘솔 `시스템` group); menu IDs are the former `fo-*` IDs without the prefix, except `survey-management` and `permission-request-review` (the personal menus keep `surveys` and `permission-requests`). 업무 흐름 menus live in the `flow` space with canonical paths `/flow/<menu id>`; 운영 콘솔 (`operations` space) holds only 플랫폼 관리 (`admin`), 권한 (`access`) and 시스템 (`systems`) at `/operations/<menu id>`. There are no old paths or aliases. `my-tasks` is declared by `@ap/menu-tasks` in the global `myActivity` group (`/my-tasks`, F only); the app composition (`menus.ts`) orders the 내 활동 entries.
-- SDK packages must not import either consumer root. The dependency direction remains `contracts → ui/kernel → components → shell → apps`; these consumers belong on the app side.
+- Declare only `manifests` here. Reusable screen/bridge runtime lives in `apps/feature-screens`, `packages/adapters/feature-bridge`, `packages/feature-ui` and `packages/feature-shared`; consume their permitted public entry points. The `featureBridgeMenuPreset` ESLint preset enforces the exact bridge exceptions.
+- SDK packages must not import either consumer root. The dependency direction stays `contracts → ui/kernel → components → shell → apps`; these consumers sit on the app side.
 - App wiring uses the shared marker regions in `menus.ts`, `style.css`, app `package.json` and `dev/mock-assembly.tsx`. Match actual imports with their spreads; never derive bindings from package names (`@ap/menu-dashboard` uses `dashboard`, `@ap/menu-feature-admin` uses `featureAdmin`).
-- Add the `GROUPS` row before `pnpm gen:menu <group> --platform …`. Null-space groups use this root automatically. Keep an explicit `/platform/<feature>/` CODEOWNERS entry. The package rules in [menus/AGENTS.md](../menus/AGENTS.md), including public exports, mock boundaries, versions and CHANGELOG, also apply here.
+- Add the `GROUPS` row before `pnpm gen:menu <group> --platform …`. Null-space groups use this root automatically. Keep an explicit `/platform/<feature>/` CODEOWNERS entry. The package rules in [menus/AGENTS.md](../menus/AGENTS.md) (public exports, mock boundaries, versions, CHANGELOG) also apply here.
 
-The following existing menu inventory and route notes moved with their consumers; retain the domain-specific contracts while changing current source paths.
+## Runtime identities and URLs (ADR-0097/0100/0110)
 
-| 패키지 | 폴더 | 그룹 | 화면 |
-| --- | --- | --- | --- |
-| `@ap/menu-home` | `platform/home` | `overview` | OperationsHome (`./launcher`: private app configuration, imported only by `apps/platform-web/src/menus.ts`; root exports manifests only). 홈 `내 할 일`은 Kernel 슬롯 `homeTodo`로만 온다 — 홈은 기능 패키지 집합(`tooling/eslint/src/feature-packages.js`)도 다른 메뉴도 import하지 않는다, #657 |
-| `@ap/menu-notice-voc` | `platform/notice-voc` | `noticeVoc` | `소통` 그룹(로그인 전원, 공간 없음, ADR-0110)의 공지·FAQ 자리를 선언한다. 같은 그룹의 VOC·설문은 `@ap/menu-my-activity`가, 내 활동의 내 Task는 `@ap/menu-tasks`가 선언한다. 화면: Notices(공지 — 목록 + 읽기 창, 종료된 공지는 접힌 「종료됨」 묶음, 읽기는 `notice:view`, 작성·수정·삭제는 `console:access`일 때만 보이고 서버가 판정, Kernel 어댑터 포트 `listNotices`·`saveNotice`·`deleteNotice`만 쓴다(ADR-0098), 페이지 키 `focus`(없는 값은 `값 지우기` 경고로 거절·보존), 실서버는 전역(`scopeId: null`) 공지만 받는다, #1290) + Faq(FAQ — 내용 없이 「준비 중」 안내 한 장, `voc`를 열 수 있으면 VOC 링크) |
-| `@ap/menu-my-activity` | `platform/my-activity` | `myActivity` · `noticeVoc` | Notifications(알림 — feature `InboxPanel`을 다리 `@ap/feature-screens/global-screens`로 올림, mock에서는 `실서버 필요`, ADR-0071, #651; 레일 알림 종·플랫폼 메뉴 배지의 슬롯 `notifications-slot`, #652) + MyVoc·VocDetail(소통 › VOC — feature `PublicVocListScreen`/`VocReadingPane`을 다리로 올림, `/voc`는 범위 안의 VOC 목록(`GET /vocs/public`, 페이지 키 `mine`·`system`·`q`; 옛 `status`·`sort`는 목록 API가 지원하지 않아 거부·보존(경고와 「값 지우기」, 재개 조건: API가 지원할 때)) + 같은 화면 오른쪽 읽기 창 `focus`, `/voc/:vocId`는 `VOC` 아래 navHidden. 읽기 창은 먼저 공개 상세(`/vocs/public/:id`)로 소유 여부를 서버에 묻고, `mine`이면 `ReporterVocDetail`(대화·Reporter Reply 입력, #1159), 아니면 공개 부분만 그리는 `PublicVocDetail`이며 남의 VOC에는 신고자·운영 경로를 부르지 않는다. 처리 권한자(`canOpen('inbox')`)에게만 「업무 흐름에서 처리」 링크, 권한은 Kernel `voc:view`, #654·#1288) + Surveys(설문 — feature `SurveyParticipationScreen`/`RespondSurveyScreen`을 다리로 올림, `/survey/:surveyId/respond`(옛 `/surveys…`는 별칭)는 `설문` 아래 navHidden, #653) + 권한 요청(feature `PermissionRequestsScreen`을 다리로 올림 — 요청·내 요청 상태·철회, mock에서는 `실서버 필요`, 권한은 `platform:view`, ADR-0070, #657) + 홈 `내 할 일`(슬롯 `home-todo-slot` — feature `HomeTodoPanel`을 다리로 올림, 세션이 `ready`일 때만 그린다: mock·세션 전·401 뒤에는 아무것도 없다, #657 2부). 세션 런타임(QueryClient·`FeatureBridge`·`hostLinks`·`feature-api`·슬롯 값)은 `@ap/feature-bridge`가 갖고 이 패키지는 그 root와 정확한 기능 진입(`@ap/feature-screens/global-screens`·`/core`)을 import하는 다리 메뉴다(패키지 경계 규칙 8의 예외, 이후 the feature feature consumers under `platform/`도 같다) |
-| `@ap/menu-dashboard` | `platform/dashboard` | `dashboard` | FeatureDashboard(업무 흐름 `대시보드`, `/flow/dashboard` — feature `DashboardScreen`을 다리 `@ap/feature-screens/operator-screens/dashboard`로 올림, 권한 `features:access`, 페이지 키 `managedSystem`·`returnTo`(carry set `features`의 `pageKeys`, `returnTo`는 복귀 줄 정보 — 이어받기만, 06 §22), 머리 `새로고침`(ko/en), 틀린(UUID 아니거나 빈) `managedSystem`은 마운트 전에 `@ap/feature-bridge`의 `RejectedPage`로 거절·보존하고 요청하지 않는다, mock에서는 `실서버 필요`; 사이드바 `시스템`는 `@ap/feature-bridge/scope-control` 슬롯, ADR-0081, #759) |
-| `@ap/menu-voc` | `platform/voc` | `voc` | FeatureInbox·FeatureTriage·FeatureClusters(업무 흐름 `VOC 처리` 그룹의 `VOC 처리함`(`/flow/inbox`)·`분류`(`/flow/triage`)·`반복 VOC`(`/flow/clusters`) — feature `InboxScreen`·`TriageScreen`·`ClusterListScreen`을 다리 `@ap/feature-screens/operator-screens/voc-inbox`·`voc-triage`·`voc-clusters`로 올림, 권한 `features:access`, 페이지 키 `focus`·`managedSystem` 등과 `returnTo`(경로 표에는 없는 이어받기 전용 키)는 `@ap/feature-bridge`의 경로 표 `inboxRoute`·`triageRoute`·`clustersRoute`와 같다(Clusters는 screen `managedSystem=all`을 범위 없음으로 읽어 저장하지 않는다). Clusters는 `focus`로 Cluster 상세(`useClusterDetailParts`)를 수신함과 같은 `DetailDrawer`에 그리고, screen 화면에는 `renderDetail`(항상 `undefined`)을 넘겨 screen `ListShell`이 상세를 `FeatureBridge` 밖 셸 슬롯에 그리지 않게 한다. 수신함은 `focus`로 VOC 상세(`voc-detail` 진입의 `useVocDetailParts`)를 셸 상세 슬롯 `DetailDrawer`에 `FeatureBridge` 안에서 그리고, Triage의 선택 패널은 화면 안에 있다. 세 페이지는 마운트 전에 주소 값을 기능 검색 스키마(`voc-search` 진입의 `isVocSearchValueValid`, Clusters는 `voc-clusters` 진입의 `isVocClustersSearchValueValid`)로 검사해 틀린 값(`focus`는 UUID)을 `값 지우기` 경고로 거절·보존하고 기능 요청을 하지 않는다(ADR-0071 결정 9, 06 §6.4). mock에서는 `실서버 필요`, ADR-0081, #761) |
-| `@ap/menu-findings` | `platform/findings` | `findings` | FeatureFindings·FeatureEvidence(업무 흐름 `Finding` 그룹의 `전체 Finding`(`/flow/findings`, 그룹 primary)·`근거`(`/flow/evidence`) — feature `FindingsScreen`·`EvidenceScreen`을 다리 `@ap/feature-screens/operator-screens/findings`·`evidence`로 올림, 권한 `features:access`, 페이지 키는 `@ap/feature-bridge`의 경로 표 `findingsRoute`·`evidenceRoute`와 `returnTo`. 근거는 화면이 `renderDetail`로 준 부품(`focus`가 선택)을 `FeatureDetailDrawer`로 제자리에서 그리며 닫기는 화면(`requestClose`)을 거친다. `focus`로 Finding 상세(`finding-detail` 진입의 `useFindingDetailParts`)를 `FeatureBridge` 안 `FeatureDetailDrawer`로 셸 상세 슬롯에 그리고(screen 화면에는 `renderDetail`을 항상 `undefined`로 — 목록의 거부·빈 상태도 상세를 내지 않는다), 닫기와 못 찾음 버튼은 `focus`를 지운다. 마운트 전에 주소 값을 `findings-search` 진입의 `isFindingsSearchValueValid`로 검사해 틀린 값을 `값 지우기` 경고로 거절·보존한다. mock에서는 `실서버 필요`, ADR-0081, #762) |
-| `@ap/menu-integration` | `platform/integration` | `integration` | FeatureIntegration·FeatureEntityLinks·FeatureCoverage(업무 흐름 `연동` 그룹의 `연동 대시보드`(`/flow/integration`, 그룹 primary)·`연결 관계`(`/flow/entity-links`)·`커버리지`(`/flow/coverage`) — feature `IntegrationDashboardScreen`·`LinksScreen`·`CoverageScreen`을 다리 `@ap/feature-screens/operator-screens/integration-dashboard`·`entity-links`·`coverage`로 올림, 권한 `features:access`, 페이지 키는 `@ap/feature-bridge`의 경로 표 `integrationDashboardRoute`·`entityLinksRoute`·`coverageRoute`와 `returnTo`, 사이드바에 기능의 `연동 › Findings` 행은 없다. 대시보드는 화면이 `renderDetail`로 준 부품(`focus`가 선택)을 `FeatureDetailDrawer`로 제자리에서 그리며 닫기는 화면(`requestClose`)을 거치고, 대시보드는 `renderRecoveryRequestAccess`를 넘긴다. 커버리지·연결 관계는 상세가 없다. 세 페이지는 마운트 전에 주소 값을 `integration-search` 진입의 검사 함수로 검사해 틀린 값을 `값 지우기` 경고로 거절·보존한다(연결 관계의 `managedSystem`은 기능 스키마대로 아무 문자열). mock에서는 `실서버 필요`, ADR-0081, #762) |
-| `@ap/menu-surveys` | `platform/surveys` | `surveys` | FeatureSurveys·FeatureSurveyBuilder·FeatureSurveyResults·FeatureSurveyFollowUp(업무 흐름 `설문 운영` 그룹의 `설문 관리`(`/flow/survey-management`, 그룹 primary)와 사이드바에 행이 없는 `설문 빌더`·`설문 결과`·`설문 후속 조치`(`/flow/survey-builder|survey-results|survey-follow-up/:surveyId`, `navHidden`, `parent: survey-management`) — feature `SurveysScreen`·`useSurveyDetailParts`·`SurveyBuilderScreen`·`SurveyResultsScreen`·`SurveyFollowUpScreen`을 다리 `@ap/feature-screens/operator-screens/surveys`·`survey-detail`·`survey-builder`·`survey-results`·`survey-follow-up`으로 올림, 권한 `features:access`, 페이지 키는 `@ap/feature-bridge`의 경로 표 `surveysRoute`·`surveyBuilderRoute`·`surveyResultsRoute`·`surveyFollowUpRoute`와 `returnTo`. 목록의 `focus`는 Survey 선택이고 페이지가 `SurveyDetailDrawer`로 `FeatureDetailDrawer`에 그린다(화면에는 `renderDetail`로 늘 `undefined`). 하위 화면의 `:surveyId`가 UUID가 아니면 요청 없이 찾을 수 없음 화면이고, 후속 조치의 `focus`는 응답 선택이다(화면이 제어, 자동 선택 없음). 신고자 `설문`의 `/surveys`·`/surveys/:id/respond`에 별칭을 걸지 않는다. mock에서는 `실서버 필요`, ADR-0081, #764 p1) |
-| `@ap/menu-feature-admin` | `platform/feature-admin` | `flowSettings` | FeatureManagedSystems·FeatureAnalyticsAreas·FeatureSettings(업무 흐름 `설정` 그룹의 `시스템`(`/flow/managed-systems`, 그룹 primary)·`분석 영역`·`흐름 정책`(`/flow/analytics-areas|settings`) — feature `ManagedSystemsAdminPage`·`AnalyticsAreasAdminPage`·`WorkspaceSettingsScreen`을 다리 `@ap/feature-screens/operator-screens/managed-systems|analytics-areas|settings`로 올림, 권한 `console:access`와 `features:access`의 AND(`additionalPermissions`, 화면의 `PermissionGate`는 표시 힌트이고 백엔드가 판정), 페이지 키는 `@ap/feature-bridge`의 경로 표 `managedSystemsRoute`·`analyticsAreasRoute`·`settingsRoute`와 공간이 싣는 `managedSystem`·`returnTo`. 그룹 id `flowSettings`가 `ScopeControl`의 `시스템` 선택기를 끄고 화면은 이어받은 `managedSystem`을 무시하며 Analytics Area의 자체 필터는 `system`이다. 선택은 `focus`(자동 선택 없음, 상세는 `FeatureDetailDrawer`), 설정의 `section=coverage`는 커버리지 구역으로 스크롤한다. 화면은 `hostOwnsTitle`이면 자기 제목 줄을 그리지 않는다. `/admin/*`에 별칭을 걸지 않는다(플랫폼 관리 소유). mock에서는 `실서버 필요`, ADR-0081, #764 p2) |
-| `@ap/menu-tasks` | `platform/tasks` | `tasks` | FeatureTaskRequests·FeatureTaskBoard·FeatureMilestones·FeatureTaskList와 전역 `내 활동`의 FeatureMyTasks(`내 Task`, `/my-tasks`, 권한 F, 시스템 범위는 페이지 필터 영역의 기존 Managed System 선택기 `@ap/feature-bridge`의 `ListScope`; 업무 흐름 `Task` 그룹의 `Task 요청`(`/flow/task-requests`)·`Task 보드`(`/flow/tasks`, 그룹 primary)·`마일스톤`(`/flow/milestones`)·사이드바에 행이 없는 `Task 목록`(`/flow/task-list`, `navHidden`, 부모 `Task 보드`라 셸이 `Task 보드`를 현재로 표시) — feature `TaskRequestsScreen`·`TaskBoardScreen`·`MilestonesScreen`·`TaskListScreen`을 다리 `@ap/feature-screens/operator-screens/task-requests`·`task-board`·`milestones`·`task-list`로 올림, 권한 `features:access`, 페이지 키는 `@ap/feature-bridge`의 경로 표 `taskRequestsRoute`·`taskBoardRoute`·`myTasksRoute`·`milestonesRoute`·`taskListRoute`와 `returnTo`. 목록·내 Task는 `focus`로 Task 상세(`task-detail` 진입의 `useTaskDetailParts`)를 `FeatureBridge` 안 `FeatureDetailDrawer`로 셸 상세 슬롯에 그리고(screen 화면에는 `renderDetail`을 항상 `undefined`로, `autoSelect={false}`), 보드·Task 요청·마일스톤은 화면이 `renderDetail`로 준 부품을 `FeatureDetailDrawer`로 제자리에서 그리며(Milestone 생성 포함) 닫기는 화면(`requestClose`)을 거친다. 다섯 페이지는 마운트 전에 주소 값을 `tasks-search` 진입의 `isTasksSearchValueValid`로 검사해 틀린 값을 `값 지우기` 경고로 거절·보존한다. mock에서는 `실서버 필요`, ADR-0081, #763) |
-| `@ap/menu-admin` | `platform/admin` | `admin` | AccessDirectory(권한/역할 조회 전용, #49), AuditTrail(변경 감사, #50), UsageOverview, RegistryCatalog |
-| `@ap/menu-access` | `platform/access` | `access` | FeaturePermissionRequests·FeaturePermissionGrants(운영 콘솔 `권한` 그룹의 `권한 요청 검토`(`/operations/permission-request-review`, 그룹 primary)·`부여 목록`(`/operations/permission-grants`) — feature `PermissionRequestsScreen`·`PermissionGrantsScreen`을 다리 `@ap/feature-screens/operator-screens/permission-requests|permission-grants`로 올림, 권한 `console:access`와 `features:access`의 AND(`additionalPermissions`), mock에서는 `실서버 필요`) |
-| `@ap/menu-systems` | `platform/systems` | `systems` | Systems(운영 콘솔 `시스템` 그룹의 `시스템`(`/operations/systems`, 그룹 primary, 조회 전용) — 업무 시스템(공간)마다 추적 시스템(Managed System)과 연결 상태(`연결됨` / 공간이 선언을 거둔 `연결 끊김`), 「플랫폼」 시스템, 공간 없이 손으로 등록한 시스템(`플랫폼 밖` 표시)을 한 표로 보인다. 데이터는 다리 `@ap/feature-bridge`의 `useSystemsOverview`(`GET /managed-systems/space-links`와 `GET /managed-systems?include_archived=true`를 `limit`·`offset`으로 끝까지 읽음, 보관된 끊김 시스템 이름 포함)이고 행 계산은 `system-rows.ts`(순수), 권한 `console:access`만(연결은 권한을 주지 않는다, ADR-0068 결정 1), 페이지 키 없음, mock에서는 `실서버 필요`, 등록한 mock 엔드포인트 없음. 로딩·오류(재시도)·빈 상태는 `LoadingBlock`·`StateMessage`, #1289 node j, ADR-0110 결정 5) |
-| `@ap/menu-improvement-items` | `platform/improvement-items` | `improvementItems` | ImprovementItems·ImprovementDetail(전역 직속 그룹 `개선 아이템`, `/improvement-items`(primary)와 `/improvement-items/:itemId`(`navHidden`, 부모 `improvement-items`, 페이지 키 `returnTo`) — 목록·상세(효과 확인 구역: `beforeAfterPeriods` 비교 링크·판단 저장, #1328 f)·만들기 서랍, 홈 담당 건수 카드 서브패스 `./home-todo-slot`(앱 `src/main.tsx`만 import, #1328 e2), 페이지 키 `view`·`q`·`filter`(반복·숨김)·`page`·`sort`·`focus`·`origin`·`originPage`(숨김, 출처 페이지 키 JSON, 생성 제어 키와 분리, #1430), 분석 머리 `⋯` 진입점 `./analysis-actions`(앱 `src/main.tsx`에서 `analysisActions` 슬롯 주입), 권한 읽기 `platform:view`·쓰기 `improvement:manage`(화면의 `can()`은 힌트, 서버 action이 판정). 기능 REST 다리가 아니라 메뉴 query/action 전송(`endpoints.ts`)을 쓰고, Quest 참조는 Kernel 어댑터 포트 `getQuest`·`searchQuests`(#1372)만 읽는다. mock 응답은 `./mock` 서브패스, #1328 d·e2·f, ADR-0106) |
+- Group IDs: `dashboard`, `voc`, `findings`, `tasks`, `integration`, `surveys`, `flowSettings` (업무 흐름 `설정` group), `access` (운영 콘솔 `권한` group), `systems` (운영 콘솔 `시스템` group).
+- Menu IDs are the former `fo-*` IDs without the prefix, except `survey-management` and `permission-request-review` (the personal menus keep `surveys` and `permission-requests`).
+- Canonical URLs: 업무 흐름 menus live in the `flow` space at `/flow/<menu id>`. 운영 콘솔 (`operations` space) holds only 플랫폼 관리 (`admin`), 권한 (`access`) and 시스템 (`systems`), at `/operations/<menu id>` (ADR-0093). No old `/feedbackops/…` paths or aliases exist; check values in `apps/platform-web/src/canonical-paths.test.ts` and the Registry.
+- `my-tasks` is declared by `@ap/menu-tasks` in the global `myActivity` group (`/my-tasks`, F only). The app composition (`menus.ts`) orders the 내 활동 entries.
 
+## Common rules for bridge menus
 
-**업무 흐름·운영 콘솔 메뉴의 URL.** Registry가 여는 정규 URL은 업무 흐름 `/flow/<메뉴 id>`, 운영 콘솔 `/operations/<메뉴 id>`(ADR-0093·0100·0110)이고 옛 `/feedbackops/…` 주소와 별칭은 없다. 값은 `apps/platform-web/src/canonical-paths.test.ts`와 Registry에서 확인한다. 내 Task만 전역 `/my-tasks`다.
+Every operator-screen menu below follows these unless its entry says otherwise.
 
-| 화면 | 정규 URL |
-| --- | --- |
-| 설문 관리 | `/flow/survey-management` |
-| 설문 빌더 | `/flow/survey-builder/:surveyId` |
-| 설문 결과 | `/flow/survey-results/:surveyId` |
-| 설문 후속 조치 | `/flow/survey-follow-up/:surveyId` |
-| 시스템 | `/flow/managed-systems` |
-| 분석 영역 | `/flow/analytics-areas` |
-| 권한 요청 검토 | `/operations/permission-request-review` |
-| 부여 목록 | `/operations/permission-grants` |
-| 흐름 정책 | `/flow/settings` |
+- Lift the feature screen through the bridge entry `@ap/feature-screens/operator-screens/<name>`; permission is `features:access`; page keys equal the route tables in `@ap/feature-bridge` plus `returnTo` (carry-only, hand-over information; 06 §22).
+- Validate address values before mount with the feature's search-schema check; reject and preserve a wrong value with a `값 지우기` warning and make no feature request.
+- Under the mock adapter the screen shows `실서버 필요`.
+- Pass `renderDetail` as always `undefined` when the page draws the detail itself in the shell detail slot (so the screen's `ListShell` never draws detail outside `FeatureBridge`); when the screen supplies detail parts through `renderDetail`, draw them in place with `FeatureDetailDrawer` and route closing through the screen (`requestClose`).
+- ADR-0081 is the reason for the bridge shape.
+
+## Packages
+
+| Package | Folder | Group |
+| --- | --- | --- |
+| `@ap/menu-home` | `platform/home` | `overview` |
+| `@ap/menu-notice-voc` | `platform/notice-voc` | `noticeVoc` |
+| `@ap/menu-my-activity` | `platform/my-activity` | `myActivity` · `noticeVoc` |
+| `@ap/menu-dashboard` | `platform/dashboard` | `dashboard` |
+| `@ap/menu-voc` | `platform/voc` | `voc` |
+| `@ap/menu-findings` | `platform/findings` | `findings` |
+| `@ap/menu-integration` | `platform/integration` | `integration` |
+| `@ap/menu-surveys` | `platform/surveys` | `surveys` |
+| `@ap/menu-feature-admin` | `platform/feature-admin` | `flowSettings` |
+| `@ap/menu-tasks` | `platform/tasks` | `tasks` |
+| `@ap/menu-admin` | `platform/admin` | `admin` |
+| `@ap/menu-access` | `platform/access` | `access` |
+| `@ap/menu-systems` | `platform/systems` | `systems` |
+| `@ap/menu-improvement-items` | `platform/improvement-items` | `improvementItems` |
+
+### `@ap/menu-home`
+
+- Screen: OperationsHome. `./launcher` is private app configuration, imported only by `apps/platform-web/src/menus.ts`; the root exports manifests only.
+- Home `내 할 일` arrives only through the Kernel slot `homeTodo`. Home imports neither the feature package set (`tooling/eslint/src/feature-packages.js`) nor any other menu.
+
+### `@ap/menu-notice-voc`
+
+- Declares the notice and FAQ places of the `소통` group (every logged-in user, no space, ADR-0110). The same group's VOC and surveys are declared by `@ap/menu-my-activity`; the personal Task list by `@ap/menu-tasks`.
+- Notices: list plus reading pane; ended notices sit in a collapsed «종료됨» group. Reading needs `notice:view`; create/edit/delete show only with `console:access` and the server decides. Use only the Kernel adapter ports `listNotices`, `saveNotice`, `deleteNotice` (ADR-0098). Page key `focus`; an unknown value is rejected and preserved with a `값 지우기` warning. The real server returns only global (`scopeId: null`) notices.
+- Faq: one «준비 중» notice without content, plus a VOC link when `voc` can be opened.
+
+### `@ap/menu-my-activity`
+
+- It is a bridge menu: the session runtime (QueryClient, `FeatureBridge`, `hostLinks`, `feature-api`, slot values) is owned by `@ap/feature-bridge`; this package imports its root and the exact feature entries (`@ap/feature-screens/global-screens`, `/core`). This is the package-boundary rule 8 exception, and the other feature consumers under `platform/` follow it too.
+- Notifications: feature `InboxPanel` lifted through `@ap/feature-screens/global-screens`; `실서버 필요` under mock (ADR-0071). Slot `notifications-slot` feeds the rail bell and platform-menu badge.
+- MyVoc / VocDetail (소통 › VOC): feature `PublicVocListScreen` / `VocReadingPane`; permission is Kernel `voc:view`.
+  - `/voc` lists in-scope VOCs (`GET /vocs/public`); page keys `mine`, `system`, `q`, plus a reading pane keyed by `focus` on the same screen. The old `status` and `sort` keys are rejected and preserved (warning and `값 지우기`); reopen when the list API supports them.
+  - `/voc/:vocId` is `navHidden` under `VOC`.
+  - The reading pane first asks the public detail (`/vocs/public/:id`) whether the caller owns the VOC. `mine` renders `ReporterVocDetail` (conversation and Reporter Reply input); otherwise `PublicVocDetail` renders the public part only. Never call reporter or operator paths for someone else's VOC.
+  - Only users with `canOpen('inbox')` get the «업무 흐름에서 처리» link.
+- Surveys: feature `SurveyParticipationScreen` / `RespondSurveyScreen`; `/survey/:surveyId/respond` (the old `/surveys…` is an alias) is `navHidden` under `설문`.
+- Permission requests: feature `PermissionRequestsScreen` (request, own-request status, withdraw); `실서버 필요` under mock; permission `platform:view` (ADR-0070).
+- Home `내 할 일`: slot `home-todo-slot`, feature `HomeTodoPanel`. Render only when the session is `ready`; under mock, before the session and after a 401 render nothing.
+
+### `@ap/menu-dashboard`
+
+- FeatureDashboard (업무 흐름 `대시보드`, `/flow/dashboard`) lifts `DashboardScreen` via `@ap/feature-screens/operator-screens/dashboard`.
+- Page keys `managedSystem` and `returnTo` (carry set `features` `pageKeys`; `returnTo` is the return-line information, carried only). A wrong (non-UUID or empty) `managedSystem` is rejected and preserved by `RejectedPage` from `@ap/feature-bridge` before mount, with no request. Header action `새로고침` (ko/en).
+- The sidebar `시스템` selector is the `@ap/feature-bridge/scope-control` slot.
+
+### `@ap/menu-voc`
+
+- 업무 흐름 `VOC 처리` group: `VOC 처리함` (`/flow/inbox`), `분류` (`/flow/triage`), `반복 VOC` (`/flow/clusters`), lifting `InboxScreen`, `TriageScreen`, `ClusterListScreen` via `operator-screens/voc-inbox|voc-triage|voc-clusters`.
+- Page keys (`focus`, `managedSystem`, …) and the carry-only `returnTo` equal the `@ap/feature-bridge` route tables `inboxRoute`, `triageRoute`, `clustersRoute`. Clusters reads screen `managedSystem=all` as no scope and does not store it.
+- Detail drawing:
+  - Inbox draws VOC detail (`useVocDetailParts` from the `voc-detail` entry) for `focus` into the shell detail slot `DetailDrawer`, inside `FeatureBridge`.
+  - Clusters draws Cluster detail (`useClusterDetailParts`) in the same `DetailDrawer`.
+  - Both pass `renderDetail` as always `undefined`.
+  - Triage's selection panel stays inside the screen.
+- Before mount, check address values with `isVocSearchValueValid` (`voc-search` entry; Clusters: `isVocClustersSearchValueValid` from `voc-clusters`); reject and preserve wrong values (`focus` must be a UUID) with the `값 지우기` warning and make no feature request (ADR-0071 decision 9, 06 §6.4).
+
+### `@ap/menu-findings`
+
+- 업무 흐름 `Finding` group: `전체 Finding` (`/flow/findings`, group primary) and `근거` (`/flow/evidence`), lifting `FindingsScreen` and `EvidenceScreen` via `operator-screens/findings|evidence`. Page keys equal `findingsRoute`, `evidenceRoute` plus `returnTo`.
+- Evidence draws the screen-supplied parts (selected by `focus`) in place with `FeatureDetailDrawer`; closing goes through the screen (`requestClose`).
+- Findings draws detail for `focus` (`useFindingDetailParts`, `finding-detail` entry) with `FeatureDetailDrawer` in the shell detail slot, inside `FeatureBridge`. The screen gets `renderDetail` always `undefined` (even its rejected and empty list states draw no detail). Close and not-found buttons clear `focus`.
+- Check address values with `isFindingsSearchValueValid` (`findings-search` entry) before mount; reject and preserve wrong values.
+
+### `@ap/menu-integration`
+
+- 업무 흐름 `연동` group: `연동 대시보드` (`/flow/integration`, group primary), `연결 관계` (`/flow/entity-links`), `커버리지` (`/flow/coverage`), lifting `IntegrationDashboardScreen`, `LinksScreen`, `CoverageScreen` via `operator-screens/integration-dashboard|entity-links|coverage`. Page keys equal `integrationDashboardRoute`, `entityLinksRoute`, `coverageRoute` plus `returnTo`. The sidebar has no feature `연동 › Findings` row.
+- The dashboard draws screen-supplied parts (selected by `focus`) in place with `FeatureDetailDrawer`, closes through the screen (`requestClose`), and passes `renderRecoveryRequestAccess`. Coverage and 연결 관계 have no detail.
+- All three check address values with the `integration-search` entry's functions before mount; reject and preserve wrong values. 연결 관계 `managedSystem` is any string, as in the feature schema.
+
+### `@ap/menu-surveys`
+
+- 업무 흐름 `설문 운영` group: `설문 관리` (`/flow/survey-management`, group primary) plus sidebar-less `navHidden` children with `parent: survey-management`: `설문 빌더` (`/flow/survey-builder/:surveyId`), `설문 결과` (`/flow/survey-results/:surveyId`), `설문 후속 조치` (`/flow/survey-follow-up/:surveyId`).
+- Lifts `SurveysScreen`, `useSurveyDetailParts`, `SurveyBuilderScreen`, `SurveyResultsScreen`, `SurveyFollowUpScreen` via `operator-screens/surveys|survey-detail|survey-builder|survey-results|survey-follow-up`. Page keys equal `surveysRoute`, `surveyBuilderRoute`, `surveyResultsRoute`, `surveyFollowUpRoute` plus `returnTo`.
+- List `focus` selects a Survey; the page draws it with `SurveyDetailDrawer` in `FeatureDetailDrawer` (screen `renderDetail` always `undefined`).
+- A child screen whose `:surveyId` is not a UUID shows not-found with no request. Follow-up `focus` selects a response (the screen controls it, no auto-select).
+- Never alias the reporter `설문` paths `/surveys` and `/surveys/:id/respond`.
+
+### `@ap/menu-feature-admin`
+
+- 업무 흐름 `설정` group: `시스템` (`/flow/managed-systems`, group primary), `분석 영역` (`/flow/analytics-areas`), `흐름 정책` (`/flow/settings`), lifting `ManagedSystemsAdminPage`, `AnalyticsAreasAdminPage`, `WorkspaceSettingsScreen` via `operator-screens/managed-systems|analytics-areas|settings`.
+- Permission is `console:access` AND `features:access` (`additionalPermissions`); the screen's `PermissionGate` is a display hint and the backend decides.
+- Page keys equal `managedSystemsRoute`, `analyticsAreasRoute`, `settingsRoute`, plus the `managedSystem` and `returnTo` the space carries. Group id `flowSettings` turns off the `ScopeControl` `시스템` selector, and the screen ignores a carried `managedSystem`. Analytics Area's own filter is `system`.
+- Selection is `focus` (no auto-select; detail in `FeatureDetailDrawer`). Settings `section=coverage` scrolls to the coverage section. A screen draws no title row when `hostOwnsTitle`.
+- Never alias `/admin/*` (owned by 플랫폼 관리).
+
+### `@ap/menu-tasks`
+
+- 업무 흐름 `Task` group: `Task 요청` (`/flow/task-requests`), `Task 보드` (`/flow/tasks`, group primary), `마일스톤` (`/flow/milestones`), and sidebar-less `Task 목록` (`/flow/task-list`, `navHidden`, parent `Task 보드` so the shell marks `Task 보드` current). Global `내 활동` adds FeatureMyTasks (`내 Task`, `/my-tasks`, permission F); its system scope is the page-filter-area Managed System selector `ListScope` from `@ap/feature-bridge`.
+- Lifts `TaskRequestsScreen`, `TaskBoardScreen`, `MilestonesScreen`, `TaskListScreen` via `operator-screens/task-requests|task-board|milestones|task-list`. Page keys equal `taskRequestsRoute`, `taskBoardRoute`, `myTasksRoute`, `milestonesRoute`, `taskListRoute` plus `returnTo`.
+- The list and 내 Task draw Task detail for `focus` (`useTaskDetailParts`, `task-detail` entry) with `FeatureDetailDrawer` in the shell detail slot, inside `FeatureBridge` (`renderDetail` always `undefined`, `autoSelect={false}`).
+- The board, Task 요청 and 마일스톤 draw screen-supplied parts (including Milestone creation) in place with `FeatureDetailDrawer`; closing goes through the screen (`requestClose`).
+- All five pages check address values with `isTasksSearchValueValid` (`tasks-search` entry) before mount; reject and preserve wrong values.
+
+### `@ap/menu-admin`
+
+- Screens: AccessDirectory (permission/role lookup, read-only), AuditTrail (change audit), UsageOverview, RegistryCatalog.
+
+### `@ap/menu-access`
+
+- 운영 콘솔 `권한` group: `권한 요청 검토` (`/operations/permission-request-review`, group primary) and `부여 목록` (`/operations/permission-grants`), lifting `PermissionRequestsScreen` and `PermissionGrantsScreen` via `operator-screens/permission-requests|permission-grants`.
+- Permission is `console:access` AND `features:access` (`additionalPermissions`). `실서버 필요` under mock.
+
+### `@ap/menu-systems`
+
+- 운영 콘솔 `시스템` group: `시스템` (`/operations/systems`, group primary, read-only). One table shows, per business system (space), the tracked Managed System and its link state (`연결됨` / `연결 끊김` when the space withdrew its declaration), the «플랫폼» system, and systems registered by hand without a space (marked `플랫폼 밖`).
+- Data comes from the bridge's `useSystemsOverview` (`GET /managed-systems/space-links` and `GET /managed-systems?include_archived=true`, both read to the end by `limit`/`offset`, including names of archived disconnected systems). Row computation is the pure `system-rows.ts`.
+- Permission is `console:access` only; a link grants no permission (ADR-0068 decision 1). No page keys. `실서버 필요` under mock; no mock endpoint is registered.
+- Loading, error (retry) and empty states use `LoadingBlock` and `StateMessage` (ADR-0110 decision 5).
+
+### `@ap/menu-improvement-items`
+
+- Global top-level group `개선 아이템`: `/improvement-items` (primary) and `/improvement-items/:itemId` (`navHidden`, parent `improvement-items`, page key `returnTo`). Screens: list, detail (effect-check section: `beforeAfterPeriods` comparison link and judgment save), create drawer (ADR-0106).
+- Page keys: `view`, `q`, `filter` (repeat, hidden), `page`, `sort`, `focus`, `origin`, `originPage` (hidden; origin page keys as JSON, kept separate from the create control keys).
+- Permission: read `platform:view`, write `improvement:manage`; the screen's `can()` is a hint and the server action decides.
+- Use the menu's own query/action transport (`endpoints.ts`), not the feature REST bridge. Read Quest references only through the Kernel adapter ports `getQuest` and `searchQuests`.
+- Subpaths: `./home-todo-slot` (home owned-count card; imported only by the app's `src/main.tsx`), `./analysis-actions` (analysis-header `⋯` entry; the app injects it as the `analysisActions` slot in `src/main.tsx`), `./mock` (mock responses).

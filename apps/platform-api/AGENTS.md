@@ -1,52 +1,62 @@
 # Backend Agent Guide
 
-DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clusters use `ops/platform-api/scripts/db/cutover-0076-platform-identity.sh`; see `apps/platform-api/docs/04-database-and-migrations.md` for the staged procedure.
+DB/role identity: `platform` database and `platform_*` roles. Fresh or uncut clusters run `ops/platform-api/scripts/db/cutover-0076-platform-identity.sh` (staged procedure: `apps/platform-api/docs/04-database-and-migrations.md`).
 
 ## Required Docs
 
-- Read `docs/architecture/platform-api/README.md` before backend changes.
-- Use `docs/architecture/platform-api/03-api-contracts.md` and `docs/architecture/platform-api/api/` for endpoint behavior.
-- Use `apps/platform-api/docs/04-database-and-migrations.md` for storage.
-- Use `docs/architecture/platform-api/05-permission-policy.md` for access control.
-- Use `docs/architecture/platform-api/06-entity-linking-contract.md` for links.
-- Use `apps/platform-api/docs/02-domain-module-boundaries.md` before adding or moving modules.
-- Read the measured traps before editing tests or migrations: [integration tests](../../.claude/rules/feature-api-integration-tests.md), [database and migrations](../../.claude/rules/feature-db-migrations.md).
+- Before backend changes: `docs/architecture/platform-api/README.md`.
+- Endpoint behavior: `docs/architecture/platform-api/03-api-contracts.md` + `docs/architecture/platform-api/api/`.
+- Storage: `apps/platform-api/docs/04-database-and-migrations.md`. Access control: `05-permission-policy.md`. Links: `06-entity-linking-contract.md`.
+- Before adding or moving modules: `apps/platform-api/docs/02-domain-module-boundaries.md`.
+- Measured traps before editing tests or migrations: [integration tests](../../.claude/rules/feature-api-integration-tests.md), [database and migrations](../../.claude/rules/feature-db-migrations.md).
 
 ## Layer Rules
 
-Layer boundaries (controllers, application services, repositories) are defined in `docs/agents/feature-implementation.md` → Implementation Boundaries.
-
-Backend-specific additions to those boundaries:
+Layer boundaries live in `docs/agents/feature-implementation.md` → Implementation Boundaries. Backend additions:
 
 - Domain services own local business rules only.
-- Read models may compose approved projections but must not become mutation paths.
+- Read models may compose approved projections but never become mutation paths.
 - Core owns Managed System Registry, Analytics Areas, Actor, Role Level, audit, shared attachment governance, and default owner/reviewer resolution inputs; Task owns Task Request, Task, future Work Initiative / Project grouping, Milestone, and execution views.
-- Mutation services type their handle as `Tx` (`Db | DrizzleTx`, `db/tx.ts`) and run inside the caller's transaction; do not re-introduce a `type Tx = Db` alias.
-- Every new drizzle migration must be registered in `migrations/meta/_journal.json` in the same chunk. drizzle applies only journaled migrations, so an unregistered `.sql` file is silently skipped while `db:migrate` still reports success.
+- Mutation services type their handle `Tx` (`Db | DrizzleTx`, `db/tx.ts`) and run inside the caller's transaction; never re-introduce `type Tx = Db`.
+- Register every new drizzle migration in `migrations/meta/_journal.json` in the same chunk — drizzle silently skips an unregistered `.sql` while `db:migrate` reports success.
 
 ## Cross-System Commands
 
-Every cross-system command must validate workspace ownership, check permissions, write the target object, write required `entity_links`, append required audit events, and return data suitable for pending or optimistic UI states.
-
-Source-shaped routes may host request parsing, but target object writes must use the target module's application command or an orchestration service documented in `apps/platform-api/docs/02-domain-module-boundaries.md`.
-
-Backend-specific additions to the Managed System invariant in `docs/agents/feature-implementation.md` → Product Invariants: Analytics Area is business
-context inside one Managed System, not an MVP permission boundary. Project or
-Work Initiative is future execution grouping only unless a later ADR changes
-that decision.
+- A cross-system command validates workspace ownership, checks permissions, writes the target object, writes required `entity_links`, appends required audit events, and returns data suitable for pending or optimistic UI.
+- Source-shaped routes may parse the request; target object writes go through the target module's application command or an orchestration service documented in `apps/platform-api/docs/02-domain-module-boundaries.md`.
+- Analytics Area is business context inside one Managed System, not an MVP permission boundary; Project / Work Initiative is future execution grouping only unless a later ADR changes it (Managed System invariant: `docs/agents/feature-implementation.md` → Product Invariants).
 
 ## Verification
 
-- **Lint.** `pnpm --filter @ap/platform-api lint` runs ESLint over the whole package (`featureServerPreset` from `@ap/eslint-config`, `--max-warnings 0`); Biome no longer covers it (#1102 a). Non-null assertions in tests narrow with `src/test-support/defined.ts`; an intended exception names its ESLint rule and a concrete reason in the comment; an unused directive fails. Rule correspondence: `docs/integration/platform-packages.md` §6.
-- Cover permission policy, entity-link side effects, API error codes, validation paths, audit events, and transaction behavior when touched.
-- **Runtime SDK imports are bounded.** Source may import own feature packages and `@ap/ui`; core-server alone may directly import `@ap/contract-schemas` for new port validation (ADR-0097). Other SDK packages remain test-only (`ops/platform-api/scripts/check-boundaries.mjs` rule 11, ADR-0073). Tests may import `@ap/contracts` (its generated `vocab.json` for the vocabulary drift tests), `@ap/server-conformance` and `@ap/http-adapter` (devDependencies). `__tests__/platform-conformance.integration.test.ts` runs the platform's server conformance kit through the real HTTP adapter over `app.inject`; a port this backend does not serve yet shows as a skipped test (the readiness table), never a pass. Those packages export TypeScript source written for the platform's compiler settings, so a test that imports them is excluded from `tsconfig.json` (the build program) and type-checked by `tsconfig.platform-tests.json` — `typecheck` runs both; list a new such test in both files.
-- Never rely on frontend checks as the source of authorization truth.
-- **`test:integration` is the gate; the default `test` includes DB-free unit suites and is not sufficient for DB-backed verification.** Integration suites use `describe.skipIf(!runIntegration)` where `runIntegration` requires `DATABASE_URL`, `DATABASE_URL_MIGRATE`, and (in most files) `WORKSPACE_ID`, so a bare `pnpm --filter @ap/platform-api test` skips every one of them and touches no database. `pnpm --filter @ap/platform-api test:integration` (`ops/platform-api/scripts/test-integration.sh`) exports `ops/platform-api/.env` and runs the same suite with the integration path live; it forwards extra args to vitest, so a narrow filter still works. `PLATFORM_API_ENV_FILE=<path>` points it at a different env file. **DB-backed integration verification is complete only from the result of `pnpm --filter @ap/platform-api test:integration`** — `src/test-support/__tests__/integration-gate.test.ts` remains ungated and requires the integration environment unless explicitly opted out. The root/default `test` command strips `DATABASE_URL`, `DATABASE_URL_MIGRATE`, and `WORKSPACE_ID` regardless of caller environment and sets `ALLOW_SKIPPED_INTEGRATION=1`; this proves only the non-DB path. `test:integration` clears that opt-out after loading its env file, then requires all three inputs. An opt-out run is never an integration gate result.
-- **The integration gate resets the database.** With the env exported, the vitest `globalSetup` at `src/test-support/global-setup.ts` **truncates every product table and re-seeds before the run**, so a run's result never depends on how many runs came before it (#205). Point `DATABASE_URL`/`DATABASE_URL_MIGRATE` at a throwaway database; `test:integration` refuses either one on port 5434 (the dev database) unless `PLATFORM_API_ALLOW_DEV_DB=1` is set (guard test: `ops/platform-api/scripts/test-integration.test.mjs`, run by CI's static stage); `TEST_DB_NO_RESET=1` opts out of the reset and back into non-reproducible counts, and `NODE_ENV=production` is refused. Deviating from the `skipIf` idiom is a bug: a bare `describe` runs its `beforeAll` in the default gate and fails the suite.
-- **Black-box persona seed.** `SEED_MODE=personas pnpm --filter @ap/platform-api db:seed` runs the unchanged core seed first, then adds the mock Admin, User, and Developer personas plus their test-only grants. Omit `SEED_MODE` (or set `core`) for the canonical core-only seed.
-- **Scale preview seed.** On throwaway preview DBs only, `SEED_MODE=scale pnpm --filter @ap/platform-api db:seed` includes core/personas prerequisites and adds 40 reporters, 5,000 VOCs, 5,000 Tasks, 300 Findings, 250 Task Requests, 60 Clusters and 25 Milestones with evidence links and memberships. Existing baseline VOCs and preview rows are preserved. A workspace-scoped actor marker records atomic cohort completion; retries fill missing rows when the marker is absent.
-- **How a run can lie.** A narrow test filter can false-PASS: gate on the whole touched module. Connecting as a superuser false-FAILs the role-grant assertions (`platform_app cannot UPDATE/DELETE …`) because a superuser bypasses every GRANT: run as `platform_app`, migrate as `platform_migrate`. With Docker down every integration suite fails with `mock-login failed: 500` — check `pg_isready -h localhost -p 5434` (or your throwaway port) before diagnosing code.
-- **Teardown must walk the FK graph into `core.actors`, and `core.audit_log` needs the migrate role.** Every request a test actor makes writes `core.audit_log`, and `audit_log.actor_id` is a plain FK — so `delete from core.actors` fails unless the audit rows go first, and `platform_app` holds no DELETE on `core.audit_log` by design (ADR-0008/0019), so that one statement has to run through `DATABASE_URL_MIGRATE`. The same applies to `permission.permission_requests.requester_actor_id`. A failing delete aborts the whole `afterAll` hook, so every statement after it silently never runs and the fixtures leak — this single omission accounted for 134 of 137 failures (#205). A suite that creates fixtures and closes its handles without deleting them is incomplete, even if its own assertions pass: `db/__tests__/seed` asserts an exact managed-system list and fails on anyone else's leftovers.
-- **Never assert an exact set over `core.actors`.** The table is shared across the whole run and some suites create an actor on purpose without removing it (the rate-limit case in `modules/voc/__tests__/post-reporter-reply` needs a fresh actor per run to get a clean rate-limit bucket). A suite that asserts the exact list of non-system actors passes alone and fails in the full run, in an order-dependent way — that was #304. Assert over the **set difference** the suite itself causes (snapshot before, snapshot after, compare the delta by `external_id`), and put arity assertions *after* the set assertions so the failure message names the offending actor instead of reporting a count.
-- **Provisioning a throwaway database.** `create database <name> owner platform_migrate` (owner matters — a database owned by `postgres` leaves the schemas owned by `postgres`, and then even `platform_migrate` gets `permission denied for schema voc`, producing hundreds of phantom failures), then `create extension vector` as a superuser, then migrate and seed with both role URLs pointed at it.
-- Tests must be real smoke tests, not ceremonial. Integration tests hit a live Postgres via the `platform_app` / `platform_migrate` roles (no DB mocks, no in-memory shims). Each test boots the actual Fastify server via `buildServer`, exercises the route through `app.inject`, and asserts on the wire envelope plus the resulting DB state (audit rows, row mutations, idempotency cache, permission grants). Static checks (`pnpm --filter @ap/platform-api-ops feature:typecheck`, `pnpm --filter @ap/platform-api-ops check:boundaries`) verify shape only — they never prove behavior. A test that passes without a running Postgres or without asserting observable DB state is not a real test; convert it or delete it. If a DB-dependent scenario cannot be reached from the harness (e.g. mid-tx concurrency), document the gap explicitly rather than substituting a mock.
+- **Lint.** `pnpm --filter @ap/platform-api lint` = ESLint over the whole package (`featureServerPreset` from `@ap/eslint-config`, `--max-warnings 0`). Narrow test non-null assertions with `src/test-support/defined.ts`; an intended exception names its ESLint rule and reason in the comment; an unused directive fails. Correspondence: `docs/integration/platform-packages.md` §6.
+- Cover, when touched: permission policy, entity-link side effects, API error codes, validation paths, audit events, transaction behavior. Never rely on frontend checks as the source of authorization truth.
+- **Runtime SDK imports are bounded.**
+  - Source: own feature packages and `@ap/ui`; only core-server may directly import `@ap/contract-schemas` (new port validation, ADR-0097); other SDK packages are test-only (`ops/platform-api/scripts/check-boundaries.mjs` rule 11, ADR-0073).
+  - Tests may import `@ap/contracts` (generated `vocab.json` for the vocabulary drift tests), `@ap/server-conformance` and `@ap/http-adapter` (devDependencies).
+  - `__tests__/platform-conformance.integration.test.ts` runs the conformance kit over the real HTTP adapter via `app.inject`; an unserved port is a skipped test (the readiness table), never a pass.
+  - A test importing those packages is excluded from `tsconfig.json` and type-checked by `tsconfig.platform-tests.json`; `typecheck` runs both — list a new such test in both.
+- **`test:integration` is the gate; the default `test` proves only the non-DB path.**
+  - Suites use `describe.skipIf(!runIntegration)`; `runIntegration` needs `DATABASE_URL`, `DATABASE_URL_MIGRATE` and (most files) `WORKSPACE_ID` — a bare `pnpm --filter @ap/platform-api test` skips every integration suite and touches no database.
+  - `pnpm --filter @ap/platform-api test:integration` (`ops/platform-api/scripts/test-integration.sh`) exports `ops/platform-api/.env` and runs the same suite with the integration path live; extra args forward to vitest. `PLATFORM_API_ENV_FILE=<path>` selects another env file.
+  - Root/default `test` strips `DATABASE_URL`, `DATABASE_URL_MIGRATE` and `WORKSPACE_ID` and sets `ALLOW_SKIPPED_INTEGRATION=1`; `test:integration` clears the opt-out after loading its env file and requires all three. An opt-out run is never a gate result.
+  - DB-backed verification is complete only from a `test:integration` result; `src/test-support/__tests__/integration-gate.test.ts` stays ungated and needs the integration environment unless explicitly opted out.
+- **The gate resets the database.** `globalSetup` (`src/test-support/global-setup.ts`) truncates every product table and re-seeds before the run, so results never depend on earlier runs (#205).
+  - Point `DATABASE_URL`/`DATABASE_URL_MIGRATE` at a throwaway database: `test:integration` refuses port 5434 (dev) unless `PLATFORM_API_ALLOW_DEV_DB=1` (guard test `ops/platform-api/scripts/test-integration.test.mjs`, CI static stage).
+  - `TEST_DB_NO_RESET=1` opts back into non-reproducible counts; `NODE_ENV=production` is refused. A bare `describe` (not `skipIf`) runs its `beforeAll` in the default gate and fails — deviating from the idiom is a bug.
+- **Seeds.**
+  - `SEED_MODE=personas pnpm --filter @ap/platform-api db:seed` = unchanged core seed + mock Admin/User/Developer personas with test-only grants; omit `SEED_MODE` (or `core`) for the canonical core-only seed.
+  - `SEED_MODE=scale`, throwaway preview DBs only: adds a synthetic demo cohort on top of core/personas prerequisites (reporters, VOCs, Tasks, Findings, Task Requests, Clusters, Milestones — counts live in the seed). Existing rows are preserved; a workspace-scoped actor marker makes the cohort atomic, and retries fill missing rows when the marker is absent.
+- **How a run can lie.**
+  - A narrow filter can false-PASS — gate on the whole touched module.
+  - A superuser connection false-FAILs the role-grant assertions (a superuser bypasses every GRANT): run as `platform_app`, migrate as `platform_migrate`.
+  - Docker down fails every suite with `mock-login failed: 500` — check `pg_isready -h localhost -p 5434` (or your throwaway port) before diagnosing code.
+- **Teardown walks the FK graph into `core.actors`; `core.audit_log` needs the migrate role.**
+  - Every test-actor request writes `core.audit_log`; `audit_log.actor_id` is a plain FK, so audit rows go before `delete from core.actors`. `platform_app` holds no DELETE there by design (ADR-0008/0019), so that statement runs through `DATABASE_URL_MIGRATE` — same for `permission.permission_requests.requester_actor_id`.
+  - A failing delete aborts the whole `afterAll`: later statements silently never run and fixtures leak (#205). A suite that creates fixtures and closes handles without deleting them is incomplete even if green — `db/__tests__/seed` asserts an exact managed-system list and fails on anyone's leftovers.
+- **Never assert an exact set over `core.actors`** — the table is shared run-wide and some suites keep an actor on purpose (the rate-limit case in `modules/voc/__tests__/post-reporter-reply` needs a fresh actor per run for a clean bucket; #304).
+  - Assert the **set difference** the suite causes (snapshot before/after, delta by `external_id`); put arity assertions after set assertions, so the failure names the actor instead of a count.
+- **Throwaway DB provisioning.** `create database <name> owner platform_migrate` (a `postgres`-owned database leaves `postgres`-owned schemas, and even `platform_migrate` gets `permission denied for schema voc`), then `create extension vector` as superuser, then migrate and seed with both role URLs on it.
+- **Tests are real smoke tests, not ceremonial.** Integration tests hit a live Postgres as `platform_app` / `platform_migrate` — no DB mocks, no in-memory shims.
+  - Boot Fastify via `buildServer`, exercise routes through `app.inject`, assert the wire envelope plus resulting DB state (audit rows, row mutations, idempotency cache, permission grants).
+  - Static checks (`pnpm --filter @ap/platform-api-ops feature:typecheck`, `check:boundaries`) prove shape only. A test that passes without Postgres or without observable DB state is not a real test — convert or delete it.
+  - If a DB-dependent scenario is unreachable from the harness (e.g. mid-tx concurrency), document the gap explicitly rather than substituting a mock.
