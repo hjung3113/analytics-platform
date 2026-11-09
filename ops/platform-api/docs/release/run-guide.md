@@ -21,7 +21,7 @@ PROJECT=platform-api
 P="docker compose -p $PROJECT --env-file .env.production -f docker-compose.production.yml"
 ```
 
-현재 어디까지 됐는지 모르겠으면 언제든 상태를 봅니다. 읽기만 하고 아무것도 바꾸지 않으며 비밀값은 출력하지 않습니다. 빠진 단계와 그 명령을 알려 줍니다.
+현재 어디까지 됐는지 모르겠으면 언제든 상태를 봅니다. 읽기만 하고 아무것도 바꾸거나 쓰지 않으며 비밀값은 출력하지 않습니다. 빠진 단계와 그 명령을 알려 줍니다.
 
 ```sh
 bash scripts/release/stack-status.sh .env.production
@@ -54,6 +54,8 @@ bash scripts/release/stack-status.sh .env.production
 | `cutover` | 프로파일 `cutover`, `run --rm`으로만 | 5단계 |
 | `bootstrap` | 프로파일 `bootstrap`, `run --rm`으로만 | 7단계 |
 | `set-actor-role` | 프로파일 `admin`, `run --rm`으로만 | 10단계 |
+
+이 표의 번호는 이 글 안에서만 씁니다. [oidc-and-images.md](oidc-and-images.md)의 「Production stack」은 같은 순서를 1~7(1a·4a 포함)로 셉니다. 복구한 프로젝트는 그쪽의 `PIN` 정의를 따르고, 이 글의 `$P`와 `stack-status.sh`는 `PIN` 없는 기본 구성만 봅니다.
 
 프로파일 뒤의 네 서비스는 `up -d`로 실행되지 않습니다. 위 표의 `run --rm` 명령으로만 돕니다. `run`은 해당 프로파일을 알아서 켭니다.
 
@@ -88,7 +90,7 @@ Admin이 되어도 **Scope가 필요한 분석 메뉴는 열리지 않습니다.
 개발 구성은 Postgres와 MinIO를 띄우고, 로그인 서버(Keycloak)와 메일 확인(mailpit)은 `--profile auth`를 줄 때만 뜹니다. 명령은 [docker-compose.dev.yml](../../docker-compose.dev.yml) 머리 주석이 원본입니다.
 
 - `docker compose -f docker-compose.dev.yml up -d`로 Postgres와 MinIO가 뜹니다. 새 볼륨은 그 주석대로 `cutover-0076-platform-identity.sh all`과 `pnpm --filter @ap/platform-api db:seed`를 이어서 돌립니다.
-- 개발 구성에서는 MinIO가 뜨지만 **버킷은 손으로 한 번 만듭니다:** `pnpm --filter @ap/platform-api exec tsx src/cli/storage-bootstrap.ts` (운영과 달리 자동이 아닙니다).
+- 개발 구성에서는 MinIO가 뜨지만 **버킷은 손으로 한 번 만듭니다**(운영과 달리 자동이 아닙니다). 이 명령은 `STORAGE_S3_ENDPOINT`·`STORAGE_S3_REGION`·`STORAGE_S3_BUCKET`·`STORAGE_S3_ACCESS_KEY_ID`·`STORAGE_S3_SECRET_ACCESS_KEY`·`STORAGE_S3_FORCE_PATH_STYLE`을 환경 변수로 읽습니다(값은 개발 compose의 MinIO 계정과 `localhost:9000`): `pnpm --filter @ap/platform-api exec tsx src/cli/storage-bootstrap.ts`
 - 로그인 서버가 필요하면 `docker compose -f docker-compose.dev.yml --profile auth up -d`. 절차는 [keycloak-interim-idp.md](keycloak-interim-idp.md)입니다.
 
 > 이 절은 compose 주석과 코드를 옮겨 쓴 것이고, 위 MinIO 이미지 문제([#1617](https://github.com/hjung3113/analytics-platform/issues/1617)) 때문에 이번에 따라 해 보지 못했습니다.

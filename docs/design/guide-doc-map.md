@@ -16,7 +16,7 @@
 
 | | |
 | --- | --- |
-| 처음 | 루트 [README](../../README.md)(31줄, 실행 명령뿐) |
+| 처음 | 루트 [README](../../README.md)(실행 명령뿐이었다. 이제 「누가 어디부터 읽나」 표가 있다) |
 | 다음 | [사내 적용 가이드 §5](../integration/in-house-rollout.md#5-사내-메뉴-개발-가이드) → [페이지 작성 가이드](../../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) → [menus/AGENTS.md](../../menus/AGENTS.md) |
 | 읽고 나면 | 메뉴 그룹 하나에 화면을 더하고 조회를 선언하고 mock으로 돌려 본다 |
 | 빠진 것 | G1, G2. 순서는 있으나(§5) 규칙 목록이라, 빈 상태에서 화면 하나가 뜨기까지 따라 하는 글이 없다. 페이지 규칙이 조립 앱 README에 있어 찾기 어렵다 |
@@ -60,7 +60,7 @@
 
 | | |
 | --- | --- |
-| 처음 | 루트 [README](../../README.md)(지금 기동 안내 없음) |
+| 처음 | 루트 [README](../../README.md)의 「누가 어디부터 읽나」 |
 | 다음 | [oidc-and-images.md](../../ops/platform-api/docs/release/oidc-and-images.md)(compose 순서) → [first-admin-bootstrap.md](../../ops/platform-api/docs/release/first-admin-bootstrap.md) → [backup-restore-upgrade.md](../../ops/platform-api/docs/release/backup-restore-upgrade.md) |
 | 읽고 나면 | 깨끗한 볼륨에서 개발·로컬 스모크·운영 구성을 순서대로 띄우고 최초 Admin을 부여한다 |
 | 빠진 것 | G9. 순서가 release 문서와 compose 주석에만 있고 README·`in-house-rollout.md`에서 닿지 않는다 |
@@ -70,7 +70,7 @@
 | # | 빈 곳 | 독자 | 크기 | 상태 |
 | --- | --- | --- | --- | --- |
 | G1 | 이 저장소 첫 화면 만들기 — 빈 상태에서 메뉴 화면 하나가 뜨기까지 따라 하는 글 | R1 | 가이드 1편 | 작성함: [guides/first-menu-screen.md](../guides/first-menu-screen.md) |
-| G2 | SDK 패키지 6개(`contracts`·`kernel`·`ui`·`components`·`shell`·`contract-schemas`)의 README. 저장소 안에서 패키지를 여는 개발자·에이전트가 읽는다 | R1·R4·R6 | README 6개 | 작성함: `packages/sdk/*/README.md`, 한국어, 코드 예제 없음 (tarball 포함은 보류 절) |
+| G2 | `packages/sdk/` 패키지 6개(`contracts`·`kernel`·`ui`·`components`·`shell`·`contract-schemas`; GLOSSARY의 SDK는 앞 다섯이다)의 README. 저장소 안에서 패키지를 여는 개발자·에이전트가 읽는다 | R1·R4·R6 | README 6개 | 작성함: `packages/sdk/*/README.md`, 한국어, 코드 예제 없음 (tarball 포함은 보류 절) |
 | G3 | 외부 소비자 빠른 시작 | R2 | 가이드 1편 | **보류** |
 | G4 | 설치 안내의 자리(CHANGELOG 안) | R2 | — | **보류** (G3과 함께) |
 | G5 | 호스트 모듈 최소 예제 | R3 | 가이드 1편 | **보류** |
@@ -104,8 +104,8 @@
 ## 작성할 때 지킬 것
 
 - 예제는 컴파일되거나 실행된 것만 싣는다. 가이드마다 깨끗한 상태(새 clone 또는 worktree, G9는 깨끗한 볼륨)에서 순서대로 따라 해 본 결과를 PR에 적는다.
-- 사람이 읽는 가이드는 쉬운 한국어(`copy-plain-ko`), 에이전트가 읽는 파일(G6, 패키지 README)은 영어.
-- 폴더 `AGENTS.md`와 `.planning/README.md`는 이 일에서 고치지 않는다.
+- 사람이 읽는 가이드는 쉬운 한국어(`copy-plain-ko`), 에이전트가 읽는 파일(G6)은 영어. 패키지 README는 이 묶음에서 한국어로 쓴다(아래 결정).
+- 폴더 `AGENTS.md`와 `.planning/README.md`는 이 일에서 고치지 않는다(소유권 목록 한 줄을 더한 `docs/AGENTS.md`만 예외).
 - 패키지 README 파일은 저장소 안에서만 쓴다. `sdk-pack`은 건드리지 않는다(보류 절).
 
 ## 결정 (리드, 소유자 위임, 2026-11-10 — 되돌릴 수 있음)

@@ -37,7 +37,7 @@ pnpm typecheck && pnpm test && pnpm build
 | 이 저장소에서 메뉴 화면을 만든다 | [첫 메뉴 화면 만들기](docs/guides/first-menu-screen.md) | [사내 적용 가이드 §5](docs/integration/in-house-rollout.md#5-사내-메뉴-개발-가이드), [페이지 작성 가이드](apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) |
 | 서버를 띄운다 (개발·로컬 스모크·운영) | [배포판 실행 안내](ops/platform-api/docs/release/run-guide.md) | [최초 Admin](ops/platform-api/docs/release/first-admin-bootstrap.md) |
 | 실서버 어댑터를 붙인다 | [사내 적용 가이드](docs/integration/in-house-rollout.md) | [실서버 연결 체크리스트](docs/integration/real-server-checklist.md), [전송 형식](docs/integration/http-adapter-contract.md) |
-| SDK 패키지를 고친다 | 패키지 README: [contracts](packages/sdk/contracts/README.md) · [kernel](packages/sdk/kernel/README.md) · [ui](packages/sdk/ui/README.md) · [components](packages/sdk/components/README.md) · [shell](packages/sdk/shell/README.md) · [contract-schemas](packages/sdk/contract-schemas/README.md) | [packages/AGENTS.md](packages/AGENTS.md), [tooling/AGENTS.md](tooling/AGENTS.md) |
+| `packages/sdk/` 패키지를 고친다 | 패키지 README: [contracts](packages/sdk/contracts/README.md) · [kernel](packages/sdk/kernel/README.md) · [ui](packages/sdk/ui/README.md) · [components](packages/sdk/components/README.md) · [shell](packages/sdk/shell/README.md) · [contract-schemas](packages/sdk/contract-schemas/README.md) | [packages/AGENTS.md](packages/AGENTS.md), [tooling/AGENTS.md](tooling/AGENTS.md) |
 | 코딩 에이전트로 작업한다 | [AGENTS.md](AGENTS.md) | [docs/INDEX.md](docs/INDEX.md)의 작업별 읽기 경로 |
 | 설계·계약이 궁금하다 | [docs/INDEX.md](docs/INDEX.md) | [06 플랫폼 계약](docs/contract/platform-ui-contract.md) |
 

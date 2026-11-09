@@ -10,16 +10,16 @@
 - 화면을 만들기 전에 [06 계약](../contract/platform-ui-contract.md)의 §5(메뉴 확장 계약)와 §29(완료 정의)를 읽고, 화면이 어느 Page Archetype(§12)에 해당하는지 정합니다. 새 화면 설계 절차는 [설계 스킬](../../.agents/skills/analysis-platform-wireframe/SKILL.md)입니다.
 - 새 화면이나 새 그룹은 이슈에서 시작합니다([루트 AGENTS.md](../../AGENTS.md) Workflow).
 
-## 1. 그룹 행 추가
+## 1. 메뉴 그룹 행 추가
 
-메뉴는 그룹에 속하고, 그룹은 앱 조립 파일 [`apps/platform-web/src/menus.ts`](../../apps/platform-web/src/menus.ts)의 `GROUPS`에 있습니다. 생성기는 이 목록에 없는 그룹을 만들지 않습니다. 새 그룹과 공간·권한을 앱이 선언하는 이유는 [ADR-0072](../adr/0072-open-menu-vocabulary-app-declared-branded-ids.md)입니다. `GROUPS` 끝, `// </gen:menu-groups>` 줄 바로 위에 한 줄을 더합니다.
+메뉴는 그룹에 속하고, 그룹은 앱 조립 파일 [`apps/platform-web/src/menus.ts`](../../apps/platform-web/src/menus.ts)의 `GROUPS`에 있습니다. 생성기는 이 목록에 없는 그룹을 만들지 않습니다. 새 메뉴 그룹과 업무 시스템·권한을 앱이 선언하는 이유는 [ADR-0072](../adr/0072-open-menu-vocabulary-app-declared-branded-ids.md)입니다. `GROUPS` 끝, `// </gen:menu-groups>` 줄 바로 위에 한 줄을 더합니다.
 
 ```ts
 { id: groupId('tryout'), label: { ko: '연습', en: 'Tryout' }, icon: Settings, space: spaceId('mars') },
 ```
 
 - `icon`은 파일 위쪽에 이미 import된 아이콘이나 `lucide-react`에서 가져온 것입니다.
-- `space`는 같은 파일 `SPACES`에 있는 공간이어야 합니다. 값이 `null`이면 `platform/<그룹>/`에, 이름 있는 공간이면 `menus/<공간>/<그룹>/`에 만들어집니다.
+- `space`는 같은 파일 `SPACES`에 있는 업무 시스템(코드 이름 `Space`)이어야 합니다. 값이 `null`이면 `platform/<그룹>/`에, 이름 있는 업무 시스템이면 `menus/<업무 시스템>/<그룹>/`에 만들어집니다.
 
 ## 2. 패키지 생성
 
@@ -30,7 +30,7 @@ pnpm gen:menu tryout --menu tryout-overview --label-ko "연습 화면" --label-e
 pnpm install
 ```
 
-- `--label-ko`는 필수입니다.
+- `--label-ko`와 `--label-en`은 필수입니다.
 - `--page-type`은 `overview`·`analysis`·`management`·`catalog`·`workflow` 중 하나입니다.
 - 먼저 `--dry-run`을 붙이면 파일을 쓰지 않고 무엇이 바뀔지만 보여 줍니다.
 - 생성기는 `menus/mars/tryout/` 패키지를 만들고, `menus.ts`·`dev/mock-assembly.tsx`·`style.css`·앱 `package.json`에 배선 줄을 더합니다. 어느 줄이 들어갔는지 출력에 그대로 나옵니다.

@@ -3,7 +3,7 @@
 # missing one. Usage: stack-status.sh [env-file] (default .env.production); run from ops/platform-api in Bash.
 # Optional: PROJECT (compose project, default platform-api). It changes nothing, makes no network call and prints no
 # secret: it reads WORKSPACE_ID (a UUID) from the env file and asks Docker and Postgres for states and counts only.
-# Exit 0 when every step is done, 1 when a step is missing, 2 on usage. Order and reasons: docs/release/oidc-and-images.md.
+# Exit 0 when every step is done, 1 when a step is missing, 2 on usage or when Docker is unreachable. Order and reasons: docs/release/oidc-and-images.md.
 set -u
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit 2
@@ -23,13 +23,17 @@ need() { printf '[todo] %s\n         -> %s\n' "$1" "$2"; todo=1; }
 note() { printf '[note] %s\n' "$1"; }
 
 # 1. env file
-if bash scripts/release/production-preflight.sh "$env_file" >/tmp/stack-status-preflight.$$ 2>&1; then
+if pre="$(bash scripts/release/production-preflight.sh "$env_file" 2>&1)"; then
   ok "env file passes production-preflight"
 else
-  need "env file fails production-preflight: $(tr '\n' ' ' </tmp/stack-status-preflight.$$ | cut -c1-300)" \
+  need "env file fails production-preflight: $(printf '%s' "$pre" | tr '\n' ' ' | cut -c1-300)" \
     "fix $env_file, then bash scripts/release/production-preflight.sh $env_file"
 fi
-rm -f /tmp/stack-status-preflight.$$
+
+if ! docker info >/dev/null 2>&1; then
+  echo "docker daemon not reachable; start Docker, then rerun" >&2
+  exit 2
+fi
 
 # 2. images (compose never pulls or builds the web image)
 for image in platform-release-backend:local platform-release-migrate:local platform-release-web:local; do
@@ -42,7 +46,10 @@ for image in platform-release-backend:local platform-release-migrate:local platf
 done
 
 # 3. services
-services="$($P ps -a --format '{{.Service}}|{{.State}}|{{.Health}}|{{.ExitCode}}' 2>/dev/null)"
+services="$($P ps -a --format '{{.Service}}|{{.State}}|{{.Health}}|{{.ExitCode}}' 2>/dev/null)" || services=""
+if [ -z "$services" ] && ! $P config -q >/dev/null 2>&1; then
+  note "compose cannot read $env_file (a required variable is empty); service states below are unknown, fix the env file first"
+fi
 svc() { printf '%s\n' "$services" | awk -F'|' -v s="$1" '$1==s {print; exit}'; }
 state_of() { svc "$1" | cut -d'|' -f2; }
 health_of() { svc "$1" | cut -d'|' -f3; }
