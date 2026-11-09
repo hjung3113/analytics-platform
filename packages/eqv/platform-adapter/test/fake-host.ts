@@ -28,14 +28,18 @@ export function createFakeHost(options: FakeHostOptions) {
     statuses: [] as ModuleStatus[],
     errors: [] as unknown[],
     navigations: [] as ModuleTarget[],
-    pageWrites: [] as Record<string, string | null>[],
+    pageWrites: [] as Record<string, string | readonly string[] | null>[],
     shown: [] as { node: unknown; label: string }[],
     cleared: 0,
   };
   // A host change reaches mounted screens through subscribe; React expects it inside act.
   const emit = () => act(() => listeners.forEach((listener) => listener()));
-  const writePage = (patch: Record<string, string | null>) => {
-    for (const [key, value] of Object.entries(patch)) if (value === null) delete page[key]; else page[key] = value;
+  const writePage = (patch: Record<string, string | readonly string[] | null>) => {
+    // EV screens write scalars; a list (repeated page key, @ap/contracts) reads back through `page` as its first item.
+    for (const [key, value] of Object.entries(patch)) {
+      const scalar = typeof value === 'string' || value === null ? value : value[0] ?? null;
+      if (scalar === null) delete page[key]; else page[key] = scalar;
+    }
     emit();
   };
   const query = options.query;

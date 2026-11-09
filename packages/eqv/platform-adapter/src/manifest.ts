@@ -9,7 +9,7 @@ const PERMISSION = 'eqv:view';
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false } as const;
 
 /**
- * The EV host-module manifest (host contract 1). Read-only screens (ADR-0012 first scope). Names are Candidates until AP #334.
+ * The EV host-module manifest (host contract 1). Read-only screens (EV ADR-0012 first scope). Names are Candidates until AP #334.
  * Routes: `topview` is the module prefix itself (path `''`, the group's primary screen, reached from the sidebar with no equipment),
  * `focus` is its child (`<prefix>/focus`). The equipment id travels as the page key `equipment` (`?equipment=`), not a route param:
  * AP's registry rejects a parent whose route needs params and needs exactly one primary screen per group. 177d shows a

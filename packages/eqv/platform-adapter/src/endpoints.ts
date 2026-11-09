@@ -4,7 +4,7 @@ import type { OccurrenceBatch, ReplayInput } from '@eqv/core';
 /**
  * Candidate endpoint declarations until AP #334 confirms the names (AP #492 direction for the `eqv:view` permission).
  * Both are reads. The host projects `from`/`to` from the applied Context (`time: 'apply'`); they are never params.
- * `topview-events` returns the server's source-paired Occurrences as is; the client never pairs Start/End or reorders (ADR-0002).
+ * `topview-events` returns the server's source-paired Occurrences as is; the client never pairs Start/End or reorders (EV ADR-0002).
  * One endpoint names one menu: both serve the `topview` and `focus` screens and name `eqv:focus`, the registered menu id.
  * Kinds: `collection` + `processing_delay` + `coverage` say whether the window is complete (Watermark, late data);
  * `time_domain` carries the Site wall-clock domain the Occurrence times are in (merged: `mergeTimeDomain`).
@@ -16,7 +16,7 @@ const permission = menuPermission('eqv:view');
 export type TopviewContextParams = { equipmentId: string };
 export type TopviewEventsParams = { equipmentId: string; continuationToken?: string };
 
-/** Every Binding, Mapping Version, draft Layout and Layout Revision effective in the applied time (ADR-0011). */
+/** Every Binding, Mapping Version, draft Layout and Layout Revision effective in the applied time (EV ADR-0011). */
 export const topviewContext = defineEndpoint<TopviewContextParams, Omit<ReplayInput, 'batch'>>({
   id: 'eqv.topview-context',
   menuId: 'eqv:focus',

@@ -5,7 +5,7 @@ import type { ReplayInput, ReplayTimelineFrame } from '@eqv/core';
  * searches (Bindings, Layouts, the Layout's components) plus, for each Occurrence open at that point and each Time Anomaly
  * inversion it scans, one location resolution through the Bindings, Mapping Versions and entries (see `timelineCost`).
  * Above this the Gantt is not computed. The value bounds the worst measured rate (a window with 1,000 to 3,000 Occurrences
- * open at once, about 0.21 µs per unit) to about 1 s. Measured in #106: the 50k-Occurrence mapped window costs 4,200,000 and
+ * open at once, about 0.21 µs per unit) to about 1 s. Measured in EV#106: the 50k-Occurrence mapped window costs 4,200,000 and
  * takes about 220 ms (it is then limited by `GANTT_SPAN_LIMIT`); a DQI-only window with 10,000 Bindings costs 100,260,000
  * and takes 0.6 s, with 50,000 about 2.5 billion.
  */

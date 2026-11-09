@@ -456,7 +456,7 @@ describe('explicit Holding Site and Transfer Capability editing', () => {
     expect(addHoldingSite(initial, 'child', []).state).toBe(initial);
   });
 
-  it('keeps a Site position through moves, rotations and edits of other Sites (ADR-0016)', () => {
+  it('keeps a Site position through moves, rotations and edits of other Sites (EV ADR-0016)', () => {
     const position = { x: 1.5, y: -2 };
     const positioned = { ...child, holdingSites: [{ ...child.holdingSites[0]!, position }] };
     let state = createLayoutEdit(fixture([parent, positioned, robot]));

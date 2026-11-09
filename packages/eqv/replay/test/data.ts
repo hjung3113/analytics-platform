@@ -5,8 +5,8 @@ import {
   type EquipmentLayoutDocument, type ReplayInput, type SiteWallClock,
 } from '@eqv/core';
 
-// vitest runs with cwd = packages/replay; import.meta.url is not a file URL under jsdom.
-const root = resolve(process.cwd(), '../../fixtures/cluster-single');
+// vitest runs with cwd = packages/eqv/replay; import.meta.url is not a file URL under jsdom.
+const root = resolve(process.cwd(), '../fixtures/cluster-single');
 const read = (path: string): unknown => JSON.parse(readFileSync(join(root, path), 'utf8'));
 
 export const time = (value: string): SiteWallClock => `2026-01-01T${value}.000`;

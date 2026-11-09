@@ -15,7 +15,7 @@ declare global {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 afterEach(cleanup);
 
-const root = resolve(process.cwd(), '../../fixtures/cluster-single');
+const root = resolve(process.cwd(), '../fixtures/cluster-single');
 const read = (path: string): unknown => JSON.parse(readFileSync(resolve(root, path), 'utf8'));
 const directory = 'onboarding/mappings/eq-synth-01/';
 const layout = layoutDocumentSchema.parse(read('layout.json'));

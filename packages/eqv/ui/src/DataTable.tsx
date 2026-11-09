@@ -138,6 +138,7 @@ export function DataTable({
       if (row !== null) revealRow(region.current, row, bodyOffset);
     }
     // Only a new target scrolls; the virtualizer and offsets change on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only a new target scrolls (comment above)
   }, [target, scrollKey, virtual]);
   const items = virtual ? virtualizer.getVirtualItems() : [];
   const rendered = virtual ? { start: items[0]?.index ?? 0, end: items[items.length - 1]?.index ?? 0 } : { start: 0, end: (rows?.count ?? 1) - 1 };
@@ -236,6 +237,7 @@ export function DataTable({
 /** The virtualizer's runtime geometry is the one place this package sets `style` (see eslint.config.js). */
 function Spacer({ height, columns }: { height: number; columns: number }) {
   return (
+    // eslint-disable-next-line shadcn/no-inline-styles -- virtualizer spacer height is runtime geometry (EV exception)
     <tr aria-hidden style={{ height }}>
       <td colSpan={columns} className="p-0" />
     </tr>

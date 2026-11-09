@@ -5,8 +5,8 @@ import {
   typeDictionaryFileSchema, type MappingVersion, type TemplateDocument,
 } from '@eqv/core';
 
-// vitest runs with cwd = packages/editor; import.meta.url is not a file URL under jsdom.
-const repo = resolve(process.cwd(), '../..');
+// vitest runs with cwd = packages/eqv/editor; import.meta.url is not a file URL under jsdom.
+const repo = resolve(process.cwd(), '..');
 export const read = (path: string) => JSON.parse(readFileSync(join(repo, path), 'utf8'));
 const onboarding = 'fixtures/cluster-single/onboarding';
 

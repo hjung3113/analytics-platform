@@ -1,4 +1,3 @@
-import { hashHex } from '@eqv/core';
 // Generates src/mock-data/cluster-single.generated.ts from fixtures/cluster-single (synthetic data).
 // `node scripts/gen-mock-data.mjs` writes the file; `--stdout` prints it (the drift test compares the two).
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -7,8 +6,10 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const fixtures = resolve(here, '../../../fixtures/cluster-single');
+const fixtures = resolve(here, '../../fixtures/cluster-single');
 const target = resolve(here, '../src/mock-data/cluster-single.generated.ts');
+// `@eqv/core` ships TypeScript source (no dist), which plain node cannot load; the fixtures hold valid `sha256:<hex>` hashes, so the prefix is all that is needed.
+const hashHex = (hash) => hash.slice('sha256:'.length);
 const json = (path) => JSON.parse(readFileSync(resolve(fixtures, path), 'utf8'));
 
 const bindings = json('onboarding/bindings/eq-synth-01.bindings.json');

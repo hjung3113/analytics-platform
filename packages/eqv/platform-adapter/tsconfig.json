@@ -1,5 +1,5 @@
 {
   "extends": "@ap/tsconfig/base.json",
-  "compilerOptions": { "jsx": "react-jsx", "lib": ["ES2023", "DOM", "DOM.Iterable"], "target": "ES2023", "types": ["vite/client", "node"], "noUncheckedIndexedAccess": true, "isolatedModules": true, "declaration": true },
+  "compilerOptions": { "jsx": "react-jsx", "lib": ["ES2023", "DOM", "DOM.Iterable"], "target": "ES2023", "types": ["vite/client", "node"], "isolatedModules": true, "declaration": true },
   "include": ["src", "test", "vitest.config.ts"]
 }

@@ -70,7 +70,7 @@ const greater = (a: OccurrenceBatch['watermark'], b: OccurrenceBatch['watermark'
 const SCALARS = ['equipmentId', 'from', 'to', 'timeDomain', 'parserContractVersion', 'dataGeneration'] as const;
 
 /**
- * Pages → one batch. `occurrences` and `issues` are concatenated in server page order (ADR-0002: never paired or reordered here);
+ * Pages → one batch. `occurrences` and `issues` are concatenated in server page order (EV ADR-0002: never paired or reordered here);
  * the window scalars come from the first page and a later page that disagrees is a data error; `watermark` is the greatest
  * `(seq, at)`; the merged batch has no `continuationToken` (`assertReplayInput` requires a complete batch).
  */
@@ -91,7 +91,7 @@ export function mergePages(pages: readonly OccurrenceBatch[]): OccurrenceBatch {
   };
 }
 
-/** Server data is not trusted to be self-consistent (ADR-0011): every Mapping Version and Layout is content-checked against its Binding. */
+/** Server data is not trusted to be self-consistent (EV ADR-0011): every Mapping Version and Layout is content-checked against its Binding. */
 export async function verifyContext(context: Omit<ReplayInput, 'batch'>, equipmentId: string): Promise<{ input: Omit<ReplayInput, 'batch'>; notices: string[] }> {
   const verified = await verifyBindingContext(context.bindings.bindings, {
     mapping: async (binding) => context.mappings.find((m) => m.hash === binding.mappingHash),

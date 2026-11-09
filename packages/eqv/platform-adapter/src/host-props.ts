@@ -4,7 +4,7 @@ import { parseWallClockRange, siteWallClockSchema, type SiteWallClock, type Wall
 const NAIVE_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
 
 /**
- * The host's Global Context carries naive `YYYY-MM-DDTHH:mm:ss`; a Site Wall-clock needs `.fff` (ADR-0009). Padding `.000` happens
+ * The host's Global Context carries naive `YYYY-MM-DDTHH:mm:ss`; a Site Wall-clock needs `.fff` (EV ADR-0009). Padding `.000` happens
  * here, once, at the host boundary (`diagnoseWallClock` only diagnoses). Anything else that is not a Site Wall-clock is null.
  */
 export function hostWallClock(value: string): SiteWallClock | null {

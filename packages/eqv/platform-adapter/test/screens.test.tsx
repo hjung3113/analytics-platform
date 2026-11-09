@@ -9,7 +9,7 @@ declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-// Radix-based @ap/ui controls render slowly under full-suite load (#88).
+// Radix-based @ap/ui controls render slowly under full-suite load (EV#88).
 configure({ asyncUtilTimeout: 5000 });
 afterEach(cleanup);
 

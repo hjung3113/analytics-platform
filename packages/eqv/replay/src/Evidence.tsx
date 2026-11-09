@@ -1,7 +1,7 @@
 import { EvidenceBadge } from '@eqv/ui';
 import { LEVEL_KO, type EvidenceLevel } from '@eqv/core';
 
-/** A facet's evidence level as an `EvidenceBadge` with its word: shape and text, never colour alone (ADR-0003). */
+/** A facet's evidence level as an `EvidenceBadge` with its word: shape and text, never colour alone (EV ADR-0003). */
 export function Evidence({ level }: { level: EvidenceLevel }) {
   return <EvidenceBadge level={level}>{LEVEL_KO[level]}</EvidenceBadge>;
 }

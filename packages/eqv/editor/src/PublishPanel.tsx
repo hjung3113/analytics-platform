@@ -48,6 +48,7 @@ function useComputed<T>(inputs: readonly unknown[], compute: () => Promise<T>): 
     );
     return () => { current = false; };
     // The caller passes every value `compute` reads.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: the caller passes every value `compute` reads, as `inputs`
   }, inputs);
   const fresh = result && result.inputs.length === inputs.length && result.inputs.every((value, i) => Object.is(value, inputs[i]));
   return fresh ? result : null;

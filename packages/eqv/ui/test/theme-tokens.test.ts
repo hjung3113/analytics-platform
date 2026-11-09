@@ -5,7 +5,7 @@ import { expect, it } from 'vitest';
 
 const themeCss = readFileSync(resolve(import.meta.dirname, '../src/theme.css'), 'utf8');
 
-// ADR-0008: the --eqv-* rows whose platform token @ap/ui defines.
+// EV ADR-0008: the --eqv-* rows whose platform token @ap/ui defines.
 const MAP = [
   ['--eqv-canvas', '--surface-canvas'],
   ['--eqv-board', '--surface-card'],

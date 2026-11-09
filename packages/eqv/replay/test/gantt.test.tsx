@@ -8,6 +8,15 @@ import { batch, equipmentLayout, input, time, timeline } from './data.js';
 
 afterEach(cleanup);
 
+// jsdom 26 (the workspace pin) has no PointerEvent, so fireEvent.pointerDown would drop clientX/pointerId; a MouseEvent carrying pointerId stands in.
+if (typeof window.PointerEvent !== 'function') {
+  class PointerEventShim extends MouseEvent {
+    readonly pointerId: number;
+    constructor(type: string, init: PointerEventInit = {}) { super(type, init); this.pointerId = init.pointerId ?? 0; }
+  }
+  Object.defineProperty(window, 'PointerEvent', { configurable: true, value: PointerEventShim });
+}
+
 function setup(cursor: SiteWallClock = time('10:06:00'), expanded: string[] = []) {
   const handlers = { onCursorChange: vi.fn(), onSelectOccurrence: vi.fn(), onToggleExpand: vi.fn() };
   const view = render(<FocusGantt timeline={timeline} layout={equipmentLayout} batch={batch} cursor={cursor} selectedOccurrenceId={null}

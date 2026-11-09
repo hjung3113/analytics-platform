@@ -137,6 +137,7 @@ export function MappingBoard(props: MappingBoardProps) {
       restoreFocus.current = false;
       listRef.current?.focus();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: focus moves only when the modal opens or closes
   }, [modalOpen]);
 
   useEffect(() => {

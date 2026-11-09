@@ -1,4 +1,4 @@
-// @eqv/ui — EV components for patterns @ap/ui does not provide (ADR-0008). Built on @ap/ui primitives and tokens.
+// @eqv/ui — EV components for patterns @ap/ui does not provide (EV ADR-0008). Built on @ap/ui primitives and tokens.
 export { DataTable, VIRTUAL_ROW_THRESHOLD, type DataTableRows, type DataTableColumn, type DataTableProps, type DataTableSort, type DataTableSortDirection, type DataTableRowProps, type DataTableCellProps } from './DataTable.js';
 export { OutlineBadge } from './OutlineBadge.js';
 export { EvidenceBadge, type EvidenceBadgeProps } from './EvidenceBadge.js';

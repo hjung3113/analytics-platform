@@ -8,7 +8,7 @@ export interface EvidenceBadgeProps {
   children: ReactNode;
 }
 
-// Not colour alone (ADR-0003): each level has its own border style, and `illustrative` is also italic so it never
+// Not colour alone (EV ADR-0003): each level has its own border style, and `illustrative` is also italic so it never
 // reads as `observed`. The border sits on a span this package owns; the Badge inside is the borderless `secondary` variant so the
 // level's frame is the only border (the outline variant added a second one).
 const FRAME: Record<EvidenceLevel, string> = {

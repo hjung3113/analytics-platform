@@ -1,6 +1,6 @@
 # @eqv/platform-adapter
 
-The analytics-platform host module (ADR-0012, ADR-0013). The only package that imports `@ap/contracts`; it may import only `@ap/contracts` and `@ap/ui` from the platform SDK (ESLint-enforced, mirrors AP's `hostModule` preset). `@ap/contracts` and `@ap/ui` are peer dependencies (devDependencies: the 0.19.0 release tarballs).
+The analytics-platform host module (EV ADR-0012, EV ADR-0013). The only package that imports `@ap/contracts`; it may import only `@ap/contracts` and `@ap/ui` from the platform SDK (ESLint-enforced, mirrors AP's `hostModule` preset). `@ap/contracts` and `@ap/ui` are peer dependencies (devDependencies: the 0.19.0 release tarballs).
 
 ## Exports
 
@@ -33,7 +33,7 @@ States (never a default range or a guessed equipment):
 
   `unavailable` (hands the whole screen to the host for one failed query) and `identity_mismatch` (host session concept) are never set from a query outcome.
 - Non-`clear` assessments become notices; `unknown` is worded "확인하지 못했습니다 — 이상 없음이 아닙니다", never as clear.
-- Continuation pages merge into one batch in server order (ADR-0002); the first page's window fields, a page that disagrees is a data error, the greatest Watermark, no token. The loop ends on a missing token and is bounded by the server `maxHours`, a repeated token (data error) and the screen signal.
+- Continuation pages merge into one batch in server order (EV ADR-0002); the first page's window fields, a page that disagrees is a data error, the greatest Watermark, no token. The loop ends on a missing token and is bounded by the server `maxHours`, a repeated token (data error) and the screen signal.
 
 ## Not here yet
 
