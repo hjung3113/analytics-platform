@@ -1,47 +1,88 @@
-# apps/platform-e2e — 플랫폼 계약 자동 검사(E2E)
+# apps/platform-e2e — automated platform contract checks (E2E)
 
-조립된 앱(`apps/platform-web`, mock 어댑터)을 브라우저로 띄워 **플랫폼 계약**을 검사한다(#44). 메뉴 화면의 요구사항은 검사하지 않는다. 메뉴 화면은 계약을 관찰하는 창일 뿐이다.
+Boots the assembled app (`apps/platform-web`, mock adapter) in a browser and checks the **platform contract** (#44), never menu-screen requirements. Menu screens are only windows onto the contract.
 
-## 무엇을 검사하나
+## What is checked
 
-`tests/contract-<갈래>.spec.ts`(shell·context-links·components·chart·board·features)의 `describe`가 계약 영역, `test`가 보고서의 한 줄이다. 목록은 이 파일에 복사하지 않는다 — spec과 `contract-report/README.md`(실행 산출물, CI Job 요약에도 실린다)가 원본이고, 여러 spec이 쓰는 도우미는 `tests/contract-helpers.ts`에 있다. 새 영역의 `describe` 제목에는 해당 06 절을 적는다.
+- `tests/contract-<area>.spec.ts` (shell, context-links, components, chart, board, features): a `describe` is a contract area, a `test` is one report line. Do not copy the list here; the specs and `contract-report/README.md` (run output, also in the CI Job summary) are the source. Shared helpers are in `tests/contract-helpers.ts`. A new area's `describe` title names its 06 section.
+- Prove that a check really guards the contract by breaking the Kernel guard on purpose and seeing it fail (PR body "mutation check"). Do the same when you fix or add a check.
+- **Known gap:** server-side menu-permission denial is checked by the mock-server unit test (`packages/adapters/mock-server/src/__tests__/menu-permission.test.ts`). The client route gate renders first, so the UI cannot show a server denial; the "direct URL denied" check observes the client gate. Space-entry denial (§9.1) has the same gap: E2E observes the `RouteOutlet` client gate.
 
-각 검사가 실제로 계약을 지키는지는 Kernel 가드를 일부러 망가뜨려 실패하는지로 확인했다(PR 본문 "변이 검사"). 검사를 고치거나 더할 때도 같은 방식으로 확인한다.
+## Rules
 
-**알려진 공백:** 서버의 메뉴 권한 거부는 mock 서버 단위 테스트가 검사한다(`packages/adapters/mock-server/src/__tests__/menu-permission.test.ts`). UI는 클라이언트 라우트 게이트가 먼저 렌더되므로 서버 거부를 관찰할 수 없고, "직접 URL 거부" 검사는 클라이언트 게이트를 본다. 공간 진입 거부(§9.1)도 같은 공백이다 — 서버 거부는 단위 테스트 영역이고, E2E는 `RouteOutlet`의 클라이언트 게이트를 관찰한다.
+- Black box: do not import `@ap/*` packages (lint preset `tooling` blocks it). Drive only the screen and dev tools.
+- Roles via `signInAs` (localStorage `platform:role`, set before load); response scenarios via the dev-tools popover (`tests/support.ts`).
+- Selectors use roles and accessible names (Korean UI); update them when copy changes.
+- Attach evidence screenshots with `evidence(page, testInfo, name)` at the moment the contract is visible (right after a transition).
+- Default viewport is desktop 1440×900 (05 Decided). Only width-dependent contracts (ADR-0013 detail slot, ADR-0015 Context bar) use `setViewportSize` (1280, 1920, …) in their `test`.
+- `layout="fill"` pages (cycle time) start with the head collapsed (#680). Before touching head controls (page filters, chip row) call `expandPageHead(page)` from `tests/support.ts`; clear the memory key `platform:page-head-collapsed:<menuId>` before load when it must not persist.
+- Fixed-URL `page` must be inside the real range for that filter combination (#314: `page=2` on a table filtered to 1 row fails).
+- A new page starts at `about:blank`, so `history.length` is not 1. Assert replace as "one Back leaves the app (`about:blank`)".
+- Reproduce local-pass/CI-fail with CPU throttling (`Emulation.setCPUThrottlingRate` 8) and compare with main.
+- Temporary captures: `bash tooling/scripts/capture-page.sh <name> <route> [--variant <value>] [--role <engineer|admin|viewer>] [--ready <selector>]`. Run the Playwright command it prints, then `bash tooling/scripts/capture-page.sh --clean <name>` moves the spec to trash. Default selector `main h1`; it captures the 1440×900 viewport only, into `.review/<name>-shots/`.
 
-## 규칙
+### Wheel and drag checks (#700, #705)
 
-- 블랙박스다. `@ap/*` 패키지를 import하지 않는다(lint 프리셋 `tooling`이 막는다). 화면과 dev 도구로만 조작한다.
-- 역할은 `signInAs`(localStorage `platform:role`, 로드 전에 설정), 응답 시나리오는 dev 도구 팝오버로 바꾼다(`tests/support.ts`).
-- `layout="fill"` 페이지(사이클타임)는 머리가 접힌 채 시작한다(#680). 머리 안 컨트롤(페이지 필터·칩 줄)을 만지는 테스트는 먼저 `tests/support.ts`의 `expandPageHead(page)`로 펼치고, 접힘 기억 키 `platform:page-head-collapsed:<menuId>`가 남지 않게 필요하면 로드 전에 지운다.
-- 선택자는 역할·접근 가능한 이름(한국어 UI)을 쓴다. 문구가 바뀌면 여기도 고친다.
-- 증거 스크린샷은 `evidence(page, testInfo, 이름)`으로 붙인다. 계약이 보이는 순간(전환 직후 등)을 찍는다.
-- 기본은 데스크톱 1440×900(05 Decided)이다. 폭에 따라 달라지는 계약(ADR-0013 상세 슬롯, ADR-0015 Context 바)만 해당 `test`가 `setViewportSize`로 1280·1920 등을 검사한다.
-- 임시 캡처는 `bash tooling/scripts/capture-page.sh <name> <route> [--variant <값>] [--role <engineer|admin|viewer>] [--ready <선택자>]`로 만들고, 출력된 Playwright 명령 실행 뒤 `bash tooling/scripts/capture-page.sh --clean <name>`으로 spec을 휴지통으로 옮긴다(기본 선택자는 `main h1`, 스크린샷은 1440×900 viewport만 캡처해 `.review/<name>-shots/`에 저장한다).
-- 로컬 통과·CI 실패는 CPU 감속(`Emulation.setCPUThrottlingRate` 8)으로 재현하고 main과 비교한다. 고정 URL의 `page`는 그 필터 조합에서 실제 범위 안이어야 한다(#314 — 1건으로 걸러진 표에서 `page=2`).
-- 새 페이지는 `about:blank`에서 시작해 `history.length`가 1이 아니다. replace 확인은 "Back 한 번이 앱을 떠난다(`about:blank`)"로 단언한다.
-- 휠 검사(#700): 휠은 포인터 아래에서 가장 가까운 스크롤 컨테이너가 받는다. 바깥 스크롤을 보려면 스크롤 여유가 있는 컨테이너를 먼저 만들고(`#platform-main`에 높이 주입) 어느 요소가 움직였는지 단언한다. `has:` 로케이터는 바깥 요소 안쪽에서 맞추므로 상대 선택자로 시작한다. 확대 비교는 hover 툴팁이 섞이는 plot 전체가 아니라 안정된 가로축 눈금 띠를 같은 포인터 위치에서 잰다. 표를 끝까지 내릴 때는 행 높이가 안정될 때까지(300ms 간격 두 번 같음) 기다린 뒤 이어서 돌린다. 확대 후 끌기 이동은 그림 위 빈 자리로 포인터를 옮긴 뒤 휠로 확대하고(포인터가 그림 밖이면 휠이 확대하지 않는다), 누름 → 여러 단계 이동 → 놓기로 끈 다음 같은 자리에서 눈금 띠를 비교한다(#705).
-- 작업 영역 높이 방식(#686): 저장되는 상태(`platform:workspace:v1:…`의 `mode`·`rows`)를 기다릴 때는 고정 sleep이 아니라 `expect.poll`로 저장 값을 읽는다(저장은 300ms debounce). 좁은 패널에서도 줄 px는 고정할 수 있어 폭이 아니라 저장된 `rows`로 단언한다. 보드 칸에서 쌓기를 검사하려면 폭이 필요하니 시트를 `2x1`로 시드한다.
-- 순차 Tab 루프는 넉넉한 상한(300)과 도달 단언을 함께 둔다. 실패하면 error-context 스냅숏으로 포커스 위치부터 본다(#356).
-- 끌어 놓기는 `locator.dragTo` 대신 사람처럼 끈다(누름 → 여러 단계 이동 → 목표 위 작은 이동 몇 번 → 놓기, dock 보드의 `dragTab`). `dragTo`는 목표에서 한 번만 움직여서, 끄는 사이 조회가 끝나 포인터 아래 요소가 바뀌면 브라우저가 놓기 없이 끌기를 끝낸다(main CI 39782412595, CPU 감속 6–8에서 20번 중 5–6번 재현). 그래도 놓기 직전에 포인터 아래 스켈레톤이 실제 내용으로 바뀌면 흉내 마우스는 새 요소에 dragover를 보내지 않아 놓기가 사라진다. 그래서 끌기 전에 놓을 칸의 내용이 다 그려질 때까지 기다린다(`panesLoaded`: 지표가 보이고 `aria-busy` 스켈레톤 0개, 진단 CI(`debug/dock-drag-flake`) 39899780320에서 60번 중 5번 → 39901103032에서 0번).
+- A wheel goes to the nearest scroll container under the pointer. To observe outer scroll, first create a container with scroll room (inject height into `#platform-main`) and assert which element moved.
+- A `has:` locator matches inside the outer element, so start it with a relative selector.
+- Compare zoom on the stable horizontal-axis tick strip at the same pointer position, not on the whole plot (hover tooltips mix in).
+- Before continuing after scrolling a table to the end, wait until row height is stable (two equal reads 300 ms apart).
+- To drag after zoom: move the pointer to an empty spot over the figure first, wheel-zoom (a pointer outside the figure does not zoom), drag with press → several move steps → release, then compare the tick strip at the same spot.
+- Drag-and-drop: move like a person (press → several steps → a few small moves over the target → release; dock board `dragTab`), never `locator.dragTo`. `dragTo` moves only once at the target; if a query finishes mid-drag and the element under the pointer changes, the browser ends the drag without a drop (reproduced on main CI at CPU throttle 6–8, 5–6 of 20 runs). Before dragging, also wait until the drop target's content is fully drawn (`panesLoaded`: indicator visible and zero `aria-busy` skeletons); otherwise a skeleton replaced by real content right before the drop makes the simulated mouse send no dragover to the new element and the drop vanishes (5 of 60 runs failed before the wait, 0 after).
+- Workspace height mode (#686): wait for stored state (`platform:workspace:v1:…` `mode`/`rows`) with `expect.poll` on the stored value, never a fixed sleep (saving is debounced 300 ms). A narrow panel can still fix row px, so assert the stored `rows`, not the width. To test stacking in a board cell, seed the sheet as `2x1` (width is needed).
+- Sequential Tab loops use a generous cap (300) plus a reach assertion. On failure, read the error-context snapshot for the focus position first (#356).
+
+## Running and reporting
+
+- Run `pnpm e2e` from the root. Without a browser, run `pnpm --filter @ap/platform-e2e e2e:install` (Playwright default cache; run uses the same cache). If you set `PLAYWRIGHT_BROWSERS_PATH`, give the same value to install and run. Never reuse an old browser folder from another path: a folder lacking the revision the current Playwright wants fails every test at browser launch (#608).
+- The dev server starts on port 4190 itself (`reuseExistingServer: false`). To run beside another checkout or session, change the port (`E2E_PORT=4290 pnpm e2e`; base-path config `E2E_BASE_PATH_PORT`, default 4191; integers 1–65535 only, config load throws otherwise). If the port is taken, find the PID with `lsof -nP -iTCP:<port> -sTCP:LISTEN`, check ownership with `lsof -a -p <PID> -d cwd`, and never kill another checkout's server; pick another port. CI sets no env, so it uses 4190/4191.
+- No retries (`retries: 0`): an intermittent violation is a violation. If you pass `--retries` locally, the reporter marks pass-after-retry as "flaky" and keeps every attempt's errors and evidence.
+- A failed check's evidence is Playwright's failure screenshot (`screenshot: 'only-on-failure'`).
+- Reports: `contract-report/README.md` (per-item pass/flaky/fail table) + `evidence/` (screenshots) + `results.json`; failure traces in `playwright-report/`. None goes into git.
+- CI Job `Platform contracts (E2E)` puts the table in the Job summary and uploads the `platform-contract-report` artifact.
+- CI sharding (#666):
+  - A full run splits the suite into 4 shard Jobs (`Platform contracts (E2E shard i/4)`, `pnpm e2e --shard=i/4 --reporter=list,blob`). The merge Job `Platform contracts (E2E)` merges the blobs with `pnpm --filter @ap/platform-e2e e2e:merge` (`playwright.merge.config.ts`) into one report and issues the verdict from the shard results.
+  - `fullyParallel: true` makes shards split by test, not file; with one worker the execution order is unchanged.
+  - To reproduce one shard run `pnpm e2e --shard=2/4`; never put `--` before the argument (Playwright reads it as a file filter).
+  - `e2e:base-path` runs once, in the last shard.
+  - PRs and main pushes run only affected specs (`.github/scripts/select-e2e.mjs`): chosen specs go to one shard (`i/1`) by file path (`tests/<x>.spec.ts`), so `contract-report` is a partial report of those specs. With no affected spec, shard Jobs are skipped and the merge Job decides.
+  - A full run (4 shards) happens on `workflow_dispatch` `full=true` (the required cold full gate before release), manual `full=false`, PR/push changing `menus/**`, `packages/**`, `apps/**`, tooling, workflows or unclassified paths, and when selection or base-SHA computation fails (fail-safe). Changing non-spec files under `tests/` (`contract-helpers.ts`, `support.ts`), config or `package.json` also runs full.
+- Lint and typecheck are part of root `pnpm lint` / `pnpm typecheck`, not of `pnpm test`.
 
 ## Real-server contract E2E (#593)
 
-- Real specs live in `tests-real/*.real.spec.ts`; `playwright.real.config.ts` uses `src/real/http-assembly.tsx` through Vite `--mode real`. The default config remains mock-only and must not discover `tests-real`.
-- Run from a caller-created throwaway database with `pnpm --filter @ap/platform-e2e run e2e:real`. The main config validates both database URLs before migration, core seed, and each rate-limit reset. It accepts only `platform_app` / `platform_migrate` roles on `localhost:5439`, with both URLs naming the same `platform_<name>` database. It refuses the `platform` template, other hosts/ports, URL overrides, and mismatches. Use `verify-db.sh create <name>`; never use `SEED_MODE=personas`.
-- The harness seeds core actors only (`mock-admin-1`, `mock-user-1`), logs them in through Vite, and saves separate storage states. It does not add grants (exceptions: `log-rules.admin.real.spec.ts` creates its own synthetic system Actor and that Actor's `validation.catalog.report` grant, and `log-datasets.admin.real.spec.ts` creates its worker system Actor and the Admin's `dataset.baseline.approve` grant; no HTTP surface can create them). Before each test, `tests-real/support.ts` revalidates both URLs and deletes only `core.rate_limits` through the `platform_migrate` connection. Any browser response with status 429 fails the test.
-- Do not treat a shell heading as bridge success. Register the expected feature GET before navigation, require its 2xx response, and assert that screen's loaded rows or explicit valid empty state. The usage table reads once per mount, so poll authenticated `GET /api/v1/platform/usage-summary?preset=all` directly when checking persisted visit deltas.
-- `E2E_PORT` selects the Vite port (default `4190`); `E2E_REAL_BACKEND_PORT` selects the backend port (default `3011`). `e2e:real` runs the backend-down screen in a separate Vite-only config after the healthy-backend specs.
-- Audit target-type filter [#1091](https://github.com/hjung3113/analytics-platform/issues/1091) is implemented (ADR-0101): `console.admin.real.spec.ts` covers `filter=targetType:equals:equipment&filter=targetId:equals:<missing UUID>` → HTTP 200 `empty` + explicit empty state, `targetType:equals:voc` without `Invalid audit filter`, and a preserved well-formed unknown type. Exact seeded identities and the excluded-subject privacy cases live in the platform-api integration tests, not here.
-- `notices.admin.real.spec.ts` (#1106, describe `공지 서버와 Home 배너 (#1106)`) creates, edits and deletes notices over real cookie + CSRF HTTP, then navigates normally and checks the Home DOM and the `POST /api/v1/menu-query` 200 envelope. There is no notice CRUD screen, so refresh-without-reload is proven by the mounted-assembly test `apps/platform-web/src/endpoint-invalidation-bridge.test.tsx`, not here. Workers do not run E2E; report this spec as not run.
-- `log-rules.admin.real.spec.ts` (#1497 R-g, describe `검증 규칙 통합: 토큰 보고에서 커버리지까지`) issues a service token over HTTP, posts synthetic catalog reports with it and checks the rule list, the declared target as reported, computed coverage, the not-computable state of a report without requirement ids, and the refresh by a new report. Requirement ids use the normalized spec key spelling (`ALPHA/START`). The token travels only in a plain Node `fetch` (a failed Playwright request logs its headers into the HTML report), recording is off for the file (credential guard), and the Actor's tokens are revoked after the test. The spec needs a throwaway database whose catalog has no other source and fails with that message otherwise.
-- `log-datasets.admin.real.spec.ts` (#1482 D-f, describe `테스트 데이터셋 통합: 합성 Dataset에서 비교까지`) runs the dataset chain over real cookie + CSRF HTTP: Dataset → Revision → Baseline draft → approve (the Admin session gets the `dataset.baseline.approve` grant by SQL, there is no Admin bypass) → Suite → `suiteRun` twice with one key (one `suite_run`) → a test-local reference worker (system Actor with a `validation.worker` service token, claim/heartbeat/result in plain Node `fetch`, result replay) → `logDataset.comparison` classes and the comparison screen DOM. The Source stays unverified (no Source port): the screens must show «원본 확인 불가» and never «원본 확인됨». The workspace needs a throwaway database that holds no other queued validation request (the claim must return this run's request). Recording is off (credential guard) and the Actor's tokens are revoked after the test. The conductor ran it on a throwaway DB against the real production build (1 passed); CI does not run real specs.
-- See [`real-server-checklist.md`](../../docs/integration/real-server-checklist.md) for covered contracts and the unavailable-on-real table. CI runs the default mock E2E config; no CI job executes real specs or the real assembly browser flow.
+CI runs the default mock E2E config only; no CI job executes real specs or the real assembly browser flow. Covered contracts and the unavailable-on-real table: [`real-server-checklist.md`](../../docs/integration/real-server-checklist.md).
 
-### 준비와 실행
+### Layout and guards
 
-1. 로컬 env 템플릿과 throwaway DB 컨테이너를 준비한다. 기존 `ops/platform-api/.env`가 있으면 읽어 보고 그대로 둔다. 없을 때만 `.env.example`을 복사한다. `up`은 포트 5439에 `platform-verify` 컨테이너를 만들고(메모리 기본 상한 2g, `VERIFY_DB_MEMORY`로 조정) 템플릿 DB를 migrate한다. 이 호출이 컨테이너를 새로 만들었는지 기록해 둔다. 이미 떠 있던 컨테이너(다른 세션 소유일 수 있다)는 쓰기만 하고 멈추지 않는다.
+- Real specs live in `tests-real/*.real.spec.ts`; `playwright.real.config.ts` uses `src/real/http-assembly.tsx` through Vite `--mode real`. The default config stays mock-only and must not discover `tests-real`.
+- Run from a caller-created throwaway database with `pnpm --filter @ap/platform-e2e run e2e:real`. The main config validates both database URLs before migration, core seed, and each rate-limit reset. It accepts only `platform_app` / `platform_migrate` roles on `localhost:5439`, both naming the same `platform_<name>` database, and refuses the `platform` template, other hosts/ports, URL query/fragment, URL overrides and mismatches. Use `verify-db.sh create <name>`; never use `SEED_MODE=personas` (the seed is fixed to `SEED_MODE=core`); never bypass the validation to point at a local or remote DB.
+- The harness seeds core actors only (`mock-admin-1`, `mock-user-1`), logs them in through Vite `/auth/mock-login`, and saves separate `storageState`s. It adds no grants, except where no HTTP surface can create them:
+  - `log-rules.admin.real.spec.ts` creates its own synthetic system Actor and that Actor's `validation.catalog.report` grant.
+  - `log-datasets.admin.real.spec.ts` creates its worker system Actor and the Admin's `dataset.baseline.approve` grant.
+- Before each test, `tests-real/support.ts` revalidates both URLs and deletes only `core.rate_limits` through the `platform_migrate` connection (`log-rules.admin.real.spec.ts` also on each screen re-entry within one test). Direct SQL is limited to that cleanup and to fixtures HTTP cannot create (`migrateSql`). Any browser response with status 429 fails the test.
+- Do not treat a shell heading as bridge success. Register the expected feature GET before navigation, require its 2xx response, and assert the screen's loaded rows or explicit valid empty state.
+- The usage table reads once per mount, so poll authenticated `GET /api/v1/platform/usage-summary?preset=all` directly when checking persisted visit deltas.
+- The platform home Todo slot hides its whole section when every group is empty. Home checks assert the survey, notification and own-permission-request GETs succeeded and the business-system cards rendered.
+- `E2E_PORT` selects the Vite port (default `4190`); `E2E_REAL_BACKEND_PORT` the backend port (default `3011`); avoid ports other sessions use. `e2e:real` runs the backend-down screen in a separate Vite-only config (no DB) after the healthy-backend specs.
+- Backend readiness uses `/health` (liveness). `/health/ready` also requires attachment storage, which this harness does not use.
+- Focused database safety checks (`node --test apps/platform-e2e/tests-real/database-safety.test.ts`) run in `gate.sh static-extra`; they do not connect to a database.
+
+### Spec contracts
+
+- Audit target-type filter ([#1091](https://github.com/hjung3113/analytics-platform/issues/1091), ADR-0101): `console.admin.real.spec.ts` covers `filter=targetType:equals:equipment&filter=targetId:equals:<missing UUID>` → HTTP 200 `empty` + explicit empty state, `targetType:equals:voc` without `Invalid audit filter`, and a preserved well-formed unknown type. Exact seeded identities and the excluded-subject privacy cases belong to the platform-api integration tests.
+- `notices.admin.real.spec.ts` (describe `공지 서버와 Home 배너 (#1106)`): creates, edits and deletes notices over real cookie + CSRF HTTP, then navigates normally and checks the Home DOM and the `POST /api/v1/menu-query` 200 envelope. No notice CRUD screen exists, so refresh-without-reload is proven by `apps/platform-web/src/endpoint-invalidation-bridge.test.tsx`. Workers do not run E2E; report this spec as not run.
+- `log-rules.admin.real.spec.ts` (describe `검증 규칙 통합: 토큰 보고에서 커버리지까지`): issues a service token over HTTP, posts synthetic catalog reports with it, and checks the rule list, the declared target as reported, computed coverage, the not-computable state of a report without requirement ids, and the refresh by a new report.
+  - Requirement ids use the normalized spec key spelling (`ALPHA/START`).
+  - The token travels only in a plain Node `fetch` (a failed Playwright request logs its headers into the HTML report); recording is off for the file (credential guard); the Actor's tokens are revoked after the test.
+  - Needs a throwaway database whose catalog has no other source; otherwise it fails with that message.
+- `log-datasets.admin.real.spec.ts` (describe `테스트 데이터셋 통합: 합성 Dataset에서 비교까지`): runs the dataset chain over real cookie + CSRF HTTP: Dataset → Revision → Baseline draft → approve (the Admin gets `dataset.baseline.approve` by SQL; there is no Admin bypass) → Suite → `suiteRun` twice with one key (one `suite_run`) → a test-local reference worker (system Actor with a `validation.worker` service token; claim/heartbeat/result in plain Node `fetch`, result replay) → `logDataset.comparison` classes and the comparison screen DOM.
+  - The Source stays unverified (no Source port): screens must show «원본 확인 불가» and never «원본 확인됨».
+  - Needs a throwaway database holding no other queued validation request (the claim must return this run's request). Recording is off (credential guard); the Actor's tokens are revoked after the test.
+
+### Procedure
+
+1. Prepare the local env template and the throwaway DB container. Read an existing `ops/platform-api/.env` and leave it; copy `.env.example` only when absent. `up` creates the `platform-verify` container on port 5439 (memory cap default 2g, adjust with `VERIFY_DB_MEMORY`) and migrates the template DB. Record whether this call created the container. Use a container that was already running (possibly another session's) but never stop it.
 
    ```sh
    [ -f ops/platform-api/.env ] || cp ops/platform-api/.env.example ops/platform-api/.env
@@ -50,7 +91,7 @@
    bash ops/platform-api/conductor/scripts/verify-db.sh up
    ```
 
-2. 이름을 정해 throwaway DB를 만든다. helper는 `platform_<name>`을 복제하고 `$WAVE_STATE/env.verify.<name>`을 만들며 해당 DB를 migrate한다. 생성된 env를 읽어 오고 core workspace ID와 포트를 정한다(`E2E_PORT` Vite 기본 `4190`, `E2E_REAL_BACKEND_PORT` 백엔드 기본 `3011`; 다른 세션이 쓰는 포트는 피한다).
+2. Create a named throwaway DB. The helper clones `platform_<name>`, writes `$WAVE_STATE/env.verify.<name>` and migrates that DB. Load the generated env, then set the core workspace ID and ports.
 
    ```sh
    bash ops/platform-api/conductor/scripts/verify-db.sh create 593-real
@@ -61,44 +102,24 @@
    export E2E_PORT=4190 E2E_REAL_BACKEND_PORT=3011
    ```
 
-3. harness가 받아들이는 DB URL은 helper가 만드는 다음 모양이다. 양쪽은 `localhost:5439`의 같은 `platform_<name>`을 가리켜야 한다. `DATABASE_URL`은 `platform_app`, `DATABASE_URL_MIGRATE`는 `platform_migrate` 역할을 써야 한다. 비밀번호는 helper가 생성한 값을 그대로 쓴다. URL query/fragment, 원격 호스트, 포트 5434나 다른 포트, `platform` 템플릿, 서로 다른 DB 이름은 거부된다.
+3. The harness accepts only the DB URL shape the helper generates; use the helper's generated passwords as they are. `DATABASE_URL` uses role `platform_app`, `DATABASE_URL_MIGRATE` uses `platform_migrate`, both on `localhost:5439` and the same `platform_<name>`. Port 5434 or any other port is refused.
 
    ```text
    DATABASE_URL=postgres://platform_app:platform_app@localhost:5439/platform_<name>
    DATABASE_URL_MIGRATE=postgres://platform_migrate:platform_migrate@localhost:5439/platform_<name>
-   WORKSPACE_ID=00000000-0000-0000-0000-000000000001  # 저장소 core workspace ID; 표준 UUID도 허용
+   WORKSPACE_ID=00000000-0000-0000-0000-000000000001  # repo core workspace ID; any standard UUID is also accepted
    ```
 
-   설정은 전역 setup의 migration·core seed 전에, 그리고 매 테스트의 rate-limit cleanup 전에 두 URL을 다시 검사한다. 직접 SQL은 검증된 `DATABASE_URL_MIGRATE`의 `platform_migrate` 역할로 cleanup `DELETE FROM core.rate_limits`(`log-rules.admin.real.spec.ts`는 한 테스트 안의 화면 재진입마다도)와, HTTP로 만들 수 없는 fixture(`migrateSql`: `log-rules.admin.real.spec.ts`의 합성 system Actor와 그 grant)만 실행한다. seed는 `SEED_MODE=core`로 고정한다. `SEED_MODE=personas`는 사용하지 않는다. 검증을 우회해 로컬·원격 DB를 지정하지 않는다.
-
-4. 실제 production build와 suite를 실행한다. `e2e:real`은 정상 백엔드 사양을 끝낸 뒤 DB 없는 별도 설정에서 연결 실패 화면도 확인한다. 백엔드 준비 확인은 `/health`(liveness)다. `/health/ready`는 첨부 저장소까지 요구하는데 이 harness는 쓰지 않는다.
+4. Build and run against the real production build.
 
    ```sh
    pnpm --filter @ap/platform-web run build:real-prod
    pnpm --filter @ap/platform-e2e run e2e:real
    ```
 
-5. 결과와 관계없이 끝나자마자 정리한다. 이름이 있는 DB를 바로 drop하고, 이 실행이 컨테이너를 만든 경우(`CREATED_CONTAINER=1`)에만 `down`한다. 다른 세션의 컨테이너는 멈추지 않는다.
+5. Clean up as soon as the run ends, whatever the result: drop the named DB, and `down` the container only if this run created it (`CREATED_CONTAINER=1`).
 
    ```sh
    bash ops/platform-api/conductor/scripts/verify-db.sh drop 593-real
    [ "$CREATED_CONTAINER" = 1 ] && bash ops/platform-api/conductor/scripts/verify-db.sh down
    ```
-
-core seed의 `mock-admin-1`·`mock-user-1`을 Vite origin의 `/auth/mock-login`으로 로그인하고 각 `storageState`를 분리한다. 매 테스트 전에 rate-limit bucket만 비우며, 브라우저 응답에서 예상치 못한 HTTP 429가 나오면 테스트를 실패시킨다.
-
-활용률 delta는 방문 표의 첫 렌더를 반복해서 읽지 않는다. 화면은 mount당 한 번 조회하므로 검사는 인증된 `GET /api/v1/platform/usage-summary?preset=all`을 다시 요청해 서버에 저장된 방문 delta를 poll한다. 플랫폼 홈의 Todo 슬롯은 모든 그룹이 비면 섹션 자체를 숨기는 계약이다. 홈 검사는 설문·알림·내 권한 요청 GET이 성공했는지와 업무 시스템 카드 렌더를 확인한다.
-
-
-## 실행과 보고
-
-- 루트 `pnpm e2e`. 브라우저가 없으면 `pnpm --filter @ap/platform-e2e e2e:install`(Playwright 기본 캐시에 설치, 실행도 같은 캐시를 본다). `PLAYWRIGHT_BROWSERS_PATH`를 쓰면 설치와 실행에 같은 값을 준다. 다른 경로의 옛 브라우저 폴더를 재사용하지 않는다: 그 폴더에 지금 Playwright 버전이 찾는 리비전이 없으면 모든 테스트가 브라우저 실행에서 실패한다(#608).
-- dev 서버를 기본 포트 4190에 직접 띄운다(`reuseExistingServer: false`). 다른 checkout·세션과 동시에 돌리려면 `E2E_PORT=4290 pnpm e2e`처럼 포트를 바꾼다(base-path 설정은 `E2E_BASE_PATH_PORT`, 기본 4191; 값은 1–65535 정수만, 아니면 설정 로드에서 던진다, #809). 이미 떠 있으면 `lsof -nP -iTCP:<포트> -sTCP:LISTEN`으로 PID를 찾고 `lsof -a -p <PID> -d cwd`로 소유를 확인하고, 다른 checkout의 서버는 죽이지 말고 다른 포트를 고른다. CI는 env를 주지 않아 4190/4191 그대로다.
-- 재시도하지 않는다(`retries: 0`). 간헐적 위반도 위반이다. 로컬에서 `--retries`를 주면 리포터가 재시도 후 통과를 "불안정"으로 따로 표시하고 모든 시도의 오류·증거를 남긴다.
-- 실패한 검사는 Playwright의 실패 스크린샷(`screenshot: 'only-on-failure'`)이 그 항목의 증거로 들어간다.
-- 보고: `contract-report/README.md`(항목별 통과/불안정/실패 표) + `evidence/`(스크린샷) + `results.json`. 실패 추적은 `playwright-report/`. 모두 git에 넣지 않는다.
-- CI Job `Platform contracts (E2E)`가 표를 Job 요약에 싣고 `platform-contract-report` 아티팩트로 올린다.
-- CI는 전체 실행에서 스위트를 shard 4개 Job(`Platform contracts (E2E shard i/4)`, `pnpm e2e --shard=i/4 --reporter=list,blob`)으로 나눠 돌리고, 병합 Job `Platform contracts (E2E)`가 blob을 `pnpm --filter @ap/platform-e2e e2e:merge`(`playwright.merge.config.ts`)로 합쳐 하나의 보고를 만든다(#666). 판정은 병합 Job이 shard 결과로 낸다. `fullyParallel: true`는 shard가 파일이 아니라 테스트 단위로 나뉘게 하려는 것이고, 워커가 1개라 실행 순서는 그대로다. shard 하나만 재현하려면 `pnpm e2e --shard=2/4` — 인자 앞에 `--`를 넣지 않는다(Playwright가 파일 필터로 읽는다). `e2e:base-path`는 마지막 shard에서 한 번만 돈다. PR과 main push는 영향받는 spec만 돌린다(`.github/scripts/select-e2e.mjs`): 고른 spec은 shard 하나(`i/1`)에 파일 경로(`tests/<x>.spec.ts`)로 넘기고, 그래서 `contract-report`도 그 spec만 담은 부분 보고다. 영향받는 spec이 없으면 shard Job을 건너뛰고 병합 Job이 판정한다. 전체 실행(shard 4개)은 `workflow_dispatch`의 `full=true`(릴리스 전 필수 cold 전체 게이트), `full=false` 수동 실행, `menus/**`·`packages/**`·`apps/**`·도구·워크플로·분류되지 않은 경로를 바꾼 PR/push, 선택·기준 SHA 계산 실패(fail-safe)에서 돈다. `tests/` 아래 spec이 아닌 파일(`contract-helpers.ts`·`support.ts`)과 설정·`package.json`을 바꾸면 전체다.
-- lint·typecheck는 루트 `pnpm lint`·`pnpm typecheck`에 포함된다. `pnpm test`에는 포함되지 않는다.
-
-The focused database safety checks (`node --test apps/platform-e2e/tests-real/database-safety.test.ts`) run in `gate.sh static-extra`; they do not connect to a database.

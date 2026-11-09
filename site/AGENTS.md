@@ -1,21 +1,41 @@
 # AGENTS.md — site
 
-사내 도입 소개 페이지다. 제품 코드가 아니며 pnpm workspace 밖 정적 HTML/CSS/classic JS만 사용한다. workspace 패키지 import·외부 CDN·fetch·분석 스크립트를 넣지 않는다.
+The in-house adoption intro page. Not product code. Use only static HTML/CSS/classic JS outside the pnpm workspace; add no workspace package imports, external CDN, fetch or analytics scripts.
 
-- 모든 사실·숫자는 SOURCES.md 행과 대응해야 한다. 새 주장은 원장 행부터 추가한다. 합성 값은 예시로 표시한다.
-- 제목·카드·도식·요약은 명사형·핵심어를 먼저 쓴다(#1057). 동작·정확성·제약 설명은 `~합니다` 짧은 사실 문장으로 쓴다. 제목은 기능 이름(GLOSSARY 용어), 기술 이름 대신 할 수 있는 일, 안 되는 것은 '아직 안 됨 → 예정 #n'. 광고·대비 수사 금지(#607).
-- 색·폰트·반경은 제품 토큰을 소비한다. 값을 복제하지 않는다. site.css에는 색 literal을 넣지 않는다.
-- 조립: `node site/scripts/assemble.mjs --out "$TMPDIR/ap-site" --site-base / --assumption`
-- 미리보기: `python3 -m http.server -d "$TMPDIR/ap-site" 8080` → `http://127.0.0.1:8080/`
-- 데모 링크 D1–D10은 공개 전 배포된 데모에서 브라우저로 하나씩 확인한다. 데모가 없으면 링크를 렌더하지 않는다.
-- D1–D10 지시문 문장은 `index.html` 끝 `<template id="demo-step-copy">` 한 곳에만 있고, 조립이 각 `demo-link`의 `<p data-demo-step="D#">` 빈 자리에 같은 문장을 심는다. 사본을 손으로 고치지 않는다.
-- 정비 이슈 해결 전에 공개하면 --assumption을 켠다. 실행 통과 수와 테스트 선언 수를 구분한다.
+## Content rules
 
-- 캡처 스크립트 `scripts/shots.mjs`·`scripts/shots-real.mjs`만 e2e 패키지의 Playwright 런타임을 빌린다(사이트 런타임 의존성 아님).
-- 플랫폼이 지원하는 기능은 기능으로 말하고, 아직 선언하지 않은 메뉴만 "예정 #n"으로 쓴다. "현재 X 메뉴만"을 대표 사실로 쓰지 않는다(소유자 2026-10-23).
-- 화면에 나오는 말은 `GLOSSARY.md` 이름을 쓴다(`공간`→업무 시스템, `조회 범위`→Scope, `실어댑터`→서버 어댑터, `레일`→시스템 레일 등). `glossary.html`은 `GLOSSARY.md`의 용어 이름과 뜻을 따르되 사이트 문체(`~합니다`, ADR·절 번호 없음, 용어당 한두 문장)로 쓴다(조정자 결정 2026-10-23). 코드 이름(`Space`)은 개발자 부록에서만 남긴다.
-- 조립 인수: `--out`(필수, 비어 있는 새 폴더) · `--site-base`(`/`로 시작하고 끝나는 배포 경로, 기본 `/analytics-platform/`) · `--demo <dist>`(mock 데모 빌드를 `demo/`로 복사) · `--shots <캡처 폴더>`(`shots.mjs` 출력, 없으면 캡처 자리를 지움) · `--ref`·`--commit`(원본 링크·푸터 표기) · `--assumption`. 정적 이미지 `assets/**`는 통째로 복사한다.
-- Pages CI는 `shots.mjs`로 mock 데모만 찍는다(서버 없음). PR CI의 `Intro site captures` 잡(`ci.yml`, 필수 검사 아님)이 캡처가 기대는 경로(메뉴·패키지·`apps/platform-web`·`site`·`tooling`·`patches`·기능 소스(`apps/{platform-api,feature-screens}`), 루트 manifest·lockfile·`GLOSSARY.md`, 원본은 `ci.yml` `changes`)를 바꾼 PR과 main push마다 같은 빌드 → 캡처 → 조립 → `check-assembled.mjs --browser`를 돌려, 캡처가 깨진 것을 배포 전에 잡는다(#608). 코어 서버가 필요한 화면(플랫폼 메뉴의 알림·설문·내 VOC, VOC 등록 드로어의 작성 화면)은 `scripts/shots-real.mjs`를 손으로 돌려 `assets/real/`에 JPEG으로 커밋한다: `AP_BACKEND_ORIGIN=<코어 서버> pnpm --filter @ap/platform-web exec vite --mode real --host 127.0.0.1 --port <포트> --strictPort` 뒤 `node site/scripts/shots-real.mjs --url http://127.0.0.1:<포트> --out site/assets/real`. 시드 페르소나(`mock-user-2`)와 한국어 예시 데이터가 든 일회용 DB에서 배율 2로 찍어 주제 상자만 자르고, 총량 1.5 MB 상한과 시험용 표식(`[preview]`·`[seed]`) 검사를 스크립트가 한다. 캡션에 `실서버 모드 · 예시 데이터`를 적고 원장에 행을 둔다.
-- AI 티 점검: 사이트 문구와 발표 자료는 소유자에게 보내기 전에 쓰지 않은 작업자가 점검한다. 문장은 `korean-humanizer`(탐지만, S1은 모두 고침)와 `copy-plain-ko`, 화면·슬라이드 모양은 `design-deslop`으로 보고, 보고서에 근거 줄과 고친 곳을 남긴다. 이유: 결정권자가 AI가 만든 자료로 읽으면 내용을 믿지 않는다(소유자 2026-11-01).
-- 조립 검사: `node site/scripts/check-assembled.mjs --site <조립 폴더> --captures <shots.mjs 출력 폴더> --browser`. 본문이 요구하는 캡처가 캡처 폴더·조립본에 모두 있는지, 중복 id·앵커·금지 용어(코드 글자 포함, 허용한 코드 이름은 출력)·1440/390 가로 스크롤을 본다. `assemble.mjs`는 `--shots`를 받았는데 본문이 요구한 캡처가 없으면 멈춘다.
-- 발표 자료 `presentation/intro.html`은 소유자가 Claude Design에서 만든 오프라인 단독 HTML(외부 요청 없음)을 그대로 넣은 파일이다. 다시 쓰거나 고치지 않고, 새 판은 같은 경로에 통째로 바꾼다. 원장·용어·문체 규칙과 조립 검사는 이 파일에 적용하지 않는다. 이유: 소유자가 직접 만든 발표 자료이고, 소개 페이지는 링크만 건다(소유자 2026-11-02).
+- Every fact and number maps to a row in SOURCES.md. Add the ledger row before a new claim. Mark synthetic values as examples.
+- Titles, cards, diagrams and summaries are noun phrases with the key term first (#1057). Behaviour, accuracy and constraint explanations are short `~합니다` fact sentences. A title is a feature name (GLOSSARY term) or what the user can do, not a technology name. Things that do not work yet read «아직 안 됨 → 예정 #n». No advertising or contrast rhetoric (#607).
+- Describe what the platform supports as features; write «예정 #n» only for menus not yet declared. Never state «현재 X 메뉴만» as the representative fact (owner decision).
+- On-screen words use `GLOSSARY.md` names (`공간`→업무 시스템, `조회 범위`→Scope, `실어댑터`→서버 어댑터, `레일`→시스템 레일, …). Code names (`Space`) appear only in the developer appendix.
+- `glossary.html` follows the term names and meanings of `GLOSSARY.md` in the site voice (`~합니다`, no ADR or section numbers, one or two sentences per term).
+- Colors, fonts and radii consume the product tokens. Do not duplicate values; `site.css` holds no color literal.
+- Publishing before the maintenance issue is resolved needs `--assumption`. Keep executed pass counts and declared test counts apart.
+- The demo links D1–D10 are checked one by one in a browser on the deployed demo before publishing. Render no link when there is no demo.
+- The D1–D10 instruction sentences exist only in `<template id="demo-step-copy">` at the end of `index.html`; assembly plants them into each `demo-link`'s empty `<p data-demo-step="D#">`. Never edit the copies by hand.
+- AI-tell check: before copy or decks go to the owner, a worker who did not write them reviews them. Sentences: `korean-humanizer` (detect only; fix every S1) and `copy-plain-ko`. Screen/slide shape: `design-deslop`. The report keeps the evidence lines and fixes. Reason: a decision maker who reads the material as AI-made stops trusting the content.
+- `presentation/intro.html` is the owner's offline standalone HTML from Claude Design (no external requests), inserted as is. Do not rewrite or edit it; replace the whole file at the same path for a new version. Ledger, glossary, voice rules and the assembled check do not apply to it. Reason: it is the owner's own deck and the intro page only links to it.
+
+## Build and check
+
+- Assemble: `node site/scripts/assemble.mjs --out "$TMPDIR/ap-site" --site-base / --assumption`. Preview: `python3 -m http.server -d "$TMPDIR/ap-site" 8080` → `http://127.0.0.1:8080/`.
+- Assemble arguments:
+  - `--out` (required, a new empty folder)
+  - `--site-base` (deploy path starting and ending with `/`, default `/analytics-platform/`)
+  - `--demo <dist>` (copies the mock demo build to `demo/`)
+  - `--shots <capture folder>` (`shots.mjs` output; without it the capture slots are removed)
+  - `--ref`, `--commit` (source link and footer)
+  - `--assumption`
+  - Static images `assets/**` are copied whole.
+- `assemble.mjs` stops when `--shots` is given but a capture the body requires is missing.
+- Assembled check: `node site/scripts/check-assembled.mjs --site <assembled folder> --captures <shots.mjs output folder> --browser`. It checks that every required capture is in both the capture folder and the assembly, duplicate ids and anchors, forbidden terms (code characters included; allowed code names are printed), and horizontal scroll at 1440/390.
+
+## Captures
+
+- Only `scripts/shots.mjs` and `scripts/shots-real.mjs` borrow the e2e package's Playwright runtime (not a site runtime dependency).
+- Pages CI shoots only the mock demo with `shots.mjs` (no server). The PR CI job `Intro site captures` (`ci.yml`, not a required check) runs build → capture → assemble → `check-assembled.mjs --browser` on every main push and every PR touching what captures depend on, to catch broken captures before deploy (#608). Depended paths: menus, packages, `apps/platform-web`, `site`, `tooling`, `patches`, feature sources (`apps/{platform-api,feature-screens}`), root manifests and lockfile, `GLOSSARY.md`; the source is `ci.yml` `changes`.
+- Screens that need the core server (platform-menu notifications, surveys, my VOC; the VOC registration drawer's compose view) are shot by hand with `scripts/shots-real.mjs` and committed as JPEG under `assets/real/`:
+  1. `AP_BACKEND_ORIGIN=<core server> pnpm --filter @ap/platform-web exec vite --mode real --host 127.0.0.1 --port <port> --strictPort`
+  2. `node site/scripts/shots-real.mjs --url http://127.0.0.1:<port> --out site/assets/real`
+  - Shoot at scale 2 on a throwaway DB holding the seed persona (`mock-user-2`) and Korean example data, cropped to the topic box. The script enforces the 1.5 MB total cap and the test-marker check (`[preview]`, `[seed]`).
+  - Caption `실서버 모드 · 예시 데이터` and add a ledger row.
