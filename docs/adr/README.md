@@ -141,6 +141,7 @@
 | [0128](0128-app-joins-menus-for-embedded-bodies.md) | 한 메뉴 화면이 다른 메뉴의 본문을 품을 때는 앱이 둘을 잇는다(main.tsx 슬롯 주입, 메뉴 간 import 금지 유지) | Decided(2026-11-08) |
 | [0129](0129-prototype-only-for-new-or-hard-to-undo-ui.md) | 시안은 새 화면이거나 되돌리기 어려운 변경에만 만든다(나머지는 전후 캡처와 PR의 Decisions) | Decided(2026-11-09) |
 | [0130](0130-workspace-stack-default-and-declared-stack-layout.md) | 작업 영역은 아래로 쌓기로 시작하고, 메뉴가 쌓기용 배치(`stackPreset`)와 패널 선호 높이를 선언한다 | Decided(2026-11-09) |
+| [0132](0132-eqv-merges-into-platform.md) | 설비 시각화(EV)를 플랫폼에 합친다: 이력은 `products/eqv/`로 보존하고 패키지는 `packages/eqv/*`로 옮기며 EV 저장소는 소유자 확인 뒤 아카이브 | Decided(2026-11-10) — 0039·0053의 "EV는 외부 저장소" 서술을 대체, 구현은 #1607 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
