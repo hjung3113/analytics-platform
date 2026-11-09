@@ -10,8 +10,15 @@ import {
   components,
   contractSchemas,
   contracts,
+  eqvCore,
+  eqvHost,
+  eqvUi,
   featureBridgePreset,
   featureBridgeMenuPreset,
+  featureScreensPreset,
+  featureServerPreset,
+  featureSharedPreset,
+  featureUiPreset,
   hostModule,
   hostModuleDir,
   httpAdapter,
@@ -929,5 +936,216 @@ describe('feature identities', () => {
   });
   it.each(['@ap/platform-api-extra', '@ap/feature-screens-extra', '@ap/feature-shared-extra', '@ap/feature-ui-extra', '@ap/platform-api-ops-extra'])('allows near neighbor %s in app', async (source) => {
     expect(await lint('apps/platform-web/src/menus.ts', `import { x } from '${source}'; void import('${source}');`)).toEqual([]);
+  });
+});
+
+// --- EV (packages/eqv/<name>, @eqv/*): the ban outside the host slot and the three EV presets (#1612, ADR-0132, ADR-0128) ---
+const importForms = (source: string) => [
+  { form: 'static', code: `import { x } from '${source}';`, rule: 'no-restricted-imports' },
+  { form: 'export-from', code: `export { x } from '${source}';`, rule: 'no-restricted-imports' },
+  { form: 'export-star', code: `export * from '${source}';`, rule: 'no-restricted-imports' },
+  { form: 'type', code: `import type { X } from '${source}';`, rule: 'no-restricted-imports' },
+  { form: 'dynamic', code: `export const dep = await import('${source}');`, rule: 'ap/restricted-import-source' },
+  { form: 'import-type', code: `export type Dep = import('${source}').Dep;`, rule: 'ap/restricted-import-source' },
+  { form: 'require', code: `const x = require('${source}');`, rule: 'ap/restricted-import-source' },
+];
+
+describe('EV ban outside the host slot', () => {
+  const BANNED_FILES = [
+    'packages/sdk/contracts/src/x.ts', 'packages/sdk/contract-schemas/src/x.ts', 'packages/sdk/ui/src/x.ts', 'packages/sdk/kernel/src/x.ts',
+    'packages/sdk/components/src/x.ts', 'packages/sdk/shell/src/x.ts', 'packages/adapters/mock-server/src/x.ts', 'packages/adapters/http-adapter/src/x.ts',
+    'packages/adapters/server-conformance/src/x.ts', 'packages/adapters/feature-bridge/src/x.ts', 'modules/fixture/src/x.ts',
+    MENU, 'menus/mars/analytics/src/x.ts', 'platform/my-activity/src/pages/x.tsx', 'platform/my-activity/src/mock/x.ts',
+  ];
+  it.each(BANNED_FILES.flatMap((file) => importForms('@eqv/core').map((f) => ({ file, ...f }))))('$file rejects @eqv/core ($form)', async ({ file, code, rule }) => {
+    const messages = await lint(file, code);
+    const dump = JSON.stringify(messages, null, 2);
+    expect(messages.filter((m) => m.ruleId === rule && m.message.includes('ADR-0132')).length, dump).toBeGreaterThan(0);
+  });
+
+  const FEATURE: [string, Linter.Config[]][] = [
+    ['apps/platform-api', featureServerPreset], ['packages/feature-shared', featureSharedPreset],
+    ['packages/feature-ui', featureUiPreset], ['apps/feature-screens', featureScreensPreset],
+  ];
+  it.each(FEATURE.flatMap(([dir, preset]) => importForms('@eqv/ui/sub').map((f) => ({ dir, preset, ...f }))))('$dir rejects @eqv/ui/sub ($form)', async ({ dir, preset, code, rule }) => {
+    const cwd = path.join(REPO_ROOT, dir);
+    const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: preset });
+    const [result] = await eslint.lintText(code, { filePath: path.join(cwd, 'src/x.ts') });
+    const messages = result?.messages ?? [];
+    expect(messages.filter((m) => m.ruleId === rule && m.message.includes('ADR-0132')).length, JSON.stringify(messages, null, 2)).toBeGreaterThan(0);
+  });
+
+  it.each(['@eqv/platform-adapter', '@eqv/platform-adapter/manifest'])('apps/platform-web modules.ts keeps %s (static, dynamic, type)', async (source) => {
+    for (const code of [`import { x } from '${source}';`, `void import('${source}');`, `type X = import('${source}').X;`]) {
+      expect(await lint('apps/platform-web/src/modules.ts', code), code).toEqual([]);
+    }
+  });
+  it.each(['@eqv/core', '@eqv/ui', '@eqv/platform-adapter/other'].flatMap((source) => importForms(source)))('apps/platform-web rejects what it does not use today ($form)', async ({ code, rule }) => {
+    const messages = await lint('apps/platform-web/src/modules.ts', code);
+    expect(messages.some((m) => m.ruleId === rule && m.message.includes('ADR-0132')), JSON.stringify(messages, null, 2)).toBe(true);
+  });
+  it.each(['@eqv-extra/x', '@eqv/uix', '@eqv/platform-adapter-extra', '@eqvx/core', '@eqv/unknown'])('near neighbour %s is not an EV identity', async (source) => {
+    for (const file of ['packages/sdk/kernel/src/x.ts', 'apps/platform-web/src/modules.ts', 'platform/my-activity/src/pages/x.tsx']) {
+      const messages = await lint(file, `import { x } from '${source}'; void import('${source}');`);
+      expect(messages.filter((m) => m.message.includes('ADR-0132')), file).toEqual([]);
+    }
+  });
+});
+
+const EQV_FIXTURE = path.join(HERE, 'fixtures', 'eqv-depth');
+/** An EV preset on a real manifest tree: packages/eqv/<name> sits one level deeper than packages/<name>. */
+async function lintEqv(preset: Linter.Config[], relFile: string, code: string, cwd = EQV_FIXTURE): Promise<Linter.LintMessage[]> {
+  const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: preset });
+  const [result] = await eslint.lintText(code, { filePath: path.join(cwd, relFile) });
+  return result?.messages ?? [];
+}
+const CORE = 'packages/eqv/core/src/x.ts';
+const RENDERER = 'packages/eqv/renderer/src/x.ts';
+
+describe('eqvCore (core, renderer)', () => {
+  it.each(['@ap/ui', '@ap/kernel', '@ap/contracts', '@ap/ui/theme'].flatMap((source) => [CORE, RENDERER].flatMap((file) => importForms(source).map((f) => ({ file, source, ...f })))))('$file rejects $source ($form)', async ({ file, code, rule }) => {
+    const messages = await lintEqv(eqvCore, file, code);
+    expect(messages.length, JSON.stringify(messages, null, 2)).toBeGreaterThan(0);
+    expect(messages.every((m) => m.ruleId === rule), JSON.stringify(messages, null, 2)).toBe(true);
+  });
+  it.each(importForms('@eqv/ui'))('renderer rejects @eqv/ui ($form)', async ({ code, rule }) => {
+    const messages = await lintEqv(eqvCore, RENDERER, code);
+    expect(messages.map((m) => m.ruleId)).toEqual([rule]);
+    expect(messages[0]?.message).toContain('@eqv/core');
+  });
+  it.each(['@eqv/replay', '@eqv/views', '@eqv/platform-adapter', '@eqv/ui/sub'])('core and renderer reject sibling %s', async (source) => {
+    for (const file of [CORE, RENDERER]) expect((await lintEqv(eqvCore, file, `import { x } from '${source}';`)).map((m) => m.ruleId)).toEqual(['no-restricted-imports']);
+  });
+  it.each([
+    [RENDERER, `import { x } from '@eqv/core';`],
+    [RENDERER, `void import('@eqv/core'); type X = import('@eqv/core').X;`],
+    [RENDERER, `import x from 'apple'; import('@apx/kernel');`],
+    [CORE, `import { y } from './y'; export * from '../src/z';`],
+    [CORE, `import { x } from 'react';`],
+  ])('allows %s: %s', async (file, code) => {
+    const messages = await lintEqv(eqvCore, file, code);
+    expect(messages, JSON.stringify(messages, null, 2)).toEqual([]);
+  });
+  it('stays design-system-free', async () => {
+    const messages = await lintEqv(eqvCore, 'packages/eqv/renderer/src/x.tsx', 'export const X = () => <div style={{ color: "red" }} />;');
+    expect(messages).toEqual([]);
+  });
+});
+
+describe('eqvUi (ui, replay, views, editor)', () => {
+  const UI_FILES = ['ui', 'replay', 'views', 'editor'].map((n) => `packages/eqv/${n}/src/x.ts`);
+  it.each(UI_FILES.flatMap((file) => ['@ap/kernel', '@ap/contracts', '@ap/components', '@ap/shell', '@ap/ui/src/index'].flatMap((source) => importForms(source).map((f) => ({ file, source, ...f })))))('$file rejects $source ($form)', async ({ file, code, rule }) => {
+    const messages = await lintEqv(eqvUi, file, code);
+    expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual([rule]);
+  });
+  it.each(UI_FILES.flatMap((file) => ['@ap/ui', '@ap/ui/theme', '@ap/ui/styles.css', '@eqv/core', '@eqv/ui', '@eqv/platform-adapter/manifest'].map((source) => ({ file, source }))))('$file allows $source', async ({ file, source }) => {
+    const messages = await lintEqv(eqvUi, file, `import { x } from '${source}'; void import('${source}'); type X = import('${source}').X;`);
+    expect(messages, JSON.stringify(messages, null, 2)).toEqual([]);
+  });
+  it.each(['@eqv-extra/x', '@eqv/uix'])('near neighbour %s is not an EV identity', async (source) => {
+    expect(await lintEqv(eqvUi, 'packages/eqv/ui/src/x.ts', `import { x } from '${source}';`)).toEqual([]);
+  });
+});
+
+describe('eqvHost (platform-adapter)', () => {
+  const ADAPTER = 'packages/eqv/platform-adapter/src/x.ts';
+  it.each(['@ap/kernel', '@ap/components', '@ap/shell', '@ap/menu-home'].flatMap((source) => importForms(source).map((f) => ({ source, ...f }))))('rejects $source ($form)', async ({ code, rule }) => {
+    const messages = await lintEqv(eqvHost, ADAPTER, code);
+    expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual([rule]);
+  });
+  it.each(['@ap/contracts', '@ap/ui', '@ap/ui/styles.css', '@eqv/core', '@eqv/views', '@eqv/replay'])('allows %s', async (source) => {
+    const messages = await lintEqv(eqvHost, ADAPTER, `import { x } from '${source}'; void import('${source}'); type X = import('${source}').X;`);
+    expect(messages, JSON.stringify(messages, null, 2)).toEqual([]);
+  });
+});
+
+// ap/no-relative-package-escape at the packages/eqv/<name> depth: the manifest at that depth owns the file.
+describe('relative escape at packages/eqv/<name>', () => {
+  it.each([
+    ['core', eqvCore, `import { y } from './y';`, []],
+    ['core', eqvCore, `import { y } from '../../core/src/y';`, []],
+    ['core', eqvCore, `import { y } from '../../renderer/src/y';`, ['ap/no-relative-package-escape']],
+    ['core', eqvCore, `export * from '../../../ui/src/y';`, ['ap/no-relative-package-escape']],
+    ['core', eqvCore, `import { y } from '../../../../../escape';`, ['ap/no-relative-package-escape']],
+    ['core', eqvCore, 'void import(`../../../ui/src/y`);', ['ap/no-relative-package-escape']],
+    ['core', eqvCore, `type X = import('../../../ui/src/y').X;`, ['ap/no-relative-package-escape']],
+    ['ui', eqvUi, `import { y } from '../../replay/src/y';`, ['ap/no-relative-package-escape']],
+    ['platform-adapter', eqvHost, `import { y } from '../../core/src/y';`, ['ap/no-relative-package-escape']],
+    ['platform-adapter', eqvHost, `import { y } from './y';`, []],
+  ] as const)('%s: %s', async (name, preset, code, expected) => {
+    const messages = await lintEqv(preset as Linter.Config[], `packages/eqv/${name}/src/x.ts`, code);
+    expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual(expected);
+  });
+  it('names the owning package, so the extra depth resolves to @eqv/core', async () => {
+    const messages = await lintEqv(eqvCore, CORE, `import { y } from '../../renderer/src/y';`);
+    expect(messages[0]?.message).toContain("escapes package '@eqv/core'");
+  });
+  it('findOwningPackage walks up to the packages/eqv/<name> manifest', async () => {
+    const { findOwningPackage } = await import('./relative-escape.js');
+    expect(findOwningPackage(path.join(EQV_FIXTURE, 'packages/eqv/core/src/deep'))).toEqual({ root: path.join(EQV_FIXTURE, 'packages/eqv/core'), name: '@eqv/core' });
+  });
+});
+
+// Ported from EV's eslint-boundary.test.ts (verbatim cases, EV paths mapped: packages/core -> eqvCore, packages/platform-adapter -> eqvHost,
+// packages/ui|replay|editor|views -> eqvUi). Retired: the six 'analytics-platform/menus' cases and the 'apple'/'@apx' guard is kept.
+describe('ported from EV eslint-boundary', () => {
+  const run = (preset: Linter.Config[], name: string, code: string) => lintEqv(preset, `packages/eqv/${name}/src/x.tsx`, code);
+  it.each([
+    [eqvCore, 'core', `import x from '@ap/kernel';`, 'no-restricted-imports'],
+    [eqvCore, 'core', `export { x } from '@ap/kernel';`, 'no-restricted-imports'],
+    [eqvCore, 'core', `export * from '@ap/kernel';`, 'no-restricted-imports'],
+    [eqvCore, 'core', `export const dep = await import('@ap/kernel');`, 'ap/restricted-import-source'],
+    [eqvCore, 'core', `export type Dep = import('@ap/kernel').Dep;`, 'ap/restricted-import-source'],
+    [eqvCore, 'core', `const x = require('@ap/kernel');`, 'ap/restricted-import-source'],
+    [eqvHost, 'platform-adapter', `import x from '@ap/kernel';`, 'no-restricted-imports'],
+    [eqvHost, 'platform-adapter', `import x from '@ap/components';`, 'no-restricted-imports'],
+    [eqvHost, 'platform-adapter', `export const dep = await import('@ap/kernel');`, 'ap/restricted-import-source'],
+    [eqvHost, 'platform-adapter', `export type Dep = import('@ap/components').Dep;`, 'ap/restricted-import-source'],
+    [eqvHost, 'platform-adapter', `import { defineEndpoint } from '@ap/contracts';`, ''],
+    [eqvHost, 'platform-adapter', `import type { Text } from '@ap/contracts/i18n';`, 'no-restricted-imports'],
+    [eqvHost, 'platform-adapter', `import { Button } from '@ap/ui';`, ''],
+    [eqvHost, 'platform-adapter', `export const dep = await import('@ap/contracts');`, ''],
+    [eqvHost, 'platform-adapter', `export type Dep = import('@ap/ui').ButtonProps;`, ''],
+    [eqvUi, 'ui', `import { defineEndpoint } from '@ap/contracts';`, 'no-restricted-imports'],
+    [eqvCore, 'core', `import { Button } from '@ap/ui';`, 'no-restricted-imports'],
+    [eqvCore, 'renderer', `export const dep = await import('@ap/ui');`, 'ap/restricted-import-source'],
+    [eqvCore, 'renderer', `export type T = import('@ap/ui').ButtonProps;`, 'ap/restricted-import-source'],
+    [eqvCore, 'renderer', `import x from '@ap/kernel';`, 'no-restricted-imports'],
+    [eqvUi, 'replay', `import { Button } from '@ap/ui';`, ''],
+    [eqvCore, 'core', `import { DataTable } from '@eqv/ui';`, 'no-restricted-imports'],
+    [eqvCore, 'renderer', `export const dep = await import('@eqv/ui');`, 'ap/restricted-import-source'],
+    [eqvUi, 'replay', `import { DataTable } from '@eqv/ui';`, ''],
+    [eqvUi, 'replay', `import x from '@ap/kernel';`, 'no-restricted-imports'],
+    [eqvUi, 'editor', `export type Dep = import('@ap/contracts').Dep;`, 'ap/restricted-import-source'],
+    [eqvUi, 'views', `import { defineEndpoint } from '@ap/contracts';`, 'no-restricted-imports'],
+    [eqvUi, 'ui', `export const dep = await import('@ap/ui');`, ''],
+    [eqvCore, 'core', `import x from 'apple'; import('@apx/kernel');`, ''],
+  ] as const)('%#: %s %s', async (preset, name, code, rule) => {
+    const messages = await run(preset as Linter.Config[], name, code);
+    expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual(rule === '' ? [] : [rule]);
+  });
+});
+
+// Ported from EV's design-lint.test.ts: @ap/ui's designSystem preset covers every case; they run on a virtual path under the repo root (theme from the root components.json).
+describe('ported from EV design-lint', () => {
+  const shadcnRules = async (preset: Linter.Config[], file: string, code: string) =>
+    (await lintEqv(preset, file, code, REPO_ROOT)).flatMap((m) => (m.ruleId?.startsWith('shadcn/') ? [m.ruleId] : []));
+  it.each([
+    ['packages/eqv/replay/src/x.tsx', 'export const X = () => <div style={{ color: "red" }} />;', ['shadcn/no-inline-styles']],
+    ['packages/eqv/editor/src/x.tsx', 'export const X = () => <div className="bg-red-500" />;', ['shadcn/no-raw-colors']],
+    ['packages/eqv/views/src/x.tsx', 'export const X = () => <div className="eqv-made-up" />;', ['shadcn/no-unknown-classes']],
+    ['packages/eqv/views/src/x.tsx', 'export const X = () => <div className="flex gap-2 text-text-secondary" />;', []],
+    ['packages/eqv/replay/src/x.tsx', 'import { Button } from "@ap/ui"; export const X = () => <Button className="bg-surface-card">x</Button>;', ['shadcn/no-restyle']],
+    ['packages/eqv/views/src/x.tsx', 'import { DataTable } from "@eqv/ui"; export const X = () => <DataTable className="bg-surface-card" label="x" columns={[]}>{null}</DataTable>;', ['shadcn/no-restyle']],
+    ['packages/eqv/editor/src/x.tsx', 'export const X = () => <div className="p-[13px]" />;', ['shadcn/no-arbitrary-values']],
+    ['packages/eqv/views/src/x.tsx', 'import { Button } from "@ap/ui"; export const X = ({ c }: { c: string }) => <Button className={`mt-${c}`}>x</Button>;', ['shadcn/require-static-classes']],
+  ])('eqvUi %s: %s', async (file, code, expected) => {
+    expect(await shadcnRules(eqvUi, file, code)).toEqual(expected);
+  });
+  it('eqvHost applies the design-system rules to platform-adapter', async () => {
+    expect(await shadcnRules(eqvHost, 'packages/eqv/platform-adapter/src/x.tsx', 'export const X = () => <div className="bg-red-500" />;')).toEqual(['shadcn/no-raw-colors']);
+  });
+  it('eqvCore stays design-system-free', async () => {
+    expect(await shadcnRules(eqvCore, 'packages/eqv/renderer/src/x.tsx', 'export const X = () => <div style={{ color: "red" }} />;')).toEqual([]);
   });
 });
