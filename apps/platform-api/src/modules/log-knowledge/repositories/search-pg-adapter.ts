@@ -31,7 +31,7 @@ function itemsCte(plan: Pick<SearchPlan, 'workspaceId' | 'owner'>, guard: Candid
   if (o?.softwareId) parts.push(sql`i.owner_software_id = ${uuid(o.softwareId)}`);
   const ownerFilter = parts.length > 0 ? sql`AND ${sql.join(parts, sql` AND `)}` : sql``;
   const guardClause = guard ? sql`AND ${guard(sql`i.id`)}` : sql``;
-  return sql`items AS NOT MATERIALIZED (
+  return sql`items AS ${guard ? sql.raw('MATERIALIZED') : sql.raw('NOT MATERIALIZED')} (
     SELECT i.id AS item_id, i.latest_revision_no AS revision_no, rv.title AS title, rv.published_at AS published_at,
       coalesce(i.owner_model_id, sv.model_id) AS model_id,
       (extract(epoch FROM rv.published_at) * 1000000)::bigint AS pub
