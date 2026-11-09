@@ -101,7 +101,7 @@
 4. **화면:** [페이지 작성 가이드](../../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙).
 5. **서버 쪽:** 개발 중에는 `menus/<space>/<g>/src/mock/`에 핸들러를 둔다(생성기가 앱 mock 조립에 등록하고 운영 빌드에는 실리지 않는다). 실서버에는 같은 엔드포인트 id로 FastAPI 핸들러를 만든다(선언 사본은 `sdk-v*` 산출물 `endpoints.json`·`schemas/*.json`, ADR-0096).
 6. **적합성 묶음 등록:** [`apps/platform-web/src/server-conformance.test.ts`](../../apps/platform-web/src/server-conformance.test.ts)는 mock 조립의 `MOCK_ENDPOINTS`(생성기가 등록)를 그대로 쓰므로 mock은 따로 넣지 않는다. 엔드포인트가 params를 선언하면 `PARAMS` 표에 표본 params를 넣는다(빠지면 테스트가 실패한다). 표본 params는 하네스의 권한 있는 역할(`engineer` — `console:access` 없음), site `MEM`, 하네스 기간으로 `ok` 또는 `empty`가 나와야 한다. 엔드포인트가 `console:access`를 요구하면 그 하네스로는 성공 요청을 만들 수 없으니 먼저 묻는다.
-7. **검증:** [루트 AGENTS.md의 검증 규칙](../../AGENTS.md#검증)을 따른다. 변경 패키지와 영향받는 describe로 좁혀 검증하고, 화면 변경은 브라우저로 확인한다. 실서버 브라우저 실행은 [실서버 체크리스트 §8](real-server-checklist.md#8-실서버-브라우저-계약-검사-593)을 따른다.
+7. **검증:** [루트 AGENTS.md의 검증 규칙](../../AGENTS.md#verification)을 따른다. 변경 패키지와 영향받는 describe로 좁혀 검증하고, 화면 변경은 브라우저로 확인한다. 실서버 브라우저 실행은 [실서버 체크리스트 §8](real-server-checklist.md#8-실서버-브라우저-계약-검사-593)을 따른다.
 
 하지 말 것: 메뉴 작업 중에 `packages/*`를 고치지 않는다(부족하면 이슈로 올려 플랫폼 작업으로 한다). 새 메뉴 데이터를 위해 `PlatformAdapter` 포트 메서드를 늘리지 않는다. 그 밖의 금지(표 엔진 import, 메뉴 간 import, URL 직접 조립, 화면의 권한 판단, wall-clock TZ 변환)는 [menus/AGENTS.md](../../menus/AGENTS.md)·페이지 작성 가이드·06 §6.3·§22가 원본이다. 메뉴 화면 3개 이상을 연속으로 만들 때는 먼저 범위를 확인한다(루트 `AGENTS.md`).
 
