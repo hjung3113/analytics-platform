@@ -208,6 +208,10 @@ jobs:
           cache: pnpm
       # Relative links and heading anchors in tracked Markdown (CLAUDE.md symlinks and vendored skills excluded); every PR; node builtins only, before install.
       - run: node .github/scripts/check-doc-links.mjs
+      # #1207 (ADR-0131): the ap-sdk-consumer skill names only exported, menu-importable pieces; every PR, because a PR that only edits .agents/ skips the static steps; node builtins only, before install.
+      - run: |
+          node .github/scripts/check-sdk-skill-names.mjs --self-test
+          node .github/scripts/check-sdk-skill-names.mjs
       - run: pnpm install --frozen-lockfile
         if: ${{ env.DOCS_ONLY != 'true' }}
       # turbo cache (#1019): restored on every non-full run, saved only by a push to main so PR runs cannot grow the cache.
