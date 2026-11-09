@@ -4,14 +4,14 @@
 
 이 문서는 두 이슈의 본문을 현재 코드와 대조한 결과, 옵션, 권고, 소유자에게 물을 선택지를 담는다. 읽은 결정: [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md)(원본은 이 저장소, SDK 따로 릴리스), [ADR-0053](../adr/0053-host-module-contract-v1.md)(호스트 모듈 계약 1판), [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md)(Release tarball), [ADR-0072](../adr/0072-open-menu-vocabulary-app-declared-branded-ids.md)(열린 어휘), [#1207](https://github.com/hjung3113/analytics-platform/issues/1207) 소유자 결정(다른 저장소의 에이전트는 릴리스 tarball만 쓴다).
 
-용어: 이 문서에서 «모듈»은 **호스트 모듈**(ADR-0053), «시스템»은 공간(`SpaceDef`)이다. 설비의 Module/Slot([GLOSSARY](../../GLOSSARY.md))과 셸 슬롯과 겹치지 않도록 issue의 `targetSlot`은 «기여 지점»으로 쓴다.
+용어: 이 문서에서 «모듈»은 **호스트 모듈**(ADR-0053), «시스템»은 화면 문구상 `업무 시스템`(코드 이름 `Space`/`SpaceDef`, GLOSSARY가 `공간`을 피하라고 한다)이다. 본문의 «공간»은 코드 이름을 가리킬 때만 쓴다. 설비의 Module/Slot([GLOSSARY](../../GLOSSARY.md))과 셸 슬롯과 겹치지 않도록 issue의 `targetSlot`은 «기여 지점»(보류된 후보명이라 GLOSSARY에는 넣지 않는다)으로 쓴다. `contributors`·«기여»는 구현이 확정되면 GLOSSARY에 등재한다.
 
 ## 1. 요약과 권고
 
 | # | 질문 | 권고 |
 | --- | --- | --- |
 | 1 | #492: 모듈 화면이 부르는 엔드포인트·쓰기가 모듈 권한(`<모듈 id>:*`)을 선언하게 할까 | **A.** `EndpointSpec`·`ActionSpec`의 `permission` 타입만 `Permission \| ModuleScopedId`로 열고, `host.query`·`host.act` 호출 때 «Kernel·앱 선언·내 접두사» 밖의 권한이면 거부한다 |
-| 2 | #428: 외부 패키지가 새 시스템(공간)을 내놓는 방법 | **B.** `ModuleManifest`에 선택 필드 `system`을 더하고 `mountModule`이 `SpaceDef`를 함께 돌려준다. 앱이 쓰겠다고 켠 때만 공간이 생긴다 |
+| 2 | #428: 외부 패키지가 새 시스템(공간)을 내놓는 방법 | **B.** `ModuleManifest`에 선택 필드 `businessSystem`을 더하고 `mountModule`이 `SpaceDef`를 함께 돌려준다. 앱이 쓰겠다고 켠 때만 공간이 생긴다 |
 | 3 | #428: 외부 패키지가 기존 시스템에 메뉴를 기여하는 방법 | **B.** 대상 공간이 `contributors`(허용 모듈 id 목록)를 선언하면 Registry가 그 밖의 기여를 거부한다. 목록이 없으면 지금처럼 앱 조립자가 정한다 |
 | 4 | 기여 지점(extension point) 세분 | **공간 단위만.** 이름 붙인 지점(issue의 `targetSlot`)은 소비자가 둘 이상 생길 때 연다(06 §24) |
 | 5 | 배포 | 새 런타임 설치 없음. 정적 조립을 유지하고, 새 API는 기존 `@ap/contracts`·`@ap/kernel` tarball로 나가며 `ap-devkit` Catalog에 항목을 더한다(#1207) |
@@ -88,12 +88,12 @@
 «시스템» = 독립 Workspace/Sidebar/홈을 가진 공간(`SpaceDef`, ADR-0026). 두 번째 App Shell·전역 Provider·로그인은 만들지 않는다.
 
 - **A. 지금 그대로.** 앱 조립자가 `SpaceDef`를 직접 쓰고 `groupSpace`로 모듈 그룹을 넣는다. 추가 코드 없음. 대가: 외부 패키지 하나가 시스템 하나를 내놓는 경우에도 공간 선언을 패키지 밖에서 손으로 맞춰야 하고, 홈 메뉴 id(`<모듈>:<화면>`)가 어긋나면 Registry 시작 때 알게 된다.
-- **B (권고). 선택 `system` 필드.** `ModuleManifest.system?: { space: { id; label; subtitle?; description; permission?; homeScreen } }`를 더한다. `homeScreen`은 같은 manifest의 화면 id다.
+- **B (권고). 선택 `businessSystem` 필드.** `ModuleManifest.system?: { space: { id; label; subtitle?; description; permission?; homeScreen } }`를 더한다. `homeScreen`은 같은 manifest의 화면 id이고, `mountModule`이 `<모듈 id>:<homeScreen>`으로 바꿔 `SpaceDef.homeMenuId`에 넣는다.
   - `mountModule`은 반환값에 `spaces: SpaceDef[]`(필드가 없으면 빈 배열)를 더한다. 앱은 이를 `createRegistry({ spaces: [...SPACES, ...mod.spaces] })`로 직접 합친다 — 합치는 한 줄이 «이 시스템을 받겠다»는 동의다.
-  - 공간 id는 `<모듈 id>`와 같다(규칙 한 가지). Registry의 기존 검사(예약 루트, 홈 메뉴가 그 공간에 속함, 홈 경로에 `:param` 없음)가 그대로 적용된다. 모듈 그룹의 `groupSpace`는 `system`이 있으면 그 공간이 기본값이다.
-  - `system.space.permission`은 `<모듈 id>:` 접두사를 요구한다(Kernel·다른 모듈 어휘 금지, 격상 불가). **현재 Registry는 이를 거부한다**(공간 권한은 Kernel·앱 선언만, 홈 메뉴 권한은 공간 권한과 같아야 함; `SpaceDef.permission` 타입도 `Permission`). 그래서 구현에 ① `SpaceDef.permission` 타입 확장 ② 모듈 공간만 «자기 접두사 허용» 분기 ③ 홈 화면 권한 = 공간 권한 검사 유지가 든다.
-  - 필드를 모르는 옛 호스트가 `system`을 조용히 무시하지 않도록, `system`을 쓰는 manifest는 새 `HostFeature` `'system'`을 `requires`에 넣어야 한다. 옛 호스트는 `requires` 검사로 fail closed하고 `contract` 정수는 그대로다.
-  - `system.space.contributors?`로 시스템 소유 패키지가 허용 목록을 함께 낸다(§4.2).
+  - 공간 id는 `<모듈 id>`와 같다(규칙 한 가지). Registry의 기존 검사(예약 루트, 홈 메뉴가 그 공간에 속함, 홈 경로에 `:param` 없음)가 그대로 적용된다. 모듈 그룹의 `groupSpace`는 `businessSystem`이 있으면 그 공간이 기본값이다.
+  - `businessSystem.space.permission`은 `<모듈 id>:` 접두사를 요구한다(Kernel·다른 모듈 어휘 금지, 격상 불가). **현재 Registry는 이를 거부한다**(공간 권한은 Kernel·앱 선언만, 홈 메뉴 권한은 공간 권한과 같아야 함; `SpaceDef.permission` 타입도 `Permission`). 그래서 구현에 ① `SpaceDef.permission` 타입 확장 ② 모듈 공간만 «자기 접두사 허용» 분기 ③ 홈 화면 권한 = 공간 권한 검사 유지가 든다.
+  - 필드를 모르는 옛 호스트가 `businessSystem`을 조용히 무시하지 않도록, `businessSystem`을 쓰는 manifest는 새 `HostFeature` `'businessSystem'`을 `requires`에 넣어야 한다. 옛 호스트는 `requires` 검사로 fail closed하고 `contract` 정수는 그대로다.
+  - `businessSystem.space.contributors?`로 시스템 소유 패키지가 허용 목록을 함께 낸다(§4.2).
   - 필드가 없는 기존 manifest(EV 포함)는 변하지 않는다.
 - **C. 별도 공개 계약 `defineSystem({ groups, menus, modules })`.** 한 시스템이 여러 모듈을 묶을 때 편하다. 그러나 `ModuleManifest`와 «그룹·화면»이 겹쳐 ADR-0053이 피하려던 중복 개념이 된다. 시스템 하나 = 모듈 하나가 아닌 소비자가 생기면 다시 본다(**소비자 0**).
 
@@ -101,7 +101,7 @@
 
 - **A. 지금 그대로.** 앱 조립자가 `groupSpace`로 정한다. 대상 시스템 소유자의 허가 수단이 없다.
 - **B (권고). 대상 공간이 허용 모듈을 선언한다.** `SpaceDef.contributors?: readonly string[]`(모듈 id). 규칙:
-  - 소유자: 앱이 선언한 공간은 앱 조립자 자신이 소유자라 `SpaceDef.contributors`는 자기 정책을 코드에 박는 것이다. 외부 패키지가 소유한 시스템은 §4.1의 `system.space.contributors`로 패키지가 직접 선언한다. 이때 앱이 합쳐도 목록 밖 기여는 거부된다. 기여 쪽에서 `contributesTo`를 선언하는 방식(기여자가 대상을 가리킴)도 비교했으나 목록이 대상에 있어야 «허가»가 되므로 채택하지 않는다.
+  - 소유자: 앱이 선언한 공간은 앱 조립자 자신이 소유자라 `SpaceDef.contributors`는 자기 정책을 코드에 박는 것이다. 외부 패키지가 소유한 시스템은 §4.1의 `businessSystem.space.contributors`로 패키지가 직접 선언한다. 이때 앱이 합쳐도 목록 밖 기여는 거부된다. 기여 쪽에서 `contributesTo`를 선언하는 방식(기여자가 대상을 가리킴)도 비교했으나 목록이 대상에 있어야 «허가»가 되므로 채택하지 않는다.
   - `contributors`가 **없으면 지금과 같다**(앱 조립자 자유). 있으면 그 목록에 없는 모듈의 그룹을 그 공간에 넣는 `createRegistry`가 `RegistryError`다(fail closed).
   - 기여는 모듈 **자신의 그룹**으로만 들어간다(ADR-0053의 접두사 불변식). 대상의 기존 그룹·메뉴를 바꾸거나 순서를 끼워 넣지 못한다. 사이드바에서는 대상 공간의 Sidebar에만 나타난다.
   - 권한: 기여 메뉴의 권한은 `<모듈 id>:*`다. 대상 시스템의 권한을 만들거나 격상하지 못한다. 서버 판정이 최종이다(§3).
@@ -112,11 +112,11 @@
 
 - SDK 버전 호환은 이미 ADR-0056의 정확 버전 `peerDependencies`와 `contract` 정수(`HOST_CONTRACTS`)가 맡는다. manifest에 SDK 범위 필드를 더하지 않는다.
 - 기여 패키지의 업데이트 책임은 소유 팀에 있고(독립 릴리스), 탑재본 변경은 플랫폼 재빌드·재배포가 필요하다(정적 조립, issue 원칙 5와 같다).
-- ID·경로 충돌, 홈·primary, parent, page key는 `createRegistry`가 이미 거부한다. 이 설계가 새로 거부하는 것은 ① `system` 공간의 접두사 위반, ② `contributors` 밖의 기여, ③ 모듈 접두사 밖 권한(§3)이다.
+- ID·경로 충돌, 홈·primary, parent, page key는 `createRegistry`가 이미 거부한다. 이 설계가 새로 거부하는 것은 ① `businessSystem` 공간의 접두사 위반, ② `contributors` 밖의 기여, ③ 모듈 접두사 밖 권한(§3)이다.
 
 ### 4.4 외부 배포 (#1207)
 
-저장소 밖 에이전트는 SDK Release tarball만 설치해 쓴다. 따라서 새 API는 ① `@ap/contracts`·`@ap/kernel`의 공개 진입점에만 두고(`sdk:api` 스냅샷), ② 깨끗한 외부 소비자(`sdk:consumer-check`)에 «새 시스템 모듈 1개 + 기여 모듈 1개를 마운트해 Registry를 만든다»는 시험을 더하고, ③ `ap-devkit` Catalog에 항목(`mountModule`의 `system`, `SpaceDef.contributors`)을 더한다. 외부 `check`가 Registry 구성 오류를 읽어 안내할 수 있도록 `RegistryError` 메시지에 위반한 id를 항상 넣는다(지금도 그렇다).
+저장소 밖 에이전트는 SDK Release tarball만 설치해 쓴다. 따라서 새 API는 ① `@ap/contracts`·`@ap/kernel`의 공개 진입점에만 두고(`sdk:api` 스냅샷), ② 깨끗한 외부 소비자(`sdk:consumer-check`)에 «새 시스템 모듈 1개 + 기여 모듈 1개를 마운트해 Registry를 만든다»는 시험을 더하고, ③ `ap-devkit` Catalog에 항목(`mountModule`의 `businessSystem`, `SpaceDef.contributors`)을 더한다. 외부 `check`가 Registry 구성 오류를 읽어 안내할 수 있도록 `RegistryError` 메시지에 위반한 id를 항상 넣는다(지금도 그렇다).
 
 devkit 쪽 변경은 `ap-devkit` 레인 소유다. 이 설계는 항목 추가만 요청하고 devkit 구조는 바꾸지 않는다.
 
@@ -149,9 +149,10 @@ devkit 쪽 변경은 `ap-devkit` 레인 소유다. 이 설계는 항목 추가�
 | # | 질문 | 선택지 | 권고 |
 | --- | --- | --- | --- |
 | Q1 | #492를 §3 A로 구현할까 | A(타입 열기+호출 때 검사) / B(+적합성 검사) / C(하지 않음) | A |
-| Q2 | 새 시스템 방식 | A(지금 그대로) / B(`system` 선택 필드) / C(`defineSystem`) | B |
+| Q2 | 새 시스템 방식 | A(지금 그대로) / B(`businessSystem` 선택 필드) / C(`defineSystem`) | B |
 | Q3 | 기존 시스템 기여 허가 | A(지금 그대로) / B(`SpaceDef.contributors` 허용 목록) / C(이름 붙은 지점) | B |
 | Q4 | 구현 범위 | 모두(#492 → #428 B/B) / #492만 / #428만 | 모두, 두 PR |
+| Q6 | `system` 필드·`HostFeature` 이름이 Managed System·`AuditSource 'system'`과 겹침(용어 검토 T2) | `businessSystem`(문서 기본) / `system` 유지 / 다른 이름 | `businessSystem` |
 | Q5 | 파일럿 | 저장소 안 고정 모듈 둘(새 시스템 1+기여 1)로 시험 / EV를 기여 예시로 연결 | 고정 모듈. EV는 #332 게이트를 건너뛰지 않는다 |
 
 ## 7. ADR 초안 (번호는 컨펌 뒤 `next-adr.sh`로 정해 #598에 예약한다)
@@ -162,7 +163,7 @@ devkit 쪽 변경은 `ap-devkit` 레인 소유다. 이 설계는 항목 추가�
 >
 > ## 결정 (권고안)
 > 1. `EndpointSpec.permission`·`ActionSpec.permission`은 `Permission | ModuleScopedId`다. `host.query`·`host.act`는 Kernel·앱 선언 권한 또는 자기 모듈 접두사 밖이면 요청을 보내지 않고 거부한다. 권한의 최종 판정은 서버다.
-> 2. `ModuleManifest`는 선택 필드 `system`으로 공간 하나를 담아 올 수 있고, `mountModule`이 `SpaceDef`를 돌려준다. 앱이 합칠 때만 공간이 생긴다.
+> 2. `ModuleManifest`는 선택 필드 `businessSystem`으로 공간 하나를 담아 올 수 있고, `mountModule`이 `SpaceDef`를 돌려준다. 앱이 합칠 때만 공간이 생긴다.
 > 3. `SpaceDef.contributors`가 있으면 그 목록의 모듈만 이 공간에 그룹을 둘 수 있다. 없으면 지금과 같다. 기여는 자기 접두사 그룹·권한으로만 들어간다.
 > 4. 호스트 `contract` 정수는 그대로다(선택 능력 규칙). 배포는 기존 Release tarball이다.
 >
@@ -175,6 +176,6 @@ devkit 쪽 변경은 `ap-devkit` 레인 소유다. 이 설계는 항목 추가�
 ## 8. 구현 노드 (컨펌 뒤)
 
 1. #492(§3 A): contracts 타입 + 읽는 쪽(mock-server·server-conformance) 동시 수정 + `isModuleScoped` + `module-host` 검사 + 고정 모듈 권한 교체 + 시험 5개 + `sdk:api` `--update` 한 줄.
-2. #428(§4 B/B): manifest `system` + `mountModule` 반환 `spaces` + `SpaceDef.contributors` + Registry 검사 + 고정 모듈 둘 + `sdk:consumer-check` 시험 + kernel §4–6·`docs/integration/platform-packages.md` §3·kernel/contracts `AGENTS.md`·ADR 정리 + devkit Catalog 항목 요청.
+2. #428(§4 B/B): manifest `businessSystem` + `mountModule` 반환 `spaces` + `SpaceDef.contributors` + Registry 검사 + 고정 모듈 둘 + `sdk:consumer-check` 시험 + kernel §4–6·`docs/integration/platform-packages.md` §3·kernel/contracts `AGENTS.md`·ADR 정리 + devkit Catalog 항목 요청.
 
 둘 다 `packages/sdk/*`와 Registry를 건드리므로 full 티어 + 리뷰 1회다. 두 PR은 파일이 겹치지 않으나(`menu-query.ts`·`module-host.ts` 대 `registry.ts`·`module.ts`) `sdk:api` 스냅샷과 `CHANGELOG.md`는 순서대로 쓴다.
