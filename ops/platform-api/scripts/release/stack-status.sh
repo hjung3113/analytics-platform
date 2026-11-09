@@ -82,7 +82,7 @@ if [ "$(state_of edge)" = running ]; then ok "edge is running"; else
 fi
 
 # 6. database steps (counts only)
-ws="$(grep -E '^WORKSPACE_ID=' "$env_file" | head -1 | cut -d= -f2- | tr -d "\"' ")"
+ws="$(grep -E '^WORKSPACE_ID=' "$env_file" | head -1 | cut -d= -f2- | sed 's/[[:space:]]#.*$//' | tr -d "\"' ")"
 if [ "$(state_of postgres)" = running ] && printf '%s' "$ws" | grep -Eq '^[0-9a-fA-F-]{36}$'; then
   q() { $P exec -T postgres psql -U postgres -d platform -tAc "$1" 2>/dev/null | tr -d '[:space:]'; }
   has_ws="$(q "select count(*) from core.workspaces where id = '$ws'")"
