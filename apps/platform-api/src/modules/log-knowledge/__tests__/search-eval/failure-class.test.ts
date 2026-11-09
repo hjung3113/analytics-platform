@@ -11,6 +11,7 @@ describe('load failure classes (#1599)', () => {
     expect(classifyFailure(Object.assign(new Error('x'), { code: 'ECONNRESET' }))).toBe('connection');
     expect(classifyFailure(Object.assign(new Error('terminating connection'), { code: '57P01' }))).toBe('connection');
     expect(classifyFailure(new Error('could not resize shared memory segment "/PostgreSQL.1" to 2097152 bytes: No space left on device'))).toBe('shared_memory');
+    expect(classifyFailure(new Error('could not write to file "base/pgsql_tmp/pgsql_tmp1.0": No space left on device'))).toBe('other');
     expect(classifyFailure({ ok: false, message: 'cursor does not belong to this query' })).toBe('refused');
     expect(classifyFailure(new Error('relation does not exist'))).toBe('other');
     expect(classifyFailure('plain string')).toBe('other');

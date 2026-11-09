@@ -15,7 +15,7 @@ export function classifyFailure(error: unknown): FailureClass {
   const message = error instanceof Error ? error.message : String(error);
   if (code === '57014' || /statement timeout|canceling statement/i.test(message)) return 'statement_timeout';
   if (/timeout exceeded when trying to connect/i.test(message)) return 'pool_acquire';
-  if (/shared memory segment|No space left on device/i.test(message)) return 'shared_memory';
+  if (/shared memory segment/i.test(message)) return 'shared_memory';
   if (code.startsWith('08') || code === '57P01' || /connection terminated|ECONNRESET|ECONNREFUSED|connection error/i.test(message) || /^E(CONN|PIPE)/.test(code)) return 'connection';
   return 'other';
 }
