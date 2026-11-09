@@ -10,6 +10,10 @@ One-level `platform/<feature>/` packages assemble the built-in home, activity, n
 - App wiring uses the shared marker regions in `menus.ts`, `style.css`, app `package.json` and `dev/mock-assembly.tsx`. Match actual imports with their spreads; never derive bindings from package names (`@ap/menu-dashboard` uses `dashboard`, `@ap/menu-feature-admin` uses `featureAdmin`).
 - Add the `GROUPS` row before `pnpm gen:menu <group> --platform …`. Null-space groups use this root automatically. Keep an explicit `/platform/<feature>/` CODEOWNERS entry. The package rules in [menus/AGENTS.md](../menus/AGENTS.md) (public exports, mock boundaries, versions, CHANGELOG) also apply here.
 
+## Screens
+
+Before adding or changing a screen, read and follow the [`ap-sdk-consumer`](../.agents/skills/ap-sdk-consumer/SKILL.md) skill. It has the steps and the intent table for finding SDK pieces that already exist.
+
 ## Runtime identities and URLs (ADR-0097/0100/0110)
 
 - Group IDs: `dashboard`, `voc`, `findings`, `tasks`, `integration`, `surveys`, `flowSettings` (업무 흐름 `설정` group), `access` (운영 콘솔 `권한` group), `systems` (운영 콘솔 `시스템` group).

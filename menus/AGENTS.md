@@ -33,6 +33,7 @@ Holds only business-system menu Consumer packages: `menus/<system>/<group>/` (tw
 - A group without screens still owns its group through planned-menu manifests. Do not hang a screen on a `component`-less entry: adding a screen needs a separate request and verification (06 §5, §29).
 - `@ap/menu-hw-time`: the four menus share the query declarations (`hwTime.levelRows`, `trend`, `tableRows`, `exportRows`, owned by `hw-time-steps`) and `src/shared/panels/`.
 - `@ap/menu-log-knowledge` permissions: read `platform:view`, catalog management `knowledge:catalog-manage`, Item write `knowledge:item-publish`, spec/concept write `knowledge:spec-publish`. Screen contract: [`log-dev/log-knowledge/docs/search.md`](log-dev/log-knowledge/docs/search.md). API source: [`docs/architecture/platform-api/api/log-knowledge.md`](../docs/architecture/platform-api/api/log-knowledge.md).
+- Before adding or changing a screen, read and follow the [`ap-sdk-consumer`](../.agents/skills/ap-sdk-consumer/SKILL.md) skill. It has the steps and the intent table for finding SDK pieces that already exist.
 
 ## New group package
 
