@@ -34,52 +34,52 @@ Measures the criteria of [README §6](README.md#6-품질성능-측정-수용-기
 
 ## Load (100,000 Items, concurrency 30, page size 20)
 
-Measured again for #1593 after two changes: the guard now runs on the matched hit rows instead of every Item (see «What changed»), and `relatedCounts` counts published Items only. Same runner, same 300 measured requests per coverage, same query mix; one run per coverage, so read the figures as indicative. Database: a container of its own (`--memory=4g`, `shared_buffers=1GB`, default `work_mem`), removed afterwards. The earlier figures are kept in the «Before» column.
+Measured again for #1599 after splitting stage 6 of the text hit query (see «What changed»). Runner `run-load.ts`: 100,000 Items, 30 clients without think time, **3,000 measured requests** per coverage (the #1593 run used 300), the same query mix, plus 200 suggestion requests. One run per coverage, so read the figures as indicative. Database: a container of its own on a 16-CPU / 23 GB host (`--memory=4g`, `--shm-size=1g`, `shared_buffers=1GB`, default `work_mem`, pool of 32 connections), removed afterwards. Failures are now classified by reason.
 
-| Access coverage | Visible Items | Requests | Failed requests (measured sample / warmup, unclassified) | p50 ms | p95 ms | p99 ms | p95 before (#1508) |
+| Access coverage | Visible Items | Failed requests (measured / warmup) | p50 ms | p95 ms | p99 ms | Suggest p50 / p95 ms | p95 before (#1593) |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0 % | 100,000 | 300 | 13 / 7 | 4,946 | 19,668 | 23,286 | 107,892 |
-| 5 % | 92,333 | 300 | 17 / 8 | 4,632 | 20,206 | 23,431 | 82,515 |
-| 30 % | 69,000 | 300 | 33 / 4 | 4,235 | 21,304 | 23,824 | 63,744 |
+| 0 % | 100,000 | 0 / 0 | 4,351 | 23,262 | 27,488 | 4,833 / 6,534 | 19,668 |
+| 5 % | 92,333 | 0 / 0 | 4,623 | 22,185 | 27,359 | 4,805 / 6,967 | 20,206 |
+| 30 % | 69,000 | 0 / 0 | 4,106 | 25,129 | 28,764 | 3,971 / 5,212 | 21,304 |
 
-**Failure figure.** `failures` is now counted over the measured sample only (`warmupFailures` apart). The runner records that `runSearch` rejected, not why; the reasons were not kept, so the failures are unclassified and may be timeouts under 30-way queueing. They are not zero, so the earlier «0 failures at 5 % and 30 %» no longer stands. An intermediate run (only `NOT MATERIALIZED`, 300 requests) gave p95 60,175 / 64,971 / 52,202 ms with 79 / 0 / 0 failures.
+Pool of 10 connections (the production default `DB_POOL_MAX`), 0 % only: p50 6,767, p95 13,384, p99 15,456 ms, suggest p95 5,666 ms, 0 failures.
 
-p95 per query shape at 0 % (ms): phrase 7,563, typo 5,623, direction 5,278, direction + opposite 5,738, word 21,276, Korean 21,132, Event key 24,295. With 30 clients all sharing the machine the numbers include queueing; the single-statement times below show the cost without it.
+**Failures.** The #1593 figures («13 / 17 / 33 failed», unclassified) were not timeouts. A rerun with the failure classes showed 243–268 of the measured requests failing with `could not resize shared memory segment … No space left on device`: the load container's `/dev/shm` was Docker's default 64 MB and the parallel workers of the text stage exhausted it. With `--shm-size=1g` every class is 0 (`statement_timeout`, `pool_acquire`, `connection`, `shared_memory`, `refused`, `other`). Consequence for operation: a Postgres container serving this search needs a `/dev/shm` of at least several hundred MB (design §9), or search fails under parallel load.
 
-**Result: the 300 ms p95 hypothesis is still missed**, now by about 65×, down from about 360×. One statement alone is 0.8 s for a word query and 0.05–0.15 s for a direction query, so the miss under load is mostly queueing of 0.8 s statements on a machine shared by 30 clients.
+p95 per query shape at 0 % (ms): phrase 4,987, typo 5,420, direction 4,625, direction + opposite 5,360, word 6,859 (was 21,276), Korean 27,371, Event key 27,283. Event key and Korean are the two shapes that still dominate.
+
+**Result: the 300 ms p95 hypothesis is still missed**, by about 75–80×. The time is split between two causes that can be told apart with numbers:
+
+1. **The query (what this issue could fix).** One request is two statements (page + count). Alone on the machine: direction 0.06 + 0.06 s (+ 0.14–0.17 s for the opposite section), word 0.57 + 0.56 s (was 0.81 + 0.78 s), Korean 0.47 + 0.44 s when the trigram branch uses its index but 3.4 + 3.3 s when the planner chooses a sequential scan for it. Even the cheapest shape is above 300 ms for word and Korean, so the target cannot be met by the pool or concurrency settings alone.
+2. **Concurrency.** 30 clients with no think time are a closed loop: mean latency = 30 / throughput. The runs finished 3,000 requests in about 735–750 s, i.e. about 4 requests/s whatever the pool size, so the mean is about 7.5 s. A p95 of 300 ms under this load shape needs about 100 requests/s, 25× the measured throughput. With a pool of 10 instead of 32 the p95 is 13.4 s instead of 23.3 s: fewer concurrent sequential scans thrash less. So 30 simultaneous no-think-time clients on one database is a pool/capacity question, not a query-limit question; per-request cost would have to fall below about 150 ms for 16 cores to carry it.
 
 ### What changed
 
-The `items` CTE (published Items that pass the guard) was referenced by every hit stage, so Postgres materialized it and ran the guard over all 100,000 Items before any hit narrowed the set. `NOT MATERIALIZED` alone did not fix it: the guard is an `exists(...)` that the planner turns into a semi join over the whole Item table and drives the plan from. So the guard moved: `items` is now an unguarded, inlined CTE, and the hit rows of every stage go through `hits_raw AS MATERIALIZED (…)` and then `hits AS (… WHERE <guard>(item_id))`. The guard is still the one `visibleItemSql` predicate, applied at one place in the adapter, before ranking, counting, paging and the opposite section; the suggestion statement keeps the guard on its Item set. No ACL is copied into the index (ADR-0124, design D6).
+#1593 made the guard run on the matched hit rows. #1599 does two things in `textHits` (stage 6, `search-pg-adapter.ts`): `d.tsv @@ … OR … <% d.term_text` is now two selects (full text; trigram word similarity excluding what full text already matched) with the same score expression, each using its GIN index, and the document scan sits in an `OFFSET 0` subquery so the planner plans it on its own (joined to `items` it chose a parallel sequential scan for the trigram branch, about 0.8 s). The search ranking is unchanged: `search:eval` gives the same numbers as before (Recall@20 / Precision@10 / MRR per type identical, direction counter-examples 0, observed/expected violations 0, 3 of 72 queries below Recall 1 as in the table above).
 
-### EXPLAIN (ANALYZE, BUFFERS), one client alone
+### EXPLAIN (ANALYZE, BUFFERS), one client alone, after #1599
 
-| Query | Coverage | Page statement ms (before) | Count statement ms (before) |
+| Query | Coverage | Page statement ms | Count statement ms |
 | --- | --- | --- | --- |
-| word | 0 % | 810 (22,048) | 780 (21,342) |
-| word | 5 % | 808 (14,943) | 777 (15,235) |
-| word | 30 % | 793 (11,451) | 837 (11,394) |
-| Korean term | 0 % | 889 (20,717) | 882 (20,962) |
-| Korean term | 5 % | 852 (14,794) | 840 (14,776) |
-| Korean term | 30 % | 863 (11,330) | 813 (11,167) |
-| direction (+ opposite section) | 0 % | 51 (opposite 134) (1,549 / 892) | 51 (1,448) |
-| direction (+ opposite section) | 5 % | 51 (opposite 133) (1,609 / 1,156) | 50 (1,534) |
-| direction (+ opposite section) | 30 % | 53 (opposite 153) (1,152 / 1,094) | 51 (1,116) |
+| word | 0 % | 568 | 564 |
+| word | 5 % | 534 | 515 |
+| word | 30 % | 452 | 442 |
+| Korean term | 0 % | 3,422 | 3,258 |
+| Korean term | 5 % | 2,854 | 2,486 |
+| Korean term | 30 % | 2,878 | 2,785 |
+| direction (+ opposite section) | 0 % | 58 (opposite 157) | 57 |
+| direction (+ opposite section) | 5 % | 60 (opposite 172) | 61 |
+| direction (+ opposite section) | 30 % | 54 (opposite 141) | 52 |
 
-Word query at 0 % now: the exact-token stage reads 1,708 rows through `search_document_term_trgm_idx` in about 12 ms and probes the Item by primary key; the guard runs on the 5,856 hit rows (a nested-loop semi join). What remains is stage 6: `d.tsv @@ plainto_tsquery(…) OR <query> <% d.term_text` is one OR condition and the planner answers it with a **parallel sequential scan of `search_document`** (about 700 ms for 100,000 documents). That is candidate generation, not access judgement.
+Word at 0 %: the full-text branch is an index scan (about 40 ms); the trigram branch is a bitmap scan on `search_document_term_trgm_idx` followed by a recheck of about 8,600 candidate rows (2,440 match) — about 270 ms of the 568, because `word_similarity` runs on a ~400-byte `term_text` per candidate. The guard on the 5,856 hit rows is cheap.
 
-Reopen condition and next step are in the backlog (design §9): split stage 6 into a full-text branch and a trigram branch that each use their GIN index, then rerun `search:load`.
+Korean: the Korean term is in 6,827 of 100,000 documents (7 %). In the pool-32 runs the planner chose a **sequential scan** for the trigram branch (2.3 s, `word_similarity` on every row); in the pool-10 run and an earlier 30-query run on the same data it chose the bitmap scan (0.47 + 0.44 s). The choice flips on near-equal estimated cost (about 10,000 for the sequential scan against about 9,000 for the bitmap scan), and the cost model does not charge `<%` per row. This is the remaining query-side cause; the levers are in the backlog (design §9).
 
-Excerpt, word query at 0 % (full plans: `explain-<coverage>-<name>.txt` in `SEARCH_EVAL_OUT`):
+Design D6 («do not move the access decision into the index to save time») is **not** triggered: the guard cost is gone from the plan and nothing was weakened. The remaining time is in candidate generation (stage 6 trigram recheck) and in the 30-client queue.
 
-```
-Append (hits_raw, rows=5856, 721 ms)
-  -> Nested Loop (exact_token)  Bitmap Index Scan on search_document_term_trgm_idx (rows=3416, 2 ms), Items by pkey (rows=1708, 12 ms)
-  -> Gather (text)  Parallel Seq Scan on search_document (rows=1383 x 3, ~670 ms)    <- tsv OR trigram, no index used
-Nested Loop Semi Join (guard on the hit rows)  rows=5856, ~740 ms total
-```
+### Earlier numbers (#1593), kept for comparison
 
-Design D6 («do not move the access decision into the index to save time») is **not** triggered: the guard cost is gone from the plan and nothing was weakened. The remaining time is in the text stage.
+p95 19,668 / 20,206 / 21,304 ms at 0 / 5 / 30 %, with 13 / 17 / 33 unclassified failures (the shared-memory failure above); single statements word 0.81 + 0.78 s, Korean 0.89 + 0.88 s, direction 0.05 s. An intermediate run with only `NOT MATERIALIZED` gave p95 60,175 / 64,971 / 52,202 ms.
 
 ## Backlog (not implemented)
 

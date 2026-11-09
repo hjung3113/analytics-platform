@@ -6,7 +6,9 @@
 // RESUMABLE: item batches continue from the highest item_no, the index continues from its backfill progress, and a coverage whose
 // result file already exists in the output directory is skipped. Env: SEARCH_LOAD_ITEMS (default 100000), SEARCH_LOAD_QUERIES
 // (measured requests per coverage, default 3000), SEARCH_LOAD_CONCURRENCY (30), SEARCH_LOAD_COVERAGE ("0,5,30"),
-// SEARCH_LOAD_RESET=1 (delete the workspace first), SEARCH_EVAL_OUT (default <tmp>/search-eval).
+// SEARCH_LOAD_RESET=1 (delete the workspace first), SEARCH_EVAL_OUT (default <tmp>/search-eval), SEARCH_LOAD_POOL (connection pool size of the
+// runner, default concurrency + 2: lower it to see pool waiting apart from query cost), SEARCH_LOAD_SUGGEST (suggestion requests per coverage, default 200).
+// Failed requests are classified (`failure-class.ts`) and reported per class; the suggestion statement is measured on its own (#1599).
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -18,8 +20,9 @@ import { sql } from 'drizzle-orm';
 import { createDb } from '../../../../db/client.js';
 import { visibleItemSql } from '../../repositories/access-visibility.js';
 import { rowsOf } from '../../repositories/search-sql.js';
-import { type SearchInput, runSearch } from '../../repositories/search-read.js';
+import { type SearchInput, runSearch, runSuggest } from '../../repositories/search-read.js';
 import { explainSearch } from './explain.js';
+import { classifyFailure, type FailureClass, summarizeFailures } from './failure-class.js';
 import { guardDatabase } from './guard.js';
 import { indexWorkspace, removeWorkspace } from './load-corpus.js';
 import { percentile } from './metrics.js';
@@ -88,7 +91,7 @@ async function main(): Promise<number> {
   const coverages = (process.env.SEARCH_LOAD_COVERAGE ?? '0,5,30').split(',').map(Number);
   const out = process.env.SEARCH_EVAL_OUT ?? join(tmpdir(), 'search-eval');
   mkdirSync(out, { recursive: true });
-  const app = createDb(appUrl, { budgets: { poolMax: concurrency + 2, acquireTimeoutMs: 60_000, statementTimeoutMs: 60_000, lockTimeoutMs: 5000, idleInTransactionTimeoutMs: 60_000 } });
+  const app = createDb(appUrl, { budgets: { poolMax: Number(process.env.SEARCH_LOAD_POOL ?? concurrency + 2), acquireTimeoutMs: 60_000, statementTimeoutMs: 60_000, lockTimeoutMs: 5000, idleInTransactionTimeoutMs: 60_000 } });
   const migrate = createDb(migrateUrl);
   const q = (text: string, params: unknown[] = []) => migrate.pool.query(text, params);
   const log = (m: string) => console.info(`[${new Date().toISOString()}] ${m}`);
@@ -208,8 +211,8 @@ async function main(): Promise<number> {
       const mix = queryMix(measured + 100, words, 1508 + c);
       const durations: { shape: Shape; ms: number }[] = [];
       let next = 0;
-      let failures = 0; // measured sample only
-      let warmupFailures = 0;
+      const failed: { cls: FailureClass; message: string }[] = []; // measured sample only
+      const warmupFailed: { cls: FailureClass; message: string }[] = [];
       const t0 = performance.now();
       await Promise.all(
         Array.from({ length: concurrency }, async () => {
@@ -218,14 +221,19 @@ async function main(): Promise<number> {
             if (i >= mix.length) return;
             const item = mix[i] as LoadQuery;
             const s = performance.now();
-            const res = await runSearch(app.db, viewerRef, item.input).catch(() => null);
+            let failure: { cls: FailureClass; message: string } | null = null;
+            try {
+              const res = await runSearch(app.db, viewerRef, item.input);
+              if (!res.ok) failure = { cls: classifyFailure(res), message: res.message };
+            } catch (error) {
+              failure = { cls: classifyFailure(error), message: error instanceof Error ? error.message : String(error) };
+            }
             const ms = performance.now() - s;
-            const failed = !res?.ok;
             if (i >= 100) {
               // the first 100 requests warm the caches and are not measured
               durations.push({ shape: item.shape, ms });
-              if (failed) failures++;
-            } else if (failed) warmupFailures++;
+              if (failure) failed.push(failure);
+            } else if (failure) warmupFailed.push(failure);
           }
         }),
       );
@@ -247,9 +255,39 @@ async function main(): Promise<number> {
         writeFileSync(join(out, `explain-${c}-${name}.txt`), statements.map((s) => `-- ${s.label}\n${s.plan.join('\n')}`).join('\n\n'));
         explained[name] = statements.map((s) => ({ label: s.label, executionMs: s.executionMs, planningMs: s.planningMs }));
       }
-      const result = { coverage: c, items: total, visibleItems: visible?.n ?? null, concurrency, measuredRequests: all.length, failures, warmupFailures, wallSeconds: wall, p50: percentile(all, 50), p95: percentile(all, 95), p99: percentile(all, 99), byShape, explain: explained };
+      // The suggestion statement on its own (#1596: an inlined guarded CTE once made it far slower): prefixes of the vocabulary, same concurrency.
+      const suggestCount = Number(process.env.SEARCH_LOAD_SUGGEST ?? 200);
+      const suggestMs: number[] = [];
+      let suggestNext = 0;
+      let suggestFailures = 0;
+      await Promise.all(
+        Array.from({ length: concurrency }, async () => {
+          for (;;) {
+            const i = suggestNext++;
+            if (i >= suggestCount) return;
+            const w = words[(i * 37) % 380] as string;
+            const s0 = performance.now();
+            try {
+              await runSuggest(app.db, viewerRef, w.slice(0, 3), null);
+              suggestMs.push(performance.now() - s0);
+            } catch {
+              suggestFailures++;
+            }
+          }
+        }),
+      );
+      const failureSummary = summarizeFailures(failed);
+      const warmupSummary = summarizeFailures(warmupFailed);
+      const result = {
+        coverage: c, items: total, visibleItems: visible?.n ?? null, concurrency, pool: Number(process.env.SEARCH_LOAD_POOL ?? concurrency + 2), measuredRequests: all.length,
+        failures: failed.length, failureClasses: failureSummary.counts, failureSamples: failureSummary.samples, warmupFailures: warmupFailed.length, warmupFailureClasses: warmupSummary.counts,
+        wallSeconds: wall, p50: percentile(all, 50), p95: percentile(all, 95), p99: percentile(all, 99), byShape,
+        suggest: { n: suggestMs.length, failures: suggestFailures, p50: percentile(suggestMs, 50), p95: percentile(suggestMs, 95), p99: percentile(suggestMs, 99) },
+        explain: explained,
+      };
       writeFileSync(file, JSON.stringify(result, null, 2));
-      log(`coverage ${c}%: visible ${visible?.n} of ${total}; p50 ${result.p50.toFixed(0)} p95 ${result.p95.toFixed(0)} p99 ${result.p99.toFixed(0)} ms; unclassified failures in the measured sample ${failures}, in warmup ${warmupFailures}`);
+      const classes = (counts: Record<string, number>) => Object.entries(counts).filter(([, n]) => n > 0).map(([k, n]) => `${k} ${n}`).join(', ') || 'none';
+      log(`coverage ${c}%: visible ${visible?.n} of ${total}; p50 ${result.p50.toFixed(0)} p95 ${result.p95.toFixed(0)} p99 ${result.p99.toFixed(0)} ms; failures in the measured sample ${failed.length} (${classes(failureSummary.counts)}), warmup ${warmupFailed.length} (${classes(warmupSummary.counts)}); suggest p50 ${result.suggest.p50.toFixed(0)} p95 ${result.suggest.p95.toFixed(0)} ms`);
     }
     const files = coverages.map((c) => join(out, `load-${c}.json`)).filter(existsSync);
     console.info(`${'coverage'.padEnd(10)}${'visible'.padEnd(10)}${'p50 ms'.padEnd(9)}${'p95 ms'.padEnd(9)}p99 ms`);
