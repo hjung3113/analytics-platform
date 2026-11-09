@@ -419,7 +419,8 @@ describe.skipIf(!runIntegration)('log knowledge search read (#1507 S-d)', () => 
     expect((await search({ q: 'archlinker' })).items[0]?.relatedCount).toBe(1);
     expect((await runSuggest(dbHandle.db, view(viewerA), `${TAG.toLowerCase()} archtarget`, null)).suggestions.map((s) => s.text)).toEqual([`${TAG} archtarget kappa`]);
     await sql(`update knowledge.knowledge_item set publication_state = 'archived', row_version = row_version + 1 where id = $1`, [target]);
-    // Not asserted: `relatedCount` still counts an archived linked Item (relatedCounts checks ACL visibility only) — recorded as a gap in design §9.
+    // The archived end no longer counts as a related Item (#1593); the linker itself stays searchable.
+    expect((await search({ q: 'archlinker' })).items[0]?.relatedCount).toBe(0);
     expect((await runSuggest(dbHandle.db, view(viewerA), `${TAG.toLowerCase()} archtarget`, null)).suggestions).toEqual([]);
     expect((await search({ q: 'archtarget' })).items).toEqual([]);
   });
