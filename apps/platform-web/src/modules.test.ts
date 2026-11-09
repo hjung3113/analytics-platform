@@ -33,8 +33,8 @@ describe('EV host module mount (#801)', () => {
   it.each(['react', 'react-dom', '@ap/ui', '@ap/contracts'])('gives the adapter the app\'s own %s, not a second copy', name => {
     const appModules = path.resolve(SRC, '..', 'node_modules');
     const adapter = realpathSync(path.join(appModules, '@eqv', 'platform-adapter'));
-    // pnpm links an adapter's peers beside it in the virtual store; the real path must be the app's real path.
-    const seenByAdapter = realpathSync(path.join(path.dirname(path.dirname(adapter)), ...name.split('/')));
+    // The adapter is a workspace package (packages/eqv/platform-adapter): pnpm links its peers in its own node_modules; the real path must be the app's real path.
+    const seenByAdapter = realpathSync(path.join(adapter, 'node_modules', ...name.split('/')));
     expect(seenByAdapter).toBe(realpathSync(path.join(appModules, ...name.split('/'))));
   });
 
