@@ -1,6 +1,6 @@
 # SDK 외부 확장 계약 — 모듈 엔드포인트 권한(#492)과 새 시스템·메뉴 기여(#428)
 
-상태: **Candidate** (2026-11-10 개정, 설계 단계; 소유자 컨펌 전에는 구현하지 않는다). 결정이 나면 아래 「ADR 초안」이 ADR이 되고, 계약은 [kernel §4–6](../contract/kernel.md)·[ADR-0053](../adr/0053-host-module-contract-v1.md)의 소유 문서를 고친다.
+상태: **보류 — #428은 구현하지 않는다**(소유자 결정 2026-11-10). 이유: 여러 개발자가 이 저장소에서 개발하는 전제라 저장소 밖 패키지의 시스템 등록과 메뉴 기여가 아직 필요하지 않다. 다시 여는 조건: 저장소 밖 패키지(현재 EV 외의 소비자, 또는 EV가 최신 SDK로 올리는 시점)가 이 확장을 실제로 필요로 할 때. #492는 범위를 줄여 «모듈도 `menuPermission`을 쓴다»는 한 문장만 [kernel §5](../contract/kernel.md)에 명시했다(타입·호출 때 검사 없음). §5의 실서버 모듈 권한 부여 경로(P5)는 [#1087](https://github.com/hjung3113/analytics-platform/issues/1087)로 옮겼고, §9의 질문은 더 남지 않았다. 아래 본문은 다시 열 때의 근거 설계(Candidate)다.
 
 읽은 결정: [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md)(원본은 이 저장소, SDK 따로 릴리스), [ADR-0053](../adr/0053-host-module-contract-v1.md), [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md)(Release tarball), [ADR-0072](../adr/0072-open-menu-vocabulary-app-declared-branded-ids.md)(열린 어휘), [#1207](https://github.com/hjung3113/analytics-platform/issues/1207) 소유자 결정(다른 저장소의 에이전트는 릴리스 tarball만 쓴다).
 
