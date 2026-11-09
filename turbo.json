@@ -79,6 +79,26 @@
         "transit",
         "@ap/contract-schemas#build"
       ]
+    },
+    "@eqv/core#test": {
+      "dependsOn": [
+        "transit"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/eqv/assets/**",
+        "$TURBO_ROOT$/packages/eqv/fixtures/**"
+      ]
+    },
+    "@eqv/renderer#test": {
+      "dependsOn": [
+        "transit"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/eqv/assets/**",
+        "$TURBO_ROOT$/packages/eqv/fixtures/**"
+      ]
     }
   }
 }
