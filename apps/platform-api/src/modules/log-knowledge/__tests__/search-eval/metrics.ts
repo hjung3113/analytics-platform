@@ -4,8 +4,8 @@ export const recallAt = (ranked: readonly string[], relevant: ReadonlySet<string
   relevant.size === 0 ? 1 : ranked.slice(0, k).filter((x) => relevant.has(x)).length / relevant.size;
 
 export const precisionAt = (ranked: readonly string[], relevant: ReadonlySet<string>, k: number): number => {
-  const top = ranked.slice(0, k);
-  return top.length === 0 ? 0 : top.filter((x) => relevant.has(x)).length / top.length;
+  // Fixed denominator: k slots, so a short result list is not rewarded for being short.
+  return ranked.slice(0, k).filter((x) => relevant.has(x)).length / k;
 };
 
 /** Reciprocal rank of the first relevant result; 0 when none is returned. */

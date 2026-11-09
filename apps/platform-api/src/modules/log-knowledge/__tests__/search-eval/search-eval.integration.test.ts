@@ -16,7 +16,7 @@ const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
 const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
 
 /**
- * Recall@20 floors per query type on the ~600-Item corpus. They sit below the numbers measured when this node landed, so a ranking
+ * Recall@20 floors per query type on the 440-Item corpus (140 probe + 300 filler). They sit below the numbers measured when this node landed, so a ranking
  * regression fails CI while normal tuning does not. `snake_camel` (0.75 measured) and `typo` (0.83 measured) have lower floors
  * because the baseline already misses some of their queries (see results.md). `alias` has no queries (no alias in code).
  * Raise a floor when the ranking improves.

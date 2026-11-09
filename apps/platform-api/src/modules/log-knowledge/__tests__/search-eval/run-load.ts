@@ -208,7 +208,8 @@ async function main(): Promise<number> {
       const mix = queryMix(measured + 100, words, 1508 + c);
       const durations: { shape: Shape; ms: number }[] = [];
       let next = 0;
-      let failures = 0;
+      let failures = 0; // measured sample only
+      let warmupFailures = 0;
       const t0 = performance.now();
       await Promise.all(
         Array.from({ length: concurrency }, async () => {
@@ -219,8 +220,12 @@ async function main(): Promise<number> {
             const s = performance.now();
             const res = await runSearch(app.db, viewerRef, item.input).catch(() => null);
             const ms = performance.now() - s;
-            if (!res?.ok) failures++;
-            if (i >= 100) durations.push({ shape: item.shape, ms }); // the first 100 requests warm the caches
+            const failed = !res?.ok;
+            if (i >= 100) {
+              // the first 100 requests warm the caches and are not measured
+              durations.push({ shape: item.shape, ms });
+              if (failed) failures++;
+            } else if (failed) warmupFailures++;
           }
         }),
       );
@@ -242,9 +247,9 @@ async function main(): Promise<number> {
         writeFileSync(join(out, `explain-${c}-${name}.txt`), statements.map((s) => `-- ${s.label}\n${s.plan.join('\n')}`).join('\n\n'));
         explained[name] = statements.map((s) => ({ label: s.label, executionMs: s.executionMs, planningMs: s.planningMs }));
       }
-      const result = { coverage: c, items: total, visibleItems: visible?.n ?? null, concurrency, measuredRequests: all.length, failures, wallSeconds: wall, p50: percentile(all, 50), p95: percentile(all, 95), p99: percentile(all, 99), byShape, explain: explained };
+      const result = { coverage: c, items: total, visibleItems: visible?.n ?? null, concurrency, measuredRequests: all.length, failures, warmupFailures, wallSeconds: wall, p50: percentile(all, 50), p95: percentile(all, 95), p99: percentile(all, 99), byShape, explain: explained };
       writeFileSync(file, JSON.stringify(result, null, 2));
-      log(`coverage ${c}%: visible ${visible?.n} of ${total}; p50 ${result.p50.toFixed(0)} p95 ${result.p95.toFixed(0)} p99 ${result.p99.toFixed(0)} ms; failures ${failures}`);
+      log(`coverage ${c}%: visible ${visible?.n} of ${total}; p50 ${result.p50.toFixed(0)} p95 ${result.p95.toFixed(0)} p99 ${result.p99.toFixed(0)} ms; unclassified failures in the measured sample ${failures}, in warmup ${warmupFailures}`);
     }
     const files = coverages.map((c) => join(out, `load-${c}.json`)).filter(existsSync);
     console.info(`${'coverage'.padEnd(10)}${'visible'.padEnd(10)}${'p50 ms'.padEnd(9)}${'p95 ms'.padEnd(9)}p99 ms`);

@@ -49,7 +49,8 @@ describe('ranking metrics', () => {
   const relevant = new Set(['a', 'b', 'c']);
   it('computes recall, precision and reciprocal rank', () => {
     expect(recallAt(['x', 'a', 'b'], relevant, 20)).toBeCloseTo(2 / 3);
-    expect(precisionAt(['x', 'a', 'b'], relevant, 10)).toBeCloseTo(2 / 3);
+    expect(precisionAt(['x', 'a', 'b'], relevant, 10)).toBeCloseTo(2 / 10);
+    expect(precisionAt(['a', 'b', 'c', 'x'], relevant, 4)).toBeCloseTo(3 / 4);
     expect(reciprocalRank(['x', 'y', 'c'], relevant)).toBeCloseTo(1 / 3);
     expect(reciprocalRank(['x'], relevant)).toBe(0);
     expect(scoreQuery([], ['a'])).toEqual({ recall20: 0, precision10: 0, rr: 0 });
