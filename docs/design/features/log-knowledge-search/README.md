@@ -1,6 +1,6 @@
-# 로그 지식 통합 검색 — 방향 관계·ACL-aware 색인 설계 (일부 구현)
+# 로그 지식 통합 검색 — 방향 관계·ACL-aware 색인 설계 (구현됨)
 
-> **Status: Candidate → 소유자 답 3개 반영(2026-11-08), ADR-0124·0125 Decided.** 구현됨: `item_event_relation_record` 표와 `relations[]` 쓰기·읽기(S-b), 접근 규칙(S-a), 색인 저장·갱신(S-c: `search_document`, `search_outbox`, 소비자, backfill, 생성 포인터, 운영 읽기). 검색 질의(S-d: `SearchPort`·PG 어댑터·`logKnowledge.search`/`searchSuggest`·계약 스키마). 화면(S-f, #1509): 통합 검색 A(선택기 줄)·Item 편집 C(접힌 관계 요약), 소유자 확인 2026-11-08. 평가 세트·부하 보고(S-e, [results.md](results.md)). 통합 수용 검증(S-g)은 별도 노드다. 근거는 [#1199](https://github.com/hjung3113/analytics-platform/issues/1199)이고 Epic [#1192](https://github.com/hjung3113/analytics-platform/issues/1192)의 불변식과 [v0.6 통합 설계](../log-knowledge-hub/design-v0.6-candidate.md) §5.4·§9를 **구체화**한다(같은 내용을 다시 쓰지 않는다). 결정은 [ADR-0124](../../../adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)(ACL은 조회 때, 표시는 live)와 [ADR-0125](../../../adr/0125-event-order-search-uses-structured-event-relation-records.md)(방향 검색은 구조화된 Event 관계 기록)이 소유하며 둘 다 **Decided**(소유자 2026-11-08)다. 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
+> **Status: Candidate → 소유자 답 3개 반영(2026-11-08), ADR-0124·0125 Decided.** 구현됨: `item_event_relation_record` 표와 `relations[]` 쓰기·읽기(S-b), 접근 규칙(S-a), 색인 저장·갱신(S-c: `search_document`, `search_outbox`, 소비자, backfill, 생성 포인터, 운영 읽기). 검색 질의(S-d: `SearchPort`·PG 어댑터·`logKnowledge.search`/`searchSuggest`·계약 스키마). 화면(S-f, #1509): 통합 검색 A(선택기 줄)·Item 편집 C(접힌 관계 요약), 소유자 확인 2026-11-08. 평가 세트·부하 보고(S-e, [results.md](results.md)). 통합 수용 검증(S-g, #1510): 수용 매트릭스는 §11. 미구현은 §9에만 있다. 근거는 [#1199](https://github.com/hjung3113/analytics-platform/issues/1199)이고 Epic [#1192](https://github.com/hjung3113/analytics-platform/issues/1192)의 불변식과 [v0.6 통합 설계](../log-knowledge-hub/design-v0.6-candidate.md) §5.4·§9를 **구체화**한다(같은 내용을 다시 쓰지 않는다). 결정은 [ADR-0124](../../../adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)(ACL은 조회 때, 표시는 live)와 [ADR-0125](../../../adr/0125-event-order-search-uses-structured-event-relation-records.md)(방향 검색은 구조화된 Event 관계 기록)이 소유하며 둘 다 **Decided**(소유자 2026-11-08)다. 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-08»로 표시한다.
 >
 > 공개 저장소다. 예시는 합성 데이터만 쓴다.
 
@@ -160,7 +160,7 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 
 ### 5.3 재색인·롤백·SearchPort 교체
 
-구현됨(S-c): 생성 포인터와 새 생성 시작·전환·롤백·보존 기간 뒤 삭제는 저장소 함수다(HTTP 진입점 없음). 소비자는 활성·구축 중·직전 생성 모두에 쓴다. 그림자 비교와 `SearchPort`는 아직 없다.
+구현됨(S-c): 생성 포인터와 새 생성 시작·전환·롤백·보존 기간 뒤 삭제는 저장소 함수다(HTTP 진입점 없음). 소비자는 활성·구축 중·직전 생성 모두에 쓴다. `SearchPort`와 PG 어댑터는 있다(S-d, 같은 계약 테스트). 그림자 비교는 아직 없다(§9).
 
 - `index_generation`: 새 생성(n+1)을 옆에 만들고 완료·검증 뒤 활성 생성 포인터를 **한 번의 UPDATE**로 바꾼다. 롤백은 포인터를 되돌리는 것이다(색인은 파생이므로 데이터 손실이 없다). 이전 생성은 보존 기한(시작값 7일) 뒤에 지운다.
 - `SearchPort` 어댑터를 바꾸려면 같은 계약 테스트(§6 평가 세트 포함)를 통과해야 하고, 전환 전에 **그림자 비교**(같은 질의를 두 어댑터에 보내 결과만 비교, 응답은 기존 것)로 순위·재현율 차이를 본다. 어댑터는 ACL을 모른다 — 가시성 판정과 표시값 읽기는 어댑터 밖(§4 3·4단계)이라 어댑터를 바꿔도 권한 경계가 그대로다.
@@ -222,8 +222,8 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | --- | --- | --- |
 | 팀·역할 주체의 접근 규칙(§3.4) | `core.teams`는 멤버십 테이블이 없는 스키마 자리뿐이라 현재 projection을 읽을 수 없다. 규칙의 주체는 Actor만 | Core에 팀 멤버십 projection이 생김 |
 | 접근 규칙 관리 화면 | 노드 a는 API만(화면 없음). 관리 UI는 시안 컨펌이 필요 | 소유자가 관리 화면 범위를 정함 |
-| C7 숨은 코드의 충돌 응답 차단 — **미구현** | 생성·코드 변경의 `duplicate` 및 import의 `taken` 응답이 숨은 Model/SW 코드가 사용 중임을 확인해 준다. 전역 고유키를 유지하면서 응답·쓰기 선행 권한을 어떻게 바꿀지는 소유자 결정이 필요 | 소유자가 namespace 쓰기 권한 또는 충돌 비공개 응답 계약을 결정 |
-| C12 연속 Item 번호의 숨은 건수 유추 차단 — **미구현** | 연속 Item 번호와 visible total을 함께 보면 숨은 Item 건수를 역산할 수 있다. 기존 `KI-n` 식별자 호환 정책은 소유자 결정이 필요 | 소유자가 비연속 번호·공개 표시 번호 등 식별자 정책 또는 이 채널의 허용 여부를 결정 |
+| C7 숨은 코드의 충돌 응답 — **소유자 수용 잔여 위험**(2026-11-09, [ADR-0124](../../../adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)·[ADR-0125](../../../adr/0125-event-order-search-uses-structured-event-relation-records.md)) | 생성·코드 변경의 `duplicate`/`taken`이 숨은 Model/SW 코드의 존재를 알려 준다. 전역 고유키를 지키려면 충돌을 알려야 하므로 허용하고 기록한다 | 코드를 접근 범위별 namespace로 나누는 결정(ADR의 재개 조건) |
+| C12 연속 Item 번호의 숨은 건수 유추 — **소유자 수용 잔여 위험**(2026-11-09, ADR-0124·0125) | 연속 `KI-n`과 visible total로 숨은 Item 건수를 역산할 수 있다. 번호를 유지하고 남은 위험으로 둔다 | 비연속 표시 번호 도입(ADR-0109 `KI-n` 사용처 동반 변경, ADR의 재개 조건) |
 | Knowledge/lifecycle 이벤트의 caller-aware 감사 projection — **미구현** | 제한된 객체 ID가 Admin에게도 노출되면 안 되므로 일반 Admin projection에서 제외. `core.audit_log` 원본은 보존 | 호출자의 현재 객체 접근 권한을 판정하는 projection 구현 |
 | Evidence 원천 ACL을 검색에 반영 | 원본 소유자 판정이 어댑터 실사 전 | #1200/#1201의 원천 ACL 어댑터 확정 |
 | 순서 외 관계 술어(`requires`·`excludes` 등) | 필요가 입증되지 않음 | 소비자가 두 번째 술어를 요구 |
@@ -233,6 +233,21 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | 정확한 총 건수 | 존재 유추 위험 | 가려진 건수를 못 알아내게 하는 방법이 있을 때 |
 | 원본 로그 본문 검색 | 본문이 ACL 밖으로 나감 | [log-explorer §9](../log-explorer/README.md#9-미구현-목록-다시-여는-조건)의 조건 |
 | 그림자 비교의 자동 승격 | 첫 교체 전에는 불필요 | 어댑터를 실제로 바꿀 때 |
+| 후보 질의 지연 p95 ≤ 300 ms 미달 — **미구현** | 10만 Item 합성 부하에서 목표를 두 자릿수 배 넘는다. 후보 문장이 가시성 판정을 전체 Item에 먼저 돌린 뒤 적중으로 좁힌다([results.md](results.md)). 이 슬라이스는 어댑터·순위를 바꾸지 않는다 | 소유자가 어댑터 성능 노드를 잡음. `search:load`를 0/5/30 %에서 다시 돌려 p95 ≤ 300 ms 요구 |
+| 색인 표 `ANALYZE` — **미구현** | 새 표에는 통계가 없어 같은 질의가 440건 말뭉치에서도 수 초 걸린다 | 첫 운영 backfill 전 또는 backfill 작업에 후처리 단계가 생길 때 |
+| camelCase 질의가 snake_case 본문을 못 찾음 — **미구현** | 질의 단어가 원형 소문자(`gaslineclog`)로만 남아 문서의 분리 토큰과 맞지 않는다 | 소유자가 `search-normalize`의 변형 접기를 결정 |
+| 글자 순서가 바뀐 오타 미적중 — **미구현** | trigram 유사도가 기본 문턱 아래. §4.2: 자동 교정 없음 | 실제 본문 오타 측정에서 놓치는 비율이 문제로 확인됨 |
+| alias 질의 유형·승인 alias 단계(§4 5단계) — **미구현** | 코드에 alias가 없다(D8) | alias 노드 착수 |
+| 실제 한국어 본문 품질 측정 — **미구현** | 합성 어휘 6개의 1.000은 조사·복합어·띄어쓰기를 말해 주지 않는다 | 소유자가 비공개 환경에서 승인된 샘플 허용(§6) |
+| HTTP 경로·단일 viewer 풀 지연 측정 — **미구현** | 부하 스크립트는 읽기 함수만 재고 viewer 하나를 쓴다 | 어댑터 성능 노드에서 경로 단위 부하 점검을 더함 |
+| 재시작 뒤 낡은 커서 이어받기 — **미구현** | 커서는 질의·Actor에 묶인 HMAC이고 프로세스 재시작·다른 인스턴스에서는 거절되어 첫 페이지부터 다시 조회한다(§4). 영속 키가 없다 | 운영에서 재시작 중 페이지 이동 실패가 문제로 보고됨 |
+| 그림자 비교(같은 질의를 두 `SearchPort` 어댑터에 보내 결과만 비교) — **미구현** | 어댑터가 PG 하나뿐이라 비교 대상이 없다 | 두 번째 어댑터가 생김 |
+| 「혹시 이 토큰?」 오타 제안 — **미구현** | 자동 교정은 두지 않는다(§4.2)이고 제안 UI·endpoint도 없다 | 실제 본문 오타 측정에서 놓침이 문제로 확인됨 |
+| `typeCode` 필터 — **미구현** | 검색 요청에 유형 축이 없다 | 소비자가 유형별 검색을 요구 |
+| 반대 방향 구역의 페이지 이동 — **미구현** | 반대 구역은 첫 묶음만 준다(`oppositeHasMore`) | 소비자가 반대 구역을 더 넘겨 보려 함 |
+| 보관한 Item이 관련 Item 건수에 남음 — **미구현** | `relatedCount`가 접근 가시성만 보고 발행 상태를 보지 않아, 보관한 연결 Item이 건수에 든다(결과·자동완성·`capped`는 즉시 빠짐을 검증함) | 건수가 틀렸다는 보고, 또는 관련 Item 건수 SQL을 고칠 때 |
+| 클라이언트 이용 이벤트에 질의 원문이 없다는 검증 — **미구현** | 서버가 저장한 감사·이용 이벤트만 검사한다. 클라이언트의 진입·체류 이벤트 생산자는 이 테스트가 구동하지 않는다 | Kernel/클라이언트 이용 이벤트 단위 테스트에 검색 주소 비포함 단언을 더할 때 |
+| 다른 메뉴 쓰기 직후 열린 검색의 자동 갱신 — **미구현** | 무효화 선언은 같은 메뉴 endpoint만 허용한다. 재진입·재실행으로 새 값을 읽는다 | Kernel이 메뉴 간 무효화 선언을 허용 |
 
 ## 10. Open Decisions
 
@@ -247,3 +262,36 @@ GET-like menu-query  logKnowledge.search { q, ownerFilter, relation?, kind?, cur
 | D7 | 상한 값(자동완성 12, 페이지 최대 50, 건수 상한 100+, drain 배치 100, 재시도 8, 세대 보존 7일, 기록 20줄) | 이 값으로 시작, 측정 후 조정 |
 | D8 | alias 승인 권한 | 결정(레인): 개념 매핑과 같은 capability(`knowledge.spec.publish`)로 시작, 새 capability 없음. alias는 Model 또는 SW 범위를 갖고 범위 밖으로 번지지 않는다 |
 | D9 | 반대 방향 결과 | 결정(레인): 기본 꺼진 별도 구역 |
+
+## 11. 수용 매트릭스 (S-g, #1510)
+
+테스트 경로는 `apps/platform-api/src/modules/log-knowledge/__tests__/` 아래 `search-read`(`search-read.integration.test.ts`)·`search-index`·`access`·`search-eval/`이고, E2E는 `apps/platform-e2e/tests/features-log-knowledge-search.spec.ts`다. «mock»은 `menus/log-dev/log-knowledge/src/mock/search.test.ts`와 화면 단위 테스트다. E2E는 mock 서버만 보므로 권한 회수·Draft·색인 상태의 실제 판정은 백엔드 통합 테스트가 증명한다.
+
+| 기준 (§1·§8) | 증명하는 테스트 |
+| --- | --- |
+| 방향: `A before B`와 `B before A`가 다른 결과, `after`는 같은 행 | search-read «`B after A` finds exactly what `A before B` finds…»; E2E «방향 주소를 복원하고 반대 방향을 별도 구역으로 열며 해석을 끈다» |
+| 반대 방향은 기본 꺼진 별도 구역, 혼합 질의도 | search-read «the relation kind picks observed or expected records; the opposite direction is an opt-in separate section», «C3: mixed adapter plans exclude reverse-only Items», «C3: the endpoint keeps mixed text/relation reverse-only results…» |
+| 부정·한쪽만 있는 문장은 방향 없음, 기록 없는 Item은 방향 일치에 오르지 않음 | search-read «negated or one-sided text is plain text…», «an Item without records is never matched by direction…» |
+| `observed` 1단계, `expected` 2단계 + «명세상 기대» | search-read «a forward query returns observed (1) before expected (2…» |
+| SW 구분: 같은 Event 이름의 다른 소유자는 각자 행, 합치지 않음 | search-read 같은 테스트(소유자별 행), «C2: concept direction preserves mapped Model identity for %s owners» |
+| `proposed`·`rejected` 개념 매핑은 쓰지 않음, 확정은 즉시 반영 | search-read «only a confirmed equivalent mapping widens the match…» |
+| 같은 제목의 다른 Item은 병합하지 않음 | search-read «Items with the same title in different owners stay separate rows…» |
+| 권한 회수는 다음 요청부터: 결과·자동완성·관련 Item 건수 | search-read «revoking a right removes the Item from the same query, the suggestions and the related-Item count…»; access «an allow rule shows a restricted item; the next request after a revoke hides it again» |
+| 상위 제한은 하위 허용으로 못 푼다 | search-read «a restricted parent hides its children…»; access «a restricted model hides its SW and items…» |
+| 숨김 = 없음: 같은 응답 모양 | search-read «a hidden owner filter and a nonexistent one answer byte-identically…», «the endpoint answers a session; … hidden and nonexistent owners answer the same» |
+| 정확한 총 건수 없음, 숨은 Item은 `capped`에 안 셈 | search-read «the response has no exact total; `capped` ignores hidden Items…» |
+| Admin·서비스 Actor에 읽기 우회 없음 | access «Admin has no read bypass…»; search-read «a service Actor reads only through a token that carries workspace.read…» |
+| Draft·Validator 후보는 색인·결과에 없음 | search-read «a Draft (human create/revise, Validator candidate) is never indexed and never returned, before or after a workspace backfill and drain…»(Validator 후보 fixture, 색인 전·후, 워크스페이스 backfill+drain 뒤 결과·자동완성·문서 표) |
+| 발행 해제(보관)는 drain 전에 결과·자동완성·`capped`에서 즉시 사라지고 색인에서 지워짐 | search-read «display is read live…»(보관 단계), «an archived Item leaves the results and the suggestions at once, before the drain», «the response has no exact total…»(보관 3건 뒤 `capped` 해제); search-index «deletes the document when the Item is no longer published». 관련 Item 건수는 보관을 아직 빼지 않는다(§9) |
+| backfill 중 표시: 가시 범위 진행률, 숨은 Item이 힌트를 못 바꿈 | search-read «the index hint is a lag age and a whole percent…», «C1: hidden pending changes…», «C1: hidden backfill Items and operational counters…»; search-index «backfills in keyset batches, resumes…» |
+| 색인 지연 중 옛 본문이 나오지 않음 | search-read «display is read live: during index lag…» |
+| 오래된 알림·중복 알림이 새 문서를 덮지 못함 | search-index «does not let a stale build overwrite a newer document», «merges duplicate notifications…» |
+| outbox 장애: `dead` 가시화·requeue | search-index «backs off, goes dead at the attempt cap…», «writes the outbox from the access writer… (real server)» |
+| 키셋 커서 안정, 다른 사용자·workspace·변조 커서 거절 | search-read «keyset pages are stable…», «C4: %s cursors are refused…» |
+| 질의 원문이 서버가 저장한 감사·이용 이벤트에 없음 | search-read «the query text is not written to the audit log or to server-persisted usage events…». 클라이언트 이용 이벤트 생산은 구동하지 않음(§9) |
+| `SearchPort` 교체·재색인(수용 기준 5): 어댑터가 같은 계약을 통과, 새 생성 구축·준비 전 전환 거절·전환·롤백·보존, 중단된 생성 복구 | search-read `describeSearchPortContract`(`search-port-contract.ts`)를 `pgSearchPort`에 적용; search-index 생성 구축·전환·롤백·보존 시험과 중단 생성 복구 시험; 그림자 비교는 미구현(§9) |
+| 색인에 ACL·발췌·근거 열 없음, `pg_trgm` 확인 | search-index «holds no ACL, excerpt or 지식 근거 column», «migration asserts pg_trgm…» |
+| 한국어·유형별 품질, 방향 반례 0 | search-eval `search-eval.integration.test.ts`; 수치는 [results.md](results.md) |
+| 화면: 해석 칩·반대 방향 구역·Item 이동·관계 서랍 | E2E 위 두 테스트; mock `search.test.ts`, `KnowledgeSearch.test.tsx` |
+
+«새로 발행한 Item이 바로 안 나옴» 안내 문구는 `KnowledgeSearch.test.tsx` «shows no-result guidance with no result title or fabricated counts»가 검사한다. 증명이 없는 기준: 서버 응답 캐시를 두지 않는다는 것은 구현에 캐시 계층이 없음으로 확인하며 테스트가 없다. p95 ≤ 300 ms는 미달이고 §9에 있다.

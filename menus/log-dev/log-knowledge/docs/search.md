@@ -1,6 +1,6 @@
 # 통합 검색과 Event 관계 기록 (#1509, S-f)
 
-화면 기준은 소유자가 2026-11-08 확인한 검색 A(선택기 줄)와 Item 편집 C(접힌 요약)다. 검색 의미·권한·순위는 [검색 설계](../../../../docs/design/features/log-knowledge-search/README.md) §4와 [API 계약](../../../../docs/architecture/platform-api/api/log-knowledge.md#knowledge-search-1507-s-d)이 소유한다. 이 문서는 메뉴의 화면 조합과 주소를 소유한다.
+화면 기준은 소유자가 2026-11-08 확인한 검색 A(선택기 줄)와 Item 편집 C(접힌 요약)다. 수용 매트릭스는 [검색 설계 §11](../../../../docs/design/features/log-knowledge-search/README.md#11-수용-매트릭스-s-g-1510)이다. 검색 의미·권한·순위는 [검색 설계](../../../../docs/design/features/log-knowledge-search/README.md) §4와 [API 계약](../../../../docs/architecture/platform-api/api/log-knowledge.md#knowledge-search-1507-s-d)이 소유한다. 이 문서는 메뉴의 화면 조합과 주소를 소유한다.
 
 ## 화면과 주소
 
@@ -46,5 +46,5 @@ mock은 기존 30개 Item에 합성 관계를 얹고 생성·리비전 변경을
 
 ## 남은 제한
 
-- **미구현 — 열린 검색의 다른 메뉴 쓰기 직후 자동 갱신.** 현재 무효화 선언은 같은 메뉴의 endpoint만 허용한다. 검색은 재진입 또는 같은 검색의 재실행으로 새 값을 읽는다. 다시 여는 조건: Kernel이 메뉴 간 무효화를 공개 계약으로 제공할 때. 색인 반영 자체의 지연은 별개이며 API의 `indexLag`로 안내한다.
+- 열린 검색의 다른 메뉴 쓰기 직후 자동 갱신은 미구현이다. 재진입 또는 같은 검색의 재실행으로 새 값을 읽는다. 사유와 재개 조건은 [검색 설계 §9](../../../../docs/design/features/log-knowledge-search/README.md#9-미구현-목록-다시-여는-조건)가 소유한다. 색인 반영 자체의 지연은 별개이며 API의 `indexLag`로 안내한다.
 - 저장 검색, 새 ranking/adapter, 오타 교정 및 제안 endpoint를 넘는 자동완성은 이 화면 범위 밖이다. 재개 조건은 [검색 설계 §9](../../../../docs/design/features/log-knowledge-search/README.md#9-미구현-목록-다시-여는-조건)가 소유한다.
