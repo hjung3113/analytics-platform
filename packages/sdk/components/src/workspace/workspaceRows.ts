@@ -6,6 +6,7 @@
 import { moveToNewRow, panelOrder } from '../dock/commands';
 import { DOCK_STRIP_HEIGHT, minAlong, topLevelRows, type PanelMinimums } from '../dock/displayModel';
 import { DEFAULT_MIN_PANEL_SIZE } from '../dock/dockTypes';
+import { dockTheme } from '../dock/dockPresentation';
 import type { DockNode } from '../dock/schema';
 
 export { topLevelRows };
@@ -26,26 +27,52 @@ export const clampRow = (px: number, minimum: number, maximum: number) => Math.m
 
 const sum = (values: readonly number[]) => values.reduce((total, value) => total + value, 0);
 
+/** The px a row asks for, or undefined when no panel in it declares a `preferredHeight` (the row then follows the share formula). */
+export type PreferredHeight = (row: DockNode) => number | undefined;
+
 /**
- * Entering stack mode: each row gets `round(share × max(baseline, rows × 360))` px, within its bounds. `baseline` is the height fit mode gives
+ * Preferred px of a row from the panels' declared body heights: a group is its tallest declared body plus the strip (never under its own minimum), a
+ * row branch takes its tallest child, a column branch adds its children and the engine gaps. Undeclared parts contribute their minimum.
+ */
+export const rowPreferredOf = (declared: ReadonlyMap<string, number>, panels: PanelMinimums, gap = dockTheme(true).gap): PreferredHeight => row => {
+  const has = (node: DockNode): boolean => (node.type === 'group' ? node.panels.some(id => declared.has(id)) : node.children.some(has));
+  if (!has(row)) return undefined;
+  const px = (node: DockNode): number => {
+    if (node.type === 'group') {
+      const asked = node.panels.flatMap(id => (declared.has(id) ? [declared.get(id)! + DOCK_STRIP_HEIGHT] : []));
+      return Math.max(minAlong(node, 'column', DEFAULT_MIN_PANEL_SIZE, panels, DOCK_STRIP_HEIGHT), ...asked);
+    }
+    const parts = node.children.map(px);
+    return node.dir === 'column' ? sum(parts) + gap * Math.max(0, parts.length - 1) : Math.max(...parts);
+  };
+  return px(row);
+};
+
+/** What `enterRows` also needs: the one-row height and the preferred heights. */
+export type EnterEnv = { oneRow: number; preferred?: PreferredHeight };
+
+/**
+ * Entering stack mode: a row whose panels declare a preferred height gets it; one row with nothing declared gets `env.oneRow`; each other row gets `round(share × max(baseline, rows × 360))` px, within its bounds. `baseline` is the height fit mode gives
  * the layout (measured by the caller the same way in both modes).
  */
-export function enterRows(layout: DockNode, baseline: number, minimum: RowMinimum, maximum: number): number[] {
+export function enterRows(layout: DockNode, baseline: number, minimum: RowMinimum, maximum: number, env?: EnterEnv): number[] {
   const rows = topLevelRows(layout);
+  // One row with nothing declared: it fills what the page shows (no page scrollbar on first load), whatever the 360 floor would say.
+  if (env && rows.length === 1 && env.preferred?.(rows[0]!) === undefined) return [clampRow(env.oneRow, minimum(rows[0]!), maximum)];
   const shares = layout.type === 'branch' && layout.dir === 'column' ? layout.sizes : [100];
   const total = Math.max(baseline, rows.length * NEW_ROW_HEIGHT);
-  return rows.map((row, index) => clampRow(Math.round((shares[index]! / 100) * total), minimum(row), maximum));
+  return rows.map((row, index) => clampRow(env?.preferred?.(row) ?? Math.round((shares[index]! / 100) * total), minimum(row), maximum));
 }
 
 /**
  * A structural change (drop, move, hide, show, move below) from `prevLayout` to `nextLayout`. Rows are matched by provenance, not by position:
  * the rows that survive (same panels first, then the largest overlap, the earlier row on a tie) keep their px (raised to their minimum, never
- * lowered) before anything is allocated; a row without a predecessor is new and gets 360 within its bounds; a row that no longer exists is
+ * lowered) before anything is allocated; a row without a predecessor is new and gets its preferred height (`preferred`) when its panels declare one, else 360, within its bounds; a row that no longer exists is
  * dropped. `created` is the panel an edit moved into a row of its own (`아래 새 줄로 옮기기`, a drop on the strip, a split above or below): that row
  * is always new, even when its panels equal an old row's, so the net change is the new row less the row the panel left. A drag the layout alone
  * cannot explain (rows swapped by a drop at the top or bottom) has no `created`: a row that keeps its panels keeps its px wherever it went.
  */
-export function reconcileRows(prevLayout: DockNode, prevRows: readonly number[], nextLayout: DockNode, minimum: RowMinimum, maximum: number, created?: string): number[] {
+export function reconcileRows(prevLayout: DockNode, prevRows: readonly number[], nextLayout: DockNode, minimum: RowMinimum, maximum: number, created?: string, preferred?: PreferredHeight): number[] {
   const before = topLevelRows(prevLayout).map(panelOrder);
   const next = topLevelRows(nextLayout);
   const after = next.map(panelOrder);
@@ -65,7 +92,7 @@ export function reconcileRows(prevLayout: DockNode, prevRows: readonly number[],
     .filter(candidate => candidate.overlap > 0 && !taken.has(candidate.index) && prevRows[candidate.index] !== undefined)
     .sort((x, y) => y.overlap - x.overlap || x.at - y.at || x.index - y.index);
   for (const { at, index } of candidates) if (heights[at] === undefined && !taken.has(index)) give(at, index);
-  return heights.map((height, at) => height ?? clampRow(NEW_ROW_HEIGHT, minimum(next[at]!), maximum));
+  return heights.map((height, at) => height ?? clampRow(preferred?.(next[at]!) ?? NEW_ROW_HEIGHT, minimum(next[at]!), maximum));
 }
 
 /** The same layout with its top-level shares set to the rows' px proportions (a layout that is not a column of `rows.length` rows is returned as it is). */

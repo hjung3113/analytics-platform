@@ -5,7 +5,7 @@
 import { isRecord } from '@ap/contracts';
 import { activatePanel, addPanel, groupOf, panelOrder, removePanel } from '../dock/commands';
 import { dockGroupsInReadingOrder, normalizeDockTree, type DockNode } from '../dock/schema';
-import { enterRows, reconcileRows, ROW_MIN_HEIGHT, topLevelRows, withRowShares, type RowMinimum } from './workspaceRows';
+import { enterRows, reconcileRows, ROW_MIN_HEIGHT, topLevelRows, withRowShares, type PreferredHeight, type RowMinimum } from './workspaceRows';
 
 /** The arrangement a preset describes. Structurally the dock tree; `sizes` are ratios (any positive numbers, only their proportions count). */
 export type PanelWorkspaceLayout =
@@ -49,8 +49,10 @@ export type WorkspaceSpec = {
   panelIds: readonly string[]; primaryId: string; presets: readonly WorkspacePreset[]; initialPreset: string;
   /** Least px of a row in stack mode; default 200. */
   rowMinimum?: RowMinimum;
-  /** Height mode of a workspace nobody has touched; a saved preference (fit included) always wins. Default fit. */
+  /** Height mode of a workspace nobody has touched; a saved preference (fit included) always wins. Default stack (ADR-0130). */
   initialMode?: 'fit' | 'stack';
+  /** Preset id the menu arranges its panels in while stacked (ADR-0130): an untouched workspace that starts in stack starts on it, and the mode switch applies it while the arrangement is still the initial preset's. Unknown ids are ignored. */
+  stackPreset?: string;
 };
 
 /** Sanity bound on a stored row height: anything above is a corrupt value, not a layout. */
@@ -63,8 +65,11 @@ export function withRows(state: WorkspaceState, mode: 'fit' | 'stack', rows?: re
   return rows ? { ...base, layout: withRowShares(base.layout, rows), mode: 'stack', rows: [...rows] } : { ...base, mode: 'stack' };
 }
 
-/** What stack mode needs from the page to size rows: the least height per row, the most a row may be given, and the height fit mode gives the layout. */
-export type RowEnv = { minimum: RowMinimum; maximum: number; baseline: number };
+/**
+ * What stack mode needs from the page to size rows: the least height per row, the most a row may be given, the height fit mode gives the layout,
+ * the px that make one row fill what the page shows (`oneRow`) and the rows' preferred heights where panels declare them.
+ */
+export type RowEnv = { minimum: RowMinimum; maximum: number; baseline: number; oneRow: number; preferred?: PreferredHeight };
 
 /**
  * `next` is `previous` after an edit; the rows follow it. Fit: no rows. Stack, `keep`: rows that keep their panels keep their px, a new row
@@ -74,9 +79,9 @@ export type RowEnv = { minimum: RowMinimum; maximum: number; baseline: number };
 export function settleRows(previous: WorkspaceState, next: WorkspaceState, how: 'keep' | 'enter', env: RowEnv, created?: string): WorkspaceState {
   if (next === previous) return previous;
   if (next.mode !== 'stack') return next.mode !== undefined || next.rows !== undefined ? withRows(next, 'fit') : next;
-  if (how === 'enter') return withRows(next, 'stack', enterRows(next.layout, env.baseline, env.minimum, env.maximum));
+  if (how === 'enter') return withRows(next, 'stack', enterRows(next.layout, env.baseline, env.minimum, env.maximum, env));
   if (previous.rows === undefined || previous.rows.length !== topLevelRows(previous.layout).length) return withRows(next, 'stack');
-  return withRows(next, 'stack', reconcileRows(previous.layout, previous.rows, next.layout, env.minimum, env.maximum, created));
+  return withRows(next, 'stack', reconcileRows(previous.layout, previous.rows, next.layout, env.minimum, env.maximum, created, env.preferred));
 }
 
 /** Brings the stored mode and rows of `raw` onto the repaired `state`: anything but a valid stack mode is fit; rows that do not fit the layout are left to be measured. */
@@ -91,11 +96,48 @@ function restoreRows(raw: Record<string, unknown>, state: WorkspaceState, spec: 
 
 const presetOf = (spec: WorkspaceSpec, id: string) => spec.presets.find(preset => preset.id === id) ?? spec.presets[0]!;
 
-/** The state of a workspace nobody has touched: the initial preset, nothing hidden, the menu's `initialMode` (stack without rows: they are measured once). */
+/** The menu's `stackPreset`, only when it names a preset (an exact lookup: `presetOf` would fall back to the first preset). */
+const stackPresetOf = (spec: Pick<WorkspaceSpec, 'presets' | 'stackPreset'>) => (spec.stackPreset === undefined ? undefined : spec.presets.find(preset => preset.id === spec.stackPreset));
+
+/** The state of a workspace nobody has touched: nothing hidden, the menu's `initialMode` (default stack, without rows: they are measured once); a stack start uses the `stackPreset`, else the initial preset. */
 export function initialWorkspaceState(spec: WorkspaceSpec): WorkspaceState {
-  const preset = presetOf(spec, spec.initialPreset);
+  const stack = spec.initialMode !== 'fit';
+  const preset = (stack ? stackPresetOf(spec) : undefined) ?? presetOf(spec, spec.initialPreset);
   const state: WorkspaceState = { v: 1, preset: preset.id, layout: presetTree(preset.layout, spec.panelIds), hidden: [] };
-  return spec.initialMode === 'stack' ? { ...state, mode: 'stack' } : state;
+  return stack ? { ...state, mode: 'stack' } : state;
+}
+
+/**
+ * Whether `a` is still the arrangement `b` describes: the same branch directions and child order, and in every group the same panels as a set.
+ * Sizes, the active tab and the tab order do not count (row px are a projection on the top-level shares; hiding and showing a panel reorders tabs).
+ */
+function sameArrangement(a: DockNode, b: DockNode): boolean {
+  if (a.type === 'group' || b.type === 'group') return a.type === 'group' && b.type === 'group' && a.panels.length === b.panels.length && a.panels.every(id => b.panels.includes(id));
+  return a.dir === b.dir && a.children.length === b.children.length && a.children.every((child, index) => sameArrangement(child, b.children[index]!));
+}
+
+/** `state` moved from the arrangement of preset `from` to that of preset `to`, only while it still is `from`'s (the user's own arrangement is the user's). */
+function moveArrangement(state: WorkspaceState, presets: readonly WorkspacePreset[], from: string, to: string | undefined): WorkspaceState {
+  const source = presets.find(preset => preset.id === from);
+  const target = to === undefined ? undefined : presets.find(preset => preset.id === to);
+  if (!source || !target) return state;
+  const shown = panelOrder(state.layout);
+  return sameArrangement(state.layout, presetTree(source.layout, shown)) ? applyPreset(state, target) : state;
+}
+
+/**
+ * The height mode switch (`화면 맞춤` ↔ `아래로 쌓기`). Fit to stack applies `stackPreset` when the layout is still the initial preset's; stack to fit applies the
+ * initial preset when it is still the `stackPreset`'s; any other arrangement is kept. Without a usable `stackPreset` the arrangement is always kept.
+ */
+export function changeMode(current: WorkspaceState, mode: 'fit' | 'stack', spec: Pick<WorkspaceSpec, 'presets' | 'initialPreset' | 'stackPreset'>, env: RowEnv): WorkspaceState {
+  const stackPreset = stackPresetOf(spec)?.id;
+  if (mode === 'fit') {
+    if (current.mode !== 'stack') return current;
+    return withRows(stackPreset === undefined ? current : moveArrangement(current, spec.presets, stackPreset, spec.initialPreset), 'fit');
+  }
+  if (current.mode === 'stack') return current;
+  const arranged = stackPreset === undefined ? current : moveArrangement(current, spec.presets, spec.initialPreset, stackPreset);
+  return withRows(arranged, 'stack', enterRows(arranged.layout, env.baseline, env.minimum, env.maximum, env));
 }
 
 /**

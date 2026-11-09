@@ -355,12 +355,15 @@ export function PaneHeader(props: PaneHeaderProps) {
               {radioGroups.map((commands, at) => {
                 // A group the workspace names (its `groupLabel`) gets a visible label of its own; the first, unnamed one sits under `화면 배치`.
                 const named = commands[0]!.groupLabel;
+                // Every command off at a narrow width: the reason (§12.8) is drawn once under the group.
+                const offReason = commands.every(command => command.disabled) ? commands.find(command => command.description)?.description : undefined;
                 return <Fragment key={commands[0]!.group ?? 'preset'}>
                 {at > 0 && <DropdownMenuSeparator />}
                 {named && <DropdownMenuLabel id={`${id}-group-${at}`}>{named}</DropdownMenuLabel>}
-                <DropdownMenuRadioGroup aria-labelledby={named ? `${id}-group-${at}` : undefined} value={commands.find(command => command.checked)?.id ?? ''} onValueChange={id => { commands.find(command => command.id === id)?.run(); }}>
+                <DropdownMenuRadioGroup aria-labelledby={named ? `${id}-group-${at}` : undefined} aria-describedby={offReason ? `${id}-group-${at}-reason` : undefined} value={commands.find(command => command.checked)?.id ?? ''} onValueChange={id => { commands.find(command => command.id === id)?.run(); }}>
                   {commands.map(command => <DropdownMenuRadioItem key={command.id} value={command.id} disabled={command.disabled}>{command.label}</DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>
+                {offReason && <p id={`${id}-group-${at}-reason`} className="px-2 py-1.5 text-xs text-text-secondary">{offReason}</p>}
               </Fragment>; })}
               {otherCommands.map(command => <DropdownMenuItem key={command.id} disabled={command.disabled} onSelect={() => command.run()}>{command.description ? <span className="grid">{command.label}<span className="text-tiny text-text-muted">{command.description}</span></span> : command.label}</DropdownMenuItem>)}
             </>}

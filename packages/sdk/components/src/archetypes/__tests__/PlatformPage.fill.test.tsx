@@ -112,7 +112,7 @@ describe('PlatformPage layout: a workspace in stack mode turns the fill page int
     const observer = installResizeObserver();
     try {
       render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PlatformPage layout="fill">
-        <PanelWorkspace panels={[{ id: 'outer', title: { ko: '바깥', en: 'Outer' }, primary: true, render: () => <Registrant /> }]} presets={[{ id: 'p', label: { ko: '하나', en: 'One' }, layout: { type: 'group', panels: ['outer'] } }]} initialPreset="p" persistKey="outer" label={{ ko: '바깥 작업 영역', en: 'Outer workspace' }} />
+        <PanelWorkspace panels={[{ id: 'outer', title: { ko: '바깥', en: 'Outer' }, primary: true, render: () => <Registrant /> }]} presets={[{ id: 'p', label: { ko: '하나', en: 'One' }, layout: { type: 'group', panels: ['outer'] } }]} initialPreset="p" initialMode="fit" persistKey="outer" label={{ ko: '바깥 작업 영역', en: 'Outer workspace' }} />
       </PlatformPage></PlatformProvider></I18nProvider>);
       await screen.findByText('작업 영역');
       act(() => { setActive(true); });

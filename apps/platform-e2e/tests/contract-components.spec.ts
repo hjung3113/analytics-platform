@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { PERIOD } from './contract-helpers';
-import { contextBar, evidence, expandPageHead, query, setScenario, signInAs, tableStatusLine } from './support';
+import { contextBar, evidence, expandPageHead, fitWorkspace, query, setScenario, signInAs, tableStatusLine } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -850,6 +850,7 @@ test.describe('페이지 머리 접기 (#680)', () => {
   test('서버 오류 응답은 얇은 띠로 뜨고 #platform-main이 스크롤되지 않는다', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
     await expect(page.locator('[data-panel-workspace]')).toBeVisible();
+    await fitWorkspace(page);
     await page.getByRole('button', { name: '조회 조건 접기' }).click();
     await setScenario(page, '서버 오류 (error)');
     const strip = page.getByRole('main').locator('[data-outcome-banner]');

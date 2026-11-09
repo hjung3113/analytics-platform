@@ -18,7 +18,8 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   menu: DockLayoutMenu;
   /** Set by an action that moves the panel: run once the menu has closed, instead of returning focus to the `⋯` trigger (which may be gone). */
   closeFocus: RefObject<(() => void) | null>;
-  onMaximize: (maximize: boolean) => void;
+  /** `fromMenu`: the `원래 크기로` item; the menu closes over a trigger that the layout change may replace, so the host sets `closeFocus`. */
+  onMaximize: (maximize: boolean, fromMenu?: boolean) => void;
   onSplit: (position: 'right' | 'bottom') => void;
   onMove: (target: string) => void;
   /** Stack mode only, and absent when the panel already is alone in the last row. */
@@ -45,7 +46,7 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
         next();
       }}>
         {menu.maximized
-          ? <DropdownMenuItem onSelect={() => { onMaximize(false); }}>{tx(workspaceText.restore)}</DropdownMenuItem>
+          ? <DropdownMenuItem onSelect={() => { onMaximize(false, true); }}>{tx(workspaceText.restore)}</DropdownMenuItem>
           : <>
             <DropdownMenuItem onSelect={() => { onMaximize(true); }}>{tx(workspaceText.maximize(title))}</DropdownMenuItem>
             {menu.split !== null && <>

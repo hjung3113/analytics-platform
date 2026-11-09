@@ -7,6 +7,7 @@ import { ChunkLoadBoundary, lazyChunk, useLazyChunk } from '../lazyChunk';
 import { panelOrder } from './commands';
 import { stackedTree, visiblePanelIds } from './displayModel';
 import { DEFAULT_MIN_PANEL_SIZE, type DockLayoutProps, type DockRows } from './dockTypes';
+import { focusRevealing } from './focusTab';
 import { programmaticFocus } from './programmaticFocus';
 import { dockGroups, dockGroupsInReadingOrder } from './schema';
 
@@ -46,14 +47,14 @@ const menuOf = (trigger: HTMLElement) => { const id = trigger.getAttribute('aria
  * answers by opening with its first item focused (otherwise a `click`). The trigger may belong to a tab that was only just made active, so it
  * is looked for until the host has drawn it.
  */
-function openGroupMenu(root: HTMLElement, tab: HTMLElement, tries = 0): void {
+function openGroupMenu(root: HTMLElement, tab: HTMLElement, rowMode: boolean, tries = 0): void {
   const panelId = tab.dataset.tabPanelId;
   const slots = Array.from(root.querySelectorAll<HTMLElement>('[data-dock-group-actions]')).filter(item => item.closest('[data-dock-layout]') === root);
   // The tab's own slot once the host shows it; after a while the group's slot whatever it shows (a host that did not follow the activation).
   const slot = slots.find(item => item.dataset.dockActive === panelId) ?? (tries >= 10 ? tab.closest('.dv-groupview')?.querySelector<HTMLElement>('[data-dock-group-actions]') : undefined);
   const trigger = slot?.querySelector<HTMLElement>('[data-dock-group-menu]');
-  if (!trigger) { if (tries < 10 && root.isConnected) setTimeout(() => { openGroupMenu(root, tab, tries + 1); }, 30); return; }
-  programmaticFocus(() => { trigger.focus({ preventScroll: true }); });
+  if (!trigger) { if (tries < 10 && root.isConnected) setTimeout(() => { openGroupMenu(root, tab, rowMode, tries + 1); }, 30); return; }
+  programmaticFocus(() => { focusRevealing(trigger, root, rowMode); });
   trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
   if (trigger.getAttribute('aria-expanded') !== 'true') trigger.click();
   // Radix opens a keyboard-opened menu on its first item; this is the safety net for a menu that did not.
@@ -65,14 +66,14 @@ function openGroupMenu(root: HTMLElement, tab: HTMLElement, tries = 0): void {
     if (first && !onItem) first.focus({ preventScroll: true });
   };
   setTimeout(() => { focusFirst(0); }, 0);
-  returnToTab(trigger, tab, root);
+  returnToTab(trigger, tab, root, rowMode);
 }
 
 /**
  * The menu was opened from a tab, so closing it without choosing returns focus to that tab and not to the trigger Radix would use. A choice
  * that moved focus elsewhere (the host's follow-up) keeps it: only a focus that comes to rest on the trigger is moved.
  */
-function returnToTab(trigger: HTMLElement, tab: HTMLElement, root: HTMLElement): void {
+function returnToTab(trigger: HTMLElement, tab: HTMLElement, root: HTMLElement, rowMode: boolean): void {
   let opened = false;
   const observer = new MutationObserver(() => {
     if (trigger.getAttribute('aria-expanded') === 'true') { opened = true; return; }
@@ -82,7 +83,7 @@ function returnToTab(trigger: HTMLElement, tab: HTMLElement, root: HTMLElement):
       const focus = document.activeElement;
       if (focus === trigger) {
         const target = tab.isConnected ? tab : Array.from(root.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]')).find(item => item.dataset.tabPanelId === tab.dataset.tabPanelId && tabOf(item, root));
-        if (target) programmaticFocus(() => { target.focus({ preventScroll: true }); });
+        if (target) programmaticFocus(() => { focusRevealing(target, root, rowMode); });
       } else if ((focus === document.body || focus === null || focus.closest('[role="menu"]')) && attempt < 10 && root.isConnected) {
         setTimeout(() => { settle(attempt + 1); }, 30);
       }
@@ -98,14 +99,14 @@ function returnToTab(trigger: HTMLElement, tab: HTMLElement, root: HTMLElement):
  * inside the layout. The engine keeps panels in tree order, which is not the reading order, so the browser's own step would run back into the layout.
  * Returns false when the page has nothing there (the browser's step stays).
  */
-function leave(root: HTMLElement, backward: boolean): boolean {
+function leave(root: HTMLElement, backward: boolean, rowMode: boolean): boolean {
   const outside = tabbablesIn(document.body).filter(element => !root.contains(element) && !element.contains(root));
   const position = (element: HTMLElement) => root.compareDocumentPosition(element);
   const target = backward
     ? outside.filter(element => position(element) & Node.DOCUMENT_POSITION_PRECEDING).pop()
     : outside.find(element => position(element) & Node.DOCUMENT_POSITION_FOLLOWING);
   if (!target) return false;
-  target.focus({ preventScroll: true });
+  focusRevealing(target, root, rowMode);
   return true;
 }
 
@@ -152,6 +153,8 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
     return () => { observer.disconnect(); };
   }, [stackBelow]);
   const narrow = stackBelow !== undefined && belowStack;
+  /** Row mode is on screen (D8): programmatic focus then also reveals the element in the page's scroll container. */
+  const rowMode = rows !== undefined && !narrow;
 
   // Narrow display: the user's tab choice there is display-only and ends when the first group's own active tab changes.
   const firstActive = dockGroups(layout)[0]?.active ?? '';
@@ -177,8 +180,8 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
 
   const focusTab = useCallback((panelId: string) => {
     const tab = Array.from(container.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []).find(item => item.dataset.tabPanelId === panelId && tabOf(item, container.current));
-    if (tab) programmaticFocus(() => { tab.focus({ preventScroll: true }); });
-  }, []);
+    if (tab) programmaticFocus(() => { focusRevealing(tab, container.current, rowMode); });
+  }, [rowMode]);
   // After a maximize ends the restored panel's tab takes focus (when focus is not elsewhere on the page); the board composes its own contract on top.
   const wasMaximized = useRef<string | null>(null);
   useEffect(() => {
@@ -219,14 +222,14 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
     const enter = (stop: Stop, last: boolean) => {
       const content = contentItems(stop);
       const slotStops = slotItems(stop);
-      (last ? (content[content.length - 1] ?? (stop.panel ? focusTargetOf(stop.panel) : undefined) ?? slotStops[slotStops.length - 1] ?? stop.tab) : stop.tab).focus({ preventScroll: true });
+      focusRevealing(last ? (content[content.length - 1] ?? (stop.panel ? focusTargetOf(stop.panel) : undefined) ?? slotStops[slotStops.length - 1] ?? stop.tab) : stop.tab, root, rowMode);
     };
-    const focusContentStart = (stop: Stop) => { (contentItems(stop)[0] ?? (stop.panel ? focusTargetOf(stop.panel) : undefined))?.focus({ preventScroll: true }); };
+    const focusContentStart = (stop: Stop) => { const first = contentItems(stop)[0] ?? (stop.panel ? focusTargetOf(stop.panel) : undefined); if (first) focusRevealing(first, root, rowMode); };
     /** Past a group's last stop: the next group's tab; after the last group, the first focusable after the layout (whatever the engine's DOM order is). */
     const after = (at: number): boolean => {
       const next = stops[at + 1];
-      if (next) { next.tab.focus({ preventScroll: true }); return true; }
-      return leave(root, false);
+      if (next) { focusRevealing(next.tab, root, rowMode); return true; }
+      return leave(root, false, rowMode);
     };
     const tab = tabOf(target, root);
     if (tab) {
@@ -235,12 +238,12 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
       const stop = stops[at]!;
       if (!backward) {
         const inSlot = slotItems(stop)[0];
-        if (inSlot) { inSlot.focus({ preventScroll: true }); return true; }
+        if (inSlot) { focusRevealing(inSlot, root, rowMode); return true; }
         if (!stop.panel) return after(at);
         focusContentStart(stop);
         return true;
       }
-      if (at === 0) return leave(root, true);
+      if (at === 0) return leave(root, true, rowMode);
       enter(stops[at - 1]!, true);
       return true;
     }
@@ -252,7 +255,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
       const items = slotItems(stop);
       if (backward) {
         if (!startsAt(items, target)) return false;
-        stop.tab.focus({ preventScroll: true });
+        focusRevealing(stop.tab, root, rowMode);
         return true;
       }
       if (target !== items[items.length - 1]) return false;
@@ -271,7 +274,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
       // The first stop of the content: the panel itself, its focus target, or the first control (a roving wrapper in front of it does not count).
       if (target !== panel && target !== fallback && !startsAt(items, target)) return false;
       const inSlot = slotItems(stop);
-      (inSlot[inSlot.length - 1] ?? stop.tab).focus({ preventScroll: true });
+      focusRevealing(inSlot[inSlot.length - 1] ?? stop.tab, root, rowMode);
       return true;
     }
     if (target !== panel && target !== (items[items.length - 1] ?? fallback)) return false;
@@ -284,7 +287,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
     const id = tab.dataset.tabPanelId;
     if (!root || !id) return false;
     if (tab.getAttribute('aria-selected') !== 'true') activate(id);
-    openGroupMenu(root, tab);
+    openGroupMenu(root, tab, rowMode);
     return true;
   };
   const onKeyDownCapture = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -328,7 +331,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
         action={<Button size="sm" variant="secondary" onClick={retry}><RotateCw className="size-3.5" aria-hidden />{t('retry')}</Button>} />
     </div>;
   }
-  return <div ref={container} role="region" aria-label={label} data-dock-layout data-dock-narrow={narrow} className={rows && !narrow ? 'relative min-h-0 w-full min-w-0 overflow-hidden' : 'relative h-full min-h-0 w-full min-w-0 overflow-hidden'}
+  return <div ref={container} role="region" aria-label={label} data-dock-layout data-dock-narrow={narrow} className={rows && !narrow ? 'relative min-h-0 w-full min-w-0 overflow-clip' : 'relative h-full min-h-0 w-full min-w-0 overflow-hidden'}
     onKeyDownCapture={onKeyDownCapture} onKeyDown={onKeyDown}
     onContextMenu={event => {
       const tab = tabOf(event.target, container.current);

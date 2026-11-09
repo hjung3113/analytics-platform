@@ -12,7 +12,7 @@ export type WorkspaceCommand = {
   groupLabel?: string;
   checked?: boolean;
   disabled?: boolean;
-  /** A hidden panel's badge description, shown with its `다시 보기` item. */
+  /** A hidden panel's badge description, shown with its `다시 보기` item. On a disabled radio command: why it is off, which a host draws once under the radio group. */
   description?: string;
   /** A hidden panel's badge is a warning: the surface marks the hidden-panel list. */
   warning?: boolean;

@@ -1,5 +1,7 @@
-import { useRef, type CSSProperties } from 'react';
-import { cn } from '@ap/ui';
+import { useEffect, useLayoutEffect, useRef, type CSSProperties, type RefObject } from 'react';
+import { flushSync } from 'react-dom';
+import { cn, prefersReducedMotion } from '@ap/ui';
+import { scrollContainerOf, stickyChromeHeight } from '../visibleArea';
 import { panelOrder, resizeBoundary } from './commands';
 import { dockBoundaries, pairBounds, topLevelRows, type DockBoundary, type PanelMinimums } from './displayModel';
 import type { DockRows, DockSeparatorInfo } from './dockTypes';
@@ -12,6 +14,13 @@ const STEP = 5;
 const HIT = 12;
 /** Row mode: one arrow key press moves a row boundary this many px. */
 export const ROW_STEP = 24;
+/** Row mode: a separator dragged within this many px of the visible area's top or bottom edge scrolls the page. */
+export const EDGE_SCROLL_ZONE = 48;
+const EDGE_SCROLL_MAX = 24;
+const EDGE_SCROLL_STEP_REDUCED = 12;
+
+/** What one row-separator drag remembers: the px formula is `startPx + (clientY − startY) + (scrollTop − startScroll)`. */
+type RowDrag = { index: number; startY: number; startPx: number; startScroll: number; lastY: number; applied: number; container: HTMLElement | null; page: Element | null; frame: number };
 
 function union(ids: readonly string[], rects: Readonly<Record<string, DockRect>>): DockRect | undefined {
   const found = ids.map(id => rects[id]).filter((rect): rect is DockRect => rect !== undefined);
@@ -39,19 +48,54 @@ function place(boundary: DockBoundary, rects: Readonly<Record<string, DockRect>>
  * above it, in px: rows below keep their px and move, the layout grows or shrinks by the same amount. Pointer drag is this overlay's own (the
  * engine's sash between rows is inert, `dock.css`); the keys are ArrowUp/ArrowDown ±`ROW_STEP`, Home = the row's minimum, End = its maximum.
  */
-function RowSeparators({ layout, rects, rows, instanceId, label }: {
+function RowSeparators({ layout, rects, rows, instanceId, label, containerRef }: {
   layout: DockNode;
   rects: Readonly<Record<string, DockRect>>;
   rows: DockRows;
   instanceId: string;
   label: (info: DockSeparatorInfo) => string;
+  /** The layout root: the nearest scroll container of the workspace is found from it. */
+  containerRef: RefObject<HTMLElement | null>;
 }) {
   const parts = topLevelRows(layout);
-  const drag = useRef<{ startY: number; startPx: number } | null>(null);
+  const drag = useRef<RowDrag | null>(null);
+  const latest = useRef(rows);
+  useLayoutEffect(() => { latest.current = rows; });
+  const clamped = (index: number, px: number, startPx: number) => Math.min(Math.max(latest.current.maximum, startPx), Math.max(latest.current.minimums[index] ?? 0, Math.round(px)));
+  /** Applies a row height in the same frame as the dock height and the shares (a synchronous commit): the untouched rows keep their px throughout. */
   const resize = (index: number, px: number, startPx: number) => {
-    const limit = Math.max(rows.maximum, startPx);
-    const next = Math.min(limit, Math.max(rows.minimums[index] ?? 0, Math.round(px)));
-    if (next !== rows.heights[index]) rows.onHeightsChange(rows.heights.map((height, at) => (at === index ? next : height)));
+    const current = latest.current;
+    const next = clamped(index, px, startPx);
+    if (next !== current.heights[index]) flushSync(() => { current.onHeightsChange(current.heights.map((height, at) => (at === index ? next : height))); });
+    return next;
+  };
+  const follow = (d: RowDrag) => { d.applied = resize(d.index, d.startPx + (d.lastY - d.startY) + ((d.container?.scrollTop ?? 0) - d.startScroll), d.startPx); };
+  const stop = () => { if (drag.current) cancelAnimationFrame(drag.current.frame); drag.current = null; };
+  useEffect(() => stop, []);
+  /** While the pointer is in the edge zone the page scrolls and the row keeps following the pointer; it stops when the row cannot change any more or the page cannot scroll. */
+  const tick = () => {
+    const d = drag.current;
+    if (!d) return;
+    d.frame = requestAnimationFrame(tick);
+    const c = d.container;
+    if (!c) return;
+    const box = c.getBoundingClientRect();
+    const top = box.top + stickyChromeHeight(d.page);
+    const bottom = box.top + c.clientHeight;
+    const up = top + EDGE_SCROLL_ZONE - d.lastY;
+    const down = d.lastY - (bottom - EDGE_SCROLL_ZONE);
+    const depth = Math.min(EDGE_SCROLL_ZONE, Math.max(up, down));
+    if (depth <= 0) return;
+    const step = prefersReducedMotion() ? EDGE_SCROLL_STEP_REDUCED : Math.max(2, Math.round((depth / EDGE_SCROLL_ZONE) * EDGE_SCROLL_MAX));
+    const dy = up > 0 && up >= down ? -step : step;
+    if (dy < 0 && c.scrollTop <= 0) return;
+    // The row would not change any more (its minimum or the visible maximum): nothing to follow.
+    if (clamped(d.index, d.startPx + (d.lastY - d.startY) + (c.scrollTop + dy - d.startScroll), d.startPx) === d.applied) return;
+    // The row grows first (the page gets taller), then the page scrolls into the room it made; a page that stops short is followed again.
+    d.applied = resize(d.index, d.startPx + (d.lastY - d.startY) + (c.scrollTop + dy - d.startScroll), d.startPx);
+    const before = c.scrollTop;
+    c.scrollTop = before + dy;
+    if (c.scrollTop !== before + dy) follow(d);
   };
   return <>
     {parts.map((part, index) => {
@@ -76,11 +120,15 @@ function RowSeparators({ layout, rects, rows, instanceId, label }: {
           event.preventDefault();
           event.currentTarget.setPointerCapture(event.pointerId);
           event.currentTarget.focus();
-          drag.current = { startY: event.clientY, startPx: now };
+          stop();
+          const root = containerRef.current;
+          const container = root ? scrollContainerOf(root) : null;
+          drag.current = { index, startY: event.clientY, startPx: now, startScroll: container?.scrollTop ?? 0, lastY: event.clientY, applied: now, container, page: root?.closest('[data-platform-page]') ?? null, frame: requestAnimationFrame(tick) };
         }}
-        onPointerMove={event => { if (drag.current) resize(index, drag.current.startPx + event.clientY - drag.current.startY, drag.current.startPx); }}
-        onPointerUp={() => { drag.current = null; }}
-        onPointerCancel={() => { drag.current = null; }}
+        onPointerMove={event => { const d = drag.current; if (d) { d.lastY = event.clientY; follow(d); } }}
+        onPointerUp={stop}
+        onPointerCancel={stop}
+        onLostPointerCapture={stop}
         onKeyDown={event => {
           const target = event.key === 'ArrowDown' ? now + ROW_STEP : event.key === 'ArrowUp' ? now - ROW_STEP : event.key === 'Home' ? min : event.key === 'End' ? max : null;
           if (target === null) return;
@@ -101,7 +149,7 @@ function RowSeparators({ layout, rects, rows, instanceId, label }: {
  * branch. They are an overlay positioned from the groups' rects on every engine layout event, so they move with the engine's sash; pointer
  * drag stays the engine's sash (the overlay ignores the pointer). Arrow keys move the boundary 5% of the pair, Home/End go to its limits.
  */
-export function DockSeparators({ layout, rects, minPanelSize, panelMinimums, instanceId, label, onChange, rows }: {
+export function DockSeparators({ layout, rects, minPanelSize, panelMinimums, instanceId, label, onChange, rows, containerRef }: {
   layout: DockNode;
   rects: Readonly<Record<string, DockRect>>;
   minPanelSize: { width: number; height: number };
@@ -112,10 +160,12 @@ export function DockSeparators({ layout, rects, minPanelSize, panelMinimums, ins
   onChange: (next: DockNode) => void;
   /** Row mode: the boundaries between top-level rows are `RowSeparators` (px) instead of percent boundaries. */
   rows?: DockRows;
+  /** Row mode: the layout root (the scroll container of the page is found from it). */
+  containerRef?: RefObject<HTMLElement | null>;
 }) {
   const topRows = rows !== undefined && layout.type === 'branch' && layout.dir === 'column';
   return <>
-    {rows && <RowSeparators layout={layout} rects={rects} rows={rows} instanceId={instanceId} label={label} />}
+    {rows && containerRef && <RowSeparators layout={layout} rects={rects} rows={rows} instanceId={instanceId} label={label} containerRef={containerRef} />}
     {dockBoundaries(layout, minPanelSize, panelMinimums).filter(boundary => !(topRows && boundary.path.length === 0)).map(boundary => {
       const spot = place(boundary, rects);
       const bounds = pairBounds(boundary, spot.pairPx);

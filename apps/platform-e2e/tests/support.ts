@@ -119,3 +119,17 @@ export async function usageVisits(page: Page, rowId: string): Promise<number> {
 export async function storedUsageEvents(page: Page): Promise<Record<string, unknown>[]> {
   return page.evaluate(() => (window as unknown as { __apUsageEvents: () => Record<string, unknown>[] }).__apUsageEvents());
 }
+
+/**
+ * A workspace starts stacked (ADR-0130). A check about the fitted arrangement chooses `화면 맞춤` in the toolbar's `⋯` once the workspace shows; a workspace
+ * that already is fitted is left alone. Where the menu's `stackPreset` applies (cycle time), the 기본 preset comes back with it.
+ */
+export async function fitWorkspace(page: Page) {
+  const root = page.locator('[data-panel-workspace]').first();
+  await expect(root).toBeVisible();
+  if ((await root.getAttribute('data-workspace-mode')) === 'fit') return;
+  await page.getByRole('button', { name: '높이 방식', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '화면 맞춤' }).click();
+  await expect(root).toHaveAttribute('data-workspace-mode', 'fit');
+  await page.evaluate(() => new Promise(done => { requestAnimationFrame(() => { requestAnimationFrame(done); }); }));
+}

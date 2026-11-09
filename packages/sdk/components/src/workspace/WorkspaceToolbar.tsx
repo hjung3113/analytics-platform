@@ -1,6 +1,6 @@
 import { useId, useRef } from 'react';
-import { TriangleAlert } from 'lucide-react';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { MoreHorizontal, TriangleAlert } from 'lucide-react';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 import type { WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { SegmentedRadio } from '../RadioGroup';
@@ -11,14 +11,6 @@ export const PRESET_PREFIX = 'preset:';
 export const MODE_PREFIX = 'mode:';
 export const RESET_ID = 'reset';
 
-/** A height mode's label with what the mode does, so `세로` (a preset) and `아래로 쌓기` (a mode) are not mistaken for each other. */
-function ModeLabel({ command }: { command: WorkspaceCommand }) {
-  const { tx } = useI18n();
-  const hint = command.id === `${MODE_PREFIX}stack` ? workspaceText.modeStackHint : command.id === `${MODE_PREFIX}fit` ? workspaceText.modeFitHint : undefined;
-  if (!hint) return command.label;
-  return <TooltipProvider><Tooltip><TooltipTrigger asChild><span>{command.label}</span></TooltipTrigger><TooltipContent>{tx(hint)}</TooltipContent></Tooltip></TooltipProvider>;
-}
-
 /** A `다시 보기` item: the label, and under it the badge description of the hidden panel when it has one. */
 function HiddenItemLabel({ command }: { command: WorkspaceCommand }) {
   if (!command.description) return command.label;
@@ -26,7 +18,7 @@ function HiddenItemLabel({ command }: { command: WorkspaceCommand }) {
 }
 
 /**
- * The workspace's one toolbar row: the presets, the height mode, the hidden panels to reopen, `기본 배치`. It draws the same commands a host would
+ * The workspace's one toolbar row: the presets, the hidden panels to reopen, `기본 배치` and, at the end, `⋯` with the height mode. It draws the same commands a host would
  * (`WorkspaceCommandsHost`), so the two surfaces cannot differ.
  */
 export function WorkspaceToolbar({ commands, onShown }: { commands: readonly WorkspaceCommand[]; /** A hidden panel was shown from the list: focus goes to its tab once the menu has closed. */ onShown: (panelId: string) => void }) {
@@ -54,11 +46,6 @@ export function WorkspaceToolbar({ commands, onShown }: { commands: readonly Wor
         options={presets.map(command => ({ value: command.id, label: command.label }))} />
       {compactOff && <span id={reasonId} className="sr-only">{reason}</span>}
     </span>}
-    {modes.length > 1 && <span className="inline-flex" title={modeOff ? modeReason : undefined}>
-      <SegmentedRadio label={tx(workspaceText.heightMode)} value={modes.find(command => command.checked)?.id ?? null} disabled={modeOff} describedBy={modeOff ? modeReasonId : undefined} onChange={next => { modes.find(command => command.id === next)?.run(); }}
-        options={modes.map(command => ({ value: command.id, label: <ModeLabel command={command} /> }))} />
-      {modeOff && <span id={modeReasonId} className="sr-only">{modeReason}</span>}
-    </span>}
     <DropdownMenu>
       {warned.length > 0 && <span id={warnedId} className="sr-only">{warned.map(command => command.description ?? command.label).join(' · ')}</span>}
       <DropdownMenuTrigger asChild>
@@ -78,5 +65,17 @@ export function WorkspaceToolbar({ commands, onShown }: { commands: readonly Wor
       </DropdownMenuContent>
     </DropdownMenu>
     {reset && <Button type="button" variant="ghost" size="toolbar" disabled={reset.disabled} onClick={reset.run}>{reset.label}</Button>}
+    {modes.length > 1 && <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="icon-sm" className="ml-auto size-7" data-workspace-height-mode aria-label={tx(workspaceText.heightMode)} title={tx(workspaceText.heightMode)}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>{tx(workspaceText.heightMode)}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={modes.find(command => command.checked)?.id ?? ''} aria-describedby={modeOff ? modeReasonId : undefined} onValueChange={next => { modes.find(command => command.id === next)?.run(); }}>
+          {modes.map(command => <DropdownMenuRadioItem key={command.id} value={command.id} disabled={command.disabled}>{command.label}</DropdownMenuRadioItem>)}
+        </DropdownMenuRadioGroup>
+        {modeOff && <p id={modeReasonId} className="px-2 py-1.5 text-xs text-text-secondary">{modeReason}</p>}
+      </DropdownMenuContent>
+    </DropdownMenu>}
   </div>;
 }

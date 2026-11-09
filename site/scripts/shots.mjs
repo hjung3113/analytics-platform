@@ -126,6 +126,13 @@ try {
     } catch {
       // 분포가 이미 접힌 화면이면 버튼이 없다.
     }
+    // 차트 틀 캡처는 패널이 화면 높이를 나눠 쓰는 화면 맞춤에서 찍는다. 기본은 아래로 쌓기라 줄 높이가 고정돼 틀이 잘린다.
+    await page.locator("[data-panel-workspace]").waitFor();
+    if ((await page.locator("[data-panel-workspace]").getAttribute("data-workspace-mode")) === "stack") {
+      await page.getByRole("button", { name: "높이 방식" }).click();
+      await page.getByRole("menuitemradio", { name: "화면 맞춤" }).click();
+      await expect(page.locator("[data-panel-workspace]")).toHaveAttribute("data-workspace-mode", "fit");
+    }
     await readyChart(trend());
   }
   async function seedBoard() {
@@ -1091,7 +1098,9 @@ try {
     async () => {
       await cycleWorkspace(1400);
       await page.getByRole("radio", { name: "세로", exact: true }).click();
-      await page.getByRole("radiogroup", { name: "높이 방식" }).getByRole("radio", { name: "아래로 쌓기" }).click();
+      // 높이 방식은 도구줄 끝 ⋯ 메뉴에 있다. 기본이 아래로 쌓기라 이미 선택돼 있어도 항목을 눌러 확인한다.
+      await page.getByRole("button", { name: "높이 방식" }).click();
+      await page.getByRole("menuitemradio", { name: "아래로 쌓기" }).click();
       await expect(page.locator("[data-panel-workspace]")).toHaveAttribute("data-workspace-mode", "stack");
       await expect(page.locator("[data-dock-row-separator]").first()).toBeVisible();
       // 줄마다 자기 px 높이를 가져 세 줄이 위에서 아래로 이어진다. 맨 위에서 찍어 고정 머리가 패널을 가리지 않게 한다.

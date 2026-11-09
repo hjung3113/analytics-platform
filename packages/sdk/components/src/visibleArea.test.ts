@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { scrollContainerOf, stickyChromeHeight, visibleAreaHeight } from './visibleArea';
+import { alignUnderChrome, revealInScrollContainer, scrollContainerOf, stickyChromeHeight, visibleAreaHeight } from './visibleArea';
 
 afterEach(() => { document.body.innerHTML = ''; vi.restoreAllMocks(); });
 
@@ -59,5 +59,87 @@ describe('stickyChromeHeight', () => {
     size(document.querySelector('[data-query-bar]')!, { height: 48 });
     expect(stickyChromeHeight(document.querySelector('[data-platform-page]'))).toBe(98);
     expect(stickyChromeHeight(null)).toBe(0);
+  });
+});
+
+describe('revealInScrollContainer (focus reveal, ADR-0130)', () => {
+  const rect = (element: Element, top: number, bottom: number) => { vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({ top, bottom, height: bottom - top } as DOMRect); };
+  const mount = (inner = '<button id="target"></button>') => {
+    document.body.innerHTML = `<aside><a id="rail">r</a></aside><main style="overflow-y:auto"><div data-platform-page><div data-page-sticky-header><button id="head">h</button></div><div id="root" data-panel-workspace><div data-dock-panel>${inner}</div></div></div></main>`;
+    const main = document.querySelector('main')!;
+    size(main, { clientHeight: 800 });
+    rect(main, 0, 800);
+    rect(document.querySelector('[data-page-sticky-header]')!, 0, 100);
+    main.scrollTop = 1000;
+    return { main, root: document.getElementById('root')!, target: document.getElementById('target')! };
+  };
+
+  it('scrolls up so an element under the sticky chrome sits just below it', () => {
+    const { main, root, target } = mount();
+    rect(target, 40, 70);
+    rect(document.querySelector('[data-dock-panel]')!, 0, 600);
+    revealInScrollContainer(target, root);
+    expect(main.scrollTop).toBe(1000 + 40 - 100);
+  });
+
+  it('scrolls down so an element below the visible bottom ends at the bottom edge, and leaves a visible one alone', () => {
+    const { main, root, target } = mount();
+    rect(document.querySelector('[data-dock-panel]')!, 0, 2000);
+    rect(target, 850, 900);
+    revealInScrollContainer(target, root);
+    expect(main.scrollTop).toBe(1100);
+    main.scrollTop = 1000;
+    rect(target, 300, 340);
+    revealInScrollContainer(target, root);
+    expect(main.scrollTop).toBe(1000);
+  });
+
+  it('inside a panel the element counts by its rect clamped to the panel', () => {
+    const { main, root, target } = mount();
+    rect(document.querySelector('[data-dock-panel]')!, 200, 500);
+    rect(target, 150, 900);
+    revealInScrollContainer(target, root);
+    expect(main.scrollTop).toBe(1000);
+  });
+
+  it('leaves a target that spans the whole visible area alone', () => {
+    const { main, root, target } = mount();
+    rect(document.querySelector('[data-dock-panel]')!, 0, 2000);
+    rect(target, 0, 1000);
+    revealInScrollContainer(target, root);
+    expect(main.scrollTop).toBe(1000);
+  });
+
+  it('with one edge of a target inside the area keeps the nearest rule', () => {
+    const { main, root, target } = mount();
+    rect(document.querySelector('[data-dock-panel]')!, 0, 3000);
+    rect(target, 50, 500);
+    revealInScrollContainer(target, root);
+    expect(main.scrollTop).toBe(1000 + 50 - 100);
+    main.scrollTop = 1000;
+    rect(target, 400, 1500);
+    revealInScrollContainer(target, root);
+    expect(main.scrollTop).toBe(1000 + Math.min(1500 - 800, 400 - 100));
+  });
+
+  it('is a no-op for an element outside the scroll container or inside the sticky chrome', () => {
+    const { main, root } = mount();
+    const scrollIntoView = vi.fn();
+    (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView = scrollIntoView;
+    const rail = document.getElementById('rail')!;
+    rect(rail, -500, -400);
+    revealInScrollContainer(rail, root);
+    const head = document.getElementById('head')!;
+    rect(head, -500, -400);
+    revealInScrollContainer(head, root);
+    expect(main.scrollTop).toBe(1000);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('alignUnderChrome puts an element directly under the sticky chrome', () => {
+    const { main, root } = mount();
+    rect(root, 400, 900);
+    alignUnderChrome(root, root);
+    expect(main.scrollTop).toBe(1300);
   });
 });

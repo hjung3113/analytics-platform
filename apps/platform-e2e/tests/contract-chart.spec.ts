@@ -497,6 +497,8 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
     await page.mouse.wheel(0, 200);
     await expect.poll(() => main(page).evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 
+    // 기본 is the preset with the two-tab group; an untouched workspace starts on 세로, where every group has one tab (ADR-0130).
+    await page.getByRole('radio', { name: '기본', exact: true }).click();
     // Force an overflowing strip on the two-tab group (분포 · 느린 실행): the second tab starts clipped, the wheel scrolls the strip
     // until it is reachable, and the page stays put while the strip still has room (dockview keeps the wheel until its edge).
     await page.addStyleTag({ content: '.ap-dock .dv-tab { flex-shrink: 0; min-width: 600px; }' });

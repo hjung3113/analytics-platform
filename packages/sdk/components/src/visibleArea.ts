@@ -68,3 +68,36 @@ export function useVisibleAreaHeight(ref: RefObject<HTMLElement | null>, active:
   }, [ref, active]);
   return height;
 }
+
+/**
+ * Brings `element` into view in the workspace's own scroll container only (`scrollContainerOf(workspaceRoot)`: `#platform-main` on a page, the pane
+ * body on a board), `nearest` semantics, below the sticky page chrome. Never `scrollIntoView`: that would also move the engine's inner containers. An
+ * element inside a dock panel counts by its rect clamped to the panel's. No-op for an element outside that container (a portaled menu, the rail)
+ * or inside the sticky chrome. Reads layout.
+ */
+export function revealInScrollContainer(element: HTMLElement, workspaceRoot: HTMLElement): void {
+  const container = scrollContainerOf(workspaceRoot);
+  if (!container || !container.contains(element)) return;
+  const page = workspaceRoot.closest('[data-platform-page]');
+  if (stickyChromeOf(page).some(chrome => chrome.contains(element))) return;
+  const own = element.getBoundingClientRect();
+  const panel = element.closest('[data-dock-panel]')?.getBoundingClientRect();
+  const rectTop = panel ? Math.max(own.top, panel.top) : own.top;
+  const rectBottom = panel ? Math.min(own.bottom, panel.bottom) : own.bottom;
+  if (rectBottom < rectTop) return;
+  const box = container.getBoundingClientRect();
+  const top = box.top + stickyChromeHeight(page);
+  const bottom = box.top + container.clientHeight;
+  // A target larger than the visible area that spans it already shows as much as it can: nearest means no scroll.
+  if (rectTop < top && rectBottom > bottom) return;
+  if (rectTop < top) container.scrollTop += rectTop - top;
+  else if (rectBottom > bottom) container.scrollTop += Math.min(rectBottom - bottom, rectTop - top);
+}
+
+/** Scrolls the workspace's scroll container so `element` sits directly under the sticky page chrome (a new row's header, the workspace top on maximize). Reads layout. */
+export function alignUnderChrome(element: HTMLElement, workspaceRoot: HTMLElement): void {
+  const container = scrollContainerOf(workspaceRoot);
+  if (!container) return;
+  const top = container.getBoundingClientRect().top + stickyChromeHeight(workspaceRoot.closest('[data-platform-page]'));
+  container.scrollTop += element.getBoundingClientRect().top - top;
+}

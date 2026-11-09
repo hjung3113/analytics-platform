@@ -701,7 +701,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       </table>
     </div>}
 
-    {showSummary && <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} aria-live="polite" className="mx-4 mb-3 min-h-9 rounded-md bg-surface-sunken px-3 py-2 text-xs">
+    {showSummary && <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} aria-live="polite" className="mx-4 mb-3 min-h-9 shrink-0 rounded-md bg-surface-sunken px-3 py-2 text-xs">
       {rangeUi && showKeyboard && draft && <div role="group" aria-label={lang === 'ko' ? '시작과 끝으로 구간 선택' : 'Choose a range by start and end'} className="mb-2 flex flex-wrap items-center gap-2">
         <span className="text-text-secondary">{lang === 'ko' ? '시작' : 'Start'}</span>
         <Select value={draft.from} onValueChange={chooseStart}>

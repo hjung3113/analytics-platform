@@ -202,7 +202,7 @@ export default function DockEngine({
   const rowsTotal = rows ? rows.heights.reduce((sum, height) => sum + height, 0) : undefined;
   // The engine spaces top-level rows by the theme gap and shares only the rest among them. The box adds the gaps, so each row is drawn at its own px
   // and a resize of one row moves no other (the gap was shared out by proportion before: untouched rows changed by a few px while dragging).
-  const rowsBox = rows && rowsTotal !== undefined ? rowsTotal + Math.max(0, rows.heights.length - 1) * THEME.gap : undefined;
+  const rowsBox = rows && rowsTotal !== undefined ? (maximizedPanelId && rows.maximizedHeight !== undefined ? rows.maximizedHeight : rowsTotal + Math.max(0, rows.heights.length - 1) * THEME.gap) : undefined;
   const live = useRef({ layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize, rowsBox });
   useLayoutEffect(() => { live.current = { layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize, rowsBox }; });
   const panelMap = useMemo(() => new Map(panels.map(panel => [panel.id, panel])), [panels]);
@@ -533,6 +533,18 @@ export default function DockEngine({
   // and outline, so it is covered too. No drop is committed (only an anchored override target commits on `dragend`, and this theme has none), the layout
   // is untouched, and only dropzones inside this container are reached, so a nested dock relays its own. The row strip's accept highlight is lowered too.
   const [dropOver, setDropOver] = useState(false);
+  // A tab drag runs from `dragstart` inside this layout to the window's `dragend` or `drop`, whichever comes first; the strip sticks to the bottom of the visible area meanwhile.
+  const [tabDrag, setTabDrag] = useState(false);
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const start = () => { setTabDrag(true); };
+    const end = () => { setTabDrag(false); };
+    container.addEventListener('dragstart', start);
+    window.addEventListener('dragend', end, true);
+    window.addEventListener('drop', end, true);
+    return () => { container.removeEventListener('dragstart', start); window.removeEventListener('dragend', end, true); window.removeEventListener('drop', end, true); };
+  }, [containerRef]);
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -561,7 +573,8 @@ export default function DockEngine({
   // strip itself, which see the event before any ancestor's: React's own handlers run at the root, after the ancestors' native ones.
   const strip = useRef<HTMLDivElement>(null);
   const onDropBelow = rows?.onDropBelow;
-  const stripShown = onDropBelow !== undefined && interactive;
+  // The strip is hidden while a panel is maximized (nothing to drop on); the listener effect re-binds with it.
+  const stripShown = onDropBelow !== undefined && interactive && maximizedPanelId === null;
   useEffect(() => {
     const element = strip.current;
     if (!element || !stripShown) return;
@@ -614,8 +627,8 @@ export default function DockEngine({
         disableFloatingGroups disableDnd={!interactive} announcements={false} />
     </div>
     {stripShown && <div ref={strip} data-dock-drop-below
-      className={`mt-2 flex h-[72px] items-center justify-center rounded-lg border-2 border-dashed text-sm ${dropOver ? 'border-accent-primary bg-surface-row-hover text-text-primary' : 'border-border-strong text-text-muted'}`}>{rows?.dropBelowLabel}</div>}
-    {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} panelMinimums={panelMinimums} instanceId={instanceId} label={separatorLabel} onChange={separate} rows={rows} />}
+      className={`${tabDrag ? 'sticky bottom-0 z-20 ' : ''}mt-2 flex h-[72px] items-center justify-center rounded-lg border-2 border-dashed text-sm ${dropOver ? 'border-accent-primary bg-surface-row-hover text-text-primary' : 'border-border-strong text-text-muted'}`}>{rows?.dropBelowLabel}</div>}
+    {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} panelMinimums={panelMinimums} instanceId={instanceId} label={separatorLabel} onChange={separate} rows={rows} containerRef={containerRef} />}
   </EngineContext.Provider>;
 }
 

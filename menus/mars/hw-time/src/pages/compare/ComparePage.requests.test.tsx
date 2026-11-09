@@ -88,6 +88,12 @@ const legendEnter = async (name: string) => {
 };
 const openRail = async (name: string) => { await act(async () => { fireEvent.click(screen.getByRole('button', { name })); }); };
 
+/** The height mode lives in the toolbar's `⋯` menu (ADR-0130). */
+const chooseMode = async (name: string) => {
+  fireEvent.keyDown(await screen.findByRole('button', { name: '높이 방식' }), { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitemradio', { name }));
+};
+
 describe('HW Time compare: UI state never re-queries (real data hooks, counted adapter requests)', () => {
   it('layout commands, rail peeks and option toggles leave the level and trend request counts unchanged', async () => {
     await renderPage('&drillModule=PM1&drillMotion=Pump&trend=EQ-001.H1');
@@ -98,9 +104,9 @@ describe('HW Time compare: UI state never re-queries (real data hooks, counted a
     expect(trend).toBe(1);
     const unchanged = () => { expect(levelRequests()).toHaveLength(level); expect(trendRequests()).toHaveLength(trend); };
 
-    // Workspace layout commands: the height mode and 기본 배치.
-    fireEvent.click(await screen.findByRole('radio', { name: '아래로 쌓기' })); await settle(); unchanged();
-    fireEvent.click(screen.getByRole('radio', { name: '화면 맞춤' })); await settle(); unchanged();
+    // Workspace layout commands: a fresh session starts stacked, so fit first, then back; and 기본 배치.
+    await chooseMode('화면 맞춤'); await settle(); unchanged();
+    await chooseMode('아래로 쌓기'); await settle(); unchanged();
     fireEvent.click(screen.getByRole('button', { name: '기본 배치' })); await settle(); unchanged();
 
     // Inspector rail peeks: open each section, then the next (the first closes).
