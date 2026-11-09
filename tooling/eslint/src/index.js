@@ -4,6 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 
 import { PACKAGE_PREFIX } from './prefix.js';
 import { FEATURE_PACKAGES } from './feature-packages.js';
+import { EQV_PACKAGES, EQV_UI_PACKAGE } from './eqv-packages.js';
 import noHandBuiltUrl from './hand-built-url.js';
 import noRelativePackageEscape from './relative-escape.js';
 import restrictedImportSource from './import-source.js';
@@ -23,6 +24,9 @@ const FEATURE_MESSAGE = `Feature server/screens/shared/UI/ops are consumer depen
 // EV's synthetic endpoint data (#801): reaches the app through src/dev/** (the mock assembly) and the conformance test only.
 const EQV_MOCK_DATA_PATTERN = '@eqv/*/mock-data';
 const EQV_MOCK_DATA_MESSAGE = '@eqv/*/mock-data is synthetic mock data; only src/dev/** and the server conformance test import it (ADR-0009, #801).';
+// EV packages are reached only through the host-module slot (ADR-0132, ADR-0128); the app assembles the one adapter.
+const EQV_MESSAGE = 'Platform and menus learn nothing about equipment: @eqv/* is reached only through the host-module slot, assembled in apps/platform-web (ADR-0132, ADR-0128).';
+const EQV_CORE_MESSAGE = 'EV core and renderer are design-system-free and platform-free: they import no @eqv package except @eqv/core (never @eqv/ui) (ADR-0132).';
 const HTTP_ADAPTER_MESSAGE = `${PACKAGE_PREFIX}http-adapter is imported only by the production assembly in apps/platform-web/src/real/** (#154).`;
 // Radix primitives are wrapped once in the design system (ADR-0046); every other layer composes the ui wrappers.
 const RADIX_MESSAGE = `@radix-ui/* is wrapped by ${pkg('ui')}; import the ${pkg('ui')} component instead (ADR-0046).`;
@@ -110,19 +114,28 @@ const FEATURE_BRIDGE_PACKAGE_RESTRICTION = { ...MENU_RESTRICTION, denyQueryEngin
 const FEATURE_BRIDGE_PAGES_RESTRICTION = { ...FEATURE_BRIDGE_PACKAGE_RESTRICTION, denyQueryEngine: false, allowFeature: FEATURE_BRIDGE_ENTRIES };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, denyQueryEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
-const APP_RESTRICTION = { allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: false, denyDev: true, denyHttpAdapter: true, denyEqvMockData: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
+// The exact EV entries apps/platform-web uses: src/modules.ts (adapter, manifest) and the mock entry, which its own rule confines to src/dev/** and the conformance test.
+const APP_EQV_ENTRIES = ['@eqv/platform-adapter', '@eqv/platform-adapter/manifest', '@eqv/platform-adapter/mock-data'];
+const APP_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: false, denyDev: true, denyHttpAdapter: true, denyEqvMockData: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
 // src/main.tsx is the composition root: only the screen API and notifications slot subpaths; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
 const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FEATURE_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, IMPROVEMENT_HOME_SLOT_SUBPATH, IMPROVEMENT_ANALYSIS_ACTIONS_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, LOG_EXPLORER_VIEW_SUBPATH, LOG_ROUND_SOURCE_SLOT_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
-const APP_DEV_RESTRICTION = { allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: true, denyHttpAdapter: true, denyEqvMockData: false, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
+const APP_DEV_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: true, denyHttpAdapter: true, denyEqvMockData: false, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
 // one source for "what the app registers"); no menu `/mock` subpath of its own.
 const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, denyEqvMockData: false, devAllow: ['./dev/mock-assembly'] };
 // published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine = false, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, denyEqvMockData = false, allowDockEngine = false, allowRadix = false, allowFeature = [] }) {
+// Exact EV identities (not the namespace), minus the layer's exact sources and identity roots.
+const eqvRegex = (allowEqv = [], allowEqvPackages = []) => {
+  const exact = allowEqv.length ? `(?!(?:${allowEqv.map(escapeRegex).join('|')})$)` : '';
+  const roots = allowEqvPackages.length ? `(?!(?:${allowEqvPackages.map(escapeRegex).join('|')})(?:/|$))` : '';
+  return `^${exact}${roots}(?:${EQV_PACKAGES.map(escapeRegex).join('|')})(?:/|$)`;
+};
+
+function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine = false, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, denyEqvMockData = false, allowEqv = [], allowEqvPackages = [], eqvMessage = EQV_MESSAGE, allowDockEngine = false, allowRadix = false, allowFeature = [] }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...new Set(allowFeature.map((source) => `!${source.split('/').slice(0, 2).join('/')}`)),
@@ -160,6 +173,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine
         ...(mockAllowed ? [] : [{ group: [pkg('mock-server'), pkg('mock-server/*')], message: MOCK_SERVER_MESSAGE }]),
         ...(denyHttpAdapter ? [{ group: [pkg('http-adapter')], message: HTTP_ADAPTER_MESSAGE }] : []),
         ...(denyEqvMockData ? [{ group: [EQV_MOCK_DATA_PATTERN, `${EQV_MOCK_DATA_PATTERN}/**`], message: EQV_MOCK_DATA_MESSAGE }] : []),
+        { regex: eqvRegex(allowEqv, allowEqvPackages), message: eqvMessage },
         ...(denyReact ? [{ group: ['react/*', 'react-dom/*'], message: REACT_MESSAGE }] : []),
         ...(denyTableEngine ? [{ group: TABLE_ENGINE_PACKAGES.map((name) => `${name}/*`), message: TABLE_ENGINE_MESSAGE }] : []),
         ...(denyQueryEngine ? [{ group: QUERY_ENGINE_PACKAGES.map((name) => `${name}/*`), message: QUERY_ENGINE_MESSAGE }] : []),
@@ -197,6 +211,7 @@ function importSourceOptions(restriction) {
     mockMessage: MOCK_SERVER_MESSAGE,
     httpAdapterMessage: HTTP_ADAPTER_MESSAGE,
     eqvMockDataMessage: EQV_MOCK_DATA_MESSAGE,
+    eqvMessage: restriction.eqvMessage ?? EQV_MESSAGE,
     devRegex: devRegex(restriction.devAllow),
     devMessage: DEV_MESSAGE,
     reactMessage: REACT_MESSAGE,
@@ -371,15 +386,15 @@ const COMPONENT_SOURCE_RULES = {
   'shadcn/no-restyle': 'off',
   'shadcn/require-static-classes': 'off',
 };
-/** @param {{ componentSource?: boolean }} [options] componentSource: true where the components themselves are defined. */
-const designSystem = ({ componentSource = false } = {}) => ({
+/** @param {{ componentSource?: boolean, eqvComponents?: boolean }} [options] componentSource: true where the components themselves are defined; eqvComponents: the EV components count as components too. */
+const designSystem = ({ componentSource = false, eqvComponents = false } = {}) => ({
   files: ['**/*.{ts,tsx}'],
   // Generated token tables list token names, not class strings.
   ignores: ['**/*.test.{ts,tsx}', '**/*.generated.ts'],
   plugins: { shadcn },
   settings: {
     shadcn: {
-      componentImports: [`^${pkg('ui')}(/|$)`, `^${pkg('components')}(/|$)`],
+      componentImports: [`^${pkg('ui')}(/|$)`, `^${pkg('components')}(/|$)`, ...(eqvComponents ? [`^${escapeRegex(EQV_UI_PACKAGE)}(/|$)`] : [])],
       note: 'Visual rules: DESIGN.md. Shared components: docs/contract/components.md §13. New tokens go in packages/sdk/ui/src/styles (platform extension layer: DESIGN.md).',
     },
   },
@@ -515,6 +530,36 @@ export const hostModuleDir = (dir) => hostModule.map(({ plugins: _ap, ...config 
   rules: { ...config.rules, 'ap/no-relative-package-escape': ['error', { root: dir }] },
 }));
 
+// EV presets (packages/eqv/<name>, packages named @eqv/*; ADR-0132). The files resolve their owning package at that depth
+// (relative-escape.js), so a relative import cannot leave the package. Nothing in this repo applies them until the packages land.
+// core and renderer: no platform package at all (static, dynamic, type), no @eqv package but core; design-system-free.
+const EQV_CORE_RESTRICTION = { allow: [], denyReact: false, mockAllowed: false, allowEqvPackages: ['@eqv/core'], eqvMessage: EQV_CORE_MESSAGE };
+/** @type {import('eslint').Linter.Config[]} */
+export const eqvCore = [
+  REACT_HOOKS,
+  BUILD_OUTPUT,
+  layerConfig({ restriction: EQV_CORE_RESTRICTION }),
+];
+
+// ui, replay, views, editor: the SDK design system (its ui package) only; EV siblings are free.
+const EQV_UI_RESTRICTION = { allow: ['ui'], denyReact: false, mockAllowed: false, allowSubpaths: HOST_MODULE_RESTRICTION.allowSubpaths, allowEqvPackages: EQV_PACKAGES };
+/** @type {import('eslint').Linter.Config[]} */
+export const eqvUi = [
+  REACT_HOOKS,
+  BUILD_OUTPUT,
+  layerConfig({ restriction: EQV_UI_RESTRICTION }),
+  designSystem({ eqvComponents: true }),
+];
+
+// platform-adapter: the hostModule rules (SDK contracts and ui only) with EV siblings allowed.
+/** @type {import('eslint').Linter.Config[]} */
+export const eqvHost = [
+  REACT_HOOKS,
+  BUILD_OUTPUT,
+  layerConfig({ restriction: { ...HOST_MODULE_RESTRICTION, allowEqvPackages: EQV_PACKAGES } }),
+  designSystem({ eqvComponents: true }),
+];
+
 const menuMockOverride = {
   files: ['src/mock/**/*.{ts,tsx}'],
   rules: {
@@ -609,23 +654,33 @@ export const tooling = [
   layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),
 ];
 
+// Feature packages have no layer allowlist; they take the EV ban alone (static, dynamic, type).
+const eqvBanOnly = {
+  files: ['**/*.{ts,tsx,js,mjs}'],
+  plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource } } },
+  rules: {
+    'no-restricted-imports': ['error', { patterns: [{ regex: eqvRegex(), message: EQV_MESSAGE }] }],
+    'ap/restricted-import-source': ['error', { eqvOnly: true, eqvMessage: EQV_MESSAGE }],
+  },
+};
+
 // Feature full-source presets (#1102 a). Feature-only: no other preset reads them. Rules and the old Biome/Oxlint
 // correspondence: feature.js and docs/integration/platform-packages.md §6.
 /** @type {import('eslint').Linter.Config[]} */
-export const featureServerPreset = featureServer();
+export const featureServerPreset = [...featureServer(), eqvBanOnly];
 
 /** @type {import('eslint').Linter.Config[]} */
-export const featureSharedPreset = featureShared();
+export const featureSharedPreset = [...featureShared(), eqvBanOnly];
 
 /** @type {import('eslint').Linter.Config[]} */
-export const featureUiPreset = featureUi({ reactHooks: REACT_HOOKS, design: designSystem({ componentSource: true }) });
+export const featureUiPreset = [...featureUi({ reactHooks: REACT_HOOKS, design: designSystem({ componentSource: true }) }), eqvBanOnly];
 
 // feature-screens (#1102 b): the former Oxlint pass over the screens (ops/platform-api/.oxlintrc.json, removed) restyled-component
 // checks included, so `no-restyle` and `require-static-classes` stay on (only packages that define the primitives turn them
 // off). The screens also render the feature components of the feature UI package, which the old config named as its `ui` alias.
 const screensDesign = designSystem();
 /** @type {import('eslint').Linter.Config[]} */
-export const featureScreensPreset = featureUi({
+export const featureScreensPreset = [...featureUi({
   reactHooks: REACT_HOOKS,
   design: {
     ...screensDesign,
@@ -636,4 +691,4 @@ export const featureScreensPreset = featureUi({
       },
     },
   },
-});
+}), eqvBanOnly];

@@ -1,6 +1,7 @@
 import { PACKAGE_PREFIX } from './prefix.js';
 
 import { isFeaturePackage } from './feature-packages.js';
+import { isEqvPackage } from './eqv-packages.js';
 
 // Applies the same import decision as the preset's no-restricted-imports
 // (same options object, built from the same restriction data in index.js)
@@ -33,11 +34,18 @@ function makeEvaluate(opts) {
         .join('[^/]+');
       return new RegExp(`^${expression}$`).test(subpath);
     });
+  // EV packages are denied unless the layer lists the exact source (allowEqv) or an identity with its subpaths (allowEqvPackages).
+  const eqvAllowed = (source) =>
+    (opts.allowEqv ?? []).includes(source) ||
+    (opts.allowEqvPackages ?? []).some((name) => source === name || source.startsWith(`${name}/`));
   const devPattern = opts.denyDev && opts.devRegex ? new RegExp(opts.devRegex, 'i') : null;
   return (source) => {
     if (typeof source !== 'string') return null;
+    // eqvOnly: layers without an import allowlist (feature packages) take the EV ban alone.
+    if (opts.eqvOnly) return isEqvPackage(source) && !eqvAllowed(source) ? opts.eqvMessage : null;
     if (devPattern !== null && devPattern.test(source)) return opts.devMessage;
     if (opts.denyEqvMockData && /^@eqv\/[^/]+\/mock-data(\/|$)/.test(source)) return opts.eqvMockDataMessage;
+    if (opts.eqvMessage && isEqvPackage(source) && !eqvAllowed(source)) return opts.eqvMessage;
     if ((opts.allowFeature ?? []).includes(source)) return null;
     if (isFeaturePackage(source)) return opts.featureMessage;
     if (source.startsWith(PACKAGE_PREFIX)) {
