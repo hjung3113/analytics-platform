@@ -47,9 +47,9 @@ If the folder you work in has an `AGENTS.md`, follow it too (table below). If a 
 
 - **Desktop capture scope:** Screenshots and visual QA cover desktop viewports only. Mobile and tablet support is not currently planned; skip those captures and responsive checks unless the owner revises this scope.
 
-- Before an issue's first implementation commit: when the node diff is `verify=full` in `tier.sh`, `pnpm lint && pnpm typecheck && pnpm test && pnpm build` must all end with 0 (`verify-root.sh`); when it is `verify=light`, run only `lint` and `typecheck` (and the changed-package checks) and leave `test` and `build` to PR CI. The path list and the fix-round and pre-ship rules are owned by [`PROFILE.md`](.agents/conductor/PROFILE.md) §Verify and §Size and path. Use the worktree-shared turbo cache, without `--force`. During work, `pnpm --filter <pkg> …` is enough.
+- Before an issue's first implementation commit: when the node diff is `verify=full` in `tier.sh`, `pnpm lint && pnpm typecheck && pnpm test && pnpm build` must all end with 0 (`verify-root.sh`); when it is `verify=light`, run only `lint` and `typecheck` (and the changed-package checks) and leave `test` and `build` to PR CI. The path list is `lanes.tier_full_regex` in `conductor.json`; the fix-round and pre-ship rules are owned by [`PROFILE.md`](.agents/conductor/PROFILE.md) §Verify. Use the worktree-shared turbo cache, without `--force`. During work, `pnpm --filter <pkg> …` is enough.
 - The record of checks is PR CI. Full and cold runs (`full=true` of `workflow_dispatch`) run only before a release tag — [`PROFILE.md`](.agents/conductor/PROFILE.md) §Slice close.
-- When a screen changes, check it in the browser. When Kernel, the shell, common components or the mock server change, run only the related E2E in `apps/platform-e2e` with `pnpm exec playwright test -g "<describe>"`. Do not run the whole `pnpm e2e` locally (only to reproduce a CI failure). Which specs CI runs, and why a green PR is not a full E2E record, is in [`PROFILE.md`](.agents/conductor/PROFILE.md) §Verify 3. Per-item reports are in `apps/platform-e2e/contract-report/`.
+- When a screen changes, check it in the browser. When Kernel, the shell, common components or the mock server change, except `tier=small`: PR CI's selected specs stand in, run only the related E2E in `apps/platform-e2e` with `pnpm exec playwright test -g "<describe>"`. Do not run the whole `pnpm e2e` locally (only to reproduce a CI failure). Which specs CI runs, and why a green PR is not a full E2E record, is in [`PROFILE.md`](.agents/conductor/PROFILE.md) §Verify 3. Per-item reports are in `apps/platform-e2e/contract-report/`.
 - `main` is protected by the ruleset `main: required CI` (#670 D2). The two checks `Platform workspace (pnpm monorepo)` and `Platform contracts (E2E)` must pass to merge, and force pushes and deletion are blocked. The branch need not be up to date (not strict).
 - `pnpm lint` also checks the design-system rules (`@shadcn/lint`, #228). The error message names the token, variant or component to use instead, so fix it as told. Class strings in `.ts` files are checked too. There is no exception-list file — the only exception is an `eslint-disable-next-line` with a reason, and a disable comment that blocks nothing is an error. Only `@ap/ui` imports `@radix-ui/*`.
 - If you changed only documents, run only `pnpm docs:links` (the document link check).
@@ -59,14 +59,22 @@ If the folder you work in has an `AGENTS.md`, follow it too (table below). If a 
 
 - Feature and bug work starts from a GitHub issue, and the PR body says `Closes #n`. Typos, document cleanup and small fixes may go without an issue. Separate work found along the way follows [`PROFILE.md`](.agents/conductor/PROFILE.md) §Fold scope and the fold, file and note rules of `issue-wave-conductor`.
 - The procedure for merges, CI and a broken `main` is the global `issue-wave-conductor` skill's `references/lane-merge.md`. When fixing a behaviour bug, add a regression test that fails before the fix.
-- Issues given to workers follow the global `issue-wave-conductor` skill's procedure; this repo's part is [`.agents/conductor/PROFILE.md`](.agents/conductor/PROFILE.md). The review tier (`tier.sh`), reviews, fix rounds and re-review conditions are also owned by PROFILE §Size and path.
-- When an issue closes or changes state, fix its line in `.planning/README.md` in the same PR. When a contract changes, fix that contract's owning document (ownership: `docs/AGENTS.md`).
+- Issues given to workers follow the global `issue-wave-conductor` skill's procedure; this repo's part is [`.agents/conductor/PROFILE.md`](.agents/conductor/PROFILE.md). The review tier (`tier.sh`), reviews, fix rounds and re-review conditions are owned by that skill's `references/lanes.md` §Size and path.
+- The lead updates `.planning/README.md` once, in the release-docs PR; mid-slice progress is `board.py` output. When a contract changes, fix that contract's owning document (ownership: `docs/AGENTS.md`).
 - The user owns the composition of spaces and menus. Even if an issue states a prerequisite such as "agreement with the domain owner", do not leave it as an external wait; bring a recommendation and a real-app prototype to the user (#252).
-- A decision a person must answer goes up as a `ready-for-human` issue, and nothing that relies on that decision is implemented before the answer. A decision chosen among real alternatives is recorded as an ADR in `docs/adr/`.
+- A decision a person must answer goes to the lead as `질문 #n`; add `ready-for-human` to the issue only when the session hands over without an answer. Nothing that relies on that decision is implemented before the answer. A decision chosen among real alternatives is recorded as an ADR in `docs/adr/`.
 
-## UI is implemented after prototype confirmation
+## UI
 
-Work that changes how something looks (common parts, shell, layout, design tokens, `DESIGN.md` direction) builds a `?variant=` interactive prototype of 2–3 options on the real app (the global `prototype` skill's `UI.md`), gets the user's confirmation through an **Artifact link**, and is then implemented. For each option, make an Artifact holding real-app captures (including the current look) and give the link. A prose description or a picture that is not the real app does not replace confirmation. A confirmed option is the spec; a departure needs the user's OK in the PR body. Discard the prototype code and keep the decision in the issue or ADR. Bug fixes and moving an already confirmed look as is are exempt.
+A `?variant=` prototype and owner confirmation by Artifact link are required only if test A or B holds. Otherwise the lane ships without a prototype and without asking, attaches one before/after capture, and records the call under **Decisions** in the PR body. The owner reverses by saying so.
+
+**A. New:** adds a screen or route, a Page Archetype, a shell region, a new visual component exported from `@ap/ui` or `@ap/components`, a new token family, or a new `DESIGN.md` direction.
+
+**B. Critical or hard to undo:** changes every screen at once (a global token value, the shell frame, a Page Archetype default); changes a public SDK prop or default that menus must adapt to; changes stored or linkable state (URL keys, persisted layout, saved views); moves or renames spaces or menus; or removes a user-visible function.
+
+**In doubt:** if reverting this one PR restores the previous behaviour for users and for menus, it is not B.
+
+Bug fixes and moving an already confirmed look are exempt. A confirmed variant is the spec; a departure needs the owner's OK in the PR body. Discard prototype code and keep the decision in the issue or ADR.
 
 The procedure for designing a new screen (Requirements → IA → Screen Spec → Wireframe → Open Decisions) is `.agents/skills/analysis-platform-wireframe/SKILL.md`.
 

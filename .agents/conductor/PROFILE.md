@@ -1,5 +1,5 @@
-Lead reads: §Flow, §Size and path, §Lanes, §Launch, §Verify
-Lane sessions read only those sections (SKILL §0 full read does not apply; this profile wins). Reviewers read only their lens section.
+Lanes read: §Flow, §Size and path, §Lanes, §Launch, §Verify
+Lane sessions read only those sections (SKILL §0 full read does not apply; this profile wins). The lead reads this whole file. Reviewers read only their lens section.
 
 # Conductor profile — analytics-platform
 
@@ -11,8 +11,8 @@ There is no database or login (mock adapter). Evidence comes from Playwright E2E
 
 - Base is `main`. Squash merge. Branch name is `feat/<n>-<slug>`. `$MAIN` = `AP_MAIN`. `WAVE_BRIEFS` = `$AP_MAIN/.review/wave/`.
 - Run `git config workerops.protectedBases none` once per clone for `ship-pr.sh`.
-- Update the issue's `.planning/README.md` line in the same PR.
-- Merge grant: a lane session uses its brief's grant. Ask the owner before tagging an app `v0.x`.
+- The lead updates `.planning/README.md` once, in the release-docs PR. Mid-slice progress is `board.py` output.
+- Merge grant: a lane session uses its brief's grant. App `v0.x` tags: At slice start ask once: 'tag when cold CI is green?'. If yes, tag when the cold CI of the tag SHA succeeds and no `release-blocker` is open. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue.
 
 ## Size and path
 
@@ -59,7 +59,7 @@ Procedure: the global `issue-wave-conductor` skill's `references/lanes.md` §Sta
 - The "next release" row in `packages/sdk/CHANGELOG.md`, the `docs/adr/README.md` table, ADR numbers (reservation: [`addenda/traps.md`](addenda/traps.md))
 - `addenda/traps.md`, `docs/agents/operations.md` (append only)
 - The four screen bridge entry lists ([`addenda/traps.md`](addenda/traps.md))
-- `.planning/README.md`: lanes edit only their own issue rows. The lead owns order and layout.
+- `.planning/README.md`: the lead updates it once, in the release-docs PR.
 
 ## Owner gates
 
@@ -81,7 +81,7 @@ Route to `impl-complex` (always full) if any of these hold:
 - `python3 $ENGINE/launch-worker.py <n> <slug>` creates the worktree, installs, merges [`addenda/`](addenda/) into `.review/00-IMPL-RULES.md` / `00-REVIEW-RULES.md` and starts the runner. Environment: `WAVE_STATE`, `WAVE_BRIEFS`, `AP_MAIN`. Role: `WORKER_ROLE`; overrides `WORKER_MODEL`, `WORKER_EFFORT`.
 - Capacity, slots and waiting: `references/lanes.md` §Machine resources. Run issues in parallel only when their files do not overlap. Parallelism otherwise follows SKILL §Loop; here only local root test/build/E2E is serial (`heavy.lock`).
 - **Stacking:** a node whose dependencies are committed on an in-flight branch starts on it (`orca worktree create --base-branch <branch>`, then `launch-worker.py --reuse`). Its brief names the base branch's in-flight files it must not edit; it rebases onto `main` after the base merges, and only after its own worker or reviewer has finished.
-- **Visual-judgment floor:** work that decides how a screen looks (layout, spacing, hierarchy, new component visuals, `?variant=` prototypes, screen-shape fix rounds, `site/` design) runs on role `impl-complex-sol` at effort `high`. Plain coding stays on the routing default. Split an issue so only its visual part goes to that worker. Reason: lower models code fine but make the UI ugly.
+- **Visual-judgment floor:** work that decides how a screen looks (layout, spacing, hierarchy, new component visuals, `?variant=` prototypes, screen-shape fix rounds, `site/` design) runs on role `impl-complex-sol` at effort `high`. Plain coding stays on the routing default. Split an issue so only its visual part goes to that worker. Captures and non-visual fixes never use this role. Reason: lower models code fine but make the UI ugly.
 - Feature issues: `launch-worker.py <n> <slug> feature`; rules in `addenda/impl-rules-feature.md`.
   - `scripts/feature-prepare.sh` fills `.env` and creates the issue DB on 5439 (`verify-db.sh create <n>`). Never use 5434.
   - Run `verify-db.sh up` once beforehand (`cp ops/platform-api/.env.example ops/platform-api/.env` first if `.env` is missing).
@@ -96,7 +96,7 @@ Every step must exit 0 before commit.
 2. Root checks:
    - `verify=full`: `bash $LANES/verify-root.sh <log-dir>` (lint → typecheck → test+build under `heavy.lock`; exits 3 if capacity says `start=no`, 75 if `heavy.lock` is held). Only a summary with `step=test` and `step=build` counts.
    - `verify=light`: `verify-root.sh --light <log-dir>` (lint + typecheck); test and build are left to PR CI. `tier.sh` gives `verify=full` for any change under the full paths, tests included, except `tier=small`.
-3. E2E, only when Kernel, shell, shared components or the mock server change. Run the new describe first, then the brief's Impact describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the affected specs (`.github/scripts/select-e2e.mjs`), so a green PR is not a full E2E record; the release `full=true` run is.
+3. E2E, only when Kernel, shell, shared components or the mock server change, except `tier=small`: PR CI's selected specs stand in. Run the new describe first, then the brief's Impact describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the affected specs (`.github/scripts/select-e2e.mjs`), so a green PR is not a full E2E record; the release `full=true` run is.
 4. Menu manifests, `menus.ts`, contract menu types or `tooling/gen-menu` changed: `node tooling/gen-menu/scripts/probe.ts`, never in a worktree with a live preview.
 5. Feature gates, when feature packages or `.github/workflows/ci.yml` change:
    - `bash ops/platform-api/scripts/ci/gate.sh static-extra`; `unit` only for suites the root test does not cover.
@@ -121,8 +121,9 @@ Every step must exit 0 before commit.
 
 - Plan: `python3 $ENGINE/review-plan.py <checkout> [--base origin/main]` (rules in `conductor.json` `review_plan`). Light tier gets no reviewers. `flags.permission` always makes the PR full; `ux=required` only picks the reviewers of a full PR.
 - UX skip: when a full PR has `ux=required` but no `review-ux` runs, record the skip reason and the substitute browser evidence in the PR body.
-- Impeccable check: a PR with a new screen gets one separate `impl-complex-sol` run at effort `high` (never the implementer judging its own work) doing `impeccable critique` + `audit` on the branch preview (1440×900), alongside review-final and before the PR opens; its findings join the one fix round. VERIFY: `impeccable: <report path>` or the skip reason. `?variant=` prototypes get one critique pass on all variants; apply its fixes, then capture, and name the report in the confirmation Artifact and question. Reason: review-ux checks flow, not visual craft.
-- Platform-consistency check: every `?variant=` prototype and every screen-look PR passes [`addenda/prototype-consistency.md`](addenda/prototype-consistency.md) (named components to reuse in the brief, token classes only, a non-builder reviewer comparing each capture with `*-current`, the filled checklist in the Artifact) before the Artifact is sent or the PR opens. VERIFY: `consistency: <report path>`. Reason: prototypes drifted from the platform look while every other gate passed (owner 2026-11-07).
+- Impeccable check: a PR with a new screen gets one separate `impl-complex-sol` run at effort `high` (never the implementer judging its own work) doing `impeccable critique` + `audit` on the branch preview (1440×900), alongside review-final and before the PR opens; its findings join the one fix round. VERIFY: `impeccable: <report path>` or the skip reason. Reason: review-ux checks flow, not visual craft.
+- Platform-consistency check: every `?variant=` prototype and every new-screen PR passes [`addenda/prototype-consistency.md`](addenda/prototype-consistency.md) (a non-builder reviewer comparing each capture with `*-current`, the filled checklist in the Artifact) before the Artifact is sent or the PR opens. VERIFY: `consistency: <report path>`. Its rules 1–2 apply to all screen work. Reason: prototypes drifted from the platform look while every other gate passed.
+- Prototypes: offer 2–3 variants only when there are real placement alternatives; otherwise one variant plus the current screen. Captures run on role `research`. Follow-up checks, polish and fixes on a prototype are one fix round.
 - `conflict` terms from `review-doc`: no dependent implementation node (screen copy, new table names) starts until the owner list is answered. Reason: a name that reaches schema or API contracts costs a migration to change.
 - Flags: `permission` / `instructions` → SKILL 7a. `e2e` → Verify step 3. `submodule` → the screen gates. `contract` → give the changed 06 sections and ADRs to the code reviewer.
 - Code reviewers use the global `templates/review-rules.md` + [`addenda/review-rules.md`](addenda/review-rules.md). UX and quality reviewers use the global personas plus the lenses below. `review-perf` only after a measured regression.
@@ -168,7 +169,7 @@ A PR may also touch, outside the issue diff, only the changed consumer's `menus/
 
 ## Deferrals
 
-Every item not done now — a `minor`/`nit` outside the touched area, an accepted limit, an owner "not now" — is recorded the same day as one row in [`.planning/backlog.md`](../../.planning/backlog.md): item, reason, reopen condition. The PR body lists it under **Deferred** with a link to the row. Reason: a deferral with no recorded home is lost at session end.
+Every item not done now — an owner "not now", an accepted limit, a `major` or worse finding below the cut line — is recorded the same day as one row in [`.planning/backlog.md`](../../.planning/backlog.md): item, reason, reopen condition. The PR body lists it under **Deferred** with a link to the row. Reason: a deferral with no recorded home is lost at session end.
 
 ## Slice close
 
@@ -178,14 +179,14 @@ Release order:
   2. Draft the release-docs PR. Do steps 1–2 alongside the last PRs' reviews. In it, set consumer packages in `menus/` and `platform/` `ap.sdk` and the gen-menu `SDK_RANGE` to the new SDK range (`menus/AGENTS.md`, `platform/AGENTS.md`); (nothing else updates them).
   3. Run a one-off doc audit with [addenda/doc-audit.md](addenda/doc-audit.md) (`review-doc`, persona doc-steward, as its work order says). Fold its findings into the release-docs PR.
   4. Run a full cold CI on the SHA to tag: `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`), so this run is the only whole, cold gate. Take the run id from `gh run list --workflow ci.yml --event workflow_dispatch --limit 1 --json databaseId` and require `headSha` = tag SHA and `success`. Rerun it if the SHA moves.
-  5. Tag `sdk-v*` with the tarballs and a GitHub Release; at tag time also run `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>` and `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`. Ask the owner before tagging an app `v0.x`. For an app release, the site lane updates `site/`.
+  5. Tag `sdk-v*` with the tarballs and a GitHub Release; at tag time also run `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>` and `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`. App `v0.x` tags: At slice start ask once: 'tag when cold CI is green?'. If yes, tag when the cold CI of the tag SHA succeeds and no `release-blocker` is open. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue. For an app release, the site lane updates `site/`.
 
-- **Gate table:** before tagging, the lead posts the table of the global `references/lanes.md` §Gate measurement on the release issue, with rows for `review-final`, `review-ux`, the fix-diff check, plan review, brief check, PR CI, host verify, `ship-check`, `merge-precheck` (with the `REBASE-NEEDED` count), main CI watch, impeccable and platform consistency.
+- **Gate table:** before tagging, the lead posts the table of the global `references/lanes.md` §Gate measurement on the release issue, with four rows: impeccable, platform consistency, the shared-path trial (with the `REBASE-NEEDED` count), and `tier=small` (count and findings of major or worse).
 - **Impeccable and consistency re-measure (next release):** in their rows, count runs and the findings of major or worse that `review-ux` and `review-final` did not also report. With at least 5 runs, a gate with at least one such finding stays at its scope and a gate with none is removed; with fewer than 5 runs it stays one more release and the row says so.
 - **Shared-path trial (one release, ending at the next release's table):** `apps/platform-e2e/` is out of `lanes.shared_paths_regex`. The table records the `REBASE-NEEDED` count and every red main traced to E2E PRs merged without a rebase. One such red restores the path; none makes the removal permanent. Record the result in the row's Decision and delete this bullet in that release's docs PR.
 - **SDK release timing:** a lane adds only the "next release" row in `packages/sdk/CHANGELOG.md`. The lead releases the SDK when that row exists and main CI is green, and at once if a lane is waiting for it.
 
-Quality review scope `<last tag>...origin/main`, plus a `review-ux` walk-through on the `origin/main` preview if screens changed. Tag with the full SHA (`git rev-parse origin/main`, `gh release create --target "$SHA"`). `app-preview.py status` must show no tracked previews at the end.
+Tag with the full SHA (`git rev-parse origin/main`, `gh release create --target "$SHA"`). `app-preview.py status` must show no tracked previews at the end.
 
 ## Tools
 
