@@ -86,3 +86,11 @@ describe('through the adapter', () => {
     if (name === 'focus') screen.getByText('이 구간에 겹치는 Occurrence가 없습니다');
   });
 });
+
+it('the generator rejects a malformed hash like core hashHex', async () => {
+  // @ts-expect-error plain .mjs script without types
+  const { hashHex } = (await import('../scripts/gen-mock-data.mjs')) as { hashHex: (hash: string) => string };
+  const hex = 'a'.repeat(64);
+  expect(hashHex(`sha256:${hex}`)).toBe(hex);
+  for (const bad of [`sha512:${hex}`, `sha256:${'a'.repeat(63)}`, `sha256:${'A'.repeat(64)}`]) expect(() => hashHex(bad)).toThrow(RangeError);
+});

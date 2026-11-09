@@ -8,8 +8,11 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtures = resolve(here, '../../fixtures/cluster-single');
 const target = resolve(here, '../src/mock-data/cluster-single.generated.ts');
-// `@eqv/core` ships TypeScript source (no dist), which plain node cannot load; the fixtures hold valid `sha256:<hex>` hashes, so the prefix is all that is needed.
-const hashHex = (hash) => hash.slice('sha256:'.length);
+// `@eqv/core` ships TypeScript source (no dist), which plain node cannot load, so core's hashHex (same pattern, same RangeError) is repeated here.
+export const hashHex = (hash) => {
+  if (!/^sha256:[0-9a-f]{64}$/.test(hash)) throw new RangeError('hash must be sha256:<64 lowercase hex>');
+  return hash.slice('sha256:'.length);
+};
 const json = (path) => JSON.parse(readFileSync(resolve(fixtures, path), 'utf8'));
 
 const bindings = json('onboarding/bindings/eq-synth-01.bindings.json');

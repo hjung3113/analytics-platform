@@ -1,6 +1,6 @@
 # @eqv/platform-adapter
 
-The analytics-platform host module (EV ADR-0012, EV ADR-0013). The only package that imports `@ap/contracts`; it may import only `@ap/contracts` and `@ap/ui` from the platform SDK (ESLint-enforced, mirrors AP's `hostModule` preset). `@ap/contracts` and `@ap/ui` are peer dependencies (devDependencies: the 0.19.0 release tarballs).
+The analytics-platform host module (EV ADR-0012, EV ADR-0013). The only package that imports `@ap/contracts`; it may import only `@ap/contracts` and `@ap/ui` from the platform SDK (ESLint-enforced, mirrors AP's `hostModule` preset). `@ap/contracts` and `@ap/ui` are peer dependencies (devDependencies: `workspace:*`).
 
 ## Exports
 
