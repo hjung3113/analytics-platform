@@ -185,6 +185,7 @@ Release order:
 - **Impeccable and consistency re-measure (next release):** in their rows, count runs and the findings of major or worse that `review-ux` and `review-final` did not also report. With at least 5 runs, a gate with at least one such finding stays at its scope and a gate with none is removed; with fewer than 5 runs it stays one more release and the row says so.
 - **Shared-path trial (one release, ending at the next release's table):** `apps/platform-e2e/` is out of `lanes.shared_paths_regex`. The table records the `REBASE-NEEDED` count and every red main traced to E2E PRs merged without a rebase. One such red restores the path; none makes the removal permanent. Record the result in the row's Decision and delete this bullet in that release's docs PR.
 - **SDK release timing:** a lane adds only the "next release" row in `packages/sdk/CHANGELOG.md`. The lead releases the SDK when that row exists and main CI is green, and at once if a lane is waiting for it.
+- **Site PR timing:** merge the site PR before tagging. If it merges later, run `pages.yml` by hand after the tag's Pages deploy ends. Reason: the tag-triggered deploy publishes the tagged tree.
 
 Tag with the full SHA (`git rev-parse origin/main`, `gh release create --target "$SHA"`). `app-preview.py status` must show no tracked previews at the end.
 
