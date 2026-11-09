@@ -1,30 +1,25 @@
-# packages/adapters/http-adapter — 실서버 클라이언트
+# packages/adapters/http-adapter — real-server client
 
-`@ap/http-adapter`는 `PlatformAdapter`를 HTTP로 옮기는 실어댑터다. 와이어 형식(경로·변환 표·부트스트랩·폴링·CSRF·Correlation ID)의 원본은 [전송 형식](../../../docs/integration/http-adapter-contract.md), 메서드별 의미는 [실서버 연결 체크리스트](../../../docs/integration/real-server-checklist.md) §2다. 이 패키지는 그 문서를 코드로 옮길 뿐 규칙을 새로 정하지 않는다.
+`@ap/http-adapter` carries `PlatformAdapter` over HTTP. The wire format (paths, conversion table, bootstrap, polling, CSRF, Correlation ID) is owned by [transport format](../../../docs/integration/http-adapter-contract.md); per-method meaning is owned by [real-server checklist](../../../docs/integration/real-server-checklist.md) §2. This package turns those documents into code and sets no rules of its own.
 
-## 파일
+## Rules
 
-- `src/index.ts` — 공개 진입점: `bootstrapHttpAdapter(options)`와 그 타입. 결과는 `ready`(어댑터)·`login`(401·3xx·`opaqueredirect`)·`unavailable`(correlationId)·`throttled`(429, correlationId·`retryAfterSeconds?`)이고 reject하지 않는다.
-- `src/session/bootstrap.ts` — 첫 부트스트랩과 조립.
-- `src/calls/transport.ts` — `fetch` 한 번: Kernel `signal`과 내부 타이머의 수동 연결(`AbortSignal.any` 미사용), `redirect: 'manual'`, `credentials: 'same-origin'`, `X-Correlation-Id`. 내부 타임아웃은 `AbortError`가 아니다.
-- `src/calls/calls.ts` — 호출 묶음별 변환: envelope(reject 없음), 쓰기(`unknown`), 비 envelope(`TransportError`), 선택 포트(`PortError`).
-- `src/adapter.ts` — `PlatformAdapter` 멤버마다 한 줄(경로·메서드·본문·CSRF).
-- `src/session/session.ts` — 세션 스냅샷 identity, `csrfToken`(메모리만), `subscribe` 폴링, single-flight 재확인과 백오프, `onSessionLost`.
-- `src/validate.ts` — 응답 모양 검사. 모르는 키는 무시한다. 예외: Quest 읽기(`isQuest`·`isQuestSearchPage`)는 `ok` 데이터를 엄격하게 검사하고 모르는 키는 `invalid_response` `error`로 거부한다(#1328).
-- `src/saved-views/` — HTTP saved-view store and `importLocal` (ADR-0099). `guards.ts` matches command/response wire schemas recursively and rejects unknown keys. `store.ts` sends each of the 16 commands once with CSRF.
+- Depend at runtime only on `@ap/contracts`. Only test files may import the `@ap/contract-schemas/source` devDependency, to check guard/wire-schema equivalence. Do not import React, DOM components, other `@ap/*` packages or feature packages.
+- Import this package only from the app's production assembly `apps/platform-web/src/real/**` (boundary lint) and from platform-API real-server conformance tests (devDependency, test code only — ADR-0073).
+- Never write cookies or tokens to storage (`localStorage` etc.); `csrfToken` lives in memory only. Never send a user id or actor.
+- Keep the user-visible `message` to a short code: `client_timeout`, `network_error`, `session_expired`, `http_<status>`, `invalid_response`, `invalid_envelope`. Never put a URL, response body or stack in it.
+- `bootstrapHttpAdapter(options)` never rejects. Its result is `ready` (adapter), `login` (401, 3xx, `opaqueredirect`), `unavailable` (`correlationId`) or `throttled` (429; `correlationId`, `retryAfterSeconds?`).
+- Transport (`src/calls/transport.ts`): connect the Kernel `signal` and the internal timer by hand (no `AbortSignal.any`), use `redirect: 'manual'`, `credentials: 'same-origin'` and `X-Correlation-Id`. The internal timeout is not an `AbortError`.
+- Conversion by call group (`src/calls/calls.ts`): envelope calls never reject, writes return `unknown`, non-envelope calls throw `TransportError`, optional ports throw `PortError`.
+- Response validation (`src/validate.ts`) ignores unknown keys. Exception: Quest reads (`isQuest`, `isQuestSearchPage`) check `ok` data strictly and reject unknown keys as an `invalid_response` `error`.
+- Saved views (`src/saved-views/`, ADR-0099): `guards.ts` matches command/response wire schemas recursively and rejects unknown keys; `store.ts` sends each of the 16 commands once, with CSRF.
+- Session (`src/session/session.ts`): snapshot identity, `subscribe` polling, single-flight re-check with backoff, `onSessionLost`.
+- When a port method is added, the table in `src/__tests__/methods.test.ts` reports it as a type error.
 
-## 규칙
+## Layout
 
-- The only runtime dependency is `@ap/contracts`. Only test files may import the `@ap/contract-schemas/source` devDependency to check guard/wire-schema equivalence. Do not import React, DOM components, other `@ap/*` packages, or feature packages.
-- 쿠키·토큰을 저장소(`localStorage` 등)에 쓰지 않는다. 사용자 id·actor를 보내지 않는다.
-- 사용자에게 보이는 `message`는 짧은 코드(`client_timeout`·`network_error`·`session_expired`·`http_<status>`·`invalid_response`·`invalid_envelope`)뿐이다. URL·응답 본문·스택을 싣지 않는다(#101).
-- 이 패키지를 import하는 곳은 앱의 운영 조립 `apps/platform-web/src/real/**`(경계 lint)와 플랫폼 API의 실서버 적합성 테스트(devDependency, 테스트 코드만 — ADR-0073, #674)뿐이다.
-- 새 포트 메서드가 생기면 `src/__tests__/methods.test.ts`의 표가 타입 오류로 알려 준다.
+Put session and bootstrap code in `session/`, call conversion and transport in `calls/`. Keep only the public entry `index.ts`, `adapter` and `validate` at the `src/` root. Tests and the shared helper `test-support.ts` go in `__tests__/` (ADR-0090).
 
-## 검증
+## Verification
 
-`pnpm --filter @ap/http-adapter lint|typecheck|test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). 테스트는 `fetch`를 주입하며 실제 네트워크를 쓰지 않는다.
-
-## 폴더 배치
-
-`src/`는 `session/`(세션·부트스트랩)과 `calls/`(호출 변환·상관 id·전송)로 나뉜다. 루트에는 공개 진입점 `index.ts`와 `adapter`·`validate`만 둔다. 테스트와 공용 도우미 `test-support.ts`는 `__tests__/`에 둔다(ADR-0090, #713).
+Narrow with `pnpm --filter @ap/http-adapter lint|typecheck|test`, then the root checks. Tests inject `fetch`; they never use the real network.

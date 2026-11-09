@@ -2,10 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { PACKAGE_PREFIX } from './prefix.js';
+import { isEqvPackage } from './eqv-packages.js';
 
 /**
- * Nearest package.json whose `name` starts with the package prefix, walking
- * up from `startDir`. Lexical only: no realpath/symlink resolution.
+ * Nearest package.json whose `name` starts with the package prefix (or is an EV package, which lives one level
+ * deeper at packages/eqv/<name>), walking up from `startDir`. Lexical only: no realpath/symlink resolution.
  * With `anyName`, any named package.json owns the file (an external module keeps its own scope).
  * Returns null when no owning package root exists (bad filePath must not pass).
  */
@@ -16,7 +17,7 @@ function findOwningPackage(startDir, anyName = false) {
     if (fs.existsSync(manifest)) {
       try {
         const pkg = JSON.parse(fs.readFileSync(manifest, 'utf8'));
-        if (typeof pkg.name === 'string' && (anyName || pkg.name.startsWith(PACKAGE_PREFIX))) {
+        if (typeof pkg.name === 'string' && (anyName || pkg.name.startsWith(PACKAGE_PREFIX) || isEqvPackage(pkg.name))) {
           return { root: dir, name: pkg.name };
         }
       } catch {

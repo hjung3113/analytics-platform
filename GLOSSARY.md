@@ -88,6 +88,12 @@ _Avoid_: 증거(화면 문구), 근거 위치를 첨부와 같은 이름으로 �
 지식 Item의 Revision이 «Event A가 Event B보다 먼저 일어난다»를 **관찰했는지(`observed`) 명세가 기대하는지(`expected`)** 구조화해 적은 한 줄. 안정 키(`moduleKey/eventKey`)로 명세를 가리키고 본문 문장과 별개이며 추가 전용이다. 방향 검색은 이 기록에서만 만든다([ADR-0125](docs/adr/0125-event-order-search-uses-structured-event-relation-records.md)). 모델 명세가 선언한 순서(`spec_event_relation`)와 다른 객체다.
 _Avoid_: 이벤트 관계(명세의 순서 선언과 섞임), Finding
 
+**객체 접근 규칙**:
+로그 지식 허브의 Model·SW·Item을 어느 Actor가 볼 수 있는지 정하는 허용·거절 규칙으로, 상위 제한과 거절이 하위 허용보다 우선한다. Entity Link의 Visibility나 지식 근거 원천의 ACL과는 별개의 규칙이다([ADR-0124](docs/adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)).
+
+**접근 방식** (`access_mode`):
+객체 접근 규칙에서 대상의 공개 범위를 구분하는 값으로, 내부 공개(`internal`)와 허용 규칙에 든 주체로 제한하는 `restricted` 두 가지다.
+
 **색인 지연** (`indexLag`):
 검색에 반영할 최신 원본 변경(새 Revision, 개념·alias·카탈로그 변경)이 검색 색인에 아직 반영되지 않은 상태. 검색 결과 행에 칩으로 보이며 옛 본문은 나가지 않고 순위만 낡을 수 있다([ADR-0124](docs/adr/0124-knowledge-search-evaluates-acl-at-query-time-and-reads-display-live.md)).
 _Avoid_: 기준 낡음, 재검증 필요(다른 객체)
@@ -265,6 +271,19 @@ _Avoid_: 플랫폼 — 플랫폼 전체와 섞인다.
 
 **SDK**:
 업무 시스템과 제품이 받아 쓰는 플랫폼 공개 패키지 묶음(`@ap/contracts`·`@ap/ui`·`@ap/kernel`·`@ap/components`·`@ap/shell`). 하나의 묶음 버전으로 릴리스한다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0044](docs/adr/0044-sdk-source-in-platform-repo-released-separately.md)).
+
+**AP DevKit**:
+에이전트가 플랫폼 SDK의 공개 기능을 찾고 조합·검사할 때 쓰는 개발 도구 묶음. 지금은 SDK 소비자 스킬과 의도어 표다.
+
+**SDK 소비자 스킬** (`ap-sdk-consumer`):
+플랫폼 SDK를 쓰는 메뉴 코드를 작성·검사하는 에이전트용 작업 지침.
+
+**의도어 표**:
+필요한 기능을 가리키는 말을 공개 SDK 부품과 계약 절에 잇는, 손으로 쓴 표. SDK 소비자 스킬의 일부다.
+
+**SDK 카탈로그**:
+특정 SDK 버전의 공개 기능과 그 사용 계약·예제를 생성한 목록. 구현하지 않았다(ADR-0131 Deferred). 페이지 유형 Catalog, 규칙 카탈로그, 모델 카탈로그와 다른 개념이다.
+_Avoid_: 카탈로그(이 SDK 목록의 단독 명칭으로 쓸 때)
 
 **업무 시스템** (코드 이름 `Space`):
 플랫폼 위에 올라가는 독립된 업무 단위. 자기 메뉴 그룹·메뉴·업무 객체와 진입 권한을 소유하고, 다른 시스템의 객체를 흡수하지 않는다. 지금 등록된 것은 MARS·CLAS(생산성 분석), BRAVO(지표관리), 표준 로그 개발, 업무 흐름, 운영 콘솔이다. 개선 실행 공간은 2026-11-04에 접었다(ADR-0106 개정 2). VOC·설문·Task·Finding은 플랫폼 기능이고, 담당자 처리 화면은 `업무 흐름`, 플랫폼 관리는 `운영 콘솔`에 있다([ADR-0097](docs/adr/0097-platform-features-and-role-based-names.md), [ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md)).

@@ -1,23 +1,32 @@
 # @ap/server-conformance
 
-서버 경계 적합성 묶음(#145, #152). `PlatformAdapter` 전체를 어댑터 구현과 무관하게 — mock·실어댑터를 같은 잣대로 — 검사한다. 검사 목록은 엔드포인트 선언과 하네스 `ports` 표본에서 도출되고, 표본이 없으면 `skipped`로 남는다(통과로 세지 않음). 검사 범위와 사내 준비물은 [체크리스트 §4](../../../docs/integration/real-server-checklist.md)가 원본이다. 앱 통합 테스트가 mock으로 돌리고, 플랫폼 API 통합 테스트가 실서버·실어댑터로 돌린다(#674, 테스트 코드 devDependency — ADR-0073).
+Server-boundary conformance suite. It checks the whole `PlatformAdapter` the same way for the mock and for real adapters. The check list is derived from endpoint declarations and the harness `ports` sample; a check without a sample is `skipped`, never counted as passed. Scope of checks and in-house prerequisites are owned by [checklist §4](../../../docs/integration/real-server-checklist.md). The app integration test runs it against the mock; the platform-API integration test runs it against the real server and adapter (test-code devDependency — ADR-0073).
 
-## 파일
+## Rules
 
-- `src/types.ts` — 공개 타입. 하네스 타입 `ServerConformanceHarness`(어댑터 전체, 표본 요청, 포트 표본 `ports`, 부여된 site·기간, 부여 안 된 site, `asGranted`·`withoutPermission`·`asConsole`·`asOtherAnnotator`, 쓰기 표본 `actions`(`ActionCase`) — `menuAction` 검사는 표본이 없으면 `actions: no sample` 건너뜀 한 건).
-- `src/index.ts` — 공개 이름만 다시 내보내는 배럴(타입 + `planServerConformance`·`runServerConformance`·`describeServerConformance`). `src/helpers.ts` — 상수·응답 형태 도우미. `src/plan/endpoints.ts` — `planServerConformance`(선언에서 검사 목록 도출, 동기)와 `declareGaps`. `src/plan/actions.ts`·`src/plan/conditions.ts` — 쓰기·Condition 검사. `src/plan/ports/` — 포트 검사를 구간별 파일(`sites`·`snapshots`·`entity`·`entity-audit`·`console`·`annotations`·`usage`·`client-error`·`services`·`saved-views`)로 나눠 `index.ts`의 `planPortChecks`가 원래 순서대로 잇고, `selection-ports.ts`는 옵션 포트 검사. `src/run.ts` — `runServerConformance`(실행 결과), `describeServerConformance`(vitest 묶음 등록).
-- `src/__tests__/conformance.test.ts` — 규칙을 일부러 깬 어댑터에서 해당 검사가 실패하는지(묶음 자체의 회귀 테스트).
-- 실행 중 건너뜀(#826, ADR-0085): `entityAudit` 쪽 나누기 검사 9건은 첫 쪽 응답에 `nextCursor` 키가 없으면 `server does not page entityAudit`로, 표본에 감사 행이 없으면 `the sample has no audit events to page (…)`로 `skipped`가 된다(통과로 세지 않고, 이 두 경우에는 `cursor`를 보내지 않는다). 표본이 한 쪽에 들어가 발급 커서가 없으면 발급 커서가 필요한 4건만 건너뛰고 나머지 5건은 돈다.
-- 선언한 빈틈(#674): 하네스 `implemented`(서버가 구현한 포트 메서드)·`siteGrants: false`(site 부여 없는 서버)와 site 없는 목적지 표본(`scopeId: null`)은 해당 검사를 이유를 단 `skipped`로 바꾼다. 검사마다 정의하는 자리에서 `uses`(부르는 메서드)·`needsSites`를 직접 단다 — id에서 추론하지 않는다. `uses`가 빈 검사는 계획 단계에서 오류이고, `__tests__/conformance.test.ts`가 검사마다 기록 어댑터로 실제 부른 메서드가 `uses` 안에 있는지 확인한다. Scope가 필요한 엔드포인트·액션의 검사는 모든 요청이 `context.scopeId`를 보내므로 전부 `needsSites`다.
-- 저장된 뷰(#1131, ADR-0099): `SavedViewStore`는 `PlatformAdapter` 멤버가 아니므로 표본 `ports.savedViews`가 저장소 둘(일반 소유자 `user`·승인 권한 `admin`)과 menu id를 직접 이름붙이고, 검사의 `uses`는 `SavedViewStore` 메서드 이름(`ConformanceUse`)을 단다 — `implemented`(어댑터 목록)가 아니라 표본의 존재가 이 검사의 빠짐을 결정한다(없으면 `savedViews: no sample` 건너뜀 한 건). 표본 속성은 getter여도 된다(실행 시점에 읽는다). 검사는 ADR-0099 규칙(비공개 비가시와 거절 항목 `{ id, denied, reason }` 정확 키, 그룹 공유는 읽기 전용, 소유자의 이름·삭제 쓰기, 일반 열람자가 보는 공식 승인·회수, 기본 상실, 행위별 `Result` 결과값)을 mock(`apps/platform-web/src/saved-view-store.ts`)과 서버(`apps/platform-api/src/modules/platform-saved-views`)가 같은 값으로 지키는지 검사하고, 공유 문구(`no-access`·거절 사유·회수 메모·변경 요약)는 이 묶음에 리터럴로 한 번만 둔다.
+- Import only `@ap/contracts` and vitest. Never import `mock-server`, menus or React: the real server must be judged by the same yardstick as the mock, so the suite knows no implementation (lint preset `serverConformance`).
+- Add only checks derivable from declarations. Menu-specific data expectations (numbers, rows) belong to menu tests.
+- When a contract rule changes (06 §5, §19; package boundary §4), fix the checks here and the checklist document in the same PR.
+- vitest is a peer (`^3.2.7`). The platform API runs this suite on vitest 2.1.8; `describe`/`it`/`expect` attach to the running vitest instance at import time, so it works, and pnpm only warns about the mismatch. Upgrade the platform API's vitest first before using a vitest-3-only API here.
 
-## 규칙
+## Harness and plan
 
-- vitest는 peer(`^3.2.7`)다. 플랫폼 API는 vitest 2.1.8로 이 묶음을 돌리는데(#674), 묶음의 `describe`·`it`·`expect`는 import 시점에 실행 중인 vitest 인스턴스에 붙으므로 그대로 동작한다. pnpm은 이 peer 불일치를 경고만 한다. 묶음이 vitest 3 전용 API를 쓰기 시작하면 기능 쪽 vitest를 먼저 올린다.
-- import 가능: `@ap/contracts`와 vitest만. `mock-server`·메뉴·React 금지 — 실서버를 mock과 같은 잣대로 판정해야 하므로 어떤 구현도 알지 않는다(lint 프리셋 `serverConformance`).
-- 검사는 선언에서 도출할 수 있는 것만 넣는다. 메뉴별 데이터 기대값(수치·행)은 이 묶음이 아니라 메뉴 테스트가 맡는다.
-- 계약 규칙(06 §5·§19, 패키지 경계 §4)을 바꾸면 여기 검사와 체크리스트 문서를 같은 PR에서 고친다.
+- Harness type `ServerConformanceHarness` (`src/types.ts`) carries the whole adapter, sample requests, port samples `ports`, granted/ungranted sites and period, `asGranted`/`withoutPermission`/`asConsole`/`asOtherAnnotator`, and write samples `actions` (`ActionCase`). Without `actions` samples, `menuAction` checks collapse to one skipped `actions: no sample`.
+- `planServerConformance` (`src/plan/endpoints.ts`, synchronous) derives the check list from declarations. Port checks are split by area under `src/plan/ports/`; `planPortChecks` in its `index.ts` chains them in the original order.
+- `src/__tests__/conformance.test.ts` is the suite's own regression test: an adapter that breaks a rule on purpose must fail the matching check.
 
-## 검증
+## Skips
 
-`pnpm --filter @ap/server-conformance test`, 그리고 앱 통합 테스트 `pnpm --filter @ap/platform-web test`.
+- Declared gaps: harness `implemented` (port methods the server implements), `siteGrants: false` (server without site grants) and a site-less destination sample (`scopeId: null`) turn the affected checks into `skipped` with a reason.
+  - Set `uses` (methods called) and `needsSites` on each check where it is defined; never infer them from the id.
+  - A check with empty `uses` is a planning error. `conformance.test.ts` verifies with a recording adapter that every method actually called is in `uses`.
+  - Every request sends `context.scopeId`, so checks of Scope-requiring endpoints and actions are all `needsSites`.
+- `entityAudit` paging (ADR-0085): the 9 paging checks are `skipped` as `server does not page entityAudit` when the first-page response has no `nextCursor` key, and as `the sample has no audit events to page (…)` when the sample has no audit rows; in both cases send no `cursor`. If the sample fits on one page and no cursor is issued, skip only the 4 checks that need an issued cursor and run the other 5.
+- Saved views (ADR-0099): `SavedViewStore` is not a `PlatformAdapter` member, so the sample `ports.savedViews` names two stores (ordinary owner `user`, approval permission `admin`) and the menu id directly.
+  - A check's `uses` carries `SavedViewStore` method names (`ConformanceUse`). The sample's presence, not `implemented`, decides whether it runs; without it there is one skipped `savedViews: no sample`. Sample properties may be getters (read at run time).
+  - The checks verify that the mock (`apps/platform-web/src/saved-view-store.ts`) and the server (`apps/platform-api/src/modules/platform-saved-views`) keep the ADR-0099 rules with identical values: private is invisible and a refusal is an exact-key `{ id, denied, reason }`; group share is read-only; only the owner renames and deletes; an ordinary viewer sees official approval and withdrawal; default is lost; per-action `Result` values.
+  - Keep shared wording (`no-access`, refusal reasons, withdrawal memo, change summary) as literals once, in this suite.
+
+## Verification
+
+`pnpm --filter @ap/server-conformance test`, then the app integration test `pnpm --filter @ap/platform-web test`.

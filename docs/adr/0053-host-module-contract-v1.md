@@ -1,6 +1,7 @@
 # 호스트 → 모듈 계약 1판을 `@ap/contracts`에 내고, Kernel이 모듈을 등록해 화면에 호스트 포트를 준다
 
 상태: **Decided (2026-10-19, 결정자: 코디네이터 — 사용자 "sdk 아직 완성 아니잖아, 이어서 하자"에 따른 SDK 다음 슬라이스. 되돌릴 수 있음)** — [탑재 설계](../integration/platform-hosting-design.md) §2의 Candidate 모양을 1판으로 확정한다. [ADR-0039](0039-equipment-visualization-platform-first-host-contract.md)의 "플랫폼이 `@ap/contracts`로 호스트 → 모듈 계약을 낸다"를 구현 범위로 받는다. [ADR-0038](0038-host-module-contract-and-feedbackops-mounting.md)의 FeedbackOps 탑재 여부와 EV 편입 게이트(#332)는 이 결정에 들어 있지 않다. 구현은 [#403](https://github.com/hjung3113/analytics-platform/issues/403)(계약·등록)과 그 후속(호스트 포트 실행).
+상태 보충: 부분 대체 — "EV는 외부 저장소의 모듈" 서술은 [ADR-0132](0132-eqv-merges-into-platform.md)가 대체한다(호스트 모듈 계약 자체는 유지).
 
 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)은 SDK를 "플랫폼에 올릴 앱이 따르는 계약"으로 정했다. 디자인 시스템 이전(ADR-0046)과 FeedbackOps 소비 전환으로 UI 층은 SDK에 모였지만, 다른 저장소의 앱이 플랫폼에 올라오는 **계약 자체**는 아직 없다. 지금 메뉴는 앱 절대 경로·닫힌 권한·그룹 목록·`usePlatform()` 훅에 묶여 있어, 다른 저장소 모듈이 올라오려면 플랫폼 계약 파일을 고치고 `@ap/kernel`을 import해야 한다(탑재 설계 §2.4 G1–G11).
 

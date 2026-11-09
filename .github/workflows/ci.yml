@@ -208,6 +208,10 @@ jobs:
           cache: pnpm
       # Relative links and heading anchors in tracked Markdown (CLAUDE.md symlinks and vendored skills excluded); every PR; node builtins only, before install.
       - run: node .github/scripts/check-doc-links.mjs
+      # #1207 (ADR-0131): the ap-sdk-consumer skill names only exported, menu-importable pieces; every PR, because a PR that only edits .agents/ skips the static steps; node builtins only, before install.
+      - run: |
+          node .github/scripts/check-sdk-skill-names.mjs --self-test
+          node .github/scripts/check-sdk-skill-names.mjs
       - run: pnpm install --frozen-lockfile
         if: ${{ env.DOCS_ONLY != 'true' }}
       # turbo cache (#1019): restored on every non-full run, saved only by a push to main so PR runs cannot grow the cache.
@@ -319,6 +323,11 @@ jobs:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-node26.7.0-test-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-node26.7.0-test-
+      # Load context for a vitest `Timeout calling "onTaskUpdate"` or a 5 s test timeout (#1227): runner CPUs, load and the worker cap in force.
+      - name: Runner load context
+        if: ${{ env.DOCS_ONLY != 'true' }}
+        run: |
+          echo "vCPUs=$(nproc) loadavg=$(cut -d' ' -f1-3 /proc/loadavg) VITEST_MAX_WORKERS=$VITEST_MAX_WORKERS"
       - run: pnpm test
         if: ${{ env.DOCS_ONLY != 'true' }}
       # Entries older than 7 days are dropped before the save (a failure here must not skip the save). GitHub evicts the least recently used caches above the repository limit (10 GB).
@@ -366,6 +375,19 @@ jobs:
       - run: bash ops/platform-api/scripts/ci/gate.sh integration
         env:
           CI_PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+      # The service container log is printed only when the job ends; on failure, put its slow statements (log_min_duration_statement),
+      # lock waits and deadlocks into the job summary where the failed test is read (#1227).
+      - name: Postgres slow statements and lock waits
+        if: ${{ failure() }}
+        run: |
+          id=$(docker ps -q --filter "ancestor=mirror.gcr.io/pgvector/pgvector:pg16" | head -n1)
+          if [ -z "$id" ]; then echo "postgres container not found" >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          {
+            echo "### Postgres: statements over 1 s, lock waits, deadlocks (last 40)"
+            echo '```'
+            docker logs "$id" 2>&1 | grep -E 'duration: [0-9]{4,}\.[0-9]+ ms|still waiting|acquired .*after|deadlock' | cut -c1-400 | tail -n 40 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # Not a required check (OPS-01, #1266 b1a): builds the release images from a clean context so a missing workspace manifest,
   # source or emitted export fails here instead of on the host. It runs on every code change but the steps start only when a

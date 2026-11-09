@@ -5,6 +5,7 @@
 packages:
   - apps/*
   - packages/*
+  - packages/eqv/*
   - packages/sdk/*
   - packages/adapters/*
   - menus/*/*

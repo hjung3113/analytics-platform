@@ -1,0 +1,27 @@
+{
+  "name": "equipment-visualization",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.1.1",
+  "engines": {
+    "node": ">=26.7.0"
+  },
+  "scripts": {
+    "dev": "turbo run build --filter=@eqv/studio^... && pnpm --filter @eqv/studio dev",
+    "lint": "eslint .",
+    "typecheck": "turbo run build --filter=@eqv/studio^... && turbo run typecheck --only",
+    "test": "turbo run build --filter=@eqv/studio^... && turbo run test --only --concurrency=2",
+    "build": "turbo run build --filter=@eqv/studio^... && turbo run build --filter=@eqv/studio --only",
+    "eqv:pack": "node tooling/scripts/eqv-pack.mjs",
+    "eqv:consumer-check": "node tooling/scripts/eqv-consumer-check.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@shadcn/lint": "0.2.0",
+    "@types/node": "26.6.3",
+    "eslint": "10.11.0",
+    "turbo": "2.11.4",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.2"
+  }
+}
