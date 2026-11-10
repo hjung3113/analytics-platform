@@ -149,5 +149,5 @@ Every operator-screen menu below follows these unless its entry says otherwise.
 - Global top-level group `개선 아이템`: `/improvement-items` (primary) and `/improvement-items/:itemId` (`navHidden`, parent `improvement-items`, page key `returnTo`). Screens: list, detail (effect-check section: `beforeAfterPeriods` comparison link and judgment save), create drawer (ADR-0106).
 - Page keys: `view`, `q`, `filter` (repeat, hidden), `page`, `sort`, `focus`, `origin`, `originPage` (hidden; origin page keys as JSON, kept separate from the create control keys).
 - Permission: read `platform:view`, write `improvement:manage`; the screen's `can()` is a hint and the server action decides.
-- Use the menu's own query/action transport (`endpoints.ts`), not the feature REST bridge. Read Quest references only through the Kernel adapter ports `getQuest` and `searchQuests`.
+- Use the menu's own query/action transport (`endpoints.ts`), not the feature REST bridge. Read Quest references through the menu reads `improvement.quest` and `improvement.questSearch`.
 - Subpaths: `./home-todo-slot` (home owned-count card; imported only by the app's `src/main.tsx`), `./analysis-actions` (analysis-header `⋯` entry; the app injects it as the `analysisActions` slot in `src/main.tsx`), `./mock` (mock responses).

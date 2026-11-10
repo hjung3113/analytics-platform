@@ -1,6 +1,6 @@
 # 개선 아이템 플랫폼 기능 (#1328)
 
-> **Status: 소유자 답 반영(2026-11-04) — §6 Q1–Q8을 추천대로 결정, 노드 a(스키마·읽기)·b(쓰기·이력·감사·`improvement.manage`)·c(Quest 읽기 포트·mock·HTTP 어댑터·적합성)·d(소유자 A안 목록·상세·만들기 서랍) 구현됨, e의 담당 지정 알림(e1)·홈 담당 건수 카드(e2)와 f의 효과 확인(전후 비교 연결·판단/링크 저장) 구현됨, e의 분석 진입점(셸 슬롯 `analysisActions`의 머리 `⋯` 「개선 아이템 남기기」, `originPage` 분리, 대상 제안, #1424·#1408)도 구현됨, f의 편집형 표(#540) 남음.** 단 Q3의 「담당자가 User인 경우 본인 건 상태 변경 예외」는 지금 두지 않는다(팀장 결정, 되돌릴 수 있음; 실제 User 담당자 사례가 생기면 다시 연다). 근거: [ADR-0106 개정 2](../../adr/0106-improvement-task-is-quest.md)(개선 아이템은 플랫폼 DB, Quest는 BRAVO 소유, ID로만 가리킴). 지금 레포에는 노드 a·b의 DB·읽기·쓰기 API([api/improvement-items.md](../../architecture/platform-api/api/improvement-items.md))와 노드 c의 Quest 읽기 포트(어댑터 `getQuest`·`searchQuests`, 서버 모듈 없음)가 있고, `platform/improvement-items`의 직속 목록·상세·만들기 서랍이 있다. 용어는 [GLOSSARY](../../../GLOSSARY.md)의 `과제(Quest)`·`개선 아이템`·`효과 확인`. 화면 선택은 아래 §4와 [ADR-0106 개정 3](../../adr/0106-improvement-task-is-quest.md)을 따른다.
+> **Status: 소유자 답 반영(2026-11-04) — §6 Q1–Q8을 추천대로 결정, 노드 a(스키마·읽기)·b(쓰기·이력·감사·`improvement.manage`)·c(Quest 메뉴 조회·mock)·d(소유자 A안 목록·상세·만들기 서랍) 구현됨, e의 담당 지정 알림(e1)·홈 담당 건수 카드(e2)와 f의 효과 확인(전후 비교 연결·판단/링크 저장) 구현됨, e의 분석 진입점(셸 슬롯 `analysisActions`의 머리 `⋯` 「개선 아이템 남기기」, `originPage` 분리, 대상 제안, #1424·#1408)도 구현됨, f의 편집형 표(#540) 남음.** 단 Q3의 「담당자가 User인 경우 본인 건 상태 변경 예외」는 지금 두지 않는다(팀장 결정, 되돌릴 수 있음; 실제 User 담당자 사례가 생기면 다시 연다). 근거: [ADR-0106 개정 2](../../adr/0106-improvement-task-is-quest.md)(개선 아이템은 플랫폼 DB, Quest는 BRAVO 소유, ID로만 가리킴). 지금 레포에는 노드 a·b의 DB·읽기·쓰기 API([api/improvement-items.md](../../architecture/platform-api/api/improvement-items.md))와 노드 c의 Quest 메뉴 조회(`improvement.quest`·`improvement.questSearch`, 서버 모듈 없음)가 있고, `platform/improvement-items`의 직속 목록·상세·만들기 서랍이 있다. 용어는 [GLOSSARY](../../../GLOSSARY.md)의 `과제(Quest)`·`개선 아이템`·`효과 확인`. 화면 선택은 아래 §4와 [ADR-0106 개정 3](../../adr/0106-improvement-task-is-quest.md)을 따른다.
 
 ## 1. 도메인
 
@@ -26,16 +26,16 @@
 
 ## 2. Quest 참조 계약
 
-- 플랫폼은 Quest를 **ID로만** 저장하고, BRAVO 쪽 읽기는 `PlatformAdapter`의 읽기 전용 포트로 한다: `getQuest(id)`, `searchQuests({ query, status, page })`. 쓰기 없음. 구현은 사내 BRAVO 어댑터, 이 레포는 mock 어댑터와 계약 테스트만 갖는다.
+- 플랫폼은 Quest를 **ID로만** 저장하고, BRAVO 쪽 읽기는 이 메뉴의 읽기 전용 메뉴 조회로 한다: `improvement.quest`(`{ id }`), `improvement.questSearch`(`{ query, status, page, pageSize }`). `PlatformAdapter` 포트가 아니다([ADR-0134](../../adr/0134-bravo-quest-leaves-platform-adapter-port.md)). 쓰기 없음. 구현은 사내 서버, 이 레포는 메뉴의 mock 처리기와 서버 점검표만 갖는다.
 - 보이기: 포트 응답 `ok`면 현재 제목·상태를 보이고 스냅샷을 갱신하지 않는다(읽기는 읽기). `not_found`(사라짐)면 스냅샷 제목에 「BRAVO에서 확인되지 않음」을 붙이고 링크를 끈다. `unavailable`(BRAVO 오류)이면 스냅샷으로 보이고 「지금 확인할 수 없음」을 붙인다. 두 경우 모두 개선 아이템은 그대로 열리고 수정할 수 있다.
-- Quest 선택기: `searchQuests`를 쓴다. BRAVO가 검색을 못 주면 ID 직접 입력으로 낮춘다(Q7).
-- **결과 매핑(노드 c, 구현됨):** 포트는 던지지 않고 `ApiResponse`로 답한다. `getQuest(id)`: `ok`+데이터 = 보임, outcome `empty`+`data: null` = `not_found`, outcome `error` = `unavailable`, `forbidden`은 그대로. `searchQuests({ query?, status?, page, pageSize })`(`page` 0부터, `pageSize` 1–50, `query` ≤ 200자) → `QuestSearchPage = { supported, items, page, hasMore }`: 검색을 못 하는 BRAVO는 outcome `ok`·`supported: false`·`items: []`(선택기가 ID 직접 입력으로 낮춘다), 「일치 없음」은 `supported: true`·`items: []`, `error`는 BRAVO를 쓸 수 없을 때뿐이다. `Quest = { id, title, status }`이고 `status`는 BRAVO의 표시 문자열이라 값을 나열하지 않는다. 링크(`url`)는 안전한 URL 도우미를 재사용할 수 있을 때까지 계약에 없다. 새 `PortError` 코드는 만들지 않았다(코드 어휘·공개 API가 바뀐다).
+- Quest 선택기: `improvement.questSearch`를 쓴다. BRAVO가 검색을 못 주면 ID 직접 입력으로 낮춘다(Q7).
+- **결과 매핑(노드 c, 구현됨):** 두 조회는 던지지 않고 응답 모양으로 답한다. `improvement.quest`: `ok`+`Quest` = 보임, `ok`+`data: null` = `not_found`(형제 `improvement.itemDetail`이 없음을 답하는 방식과 같다; 서버가 `empty`로 답해도 같은 `not_found`로 읽지만 계약은 `ok`+`null`뿐이다), outcome `error`+`data: null` = `unavailable`, `forbidden`은 그대로. `improvement.questSearch`(`{ query?, status?, page, pageSize }`, `page` 0부터, `pageSize` 1–50, `query` ≤ 200자) → `QuestSearchPage = { supported, items, page, hasMore }`: 검색을 못 하는 BRAVO는 `ok`+`supported: false`+`items: []`+`hasMore: false`(선택기가 ID 직접 입력으로 낮춘다), 「일치 없음」은 `supported: true`+`items: []`, `error`는 BRAVO가 지금 답 못 할 때나 입력이 잘못됐을 때다. `Quest = { id, title, status }`이고 `status`는 BRAVO의 표시 문자열이라 값을 나열하지 않는다. 두 조회는 `kinds: []`(trust `null`, assessments `[]`)다. 링크(`url`)는 안전한 URL 도우미를 재사용할 수 있을 때까지 계약에 없다.
 - Quest 화면은 BRAVO가 만든다. 개선 아이템 목록을 거기서 보이려면 플랫폼이 `questId`로 거른 목록 주소를 준다(교차 메뉴 링크).
 
 ## 3. API·DB (기존 log-knowledge·Task 패턴)
 
 - 새 모듈 `apps/platform-api/src/modules/improvement-items`, 소유 스키마 `improvement`(마이그레이션 노드 a). 표: `item`, `item_target`, `item_event`, `item_counter`. 모든 PK/FK에 `workspace_id`. 낙관적 동시성은 `row_version`.
-- 읽기(`platform:view`, menu-query): `improvement.items`(필터 `status`·`assignee`·`questId`·`questLinked`·`target`·`origin`), `improvement.itemDetail`, `improvement.itemEvents`. Quest 읽기는 메뉴 조회가 아니라 어댑터 포트(§2, 노드 c)다 — platform-api는 Quest 엔드포인트를 서비스하지 않는다(platform-api 읽기는 BRAVO에 닿을 수 없다).
+- 읽기(`platform:view`, menu-query): `improvement.items`(필터 `status`·`assignee`·`questId`·`questLinked`·`target`·`origin`), `improvement.itemDetail`, `improvement.itemEvents`. Quest 읽기 `improvement.quest`·`improvement.questSearch`도 메뉴 조회(§2, 노드 c)지만 platform-api는 서비스하지 않는다(platform-api 읽기는 BRAVO에 닿을 수 없다). 사내 서버가 구현한다.
 - 쓰기(menu-action, capability **`improvement.manage`** 워크스페이스 범위, Admin 항상, Developer 요청, User 거절 — 안, Q3): `itemCreate`, `itemUpdate`(version CAS), `itemSetStatus`, `itemAssign`, `itemLinkQuest`, `itemReopen`. 편집형 표(#540)의 여러 칸 편집은 `itemBulkUpdate`(행마다 version, 부분 실패 보고)로 받는다. 모든 쓰기는 감사 기록 + `item_event`.
 - 알림: 담당자 지정 때 기존 알림 모듈로 한 건(노드 e1 구현됨: `improvement.assigned_to_me`, 받은 알림은 `/improvement-items/<id>` 상세로 연결, 홈 담당 건수 카드는 e2).
 - 엔티티 링크: VOC·Finding·Task와 이을 수 있게 `improvement_item` 종류를 06 계약에 더하는 일은 후속(Q8 아님, 기본 미포함).
@@ -49,11 +49,11 @@
 3. **상세.** 본문 왼쪽에 문제·조치·과제(Quest)·분석 출처·대상 이력, 오른쪽에 상태 이동과 변경 이력을 둔다. 분석 기간은 시작·끝 모두 KST로 표시하고 조치일과 구분한다. 출처 ID와 저장 Context를 `resolveLink`에 따로 전달한다. 상태 이동 확인에는 조치·조치일·효과 판단·취소/되돌림 사유의 필수 규칙을 적용하고, 충돌 시 초안을 보관한 채 최신 버전을 명시적으로 확인하게 한다.
 4. **효과 확인 영역(노드 f 효과 부분 구현됨).** `beforeAfterPeriods`에 조치일 00:00 KST와 앞뒤 같은 길이(기본 7일, 1·7·14·30일 선택)를 넘겨 두 기간의 양끝을 KST로 보인다. 저장 출처의 같은 분석 메뉴에 지표·설비 Context와 뒤 기간 `from`·`to`를 `resolveLink`로 전달한다. 앞 기간은 분석 메뉴의 기존 Compare 조회가 같은 길이로 산출하며, 비교 켜기는 분석 화면에서 한다(URL 키 추가 없음). 출처·조치일 없음은 각각 이유를, 지원하지 않거나 열 수 없는 분석 화면·2000자 초과/안전하지 않은 링크는 열 수 없음 안내를 보인다. 링크를 열거나 「효과 확인에 이 비교 사용」으로 선택한 뒤 `done→verified` 확인에서 선택 링크 함께 저장을 끌 수 있다. 기간을 바꾸면 선택을 해제한다. 저장한 결과·메모·링크는 읽기 전용이고 `verified`에서는 기간 조작을 보이지 않는다. 이 화면에는 차트·효과 수치를 만들지 않는다. 편집형 표는 #540이 SDK 조각을 제공할 때까지 구현 안 함.
 
-목록·상세의 불러오는 중·없음·오류·권한 없음, 과제(Quest)의 사라짐/서비스 불가/검색 미지원은 별도 상태로 처리한다. 과제(Quest) 포트에 안전한 URL 계약이 없어 정상 응답도 외부 링크를 만들지 않는다.
+목록·상세의 불러오는 중·없음·오류·권한 없음, 과제(Quest)의 사라짐/서비스 불가/검색 미지원은 별도 상태로 처리한다. 과제(Quest) 조회에 안전한 URL 계약이 없어 정상 응답도 외부 링크를 만들지 않는다.
 
 ## 5. 노드 분할
 
-a) 도메인·스키마·읽기 · b) 쓰기·이력·감사 · c) Quest 포트(어댑터, 구현됨 — platform-api는 Quest 엔드포인트 없음) + mock 어댑터 + 선택기 계약 · d) 화면(구현됨, 소유자 A안): 서랍·목록·상세 · e) 알림·담당 첫 화면 · f) 편집형 표(#540 뒤, 구현 안 함)·효과 확인(#1243 조각 조립 구현됨). a→b→c→d. 편집형 표는 선행 SDK 조각이 없으면 열지 않는다. GLOSSARY에 상태·되돌림·효과 판단 용어를 등록했다.
+a) 도메인·스키마·읽기 · b) 쓰기·이력·감사 · c) Quest 메뉴 조회(구현됨 — platform-api는 Quest 엔드포인트 없음) + mock 처리기 + 선택기 계약 · d) 화면(구현됨, 소유자 A안): 서랍·목록·상세 · e) 알림·담당 첫 화면 · f) 편집형 표(#540 뒤, 구현 안 함)·효과 확인(#1243 조각 조립 구현됨). a→b→c→d. 편집형 표는 선행 SDK 조각이 없으면 열지 않는다. GLOSSARY에 상태·되돌림·효과 판단 용어를 등록했다.
 
 ### 홈 담당 건수 카드 (노드 e2, 구현됨)
 
@@ -71,5 +71,5 @@ a) 도메인·스키마·읽기 · b) 쓰기·이력·감사 · c) Quest 포트(
 | Q4 | 상태 흐름 | §1의 다섯 상태 + `reopen`. `verified`에는 효과 확인 필수 | 효과 확인이 이 기능의 존재 이유(ADR-0106)라서 건너뛰고 닫지 못하게 한다 |
 | Q5 | 대상 설비·공정 | 여러 개, 외부 키 + 이름 스냅샷만 저장 | 플랫폼에 설비 마스터가 없다. 이름 변경은 스냅샷이 기록으로 남는다 |
 | Q6 | 담당자는 한 명인가 | 한 명 | 책임이 흐려지지 않는다. 공동 작업은 아이템을 나눈다 |
-| Q7 | BRAVO가 Quest 검색 읽기를 줄 수 있나(`searchQuests`) | 가능하다고 가정(결정)하고 ID 입력으로 낮추는 길을 둠 | 사내 어댑터 쪽 사실이라 소유자만 안다 |
+| Q7 | BRAVO가 Quest 검색 읽기를 줄 수 있나(`improvement.questSearch`) | 가능하다고 가정(결정)하고 ID 입력으로 낮추는 길을 둠 | 사내 어댑터 쪽 사실이라 소유자만 안다 |
 | Q8 | 엔티티 링크(VOC·Finding·Task) 연결 | 이번 슬라이스에서 제외, 후속 | 06 계약 변경이 필요해 소유자 승인 사안 |

@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.1.8 — 2026-11-10
+
+- Quest 조회(`getQuest`·`searchQuests`)를 `PlatformAdapter` 포트에서 메뉴 조회 `improvement.quest`·`improvement.questSearch`로 옮겼다. `QuestReference`는 `useMenuQuery`, 선택기의 ID 확인은 `useMenuFetch`를 쓰고, mock 처리기는 `src/mock/`에 있다. 아이템 쓰기는 Quest 조회를 다시 읽지 않는다(#1641, ADR-0134).
+
 ## 0.1.7 — 2026-11-07
 
 - 대상 제안이 메뉴가 선언한 `subjectPageKeys`만 읽고 `drillEquipment` 하드코딩을 지웠다. 선언이 없으면 Selection으로 제안한다(#1430 Q3).

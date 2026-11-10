@@ -145,8 +145,6 @@ describe('adapter shape', () => {
       async listNotices() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async saveNotice() { return { outcome: 'error' as const, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'cls' }; }
       async deleteNotice() { return { outcome: 'error' as const, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'cls' }; }
-      async getQuest() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
-      async searchQuests() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       subscribe(listener: () => void) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
     }
     mount(new ServerAdapter());
