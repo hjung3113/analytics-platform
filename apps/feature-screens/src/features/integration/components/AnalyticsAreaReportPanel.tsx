@@ -1,22 +1,35 @@
 import { ListStateMessage } from '@/components/ListStateMessage';
 import { fetchAnalyticsAreaReport } from '@/lib/api/area-report';
 import { useMeBridge } from '@/lib/api/me';
-import { isPermissionDenied } from '@/lib/api/types';
+import { ApiError, isPermissionDenied } from '@/lib/api/types';
 import { AREA_REPORT_COPY as COPY } from '@/lib/copy/area-report';
 import { Button, PermissionBlockedPanel, SkeletonRows } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { AnalyticsAreaReportTable } from './AnalyticsAreaReportTable';
+
+function isInvalidCursor(error: unknown): boolean {
+  if (!(error instanceof ApiError) || error.status !== 422) return false;
+  const fields = error.detail?.fields;
+  return (
+    Array.isArray(fields) &&
+    fields.some((field) => field?.code === 'invalid_cursor' && field.path?.[0] === 'cursor')
+  );
+}
 
 export function AnalyticsAreaReportPanel({
   managedSystemId,
   area,
   cursor,
   onPage,
+  onInvalidCursor,
 }: {
   managedSystemId: string | undefined;
   area: string | undefined;
   cursor: string | undefined;
   onPage: (cursor: string | undefined) => void;
+  /** The address holds a cursor the server no longer accepts, for example one bound to another system scope. */
+  onInvalidCursor: () => void;
 }) {
   const me = useMeBridge();
   const query = useQuery({
@@ -40,6 +53,10 @@ export function AnalyticsAreaReportPanel({
         signal,
       ),
   });
+  const invalidCursor = cursor !== undefined && isInvalidCursor(query.error);
+  useEffect(() => {
+    if (invalidCursor) onInvalidCursor();
+  }, [invalidCursor, onInvalidCursor]);
   if (query.isPending)
     return (
       <div data-testid="area-report-pending">

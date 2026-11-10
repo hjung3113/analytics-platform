@@ -26,7 +26,7 @@ const registry = createRegistry({
   ],
   menus: [
     entry('carry-a', 'carry', '/carry/a', ['m', 'returnTo'], { primary: true, carrySet: carrySetId('carry') }),
-    entry('carry-b', 'carry', '/carry/b', ['m', 'returnTo'], { carrySet: carrySetId('carry') }),
+    entry('carry-b', 'carry', '/carry/b', ['m', 'n', 'returnTo'], { carrySet: carrySetId('carry') }),
     entry('origin', 'plain', '/origin', [], { primary: true }),
     entry('p-detail', 'plain', '/plain/detail', ['returnTo']),
     entry('g-detail', 'global', '/g/detail', ['returnTo'], { primary: true }),
@@ -107,6 +107,17 @@ describe('returnTo in a space that carries it (#760, ADR-0081 UX-10)', () => {
     expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1')!)).toEqual({ carry: '/carry/carry-b?v=1&m=x' });
     await waitFor(() => expect(localStorage.getItem('platform:recent:u1')).not.toBeNull());
     expect(JSON.parse(localStorage.getItem('platform:recent:u1')!).map((r: { url: string }) => r.url)).toEqual(['/carry/carry-b?v=1&m=x']);
+  });
+});
+
+describe('space entry and the carry set', () => {
+  it('resumes the last screen with its own page keys but not the carry-set keys', () => {
+    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ carry: '/carry/carry-b?v=1&m=x&n=y' }));
+    const resumed = mountAt('/origin?v=1').spaceEntry(spaceId('carry'));
+    expect(resumed?.menuId).toBe('carry-b');
+    expect(resumed?.resumed).toBe(true);
+    expect(query(resumed!.href).get('n')).toBe('y');
+    expect(query(resumed!.href).has('m')).toBe(false);
   });
 });
 

@@ -198,7 +198,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   }, [url, route, contractError, userId, can, enters, registry, recordVisit, spaceIdMigrations]);
 
   const visibleMenus = useMemo(() => (sidebarSpace === null ? [] : menusInSpace(sidebarSpace.id)), [menusInSpace, sidebarSpace]);
-  // Read at call time. Stored globals are not restored. Entries start clean: they carry the current global but never the current carry-set page state, and only the target's own stored page values come back.
+  // Read at call time. Stored globals are not restored. Entries start clean: they carry the current global but never the current carry-set page state, and only the target's own stored non-carry-set page values come back.
   const spaceResume = useCallback((spaceId: SpaceId): { menuId: string; href: string } | null => {
     const stored = readSpaceLast(userId, spaceIdMigrations)[spaceId];
     if (typeof stored !== 'string' || !isAppRelativePath(stored)) return null;
@@ -216,8 +216,10 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     if (incompleteMetricPair(matched.menu, parsed.global.metricId, parsed.global.metricVersion)) return null;
     // Every pair of a repeated key stays, in order (a record would keep only the last).
     const page: Record<string, string | string[]> = {};
+    // A space entry ends the flow (06 §22): the last screen comes back, its carry-set keys do not.
+    const carried = registry.carrySetOf(matched.menu)?.pageKeys ?? [];
     for (const [key, value] of parsed.page) {
-      if (key === RETURN_TO_KEY) continue;
+      if (key === RETURN_TO_KEY || carried.includes(key)) continue;
       const seen = page[key];
       page[key] = seen === undefined ? (matched.menu.repeatedPageKeys?.includes(key) ? [value] : value) : [...(Array.isArray(seen) ? seen : [seen]), value];
     }
