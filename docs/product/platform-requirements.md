@@ -118,7 +118,7 @@
 | R3.3 | 목록에서 상세로, 같은 자리에서 | 상세를 볼 때마다 새 페이지로 가서 목록 위치를 잃는다 | 오른쪽 상세 패널이 모든 업무 시스템에서 같은 자리·같은 동작이다. 전체 화면으로 펼치거나 링크로 넘길 수 있다 | 동작 | [ADR-0013](../adr/0013-detail-panel-shell-docked-slot.md), [06 §20](../contract/components.md#20-detail-surface-contract) |
 | R3.4 | 해석을 남긴다 | 차트 위 판단이 대화방에 흩어진다 | 차트 주석은 차트·조회 범위에 붙어 다른 사람에게도 보인다. 작성자만 지우고, 지운 것도 감사에 남는다 | 동작 | [ADR-0041](../adr/0041-annotation-author-delete-audit.md) |
 | R3.5 | 필터는 한 줄, 화면 모양은 일정 | 화면마다 필터 위치와 적용 방식이 다르다 | 화면 필터는 같은 줄 모양이고, 접으면 고른 값을 생략 없이 요약한다. 관리 화면·분석 화면·개요·카탈로그·업무 흐름 다섯 가지 화면 모양이 정해져 있다 | 동작 | [ADR-0016](../adr/0016-page-filter-bar.md), [ADR-0029](../adr/0029-page-filter-bar-collapse-summary.md), [06 §12](../contract/layout.md#12-canonical-page-archetypes) |
-| R3.6 | 설비를 그림으로 본다 | 설비 구조와 실행 재생을 다른 도구에서 따로 본다 | 설비 Top View·재생 화면을 업무 화면으로 올리고, 같은 분석 조건·권한·딥링크를 따른다 | 동작(mock, EV Release tarball 호스트 모듈 #801, 배치는 임시) | #332, #333, [ADR-0039](../adr/0039-equipment-visualization-platform-first-host-contract.md)(Proposed) |
+| R3.6 | 설비를 그림으로 본다 | 설비 구조와 실행 재생을 다른 도구에서 따로 본다 | 설비 Top View·재생 화면을 업무 화면으로 올리고, 같은 분석 조건·권한·딥링크를 따른다 | 동작(mock, EV 호스트 모듈 #801, ADR-0132로 `packages/eqv/*` workspace 연결, 배치는 임시) | #332, #333, [ADR-0039](../adr/0039-equipment-visualization-platform-first-host-contract.md)(Proposed) |
 
 ### 3.4 여러 화면을 함께 보고, 남기고, 직접 조합한다
 
@@ -216,7 +216,7 @@ SDK는 플랫폼에 올릴 앱이 지키는 **계약**이면서, 앱이 자기 �
 옮기는 길은 둘이다.
 
 1. **플랫폼 저장소 안 화면으로** — 메뉴 생성기로 패키지를 만들고 화면을 옮긴다. 지금 된다([사내 적용 가이드](../integration/in-house-rollout.md)).
-2. **자기 저장소에 둔 채 SDK로 올리기** — manifest와 화면을 내고 플랫폼이 등록한다. 계약 1판(등록 검사·화면 렌더·호스트 포트)이 동작하고 계약 검사용 고정 모듈로 검증했다. 첫 외부 소비자는 equipment-visualization이고 mock 조립에 탑재됐다(#801). 실서버 연결과 나머지 편입은 #332 뒤.
+2. **자기 저장소에 둔 채 SDK로 올리기** — manifest와 화면을 내고 플랫폼이 등록한다. 계약 1판(등록 검사·화면 렌더·호스트 포트)이 동작하고 계약 검사용 고정 모듈로 검증했다. 첫 외부 소비자였던 equipment-visualization은 ADR-0132로 이 저장소(`packages/eqv/*`)에 합쳐졌고 mock 조립 탑재(#801)는 그대로 동작한다. 실서버 연결과 나머지 편입은 #332 뒤.
 
 기능은 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 전역, 관리자·개발자 화면은 `피드백 운영` 업무 시스템, 독립 앱은 은퇴([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md)). 업무 시스템별 진입 링크([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md))는 합류 단계 4까지 유지한다.
 
@@ -272,5 +272,5 @@ SDK는 플랫폼에 올릴 앱이 지키는 **계약**이면서, 앱이 자기 �
 | 사용자 설정을 서버에 보존할지 | R4.5 | [보드](../../.planning/README.md) |
 | 권한 부여·회수의 원천 | R6.5 | #98 |
 | 표준 로그 개발의 메뉴 경계 | R7.3 | #252 |
-| equipment-visualization 저장소 편입 | R9.2 외부 소비자 | #332 |
+| equipment-visualization 저장소 편입 | R9.2 외부 소비자 | #332, [ADR-0132](../adr/0132-eqv-merges-into-platform.md)(2026-11-10 편입 완료, 점검표 6~8은 소유자 확인 대기) |
 | 사내 SSO·배포·백엔드 | R10.1–R10.3 | #150, #151, #155 |
