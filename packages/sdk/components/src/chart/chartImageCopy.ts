@@ -34,6 +34,51 @@ export function imageCopyText(outcome: ImageCopyOutcome, lang: string): string {
     : (ko ? '이미지를 복사하거나 내려받지 못했습니다' : 'Could not copy or download the image');
 }
 
+const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error('unreadable image'));
+  reader.readAsDataURL(blob);
+});
+
+export function imagePrintFailedText(lang: string): string {
+  return lang === 'ko' ? '인쇄를 준비하지 못했습니다' : 'Could not prepare the print';
+}
+
+/**
+ * Prints one PNG under its title from a hidden iframe, so the page itself needs no print stylesheet. The image goes in as `data:` because the
+ * production CSP's `img-src` has no `blob:`; the title is set as text, never markup. `afterprint` removes the frame. A browser that never fires it
+ * leaves one hidden frame, which the next print replaces. `false` = nothing was sent to print.
+ */
+export async function printChartImage(produce: () => Blob | Promise<Blob>, title: string): Promise<boolean> {
+  document.querySelectorAll('iframe[data-chart-print]').forEach(old => old.remove());
+  let frame: HTMLIFrameElement | null = null;
+  try {
+    const src = await blobToDataUrl(await produce());
+    const created = document.createElement('iframe');
+    frame = created;
+    created.dataset.chartPrint = ''; created.setAttribute('aria-hidden', 'true'); created.tabIndex = -1;
+    created.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+    document.body.append(created);
+    const win = created.contentWindow; const doc = created.contentDocument;
+    if (!win || !doc) throw new Error('no print frame');
+    const heading = doc.createElement('h1');
+    heading.textContent = title; heading.style.cssText = 'font:600 14px sans-serif;margin:0 0 8px';
+    const image = doc.createElement('img');
+    image.alt = title; image.style.cssText = 'display:block;max-width:100%;max-height:90vh';
+    doc.body.append(heading, image);
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve(); image.onerror = () => reject(new Error('image failed'));
+      image.src = src;
+    });
+    win.addEventListener('afterprint', () => created.remove(), { once: true });
+    win.focus(); win.print();
+    return true;
+  } catch {
+    frame?.remove();
+    return false;
+  }
+}
+
 /** `data:` URL to Blob without `fetch`: a CSP may block `data:` fetches. */
 export function dataUrlToBlob(dataUrl: string): Blob {
   const comma = dataUrl.indexOf(',');
