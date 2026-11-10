@@ -39,7 +39,7 @@ If the folder you work in has an `AGENTS.md`, follow it too (table below). If a 
 
 ## Code
 
-- Root pnpm workspace: `apps/*`, `packages/*` (features `feature-*`), `packages/sdk/*`, `packages/adapters/*`, `menus/*/*`, `platform/*`, `tooling/*`. Node 26.7.0, pnpm 11.1.1. Commands run from the root: `pnpm install|dev|lint|typecheck|test|build|e2e`.
+- Root pnpm workspace: `apps/*`, `packages/*` (features `feature-*`), `packages/sdk/*`, `packages/adapters/*`, `packages/eqv/*`, `menus/*/*`, `platform/*`, `tooling/*`. Node 26.7.0, pnpm 11.1.1. Commands run from the root: `pnpm install|dev|lint|typecheck|test|build|e2e`.
 - The dependency direction is `contracts → ui/kernel → components → shell → apps`; reverse imports are forbidden (enforced by the boundary lint, source `docs/integration/platform-packages.md` §3). Feature packages consume primitives only through `@ap/ui`.
 - Kernel, common components and the shell know nothing of menus or mocks. The app injects the menu list through the Registry and the server through `PlatformAdapter`.
 

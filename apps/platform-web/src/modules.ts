@@ -1,6 +1,6 @@
 /**
- * External host modules mounted into the app (ADR-0053): the first one is EV's `eqv` (Top View, Focus), installed from its release
- * tarballs (EV ADR-0014). `menus.ts` composes the result at the registry call; GROUPS/MENUS stay platform-only.
+ * External host modules mounted into the app (ADR-0053): the first one is EV's `eqv` (Top View, Focus), a workspace
+ * package (ADR-0132). `menus.ts` composes the result at the registry call; GROUPS/MENUS stay platform-only.
  * Placement is the owner's decision (2026-10-25): the "tools" space; it lives in these two constants only.
  * `apps/platform-e2e/tests/eqv.spec.ts` holds the black-box copy of the path — update it with them.
  */

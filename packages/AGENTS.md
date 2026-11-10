@@ -20,6 +20,7 @@ Folders are grouped one level (ADR-0090): the five SDK packages and the unpublis
 | `adapters/mock-server/` (`@ap/mock-server`) | Dev server stand-in (menu query engine `serveEndpoint`, `defineMockEndpoint`, `createMockAdapter`). The app injects it; each menu's `src/mock/` owns its handlers. No Tailwind | `contracts` |
 | `adapters/http-adapter/` (`@ap/http-adapter`) | Real-server client (`bootstrapHttpAdapter` → `PlatformAdapter`, [wire format](../docs/integration/http-adapter-contract.md)). Only the app's production assembly `src/real/**` imports it | `contracts` |
 | `adapters/server-conformance/` (`@ap/server-conformance`) | Server-boundary conformance suite including port methods. Independent of the adapter implementation: judges mock and real adapters by the same bar. App integration tests run it | `contracts` (+ vitest) |
+| `eqv/` (`@eqv/*`) | Equipment visualization Consumer packages absorbed by ADR-0132; rules in [`eqv/AGENTS.md`](eqv/AGENTS.md) | see `eqv/AGENTS.md` |
 
 ## Rules for every package
 

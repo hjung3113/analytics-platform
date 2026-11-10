@@ -18,7 +18,7 @@
 > 의존 방향은 SDK ← 제품 한 방향이다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)). `@ap/feature-ui`는 `@ap/ui`에 의존한다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)).
 
 
-루트에 pnpm workspace를 두고 세 갈래로 나눈다: `packages/`(플랫폼: SDK 다섯은 `packages/sdk/`, 어댑터·소비자 쪽 넷은 `packages/adapters/`, 기능 `feature-*`는 `packages/` 바로 아래, EV 도메인 코어·렌더러는 `packages/eqv/*` — 흡수한 EV 패키지를 workspace로 두기 위함, ADR-0132), Consumer 두 루트(업무 시스템 메뉴 `menus/<system>/<group>/`, 플랫폼 기능 `platform/<feature>/`), `apps/`(조립 지점). 이름 접두사는 Candidate `@ap/`.
+루트에 pnpm workspace를 두고 세 갈래로 나눈다: `packages/`(플랫폼: SDK 다섯은 `packages/sdk/`, 어댑터·소비자 쪽 넷은 `packages/adapters/`, 기능 `feature-*`는 `packages/` 바로 아래, EV 패키지 일곱은 `packages/eqv/*` — 흡수한 EV 패키지를 workspace로 두기 위함, ADR-0132), Consumer 두 루트(업무 시스템 메뉴 `menus/<system>/<group>/`, 플랫폼 기능 `platform/<feature>/`), `apps/`(조립 지점). 이름 접두사는 Candidate `@ap/`.
 
 | 패키지 | 06 갈래 | 내용(현재 파일 기준) | React | 의존 가능 |
 | --- | --- | --- | --- | --- |

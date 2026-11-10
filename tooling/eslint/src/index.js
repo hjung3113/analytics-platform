@@ -27,6 +27,7 @@ const EQV_MOCK_DATA_MESSAGE = '@eqv/*/mock-data is synthetic mock data; only src
 // EV packages are reached only through the host-module slot (ADR-0132, ADR-0128); the app assembles the one adapter.
 const EQV_MESSAGE = 'Platform and menus learn nothing about equipment: @eqv/* is reached only through the host-module slot, assembled in apps/platform-web (ADR-0132, ADR-0128).';
 const EQV_CORE_MESSAGE = 'EV core and renderer are design-system-free and platform-free: they import no @eqv package except @eqv/core (never @eqv/ui) (ADR-0132).';
+const EQV_UI_MESSAGE = 'EV ui, replay, views and editor use EV siblings but never @eqv/platform-adapter: it depends on them and is the one reader of the host port (ADR-0132).';
 const HTTP_ADAPTER_MESSAGE = `${PACKAGE_PREFIX}http-adapter is imported only by the production assembly in apps/platform-web/src/real/** (#154).`;
 // Radix primitives are wrapped once in the design system (ADR-0046); every other layer composes the ui wrappers.
 const RADIX_MESSAGE = `@radix-ui/* is wrapped by ${pkg('ui')}; import the ${pkg('ui')} component instead (ADR-0046).`;
@@ -531,7 +532,7 @@ export const hostModuleDir = (dir) => hostModule.map(({ plugins: _ap, ...config 
 }));
 
 // EV presets (packages/eqv/<name>, packages named @eqv/*; ADR-0132). The files resolve their owning package at that depth
-// (relative-escape.js), so a relative import cannot leave the package. Nothing in this repo applies them until the packages land.
+// (relative-escape.js), so a relative import cannot leave the package.
 // core and renderer: no platform package at all (static, dynamic, type), no @eqv package but core; design-system-free.
 const EQV_CORE_RESTRICTION = { allow: [], denyReact: false, mockAllowed: false, allowEqvPackages: ['@eqv/core'], eqvMessage: EQV_CORE_MESSAGE };
 /** @type {import('eslint').Linter.Config[]} */
@@ -541,8 +542,8 @@ export const eqvCore = [
   layerConfig({ restriction: EQV_CORE_RESTRICTION }),
 ];
 
-// ui, replay, views, editor: the SDK design system (its ui package) only; EV siblings are free.
-const EQV_UI_RESTRICTION = { allow: ['ui'], denyReact: false, mockAllowed: false, allowSubpaths: HOST_MODULE_RESTRICTION.allowSubpaths, allowEqvPackages: EQV_PACKAGES };
+// ui, replay, views, editor: the SDK design system (its ui package) only; EV siblings are free except platform-adapter, the one reader of the host port.
+const EQV_UI_RESTRICTION = { allow: ['ui'], denyReact: false, mockAllowed: false, allowSubpaths: HOST_MODULE_RESTRICTION.allowSubpaths, allowEqvPackages: EQV_PACKAGES.filter((name) => name !== '@eqv/platform-adapter'), eqvMessage: EQV_UI_MESSAGE };
 /** @type {import('eslint').Linter.Config[]} */
 export const eqvUi = [
   REACT_HOOKS,

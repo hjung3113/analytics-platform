@@ -1048,9 +1048,13 @@ describe('eqvUi (ui, replay, views, editor)', () => {
     const messages = await lintEqv(eqvUi, file, code);
     expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual([rule]);
   });
-  it.each(UI_FILES.flatMap((file) => ['@ap/ui', '@ap/ui/theme', '@ap/ui/styles.css', '@eqv/core', '@eqv/ui', '@eqv/platform-adapter/manifest'].map((source) => ({ file, source }))))('$file allows $source', async ({ file, source }) => {
+  it.each(UI_FILES.flatMap((file) => ['@ap/ui', '@ap/ui/theme', '@ap/ui/styles.css', '@eqv/core', '@eqv/ui'].map((source) => ({ file, source }))))('$file allows $source', async ({ file, source }) => {
     const messages = await lintEqv(eqvUi, file, `import { x } from '${source}'; void import('${source}'); type X = import('${source}').X;`);
     expect(messages, JSON.stringify(messages, null, 2)).toEqual([]);
+  });
+  it.each(UI_FILES.flatMap((file) => ['@eqv/platform-adapter', '@eqv/platform-adapter/manifest', '@eqv/platform-adapter/mock-data'].map((source) => ({ file, source }))))('rejects $source from $file: only the adapter reads the host port', async ({ file, source }) => {
+    const messages = await lintEqv(eqvUi, file, `import { x } from '${source}';`);
+    expect(messages.length, JSON.stringify(messages, null, 2)).toBeGreaterThan(0);
   });
   it.each(['@eqv-extra/x', '@eqv/uix'])('near neighbour %s is not an EV identity', async (source) => {
     expect(await lintEqv(eqvUi, 'packages/eqv/ui/src/x.ts', `import { x } from '${source}';`)).toEqual([]);
