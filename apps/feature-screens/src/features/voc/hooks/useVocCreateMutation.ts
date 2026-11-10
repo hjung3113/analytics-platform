@@ -34,6 +34,8 @@ export function useVocCreateMutation(args: UseVocCreateMutationArgs): VocCreateM
     },
     onSuccess: (data) => {
       invalidateNavCounts(queryClient);
+      void queryClient.invalidateQueries({ queryKey: ['vocs'] });
+      void queryClient.invalidateQueries({ queryKey: ['findings', 'voc-source-picker'] });
       onSuccess?.(data);
     },
     ...(onError ? { onError } : {}),
