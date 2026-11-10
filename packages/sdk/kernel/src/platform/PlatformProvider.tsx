@@ -8,10 +8,11 @@ import type { MenuEntry, Registry } from '../registry/registry';
 import { stripReturnToFromUrl } from '../links/return-to';
 import { createRefreshEpochs } from '../query/refresh-epochs';
 import { createQueryClient, invalidateEndpoints, removeOtherGenerations, startQueryEngine, type QueryEngine } from '../query/query-engine';
-import { menuPermissions, type EquipmentAxisDescriptor, type ModuleScopedId, type Permission, type PlatformAdapter, type QueryHistoryStore, type SavedViewStore, type SpaceDef, type SpaceId } from '@ap/contracts';
+import { menuPermissions, type EquipmentAxisDescriptor, type JsonValue, type ModuleScopedId, type Permission, type PlatformAdapter, type QueryHistoryStore, type SavedViewStore, type SpaceDef, type SpaceId } from '@ap/contracts';
 import type { PlatformSlots, Recent, Toast, ToastOptions } from './types';
 import { PreferenceContext, usePreferenceState } from './preferenceContext';
 import { createPreferenceController, type PreferenceController } from './preferenceController';
+import { sameItems, useStable } from '../stable';
 import { ServerLanguage, textFor } from '../i18n';
 import { decodeFavorites, decodeRecent, decodeScopeId, readPreference, writePreference } from './preferences';
 import { AppContext, OverlayContext, RecentContext, ToastsContext, type AppValue, type OverlayState, type UsageNavTrail } from './contexts';
@@ -24,6 +25,8 @@ const NO_SLOTS: PlatformSlots = {};
 /** A visit goes first; an earlier visit of the same menu is dropped; the list keeps 12. */
 const flipFavorite = (list: readonly string[], menuId: string): string[] => list.includes(menuId) ? list.filter(id => id !== menuId) : [...list, menuId];
 const mergeVisit = (list: readonly Recent[], visit: Recent): Recent[] => [visit, ...list.filter(r => r.menuId !== visit.menuId)].slice(0, 12);
+/** URL changes inside one menu are saved once after this pause (#1671). */
+const RECENT_WRITE_DELAY_MS = 1000;
 const browserLocation = createBrowserLocation();
 
 function counterStore(adapter: PlatformAdapter) {
@@ -88,9 +91,12 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const [localRecent, setRecent] = useState<Recent[]>(() => serverPreferences ? [] : readPreference(`platform:recent:${userId}`, decodeRecent, []));
   const [localLastScope, setLastScope] = useState<string | null>(() => serverPreferences ? null : readPreference(`platform:lastScope:${userId}`, decodeScopeId, null));
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `preferenceState.version` is the trigger: the controller is read through it
-  const serverFavorites = useMemo(() => preferences ? decodeFavorites(preferences.get('favorites')) ?? [] : null, [preferences, preferenceState.version]);
+  const decodedFavorites = useMemo(() => preferences ? decodeFavorites(preferences.get('favorites')) ?? [] : null, [preferences, preferenceState.version]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- same trigger
-  const serverRecent = useMemo(() => preferences ? decodeRecent(preferences.get('recents')) ?? [] : null, [preferences, preferenceState.version]);
+  const decodedRecent = useMemo(() => preferences ? decodeRecent(preferences.get('recents')) ?? [] : null, [preferences, preferenceState.version]);
+  // Decoding builds new arrays on every controller notice; equal content keeps one identity so `usePlatform()` consumers are not woken (#1671).
+  const serverFavorites = useStable(decodedFavorites, (held, next) => held === null || next === null ? held === next : sameItems(held, next));
+  const serverRecent = useStable(decodedRecent, (held, next) => held === null || next === null ? held === next : held.length === next.length && held.every((r, i) => r.menuId === next[i]!.menuId && r.url === next[i]!.url && r.at === next[i]!.at));
   const serverScope = preferences ? decodeScopeId(preferences.get('lastScope')) ?? null : null;
   // Server mode: a favorite toggled before the account's list is known is an ordered edit on the account lane of the controller (it survives a controller replacement of the same account) and is applied to the delivered list.
   const favorites = serverFavorites ?? localFavorites;
@@ -257,9 +263,11 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
         queuedVisits.current = { controller: preferences, visits: [...(queue.controller === preferences ? queue.visits : []), visit] };
         return;
       }
-      const merged = mergeVisit(decodeRecent(preferences.get('recents')) ?? [], visit);
-      recentRef.current = merged;
-      preferences.set('recents', merged);
+      const apply = (current: JsonValue | undefined): JsonValue => mergeVisit(decodeRecent(current) ?? [], visit);
+      // Entering a menu saves at once; URL changes inside the same menu are saved once after a pause (#1671).
+      if (decodeRecent(preferences.get('recents'))?.[0]?.menuId === menuId) preferences.hold('recents', apply, RECENT_WRITE_DELAY_MS);
+      else preferences.update('recents', apply);
+      recentRef.current = decodeRecent(preferences.get('recents')) ?? [];
       return;
     }
     const next = mergeVisit(recentRef.current, visit);
