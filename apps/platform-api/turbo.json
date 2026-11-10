@@ -1,13 +1,47 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "extends": ["//"],
+  "extends": [
+    "//"
+  ],
   "tasks": {
     "test": {
-      "dependsOn": ["^build"],
-      "outputs": ["coverage/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/ops/platform-api/**",
+        "$TURBO_ROOT$/menus/log-dev/log-analysis/src/endpoints.ts",
+        "$TURBO_ROOT$/menus/log-dev/log-knowledge/src/endpoints.ts",
+        "$TURBO_ROOT$/tooling/scripts/validation-worker-mock.mjs",
+        "$TURBO_ROOT$/tooling/scripts/validation-worker-mock.d.mts",
+        "$TURBO_ROOT$/tooling/scripts/log-rules-synthetic-reporter.mjs",
+        "$TURBO_ROOT$/docs/architecture/platform-api/api/log-knowledge.md",
+        "$TURBO_ROOT$/docs/design/features/log-knowledge-hub/design-v0.6-candidate.md",
+        "$TURBO_ROOT$/apps/feature-screens/src/**",
+        "$TURBO_ROOT$/packages/eqv/fixtures/cluster-single/layout.json"
+      ],
+      "outputs": [
+        "coverage/**"
+      ]
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/ops/platform-api/**",
+        "$TURBO_ROOT$/menus/log-dev/log-analysis/src/endpoints.ts",
+        "$TURBO_ROOT$/menus/log-dev/log-knowledge/src/endpoints.ts",
+        "$TURBO_ROOT$/tooling/scripts/validation-worker-mock.mjs",
+        "$TURBO_ROOT$/tooling/scripts/validation-worker-mock.d.mts",
+        "$TURBO_ROOT$/tooling/scripts/log-rules-synthetic-reporter.mjs",
+        "$TURBO_ROOT$/docs/architecture/platform-api/api/log-knowledge.md",
+        "$TURBO_ROOT$/docs/design/features/log-knowledge-hub/design-v0.6-candidate.md",
+        "$TURBO_ROOT$/apps/feature-screens/src/**",
+        "$TURBO_ROOT$/packages/eqv/fixtures/cluster-single/layout.json"
+      ]
     }
   }
 }

@@ -26,8 +26,13 @@
 //      Existing off-surface pairs are frozen in check-boundaries.baseline.json (exact `importing file -> target file`
 //      pairs). A pair not in the baseline fails; a baseline pair that no longer exists also fails, so the baseline only
 //      shrinks. `--shrink-baseline` rewrites the file with the stale pairs removed (never adds); `--init-baseline`
-//      writes it once when it does not exist yet.
+//      writes it once when it does not exist yet. Growth is checked against the merge-base's baseline file (see
+//      checkBaselineGrowth): a pair the branch adds, or a baseline file the merge-base has and the tree lacks, fails
+//      unless a commit in <merge-base>..HEAD carries `Boundary-Baseline-Growth: #<issue> <reason>`.
+//      Documented seams (entity-links/provider-types, dashboard/recorder, */recovery-read) are approved surfaces, not
+//      baseline pairs.
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
@@ -442,6 +447,7 @@ for (const rule of RULES) {
 // Rule 12: approved cross-module surfaces, as docs/02-domain-module-boundaries.md «Approved cross-module surfaces» and
 // docs/00-architecture.md «Dependency Direction» name them. Module-root file names (extension-less):
 const APPROVED_SURFACE_NAMES = new Set([
+  'recovery-read', // leaf recovery read seam of findings, permissions, surveys, tasks, voc, voc-clusters
   'index',
   'commands',
   'read-projections',
@@ -458,6 +464,8 @@ const APPROVED_SURFACE_PATHS = new Set([
   'auth/session-service',
   'menu-dispatch/types',
   'platform-port/permissions',
+  'entity-links/provider-types', // documented provider seam
+  'dashboard/recorder', // documented dashboard recorder seam
 ]);
 // `domain modules -> core interfaces/types`: anything under core (rule 6 still bars its repositories).
 const APPROVED_SURFACE_MODULES = new Set(['core']);
@@ -518,6 +526,64 @@ function writeBaseline(path, pairs) {
   writeFileSync(path, `${JSON.stringify({ total: sorted.length, pairs: sorted }, null, 2)}\n`);
 }
 
+// Baseline growth against the merge-base (#1675). In GitHub Actions it runs only on pull_request: PRs are the gate, and
+// on a push or a manual release run a squash commit has lost the PR commits' trailers. Base: FEATURE_LINT_BASE, as lint-root.mjs.
+const GROWTH_TRAILER = /^Boundary-Baseline-Growth:[ \t]*#\d+[ \t]+\S/m;
+
+function checkBaselineGrowth(headPairs) {
+  const event = process.env.GITHUB_EVENT_NAME;
+  if (event && event !== 'pull_request') return 0;
+  const base = process.env.FEATURE_LINT_BASE || 'origin/main';
+  const git = (...args) =>
+    execFileSync('git', args, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  let mergeBase;
+  try {
+    mergeBase = git('merge-base', base, 'HEAD').trim();
+  } catch {
+    if (process.env.CI) {
+      console.error(
+        `[boundary] cannot compare the baseline: no merge-base between ${base} and HEAD (fetch the base ref with full history)`,
+      );
+      return 1;
+    }
+    console.log(`boundaries: baseline growth check skipped (no merge-base with ${base})`);
+    return 0;
+  }
+  const rel = relative(ROOT, BASELINE_FILE).split(sep).join('/');
+  let baseText;
+  try {
+    baseText = git('show', `${mergeBase}:${rel}`);
+  } catch {
+    return 0; // the merge-base has no baseline file: nothing to compare with
+  }
+  if (headPairs === null) {
+    console.error(
+      `[boundary] ${rel} exists at the merge-base but is missing here; deleting it would re-freeze every off-surface pair`,
+    );
+    return 1;
+  }
+  const basePairs = new Set(JSON.parse(baseText).pairs);
+  const added = [...headPairs].filter((pair) => !basePairs.has(pair));
+  if (added.length === 0) return 0;
+  const messages = git('log', '--format=%B%x00', `${mergeBase}..HEAD`);
+  if (GROWTH_TRAILER.test(messages)) {
+    console.log(
+      `boundaries: ${added.length} baseline pair(s) added, approved by a Boundary-Baseline-Growth trailer`,
+    );
+    return 0;
+  }
+  for (const pair of added) {
+    console.error(
+      `[boundary] ${rel}: pair added since the merge-base (${pair}); the baseline may only shrink. Import an approved surface instead, or add a commit trailer \`Boundary-Baseline-Growth: #<issue> <reason>\`.`,
+    );
+  }
+  return added.length;
+}
+
 function checkOffSurfaceBaseline() {
   const found = collectOffSurfacePairs();
   const { path, total, pairs: baseline } = loadBaseline();
@@ -534,7 +600,7 @@ function checkOffSurfaceBaseline() {
     return 0;
   }
   const known = baseline ?? new Set();
-  let count = 0;
+  let count = checkBaselineGrowth(baseline);
   if (baseline !== null && total !== baseline.size) {
     count++;
     console.error(
@@ -549,7 +615,8 @@ function checkOffSurfaceBaseline() {
         `[boundary] ${pair.split(' -> ')[0]}:${line}: cross-module import is not an approved surface (${pair});`,
         'import an approved surface of the target module',
         '(docs/02-domain-module-boundaries.md «Approved cross-module surfaces»).',
-        'New off-surface pairs are not added to the baseline.',
+        'The baseline may only shrink: a pair added relative to the merge-base fails unless a commit carries',
+        'a `Boundary-Baseline-Growth: #<issue> <reason>` trailer.',
       ].join(' '),
     );
   }
