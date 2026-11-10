@@ -1,14 +1,15 @@
-// Authorization of the eqv declarations: the permission table of `platform-port/permissions.ts` is the single source (capability check,
-// then the module's Admin bypass). Real-server Site Scope is enforced by these capabilities alone until #1087 (ADR-0135).
+// Authorization of the eqv declarations: the module's declared menu permissions (`EQV_MENU_PERMISSIONS`, resolved by `platform-port/permissions.ts`: capability check,
+// then the capability's Admin bypass). Real-server Site Scope is enforced by these capabilities alone until #1087 (ADR-0135).
 import type { Tx } from '../../db/tx.js';
 import type { CheckService } from '../permissions/check-service.js';
-import { holdsPlatformPermission, type PlatformActor } from '../platform-port/permissions.js';
+import type { Capability } from '@ap/feature-shared';
+import { holdsMenuPermission, type PlatformActor } from '../platform-port/permissions.js';
 
 export interface EqvDeps {
   checkService: CheckService;
 }
 
 export const eqvAuthorize =
-  (deps: EqvDeps, permission: string) =>
+  (deps: EqvDeps, capability: Capability) =>
   (actor: PlatformActor, tx?: Tx): Promise<boolean> =>
-    holdsPlatformPermission(deps.checkService, actor, permission, tx ? { tx } : {});
+    holdsMenuPermission(deps.checkService, actor, capability, tx ? { tx } : {});

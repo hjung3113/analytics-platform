@@ -52,7 +52,7 @@ Owns the shareable state of a log investigation: its sample set (or the Round it
 - Stored refs are never deleted when access is lost; the detail returns each with a state (`domain/ref-state.ts`): `no_access` with `capability_lost` or `round_not_visible`. The Source ACL is the read side's seam: every ref carries `sourceAccess: 'unchecked'`; do not fabricate Source reads here.
 - Versioned actions lock the row in `currentVersion` (`FOR UPDATE`); the engine answers `conflict` / `not_found`; an archived row is final (`illegal_transition`).
 - Every write is one transaction: row change and one `core.audit_log` row. Audit detail has filter KEYS, counts and a note LENGTH only (`packages/feature-shared/src/audit/log-explorer-investigation.ts`, strict); filter keys are identifier-like so a key cannot carry a value.
-- The capability `explorer.investigate` (menu permission `explorer:investigate`) is registered in `packages/feature-shared/src/enums/capabilities.ts`, the supported-scope policy and `platform-port/permissions.ts`.
+- The capability `explorer.investigate` (menu permission `explorer:investigate`) is registered in `packages/feature-shared/src/enums/capabilities.ts`, the supported-scope policy and the `permissions` declaration of `investigationContribution` (`index.ts`); `platform-port/permissions.ts` is not edited for a menu permission.
 - `logExplorer.evidenceLinks` (`read-endpoints.ts`): reverse lookup of an evidence location, entry right `platform:view`, read only through the log-lifecycle barrel port `deps.lifecycleEvidence` (`lifecycleEvidenceRead`); ids and locations only, no Source access, no audit. `__tests__/lifecycle-boundary.test.ts` pins that no explorer file imports a lifecycle repository or schema.
 
 ## Evidence handoff

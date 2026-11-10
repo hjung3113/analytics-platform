@@ -4,6 +4,7 @@
 // (check-boundaries rule 11, ADR-0073). A module contributes declarations; the dispatch engine
 // owns the judgment order (docs/integration/real-server-checklist.md §3) and never any business write.
 
+import type { Capability } from '@ap/feature-shared';
 import type { Tx } from '../../db/tx.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 
@@ -147,10 +148,25 @@ export interface MenuActionDeclaration {
   ): Promise<ActionHandlerResult>;
 }
 
+/**
+ * A menu permission a module declares (#1667): bootstrap and the access directory list `permission` for exactly the actors who hold
+ * `capability` by the module's write decision — the capability check, then the Admin bypass declared once in
+ * `CAPABILITY_META.adminModuleBypass`. A User who may never hold the capability is already refused by the check service
+ * (`NOT_FOR_USER_ROLE`), so neither rule is repeated here. Data, not a callback, so the platform port can resolve every
+ * declared permission of an actor from one batched read.
+ */
+export interface MenuPermissionDeclaration {
+  /** The menu permission name the endpoints/actions declare (`<namespace>:<name>`). Unique across the registry and never a kernel permission. */
+  permission: string;
+  capability: Capability;
+}
+
 /** What one module contributes to the dispatch registry. */
 export interface MenuDispatchContribution {
   endpoints?: readonly MenuEndpointDeclaration[];
   actions?: readonly MenuActionDeclaration[];
+  /** The menu permissions this module's declarations use; a new menu permission is added here, not in `platform-port/permissions.ts`. */
+  permissions?: readonly MenuPermissionDeclaration[];
 }
 
 export type ActionOutcome = 'ok' | 'invalid' | 'conflict' | 'forbidden' | 'not_found' | 'error';

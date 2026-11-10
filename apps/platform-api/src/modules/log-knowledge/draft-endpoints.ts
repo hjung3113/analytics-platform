@@ -6,7 +6,8 @@
 
 import { parseListParams } from '../../lib/list-params/list-params.js';
 import type { MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
-import { holdsPlatformPermission } from '../platform-port/permissions.js';
+import { holdsMenuPermission, holdsPlatformPermission } from '../platform-port/permissions.js';
+import { ITEM_PERMISSION } from './item-actions.js';
 import { LOG_KNOWLEDGE_ITEMS_MENU_ID } from './catalog-menu.js';
 import type { LogKnowledgeDeps } from './deps.js';
 import { DRAFT_FILTER_SPECS } from './domain/draft-filters.js';
@@ -51,7 +52,7 @@ export function draftEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[
         const parsed = draftsJudge(args.params);
         if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
         // Visibility needs the viewer's review right, judged here (the shared `declareRead` drops the actor).
-        const holdsPublish = await holdsPlatformPermission(deps.checkService, args.actor, 'knowledge:item-publish');
+        const holdsPublish = await holdsMenuPermission(deps.checkService, args.actor, ITEM_PERMISSION);
         const page = await listDrafts(
           deps.db,
           { ...parsed.value, workspaceId: args.actor.workspace_id },
@@ -67,7 +68,7 @@ export function draftEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[
       async handle(args) {
         const draftId = draftIdOf(args.params);
         if (draftId === null) return { outcome: 'error', data: null, message: 'draftId must be a uuid string' };
-        const holdsPublish = await holdsPlatformPermission(deps.checkService, args.actor, 'knowledge:item-publish');
+        const holdsPublish = await holdsMenuPermission(deps.checkService, args.actor, ITEM_PERMISSION);
         const detail = await getDraftDetail(deps.db, args.actor.workspace_id, draftId, {
           workspaceId: args.actor.workspace_id,
           actorId: args.actor.actor_id,

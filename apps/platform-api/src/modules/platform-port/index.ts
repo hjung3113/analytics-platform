@@ -2,6 +2,7 @@ export { requireCsrf, CSRF_HEADER_NAME } from './csrf.js';
 export {
   PLATFORM_PERMISSION_TABLE,
   resolvePlatformPermissions,
+  useMenuPermissions,
   type PlatformPermissionRule,
 } from './permissions.js';
 export {

@@ -413,7 +413,8 @@ describe.skipIf(!runIntegration)('platform port entity + access reads (#623)', (
     const all = (extra: Record<string, unknown> = {}) => list({ pageSize: 100, ...extra });
     const ids = (rows: Row[]) => rows.map((r) => r.id);
     const asc = (...p: Person[]) => p.map((x) => x.id).sort();
-    const CANON = ['platform:view', 'notice:view', 'voc:view', 'console:access', 'features:access', 'knowledge:catalog-manage', 'knowledge:item-publish', 'knowledge:spec-publish', 'improvement:manage', 'lifecycle:project-manage', 'lifecycle:round-manage', 'lifecycle:gate-decide', 'knowledge:draft-create', 'dataset:manage', 'dataset:suite-run', 'knowledge:access-manage', 'eqv:view', 'eqv-studio:layout-edit', 'eqv-studio:layout-publish'];
+    // Kernel permissions first, then the modules' declared menu permissions in registration order (#1667: no hand-written table).
+    const CANON = ['platform:view', 'notice:view', 'voc:view', 'console:access', 'features:access', 'knowledge:catalog-manage', 'knowledge:item-publish', 'knowledge:spec-publish', 'knowledge:draft-create', 'knowledge:access-manage', 'improvement:manage', 'lifecycle:project-manage', 'lifecycle:round-manage', 'lifecycle:gate-decide', 'eqv:view', 'eqv-studio:layout-edit', 'eqv-studio:layout-publish', 'dataset:manage', 'dataset:suite-run'];
     // Admin-only entries (the table rules of console:access and the catalog menu permission): no grant in this suite opens them.
     const NOT_ADMIN = (p: string) => p !== 'console:access' && p !== 'knowledge:catalog-manage' && p !== 'knowledge:item-publish' && p !== 'knowledge:spec-publish' && p !== 'improvement:manage' && p !== 'lifecycle:project-manage' && p !== 'lifecycle:round-manage' && p !== 'lifecycle:gate-decide' && p !== 'knowledge:draft-create' && p !== 'dataset:manage' && p !== 'dataset:suite-run' && p !== 'knowledge:access-manage' && p !== 'eqv:view' && p !== 'eqv-studio:layout-edit' && p !== 'eqv-studio:layout-publish';
 

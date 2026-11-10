@@ -63,8 +63,7 @@ export function suiteActions(deps: LogDatasetsDeps): MenuActionDeclaration[] {
   const audit = createAuditService();
 
   const allowed = async (actor: PlatformActor, tx: Tx, capability: typeof DATASET_MANAGE_PERMISSION | typeof SUITE_RUN_PERMISSION) =>
-    // A User never runs a suite, even with a live grant (a grantee demoted to User keeps the row): the CURRENT role is checked on every call.
-    !(capability === SUITE_RUN_PERMISSION && actor.role_level === 'user') &&
+    // A User never holds this capability, even with a live grant: the check service drops it for the CURRENT role (#1531, `NOT_FOR_USER_ROLE`).
     applyAdminModuleBypass(
       actor.role_level,
       capability,

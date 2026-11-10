@@ -3,13 +3,13 @@ import type { SourceSampleSet } from '@ap/contract-schemas';
 import { isUuid } from '../../lib/input/fields.js';
 import { viewerOf } from '../log-knowledge/index.js';
 import { MenuActionInvalidError, type MenuEndpointDeclaration, type ParamsJudgment } from '../menu-dispatch/types.js';
-import { holdsPlatformPermission, type PlatformActor } from '../platform-port/permissions.js';
+import { holdsMenuPermission, type PlatformActor } from '../platform-port/permissions.js';
 import type { InvestigationDeps } from './deps.js';
 import { EVIDENCE_MAX, storedEvidence } from './domain/evidence.js';
 import { hashMismatchOf } from './domain/handoff.js';
 import { parseDetailParams } from './domain/investigation-params.js';
 import { resolveHandoffRefs } from './handoff-source.js';
-import { EXPLORER_HANDOFF_MENU_PERMISSION } from './investigation-handoff.js';
+import { EXPLORER_HANDOFF_MENU_PERMISSION, EXPLORER_HANDOFF_PERMISSION } from './investigation-handoff.js';
 import { INVESTIGATION_MENU_ID } from './menu.js';
 import { getOwned } from './repositories/investigation-read.js';
 
@@ -24,7 +24,7 @@ export function handoffEndpoints(deps: InvestigationDeps): MenuEndpointDeclarati
   if (!handoff) return [];
   const declare = (name: string, paramKeys: string[], judge: Judge, run: (actor: PlatformActor, params: Record<string, unknown>, signal?: AbortSignal) => Promise<unknown>): MenuEndpointDeclaration => ({
     spec: { id: `logExplorer.${name}`, menuId: INVESTIGATION_MENU_ID, paramKeys, permission: EXPLORER_HANDOFF_MENU_PERMISSION, requiresScope: false, context: {}, mergeTimeDomain: false },
-    authorize: (actor, tx) => holdsPlatformPermission(deps.checkService, actor, EXPLORER_HANDOFF_MENU_PERMISSION, tx ? { tx } : {}),
+    authorize: (actor, tx) => holdsMenuPermission(deps.checkService, actor, EXPLORER_HANDOFF_PERMISSION, tx ? { tx } : {}),
     validate: judge,
     async handle({ actor, params, signal }) {
       const valid = judge(params);

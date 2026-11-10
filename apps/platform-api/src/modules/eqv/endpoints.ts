@@ -5,7 +5,7 @@ import type { Db } from '../../db/client.js';
 import type { MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
 import { type EqvDeps, eqvAuthorize } from './authorize.js';
 import { isLayoutId, REVISION_PATTERN } from './domain/layout-checks.js';
-import { EQV_FOCUS_MENU_ID, EQV_STUDIO_MENU_ID, EQV_VIEW_PERMISSION } from './menu.js';
+import { EQV_FOCUS_MENU_ID, EQV_STUDIO_MENU_ID, EQV_VIEW_CAPABILITY, EQV_VIEW_PERMISSION } from './menu.js';
 import * as read from './repositories/eqv-read.js';
 
 type Params = Record<string, unknown>;
@@ -21,7 +21,7 @@ function declare(
 ): MenuEndpointDeclaration {
   return {
     spec: { id, menuId, paramKeys, permission: EQV_VIEW_PERMISSION, requiresScope: false, context: {}, mergeTimeDomain: false },
-    authorize: eqvAuthorize(deps, EQV_VIEW_PERMISSION),
+    authorize: eqvAuthorize(deps, EQV_VIEW_CAPABILITY),
     validate,
     handle: async (args) => run(args.actor.workspace_id, args.params),
   };

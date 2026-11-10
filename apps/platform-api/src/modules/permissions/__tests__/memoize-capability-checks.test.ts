@@ -23,7 +23,8 @@ function fakeService(decision: Decision = allowed) {
   const capabilityScope = vi
     .fn<CheckService['capabilityScope']>()
     .mockResolvedValue({ kind: 'all' });
-  return { checkCapability, capabilityScope } satisfies CheckService;
+  const loadCapabilitySnapshot = vi.fn<CheckService['loadCapabilitySnapshot']>();
+  return { checkCapability, capabilityScope, loadCapabilitySnapshot } satisfies CheckService;
 }
 
 describe('memoizeCapabilityChecks', () => {

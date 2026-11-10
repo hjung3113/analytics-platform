@@ -13,7 +13,7 @@ import { type FieldError, type MenuActionDeclaration, MenuActionForbiddenError, 
 import { type EqvDeps, eqvAuthorize } from './authorize.js';
 import { recordDraft, recordRevisionPublished, recordTemplatePromoted } from './audit.js';
 import { checkEquipmentLayout, isBundledTemplateId, isLayoutId, nameProblem, REVISION_PATTERN } from './domain/layout-checks.js';
-import { EQV_EDIT_PERMISSION, EQV_PUBLISH_PERMISSION, EQV_STUDIO_MENU_ID } from './menu.js';
+import { EQV_EDIT_CAPABILITY, EQV_EDIT_PERMISSION, EQV_PUBLISH_CAPABILITY, EQV_PUBLISH_PERMISSION, EQV_STUDIO_MENU_ID } from './menu.js';
 import * as write from './repositories/eqv-write.js';
 import { lockKey } from './repositories/eqv-write.js';
 
@@ -21,8 +21,8 @@ const invalid = (...errors: FieldError[]) => new MenuActionInvalidError(errors);
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 export function eqvActions(deps: EqvDeps): MenuActionDeclaration[] {
-  const edit = eqvAuthorize(deps, EQV_EDIT_PERMISSION);
-  const publish = eqvAuthorize(deps, EQV_PUBLISH_PERMISSION);
+  const edit = eqvAuthorize(deps, EQV_EDIT_CAPABILITY);
+  const publish = eqvAuthorize(deps, EQV_PUBLISH_CAPABILITY);
   const S = EQV_STUDIO_MENU_ID;
 
   const saveDraft: MenuActionDeclaration = {

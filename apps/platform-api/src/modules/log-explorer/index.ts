@@ -4,7 +4,8 @@
 import type { MenuDispatchContribution } from '../menu-dispatch/types.js';
 import type { InvestigationDeps, LogExplorerDeps } from './deps.js';
 import { handoffEndpoints } from './handoff-endpoints.js';
-import { investigationActions } from './investigation-actions.js';
+import { EXPLORER_INVESTIGATE_MENU_PERMISSION, EXPLORER_INVESTIGATE_PERMISSION, investigationActions } from './investigation-actions.js';
+import { EXPLORER_HANDOFF_MENU_PERMISSION, EXPLORER_HANDOFF_PERMISSION } from './investigation-handoff.js';
 import { investigationEndpoints } from './investigation-endpoints.js';
 import { guardSourceReadPort } from './ports/guarded.js';
 import type { SourceReadPort } from './ports/source-read.js';
@@ -19,6 +20,10 @@ export function investigationContribution(deps: InvestigationDeps): MenuDispatch
   return {
     endpoints: [...investigationEndpoints(deps), ...handoffEndpoints(deps)],
     actions: investigationActions(deps),
+    permissions: [
+      { permission: EXPLORER_INVESTIGATE_MENU_PERMISSION, capability: EXPLORER_INVESTIGATE_PERMISSION },
+      { permission: EXPLORER_HANDOFF_MENU_PERMISSION, capability: EXPLORER_HANDOFF_PERMISSION },
+    ],
   };
 }
 

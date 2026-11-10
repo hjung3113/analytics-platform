@@ -6,7 +6,7 @@
 // An unknown or other-workspace model answers `ok` with `data: null` (modelSpec) or an empty page (revisions).
 
 import type { EndpointResult, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
-import { holdsPlatformPermission } from '../platform-port/permissions.js';
+import { holdsMenuPermission, holdsPlatformPermission } from '../platform-port/permissions.js';
 import { LOG_KNOWLEDGE_MODELS_MENU_ID } from './catalog-menu.js';
 import type { LogKnowledgeDeps } from './deps.js';
 import { PAGE_SIZE_MAX } from '../../lib/list-params/list-params.js';
@@ -17,7 +17,7 @@ import {
   listModelSpecRevisions,
   listSpecChanges,
 } from './repositories/spec-read.js';
-import { SPEC_MENU_PERMISSION } from './spec-actions.js';
+import { SPEC_MENU_PERMISSION, SPEC_PERMISSION } from './spec-actions.js';
 import { type Viewer, canSeeModel, canSeeSoftware } from './repositories/access-visibility.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -93,7 +93,7 @@ function declareSpecDraft(deps: LogKnowledgeDeps): MenuEndpointDeclaration {
     },
     authorize: async (actor, tx) =>
       (await holdsPlatformPermission(deps.checkService, actor, 'platform:view', tx ? { tx } : {})) &&
-      (await holdsPlatformPermission(deps.checkService, actor, SPEC_MENU_PERMISSION, tx ? { tx } : {})),
+      (await holdsMenuPermission(deps.checkService, actor, SPEC_PERMISSION, tx ? { tx } : {})),
     validate(params): ParamsJudgment {
       const judged = judge(params);
       return judged.ok ? { ok: true } : judged;

@@ -26,7 +26,7 @@
 //   - Admin satisfies workspace.read AND workspace.admin via role.
 //   - User satisfies workspace.read via role; workspace.admin falls through.
 
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import {
   type Capability,
@@ -170,91 +170,9 @@ export function createCheckService(deps: CheckServiceDeps) {
       return { allow: false, reason: 'workspace_mismatch', requestable: null };
     }
 
-    // (2) explicit deny — a workspace-wide active deny blocks every check;
-    // an MS-scoped deny blocks only that same MS scope. Both precede grants
-    // and role checks. 05-policy:33.
     // One loader for decision and scope reads (#1531): it also drops grants the actor's CURRENT role may not exercise.
-    const { denyRows, grantRows } = await loadDenyAndGrantRows(db, actor, capability);
-    for (const row of denyRows) {
-      if (row.managedSystemId === null || row.managedSystemId === scope.managed_system_id) {
-        return { allow: false, reason: 'explicit_deny', requestable: null };
-      }
-    }
-
-    // (3) direct capability grant. Active = NOT revoked AND (expires_at NULL
-    // OR expires_at > now()). We fetch unsuperseded rows for (actor, capability) and
-    // classify rather than filtering in SQL so we can distinguish
-    // grant_expired / grant_revoked from no_grant in a single round-trip.
-    const rightNow = now();
-    let sawRevoked = false;
-    let sawExpired = false;
-    // Step 3 — workspace-wide grants only. MS-scoped grants are step 5's
-    // territory (ADR-0019 Section D).
-    for (const row of grantRows) {
-      if (row.managedSystemId !== null) continue;
-      if (row.revokedAt !== null) {
-        sawRevoked = true;
-        continue;
-      }
-      if (row.expiresAt !== null && row.expiresAt.getTime() <= rightNow.getTime()) {
-        sawExpired = true;
-        continue;
-      }
-      return { allow: true, via: 'direct_grant', grant_id: row.id };
-    }
-
-    // (4) role-derived capability — Slice 1 rule (issue #4 locked):
-    if (roleSatisfies(actor.role_level, capability)) {
-      return { allow: true, via: 'role' };
-    }
-
-    // (5) managed-system scope (ADR-0019 Section D): when the caller
-    // supplied scope.managed_system_id, match MS-scoped grants whose
-    // managed_system_id is exactly that id. Emits the dedicated
-    // `via: 'managed_system_scope'` attribution so the audit/state-mapper
-    // can distinguish workspace-wide grants from MS-scoped grants.
-    //
-    // Slice 3 will add the *fallback* direction: an MS-scoped grant
-    // satisfies a workspace-wide check (scope.managed_system_id absent)
-    // when the capability is on the MS-eligible list. That branch is
-    // intentionally not added here.
-    if (scope.managed_system_id !== undefined) {
-      for (const row of grantRows) {
-        if (row.managedSystemId !== scope.managed_system_id) continue;
-        if (row.revokedAt !== null) {
-          sawRevoked = true;
-          continue;
-        }
-        if (row.expiresAt !== null && row.expiresAt.getTime() <= rightNow.getTime()) {
-          sawExpired = true;
-          continue;
-        }
-        return { allow: true, via: 'managed_system_scope', grant_id: row.id };
-      }
-    }
-
-    // If we saw a revoked or expired grant earlier and nothing else allowed,
-    // surface that distinct reason. Revoked takes precedence over expired
-    // because revocation is an intentional action vs. passive expiry.
-    // A capability that cannot be requested ordinarily (workspace.admin) carries
-    // no requestable scope on any of these denies, like explicit_deny.
-    // Likewise for a User and a User-excluded capability: the request path refuses it (#1531), so no request is offered.
-    const requestableScope: RequestableScope[] | null =
-      isOrdinarilyRequestable(capability) &&
-      !(actor.role_level === 'user' && isNotForUserRole(capability))
-        ? [{ workspace_id: actor.workspace_id }]
-      : null;
-    if (sawRevoked) {
-      return { allow: false, reason: 'grant_revoked', requestable: requestableScope };
-    }
-    if (sawExpired) {
-      return { allow: false, reason: 'grant_expired', requestable: requestableScope };
-    }
-
-    // (6) requestable computation (Slice 1): no explicit deny here, so the
-    // actor MAY request workspace-only scope on this capability. Slice 2
-    // extends with MS scope candidates.
-    return { allow: false, reason: 'no_grant', requestable: requestableScope };
+    const rows = await loadDenyAndGrantRows(db, actor, capability);
+    return decideFromRows(actor, capability, scope, rows, now());
   }
 
   async function capabilityScope(
@@ -270,14 +188,123 @@ export function createCheckService(deps: CheckServiceDeps) {
     return resolveCapabilityScope(db, actor, capability, now);
   }
 
-  return { checkCapability, capabilityScope };
+  /**
+   * Batched read (#1667): the deny and grant rows of many actors for many capabilities in two statements, whatever the
+   * counts. Decisions and scopes then come from memory through the same functions `checkCapability` and
+   * `resolveCapabilityScope` use, so a single call and a batch cannot disagree.
+   */
+  async function loadCapabilitySnapshot(
+    actors: readonly ActorContext[],
+    capabilities: readonly Capability[],
+    options: { tx?: Tx } = {},
+  ): Promise<CapabilitySnapshot> {
+    const db: Tx = options.tx ?? deps.db;
+    const rowsByKey = await loadDenyAndGrantRowsBatch(db, actors, capabilities);
+    const rightNow = now();
+    // The workspace's Managed System ids are read at most once per snapshot, and only when a scope needs them.
+    const idsByWorkspace = new Map<string, Promise<string[]>>();
+    const allIds = (workspaceId: string) => {
+      let ids = idsByWorkspace.get(workspaceId);
+      if (!ids) {
+        ids = allManagedSystemIds(db, workspaceId);
+        idsByWorkspace.set(workspaceId, ids);
+      }
+      return ids;
+    };
+    const rowsOf = (actor: ActorContext, capability: Capability) => {
+      const rows = rowsByKey.get(snapshotKey(actor, capability));
+      if (!rows) {
+        throw new Error(`capability snapshot: ${actor.actor_id} / ${capability} was not loaded`);
+      }
+      return rows;
+    };
+    return {
+      decision(actor, capability) {
+        const byToken = tokenDenial(capability);
+        if (byToken) return byToken;
+        return decideFromRows(
+          actor,
+          capability,
+          { workspace_id: actor.workspace_id },
+          rowsOf(actor, capability),
+          rightNow,
+        );
+      },
+      async scope(actor, capability) {
+        if (tokenDenial(capability)) return { kind: 'scoped', managed_system_ids: [] };
+        const bypass = actor.role_level === 'admin' ? adminModuleBypassFor(capability) : 'none';
+        if (bypass === 'always') return { kind: 'all' };
+        return scopeFromRows(actor, capability, rowsOf(actor, capability), rightNow, () =>
+          allIds(actor.workspace_id),
+        );
+      },
+    };
+  }
+
+  return { checkCapability, capabilityScope, loadCapabilitySnapshot };
 }
 
+/** Decisions and scopes of a preloaded set of (actor, capability) pairs; reading a pair that was not loaded throws. */
+export interface CapabilitySnapshot {
+  /** What `checkCapability(actor, capability, { workspace_id: actor.workspace_id })` answers. */
+  decision(actor: ActorContext, capability: Capability): Decision;
+  /** What `capabilityScope(actor, capability, { workspace_id: actor.workspace_id })` answers. */
+  scope(actor: ActorContext, capability: Capability): Promise<CapabilityScope>;
+}
+
+interface DenyRow {
+  id: string;
+  managedSystemId: string | null;
+}
+interface GrantRow {
+  id: string;
+  managedSystemId: string | null;
+  revokedAt: Date | null;
+  expiresAt: Date | null;
+}
+export interface DenyAndGrantRows {
+  denyRows: DenyRow[];
+  grantRows: GrantRow[];
+}
+
+const rowKey = (workspaceId: string, actorId: string, capability: string) =>
+  `${workspaceId}\u0000${actorId}\u0000${capability}`;
+const snapshotKey = (actor: ActorContext, capability: Capability) =>
+  rowKey(actor.workspace_id, actor.actor_id, capability);
+
+/**
+ * #1531: a grant counts only while the CURRENT role may hold the capability. A demoted actor keeps its grant rows (a later
+ * promotion restores them), but a User never exercises a capability that is excluded for the User role (ADR-0107 decision 3).
+ * Every decision and scope read goes through here (single and batch), so this is the one place the rule lives.
+ */
+function withRoleExclusion(
+  actor: ActorContext,
+  capability: Capability,
+  rows: DenyAndGrantRows,
+): DenyAndGrantRows {
+  if (actor.role_level === 'user' && isNotForUserRole(capability)) {
+    return { denyRows: rows.denyRows, grantRows: [] };
+  }
+  return rows;
+}
+
+const denyColumns = { id: permissionDenies.id, managedSystemId: permissionDenies.managedSystemId };
+const grantColumns = {
+  id: permissionGrants.id,
+  managedSystemId: permissionGrants.managedSystemId,
+  revokedAt: permissionGrants.revokedAt,
+  expiresAt: permissionGrants.expiresAt,
+};
+
 /** The actor's active denies and unsuperseded grants for one capability: one pair of queries, whatever the scope. */
-export async function loadDenyAndGrantRows(db: Tx, actor: ActorContext, capability: Capability) {
+export async function loadDenyAndGrantRows(
+  db: Tx,
+  actor: ActorContext,
+  capability: Capability,
+): Promise<DenyAndGrantRows> {
   const [denyRows, grantRows] = await Promise.all([
     db
-      .select({ id: permissionDenies.id, managedSystemId: permissionDenies.managedSystemId })
+      .select(denyColumns)
       .from(permissionDenies)
       .where(
         and(
@@ -288,12 +315,7 @@ export async function loadDenyAndGrantRows(db: Tx, actor: ActorContext, capabili
         ),
       ),
     db
-      .select({
-        id: permissionGrants.id,
-        managedSystemId: permissionGrants.managedSystemId,
-        revokedAt: permissionGrants.revokedAt,
-        expiresAt: permissionGrants.expiresAt,
-      })
+      .select(grantColumns)
       .from(permissionGrants)
       .where(
         and(
@@ -304,11 +326,174 @@ export async function loadDenyAndGrantRows(db: Tx, actor: ActorContext, capabili
         ),
       ),
   ]);
-  // #1531: a grant counts only while the CURRENT role may hold the capability. A demoted actor keeps its grant rows (a later
-  // promotion restores them), but a User never exercises a capability that is excluded for the User role (ADR-0107 decision 3).
-  // Every decision and scope read goes through here, so this is the one place the rule lives.
-  if (actor.role_level === 'user' && isNotForUserRole(capability)) return { denyRows, grantRows: [] };
-  return { denyRows, grantRows };
+  return withRoleExclusion(actor, capability, { denyRows, grantRows });
+}
+
+/**
+ * The same rows as `loadDenyAndGrantRows` for every (actor, capability) pair, in one statement per table
+ * (`actor_id = any(...)`, `capability = any(...)`), keyed by `snapshotKey`. A pair without rows maps to empty rows.
+ */
+export async function loadDenyAndGrantRowsBatch(
+  db: Tx,
+  actors: readonly ActorContext[],
+  capabilities: readonly Capability[],
+): Promise<Map<string, DenyAndGrantRows>> {
+  const out = new Map<string, DenyAndGrantRows>();
+  if (actors.length === 0 || capabilities.length === 0) return out;
+  const workspaceIds = [...new Set(actors.map((a) => a.workspace_id))];
+  const actorIds = [...new Set(actors.map((a) => a.actor_id))];
+  const capabilityList = [...capabilities];
+  const [denyRows, grantRows] = await Promise.all([
+    db
+      .select({
+        ...denyColumns,
+        actorId: permissionDenies.actorId,
+        workspaceId: permissionDenies.workspaceId,
+        capability: permissionDenies.capability,
+      })
+      .from(permissionDenies)
+      .where(
+        and(
+          inArray(permissionDenies.workspaceId, workspaceIds),
+          inArray(permissionDenies.actorId, actorIds),
+          inArray(permissionDenies.capability, capabilityList),
+          isNull(permissionDenies.revokedAt),
+        ),
+      ),
+    db
+      .select({
+        ...grantColumns,
+        actorId: permissionGrants.actorId,
+        workspaceId: permissionGrants.workspaceId,
+        capability: permissionGrants.capability,
+      })
+      .from(permissionGrants)
+      .where(
+        and(
+          inArray(permissionGrants.workspaceId, workspaceIds),
+          inArray(permissionGrants.actorId, actorIds),
+          inArray(permissionGrants.capability, capabilityList),
+          isNull(permissionGrants.supersededAt),
+        ),
+      ),
+  ]);
+  const raw = new Map<string, DenyAndGrantRows>();
+  const slot = (workspaceId: string, actorId: string, capability: string) => {
+    const key = rowKey(workspaceId, actorId, capability);
+    let rows = raw.get(key);
+    if (!rows) {
+      rows = { denyRows: [], grantRows: [] };
+      raw.set(key, rows);
+    }
+    return rows;
+  };
+  for (const { actorId, workspaceId, capability, ...row } of denyRows) {
+    slot(workspaceId, actorId, capability).denyRows.push(row);
+  }
+  for (const { actorId, workspaceId, capability, ...row } of grantRows) {
+    slot(workspaceId, actorId, capability).grantRows.push(row);
+  }
+  for (const actor of actors) {
+    for (const capability of capabilities) {
+      const key = snapshotKey(actor, capability);
+      out.set(key, withRoleExclusion(actor, capability, raw.get(key) ?? { denyRows: [], grantRows: [] }));
+    }
+  }
+  return out;
+}
+
+/**
+ * Steps 2–6 of the check order over already-loaded rows (the token and workspace steps stay with the caller).
+ * `checkCapability` and the batch snapshot both end here: the decision rules exist once.
+ */
+export function decideFromRows(
+  actor: ActorContext,
+  capability: Capability,
+  scope: CheckScope,
+  { denyRows, grantRows }: DenyAndGrantRows,
+  rightNow: Date,
+): Decision {
+  // (2) explicit deny — a workspace-wide active deny blocks every check;
+  // an MS-scoped deny blocks only that same MS scope. Both precede grants
+  // and role checks. 05-policy:33.
+  for (const row of denyRows) {
+    if (row.managedSystemId === null || row.managedSystemId === scope.managed_system_id) {
+      return { allow: false, reason: 'explicit_deny', requestable: null };
+    }
+  }
+
+  // (3) direct capability grant. Active = NOT revoked AND (expires_at NULL
+  // OR expires_at > now()). Rows are classified rather than filtered in SQL so
+  // grant_expired / grant_revoked stay distinct from no_grant.
+  let sawRevoked = false;
+  let sawExpired = false;
+  // Step 3 — workspace-wide grants only. MS-scoped grants are step 5's
+  // territory (ADR-0019 Section D).
+  for (const row of grantRows) {
+    if (row.managedSystemId !== null) continue;
+    if (row.revokedAt !== null) {
+      sawRevoked = true;
+      continue;
+    }
+    if (row.expiresAt !== null && row.expiresAt.getTime() <= rightNow.getTime()) {
+      sawExpired = true;
+      continue;
+    }
+    return { allow: true, via: 'direct_grant', grant_id: row.id };
+  }
+
+  // (4) role-derived capability — Slice 1 rule (issue #4 locked):
+  if (roleSatisfies(actor.role_level, capability)) {
+    return { allow: true, via: 'role' };
+  }
+
+  // (5) managed-system scope (ADR-0019 Section D): when the caller
+  // supplied scope.managed_system_id, match MS-scoped grants whose
+  // managed_system_id is exactly that id. Emits the dedicated
+  // `via: 'managed_system_scope'` attribution so the audit/state-mapper
+  // can distinguish workspace-wide grants from MS-scoped grants.
+  //
+  // Slice 3 will add the *fallback* direction: an MS-scoped grant
+  // satisfies a workspace-wide check (scope.managed_system_id absent)
+  // when the capability is on the MS-eligible list. That branch is
+  // intentionally not added here.
+  if (scope.managed_system_id !== undefined) {
+    for (const row of grantRows) {
+      if (row.managedSystemId !== scope.managed_system_id) continue;
+      if (row.revokedAt !== null) {
+        sawRevoked = true;
+        continue;
+      }
+      if (row.expiresAt !== null && row.expiresAt.getTime() <= rightNow.getTime()) {
+        sawExpired = true;
+        continue;
+      }
+      return { allow: true, via: 'managed_system_scope', grant_id: row.id };
+    }
+  }
+
+  // If we saw a revoked or expired grant earlier and nothing else allowed,
+  // surface that distinct reason. Revoked takes precedence over expired
+  // because revocation is an intentional action vs. passive expiry.
+  // A capability that cannot be requested ordinarily (workspace.admin) carries
+  // no requestable scope on any of these denies, like explicit_deny.
+  // Likewise for a User and a User-excluded capability: the request path refuses it (#1531), so no request is offered.
+  const requestableScope: RequestableScope[] | null =
+    isOrdinarilyRequestable(capability) &&
+    !(actor.role_level === 'user' && isNotForUserRole(capability))
+      ? [{ workspace_id: actor.workspace_id }]
+      : null;
+  if (sawRevoked) {
+    return { allow: false, reason: 'grant_revoked', requestable: requestableScope };
+  }
+  if (sawExpired) {
+    return { allow: false, reason: 'grant_expired', requestable: requestableScope };
+  }
+
+  // (6) requestable computation (Slice 1): no explicit deny here, so the
+  // actor MAY request workspace-only scope on this capability. Slice 2
+  // extends with MS scope candidates.
+  return { allow: false, reason: 'no_grant', requestable: requestableScope };
 }
 
 /** Single capability scope rule, shared by HTTP hints and db/tx read-model filters. */
@@ -322,7 +507,21 @@ export async function resolveCapabilityScope(
   const bypass = actor.role_level === 'admin' ? adminModuleBypassFor(capability) : 'none';
   if (bypass === 'always') return { kind: 'all' };
 
-  const { denyRows, grantRows } = await loadDenyAndGrantRows(db, actor, capability);
+  const rows = await loadDenyAndGrantRows(db, actor, capability);
+  return scopeFromRows(actor, capability, rows, now(), () =>
+    allManagedSystemIds(db, actor.workspace_id),
+  );
+}
+
+/** The scope rule over loaded rows (token and `always` bypass are the callers' step). `allIds` runs only when a scope needs the id list. */
+async function scopeFromRows(
+  actor: ActorContext,
+  capability: Capability,
+  { denyRows, grantRows }: DenyAndGrantRows,
+  rightNow: Date,
+  allIds: () => Promise<string[]>,
+): Promise<CapabilityScope> {
+  const bypass = actor.role_level === 'admin' ? adminModuleBypassFor(capability) : 'none';
   if (denyRows.some((row) => row.managedSystemId === null)) {
     return { kind: 'scoped', managed_system_ids: [] };
   }
@@ -330,7 +529,6 @@ export async function resolveCapabilityScope(
     denyRows.map((row) => row.managedSystemId).filter((id): id is string => id !== null),
   );
 
-  const rightNow = now();
   const isActive = (row: {
     revokedAt: Date | null;
     expiresAt: Date | null;
@@ -344,7 +542,7 @@ export async function resolveCapabilityScope(
   if (broadAllow && deniedIds.size === 0) return { kind: 'all' };
 
   const allowedIds = broadAllow
-    ? await allManagedSystemIds(db, actor.workspace_id)
+    ? await allIds()
     : grantRows
         .filter(
           (row): row is typeof row & { managedSystemId: string } =>
