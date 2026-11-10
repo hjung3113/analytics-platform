@@ -166,6 +166,10 @@ services:
     labels: *ownership
     logging: *logging
     image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    # No registry: the owner loads this image from a `docker save` tar (docs/release/run-guide.md «MinIO image»). `never`
+    # makes `up` fail at once with «No such image» instead of a slow, confusing pull from Docker Hub, which no longer
+    # serves this tag (#1617). The tag stays as the single reference; the image architecture must match the server CPU.
+    pull_policy: never
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     environment:

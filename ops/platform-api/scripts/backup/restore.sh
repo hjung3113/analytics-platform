@@ -182,6 +182,7 @@ trap fail_hint EXIT
 # override files. The cleanup trap above removes only files this invocation wrote (PINS_FILE is set after the lock).
 # For --replace-live the live stack is replaced: no backup or upgrade may run (or start) on it until this restore has finished.
 bk_lock_acquire restore
+bk_require_mc_image
 umask 077
 TMP="$BACKUP_DIR/../.restore-tmp-$PROJECT-$$"
 mkdir -p "$TMP" && chmod 700 "$TMP"

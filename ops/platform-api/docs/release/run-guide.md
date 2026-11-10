@@ -69,7 +69,29 @@ bash scripts/release/stack-status.sh .env.production
 - 떠 있는 동안 저장소에 닿지 않으면 `GET /health/ready`가 503이고 `checks.storage`가 `fail`입니다.
 - `stack-status.sh`가 `minio`와 `minio-bootstrap` 줄을 `[todo]`로 알려 줍니다.
 
-> **알려진 문제 ([#1617](https://github.com/hjung3113/analytics-platform/issues/1617)):** 세 compose 파일이 고정한 `minio/minio:RELEASE.2024-12-18T13-15-44Z` 이미지는 새 머신에서 Docker Hub pull이 `pull access denied`로 실패했습니다(같은 머신에서 `postgres`용 이미지는 정상). 이미지가 이미 받아져 있는 머신에서만 기동됩니다. 이미지 출처는 #1617에서 정하며, 이 안내는 이미지를 바꾸지 않고 현재 상태만 적습니다. 결정되면 이 상자를 지웁니다.
+### MinIO 이미지 (레지스트리 없이 옮기기)
+
+MinIO 이미지 `minio/minio:RELEASE.2024-12-18T13-15-44Z`는 Docker Hub에서 받을 수 없고 사내 레지스트리도 쓰지 않습니다. 앱 이미지와 같이 `docker save`한 tar를 서버로 옮겨 `docker load`합니다. 두 compose 파일(release, production)의 MinIO는 `pull_policy: never`라 이미지가 없으면 `up`이 `No such image`로 바로 멈춥니다(느린 pull 시도 없음).
+
+1. 이미지가 있는 머신에서 아키텍처를 먼저 확인합니다. 서버 CPU와 같아야 합니다(대개 `linux/amd64`).
+
+       docker image inspect --format '{{.Os}}/{{.Architecture}}' minio/minio:RELEASE.2024-12-18T13-15-44Z
+
+2. 저장하고 해시를 적어 둡니다.
+
+       docker save minio/minio:RELEASE.2024-12-18T13-15-44Z -o minio-image.tar
+       sha256sum minio-image.tar
+
+3. tar를 서버로 옮기고(`scp` 등) 서버에서 해시를 다시 비교한 뒤 로드합니다.
+
+       sha256sum minio-image.tar
+       docker load -i minio-image.tar
+
+4. `stack-status.sh`의 `image minio/minio:…` 줄이 `[ok]`이고 아키텍처가 서버와 같은지 봅니다. 빠졌으면 같은 줄이 `[todo]`로 위 `docker load` 명령을 알려 줍니다.
+
+백업 스크립트의 `mc`도 같은 이미지를 `--pull never`로 씁니다. 이미지가 없으면 `backup.sh`·`restore.sh`가 아무것도 멈추기 전에 거부하고 로드 명령을 출력합니다(`BACKUP_MC_IMAGE`로 같은 이미지의 다른 로컬 사본을 지정할 수 있음).
+
+이미지 출처(tar를 어디서 구하는가)는 아직 정해지지 않았습니다([#1617](https://github.com/hjung3113/analytics-platform/issues/1617)). 이 절은 tar가 있을 때 옮기는 방법만 다룹니다.
 
 ### 최초 Admin의 한계
 

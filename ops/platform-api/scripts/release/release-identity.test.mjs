@@ -314,3 +314,20 @@ test('release compose marks every service and volume with the ownership label', 
   assert.equal(labelled.length, 7 + 2); // 7 services (incl. job-only cutover) + 2 volumes
   assert.ok(services.length >= 7);
 });
+
+test('MinIO is never pulled in release and production: pull_policy never on the minio service (#1617)', () => {
+  const production = read('../../docker-compose.production.yml');
+  for (const [name, text] of [
+    ['release', release],
+    ['production', production],
+  ]) {
+    const block = text.slice(text.indexOf('\n  minio:\n'));
+    const service = block.slice(0, block.indexOf('\n\n'));
+    assert.match(
+      service,
+      /image: minio\/minio:RELEASE\.2024-12-18T13-15-44Z\n/,
+      `${name} keeps the pinned tag`,
+    );
+    assert.match(service, /\n {4}pull_policy: never\n/, `${name} minio must not pull`);
+  }
+});
