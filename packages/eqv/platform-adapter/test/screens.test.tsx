@@ -110,7 +110,7 @@ describe('request generations', () => {
     render(<Screen host={fake.host} params={{}} />);
     await waitFor(() => expect(document.querySelector('tr[data-occurrence-id], [data-layer="replay"]')).not.toBeNull());
     fake.setPage({ equipment: null });
-    await screen.findByText(name === 'topview' ? '위에서 설비를 고르세요' : 'Top View에서 설비를 고르세요');
+    await screen.findByText(name === 'topview' ? '설비 목록을 다시 불러오세요' : 'Top View에서 설비를 고르세요');
     fake.setPage({ equipment: EQUIPMENT });
     await waitFor(() => expect(calls).toBe(2));
     screen.getByText('불러오는 중…');
@@ -434,6 +434,76 @@ describe('Top View equipment bar (#1644)', () => {
       else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
     }
   });
+  it('keeps the same focused trigger through selection and the ready board', async () => {
+    const refreshed = deferred<ApiResponse<unknown>>();
+    const fake = hostFor({ page: {}, query: call => call.id === optionsId ? Promise.resolve(ok({ options })) : server()(call) });
+    const Screen = eqvScreens.topview;
+    const view = render(<Screen host={fake.host} params={{}} />);
+    const setPage = fake.host.setPage;
+    fake.host.setPage = patch => {
+      setPage(patch);
+      // The real module host is replaced when applied URL state changes.
+      const next = hostFor({ page: { equipment: EQUIPMENT }, query: call => call.id === optionsId ? refreshed.promise : server()(call) });
+      view.rerender(<Screen host={next.host} params={{}} />);
+    };
+    const select = await screen.findByRole('combobox', { name: '설비' });
+    await waitFor(() => expect((select as HTMLButtonElement).disabled).toBe(false));
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
+    try {
+      select.focus();
+      fireEvent.keyDown(select, { key: 'ArrowDown' });
+      fireEvent.click(await screen.findByRole('option', { name: EQUIPMENT }));
+      expect(fake.log.pageWrites).toEqual([{ equipment: EQUIPMENT }]);
+      await screen.findByText('Component를 선택하세요');
+      expect(screen.getByRole('combobox', { name: '설비' })).toBe(select);
+      await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+      await act(async () => { refreshed.resolve(ok({ options })); await refreshed.promise; });
+      await waitFor(() => expect(document.activeElement).toBe(select), { timeout: 1000 });
+    } finally {
+      if (descriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', descriptor);
+      else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+    }
+  });
+  it('returns focus to the trigger when applying removes the data-window action', async () => {
+    const { fake, setTime } = renderBar(ok({ options }), { from: '2026-01-02T10:00:00', to: '2026-01-02T10:30:00' });
+    setTime.mockImplementation(range => fake.setContext(range));
+    const select = await screen.findByRole('combobox', { name: '설비' });
+    const apply = await screen.findByRole('button', { name: '이 구간 보기' });
+    apply.focus();
+    fireEvent.click(apply);
+    await waitFor(() => expect(screen.queryByRole('button', { name: '이 구간 보기' })).toBeNull());
+    expect(document.activeElement).toBe(select);
+  });
+  it('reserves the data-window action space after the window is applied', async () => {
+    const { fake } = renderBar(ok({ options }), { from: '2026-01-02T10:00:00', to: '2026-01-02T10:30:00' });
+    const apply = await screen.findByRole('button', { name: '이 구간 보기' });
+    fake.setContext(HOST_TIME);
+    expect(apply.isConnected).toBe(true);
+    expect(apply.getAttribute('aria-hidden')).toBe('true');
+    expect(apply.classList.contains('invisible')).toBe(true);
+    expect((apply as HTMLButtonElement).disabled).toBe(true);
+    expect(apply.tabIndex).toBe(-1);
+  });
+  it('recovers a failed list by retrying only discovery and enables selection', async () => {
+    const retry = deferred<ApiResponse<unknown>>();
+    let attempts = 0;
+    const fake = hostFor({ page: {}, query: call => call.id === optionsId
+      ? ++attempts === 1 ? Promise.resolve(response('error', null)) : retry.promise
+      : server()(call) });
+    const Screen = eqvScreens.topview;
+    render(<Screen host={fake.host} params={{}} />);
+    await screen.findByText('설비 목록을 불러오지 못했습니다');
+    expect((screen.getByRole('combobox', { name: '설비' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText('위에서 설비를 고르세요')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await screen.findByText('설비 목록을 불러오는 중…');
+    await act(async () => { retry.resolve(ok({ options })); await retry.promise; });
+    await waitFor(() => expect((screen.getByRole('combobox', { name: '설비' }) as HTMLButtonElement).disabled).toBe(false));
+    screen.getByText('위에서 설비를 고르세요');
+    expect(fake.log.queries.map(call => call.id)).toEqual([optionsId, optionsId]);
+    expect(fake.log.statuses).toEqual([]);
+  });
   it.each([
     ['2026-01-02T10:00:00', '2026-01-02T10:30:00'],
     ['2025-12-31T10:30:00', '2026-01-01T10:30:00'],
@@ -478,7 +548,7 @@ describe('Top View equipment bar (#1644)', () => {
   ])('shows a list outcome locally (%j)', async (answer, copy) => {
     const { fake } = renderBar(answer, HOST_TIME, null);
     await screen.findByText(copy);
-    screen.getByText('위에서 설비를 고르세요');
+    screen.getByText(answer.outcome === 'error' ? '설비 목록을 다시 불러오세요' : '위에서 설비를 고르세요');
     expect(fake.log.statuses).toEqual([]);
   });
 });
