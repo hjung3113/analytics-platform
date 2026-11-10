@@ -14,7 +14,7 @@ The shipped UI is the reference for existing surfaces (FO ADR-0060): the compone
 - **Copy:** UI chrome (labels, buttons, headers, microcopy) is Korean; domain nouns (`VOC`, `Finding`, `Task`, `Task Request`, `Survey`, `Cluster`, `Managed System`, `Analytics Area`, `Milestone`, `Evidence`, `Triage`) and Task workflow statuses stay English (FO ADR-0057 A2). Reuse existing strings in `lib/copy` before writing new ones.
 - **Three-shell taxonomy (FO ADR-0020).** Every screen is `PageShell`, `ListShell`, or `WorkbenchShell`. Special pages extend the three — never a new shell.
 - **Do NOT port from the prototype:** hash routing, `window` globals, `document.execCommand`, synthetic local data, draft-only API intent panels. The platform owns routing and feature screens use the host seam; rich text is TipTap (FO ADR-0002 / FO ADR-0011).
-- Visual changes follow root `AGENTS.md`: current-app prototypes and an Artifact checkpoint before implementation, except bug fixes or an already confirmed appearance.
+- Visual changes follow root `AGENTS.md` §UI.
 
 Frontend specifics (visual baselines): `apps/feature-screens/AGENTS.md`.
 
