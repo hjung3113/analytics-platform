@@ -17,12 +17,12 @@
 
 - **(A, 채택) 스킬과 의도어 표.** 작고, 효과를 먼저 잴 수 있다. 표는 손으로 고쳐야 하고 이름만 검사된다.
 - **(B) 생성형 Catalog와 `find`·`inspect`·`check` CLI.** 공개 API를 빠짐없이 다루지만 기존 `.api.txt`, lint, tsc와 겹치고 효과가 측정된 적이 없다. [설계안](../research/2026-11-10-devkit-generated-catalog-deferred-design.md)을 남겨 둔다.
-- **(C) `sdk-v*` 릴리스에 함께 배포.** 실재하는 외부 소비자가 `sdk-v0.19.0`에 고정된 EV 하나다.
+- **(C) `sdk-v*` 릴리스에 함께 배포.** 실재하는 저장소 밖 소비자가 없다(EV는 ADR-0132에 따라 workspace 소비자로 흡수됐다).
 
 ## Deferred (구현 안 함)
 
 - 생성형 Catalog 전체, `inspect`, `check` 묶음. 이유: 기존 `.api.txt`, lint, tsc와 겹친다. 다시 여는 조건: 실제 메뉴 PR이나 리뷰에서 의도어 표와 이름 검사가 막지 못한 잘못된 SDK import나 중복 구현된 SDK 부품이 나올 때.
-- `ap-devkit` tarball, 저장소 밖 `check`, 소비자 유형 판별. 이유: 지금 실재하는 외부 소비자는 `sdk-v0.19.0`에 고정된 EV 하나다. 다시 여는 조건: 저장소 밖 패키지(현재 EV 외의 소비자, 또는 EV가 최신 SDK로 올리는 시점)가 이 도구나 확장을 실제로 필요로 할 때.
+- `ap-devkit` tarball, 저장소 밖 `check`, 소비자 유형 판별. 이유: 외부 도구 배포는 소유자 결정으로 보류한다. EV는 ADR-0132에 따라 workspace 소비자로 흡수됐다. 다시 여는 조건: 저장소 밖 패키지가 이 도구나 확장을 실제로 필요로 할 때.
 
 ## 결과
 

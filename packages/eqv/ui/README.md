@@ -4,7 +4,7 @@ EV components for UI patterns that `@ap/ui` does not provide (EV ADR-0008, amend
 
 **The rule:** a screen never restyles such a pattern itself. It gets a component here first, built only from `@ap/ui` primitives and theme utilities (no raw colours, no arbitrary values, no inline styles; the design lint checks `src/**/*.tsx`). Screens use these components without adding colour or typography classes; `core` and `renderer` must not import this package.
 
-The package is consumed as TypeScript source (`exports` → `src/`). The host imports `@eqv/ui/styles.css` after the `@ap/ui` theme so Tailwind scans these components (Studio: `apps/studio/src/studio.css`). `@eqv/ui/theme.css` is the single owner of the `--eqv-*` → platform-token mapping; the Studio and the adapter's `styles.css` both import it. `@ap/ui` and `react` are peer dependencies. Words are the consumer's; this package owns none.
+The package is consumed as TypeScript source (`exports` → `src/`). The host imports `@eqv/ui/styles.css` after the `@ap/ui` theme so Tailwind scans these components (Studio: `apps/eqv-studio/src/studio.css`). `@eqv/ui/theme.css` is the single owner of the `--eqv-*` → platform-token mapping; the Studio and the adapter's `styles.css` both import it. `@ap/ui` and `react` are peer dependencies. Words are the consumer's; this package owns none.
 
 ## Components
 

@@ -17,9 +17,9 @@
 | | |
 | --- | --- |
 | 처음 | 루트 [README](../../README.md)(실행 명령뿐이었다. 이제 「누가 어디부터 읽나」 표가 있다) |
-| 다음 | [사내 적용 가이드 §5](../integration/in-house-rollout.md#5-사내-메뉴-개발-가이드) → [페이지 작성 가이드](../../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) → [menus/AGENTS.md](../../menus/AGENTS.md) |
+| 다음 | [첫 메뉴 화면 만들기](../guides/first-menu-screen.md) → [사내 적용 가이드 §5](../integration/in-house-rollout.md#5-사내-메뉴-개발-가이드) → [menus/AGENTS.md](../../menus/AGENTS.md) |
 | 읽고 나면 | 메뉴 그룹 하나에 화면을 더하고 조회를 선언하고 mock으로 돌려 본다 |
-| 빠진 것 | G1, G2. 순서는 있으나(§5) 규칙 목록이라, 빈 상태에서 화면 하나가 뜨기까지 따라 하는 글이 없다. 페이지 규칙이 조립 앱 README에 있어 찾기 어렵다 |
+| 빠진 것 | G1·G2는 작성했다. 첫 화면 가이드와 `packages/sdk/*/README.md`에서 시작한다 |
 
 ### R2. 다른 저장소에서 tarball로 쓰는 메뉴 개발자 — 보류
 
@@ -61,9 +61,9 @@
 | | |
 | --- | --- |
 | 처음 | 루트 [README](../../README.md)의 「누가 어디부터 읽나」 |
-| 다음 | [oidc-and-images.md](../../ops/platform-api/docs/release/oidc-and-images.md)(compose 순서) → [first-admin-bootstrap.md](../../ops/platform-api/docs/release/first-admin-bootstrap.md) → [backup-restore-upgrade.md](../../ops/platform-api/docs/release/backup-restore-upgrade.md) |
-| 읽고 나면 | 깨끗한 볼륨에서 개발·로컬 스모크·운영 구성을 순서대로 띄우고 최초 Admin을 부여한다 |
-| 빠진 것 | G9. 순서가 release 문서와 compose 주석에만 있고 README·`in-house-rollout.md`에서 닿지 않는다 |
+| 다음 | [배포판 실행 안내](../../ops/platform-api/docs/release/run-guide.md) → [oidc-and-images.md](../../ops/platform-api/docs/release/oidc-and-images.md)(compose 순서) → [first-admin-bootstrap.md](../../ops/platform-api/docs/release/first-admin-bootstrap.md) → [backup-restore-upgrade.md](../../ops/platform-api/docs/release/backup-restore-upgrade.md) |
+| 읽고 나면 | 개발·로컬 스모크·운영 구성의 기동 순서와 최초 Admin 부여 절차를 확인한다 |
+| 빠진 것 | G9 문서는 작성했다. 깨끗한 볼륨에서 실제 기동 확인은 하지 않았다. 사유와 재개 조건은 실행 안내의 검증 범위를 따른다 |
 
 ## 빈 곳 목록
 
@@ -79,7 +79,7 @@
 | G8 | 루트 README가 "어디부터 읽나"를 독자별로 알려 주지 않는다 | 전체 | README 고침 | 작성함: 루트 README 「누가 어디부터 읽나」 |
 | G9 | 배포판 실행 안내 — compose별 기동 순서·프로파일 서비스·MinIO·최초 Admin(#1606). README에서 닿게 하고 깨끗한 볼륨에서 확인 | R7 | 가이드 1편 | 작성함: [run-guide.md](../../ops/platform-api/docs/release/run-guide.md), `ops/platform-api/README.md`, 상태 점검 `scripts/release/stack-status.sh` |
 
-가이드에 쓰지 않는 것: AP DevKit(#1207), 외부 확장 SDK(#428·#492), #911. 설계 단계이거나 없는 기능이다. 생기면 그때 가이드를 고친다.
+AP DevKit(#1207)의 SDK 소비자 스킬·의도어 표와 이름 검사는 구현했다([설계](devkit-sdk-consumer-skill.md), [ADR-0131](../adr/0131-sdk-consumer-skill-and-intent-table.md)). 생성형 Catalog·외부 도구 배포는 Deferred다. 외부 확장 #428과 재사용 패널 #911은 구현하지 않는다. #492는 모듈도 `menuPermission`을 쓴다는 계약 문장만 완료했으며 공개 타입이나 호출 때 검사는 바꾸지 않았다([kernel §5](../contract/kernel.md)).
 
 ## G6 대조 (INDEX와 겹치는가)
 
@@ -96,10 +96,10 @@
 
 | 항목 | 이유 | 다시 여는 조건 |
 | --- | --- | --- |
-| G3·G4 외부 소비자 가이드, R2 | 소유자 결정(2026-11-10): 저장소 밖 소비자가 지금 EV뿐이고 EV는 자체 안내(EV ADR-0014, `INTEGRATION.md`)를 따른다 | 저장소 밖 패키지(EV 외의 소비자, 또는 EV가 최신 SDK로 올리는 시점)가 이 도구나 확장을 실제로 필요로 할 때 |
+| G3·G4 외부 소비자 가이드, R2 | 외부 소비자 가이드는 소유자 결정(2026-11-10)으로 보류한다. EV는 [ADR-0132](../adr/0132-eqv-merges-into-platform.md)에 따라 이 저장소로 흡수됐다 | 저장소 밖 패키지가 이 도구나 확장을 실제로 필요로 할 때 |
 | G5 호스트 모듈 예제, R3 | 같은 결정. 외부 소비자 독자에 속한다 | 위와 같음 |
 | 릴리스된 tarball로 따라 하기 확인 | 외부용 가이드가 없어 대상이 없다. 저장소 안 가이드는 워크스페이스에서 확인한다 | 위와 같음 |
-| 패키지 README를 tarball에 싣기(`sdk-pack` `files`) | 외부 독자 보류와 `v0.32.0` 태그 보류 | 위와 같음 |
+| 패키지 README를 tarball에 싣기(`sdk-pack` `files`) | README의 tarball 포함은 #1603의 소유자 결정으로 보류한다 | 위와 같음 |
 
 ## 작성할 때 지킬 것
 

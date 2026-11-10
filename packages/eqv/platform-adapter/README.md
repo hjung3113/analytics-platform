@@ -6,7 +6,7 @@ The analytics-platform host module (EV ADR-0012, EV ADR-0013). The only package 
 
 - `eqvManifest` — `ModuleManifest` (host contract 1): module `eqv`, `requires: ['query']`, `optional: ['detailSlot']`, group `eqv:equipment`, read-only screens `topview` (the module prefix itself, the group's primary screen; page key `equipment`, i.e. `?equipment=`) and `focus` (`<prefix>/focus`, child of `topview`; page keys `equipment`, `entityType`, `anchor`), permission `eqv:view`. The equipment id is a page key, not a route param, because AP's registry rejects a parent whose route needs params and requires one primary screen per group. The host registers the screens as `eqv:topview` / `eqv:focus`.
 - `TOPVIEW_SCREEN`, `FOCUS_SCREEN` — the bare screen ids.
-- `topviewContext` (`eqv.topview-context`) and `topviewEvents` (`eqv.topview-events`) — `defineEndpoint` declarations; responses are `@eqv/core` types. Time is host-projected (`context.time: 'apply'`), never a param. See `docs/INTEGRATION.md`.
+- `topviewContext` (`eqv.topview-context`) and `topviewEvents` (`eqv.topview-events`) — `defineEndpoint` declarations; responses are `@eqv/core` types. Time is host-projected (`context.time: 'apply'`), never a param. See [INTEGRATION.md](../../../docs/design/features/equipment-visualization/INTEGRATION.md).
 - `eqvScreens` — `Record<'topview' | 'focus', ComponentType<ModuleScreenProps>>`, keyed by the manifest screen ids (also `TopViewScreen`, `FocusScreen`).
 - `@eqv/platform-adapter/manifest` — `eqvManifest`, `TOPVIEW_SCREEN`, `FOCUS_SCREEN`, `topviewContext`, `topviewEvents` and their param types with no React, screen, replay or renderer module reachable; a host registers from here and loads the screens lazily from the root.
 - `@eqv/platform-adapter/mock-data` — synthetic `eqvMockContext` / `eqvMockEvents` (+ `EQV_MOCK_EQUIPMENT`, `EQV_MOCK_WINDOW`) for a host's mock server, generated from `fixtures/cluster-single` (`pnpm --filter @eqv/platform-adapter gen:mock-data`); never import it from production code.
@@ -16,7 +16,7 @@ The analytics-platform host module (EV ADR-0012, EV ADR-0013). The only package 
 
 ## Screens
 
-`eqv:topview` (the layout and scene state as of the end of the applied window, Component detail, "Focus 열기") and `eqv:focus` (`FocusView` on one cursor, "Top View로"). Both read the equipment from `host.page('equipment')` and the time from `host.context()` (naive host seconds padded once with `.000`), load through `host.query` with the two declared endpoints only (`src/replay-load.ts`, one hook `src/use-replay-input.ts`), verify every Mapping Version and Layout (`verifyBindingContext` from `@eqv/core`, then `assertReplayInput`) and draw nothing partial. Selection detail goes to `host.detail.show` when the host grants `detailSlot` (stable callback; `clear` on reset/unmount), inline otherwise. The full behaviour is in `docs/INTEGRATION.md` (화면 동작).
+`eqv:topview` (the layout and scene state as of the end of the applied window, Component detail, "Focus 열기") and `eqv:focus` (`FocusView` on one cursor, "Top View로"). Both read the equipment from `host.page('equipment')` and the time from `host.context()` (naive host seconds padded once with `.000`), load through `host.query` with the two declared endpoints only (`src/replay-load.ts`, one hook `src/use-replay-input.ts`), verify every Mapping Version and Layout (`verifyBindingContext` from `@eqv/core`, then `assertReplayInput`) and draw nothing partial. Selection detail goes to `host.detail.show` when the host grants `detailSlot` (stable callback; `clear` on reset/unmount), inline otherwise. The full behaviour is in [INTEGRATION.md](../../../docs/design/features/equipment-visualization/INTEGRATION.md) (화면 동작).
 
 States (never a default range or a guessed equipment):
 
@@ -37,7 +37,7 @@ States (never a default range or a guessed equipment):
 
 ## Not here yet
 
-Mounting in `apps/platform-web` (an AP PR, AP #333/#334) and the server endpoints.
+The Viewer is mounted in `apps/platform-web` through `@eqv/platform-adapter` in the workspace. Real-server endpoints remain unimplemented; see the current integration document and #155.
 
 ## Check
 
