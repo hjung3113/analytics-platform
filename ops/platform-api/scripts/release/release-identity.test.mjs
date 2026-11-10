@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { after } from 'node:test';
@@ -315,7 +315,7 @@ test('release compose marks every service and volume with the ownership label', 
   assert.ok(services.length >= 7);
 });
 
-test('MinIO is never pulled in release and production: pull_policy never on the minio service (#1617)', () => {
+test('the repo pins no MinIO image for deployed stacks and runs it in the form the site image needs (#1617)', () => {
   const production = read('../../docker-compose.production.yml');
   for (const [name, text] of [
     ['release', release],
@@ -325,9 +325,48 @@ test('MinIO is never pulled in release and production: pull_policy never on the 
     const service = block.slice(0, block.indexOf('\n\n'));
     assert.match(
       service,
-      /image: minio\/minio:RELEASE\.2024-12-18T13-15-44Z\n/,
-      `${name} keeps the pinned tag`,
+      new RegExp(`image: \\$\\{MINIO_IMAGE:\\?set MINIO_IMAGE in \\.env\\.${name}\\}\\n`),
+      name,
     );
-    assert.match(service, /\n {4}pull_policy: never\n/, `${name} minio must not pull`);
+    assert.doesNotMatch(service, /minio\/minio:/, `${name} pins no image`);
+    assert.doesNotMatch(service, /\n {4}pull_policy:/, `${name} leaves the pull policy to compose`);
+    assert.match(service, /\n {4}entrypoint: \["minio"\]\n/, `${name} entrypoint`);
+    assert.match(service, /\n {4}user: "0:0"\n/, `${name} user`);
   }
+});
+
+function stackStatusImageLines(envBody, { imagePresent }) {
+  const dir = mkdtempSync(join(tmpdir(), 'stack-status-'));
+  const env = join(dir, 'env');
+  writeFileSync(env, envBody);
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(
+    join(bin, 'docker'),
+    `#!/usr/bin/env bash\ncase "$*" in "image inspect"*site/minio*) ${imagePresent ? 'exit 0' : 'exit 1'} ;; "image inspect"*) exit 1 ;; esac\nexit 0\n`,
+    { mode: 0o755 },
+  );
+  const r = spawnSync('bash', [fileURLToPath(new URL('./stack-status.sh', import.meta.url)), env], {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+  });
+  return r.stdout;
+}
+
+test('stack-status reads MINIO_IMAGE from the env file: unset, missing image, present (#1617)', () => {
+  for (const body of ['POSTGRES_PASSWORD=x\n', 'MINIO_IMAGE=CHANGE_ME\n']) {
+    assert.match(
+      stackStatusImageLines(body, { imagePresent: false }),
+      /\[todo\] MINIO_IMAGE is not set in .*\n\s+-> set MINIO_IMAGE in /,
+    );
+  }
+  const missing = stackStatusImageLines('MINIO_IMAGE=site/minio:1\n', { imagePresent: false });
+  assert.match(
+    missing,
+    /\[todo\] image site\/minio:1 is missing .*\n\s+-> docker pull site\/minio:1 /,
+  );
+  assert.match(
+    stackStatusImageLines('MINIO_IMAGE="site/minio:1"\n', { imagePresent: true }),
+    /\[ok\] {3}image site\/minio:1 exists/,
+  );
 });

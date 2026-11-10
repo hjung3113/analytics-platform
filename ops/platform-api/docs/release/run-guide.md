@@ -69,27 +69,22 @@ bash scripts/release/stack-status.sh .env.production
 - 떠 있는 동안 저장소에 닿지 않으면 `GET /health/ready`가 503이고 `checks.storage`가 `fail`입니다.
 - `stack-status.sh`가 `minio`와 `minio-bootstrap` 줄을 `[todo]`로 알려 줍니다.
 
-### MinIO 이미지 (레지스트리 없이 옮기기)
+### MinIO 이미지
 
-MinIO 이미지 `minio/minio:RELEASE.2024-12-18T13-15-44Z`는 Docker Hub에서 받을 수 없고 사내 레지스트리도 쓰지 않습니다. 앱 이미지와 같이 `docker save`한 tar를 서버로 옮겨 `docker load`합니다. 두 compose 파일(release, production)의 MinIO는 `pull_policy: never`라 이미지가 없으면 `up`이 `No such image`로 바로 멈춥니다(느린 pull 시도 없음).
+저장소는 배포용 MinIO 이미지를 고정하지 않습니다. 사이트마다 env 파일의 `MINIO_IMAGE`에 이미지를 적습니다(사내 값 `bitnami/minio:2024.7.16-debian-12-r0`). 값이 없으면 compose가 시작을 거부합니다. 이미지가 서버에 있으면 그대로 쓰고, 없으면 일반 pull을 시도합니다.
 
-1. 이미지가 있는 머신에서 아키텍처를 먼저 확인합니다. 서버 CPU와 같아야 합니다(대개 `linux/amd64`).
+1. `MINIO_IMAGE`를 `.env.production`에 적습니다.
+2. 서버 CPU와 아키텍처가 같은지 확인합니다(대개 `linux/amd64`).
 
-       docker image inspect --format '{{.Os}}/{{.Architecture}}' minio/minio:RELEASE.2024-12-18T13-15-44Z
+       docker image inspect --format '{{.Os}}/{{.Architecture}}' "$MINIO_IMAGE"
 
-2. 저장하고 해시를 적어 둡니다.
+3. `stack-status.sh`의 `image …` 줄이 `[ok]`인지 봅니다. 값이나 이미지가 없으면 같은 자리에 `[todo]`로 할 일을 알려 줍니다.
 
-       docker save minio/minio:RELEASE.2024-12-18T13-15-44Z -o minio-image.tar
-       sha256sum minio-image.tar
+compose는 MinIO를 `entrypoint: ["minio"]`와 root로 띄웁니다. Bitnami 이미지의 기본 진입 스크립트는 `server` 명령을 실행하지 못하고, 기본 사용자 1001은 root 소유인 `/data` 볼륨에 쓰지 못하기 때문입니다.
 
-3. tar를 서버로 옮기고(`scp` 등) 서버에서 해시를 다시 비교한 뒤 로드합니다.
+개발 구성의 기본값은 공개로 받을 수 있는 같은 이미지 `bitnamilegacy/minio:2024.7.16-debian-12-r0`입니다. 상위 MinIO는 보관 처리되어 보안 업데이트가 없습니다.
 
-       sha256sum minio-image.tar
-       docker load -i minio-image.tar
-
-4. `stack-status.sh`의 `image minio/minio:…` 줄이 `[ok]`이고 아키텍처가 서버와 같은지 봅니다. 빠졌으면 같은 줄이 `[todo]`로 위 `docker load` 명령을 알려 줍니다.
-
-백업 스크립트의 `mc`도 같은 이미지를 `--pull never`로 씁니다. 이미지가 없으면 `backup.sh`·`restore.sh`가 아무것도 멈추기 전에 거부하고 로드 명령을 출력합니다(`BACKUP_MC_IMAGE`로 같은 이미지의 다른 로컬 사본을 지정할 수 있음).
+백업 스크립트의 `mc`도 이 이미지를 `--pull never`로 씁니다. `MINIO_IMAGE`가 없거나 이미지가 서버에 없으면 `backup.sh`·`restore.sh`가 아무것도 멈추기 전에 거부하고 할 일을 출력합니다(`BACKUP_MC_IMAGE`로 다른 로컬 사본을 지정할 수 있음).
 
 이미지 출처(tar를 어디서 구하는가)는 아직 정해지지 않았습니다([#1617](https://github.com/hjung3113/analytics-platform/issues/1617)). 이 절은 tar가 있을 때 옮기는 방법만 다룹니다.
 

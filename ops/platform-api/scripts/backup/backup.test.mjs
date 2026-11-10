@@ -360,7 +360,10 @@ exit 0
       );
       chmodSync(join(bin, 'docker'), 0o755);
       const envFile = join(tmp(), 'env');
-      writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+      writeFileSync(
+        envFile,
+        'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+      );
       return { bin, envFile, dir: makeBackup(tmp()) };
     }
     const base = ({ bin }, extra = {}) => ({
@@ -446,7 +449,10 @@ describe('upgrade.sh ordering (stub docker)', () => {
     const log = join(tmp(), 'calls.log');
     writeStub(bin, log);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    writeFileSync(
+      envFile,
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    );
     const root = tmp();
     const r = run('bash', [UPGRADE, 'local', '--env-file', envFile, '--compose-file', COMPOSE], {
       PATH: `${bin}:${process.env.PATH}`,
@@ -524,7 +530,10 @@ describe('upgrade.sh ordering (stub docker)', () => {
     );
     writeFileSync(join(bin, 'docker'), text);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    writeFileSync(
+      envFile,
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    );
     const r = run('bash', [UPGRADE, 'local', '--env-file', envFile, '--compose-file', COMPOSE], {
       PATH: `${bin}:${process.env.PATH}`,
       BACKUP_ROOT: tmp(),
@@ -544,7 +553,10 @@ describe('upgrade.sh ordering (stub docker)', () => {
     const text = readFileSync(join(bin, 'docker'), 'utf8').replace("'h1\\nh2\\n'", "'h1\\nXX\\n'");
     writeFileSync(join(bin, 'docker'), text);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    writeFileSync(
+      envFile,
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    );
     const r = run('bash', [UPGRADE, 'local', '--env-file', envFile, '--compose-file', COMPOSE], {
       PATH: `${bin}:${process.env.PATH}`,
       BACKUP_ROOT: tmp(),
@@ -570,7 +582,10 @@ describe('backup.sh standalone (stub docker)', () => {
     const { bin, log } = stubDir();
     writeStub(bin, log);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    writeFileSync(
+      envFile,
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    );
     const root = tmp();
     const r = run('bash', [BACKUP, '--env-file', envFile, '--compose-file', COMPOSE], {
       PATH: `${bin}:${process.env.PATH}`,
@@ -666,7 +681,10 @@ describe('restore.sh image pair and cleanup (stub docker)', () => {
     const log = join(tmp(), 'calls.log');
     writeRestoreStub(bin, log);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    writeFileSync(
+      envFile,
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    );
     const dir = makeBackup(tmp(), undefined, backupOpts);
     // The pin file is written next to the compose file: use a private copy so the repository stays clean.
     const composeDir = tmp();
@@ -781,12 +799,15 @@ const manifestOf = (root) => {
   assert.ok(name, 'a backup directory exists');
   return readFileSync(join(root, name, 'manifest.json'), 'utf8');
 };
-function backupRun(extraEnv = {}) {
+function backupRun(
+  extraEnv = {},
+  envBody = 'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+) {
   const bin = tmp();
   const log = join(tmp(), 'calls.log');
   writeStub(bin, log);
   const envFile = join(tmp(), 'env');
-  writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+  writeFileSync(envFile, envBody);
   const root = tmp();
   const r = run('bash', [BACKUP, '--env-file', envFile, '--compose-file', COMPOSE], {
     PATH: `${bin}:${process.env.PATH}`,
@@ -796,17 +817,59 @@ function backupRun(extraEnv = {}) {
   return { ...r, root, calls: readCalls(log) };
 }
 
+test('restore creates every extension the database bootstrap creates, because pg_restore skips extension entries', () => {
+  const init = readFileSync(join(OPS, 'scripts/db/init.sql'), 'utf8');
+  const wanted = [...init.matchAll(/^CREATE EXTENSION IF NOT EXISTS (\w+);/gm)].map((m) => m[1]);
+  assert.ok(wanted.includes('pg_trgm') && wanted.includes('vector'), wanted.join(','));
+  const restore = readFileSync(RESTORE, 'utf8');
+  const created = restore.match(
+    /^for ext in ([\w ]+); do bk_psql -d "\$DB" -c "CREATE EXTENSION \$ext"/m,
+  );
+  assert.ok(created, 'restore.sh creates extensions in one loop');
+  assert.deepEqual(created[1].split(' ').sort(), [...wanted].sort());
+});
+
 describe('mc image is never pulled (#1617, stub docker)', () => {
   test('backup refuses before stopping anything when the mc image is not loaded, and prints the load command', () => {
-    const r = backupRun({ STUB_MISSING_IMAGE: 'minio/minio:RELEASE.2024-12-18T13-15-44Z' });
+    const r = backupRun({ STUB_MISSING_IMAGE: 'site/minio:test' });
     assert.notEqual(r.code, 0);
     assert.match(r.err, /is not on this host and is never pulled/);
-    assert.match(r.err, /docker load -i <path>\/minio-image\.tar/);
+    assert.match(r.err, /docker pull site\/minio:test/);
     assert.equal(
       r.calls.findIndex((c) => /^compose /.test(c)),
       -1,
       `no compose call:\n${r.calls.join('\n')}`,
     );
+  });
+
+  for (const [name, body] of [
+    ['absent', 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n'],
+    [
+      'still CHANGE_ME',
+      'MINIO_IMAGE=CHANGE_ME\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    ],
+  ]) {
+    test(`backup refuses before stopping anything when MINIO_IMAGE is ${name}`, () => {
+      const r = backupRun({}, body);
+      assert.notEqual(r.code, 0);
+      assert.match(r.err, /no MinIO image to run mc from: set MINIO_IMAGE/);
+      assert.equal(
+        r.calls.findIndex((c) => /^compose /.test(c)),
+        -1,
+        r.calls.join('\n'),
+      );
+    });
+  }
+
+  test('mc runs from MINIO_IMAGE of the stack env, and BACKUP_MC_IMAGE overrides it', () => {
+    const fromEnv = backupRun().calls.filter((c) => /--entrypoint mc /.test(c));
+    assert.ok(fromEnv.length > 0);
+    for (const c of fromEnv) assert.match(c, / site\/minio:test --quiet /);
+    const override = backupRun({ BACKUP_MC_IMAGE: 'other/minio:copy' }).calls.filter((c) =>
+      /--entrypoint mc /.test(c),
+    );
+    assert.ok(override.length > 0);
+    for (const c of override) assert.match(c, / other\/minio:copy --quiet /);
   });
 
   test('every mc run carries --pull never', () => {
@@ -869,7 +932,10 @@ describe('OPS-05 one maintenance lock per installation (stub docker)', () => {
     const log = join(tmp(), 'calls.log');
     writeStub(bin, log);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    writeFileSync(
+      envFile,
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    );
     return { bin, log, envFile };
   }
 
@@ -990,7 +1056,10 @@ describe('N2 upgrade handles the web image with the others (stub docker)', () =>
     const log = join(tmp(), 'calls.log');
     writeStub(bin, log);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    writeFileSync(
+      envFile,
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    );
     const r = run('bash', [UPGRADE, target, '--env-file', envFile, '--compose-file', COMPOSE], {
       PATH: `${bin}:${process.env.PATH}`,
       BACKUP_ROOT: tmp(),
@@ -1058,7 +1127,10 @@ describe('OPS-04 restore: journal check always, images pinned (stub docker)', ()
     const bin = tmp();
     const log = join(tmp(), 'calls.log');
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    writeFileSync(
+      envFile,
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    );
     const dir = makeBackup(tmp(), undefined, backupOpts);
     const composeDir = tmp();
     const compose = join(composeDir, 'docker-compose.production.yml');
@@ -1272,7 +1344,10 @@ describe('b10b F2 interruption does not release a lock while work may still run 
     const log = join(tmp(), 'calls.log');
     writeStub(bin, log);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    writeFileSync(
+      envFile,
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    );
     const maint = tmp();
     const child = spawn(
       'bash',
@@ -1344,7 +1419,10 @@ describe('b10b F2 interruption does not release a lock while work may still run 
       assert.match(r.state.stderr, /Check: ps -p \d+/);
       assert.match(r.state.stderr, /Only when nothing is running any more, clear the lock: rm -rf/);
       const otherEnv = join(tmp(), 'env');
-      writeFileSync(otherEnv, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+      writeFileSync(
+        otherEnv,
+        'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+      );
       const second = run('bash', [BACKUP, '--env-file', otherEnv, '--compose-file', COMPOSE], {
         BACKUP_ROOT: tmp(),
         BACKUP_MAINTENANCE_DIR: r.maint,
@@ -1444,7 +1522,10 @@ describe('b10b F2 signal inside the backend stop (stub docker)', () => {
     const log = join(tmp(), 'calls.log');
     writeStub(bin, log);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    writeFileSync(
+      envFile,
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    );
     const child = spawn('bash', [BACKUP, '--env-file', envFile, '--compose-file', COMPOSE], {
       env: {
         PATH: `${bin}:${process.env.PATH}`,
@@ -1492,7 +1573,7 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
     const envFile = join(tmp(), 'env');
     writeFileSync(
       envFile,
-      'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=smtp\nSMTP_HOST=relay.example\n',
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=smtp\nSMTP_HOST=relay.example\n',
     );
     const dir = makeBackup(tmp(), undefined, backupOpts);
     const composeDir = givenComposeDir ?? tmp();
@@ -1684,7 +1765,10 @@ describe('b10b FIX3 upgrade owns the restore pin file (stub docker)', () => {
     const log = join(tmp(), 'calls.log');
     writeStub(bin, log);
     const envFile = join(tmp(), 'env');
-    writeFileSync(envFile, 'POSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n');
+    writeFileSync(
+      envFile,
+      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    );
     const dir = tmp();
     const compose = join(dir, 'docker-compose.production.yml');
     writeFileSync(compose, 'services: {}\n');

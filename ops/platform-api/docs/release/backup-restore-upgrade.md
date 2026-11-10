@@ -60,8 +60,8 @@ docker call and then restarts the backend and releases. SIGKILL leaves the lock:
 
 How it stays consistent: the script stops `backend` (the HTTP writers and the pg-boss jobs are one process), dumps the
 database, mirrors the bucket, then starts `backend` again; downtime is printed and recorded as `backendDowntimeSeconds`.
-`edge` and the data services stay up and the edge answers 502 meanwhile. The bucket mirror uses the pinned
-MinIO server image the stack already uses (`minio/minio`, run with entrypoint `mc`, never pulled: `backup.sh` and `restore.sh` refuse before stopping anything when it is not loaded, see run-guide «MinIO 이미지»; `BACKUP_MC_IMAGE` overrides it); the MinIO key reaches `mc` as an exported
+`edge` and the data services stay up and the edge answers 502 meanwhile. The bucket mirror uses the
+MinIO server image the stack already uses (`MINIO_IMAGE` of the stack env, run with entrypoint `mc`, never pulled: `backup.sh` and `restore.sh` refuse before stopping anything when it is unset or not on the host, see run-guide «MinIO 이미지»; `BACKUP_MC_IMAGE` overrides it); the MinIO key reaches `mc` as an exported
 `MC_HOST_bk` variable, never as an argument. After the capture the script verifies the new directory
 (`verify-backup.sh`: checksums, inventory, counts; no database) and removes everything but the newest `BACKUP_KEEP`
 (default 7) timestamp directories; it never deletes the directory it just wrote or anything outside `BACKUP_ROOT`.

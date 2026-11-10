@@ -165,11 +165,12 @@ services:
   minio:
     labels: *ownership
     logging: *logging
-    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
-    # No registry: the owner loads this image from a `docker save` tar (docs/release/run-guide.md «MinIO image»). `never`
-    # makes `up` fail at once with «No such image» instead of a slow, confusing pull from Docker Hub, which no longer
-    # serves this tag (#1617). The tag stays as the single reference; the image architecture must match the server CPU.
-    pull_policy: never
+    # Set per site (#1617, docs/release/run-guide.md «MinIO 이미지»): a local image is used, otherwise a normal pull runs.
+    # The Bitnami image needs `entrypoint` (its own script would exec `server`) and root (the named volume at /data is
+    # root-owned and its default user 1001 cannot write it). The upstream minio/minio image also ran as root.
+    image: ${MINIO_IMAGE:?set MINIO_IMAGE in .env.production}
+    entrypoint: ["minio"]
+    user: "0:0"
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
