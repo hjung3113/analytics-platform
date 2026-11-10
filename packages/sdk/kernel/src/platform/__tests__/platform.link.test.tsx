@@ -281,12 +281,12 @@ describe('kernel entries start clean even inside a carry set (#1099b)', () => {
     expect(text('gated')).toBe('q2|/gated/q2?v=1|false');
   });
 
-  it('a resumed target restores its stored page values but never the current set state or a stored returnTo', () => {
+  it('a resumed target restores neither the current set state nor its stored set keys (06 §22)', () => {
     writeSpaceLast('u1', spaceId('left'), `/left/l2?v=1&k=stored&returnTo=${ORIGIN}`);
     mount(`/g/one?v=1&k=live&returnTo=${ORIGIN}`);
     const q = query(text('resume'));
     expect(text('resume')).toContain('/left/l2');
-    expect(q.get('k')).toBe('stored');
+    expect(q.has('k')).toBe(false);
     expect(q.has('returnTo')).toBe(false);
   });
 });
