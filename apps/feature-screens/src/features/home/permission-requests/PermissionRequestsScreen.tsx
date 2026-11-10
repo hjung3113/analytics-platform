@@ -74,6 +74,9 @@ const NO_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>([
   'eqv.view',
   'eqv.layout.edit',
   'eqv.layout.publish',
+  'eqv.rules.edit',
+  'eqv.dictionary.global_edit',
+  'eqv.mapping.publish',
 ]);
 const OPTIONAL_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>(['survey.export']);
 const WORKSPACE_WIDE = '__workspace__';

@@ -18,6 +18,8 @@ export type { SpecPin };
 
 export interface KnowledgeModelRef {
   id: string;
+  /** The Hub vendor of the model (the maker scope key of the eqv Onboarding rules, #1658). */
+  vendorId: string;
   name: string;
   active: boolean;
 }
@@ -86,7 +88,7 @@ export const knowledgeLookup: KnowledgeLookup = {
   async getModel(tx, workspaceId, modelId, viewerActorId) {
     if (!(await canSeeModel(tx, { workspaceId, actorId: viewerActorId }, modelId))) return null;
     const [row] = await tx
-      .select({ id: equipmentModels.id, name: equipmentModels.name, active: equipmentModels.active })
+      .select({ id: equipmentModels.id, vendorId: equipmentModels.vendorId, name: equipmentModels.name, active: equipmentModels.active })
       .from(equipmentModels)
       .where(and(eq(equipmentModels.workspaceId, workspaceId), eq(equipmentModels.id, modelId)));
     return row ?? null;

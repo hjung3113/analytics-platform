@@ -42,9 +42,9 @@ EV 저장소에 `chore/feedbackops-workflow` 가지(2026-10-14, 오래됨)가 �
 | EV#153 Journey deferred | 단계에 붙임(4·9) + 백로그 | 창 걸침 Journey(9). Anchor 없는 웨이퍼 선택기(wafer id·lot)는 구현 안 함: 설비 상세 탭이나 자재 id 딥링크가 생기면 재개한다([백로그](../../../../.planning/backlog.md), #1644). 표시 다듬기는 백로그. 라벨 겹침은 EV#212로 끝났다 |
 | EV#146 Replay UI deferred | 단계에 붙임(8) + 버림 | 템플릿 Capability·Fleet 동작 열은 8단계. 라벨 겹침은 EV#212로, `demo:generate` 로더는 #1627에서 끝났다 |
 | EV#134 Replay UI deferred | 단계에 붙임(9) + 버림 | Gantt 비용 가드는 `packages/eqv/views/src/timeline-cost.ts`로 옮겨져 AP Focus도 받는다. 커서 이동 재준비는 측정 기준만 9단계에 |
-| EV#105 Import deferred | 단계에 붙임(5·8) + 버림 | 창 교체(8), 읽기 캐시·식별자 패턴(5). 식별자 패턴은 #1645에서 Hub 카탈로그 `model_id`(uuid)로 대체됨. «구현 안 함»: Sample Window 서버 캐시·저장은 5단계에 Sample Window 읽기가 없어 가져오기와 함께 8단계에서(다시 여는 조건: 8단계 착수). 단일 사용자 도구 항목은 EV 소유자가 2026-10-26에 wontfix로 닫은 것 |
+| EV#105 Import deferred | 단계에 붙임(5·8) + 버림 | 창 교체(8), 읽기 캐시·식별자 패턴(5). 식별자 패턴은 #1645에서 Hub 카탈로그 `model_id`(uuid)로 대체됨. 식별자 키(Maker=Hub 벤더 id, Model=Hub 모델 id)는 #1658 서버에서 ADR-0139로 확정했다. «구현 안 함»: Sample Window 서버 캐시·저장은 가져오기와 함께(다시 여는 조건: Sample Window 저장 착수. 그때 게시가 저장된 window id를 받는다. 지금 Baseline은 클라이언트가 보낸다). 단일 사용자 도구 항목은 EV 소유자가 2026-10-26에 wontfix로 닫은 것 |
 | EV#91 Studio 미리보기 도구 이식 | 버림 | EV 전용 도구. AP는 conductor 미리보기를 쓴다 |
-| EV#60 Studio deferred | 단계에 붙임(5·8) + 버림 + 백로그 | 대부분 EV 소유자 wontfix이거나 끝남(Drift #217). Studio 화면 행은 6·8단계가 `@ap/components`로 다시 만들고 `apps/eqv-studio`는 11단계에 삭제. Focus 배선은 `@eqv/views` `FocusView`로 옮겨졌다 |
+| EV#60 Studio deferred | 단계에 붙임(5·8) + 버림 + 백로그 | 대부분 EV 소유자 wontfix이거나 끝남(Drift #217). Bindings last-write-wins는 #1658 서버에서 장비별 잠금 아래 한 트랜잭션과 `binding` 표의 행 수 버전([ADR-0139](../../../adr/0139-eqv-onboarding-storage-and-publish.md))으로 대신했다. Studio 화면 행은 6·8단계가 `@ap/components`로 다시 만들고 `apps/eqv-studio`는 11단계에 삭제. Focus 배선은 `@eqv/views` `FocusView`로 옮겨졌다 |
 | EV#3 M2 Replay | 버림(끝남) | `packages/eqv/{core,replay}`에 구현됐고 시험이 AP CI에서 돈다 |
 | EV#2 M1 Standalone Studio | 버림(끝남) | Studio가 `apps/eqv-studio`에서 뜨고 저장·발행이 된다(행 4) |
 | EV#1 M0 Design | 버림(끝남) | 템플릿 6개·스키마·자산·검증이 `packages/eqv/{core,assets,fixtures}`에 있다 |

@@ -869,6 +869,13 @@
       "when": 1794339997883,
       "tag": "0123_hub_model_topview",
       "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1794350074215,
+      "tag": "0124_eqv_onboarding",
+      "breakpoints": true
     }
   ]
 }

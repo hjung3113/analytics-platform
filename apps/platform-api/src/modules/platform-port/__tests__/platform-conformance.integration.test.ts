@@ -264,7 +264,15 @@ const MENU_PARAMS: Record<string, Record<string, unknown>> = {
  */
 const EXPLORER_PERMISSION_GAP =
   'every other check passes with a bare server (stateOnly, outcome ok), but the entry gate admits any token regardless of platform:view and answers an audited ok with a permission_denied state, so the kit\'s "without platform:view → forbidden" cannot hold';
+const ONBOARDING_LEFT_OUT = 'Onboarding read (#1658): not in the contract snapshot until the Onboarding menu package declares it; the eqv integration suite judges it';
 const MENU_LEFT_OUT: Readonly<Record<string, string>> = {
+  'eqv.aliasRules': ONBOARDING_LEFT_OUT,
+  'eqv.typeDictionary': ONBOARDING_LEFT_OUT,
+  'eqv.equipmentScopes': ONBOARDING_LEFT_OUT,
+  'eqv.mappingVersions': ONBOARDING_LEFT_OUT,
+  'eqv.mappingVersion': ONBOARDING_LEFT_OUT,
+  'eqv.bindings': ONBOARDING_LEFT_OUT,
+  'eqv.baselineInventory': ONBOARDING_LEFT_OUT,
   'logExplorer.records': EXPLORER_PERMISSION_GAP,
   'logExplorer.periods': EXPLORER_PERMISSION_GAP,
   'logExplorer.parsed': EXPLORER_PERMISSION_GAP,

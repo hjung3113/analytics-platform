@@ -1,4 +1,4 @@
-# eqv — Layouts, Revisions and Templates (#1645)
+# eqv — Layouts, Revisions, Templates (#1645) and Onboarding storage (#1658)
 
 Menu Dispatch declarations of the `eqv` module ([ADR-0135](../../../adr/0135-eqv-layout-storage-publish-and-promotion.md); module guide `apps/platform-api/src/modules/eqv/AGENTS.md`). Migration `0121_eqv_layouts.sql`. Workspace-scoped; the workspace is the actor's, never a param.
 
@@ -38,6 +38,33 @@ Answers carry ids and versions, not document bodies. Audit is written in the sam
 
 Refusals are `invalid` with field errors, never a 500: the document is not a valid Layout (codes of `validateLayout`, including `hierarchy-cycle`, EV#170); `document.id` ≠ `layoutId` (`id_mismatch`); `kind` not `equipment-layout` (`kind_not_equipment_layout`); a bundled Template id (`bundled_template_id`); a duplicate Template id (`duplicate`); an unknown Revision (`not_found`); a Revision whose stored hash no longer matches (`hash_mismatch`).
 
+## Onboarding (#1658, [ADR-0139](../../../adr/0139-eqv-onboarding-storage-and-publish.md))
+
+Menu `eqv-onboarding` (constant `EQV_ONBOARDING_MENU_ID`; only this constant changes if the owner picks another id). Migration `0124_eqv_onboarding.sql`: tables `alias_rules`, `type_dictionary` (one row per Mapping Scope, `version`), immutable `mapping_version` and `baseline_inventory`, `binding` (only `effective_to` is ever updated). **Scope keys are Hub ids:** `{ level, vendorId?, modelId?, equipmentId? }`, with `maker` = Hub vendor id and `model` = Hub model id in the `@eqv/core` scope. No free maker/model string. Only the ids a level needs are accepted (a surplus id is `unexpected`).
+
+**Access.** Reads: `eqv-onboarding:view` (capability `eqv.view`). Writes: a `global`-level alias rules or Type Dictionary write needs `eqv.dictionary.global_edit` (`eqv-onboarding:dictionary-global-edit`); any other rules or dictionary write needs `eqv.rules.edit` (`eqv-onboarding:rules-edit`); `publishMapping` needs `eqv.mapping.publish` (`eqv-onboarding:mapping-publish`). The right is judged per request on the transaction, again after the lock wait; a denial is `forbidden` with no detail. A scope target the actor cannot address (unknown vendor, unknown equipment, a Hub model hidden from the actor) answers like a missing one: reads `empty`, writes `not_found`.
+
+| Read | Params | Data |
+| --- | --- | --- |
+| `eqv.aliasRules` | `level`, `vendorId?`, `modelId?`, `equipmentId?` | `{ document, version } \| empty` |
+| `eqv.typeDictionary` | `level` (no `equipment`), `vendorId?`, `modelId?` | `{ document, version } \| empty` |
+| `eqv.equipmentScopes` | `equipmentId` | `{ equipmentId, vendorId, modelId } \| empty` |
+| `eqv.mappingVersions` | `equipmentId` | `{ rows: { hash, layoutId, layoutRevision, entryCount, publishedAt }[] }`, newest first, at most 500 |
+| `eqv.mappingVersion` | `equipmentId`, `hash` | `{ layoutRevision, publishedAt, document }`; the hash is re-verified (`verifyMappingHash`), a mismatch is `empty` plus a log line |
+| `eqv.bindings` | `equipmentId` | `{ document: BindingsFile, version }` built from the rows (`validateBindings` passes); `version` is the row count as a string, `'0'` with none |
+| `eqv.baselineInventory` | `equipmentId`, `mappingHash` | `{ document } \| empty` |
+
+| Action | Input | Answer |
+| --- | --- | --- |
+| `eqv.saveAliasRules` | `level`, `vendorId?`, `modelId?`, `equipmentId?`, `document` | `{ id, version }` |
+| `eqv.saveTypeDictionary` | `level` (no `equipment`), `vendorId?`, `modelId?`, `document` | `{ id, version }` |
+| `eqv.publishMapping` | `equipmentId`, `layoutId`, `layoutRevision`, `baseline`, `effectiveFrom` | `{ mappingHash, bindingId, version }` |
+
+- Saves are `concurrency: 'version'`: `'0'` while no row exists, first row version 1, `'0'` on an existing row or a stale version is `conflict` (a creation race too). `@eqv/core`'s `validateAliasRules` / `validateTypeDictionary` is the verdict and the document's `scope` must equal the addressed scope (`scope_mismatch`); only the validated file is stored. Issues answer `invalid` with `{ path, code }` only (core messages stay in the module).
+- `publishMapping` is `concurrency: 'version'` over the equipment's Binding row count (`'0'` with none), so it lands only over the Bindings the author saw. One transaction under an equipment advisory lock: the published Layout Revision must exist (`layoutRevision/not_found`; the action never publishes a draft) and hash-check; the applicable alias rule rows (global, maker, model, equipment) go to `@eqv/core` `publishMapping` with the aliases of `baseline`; any issue is `invalid` (`mapping/...`) and nothing is stored; Mapping Conflicts never block. `effectiveFrom` is a strict Site Wall-clock (`fraction-missing`, `fraction-too-long`, `offset`, `malformed`, `impossible`: never truncated) and must be later than the latest Binding's (`not_after_latest`); the same mapping hash and Layout Revision as the latest is `invalid` `mapping/same-as-latest`. Then: Mapping Version (an existing same hash is reused), Baseline (the first one of a hash stays), the open latest Binding is closed at `effectiveFrom`, the new Binding is inserted, `validateBindings` runs on the resulting set, and one audit row is written.
+- **Interim:** `baseline` is a client-supplied `ObservedInventory` (validated by `observedInventorySchema`, `equipmentId` must match: `baseline/equipmentId/equipment_mismatch`). Sample Window storage is not implemented; reopen when it lands (publish then takes a stored window id).
+- Audit (same transaction, ids only): `eqv.alias_rules.created|saved` (subject `eqv_alias_rules`), `eqv.type_dictionary.created|saved` (`eqv_type_dictionary`), `eqv.mapping.published` (subject `eqv_binding`, detail equipment id, mapping hash, Layout Revision, `effectiveFrom`). The viewerless audit projection keeps excluding `eqv_` subjects.
+
 ## Not implemented
 
-Mapping, Bindings, alias rules, Type Dictionary, Sample Window storage or cache, the equipment write action, and the capabilities `eqv.mapping.publish`, `eqv.rules.edit`, `eqv.dictionary.global_edit`, `eqv.window.import` (steps 8–9).
+Sample Window storage or cache and the capability `eqv.window.import` (reopen when Sample Window storage lands: publish then takes a stored window id and derives the Baseline), the `equipment` write action, a permission-aware eqv audit view.

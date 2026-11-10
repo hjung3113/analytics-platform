@@ -45,6 +45,9 @@ export const CAPABILITIES = [
   'eqv.view',
   'eqv.layout.edit',
   'eqv.layout.publish',
+  'eqv.rules.edit',
+  'eqv.dictionary.global_edit',
+  'eqv.mapping.publish',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -174,6 +177,12 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'eqv.view': { sensitive: false, adminModuleBypass: 'always' },
   'eqv.layout.edit': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
   'eqv.layout.publish': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
+  // Equipment Onboarding (#1658, ADR-0139): alias rules and Type Dictionary edits below global scope (`eqv.rules.edit`), any global-scope write
+  // (`eqv.dictionary.global_edit`: a global row changes every equipment) and Mapping publish (`eqv.mapping.publish`, which also writes the Binding).
+  // Workspace-scoped, not sensitive, session-only like `eqv.layout.publish`.
+  'eqv.rules.edit': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
+  'eqv.dictionary.global_edit': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
+  'eqv.mapping.publish': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
 };
 
 export function isCapability(value: string): value is Capability {

@@ -3,6 +3,8 @@
 import type { MenuPermissionDeclaration } from '../menu-dispatch/types.js';
 export const EQV_STUDIO_MENU_ID = 'eqv-studio';
 export const EQV_FOCUS_MENU_ID = 'eqv:focus';
+/** Menu id of the Onboarding reads and actions (#1658). The prototype's recommended id; if the owner picks another, only this constant changes. */
+export const EQV_ONBOARDING_MENU_ID = 'eqv-onboarding';
 
 /**
  * The menu permissions the declarations carry. `eqv:view` keeps its name: the module menu permission the app declares today; the server reads
@@ -15,13 +17,26 @@ export const EQV_STUDIO_VIEW_PERMISSION = 'eqv-studio:view';
 export const EQV_EDIT_PERMISSION = 'eqv-studio:layout-edit';
 export const EQV_PUBLISH_PERMISSION = 'eqv-studio:layout-publish';
 
+/** Onboarding menu permissions (#1658, ADR-0139): not `eqv:*`-prefixed, for the same registry reason as the Studio names. */
+export const EQV_ONBOARDING_VIEW_PERMISSION = 'eqv-onboarding:view';
+export const EQV_RULES_EDIT_PERMISSION = 'eqv-onboarding:rules-edit';
+export const EQV_DICTIONARY_GLOBAL_EDIT_PERMISSION = 'eqv-onboarding:dictionary-global-edit';
+export const EQV_MAPPING_PUBLISH_PERMISSION = 'eqv-onboarding:mapping-publish';
+
 /** The capability behind each (the declaration of `MenuDispatchContribution.permissions`). */
 export const EQV_VIEW_CAPABILITY = 'eqv.view';
 export const EQV_EDIT_CAPABILITY = 'eqv.layout.edit';
 export const EQV_PUBLISH_CAPABILITY = 'eqv.layout.publish';
+export const EQV_RULES_EDIT_CAPABILITY = 'eqv.rules.edit';
+export const EQV_DICTIONARY_GLOBAL_EDIT_CAPABILITY = 'eqv.dictionary.global_edit';
+export const EQV_MAPPING_PUBLISH_CAPABILITY = 'eqv.mapping.publish';
 export const EQV_MENU_PERMISSIONS: readonly MenuPermissionDeclaration[] = [
   { permission: EQV_VIEW_PERMISSION, capability: EQV_VIEW_CAPABILITY },
   { permission: EQV_STUDIO_VIEW_PERMISSION, capability: EQV_VIEW_CAPABILITY },
   { permission: EQV_EDIT_PERMISSION, capability: EQV_EDIT_CAPABILITY },
   { permission: EQV_PUBLISH_PERMISSION, capability: EQV_PUBLISH_CAPABILITY },
+  { permission: EQV_ONBOARDING_VIEW_PERMISSION, capability: EQV_VIEW_CAPABILITY },
+  { permission: EQV_RULES_EDIT_PERMISSION, capability: EQV_RULES_EDIT_CAPABILITY },
+  { permission: EQV_DICTIONARY_GLOBAL_EDIT_PERMISSION, capability: EQV_DICTIONARY_GLOBAL_EDIT_CAPABILITY },
+  { permission: EQV_MAPPING_PUBLISH_PERMISSION, capability: EQV_MAPPING_PUBLISH_CAPABILITY },
 ];
