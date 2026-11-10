@@ -8,9 +8,14 @@
 | --- | --- |
 | 이 문서 | 점검 대상, 점검 방법, 공통 기대, 판단 기준, 검증 분담 |
 | [공통 부품](shared-components.md) | 표·차트·상세 패널·패널 조작의 기능별 기대 |
-| [운영 콘솔](operations.md) | 공간별 표의 작성 예 |
+| [Home과 전역 메뉴](global.md) | 셸, 내비게이션, 소통, 내 활동, 개선 아이템 |
+| [MARS·BRAVO·CLAS](analysis.md) | 분석 공간 세 곳 |
+| [도구](tools.md) | 외부 모듈을 얹은 공간 |
+| [표준 로그 개발](log-dev.md) | 표준 로그 개발 공간 |
+| [업무 흐름](flow.md) | VOC, Finding, Task, 설문, 연동, 설정 |
+| [운영 콘솔](operations.md) | 운영 콘솔 |
 
-나머지 공간의 표는 전수 점검([#1655](https://github.com/hjung3113/analytics-platform/issues/1655))을 시작할 때 같은 형식으로 채운다. 메뉴 목록의 원본은 Registry(`apps/platform-web/src/menus.ts`)다.
+메뉴 목록의 원본은 Registry(`apps/platform-web/src/menus.ts`)다.
 
 ## 점검 대상
 
