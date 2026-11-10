@@ -1,5 +1,6 @@
 // The Hub writes of the Top View pointer (#1656): link and unlink, judged by `knowledge.catalog.manage` (`knowledge:catalog-manage`),
-// versioned per (model, start SW) row (`expectedVersion: '0'` creates, as `eqv.saveDraft`), audited in the same transaction. The
+// versioned per (model, start SW) row (`expectedVersion: '0'` creates, as `eqv.saveDraft`; otherwise the opaque token `<linkId>:<version>`
+// so a token of an unlinked row never matches a row created later at the same key), audited in the same transaction. The
 // Revision is read through the eqv read service (hash re-checked there); the Hub stores the pointer only.
 import type { Tx } from '../../db/tx.js';
 import { type FieldError, type MenuActionDeclaration, MenuActionInvalidError } from '../menu-dispatch/types.js';
@@ -11,7 +12,7 @@ import { recordTopViewAudit } from './catalog-audit.js';
 import { CATALOG_MENU_PERMISSION, CATALOG_PERMISSION } from './catalog-actions.js';
 import { LOG_KNOWLEDGE_MODELS_MENU_ID } from './catalog-menu.js';
 import { canSeeModel, viewerOf } from './repositories/access-visibility.js';
-import { deleteLink, insertLink, lockedLink, softwareOfModel, updateLink } from './repositories/topview-link.js';
+import { deleteLink, insertLink, linkVersionToken, lockedLink, softwareOfModel, updateLink } from './repositories/topview-link.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Shape of a Revision hash; the eqv read service re-checks the stored hash, this only refuses a malformed input early.
@@ -63,10 +64,11 @@ export function topViewActions(deps: TopViewActionDeps): MenuActionDeclaration[]
       if (typeof input.revision !== 'string' || !REVISION_PATTERN.test(input.revision)) errors.push({ path: ['revision'], code: 'invalid' });
       return errors;
     },
-    // '0' while no row exists for the key, so a client creates with expectedVersion '0'. A hidden model is `not_found` in handle.
+    // '0' while no row exists for the key, so a client creates with expectedVersion '0'. A hidden model is `not_found` in handle; a hidden
+    // start SW has no row here, so it answers like an unknown one.
     async currentVersion(tx, actor, input) {
       const found = await lockTarget(tx, actor, input);
-      return found.visible && found.row ? String(found.row.version) : '0';
+      return found.visible && found.row ? linkVersionToken(found.row) : '0';
     },
     async handle(tx, actor, input) {
       const viewer = viewerOf(actor);
@@ -85,7 +87,7 @@ export function topViewActions(deps: TopViewActionDeps): MenuActionDeclaration[]
         ? await updateLink(tx, { id: found.row.id, workspaceId: actor.workspace_id, layoutId, revision, actorId: actor.actor_id })
         : await insertLink(tx, { workspaceId: actor.workspace_id, modelId, fromSoftwareId, layoutId, revision, actorId: actor.actor_id });
       await recordTopViewAudit(tx, actor, 'linked', { linkId: row.id, modelId, fromSoftwareId, layoutId, revision });
-      return { data: { linkId: row.id, version: String(row.version) }, version: String(row.version) };
+      return { data: { linkId: row.id, version: linkVersionToken(row) }, version: linkVersionToken(row) };
     },
   };
 
@@ -109,7 +111,7 @@ export function topViewActions(deps: TopViewActionDeps): MenuActionDeclaration[]
     // null = no row (or a hidden model) → `not_found`.
     async currentVersion(tx, actor, input) {
       const found = await lockTarget(tx, actor, input);
-      return found.visible && found.row ? String(found.row.version) : null;
+      return found.visible && found.row ? linkVersionToken(found.row) : null;
     },
     async handle(tx, actor, input) {
       const found = await lockTarget(tx, actor, input);
@@ -123,8 +125,8 @@ export function topViewActions(deps: TopViewActionDeps): MenuActionDeclaration[]
         layoutId: row.layoutId,
         revision: row.layoutRevision,
       });
-      // A versioned write answers a version string: the version the row had when it was removed.
-      return { data: { linkId: row.id }, version: String(row.version) };
+      // A versioned write answers a version string: the token the row had when it was removed.
+      return { data: { linkId: row.id }, version: linkVersionToken(row) };
     },
   };
 

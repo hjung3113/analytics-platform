@@ -9,7 +9,7 @@ import type { LogKnowledgeDeps } from './deps.js';
 import { resolveTopViewLink } from './domain/topview-resolution.js';
 import { type Judge, declareRead } from './item-endpoints.js';
 import { canSeeModel } from './repositories/access-visibility.js';
-import { listModelLinks, softwareOfModel, visibleModelSoftware } from './repositories/topview-link.js';
+import { linkVersionToken, listModelLinks, softwareOfModel, visibleModelSoftware } from './repositories/topview-link.js';
 import { eqvReadService } from '../eqv/read-service.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -71,8 +71,10 @@ export function topViewEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaratio
             fromSoftwareVersion: l.fromSoftwareVersion,
             layoutId: l.layoutId,
             revision: l.revision,
-            version: l.version,
+            version: linkVersionToken({ id: l.id, version: l.version }),
           })),
+          // Every SW of the model the viewer may see, oldest release first: the pickers' source (the profile's summary is capped).
+          softwareOptions: software.map((s) => ({ softwareId: s.id, version: s.version, releaseOrder: s.releaseOrder })),
         },
       };
     }),

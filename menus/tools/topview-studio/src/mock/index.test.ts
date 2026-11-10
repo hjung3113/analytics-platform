@@ -4,6 +4,7 @@ import { createMockAdapter, getRole, setRole, type AnyMockAction } from '@ap/moc
 import { EQV_READ_PERMISSION, LAYOUT_EDIT_PERMISSION, LAYOUT_PUBLISH_PERMISSION, STUDIO_VIEW_PERMISSION, layoutDraftEndpoint, layoutRevisionEndpoint, layoutRevisionsEndpoint, layoutsEndpoint, templateEndpoint, templatesEndpoint } from '../endpoints';
 import { resetStudioMock, topviewStudioActionsMock, topviewStudioMock } from './index';
 import { fakeRevision } from './hash';
+import { FIXTURE_REVISION } from './store';
 
 /** Mirrors the 'eqv-studio' manifest in '../index.ts' (importing it from `src/mock/**` is lint-banned); change both together. */
 const menu: MenuMeta = {
@@ -30,9 +31,10 @@ describe('studio mock reads', () => {
     expect(topviewStudioActionsMock.map((a) => a.spec.id)).toEqual(['eqv.saveDraft', 'eqv.publishRevision', 'eqv.promoteTemplate']);
   });
 
-  it('seeds one draft at version 1, no Revision, no Template', async () => {
+  it('seeds one draft at version 1, the one Revision the Hub mock links, no Template', async () => {
     expect((await query(layoutsEndpoint.id)).data).toMatchObject({ rows: [{ layoutId: 'sample-layout', version: '1' }] });
-    expect((await query(layoutRevisionsEndpoint.id, { layoutId: 'sample-layout' })).data).toEqual({ rows: [] });
+    expect((await query(layoutRevisionsEndpoint.id, { layoutId: 'sample-layout' })).data).toEqual({ rows: [expect.objectContaining({ layoutId: 'sample-layout', revision: FIXTURE_REVISION })] });
+    expect((await query(layoutRevisionEndpoint.id, { layoutId: 'sample-layout', revision: FIXTURE_REVISION })).data).toMatchObject({ document: { id: 'sample-layout' } });
     expect((await query(templatesEndpoint.id)).data).toEqual({ rows: [] });
   });
 
@@ -74,7 +76,7 @@ describe('studio mock writes', () => {
     expect(revision).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(revision).toBe(fakeRevision(await doc()));
     expect(await act('eqv.publishRevision', { layoutId: 'sample-layout' }, '1')).toMatchObject({ outcome: 'ok', data: { revision, created: false } });
-    expect((await query(layoutRevisionsEndpoint.id, { layoutId: 'sample-layout' })).data).toMatchObject({ rows: [{ revision }] });
+    expect((await query(layoutRevisionsEndpoint.id, { layoutId: 'sample-layout' })).data).toMatchObject({ rows: expect.arrayContaining([expect.objectContaining({ revision })]) });
     expect((await act('eqv.publishRevision', { layoutId: 'missing' }, '1')).outcome).toBe('not_found');
     expect((await act('eqv.publishRevision', { layoutId: 'sample-layout' }, '7')).outcome).toBe('conflict');
   });

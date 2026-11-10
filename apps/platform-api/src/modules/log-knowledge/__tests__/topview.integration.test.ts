@@ -104,6 +104,11 @@ describe.skipIf(!runIntegration)('model Top View pointer (#1656)', () => {
       detail: Record<string, unknown>;
     }[];
   const linkRows = async (modelId: string) => (await sql('select * from knowledge.model_topview_link where model_id = $1', [modelId])).rows;
+  /** The concurrency token (`<linkId>:<version>`) of the row at (model, start SW), `'0'` when none. */
+  const tokenOf = async (modelId: string, from: string | null) => {
+    const row = (await linkRows(modelId)).find((r) => r.from_software_id === from);
+    return row ? `${row.id}:${row.version}` : '0';
+  };
   const fe = (a: Answer) => a.fieldErrors.map((e) => `${e.path.join('.')}:${e.code}`);
 
   beforeAll(async () => {
@@ -159,7 +164,9 @@ describe.skipIf(!runIntegration)('model Top View pointer (#1656)', () => {
 
   it('links the model default with expectedVersion 0 and audits it', async () => {
     const a = await kw('linkTopView', { modelId: ids.model, fromSoftwareId: null, layoutId, revision: ids.rev }, { who: manager, expectedVersion: '0' });
-    expect(a).toMatchObject({ outcome: 'ok', version: '1' });
+    expect(a.outcome).toBe('ok');
+    expect(a.version).toBe(await tokenOf(ids.model, null));
+    expect(a.version).toMatch(/^[0-9a-f-]{36}:1$/);
     const audit = await auditOf(ids.model);
     expect(audit).toHaveLength(1);
     expect(audit[0]).toMatchObject({ event_type: 'knowledge.model_topview.linked', subject_type: 'knowledge_model' });
@@ -191,8 +198,10 @@ describe.skipIf(!runIntegration)('model Top View pointer (#1656)', () => {
   it('replaces with the row version, refuses a stale or wrong version as conflict', async () => {
     const stale = await kw('linkTopView', { modelId: ids.model, fromSoftwareId: null, layoutId, revision: ids.rev }, { who: manager, expectedVersion: '0' });
     expect(stale.outcome).toBe('conflict');
-    const ok = await kw('linkTopView', { modelId: ids.model, fromSoftwareId: null, layoutId, revision: ids.rev }, { who: manager, expectedVersion: '1' });
-    expect(ok).toMatchObject({ outcome: 'ok', version: '2' });
+    const ok = await kw('linkTopView', { modelId: ids.model, fromSoftwareId: null, layoutId, revision: ids.rev }, { who: manager, expectedVersion: await tokenOf(ids.model, null) });
+    expect(ok.outcome).toBe('ok');
+    expect(ok.version).toBe(await tokenOf(ids.model, null));
+    expect(ok.version).toMatch(/:2$/);
     expect((await linkRows(ids.model)).filter((r) => r.from_software_id === null)).toHaveLength(1);
   });
 
@@ -202,10 +211,10 @@ describe.skipIf(!runIntegration)('model Top View pointer (#1656)', () => {
     ['unknown model', () => ({ modelId: randomUUID(), fromSoftwareId: null, layoutId, revision: ids.rev }), 'modelId:not_found', '0'],
     ['hidden model', () => ({ modelId: ids.hidden, fromSoftwareId: null, layoutId, revision: ids.rev }), 'modelId:not_found', '0'],
     ['software of another model', () => ({ modelId: ids.model, fromSoftwareId: ids.otherSw, layoutId, revision: ids.rev }), 'fromSoftwareId:software_not_of_model', '0'],
-    ['unknown revision', () => ({ modelId: ids.model, fromSoftwareId: null, layoutId, revision: `sha256:${'0'.repeat(64)}` }), 'revision:revision_not_found', '2'],
+    ['unknown revision', () => ({ modelId: ids.model, fromSoftwareId: null, layoutId, revision: `sha256:${'0'.repeat(64)}` }), 'revision:revision_not_found', 'default-row'],
   ])('refuses %s with a field error and writes no audit row', async (_label, input, code, expectedVersion) => {
     const before = (await auditOf(ids.model)).length;
-    const a = await kw('linkTopView', input(), { who: manager, expectedVersion });
+    const a = await kw('linkTopView', input(), { who: manager, expectedVersion: expectedVersion === 'default-row' ? await tokenOf(ids.model, null) : expectedVersion });
     expect(a.outcome).toBe('invalid');
     expect(fe(a)).toContain(code);
     expect((await auditOf(ids.model)).length).toBe(before);
@@ -225,11 +234,63 @@ describe.skipIf(!runIntegration)('model Top View pointer (#1656)', () => {
   });
 
   it('unlinks with the version, audits it, and a missing row is not_found', async () => {
-    const gone = await kw('unlinkTopView', { modelId: ids.model, fromSoftwareId: ids.sw2 }, { who: manager, expectedVersion: '1' });
+    const gone = await kw('unlinkTopView', { modelId: ids.model, fromSoftwareId: ids.sw2 }, { who: manager, expectedVersion: await tokenOf(ids.model, ids.sw2) });
     expect(gone.outcome).toBe('ok');
     expect((await auditOf(ids.model)).map((a) => a.event_type)).toContain('knowledge.model_topview.unlinked');
     const again = await kw('unlinkTopView', { modelId: ids.model, fromSoftwareId: ids.sw2 }, { who: manager, expectedVersion: '1' });
     expect(again.outcome).toBe('not_found');
+  });
+
+  it('a start SW the manager cannot see answers exactly like an unknown one: no version, no unlink, no audit', async () => {
+    const hiddenSw = (await kw('softwareCreate', { modelId: ids.model, versionLabel: `${TAG}-hs`, name: '' })).data?.id as string;
+    const inserted = await sql(
+      `insert into knowledge.model_topview_link (workspace_id, model_id, from_software_id, layout_id, layout_revision, created_by, updated_by) values ($1, $2, $3, $4, $5, $6, $6) returning id`,
+      [WORKSPACE_ID, ids.model, hiddenSw, layoutId, ids.rev, manager.id],
+    );
+    await sql(`update knowledge.software_version set access_mode = 'restricted' where id = $1`, [hiddenSw]);
+    const real = `${inserted.rows[0].id}:1`;
+    const rowsBefore = await linkRows(ids.model);
+    const auditBefore = (await auditOf(ids.model)).length;
+    const base = { modelId: ids.model, layoutId, revision: ids.rev };
+    for (const expectedVersion of ['0', real]) {
+      const hiddenLink = await kw('linkTopView', { ...base, fromSoftwareId: hiddenSw }, { who: manager, expectedVersion });
+      const unknownLink = await kw('linkTopView', { ...base, fromSoftwareId: randomUUID() }, { who: manager, expectedVersion });
+      expect(hiddenLink).toEqual(expect.objectContaining({ outcome: unknownLink.outcome, version: unknownLink.version, data: unknownLink.data, fieldErrors: unknownLink.fieldErrors }));
+      const hiddenUnlink = await kw('unlinkTopView', { modelId: ids.model, fromSoftwareId: hiddenSw }, { who: manager, expectedVersion });
+      const unknownUnlink = await kw('unlinkTopView', { modelId: ids.model, fromSoftwareId: randomUUID() }, { who: manager, expectedVersion });
+      expect(hiddenUnlink).toEqual(expect.objectContaining({ outcome: unknownUnlink.outcome, version: unknownUnlink.version, fieldErrors: unknownUnlink.fieldErrors }));
+      expect(JSON.stringify([hiddenLink, hiddenUnlink])).not.toContain(real);
+    }
+    expect(fe(await kw('linkTopView', { ...base, fromSoftwareId: hiddenSw }, { who: manager, expectedVersion: '0' }))).toContain('fromSoftwareId:software_not_of_model');
+    expect(await linkRows(ids.model)).toEqual(rowsBefore);
+    expect((await auditOf(ids.model)).length).toBe(auditBefore);
+  });
+
+  it('a token of an unlinked row never matches a row created later at the same key', async () => {
+    const key = { modelId: ids.model, fromSoftwareId: ids.sw3 };
+    const l1 = await kw('linkTopView', { ...key, layoutId, revision: ids.rev }, { who: manager, expectedVersion: '0' });
+    expect(l1.outcome).toBe('ok');
+    const tokenA = l1.version as string;
+    expect((await kw('unlinkTopView', key, { who: manager, expectedVersion: tokenA })).outcome).toBe('ok');
+    const l2 = await kw('linkTopView', { ...key, layoutId, revision: ids.rev }, { who: manager, expectedVersion: '0' });
+    expect(l2.outcome).toBe('ok');
+    expect(l2.version).not.toBe(tokenA);
+    const rowsBefore = await linkRows(ids.model);
+    const auditBefore = (await auditOf(ids.model)).length;
+    expect((await kw('linkTopView', { ...key, layoutId, revision: ids.rev }, { who: manager, expectedVersion: tokenA })).outcome).toBe('conflict');
+    expect((await kw('unlinkTopView', key, { who: manager, expectedVersion: tokenA })).outcome).toBe('conflict');
+    expect(await linkRows(ids.model)).toEqual(rowsBefore);
+    expect((await auditOf(ids.model)).length).toBe(auditBefore);
+    expect(await tokenOf(ids.model, ids.sw3)).toBe(l2.version);
+    // Leave the key empty again: the next test reads the model default.
+    expect((await kw('unlinkTopView', key, { who: manager, expectedVersion: l2.version as string })).outcome).toBe('ok');
+  });
+
+  it('returns every visible SW of the model in release order as softwareOptions', async () => {
+    const a = await read('modelTopView', { modelId: ids.model }, manager);
+    const options = (a.data as unknown as { softwareOptions: { softwareId: string; releaseOrder: number }[] }).softwareOptions;
+    expect(options.map((o) => o.softwareId)).toEqual(expect.arrayContaining([ids.sw1, ids.sw2, ids.sw3]));
+    expect(options.map((o) => o.releaseOrder)).toEqual([...options.map((o) => o.releaseOrder)].sort((x, y) => x - y));
   });
 
   it('reads revision_unavailable when the Revision of a pointer cannot be read', async () => {

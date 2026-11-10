@@ -10,14 +10,14 @@
 import { defineMockAction, defineMockEndpoint, MockActionInvalid, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import type { FieldError } from '@ap/contracts';
 import {
-  isUuid, linkTopView, modelTopViewEndpoint, topViewRevisionOptionsEndpoint, unlinkTopView,
+  CATALOG_MANAGE_PERMISSION, isUuid, linkTopView, modelTopViewEndpoint, topViewRevisionOptionsEndpoint, unlinkTopView,
   type ModelTopViewData, type TopViewLinkItem,
 } from '../endpoints';
 import fixture from './topview-fixture.json';
 import { all, byId, releaseOrderOf } from './store';
 
 export const FIXTURE_LAYOUT_ID = 'sample-layout';
-export const FIXTURE_REVISION = 'sha256:f21b40d26599561c6906471ca3254f598b1f6d926605b296bd833f8d8f802c7e';
+export const FIXTURE_REVISION = 'sha256:0cd25afbcf9beeb516b7d6c65b16d12ba648c688c70c8c0b2db994170e1ec0f5';
 const PUBLISHED_AT = '2026-10-05T00:00:00.000Z';
 
 type Link = { id: string; modelId: string; fromSoftwareId: string | null; layoutId: string; revision: string; version: number };
@@ -37,9 +37,12 @@ const published = (layoutId: unknown, revision: unknown) => layoutId === FIXTURE
 const rowOf = (modelId: string, from: string | null) => links.find(l => l.modelId === modelId && l.fromSoftwareId === from);
 const lower = (v: unknown): string | null => (typeof v === 'string' ? v.toLowerCase() : null);
 
+/** The concurrency token of a row, `<linkId>:<version>`: ids are never reused, so a token of an unlinked row cannot match a later row (as the server). */
+const tokenOf = (l: Link): string => `${l.id}:${l.version}`;
+
 function item(l: Link): TopViewLinkItem {
   const sw = l.fromSoftwareId ? byId(l.fromSoftwareId) : undefined;
-  return { linkId: l.id, fromSoftwareId: l.fromSoftwareId, fromSoftwareVersion: sw ? sw.code : null, layoutId: l.layoutId, revision: l.revision, version: l.version };
+  return { linkId: l.id, fromSoftwareId: l.fromSoftwareId, fromSoftwareVersion: sw ? sw.code : null, layoutId: l.layoutId, revision: l.revision, version: tokenOf(l) };
 }
 
 function read(params: { modelId: string; softwareId?: string }): ModelTopViewData | null {
@@ -58,7 +61,8 @@ function read(params: { modelId: string; softwareId?: string }): ModelTopViewDat
     if (hit === null || o > (order(hit) as number)) hit = l;
   }
   hit ??= mine.find(l => l.fromSoftwareId === null) ?? null;
-  const base = { target: target ? { softwareId: target.id, version: target.code } : null, links: mine.map(item) };
+  const softwareOptions = software.map(s => ({ softwareId: s.id, version: s.code, releaseOrder: releaseOrderOf(s) })).sort((a, b) => a.releaseOrder - b.releaseOrder);
+  const base = { target: target ? { softwareId: target.id, version: target.code } : null, links: mine.map(item), softwareOptions };
   if (!hit) return { ...base, resolved: null };
   if (!published(hit.layoutId, hit.revision)) return { ...base, resolved: null, resolvedError: 'revision_unavailable' };
   const sw = hit.fromSoftwareId ? byId(hit.fromSoftwareId) : undefined;
@@ -78,6 +82,8 @@ export const topViewReadsMock: readonly AnyMockEndpoint[] = [
   }),
   defineMockEndpoint(topViewRevisionOptionsEndpoint, {
     mart: false,
+    // The real server answers `forbidden` unless the actor holds the catalog right (Layout ids are invisible to readers).
+    requires: CATALOG_MANAGE_PERMISSION,
     handle: () => ({ rows: [{ layoutId: FIXTURE_LAYOUT_ID, revision: FIXTURE_REVISION, publishedAt: PUBLISHED_AT }] }),
   }),
 ];
@@ -90,7 +96,7 @@ const fromOf = (input: Record<string, unknown>) => lower(input.fromSoftwareId);
 
 export const topViewActionsMock: readonly AnyMockAction[] = [
   defineMockAction(linkTopView, {
-    version: ({ input }: { input: Record<string, unknown> }) => { const l = rowOf(lower(input.modelId) ?? '', fromOf(input)); return l ? String(l.version) : '0'; },
+    version: ({ input }: { input: Record<string, unknown> }) => { const l = rowOf(lower(input.modelId) ?? '', fromOf(input)); return l ? tokenOf(l) : '0'; },
     validate: (input: Record<string, unknown>) => [
       ...modelErrors(input), ...startErrors(input),
       ...(typeof input.layoutId === 'string' && /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(input.layoutId) ? [] : [err(['layoutId'], 'invalid')]),
@@ -105,17 +111,17 @@ export const topViewActionsMock: readonly AnyMockAction[] = [
       const existing = rowOf(modelId, from);
       if (existing) { existing.layoutId = String(input.layoutId); existing.revision = String(input.revision); existing.version += 1; }
       const row = existing ?? (links.push({ id: nextId(), modelId, fromSoftwareId: from, layoutId: String(input.layoutId), revision: String(input.revision), version: 1 }), links[links.length - 1]!);
-      return { data: { linkId: row.id, version: String(row.version) }, version: String(row.version) };
+      return { data: { linkId: row.id, version: tokenOf(row) }, version: tokenOf(row) };
     },
   }),
   defineMockAction(unlinkTopView, {
-    version: ({ input }: { input: Record<string, unknown> }) => { const l = rowOf(lower(input.modelId) ?? '', fromOf(input)); return l ? String(l.version) : null; },
+    version: ({ input }: { input: Record<string, unknown> }) => { const l = rowOf(lower(input.modelId) ?? '', fromOf(input)); return l ? tokenOf(l) : null; },
     validate: (input: Record<string, unknown>) => [...modelErrors(input), ...startErrors(input)],
     handle: ({ input }: { input: Record<string, unknown> }) => {
       const row = rowOf(lower(input.modelId) ?? '', fromOf(input));
       if (!row) throw new MockActionInvalid([err(['modelId'], 'not_found')]);
       links = links.filter(l => l !== row);
-      return { data: { linkId: row.id }, version: null };
+      return { data: { linkId: row.id }, version: tokenOf(row) };
     },
   }),
 ] as AnyMockAction[];

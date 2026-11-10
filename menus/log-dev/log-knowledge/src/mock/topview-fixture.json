@@ -2,7 +2,7 @@
   "schemaVersion": "0.4",
   "kind": "equipment-layout",
   "id": "sample-layout",
-  "templateId": "cluster-single",
+  "templateId": "sample-template",
   "name": "Sample layout",
   "unit": "abstract",
   "viewBox": {
@@ -14,7 +14,7 @@
   "sources": [
     {
       "id": "src-synthetic",
-      "title": "Synthetic sample; no real equipment geometry",
+      "title": "Hand-written synthetic sample; no real equipment",
       "license": "synthetic"
     }
   ],
@@ -34,7 +34,7 @@
       "levelId": "level-main",
       "transform": {
         "x": 50,
-        "y": 90,
+        "y": 88,
         "rotation": 0,
         "scale": 1
       },
@@ -42,277 +42,233 @@
         "width": 16,
         "height": 8
       },
-      "provenance": {
-        "role": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "assetRef": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "label": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "levelId": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "transform": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "size": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
+      "ports": [
+        {
+          "id": "hub",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
         }
-      },
-      "ports": [],
-      "holdingSites": []
+      ],
+      "holdingSites": [
+        {
+          "id": "slot-1",
+          "materialKinds": [
+            "wafer"
+          ],
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
+        }
+      ],
+      "provenance": {}
     },
     {
-      "id": "efem-1",
-      "role": "efem",
-      "assetRef": "primitive:efem",
-      "label": "efem-1",
-      "levelId": "level-main",
-      "transform": {
-        "x": 50,
-        "y": 72,
-        "rotation": 0,
-        "scale": 1
-      },
-      "size": {
-        "width": 60,
-        "height": 16
-      },
-      "provenance": {
-        "role": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "assetRef": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "label": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "levelId": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "transform": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "size": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        }
-      },
-      "ports": [],
-      "holdingSites": []
-    },
-    {
-      "id": "tm-1",
+      "id": "hub-a",
       "role": "tm",
       "assetRef": "primitive:tm",
-      "label": "tm-1",
+      "label": "hub-a",
       "levelId": "level-main",
       "transform": {
         "x": 50,
-        "y": 40,
+        "y": 50,
         "rotation": 0,
         "scale": 1
       },
       "size": {
-        "width": 24,
-        "height": 24
+        "width": 30,
+        "height": 30
       },
-      "provenance": {
-        "role": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
+      "ports": [
+        {
+          "id": "south",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
         },
-        "assetRef": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "label": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "levelId": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "transform": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "size": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
+        {
+          "id": "west",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
         }
-      },
-      "ports": [],
-      "holdingSites": []
+      ],
+      "holdingSites": [],
+      "provenance": {}
     },
     {
-      "id": "pm-a",
+      "id": "proc-a",
       "role": "pm",
       "assetRef": "primitive:pm",
-      "label": "pm-a",
+      "label": "proc-a",
       "levelId": "level-main",
       "transform": {
-        "x": 24,
-        "y": 40,
+        "x": 18,
+        "y": 50,
         "rotation": 0,
         "scale": 1
       },
       "size": {
-        "width": 18,
-        "height": 18
+        "width": 16,
+        "height": 16
       },
-      "provenance": {
-        "role": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "assetRef": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "label": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "levelId": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "transform": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "size": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
+      "ports": [
+        {
+          "id": "east",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
         }
-      },
-      "ports": [],
-      "holdingSites": []
+      ],
+      "holdingSites": [
+        {
+          "id": "slot-1",
+          "materialKinds": [
+            "wafer"
+          ],
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
+        }
+      ],
+      "provenance": {}
     },
     {
-      "id": "pm-b",
-      "role": "pm",
-      "assetRef": "primitive:pm",
-      "label": "pm-b",
+      "id": "arm-a",
+      "role": "robot",
+      "assetRef": "primitive:robot-single",
+      "label": "arm-a",
       "levelId": "level-main",
       "transform": {
-        "x": 76,
-        "y": 40,
+        "x": 0,
+        "y": 0,
         "rotation": 0,
         "scale": 1
       },
       "size": {
-        "width": 18,
-        "height": 18
-      },
-      "provenance": {
-        "role": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "assetRef": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "label": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "levelId": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "transform": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        },
-        "size": {
-          "certainty": "assumed",
-          "sourceEvidence": [
-            "src-synthetic"
-          ]
-        }
+        "width": 10,
+        "height": 10
       },
       "ports": [],
-      "holdingSites": []
+      "holdingSites": [
+        {
+          "id": "blade-a",
+          "materialKinds": [
+            "wafer"
+          ],
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
+        }
+      ],
+      "provenance": {},
+      "parentId": "hub-a"
     }
   ],
-  "physicalInterfaces": [],
-  "transferCapabilities": [],
-  "processRoutes": []
+  "physicalInterfaces": [
+    {
+      "id": "lp-a-hub-a",
+      "kind": "gate",
+      "a": {
+        "componentId": "lp-a",
+        "portId": "hub"
+      },
+      "b": {
+        "componentId": "hub-a",
+        "portId": "south"
+      },
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-synthetic"
+        ]
+      }
+    },
+    {
+      "id": "hub-a-proc-a",
+      "kind": "slit",
+      "a": {
+        "componentId": "hub-a",
+        "portId": "west"
+      },
+      "b": {
+        "componentId": "proc-a",
+        "portId": "east"
+      },
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-synthetic"
+        ]
+      }
+    }
+  ],
+  "transferCapabilities": [
+    {
+      "id": "lp-a-proc-a",
+      "a": {
+        "componentId": "lp-a",
+        "holdingSiteId": "slot-1"
+      },
+      "b": {
+        "componentId": "proc-a",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "arm-a",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-synthetic"
+        ]
+      }
+    }
+  ],
+  "processRoutes": [
+    {
+      "id": "route-a",
+      "label": "Sample route",
+      "steps": [
+        "lp-a",
+        "hub-a",
+        "proc-a"
+      ]
+    }
+  ]
 }

@@ -24,6 +24,16 @@ describe('Hub mock Top View fixture', () => {
   });
 });
 
+describe('Hub and Studio mocks share one drawing', () => {
+  it('the Hub fixture is the Studio mock fixture and both name the same Revision hash', () => {
+    const studio = resolve(process.cwd(), '../../../menus/tools/topview-studio/src/mock');
+    expect(JSON.parse(readFileSync(resolve(studio, 'layout-fixture.json'), 'utf8'))).toEqual(document);
+    const hub = /FIXTURE_REVISION = '(sha256:[0-9a-f]{64})'/.exec(readFileSync(MOCK, 'utf8'))?.[1];
+    const seeded = /FIXTURE_REVISION = '(sha256:[0-9a-f]{64})'/.exec(readFileSync(resolve(studio, 'store.ts'), 'utf8'))?.[1];
+    expect(seeded).toBe(hub);
+  });
+});
+
 describe('ModelTopView', () => {
   it('draws the Layout read-only when the hash matches, with the disclosure below', async () => {
     const result = validateLayout(document);

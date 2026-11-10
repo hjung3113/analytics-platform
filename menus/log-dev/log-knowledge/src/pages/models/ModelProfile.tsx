@@ -35,7 +35,7 @@ function Sections({ profile, modelId, canEdit }: { profile: ModelProfileData; mo
       <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('log-knowledge-spec', { params: { modelId }, returnTo: true })}>{tx({ ko: '모델 명세 보기', en: 'View model specification' })}</PlatformLink></Button>
     </Section>
     <Section id={anchor('items')} title="모델 공통 Item"><ModelItems modelId={modelId} active={profile.model.active} /></Section>
-    <Section id={anchor('topview')} title="Top View"><TopViewSection modelId={modelId} software={softwareVersions} canEdit={canEdit} /></Section>
+    <Section id={anchor('topview')} title="Top View"><TopViewSection modelId={modelId} canEdit={canEdit} /></Section>
   </div>;
 }
 

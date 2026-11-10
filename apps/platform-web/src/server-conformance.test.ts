@@ -176,7 +176,11 @@ const PARAMS: Record<string, Record<string, unknown>> = {
 const EQV_CONTEXT = { from: '2026-01-01T10:00:00', to: '2026-01-01T10:30:00' };
 
 // No oversizeParams samples (#175): mock data sits far below the declared maxRows, so no case can exceed a cap.
-const cases: ConformanceCase[] = endpoints.map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {}, ...(spec.id.startsWith('eqv.topview-') ? { context: EQV_CONTEXT } : {}) }));
+// Left out, as the real-server run does (platform-conformance.integration.test.ts MENU_LEFT_OUT): the Revision picker is judged by
+// `knowledge.catalog.manage` on top of `platform:view`, and the kit's granted account holds `platform:view` only, so it is answered
+// `forbidden` where the kit wants `ok` or `empty`. `menus/log-dev/log-knowledge/src/mock/topview.test.ts` covers the refusal and the manager answer.
+const LEFT_OUT = new Set(['logKnowledge.topViewRevisionOptions']);
+const cases: ConformanceCase[] = endpoints.filter(({ spec }) => !LEFT_OUT.has(spec.id)).map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {}, ...(spec.id.startsWith('eqv.topview-') ? { context: EQV_CONTEXT } : {}) }));
 // No menu declares a write yet, so the write checks (ADR-0054) judge the mock engine over one fixture action on an
 // existing analytics menu; the version counter is the stored row the handler bumps and `currentVersion` reads.
 const trendSpec = endpoints.find(({ spec }) => spec.id === 'analytics.productivity.trend')!.spec;
@@ -265,7 +269,7 @@ const stagedConcept = (): string => {
 };
 // The Top View pointer writes (#1656). `unlinkTopView` stages its own row once (only while none exists), so the version the harness
 // reads and the version it sends agree on every call. The Revision is the mock's synthetic Layout (hash proved in @eqv/platform-adapter).
-const TOPVIEW = { layoutId: 'sample-layout', revision: 'sha256:f21b40d26599561c6906471ca3254f598b1f6d926605b296bd833f8d8f802c7e' };
+const TOPVIEW = { layoutId: 'sample-layout', revision: 'sha256:0cd25afbcf9beeb516b7d6c65b16d12ba648c688c70c8c0b2db994170e1ec0f5' };
 const topViewSamples: Record<string, () => Record<string, unknown>> = {
   linkTopView: () => ({ modelId: A100, fromSoftwareId: null, ...TOPVIEW }),
   unlinkTopView: () => {

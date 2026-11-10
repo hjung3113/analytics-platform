@@ -23,7 +23,7 @@ Owns the `knowledge` schema: catalog, model spec revisions, SW changes, Items, d
 
 ## Top View pointer
 
-`knowledge.model_topview_link` (`repositories/topview-link.ts`, `domain/topview-resolution.ts`, `topview-endpoints.ts`, `topview-actions.ts`) points a model — from a start SW, or as the model default — at a published Layout Revision of the `eqv` module; the Hub owns the pointer only. The document is read through `eqv/read-service.ts` (approved surface), never by importing an eqv repository. Reads follow the Hub model ACL (no `eqv:view`); link and unlink are `knowledge.catalog.manage`, versioned per (model, start SW) row, audited as `knowledge.model_topview.linked|unlinked`. Resolution: greatest start-SW `release_order` ≤ the target's, else the model default, else unlinked. Contract: `docs/architecture/platform-api/api/log-knowledge.md` «Model Top View pointer».
+`knowledge.model_topview_link` (`repositories/topview-link.ts`, `domain/topview-resolution.ts`, `topview-endpoints.ts`, `topview-actions.ts`) points a model — from a start SW, or as the model default — at a published Layout Revision of the `eqv` module; the Hub owns the pointer only. The document is read through `eqv/read-service.ts` (approved surface), never by importing an eqv repository. Reads follow the Hub model ACL (no `eqv:view`); link and unlink are `knowledge.catalog.manage`, versioned per (model, start SW) row by the opaque token `<linkId>:<version>` (a start SW the actor cannot see answers like an unknown one), audited as `knowledge.model_topview.linked|unlinked`. Resolution: greatest start-SW `release_order` ≤ the target's, else the model default, else unlinked. Contract: `docs/architecture/platform-api/api/log-knowledge.md` «Model Top View pointer».
 
 ## Object access
 

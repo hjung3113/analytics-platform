@@ -63,7 +63,17 @@ export async function softwareOfModel(tx: Tx, viewer: Viewer, modelId: string, s
 }
 
 
-/** Locks the model row (serialises link writes of one model) and returns the pointer for (model, start SW), if any. */
+/**
+ * The concurrency token of a pointer: `<linkId>:<version>`. The id is never reused, so a token read from a row that was unlinked can
+ * never match a row created later at the same key. `'0'` means "no row" and is not a token.
+ */
+export const linkVersionToken = (row: { id: string; version: number }): string => `${row.id}:${row.version}`;
+
+/**
+ * Locks the model row (serialises link writes of one model) and returns the pointer for (model, start SW), if any.
+ * A start SW the viewer cannot see (or of another model) answers like a missing one: no row, no version, nothing to delete. The SW is
+ * locked for share and judged again under the locks, so a concurrent access change cannot slip between check and read.
+ */
 export async function lockedLink(tx: Tx, viewer: Viewer, modelId: string, fromSoftwareId: string | null) {
   const l = modelTopviewLinks;
   await tx
@@ -71,6 +81,14 @@ export async function lockedLink(tx: Tx, viewer: Viewer, modelId: string, fromSo
     .from(equipmentModels)
     .where(and(eq(equipmentModels.workspaceId, viewer.workspaceId), eq(equipmentModels.id, modelId)))
     .for('update');
+  if (fromSoftwareId !== null) {
+    await tx
+      .select({ id: softwareVersions.id })
+      .from(softwareVersions)
+      .where(and(eq(softwareVersions.workspaceId, viewer.workspaceId), eq(softwareVersions.id, fromSoftwareId)))
+      .for('share');
+    if (!(await softwareOfModel(tx, viewer, modelId, fromSoftwareId))) return null;
+  }
   const [row] = await tx
     .select()
     .from(l)

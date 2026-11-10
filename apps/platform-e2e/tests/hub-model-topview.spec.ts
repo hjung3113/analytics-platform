@@ -22,6 +22,7 @@ test.describe('hub model topview', () => {
     const section = page.getByRole('region', { name: 'Top View', exact: true });
     await expect(section.getByText('미연결', { exact: true })).toBeVisible();
     await expect(section.getByText('연결된 Top View가 없습니다', { exact: true })).toBeVisible();
-    await expect(section.locator('svg')).toHaveCount(0);
+    // No drawing; the 기준 SW select (and its icon) stays in this state.
+    await expect(section.getByTestId('model-topview-slot')).toHaveCount(0);
   });
 });

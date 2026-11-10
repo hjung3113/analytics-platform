@@ -723,8 +723,11 @@ export const importEndpointSpecs = [importDetailEndpoint] as const;
 // Read by anyone who can see the model (no `eqv:view`); linked and unlinked by a catalog manager. Server mirror: `topview-endpoints.ts`
 // and `topview-actions.ts`. A pointer applies from its start SW's release order; none = the model default; no row = unlinked.
 export type TopViewLinkItem = {
-  linkId: string; fromSoftwareId: string | null; fromSoftwareVersion: string | null; layoutId: string; revision: string; version: number;
+  linkId: string; fromSoftwareId: string | null; fromSoftwareVersion: string | null; layoutId: string; revision: string;
+  /** Opaque concurrency token `<linkId>:<version>` — send it back as `expectedVersion`; it never repeats across unlink and relink at the same key. */
+  version: string;
 };
+export type TopViewSoftwareOption = { softwareId: string; version: string; releaseOrder: number };
 export type ModelTopViewData = {
   /** The SW version the pointer was resolved for (newest by default); `null` when the model has no visible SW version. */
   target: { softwareId: string; version: string } | null;
@@ -735,6 +738,8 @@ export type ModelTopViewData = {
   /** Present when a pointer applies but its Revision can no longer be read; the screen never falls back to an older row. */
   resolvedError?: 'revision_unavailable';
   links: TopViewLinkItem[];
+  /** Every SW version of the model the viewer may see, oldest release first: the source of the Top View pickers (the profile's summary is capped). */
+  softwareOptions: TopViewSoftwareOption[];
 };
 export type ModelTopViewParams = { modelId: string; softwareId?: string };
 export type TopViewRevisionOption = { layoutId: string; revision: string; publishedAt: string };
@@ -751,7 +756,7 @@ export const topViewEndpointSpecs = [modelTopViewEndpoint, topViewRevisionOption
 
 export type LinkTopViewInput = { modelId: string; fromSoftwareId: string | null; layoutId: string; revision: string };
 export type UnlinkTopViewInput = { modelId: string; fromSoftwareId: string | null };
-/** `expectedVersion: '0'` creates the row of (model, start SW); otherwise the row's `version`. Refusals: `modelId not_found`, `fromSoftwareId software_not_of_model`, `revision revision_not_found`. */
+/** `expectedVersion: '0'` creates the row of (model, start SW); otherwise the row's token (`TopViewLinkItem.version`; answer `version` is the new token). Refusals: `modelId not_found`, `fromSoftwareId software_not_of_model`, `revision revision_not_found`. */
 export const linkTopView = defineAction<LinkTopViewInput, { linkId: string; version: string }>({
   id: 'logKnowledge.linkTopView', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, inputKeys: { modelId: true, fromSoftwareId: true, layoutId: true, revision: true },
   permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, concurrency: 'version', invalidates: [modelTopViewEndpoint],
