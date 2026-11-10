@@ -33,6 +33,7 @@ import { buildRateLimitTiers } from './lib/rate-limit-tiers.js';
 import type { DrainState } from './lib/shutdown.js';
 import { getStorage } from './lib/storage/factory.js';
 import type { StorageBackend } from './lib/storage/index.js';
+import { installCrossSiteGuard } from './middleware/cross-site-guard.js';
 import { SESSION_COOKIE_NAME } from './middleware/require-session.js';
 import { catalogReportRoutes, createRuleCoveragePort, logRulesContribution } from './modules/log-rules/index.js';
 import {
@@ -360,6 +361,8 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
 
   // ── @fastify/cookie ─ session cookie codec ──────────────────────────
   await app.register(cookie);
+  // #1674: refuse a cross-site state-changing request that carries the session cookie (before the rate limiter, the body parsers and any handler).
+  installCrossSiteGuard(app as unknown as FastifyInstance);
 
   // ── @fastify/multipart ─ PLAN-22 C3a ────────────────────────────────
   // 25 MiB cap (D-06). Limits are global — only POST /attachments accepts

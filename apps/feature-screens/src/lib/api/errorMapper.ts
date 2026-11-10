@@ -26,6 +26,7 @@ export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
   // permission.*
   'permission.denied':         { tone: 'error', message: '권한이 없습니다.' },
   'permission.session_required': { tone: 'error', message: '이 동작은 로그인 세션으로만 할 수 있습니다.' },
+  'permission.cross_site_request': { tone: 'error', message: '다른 사이트에서 보낸 요청은 처리하지 않습니다. 앱 화면에서 다시 시도해 주세요.' },
   'permission.scope_required': { tone: 'error', message: '해당 시스템에 대한 권한이 없습니다.' },
 
   // rate_limited.*
