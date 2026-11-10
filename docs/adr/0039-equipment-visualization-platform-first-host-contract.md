@@ -2,6 +2,7 @@
 
 상태: **Candidate (2026-10-17)** — 선행 조사, 구현 안 함. 방향(플랫폼 탑재 기본, 호스트 계약은 `@ap/contracts`, `@ap/*` 의존은 EV `platform-adapter` 안에서만)은 사용자가 2026-10-17 [#396](https://github.com/hjung3113/analytics-platform/issues/396)·[#332](https://github.com/hjung3113/analytics-platform/issues/332) 코멘트로 정했다. 이 ADR은 그 방향을 플랫폼 쪽 계약 언어로 옮긴 초안이고, 아래 세부(계약 위치·이름·버전 규칙·EV 쪽 CI)는 아직 결정되지 않았다. SDK 목표는 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)을 따른다 — 독립 호스트는 제품 책임이고 SDK는 제품을 import하지 않는다.
 상태 보충: 부분 대체 — "EV는 외부 저장소의 모듈" 서술은 [ADR-0132](0132-eqv-merges-into-platform.md)가 대체한다(호스트 모듈 계약 자체는 유지).
+- Amended (2026-11-10, [ADR-0132](0132-eqv-merges-into-platform.md)): EV is no longer an external repository. Its packages live in `packages/eqv/*` and Studio in `apps/eqv-studio`; the EV ADRs are frozen history in [`history/eqv/`](history/eqv/README.md), cited as `EV ADR-NNNN`. Statements below that call EV an external repo, a tarball consumer or `menus/equipment` are history.
 상태 보충: 부분 대체 — 계약 부분은 [ADR-0053](0053-host-module-contract-v1.md)이 구현·확정했다.
 - 결정자: 사용자 (미정)
 

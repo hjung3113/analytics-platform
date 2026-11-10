@@ -10,7 +10,7 @@
 | 2 | `pnpm-lock.yaml`과 모든 `package.json`에 `equipment-visualization/releases` URL이 없다 | `rg equipment-visualization/releases` | Open |
 | 3 | EV 테스트 92파일(`*.test.ts(x)`, 릴리스용 `.mjs` 시험 2개는 가져오지 않는다)이 AP CI에서 돌고 `eqv.spec.ts`가 수정 없이 통과한다 | PR CI | Open |
 | 4 | Studio가 AP에서 개발 도구로 뜨고 저장·발행이 된다 | `apps/eqv-studio` 시험 | Open |
-| 5 | EV 문서, ADR, 용어가 옮겨졌고 AP 문서의 EV 저장소 링크가 고쳐졌다 | `pnpm docs:links`, `rg equipment-visualization` | Open |
+| 5 | EV 문서, ADR, 용어가 옮겨졌고 AP 문서의 EV 저장소 링크가 고쳐졌다 | `pnpm docs:links`, `rg equipment-visualization` | 1607g(#1615)에서 문서·ADR 이력·용어·스킬·소유자 반영. 남은 것: 링크 점검 통과 확인과 AP 문서의 `rg equipment-visualization` 남은 줄 |
 | 6 | EV 열린 이슈를 AP로 옮기거나 닫았다(아래 목록) | 소유자 확인 | Open |
 | 7 | 저자들의 `EQV_STUDIO_ASSETS` 데이터 루트를 백업했다 | 소유자 확인 | Open |
 | 8 | 저장소를 지우지 않고 보관만 한다. 옛 AP 태그의 `pnpm install`이 릴리스 파일을 받는다 | 소유자 확인 | Open |
