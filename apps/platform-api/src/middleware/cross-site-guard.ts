@@ -1,4 +1,4 @@
-// Root-level CSRF defence for cookie-authenticated state-changing requests (#1674, platform ADR-0071 decision 4).
+// Root-level CSRF defence for cookie-authenticated state-changing requests (#1674, ADR-0138).
 //
 // Several session-cookie POST routes read no body and need no custom header (archive, dismiss, confirm, revoke, mark-read,
 // logout), so only `SameSite=Lax` stood between them and a same-site page's form post (`text/plain` and

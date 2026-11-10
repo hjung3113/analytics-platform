@@ -96,9 +96,11 @@
 
 ## 5. P5 — 실서버에 모듈 권한을 주는 경로 (출시 전 필수)
 
+> 상태: 이 절은 #1667 전의 기록이다. #1667(#1724)에서 `resolvePlatformPermissions`와 메뉴별 rule은 삭제됐다. 이제 모듈이 메뉴 권한과 capability를 `MenuDispatchContribution.permissions`로 선언하고, 서버마다 `createPlatformPermissionResolver`가 그 선언을 읽는다([05-permission-policy.md §Menu permissions of business modules](../architecture/platform-api/05-permission-policy.md#menu-permissions-of-business-modules-1667)). 아래 «코드만 읽은 결과»와 선택지는 그 결정 전 상태다.
+
 코드만 읽은 결과(실제 배포에서 확인하지 않았다):
 
-- `apps/platform-api/src/modules/platform-port/permissions.ts`의 `resolvePlatformPermissions`는 `PLATFORM_PERMISSION_TABLE`만 돌려준다. 머리 주석이 «앱이 선언한 메뉴 권한은 나열하지 않는다, feature는 그중 어느 것도 주지 않는다»고 적는다. 메뉴 권한도 지금까지 행을 하나씩 더해 왔다.
+- (#1667 전) `apps/platform-api/src/modules/platform-port/permissions.ts`의 `resolvePlatformPermissions`는 `PLATFORM_PERMISSION_TABLE`만 돌려줬다. 머리 주석이 «앱이 선언한 메뉴 권한은 나열하지 않는다, feature는 그중 어느 것도 주지 않는다»고 적는다. 메뉴 권한도 지금까지 행을 하나씩 더해 왔다.
 - `apps/platform-api/src`(시험 제외)에서 `eqv`·`ModuleScopedId` 검색 결과가 없다.
 - 따라서 실서버에서 `eqv:view`를 받는 사람이 없다. `PlatformProvider`는 진입 불가 업무 시스템을 걸러내므로, 모듈 권한을 건 업무 시스템은 **경고 없이 모두에게 사라진다.** 모듈 메뉴도 같다.
 - 고정 모듈과 mock 파일럿은 이를 드러내지 못한다. mock 조립의 `modulePermissions(registry)`가 mock 역할 어휘에만 모듈 권한을 더하기 때문이다.
