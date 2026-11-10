@@ -21,8 +21,14 @@
 //      outside these runtime allowances under dependencies, peerDependencies or optionalDependencies.
 //      One lint-only exception (#1102): the exact root `eslint.config.js` of a package whose lint runs on ESLint may import
 //      exactly `@ap/eslint-config` (a devDependency). Runtime files, nested lookalikes, subpaths and other `@ap/*` stay denied.
+//  12. Non-test source in apps/platform-api/src/modules/<A>/** importing modules/<B>/** (A != B) must land on an approved
+//      surface (APPROVED_SURFACE_FILES below; docs/02-domain-module-boundaries.md «Approved cross-module surfaces»).
+//      Existing off-surface pairs are frozen in check-boundaries.baseline.json (exact `importing file -> target file`
+//      pairs). A pair not in the baseline fails; a baseline pair that no longer exists also fails, so the baseline only
+//      shrinks. `--shrink-baseline` rewrites the file with the stale pairs removed (never adds); `--init-baseline`
+//      writes it once when it does not exist yet.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
 import ts from 'typescript';
@@ -157,6 +163,17 @@ function collectImportSpecifiers(file, content) {
       out.push({
         specifier: node.moduleSpecifier.text,
         line: source.getLineAndCharacterOfPosition(node.moduleSpecifier.getStart(source)).line + 1,
+      });
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference) &&
+      ts.isStringLiteral(node.moduleReference.expression)
+    ) {
+      out.push({
+        specifier: node.moduleReference.expression.text,
+        line:
+          source.getLineAndCharacterOfPosition(node.moduleReference.expression.getStart(source))
+            .line + 1,
       });
     } else if (
       ts.isCallExpression(node) &&
@@ -421,6 +438,142 @@ for (const rule of RULES) {
     }
   }
 }
+
+// Rule 12: approved cross-module surfaces, as docs/02-domain-module-boundaries.md «Approved cross-module surfaces» and
+// docs/00-architecture.md «Dependency Direction» name them. Module-root file names (extension-less):
+const APPROVED_SURFACE_NAMES = new Set([
+  'index',
+  'commands',
+  'read-projections',
+  'read-service',
+  'authorization',
+  'read-contract',
+]);
+// Named by module and file. The permission check API and the wiring every menu route and session-aware handler needs:
+// without these, routine new code could only pass by hand-editing the baseline.
+const APPROVED_SURFACE_PATHS = new Set([
+  'core/responsibility-read-projections',
+  'permissions/check-service',
+  'permissions/scope-service',
+  'auth/session-service',
+  'menu-dispatch/types',
+  'platform-port/permissions',
+]);
+// `domain modules -> core interfaces/types`: anything under core (rule 6 still bars its repositories).
+const APPROVED_SURFACE_MODULES = new Set(['core']);
+const BASELINE_FILE = join(ROOT, FEATURE_OPS, 'scripts', 'check-boundaries.baseline.json');
+
+function surfaceKey(target) {
+  const rel = relative(join(ROOT, BACKEND_MODULES), target).split(sep).join('/');
+  // `.js` names its `.ts` source, so both are one file. `.mjs`/`.mts` and `.cjs`/`.cts` stay distinct targets.
+  return rel
+    .replace(/\.[jt]sx?$/, '')
+    .replace(/\.mts$/, '.mjs')
+    .replace(/\.cts$/, '.cjs');
+}
+
+function isApprovedSurface(key) {
+  const parts = key.split('/');
+  if (parts.length === 1) return true; // the module directory itself resolves to its barrel
+  if (APPROVED_SURFACE_MODULES.has(parts[0]) || APPROVED_SURFACE_PATHS.has(key)) return true;
+  return parts.length === 2 && APPROVED_SURFACE_NAMES.has(parts[1]);
+}
+
+// Every off-surface pair `importing file -> target file` (repository-relative, extension kept as written in the
+// import with .js normalised to the resolved path), with the first line it appears on.
+function collectOffSurfacePairs() {
+  const pairs = new Map();
+  const modulesRoot = join(ROOT, BACKEND_MODULES);
+  try {
+    statSync(modulesRoot);
+  } catch {
+    return pairs;
+  }
+  for (const file of walk(modulesRoot)) {
+    if (isTestPath(file)) continue;
+    const srcSegment = moduleSegment(file);
+    for (const { specifier, line } of collectImportSpecifiers(file, readFileSync(file, 'utf8'))) {
+      if (!specifier.startsWith('.')) continue;
+      const target = resolve(dirname(file), specifier);
+      const targetSegment = moduleSegment(target);
+      if (!srcSegment || !targetSegment || srcSegment === targetSegment) continue;
+      if (isApprovedSurface(surfaceKey(target))) continue;
+      const pair = `${relative(ROOT, file).split(sep).join('/')} -> ${surfaceKey(target)}`;
+      if (!pairs.has(pair)) pairs.set(pair, line);
+    }
+  }
+  return pairs;
+}
+
+function loadBaseline() {
+  // A fixture tree (FEATURE_PATHS_REPO_ROOT) carries its own baseline at the same repository-relative place, or none.
+  const path = BASELINE_FILE;
+  if (!existsSync(path)) return { path, pairs: null };
+  const { total, pairs } = JSON.parse(readFileSync(path, 'utf8'));
+  return { path, total, pairs: new Set(pairs) };
+}
+
+function writeBaseline(path, pairs) {
+  const sorted = [...pairs].sort();
+  writeFileSync(path, `${JSON.stringify({ total: sorted.length, pairs: sorted }, null, 2)}\n`);
+}
+
+function checkOffSurfaceBaseline() {
+  const found = collectOffSurfacePairs();
+  const { path, total, pairs: baseline } = loadBaseline();
+  const flags = new Set(process.argv.slice(2));
+  if (flags.has('--init-baseline')) {
+    if (baseline !== null) {
+      console.error(
+        '[boundary] --init-baseline only writes a baseline file that does not exist yet',
+      );
+      return 1;
+    }
+    writeBaseline(BASELINE_FILE, found.keys());
+    console.log(`boundaries: wrote ${found.size} pairs to ${relative(ROOT, BASELINE_FILE)}`);
+    return 0;
+  }
+  const known = baseline ?? new Set();
+  let count = 0;
+  if (baseline !== null && total !== baseline.size) {
+    count++;
+    console.error(
+      `[boundary] ${relative(ROOT, path)}: total is ${total} but the baseline lists ${baseline.size} pairs; set total to the number of pairs`,
+    );
+  }
+  for (const [pair, line] of found) {
+    if (known.has(pair)) continue;
+    count++;
+    console.error(
+      [
+        `[boundary] ${pair.split(' -> ')[0]}:${line}: cross-module import is not an approved surface (${pair});`,
+        'import an approved surface of the target module',
+        '(docs/02-domain-module-boundaries.md «Approved cross-module surfaces»).',
+        'New off-surface pairs are not added to the baseline.',
+      ].join(' '),
+    );
+  }
+  const stale = [...known].filter((pair) => !found.has(pair));
+  if (flags.has('--shrink-baseline') && stale.length > 0) {
+    writeBaseline(
+      path,
+      [...known].filter((pair) => found.has(pair)),
+    );
+    console.log(`boundaries: removed ${stale.length} stale pair(s) from ${relative(ROOT, path)}`);
+    return count;
+  }
+  for (const pair of stale) {
+    count++;
+    console.error(
+      [
+        `[boundary] ${relative(ROOT, path)}: baseline pair no longer exists (${pair}); delete the line`,
+        '(run `pnpm --filter @ap/platform-api-ops check:boundaries -- --shrink-baseline`) so the baseline only shrinks',
+      ].join(' '),
+    );
+  }
+  return count;
+}
+violations += checkOffSurfaceBaseline();
 
 // Rule 11, manifest half: own feature identities and @ap/ui are runtime dependencies; only the core server also permits contract-schemas (ADR-0097). Every manifest that can reach the
 // product's runtime graph is read: the feature tool package (ops/platform-api) and each feature app and package
