@@ -172,7 +172,8 @@ function collectImportSpecifiers(file, content) {
       out.push({
         specifier: node.moduleReference.expression.text,
         line:
-          source.getLineAndCharacterOfPosition(node.moduleReference.expression.getStart(source)).line + 1,
+          source.getLineAndCharacterOfPosition(node.moduleReference.expression.getStart(source))
+            .line + 1,
       });
     } else if (
       ts.isCallExpression(node) &&
@@ -465,7 +466,10 @@ const BASELINE_FILE = join(ROOT, FEATURE_OPS, 'scripts', 'check-boundaries.basel
 function surfaceKey(target) {
   const rel = relative(join(ROOT, BACKEND_MODULES), target).split(sep).join('/');
   // `.js` names its `.ts` source, so both are one file. `.mjs`/`.mts` and `.cjs`/`.cts` stay distinct targets.
-  return rel.replace(/\.[jt]sx?$/, '').replace(/\.mts$/, '.mjs').replace(/\.cts$/, '.cjs');
+  return rel
+    .replace(/\.[jt]sx?$/, '')
+    .replace(/\.mts$/, '.mjs')
+    .replace(/\.cts$/, '.cjs');
 }
 
 function isApprovedSurface(key) {
