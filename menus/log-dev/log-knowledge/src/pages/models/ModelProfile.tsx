@@ -6,6 +6,7 @@ import { CATALOG_MANAGE_PERMISSION, modelProfileEndpoint, type ModelProfileData 
 import { SOFTWARE_LIST_NOTE, softwareTabPage } from './modelPresentation';
 import { ModelItems } from './ModelItems';
 import { EmptyNote, ModelMeta, ModelSummary, Section, SoftwareTable } from './ProfileParts';
+import { TopViewSection } from './TopViewSection';
 
 const SECTIONS = [['summary', '모델 요약'], ['software', 'SW 버전'], ['items', '모델 공통 Item'], ['topview', 'Top View']] as const;
 const anchor = (id: string) => `model-profile-${id}`;
@@ -34,7 +35,7 @@ function Sections({ profile, modelId, canEdit }: { profile: ModelProfileData; mo
       <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('log-knowledge-spec', { params: { modelId }, returnTo: true })}>{tx({ ko: '모델 명세 보기', en: 'View model specification' })}</PlatformLink></Button>
     </Section>
     <Section id={anchor('items')} title="모델 공통 Item"><ModelItems modelId={modelId} active={profile.model.active} /></Section>
-    <Section id={anchor('topview')} title="Top View"><p className="text-sm text-text-muted">연결된 Top View가 없습니다</p></Section>
+    <Section id={anchor('topview')} title="Top View"><TopViewSection modelId={modelId} canEdit={canEdit} /></Section>
   </div>;
 }
 

@@ -18,6 +18,11 @@ export type MockEndpoint<P, T> = {
   provisional?: (input: { data: T; params: P; context: GlobalContext }) => boolean;
   /** Trust source shown in Data Trust; defaults like serve(). */
   source?: string;
+  /**
+   * A permission the actor must hold instead of the spec's, for a read the real server judges in its handler on top of the declared
+   * right (e.g. manager-only picker lists): the same `forbidden` answer, before any scenario. Default: the spec's permission.
+   */
+  requires?: EndpointSpec<P, T>['permission'];
   /** False for a non-mart source: no Data Trust and no mart dev scenarios (ServeOptions.mart). Default true. */
   mart?: boolean;
   /** Server-attached metricVersion display value (§2.4 step 9); may depend on the request params. */
@@ -144,7 +149,7 @@ export async function serveEndpoint(
     const invalid = endpoint.validate?.({ context: global, params: req.params });
     if (invalid) return requestError(invalid);
     return await serve({
-      permission: endpoint.spec.permission,
+      permission: endpoint.requires ?? endpoint.spec.permission,
       kinds: [...endpoint.spec.kinds],
       requiresScope: endpoint.spec.requiresScope,
       maxHours: endpoint.spec.limits?.maxHours,

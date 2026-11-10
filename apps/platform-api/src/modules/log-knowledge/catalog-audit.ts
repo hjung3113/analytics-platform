@@ -61,3 +61,21 @@ export function recordIdentityMapped(
     detail: { ...identity, source },
   });
 }
+
+/** The audit row of a Top View pointer change (#1656): ids and the Revision hash only, never the document. Subject: the model. */
+export function recordTopViewAudit(
+  tx: Tx,
+  actor: PlatformActor,
+  type: 'linked' | 'unlinked',
+  v: { linkId: string; modelId: string; fromSoftwareId: string | null; layoutId: string; revision: string },
+) {
+  return audit.record(tx, {
+    workspace_id: actor.workspace_id,
+    actor_id: actor.actor_id,
+    event_type: `knowledge.model_topview.${type}`,
+    subject_type: SUBJECT.model,
+    subject_id: v.modelId,
+    summary: `Model Top View ${type}`,
+    detail: { linkId: v.linkId, fromSoftwareId: v.fromSoftwareId, layoutId: v.layoutId, revision: v.revision },
+  });
+}

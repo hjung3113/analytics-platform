@@ -741,6 +741,15 @@ rows.push(
   { file: 'menus/log-dev/log-models/src/pages/LifecyclePage.tsx', code: `import { RoundSourceView } from '@ap/menu-log-analysis/view';`, rule: 'no-restricted-imports' },
   { file: 'menus/log-dev/log-analysis/src/view.tsx', code: `import { setRoundSourceView } from '@ap/menu-log-models/round-source-slot';`, rule: 'no-restricted-imports' },
 );
+// The model profile Top View (#1656): the app joins EV's read-only body to menu-log-knowledge's slot in main.tsx only (the second ADR-0128 slot).
+rows.push(
+  { file: 'apps/platform-web/src/main.tsx', code: `import { ModelTopView } from '@eqv/platform-adapter/model-topview';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { setModelTopView } from '@ap/menu-log-knowledge/model-topview-slot';`, rule: '' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { setModelTopView } from '@ap/menu-log-knowledge/model-topview-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-log-knowledge/src/model-topview-slot';`, rule: 'no-restricted-imports' },
+  { file: 'menus/log-dev/log-models/src/pages/LifecyclePage.tsx', code: `import { setModelTopView } from '@ap/menu-log-knowledge/model-topview-slot';`, rule: 'no-restricted-imports' },
+  { file: 'menus/log-dev/log-models/src/pages/LifecyclePage.tsx', code: `import { ModelTopView } from '@eqv/platform-adapter/model-topview';`, rule: 'no-restricted-imports' },
+);
 // The home 내 할 일 slot is main.tsx-only too (#657); `src/slots.ts` receives the value as a parameter.
 rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { homeTodoSlot } from '@ap/feature-bridge/home-todo-slot';`, rule: '' },

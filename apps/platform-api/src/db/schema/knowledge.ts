@@ -1507,3 +1507,50 @@ export const searchBackfillProgress = knowledgeSchema.table(
     generationCheck: check('search_backfill_progress_generation_check', sql`${t.generation} >= 1`),
   }),
 );
+
+// Hub pointer to a published Layout Revision of the `eqv` module (#1656, EV ADR-0011). The Hub stores the pointer only; the
+// document stays in `eqv.layout_revision`. `from_software_id` NULL = the model default; a row applies from that SW version's
+// `release_order` up to the next row. Two partial unique indexes count NULL once per model.
+export const modelTopviewLinks = knowledgeSchema.table(
+  'model_topview_link',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    id: uuid('id').primaryKey().defaultRandom(),
+    modelId: uuid('model_id').notNull(),
+    fromSoftwareId: uuid('from_software_id'),
+    layoutId: text('layout_id').notNull(),
+    layoutRevision: text('layout_revision').notNull(),
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => actors.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid('updated_by')
+      .notNull()
+      .references(() => actors.id),
+  },
+  (t) => ({
+    modelFk: foreignKey({
+      name: 'model_topview_link_model_fk',
+      columns: [t.workspaceId, t.modelId],
+      foreignColumns: [equipmentModels.workspaceId, equipmentModels.id],
+    }).onDelete('restrict'),
+    // Same-model SW: the composite key (workspace, model, id) of software_version; a NULL start SW skips the check (MATCH SIMPLE).
+    softwareFk: foreignKey({
+      name: 'model_topview_link_software_fk',
+      columns: [t.workspaceId, t.modelId, t.fromSoftwareId],
+      foreignColumns: [softwareVersions.workspaceId, softwareVersions.modelId, softwareVersions.id],
+    }).onDelete('restrict'),
+    defaultUq: uniqueIndex('model_topview_link_default_uq')
+      .on(t.workspaceId, t.modelId)
+      .where(sql`${t.fromSoftwareId} is null`),
+    softwareUq: uniqueIndex('model_topview_link_software_uq')
+      .on(t.workspaceId, t.modelId, t.fromSoftwareId)
+      .where(sql`${t.fromSoftwareId} is not null`),
+    revisionCheck: check('model_topview_link_revision_check', sql`${t.layoutRevision} ~ '^sha256:[0-9a-f]{64}$'`),
+    versionCheck: check('model_topview_link_version_check', sql`${t.version} >= 1`),
+  }),
+);

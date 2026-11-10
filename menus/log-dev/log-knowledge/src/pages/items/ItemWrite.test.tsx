@@ -145,6 +145,8 @@ const adapter = testAdapter({
       return ok({ model: { id: MODEL_A, code: 'A-100', name: 'Alpha 100', active: profileActive, vendor: { id: 'v', code: 'V', name: 'Alpha Semicap', active: true }, processes: [], createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z' },
         softwareVersions: [], truncated: false, modelItems: { total: 0 } });
     }
+    if (req.endpoint === 'logKnowledge.modelTopView') return ok({ target: null, resolved: null, links: [], softwareOptions: [] });
+    if (req.endpoint === 'logKnowledge.topViewRevisionOptions') return ok({ rows: [] });
     return ok({ rows: [], total: 0 });
   },
   menuAction: async (req: MenuAction) => { writes.push(req); return act(req); },

@@ -1,0 +1,274 @@
+{
+  "schemaVersion": "0.4",
+  "kind": "equipment-layout",
+  "id": "sample-layout",
+  "templateId": "sample-template",
+  "name": "Sample layout",
+  "unit": "abstract",
+  "viewBox": {
+    "x": 0,
+    "y": 0,
+    "width": 100,
+    "height": 100
+  },
+  "sources": [
+    {
+      "id": "src-synthetic",
+      "title": "Hand-written synthetic sample; no real equipment",
+      "license": "synthetic"
+    }
+  ],
+  "levels": [
+    {
+      "id": "level-main",
+      "label": "Main",
+      "order": 0
+    }
+  ],
+  "components": [
+    {
+      "id": "lp-a",
+      "role": "lp",
+      "assetRef": "primitive:lp",
+      "label": "lp-a",
+      "levelId": "level-main",
+      "transform": {
+        "x": 50,
+        "y": 88,
+        "rotation": 0,
+        "scale": 1
+      },
+      "size": {
+        "width": 16,
+        "height": 8
+      },
+      "ports": [
+        {
+          "id": "hub",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
+        }
+      ],
+      "holdingSites": [
+        {
+          "id": "slot-1",
+          "materialKinds": [
+            "wafer"
+          ],
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
+        }
+      ],
+      "provenance": {}
+    },
+    {
+      "id": "hub-a",
+      "role": "tm",
+      "assetRef": "primitive:tm",
+      "label": "hub-a",
+      "levelId": "level-main",
+      "transform": {
+        "x": 50,
+        "y": 50,
+        "rotation": 0,
+        "scale": 1
+      },
+      "size": {
+        "width": 30,
+        "height": 30
+      },
+      "ports": [
+        {
+          "id": "south",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
+        },
+        {
+          "id": "west",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
+        }
+      ],
+      "holdingSites": [],
+      "provenance": {}
+    },
+    {
+      "id": "proc-a",
+      "role": "pm",
+      "assetRef": "primitive:pm",
+      "label": "proc-a",
+      "levelId": "level-main",
+      "transform": {
+        "x": 18,
+        "y": 50,
+        "rotation": 0,
+        "scale": 1
+      },
+      "size": {
+        "width": 16,
+        "height": 16
+      },
+      "ports": [
+        {
+          "id": "east",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
+        }
+      ],
+      "holdingSites": [
+        {
+          "id": "slot-1",
+          "materialKinds": [
+            "wafer"
+          ],
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
+        }
+      ],
+      "provenance": {}
+    },
+    {
+      "id": "arm-a",
+      "role": "robot",
+      "assetRef": "primitive:robot-single",
+      "label": "arm-a",
+      "levelId": "level-main",
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scale": 1
+      },
+      "size": {
+        "width": 10,
+        "height": 10
+      },
+      "ports": [],
+      "holdingSites": [
+        {
+          "id": "blade-a",
+          "materialKinds": [
+            "wafer"
+          ],
+          "provenance": {
+            "certainty": "assumed",
+            "sourceEvidence": [
+              "src-synthetic"
+            ]
+          }
+        }
+      ],
+      "provenance": {},
+      "parentId": "hub-a"
+    }
+  ],
+  "physicalInterfaces": [
+    {
+      "id": "lp-a-hub-a",
+      "kind": "gate",
+      "a": {
+        "componentId": "lp-a",
+        "portId": "hub"
+      },
+      "b": {
+        "componentId": "hub-a",
+        "portId": "south"
+      },
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-synthetic"
+        ]
+      }
+    },
+    {
+      "id": "hub-a-proc-a",
+      "kind": "slit",
+      "a": {
+        "componentId": "hub-a",
+        "portId": "west"
+      },
+      "b": {
+        "componentId": "proc-a",
+        "portId": "east"
+      },
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-synthetic"
+        ]
+      }
+    }
+  ],
+  "transferCapabilities": [
+    {
+      "id": "lp-a-proc-a",
+      "a": {
+        "componentId": "lp-a",
+        "holdingSiteId": "slot-1"
+      },
+      "b": {
+        "componentId": "proc-a",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "arm-a",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-synthetic"
+        ]
+      }
+    }
+  ],
+  "processRoutes": [
+    {
+      "id": "route-a",
+      "label": "Sample route",
+      "steps": [
+        "lp-a",
+        "hub-a",
+        "proc-a"
+      ]
+    }
+  ]
+}

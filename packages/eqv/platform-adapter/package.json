@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./manifest": "./src/manifest-entry.ts",
+    "./model-topview": "./src/model-topview.tsx",
     "./styles.css": "./src/styles.css",
     "./mock-data": "./src/mock-data/index.ts"
   },

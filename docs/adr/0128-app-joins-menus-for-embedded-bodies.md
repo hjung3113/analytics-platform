@@ -9,6 +9,7 @@ Round 상세(`menu-log-models`)의 «원본/시퀀스» 탭은 로그 탐색(`me
 
 ## 결정과 이유
 
+- **둘째 슬롯.** 같은 방식으로 `menu-log-knowledge`는 `./model-topview-slot`(`setModelTopView`)을 열고, EV는 `@eqv/platform-adapter/model-topview`(`ModelTopView`, 읽기 전용 Top View)를 연다. `main.tsx`가 둘을 잇는다. 모델 프로필 Top View 절은 슬롯이 비면 그림을 그리지 않는다(#1656).
 - **앱이 잇는다.** `menu-log-analysis`는 `./view`(`RoundSourceView`)를, `menu-log-models`는 `./round-source-slot`(`setRoundSourceView`)을 정확한 서브경로로 연다. `apps/platform-web/src/main.tsx`만 두 경로를 import하고 시작할 때 꽂는다. `analysis-actions`·`setFeatureApi`와 같은 방식이라 규칙 2(메뉴끼리 import 금지)는 그대로다.
 - **`./view`는 얇게 두고 본문은 지연 로드한다.** `main.tsx`가 시작할 때 import하므로 표·가상화·Source 읽기는 탭이 열릴 때 불러오는 별도 덩어리다. 정적으로 import하면 `check:lazy-chunks`가 가상화 코드가 시작 덩어리에 들어갔다고 막는다.
 - **슬롯 타입은 구조적이다.** 꽂히는 컴포넌트는 `{ roundId, sampleSet }`만 받으므로 두 메뉴 중 어느 쪽도 상대의 타입을 import하지 않는다. 슬롯이 비어 있으면(아무것도 꽂지 않는 호스트) Round 상세에 탭이 없다.

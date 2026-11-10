@@ -26,6 +26,8 @@ import { conceptActions } from './concept-actions.js';
 import { conceptEndpoints } from './concept-endpoints.js';
 import { subjectEndpoints } from './subject-endpoints.js';
 import { itemEndpoints } from './item-endpoints.js';
+import { topViewEndpoints } from './topview-endpoints.js';
+import { topViewActions } from './topview-actions.js';
 import { DRAFT_MENU_PERMISSION, DRAFT_PERMISSION, draftActions } from './draft-actions.js';
 import { reviewActions } from './review-actions.js';
 import { draftEndpoints } from './draft-endpoints.js';
@@ -102,6 +104,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       ...importIntakeActions(deps),
       ...accessActions({ checkService: deps.checkService }),
       ...searchIndexActions({ checkService: deps.checkService }),
+      ...topViewActions(deps.eqvRead ? { checkService: deps.checkService, eqvRead: deps.eqvRead } : { checkService: deps.checkService }),
     ].map(withReplayAccess),
     permissions: [
       { permission: CATALOG_MENU_PERMISSION, capability: CATALOG_PERMISSION },
@@ -116,6 +119,7 @@ export function logKnowledgeContribution(deps: LogKnowledgeDeps): MenuDispatchCo
       declare(deps, 'models', MODEL_SORT_IDS, (_a, q, v) => listModels(deps.db, q, v)),
       declare(deps, 'softwareVersions', SOFTWARE_SORT_IDS, (_a, q, v) => listSoftwareVersions(deps.db, q, v)),
       ...itemEndpoints(deps),
+      ...topViewEndpoints(deps),
       ...draftEndpoints(deps),
       ...specEndpoints(deps),
       specCoverageEndpoint(deps),

@@ -28,6 +28,7 @@ import { itemReadsMock, subjectItemsMock } from './itemReads';
 import { conceptReadsMock } from './conceptReads';
 import { conceptActionsMock } from './conceptWrites';
 import { importActionsMock, importReadsMock } from './imports';
+import { topViewActionsMock, topViewReadsMock } from './topview';
 import { activeChildren, all, byId, latestSoftwareLabel, insert, keyTaken, processIdsOf, processesOf, releaseOrderOf, setProcesses, toCodeKey, touch, type Kind, type Rec } from './store';
 
 const PAGE_SIZE_MAX = 200;
@@ -147,6 +148,7 @@ export const logKnowledgeMock: readonly AnyMockEndpoint[] = [
   ...subjectItemsMock,
   ...itemReadsMock,
   ...importReadsMock,
+  ...topViewReadsMock,
 ];
 
 // ---- writes ----------------------------------------------------------------------------------------------------
@@ -269,8 +271,10 @@ export const logKnowledgeActionsMock: readonly AnyMockAction[] = [
   ...conceptActionsMock,
   ...itemActionsMock,
   ...importActionsMock,
+  ...topViewActionsMock,
 ];
 
 export { resetCatalog } from './store';
 export { resetItems } from './items';
 export { resetImports } from './imports';
+export { resetTopView } from './topview';

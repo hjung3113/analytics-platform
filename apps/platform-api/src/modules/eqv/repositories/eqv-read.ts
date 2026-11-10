@@ -1,12 +1,12 @@
 // Reads of the eqv schema. Every statement is scoped to the workspace of the actor.
 import { and, asc, desc, eq } from 'drizzle-orm';
 
-import type { Db } from '../../../db/client.js';
+import type { Tx } from '../../../db/tx.js';
 import { equipment, layoutDrafts, layoutRevisions, templates } from '../../../db/schema/eqv.js';
 
 const iso = (value: Date | string): string => (value instanceof Date ? value : new Date(value)).toISOString();
 
-export async function listDrafts(db: Db, workspaceId: string) {
+export async function listDrafts(db: Tx, workspaceId: string) {
   const rows = await db
     .select({ id: layoutDrafts.id, layoutId: layoutDrafts.layoutId, version: layoutDrafts.version, updatedAt: layoutDrafts.updatedAt })
     .from(layoutDrafts)
@@ -15,7 +15,7 @@ export async function listDrafts(db: Db, workspaceId: string) {
   return rows.map((r) => ({ id: r.id, layoutId: r.layoutId, version: String(r.version), updatedAt: iso(r.updatedAt) }));
 }
 
-export async function getDraft(db: Db, workspaceId: string, layoutId: string) {
+export async function getDraft(db: Tx, workspaceId: string, layoutId: string) {
   const [r] = await db
     .select()
     .from(layoutDrafts)
@@ -25,7 +25,7 @@ export async function getDraft(db: Db, workspaceId: string, layoutId: string) {
     : null;
 }
 
-export async function listRevisions(db: Db, workspaceId: string, layoutId: string) {
+export async function listRevisions(db: Tx, workspaceId: string, layoutId: string) {
   const rows = await db
     .select({ id: layoutRevisions.id, revision: layoutRevisions.revision, publishedAt: layoutRevisions.publishedAt })
     .from(layoutRevisions)
@@ -34,7 +34,7 @@ export async function listRevisions(db: Db, workspaceId: string, layoutId: strin
   return rows.map((r) => ({ id: r.id, layoutId, revision: r.revision, publishedAt: iso(r.publishedAt) }));
 }
 
-export async function getRevision(db: Db, workspaceId: string, layoutId: string, revision: string) {
+export async function getRevision(db: Tx, workspaceId: string, layoutId: string, revision: string) {
   const [r] = await db
     .select()
     .from(layoutRevisions)
@@ -44,7 +44,18 @@ export async function getRevision(db: Db, workspaceId: string, layoutId: string,
     : null;
 }
 
-export async function listTemplates(db: Db, workspaceId: string) {
+/** Every published Revision of the workspace, newest first, at most `limit` rows (no document). */
+export async function listPublishedRevisions(db: Tx, workspaceId: string, limit: number) {
+  const rows = await db
+    .select({ layoutId: layoutRevisions.layoutId, revision: layoutRevisions.revision, publishedAt: layoutRevisions.publishedAt })
+    .from(layoutRevisions)
+    .where(eq(layoutRevisions.workspaceId, workspaceId))
+    .orderBy(desc(layoutRevisions.publishedAt), asc(layoutRevisions.layoutId), asc(layoutRevisions.revision))
+    .limit(limit);
+  return rows.map((r) => ({ layoutId: r.layoutId, revision: r.revision, publishedAt: iso(r.publishedAt) }));
+}
+
+export async function listTemplates(db: Tx, workspaceId: string) {
   const rows = await db
     .select({
       id: templates.id,
@@ -60,7 +71,7 @@ export async function listTemplates(db: Db, workspaceId: string) {
   return rows.map((r) => ({ ...r, createdAt: iso(r.createdAt) }));
 }
 
-export async function getTemplate(db: Db, workspaceId: string, templateId: string) {
+export async function getTemplate(db: Tx, workspaceId: string, templateId: string) {
   const [r] = await db
     .select()
     .from(templates)
@@ -69,7 +80,7 @@ export async function getTemplate(db: Db, workspaceId: string, templateId: strin
 }
 
 /** Equipment the viewer can pick. `dataRange` is `[from, to)` and stays `null` until step 9 reads recorded data. At most 1000 options. */
-export async function equipmentOptions(db: Db, workspaceId: string) {
+export async function equipmentOptions(db: Tx, workspaceId: string) {
   const rows = await db
     .select({ id: equipment.equipmentId, label: equipment.label })
     .from(equipment)

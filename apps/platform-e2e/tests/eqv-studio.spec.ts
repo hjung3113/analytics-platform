@@ -7,6 +7,8 @@ import { chooseSystem } from './contract-helpers';
  * Studio permissions in the mock (the mock has no partial role), so the read-only, edit-only and publish-only states are covered by
  * the menu's permission-matrix unit test and, on the real server, by hand. The layout is the mock's synthetic `sample-layout`.
  */
+/** The Revision the Studio mock seeds (the real hash of its fixture); the edited publish must differ from it. */
+const SEEDED_REVISION = 'sha256:0cd25afbcf9beeb516b7d6c65b16d12ba648c688c70c8c0b2db994170e1ec0f5';
 const sidebar = (page: Page) => page.getByRole('navigation', { name: '주 메뉴' });
 const heading = (page: Page) => page.getByRole('heading', { level: 1 });
 
@@ -33,16 +35,23 @@ test.describe('eqv studio layouts', () => {
     await expect(heading(page)).not.toContainText('저장 안 됨');
     await page.getByRole('button', { name: 'Revision 게시', exact: true }).click();
     const publish = page.getByRole('alertdialog');
-    await expect(publish.getByText('첫 Revision', { exact: true })).toBeVisible();
+    // The mock seeds one published Revision of the fixture (#1656), so the dialog compares with it and lists the label change.
+    await expect(publish.getByText(/^비교 기준:/)).toBeVisible();
+    await expect(publish.getByRole('table', { name: 'Layout 변경 목록' }).getByRole('cell', { name: '변경', exact: true }).first()).toBeVisible();
     await publish.getByRole('button', { name: '게시', exact: true }).click();
     await expect(page.locator('[data-toast-stack]').getByText('Revision을 게시했습니다', { exact: true })).toBeVisible();
     await expect(heading(page)).toContainText('게시됨');
 
     // Promote: open the published Revision (read-only), then promote it.
-    await page.getByRole('region', { name: 'Revision 이력' }).getByRole('button', { name: /게시됨/ }).click();
+    // Newest first: the Revision just published sits above the seeded one.
+    await page.getByRole('region', { name: 'Revision 이력' }).getByRole('button', { name: /게시됨/ }).first().click();
     await expect.poll(() => new URL(page.url()).searchParams.get('layout')).toBe('sample-layout');
     await expect.poll(() => new URL(page.url()).searchParams.get('revision')).toMatch(/^sha256:[0-9a-f]{64}$/);
     await expect(page.getByRole('button', { name: '초안 저장', exact: true })).toHaveCount(0);
+    // It is the edited Revision, not the seeded one: a different hash than the seed, and the drawing shows the renamed Component.
+    expect(new URL(page.url()).searchParams.get('revision')).not.toBe(SEEDED_REVISION);
+    // The label is the drawn Component's SVG title (not visible text), so assert it is in the opened document.
+    await expect(page.locator('svg title', { hasText: /^Edited proc ·/ })).toHaveCount(1);
     await page.getByRole('button', { name: 'EV Template으로 승격', exact: true }).click();
     const promote = page.getByRole('alertdialog');
     await promote.getByLabel('ID', { exact: false }).fill('e2e-template');

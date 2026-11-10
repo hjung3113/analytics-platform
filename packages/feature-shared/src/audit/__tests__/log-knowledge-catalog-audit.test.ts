@@ -28,4 +28,10 @@ describe('log knowledge catalog audit detail schemas (ADR-0107)', () => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS['knowledge.catalog.identity_mapped'].safeParse({ ...mapped, extra: 1 }).success).toBe(false);
     expect(AUDIT_EVENT_DETAIL_SCHEMAS['knowledge.catalog.created'].safeParse({ code: 'A', name: 'B', source: { importJobId: 'j1' } }).success).toBe(false);
   });
+
+  it('accepts the Top View pointer detail without a document and rejects extra keys', () => {
+    const detail = { linkId: 'l1', fromSoftwareId: null, layoutId: 'demo-layout', revision: `sha256:${'a'.repeat(64)}` };
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS['knowledge.model_topview.linked'].safeParse(detail).success).toBe(true);
+    expect(AUDIT_EVENT_DETAIL_SCHEMAS['knowledge.model_topview.unlinked'].safeParse({ ...detail, document: {} }).success).toBe(false);
+  });
 });

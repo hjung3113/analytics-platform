@@ -139,6 +139,8 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   // #1197 s1: the model reads; `modelProfile` takes a seed model id (store.ts sequence 8 = A-100, see `seedId` below).
   'logKnowledge.exploreModels': { q: null, ...page },
   'logKnowledge.modelProfile': { modelId: '00000003-0000-4000-8000-000000000008' },
+  // #1656: the Top View pointer reads; Alpha 100 has the mock's default link.
+  'logKnowledge.modelTopView': { modelId: '00000003-0000-4000-8000-000000000008' },
   // Knowledge item reads (#1197 s2): the mock seed's first item (uuid by sequence, `src/mock/items.ts`).
   'logKnowledge.items': { q: null, ...page },
   'logKnowledge.search': { q: 'STEP_PROCESS', limit: 10 },
@@ -174,7 +176,11 @@ const PARAMS: Record<string, Record<string, unknown>> = {
 const EQV_CONTEXT = { from: '2026-01-01T10:00:00', to: '2026-01-01T10:30:00' };
 
 // No oversizeParams samples (#175): mock data sits far below the declared maxRows, so no case can exceed a cap.
-const cases: ConformanceCase[] = endpoints.map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {}, ...(spec.id.startsWith('eqv.topview-') ? { context: EQV_CONTEXT } : {}) }));
+// Left out, as the real-server run does (platform-conformance.integration.test.ts MENU_LEFT_OUT): the Revision picker is judged by
+// `knowledge.catalog.manage` on top of `platform:view`, and the kit's granted account holds `platform:view` only, so it is answered
+// `forbidden` where the kit wants `ok` or `empty`. `menus/log-dev/log-knowledge/src/mock/topview.test.ts` covers the refusal and the manager answer.
+const LEFT_OUT = new Set(['logKnowledge.topViewRevisionOptions']);
+const cases: ConformanceCase[] = endpoints.filter(({ spec }) => !LEFT_OUT.has(spec.id)).map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {}, ...(spec.id.startsWith('eqv.topview-') ? { context: EQV_CONTEXT } : {}) }));
 // No menu declares a write yet, so the write checks (ADR-0054) judge the mock engine over one fixture action on an
 // existing analytics menu; the version counter is the stored row the handler bumps and `currentVersion` reads.
 const trendSpec = endpoints.find(({ spec }) => spec.id === 'analytics.productivity.trend')!.spec;
@@ -261,6 +267,18 @@ const stagedConcept = (): string => {
   const out = importHandler('conceptPropose').handle({ input: { modelId: A100, targetKind: 'module', target: { module: 'Chamber' }, canonicalLabel: unique('CONCEPT'), relationKind: 'related' }, actor: 'admin', scopeId: null }).data as { mappingId: string };
   return out.mappingId;
 };
+// The Top View pointer writes (#1656). `unlinkTopView` stages its own row once (only while none exists), so the version the harness
+// reads and the version it sends agree on every call. The Revision is the mock's synthetic Layout (hash proved in @eqv/platform-adapter).
+const TOPVIEW = { layoutId: 'sample-layout', revision: 'sha256:0cd25afbcf9beeb516b7d6c65b16d12ba648c688c70c8c0b2db994170e1ec0f5' };
+const topViewSamples: Record<string, () => Record<string, unknown>> = {
+  linkTopView: () => ({ modelId: A100, fromSoftwareId: null, ...TOPVIEW }),
+  unlinkTopView: () => {
+    const link = importHandler('linkTopView');
+    const input = { modelId: A100, fromSoftwareId: A100_V1, ...TOPVIEW };
+    if (link.version?.({ input, actor: 'admin', scopeId: null }) === '0') link.handle({ input, actor: 'admin', scopeId: null });
+    return { modelId: A100, fromSoftwareId: A100_V1 };
+  },
+};
 const conceptSamples: Record<string, () => Record<string, unknown>> = {
   conceptPropose: () => ({ modelId: A100, targetKind: 'module', target: { module: 'Chamber' }, canonicalLabel: unique('CONCEPT') }),
   conceptConfirm: () => ({ mappingId: stagedConcept() }),
@@ -322,7 +340,7 @@ const lifecycleSamples: Record<string, () => Record<string, unknown>> = {
   gateDecide: () => ({ roundId: stageLifecycleFixture().roundId, targetStage: 'beta', decision: 'rejected', reason: '적합성 검토' }),
 };
 const writeSamples: Record<string, Record<string, () => Record<string, unknown>>> = {
-  logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples, ...specSamples, ...conceptSamples },
+  logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples, ...specSamples, ...conceptSamples, ...topViewSamples },
   improvement: improvementSamples,
   logExplorer: explorerSamples,
   logLifecycle: lifecycleSamples,

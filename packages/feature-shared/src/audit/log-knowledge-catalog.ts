@@ -10,6 +10,8 @@ export const LOG_KNOWLEDGE_CATALOG_AUDIT_EVENT_TYPES = [
   'knowledge.catalog.deactivated',
   'knowledge.catalog.reactivated',
   'knowledge.catalog.identity_mapped',
+  'knowledge.model_topview.linked',
+  'knowledge.model_topview.unlinked',
 ] as const;
 
 export const LOG_KNOWLEDGE_CATALOG_SUBJECT_TYPES = [
@@ -44,10 +46,22 @@ export const logKnowledgeIdentityMappedDetailSchema = z
   })
   .strict();
 
+/** A model's Top View pointer was set or removed (#1656): ids and the Revision hash, never the document. */
+export const logKnowledgeModelTopViewDetailSchema = z
+  .object({
+    linkId: z.string(),
+    fromSoftwareId: z.string().nullable(),
+    layoutId: z.string(),
+    revision: z.string(),
+  })
+  .strict();
+
 export const LOG_KNOWLEDGE_CATALOG_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'knowledge.catalog.created': logKnowledgeCatalogDetailSchema,
   'knowledge.catalog.updated': logKnowledgeCatalogDetailSchema,
   'knowledge.catalog.deactivated': logKnowledgeCatalogDetailSchema,
   'knowledge.catalog.reactivated': logKnowledgeCatalogDetailSchema,
   'knowledge.catalog.identity_mapped': logKnowledgeIdentityMappedDetailSchema,
+  'knowledge.model_topview.linked': logKnowledgeModelTopViewDetailSchema,
+  'knowledge.model_topview.unlinked': logKnowledgeModelTopViewDetailSchema,
 } as const satisfies Record<(typeof LOG_KNOWLEDGE_CATALOG_AUDIT_EVENT_TYPES)[number], z.ZodTypeAny>;
