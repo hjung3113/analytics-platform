@@ -1,7 +1,8 @@
 import { ESLint } from 'eslint';
 import type { Linter } from 'eslint';
 import { spawn } from 'node:child_process';
-import { existsSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -282,13 +283,42 @@ describe('feature screens preset: the UI rules plus the restyled-component check
   });
 });
 
+// The lint runs in a temporary copy of the package, never in the checkout: turbo runs the same package's vitest
+// and typecheck at the same time, and `eslint .` reading vitest's transient `vitest.config.ts.timestamp-*.mjs`
+// (or a sibling task seeing the probe file) made this test fail on a race (#1681). The copy keeps the package's own
+// package.json (its real `lint` script) and eslint.config.js. The package sits at its repo-relative path inside the
+// scratch tree and every other repo entry is a symlink, because the design-system lint reads components.json,
+// the Tailwind theme CSS and tsconfig bases from elsewhere in the repo.
+function copyPackage(dir: string, into: string): string {
+  const [top = ''] = dir.split('/');
+  for (const entry of readdirSync(REPO_ROOT)) {
+    if (entry === '.git' || entry === top) continue;
+    symlinkSync(path.join(REPO_ROOT, entry), path.join(into, entry));
+  }
+  mkdirSync(path.join(into, top));
+  for (const entry of readdirSync(path.join(REPO_ROOT, top))) {
+    if (`${top}/${entry}` !== dir) symlinkSync(path.join(REPO_ROOT, top, entry), path.join(into, top, entry));
+  }
+  const source = path.join(REPO_ROOT, dir);
+  const target = path.join(into, dir);
+  cpSync(source, target, {
+    recursive: true,
+    filter: (entry) => {
+      const name = path.basename(entry);
+      return name !== 'node_modules' && !/\.timestamp-\d+-[\da-f]+\.mjs$/.test(name);
+    },
+  });
+  symlinkSync(path.join(source, 'node_modules'), path.join(target, 'node_modules'), 'dir');
+  return target;
+}
+
 // Async dispatch: sync child waiting blocks the vitest worker event loop and starves the birpc
 // onTaskUpdate heartbeat (#771). Start errors, signal exits and a missing status reject, so
 // they can never be mistaken for the expected lint failure.
-function dispatchPackageLint(name: string): Promise<{ status: number; output: string }> {
+function dispatchPackageLint(name: string, cwd: string): Promise<{ status: number; output: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('pnpm', ['--config.verify-deps-before-run=false', '--filter', name, 'run', 'lint'], {
-      cwd: REPO_ROOT,
+    const child = spawn('pnpm', ['--config.verify-deps-before-run=false', 'run', 'lint'], {
+      cwd,
       env: { ...process.env, NODE_OPTIONS: '' },
     });
     let stdout = '';
@@ -311,24 +341,26 @@ function dispatchPackageLint(name: string): Promise<{ status: number; output: st
 }
 
 describe('package lint dispatch', () => {
-  // Real `pnpm lint` of each package with a new, untracked invalid source file; the file is removed afterwards.
+  // Real `pnpm run lint` of each package (its own script and config, in a temporary copy) with a new invalid source file.
   it.each(Object.entries(PACKAGES))('%s lint fails on a new invalid source file and names it', async (dir, { name }) => {
-    const probe = path.join(REPO_ROOT, dir, 'src', 'zz-lint-dispatch-probe.ts');
-    expect(existsSync(probe)).toBe(false);
+    const scratch = mkdtempSync(path.join(tmpdir(), 'ap-lint-dispatch-'));
     let heartbeats = 0;
     // Zero-delay interval: fires once per event-loop turn, so it only ticks if the worker loop stays live
     // while the lint child runs (sync waiting starves the vitest birpc onTaskUpdate heartbeat — #771).
     const heartbeat = setInterval(() => { heartbeats += 1; }, 0);
     try {
+      const copy = copyPackage(dir, scratch);
+      const probe = path.join(copy, 'src', 'zz-lint-dispatch-probe.ts');
+      expect(existsSync(probe)).toBe(false);
       writeFileSync(probe, 'export const f = (a?: string) => a!;\nexport const g = (a: number) => a == 1;\n');
-      const { status, output } = await dispatchPackageLint(name);
+      const { status, output } = await dispatchPackageLint(name, copy);
       expect(heartbeats, output).toBeGreaterThan(0);
       expect(status, output).not.toBe(0);
       expect(output).toContain('zz-lint-dispatch-probe.ts');
       expect(output).toContain('no-non-null-assertion');
     } finally {
       clearInterval(heartbeat);
-      if (existsSync(probe)) unlinkSync(probe);
+      rmSync(scratch, { recursive: true, force: true });
     }
   }, 180_000);
 });

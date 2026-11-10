@@ -10,6 +10,9 @@ import CycleTimeDrilldown from './CycleTimeDrilldown';
 import { installWorkspaceGeometry } from './workspaceTestSupport';
 import { TEST_AXES } from '../test-axes';
 
+// mount() alone may wait 8 s for the lazy chart chunks under CI load, so the 5 s default test timeout cut tests off first (#1681).
+vi.setConfig({ testTimeout: 30_000 });
+
 // jsdom has no canvas: only the Chart Frame is replaced (it still draws its title and the series ids it was given).
 let frameProps: import('@ap/components').AnalysisChartFrameProps | null = null;
 vi.mock('@ap/components', async importOriginal => {
