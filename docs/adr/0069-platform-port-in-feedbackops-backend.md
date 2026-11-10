@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | 상태 코드 | 4xx로 실패를 알린다 | 판정 결과를 200 + `outcome` envelope로 준다 |
 | 필드 이름 | snake_case | camelCase |
-| CSRF | SameSite + JSON 강제 | `X-CSRF-Token` |
+| CSRF | SameSite + `Sec-Fetch-Site` 검사([ADR-0138](0138-cross-site-guard-for-cookie-state-changing-requests.md); 서버는 JSON을 강제하지 않는다) | `X-CSRF-Token` |
 
 한 서버에서 두 규약을 어떻게 나눌지가 먼저 정해져야 #593을 작업 단위로 나눌 수 있다.
 
@@ -40,7 +40,7 @@
    - 세션에 묶인 토큰을 `bootstrap`이 `csrfToken`으로 준다. 세션이 바뀌면 토큰도 바뀐다.
    - `/api/v1/platform`의 상태를 바꾸는 POST는 `X-CSRF-Token`을 요구한다. 대상은 `recordUsage`·`reportClientError`·주석 저장과 삭제·`menuAction`이다.
    - 읽기 POST(`*/search`·`entity`)는 JSON Content-Type 강제만 둔다(계약 §6).
-   - 기존 FeedbackOps 경로는 지금 규약 그대로 두고, #594에서 다시 본다. → **ADR-0071 결정 4(2026-10-22, #651):** 앞단을 지난 `/api/fo` 요청도 같은 출처이므로 규약은 그대로다(SameSite=Lax 세션 쿠키, JSON 본문, `Idempotency-Key`). 다시 볼 조건: 앱과 FeedbackOps API가 서로 다른 사이트로 배포될 때(#151).
+   - 기존 FeedbackOps 경로는 지금 규약 그대로 두고, #594에서 다시 본다. → **ADR-0071 결정 4(2026-10-22, #651):** 앞단을 지난 `/api/fo` 요청도 같은 출처이므로 규약은 그대로다(SameSite=Lax 세션 쿠키와 `Sec-Fetch-Site` 검사, [ADR-0138](0138-cross-site-guard-for-cookie-state-changing-requests.md)). 다시 볼 조건: 앱과 FeedbackOps API가 서로 다른 사이트로 배포될 때(#151).
 5. **Correlation ID(O20).**
    - 요청 헤더 `X-Correlation-Id`가 `^[A-Za-z0-9._-]{1,128}$`에 맞으면 그 값을 Fastify `reqId`로 쓴다. 맞지 않거나 없으면 서버가 만든다.
    - 모든 응답 헤더와 플랫폼 envelope `correlationId`에 같은 값을 싣는다.

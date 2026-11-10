@@ -17,6 +17,8 @@ export const ERROR_CODES = [
   'permission.denied',
   // ADR-0116 decision 4: a token call to a route/capability that only a human login session may use.
   'permission.session_required',
+  // #1674: a state-changing request with the session cookie whose Sec-Fetch-Site is present and not same-origin.
+  'permission.cross_site_request',
   // rate_limited.* → 429
   'rate_limited.actor',
   'rate_limited.workspace',

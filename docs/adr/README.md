@@ -148,6 +148,7 @@
 | [0135](0135-eqv-layout-storage-publish-and-promotion.md) | 서버 `eqv` 모듈: 게시 순서·가져오기 검증·Template 승격의 저장 방식 | Decided(2026-11-10, 코디네이터(사용자 위임), 되돌릴 수 있음) — EV ADR-0007·0010·0015의 저장 방식, 구현 #1645 |
 | [0136](0136-verification-expected-behavior-and-criteria.md) | 기능 검증: 기대 동작표, 판단 기준, 플랫폼 제공 기능을 Home에서 눌러서 확인 | Decided(2026-11-10, 소유자, 되돌릴 수 있음) — 메뉴 활용률 열람을 Admin으로 고침, #1660 |
 | [0137](0137-table-refresh-on-and-given-rows.md) | 표: `refreshOn`으로 쓰기 뒤 다시 읽기, `rows`로 가진 행 입력 | Decided(2026-11-11, lane sdk, 되돌릴 수 있음) — ADR-0054 다시 읽기 문장이 `refreshOn` 표에도 적용, #1672 |
+| [0138](0138-cross-site-guard-for-cookie-state-changing-requests.md) | 세션 쿠키 상태 변경 요청은 `Sec-Fetch-Site`가 `same-origin`이 아니면 거절 | Decided(2026-11-11, lane platform, 되돌릴 수 있음) — ADR-0071·0069 결정 4의 CSRF 문장을 고친다 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
