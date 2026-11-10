@@ -11,6 +11,9 @@ import CycleTimeDrilldown from './CycleTimeDrilldown';
 import { installWorkspaceGeometry } from './workspaceTestSupport';
 import { TEST_AXES } from '../test-axes';
 
+// mount() alone may wait 8 s for the lazy chart chunks under CI load, so the 5 s default test timeout cut tests off first (#1681).
+vi.setConfig({ testTimeout: 30_000 });
+
 const registry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'productivity-overview' }], groups: [{ id: groupId('analytics'), label: { ko: '분석', en: 'Analytics' }, icon: Timer, space: spaceId('mars') }], menus: manifests });
 function Apply() { const query = useQueryDraft(); return <button onClick={query.apply} disabled={!query.canApply}>Apply query</button>; }
 const restoreGeometry = installWorkspaceGeometry();
