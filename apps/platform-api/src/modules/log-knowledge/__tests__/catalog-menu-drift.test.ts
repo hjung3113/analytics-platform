@@ -33,6 +33,8 @@ import {
   modelFilterSpecs,
   modelSpecEndpointSpecs,
   specActionSpecs,
+  topViewActionSpecs,
+  topViewEndpointSpecs,
   processFilterSpecs,
   softwareFilterSpecs,
   vendorFilterSpecs,
@@ -75,6 +77,8 @@ const serverEndpoints = (server.endpoints ?? []).filter((e) => e.spec.menuId ===
 const serverActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_MENU_ID && !isImport(a.spec.id));
 const serverImportEndpoints = (server.endpoints ?? []).filter((e) => isImport(e.spec.id));
 const serverImportActions = (server.actions ?? []).filter((a) => isImport(a.spec.id));
+// The Top View pointer reads and writes (#1656) have their own block below.
+const isTopView = (id: string) => /^logKnowledge\.(modelTopView|topViewRevisionOptions|linkTopView|unlinkTopView)$/.test(id);
 const sorted = (keys: Iterable<string>) => [...keys].sort();
 
 describe('log knowledge menu declarations vs the server', () => {
@@ -131,7 +135,7 @@ describe('log knowledge menu declarations vs the server', () => {
 });
 
 describe('model reads (menu log-knowledge-models) vs the server', () => {
-  const serverModelEndpoints = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MODELS_MENU_ID);
+  const serverModelEndpoints = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MODELS_MENU_ID && !isTopView(e.spec.id));
 
   it('uses the server menu id', () => {
     expect(LOG_KNOWLEDGE_MODELS_MENU_ID).toBe(SERVER_MODELS_MENU_ID);
@@ -201,7 +205,7 @@ describe('log knowledge item reads vs the server', () => {
 
 // The four model spec writes of the `log-knowledge-models` menu (#1196 b1): same comparison as the item writes.
 describe('log knowledge model spec writes vs the server', () => {
-  const serverSpecActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_MODELS_MENU_ID);
+  const serverSpecActions = (server.actions ?? []).filter((a) => a.spec.menuId === LOG_KNOWLEDGE_MODELS_MENU_ID && !isTopView(a.spec.id));
 
   it("uses the server's menu permission name for the writes and the draft read", () => {
     expect(SPEC_PUBLISH_PERMISSION).toBe(SPEC_MENU_PERMISSION);
@@ -222,7 +226,7 @@ describe('log knowledge model spec writes vs the server', () => {
   });
 
   it('invalidates reads that are endpoints of the same menu', () => {
-    const modelReadIds = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MODELS_MENU_ID).map((e) => e.spec.id);
+    const modelReadIds = (server.endpoints ?? []).filter((e) => e.spec.menuId === LOG_KNOWLEDGE_MODELS_MENU_ID && !isTopView(e.spec.id)).map((e) => e.spec.id);
     for (const menu of specActionSpecs) for (const read of menu.invalidates) expect(modelReadIds, menu.id).toContain(read.id);
   });
 
@@ -328,5 +332,37 @@ describe('catalog import staging declarations (#1195 a) vs the server', () => {
     expect(sorted(menu.options.map((o) => o.value))).toEqual(sorted(IMPORT_ROW_FILTER_SPECS.applyStatus.allowed));
     expect(sorted(MENU_IMPORT_APPLY_STATUSES)).toEqual(sorted(APPLY_STATUSES));
     expect(sorted(MENU_IMPORT_RESOLUTIONS)).toEqual(sorted(RESOLUTIONS));
+  });
+});
+
+// The Top View pointer: two reads and two writes of the models menu (#1656), compared in the server's order.
+describe('model Top View pointer declarations vs the server', () => {
+  const serverReads = (server.endpoints ?? []).filter((e) => isTopView(e.spec.id));
+  const serverWrites = (server.actions ?? []).filter((a) => isTopView(a.spec.id));
+
+  it('declares the same two reads with the same keys, right and workspace rule', () => {
+    expect(topViewEndpointSpecs.map((s) => s.id)).toEqual(serverReads.map((e) => e.spec.id));
+    topViewEndpointSpecs.forEach((menu, i) => {
+      const spec = serverReads[i]?.spec;
+      expect(sorted(Object.keys(menu.paramKeys)), menu.id).toEqual(sorted(spec?.paramKeys ?? []));
+      expect(
+        { menuId: menu.menuId, permission: menu.permission, requiresScope: menu.requiresScope, context: menu.context, mergeTimeDomain: menu.mergeTimeDomain },
+        menu.id,
+      ).toEqual({ menuId: spec?.menuId, permission: spec?.permission, requiresScope: spec?.requiresScope, context: spec?.context, mergeTimeDomain: spec?.mergeTimeDomain });
+    });
+  });
+
+  it('declares the same two writes, versioned, on the catalog-manage right, invalidating modelTopView', () => {
+    expect(topViewActionSpecs.map((s) => s.id)).toEqual(serverWrites.map((a) => a.spec.id));
+    topViewActionSpecs.forEach((menu, i) => {
+      const spec = serverWrites[i]?.spec;
+      expect(sorted(Object.keys(menu.inputKeys)), menu.id).toEqual(sorted(spec?.inputKeys ?? []));
+      expect(menu.invalidates.map((e) => e.id), menu.id).toEqual([...(spec?.invalidates ?? [])]);
+      expect(
+        { menuId: menu.menuId, permission: menu.permission, requiresScope: menu.requiresScope, concurrency: menu.concurrency },
+        menu.id,
+      ).toEqual({ menuId: spec?.menuId, permission: spec?.permission, requiresScope: spec?.requiresScope, concurrency: spec?.concurrency });
+      expect(spec?.permission).toBe(CATALOG_MENU_PERMISSION);
+    });
   });
 });

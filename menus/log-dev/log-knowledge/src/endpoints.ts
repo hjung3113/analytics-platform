@@ -717,3 +717,47 @@ export const importApply = defineAction<ImportApplyInput, ImportApplyResult>({
 
 export const importActionSpecs = [importMap, importValidate, importResolve, importCancel, importPaste, importApply] as const;
 export const importEndpointSpecs = [importDetailEndpoint] as const;
+
+// ---- model Top View pointer (#1656) ------------------------------------------------------------------------------
+// The Hub stores a pointer to a published Layout Revision of the `eqv` module; the Revision document comes back with the read.
+// Read by anyone who can see the model (no `eqv:view`); linked and unlinked by a catalog manager. Server mirror: `topview-endpoints.ts`
+// and `topview-actions.ts`. A pointer applies from its start SW's release order; none = the model default; no row = unlinked.
+export type TopViewLinkItem = {
+  linkId: string; fromSoftwareId: string | null; fromSoftwareVersion: string | null; layoutId: string; revision: string; version: number;
+};
+export type ModelTopViewData = {
+  /** The SW version the pointer was resolved for (newest by default); `null` when the model has no visible SW version. */
+  target: { softwareId: string; version: string } | null;
+  resolved: {
+    linkId: string; fromSoftwareId: string | null; fromSoftwareVersion: string | null;
+    layoutId: string; revision: string; document: unknown; publishedAt: string;
+  } | null;
+  /** Present when a pointer applies but its Revision can no longer be read; the screen never falls back to an older row. */
+  resolvedError?: 'revision_unavailable';
+  links: TopViewLinkItem[];
+};
+export type ModelTopViewParams = { modelId: string; softwareId?: string };
+export type TopViewRevisionOption = { layoutId: string; revision: string; publishedAt: string };
+export const modelTopViewEndpoint = defineEndpoint<ModelTopViewParams, ModelTopViewData | null>({
+  id: 'logKnowledge.modelTopView', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys: { modelId: true, softwareId: true }, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+/** Published Revisions to pick from, newest first, at most 500; catalog managers only (others get `forbidden`). */
+export const topViewRevisionOptionsEndpoint = defineEndpoint<Record<string, never>, { rows: TopViewRevisionOption[] }>({
+  id: 'logKnowledge.topViewRevisionOptions', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, paramKeys: {}, permission: 'platform:view',
+  requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false,
+});
+export const topViewEndpointSpecs = [modelTopViewEndpoint, topViewRevisionOptionsEndpoint] as const;
+
+export type LinkTopViewInput = { modelId: string; fromSoftwareId: string | null; layoutId: string; revision: string };
+export type UnlinkTopViewInput = { modelId: string; fromSoftwareId: string | null };
+/** `expectedVersion: '0'` creates the row of (model, start SW); otherwise the row's `version`. Refusals: `modelId not_found`, `fromSoftwareId software_not_of_model`, `revision revision_not_found`. */
+export const linkTopView = defineAction<LinkTopViewInput, { linkId: string; version: string }>({
+  id: 'logKnowledge.linkTopView', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, inputKeys: { modelId: true, fromSoftwareId: true, layoutId: true, revision: true },
+  permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, concurrency: 'version', invalidates: [modelTopViewEndpoint],
+});
+export const unlinkTopView = defineAction<UnlinkTopViewInput, { linkId: string }>({
+  id: 'logKnowledge.unlinkTopView', menuId: LOG_KNOWLEDGE_MODELS_MENU_ID, inputKeys: { modelId: true, fromSoftwareId: true },
+  permission: CATALOG_MANAGE_PERMISSION, requiresScope: false, concurrency: 'version', invalidates: [modelTopViewEndpoint],
+});
+export const topViewActionSpecs = [linkTopView, unlinkTopView] as const;

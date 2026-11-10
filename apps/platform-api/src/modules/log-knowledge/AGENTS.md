@@ -21,6 +21,10 @@ Owns the `knowledge` schema: catalog, model spec revisions, SW changes, Items, d
 - `draftEvidenceIntake` (barrel, `draft-evidence-intake.ts`) lets the log explorer create a `needs_check` draft or append pointers to the caller's own draft inside the explorer's transaction. It runs the same cores as the draft actions (`draft-core.ts`) — change draft rules there, not in two places.
   - Denied right = `['target'] forbidden`; `unresolved` pointers are refused; a hash mismatch is marked `[해시 불일치]` ("hash mismatch") on the note; pointer mapping is `domain/evidence-intake.ts`. The module never imports `log-explorer`.
 
+## Top View pointer
+
+`knowledge.model_topview_link` (`repositories/topview-link.ts`, `domain/topview-resolution.ts`, `topview-endpoints.ts`, `topview-actions.ts`) points a model — from a start SW, or as the model default — at a published Layout Revision of the `eqv` module; the Hub owns the pointer only. The document is read through `eqv/read-service.ts` (approved surface), never by importing an eqv repository. Reads follow the Hub model ACL (no `eqv:view`); link and unlink are `knowledge.catalog.manage`, versioned per (model, start SW) row, audited as `knowledge.model_topview.linked|unlinked`. Resolution: greatest start-SW `release_order` ≤ the target's, else the model default, else unlinked. Contract: `docs/architecture/platform-api/api/log-knowledge.md` «Model Top View pointer».
+
 ## Object access
 
 - One rule, one place: `domain/access-visibility.ts` (pure) and `repositories/access-visibility.ts` (SQL: `visibleModelSql`, `visibleSoftwareSql`, `visibleItemSql`, `canSee*`, `lockOwnerAccess`). Never write a second copy of the rule; a new read or write that reaches a model, SW version or Item (or a row that names one) takes a `Viewer` and goes through these.

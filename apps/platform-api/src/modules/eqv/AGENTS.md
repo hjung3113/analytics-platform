@@ -13,6 +13,10 @@ Owns the `eqv` schema (#1645, #1607 step 5, [ADR-0135](../../../../../docs/adr/0
 - **Permissions** are declared in `EQV_MENU_PERMISSIONS` (`menu.ts`, handed over by `eqvContribution`) (`eqv:view`, `eqv-studio:view`, `eqv-studio:layout-edit`, `eqv-studio:layout-publish`; `eqv-studio:view` is the entry permission of the Studio Layouts menu, #1654, with the same capability `eqv.view` as `eqv:view`, which the reads keep), not `eqv:*`-prefixed write names: the `eqv` namespace belongs to the app's module (Kernel registry refuses a clash). Real-server Site Scope is enforced by capability alone until #1087.
 - `equipment.model_id` is a Hub catalog id with no FK; the future write (step 8) checks it through `knowledgeLookup`.
 
+## Read service
+
+`read-service.ts` is the approved surface other modules call (`getPublishedRevision`, `listPublishedRevisions`, at most 500, newest first); it wraps `repositories/eqv-read.ts`, takes a caller-verified workspace and decides no permission, and re-checks the stored hash (a mismatch is `null` plus a log line). The Hub's pointer to a Revision (`knowledge.model_topview_link`) belongs to `log-knowledge`; the Revision and Template tables stay here and the Hub never copies a document.
+
 ## Not implemented (reopen when step 8 / 9 starts)
 
 - A permission-aware eqv audit view: the global audit projection excludes `eqv_` subjects (migration 0121, ADR-0135 §9) and the rows stay in `core.audit_log`. Reopen when a menu needs an eqv audit view.

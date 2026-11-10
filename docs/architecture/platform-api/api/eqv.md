@@ -24,6 +24,10 @@ Menu `eqv-studio` unless noted. Reads that find nothing by id answer `empty`; a 
 
 `eqv.topview-context` and `eqv.topview-events` are not served (step 9).
 
+## Read service for other modules
+
+`modules/eqv/read-service.ts` (an approved cross-module surface) lets another module read a **published** Revision without the Studio endpoints: `getPublishedRevision(tx, workspaceId, layoutId, revision)` → `{ layoutId, revision, document, publishedAt } | null`, and `listPublishedRevisions(tx, workspaceId)` → `{ layoutId, revision, publishedAt }[]`, newest first, **at most 500** rows (no document). The caller passes the workspace it verified and owns the permission; the service decides none. `getPublishedRevision` re-validates the stored document and re-hashes it like `eqv.promoteTemplate`; a mismatch is `null` plus a server log line, never a document. The only caller is the Hub (`logKnowledge.modelTopView`, `linkTopView`, `topViewRevisionOptions`, [log-knowledge.md «Model Top View pointer»](log-knowledge.md)): a Hub reader needs **no `eqv:view`** — the Hub's model ACL decides, and the Hub stores only the pointer (`knowledge.model_topview_link`).
+
 ## Writes (menu-action)
 
 Answers carry ids and versions, not document bodies. Audit is written in the same transaction (`eqv.layout.draft_created|draft_saved`, `eqv.layout.revision_published`, `eqv.template.promoted`; subject types `eqv_layout`, `eqv_layout_revision`, `eqv_template`; the subject id is the row uuid; detail is ids, versions and the Revision hash only). The viewerless global audit projection (migration 0121) excludes `eqv_` subjects, as it does `knowledge_`, because a console-only actor without `eqv.view` must not learn eqv ids or totals ([ADR-0135](../../../adr/0135-eqv-layout-storage-publish-and-promotion.md) §9); the rows still exist in `core.audit_log`, and a permission-aware eqv audit view is not built.

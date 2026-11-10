@@ -149,6 +149,26 @@ The dispatch outcome set has no `not_found`: an unknown or other-workspace id an
 
 `modelProfile` data: `model: { id, code, name, active, vendor: { id, code, name, active }, processes: { id, code, name }[], createdAt, updatedAt }`; `softwareVersions: { id, versionLabel, name, active, itemCount, updatedAt }[]` (every version, active or not, newest `createdAt` first, cut at 500 with `truncated: true`); `modelItems: { total }` (published items owned directly by the model). `itemCount` counts the version's published items.
 
+### Model Top View pointer (#1656)
+
+The Hub stores a pointer from a model to a published Layout Revision of the `eqv` module and never copies a document. Table `knowledge.model_topview_link`: `workspace_id`, `id`, `model_id`, `from_software_id` (NULL = the model default; same-model composite FK to `software_version`), `layout_id`, `layout_revision` (`sha256:<64 hex>`), `version`, audit columns. One row per (workspace, model, start SW), NULL counted once (two partial unique indexes). No `mapping_revision`, no Binding, no lookup by `layout_id` alone (EV ADR-0011).
+
+**Resolution** for a target SW version T: the row whose start SW has the greatest `release_order` ≤ T's; none → the model default row; none → unlinked (`미연결`). Equal orders tie on the smaller link id. A pointer whose start SW the viewer cannot see is not listed and not considered.
+
+| Endpoint id | Menu | Params | Data |
+| --- | --- | --- | --- |
+| `logKnowledge.modelTopView` | `log-knowledge-models` | `modelId` (uuid), optional `softwareId` (uuid of that model) | `{ target: { softwareId, version } \| null, resolved: { linkId, fromSoftwareId, fromSoftwareVersion, layoutId, revision, document, publishedAt } \| null, resolvedError?: 'revision_unavailable', links: { linkId, fromSoftwareId, fromSoftwareVersion, layoutId, revision, version }[] }`, or `null` for a missing or hidden model |
+| `logKnowledge.topViewRevisionOptions` | `log-knowledge-models` | — | `{ rows: { layoutId, revision, publishedAt }[] }`, newest first, at most 500; `forbidden` unless the actor holds `knowledge.catalog.manage` (Layout ids are otherwise invisible to Hub readers) |
+
+Read right `platform:view`, `requiresScope: false`. **Anyone who can see the model reads the drawing; no `eqv:view` is needed or checked** — the Hub model ACL decides and the document comes through the eqv read service (`eqv/read-service.ts`, which re-checks the stored hash). Without `softwareId` the target is the model's visible SW with the greatest `release_order` (none → the model default only). A `softwareId` that is not a version of this model is `error`. A pointer whose Revision no longer reads gives `resolved: null` with `resolvedError: 'revision_unavailable'`; the read never falls back to an older row.
+
+| Action id | Input | Notes |
+| --- | --- | --- |
+| `logKnowledge.linkTopView` | `modelId`, `fromSoftwareId` (uuid or `null` = model default), `layoutId`, `revision` | `knowledge:catalog-manage`; `concurrency: 'version'` per (model, start SW) row: `expectedVersion: '0'` creates, the row's `version` replaces, a stale or wrong version is `conflict`. Answer `{ linkId, version }`. |
+| `logKnowledge.unlinkTopView` | `modelId`, `fromSoftwareId` | same right and versioning; deletes the row; a missing row is `not_found`. Answer `{ linkId }`. |
+
+Both invalidate `logKnowledge.modelTopView`. Refusals are `invalid` with field errors: `modelId` `not_found` (unknown or hidden model), `fromSoftwareId` `software_not_of_model`, `revision` `revision_not_found` (no such published Revision, or its stored hash fails the re-check); malformed values are `invalid`. Audit rows (same transaction, subject = the model, subject type `knowledge_model`): `knowledge.model_topview.linked` and `knowledge.model_topview.unlinked`, detail `{ linkId, fromSoftwareId, layoutId, revision }`, never a document. These are `knowledge_` subjects, already excluded from the viewerless global audit projection (`left(subject_type, 10) <> 'knowledge_'`); the projection is unchanged. A refusal writes no audit row.
+
 `items`: `q` matches the latest revision's title (contains, case-insensitive) and `KI-<n>` / `KI<n>` (the item number, case-insensitive; a bare number is not parsed and only searches titles). Sort columns `itemNo`, `title`, `updatedAt`; default `updatedAt` descending. **No `publicationState` condition = published items only** (unlike the catalog reads); archived items answer only when asked. `ItemRow`: `{ id, itemNo, title, typeCode, owner: { kind: 'model' | 'software', modelId, modelName, softwareId?, versionLabel? }, verificationState, processingState, publicationState, latestRevisionNo, updatedAt }`; `title` and `typeCode` are the latest revision's.
 
 | Field | Operators | Values | Meaning |

@@ -266,7 +266,7 @@ knowledge_item            1 ── 1 knowledge_search_document (latest approved 
 | 37 | `knowledge.term_alias` | `alias_id`, `term_kind`, `canonical_token`, `alias_token`, `review_state`, `reviewed_by` | 후보 alias와 승인 alias 분리; 모델/SW 컨텍스트 |
 | 38 | `knowledge.knowledge_search_document` | `item_id`, `revision_no`, `search_text`, `tsv`, `event_tokens`, `updated_at`, `index_state` | 최신 승인 Item만, `tsv` GIN·trgm GIN |
 | 39 | `knowledge.search_outbox` | `outbox_id`, `aggregate_kind`, `aggregate_id`, `aggregate_version`, `operation`, `state`, `attempt_count`, `available_at` | 승인/권한 변경과 같은 트랜잭션에서 기록; retry/dedupe |
-| 40 | `knowledge.sw_topview_mapping_ref` | `software_id`, `viewer_source`, `layout_id`, `layout_revision`, `mapping_revision`, `status`, `checked_at` | TopView 원본 DB가 아닌 고정 버전 참조, 변경은 명시적 |
+| 40 | `knowledge.model_topview_link` | `model_id`, `from_software_id`(NULL = 모델 기본), `layout_id`, `layout_revision`, `version` | Layout Revision을 가리키는 고정 참조만 두고 문서는 `eqv` 모듈이 소유한다. `mapping_revision`은 없다. 대상 SW의 `release_order` 이하에서 가장 큰 시작 SW 행을 쓰고, 없으면 모델 기본, 그것도 없으면 미연결이다. 카탈로그 관리 권한자가 모델 프로필 Top View 절에서 연결·해제한다. |
 
 **조건부 테이블:** `knowledge_saved_query`는 기존 플랫폼 Saved Views/사용자 설정 계약이 본 도메인 필터를 표현할 수 없을 때에만 새로 설계한다. 다른 소유자의 `saved_views`와 같은 이름/서비스를 중복 만들지 않는다. `item_revision`에 스펙 문서 출처가 필요한 경우 `sw_spec_revision`의 `source_doc_ref`를 사용하고, 추가 다중 근거가 필요할 때만 `spec_revision_evidence` 조인 테이블을 연다.
 

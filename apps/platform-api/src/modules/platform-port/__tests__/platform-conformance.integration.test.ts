@@ -218,6 +218,7 @@ const MENU_PARAMS: Record<string, Record<string, unknown>> = {
   'logKnowledge.specDraft': { revisionId: NO_ROW },
   'logKnowledge.specChanges': { modelId: NO_ROW, status: 'all', ...pagedList },
   'logKnowledge.importDetail': { jobId: NO_ROW, ...listPage },
+  'logKnowledge.modelTopView': { modelId: NO_ROW },
   'logKnowledge.conceptMappings': { modelId: NO_ROW, ...pagedList },
   'logKnowledge.conceptSuggestions': { modelId: NO_ROW, ...pagedList },
   'logKnowledge.specSubjectItems': { modelId: NO_ROW, targetKey: 'CHAMBER/START', ...pagedList },
@@ -270,6 +271,9 @@ const MENU_LEFT_OUT: Readonly<Record<string, string>> = {
   'logExplorer.window': EXPLORER_PERMISSION_GAP,
   // The entry check is the declared platform:view; the handler then judges `knowledge.catalog.import` separately and answers `error` (not_found)
   // for a job that does not exist, where the kit expects `ok` or `empty`: a succeeding sample needs a staged import job.
+  // The picker is judged by `knowledge.catalog.manage` (it lists Revisions only for a catalog manager); the kit's granted account holds
+  // platform:view only and is answered `forbidden`, where the kit expects `ok` or `empty`.
+  'logKnowledge.topViewRevisionOptions': 'the picker needs knowledge.catalog.manage; the kit\'s platform:view-only granted account answers forbidden, the kit wants ok or empty',
   'logKnowledge.importDetail': 'a succeeding sample needs a staged import job (an unknown job answers error not_found, the kit wants ok or empty)',
 };
 

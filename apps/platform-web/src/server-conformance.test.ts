@@ -139,6 +139,8 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   // #1197 s1: the model reads; `modelProfile` takes a seed model id (store.ts sequence 8 = A-100, see `seedId` below).
   'logKnowledge.exploreModels': { q: null, ...page },
   'logKnowledge.modelProfile': { modelId: '00000003-0000-4000-8000-000000000008' },
+  // #1656: the Top View pointer reads; Alpha 100 has the mock's default link.
+  'logKnowledge.modelTopView': { modelId: '00000003-0000-4000-8000-000000000008' },
   // Knowledge item reads (#1197 s2): the mock seed's first item (uuid by sequence, `src/mock/items.ts`).
   'logKnowledge.items': { q: null, ...page },
   'logKnowledge.search': { q: 'STEP_PROCESS', limit: 10 },
@@ -261,6 +263,18 @@ const stagedConcept = (): string => {
   const out = importHandler('conceptPropose').handle({ input: { modelId: A100, targetKind: 'module', target: { module: 'Chamber' }, canonicalLabel: unique('CONCEPT'), relationKind: 'related' }, actor: 'admin', scopeId: null }).data as { mappingId: string };
   return out.mappingId;
 };
+// The Top View pointer writes (#1656). `unlinkTopView` stages its own row once (only while none exists), so the version the harness
+// reads and the version it sends agree on every call. The Revision is the mock's synthetic Layout (hash proved in @eqv/platform-adapter).
+const TOPVIEW = { layoutId: 'sample-layout', revision: 'sha256:f21b40d26599561c6906471ca3254f598b1f6d926605b296bd833f8d8f802c7e' };
+const topViewSamples: Record<string, () => Record<string, unknown>> = {
+  linkTopView: () => ({ modelId: A100, fromSoftwareId: null, ...TOPVIEW }),
+  unlinkTopView: () => {
+    const link = importHandler('linkTopView');
+    const input = { modelId: A100, fromSoftwareId: A100_V1, ...TOPVIEW };
+    if (link.version?.({ input, actor: 'admin', scopeId: null }) === '0') link.handle({ input, actor: 'admin', scopeId: null });
+    return { modelId: A100, fromSoftwareId: A100_V1 };
+  },
+};
 const conceptSamples: Record<string, () => Record<string, unknown>> = {
   conceptPropose: () => ({ modelId: A100, targetKind: 'module', target: { module: 'Chamber' }, canonicalLabel: unique('CONCEPT') }),
   conceptConfirm: () => ({ mappingId: stagedConcept() }),
@@ -322,7 +336,7 @@ const lifecycleSamples: Record<string, () => Record<string, unknown>> = {
   gateDecide: () => ({ roundId: stageLifecycleFixture().roundId, targetStage: 'beta', decision: 'rejected', reason: '적합성 검토' }),
 };
 const writeSamples: Record<string, Record<string, () => Record<string, unknown>>> = {
-  logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples, ...specSamples, ...conceptSamples },
+  logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples, ...specSamples, ...conceptSamples, ...topViewSamples },
   improvement: improvementSamples,
   logExplorer: explorerSamples,
   logLifecycle: lifecycleSamples,

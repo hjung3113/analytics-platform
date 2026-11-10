@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createMockAdapter, MockActionInvalid, setRole } from '@ap/mock-server';
 import { emptyGlobal, groupId, KERNEL_PERMISSIONS, type MenuMeta, type PlatformAdapter } from '@ap/contracts';
-import { SPEC_PUBLISH_PERMISSION } from '../endpoints';
+import { CATALOG_MANAGE_PERMISSION, SPEC_PUBLISH_PERMISSION } from '../endpoints';
 import { logKnowledgeActionsMock, logKnowledgeMock, resetCatalog } from './index';
 import { resetSpecs, SPEC_AT, SPEC_MODEL, specRevisions, specChanges, type Change, type Revision } from './specStore';
 import { all } from './store';
@@ -93,7 +93,7 @@ describe('model spec mock registrations', () => {
   });
   it('enforces permission and stale CAS through the adapter', async () => {
     const menu = { id: 'log-knowledge-models', group: groupId('logKnowledge'), permission: 'platform:view', requiresScope: false } as MenuMeta;
-    const adapter = createMockAdapter({ endpoints: logKnowledgeMock.filter(e => e.spec.menuId === menu.id), actions: logKnowledgeActionsMock.filter(a => a.spec.menuId === menu.id), registry: { menus: [menu] }, permissions: [...KERNEL_PERMISSIONS, SPEC_PUBLISH_PERMISSION] });
+    const adapter = createMockAdapter({ endpoints: logKnowledgeMock.filter(e => e.spec.menuId === menu.id), actions: logKnowledgeActionsMock.filter(a => a.spec.menuId === menu.id), registry: { menus: [menu] }, permissions: [...KERNEL_PERMISSIONS, SPEC_PUBLISH_PERMISSION, CATALOG_MANAGE_PERMISSION] });
     const change = specChanges().find(c => c.needsRevalidation)!;
     const req = { action: 'logKnowledge.specChangeConfirm', input: { changeId: change.id }, expectedVersion: '0', idempotencyKey: crypto.randomUUID(), context: {} };
     setRole('admin');
@@ -107,7 +107,7 @@ describe('model spec mock registrations', () => {
 /** Adapter wired exactly like the existing stale-CAS test, for the fix-round cases. */
 const writeAdapter = (): PlatformAdapter => {
   const menu = { id: 'log-knowledge-models', group: groupId('logKnowledge'), permission: 'platform:view', requiresScope: false } as MenuMeta;
-  return createMockAdapter({ endpoints: logKnowledgeMock.filter(e => e.spec.menuId === menu.id), actions: logKnowledgeActionsMock.filter(a => a.spec.menuId === menu.id), registry: { menus: [menu] }, permissions: [...KERNEL_PERMISSIONS, SPEC_PUBLISH_PERMISSION] });
+  return createMockAdapter({ endpoints: logKnowledgeMock.filter(e => e.spec.menuId === menu.id), actions: logKnowledgeActionsMock.filter(a => a.spec.menuId === menu.id), registry: { menus: [menu] }, permissions: [...KERNEL_PERMISSIONS, SPEC_PUBLISH_PERMISSION, CATALOG_MANAGE_PERMISSION] });
 };
 const callWrite = (adapter: PlatformAdapter, name: string, input: Record<string, unknown>, expectedVersion?: string) =>
   adapter.menuAction({ action: `logKnowledge.${name}`, input, idempotencyKey: crypto.randomUUID(), context: {}, ...(expectedVersion === undefined ? {} : { expectedVersion }) });

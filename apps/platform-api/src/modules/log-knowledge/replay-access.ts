@@ -23,7 +23,7 @@ export function withReplayAccess(declaration: MenuActionDeclaration): MenuAction
     const judge = async (key: string, id: unknown): Promise<boolean> => {
       if (typeof id !== 'string') return true;
       if (['modelId', 'ownerModelId', 'peerModelId'].includes(key)) return canSeeModel(tx, viewer, id);
-      if (['softwareId', 'ownerSoftwareId', 'endsBeforeSoftwareId'].includes(key)) return canSeeSoftware(tx, viewer, id);
+      if (['softwareId', 'ownerSoftwareId', 'endsBeforeSoftwareId', 'fromSoftwareId'].includes(key)) return canSeeSoftware(tx, viewer, id);
       if (['itemId', 'targetItemId', 'sourceItemId', 'originalItemId'].includes(key)) return canSeeItem(tx, viewer, id);
       if (key === 'draftId') return draftAccessVisible(tx, viewer, id);
       if (key === 'mapTargetId') return op.startsWith('import');

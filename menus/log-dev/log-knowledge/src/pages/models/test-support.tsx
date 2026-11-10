@@ -43,7 +43,7 @@ export const profileOf = (patch: Partial<ModelProfileData> = {}): ModelProfileDa
 
 export const ok = (data: unknown): ApiResponse<never> => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
 
-export type Kit = { queries: MenuQuery[]; profile: () => ModelProfileData | null };
+export type Kit = { queries: MenuQuery[]; profile: () => ModelProfileData | null; topView?: (params: { softwareId?: string }) => unknown };
 /** An adapter that records every read; `kit.profile` is what `logKnowledge.modelProfile` answers. */
 export function makeAdapter(kit: Kit, session: () => typeof admin) {
   return testAdapter({
@@ -51,6 +51,7 @@ export function makeAdapter(kit: Kit, session: () => typeof admin) {
       kit.queries.push(req);
       if (req.endpoint === 'logKnowledge.exploreModels') return ok({ rows: modelRows, total: modelRows.length });
       if (req.endpoint === 'logKnowledge.modelProfile') return ok(kit.profile());
+      if (req.endpoint === 'logKnowledge.modelTopView') return ok(kit.topView ? kit.topView(req.params as { softwareId?: string }) : { target: null, resolved: null, links: [] });
       if (req.endpoint === 'logKnowledge.vendors') return ok({ rows: [{ id: VENDOR_ID, code: 'ALPHA', name: 'Alpha Semicap', active: true }], total: 1 });
       if (req.endpoint === 'logKnowledge.processes') return ok({ rows: PROCESSES, total: PROCESSES.length });
       return ok({ rows: [], total: 0 });

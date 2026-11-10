@@ -4,7 +4,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createMockAdapter, setRole } from '@ap/mock-server';
 import { groupId, KERNEL_PERMISSIONS, type FieldError, type MenuMeta, type PlatformAdapter } from '@ap/contracts';
-import { SPEC_PUBLISH_PERMISSION } from '../endpoints';
+import { CATALOG_MANAGE_PERMISSION, SPEC_PUBLISH_PERMISSION } from '../endpoints';
 import { logKnowledgeActionsMock, logKnowledgeMock, resetCatalog } from './index';
 import { resetSpecs, SPEC_MODEL, specChanges } from './specStore';
 import { all } from './store';
@@ -17,7 +17,7 @@ const unused = '00000007-0000-4000-8000-0000000000ff';
 const tsv = (text: string) => fe(action('specDraftSave').validate?.({ revisionId: unused, mode: 'append', format: 'paste', text }));
 const adapter = (): PlatformAdapter => {
   const menu = { id: 'log-knowledge-models', group: groupId('logKnowledge'), permission: 'platform:view', requiresScope: false } as MenuMeta;
-  return createMockAdapter({ endpoints: logKnowledgeMock.filter(e => e.spec.menuId === menu.id), actions: logKnowledgeActionsMock.filter(a => a.spec.menuId === menu.id), registry: { menus: [menu] }, permissions: [...KERNEL_PERMISSIONS, SPEC_PUBLISH_PERMISSION] });
+  return createMockAdapter({ endpoints: logKnowledgeMock.filter(e => e.spec.menuId === menu.id), actions: logKnowledgeActionsMock.filter(a => a.spec.menuId === menu.id), registry: { menus: [menu] }, permissions: [...KERNEL_PERMISSIONS, SPEC_PUBLISH_PERMISSION, CATALOG_MANAGE_PERMISSION] });
 };
 const call = (a: PlatformAdapter, name: string, input: Record<string, unknown>, expectedVersion?: string) => a.menuAction({ action: `logKnowledge.${name}`, input, idempotencyKey: crypto.randomUUID(), context: {}, ...(expectedVersion === undefined ? {} : { expectedVersion }) });
 const software = () => all('software').filter(s => s.parentId === SPEC_MODEL);

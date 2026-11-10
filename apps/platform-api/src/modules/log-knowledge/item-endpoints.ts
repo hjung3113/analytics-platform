@@ -34,9 +34,9 @@ function spec(id: string, menuId: string, paramKeys: readonly string[]) {
   } as const;
 }
 
-type Judge = (params: Record<string, unknown>) => { ok: true } | { ok: false; message: string };
+export type Judge = (params: Record<string, unknown>) => { ok: true } | { ok: false; message: string };
 
-function declareRead(
+export function declareRead(
   deps: LogKnowledgeDeps,
   id: string,
   menuId: string,

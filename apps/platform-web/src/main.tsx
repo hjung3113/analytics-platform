@@ -11,6 +11,8 @@ import { improvementAnalysisActions } from '@ap/menu-improvement-items/analysis-
 import { improvementHomeTodoSlot } from '@ap/menu-improvement-items/home-todo-slot';
 import { RoundSourceView } from '@ap/menu-log-analysis/view';
 import { setRoundSourceView } from '@ap/menu-log-models/round-source-slot';
+import { setModelTopView } from '@ap/menu-log-knowledge/model-topview-slot';
+import { ModelTopView } from '@eqv/platform-adapter/model-topview';
 import { navCountsSlot } from '@ap/feature-bridge/nav-counts';
 import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
 import { savedViewsSlot } from '@ap/feature-bridge/saved-views';
@@ -50,6 +52,8 @@ void startOrFail(root, async () => {
   setFeatureApi(assembly.featureApi ?? null);
   // The Round detail's «원본/시퀀스» tab: the app joins the two log menus here, they never import each other (#1475).
   setRoundSourceView(RoundSourceView);
+  // The model profile's Top View: EV's read-only body joins the Hub's slot here, the menu never imports `@eqv/*` (#1656).
+  setModelTopView(ModelTopView);
   const makeSlots = () => appSlots(assembly, notificationsSlot, vocCompose, homeTodo, scopeControlSlot, navCountsSlot, savedViewsSlot, improvementAnalysisActions);
   root.render(
     <StrictMode>
