@@ -4,21 +4,29 @@
 // real Postgres (throwaway DB only, apps/platform-api/AGENTS.md → Verification).
 //
 // The run is the readiness table of the real server: every port this backend does not implement
-// yet, and every check that needs a site grant (ADR-0069 decision 8: `scopes: []` until site·room
+// yet (menuQuery counts as implemented for the Scope-less endpoints, #1669), and every check that needs a site grant (ADR-0069 decision 8: `scopes: []` until site·room
 // grants exist), is a visible skipped test, never a pass. Annotations are a gate only (#622
 // decision 6, .planning/backlog.md "주석 저장"), so they are declared not implemented.
 
 import {
   ENTITY_AUDIT_PAGE_MAX as CONTRACT_ENTITY_AUDIT_PAGE_MAX,
   type AnyActionSpec,
+  type AnyEndpointSpec,
   type PlatformAdapter,
   type SavedViewStore,
   menuPermission,
   spaceId,
 } from '@ap/contracts';
 import { bootstrapHttpAdapter } from '@ap/http-adapter';
-import { type PortMethod, type ServerConformanceHarness, describeServerConformance } from '@ap/server-conformance';
+import {
+  type ConformanceCase,
+  type PortMethod,
+  type ServerConformanceHarness,
+  describeServerConformance,
+} from '@ap/server-conformance';
 import type { FastifyInstance } from 'fastify';
+import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { loadConfig } from '../../../config.js';
@@ -32,6 +40,7 @@ import { insertFindingRow } from '../../../test-support/findings-fixtures.js';
 import { uid } from '../../../test-support/ids.js';
 import { grantCapability } from '../../../test-support/permissions-fixtures.js';
 import { insertVocDirectly } from '../../../test-support/voc-fixtures.js';
+import { hashToken } from '../../api-tokens/token-format.js';
 import type { MenuActionDeclaration } from '../../menu-dispatch/types.js';
 import { ENTITY_AUDIT_PAGE_MAX } from '../entity-audit-cursor.js';
 
@@ -82,7 +91,183 @@ const actionDeclaration = (spec: AnyActionSpec): MenuActionDeclaration => ({
 });
 const testActionPair = { actions: [actionDeclaration(noneSpec), actionDeclaration(versionSpec)] };
 
-type Account = 'granted' | 'grantedNoConsole' | 'plain' | 'console' | 'otherAnnotator' | 'svUser' | 'svAdmin';
+/**
+ * The Scope-less menu reads the production run judges (#1669). The declarations come from the contract snapshot
+ * `@ap/contract-schemas/endpoints.json` (the one place `kinds` of a menu endpoint is written; the server's own
+ * declarations carry no `kinds`), narrowed to `requiresScope: false` — the server refuses a Scope-requiring
+ * endpoint at registration (#1087). The `eqv.*` reads are outside that snapshot (`endpoints.json` covers
+ * `menus/` and `platform/` only), so their specs are written here, as the server declares them (no assessment kinds).
+ */
+const SNAPSHOT = JSON.parse(
+  readFileSync(
+    new URL('../../../../../../packages/sdk/contract-schemas/endpoints.json', import.meta.url),
+    'utf8',
+  ),
+) as Array<Omit<AnyEndpointSpec, 'paramKeys' | 'permission'> & { paramKeys: string[]; permission: string }>;
+const keysOf = (keys: readonly string[]) => Object.fromEntries(keys.map((key) => [key, true as const]));
+const snapshotSpec = (entry: (typeof SNAPSHOT)[number]): AnyEndpointSpec => ({
+  ...entry,
+  paramKeys: keysOf(entry.paramKeys),
+  permission: menuPermission(entry.permission),
+});
+const eqvSpec = (id: string, paramKeys: readonly string[]): AnyEndpointSpec => ({
+  id,
+  menuId: id === 'eqv.equipment-options' ? 'eqv' : 'eqv-studio',
+  paramKeys: keysOf(paramKeys),
+  permission: menuPermission('eqv:view'),
+  requiresScope: false,
+  context: {},
+  kinds: [],
+  mergeTimeDomain: false,
+});
+
+/** In the snapshot (the mock serves them) but answered `Unknown endpoint` by this server: no module contributes them yet. */
+const NOT_REGISTERED: readonly string[] = [
+  'improvement.quest',
+  'improvement.questSearch',
+  'metrics.catalog.export',
+  'metrics.catalog.list',
+  'metrics.catalog.page',
+  'metrics.definition',
+  'metrics.pair',
+  'metrics.usage',
+];
+
+/** An id no row has; the detail reads answer `empty` for it. */
+const NO_ROW = '16690000-0000-4000-8000-000000000001';
+const NO_ROW_2 = '16690000-0000-4000-8000-000000000002';
+const listPage = { page: 0, pageSize: 10, sorting: [] as never[] };
+const pagedList = { page: 0, pageSize: 10 };
+const nilEqvLayout = 'conformance-layout';
+
+/** Params the granted actor's request succeeds with (`ok` or `empty`) on a database with no domain rows. */
+const MENU_PARAMS: Record<string, Record<string, unknown>> = {
+  'home.notices': { targetScopeId: null },
+  'improvement.items': { q: null, ...listPage },
+  'improvement.itemDetail': { itemId: NO_ROW },
+  'improvement.itemEvents': { itemId: NO_ROW, ...pagedList },
+  'logDataset.datasets': { ...listPage },
+  'logDataset.datasetDetail': { datasetId: NO_ROW },
+  'logDataset.baselines': { datasetRevisionId: NO_ROW },
+  'logDataset.baselineDetail': { baselineId: NO_ROW },
+  'logDataset.suites': { datasetId: NO_ROW, ...listPage },
+  'logDataset.suiteDetail': { suiteId: NO_ROW },
+  'logDataset.suiteRuns': { suiteId: NO_ROW, ...pagedList },
+  'logDataset.comparison': { suiteRunId: NO_ROW, ...listPage },
+  'logDataset.rerunDiff': { fromRunId: NO_ROW, toRunId: NO_ROW_2 },
+  'logExplorer.investigations': { status: 'open', ...pagedList },
+  'logExplorer.investigationDetail': { investigationId: NO_ROW },
+  'logExplorer.handoffCheck': { investigationId: NO_ROW },
+  'logExplorer.handoffDrafts': {},
+  'logExplorer.handoffModels': { q: null, ...pagedList },
+  'logExplorer.handoffSoftware': { modelId: NO_ROW },
+  'logKnowledge.vendors': { q: null, ...listPage },
+  'logKnowledge.processes': { q: null, ...listPage },
+  'logKnowledge.models': { q: null, ...listPage },
+  'logKnowledge.softwareVersions': { q: null, ...listPage },
+  'logKnowledge.exploreModels': { q: null, ...listPage },
+  'logKnowledge.modelProfile': { modelId: NO_ROW },
+  'logKnowledge.items': { q: null, ...listPage },
+  'logKnowledge.search': { q: 'STEP_PROCESS', limit: 10 },
+  'logKnowledge.searchSuggest': { q: 'STEP' },
+  'logKnowledge.itemDetail': { itemId: NO_ROW },
+  'logKnowledge.modelSpec': { modelId: NO_ROW },
+  'logKnowledge.specCoverage': { modelId: NO_ROW },
+  'logKnowledge.modelSpecRevisions': { modelId: NO_ROW, ...pagedList },
+  'logKnowledge.specDraft': { revisionId: NO_ROW },
+  'logKnowledge.specChanges': { modelId: NO_ROW, status: 'all', ...pagedList },
+  'logKnowledge.importDetail': { jobId: NO_ROW, ...listPage },
+  'logKnowledge.conceptMappings': { modelId: NO_ROW, ...pagedList },
+  'logKnowledge.conceptSuggestions': { modelId: NO_ROW, ...pagedList },
+  'logKnowledge.specSubjectItems': { modelId: NO_ROW, targetKey: 'CHAMBER/START', ...pagedList },
+  'logLifecycle.models': { q: null, ...listPage },
+  'logLifecycle.projectDetail': { projectId: NO_ROW },
+  'logLifecycle.projectEvents': { projectId: NO_ROW, page: 0, pageSize: 25 },
+  'logLifecycle.rounds': { projectId: NO_ROW },
+  'logLifecycle.roundDetail': { roundId: NO_ROW },
+  'logLifecycle.roundEvidence': { roundId: NO_ROW },
+  'logLifecycle.requests': { page: 0, pageSize: 25 },
+  'logLifecycle.requestDetail': { requestId: NO_ROW },
+  'logLifecycle.ruleResults': { attemptId: NO_ROW, page: 0, pageSize: 25 },
+  'logLifecycle.hierarchy': { op: 'children', parentId: null, limit: 50 },
+  'logLifecycle.excerpt': { ruleResultId: NO_ROW, evidenceIndex: 0 },
+  'logLifecycle.queueStatus': {},
+  'logRules.catalogStatus': {},
+  'logRules.ruleSets': { q: null, ...listPage },
+  'logRules.ruleSetDetail': { ruleSetKey: 'conformance-no-rule-set' },
+  'logRules.rules': { q: null, targetQ: null, ...listPage },
+  'logRules.ruleDetail': { ruleSetKey: 'conformance-no-rule-set', ruleKey: 'R-0' },
+  'logRules.coverage': { modelId: NO_ROW, ...pagedList },
+  'logRules.coverageSummary': { modelIds: [NO_ROW] },
+  'logRules.modelOptions': { q: null, ...pagedList },
+  'logRules.softwareOptions': { modelId: NO_ROW },
+  'eqv.layouts': {},
+  'eqv.layoutDraft': { layoutId: nilEqvLayout },
+  'eqv.layoutRevisions': { layoutId: nilEqvLayout },
+  'eqv.layoutRevision': { layoutId: nilEqvLayout, revision: `sha256:${'0'.repeat(64)}` },
+  'eqv.templates': {},
+  'eqv.template': { templateId: nilEqvLayout },
+  'eqv.equipment-options': {},
+};
+
+/**
+ * Registered and Scope-less, but left out of the production run because a succeeding sample needs fixtures this suite
+ * does not build (a source-read port, which `buildServer` has none of by default). Each is a visible, named gap:
+ * .planning/backlog.md "실서버 적합성 묶음의 제외 엔드포인트".
+ */
+const SOURCE_READ_GAP = 'reads a log source through the source-read port, which buildServer has none of without a configured owner';
+const MENU_LEFT_OUT: Readonly<Record<string, string>> = {
+  'logExplorer.records': SOURCE_READ_GAP,
+  'logExplorer.periods': SOURCE_READ_GAP,
+  'logExplorer.parsed': SOURCE_READ_GAP,
+  'logExplorer.window': SOURCE_READ_GAP,
+  // Answers `forbidden` to a holder of platform:view alone (the module judges `knowledge.catalog.import`) and `error` (not_found) for a job that
+  // does not exist, where the kit expects `ok` or `empty`; a succeeding sample needs a staged import job.
+  'logKnowledge.importDetail': 'a succeeding sample needs a staged import job (an unknown job answers error not_found, the kit wants ok or empty)',
+};
+
+const menuSpecs: AnyEndpointSpec[] = [
+  ...SNAPSHOT.filter((entry) => !entry.requiresScope && !NOT_REGISTERED.includes(entry.id)).map(snapshotSpec),
+  eqvSpec('eqv.layouts', []),
+  eqvSpec('eqv.layoutDraft', ['layoutId']),
+  eqvSpec('eqv.layoutRevisions', ['layoutId']),
+  eqvSpec('eqv.layoutRevision', ['layoutId', 'revision']),
+  eqvSpec('eqv.templates', []),
+  eqvSpec('eqv.template', ['templateId']),
+  eqvSpec('eqv.equipment-options', []),
+];
+const menuCases: ConformanceCase[] = menuSpecs
+  .filter((spec) => !(spec.id in MENU_LEFT_OUT))
+  .map((spec) => {
+    const params = MENU_PARAMS[spec.id];
+    if (!params) throw new Error(`no conformance params for ${spec.id}`);
+    return { spec, params };
+  });
+
+type Account =
+  | 'granted'
+  | 'grantedNoConsole'
+  | 'plain'
+  | 'noRead'
+  | 'console'
+  | 'otherAnnotator'
+  | 'svUser'
+  | 'svAdmin';
+
+/**
+ * The menu reads of the production run (about 17 checks each) would spend far more than one actor's budget of 100 a
+ * minute (the global per-actor limit, never changed), so the `granted` account's menuQuery calls rotate over a pool
+ * of twins with the same grants. `MENU_POOL` twins serve about 1,200 calls with room to spare.
+ */
+const MENU_POOL = 16;
+/** Menu permissions every session holds (`every-session` in `PLATFORM_PERMISSION_TABLE`): only an API token without `workspace.read` lacks them. */
+const EVERY_SESSION_PERMISSIONS: readonly string[] = ['platform:view', 'notice:view', 'metrics:view'];
+/** Menu permissions a capability opens; a developer without the grant lacks them. */
+const CAPABILITY_PERMISSIONS: Readonly<Record<string, string>> = {
+  'knowledge:spec-publish': 'knowledge.spec.publish',
+  'explorer:handoff': 'explorer.handoff',
+  'eqv:view': 'eqv.view',
+};
 type Role = 'admin' | 'developer' | 'user';
 
 /** The `PlatformAdapter` members this backend serves under `/api/v1/platform` (routes.ts). */
@@ -109,15 +294,16 @@ const IMPLEMENTED: readonly PortMethod[] = [
 ];
 
 /**
- * Served for one endpoint only (#1106, ADR-0095 §1): `POST /api/v1/menu-query` answers `home.notices` and
- * nothing else. The kit's `menuQuery` checks stay a visible skip because they need what this server does
- * not have — an actor without `notice:view` (granted to every active session) and the analytical
- * endpoints. The positive Home response is asserted by notices.integration.test.ts. The drift guard only
- * recognizes the route as served; it never lists the port as implemented.
+ * Served in part (#1106 menu-query, #1193 menu-action; ADR-0095 §1). `POST /api/v1/menu-query` answers the Scope-less endpoints
+ * that the modules register in `createMenuDispatchRegistry` (server.ts: notices, log knowledge, improvement items, log lifecycle,
+ * log explorer, log rules, investigation, eqv, log datasets). The Scope-requiring analytical endpoints are refused at registration
+ * (#1087), so the port is not complete. The production run judges every Scope-less endpoint listed in `MENU_PARAMS` as executed
+ * `menuQuery` checks (`implemented` below adds `menuQuery` to IMPLEMENTED for the run only); the checks that need a site stay
+ * skipped through `siteGrants: false`. The drift guard only recognizes the route as served; it never lists the port as implemented.
  *
  * `menuAction` is served by the generic dispatch (#1193, `POST /api/v1/menu-action`) but this server
- * registers no real write yet, so the production readiness run has no action sample and keeps a visible
- * `actions: no sample` skip. The kit's action checks do run, in the second run below, against a test-only
+ * registers no real write the kit can run with a production sample, so the production readiness run has no action sample and keeps a
+ * visible `actions: no sample` skip. The kit's action checks do run, in the second run below, against a test-only
  * action pair registered through `buildServer({ menuDispatch })` (the harness accepts a server-provided
  * `actions` sample). Add it to IMPLEMENTED with a production sample once a module registers its first real action.
  */
@@ -247,6 +433,26 @@ async function served(app: FastifyInstance, probe: RouteProbe): Promise<boolean>
   return res.statusCode !== 404;
 }
 
+/** The «Method support» table of the platform-port document (#1682): method → support word. */
+function documentedSupport(): Map<string, string> {
+  const doc = readFileSync(
+    new URL('../../../../../../docs/architecture/platform-api/api/platform-port.md', import.meta.url),
+    'utf8',
+  );
+  const rows = [...doc.matchAll(/^\| `(\w+)` \| (implemented|partial|gate-only|none) \|$/gm)];
+  return new Map(rows.map((row) => [row[1] as string, row[2] as string]));
+}
+
+// Runs without a database: the document table and the constants are one list (one source: the constants; the table is checked, not generated).
+it('lists in platform-port.md exactly the methods the conformance constants declare', () => {
+  const documented = documentedSupport();
+  const withSupport = (support: string) =>
+    [...documented].filter(([, value]) => value === support).map(([method]) => method).sort();
+  expect(withSupport('implemented')).toEqual([...IMPLEMENTED].sort());
+  expect(withSupport('partial')).toEqual([...SERVED_PARTIAL].sort());
+  expect(withSupport('gate-only')).toEqual([...GATE_ONLY].sort());
+});
+
 // Runs without a database: the screen source cannot import the contract constant (rule 11), so it mirrors it.
 it('mirrors the contract entityAudit page size', () => {
   expect(ENTITY_AUDIT_PAGE_MAX).toBe(CONTRACT_ENTITY_AUDIT_PAGE_MAX);
@@ -262,6 +468,12 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
   const adapters = new Map<Account, PlatformAdapter>();
   const jars = new Map<Account, Map<string, string>>();
   let current: PlatformAdapter | null = null;
+  let currentAccount: Account | null = null;
+  const noReadPrefix = randomUUID().replace(/-/g, '').slice(0, 8);
+  const noReadToken = `ap_${noReadPrefix}_${Buffer.from(randomUUID() + randomUUID()).toString('base64url').slice(0, 43)}`;
+  /** The twins of `granted` that carry its menuQuery calls (see `MENU_POOL`). */
+  const menuPool: PlatformAdapter[] = [];
+  let menuTurn = 0;
   /** The HTTP SavedViewStore of each signed-in account (ADR-0099; #1131 saved-view conformance sample). */
   const savedViewStores = new Map<Account, SavedViewStore>();
 
@@ -271,33 +483,42 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
   // The granted actor's id, set once it is signed in; ports.visiblePersonId reads it at run time.
   let grantedPersonId: string | undefined;
 
-  async function signIn(account: Account, roleLevel: Role): Promise<string> {
-    const externalId = `${PREFIX}-${account}-${n++}`;
+  /** A fresh actor with a session and an HTTP adapter; not registered under an account name. */
+  async function openSession(label: string, roleLevel: Role) {
+    const externalId = `${PREFIX}-${label}-${n++}`;
     const { id } = await insertActorRow(migrateHandle, {
       workspaceId: WORKSPACE_ID,
       externalId,
       roleLevel,
-      displayName: `Conformance ${account}`,
+      displayName: `Conformance ${label}`,
     });
     actorIds.push(id);
     const jar = new Map([[SESSION_COOKIE_NAME, await loginAs(app, externalId)]]);
-    jars.set(account, jar);
     const boot = await bootstrapHttpAdapter({ fetch: injectFetch(app, jar) });
-    if (boot.kind !== 'ready') throw new Error(`bootstrap as ${account}: ${boot.kind}`);
-    adapters.set(account, boot.adapter);
-    savedViewStores.set(account, boot.store);
-    return id;
+    if (boot.kind !== 'ready') throw new Error(`bootstrap as ${label}: ${boot.kind}`);
+    return { id, jar, adapter: boot.adapter, store: boot.store };
+  }
+
+  async function signIn(account: Account, roleLevel: Role): Promise<string> {
+    const session = await openSession(account, roleLevel);
+    jars.set(account, session.jar);
+    adapters.set(account, session.adapter);
+    savedViewStores.set(account, session.store);
+    return session.id;
   }
 
   async function as<T>(account: Account, fn: () => Promise<T>): Promise<T> {
     const previous = current;
+    const previousAccount = currentAccount;
     const next = adapters.get(account);
     if (!next) throw new Error(`no adapter for ${account}`);
     current = next;
+    currentAccount = account;
     try {
       return await fn();
     } finally {
       current = previous;
+      currentAccount = previousAccount;
     }
   }
 
@@ -305,8 +526,12 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
   const adapter = new Proxy({} as PlatformAdapter, {
     get(_target, key) {
       if (!current) throw new Error('conformance call outside an actor');
-      const value = current[key as keyof PlatformAdapter];
-      return typeof value === 'function' ? value.bind(current) : value;
+      const target =
+        key === 'menuQuery' && currentAccount === 'granted' && menuPool.length > 0
+          ? (menuPool[menuTurn++ % menuPool.length] as PlatformAdapter)
+          : current;
+      const value = target[key as keyof PlatformAdapter];
+      return typeof value === 'function' ? value.bind(target) : value;
     },
   });
 
@@ -340,6 +565,28 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     // accounts' global per-actor rate limit. svUser: developer → no console:access; svAdmin: admin → console:access.
     await signIn('svUser', 'developer');
     await signIn('svAdmin', 'admin');
+    // noRead: a developer whose menu reads go out with an API token holding no scope. A token call holds a session-wide menu
+    // permission (platform:view ...) only through `workspace.read` (ADR-0116), so this is the account without it.
+    const noReadId = await signIn('noRead', 'developer');
+    await migrateHandle.pool.query(
+      `insert into core.api_tokens (workspace_id, actor_id, kind, name, prefix, secret_hash, scopes, created_by)
+       values ($1, $2, 'personal', 'conformance no scope', $3, $4, '{}', $2)`,
+      [WORKSPACE_ID, noReadId, noReadPrefix, hashToken(noReadToken)],
+    );
+    const noReadJar = jars.get('noRead');
+    if (!noReadJar) throw new Error('no noRead session');
+    const sessionFetch = injectFetch(app, noReadJar);
+    const noReadBoot = await bootstrapHttpAdapter({
+      fetch: (input, init = {}) =>
+        sessionFetch(
+          input,
+          String(input).startsWith('/api/v1/menu-query')
+            ? { ...init, headers: { ...Object.fromEntries(new Headers(init.headers)), authorization: `Bearer ${noReadToken}` } }
+            : init,
+        ),
+    });
+    if (noReadBoot.kind !== 'ready') throw new Error(`bootstrap as noRead: ${noReadBoot.kind}`);
+    adapters.set('noRead', noReadBoot.adapter);
     const voc = await insertVocDirectly(
       migrateHandle,
       WORKSPACE_ID,
@@ -359,6 +606,18 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     findingRef.id = finding.id;
     await grantCapability(migrateHandle, WORKSPACE_ID, grantedId, 'finding.read', msId, adminId);
     await grantCapability(migrateHandle, WORKSPACE_ID, twinId, 'finding.read', msId, adminId);
+    // The menu pool: twins of the granted developer for its menuQuery calls, holding the capabilities the capability-bound
+    // menu permissions open (knowledge:spec-publish, explorer:handoff). The granted developer itself holds them too.
+    for (const capability of Object.values(CAPABILITY_PERMISSIONS)) {
+      await grantCapability(migrateHandle, WORKSPACE_ID, grantedId, capability, null, adminId);
+    }
+    for (let i = 0; i < MENU_POOL; i++) {
+      const twin = await openSession('menu-pool', 'developer');
+      for (const capability of Object.values(CAPABILITY_PERMISSIONS)) {
+        await grantCapability(migrateHandle, WORKSPACE_ID, twin.id, capability, null, adminId);
+      }
+      menuPool.push(twin.adapter);
+    }
     // More than one entityAudit page, so the kit's cursor checks run instead of skipping (#857).
     // Distinct instants plus a block of equal ones, to exercise the id tie-break.
     await migrateHandle.pool.query(
@@ -392,6 +651,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
         ['platform.client_errors', 'actor_id'],
         ['platform.preferences', 'actor_id'],
         ['platform.notices', 'author_actor_id'],
+        ['core.api_tokens', 'actor_id'],
         ['core.idempotency_keys', 'actor_id'],
         ['core.audit_log', 'actor_id'],
         ['permission.permission_grants', 'actor_id'],
@@ -418,6 +678,8 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       const routes = await adapterRoutes(app, jar);
       for (const method of [...IMPLEMENTED, ...GATE_ONLY, ...SERVED_PARTIAL])
         expect([...routes.keys()]).toContain(method);
+      // The table of platform-port.md names every PlatformAdapter member once; its `none` rows are the members with no handler.
+      expect([...documentedSupport().keys()].sort()).toEqual([...routes.keys()].sort());
       const drift: string[] = [];
       for (const [method, probes] of routes) {
         const listed =
@@ -434,6 +696,18 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
         }
       }
       expect(drift).toEqual([]);
+    });
+
+    it('the menu endpoints left out of the production run are still unregistered', async () => {
+      // A pool twin, not `granted`: the menuAction run below spends the granted account's budget of 100 a minute.
+      const reader = menuPool[0];
+      if (!reader) throw new Error('no menu pool adapter');
+      const answers: Record<string, string | undefined> = {};
+      for (const id of NOT_REGISTERED) {
+        answers[id] = (await reader.menuQuery({ endpoint: id, context: {}, params: {} })).message;
+      }
+      // A module that starts contributing one of these must add a case and drop it from NOT_REGISTERED.
+      expect(answers).toEqual(Object.fromEntries(NOT_REGISTERED.map((id) => [id, 'Unknown endpoint'])));
     });
 
     it('gate-only ports answer forbidden even to a granted account', async () => {
@@ -459,9 +733,11 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
 
   const harness: ServerConformanceHarness = {
     adapter,
-    implemented: IMPLEMENTED,
+    // `menuQuery` is served for the Scope-less endpoints only (SERVED_PARTIAL): the kit runs the checks of every case below
+    // and the checks that need a site stay skipped through `siteGrants: false`.
+    implemented: [...IMPLEMENTED, 'menuQuery'],
     siteGrants: false,
-    cases: [],
+    cases: menuCases,
     // No site grants: placeholders no run check reads (siteGrants: false).
     context: { scopeId: 'no-site', from: '2026-10-01T00:00:00', to: '2026-10-02T00:00:00' },
     foreignScopeId: 'no-foreign-site',
@@ -519,6 +795,8 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       if (permission === 'features:access') return as('plain', fn);
       if (permission === 'console:access') return as('grantedNoConsole', fn);
       if (permission === ACTION_PERMISSION) return as('plain', fn);
+      if (EVERY_SESSION_PERMISSIONS.includes(permission)) return as('noRead', fn);
+      if (permission in CAPABILITY_PERMISSIONS) return as('plain', fn);
       throw new Error(`no account without ${permission}`);
     },
     asConsole: (fn) => as('console', fn),
@@ -532,6 +810,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
   describeServerConformance('menuAction through @ap/http-adapter (test-only pair, #1193)', {
     ...harness,
     implemented: ['menuAction'],
+    cases: [],
     actions: [
       { spec: noneSpec, input: { name: 'conformance' } },
       {

@@ -107,7 +107,7 @@ service stores that requested end time on the Permission Request.
 }
 ```
 
-Proposed response adds `revision: 1` to
+Response adds `revision: 1` to
 `{ id: uuid, status: "pending", created_at: iso8601 }`. Validate a known capability
 and active workspace Managed System against server scope candidates inside the
 transaction; reject ordinary workspace.admin requests and unsupported object
@@ -245,7 +245,7 @@ Null keeps workspace scope only if already requested and permitted. No widening,
 sibling move, unsupported object scope, or fictitious system-scoped workspace.admin:
 `422 validation.failed` with the offending field. Request fields stay unchanged.
 
-Proposed response is `200 { id, status: approved, grant_id, revision, updated_at,
+Response is `200 { id, status: approved, grant_id, revision, updated_at,
 requested_managed_system_id, granted_managed_system_id, requested_expiration,
 granted_expiration }` (scope and expiry values nullable). The strict
 `permission_approved` audit records both requested/granted scope and expiry,

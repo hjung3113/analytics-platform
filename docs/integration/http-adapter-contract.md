@@ -1,6 +1,6 @@
 # 실어댑터 전송 형식 (HTTP 경계)
 
-> 상태: **구현 기준** — 2026-10-02 에이전트 초안(#149)에서 출발해, 지금은 실어댑터(`@ap/http-adapter`, PR #632·#636)와 플랫폼 API 포트(#620–#623)가 이 문서를 기준으로 구현됐다. **[제안]** 표식이 남은 행은 아직 제안이며, 구현 지시가 아니다. 각 절의 표기: **[제안]** 에이전트 제안, **[백엔드]** 사내 백엔드 담당 확인, **[#151]** 배포·인프라, **[#150]** 사내 SSO, **[#148]** 선언 원본 결정, **[#165]**/**[#155]** 세대 신호.
+> 상태: **Candidate** — 사내 백엔드 담당의 합의(#149)를 기다린다. 2026-10-02 에이전트 초안(#149)에서 출발해, 지금은 실어댑터(`@ap/http-adapter`, PR #632·#636)와 플랫폼 API 포트(#620–#623)가 이 문서를 기준으로 구현됐다. **[제안]** 표식이 남은 행은 아직 제안이며, 구현 지시가 아니다. 각 절의 표기: **[제안]** 에이전트 제안, **[백엔드]** 사내 백엔드 담당 확인, **[#151]** 배포·인프라, **[#150]** 사내 SSO, **[#148]** 선언 원본 결정, **[#165]**/**[#155]** 세대 신호.
 > 참조 서버: 이 문서가 말하는 서버는 FastAPI가 아니라 **플랫폼 API(Fastify + zod)의 `/api/v1/platform` 모듈**이다([ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md)). 아래 "FastAPI" 표기는 초안 당시 가정이며, 와이어 형식(경로·camelCase·헤더)은 그대로 유효하다. §1의 `bootstrap`·`session-state`·CSRF(`X-CSRF-Token`)·Correlation ID(`X-Correlation-Id`) 행은 #620이 구현했다(O12 나머지).
 > 서버 분담: 분석 데이터 엔드포인트는 Fastify 뒤 내부의 FastAPI가 맡고 입구는 Fastify 하나다([ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md), Decided). 위 "참조 서버"는 코어(Fastify)를 가리키고, 아래 "FastAPI" 표기는 분석 데이터 서버로 읽는다.
 
@@ -14,6 +14,8 @@
 ## 1. 메서드 → HTTP 매핑
 
 > 구현 상태(#620): `GET /api/v1/platform/bootstrap`, `GET /api/v1/platform/session-state`, 세션별 CSRF 토큰(`bootstrap`이 `csrfToken`으로 내려주고 쓰기 요청의 `X-CSRF-Token`과 상수 시간 비교, 불일치 `403 csrf.invalid`), 모든 응답의 `X-Correlation-Id` 반향(유효 `^[A-Za-z0-9._-]{1,128}$`이면 채택, 아니면 `srv-…` 생성)이 플랫폼 API에 구현돼 있다. `session-state`는 `last_seen_at`을 갱신하지 않는다(§4).
+
+여섯 메서드(`validateScope`·`contextOptions`·`evaluateSelection`·`listAxisOptions`·`searchEquipment`·`resolveSelection`)의 행은 `Candidate:` 경로이며 코어 서버에 핸들러가 없다.
 
 **[제안]** 공통 규칙:
 
@@ -30,16 +32,16 @@
 | `publishedMetrics()` | (부트스트랩) 같은 응답 | — | 위 `publishedMetrics` |
 | `defaultRangeTo()` | (부트스트랩) 같은 응답 | — | 위 `defaultRangeTo`(naive wall-clock `YYYY-MM-DDTHH:mm:ss`, 06 §6.3) 또는 `null`(서버에 기준점 없음, [ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md)) — 키 누락·형식 오류는 부트스트랩 거부 |
 | `subscribe(onChange)` | (네트워크 없음) 어댑터 내부 등록 + 폴링 `GET /api/v1/platform/session-state` | — | `{ sessionVersion: string, generation?: string }` — §4 |
-| `validateScope(scopeId)` | `GET /api/v1/platform/scopes/{scopeId}/check` | 경로 `scopeId` | `ScopeCheck` |
-| `contextOptions(scopeId)` | `GET /api/v1/platform/context-options?scopeId=…` | 쿼리 `scopeId` | `ConditionOptions` |
-| `evaluateSelection(input)` | `POST /api/v1/platform/selection/evaluate` | `SelectionInput` | `SelectionEvaluation` |
+| `validateScope(scopeId)` | Candidate: `GET /api/v1/platform/scopes/{scopeId}/check` | 경로 `scopeId` | `ScopeCheck` |
+| `contextOptions(scopeId)` | Candidate: `GET /api/v1/platform/context-options?scopeId=…` | 쿼리 `scopeId` | `ConditionOptions` |
+| `evaluateSelection(input)` | Candidate: `POST /api/v1/platform/selection/evaluate` | `SelectionInput` | `SelectionEvaluation` |
 | `listAxisOptions(input)` | Candidate: `POST /api/v1/platform/axis-options` | `AxisOptionsInput` | `AxisOptionsPage` |
 | `searchEquipment(input)` | Candidate: `POST /api/v1/platform/equipment-search` | `EquipmentSearchInput` | `EquipmentSearchPage` |
 | `resolveSelection(input)` | Candidate: `POST /api/v1/platform/selection-resolve` | `SelectionResolveInput` | `SelectionResolveResult` |
 | `getEntity(ref)` | `POST /api/v1/platform/entity` — 지원 type과 게이트는 [코어 서버 포트](../architecture/platform-api/api/platform-port.md) | `EntityRef` | `ApiResponse<unknown>` |
-| `menuQuery(req)` | `POST /api/v1/menu-query` | `MenuQuery`(`{ endpoint, context, params }` 그대로) | `ApiResponse<unknown>` — 이 레포 코어 서버(#1106)는 `home.notices`만 답하고 그 밖의 엔드포인트·키는 HTTP 200 `error`다 |
-| `menuAction(req)` | `POST /api/v1/menu-action` + 헤더 `Idempotency-Key`(= `req.idempotencyKey`)·`If-Match`(`req.expectedVersion`이 있을 때만, 따옴표 없는 opaque 문자열 그대로)·`X-CSRF-Token`([ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md), [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 4). 서버 경로·상태 코드는 후속 이슈가 채운다(Candidate). 실패 변환: 서버가 보낸 올바른 `ActionResponse`(200)만 그대로 쓰고, 네트워크·타임아웃·5xx·그 밖의 상태·`invalid_response`·`invalid_envelope`·401·3xx는 `outcome: 'unknown'`(`data: null`, `version: null`, `fieldErrors: []`, `replayed: false`, `correlationId`, `message`는 §2.1의 짧은 코드)로 바꾼다 — 반영 여부를 모르기 때문이다. 401·3xx는 세션 재확인(§4)을 시작하고 403(CSRF)은 재부트스트랩으로 토큰을 갱신한다. 어느 경우도 자동 재전송하지 않는다 | `MenuAction`(`{ action, context, input, idempotencyKey, expectedVersion? }` 그대로) | `ActionResponse<unknown>` |
-| `recordUsage(events)` | `POST /api/v1/platform/usage-events` + `X-CSRF-Token` — 코어 서버 구현은 [코어 서버 포트](../architecture/platform-api/api/platform-port.md). rate limit에 걸린 429는 어댑터가 조용히 버린다 | `{ events: UsageEvent[] }` | `{ accepted: number }` |
+| `menuQuery(req)` | `POST /api/v1/menu-query` | `MenuQuery`(`{ endpoint, context, params }` 그대로) | `ApiResponse<unknown>` — 이 레포 코어 서버(#1106)는 업무 모듈이 선언 등록부에 올린 Scope 없는 엔드포인트만 답한다(`server.ts`의 `createMenuDispatchRegistry`). Scope가 필요한 분석 엔드포인트와 등록되지 않은 id는 HTTP 200 `error`다. 포트 메서드별 서버 지원은 [코어 서버 포트](../architecture/platform-api/api/platform-port.md) «Method support» |
+| `menuAction(req)` | `POST /api/v1/menu-action` + 헤더 `Idempotency-Key`(= `req.idempotencyKey`)·`If-Match`(`req.expectedVersion`이 있을 때만, 따옴표 없는 opaque 문자열 그대로)·`X-CSRF-Token`([ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md), [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 4). 서버(#1193)는 `POST /api/v1/menu-action`에서 업무 모듈이 등록한 쓰기만 답한다. 위 `menuQuery`와 같은 지원 표를 본다. 실패 변환: 서버가 보낸 올바른 `ActionResponse`(200)만 그대로 쓰고, 네트워크·타임아웃·5xx·그 밖의 상태·`invalid_response`·`invalid_envelope`·401·3xx는 `outcome: 'unknown'`(`data: null`, `version: null`, `fieldErrors: []`, `replayed: false`, `correlationId`, `message`는 §2.1의 짧은 코드)로 바꾼다 — 반영 여부를 모르기 때문이다. 401·3xx는 세션 재확인(§4)을 시작하고 403(CSRF)은 재부트스트랩으로 토큰을 갱신한다. 어느 경우도 자동 재전송하지 않는다 | `MenuAction`(`{ action, context, input, idempotencyKey, expectedVersion? }` 그대로) | `ActionResponse<unknown>` |
+| `recordUsage(events)` | `POST /api/v1/platform/usage-events` + `X-CSRF-Token` — 코어 서버 구현은 [코어 서버 포트](../architecture/platform-api/api/platform-port.md). rate limit에 걸린 429는 어댑터가 `http_429`로 reject하고, Kernel이 그 reject를 삼킨다(사용 기록은 버려진다) | `{ events: UsageEvent[] }` | `{ accepted: number }` |
 | `reportClientError(report)` | `POST /api/v1/platform/client-errors` + `X-CSRF-Token` — 코어 서버 구현은 [코어 서버 포트](../architecture/platform-api/api/platform-port.md). 429 처리는 `recordUsage`와 같다 | `ClientErrorReport` | `{ accepted: boolean }` |
 | `usageSummary(range)` | `GET /api/v1/platform/usage-summary?preset=all` 또는 `?from=…&to=…`(epoch ms) — 쿼리는 `preset=all` 하나 또는 `from`·`to`(0 이상 안전 정수, `from < to`)만 받고 그 밖은 `error` "Invalid usage range". 의미는 체크리스트 §2 | 쿼리 | `ApiResponse<UsageSummary>` |
 | `usageNextScreens(query)` | `POST /api/v1/platform/usage-next-screens` 본문 `{ menuId, includeBack? }`(#605 2부, 쓰기가 아니므로 CSRF 없음) — `usageSummary`와 같은 요청자별 속도 예산. `menuId`가 메뉴 id 모양(`/^[^\s?#&/=\p{C}]{1,80}$/u`)이 아니거나 `includeBack`이 있는데 불리언이 아니면 `error`(데이터 `null`). 의미·마스크·스냅샷 규칙은 체크리스트 §2 | 본문 | `ApiResponse<UsageNextScreens>` |
@@ -140,7 +142,7 @@ GET /api/v1/platform/bootstrap
 - `sessionVersion`은 세션 내용(사용자·권한·부여 Scope)이 바뀔 때만 바뀌는 opaque 토큰 [제안]. 기본 만드는 법 [제안]: 세션 응답(`Session`)의 정규화 JSON 해시 — 사용자 교체, 라벨·부여 수 변화가 자동으로 포함된다. `generation`은 §4의 계산 세대(Open).
 - **조립에서 받는 법 — 안 B 채택(#154)**: `CreateAssembly`는 `AssemblyOutcome | Promise<AssemblyOutcome>`를 돌려준다(`AssemblyOutcome` = 조립 `{ adapter, topBarTools }` | `{ redirect }` | `{ screen }`, `apps/platform-web/src/platform-assembly.d.ts`). `main.tsx`는 `await Promise.resolve(createAssembly(...))` 뒤에 렌더하고, `redirect`면 `window.location.replace`, `screen`이면 Kernel·셸 없이 그 화면만 렌더한다. mock 조립은 그대로 동기다. 안 A(부트스트랩 promise를 따로 내보내기)는 조립 계약이 둘이 되어 택하지 않았다.
   - **구현 위치**: 클라이언트는 `packages/adapters/http-adapter`(`@ap/http-adapter`, `bootstrapHttpAdapter` → `ready`·`login`·`unavailable`·`throttled`, reject 없음), 이 레포의 실서버 조립은 `apps/platform-web/src/real/http-assembly.tsx`다. `ready`면 `{ adapter, topBarTools: null }`, `login`이면 `/auth/login?return_to=<encodeURIComponent(pathname+search)>`로 이동(기능이 쿼리를 날것으로 읽어 인코딩하지 않은 `&`가 Context를 자르므로 전체를 인코딩), `unavailable`이면 "서버에 연결할 수 없습니다" + correlationId + 다시 시도 버튼만 있는 정적 화면. `throttled`(429)이면 같은 정적 화면 구조로 "요청이 너무 많습니다" + 기다림 안내(전송이 `Retry-After` 초를 실었을 때 1–59초는 `{n}초`, 60초 이상은 올림 `{m}분`, 값이 없거나 0이면 「잠시 후」)를 보여준다(#1179). `onSessionLost`도 같은 로그인 이동이다. 개발은 `pnpm --filter @ap/platform-web dev:real`(vite mode `real`, `/api`·`/auth`를 env `AP_BACKEND_ORIGIN`(기본 `http://127.0.0.1:3011`)로 프록시). 운영 빌드는 여전히 env `AP_PLATFORM_ASSEMBLY`로 조립 모듈을 받는다(ADR-0009).
-  - **구현 상태(#154)**: `@ap/http-adapter`의 모든 포트 메서드·부트스트랩·`subscribe`·타임아웃·CSRF·Correlation ID와 비동기 조립·`real` 모드가 구현됐다. 서버에 아직 없는 경로(#621–#623, 분석 데이터 경로)는 계약 경로로 호출해 404 변환(§2.1)이 동작한다. 실서버 대상 적합성 묶음 하네스는 플랫폼 API 통합 테스트에서 실어댑터와 `app.inject`로 구현돼 있다([체크리스트 §4](real-server-checklist.md#4-적합성-묶음으로-확인하기)). 미구현 포트·site grant가 필요한 검사는 skipped이며, 이를 통과로 세지 않는다. 세대 경로(#165), 선언 버전 헤더(#154), 세션 만료 배너 안 (b)(#150)는 구현하지 않았다.
+  - **구현 상태(#154)**: `@ap/http-adapter`의 모든 포트 메서드·부트스트랩·`subscribe`·타임아웃·CSRF·Correlation ID와 비동기 조립·`real` 모드가 구현됐다. 서버에 없는 경로(분석 데이터 경로와 코어 서버에 핸들러가 없는 포트 메서드 여섯 — 지원 표는 [코어 서버 포트](../architecture/platform-api/api/platform-port.md) «Method support»)는 계약 경로로 호출해 404 변환(§2.1)이 동작한다. 실서버 대상 적합성 묶음 하네스는 플랫폼 API 통합 테스트에서 실어댑터와 `app.inject`로 구현돼 있다([체크리스트 §4](real-server-checklist.md#4-적합성-묶음으로-확인하기)). 미구현 포트·site grant가 필요한 검사는 skipped이며, 이를 통과로 세지 않는다. 세대 경로(#165), 선언 버전 헤더(#154), 세션 만료 배너 안 (b)(#150)는 구현하지 않았다.
 - **identity 규칙 [제안] — 둘로 나눈다**:
   1. **세션 스냅샷 객체**(`session()` identity): 어댑터는 스냅샷 하나를 들고 `session()`마다 **같은 객체**를 돌려준다. 새 부트스트랩 결과의 `sessionVersion`이 다를 때만 새 객체로 바꾸고, 같으면 스냅샷은 그대로 둔다(Kernel이 identity로 Scope 재검증 여부를 정한다 — 체크리스트 §2).
   2. **전송 자격(`csrfToken`)**: 부트스트랩을 받을 때마다 `sessionVersion`과 무관하게 **항상 새 값으로 바꾼다**. 토큰은 세션 내용이 아니라 세션(쿠키) 자체에 묶여 있어서, 만료 뒤 같은 사용자가 재로그인하면 `sessionVersion`은 같아도 토큰은 바뀐다. 스냅샷과 함께 버리면 이후 상태 변경 호출이 전부 403이 되고 새로고침 전까지 복구되지 않는다.
@@ -155,7 +157,7 @@ GET /api/v1/platform/bootstrap
 
 > **Candidate — 포트 의미 변경**: 아래는 `subscribe`를 세션·권한 변경 전용으로 좁힌다. 포트 원본(`adapter.ts` `subscribe` 주석 "session or server-side state changed", 체크리스트 §2 `subscribe` 행)은 아직 "서버 상태 변경"을 포함한다. 플랫폼 레벨 결정이므로 합의 전에는 원본이 우선이고, 합의 뒤 원본을 고친다(§9).
 
-1. **5분 폴링**: 어댑터가 `GET /api/v1/platform/session-state` → `{ sessionVersion, generation? }`를 5분마다 읽는다(가벼운 읽기, DB 세션 조회 하나). 응답의 `sessionVersion`이 스냅샷과 다르면 3단계로 간다.
+1. **5분 폴링**: 어댑터가 `GET /api/v1/platform/session-state` → `{ sessionVersion, generation? }`를 5분마다 읽는다(세션 조회와 권한 판정 반복을 거치는 읽기이며, 비용은 #1667에서 추적한다). 응답의 `sessionVersion`이 스냅샷과 다르면 3단계로 간다.
 2. **401 감지**: 어떤 호출이든 401(또는 3xx·`opaqueredirect` — §6)이면 즉시 재확인을 시작한다.
 3. 재확인 = `GET /api/v1/platform/bootstrap`. `sessionVersion`이 바뀌었으면 스냅샷을 바꾸고 `onChange`를 부른다(Kernel이 세션을 다시 읽고 이전 결과를 숨긴다). 그대로면 부르지 않는다(`csrfToken`은 어느 쪽이든 갱신 — §3).
    - **[제안] single-flight + 백오프**: 동시에 401이 여러 건 와도 재확인은 하나만 진행하고 나머지는 그 결과를 기다린다. 부트스트랩도 401·실패면 바로 다시 시도하지 않고 백오프(예: 5초 → 30초 → 5분)한다.

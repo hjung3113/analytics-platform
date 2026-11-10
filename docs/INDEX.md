@@ -103,7 +103,7 @@
 - [저장소 구조](integration/repository-layout.md) — 폴더 구조, 기능 디렉터리 구조와 연결.
 - [패키지 경계](integration/platform-packages.md) — 패키지 의존 방향, 메뉴 템플릿, 결정(2026-09-26, 세부 타입 이름은 Candidate).
 - [실서버 연결 체크리스트](integration/real-server-checklist.md) — `PlatformAdapter` 메서드별 의미, `menuQuery` 판정 순서·등록 검증, 적합성 묶음 실행. Candidate.
-- [전송 형식](integration/http-adapter-contract.md) — 메서드별 HTTP 경로·요청/응답, 상태 코드와 `outcome`, 세션·CSRF, 백엔드 담당 질문. 구현 기준(#620–#623, PR #632·#636), `[제안]` 표식 행은 아직 제안.
+- [전송 형식](integration/http-adapter-contract.md) — 메서드별 HTTP 경로·요청/응답, 상태 코드와 `outcome`, 세션·CSRF, 백엔드 담당 질문. 상태 Candidate(사내 백엔드 합의 대기); 실어댑터·코어 서버가 이 형식으로 구현돼 있다(#620–#623, PR #632·#636). `[제안]` 표식 행은 아직 제안.
 - [사내 적용 가이드](integration/in-house-rollout.md) — mock → 실어댑터·실서버 전환 순서, 담당자별 확인 질문, 사내 메뉴 개발 가이드, 완료 기준.
 - [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) — 가공 상태 원천의 기록 구조와 평가 규칙. Decided(2026-10-26, #37 — 이름만 Candidate).
 - [FeedbackOps 합류 설계](integration/history/feedbackops-merge-design.md) — **과거 기록**(ADR-0097이 `피드백 운영` 업무 시스템과 제품명을 폐기했다). 전역 기능·피드백 운영 업무 시스템 배치, 서버 출발점, 단계, Open. 방향 Decided([ADR-0066](adr/0066-feedbackops-merges-into-platform.md)).
