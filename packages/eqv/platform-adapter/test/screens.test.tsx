@@ -465,6 +465,79 @@ describe('Top View equipment bar (#1644)', () => {
       else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
     }
   });
+  describe('focus through list failure and retry', () => {
+    const retryButton = () => screen.getByRole('button', { name: '다시 시도' });
+    const failedThenRetry = async () => {
+      const retries: Array<ReturnType<typeof deferred<ApiResponse<unknown>>>> = [];
+      let attempts = 0;
+      const fake = hostFor({ page: {}, query: call => {
+        if (call.id !== optionsId) return server()(call);
+        if (++attempts === 1) return Promise.resolve(response('error', null));
+        const next = deferred<ApiResponse<unknown>>();
+        retries.push(next);
+        return next.promise;
+      } });
+      const Screen = eqvScreens.topview;
+      render(<Screen host={fake.host} params={{}} />);
+      await screen.findByText('설비 목록을 불러오지 못했습니다');
+      retryButton().focus();
+      fireEvent.click(retryButton());
+      await screen.findByText('설비 목록을 불러오는 중…');
+      return { retries };
+    };
+    it('keeps focus on the retry action when the list fails after a selection', async () => {
+      const refreshed = deferred<ApiResponse<unknown>>();
+      const fake = hostFor({ page: {}, query: call => call.id === optionsId ? Promise.resolve(ok({ options })) : server()(call) });
+      const Screen = eqvScreens.topview;
+      const view = render(<Screen host={fake.host} params={{}} />);
+      const setPage = fake.host.setPage;
+      fake.host.setPage = patch => {
+        setPage(patch);
+        const next = hostFor({ page: { equipment: EQUIPMENT }, query: call => call.id === optionsId ? refreshed.promise : server()(call) });
+        view.rerender(<Screen host={next.host} params={{}} />);
+      };
+      const select = await screen.findByRole('combobox', { name: '설비' });
+      await waitFor(() => expect((select as HTMLButtonElement).disabled).toBe(false));
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
+      try {
+        select.focus();
+        fireEvent.keyDown(select, { key: 'ArrowDown' });
+        fireEvent.click(await screen.findByRole('option', { name: EQUIPMENT }));
+        await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+        await act(async () => { refreshed.resolve(response('error', null)); await refreshed.promise; });
+        await waitFor(() => expect(document.activeElement).toBe(retryButton()), { timeout: 1000 });
+      } finally {
+        if (descriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', descriptor);
+        else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+      }
+    });
+    it('holds focus on the status row while retrying, then on the retry action after another failure', async () => {
+      const { retries } = await failedThenRetry();
+      expect(document.activeElement).toBe(screen.getByText('설비 목록을 불러오는 중…'));
+      await act(async () => { retries[0]!.resolve(response('error', null)); await retries[0]!.promise; });
+      await waitFor(() => expect(document.activeElement).toBe(retryButton()));
+    });
+    it('moves focus to the select when the retry succeeds', async () => {
+      const { retries } = await failedThenRetry();
+      await act(async () => { retries[0]!.resolve(ok({ options })); await retries[0]!.promise; });
+      const select = screen.getByRole('combobox', { name: '설비' });
+      await waitFor(() => expect(document.activeElement).toBe(select));
+    });
+    it('leaves focus on a control the user moved to while the list loads', async () => {
+      const { retries } = await failedThenRetry();
+      const other = document.createElement('button');
+      document.body.append(other);
+      try {
+        other.focus();
+        await act(async () => { retries[0]!.resolve(ok({ options })); await retries[0]!.promise; });
+        await waitFor(() => expect((screen.getByRole('combobox', { name: '설비' }) as HTMLButtonElement).disabled).toBe(false));
+        expect(document.activeElement).toBe(other);
+      } finally {
+        other.remove();
+      }
+    });
+  });
   it('returns focus to the trigger when applying removes the data-window action', async () => {
     const { fake, setTime } = renderBar(ok({ options }), { from: '2026-01-02T10:00:00', to: '2026-01-02T10:30:00' });
     setTime.mockImplementation(range => fake.setContext(range));

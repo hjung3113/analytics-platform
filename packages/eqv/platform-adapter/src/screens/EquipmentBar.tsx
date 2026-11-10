@@ -64,13 +64,21 @@ export function useEquipmentOptions(host: ModuleHost) {
 export function EquipmentBar({ host, props, state, retry }: { host: ModuleHost; props: HostProps; state: OptionsState | null; retry: () => void }) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
+  const statusRow = useRef<HTMLDivElement>(null);
+  const retryButton = useRef<HTMLButtonElement>(null);
   const restoreFocus = useRef(false);
   // URL writes replace the host and briefly disable discovery. Radix cannot focus a disabled trigger on close.
+  // The status row holds focus while the list loads; once settled, focus goes to the select, the retry action or the row.
   useEffect(() => {
     if (state === null || !restoreFocus.current) return;
-    if (document.activeElement === document.body) trigger.current?.focus();
+    const active = document.activeElement;
+    if (active === document.body || active === statusRow.current) {
+      const target = trigger.current && !trigger.current.disabled ? trigger.current : retryButton.current ?? statusRow.current;
+      target?.focus();
+    }
     restoreFocus.current = false;
   }, [state, props.time]);
+  const retryList = () => { restoreFocus.current = true; statusRow.current?.focus(); retry(); };
   const focusTrigger = () => { restoreFocus.current = true; trigger.current?.focus(); };
   const options = state?.kind === 'ready' ? state.options : [];
   const chosen = options.find(option => option.id === props.equipment);
@@ -84,10 +92,10 @@ export function EquipmentBar({ host, props, state, retry }: { host: ModuleHost; 
         }}>{options.map(option => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent>
       </Select>
     </div>
-    <div id={`${id}-window`} role="status" className="flex min-h-8 flex-wrap items-center gap-3">
+    <div id={`${id}-window`} ref={statusRow} tabIndex={-1} role="status" className="flex min-h-8 flex-wrap items-center gap-3">
       {state === null ? '설비 목록을 불러오는 중…' : state.kind === 'message' ? state.message : options.length === 0 ? '등록된 설비가 없습니다'
         : chosen && <DataWindow host={host} props={props} range={chosen.dataRange} focusTrigger={focusTrigger} />}
-      {state?.kind === 'message' && state.message === FAILED && <Button type="button" variant="secondary" size="toolbar" onClick={retry}>다시 시도</Button>}
+      {state?.kind === 'message' && state.message === FAILED && <Button ref={retryButton} type="button" variant="secondary" size="toolbar" onClick={retryList}>다시 시도</Button>}
     </div>
   </section>;
 }
