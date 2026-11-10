@@ -90,6 +90,7 @@
 - [03 백엔드](architecture/backend-stack.md) — 백엔드·DB·인증 기술 스택, 재현성·시간 계약.
 - [04 프론트 기술 스택](architecture/frontend-ui-ux.md) — 라이브러리 결정과 코드 현황, 그리드·차트·데이터 도구 검토, 페이지별 UI 패턴.
 - [05 결정 상태](overview/roadmap-and-open-questions.md) — ADR 없는 계약 결정 목록, MVP 지원 환경, 메뉴 활용률 계측 정책.
+- [기대 동작표](product/expected-behavior/README.md) — 전수 점검의 대상, 점검 방법, 공통 기대, 통과·결함·심각도 기준, 검증 분담(ADR-0136).
 - [17 플랫폼 요구사항](product/platform-requirements.md) — 플랫폼이 제공해야 하는 기능 전체(된 것·만들 것)를 사용자·운영자·개발자 언어로 모은 요구 목록과 상태. 소개 사이트(#468)의 근거. Candidate.
 - [06 플랫폼 UI 계약](contract/platform-ui-contract.md)(색인; 절은 갈래별 문서에 있고 §번호는 그대로) — Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, 공통 컴포넌트 승격 기준, Data Trust·권한·상태 UX, navigation IA. **전역 계약의 원본.**
 - [07 App Shell](design/app-shell.md) — 셸 구조(ADR-0011·0013·0015로 Decided)와 IA.
