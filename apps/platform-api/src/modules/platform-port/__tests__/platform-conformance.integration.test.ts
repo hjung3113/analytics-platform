@@ -110,8 +110,9 @@ const testActionPair = { actions: [actionDeclaration(noneSpec), actionDeclaratio
  * The Scope-less menu reads the production run judges (#1669). The declarations come from the contract snapshot
  * `@ap/contract-schemas/endpoints.json` (the one place `kinds` of a menu endpoint is written; the server's own
  * declarations carry no `kinds`), narrowed to `requiresScope: false` — the server refuses a Scope-requiring
- * endpoint at registration (#1087). The `eqv.*` reads are outside that snapshot (`endpoints.json` covers
- * `menus/` and `platform/` only), so their specs are written here, as the server declares them (no assessment kinds).
+ * endpoint at registration (#1087). The Studio `eqv.*` reads come from the snapshot through the Studio Layouts menu (#1654);
+ * `eqv.equipment-options` belongs to the app's module, outside that snapshot (`endpoints.json` covers `menus/` and
+ * `platform/` only), so its spec is written here, as the server declares it (no assessment kinds).
  */
 const SNAPSHOT = JSON.parse(
   readFileSync(
@@ -274,12 +275,6 @@ const MENU_LEFT_OUT: Readonly<Record<string, string>> = {
 
 const menuSpecs: AnyEndpointSpec[] = [
   ...SNAPSHOT.filter((entry) => !entry.requiresScope && !NOT_REGISTERED.includes(entry.id)).map(snapshotSpec),
-  eqvSpec('eqv.layouts', []),
-  eqvSpec('eqv.layoutDraft', ['layoutId']),
-  eqvSpec('eqv.layoutRevisions', ['layoutId']),
-  eqvSpec('eqv.layoutRevision', ['layoutId', 'revision']),
-  eqvSpec('eqv.templates', []),
-  eqvSpec('eqv.template', ['templateId']),
   eqvSpec('eqv.equipment-options', []),
   ...INLINE_SPECS,
 ];

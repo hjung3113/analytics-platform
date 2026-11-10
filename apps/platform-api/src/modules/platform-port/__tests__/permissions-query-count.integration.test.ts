@@ -72,8 +72,9 @@ describe.skipIf(!runIntegration)('permission resolution query counts (#1667)', (
     });
     admin = await newActor('admin');
     plainUser = await newActor('user');
-    for (const d of declared()) {
-      await grantCapability(migrateHandle, WORKSPACE_ID, admin.actor_id, d.capability, null, admin.actor_id);
+    // Two menu permissions may share a capability (`eqv:view` and `eqv-studio:view`, #1654): grant each capability once.
+    for (const capability of new Set(declared().map((d) => d.capability))) {
+      await grantCapability(migrateHandle, WORKSPACE_ID, admin.actor_id, capability, null, admin.actor_id);
     }
   });
 
