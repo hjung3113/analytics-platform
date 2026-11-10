@@ -28,7 +28,7 @@ export type PreferenceController = {
 export type PreferenceUpdate = { readonly key: string; readonly apply: (current: JsonValue | undefined) => JsonValue };
 export type UpdatingPreferenceController = PreferenceController & {
   readonly update: (key: string, apply: PreferenceUpdate['apply']) => void;
-  /** Like `update`, but only the PATCH waits: `get` shows the edit at once, a later `hold` of the same key replaces it, and after `delayMs` it goes through `update`. An `update` of the key (or `stop`) moves it on first. */
+  /** Like `update`, but only the PATCH waits: `get` shows the edit at once, a later `hold` of the same key replaces it, and after `delayMs` it goes through `update`. An `update` of the key (or `stop`) moves it on first; a later `set`/`remove` of the key cancels it. */
   readonly hold: (key: string, apply: PreferenceUpdate['apply'], delayMs: number) => void;
 };
 
@@ -360,6 +360,13 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
     lane.queued.push({ key, apply: edit.apply });
     return true;
   };
+  /** A newer absolute `set`/`remove` of `key` supersedes its held edit; `drainQueued` never calls this, so an earlier queued edit still materializes. */
+  const dropHeld = (key: string) => {
+    const edit = held.get(key);
+    if (!edit) return;
+    clearTimeout(edit.timer);
+    held.delete(key);
+  };
   const notifyQueued = () => {
     if (!started) { if (lane.poke) lane.poke(); return; }
     emit();
@@ -387,8 +394,8 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
       lane.queued.push({ key, apply });
       notifyQueued();
     },
-    set: (key, value) => write(key, { remove: false, value, seq: ++lane.seq }),
-    remove: key => write(key, { remove: true, seq: ++lane.seq }),
+    set: (key, value) => { dropHeld(key); write(key, { remove: false, value, seq: ++lane.seq }); },
+    remove: key => { dropHeld(key); write(key, { remove: true, seq: ++lane.seq }); },
     tableKey: ensureHash,
     setTable(rawKey, value) {
       const seq = ++lane.seq;

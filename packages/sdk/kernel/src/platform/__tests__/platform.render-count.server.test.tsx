@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { groupId, type JsonValue, type PlatformAdapter } from '@ap/contracts';
+import { contextCapabilities, groupId, type JsonValue, type PlatformAdapter } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform, usePlatform } from '../platform';
 import { createRegistry } from '../../registry/registry';
@@ -19,7 +19,7 @@ const entry = (id: string, path: string, over: Record<string, unknown> = {}) => 
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'main' })],
   groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: testSpace().id }],
-  menus: [{ ...entry('main', '/main'), primary: true }, entry('plain', '/plain')],
+  menus: [{ ...entry('main', '/main'), primary: true }, entry('plain', '/plain'), entry('ctx', '/ctx', { context: contextCapabilities({ ppid: 'apply' }) })],
 });
 const ok = (values: Record<string, JsonValue>) => ({ outcome: 'ok' as const, data: { values, importedAt: '2026-10-29T00:00:00Z' }, assessments: [], trust: null, correlationId: 'c' });
 
@@ -93,17 +93,64 @@ describe('serverPreferences: a URL change wakes the menu consumer once (#1671)',
 });
 
 describe('serverPreferences: URL changes inside one menu send one recents PATCH (#1671)', () => {
-  it('several setPage calls in a row send one PATCH after the delay, with the latest URL', async () => {
+  /** Lets every queued promise step run (an eager writer dispatches its PATCH through a promise) without moving the clock. */
+  const dispatch = () => act(async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); });
+  const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+  const urlsOf = (patch: { set?: Record<string, JsonValue> }) => (patch.set!.recents as { url: string }[]).map(r => r.url);
+
+  it('setPage calls send nothing before the delay, each later visit restarts it, then one PATCH with the latest URL', async () => {
     const f = await mountReady();
     const sent = recentPatches(f.patches).length;
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    for (const page of ['2', '3', '4']) act(() => { menu.setPage({ page }); });
+    act(() => { menu.setPage({ page: '2' }); });
+    await dispatch();
+    await advance(400);
+    act(() => { menu.setPage({ page: '3' }); });
+    await dispatch();
+    // 1100 ms after the first visit but 700 ms after the latest: a delay that did not restart would have sent by now
+    await advance(700);
+    await dispatch();
+    expect(recentPatches(f.patches).length).toBe(sent);
+    act(() => { menu.setPage({ page: '4' }); });
+    await dispatch();
     // the list the screens read is current at once; only the PATCH waits
     expect(host.readRecent()[0]?.url).toBe('/mars/main?v=1&page=4');
+    await advance(999);
+    await dispatch();
     expect(recentPatches(f.patches).length).toBe(sent);
-    await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    await advance(1);
+    await dispatch();
     const later = recentPatches(f.patches).slice(sent);
     expect(later).toHaveLength(1);
-    expect((later[0]!.set!.recents as { url: string }[])[0]?.url).toBe('/mars/main?v=1&page=4');
+    expect(urlsOf(later[0]!)[0]).toBe('/mars/main?v=1&page=4');
+    await advance(5000);
+    expect(recentPatches(f.patches).slice(sent)).toHaveLength(1);
+  });
+
+  it('setGlobal and setPage mixed inside a menu that applies the Context key also wait and send once', async () => {
+    const f = await mountReady();
+    act(() => { expect(menu.navigate('/mars/ctx')).toBe(true); });
+    await settle();
+    const sent = recentPatches(f.patches).length;
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    act(() => { menu.setGlobal({ ppid: 'P1' }); });
+    await dispatch();
+    await advance(600);
+    act(() => { menu.setPage({ page: '2' }); });
+    await dispatch();
+    await advance(600);
+    act(() => { menu.setGlobal({ ppid: 'P2' }); });
+    await dispatch();
+    await advance(999);
+    await dispatch();
+    expect(recentPatches(f.patches).length).toBe(sent);
+    await advance(1);
+    await dispatch();
+    const later = recentPatches(f.patches).slice(sent);
+    expect(later).toHaveLength(1);
+    const [latest, ...rest] = urlsOf(later[0]!);
+    expect(latest).toContain('ppid=P2');
+    expect(latest).toContain('page=2');
+    expect(rest.some(url => url.includes('/mars/ctx'))).toBe(false);
   });
 });

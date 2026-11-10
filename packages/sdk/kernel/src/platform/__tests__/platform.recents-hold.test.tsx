@@ -24,9 +24,10 @@ const registry = createRegistry({
 const ok = (values: Record<string, JsonValue>) => ({ outcome: 'ok' as const, data: { values, importedAt: '2026-10-29T00:00:00Z' }, assessments: [], trust: null, correlationId: 'c' });
 const sessionOf = (id: string): Session => testSession(['platform:view'], { user: { id, name: id, title: { ko: id, en: id } } });
 
-type Sent = { user: string; recents: { menuId: string; url: string }[] };
-function fixture() {
-  const accounts: Record<string, Record<string, JsonValue>> = { 'user-a': {}, 'user-b': {} };
+type Sent = { user: string; recents: { menuId: string; url: string; at: number }[] };
+function fixture(seedA: Record<string, JsonValue> = {}) {
+  const accounts: Record<string, Record<string, JsonValue>> = { 'user-a': { ...seedA }, 'user-b': {} };
+  const gate = { current: null as null | Promise<void> };
   const sessions = { 'user-a': sessionOf('user-a'), 'user-b': sessionOf('user-b') };
   let current = sessions['user-a'];
   const listeners = new Set<() => void>();
@@ -37,13 +38,14 @@ function fixture() {
     readPreferences: async () => ok({ ...accounts[current.user.id]! }),
     patchPreferences: async patch => {
       const id = current.user.id;
+      if (gate.current) await gate.current;
       if (patch.set?.recents !== undefined) sent.push({ user: id, recents: patch.set.recents as Sent['recents'] });
       accounts[id] = { ...accounts[id]!, ...(patch.set ?? {}) };
       return ok(accounts[id]!);
     },
   });
   return {
-    adapter, sent, accounts,
+    adapter, sent, accounts, gate,
     switchTo: (id: 'user-a' | 'user-b') => { current = sessions[id]; listeners.forEach(l => l()); },
     notify: () => listeners.forEach(l => l()),
   };
@@ -61,8 +63,8 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-async function mountReady(strict = false) {
-  const f = fixture();
+async function mountReady(strict = false, seedA: Record<string, JsonValue> = {}) {
+  const f = fixture(seedA);
   window.history.replaceState(null, '', '/main');
   const tree = <I18nProvider><PlatformProvider serverPreferences adapter={f.adapter} registry={registry}><Consumer /></PlatformProvider></I18nProvider>;
   const view = render(strict ? <StrictMode>{tree}</StrictMode> : tree);
@@ -75,16 +77,28 @@ async function mountReady(strict = false) {
 }
 const pages = (...values: string[]) => { for (const page of values) act(() => { menu.setPage({ page }); }); };
 const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+/** Lets every queued promise step run (an eager writer dispatches its PATCH through a promise) without moving the clock. */
+const dispatch = () => act(async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); });
 
 describe('a held recents visit (#1671)', () => {
   it.each([[false], [true]])('shows the latest visit at once and sends one PATCH after the delay (StrictMode %s)', async strict => {
     const { f } = await mountReady(strict);
-    pages('2', '3');
+    pages('2');
+    await dispatch();
+    await advance(300);
+    pages('3');
+    await dispatch();
     expect(urls(host.readRecent())).toEqual(['main?3']);
     expect(urls(visits)).toEqual(['main?3']);
+    // 1299 ms after the first visit but 999 ms after the latest: the delay restarted, and nothing was sent while promises could run
+    await advance(999);
+    await dispatch();
     expect(f.sent).toHaveLength(0);
-    await advance(1100);
+    await advance(1);
+    await dispatch();
     expect(f.sent.map(s => [s.user, urls(s.recents)])).toEqual([['user-a', ['main?3']]]);
+    await advance(5000);
+    expect(f.sent).toHaveLength(1);
   });
 
   it('entering another menu writes at once with the held visit folded in, in order', async () => {
@@ -108,32 +122,81 @@ describe('a held recents visit (#1671)', () => {
     expect(f.sent.map(s => [s.user, urls(s.recents)])).toEqual([['user-a', ['main?3']]]);
   });
 
-  it('a controller replacement of the same account keeps the held visit, written once and in order', async () => {
+  it('a controller replacement of the same account keeps the held visit, written with its own timestamp, then the fresh visit of the new controller', async () => {
     const { f } = await mountReady();
     pages('2');
+    const at = host.readRecent()[0]!.at;
     act(() => { f.notify(); });
+    await dispatch();
     await advance(1100);
-    await advance(50);
-    const stored = f.sent.map(s => [s.user, urls(s.recents)]);
-    expect(stored.length).toBeGreaterThan(0);
-    expect(stored.every(([user]) => user === 'user-a')).toBe(true);
-    expect(stored.at(-1)).toEqual(['user-a', ['main?2']]);
-    expect(stored.flatMap(([, list]) => list as string[]).filter(u => u !== 'main?2')).toEqual([]);
+    await advance(5000);
+    // exactly two ordered writes: the handed-over visit with its own timestamp, then the new controller's own (later) visit of the same address
+    expect(f.sent.map(s => [s.user, s.recents.map(r => [r.menuId, r.url.includes('page=2')])])).toEqual([['user-a', [['main', true]]], ['user-a', [['main', true]]]]);
+    expect(f.sent[0]!.recents[0]!.at).toBe(at);
+    expect(f.sent[1]!.recents[0]!.at).toBeGreaterThanOrEqual(at);
+  });
+
+  it('a held visit survives an unmount and a StrictMode remount of the same account: stop/start replay writes the carried visit once, then the fresh one', async () => {
+    const { f, view } = await mountReady(true);
+    pages('2');
+    const at = host.readRecent()[0]!.at;
+    view.unmount();
+    await dispatch();
+    // the same account mounts again under StrictMode (stop/start replay) while the carried visit is waiting on the lane
+    render(<StrictMode><I18nProvider><PlatformProvider serverPreferences adapter={f.adapter} registry={registry}><Consumer /></PlatformProvider></I18nProvider></StrictMode>);
+    await dispatch();
+    await advance(1100);
+    await dispatch();
+    await advance(5000);
+    const mainWrites = f.sent.filter(s => s.recents.some(r => r.url.includes('page=2')));
+    expect(mainWrites.map(s => [s.user, s.recents.length])).toEqual([['user-a', 1], ['user-a', 1]]);
+    expect(mainWrites[0]!.recents[0]!.at).toBe(at);
+    expect(mainWrites[1]!.recents[0]!.at).toBeGreaterThanOrEqual(at);
+    expect(f.accounts['user-a']!.recents).toEqual([{ menuId: 'main', url: expect.stringContaining('page=2'), at: mainWrites[1]!.recents[0]!.at }]);
+  });
+
+  it('a held visit that expires while its PATCH is in flight is sent once, even when the tree unmounts meanwhile', async () => {
+    const { f, view } = await mountReady();
+    let release = () => {};
+    f.gate.current = new Promise<void>(resolve => { release = resolve; });
+    pages('2');
+    await advance(1100);
+    await dispatch();
+    expect(f.sent).toHaveLength(0);
+    view.unmount();
+    await dispatch();
+    release();
+    f.gate.current = null;
+    await dispatch();
+    await advance(5000);
+    expect(f.sent.map(s => [s.user, urls(s.recents)])).toEqual([['user-a', ['main?2']]]);
   });
 
   it('an account switch sends nothing of the held visit for the other account; it stays with its own account', async () => {
-    const { f } = await mountReady();
+    const earlier = { menuId: 'plain', url: '/mars/plain?v=1', at: 1 };
+    const { f } = await mountReady(false, { recents: [earlier] });
     pages('2');
+    const heldAt = host.readRecent()[0]!.at;
+    expect(urls(host.readRecent())).toEqual(['main?2', 'plain']);
     act(() => { f.switchTo('user-b'); });
+    await dispatch();
     await advance(1100);
     await advance(50);
-    // user-b writes only its own entry into the page (the address is still the one user-a left); user-a is not written while the session is user-b's
+    // user-a is not written while the session is user-b's; nothing of user-a's history (its `plain` visit, its held timestamp) reaches user-b
     expect(f.sent.filter(s => s.user === 'user-a')).toEqual([]);
-    expect(f.sent.filter(s => s.user === 'user-b').length).toBeLessThanOrEqual(1);
+    const forB = f.sent.filter(s => s.user === 'user-b');
+    expect(forB.length).toBeLessThanOrEqual(1);
+    for (const sent of forB) expect(sent.recents.some(r => r.menuId === 'plain' || r.at === heldAt)).toBe(false);
+    expect(JSON.stringify(f.accounts['user-b']!.recents ?? null)).not.toContain('plain');
+    expect(f.accounts['user-a']!.recents).toEqual([expect.objectContaining({ menuId: 'main' }), earlier]);
     expect(JSON.stringify(f.accounts['user-a']!.recents)).not.toContain('page=2');
     act(() => { f.switchTo('user-a'); });
     await advance(50);
     await advance(1100);
-    expect(f.sent.filter(s => s.user === 'user-a').map(s => urls(s.recents))).toEqual([['main?2']]);
+    const forA = f.sent.filter(s => s.user === 'user-a');
+    // one write: the held address on top of A's own history (the switch-back visit of the same address replaces its timestamp)
+    expect(forA.map(s => urls(s.recents))).toEqual([['main?2', 'plain']]);
+    expect(forA[0]!.recents[0]!.at).toBeGreaterThanOrEqual(heldAt);
+    expect(forA[0]!.recents[1]).toEqual(earlier);
   });
 });

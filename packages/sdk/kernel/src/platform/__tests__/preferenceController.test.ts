@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { JsonValue, PreferencesSnapshot } from '@ap/contracts';
 import { memoryStorage, testAdapter, testSession } from '../../testing';
 import { createPreferenceController, importFits } from '../preferenceController';
@@ -322,5 +322,54 @@ describe('import limits', () => {
     expect(c.state()).toMatchObject({ status: 'failed', failure: 'import_too_large' });
     expect(f.imports).toEqual([]);
     expect(f.store.getItem('platform:favorites:u1')).not.toBeNull();
+  });
+});
+
+describe('a held edit and a newer absolute write (#1671)', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  const ready = async () => {
+    const f = fixture({ importedAt: '2026-10-01T00:00:00Z', server: { recents: ['old'] } });
+    const c = make(f);
+    c.start();
+    await flushAll();
+    expect(c.state().status).toBe('ready');
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    c.hold('recents', current => [...(current as string[]), 'held'], 1000);
+    expect(c.get('recents')).toEqual(['old', 'held']);
+    return { f, c };
+  };
+  const later = async (ms: number) => { await vi.advanceTimersByTimeAsync(ms); };
+  const writes = [
+    ['set', (c: ReturnType<typeof make>) => c.set('recents', ['newer']), ['newer']],
+    ['remove', (c: ReturnType<typeof make>) => c.remove('recents'), undefined],
+  ] as const;
+
+  it.each(writes)('a later %s of the key supersedes the held edit in get and at its expiry', async (_name, act, expected) => {
+    const { f, c } = await ready();
+    act(c);
+    expect(c.get('recents')).toEqual(expected);
+    await later(5000);
+    expect(c.get('recents')).toEqual(expected);
+    expect(f.server().recents).toEqual(expected);
+    expect(JSON.stringify(f.patches)).not.toContain('held');
+  });
+
+  it.each(writes)('a later %s of the key stays authoritative when stop() comes before the expiry', async (_name, act, expected) => {
+    const { f, c } = await ready();
+    act(c);
+    c.stop();
+    await later(5000);
+    expect(f.server().recents).toEqual(expected);
+    expect(JSON.stringify(f.patches)).not.toContain('held');
+  });
+
+  it('a held edit of another key and an earlier queued update survive an absolute write', async () => {
+    const { f, c } = await ready();
+    c.hold('lastScope', () => 'S-held', 1000);
+    c.set('recents', ['newer']);
+    expect(c.get('lastScope')).toBe('S-held');
+    await later(1500);
+    expect(f.server().lastScope).toBe('S-held');
+    expect(f.server().recents).toEqual(['newer']);
   });
 });
