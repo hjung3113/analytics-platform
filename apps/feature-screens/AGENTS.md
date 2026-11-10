@@ -17,6 +17,8 @@ Feature-folder guides under `src/features/` describe semantic screen intents. Ru
 ## Entry and host rules
 
 - Public screen/core entries are libraries mounted by the platform bridge (#597, ADR-0097); there is no standalone runtime, generated route tree, login or app layout.
+- `package.json` `exports` is the one list of bridge entries (exact keys, no wildcard: a new folder must not become public by existing). The boundary lint (`featureBridgeMenuPreset`), its fixtures and `feature-entry-graph.test.ts` read it, so adding an entry means adding one `exports` key; an entry that departs from the default graph assertions is listed in that test's `ENTRY_ALLOWANCES`.
+- `./styles.css` (`bridge-sources.css`) is the style entry: it owns the `@source` lines for this package's folders. A consumer `styles.css` imports `@ap/feature-screens/styles.css` and adds only its own `@source "./"`; it never names an `apps/feature-screens/` path (guarded by `consumer-styles.test.ts`). It is not the full `src/styles.css`.
 - Public screens navigate and notify only through `lib/host` (`log-lifecycle` receives Kernel menu-query/action hooks from its native menu host); never import TanStack Router, test adapters or the `@/lib/api` barrel into their reachable graph.
 - Test-local memory-router hosts live under `src/test`; private legacy feature components still using TanStack keep that dependency.
 - New endpoints use `apiRequest(method, path, parser, opts)` with a response schema from `@ap/feature-shared`; legacy unparsed calls are tracked in `src/lib/api/api-unparsed-allowlist.txt`.

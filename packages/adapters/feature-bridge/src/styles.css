@@ -1,13 +1,5 @@
+@import "@ap/feature-screens/styles.css";
 @source "./";
-@source "../../../../apps/feature-screens/src/global-screens";
-@source "../../../../apps/feature-screens/src/features/home";
-@source "../../../../apps/feature-screens/src/features/surveys";
-@source "../../../../apps/feature-screens/src/features/voc";
-@source "../../../../apps/feature-screens/src/components";
-@source "../../../../apps/feature-screens/src/lib";
-@source "../../../../packages/feature-ui/src";
-@source "../../../../apps/feature-screens/src/operator-screens";
-@source "../../../../apps/feature-screens/src/features/integration/recovery";
 
 /*
  * A feature detail body (`FeatureDetailDrawer`) brings its own sticky section tabs, scroll area and bottom bar (it fills a flex column, as in the standalone panel).

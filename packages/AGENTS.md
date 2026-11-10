@@ -33,6 +33,7 @@ Folders are grouped one level (ADR-0090): the five SDK packages and the unpublis
 - Test-only entry points are exported as `exports["./testing"]` (ADR-0040, extended #413). Import them only from test files (`*.test.ts(x)`, `test-support.ts(x)`, `test-setup.ts`); lint blocks production sources.
   - `@ap/kernel/testing`: `testAdapter`, `testSession`, `testSpace`, `noContext`, `memoryStorage`, `ToastProbe`, `useToastsForTest`, `settleQueries`. Build adapter stubs with `testAdapter({ … })`, never by hand.
   - `@ap/components/testing`: `stubCompactTableGeometry` (table geometry stub); components' own tests use `./testing`.
+  - `@ap/components/testing/engines`: `mockEchartsCanvas`, `probeDockEngine` (engine seams registered with `vi.doMock` from inside the package, so tests outside it never import `echarts` or `dockview-react`). Call as `await vi.hoisted(async () => (await import('@ap/components/testing/engines')).fn())`.
   - `@ap/feature-bridge/testing`: `createFeatureMenuHarness` (registry and `mountAt` harness for bridge menus). Only bridge menus (`featureBridgeMenuPreset`) tests and `test-support` import it; the root does not re-export it.
   - `@ap/server-conformance` sees only `@ap/contracts`, in production and tests.
 - Host-only entry `@ap/components/dock` (controlled `DockLayout`, layout schema, pure commands; ADR-0067) is exported as `exports["./dock"]`, not from `src/index.ts`. Only shell and app production code import it (lint gate); no `dockview-*` engine is imported outside `@ap/components`.

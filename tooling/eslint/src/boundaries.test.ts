@@ -30,6 +30,7 @@ import {
   ui,
 } from './index.js';
 import { PACKAGE_PREFIX } from './prefix.js';
+import { featureBridgeEntrySources, featureBridgeEntrySubpaths } from './feature-bridge-entries.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
@@ -608,8 +609,8 @@ rows.push(
 );
 // The operator VOC entries (#761): the feature VOC bridge menu may import them (static and dynamic); a non-bridge menu and the feature-bridge runtime's eager code may not.
 const FEATURE_VOC = 'platform/voc/src/pages/x.tsx';
-for (const entry of ['milestones', 'task-detail', 'tasks-search', 'voc-clusters', 'voc-detail', 'voc-inbox', 'voc-search', 'voc-triage', 'task-list', 'task-board', 'task-requests', 'findings-search', 'surveys-search', 'admin-search', 'integration-search', 'findings', 'finding-detail', 'surveys', 'survey-detail', 'survey-builder', 'survey-results', 'survey-follow-up', 'permission-requests', 'permission-grants', 'managed-systems', 'settings', 'analytics-areas', 'evidence', 'integration-dashboard', 'coverage', 'entity-links', 'log-lifecycle', 'log-datasets']) {
-  const source = `@ap/feature-screens/operator-screens/${entry}`;
+// The entry list is `apps/feature-screens/package.json` `exports` (one list, #1640): adding an entry there adds its rows here.
+for (const source of featureBridgeEntrySources().filter((entry) => entry.startsWith('@ap/feature-screens/operator-screens/'))) {
   rows.push(
     { file: FEATURE_VOC, code: `import { x } from '${source}';`, rule: '' },
     { file: FEATURE_VOC, code: `void import('${source}');`, rule: '' },
@@ -817,6 +818,30 @@ rows.push(
   { file: 'packages/sdk/contracts/src/x.ts', code: `export function f(on: boolean) { return on; }`, rule: '' },
   // A disable comment that suppresses nothing fails.
   { file: 'packages/sdk/kernel/src/x.ts', code: `// eslint-disable-next-line no-console\nexport const n = 1;`, rule: null, token: 'Unused eslint-disable' },
+);
+
+// #1640: vi.mock-style calls name a module path like an import, so the boundary rules apply to their first string argument.
+const MENU_TEST = 'platform/home/src/pages/x.test.tsx';
+const VITEST_CALLEES = ['mock', 'doMock', 'unmock', 'doUnmock', 'importActual', 'importMock'];
+for (const callee of VITEST_CALLEES) {
+  rows.push(
+    // a deep SDK-private path (the import rule's deep-subpath ban)
+    { file: MENU_TEST, code: `vi.${callee}('@ap/components/src/chart/AnalysisChartFrame');`, rule: 'ap/restricted-import-source' },
+    // a node_modules path, bare and relative
+    { file: MENU_TEST, code: `vi.${callee}('node_modules/echarts/core.js');`, rule: 'ap/restricted-import-source' },
+    { file: MENU_TEST, code: `vi.${callee}('./node_modules/echarts/core.js');`, rule: 'ap/restricted-import-source' },
+    // a relative path that leaves the package
+    { file: MENU_TEST, code: `vi.${callee}('../../../../packages/sdk/contracts/src/url');`, rule: 'ap/no-relative-package-escape' },
+    // legal: a public entry, a package outside the layer ban, a same-package relative path
+    { file: MENU_TEST, code: `vi.${callee}('@ap/components');`, rule: '' },
+    { file: MENU_TEST, code: `vi.${callee}('./Local');`, rule: '' },
+    { file: MENU_TEST, code: `vi.${callee}('../x');`, rule: '' },
+  );
+}
+// Not a vitest module call: another object, a computed member, and a non-string argument are left alone.
+rows.push(
+  { file: MENU_TEST, code: `other.mock('@ap/components/src/chart/AnalysisChartFrame');`, rule: '' },
+  { file: MENU_TEST, code: `vi.mock(path);`, rule: '' },
 );
 
 describe('boundary + contract fixtures', () => {
@@ -1161,5 +1186,15 @@ describe('ported from EV design-lint', () => {
   });
   it('eqvCore stays design-system-free', async () => {
     expect(await shadcnRules(eqvCore, 'packages/eqv/renderer/src/x.tsx', 'export const X = () => <div style={{ color: "red" }} />;')).toEqual([]);
+  });
+});
+
+describe('bridge entry list (#1640)', () => {
+  it('reads the entries from feature-screens exports, without the style entry', () => {
+    const subpaths = featureBridgeEntrySubpaths();
+    expect(subpaths.length).toBeGreaterThan(0);
+    expect(subpaths.filter((sub) => sub.endsWith('.css'))).toEqual([]);
+    expect(subpaths).toContain('global-screens/core');
+    expect(subpaths).toContain('operator-screens/log-datasets');
   });
 });

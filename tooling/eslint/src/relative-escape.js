@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { PACKAGE_PREFIX } from './prefix.js';
 import { isEqvPackage } from './eqv-packages.js';
+import { isVitestModuleCall } from './import-source.js';
 
 /**
  * Nearest package.json whose `name` starts with the package prefix (or is an EV package, which lives one level
@@ -92,6 +93,11 @@ const noRelativePackageEscape = {
 
     // require('<relative>')
     const checkRequire = (node) => {
+      // #1640: vi.mock('<relative>') and its siblings name a module path like an import (first argument).
+      if (isVitestModuleCall(node)) {
+        if (staticString(node.arguments[0])?.startsWith('.')) checkLiteral(node.arguments[0]);
+        return;
+      }
       if (!node.callee || node.callee.type !== 'Identifier' || node.callee.name !== 'require') {
         return;
       }
