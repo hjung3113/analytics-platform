@@ -15,6 +15,8 @@ const NON_STYLE_DIRS = new Set(["__tests__", "test"]);
 const sources = [
   ...fs
     .readFileSync(path.join(PKG, "bridge-sources.css"), "utf8")
+    // A commented-out directive is not read by Tailwind, so it must not count as coverage.
+    .replace(/\/\*[\s\S]*?\*\//g, "")
     .matchAll(/@source\s+"([^"]+)"/g),
 ].map((m) => path.resolve(PKG, m[1] ?? ""));
 
