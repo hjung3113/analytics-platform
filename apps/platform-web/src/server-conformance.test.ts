@@ -7,7 +7,7 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
 import { describe, expect, it } from 'vitest';
 import { createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
-import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
+import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, stageOnboardingWindow, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
 import { GROUPS, MENUS, PERMISSIONS, registry } from './menus';
 import { modulePermissions } from './modules';
@@ -63,6 +63,24 @@ const stagedStudioLayout = (): string => {
 const STUDIO_REVISION = studioRun('publishRevision', { layoutId: STUDIO_LAYOUT }).revision!;
 const STUDIO_TEMPLATE = 'conformance-template';
 studioRun('promoteTemplate', { layoutId: STUDIO_LAYOUT, revision: STUDIO_REVISION, templateId: STUDIO_TEMPLATE, name: 'Conformance' });
+// 설비 온보딩 writes (#1658): a publish sample stages its own Layout and Revision and a later effectiveFrom, so it never equals the latest
+// Binding; a window sample stages its own synthetic window (`stageOnboardingWindow`) on eq-synth-02.
+const ONBOARDING_G1 = '23e9e214b396bfaa4539e7b30c5f8f9163fbac6c50201430231f641ff7c822ba';
+const ONBOARDING_MAPPING = 'sha256:0abf3e9ff0b22cb0e7993bfe143461f44ef1b8828df2cdce8e25af3d02987aef';
+const onboardingBaseline = () => endpoints.find(({ spec }) => spec.id === 'eqv.observedInventory')!.handle({ equipment: [], context: emptyGlobal, params: { equipmentId: 'eq-synth-02', windowHash: '38098e59b24809a728006d2b635e8034d7303ea9403f69f6da7201fe635f9da8' }, actor: 'admin' });
+let onboardingSequence = 0;
+const onboardingSamples: Record<string, () => Record<string, unknown>> = {
+  saveAliasRules: () => ({ level: 'equipment', equipmentId: 'eq-synth-02', document: { schemaVersion: '0.4', scope: { level: 'equipment', equipmentId: 'eq-synth-02' }, rules: [] } }),
+  saveTypeDictionary: () => ({ level: 'maker', vendorId: 'synth-maker', document: { schemaVersion: '0.4', scope: { level: 'maker', maker: 'synth-maker' }, entries: [] } }),
+  publishMapping: () => {
+    const layoutId = stagedStudioLayout();
+    const { revision } = studioRun('publishRevision', { layoutId });
+    const effectiveFrom = new Date(Date.UTC(2027, 0, 1) + ++onboardingSequence * 1000).toISOString().slice(0, 23);
+    return { equipmentId: 'eq-synth-02', layoutId, layoutRevision: revision, baseline: onboardingBaseline(), effectiveFrom };
+  },
+  replaceSampleWindow: () => ({ equipmentId: 'eq-synth-02', windowHash: stageOnboardingWindow('staged') }),
+  retireSampleWindow: () => ({ equipmentId: 'eq-synth-02', windowHash: stageOnboardingWindow('active') }),
+};
 const studioSamples: Record<string, () => Record<string, unknown>> = {
   saveDraft: () => { const layoutId = `cf-new-${++studioSequence}`; return { layoutId, document: { ...studioRead('layoutDraft', { layoutId: STUDIO_LAYOUT }).document, id: layoutId } }; },
   publishRevision: () => ({ layoutId: stagedStudioLayout() }),
@@ -171,6 +189,16 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'eqv.layoutRevisions': { layoutId: STUDIO_LAYOUT },
   'eqv.layoutRevision': { layoutId: STUDIO_LAYOUT, revision: STUDIO_REVISION },
   'eqv.template': { templateId: STUDIO_TEMPLATE },
+  // 설비 온보딩 reads (#1658): the mock's synthetic equipment, its seeded window and latest Mapping Version.
+  'eqv.aliasRules': { level: 'model', vendorId: 'synth-maker', modelId: 'synth-model' },
+  'eqv.typeDictionary': { level: 'model', vendorId: 'synth-maker', modelId: 'synth-model' },
+  'eqv.equipmentScopes': { equipmentId: 'eq-synth-01' },
+  'eqv.mappingVersions': { equipmentId: 'eq-synth-01' },
+  'eqv.mappingVersion': { equipmentId: 'eq-synth-01', hash: ONBOARDING_MAPPING },
+  'eqv.bindings': { equipmentId: 'eq-synth-01' },
+  'eqv.baselineInventory': { equipmentId: 'eq-synth-01', mappingHash: ONBOARDING_MAPPING },
+  'eqv.sampleWindows': { equipmentId: 'eq-synth-01' },
+  'eqv.observedInventory': { equipmentId: 'eq-synth-01', windowHash: ONBOARDING_G1 },
 };
 /** The EV specs declare `limits.maxHours: 8`, so their cases run in the fixture's 30-minute window, not the harness's 24 h (naive seconds, as the URL carries them). */
 const EQV_CONTEXT = { from: '2026-01-01T10:00:00', to: '2026-01-01T10:30:00' };
@@ -344,7 +372,7 @@ const writeSamples: Record<string, Record<string, () => Record<string, unknown>>
   improvement: improvementSamples,
   logExplorer: explorerSamples,
   logLifecycle: lifecycleSamples,
-  eqv: studioSamples,
+  eqv: { ...studioSamples, ...onboardingSamples },
   logDataset: {
     baselineApprove: () => ({ id: stageDatasetBaseline(), reason: '적합성 승인' }),
     suiteRun: () => ({ suiteId: stageDatasetSuiteRun(), idempotencyKey: crypto.randomUUID() }),

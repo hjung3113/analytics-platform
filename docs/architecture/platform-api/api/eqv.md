@@ -65,6 +65,21 @@ Menu `eqv-onboarding` (constant `EQV_ONBOARDING_MENU_ID`; only this constant cha
 - **Interim:** `baseline` is a client-supplied `ObservedInventory` (validated by `observedInventorySchema`, `equipmentId` must match: `baseline/equipmentId/equipment_mismatch`). Sample Window storage is not implemented; reopen when it lands (publish then takes a stored window id).
 - Audit (same transaction, ids only): `eqv.alias_rules.created|saved` (subject `eqv_alias_rules`), `eqv.type_dictionary.created|saved` (`eqv_type_dictionary`), `eqv.mapping.published` (subject `eqv_binding`, detail equipment id, mapping hash, Layout Revision, `effectiveFrom`). The viewerless audit projection keeps excluding `eqv_` subjects.
 
+## Pending server
+
+The 설비 온보딩 menu (`eqv-onboarding`, #1658) declares these in `menus/tools/topview-studio/src/endpoints.ts` and the menu mock serves them; the server comes in the #1658 Sample Window·Fleet PR. Reads declare `eqv:view`, `requiresScope: false`. The other onboarding declarations (`eqv.aliasRules`, `eqv.typeDictionary`, `eqv.equipmentScopes`, `eqv.mappingVersions`, `eqv.mappingVersion`, `eqv.bindings`, `eqv.baselineInventory`, `eqv.saveAliasRules`, `eqv.saveTypeDictionary`, `eqv.publishMapping`) are served by the eqv module (section «Onboarding» above).
+
+| Declaration | Params / input | Data | Right |
+| --- | --- | --- | --- |
+| `eqv.fleet` (read) | — | `{ rows: { equipmentId, label, vendorId, vendorName, modelId, modelName, status, latestWindow: { hash, from, to } \| null, coverage: { referenceRatio, aliasRatio, assumedRatio } \| null, unmappedReferences }[] }`. `status` is a code: `no-observations`, `unstarted`, `draft`, `published`, `drift`, `drift-unknown` (the screen owns the words). Coverage is the latest Binding against the latest active window | `eqv:view` |
+| `eqv.sampleWindows` (read) | `equipmentId` | `{ rows: { hash, from, to, dataGeneration, timeDomain, occurrences, state, counterpart, mappingCount }[] }`. `state`: `active`, `staged` (a reprocessed Data Generation of an active window's range, `counterpart` = that window), `replaced` (`counterpart` = its replacement), `retired`. `mappingCount`: published Mapping Versions whose Baseline came from the window | `eqv:view` |
+| `eqv.observedInventory` (read) | `equipmentId`, `windowHash` (64 hex) | the window's `ObservedInventory`; `empty` for a window the equipment does not have | `eqv:view` |
+| `eqv.bundledTemplates` (read) | — | `{ rows: { templateId, name, document }[] }`: the EV Templates the package ships (`BUNDLED_TEMPLATE_IDS`); `eqv.templates` lists promoted ones only | `eqv:view` |
+| `eqv.replaceSampleWindow` (write, `concurrency: 'none'`) | `equipmentId`, `windowHash` of a `staged` window | `{ equipmentId, activeHash, replacedHash }`; the staged window becomes `active`, its counterpart `replaced`. Published Baselines do not change | `eqv-studio:window-import` (capability `eqv.window.import`) |
+| `eqv.retireSampleWindow` (write, `concurrency: 'none'`) | `equipmentId`, `windowHash` of an `active` window | `{ equipmentId, retiredHash }`; published Baselines stay | `eqv-studio:window-import` |
+
+Refusals are `invalid` with field errors: a window that is not `staged` (`not_staged`) or not `active` (`not_active`). Sample Window import and equipment registration have no platform path yet (the general upload piece is #1741); they stay in the EV dev tool.
+
 ## Not implemented
 
 Sample Window storage or cache and the capability `eqv.window.import` (reopen when Sample Window storage lands: publish then takes a stored window id and derives the Baseline), the `equipment` write action, a permission-aware eqv audit view.

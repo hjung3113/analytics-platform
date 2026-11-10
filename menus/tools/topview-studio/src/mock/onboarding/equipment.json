@@ -1,0 +1,39 @@
+[
+  {
+    "equipmentId": "eq-synth-01",
+    "label": "Synth cluster 01",
+    "vendorId": "synth-maker",
+    "vendorName": "Synth Maker",
+    "modelId": "synth-model",
+    "modelName": "Synth Model",
+    "status": "drift-unknown",
+    "coverage": {
+      "referenceRatio": 0.9761904761904762,
+      "aliasRatio": 0.8571428571428571,
+      "assumedRatio": 0.1951219512195122
+    },
+    "unmappedReferences": 1
+  },
+  {
+    "equipmentId": "eq-synth-02",
+    "label": "Synth cluster 02",
+    "vendorId": "synth-maker",
+    "vendorName": "Synth Maker",
+    "modelId": "synth-model",
+    "modelName": "Synth Model",
+    "status": "draft",
+    "coverage": null,
+    "unmappedReferences": 43
+  },
+  {
+    "equipmentId": "eq-synth-03",
+    "label": "Synth cluster 03",
+    "vendorId": "synth-maker",
+    "vendorName": "Synth Maker",
+    "modelId": "synth-model",
+    "modelName": "Synth Model",
+    "status": "no-observations",
+    "coverage": null,
+    "unmappedReferences": null
+  }
+]

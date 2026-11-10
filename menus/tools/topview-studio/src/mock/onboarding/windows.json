@@ -1,0 +1,40 @@
+{
+  "eq-synth-01": [
+    {
+      "hash": "sha256:23e9e214b396bfaa4539e7b30c5f8f9163fbac6c50201430231f641ff7c822ba",
+      "from": "2026-01-01T10:00:00.000",
+      "to": "2026-01-01T10:30:00.000",
+      "dataGeneration": "g1",
+      "timeDomain": "site-synth",
+      "occurrences": 29,
+      "state": "active",
+      "counterpart": null,
+      "mappingCount": 2
+    },
+    {
+      "hash": "sha256:e26e53e8bd7d956bd51371f8a15c4eb869c54adc918ca77352408bb2a93511ff",
+      "from": "2026-01-01T10:00:00.000",
+      "to": "2026-01-01T10:30:00.000",
+      "dataGeneration": "g2",
+      "timeDomain": "site-synth",
+      "occurrences": 29,
+      "state": "staged",
+      "counterpart": "sha256:23e9e214b396bfaa4539e7b30c5f8f9163fbac6c50201430231f641ff7c822ba",
+      "mappingCount": 0
+    }
+  ],
+  "eq-synth-02": [
+    {
+      "hash": "sha256:38098e59b24809a728006d2b635e8034d7303ea9403f69f6da7201fe635f9da8",
+      "from": "2026-01-01T10:00:00.000",
+      "to": "2026-01-01T10:30:00.000",
+      "dataGeneration": "g1",
+      "timeDomain": "site-synth",
+      "occurrences": 29,
+      "state": "active",
+      "counterpart": null,
+      "mappingCount": 0
+    }
+  ],
+  "eq-synth-03": []
+}

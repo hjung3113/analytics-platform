@@ -12,7 +12,9 @@ const menu: MenuMeta = {
   path: '/tools/eqv-studio', permission: STUDIO_VIEW_PERMISSION, requiresScope: false, context: contextCapabilities(), pageType: 'catalog', features: NO_FEATURES, pageKeys: ['layout', 'revision', 'template'],
 };
 const permissions = [...KERNEL_PERMISSIONS, STUDIO_VIEW_PERMISSION, EQV_READ_PERMISSION, LAYOUT_EDIT_PERMISSION, LAYOUT_PUBLISH_PERMISSION];
-const adapter = createMockAdapter({ endpoints: [...topviewStudioMock], actions: [...topviewStudioActionsMock], registry: { menus: [menu] }, permissions });
+// The package's read list also carries the 설비 온보딩 reads (#1658), so their menu is registered too (onboarding.test.ts covers them).
+const onboarding: MenuMeta = { ...menu, id: 'eqv-onboarding', path: '/tools/eqv-onboarding', pageType: 'management', pageKeys: ['equipment', 'step', 'window'] };
+const adapter = createMockAdapter({ endpoints: [...topviewStudioMock], actions: [...topviewStudioActionsMock], registry: { menus: [menu, onboarding] }, permissions });
 
 const previousRole = getRole();
 beforeEach(() => { resetStudioMock(); setRole('engineer'); });
@@ -27,7 +29,7 @@ const doc = async () => ((await query(layoutDraftEndpoint.id, { layoutId: 'sampl
 
 describe('studio mock reads', () => {
   it('registers every read and write against the menu', () => {
-    expect(topviewStudioMock.map((e) => e.spec.id)).toEqual([layoutsEndpoint, layoutDraftEndpoint, layoutRevisionsEndpoint, layoutRevisionEndpoint, templatesEndpoint, templateEndpoint].map((s) => s.id));
+    expect(topviewStudioMock.filter((e) => e.spec.menuId === 'eqv-studio').map((e) => e.spec.id)).toEqual([layoutsEndpoint, layoutDraftEndpoint, layoutRevisionsEndpoint, layoutRevisionEndpoint, templatesEndpoint, templateEndpoint].map((s) => s.id));
     expect(topviewStudioActionsMock.map((a) => a.spec.id)).toEqual(['eqv.saveDraft', 'eqv.publishRevision', 'eqv.promoteTemplate']);
   });
 

@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LayoutDocument } from '@eqv/core';
-import { TopViewer, type ComponentDrag } from '@eqv/renderer';
+import { TopViewer, type ComponentDrag, type TopViewerProps } from '@eqv/renderer';
 import { ViewerZoomControls } from '@eqv/ui';
 import { cn } from '@ap/ui';
 
 export const PANEL = 'flex h-full min-h-0 min-w-0 flex-col';
 
-/** The drawing, filling its pane, with the always-visible disclosure that it is a schematic. */
-export function Canvas({ layout, selectedId, onSelect, onDrag }: { layout: LayoutDocument; selectedId: string | null; onSelect(id: string | null): void; onDrag?: (drag: ComponentDrag) => void }) {
+/** The drawing, filling its pane, with the always-visible disclosure that it is a schematic. `highlight`: rings and observation lines (onboarding D11). */
+export function Canvas({ layout, selectedId, onSelect, onDrag, highlight }: { layout: LayoutDocument; selectedId: string | null; onSelect(id: string | null): void; onDrag?: (drag: ComponentDrag) => void; highlight?: TopViewerProps['highlight'] }) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   useEffect(() => {
@@ -22,7 +22,7 @@ export function Canvas({ layout, selectedId, onSelect, onDrag }: { layout: Layou
   return <div className={cn(PANEL, 'flex-1 overflow-hidden bg-surface-card')}>
     <div ref={host} data-testid="layout-canvas" className="min-h-0 min-w-0 flex-1 overflow-hidden">
       {size.width > 0 && size.height > 0 && <TopViewer layout={layout} width={size.width} height={size.height} selectedId={selectedId} onSelectedChange={onSelect}
-        {...(onDrag ? { onComponentDrag: onDrag } : {})}
+        {...(onDrag ? { onComponentDrag: onDrag } : {})} {...(highlight ? { highlight } : {})}
         renderControls={controls => <ViewerZoomControls controls={controls} labels={{ zoomIn: '확대', zoomOut: '축소', fit: '맞춤' }} />} />}
     </div>
     <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border-subtle px-3 py-2 text-xs text-text-secondary">
