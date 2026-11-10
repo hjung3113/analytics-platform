@@ -323,7 +323,11 @@ test('the repo pins no MinIO image for deployed stacks and runs it in the form t
   ]) {
     const block = text.slice(text.indexOf('\n  minio:\n'));
     const service = block.slice(0, block.indexOf('\n\n'));
-    assert.match(service, new RegExp(`image: \\$\\{MINIO_IMAGE:\\?set MINIO_IMAGE in \\.env\\.${name}\\}\\n`), name);
+    assert.match(
+      service,
+      new RegExp(`image: \\$\\{MINIO_IMAGE:\\?set MINIO_IMAGE in \\.env\\.${name}\\}\\n`),
+      name,
+    );
     assert.doesNotMatch(service, /minio\/minio:/, `${name} pins no image`);
     assert.doesNotMatch(service, /\n {4}pull_policy:/, `${name} leaves the pull policy to compose`);
     assert.match(service, /\n {4}entrypoint: \["minio"\]\n/, `${name} entrypoint`);
@@ -351,9 +355,18 @@ function stackStatusImageLines(envBody, { imagePresent }) {
 
 test('stack-status reads MINIO_IMAGE from the env file: unset, missing image, present (#1617)', () => {
   for (const body of ['POSTGRES_PASSWORD=x\n', 'MINIO_IMAGE=CHANGE_ME\n']) {
-    assert.match(stackStatusImageLines(body, { imagePresent: false }), /\[todo\] MINIO_IMAGE is not set in .*\n\s+-> set MINIO_IMAGE in /);
+    assert.match(
+      stackStatusImageLines(body, { imagePresent: false }),
+      /\[todo\] MINIO_IMAGE is not set in .*\n\s+-> set MINIO_IMAGE in /,
+    );
   }
   const missing = stackStatusImageLines('MINIO_IMAGE=site/minio:1\n', { imagePresent: false });
-  assert.match(missing, /\[todo\] image site\/minio:1 is missing .*\n\s+-> docker pull site\/minio:1 /);
-  assert.match(stackStatusImageLines('MINIO_IMAGE="site/minio:1"\n', { imagePresent: true }), /\[ok\] {3}image site\/minio:1 exists/);
+  assert.match(
+    missing,
+    /\[todo\] image site\/minio:1 is missing .*\n\s+-> docker pull site\/minio:1 /,
+  );
+  assert.match(
+    stackStatusImageLines('MINIO_IMAGE="site/minio:1"\n', { imagePresent: true }),
+    /\[ok\] {3}image site\/minio:1 exists/,
+  );
 });
