@@ -27,7 +27,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
@@ -41,8 +41,23 @@ import { uid } from '../../../test-support/ids.js';
 import { grantCapability } from '../../../test-support/permissions-fixtures.js';
 import { insertVocDirectly } from '../../../test-support/voc-fixtures.js';
 import { hashToken } from '../../api-tokens/token-format.js';
+import type { MenuDispatchRegistry } from '../../menu-dispatch/registry.js';
 import type { MenuActionDeclaration } from '../../menu-dispatch/types.js';
 import { ENTITY_AUDIT_PAGE_MAX } from '../entity-audit-cursor.js';
+
+// The registry `buildServer` builds, captured as it is built (the defining module is wrapped, not the barrel): the one list of the
+// endpoints this server registers, which the coverage test below compares with the cases (#1669 fix round).
+const built = vi.hoisted(() => ({ registry: null as MenuDispatchRegistry | null }));
+vi.mock('../../menu-dispatch/registry.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../menu-dispatch/registry.js')>();
+  return {
+    ...actual,
+    createMenuDispatchRegistry: (...args: Parameters<typeof actual.createMenuDispatchRegistry>) => {
+      built.registry = actual.createMenuDispatchRegistry(...args);
+      return built.registry;
+    },
+  };
+});
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -120,6 +135,31 @@ const eqvSpec = (id: string, paramKeys: readonly string[]): AnyEndpointSpec => (
   kinds: [],
   mergeTimeDomain: false,
 });
+
+/**
+ * Registered Scope-less reads that are not in the contract snapshot (no menu declares them yet), written here as the server declares
+ * them (no assessment kinds). The coverage test compares each with the registered declaration.
+ */
+const serverSpec = (id: string, menuId: string, permission: string, paramKeys: readonly string[]): AnyEndpointSpec => ({
+  id,
+  menuId,
+  paramKeys: keysOf(paramKeys),
+  permission: menuPermission(permission),
+  requiresScope: false,
+  context: {},
+  kinds: [],
+  mergeTimeDomain: false,
+});
+const INLINE_SPECS: AnyEndpointSpec[] = [
+  serverSpec('logKnowledge.drafts', 'log-knowledge-items', 'platform:view', ['q', 'page', 'pageSize', 'sorting', 'filters']),
+  serverSpec('logKnowledge.draftDetail', 'log-knowledge-items', 'platform:view', ['draftId']),
+  serverSpec('logKnowledge.accessRules', 'log-knowledge-access', 'knowledge:access-manage', ['targetKind', 'targetId', 'page', 'pageSize']),
+  serverSpec('logKnowledge.searchIndexStatus', 'log-knowledge-access', 'knowledge:access-manage', []),
+  serverSpec('logExplorer.evidenceLinks', 'log-explorer', 'platform:view', ['fileRef', 'line', 'fileSha256', 'page', 'pageSize']),
+  serverSpec('logExplorer.usage', 'log-explorer', 'console:access', ['day']),
+];
+/** Reads only an admin session passes (`console:access` is the workspace-admin rule); the pool's developers cannot. */
+const ADMIN_ONLY_ENDPOINTS: readonly string[] = ['logExplorer.usage'];
 
 /** In the snapshot (the mock serves them) but answered `Unknown endpoint` by this server: no module contributes them yet. */
 const NOT_REGISTERED: readonly string[] = [
@@ -201,6 +241,12 @@ const MENU_PARAMS: Record<string, Record<string, unknown>> = {
   'logRules.coverageSummary': { modelIds: [NO_ROW] },
   'logRules.modelOptions': { q: null, ...pagedList },
   'logRules.softwareOptions': { modelId: NO_ROW },
+  'logKnowledge.drafts': { q: null, ...listPage },
+  'logKnowledge.draftDetail': { draftId: NO_ROW },
+  'logKnowledge.accessRules': { targetKind: 'model', targetId: NO_ROW, ...pagedList },
+  'logKnowledge.searchIndexStatus': {},
+  'logExplorer.evidenceLinks': { fileRef: 'conformance/none.log', line: 1, fileSha256: '0'.repeat(64), ...pagedList },
+  'logExplorer.usage': {},
   'eqv.layouts': {},
   'eqv.layoutDraft': { layoutId: nilEqvLayout },
   'eqv.layoutRevisions': { layoutId: nilEqvLayout },
@@ -211,18 +257,18 @@ const MENU_PARAMS: Record<string, Record<string, unknown>> = {
 };
 
 /**
- * Registered and Scope-less, but left out of the production run because a succeeding sample needs fixtures this suite
- * does not build (a source-read port, which `buildServer` has none of by default). Each is a visible, named gap:
+ * Registered and Scope-less, but left out of the production run. Each is a visible, named gap:
  * .planning/backlog.md "실서버 적합성 묶음의 제외 엔드포인트".
  */
-const SOURCE_READ_GAP = 'reads a log source through the source-read port, which buildServer has none of without a configured owner';
+const EXPLORER_PERMISSION_GAP =
+  'every other check passes with a bare server (stateOnly, outcome ok), but the entry gate admits any token regardless of platform:view and answers an audited ok with a permission_denied state, so the kit\'s "without platform:view → forbidden" cannot hold';
 const MENU_LEFT_OUT: Readonly<Record<string, string>> = {
-  'logExplorer.records': SOURCE_READ_GAP,
-  'logExplorer.periods': SOURCE_READ_GAP,
-  'logExplorer.parsed': SOURCE_READ_GAP,
-  'logExplorer.window': SOURCE_READ_GAP,
-  // Answers `forbidden` to a holder of platform:view alone (the module judges `knowledge.catalog.import`) and `error` (not_found) for a job that
-  // does not exist, where the kit expects `ok` or `empty`; a succeeding sample needs a staged import job.
+  'logExplorer.records': EXPLORER_PERMISSION_GAP,
+  'logExplorer.periods': EXPLORER_PERMISSION_GAP,
+  'logExplorer.parsed': EXPLORER_PERMISSION_GAP,
+  'logExplorer.window': EXPLORER_PERMISSION_GAP,
+  // The entry check is the declared platform:view; the handler then judges `knowledge.catalog.import` separately and answers `error` (not_found)
+  // for a job that does not exist, where the kit expects `ok` or `empty`: a succeeding sample needs a staged import job.
   'logKnowledge.importDetail': 'a succeeding sample needs a staged import job (an unknown job answers error not_found, the kit wants ok or empty)',
 };
 
@@ -235,6 +281,7 @@ const menuSpecs: AnyEndpointSpec[] = [
   eqvSpec('eqv.templates', []),
   eqvSpec('eqv.template', ['templateId']),
   eqvSpec('eqv.equipment-options', []),
+  ...INLINE_SPECS,
 ];
 const menuCases: ConformanceCase[] = menuSpecs
   .filter((spec) => !(spec.id in MENU_LEFT_OUT))
@@ -267,6 +314,7 @@ const CAPABILITY_PERMISSIONS: Readonly<Record<string, string>> = {
   'knowledge:spec-publish': 'knowledge.spec.publish',
   'explorer:handoff': 'explorer.handoff',
   'eqv:view': 'eqv.view',
+  'knowledge:access-manage': 'knowledge.access.manage',
 };
 type Role = 'admin' | 'developer' | 'user';
 
@@ -474,6 +522,8 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
   /** The twins of `granted` that carry its menuQuery calls (see `MENU_POOL`). */
   const menuPool: PlatformAdapter[] = [];
   let menuTurn = 0;
+  /** An admin session for the reads only an admin passes (`ADMIN_ONLY_ENDPOINTS`). */
+  let menuAdmin: PlatformAdapter | null = null;
   /** The HTTP SavedViewStore of each signed-in account (ADR-0099; #1131 saved-view conformance sample). */
   const savedViewStores = new Map<Account, SavedViewStore>();
 
@@ -526,10 +576,16 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
   const adapter = new Proxy({} as PlatformAdapter, {
     get(_target, key) {
       if (!current) throw new Error('conformance call outside an actor');
-      const target =
-        key === 'menuQuery' && currentAccount === 'granted' && menuPool.length > 0
-          ? (menuPool[menuTurn++ % menuPool.length] as PlatformAdapter)
-          : current;
+      if (key === 'menuQuery' && currentAccount === 'granted' && menuPool.length > 0) {
+        return (req: Parameters<PlatformAdapter['menuQuery']>[0]) => {
+          const reader =
+            ADMIN_ONLY_ENDPOINTS.includes(req.endpoint) && menuAdmin
+              ? menuAdmin
+              : (menuPool[menuTurn++ % menuPool.length] as PlatformAdapter);
+          return reader.menuQuery(req);
+        };
+      }
+      const target = current;
       const value = target[key as keyof PlatformAdapter];
       return typeof value === 'function' ? value.bind(target) : value;
     },
@@ -618,6 +674,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       }
       menuPool.push(twin.adapter);
     }
+    menuAdmin = (await openSession('menu-admin', 'admin')).adapter;
     // More than one entityAudit page, so the kit's cursor checks run instead of skipping (#857).
     // Distinct instants plus a block of equal ones, to exercise the id tie-break.
     await migrateHandle.pool.query(
@@ -698,16 +755,25 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
       expect(drift).toEqual([]);
     });
 
-    it('the menu endpoints left out of the production run are still unregistered', async () => {
-      // A pool twin, not `granted`: the menuAction run below spends the granted account's budget of 100 a minute.
-      const reader = menuPool[0];
-      if (!reader) throw new Error('no menu pool adapter');
-      const answers: Record<string, string | undefined> = {};
-      for (const id of NOT_REGISTERED) {
-        answers[id] = (await reader.menuQuery({ endpoint: id, context: {}, params: {} })).message;
+    it('every endpoint the server registers is covered, explicitly left out, or (in the snapshot) not registered', () => {
+      const registry = built.registry;
+      if (!registry) throw new Error('no menu dispatch registry was built');
+      const registered = [...registry.endpointIds].sort();
+      const covered = menuCases.map((c) => c.spec.id);
+      // A registered endpoint outside both lists (a module added a read, or the snapshot lags) fails here by name.
+      expect(registered).toEqual([...covered, ...Object.keys(MENU_LEFT_OUT)].sort());
+      // A snapshot endpoint no module registers is answered `Unknown endpoint`; once one is registered it needs a case.
+      expect(registered.filter((id) => NOT_REGISTERED.includes(id))).toEqual([]);
+      expect(registered.filter((id) => registry.endpoint(id)?.spec.requiresScope)).toEqual([]);
+      // The inline specs carry what the server declares (the snapshot rows are the contract's, not compared here).
+      for (const spec of [...INLINE_SPECS, ...menuSpecs.filter((s) => s.id.startsWith('eqv.'))]) {
+        const declared = registry.endpoint(spec.id)?.spec;
+        expect({ id: spec.id, permission: declared?.permission, paramKeys: [...(declared?.paramKeys ?? [])].sort() }).toEqual({
+          id: spec.id,
+          permission: spec.permission,
+          paramKeys: Object.keys(spec.paramKeys).sort(),
+        });
       }
-      // A module that starts contributing one of these must add a case and drop it from NOT_REGISTERED.
-      expect(answers).toEqual(Object.fromEntries(NOT_REGISTERED.map((id) => [id, 'Unknown endpoint'])));
     });
 
     it('gate-only ports answer forbidden even to a granted account', async () => {
