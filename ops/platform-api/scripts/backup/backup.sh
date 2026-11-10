@@ -34,7 +34,7 @@
 # mixed install is refused: run the identity cutover first (ops/platform-api/docs/release/backup-restore-upgrade.md).
 #
 # Environment: BACKUP_ROOT (required), BACKUP_KEEP (default 7), STORAGE_S3_BUCKET (else read from the env file, default
-# platform-attachments), BACKUP_MC_IMAGE (default: the stack's pinned minio/minio image, entrypoint mc), BACKUP_MIGRATE_IMAGE
+# platform-attachments), BACKUP_MC_IMAGE (default: MINIO_IMAGE of the stack env, entrypoint mc), BACKUP_MIGRATE_IMAGE
 # (default platform-release-migrate:local; recorded only when its migrations equal the database journal and no migrate
 # container is left), BACKUP_MAINTENANCE_DIR (default <ops>/.maintenance).
 # stdout: only the final backup directory path. Everything else goes to stderr.

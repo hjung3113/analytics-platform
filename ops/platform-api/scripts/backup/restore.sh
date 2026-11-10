@@ -13,7 +13,7 @@
 #
 # Order (the target cluster is created WITHOUT init.sql; compose override needs docker compose >= 2.24):
 #   verify-backup -> empty postgres -> globals.sql (fail on error; only the bootstrap `postgres` role lines skipped)
-#   -> CREATE DATABASE platform OWNER platform_migrate -> CREATE EXTENSION vector -> pg_restore --exit-on-error
+#   -> CREATE DATABASE platform OWNER platform_migrate -> CREATE EXTENSION vector, pg_trgm -> pg_restore --exit-on-error
 #   (owners and ACLs; the extension entries are skipped, it exists) -> CONNECT grants -> set-role-passwords (passwords
 #   from the env file) -> DELETE FROM core.sessions -> checks (row counts == manifest, sessions empty, roles, ownership,
 #   extension, grants) -> minio + bucket, mirror back, object count/bytes/sha256 == manifest -> backend /health/ready
@@ -244,7 +244,8 @@ nodb="$(bk_psql -d postgres -c "select count(*) from pg_database where datname n
 bk_log 'applying globals.sql'
 grep -vE '^(CREATE|ALTER) ROLE postgres( |;)' "$BACKUP_DIR/globals.sql" | bk_dc exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -U postgres -d postgres -f - >/dev/null
 bk_psql -d postgres -c "CREATE DATABASE $DB OWNER platform_migrate" >/dev/null
-bk_psql -d "$DB" -c 'CREATE EXTENSION vector' >/dev/null
+# The listing below skips extension entries, so every extension of scripts/db/init.sql must exist first (backup.test.mjs pins this).
+for ext in vector pg_trgm; do bk_psql -d "$DB" -c "CREATE EXTENSION $ext" >/dev/null; done
 bk_log 'pg_restore (owners and ACLs, exit on first error)'
 bk_dc cp "$BACKUP_DIR/platform.dump" postgres:/tmp/platform.dump
 bk_dc exec -T postgres sh -c "pg_restore -l /tmp/platform.dump | grep -vE ' EXTENSION - | COMMENT - EXTENSION ' > /tmp/restore.list"
@@ -282,6 +283,7 @@ check 'owner roles are NOLOGIN' "select count(*) from pg_roles where rolname lik
 check 'owner role memberships' "select count(*) from pg_auth_members m join pg_roles r on r.oid = m.roleid join pg_roles g on g.oid = m.member where g.rolname = 'platform_migrate' and r.rolname like 'platform\\_%\\_owner'" 7
 check 'database owner' "select pg_catalog.pg_get_userbyid(datdba) from pg_database where datname = '$DB'" platform_migrate
 check 'extension vector' "select count(*) from pg_extension where extname = 'vector'" 1
+check 'extension pg_trgm' "select count(*) from pg_extension where extname = 'pg_trgm'" 1
 check 'no product table owned by the superuser' "select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname in ('core','permission','voc','voc_cluster','finding','task','task_request','survey','knowledge','pgboss','drizzle') and c.relkind in ('r','p') and c.relowner = (select oid from pg_roles where rolname = 'postgres')" 0
 check 'runtime grants (platform_app)' "select has_database_privilege('platform_app','$DB','CONNECT') and has_schema_privilege('platform_app','core','USAGE') and has_table_privilege('platform_app','core.actors','SELECT')" t
 check 'journal digest' "select encode(sha256(convert_to(string_agg(hash, E'\\n' order by id) || E'\\n', 'UTF8')), 'hex') from drizzle.__drizzle_migrations" "$(bk_m_section_value "$M" journal digest)"

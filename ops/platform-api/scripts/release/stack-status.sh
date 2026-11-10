@@ -45,16 +45,17 @@ for image in platform-release-backend:local platform-release-migrate:local platf
   fi
 done
 
-# MinIO is not built here and no registry serves it: it must be loaded from a `docker save` tar (#1617). compose has
-# pull_policy never for it, so a missing image stops `up`; say so here with the exact command.
-minio_image="$(sed -n 's#^ *image: *\(minio/minio:[^ ]*\).*#\1#p' docker-compose.production.yml | head -1)"
-if [ -z "$minio_image" ]; then
-  need "could not read the MinIO image tag from docker-compose.production.yml" "check the minio service in docker-compose.production.yml"
+# MinIO is not built here and the repo pins no image for it: the site sets MINIO_IMAGE (#1617). compose pulls a missing image,
+# so `up` stops only when that pull fails too; say so here with the exact command.
+minio_image="$(sed -n -E 's/^MINIO_IMAGE=//p' "$env_file" | head -1 | sed -E "s/^[\"']//; s/[\"']\$//")"
+if [ -z "$minio_image" ] || [ "$minio_image" = CHANGE_ME ]; then
+  need "MINIO_IMAGE is not set in $env_file (compose cannot start the stack)" \
+    "set MINIO_IMAGE in $env_file to the site's image, see docs/release/run-guide.md «MinIO 이미지»"
 elif docker image inspect "$minio_image" >/dev/null 2>&1; then
   ok "image $minio_image exists ($(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$minio_image" 2>/dev/null))"
 else
-  need "image $minio_image is missing (minio and, through minio-bootstrap, the backend cannot start; no registry is used)" \
-    "docker load -i <path>/minio-image.tar   (make the tar with 'docker save $minio_image -o minio-image.tar' on a machine of the same CPU architecture, see docs/release/run-guide.md «MinIO image»)"
+  need "image $minio_image is missing (minio and, through minio-bootstrap, the backend cannot start)" \
+    "docker pull $minio_image   (or docker load -i <tar> of an image with this server's CPU architecture, see docs/release/run-guide.md «MinIO 이미지»)"
 fi
 
 # 3. services

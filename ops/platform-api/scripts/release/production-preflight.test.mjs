@@ -23,6 +23,7 @@ const GOOD = {
   OIDC_CLIENT_SECRET: 'oidc-Zx9-real-value',
   MINIO_ROOT_PASSWORD: 'minio-Zx9-real-value',
   MINIO_ROOT_USER: 'platform-minio',
+  MINIO_IMAGE: 'site/minio:1',
   PLATFORM_APP_DB_PASSWORD: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
   PLATFORM_MIGRATE_DB_PASSWORD: 'f09e8d7c6b5a49382716f5e4d3c2b1a0',
   OIDC_CLIENT_ID: 'platform',
