@@ -93,6 +93,20 @@ function makeEvaluate(opts) {
   };
 }
 
+// #1640: vitest module-path calls name a module like an import does, so the same boundary applies to their first string argument.
+export const VITEST_MODULE_CALLEES = ['mock', 'doMock', 'unmock', 'doUnmock', 'importActual', 'importMock'];
+// The called method's name: `vi.mock`, or a static computed member such as vi['mock'] or vi[`mock`].
+const staticMemberName = ({ computed, property }) => {
+  if (!computed) return property?.type === 'Identifier' ? property.name : null;
+  if (property?.type === 'Literal' && typeof property.value === 'string') return property.value;
+  if (property?.type === 'TemplateLiteral' && property.expressions.length === 0) return property.quasis[0].value.cooked;
+  return null;
+};
+export const isVitestModuleCall = (node) =>
+  node.callee?.type === 'MemberExpression' && !node.callee.optional
+  && node.callee.object?.type === 'Identifier' && node.callee.object.name === 'vi'
+  && VITEST_MODULE_CALLEES.includes(staticMemberName(node.callee));
+
 const restrictedImportSource = {
   meta: {
     type: 'problem',
@@ -115,6 +129,16 @@ const restrictedImportSource = {
       const message = evaluate(value);
       if (message) context.report({ node, messageId: 'restricted', data: { message } });
     };
+    // A `node_modules/` segment is a private path of some package (a hoisted copy), never a public entry; relative or bare.
+    const checkVitestLiteral = (node) => {
+      const value = node?.type === 'Literal' ? node.value
+        : node?.type === 'TemplateLiteral' && node.expressions.length === 0 ? node.quasis[0].value.cooked : null;
+      if (typeof value === 'string' && /(^|\/)node_modules\//.test(value)) {
+        context.report({ node, messageId: 'restricted', data: { message: 'A vi.mock-style path names a package by its node_modules folder; mock the public package entry instead.' } });
+        return;
+      }
+      checkLiteral(node);
+    };
     return {
       ImportExpression: (node) => checkLiteral(node.source),
       // typescript-estree <8 names the string `argument`, >=8 names it `source`.
@@ -126,6 +150,8 @@ const restrictedImportSource = {
           node.callee.name === 'require'
         ) {
           checkLiteral(node.arguments[0]);
+        } else if (isVitestModuleCall(node)) {
+          checkVitestLiteral(node.arguments[0]);
         }
       },
     };

@@ -23,13 +23,8 @@ vi.mock('@ap/components/dock', async importActual => {
   return { ...actual, DockLayout: (props: import('@ap/components/dock').DockLayoutProps) => { dockProbe.latest = props; return <actual.DockLayout {...props} />; } };
 });
 
-// The engine's api, taken from its ready event: the shell has no dependency on the engine, so the test reaches it through the components package.
-type EngineApi = { panels: { api: { setSize: (size: { width: number }) => void } }[] };
-const engine = vi.hoisted(() => ({ api: undefined as undefined | EngineApi }));
-vi.mock('../../../../components/node_modules/dockview-react', async importOriginal => {
-  const actual = await importOriginal<{ DockviewReact: React.ComponentType<{ onReady: (event: { api: EngineApi }) => void }> }>();
-  return { ...actual, DockviewReact: (props: { onReady: (event: { api: EngineApi }) => void }) => <actual.DockviewReact {...props} onReady={event => { engine.api = event.api; props.onReady(event); }} /> };
-});
+// The engine's api, taken from its ready event: the shell has no dependency on the engine, so the test reaches it through the components engine seam.
+const engine = await vi.hoisted(async () => (await import('@ap/components/testing/engines')).probeDockEngine());
 
 // jsdom has no ResizeObserver and no geometry: every observed element reports the shared size, and `resize` re-reports it.
 function installResizeObserver() {

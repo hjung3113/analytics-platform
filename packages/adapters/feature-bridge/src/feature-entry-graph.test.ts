@@ -1024,50 +1024,13 @@ describe('Feature operator permission grants list entry graph (ADR-0071)', () =>
 // #597: every declared package entry survives retirement, not only currently mounted menus.
 describe('retained36 package contract (#597)', () => {
   const manifest = JSON.parse(readFileSync(join(screen, 'apps/feature-screens/package.json'), 'utf8')) as { exports: Record<string, string> };
-  const expected = [
-  "./global-screens",
-  "./global-screens/core",
-  "./global-screens/inbox-panel",
-  "./operator-screens/scope-picker",
-  "./operator-screens/dashboard",
-  "./operator-screens/voc-clusters",
-  "./operator-screens/voc-detail",
-  "./operator-screens/task-detail",
-  "./operator-screens/finding-detail",
-  "./operator-screens/survey-detail",
-  "./operator-screens/survey-follow-up",
-  "./operator-screens/survey-results",
-  "./operator-screens/surveys",
-  "./operator-screens/survey-builder",
-  "./operator-screens/task-list",
-  "./operator-screens/task-board",
-  "./operator-screens/voc-inbox",
-  "./operator-screens/voc-search",
-  "./operator-screens/milestones",
-  "./operator-screens/task-requests",
-  "./operator-screens/coverage",
-  "./operator-screens/entity-links",
-  "./operator-screens/tasks-search",
-  "./operator-screens/findings-search",
-  "./operator-screens/surveys-search",
-  "./operator-screens/admin-search",
-  "./operator-screens/permission-requests",
-  "./operator-screens/permission-grants",
-  "./operator-screens/managed-systems",
-  "./operator-screens/settings",
-  "./operator-screens/integration-search",
-  "./operator-screens/findings",
-  "./operator-screens/voc-triage",
-  "./operator-screens/evidence",
-  "./operator-screens/integration-dashboard",
-  "./operator-screens/analytics-areas",
-  "./operator-screens/log-lifecycle",
-  "./operator-screens/log-datasets"
-];
-  const graph = walk(Object.values(manifest.exports).map(path => join(screen, 'apps/feature-screens', path)));
-  it('keeps all 38 named public entries and resolves their complete graphs', () => {
-    expect(Object.keys(manifest.exports)).toEqual(expected);
-    expect(expected).toHaveLength(38);
+  // `exports` is the one list of bridge entries (#1640). The style entry is public but not a screen entry, so it has no graph to walk.
+  const entryKeys = Object.keys(manifest.exports).filter(key => !key.endsWith('.css'));
+  const graph = walk(entryKeys.map(key => join(screen, 'apps/feature-screens', manifest.exports[key]!)));
+  it('keeps every named public entry exact (no wildcard), pointing at an existing file, and resolves their complete graphs', () => {
+    expect(entryKeys.length).toBeGreaterThan(0);
+    expect(Object.keys(manifest.exports).filter(key => key.includes('*'))).toEqual([]);
+    expect(Object.entries(manifest.exports).filter(([, path]) => !existsSync(join(screen, 'apps/feature-screens', path)))).toEqual([]);
     expect(graph.unresolved).toEqual([]);
   });
   it('reaches no retired runtime or test-only host', () => {
@@ -1101,5 +1064,46 @@ describe('log-datasets operator entry (#1481)', () => {
     expect(reached.filter(file => /^(routes|test|lib\/(router|layout|auth))\//.test(file))).toEqual([]);
     expect([...entry.specifiers].filter(s => /^@tanstack\/(react-)?router/.test(s))).toEqual([]);
     expect([...entry.files.values()].some(source => /(?<![\w.])fetch\(/.test(source))).toBe(false);
+  });
+});
+
+
+// One generated block per `exports` entry (#1640): a new entry gets these default assertions with no edit here.
+// An entry that departs from a default is listed in ENTRY_ALLOWANCES under its exports key, with the reason; a key that is not
+// an entry fails the test below, so a rename or removal cannot leave a stale allowance behind.
+type EntryAllowance = { /** `fetch(` may not appear at all (the entry has no network code of its own) */ noFetch?: true; reason: string };
+const ENTRY_ALLOWANCES: Record<string, EntryAllowance> = {
+  './operator-screens/log-lifecycle': { noFetch: true, reason: 'reads and writes through the Kernel menu-query and action hooks its native menu host passes in (#1447)' },
+  './operator-screens/log-datasets': { noFetch: true, reason: 'reads and writes through the Kernel menu-query and action hooks its native menu host passes in (#1481)' },
+};
+const ENTRY_EXPORTS = (JSON.parse(readFileSync(join(screen, 'apps/feature-screens/package.json'), 'utf8')) as { exports: Record<string, string> }).exports;
+const ALL_ENTRY_KEYS = Object.keys(ENTRY_EXPORTS).filter(key => !key.endsWith('.css'));
+
+describe('Every feature-screens entry (generated from package.json exports, #1640)', () => {
+  it('keeps every allowance keyed by an existing entry', () => {
+    expect(Object.keys(ENTRY_ALLOWANCES).filter(key => !ALL_ENTRY_KEYS.includes(key))).toEqual([]);
+  });
+
+  describe.each(ALL_ENTRY_KEYS)('%s', key => {
+    const allowance = ENTRY_ALLOWANCES[key];
+    const entry = walk([join(screen, 'apps/feature-screens', ENTRY_EXPORTS[key]!)]);
+    const reachedFiles = [...entry.files.keys()].map(file => relative(FRONTEND_SRC, file));
+
+    it('resolves every local import edge', () => {
+      expect(entry.unresolved).toEqual([]);
+    });
+
+    it('imports no router and no toast library', () => {
+      expect([...entry.specifiers].filter(specifier => /^@tanstack\/(react-)?router|^sonner$/.test(specifier))).toEqual([]);
+    });
+
+    it('reaches no route, router, layout or auth source', () => {
+      expect(reachedFiles.filter(file => /^(?:routes|test|lib\/(?:router|layout|auth))\//.test(file))).toEqual([]);
+    });
+
+    it(allowance?.noFetch ? 'calls fetch nowhere' : 'calls fetch only in lib/api/client.ts', () => {
+      const callers = [...entry.files].filter(([, text]) => /(?<![\w.])fetch\(/.test(text)).map(([file]) => relative(FRONTEND_SRC, file));
+      expect(callers.filter(file => allowance?.noFetch || file !== 'lib/api/client.ts')).toEqual([]);
+    });
   });
 });

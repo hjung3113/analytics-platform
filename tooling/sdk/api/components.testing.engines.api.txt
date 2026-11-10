@@ -1,0 +1,6 @@
+CanvasProbe | type | type CanvasProbe = { dispose: ReturnType<typeof vi.fn>; init: ReturnType<typeof vi.fn>; options: unknown[]; }
+DockEngineApi | type | type DockEngineApi = { panels: { api: { setSize: (size: { width: number; }) => void; }; }[]; }
+DockEngineProbe | type | type DockEngineProbe = { api: @ap/components/testing/engines#DockEngineApi | undefined; }
+mockEchartsCanvas | function | function mockEchartsCanvas(): @ap/components/testing/engines#CanvasProbe
+probeDockEngine | function | function probeDockEngine(): @ap/components/testing/engines#DockEngineProbe
+# reachable types

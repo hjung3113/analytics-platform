@@ -4,6 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 
 import { PACKAGE_PREFIX } from './prefix.js';
 import { FEATURE_PACKAGES } from './feature-packages.js';
+import { featureBridgeEntrySources } from './feature-bridge-entries.js';
 import { EQV_PACKAGES, EQV_UI_PACKAGE } from './eqv-packages.js';
 import noHandBuiltUrl from './hand-built-url.js';
 import noRelativePackageEscape from './relative-escape.js';
@@ -85,10 +86,10 @@ const NAV_COUNTS_SLOT_SUBPATH = 'feature-bridge/nav-counts';
 const SAVED_VIEWS_SLOT_SUBPATH = 'feature-bridge/saved-views';
 // The feature-bridge menu test harness (`createFeatureMenuHarness`) subpath: test-only like `kernel/testing`, so only bridge-menu test files import it (FEATURE_BRIDGE_TEST_SUBPATHS).
 const FEATURE_BRIDGE_TESTING_SUBPATH = 'feature-bridge/testing';
-// Rule 8 exception (platform ADR-0071, ADR-0081): a bridge menu imports exactly these entries (the screen barrel, its eager-code subset `/core`,
+// Rule 8 exception (platform ADR-0071, ADR-0081): a bridge menu imports exactly these entries, read from `apps/feature-screens/package.json` `exports` (the one list; the screen barrel, its eager-code subset `/core`,
 // the lazy notifications panel entry `/inbox-panel`, and the operator dashboard and VOC entries); no other feature package entry. the feature-bridge package imports `/core` only (FEATURE_BRIDGE_PACKAGE_ENTRIES)
 // except its lazy `src/pages/**`, which are screens too (the notifications slot loads `inbox-panel` through one of them).
-const FEATURE_BRIDGE_ENTRIES = [pkg('feature-screens/global-screens'), pkg('feature-screens/global-screens/core'), pkg('feature-screens/global-screens/inbox-panel'), pkg('feature-screens/operator-screens/scope-picker'), pkg('feature-screens/operator-screens/dashboard'), pkg('feature-screens/operator-screens/voc-clusters'), pkg('feature-screens/operator-screens/task-detail'), pkg('feature-screens/operator-screens/voc-detail'), pkg('feature-screens/operator-screens/voc-inbox'), pkg('feature-screens/operator-screens/milestones'), pkg('feature-screens/operator-screens/voc-search'), pkg('feature-screens/operator-screens/tasks-search'), pkg('feature-screens/operator-screens/voc-triage'), pkg('feature-screens/operator-screens/task-list'), pkg('feature-screens/operator-screens/task-board'), pkg('feature-screens/operator-screens/task-requests'), pkg('feature-screens/operator-screens/findings-search'), pkg('feature-screens/operator-screens/surveys-search'), pkg('feature-screens/operator-screens/admin-search'), pkg('feature-screens/operator-screens/integration-search'), pkg('feature-screens/operator-screens/findings'), pkg('feature-screens/operator-screens/finding-detail'), pkg('feature-screens/operator-screens/surveys'), pkg('feature-screens/operator-screens/survey-detail'), pkg('feature-screens/operator-screens/survey-builder'), pkg('feature-screens/operator-screens/survey-results'), pkg('feature-screens/operator-screens/survey-follow-up'), pkg('feature-screens/operator-screens/permission-requests'), pkg('feature-screens/operator-screens/permission-grants'), pkg('feature-screens/operator-screens/managed-systems'), pkg('feature-screens/operator-screens/settings'), pkg('feature-screens/operator-screens/analytics-areas'), pkg('feature-screens/operator-screens/evidence'), pkg('feature-screens/operator-screens/integration-dashboard'), pkg('feature-screens/operator-screens/coverage'), pkg('feature-screens/operator-screens/entity-links'), pkg('feature-screens/operator-screens/log-lifecycle'), pkg('feature-screens/operator-screens/log-datasets')];
+const FEATURE_BRIDGE_ENTRIES = featureBridgeEntrySources();
 const FEATURE_BRIDGE_TEST_SUBPATHS = [FEATURE_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, 'feature-bridge/home-todo-page', 'feature-bridge/voc-compose-page', FEATURE_BRIDGE_TESTING_SUBPATH];
 const FEATURE_BRIDGE_PACKAGE_ENTRIES = [pkg('feature-screens/global-screens/core')];
 const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
@@ -192,6 +193,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine
 // own tests import `./testing`).
 const TEST_ENTRY_SUBPATH = 'kernel/testing';
 const COMPONENTS_TEST_ENTRY_SUBPATH = 'components/testing';
+const COMPONENTS_ENGINES_TEST_ENTRY_SUBPATH = 'components/testing/engines';
 const TEST_ENTRY_FILES = ['**/*.test.{ts,tsx}', '**/test-support.{ts,tsx}', '**/test-setup.ts'];
 const testEntryOverride = (restriction, subpaths = [TEST_ENTRY_SUBPATH], files = TEST_ENTRY_FILES) => {
   const withEntry = { ...restriction, allowSubpaths: [...(restriction.allowSubpaths ?? []), ...subpaths] };
@@ -451,7 +453,7 @@ export const kernel = [
 ];
 
 const COMPONENTS_RESTRICTION = { allow: ['contracts', 'kernel', 'ui'], denyReact: false, denyQueryEngine: true, mockAllowed: false, allowSubpaths: [...UI_THEME_SUBPATHS, HOST_ENTRY_SUBPATH], allowDockEngine: true };
-const ABOVE_COMPONENTS_TEST_ENTRIES = [TEST_ENTRY_SUBPATH, COMPONENTS_TEST_ENTRY_SUBPATH];
+const ABOVE_COMPONENTS_TEST_ENTRIES = [TEST_ENTRY_SUBPATH, COMPONENTS_TEST_ENTRY_SUBPATH, COMPONENTS_ENGINES_TEST_ENTRY_SUBPATH];
 const SHELL_RESTRICTION = { allow: ['contracts', 'kernel', 'ui', 'components'], denyReact: false, denyQueryEngine: true, mockAllowed: false, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
 
 /** @type {import('eslint').Linter.Config[]} */

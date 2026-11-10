@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./styles.css": "./bridge-sources.css",
     "./global-screens": "./src/global-screens/index.ts",
     "./global-screens/core": "./src/global-screens/core.ts",
     "./global-screens/inbox-panel": "./src/global-screens/inbox-panel.ts",

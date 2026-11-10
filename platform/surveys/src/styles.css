@@ -1,3 +1,2 @@
+@import "@ap/feature-screens/styles.css";
 @source "./";
-@source "../../../apps/feature-screens/src/features/surveys";
-@source "../../../apps/feature-screens/src/features/findings";
