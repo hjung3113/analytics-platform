@@ -836,10 +836,18 @@ for (const callee of VITEST_CALLEES) {
     { file: MENU_TEST, code: `vi.${callee}('@ap/components');`, rule: '' },
     { file: MENU_TEST, code: `vi.${callee}('./Local');`, rule: '' },
     { file: MENU_TEST, code: `vi.${callee}('../x');`, rule: '' },
+    // static computed members are the same call
+    { file: MENU_TEST, code: `vi['${callee}']('@ap/components/src/chart/AnalysisChartFrame');`, rule: 'ap/restricted-import-source' },
+    { file: MENU_TEST, code: `vi['${callee}']('./node_modules/echarts/core.js');`, rule: 'ap/restricted-import-source' },
+    { file: MENU_TEST, code: `vi['${callee}']('../../../../packages/sdk/contracts/src/url');`, rule: 'ap/no-relative-package-escape' },
+    { file: MENU_TEST, code: 'vi[`${callee}`](\'../../../../packages/sdk/contracts/src/url\');'.replace('${callee}', callee), rule: 'ap/no-relative-package-escape' },
+    { file: MENU_TEST, code: `vi['${callee}']('@ap/components');`, rule: '' },
+    { file: MENU_TEST, code: `vi['${callee}']('./Local');`, rule: '' },
   );
 }
-// Not a vitest module call: another object, a computed member, and a non-string argument are left alone.
+// Not a vitest module call: another object, a member chosen at run time, and a non-string argument are left alone.
 rows.push(
+  { file: MENU_TEST, code: `vi[name]('@ap/components/src/chart/AnalysisChartFrame');`, rule: '' },
   { file: MENU_TEST, code: `other.mock('@ap/components/src/chart/AnalysisChartFrame');`, rule: '' },
   { file: MENU_TEST, code: `vi.mock(path);`, rule: '' },
 );

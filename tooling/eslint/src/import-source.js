@@ -95,10 +95,17 @@ function makeEvaluate(opts) {
 
 // #1640: vitest module-path calls name a module like an import does, so the same boundary applies to their first string argument.
 export const VITEST_MODULE_CALLEES = ['mock', 'doMock', 'unmock', 'doUnmock', 'importActual', 'importMock'];
+// The called method's name: `vi.mock`, or a static computed member such as vi['mock'] or vi[`mock`].
+const staticMemberName = ({ computed, property }) => {
+  if (!computed) return property?.type === 'Identifier' ? property.name : null;
+  if (property?.type === 'Literal' && typeof property.value === 'string') return property.value;
+  if (property?.type === 'TemplateLiteral' && property.expressions.length === 0) return property.quasis[0].value.cooked;
+  return null;
+};
 export const isVitestModuleCall = (node) =>
-  node.callee?.type === 'MemberExpression' && !node.callee.computed && !node.callee.optional
+  node.callee?.type === 'MemberExpression' && !node.callee.optional
   && node.callee.object?.type === 'Identifier' && node.callee.object.name === 'vi'
-  && node.callee.property?.type === 'Identifier' && VITEST_MODULE_CALLEES.includes(node.callee.property.name);
+  && VITEST_MODULE_CALLEES.includes(staticMemberName(node.callee));
 
 const restrictedImportSource = {
   meta: {
