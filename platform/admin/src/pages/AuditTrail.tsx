@@ -11,6 +11,14 @@ import { viewerTimeZone } from '../audit-window';
 
 const NO_FILTERS: ColumnFilter[] = [];
 
+// #1690: an API token row names the scopes it was issued or revoked with; every other row lists the changed field names.
+function changedFields(row: AuditEvent, ko: boolean): string {
+  if (!row.changes) return '—';
+  const scopes = row.target.type === 'api_token' ? row.changes.scopes : undefined;
+  if (scopes) return `${ko ? '권한 묶음' : 'Scopes'}: ${scopes[1] ?? scopes[0] ?? ''}`;
+  return Object.keys(row.changes).sort().join(', ');
+}
+
 const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>;
 
 /**
@@ -48,7 +56,7 @@ export default function AuditTrail() {
     { ...filterColumnProps('targetType'), value: row => row.target.type, size: 110, cell: row => Object.hasOwn(TYPE_LABEL, row.target.type) ? TYPE_LABEL[row.target.type][lang] : mono(row.target.type) },
     { ...filterColumnProps('targetId'), sortable: false, value: row => row.target.id, size: 170, cell: row => mono(row.target.id) },
     { id: 'scopeId', header: ko ? '사이트' : 'Site', sortable: false, size: 90, cell: row => row.target.scopeId ?? '—' },
-    { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => row.changes ? Object.keys(row.changes).sort().join(', ') : '—' },
+    { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => changedFields(row, ko) },
     { id: 'reason', header: ko ? '사유' : 'Reason', sortable: false, size: 200, cell: row => row.reason ? <span className="block truncate" title={row.reason}>{row.reason}</span> : '—' },
   ], [ko, lang, timeZone, filterColumnProps]);
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 변경 이력 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s change-history tab.'}>

@@ -30,6 +30,7 @@ export const TYPE_LABEL: Record<string, { ko: string; en: string }> = {
   milestone: { ko: '마일스톤', en: 'Milestone' }, attachment: { ko: '첨부', en: 'Attachment' },
   public_update_review_candidate: { ko: '공개 업데이트 검토 후보', en: 'Public update review candidate' },
   voc_cluster_suggestion: { ko: 'VOC 클러스터 제안', en: 'VOC cluster suggestion' }, workspace: { ko: '워크스페이스', en: 'Workspace' },
+  api_token: { ko: 'API 토큰', en: 'API token' },
 };
 
 /** An opaque, case-sensitive subject-type token: no trimming or normalization. Keep in lockstep with the mock

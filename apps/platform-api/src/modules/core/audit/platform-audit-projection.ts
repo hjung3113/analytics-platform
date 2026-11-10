@@ -4,7 +4,7 @@ import type { Tx } from '../../../db/tx.js';
 
 // ADR-0069 decision 6: the allowlisted audit projection for the platform audit screen.
 // The allowlist (subject types, survey_response subjects/links, sensitive capabilities and rows, columns) lives in
-// `core.platform_audit_events` (migration 0074); this wrapper only passes filters and parses.
+// `core.platform_audit_events` (migrations 0074 and 0122); this wrapper only passes filters and parses.
 // Caller owns request authorization.
 
 export interface PlatformAuditFilter {
@@ -35,6 +35,8 @@ export interface PlatformAuditRow {
   eventType: string;
   subjectType: string;
   subjectId: string;
+  /** Capability names of an issued or revoked API token (migration 0122); undefined for every other row. */
+  scopes?: string[];
 }
 
 const rowSchema = z.object({
@@ -46,6 +48,7 @@ const rowSchema = z.object({
   event_type: z.string().nullable(),
   subject_type: z.string().nullable(),
   subject_id: z.string().uuid().nullable(),
+  scopes: z.array(z.string()).nullable().optional(),
 });
 
 export async function platformAuditEvents(
@@ -73,6 +76,7 @@ export async function platformAuditEvents(
       eventType: r.event_type as string,
       subjectType: r.subject_type as string,
       subjectId: r.subject_id as string,
+      ...(r.scopes ? { scopes: r.scopes } : {}),
     });
   }
   return { rows, total: parsed[0]?.total ?? 0 };
@@ -99,7 +103,7 @@ export async function platformEntityAuditPage(
 ): Promise<PlatformAuditRow[]> {
   const result = await tx.execute(sql`
     SELECT p.total, p.audit_id, p.at_ms AS occurred_at, p.actor_external_id, p.actor_kind,
-           p.event_type, p.subject_type, p.subject_id
+           p.event_type, p.subject_type, p.subject_id, p.scopes
     FROM (
       SELECT e.*, date_trunc('milliseconds', e.occurred_at) AS at_ms
       FROM core.platform_audit_events(
@@ -124,6 +128,7 @@ export async function platformEntityAuditPage(
       eventType: r.event_type as string,
       subjectType: r.subject_type as string,
       subjectId: r.subject_id as string,
+      ...(r.scopes ? { scopes: r.scopes } : {}),
     };
   });
 }

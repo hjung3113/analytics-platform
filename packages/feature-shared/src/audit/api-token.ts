@@ -24,8 +24,14 @@ export const apiTokenIssueDetailSchema = z
   })
   .strict();
 
+/** `scopes` is optional: revoke rows written before #1690 lack it. */
 export const apiTokenRevokeDetailSchema = z
-  .object({ token_id: uuid, kind: z.enum(['personal', 'service']), prefix: z.string().min(1) })
+  .object({
+    token_id: uuid,
+    kind: z.enum(['personal', 'service']),
+    prefix: z.string().min(1),
+    scopes: z.array(z.string().min(1)).optional(),
+  })
   .strict();
 
 /** `prefix` is present only when the presented value parsed as `ap_<prefix>_…`; `reason` is internal, never returned to the client. */
