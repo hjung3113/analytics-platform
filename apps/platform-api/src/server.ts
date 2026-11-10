@@ -507,7 +507,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     drain: opts.drainState,
   });
 
-  // ADR-0006:16 — the two providers are swapped by the AUTH_PROVIDER env
+  // FO ADR-0006:16 — the two providers are swapped by the AUTH_PROVIDER env
   // var. createOidcAuthProvider performs IdP discovery at boot and rejects
   // on failure, so an unreachable/misconfigured issuer fails buildServer
   // BEFORE the HTTP listener starts (issue #390 fail-closed boot).

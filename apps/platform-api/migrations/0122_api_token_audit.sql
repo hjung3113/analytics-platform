@@ -1,4 +1,4 @@
--- #1690: API token issue and revoke join the audit projection (platform ADR-0069 decision 6 amendment). `api_token` becomes an allowed
+-- #1690: API token issue and revoke join the audit projection (ADR-0069 decision 6 amendment). `api_token` becomes an allowed
 -- subject type, but only `api_token.issue` and `api_token.revoke` rows are released (auth_failed and session_required_denied stay
 -- out), and one new nullable column `scopes` carries `detail->'scopes'` for exactly those rows. The body is 0121 with those additions;
 -- the return type changes, so the function is dropped and recreated and its grants restored exactly as 0074 set them
@@ -55,7 +55,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
           'knowledge.catalog.manage','knowledge.catalog.import','knowledge.item.publish',
           'knowledge.spec.publish','voc.read_public','improvement.manage','voc.create',
           'lifecycle.project.manage','lifecycle.round.manage','knowledge.draft.create','validation.catalog.report','dataset.manage','dataset.suite.run','eqv.view','eqv.layout.edit','eqv.layout.publish']))
-      -- Entity links: both endpoint types must be present and neither a survey response (FO ADR-0064).
+      -- Entity links: both endpoint types must be present and neither a survey response (ADR-0064).
       AND (l.subject_type <> 'entity_link' AND left(l.event_type, 12) <> 'entity_link.'
         OR (l.detail -> 'source' ->> 'type' IS NOT NULL AND l.detail -> 'target' ->> 'type' IS NOT NULL
           AND l.detail -> 'source' ->> 'type' <> 'survey_response'
