@@ -35,6 +35,9 @@ const EXPECTED_LABELS: Record<Capability, string> = {
   'dataset.baseline.approve': '로그 테스트 기준 승인',
   'dataset.suite.run': '로그 테스트 회귀 실행',
   'knowledge.access.manage': '지식 접근 규칙 관리',
+  'eqv.view': '설비 시각화 Layout 조회',
+  'eqv.layout.edit': '설비 시각화 Layout 편집',
+  'eqv.layout.publish': '설비 시각화 Layout 게시',
 };
 
 describe('capability display copy', () => {

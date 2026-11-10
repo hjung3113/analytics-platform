@@ -35,14 +35,14 @@ EV 저장소에 `chore/feedbackops-workflow` 가지(2026-10-14, 오래됨)가 �
 | EV#239 Top View 자재 표식 W11이 아이콘 고리 위에 | 가져옴 → AP [#1632](https://github.com/hjung3113/analytics-platform/issues/1632) | 살아 있는 버그. 마지막 렌더러 변경이 EV#236(2026-10-31)이고 `overlay.ts` `materialRowCy`는 primitive 고리를 모른다 |
 | EV#187 SDK deferred | 단계에 붙임(4·5·11) + 백로그 | 설비 선택기(4), 쓰기·감사(5), 한 줄 `DataTrustIndicator`(11). 표시 다듬기·정리는 백로그. 패키징·`DetailFields`·Focus 진입 선택·표 열 줄바꿈은 EV가 이미 끝냈다 |
 | EV#184 Polish deferred | 백로그 | 닫힌 행은 EV가 «변경 없음»으로 결정. 남은 `multiplyMatrix`·`round3` 공개 표면은 코드 정리 묶음 |
-| EV#177 SDK 전환 계획 | 단계에 붙임(5) + 백로그 | 전환 계획은 ADR-0132로 실행됐다. Write API·Layout 소유·역할은 5단계, 사용자 SVG·출처·API 분리 ADR은 백로그 |
-| EV#170 Layout assembly deferred | 단계에 붙임(5) + 백로그 | 순환 `parentId` 거부는 5단계. 포트 그리기·수정은 백로그(포트를 읽는 소비자 없음) |
+| EV#177 SDK 전환 계획 | 단계에 붙임(5) + 백로그 | 전환 계획은 ADR-0132로 실행됐다. Write API·Layout 소유·역할은 5단계(#1645, [ADR-0135](../../../adr/0135-eqv-layout-storage-publish-and-promotion.md): `defineAction`·감사·`eqv.view`/`eqv.layout.edit`/`eqv.layout.publish`), 사용자 SVG·출처·API 분리 ADR은 백로그. «구현 안 함»: 나머지 capability 이름 4개(`eqv.mapping.publish`, `eqv.rules.edit`, `eqv.dictionary.global_edit`, `eqv.window.import`)와 Bindings·Mapping 표는 해당 엔드포인트가 생기는 8·9단계에서(다시 여는 조건: 8단계 착수) |
+| EV#170 Layout assembly deferred | 단계에 붙임(5) + 백로그 | 순환 `parentId` 거부는 5단계에서 구현됨(#1645: 서버 `validateLayout`의 `hierarchy-cycle`을 저장 전에 거부, 시험 있음). 포트 그리기·수정은 백로그(포트를 읽는 소비자 없음) |
 | EV#169 사용자 정의 부품 SVG ADR | 백로그 | 소유자가 슬라이스로 고르지 않았다. 내장 primitive 25개 한계는 그대로 |
 | EV#160 Layout edit deferred | 백로그 | 크기 편집·포트 스냅·다중 선택 없음(편집기 코드 확인). 템플릿 승격은 `/api/template-promotions`로 이미 있다 |
 | EV#153 Journey deferred | 단계에 붙임(4·9) + 백로그 | 창 걸침 Journey(9), 웨이퍼 선택기(4), 표시 다듬기는 백로그. 라벨 겹침은 EV#212로 끝났다 |
 | EV#146 Replay UI deferred | 단계에 붙임(8) + 버림 | 템플릿 Capability·Fleet 동작 열은 8단계. 라벨 겹침은 EV#212로, `demo:generate` 로더는 #1627에서 끝났다 |
 | EV#134 Replay UI deferred | 단계에 붙임(9) + 버림 | Gantt 비용 가드는 `packages/eqv/views/src/timeline-cost.ts`로 옮겨져 AP Focus도 받는다. 커서 이동 재준비는 측정 기준만 9단계에 |
-| EV#105 Import deferred | 단계에 붙임(5·8) + 버림 | 창 교체(8), 읽기 캐시·식별자 패턴(5). 단일 사용자 도구 항목은 EV 소유자가 2026-10-26에 wontfix로 닫은 것 |
+| EV#105 Import deferred | 단계에 붙임(5·8) + 버림 | 창 교체(8), 읽기 캐시·식별자 패턴(5). 식별자 패턴은 #1645에서 Hub 카탈로그 `model_id`(uuid)로 대체됨. «구현 안 함»: Sample Window 서버 캐시·저장은 5단계에 Sample Window 읽기가 없어 가져오기와 함께 8단계에서(다시 여는 조건: 8단계 착수). 단일 사용자 도구 항목은 EV 소유자가 2026-10-26에 wontfix로 닫은 것 |
 | EV#91 Studio 미리보기 도구 이식 | 버림 | EV 전용 도구. AP는 conductor 미리보기를 쓴다 |
 | EV#60 Studio deferred | 단계에 붙임(5·8) + 버림 + 백로그 | 대부분 EV 소유자 wontfix이거나 끝남(Drift #217). Studio 화면 행은 6·8단계가 `@ap/components`로 다시 만들고 `apps/eqv-studio`는 11단계에 삭제. Focus 배선은 `@eqv/views` `FocusView`로 옮겨졌다 |
 | EV#3 M2 Replay | 버림(끝남) | `packages/eqv/{core,replay}`에 구현됐고 시험이 AP CI에서 돈다 |

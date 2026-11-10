@@ -26,3 +26,4 @@ export * from './log-explorer.js';
 export * from './space-links.js';
 export * from './log-rules.js';
 export * from './log-datasets.js';
+export * from './eqv.js';

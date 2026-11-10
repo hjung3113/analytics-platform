@@ -25,6 +25,8 @@ export const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'lifecycle.gate.decide',
   'dataset.suite.run',
   'knowledge.access.manage',
+  'eqv.layout.edit',
+  'eqv.layout.publish',
 ]);
 
 /** True when the User role may never exercise this capability, whatever grant rows exist (#1531). */
@@ -57,7 +59,10 @@ export async function supportedScopeCandidates(
     capability === 'dataset.manage' ||
     capability === 'dataset.baseline.approve' ||
     capability === 'dataset.suite.run' ||
-    capability === 'knowledge.access.manage'
+    capability === 'knowledge.access.manage' ||
+    capability === 'eqv.view' ||
+    capability === 'eqv.layout.edit' ||
+    capability === 'eqv.layout.publish'
   ) {
     return [{ managed_system_id: null }];
   }

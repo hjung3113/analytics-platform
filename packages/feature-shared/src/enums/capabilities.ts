@@ -42,6 +42,9 @@ export const CAPABILITIES = [
   'dataset.baseline.approve',
   'dataset.suite.run',
   'knowledge.access.manage',
+  'eqv.view',
+  'eqv.layout.edit',
+  'eqv.layout.publish',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -165,6 +168,12 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'dataset.suite.run': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
   // Log knowledge object access (#1504 S-a, ADR-0124): sets `access_mode` and adds/revokes allow/deny rules of a model, SW version or Item. Workspace-scoped, session-only (ADR-0116 decision 4: a permission grant is never token-callable). Admin holds it by role but has NO read bypass: reads judge the rules like anyone's. Sensitive: a grant states a reason and its permission rows stay out of the platform audit projection allow-list (adding it there is a migration, not part of this node).
   'knowledge.access.manage': { sensitive: true, adminModuleBypass: 'always', sessionOnly: true },
+  // Equipment visualization server module (#1645, ADR-0135): workspace-scoped, not sensitive. `eqv.view` reads Layouts, Revisions and Templates; the
+  // Admin role holds all three. Layout editing and publishing (publishing is also the approval, ADR-0135) are session-only like `knowledge.item.publish`.
+  // Real-server Site Scope is enforced by these capabilities alone until #1087.
+  'eqv.view': { sensitive: false, adminModuleBypass: 'always' },
+  'eqv.layout.edit': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
+  'eqv.layout.publish': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
 };
 
 export function isCapability(value: string): value is Capability {

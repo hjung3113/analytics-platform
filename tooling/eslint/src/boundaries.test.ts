@@ -1008,7 +1008,8 @@ describe('EV ban outside the host slot', () => {
     expect(messages.filter((m) => m.ruleId === rule && m.message.includes('ADR-0132')).length, JSON.stringify(messages, null, 2)).toBeGreaterThan(0);
   });
 
-  it.each(FEATURE.flatMap(([dir, preset]) => ['js', 'mjs'].map((ext) => ({ dir, preset, ext }))))('$dir rejects @eqv/core in a .$ext file (static, dynamic)', async ({ dir, preset, ext }) => {
+  // The server alone may use @eqv/core (ADR-0135): the other three feature packages still reject it.
+  it.each(FEATURE.filter(([dir]) => dir !== 'apps/platform-api').flatMap(([dir, preset]) => ['js', 'mjs'].map((ext) => ({ dir, preset, ext }))))('$dir rejects @eqv/core in a .$ext file (static, dynamic)', async ({ dir, preset, ext }) => {
     const cwd = path.join(REPO_ROOT, dir);
     const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: preset });
     for (const [code, rule] of [[`import '@eqv/core';`, 'no-restricted-imports'], [`void import('@eqv/core');`, 'ap/restricted-import-source']] as const) {
@@ -1016,6 +1017,19 @@ describe('EV ban outside the host slot', () => {
       const messages = result?.messages ?? [];
       expect(messages.some((m) => m.ruleId === rule && m.message.includes('ADR-0132')), JSON.stringify(messages, null, 2)).toBe(true);
     }
+  });
+
+  it.each(importForms('@eqv/core'))('apps/platform-api allows @eqv/core ($form) and nothing else of EV', async ({ code }) => {
+    const cwd = path.join(REPO_ROOT, 'apps/platform-api');
+    const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: featureServerPreset });
+    const [result] = await eslint.lintText(code, { filePath: path.join(cwd, 'src/x.ts') });
+    expect((result?.messages ?? []).filter((m) => m.message.includes('ADR-0132')), code).toEqual([]);
+  });
+  it.each(['@eqv/renderer', '@eqv/platform-adapter', '@eqv/ui'].flatMap((source) => importForms(source)))('apps/platform-api rejects other EV packages ($form)', async ({ code, rule }) => {
+    const cwd = path.join(REPO_ROOT, 'apps/platform-api');
+    const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: featureServerPreset });
+    const [result] = await eslint.lintText(code, { filePath: path.join(cwd, 'src/x.ts') });
+    expect((result?.messages ?? []).some((m) => m.ruleId === rule && m.message.includes('ADR-0132'))).toBe(true);
   });
 
   it.each(['@eqv/platform-adapter', '@eqv/platform-adapter/manifest'])('apps/platform-web modules.ts keeps %s (static, dynamic, type)', async (source) => {

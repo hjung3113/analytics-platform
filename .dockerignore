@@ -13,6 +13,7 @@
 !packages/adapters/http-adapter/package.json
 !packages/adapters/server-conformance/package.json
 !packages/feature-shared
+!packages/eqv/core
 !tooling/eslint/package.json
 !tooling/tsconfig
 !apps/platform-api

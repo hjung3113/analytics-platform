@@ -19,6 +19,7 @@ import {
   type ActionOutcome,
   type FieldError,
   type MenuActionDeclaration,
+  MenuActionForbiddenError,
   MenuActionInvalidError,
 } from './types.js';
 
@@ -205,6 +206,8 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
       if (error instanceof ReplayTooLargeError) {
         return answer(correlationId, 'error', { message: REPLAY_TOO_LARGE_MESSAGE });
       }
+      // A permission lost while the handler waited on its own lock: the transaction rolled back.
+      if (error instanceof MenuActionForbiddenError) return forbidden();
       // A DB-judged refusal thrown by the declaration: the transaction already rolled back.
       if (error instanceof MenuActionInvalidError) {
         return answer(correlationId, 'invalid', { fieldErrors: error.fieldErrors });

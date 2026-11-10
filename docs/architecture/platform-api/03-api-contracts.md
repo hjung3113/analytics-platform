@@ -26,6 +26,7 @@ Detailed schemas may later move into OpenAPI; until they do, `api/*.md` remains 
 | [`api/permissions.md`](api/permissions.md) | Permission |
 | [`api/notifications.md`](api/notifications.md) | Notifications Inbox; Producers |
 | [`api/saved-views.md`](api/saved-views.md) | Saved Views |
+| [`api/eqv.md`](api/eqv.md) | Equipment visualization Layout draft/Revision/Template reads (menu-query) and saveDraft/publishRevision/promoteTemplate writes (menu-action), capabilities, Site Scope limit (#1645) |
 | [`api/log-knowledge.md`](api/log-knowledge.md) | Log knowledge catalog and model/Item reads (menu-query), catalog and Item writes (menu-action) |
 | [`api/improvement-items.md`](api/improvement-items.md) | Improvement item reads (menu-query), tables and CHECK rules (#1328) |
 | [`api/log-explorer.md`](api/log-explorer.md) | Log explorer investigation reads (menu-query) and writes (menu-action), evidence refs, revoke state (#1468) |
