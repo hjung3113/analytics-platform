@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Build context is the repository root (ops/platform-api/docker-compose.release.yml `context: ../..`): the feature code is part of the root pnpm
-# workspace and its lockfile (ADR-0066, #642).
+# workspace and its lockfile (platform ADR-0066, #642).
 FROM node:26.7.0-bookworm-slim AS build
 
 WORKDIR /workspace

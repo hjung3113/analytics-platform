@@ -26,29 +26,70 @@ import { lstatSync, readFileSync } from 'node:fs';
 
 const SCOPE = ['apps/platform-api', 'apps/feature-screens', 'packages/feature-shared', 'packages/feature-ui', 'ops/platform-api'];
 const MIGRATIONS = 'apps/platform-api/migrations/';
-const EXT = /\.(md|ts|tsx|js|mjs|json|sh|yml|sql)$/;
+const SKIP_BINARY = /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|pdf|gz|zip|snap)$/;
 const MAX_FO = 72;
 
-// Runtime message strings kept bare on purpose: file -> numbers.
+// Runtime message strings kept bare on purpose: file -> exact trimmed lines (a new citation in the same file still fails).
 const RUNTIME_STRINGS = {
-  'apps/feature-screens/src/features/admin/settings/__tests__/workspace-settings-screen.test.tsx': ['0026'],
-  'apps/platform-api/src/modules/analytics-areas/analytics-area-service.ts': ['0019'],
-  'apps/platform-api/src/modules/analytics-areas/routes.ts': ['0017'],
-  'apps/platform-api/src/modules/auth/oidc-auth-provider.ts': ['0006'],
-  'apps/platform-api/src/modules/core/jobs/idempotency-purge.ts': ['0008'],
-  'apps/platform-api/src/modules/core/jobs/purge-unlinked-attachments.ts': ['0008'],
-  'apps/platform-api/src/modules/core/jobs/rate-limits-purge.ts': ['0009'],
-  'apps/platform-api/src/modules/managed-systems/routes.ts': ['0017'],
-  'apps/platform-api/src/modules/notifications/catalogue.ts': ['0014'],
-  'apps/platform-api/src/modules/notifications/jobs/dispatch.ts': ['0009'],
-  'apps/platform-api/src/modules/voc/jobs/cluster-autogen-shadow.ts': ['0009'],
-  'apps/platform-api/src/modules/voc/jobs/cluster-suggestions.ts': ['0009'],
-  'apps/platform-api/src/modules/voc/jobs/embed-voc.ts': ['0009'],
-  'apps/platform-api/src/modules/voc/jobs/embedding-backfill.ts': ['0009'],
-  'apps/platform-api/src/modules/voc/jobs/released-review-candidates.ts': ['0009'],
-  'apps/platform-api/src/modules/voc/similarity-preview/cleanup.ts': ['0009'],
-  'apps/platform-api/src/seed/index.ts': ['0006', '0019'],
-  'apps/platform-api/src/server.ts': ['0006'],
+  'apps/feature-screens/src/features/admin/settings/__tests__/workspace-settings-screen.test.tsx': [
+    "expect(document.body.textContent).not.toMatch(/SELF_APPROVAL|ADR-0026|∩|합집합|교집합/);",
+  ],
+  'apps/platform-api/src/modules/analytics-areas/analytics-area-service.ts': [
+    "'parent managed_system is archived; analytics_area cannot be updated (ADR-0019 Section B Q1)',",
+  ],
+  'apps/platform-api/src/modules/analytics-areas/routes.ts': [
+    "`${field} is immutable per ADR-0017`,",
+  ],
+  'apps/platform-api/src/modules/auth/oidc-auth-provider.ts': [
+    "throw new Error(`AUTH_PROVIDER=oidc requires ${missing.join(', ')} (ADR-0006)`);",
+    "throw new Error('OIDC_REDIRECT_URI must be an absolute URL (ADR-0006)');",
+    "'OIDC_CLIENT_ID/OIDC_CLIENT_SECRET, and that the IdP is reachable (ADR-0006)',",
+    "`OIDC discovery for issuer host '${issuer.host}' is unusable: ${problem} (ADR-0006)`,",
+  ],
+  'apps/platform-api/src/modules/core/jobs/idempotency-purge.ts': [
+    "`pg-boss queue '${IDEMPOTENCY_PURGE_QUEUE}' is not pre-created. Run migrations (ADR-0008 + F-010).`,",
+  ],
+  'apps/platform-api/src/modules/core/jobs/purge-unlinked-attachments.ts': [
+    "`pg-boss queue '${ATTACHMENTS_PURGE_QUEUE}' is not pre-created. Run migrations (ADR-0008 + PLAN-22 C4b).`,",
+  ],
+  'apps/platform-api/src/modules/core/jobs/rate-limits-purge.ts': [
+    "`pg-boss queue '${RATE_LIMITS_PURGE_QUEUE}' is not pre-created. Run migrations (ADR-0009 + F-018).`,",
+  ],
+  'apps/platform-api/src/modules/managed-systems/routes.ts': [
+    "return sendError(reply, 'validation.immutable_field', 'slug is immutable per ADR-0017', {",
+  ],
+  'apps/platform-api/src/modules/notifications/catalogue.ts': [
+    "'Current owner of the linked VOC; caller applies the ADR-0014 exclusions for releasing actor, Task assignee, Reporter, and worker actor.',",
+  ],
+  'apps/platform-api/src/modules/notifications/jobs/dispatch.ts': [
+    "`pg-boss queue '${NOTIFICATION_DISPATCH_QUEUE}' is not pre-created. Run migrations (ADR-0009).`,",
+  ],
+  'apps/platform-api/src/modules/voc/jobs/cluster-autogen-shadow.ts': [
+    "`pg-boss queue '${VOC_CLUSTER_AUTOGEN_SHADOW_QUEUE}' is not pre-created. Run migrations (ADR-0009).`,",
+  ],
+  'apps/platform-api/src/modules/voc/jobs/cluster-suggestions.ts': [
+    "`pg-boss queue '${VOC_CLUSTER_SUGGESTIONS_QUEUE}' is not pre-created. Run migrations (ADR-0009).`,",
+  ],
+  'apps/platform-api/src/modules/voc/jobs/embed-voc.ts': [
+    "`pg-boss queue '${VOC_EMBED_QUEUE}' is not pre-created. Run migrations (ADR-0009).`,",
+  ],
+  'apps/platform-api/src/modules/voc/jobs/embedding-backfill.ts': [
+    "`pg-boss queue '${VOC_EMBEDDING_BACKFILL_QUEUE}' is not pre-created. Run migrations (ADR-0009).`,",
+  ],
+  'apps/platform-api/src/modules/voc/jobs/released-review-candidates.ts': [
+    "`pg-boss queue '${TASK_RELEASED_REVIEW_CANDIDATES_QUEUE}' is not pre-created. Run migrations (ADR-0009).`,",
+  ],
+  'apps/platform-api/src/modules/voc/similarity-preview/cleanup.ts': [
+    "`pg-boss queue '${VOC_SIMILARITY_PREVIEW_CLEANUP_QUEUE}' is not pre-created. Run migrations (ADR-0009).`,",
+  ],
+  'apps/platform-api/src/seed/index.ts': [
+    "'WORKSPACE_ID env var is required. Generate a UUID and reuse it across migrate/seed/app boots so every record binds to the same Workspace per ADR-0006.',",
+    "'fixture team that platform_app cannot insert per ADR-0019).',",
+  ],
+  'apps/platform-api/src/server.ts': [
+    "'WORKSPACE_ID env var is required to build the server (ADR-0006 single seeded workspace).',",
+    "'AUTH_PROVIDER=mock is not permitted in production (ADR-0006). Set AUTH_PROVIDER=oidc.',",
+  ],
 };
 
 const CITE = /(?<![A-Za-z0-9-])ADR-(\d{4})\b/g;
@@ -59,6 +100,7 @@ const LIST_HEAD = /(?:\b(?:FO|EV)|\b[Pp]latform)\s+\[?ADR-\d{4}[^)\n]{0,40}?(?:,
 function bareCitations(text, file = '') {
   const found = [];
   const allowed = RUNTIME_STRINGS[file] ?? [];
+  const isAllowed = (line) => allowed.includes(line.trim());
   text.split('\n').forEach((line, i) => {
     CITE.lastIndex = 0;
     let m;
@@ -66,7 +108,7 @@ function bareCitations(text, file = '') {
       const num = m[1];
       if (Number(num) < 1 || Number(num) > MAX_FO) continue;
       const before = line.slice(0, m.index);
-      if (PREFIX.test(before) || LIST_HEAD.test(before) || allowed.includes(num)) continue;
+      if (PREFIX.test(before) || LIST_HEAD.test(before) || isAllowed(line)) continue;
       // [ADR-NNNN](…/NNNN-….md): a platform ADR file link (history/ links are FeedbackOps and need the prefix)
       const after = line.slice(m.index + m[0].length);
       const link = after.match(/^\]\(([^)\s]*)\)/);
@@ -100,8 +142,10 @@ function selfTest() {
     const got = bareCitations(text).length;
     if (got !== want) { bad++; console.error(`self-test FAIL: ${JSON.stringify(text)} expected ${want}, got ${got}`); }
   }
-  if (bareCitations('x ADR-0006', 'apps/platform-api/src/server.ts').length !== 0) { bad++; console.error('self-test FAIL: runtime string allow-list'); }
-  if (bareCitations('x ADR-0007', 'apps/platform-api/src/server.ts').length !== 1) { bad++; console.error('self-test FAIL: allow-list is per number'); }
+  const rsFile = Object.keys(RUNTIME_STRINGS)[0];
+  const rsLine = RUNTIME_STRINGS[rsFile][0];
+  if (bareCitations(`  ${rsLine}`, rsFile).length !== 0) { bad++; console.error('self-test FAIL: runtime string allow-list'); }
+  if (bareCitations(`${rsLine}\n// ADR-0006 requires authentication`, rsFile).length !== 1) { bad++; console.error('self-test FAIL: allow-list is per line'); }
   console.log(bad ? `self-test: ${bad} failed` : `self-test: ${cases.length + 2} ok`);
   process.exit(bad ? 1 : 0);
 }
@@ -115,7 +159,7 @@ function main() {
     const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
     process.chdir(root);
     files = execFileSync('git', ['ls-files', '-z', '--', ...SCOPE], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
-      .split('\0').filter((f) => f && EXT.test(f) && !f.startsWith(MIGRATIONS)); // applied migrations are history; not edited
+      .split('\0').filter((f) => f && !SKIP_BINARY.test(f) && !f.startsWith(MIGRATIONS)); // applied migrations are history; not edited
   } catch (e) { console.error(`git error: ${e.message}`); process.exit(2); }
   let total = 0; let checked = 0;
   for (const f of files) {
