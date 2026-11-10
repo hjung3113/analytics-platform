@@ -1,11 +1,11 @@
-// Structured job logging (ADR-0013, amended 2026-09-22: jobs).
+// Structured job logging (FO ADR-0013, amended 2026-09-22: jobs).
 //
 // `JobLog` is the narrow `(msg, meta)` logger shape job deps already use;
 // `toJobLog` adapts a Pino root logger to it (Pino's argument order is
 // `(meta, msg)`). `withJobLogging` wraps every `boss.work` handler so all
 // queues emit the same bounded lifecycle events — `job.start`, `job.retry`,
 // `job.success`, `job.failure` — while RETHROWING handler errors so the
-// pg-boss retry config (ADR-0009:35) keeps applying.
+// pg-boss retry config (FO ADR-0009:35) keeps applying.
 //
 // Bounded fields only: ids, queue name, duration, error name/code. Never the
 // error message, cause, or stack (they can embed secrets such as DSNs), and

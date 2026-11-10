@@ -1,4 +1,4 @@
-// Guard (ADR-0013, amended 2026-09-22): product job paths must not bypass
+// Guard (FO ADR-0013, amended 2026-09-22): product job paths must not bypass
 // the structured Pino root logger. Reads the source of every job
 // registration/handler file plus lib/jobs.ts and the storage factory and
 // asserts no console.info/log/warn/error call remains outside comments.

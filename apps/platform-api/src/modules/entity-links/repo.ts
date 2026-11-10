@@ -420,7 +420,7 @@ type InventoryPredicateInput = {
 };
 
 /**
- * The one definition of which links the inventory may show (ADR-0064 Survey read boundary: no Survey-response source in
+ * The one definition of which links the inventory may show (FO ADR-0064 Survey read boundary: no Survey-response source in
  * any status; cluster evidence for a finding is hidden) and how the filters narrow them. The list page, its status
  * counts and the `q` scan batches all use it, so a change here moves them together. `summary` ignores status and cursor
  * (the counts), `page` adds both.

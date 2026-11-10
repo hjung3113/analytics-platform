@@ -130,7 +130,7 @@ describe.skipIf(!runIntegration)('findings command seam (#391)', () => {
         findingId: finding.id,
         taskId: task.id,
       });
-      // ADR-0069: execution is the canonical requested_task link, as the link-task command writes.
+      // FO ADR-0069: execution is the canonical requested_task link, as the link-task command writes.
       await createEntityLink(tx, {
         workspaceId: WORKSPACE_ID,
         sourceType: 'finding',

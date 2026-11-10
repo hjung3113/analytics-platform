@@ -4,7 +4,7 @@
 // memoized against `(capability, managedSystemId, attempt)` so a
 // double-click, an in-flight React Query retry, or a Cmd-R after a stalled
 // response sends the SAME key. The key is rotated to a new UUIDv4 only when
-// a previous submission succeeded (ADR-0015:71-90: one key = one intent).
+// a previous submission succeeded (FO ADR-0015:71-90: one key = one intent).
 // On success or known-409 conflict the gate's permission-check query and
 // the open-requests list query are invalidated so the UI re-renders without
 // a manual reload. Other 4xx render an inline error message.
@@ -81,13 +81,13 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
     : undefined;
 
   // The dep list here is an *intent key*, not a value dependency: one
-  // Idempotency-Key per logical intent (ADR-0015:71-90). Narrowing it to what the
+  // Idempotency-Key per logical intent (FO ADR-0015:71-90). Narrowing it to what the
   // callback reads would stop rotating the key when the intent changes, and
   // widening it would rotate mid-intent — either way server-side idempotency
   // reconciliation breaks. The suppression must stay a single line to register.
   const idempotencyKey = useMemo(
     () => crypto.randomUUID(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the dep list is the intent key (ADR-0015:71-90), see above
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the dep list is the intent key (FO ADR-0015:71-90), see above
     [props.capability, props.managedSystemId, attempt],
   );
 

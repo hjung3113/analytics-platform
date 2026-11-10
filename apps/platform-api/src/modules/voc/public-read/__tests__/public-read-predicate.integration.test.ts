@@ -1,5 +1,5 @@
 // The public-read rule has two faces (SQL + object). This puts both on ONE fixture and asserts they admit
-// the same VOCs per actor shape, and that a `voc.read_public`-only grant leaves every ADR-0031 face
+// the same VOCs per actor shape, and that a `voc.read_public`-only grant leaves every FO ADR-0031 face
 // (actorEffectiveScope, similarVocVisibilityPredicate, isVocVisibleToActor, canReadVocAsSource) closed.
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -17,7 +17,7 @@ import { WORKSPACE_ID, type World, createWorld, runIntegration } from './_world.
 
 const TAG = 'it-pubpred';
 
-describe.skipIf(!runIntegration)('public-read rule: SQL face = object face; ADR-0031 faces closed', () => {
+describe.skipIf(!runIntegration)('public-read rule: SQL face = object face; FO ADR-0031 faces closed', () => {
   let w: World;
 
   beforeAll(async () => {
@@ -65,7 +65,7 @@ describe.skipIf(!runIntegration)('public-read rule: SQL face = object face; ADR-
     },
   );
 
-  it('a voc.read_public-only grant leaves every ADR-0031 face closed', async () => {
+  it('a voc.read_public-only grant leaves every FO ADR-0031 face closed', async () => {
     const all = await rows();
     const actor = { actor_id: w.actors.granted, workspace_id: WORKSPACE_ID, role_level: 'user' } as const;
     const scope = await actorEffectiveScope(w.appHandle.db, actor);

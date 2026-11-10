@@ -1,4 +1,4 @@
-// /voc-clusters — ADR-0020 ListShell cluster list + right detail panel, as a screen any host mounts (standalone route,
+// /voc-clusters — FO ADR-0020 ListShell cluster list + right detail panel, as a screen any host mounts (standalone route,
 // platform bridge). Selection and the Managed System scope are the host's search (`selected`, `managedSystem`) read and
 // written through the host seam; where a created cluster opens is the host's call (`onCreated`).
 

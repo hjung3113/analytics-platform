@@ -1,6 +1,6 @@
-// ManagedSystemPicker — dumb component (AGENTS.md:76, ADR-0018 picker Q7).
+// ManagedSystemPicker — dumb component (AGENTS.md:76, FO ADR-0018 picker Q7).
 // No fetch, no API import; the consuming route supplies pre-fetched options.
-// Pack 17 / ADR-0021: rebuilt on shadcn ToggleGroup (chip pattern, spec §3.4).
+// Pack 17 / FO ADR-0021: rebuilt on shadcn ToggleGroup (chip pattern, spec §3.4).
 // Dumb-prop contract preserved (PickerOption[], onChange(string|null)).
 
 import { ChipPicker, type PickerOption } from './ChipPicker.js';

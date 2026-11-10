@@ -1,5 +1,5 @@
 // #622 — platform port `recordUsage`, `usageSummary`, `reportClientError` (own `platform.*` tables)
-// and the annotation gate (ADR-0069 decisions 1, 2, 4, 8; ADR-0041). Route-level against a real
+// and the annotation gate (platform ADR-0069 decisions 1, 2, 4, 8; platform ADR-0041). Route-level against a real
 // Postgres (throwaway DB only). Rows are scoped to a per-run menu-id prefix and this suite's
 // actors: other suites share the workspace.
 

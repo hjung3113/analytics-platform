@@ -396,7 +396,7 @@ export function createVocDetailReaders(deps: VocReadServiceDeps) {
         readScope,
       }),
     ]);
-    // ADR-0047: listLinks is the single read authority on the focus VOC
+    // FO ADR-0047: listLinks is the single read authority on the focus VOC
     // (voc.read deny-first, or reporter). This post-write path also serves
     // triage-only writers (e.g. public updates), so an unreadable focus must
     // yield no links rather than 404-ing the write's response envelope —

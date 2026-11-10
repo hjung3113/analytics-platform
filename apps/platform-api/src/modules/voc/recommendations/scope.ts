@@ -1,7 +1,7 @@
-// Dismissal scope keys (#168 step 4, ADR-0034 D3).
+// Dismissal scope keys (#168 step 4, FO ADR-0034 D3).
 //
-// ADR-0034 D3 scopes a dismissal to "(source VOC, candidate VOC, actor scope)".
-// "Actor scope" is not the actor: it is *which arm of the ADR-0031 visibility
+// FO ADR-0034 D3 scopes a dismissal to "(source VOC, candidate VOC, actor scope)".
+// "Actor scope" is not the actor: it is *which arm of the FO ADR-0031 visibility
 // predicate let this actor see the candidate at all*. There are exactly two:
 //
 //   ms:<managed system uuid>

@@ -1,4 +1,4 @@
-// Auth routes. Mounted at the root (no prefix) so URLs match ADR-0006 and
+// Auth routes. Mounted at the root (no prefix) so URLs match FO ADR-0006 and
 // the issue body verbatim: GET/POST /auth/mock-login, POST /auth/logout, GET
 // /me. The AuthProvider implementation is chosen in `buildServer` from
 // `config.AUTH_PROVIDER` (F-006); outside that switch, code only sees the

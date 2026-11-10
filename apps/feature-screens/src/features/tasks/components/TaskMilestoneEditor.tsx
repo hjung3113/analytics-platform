@@ -23,7 +23,7 @@ interface MilestoneAttempt {
   milestoneId: string | null;
 }
 
-// ADR-0050 closed the persisted set; the DTO still carries stored text, so
+// FO ADR-0050 closed the persisted set; the DTO still carries stored text, so
 // unknown values fall back to the badge's defensive default.
 function milestoneStatusLabel(status: string): string {
   return Object.hasOwn(MILESTONE_STATUS_LABELS, status)
@@ -38,7 +38,7 @@ function milestoneStatusLabel(status: string): string {
  * ambiguous-failure retry resends it unchanged so the server replays, while a
  * 409 stale write or a choice change starts a new attempt — focus to the
  * select on open and back to the trigger on close. Choices are the Task's
- * Managed System Milestones in every status (ADR-0050 D5: assignment does not
+ * Managed System Milestones in every status (FO ADR-0050 D5: assignment does not
  * consult status) plus `Milestone 없음`, which sends `null`. A settled
  * choices read error hides retained options (same terminal-error contract as
  * the Task Request conversion picker).

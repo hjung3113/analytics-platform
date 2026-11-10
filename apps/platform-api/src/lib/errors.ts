@@ -1,5 +1,5 @@
-// Backend-side helpers for the ADR-0012 error envelope. Maps `code` family to
-// HTTP status per the table in ADR-0012:25-34. Controllers throw an HttpError
+// Backend-side helpers for the FO ADR-0012 error envelope. Maps `code` family to
+// HTTP status per the table in FO ADR-0012:25-34. Controllers throw an HttpError
 // or call `sendError` from a handler; application services raise the same
 // instance and a Fastify error handler renders the envelope.
 
@@ -99,7 +99,7 @@ export function sendError(
 
 // Slim down Zod issue payloads before they reach a client. Review HTTP-M-1:
 // raw `ZodIssue` arrays leak internal field paths, discriminator codes, and
-// in some Zod versions an `input` snapshot. ADR-0012:25-34 expects a stable
+// in some Zod versions an `input` snapshot. FO ADR-0012:25-34 expects a stable
 // `{ code, message, detail }` contract; the `detail.fields` array should
 // expose only the path + error code the client needs to identify which
 // field failed validation.

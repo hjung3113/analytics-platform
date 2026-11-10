@@ -12,7 +12,7 @@
 - Owns `/voc-clusters` and `/voc-clusters/$clusterId` as semantic intents, mapped by the platform bridge.
 - A VOC Cluster groups existing VOC records (domain relationship to VOC); it is a separate top-level feature from `features/voc/`, not a sub-route of it.
 
-## Bridge safety (ADR-0071)
+## Bridge safety (platform ADR-0071)
 
 The list screen and detail parts are bridge-safe (entry `src/operator-screens/voc-clusters`, pinned in `packages/adapters/feature-bridge/src/feature-entry-graph.test.ts`):
 
@@ -28,11 +28,11 @@ The list screen and detail parts are bridge-safe (entry `src/operator-screens/vo
 - Use list/detail layout and URL-selected detail state, consistent with VOC.
 - Managed System is an optional list filter (`managed_system_id` query param on `useVocClusterList`), not a separate navigation tree.
 
-## Close-out contract (ADR-0067)
+## Close-out contract (FO ADR-0067)
 
 Finding owner / Task Request assigned-reviewer creation inputs and results follow the destination commands; Cluster never invents target ownership/permissions. Preserve same-system/source visibility, pending/error states, and atomic provenance.
 
-## Cluster suggestion review (ADR-0068)
+## Cluster suggestion review (FO ADR-0068)
 
 Own the separate `Cluster 제안` section on the existing `/voc-clusters` ListShell: feature-local selection/panel/hooks and `lib/copy/voc-cluster.ts` wording. Review two currently authorized VOC texts, then `확인 후 Cluster 생성`, `기각`, or contextual `되돌리기`.
 

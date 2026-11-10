@@ -1,12 +1,12 @@
 // apps/platform-api/src/lib/rich-content/surface-allowlists.ts
 //
 // Per-surface node + mark allowlists with per-attr value schemas.
-// Spec: apps/feature-screens/docs/specs/voc.md §5.7. ADR-0011 names this layer authoritative.
+// Spec: apps/feature-screens/docs/specs/voc.md §5.7. FO ADR-0011 names this layer authoritative.
 //
 // PLAN-22 C9: the canonical data now lives in `@ap/feature-shared/rich-content/
 // allowlist.ts`. This file is a thin re-export so existing backend callers
 // (sanitize.ts and tests) keep their import paths and behavior. The FE
-// render-time sanitizer mirrors the same values locally because ADR-0016
+// render-time sanitizer mirrors the same values locally because FO ADR-0016
 // forbids @ap/feature-ui -> @ap/feature-shared imports.
 //
 // Layering note unchanged: the sanitizer enforces attr *shape* here (type,

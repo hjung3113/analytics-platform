@@ -2,7 +2,7 @@
 //
 // Asserts that `checkCapability(..., { tx })` observes uncommitted writes
 // made within the same transaction, while a concurrent `deps.db`-bound
-// check does NOT. Confirms ADR-0019 Section D step 5 / S-002 invariant:
+// check does NOT. Confirms FO ADR-0019 Section D step 5 / S-002 invariant:
 // every SELECT inside checkCapability runs on the supplied tx handle.
 //
 // Mirrors the skip-pattern + actor-lookup conventions of

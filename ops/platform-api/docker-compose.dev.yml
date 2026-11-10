@@ -17,7 +17,7 @@
 # A pre-existing local volume still holds the old `feedbackops` database and fops_* roles: see
 # apps/platform-api/docs/04-database-and-migrations.md, "Local developer database recreation".
 #
-# Why two roles: ADR-0008 requires that the application role cannot UPDATE or
+# Why two roles: FO ADR-0008 requires that the application role cannot UPDATE or
 # DELETE rows in core.audit_log. The container initialises both roles up front;
 # per-table GRANT/REVOKE is owned by the migration SQL.
 
@@ -53,7 +53,7 @@ services:
       timeout: 2s
       retries: 20
 
-  # MinIO: S3-compatible object store for attachment storage (#22, ADR-0011 amended).
+  # MinIO: S3-compatible object store for attachment storage (#22, FO ADR-0011 amended).
   # Console: http://localhost:9001  |  S3 API: http://localhost:9000
   # Bootstrap the bucket once with:
   #   pnpm --filter @ap/platform-api exec tsx src/cli/storage-bootstrap.ts

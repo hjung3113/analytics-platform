@@ -762,7 +762,7 @@ it('fails closed when the selected system leaves the manageable scope, keeping i
     await client.refetchQueries({ queryKey: ['permission-scope'] });
   });
   // Automatic scope recovery must not restore the preview or source submission;
-  // only explicit 새로고침 and reselection do (ADR-0070).
+  // only explicit 새로고침 and reselection do (FO ADR-0070).
   await waitFor(() => expect(screen.queryByText(/분기:/)).not.toBeInTheDocument());
   expect(screen.getByTestId('survey-create-submit')).toBeDisabled();
   await user.click(screen.getByRole('button', { name: '새로고침' }));
@@ -870,7 +870,7 @@ it('replays the pinned token and key when a background snapshot refetch changes 
     await client.refetchQueries({ queryKey: ['survey-copy-source'] });
   });
   // Automatic suggestions freeze while an attempt is pinned; an unchanged retry
-  // replays the exact submitted body and key (ADR-0070).
+  // replays the exact submitted body and key (FO ADR-0070).
   expect(screen.getByLabelText('제목')).toHaveValue('지난 라운드 문항');
   await user.click(screen.getByTestId('survey-create-submit'));
   await waitFor(() => expect(posts).toHaveLength(2));

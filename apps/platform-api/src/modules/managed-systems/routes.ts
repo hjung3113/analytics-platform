@@ -26,7 +26,7 @@ const createBodySchema = z.object({
 
 // PATCH body. `slug` is intentionally absent — the route preHandler rejects
 // any client payload that includes it with `validation.immutable_field`
-// (ADR-0017 slug immutability).
+// (FO ADR-0017 slug immutability).
 const updateBodySchema = z.object({
   name: z.string().min(1).max(200).optional(),
   external_key: z.string().min(1).max(200).nullable().optional(),

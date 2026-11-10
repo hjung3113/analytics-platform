@@ -5,7 +5,7 @@
 //   * one Managed System per business system that declares `feedbackTracking` (external_key `space:<space id>`),
 //     read from the committed `platform-systems.json` (PLATFORM_SYSTEMS_FILE).
 // `core.space_links` records the space → system link. It is navigation/default metadata only: no permission check
-// reads it (ADR-0068 decision 1).
+// reads it (platform ADR-0068 decision 1).
 //
 // Never adopts a manual row (a row without the registry-owned key is reported as a conflict and skipped), never
 // archives, and never throws on a missing/invalid file or a missing workspace/system actor — the server starts and the

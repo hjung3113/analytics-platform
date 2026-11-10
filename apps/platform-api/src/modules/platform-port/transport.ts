@@ -1,4 +1,4 @@
-// Shared transport policy of the platform port (ADR-0069 decisions 2, 3), installed by the
+// Shared transport policy of the platform port (platform ADR-0069 decisions 2, 3), installed by the
 // `/api/v1/platform` plugin and by the separate `/api/v1/menu-query` plugin: malformed JSON as a
 // judged request, `Cache-Control: no-store` on every response, one error handler, and the
 // cookie-session lookup. Notice routes are children of the platform plugin and inherit all of it.
@@ -23,7 +23,7 @@ export interface LoadedSession {
 
 /**
  * Installs the JSON parser, the no-store hook and the error handler on `app`. A body that is not
- * valid JSON is a judged malformed request (HTTP 200 + a judged answer, ADR-0069 decision 2), not a
+ * valid JSON is a judged malformed request (HTTP 200 + a judged answer, platform ADR-0069 decision 2), not a
  * framework 4xx: the route receives `MALFORMED_BODY` instead of a throw. `notFound` also installs the
  * prefix's own 404; the menu-query plugin has no prefix of its own to claim, so it opts out.
  */

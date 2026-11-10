@@ -3,13 +3,13 @@
  *
  * Prototype ref: screen-voc-create.jsx:512-541
  *
- * The prototype predates ADR-0034 and models ONE aggregate cluster decision.
+ * The prototype predates FO ADR-0034 and models ONE aggregate cluster decision.
  * The real resource is per candidate: dismiss and confirm each take a specific
  * candidate_voc_id. So the prototype's single 확정 / 무시 pair becomes a list,
  * one row per recommended VOC, each row carrying its own actions. The semantic
  * recommendation surface is labeled separately from the heuristic peer count.
  *
- * ADR-0031 coexistence: `similarCount` remains the same-Managed-System peer
+ * FO ADR-0031 coexistence: `similarCount` remains the same-Managed-System peer
  * count. It is not recommendation-derived and keeps its own truthful label.
  *
  * Token translations (PROTOTYPE-TO-PACK17.md §3.9):
@@ -39,7 +39,7 @@ import { useVocRecommendations } from '../../hooks/useVocRecommendations';
 export interface ClusterSectionReadOnlyProps {
   /** Source VOC id — the recommendation resource is scoped to it. */
   vocId: string;
-  /** ADR-0031 same-Managed-System heuristic count. Unchanged by this chunk. */
+  /** FO ADR-0031 same-Managed-System heuristic count. Unchanged by this chunk. */
   similarCount: number;
 }
 
@@ -113,7 +113,7 @@ export function ClusterSectionReadOnly({
 
   // ── state line ──────────────────────────────────────────────────────────────
   // Four distinct response states plus loading/error. `available: false` is NOT
-  // an empty list: the backend refuses to collapse the two reasons (ADR-0034
+  // an empty list: the backend refuses to collapse the two reasons (FO ADR-0034
   // D2), so the UI must not collapse them either.
   let stateLine: React.ReactNode;
   if (isPending) {

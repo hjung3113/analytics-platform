@@ -11,7 +11,7 @@ Read the measured traps before editing components or their tests: [`@ap/ui` and 
 ## Forbidden Content
 
 - API calls.
-- Imports from `@ap/feature-shared` or `apps/{platform-api,feature-screens}` (ADR-0016, enforced by `pnpm --filter @ap/platform-api-ops check:boundaries`); the rich-content allowlist mirror lives in `@ap/ui` (`packages/sdk/ui/src/rich-content/allowlist-local.ts`).
+- Imports from `@ap/feature-shared` or `apps/{platform-api,feature-screens}` (FO ADR-0016, enforced by `pnpm --filter @ap/platform-api-ops check:boundaries`); the rich-content allowlist mirror lives in `@ap/ui` (`packages/sdk/ui/src/rich-content/allowlist-local.ts`).
 - Backend permission decisions as truth; domain mutation orchestration; feature-specific route state; hard-coded screen workflows.
 
 ## Lint
@@ -24,7 +24,7 @@ Read the measured traps before editing components or their tests: [`@ap/ui` and 
   - the shadcn primitives, tokens and motion utilities (`cn`, `prefersReducedMotion`, ...);
   - the panel, toolbar, forms, feedback and layout shells, and the detail slot (`DetailPanelSlotProvider`, `useDetailPanelSlotHost`, `DetailPanelFullscreenContext`);
   - `ObjectRow`, `UserAvatar`, `UserChip`, `ProgressMeter`, `SeverityIndicator`, `PermissionBlockedPanel`, `StatusBadgeFrame`;
-  - the rich-content editor, renderer, attach button and extensions (ADR-0050, ADR-0052).
+  - the rich-content editor, renderer, attach button and extensions (platform ADR-0050, platform ADR-0052).
 - `src/index.ts` exports only feature-owned names, and `@ap/feature-ui` must not re-export an `@ap/ui` name again. Import a shared component from `@ap/ui` and a feature component from `@ap/feature-ui`; one import statement never mixes the two.
 - In tests, mock what you replace: a shared component (`ListShell`, `RichEditor`, ...) by mocking `@ap/ui`, a feature name by mocking `@ap/feature-ui`. A `@ap/ui` mock that spreads the real module reads every export, so a test that also mocks `sonner` must give that mock a `Toaster`.
 - Feature-named aliases of `@ap/ui` parts:
@@ -41,7 +41,7 @@ Read the measured traps before editing components or their tests: [`@ap/ui` and 
 
 ## Rich content
 
-- Rich-content uses TipTap per ADR-0011. The allowlist original stays in `packages/feature-shared`; its local mirror and drift anchors (`allowlist-local.ts`, `sanitizeClient.ts`, `fixtures-local.ts`) live in `packages/sdk/ui/src/rich-content/`.
+- Rich-content uses TipTap per FO ADR-0011. The allowlist original stays in `packages/feature-shared`; its local mirror and drift anchors (`allowlist-local.ts`, `sanitizeClient.ts`, `fixtures-local.ts`) live in `packages/sdk/ui/src/rich-content/`.
 
 ## CSS and tokens
 
@@ -49,7 +49,7 @@ Read the measured traps before editing components or their tests: [`@ap/ui` and 
 - `@ap/ui` is a workspace package: a change under the repository's `packages/sdk/ui` reaches feature at once and runs the feature CI. Keep the consumer CSS contract when either side changes. Keep TipTap at 3.23.5 and `@formkit/auto-animate@0.10.0` with its root workspace patch unless a separate decision changes those constraints.
 - Use semantic tokens, not raw hex values, outside token implementation files.
 - A new Tailwind theme key must also be registered in the `@ap/ui` theme and its `cn` merge configuration: tailwind-merge knows only Tailwind's default scales, so an unregistered `text-caption` reads as a text color and `cn` drops it next to `text-text-muted` (#782).
-- `components.json` here only points `@shadcn/lint` at the app's Tailwind entry (ADR-0062). It is not a shadcn CLI config; use the intake guidance in `apps/feature-screens/docs/component-stack.md`.
+- `components.json` here only points `@shadcn/lint` at the app's Tailwind entry (FO ADR-0062). It is not a shadcn CLI config; use the intake guidance in `apps/feature-screens/docs/component-stack.md`.
 - Follow `apps/feature-screens/docs/tokens.md` tokens for light surfaces, spacing, typography, and density; do not introduce a new visual theme from `packages/sdk/ui`.
 
 ## Component rules

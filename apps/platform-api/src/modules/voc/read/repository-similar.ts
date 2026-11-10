@@ -7,7 +7,7 @@ import { sqlUuidArray } from '../../../db/sql-arrays.js';
 import type { Tx } from '../../../db/tx.js';
 import { type Scope, similarVocVisibilityPredicate } from '../authorization.js';
 
-// ── Similar VOC projections (ADR-0031) ──────────────────────────────────────
+// ── Similar VOC projections (FO ADR-0031) ──────────────────────────────────────
 //
 // The peer predicate is deliberately expressed here, rather than inferred from
 // source-VOC access: a reporter can read their own source VOC without voc.read,

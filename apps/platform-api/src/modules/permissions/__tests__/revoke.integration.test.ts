@@ -67,7 +67,7 @@ async function loginAs(
   return sessionCookie(response.headers['set-cookie']);
 }
 
-describe.skipIf(!runIntegration)('Admin permission revocation (ADR-0061)', () => {
+describe.skipIf(!runIntegration)('Admin permission revocation (FO ADR-0061)', () => {
   let db: DbHandle;
   let migrateDb: DbHandle;
   let app: FastifyInstance;

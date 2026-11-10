@@ -58,7 +58,7 @@ function clusterDisplayId(data: {
   return data.display_id?.trim() ? data.display_id : '반복 VOC';
 }
 
-// ADR-0057 A2 amendment localizes Korean navigation and preserves domain nouns.
+// FO ADR-0057 A2 amendment localizes Korean navigation and preserves domain nouns.
 export function buildVocClusterDetailSections(): PanelSection[] {
   return [
     { id: 'overview', label: '요약' },
@@ -197,7 +197,7 @@ export function useClusterDetailParts({
   }
 
   const findingPath = (id: string): string => `/findings/${id}`;
-  // A host that maps no Finding menu offers no link to it (ADR-0071 d10).
+  // A host that maps no Finding menu offers no link to it (platform ADR-0071 d10).
   const openFindingPath =
     linkedFindings[0] !== undefined && canLink(findingPath(linkedFindings[0].id))
       ? findingPath(linkedFindings[0].id)

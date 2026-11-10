@@ -1,6 +1,6 @@
 // VOC module job registrations (#168 step 3). Mirrors registerCoreJobs:
 // one `register<Module>Jobs(boss, deps)` called by the
-// backend entrypoint between pg-boss start and Fastify listen (ADR-0009:22-27).
+// backend entrypoint between pg-boss start and Fastify listen (FO ADR-0009:22-27).
 
 import type { PgBoss } from 'pg-boss';
 
@@ -21,7 +21,7 @@ export interface VocJobDeps {
   embeddingVersion: number;
   embeddingEnabled: boolean;
   publicUpdateReviewCandidatesService: PublicUpdateReviewCandidatesService;
-  /** Structured job logger (ADR-0013, amended 2026-09-22). Required in prod wiring. */
+  /** Structured job logger (FO ADR-0013, amended 2026-09-22). Required in prod wiring. */
   log: JobLog;
 }
 

@@ -1,7 +1,7 @@
 // `requireSession` — Fastify preHandler. Reads the opaque `platform_session`
 // cookie, verifies the row is active (not revoked, not expired), touches
 // `last_seen_at`, and populates `req.session = { session_id, actor_id,
-// workspace_id }`. On any failure renders the ADR-0012 envelope with
+// workspace_id }`. On any failure renders the FO ADR-0012 envelope with
 // `code: 'auth.session_invalid'` (HTTP 401) — the public contract treats
 // "no cookie", "revoked", and "expired" identically so the boundary doesn't
 // leak whether a session ever existed.

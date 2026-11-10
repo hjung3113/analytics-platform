@@ -14,7 +14,7 @@ export const RESPONSIBILITY_COPY = {
   saved: '배정을 저장했습니다.',
   allReviewers: '모든 검토자',
   mine: '내 검토 요청',
-  // Assigned reviewer vs actual decision Actor (ADR-0067 56-F) and team identity.
+  // Assigned reviewer vs actual decision Actor (FO ADR-0067 56-F) and team identity.
   assignedShort: '검토 담당',
   decider: '결정자',
   decidedShort: '결정',

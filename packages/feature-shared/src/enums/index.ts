@@ -1,4 +1,4 @@
-// Enum constants. Per ADR-0003/0004/0005 and GLOSSARY.md Language.
+// Enum constants. Per FO ADR-0003/0004/0005 and GLOSSARY.md Language.
 // One canonical string list per enum; both apps import from here.
 
 // Storage form. DB CHECK constraint on core.actors.role_level matches this

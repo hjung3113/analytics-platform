@@ -29,7 +29,7 @@ export const milestones = taskSchema.table(
       .references(() => managedSystems.id),
     title: text('title').notNull(),
     why: text('why').notNull(),
-    // ADR-0050: closed set planning | in_progress | blocked | released.
+    // FO ADR-0050: closed set planning | in_progress | blocked | released.
     status: text('status').notNull().default('planning'),
     ownerActorId: uuid('owner_actor_id')
       .notNull()

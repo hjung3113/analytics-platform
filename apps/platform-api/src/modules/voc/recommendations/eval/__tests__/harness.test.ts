@@ -1,4 +1,4 @@
-// #168 step 5 — arithmetic of the evaluation harness (ADR-0034 D5).
+// #168 step 5 — arithmetic of the evaluation harness (FO ADR-0034 D5).
 //
 // Every expected number here is hand-computed in the comment beside it, never
 // copied from a run. An eval harness that is checked against its own output

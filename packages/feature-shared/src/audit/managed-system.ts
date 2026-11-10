@@ -1,4 +1,4 @@
-// Managed System Registry audit detail schemas (ADR-0017 audit-detail
+// Managed System Registry audit detail schemas (FO ADR-0017 audit-detail
 // section). `_registered` snapshots row state at creation; `_updated`
 // records a change diff (`changes: { field: { from, to } }`); `_archived`
 // records the id list of cascaded Analytics Areas (empty until Slice 2 #11

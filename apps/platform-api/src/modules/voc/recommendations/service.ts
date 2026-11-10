@@ -1,4 +1,4 @@
-// Embedding recommendation service (#168 step 4, ADR-0034 D3/D4/D5/D6).
+// Embedding recommendation service (#168 step 4, FO ADR-0034 D3/D4/D5/D6).
 //
 // Service + storage. The HTTP surface is `routes.ts` in this directory
 // (GET /vocs/:id/recommendations, confirm, dismiss).
@@ -40,7 +40,7 @@ export interface VocRecommendationItem {
 }
 
 /**
- * `available: false` is never a silently empty list (ADR-0034 D2). The two
+ * `available: false` is never a silently empty list (FO ADR-0034 D2). The two
  * reasons are honest and distinguishable to the caller:
  *   * `provider_disabled` — this environment has no embedding provider.
  *   * `source_not_embedded` — the provider exists, but this VOC has no vector
@@ -69,7 +69,7 @@ export interface VocRecommendationsServiceDeps {
   embeddingEnabled: boolean;
   /**
    * Builds a cluster service bound to a given handle. Confirmation must reuse
-   * the existing cluster path (ADR-0034 D3) *and* commit atomically with the
+   * the existing cluster path (FO ADR-0034 D3) *and* commit atomically with the
    * decision row, so the service is constructed per-transaction rather than
    * injected pre-bound to the pool.
    */
@@ -87,7 +87,7 @@ export function createVocRecommendationsService(deps: VocRecommendationsServiceD
    * Resolves the source VOC and the actor's voc.read scope, or throws
    * `not_found.record`.
    *
-   * `selectRecommendationVocs` applies the ADR-0031 predicate in SQL, so an
+   * `selectRecommendationVocs` applies the FO ADR-0031 predicate in SQL, so an
    * unreadable or archived source is simply absent rather than returned for a
    * second check here. A reporter can reach their own VOC without voc.read
    * (that is the OR arm), which is exactly why candidate visibility is decided
@@ -183,10 +183,10 @@ export function createVocRecommendationsService(deps: VocRecommendationsServiceD
   /**
    * Resolves and authorizes both ends of a pair for a mutation.
    *
-   * Both ends pass through the ADR-0031 predicate in SQL, and both failures
+   * Both ends pass through the FO ADR-0031 predicate in SQL, and both failures
    * are `not_found.record`: a `permission.denied` on the candidate would
    * confirm that the id names a real VOC in this workspace, which is the exact
-   * inference ADR-0034 D4 forbids. Absence covers unreadable and archived
+   * inference FO ADR-0034 D4 forbids. Absence covers unreadable and archived
    * alike, so neither is distinguishable from a bad id.
    */
   async function loadPair(
@@ -257,7 +257,7 @@ export function createVocRecommendationsService(deps: VocRecommendationsServiceD
   }
 
   /**
-   * The only path that creates or joins a cluster (ADR-0034 D3, FR-VOC-004
+   * The only path that creates or joins a cluster (FO ADR-0034 D3, FR-VOC-004
    * criterion 2). Nothing about computing recommendations writes a cluster
    * row; clustering happens here and only when a person asks for it.
    */

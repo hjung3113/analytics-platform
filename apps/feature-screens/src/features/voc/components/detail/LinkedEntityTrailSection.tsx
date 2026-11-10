@@ -32,7 +32,7 @@ export interface LinkedEntityTrailSectionProps {
   /** Opens the linked Finding; same plain-text fallback rule as `onOpenTask` (#1174b). */
   onOpenFinding?: ((findingId: string) => void) | undefined;
   /**
-   * Whether the host can take the actor to this one destination (ADR-0071 d10). Asked per node with its own id, so a
+   * Whether the host can take the actor to this one destination (platform ADR-0071 d10). Asked per node with its own id, so a
    * node the host cannot link renders as text while its siblings stay controls. Absent means every node is linkable.
    */
   canOpen?: ((kind: TrailOpenKind, id: string) => boolean) | undefined;
@@ -94,7 +94,7 @@ function SafeTaskLink({
 }: {
   state: 'denied';
 }): React.ReactElement {
-  // ADR-0023 §A/§E: denied may acknowledge only a safe category.
+  // FO ADR-0023 §A/§E: denied may acknowledge only a safe category.
   return (
     <div data-testid={`linked-task-${state}`}>
       <PermissionBlockedPanel state="denied" category="연결된 Task" />
@@ -129,13 +129,13 @@ function AllowedTaskLink({
             id: task.id,
             display_id: task.display_id,
             title: task.title,
-            // Shared English workflow label (ADR-0057 A2); a target_summary status
+            // Shared English workflow label (FO ADR-0057 A2); a target_summary status
             // is an unparsed string, so fall back to it only if it leaves the enum.
             meta: TASK_STATUS_LABELS[task.status as TaskStatus] ?? task.status,
             // `allowed` already means the backend decided this actor may read
             // the Task, so naming it without a way there is a dead end. Only
             // this state gets a destination — summary_visible and denied must
-            // stay unnavigable (ADR-0023 §A/§E), and Reporter context returned
+            // stay unnavigable (FO ADR-0023 §A/§E), and Reporter context returned
             // above before reaching here.
             ...(openTask ? { onNavigate: () => openTask(task.id) } : {}),
           },
@@ -176,7 +176,7 @@ function TaskLink({
         />
       );
     case 'hidden':
-      // ADR-0023 §A: do not acknowledge that this link exists.
+      // FO ADR-0023 §A: do not acknowledge that this link exists.
       return null;
     case 'denied':
       return <SafeTaskLink state="denied" />;
@@ -184,7 +184,7 @@ function TaskLink({
 }
 
 function SafeFindingLink(): React.ReactElement {
-  // ADR-0023 §A/§E: denied may acknowledge only a safe category.
+  // FO ADR-0023 §A/§E: denied may acknowledge only a safe category.
   return (
     <div data-testid="linked-finding-denied">
       <PermissionBlockedPanel state="denied" category="연결된 Finding" />
@@ -224,7 +224,7 @@ function AllowedFindingLink({
             // `allowed` already means the backend decided this actor may read the
             // Finding, so naming it without a way there is a dead end. Only this
             // state gets a destination — summary_visible and denied must stay
-            // unnavigable (ADR-0023 §A/§E, ADR-0024 §D), and Reporter context
+            // unnavigable (FO ADR-0023 §A/§E, FO ADR-0024 §D), and Reporter context
             // returned above before reaching here.
             ...(openFinding ? { onNavigate: () => openFinding(finding.id) } : {}),
           },
@@ -247,7 +247,7 @@ function FindingLink({
 }): React.ReactElement | null {
   switch (link.visibility_state) {
     case 'summary_visible':
-      // ADR-0024 §E: a Finding has no reporter summary, so this payload is
+      // FO ADR-0024 §E: a Finding has no reporter summary, so this payload is
       // inconsistent — fail closed and conceal the row.
       return null;
     case 'allowed':
@@ -260,7 +260,7 @@ function FindingLink({
         />
       );
     case 'hidden':
-      // ADR-0023 §A: do not acknowledge that this link exists.
+      // FO ADR-0023 §A: do not acknowledge that this link exists.
       return null;
     case 'denied':
       return <SafeFindingLink />;
@@ -408,7 +408,7 @@ export function LinkedEntityTrailSection({
           : `${link.target_type}:${link.target_id}`;
       if (projectedEntities.has(linkedEnd)) return false;
     }
-    // #1174b: a Finding `summary_visible` payload is inconsistent (ADR-0024 §E);
+    // #1174b: a Finding `summary_visible` payload is inconsistent (FO ADR-0024 §E);
     // treat it exactly like `hidden`.
     if (isFindingLink(link) && link.visibility_state === 'summary_visible') return false;
     return (

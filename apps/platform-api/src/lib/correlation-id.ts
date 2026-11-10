@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 
-// Correlation ID (http-adapter-contract §7, ADR-0069 decision 3): a client-supplied
+// Correlation ID (http-adapter-contract §7, platform ADR-0069 decision 3): a client-supplied
 // `X-Correlation-Id` is adopted as the request id when it is a safe token, else the
 // server generates one. Every response echoes it; logs carry it as `request_id`.
 

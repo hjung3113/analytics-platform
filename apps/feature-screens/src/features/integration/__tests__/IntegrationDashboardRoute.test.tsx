@@ -619,7 +619,7 @@ describe('integration action dashboard route', () => {
     });
 
     await screen.findByTestId('integration-managed-system-table');
-    // ADR-0067 56-1/O2: the empty denominator is neutral, not a red 0%.
+    // FO ADR-0067 56-1/O2: the empty denominator is neutral, not a red 0%.
     const cell = screen.getByTestId(`integration-managed-system-coverage-${MS_A}`);
     expect(cell).toHaveTextContent('집계 대상 없음');
     expect(cell.querySelector('[role="meter"]')).toBeNull();

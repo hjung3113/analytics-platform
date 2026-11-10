@@ -20,7 +20,7 @@ const note = {
   quote_or_summary: 'Authored note',
 };
 
-describe('Evidence inventory wire boundary (ADR-0065)', () => {
+describe('Evidence inventory wire boundary (FO ADR-0065)', () => {
   it('normalizes a bounded, independent inventory query', () => {
     expect(
       listEvidenceInventoryQuerySchema.parse({ q: '  Literal %_  ', managed_system_id: 'all' }),

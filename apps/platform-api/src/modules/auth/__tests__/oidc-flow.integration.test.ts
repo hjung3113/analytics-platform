@@ -224,7 +224,7 @@ describe.skipIf(!runIntegration)('OIDC provider flow (#390)', () => {
     expect(txAfter?.value).toBe('');
     expect(txAfter?.attrs).toContain('Expires=Thu, 01 Jan 1970 00:00:00 GMT');
 
-    // Provisioning at role_level user (ADR-0006 first-login rules).
+    // Provisioning at role_level user (FO ADR-0006 first-login rules).
     const actor = await actorRow(IT_SUB);
     expect(actor?.role_level).toBe('user');
     expect(actor?.actor_type).toBe('internal_member');

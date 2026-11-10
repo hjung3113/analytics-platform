@@ -1,4 +1,4 @@
-// Health routes (ADR-0013 "Health endpoints", amended 2026-09-22).
+// Health routes (FO ADR-0013 "Health endpoints", amended 2026-09-22).
 // Both probes are unauthenticated and exempt from rate limit; the probe
 // implementation itself lives in lib/health.ts.
 
@@ -70,7 +70,7 @@ export const healthRoutes: FastifyPluginAsync<HealthRoutesOptions> = async (app,
 
   // Readiness: Postgres answers, pg-boss is usable, storage is reachable.
   // Checks run in parallel, each bounded by `healthProbeTimeoutMs` (default
-  // 2000 ms; ADR-0013). Bodies are fixed-shape and never carry error text —
+  // 2000 ms; FO ADR-0013). Bodies are fixed-shape and never carry error text —
   // DSN-bearing messages stay server-side, logged as `{ check, errName }`.
   const healthChecksSchema = z.object({
     database: z.enum(['ok', 'fail']),

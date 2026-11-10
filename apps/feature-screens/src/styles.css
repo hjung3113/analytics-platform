@@ -1,12 +1,12 @@
 /* Tailwind v4 first: its `@layer theme, base, components, utilities` statement
    must establish layer order before our `layer(base)` imports so tokens.css
-   (base) keeps priority over any theme-layer output (ADR-0058). */
+   (base) keeps priority over any theme-layer output (FO ADR-0058). */
 @import "tailwindcss";
 @import "@ap/ui/styles/tokens.css" layer(base);
 @import "@ap/ui/styles/semantic.css" layer(base);
-/* CSS-first Pack 17 theme (ADR-0058) — replaces the v3 JS preset + @config. */
+/* CSS-first Pack 17 theme (FO ADR-0058) — replaces the v3 JS preset + @config. */
 @import "@ap/ui/styles/theme.css";
-/* v3 Preflight pins, v3 `space-y-*`, leading/tracking legacy shims (ADR-0058). */
+/* v3 Preflight pins, v3 `space-y-*`, leading/tracking legacy shims (FO ADR-0058). */
 @import "@ap/ui/styles/compat.css";
 @import "@ap/ui/styles/sources.css";
 

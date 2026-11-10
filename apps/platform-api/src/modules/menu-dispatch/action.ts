@@ -1,4 +1,4 @@
-// `menuAction` judgment (real-server-checklist §3 «menuAction 판정 순서» 1–8, ADR-0054). Order is
+// `menuAction` judgment (real-server-checklist §3 «menuAction 판정 순서» 1–8, platform ADR-0054). Order is
 // contract. Steps 1–2 need no database; permission is judged before the transaction (cheap refusal)
 // and again on it after the (actor, key) advisory lock; replay precedes input values, so the same
 // key with another input — an extra key included — is `error`, not `invalid`. Only an `ok` answer

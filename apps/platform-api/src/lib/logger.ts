@@ -1,4 +1,4 @@
-// Process root logger (ADR-0013: logs-first observability via stdout JSON).
+// Process root logger (FO ADR-0013: logs-first observability via stdout JSON).
 //
 // One pino instance per process: src/index.ts creates it once and hands it to
 // both the job wrapper (`toJobLog` in lib/job-log.ts) and Fastify

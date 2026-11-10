@@ -15,7 +15,7 @@ import { type JobLog, JOB_WORK_OPTIONS, withJobLogging } from '../../lib/job-log
 import { createAuditService } from '../core/audit/audit-service.js';
 import { EXCERPT_ERASE_BATCH, eraseExcerpts, getQueueSettings } from './repositories/queue-write.js';
 
-/** Queue name. Format: `<module>.<action>` per ADR-0009. Pre-created in migration 0108. */
+/** Queue name. Format: `<module>.<action>` per FO ADR-0009. Pre-created in migration 0108. */
 export const EXCERPT_PURGE_QUEUE = 'lifecycle.excerpt_purge';
 /** Daily at 03:45 UTC, off the slots of the other purges. */
 export const EXCERPT_PURGE_CRON = '45 3 * * *';

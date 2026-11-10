@@ -36,7 +36,7 @@ export interface NameMaps {
     string,
     {
       name: string;
-      /** Default reviewer/owner team ids (ADR-0067), for team pickers' known candidates. */
+      /** Default reviewer/owner team ids (FO ADR-0067), for team pickers' known candidates. */
       defaultReviewerTeamId?: string;
       defaultOwnerTeamId?: string;
     }

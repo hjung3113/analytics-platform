@@ -55,7 +55,7 @@ export const vocListItemSchema = z.object({
   trace_id: z.string().nullable().optional(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
-  // Authorized, active same-Managed-System peers; see ADR-0031.
+  // Authorized, active same-Managed-System peers; see FO ADR-0031.
   // Absent = reporter-hidden (peer-derived).
   similar_count: z.number().int().min(0).optional(),
   // PLAN-22 §Bug-1 (2026-05-22): count of active (non-archived) attachments

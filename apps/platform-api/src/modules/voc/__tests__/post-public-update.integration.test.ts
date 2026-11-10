@@ -909,14 +909,14 @@ describe.skipIf(!runIntegration)('POST /vocs/:id/public-updates (#16 C5)', () =>
     expect(limited.headers['retry-after']).toBeDefined();
   });
 
-  // ── ADR-0047: post-write envelope omits links for triage-only writers ────
+  // ── FO ADR-0047: post-write envelope omits links for triage-only writers ────
   // A voc.triage-only actor cannot read the VOC, so composeDetailEnvelope
   // must call listLinks with onUnreadableFocus: 'empty' (default would 404);
   // the envelope's voc.links comes back empty even though an active link
   // exists on the VOC.
 
   it.skipIf(!MIGRATE_URL)(
-    'triage-only actor → 201 and envelope voc.links is [] despite an active link (ADR-0047)',
+    'triage-only actor → 201 and envelope voc.links is [] despite an active link (FO ADR-0047)',
     async () => {
       const msId = await insertMsDirectly(
         dbHandle,
@@ -982,14 +982,14 @@ describe.skipIf(!runIntegration)('POST /vocs/:id/public-updates (#16 C5)', () =>
     },
   );
 
-  // ── ADR-0047 / #1187: admin with explicit voc.read deny ─────────────────
+  // ── FO ADR-0047 / #1187: admin with explicit voc.read deny ─────────────────
   // Read scopes honour explicit Admin denies (#1188), and the post-write
   // envelope follows the read matrix (#1187): a triage-capable Admin whose
   // voc.read is explicitly denied still gets a 201, and its `voc` is the
   // six-key summary — no `links` key at all.
 
   it.skipIf(!MIGRATE_URL)(
-    'admin with explicit voc.read deny → 201 and the summary envelope carries no links despite an active link (ADR-0047, #1187)',
+    'admin with explicit voc.read deny → 201 and the summary envelope carries no links despite an active link (FO ADR-0047, #1187)',
     async () => {
       const msId = await insertMsDirectly(
         dbHandle,
@@ -1008,7 +1008,7 @@ describe.skipIf(!runIntegration)('POST /vocs/:id/public-updates (#16 C5)', () =>
       const otherVoc = await insertVoc(msId, 'Admin Deny Links Target VOC');
 
       // core.entity_links is append-only to platform_app: seed and clean via the
-      // migrate role (same pattern as the ADR-0047 test). The deny row uses
+      // migrate role (same pattern as the FO ADR-0047 test). The deny row uses
       // the same handle and is removed in finally.
       const ops = createDb(MIGRATE_URL);
       let denyId: string | undefined;

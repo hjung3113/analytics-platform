@@ -610,7 +610,7 @@ function CoverageMetricRow({
   item,
   href,
 }: { item: DashboardSummary['coverage'][number]; href: string | undefined }): React.ReactElement {
-  // ADR-0067 56-1/O2: total zero is neutral 집계 대상 없음, not a green 0/0 · 0%.
+  // FO ADR-0067 56-1/O2: total zero is neutral 집계 대상 없음, not a green 0/0 · 0%.
   const noData = item.status === 'no_data';
   const body = (
     <>

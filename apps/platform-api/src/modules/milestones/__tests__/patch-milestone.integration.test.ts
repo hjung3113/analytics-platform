@@ -268,7 +268,7 @@ describe.skipIf(!runIntegration)('milestone patch (#514 A8)', () => {
     expect(body.updated_at).toBe(ifMatch);
   });
 
-  it('patch: planning to released with no child Tasks succeeds and audits the pair (ADR-0050)', async () => {
+  it('patch: planning to released with no child Tasks succeeds and audits the pair (FO ADR-0050)', async () => {
     const ms = await insertMsDirectly(dbHandle, WORKSPACE_ID, uid(SLUG_PREFIX), 'Patch MS');
     const devCookie = await seedScopedDeveloper(ms);
     const milestone = await seedMilestone(ms, devCookie);
@@ -291,7 +291,7 @@ describe.skipIf(!runIntegration)('milestone patch (#514 A8)', () => {
     });
   });
 
-  it('patch: a status outside the ADR-0050 set is validation.failed and does not write', async () => {
+  it('patch: a status outside the FO ADR-0050 set is validation.failed and does not write', async () => {
     const ms = await insertMsDirectly(dbHandle, WORKSPACE_ID, uid(SLUG_PREFIX), 'Patch MS');
     const devCookie = await seedScopedDeveloper(ms);
     const milestone = await seedMilestone(ms, devCookie);

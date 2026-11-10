@@ -5,9 +5,9 @@
 // apiRequest + shared zod parsers per apps/feature-screens/AGENTS.md — no unparsed calls.
 // Create sends primary_managed_system_id and never managed_system_id; patch sends
 // If-Match (the last seen updated_at) and no Managed System. Create and PATCH
-// accept optional status in ADR-0050's four-value set; omission on create uses
+// accept optional status in FO ADR-0050's four-value set; omission on create uses
 // the planning default. Assignment/conversion do not consult status
-// (ADR-0050 Decision 5).
+// (FO ADR-0050 Decision 5).
 
 import {
   type CreateMilestoneRequest,

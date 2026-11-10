@@ -1,4 +1,4 @@
-// Persistence for voc.voc_embeddings (#168 step 3, ADR-0034 D1/D2).
+// Persistence for voc.voc_embeddings (#168 step 3, FO ADR-0034 D1/D2).
 //
 // This repo owns exactly one table. It never reads config: the active
 // embedding version is always passed in by the caller, so a query can never
@@ -123,7 +123,7 @@ export interface VocNeedingEmbedding {
 // A VOC needs (re-)embedding at the active version when either:
 //
 //   * it has no row at that version — never embedded, or the version was
-//     bumped (ADR-0034 D2's model-swap path); or
+//     bumped (FO ADR-0034 D2's model-swap path); or
 //   * its row is older than the VOC itself: `e.updated_at < v.updated_at`.
 //
 // Why a timestamp and not the content hash: `source_hash` is derived in

@@ -94,7 +94,7 @@ const EMPTY_SUMMARY = dashboardSummarySchema.parse({
   by_managed_system: [],
 });
 
-// ADR-0067 56-1/O2: an empty denominator keeps value/total/percent at zero and
+// FO ADR-0067 56-1/O2: an empty denominator keeps value/total/percent at zero and
 // carries status no_data; the route must render it neutrally at every grain.
 const NO_DATA_SUMMARY = dashboardSummarySchema.parse({
   ...SUMMARY,
@@ -207,7 +207,7 @@ function stubFetch(
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
     capturedUrls.push(url);
-    // ADR-0056: the band-editor link needs the workspace.admin check result,
+    // FO ADR-0056: the band-editor link needs the workspace.admin check result,
     // not just the role label; a pending check stays unresolved on purpose.
     if (url.includes('/me/permissions/check')) {
       if (options.permissionCheck === 'pending') return new Promise<Response>(() => {});
@@ -546,7 +546,7 @@ describe('integration coverage route', () => {
     );
 
     // An explicitly denied Admin keeps the role label but not the capability
-    // (ADR-0056); the display hint must not send them to a dead end.
+    // (FO ADR-0056); the display hint must not send them to a dead end.
     cleanup();
     await renderCoverage('/integration/coverage', SUMMARY, {
       meRole: 'admin',

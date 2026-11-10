@@ -1,7 +1,7 @@
 // Seed — invoked by `pnpm --filter @ap/platform-api db:seed`.
 //
 // Decisions locked by Slice 1 grilling session (Q2, Q4, Q11) and extended
-// by Slice 2 grill Q9 (ADR-0017 / ADR-0018):
+// by Slice 2 grill Q9 (FO ADR-0017 / FO ADR-0018):
 //   * Seed is a SEPARATE command, not embedded in a migration. Migrations
 //     are for schema; seed is for canonical baseline data so the app boots
 //     on a freshly migrated database.
@@ -12,10 +12,10 @@
 //       - mock-user-1  / user@platform.local   / user  / internal_member
 //       - system       / system@platform.local / admin / system
 //   * Slice 2 (#9) extends seed with the Managed System Registry baseline
-//     per ADR-0017 / grill Q9:
+//     per FO ADR-0017 / grill Q9:
 //       - managed_systems: tableau, power-bi (default_owner = mock-admin-1).
 //       - analytics_areas: 5 rows under those two MSs.
-//       - teams: zero rows (ADR-0018 placeholder).
+//       - teams: zero rows (FO ADR-0018 placeholder).
 //   * Idempotent. Re-running the seed inserts zero new rows.
 
 import { and, eq, isNull, sql } from 'drizzle-orm';
@@ -54,9 +54,9 @@ const SEED_ACTORS = [
   },
 ] as const;
 
-// Slice 2 #9 baseline (ADR-0017 + grill Q9). Two managed systems whose
+// Slice 2 #9 baseline (FO ADR-0017 + grill Q9). Two managed systems whose
 // default owner is the seeded mock-admin-1 actor; five analytics areas
-// across them. teams seeded with zero rows per ADR-0018.
+// across them. teams seeded with zero rows per FO ADR-0018.
 const SEED_MANAGED_SYSTEMS = [
   { slug: 'tableau', name: 'Tableau' },
   { slug: 'power-bi', name: 'Power BI' },
@@ -205,7 +205,7 @@ export async function runSeed(handle: DbHandle): Promise<SeedResult> {
     throw new Error('Seed expected mock-admin-1 actor to exist after actor upsert.');
   }
 
-  // ── Managed Systems upsert (ADR-0017) ───────────────────────────────
+  // ── Managed Systems upsert (FO ADR-0017) ───────────────────────────────
   // Idempotency: partial unique on (workspace_id, slug) WHERE archived_at
   // IS NULL forbids duplicate active rows. We pre-check existence rather
   // than rely on onConflictDoNothing because the index is partial.
@@ -241,7 +241,7 @@ export async function runSeed(handle: DbHandle): Promise<SeedResult> {
     if (id) msIdBySlug.set(m.slug, id);
   }
 
-  // ── Analytics Areas upsert (ADR-0017, grill Q9) ─────────────────────
+  // ── Analytics Areas upsert (FO ADR-0017, grill Q9) ─────────────────────
   let analyticsAreasInserted = 0;
   for (const a of SEED_ANALYTICS_AREAS) {
     const msId = msIdBySlug.get(a.msSlug);
@@ -272,7 +272,7 @@ export async function runSeed(handle: DbHandle): Promise<SeedResult> {
   // ensureSeedTeam must run BEFORE seedSlice3Vocs so the '[seed] VOC owner
   // team' row exists for VOC fixtures that use a team owner. Uses
   // platform_migrate role (DATABASE_URL_MIGRATE) because platform_app cannot INSERT
-  // on core.teams per ADR-0019.
+  // on core.teams per FO ADR-0019.
   if (!config.DATABASE_URL_MIGRATE) {
     throw new Error(
       'DATABASE_URL_MIGRATE is required for the Slice 3 seed (creates the ' +

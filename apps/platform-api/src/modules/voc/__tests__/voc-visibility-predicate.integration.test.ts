@@ -1,5 +1,5 @@
 import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fixtures.js';
-// The ADR-0031 visibility rule, pinned once (#168).
+// The FO ADR-0031 visibility rule, pinned once (#168).
 //
 // The rule — "a VOC is visible when its Managed System is in the actor's
 // voc.read scope OR the actor reported it" — used to exist in three
@@ -15,8 +15,8 @@ import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fix
 //      rather than by comparing generated SQL text — comparing SQL strings
 //      proves nothing about what Postgres does with them; and
 //   2. an agreement test that puts the two production read models that
-//      consume the rule — the ADR-0031 similar-peer projections and the
-//      ADR-0034 recommendation read model — on ONE fixture and asserts they
+//      consume the rule — the FO ADR-0031 similar-peer projections and the
+//      FO ADR-0034 recommendation read model — on ONE fixture and asserts they
 //      admit the same VOCs for the same actor.
 //
 // (2) is the assertion that makes the unification real. If someone
@@ -48,7 +48,7 @@ const EXTERNAL_ID_PREFIX = 'it-voc-vis';
 const ACTIVE_VERSION = 168_006;
 const IDENTICAL_VECTOR = [1, 0, 0];
 
-describe.skipIf(!runIntegration)('ADR-0031 VOC visibility predicate (#168)', () => {
+describe.skipIf(!runIntegration)('FO ADR-0031 VOC visibility predicate (#168)', () => {
   let appHandle: DbHandle;
   let ops: DbHandle;
 
@@ -283,8 +283,8 @@ describe.skipIf(!runIntegration)('ADR-0031 VOC visibility predicate (#168)', () 
 
   // ── (2) the two read models agree on one fixture ───────────────────────────
 
-  it('admits the same VOCs through the ADR-0031 peer projections and the ADR-0034 recommendation read model', async () => {
-    // The ADR-0031 projections are same-Managed-System only, so the shared
+  it('admits the same VOCs through the FO ADR-0031 peer projections and the FO ADR-0034 recommendation read model', async () => {
+    // The FO ADR-0031 projections are same-Managed-System only, so the shared
     // fixture is msA. Both a1 and a2 sit alongside the source; the
     // recommendation model additionally needs vectors, so give every msA VOC
     // the same unit vector (cosine 1.0, comfortably above the pinned cut).
@@ -369,11 +369,11 @@ describe.skipIf(!runIntegration)('ADR-0031 VOC visibility predicate (#168)', () 
         .filter((id) => id === a1 || id === a2)
         .sort();
 
-      expect(peerItems, `ADR-0031 items, ${testCase.name}`).toEqual(expected[testCase.name]);
-      expect(peerCount, `ADR-0031 count, ${testCase.name}`).toBe(
+      expect(peerItems, `FO ADR-0031 items, ${testCase.name}`).toEqual(expected[testCase.name]);
+      expect(peerCount, `FO ADR-0031 count, ${testCase.name}`).toBe(
         expected[testCase.name]?.length ?? 0,
       );
-      expect(recommended, `ADR-0034 recommendations, ${testCase.name}`).toEqual(
+      expect(recommended, `FO ADR-0034 recommendations, ${testCase.name}`).toEqual(
         expected[testCase.name],
       );
       // Both surfaces against the predicate itself: one rule, three call sites,

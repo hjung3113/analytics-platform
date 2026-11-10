@@ -212,7 +212,7 @@ describe.skipIf(!runIntegration)('checkCapability', () => {
     });
   });
 
-  it('MS-scoped grant satisfies a scoped check → via managed_system_scope (ADR-0019 Section D)', async () => {
+  it('MS-scoped grant satisfies a scoped check → via managed_system_scope (FO ADR-0019 Section D)', async () => {
     // Plant an MS-scoped grant on a non-role-derived capability. The
     // check supplies `scope.managed_system_id` matching the grant's
     // `managed_system_id`. Expected attribution: `via: 'managed_system_scope'`.

@@ -97,16 +97,16 @@ export async function actorTriageScope(db: Db | Tx, actor: ActorContextLite): Pr
   return actorScopeForCapability(db, actor as ScopeActorContext, 'voc.triage');
 }
 
-// ── Similar VOC visibility predicate (ADR-0031) ──────────────────────────────
+// ── Similar VOC visibility predicate (FO ADR-0031) ──────────────────────────────
 
 /**
- * SQL face of the single ADR-0031 VOC visibility rule. The object form is
+ * SQL face of the single FO ADR-0031 VOC visibility rule. The object form is
  * `isVocVisibleToActor`; the two forms must change together.
  *
  * A VOC other than the actor's own source is visible when its Managed System
  * is in the actor's `voc.read` scope, or the actor reported it. Both the
- * ADR-0031 similar-peer projections below and the ADR-0034 recommendation read
- * model (`recommendations/repo.ts`) call this one function; ADR-0034 D4 says
+ * FO ADR-0031 similar-peer projections below and the FO ADR-0034 recommendation read
+ * model (`recommendations/repo.ts`) call this one function; FO ADR-0034 D4 says
  * the recommendation surface *reuses* this rule rather than deriving one of
  * its own, and reuse means calling it, not restating it.
  *
@@ -134,7 +134,7 @@ export function similarVocVisibilityPredicate(
 }
 
 /**
- * Object face of the single ADR-0031 VOC visibility rule. The SQL form is
+ * Object face of the single FO ADR-0031 VOC visibility rule. The SQL form is
  * `similarVocVisibilityPredicate`; the two forms must change together.
  */
 export function isVocVisibleToActor(
@@ -160,7 +160,7 @@ export async function assertVocTriage(
   );
   if (decision.allow !== true) {
     // F1: `no_grant`, `grant_revoked`, and `grant_expired` map to
-    // `permission.scope_required` for developers (ADR-0061 §6).
+    // `permission.scope_required` for developers (FO ADR-0061 §6).
     // Explicit deny and workspace mismatch remain denied.
     if (isRequestableDenial(decision.reason) && actor.role_level === 'developer') {
       throw new HttpError(

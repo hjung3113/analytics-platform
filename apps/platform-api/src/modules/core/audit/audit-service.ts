@@ -1,12 +1,12 @@
 // Audit application service. Owned by the Core module per
 // apps/platform-api/docs/02-domain-module-boundaries.md:32-42.
 //
-// Contract (ADR-0008):
+// Contract (FO ADR-0008):
 //   * Every domain mutation that produces an audit_log row MUST commit the
 //     row in the SAME transaction as the underlying mutation. To enforce
 //     this at compile time, the only public API takes a Drizzle transaction
 //     handle as its first parameter. There is no `record-without-tx` variant.
-//   * `event_type` is constrained to the AUDIT_EVENT_TYPES enum (ADR-0008:53).
+//   * `event_type` is constrained to the AUDIT_EVENT_TYPES enum (FO ADR-0008:53).
 //     Unknown event_type → thrown error; this is a programmer error, not a
 //     user-facing 422.
 //   * `detail` is validated against the per-event-type schema in

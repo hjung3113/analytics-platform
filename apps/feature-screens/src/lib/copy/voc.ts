@@ -1,6 +1,6 @@
 import { CREATE_OR_LINK_FINDING_LABEL, GLOSSARY } from './glossary';
 
-// #582 / ADR-0031 replaces the prototype's old "similar" wording for this heuristic.
+// #582 / FO ADR-0031 replaces the prototype's old "similar" wording for this heuristic.
 export const SAME_MANAGED_SYSTEM_VOC_LABEL = '같은 시스템의 VOC';
 export const SEMANTIC_VOC_RECOMMENDATIONS_LABEL = '유사 VOC 추천';
 export const SEMANTIC_VOC_RECOMMENDATIONS_NOTICE =

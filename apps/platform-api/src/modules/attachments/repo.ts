@@ -2,7 +2,7 @@
 //
 // Owns writes to voc.voc_attachments only (module ownership per
 // apps/platform-api/docs/02-domain-module-boundaries.md). The route layer wraps
-// the INSERT in the ADR-0015 idempotency frame; this repo emits a single
+// the INSERT in the FO ADR-0015 idempotency frame; this repo emits a single
 // INSERT ... RETURNING.
 //
 // C7b adds `linkAttachments` — atomically attaches pre-uploaded unlinked

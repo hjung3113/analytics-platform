@@ -1,4 +1,4 @@
-// Storage abstraction for the attachment subsystem (Slice 3 #22 / ADR-0011).
+// Storage abstraction for the attachment subsystem (Slice 3 #22 / FO ADR-0011).
 //
 // One implementation ships: `S3CompatStorageBackend` against MinIO in dev and
 // prod, env-swappable to AWS S3 / Cloudflare R2 later. The interface is kept
@@ -53,7 +53,7 @@ export interface StorageBackend {
  * Raised by the storage layer when the upstream object store is unreachable
  * or fails for an infrastructural reason (network error, 5xx from S3/MinIO,
  * unknown bucket, throttled). Route handlers translate this to the
- * ADR-0012 envelope `{ code: 'storage.unavailable', status: 502 }` in C3a.
+ * FO ADR-0012 envelope `{ code: 'storage.unavailable', status: 502 }` in C3a.
  */
 export class StorageUnavailableError extends Error {
   override readonly name = 'StorageUnavailableError';

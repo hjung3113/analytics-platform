@@ -1,8 +1,8 @@
 // Storage + read model for embedding recommendations (#168 step 4).
 //
 // Two responsibilities, deliberately in one file because they share the
-// suppression key: the similarity read model (ADR-0034 D5/D6, computed on
-// read) and the durable decision table (ADR-0034 D3).
+// suppression key: the similarity read model (FO ADR-0034 D5/D6, computed on
+// read) and the durable decision table (FO ADR-0034 D3).
 
 import { sql } from 'drizzle-orm';
 
@@ -45,7 +45,7 @@ export interface RecommendationVocRow {
  * The similarity read model.
  *
  * Authorization is a WHERE clause, not a post-filter, and that is the whole
- * design. ADR-0034 D4 requires that an unauthorized candidate must not appear,
+ * design. FO ADR-0034 D4 requires that an unauthorized candidate must not appear,
  * must not be counted, and must not shift the "N more" number. Filtering in
  * SQL before `count(*) OVER ()` makes that structural: there is no point in
  * the pipeline at which a row the actor cannot read has been counted and is
@@ -155,7 +155,7 @@ export async function hasEmbeddingAtVersion(
  *
  * Archived and unauthorized rows are filtered here rather than returned for
  * the service to reject, so the mutation paths carry no second, TypeScript
- * copy of the ADR-0031 rule. There is exactly one implementation of that rule
+ * copy of the FO ADR-0031 rule. There is exactly one implementation of that rule
  * (`similarVocVisibilityPredicate`), it lives in SQL, and every caller reaches
  * it through this query or through `selectVocRecommendations` above. An id the
  * actor cannot read is simply absent from the map, which the service turns
@@ -195,7 +195,7 @@ export async function selectRecommendationVocs(
  * `DO NOTHING` rather than `DO UPDATE`: a repeat dismissal of an already
  * dismissed pair is a no-op, and re-dismissing must not overwrite a
  * `confirmed` row — that direction of the state machine (confirmed →
- * dismissed) does not exist in ADR-0034 D3.
+ * dismissed) does not exist in FO ADR-0034 D3.
  */
 export async function insertRecommendationDismissal(
   tx: Tx,

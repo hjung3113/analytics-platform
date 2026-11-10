@@ -45,7 +45,7 @@ export function parseRouteSearch<Schema extends z.AnyZodObject>(
   }
 }
 
-/** Whether `value` is one the `key` field of `schema` accepts; an unknown key is not. The hosts' strict per-field checks (ADR-0071 decision 9) delegate here. */
+/** Whether `value` is one the `key` field of `schema` accepts; an unknown key is not. The hosts' strict per-field checks (platform ADR-0071 decision 9) delegate here. */
 export function isSearchFieldValueValid(
   schema: z.AnyZodObject,
   key: string,

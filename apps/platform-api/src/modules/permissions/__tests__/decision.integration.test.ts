@@ -121,7 +121,7 @@ describe.skipIf(!runIntegration)('permission request decisions', () => {
   // Deletion order follows the FK graph into core.actors: requests, grants and
   // denies, then the per-actor session/idempotency/rate-limit rows, then the
   // audit rows (migrate role — platform_app holds no DELETE on core.audit_log by
-  // design, ADR-0008/0019), and only then the actors themselves.
+  // design, FO ADR-0008/0019), and only then the actors themselves.
   async function cleanupFixtures(): Promise<void> {
     const actorPattern = `(external_id like 'mock-dev-read-perm-decision-%'
                             or external_id like 'perm-self-%')`;

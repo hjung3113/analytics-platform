@@ -11,7 +11,7 @@ import type { MenuDispatchContribution } from '../../menu-dispatch/types.js';
 import { PLATFORM_PERMISSION_TABLE, createPlatformPermissionResolver } from '../permissions.js';
 import { platformVocab } from './platform-vocab.js';
 
-// ADR-0068 "one vocabulary": the kernel's own permissions (@ap/contracts/vocab.json `kernelPermissions`)
+// platform ADR-0068 "one vocabulary": the kernel's own permissions (@ap/contracts/vocab.json `kernelPermissions`)
 // and this module's table must not drift. The menu permissions of the business modules are not kernel ones: each module
 // declares them in its contribution (#1667), and this file asserts what the shipped modules declare.
 const kernelPermissions = (): string[] => platformVocab().kernelPermissions;

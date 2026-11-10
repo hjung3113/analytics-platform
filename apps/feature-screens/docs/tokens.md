@@ -1,7 +1,7 @@
 # Feature Visual Reference
 
 This file is the hex token seed for the feature screens. Shared tokens are owned by
-`@ap/ui` (`packages/sdk/ui/src/styles/tokens.css`, ADR-0046); platform visual rules are in
+`@ap/ui` (`packages/sdk/ui/src/styles/tokens.css`, platform ADR-0046); platform visual rules are in
 root `DESIGN.md`. It is not the product design source of truth and does not define
 frontend component behavior — use `docs/design/features/README.md` and
 `apps/feature-screens/docs/ui-design-system.md` for implementation-facing UI contracts.

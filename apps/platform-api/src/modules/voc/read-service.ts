@@ -10,7 +10,7 @@
 //   !msInReadScope && !isReporter && msInEffectiveScope → SUMMARY envelope
 //   !msInReadScope && !isReporter && !msInEffectiveScope → 404 not_found.record
 //
-// ETag header: weak W/"<voc.updated_at-ISO>". ADR-0031 disables conditional
+// ETag header: weak W/"<voc.updated_at-ISO>". FO ADR-0031 disables conditional
 // detail 304 responses because similarity is peer-derived.
 
 import type { ReporterFacingStatusEnum } from '@ap/feature-shared';

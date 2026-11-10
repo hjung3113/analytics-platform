@@ -5,7 +5,7 @@
 // controllers parse HTTP and call into this service; the service owns every
 // DB write touching `core.actors` or `core.sessions`.
 //
-// First-login auto-provisioning follows ADR-0006:42-52.
+// First-login auto-provisioning follows FO ADR-0006:42-52.
 
 import { createHash, randomBytes } from 'node:crypto';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
@@ -34,7 +34,7 @@ export interface SessionRecord {
   workspaceId: string;
   /** Mirrors `core.actors.role_level` for the actor that owns this session.
    * Joined in by `loadAndTouch` so HTTP-tier callers don't need a second
-   * SELECT. See ADR-0019 Section E / Slice 3 prologue Task 5. */
+   * SELECT. See FO ADR-0019 Section E / Slice 3 prologue Task 5. */
   roleLevel: RoleLevel;
 }
 
@@ -43,10 +43,10 @@ export type RateLimitActorIdentity = {
   workspace_id: string;
 };
 
-/** ADR-0006:23-26 — 12h TTL on issue. `last_seen_at` updated per request. */
+/** FO ADR-0006:23-26 — 12h TTL on issue. `last_seen_at` updated per request. */
 export const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
-/** ADR-0006:25 — 32+ bytes random, base64url-encoded. 48 bytes → 64 chars. */
+/** FO ADR-0006:25 — 32+ bytes random, base64url-encoded. 48 bytes → 64 chars. */
 function newSessionId(): string {
   return randomBytes(48).toString('base64url');
 }
@@ -56,7 +56,7 @@ function newCsrfToken(): string {
   return randomBytes(32).toString('base64url');
 }
 
-// F-008: ADR-0006:38 names these columns `*_summary` with the explicit
+// F-008: FO ADR-0006:38 names these columns `*_summary` with the explicit
 // intent that they be derived, low-resolution values rather than full PII.
 // We truncate IPs to a network prefix (/24 for v4, /48 for v6) and hash the
 // result so two requests from the same subnet collide but no single client
@@ -134,7 +134,7 @@ export function createSessionService(deps: SessionServiceDeps) {
 
   return {
     /**
-     * First-login auto-provision + session issue. Per ADR-0006:42-52:
+     * First-login auto-provision + session issue. Per FO ADR-0006:42-52:
      *  1. Look up actor by external_id (= claims.sub) within the workspace.
      *  2. If found, update email/display_name if the claim differs.
      *  3. If not found, insert with role_level='user', actor_type='internal_member'.
@@ -204,7 +204,7 @@ export function createSessionService(deps: SessionServiceDeps) {
               externalId: claims.sub,
               email: claims.email,
               displayName: claims.display_name,
-              roleLevel: 'user', // ADR-0006:48
+              roleLevel: 'user', // FO ADR-0006:48
               actorType: 'internal_member',
             })
             .returning();

@@ -216,7 +216,7 @@ async function assertConversionAnalyticsArea(args: {
 }): Promise<void> {
   if (!args.analyticsAreaId && args.milestoneId == null) return;
   // Lock the Managed System before either child row. When an Analytics Area is
-  // present, this matches AA archive (ADR-0019 E) and VOC create. When only a
+  // present, this matches AA archive (FO ADR-0019 E) and VOC create. When only a
   // Milestone is present, it also keeps the Task insert's Managed System FK
   // KEY SHARE request from inverting the Managed System -> Milestone order.
   await lockManagedSystem(args.tx, args.workspaceId, args.managedSystemId);
@@ -562,7 +562,7 @@ export function createTasksService(deps: TasksServiceDeps) {
   }
 
   // #378: the source VOC ships only as a backend visibility verdict
-  // (ADR-0023). Seeing the Task does not imply seeing its source VOC; a
+  // (FO ADR-0023). Seeing the Task does not imply seeing its source VOC; a
   // `hidden` verdict omits the key entirely so existence is not revealed.
   // Unexpected read failures propagate — they carry no id and must not be
   // swallowed into a synthetic state. Shared by GET and PATCH so both
@@ -629,7 +629,7 @@ export function createTasksService(deps: TasksServiceDeps) {
 
           // #514 A10 — validate milestone_id before insertTask. Unknown or
           // foreign-workspace: not_found; cross-MS: out_of_scope. Status does
-          // not gate Task assignment or conversion (ADR-0050 Decision 5).
+          // not gate Task assignment or conversion (FO ADR-0050 Decision 5).
           if (args.input.milestone_id != null) {
             const milestone = await lockMilestone(tx, {
               workspaceId: args.actor.workspace_id,
@@ -1026,7 +1026,7 @@ export function createTasksService(deps: TasksServiceDeps) {
             });
           }
 
-          // ADR-0050 Decision 5: assigning or unassigning a Task does not
+          // FO ADR-0050 Decision 5: assigning or unassigning a Task does not
           // consult Milestone status. Existence, workspace, and Managed System
           // checks stay, so a released Milestone in the caller's workspace on
           // the Task's Managed System is a successful assign.

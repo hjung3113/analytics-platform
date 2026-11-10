@@ -19,14 +19,14 @@ const envSchema = z
     HOST: z.string().default('0.0.0.0'),
     // Connection used by the running application; should be the platform_app role
     // (INSERT/SELECT/UPDATE/DELETE on non-audit tables, INSERT/SELECT only on
-    // core.audit_log per ADR-0008).
+    // core.audit_log per FO ADR-0008).
     DATABASE_URL: z.string().url().optional(),
     // Connection used exclusively by drizzle-kit migrations and operator scripts;
     // should be the platform_migrate role (ALL on every table). Kept separate so the
     // running app cannot accidentally mutate core.audit_log rows.
     DATABASE_URL_MIGRATE: z.string().url().optional(),
     AUTH_PROVIDER: z.enum(['mock', 'oidc']).default('mock'),
-    // OIDC env contract (issue #390, ADR-0006 amended 2026-09-22). Ignored
+    // OIDC env contract (issue #390, FO ADR-0006 amended 2026-09-22). Ignored
     // (not required, not validated) when AUTH_PROVIDER=mock; required and
     // rule-checked in superRefine when AUTH_PROVIDER=oidc. Validation
     // messages never echo values (the secret, URLs that may carry

@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 /**
  * Token-class coverage: asserts no .tsx file under apps/feature-screens/src/ references
  * a semantic-prefix Tailwind class whose theme key is not resolvable in the
- * CSS-first theme (ADR-0058; previously tailwindcss/resolveConfig against the
+ * CSS-first theme (FO ADR-0058; previously tailwindcss/resolveConfig against the
  * JS preset).
  *
  * Uses node:fs walk (no fast-glob dep) to scan all .tsx files.

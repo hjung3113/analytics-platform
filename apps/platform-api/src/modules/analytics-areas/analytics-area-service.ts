@@ -1,17 +1,17 @@
 // Analytics Area application service (Slice 2 #11).
 //
 // Ownership per apps/platform-api/docs/02-domain-module-boundaries.md +
-// ADR-0017. Mutation contract mirrors managed-system-service (#10):
-//   1. Optional Idempotency-Key (ADR-0015).
+// FO ADR-0017. Mutation contract mirrors managed-system-service (#10):
+//   1. Optional Idempotency-Key (FO ADR-0015).
 //   2. checkCapability('workspace.admin') — grill Q3 lock.
 //   3. Domain INSERT/UPDATE inside the same transaction.
-//   4. Audit row in the SAME transaction (ADR-0008).
+//   4. Audit row in the SAME transaction (FO ADR-0008).
 //   5. Idempotency record.
 //
 // The archive helper exposes a tx-scoped variant
 // (`cascadeArchiveActiveChildren`) consumed by managed-system-service when
 // a Managed System archive cascades to its non-archived Analytics Areas
-// (ADR-0017 archive cascade rule). The cascade variant skips the cap
+// (FO ADR-0017 archive cascade rule). The cascade variant skips the cap
 // check + idempotency lookup because the outer service already performed
 // both for the parent operation.
 
@@ -29,7 +29,7 @@ import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { ActorContext, CheckService } from '../permissions/check-service.js';
 
-// ADR-0017 AA slug shape — same lower-kebab rule as MS slug.
+// FO ADR-0017 AA slug shape — same lower-kebab rule as MS slug.
 export const AA_SLUG_REGEX = /^[a-z][a-z0-9-]*$/;
 
 const REGISTERED: AuditEventType = 'analytics_area_registered';
@@ -244,7 +244,7 @@ export function createAnalyticsAreaService(deps: AnalyticsAreaServiceDeps) {
     await requireWorkspaceAdmin(checkService, actor, tx);
 
     // Parent MS must exist, share the workspace, and not be archived.
-    // ADR-0019 Section E: lock the parent MS row inside this tx so a
+    // FO ADR-0019 Section E: lock the parent MS row inside this tx so a
     // concurrent `archiveManagedSystem` (which also UPDATEs this row
     // and runs the cascade) serialises against us. Without the lock,
     // `READ COMMITTED` lets the archive tx commit between our parent
@@ -340,7 +340,7 @@ export function createAnalyticsAreaService(deps: AnalyticsAreaServiceDeps) {
           throw new HttpError('not_found.record', 'analytics_area not found');
         }
 
-        // ADR-0019 Section A: archived AA is itself immutable.
+        // FO ADR-0019 Section A: archived AA is itself immutable.
         if (existing.archivedAt !== null) {
           throw new HttpError(
             'conflict.record_archived',
@@ -349,13 +349,13 @@ export function createAnalyticsAreaService(deps: AnalyticsAreaServiceDeps) {
           );
         }
 
-        // ADR-0019 Section B Q1: active AA under an archived parent MS
+        // FO ADR-0019 Section B Q1: active AA under an archived parent MS
         // (produced by the cascade race S-004 documents, by manual SQL,
         // or by a future bypass) is treated as a frozen historical
         // record — PATCH rejected. Operators clean it up via the
         // standalone archive path (Section B Q2).
         //
-        // ADR-0019 Section E: lock the parent MS row so a concurrent
+        // FO ADR-0019 Section E: lock the parent MS row so a concurrent
         // archive-MS tx cannot flip parent.archived_at between our read
         // and our AA UPDATE.
         const parentRows = await tx
@@ -457,7 +457,7 @@ export function createAnalyticsAreaService(deps: AnalyticsAreaServiceDeps) {
           throw new HttpError('not_found.record', 'analytics_area not found');
         }
 
-        // ADR-0019 Section E: lock the parent MS row so a concurrent
+        // FO ADR-0019 Section E: lock the parent MS row so a concurrent
         // MS-archive cascade serialises against this AA archive. The lock
         // does not change semantics — the archive UPDATE below uses an
         // `isNull(archivedAt)` predicate so the already-cascade-archived

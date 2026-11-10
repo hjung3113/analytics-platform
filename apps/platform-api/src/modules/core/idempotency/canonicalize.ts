@@ -1,5 +1,5 @@
 // Canonical body hashing for the idempotency middleware.
-// ADR-0015:71-90 mandates a deterministic `request_hash` so retries with the
+// FO ADR-0015:71-90 mandates a deterministic `request_hash` so retries with the
 // same `(actor_id, Idempotency-Key)` can be matched against the original
 // payload. We canonicalize by recursively sorting object keys before
 // JSON.stringify so member ordering changes ('a' first vs 'b' first) do not

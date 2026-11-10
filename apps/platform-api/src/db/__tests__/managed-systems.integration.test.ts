@@ -1,5 +1,5 @@
 import { deleteRecoveryFixtureParents } from '../../test-support/recovery-fixtures.js';
-// Integration tests for Slice 2 #9 schema (ADR-0017 + ADR-0018).
+// Integration tests for Slice 2 #9 schema (FO ADR-0017 + FO ADR-0018).
 //
 // Verifies the load-bearing constraints on managed_systems / analytics_areas
 // / teams: FK targets, the default-owner XOR CHECK, partial unique indexes

@@ -1,4 +1,4 @@
-// OidcAuthProvider — selected by AUTH_PROVIDER=oidc (ADR-0006, amended
+// OidcAuthProvider — selected by AUTH_PROVIDER=oidc (FO ADR-0006, amended
 // 2026-09-22, issue #390). Built on openid-client v6's functional API.
 //
 // Boot contract: discovery runs inside createOidcAuthProvider, which
@@ -297,7 +297,7 @@ export async function createOidcAuthProvider(deps: OidcAuthProviderDeps): Promis
       // provision an actor under someone else's address (the email is unique
       // per workspace). Absence of the claim is accepted: the corporate IdP
       // controls who can sign in and does not let users pick addresses
-      // (ADR-0006); an explicit `false` is always refused.
+      // (FO ADR-0006); an explicit `false` is always refused.
       if (idClaims['email_verified'] === false) return loginFailed();
       const preferredUsername = idClaims['preferred_username'];
       const displayName =

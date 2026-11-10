@@ -111,7 +111,7 @@ describe('cluster detail Finding links through the host seam', () => {
     for (const link of links) expect(link).toHaveAttribute('href', `/findings/${FINDING}`);
   });
 
-  it('offers no Finding link when the host maps none (ADR-0071 d10)', () => {
+  it('offers no Finding link when the host maps none (platform ADR-0071 d10)', () => {
     mount(() => false);
     expect(screen.queryByRole('link', { name: 'Finding 열기' })).not.toBeInTheDocument();
     expect(screen.getByTestId('cluster-detail-panel')).toBeInTheDocument();

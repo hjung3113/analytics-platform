@@ -1,5 +1,5 @@
 // The audit row of a catalog write, shared by the catalog actions (#1194) and the catalog import apply (#1195 b).
-// The caller owns the transaction: the row commits with the write it describes (ADR-0008).
+// The caller owns the transaction: the row commits with the write it describes (FO ADR-0008).
 
 import type { Tx } from '../../db/tx.js';
 import { createAuditService } from '../core/audit/audit-service.js';

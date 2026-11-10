@@ -4,7 +4,7 @@
 // real Postgres (throwaway DB only, apps/platform-api/AGENTS.md → Verification).
 //
 // The run is the readiness table of the real server: every port this backend does not implement
-// yet (menuQuery counts as implemented for the Scope-less endpoints, #1669), and every check that needs a site grant (ADR-0069 decision 8: `scopes: []` until site·room
+// yet (menuQuery counts as implemented for the Scope-less endpoints, #1669), and every check that needs a site grant (platform ADR-0069 decision 8: `scopes: []` until site·room
 // grants exist), is a visible skipped test, never a pass. Annotations are a gate only (#622
 // decision 6, .planning/backlog.md "주석 저장"), so they are declared not implemented.
 
@@ -803,7 +803,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     context: { scopeId: 'no-site', from: '2026-10-01T00:00:00', to: '2026-10-02T00:00:00' },
     foreignScopeId: 'no-foreign-site',
     ports: {
-      // Feature destinations are siteless (ADR-0069 decision 9). A Finding is read by the
+      // Feature destinations are siteless (platform ADR-0069 decision 9). A Finding is read by the
       // Finding detail rule, which every holder of features:access with finding.read passes.
       entity: { ref: findingRef, permission: 'features:access' },
       annotation: {

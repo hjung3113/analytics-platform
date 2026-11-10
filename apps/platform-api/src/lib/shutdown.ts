@@ -1,4 +1,4 @@
-// Graceful shutdown orchestration (ADR-0009, #1266 b3).
+// Graceful shutdown orchestration (FO ADR-0009, #1266 b3).
 //
 // Order: mark draining (readiness turns 503 so the load balancer stops sending
 // traffic) → pg-boss drains (jobs may still need the HTTP path) → Fastify

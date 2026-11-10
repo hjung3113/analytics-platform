@@ -5,7 +5,7 @@
 //     so `drizzle-kit generate` has not produced a stray follow-up diff that a
 //     reviewer might miss.
 //   * that the generated SQL file contains the load-bearing role-separation
-//     statements ADR-0008 requires (GRANT/REVOKE on core.audit_log) so a
+//     statements FO ADR-0008 requires (GRANT/REVOKE on core.audit_log) so a
 //     careless future hand-edit cannot silently drop them.
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -30,7 +30,7 @@ describe('migrations directory', () => {
     expect(files[9]).toMatch(/^0009_teams_grants_tighten/);
   });
 
-  it('Slice 1 migration encodes audit_log role grants per ADR-0008', () => {
+  it('Slice 1 migration encodes audit_log role grants per FO ADR-0008', () => {
     const files = readdirSync(MIGRATIONS_DIR)
       .filter((f) => f.endsWith('.sql'))
       .sort();
@@ -39,7 +39,7 @@ describe('migrations directory', () => {
     if (!firstFile) return;
     const sql = readFileSync(join(MIGRATIONS_DIR, firstFile), 'utf8');
 
-    // ADR-0008: fops_app gets INSERT+SELECT only on core.audit_log;
+    // FO ADR-0008: fops_app gets INSERT+SELECT only on core.audit_log;
     // UPDATE/DELETE/TRUNCATE are revoked.
     expect(sql).toMatch(/GRANT\s+SELECT,\s*INSERT\s+ON\s+"core"\."audit_log"\s+TO\s+fops_app/i);
     expect(sql).toMatch(
@@ -114,7 +114,7 @@ describe('migrations directory', () => {
     expect(sql).not.toMatch(/^GRANT\s/im);
   });
   it('Slice 1 #6 migration installs pg-boss schema with fops_app DML grant only', () => {
-    // ADR-0009 + spec choice (A): the running app role must never DDL the
+    // FO ADR-0009 + spec choice (A): the running app role must never DDL the
     // pgboss schema. Migration 0002 owns the install; fops_app gets DML +
     // EXECUTE on functions, fops_migrate gets everything.
     const files = readdirSync(MIGRATIONS_DIR)
@@ -138,7 +138,7 @@ describe('migrations directory', () => {
   });
 
   it('Slice 1 #3 migration adds rate_limits with fops_app grant', () => {
-    // The rate-limit backing table (ADR-0015:7-8) must be writable by the
+    // The rate-limit backing table (FO ADR-0015:7-8) must be writable by the
     // app role — the plugin upserts per request. fops_migrate already has
     // ALL via the schema-level grant in migration 0000, so only the app
     // grant needs to be hand-added in 0001.
@@ -156,7 +156,7 @@ describe('migrations directory', () => {
   });
 
   it('Slice 2 #9 migration 0005 creates managed_systems + analytics_areas + teams', () => {
-    // ADR-0017 + ADR-0018 lock the shape. Verify the load-bearing DDL is
+    // FO ADR-0017 + FO ADR-0018 lock the shape. Verify the load-bearing DDL is
     // present in the generated SQL so a careless rewrite cannot drop it
     // without the suite failing.
     const files = readdirSync(MIGRATIONS_DIR)
@@ -171,12 +171,12 @@ describe('migrations directory', () => {
     expect(sql).toMatch(/CREATE TABLE "core"\."analytics_areas"/);
     expect(sql).toMatch(/CREATE TABLE "core"\."teams"/);
 
-    // ADR-0018 default-owner XOR-or-both-null CHECK.
+    // FO ADR-0018 default-owner XOR-or-both-null CHECK.
     expect(sql).toMatch(
       /CONSTRAINT "managed_systems_default_owner_xor_check"[\s\S]*"default_owner_actor_id" is null[\s\S]*"default_owner_team_id" is null/i,
     );
 
-    // Partial unique indexes per ADR-0017 / ADR-0018.
+    // Partial unique indexes per FO ADR-0017 / FO ADR-0018.
     expect(sql).toMatch(
       /CREATE UNIQUE INDEX "managed_systems_workspace_slug_active_uq"[\s\S]*\("workspace_id","slug"\)[\s\S]*WHERE "archived_at" is null/,
     );
@@ -192,7 +192,7 @@ describe('migrations directory', () => {
       /analytics_areas[\s\S]*FOREIGN KEY \("managed_system_id"\) REFERENCES "core"\."managed_systems"\("id"\)/,
     );
 
-    // Role grants per ADR-0008 for all three new tables.
+    // Role grants per FO ADR-0008 for all three new tables.
     for (const tbl of ['"core"."managed_systems"', '"core"."analytics_areas"', '"core"."teams"']) {
       const re = new RegExp(
         `GRANT\\s+SELECT,\\s*INSERT,\\s*UPDATE,\\s*DELETE\\s+ON\\s+${tbl.replace(/\./g, '\\.').replace(/"/g, '"')}\\s+TO\\s+fops_app`,
@@ -384,7 +384,7 @@ describe('migrations directory', () => {
     expect(sql).not.toMatch(/milestones_status_check/i);
   });
 
-  it('#514 A-status migration 0050 locks the ADR-0050 status set', () => {
+  it('#514 A-status migration 0050 locks the FO ADR-0050 status set', () => {
     const sql = readFileSync(join(MIGRATIONS_DIR, '0050_milestone_status.sql'), 'utf8');
     expect(sql).toMatch(/milestones_status_check/);
     for (const status of ['planning', 'in_progress', 'blocked', 'released']) {

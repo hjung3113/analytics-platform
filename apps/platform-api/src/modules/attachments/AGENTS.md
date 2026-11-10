@@ -4,7 +4,7 @@
 
 Attachments owns the upload (`POST /attachments`) and download (`GET /attachments/:id/download`) commands, the storage seam, the filename and MIME rules, and the link step that attaches an uploaded file to a parent (`linkAttachments`): a VOC, a VOC comment, or a log-lifecycle validation round (parent kinds below). It writes only `voc.voc_attachments`.
 
-It implements Core's attachment governance (`apps/platform-api/docs/02-domain-module-boundaries.md`) — it is not a second owner. Storage shape and server-proxied transfer are ADR-0011. VOC owns the read projections of its own attachment links (`voc/repo-read.ts`).
+It implements Core's attachment governance (`apps/platform-api/docs/02-domain-module-boundaries.md`) — it is not a second owner. Storage shape and server-proxied transfer are FO ADR-0011. VOC owns the read projections of its own attachment links (`voc/repo-read.ts`).
 
 ## Invariants
 
@@ -12,7 +12,7 @@ It implements Core's attachment governance (`apps/platform-api/docs/02-domain-mo
   - `uploadAttachmentCommand` best-effort `storage.delete`s the just-written object only when the transaction definitely did not commit: a failure before COMMIT, an idempotent replay, or a key/hash conflict (a failed delete is logged without the key and never changes the outcome).
   - A failure at or after COMMIT is ambiguous (the acknowledgement may have been lost after the server committed): the object is kept and logged; a referenced object is never deleted (`commitPhase` in `runIdempotentCommand`). Leftovers are found by `src/cli/attachments-orphans.ts` (`ops/platform-api/docs/release/attachment-orphans.md`).
 - `POST /attachments` takes a per-process admission slot (`ATTACHMENT_UPLOAD_CONCURRENCY`, default 4) before buffering the body and releases it in a `finally`; no free slot = 503 `service.unavailable` with `Retry-After: 5`, never queued (`upload-admission.ts`). The S3 client has a 30 s request and 5 s connect deadline (`STORAGE_S3_REQUEST_TIMEOUT_MS`, `STORAGE_S3_CONNECT_TIMEOUT_MS`).
-- The `attachment_uploaded` audit detail schema is `.strict()` and must never carry the filename: filenames can hold PII and controlled operator audit history retains attribution (app raw SELECT revoked by ADR-0064) (`packages/feature-shared/src/audit/attachments.ts`).
+- The `attachment_uploaded` audit detail schema is `.strict()` and must never carry the filename: filenames can hold PII and controlled operator audit history retains attribution (app raw SELECT revoked by FO ADR-0064) (`packages/feature-shared/src/audit/attachments.ts`).
 - The MIME allowlist (`mime-allowlist.ts`) is a closed set checked against the declared Content-Type; anything else is `attachment.unsupported_type`. Size cap: `MAX_ATTACHMENT_BYTES` (25 MB).
 - Every filename passes `sanitizeFilename` (strips `/`, `\`, control characters; clamps to 255 UTF-8 bytes; an empty result is rejected) before it enters the storage key `{workspace_id}/{uuid}/{filename}`.
 - `voc_attachments` has no `workspace_id` column. The storage-key prefix is the workspace gate on download; a cross-workspace id returns 404, not 403.

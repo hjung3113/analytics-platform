@@ -1,6 +1,6 @@
-// Unit coverage for the dismissal scope key (#168 step 4, ADR-0034 D3).
+// Unit coverage for the dismissal scope key (#168 step 4, FO ADR-0034 D3).
 //
-// The ADR-0031 visibility rule is deliberately NOT tested here: it has exactly
+// The FO ADR-0031 visibility rule is deliberately NOT tested here: it has exactly
 // one implementation, it is SQL, and it is pinned against the real database by
 // `voc/__tests__/voc-visibility-predicate.integration.test.ts`.
 //

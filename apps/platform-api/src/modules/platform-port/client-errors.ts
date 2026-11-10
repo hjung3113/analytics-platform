@@ -1,4 +1,4 @@
-// Platform port `reportClientError` (ADR-0069 decisions 1, 2; #622). Identity fields only — no
+// Platform port `reportClientError` (platform ADR-0069 decisions 1, 2; #622). Identity fields only — no
 // message, stack or URL is ever stored (http-adapter-contract §1). Validation mirrors the reference
 // server (`packages/adapters/mock-server/src/server.ts` reportClientError); the server stamps actor, request id
 // and receive time. Insert-only: there is no read API and no purge job (backlog: retention).

@@ -13,7 +13,7 @@
  *     allowed-transition lookup table seeded by migration; the app only reads
  *     it (see voc/transitions.ts).
  *
- * (Note: ADR-0008 itself governs `core.audit_log` immutability only — it does
+ * (Note: FO ADR-0008 itself governs `core.audit_log` immutability only — it does
  * not mandate full-DML for product tables. The append-only grants above come
  * from the 0010 schema design, which keeps reporter-facing VOC history
  * immutable at the role level rather than relying on app code.)
@@ -97,7 +97,7 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   // Migrations 0018 and 0019 record canonical link history by inserting and
   // soft-detaching links (status='detached'), never hard-deleting them.
   'core.entity_links': [],
-  // Migration 0009 revokes writes per ADR-0019 Section C: teams remain a
+  // Migration 0009 revokes writes per FO ADR-0019 Section C: teams remain a
   // read-only placeholder until a team-management service ships.
   'core.teams': ['SELECT'],
   // Migration 0041 grants the settings upsert path; settings are updated in
@@ -148,19 +148,19 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   // No DELETE by design (migration 0044): a dismissal the application can
   // erase is not a dismissal that survives recomputation. UPDATE is granted
   // for the one legal transition out of a terminal state — a dismissed pair
-  // promoted to `confirmed` in place (ADR-0034 D3).
+  // promoted to `confirmed` in place (FO ADR-0034 D3).
   'voc.voc_recommendation_decisions': ['SELECT', 'INSERT', 'UPDATE'],
   // Issue #512 measurements are durable, but application code cannot erase
   // an observation; migration 0051 grants only the shadow worker's DML needs.
   'voc.voc_cluster_autogen_shadow_candidates': ['SELECT', 'INSERT', 'UPDATE'],
-  // ADR-0068: durable pair history; only ended hourly admission buckets can be reclaimed.
+  // FO ADR-0068: durable pair history; only ended hourly admission buckets can be reclaimed.
   'voc.voc_cluster_suggestions': ['SELECT', 'INSERT', 'UPDATE'],
   'voc.voc_cluster_suggestion_counters': ['SELECT', 'INSERT', 'UPDATE'],
   'voc.voc_cluster_suggestion_admissions': ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
   'voc.voc_similarity_preview_requests': ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
   'voc.voc_similarity_preview_budgets': ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
   'voc.voc_cluster_suggestion_cursors': ['SELECT', 'INSERT', 'UPDATE'],
-  // Migration 0052 (ADR-0055): the current follow-up decision is updated in
+  // Migration 0052 (FO ADR-0055): the current follow-up decision is updated in
   // place, never deleted. UPDATE is column-scoped and asserted below.
   'survey.outcome_follow_up_decisions': ['SELECT', 'INSERT'],
   // Migration 0068: mutable identity/preferences, append-only immutable history.
@@ -218,7 +218,7 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'core.api_tokens': ['SELECT', 'INSERT'],
 };
 
-describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice 3 #22)', () => {
+describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Slice 3 #22)', () => {
   let migrateHandle: DbHandle;
   let appHandle: DbHandle;
 

@@ -1,9 +1,9 @@
-// #510 part C (ADR-0055): route-level contracts for the outcome follow-up
+// #510 part C (FO ADR-0055): route-level contracts for the outcome follow-up
 // READ endpoint. Fixtures are seeded through the migrate handle; sessions are
 // seeded via SQL (submit-more-info pattern) so this suite never spends the
 // shared mock-login rate-limit bucket, and each test uses its own actor.
 //
-// The non-holder payload is the disclosure boundary (ADR-0055 part C): it
+// The non-holder payload is the disclosure boundary (FO ADR-0055 part C): it
 // must carry the survey-grain booleans only — no counts, no response ids, no
 // per-response flags — and a holder read must audit one
 // survey_response_personal_read row per exposed (response, low-answer

@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Tx } from '../../../db/tx.js';
 
-// ADR-0069 decision 6: the allowlisted audit projection for the platform audit screen.
+// platform ADR-0069 decision 6: the allowlisted audit projection for the platform audit screen.
 // The allowlist (subject types, survey_response subjects/links, sensitive capabilities and rows, columns) lives in
 // `core.platform_audit_events` (migrations 0074 and 0122); this wrapper only passes filters and parses.
 // Caller owns request authorization.

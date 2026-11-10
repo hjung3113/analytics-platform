@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Route-shaped request for POST /survey-responses/:id/mark-no-follow-up and
- * POST /survey-responses/:id/reopen-follow-up (ADR-0055). The reason is the
+ * POST /survey-responses/:id/reopen-follow-up (FO ADR-0055). The reason is the
  * operator's decision record; it must be non-empty after trimming.
  */
 export const outcomeFollowUpDecisionRequestSchema = z
@@ -44,7 +44,7 @@ const followUpRequestablePermissionSchema = z
   .strict();
 
 /**
- * Per-item follow-up action (ADR-0055 part C). `allowed` carries no
+ * Per-item follow-up action (FO ADR-0055 part C). `allowed` carries no
  * requestable permission; `blocked_requestable` carries the
  * `finding.manage` request target, or null when the capability cannot be
  * requested in this context.
@@ -78,7 +78,7 @@ export const outcomeFollowUpLowAnswerSchema = z
   .strict();
 export type OutcomeFollowUpLowAnswer = z.infer<typeof outcomeFollowUpLowAnswerSchema>;
 
-/** The qualifying generated_finding link's Finding (ADR-0055 live statuses only). */
+/** The qualifying generated_finding link's Finding (FO ADR-0055 live statuses only). */
 export const outcomeFollowUpFindingSchema = z
   .object({
     id: z.string().uuid(),
@@ -114,7 +114,7 @@ export const outcomeFollowUpItemSchema = z
 export type OutcomeFollowUpItem = z.infer<typeof outcomeFollowUpItemSchema>;
 
 /**
- * `GET /surveys/:id/outcome-follow-up` (ADR-0055 part C). The survey-grain
+ * `GET /surveys/:id/outcome-follow-up` (FO ADR-0055 part C). The survey-grain
  * booleans are the only classification data a non-holder of
  * `survey.read_personal_responses` receives. The union on `personal_access`
  * enforces that disclosure rule at the schema level: a non-holder payload

@@ -2,7 +2,7 @@
 // (VOC, Survey, Task, Finding) will follow as their slices land: each
 // module exports `register<Module>Jobs(boss, deps)` and the backend
 // entrypoint calls them in sequence between pg-boss start and Fastify
-// listen (ADR-0009:22-27).
+// listen (FO ADR-0009:22-27).
 
 import type pg from 'pg';
 import type { PgBoss } from 'pg-boss';
@@ -21,7 +21,7 @@ export interface CoreJobDeps {
   pool?: pg.Pool;
   /** Optional — only required to enable the attachments_purge job (PLAN-22 C4b). */
   storage?: StorageBackend;
-  /** Structured job logger (ADR-0013, amended 2026-09-22). Required in prod wiring. */
+  /** Structured job logger (FO ADR-0013, amended 2026-09-22). Required in prod wiring. */
   log: JobLog;
 }
 

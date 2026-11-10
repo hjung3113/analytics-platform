@@ -1,5 +1,5 @@
 // Hourly purge of unlinked voc.voc_attachments rows (PLAN-22 C4b;
-// ADR-0011 attachment lifecycle).
+// FO ADR-0011 attachment lifecycle).
 //
 // POST /attachments inserts an attachment row in two phases: the raw row
 // lands first (voc_id, comment_id and parent_id all NULL), then a follow-up
@@ -24,7 +24,7 @@ import type { PgBoss } from 'pg-boss';
 import { type JobLog, JOB_WORK_OPTIONS, errorFields, withJobLogging } from '../../../lib/job-log.js';
 import type { StorageBackend } from '../../../lib/storage/index.js';
 
-/** Queue name. Format: `<module>.<action>` per ADR-0009. */
+/** Queue name. Format: `<module>.<action>` per FO ADR-0009. */
 export const ATTACHMENTS_PURGE_QUEUE = 'core.attachments_purge';
 
 /** Hourly cron, offset 30 min from idempotency_purge (0) and rate_limits_purge (15). */
@@ -158,7 +158,7 @@ export async function purgeUnlinkedAttachments(
  * Wire the handler + hourly cron into pg-boss. Idempotent — same contract
  * as `registerIdempotencyPurge` / `registerRateLimitsPurge`. Queue is
  * pre-created in migration 0014 because platform_app cannot DDL via
- * pgboss.create_queue (F-010 / ADR-0008).
+ * pgboss.create_queue (F-010 / FO ADR-0008).
  */
 export async function registerAttachmentsPurge(
   boss: PgBoss,

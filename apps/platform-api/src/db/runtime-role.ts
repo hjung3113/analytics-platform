@@ -1,4 +1,4 @@
-// Runtime boot guard for the `node dist/index` entry (issue #402, ADR-0008).
+// Runtime boot guard for the `node dist/index` entry (issue #402, FO ADR-0008).
 //
 // The running app must connect as the plain `platform_app` DML role. Instead of
 // trusting the DATABASE_URL text, this guard asks Postgres who the connection

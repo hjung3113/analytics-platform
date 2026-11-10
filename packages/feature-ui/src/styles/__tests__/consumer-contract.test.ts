@@ -5,7 +5,7 @@ import { compile } from '@tailwindcss/node';
 import { expect, it } from 'vitest';
 
 /**
- * Consumer contract for the documented @ap/ui stylesheet imports (ADR-0058).
+ * Consumer contract for the documented @ap/ui stylesheet imports (FO ADR-0058).
  *
  * Consumers import these package stylesheet lines — never the app stylesheet.
  * These tests compile EXACTLY the documented recipe with Tailwind's Node API

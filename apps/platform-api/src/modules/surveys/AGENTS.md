@@ -20,13 +20,13 @@ Survey owns Survey, Survey Response, Survey Result, survey-specific summaries, a
 
 - Test forbidden create-VOC paths, hidden response summaries, and survey-to-Finding evidence preservation when touched.
 
-## Close-out contract (ADR-0067)
+## Close-out contract (FO ADR-0067)
 
-- ADR-0067 preserves the dedicated Survey operator resolver and ADR-0055 response classifier, source-owned decisions/reopen and personal-read audits (no Admin bypass).
+- FO ADR-0067 preserves the dedicated Survey operator resolver and FO ADR-0055 response classifier, source-owned decisions/reopen and personal-read audits (no Admin bypass).
 - Response presentation/history adapter stays Survey-owned/personal-gated; Dashboard gets aggregate count/safe Survey navigation, no non-holder response enumeration.
 - Response-derived Finding responsibility is resolved by Findings after the personal source gate.
 
-## Provenance and safe reuse (ADR-0064)
+## Provenance and safe reuse (FO ADR-0064)
 
 Migration application and real-role integration verification remain conductor-owned; the frontend picker is separate.
 

@@ -1,4 +1,4 @@
-// Postgres-backed store for @fastify/rate-limit. ADR-0015:7-8 requires that
+// Postgres-backed store for @fastify/rate-limit. FO ADR-0015:7-8 requires that
 // limits survive across pods, which the bundled in-memory store cannot do.
 // Backed by `core.rate_limits` (one row per `(key, route_group)`); each call
 // to `incr` does a single atomic UPSERT that resets the counter when the

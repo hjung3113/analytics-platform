@@ -1,4 +1,4 @@
-// Production graph guard (ADR-0009 approach, ADR-0119 §7): the production entry's import closure holds no synthetic adapter, no
+// Production graph guard (platform ADR-0009 approach, ADR-0119 §7): the production entry's import closure holds no synthetic adapter, no
 // contract-suite helper and no dev assembly; the dev/test assembly does inject the synthetic adapter. Static, DB-free.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';

@@ -794,7 +794,7 @@ describe('TaskBoardRoute', () => {
     expect(screen.getAllByText('배포됨').length).toBeGreaterThan(0);
   });
 
-  // #290: ADR-0030 allows every status to reach every other status, but the
+  // #290: FO ADR-0030 allows every status to reach every other status, but the
   // board excluded backlog from the next-status button, leaving drag as the
   // only way out — and drag is closed to keyboard users. Two defects, not one:
   // the render guard hid the button, and the nextStatus map had no backlog

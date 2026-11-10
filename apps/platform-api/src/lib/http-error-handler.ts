@@ -4,13 +4,13 @@ import type { FastifyInstance } from 'fastify';
 import { replyIfDbTimeout } from './db-timeout.js';
 import { type ZodIssueShape, fieldsFromZodIssues, statusForCode } from './errors.js';
 
-// ── Error handler ─ ADR-0012 envelope ────────────────────────────────
+// ── Error handler ─ FO ADR-0012 envelope ────────────────────────────────
 // Runs on the ROOT Fastify instance, never inside app.register(): a
 // plugin's setErrorHandler is encapsulated and would not cover sibling
 // product routes.
 export function registerHttpErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((err, req, reply) => {
-    // HttpError instances carry an ADR-0012 code. Use the zod enum schema
+    // HttpError instances carry an FO ADR-0012 code. Use the zod enum schema
     // (closed ErrorCode union from @ap/feature-shared) so an unknown code like
     // `internal.something_new` falls through to the generic 500 branch
     // below instead of being silently widened by a regex+`as never` cast.
@@ -25,7 +25,7 @@ export function registerHttpErrorHandler(app: FastifyInstance): void {
           req.log.warn({ code: parsed.data }, 'rate limit exceeded');
         }
         // F3: `requestable_permission` belongs at the top level of ErrorEnvelope
-        // (ADR-0012 / packages/feature-shared/src/errors/codes.ts:67-71). Hoist it out
+        // (FO ADR-0012 / packages/feature-shared/src/errors/codes.ts:67-71). Hoist it out
         // of `detail` when present so the wire format matches the typed contract.
         let hoisted: Record<string, unknown> | undefined;
         let cleanDetail: Record<string, unknown> | undefined = errDetail;
@@ -47,7 +47,7 @@ export function registerHttpErrorHandler(app: FastifyInstance): void {
     const timedOut = replyIfDbTimeout(err, req, reply);
     if (timedOut) return timedOut;
     // Zod validation errors surface via fastify-type-provider-zod with
-    // statusCode 400; remap to ADR-0012 envelope. Review HTTP-M-1:
+    // statusCode 400; remap to FO ADR-0012 envelope. Review HTTP-M-1:
     // fastify-type-provider-zod returns the raw ZodIssue array in
     // `err.validation`. Slim each entry to `{path, code}` so internal
     // field paths and discriminator codes are not exposed (CWE-209).

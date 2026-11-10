@@ -1,14 +1,14 @@
-// Background job runtime helpers (ADR-0009).
+// Background job runtime helpers (FO ADR-0009).
 //
 // `initBoss` constructs a pg-boss instance against the same Postgres reachable
 // via DATABASE_URL (platform_app role). pg-boss's own bootstrap migrations are
 // disabled — the `pgboss` schema, tables, and stored functions are installed
 // by Drizzle migration 0002 running as platform_migrate, so the running app never
-// needs DDL privileges (option (A) in the Slice 1 spec; ADR-0008 spirit).
+// needs DDL privileges (option (A) in the Slice 1 spec; FO ADR-0008 spirit).
 //
 // `shutdownBoss` resolves only after pg-boss has finished stopping. Callers
 // invoke this BEFORE closing the Fastify app and the Drizzle pool so in-flight
-// jobs see a clean database (ADR-0009: graceful shutdown).
+// jobs see a clean database (FO ADR-0009: graceful shutdown).
 
 import { PgBoss } from 'pg-boss';
 
@@ -19,7 +19,7 @@ export type Boss = PgBoss;
 export interface InitBossOptions {
   connectionString: string;
   /**
-   * Structured logger (ADR-0013, amended 2026-09-22). Required: pg-boss
+   * Structured logger (FO ADR-0013, amended 2026-09-22). Required: pg-boss
    * emits 'error' and 'warning' events; they must reach the process root
    * logger instead of being swallowed.
    */
@@ -35,7 +35,7 @@ export async function initBoss(opts: InitBossOptions): Promise<Boss> {
   const boss = new PgBoss({
     connectionString: opts.connectionString,
     schema: 'pgboss',
-    // ADR-0008 + Slice 1 spec choice (A): the running platform_app role has no
+    // FO ADR-0008 + Slice 1 spec choice (A): the running platform_app role has no
     // DDL on pgboss.*; the schema is owned by migration 0002. If pg-boss is
     // upgraded to a new schema version, a follow-up Drizzle migration runs
     // `getMigrationPlans('pgboss', N)` as platform_migrate. Boot must never

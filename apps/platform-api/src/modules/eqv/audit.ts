@@ -1,5 +1,5 @@
 // The audit rows of the eqv writes (ids, versions and Revision hashes only: no document, no name). The caller owns the transaction, so
-// the row commits or rolls back with the write it describes (ADR-0008).
+// the row commits or rolls back with the write it describes (FO ADR-0008).
 import type { Tx } from '../../db/tx.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';

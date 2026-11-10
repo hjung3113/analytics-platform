@@ -22,7 +22,7 @@
 
 - Test missing-link queues, permission-aware rows, refresh after repair, and next-action routing when touched.
 
-## Close-out contract (ADR-0067)
+## Close-out contract (FO ADR-0067)
 
 - Required `computed_at` and live recovery list/detail use deterministic canonical opaque category/source tokens. Compatibility/readability is rechecked; a readable resolved address needs no historical proof and returns no repair actions.
 - Reuse owner predicates for summary/list/active detail. Scope/category and Home's explicit `view=actionable` executable repair eligibility precede count/LIMIT.
@@ -32,11 +32,11 @@
 - Strict schemas carry truthful nullable occurrence/resolution, personal presentation, and visible/hidden totals. Dashboard owns storage/recorder/pg-boss, presentation PATCH and history; GETs write no source/projection state.
   - History starts at the first instant of the current UTC month minus two calendar months, inclusive; current permission filtering precedes count/LIMIT. Runtime history is append-only; reconciliation uses observation evidence.
 - Personal 1-day/7-day snooze/current-occurrence mute never changes operational summary counts; reopen resets hiding.
-- Outcome response presentation/history remains Survey-owned/personal-gated (ADR-0055).
+- Outcome response presentation/history remains Survey-owned/personal-gated (FO ADR-0055).
 - Coverage reads the resolved five metric pairs once; `no_data` differs from absent keys. Rendered consumer compatibility is #1088-owned; deliver atomically.
-- Measure bounded API/UI and recorder fanout against ADR-0067's budget.
+- Measure bounded API/UI and recorder fanout against FO ADR-0067's budget.
 
-## Analytics Area report (ADR-0069)
+## Analytics Area report (FO ADR-0069)
 
 - Compose authorized grouped owner reads and batch catalog metadata, not foreign repositories or per-Area service calls.
 - Attribute each VOC/Finding/Task/Survey to its own current nullable Area UUID; keep null/archived context.

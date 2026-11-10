@@ -48,7 +48,7 @@ export async function checkSurveyRead(
     },
     options,
   );
-  // ADR-0033 §C. Declared as `adminModuleBypass: 'unless_denied'` in
+  // FO ADR-0033 §C. Declared as `adminModuleBypass: 'unless_denied'` in
   // `CAPABILITY_META` — change both together or the advisory
   // `GET /me/permissions/check` drifts from this route (issue #372).
   if (!decision.allow && decision.reason === 'explicit_deny') return decision;
@@ -71,7 +71,7 @@ export async function checkSurveyManage(
     },
     options,
   );
-  // ADR-0033 §C. Declared as `adminModuleBypass: 'unless_denied'` in
+  // FO ADR-0033 §C. Declared as `adminModuleBypass: 'unless_denied'` in
   // `CAPABILITY_META` — change both together (issue #372).
   if (!decision.allow && decision.reason === 'explicit_deny') return decision;
   if (actor.role_level === 'admin') return { allow: true, via: 'role' };

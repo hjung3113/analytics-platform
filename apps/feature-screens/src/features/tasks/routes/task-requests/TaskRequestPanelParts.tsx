@@ -28,7 +28,7 @@ import { TaskRequestSourceSection } from './TaskRequestSourceSection';
 import { useTaskRequestDecision } from './useTaskRequestDecision';
 import { useTaskRequestPanelController } from './useTaskRequestPanelController';
 
-// ADR-0057 A2 amendment: keep panel navigation in Korean and preserve domain nouns.
+// FO ADR-0057 A2 amendment: keep panel navigation in Korean and preserve domain nouns.
 export function buildTaskRequestSections(showDecisionSummary: boolean): PanelSection[] {
   return [
     { id: 'overview', label: '요약' },
@@ -113,7 +113,7 @@ export function TaskRequestPanelBody({
     useTaskRequestPanelController({ item, currentRole });
   const showDecisionSummary = item.status === 'converted' || item.status === 'rejected';
   // Known-team candidates for the conversion form's team picker: the Managed
-  // System defaults plus every team the queue context already names (ADR-0067).
+  // System defaults plus every team the queue context already names (FO ADR-0067).
   const conversionTeamCandidates = [
     ...new Set(
       [

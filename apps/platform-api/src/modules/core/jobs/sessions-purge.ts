@@ -12,7 +12,7 @@
 // budget (`DB_STATEMENT_TIMEOUT_MS`, default 15 s); the loop ends when a
 // batch comes back short, so a re-run on a clean table is a no-op.
 //
-// There is no index on `expires_at` / `revoked_at`: ADR-0015 requires every
+// There is no index on `expires_at` / `revoked_at`: FO ADR-0015 requires every
 // workspace-scoped index to start with `workspace_id`, and this cross-workspace
 // query cannot use one. With 7-day retention the table stays in the low
 // thousands of rows, so the batched delete is cheap without an index.
@@ -23,7 +23,7 @@ import type { PgBoss } from 'pg-boss';
 import type { Db } from '../../../db/client.js';
 import { JOB_WORK_OPTIONS, type JobLog, withJobLogging } from '../../../lib/job-log.js';
 
-/** Queue name. Format: `<module>.<action>` per ADR-0009. Pre-created in migration 0084. */
+/** Queue name. Format: `<module>.<action>` per FO ADR-0009. Pre-created in migration 0084. */
 export const SESSIONS_PURGE_QUEUE = 'core.sessions_purge';
 
 /** Daily at 03:30 UTC, off the :00/:15 slots used by the hourly purges. */

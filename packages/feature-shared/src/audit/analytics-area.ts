@@ -1,4 +1,4 @@
-// Analytics Area audit detail schemas (ADR-0017 audit-detail section,
+// Analytics Area audit detail schemas (FO ADR-0017 audit-detail section,
 // Slice 2 #11). `_archived` carries `cascade_source_managed_system_id` so a
 // single BI query can join from either direction (MS archive → child AAs,
 // or AA row → parent cascade event). Imported by audit-events.ts to

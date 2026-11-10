@@ -1,7 +1,7 @@
 // AnalyticsAreaPicker — dumb component (AGENTS.md:76, grill Q7 lock).
 // Identical shape to ManagedSystemPicker; the AA picker is `disabled` until
 // the caller picks a Managed System and pre-filters `options` accordingly.
-// Pack 17 / ADR-0021: rebuilt on shadcn ToggleGroup (chip pattern, spec §3.4).
+// Pack 17 / FO ADR-0021: rebuilt on shadcn ToggleGroup (chip pattern, spec §3.4).
 
 import { ChipPicker } from './ChipPicker.js';
 import type { PickerOption } from './ManagedSystemPicker.js';

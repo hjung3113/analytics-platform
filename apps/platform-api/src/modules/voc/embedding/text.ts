@@ -1,7 +1,7 @@
-// Embedding input derivation (#168 step 3, ADR-0034 D6).
+// Embedding input derivation (#168 step 3, FO ADR-0034 D6).
 //
 // A VOC's meaning is split across two columns — `vocs.title` (text) and
-// `vocs.description_rich_content` (jsonb, ADR-0011 TipTap). Neither alone is
+// `vocs.description_rich_content` (jsonb, FO ADR-0011 TipTap). Neither alone is
 // the embedding input, so the input is *derived* here, in one pure function,
 // and hashed. `voc.voc_embeddings.source_hash` stores that hash so an
 // unchanged VOC is never re-sent to a paid provider.
@@ -25,7 +25,7 @@ function isRichNode(value: unknown): value is RichNode {
 }
 
 /**
- * Flattens an ADR-0011 TipTap document to plain text.
+ * Flattens an FO ADR-0011 TipTap document to plain text.
  *
  * Deliberately total: any shape that is not a recognisable document — null,
  * undefined, a string, a number, a truncated node — flattens to `''` rather

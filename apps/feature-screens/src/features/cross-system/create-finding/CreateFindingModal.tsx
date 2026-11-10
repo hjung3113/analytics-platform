@@ -190,7 +190,7 @@ export function CreateFindingModal({
             selected: finding.id,
             ...(returnTo !== undefined ? { returnTo } : {}),
           });
-          // Where the host cannot take the actor to the Finding, the creation is still confirmed (ADR-0071 d10).
+          // Where the host cannot take the actor to the Finding, the creation is still confirmed (platform ADR-0071 d10).
           if (canLink(findingHref)) navigate(findingHref);
           else notifySuccess('Finding이 생성되었습니다.');
         },

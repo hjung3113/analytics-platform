@@ -68,7 +68,7 @@ describe('createMilestoneRequestSchema', () => {
     ).toBe(false);
   });
 
-  it('accepts a status inside the ADR-0050 set and rejects anything else', () => {
+  it('accepts a status inside the FO ADR-0050 set and rejects anything else', () => {
     expect(
       createMilestoneRequestSchema.safeParse({ ...validCreate, status: 'in_progress' }).success,
     ).toBe(true);
@@ -166,7 +166,7 @@ describe('patchMilestoneRequestSchema', () => {
     ).toBe(false);
   });
 
-  it('accepts a status inside the ADR-0050 set and rejects anything else', () => {
+  it('accepts a status inside the FO ADR-0050 set and rejects anything else', () => {
     expect(patchMilestoneRequestSchema.safeParse({ status: 'released' }).success).toBe(true);
     expect(patchMilestoneRequestSchema.safeParse({ status: 'done' }).success).toBe(false);
   });

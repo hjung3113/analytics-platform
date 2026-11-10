@@ -29,7 +29,7 @@ declare module 'fastify' {
     db: Db;
     /**
      * Present when the runtime entrypoint passed a pg-boss handle to
-     * buildServer (ADR-0009). Slice 1 has no in-request consumers, so it
+     * buildServer (FO ADR-0009). Slice 1 has no in-request consumers, so it
      * stays optional; future modules typing this field will tighten the
      * contract as they need it.
      */

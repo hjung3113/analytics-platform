@@ -1,4 +1,4 @@
-// #168 step 3 — cron backfill for VOC embeddings (ADR-0034 D6).
+// #168 step 3 — cron backfill for VOC embeddings (FO ADR-0034 D6).
 //
 // Enqueue-on-write is best effort by design (see `embedding/enqueue.ts`); this
 // job is what makes that acceptable. It recovers both halves of a dropped
@@ -21,7 +21,7 @@ import {
 } from '../embedding/repo.js';
 import { VOC_EMBED_QUEUE, type VocEmbedPayload } from './embed-voc.js';
 
-/** Queue name. Format: `<module>.<action>` per ADR-0009. */
+/** Queue name. Format: `<module>.<action>` per FO ADR-0009. */
 export const VOC_EMBEDDING_BACKFILL_QUEUE = 'voc.embedding_backfill';
 
 /** Every 15 minutes. Fast enough to be a real safety net for a dropped enqueue. */
@@ -61,7 +61,7 @@ export interface VocEmbeddingBackfillDeps {
  * version. Both halves share the one bound, and `remaining` counts both, so it
  * still answers "is this converging".
  *
- * Disabled provider: enqueues nothing and returns `skipped: true` (ADR-0034
+ * Disabled provider: enqueues nothing and returns `skipped: true` (FO ADR-0034
  * D2 — "ingestion enqueues nothing"). Without this gate a disabled environment
  * would enqueue its whole corpus every 15 minutes forever.
  *

@@ -1,7 +1,7 @@
 // Integration tests for the hourly rate_limits purge handler (F-018).
 //
 // Mirrors core.idempotency_purge: a sibling pg-boss job that bounds
-// `core.rate_limits` row growth. ADR-0015:7-9 specifies the Postgres-backed
+// `core.rate_limits` row growth. FO ADR-0015:7-9 specifies the Postgres-backed
 // rate-limit store; without a purge, anonymous-IP keys grow unbounded.
 //
 // Handler is exercised directly here — cron scheduling is covered in

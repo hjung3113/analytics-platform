@@ -7,7 +7,7 @@
 // locally — they must not register another queryFn on this key.
 //
 // `kind: 'user' | 'team'` is an OwnerPicker taxonomy, not a BE field.
-// ADR-0018: the actor list has no teams, so pickers that need `kind` map
+// FO ADR-0018: the actor list has no teams, so pickers that need `kind` map
 // every row to `'user'` at the call site.
 
 import { apiClient } from '@/lib/api/client';

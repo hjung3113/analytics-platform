@@ -2,7 +2,7 @@
 
 실제 대안 중에서 고른 결정, 되돌리기 어려운 결정을 남긴다. ADR은 **결정과 이유**만 둔다. 세부 규칙은 소유 문서(06·01·DESIGN.md·`integration/*`)에 두고 ADR은 그쪽을 링크한다. 결정 상태 한눈 보기는 [05 결정 상태](../overview/roadmap-and-open-questions.md), 아직 답이 없는 결정은 [`.planning/README.md`](../../.planning/README.md) "결정 대기".
 
-이 목록의 번호는 플랫폼 ADR이고 `ADR-NNNN`으로 부른다. FeedbackOps ADR(`docs/adr/history/feedbackops/`)은 번호를 따로 매겨 플랫폼 번호와 겹치므로(예: 0070은 양쪽에 있다) 플랫폼 문서와 코드 주석에서 항상 `FO ADR-NNNN`으로 쓴다. 설비 시각화(EV) ADR(`docs/adr/history/eqv/`, [ADR-0132](0132-eqv-merges-into-platform.md))도 번호가 겹치므로 `EV ADR-NNNN`으로 쓴다.
+이 목록의 번호는 플랫폼 ADR이고 `ADR-NNNN`으로 부른다. FeedbackOps ADR(`docs/adr/history/feedbackops/`)은 번호를 따로 매겨 플랫폼 번호와 겹치므로(예: 0070은 양쪽에 있다) 플랫폼 문서와 코드 주석에서 항상 `FO ADR-NNNN`으로 쓴다(feature 경로는 `pnpm docs:adr-citations`가 검사). 설비 시각화(EV) ADR(`docs/adr/history/eqv/`, [ADR-0132](0132-eqv-merges-into-platform.md))도 번호가 겹치므로 `EV ADR-NNNN`으로 쓴다.
 
 #597 retires the standalone portions of ADR-0027/0045 and FO ADR-0071 under [ADR-0097](0097-platform-features-and-role-based-names.md). Their bodies remain historical; the live link contract is [platform-inbound-links.md](../integration/platform-inbound-links.md). Inbound platform hops remain supported.
 

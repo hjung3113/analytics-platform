@@ -228,7 +228,7 @@ export function createVocEditDescriptionCommands(deps: VocServiceDeps) {
       },
     });
 
-    // #168 (ADR-0034 D6) — only title/description changes alter the embedding
+    // #168 (FO ADR-0034 D6) — only title/description changes alter the embedding
     // input. An attachment-only edit bumps updated_at but leaves the derived
     // text identical, so enqueuing it would be a guaranteed `unchanged` job.
     if (changes.title !== undefined || changes.description_rich_content !== undefined) {

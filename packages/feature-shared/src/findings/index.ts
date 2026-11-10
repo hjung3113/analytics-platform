@@ -256,7 +256,7 @@ export type ListFindingsQuery = z.input<typeof listFindingsQuerySchema>;
 
 export * from './comments.js';
 
-// ADR-0065 inventory is an independent wire contract; nested Evidence stays unchanged.
+// FO ADR-0065 inventory is an independent wire contract; nested Evidence stays unchanged.
 export const listEvidenceInventoryQuerySchema = z
   .object({
     managed_system_id: z.union([z.string().uuid(), z.literal('all')]).optional(),

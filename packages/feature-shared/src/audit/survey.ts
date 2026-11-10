@@ -119,7 +119,7 @@ export const surveyClosedDetailSchema = z
 export type SurveyClosedDetail = z.infer<typeof surveyClosedDetailSchema>;
 
 // ── survey_response_submitted ─────────────────────────────────────────────
-// ADR-0033 privacy invariant: NO raw answer text, question prompts, option
+// FO ADR-0033 privacy invariant: NO raw answer text, question prompts, option
 // labels, or answer combinations may ever appear in this detail. `.strict()`
 // enforces that boundary.
 export const surveyResponseSubmittedDetailSchema = z
@@ -175,7 +175,7 @@ export type SurveyResponseExcerptRevokedDetail = z.infer<
 >;
 
 // ── survey_outcome_no_follow_up_marked / survey_outcome_follow_up_reopened ─
-// ADR-0055 follow-up decisions. Subject is the survey response; the detail
+// FO ADR-0055 follow-up decisions. Subject is the survey response; the detail
 // records the decision scope and the operator's reason, never answer values
 // or respondent identity. Reopen carries the superseded reason because the
 // state row keeps only the current one (history lives in this audit log).

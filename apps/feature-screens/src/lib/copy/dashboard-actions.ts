@@ -1,5 +1,5 @@
 // #679 — Korean display labels for backend-provided dashboard action labels.
-// The backend does not translate (ADR-0010). These fixed system actions are chrome,
+// The backend does not translate (FO ADR-0010). These fixed system actions are chrome,
 // so the frontend maps the stable `intent` key to Korean display copy; the API
 // payload keeps its server label unchanged. Unknown intents keep the server label.
 

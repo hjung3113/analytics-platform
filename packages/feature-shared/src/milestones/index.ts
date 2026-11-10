@@ -50,13 +50,13 @@ export const createMilestoneRequestSchema = z
     analytics_area_id: z.string().uuid().nullable().optional(),
     start_date: milestoneDateSchema,
     target_date: milestoneDateSchema,
-    // ADR-0050: optional on create; omitted stores the column default.
+    // FO ADR-0050: optional on create; omitted stores the column default.
     status: milestoneStatusFilterSchema.optional(),
   })
   .strict();
 export type CreateMilestoneRequest = z.infer<typeof createMilestoneRequestSchema>;
 
-// primary_managed_system_id is not a PATCH field. status is, inside ADR-0050's set.
+// primary_managed_system_id is not a PATCH field. status is, inside FO ADR-0050's set.
 export const patchMilestoneRequestSchema = z
   .object({
     title: milestoneTextField.optional(),
@@ -82,7 +82,7 @@ export const listMilestonesQuerySchema = z
   .strict();
 export type ListMilestonesQuery = z.infer<typeof listMilestonesQuerySchema>;
 
-// ADR-0050 closed the persisted set. The DTO still accepts the stored text.
+// FO ADR-0050 closed the persisted set. The DTO still accepts the stored text.
 export const milestoneDtoSchema = z
   .object({
     id: z.string().uuid(),

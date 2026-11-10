@@ -299,7 +299,7 @@ describe('HomeScreen route content', () => {
     installFetch(dashboardSummarySchema.parse({ ...response, coverage }));
     renderHome();
 
-    // ADR-0067 56-1/O2: an empty denominator is neutral absence of work, not a
+    // FO ADR-0067 56-1/O2: an empty denominator is neutral absence of work, not a
     // green 0/0 · 0%; measured metrics keep their ratio presentation.
     const row = await screen.findByTestId('home-coverage-row-voc-task');
     expect(row.textContent).toContain('집계 대상 없음');

@@ -238,7 +238,7 @@ export function VocTriageScreen({
           />
         )}
 
-        {/* ADR-0022 keeps Triage tabs in the toolbar's right cluster. */}
+        {/* FO ADR-0022 keeps Triage tabs in the toolbar's right cluster. */}
         <ListTabs
           tabs={tabs}
           activeTab={activeTab}

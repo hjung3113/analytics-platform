@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { actors, workspaces } from './core.js';
 
-// Platform port's own tables (ADR-0069 decision 1). Identity fields only: no URL, query,
+// Platform port's own tables (platform ADR-0069 decision 1). Identity fields only: no URL, query,
 // message or stack ever lands here (http-adapter-contract §1, UsageEvent rule).
 export const platformSchema = pgSchema('platform');
 

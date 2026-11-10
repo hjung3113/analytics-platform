@@ -1,6 +1,6 @@
 // The all-systems Managed System read for bridge screens: same query key and options as `managedSystemsCatalogQuery` in
 // `useManagedSystemNames.ts` (so the cache is shared), but fetched through `registry-reads.ts` (`client.ts`) instead of the
-// raw-`fetch` `managed-systems.ts` the platform bridge graph bans (ADR-0071).
+// raw-`fetch` `managed-systems.ts` the platform bridge graph bans (platform ADR-0071).
 
 import { fetchManagedSystems } from '@/lib/api/registry-reads';
 

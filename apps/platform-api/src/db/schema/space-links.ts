@@ -2,7 +2,7 @@ import { boolean, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { coreSchema, managedSystems, workspaces } from './core.js';
 
 // #1289 node i (ADR-0110 decision 5): which business-system space a registry-owned Managed System was registered for.
-// Navigation and default-selection metadata only — NO permission decision reads this table (ADR-0068 decision 1).
+// Navigation and default-selection metadata only — NO permission decision reads this table (platform ADR-0068 decision 1).
 // `declared` is false once the space stops declaring `feedbackTracking`; the row is then shown as disconnected and
 // never archived. Owned by the managed-systems module.
 export const spaceLinks = coreSchema.table(

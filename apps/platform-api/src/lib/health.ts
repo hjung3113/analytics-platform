@@ -1,5 +1,5 @@
 // Health-probe helpers for the Kubernetes liveness/readiness split
-// (ADR-0013 "Health endpoints", amended 2026-09-22).
+// (FO ADR-0013 "Health endpoints", amended 2026-09-22).
 //
 // Contract:
 //   * `GET /health/live` depends on NOTHING downstream — the route lives in
@@ -25,7 +25,7 @@ import type { PgBoss } from 'pg-boss';
 
 import type { StorageBackend } from './storage/index.js';
 
-/** Default per-check budget for `GET /health/ready` (ADR-0013). */
+/** Default per-check budget for `GET /health/ready` (FO ADR-0013). */
 export const DEFAULT_HEALTH_PROBE_TIMEOUT_MS = 2000;
 
 /**

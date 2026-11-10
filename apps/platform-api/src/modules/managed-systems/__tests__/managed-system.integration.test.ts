@@ -480,7 +480,7 @@ describe.skipIf(!runIntegration)('Managed Systems write path', () => {
   // ── review-followup tests ───────────────────────────────────────────
 
   it('Idempotency-Key reuse with different body → 409 conflict.idempotency_key_reuse (review C2)', async () => {
-    // ADR-0015:71-90 mandates 409 when the same key is replayed with a
+    // FO ADR-0015:71-90 mandates 409 when the same key is replayed with a
     // different request hash. The existing replay test (line 160) only
     // covers same-key + same-body.
     const cookie = await loginAs(app, 'mock-admin-1');
@@ -536,7 +536,7 @@ describe.skipIf(!runIntegration)('Managed Systems write path', () => {
   });
 
   it('POST with both default_owner_actor_id and default_owner_team_id → 422 validation.failed (review H4)', async () => {
-    // ADR-0018:36 CHECK rejects "both non-null"; the service layer's
+    // FO ADR-0018:36 CHECK rejects "both non-null"; the service layer's
     // pre-DB validation (managed-system-service.ts:143-149) should give
     // a friendly 422 instead of letting the DB CHECK bubble to 500.
     const cookie = await loginAs(app, 'mock-admin-1');
@@ -608,7 +608,7 @@ describe.skipIf(!runIntegration)('Managed Systems write path', () => {
     ]);
   });
 
-  it('PATCH on an archived MS → 409 conflict.record_archived (ADR-0019 Section A)', async () => {
+  it('PATCH on an archived MS → 409 conflict.record_archived (FO ADR-0019 Section A)', async () => {
     const cookie = await loginAs(app, 'mock-admin-1');
     const created = await app.inject({
       method: 'POST',
@@ -640,7 +640,7 @@ describe.skipIf(!runIntegration)('Managed Systems write path', () => {
   });
 
   it('slug reuse after archive succeeds via service path (review L2)', async () => {
-    // ADR-0017:63 "Slug reuse after archive is permitted". The partial
+    // FO ADR-0017:63 "Slug reuse after archive is permitted". The partial
     // unique index already proves this at the DB layer; this test covers
     // the service path so a future "check slug independent of archive
     // state" regression is caught.

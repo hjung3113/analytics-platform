@@ -1,4 +1,4 @@
-// Platform port `accessDirectory` (ADR-0069 decisions 7, 8): the console access directory over the
+// Platform port `accessDirectory` (platform ADR-0069 decisions 7, 8): the console access directory over the
 // workspace's internal members. Judges a request and returns an outcome; the route wraps it in the
 // envelope. Permissions come from the one rule set (`resolvePlatformPermissionsBatch`: every member in one batched
 // read, whatever the member count), in the platform's canonical permission order (kernel first, then the modules'
@@ -53,7 +53,7 @@ export function parseAccessQuery(body: unknown): ParsedAccessQuery | null {
   ) {
     return null;
   }
-  // Any `<namespace>:<action>`: an app's menu permissions are not listed here and nobody in this workspace holds them (ADR-0072).
+  // Any `<namespace>:<action>`: an app's menu permissions are not listed here and nobody in this workspace holds them (platform ADR-0072).
   if (
     permission !== undefined &&
     (typeof permission !== 'string' || !/^[^\s:?#&/]+:[^\s:?#&/]+$/.test(permission))

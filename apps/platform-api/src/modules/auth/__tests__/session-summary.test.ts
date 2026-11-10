@@ -1,4 +1,4 @@
-// F-008: ADR-0006:38 `created_ip_summary` / `created_user_agent_summary`
+// F-008: FO ADR-0006:38 `created_ip_summary` / `created_user_agent_summary`
 // must be derived summaries, not raw values. These pure-function tests do
 // not require Postgres, so they run on every developer machine.
 

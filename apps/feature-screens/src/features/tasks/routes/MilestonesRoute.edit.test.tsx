@@ -22,7 +22,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 // state, opened by the New milestone toolbar control; the body carries the
 // chosen Managed System as primary_managed_system_id. Edit is a title-only
 // PATCH with If-Match; a 409 conflict.stale_write refetches the milestone and
-// shows the server title. B2e-status (ADR-0050) adds the Properties Status
+// shows the server title. B2e-status (FO ADR-0050) adds the Properties Status
 // control: a four-value select whose change PATCHes { status } with If-Match.
 
 // Shared across renders so tests can assert where selection sends the actor.
@@ -503,7 +503,7 @@ describe('MilestonesRoute fixup (#514 B2e)', () => {
   });
 });
 
-// #514 B2e-status (ADR-0050) — the Properties Status control offers exactly
+// #514 B2e-status (FO ADR-0050) — the Properties Status control offers exactly
 // the persisted set planning | in_progress | blocked | released and PATCH is
 // free among them, so no transition here is forbidden. A change PATCHes
 // { status } with If-Match (the row's updated_at) and a fresh idempotency key
@@ -512,7 +512,7 @@ describe('MilestonesRoute fixup (#514 B2e)', () => {
 describe('MilestonesRoute status (#514 B2e-status)', () => {
   const statusSelect = () => screen.getByRole('combobox', { name: '상태' });
 
-  it('offers exactly the ADR-0050 set with the prototype labels', async () => {
+  it('offers exactly the FO ADR-0050 set with the prototype labels', async () => {
     vi.mocked(getMilestone).mockResolvedValue(detailFor(SSO_ROW, 'SSO Stabilization'));
     renderWithClient(<MilestonesRoute selectedParam={IDS.sso} />);
     await screen.findByRole('heading', { name: 'SSO Stabilization' });

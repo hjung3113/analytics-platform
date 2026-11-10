@@ -248,7 +248,7 @@ export async function cleanupReadTestTables(
   //    failure aborts the whole afterAll hook, which is why every fixture
   //    after it leaked into the next run (#205).
   //
-  //    platform_app has no DELETE on core.audit_log by design (ADR-0008/0019), so
+  //    platform_app has no DELETE on core.audit_log by design (FO ADR-0008/0019), so
   //    this one statement has to go through the migrate role. When
   //    DATABASE_URL_MIGRATE is not exported the suites that call this helper
   //    are gated off anyway, so skipping is safe.

@@ -354,7 +354,7 @@ function ClusterListBody({
             />
           </div>
         ) : clusters.length === 0 ? (
-          // Prototype title casing is surface-specific; the reset action follows ADR-0052.
+          // Prototype title casing is surface-specific; the reset action follows FO ADR-0052.
           <ListStateMessage
             variant="filtered"
             title="이 필터에 해당하는 반복 VOC가 없습니다"

@@ -1,4 +1,4 @@
-// #510 part B (ADR-0055): route-level contracts for the outcome follow-up
+// #510 part B (FO ADR-0055): route-level contracts for the outcome follow-up
 // commands. Fixtures are seeded through the migrate handle; sessions are
 // seeded via SQL (submit-more-info pattern) so this suite never spends the
 // shared mock-login rate-limit bucket, and each test uses its own actor so

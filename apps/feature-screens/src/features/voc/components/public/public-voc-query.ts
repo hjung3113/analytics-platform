@@ -1,4 +1,4 @@
-// The URL-owned query of the 소통 › VOC list (platform ADR-0110). The host (platform bridge, ADR-0071) owns where it lives.
+// The URL-owned query of the 소통 › VOC list (platform ADR-0110). The host (platform bridge, platform ADR-0071) owns where it lives.
 
 export const PUBLIC_VOC_QUERY_MAX = 100;
 export const PUBLIC_VOC_PAGE_SIZE = 50;

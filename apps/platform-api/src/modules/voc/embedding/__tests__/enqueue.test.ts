@@ -1,4 +1,4 @@
-// #168 step 3 — the enqueue-on-write boundary in isolation (ADR-0034 D6).
+// #168 step 3 — the enqueue-on-write boundary in isolation (FO ADR-0034 D6).
 // No database: this pins the swallow-and-log contract itself.
 
 import type { PgBoss } from 'pg-boss';
@@ -46,7 +46,7 @@ describe('createVocEmbeddingEnqueuer', () => {
     ]);
   });
 
-  it('sends nothing when embedding is disabled (ADR-0034 D2)', async () => {
+  it('sends nothing when embedding is disabled (FO ADR-0034 D2)', async () => {
     const { boss, sent } = recordingBoss();
     await createVocEmbeddingEnqueuer({ boss, embeddingEnabled: false }).enqueue(args);
     expect(sent).toEqual([]);

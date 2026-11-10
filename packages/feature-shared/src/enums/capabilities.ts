@@ -106,7 +106,7 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // voc.read: NOT sensitive — Developers may request it for a specific MS to view VOCs.
   'voc.read': { sensitive: false, adminModuleBypass: 'none' },
   // voc.read_public (ADR-0110 decision 3): the public part of a VOC (`/vocs/public`). Requestable by every
-  // role for one Managed System; it never widens voc.read, the operator surfaces or the ADR-0031 rule.
+  // role for one Managed System; it never widens voc.read, the operator surfaces or the FO ADR-0031 rule.
   'voc.read_public': { sensitive: false, adminModuleBypass: 'none' },
   // voc.create (#1358, ADR-0113): files a VOC in one Managed System whose `voc_create_mode` is `restricted`. Not sensitive.
   // `canCreateVoc` lets Admin through unless an explicit deny applies, so the advisory check mirrors `unless_denied`.
@@ -119,16 +119,16 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // `hasSelfApprovalCapability` still short-circuits on the admin role.
   'task_request.self_approve': { sensitive: true, adminModuleBypass: 'always', sessionOnly: true },
   // survey.read: NOT sensitive — Developers may request scoped read access for a Managed System.
-  // ADR-0033 §C: Admin may bypass, but an explicit deny still wins.
+  // FO ADR-0033 §C: Admin may bypass, but an explicit deny still wins.
   'survey.read': { sensitive: false, adminModuleBypass: 'unless_denied' },
   // Survey creation and management are sensitive actions for a Managed System.
-  // ADR-0033 §C: same Admin bypass as survey.read, explicit deny dominant.
+  // FO ADR-0033 §C: same Admin bypass as survey.read, explicit deny dominant.
   'survey.manage': { sensitive: true, adminModuleBypass: 'unless_denied' },
   // Workspace Admin does not bypass this by role alone; explicit permission is required.
-  // See docs/product/features/07-survey-system.md and ADR-0033 §C ("no role bypass, including Admin").
+  // See docs/product/features/07-survey-system.md and FO ADR-0033 §C ("no role bypass, including Admin").
   'survey.read_personal_responses': { sensitive: true, adminModuleBypass: 'none' },
   // Workspace Admin does not bypass this by role alone; explicit permission is required.
-  // See docs/product/features/07-survey-system.md and ADR-0033 §C ("no role bypass, including Admin").
+  // See docs/product/features/07-survey-system.md and FO ADR-0033 §C ("no role bypass, including Admin").
   'survey.export': { sensitive: true, adminModuleBypass: 'none' },
   // Log knowledge catalog (ADR-0107 decision 3): workspace-scoped (no Managed System), not sensitive;
   // the Admin role always holds them.

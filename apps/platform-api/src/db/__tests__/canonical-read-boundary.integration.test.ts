@@ -7,7 +7,7 @@ const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
 const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
 const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
 
-describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
+describe.skipIf(!runIntegration)('FO ADR-0064 canonical read boundary', () => {
   let app: DbHandle;
   let migrate: DbHandle;
   beforeAll(() => {

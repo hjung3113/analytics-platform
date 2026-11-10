@@ -2,7 +2,7 @@ import type { RecoveryRecorder } from '../dashboard/recorder.js';
 // apps/platform-api/src/modules/voc/service.ts
 // VOC application service. Owns transactions, sanitization,
 // FOR-UPDATE-guarded parent checks, INSERT, and audit emission per
-// ADR-0008 + ADR-0019. Per apps/platform-api/AGENTS.md Layer Rules (#392), the
+// FO ADR-0008 + FO ADR-0019. Per apps/platform-api/AGENTS.md Layer Rules (#392), the
 // `*Command` entry points own the transaction + idempotency frame; the
 // Tx-aware functions are internals shared with cluster candidate-apply.
 
@@ -73,7 +73,7 @@ export interface VocServiceDeps {
   /** #1187 — decides whether the PATCH response is the full or the summary VOC projection. */
   vocReadService: Pick<VocReadService, 'resolveWriteResponseAccess' | 'composeDetailEnvelope'>;
   /**
-   * #168 (ADR-0034 D6) — enqueue-on-write for VOC embeddings. Optional so
+   * #168 (FO ADR-0034 D6) — enqueue-on-write for VOC embeddings. Optional so
    * callers booted without pg-boss stay wired; absent means no enqueue, and
    * the cron backfill is the only ingestion path. Never allowed to fail a
    * write: see `embedding/enqueue.ts`.

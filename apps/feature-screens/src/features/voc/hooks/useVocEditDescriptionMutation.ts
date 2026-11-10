@@ -24,7 +24,7 @@ export interface EditDescriptionVars {
   vocId: string;
   /**
    * voc.updated_at value at the time the modal opened; used as the If-Match
-   * header for optimistic concurrency (ADR-0019 §E). Caller refreshes this on
+   * header for optimistic concurrency (FO ADR-0019 §E). Caller refreshes this on
    * conflict.stale_write by re-reading `useVocDetail` and re-opening the modal.
    */
   ifMatch: string;
@@ -66,7 +66,7 @@ export function useVocEditDescriptionMutation(): UseVocEditDescriptionMutationRe
     mutationFn: async ({ vocId, ifMatch, body }) => {
       const res = await apiClient<EditDescriptionSuccess>('PATCH', `/vocs/${vocId}/description`, {
         body,
-        // Idempotency-Key is auto-minted by apiClient when absent (ADR-0015).
+        // Idempotency-Key is auto-minted by apiClient when absent (FO ADR-0015).
         ifMatch,
       });
       return res.data;

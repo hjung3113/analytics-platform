@@ -23,11 +23,11 @@
 - `components/FindingDetail/FindingDetailParts.tsx` — the detail as `DetailParts` (entry `operator-screens/finding-detail`); `FindingDetailPanel` frames them (standalone test frame under `src/test/host-adapters`).
 - `components/FindingDetail/FindingRequestTaskDraftHost.tsx` — Finding-owned Task Request form host used by Finding and Survey.
 
-## Close-out contract (ADR-0067)
+## Close-out contract (FO ADR-0067)
 
 Source-owned owner display/edit/filter across all creation sources. Show Actor/team/null assignment from the server, never infer it from provenance or grant permissions. Preserve personal Survey source visibility before target disclosure.
 
-## Survey evidence reuse (ADR-0064 / ADR-0065)
+## Survey evidence reuse (FO ADR-0064 / FO ADR-0065)
 
 - Survey-derived Finding/source/default summaries remain metadata-only; render excerpt text only from freshly authorized active highlight DTOs, with a safe unavailable state after revoke/source denial. Preserve Finding URL/detail context.
 - `AddEvidenceModal` uses the Finding-local `SurveyEvidencePicker` and `useSurveyEvidence` hooks: unfiltered, separately authorized `GET /surveys`, then bounded `GET /surveys/:id/evidence-candidates` pages. Select a returned approval ID; never offer a response UUID or editable Survey quote, or read personal Results.

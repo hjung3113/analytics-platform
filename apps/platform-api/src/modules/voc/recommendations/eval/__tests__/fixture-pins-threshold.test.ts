@@ -1,4 +1,4 @@
-// #168 step 5 — the coupling ADR-0034 D5 asks for: "changing the default
+// #168 step 5 — the coupling FO ADR-0034 D5 asks for: "changing the default
 // requires updating that fixture in the same change".
 //
 // ─── WHAT THIS ENFORCES, EXACTLY ────────────────────────────────────────────
@@ -52,7 +52,7 @@ describe('threshold evaluation fixture (#168)', () => {
   });
 
   it('pins the shipped threshold constant', () => {
-    // ADR-0034 D5. If this fails you changed
+    // FO ADR-0034 D5. If this fails you changed
     // VOC_RECOMMENDATION_SIMILARITY_THRESHOLD without touching the fixture.
     // Re-derive `expectedAtPin` from the pairs at the new cut in this same
     // change, and record what the new cut is based on.

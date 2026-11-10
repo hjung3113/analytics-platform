@@ -1,6 +1,6 @@
 // Single source of Idempotency-Key minting.
 //
-// ADR-0015:72 locks the header to a client-generated UUIDv4, and every mutation
+// FO ADR-0015:72 locks the header to a client-generated UUIDv4, and every mutation
 // route rejects anything else with `validation.malformed_idempotency_key`. That
 // makes the *fallback* path load-bearing rather than cosmetic: `crypto.randomUUID`
 // exists only in a secure context, so any origin that is not https and not
