@@ -49,6 +49,8 @@ export interface SceneComponent {
   outsideLabelPx: number | null;
   /** Scene-space text box of the Component's own label when it is drawn inside the body (label plan `band` or `center`), else null. */
   insideLabelBox: Box | null;
+  /** Scene-space box of the primitive's glyph as drawn (the ring of a `pm`, say), else null. */
+  glyphBox: Box | null;
 }
 
 /** One explicit transfer capability. Endpoints stay paired; a flat handler/target set is not enough. */
@@ -231,7 +233,8 @@ function structureRect(body: SvgNode, w: number | null, h: number | null, rx: nu
   return el('rect', attrs);
 }
 
-function fittedGlyph(placed: Placed, plan: LabelPlan | undefined, showLabel: boolean, fit: number, kLocal: number): SvgNode | null {
+/** Where the glyph sits in the symbol frame, or null when it is not drawn. One calculation for the artwork and its scene box. */
+function glyphPlacement(placed: Placed, plan: LabelPlan | undefined, showLabel: boolean, fit: number, kLocal: number): { gy: number; scale: number } | null {
   const { prim } = placed;
   if (!prim.glyph || !prim.glyphBox) return null;
   if (showLabel && plan?.mode === 'center') return null;
@@ -242,11 +245,39 @@ function fittedGlyph(placed: Placed, plan: LabelPlan | undefined, showLabel: boo
   const availH = placed.h - band - 10 * kLocal;
   const glyphW = prim.glyphBox.width * fit;
   const glyphH = prim.glyphBox.height * fit;
-  const glyphScale = placed.asset === 'loadlock' ? 1 : Math.min(1, glyphW > 0 ? availW / glyphW : 1, glyphH > 0 ? availH / glyphH : 1);
-  if (!(glyphScale > 0)) return null;
-  const glyph = cloneNode(prim.glyph);
-  glyph.attrs = { ...glyph.attrs, transform: `translate(0 ${formatNum(gy)}) scale(${formatNum(glyphScale)})` };
+  const scale = placed.asset === 'loadlock' ? 1 : Math.min(1, glyphW > 0 ? availW / glyphW : 1, glyphH > 0 ? availH / glyphH : 1);
+  return scale > 0 ? { gy, scale } : null;
+}
+
+function fittedGlyph(placed: Placed, plan: LabelPlan | undefined, showLabel: boolean, fit: number, kLocal: number): SvgNode | null {
+  const at = glyphPlacement(placed, plan, showLabel, fit, kLocal);
+  if (!at) return null;
+  const glyph = cloneNode(placed.prim.glyph!);
+  glyph.attrs = { ...glyph.attrs, transform: `translate(0 ${formatNum(at.gy)}) scale(${formatNum(at.scale)})` };
   return glyph;
+}
+
+/** The symbol frame's scale factors. A stretching rect body draws no glyph; everything else scales its artwork by these. */
+function symbolScale(placed: Placed): { sx: number; sy: number } {
+  const { prim } = placed;
+  if (placed.component.size == null) return { sx: 1, sy: 1 };
+  const sx = prim.stretches ? placed.w / prim.viewBox.width : Math.min(placed.w / prim.viewBox.width, placed.h / prim.viewBox.height);
+  return { sx, sy: prim.stretches ? placed.h / prim.viewBox.height : sx };
+}
+
+/** Scene-space box of the glyph as drawn, or null when none is drawn (the Component's own artwork, never inferred from Holding Sites). */
+function placedGlyphBox(placed: Placed, plan: LabelPlan | undefined, showLabel: boolean, kLocal: number): Box | null {
+  const { prim } = placed;
+  if (placed.asset === 'generic-box' || (prim.stretches && prim.body.tag === 'rect') || !prim.glyphBox) return null;
+  const { sx, sy } = symbolScale(placed);
+  const at = glyphPlacement(placed, plan, showLabel, sx, kLocal);
+  if (!at) return null;
+  const { x, y, width, height } = prim.glyphBox;
+  const x0 = x * at.scale * sx;
+  const x1 = (x + width) * at.scale * sx;
+  const y0 = (at.gy + y * at.scale) * sy;
+  const y1 = (at.gy + (y + height) * at.scale) * sy;
+  return bboxOf([[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([px, py]): Point => apply(placed.matrix, px!, py!)));
 }
 
 function symbolNodes(placed: Placed, plan: LabelPlan | undefined, showLabel: boolean, kLocal: number): SvgNode[] {
@@ -271,8 +302,7 @@ function symbolNodes(placed: Placed, plan: LabelPlan | undefined, showLabel: boo
     return nodes;
   }
   const hasSize = placed.component.size != null;
-  const sx = !hasSize ? 1 : prim.stretches ? placed.w / prim.viewBox.width : Math.min(placed.w / prim.viewBox.width, placed.h / prim.viewBox.height);
-  const sy = !hasSize ? 1 : prim.stretches ? placed.h / prim.viewBox.height : sx;
+  const { sx, sy } = symbolScale(placed);
   const nodes: SvgNode[] = [];
   if (prim.stretches && prim.body.tag === 'rect') {
     const rx = 12 * kLocal;
@@ -823,6 +853,7 @@ export function buildScene(layout: LayoutDocument, options: SceneOptions): Scene
       ))),
       outsideLabelPx: plans.get(row.id)?.mode === 'outside' ? plans.get(row.id)!.px : null,
       insideLabelBox: labelBoxes.find((label) => label.owner === row.id && label.inside) ?? null,
+      glyphBox: placedGlyphBox(row, plans.get(row.id), showLabel, k / row.S),
     });
   }
   const capabilities = layout.transferCapabilities.map((edge) => ({
