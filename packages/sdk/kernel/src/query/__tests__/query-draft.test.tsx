@@ -561,3 +561,30 @@ it('without a server anchor a live-mode screen is not given a materialized defau
   await waitFor(() => expect(window.location.search).toContain('from=2026-09-25T09%3A00%3A00'));
   replace.mockRestore();
 });
+
+it.each([
+  [undefined, '2026-09-25T09:00:00'],
+  [8, '2026-09-26T01:00:00'],
+] as const)('seeds and resets the declared default period (%s hours) in the draft only', (defaultPeriodHours, from) => {
+  const chosen = createRegistry({ spaces: [testSpace()], groups: registry.groups, menus: [{ ...menu, defaultPeriodHours }] });
+  mount('/', chosen);
+  expect(draft.draft.global).toMatchObject({ from, to: '2026-09-26T09:00:00' });
+  expect(platform.global.from).toBeNull();
+  act(() => draft.setDraftGlobal(week));
+  act(() => draft.reset());
+  expect(draft.draft.global.from).toBe(from);
+  expect(window.location.search).toBe('');
+});
+
+it.each([
+  [undefined, '2026-09-25T09:00:00'],
+  [8, '2026-09-26T01:00:00'],
+] as const)('materializes the live default period (%s hours), preserving explicit periods', (defaultPeriodHours, from) => {
+  const chosen = createRegistry({ spaces: [testSpace()], groups: registry.groups, menus: [{ ...menu, query: undefined, defaultPeriodHours }] });
+  const first = mount('/', chosen);
+  expect(platform.global).toMatchObject({ from, to: '2026-09-26T09:00:00' });
+  expect(new URLSearchParams(window.location.search).get('from')).toBe(from);
+  first.view.unmount();
+  mount('/' + period, chosen);
+  expect(platform.global.from).toBe('2026-09-25T09:00:00');
+});

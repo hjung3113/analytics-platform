@@ -11,6 +11,7 @@ import { NoticeList } from '@eqv/views';
 import { useReplayScreen } from '../use-replay-input.js';
 import { useDetailSlot, usePublishDetail, type DetailPayload } from './detail-slot.js';
 import { stateFor } from './states.js';
+import { EquipmentBar, useEquipmentOptions } from './EquipmentBar.js';
 
 type Scene = { state: SceneState; layout: EquipmentLayoutDocument | null } | { error: string };
 
@@ -62,6 +63,7 @@ function sceneAt(input: ReplayInput, to: SiteWallClock): Scene {
  */
 export function TopViewScreen({ host }: ModuleScreenProps) {
   const { props, load, resetKey } = useReplayScreen(host);
+  const { state: optionsState, refreshing, failed: listFailed, retry } = useEquipmentOptions(host);
   const publish = useDetailSlot(host);
   const [selection, setSelection] = useState<{ key: string; id: string | null }>({ key: resetKey, id: null });
   const [zoomHost, setZoomHost] = useState<HTMLElement | null>(null);
@@ -77,12 +79,16 @@ export function TopViewScreen({ host }: ModuleScreenProps) {
     ? { node: <ComponentDetail layout={ready.layout} state={ready.state} componentId={selectedId} />, label: `Component · ${selectedId}` } : null, [ready, selectedId]);
   usePublishDetail(publish, detail);
 
-  const state = stateFor(props, load);
-  if (state !== null || load?.kind !== 'ready' || props.equipment === null) return <div>{state}</div>;
+  const bar = <EquipmentBar host={host} props={props} state={optionsState} refreshing={refreshing} retry={retry} />;
+  const state = props.equipment === null && listFailed
+    ? <StateMessage icon={ServerCrash} title="설비 목록을 다시 불러오세요" body="위의 다시 시도를 누르세요." />
+    : stateFor(props, load, 'topview');
+  if (state !== null || load?.kind !== 'ready' || props.equipment === null) return <>{bar}<div>{state}</div></>;
   const { equipment } = props;
-  if (scene === null || 'error' in scene) return <StateMessage tone="danger" icon={ServerCrash} title={`Replay 오류: ${scene?.error ?? ''}`} />;
+  if (scene === null || 'error' in scene) return <>{bar}<StateMessage tone="danger" icon={ServerCrash} title={`Replay 오류: ${scene?.error ?? ''}`} /></>;
   return (
     <>
+      {bar}
       <NoticeList notices={load.notices} />
       <div className="flex flex-wrap items-start gap-4">
         <Panel title="Top View" subtitle={wallClockText(scene.state.at)} className="max-w-full min-w-0 flex-none overflow-auto"

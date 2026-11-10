@@ -56,7 +56,7 @@
 | --- | --- | --- | --- |
 | Registry 진입 | 화면을 메뉴로 등록, 사이드바·팔레트·breadcrumb·권한 숨김·미구현 표시 | `createRegistry`, 셸 | 모듈은 사이드바 JSX를 만들지 않는다(06 §5 금지) |
 | 경로·page key | 화면 매칭 params, 등록 page key 값(읽기), `setPage`(push/replace), 모듈 안 이동 `href`/`navigate`, 다른 메뉴로 `linkTo`(menuId) | `route.params`, `pageParam`, `setPage`, `navigate`, `resolveLink` | URL 문자열을 모듈이 조립하지 않는다(06 §22). 모르는 키·형식 오류는 보정하지 않고 거부(06 §6.4) |
-| 전역 Context | 선언한 `apply`·`reference` 키의 현재 값과 미적용 표시. 1판 의미(Decided, 코디네이터): `host.context()`는 `time`→`from`·`to`, `roomNames`, `line`→`lineNames`, `prcGroup`→`prcGroups`+`membershipBasis`, `condition`→`condition`+`membershipBasis`, `selection`, `lot`→`lotIds`, `ppid`, `recipe`→`recipeIds`, `metric`→`metricId`+`metricVersion`(둘이 함께)을 옮기고, `unsupported`로 선언한 키는 값 없이 `unsupported` 목록에 이름만 준다. `scopeId`는 화면이 `requiresScope`일 때만 포함한다. null·명시적 공집합은 그대로 두고 URL을 바꾸지 않는다. 참조 값은 여기서 보이고 질의 투영(`projectContext`)에서는 빠진다 | `global`, `projectContext` | 모듈은 전역 Context를 쓰지 않는다(쓰기는 셸·Context 바 몫). EV 재생 구간의 명시적 "분석 구간 적용"만 06 §6.1 규칙으로 허용 후보 |
+| 전역 Context | 선언한 `apply`·`reference` 키의 현재 값과 미적용 표시. 1판 의미(Decided, 코디네이터): `host.context()`는 `time`→`from`·`to`, `roomNames`, `line`→`lineNames`, `prcGroup`→`prcGroups`+`membershipBasis`, `condition`→`condition`+`membershipBasis`, `selection`, `lot`→`lotIds`, `ppid`, `recipe`→`recipeIds`, `metric`→`metricId`+`metricVersion`(둘이 함께)을 옮기고, `unsupported`로 선언한 키는 값 없이 `unsupported` 목록에 이름만 준다. `scopeId`는 화면이 `requiresScope`일 때만 포함한다. null·명시적 공집합은 그대로 두고 URL을 바꾸지 않는다. 참조 값은 여기서 보이고 질의 투영(`projectContext`)에서는 빠진다 | `global`, `projectContext` | 일반 Context 쓰기는 셸·Context 바 몫이다. 적용 시간만 선택 능력 `setTime?`로 허용한다([Kernel §6.3](../contract/kernel.md#ctx-time), ADR-0053 #1644 개정) |
 | 권한·Scope | 표시용 `can(permission)`, Scope 상태(`valid` 전에는 Scope 조회 금지) | `can`, `scope` | 표시용일 뿐, 서버가 매 요청 재검증(06 §6.2·§17) |
 | 데이터 | (a) 플랫폼 서버: `query(spec, params, signal)` → `ApiResponse` (b) 제품 서버: 조립 설정의 기준 경로·자격 증명 방식 | `menuQuery`, `useMenuQuery` 수명주기 | (b)는 새 항목. 세션 세대가 바뀌면 이전 결과를 숨긴다(`usePlatformQuery` identity 규칙과 같은 의미) |
 | 세션·신원 | 동기 스냅샷 `{ user, generation }`, 변경 구독 | `session()`, `subscribe`, `revision` | 제품 서버 세션과 다르면 모듈이 차단(§5.4) |
@@ -88,7 +88,7 @@
 | 모듈 상태(인증 필요 등) | 쓰지 않음(플랫폼 세션을 그대로 씀) | 필요 |
 | 상세 패널 슬롯 | 쓰지 않음(1차) | 목록+상세 화면(VOC·Task·Finding)부터 필요 — 파일럿(설문)은 쓰지 않음 |
 
-**권고:** 위 표를 계약 1판(`contract: 1`)으로 두되 `query`와 `detailSlot`은 **선택 기능**으로 둔다. `query`와 `write`(ADR-0054로 더함, `contract` 그대로 1)는 플랫폼 호스트만 제공하고(FeedbackOps 화면은 선언하지 않는다), `detailSlot`은 두 호스트가 모두 제공하며 그것을 `requires`에 넣은 화면만 쓴다. Context 바 쓰기·저장된 뷰는 1판에 넣지 않는다(쓰는 모듈 없음).
+**권고:** 위 표를 계약 1판(`contract: 1`)으로 두되 `query`와 `detailSlot`은 **선택 기능**으로 둔다. `query`와 `write`(ADR-0054로 더함, `contract` 그대로 1)는 플랫폼 호스트만 제공하고(FeedbackOps 화면은 선언하지 않는다), `detailSlot`은 두 호스트가 모두 제공하며 그것을 `requires`에 넣은 화면만 쓴다. Context 바 쓰기 중 적용 시간만 `setTime?` 선택 능력으로 1판에 포함한다(ADR-0053 #1644 개정, 소비자 EV Top View). 다른 Context 키 쓰기·저장된 뷰는 2판 또는 후속 범위다.
 
 ### 2.4 이미 있는 것과 빠진 것
 
@@ -152,6 +152,8 @@ export type ModuleHost = {
   navigate(target: ModuleTarget, options?: { replace?: boolean }): boolean;
   returnTarget(): string;
   context(): { values: Partial<GlobalContext>; unsupported: readonly ContextKey[] };
+  /** 선택 능력. 제공 조건과 검증은 Kernel §6.3; 없으면 Context 바로 안내한다. */
+  setTime?(range: { from: string; to: string }): void;
   query?<P, T>(spec: EndpointSpec<P, T>, params: P, signal?: AbortSignal): Promise<ApiResponse<T>>;
   config(key: string): string | null;
   lang(): 'ko' | 'en';

@@ -232,6 +232,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       if (parentSpace !== undefined && parentSpace !== groupSpace.get(m.group)) fail(`Menu "${m.id}" parent "${parent.id}" is in another space`);
     }
     if (m.pageKeys.includes(DETAIL_EXPAND_KEY) || m.hiddenPageKeys?.includes(DETAIL_EXPAND_KEY) || m.navViews?.some(view => Object.hasOwn(view.page, DETAIL_EXPAND_KEY))) fail(`Menu "${m.id}" key "expand" is reserved for the platform`);
+    if (m.defaultPeriodHours !== undefined && (!Number.isInteger(m.defaultPeriodHours) || m.defaultPeriodHours <= 0 || m.context.time !== 'apply')) fail(`Menu "${m.id}" defaultPeriodHours must be a positive integer on a time-applying menu`);
     const clash = m.pageKeys.find(k => GLOBAL_KEYS.has(k));
     if (m.query) {
       if (m.query.mode !== 'apply' || m.context.time !== 'apply') fail(`Menu "${m.id}" apply mode requires time: apply`);

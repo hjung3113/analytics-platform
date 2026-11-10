@@ -1,4 +1,5 @@
 import { contextCapabilities, type ModuleManifest } from '@ap/contracts';
+import { EQV_MAX_WINDOW_HOURS } from './limits.js';
 
 /** Bare screen ids; the host registers them as `eqv:<id>` (ADR-0053). */
 export const TOPVIEW_SCREEN = 'topview';
@@ -12,8 +13,8 @@ const noFeatures = { export: false, savedView: false, annotate: false, compare: 
  * The EV host-module manifest (host contract 1). Read-only screens (EV ADR-0012 first scope). Names are Candidates until AP #334.
  * Routes: `topview` is the module prefix itself (path `''`, the group's primary screen, reached from the sidebar with no equipment),
  * `focus` is its child (`<prefix>/focus`). The equipment id travels as the page key `equipment` (`?equipment=`), not a route param:
- * AP's registry rejects a parent whose route needs params and needs exactly one primary screen per group. 177d shows a
- * "pick an equipment" state when the key is absent and copies it into the endpoint params `{ equipmentId }`.
+ * AP's registry rejects a parent whose route needs params and needs exactly one primary screen per group. Top View offers a
+ * module-owned selector when the key is absent and copies the selection into the endpoint params `{ equipmentId }`.
  * `requiresScope: false` on both screens: an equipment is addressed by that page key, not by a Scope selection;
  * the endpoints re-check access on the server.
  */
@@ -34,6 +35,7 @@ export const eqvManifest: ModuleManifest = {
       requiresScope: false,
       // The board is drawn for the applied time window (topview-context / topview-events are time-projected).
       context: contextCapabilities({ time: 'apply' }),
+      defaultPeriodHours: EQV_MAX_WINDOW_HOURS,
       pageType: 'overview',
       features: noFeatures,
       pageKeys: ['equipment'],
@@ -47,6 +49,7 @@ export const eqvManifest: ModuleManifest = {
       permission: PERMISSION,
       requiresScope: false,
       context: contextCapabilities({ time: 'apply' }),
+      defaultPeriodHours: EQV_MAX_WINDOW_HOURS,
       pageType: 'analysis',
       features: noFeatures,
       // `equipment` selects the equipment; the entityType/anchor pair survives navigation on this route; rangeFrom/rangeTo hold the

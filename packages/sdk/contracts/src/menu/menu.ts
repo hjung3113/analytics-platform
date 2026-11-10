@@ -104,6 +104,8 @@ export type MenuMeta = {
   /** Scope must be selected and server-validated before this page queries data. */
   requiresScope: boolean;
   context: Record<ContextKey, Capability>;
+  /** Initial period in whole hours for time-applying menus; positive integer so boundaries stay on whole seconds. Absent = 24 (§6.3). */
+  defaultPeriodHours?: number;
   /** Opt-in deferred analysis execution. The address remains the applied query. */
   query?: { mode: 'apply'; required?: { context?: readonly ContextKey[]; page?: readonly { key: string; label: Text }[] } };
   pageType: PageType;

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { cleanup, configure, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { eqvScreens } from '../src/index.js';
-import { EQV_MOCK_EQUIPMENT, EQV_MOCK_WINDOW, eqvMockContext, eqvMockEvents } from '../src/mock-data/index.js';
+import { EQV_MOCK_EQUIPMENT, EQV_MOCK_WINDOW, eqvMockContext, eqvMockEquipmentOptions, eqvMockEvents } from '../src/mock-data/index.js';
 import { createFakeHost, ok, type QueryCall } from './fake-host.js';
 import { batch } from './replay-fixture.js';
 
@@ -19,6 +19,13 @@ const mockServer = async ({ id, params }: QueryCall) => {
 const hostFor = (equipment: string) => createFakeHost({ page: { equipment }, context: EQV_MOCK_WINDOW, query: mockServer });
 const SCREENS = [['topview', eqvScreens.topview], ['focus', eqvScreens.focus]] as const;
 const NO_BINDING = '이 시점에 적용된 Binding이 없어 Top View를 표시할 수 없습니다';
+
+it('discovers the synthetic sample window and a second equipment without data', () => {
+  expect(eqvMockEquipmentOptions()).toEqual({ options: [
+    { id: 'eq-synth-01', label: 'eq-synth-01', dataRange: { from: '2026-01-01T10:00:00', to: '2026-01-01T10:30:00' } },
+    { id: 'eq-synth-02', label: 'eq-synth-02', dataRange: null },
+  ] });
+});
 
 it('the generated data matches what the generator writes now', () => {
   const committed = readFileSync('src/mock-data/cluster-single.generated.ts', 'utf8');

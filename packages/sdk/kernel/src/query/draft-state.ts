@@ -34,7 +34,7 @@ export type DraftInputs = {
   setGlobal: QueryDraft['setDraftGlobal']; setPage: QueryDraft['setDraftPage'];
 };
 function defaults(input: DraftInputs): Values {
-  return { global: { ...emptyGlobal, scopeId: input.global.scopeId, ...(input.menu?.context.time === 'apply' && input.defaultRangeTo !== null ? { from: shift(input.defaultRangeTo, -24), to: input.defaultRangeTo } : {}) }, page: [] };
+  return { global: { ...emptyGlobal, scopeId: input.global.scopeId, ...(input.menu?.context.time === 'apply' && input.defaultRangeTo !== null ? { from: shift(input.defaultRangeTo, -(input.menu?.defaultPeriodHours ?? 24)), to: input.defaultRangeTo } : {}) }, page: [] };
 }
 function initial(input: DraftInputs): Values {
   return input.global.from === null && input.global.to === null && !input.invalid
