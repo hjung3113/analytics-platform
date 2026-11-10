@@ -15,3 +15,18 @@
 | 주소 복원 | 설비를 고른 뒤 새로고침, 뒤로 | 고른 설비가 복원된다 | manifest `pageKeys`, [§6.4](../../contract/kernel.md) | 화면 점검(mock) |
 | 숨은 화면 | Top View에서 Focus로 이동, 새로고침, 복귀 | 구간(`rangeFrom`, `rangeTo`)과 설비가 복원되고 Top View로 돌아간다 | manifest `pageKeys`, §6.4 | 화면 점검(mock) |
 | 조회 상태 | 개발 도구의 응답 시나리오 | 로딩, 결과 없음, 오류가 서로 다른 모습이고 빈 결과를 오류로 보이지 않는다 | §19 | 화면 점검(mock) |
+
+## 레이아웃(Top View 작성)
+
+`도구 › Top View 작성 › 레이아웃`(`/tools/eqv-studio`, #1654)은 서버 `eqv` 모듈에 Layout을 저장한다. 그래서 위의 Top View와 달리 실서버에서 확인한다. 시드에 Layout이 없으므로 화면의 `가져오기`로 견본 파일(`packages/eqv/fixtures/cluster-single/layout.json`)을 먼저 넣는다. Studio 권한(`eqv-studio:*`)은 Admin만 역할로 가진다.
+
+| 플랫폼 기능 | 견본과 가는 길 | 맞는 모습 | 근거 | 확인 |
+| --- | --- | --- | --- | --- |
+| 권한 없는 역할 | Developer·User로 같은 길, 주소 입력 `/tools/eqv-studio` | Studio 권한이 없으면 사이드바에 `레이아웃`이 없고 주소 입력은 권한 없음 화면이 된다 | §9.1, [05](../../architecture/platform-api/05-permission-policy.md) eqv | 화면 점검(실서버) |
+| 도면 표기 | 레이아웃 화면 | 도면에 «개략도 · 실측 아님 · 제조사 도면 아님»이 보인다 | #1654 완료 조건 | 화면 점검(실서버) |
+| 초안 저장 | 구성 이름 바꾸기 → `초안 저장` → 새로고침 | 저장 전에는 제목에 `저장 안 됨`이 보이고 `Revision 게시`가 막힌다. 저장 뒤 새로고침해도 바꾼 값이 남는다 | [ADR-0135](../../adr/0135-eqv-layout-storage-publish-and-promotion.md) 결정 1 | 화면 점검(실서버) |
+| 미저장 편집 가드 | 저장하지 않은 편집을 둔 채 다른 메뉴로 이동 | 이동 전에 확인을 묻고, 머무르면 편집이 남는다 | #1654 | 화면 점검(실서버) |
+| Revision 게시 | 저장된 초안 → `Revision 게시` | Revision 이력에 새 Revision이 생긴다. 바꾼 것 없이 다시 게시하면 새 Revision이 생기지 않는다 | ADR-0135 결정 2 | 화면 점검(실서버) |
+| 동시 저장 | 같은 Layout을 두 탭에서 편집해 차례로 저장 | 두 번째 저장은 앞의 저장을 덮어쓰지 않고 충돌을 알린다. 내 편집은 남는다 | ADR-0135 결정 2 | 화면 점검(실서버) |
+| 게시본은 읽기 전용 | Revision 이력에서 게시된 Revision을 연다 | 주소에 `layout`·`revision`이 남고 `초안 저장`이 없다. 새로고침해도 같은 Revision이 열린다 | ADR-0135 결정 2, [§6.4](../../contract/kernel.md) | 화면 점검(실서버) |
+| Template 승격 | 게시된 Revision → `EV Template으로 승격` | EV Templates 목록에 새 Template이 나온다. 같은 ID로 다시 승격하면 거부되고 이유가 보인다 | ADR-0135 결정 4 | 화면 점검(실서버) |
