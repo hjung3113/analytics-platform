@@ -143,6 +143,8 @@
 | [0130](0130-workspace-stack-default-and-declared-stack-layout.md) | 작업 영역은 아래로 쌓기로 시작하고, 메뉴가 쌓기용 배치(`stackPreset`)와 패널 선호 높이를 선언한다 | Decided(2026-11-09) |
 | [0131](0131-sdk-consumer-skill-and-intent-table.md) | SDK 소비 지원은 스킬과 손으로 쓴 의도어 표로 시작하고, 생성형 Catalog는 만들지 않는다 | Decided(2026-11-10, 범위는 소유자, 나머지는 코디네이터·사용자 위임) |
 | [0132](0132-eqv-merges-into-platform.md) | 설비 시각화(EV)를 플랫폼에 합친다: 이력은 `products/eqv/`로 보존하고 패키지는 `packages/eqv/*`로 옮기며 EV 저장소는 소유자 확인 뒤 아카이브 | Decided(2026-11-10, 사용자) — 0039·0053의 "EV는 외부 저장소" 서술을 대체, 구현은 #1607 |
+| [0133](0133-feature-screens-frozen-new-screens-on-sdk.md) | `apps/feature-screens`는 동결하고, 새 플랫폼 기능은 `platform/<feature>/`에 SDK 소비자로 만들며, 기존 화면은 크게 고칠 때 옮긴다 | Decided(2026-11-10, 사용자, 되돌릴 수 있음) — 0066 결정 4의 후속 |
+| [0134](0134-bravo-quest-leaves-platform-adapter-port.md) | BRAVO Quest는 `PlatformAdapter` 포트에서 빼고 메뉴 조회 엔드포인트로 옮긴다 | Decided(2026-11-10, 사용자, 되돌릴 수 있음) — 0098의 Quest 포트 개정을 대체, 구현 #1641 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

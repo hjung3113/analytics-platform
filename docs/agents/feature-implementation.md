@@ -26,7 +26,7 @@ Branches and PRs follow the root `AGENTS.md` (`feat/<n>-<slug>` from `main`, iss
 
 - No source code at the repo root. Cross-app code in `packages/*` only when both apps need it.
 - Product systems (VOC, Finding/Insight, Task, Survey, Dashboard, Permission, Entity Linking, Core Platform) are bounded contexts inside the app shells — not separate deployable apps. Do not create `systems/{system}/frontend|backend`.
-- Backend implementation lives under `apps/platform-api/src/modules/*`. Frontend route composition lives under `apps/feature-screens/src/features/*`.
+- Backend implementation lives under `apps/platform-api/src/modules/*`. Existing frontend route composition lives under `apps/feature-screens/src/features/*`, which is frozen for new screens (platform ADR-0133).
 
 ## Required Reading
 

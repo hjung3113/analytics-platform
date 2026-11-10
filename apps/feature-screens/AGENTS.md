@@ -2,6 +2,8 @@
 
 Feature-folder guides under `src/features/` describe semantic screen intents. Runtime registration belongs to platform menus and `@ap/feature-bridge`; standalone routes and `*Route` compositions are retired (#597). Adapters under `src/test` are test-only.
 
+**Frozen ([ADR-0133](../../docs/adr/0133-feature-screens-frozen-new-screens-on-sdk.md)):** do not add new feature folders or screens here; new platform features go in `platform/<feature>/` as SDK consumers. Bug fixes and behaviour changes to existing screens stay here.
+
 ## Required docs
 
 - `docs/design/features/README.md` — read before frontend changes.
