@@ -7,7 +7,7 @@
 import { defineMockAction, MockActionInvalid, type AnyMockAction } from '@ap/mock-server';
 import type { FieldError } from '@ap/contracts';
 import { REVISION_PATTERN, TEMPLATE_ID_PATTERN, promoteTemplate, publishRevision, saveDraft, type LayoutJson } from '../endpoints';
-import { fakeRevision } from './hash';
+import { fakeRevision, sorted } from './hash';
 import { BUNDLED_TEMPLATE_IDS, drafts, mockId, revisions, stamp, templates } from './store';
 
 const err = (path: string[], code: string): FieldError => ({ path, code });
@@ -42,8 +42,10 @@ export const studioActionsMock: readonly AnyMockAction[] = [
       const draft = drafts().get(input.layoutId)!;
       const revision = fakeRevision(draft.document);
       const version = String(draft.version);
-      const existing = revisions().find((r) => r.layoutId === input.layoutId && r.revision === revision);
-      if (existing) return { data: { id: existing.id, layoutId: input.layoutId, revision, created: false }, version };
+      // Same document = same Revision, whatever token it carries (the seeded Revision keeps the server's real hash, not `fakeRevision`'s).
+      const text = sorted(draft.document);
+      const existing = revisions().find((r) => r.layoutId === input.layoutId && (r.revision === revision || sorted(r.document) === text));
+      if (existing) return { data: { id: existing.id, layoutId: input.layoutId, revision: existing.revision, created: false }, version };
       const created = { id: mockId(), layoutId: input.layoutId, revision, document: structuredClone(draft.document), publishedAt: stamp() };
       revisions().push(created);
       return { data: { id: created.id, layoutId: input.layoutId, revision, created: true }, version };

@@ -1,5 +1,5 @@
 /** Deterministic, synchronous stand-in for the server's `layoutRevision`: `sha256:` plus 64 hex digits of the key-sorted JSON. Not a real SHA-256 and never compared with one. */
-const sorted = (value: unknown): string => {
+export const sorted = (value: unknown): string => {
   if (Array.isArray(value)) return `[${value.map(sorted).join(',')}]`;
   if (value !== null && typeof value === 'object') {
     return `{${Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, v]) => `${JSON.stringify(k)}:${sorted(v)}`).join(',')}}`;

@@ -44,6 +44,7 @@ describe.skipIf(!runIntegration)('model Top View pointer (#1656)', () => {
   let reader: Person;
   const actorIds: string[] = [];
   let n = 0;
+  let hiddenSwId = '';
   const layoutId = `itv-${TAG.toLowerCase()}`;
   const ids = {} as { vendor: string; model: string; hidden: string; sw1: string; sw2: string; sw3: string; otherSw: string; rev: string };
 
@@ -248,6 +249,7 @@ describe.skipIf(!runIntegration)('model Top View pointer (#1656)', () => {
       [WORKSPACE_ID, ids.model, hiddenSw, layoutId, ids.rev, manager.id],
     );
     await sql(`update knowledge.software_version set access_mode = 'restricted' where id = $1`, [hiddenSw]);
+    hiddenSwId = hiddenSw;
     const real = `${inserted.rows[0].id}:1`;
     const rowsBefore = await linkRows(ids.model);
     const auditBefore = (await auditOf(ids.model)).length;
@@ -290,6 +292,23 @@ describe.skipIf(!runIntegration)('model Top View pointer (#1656)', () => {
     const a = await read('modelTopView', { modelId: ids.model }, manager);
     const options = (a.data as unknown as { softwareOptions: { softwareId: string; releaseOrder: number }[] }).softwareOptions;
     expect(options.map((o) => o.softwareId)).toEqual(expect.arrayContaining([ids.sw1, ids.sw2, ids.sw3]));
+    expect(options.map((o) => o.releaseOrder)).toEqual([...options.map((o) => o.releaseOrder)].sort((x, y) => x - y));
+    expect(hiddenSwId).not.toBe('');
+    expect(options.map((o) => o.softwareId)).not.toContain(hiddenSwId);
+  });
+
+  it('returns more than 500 visible SWs of one model, all of them, in release order', async () => {
+    const big = (await kw('modelCreate', { vendorId: ids.vendor, code: `${TAG}-big`, name: 'Big', processIds: [] })).data?.id as string;
+    const total = 501;
+    await sql(
+      `insert into knowledge.software_version (workspace_id, model_id, version_label, version_key, name, created_by, updated_by)
+       select $1, $2, 'b' || g, 'b' || g, '', $3, $3 from generate_series(1, $4::int) g`,
+      [WORKSPACE_ID, big, admin.id, total],
+    );
+    const a = await read('modelTopView', { modelId: big }, manager);
+    const options = (a.data as unknown as { softwareOptions: { softwareId: string; releaseOrder: number }[] }).softwareOptions;
+    expect(options).toHaveLength(total);
+    expect(new Set(options.map((o) => o.softwareId)).size).toBe(total);
     expect(options.map((o) => o.releaseOrder)).toEqual([...options.map((o) => o.releaseOrder)].sort((x, y) => x - y));
   });
 

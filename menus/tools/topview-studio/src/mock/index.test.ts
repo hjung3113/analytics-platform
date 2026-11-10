@@ -69,13 +69,22 @@ describe('studio mock writes', () => {
     expect(result).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['document', 'id'], code: 'id_mismatch' }] });
   });
 
-  it('publishRevision: a fake sha256 hash, created false for the same document, not_found without a draft, conflict on a stale version', async () => {
+  it('publishRevision: the untouched seeded draft is already published (created false, no new Revision)', async () => {
+    const before = ((await query(layoutRevisionsEndpoint.id, { layoutId: 'sample-layout' })).data as { rows: unknown[] }).rows;
     const first = await act('eqv.publishRevision', { layoutId: 'sample-layout' }, '1');
+    expect(first).toMatchObject({ outcome: 'ok', data: { revision: FIXTURE_REVISION, created: false } });
+    expect(((await query(layoutRevisionsEndpoint.id, { layoutId: 'sample-layout' })).data as { rows: unknown[] }).rows).toHaveLength(before.length);
+  });
+
+  it('publishRevision: after an edit a fake sha256 hash, created false for the same document, not_found without a draft, conflict on a stale version', async () => {
+    const edited = { ...(await doc()), name: 'Edited layout' };
+    await act('eqv.saveDraft', { layoutId: 'sample-layout', document: edited }, '1');
+    const first = await act('eqv.publishRevision', { layoutId: 'sample-layout' }, '2');
     expect(first).toMatchObject({ outcome: 'ok', data: { created: true } });
     const revision = (first.data as { revision: string }).revision;
     expect(revision).toMatch(/^sha256:[0-9a-f]{64}$/);
-    expect(revision).toBe(fakeRevision(await doc()));
-    expect(await act('eqv.publishRevision', { layoutId: 'sample-layout' }, '1')).toMatchObject({ outcome: 'ok', data: { revision, created: false } });
+    expect(revision).toBe(fakeRevision(edited));
+    expect(await act('eqv.publishRevision', { layoutId: 'sample-layout' }, '2')).toMatchObject({ outcome: 'ok', data: { revision, created: false } });
     expect((await query(layoutRevisionsEndpoint.id, { layoutId: 'sample-layout' })).data).toMatchObject({ rows: expect.arrayContaining([expect.objectContaining({ revision })]) });
     expect((await act('eqv.publishRevision', { layoutId: 'missing' }, '1')).outcome).toBe('not_found');
     expect((await act('eqv.publishRevision', { layoutId: 'sample-layout' }, '7')).outcome).toBe('conflict');
