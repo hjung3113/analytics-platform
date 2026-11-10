@@ -25,3 +25,9 @@ export function mount(spec: ChartSpec, canExport = false, hasRoute = true, contr
   const view = render(wrap(spec));
   return { ...view, update: (next: ChartSpec) => view.rerender(wrap(next)) };
 }
+
+/** A one-menu registry whose manifest `features.export` is `canExport`; shared by the #1657 chart tests. */
+export const exportRegistry = (canExport: boolean) => createRegistry({
+  spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: canExport, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+});

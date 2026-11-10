@@ -11,6 +11,9 @@ import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, 
 import { useElementSize } from '../state/useElementSize';
 import { EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
+import { ChartImageCopyButton } from './ChartImageCopyButton';
+import { echartImageBlob } from './chartImageCopy';
+import { safeFileName } from '../table/download';
 import { assignNoteLevels } from './annotationLayout';
 import { buildChartOption, linePattern, resolveChartPalette } from './buildChartOption';
 import { useAnnotationDeleteFocus, useAnnotationEditor } from './useAnnotationEditor';
@@ -31,6 +34,8 @@ export type ChartSeries = {
   points: [string, number | null][];
   kind?: 'line' | 'bar';
   dashed?: boolean;
+  /** Absent = left. `'right'` draws on the Frame's `rightAxis` (a vertical, unstacked chart with `rightAxis` given; otherwise drawn on the left, with a dev warning). */
+  axis?: 'left' | 'right';
 };
 
 /** FILL_PLOT_CLASS with its overflow-hidden split, so the row-pitch window scrolls vertically only. */
@@ -150,6 +155,10 @@ export type AnalysisChartFrameProps = {
   /** A line whose `unit` or `metricVersion` is given and differs from this Frame's is not drawn; the Frame says so in a note. Omitted fields leave the line as it is. Not drawn with `startAlign` (x is not one value scale). */
   markLines?: { y: number; label: string; unit?: string; metricVersion?: string }[];
   extraActions?: ReactNode;
+  /** A second value axis on the right for series with `axis: 'right'`: its own scale from 0, this unit in the axis name, in the tooltip, the table and CSV headers (`name (unit)`), and `valueFormat` for tooltip, point selector and table values (default: the Frame's `valueFormat`). Vertical, unstacked charts only; with `orientation="horizontal"` or `stacked` every series is drawn on the left, with a dev warning. `markLines` stay on the left axis. */
+  rightAxis?: { unit: string; valueFormat?: (v: number) => string };
+  /** Adds a `이미지 복사` button (PNG to the clipboard, or a download when the clipboard is unavailable), shown only when the current menu manifest enables `features.export`. */
+  imageCopy?: boolean;
   stacked?: boolean;
   /**
    * Horizontal category charts only (ignored elsewhere, with a dev warning). Controlled row highlight: while the prop is present (null = no row)
@@ -201,6 +210,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const previousPeriodId = useId();
   const xType = p.xType ?? 'time';
   const horizontal = xType === 'category' && p.orientation === 'horizontal';
+  // A stack cannot add values on two scales, and a horizontal chart puts the category on its y axis: both draw everything on the left.
+  const rightActive = !!p.rightAxis && !horizontal && !p.stacked;
+  const rightUnit = p.rightAxis?.unit;
+  const isRight = (s: ChartSeries) => rightActive && s.axis === 'right';
   const chart = useRef<ECharts | null>(null);
   // Focus anchors for the confirm row (#297 UX): it unmounts on both outcomes, so its handlers hand focus back —
   // cancel to the "Apply analysis range…" button, apply (selection cleared by the Context change) to the brush toggle.
@@ -229,6 +242,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const [pointerRequest, setPointerRequest] = useState<string | null>(null);
   const revealedCategory = useRef<string | null | undefined>(undefined);
   const { startAlign: rawStartAlign, stacked: rawStacked, minMax: rawMinMax, valueLabels: rawValueLabels, reaggregation: rawReaggregation } = p;
+  const rawRightAxis = p.rightAxis !== undefined; const rawHasRight = [...p.series, ...(p.compareSeries ?? [])].some(s => s.axis === 'right');
   const { rowPitch: rawRowPitch, activeCategory: rawActive, onActiveCategoryChange, revealActive } = p;
   // A misuse warns once while it lasts (an unrelated active-row or callback change re-runs this effect), and again if it goes away and comes back.
   const warned = useRef(new Set<string>());
@@ -243,8 +257,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     once('valueLabels', !!rawValueLabels && !(horizontal && rawStacked), 'valueLabels applies only to a stacked chart with orientation="horizontal"; ignored.');
     once('nonAdditive', !!rawStacked && rawReaggregation !== undefined && !canClientSum({ reaggregation: rawReaggregation }), `stacked draws a sum of the segments, but reaggregation "${rawReaggregation}" is not additive; draw grouped bars instead.`);
     once('noReaggregation', !!rawValueLabels && rawValueLabels !== 'segment' && rawReaggregation === undefined, 'valueLabels="total" or "both" without reaggregation: the Frame treats the measure as not additive and draws only serverTotals.');
+    once('rightAxisUnsupported', (rawRightAxis || rawHasRight) && (horizontal || !!rawStacked), 'axis: "right" and rightAxis apply only to a vertical, unstacked chart; every series is drawn on the left.');
+    once('rightAxisMissing', rawHasRight && !rawRightAxis && !horizontal && !rawStacked, 'a series has axis: "right" but rightAxis is not given; it is drawn on the left.');
     if (horizontal && rawRowPitch !== undefined && !(rawRowPitch >= ROW_PITCH_MIN)) rowFocusDiagnostic(`rowPitch ${rawRowPitch} is below the ${ROW_PITCH_MIN}px target size; using ${ROW_PITCH_MIN}.`);
-  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, rawStacked, rawMinMax, rawValueLabels, rawReaggregation]);
+  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, rawStacked, rawMinMax, rawValueLabels, rawReaggregation, rawRightAxis, rawHasRight]);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
   // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
   const rawFillMin = p.fillMin; const legendProp = p.legend; const controlledVisibility = p.visibleSeriesIds !== undefined;
@@ -319,6 +335,13 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // The tooltip reads the formatter when it opens, so a consumer's new `valueFormat` takes effect without rebuilding the option.
   const formatRef = useRef(format);
   useLayoutEffect(() => { formatRef.current = format; });
+  const rightFormat = p.rightAxis?.valueFormat ?? format;
+  const rightFormatRef = useRef(rightFormat);
+  useLayoutEffect(() => { rightFormatRef.current = rightFormat; });
+  const fmtOf = (s: ChartSeries) => (isRight(s) ? rightFormat : format);
+  const unitOf = (s: ChartSeries) => (isRight(s) ? p.rightAxis!.unit : p.unit);
+  /** Table and CSV column header: the unit joins the name only while the right axis is active (otherwise headers are as before). */
+  const columnName = (s: ChartSeries) => (rightActive ? `${s.name} (${unitOf(s)})` : s.name);
   // One row per distinct x across the visible series (#297): Compare series carry different dates, so the
   // old array-index join put one series' values under another's dates. Rows run in x order (time: ascending
   // ISO strings sort chronologically; category: the axis order), each x once — duplicate categories collapse
@@ -371,6 +394,8 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }, [xType, allSeries, annotations.length]);
   // Stable and live: the tooltip reads the formatter through the ref when it opens.
   const valueFormat = useCallback((v: number) => formatRef.current(v), []);
+  const rightValueFormat = useCallback((v: number) => rightFormatRef.current(v), []);
+  const rightAxisOption = useMemo(() => (rightActive && rightUnit !== undefined ? { unit: rightUnit, valueFormat: rightValueFormat } : undefined), [rightActive, rightUnit, rightValueFormat]);
   // Value labels exist for horizontal stacked bars only. Totals: the client adds the shown segments only for an additive measure; a server total needs every series shown.
   const valueLabels = horizontal && p.stacked ? p.valueLabels : undefined;
   const wantsTotal = valueLabels === 'total' || valueLabels === 'both';
@@ -419,10 +444,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText,
+      emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption,
       palette: resolveChartPalette(displayed),
     });
-  }, [p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, instanceReady]);
+  }, [p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -545,7 +570,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }
 
   function exportCsv() {
-    const header = ['x', ...visible.map(s => s.name)];
+    const header = ['x', ...visible.map(columnName)];
     // The table projection verbatim: numbers stay numbers so the formula guard never prefixes them (#297).
     const body = rows.map(([x, values]) => [x, ...values.map(v => (v === null ? '' : v))]);
     downloadChartCsv({ ...p, context: global }, header, body);
@@ -612,7 +637,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
           <select aria-label={lang === 'ko' ? '차트 지점 선택' : 'Select chart point'} value={selectedPoint ? pointKey(selectedPoint) : ''} disabled={brushMode || !points.length}
             className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => { setSelectedPointKey(event.target.value); const picked = points.find(point => pointKey(point) === event.target.value); if (horizontal && picked) p.onActiveCategoryChange?.(picked.x, 'keyboard'); }}>
             {!points.length && <option value="">{lang === 'ko' ? '선택할 지점 없음' : 'No points available'}</option>}
-            {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{point.x} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang === 'ko') : format(point.value)}{extremeText(point)}</option>)}
+            {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{point.x} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang === 'ko') : fmtOf(allSeries.find(s => s.id === point.seriesId)!)(point.value)}{extremeText(point)}</option>)}
           </select>
           {p.pointActivation && <Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) p.pointActivation?.onActivate(selectedPoint); }}>{lang === 'ko' ? '선택 지점 실행' : 'Activate selected point'}</Button>}
           {hasPointActions && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint && !noActions} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>
@@ -638,6 +663,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         </div>
         <div className="flex items-center gap-1" data-chart-toolbar-tail>
           {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
+          {p.imageCopy && <ChartImageCopyButton fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
           <Popover>
             <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '더보기' : 'More'}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
             <PopoverContent align="end" className="w-72">
@@ -692,10 +718,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">
       <table aria-labelledby={titleId} className="w-full text-xs tabular">
-        <thead className="sticky top-0 bg-surface-sunken"><tr><th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{lang === 'ko' ? (xType === 'time' ? '시각' : '구간') : (xType === 'time' ? 'Time' : 'Category')}</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{s.name}</th>)}{totals && totals.size > 0 && <th className="t-table-header px-3 py-1.5 text-right text-text-secondary">{totalName}</th>}</tr></thead>
+        <thead className="sticky top-0 bg-surface-sunken"><tr><th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{lang === 'ko' ? (xType === 'time' ? '시각' : '구간') : (xType === 'time' ? 'Time' : 'Category')}</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{columnName(s)}</th>)}{totals && totals.size > 0 && <th className="t-table-header px-3 py-1.5 text-right text-text-secondary">{totalName}</th>}</tr></thead>
         <tbody>{rows.map(([x, values]) => <tr key={x} className="border-t border-border-subtle">
           <td className="px-3 py-1">{xType === 'time' ? fmt(x) : x}</td>
-          {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? '—' : format(v)}</td>)}
+          {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? '—' : fmtOf(visible[i])(v)}</td>)}
           {totals && totals.size > 0 && <td className="px-3 py-1 text-right">{(() => { const t = totals.get(x); return t ? (t.partial ? `≥ ${format(t.value)} (${missingText(t.missing)})` : format(t.value)) : '—'; })()}</td>}
         </tr>)}</tbody>
       </table>
@@ -731,7 +757,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         : (lang === 'ko' ? '선택 구간 없음 — 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.')}</span>
         : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="font-semibold tabular">{t('selectedRange')}: {xType === 'time' ? `${fmt(selection.from)} – ${fmt(selection.to)}` : `${selection.from} – ${selection.to}`}</span>
-          {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${format(c.avg)} · max ${format(c.max!)}`} {p.unit}</span>)}
+          {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${fmtOf(c.s)(c.avg)} · max ${fmtOf(c.s)(c.max!)}`} {unitOf(c.s)}</span>)}
           <span className="ml-auto flex flex-wrap gap-2">
             {p.selectionActions?.(selection)}
             {xType === 'time' && p.canApplyRange !== false && <Button ref={applyRangeButton} size="toolbar" onClick={() => rangeActions.setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}

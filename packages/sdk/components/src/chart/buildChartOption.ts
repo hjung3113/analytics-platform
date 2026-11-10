@@ -27,6 +27,8 @@ const DEFAULT_TICKS = 5;
 const PARTIAL_MARKER = 8;
 /** Upper bound of the category-label allowance in a `containLabel` horizontal grid. */
 const MAX_CATEGORY_ROOM = 160;
+/** Extra right grid room for the right value axis' labels and name (a left axis gets 52, the plain right margin is 20). */
+const RIGHT_AXIS_ROOM = 32;
 
 export type LinePattern = 'solid' | number[];
 export function linePattern(series: ChartSeries, previous: boolean): LinePattern {
@@ -112,6 +114,8 @@ export type ChartOptionInput = {
   totals?: ReadonlyMap<string, RowTotal>;
   /** Each total's text under the render's own formatter: the text and the grid room are built from it, not from the lazy `valueFormat`. */
   totalText?: ReadonlyMap<string, string>;
+  /** Vertical, unstacked charts only (the Frame resolves that). Set = a second value axis on the right; a series with `axis: 'right'` is drawn on it with this unit and format in its tooltip. Absent = one axis and the option is unchanged. */
+  rightAxis?: { unit: string; valueFormat: (v: number) => string };
 };
 
 /** What a label that does not fit lays out as: ECharts has no hide switch for a layout callback, so the label collapses to nothing. */
@@ -128,7 +132,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   // Room for the widest total (plus the partial marker); a plain stacked bar shifts it clear of a 최소/최대 chip, lanes keep one fixed column.
   const textOf = (x: string, t: RowTotal) => i.totalText?.get(x) ?? i.valueFormat(t.value);
   const totalRoom = totalTexts ? Math.max(...[...totalTexts].map(([x, t]) => labelWidth(`≥ ${textOf(x, t)}`))) + TOTAL_GAP + PARTIAL_MARKER : 0;
-  const gridRight = (chips ? MIN_MAX_LABEL_ROOM : 20) + totalRoom;
+  const gridRight = (chips ? MIN_MAX_LABEL_ROOM : 20) + totalRoom + (i.rightAxis ? RIGHT_AXIS_ROOM : 0);
   // The chip sits on its own segment, so it is at the bar end when that segment ends where the row's stack ends (a zero-width tail after it does not move the end).
   const chipAtEnd = (x: string) => {
     const end = stackEnd(i.displayed, x);
@@ -144,7 +148,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   };
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   // Pixels per axis unit from the plot width and the zoom window, so a label can be cut to its own area (#399 AC-2).
-  const plotWidth = Math.max(0, i.chartWidth - PLOT_MARGIN);
+  const plotWidth = Math.max(0, i.chartWidth - PLOT_MARGIN - (i.rightAxis ? RIGHT_AXIS_ROOM : 0));
   const zoomed = Math.max((i.zoom[1] - i.zoom[0]) / 100, 0.01);
   const units = xType === 'time' ? i.timeExtent : categories.length;
   const pxPerUnit = units > 0 ? plotWidth / (units * zoomed) : 0;
@@ -188,6 +192,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       }),
     };
   }
+  const valueAxis = { type: 'value', min: 0, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine };
   return {
     // Row-pitch mode: no containLabel, so the category band is exactly height - top - bottom = rows × pitch and row i starts at top + i × pitch (the reveal maths relies on it).
     grid: horizontal && i.rowPitch !== undefined ? { left: ROW_LABEL_GUTTER, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
@@ -201,7 +206,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       : horizontal ? { type: 'value', min: 0, name: i.unit, splitLine: theme.splitLine, ...valueAxisTicks } : xType === 'time'
       ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
       : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
-    yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: i.rowPitch !== undefined ? 0 : 'auto', ...(i.rowPitch !== undefined ? { width: ROW_LABEL_GUTTER - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : { type: 'value', min: 0, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine },
+    yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: i.rowPitch !== undefined ? 0 : 'auto', ...(i.rowPitch !== undefined ? { width: ROW_LABEL_GUTTER - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : i.rightAxis ? [valueAxis, rightValueAxis(i.rightAxis)] : valueAxis,
     // Row-pitch mode: the inner scroller is the only viewport. A dataZoom window on top would make the selection summary, Brush and export ambiguous (ADR-0079).
     dataZoom: horizontal && i.rowPitch !== undefined ? [] : [{ type: 'inside', ...(horizontal ? { yAxisIndex: 0 } : { xAxisIndex: 0 }), start: i.zoom[0], end: i.zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !i.brushMode }],
     // Selection and annotation fills keep echarts-native opacity.
@@ -225,11 +230,14 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
             ...(mark && isActive ? { shadowBlur: 6, shadowColor: palette.series[n].stroke } : {}),
           }, ...(mark ? { label: extremeLabel(mark, lanes !== null, palette, lang) } : {}) };
         };
+        const right = i.rightAxis && s.axis === 'right' ? i.rightAxis : null;
         const real = {
           id: s.id, name: s.name, type: kind, stack: i.stacked && kind === 'bar' ? 'total' : undefined,
           showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: palette.series[n].fill },
           emphasis: { focus: i.emphasisFocus ?? 'series' },
+          // The tooltip's own formatter is the left axis'; a right series reads its unit and format.
+          ...(right ? { yAxisIndex: 1, tooltip: { valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${right.valueFormat(v)} ${right.unit}`) } } : {}),
           ...(segments && kind === 'bar' ? {
             label: { show: true, position: 'inside', fontSize: LABEL_FONT, color: palette.segmentText[n].color, ...(palette.segmentText[n].chip ? { backgroundColor: palette.labelSurface, borderRadius: 2, padding: 0 } : {}), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? shortNumber(p.value, lang) : '') },
             labelLayout: segmentLayout,
@@ -252,6 +260,11 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       },
     ],
   };
+}
+
+/** The right value axis: its own scale from 0, no grid lines (the left axis owns them), its unit above the labels. */
+function rightValueAxis(right: { unit: string }) {
+  return { type: 'value', min: 0, position: 'right', name: right.unit, nameTextStyle: { align: 'left' }, splitLine: { show: false } };
 }
 
 function extremeName(mark: 'min' | 'max', lang: string) {

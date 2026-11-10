@@ -56,3 +56,5 @@ Ctrl/⌘+wheel·+/−·확대 버튼으로 확대하고 plot drag로 이동한�
 2026-10-21 / #541: `ChartPoint`, `ChartPointAction` 추가. `AnalysisChartFrame`에 `pointActivation`, `pointActions`, `orientation`, `visibleSeriesIds`, `onVisibleSeriesChange` 추가. `AnalysisChart` 반환 타입이 `JSX.Element`에서 `JSX.Element | null`로 바뀌었다(`topNBar.hideWhenEmpty`, 호환성 변경).
 
 2026-10-21 / #576: `TopNBarItem`, `TopNBarSpec`, `LaneTimeline`, `LaneTimelineProps`, `LaneTimelineHandle`, `TimelineLane`, `TimelineSegment` 추가. `ChartSpec`에 `topNBar` 추가, 카탈로그 `topNBar`·`lane` 소비 예 추가. 배포 태그는 릴리스 단계에서 정한다.
+
+2026-11-10 / #1657: 선택 옵션 추가(기본 동작 불변). `ChartSeries.axis?: 'left' | 'right'`와 `AnalysisChartFrame`의 `rightAxis?: { unit; valueFormat? }`로 세로 비누적 차트에 오른쪽 값 축을 둔다(가로·누적은 무시하고 개발 중 경고; 툴팁·표·CSV는 시리즈별 단위; `markLines`는 왼쪽). `AnalysisChartFrame`·`AnalysisChart`·`LaneTimeline`에 `imageCopy?: boolean`을 추가한다 — `이미지 복사` 버튼은 prop이 true이고 메뉴 `features.export`가 켜졌을 때만 보이며, PNG를 클립보드에 복사하거나(보안 컨텍스트가 아니면 다운로드) 결과를 토스트로 알린다. 소비자 조치 없음. 규칙은 `docs/contract/chart.md` §16.
