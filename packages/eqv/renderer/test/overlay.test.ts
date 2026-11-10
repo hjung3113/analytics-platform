@@ -975,3 +975,24 @@ it.each([
   const name = comp.insideLabelBox;
   if (name) expect(cy + r <= name.y0 || top >= name.y1).toBe(true);
 });
+
+it.each([
+  { h: 30, w: 30 }, { h: 38, w: 38 }, { h: 48, w: 48 }, { h: 60, w: 60 },
+])('keeps the material row off the Component icon: $w×$h', ({ h, w }) => {
+  const { scene } = fixture([component({ id: 'a', assetRef: 'primitive:pm', label: 'PM-B', x: 400, y: 300, w, h })]);
+  const comp = scene.components.get('a')!;
+  const k = 1 / scene.pxPerUnit;
+  const state = replayState({
+    components: [{ componentId: 'a', activity: 'processing', activityEvidence: 'observed', occurrenceIds: [] }],
+    materials: [stateMaterial({ key: 'm:wafer:W11', kind: 'wafer', id: 'W11', location: { componentId: 'a' }, locationEvidence: 'observed', identityEvidence: 'unknown' })],
+  });
+  const drawn = shapes(markOf(buildReplayLayer(scene, { state }, k), comp));
+  const token = drawn.find((n) => n.tag === 'circle' && n.attrs.fill === 'var(--eqv-material-fill, #f7e4cd)')!;
+  const idLabel = drawn.find((n) => n.tag === 'text' && n.children.includes('W11'))!;
+  const bottom = Number(token.attrs.cy) + Number(token.attrs.r);
+  const top = Number(idLabel.attrs.y) - 0.78 * Number(idLabel.attrs['font-size']);
+  const icon = comp.glyphBox!;
+  expect(icon).not.toBeNull();
+  expect(bottom <= icon.y0 || top >= icon.y1).toBe(true);
+  if (top >= comp.bbox.y1) expect(top).toBeGreaterThanOrEqual(comp.bbox.y1 + 10 * k);
+});

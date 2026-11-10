@@ -1,6 +1,6 @@
 import { LEVEL_KO, type SceneState } from '@eqv/core';
 import { capabilitySegment } from './capability.js';
-import { isArm, robotR, shapeLocal, type Mat } from './geom.js';
+import { isArm, robotR, shapeLocal, type Box, type Mat } from './geom.js';
 import { outsideLabelBottomPx, type Scene, type SceneComponent } from './scene.js';
 import { estimateTextWidth } from './text.js';
 import { el, formatNum, withPointerEventsNone, type SvgNode } from './svg.js';
@@ -295,27 +295,31 @@ function siteOrdered(comp: SceneComponent, materials: readonly StateMaterial[]):
 
 /** Gap kept between the material row and the Component's own inside label, screen px. */
 const LABEL_CLEAR_PX = 2;
+/** Screen px an outside row keeps below the bbox: past the activity ring (6) and the occupancy-conflict ring (9) with their strokes. */
+const OUTSIDE_RING_CLEAR_PX = 10;
 
 /**
  * Row centre y. On the inner bottom edge of the bbox unless that spot is taken: a small Component's row sits outside,
  * below the bbox and below the Component's own `outside` label box, with room for the id labels above the disc; a
- * Component whose own name is drawn inside the bbox (band or centre) where the row would land has its row moved just
- * above that name when it fits in the bbox, else outside like a small one. An outside row whose stroked extent would
- * cross the scene viewBox stays on the inner bottom edge.
+ * Component whose own name (band or centre) or drawn glyph is where the row would land has its row moved just above
+ * that name when that spot is free and in the bbox, else outside like a small one. An outside row whose stroked extent
+ * would cross the scene viewBox stays on the inner bottom edge.
  */
 function materialRowCy(scene: Scene, comp: SceneComponent, k: number): number {
   const inner = comp.bbox.y1 - (CLUSTER_INSET_PX + DISC_PX / 2) * k;
   const name = comp.insideLabelBox;
   const rowTop = (cy: number) => cy - (DISC_PX / 2 + 2 + LABEL_PX) * k;
   const rowBottom = (cy: number) => cy + DISC_PX / 2 * k;
-  const nameTaken = name != null && rowBottom(inner) > name.y0 - LABEL_CLEAR_PX * k && rowTop(inner) < name.y1 + LABEL_CLEAR_PX * k;
-  if (!isSmallComponent(comp, k) && !nameTaken) return inner;
-  if (nameTaken && !isSmallComponent(comp, k)) {
+  const hits = (box: Box | null, cy: number) => box != null && rowBottom(cy) > box.y0 - LABEL_CLEAR_PX * k && rowTop(cy) < box.y1 + LABEL_CLEAR_PX * k;
+  const free = (cy: number) => !hits(name, cy) && !hits(comp.glyphBox, cy);
+  const small = isSmallComponent(comp, k);
+  if (!small && free(inner)) return inner;
+  if (!small && name != null && hits(name, inner)) {
     const above = name.y0 - (LABEL_CLEAR_PX + DISC_PX / 2) * k;
-    if (rowTop(above) >= comp.bbox.y0) return above;
+    if (rowTop(above) >= comp.bbox.y0 && free(above)) return above;
   }
   const labelPx = comp.outsideLabelPx == null ? 0 : outsideLabelBottomPx(comp.outsideLabelPx);
-  const offsetPx = labelPx + CLUSTER_INSET_PX + LABEL_PX + 2 + DISC_PX / 2;
+  const offsetPx = labelPx + OUTSIDE_RING_CLEAR_PX + LABEL_PX + 2 + DISC_PX / 2;
   const outer = comp.bbox.y1 + offsetPx * k;
   return outer + (DISC_PX / 2 + 1) * k <= scene.viewBox.y1 ? outer : inner;
 }
