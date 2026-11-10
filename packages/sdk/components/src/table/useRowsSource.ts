@@ -25,7 +25,7 @@ function withoutFilterAndGroup<T>(column: PlatformColumn<T>): PlatformColumn<T> 
  * all through the column's value) and answers the §19 envelope itself. `version` counts a new `rows` reference or a `rowsLoading` change;
  * the paging hook folds it into the request identity (never the Context identity), so page and selection survive and rows stay visible.
  * With `external` the menu owns the window, so column filters and row groups (which need the whole set) are removed here, once, before
- * the columns reach the rest of the table.
+ * the columns reach the rest of the table; `filtersIgnored` tells the table to drop any (controlled or own) filter state too, so identity, export and descriptions never see it.
  */
 export function useRowsSource<T>({ rows, rowsLoading, external, columns, filterFields }: RowsInput<T>) {
   const active = rows !== undefined;
@@ -39,13 +39,16 @@ export function useRowsSource<T>({ rows, rowsLoading, external, columns, filterF
   }, [ignored]);
   const shownColumns = useMemo(() => ignored ? columns.map(withoutFilterAndGroup) : columns, [ignored, columns]);
   const shownFields = ignored ? undefined : filterFields;
-  if (!active) return { columns, filterFields, loadPage: undefined, version: 0 };
-  const loadPage: TableLoadPage<T> = async query => {
-    if (rowsLoading) return new Promise<never>(() => {});
+  if (!active) return { columns, filterFields, loadPage: undefined, version: 0, filtersIgnored: false };
+  const loadPage: TableLoadPage<T> = async (query, signal) => {
+    if (rowsLoading) return new Promise<never>((_, reject) => {
+      const abort = () => reject(new DOMException('aborted', 'AbortError'));
+      if (signal.aborted) abort(); else signal.addEventListener('abort', abort, { once: true });
+    });
     if (external) return envelope(rows, rows.length);
     return localPage(rows, query, shownColumns, shownFields);
   };
-  return { columns: shownColumns, filterFields: shownFields, loadPage, version: seen.version };
+  return { columns: shownColumns, filterFields: shownFields, loadPage, version: seen.version, filtersIgnored: external };
 }
 
 function envelope<T>(rows: readonly T[], total: number, groups?: GroupedPageResult<T>['groups']): ApiResponse<GroupedPageResult<T>> {

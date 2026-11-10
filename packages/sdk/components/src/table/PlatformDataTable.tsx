@@ -210,6 +210,8 @@ export type PlatformDataTableProps<T> = TableBaseProps<T> & (
   }
 );
 
+const NO_FILTERS: ColumnFilter[] = [];
+
 /** §15: platform owns interaction, loading/error, column preference, selection model, toolbar layout; domain owns columns/cells/actions/filters. */
 export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const epoch = useEndpointRefreshEpoch((props.refreshOn ?? []).map(e => e.id));
@@ -284,6 +286,8 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
   const filterFields = useMemo(() => resolveFilterFields(p.columns, p.filterFields, lang), [p.columns, p.filterFields, lang]);
   const columnFilters = useColumnFilters(p.urlState, filterFields);
+  // `rows` + `externalPagination` ignores filters: one effective state feeds identity, loading, export and descriptions.
+  const effectiveFilters = source.filtersIgnored ? NO_FILTERS : columnFilters.filters;
   const droppedNote = useDroppedNote(filterFields, columnFilters.filters, columnFilters.apply);
   // Merged fit must not depend on the shown summary's intrinsic width: measure the whole band and the controls separately.
   // Reserve the existing 320px filter basis when count + description fit beside it; otherwise the right-hand group wraps.
@@ -303,7 +307,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const groupBy = groupColumns.some(c => c.id === groupChoice) ? groupChoice : null;
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange } = usePagedRows<T>({
-    loadPage: p.loadPage, filterKey: p.filterKey ?? '', urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: columnFilters.filters, groupBy, dataVersion,
+    loadPage: p.loadPage, filterKey: p.filterKey ?? '', urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: effectiveFilters, groupBy, dataVersion,
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
     onContextChange: () => { selectionState.clear(); abortTransfers(); setCollapsed(new Set()); },
   });
@@ -315,7 +319,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const { headerState, clear: clearSelection } = selectionState;
   const { exporting, copying, exportNote, copyNote, runExport, runCopy, onShortcut, abortTransfers } = useTableTransfer<T>({
     columns: p.columns, getRowId: p.getRowId, exportRows: p.exportRows, menuNote: p.exportNote, exportFilterSummary: p.exportFilterSummary, exportContext: p.exportContext,
-    canExport, selectedIds, selection: effectiveSelection, allSelection: selectionState.all ? { excludedIds: selectionState.excludedIds, count: selectedCount } : null, columnFilters: columnFilters.filters, filterFields, loadedRows: data.rows, total: data.total, resultOk: shown?.outcome === 'ok', activeSorting, preferences, overlayOpen,
+    canExport, selectedIds, selection: effectiveSelection, allSelection: selectionState.all ? { excludedIds: selectionState.excludedIds, count: selectedCount } : null, columnFilters: effectiveFilters, filterFields, loadedRows: data.rows, total: data.total, resultOk: shown?.outcome === 'ok', activeSorting, preferences, overlayOpen,
   });
 
   const columnPrefsId = useId();
