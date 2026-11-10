@@ -1,3 +1,4 @@
+import { AREA_REPORT_COPY } from '@/lib/copy/area-report';
 import { areaReportFixture } from '@/test/fixtures/area-report';
 import {
   COVERAGE_IDS as IDS,
@@ -42,8 +43,9 @@ async function mount(
   layout = false,
   initialReport = areaReportFixture,
   identity?: Promise<Response>,
+  firstReport?: (url: URL) => Response,
 ) {
-  reportResponse = () => json(initialReport);
+  reportResponse = firstReport ?? (() => json(initialReport));
   vi.stubGlobal(
     'fetch',
     vi.fn((input: string) => {
@@ -445,4 +447,25 @@ it('waits for the current actor before requesting a report', async () => {
   expect(
     await screen.findByRole('link', { name: 'Identity Platform · 인증 VOC 전체 10건' }),
   ).toBeVisible();
+});
+
+it('returns to the first page when the address holds a cursor bound to another system scope', async () => {
+  await mount('/integration/coverage?view=areas&cursor=scoped-cursor', false, areaReportFixture, undefined, (url) =>
+    url.searchParams.has('cursor')
+      ? json(
+          {
+            code: 'validation.failed',
+            message: 'invalid cursor',
+            detail: { fields: [{ path: ['cursor'], code: 'invalid_cursor' }] },
+          },
+          422,
+        )
+      : json(areaReportFixture),
+  );
+  await waitFor(() => {
+    const reports = requests.filter((url) => url.pathname === '/dashboard/analytics-areas');
+    expect(reports.some((url) => url.searchParams.has('cursor'))).toBe(true);
+    expect(reports.at(-1)?.searchParams.has('cursor')).toBe(false);
+  });
+  await waitFor(() => expect(screen.queryByRole('button', { name: AREA_REPORT_COPY.retry })).toBeNull());
 });

@@ -247,6 +247,15 @@ export function CoverageScreen(): React.ReactElement {
       return cursor ? { ...rest, cursor } : rest;
     });
   }
+  const handleInvalidCursor = React.useCallback(() => {
+    write(
+      (previous) => {
+        const { cursor: _cursor, ...rest } = previous;
+        return rest;
+      },
+      { replace: true },
+    );
+  }, [write]);
   function handleTab(view: string): void {
     write((previous) => {
       if (view === 'areas') return { ...previous, view: 'areas' };
@@ -358,6 +367,7 @@ export function CoverageScreen(): React.ReactElement {
                   area={area}
                   cursor={search.cursor}
                   onPage={handlePage}
+                  onInvalidCursor={handleInvalidCursor}
                 />
               </>
             )}
