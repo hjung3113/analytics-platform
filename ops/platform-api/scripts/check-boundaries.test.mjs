@@ -944,6 +944,16 @@ gitCase('rule 12: a runtime import of the recorder is not the approved type-only
   expectOutput: ['is not an approved surface'],
 });
 
+gitCase('rule 12: type-only import-equals of the recorder passes, runtime import-equals fails', {
+  base: baseTree,
+  head: {
+    [join(MODULES, 'voc', 'c.ts')]: "import type R = require('../dashboard/recorder.js');\n",
+    [join(MODULES, 'voc', 'c2.ts')]: "import R = require('../dashboard/recorder.js');\n",
+  },
+  expectExit0: false,
+  expectOutput: ['voc/c2.ts', 'is not an approved surface'],
+});
+
 gitCase('rule 12: a default binding beside inline types still loads the recorder', {
   base: baseTree,
   head: {

@@ -206,6 +206,7 @@ function collectImportSpecifiers(file, content) {
     ) {
       out.push({
         specifier: node.moduleReference.expression.text,
+        typeOnly: node.isTypeOnly,
         line:
           source.getLineAndCharacterOfPosition(node.moduleReference.expression.getStart(source))
             .line + 1,
