@@ -313,7 +313,7 @@ describe('InboxPanel', () => {
       renderInbox();
 
       const row = await screen.findByTestId(`home-inbox-row-${NOTIFICATION_ID}`);
-      expect(row).toHaveTextContent('워크스페이스 관리자 권한');
+      expect(row).toHaveTextContent('관리자 권한');
       expect(row).not.toHaveTextContent('workspace.admin');
     },
   );

@@ -523,7 +523,7 @@ async function selectDirectGrantTargetAndScopeWithUser(
   await chooseSelectOptionWithUser(
     user,
     '부여 권한 및 범위',
-    typeof scopeName === 'string' && scopeName.includes('워크스페이스') ? 1 : 0,
+    typeof scopeName === 'string' && scopeName.includes('관리자 권한') ? 1 : 0,
   );
 }
 
@@ -549,7 +549,7 @@ describe('/admin/permissions/grants screen', () => {
       tab: 'denies',
       path: `/admin/permissions/grants?tab=denies&selected=${DENY_ID}`,
       row: 'Actor Two · Finding 관리',
-      scope: '워크스페이스 전체',
+      scope: '전체',
       detailField: '차단 사유',
     },
   ])(
@@ -601,7 +601,7 @@ describe('/admin/permissions/grants screen', () => {
 
     const list = await screen.findByTestId('permission-grants-list');
     fireEvent.click(
-      within(list).getByRole('button', { name: /Actor Two · 워크스페이스 관리자 권한/ }),
+      within(list).getByRole('button', { name: /Actor Two · 관리자 권한/ }),
     );
 
     await waitFor(() =>
@@ -750,14 +750,14 @@ describe('/admin/permissions/grants screen', () => {
     const dialog = await openDirectGrantDialog();
     await selectDirectGrantTargetAndScope(
       'Actor One',
-      /워크스페이스 관리자 권한.*워크스페이스 전체/,
+      /관리자 권한.*전체/,
     );
 
     expect(within(dialog).getByText(/Role Level은 변경되지 않습니다/)).toBeInTheDocument();
     const submit = within(dialog).getByTestId('direct-grant-submit');
     expect(submit).toBeDisabled();
     fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), {
-      target: { value: '워크스페이스 운영을 맡깁니다.' },
+      target: { value: '플랫폼 운영을 맡깁니다.' },
     });
     expect(submit).toBeDisabled();
     fireEvent.click(within(dialog).getByRole('checkbox', { name: /관리자 권한 부여를 확인/ }));
@@ -777,7 +777,7 @@ describe('/admin/permissions/grants screen', () => {
     expect(directPermissionGrantSchema.parse(post?.body)).toEqual({
       actor_id: RECIPIENT_ID,
       capability: 'workspace.admin',
-      reason: '워크스페이스 운영을 맡깁니다.',
+      reason: '플랫폼 운영을 맡깁니다.',
     });
     expect(post?.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/i);
   });
@@ -1149,7 +1149,7 @@ describe('/admin/permissions/grants screen', () => {
     const dialog = await openDirectGrantDialog();
     await selectDirectGrantTargetAndScope(
       'Admin One',
-      /워크스페이스 관리자 권한.*워크스페이스 전체/,
+      /관리자 권한.*전체/,
     );
     fireEvent.change(within(dialog).getByLabelText('정책 근거 · 필수'), {
       target: { value: '권한 정책 4.3항' },
@@ -1162,7 +1162,7 @@ describe('/admin/permissions/grants screen', () => {
     await chooseSelectOption('부여 권한 및 범위', /Finding 관리.*Payments/);
     expect(within(dialog).getByLabelText('정책 근거 · 필수')).toHaveValue('');
     expect(within(dialog).getByLabelText('동료 검토자 부재 사유 · 필수')).toHaveValue('');
-    await chooseSelectOption('부여 권한 및 범위', /워크스페이스 관리자 권한.*워크스페이스 전체/);
+    await chooseSelectOption('부여 권한 및 범위', /관리자 권한.*전체/);
     expect(
       within(dialog).getByRole('checkbox', { name: /관리자 권한 부여를 확인/ }),
     ).not.toBeChecked();
@@ -1591,7 +1591,7 @@ describe('/admin/permissions/grants screen', () => {
 
     fireEvent.click(within(dialog).getByRole('combobox', { name: '부여 권한 및 범위' }));
     expect(
-      await screen.findByRole('option', { name: /워크스페이스 관리자 권한.*워크스페이스 전체/ }),
+      await screen.findByRole('option', { name: /관리자 권한.*전체/ }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('option', { name: /Finding 관리.*Payments/ }),

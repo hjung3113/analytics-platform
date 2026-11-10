@@ -10,7 +10,7 @@ export const HOME_COPY = {
     queues: DashboardSummary['action_queues'] | undefined,
     coverage: DashboardSummary['coverage'] | undefined,
   ) => {
-    if (queues === undefined) return '오늘 워크스페이스의 운영 현황을 불러오는 중입니다.';
+    if (queues === undefined) return '오늘의 운영 현황을 불러오는 중입니다.';
     if (queues.length === 0) {
       if (coverage?.length === 0) {
         return '운영 큐와 커버리지는 시스템 담당 범위가 있을 때만 표시됩니다. 지금은 나에게 배정된 작업만 보입니다.';
@@ -95,7 +95,7 @@ export const HOME_QUEUE_COPY: Record<
   'permission-requests-pending': {
     title: '검토 대기 중인 권한 요청',
     sidebarLabel: '검토 대기 중인 권한 요청',
-    detail: '워크스페이스 관리자 검토를 기다리는 상위 권한 요청입니다.',
+    detail: '관리자 검토를 기다리는 상위 권한 요청입니다.',
     primaryAction: '요청 열기',
   },
 };

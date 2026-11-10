@@ -54,9 +54,9 @@ it('AC-E5a shows granted and total counts without claiming zero systems', () => 
   // The note lives outside the option buttons so it never becomes part of an
   // option's accessible name.
   expect(screen.getByTestId('scope-name-visibility-note')).toHaveTextContent(
-    '이름은 워크스페이스 전체에 공개되며, 접근하려면 권한을 요청하세요.',
+    '이름은 모든 사용자에게 공개되며, 접근하려면 권한을 요청하세요.',
   );
-  expect(allScope).not.toHaveTextContent('이름은 워크스페이스 전체에 공개되며');
+  expect(allScope).not.toHaveTextContent('이름은 모든 사용자에게 공개되며');
   expect(screen.getByTestId('scope-option-identity')).toHaveTextContent('Identity Platform');
   expect(screen.getByTestId('scope-option-finance')).toHaveTextContent('Finance Analytics');
   expect(screen.getByTestId('scope-option-sales')).toHaveTextContent('Sales Workspace');
@@ -92,7 +92,7 @@ it('labels Admin all scope without a second line or qualifier', () => {
   expect(screen.queryByTestId('scope-union-badge')).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByTestId('scope-selector'));
-  expect(screen.getByTestId('scope-option-all')).toHaveTextContent('워크스페이스 전체');
+  expect(screen.getByTestId('scope-option-all')).toHaveTextContent('전체');
 });
 it('keeps scope qualifiers visible and exposes a long system name accessibly', () => {
   const name = 'Finance Analytics and Global Revenue Operations';

@@ -109,7 +109,7 @@ describe('<RequestAccessButton>', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '권한 요청' }));
 
-    expect(screen.getByText('워크스페이스 전체')).toBeInTheDocument();
+    expect(screen.getByText('전체')).toBeInTheDocument();
     expect(screen.getByText(CAPABILITY_LABEL)).toBeInTheDocument();
   });
 

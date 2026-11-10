@@ -65,7 +65,7 @@ function VocPermissionsBody({ rows, renderDetail }: Props) {
         <p className="text-text-secondary">지정된 사람은 변경하지 않습니다. 미저장 초안은 적용 대상에 포함되지 않으며 그대로 보존됩니다.</p>
         <div className="flex gap-2"><Button size="sm" disabled={state.busy || !state.ready || changes.length === 0} aria-describedby={changes.length === 0 ? `${id}-no-changes` : undefined} onClick={() => { void state.bulk(changes, preview).then(ok => { if (ok) setPreview(null); }); }}>{changes.length}개 시스템에 적용</Button><Button size="sm" variant="secondary" disabled={state.busy} onClick={() => setPreview(null)}>일괄 변경 취소</Button></div>
       </section>}
-      <p className="text-xs text-text-muted">플랫폼과 보관된 시스템은 일괄 변경에서 제외됩니다. 워크스페이스 전체 부여·명시적 거부는 별도로 적용됩니다.</p>
+      <p className="text-xs text-text-muted">플랫폼과 보관된 시스템은 일괄 변경에서 제외됩니다. 전체 부여·명시적 거부는 별도로 적용됩니다.</p>
       {state.notice && <p role={state.notice.includes('실패') ? 'alert' : 'status'} className="text-xs text-text-secondary">{state.notice}</p>}
     </section>
     <table className="w-full text-left text-sm">

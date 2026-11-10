@@ -46,7 +46,7 @@ it('#518 disables the scope selector on a route that does not support 시스템 
     );
     await waitFor(() => expect(screen.getByTestId('scope-selector')).toBeInTheDocument());
     expect(screen.getByTestId('scope-selector')).toBeDisabled();
-    expect(screen.getByTestId('scope-selector')).toHaveTextContent('워크스페이스 전체');
+    expect(screen.getByTestId('scope-selector')).toHaveTextContent('전체');
     fireEvent.click(screen.getByTestId('scope-selector'));
     expect(screen.queryByTestId('scope-option-all')).not.toBeInTheDocument();
   } finally {
@@ -229,7 +229,7 @@ function managedSystem(id: string, name: string) {
 
 it.each([
   ['scoped', { kind: 'scoped', managed_system_ids: [MS_TWO] }, 2, '내 담당 1 / 3'],
-  ['all', { kind: 'all' }, 0, '워크스페이스 전체'],
+  ['all', { kind: 'all' }, 0, '전체'],
 ] as const)(
   'uses the returned voc.read scope for Admins: %s',
   async (_name, scope, deniedCount, expectedAllScopeLabel) => {

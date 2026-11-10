@@ -1533,7 +1533,7 @@ describe('MilestonesRoute tab switch draft preservation (R6)', () => {
     // #564: the panel shows domain-safe copy, not the raw server message.
     expect(
       await screen.findByText(
-        'Milestone 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+        'Milestone 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /SSO Stabilization/ })).not.toBeInTheDocument();

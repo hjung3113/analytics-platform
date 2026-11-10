@@ -338,7 +338,7 @@ describe('WorkspaceSettingsForm Coverage bands (#1088)', () => {
     fireEvent.click(screen.getByRole('button', { name: '변경사항 저장' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '워크스페이스 설정 저장에 실패했습니다.',
+      '플랫폼 설정 저장에 실패했습니다.',
     );
     // The draft survives the failed save for retry.
     expect(screen.getByLabelText('VOC → Task 연결 양호 기준')).toHaveValue(90);

@@ -6,7 +6,7 @@ export const WORKSPACE_SETTINGS_SELF_APPROVAL_COPY = {
   developerDefaultScope:
     '개발자가 처음 로그인할 때 부여된 범위를 모두 합친 유효 범위의 기준값입니다.',
   allScope:
-    '관리자만 all을 워크스페이스 전체로 해석합니다. 다른 역할은 워크스페이스 범위와 부여된 범위가 겹치는 부분만 적용합니다.',
+    '관리자만 all을 전체로 해석합니다. 다른 역할은 전체 범위와 부여된 범위가 겹치는 부분만 적용합니다.',
   settingDescription:
     '요청자가 직접 자기 권한 요청을 승인하려면 범위 내 권한이 필요합니다. 감사 로그에 본인 승인으로 기록됩니다.',
   taskRequestNote: 'Task 요청 자가승인은 별도 규칙을 따르며 이 설정과 무관합니다.',

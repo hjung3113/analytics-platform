@@ -159,7 +159,7 @@ describe('production system VOC permissions', () => {
     grants.push({ ...grant('00000000-0000-4000-8000-000000000010', V), capability: 'voc.read' });
     mount(); const dialog = await open();
     expect(await within(dialog).findByText('저장됨 · 지정 1명')).toBeInTheDocument();
-    expect(within(dialog).getByText(/워크스페이스 전체 VOC 등록 권한도/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/전체 VOC 등록 권한도/)).toBeInTheDocument();
   });
   it('invalidates a bulk undo snapshot when an affected system is individually saved', async () => {
     mount(); await screen.findByText('지정 1명');

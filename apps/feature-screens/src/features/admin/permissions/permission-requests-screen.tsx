@@ -82,7 +82,7 @@ export function PermissionRequestsScreen({
         : {
             toolbar: {
               title: '권한 요청 검토',
-              subtitle: '워크스페이스 권한 요청을 검토하고 결정합니다.',
+              subtitle: '권한 요청을 검토하고 결정합니다.',
             },
           })}
       tabs={
@@ -164,7 +164,7 @@ function PermissionRequestRow({
           <span>
             {request.requested_managed_system_id
               ? (managedSystemName ?? '시스템')
-              : '워크스페이스 전체'}
+              : '전체'}
           </span>
           {request.requested_managed_system_id && !managedSystemName && (
             <span className="font-mono text-text-muted">

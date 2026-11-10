@@ -188,7 +188,7 @@ describe('새 권한 요청', () => {
     await user.keyboard('{Enter}');
     expect(await screen.findByRole('option', { name: 'VOC 조회' })).toBeInTheDocument();
     expect(
-      screen.queryByRole('option', { name: '워크스페이스 관리자 권한' }),
+      screen.queryByRole('option', { name: '관리자 권한' }),
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: 'VOC 조회' }));
     expect(calls.find((call) => call.url.includes('/managed-systems'))?.url).toContain('limit=500');
@@ -202,7 +202,7 @@ describe('새 권한 요청', () => {
   it.each([
     {
       label: 'workspace.read has no 시스템 field',
-      capability: '워크스페이스 전체 읽기',
+      capability: '전체 읽기',
       system: null,
       expectedBody: { requested_capability: 'workspace.read', reason: '사유' },
     },
@@ -215,7 +215,7 @@ describe('새 권한 요청', () => {
     {
       label: 'survey.export workspace-wide omits the 시스템',
       capability: '설문 데이터 내보내기',
-      system: '전체 (워크스페이스)',
+      system: '전체',
       expectedBody: { requested_capability: 'survey.export', reason: '사유' },
     },
     {
@@ -234,7 +234,7 @@ describe('새 권한 요청', () => {
     if (system === null) {
       expect(screen.queryByRole('combobox', { name: '시스템' })).not.toBeInTheDocument();
     } else {
-      if (system !== '전체 (워크스페이스)') await choose(user, '시스템', system);
+      if (system !== '전체') await choose(user, '시스템', system);
       expect(screen.getByRole('combobox', { name: '시스템' })).toBeInTheDocument();
     }
     await user.type(reasonBox(), '사유');

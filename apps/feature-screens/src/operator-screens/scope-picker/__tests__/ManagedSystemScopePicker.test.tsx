@@ -38,7 +38,7 @@ describe('ManagedSystemScopePicker', () => {
       }
       fireEvent.click(trigger);
       expect(screen.getByTestId('scope-option-all')).toHaveTextContent(
-        workspaceWideScope ? '워크스페이스 전체' : '내 담당 2 / 4',
+        workspaceWideScope ? '전체' : '내 담당 2 / 4',
       );
       for (const [id, granted] of [
         ['a', true],
@@ -68,7 +68,7 @@ describe('ManagedSystemScopePicker', () => {
     const trigger = screen.getByTestId('scope-selector');
     expect(trigger).toBeDisabled();
     expect(trigger).toHaveAttribute('title', '이 화면은 시스템 범위를 지원하지 않습니다');
-    expect(screen.getByTestId('scope-name')).toHaveTextContent('워크스페이스 전체');
+    expect(screen.getByTestId('scope-name')).toHaveTextContent('전체');
   });
 
   it('renders the visible label only when given, and nothing when collapsed', () => {
@@ -235,7 +235,7 @@ describe('ManagedSystemScopePicker', () => {
         const all = screen.getByTestId('scope-option-all');
         expect(all).toHaveAccessibleName('전체 시스템');
         expect(all).toHaveAccessibleDescription(
-          workspaceWideScope ? '워크스페이스 전체' : '내 담당 2 / 4',
+          workspaceWideScope ? '전체' : '내 담당 2 / 4',
         );
       },
     );
@@ -245,7 +245,7 @@ describe('ManagedSystemScopePicker', () => {
     it.each([
       ['union', { workspaceWideScope: false }, '시스템, 전체 시스템, 내 담당 범위'],
       ['out of scope', { value: 'c', workspaceWideScope: false }, '시스템, Cygnus, 범위 밖'],
-      ['disabled', { workspaceWideScope: true, disabled: true }, '시스템, 워크스페이스 전체'],
+      ['disabled', { workspaceWideScope: true, disabled: true }, '시스템, 전체'],
     ])('%s', (_name, props, name) => {
       render(
         <ManagedSystemScopePicker

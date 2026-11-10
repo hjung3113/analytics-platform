@@ -15,7 +15,7 @@ export const EVIDENCE_COPY = {
   filteredEmpty: '조건에 맞는 근거가 없습니다.',
   missing: '선택한 근거를 찾을 수 없습니다.',
   mismatch: '선택한 근거가 현재 조건에 맞지 않습니다.',
-  blocked: '근거 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+  blocked: '근거 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
   error: '근거를 불러오지 못했습니다.',
   moreError: '다음 근거를 불러오지 못했습니다.',
   retry: '다시 시도',

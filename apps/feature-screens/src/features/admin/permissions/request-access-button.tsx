@@ -195,7 +195,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                   }
                 >
                   {props.managedSystemId === undefined
-                    ? '워크스페이스 전체'
+                    ? '전체'
                     : (managedSystemName ?? props.managedSystemId)}
                 </dd>
                 <dt className="text-text-muted">사유</dt>
@@ -267,7 +267,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                     }
                   >
                     {props.managedSystemId === undefined
-                      ? '워크스페이스 전체'
+                      ? '전체'
                       : (managedSystemName ?? props.managedSystemId)}
                   </dd>
                 </dl>

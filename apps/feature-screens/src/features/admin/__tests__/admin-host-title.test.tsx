@@ -48,7 +48,7 @@ describe('admin screen titles', () => {
   it.each([
     ['시스템', () => <ManagedSystemsAdminPage />],
     ['분석 영역', () => <AnalyticsAreasAdminPage />],
-    ['워크스페이스 설정', () => <WorkspaceSettingsScreen />],
+    ['플랫폼 설정', () => <WorkspaceSettingsScreen />],
   ])('%s: drawn standalone, absent when the host owns the title', (title, screenEl) => {
     const standalone = render(<Host hostOwnsTitle={false}>{screenEl()}</Host>);
     expect(screen.getByRole('heading', { name: title })).toBeTruthy();

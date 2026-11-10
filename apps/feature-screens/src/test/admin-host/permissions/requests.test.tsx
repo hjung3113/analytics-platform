@@ -299,12 +299,12 @@ describe('/admin/permissions/requests', () => {
     expect(review).toHaveTextContent('요청 범위의 현재 권한');
     expect(review).toHaveTextContent('권한 없음');
     expect(review).toHaveTextContent('검토 권한');
-    expect(review).toHaveTextContent('워크스페이스 관리자 권한');
-    expect(review).toHaveTextContent('민감한 권한 · 워크스페이스 전체 읽기');
-    expect(review).toHaveTextContent('워크스페이스 전체 범위');
+    expect(review).toHaveTextContent('관리자 권한');
+    expect(review).toHaveTextContent('민감한 권한 · 전체 읽기');
+    expect(review).toHaveTextContent('전체 범위');
     expect(review).toHaveTextContent('요청 만료일 없음');
     expect(review).toHaveTextContent('겹치는 활성 차단 1건');
-    expect(review).toHaveTextContent('겹치는 활성 차단 1건 · 워크스페이스 전체');
+    expect(review).toHaveTextContent('겹치는 활성 차단 1건 · 전체');
   });
 
   test.each(['new decision', 'another request'] as const)(
@@ -443,7 +443,7 @@ describe('/admin/permissions/requests', () => {
         <RouterProvider router={router} />
       </QueryClientProvider>,
     );
-    await screen.findByText('워크스페이스 전체 범위');
+    await screen.findByText('전체 범위');
     fireEvent.click(screen.getByRole('button', { name: '거절' }));
     fireEvent.change(screen.getByLabelText(/^사유/), {
       target: { value: 'old risk review' },
@@ -456,10 +456,10 @@ describe('/admin/permissions/requests', () => {
       });
     });
 
-    await screen.findByText('겹치는 활성 차단 1건 · 워크스페이스 전체');
+    await screen.findByText('겹치는 활성 차단 1건 · 전체');
     const review = screen.getByTestId('permission-request-risk-review');
     expect(review).toHaveTextContent('겹치는 활성 차단 1건');
-    expect(screen.queryByText('워크스페이스 전체 범위')).not.toBeInTheDocument();
+    expect(screen.queryByText('전체 범위')).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('old risk review')).not.toBeInTheDocument();
     expect(screen.getByTestId('permission-decision-submit')).toBeDisabled();
     expect(decisionPosts()).toHaveLength(0);
@@ -870,7 +870,7 @@ describe('/admin/permissions/requests', () => {
       granted_managed_system_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     });
     expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
-      '워크스페이스 전체',
+      '전체',
     );
   });
 
@@ -929,7 +929,7 @@ describe('/admin/permissions/requests', () => {
     );
     expect(screen.getAllByRole('tab')).toHaveLength(5);
     expect(
-      within(screen.getByTestId('permission-requests-list')).getByText('워크스페이스 전체 읽기', {
+      within(screen.getByTestId('permission-requests-list')).getByText('전체 읽기', {
         exact: false,
       }),
     ).toBeInTheDocument();
@@ -937,7 +937,7 @@ describe('/admin/permissions/requests', () => {
     await waitFor(() =>
       expect(
         within(screen.getByTestId('permission-requests-list')).getByText(
-          '워크스페이스 관리자 권한',
+          '관리자 권한',
           {
             exact: false,
           },
@@ -945,7 +945,7 @@ describe('/admin/permissions/requests', () => {
       ).toBeInTheDocument(),
     );
     expect(
-      within(screen.getByTestId('permission-requests-list')).queryByText('워크스페이스 전체 읽기', {
+      within(screen.getByTestId('permission-requests-list')).queryByText('전체 읽기', {
         exact: false,
       }),
     ).not.toBeInTheDocument();
@@ -980,7 +980,7 @@ describe('/admin/permissions/requests', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
-        '워크스페이스 관리자 권한',
+        '관리자 권한',
       ),
     );
   });
@@ -1179,7 +1179,7 @@ describe('/admin/permissions/requests', () => {
     });
     renderRoute();
     await waitFor(() =>
-      expect(screen.getByText(/워크스페이스 정책에서 직접 승인을 금지합니다/)).toBeInTheDocument(),
+      expect(screen.getByText(/운영 정책에서 직접 승인을 금지합니다/)).toBeInTheDocument(),
     );
     expect(screen.getByRole('button', { name: '승인' })).toBeDisabled();
     expect(screen.getByTestId('permission-decision-submit')).toBeDisabled();

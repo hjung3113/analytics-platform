@@ -44,9 +44,9 @@ export function previewRateLimitedMessage(
   if (detail?.budget_period === 'day') {
     return scope === 'actor'
       ? '오늘 유사 VOC 조회 한도를 사용했습니다'
-      : '이 워크스페이스의 유사 VOC 조회 한도를 사용했습니다';
+      : '플랫폼 전체의 유사 VOC 조회 한도를 사용했습니다';
   }
   const wait = formatRetryAfter(detail);
   if (scope === 'actor') return rateLimitedMessage(wait);
-  return `이 워크스페이스의 유사 VOC 조회 요청이 너무 많습니다. ${wait ? `${wait} 후` : '잠시 후'} 다시 시도해 주세요.`;
+  return `플랫폼 전체의 유사 VOC 조회 요청이 너무 많습니다. ${wait ? `${wait} 후` : '잠시 후'} 다시 시도해 주세요.`;
 }

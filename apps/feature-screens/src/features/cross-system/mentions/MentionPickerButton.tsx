@@ -102,7 +102,7 @@ export function MentionPickerButton({
         {/* a11y note (no ESLint counterpart; kept from the former Biome exception): WAI-ARIA APG §combobox — listbox focus managed via aria-activedescendant on the search input */}
         {/* a11y note (no ESLint counterpart; kept from the former Biome exception): <ul role="listbox"> is canonical ARIA listbox per APG §combobox */}
         {/* a11y note (no ESLint counterpart; kept from the former Biome exception): WAI-ARIA APG §combobox requires <ul role="listbox"> as scrollable container */}
-        <ul role="listbox" aria-label="워크스페이스 멤버" className="max-h-48 overflow-y-auto py-1">
+        <ul role="listbox" aria-label="멤버" className="max-h-48 overflow-y-auto py-1">
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-sm text-text-muted" role="presentation">
               결과 없음
