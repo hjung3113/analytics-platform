@@ -29,7 +29,7 @@ const GOOD = {
   OIDC_CLIENT_ID: 'platform',
   OIDC_ISSUER_URL: 'https://idp.corp.example/realms/platform',
   OIDC_REDIRECT_URI: 'https://platform.corp.example/auth/callback',
-  TRUSTED_PROXY_HOPS: '1',
+  TRUSTED_PROXY_HOPS: '2',
   EDGE_BIND: '10.0.0.5',
   WORKSPACE_ID: '123e4567-e89b-42d3-a456-426614174000',
   NOTIFICATION_EMAIL_CHANNEL: 'mock',
@@ -57,6 +57,17 @@ test('preflight: a complete https configuration passes', () => {
     'preflight: email disabled (mock): notifications reach the inbox only',
     'preflight: ok',
   ]);
+});
+
+test('preflight: a hop count other than the documented 2 warns and still passes (#1678)', () => {
+  for (const hops of ['1', '3']) {
+    const r = run({ TRUSTED_PROXY_HOPS: hops });
+    assert.equal(r.code, 0, r.lines.join('\n'));
+    assert.ok(
+      r.lines.some((l) => l.startsWith(`preflight: warning: TRUSTED_PROXY_HOPS=${hops},`)),
+      r.lines.join('\n'),
+    );
+  }
 });
 
 test('preflight: the shipped example is rejected', () => {

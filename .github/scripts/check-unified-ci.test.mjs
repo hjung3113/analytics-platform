@@ -38,6 +38,10 @@ test('mock-dist readers precede real production build; folded feature coverage s
   const negative = staticJob.indexOf('--force-mock-build');
   const real = staticJob.indexOf('run: pnpm --filter @ap/platform-web build:real-prod');
   assert.ok(mock >= 0 && mock < lazy && lazy < sdk && sdk < negative && negative < real);
+  // #1678: the real build is followed by the same start-up check and by the edge image build with `nginx -t`.
+  const realLazy = staticJob.indexOf('check-lazy-chunks.mjs apps/platform-web/dist');
+  const edge = staticJob.indexOf('platform-release-web:ci nginx -t');
+  assert.ok(real < realLazy && realLazy < edge);
   assert.match(staticJob, /fetch-depth: 0/);
   assert.match(staticJob, /FEATURE_LINT_BASE:.*pull_request.base.sha.*github.event.before/);
   assert.match(staticJob, /gate.sh static-extra/);
