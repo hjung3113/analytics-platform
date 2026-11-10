@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { layoutRevision, validateLayout } from '@eqv/core';
 import ModelTopViewBody, { DISCLOSURE, MISMATCH_TEXT } from '../src/model-topview-body';
 import { ModelTopView } from '../src/model-topview';
@@ -40,10 +40,11 @@ describe('ModelTopView', () => {
     if (!result.ok) throw new Error('fixture invalid');
     const revision = await layoutRevision(result.layout);
     const { container } = render(<ModelTopViewBody layoutId="sample-layout" revision={revision} document={document} />);
+    // The disclosure renders at once; the drawing waits for the asynchronous hash check, so wait for it (a slow runner lags).
     expect(await screen.findByText(DISCLOSURE)).toBeTruthy();
-    expect(container.querySelector('svg')).not.toBeNull();
+    await waitFor(() => expect(container.querySelector('svg')).not.toBeNull(), { timeout: 5000 });
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByRole('button', { name: /맞춤/ })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /맞춤/ })).toBeTruthy();
   });
 
   it('shows the error line and no drawing on a hash mismatch', async () => {
