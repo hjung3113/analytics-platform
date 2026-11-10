@@ -14,6 +14,43 @@ Implemented (#622): `POST /usage-events` (`{ events }` → `{ accepted: n }`), `
 
 `platform.client_errors` is insert-only and has no read API.
 
+## Method support
+
+Which of the 30 `PlatformAdapter` methods this server answers. `implemented`: served and judged by the conformance run. `partial`: the route exists but answers only part of the declared contract (`menuQuery` answers the Scope-less endpoints the modules register, `menuAction` the writes they register; a Scope-requiring endpoint is refused at registration, #1087). `gate-only`: the route exists and answers `forbidden` to everyone, so the kit counts it as not implemented. `none`: no server handler. This table is checked against the constants `IMPLEMENTED`, `SERVED_PARTIAL` and `GATE_ONLY` of `apps/platform-api/src/modules/platform-port/__tests__/platform-conformance.integration.test.ts`; a method that changes status fails that test until the row changes with it.
+
+| Method | Support |
+| --- | --- |
+| `session` | implemented |
+| `publishedMetrics` | implemented |
+| `defaultRangeTo` | implemented |
+| `subscribe` | implemented |
+| `validateScope` | none |
+| `contextOptions` | none |
+| `evaluateSelection` | none |
+| `listAxisOptions` | none |
+| `searchEquipment` | none |
+| `resolveSelection` | none |
+| `getEntity` | implemented |
+| `menuQuery` | partial |
+| `menuAction` | partial |
+| `recordUsage` | implemented |
+| `reportClientError` | implemented |
+| `usageSummary` | implemented |
+| `usageNextScreens` | implemented |
+| `auditTrail` | implemented |
+| `entityAudit` | implemented |
+| `accessDirectory` | implemented |
+| `listAnnotations` | gate-only |
+| `saveAnnotation` | gate-only |
+| `deleteAnnotation` | gate-only |
+| `readPreferences` | implemented |
+| `patchPreferences` | implemented |
+| `importPreferences` | implemented |
+| `lookupPeople` | implemented |
+| `listNotices` | implemented |
+| `saveNotice` | implemented |
+| `deleteNotice` | implemented |
+
 ## 감사 응답
 
-기능의 `auditTrail`·`entityAudit`(#621, [ADR-0069](../../../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6·7·9): 응답의 `AuditEvent`에는 `changes`·`reason`을 싣지 않는다(사유·메모 본문과 민감 detail은 내보내지 않는다). `auditTrail`의 `type` 필터 문법은 [ADR-0101](../../../adr/0101-opaque-audit-target-filter.md)(불투명 토큰, 형식 맞는 미지 유형은 `empty`)이 소유하고, 응답 `target.type`은 기능 `subject_type` 18종(voc, finding, task, task_request, entity_link, voc_cluster, permission_request, permission_grant, permission_deny, survey, survey_question, managed_system, analytics_area, milestone, attachment, public_update_review_candidate, voc_cluster_suggestion, workspace)이고 `scopeId`는 항상 `null`이다. SQL이 셋을 뺀다: ① 설문 응답 주체·event와 한쪽 끝이 `survey_response`인 `entity_link` 행, ② `detail.capability`가 비민감 허용 목록(`CAPABILITY_META.sensitive = false`)에 없는 권한 행(민감 권한 요청의 수정·취소·결정 이력 포함), ③ `detail.sensitive = true` 행. 빠진 행은 `items`·`total`·`targetId` 필터·페이지에 나타나지 않는다. `page`는 안전한 정수(≤ 2^53−1)만 받고, 끝을 넘은 먼 페이지는 `ok`·`items: []`·실제 `total`이다. `sync` 액션에 대응하는 기능 event는 아직 없다.
+기능의 `auditTrail`·`entityAudit`(#621, [ADR-0069](../../../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6·7·9): 응답의 `AuditEvent`에는 `changes`·`reason`을 싣지 않는다(사유·메모 본문과 민감 detail은 내보내지 않는다). `auditTrail`의 `type` 필터 문법은 [ADR-0101](../../../adr/0101-opaque-audit-target-filter.md)(불투명 토큰, 형식 맞는 미지 유형은 `empty`)이 소유하고, 응답 `target.type`은 기능 `subject_type` 23종(voc, finding, task, task_request, entity_link, voc_cluster, permission_request, permission_grant, permission_deny, survey, survey_question, managed_system, analytics_area, milestone, attachment, public_update_review_candidate, voc_cluster_suggestion, workspace, improvement_item, catalog_report, queue_settings, excerpt_reader, investigation)이고 `scopeId`는 항상 `null`이다. SQL의 허용 목록은 36종이며(마이그레이션 `0121_eqv_layouts.sql`) 거기서 13종을 내보내지 않는다: `knowledge_*` 7종, `eqv_*` 3종, 수명주기 3종(`development_project`, `validation_round`, `execution_request`)은 소유 모듈의 열람 권한을 이 함수가 알 수 없어 뺀다. 나머지 행에서는 다음 셋을 뺀다: ① 설문 응답 주체·event와 한쪽 끝이 `survey_response`·`validation_round`인 `entity_link` 행, ② `detail.capability`가 비민감 허용 목록(`CAPABILITY_META.sensitive = false`)에 없는 권한 행(민감 권한 요청의 수정·취소·결정 이력 포함), ③ `detail.sensitive = true` 행. 빠진 행은 `items`·`total`·`targetId` 필터·페이지에 나타나지 않는다. `page`는 안전한 정수(≤ 2^53−1)만 받고, 끝을 넘은 먼 페이지는 `ok`·`items: []`·실제 `total`이다. `sync` 액션에 대응하는 기능 event는 아직 없다.
