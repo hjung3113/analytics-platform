@@ -6,7 +6,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { chartTheme, EChart, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
-import { ChartImageCopyButton } from './ChartImageCopyButton';
+import { ChartImageCopyButton, ChartImagePrintButton } from './ChartImageCopyButton';
 import { echartImageBlob } from './chartImageCopy';
 import { safeFileName } from '../table/download';
 import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as diagnostic } from './analysisChartData';
@@ -79,6 +79,8 @@ export type AnalysisChartProps = {
   trust?: { source: string; updated: string; coverage: string }; height?: number; size?: ChartSize; emptyText?: string; spec: ChartSpec;
   /** Adds a `이미지 복사` button (PNG to the clipboard, or a download when the clipboard is unavailable), shown only when the current menu manifest enables `features.export`. */
   imageCopy?: boolean;
+  /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Shown only when the current menu manifest enables `features.export`. */
+  imagePrint?: boolean;
 };
 
 const sequential = [colors.seq0, colors.seq1, colors.seq2, colors.seq3, colors.seq4];
@@ -220,6 +222,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
           <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => setTable(!table)}>{lang === 'ko' ? '표로 보기' : 'Show as table'}</Button>
           {route?.menu.features?.export && <Button size="toolbar" variant="ghost" onClick={exportCsv}>{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
           {p.imageCopy && <ChartImageCopyButton fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
+          {p.imagePrint && <ChartImagePrintButton title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
         </div>
       </header>
       {spec.kind === 'heatmap' && <div className={cn('px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>

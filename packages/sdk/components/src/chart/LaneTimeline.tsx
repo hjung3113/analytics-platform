@@ -6,7 +6,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import { prepareLanes, segmentText } from './laneTimelineGeometry';
 import { ChartTrustFooter } from './analysisChartFrameParts';
 import { createLaneRenderer } from './laneTimelineRenderer';
-import { ChartImageCopyButton } from './ChartImageCopyButton';
+import { ChartImageCopyButton, ChartImagePrintButton } from './ChartImageCopyButton';
 import { laneImageBlob } from './chartImageCopy';
 import { displayFileName } from '../table/download';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
@@ -26,6 +26,8 @@ export type LaneTimelineProps = {
   outlineWidthsByRank?: Record<string, number>; outlineMode?: 'strong' | 'weak' | 'off';
   /** Adds a `이미지 복사` button (axis and visible plot as a PNG, to the clipboard or a download), shown only when the current menu manifest enables `features.export`; needs a PlatformProvider only while true. */
   imageCopy?: boolean;
+  /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Shown only when the current menu manifest enables `features.export`. */
+  imagePrint?: boolean;
   selectedId?: string | null; defaultSelectedId?: string | null; onSelectedChange?: (id: string | null) => void;
 };
 const noInstants: number[] = [];
@@ -103,6 +105,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
         </Tooltip></TooltipProvider>
         <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{tx({ ko: '확대', en: 'Zoom in' })}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{tx({ ko: '축소', en: 'Zoom out' })}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.resetZoom()}>{tx({ ko: '확대 초기화', en: 'Zoom Reset' })}</Button>
         {props.imageCopy && <ChartImageCopyButton fileName={`${displayFileName(props.ariaLabel) || 'timeline'}.png`} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, labels: spacer.current, scroll: scroll.current })} />}
+        {props.imagePrint && <ChartImagePrintButton title={() => props.ariaLabel} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, labels: spacer.current, scroll: scroll.current })} />}
       </div>
     </header>
     <p className="px-4 py-2 text-text-secondary">{tx(boundaryHelp)}</p>

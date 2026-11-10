@@ -11,7 +11,7 @@ import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, 
 import { useElementSize } from '../state/useElementSize';
 import { EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
-import { ChartImageCopyButton } from './ChartImageCopyButton';
+import { ChartImageCopyButton, ChartImagePrintButton } from './ChartImageCopyButton';
 import { echartImageBlob } from './chartImageCopy';
 import { safeFileName } from '../table/download';
 import { assignNoteLevels } from './annotationLayout';
@@ -159,6 +159,8 @@ export type AnalysisChartFrameProps = {
   rightAxis?: { unit: string; valueFormat?: (v: number) => string };
   /** Adds a `이미지 복사` button (PNG to the clipboard, or a download when the clipboard is unavailable), shown only when the current menu manifest enables `features.export`. */
   imageCopy?: boolean;
+  /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Shown only when the current menu manifest enables `features.export`. */
+  imagePrint?: boolean;
   stacked?: boolean;
   /**
    * Horizontal category charts only (ignored elsewhere, with a dev warning). Controlled row highlight: while the prop is present (null = no row)
@@ -664,6 +666,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <div className="flex items-center gap-1" data-chart-toolbar-tail>
           {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
           {p.imageCopy && <ChartImageCopyButton fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
+          {p.imagePrint && <ChartImagePrintButton title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
           <Popover>
             <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '더보기' : 'More'}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
             <PopoverContent align="end" className="w-72">

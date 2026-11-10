@@ -46,6 +46,22 @@ describe.each(Object.keys(components) as (keyof typeof components)[])('%s image 
   });
 });
 
+const printers = {
+  frame: (imagePrint?: boolean) => <AnalysisChartFrame chartId="f" title="F" series={series} unit="ea" imagePrint={imagePrint} />,
+  chart: (imagePrint?: boolean) => <AnalysisChart chartId="c" title="C" unit="ea" spec={donut} imagePrint={imagePrint} />,
+  lane: (imagePrint?: boolean) => <LaneTimeline lanes={lanes} ariaLabel="Timeline" imagePrint={imagePrint} />,
+};
+describe.each(Object.keys(printers) as (keyof typeof printers)[])('%s print button (#1665)', name => {
+  it.each([
+    ['prop on and features.export on', true, true, true],
+    ['prop on but features.export off', true, false, false],
+    ['features.export on but prop absent', undefined, true, false],
+  ])('%s -> visible: %s', (_label, imagePrint, canExport, visible) => {
+    mount(printers[name](imagePrint), canExport);
+    expect(!!screen.queryByRole('button', { name: '인쇄' })).toBe(visible);
+  });
+});
+
 it('places the button right after Export in the Frame and AnalysisChart, and last in LaneTimeline', () => {
   for (const name of ['frame', 'chart'] as const) {
     mount(components[name](true), true);

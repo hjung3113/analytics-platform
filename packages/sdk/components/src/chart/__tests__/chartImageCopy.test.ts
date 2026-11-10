@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { copyChartImage, dataUrlToBlob, echartImageBlob, imageCopyText, laneImageBlob } from '../chartImageCopy';
+import { copyChartImage, dataUrlToBlob, echartImageBlob, imageCopyText, laneImageBlob, printChartImage } from '../chartImageCopy';
+import { waitFor } from '@testing-library/react';
 
 const png = () => new Blob(['png'], { type: 'image/png' });
 class FakeClipboardItem { constructor(public readonly items: Record<string, Blob | Promise<Blob>>) {} }
@@ -129,5 +130,107 @@ describe('image sources (#1657)', () => {
     expect(order.map(c => c[0])).toEqual(['save', 'rect', 'clip', 'fillText', 'restore']);
     expect(order[1]).toEqual(['rect', 0, 80, 1200, 600]);
     vi.restoreAllMocks();
+  });
+});
+
+describe('printChartImage (#1665)', () => {
+  const printFrame = () => document.querySelector<HTMLIFrameElement>('iframe[data-chart-print]');
+  afterEach(() => { document.querySelectorAll('iframe[data-chart-print]').forEach(frame => frame.remove()); });
+  async function loaded() {
+    await waitFor(() => expect(printFrame()?.contentDocument?.querySelector('img')).toBeTruthy());
+    const frame = printFrame()!;
+    const print = vi.fn();
+    frame.contentWindow!.print = print;
+    frame.contentWindow!.focus = vi.fn();
+    return { frame, print, image: frame.contentDocument!.querySelector('img')! };
+  }
+
+  it('prints a titled data: image (the production CSP refuses blob: images) only after the image loaded', async () => {
+    const done = printChartImage(() => png(), '<b>Cycle</b>');
+    const { frame, print, image } = await loaded();
+    expect(image.src.startsWith('data:image/png;base64,')).toBe(true);
+    expect(frame.contentDocument!.querySelector('h1')!.textContent).toBe('<b>Cycle</b>');
+    expect(frame.contentDocument!.querySelector('b')).toBeNull();
+    expect(print).not.toHaveBeenCalled();
+    image.dispatchEvent(new Event('load'));
+    await expect(done).resolves.toBe(true);
+    expect(print).toHaveBeenCalledOnce();
+    frame.contentWindow!.dispatchEvent(new Event('afterprint'));
+  });
+
+  it('removes the frame after afterprint and then accepts the next print', async () => {
+    const first = printChartImage(() => png(), 'A');
+    const one = await loaded();
+    one.image.dispatchEvent(new Event('load'));
+    await first;
+    one.frame.contentWindow!.dispatchEvent(new Event('afterprint'));
+    expect(printFrame()).toBeNull();
+    const second = printChartImage(() => png(), 'B');
+    const two = await loaded();
+    two.image.dispatchEvent(new Event('error'));
+    await expect(second).resolves.toBe(false);
+  });
+
+  it('ignores a request while another is still capturing or loading, leaving one frame and one print', async () => {
+    let finish!: (blob: Blob) => void;
+    const first = printChartImage(() => new Promise<Blob>(resolve => { finish = resolve; }), 'A');
+    const ignoredDuringCapture = vi.fn(() => png());
+    await expect(printChartImage(ignoredDuringCapture, 'B')).resolves.toBe(true);
+    expect(ignoredDuringCapture).not.toHaveBeenCalled();
+    finish(png());
+    const { frame, print, image } = await loaded();
+    const ignoredDuringLoad = vi.fn(() => png());
+    await expect(printChartImage(ignoredDuringLoad, 'C')).resolves.toBe(true);
+    expect(ignoredDuringLoad).not.toHaveBeenCalled();
+    expect(printFrame()).toBe(frame);
+    image.dispatchEvent(new Event('load'));
+    await first;
+    expect(print).toHaveBeenCalledOnce();
+    frame.contentWindow!.dispatchEvent(new Event('afterprint'));
+  });
+
+  it('keeps a frame whose print UI may be open, and replaces it only after the guard when afterprint never came', async () => {
+    const first = printChartImage(() => png(), 'A');
+    const one = await loaded();
+    one.image.dispatchEvent(new Event('load'));
+    await first;
+    const soon = vi.fn(() => png());
+    await printChartImage(soon, 'B');
+    expect(soon).not.toHaveBeenCalled();
+    expect(printFrame()).toBe(one.frame);
+    const now = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now + 60_001);
+    const later = printChartImage(() => png(), 'C');
+    await waitFor(() => expect(printFrame()).not.toBe(one.frame));
+    const two = await loaded();
+    expect(document.querySelectorAll('iframe[data-chart-print]')).toHaveLength(1);
+    clock.mockRestore();
+    two.image.dispatchEvent(new Event('load'));
+    await later;
+    two.frame.contentWindow!.dispatchEvent(new Event('afterprint'));
+    expect(printFrame()).toBeNull();
+  });
+
+  it('accepts the next print at once when afterprint fired before a blocking print() returned', async () => {
+    const first = printChartImage(() => png(), 'A');
+    const { frame, image } = await loaded();
+    frame.contentWindow!.print = () => { frame.contentWindow!.dispatchEvent(new Event('afterprint')); };
+    image.dispatchEvent(new Event('load'));
+    await first;
+    expect(printFrame()).toBeNull();
+    const next = vi.fn(() => { throw new Error('captured'); });
+    await expect(printChartImage(next, 'B')).resolves.toBe(false);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('reports failure and leaves no frame when the capture throws or the image fails', async () => {
+    await expect(printChartImage(() => { throw new Error('not ready'); }, 'A')).resolves.toBe(false);
+    expect(printFrame()).toBeNull();
+    const done = printChartImage(() => png(), 'A');
+    const { image, print } = await loaded();
+    image.dispatchEvent(new Event('error'));
+    await expect(done).resolves.toBe(false);
+    expect(print).not.toHaveBeenCalled();
+    expect(printFrame()).toBeNull();
   });
 });
