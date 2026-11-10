@@ -27,6 +27,9 @@ const EQV_MOCK_DATA_PATTERN = '@eqv/*/mock-data';
 const EQV_MOCK_DATA_MESSAGE = '@eqv/*/mock-data is synthetic mock data; only src/dev/** and the server conformance test import it (ADR-0009, #801).';
 // EV packages are reached only through the host-module slot (ADR-0132, ADR-0128); the app assembles the one adapter.
 const EQV_MESSAGE = 'Platform and menus learn nothing about equipment: @eqv/* is reached only through the host-module slot, assembled in apps/platform-web (ADR-0132, ADR-0128).';
+// #1654: the one menu that is EV's own (menus/tools/topview-studio) imports exactly these four entries; every other menu stays under EQV_MESSAGE.
+const EQV_MENU_ENTRIES = ['@eqv/core', '@eqv/renderer', '@eqv/editor', '@eqv/ui'];
+const EQV_MENU_MESSAGE = `Only the Top View authoring menu (${pkg('menu-topview-studio')}, EV's own menu) imports exactly @eqv/core, @eqv/renderer, @eqv/editor and @eqv/ui (ADR-0132); no other @eqv/* entry or subpath, and nothing under src/mock/**.`;
 const EQV_CORE_MESSAGE = 'EV core and renderer are design-system-free and platform-free: they import no @eqv package except @eqv/core (never @eqv/ui) (ADR-0132).';
 const EQV_UI_MESSAGE = 'EV ui, replay, views and editor use EV siblings but never @eqv/platform-adapter: it depends on them and is the one reader of the host port (ADR-0132).';
 const HTTP_ADAPTER_MESSAGE = `${PACKAGE_PREFIX}http-adapter is imported only by the production assembly in apps/platform-web/src/real/** (#154).`;
@@ -587,6 +590,13 @@ const menuPreset = (restriction) => [
 
 /** @type {import('eslint').Linter.Config[]} */
 export const menu = menuPreset(MENU_RESTRICTION);
+
+/**
+ * `menu` plus the four exact `@eqv/*` entries of EV's own menu (menus/tools/topview-studio, ADR-0132). `allowEqv` lists exact sources,
+ * so subpaths such as `@eqv/ui/styles.css` stay banned; `src/mock/**` keeps the plain menu mock policy and may not import `@eqv/core`.
+ * @type {import('eslint').Linter.Config[]}
+ */
+export const eqvMenu = menuPreset({ ...MENU_RESTRICTION, allowEqv: EQV_MENU_ENTRIES, eqvMessage: EQV_MENU_MESSAGE });
 
 /**
  * `menu` plus the one feature entry the bridge menu (menu-my-activity) may import (platform ADR-0071).

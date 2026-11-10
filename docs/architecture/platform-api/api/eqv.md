@@ -4,7 +4,7 @@ Menu Dispatch declarations of the `eqv` module ([ADR-0135](../../../adr/0135-eqv
 
 ## Access
 
-- Reads: permission `eqv:view` (capability `eqv.view`; Admin through the module bypass). Writes: `saveDraft` needs `eqv-studio:layout-edit` (`eqv.layout.edit`); `publishRevision` and `promoteTemplate` need `eqv-studio:layout-publish` (`eqv.layout.publish`; «승인» is this capability check, no approval flow). `eqv.layout.edit` and `eqv.layout.publish` are session-only and not for the User role.
+- Reads: permission `eqv:view` (capability `eqv.view`; Admin through the module bypass). The Studio Layouts menu's entry permission is `eqv-studio:view` (#1654): the same capability `eqv.view`, so bootstrap lists both names together; the endpoints keep `eqv:view`. Writes: `saveDraft` needs `eqv-studio:layout-edit` (`eqv.layout.edit`); `publishRevision` and `promoteTemplate` need `eqv-studio:layout-publish` (`eqv.layout.publish`; «승인» is this capability check, no approval flow). `eqv.layout.edit` and `eqv.layout.publish` are session-only and not for the User role.
 - A denied call answers `forbidden` for every read and write; nothing is read or written first.
 - **Site Scope.** All declarations are `requiresScope: false` with no site-bound Context. Real-server Site Scope is enforced only by these capabilities until #1087.
 

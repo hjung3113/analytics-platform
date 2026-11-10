@@ -1,0 +1,13 @@
+{
+  "group": "topviewStudio",
+  "folder": "topview-studio",
+  "space": "tools",
+  "placement": "menus",
+  "menuId": "eqv-studio",
+  "page": "EqvStudio",
+  "path": "/tools/eqv-studio",
+  "pageType": "catalog",
+  "labelKo": "레이아웃",
+  "labelEn": "Layouts",
+  "binding": "topviewStudio"
+}

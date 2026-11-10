@@ -5,6 +5,7 @@
  */
 import {
   BarChart3, BookOpen, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, ScrollText, Gauge, Inbox, KeyRound, Server, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, SlidersHorizontal, Timer, UserRound, Waves, Workflow, CircleGauge,
+  PenTool,
 } from 'lucide-react';
 import { carrySetId, groupId, menuPermission, spaceId, type CarrySetDef, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
@@ -41,10 +42,11 @@ import { manifests as access } from '@ap/menu-access';
 import { manifests as systems } from '@ap/menu-systems';
 import { manifests as improvementItems } from '@ap/menu-improvement-items';
 import { manifests as logAnalysis } from '@ap/menu-log-analysis';
+import { manifests as topviewStudio } from '@ap/menu-topview-studio';
 // </gen:menu-imports>
 
 /** The menu permissions this app's menus use, on top of the kernel's (ADR-0072). Each menu package spells its own with `menuPermission`; `createRegistry` fails on one missing here. */
-export const PERMISSIONS = [menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view'), menuPermission('knowledge:catalog-manage'), menuPermission('knowledge:item-publish'), menuPermission('knowledge:spec-publish'), menuPermission('improvement:manage'), menuPermission('explorer:investigate'), menuPermission('explorer:handoff'), menuPermission('lifecycle:project-manage'), menuPermission('lifecycle:round-manage'), menuPermission('lifecycle:gate-decide'), menuPermission('dataset:manage'), menuPermission('dataset:baseline-approve'), menuPermission('dataset:suite-run')];
+export const PERMISSIONS = [menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view'), menuPermission('knowledge:catalog-manage'), menuPermission('knowledge:item-publish'), menuPermission('knowledge:spec-publish'), menuPermission('improvement:manage'), menuPermission('explorer:investigate'), menuPermission('explorer:handoff'), menuPermission('lifecycle:project-manage'), menuPermission('lifecycle:round-manage'), menuPermission('lifecycle:gate-decide'), menuPermission('dataset:manage'), menuPermission('dataset:baseline-approve'), menuPermission('dataset:suite-run'), menuPermission('eqv-studio:view'), menuPermission('eqv-studio:layout-edit'), menuPermission('eqv-studio:layout-publish')];
 
 export const GROUPS: GroupDef[] = [
   { id: groupId('overview'), label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: null, hideLabelWhenSingle: true },
@@ -77,6 +79,7 @@ export const GROUPS: GroupDef[] = [
   { id: groupId('admin'), label: { ko: '플랫폼 관리', en: 'Platform management' }, icon: ShieldCheck, space: spaceId('operations') },
   { id: groupId('access'), label: { ko: '권한', en: 'Access' }, icon: KeyRound, space: spaceId('operations') },
   { id: groupId('systems'), label: { ko: '시스템', en: 'Systems' }, icon: Server, space: spaceId('operations') },
+  { id: groupId('topviewStudio'), label: { ko: 'Top View 작성', en: 'Top View authoring' }, icon: PenTool, space: spaceId('tools') },
   // </gen:menu-groups>
 ];
 
@@ -144,6 +147,7 @@ export const MENUS: MenuEntry[] = [
   ...systems,
   ...improvementItems,
   ...logAnalysis,
+  ...topviewStudio,
   // </gen:menu-spreads>
 ];
 
@@ -172,4 +176,5 @@ export const CARRY_SETS: readonly CarrySetDef[] = [{ id: carrySetId('features'),
 export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq', 'tokens'];
 
 /** External host modules (src/modules.ts) join at the registry call only; GROUPS and MENUS stay the platform's own. */
-export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS, ...EQV_MODULE.groups], menus: placeGlobalGroups(configureHome([...MENUS, ...EQV_MODULE.menus])), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });
+const TOPVIEW_STUDIO = groupId('topviewStudio');
+export const registry = createRegistry({ spaces: SPACES, groups: [...GROUPS.filter(g => g.id !== TOPVIEW_STUDIO), ...EQV_MODULE.groups, ...GROUPS.filter(g => g.id === TOPVIEW_STUDIO)], menus: placeGlobalGroups(configureHome([...MENUS, ...EQV_MODULE.menus])), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });
