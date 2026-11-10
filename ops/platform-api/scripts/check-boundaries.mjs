@@ -26,8 +26,13 @@
 //      Existing off-surface pairs are frozen in check-boundaries.baseline.json (exact `importing file -> target file`
 //      pairs). A pair not in the baseline fails; a baseline pair that no longer exists also fails, so the baseline only
 //      shrinks. `--shrink-baseline` rewrites the file with the stale pairs removed (never adds); `--init-baseline`
-//      writes it once when it does not exist yet.
+//      writes it once when it does not exist yet. Growth is checked against the merge-base's baseline file (see
+//      checkBaselineGrowth): a pair the branch adds, or a baseline file the merge-base has and the tree lacks, fails
+//      unless a commit in <merge-base>..HEAD carries `Boundary-Baseline-Growth: #<issue> <reason>`.
+//      Documented seams (entity-links/provider-types, */recovery-read, and dashboard/recorder for type-only imports)
+//      are approved surfaces, not baseline pairs.
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
@@ -149,6 +154,35 @@ function isWithinPath(directory, file) {
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`));
 }
 
+// `import type`, `export type`, or a named list whose every element is marked `type`. A default or namespace binding
+// beside inline types, and an empty list, load the module at runtime.
+function isTypeOnlyDeclaration(node) {
+  if (ts.isImportDeclaration(node)) {
+    const clause = node.importClause;
+    if (!clause) return false;
+    if (clause.isTypeOnly) return true;
+    const named = clause.namedBindings;
+    return (
+      !clause.name &&
+      named !== undefined &&
+      ts.isNamedImports(named) &&
+      named.elements.length > 0 &&
+      named.elements.every((element) => element.isTypeOnly)
+    );
+  }
+  if (ts.isExportDeclaration(node)) {
+    if (node.isTypeOnly) return true;
+    const named = node.exportClause;
+    return (
+      named !== undefined &&
+      ts.isNamedExports(named) &&
+      named.elements.length > 0 &&
+      named.elements.every((element) => element.isTypeOnly)
+    );
+  }
+  return false;
+}
+
 function collectImportSpecifiers(file, content) {
   const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
   const out = [];
@@ -163,6 +197,7 @@ function collectImportSpecifiers(file, content) {
       out.push({
         specifier: node.moduleSpecifier.text,
         line: source.getLineAndCharacterOfPosition(node.moduleSpecifier.getStart(source)).line + 1,
+        typeOnly: isTypeOnlyDeclaration(node),
       });
     } else if (
       ts.isImportEqualsDeclaration(node) &&
@@ -171,6 +206,7 @@ function collectImportSpecifiers(file, content) {
     ) {
       out.push({
         specifier: node.moduleReference.expression.text,
+        typeOnly: node.isTypeOnly,
         line:
           source.getLineAndCharacterOfPosition(node.moduleReference.expression.getStart(source))
             .line + 1,
@@ -194,6 +230,7 @@ function collectImportSpecifiers(file, content) {
     ) {
       out.push({
         specifier: node.argument.literal.text,
+        typeOnly: true,
         line: source.getLineAndCharacterOfPosition(node.argument.literal.getStart(source)).line + 1,
       });
     }
@@ -442,6 +479,7 @@ for (const rule of RULES) {
 // Rule 12: approved cross-module surfaces, as docs/02-domain-module-boundaries.md «Approved cross-module surfaces» and
 // docs/00-architecture.md «Dependency Direction» name them. Module-root file names (extension-less):
 const APPROVED_SURFACE_NAMES = new Set([
+  'recovery-read', // leaf recovery read seam of findings, permissions, surveys, tasks, voc, voc-clusters
   'index',
   'commands',
   'read-projections',
@@ -458,7 +496,11 @@ const APPROVED_SURFACE_PATHS = new Set([
   'auth/session-service',
   'menu-dispatch/types',
   'platform-port/permissions',
+  'entity-links/provider-types', // documented provider seam
 ]);
+// Approved for type-only imports: the seam the boundary doc describes is an injected type interface, and the same file
+// also exports the runtime recorder factory and recovery lock.
+const TYPE_ONLY_SURFACE_PATHS = new Set(['dashboard/recorder']);
 // `domain modules -> core interfaces/types`: anything under core (rule 6 still bars its repositories).
 const APPROVED_SURFACE_MODULES = new Set(['core']);
 const BASELINE_FILE = join(ROOT, FEATURE_OPS, 'scripts', 'check-boundaries.baseline.json');
@@ -492,12 +534,16 @@ function collectOffSurfacePairs() {
   for (const file of walk(modulesRoot)) {
     if (isTestPath(file)) continue;
     const srcSegment = moduleSegment(file);
-    for (const { specifier, line } of collectImportSpecifiers(file, readFileSync(file, 'utf8'))) {
+    for (const { specifier, line, typeOnly } of collectImportSpecifiers(
+      file,
+      readFileSync(file, 'utf8'),
+    )) {
       if (!specifier.startsWith('.')) continue;
       const target = resolve(dirname(file), specifier);
       const targetSegment = moduleSegment(target);
       if (!srcSegment || !targetSegment || srcSegment === targetSegment) continue;
       if (isApprovedSurface(surfaceKey(target))) continue;
+      if (typeOnly && TYPE_ONLY_SURFACE_PATHS.has(surfaceKey(target))) continue;
       const pair = `${relative(ROOT, file).split(sep).join('/')} -> ${surfaceKey(target)}`;
       if (!pairs.has(pair)) pairs.set(pair, line);
     }
@@ -518,6 +564,71 @@ function writeBaseline(path, pairs) {
   writeFileSync(path, `${JSON.stringify({ total: sorted.length, pairs: sorted }, null, 2)}\n`);
 }
 
+// Baseline growth against the merge-base (#1675). Skipped on a main push and a manual release run: PRs are the gate, and
+// a squash commit has lost the PR commits' trailers. Base: FEATURE_LINT_BASE, as lint-root.mjs.
+const GROWTH_TRAILER_KEY = 'Boundary-Baseline-Growth';
+const GROWTH_TRAILER_VALUE = /^#\d+[ \t]+\S/;
+// Events that run after the PR gate. Any other event compares, so a future trigger is not exempt by default.
+const GROWTH_SKIPPED_EVENTS = new Set(['push', 'workflow_dispatch']);
+
+function checkBaselineGrowth(headPairs) {
+  if (GROWTH_SKIPPED_EVENTS.has(process.env.GITHUB_EVENT_NAME)) return 0;
+  const base = process.env.FEATURE_LINT_BASE || 'origin/main';
+  const git = (...args) =>
+    execFileSync('git', args, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  let mergeBase;
+  try {
+    mergeBase = git('merge-base', base, 'HEAD').trim();
+  } catch {
+    if (process.env.CI) {
+      console.error(
+        `[boundary] cannot compare the baseline: no merge-base between ${base} and HEAD (fetch the base ref with full history)`,
+      );
+      return 1;
+    }
+    console.log(`boundaries: baseline growth check skipped (no merge-base with ${base})`);
+    return 0;
+  }
+  const rel = relative(ROOT, BASELINE_FILE).split(sep).join('/');
+  let baseText;
+  try {
+    baseText = git('show', `${mergeBase}:${rel}`);
+  } catch {
+    return 0; // the merge-base has no baseline file: nothing to compare with
+  }
+  if (headPairs === null) {
+    console.error(
+      `[boundary] ${rel} exists at the merge-base but is missing here; deleting it would re-freeze every off-surface pair`,
+    );
+    return 1;
+  }
+  const basePairs = new Set(JSON.parse(baseText).pairs);
+  const added = [...headPairs].filter((pair) => !basePairs.has(pair));
+  if (added.length === 0) return 0;
+  // git parses the trailer block, so a matching line in the message body does not count.
+  const trailers = git(
+    'log',
+    `--format=%(trailers:key=${GROWTH_TRAILER_KEY},valueonly,unfold)`,
+    `${mergeBase}..HEAD`,
+  );
+  if (trailers.split('\n').some((value) => GROWTH_TRAILER_VALUE.test(value.trim()))) {
+    console.log(
+      `boundaries: ${added.length} baseline pair(s) added, approved by a Boundary-Baseline-Growth trailer`,
+    );
+    return 0;
+  }
+  for (const pair of added) {
+    console.error(
+      `[boundary] ${rel}: pair added since the merge-base (${pair}); the baseline may only shrink. Import an approved surface instead, or add a commit trailer \`Boundary-Baseline-Growth: #<issue> <reason>\`.`,
+    );
+  }
+  return added.length;
+}
+
 function checkOffSurfaceBaseline() {
   const found = collectOffSurfacePairs();
   const { path, total, pairs: baseline } = loadBaseline();
@@ -534,7 +645,7 @@ function checkOffSurfaceBaseline() {
     return 0;
   }
   const known = baseline ?? new Set();
-  let count = 0;
+  let count = checkBaselineGrowth(baseline);
   if (baseline !== null && total !== baseline.size) {
     count++;
     console.error(
@@ -549,7 +660,8 @@ function checkOffSurfaceBaseline() {
         `[boundary] ${pair.split(' -> ')[0]}:${line}: cross-module import is not an approved surface (${pair});`,
         'import an approved surface of the target module',
         '(docs/02-domain-module-boundaries.md «Approved cross-module surfaces»).',
-        'New off-surface pairs are not added to the baseline.',
+        'The baseline may only shrink: a pair added relative to the merge-base fails unless a commit carries',
+        'a `Boundary-Baseline-Growth: #<issue> <reason>` trailer.',
       ].join(' '),
     );
   }

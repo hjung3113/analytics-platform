@@ -23,6 +23,15 @@ const MODULES = join(FEATURE_BACKEND, 'src', 'modules');
 
 let failures = 0;
 
+// The checker reads git history for the baseline growth check (#1675). Fixture trees without history must not
+// inherit the runner's CI/push settings, so every case starts from this environment.
+function fixtureEnv(tmp, extra = {}) {
+  const env = { ...process.env, FEATURE_PATHS_REPO_ROOT: tmp, ...extra };
+  for (const key of ['CI', 'GITHUB_EVENT_NAME', 'FEATURE_LINT_BASE'])
+    if (!(key in extra)) delete env[key];
+  return env;
+}
+
 function runCase(name, files, expectExit0, expectOutput) {
   const tmp = mkdtempSync(join(tmpdir(), 'boundary-test-'));
   try {
@@ -38,7 +47,7 @@ function runCase(name, files, expectExit0, expectOutput) {
     try {
       stdout = execFileSync('node', [SCRIPT], {
         encoding: 'utf8',
-        env: { ...process.env, FEATURE_PATHS_REPO_ROOT: tmp },
+        env: fixtureEnv(tmp),
       });
     } catch (err) {
       exit = err.status ?? 1;
@@ -395,7 +404,10 @@ runCase(
   {
     ...zero,
     [join(FEATURE_FRONTEND, 'package.json')]: JSON.stringify({
-      dependencies: { '@ap/ui': 'git+https://example.test/sdk.git#sdk-v0.5.0', react: '19.0.0' },
+      dependencies: {
+        '@ap/ui': 'git+https://example.test/sdk.git#sdk-v0.5.0',
+        react: '19.0.0',
+      },
     }),
     [join(FEATURE_BACKEND, 'package.json')]: JSON.stringify({
       dependencies: { fastify: '5.2.0' },
@@ -405,7 +417,9 @@ runCase(
         '@ap/server-conformance': 'link:../../../../packages/adapters/server-conformance',
       },
     }),
-    [join(FEATURE_SHARED, 'package.json')]: JSON.stringify({ name: '@ap/feature-shared' }),
+    [join(FEATURE_SHARED, 'package.json')]: JSON.stringify({
+      name: '@ap/feature-shared',
+    }),
   },
   true,
   'boundaries: OK',
@@ -416,7 +430,9 @@ runCase(
   {
     ...zero,
     [join(FEATURE_BACKEND, 'package.json')]: JSON.stringify({
-      dependencies: { '@ap/contracts': 'link:../../../../packages/sdk/contracts' },
+      dependencies: {
+        '@ap/contracts': 'link:../../../../packages/sdk/contracts',
+      },
     }),
     [join(FEATURE_SHARED, 'package.json')]: JSON.stringify({
       dependencies: { '@ap/ui': '0.5.0', '@ap/kernel': '0.5.0' },
@@ -478,7 +494,10 @@ runCase(
     [join(FEATURE_BACKEND, 'src/port.ts')]:
       "import { x } from '@ap/contract-schemas'; const y = require('@ap/contract-schemas/wire');",
     [join(FEATURE_BACKEND, 'package.json')]: JSON.stringify({
-      dependencies: { '@ap/contract-schemas': 'workspace:*', '@ap/feature-shared': 'workspace:*' },
+      dependencies: {
+        '@ap/contract-schemas': 'workspace:*',
+        '@ap/feature-shared': 'workspace:*',
+      },
     }),
   },
   true,
@@ -737,7 +756,7 @@ runCase(
       execFileSync('node', [SCRIPT, '--shrink-baseline'], {
         encoding: 'utf8',
         stdio: 'pipe',
-        env: { ...process.env, FEATURE_PATHS_REPO_ROOT: tmp },
+        env: fixtureEnv(tmp),
       });
     } catch {
       // The live new pair still fails the run; the file is what this case checks.
@@ -752,6 +771,214 @@ runCase(
     rmSync(tmp, { recursive: true, force: true });
   }
 }
+
+// Baseline growth against the merge-base (#1675). Each case builds a real git history: `main` holds the base files,
+// `feat` the head files; FEATURE_LINT_BASE points at main.
+function gitCase(
+  name,
+  { base, head, trailer, env = {}, expectExit0, expectOutput, headBaselineDeleted },
+) {
+  const tmp = mkdtempSync(join(tmpdir(), 'boundary-git-'));
+  const git = (...args) =>
+    execFileSync(
+      'git',
+      ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args],
+      {
+        cwd: tmp,
+        encoding: 'utf8',
+        stdio: 'pipe',
+      },
+    );
+  const write = (files) => {
+    for (const [rel, content] of Object.entries(files)) {
+      const dest = join(tmp, rel);
+      mkdirSync(dirname(dest), { recursive: true });
+      writeFileSync(dest, content);
+    }
+  };
+  try {
+    git('init', '-q', '-b', 'main');
+    write(base);
+    git('add', '-A');
+    git('commit', '-q', '-m', 'base');
+    git('checkout', '-q', '-b', 'feat');
+    write(head);
+    if (headBaselineDeleted) rmSync(join(tmp, BASELINE));
+    git('add', '-A');
+    git('commit', '-q', '-m', trailer ? `change\n\n${trailer}` : 'change');
+    let out = '';
+    let exit = 0;
+    try {
+      out = execFileSync('node', [SCRIPT], {
+        encoding: 'utf8',
+        env: fixtureEnv(tmp, { FEATURE_LINT_BASE: 'main', ...env }),
+      });
+    } catch (err) {
+      exit = err.status ?? 1;
+      out = `${err.stdout ?? ''}${err.stderr ?? ''}`;
+    }
+    assert.equal(exit, expectExit0 ? 0 : 1, `${name}: exit ${exit}\n${out}`);
+    for (const fragment of expectOutput ?? []) {
+      assert.ok(out.includes(fragment), `${name}: output missing "${fragment}"\n${out}`);
+    }
+    process.stdout.write(`ok - ${name}\n`);
+  } catch (err) {
+    failures++;
+    console.error(`not ok - ${name}\n${err.message}`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+const SERVICE = join(MODULES, 'tasks', 'service.ts');
+const baseTree = { ...zero, [BASELINE]: baselineOf() };
+const grown = {
+  [SERVICE]: "import { x } from '../findings/record.js';\n",
+  [BASELINE]: baselineOf(OFF),
+};
+
+gitCase('rule 12 growth: an added pair with its baseline line fails and names the trailer', {
+  base: baseTree,
+  head: grown,
+  expectExit0: false,
+  expectOutput: ['pair added since the merge-base', 'Boundary-Baseline-Growth: #<issue> <reason>'],
+});
+
+gitCase('rule 12 growth: the same change passes with a Boundary-Baseline-Growth trailer', {
+  base: baseTree,
+  head: grown,
+  trailer: 'Boundary-Baseline-Growth: #1675 tasks needs the record seam until the service split',
+  expectExit0: true,
+  expectOutput: ['approved by a Boundary-Baseline-Growth trailer'],
+});
+
+gitCase('rule 12 growth: a trailer without issue and reason does not count', {
+  base: baseTree,
+  head: grown,
+  trailer: 'Boundary-Baseline-Growth: please',
+  expectExit0: false,
+});
+
+gitCase('rule 12 growth: shrinking the baseline passes', {
+  base: { ...zero, [SERVICE]: grown[SERVICE], [BASELINE]: baselineOf(OFF) },
+  head: { [SERVICE]: 'export const x = 1;\n', [BASELINE]: baselineOf() },
+  expectExit0: true,
+});
+
+gitCase('rule 12 growth: a baseline the merge-base has but the tree lacks fails', {
+  base: { ...zero, [SERVICE]: grown[SERVICE], [BASELINE]: baselineOf(OFF) },
+  head: {},
+  headBaselineDeleted: true,
+  expectExit0: false,
+  expectOutput: ['missing here'],
+});
+
+gitCase('rule 12 growth: a push event skips the comparison', {
+  base: baseTree,
+  head: grown,
+  env: { GITHUB_EVENT_NAME: 'push' },
+  expectExit0: true,
+});
+
+gitCase('rule 12 growth: a manual release run skips the comparison', {
+  base: baseTree,
+  head: grown,
+  env: { GITHUB_EVENT_NAME: 'workflow_dispatch' },
+  expectExit0: true,
+});
+
+gitCase('rule 12 growth: a pull_request event compares', {
+  base: baseTree,
+  head: grown,
+  env: { GITHUB_EVENT_NAME: 'pull_request' },
+  expectExit0: false,
+  expectOutput: ['pair added since the merge-base'],
+});
+
+gitCase('rule 12 growth: an unresolvable base fails under CI', {
+  base: baseTree,
+  head: grown,
+  env: { CI: 'true', FEATURE_LINT_BASE: 'no-such-ref' },
+  expectExit0: false,
+  expectOutput: ['no merge-base'],
+});
+
+gitCase('rule 12 growth: an unresolvable base is skipped locally with a note', {
+  base: baseTree,
+  head: grown,
+  env: { FEATURE_LINT_BASE: 'no-such-ref' },
+  expectExit0: true,
+  expectOutput: ['growth check skipped'],
+});
+
+gitCase('rule 12 growth: a merge-base without a baseline file compares nothing', {
+  base: zero,
+  head: grown,
+  expectExit0: true,
+});
+
+gitCase(
+  'rule 12 growth: new recovery-read, recorder and provider-types imports need no baseline change',
+  {
+    base: baseTree,
+    head: {
+      [join(MODULES, 'tasks', 'a.ts')]: "import { r } from '../voc/recovery-read.js';\n",
+      [join(MODULES, 'voc', 'b.ts')]: "import { r } from '../findings/recovery-read.js';\n",
+      [join(MODULES, 'voc', 'c.ts')]: "import type { R } from '../dashboard/recorder.js';\n",
+      [join(MODULES, 'voc', 'c2.ts')]: "import { type R } from '../dashboard/recorder.js';\n",
+      [join(MODULES, 'voc', 'c3.ts')]: "export type { R } from '../dashboard/recorder.js';\n",
+      [join(MODULES, 'voc', 'd.ts')]:
+        "import type { p } from '../entity-links/provider-types.js';\n",
+    },
+    expectExit0: true,
+  },
+);
+
+gitCase('rule 12: a runtime import of the recorder is not the approved type-only seam', {
+  base: baseTree,
+  head: {
+    [join(MODULES, 'voc', 'c.ts')]:
+      "import { createRecoveryRecorder } from '../dashboard/recorder.js';\n",
+  },
+  expectExit0: false,
+  expectOutput: ['is not an approved surface'],
+});
+
+gitCase('rule 12: type-only import-equals of the recorder passes, runtime import-equals fails', {
+  base: baseTree,
+  head: {
+    [join(MODULES, 'voc', 'c.ts')]: "import type R = require('../dashboard/recorder.js');\n",
+    [join(MODULES, 'voc', 'c2.ts')]: "import R = require('../dashboard/recorder.js');\n",
+  },
+  expectExit0: false,
+  expectOutput: ['voc/c2.ts', 'is not an approved surface'],
+});
+
+gitCase('rule 12: a default binding beside inline types still loads the recorder', {
+  base: baseTree,
+  head: {
+    [join(MODULES, 'voc', 'c.ts')]: "import d, { type R } from '../dashboard/recorder.js';\n",
+  },
+  expectExit0: false,
+  expectOutput: ['is not an approved surface'],
+});
+
+gitCase('rule 12 growth: an approval line in the message body is not a trailer', {
+  base: baseTree,
+  head: grown,
+  trailer:
+    'Example of an approval line:\nBoundary-Baseline-Growth: #1675 example only\n\nThis paragraph discusses the example.',
+  expectExit0: false,
+  expectOutput: ['pair added since the merge-base'],
+});
+
+gitCase('rule 12 growth: an event outside the known skip list still compares', {
+  base: baseTree,
+  head: grown,
+  env: { GITHUB_EVENT_NAME: 'merge_group' },
+  expectExit0: false,
+  expectOutput: ['pair added since the merge-base'],
+});
 
 if (failures > 0) {
   console.error(`\n${failures} test case(s) failed`);
