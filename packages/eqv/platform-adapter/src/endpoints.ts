@@ -8,7 +8,8 @@ import { EQV_MAX_WINDOW_HOURS } from './limits.js';
  * `topview-events` returns the server's source-paired Occurrences as is; the client never pairs Start/End or reorders (EV ADR-0002).
  * One endpoint names one menu: both serve the `topview` and `focus` screens and name `eqv:focus`, the registered menu id.
  * Kinds: `collection` + `processing_delay` + `coverage` say whether the window is complete (Watermark, late data);
- * `time_domain` carries the Site wall-clock domain the Occurrence times are in (merged: `mergeTimeDomain`).
+ * `time_domain` carries the Site wall-clock domain the Occurrence times are in. `mergeTimeDomain` is `false`: a replay reads one equipment,
+ * so there is nothing to merge across time domains, and the server registry refuses `true` until #1087 (kernel.md §6.3 guard).
  * `respondent_history` is left out: replay does not filter by equipment membership.
  */
 const kinds = ['collection', 'processing_delay', 'coverage', 'time_domain'] as const;
@@ -42,7 +43,7 @@ export const topviewContext = defineEndpoint<TopviewContextParams, Omit<ReplayIn
   requiresScope: false,
   context: { time: 'apply' },
   kinds,
-  mergeTimeDomain: true,
+  mergeTimeDomain: false,
 });
 
 /**
@@ -59,5 +60,5 @@ export const topviewEvents = defineEndpoint<TopviewEventsParams, OccurrenceBatch
   context: { time: 'apply' },
   kinds,
   limits: { maxHours: EQV_MAX_WINDOW_HOURS },
-  mergeTimeDomain: true,
+  mergeTimeDomain: false,
 });
