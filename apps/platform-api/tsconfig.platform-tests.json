@@ -2,6 +2,8 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
     "rootDir": "../..",
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -14,6 +16,7 @@
     "src/modules/platform-port/__tests__/platform-conformance.integration.test.ts",
     "src/modules/platform-saved-views/__tests__/transition-drift.test.ts",
     "src/modules/log-knowledge/__tests__/catalog-menu-drift.test.ts",
+    "src/modules/log-explorer/__tests__/menu-source-row-drift.test.ts",
     "src/modules/improvement-items/__tests__/item-input.test.ts",
     "src/modules/log-lifecycle/__tests__/request-queue.integration.test.ts",
     "src/modules/log-lifecycle/__tests__/contract-chain.integration.test.ts"

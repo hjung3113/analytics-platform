@@ -5,7 +5,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -590,6 +590,135 @@ runCase(
     `${FEATURE_UI}/eslint.config.js:1`,
   ],
 );
+
+// Rule 12: approved cross-module surfaces and the shrink-only baseline.
+const BASELINE = join(FEATURE_OPS, 'scripts', 'check-boundaries.baseline.json');
+const baselineOf = (...pairs) => JSON.stringify({ total: pairs.length, pairs });
+const OFF = `${MODULES}/tasks/service.ts -> findings/record`;
+
+runCase(
+  'rule 12 fails a new off-surface import that is not in the baseline',
+  {
+    ...zero,
+    [join(MODULES, 'tasks', 'service.ts')]: "import { x } from '../findings/record.js';\n",
+  },
+  false,
+  [`${MODULES}/tasks/service.ts:1`, 'not an approved surface'],
+);
+
+runCase(
+  'rule 12 passes an off-surface pair frozen in the baseline',
+  {
+    ...zero,
+    [join(MODULES, 'tasks', 'service.ts')]: "import { x } from '../findings/record.js';\n",
+    [BASELINE]: baselineOf(OFF),
+  },
+  true,
+  'boundaries: OK',
+);
+
+runCase(
+  'rule 12 fails a new pair in a file that already has a baseline pair',
+  {
+    ...zero,
+    [join(MODULES, 'tasks', 'service.ts')]:
+      "import { x } from '../findings/record.js';\nimport { y } from '../surveys/results.js';\n",
+    [BASELINE]: baselineOf(OFF),
+  },
+  false,
+  [`${MODULES}/tasks/service.ts:2`],
+);
+
+runCase(
+  'rule 12 fails a stale baseline pair and says to delete it',
+  {
+    ...zero,
+    [join(MODULES, 'tasks', 'service.ts')]: "import { x } from '../findings/index.js';\n",
+    [BASELINE]: baselineOf(OFF),
+  },
+  false,
+  ['baseline pair no longer exists', OFF, 'delete the line'],
+);
+
+runCase(
+  'rule 12 allows every approved surface, the module directory and same-module imports',
+  {
+    ...zero,
+    [join(MODULES, 'tasks', 'service.ts')]: [
+      "import { a } from '../findings/index.js';",
+      "import { b } from '../findings';",
+      "import { c } from '../findings/read-projections.js';",
+      "import { d } from '../findings/read-service.js';",
+      "import { e } from '../findings/authorization.js';",
+      "import type { f } from '../voc/read-contract.js';",
+      "import { g } from '../core/responsibility-read-projections.js';",
+      "import { h } from './inner/thing.js';",
+      "import { i } from '../findings/commands.js';",
+      "import { j } from '../permissions/check-service.js';",
+      "import { k } from '../core/audit/audit-service.js';",
+      "import type { l } from '../menu-dispatch/types.js';",
+    ].join('\n'),
+  },
+  true,
+  'boundaries: OK',
+);
+
+runCase(
+  'rule 12 catches re-export, dynamic import and import-type forms, and skips tests',
+  {
+    ...zero,
+    [join(MODULES, 'tasks', 'a.ts')]: "export { x } from '../findings/record.js';\n",
+    [join(MODULES, 'tasks', 'b.ts')]: "const m = await import('../findings/record.js');\n",
+    [join(MODULES, 'tasks', 'c.ts')]: "type T = import('../findings/record.js').X;\n",
+    [join(MODULES, 'tasks', 'd.ts')]: "import { x } from '../findings/nested/read-service.js';\n",
+    [join(MODULES, 'tasks', '__tests__', 'e.test.ts')]:
+      "import { x } from '../../findings/record.js';\n",
+  },
+  false,
+  [
+    `${MODULES}/tasks/a.ts:1`,
+    `${MODULES}/tasks/b.ts:1`,
+    `${MODULES}/tasks/c.ts:1`,
+    `${MODULES}/tasks/d.ts:1`,
+  ],
+);
+
+// --shrink-baseline removes stale pairs and never adds a live off-surface pair.
+{
+  const tmp = mkdtempSync(join(tmpdir(), 'boundary-test-'));
+  try {
+    const KEPT = `${MODULES}/tasks/service.ts -> findings/record`;
+    const STALE = `${MODULES}/tasks/gone.ts -> findings/record`;
+    const files = {
+      ...zero,
+      [join(MODULES, 'tasks', 'service.ts')]: "import { x } from '../findings/record.js';\n",
+      [join(MODULES, 'tasks', 'new.ts')]: "import { y } from '../surveys/results.js';\n",
+      [BASELINE]: baselineOf(KEPT, STALE),
+    };
+    for (const [rel, content] of Object.entries(files)) {
+      const dest = join(tmp, rel);
+      mkdirSync(dirname(dest), { recursive: true });
+      writeFileSync(dest, content);
+    }
+    try {
+      execFileSync('node', [SCRIPT, '--shrink-baseline'], {
+        encoding: 'utf8',
+        stdio: 'pipe',
+        env: { ...process.env, FEATURE_PATHS_REPO_ROOT: tmp },
+      });
+    } catch {
+      // The live new pair still fails the run; the file is what this case checks.
+    }
+    const written = JSON.parse(readFileSync(join(tmp, BASELINE), 'utf8'));
+    assert.deepEqual(written, { total: 1, pairs: [KEPT] });
+    console.log('ok - rule 12 --shrink-baseline removes stale pairs and adds none');
+  } catch (err) {
+    failures += 1;
+    console.error(`not ok - rule 12 --shrink-baseline: ${err.message}`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
 
 if (failures > 0) {
   console.error(`\n${failures} test case(s) failed`);
