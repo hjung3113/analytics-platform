@@ -17,6 +17,8 @@
         "$TURBO_ROOT$/tooling/scripts/validation-worker-mock.d.mts",
         "$TURBO_ROOT$/tooling/scripts/log-rules-synthetic-reporter.mjs",
         "$TURBO_ROOT$/docs/architecture/platform-api/api/log-knowledge.md",
+        "$TURBO_ROOT$/docs/architecture/platform-api/api/platform-port.md",
+        "$TURBO_ROOT$/packages/sdk/contract-schemas/endpoints.json",
         "$TURBO_ROOT$/docs/design/features/log-knowledge-hub/design-v0.6-candidate.md",
         "$TURBO_ROOT$/apps/feature-screens/src/**",
         "$TURBO_ROOT$/packages/eqv/fixtures/cluster-single/layout.json"
@@ -38,6 +40,8 @@
         "$TURBO_ROOT$/tooling/scripts/validation-worker-mock.d.mts",
         "$TURBO_ROOT$/tooling/scripts/log-rules-synthetic-reporter.mjs",
         "$TURBO_ROOT$/docs/architecture/platform-api/api/log-knowledge.md",
+        "$TURBO_ROOT$/docs/architecture/platform-api/api/platform-port.md",
+        "$TURBO_ROOT$/packages/sdk/contract-schemas/endpoints.json",
         "$TURBO_ROOT$/docs/design/features/log-knowledge-hub/design-v0.6-candidate.md",
         "$TURBO_ROOT$/apps/feature-screens/src/**",
         "$TURBO_ROOT$/packages/eqv/fixtures/cluster-single/layout.json"
