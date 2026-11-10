@@ -5,14 +5,14 @@ Lane sessions read only those sections (SKILL §0 full read does not apply; this
 
 Repository-specific settings for the global `issue-wave-conductor` skill. Shared procedure lives in the skill. Work rules live in root `AGENTS.md`, which wins on conflict. `$CONDUCTOR` = this folder. `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`. Settings: [`conductor.json`](conductor.json). Multi-session procedure: the global `issue-wave-conductor` skill's `references/lanes.md` (`$LANES` there = the lane tools). Repo values the tools read: `conductor.json` `lanes`. Brief and worker traps: §Traps.
 
-There is no database or login (mock adapter). Evidence comes from Playwright E2E (`apps/platform-e2e`) and the mock preview.
+The mock-adapter app has no database or login; its evidence comes from Playwright E2E (`apps/platform-e2e`) and the mock preview. The core server (`apps/platform-api`) has both, and its checks follow §Verify and §Browser evidence.
 
 ## Flow
 
 - Base is `main`. Squash merge. Branch name is `feat/<n>-<slug>`. `$MAIN` = `AP_MAIN`. `WAVE_BRIEFS` = `$AP_MAIN/.review/wave/`.
 - Run `git config workerops.protectedBases none` once per clone for `ship-pr.sh`.
 - The lead updates `.planning/README.md` once, in the release-docs PR. Mid-slice progress is `board.py` output.
-- Merge grant: a lane session uses its brief's grant. App `v0.x` tags: At slice start ask once: 'tag when cold CI is green?'. If yes, tag when the cold CI of the tag SHA succeeds and no `release-blocker` is open. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue.
+- Merge grant: a lane session uses its brief's grant. App `v0.x` tags: At slice start ask once: 'tag when cold CI is green?'. If yes, tag when the cold CI of the tag SHA succeeds and no `bug` issue is open. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue.
 
 ## Size and path
 
@@ -179,7 +179,7 @@ Release order:
   2. Draft the release-docs PR. Do steps 1–2 alongside the last PRs' reviews. In it, set consumer packages in `menus/` and `platform/` `ap.sdk` and the gen-menu `SDK_RANGE` to the new SDK range (`menus/AGENTS.md`, `platform/AGENTS.md`); (nothing else updates them).
   3. Run a one-off doc audit with [addenda/doc-audit.md](addenda/doc-audit.md) (`review-doc`, persona doc-steward, as its work order says). Fold its findings into the release-docs PR.
   4. Run a full cold CI on the SHA to tag: `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`), so this run is the only whole, cold gate. Take the run id from `gh run list --workflow ci.yml --event workflow_dispatch --limit 1 --json databaseId` and require `headSha` = tag SHA and `success`. Rerun it if the SHA moves.
-  5. Tag `sdk-v*` with the tarballs and a GitHub Release; at tag time also run `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>` and `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`. App `v0.x` tags: At slice start ask once: 'tag when cold CI is green?'. If yes, tag when the cold CI of the tag SHA succeeds and no `release-blocker` is open. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue. For an app release, the site lane updates `site/`.
+  5. Tag `sdk-v*` with the tarballs and a GitHub Release; at tag time also run `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>` and `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`. App `v0.x` tags: At slice start ask once: 'tag when cold CI is green?'. If yes, tag when the cold CI of the tag SHA succeeds and no `bug` issue is open. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue. For an app release, the site lane updates `site/`.
 
 - **Gate table:** before tagging, the lead posts the table of the global `references/lanes.md` §Gate measurement on the release issue, with three rows: impeccable, platform consistency, and `tier=small` (count and findings of major or worse).
 - **Impeccable and consistency re-measure (next release):** in their rows, count runs and the findings of major or worse that `review-ux` and `review-final` did not also report. With at least 5 runs, a gate with at least one such finding stays at its scope and a gate with none is removed; with fewer than 5 runs it stays one more release and the row says so.

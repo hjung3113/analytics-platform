@@ -29,7 +29,7 @@ It implements Core's attachment governance (`apps/platform-api/docs/02-domain-mo
 
 ## Cross-System Rules
 
-- Other modules use the barrel (`index.ts`), never `repo.ts` (`pnpm check:boundaries` rejects cross-module `repo*.js` imports).
+- Other modules use the barrel (`index.ts`), never `repo.ts` (`pnpm --filter @ap/platform-api-ops check:boundaries` rejects cross-module `repo*.js` imports).
 - The purge job claims old unlinked rows by locking, re-checking, and setting `archived_at` in a short transaction before deleting storage; the link guard rejects claimed rows; storage failures retain the claim for retry. Only still-claimed, unlinked rows are deleted.
 - Unlinked rows older than 24 hours are reclaimed by the hourly `core.attachments_purge` job (`modules/core/jobs/purge-unlinked-attachments.ts`), not by this module.
 

@@ -18,7 +18,7 @@
 
 ## Cross-System Rules
 
-- Other modules use the barrel (`index.ts`), e.g. `lockVocClusterById`, not `repo.ts` (`pnpm check:boundaries`).
+- Other modules use the barrel (`index.ts`), e.g. `lockVocClusterById`, not `repo.ts` (`pnpm --filter @ap/platform-api-ops check:boundaries`).
 - Bulk public updates reuse the injected VOC `postPublicUpdate`; do not write Public Updates from this module.
 
 ## Verification

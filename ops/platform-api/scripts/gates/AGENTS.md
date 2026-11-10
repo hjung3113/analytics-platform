@@ -1,6 +1,6 @@
 # Gate Scripts Agent Guide
 
-Frontend and migration gates. Root `AGENTS.md` owns verification sizing; feature-specific gates are in `docs/agents/feature-implementation.md` → Verification; CI runs these through `ops/platform-api/scripts/ci/gate.sh`. Whole-issue host checks that bundle these gates: `ops/platform-api/conductor/scripts/verify-fe.sh` and `verify-be.sh`.
+Frontend and migration gates. Root `AGENTS.md` owns verification sizing; feature-specific gates are in `docs/agents/feature-implementation.md` → Verification; CI runs these through `ops/platform-api/scripts/ci/gate.sh`. The platform wave verifies through the root `verify-root.sh` and PR CI. `ops/platform-api/conductor/scripts/verify-fe.sh` and `verify-be.sh` belong to the standalone FeedbackOps flow (Node 22 path, `origin/develop` base) and fail here; see `.planning/backlog.md`.
 
 ## Frontend typecheck gate (`pnpm --filter @ap/platform-api-ops gate:fe-typecheck`)
 
