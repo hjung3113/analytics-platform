@@ -7,7 +7,7 @@
 //
 // The menu permissions of the business modules (a capability grant plus the capability's Admin bypass) are not listed here:
 // each module declares them in its `MenuDispatchContribution.permissions` (#1667) and the server hands the registry's
-// declarations to `useMenuPermissions`. A new menu permission never edits this file.
+// declarations to a per-server `createPlatformPermissionResolver`. A new menu permission never edits this file.
 
 import type { Tx } from '../../db/tx.js';
 import { currentAuthContext } from '../../lib/auth-context.js';
@@ -50,29 +50,60 @@ export interface PlatformActor {
   role_level: string;
 }
 
-let menuPermissions: readonly MenuPermissionDeclaration[] = [];
-
 /**
- * The menu permissions the modules declared (`MenuDispatchRegistry.permissions`). `buildServer` calls this once the
- * registry is built; the declarations are static per module, so a second server in one process sets the same list.
+ * The platform permissions one server resolves: the kernel table plus the menu permissions that server's modules declared
+ * (`MenuDispatchRegistry.permissions`, #1667). The declarations belong to the instance — an immutable copy — so two
+ * servers in one process, built with different contributions, never read each other's rules.
  */
-export function useMenuPermissions(declarations: readonly MenuPermissionDeclaration[]): void {
-  menuPermissions = declarations;
+export interface PlatformPermissionResolver {
+  /** Every permission this resolver can list, kernel first (canonical order), then the declared menu permissions. */
+  order(): string[];
+  /** The permissions many actors hold, from one batched read (see `resolvePlatformPermissionsBatch`). */
+  resolveBatch(
+    checkService: CheckService,
+    actors: readonly PlatformActor[],
+    options?: { tx?: Tx },
+  ): Promise<Map<string, string[]>>;
+  /** Sorted subset of the vocabulary this actor holds. */
+  resolve(checkService: CheckService, actor: PlatformActor): Promise<string[]>;
+  /** Whether this actor holds one permission, kernel or declared. */
+  holds(checkService: CheckService, actor: PlatformActor, permission: string, options?: { tx?: Tx }): Promise<boolean>;
 }
 
-/** Every permission this port can list, kernel first (canonical order), then the declared menu permissions. */
-export function platformPermissionOrder(): string[] {
-  return [...PLATFORM_PERMISSION_TABLE.map((e) => e.permission), ...menuPermissions.map((d) => d.permission)];
+/**
+ * `declarations` may be bound later with `use` (once): `buildServer` registers the port routes before it builds the
+ * menu registry, and the routes only resolve at request time. Until `use` is called only the kernel table applies.
+ */
+export function createPlatformPermissionResolver(
+  declarations: readonly MenuPermissionDeclaration[] = [],
+): PlatformPermissionResolver & { use(declarations: readonly MenuPermissionDeclaration[]): void } {
+  let menu: readonly MenuPermissionDeclaration[] = Object.freeze(declarations.map((d) => Object.freeze({ ...d })));
+  let bound = declarations.length > 0;
+  const self = {
+    use(next: readonly MenuPermissionDeclaration[]): void {
+      if (bound) throw new Error('platform permission resolver: menu permissions are already bound');
+      menu = Object.freeze(next.map((d) => Object.freeze({ ...d })));
+      bound = true;
+    },
+    order: () => [...PLATFORM_PERMISSION_TABLE.map((e) => e.permission), ...menu.map((d) => d.permission)],
+    resolveBatch: (checkService: CheckService, actors: readonly PlatformActor[], options: { tx?: Tx } = {}) =>
+      resolveBatchWith(menu, checkService, actors, options),
+    resolve: async (checkService: CheckService, actor: PlatformActor) =>
+      ((await resolveBatchWith(menu, checkService, [actor])).get(actor.actor_id) ?? []).sort(),
+    holds: (checkService: CheckService, actor: PlatformActor, permission: string, options: { tx?: Tx } = {}) =>
+      holdsPlatformPermission(checkService, actor, permission, { ...options, menuPermissions: menu }),
+  };
+  return self;
 }
 
 /** The capabilities one permission judgment reads; the batched path loads them for every permission at once. */
-function capabilitiesRead(): Capability[] {
+function capabilitiesRead(menu: readonly MenuPermissionDeclaration[]): Capability[] {
   return [
     ...new Set<Capability>([
       'workspace.read',
       'workspace.admin',
       ...FEATURES_ACCESS_CAPABILITIES,
-      ...menuPermissions.map((d) => d.capability),
+      ...menu.map((d) => d.capability),
     ]),
   ];
 }
@@ -147,15 +178,17 @@ const readerOf = (
 });
 
 /**
- * The permissions many actors hold, from one batched read: two statements whatever the number of actors or declared
- * permissions. Results are in canonical order (`platformPermissionOrder`); callers that list them sorted sort them.
+ * The permissions many actors hold, from one batched read: two permission-row statements whatever the number of actors or
+ * declared permissions, plus at most one workspace Managed System lookup (when a deny on a Managed System needs the
+ * workspace's system list). Results are in canonical order (`order`); callers that list them sorted sort them.
  */
-export async function resolvePlatformPermissionsBatch(
+async function resolveBatchWith(
+  menu: readonly MenuPermissionDeclaration[],
   checkService: CheckService,
   actors: readonly PlatformActor[],
   options: { tx?: Tx } = {},
 ): Promise<Map<string, string[]>> {
-  const snapshot = await checkService.loadCapabilitySnapshot(actors, capabilitiesRead(), options);
+  const snapshot = await checkService.loadCapabilitySnapshot(actors, capabilitiesRead(menu), options);
   const out = new Map<string, string[]>();
   for (const actor of actors) {
     const reader: CapabilityReader = {
@@ -166,7 +199,7 @@ export async function resolvePlatformPermissionsBatch(
     for (const { permission, rule } of PLATFORM_PERMISSION_TABLE) {
       if (await judgeKernelRule(actor, rule, reader)) held.push(permission);
     }
-    for (const declaration of menuPermissions) {
+    for (const declaration of menu) {
       if (await judgeMenuPermission(actor, declaration, reader)) held.push(declaration.permission);
     }
     out.set(actor.actor_id, held);
@@ -174,25 +207,21 @@ export async function resolvePlatformPermissionsBatch(
   return out;
 }
 
-/** Sorted subset of the platform vocabulary this actor holds. */
-export async function resolvePlatformPermissions(
-  checkService: CheckService,
-  actor: PlatformActor,
-): Promise<string[]> {
-  const held = (await resolvePlatformPermissionsBatch(checkService, [actor])).get(actor.actor_id) ?? [];
-  return held.sort();
-}
-
-/** Whether this actor holds one permission, by its rule (single source). A permission neither the kernel table nor a module declares — a menu permission of the app — is never held here. */
+/**
+ * Whether this actor holds one permission, by its rule (single source). The kernel table always applies; a menu permission
+ * resolves only against the `menuPermissions` the caller passes (a server's resolver does: `PlatformPermissionResolver.holds`).
+ * A permission neither names — a menu permission of the app — is never held here.
+ */
 export async function holdsPlatformPermission(
   checkService: CheckService,
   actor: PlatformActor,
   permission: string,
-  options: { tx?: Tx } = {},
+  options: { tx?: Tx; menuPermissions?: readonly MenuPermissionDeclaration[] } = {},
 ): Promise<boolean> {
-  const reader = readerOf(checkService, actor, options);
+  const { menuPermissions, ...readOptions } = options;
+  const reader = readerOf(checkService, actor, readOptions);
   const entry = PLATFORM_PERMISSION_TABLE.find((e) => e.permission === permission);
   if (entry) return judgeKernelRule(actor, entry.rule, reader);
-  const declaration = menuPermissions.find((d) => d.permission === permission);
+  const declaration = menuPermissions?.find((d) => d.permission === permission);
   return declaration ? judgeMenuPermission(actor, declaration, reader) : false;
 }

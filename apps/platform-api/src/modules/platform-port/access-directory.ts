@@ -11,8 +11,7 @@ import type { AuditJudgement } from './audit-service.js';
 import {
   type PlatformActor,
   holdsPlatformPermission,
-  platformPermissionOrder,
-  resolvePlatformPermissionsBatch,
+  type PlatformPermissionResolver,
 } from './permissions.js';
 import { titleFor } from './titles.js';
 
@@ -110,6 +109,8 @@ function compareBy(sort: ParsedAccessQuery['sort']) {
 export interface AccessDirectoryDeps {
   db: Db;
   checkService: CheckService;
+  /** This server's permission rules (kernel plus the menu permissions its modules declared). */
+  permissions: PlatformPermissionResolver;
 }
 
 export function createAccessDirectoryService(deps: AccessDirectoryDeps) {
@@ -125,11 +126,11 @@ export function createAccessDirectoryService(deps: AccessDirectoryDeps) {
     if (!query) return { outcome: 'error', message: 'Invalid access filter' };
     const members = await listWorkspaceInternalMembers(deps.db, actor.workspace_id);
     // One batched read for the whole workspace: the query count does not grow with the member count.
-    const heldByMember = await resolvePlatformPermissionsBatch(
+    const heldByMember = await deps.permissions.resolveBatch(
       deps.checkService,
       members.map((m) => ({ actor_id: m.id, workspace_id: actor.workspace_id, role_level: m.role_level })),
     );
-    const canonical = platformPermissionOrder();
+    const canonical = deps.permissions.order();
     const principals = members.map((m) => {
       const held = new Set(heldByMember.get(m.id) ?? []);
       return {

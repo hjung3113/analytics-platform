@@ -8,7 +8,7 @@ import { logKnowledgeContribution } from '../../log-knowledge/catalog-endpoints.
 import { logLifecycleContribution } from '../../log-lifecycle/index.js';
 import { createMenuDispatchRegistry } from '../../menu-dispatch/registry.js';
 import type { MenuDispatchContribution } from '../../menu-dispatch/types.js';
-import { PLATFORM_PERMISSION_TABLE, platformPermissionOrder, useMenuPermissions } from '../permissions.js';
+import { PLATFORM_PERMISSION_TABLE, createPlatformPermissionResolver } from '../permissions.js';
 import { platformVocab } from './platform-vocab.js';
 
 // ADR-0068 "one vocabulary": the kernel's own permissions (@ap/contracts/vocab.json `kernelPermissions`)
@@ -79,8 +79,7 @@ describe('menu permissions the modules declare (#1667)', () => {
   });
 
   it('lists the kernel permissions first, then the declared ones in registration order', () => {
-    useMenuPermissions(declared());
-    expect(platformPermissionOrder()).toEqual([
+    expect(createPlatformPermissionResolver(declared()).order()).toEqual([
       ...PLATFORM_PERMISSION_TABLE.map((e) => e.permission),
       ...declared().map((d) => d.permission),
     ]);

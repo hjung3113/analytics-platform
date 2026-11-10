@@ -19,7 +19,7 @@ import { logLifecycleContribution } from '../../log-lifecycle/index.js';
 import { createMenuDispatchRegistry } from '../../menu-dispatch/registry.js';
 import { createCheckService } from '../../permissions/check-service.js';
 import { createAccessDirectoryService } from '../access-directory.js';
-import { resolvePlatformPermissions, useMenuPermissions } from '../permissions.js';
+import { createPlatformPermissionResolver } from '../permissions.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -70,7 +70,6 @@ describe.skipIf(!runIntegration)('permission resolution query counts (#1667)', (
       schema: { ...core, ...permission },
       logger: { logQuery: (query: string) => void statements.push(query) },
     });
-    useMenuPermissions(declared());
     admin = await newActor('admin');
     plainUser = await newActor('user');
     for (const d of declared()) {
@@ -86,27 +85,24 @@ describe.skipIf(!runIntegration)('permission resolution query counts (#1667)', (
     await migrateHandle.close();
   });
 
-  it('resolves one actor in two statements, for an actor holding everything and for one holding nothing, whatever the item count', async () => {
+  it('resolves one actor in two permission-row statements, for an actor holding everything and for one holding nothing, whatever the item count', async () => {
     const checkService = createCheckService({ db });
-    const everything = await counted(() => resolvePlatformPermissions(checkService, admin));
-    const nothing = await counted(() => resolvePlatformPermissions(checkService, plainUser));
+    const resolver = createPlatformPermissionResolver(declared());
+    const everything = await counted(() => resolver.resolve(checkService, admin));
+    const nothing = await counted(() => resolver.resolve(checkService, plainUser));
     expect(everything.out.length).toBeGreaterThan(declared().length); // holds every declared permission and the kernel ones
     expect(everything.count).toBe(2);
     expect(nothing.count).toBe(2);
 
     // Thirty more declared permissions do not add a statement.
     const extra = Array.from({ length: 30 }, (_, i) => ({ permission: `extra:p${i}`, capability: 'eqv.view' as const }));
-    useMenuPermissions([...declared(), ...extra]);
-    try {
-      expect((await counted(() => resolvePlatformPermissions(checkService, admin))).count).toBe(2);
-    } finally {
-      useMenuPermissions(declared());
-    }
+    const widened = createPlatformPermissionResolver([...declared(), ...extra]);
+    expect((await counted(() => widened.resolve(checkService, admin))).count).toBe(2);
   });
 
   it('answers the access directory with the same statement count for 5 and for 50 more members', async () => {
     const checkService = createCheckService({ db });
-    const directory = createAccessDirectoryService({ db, checkService });
+    const directory = createAccessDirectoryService({ db, checkService, permissions: createPlatformPermissionResolver(declared()) });
     const request = () => directory.accessDirectory(admin, { pageSize: 100 });
 
     const before = await counted(request);
@@ -116,7 +112,7 @@ describe.skipIf(!runIntegration)('permission resolution query counts (#1667)', (
     const totalOf = (r: Awaited<ReturnType<typeof request>>) => (r.outcome === 'ok' ? (r.data?.total ?? 0) : 0);
     expect(totalOf(after.out) - totalOf(before.out)).toBe(45);
     expect(after.count).toBe(before.count);
-    // console:access (2) + member list (1) + batched deny/grant rows (2).
+    // console:access (2) + member list (1) + batched deny/grant rows (2); a Managed System lookup would add at most one more.
     expect(after.count).toBe(5);
   });
 });

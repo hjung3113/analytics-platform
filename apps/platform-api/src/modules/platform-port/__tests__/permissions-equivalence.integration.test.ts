@@ -33,11 +33,8 @@ import {
   FEATURES_ACCESS_CAPABILITIES,
   PLATFORM_PERMISSION_TABLE,
   type PlatformActor,
-  holdsPlatformPermission,
-  platformPermissionOrder,
-  resolvePlatformPermissions,
-  resolvePlatformPermissionsBatch,
-  useMenuPermissions,
+  type PlatformPermissionResolver,
+  createPlatformPermissionResolver,
 } from '../permissions.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
@@ -105,6 +102,7 @@ describe.skipIf(!runIntegration)('platform permissions: declared resolution equa
   let dbHandle: DbHandle;
   let migrateHandle: DbHandle;
   let checkService: CheckService;
+  let resolver: PlatformPermissionResolver;
   let msId = '';
   let grantor = '';
   const created = new Map<string, PlatformActor>();
@@ -124,7 +122,7 @@ describe.skipIf(!runIntegration)('platform permissions: declared resolution equa
     dbHandle = createDb(APP_URL);
     migrateHandle = createDb(MIGRATE_URL);
     checkService = createCheckService({ db: dbHandle.db });
-    useMenuPermissions(declarations());
+    resolver = createPlatformPermissionResolver(declarations());
     msId = await insertMsDirectly(migrateHandle, WORKSPACE_ID, `${PREFIX}-ms`, 'Equivalence MS');
     grantor = (
       await insertActorRow(migrateHandle, { workspaceId: WORKSPACE_ID, externalId: `${PREFIX}-grantor`, roleLevel: 'admin' })
@@ -175,33 +173,33 @@ describe.skipIf(!runIntegration)('platform permissions: declared resolution equa
     if (!actor) throw new Error('actor not created');
     const byCapability = new Map(declarations().map((d) => [d.permission, d.capability as string]));
     const oracle: string[] = [];
-    for (const permission of platformPermissionOrder()) {
+    for (const permission of resolver.order()) {
       if (await oldHolds(checkService, actor, permission, byCapability.get(permission))) oracle.push(permission);
     }
 
-    expect(await resolvePlatformPermissions(checkService, actor)).toEqual([...oracle].sort());
+    expect(await resolver.resolve(checkService, actor)).toEqual([...oracle].sort());
     expect(
-      (await resolvePlatformPermissionsBatch(checkService, [actor])).get(actor.actor_id),
+      (await resolver.resolveBatch(checkService, [actor])).get(actor.actor_id),
       'canonical order',
     ).toEqual(oracle);
-    for (const permission of platformPermissionOrder()) {
-      expect(await holdsPlatformPermission(checkService, actor, permission), permission).toBe(oracle.includes(permission));
+    for (const permission of resolver.order()) {
+      expect(await resolver.holds(checkService, actor, permission), permission).toBe(oracle.includes(permission));
     }
   });
 
   it('resolves all actors in one batch with the same sets as resolving each alone', async () => {
     const actors = [...created.values()];
-    const batch = await resolvePlatformPermissionsBatch(checkService, actors);
+    const batch = await resolver.resolveBatch(checkService, actors);
     for (const actor of actors) {
       expect(batch.get(actor.actor_id)).toEqual(
-        (await resolvePlatformPermissionsBatch(checkService, [actor])).get(actor.actor_id),
+        (await resolver.resolveBatch(checkService, [actor])).get(actor.actor_id),
       );
     }
   });
 
   it('is not vacuous: the matrix has granted, ungranted, bypassed and user-excluded outcomes', async () => {
     const held = async (role: Role, state: State) =>
-      (await resolvePlatformPermissionsBatch(checkService, [created.get(key(role, state)) as PlatformActor]))
+      (await resolver.resolveBatch(checkService, [created.get(key(role, state)) as PlatformActor]))
         .get((created.get(key(role, state)) as PlatformActor).actor_id) as string[];
     // Admin bypass: `always` capabilities open without a grant; `none` ones (explorer, baseline approve) do not.
     expect(await held('admin', 'no grant')).toContain('knowledge:catalog-manage');

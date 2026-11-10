@@ -146,7 +146,7 @@ import {
   permissionsRoutes,
 } from './modules/permissions/index.js';
 import { PLATFORM_PORT_PREFIX, platformPortRoutes } from './modules/platform-port/index.js';
-import { holdsPlatformPermission, useMenuPermissions } from './modules/platform-port/permissions.js';
+import { createPlatformPermissionResolver, holdsPlatformPermission } from './modules/platform-port/permissions.js';
 import { platformSavedViewRoutes } from './modules/platform-saved-views/index.js';
 import { createSavedViewsService, savedViewsRoutes } from './modules/saved-views/index.js';
 import {
@@ -951,8 +951,11 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       taskRequestsService,
     });
   // ── Platform port — #620, ADR-0069 ──────────────────────────────────────
+  // This server's own permission rules; the menu permissions are bound once the menu registry is built below.
+  const platformPermissions = createPlatformPermissionResolver();
   await app.register(platformPortRoutes, {
     prefix: PLATFORM_PORT_PREFIX,
+    permissions: platformPermissions,
     sessionService,
     checkService,
     workspaceId,
@@ -1026,8 +1029,8 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, ruleCoverage, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),
     ...(opts.menuDispatch ?? []),
   ]);
-  // The menu permissions the modules declared are what bootstrap, the access directory and every `holdsPlatformPermission` resolve (#1667).
-  useMenuPermissions(menuRegistry.permissions);
+  // The menu permissions the modules declared are what this server's bootstrap, session-state and access directory resolve (#1667).
+  platformPermissions.use(menuRegistry.permissions);
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is
   // registered here beside the module's contribution (the contribution type has no route hook).
   // The log explorer export (#1472) is a streamed download, which the JSON menu envelope cannot carry: its own REST route, session or token.

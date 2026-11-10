@@ -23,7 +23,7 @@ import { envelope } from './envelope.js';
 import {
   type PlatformActor,
   holdsPlatformPermission,
-  resolvePlatformPermissions,
+  type PlatformPermissionResolver,
 } from './permissions.js';
 import { OVERSIZE_BODY, createPreferencesBodyParser } from './preferences-body.js';
 import { type PreferencesJudgement, createPlatformPreferencesService } from './preferences.js';
@@ -49,6 +49,8 @@ export interface PlatformPortOptions {
   vocReadService: VocReadService;
   findingsService: FindingsService;
   tasksService: TasksService;
+  /** This server's permission rules; bootstrap, session-state and the access directory resolve through it. */
+  permissions: PlatformPermissionResolver;
   now?: () => Date;
 }
 
@@ -64,7 +66,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     checkService: opts.checkService,
     entityReader,
   });
-  const access = createAccessDirectoryService({ db: opts.db, checkService: opts.checkService });
+  const access = createAccessDirectoryService({ db: opts.db, checkService: opts.checkService, permissions: opts.permissions });
   const usage = createPlatformUsageService({ db: opts.db, checkService: opts.checkService });
   const clientErrors = createPlatformClientErrorService({ db: opts.db });
   const prefs = createPlatformPreferencesService({ db: opts.db });
@@ -90,7 +92,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
 
   async function buildSession(loaded: { session: SessionRecord; actor: ActorRecord }) {
     const { actor, session } = loaded;
-    const permissions = await resolvePlatformPermissions(opts.checkService, {
+    const permissions = await opts.permissions.resolve(opts.checkService, {
       actor_id: actor.id,
       workspace_id: session.workspaceId,
       role_level: actor.roleLevel,
