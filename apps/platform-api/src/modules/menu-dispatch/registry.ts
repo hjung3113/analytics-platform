@@ -29,8 +29,11 @@ export interface MenuDispatchRegistry {
 /** Paging params: `limits.maxRows` is refused beside them (checklist rule 7, #175). */
 const PAGING_KEYS = ['page', 'pageSize', 'cursor'] as const;
 
-/** Site-bound Context keys: a scope-free endpoint may not apply them (checklist §3 rule 6; same set as the mock adapter). */
-const SITE_BOUND_KEYS = ['roomNames', 'condition', 'selection', 'lot', 'recipe', 'ppid'] as const;
+/**
+ * Site-bound Context keys: a scope-free endpoint may not apply them (checklist §3 rule 6). `@ap/contracts` is a devDependency here, so this is a local
+ * copy of `SITE_BOUND_CONTEXT_KEYS`; `registry.test.ts` pins it against `vocab.json`.
+ */
+export const SITE_BOUND_KEYS = ['roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'recipe', 'ppid'] as const;
 
 const SCOPE_BLOCKER =
   'the server has no Scope resolver yet (#1087); site/room grants cannot be judged';

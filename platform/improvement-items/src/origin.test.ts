@@ -7,6 +7,9 @@ describe('saved analysis origin', () => {
     const origin = snapshotOrigin({ id: 'analysis', pageKeys: ['drillEquipment', 'filter', 'returnTo'] }, { ...emptyGlobal, selection: ['EQ-1'] }, [['drillEquipment', 'EQ-2'], ['filter', 'a'], ['filter', 'b'], ['variant', 'a'], ['returnTo', '/elsewhere']]);
     expect(origin.context.page).toEqual({ drillEquipment: 'EQ-2', filter: ['a', 'b'] });
     expect(origin.context.selection).toEqual(['EQ-1']);
+    // A menu may declare other kinds (#1673); only equipment and process are read here.
+    expect(suggestedTargets({ menuId: 'analysis', context: { page: { lotKey: 'L-1' } } }, { lot: 'lotKey' } as Record<string, string>)).toEqual([]);
+    expect(suggestedTargets(origin, { equipment: 'drillEquipment', lot: 'lotKey' } as Record<string, string>)).toEqual([{ kind: 'equipment', externalKey: 'EQ-2', displayName: 'EQ-2' }]);
     expect(originLinkOptions(origin)).toMatchObject({ page: { drillEquipment: 'EQ-2', filter: ['a', 'b'] }, global: { selection: ['EQ-1'], recipeIds: null } });
   });
   it('suggests the equipment or process the menu declared without changing Selection, otherwise the selected equipment', () => {

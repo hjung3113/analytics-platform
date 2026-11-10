@@ -4,7 +4,7 @@
  * createMockAdapter to main.tsx through `#platform-assembly`; production builds never contain it. A real server adapter replaces this file, not the kernel.
  */
 import type { AuditEvent, EquipmentAxisDescriptor, ContextKey, MenuMeta, Permission, PlatformAdapter, Session } from '@ap/contracts';
-import { instantEpochMs, requiredContextError } from '@ap/contracts';
+import { instantEpochMs, requiredContextError, SITE_BOUND_CONTEXT_KEYS } from '@ap/contracts';
 import { createSelectionPorts } from './query/selection-ports';
 import { contextShapeError } from './access/context-validation';
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageNextScreens, usageSummary, validateScope } from './server';
@@ -17,7 +17,7 @@ import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './qu
 import { deleteNotice, importPreferences, listNotices, lookupPeople, patchPreferences, readPreferences, saveNotice } from './services/services';
 import { serveAction, type AnyMockAction } from './actions/actions';
 
-const siteBoundContextKeys = new Set<ContextKey>(['roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'recipe', 'ppid']);
+const siteBoundContextKeys = new Set<ContextKey>(SITE_BOUND_CONTEXT_KEYS);
 
 /** Short async hop so the shell exercises its loading path, as it would against a real server. */
 function pause(signal?: AbortSignal, ms = 80) {

@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
  */
 export interface PlatformVocab {
   kernelPermissions: string[];
+  siteBoundContextKeys: string[];
   usageVias: string[];
   auditActions: string[];
   outcomes: string[];

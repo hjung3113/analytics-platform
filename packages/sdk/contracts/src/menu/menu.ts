@@ -5,6 +5,11 @@ import type { Text } from '../i18n.js';
  * Render bindings (icon, page component) are React-bound and live in the kernel's MenuEntry.
  */
 export type ContextKey = 'time' | 'roomNames' | 'line' | 'prcGroup' | 'condition' | 'selection' | 'lot' | 'ppid' | 'recipe' | 'metric';
+/**
+ * Context keys bound to one Site (kernel.md §6): a Scope change clears them and a scope-free endpoint may not apply them.
+ * The code source of the list; mock adapter and Kernel read it, the platform API pins a local copy against `vocab.json`.
+ */
+export const SITE_BOUND_CONTEXT_KEYS: readonly ContextKey[] = ['roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'recipe', 'ppid'];
 /** apply = direct query filter · reference = carried/visible, not a query filter · unsupported = preserved, not applied */
 export type Capability = 'apply' | 'reference' | 'unsupported';
 /**
@@ -130,11 +135,12 @@ export type MenuMeta = {
    */
   hiddenPageKeys?: readonly string[];
   /**
-   * Which declared page key holds the menu's equipment or process subject (#1429): `{ equipment: 'drillEquipment' }`. Each value is a `pageKeys` entry that is
+   * Which declared page key holds each of the menu's subjects (#1429): `{ equipment: 'drillEquipment' }`. The menu names the kind (an identifier,
+   * e.g. `equipment`, `process`, `lot`); a consumer reads the kinds it knows and ignores the rest. Each value is a `pageKeys` entry that is
    * single-valued (not in `repeatedPageKeys`). The shell passes the key's current value to `AnalysisActionsProps.subject`, so a platform feature never
    * hard-codes a menu's key name. Absent = the menu names no subject.
    */
-  subjectPageKeys?: Readonly<Partial<Record<'equipment' | 'process', string>>>;
+  subjectPageKeys?: Readonly<Record<string, string>>;
   /** Id-only metricId is completed from PUBLISHED_METRICS. Every other menu rejects it as metric_pair_incomplete. */
   initializesMetric?: boolean;
   /** Detail/destination routes are reachable through Context Links, not the sidebar. */

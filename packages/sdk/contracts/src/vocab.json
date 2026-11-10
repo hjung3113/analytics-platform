@@ -6,6 +6,16 @@
     "console:access",
     "features:access"
   ],
+  "siteBoundContextKeys": [
+    "roomNames",
+    "line",
+    "prcGroup",
+    "condition",
+    "selection",
+    "lot",
+    "recipe",
+    "ppid"
+  ],
   "usageVias": [
     "sidebar",
     "switcher",
