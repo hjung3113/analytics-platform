@@ -80,7 +80,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 ### 등록 검증 (서버 기동 시)
 
-앱이 넘긴 메뉴 Registry로 엔드포인트 목록을 검증하고 하나라도 어긋나면 기동을 거부한다: 엔드포인트 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임(앱이 권한 어휘를 넘기면 그 어휘의 권한도 허용 — 어휘를 넘기지 않으면 메뉴가 선언한 권한만, 동작도 같음), 엔드포인트가 `apply`한 키를 소유 메뉴도 `apply`함, 메뉴가 Scope를 요구하면 엔드포인트도 요구, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`할 수 없음(규칙 6), `limits.maxRows`는 양의 정수이고 페이지·커서 엔드포인트(`page`·`pageSize`·`cursor` paramKeys)가 아닐 것(규칙 7, #175). 원본: `packages/adapters/mock-server/src/adapter.ts` `createMockAdapter`.
+앱이 넘긴 메뉴 Registry로 엔드포인트 목록을 검증하고 하나라도 어긋나면 기동을 거부한다: 엔드포인트 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임(앱이 권한 어휘를 넘기면 그 어휘의 권한도 허용 — 어휘를 넘기지 않으면 메뉴가 선언한 권한만, 동작도 같음), 엔드포인트가 `apply`한 키를 소유 메뉴도 `apply`함, 메뉴가 Scope를 요구하면 엔드포인트도 요구, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`line`·`prcGroup`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`할 수 없음(규칙 6), `limits.maxRows`는 양의 정수이고 페이지·커서 엔드포인트(`page`·`pageSize`·`cursor` paramKeys)가 아닐 것(규칙 7, #175). 원본: `packages/adapters/mock-server/src/adapter.ts` `createMockAdapter`.
 
 ### 업무 시스템 자동 등록 (platform-api, #1289 노드 i)
 
@@ -94,7 +94,7 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 
 - **시간 도메인(§3 7단계)** — 선언의 `mergeTimeDomain` 플래그로 정해지지만 서버는 아직 이 판정을 하지 못한다. 합칠 설비 집합이 Scope에서 나오기 때문이다.
 - **구현 안 함 — `requiresScope`·`mergeTimeDomain` 선언(4·7단계):** 서버에 Scope 해석기(site·room 부여)가 없어 두 선언은 기동 시 등록 검증이 거부한다(메시지에 #1087). 이유: 부여를 판정하지 못한 채 받으면 `forbidden`을 낼 근거가 없다. 다시 여는 조건: #1087 서버 Scope 해석기가 생길 때(백로그 줄 참조).
-- 서버가 하는 등록 검증: 동작·엔드포인트 id 중복 없음, `invalidates`가 같은 `menuId`의 등록된 엔드포인트, `concurrency: 'version'`에 `currentVersion`, `limits.maxRows` 양의 정수이고 페이지·커서 엔드포인트 아님, `limits.maxHours` 양수이고 `context.time` 적용, `requiredContext`는 적용된 키, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`하지 않음(규칙 6). 메뉴 Registry와 대조하는 항목(`menuId`·권한 이름·`apply` 키 일치)은 서버가 앱의 메뉴 Registry를 갖지 않아 하지 않는다.
+- 서버가 하는 등록 검증: 동작·엔드포인트 id 중복 없음, `invalidates`가 같은 `menuId`의 등록된 엔드포인트, `concurrency: 'version'`에 `currentVersion`, `limits.maxRows` 양의 정수이고 페이지·커서 엔드포인트 아님, `limits.maxHours` 양수이고 `context.time` 적용, `requiredContext`는 적용된 키, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`line`·`prcGroup`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`하지 않음(규칙 6). 메뉴 Registry와 대조하는 항목(`menuId`·권한 이름·`apply` 키 일치)은 서버가 앱의 메뉴 Registry를 갖지 않아 하지 않는다.
 
 ### `menuAction` 판정 순서
 

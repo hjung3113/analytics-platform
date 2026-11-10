@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { MenuDispatchRegistrationError, createMenuDispatchRegistry } from '../registry.js';
+import { platformVocab } from '../../platform-port/__tests__/platform-vocab.js';
+import { MenuDispatchRegistrationError, SITE_BOUND_KEYS, createMenuDispatchRegistry } from '../registry.js';
 import { registryOf, testAction, testEndpoint } from './test-declarations.js';
 
 const refused = (build: () => unknown) => {
@@ -48,7 +49,7 @@ describe('menu dispatch registration validation', () => {
     ['maxRows on a paged endpoint', () => registryOf([testEndpoint({ paramKeys: ['page', 'pageSize'], limits: { maxRows: 10 } }).declaration]), /paged endpoint/],
     ['maxRows on a cursor endpoint', () => registryOf([testEndpoint({ paramKeys: ['cursor'], limits: { maxRows: 10 } }).declaration]), /paged endpoint/],
     ['maxHours without time', () => registryOf([testEndpoint({ limits: { maxHours: 24 } }).declaration]), /context\.time/],
-    ...(['roomNames', 'condition', 'selection', 'lot', 'recipe', 'ppid'] as const).map(
+    ...(['roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'recipe', 'ppid'] as const).map(
       (key): [string, () => unknown, RegExp] => [
         `scope-free endpoint applying ${key} (rule 6)`,
         () => registryOf([testEndpoint({ context: { [key]: 'apply' } }).declaration]),
@@ -60,13 +61,17 @@ describe('menu dispatch registration validation', () => {
     expect(refused(build)).toMatch(message);
   });
 
-  it('accepts scope-free time/line/prcGroup/metric/reference of a site-bound key', () => {
+  it('accepts scope-free time/metric/reference of a site-bound key', () => {
     expect(() =>
       registryOf([
-        testEndpoint({ context: { time: 'apply', line: 'apply', prcGroup: 'apply', metric: 'apply', selection: 'reference' } })
+        testEndpoint({ context: { time: 'apply', metric: 'apply', selection: 'reference' } })
           .declaration,
       ]),
     ).not.toThrow();
+  });
+
+  it('keeps the site-bound key list equal to the contract list in vocab.json', () => {
+    expect([...SITE_BOUND_KEYS]).toEqual(platformVocab().siteBoundContextKeys);
   });
 
   it('reports every problem at once, not only the first', () => {

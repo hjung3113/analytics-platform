@@ -259,7 +259,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     if (m.subjectPageKeys !== undefined) {
       if (typeof m.subjectPageKeys !== 'object' || m.subjectPageKeys === null || Array.isArray(m.subjectPageKeys)) fail(`Menu "${m.id}" subjectPageKeys must be an object`);
       for (const [kind, key] of Object.entries(m.subjectPageKeys)) {
-        if (kind !== 'equipment' && kind !== 'process') fail(`Menu "${m.id}" subjectPageKeys kind "${kind}" must be equipment or process`);
+        if (!/^[a-z][a-zA-Z0-9]*$/.test(kind)) fail(`Menu "${m.id}" subjectPageKeys kind "${kind}" must be an identifier`);
         if (!m.pageKeys.includes(key)) fail(`Menu "${m.id}" subjectPageKeys ${kind} key "${String(key)}" is not a declared page key`);
         if (m.repeatedPageKeys?.includes(key)) fail(`Menu "${m.id}" subjectPageKeys ${kind} key "${key}" cannot be a repeated page key`);
       }

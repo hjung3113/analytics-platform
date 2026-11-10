@@ -11,10 +11,14 @@ import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
 import { dropDrillResetKeys } from '../context/drillReset';
 import { appliedQueryPolicy, useScreenDraft } from '../query/draft-state';
-import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type MainUsageVia, type UsageEvent } from '@ap/contracts';
+import { buildQuery, carriesReturnTo, clientCorrelationId, CONTEXT_FIELDS, ContractError, emptyGlobal, SITE_BOUND_CONTEXT_KEYS, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type MainUsageVia, type UsageEvent } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type ScreenSource, type ScreenState } from './contexts';
 
+/** GlobalContext fields a Scope change clears: the fields of the site-bound keys plus `membershipBasis` (not a ContextKey). */
+const SITE_BOUND_FIELDS: readonly (keyof GlobalContext)[] = [...SITE_BOUND_CONTEXT_KEYS.flatMap(key => CONTEXT_FIELDS[key]), 'membershipBasis'];
+function hasSiteBound(g: GlobalContext): boolean { return SITE_BOUND_FIELDS.some(f => g[f] !== null); }
+function withoutSiteBound(g: GlobalContext): GlobalContext { return { ...g, ...Object.fromEntries(SITE_BOUND_FIELDS.map(f => [f, null])) }; }
 /** The pane's trail, replaced by a fresh one when the pane id changed. */
 function paneTrailFor(ref: { current: { paneId: string | null; trail: PaneUsageTrail } }, paneId: string | null): PaneUsageTrail {
   if (ref.current.paneId !== paneId) ref.current = { paneId, trail: { user: '', seen: false, prev: null } };
@@ -144,9 +148,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     let next: GlobalContext = { ...global, ...patch };
     if ('scopeId' in patch && patch.scopeId !== global.scopeId) {
       // Site is a DB boundary (ADR-0004): site-bound sets are cleared explicitly, never re-mapped.
-      const had = global.lineNames !== null || global.prcGroups !== null || global.membershipBasis !== null || global.roomNames !== null || global.condition !== null || global.selection !== null || global.lotIds !== null || global.recipeIds !== null || global.ppid !== null;
-      next = { ...next, roomNames: null, lineNames: null, prcGroups: null, condition: null, membershipBasis: null, selection: null, lotIds: null, recipeIds: null, ppid: null };
-      if (had && !options?.silent) toast(lang === 'ko' ? 'Scope 변경: room_name·Line·PRC 그룹·설비 조건·선택·Lot·Recipe를 초기화했습니다 (Site 경계).' : 'Scope changed: room_name, Line, PRC groups, condition, selection, Lot and Recipe were cleared (site boundary).', 'warning');
+      const had = hasSiteBound(global);
+      next = withoutSiteBound(next);
+      if (had && !options?.silent) toast(lang === 'ko' ? 'Scope 변경: room_name·Line·PRC 그룹·설비 조건·선택·Lot·Recipe·PPID를 초기화했습니다 (Site 경계).' : 'Scope changed: room_name, Line, PRC groups, condition, selection, Lot, Recipe and PPID were cleared (site boundary).', 'warning');
     }
     // A Scope change is never held by the unsaved-edit guard, even for a guard that leaves on address change (ADR-0115 decision 4).
     write(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), 'scopeId' in patch && patch.scopeId !== global.scopeId ? { ...options, bypassGuard: true } : options);
@@ -184,7 +188,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const resolveWith = useCallback((menuId: string, options: LinkOptions, carry: boolean): LinkResolution => {
     const target = menuById(menuId);
     const carried: GlobalContext = options.global && 'scopeId' in options.global && options.global.scopeId !== global.scopeId
-      ? { ...global, roomNames: null, lineNames: null, prcGroups: null, condition: null, membershipBasis: null, selection: null, lotIds: null, recipeIds: null, ppid: null }
+      ? withoutSiteBound(global)
       : global;
     const g = { ...carried, ...options.global };
     const requested = Object.entries(options.page ?? {});

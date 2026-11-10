@@ -99,7 +99,7 @@ export type SpaceNavSectionSlot = { For: (spaceId: SpaceId, menu: MenuEntry | nu
  * What `AnalysisActionsSlot.Actions` is told about the screen whose `⋯` menu it fills: the menu id, the global Context and a snapshot of the
  * page state of the keys the menu declares (`pageKeys`, hidden keys included; a key with no value is absent, a repeated key is a list). A snapshot of the state, not of the address.
  */
-export type AnalysisActionsProps = { menuId: string; global: GlobalContext; page: Readonly<Record<string, string | readonly string[]>>; /** Current values of the page keys the menu declares in `MenuMeta.subjectPageKeys` (#1429); a kind with no declared key or no value is absent. */ subject?: Readonly<Partial<Record<'equipment' | 'process', string>>> };
+export type AnalysisActionsProps = { menuId: string; global: GlobalContext; page: Readonly<Record<string, string | readonly string[]>>; /** Current values of the page keys the menu declares in `MenuMeta.subjectPageKeys` (#1429); a kind with no declared key or no value is absent. */ subject?: Readonly<Record<string, string>> };
 /**
  * Items the app adds to the `⋯` page menu of a main screen whose `pageType` is in `pageTypes` (default `['analysis']`; main screen only, not a board pane), after the page's own
  * `secondaryActions` and the board entry (#1424, same idea as `boardEntry`). `Actions` is rendered inside the menu, so it may use hooks and

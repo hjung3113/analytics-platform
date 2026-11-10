@@ -85,12 +85,15 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     expect(() => createRegistry({ spaces: homeA, groups, carrySets: [{ id: carrySetId('c'), pageKeys: ['filter'] }], menus: [menu('a', '/a', { primary: true, pageKeys: ['filter'], carrySet: carrySetId('c'), repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'] })] })).not.toThrow();
   });
 
-  it('subjectPageKeys names declared single-valued page keys of the equipment or process kind (#1429)', () => {
+  it('subjectPageKeys names declared single-valued page keys; the menu names the kind, which must be an identifier (#1429, #1673)', () => {
     const make = (over: Record<string, unknown>) => () => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['eqp', 'tag'], repeatedPageKeys: ['tag'], ...over })] });
     expect(make({ subjectPageKeys: { equipment: 'eqp' } })).not.toThrow();
     expect(make({ subjectPageKeys: { equipment: 'nope' } })).toThrow(/subjectPageKeys equipment key "nope" is not a declared page key/);
     expect(make({ subjectPageKeys: { process: 'tag' } })).toThrow(/cannot be a repeated page key/);
-    expect(make({ subjectPageKeys: { lot: 'eqp' } })).toThrow(/kind "lot" must be equipment or process/);
+    expect(make({ subjectPageKeys: { lot: 'eqp' } })).not.toThrow();
+    expect(make({ subjectPageKeys: { equipment: 'eqp', process: 'tag', chamber: 'eqp' } })).toThrow(/cannot be a repeated page key/);
+    expect(make({ subjectPageKeys: { equipment: 'eqp', lot: 'eqp', chamber: 'eqp' } })).not.toThrow();
+    for (const kind of ['Bad Kind', '__proto__', '1lot', 'Lot', '']) expect(make({ subjectPageKeys: JSON.parse(`{${JSON.stringify(kind)}: "eqp"}`) })).toThrow(/must be an identifier/);
   });
 
   it('a repeated key cannot be a drill level, the conditionPreset key or a navView preset key (error names the key and the role)', () => {

@@ -52,6 +52,7 @@ describe('judgeQueryShape (home.notices)', () => {
 });
 
 // ── generic judgment, DB-free.
+// `line` is a stand-in set field; a scope-free endpoint applying it is refused at registration (rule 6), so the judgment runs on a stub registry.
 const timeSpec = { context: { time: 'apply', line: 'apply' } as const };
 const withLine = (lineNames: unknown, extra: Record<string, unknown> = {}) => ({
   endpoint: 'test.rows',
@@ -60,7 +61,7 @@ const withLine = (lineNames: unknown, extra: Record<string, unknown> = {}) => ({
 });
 
 describe('judgeQueryShape (applied Context)', () => {
-  const registry = registryOf([testEndpoint(timeSpec).declaration]);
+  const registry = unvalidatedRegistry(testEndpoint(timeSpec).declaration);
   it('accepts exactly the applied keys', () => {
     expect(judgeQueryShape(withLine(null), registry)).toMatchObject({ ok: true });
   });
@@ -89,7 +90,7 @@ describe('judgeQueryShape (applied Context)', () => {
   });
 
   it('rejects a null required Context key', () => {
-    const required = registryOf([testEndpoint({ ...timeSpec, requiredContext: ['line'] }).declaration]);
+    const required = unvalidatedRegistry(testEndpoint({ ...timeSpec, requiredContext: ['line'] }).declaration);
     expect(judgeQueryShape(withLine(null), required)).toMatchObject({ ok: false });
     expect(judgeQueryShape(withLine([]), required)).toMatchObject({ ok: true });
   });
@@ -187,7 +188,7 @@ describe('runQuery order (steps 3–10)', () => {
 
   it('answers an explicit empty set as empty without reading the source', async () => {
     const { declaration, calls } = testEndpoint(timeSpec);
-    expect(await run(registryOf([declaration]), withLine([]))).toMatchObject({ outcome: 'empty', data: null });
+    expect(await run(unvalidatedRegistry(declaration), withLine([]))).toMatchObject({ outcome: 'empty', data: null });
     expect(calls.handled).toBe(0);
   });
 
