@@ -4,6 +4,7 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — `products/eqv/` 옛 사본 정리 (v0.33.0 슬라이스 리뷰 Q7):** `products/eqv/docs/`에 옮긴 문서의 옛 사본 27개와 동작하지 않는 루트 설정이 남아 검색에 함께 걸린다. 이유: 보존 의도가 있는 폴더라 EV 저장소 아카이브 점검과 함께 정한다. 다시 여는 조건: EV 저장소 아카이브 점검을 마칠 때(`IMPORTED.md`의 기준 SHA를 `docs/adr/history/eqv/README.md`로 옮기고 `products/eqv/`를 지운다).
 - **구현 안 함 — 생성형 SDK Catalog 전체, `inspect`, `check` 묶음 (#1207):** 이유: 기존 `.api.txt`, lint, tsc와 겹친다. 다시 여는 조건: 실제 메뉴 PR이나 리뷰에서 의도어 표와 이름 검사가 막지 못한 잘못된 SDK import나 중복 구현된 SDK 부품이 나올 때. 설계안: `docs/research/2026-11-10-devkit-generated-catalog-deferred-design.md`.
 - **구현 안 함 — `ap-devkit` tarball, 저장소 밖 `check`, 소비자 유형 판별 (#1207):** 이유: 지금 실재하는 외부 소비자는 `sdk-v0.19.0`에 고정된 EV 하나다. 다시 여는 조건: 저장소 밖 패키지(현재 EV 외의 소비자, 또는 EV가 최신 SDK로 올리는 시점)가 이 도구나 확장을 실제로 필요로 할 때.
 - **구현 안 함 — `SKILL.md`·`lanes.md` 재배치(회고 항목 12):** 이유: 레인 절감이 0이고 EV가 이 절차에 기댄다. 다시 여는 조건: EV가 레인으로 옮기거나 쓰지 않게 될 때.
