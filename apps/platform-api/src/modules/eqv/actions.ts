@@ -9,7 +9,7 @@
 import { layoutRevision, promoteLayout, validateLayout } from '@eqv/core';
 
 import type { Tx } from '../../db/tx.js';
-import { type FieldError, type MenuActionDeclaration, MenuActionInvalidError } from '../menu-dispatch/types.js';
+import { type FieldError, type MenuActionDeclaration, MenuActionForbiddenError, MenuActionInvalidError } from '../menu-dispatch/types.js';
 import { type EqvDeps, eqvAuthorize } from './authorize.js';
 import { recordDraft, recordRevisionPublished, recordTemplatePromoted } from './audit.js';
 import { checkEquipmentLayout, isBundledTemplateId, isLayoutId, nameProblem, REVISION_PATTERN } from './domain/layout-checks.js';
@@ -128,6 +128,8 @@ export function eqvActions(deps: EqvDeps): MenuActionDeclaration[] {
       const templateId = String(input.templateId);
       const name = String(input.name).trim();
       await lockKey(tx, 'template', actor.workspace_id, templateId);
+      // The wait for this lock came after the dispatcher's last check: judge publishing again, before any read or write.
+      if (!(await publish(actor, tx))) throw new MenuActionForbiddenError();
       // EV ADR-0015: a Template comes from a published Layout Revision.
       const source = await write.findRevision(tx, actor.workspace_id, layoutId, revision);
       if (!source) throw invalid({ path: ['revision'], code: 'not_found' });

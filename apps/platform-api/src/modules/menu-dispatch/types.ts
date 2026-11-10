@@ -108,6 +108,17 @@ export class MenuActionInvalidError extends Error {
   }
 }
 
+/**
+ * Thrown by `handle` when a lock it waited on let the actor's permission lapse (it re-judged on the same transaction). The engine
+ * catches it outside the transaction like `MenuActionInvalidError`: nothing is written or recorded, and the answer is `forbidden`.
+ */
+export class MenuActionForbiddenError extends Error {
+  constructor() {
+    super('forbidden');
+    this.name = 'MenuActionForbiddenError';
+  }
+}
+
 export interface ActionHandlerResult {
   data: unknown;
   /** Version after the write; required for `concurrency: 'version'`. */

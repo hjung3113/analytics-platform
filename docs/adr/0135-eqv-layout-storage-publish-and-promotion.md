@@ -14,6 +14,8 @@
 6. **모델 식별자.** `equipment.model_id`는 Hub 카탈로그 id(ADR-0132 결정 7)이며 FK가 없다. 쓰기(8단계)가 `knowledgeLookup`으로 확인한다. 이 이슈에는 쓰기 액션이 없다.
 7. **경계.** 서버는 `@eqv/core`만 쓴다(React·`@ap/*` 없음). `@eqv/core`의 zod 4는 서버 공개 타입에 새지 않는다: 검증 이슈는 `{ path, code }` 필드 오류로 바꿔 모듈 안에서 끝낸다. 실행 시 `@eqv/core`는 `@ap/feature-shared`와 같이 이미지 빌드에서 `dist`로 내보내 배포본의 `exports`를 `dist`로 바꾼다. ESLint 서버 프리셋만 `@eqv/core`를 허용한다.
 8. **Scope.** 실서버의 Site Scope는 #1087 전까지 capability로만 막는다(`requiresScope: false`, 사이트 묶인 Context 없음).
+9. **전역 감사 투영에서 eqv 제외.** `core.audit_log`의 eqv 행(`eqv_layout`, `eqv_layout_revision`, `eqv_template`)은 그대로 쌓이지만, 뷰어 인자가 없는 전역 감사 투영(`platform_audit_events`, 마이그레이션 0121)은 `eqv_` 주체를 내보내지 않는다. `workspace.admin`만 가진 콘솔 사용자는 `eqv.view`가 없어, 투영이 주체 id·시각·총계를 내보내면 eqv 문서의 존재를 알게 된다. `knowledge_` 선례를 따르며(결정자: 코디네이터), 세 capability(`eqv.view`·`eqv.layout.edit`·`eqv.layout.publish`)의 권한 부여 기록은 eqv 문서가 아니므로 비민감 capability 목록에 둔다. 권한을 따지는 eqv 감사 보기는 만들지 않았다(모듈 `AGENTS.md`에 «구현 안 함»으로 적었다).
+10. **승격은 잠금 대기 뒤 다시 권한을 본다.** `promoteTemplate`는 Template별 advisory lock을 기다린 뒤, 읽기 전에 같은 트랜잭션에서 `eqv.layout.publish`를 다시 판정한다. 잃었으면 디스패처가 `forbidden`으로 답하고 쓰기·감사·재생 기록이 없다.
 
 ## 결과
 

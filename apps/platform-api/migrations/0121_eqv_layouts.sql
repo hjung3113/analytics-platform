@@ -117,8 +117,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
         'knowledge_model','knowledge_software','knowledge_item','knowledge_model_spec','improvement_item',
         'development_project','validation_round','knowledge_draft','catalog_report','execution_request','queue_settings','excerpt_reader','investigation',
         'eqv_layout','eqv_layout_revision','eqv_template'])
-      -- No viewer argument: exclude knowledge and lifecycle owners rather than leaking restricted ids/totals.
+      -- No viewer argument: exclude knowledge, eqv and lifecycle owners rather than leaking restricted ids/totals.
+      -- eqv subjects stay in the allow-list above but are never released here: a console-only actor holds no `eqv.view`
+      -- (ADR-0135); the rows remain in core.audit_log for a future permission-aware eqv audit view.
       AND left(l.subject_type, 10) <> 'knowledge_'
+      AND left(l.subject_type, 4) <> 'eqv_'
       AND l.subject_type <> ALL (ARRAY['development_project','validation_round','execution_request'])
       AND (l.subject_type <> 'entity_link' OR (coalesce(l.detail->'source'->>'type','') <> 'validation_round' AND coalesce(l.detail->'target'->>'type','') <> 'validation_round'))
       AND left(l.event_type, 15) <> 'survey_response'

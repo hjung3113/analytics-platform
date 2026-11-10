@@ -13,7 +13,7 @@ import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
-import { grantCapability } from '../../../test-support/permissions-fixtures.js';
+import { grantCapability, revokeCapabilityGrant } from '../../../test-support/permissions-fixtures.js';
 import { recordDraft } from '../audit.js';
 import { insertDraft } from '../repositories/eqv-write.js';
 import { cyclicLayoutFixture, layoutFixture } from './fixture.js';
@@ -195,6 +195,80 @@ describe.skipIf(!runIntegration)('eqv module (#1645)', () => {
         ).toBe('forbidden');
       }
       expect(await count('template', 'workspace_id = $1 and template_id = $2', [WORKSPACE_ID, `${TAG}-t-denied`])).toBe(0);
+    });
+
+    it('promoteTemplate re-judges publishing after its Template lock wait: a grant revoked while queued → forbidden, nothing written', async () => {
+      const [layoutId, revision] = await publishOne();
+      const templateId = `${TAG}-t-queued`;
+      const lastMinute = await person('developer');
+      const grantId = await grantCapability(dbHandle, WORKSPACE_ID, lastMinute.id, 'eqv.layout.publish', null, admin.id);
+      const holder = await migrate.pool.connect();
+      let released = false;
+      const release = async (command: 'commit' | 'rollback') => {
+        if (released) return;
+        released = true;
+        await holder.query(command);
+        holder.release();
+      };
+      try {
+        await holder.query('begin');
+        await holder.query(`select pg_advisory_xact_lock(hashtext('eqv.template'), hashtext($1))`, [`${WORKSPACE_ID}:${templateId}`]);
+        const queued = act('eqv.promoteTemplate', { layoutId, revision, templateId, name: 'Queued' }, { who: lastMinute });
+        // Barrier: the promotion transaction is blocked on exactly that lock (a waiting row in pg_locks), not merely started.
+        const waiting = async () =>
+          Number(
+            (
+              await sql(
+                `select count(*) from pg_locks where locktype = 'advisory' and not granted
+                   and classid::bigint = (hashtext('eqv.template')::bigint & 4294967295) and objid::bigint = (hashtext($1)::bigint & 4294967295)`,
+                [`${WORKSPACE_ID}:${templateId}`],
+              )
+            ).rows[0].count,
+          );
+        for (let i = 0; i < 200 && (await waiting()) === 0; i++) await new Promise((r) => setTimeout(r, 25));
+        expect(await waiting()).toBe(1);
+        await revokeCapabilityGrant(dbHandle, grantId, admin.id);
+        await release('commit');
+        expect((await queued).outcome).toBe('forbidden');
+      } finally {
+        await release('rollback');
+      }
+      expect(await count('template', 'workspace_id = $1 and template_id = $2', [WORKSPACE_ID, templateId])).toBe(0);
+      expect((await sql(`select count(*) from core.audit_log where actor_id = $1`, [lastMinute.id])).rows[0].count).toBe('0');
+      expect((await sql(`select count(*) from core.idempotency_keys where actor_id = $1`, [lastMinute.id])).rows[0].count).toBe('0');
+    });
+
+    it('the viewerless audit projection releases no eqv subject, count or page to a console-only non-Admin', async () => {
+      await publishOne(); // eqv_layout, eqv_layout_revision events by `admin`
+      const [layoutId, revision] = await publishOne();
+      expect((await act('eqv.promoteTemplate', { layoutId, revision, templateId: `${TAG}-t-audit`, name: 'Audit' })).outcome).toBe('ok');
+      const adminExternal = (await sql('select external_id from core.actors where id = $1', [admin.id])).rows[0].external_id as string;
+      const consoleOnly = await person('developer', 'workspace.admin'); // console:access, no eqv.view
+      const trail = async (query: Record<string, unknown>) => {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/v1/platform/audit-trail/search',
+          headers: { 'content-type': 'application/json', 'idempotency-key': randomUUID(), ...cookieHeader(consoleOnly.cookie) },
+          payload: JSON.stringify(query),
+        });
+        expect(res.statusCode).toBe(200);
+        return res.json<{ outcome: string; data: { items?: { target: { type: string } }[]; total?: number } | null }>();
+      };
+      // The rows exist in the log (the exclusion is of the projection, not of the write)…
+      expect(Number((await sql(`select count(*) from core.audit_log where actor_id = $1 and subject_type like 'eqv\\_%'`, [admin.id])).rows[0].count)).toBeGreaterThan(0);
+      // …but the console-only actor sees none: not by type, not by actor, not past the end, and the total excludes them.
+      for (const type of ['eqv_layout', 'eqv_layout_revision', 'eqv_template']) {
+        expect((await trail({ type })).outcome, type).toBe('empty');
+      }
+      expect((await trail({ actor: adminExternal })).outcome).toBe('empty');
+      const everything = await trail({ pageSize: 100 });
+      expect((everything.data?.items ?? []).filter((i) => i.target.type.startsWith('eqv_'))).toEqual([]);
+      const pastEnd = await trail({ page: 100000, pageSize: 100 });
+      expect(pastEnd.data?.items ?? []).toEqual([]);
+      const eqvInLog = Number(
+        (await sql(`select count(*) from core.audit_log where workspace_id = $1 and subject_type like 'eqv\\_%'`, [WORKSPACE_ID])).rows[0].count,
+      );
+      expect(eqvInLog).toBeGreaterThan(0);
     });
 
     it('a holder of the capability (not Admin) can use it', async () => {
