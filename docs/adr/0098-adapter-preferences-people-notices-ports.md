@@ -65,6 +65,8 @@
 
 ## 개정 (2026-11-05, #1328 노드 c)
 
+**개정(2026-11-10): Quest 포트 부분은 [ADR-0134](0134-bravo-quest-leaves-platform-adapter-port.md)가 대체한다. 구현(#1641) 전까지 코드는 아래 상태다.**
+
 - 읽기 전용 Quest 포트 `getQuest`·`searchQuests`도 같은 필수 어댑터 멤버다(ADR-0106 개정 2). 검색을 못 하는 BRAVO는 새 `PortError` 코드가 아니라 outcome `ok`·`supported: false`로 답한다(코드 어휘·`PORT_ERROR_CODES`·공개 API를 바꾸지 않고, 「못 함」은 오류가 아니라 선택기가 ID 입력으로 낮추는 정상 답이라서). 서버 모듈은 없다: platform-api는 적합성 `implemented`에 넣지 않아 건너뜀으로 보인다.
 
 ## 소유 문서

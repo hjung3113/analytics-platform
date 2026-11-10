@@ -6,6 +6,7 @@
 - Supersedes: [ADR-0027](0027-feedbackops-stays-standalone-entry-links.md)(화면은 옮기지 않고 링크만), [ADR-0038](0038-host-module-contract-and-feedbackops-mounting.md)(한 원본·두 호스트, Proposed였음). [ADR-0045](0045-feedbackops-entry-link-mapping-and-scope.md)의 진입 링크는 합류 단계 4까지 그대로 쓴다.
 - Amended (2026-10-23, [ADR-0073](0073-feedbackops-backend-tests-may-import-conformance-and-http-adapter.md)): FeedbackOps가 받는 플랫폼 패키지는 `@ap/ui` 하나라는 합류 경계에 예외 하나를 둔다. FeedbackOps 백엔드 테스트 코드는 `@ap/server-conformance`·`@ap/http-adapter`를 devDependencies로 import할 수 있다. 런타임 코드는 그대로 `@ap/ui`만 쓰고, 이를 검사로 막는다.
 - Amended (2026-10-28, [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md)): 결정 6에 서버가 둘이라는 내용을 더한다. 코어(Fastify)와 그 뒤에만 있는 분석 데이터 서버(FastAPI)다. 입구·인증·권한·감사는 코어 하나이고 분담은 ADR-0095가 소유한다.
+- 후속(2026-11-10, [ADR-0133](0133-feature-screens-frozen-new-screens-on-sdk.md)): 옮긴 화면의 패키지 `apps/feature-screens`를 동결한다.
 - Scope: 지도 [#598](https://github.com/hjung3113/analytics-platform/issues/598), 마일스톤 `M6 FeedbackOps 합류`. FeedbackOps 쪽 기록은 FO ADR-0072.
 
 ## 맥락
