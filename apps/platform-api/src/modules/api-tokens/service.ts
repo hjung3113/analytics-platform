@@ -285,7 +285,12 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
         subject_type: 'api_token',
         subject_id: current.id,
         summary: `${current.kind} API token revoked`,
-        detail: { token_id: current.id, kind: current.kind as TokenKind, prefix: current.prefix },
+        detail: {
+          token_id: current.id,
+          kind: current.kind as TokenKind,
+          prefix: current.prefix,
+          scopes: current.scopes,
+        },
       });
       return toRow(updated[0] ?? current);
     });

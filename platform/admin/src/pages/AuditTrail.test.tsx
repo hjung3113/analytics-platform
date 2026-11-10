@@ -454,6 +454,29 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     } finally { restore(); }
   });
 
+  // #1690: an API token issue/revoke row names its scopes; every other row keeps the changed field names.
+  it('shows 권한 묶음 for an api_token row and the field names for other rows', async () => {
+    const restore = withRowLayout();
+    try {
+      const token = (id: string, changes: AuditEvent['changes']): AuditEvent => ({ ...EVENT, id, target: { type: 'api_token', id: `tok-${id}`, scopeId: null }, changes });
+      renderAudit('/admin/audit', [
+        token('t1', { scopes: [null, 'workspace.read, voc.read'] }),
+        token('t2', { scopes: ['workspace.read', null] }),
+        token('t3', undefined),
+        { ...EVENT, id: 'e1', target: { ...EVENT.target, id: 'MEM-ETCH-0103' }, changes: { scopes: [null, 'x'], status: ['a', 'b'] } },
+      ]);
+      const table = await screen.findByRole('table', { name: '변경 감사 목록' });
+      await within(table).findByText('tok-t1');
+      const index = within(table).getAllByRole('columnheader').findIndex(h => h.textContent?.includes('변경 필드'));
+      expect(index).toBeGreaterThan(-1);
+      const cellOf = (id: string) => within(within(table).getByText(id).closest('[role="row"]') as HTMLElement).getAllByRole('cell')[index]!.textContent;
+      expect(cellOf('tok-t1')).toBe('권한 묶음: workspace.read, voc.read');
+      expect(cellOf('tok-t2')).toBe('권한 묶음: workspace.read');
+      expect(cellOf('tok-t3')).toBe('—');
+      expect(cellOf('MEM-ETCH-0103')).toBe('scopes, status');
+    } finally { restore(); }
+  });
+
   // W-302 FIX1: 알 수 없는 대상 유형은 원문으로 보인다. `constructor`·`toString`·`__proto__` 같은 상속 키도
   // 빈 셀이 되지 않는다(원래 Object.prototype의 속성을 찾아 label이 undefined였다).
   it('shows unknown target types as raw wire values, including inherited-key names', async () => {

@@ -554,6 +554,74 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
     it('permission is judged before validation: a non-admin with a bad query gets forbidden', async () => {
       expect((await search({ pageSize: 999 }, userCookie)).outcome).toBe('forbidden');
     });
+
+    // #1690: needs migration 0122 (api_token subject, `scopes` column).
+    it('api token issue and revoke show actor, time and scopes; no value, prefix or failed-auth rows', async () => {
+      const external = `${PREFIX}-svc-${n++}`;
+      const sys = await migrateHandle.pool.query<{ id: string }>(
+        `insert into core.actors (workspace_id, external_id, email, display_name, role_level, actor_type)
+         values ($1, $2, $3, 'Audit token system', 'user', 'system') returning id`,
+        [WORKSPACE_ID, external, `${external}@local`],
+      );
+      const systemId = sys.rows[0]?.id as string;
+      actorIds.push(systemId);
+      const issued = await app.inject({
+        method: 'POST',
+        url: '/api-tokens/service',
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+        payload: { name: 'audit svc', scopes: ['workspace.read', 'voc.read'], actorId: systemId },
+      });
+      expect(issued.statusCode).toBe(201);
+      const { token, item } = issued.json<{ token: string; item: { id: string; prefix: string } }>();
+      try {
+        await seedAudit('tokFail', {
+          eventType: 'api_token.auth_failed',
+          subjectType: 'api_token',
+          subjectId: item.id,
+          hours: 7,
+          detail: { prefix: item.prefix, reason: 'bad_secret' },
+        });
+        await seedAudit('tokDenied', {
+          eventType: 'api_token.session_required_denied',
+          subjectType: 'api_token',
+          subjectId: item.id,
+          hours: 7,
+          detail: { token_id: item.id, method: 'POST', route: '/x', capability: null },
+        });
+        const revoked = await app.inject({
+          method: 'POST',
+          url: `/api-tokens/service/${item.id}/revoke`,
+          headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+        });
+        expect(revoked.statusCode).toBe(200);
+        const body = await search({ type: 'api_token', targetId: item.id });
+        const items = body.data?.items ?? [];
+        expect(items).toHaveLength(2);
+        const byAction = Object.fromEntries(items.map((i) => [i.action as string, i]));
+        expect(byAction.create).toMatchObject({
+          source: 'user',
+          target: { type: 'api_token', id: item.id, scopeId: null },
+          changes: { scopes: [null, 'workspace.read, voc.read'] },
+        });
+        expect(byAction.retire).toMatchObject({
+          changes: { scopes: ['workspace.read, voc.read', null] },
+        });
+        for (const i of items) {
+          expect(typeof i.actor).toBe('string');
+          expect(Number.isNaN(Date.parse(i.at as string))).toBe(false);
+        }
+        const json = JSON.stringify(body);
+        expect(json).not.toContain(item.prefix);
+        expect(json).not.toContain(token);
+        expect(idsOf(body)).not.toContain(seeded.tokFail);
+        expect(idsOf(body)).not.toContain(seeded.tokDenied);
+        // entityAudit does not answer for an api_token ref.
+        const entity = await entityAudit({ type: 'api_token', id: item.id }, adminCookie);
+        expect(entity.data?.events ?? []).toEqual([]);
+      } finally {
+        await migrateHandle.pool.query('delete from core.api_tokens where id = $1', [item.id]);
+      }
+    });
   });
 
   describe('entityAudit', () => {

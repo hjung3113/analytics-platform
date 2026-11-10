@@ -21,7 +21,10 @@ import type { EntityReader } from './entity-read.js';
 import type { Outcome } from './envelope.js';
 import { type PlatformActor, holdsPlatformPermission } from './permissions.js';
 
-/** The contract's `AuditEvent` minus `changes`/`reason`, which this port never releases. */
+/**
+ * The contract's `AuditEvent` minus `reason`, which this port never releases. `changes` is released for one case only
+ * (#1690): an API token issue or revoke carries `{ scopes: [before, after] }`, the raw capability names joined by ", ".
+ */
 export interface PlatformAuditEvent {
   id: string;
   at: string;
@@ -29,6 +32,7 @@ export interface PlatformAuditEvent {
   action: PlatformAuditAction;
   source: 'user' | 'system';
   target: { type: string; id: string; scopeId: null };
+  changes?: Record<string, [string | null, string | null]>;
 }
 
 export interface AuditJudgement<T> {
@@ -44,7 +48,16 @@ export interface PlatformAuditServiceDeps {
   entityReader: EntityReader;
 }
 
+function tokenScopeChanges(row: PlatformAuditRow): PlatformAuditEvent['changes'] {
+  if (row.subjectType !== 'api_token' || !row.scopes || row.scopes.length === 0) return undefined;
+  const joined = row.scopes.join(', ');
+  if (row.eventType === 'api_token.issue') return { scopes: [null, joined] };
+  if (row.eventType === 'api_token.revoke') return { scopes: [joined, null] };
+  return undefined;
+}
+
 export function toAuditEvent(row: PlatformAuditRow): PlatformAuditEvent {
+  const changes = tokenScopeChanges(row);
   return {
     id: row.id,
     at: row.at,
@@ -52,6 +65,7 @@ export function toAuditEvent(row: PlatformAuditRow): PlatformAuditEvent {
     action: AUDIT_ACTION_BY_EVENT_TYPE[row.eventType as keyof typeof AUDIT_ACTION_BY_EVENT_TYPE],
     source: row.actorType === 'system' ? 'system' : 'user',
     target: { type: row.subjectType, id: row.subjectId, scopeId: null },
+    ...(changes ? { changes } : {}),
   };
 }
 
