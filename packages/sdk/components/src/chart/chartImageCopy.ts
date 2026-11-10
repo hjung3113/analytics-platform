@@ -40,6 +40,10 @@ const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
   reader.readAsDataURL(blob);
 });
 
+/** How long a finished `print()` call keeps blocking the next print when the browser never reports `afterprint`. */
+const PRINT_GUARD_MS = 60_000;
+let printBusyUntil = 0;
+
 export function imagePrintFailedText(lang: string): string {
   return lang === 'ko' ? '인쇄를 준비하지 못했습니다' : 'Could not prepare the print';
 }
@@ -47,9 +51,13 @@ export function imagePrintFailedText(lang: string): string {
 /**
  * Prints one PNG under its title from a hidden iframe, so the page itself needs no print stylesheet. The image goes in as `data:` because the
  * production CSP's `img-src` has no `blob:`; the title is set as text, never markup. `afterprint` removes the frame. A browser that never fires it
- * leaves one hidden frame, which the next print replaces. `false` = nothing was sent to print.
+ * leaves one hidden frame, which the first print after `PRINT_GUARD_MS` replaces. One print at a time across all charts: a request while another is
+ * capturing or its print UI may be open is ignored, because some browsers return from `print()` with the UI still open and removing the frame would
+ * cancel it. `false` = a request that was not ignored sent nothing to print.
  */
 export async function printChartImage(produce: () => Blob | Promise<Blob>, title: string): Promise<boolean> {
+  if (Date.now() < printBusyUntil) return true;
+  printBusyUntil = Infinity;
   document.querySelectorAll('iframe[data-chart-print]').forEach(old => old.remove());
   let frame: HTMLIFrameElement | null = null;
   try {
@@ -70,11 +78,13 @@ export async function printChartImage(produce: () => Blob | Promise<Blob>, title
       image.onload = () => resolve(); image.onerror = () => reject(new Error('image failed'));
       image.src = src;
     });
-    win.addEventListener('afterprint', () => created.remove(), { once: true });
+    win.addEventListener('afterprint', () => { created.remove(); printBusyUntil = 0; }, { once: true });
     win.focus(); win.print();
+    if (created.isConnected) printBusyUntil = Date.now() + PRINT_GUARD_MS;
     return true;
   } catch {
     frame?.remove();
+    printBusyUntil = 0;
     return false;
   }
 }
