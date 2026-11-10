@@ -6,7 +6,7 @@ import { defineAction, defineEndpoint, type ActionOutcome, type ActionResponse, 
 import { useMenuAction, type MenuActionState } from '../action';
 import { I18nProvider } from '../../i18n';
 import { PaneScreenProvider, PlatformProvider } from '../../platform/platform';
-import { useMenuQuery, type QueryState } from '../query';
+import { useEndpointRefreshEpoch, useMenuQuery, type QueryState } from '../query';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, noContext, settleQueries, testAdapter, testSession, testSpace } from '../../testing';
 
@@ -325,5 +325,31 @@ describe('refresh epochs', () => {
     expect(seen.main.response).not.toBe(priors.main);
     expect(seen.side.response).not.toBe(priors.side);
     expect(seen.unrelated.response).toBe(priors.unrelated);
+  });
+});
+
+describe('useEndpointRefreshEpoch', () => {
+  function Epoch({ ids, out }: { ids: readonly string[]; out: { value: number } }) {
+    const epoch = useEndpointRefreshEpoch(ids);
+    useLayoutEffect(() => { out.value = epoch; });
+    return null;
+  }
+  const onlyEpochs = (ids: readonly string[], out: { value: number }) => (probes: Probes) => <><Epoch ids={ids} out={out} /><Writer probes={probes} /></>;
+
+  it('changes only when a write invalidates a listed endpoint', async () => {
+    const out = { value: -1 };
+    const t = setup(onlyEpochs([listEndpoint.id], out));
+    await flush();
+    expect(out.value).toBe(0);
+    let run!: Promise<unknown>;
+    act(() => { run = t.probes.action.run(input()); });
+    await act(async () => { t.sent[0].resolve(response('ok')); await run; });
+    expect(out.value).toBe(1);
+    const unlisted = { value: -1 };
+    const u = setup(onlyEpochs([otherEndpoint.id], unlisted));
+    await flush();
+    act(() => { void u.probes.action.run(input()); });
+    await act(async () => { u.sent[0].resolve(response('ok')); await flush(); });
+    expect(unlisted.value).toBe(0);
   });
 });

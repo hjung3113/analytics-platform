@@ -10,7 +10,7 @@ import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testi
 import { groupId, spaceId, type ApiResponse, type PageResult } from '@ap/contracts';
 import { OutcomeBanners, OutcomeScope } from '../../filters/OutcomeScope';
 import { QueryView } from '../../StateView';
-import { PlatformDataTable, type PlatformDataTableProps } from '../PlatformDataTable';
+import { PlatformDataTable, type PlatformDataTableProps, type TableLoadPage } from '../PlatformDataTable';
 
 // jsdom reports zero layout; the same fixed metrics as the other table suites keep the table rendering.
 beforeAll(() => {
@@ -40,7 +40,7 @@ const failure = (outcome: 'error' | 'empty', message = 'Same response'): ApiResp
 const query = (outcome: 'error' | 'empty', refetch = vi.fn(), message = 'Same response'): QueryState<unknown> =>
   ({ response: failure(outcome, message), refetch, missing: [], completedAt: null, status: 'done' });
 
-function Page({ loadPage, sibling, scoped = true }: { loadPage: PlatformDataTableProps<Row>['loadPage']; sibling?: QueryState<unknown>; scoped?: boolean }) {
+function Page({ loadPage, sibling, scoped = true }: { loadPage: TableLoadPage<Row>; sibling?: QueryState<unknown>; scoped?: boolean }) {
   const body = <>
     {scoped && <OutcomeBanners />}
     {sibling && <QueryView query={sibling} widgetName="Sibling">{() => <p>Success</p>}</QueryView>}

@@ -3,7 +3,7 @@ import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, u
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type Header } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, GripVertical, Loader2, Pin, PinOff } from 'lucide-react';
-import { useI18n, usePlatform } from '@ap/kernel';
+import { useEndpointRefreshEpoch, useI18n, usePlatform } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
@@ -20,6 +20,7 @@ import { exportItemName, exportTarget, FORMAT_LABEL, type ExportScopeKind } from
 import { effectiveOrder, moveWithinGroup, pinnedInOrder } from './columnOrder';
 import { useColumnPreferences } from './useColumnPreferences';
 import { usePagedRows } from './usePagedRows';
+import { useRowsSource } from './useRowsSource';
 import { useColumnFilters } from './columnFilters';
 import { resolveFilterFields, type InstantEntry, type TableFilterField } from './filterFields';
 import type { FilterValueCheck } from './tableFilterUrl';
@@ -117,7 +118,10 @@ export type TableUrlState = {
   validate?: FilterValueCheck;
 };
 
-export type PlatformDataTableProps<T> = {
+/** Server-shaped page read of the `loadPage` input: returns the §19 envelope. */
+export type TableLoadPage<T> = (query: TableQuery, signal: AbortSignal) => Promise<ApiResponse<GroupedPageResult<T>>>;
+
+type TableBaseProps<T> = {
   title: ReactNode;
   /** The page already shows the title: keep h2 screen-reader only; without quick search merge filters/results into the toolbar. Panels keep their existing layout. Default false. */
   hideTitle?: boolean;
@@ -125,8 +129,6 @@ export type PlatformDataTableProps<T> = {
   ariaLabel: string;
   columns: PlatformColumn<T>[];
   getRowId: (row: T) => string;
-  /** Server-side sort/page. Returns the §19 envelope; the table renders the outcome taxonomy. */
-  loadPage: (query: TableQuery, signal: AbortSignal) => Promise<ApiResponse<GroupedPageResult<T>>>;
   /** Identity of page-owned filters (a query the page holds outside the column filters, e.g. a search); a change returns to page 1 and clears row selection. Default `''`: no page-owned filter. */
   filterKey?: string;
   /**
@@ -137,12 +139,6 @@ export type PlatformDataTableProps<T> = {
   rowAction?: (row: T, context: { compact: boolean }) => ReactNode;
   /** Bulk actions for an explicit id selection. Hidden while a `selectAllResults` selection covers the whole result — use `bulkSelectionActions` for that. */
   bulkActions?: (selectedIds: string[]) => ReactNode;
-  /**
-   * Opt-in (#556c, ADR-0104): once the whole page is checked and more results exist, the table offers 「필터 결과 전체 M행 선택」.
-   * The selection then is `{ kind: 'all', excludedIds, total }` — no id list is built or sent; the server recomputes the set
-   * from Context + page filters + column filters − `excludedIds`. Default false: tables behave as before.
-   */
-  selectAllResults?: boolean;
   /** Bulk actions for either selection kind (renders in `ids` and `all` mode, after `bulkActions`). Without it, an `all` selection shows no bulk action. */
   bulkSelectionActions?: (selection: TableSelection) => ReactNode;
   /**
@@ -190,8 +186,37 @@ export type PlatformDataTableProps<T> = {
   urlState?: TableUrlState;
 };
 
+/** The data source is one of two exclusive inputs (ADR-0137 names the choice): a server-shaped `loadPage`, or the `rows` the page already holds. */
+export type PlatformDataTableProps<T> = TableBaseProps<T> & (
+  | {
+    /** Server-side sort/page. Returns the §19 envelope; the table renders the outcome taxonomy. */
+    loadPage: TableLoadPage<T>;
+    /** The endpoints this table's `loadPage` reads (the endpoint declarations a menu already has). After a write whose `invalidates` names one of them succeeds, the table reads the same page again; page and selection stay, the previous rows stay visible while loading. `loadPage` is opaque to the table, so it cannot know. */
+    refreshOn?: readonly { id: string }[];
+    /**
+     * Opt-in (#556c, ADR-0104): once the whole page is checked and more results exist, the table offers 「필터 결과 전체 M행 선택」.
+     * The selection then is `{ kind: 'all', excludedIds, total }` — no id list is built or sent; the server recomputes the set
+     * from Context + page filters + column filters − `excludedIds`. Default false: tables behave as before.
+     */
+    selectAllResults?: boolean;
+    rows?: never; rowsLoading?: never;
+  }
+  | {
+    /** Rows the page already holds. The table filters, groups, sorts and pages them itself (or shows them all with `externalPagination`) and answers its own §19 envelope. A successful result: a failed read stays with `QueryView`, never `rows={[]}`. Memoize it: a new reference reads again. */
+    rows: readonly T[];
+    /** The read behind `rows` is in flight: the table shows its loading state (previous rows stay visible) until it turns false. */
+    rowsLoading?: boolean;
+    loadPage?: never; refreshOn?: never; selectAllResults?: never;
+  }
+);
+
 /** §15: platform owns interaction, loading/error, column preference, selection model, toolbar layout; domain owns columns/cells/actions/filters. */
-export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
+export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
+  const epoch = useEndpointRefreshEpoch((props.refreshOn ?? []).map(e => e.id));
+  const source = useRowsSource<T>({ rows: props.rows, rowsLoading: !!props.rowsLoading, external: !!props.externalPagination, columns: props.columns, filterFields: props.filterFields });
+  // The rest of the table reads one shape: always a `loadPage`, the (possibly stripped) columns and fields.
+  const p = { ...props, columns: source.columns, filterFields: source.filterFields, loadPage: props.loadPage ?? source.loadPage! };
+  const dataVersion = props.rows ? source.version : epoch;
   const { t, lang } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
   const inPanel = useInWorkspacePanel();
@@ -278,7 +303,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const groupBy = groupColumns.some(c => c.id === groupChoice) ? groupChoice : null;
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange } = usePagedRows<T>({
-    loadPage: p.loadPage, filterKey: p.filterKey ?? '', urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: columnFilters.filters, groupBy,
+    loadPage: p.loadPage, filterKey: p.filterKey ?? '', urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: columnFilters.filters, groupBy, dataVersion,
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
     onContextChange: () => { selectionState.clear(); abortTransfers(); setCollapsed(new Set()); },
   });

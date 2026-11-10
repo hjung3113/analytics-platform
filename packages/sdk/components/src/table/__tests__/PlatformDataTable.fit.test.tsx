@@ -94,7 +94,7 @@ beforeEach(() => {
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 
-function Page(props: Partial<PlatformDataTableProps<Row>> & { exportOn?: boolean; withTrailing?: boolean }) {
+function Page(props: Partial<Extract<PlatformDataTableProps<Row>, { loadPage: unknown }>> & { exportOn?: boolean; withTrailing?: boolean }) {
   const { exportOn = false, withTrailing = true, ...table } = props;
   return <I18nProvider><PlatformProvider adapter={adapter} registry={registryWith(exportOn)}>
     <main data-geo="scroller" style={{ overflowY: 'auto' }}>

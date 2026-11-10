@@ -15,7 +15,7 @@ import { exportColumns } from '../tableExport';
 import * as publicApi from '../../index';
 import { InWorkspacePanelProvider } from '../../workspace/panelContext';
 import { readXlsx } from './xlsxTestReader';
-import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableExportRequest, type TableUrlState } from '../PlatformDataTable';
+import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableExportRequest, type TableLoadPage, type TableUrlState } from '../PlatformDataTable';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse, type GlobalContext, type PageSort } from '@ap/contracts';
 
@@ -45,7 +45,7 @@ function makeLoadPage(total: number) {
   }));
 }
 
-function Harness(props: { page: number | null; sorting: PageSort[]; onChange: TableUrlState['onChange']; loadPage: PlatformDataTableProps<Row>['loadPage']; filterKey?: string }) {
+function Harness(props: { page: number | null; sorting: PageSort[]; onChange: TableUrlState['onChange']; loadPage: TableLoadPage<Row>; filterKey?: string }) {
   return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
     <PlatformDataTable
       title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
@@ -56,7 +56,7 @@ function Harness(props: { page: number | null; sorting: PageSort[]; onChange: Ta
   </PlatformProvider></I18nProvider>;
 }
 
-function UncontrolledHarness(props: { loadPage: PlatformDataTableProps<Row>['loadPage'] }) {
+function UncontrolledHarness(props: { loadPage: TableLoadPage<Row> }) {
   return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
     <PlatformDataTable
       title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
@@ -66,7 +66,7 @@ function UncontrolledHarness(props: { loadPage: PlatformDataTableProps<Row>['loa
 }
 
 it('wraps the mixed trust badge in the table status line', async () => {
-  const loadPage: PlatformDataTableProps<Row>['loadPage'] = async () => ({
+  const loadPage: TableLoadPage<Row> = async () => ({
     outcome: 'ok', data: { rows: [{ id: 'r1', status: 's' }], total: 1 }, assessments: [], correlationId: 'c',
     trust: { updatedAt: '2026-10-16T09:00:00', dataThrough: null, coverage: 1, source: 'fixture', provisional: true, sourceLogicVersions: ['v1', 'v2'] },
   });
@@ -165,7 +165,7 @@ describe('PlatformDataTable controlled mode (urlState)', () => {
 describe('PlatformDataTable out-of-range page clamp (#314)', () => {
   const keptSort: PageSort[] = [{ id: 'status', desc: true }];
 
-  function ClampHarness(props: { page: number | null; onChange: TableUrlState['onChange']; loadPage: PlatformDataTableProps<Row>['loadPage'] }) {
+  function ClampHarness(props: { page: number | null; onChange: TableUrlState['onChange']; loadPage: TableLoadPage<Row> }) {
     return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
       <PlatformDataTable
         title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
@@ -313,7 +313,7 @@ describe('PlatformDataTable pager focus', () => {
 
   async function setup(startPage = 1) {
     let resolve!: (response: ApiResponse<PageResult<Row>>) => void;
-    const loadPage = vi.fn<PlatformDataTableProps<Row>['loadPage']>()
+    const loadPage = vi.fn<TableLoadPage<Row>>()
       .mockResolvedValueOnce(ok(startPage - 1))
       .mockImplementation(() => new Promise(done => { resolve = done; }));
     const onChange = vi.fn();
@@ -421,7 +421,7 @@ describe('PlatformDataTable pager focus', () => {
   // decided yet, so the focused button must stay natively enabled (aria-disabled only) until settle.
   it('keeps the focused pager natively enabled while an identity change request is in flight, then recovers focus after a failure', async () => {
     let resolve!: (response: ApiResponse<PageResult<Row>>) => void;
-    const loadPage = vi.fn<PlatformDataTableProps<Row>['loadPage']>()
+    const loadPage = vi.fn<TableLoadPage<Row>>()
       .mockResolvedValueOnce(ok(1))
       // Repo lib is ES2022 (tooling/tsconfig/base.json): no Promise.withResolvers typing — same executor
       // shape as the setup() helper above, which rebinds `resolve` per call.
@@ -445,7 +445,7 @@ describe('PlatformDataTable pager focus', () => {
   // focus onto the retry button.
   it('keeps the focused 이전 natively enabled when a Context change lands while its page request is in flight', async () => {
     let resolve!: (response: ApiResponse<PageResult<Row>>) => void;
-    const loadPage = vi.fn<PlatformDataTableProps<Row>['loadPage']>()
+    const loadPage = vi.fn<TableLoadPage<Row>>()
       .mockResolvedValueOnce(ok(1))
       .mockImplementation(() => new Promise<ApiResponse<PageResult<Row>>>(done => { resolve = done; }));
     function Host({ filterKey }: { filterKey: string }) {
@@ -866,7 +866,7 @@ function ToastProbe() {
 }
 
 function ExportHarness(props: {
-  loadPage: PlatformDataTableProps<Row>['loadPage'];
+  loadPage: TableLoadPage<Row>;
   exportRows?: PlatformDataTableProps<Row>['exportRows'];
   exportNote?: string;
   exportFilterSummary?: PlatformDataTableProps<Row>['exportFilterSummary'];
@@ -1234,7 +1234,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
   });
 
   it('without an ok result the filtered group label shows no count, and item names follow', async () => {
-    const errorPage: PlatformDataTableProps<Row>['loadPage'] = async () => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'c', message: 'boom' });
+    const errorPage: TableLoadPage<Row> = async () => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'c', message: 'boom' });
     render(<ExportHarness loadPage={errorPage} exportRows={vi.fn(async () => ok([]))} />);
     await screen.findByText('데이터를 불러오지 못했습니다');
     fireEvent.keyDown(exportTrigger(), { key: 'Enter' });

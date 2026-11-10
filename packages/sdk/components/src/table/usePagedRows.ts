@@ -12,6 +12,8 @@ type PagedRowsInput<T> = {
   columnFilters: ColumnFilter[];
   /** The row-group column (#556d): part of the request identity, NOT of the Context identity — a group change returns to page 1 but keeps the selection. */
   groupBy: string | null;
+  /** Appended to the request identity (never the Context identity): a change reads again for the same page with page and selection kept. `refreshOn` passes the endpoints' refresh epoch, `rows` its counter. */
+  dataVersion: number;
   /** The table's active sort (`urlState.sorting` when controlled). */
   activeSorting: PageSort[];
   viewport: RefObject<HTMLDivElement | null>;
@@ -24,7 +26,7 @@ type PagedRowsInput<T> = {
  * and the settled/loading view of the last response. Effect order matters: the Context reset runs before the load.
  */
 export function usePagedRows<T>(input: PagedRowsInput<T>) {
-  const { filterKey, urlState, pageSize, activeSorting, viewport, columnFilters, groupBy } = input;
+  const { filterKey, urlState, pageSize, activeSorting, viewport, columnFilters, groupBy, dataVersion } = input;
   const { user, revision } = usePlatform();
   const global = useQueryContext();
   const [page, setPage] = useState(0);
@@ -46,7 +48,7 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
       if (viewport.current) viewport.current.scrollTop = 0;
     }
   }, [contextIdentity, hasUrlState, viewport]);
-  const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retryCount, groupBy]);
+  const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retryCount, groupBy, dataVersion]);
   const loadRef = useRef(input.loadPage);
   loadRef.current = input.loadPage;
   useEffect(() => {

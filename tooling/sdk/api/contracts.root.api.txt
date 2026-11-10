@@ -252,8 +252,8 @@ requiredContextError | function | function requiredContextError(keys: readonly @
 sameGlobal | function | function sameGlobal(a: @ap/contracts#GlobalContext, b: @ap/contracts#GlobalContext): boolean
 serializeGlobal | function | function serializeGlobal(g: @ap/contracts#GlobalContext): @ap/contracts#Pair[]
 shift | function | function shift(value: string, hours: number): string
-sortAndPage | function | function sortAndPage<T>(rows: T[], q: @ap/contracts#PageQuery): @ap/contracts#PageResult<T>
-sortRows | function | function sortRows<T>(rows: readonly T[], sorting: @ap/contracts#PageSort[]): T[]
+sortAndPage | function | function sortAndPage<T>(rows: readonly T[], q: @ap/contracts#PageQuery, accessor?: (row: T, id: string) => unknown): @ap/contracts#PageResult<T>
+sortRows | function | function sortRows<T>(rows: readonly T[], sorting: @ap/contracts#PageSort[], accessor?: (row: T, id: string) => unknown): T[]
 spaceId | const | const spaceId: <const S extends string>(id: S) => S & @ap/contracts#SpaceId
 validateFilters | function | function validateFilters(filters: readonly @ap/contracts#ColumnFilter[], specs: Readonly<Record<string, @ap/contracts#ColumnFilterSpec>>): @ap/contracts#FilterValidation
 validateSavedView | function | function validateSavedView(input: unknown): @ap/contracts#Result<@ap/contracts#SavedViewDraft>

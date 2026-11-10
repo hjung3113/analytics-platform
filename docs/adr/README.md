@@ -147,6 +147,7 @@
 | [0134](0134-bravo-quest-leaves-platform-adapter-port.md) | BRAVO Quest는 `PlatformAdapter` 포트에서 빼고 메뉴 조회 엔드포인트로 옮긴다 | Decided(2026-11-10, 사용자, 되돌릴 수 있음) — 0098의 Quest 포트 개정을 대체, 구현 #1641 |
 | [0135](0135-eqv-layout-storage-publish-and-promotion.md) | 서버 `eqv` 모듈: 게시 순서·가져오기 검증·Template 승격의 저장 방식 | Decided(2026-11-10, 코디네이터(사용자 위임), 되돌릴 수 있음) — EV ADR-0007·0010·0015의 저장 방식, 구현 #1645 |
 | [0136](0136-verification-expected-behavior-and-criteria.md) | 기능 검증: 기대 동작표, 판단 기준, 플랫폼 제공 기능을 Home에서 눌러서 확인 | Decided(2026-11-10, 소유자, 되돌릴 수 있음) — 메뉴 활용률 열람을 Admin으로 고침, #1660 |
+| [0137](0137-table-refresh-on-and-given-rows.md) | 표: `refreshOn`으로 쓰기 뒤 다시 읽기, `rows`로 가진 행 입력 | Decided(2026-11-11, lane sdk, 되돌릴 수 있음) — ADR-0054 다시 읽기 문장이 `refreshOn` 표에도 적용, #1672 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { AuditTimeline, DataTrustIndicator, PageKeyWarning, usePageKeyRules, DetailDrawer, PlatformDataTable, PlatformPage } from '@ap/components';
 import { PlatformLink, useMenuAction, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
-import { defineEndpoint, type ApiResponse, type AuditEvent, type GroupedPageResult, type EndpointSpec } from '@ap/contracts';
+import { defineEndpoint, type AuditEvent, type EndpointSpec } from '@ap/contracts';
 import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
 import { roundSourceView } from '../round-source-slot';
 import { actions, endpoints, isUuid, PROJECT_MANAGE, ROUND_MANAGE } from '../endpoints';
@@ -31,10 +31,7 @@ function useAction(name: string): Action {
 }
 const api: LifecycleApi = { useRead, useAction };
 function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, preferenceKey }: TableParts<T>) {
-  const [snapshot, setSnapshot] = useState({ rows, version: 0 });
-  if (snapshot.rows !== rows) setSnapshot({ rows, version: snapshot.version + 1 });
-  const loadPage = useCallback(async (): Promise<ApiResponse<GroupedPageResult<T>>> => ({ outcome: rows.length ? 'ok' : 'empty', data: { rows, total: rows.length }, assessments: [], trust: null, correlationId: 'log-lifecycle-screen' }), [rows]);
-  return <div className="grid min-w-0 grid-cols-1"><PlatformDataTable title={title} hideTitle ariaLabel={title} getRowId={r => r.id} columns={columns} loadPage={loadPage} filterKey={String(snapshot.version)} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
+  return <div className="grid min-w-0 grid-cols-1"><PlatformDataTable title={title} hideTitle ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
 }
 const eventLabels: Record<string, string> = { created: '개발 건 등록', stage_changed: '개발 단계', owner_changed: '담당', target_changed: '목표일·SW', cancelled: '취소', reopened: '재개', gate_decided: 'Gate 결정' };
 const fieldLabels: Record<string, string> = { stage: '단계', ownerActorId: '담당 ID', targetDate: '목표일', softwareId: 'SW ID', decision: '결정', targetStage: '대상 단계', gateDecisionId: '결정 ID', selfApproved: '자기 승인' };
