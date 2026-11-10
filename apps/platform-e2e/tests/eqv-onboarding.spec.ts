@@ -9,7 +9,9 @@ import { chooseSystem } from './contract-helpers';
  */
 const sidebar = (page: Page) => page.getByRole('navigation', { name: '주 메뉴' });
 const heading = (page: Page) => page.getByRole('heading', { level: 1 });
-const keys = (page: Page) => [...new URL(page.url()).searchParams.keys()].filter((key) => key !== 'v').sort();
+// The menu's own address keys: the Kernel also carries global Context (`from`/`to` time) across menus (kernel §6.4), which is not this menu's state.
+const GLOBAL_CONTEXT_KEYS = new Set(['v', 'from', 'to', 'relativePeriod']);
+const keys = (page: Page) => [...new URL(page.url()).searchParams.keys()].filter((key) => !GLOBAL_CONTEXT_KEYS.has(key)).sort();
 
 test.describe('eqv studio onboarding', () => {
   test('engineer opens an equipment from the Fleet, reviews Mapping and publishes from 검증·게시', async ({ page }, testInfo) => {
