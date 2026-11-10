@@ -6,7 +6,7 @@ import type { CheckService } from '../../permissions/check-service.js';
 import { eqvContribution } from '../index.js';
 import { EQV_FOCUS_MENU_ID, EQV_ONBOARDING_MENU_ID, EQV_STUDIO_MENU_ID } from '../menu.js';
 
-const contribution = eqvContribution({ db: {} as Db, checkService: {} as CheckService, knowledgeLookup: { getModel: async () => null } });
+const contribution = eqvContribution({ db: {} as Db, checkService: {} as CheckService, knowledgeLookup: { getModel: async () => null, getVendor: async () => null } });
 
 describe('eqv declarations (#1645)', () => {
   it('registers at startup (no requiresScope, no mergeTimeDomain, invalidates stay on the same menu)', () => {
@@ -41,25 +41,24 @@ describe('eqv declarations (#1645)', () => {
     for (const { spec } of (contribution.actions ?? []).filter((a) => a.spec.menuId !== EQV_ONBOARDING_MENU_ID)) expect(spec.menuId, spec.id).toBe(EQV_STUDIO_MENU_ID);
   });
 
-  it('puts every Onboarding read and action on the eqv-onboarding menu with the right permissions (#1658)', () => {
+  it('puts every Onboarding read and action on the eqv-onboarding menu with the right permissions (reads `eqv:view`, writes `eqv-studio:*`) (#1658)', () => {
     const reads = (contribution.endpoints ?? []).filter((e) => e.spec.menuId === EQV_ONBOARDING_MENU_ID);
     expect(reads).toHaveLength(7);
     for (const { spec } of reads) {
-      expect(spec.permission, spec.id).toBe('eqv-onboarding:view');
+      expect(spec.permission, spec.id).toBe('eqv:view');
       expect(spec.requiresScope).toBe(false);
       expect(spec.mergeTimeDomain).toBe(false);
       expect(spec.context).toEqual({});
     }
     const byId = new Map((contribution.actions ?? []).map((a) => [a.spec.id, a.spec]));
-    expect(byId.get('eqv.saveAliasRules')).toMatchObject({ menuId: EQV_ONBOARDING_MENU_ID, concurrency: 'version', permission: 'eqv-onboarding:rules-edit' });
-    expect(byId.get('eqv.saveTypeDictionary')).toMatchObject({ menuId: EQV_ONBOARDING_MENU_ID, concurrency: 'version', permission: 'eqv-onboarding:rules-edit' });
-    expect(byId.get('eqv.publishMapping')).toMatchObject({ menuId: EQV_ONBOARDING_MENU_ID, concurrency: 'version', permission: 'eqv-onboarding:mapping-publish' });
+    expect(byId.get('eqv.saveAliasRules')).toMatchObject({ menuId: EQV_ONBOARDING_MENU_ID, concurrency: 'version', permission: 'eqv-studio:rules-edit' });
+    expect(byId.get('eqv.saveTypeDictionary')).toMatchObject({ menuId: EQV_ONBOARDING_MENU_ID, concurrency: 'version', permission: 'eqv-studio:rules-edit' });
+    expect(byId.get('eqv.publishMapping')).toMatchObject({ menuId: EQV_ONBOARDING_MENU_ID, concurrency: 'version', permission: 'eqv-studio:mapping-publish' });
     expect(contribution.permissions).toEqual(
       expect.arrayContaining([
-        { permission: 'eqv-onboarding:view', capability: 'eqv.view' },
-        { permission: 'eqv-onboarding:rules-edit', capability: 'eqv.rules.edit' },
-        { permission: 'eqv-onboarding:dictionary-global-edit', capability: 'eqv.dictionary.global_edit' },
-        { permission: 'eqv-onboarding:mapping-publish', capability: 'eqv.mapping.publish' },
+        { permission: 'eqv-studio:rules-edit', capability: 'eqv.rules.edit' },
+        { permission: 'eqv-studio:dictionary-global-edit', capability: 'eqv.dictionary.global_edit' },
+        { permission: 'eqv-studio:mapping-publish', capability: 'eqv.mapping.publish' },
       ]),
     );
   });

@@ -17,11 +17,10 @@ export const EQV_STUDIO_VIEW_PERMISSION = 'eqv-studio:view';
 export const EQV_EDIT_PERMISSION = 'eqv-studio:layout-edit';
 export const EQV_PUBLISH_PERMISSION = 'eqv-studio:layout-publish';
 
-/** Onboarding menu permissions (#1658, ADR-0139): not `eqv:*`-prefixed, for the same registry reason as the Studio names. */
-export const EQV_ONBOARDING_VIEW_PERMISSION = 'eqv-onboarding:view';
-export const EQV_RULES_EDIT_PERMISSION = 'eqv-onboarding:rules-edit';
-export const EQV_DICTIONARY_GLOBAL_EDIT_PERMISSION = 'eqv-onboarding:dictionary-global-edit';
-export const EQV_MAPPING_PUBLISH_PERMISSION = 'eqv-onboarding:mapping-publish';
+/** Onboarding write permissions (#1658, ADR-0139): Studio names (the menu is entered with `eqv-studio:view`, its reads declare `eqv:view`), not `eqv:*`-prefixed, for the same registry reason. */
+export const EQV_RULES_EDIT_PERMISSION = 'eqv-studio:rules-edit';
+export const EQV_DICTIONARY_GLOBAL_EDIT_PERMISSION = 'eqv-studio:dictionary-global-edit';
+export const EQV_MAPPING_PUBLISH_PERMISSION = 'eqv-studio:mapping-publish';
 
 /** The capability behind each (the declaration of `MenuDispatchContribution.permissions`). */
 export const EQV_VIEW_CAPABILITY = 'eqv.view';
@@ -35,7 +34,6 @@ export const EQV_MENU_PERMISSIONS: readonly MenuPermissionDeclaration[] = [
   { permission: EQV_STUDIO_VIEW_PERMISSION, capability: EQV_VIEW_CAPABILITY },
   { permission: EQV_EDIT_PERMISSION, capability: EQV_EDIT_CAPABILITY },
   { permission: EQV_PUBLISH_PERMISSION, capability: EQV_PUBLISH_CAPABILITY },
-  { permission: EQV_ONBOARDING_VIEW_PERMISSION, capability: EQV_VIEW_CAPABILITY },
   { permission: EQV_RULES_EDIT_PERMISSION, capability: EQV_RULES_EDIT_CAPABILITY },
   { permission: EQV_DICTIONARY_GLOBAL_EDIT_PERMISSION, capability: EQV_DICTIONARY_GLOBAL_EDIT_CAPABILITY },
   { permission: EQV_MAPPING_PUBLISH_PERMISSION, capability: EQV_MAPPING_PUBLISH_CAPABILITY },

@@ -16,7 +16,7 @@ import { EQV_EDIT_PERMISSION, EQV_MENU_PERMISSIONS, EQV_PUBLISH_PERMISSION, EQV_
 
 // The server declares the Studio reads and writes (it may not import the menu package at runtime); the menu declares the same ids, keys,
 // rights and invalidations for the client and the mock. This test imports the menu's client-safe `src/endpoints.ts` and fails when they differ (#1654).
-const server = eqvContribution({ db: {} as Db, checkService: {} as CheckService, knowledgeLookup: { getModel: async () => null } });
+const server = eqvContribution({ db: {} as Db, checkService: {} as CheckService, knowledgeLookup: { getModel: async () => null, getVendor: async () => null } });
 const serverReads = (server.endpoints ?? []).filter((e) => e.spec.menuId === EQV_STUDIO_MENU_ID);
 const serverActions = (server.actions ?? []).filter((a) => a.spec.menuId === EQV_STUDIO_MENU_ID);
 const sorted = (keys: Iterable<string>) => [...keys].sort();

@@ -347,6 +347,64 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
       expect(audit[0]).toMatchObject({ event_type: 'eqv.mapping.published', subject_id: answer.data.bindingId, detail: { equipmentId, mappingHash: hash, layoutRevision: revision, effectiveFrom: '2026-01-01T00:00:00.000' } });
     });
 
+    it('replay access: a stored publish answer is refused like a fresh call once the actor can no longer see the equipment model (C3)', async () => {
+      await ensureGlobalRules();
+      const visibleModel = (
+        await sql(`insert into knowledge.equipment_model (workspace_id, vendor_id, code, code_key, name, created_by, updated_by) values ($1,$2,$3,$4,$3,$5,$5) returning id`, [
+          WORKSPACE_ID, vendorId, `${TAG}-m${seq}`, toCodeKey(`${TAG}-m${seq}`), admin.id,
+        ])
+      ).rows[0].id as string;
+      const equipmentId = await newEquipment(visibleModel);
+      const [layoutId, revision] = await publishedRevision();
+      const key = randomUUID();
+      const send = async () =>
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/api/v1/menu-action',
+            headers: { 'content-type': 'application/json', ...cookieHeader(mappingPublisher.cookie), 'x-csrf-token': mappingPublisher.csrf },
+            payload: JSON.stringify({ action: 'eqv.publishMapping', context: {}, input: publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000'), idempotencyKey: key, expectedVersion: '0' }),
+          })
+        ).json<Answer & { replayed?: boolean }>();
+      expect(await send()).toMatchObject({ outcome: 'ok' });
+      expect(await send()).toMatchObject({ outcome: 'ok', replayed: true });
+      await sql(`update knowledge.equipment_model set access_mode = 'restricted', row_version = row_version + 1 where id = $1`, [visibleModel]);
+      const replay = await send();
+      expect(replay.outcome).toBe('not_found');
+      expect(replay.data ?? null).toBeNull();
+    });
+
+    it('rollback after insert: a publish whose audit row fails leaves no Mapping Version, Baseline, Binding change or audit row (C4)', async () => {
+      await ensureGlobalRules();
+      const equipmentId = await newEquipment();
+      const [layoutId, revision] = await publishedRevision();
+      const first = await act('eqv.publishMapping', publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000'), { expectedVersion: '0' });
+      expect(first.outcome).toBe('ok');
+      // Test-only DB trigger (no production seam): the audit insert of the next publish of this equipment raises, after every eqv row was written.
+      const fn = `eqv_fail_audit_${TAG}`;
+      await sql(`create function ${fn}() returns trigger language plpgsql as $$ begin if new.detail->>'equipmentId' = '${equipmentId}' and new.event_type = 'eqv.mapping.published' then raise exception 'injected audit failure'; end if; return new; end $$`);
+      await sql(`create trigger ${fn} before insert on core.audit_log for each row execute function ${fn}()`);
+      try {
+        const failed = await app.inject({
+          method: 'POST',
+          url: '/api/v1/menu-action',
+          headers: { 'content-type': 'application/json', ...cookieHeader(admin.cookie), 'x-csrf-token': admin.csrf },
+          payload: JSON.stringify({
+            action: 'eqv.publishMapping', context: {}, input: publishInput(equipmentId, layoutId, revision, '2026-02-01T00:00:00.000', ['PM1']), idempotencyKey: randomUUID(), expectedVersion: '1',
+          }),
+        });
+        expect(failed.statusCode).toBe(500);
+      } finally {
+        await sql(`drop trigger ${fn} on core.audit_log`);
+        await sql(`drop function ${fn}()`);
+      }
+      expect(await count('mapping_version', 'workspace_id = $1 and equipment_id = $2', [WORKSPACE_ID, equipmentId])).toBe(1);
+      expect(await count('baseline_inventory', 'workspace_id = $1 and equipment_id = $2', [WORKSPACE_ID, equipmentId])).toBe(1);
+      expect(await count('binding', 'workspace_id = $1 and equipment_id = $2', [WORKSPACE_ID, equipmentId])).toBe(1);
+      expect(await count('binding', 'workspace_id = $1 and equipment_id = $2 and effective_to is null', [WORKSPACE_ID, equipmentId])).toBe(1);
+      expect((await auditRows('eqv_binding')).filter((r) => r.detail.equipmentId === equipmentId)).toHaveLength(1);
+    });
+
     it('a stale version conflicts; a second publish closes the open Binding; earlier, equal and unchanged publishes are refused', async () => {
       await ensureGlobalRules();
       const equipmentId = await newEquipment();

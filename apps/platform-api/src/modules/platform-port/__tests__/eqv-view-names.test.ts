@@ -16,7 +16,7 @@ const checkServiceHolding = (capabilities: readonly string[]): CheckService => (
 
 const NAMES = [
   'eqv:view', 'eqv-studio:view', 'eqv-studio:layout-edit', 'eqv-studio:layout-publish',
-  'eqv-onboarding:view', 'eqv-onboarding:rules-edit', 'eqv-onboarding:dictionary-global-edit', 'eqv-onboarding:mapping-publish',
+  'eqv-studio:rules-edit', 'eqv-studio:dictionary-global-edit', 'eqv-studio:mapping-publish',
 ] as const;
 const held = async (capabilities: readonly string[]) => {
   const service = checkServiceHolding(capabilities);
@@ -27,7 +27,7 @@ const held = async (capabilities: readonly string[]) => {
 
 describe('eqv view permission names', () => {
   it('grants both view names under eqv.view, and no write name', async () => {
-    expect(await held(['eqv.view'])).toEqual(['eqv:view', 'eqv-studio:view', 'eqv-onboarding:view']);
+    expect(await held(['eqv.view'])).toEqual(['eqv:view', 'eqv-studio:view']);
   });
 
   it('removes both view names when the capability is denied', async () => {
@@ -39,8 +39,8 @@ describe('eqv view permission names', () => {
   });
 
   it('lists each Onboarding write name only for its own capability (#1658)', async () => {
-    expect(await held(['eqv.rules.edit'])).toEqual(['eqv-onboarding:rules-edit']);
-    expect(await held(['eqv.dictionary.global_edit'])).toEqual(['eqv-onboarding:dictionary-global-edit']);
-    expect(await held(['eqv.mapping.publish'])).toEqual(['eqv-onboarding:mapping-publish']);
+    expect(await held(['eqv.rules.edit'])).toEqual(['eqv-studio:rules-edit']);
+    expect(await held(['eqv.dictionary.global_edit'])).toEqual(['eqv-studio:dictionary-global-edit']);
+    expect(await held(['eqv.mapping.publish'])).toEqual(['eqv-studio:mapping-publish']);
   });
 });

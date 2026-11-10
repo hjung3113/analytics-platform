@@ -3,7 +3,6 @@ import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import type { Tx } from '../../../db/tx.js';
 import { aliasRules, baselineInventories, bindings, equipment, mappingVersions, typeDictionaries } from '../../../db/schema/eqv.js';
-import { vendors } from '../../../db/schema/knowledge.js';
 import type { MappingScopeRef } from '../domain/mapping-checks.js';
 
 const iso = (value: Date | string): string => (value instanceof Date ? value : new Date(value)).toISOString();
@@ -49,12 +48,6 @@ export async function getEquipmentRow(db: Tx, workspaceId: string, equipmentId: 
     .from(equipment)
     .where(and(eq(equipment.workspaceId, workspaceId), eq(equipment.equipmentId, equipmentId)));
   return r ?? null;
-}
-
-/** Vendors carry no object access (only models and software versions do), so existence in the workspace is the whole check. */
-export async function vendorExists(db: Tx, workspaceId: string, vendorId: string): Promise<boolean> {
-  const [r] = await db.select({ id: vendors.id }).from(vendors).where(and(eq(vendors.workspaceId, workspaceId), eq(vendors.id, vendorId)));
-  return r !== undefined;
 }
 
 /** Newest first, at most `limit` rows, no document. */

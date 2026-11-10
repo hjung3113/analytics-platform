@@ -1,4 +1,4 @@
-// The Onboarding reads (#1658, ADR-0139). Right: `eqv-onboarding:view` (capability `eqv.view`). `requiresScope: false`, no Context, no time
+// The Onboarding reads (#1658, ADR-0139). Right: the module permission `eqv:view` (capability `eqv.view`), like the Studio reads. `requiresScope: false`, no Context, no time
 // domain. Every param is validated; an unknown or hidden target answers `empty`, the same for a missing equipment and for an equipment whose
 // Hub model the actor cannot see. Documents are re-validated on the way out and a stored row that fails is "not found" plus a log line (ids only).
 import { bindingsFileSchema, mappingVersionSchema, observedInventorySchema, validateBindings, verifyMappingHash, type BindingsFile } from '@eqv/core';
@@ -8,7 +8,7 @@ import type { MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/t
 import { type EqvDeps, eqvAuthorize } from './authorize.js';
 import { REVISION_PATTERN } from './domain/layout-checks.js';
 import { isEquipmentId, parseScope, type MappingScopeRef } from './domain/mapping-checks.js';
-import { EQV_ONBOARDING_MENU_ID, EQV_ONBOARDING_VIEW_PERMISSION, EQV_VIEW_CAPABILITY } from './menu.js';
+import { EQV_ONBOARDING_MENU_ID, EQV_VIEW_CAPABILITY, EQV_VIEW_PERMISSION } from './menu.js';
 import { equipmentScope, scopeAddressable, type ModelLookup } from './onboarding-scope.js';
 import * as read from './repositories/onboarding-read.js';
 
@@ -34,7 +34,7 @@ export function onboardingEndpoints(deps: OnboardingDeps): MenuEndpointDeclarati
     validate: (params: Params) => ParamsJudgment,
     run: (args: { workspaceId: string; actor: Parameters<MenuEndpointDeclaration['handle']>[0]['actor']; params: Params }) => Promise<Result>,
   ): MenuEndpointDeclaration => ({
-    spec: { id, menuId: EQV_ONBOARDING_MENU_ID, paramKeys, permission: EQV_ONBOARDING_VIEW_PERMISSION, requiresScope: false, context: {}, mergeTimeDomain: false },
+    spec: { id, menuId: EQV_ONBOARDING_MENU_ID, paramKeys, permission: EQV_VIEW_PERMISSION, requiresScope: false, context: {}, mergeTimeDomain: false },
     authorize: eqvAuthorize(deps, EQV_VIEW_CAPABILITY),
     validate,
     handle: async (args) => run({ workspaceId: args.actor.workspace_id, actor: args.actor, params: args.params }),

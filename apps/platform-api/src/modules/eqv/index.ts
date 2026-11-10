@@ -13,7 +13,7 @@ export { EQV_FOCUS_MENU_ID, EQV_ONBOARDING_MENU_ID, EQV_STUDIO_MENU_ID } from '.
 export interface EqvContributionDeps extends EqvDeps {
   db: Db;
   /** The Hub model read port: vendor and model of an equipment, judged for the acting person (#1658). */
-  knowledgeLookup: Pick<KnowledgeLookup, 'getModel'>;
+  knowledgeLookup: Pick<KnowledgeLookup, 'getModel' | 'getVendor'>;
 }
 
 /** Layout, Template, equipment-option (#1645) and Onboarding (#1658) declarations for the menu-dispatch registry. */

@@ -65,6 +65,11 @@ export function onboardingActions(deps: EqvDeps & { knowledgeLookup: ModelLookup
     return {
       spec: { id: cfg.id, menuId: O, inputKeys: cfg.inputKeys, permission: EQV_RULES_EDIT_PERMISSION, requiresScope: false, concurrency: 'version', invalidates: cfg.invalidates },
       authorize: (actor, tx, input) => canWrite(actor, tx, input ?? {}),
+      // A replay shows the stored answer only where a fresh call would still address the scope (a hidden Hub model or a missing equipment is "not there").
+      async canReplay(tx, actor, input) {
+        const parsed = parseScope(input, cfg.allowEquipment);
+        return parsed.ok && (await scopeAddressable(tx, deps.knowledgeLookup, actor, parsed.scope));
+      },
       validate(input) {
         const parsed = parseScope(input, cfg.allowEquipment);
         if (!parsed.ok) return parsed.errors;
@@ -144,6 +149,9 @@ export function onboardingActions(deps: EqvDeps & { knowledgeLookup: ModelLookup
       invalidates: ['eqv.mappingVersions', 'eqv.bindings'],
     },
     authorize: (actor, tx) => mappingPublish(actor, tx),
+    async canReplay(tx, actor, input) {
+      return isEquipmentId(input.equipmentId) && (await equipmentScope(tx, deps.knowledgeLookup, actor, input.equipmentId)) !== null;
+    },
     validate(input) {
       const errors: FieldError[] = [];
       if (!isEquipmentId(input.equipmentId)) errors.push({ path: ['equipmentId'], code: 'invalid' });

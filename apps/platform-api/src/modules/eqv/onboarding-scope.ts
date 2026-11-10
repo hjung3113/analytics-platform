@@ -4,9 +4,9 @@ import type { Tx } from '../../db/tx.js';
 import type { KnowledgeLookup } from '../log-knowledge/index.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 import type { MappingScopeRef } from './domain/mapping-checks.js';
-import { getEquipmentRow, vendorExists } from './repositories/onboarding-read.js';
+import { getEquipmentRow } from './repositories/onboarding-read.js';
 
-export type ModelLookup = Pick<KnowledgeLookup, 'getModel'>;
+export type ModelLookup = Pick<KnowledgeLookup, 'getModel' | 'getVendor'>;
 
 export interface EquipmentScope {
   equipmentId: string;
@@ -28,7 +28,7 @@ export async function scopeAddressable(tx: Tx, lookup: ModelLookup, actor: Platf
     case 'global':
       return true;
     case 'maker':
-      return vendorExists(tx, actor.workspace_id, scope.vendorId);
+      return (await lookup.getVendor(tx, actor.workspace_id, scope.vendorId)) !== null;
     case 'model': {
       const model = await lookup.getModel(tx, actor.workspace_id, scope.modelId, actor.actor_id);
       return model !== null && model.vendorId === scope.vendorId;
