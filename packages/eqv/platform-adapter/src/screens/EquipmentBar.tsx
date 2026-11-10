@@ -32,13 +32,16 @@ function DataWindow({ host, props, range, focusTrigger }: { host: ModuleHost; pr
   </>;
 }
 
+/** Who the list was answered for: the generation restarts at zero with a new adapter, so it is not enough alone. */
+const viewerOf = (host: ModuleHost) => { const { user, generation } = host.session(); return `${user?.id ?? ''}:${generation}`; };
+
 /** Context-free discovery stays local to this bar; it never changes the replay board's status. */
 export function useEquipmentOptions(host: ModuleHost) {
   const [attempt, setAttempt] = useState(0);
-  const [settled, setSettled] = useState<{ host: ModuleHost; attempt: number; generation: number; state: OptionsState } | null>(null);
-  const generation = host.session().generation;
-  // A URL write replaces the host and refetches. The list has no Context, so a received list stays usable meanwhile; a retry or a new session starts over.
-  const kept = settled?.attempt === attempt && settled.generation === generation && settled.state.kind === 'ready' ? settled.state : null;
+  const [settled, setSettled] = useState<{ host: ModuleHost; attempt: number; viewer: string; state: OptionsState } | null>(null);
+  const viewer = viewerOf(host);
+  // A URL write replaces the host and refetches. The list has no Context, so a received list stays usable meanwhile; a retry or another user or session starts over.
+  const kept = settled?.attempt === attempt && settled.viewer === viewer && settled.state.kind === 'ready' ? settled.state : null;
   const current = settled?.host === host && settled.attempt === attempt ? settled.state : null;
   const state = current ?? kept;
   useEffect(() => {
@@ -47,7 +50,7 @@ export function useEquipmentOptions(host: ModuleHost) {
     if (host.signal.aborted) abort();
     else host.signal.addEventListener('abort', abort, { once: true });
     const finish = (state: OptionsState) => {
-      if (!controller.signal.aborted) setSettled({ host, attempt, generation: host.session().generation, state });
+      if (!controller.signal.aborted) setSettled({ host, attempt, viewer: viewerOf(host), state });
     };
     void (async () => {
       try {

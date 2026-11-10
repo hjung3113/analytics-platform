@@ -493,6 +493,19 @@ describe('Top View equipment bar (#1644)', () => {
       else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
     }
   });
+  it('drops a received list when another user arrives at the same session generation', async () => {
+    const pending = deferred<ApiResponse<unknown>>();
+    const fake = hostFor({ page: {}, query: call => call.id === optionsId ? Promise.resolve(ok({ options })) : server()(call) });
+    fake.host.session = () => ({ user: { id: 'first', name: 'First' }, generation: 0 });
+    const Screen = eqvScreens.topview;
+    const view = render(<Screen host={fake.host} params={{}} />);
+    const select = await screen.findByRole('combobox', { name: '설비' }) as HTMLButtonElement;
+    await waitFor(() => expect(select.disabled).toBe(false));
+    const next = hostFor({ page: {}, query: call => call.id === optionsId ? pending.promise : server()(call) });
+    next.host.session = () => ({ user: { id: 'second', name: 'Second' }, generation: 0 });
+    view.rerender(<Screen host={next.host} params={{}} />);
+    expect((screen.getByRole('combobox', { name: '설비' }) as HTMLButtonElement).disabled).toBe(true);
+  });
   describe('focus through list failure and retry', () => {
     const retryButton = () => screen.getByRole('button', { name: '다시 시도' });
     const failedThenRetry = async () => {
