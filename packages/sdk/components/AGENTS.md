@@ -32,7 +32,8 @@ Platform Component layer (06 §13), chart contract (§16) and page archetype ske
 - Sort and page are controlled through `urlState` with the codecs `parsePageIndex`, `parseTableSort`, `encodeTableSort`; key names and value domains belong to the page.
 - Cancellation is decided by the table's own `controller.signal.aborted` alone (a timeout `AbortError` is shown as an error).
 - Privates (not exported from `index.ts`) split out of the table; the table only assembles and renders:
-  - `table/usePagedRows.ts`: page query lifecycle (Context reset → fetch effect order preserved).
+  - `table/usePagedRows.ts`: page query lifecycle (Context reset → fetch effect order preserved). `dataVersion` (the `refreshOn` epoch or the `rows` counter) is appended to the request identity, never the Context identity; `JSON.parse(identity)[0]`/`[1]` stay Context and page.
+  - `table/useRowsSource.ts`: the `rows` input (#1672, ADR-0137): builds the table's own `loadPage` over given rows (filter, group or sort, page through the column value; `externalPagination` shows all rows) and the counter fed to `usePagedRows`' `dataVersion`; drops `filter`/`groupable`/`filterFields` with `externalPagination`.
   - `table/useTableTransfer.ts`: export/copy (cancel controller, clipboard path, shortcuts).
   - `table/useColumnPreferences.ts`: column settings storage (visibility, width, pin, order; pure order maths in `table/columnOrder.ts`).
   - `table/tableMessages.ts`: export/copy copy text.

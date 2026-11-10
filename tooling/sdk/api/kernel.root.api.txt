@@ -102,6 +102,7 @@ topicParticle | function | function topicParticle(name: string): '는' | '은'
 useAxisOptions | function | function useAxisOptions(params: @ap/kernel#AxisOptionsParams): @ap/kernel#PortPageResult<@ap/contracts#AxisOption>
 useConditionPreset | function | function useConditionPreset(): @ap/kernel#ConditionPresetView | null
 useDrill | function | function useDrill(): @ap/kernel#DrillState
+useEndpointRefreshEpoch | function | function useEndpointRefreshEpoch(endpointIds: readonly string[]): number
 useEntityAudit | function | function useEntityAudit(ref: @ap/contracts#EntityRef, enabled?: boolean): { query: @ap/kernel#QueryState<@ap/contracts#EntityAuditPage>; timeline: { events: readonly @ap/contracts#AuditEvent[]; more: @ap/kernel#AuditMore; }; }
 useEntityQuery | function | function useEntityQuery<T>(ref: @ap/contracts#EntityRef, pageInputs?: unknown, enabled?: boolean): @ap/kernel#QueryState<T>
 useEquipmentAxes | function | function useEquipmentAxes(): readonly @ap/contracts#EquipmentAxisDescriptor[]

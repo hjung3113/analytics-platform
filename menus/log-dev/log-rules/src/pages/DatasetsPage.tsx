@@ -1,8 +1,8 @@
 import { ExternalLink } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { AuditTimeline, DataTrustIndicator, DetailDrawer, PlatformDataTable, PlatformPage, RowAction } from '@ap/components';
 import { PlatformLink, useMenuAction, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
-import type { ApiResponse, AuditEvent, GroupedPageResult } from '@ap/contracts';
+import type { AuditEvent } from '@ap/contracts';
 import { DatasetScreen, DatasetsScreen, type Action, type BaselineEvent, type DatasetApi, type Params, type Presentation, type ReadState, type TableParts } from '@ap/feature-screens/operator-screens/log-datasets';
 import { DATASET_APPROVE, DATASET_MANAGE, DATASET_RUN, datasetActions, datasetEndpoints, isUuid } from '../endpoints';
 
@@ -20,14 +20,7 @@ function useAction(name: string): Action {
 }
 const api: DatasetApi = { useRead, useAction };
 function Table<T extends { id: string }>({ rows, title, columns, pagination, preferenceKey, fill, summary, search, rowAction, loading }: TableParts<T>) {
-  const [snapshot, setSnapshot] = useState({ rows, version: 0 });
-  if (snapshot.rows !== rows) setSnapshot({ rows, version: snapshot.version + 1 });
-  const loadPage = useCallback(async (_query: unknown, signal: AbortSignal): Promise<ApiResponse<GroupedPageResult<T>>> => {
-    // Reserve the SDK's header, skeleton rows and footer until the upstream read settles.
-    if (loading) return new Promise((_, reject) => { signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true }); });
-    return { outcome: rows.length ? 'ok' : 'empty', data: { rows, total: rows.length }, assessments: [], trust: null, correlationId: 'log-datasets-screen' };
-  }, [rows, loading]);
-  return <div className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col [&_[data-table-search]]:max-w-none' : 'grid min-w-0 grid-cols-1'}><PlatformDataTable title={title} ariaLabel={title} getRowId={r => r.id} columns={columns} loadPage={loadPage} filterKey={`${snapshot.version}:${loading}`} preferenceKey={preferenceKey} fill={fill} search={search} rowAction={rowAction ? (r, { compact }) => <RowAction compact={compact} icon={ExternalLink} label={rowAction.label(r)} text="열기" onClick={() => rowAction.open(r)} /> : undefined} externalPagination={pagination ? { summary, controls: pagination } : undefined} /></div>;
+  return <div className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col [&_[data-table-search]]:max-w-none' : 'grid min-w-0 grid-cols-1'}><PlatformDataTable title={title} ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} rowsLoading={loading} preferenceKey={preferenceKey} fill={fill} search={search} rowAction={rowAction ? (r, { compact }) => <RowAction compact={compact} icon={ExternalLink} label={rowAction.label(r)} text="열기" onClick={() => rowAction.open(r)} /> : undefined} externalPagination={pagination ? { summary, controls: pagination } : undefined} /></div>;
 }
 const eventName: Record<string, string> = { created: '초안 생성', updated: '초안 변경', approved: '승인', superseded: '이전 기준으로 전환', self_approved: '자기 승인' };
 function timeline(events: BaselineEvent[], baselineId: string) {

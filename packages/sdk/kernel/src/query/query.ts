@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { hashKey, useQuery, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import type { QueryMissing } from './query-draft';
 import { narrowedGlobal } from './condition-preset';
@@ -300,6 +300,19 @@ export function useMenuFetch<P, T>(spec: EndpointSpec<P, T>): MenuFetch<P, T> {
     ? send(params, signal)
     : Promise.resolve(notReady());
   return { ready, fetch };
+}
+
+/**
+ * The refresh epoch of the listed endpoints (ADR-0054): the sum of their bump counts, so it changes exactly when a write
+ * whose `invalidates` names one of them succeeded (or conflicted or was unknown). A component that reads through
+ * a caller-driven `fetch` (PlatformDataTable `refreshOn`) folds it into its request identity to read again.
+ */
+export function useEndpointRefreshEpoch(endpointIds: readonly string[]): number {
+  const { refreshEpochs } = useHostPlatform();
+  // Joined ids are a stable primitive, so an inline array does not resubscribe or change the snapshot function.
+  const key = endpointIds.join('\u0000');
+  const getSnapshot = useCallback(() => (key === '' ? [] : key.split('\u0000')).reduce((sum, id) => sum + refreshEpochs.get(id), 0), [refreshEpochs, key]);
+  return useSyncExternalStore(refreshEpochs.subscribe, getSnapshot);
 }
 
 export type RequestState<T> = { status: 'loading' | 'done' | 'error'; data: T | null; retry: () => void };

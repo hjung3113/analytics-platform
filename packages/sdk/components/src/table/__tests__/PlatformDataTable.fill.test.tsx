@@ -28,7 +28,7 @@ let restore: () => void;
 let storage = memoryStorage();
 beforeEach(() => { storage = memoryStorage(); });
 afterEach(() => restore?.());
-function mount(width: number, extra: Partial<PlatformDataTableProps<Row>> = {}, wrap: (n: React.ReactElement) => React.ReactElement = n => n) {
+function mount(width: number, extra: Partial<Extract<PlatformDataTableProps<Row>, { loadPage: unknown }>> = {}, wrap: (n: React.ReactElement) => React.ReactElement = n => n) {
   const unstub = stubCompactTableGeometry(width);
   vi.stubGlobal('localStorage', storage);
   restore = unstub;
