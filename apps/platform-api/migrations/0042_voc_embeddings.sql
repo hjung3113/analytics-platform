@@ -1,4 +1,4 @@
--- #168: pgvector-backed, versioned VOC embedding store (FO ADR-0034 D1/D2).
+-- #168: pgvector-backed, versioned VOC embedding store (ADR-0034 D1/D2).
 -- The extension itself is installed by bootstrap (scripts/db/init.sql), not
 -- here: pgvector is untrusted, so CREATE EXTENSION demands superuser, and the
 -- migration role is deliberately not one. Assert instead of creating, so a
@@ -7,7 +7,7 @@
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
-    RAISE EXCEPTION 'pgvector is not installed in this database. Install it as a superuser (CREATE EXTENSION vector) before running migrations; see FO ADR-0034 D1.';
+    RAISE EXCEPTION 'pgvector is not installed in this database. Install it as a superuser (CREATE EXTENSION vector) before running migrations; see ADR-0034 D1.';
   END IF;
 END
 $$;

@@ -1,4 +1,4 @@
--- FO ADR-0064 #740: coordinated rollout with 0059; operator provisioning is required.
+-- ADR-0064 #740: coordinated rollout with 0059; operator provisioning is required.
 DO $$
 DECLARE owner_name text;
 BEGIN

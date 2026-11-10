@@ -35,7 +35,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
       AND (left(l.subject_type, 11) <> 'permission_' AND left(l.event_type, 11) <> 'permission_'
         OR (l.detail ->> 'capability') = ANY (ARRAY['workspace.read','voc.triage','voc.read',
           'finding.read','finding.manage','survey.read']))
-      -- Entity links: both endpoint types must be present and neither a survey response (FO ADR-0064).
+      -- Entity links: both endpoint types must be present and neither a survey response (ADR-0064).
       AND (l.subject_type <> 'entity_link' AND left(l.event_type, 12) <> 'entity_link.'
         OR (l.detail -> 'source' ->> 'type' IS NOT NULL AND l.detail -> 'target' ->> 'type' IS NOT NULL
           AND l.detail -> 'source' ->> 'type' <> 'survey_response'

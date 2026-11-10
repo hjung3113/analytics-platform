@@ -1,6 +1,6 @@
--- FO ADR-0009 + FO ADR-0015:88: pre-create the `pgboss` schema and grant fops_app
+-- ADR-0009 + ADR-0015:88: pre-create the `pgboss` schema and grant fops_app
 -- DML-only access. Choice (A) from the Slice 1 spec: keep the running app
--- DDL-less so it stays consistent with FO ADR-0008 (only fops_migrate may change
+-- DDL-less so it stays consistent with ADR-0008 (only fops_migrate may change
 -- shape). pg-boss is started with `migrate: false, createSchema: false` so it
 -- never tries to CREATE/ALTER anything from the fops_app connection — it just
 -- runs DML against the tables and stored functions we install here.

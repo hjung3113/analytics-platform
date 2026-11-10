@@ -1,4 +1,4 @@
--- FO ADR-0066: deploy before grant writers. No provenance backfill or role grants.
+-- ADR-0066: deploy before grant writers. No provenance backfill or role grants.
 -- Once predecessors are superseded, restoring the old predicate can violate
 -- uniqueness. Roll back through a forward fix or explicit history-preserving
 -- operator disposition; never revive or fake-revoke historical grants.

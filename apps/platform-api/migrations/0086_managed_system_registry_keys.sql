@@ -2,7 +2,7 @@
 -- `external_key` values `platform` and `space:<space id>` are registry-owned sync keys: the backend startup sync
 -- writes them (one 「플랫폼」 system, one system per space that declares feedbackTracking) and finds its rows by them.
 -- Every other key stays free metadata (0005, FO ADR-0017). `core.space_links` records which space a registry-owned
--- system belongs to; it is navigation/default metadata only and no permission check reads it (FO ADR-0068 decision 1).
+-- system belongs to; it is navigation/default metadata only and no permission check reads it (ADR-0068 decision 1).
 --
 -- Preflight (non-destructive, nothing is rewritten, archived or deleted). Before the unique index is built, every
 -- active row of a registry-owned key family is classified per workspace:

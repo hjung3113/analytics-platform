@@ -80,7 +80,7 @@ ALTER TABLE "voc"."voc_cluster_suggestions" ADD CONSTRAINT "voc_cluster_suggesti
 CREATE UNIQUE INDEX "voc_cluster_suggestions_pair_uq" ON "voc"."voc_cluster_suggestions" USING btree ("workspace_id","primary_managed_system_id","voc_a_id","voc_b_id");--> statement-breakpoint
 CREATE INDEX "voc_cluster_suggestions_pending_idx" ON "voc"."voc_cluster_suggestions" USING btree ("workspace_id","primary_managed_system_id","created_at") WHERE "voc"."voc_cluster_suggestions"."state" = 'pending';
 --> statement-breakpoint
--- FO ADR-0068: no application hard delete/TRUNCATE, including terminal pair history.
+-- ADR-0068: no application hard delete/TRUNCATE, including terminal pair history.
 GRANT SELECT, INSERT, UPDATE ON voc.voc_cluster_suggestions,
   voc.voc_cluster_suggestion_counters, voc.voc_cluster_suggestion_cursors TO fops_app;
 --> statement-breakpoint

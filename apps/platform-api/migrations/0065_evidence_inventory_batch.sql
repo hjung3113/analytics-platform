@@ -1,4 +1,4 @@
--- FO ADR-0065: bounded cross-Finding hydration under FO ADR-0064's response lock order.
+-- ADR-0065: bounded cross-Finding hydration under ADR-0064's response lock order.
 -- Findings authorizes every supplied local highlight's parent in the caller transaction.
 -- Existing reader owner/column privileges suffice; no private table app grant is added.
 CREATE FUNCTION survey.read_inventory_highlight_evidence(p_workspace_id uuid,p_highlight_ids uuid[])

@@ -182,7 +182,7 @@ ALTER TABLE "permission"."permission_requests"
   CHECK ("status" in ('pending','needs_more_info','approved','rejected','expired','revoked'));--> statement-breakpoint
 
 -- ─────────────────────────────────────────────────────────────────────────
--- Role separation per FO ADR-0008.
+-- Role separation per ADR-0008.
 -- fops_migrate owns DDL/DML on every table; this migration is being executed
 -- as that role, so it grants USAGE/ALL to itself defensively (idempotent if
 -- the role already inherits it via ownership) and then narrows fops_app to

@@ -25,6 +25,7 @@ import { execFileSync } from 'node:child_process';
 import { lstatSync, readFileSync } from 'node:fs';
 
 const SCOPE = ['apps/platform-api', 'apps/feature-screens', 'packages/feature-shared', 'packages/feature-ui', 'ops/platform-api'];
+const MIGRATIONS = 'apps/platform-api/migrations/';
 const EXT = /\.(md|ts|tsx|js|mjs|json|sh|yml|sql)$/;
 const MAX_FO = 72;
 
@@ -114,7 +115,7 @@ function main() {
     const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
     process.chdir(root);
     files = execFileSync('git', ['ls-files', '-z', '--', ...SCOPE], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
-      .split('\0').filter((f) => f && EXT.test(f));
+      .split('\0').filter((f) => f && EXT.test(f) && !f.startsWith(MIGRATIONS)); // applied migrations are history; not edited
   } catch (e) { console.error(`git error: ${e.message}`); process.exit(2); }
   let total = 0; let checked = 0;
   for (const f of files) {

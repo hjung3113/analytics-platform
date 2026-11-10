@@ -93,10 +93,10 @@ CREATE DATABASE platform OWNER fops_migrate;
 GRANT CONNECT ON DATABASE platform TO fops_app;
 GRANT CONNECT ON DATABASE platform TO fops_migrate;
 
--- FO ADR-0034 D1: VOC similarity stores vectors in Postgres. pgvector is not a
+-- ADR-0034 D1: VOC similarity stores vectors in Postgres. pgvector is not a
 -- trusted extension, so CREATE EXTENSION requires superuser — fops_migrate
 -- cannot install it, and granting it superuser would collapse the role
--- separation FO ADR-0008/FO ADR-0019 depend on. Bootstrap therefore owns the
+-- separation ADR-0008/ADR-0019 depend on. Bootstrap therefore owns the
 -- extension and migration 0042 only asserts it is present.
 CREATE EXTENSION IF NOT EXISTS vector;
 

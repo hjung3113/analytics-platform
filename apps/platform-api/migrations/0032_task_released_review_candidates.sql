@@ -1,6 +1,6 @@
 -- Issue #165: durable, VOC-owned review obligations for released Tasks.
 -- No trigger writes voc.vocs.reporter_facing_status or voc.voc_public_updates:
--- FO ADR-0005 requires an explicit later reviewer decision.
+-- ADR-0005 requires an explicit later reviewer decision.
 
 CREATE TABLE voc.public_update_review_candidates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

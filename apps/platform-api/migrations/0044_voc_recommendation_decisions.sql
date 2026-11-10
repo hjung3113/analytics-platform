@@ -1,6 +1,6 @@
--- #168 step 4: persisted recommendation decisions (FO ADR-0034 D3/D6).
+-- #168 step 4: persisted recommendation decisions (ADR-0034 D3/D6).
 --
--- What is NOT here is the point. FO ADR-0034 D6 computes recommendations on read
+-- What is NOT here is the point. ADR-0034 D6 computes recommendations on read
 -- against current vectors, so the `suggested` state is never a row: it is the
 -- absence of a decision for a pair that clears the pinned similarity cut. Only
 -- the two terminal states of the D3 machine are durable, because only they
@@ -12,10 +12,10 @@
 --     different key for the same pair. The old suppression rows stay (they are
 --     the audit trail of what was decided under the ranking that existed then)
 --     but they can no longer match a query at the new active version. That is
---     FO ADR-0034 D3's "a new embedding version clears that suppression",
+--     ADR-0034 D3's "a new embedding version clears that suppression",
 --     expressed as a constraint rather than a convention.
 --
---   * `scope_key` is the FO ADR-0031 visibility arm the decider used, rendered as
+--   * `scope_key` is the ADR-0031 visibility arm the decider used, rendered as
 --     text: `ms:<uuid>` when the candidate's Managed System was in their
 --     voc.read scope, `actor:<uuid>` when they could only see the candidate
 --     because they reported it. The MS arm is a shared triage judgement — every
@@ -41,7 +41,7 @@ CREATE TABLE "voc"."voc_recommendation_decisions" (
   -- the constraint stops a hand-written decision from contradicting it.
   CONSTRAINT "voc_recommendation_decisions_distinct_pair"
     CHECK ("source_voc_id" <> "candidate_voc_id"),
-  -- Confirmation is the only path that creates or joins a cluster (FO ADR-0034
+  -- Confirmation is the only path that creates or joins a cluster (ADR-0034
   -- D3), so a confirmed row without a cluster — or a dismissal with one — is a
   -- broken state machine, not a tolerable NULL.
   CONSTRAINT "voc_recommendation_decisions_cluster_matches_state"

@@ -4,12 +4,12 @@
 -- reporter_facing_status_transitions, and Slice 3 seed rows to this file.
 --
 -- ADR alignment:
---   FO ADR-0008 — least-privilege grants; fops_app DML on vocs, SELECT/INSERT-only
+--   ADR-0008 — least-privilege grants; fops_app DML on vocs, SELECT/INSERT-only
 --              will apply to append-only conversation tables (Tasks 4+).
---   FO ADR-0011 — rich content stored as jsonb, server-sanitised at service layer.
---   FO ADR-0015 — uuid v4 PKs, timestamptz, idempotency conventions.
---   FO ADR-0017 — audit detail vocab; audit_log rows emitted by service layer.
---   FO ADR-0019 — role grants pattern continued from migration 0009.
+--   ADR-0011 — rich content stored as jsonb, server-sanitised at service layer.
+--   ADR-0015 — uuid v4 PKs, timestamptz, idempotency conventions.
+--   ADR-0017 — audit detail vocab; audit_log rows emitted by service layer.
+--   ADR-0019 — role grants pattern continued from migration 0009.
 --
 -- Resolved spec questions:
 --   Q-DISPLAYID → backend owns display_id via next_voc_display_id(workspace_id).
@@ -178,7 +178,7 @@ CREATE TRIGGER "vocs_touch_updated_at_trg"
   FOR EACH ROW EXECUTE FUNCTION "voc"."touch_updated_at"();
 --> statement-breakpoint
 
--- ─── Role grants per FO ADR-0008 + FO ADR-0019 ────────────────────────────────
+-- ─── Role grants per ADR-0008 + ADR-0019 ────────────────────────────────
 -- fops_app needs USAGE on the voc schema before it can reach any table.
 -- fops_app gets full DML on vocs (archive workflows are app-driven).
 -- Conversation tables added in Tasks 4+ get tighter SELECT/INSERT-only grants.
@@ -270,7 +270,7 @@ ALTER TABLE "voc"."voc_internal_comments" ADD CONSTRAINT "voc_internal_comments_
 CREATE INDEX "voc_internal_comments_voc_created_idx" ON "voc"."voc_internal_comments" ("voc_id", "created_at");
 
 --> statement-breakpoint
--- ───── Append-only grants (FO ADR-0019 pattern): fops_app SELECT + INSERT only.
+-- ───── Append-only grants (ADR-0019 pattern): fops_app SELECT + INSERT only.
 GRANT SELECT, INSERT ON "voc"."voc_public_updates"    TO fops_app;
 --> statement-breakpoint
 GRANT SELECT, INSERT ON "voc"."voc_reporter_replies"  TO fops_app;
@@ -401,5 +401,5 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON "voc"."voc_permission_decisions_seed_fix
 -- (ensureSeedTeam) using the fops_migrate role at seed time, AFTER the
 -- workspace upsert. Doing this in a migration would race the workspace
 -- creation (workspaces table is empty when migrations apply to a fresh
--- DB), so the seed CLI owns this fixture exclusively. FO ADR-0019 forbids
+-- DB), so the seed CLI owns this fixture exclusively. ADR-0019 forbids
 -- granting fops_app INSERT on core.teams.

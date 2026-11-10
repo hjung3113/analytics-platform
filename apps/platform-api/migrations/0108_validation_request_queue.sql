@@ -274,7 +274,7 @@ REVOKE ALL ON FUNCTION log_lifecycle.erase_excerpts(uuid, uuid, uuid, timestampt
 --> statement-breakpoint
 GRANT EXECUTE ON FUNCTION log_lifecycle.erase_excerpts(uuid, uuid, uuid, timestamptz, text, integer) TO platform_app;
 --> statement-breakpoint
--- The retention job's queue is migration-owned: the runtime role cannot do pg-boss DDL (FO ADR-0008).
+-- The retention job's queue is migration-owned: the runtime role cannot do pg-boss DDL (ADR-0008).
 INSERT INTO pgboss.queue (
   name, policy, retry_limit, retry_delay, retry_backoff, retry_delay_max,
   expire_seconds, retention_seconds, deletion_seconds, warning_queued,
@@ -323,7 +323,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
           'knowledge.catalog.manage','knowledge.catalog.import','knowledge.item.publish',
           'knowledge.spec.publish','voc.read_public','improvement.manage','voc.create',
           'lifecycle.project.manage','lifecycle.round.manage','knowledge.draft.create','validation.catalog.report']))
-      -- Entity links: both endpoint types must be present and neither a survey response (FO ADR-0064).
+      -- Entity links: both endpoint types must be present and neither a survey response (ADR-0064).
       AND (l.subject_type <> 'entity_link' AND left(l.event_type, 12) <> 'entity_link.'
         OR (l.detail -> 'source' ->> 'type' IS NOT NULL AND l.detail -> 'target' ->> 'type' IS NOT NULL
           AND l.detail -> 'source' ->> 'type' <> 'survey_response'
