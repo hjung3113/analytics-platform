@@ -1,17 +1,22 @@
 import { withLifecycleReplayAccess } from './replay-access.js';
 import type { MenuDispatchContribution } from '../menu-dispatch/types.js';
 import type { LogLifecycleDeps } from './deps.js';
-import { gateActions } from './gate-actions.js';
+import { LIFECYCLE_GATE_MENU_PERMISSION, LIFECYCLE_GATE_PERMISSION, gateActions } from './gate-actions.js';
 import { lifecycleEndpoints } from './lifecycle-endpoints.js';
-import { projectActions } from './project-actions.js';
+import { LIFECYCLE_PROJECT_MENU_PERMISSION, LIFECYCLE_PROJECT_PERMISSION, projectActions } from './project-actions.js';
 import { requestActions } from './request-actions.js';
 import { requestEndpoints } from './request-endpoints.js';
-import { roundActions } from './round-actions.js';
+import { LIFECYCLE_ROUND_MENU_PERMISSION, LIFECYCLE_ROUND_PERMISSION, roundActions } from './round-actions.js';
 
 export function logLifecycleContribution(deps: LogLifecycleDeps): MenuDispatchContribution {
   return {
     endpoints: [...lifecycleEndpoints(deps), ...requestEndpoints(deps)],
     actions: [...projectActions(deps), ...roundActions(deps), ...requestActions(deps), ...gateActions(deps)].map(withLifecycleReplayAccess),
+    permissions: [
+      { permission: LIFECYCLE_PROJECT_MENU_PERMISSION, capability: LIFECYCLE_PROJECT_PERMISSION },
+      { permission: LIFECYCLE_ROUND_MENU_PERMISSION, capability: LIFECYCLE_ROUND_PERMISSION },
+      { permission: LIFECYCLE_GATE_MENU_PERMISSION, capability: LIFECYCLE_GATE_PERMISSION },
+    ],
   };
 }
 

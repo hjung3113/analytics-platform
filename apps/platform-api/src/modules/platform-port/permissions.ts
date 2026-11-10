@@ -1,14 +1,24 @@
 // Platform permission vocabulary → feature authorization (ADR-0069 decision 7).
 //
 // The platform's own permissions are a closed list (`KERNEL_PERMISSIONS` in the root
-// `packages/sdk/contracts/src/menu.ts`). This table maps every entry to the rule that grants it here;
+// `packages/sdk/contracts/src/menu.ts`). `PLATFORM_PERMISSION_TABLE` maps every entry to the rule that grants it here;
 // `permissions-vocabulary.test.ts` reads the generated `@ap/contracts/vocab.json` (`kernelPermissions`)
-// and fails when an entry is missing or listed twice (ADR-0068 "one vocabulary"). The menu permissions
-// an app declares (ADR-0072) are not listed: feature grants none of them.
+// and fails when an entry is missing or listed twice (ADR-0068 "one vocabulary").
+//
+// The menu permissions of the business modules (a capability grant plus the capability's Admin bypass) are not listed here:
+// each module declares them in its `MenuDispatchContribution.permissions` (#1667) and the server hands the registry's
+// declarations to a per-server `createPlatformPermissionResolver`. A new menu permission never edits this file.
 
 import type { Tx } from '../../db/tx.js';
 import { currentAuthContext } from '../../lib/auth-context.js';
-import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
+import type { Capability } from '@ap/feature-shared';
+import {
+  type CapabilityScope,
+  type CheckService,
+  type Decision,
+  applyAdminModuleBypass,
+} from '../permissions/check-service.js';
+import type { MenuPermissionDeclaration } from '../menu-dispatch/types.js';
 
 export type PlatformPermissionRule =
   /** Every active session. Not gated on `workspace.read`: `roleSatisfies('developer', …)` is false. */
@@ -16,83 +26,15 @@ export type PlatformPermissionRule =
   /** Role Level developer/admin, or an active grant of a feature working capability. */
   | 'features-access'
   /** `workspace.admin` allowed. */
-  | 'workspace-admin'
-  /** Admin role, or an active workspace grant of `knowledge.catalog.manage` (the write capability of the log knowledge catalog). */
-  | 'catalog-manage'
-  /** Admin role, or an active workspace grant of `knowledge.item.publish` (the write capability of the log knowledge items). */
-  | 'item-publish'
-  /** Admin role, or an active workspace grant of `knowledge.spec.publish` (the write capability of the log knowledge model specs). */
-  | 'spec-publish'
-  /** Admin role, or an active workspace grant of `improvement.manage` (the write capability of the improvement items). */
-  | 'improvement-manage'
-  /** Admin role, or an active workspace grant of `lifecycle.project.manage` (the write capability of the development projects). */
-  | 'lifecycle-project-manage'
-  /** Admin role, or an active workspace grant of `lifecycle.round.manage` (the write capability of the validation rounds). */
-  | 'lifecycle-round-manage'
-  /** Admin role, or an active workspace grant of `lifecycle.gate.decide` (the Gate decision; a human session only, never a token). */
-  | 'lifecycle-gate-decide'
-  /** Admin role, or an active workspace grant of `knowledge.draft.create` (the write capability of the knowledge drafts; Developer and User may hold it). */
-  | 'draft-create'
-  /** An active workspace grant of `explorer.investigate` (the write capability of the log explorer investigations); no Admin role bypass (sensitive, #1472). */
-  | 'explorer-investigate'
-  /** An active workspace grant of `explorer.handoff` (handing evidence locations to a Round or a knowledge draft); no Admin role bypass (sensitive, #1474). */
-  | 'explorer-handoff'
-  /** Admin role, or an active workspace grant of `dataset.manage` (the write capability of the log test datasets). */
-  | 'dataset-manage'
-  /** An active workspace grant of `dataset.baseline.approve` (the approval of a log test dataset baseline); no Admin role bypass (sensitive, #1478). */
-  | 'dataset-baseline-approve'
-  /** Admin role, or an active workspace grant of `dataset.suite.run` (requesting a regression suite run); a User never holds it, even with a live grant (#1479). */
-  | 'dataset-suite-run'
-  /** Admin role, or an active workspace grant of `knowledge.access.manage` (sets access mode and rules of a model, SW version or Item). */
-  | 'knowledge-access-manage'
-  /** Admin role, or an active workspace grant of `eqv.view` (reads of Layouts, Revisions and Templates). */
-  | 'eqv-view'
-  /** Admin role, or an active workspace grant of `eqv.layout.edit` (saving a Layout draft). */
-  | 'eqv-layout-edit'
-  /** Admin role, or an active workspace grant of `eqv.layout.publish` (publishing a Revision, promoting a Template). */
-  | 'eqv-layout-publish';
+  | 'workspace-admin';
 
+/** The kernel permissions, in the platform's canonical order. Menu permissions follow, in registration order. */
 export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'platform:view', rule: 'every-session' },
   { permission: 'notice:view', rule: 'every-session' },
   { permission: 'voc:view', rule: 'every-session' },
   { permission: 'console:access', rule: 'workspace-admin' },
   { permission: 'features:access', rule: 'features-access' },
-  // Not a kernel permission: the menu permission of the log knowledge catalog management menu (design v0.6 §2.1,
-  // #1194 r). The app declares it with `menuPermission`; this entry makes bootstrap list it for exactly the users
-  // the catalog write actions accept.
-  { permission: 'knowledge:catalog-manage', rule: 'catalog-manage' },
-  // Menu permission of the log knowledge item menus (ADR-0109, #1197 w); the item write actions declare it.
-  { permission: 'knowledge:item-publish', rule: 'item-publish' },
-  // Menu permission of the model spec writes and the draft read (ADR-0111, #1196 b1).
-  { permission: 'knowledge:spec-publish', rule: 'spec-publish' },
-  // Menu permission of the improvement item writes (#1328 b); the six write actions declare it.
-  { permission: 'improvement:manage', rule: 'improvement-manage' },
-  // Menu permissions of the log lifecycle writes (#1444 c): project actions and round actions.
-  { permission: 'lifecycle:project-manage', rule: 'lifecycle-project-manage' },
-  { permission: 'lifecycle:round-manage', rule: 'lifecycle-round-manage' },
-  // Menu permission of the Gate decision (#1446 e).
-  { permission: 'lifecycle:gate-decide', rule: 'lifecycle-gate-decide' },
-  // Menu permission of the knowledge draft writes (#1198 a); the four draft actions declare it.
-  { permission: 'knowledge:draft-create', rule: 'draft-create' },
-  // Menu permission of the log explorer investigation writes (#1468 b); the five investigation actions declare it.
-  { permission: 'explorer:investigate', rule: 'explorer-investigate' },
-  // Menu permission of the evidence-location handoff (#1474 X-h); the `logExplorer.evidenceHandoff` action declares it.
-  { permission: 'explorer:handoff', rule: 'explorer-handoff' },
-  // Menu permission of the log test dataset writes (#1477 D-a).
-  { permission: 'dataset:manage', rule: 'dataset-manage' },
-  // Menu permission of the log test dataset baseline approval (#1478 D-b); the approve action declares it.
-  { permission: 'dataset:baseline-approve', rule: 'dataset-baseline-approve' },
-  // Menu permission of the regression suite run (#1479 D-c); the suiteRun action declares it.
-  { permission: 'dataset:suite-run', rule: 'dataset-suite-run' },
-  // Menu permission of the knowledge object access writes (#1504 S-a).
-  { permission: 'knowledge:access-manage', rule: 'knowledge-access-manage' },
-  // Equipment visualization (#1645, ADR-0135). `eqv:view` keeps its name: the module menu permission the app declares today; the server reads
-  // and the stored links use it. The two write names are the Studio menu permissions step 6 declares in the app; they are not `eqv:*` because
-  // the Kernel registry refuses a namespace clash with the module (registry.ts:124,171,213).
-  { permission: 'eqv:view', rule: 'eqv-view' },
-  { permission: 'eqv-studio:layout-edit', rule: 'eqv-layout-edit' },
-  { permission: 'eqv-studio:layout-publish', rule: 'eqv-layout-publish' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
 /** Capabilities whose active grant (workspace or Managed-System scoped) opens `features:access`. */
@@ -108,34 +50,74 @@ export interface PlatformActor {
   role_level: string;
 }
 
-/** Sorted subset of the platform vocabulary this actor holds. */
-export async function resolvePlatformPermissions(
-  checkService: CheckService,
-  actor: PlatformActor,
-): Promise<string[]> {
-  const held: string[] = [];
-  for (const { permission, rule } of PLATFORM_PERMISSION_TABLE) {
-    if (await holds(checkService, actor, rule)) held.push(permission);
-  }
-  return held.sort();
+/**
+ * The platform permissions one server resolves: the kernel table plus the menu permissions that server's modules declared
+ * (`MenuDispatchRegistry.permissions`, #1667). The declarations belong to the instance — an immutable copy — so two
+ * servers in one process, built with different contributions, never read each other's rules.
+ */
+export interface PlatformPermissionResolver {
+  /** Every permission this resolver can list, kernel first (canonical order), then the declared menu permissions. */
+  order(): string[];
+  /** The permissions many actors hold, from one batched read (see `resolvePlatformPermissionsBatch`). */
+  resolveBatch(
+    checkService: CheckService,
+    actors: readonly PlatformActor[],
+    options?: { tx?: Tx },
+  ): Promise<Map<string, string[]>>;
+  /** Sorted subset of the vocabulary this actor holds. */
+  resolve(checkService: CheckService, actor: PlatformActor): Promise<string[]>;
+  /** Whether this actor holds one permission, kernel or declared. */
+  holds(checkService: CheckService, actor: PlatformActor, permission: string, options?: { tx?: Tx }): Promise<boolean>;
 }
 
-/** Whether this actor holds one permission, by the table's rule (single source). A permission the table does not list — a menu permission of the app — is never held here. */
-export async function holdsPlatformPermission(
-  checkService: CheckService,
-  actor: PlatformActor,
-  permission: string,
-  options: { tx?: Tx } = {},
-): Promise<boolean> {
-  const entry = PLATFORM_PERMISSION_TABLE.find((e) => e.permission === permission);
-  return entry ? holds(checkService, actor, entry.rule, options) : false;
+/**
+ * `declarations` may be bound later with `use` (once): `buildServer` registers the port routes before it builds the
+ * menu registry, and the routes only resolve at request time. Until `use` is called only the kernel table applies.
+ */
+export function createPlatformPermissionResolver(
+  declarations: readonly MenuPermissionDeclaration[] = [],
+): PlatformPermissionResolver & { use(declarations: readonly MenuPermissionDeclaration[]): void } {
+  let menu: readonly MenuPermissionDeclaration[] = Object.freeze(declarations.map((d) => Object.freeze({ ...d })));
+  let bound = declarations.length > 0;
+  const self = {
+    use(next: readonly MenuPermissionDeclaration[]): void {
+      if (bound) throw new Error('platform permission resolver: menu permissions are already bound');
+      menu = Object.freeze(next.map((d) => Object.freeze({ ...d })));
+      bound = true;
+    },
+    order: () => [...PLATFORM_PERMISSION_TABLE.map((e) => e.permission), ...menu.map((d) => d.permission)],
+    resolveBatch: (checkService: CheckService, actors: readonly PlatformActor[], options: { tx?: Tx } = {}) =>
+      resolveBatchWith(menu, checkService, actors, options),
+    resolve: async (checkService: CheckService, actor: PlatformActor) =>
+      ((await resolveBatchWith(menu, checkService, [actor])).get(actor.actor_id) ?? []).sort(),
+    holds: (checkService: CheckService, actor: PlatformActor, permission: string, options: { tx?: Tx } = {}) =>
+      holdsPlatformPermission(checkService, actor, permission, { ...options, menuPermissions: menu }),
+  };
+  return self;
 }
 
-async function holds(
-  checkService: CheckService,
+/** The capabilities one permission judgment reads; the batched path loads them for every permission at once. */
+function capabilitiesRead(menu: readonly MenuPermissionDeclaration[]): Capability[] {
+  return [
+    ...new Set<Capability>([
+      'workspace.read',
+      'workspace.admin',
+      ...FEATURES_ACCESS_CAPABILITIES,
+      ...menu.map((d) => d.capability),
+    ]),
+  ];
+}
+
+/** Where a rule reads its capability decisions from: one call each (`holdsPlatformPermission`) or a preloaded snapshot. */
+interface CapabilityReader {
+  decision(capability: Capability): Promise<Decision> | Decision;
+  scope(capability: Capability): Promise<CapabilityScope>;
+}
+
+async function judgeKernelRule(
   actor: PlatformActor,
   rule: PlatformPermissionRule,
-  options: { tx?: Tx } = {},
+  reader: CapabilityReader,
 ): Promise<boolean> {
   switch (rule) {
     case 'every-session': {
@@ -143,210 +125,103 @@ async function holds(
       // ADR-0116 deny by default: a token call has no session right. The read right of a token is the
       // `workspace.read` capability: it must be in the token's scopes (checked inside `checkCapability`)
       // and held by the token's actor. Every judgment of a token call thus goes through the capability check.
-      const decision = await checkService.checkCapability(
-        actor,
-        'workspace.read',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return decision.allow;
+      return (await reader.decision('workspace.read')).allow;
     }
-    case 'workspace-admin': {
-      const decision = await checkService.checkCapability(
-        actor,
-        'workspace.admin',
-        {
-          workspace_id: actor.workspace_id,
-        },
-        options,
-      );
-      return decision.allow;
-    }
-    case 'catalog-manage': {
-      // The same decision the write actions take (`catalog-actions.ts`): capability check, then the module's Admin bypass.
-      const decision = await checkService.checkCapability(
-        actor,
-        'knowledge.catalog.manage',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'knowledge.catalog.manage', decision).allow;
-    }
-    case 'item-publish': {
-      // The same decision the item write actions take (`item-actions.ts`): capability check, then the module's Admin bypass.
-      const decision = await checkService.checkCapability(
-        actor,
-        'knowledge.item.publish',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'knowledge.item.publish', decision).allow;
-    }
-    case 'spec-publish': {
-      // The same decision the spec write actions take (`spec-actions.ts`): capability check, then the module's Admin bypass.
-      const decision = await checkService.checkCapability(
-        actor,
-        'knowledge.spec.publish',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'knowledge.spec.publish', decision).allow;
-    }
-    case 'improvement-manage': {
-      // The same decision the improvement write actions take (`improvement-items/item-actions.ts`).
-      const decision = await checkService.checkCapability(
-        actor,
-        'improvement.manage',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'improvement.manage', decision).allow;
-    }
-    case 'lifecycle-project-manage': {
-      // The same decision the project write actions take (`log-lifecycle/project-actions.ts`).
-      const decision = await checkService.checkCapability(
-        actor,
-        'lifecycle.project.manage',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'lifecycle.project.manage', decision).allow;
-    }
-    case 'lifecycle-round-manage': {
-      // The same decision the round write actions take (`log-lifecycle/round-actions.ts`).
-      const decision = await checkService.checkCapability(
-        actor,
-        'lifecycle.round.manage',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'lifecycle.round.manage', decision).allow;
-    }
-    case 'lifecycle-gate-decide': {
-      // The same decision the Gate action takes (`log-lifecycle/gate-actions.ts`); a token call is refused inside checkCapability (session-only).
-      const decision = await checkService.checkCapability(
-        actor,
-        'lifecycle.gate.decide',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'lifecycle.gate.decide', decision).allow;
-    }
-    case 'draft-create': {
-      // The same decision the draft write actions take (`log-knowledge/draft-actions.ts`).
-      const decision = await checkService.checkCapability(
-        actor,
-        'knowledge.draft.create',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'knowledge.draft.create', decision).allow;
-    }
-    case 'explorer-investigate': {
-      // The same decision the investigation write actions take (`log-explorer/investigation-actions.ts`).
-      const decision = await checkService.checkCapability(
-        actor,
-        'explorer.investigate',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'explorer.investigate', decision).allow;
-    }
-    case 'explorer-handoff': {
-      // The same decision the handoff action takes (`log-explorer/handoff-action.ts`).
-      const decision = await checkService.checkCapability(
-        actor,
-        'explorer.handoff',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'explorer.handoff', decision).allow;
-    }
-    case 'dataset-manage': {
-      // The same decision the dataset write actions take (`log-datasets/dataset-actions.ts`).
-      const decision = await checkService.checkCapability(
-        actor,
-        'dataset.manage',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'dataset.manage', decision).allow;
-    }
-    case 'dataset-baseline-approve': {
-      // The same decision the baseline approve action takes (`log-datasets/baseline-actions.ts`): a User never holds it, even with a live grant.
-      if (actor.role_level === 'user') return false;
-      const decision = await checkService.checkCapability(
-        actor,
-        'dataset.baseline.approve',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'dataset.baseline.approve', decision).allow;
-    }
-    case 'dataset-suite-run': {
-      // The same decision the suiteRun action takes (`log-datasets/suite-actions.ts`): a User never holds it, even with a live grant.
-      if (actor.role_level === 'user') return false;
-      const decision = await checkService.checkCapability(
-        actor,
-        'dataset.suite.run',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'dataset.suite.run', decision).allow;
-    }
-    case 'knowledge-access-manage': {
-      // The same decision the access actions take (`log-knowledge/access-actions.ts`).
-      const decision = await checkService.checkCapability(
-        actor,
-        'knowledge.access.manage',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'knowledge.access.manage', decision).allow;
-    }
-    case 'eqv-view': {
-      // The same decision the eqv reads and writes take (`eqv/authorize.ts`): capability check, then the module's Admin bypass.
-      const decision = await checkService.checkCapability(
-        actor,
-        'eqv.view',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'eqv.view', decision).allow;
-    }
-    case 'eqv-layout-edit': {
-      // The same decision the eqv reads and writes take (`eqv/authorize.ts`): capability check, then the module's Admin bypass.
-      const decision = await checkService.checkCapability(
-        actor,
-        'eqv.layout.edit',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'eqv.layout.edit', decision).allow;
-    }
-    case 'eqv-layout-publish': {
-      // The same decision the eqv reads and writes take (`eqv/authorize.ts`): capability check, then the module's Admin bypass.
-      const decision = await checkService.checkCapability(
-        actor,
-        'eqv.layout.publish',
-        { workspace_id: actor.workspace_id },
-        options,
-      );
-      return applyAdminModuleBypass(actor.role_level, 'eqv.layout.publish', decision).allow;
-    }
+    case 'workspace-admin':
+      return (await reader.decision('workspace.admin')).allow;
     case 'features-access': {
       // A token call has no role shortcut: only the capability scopes below can open it.
       if (currentAuthContext().kind !== 'token' && (actor.role_level === 'developer' || actor.role_level === 'admin')) return true;
       for (const capability of FEATURES_ACCESS_CAPABILITIES) {
-        const scope = await checkService.capabilityScope(
-          actor,
-          capability,
-          { workspace_id: actor.workspace_id },
-          options,
-        );
+        const scope = await reader.scope(capability);
         if (scope.kind === 'all' || scope.managed_system_ids.length > 0) return true;
       }
       return false;
     }
   }
+}
+
+/**
+ * A declared menu permission: the same decision the module's write actions take — capability check, then the capability's
+ * Admin bypass. The User exclusion is the check service's (`NOT_FOR_USER_ROLE`), not repeated here.
+ */
+async function judgeMenuPermission(
+  actor: PlatformActor,
+  declaration: MenuPermissionDeclaration,
+  reader: CapabilityReader,
+): Promise<boolean> {
+  return applyAdminModuleBypass(actor.role_level, declaration.capability, await reader.decision(declaration.capability)).allow;
+}
+
+/**
+ * Whether this actor holds a module's own menu permission, by its capability: the capability check, then the capability's Admin
+ * bypass — the decision the module's write actions take. A module judges its own permissions with this, without the registry.
+ */
+export async function holdsMenuPermission(
+  checkService: CheckService,
+  actor: PlatformActor,
+  capability: Capability,
+  options: { tx?: Tx } = {},
+): Promise<boolean> {
+  return judgeMenuPermission(actor, { permission: capability, capability }, readerOf(checkService, actor, options));
+}
+
+const readerOf = (
+  checkService: CheckService,
+  actor: PlatformActor,
+  options: { tx?: Tx } = {},
+): CapabilityReader => ({
+  decision: (capability) =>
+    checkService.checkCapability(actor, capability, { workspace_id: actor.workspace_id }, options),
+  scope: (capability) =>
+    checkService.capabilityScope(actor, capability, { workspace_id: actor.workspace_id }, options),
+});
+
+/**
+ * The permissions many actors hold, from one batched read: two permission-row statements whatever the number of actors or
+ * declared permissions, plus at most one workspace Managed System lookup (when a deny on a Managed System needs the
+ * workspace's system list). Results are in canonical order (`order`); callers that list them sorted sort them.
+ */
+async function resolveBatchWith(
+  menu: readonly MenuPermissionDeclaration[],
+  checkService: CheckService,
+  actors: readonly PlatformActor[],
+  options: { tx?: Tx } = {},
+): Promise<Map<string, string[]>> {
+  const snapshot = await checkService.loadCapabilitySnapshot(actors, capabilitiesRead(menu), options);
+  const out = new Map<string, string[]>();
+  for (const actor of actors) {
+    const reader: CapabilityReader = {
+      decision: (capability) => snapshot.decision(actor, capability),
+      scope: (capability) => snapshot.scope(actor, capability),
+    };
+    const held: string[] = [];
+    for (const { permission, rule } of PLATFORM_PERMISSION_TABLE) {
+      if (await judgeKernelRule(actor, rule, reader)) held.push(permission);
+    }
+    for (const declaration of menu) {
+      if (await judgeMenuPermission(actor, declaration, reader)) held.push(declaration.permission);
+    }
+    out.set(actor.actor_id, held);
+  }
+  return out;
+}
+
+/**
+ * Whether this actor holds one permission, by its rule (single source). The kernel table always applies; a menu permission
+ * resolves only against the `menuPermissions` the caller passes (a server's resolver does: `PlatformPermissionResolver.holds`).
+ * A permission neither names — a menu permission of the app — is never held here.
+ */
+export async function holdsPlatformPermission(
+  checkService: CheckService,
+  actor: PlatformActor,
+  permission: string,
+  options: { tx?: Tx; menuPermissions?: readonly MenuPermissionDeclaration[] } = {},
+): Promise<boolean> {
+  const { menuPermissions, ...readOptions } = options;
+  const reader = readerOf(checkService, actor, readOptions);
+  const entry = PLATFORM_PERMISSION_TABLE.find((e) => e.permission === permission);
+  if (entry) return judgeKernelRule(actor, entry.rule, reader);
+  const declaration = menuPermissions?.find((d) => d.permission === permission);
+  return declaration ? judgeMenuPermission(actor, declaration, reader) : false;
 }

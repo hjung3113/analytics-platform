@@ -16,7 +16,7 @@ import {
   type MenuEndpointDeclaration,
 } from '../menu-dispatch/types.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
-import { holdsPlatformPermission, type PlatformActor } from '../platform-port/permissions.js';
+import { holdsMenuPermission, holdsPlatformPermission, type PlatformActor } from '../platform-port/permissions.js';
 import { findWorkspaceActor } from '../auth/index.js';
 import { LOG_KNOWLEDGE_ACCESS_MENU_ID } from './catalog-menu.js';
 import { ACCESS_INPUT_KEYS, type AccessOp, parseAccessInput, validateAccessInput } from './domain/access-input.js';
@@ -45,7 +45,7 @@ export const accessManageAuthorize = (checkService: CheckService) => async (acto
 /** An endpoint on the access-management menu: `platform:view` and the menu permission. */
 export const accessMenuAuthorize = (checkService: CheckService): MenuEndpointDeclaration['authorize'] => async (actor, tx) =>
   (await holdsPlatformPermission(checkService, actor, 'platform:view', tx ? { tx } : {})) &&
-  (await holdsPlatformPermission(checkService, actor, ACCESS_MENU_PERMISSION, tx ? { tx } : {}));
+  (await holdsMenuPermission(checkService, actor, ACCESS_PERMISSION, tx ? { tx } : {}));
 
 export function accessActions(deps: { checkService: CheckService }): MenuActionDeclaration[] {
   const audit = createAuditService();

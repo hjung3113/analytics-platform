@@ -11,7 +11,7 @@ import { currentAuthContext } from '../../lib/auth-context.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import { type ActionHandlerResult, type FieldError, MenuActionInvalidError } from '../menu-dispatch/types.js';
 import type { CheckService } from '../permissions/check-service.js';
-import { type PlatformActor, holdsPlatformPermission } from '../platform-port/permissions.js';
+import { type PlatformActor, holdsMenuPermission } from '../platform-port/permissions.js';
 import {
   type NormalizedProposal,
   type ValidatorRef,
@@ -31,9 +31,7 @@ import {
 } from './repositories/draft-write.js';
 import { judgeSubjects, softwareModelId } from './repositories/item-subject.js';
 import { checkOwner } from './repositories/item-write.js';
-
-/** Holders of this see submitted drafts of others (the reads' visibility rule); an author-only check never uses it for a write. */
-const REVIEW_MENU_PERMISSION = 'knowledge:item-publish';
+import { ITEM_PERMISSION } from './item-actions.js';
 
 export type DraftAuditType = 'created' | 'updated' | 'submitted' | 'withdrawn';
 
@@ -105,7 +103,7 @@ export function draftCores(deps: { checkService: CheckService }) {
     const row = await lockDraft(tx, viewerOf(actor), id);
     if (!row) return null;
     if (row.submitterActorId === actor.actor_id) return row;
-    const reviewer = await holdsPlatformPermission(deps.checkService, actor, REVIEW_MENU_PERMISSION, { tx });
+    const reviewer = await holdsMenuPermission(deps.checkService, actor, ITEM_PERMISSION, { tx });
     if (reviewer && row.status !== 'draft') throw invalid({ path: ['id'], code: 'forbidden_not_author' });
     return null;
   }

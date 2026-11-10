@@ -7,7 +7,7 @@
 import type { EndpointResult, MenuDispatchContribution, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import type { ImprovementItemsDeps } from './deps.js';
-import { itemActions } from './item-actions.js';
+import { IMPROVEMENT_MENU_PERMISSION, IMPROVEMENT_PERMISSION, itemActions } from './item-actions.js';
 import { ASSIGNEE_ME } from './domain/item-filters.js';
 import {
   DETAIL_PARAM_KEYS,
@@ -97,5 +97,9 @@ export function itemEndpoints(deps: ImprovementItemsDeps): MenuEndpointDeclarati
 }
 
 export function improvementItemsContribution(deps: ImprovementItemsDeps): MenuDispatchContribution {
-  return { endpoints: itemEndpoints(deps), actions: itemActions(deps) };
+  return {
+    endpoints: itemEndpoints(deps),
+    actions: itemActions(deps),
+    permissions: [{ permission: IMPROVEMENT_MENU_PERMISSION, capability: IMPROVEMENT_PERMISSION }],
+  };
 }

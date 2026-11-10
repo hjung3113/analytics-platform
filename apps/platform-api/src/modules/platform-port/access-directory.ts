@@ -1,17 +1,17 @@
 // Platform port `accessDirectory` (ADR-0069 decisions 7, 8): the console access directory over the
 // workspace's internal members. Judges a request and returns an outcome; the route wraps it in the
-// envelope. Permissions come from the one rule table (`resolvePlatformPermissions`), re-ordered to
-// the platform's canonical permission order; feature has no sites, so `sites` is always [].
+// envelope. Permissions come from the one rule set (`resolvePlatformPermissionsBatch`: every member in one batched
+// read, whatever the member count), in the platform's canonical permission order (kernel first, then the modules'
+// declared menu permissions); feature has no sites, so `sites` is always [].
 
 import type { Db } from '../../db/client.js';
 import { listWorkspaceInternalMembers } from '../auth/index.js';
 import type { CheckService } from '../permissions/check-service.js';
 import type { AuditJudgement } from './audit-service.js';
 import {
-  PLATFORM_PERMISSION_TABLE,
   type PlatformActor,
   holdsPlatformPermission,
-  resolvePlatformPermissions,
+  type PlatformPermissionResolver,
 } from './permissions.js';
 import { titleFor } from './titles.js';
 
@@ -19,9 +19,6 @@ export const ACCESS_SORT_FIELDS = ['name', 'role', 'permissionCount', 'grantCoun
 type AccessSortField = (typeof ACCESS_SORT_FIELDS)[number];
 
 const ACCESS_QUERY_KEYS = ['role', 'permission', 'page', 'pageSize', 'sort'] as const;
-/** Canonical order of the kernel permissions (the table is pinned to menu.ts by permissions-vocabulary.test.ts). */
-const CANONICAL_PERMISSIONS: readonly string[] = PLATFORM_PERMISSION_TABLE.map((e) => e.permission);
-const PERMISSION_CONCURRENCY = 8;
 
 export interface AccessPrincipal {
   id: string;
@@ -109,20 +106,11 @@ function compareBy(sort: ParsedAccessQuery['sort']) {
   };
 }
 
-/** Bounded-concurrency map: results keep input order. */
-async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>) {
-  const out = new Array<R>(items.length);
-  let next = 0;
-  const worker = async () => {
-    for (let i = next++; i < items.length; i = next++) out[i] = await fn(items[i] as T);
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return out;
-}
-
 export interface AccessDirectoryDeps {
   db: Db;
   checkService: CheckService;
+  /** This server's permission rules (kernel plus the menu permissions its modules declared). */
+  permissions: PlatformPermissionResolver;
 }
 
 export function createAccessDirectoryService(deps: AccessDirectoryDeps) {
@@ -137,18 +125,20 @@ export function createAccessDirectoryService(deps: AccessDirectoryDeps) {
     const query = parseAccessQuery(body);
     if (!query) return { outcome: 'error', message: 'Invalid access filter' };
     const members = await listWorkspaceInternalMembers(deps.db, actor.workspace_id);
-    const principals = await mapLimit(members, PERMISSION_CONCURRENCY, async (m) => {
-      const held = await resolvePlatformPermissions(deps.checkService, {
-        actor_id: m.id,
-        workspace_id: actor.workspace_id,
-        role_level: m.role_level,
-      });
+    // One batched read for the whole workspace: the query count does not grow with the member count.
+    const heldByMember = await deps.permissions.resolveBatch(
+      deps.checkService,
+      members.map((m) => ({ actor_id: m.id, workspace_id: actor.workspace_id, role_level: m.role_level })),
+    );
+    const canonical = deps.permissions.order();
+    const principals = members.map((m) => {
+      const held = new Set(heldByMember.get(m.id) ?? []);
       return {
         id: m.id,
         name: m.display_name,
         title: titleFor(m.role_level),
         role: m.role_level,
-        permissions: CANONICAL_PERMISSIONS.filter((p) => held.includes(p)),
+        permissions: canonical.filter((p) => held.has(p)),
         sites: [],
       } satisfies AccessPrincipal;
     });

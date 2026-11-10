@@ -89,4 +89,5 @@ export const unvalidatedRegistry = (declaration: MenuEndpointDeclaration) => ({
   action: () => undefined,
   endpointIds: [declaration.spec.id],
   actionIds: [],
+  permissions: [],
 });

@@ -1,7 +1,8 @@
 export { requireCsrf, CSRF_HEADER_NAME } from './csrf.js';
 export {
   PLATFORM_PERMISSION_TABLE,
-  resolvePlatformPermissions,
+  createPlatformPermissionResolver,
+  type PlatformPermissionResolver,
   type PlatformPermissionRule,
 } from './permissions.js';
 export {

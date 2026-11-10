@@ -9,14 +9,14 @@ import { viewerOf } from '../log-knowledge/index.js';
 // `sourceAccess: 'unchecked'` (the Source ACL is node c's seam); one state failing never errors the whole read.
 
 import type { PlatformActor } from '../platform-port/permissions.js';
-import { holdsPlatformPermission } from '../platform-port/permissions.js';
+import { holdsMenuPermission, holdsPlatformPermission } from '../platform-port/permissions.js';
 import type { MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
 import type { InvestigationDeps } from './deps.js';
 import { storedEvidence } from './domain/evidence.js';
 import { DETAIL_PARAM_KEYS, LIST_PARAM_KEYS, parseDetailParams, parseListParams } from './domain/investigation-params.js';
 import { refStateOf } from './domain/ref-state.js';
-import { EXPLORER_INVESTIGATE_MENU_PERMISSION } from './investigation-actions.js';
-import { EXPLORER_HANDOFF_MENU_PERMISSION } from './investigation-handoff.js';
+import { EXPLORER_INVESTIGATE_PERMISSION } from './investigation-actions.js';
+import { EXPLORER_HANDOFF_PERMISSION } from './investigation-handoff.js';
 import { INVESTIGATION_MENU_ID } from './menu.js';
 import { getOwned, listMine } from './repositories/investigation-read.js';
 
@@ -68,9 +68,9 @@ export function investigationEndpoints(deps: InvestigationDeps): MenuEndpointDec
           : null;
       const sampleSet = row.origin === 'round' ? roundSet : row.sampleSet;
       const sampleSetState = row.origin === 'standalone' ? 'inline' : roundSet ? 'round' : 'round_unavailable';
-      const holdsInvestigate = await holdsPlatformPermission(deps.checkService, actor, EXPLORER_INVESTIGATE_MENU_PERMISSION);
+      const holdsInvestigate = await holdsMenuPermission(deps.checkService, actor, EXPLORER_INVESTIGATE_PERMISSION);
       // Same judgment as the action's `authorize`: `explorer.handoff` AND the receiver's pre-check. No handoff deps = nothing to hand to.
-      const holdsHandoff = deps.handoff ? await holdsPlatformPermission(deps.checkService, actor, EXPLORER_HANDOFF_MENU_PERMISSION) : false;
+      const holdsHandoff = deps.handoff ? await holdsMenuPermission(deps.checkService, actor, EXPLORER_HANDOFF_PERMISSION) : false;
       const handoff = {
         round: holdsHandoff && deps.handoff ? await deps.handoff.roundIntake.canAttach(deps.db, actor) : false,
         knowledgeDraft: holdsHandoff && deps.handoff ? await deps.handoff.draftIntake.canIntake(deps.db, actor) : false,

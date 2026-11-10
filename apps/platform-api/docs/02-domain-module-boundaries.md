@@ -267,6 +267,10 @@ can influence classification, routing hints, and defaults inside its Managed
 System, but backend capability checks remain workspace-level for Admins or
 Managed-System scoped for Developers.
 
+## Menu permissions (#1667)
+
+A module that gates a menu with a capability declares `{ permission, capability }` in `MenuDispatchContribution.permissions` (`menu-dispatch/types.ts`). The platform port (`bootstrap`, `session-state`, access directory) reads the registry's declarations; it never lists a business module's permission itself. Inside the module, `holdsMenuPermission` (`platform-port/permissions.ts`) judges the module's own permission by capability. See `docs/architecture/platform-api/05-permission-policy.md` §Menu permissions of business modules.
+
 ## Entity Link Provider Contract
 
 Each linkable domain module must register a provider. The provider contract lives in `docs/architecture/platform-api/06-entity-linking-contract.md` (Provider Interface) and `apps/platform-api/src/modules/entity-links/provider-types.ts`.

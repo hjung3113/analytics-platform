@@ -16,7 +16,9 @@ import type {
   MenuActionDeclaration,
   MenuDispatchContribution,
   MenuEndpointDeclaration,
+  MenuPermissionDeclaration,
 } from './types.js';
+import { PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
 import { CONTEXT_KEYS } from './types.js';
 
 export interface MenuDispatchRegistry {
@@ -24,6 +26,8 @@ export interface MenuDispatchRegistry {
   action(id: string): MenuActionDeclaration | undefined;
   readonly endpointIds: readonly string[];
   readonly actionIds: readonly string[];
+  /** Every module's menu permissions, in registration order. */
+  readonly permissions: readonly MenuPermissionDeclaration[];
 }
 
 /** Paging params: `limits.maxRows` is refused beside them (checklist rule 7, #175). */
@@ -116,6 +120,7 @@ export function createMenuDispatchRegistry(
 ): MenuDispatchRegistry {
   const endpoints = new Map<string, MenuEndpointDeclaration>();
   const actions = new Map<string, MenuActionDeclaration>();
+  const permissions = new Map<string, MenuPermissionDeclaration>();
   const problems: string[] = [];
   for (const contribution of contributions) {
     for (const declaration of contribution.endpoints ?? []) {
@@ -127,6 +132,14 @@ export function createMenuDispatchRegistry(
       const { id } = declaration.spec;
       if (actions.has(id)) problems.push(`action ${id}: registered twice`);
       else actions.set(id, declaration);
+    }
+    for (const declaration of contribution.permissions ?? []) {
+      const { permission } = declaration;
+      if (permissions.has(permission)) problems.push(`permission ${permission}: registered twice`);
+      else if (PLATFORM_PERMISSION_TABLE.some((entry) => entry.permission === permission)) {
+        problems.push(`permission ${permission}: is a kernel permission, not a module's`);
+      }
+      else permissions.set(permission, declaration);
     }
   }
   const endpointMenus = new Map([...endpoints].map(([id, d]) => [id, d.spec.menuId]));
@@ -140,5 +153,6 @@ export function createMenuDispatchRegistry(
     action: (id) => actions.get(id),
     endpointIds: [...endpoints.keys()],
     actionIds: [...actions.keys()],
+    permissions: [...permissions.values()],
   };
 }

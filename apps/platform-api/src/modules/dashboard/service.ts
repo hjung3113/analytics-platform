@@ -773,6 +773,7 @@ function createRecoveryReader(deps: {
     const check: CheckService = db === deps.db ? deps.checkService : {
       capabilityScope: (actor, capability, subject, options) => deps.checkService.capabilityScope(actor, capability, subject, { ...options, tx: db }),
       checkCapability: (actor, capability, subject, options) => deps.checkService.checkCapability(actor, capability, subject, { ...options, tx: db }),
+      loadCapabilitySnapshot: (actors, capabilities, options) => deps.checkService.loadCapabilitySnapshot(actors, capabilities, { ...options, tx: db }),
     };
     const [vocRaw, findingRaw, taskRaw, surveyRaw, vocRepair, findingRepair] = await Promise.all([
       actorScopeForCapability(db, actor, 'voc.read'),
