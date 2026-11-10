@@ -82,6 +82,11 @@ describe('endpoint declarations', () => {
     expect(spec.permission).toBe('eqv:view');
   });
 
+  it.each(endpoints.map((e) => [e.id, e] as const))('%s merges no time domains: one equipment, and the server registry refuses true until #1087', (_id, spec) => {
+    expect(spec.mergeTimeDomain).toBe(false);
+    expect(spec.kinds).toContain('time_domain');
+  });
+
   it('projects from/to only because time is applied', () => {
     const g = { from: '2026-01-01T00:00:00', to: '2026-01-01T01:00:00' } as Parameters<typeof projectContext>[1];
     expect(Object.keys(projectContext(topviewEvents, g))).toEqual(['from', 'to']);

@@ -22,7 +22,7 @@ Menu `eqv-studio` unless noted. Reads that find nothing by id answer `empty`; a 
 | `eqv.template` | `templateId` | the row plus `document` |
 | `eqv.equipment-options` (menu `eqv:focus`) | — | `{ options: { id, label, dataRange: { from, to } \| null }[] }`, at most 1000. `dataRange` is `[from, to)`, `null` until step 9 |
 
-`eqv.topview-context` and `eqv.topview-events` are not served (step 9).
+`eqv.topview-context` and `eqv.topview-events` are declared client-side (`mergeTimeDomain: false`) and answered by the mock server only; the real server does not serve them. They take an equipment id, and the per-equipment access judgment waits for #1087 ([backlog](../../../../.planning/backlog.md)).
 
 ## Read service for other modules
 

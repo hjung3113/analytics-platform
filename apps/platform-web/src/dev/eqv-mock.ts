@@ -4,9 +4,7 @@ import { defineMockEndpoint, MockRequestError, type AnyMockEndpoint } from '@ap/
 
 /**
  * EV's endpoints answered from its synthetic fixture (`@eqv/platform-adapter/mock-data`; the dev assembly and the conformance
- * test are the only importers, lint and `check:prod-graph` enforce it). Not a mart source. The specs are copies with
- * `mergeTimeDomain: false`: the mock world has no `eq-synth-01`, and the engine would merge a time-domain assessment for every
- * equipment it holds under `requiresScope: false`. Mock only; the EV declaration is unchanged.
+ * test are the only importers, lint and `check:prod-graph` enforce it). Not a mart source.
  */
 export const eqvMock: readonly AnyMockEndpoint[] = [
   defineMockEndpoint(equipmentOptions, {
@@ -14,11 +12,11 @@ export const eqvMock: readonly AnyMockEndpoint[] = [
     handle: () => eqvMockEquipmentOptions(),
     isEmpty: data => data.options.length === 0,
   }),
-  defineMockEndpoint({ ...topviewContext, mergeTimeDomain: false }, {
+  defineMockEndpoint(topviewContext, {
     mart: false,
     handle: ({ params }) => eqvMockContext(params.equipmentId),
   }),
-  defineMockEndpoint({ ...topviewEvents, mergeTimeDomain: false }, {
+  defineMockEndpoint(topviewEvents, {
     mart: false,
     handle: ({ context, params }) => {
       if (context.from === null || context.to === null) throw new MockRequestError('eqv.topview-events needs an applied time window');
