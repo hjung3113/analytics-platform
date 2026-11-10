@@ -657,20 +657,22 @@ export const tooling = [
   layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),
 ];
 
-// Feature packages have no layer allowlist; they take the EV ban alone (static, dynamic, type).
-const eqvBanOnly = {
+// Feature packages have no layer allowlist; they take the EV ban alone (static, dynamic, type). The server alone may use
+// @eqv/core (pure domain validation shared with the browser; no React and no platform imports; ADR-0132, ADR-0135).
+const eqvBanOnlyFor = (allowEqvPackages = []) => ({
   files: ['**/*.{ts,tsx,js,mjs}'],
   plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource } } },
   rules: {
-    'no-restricted-imports': ['error', { patterns: [{ regex: eqvRegex(), message: EQV_MESSAGE }] }],
-    'ap/restricted-import-source': ['error', { eqvOnly: true, eqvMessage: EQV_MESSAGE }],
+    'no-restricted-imports': ['error', { patterns: [{ regex: eqvRegex([], allowEqvPackages), message: EQV_MESSAGE }] }],
+    'ap/restricted-import-source': ['error', { eqvOnly: true, eqvMessage: EQV_MESSAGE, allowEqvPackages }],
   },
-};
+});
+const eqvBanOnly = eqvBanOnlyFor();
 
 // Feature full-source presets (#1102 a). Feature-only: no other preset reads them. Rules and the old Biome/Oxlint
 // correspondence: feature.js and docs/integration/platform-packages.md §6.
 /** @type {import('eslint').Linter.Config[]} */
-export const featureServerPreset = [...featureServer(), eqvBanOnly];
+export const featureServerPreset = [...featureServer(), eqvBanOnlyFor(['@eqv/core'])];
 
 /** @type {import('eslint').Linter.Config[]} */
 export const featureSharedPreset = [...featureShared(), eqvBanOnly];

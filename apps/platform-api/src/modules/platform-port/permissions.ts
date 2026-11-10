@@ -44,7 +44,13 @@ export type PlatformPermissionRule =
   /** Admin role, or an active workspace grant of `dataset.suite.run` (requesting a regression suite run); a User never holds it, even with a live grant (#1479). */
   | 'dataset-suite-run'
   /** Admin role, or an active workspace grant of `knowledge.access.manage` (sets access mode and rules of a model, SW version or Item). */
-  | 'knowledge-access-manage';
+  | 'knowledge-access-manage'
+  /** Admin role, or an active workspace grant of `eqv.view` (reads of Layouts, Revisions and Templates). */
+  | 'eqv-view'
+  /** Admin role, or an active workspace grant of `eqv.layout.edit` (saving a Layout draft). */
+  | 'eqv-layout-edit'
+  /** Admin role, or an active workspace grant of `eqv.layout.publish` (publishing a Revision, promoting a Template). */
+  | 'eqv-layout-publish';
 
 export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'platform:view', rule: 'every-session' },
@@ -81,6 +87,12 @@ export const PLATFORM_PERMISSION_TABLE = [
   { permission: 'dataset:suite-run', rule: 'dataset-suite-run' },
   // Menu permission of the knowledge object access writes (#1504 S-a).
   { permission: 'knowledge:access-manage', rule: 'knowledge-access-manage' },
+  // Equipment visualization (#1645, ADR-0135). `eqv:view` keeps its name: the module menu permission the app declares today; the server reads
+  // and the stored links use it. The two write names are the Studio menu permissions step 6 declares in the app; they are not `eqv:*` because
+  // the Kernel registry refuses a namespace clash with the module (registry.ts:124,171,213).
+  { permission: 'eqv:view', rule: 'eqv-view' },
+  { permission: 'eqv-studio:layout-edit', rule: 'eqv-layout-edit' },
+  { permission: 'eqv-studio:layout-publish', rule: 'eqv-layout-publish' },
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
 /** Capabilities whose active grant (workspace or Managed-System scoped) opens `features:access`. */
@@ -291,6 +303,36 @@ async function holds(
         options,
       );
       return applyAdminModuleBypass(actor.role_level, 'knowledge.access.manage', decision).allow;
+    }
+    case 'eqv-view': {
+      // The same decision the eqv reads and writes take (`eqv/authorize.ts`): capability check, then the module's Admin bypass.
+      const decision = await checkService.checkCapability(
+        actor,
+        'eqv.view',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'eqv.view', decision).allow;
+    }
+    case 'eqv-layout-edit': {
+      // The same decision the eqv reads and writes take (`eqv/authorize.ts`): capability check, then the module's Admin bypass.
+      const decision = await checkService.checkCapability(
+        actor,
+        'eqv.layout.edit',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'eqv.layout.edit', decision).allow;
+    }
+    case 'eqv-layout-publish': {
+      // The same decision the eqv reads and writes take (`eqv/authorize.ts`): capability check, then the module's Admin bypass.
+      const decision = await checkService.checkCapability(
+        actor,
+        'eqv.layout.publish',
+        { workspace_id: actor.workspace_id },
+        options,
+      );
+      return applyAdminModuleBypass(actor.role_level, 'eqv.layout.publish', decision).allow;
     }
     case 'features-access': {
       // A token call has no role shortcut: only the capability scopes below can open it.

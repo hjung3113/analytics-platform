@@ -589,6 +589,40 @@ describe.skipIf(!runIntegration)('ADR-0008 role grants — product tables (Slice
     expect(rows.map((row) => row.column_name)).toEqual([...columns].sort());
   });
 
+  // #1645: the `eqv` schema is not in PRODUCT_SCHEMAS either, so its four tables are pinned explicitly (migration 0121).
+  it.each([
+    ['layout_draft', ['SELECT', 'INSERT']],
+    ['layout_revision', ['SELECT', 'INSERT']],
+    ['template', ['SELECT', 'INSERT']],
+    ['equipment', ['SELECT']],
+  ] as const)('platform_app holds exactly %s privileges on eqv.%s (no DELETE, no TRUNCATE, no table-wide UPDATE)', async (table, expected) => {
+    const { rows } = await migrateHandle.pool.query<{ privilege_type: string }>(
+      `select privilege_type from information_schema.role_table_grants
+        where grantee = 'platform_app' and table_schema = 'eqv' and table_name = $1`,
+      [table],
+    );
+    expect(rows.map((row) => row.privilege_type).sort()).toEqual([...expected].sort());
+  });
+
+  it.each([
+    ['layout_draft', ['document', 'updated_at', 'updated_by', 'version']],
+    ['layout_revision', []],
+    ['template', []],
+    ['equipment', []],
+  ] as const)('platform_app UPDATE on eqv.%s is limited to the mutable columns', async (table, columns) => {
+    const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
+      `select column_name
+           from information_schema.column_privileges
+          where grantee = 'platform_app'
+            and table_schema = 'eqv'
+            and table_name = $1
+            and privilege_type = 'UPDATE'
+          order by column_name`,
+      [table],
+    );
+    expect(rows.map((row) => row.column_name)).toEqual([...columns].sort());
+  });
+
   it('platform_app UPDATE on outcome follow-up decisions is limited to transition columns', async () => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name

@@ -233,6 +233,9 @@ importers:
       '@ap/feature-shared':
         specifier: workspace:*
         version: link:../../packages/feature-shared
+      '@eqv/core':
+        specifier: workspace:*
+        version: link:../../packages/eqv/core
       '@aws-sdk/client-s3':
         specifier: ^3.726.0
         version: 3.1154.0

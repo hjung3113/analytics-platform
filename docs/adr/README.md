@@ -145,6 +145,7 @@
 | [0132](0132-eqv-merges-into-platform.md) | 설비 시각화(EV)를 플랫폼에 합친다: 이력은 `products/eqv/`로 보존하고 패키지는 `packages/eqv/*`로 옮기며 EV 저장소는 소유자 확인 뒤 아카이브 | Decided(2026-11-10, 사용자) — 0039·0053의 "EV는 외부 저장소" 서술을 대체, 구현은 #1607 |
 | [0133](0133-feature-screens-frozen-new-screens-on-sdk.md) | `apps/feature-screens`는 동결하고, 새 플랫폼 기능은 `platform/<feature>/`에 SDK 소비자로 만들며, 기존 화면은 크게 고칠 때 옮긴다 | Decided(2026-11-10, 사용자, 되돌릴 수 있음) — 0066 결정 4의 후속 |
 | [0134](0134-bravo-quest-leaves-platform-adapter-port.md) | BRAVO Quest는 `PlatformAdapter` 포트에서 빼고 메뉴 조회 엔드포인트로 옮긴다 | Decided(2026-11-10, 사용자, 되돌릴 수 있음) — 0098의 Quest 포트 개정을 대체, 구현 #1641 |
+| [0135](0135-eqv-layout-storage-publish-and-promotion.md) | 서버 `eqv` 모듈: 게시 순서·가져오기 검증·Template 승격의 저장 방식 | Decided(2026-11-10, 코디네이터(사용자 위임), 되돌릴 수 있음) — EV ADR-0007·0010·0015의 저장 방식, 구현 #1645 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

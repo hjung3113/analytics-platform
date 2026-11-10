@@ -38,6 +38,7 @@ export default defineConfig({
     'log_datasets',
     'dashboard',
     'platform',
+    'eqv',
   ],
   dbCredentials: {
     url: migrateUrl,

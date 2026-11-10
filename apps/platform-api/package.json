@@ -24,6 +24,7 @@
   "dependencies": {
     "@ap/contract-schemas": "workspace:*",
     "@ap/feature-shared": "workspace:*",
+    "@eqv/core": "workspace:*",
     "@aws-sdk/client-s3": "^3.726.0",
     "@aws-sdk/lib-storage": "^3.726.0",
     "@fastify/cookie": "11.0.2",

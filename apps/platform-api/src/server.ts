@@ -104,6 +104,7 @@ import {
   logExplorerExportRoutes,
 } from './modules/log-explorer/index.js';
 import { type DatasetSourceRead, logDatasetsContribution } from './modules/log-datasets/index.js';
+import { eqvContribution } from './modules/eqv/index.js';
 import {
   createManagedSystemService,
   managedSystemsRoutes,
@@ -1021,6 +1022,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
         ...(opts.logExplorer?.handoffSourceTotalMs !== undefined ? { sourceTotalMs: opts.logExplorer.handoffSourceTotalMs } : {}),
       },
     }),
+    eqvContribution({ db: dbHandle.db, checkService }),
     logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, ruleCoverage, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),
     ...(opts.menuDispatch ?? []),
   ]);

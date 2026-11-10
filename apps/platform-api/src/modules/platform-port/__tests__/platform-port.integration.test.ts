@@ -153,6 +153,9 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
           'console:access',
           'dataset:manage',
           'dataset:suite-run',
+          'eqv-studio:layout-edit',
+          'eqv-studio:layout-publish',
+          'eqv:view',
           'features:access',
           'improvement:manage',
           'knowledge:access-manage',
@@ -274,6 +277,9 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       ['lifecycle:gate-decide', 'lifecycle.gate.decide'],
       ['dataset:suite-run', 'dataset.suite.run'],
       ['knowledge:access-manage', 'knowledge.access.manage'],
+      ['eqv:view', 'eqv.view'],
+      ['eqv-studio:layout-edit', 'eqv.layout.edit'],
+      ['eqv-studio:layout-publish', 'eqv.layout.publish'],
     ] as const)('%s is listed for Admin and for a workspace grant of %s, not for a plain user or a developer', async (permission, capability) => {
       const admin = await newActor('admin');
       const has = async (cookie: string) => (await bootstrap(cookie)).session.user.permissions.includes(permission);

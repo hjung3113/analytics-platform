@@ -1,0 +1,6 @@
+{
+  // Runtime emit for the server image only (apps/platform-api/Dockerfile): the workspace exports stay TypeScript source.
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": "src", "noEmit": false, "allowImportingTsExtensions": false },
+  "include": ["src"]
+}

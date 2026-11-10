@@ -35,6 +35,9 @@ const ALWAYS: Capability[] = [
   'dataset.manage',
   'dataset.suite.run',
   'knowledge.access.manage',
+  'eqv.view',
+  'eqv.layout.edit',
+  'eqv.layout.publish',
 ];
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage', 'voc.create'];
 const NONE: Capability[] = [

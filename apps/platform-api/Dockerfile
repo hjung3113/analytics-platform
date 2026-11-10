@@ -20,6 +20,7 @@ COPY packages/sdk/contract-schemas/package.json ./packages/sdk/contract-schemas/
 COPY packages/adapters/http-adapter/package.json ./packages/adapters/http-adapter/package.json
 COPY packages/adapters/server-conformance/package.json ./packages/adapters/server-conformance/package.json
 COPY packages/feature-shared/package.json ./packages/feature-shared/package.json
+COPY packages/eqv/core/package.json ./packages/eqv/core/package.json
 COPY tooling/eslint/package.json ./tooling/eslint/package.json
 COPY tooling/tsconfig ./tooling/tsconfig
 COPY apps/platform-api/package.json ./apps/platform-api/package.json
@@ -30,14 +31,16 @@ RUN pnpm install --filter @ap/platform-api... --frozen-lockfile
 # (their only user is a type-check-only test excluded from tsconfig.json), so they stay manifest-only.
 COPY packages/sdk/contract-schemas ./packages/sdk/contract-schemas
 COPY packages/feature-shared ./packages/feature-shared
+COPY packages/eqv/core ./packages/eqv/core
 COPY apps/platform-api ./apps/platform-api
 # contract-schemas exports its built dist, so it is built before the API's tsc resolves its types.
 RUN pnpm --filter @ap/contract-schemas run build \
   && pnpm --filter @ap/platform-api run build \
-  && pnpm --filter @ap/feature-shared exec tsc -p tsconfig.json --noEmit false
+  && pnpm --filter @ap/feature-shared exec tsc -p tsconfig.json --noEmit false \
+  && pnpm --filter @eqv/core exec tsc -p tsconfig.build.json
 
-# pnpm deploy creates an isolated production dependency tree. Shared is
-# TypeScript-only in the workspace, so stage its emitted JS and point only the
+# pnpm deploy creates an isolated production dependency tree. Shared and @eqv/core are
+# TypeScript-only in the workspace (exports point at src), so stage their emitted JS and point only the
 # deployed copy at it; the committed workspace package remains unchanged.
 # contract-schemas already exports its own dist; its dist is copied over the deployed package so the emitted exports are
 # present even if deploy's file selection skipped them.
@@ -47,11 +50,13 @@ RUN pnpm --filter @ap/contract-schemas run build \
 # packages keep linking their workspace dependencies. `--legacy` would skip the lockfile and re-resolve ranges. The
 # auto-animate patch belongs to the frontend only, so deploy must tolerate it being unused for this package.
 RUN pnpm --filter @ap/platform-api deploy --prod --config.inject-workspace-packages=true --config.allow-unused-patches=true /deploy \
-  && mkdir -p /deploy/dist /deploy/node_modules/@ap/feature-shared/dist /deploy/node_modules/@ap/contract-schemas/dist \
+  && mkdir -p /deploy/dist /deploy/node_modules/@ap/feature-shared/dist /deploy/node_modules/@eqv/core/dist /deploy/node_modules/@ap/contract-schemas/dist \
   && cp -a --remove-destination apps/platform-api/dist/. /deploy/dist/ \
   && cp -a --remove-destination packages/sdk/contract-schemas/dist/. /deploy/node_modules/@ap/contract-schemas/dist/ \
   && cp -a --remove-destination packages/feature-shared/dist/. /deploy/node_modules/@ap/feature-shared/dist/ \
-  && node --input-type=module -e 'import { readFileSync, rmSync, writeFileSync } from "node:fs"; const path = "/deploy/node_modules/@ap/feature-shared/package.json"; const pkg = JSON.parse(readFileSync(path, "utf8")); rmSync(path); pkg.main = "./dist/index.js"; pkg.exports = { ".": "./dist/index.js", "./enums": "./dist/enums/index.js" }; writeFileSync(path, JSON.stringify(pkg, null, 2));'
+  && cp -a --remove-destination packages/eqv/core/dist/. /deploy/node_modules/@eqv/core/dist/ \
+  && node --input-type=module -e 'import { readFileSync, rmSync, writeFileSync } from "node:fs"; const path = "/deploy/node_modules/@ap/feature-shared/package.json"; const pkg = JSON.parse(readFileSync(path, "utf8")); rmSync(path); pkg.main = "./dist/index.js"; pkg.exports = { ".": "./dist/index.js", "./enums": "./dist/enums/index.js" }; writeFileSync(path, JSON.stringify(pkg, null, 2));' \
+  && node --input-type=module -e 'import { readFileSync, rmSync, writeFileSync } from "node:fs"; const path = "/deploy/node_modules/@eqv/core/package.json"; const pkg = JSON.parse(readFileSync(path, "utf8")); rmSync(path); pkg.exports = { ".": { types: "./dist/index.d.ts", default: "./dist/index.js" } }; writeFileSync(path, JSON.stringify(pkg, null, 2));'
 
 FROM build AS migrate
 WORKDIR /workspace/apps/platform-api
