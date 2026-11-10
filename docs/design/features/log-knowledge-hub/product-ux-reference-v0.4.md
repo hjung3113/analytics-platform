@@ -624,7 +624,7 @@ log-knowledge-hub/
 
 ### 9.4 Top View 연동 원칙 (확정 기능 경계)
 
-**허브 안에서 Viewer를 렌더링**하고, **편집은 `equipment-visualization` Studio**에서 수행한다. 허브는 Layout 편집 소유자가 아니다. `equipment-visualization`의 구조화된 Layout + Component Catalog + Topology + Mapping Version이 시각화 원본이며 SVG는 표현 결과다.
+**허브 안에서 Viewer를 렌더링**하고, **편집은 EV Studio(`apps/eqv-studio`)**에서 수행한다. 허브는 Layout 편집 소유자가 아니다. `equipment-visualization`의 구조화된 Layout + Component Catalog + Topology + Mapping Version이 시각화 원본이며 SVG는 표현 결과다.
 
 - 허브의 해당 **SW 버전**과 Top View의 Mapping/Layout Revision을 대응시킨다. SW가 다르면 다른 구성을 보여줄 수 있다.
 - 모듈·로봇 블레이드·HoldingSite 등의 semantic ID를 명세/Item과 연결해 `모듈 클릭 → 해당 SW의 Event 및 Item` 탐색을 지원한다.
@@ -799,7 +799,7 @@ log-knowledge-hub/
 ### 프로젝트 설계 참고
 
 - 이전 `log_knowledge_hub_design_summary.md`와 HTML 프로토타입은 **초기 IA/UI 검토 자료**. v0.3은 v0.2의 구현 후보를 계승하되 1–17번 사용자 결정을 반영해 **v0.2 설계 기준선을 대체**한다.
-- 설비 Top View 관련: [equipment-visualization](https://github.com/hjung3113/equipment-visualization) — 독립 실행·플랫폼 어댑터 분리, semantic layout/증거 수준 관리 참고.
+- 설비 Top View 관련: [equipment-visualization](../equipment-visualization/INDEX.md) — 독립 실행·플랫폼 어댑터 분리, semantic layout/증거 수준 관리 참고.
 - 로그 개발 Lifecycle 관련: `standard-log-lifecycle` — Alpha/Beta·Validation Round·Defect/Evidence/Retest의 **미래 통합 대상**. 당장 본 제품과 동일하게 구현하지 않는다.
 - 플랫폼 UI/SDK: [analytics-platform](https://github.com/hjung3113/analytics-platform) — `DESIGN.md`, `docs/contract/*`, `docs/adr/0095-dual-backend-fastify-core-fastapi-analytics.md`.
 - 플랫폼 공통 계층 탐색 이슈: [analytics-platform #1108](https://github.com/hjung3113/analytics-platform/issues/1108). 기존 System/Group/Menu 유지 및 동적 객체 탐색 지원은 플랫폼 책임.

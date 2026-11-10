@@ -185,7 +185,7 @@ analytics-platform/
 | Model 공통 파생정보 | `LogKnowledge.CommonProfile` | 승인본과 정확한 source Spec Revision 집합 |
 | Item/근거 연결/기술 판단 | `LogKnowledge.Item` | 단일 owner, 승인 revision, append-only 판단 |
 | 원본 로그·Parser Raw·Validator Run | Parser/Validator/소유 저장소 | source ID/version/hash/locator/원천 ACL 검증 결과 |
-| Top View 실제 layout/topology/catalog | `equipment-visualization` Studio | SW별 Layout/Mapping Revision 포인터, Viewer 렌더 데이터 |
+| Top View 실제 layout/topology/catalog | EV Studio(`apps/eqv-studio`, [ADR-0132](../../../adr/0132-eqv-merges-into-platform.md)) | SW별 Layout/Mapping Revision 포인터, Viewer 렌더 데이터 |
 | Actor/Workspace/권한/감사/파일 | 플랫폼 Core/Permissions/Audit/Attachments | 기존 서비스, ID 참조; 중복 테이블 금지 |
 
 ### 4.2 Workspace 규칙
