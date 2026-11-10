@@ -26,7 +26,11 @@ export type PreferenceController = {
 
 /** Kernel-internal extension (not exported from the package): an ordered, value-independent edit of one key. Before the account's value is known the edit waits on the account lane (it survives controller replacement and remount of the SAME adapter + user) and is applied in order to the value the server (or the import) delivers. */
 export type PreferenceUpdate = { readonly key: string; readonly apply: (current: JsonValue | undefined) => JsonValue };
-export type UpdatingPreferenceController = PreferenceController & { readonly update: (key: string, apply: PreferenceUpdate['apply']) => void };
+export type UpdatingPreferenceController = PreferenceController & {
+  readonly update: (key: string, apply: PreferenceUpdate['apply']) => void;
+  /** Like `update`, but only the PATCH waits: `get` shows the edit at once, a later `hold` of the same key replaces it, and after `delayMs` it goes through `update`. An `update` of the key (or `stop`) moves it on first. */
+  readonly hold: (key: string, apply: PreferenceUpdate['apply'], delayMs: number) => void;
+};
 
 export type PreferenceControllerOptions = {
   adapter: PlatformAdapter;
@@ -125,6 +129,8 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
   // Set by stop(), cleared by start(): the controller is gone (or replaying), so a late write cannot use the queue.
   let released = false;
   const lane = laneOf(adapter, userId);
+  // Edits whose PATCH waits (see `hold`): one per key, shown by `get` after the queued edits.
+  const held = new Map<string, { apply: PreferenceUpdate['apply']; timer: ReturnType<typeof setTimeout> }>();
   // The adapter sends under ITS current session: only the account this controller was made for may be written.
   const sessionMatches = () => { try { return adapter.session().user.id === userId; } catch { return false; } };
   const canSendDetached = () => loaded && importedAt !== null && sessionMatches();
@@ -345,15 +351,41 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
     void flush(generation);
   };
 
+  /** Moves the held edit of `key` on to `update`, ahead of whatever is queued after it. */
+  const takeHeld = (key: string): boolean => {
+    const edit = held.get(key);
+    if (!edit) return false;
+    clearTimeout(edit.timer);
+    held.delete(key);
+    lane.queued.push({ key, apply: edit.apply });
+    return true;
+  };
+  const notifyQueued = () => {
+    if (!started) { if (lane.poke) lane.poke(); return; }
+    emit();
+    poke();
+  };
+
   return {
     state: () => snapshotState,
     subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; },
-    get: key => lane.queued.reduce<JsonValue | undefined>((value, u) => (u.key === key ? u.apply(value) : value), effective(key)),
-    update(key, apply) {
-      lane.queued.push({ key, apply });
-      if (!started) { if (lane.poke) lane.poke(); return; }
+    get: key => {
+      const queued = lane.queued.reduce<JsonValue | undefined>((value, u) => (u.key === key ? u.apply(value) : value), effective(key));
+      const edit = held.get(key);
+      return edit ? edit.apply(queued) : queued;
+    },
+    hold(key, apply, delayMs) {
+      const earlier = held.get(key);
+      if (earlier) clearTimeout(earlier.timer);
+      // The later edit replaces the held one: the caller's `apply` is complete by itself (the edits are of the same kind).
+      const timer = setTimeout(() => { if (takeHeld(key)) notifyQueued(); }, delayMs);
+      held.set(key, { apply, timer });
       emit();
-      poke();
+    },
+    update(key, apply) {
+      takeHeld(key);
+      lane.queued.push({ key, apply });
+      notifyQueued();
     },
     set: (key, value) => write(key, { remove: false, value, seq: ++lane.seq }),
     remove: key => write(key, { remove: true, seq: ++lane.seq }),
@@ -399,6 +431,16 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
       if (lane.active === adopt) lane.active = null;
       if (lane.receive === receive) lane.receive = null;
       if (lane.poke === poke) lane.poke = null;
+      // A held edit becomes an ordinary intent now (or waits on the lane while the value is unknown): a visit is never lost or sent for another account.
+      for (const [key, edit] of held) {
+        clearTimeout(edit.timer);
+        if (loaded) {
+          const seq = ++lane.seq;
+          lane.applied.set(key, seq);
+          pending.set(key, { remove: false, value: edit.apply(effective(key)), seq });
+        } else lane.queued.push({ key, apply: edit.apply });
+      }
+      held.clear();
       // A batch already sent settles in order and reports to the next owner itself (flush); the unsent queue is handed on now.
       const leftover = pending;
       pending = new Map();

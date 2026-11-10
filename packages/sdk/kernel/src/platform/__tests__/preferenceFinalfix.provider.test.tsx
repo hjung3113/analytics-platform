@@ -135,7 +135,7 @@ describe('C7 the document language follows the visible language', () => {
     });
     mount(adapter);
     await waitFor(() => expect(screen.getByTestId('lang').textContent).toBe('en'));
-    expect(screen.getByTestId('html').textContent).toBe('en');
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
     act(() => { current = sessionOf('user-b'); listeners.forEach(l => l()); });
     await waitFor(() => expect(screen.getByTestId('lang').textContent).toBe('ko'));
     expect(document.documentElement.lang).toBe('ko');
