@@ -16,7 +16,9 @@ describe('useVocCreateMutation', () => {
     apiClientMock.mockResolvedValue({ data: { id: 'voc-1', display_id: 'VOC-1001' } });
     const queryClient = new QueryClient();
     const listKey = ['vocs', 'public', 'pages', { mine: false }];
+    const pickerKey = ['findings', 'voc-source-picker', 'system-1', ''];
     queryClient.setQueryData(listKey, { pages: [] });
+    queryClient.setQueryData(pickerKey, { items: [] });
     const wrapper = ({ children }: PropsWithChildren) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
@@ -29,5 +31,6 @@ describe('useVocCreateMutation', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(pickerKey)?.isInvalidated).toBe(true);
   });
 });
