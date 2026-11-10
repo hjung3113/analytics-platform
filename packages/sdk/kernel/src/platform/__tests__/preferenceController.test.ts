@@ -354,6 +354,16 @@ describe('a held edit and a newer absolute write (#1671)', () => {
     expect(JSON.stringify(f.patches)).not.toContain('held');
   });
 
+  it('a held edit carried through a stop and start of the same controller is sent once and its timer does not replay it', async () => {
+    const { f, c } = await ready();
+    c.stop();
+    c.start();
+    await later(5000);
+    expect(c.get('recents')).toEqual(['old', 'held']);
+    expect(f.server().recents).toEqual(['old', 'held']);
+    expect(f.patches.filter(patch => JSON.stringify(patch).includes('held'))).toHaveLength(1);
+  });
+
   it.each(writes)('a later %s of the key stays authoritative when stop() comes before the expiry', async (_name, act, expected) => {
     const { f, c } = await ready();
     act(c);
