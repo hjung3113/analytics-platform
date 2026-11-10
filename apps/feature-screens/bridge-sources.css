@@ -1,18 +1,12 @@
 /* Public style entry of @ap/feature-screens (`@ap/feature-screens/styles.css`).
    A bridge consumer imports this instead of an @source into feature-screens internals, so a moved folder
    changes this one file. Paths are relative to this file. Tailwind scans these folders for class names only;
-   the app CSS build already unions every consumer's sources. */
+   the app CSS build already unions every consumer's sources.
+   `src/features` is listed whole, so a new feature folder cannot be missed; `src/__tests__/bridge-sources.test.ts`
+   fails when a source folder under `src` is not covered. */
 @source "./src/global-screens";
 @source "./src/operator-screens";
 @source "./src/components";
 @source "./src/lib";
-@source "./src/features/admin";
-@source "./src/features/findings";
-@source "./src/features/home";
-@source "./src/features/integration";
-@source "./src/features/log-datasets";
-@source "./src/features/log-lifecycle";
-@source "./src/features/surveys";
-@source "./src/features/tasks";
-@source "./src/features/voc";
+@source "./src/features";
 @source "../../packages/feature-ui/src";
