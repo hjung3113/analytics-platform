@@ -924,13 +924,51 @@ gitCase(
     head: {
       [join(MODULES, 'tasks', 'a.ts')]: "import { r } from '../voc/recovery-read.js';\n",
       [join(MODULES, 'voc', 'b.ts')]: "import { r } from '../findings/recovery-read.js';\n",
-      [join(MODULES, 'voc', 'c.ts')]: "import { r } from '../dashboard/recorder.js';\n",
+      [join(MODULES, 'voc', 'c.ts')]: "import type { R } from '../dashboard/recorder.js';\n",
+      [join(MODULES, 'voc', 'c2.ts')]: "import { type R } from '../dashboard/recorder.js';\n",
+      [join(MODULES, 'voc', 'c3.ts')]: "export type { R } from '../dashboard/recorder.js';\n",
       [join(MODULES, 'voc', 'd.ts')]:
         "import type { p } from '../entity-links/provider-types.js';\n",
     },
     expectExit0: true,
   },
 );
+
+gitCase('rule 12: a runtime import of the recorder is not the approved type-only seam', {
+  base: baseTree,
+  head: {
+    [join(MODULES, 'voc', 'c.ts')]:
+      "import { createRecoveryRecorder } from '../dashboard/recorder.js';\n",
+  },
+  expectExit0: false,
+  expectOutput: ['is not an approved surface'],
+});
+
+gitCase('rule 12: a default binding beside inline types still loads the recorder', {
+  base: baseTree,
+  head: {
+    [join(MODULES, 'voc', 'c.ts')]: "import d, { type R } from '../dashboard/recorder.js';\n",
+  },
+  expectExit0: false,
+  expectOutput: ['is not an approved surface'],
+});
+
+gitCase('rule 12 growth: an approval line in the message body is not a trailer', {
+  base: baseTree,
+  head: grown,
+  trailer:
+    'Example of an approval line:\nBoundary-Baseline-Growth: #1675 example only\n\nThis paragraph discusses the example.',
+  expectExit0: false,
+  expectOutput: ['pair added since the merge-base'],
+});
+
+gitCase('rule 12 growth: an event outside the known skip list still compares', {
+  base: baseTree,
+  head: grown,
+  env: { GITHUB_EVENT_NAME: 'merge_group' },
+  expectExit0: false,
+  expectOutput: ['pair added since the merge-base'],
+});
 
 if (failures > 0) {
   console.error(`\n${failures} test case(s) failed`);
