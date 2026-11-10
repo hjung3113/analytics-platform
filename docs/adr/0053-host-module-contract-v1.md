@@ -28,6 +28,11 @@
 ## 결과
 
 - 화면 하나를 올리는 데 필요한 것이 manifest + 화면 컴포넌트 + 연결 한 줄로 줄어든다.
-- 계약 1판은 소비자가 없는 기능을 넣지 않는다. 저장된 뷰·Context 바 쓰기는 2판 이후다. 쓰기 포트는 [ADR-0054](0054-write-port-declared-actions-idempotency-version.md)가 1판의 선택 기능 `write`로 더한다(기능 검사가 fail closed라 `contract` 정수는 그대로).
+- 계약 1판은 소비자가 없는 기능을 넣지 않는다. 저장된 뷰·다른 Context 키 쓰기는 2판 이후다. 적용 시간 쓰기는 아래 #1644 개정의 선택 능력만 허용한다. 쓰기 포트는 [ADR-0054](0054-write-port-declared-actions-idempotency-version.md)가 1판의 선택 기능 `write`로 더한다(기능 검사가 fail closed라 `contract` 정수는 그대로).
 - 1판 이후 바꾸면 `contract` 정수를 올리고, 호스트는 받아들일 버전을 명시한다.
 - **개정(2026-11-01, #1217): 선택 능력 규칙.** 1판의 `ModuleHost`에 더하는 멤버가 "호스트에 있을 수도 없을 수도 있는 능력"이면 `contract` 정수는 그대로 두고 그 멤버를 **선택(optional)** 으로 낸다. 모듈 코드는 멤버가 있는지 먼저 확인하고 없으면 이전 동작으로 물러선다. 첫 사례는 반복 page key를 읽는 `ModuleHost.pages?`다(없는 호스트에서는 `page`가 첫 값만 준다). 필수 멤버를 더하거나 기존 멤버의 뜻을 바꾸는 변경만 `contract` 정수를 올린다.
+
+## 개정 — 적용 시간 쓰기와 모듈 안 선택기 (2026-11-10, #1644)
+
+- Context 바 쓰기 중 **적용 시간 쓰기만** 계약 1의 선택 능력 `ModuleHost.setTime?`로 더한다. #1217 선택 능력 규칙을 따르며 `contract: 1`은 그대로다. 첫 소비자는 EV Top View의 데이터 구간 안내다. 없는 호스트에서는 Context 바로 안내하며, 저장된 뷰와 다른 Context 키 쓰기는 계약 2 또는 후속 범위로 남긴다. 제공 조건·검증·수명주기 가드는 [Kernel §6.3](../contract/kernel.md#ctx-time)이 소유한다.
+- #753 ②는 ModuleHost 설비 포트를 추가하지 않고 설비 상세 링크(#885)를 유지한 결정이다. 이번 선택기도 설비 포트 없이 선언된 `eqv.equipment-options`를 조회하고 `setPage({ equipment: id })`로 선택한다. «모듈 안 선택기는 요청이 있을 때만»이라는 조건은 소유자의 2026-11-10 보고로 충족됐다(EV#187).

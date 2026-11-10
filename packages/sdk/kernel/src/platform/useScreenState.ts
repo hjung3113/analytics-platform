@@ -267,7 +267,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
 
   // Materialize the default period for time-applying menus (§6.3/§6.4: absolute from/to written into the address)
   // and the server-confirmed metric version in ONE replace computed from the same parsed snapshot. The initial Δ
-  // (24h here) is an Open decision; this prototype uses the 1-day preset as a Candidate. A pane's `onChange` is a
+  // is Open: a menu declaration wins, otherwise 24h remains the Candidate. A pane's `onChange` is a
   // controlled callback that may not echo at once, so the same input/output proposal is made only once; a changed
   // input (or nothing left to do) re-arms it.
   const proposed = useRef<string | null>(null);
@@ -277,7 +277,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (mode === 'main' && route?.viaAlias) { commit(pathFor(route.menu, route.params) + search, 'replace', { redirect: true }); return; }
     if (!route || routeContractError) return;
     let next = global;
-    if (route.menu.query?.mode !== 'apply' && route.menu.context.time === 'apply' && global.from === null && defaultRangeTo !== null) next = { ...next, from: shift(defaultRangeTo, -24), to: defaultRangeTo };
+    if (route.menu.query?.mode !== 'apply' && route.menu.context.time === 'apply' && global.from === null && defaultRangeTo !== null) next = { ...next, from: shift(defaultRangeTo, -(route.menu.defaultPeriodHours ?? 24)), to: defaultRangeTo };
     if (metricInit.phase === 'confirm') next = { ...next, metricVersion: metricInit.metricVersion };
     if (next === global) { proposed.current = null; return; }
     const target = pathname + buildQuery(next, page, extras);

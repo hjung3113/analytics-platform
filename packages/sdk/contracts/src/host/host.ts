@@ -59,6 +59,8 @@ export type ModuleHost = {
   pages?(key: string): string[];
   /** A value may be a list for a repeated page key (one URL pair per item); `[]` and null remove the key. */
   setPage(patch: Record<string, string | readonly string[] | null>, options?: { replace?: boolean }): void;
+  /** Optional capability (ADR-0053 amendment): applied-time write, naive `YYYY-MM-DDTHH:mm:ss` boundaries. Present only on time-applying live screens; absent hosts use their context bar. Invalid ranges throw RangeError without writing. */
+  setTime?(range: { from: string; to: string }): void;
   href(target: ModuleTarget): { href: string; allowed: boolean } | null;
   navigate(target: ModuleTarget, options?: { replace?: boolean }): boolean;
   returnTarget(): string;

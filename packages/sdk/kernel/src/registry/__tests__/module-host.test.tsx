@@ -682,3 +682,39 @@ it('host.query keeps a flight alive across an out-of-preset Condition change and
   s.calls[1]!.resolve(ok(s.calls[1]!.request));
   expect(isAbort(await second)).toBe(true);
 });
+
+describe('useModuleHost: optional applied-time write', () => {
+  const range = { from: '2026-01-01T10:00:00', to: '2026-01-01T10:30:00' };
+  it('writes only the period, keeps page state, and becomes inert after release', () => {
+    const { seen, rerender } = setup('/fx?v=1&q=kept');
+    expect(seen.host.setTime).toBeTypeOf('function');
+    act(() => seen.host.setTime!(range));
+    expect(seen.platform.global).toMatchObject(range);
+    expect(seen.host.page('q')).toBe('kept');
+    const stale = seen.host;
+    rerender({ show: false });
+    const before = window.location.href;
+    act(() => stale.setTime!({ from: '2026-01-02T10:00:00', to: '2026-01-02T10:30:00' }));
+    expect(window.location.href).toBe(before);
+  });
+  it.each([
+    ['unsupported', undefined], ['reference', undefined], ['apply', { mode: 'apply' }],
+  ] as const)('omits setTime for time=%s query=%j', (time, query) => {
+    const m = manifest();
+    const { seen } = setup(undefined, { ...m, screens: m.screens.map(s => s.id === 'list' ? { ...s, context: { ...s.context, time }, query } : s) });
+    expect(seen.host.setTime).toBeUndefined();
+  });
+  it.each([
+    { from: '2026-02-30T10:00:00', to: range.to },
+    { from: range.to, to: range.from },
+    { from: range.from, to: range.from },
+    { from: range.from + '.000', to: range.to },
+    { from: range.from + 'Z', to: range.to },
+    { from: '', to: range.to },
+  ])('refuses invalid period %j before writing', invalid => {
+    const { seen } = setup();
+    const before = window.location.href;
+    expect(() => seen.host.setTime!(invalid)).toThrow(RangeError);
+    expect(window.location.href).toBe(before);
+  });
+});

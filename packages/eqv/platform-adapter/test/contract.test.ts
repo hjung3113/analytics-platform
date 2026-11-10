@@ -1,6 +1,6 @@
 import { GLOBAL_KEYS, HOST_CONTRACTS, KERNEL_PERMISSIONS, projectContext, type AnyEndpointSpec, type ModuleManifest } from '@ap/contracts';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { eqvManifest, topviewContext, topviewEvents, type TopviewContextParams, type TopviewEventsParams } from '../src/index.js';
+import { equipmentOptions, eqvManifest, topviewContext, topviewEvents, type TopviewContextParams, type TopviewEventsParams } from '../src/index.js';
 
 // The host (AP kernel `mountModule`, ADR-0053) cannot be imported here; these are its manifest rules, re-implemented.
 const HOST_FEATURES = ['query', 'detailSlot', 'write'];
@@ -65,6 +65,14 @@ describe('path pattern mirror (AP kernel module.test.ts cases)', () => {
 
 describe('endpoint declarations', () => {
   const endpoints: AnyEndpointSpec[] = [topviewContext, topviewEvents];
+
+  it('offers equipment discovery without applied time, scope or params', () => {
+    expect(equipmentOptions).toMatchObject({ id: 'eqv.equipment-options', menuId: 'eqv:focus', permission: 'eqv:view', paramKeys: {}, requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false });
+  });
+
+  it('declares an eight-hour initial period on both screens', () => {
+    expect(screens.map(s => s.defaultPeriodHours)).toEqual([8, 8]);
+  });
 
   it.each(endpoints.map((e) => [e.id, e] as const))('%s names a registered screen (eqv:<screen>) and applies time', (_id, spec) => {
     const registered = screens.map((s) => `${mod.id}:${s.id}`);

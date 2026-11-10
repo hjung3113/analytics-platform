@@ -1,5 +1,6 @@
 import { defineEndpoint, menuPermission } from '@ap/contracts';
 import type { OccurrenceBatch, ReplayInput } from '@eqv/core';
+import { EQV_MAX_WINDOW_HOURS } from './limits.js';
 
 /**
  * Candidate endpoint declarations until AP #334 confirms the names (AP #492 direction for the `eqv:view` permission).
@@ -15,6 +16,22 @@ const permission = menuPermission('eqv:view');
 
 export type TopviewContextParams = { equipmentId: string };
 export type TopviewEventsParams = { equipmentId: string; continuationToken?: string };
+
+export type EquipmentOptions = {
+  options: { id: string; label: string; dataRange: { from: string; to: string } | null }[];
+};
+
+/** Available equipment and its half-open data window, in naive seconds; `to` follows the last record's whole second. */
+export const equipmentOptions = defineEndpoint<Record<string, never>, EquipmentOptions>({
+  id: 'eqv.equipment-options',
+  menuId: 'eqv:focus',
+  paramKeys: {},
+  permission,
+  requiresScope: false,
+  context: {},
+  kinds: [],
+  mergeTimeDomain: false,
+});
 
 /** Every Binding, Mapping Version, draft Layout and Layout Revision effective in the applied time (EV ADR-0011). */
 export const topviewContext = defineEndpoint<TopviewContextParams, Omit<ReplayInput, 'batch'>>({
@@ -41,6 +58,6 @@ export const topviewEvents = defineEndpoint<TopviewEventsParams, OccurrenceBatch
   requiresScope: false,
   context: { time: 'apply' },
   kinds,
-  limits: { maxHours: 8 },
+  limits: { maxHours: EQV_MAX_WINDOW_HOURS },
   mergeTimeDomain: true,
 });

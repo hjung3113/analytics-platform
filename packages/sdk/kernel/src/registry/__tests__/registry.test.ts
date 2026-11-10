@@ -24,6 +24,13 @@ const menu = (id: string, path: string, extra: Partial<PlatformMenuEntry> = {}):
 const catalog = menu('catalog', '/metrics', { primary: true });
 
 describe('createRegistry validation (platform-packages.md §5)', () => {
+  it.each([0, -1, 1.5, NaN, Infinity])('rejects defaultPeriodHours=%s', defaultPeriodHours => {
+    expect(() => createRegistry({ spaces, groups, menus: [{ ...catalog, context: { ...none, time: 'apply' }, defaultPeriodHours }] })).toThrow(/defaultPeriodHours/);
+  });
+  it.each(['unsupported', 'reference'] as const)('rejects defaultPeriodHours on time=%s', time => {
+    expect(() => createRegistry({ spaces, groups, menus: [{ ...catalog, context: { ...none, time }, defaultPeriodHours: 8 }] })).toThrow(/defaultPeriodHours/);
+  });
+
   it('rejects apply mode without an address-reproducible period', () => {
     expect(() => createRegistry({ spaces, groups, menus: [{ ...catalog, query: { mode: 'apply' } }] })).toThrow(/apply.*time/);
   });

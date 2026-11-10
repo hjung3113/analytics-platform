@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { type ActionResult, type ActionSpec, type ApiResponse, type ContextKey, type EndpointSpec, type GlobalContext, type ModuleHost, type ModuleScopedId, type ModuleStatus, type ModuleTarget } from '@ap/contracts';
+import { buildQuery, emptyGlobal, parseQuery, type ActionResult, type ActionSpec, type ApiResponse, type ContextKey, type EndpointSpec, type GlobalContext, type ModuleHost, type ModuleScopedId, type ModuleStatus, type ModuleTarget } from '@ap/contracts';
 import { abortError, actionRequest, launchWrite, type PendingWrite, type WriteFlight } from '../query/action';
 import { useI18n } from '../i18n';
 import { useHostPlatform } from '../platform/platform';
@@ -142,6 +142,18 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
       },
       get signal() { return instance.controller.signal; },
     };
+    if (entry.context.time === 'apply' && entry.query?.mode !== 'apply') {
+      host.setTime = range => {
+        let parsed: ReturnType<typeof parseQuery>;
+        try {
+          parsed = parseQuery(buildQuery({ ...emptyGlobal, from: range.from, to: range.to }));
+          if (parsed.global.from === null || parsed.global.to === null) throw new RangeError('partial_period');
+        } catch {
+          throw new RangeError('Invalid applied time range');
+        }
+        if (instance.state === 'active') p.setGlobal({ from: parsed.global.from, to: parsed.global.to });
+      };
+    }
     if (entry.moduleFeatures?.includes('detailSlot') && ports.detail) host.detail = ports.detail;
     if (entry.moduleFeatures?.includes('query')) {
       host.query = <P, T>(spec: EndpointSpec<P, T>, queryParams: P, callerSignal?: AbortSignal): Promise<ApiResponse<T>> => {

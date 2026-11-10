@@ -1,6 +1,6 @@
 import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ApiResponse } from '@ap/contracts';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { eqvScreens } from '../src/index.js';
 import { createFakeHost, deferred, ok, response, type FakeHostOptions, type QueryCall } from './fake-host.js';
 import { bindings, contextData, EQUIPMENT, HOST_TIME, layout, mappings, pages } from './replay-fixture.js';
@@ -49,25 +49,28 @@ describe('queries', () => {
 });
 
 describe('states that need the user', () => {
-  it.each(SCREENS)('%s: an unsupported time is shown as not applied and nothing is queried', async (_name, Screen) => {
+  it.each(SCREENS)('%s: an unsupported time is shown as not applied and replay is not queried', async (name, Screen) => {
     const fake = hostFor({ unsupported: ['time'] });
     render(<Screen host={fake.host} params={{}} />);
     screen.getByText('이 화면에는 시간 구간이 적용되지 않습니다');
-    expect(fake.log.queries).toEqual([]);
+    expect(fake.log.queries.map(call => call.id)).toEqual(name === 'topview' ? ['eqv.equipment-options'] : []);
+    if (name === 'topview') await waitFor(() => expect(screen.queryByText('설비 목록을 불러오는 중…')).toBeNull());
   });
 
-  it.each(SCREENS)('%s: no equipment asks for one and queries nothing', async (_name, Screen) => {
+  it.each(SCREENS)('%s: no equipment asks for one and does not query replay', async (name, Screen) => {
     const fake = hostFor({ page: {} });
     render(<Screen host={fake.host} params={{}} />);
-    screen.getByText('설비를 고르세요');
-    expect(fake.log.queries).toEqual([]);
+    screen.getByText(name === 'topview' ? '위에서 설비를 고르세요' : 'Top View에서 설비를 고르세요');
+    expect(fake.log.queries.map(call => call.id)).toEqual(name === 'topview' ? ['eqv.equipment-options'] : []);
+    if (name === 'topview') await waitFor(() => expect(screen.queryByText('설비 목록을 불러오는 중…')).toBeNull());
   });
 
-  it.each(SCREENS)('%s: no applied time asks for one and queries nothing', async (_name, Screen) => {
+  it.each(SCREENS)('%s: no applied time asks for one and does not query replay', async (name, Screen) => {
     const fake = hostFor({ context: { from: HOST_TIME.from, to: null } });
     render(<Screen host={fake.host} params={{}} />);
     screen.getByText('시간 구간을 고르세요');
-    expect(fake.log.queries).toEqual([]);
+    expect(fake.log.queries.map(call => call.id)).toEqual(name === 'topview' ? ['eqv.equipment-options'] : []);
+    if (name === 'topview') await waitFor(() => expect(screen.queryByText('설비 목록을 불러오는 중…')).toBeNull());
   });
 });
 
@@ -82,8 +85,8 @@ describe('load races', () => {
     });
     fake.setPage({ equipment: 'eq-slow' });
     render(<Screen host={fake.host} params={{}} />);
-    await waitFor(() => expect(fake.log.queries).toHaveLength(1));
-    const first = fake.log.queries[0]!;
+    await waitFor(() => expect(fake.log.queries.filter(call => call.id === CONTEXT_ID)).toHaveLength(1));
+    const first = fake.log.queries.find(call => call.id === CONTEXT_ID)!;
     fake.setPage({ equipment: EQUIPMENT });
     await waitFor(() => expect(first.signal?.aborted).toBe(true));
     await loaded();
@@ -94,7 +97,7 @@ describe('load races', () => {
 });
 
 describe('request generations', () => {
-  it.each(SCREENS)('%s: restoring an earlier equipment waits for a new response instead of reviving the old result', async (_name, Screen) => {
+  it.each(SCREENS)('%s: restoring an earlier equipment waits for a new response instead of reviving the old result', async (name, Screen) => {
     const late = deferred<ApiResponse<unknown>>();
     let calls = 0;
     const fake = hostFor({
@@ -107,7 +110,7 @@ describe('request generations', () => {
     render(<Screen host={fake.host} params={{}} />);
     await waitFor(() => expect(document.querySelector('tr[data-occurrence-id], [data-layer="replay"]')).not.toBeNull());
     fake.setPage({ equipment: null });
-    await screen.findByText('설비를 고르세요');
+    await screen.findByText(name === 'topview' ? '위에서 설비를 고르세요' : 'Top View에서 설비를 고르세요');
     fake.setPage({ equipment: EQUIPMENT });
     await waitFor(() => expect(calls).toBe(2));
     screen.getByText('불러오는 중…');
@@ -399,5 +402,83 @@ describe('Korean copy', () => {
     const detail = await screen.findByRole('region', { name: '근거 상세 occ-pm1-process' });
     for (const label of ['합성 데이터', 'Mapping Version', 'Ruleset Version']) expect(within(detail).getByText(label)).toBeTruthy();
     expect(within(detail).queryByText('synthetic')).toBeNull();
+  });
+});
+
+
+describe('Top View equipment bar (#1644)', () => {
+  const optionsId = 'eqv.equipment-options';
+  const options = [{ id: EQUIPMENT, label: EQUIPMENT, dataRange: HOST_TIME }, { id: 'eq-synth-02', label: 'eq-synth-02', dataRange: null }];
+  const renderBar = (answer: ApiResponse<unknown> | Promise<ApiResponse<unknown>> = ok({ options }), context = HOST_TIME, chosen: string | null = EQUIPMENT, writable = true) => {
+    const fake = hostFor({ page: chosen ? { equipment: chosen } : {}, context, query: call => call.id === optionsId ? Promise.resolve(answer) : server()(call) });
+    const setTime = vi.fn();
+    if (writable) fake.host.setTime = setTime;
+    const Screen = eqvScreens.topview;
+    render(<Screen host={fake.host} params={{}} />);
+    return { fake, setTime };
+  };
+  it('offers a labelled selector without equipment and writes the selected page key', async () => {
+    const { fake } = renderBar(ok({ options }), HOST_TIME, null);
+    screen.getByText('위에서 설비를 고르세요');
+    const select = await screen.findByRole('combobox', { name: '설비' });
+    // jsdom has no scrolling API; the real Radix Select scrolls its focused option.
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
+    try {
+      fireEvent.keyDown(select, { key: 'ArrowDown' });
+      fireEvent.click(await screen.findByRole('option', { name: EQUIPMENT }));
+      expect(fake.log.pageWrites).toEqual([{ equipment: EQUIPMENT }]);
+      await screen.findByText('Component를 선택하세요');
+    } finally {
+      if (descriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', descriptor);
+      else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+    }
+  });
+  it.each([
+    ['2026-01-02T10:00:00', '2026-01-02T10:30:00'],
+    ['2025-12-31T10:30:00', '2026-01-01T10:30:00'],
+  ])('recovers an outside or 24h window (%s to %s) through setTime', async (from, to) => {
+    const { setTime } = renderBar(ok({ options }), { from, to });
+    await screen.findByText('데이터 구간 2026-01-01 10:00:00 ~ 2026-01-01 10:30:00');
+    fireEvent.click(await screen.findByRole('button', { name: '이 구간 보기' }));
+    expect(setTime).toHaveBeenCalledWith(HOST_TIME);
+  });
+  it('shows the window without an action when the applied window is already inside it', async () => {
+    renderBar();
+    await screen.findByText(/데이터 구간/);
+    expect(screen.queryByRole('button', { name: '이 구간 보기' })).toBeNull();
+  });
+  it('applies the last eight hours of a longer data window and explains the clamp', async () => {
+    const dataRange = { from: '2026-01-01T00:00:00', to: '2026-01-02T10:00:00' };
+    const { setTime } = renderBar(ok({ options: [{ ...options[0], dataRange }] }), { from: '2026-01-01T00:00:00', to: '2026-01-02T10:00:00' });
+    await screen.findByText(/마지막 8시간/);
+    fireEvent.click(screen.getByRole('button', { name: '이 구간 보기' }));
+    expect(setTime).toHaveBeenCalledWith({ from: '2026-01-02T02:00:00', to: '2026-01-02T10:00:00' });
+  });
+  it('explains the context bar fallback without setTime', async () => {
+    renderBar(ok({ options }), { from: '2026-01-02T10:00:00', to: '2026-01-02T11:00:00' }, EQUIPMENT, false);
+    await screen.findByText(/컨텍스트 바에서/);
+    expect(screen.queryByRole('button', { name: '이 구간 보기' })).toBeNull();
+  });
+  it('does not invent a window for an equipment with no data', async () => {
+    renderBar(ok({ options }), HOST_TIME, 'eq-synth-02');
+    await screen.findByText('이 설비에는 표시할 데이터 구간이 없습니다');
+    expect(screen.queryByRole('button', { name: '이 구간 보기' })).toBeNull();
+  });
+  it('keeps list loading local to the bar', async () => {
+    renderBar(new Promise(() => undefined), HOST_TIME, null);
+    screen.getByText('설비 목록을 불러오는 중…');
+    screen.getByText('위에서 설비를 고르세요');
+  });
+  it.each([
+    [response('error', null), '설비 목록을 불러오지 못했습니다'],
+    [response('forbidden', null), '설비 목록 접근 권한이 필요합니다'],
+    [response('empty', null), '등록된 설비가 없습니다'],
+    [ok({ options: [] }), '등록된 설비가 없습니다'],
+  ])('shows a list outcome locally (%j)', async (answer, copy) => {
+    const { fake } = renderBar(answer, HOST_TIME, null);
+    await screen.findByText(copy);
+    screen.getByText('위에서 설비를 고르세요');
+    expect(fake.log.statuses).toEqual([]);
   });
 });

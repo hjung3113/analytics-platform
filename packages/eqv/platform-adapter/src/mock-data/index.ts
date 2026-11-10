@@ -1,11 +1,20 @@
 import { occurrenceOverlapsWindow, type OccurrenceBatch, type ReplayInput } from '@eqv/core';
 import { batch, bindings, layouts, mappings } from './cluster-single.generated.js';
+import type { EquipmentOptions } from '../endpoints.js';
 
-/** Synthetic endpoint responses for a host's mock server (`eqv.topview-context`, `eqv.topview-events`). Never import from production code. */
+/** Synthetic endpoint responses for a host's mock server (`eqv.equipment-options`, `eqv.topview-context`, `eqv.topview-events`). Never import from production code. */
 
 export const EQV_MOCK_EQUIPMENT = 'eq-synth-01';
 /** The host Global Context for the fixture's 30-minute sample window (naive seconds, as the host carries them). */
 export const EQV_MOCK_WINDOW = { from: '2026-01-01T10:00:00', to: '2026-01-01T10:30:00' };
+
+/** Equipment discovery is independent of the currently applied host time. */
+export function eqvMockEquipmentOptions(): EquipmentOptions {
+  return { options: [
+    { id: EQV_MOCK_EQUIPMENT, label: EQV_MOCK_EQUIPMENT, dataRange: { ...EQV_MOCK_WINDOW } },
+    { id: 'eq-synth-02', label: 'eq-synth-02', dataRange: null },
+  ] };
+}
 
 const PAGE_SIZE = 15;
 const FIRST_PAGE_WATERMARK = { seq: 30, at: '2026-01-01T10:13:00.000' };
