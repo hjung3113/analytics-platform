@@ -166,7 +166,7 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
       }
     }
 
-    // 6. Audit (same tx, ADR-0008).
+    // 6. Audit (same tx, FO ADR-0008).
     await deps.auditService.record(tx, {
       workspace_id: actor.workspace_id,
       actor_id: actor.actor_id,
@@ -186,7 +186,7 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
       },
     });
 
-    // 6b. #168 (ADR-0034 D6) — enqueue the embedding job. Deliberately the
+    // 6b. #168 (FO ADR-0034 D6) — enqueue the embedding job. Deliberately the
     // last thing before composing the envelope, and deliberately incapable of
     // failing this write: the enqueuer swallows and logs its own errors, and
     // does not join `tx`. A dropped enqueue costs at most one backfill cycle.

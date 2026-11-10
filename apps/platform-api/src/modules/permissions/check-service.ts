@@ -14,7 +14,7 @@
 //                           allow via direct_grant (or grant_expired/revoked)
 //   4. role-derived       → allow via role
 //   5. managed-system     → MS-scoped grants whose managed_system_id matches
-//                           scope.managed_system_id (ADR-0019 Section D: now
+//                           scope.managed_system_id (FO ADR-0019 Section D: now
 //                           first-class; emits via: 'managed_system_scope').
 //                           Slice 3 will add the *fallback* direction
 //                           (MS-scoped grant satisfies a workspace-wide
@@ -157,7 +157,7 @@ export function createCheckService(deps: CheckServiceDeps) {
     options: { tx?: Tx } = {},
   ): Promise<Decision> {
     // When invoked inside a mutation transaction, callers pass `tx` so steps
-    // 2/3/5 observe writes the same tx just performed (S-002, ADR-0019
+    // 2/3/5 observe writes the same tx just performed (S-002, FO ADR-0019
     // Section D). Without it, we fall back to the pool-bound handle for
     // read-only callers like the route-level pre-check at routes.ts.
     const db: Tx = options.tx ?? deps.db;
@@ -428,7 +428,7 @@ export function decideFromRows(
   let sawRevoked = false;
   let sawExpired = false;
   // Step 3 — workspace-wide grants only. MS-scoped grants are step 5's
-  // territory (ADR-0019 Section D).
+  // territory (FO ADR-0019 Section D).
   for (const row of grantRows) {
     if (row.managedSystemId !== null) continue;
     if (row.revokedAt !== null) {
@@ -447,7 +447,7 @@ export function decideFromRows(
     return { allow: true, via: 'role' };
   }
 
-  // (5) managed-system scope (ADR-0019 Section D): when the caller
+  // (5) managed-system scope (FO ADR-0019 Section D): when the caller
   // supplied scope.managed_system_id, match MS-scoped grants whose
   // managed_system_id is exactly that id. Emits the dedicated
   // `via: 'managed_system_scope'` attribution so the audit/state-mapper

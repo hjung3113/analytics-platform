@@ -1,4 +1,4 @@
-// Integration tests for ADR-0008 role separation.
+// Integration tests for FO ADR-0008 role separation.
 //
 // Requires a running Postgres with both platform_app and platform_migrate roles, the
 // Slice 1 migration applied, and the baseline seed in place. The repo ships
@@ -25,7 +25,7 @@ const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
 
 const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
 
-describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
+describe.skipIf(!runIntegration)('FO ADR-0008 role separation', () => {
   let appHandle: DbHandle;
   let migrateHandle: DbHandle;
 
@@ -101,7 +101,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
   });
 
   it('platform_app has full DML on Slice 2 registry tables (managed_systems, analytics_areas)', async () => {
-    // ADR-0008 + ADR-0017 role grants: app role can SELECT/INSERT/
+    // FO ADR-0008 + FO ADR-0017 role grants: app role can SELECT/INSERT/
     // UPDATE/DELETE the registry tables that Slice 2 services write to.
     for (const fq of ['core.managed_systems', 'core.analytics_areas']) {
       const [schema, table] = fq.split('.');
@@ -117,8 +117,8 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
     }
   });
 
-  it('platform_app has SELECT-only on core.teams (ADR-0019 Section C / review DB-003)', async () => {
-    // The placeholder narrative in ADR-0018 says no Slice 2 service writes
+  it('platform_app has SELECT-only on core.teams (FO ADR-0019 Section C / review DB-003)', async () => {
+    // The placeholder narrative in FO ADR-0018 says no Slice 2 service writes
     // to core.teams. Migration 0009 revokes INSERT/UPDATE/DELETE so the
     // grant matches the service surface. The team CRUD slice restores the
     // write grants in its own migration alongside the management service.
@@ -194,7 +194,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
 
   it('Slice 2 review DB-001/002: FK columns on Slice 2 tables have supporting indexes', async () => {
     // Every FK column added by Slice 2 #9 + 0006 needs its own index per
-    // ADR-0015:57 unless a covering composite already exists. The
+    // FO ADR-0015:57 unless a covering composite already exists. The
     // existing `analytics_areas_workspace_managed_system_idx` (0005:135)
     // covers `analytics_areas.managed_system_id`; the rest are explicit
     // in 0008. Assert each named index exists.
@@ -221,7 +221,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
 
   it('Slice 2 review DB-004: pg-boss create_queue functions owned by platform_migrate', async () => {
     // SECURITY DEFINER on pgboss.create_queue runs with the owner's
-    // privileges. ADR-0008 requires the DDL-capable owner; pin it.
+    // privileges. FO ADR-0008 requires the DDL-capable owner; pin it.
     const { rows } = await migrateHandle.pool.query<{
       proname: string;
       rolname: string;
@@ -246,7 +246,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
     expect(result.rowCount).toBeGreaterThan(0);
 
     // Operator cleanup: delete the rows the previous test inserted so reruns
-    // start clean. ADR-0008 acknowledges platform_migrate is the only mutator.
+    // start clean. FO ADR-0008 acknowledges platform_migrate is the only mutator.
     await migrateHandle.pool.query(
       `delete from core.audit_log where event_type = 'test.app_insert'`,
     );
@@ -267,7 +267,7 @@ describe.skipIf(!runIntegration)('ADR-0008 role separation', () => {
   });
 });
 
-describe.skipIf(!runIntegration)('Index conventions (ADR-0015:55-61)', () => {
+describe.skipIf(!runIntegration)('Index conventions (FO ADR-0015:55-61)', () => {
   let handle: DbHandle;
 
   beforeAll(() => {
@@ -283,7 +283,7 @@ describe.skipIf(!runIntegration)('Index conventions (ADR-0015:55-61)', () => {
     // workspace-scoped read path.
     // Restrict to tables that actually carry workspace_id. core.idempotency_keys
     // and core.sessions's PK index are intentionally keyed differently per
-    // ADR-0015:80-87 / ADR-0006:26-38 and have their own composite PK that is
+    // FO ADR-0015:80-87 / FO ADR-0006:26-38 and have their own composite PK that is
     // not workspace-first.
     const { rows } = await handle.pool.query<{
       schemaname: string;
@@ -307,11 +307,11 @@ describe.skipIf(!runIntegration)('Index conventions (ADR-0015:55-61)', () => {
 
     for (const r of rows) {
       // Skip primary-key indexes on workspace-scoped tables: the PK is the
-      // surrogate `id`, not the tenant column. ADR-0015 governs read-path
+      // surrogate `id`, not the tenant column. FO ADR-0015 governs read-path
       // indexes; primary keys are excluded explicitly.
       if (r.indexname.endsWith('_pk') || r.indexname.endsWith('_pkey')) continue;
       // Skip the `sessions` PK as well — its PK is the opaque session id
-      // text column (ADR-0006).
+      // text column (FO ADR-0006).
       if (r.indexname === 'sessions_pkey') continue;
       // `core.api_tokens` is looked up by the hash of the presented token before the workspace is known
       // (ADR-0116): the unique hash index is the lookup key, not a tenant read path.

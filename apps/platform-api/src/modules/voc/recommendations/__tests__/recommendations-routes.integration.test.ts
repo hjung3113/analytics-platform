@@ -1,5 +1,5 @@
 import { deleteRecoveryFixtureParents } from '../../../../test-support/recovery-fixtures.js';
-// HTTP seam for the ADR-0034 recommendation resource.  The service suite
+// HTTP seam for the FO ADR-0034 recommendation resource.  The service suite
 // owns ranking arithmetic; this suite deliberately boots the real server and
 // observes the wire contract, auth middleware, audit rows, and writes.
 
@@ -26,7 +26,7 @@ const VERSION = 1;
 type InjectedResponse = { statusCode: number; json: () => Record<string, unknown> };
 
 /**
- * ADR-0034 D4: unreadable and nonexistent must be byte-identical on the wire.
+ * FO ADR-0034 D4: unreadable and nonexistent must be byte-identical on the wire.
  *
  * `toEqual` compares the whole envelope rather than a subset, and the explicit
  * `not_found.record` assertion is what stops the comparison from being vacuous
@@ -385,7 +385,7 @@ describe.skipIf(!runIntegration)('VOC recommendation HTTP routes (#168)', () => 
       [WORKSPACE_ID, otherSystem.rows[0]?.id, adminId],
     );
     const hiddenCandidateId = hiddenCandidate.rows[0]?.id;
-    // ADR-0034 D4 covers all three routes, so the confirm route is checked on
+    // FO ADR-0034 D4 covers all three routes, so the confirm route is checked on
     // the same fixture rather than assumed to inherit dismiss's behaviour.
     for (const action of ['dismiss', 'confirm'] as const) {
       const candidateHidden = await app.inject({
@@ -439,7 +439,7 @@ describe.skipIf(!runIntegration)('VOC recommendation HTTP routes (#168)', () => 
   });
 
   it('lets an actor with no voc.read grant reach recommendations for a VOC they reported', async () => {
-    // ADR-0031's rule is a disjunction: scope OR reporter. The other tests
+    // FO ADR-0031's rule is a disjunction: scope OR reporter. The other tests
     // cover an actor with scope and an actor with neither; this is the arm
     // where the actor holds no grant on the Managed System at all.
     const externalId = `${PREFIX}-reporter-${randomUUID().slice(0, 8)}`;

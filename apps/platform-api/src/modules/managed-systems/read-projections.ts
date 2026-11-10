@@ -95,7 +95,7 @@ export function managedSystemNameInWorkspaceSql(
   )`;
 }
 
-/** Active workspace-owned MS lock for bounded VOC suggestion admission (ADR-0068). */
+/** Active workspace-owned MS lock for bounded VOC suggestion admission (FO ADR-0068). */
 export async function lockLiveManagedSystemForShare(
   tx: Tx,
   workspaceId: string,

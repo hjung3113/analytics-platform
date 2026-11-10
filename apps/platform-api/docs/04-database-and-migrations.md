@@ -913,7 +913,7 @@ a request can hold a connection or wait for one. Operator pools (`seed`, migrati
   (`audit_log` has no session FK), and no audit row is deleted. Deletes run 1000 rows per statement until a
   batch comes back short, so no statement approaches `DB_STATEMENT_TIMEOUT_MS`; a rerun on a clean table is a
   no-op. Code: `src/modules/core/jobs/sessions-purge.ts`.
-- **No session index.** The purge is a cross-workspace maintenance query, and ADR-0015 requires every
+- **No session index.** The purge is a cross-workspace maintenance query, and FO ADR-0015 requires every
   workspace-scoped index to start with `workspace_id`, so no `expires_at` / `revoked_at` index exists. With
   7-day retention the table stays in the low thousands of rows (~100 users), so the batched delete is cheap.
 - **Indexes** (plain `CREATE INDEX`, not `CONCURRENTLY`; they take a write lock on the table while building, so

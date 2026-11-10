@@ -1,4 +1,4 @@
-// DB time-budget errors → HTTP 503 (#1266 b3, ADR-0012 envelope).
+// DB time-budget errors → HTTP 503 (#1266 b3, FO ADR-0012 envelope).
 //
 // The runtime pool sets statement_timeout / lock_timeout /
 // idle_in_transaction_session_timeout and a pool acquire timeout (db/client.ts).

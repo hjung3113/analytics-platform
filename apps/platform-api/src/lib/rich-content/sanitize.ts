@@ -1,6 +1,6 @@
-// Authoritative server-side TipTap sanitizer (ADR-0011). The function is
+// Authoritative server-side TipTap sanitizer (FO ADR-0011). The function is
 // pure — no DB, no I/O — so it composes inside any tx. Result is a
-// discriminated union so callers can map to ADR-0012 codes without throwing
+// discriminated union so callers can map to FO ADR-0012 codes without throwing
 // on validation paths.
 //
 // Rev 2 (issue #23): rebuilds a canonical doc (only {type, attrs?, marks?,

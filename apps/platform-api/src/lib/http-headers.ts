@@ -1,6 +1,6 @@
 import { HttpError } from './errors.js';
 
-/** ADR-0015 client idempotency key: UUIDv4. */
+/** FO ADR-0015 client idempotency key: UUIDv4. */
 export const IDEMPOTENCY_KEY_REGEX =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
 

@@ -1,6 +1,6 @@
 // apps/platform-api/src/modules/voc/public-read/rule.ts
 //
-// The VOC public-read rule (ADR-0110 decision 3). It is NOT the ADR-0031 rule and must never be
+// The VOC public-read rule (ADR-0110 decision 3). It is NOT the FO ADR-0031 rule and must never be
 // merged into it: `authorization.ts` keeps `actorEffectiveScope`, `similarVocVisibilityPredicate`,
 // `isVocVisibleToActor` and `canReadVocAsSource` untouched, so every operator, peer,
 // recommendation, cluster and dashboard path is unchanged by `voc.read_public`.

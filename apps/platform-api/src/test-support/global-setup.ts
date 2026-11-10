@@ -18,7 +18,7 @@ export default async function setup(): Promise<void> {
   const workspaceId = process.env.WORKSPACE_ID ?? '';
 
   // Partial env cannot be reset safely: without WORKSPACE_ID the seed has no
-  // workspace to bind to (ADR-0006), and truncating without re-seeding would
+  // workspace to bind to (FO ADR-0006), and truncating without re-seeding would
   // leave the suites that read seed fixtures worse off than not resetting.
   if (!appUrl || !migrateUrl || !workspaceId) return;
 

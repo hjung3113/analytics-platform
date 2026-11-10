@@ -12,7 +12,7 @@ const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
 const runIntegration = Boolean(APP_URL && MIGRATE_URL && process.env.WORKSPACE_ID);
 
 // Inert storage has no command/route: SQL is its public seam. No provider or job runs here.
-describe.skipIf(!runIntegration)('ADR-0068 inert Cluster suggestion storage', () => {
+describe.skipIf(!runIntegration)('FO ADR-0068 inert Cluster suggestion storage', () => {
   let app: DbHandle;
   let migrate: DbHandle;
   const workspaceId = randomUUID();

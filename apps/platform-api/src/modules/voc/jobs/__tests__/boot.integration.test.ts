@@ -1,7 +1,7 @@
 // #168 step 3 — VOC job boot wiring. Mirrors
 // modules/core/jobs/__tests__/boot.integration.test.ts: the "is this real?"
 // check is that the backfill cron actually lands in pgboss.schedule and that
-// both queues were pre-created by migration 0043 with ADR-0009 retry config.
+// both queues were pre-created by migration 0043 with FO ADR-0009 retry config.
 
 import type { PgBoss } from 'pg-boss';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -91,7 +91,7 @@ describe.skipIf(!runIntegration)('VOC embedding job boot wiring (#168)', () => {
     VOC_EMBEDDING_BACKFILL_QUEUE,
     VOC_SIMILARITY_PREVIEW_CLEANUP_QUEUE,
   ]) {
-    it(`records ${queue} in pgboss.queue with ADR-0009 retry config`, async () => {
+    it(`records ${queue} in pgboss.queue with FO ADR-0009 retry config`, async () => {
       const row = await dbHandle.pool.query<{
         retry_limit: number;
         retry_delay: number;
@@ -115,7 +115,7 @@ describe.skipIf(!runIntegration)('VOC embedding job boot wiring (#168)', () => {
     expect(ours?.cron).toBe(VOC_CLUSTER_AUTOGEN_SHADOW_CRON);
   });
 
-  it('records the shadow queue with ADR-0009 retry config', async () => {
+  it('records the shadow queue with FO ADR-0009 retry config', async () => {
     const row = await dbHandle.pool.query<{
       retry_limit: number;
       retry_delay: number;

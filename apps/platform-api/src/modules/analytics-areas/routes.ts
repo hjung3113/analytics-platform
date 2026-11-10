@@ -18,7 +18,7 @@ const createBodySchema = z.object({
   owner_team_id: z.string().uuid().nullable().optional(),
 });
 
-// PATCH body. `slug` + `managed_system_id` are immutable per ADR-0017;
+// PATCH body. `slug` + `managed_system_id` are immutable per FO ADR-0017;
 // the route preHandler rejects any client payload that includes either
 // with `validation.immutable_field`.
 const updateBodySchema = z.object({

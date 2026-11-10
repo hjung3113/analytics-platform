@@ -369,7 +369,7 @@ export const recoveryHistorySchema = z.object({
 }).strict();
 export type RecoveryHistory = z.infer<typeof recoveryHistorySchema>;
 
-// ADR-0069: the report and Coverage consumer share exact destination search keys.
+// FO ADR-0069: the report and Coverage consumer share exact destination search keys.
 const areaReportDestinations = {
   'voc.total': ['/vocs', { view: 'inbox' }],
   'voc.unassigned': ['/vocs', { view: 'inbox', tab: 'unassigned' }],

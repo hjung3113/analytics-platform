@@ -1,14 +1,14 @@
-// Hourly purge of expired idempotency keys (ADR-0015:88).
+// Hourly purge of expired idempotency keys (FO ADR-0015:88).
 //
 // `core.idempotency_keys` rows live for 24 hours so retried mutating
 // requests within that window are served from cache. After 24h the row is
 // safe to drop. This handler runs once per hour on pg-boss.
 //
-// Why no audit row: ADR-0008 audit_log is for *domain* mutations. This is
+// Why no audit row: FO ADR-0008 audit_log is for *domain* mutations. This is
 // a system-internal cache eviction that touches no user-visible state.
 // Logging it would just generate noise. The job payload carries a
 // `correlation_id` so re-runs and retries are observable in app logs
-// (ADR-0009:36).
+// (FO ADR-0009:36).
 
 import { sql } from 'drizzle-orm';
 import type { PgBoss } from 'pg-boss';
@@ -16,7 +16,7 @@ import type { PgBoss } from 'pg-boss';
 import type { Db } from '../../../db/client.js';
 import { JOB_WORK_OPTIONS, type JobLog, withJobLogging } from '../../../lib/job-log.js';
 
-/** Queue name. Format: `<module>.<action>` per ADR-0009. */
+/** Queue name. Format: `<module>.<action>` per FO ADR-0009. */
 export const IDEMPOTENCY_PURGE_QUEUE = 'core.idempotency_purge';
 
 /** Hourly cron: top of every hour. */
@@ -49,7 +49,7 @@ export async function purgeExpiredIdempotencyKeys(deps: {
  * Test-only surface (H6, slice3-prologue): the inline `boss.work` callback
  * extracted as a named factory so a unit test can pin its error-propagation
  * contract without booting pg-boss. Errors thrown here MUST propagate so
- * pg-boss's retry config (ADR-0009:35) takes effect. Do not wrap in a
+ * pg-boss's retry config (FO ADR-0009:35) takes effect. Do not wrap in a
  * try/catch that swallows errors (e.g. "log and continue") — that would
  * silently defeat the retry contract.
  */
@@ -73,7 +73,7 @@ export function __purgeHandler(deps: {
 /**
  * Wire the handler + hourly cron into pg-boss. Idempotent — re-running
  * registerCoreJobs on a fresh process must converge on the same set of
- * queues, workers, and schedules. ADR-0009:35 retry config is applied at
+ * queues, workers, and schedules. FO ADR-0009:35 retry config is applied at
  * queue-create time so jobs inherit it.
  */
 export async function registerIdempotencyPurge(

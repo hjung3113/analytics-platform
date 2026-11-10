@@ -2,7 +2,7 @@ import { GLOSSARY } from '@/lib/copy/glossary';
 import { StatusBadgeFrame } from '@ap/ui';
 
 export interface MilestoneStatusBadgeProps {
-  /** MilestoneDto.status is the ADR-0050 closed set planning | in_progress |
+  /** MilestoneDto.status is the FO ADR-0050 closed set planning | in_progress |
       blocked | released (Accepted); unknown values still fall back to
       Planning defensively. */
   status: string;
@@ -53,7 +53,7 @@ const STATUS_META: Record<
 
 // Geometry per the prototype .badge/.badge-dot (styles.css:1246-1268): 20px
 // pill, 6px side padding, 4px radius, 11px/500 label, 6×6 dot in the token
-// color. Tokens are RGB channel triplets (ADR-0021), so they MUST be wrapped
+// color. Tokens are RGB channel triplets (FO ADR-0021), so they MUST be wrapped
 // in rgb(... / <alpha>) — var(--token) alone is an invalid CSS color and the
 // badge silently renders as black text on a transparent background
 // (.review/pixel-514-findings.md finding 2); same consumption as

@@ -15,7 +15,7 @@
 // the teardown order itself.
 //
 // Runs as the migrate role: `platform_app` deliberately has no DELETE on
-// `core.audit_log` (ADR-0008/0019), so it cannot clear the table that causes
+// `core.audit_log` (FO ADR-0008/0019), so it cannot clear the table that causes
 // the FK abort in the first place.
 
 import { createDb } from '../db/client.js';

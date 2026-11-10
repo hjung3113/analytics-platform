@@ -496,7 +496,7 @@ describe.skipIf(!runIntegration)('GET /dashboard/summary (#217)', () => {
   }
 
   async function seedSurveyGaps(msId: string, total: number): Promise<string> {
-    // 0052 predicate (ADR-0055): only CLOSED outcome surveys whose cohort
+    // 0052 predicate (FO ADR-0055): only CLOSED outcome surveys whose cohort
     // meets the workspace anonymity threshold count, with low-band ratings.
     // One survey per call; `total` poor responses plus high-band filler up to
     // the threshold, so the queue delta still equals `total`.
@@ -2725,7 +2725,7 @@ describe.skipIf(!runIntegration)('GET /dashboard/summary (#217)', () => {
     expect(await listAllSourceIds(adminCookie, `${tasksUrl}&managed_system_id=${msA}`)).toHaveLength(2);
 
     // Surveys stay response-grain on the summary while the destination list is
-    // Survey-grain (ADR-0067, the same intended difference as the owner-grain
+    // Survey-grain (FO ADR-0067, the same intended difference as the owner-grain
     // case above): MS-A summary counts 2 poor responses but the list returns
     // exactly the one qualifying Survey, and MS-B's matching Survey joins the
     // workspace-wide list.

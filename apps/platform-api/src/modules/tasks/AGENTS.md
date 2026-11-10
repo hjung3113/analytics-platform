@@ -24,14 +24,14 @@
 
 - Test request approval, conversion, release review candidates, reopened flows, and source evidence visibility when touched.
 
-## Close-out contract (ADR-0067)
+## Close-out contract (FO ADR-0067)
 
 - Task Request accepts assigned-reviewer Actor/team fields distinct from actual `reviewer_actor_id`, plus Task `assignee_team_id`. Default changes never reassign.
 - Task Request reviewer default precedes eligible owner/AA team/scoped queue; conversion uses owner defaults. Invalid explicit rejects, invalid automatic skips, authorized null opts out.
 - Preserve pending/Backlog, open authorized review and self-approval checks, links/audit/replay; notify only a concrete assignee once. Personal reviewer filters never narrow operational totals.
 - Source mutations use the injected Dashboard recorder, not direct projection/source rewrites.
 
-## Survey source defaults (ADR-0064)
+## Survey source defaults (FO ADR-0064)
 
 - Survey-derived Finding/source summaries and Task Request draft defaults contain metadata only. Approved text requires a fresh authorized highlight projection, never a cached summary or private response/link/audit reconstruction.
 - Preserve ordinary source permissions and authored Task/Task Request prose; no bulk history rewrite is authorized. Consume the existing owning-module seams.

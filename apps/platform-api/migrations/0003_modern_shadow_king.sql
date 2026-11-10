@@ -1,6 +1,6 @@
 -- F-003 + F-010 + idempotency purge queue pre-create.
 --
--- Section A (F-003, ADR-0015:55-61): add foreign keys to enforce referential
+-- Section A (F-003, FO ADR-0015:55-61): add foreign keys to enforce referential
 -- integrity on every workspace_id / actor_id column flagged in
 -- .review/SLICE-1-REVIEW.md. The drizzle-kit CJS loader cannot resolve the
 -- `.js` extensions that NodeNext requires for cross-file `.ts` imports, so
@@ -11,7 +11,7 @@
 -- core actors) so no backfill is required.
 --
 -- Section B (F-010): revoke EXECUTE on pgboss.create_queue and
--- pgboss.delete_queue from fops_app. ADR-0008's role separation says the
+-- pgboss.delete_queue from fops_app. FO ADR-0008's role separation says the
 -- running app must not DDL; those two stored functions DDL partition tables.
 -- Slice 1 pg-boss usage is exactly one queue (`core.idempotency_purge`) and
 -- it is pre-created here so the boot path can downgrade `createQueue` to a

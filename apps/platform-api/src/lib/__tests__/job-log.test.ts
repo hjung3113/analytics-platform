@@ -1,4 +1,4 @@
-// Unit tests for the job logging wrapper (ADR-0013, amended 2026-09-22).
+// Unit tests for the job logging wrapper (FO ADR-0013, amended 2026-09-22).
 //
 // Contracts under test: the per-job event SET (start/retry/success/failure),
 // the bounded field shape (ids + duration; never error messages, never

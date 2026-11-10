@@ -23,7 +23,7 @@ export const approvePermissionRequestSchema = z
   })
   .strict();
 // Decision reason requirements are domain validation, not transport validation:
-// the service trims and returns the ADR-0012 validation.* envelope (422).
+// the service trims and returns the FO ADR-0012 validation.* envelope (422).
 export const rejectPermissionRequestSchema = optionalReasonSchema;
 export const denyPermissionRequestSchema = optionalReasonSchema;
 export const needMoreInfoPermissionRequestSchema = z

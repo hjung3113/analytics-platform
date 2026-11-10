@@ -12,7 +12,7 @@
 // plus a precedence case where a VOC-sourced Task Request additionally carries
 // a finding link, so request-source must win over finding-source.
 //
-// Actor matrix per ADR-0023: visibility is a backend verdict from the ONE VOC
+// Actor matrix per FO ADR-0023: visibility is a backend verdict from the ONE VOC
 // read-authority path. `hidden` is never serialized — the whole `voc` key is
 // absent and the raw body must not contain any VOC identifier.
 

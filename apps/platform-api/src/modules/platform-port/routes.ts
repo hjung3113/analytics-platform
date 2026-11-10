@@ -1,8 +1,8 @@
-// Platform port — `/api/v1/platform/*` (ADR-0069). A Fastify plugin registered with
+// Platform port — `/api/v1/platform/*` (platform ADR-0069). A Fastify plugin registered with
 // that prefix: camelCase JSON, `Cache-Control: no-store` on every response and a
 // plugin-scoped error handler. It reads other modules through their services
 // (session, permission check) and writes only its own tables — `platform.usage_events`,
-// `platform.client_errors` — plus `core.sessions.csrf_token` (ADR-0069 decision 1).
+// `platform.client_errors` — plus `core.sessions.csrf_token` (platform ADR-0069 decision 1).
 
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
@@ -130,7 +130,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     return { sessionVersion: sessionVersionOf(await buildSession(loaded)) };
   });
 
-  // Read POSTs (ADR-0069 decision 4): no CSRF. Every judged result is HTTP 200 + envelope.
+  // Read POSTs (platform ADR-0069 decision 4): no CSRF. Every judged result is HTTP 200 + envelope.
   app.post('/audit-trail/search', async (req, reply) => {
     const loaded = await authenticate(req, reply, true);
     if (!loaded) return reply;
@@ -243,8 +243,8 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
 
   // Annotations are a gate only (#622 decision 6): `analytics:view` is never granted and feature
   // has no sites, so every call is `forbidden`. Storage, validation, the site grant, author-only
-  // delete and its ADR-0041 audit are NOT implemented — recorded in .planning/backlog.md
-  // (## 작은 후속, "주석 저장"); the full ADR-0041 order is validation → site grant → lookup.
+  // delete and its platform ADR-0041 audit are NOT implemented — recorded in .planning/backlog.md
+  // (## 작은 후속, "주석 저장"); the full platform ADR-0041 order is validation → site grant → lookup.
   async function annotationGate(req: FastifyRequest, reply: FastifyReply) {
     const loaded = await authenticate(req, reply, true);
     if (!loaded) return reply;

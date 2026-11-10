@@ -424,7 +424,7 @@ export function createMilestonesService(deps: MilestonesServiceDeps) {
             },
           });
 
-          // ADR-0050: a status change records the pair. A title-only PATCH does not.
+          // FO ADR-0050: a status change records the pair. A title-only PATCH does not.
           const statusChanged =
             args.input.status !== undefined && args.input.status !== milestone.status;
           await deps.auditService.record(tx, {

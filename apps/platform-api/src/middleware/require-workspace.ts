@@ -1,5 +1,5 @@
 // `requireWorkspace` — preHandler that asserts the active session belongs to
-// the expected workspace (ADR-0006:60-62, MVP single-tenant). Must run AFTER
+// the expected workspace (FO ADR-0006:60-62, MVP single-tenant). Must run AFTER
 // `requireSession` so `req.session` is populated. Mismatch → 403 envelope
 // `auth.workspace_mismatch`.
 

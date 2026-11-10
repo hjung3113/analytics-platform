@@ -5,7 +5,7 @@
 // AnalyticsAreaSlideOver). Live API data only; the prototype's window globals /
 // synthetic data are not ported (AGENTS.md → UI Authority). Maps the
 // prototype's dark-token components to the real @ap/feature-ui light-token components
-// (ADR-0021 / Pack 17).
+// (FO ADR-0021 / Pack 17).
 //
 // Prototype-silent / locked deviations (recorded in the PR/commit body):
 //   1. scope-mark color/mark — derived deterministically from slug+name via

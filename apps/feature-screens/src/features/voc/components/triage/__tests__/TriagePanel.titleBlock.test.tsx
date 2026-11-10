@@ -103,7 +103,7 @@ describe('TriagePanel Overview and grouped navigation', () => {
     const labels = within(nav as HTMLElement)
       .getAllByRole('button')
       .map((button) => button.textContent?.replace(/\s/g, ''));
-    // #592: the recommendation section is named for the ADR-0034 surface, without the peer count.
+    // #592: the recommendation section is named for the FO ADR-0034 surface, without the peer count.
     expect(labels).toEqual(['개요', '담당배정', '유사VOC추천', '요약·변경사항']);
     expect(within(nav as HTMLElement).queryByText('더보기')).not.toBeInTheDocument();
     for (const removed of ['Body', 'Severity', 'Owner', 'Area', 'Cluster']) {

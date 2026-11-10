@@ -1,5 +1,5 @@
 // Test-local host adapter around retained Cluster screens.
-// /voc-clusters — ADR-0020 ListShell cluster list + right detail panel.
+// /voc-clusters — FO ADR-0020 ListShell cluster list + right detail panel.
 // URL wiring only: the screen lives in features/voc-cluster; after a create this route opens the new cluster's path.
 
 import { ClusterListScreen } from '@/features/voc-cluster/components/ClusterListScreen';

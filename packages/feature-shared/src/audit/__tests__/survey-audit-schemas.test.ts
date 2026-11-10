@@ -291,7 +291,7 @@ describe('Survey audit event registration', () => {
   });
 });
 
-describe('Survey outcome follow-up audit details (ADR-0055)', () => {
+describe('Survey outcome follow-up audit details (FO ADR-0055)', () => {
   const marked = {
     survey_id: U,
     managed_system_id: V,

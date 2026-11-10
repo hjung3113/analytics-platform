@@ -100,7 +100,7 @@ export function useVocDetailPanelController({
           }
         : null;
 
-  // FE display hint only (ADR-0024 §C): gate button to Admin or Developer.
+  // FE display hint only (FO ADR-0024 §C): gate button to Admin or Developer.
   const canCreateFinding = me?.actor.role_level === 'admin' || me?.actor.role_level === 'developer';
   const reviewCandidates = usePublicUpdateReviewCandidates(voc.id, canCreateFinding);
   const pendingReviewCount = reviewCandidates.data?.items.length ?? 0;
@@ -132,7 +132,7 @@ export function useVocDetailPanelController({
     });
   }
 
-  // A move is offered only where the host can take the actor there (ADR-0071 d10): the bridge maps these
+  // A move is offered only where the host can take the actor there (platform ADR-0071 d10): the bridge maps these
   // destinations menu by menu, so an unmapped one leaves its control out. Each control asks `canLink` about its
   // own destination href (the record's id), never a probe built from this VOC.
   const taskPath = (id: string) => searchHref('/tasks', { param: id });

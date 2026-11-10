@@ -3,7 +3,7 @@
 // under the heading "### Permission Request self-approval policy"
 // (snake_case, single token, no dot — e.g. `permission_requested`,
 // `permission_approved`).
-// ADR-0008's older `subject_type.verb` convention is a non-binding stylistic
+// FO ADR-0008's older `subject_type.verb` convention is a non-binding stylistic
 // suggestion and explicitly defers to the policy doc's verb vocabulary for
 // any event listed there. New events MUST take their name from that list,
 // or — if no policy-doc entry exists — adopt the same snake_case style.

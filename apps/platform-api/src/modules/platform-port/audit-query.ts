@@ -11,7 +11,7 @@ import { PLATFORM_AUDIT_ACTIONS, type PlatformAuditAction } from './audit-action
  */
 const AUDIT_TYPE_TOKEN = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/;
 
-/** Entity types `getEntity` and `entityAudit` answer (ADR-0069 decision 9): the shared read gate's types. */
+/** Entity types `getEntity` and `entityAudit` answer (platform ADR-0069 decision 9): the shared read gate's types. */
 export const ENTITY_READABLE_TYPES = ['voc', 'finding', 'task'] as const;
 
 export const AUDIT_SOURCES = ['user', 'system'] as const;

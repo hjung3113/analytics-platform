@@ -1,4 +1,4 @@
--- Issue #142 / ADR-0029: 공유 per-workspace 휴먼 display-id 스킴.
+-- Issue #142 / FO ADR-0029: 공유 per-workspace 휴먼 display-id 스킴.
 -- VOC(voc.next_voc_display_id, 0017)의 일반화. VOC 자체는 미변경.
 
 CREATE TABLE IF NOT EXISTS "core"."display_counters" (

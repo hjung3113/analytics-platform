@@ -1,4 +1,4 @@
-// Hourly purge of expired rate-limit rows (F-018; ADR-0015:7-9).
+// Hourly purge of expired rate-limit rows (F-018; FO ADR-0015:7-9).
 //
 // `core.rate_limits` rows live one upsert per `(key, route_group)`. The
 // PgRateLimitStore resets `expires_at` on each call inside an active
@@ -8,10 +8,10 @@
 // keeps a row alive long enough for a slow client retry to coast on the
 // same counter row instead of being treated as fresh traffic).
 //
-// Why no audit row: ADR-0008 audit_log is for *domain* mutations. This is
+// Why no audit row: FO ADR-0008 audit_log is for *domain* mutations. This is
 // a system-internal cache eviction with no user-visible state change.
 // Sibling of `core.idempotency_purge` — same shape, separate queue + cron
-// so a failure in one does not stall the other (ADR-0009 retry policy is
+// so a failure in one does not stall the other (FO ADR-0009 retry policy is
 // per queue).
 
 import { sql } from 'drizzle-orm';
@@ -20,7 +20,7 @@ import type { PgBoss } from 'pg-boss';
 import type { Db } from '../../../db/client.js';
 import { JOB_WORK_OPTIONS, type JobLog, withJobLogging } from '../../../lib/job-log.js';
 
-/** Queue name. Format: `<module>.<action>` per ADR-0009. */
+/** Queue name. Format: `<module>.<action>` per FO ADR-0009. */
 export const RATE_LIMITS_PURGE_QUEUE = 'core.rate_limits_purge';
 
 /** Hourly cron, offset 15 min from idempotency_purge to spread load. */
@@ -52,7 +52,7 @@ export async function purgeExpiredRateLimits(deps: {
  * Wire the handler + hourly cron into pg-boss. Idempotent — same contract
  * as `registerIdempotencyPurge`. Queue is pre-created in migration 0004
  * because platform_app does not hold EXECUTE on `pgboss.create_queue`'s DDL
- * branch (F-010 / ADR-0008).
+ * branch (F-010 / FO ADR-0008).
  */
 export async function registerRateLimitsPurge(
   boss: PgBoss,

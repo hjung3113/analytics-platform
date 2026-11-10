@@ -8,7 +8,7 @@ import { createVoyageEmbeddingProvider, type VoyageFetch } from './voyage.js';
 const DEFAULT_DIMENSIONS = 1024;
 
 /**
- * Whether this environment can produce embeddings at all (ADR-0034 D2).
+ * Whether this environment can produce embeddings at all (FO ADR-0034 D2).
  *
  * The ingestion path checks this *before* enqueuing rather than discovering
  * unavailability inside a worker: a disabled environment must enqueue nothing,

@@ -14,7 +14,7 @@ export function MilestoneTaskRow({
   assigneeName?: string | undefined;
 }) {
   return (
-    // G-columns (ADR-0050 choice a, design §7 item 12): the prototype's estimate slot
+    // G-columns (FO ADR-0050 choice a, design §7 item 12): the prototype's estimate slot
     // renders the Task due_date; no estimate field exists.
     // Nested card geometry per prototype .card-nested: radius 6, borderless, 10/12 padding.
     <div className="flex items-center gap-2.5 rounded-md bg-surface-canvas px-3 py-2.5">

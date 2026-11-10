@@ -1,4 +1,4 @@
--- #739 / ADR-0064. Drizzle-generated DDL below is ordered so that legacy
+-- #739 / FO ADR-0064. Drizzle-generated DDL below is ordered so that legacy
 -- data is retained before public copies are cleared. Runs in the migrator transaction.
 DO $$
 DECLARE owner_name text;

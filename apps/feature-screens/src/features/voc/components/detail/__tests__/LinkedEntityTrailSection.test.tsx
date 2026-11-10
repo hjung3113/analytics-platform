@@ -168,7 +168,7 @@ describe('<LinkedEntityTrailSection>', () => {
   });
 
   it('never offers a destination for a summary_visible Task, even when one is supplied', () => {
-    // ADR-0023 §E: a Reporter sees the projected summary and nothing more —
+    // FO ADR-0023 §E: a Reporter sees the projected summary and nothing more —
     // handing this surface a navigation callback must not create a way in.
     const onOpenTask = vi.fn();
     render(
@@ -201,7 +201,7 @@ describe('<LinkedEntityTrailSection>', () => {
   });
 
   // #1174b U2-1: Finding links follow the same backend-decided visibility matrix
-  // as Task links (ADR-0023 §C + ADR-0024 §D; a Finding summary_visible payload
+  // as Task links (FO ADR-0023 §C + FO ADR-0024 §D; a Finding summary_visible payload
   // is unreachable and fails closed).
   it.each(['evidence_of', 'created_finding'] as const)(
     'renders an allowed %s Finding link for an operator view',

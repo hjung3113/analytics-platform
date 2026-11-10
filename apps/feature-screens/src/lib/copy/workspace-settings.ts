@@ -14,7 +14,7 @@ export const WORKSPACE_SETTINGS_SELF_APPROVAL_COPY = {
     '과거의 직접 승인 기록은 감사 로그에 본인 승인으로 영구 보존되며 회수되지 않습니다.',
 } as const;
 
-// #1088 (ADR-0067 56-C): Korean chrome for the five Coverage band rows in
+// #1088 (FO ADR-0067 56-C): Korean chrome for the five Coverage band rows in
 // /admin/settings. Metric names reuse the shipped Coverage labels; band values
 // are server-applied percent cutoffs, not client-side thresholds.
 // What each metric counts (numerator / denominator), per the dashboard summary contract.

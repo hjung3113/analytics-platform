@@ -4,7 +4,7 @@
 // (docs/design/history/feedbackops-prototype/screen-admin.jsx → AdminScreen). Live API data only;
 // the prototype's window globals / synthetic data are not ported (AGENTS.md
 // → UI Authority). Maps the prototype's dark-token components to the
-// real @ap/feature-ui light-token components (ADR-0021 / Pack 17).
+// real @ap/feature-ui light-token components (FO ADR-0021 / Pack 17).
 //
 // Prototype-silent deviations recorded in the PR/commit body:
 //   1. scope-mark color/mark — derived deterministically from slug+name via
@@ -103,9 +103,9 @@ function ManagedSystemsBody({
     skipFocusRestore.current = false;
     setEditTarget(target);
   }
-  // Archived rows cannot be restored (ADR-0019 §A: archived rows are immutable).
+  // Archived rows cannot be restored (FO ADR-0019 §A: archived rows are immutable).
   // The designed remedy for "archived by mistake" is re-registering the same
-  // slug (ADR-0017), so Configure hands the archived row's fields to Register.
+  // slug (FO ADR-0017), so Configure hands the archived row's fields to Register.
   const [reregisterFrom, setReregisterFrom] = useState<ManagedSystemDto | null>(null);
 
   const {
@@ -197,7 +197,7 @@ function ManagedSystemsBody({
           <ul className="flex flex-col gap-2">
             {diagnosticsQuery.data.items.map((warning) => {
               const target = systems.find((system) => system.id === warning.managed_system_id);
-              // Names are not unique (ADR-0017); the slug tells same-name systems apart.
+              // Names are not unique (FO ADR-0017); the slug tells same-name systems apart.
               const systemLabel = target
                 ? systems.some((system) => system.id !== target.id && system.name === target.name)
                   ? `${target.name} (${target.slug})`

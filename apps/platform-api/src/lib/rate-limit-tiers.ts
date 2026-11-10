@@ -1,6 +1,6 @@
 import type { FastifyRequest } from 'fastify';
 
-// Per-route tiers (ADR-0015:11-13). Registered as helper factories that route
+// Per-route tiers (FO ADR-0015:11-13). Registered as helper factories that route
 // modules attach through `config.rateLimit`. The sensitive tier is consumed by
 // the four `POST /permissions/requests/:id/{approve,reject,need-more-info,deny}`
 // decision routes (modules/permissions/routes.ts).

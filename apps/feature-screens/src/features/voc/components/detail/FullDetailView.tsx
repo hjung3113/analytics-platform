@@ -13,7 +13,7 @@ export interface FullDetailViewProps {
   children: React.ReactNode;
 }
 
-// ADR-0057 A2 amendment localizes Korean navigation while preserving domain nouns.
+// FO ADR-0057 A2 amendment localizes Korean navigation while preserving domain nouns.
 // Prototype deviation (screen-voc.jsx:175-185): issue #519 and the user's Option C decision
 // pin the core navigation and move Description/Conversation into an overflow menu.
 // Execution section only shown when there's an active finding/task (Slice 4+).

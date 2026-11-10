@@ -1,4 +1,4 @@
-// Platform port `recordUsage` + `usageSummary` (ADR-0069 decisions 1, 2, 4; #622). The module
+// Platform port `recordUsage` + `usageSummary` (platform ADR-0069 decisions 1, 2, 4; #622). The module
 // writes its own `platform.usage_events` table. Validation mirrors the reference server
 // (`packages/adapters/mock-server/src/server.ts` recordUsage) and the binding UsageEvent rule of
 // http-adapter-contract §1: identity fields only, the whole batch or nothing.
@@ -53,7 +53,7 @@ export function validIdentifier(value: unknown, maxLength: number): value is str
  */
 export const MENU_ID_PATTERN = /^[^\s?#&/=\p{C}]{1,80}$/u;
 
-/** A space id is null (a global menu) or an identifier like a menu id: this server does not know the app's spaces (ADR-0072), so it judges the shape only. */
+/** A space id is null (a global menu) or an identifier like a menu id: this server does not know the app's spaces (platform ADR-0072), so it judges the shape only. */
 export function validSpaceId(value: unknown): value is string | null {
   return value === null || validIdentifier(value, 80);
 }
@@ -205,7 +205,7 @@ export interface UsageMenuSummary {
   searchEntryRate: number | null;
 }
 
-/** Mask k: a number built from fewer distinct people never leaves the server (ADR-0020 supplement, #605). */
+/** Mask k: a number built from fewer distinct people never leaves the server (platform ADR-0020 supplement, #605). */
 export const USAGE_MASK_K = 3;
 const BACK_VIAS = ['history', 'return'];
 const USAGE_NEXT_LIMIT = 20;

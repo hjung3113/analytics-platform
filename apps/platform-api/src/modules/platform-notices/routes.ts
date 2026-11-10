@@ -2,7 +2,7 @@
 // no-store hook, malformed-JSON parser, error handler and prefix 404; none of it is repeated here).
 // Reads are `ApiResponse` envelopes; writes are `ActionResponse` bodies, every judged result HTTP 200.
 // A missing/expired session or workspace mismatch is judged first (401/403), then the CSRF token of that
-// active session (403): a stale cookie never reaches the CSRF check (ADR-0069 decision 3, ADR-0098 §4).
+// active session (403): a stale cookie never reaches the CSRF check (platform ADR-0069 decision 3, ADR-0098 §4).
 
 import type { FastifyPluginAsync, FastifyRequest, preHandlerHookHandler } from 'fastify';
 

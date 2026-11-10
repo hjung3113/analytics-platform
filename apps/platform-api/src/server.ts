@@ -199,7 +199,7 @@ export interface BuildServerOptions {
   dbHandle: DbHandle;
   /**
    * Optional pg-boss handle. The runtime entrypoint starts pg-boss before
-   * buildServer (ADR-0009:22-27 boot order) and threads it through so future
+   * buildServer (FO ADR-0009:22-27 boot order) and threads it through so future
    * modules can attach request-time enqueue helpers without a second pg-boss
    * instance. Slice 1 has no in-request consumers; tests that don't need
    * background jobs may omit it.
@@ -208,7 +208,7 @@ export interface BuildServerOptions {
   /** Optional notification queue override for route and application tests. */
   notificationDispatcher?: NotificationDispatcher;
   /**
-   * Optional process root logger (ADR-0013, amended 2026-09-22). When given,
+   * Optional process root logger (FO ADR-0013, amended 2026-09-22). When given,
    * Fastify attaches it via `loggerInstance` so request logs share the ONE
    * pino config the job logs use. Omitted (route tests): the inline logger
    * options below apply, byte-for-byte as before.
@@ -222,7 +222,7 @@ export interface BuildServerOptions {
   storage?: StorageBackend;
   /**
    * Per-check budget in ms for the `GET /health/ready` dependency probes
-   * (ADR-0013, amended 2026-09-22). Tests shrink it to keep
+   * (FO ADR-0013, amended 2026-09-22). Tests shrink it to keep
    * hanging-dependency cases fast; production uses the 2000 ms default.
    */
   healthProbeTimeoutMs?: number;
@@ -289,7 +289,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       : {
           logger: {
             level: config.NODE_ENV === 'test' ? 'silent' : 'info',
-            // ADR-0013: logs-first observability via stdout JSON.
+            // FO ADR-0013: logs-first observability via stdout JSON.
             // Review HTTP-M-3: redact request-header lines that carry secrets
             // (cookie holds the session id; idempotency-key correlates a single
             // actor's retries). Without this, anyone with log access can lift a
@@ -315,12 +315,12 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     // F-009 + Review HTTP-H-2: `trustProxy: true` is too permissive — it
     // trusts the entire X-Forwarded-For chain, so any client can spoof
     // `req.ip` and reset their anon rate-limit bucket (and the IP recorded
-    // in session/audit rows). ADR-0015:7-14 keys on `req.ip` so trust must
+    // in session/audit rows). FO ADR-0015:7-14 keys on `req.ip` so trust must
     // be bounded to the operator-configured hop count. Default 0 outside
     // prod (identical to `trustProxy: false`); prod operators set
     // `TRUSTED_PROXY_HOPS=1` when a single ingress terminates TLS.
     trustProxy: config.NODE_ENV === 'production' ? Math.max(config.TRUSTED_PROXY_HOPS, 0) : false,
-    // #620 / ADR-0069 decision 3: Correlation ID. The id is the Fastify reqId; the log
+    // #620 / platform ADR-0069 decision 3: Correlation ID. The id is the Fastify reqId; the log
     // field is `request_id` (FO ADR-0013) and every response echoes it below.
     genReqId: resolveCorrelationId,
     requestIdLogLabel: 'request_id',
@@ -341,7 +341,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     app.decorate('boss', boss);
   }
 
-  // ── @fastify/helmet ─ ADR-0015:21-37 ─────────────────────────────────
+  // ── @fastify/helmet ─ FO ADR-0015:21-37 ─────────────────────────────────
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
@@ -374,7 +374,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     },
   });
 
-  // ── @fastify/rate-limit ─ ADR-0015:7-18 ─────────────────────────────
+  // ── @fastify/rate-limit ─ FO ADR-0015:7-18 ─────────────────────────────
   // Postgres-backed via our custom store. The global tier is per-Actor when
   // authenticated (100/min) or per-IP when not (50/min); the route-level
   // mutation and sensitive tiers are registered as named groups on the
@@ -475,7 +475,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     },
   });
 
-  // Per-route tiers (ADR-0015:11-13) — lib/rate-limit-tiers.ts. The actor
+  // Per-route tiers (FO ADR-0015:11-13) — lib/rate-limit-tiers.ts. The actor
   // key generator stays here: it closes over sessionService and the
   // rate-limit actor cache, both wired above.
   app.decorate('rateLimitConfig', buildRateLimitTiers(actorAwareKeyGenerator));
@@ -483,14 +483,14 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // ADR-0116 token gate: after the rate limiter (a failed Bearer call counts in the IP bucket), before any route.
   installTokenGate(app as unknown as FastifyInstance, { tokens: apiTokenService });
 
-  // ── Error handler ─ ADR-0012 envelope (lib/http-error-handler.ts) ────
+  // ── Error handler ─ FO ADR-0012 envelope (lib/http-error-handler.ts) ────
   // Registered on the ROOT instance: a plugin-scoped setErrorHandler would
   // not cover sibling product routes.
   // Same pino-logger variance as `return app as unknown as FastifyInstance`
   // below: the concrete instance satisfies the default contract at runtime.
   registerHttpErrorHandler(app as unknown as FastifyInstance);
 
-  // ── Health routes ─ ADR-0013 (modules/core/health/routes.ts) ────────
+  // ── Health routes ─ FO ADR-0013 (modules/core/health/routes.ts) ────────
   // Resolved once and shared with the attachments module below. This is the
   // same `opts.storage ?? getStorage()` instance attachment routes already
   // use. `getStorage()` is a lazy proxy: env errors surface on the first
@@ -763,7 +763,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     checkService,
     entityLinksService,
   });
-  // ADR-0110 decision 3: the public part of a VOC; its own rule, never the ADR-0031 one.
+  // ADR-0110 decision 3: the public part of a VOC; its own rule, never the FO ADR-0031 one.
   const vocPublicReadService = createVocPublicReadService({ db: dbHandle.db });
 
   // ── Tasks module — Slice 6 issue #134 ────────────────────────────────────
@@ -814,7 +814,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     idempotencyService,
     notify,
     vocReadService,
-    // #168 (ADR-0034 D6). Disabled provider → the enqueuer is a no-op, so a
+    // #168 (FO ADR-0034 D6). Disabled provider → the enqueuer is a no-op, so a
     // key-less environment creates no embedding jobs at all.
     embeddingEnqueuer: createVocEmbeddingEnqueuer({
       ...(boss ? { boss } : {}),
@@ -953,7 +953,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       tasksService,
       taskRequestsService,
     });
-  // ── Platform port — #620, ADR-0069 ──────────────────────────────────────
+  // ── Platform port — #620, platform ADR-0069 ──────────────────────────────────────
   // This server's own permission rules; the menu permissions are bound once the menu registry is built below.
   const platformPermissions = createPlatformPermissionResolver();
   await app.register(platformPortRoutes, {

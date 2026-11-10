@@ -1,5 +1,5 @@
 // #623 — platform port `getEntity` + `accessDirectory`, and the shared entity read gate on
-// `entityAudit` (ADR-0069 decisions 6, 7, 9). Route-level against a real Postgres (throwaway DB
+// `entityAudit` (platform ADR-0069 decisions 6, 7, 9). Route-level against a real Postgres (throwaway DB
 // only). Every assertion is scoped to rows this suite created: other suites leave actors and
 // rows in the shared workspace.
 

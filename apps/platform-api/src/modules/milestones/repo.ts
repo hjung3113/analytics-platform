@@ -47,7 +47,7 @@ const MILESTONE_SELECT = sql`
   target_date::text AS target_date, created_by, created_at, updated_at
 `;
 
-// Omitted status leaves the column default ('planning'). ADR-0050.
+// Omitted status leaves the column default ('planning'). FO ADR-0050.
 export async function insertMilestone(
   tx: Tx,
   input: {
@@ -163,7 +163,7 @@ export async function lockMilestoneForUpdate(
   return row ? mapMilestoneRow(row) : null;
 }
 
-// primary_managed_system_id stays off this type (A8). status is ADR-0050.
+// primary_managed_system_id stays off this type (A8). status is FO ADR-0050.
 export async function updateMilestone(
   tx: Tx,
   input: {
@@ -206,7 +206,7 @@ export async function updateMilestone(
 
 /**
  * Lock a workspace-scoped Milestone for update. Status does not gate Task
- * assignment or conversion (ADR-0050 Decision 5).
+ * assignment or conversion (FO ADR-0050 Decision 5).
  */
 export async function lockMilestone(
   db: Db | Tx,

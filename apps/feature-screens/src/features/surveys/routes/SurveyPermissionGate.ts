@@ -15,7 +15,7 @@ export function useSurveyManageGate(managedSystemId?: string) {
 }
 
 /**
- * Creation entry follows the survey.manage capability SCOPE (ADR-0033): Admin
+ * Creation entry follows the survey.manage capability SCOPE (FO ADR-0033): Admin
  * (`all`) or a scoped grant with at least one Managed System. Shares the
  * dialog's `['permission-scope', 'survey.manage']` key so the list and the
  * dialog read one query; fail-closed while loading or on error (#1075).

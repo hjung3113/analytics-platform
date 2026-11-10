@@ -2,7 +2,7 @@
 // VocRouteShell — per-view shell selection for /vocs. Moved out of the route
 // file for #982: the router plugin only code-splits a route when its component
 // is not an exported local, so the shell lives in the feature layer and the
-// route file imports it. Shell selection follows ADR-0020 §taxonomy lock:
+// route file imports it. Shell selection follows FO ADR-0020 §taxonomy lock:
 // inbox/my → ListShell, triage → WorkbenchShell. VOC creation lives only in the platform drawer (VocComposeScreen).
 
 import { InboxScreen } from '@/features/voc/routes/InboxScreen';
@@ -20,11 +20,11 @@ export function VocRouteShell() {
   // This works in both the file-route context and test harnesses that mount
   // this component as the route component.
   const search = useSearch({ strict: false }) as VocSearch;
-  // Per-view shell selection. spec voc.md §2 + ADR-0020 §taxonomy lock.
+  // Per-view shell selection. spec voc.md §2 + FO ADR-0020 §taxonomy lock.
   if (search.view === 'triage') {
     // V1 inline kicker: toolbar prop removed — VocTriageScreen absorbs route
     // identity as a left-edge kicker ("Console · Triage") in its own toolbar.
-    // ShellHeader is intentionally absent for this route only (ADR-0020 §optional header).
+    // ShellHeader is intentionally absent for this route only (FO ADR-0020 §optional header).
     return (
       <WorkbenchShell>
         <TriageRoute />
@@ -38,7 +38,7 @@ export function VocRouteShell() {
 
 // ── InboxShell ────────────────────────────────────────────────────────────────
 //
-// InboxScreen owns the ListShell composition (ADR-0020) and the list state;
+// InboxScreen owns the ListShell composition (FO ADR-0020) and the list state;
 // the standalone app supplies the detail it renders for the selected VOC.
 
 function InboxShell({ view }: { view: 'inbox' | 'my' }) {

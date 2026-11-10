@@ -3,7 +3,7 @@
 // Layer rule (apps/platform-api/AGENTS.md): controller parses HTTP, validates,
 // hashes the request, then hands off to `attachmentsService.
 // uploadAttachmentCommand`, which owns the single transaction running the
-// ADR-0015 idempotency frame + the upload-then-INSERT service (#393).
+// FO ADR-0015 idempotency frame + the upload-then-INSERT service (#393).
 // `StorageUnavailableError` from the storage lib is already mapped to
 // HttpError('storage.unavailable', 502) inside the service.
 //

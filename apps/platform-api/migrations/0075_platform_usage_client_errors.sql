@@ -45,7 +45,7 @@ CREATE INDEX "usage_events_summary_time_idx" ON "platform"."usage_events" USING 
 CREATE INDEX "usage_events_summary_menu_idx" ON "platform"."usage_events" USING btree ("workspace_id","name","menu_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "usage_events_dwell_entered_uq" ON "platform"."usage_events" USING btree ("workspace_id","actor_id","session_id","menu_id","entered_at") WHERE "platform"."usage_events"."name" = 'dwell' and "platform"."usage_events"."stay_id" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "usage_events_dwell_stay_uq" ON "platform"."usage_events" USING btree ("workspace_id","actor_id","session_id","menu_id","stay_id") WHERE "platform"."usage_events"."name" = 'dwell' and "platform"."usage_events"."stay_id" is not null;--> statement-breakpoint
--- Platform port's own tables (ADR-0069 decision 1). Runtime grants are the narrowest the routes need:
+-- Platform port's own tables (FO ADR-0069 decision 1). Runtime grants are the narrowest the routes need:
 -- usage events are inserted, merged (dwell upsert) and aggregated; client errors are insert-only
 -- (no read API, no retention job).
 GRANT USAGE ON SCHEMA platform TO fops_app, fops_migrate;

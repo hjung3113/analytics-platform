@@ -1,5 +1,5 @@
 // Integration tests for the hourly unlinked-attachments purge handler
-// (PLAN-22 C4b; ADR-0011 attachment lifecycle).
+// (PLAN-22 C4b; FO ADR-0011 attachment lifecycle).
 //
 // `voc.voc_attachments` rows are created in two phases: POST /attachments
 // inserts an unlinked row (voc_id IS NULL AND comment_id IS NULL), then a

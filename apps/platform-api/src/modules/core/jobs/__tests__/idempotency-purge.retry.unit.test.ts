@@ -1,6 +1,6 @@
 // H6 (slice3-prologue): pin the idempotency-purge handler's error
 // propagation. pg-boss retry config (retry_limit / retry_delay /
-// retry_backoff in ADR-0009:35) only fires when the worker callback
+// retry_backoff in FO ADR-0009:35) only fires when the worker callback
 // throws. A regression that wraps the body in `try { … } catch { /* log
 // and continue */ }` would silently defeat the retry contract.
 

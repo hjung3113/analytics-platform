@@ -1,23 +1,23 @@
 -- Slice 2 #8 follow-up: adversarial review findings DB-001, DB-002, DB-004,
 -- DB-005, DB-006 from `.review/F010-AND-SLICE2-REVIEW-db.md`.
 --
--- DB-001 (ADR-0015:57 "every foreign-key column gets its own index unless a
+-- DB-001 (FO ADR-0015:57 "every foreign-key column gets its own index unless a
 -- covering composite already exists"): Slice 2 #9 shipped the registry
 -- tables without FK indexes on six columns. Workspace-id-first composites
--- satisfy ADR-0015:58 simultaneously.
+-- satisfy FO ADR-0015:58 simultaneously.
 --
--- DB-002 (same ADR-0015:57 clause): Slice 2 #9 added `managed_system_id`
+-- DB-002 (same FO ADR-0015:57 clause): Slice 2 #9 added `managed_system_id`
 -- FKs on three permission tables without sibling indexes. The future
 -- "find every permission row scoped to MS X" cascade query has no
 -- supporting index until this lands.
 --
--- DB-004 (ADR-0008): migration 0007's SECURITY DEFINER wrapper runs with
+-- DB-004 (FO ADR-0008): migration 0007's SECURITY DEFINER wrapper runs with
 -- the *owner*'s privileges. The owner was implicit (whoever ran 0007).
 -- Pin it to fops_migrate so a future operator script that re-owns or
 -- re-runs migrations as a different role cannot silently shift the
 -- definer. Same for the renamed `_create_queue_unsafe`.
 --
--- DB-005 (ADR-0008:30 "migrations enforce the grant in code so a future
+-- DB-005 (FO ADR-0008:30 "migrations enforce the grant in code so a future
 -- schema change cannot silently widen access"): migration 0001 granted
 -- only fops_app on `core.rate_limits` and omitted the symmetric
 -- `GRANT ALL … TO fops_migrate`. Functionally green today (the migration
@@ -99,7 +99,7 @@ SET search_path = pgboss, pg_catalog
 AS $$
 BEGIN
   IF coalesce(lower(options->>'partition'), '') IN ('true', 't', '1') THEN
-    RAISE EXCEPTION 'partition=true is not permitted via pgboss.create_queue from fops_app (ADR-0008); pre-create partitioned queues via a Drizzle migration as fops_migrate'
+    RAISE EXCEPTION 'partition=true is not permitted via pgboss.create_queue from fops_app (FO ADR-0008); pre-create partitioned queues via a Drizzle migration as fops_migrate'
       USING ERRCODE = '42501';
   END IF;
   PERFORM pgboss._create_queue_unsafe(queue_name, options);

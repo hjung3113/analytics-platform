@@ -77,7 +77,7 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
   // Query: capability=<cap>&managed_system_id=<uuid?>
   // Returns: { state, decision }
   //
-  // ADR-0015 mutation tier does not apply (GET). The global per-Actor limit
+  // FO ADR-0015 mutation tier does not apply (GET). The global per-Actor limit
   // already covers this surface.
   app.route({
     method: 'GET',
@@ -139,7 +139,7 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
 
   // ── POST /permission-requests ───────────────────────────────────────────
   // Slice 1 #5 — the first audited mutation. Idempotency-Key honored
-  // (ADR-0015), audit row committed in the same transaction (ADR-0008).
+  // (FO ADR-0015), audit row committed in the same transaction (FO ADR-0008).
   app.route({
     method: 'GET',
     url: '/me/permissions/scope',

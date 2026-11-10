@@ -1,5 +1,5 @@
 // Integration tests for pg-boss boot wiring and shutdown ordering
-// (ADR-0009:22-27). The first test verifies the hourly cron is actually
+// (FO ADR-0009:22-27). The first test verifies the hourly cron is actually
 // registered in pgboss.schedule after registerCoreJobs runs — that's the
 // "is this real?" check the spec calls out. The second test verifies
 // shutdown ordering: pg-boss `stop()` must resolve before Fastify
@@ -82,7 +82,7 @@ describe.skipIf(!runIntegration)('pg-boss boot wiring', () => {
     expect(ours?.cron).toBe(IDEMPOTENCY_PURGE_CRON);
   });
 
-  it('records the queue in pgboss.queue with ADR-0009 retry config', async () => {
+  it('records the queue in pgboss.queue with FO ADR-0009 retry config', async () => {
     const row = await dbHandle.pool.query<{
       retry_limit: number;
       retry_delay: number;
@@ -113,7 +113,7 @@ describe.skipIf(!runIntegration)('pg-boss boot wiring', () => {
     expect(ours?.cron).toBe(ATTACHMENTS_PURGE_CRON);
   });
 
-  it('records the attachments-purge queue in pgboss.queue with ADR-0009 retry config', async () => {
+  it('records the attachments-purge queue in pgboss.queue with FO ADR-0009 retry config', async () => {
     const row = await dbHandle.pool.query<{
       retry_limit: number;
       retry_delay: number;
@@ -141,7 +141,7 @@ describe.skipIf(!runIntegration)('pg-boss boot wiring', () => {
     expect(row.rowCount).toBe(1);
   });
 
-  it('records the rate-limits queue in pgboss.queue with ADR-0009 retry config', async () => {
+  it('records the rate-limits queue in pgboss.queue with FO ADR-0009 retry config', async () => {
     const row = await dbHandle.pool.query<{
       retry_limit: number;
       retry_delay: number;

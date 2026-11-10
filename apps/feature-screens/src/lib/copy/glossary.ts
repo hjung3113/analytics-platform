@@ -1,4 +1,4 @@
-// #679 — shared Korean UI chrome glossary (issue #679 policy; ADR-0057 A2 amendment).
+// #679 — shared Korean UI chrome glossary (issue #679 policy; FO ADR-0057 A2 amendment).
 // Domain nouns (VOC, Finding, Task, Task Request, Milestone) stay English; Survey, Cluster, Managed System,
 // Analytics Area, Evidence and Triage use the Korean names (ADR-0110 decision 6).
 

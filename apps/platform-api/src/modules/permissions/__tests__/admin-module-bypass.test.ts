@@ -79,7 +79,7 @@ describe('applyAdminModuleBypass', () => {
 
   it.each(UNLESS_DENIED)('%s — admin is allowed, but an explicit deny still wins', (capability) => {
     // `surveys/authorization.ts` runs the scoped check first and returns it
-    // verbatim when the reason is `explicit_deny` (ADR-0033 §C).
+    // verbatim when the reason is `explicit_deny` (FO ADR-0033 §C).
     expect(applyAdminModuleBypass('admin', capability, noGrant)).toEqual({
       allow: true,
       via: 'role',

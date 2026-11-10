@@ -84,7 +84,7 @@ export function IntegrationDashboardScreen({
     const coverage = summary.data?.coverage;
     if (coverage === undefined || coverage.length === 0) return undefined;
     // Total-zero metrics are absence of work (no_data), not 0% performance;
-    // the average only covers measured metrics (ADR-0067 56-1/O2).
+    // the average only covers measured metrics (FO ADR-0067 56-1/O2).
     const measured = coverage.filter((metric) => metric.status !== 'no_data');
     if (measured.length === 0) return undefined;
     const average = measured.reduce((total, metric) => total + metric.percent, 0) / measured.length;

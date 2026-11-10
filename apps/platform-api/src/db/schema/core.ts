@@ -5,9 +5,9 @@
 //   Actor, Role Level, Audit Log.
 // - apps/platform-api/docs/04-database-and-migrations.md: workspace_id present on
 //   all domain tables, prefer text/varchar over native enums.
-// - ADR-0006: core.sessions shape (opaque text PK, references actors/workspaces).
-// - ADR-0008: core.audit_log shape, append-only via role grants.
-// - ADR-0015: timestamp/uuid conventions, idempotency_keys composite PK.
+// - FO ADR-0006: core.sessions shape (opaque text PK, references actors/workspaces).
+// - FO ADR-0008: core.audit_log shape, append-only via role grants.
+// - FO ADR-0015: timestamp/uuid conventions, idempotency_keys composite PK.
 //
 // No application code reads these tables yet (Slice 1 foundation only).
 
@@ -45,7 +45,7 @@ export const displayCounters = coreSchema.table(
 
 // ─────────────────────────────────────────────────────────────────────────
 // core.workspaces — outermost tenant boundary per GLOSSARY.md.
-// MVP seeds exactly one row (ADR-0006: WORKSPACE_ID env var).
+// MVP seeds exactly one row (FO ADR-0006: WORKSPACE_ID env var).
 // ─────────────────────────────────────────────────────────────────────────
 export const workspaces = coreSchema.table('workspaces', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -101,7 +101,7 @@ export const actors = coreSchema.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id),
-    // external_id: provider sub claim (ADR-0006); for seed actors we use a
+    // external_id: provider sub claim (FO ADR-0006); for seed actors we use a
     // stable handle like 'mock-admin-1' / 'system'.
     externalId: text('external_id').notNull(),
     email: text('email').notNull(),
@@ -174,7 +174,7 @@ export const savedViews = coreSchema.table(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// core.sessions — ADR-0006: opaque text PK, server-side store.
+// core.sessions — FO ADR-0006: opaque text PK, server-side store.
 // Cookie name 'platform_session' carries this opaque id.
 // ─────────────────────────────────────────────────────────────────────────
 export const sessions = coreSchema.table(
@@ -201,7 +201,7 @@ export const sessions = coreSchema.table(
     workspaceIdx: index('sessions_workspace_idx').on(t.workspaceId),
     workspaceActorIdx: index('sessions_workspace_actor_idx').on(t.workspaceId, t.actorId),
     // No index on expires_at / revoked_at: the purge is a cross-workspace maintenance query, and
-    // ADR-0015 requires every workspace-scoped index to start with workspace_id (#1266 b5a).
+    // FO ADR-0015 requires every workspace-scoped index to start with workspace_id (#1266 b5a).
   }),
 );
 
@@ -246,14 +246,14 @@ export const apiTokens = coreSchema.table(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// core.audit_log — ADR-0008 exact shape, append-only via DB role grants.
-// Index conventions per ADR-0015:55-61.
+// core.audit_log — FO ADR-0008 exact shape, append-only via DB role grants.
+// Index conventions per FO ADR-0015:55-61.
 // ─────────────────────────────────────────────────────────────────────────
 export const auditLog = coreSchema.table(
   'audit_log',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    // F-003: ADR-0015:55-61 mandates referential integrity on every
+    // F-003: FO ADR-0015:55-61 mandates referential integrity on every
     // workspace_id / actor_id. Without the FK an orphaned audit row is
     // unreviewable.
     workspaceId: uuid('workspace_id')
@@ -270,7 +270,7 @@ export const auditLog = coreSchema.table(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
-    // ADR-0015: every (workspace_id, ...) path starts with workspace_id.
+    // FO ADR-0015: every (workspace_id, ...) path starts with workspace_id.
     workspaceCreatedAtIdx: index('audit_log_workspace_created_at_idx').on(
       t.workspaceId,
       t.createdAt.desc(),
@@ -295,7 +295,7 @@ export const auditLog = coreSchema.table(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// core.notifications — ADR-0014 per-Actor inbox rows. The application may
+// core.notifications — FO ADR-0014 per-Actor inbox rows. The application may
 // update only read/archive/delivery state; the summary and identity fields
 // stay frozen at insertion by column-scoped grants.
 // ─────────────────────────────────────────────────────────────────────────
@@ -338,11 +338,11 @@ export const notifications = coreSchema.table(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// core.idempotency_keys — ADR-0015:80-87. Composite PK (actor_id, key).
+// core.idempotency_keys — FO ADR-0015:80-87. Composite PK (actor_id, key).
 // 24-hour TTL purge runs as a pg-boss job (Slice 1 S1.5, not here).
 // ─────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────
-// core.rate_limits — ADR-0015:9-14. Backing store for @fastify/rate-limit.
+// core.rate_limits — FO ADR-0015:9-14. Backing store for @fastify/rate-limit.
 // One row per (key, route_group); counter holds requests in the current
 // window, expires_at is the window boundary. Rows are upserted atomically
 // per request; an expired row is reset on the next hit.
@@ -365,7 +365,7 @@ export const rateLimits = coreSchema.table(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// core.teams — ADR-0018 placeholder. Slice 2 ships schema + FK target only.
+// core.teams — FO ADR-0018 placeholder. Slice 2 ships schema + FK target only.
 // No CRUD endpoints, no admin UI, no seed rows. Future product slice that
 // first needs operator-managed teams adds the management surface without a
 // second schema migration.
@@ -392,10 +392,10 @@ export const teams = coreSchema.table(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// core.managed_systems — ADR-0017. UUID PK + workspace-scoped immutable
+// core.managed_systems — FO ADR-0017. UUID PK + workspace-scoped immutable
 // slug + mutable name + optional external_key (metadata only). Archive
 // via timestamp + actor; slug reusable after archive via partial unique.
-// default_owner XOR-or-both-null CHECK per ADR-0018: at most one of
+// default_owner XOR-or-both-null CHECK per FO ADR-0018: at most one of
 // (default_owner_actor_id, default_owner_team_id) is non-null.
 // ─────────────────────────────────────────────────────────────────────────
 export const managedSystems = coreSchema.table(
@@ -451,7 +451,7 @@ export const managedSystems = coreSchema.table(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// core.analytics_areas — ADR-0017. Flat under exactly one Managed System;
+// core.analytics_areas — FO ADR-0017. Flat under exactly one Managed System;
 // no parent_analytics_area_id per Slice 2 grill Q2. Two MSs may carry the
 // same AA slug. Partial unique on (workspace_id, managed_system_id, slug)
 // where archived_at IS NULL so slugs are reclaimable after archive.
@@ -558,7 +558,7 @@ export const entityLinks = coreSchema.table(
   }),
 );
 
-// ADR-0064: keep the table mapping canonical for FKs/operator history.
+// FO ADR-0064: keep the table mapping canonical for FKs/operator history.
 // Application SQL uses this separately owned, simple updatable projection.
 export const entityLinksApp = coreSchema
   .view('entity_links_app')

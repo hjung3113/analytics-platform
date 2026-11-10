@@ -1,4 +1,4 @@
-// The /findings list screen (ADR-0020 ListShell finding list), free of the router so the standalone route and the platform bridge mount one
+// The /findings list screen (FO ADR-0020 ListShell finding list), free of the router so the standalone route and the platform bridge mount one
 // definition (platform ADR-0071; #762 l). The URL goes through the host seam; the detail slot is the host's: `renderDetail` returns it
 // (standalone: the Finding detail panel, the empty state or nothing for a denied list; the bridge: `undefined`, the platform page draws the drawer).
 // Nothing here reaches the Finding detail tree.

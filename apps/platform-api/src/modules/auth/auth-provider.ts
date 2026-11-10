@@ -1,4 +1,4 @@
-// ADR-0006:5-14. The auth module exposes only this abstraction. Application
+// FO ADR-0006:5-14. The auth module exposes only this abstraction. Application
 // services, controllers, and middleware never branch on AUTH_PROVIDER — they
 // receive an AuthProvider via DI and call its methods. The seam below is
 // provider-agnostic: mock returns the dev-only HTML picker from startLogin;

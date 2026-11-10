@@ -1,4 +1,4 @@
-// Route-level tests for the k8s liveness/readiness split (ADR-0013, amended
+// Route-level tests for the k8s liveness/readiness split (FO ADR-0013, amended
 // 2026-09-22). DB-gated like server.test.ts: healthy baselines need a real
 // Postgres to prove `select 1` passes through buildServer. pg-boss and
 // storage are fakes injected via buildServer opts; the database check is
@@ -53,7 +53,7 @@ const hangStorage = {
   exists: () => new Promise<never>(() => {}),
 } as unknown as StorageBackend;
 
-describe.skipIf(!runIntegration)('health probes (ADR-0013)', () => {
+describe.skipIf(!runIntegration)('health probes (FO ADR-0013)', () => {
   let sharedDbHandle: DbHandle;
   const openApps: FastifyInstance[] = [];
 

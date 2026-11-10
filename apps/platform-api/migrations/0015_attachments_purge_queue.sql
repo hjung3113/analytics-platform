@@ -2,10 +2,10 @@
 --
 -- Sibling of `core.idempotency_purge` (migration 0003) and
 -- `core.rate_limits_purge` (migration 0004). fops_app does not hold the
--- DDL branch of `pgboss.create_queue` (F-010 / ADR-0008), so every queue
+-- DDL branch of `pgboss.create_queue` (F-010 / FO ADR-0008), so every queue
 -- consumed by `registerCoreJobs` is pre-created in a migration. Column
 -- list and retry config mirror the existing two rows verbatim
--- (retry_limit=5, retry_delay=30, retry_backoff=true; ADR-0009).
+-- (retry_limit=5, retry_delay=30, retry_backoff=true; FO ADR-0009).
 --
 -- The handler (purge-unlinked-attachments.ts) reclaims rows in
 -- `voc.voc_attachments` where voc_id IS NULL AND comment_id IS NULL AND

@@ -1,5 +1,5 @@
 // Unit tests (no DB) for the released-review-candidates job logging
-// (ADR-0013, amended 2026-09-22). The suite registers the handler exactly as
+// (FO ADR-0013, amended 2026-09-22). The suite registers the handler exactly as
 // production wiring does — via `registerReleasedReviewCandidates`, whose
 // `boss.work` callback is the `withJobLogging` wrapper — using a fake boss
 // that captures the work callback. Asserts the lifecycle event shape and the
@@ -75,7 +75,7 @@ async function captureWorkHandler(
   return captured;
 }
 
-describe('released-review-candidates job logging (ADR-0013)', () => {
+describe('released-review-candidates job logging (FO ADR-0013)', () => {
   it('emits job.start/job.success with task_id, release_event_id and correlation_id', async () => {
     const { log, calls } = recordingLog();
     const createForReleasedTask = vi.fn(async () => ({ inserted: 0 }));

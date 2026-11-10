@@ -3,7 +3,7 @@
 // 200; a missing/expired session is 401 and another workspace's session 403 (judged first). They sit
 // beside, not inside, `/api/v1/platform`, so each installs the platform transport policy itself
 // (no-store, malformed-JSON-as-a-judged-request, error handler) without a second prefix 404.
-// The read is a POST without CSRF (ADR-0069 decision 4); the write carries the CSRF check of the
+// The read is a POST without CSRF (platform ADR-0069 decision 4); the write carries the CSRF check of the
 // notice writes, after the session is judged. `Idempotency-Key` / `If-Match` also travel as headers
 // (http-adapter `actionCall`), but the body copy is the one judged (checklist §3 step 1–2): the adapter
 // always sends both from the same value, so a header can never decide a different request.

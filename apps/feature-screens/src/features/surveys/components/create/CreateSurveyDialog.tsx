@@ -130,12 +130,12 @@ export function CreateSurveyDialog({
     setBlocked(false);
     pinnedStart.current = null;
     // A blocked attempt (409/403/404) must not leave its create error behind a
-    // fresh reselection; an in-flight attempt is never reset (ADR-0070).
+    // fresh reselection; an in-flight attempt is never reset (FO ADR-0070).
     if (!create.isPending) resetCreate();
   }, [resetCreate, create.isPending]);
   React.useEffect(() => {
     // While an attempt is pinned (uncertain outcome) a background refetch must
-    // not alter what the next unchanged retry sends (ADR-0070: one explicit key
+    // not alter what the next unchanged retry sends (FO ADR-0070: one explicit key
     // for an unchanged pending/uncertain attempt).
     if (definition && !pinnedStart.current) {
       setType(definition.type);
@@ -166,7 +166,7 @@ export function CreateSurveyDialog({
   React.useEffect(() => {
     // Selected Managed System leaving the manageable scope latches like a read
     // denial: source data and submission block until explicit 새로고침 or
-    // reselection; an automatic scope refresh restores neither (ADR-0070).
+    // reselection; an automatic scope refresh restores neither (FO ADR-0070).
     if (!system || systemInScope) return;
     setBlocked(true);
     setTemplateId('');
@@ -247,7 +247,7 @@ export function CreateSurveyDialog({
                     }
                   : undefined);
             // An unchanged retry replays the submitted token even if a background
-            // snapshot refetch installed a changed one (ADR-0070: one explicit key
+            // snapshot refetch installed a changed one (FO ADR-0070: one explicit key
             // for an unchanged pending/uncertain attempt).
             pinnedStart.current = startingPoint ?? null;
             submitting.current = true;

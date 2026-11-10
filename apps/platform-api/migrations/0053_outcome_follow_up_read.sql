@@ -1,4 +1,4 @@
--- #510 part C (ADR-0055): outcome follow-up READ surface. Two new
+-- #510 part C (FO ADR-0055): outcome follow-up READ surface. Two new
 -- SECURITY DEFINER functions, no table:
 --   * survey.read_outcome_follow_up_survey_state — survey-grain booleans
 --     only (classifiable, follow_up_needed). Safe for any survey.read
@@ -12,7 +12,7 @@
 --
 -- Owner choice: fops_survey_aggregate_owner, not the evidence-reader
 -- owner. Its existing grants (0038/0046/0052) already cover the whole
--- ADR-0055 classifier predicate — survey type/status, response and answer
+-- FO ADR-0055 classifier predicate — survey type/status, response and answer
 -- ids/values, question rating bounds, entity_links resolution columns,
 -- Finding status, workspace threshold, decision state — so the items
 -- reader extends the same classification boundary with only the display

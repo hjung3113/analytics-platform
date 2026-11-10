@@ -1,5 +1,5 @@
 // Labelled-pair evaluation fixture for the recommendation cut (#168 step 5,
-// ADR-0034 D5).
+// FO ADR-0034 D5).
 //
 // ─── READ THIS BEFORE TRUSTING A NUMBER OUT OF THIS FILE ────────────────────
 //
@@ -15,7 +15,7 @@
 //
 // It is NOT a measurement of semantic quality, and 0.75 is NOT validated by
 // it. Validating a cut requires vectors produced by the model that actually
-// runs in production (voyage-3, ADR-0034 D1) over real VOC text; this
+// runs in production (voyage-3, FO ADR-0034 D1) over real VOC text; this
 // environment has no API key and no network, so those vectors cannot be
 // produced here. The `expected` labels below are the ground truth a human
 // would assign to the *texts*; the vectors are a stand-in for a model's
@@ -33,7 +33,7 @@
 // derived artifacts of whatever produced the vectors. To re-tune with real
 // embeddings, replace exactly those four and leave the harness, the tests and
 // the corpus alone. The procedure is this "DROPPING IN REAL VECTORS" note.
-// ADR-0034 D5 (amended 2026-07-27) is why this fixture does not validate the
+// FO ADR-0034 D5 (amended 2026-07-27) is why this fixture does not validate the
 // cut.
 //
 // The fixture is a TypeScript module rather than JSON on purpose: the backend
@@ -54,7 +54,7 @@ export type PairBand = 'clear' | 'near_boundary';
 
 export interface EvalItem {
   key: string;
-  /** VOC title, as it would be embedded (ADR-0034 D6 derives title + body). */
+  /** VOC title, as it would be embedded (FO ADR-0034 D6 derives title + body). */
   title: string;
   /** Flattened description text, as it would be embedded. */
   body: string;

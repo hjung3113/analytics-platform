@@ -1,4 +1,4 @@
-// Dumb picker contracts (Slice 2 #11, rebuilt Pack 17 / ADR-0021 on shadcn
+// Dumb picker contracts (Slice 2 #11, rebuilt Pack 17 / FO ADR-0021 on shadcn
 // ToggleGroup). Migrated from native-select fireEvent.change semantics to
 // chip-click semantics; the dumb-prop contract (PickerOption[],
 // onChange(string|null), disabled, testId) is preserved unchanged. The DOM

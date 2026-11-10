@@ -13,7 +13,7 @@
 //
 // createVocCommand intentionally does NOT use this helper: the route ran
 // `idempotencyService.runIdempotent` for POST /vocs, whose mismatch error
-// carries detail fields (ADR-0015) — preserved as-is.
+// carries detail fields (FO ADR-0015) — preserved as-is.
 
 import { sql } from 'drizzle-orm';
 

@@ -1,19 +1,19 @@
 // Managed System application service (Slice 2 #10).
 //
 // Owns the write-side of the Managed System Registry per
-// apps/platform-api/docs/02-domain-module-boundaries.md and ADR-0017.
+// apps/platform-api/docs/02-domain-module-boundaries.md and FO ADR-0017.
 //
-// Mutation contract (mirrors permission-request-service / ADR-0008 +
-// ADR-0015):
+// Mutation contract (mirrors permission-request-service / FO ADR-0008 +
+// FO ADR-0015):
 //   1. Optional Idempotency-Key lookup.
 //   2. checkCapability('workspace.admin') — grill Q3 lock: no new
 //      capability vocab; workspace.admin satisfies every Slice 2 mutation.
 //   3. Domain INSERT/UPDATE inside the transaction.
-//   4. Audit row in the SAME transaction (ADR-0008 role separation
+//   4. Audit row in the SAME transaction (FO ADR-0008 role separation
 //      guarantees platform_app can INSERT-only on core.audit_log).
 //   5. Idempotency record (optional).
 //
-// Archive cascade: per ADR-0017 archiving a Managed System archives every
+// Archive cascade: per FO ADR-0017 archiving a Managed System archives every
 // non-archived child Analytics Area in the same transaction. The AA write
 // path lands in Slice 2 #11; until then the inner SELECT returns an empty
 // set and `cascaded_analytics_area_ids` is `[]`.
@@ -49,7 +49,7 @@ import {
   validateResponsibilityDefault,
 } from './responsibility-target.js';
 
-// ADR-0017 slug shape: lower-kebab, must start with a letter.
+// FO ADR-0017 slug shape: lower-kebab, must start with a letter.
 export const MS_SLUG_REGEX = /^[a-z][a-z0-9-]*$/;
 
 const REGISTERED: AuditEventType = 'managed_system_registered';
@@ -312,8 +312,8 @@ export function createManagedSystemService(deps: ManagedSystemServiceDeps) {
           throw new HttpError('not_found.record', 'managed_system not found');
         }
 
-        // ADR-0019 Section A: archived rows are immutable. Re-registration
-        // via slug reuse (ADR-0017:63) is the only path to "edit a retired
+        // FO ADR-0019 Section A: archived rows are immutable. Re-registration
+        // via slug reuse (FO ADR-0017:63) is the only path to "edit a retired
         // registry entry" — the audit/historical record on the original row
         // stays frozen.
         if (existing.archivedAt !== null) {
@@ -639,7 +639,7 @@ export function createManagedSystemService(deps: ManagedSystemServiceDeps) {
     return { items: rows.map(toDto), total };
   }
 
-  // Navigation/default metadata for any signed-in session (ADR-0068 decision 1: the link grants nothing). Every link
+  // Navigation/default metadata for any signed-in session (platform ADR-0068 decision 1: the link grants nothing). Every link
   // row of the workspace, declared or not, so the app can show a disconnected system as such.
   async function listSpaceLinks(actor: ActorContext): Promise<SpaceLinksResponse> {
     const rows = await db

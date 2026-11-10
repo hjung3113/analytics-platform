@@ -2,7 +2,7 @@
 
 ## Ownership
 
-Not implemented. ADR-0038 excludes a My Work view from MVP. ADR-0040 keeps this directory as the future implementation location only.
+Not implemented. FO ADR-0038 excludes a My Work view from MVP. FO ADR-0040 keeps this directory as the future implementation location only.
 
 This folder does not own a screen. Home's assigned-work panel is `features/home/`, not this directory.
 

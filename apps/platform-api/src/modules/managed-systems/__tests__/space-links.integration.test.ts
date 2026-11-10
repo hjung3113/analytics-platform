@@ -1,6 +1,6 @@
 // Integration tests for GET /managed-systems/space-links (#1289 node j, ADR-0110 decision 5): every link row of the
 // workspace (declared or not) plus the workspace's 「플랫폼」 system id, readable by any signed-in session, scoped to
-// the session's workspace. The link is navigation/default metadata; no permission decision reads it (ADR-0068).
+// the session's workspace. The link is navigation/default metadata; no permission decision reads it (platform ADR-0068).
 //
 // Needs migration 0086 (core.space_links).
 

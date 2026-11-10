@@ -8,7 +8,7 @@
 // `__resetStorageForTests()` clears the cache so unit tests can re-exercise
 // env parsing without leaking instances across files.
 //
-// Logging (ADR-0013, amended 2026-09-22): when the singleton is first
+// Logging (FO ADR-0013, amended 2026-09-22): when the singleton is first
 // materialized (first method call) we emit ONE structured line through the
 // optional `JobLog` passed by the caller — `storage: materialized` with the
 // bucket, endpoint ORIGIN, region, and force_path_style. The raw endpoint is
@@ -123,7 +123,7 @@ let cachedBackend: StorageBackend | null = null;
 
 export interface GetStorageOptions {
   /**
-   * Structured job log (ADR-0013). Honored only on the call that CREATES the
+   * Structured job log (FO ADR-0013). Honored only on the call that CREATES the
    * cached singleton — later `getStorage()` calls return the same proxy and
    * ignore their opts. Production wiring (src/index.ts) therefore passes
    * `{ log: jobLog }` on the FIRST call (before buildServer's bare

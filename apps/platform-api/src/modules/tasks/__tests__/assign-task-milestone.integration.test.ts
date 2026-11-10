@@ -457,8 +457,8 @@ describe.skipIf(!runIntegration)('POST /tasks/:id/milestone (#514 B1b)', () => {
     expect(await milestoneAuditDetails(task.id)).toEqual([]);
   });
 
-  it('assigns a released Milestone on the Task Managed System successfully (ADR-0050)', async () => {
-    // ADR-0050 Decision 5 (the answer to design §7 item 18): assigning a Task
+  it('assigns a released Milestone on the Task Managed System successfully (FO ADR-0050)', async () => {
+    // FO ADR-0050 Decision 5 (the answer to design §7 item 18): assigning a Task
     // does not consult Milestone status. Existence, workspace, and Managed
     // System checks stay; a released Milestone in scope is a successful
     // assign. This is the only released-status case, and it expects success.

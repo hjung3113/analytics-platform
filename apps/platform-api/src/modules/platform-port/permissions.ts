@@ -1,9 +1,9 @@
-// Platform permission vocabulary → feature authorization (ADR-0069 decision 7).
+// Platform permission vocabulary → feature authorization (platform ADR-0069 decision 7).
 //
 // The platform's own permissions are a closed list (`KERNEL_PERMISSIONS` in the root
 // `packages/sdk/contracts/src/menu.ts`). `PLATFORM_PERMISSION_TABLE` maps every entry to the rule that grants it here;
 // `permissions-vocabulary.test.ts` reads the generated `@ap/contracts/vocab.json` (`kernelPermissions`)
-// and fails when an entry is missing or listed twice (ADR-0068 "one vocabulary").
+// and fails when an entry is missing or listed twice (platform ADR-0068 "one vocabulary").
 //
 // The menu permissions of the business modules (a capability grant plus the capability's Admin bypass) are not listed here:
 // each module declares them in its `MenuDispatchContribution.permissions` (#1667) and the server hands the registry's

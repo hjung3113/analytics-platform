@@ -1,4 +1,4 @@
-// #168 step 3 — enqueue-on-write for VOC embeddings (ADR-0034 D6).
+// #168 step 3 — enqueue-on-write for VOC embeddings (FO ADR-0034 D6).
 //
 // The boundary this file exists to hold: **a VOC write must never fail because
 // the embedding queue failed.** A VOC is user-authored durable state; its
@@ -62,7 +62,7 @@ export interface VocEmbeddingEnqueuer {
 export interface VocEmbeddingEnqueuerDeps {
   /** Absent in tests and in any process booted without pg-boss. */
   boss?: PgBoss;
-  /** False when EMBEDDING_PROVIDER=disabled — ADR-0034 D2: enqueue nothing. */
+  /** False when EMBEDDING_PROVIDER=disabled — FO ADR-0034 D2: enqueue nothing. */
   embeddingEnabled: boolean;
   startAfterSeconds?: number;
   log?: { error: (msg: string, meta?: unknown) => void };

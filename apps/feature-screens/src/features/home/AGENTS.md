@@ -40,12 +40,12 @@ Paths are relative to `apps/feature-screens/src/`.
 
 ## Permission close-out contract
 
-- ADR-0066 accepts owner-scoped Permission Request detail from Home open-request rows (`OwnerPermissionRequestDialog`): same-ID pending edit, needs_more_info supplementation with the latest Admin question, and requester-only `요청 철회`.
+- FO ADR-0066 accepts owner-scoped Permission Request detail from Home open-request rows (`OwnerPermissionRequestDialog`): same-ID pending edit, needs_more_info supplementation with the latest Admin question, and requester-only `요청 철회`.
 - Render server allowed actions/scope candidates and send `expected_revision`. Preserve unsaved input and focus on stale/error responses; form closing is not withdrawal.
 - Closing or Escape never sends withdrawal. Reopening waits for a fresh selected read; stale reconciliation preserves the draft and requires explicit confirmation against latest values.
 - Withdrawal removes only the affected open row; refresh relevant mine/check/scope queries. Requester detail must not expose Admin risk/deny internals or email.
 
-## Close-out contract (ADR-0067)
+## Close-out contract (FO ADR-0067)
 
 - Recovery item UI is consumed through Integration's explicit public `features/integration/public.ts` seam; Home includes only personally actionable items, scope-wide totals remain operational.
 - Personal pending Task Requests use actual assigned-reviewer `me` filtering, not all pending rows. Do not infer team membership. Show last successful server computation time/stale state.

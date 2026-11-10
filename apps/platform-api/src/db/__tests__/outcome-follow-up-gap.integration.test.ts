@@ -1,4 +1,4 @@
-// #510 part B (ADR-0055): DB-level verification of the outcome follow-up
+// #510 part B (FO ADR-0055): DB-level verification of the outcome follow-up
 // classifier and the replaced gap predicate.
 //
 // 1. Band parity: survey.rating_band_for_value must reproduce
@@ -50,7 +50,7 @@ async function countGaps(
   return Number(rows[0]?.count ?? 0);
 }
 
-describe.skipIf(!runIntegration)('Outcome follow-up gap predicate (0052, ADR-0055)', () => {
+describe.skipIf(!runIntegration)('Outcome follow-up gap predicate (0052, FO ADR-0055)', () => {
   let appHandle: DbHandle;
   let migrateHandle: DbHandle;
   const workspaceId = randomUUID();
@@ -78,7 +78,7 @@ describe.skipIf(!runIntegration)('Outcome follow-up gap predicate (0052, ADR-005
       'Outcome follow-up gap test',
     ]);
     // No workspace_settings row: the classifier must fall back to the
-    // ADR-0033 default threshold of 5, like the TypeScript resolver does.
+    // FO ADR-0033 default threshold of 5, like the TypeScript resolver does.
     for (const label of ['first', 'second', 'third', 'fourth', 'fifth']) {
       const actor = await migrateHandle.pool.query<{ id: string }>(
         `insert into core.actors (workspace_id, external_id, email, display_name, role_level)

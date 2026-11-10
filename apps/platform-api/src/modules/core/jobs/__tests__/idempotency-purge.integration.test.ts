@@ -1,5 +1,5 @@
 // Integration tests for the hourly idempotency-keys purge handler
-// (ADR-0009 + ADR-0015:88). The handler is exercised directly — pg-boss
+// (FO ADR-0009 + FO ADR-0015:88). The handler is exercised directly — pg-boss
 // cron scheduling is covered separately in boot.integration.test.ts so we
 // don't pay the 60s scheduler tick latency here.
 //

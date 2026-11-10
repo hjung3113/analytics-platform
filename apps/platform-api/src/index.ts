@@ -1,4 +1,4 @@
-// Backend runtime entry. Boot order is fixed by ADR-0009:22-27:
+// Backend runtime entry. Boot order is fixed by FO ADR-0009:22-27:
 //   1. Connect Drizzle pool (platform_app) and assert the runtime DB role (#402).
 //   2. Start pg-boss against the same Postgres.
 //   3. Register module jobs (registerCoreJobs, …).
@@ -9,7 +9,7 @@
 // SIGTERM is the production signal; SIGINT exists for local dev (Ctrl-C).
 //
 // The migrate-role connection (DATABASE_URL_MIGRATE) is never imported here —
-// only drizzle-kit and the seed script touch it (ADR-0008).
+// only drizzle-kit and the seed script touch it (FO ADR-0008).
 
 import { loadConfig } from './config.js';
 import { createDb } from './db/client.js';
@@ -64,7 +64,7 @@ const dbHandle = createDb(config.DATABASE_URL, {
   },
 });
 
-// #402 (ADR-0008): fail fast unless the runtime connection is actually
+// #402 (FO ADR-0008): fail fast unless the runtime connection is actually
 // authenticated as the plain platform_app role. The guard queries the connected
 // role (current_user), not the URL text, so a URL pointed at platform_migrate or
 // any privileged role is rejected before pg-boss or HTTP start. Migration and
@@ -84,7 +84,7 @@ try {
   process.exit(1);
 }
 
-// ADR-0013 (amended 2026-09-22): ONE pino root logger per process — job logs
+// FO ADR-0013 (amended 2026-09-22): ONE pino root logger per process — job logs
 // and request logs share its level + redaction. Created after the
 // console.error guards above, which run before a logger can be trusted.
 const logger = createRootLogger(config);
@@ -116,7 +116,7 @@ const boss = await initBoss({
 });
 const notificationDispatcher = createPgBossNotificationDispatcher(boss);
 const notify = createNotificationNotifier(notificationDispatcher);
-// #168 (ADR-0034 D6). The VOC registrar runs even when the provider is disabled:
+// #168 (FO ADR-0034 D6). The VOC registrar runs even when the provider is disabled:
 // the backfill cron row must exist so enabling a provider is a config change, not
 // a queue-registration change. Both handlers no-op while disabled.
 const embeddingProvider = createEmbeddingProvider(config);
@@ -173,7 +173,7 @@ const app = await buildServer({
 });
 
 // Single-shot, deadline-bounded shutdown (lib/shutdown.ts): drain flag first so
-// readiness turns 503, then pg-boss → Fastify → pool (ADR-0009), 40 s in total.
+// readiness turns 503, then pg-boss → Fastify → pool (FO ADR-0009), 40 s in total.
 const shutdown = createShutdown({
   drain: drainState,
   log: app.log,

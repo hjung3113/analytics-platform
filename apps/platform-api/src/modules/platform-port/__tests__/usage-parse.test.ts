@@ -141,7 +141,7 @@ describe('parseClientError', () => {
   });
 });
 
-describe('validSpaceId (the server does not know the app’s spaces, ADR-0072)', () => {
+describe('validSpaceId (the server does not know the app’s spaces, platform ADR-0072)', () => {
   it.each(['analytics', 'log-dev', 'a-space-this-server-was-never-told-about'])(
     'accepts %s',
     (id) => {

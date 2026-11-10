@@ -53,7 +53,7 @@ Files under `test/screen-host` and `test/host-adapters` are test-only compositio
   - `useSearch` from the props or, without `onReviewerChange`/`bindUrl`, local reviewer state; `useNavigate` diffs the href into `onReviewerChange`/`onSelectionChange`, or with `bindUrl` writes TanStack functional `search` keeping unknown keys.
   - `bindUrl` is passed only by the test-local Tasks host; without it TanStack `useNavigate()` is never called (router-less tests).
 - `features/tasks/routes/task-requests/TaskRequestPanelParts.tsx` — the panel as `ClosableDetailParts` (`buildTaskRequestPanelParts`, `TaskRequestPanelBody`, `TaskRequestPanelFrame`, copy link through the seam's `absoluteHref`); `TaskRequestPanel.tsx` is the frame over it; tests stub `TaskRequestPanelBody`/`buildTaskRequestPanelParts` in this module.
-- `features/tasks/routes/MilestonesScreen.tsx` — Milestone list (status tabs, list-state branches, the three dirty guards; ADR-0071); entry `operator-screens/milestones`.
+- `features/tasks/routes/MilestonesScreen.tsx` — Milestone list (status tabs, list-state branches, the three dirty guards; platform ADR-0071); entry `operator-screens/milestones`.
 - `test/screen-host/features/tasks/routes/MilestonesRoute.tsx` — props-driven URL through TanStack `useNavigate`; registers the standalone frame for the parts in the detail slot.
 - `test/host-adapters/features/tasks/routes/task-requests/TaskRequestPanel.tsx` — panel composition, exactly-once decision callback, dialog lifetime.
 - `features/tasks/routes/task-requests/useTaskRequestPanelController.ts` — source Area defaults and canonical outcome reconciliation; section components render the view.
@@ -69,11 +69,11 @@ Files under `test/screen-host` and `test/host-adapters` are test-only compositio
 
 - When touched: Task Request review flows, backlog/board selected detail restore, Managed System filters, linked evidence summaries, reporter-facing status review candidates.
 
-## Close-out contract (ADR-0067)
+## Close-out contract (FO ADR-0067)
 
-- ADR-0067 accepts assigned-reviewer Actor/team display/edit/filter distinct from actual decision Actor, and Task team assignee. Personal Home requests use reviewer=me; full authorized review remains available and assignment grants no self-approval.
+- FO ADR-0067 accepts assigned-reviewer Actor/team display/edit/filter distinct from actual decision Actor, and Task team assignee. Personal Home requests use reviewer=me; full authorized review remains available and assignment grants no self-approval.
 - Explicit null opts out, omission requests defaults; preserve Backlog, source links and server validation/audit. Do not infer member assignment from a team label.
 
-## Survey source defaults (ADR-0064; #739/#740 pending)
+## Survey source defaults (FO ADR-0064; #739/#740 pending)
 
 Survey-derived Finding/source summaries and Task Request draft defaults contain metadata only after cutover. Approved text requires a fresh authorized highlight projection, never a cached summary or private response/link/audit reconstruction. Preserve ordinary source permissions and authored Task/Task Request prose; no bulk history rewrite is authorized. Consume the existing owning-module seams.

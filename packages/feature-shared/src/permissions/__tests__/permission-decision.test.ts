@@ -97,7 +97,7 @@ describe('PermissionDecision', () => {
     expect(parsed.summary).toBeUndefined();
   });
 
-  it('rejects evaluated_at with a non-UTC offset (ADR-0015)', () => {
+  it('rejects evaluated_at with a non-UTC offset (FO ADR-0015)', () => {
     expect(() =>
       permissionDecisionSchema.parse({
         decision_id: '01919b8c-0000-7000-8000-000000000005',

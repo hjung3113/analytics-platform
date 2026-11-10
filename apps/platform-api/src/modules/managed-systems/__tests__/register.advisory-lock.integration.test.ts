@@ -12,7 +12,7 @@ import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fix
 // Mirrors the skip-pattern + login helper in
 // `managed-system.integration.test.ts`.
 //
-// See ADR-0015 "Race surface" amendment.
+// See FO ADR-0015 "Race surface" amendment.
 
 import { randomUUID } from 'node:crypto';
 

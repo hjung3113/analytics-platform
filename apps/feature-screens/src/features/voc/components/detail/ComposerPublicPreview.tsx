@@ -136,7 +136,7 @@ export function ComposerPublicPreview({
             {empty || draftDoc == null ? (
               <span className="text-sm text-text-muted italic">(본문이 비어있습니다)</span>
             ) : (
-              // RichContentRenderer in reporter_visible mode strips mentions per ADR-0011
+              // RichContentRenderer in reporter_visible mode strips mentions per FO ADR-0011
               <RichContentRenderer
                 doc={draftDoc}
                 mode="reporter_visible"

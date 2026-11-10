@@ -595,7 +595,7 @@ export function createDashboardService(deps: DashboardDeps) {
           : 0;
       }
 
-      // ADR-0033 §C: an explicit survey.read deny dominates the admin bypass,
+      // FO ADR-0033 §C: an explicit survey.read deny dominates the admin bypass,
       // so the admin empty-queue exception must not emit a key for that system.
       const canSeeSurveyQueue =
         actor.role_level === 'admin'

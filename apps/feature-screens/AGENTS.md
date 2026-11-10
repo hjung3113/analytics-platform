@@ -28,7 +28,7 @@ Feature-folder guides under `src/features/` describe semantic screen intents. Ru
 
 The root design-lint rules apply here; package specifics:
 
-- `pnpm --filter @ap/feature-screens lint` = ESLint `featureScreensPreset` (ADR-0062): the `@shadcn/lint` design rules plus correctness, React Hooks and accessibility over `src`, tests and config files (`--max-warnings 0`; tests exempt from the design rules only).
+- `pnpm --filter @ap/feature-screens lint` = ESLint `featureScreensPreset` (FO ADR-0062): the `@shadcn/lint` design rules plus correctness, React Hooks and accessibility over `src`, tests and config files (`--max-warnings 0`; tests exempt from the design rules only).
   - It checks restyled `@ap/ui`/`@ap/feature-ui` components, raw colors, arbitrary values and inline styles.
   - Preset and old-rule table: `docs/integration/platform-packages.md` §6. Biome does not cover this package.
 - Same exception policy as root: only `// eslint-disable-next-line <rule> -- <reason>` directly above the finding (an unused directive fails). When the same override or hard-coded value repeats, add a shared token, variant or component instead of repeating it.
@@ -47,7 +47,7 @@ The root design-lint rules apply here; package specifics:
 - Permission-limited content shows an approved summary or a request path, never a blank failure.
 - Role Level labels: Admin, Developer, User; backend capability checks remain authoritative.
 - Keep Public Update, Reporter Reply and Internal Comment as separate communication surfaces.
-- `WorkbenchShell.toolbar` is optional: high-density screens (e.g. VOC Triage) may omit it and express route identity via an inline kicker as the first child of the route-owned toolbar; the inner toolbar MUST remain 50px (ADR-0020 §2; toolbar-kicker rule in ADR-0020 §Amendment).
+- `WorkbenchShell.toolbar` is optional: high-density screens (e.g. VOC Triage) may omit it and express route identity via an inline kicker as the first child of the route-owned toolbar; the inner toolbar MUST remain 50px (FO ADR-0020 §2; toolbar-kicker rule in FO ADR-0020 §Amendment).
 
 ## Component intake
 

@@ -1,5 +1,5 @@
 // scopeMark — admin registry mark derivation.
-// ADR-0057 B6 supersedes #87's hashed palette; the shared UI helper resolves
+// FO ADR-0057 B6 supersedes #87's hashed palette; the shared UI helper resolves
 // known slugs to identity tokens and unknown slugs to the neutral fallback.
 
 import { managedSystemMarkColor } from '@ap/feature-ui';

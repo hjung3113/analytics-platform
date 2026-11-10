@@ -612,7 +612,7 @@ function EditForm({
           )}
           {isArchived ? (
             // No Save: PATCH against an archived row is 409 conflict.record_archived
-            // by contract (ADR-0019 §A), so offering it can only fail.
+            // by contract (FO ADR-0019 §A), so offering it can only fail.
             <Button
               type="button"
               onClick={() => onReregister(target)}

@@ -1,7 +1,7 @@
 // C4 (Slice 3 prologue Task 8): pin that `cascadeArchiveActiveChildren`
 // propagates a thrown auditService error so the parent tx rolls back.
 //
-// ADR-0017:58 ("in the same transaction") makes this load-bearing — a
+// FO ADR-0017:58 ("in the same transaction") makes this load-bearing — a
 // regression that swallowed the audit error would write partial cascade
 // state without alerting. The helper currently awaits without try/catch
 // around `auditService.record`, so the error naturally propagates; this

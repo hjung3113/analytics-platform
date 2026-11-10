@@ -1,5 +1,5 @@
 import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fixtures.js';
-// #168 step 3 — enqueue-on-write (ADR-0034 D6) through the real HTTP routes.
+// #168 step 3 — enqueue-on-write (FO ADR-0034 D6) through the real HTTP routes.
 //
 // The load-bearing assertion is the *failure* one: a throwing `boss.send` must
 // not cost the user their VOC. Everything else here pins which writes enqueue.
@@ -198,7 +198,7 @@ describe.skipIf(!runIntegration)('VOC embedding enqueue-on-write (#168)', () => 
     }
   });
 
-  it('enqueues nothing when the provider is disabled (ADR-0034 D2)', async () => {
+  it('enqueues nothing when the provider is disabled (FO ADR-0034 D2)', async () => {
     const { boss, sent } = recordingBoss();
     const app = await build({ boss, provider: 'disabled' });
     try {

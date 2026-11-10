@@ -48,7 +48,7 @@ export function createVocUpdateTriageCommands(deps: VocServiceDeps) {
     if (!row) throw new HttpError('not_found.record', 'voc not found');
     if (row.archivedAt !== null) throw new HttpError('conflict.record_archived', 'voc is archived');
 
-    // 2. Permission re-check inside the tx (ADR-0019 Section D).
+    // 2. Permission re-check inside the tx (FO ADR-0019 Section D).
     // C3: permission check MUST fire before the If-Match comparison. The
     // previous ordering (stale_write before permission deny) leaked
     // `current_updated_at` of any in-workspace VOC to actors without

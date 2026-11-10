@@ -1,5 +1,5 @@
 // #621 — platform port audit reads: `auditTrail` + `entityAudit` over the allowlisted
-// `core.platform_audit_events` projection (ADR-0069 decisions 6, 7, 9). Route-level against a
+// `core.platform_audit_events` projection (platform ADR-0069 decisions 6, 7, 9). Route-level against a
 // real Postgres (throwaway DB only, apps/platform-api/AGENTS.md → Verification). Needs migration 0074.
 // Every query filters on the seeded actor's external_id, so rows other suites leave in the shared
 // workspace never enter an assertion.

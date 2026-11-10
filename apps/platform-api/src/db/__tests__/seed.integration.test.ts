@@ -55,7 +55,7 @@ describe.skipIf(!runIntegration)('seed idempotency', () => {
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
   });
 
-  it('seeds Slice 2 managed_systems + analytics_areas per ADR-0017', async () => {
+  it('seeds Slice 2 managed_systems + analytics_areas per FO ADR-0017', async () => {
     const ms = await handle.pool.query<{ slug: string; name: string }>(
       `select slug, name from core.managed_systems
          where workspace_id = $1 and archived_at is null
@@ -83,7 +83,7 @@ describe.skipIf(!runIntegration)('seed idempotency', () => {
       { ms_slug: 'tableau', aa_slug: 'usage-analytics' },
     ]);
 
-    // ADR-0018 / grill Q9: default_owner_actor_id points at mock-admin-1 on
+    // FO ADR-0018 / grill Q9: default_owner_actor_id points at mock-admin-1 on
     // both MS seed rows; no team rows seeded.
     const { rows: ownerRows } = await handle.pool.query<{
       slug: string;
@@ -98,9 +98,9 @@ describe.skipIf(!runIntegration)('seed idempotency', () => {
     );
     expect(ownerRows.every((r) => r.external_id === 'mock-admin-1')).toBe(true);
 
-    // ADR-0018 placeholder — zero non-seed teams; ensureSeedTeam inserts
+    // FO ADR-0018 placeholder — zero non-seed teams; ensureSeedTeam inserts
     // exactly one '[seed] VOC owner team' for VOC fixture coverage (created via
-    // platform_migrate role, not platform_app — ADR-0019 preserved).
+    // platform_migrate role, not platform_app — FO ADR-0019 preserved).
     const { rows: teamRows } = await handle.pool.query<{ count: string }>(
       `select count(*)::text as count from core.teams
         where workspace_id = $1 and name not like '[seed]%'`,

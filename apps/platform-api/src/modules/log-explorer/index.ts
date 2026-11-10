@@ -1,5 +1,5 @@
 // log-explorer module barrel (#1467 node a: port, contract, guard, domain, skeleton; #1469 node c: the four read endpoints). #1468 node b: investigations (own tables, own menu).
-// This barrel must never import `adapters/synthetic/` or `testing/`: the production graph check fails if it does (ADR-0009 approach).
+// This barrel must never import `adapters/synthetic/` or `testing/`: the production graph check fails if it does (platform ADR-0009 approach).
 
 import type { MenuDispatchContribution } from '../menu-dispatch/types.js';
 import type { InvestigationDeps, LogExplorerDeps } from './deps.js';

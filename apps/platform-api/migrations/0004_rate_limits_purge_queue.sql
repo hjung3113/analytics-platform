@@ -4,11 +4,11 @@
 -- running app holds EXECUTE on `pgboss.create_queue` only for the
 -- "no-DDL" branch — every queue used by Core jobs is pre-created here so
 -- the boot path never triggers CREATE TABLE / ATTACH PARTITION
--- (F-010 / ADR-0008 role separation, see migration 0003 lines 91-104).
+-- (F-010 / FO ADR-0008 role separation, see migration 0003 lines 91-104).
 --
 -- Column list mirrors `pgboss.create_queue` defaults verbatim, identical
 -- to the idempotency-purge row in 0003 except for `name`. Retry config
--- comes straight from ADR-0009: retry_limit=5, retry_delay=30,
+-- comes straight from FO ADR-0009: retry_limit=5, retry_delay=30,
 -- retry_backoff=true.
 
 INSERT INTO pgboss.queue (

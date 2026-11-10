@@ -4,8 +4,8 @@
 // Spec sources:
 //   apps/platform-api/docs/04-database-and-migrations.md §voc tables
 //   apps/feature-screens/docs/specs/voc.md §VOC data model
-//   ADR-0011 (rich content as jsonb), ADR-0015 (timestamps/uuid conventions),
-//   ADR-0017 (audit detail), ADR-0019 (role grants pattern)
+//   FO ADR-0011 (rich content as jsonb), FO ADR-0015 (timestamps/uuid conventions),
+//   FO ADR-0017 (audit detail), FO ADR-0019 (role grants pattern)
 //
 // cluster_id is reserved per spec — no FK defined here (cluster service out of
 // scope for Slice 3).
@@ -127,7 +127,7 @@ export const vocs = vocSchema.table(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// voc.voc_embeddings — versioned pgvector rows (ADR-0034 D1/D2).
+// voc.voc_embeddings — versioned pgvector rows (FO ADR-0034 D1/D2).
 // The vector is intentionally dimensionless: a model swap writes a new active
 // version, and storage must retain the prior model's dimensions during re-embed.
 // ─────────────────────────────────────────────────────────────────────────
@@ -170,7 +170,7 @@ export const vocEmbeddings = vocSchema.table(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// voc.voc_recommendation_decisions — the durable half of ADR-0034 D3.
+// voc.voc_recommendation_decisions — the durable half of FO ADR-0034 D3.
 // Mirrors migration 0044. `suggested` has no row by design: D6 computes
 // recommendations on read, so only the two terminal states persist.
 // `cluster_id` deliberately carries no `.references()` here — the target lives
@@ -284,7 +284,7 @@ export const vocClusterAutogenShadowCandidates = vocSchema.table(
 
 // ─────────────────────────────────────────────────────────────────────────
 // voc.voc_public_updates — append-only public status update records.
-// platform_app gets SELECT + INSERT only (no UPDATE/DELETE) per ADR-0019.
+// platform_app gets SELECT + INSERT only (no UPDATE/DELETE) per FO ADR-0019.
 // ─────────────────────────────────────────────────────────────────────────
 export const vocPublicUpdates = vocSchema.table(
   'voc_public_updates',
@@ -381,7 +381,7 @@ export const publicUpdateReviewCandidates = vocSchema.table(
 // ─────────────────────────────────────────────────────────────────────────
 // voc.voc_reporter_replies — append-only replies from the reporter.
 // actor_id must equal vocs.reporter_id — enforced by DB trigger.
-// platform_app gets SELECT + INSERT only per ADR-0019.
+// platform_app gets SELECT + INSERT only per FO ADR-0019.
 // ─────────────────────────────────────────────────────────────────────────
 export const vocReporterReplies = vocSchema.table(
   'voc_reporter_replies',
@@ -404,7 +404,7 @@ export const vocReporterReplies = vocSchema.table(
 // ─────────────────────────────────────────────────────────────────────────
 // voc.voc_internal_comments — append-only internal staff comments.
 // Any authenticated actor in the workspace may insert.
-// platform_app gets SELECT + INSERT only per ADR-0019.
+// platform_app gets SELECT + INSERT only per FO ADR-0019.
 // ─────────────────────────────────────────────────────────────────────────
 export const vocInternalComments = vocSchema.table(
   'voc_internal_comments',
@@ -550,7 +550,7 @@ export const reporterFacingStatusTransitions = vocSchema.table(
   }),
 );
 
-// ADR-0068 item 1: inert, durable sorted pairs outside domain Cluster tables.
+// FO ADR-0068 item 1: inert, durable sorted pairs outside domain Cluster tables.
 // Cross-reference scope and immutable terminal history are guarded in migration SQL.
 export const vocClusterSuggestions = vocSchema.table(
   'voc_cluster_suggestions',
@@ -684,7 +684,7 @@ export const vocClusterSuggestionCursors = vocSchema.table(
   }),
 );
 
-// ADR-0068 paid draft preview: operational state only, never draft prose or response bodies.
+// FO ADR-0068 paid draft preview: operational state only, never draft prose or response bodies.
 export const vocSimilarityPreviewRequests = vocSchema.table(
   'voc_similarity_preview_requests',
   {

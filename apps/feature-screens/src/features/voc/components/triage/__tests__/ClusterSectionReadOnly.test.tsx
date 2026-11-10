@@ -128,7 +128,7 @@ describe('ClusterSectionReadOnly — recommendation surface', () => {
     expect(badge).toHaveTextContent('같은 시스템의 VOC 3건');
   });
 
-  it('hides the peer count when similar_count is zero (ADR-0031 heuristic unchanged)', async () => {
+  it('hides the peer count when similar_count is zero (FO ADR-0031 heuristic unchanged)', async () => {
     globalThis.fetch = mockApi({
       gets: [{ available: true, embedding_version: 1, items: [], total: 0 }],
     });
@@ -225,7 +225,7 @@ describe('ClusterSectionReadOnly — recommendation surface', () => {
       );
     });
     const state = screen.getByTestId('cluster-recommendation-state');
-    // ADR-0034 D2: the two unavailable reasons must not collapse into one string.
+    // FO ADR-0034 D2: the two unavailable reasons must not collapse into one string.
     expect(state).not.toHaveTextContent('임베딩 제공자가 설정되어 있지 않아');
     expect(state).not.toHaveTextContent('추천 임계값을 넘은 유사 VOC가 없습니다.');
   });

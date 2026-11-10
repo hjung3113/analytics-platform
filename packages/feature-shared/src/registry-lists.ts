@@ -17,7 +17,7 @@ export const analyticsAreaListSchema = z.object({
 
 // `GET /managed-systems/space-links` (#1289 node j, ADR-0110 decision 5): which business-system space each registry-owned
 // Managed System was registered for, plus the workspace's 「플랫폼」 system. Navigation and default-selection metadata only:
-// the link never grants permission (ADR-0068 decision 1). Strict, so a changed server shape fails the read loudly.
+// the link never grants permission (platform ADR-0068 decision 1). Strict, so a changed server shape fails the read loudly.
 export const spaceLinkSchema = z
   .object({
     space_id: z.string().min(1),

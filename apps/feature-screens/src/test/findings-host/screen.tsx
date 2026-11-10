@@ -1,5 +1,5 @@
 // Test-local screen host; retained fixtures exercise URL writes and history.
-// /findings — ADR-0020 ListShell finding list + right detail panel. The list is `FindingsScreen` (bridge-safe, entry
+// /findings — FO ADR-0020 ListShell finding list + right detail panel. The list is `FindingsScreen` (bridge-safe, entry
 // `operator-screens/findings`); this route composes it with the Finding detail panel through a route-local seam.
 
 import {

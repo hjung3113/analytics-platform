@@ -272,7 +272,7 @@ export function createConversationService(deps: {
       });
     }
 
-    // 9b. Notify the Reporter (ADR-0014 amendment #1182); a self-post is excluded.
+    // 9b. Notify the Reporter (FO ADR-0014 amendment #1182); a self-post is excluded.
     if (row.reporterId !== actor.actor_id) {
       await deps.notify(tx, 'voc.public_update_posted', {
         workspace_id: actor.workspace_id,

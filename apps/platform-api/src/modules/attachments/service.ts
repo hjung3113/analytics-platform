@@ -3,7 +3,7 @@
 // Owns the upload-then-INSERT contract for POST /attachments:
 //   1. Generate storage_key = `{workspace_id}/{uuid}/{sanitized_filename}`.
 //   2. Stream bytes to object storage. A StorageUnavailableError raised by
-//      the storage lib is mapped to the ADR-0012 envelope
+//      the storage lib is mapped to the FO ADR-0012 envelope
 //      `{ code: 'storage.unavailable', status: 502 }`.
 //   3. INSERT voc_attachments row (voc_id=NULL, comment_id=NULL,
 //      linked_at=NULL — C3-link adds the parent later).
@@ -11,12 +11,12 @@
 //      bucket free of orphaned bytes. The delete is swallowed; the original
 //      INSERT error re-throws.
 //   5. Emit `attachment_uploaded` audit row in the SAME transaction
-//      (ADR-0008). The detail schema in @ap/feature-shared rejects any `filename`
+//      (FO ADR-0008). The detail schema in @ap/feature-shared rejects any `filename`
 //      field — filenames may carry PII and audit rows are broadly readable.
 //   6. Return the response envelope: `{ id, name, size_bytes, mime_type,
 //      uploaded_by_actor_id, created_at }`.
 //
-// Layer rule: `uploadAttachmentCommand` owns the transaction + ADR-0015
+// Layer rule: `uploadAttachmentCommand` owns the transaction + FO ADR-0015
 // idempotency frame the POST /attachments route used to own (#393, same
 // shape as the VOC application commands). #1266 b4: the command puts the
 // object BEFORE opening the transaction (storage I/O never holds a DB
@@ -147,7 +147,7 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
       uploadedByActorId: actor.actor_id,
     });
 
-    // Audit (same tx, ADR-0008). Detail schema rejects `filename`.
+    // Audit (same tx, FO ADR-0008). Detail schema rejects `filename`.
     await deps.auditService.record(tx, {
       workspace_id: actor.workspace_id,
       actor_id: actor.actor_id,

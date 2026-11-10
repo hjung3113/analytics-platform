@@ -19,7 +19,7 @@ const ACTOR_ID = '01919b8c-0000-7000-8000-000000000003';
 const MANAGED_SYSTEM_ID = '01919b8c-0000-7000-8000-000000000004';
 const CREATED_AT = '2026-10-05T00:00:00.000Z';
 
-describe('Admin permission revocation contracts (ADR-0061)', () => {
+describe('Admin permission revocation contracts (FO ADR-0061)', () => {
   it('trims and strictly validates the required reason', () => {
     expect(revokePermissionBodySchema.parse({ reason: '  Approved transfer ended.  ' })).toEqual({
       reason: 'Approved transfer ended.',
@@ -127,7 +127,7 @@ describe('Admin permission revocation contracts (ADR-0061)', () => {
   });
 });
 
-describe('governed direct grant contracts (ADR-0066)', () => {
+describe('governed direct grant contracts (FO ADR-0066)', () => {
   it('requires a trimmed reason and a strict known-capability direct body', () => {
     const body = { actor_id: ACTOR_ID, capability: 'voc.read', reason: '  Approved access  ' };
     expect(directPermissionGrantSchema.parse(body)).toEqual({ ...body, reason: 'Approved access' });

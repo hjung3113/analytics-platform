@@ -1,6 +1,6 @@
 -- F-010 follow-up (issue #8): SECURITY DEFINER shim for pgboss.create_queue.
 --
--- ADR-0008 narrative: the running app role (fops_app) must not be able to
+-- FO ADR-0008 narrative: the running app role (fops_app) must not be able to
 -- execute DDL. pg-boss's stored function `pgboss.create_queue(text, jsonb)`
 -- DDLs partition tables (CREATE TABLE / ATTACH PARTITION / CREATE INDEX)
 -- whenever it is called with `partition := true`. Slice 1 #6 left fops_app
@@ -56,7 +56,7 @@ SET search_path = pgboss, pg_catalog
 AS $$
 BEGIN
   IF options->>'partition' = 'true' THEN
-    RAISE EXCEPTION 'partition=true is not permitted via pgboss.create_queue from fops_app (ADR-0008); pre-create partitioned queues via a Drizzle migration as fops_migrate'
+    RAISE EXCEPTION 'partition=true is not permitted via pgboss.create_queue from fops_app (FO ADR-0008); pre-create partitioned queues via a Drizzle migration as fops_migrate'
       USING ERRCODE = '42501';
   END IF;
   PERFORM pgboss._create_queue_unsafe(queue_name, options);

@@ -50,7 +50,7 @@ export type OutcomeFollowUpStateRow = {
 };
 
 /**
- * Per-response follow-up classification through the ADR-0055 definer. Unlike
+ * Per-response follow-up classification through the FO ADR-0055 definer. Unlike
  * the aggregate readers above, this one is response-scoped: the surveys
  * module may call it for public payloads only after the caller crossed the personal-response
  * authorization seam. The private transactional recorder/reconciler may reuse its boolean
@@ -73,7 +73,7 @@ export type OutcomeFollowUpSurveyStateRow = {
 };
 
 /**
- * Survey-grain follow-up flags through the ADR-0055 definer (0053).
+ * Survey-grain follow-up flags through the FO ADR-0055 definer (0053).
  * Aggregate-only like the readers above: no response ids and no counts, so
  * any survey.read caller may receive them without a personal-read grant.
  */
@@ -108,7 +108,7 @@ export type OutcomeFollowUpItemRow = {
 };
 
 /**
- * Per-poor-response review rows through the ADR-0055 definer (0053): one
+ * Per-poor-response review rows through the FO ADR-0055 definer (0053): one
  * flat row per (poor response, low-band answer), ordered by the 1-based
  * submission ordinal. Personal data, response-scoped like
  * read_outcome_follow_up_state: the surveys module may call it only after

@@ -1,4 +1,4 @@
-// Log explorer audit detail schemas (#1468 b, design docs/design/features/log-explorer/README.md §3.2, ADR-0020 spirit).
+// Log explorer audit detail schemas (#1468 b, design docs/design/features/log-explorer/README.md §3.2, FO ADR-0020 spirit).
 // Non-sensitive and body-free: ids, the origin, the NAMES of the filter keys that were set, counts, the length of a note —
 // never a filter value, a file location, a hash or a note's text, which live in `log_explorer.investigation` (read
 // through its endpoints). Registered into AUDIT_EVENT_DETAIL_SCHEMAS by audit-events.ts.

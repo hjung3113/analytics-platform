@@ -31,7 +31,7 @@ export function useResponsibilityIdentityNames(actorId: string | null, teamIds: 
 
 /**
  * Eligible responsibility targets: authenticated internal people with an
- * elevated role. Scoped grant checks stay server-side (ADR-0067 56-F). One
+ * elevated role. Scoped grant checks stay server-side (FO ADR-0067 56-F). One
  * source for the responsibility editor, the reviewer filter, and the Task
  * Request conversion form.
  */

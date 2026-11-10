@@ -1160,7 +1160,7 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     }
   });
 
-  it('GET by VOC source is not found for managed-system scoped voc.triage without voc.read (ADR-0047)', async () => {
+  it('GET by VOC source is not found for managed-system scoped voc.triage without voc.read (FO ADR-0047)', async () => {
     const msA = await insertMsDirectly(
       dbHandle,
       WORKSPACE_ID,
@@ -1221,7 +1221,7 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     });
   });
 
-  it('POST from an unreadable voc source is permission.denied for voc.triage without voc.read (ADR-0047)', async () => {
+  it('POST from an unreadable voc source is permission.denied for voc.triage without voc.read (FO ADR-0047)', async () => {
     const msA = await insertMsDirectly(
       dbHandle,
       WORKSPACE_ID,
@@ -1923,7 +1923,7 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     });
   });
 
-  it('GET workspace inventory hides voc↔voc rows from a triage-only actor (ADR-0047)', async () => {
+  it('GET workspace inventory hides voc↔voc rows from a triage-only actor (FO ADR-0047)', async () => {
     const msA = await insertMsDirectly(
       dbHandle,
       WORKSPACE_ID,
@@ -1950,7 +1950,7 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
 
     // The workspace inventory route needs no capability beyond a session
     // (routes.ts gates on requireSession/requireWorkspace only), so a plain
-    // voc.triage actor can call it; per ADR-0047 the voc↔voc row must come
+    // voc.triage actor can call it; per FO ADR-0047 the voc↔voc row must come
     // back hidden with no endpoint ids.
     const { id: devId, externalId } = await insertDevActor(dbHandle, WORKSPACE_ID, uid('inv-tri'));
     await grantCapability(dbHandle, WORKSPACE_ID, devId, 'voc.triage', msA, adminActorId);
@@ -2075,7 +2075,7 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     });
   });
 
-  it('GET read paths enforce the ADR-0024 finding target row', async () => {
+  it('GET read paths enforce the FO ADR-0024 finding target row', async () => {
     const msA = await insertMsDirectly(
       dbHandle,
       WORKSPACE_ID,
@@ -3130,7 +3130,7 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('PATCH detach is not found for voc.triage-only actor and leaves the link active (ADR-0047)', async () => {
+  it('PATCH detach is not found for voc.triage-only actor and leaves the link active (FO ADR-0047)', async () => {
     const msA = await insertMsDirectly(
       dbHandle,
       WORKSPACE_ID,

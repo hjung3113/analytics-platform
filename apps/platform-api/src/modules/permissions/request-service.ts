@@ -6,7 +6,7 @@ import { RECOVERY_PERMISSION_ACTIVE_STATUSES } from './recovery-read.js';
 // apps/platform-api/docs/02-domain-module-boundaries.md and
 // docs/architecture/platform-api/05-permission-policy.md.
 //
-// Single transaction contract (AGENTS.md, ADR-0008):
+// Single transaction contract (AGENTS.md, FO ADR-0008):
 //   1. Idempotency lookup against (actor_id, key).
 //      - match → return stored response verbatim, do nothing else.
 //      - mismatch → throw HttpError('conflict.idempotency_key_reuse').
@@ -131,7 +131,7 @@ export function createRequestService(deps: RequestServiceDeps) {
     // Sensitive capabilities (docs/architecture/platform-api/05-permission-policy.md ## Sensitive Permissions)
     // require a non-empty `reason`. The route Zod schema already requires
     // `reason.min(1)`, but we re-check here so the service emits a distinct
-    // ADR-0012 code that downstream UIs can surface specifically.
+    // FO ADR-0012 code that downstream UIs can surface specifically.
     if (sensitive && body.reason.trim().length === 0) {
       throw new HttpError(
         'validation.sensitive_reason_required',

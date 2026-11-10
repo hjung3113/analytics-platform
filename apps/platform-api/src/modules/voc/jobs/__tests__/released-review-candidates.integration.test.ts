@@ -198,7 +198,7 @@ describe.skipIf(!runIntegration)('released Task review-candidate worker (#165)',
     };
   }
 
-  it('boot migration pre-creates the release queue with ADR-0009 retry settings', async () => {
+  it('boot migration pre-creates the release queue with FO ADR-0009 retry settings', async () => {
     const queue = await migrateHandle.pool.query<{
       retry_limit: number;
       retry_delay: number;

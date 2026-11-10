@@ -1082,7 +1082,7 @@ describe.skipIf(!runIntegration)('GET /vocs (#15 C4 — list)', () => {
     expect(body.items.find((item) => item.id === source.id)?.similar_count).toBe(2);
   });
 
-  // #696: in the reporter arm the peer-derived count is not on the wire at all (ADR-0031: similar is operator-only).
+  // #696: in the reporter arm the peer-derived count is not on the wire at all (FO ADR-0031: similar is operator-only).
   it('AC17: reporter-arm view=my rows omit similar_count', async () => {
     const msId = await insertMsDirectly(
       dbHandle,

@@ -90,7 +90,7 @@ export const vocCrudRoutes: FastifyPluginAsync<VocRoutesOptions> = async (app, o
       }
       const input: CreateVocRequest = parsed.data;
 
-      // 4. Idempotent command (ADR-0015 protocol) — the transaction +
+      // 4. Idempotent command (FO ADR-0015 protocol) — the transaction +
       // idempotency frame are owned by the application command.
       const hash = hashRequestBody(rawBody);
       const result = await vocService.createVocCommand({
@@ -185,7 +185,7 @@ export const vocCrudRoutes: FastifyPluginAsync<VocRoutesOptions> = async (app, o
       // fresh If-Match (e.g. after a 409 stale_write → refetch → retry)
       // produces a different hash → 409 conflict.idempotency_key_reuse instead
       // of a cache replay. The client must therefore generate a fresh
-      // Idempotency-Key for each distinct If-Match value. ADR-0015 is silent
+      // Idempotency-Key for each distinct If-Match value. FO ADR-0015 is silent
       // on whether If-Match is "part of the body" for hashing purposes; this
       // is a #14-local decision. If a real client trips on the 409, revisit
       // with a body-only secondary hash that emits a distinct hint field
@@ -378,7 +378,7 @@ export const vocCrudRoutes: FastifyPluginAsync<VocRoutesOptions> = async (app, o
       const result = await vocReadService.getVocDetail({ actor, vocId });
       const { envelope, etag } = result;
 
-      // ADR-0031: detail includes peer-derived similarity. A source-row ETag
+      // FO ADR-0031: detail includes peer-derived similarity. A source-row ETag
       // cannot safely validate peer creation, edit, or archival, so this route
       // intentionally ignores If-None-Match until a projection-aware validator
       // is introduced.

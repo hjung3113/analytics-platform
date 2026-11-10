@@ -10,7 +10,7 @@ import { JOB_WORK_OPTIONS, type JobLog, withJobLogging } from '../../../lib/job-
 import { allManagedSystemWorkspacePairs } from '../../managed-systems/read-projections.js';
 import { VOC_RECOMMENDATION_SIMILARITY_THRESHOLD } from '../recommendations/constants.js';
 
-/** Queue name. Format: `<module>.<action>` per ADR-0009. */
+/** Queue name. Format: `<module>.<action>` per FO ADR-0009. */
 export const VOC_CLUSTER_AUTOGEN_SHADOW_QUEUE = 'voc.cluster_autogen_shadow';
 
 /** Record a once-hourly measurement of eligible pairs. */

@@ -13,7 +13,7 @@ import type * as React from 'react';
 // Label → identity token mapping follows the established pattern in
 // packages/feature-ui/src/components/ChipPicker.tsx (managedSystemColorToken); that
 // helper is module-private, so this milestone-local copy mirrors it and names
-// that file as the source of truth. Tokens per ADR-0021 — never inline
+// that file as the source of truth. Tokens per FO ADR-0021 — never inline
 // prototype hex; unknown systems fall back to --managed-system-default.
 function managedSystemToken(label: string): string {
   const normalized = label.toLowerCase();

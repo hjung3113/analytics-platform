@@ -1,7 +1,7 @@
 // Idempotency lookup/reserve service. Owned by the Core module per
 // apps/platform-api/docs/02-domain-module-boundaries.md.
 //
-// Protocol (ADR-0015:71-90):
+// Protocol (FO ADR-0015:71-90):
 //   1. Lookup (actor_id, key) in core.idempotency_keys.
 //   2. Hit + matching request_hash → return stored response.
 //   3. Hit + mismatched hash       → throw HitMismatchError (controller → 409).
@@ -11,7 +11,7 @@
 //      explicit marker instead of the body and makes replay follow the
 //      existing mismatch path.
 //
-// Callers that need the full ADR-0015 frame should prefer `runIdempotent` so
+// Callers that need the full FO ADR-0015 frame should prefer `runIdempotent` so
 // the advisory lock, lookup, handler execution, and record stay together:
 //
 //   tx.transaction(async (tx) => {
@@ -118,7 +118,7 @@ export function createIdempotencyService() {
     // F-005: two concurrent first-time requests with the same
     // (actor_id, key) both see "miss" at lookup, both run the handler, and
     // the second INSERT would hit a unique_violation that bubbles out as a
-    // 500. ADR-0015:71-90 requires deterministic resolution: one writer
+    // 500. FO ADR-0015:71-90 requires deterministic resolution: one writer
     // commits its row, the loser silently observes the committed row.
     //
     // We use INSERT ... ON CONFLICT DO NOTHING; the loser's transaction
@@ -148,7 +148,7 @@ export function createIdempotencyService() {
     requestHash: string,
     handler: () => Promise<IdempotentResult<TBody>>,
   ): Promise<IdempotentResult<TBody>> {
-    // ADR-0015 race-surface amendment: serialise first-time retries with the
+    // FO ADR-0015 race-surface amendment: serialise first-time retries with the
     // same (actor_id, key) before lookup so only one handler can produce
     // side effects; followers replay the stored response.
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${actorId}), hashtext(${key}))`);

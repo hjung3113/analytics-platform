@@ -1,4 +1,4 @@
-// ADR-0012 stable error codes. Authoritative list lives in this file; both
+// FO ADR-0012 stable error codes. Authoritative list lives in this file; both
 // apps import from `@ap/feature-shared`. Slice 1 ships only the codes the auth path
 // emits — additional codes are added by their owning slice in lockstep with
 // the i18n catalog (when that lands).
@@ -40,7 +40,7 @@ export const ERROR_CODES = [
   // conflict.* → 409 (Slice 2 #10/#11)
   'conflict.duplicate_slug',
   'conflict.parent_archived',
-  // conflict.* → 409 (ADR-0019 Section A — archived row is itself
+  // conflict.* → 409 (FO ADR-0019 Section A — archived row is itself
   // immutable; distinct from `conflict.parent_archived` which rejects
   // because the referenced parent is archived).
   'conflict.record_archived',
@@ -95,7 +95,7 @@ export const errorCodeSchema = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 
 /**
- * ADR-0012 response envelope. `detail` and `requestable_permission` are
+ * FO ADR-0012 response envelope. `detail` and `requestable_permission` are
  * optional and code-specific; the shape itself is universal.
  */
 export interface ErrorEnvelope {

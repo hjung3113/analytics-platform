@@ -12,7 +12,7 @@
 //     `ServiceUnavailable`, `SlowDown`, generic network errors (`ECONNREFUSED`,
 //     `ETIMEDOUT`, `ENOTFOUND`, `EAI_AGAIN`) — is wrapped in
 //     `StorageUnavailableError`. The route layer translates this to the
-//     ADR-0012 envelope `{ code: 'storage.unavailable', status: 502 }`.
+//     FO ADR-0012 envelope `{ code: 'storage.unavailable', status: 502 }`.
 //   * `HeadObject` 404 is a normal "not present" signal, not an error.
 //   * `DeleteObject` is idempotent by S3 contract; we still catch
 //     `NoSuchKey`/`NotFound` defensively.

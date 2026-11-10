@@ -1,7 +1,7 @@
 // TriagePanel.clusterRecommendation.test.tsx — #168 step 6 chunk 6b.
 //
 // The recommendation surface is mounted inside the triage panel and receives
-// the source VOC id. ADR-0031 coexistence: `similar_count` remains the peer
+// the source VOC id. FO ADR-0031 coexistence: `similar_count` remains the peer
 // count, separate from the semantic recommendation section label.
 
 import { registerNoticeHost } from '@/test/notice-host';

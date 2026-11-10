@@ -63,7 +63,7 @@ export function useTriagePanelController({
       id: a.id,
       display_name: a.display_name,
       eligible: a.eligible,
-      // Actor list has no teams (ADR-0018); OwnerPicker still wants kind.
+      // Actor list has no teams (FO ADR-0018); OwnerPicker still wants kind.
       kind: 'user' as const,
     }));
   }, [actors]);

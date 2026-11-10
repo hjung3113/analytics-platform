@@ -1,6 +1,6 @@
 import { defineConfig } from 'drizzle-kit';
 
-// Per ADR-0015: hand-reviewed SQL files; no `drizzle-kit push` outside local dev.
+// Per FO ADR-0015: hand-reviewed SQL files; no `drizzle-kit push` outside local dev.
 // Drizzle CLI must connect as platform_migrate (full DDL/DML), never as platform_app.
 // DATABASE_URL_MIGRATE is the migration-only connection; DATABASE_URL is the
 // runtime app connection (platform_app) and is intentionally NOT consulted here.

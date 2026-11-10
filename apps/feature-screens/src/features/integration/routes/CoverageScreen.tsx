@@ -97,7 +97,7 @@ function hopHref(
 }
 
 // Absent key = em dash; a permitted empty result is present with zero. A
-// total-zero cell is the neutral no-data state (ADR-0067 56-1/O2), not a red 0%.
+// total-zero cell is the neutral no-data state (FO ADR-0067 56-1/O2), not a red 0%.
 function coverageCellText(cell: PerSystemCoverageCell): string {
   if (cell === undefined) return '—';
   return cell.status === 'no_data'
@@ -150,8 +150,8 @@ const ZERO_QUEUE_TONE = {
 } as const;
 
 /**
- * FE display hint only (ADR-0067 56-C): the settings route is server-gated by workspace.admin; the link shows
- * only for an authorized Admin (ADR-0056 capability-based Admin discovery) and stays hidden while the check is
+ * FE display hint only (FO ADR-0067 56-C): the settings route is server-gated by workspace.admin; the link shows
+ * only for an authorized Admin (FO ADR-0056 capability-based Admin discovery) and stays hidden while the check is
  * pending, failed, or denied. Mounted only when the host can link the target, so a host that cannot (the
  * platform bridge, which has no `#coverage` route) never fires the permission request.
  */

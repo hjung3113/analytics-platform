@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// ADR-0068 C9: human review metadata only, never copied VOC prose/titles.
+// FO ADR-0068 C9: human review metadata only, never copied VOC prose/titles.
 export const VOC_CLUSTER_SUGGESTION_AUDIT_EVENT_TYPES = [
   'voc_cluster_suggestion_confirmed',
   'voc_cluster_suggestion_discarded',

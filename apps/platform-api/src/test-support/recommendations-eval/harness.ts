@@ -1,4 +1,4 @@
-// Precision/recall/F1 over labelled VOC pairs (#168 step 5, ADR-0034 D5).
+// Precision/recall/F1 over labelled VOC pairs (#168 step 5, FO ADR-0034 D5).
 //
 // Pure and provider-agnostic: it takes vectors and labels and returns counts.
 // It never talks to a database or an embedding provider, so the same harness

@@ -48,7 +48,7 @@ export function useUpdateWorkspaceSettings() {
     mutationFn: patchWorkspaceSettings,
     onSuccess: (settings) => {
       queryClient.setQueryData(workspaceSettingsQueryKey, settings);
-      // ADR-0067 56-C: bands apply to every scope at once, so saving
+      // FO ADR-0067 56-C: bands apply to every scope at once, so saving
       // invalidates the whole dashboard-summary family, not just one scope.
       void queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
     },

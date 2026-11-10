@@ -278,7 +278,7 @@ describe.skipIf(!runIntegration)('milestone create (#514 A4)', () => {
     expect(rows.rows[0]?.count).toBe(0);
   });
 
-  it('create: an ADR-0050 status is stored; a value outside the set writes no row', async () => {
+  it('create: an FO ADR-0050 status is stored; a value outside the set writes no row', async () => {
     const msId = await insertMsDirectly(dbHandle, WORKSPACE_ID, uid(SLUG_PREFIX), 'Milestone MS');
     const devCookie = await seedScopedDeveloper(msId);
 

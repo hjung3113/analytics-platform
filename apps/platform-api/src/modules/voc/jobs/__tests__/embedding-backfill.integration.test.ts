@@ -1,5 +1,5 @@
 import { deleteRecoveryFixtureParents } from '../../../../test-support/recovery-fixtures.js';
-// #168 step 3 — cron backfill (ADR-0034 D6) against the real corpus query.
+// #168 step 3 — cron backfill (FO ADR-0034 D6) against the real corpus query.
 //
 // pg-boss is stubbed with a send-recorder: what matters here is *which* VOCs
 // are selected and *how many* are enqueued, not that pg-boss can insert a row
@@ -240,7 +240,7 @@ describe.skipIf(!runIntegration)('voc.embedding_backfill (#168)', () => {
     expect(ours(second.sent, ids)).toEqual([]);
   });
 
-  it('re-enqueues everything after an embedding-version bump (ADR-0034 D2)', async () => {
+  it('re-enqueues everything after an embedding-version bump (FO ADR-0034 D2)', async () => {
     const ids = await seedVocs(2);
     for (const id of ids) {
       await embedVoc(
@@ -364,7 +364,7 @@ describe.skipIf(!runIntegration)('voc.embedding_backfill (#168)', () => {
     expect(ours(sent, ids).map((job) => job.data.voc_id)).toEqual([ids[1]]);
   });
 
-  it('enqueues nothing when the provider is disabled (ADR-0034 D2)', async () => {
+  it('enqueues nothing when the provider is disabled (FO ADR-0034 D2)', async () => {
     const ids = await seedVocs(2);
     const { boss, sent } = recordingBoss();
 

@@ -1,6 +1,6 @@
 import { deleteRecoveryFixtureParents } from '../../../../test-support/recovery-fixtures.js';
 // #168 step 4 — recommendation read model, dismissal state and confirmation
-// path (ADR-0034 D3/D4/D5/D6) against the real database.
+// path (FO ADR-0034 D3/D4/D5/D6) against the real database.
 //
 // Vectors are hand-built unit vectors, never the step-2 fake provider. The
 // fake derives its output from a hash of the text, so two "similar" VOCs get
@@ -582,7 +582,7 @@ describe.skipIf(!runIntegration)('voc recommendations (#168)', () => {
     expect(result).toMatchObject({ available: false, reason: 'provider_disabled', total: 0 });
 
     // A VOC with no vector at the active version is "not yet available", never
-    // a silently empty list (ADR-0034 D2).
+    // a silently empty list (FO ADR-0034 D2).
     const unembedded = await insertVoc(msA, adminId, 'Never embedded');
     const missing = await service.listRecommendations({
       actor: admin(),
@@ -703,7 +703,7 @@ describe.skipIf(!runIntegration)('voc recommendations (#168)', () => {
     ).rejects.toMatchObject({ code: 'permission.denied' });
 
     // Cannot read the candidate → not_found, never a permission error that
-    // would confirm the id names a real VOC (ADR-0034 D4).
+    // would confirm the id names a real VOC (FO ADR-0034 D4).
     await expect(
       service.confirmRecommendation({
         actor: scopedDev(),
@@ -729,7 +729,7 @@ describe.skipIf(!runIntegration)('voc recommendations (#168)', () => {
   });
 
   it('gives unreadable, archived and nonexistent candidates one indistinguishable error', async () => {
-    // ADR-0034 D4 forbids letting a caller infer that an id names a real VOC.
+    // FO ADR-0034 D4 forbids letting a caller infer that an id names a real VOC.
     // Since 2974dd4 both halves of that — the visibility predicate and the
     // archived filter — live in `selectRecommendationVocs`'s SQL, and absence
     // from its result is the only thing the service sees. The archived half had

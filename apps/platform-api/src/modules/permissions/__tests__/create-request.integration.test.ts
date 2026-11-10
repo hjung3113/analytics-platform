@@ -466,7 +466,7 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
 
   // F-014: sensitive capabilities require a non-empty reason. The Zod body
   // schema already rejects empty strings, but the service emits a distinct
-  // ADR-0012 code (`validation.sensitive_reason_required`) when a reason that
+  // FO ADR-0012 code (`validation.sensitive_reason_required`) when a reason that
   // passes the schema (e.g. all whitespace) is still empty after trim.
   it('sensitive capability with whitespace-only reason → 422 validation.sensitive_reason_required', async () => {
     const cookie = await loginAs('mock-user-1');
@@ -496,7 +496,7 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
     expect(res.json().code).toBe('validation.malformed_idempotency_key');
   });
 
-  // F-011: ADR-0015:72 requires UUIDv4 specifically. A well-formed v1 UUID
+  // F-011: FO ADR-0015:72 requires UUIDv4 specifically. A well-formed v1 UUID
   // (version nibble at position 14 is `1`, encodes the host MAC) must be
   // rejected with the same code, since it is not random.
   it('UUIDv1 Idempotency-Key → 422 validation.malformed_idempotency_key', async () => {

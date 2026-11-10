@@ -3203,7 +3203,7 @@ describe('설문 screens', () => {
     });
   });
 
-  // #1075: creation entry follows the survey.manage capability SCOPE (ADR-0033),
+  // #1075: creation entry follows the survey.manage capability SCOPE (FO ADR-0033),
   // not the workspace-wide check: Admin (all) and a scoped Developer with at
   // least one granted Managed System may open the dialog; an actor with no
   // manageable system sees no opener anywhere.

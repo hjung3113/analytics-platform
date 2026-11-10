@@ -553,7 +553,7 @@ describe('MilestoneDetailPanel (#514 B2d)', () => {
     expect(within(row as HTMLElement).queryByText('담')).not.toBeInTheDocument();
   });
 
-  // G-columns (ADR-0050, choice a): the slot where the prototype shows
+  // G-columns (FO ADR-0050, choice a): the slot where the prototype shows
   // estimate (design §7 item 12) renders the Task due_date; no estimate
   // field is added to the Task contract.
   it('shows the task due date in the estimate slot and never the word estimate', async () => {

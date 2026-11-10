@@ -1,4 +1,4 @@
-// VOC audit detail schemas (Slice 3 #12 — ADR-0017).
+// VOC audit detail schemas (Slice 3 #12 — FO ADR-0017).
 // Each schema describes the `detail` payload for one VOC domain event.
 // Imported by audit-events.ts to register into AUDIT_EVENT_DETAIL_SCHEMAS.
 
@@ -244,7 +244,7 @@ export const publicUpdateReviewCandidateDismissedDetailSchema = z
   })
   .strict();
 
-// #168 step 4 — embedding recommendation decisions (ADR-0034 D3).
+// #168 step 4 — embedding recommendation decisions (FO ADR-0034 D3).
 //
 // `embedding_version` and `scope_key` are on the audit row, not just the
 // decision row: the whole point of D3's suppression rules is that a decision

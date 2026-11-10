@@ -53,7 +53,7 @@ const PRIORITY_SEVERITY: Record<TaskDetailDto['priority'], 'low' | 'medium' | 'h
     urgent: 'critical',
   };
 
-// ADR-0057 A2 amendment: keep panel navigation in Korean and preserve domain nouns.
+// FO ADR-0057 A2 amendment: keep panel navigation in Korean and preserve domain nouns.
 export const TASK_DETAIL_SECTIONS: PanelSection[] = [
   { id: 'overview', label: '요약' },
   { id: 'properties', label: '속성' },
@@ -195,7 +195,7 @@ export function useTaskDetailParts({
     staleTime: 30 * 1000,
   });
   const { data: me } = useMeBridge();
-  // Team candidates for the assignee picker: Managed System defaults (ADR-0067).
+  // Team candidates for the assignee picker: Managed System defaults (FO ADR-0067).
   const managedSystems = useTaskManagedSystems();
   // #377: backend gates Task comment GET+POST behind finding.manage + elevated
   // role on the Task's Managed System — same gate drives the composer hint.
@@ -454,7 +454,7 @@ export function useTaskDetailParts({
             <PanelSectionTitle>맥락</PanelSectionTitle>
             {/* #378: the source VOC is rendered ONLY from the backend payload's
               visibility verdict. `allowed` leads the trail; summary_visible /
-              denied render a blocked panel without identifiers (ADR-0023);
+              denied render a blocked panel without identifiers (FO ADR-0023);
               hidden / absent render nothing — no synthesis, no existence leak. */}
             {sourceVoc && sourceVoc.visibility_state !== 'allowed' && (
               <PermissionBlockedPanel

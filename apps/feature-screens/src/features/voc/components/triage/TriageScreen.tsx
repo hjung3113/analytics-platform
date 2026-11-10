@@ -7,7 +7,7 @@ import { RequestAccessButton } from '@/features/admin/permissions/request-access
 // Architecture (from PLAN-21 §Architecture sketch):
 //   No new route file-route. /vocs?view=triage mounts TriageRoute from vocs.tsx
 //   if (search.view === 'triage'); TriageRoute renders this screen. The platform bridge
-//   mounts it under its own HostSeamProvider (ADR-0071): search, navigation, links and
+//   mounts it under its own HostSeamProvider (platform ADR-0071): search, navigation, links and
 //   notices go through the seam, never TanStack Router or sonner.
 //
 // Decision D-1.2: Triage view does NOT read sort= from URL (server-pinned per #15).

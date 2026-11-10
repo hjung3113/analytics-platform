@@ -6,7 +6,7 @@
 // `onConflictDoNothing` would surface as a 500 in production under retry
 // pressure — this regression test catches that change.
 //
-// See `idempotency-service.ts:66-87` and ADR-0015:71-90.
+// See `idempotency-service.ts:66-87` and FO ADR-0015:71-90.
 
 import { randomUUID } from 'node:crypto';
 

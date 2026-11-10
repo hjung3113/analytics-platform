@@ -45,18 +45,18 @@ Paths are relative to `apps/feature-screens/src/`. Screen components under `feat
 
 ## Permission close-out contract
 
-- ADR-0066 selected-detail revision-safe review uses `selected-permission-request-detail.tsx` and the shared-schema API adapter. Explained risk presentation (#1084) and direct-grant UI (#1086) remain separate implementation items.
+- FO ADR-0066 selected-detail revision-safe review uses `selected-permission-request-detail.tsx` and the shared-schema API adapter. Explained risk presentation (#1084) and direct-grant UI (#1086) remain separate implementation items.
 - Clear decision drafts on request ID/revision changes; stale errors require refetch and fresh review, never auto-submit. Preserve tab/selected and Back restoration; cancelled history has no decision controls.
 - Direct workspace.admin grants require explicit governance mode/confirmation; self grants follow permission_self_approval. Server scope candidates, required reason, open-ask review and explicit deny-lift guidance are authoritative. Capability grants never imply Role Level promotion.
 - No client scores, email or restricted source text. Zero risk signals are shown only after successful calculation.
 
-## Close-out contract (ADR-0067)
+## Close-out contract (FO ADR-0067)
 
 - The five Coverage band rows live at `/admin/settings` (75/40 defaults; integer `0 <= warn < good <= 100` validation; save/discard/error/retry) with all-scope `dashboard-summary` invalidation after save. On a failed refetch, Home and Coverage keep cached rows under an explicit error indication, while Integration shows its own explicit error state (system overview hidden, average stat omitted).
 - Distinct Managed System reviewer Actor/team defaults are registry/storage; creation routing is implemented. Respect server gates, audit and no-op semantics.
 - Surface safe automatic-default configuration warnings. Known teams may render; no team CRUD, candidate listing or automatic reassignment is introduced.
 
-## Suggestion opt-in (ADR-0068)
+## Suggestion opt-in (FO ADR-0068)
 
 - The existing `/admin/settings` surface owns the single default-off Cluster suggestion option row (`사용` / `사용 안 함`). Preserve existing policies and permission gates.
   - Disabling stops new suggestions while pending review remains available; explain that boundary with Korean chrome.

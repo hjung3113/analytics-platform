@@ -1,4 +1,4 @@
--- Issue #184 / ADR-0033: Survey foundation only. Commands arrive in #185.
+-- Issue #184 / FO ADR-0033: Survey foundation only. Commands arrive in #185.
 
 CREATE SCHEMA IF NOT EXISTS "survey";
 --> statement-breakpoint

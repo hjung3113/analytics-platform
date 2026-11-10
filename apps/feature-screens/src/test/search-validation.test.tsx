@@ -132,7 +132,7 @@ const routeCases: Array<{
   },
 ];
 
-// ADR-0071: platformReturn is accepted on exactly four routes; every other
+// FO ADR-0071: platformReturn is accepted on exactly four routes; every other
 // strict schema drops it.
 const PLATFORM_URL = 'https://platform.example.com/analytics?x=1';
 describe('platformReturn search field', () => {
@@ -226,7 +226,7 @@ describe('nav resolve task intents survive the tasks search schema', () => {
   );
 });
 
-describe('ADR-0069 exact Area destinations', () => {
+describe('FO ADR-0069 exact Area destinations', () => {
   it.each([ID, 'unset'])('preserves %s on both strict list routes', (area) => {
     expect(validateVocSearch({ view: 'inbox', 'filter.analytics_area': area })).toEqual({
       view: 'inbox',

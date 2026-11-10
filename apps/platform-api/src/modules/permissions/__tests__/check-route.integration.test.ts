@@ -93,7 +93,7 @@ describe.skipIf(!runIntegration)('GET /me/permissions/check', () => {
     expect(body.decision.requestable).toBeNull();
   });
 
-  // ADR-0066 O3: ordinary workspace.admin requests are rejected by the server,
+  // FO ADR-0066 O3: ordinary workspace.admin requests are rejected by the server,
   // so no deny path may offer one (#1239). finding.manage is the control.
   // The Developer is created here: the default SEED_MODE=core has no personas.
   async function seedDeveloper(suffix: string) {
@@ -295,7 +295,7 @@ describe.skipIf(!runIntegration)('GET /me/permissions/check', () => {
     expect(body.decision).toEqual({ allow: true, via: 'role' });
   });
 
-  it('admin + survey.read_personal_responses → NOT approved (no role bypass, ADR-0033 §C)', async () => {
+  it('admin + survey.read_personal_responses → NOT approved (no role bypass, FO ADR-0033 §C)', async () => {
     const body = await checkAs(
       'mock-admin-1',
       `capability=survey.read_personal_responses&managed_system_id=${await anyManagedSystemId()}`,
@@ -334,7 +334,7 @@ describe.skipIf(!runIntegration)('GET /me/permissions/check', () => {
       url: '/me/permissions/check?capability=nonsense.action',
       headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` },
     });
-    // ADR-0012 prefix table maps validation.* → 422. The envelope code is
+    // FO ADR-0012 prefix table maps validation.* → 422. The envelope code is
     // the load-bearing assertion; the status follows the locked table.
     expect(res.statusCode).toBe(422);
     expect(res.json().code).toBe('validation.unknown_capability');

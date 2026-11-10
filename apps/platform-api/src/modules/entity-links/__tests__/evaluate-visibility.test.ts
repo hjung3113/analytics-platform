@@ -101,7 +101,7 @@ const readabilityCases = [
 describe('evaluateLinkVisibility', () => {
   for (const actor of sectionCMatrix) {
     for (const visibility of visibilities) {
-      it(`matches ADR-0023 Section C for ${visibility} / ${actor.actor}`, () => {
+      it(`matches FO ADR-0023 Section C for ${visibility} / ${actor.actor}`, () => {
         const input: LinkVisibilityEvaluationInput = {
           visibility,
           actorContext: actor.actorContext,

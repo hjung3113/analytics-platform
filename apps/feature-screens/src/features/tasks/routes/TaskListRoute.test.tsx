@@ -496,7 +496,7 @@ describe('Task detail Linked context source VOC (#378)', () => {
     expect(vocFirst).toBeTruthy();
 
     // The reporter-facing status is its own labelled fact, outside the VOC node's
-    // button name, and never replaces the Task status (ADR-0005).
+    // button name, and never replaces the Task status (FO ADR-0005).
     expect(within(trail).getByText('공개 상태')).toBeInTheDocument();
     expect(within(trail).getByText(REPORTER_STATUS_LABELS.progress)).toBeInTheDocument();
     expect(

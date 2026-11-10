@@ -33,7 +33,7 @@ const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
 const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
 const PREFIX = `selected-read-${randomUUID()}`;
 
-describe.skipIf(!runIntegration)('selected Permission request reads (ADR-0066)', () => {
+describe.skipIf(!runIntegration)('selected Permission request reads (FO ADR-0066)', () => {
   let db: DbHandle;
   let migrate: DbHandle;
   let app: FastifyInstance;

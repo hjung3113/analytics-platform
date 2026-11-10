@@ -1,4 +1,4 @@
--- #1109 / ADR-0064: conductor-authorized attachment extension.
+-- #1109 / FO ADR-0064: conductor-authorized attachment extension.
 -- Drizzle custom generation supplies journal/snapshot; existing roles only.
 DO $$
 DECLARE owner_name text;

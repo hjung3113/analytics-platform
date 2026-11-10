@@ -1,4 +1,4 @@
--- #510 part B (ADR-0055): outcome follow-up decision state + poor-result
+-- #510 part B (FO ADR-0055): outcome follow-up decision state + poor-result
 -- classifier + narrowed gap predicate, in one migration so the dashboard
 -- count cannot lie between the table and the predicate.
 --
@@ -7,7 +7,7 @@
 --     then mid) — not answer_value <= rating_min.
 --   * Only CLOSED outcome surveys are classified; open/draft never count.
 --   * The workspace survey_anonymity_threshold excludes small cohorts
---     entirely (ADR-0033): below-threshold surveys are not counted, not poor.
+--     entirely (FO ADR-0033): below-threshold surveys are not counted, not poor.
 --   * Resolution requires an ACTIVE generated_finding link whose Finding's
 --     CURRENT status is draft/active/converted (not_actionable and archived
 --     reopen the gap), OR a current no_follow_up decision. evidence_of links
@@ -42,7 +42,7 @@ ALTER TABLE "survey"."outcome_follow_up_decisions" ADD CONSTRAINT "outcome_follo
 ALTER TABLE "survey"."outcome_follow_up_decisions" ADD CONSTRAINT "outcome_follow_up_decisions_response_survey_fk" FOREIGN KEY ("survey_id","response_id") REFERENCES "survey"."survey_responses"("survey_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 GRANT ALL ON "survey"."outcome_follow_up_decisions" TO fops_migrate;
 --> statement-breakpoint
--- ADR-0055 storage option (b): one current row per response. fops_app may
+-- FO ADR-0055 storage option (b): one current row per response. fops_app may
 -- insert and transition it in place (the voc.voc_recommendation_decisions
 -- precedent) but never erase a recorded decision: no DELETE, and UPDATE only
 -- on the columns the mark/reopen transitions actually write.

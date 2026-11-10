@@ -51,8 +51,8 @@ export interface MilestoneCreatePanelProps {
 // slot; there is no separate create screen. Managed System is the required
 // create input (A3/A8) and is submitted as primary_managed_system_id — the
 // body never carries managed_system_id, and this form sends no status:
-// omitted status stores the ADR-0050 column default 'planning', and status
-// changes go through the detail panel's ADR-0050 status control.
+// omitted status stores the FO ADR-0050 column default 'planning', and status
+// changes go through the detail panel's FO ADR-0050 status control.
 export type MilestoneCreateParts = ClosableDetailParts & { kind: 'create' };
 
 export function useMilestoneCreateParts({

@@ -1,12 +1,12 @@
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import { captureOutcomeRecovery, finishOutcomeRecovery } from './recovery-presentation.js';
-// Outcome follow-up decisions (ADR-0055, issue #510 part B). The surveys
+// Outcome follow-up decisions (FO ADR-0055, issue #510 part B). The surveys
 // module owns the mark-no-follow-up / reopen-follow-up commands; the
 // classification itself runs inside the SECURITY DEFINER function
 // survey.read_outcome_follow_up_state, because platform_app cannot read response
 // or answer rows.
 //
-// Single transaction contract per command (AGENTS.md, ADR-0008/0015):
+// Single transaction contract per command (AGENTS.md, FO ADR-0008/0015):
 //   1. Idempotency lookup against (actor_id, key) inside runIdempotent, with
 //      the advisory lock and all state checks inside the miss path.
 //   2. Personal-response seam first: response existence, workspace scope,
@@ -272,7 +272,7 @@ export function createSurveyFollowUp(deps: SurveysServiceDeps) {
     });
   }
 
-  // #510 part C read model (ADR-0055). Mirrors the results read path
+  // #510 part C read model (FO ADR-0055). Mirrors the results read path
   // (results.ts): survey.read scoped to the primary Managed System, then the
   // personal gate decides `personal_access` instead of a 404. A non-holder
   // receives ONLY the survey-grain booleans — no counts, no response ids —

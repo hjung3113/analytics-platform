@@ -1,4 +1,4 @@
-// One read gate for platform entities (ADR-0069 decisions 6 and 9): `getEntity` and `entityAudit`
+// One read gate for platform entities (platform ADR-0069 decisions 6 and 9): `getEntity` and `entityAudit`
 // both go through `gateEntity`, whose read decision is the owning module's detail-read decision — never a repo and
 // never the entity-link provider `canRead` (looser than the screen detail endpoints: Finding/Task do
 // not require the elevated role there). A denial carries no row fields.

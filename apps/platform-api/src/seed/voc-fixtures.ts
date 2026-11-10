@@ -27,7 +27,7 @@ import { actors, analyticsAreas, managedSystems, teams } from '../db/schema/core
  * Ensures the '[seed] VOC owner team' fixture exists in the workspace.
  *
  * Uses the platform_migrate role (DATABASE_URL_MIGRATE) so platform_app never needs
- * INSERT on core.teams — ADR-0019 preserved. Idempotent via WHERE NOT EXISTS.
+ * INSERT on core.teams — FO ADR-0019 preserved. Idempotent via WHERE NOT EXISTS.
  *
  * Must be called BEFORE seedSlice3Vocs so the team row is present when the
  * VOC fixtures resolve it via SELECT.
@@ -205,7 +205,7 @@ export async function seedSlice3Vocs(handle: DbHandle, workspaceId: string): Pro
     if (!reporter) throw new Error('seedSlice3Vocs: no actors row for workspace');
 
     // ── Resolve seed team (created by ensureSeedTeam via platform_migrate) ───────
-    // ADR-0019: platform_app has no INSERT on core.teams. The '[seed] VOC owner
+    // FO ADR-0019: platform_app has no INSERT on core.teams. The '[seed] VOC owner
     // team' row is created by ensureSeedTeam (called from seed/index.ts before
     // this function) using DATABASE_URL_MIGRATE. Only SELECT needed here.
     const SEED_TEAM_NAME = '[seed] VOC owner team';

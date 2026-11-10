@@ -71,7 +71,7 @@ export const taskDetailSourceSchema = z
       })
       .strict()
       .optional(),
-    // Source VOC of the resolved trail, decided by the backend (ADR-0023 /
+    // Source VOC of the resolved trail, decided by the backend (FO ADR-0023 /
     // FR-LINK-002): the FE never synthesizes it. `hidden` is never serialized —
     // the whole key is omitted so existence is not revealed. The non-allowed
     // states carry no identifiers.
@@ -83,7 +83,7 @@ export const taskDetailSourceSchema = z
             id: z.string().uuid(),
             display_id: z.string(),
             title: z.string(),
-            // Reporter-facing state machine, separate from Task status (ADR-0005);
+            // Reporter-facing state machine, separate from Task status (FO ADR-0005);
             // only the allowed variant carries it.
             reporter_facing_status: reporterFacingStatusEnumSchema,
           })

@@ -1,6 +1,6 @@
 import { deleteRecoveryFixtureParents } from '../../../../test-support/recovery-fixtures.js';
 // #168 step 5 — the evaluation fixture driven through the REAL read model
-// (ADR-0034 D5), against Postgres and pgvector.
+// (FO ADR-0034 D5), against Postgres and pgvector.
 //
 // The pure harness in `../eval/__tests__/` proves the arithmetic. It cannot
 // prove the thing most likely to actually be wrong: `<=>` returns cosine
@@ -14,7 +14,7 @@ import { deleteRecoveryFixtureParents } from '../../../../test-support/recovery-
 //
 // Authorization is deliberately NOT re-tested here — one admin actor sees
 // everything, so nothing filters and the threshold is the only variable.
-// ADR-0034 D4 scoping is covered by `recommendations.integration.test.ts`.
+// FO ADR-0034 D4 scoping is covered by `recommendations.integration.test.ts`.
 //
 // The suite runs at its own `embedding_version` for the reason step 4's suite
 // does: `<=>` rejects operands of differing dimensionality and the shared dev

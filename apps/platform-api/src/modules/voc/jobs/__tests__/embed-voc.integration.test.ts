@@ -1,6 +1,6 @@
 import { deleteRecoveryFixtureParents } from '../../../../test-support/recovery-fixtures.js';
 // #168 step 3 — voc.embed_voc handler against the real voc.voc_embeddings
-// table (ADR-0034 D2/D6). Covers idempotence, in-place content refresh,
+// table (FO ADR-0034 D2/D6). Covers idempotence, in-place content refresh,
 // version coexistence, and the disabled-provider contract.
 //
 // Gate: DATABASE_URL + DATABASE_URL_MIGRATE + WORKSPACE_ID.
@@ -334,7 +334,7 @@ describe.skipIf(!runIntegration)('voc.embed_voc handler (#168)', () => {
     expect(after[0]?.updated_at).not.toBe(before?.updated_at);
   });
 
-  it('keeps rows at different embedding versions side by side (ADR-0034 D2)', async () => {
+  it('keeps rows at different embedding versions side by side (FO ADR-0034 D2)', async () => {
     const vocId = await seedVoc('Model swap');
     const payload = { workspace_id: WORKSPACE_ID, voc_id: vocId, correlation_id: 'test' };
 

@@ -27,7 +27,7 @@
 
 - Test allow, deny, explicit deny override, request approval, rejection, expiry, revocation, and safe error payloads when touched.
 
-## Close-out contract (ADR-0066)
+## Close-out contract (FO ADR-0066)
 
 - Centralize capability/scope candidates; reject unsupported object authorization rather than stripping it into a broader grant. Source objects are provenance.
 - Approval and direct grant share a Permission-owned grant command; expired reissue preserves history through a new grant ID and superseded_at. Never revive or fake-revoke the predecessor.

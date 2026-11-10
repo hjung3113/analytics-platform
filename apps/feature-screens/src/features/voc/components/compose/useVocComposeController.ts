@@ -162,7 +162,7 @@ export function useVocComposeController({
     'source_context',
   ]);
 
-  // The Managed System the screen came from, applied once and only when the fetched list holds it (ADR-0070
+  // The Managed System the screen came from, applied once and only when the fetched list holds it (platform ADR-0070
   // decision 5: no guess from a screen name). It is the form's initial value, so it does not make the draft dirty.
   // The host's lookup can answer after the list does (#1289 node j), so a null `initialManagedSystemId` keeps the default open; it closes
   // once applied, or once the user has chosen a system first (a late default never overwrites a selection).

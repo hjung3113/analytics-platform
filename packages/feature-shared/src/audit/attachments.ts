@@ -1,4 +1,4 @@
-// Attachments audit detail schemas (Slice 3 #22 / PLAN-22 C3a — ADR-0017).
+// Attachments audit detail schemas (Slice 3 #22 / PLAN-22 C3a — FO ADR-0017).
 // `attachment_uploaded` records a successful POST /attachments commit.
 //
 // Privacy invariant: `filename` MUST NOT appear in the audit detail. Filenames

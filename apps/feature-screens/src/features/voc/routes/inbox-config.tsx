@@ -11,7 +11,7 @@ import type { VocSearch } from './voc-search';
 export type InboxTab = NonNullable<VocSearch['tab']>;
 export type InboxSort = NonNullable<VocSearch['sort']>;
 
-// Tab labels mirror screen-voc.jsx `VOC_TABS` verbatim except `similar` (#592 / ADR-0031):
+// Tab labels mirror screen-voc.jsx `VOC_TABS` verbatim except `similar` (#592 / FO ADR-0031):
 // its URL key stays accepted for old links and saved views, but the tab is hidden until its
 // predicate exists (see 04-voc-system, “Similar VOC Suggested”).
 // The `urgent` flag flips the Unassigned tab to the danger token (red) per prototype.

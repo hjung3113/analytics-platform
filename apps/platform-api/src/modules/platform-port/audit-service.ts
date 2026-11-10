@@ -1,4 +1,4 @@
-// Platform port audit reads (ADR-0069 decisions 6, 7, 9): `auditTrail` and `entityAudit`.
+// Platform port audit reads (platform ADR-0069 decisions 6, 7, 9): `auditTrail` and `entityAudit`.
 // Judges a request and returns an outcome; the route wraps it in the envelope. Reads
 // `core.audit_log` only through the allowlisted projection (core/audit), never directly.
 

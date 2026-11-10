@@ -1,4 +1,4 @@
-// #168 step 3 — the per-VOC embedding job (ADR-0034 D6).
+// #168 step 3 — the per-VOC embedding job (FO ADR-0034 D6).
 //
 // One job = one VOC at the active embedding version. The handler is the only
 // writer of voc.voc_embeddings; both the write path (enqueue-on-write) and the
@@ -19,7 +19,7 @@ import {
 } from '../embedding/repo.js';
 import { deriveVocEmbeddingInput } from '../embedding/text.js';
 
-/** Queue name. Format: `<module>.<action>` per ADR-0009. */
+/** Queue name. Format: `<module>.<action>` per FO ADR-0009. */
 export const VOC_EMBED_QUEUE = 'voc.embed_voc';
 
 export interface VocEmbedPayload {
@@ -188,7 +188,7 @@ export async function embedVoc(
 /**
  * The `boss.work` callback as a named factory, mirroring `__purgeHandler` in
  * core/jobs: unit-testable without booting pg-boss, and errors propagate so
- * ADR-0009 retry config takes effect.
+ * FO ADR-0009 retry config takes effect.
  */
 export function embedVocHandler(deps: EmbedVocDeps) {
   return async (jobs: Array<{ id: string; data: VocEmbedPayload }>) => {

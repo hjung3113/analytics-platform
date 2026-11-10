@@ -14,7 +14,7 @@ The source of product and platform contracts. Check here what is decided before 
 
 ## ADR numbering
 
-- Platform ADRs are `ADR-NNNN`; historical feature ADRs (`docs/adr/history/feedbackops/`) are `FO ADR-NNNN`. The two number spaces overlap, so never cite a historical feature ADR without the prefix in platform documents or code comments.
+- Platform ADRs are `ADR-NNNN`; historical feature ADRs (`docs/adr/history/feedbackops/`) are `FO ADR-NNNN`. The two number spaces overlap, so never cite a historical feature ADR without the prefix in platform documents or code comments (`pnpm docs:adr-citations` fails a bare `ADR-00NN` ≤ 0072 under the feature paths).
 - Choose the next ADR number by this one procedure (other documents link to this line): `bash tooling/scripts/next-adr.sh` reads only the local tree, so fetch and compare `origin/main`, check open branches and worktrees, then reserve the chosen number by writing it in #598.
 
 ## Rules

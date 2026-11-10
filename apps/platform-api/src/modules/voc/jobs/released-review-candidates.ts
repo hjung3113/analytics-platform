@@ -21,7 +21,7 @@ export function releasedReviewCandidatesHandler(deps: {
 
 /**
  * Allowlisted payload id fields added to this queue's job log lines
- * (ADR-0013: bounded fields only — ids, never payload bodies).
+ * (FO ADR-0013: bounded fields only — ids, never payload bodies).
  */
 function releasedReviewFields(
   job: Job<TaskReleasedReviewCandidatesPayload>,

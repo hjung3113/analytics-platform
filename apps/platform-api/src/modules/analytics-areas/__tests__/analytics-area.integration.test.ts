@@ -520,7 +520,7 @@ describe.skipIf(!runIntegration)('Analytics Areas write path', () => {
     expect(res.json().code).toBe('not_found.record');
   });
 
-  it('PATCH on an archived AA → 409 conflict.record_archived (ADR-0019 Section A)', async () => {
+  it('PATCH on an archived AA → 409 conflict.record_archived (FO ADR-0019 Section A)', async () => {
     const cookie = await loginAs(app, 'mock-admin-1');
     const msId = await createMs(app, cookie, 'it-aaarch-host', 'host');
     const aa = await createAa(app, cookie, {
@@ -545,7 +545,7 @@ describe.skipIf(!runIntegration)('Analytics Areas write path', () => {
     expectFields(body, [{ path: ['id'], code: 'record_archived' }]);
   });
 
-  it('PATCH on an active AA under an archived parent MS → 409 conflict.parent_archived (ADR-0019 Section B Q1)', async () => {
+  it('PATCH on an active AA under an archived parent MS → 409 conflict.parent_archived (FO ADR-0019 Section B Q1)', async () => {
     // Race-induced state: AA active, parent MS archived. Cannot happen
     // via the normal cascade path post-Section E lock, but the policy
     // covers manual SQL and future bypass paths. We synthesise the
@@ -583,7 +583,7 @@ describe.skipIf(!runIntegration)('Analytics Areas write path', () => {
     expectFields(body, [{ path: ['managed_system_id'], code: 'parent_archived' }]);
   });
 
-  it('standalone archive on an active AA under an archived parent MS → 200 (ADR-0019 Section B Q2)', async () => {
+  it('standalone archive on an active AA under an archived parent MS → 200 (FO ADR-0019 Section B Q2)', async () => {
     // Same race-induced state as above. Standalone archive is the only
     // first-class cleanup path — refusing it would leave the row
     // reachable only via direct SQL.

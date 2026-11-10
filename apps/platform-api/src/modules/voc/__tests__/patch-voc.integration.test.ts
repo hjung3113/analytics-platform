@@ -511,7 +511,7 @@ describe.skipIf(!runIntegration)('PATCH /vocs/:id (#14)', () => {
   );
 
   // ── 2. If-Match missing → 422 ─────────────────────────────────────────
-  // Spec says 400 for missing header; we deviate to 422 to match ADR-0012
+  // Spec says 400 for missing header; we deviate to 422 to match FO ADR-0012
   // mapping (all validation errors → 422) per the Idempotency-Key precedent.
   it('PATCH without If-Match → 422 validation.failed with fields[0].path=[headers,if-match]', async () => {
     const admin = await loginAs(app, 'mock-admin-1');
@@ -1655,7 +1655,7 @@ describe.skipIf(!runIntegration)('PATCH /vocs/:id (#14)', () => {
   // that would invoke the DB trigger. The test asserts the field-level hint
   // is present (out_of_scope code on analytics_area_id); this is conclusive
   // evidence the service-level check ran because the trigger would produce a
-  // different error shape (raw pg exception, not the ADR-0012 envelope).
+  // different error shape (raw pg exception, not the FO ADR-0012 envelope).
   it('PATCH analytics_area_id from different MS → 422 validation.failed out_of_scope', async () => {
     const admin = await loginAs(app, 'mock-admin-1');
     const msAId = await createMs(app, admin, 'it-patch-cross-ms-a', 'Cross MS-A');
@@ -1779,7 +1779,7 @@ describe.skipIf(!runIntegration)('PATCH /vocs/:id (#14)', () => {
     expect(res.statusCode).toBe(403);
     const body = res.json();
     expect(body.code).toBe('permission.scope_required');
-    // F3: requestable_permission is hoisted to top-level envelope per ADR-0012
+    // F3: requestable_permission is hoisted to top-level envelope per FO ADR-0012
     // ErrorEnvelope contract; requiredScope stays in detail.
     expect(body.detail.requiredScope).toEqual([msId]);
     expect(body.requestable_permission.permission).toBe('voc.triage');
@@ -1791,7 +1791,7 @@ describe.skipIf(!runIntegration)('PATCH /vocs/:id (#14)', () => {
   // handler opens its tx. `checkCapability` is called with `{ tx }`, so the
   // read runs inside the same snapshot as the VOC SELECT FOR UPDATE. A
   // pool-bound read would also see the committed revoke, but the test still
-  // proves the recheck fires (ADR-0019 §D), because a service that skipped
+  // proves the recheck fires (FO ADR-0019 §D), because a service that skipped
   // the permission recheck entirely would return 200 here.
   it.each([{ grantState: 'revoked' }, { grantState: 'expired' }] as const)(
     '$grantState grant → second PATCH returns 403 permission.scope_required',

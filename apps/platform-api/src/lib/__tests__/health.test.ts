@@ -1,4 +1,4 @@
-// Unit tests for the readiness-probe helpers (ADR-0013, amended 2026-09-22).
+// Unit tests for the readiness-probe helpers (FO ADR-0013, amended 2026-09-22).
 //
 // All dependencies are fakes — no database, no pg-boss, no object store.
 // Covers: healthy baseline (missing storage key = reachable), per-check
