@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -146,6 +146,18 @@ describe('saved views and Quest adapter outcomes', () => {
     fireEvent.change(input, { target: { value: 'Q2' } });
     complete(response({ id: 'Q1', title: 'stale', status: 'Active' }));
     await waitFor(() => expect(screen.getByRole('button', { name: '과제(Quest) 확인' })).toBeTruthy());
+    expect(select).not.toHaveBeenCalled();
+  });
+  it('refuses a Quest lookup that lands after the session revision changed', async () => {
+    let complete!: (r: ApiResponse<Quest | null>) => void;
+    const listeners = new Set<() => void>();
+    const select = vi.fn();
+    mount({ overrides: { subscribe: (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; } }, search: async () => response({ supported: false, items: [], page: 0, hasMore: false }), quest: () => new Promise(resolve => { complete = resolve; }), children: <QuestPicker selected={null} onSelect={select} /> });
+    fireEvent.change(await screen.findByLabelText('과제(Quest) ID 직접 입력'), { target: { value: 'Q1' } });
+    fireEvent.click(screen.getByRole('button', { name: '과제(Quest) 확인' }));
+    act(() => { listeners.forEach(l => l()); });
+    complete(response({ id: 'Q1', title: 'stale', status: 'Active' }));
+    await waitFor(() => expect((screen.getByRole('button', { name: '과제(Quest) 확인' }) as HTMLButtonElement).disabled).toBe(false));
     expect(select).not.toHaveBeenCalled();
   });
   it('shows a Quest BRAVO does not have (ok with null) as not found, next to the stored title', async () => {

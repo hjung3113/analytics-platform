@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { useMenuFetch, useMenuQuery } from '@ap/kernel';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { Button, Input, SearchInput } from '@ap/ui';
 import { useCopy } from '../copy';
 import { questEndpoint, questSearchEndpoint, type Quest } from '../endpoints';
@@ -30,7 +30,9 @@ export function QuestPicker({ selected, onSelect }: { selected: PickedQuest | nu
   const [lookup, setLookup] = useState<'idle' | 'loading' | 'not_found' | 'unavailable' | 'forbidden'>('idle');
   const attempt = useRef<AbortController | null>(null);
   const cancelLookup = () => { attempt.current?.abort(); attempt.current = null; setLookup('idle'); };
-  useEffect(() => () => attempt.current?.abort(), []);
+  // The caller owns `useMenuFetch` result identity: a reply that lands after the session generation (adapter, user, revision) changed is dropped. Layout effect, so the abort runs in the commit that shows the new generation.
+  const { adapter, user, revision } = usePlatform();
+  useLayoutEffect(() => () => { attempt.current?.abort(); attempt.current = null; setLookup('idle'); }, [adapter, user.id, revision]);
   const startLookup = async () => {
     attempt.current?.abort();
     const controller = new AbortController();
