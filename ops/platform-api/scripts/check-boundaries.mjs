@@ -165,6 +165,16 @@ function collectImportSpecifiers(file, content) {
         line: source.getLineAndCharacterOfPosition(node.moduleSpecifier.getStart(source)).line + 1,
       });
     } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference) &&
+      ts.isStringLiteral(node.moduleReference.expression)
+    ) {
+      out.push({
+        specifier: node.moduleReference.expression.text,
+        line:
+          source.getLineAndCharacterOfPosition(node.moduleReference.expression.getStart(source)).line + 1,
+      });
+    } else if (
       ts.isCallExpression(node) &&
       (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
         (ts.isIdentifier(node.expression) && node.expression.text === 'require')) &&
@@ -454,7 +464,8 @@ const BASELINE_FILE = join(ROOT, FEATURE_OPS, 'scripts', 'check-boundaries.basel
 
 function surfaceKey(target) {
   const rel = relative(join(ROOT, BACKEND_MODULES), target).split(sep).join('/');
-  return rel.replace(/\.(?:[cm]?[jt]sx?)$/, '');
+  // `.js` names its `.ts` source, so both are one file. `.mjs`/`.mts` and `.cjs`/`.cts` stay distinct targets.
+  return rel.replace(/\.[jt]sx?$/, '').replace(/\.mts$/, '.mjs').replace(/\.cts$/, '.cjs');
 }
 
 function isApprovedSurface(key) {
@@ -494,7 +505,8 @@ function loadBaseline() {
   // A fixture tree (FEATURE_PATHS_REPO_ROOT) carries its own baseline at the same repository-relative place, or none.
   const path = BASELINE_FILE;
   if (!existsSync(path)) return { path, pairs: null };
-  return { path, pairs: new Set(JSON.parse(readFileSync(path, 'utf8')).pairs) };
+  const { total, pairs } = JSON.parse(readFileSync(path, 'utf8'));
+  return { path, total, pairs: new Set(pairs) };
 }
 
 function writeBaseline(path, pairs) {
@@ -504,7 +516,7 @@ function writeBaseline(path, pairs) {
 
 function checkOffSurfaceBaseline() {
   const found = collectOffSurfacePairs();
-  const { path, pairs: baseline } = loadBaseline();
+  const { path, total, pairs: baseline } = loadBaseline();
   const flags = new Set(process.argv.slice(2));
   if (flags.has('--init-baseline')) {
     if (baseline !== null) {
@@ -519,13 +531,19 @@ function checkOffSurfaceBaseline() {
   }
   const known = baseline ?? new Set();
   let count = 0;
+  if (baseline !== null && total !== baseline.size) {
+    count++;
+    console.error(
+      `[boundary] ${relative(ROOT, path)}: total is ${total} but the baseline lists ${baseline.size} pairs; set total to the number of pairs`,
+    );
+  }
   for (const [pair, line] of found) {
     if (known.has(pair)) continue;
     count++;
     console.error(
       [
         `[boundary] ${pair.split(' -> ')[0]}:${line}: cross-module import is not an approved surface (${pair});`,
-        "import the target's index.ts, read-projections.ts, read-service.ts or authorization.ts",
+        'import an approved surface of the target module',
         '(docs/02-domain-module-boundaries.md «Approved cross-module surfaces»).',
         'New off-surface pairs are not added to the baseline.',
       ].join(' '),

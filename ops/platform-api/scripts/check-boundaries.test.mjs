@@ -683,6 +683,39 @@ runCase(
   ],
 );
 
+runCase(
+  'rule 12 keeps .mjs and .js targets as different baseline pairs',
+  {
+    ...zero,
+    [join(MODULES, 'tasks', 'service.ts')]:
+      "import { x } from '../findings/record.js';\nimport { y } from '../findings/record.mjs';\n",
+    [BASELINE]: baselineOf(OFF),
+  },
+  false,
+  [`${MODULES}/tasks/service.ts:2`],
+);
+
+runCase(
+  'rule 12 catches import-equals require',
+  {
+    ...zero,
+    [join(MODULES, 'tasks', 'a.ts')]: "import other = require('../findings/record.cjs');\n",
+  },
+  false,
+  [`${MODULES}/tasks/a.ts:1`],
+);
+
+runCase(
+  'rule 12 fails a baseline whose total differs from its pairs',
+  {
+    ...zero,
+    [join(MODULES, 'tasks', 'service.ts')]: "import { x } from '../findings/record.js';\n",
+    [BASELINE]: JSON.stringify({ total: 2, pairs: [OFF] }),
+  },
+  false,
+  ['total is 2'],
+);
+
 // --shrink-baseline removes stale pairs and never adds a live off-surface pair.
 {
   const tmp = mkdtempSync(join(tmpdir(), 'boundary-test-'));
