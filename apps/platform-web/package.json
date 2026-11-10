@@ -51,6 +51,7 @@
     "@ap/menu-surveys": "workspace:*",
     "@ap/menu-systems": "workspace:*",
     "@ap/menu-tasks": "workspace:*",
+    "@ap/menu-topview-studio": "workspace:*",
     "@ap/menu-voc": "workspace:*",
     "@ap/menu-wpt": "workspace:*",
     "@ap/mock-server": "workspace:*",

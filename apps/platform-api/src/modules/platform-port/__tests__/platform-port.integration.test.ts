@@ -155,6 +155,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
           'dataset:suite-run',
           'eqv-studio:layout-edit',
           'eqv-studio:layout-publish',
+          'eqv-studio:view',
           'eqv:view',
           'features:access',
           'improvement:manage',
@@ -278,6 +279,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       ['dataset:suite-run', 'dataset.suite.run'],
       ['knowledge:access-manage', 'knowledge.access.manage'],
       ['eqv:view', 'eqv.view'],
+      ['eqv-studio:view', 'eqv.view'],
       ['eqv-studio:layout-edit', 'eqv.layout.edit'],
       ['eqv-studio:layout-publish', 'eqv.layout.publish'],
     ] as const)('%s is listed for Admin and for a workspace grant of %s, not for a plain user or a developer', async (permission, capability) => {

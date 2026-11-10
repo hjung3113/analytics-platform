@@ -233,15 +233,15 @@ importers:
       '@ap/feature-shared':
         specifier: workspace:*
         version: link:../../packages/feature-shared
-      '@eqv/core':
-        specifier: workspace:*
-        version: link:../../packages/eqv/core
       '@aws-sdk/client-s3':
         specifier: ^3.726.0
         version: 3.1154.0
       '@aws-sdk/lib-storage':
         specifier: ^3.726.0
         version: 3.1154.0(@aws-sdk/client-s3@3.1154.0)
+      '@eqv/core':
+        specifier: workspace:*
+        version: link:../../packages/eqv/core
       '@fastify/cookie':
         specifier: 11.0.2
         version: 11.0.2
@@ -462,6 +462,9 @@ importers:
       '@ap/menu-tasks':
         specifier: workspace:*
         version: link:../../platform/tasks
+      '@ap/menu-topview-studio':
+        specifier: workspace:*
+        version: link:../../menus/tools/topview-studio
       '@ap/menu-voc':
         specifier: workspace:*
         version: link:../../platform/voc
@@ -1301,6 +1304,73 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+
+  menus/tools/topview-studio:
+    dependencies:
+      '@ap/components':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/components
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/contracts
+      '@ap/kernel':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/kernel
+      '@ap/mock-server':
+        specifier: workspace:*
+        version: link:../../../packages/adapters/mock-server
+      '@ap/ui':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/ui
+      '@eqv/core':
+        specifier: workspace:*
+        version: link:../../../packages/eqv/core
+      '@eqv/editor':
+        specifier: workspace:*
+        version: link:../../../packages/eqv/editor
+      '@eqv/renderer':
+        specifier: workspace:*
+        version: link:../../../packages/eqv/renderer
+      '@eqv/ui':
+        specifier: workspace:*
+        version: link:../../../packages/eqv/ui
+      lucide-react:
+        specifier: ^1.48.0
+        version: 1.48.0(react@19.3.0)
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(yaml@2.9.1)
 
   ops/platform-api:
     devDependencies:

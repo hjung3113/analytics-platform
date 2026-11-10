@@ -12,6 +12,7 @@ import { improvementItemsMock } from '@ap/menu-improvement-items/mock';
 import { logAnalysisMock } from '@ap/menu-log-analysis/mock';
 import { logRulesMock } from '@ap/menu-log-rules/mock';
 import { logModelsMock } from '@ap/menu-log-models/mock';
+import { topviewStudioMock } from '@ap/menu-topview-studio/mock';
 // </gen:menu-mock-imports>
 // Audit seeds of menu-owned destinations (ADR-0048) — hand-wired, outside the generator's import region.
 import { metricsAuditEvents } from '@ap/menu-metrics/mock';
@@ -23,6 +24,7 @@ import { datasetActionsMock } from '@ap/menu-log-rules/mock';
 import { logLifecycleActionsMock } from '@ap/menu-log-models/mock';
 import { logKnowledgeActionsMock } from '@ap/menu-log-knowledge/mock';
 import { improvementItemsActionsMock } from '@ap/menu-improvement-items/mock';
+import { topviewStudioActionsMock } from '@ap/menu-topview-studio/mock';
 import type { CreateAssembly } from '#platform-assembly';
 import { menuPermissions, type AuditEvent } from '@ap/contracts';
 import { createMockAdapter, seedUsageNext, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
@@ -50,6 +52,7 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
   ...logAnalysisMock,
   ...logRulesMock,
   ...logModelsMock,
+  ...topviewStudioMock,
   // </gen:menu-mock-spreads>
 ];
 
@@ -62,7 +65,7 @@ export const MODULE_MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [...eqvMock];
 /**
  * Every menu mock action the app registers (hand-wired, ADR-0054). The mock adapter below and the conformance test read it.
  */
-export const MOCK_ACTIONS: readonly AnyMockAction[] = [...logAnalysisActionsMock, ...logKnowledgeActionsMock, ...improvementItemsActionsMock, ...logLifecycleActionsMock, ...datasetActionsMock];
+export const MOCK_ACTIONS: readonly AnyMockAction[] = [...logAnalysisActionsMock, ...logKnowledgeActionsMock, ...improvementItemsActionsMock, ...logLifecycleActionsMock, ...datasetActionsMock, ...topviewStudioActionsMock];
 
 /**
  * Audit events of menu-owned destinations (ADR-0048). The mock server joins them with its own equipment events,

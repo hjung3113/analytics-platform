@@ -12,6 +12,7 @@ import {
   contracts,
   eqvCore,
   eqvHost,
+  eqvMenu,
   eqvUi,
   featureBridgePreset,
   featureBridgeMenuPreset,
@@ -54,6 +55,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'platform/voc': featureBridgeMenuPreset,
   'menus/log-dev/log-models': featureBridgeMenuPreset,
   'menus/log-dev/log-analysis': menu,
+  'menus/tools/topview-studio': eqvMenu,
   'apps/platform-web': app,
 };
 
@@ -1046,6 +1048,45 @@ describe('EV ban outside the host slot', () => {
       const messages = await lint(file, `import { x } from '${source}'; void import('${source}');`);
       expect(messages.filter((m) => m.message.includes('ADR-0132')), file).toEqual([]);
     }
+  });
+});
+
+// --- EV's own menu (#1654, ADR-0132): menus/tools/topview-studio imports exactly four @eqv/* entries; every other menu stays banned ---
+describe('eqvMenu (menus/tools/topview-studio)', () => {
+  const PAGE = 'menus/tools/topview-studio/src/pages/x.tsx';
+  const MOCK = 'menus/tools/topview-studio/src/mock/x.ts';
+  it.each(['@eqv/core', '@eqv/renderer', '@eqv/editor', '@eqv/ui'].flatMap((source) => importForms(source).map((f) => ({ source, ...f }))))('allows $source ($form)', async ({ code }) => {
+    expect((await lint(PAGE, code)).filter((m) => m.message.includes('ADR-0132')), code).toEqual([]);
+  });
+  it.each(['@eqv/platform-adapter', '@eqv/platform-adapter/mock-data', '@eqv/replay', '@eqv/views', '@eqv/ui/styles.css'].flatMap((source) => importForms(source).map((f) => ({ source, ...f }))))('rejects $source ($form)', async ({ code, rule }) => {
+    const messages = await lint(PAGE, code);
+    expect(messages.some((m) => m.ruleId === rule && m.message.includes('ADR-0132')), JSON.stringify(messages, null, 2)).toBe(true);
+  });
+  it.each(importForms('@eqv/core'))('rejects @eqv/core under src/mock/** ($form)', async ({ code, rule }) => {
+    const messages = await lint(MOCK, code);
+    expect(messages.some((m) => m.ruleId === rule), JSON.stringify(messages, null, 2)).toBe(true);
+  });
+  it.each(['menus/mars/analytics/src/x.ts', 'menus/log-dev/log-analysis/src/x.ts'])('another menu (%s) keeps rejecting the four entries', async (file) => {
+    for (const source of ['@eqv/core', '@eqv/renderer', '@eqv/editor', '@eqv/ui']) {
+      const messages = await lint(file, `import { x } from '${source}';`);
+      expect(messages.some((m) => m.ruleId === 'no-restricted-imports' && m.message.includes('ADR-0132')), `${file} ${source}`).toBe(true);
+    }
+  });
+  it('is named by no other menu or platform package config', async () => {
+    const owners: string[] = [];
+    for (const root of ['menus', 'platform']) {
+      const level = await readdir(path.join(REPO_ROOT, root), { withFileTypes: true });
+      for (const entry of level.filter((e) => e.isDirectory() && e.name !== 'node_modules')) {
+        const dirs = root === 'menus'
+          ? (await readdir(path.join(REPO_ROOT, root, entry.name), { withFileTypes: true })).filter((e) => e.isDirectory() && e.name !== 'node_modules').map((e) => `${root}/${entry.name}/${e.name}`)
+          : [`${root}/${entry.name}`];
+        for (const dir of dirs) {
+          const config = await readFile(path.join(REPO_ROOT, dir, 'eslint.config.js'), 'utf8').catch(() => '');
+          if (/\beqvMenu\b/.test(config)) owners.push(dir);
+        }
+      }
+    }
+    expect(owners).toEqual(['menus/tools/topview-studio']);
   });
 });
 

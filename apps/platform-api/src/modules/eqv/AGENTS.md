@@ -10,7 +10,7 @@ Owns the `eqv` schema (#1645, #1607 step 5, [ADR-0135](../../../../../docs/adr/0
 - **Draft versions.** `saveDraft.currentVersion` answers `'0'` while no row exists (never `null`: the engine turns that into `not_found`); the first row is version 1.
 - **Templates** come from a published Revision (EV ADR-0015). Bundled ids (`BUNDLED_TEMPLATE_IDS`) are refused.
 - **Menu ids.** Every read except `eqv.equipment-options` (`eqv:focus`) and all actions sit on `EQV_STUDIO_MENU_ID` because `invalidates` names only same-menu endpoints. Do not declare `eqv.topview-context` / `eqv.topview-events` (step 9).
-- **Permissions** are declared in `EQV_MENU_PERMISSIONS` (`menu.ts`, handed over by `eqvContribution`) (`eqv:view`, `eqv-studio:layout-edit`, `eqv-studio:layout-publish`), not `eqv:*`-prefixed write names: the `eqv` namespace belongs to the app's module (Kernel registry refuses a clash). Real-server Site Scope is enforced by capability alone until #1087.
+- **Permissions** are declared in `EQV_MENU_PERMISSIONS` (`menu.ts`, handed over by `eqvContribution`) (`eqv:view`, `eqv-studio:view`, `eqv-studio:layout-edit`, `eqv-studio:layout-publish`; `eqv-studio:view` is the entry permission of the Studio Layouts menu, #1654, with the same capability `eqv.view` as `eqv:view`, which the reads keep), not `eqv:*`-prefixed write names: the `eqv` namespace belongs to the app's module (Kernel registry refuses a clash). Real-server Site Scope is enforced by capability alone until #1087.
 - `equipment.model_id` is a Hub catalog id with no FK; the future write (step 8) checks it through `knowledgeLookup`.
 
 ## Not implemented (reopen when step 8 / 9 starts)

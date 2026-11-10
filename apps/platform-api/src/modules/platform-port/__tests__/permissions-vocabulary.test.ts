@@ -67,6 +67,7 @@ describe('menu permissions the modules declare (#1667)', () => {
     ['dataset:suite-run', 'dataset.suite.run'],
     ['knowledge:access-manage', 'knowledge.access.manage'],
     ['eqv:view', 'eqv.view'],
+    ['eqv-studio:view', 'eqv.view'],
     ['eqv-studio:layout-edit', 'eqv.layout.edit'],
     ['eqv-studio:layout-publish', 'eqv.layout.publish'],
   ] as const)('declares %s once, with the capability %s', (permission, capability) => {
@@ -74,8 +75,8 @@ describe('menu permissions the modules declare (#1667)', () => {
     expect(kernelPermissions()).not.toContain(permission);
   });
 
-  it('declares exactly the 17 menu permissions and none twice', () => {
-    expect(declared()).toHaveLength(17);
+  it('declares exactly the 18 menu permissions and none twice', () => {
+    expect(declared()).toHaveLength(18);
   });
 
   it('lists the kernel permissions first, then the declared ones in registration order', () => {

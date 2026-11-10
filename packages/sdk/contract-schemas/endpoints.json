@@ -435,6 +435,75 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "eqv.layoutDraft",
+    "menuId": "eqv-studio",
+    "paramKeys": [
+      "layoutId"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.layoutRevision",
+    "menuId": "eqv-studio",
+    "paramKeys": [
+      "layoutId",
+      "revision"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.layoutRevisions",
+    "menuId": "eqv-studio",
+    "paramKeys": [
+      "layoutId"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.layouts",
+    "menuId": "eqv-studio",
+    "paramKeys": [],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.template",
+    "menuId": "eqv-studio",
+    "paramKeys": [
+      "templateId"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.templates",
+    "menuId": "eqv-studio",
+    "paramKeys": [],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "home.notices",
     "menuId": "home",
     "paramKeys": [

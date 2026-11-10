@@ -49,6 +49,25 @@ const specFixture = (publish = false) => {
 };
 const SPEC_READ_DRAFT = specFixture().revisionId;
 const IMPORT_READ_JOB = stagedImport(true).jobId;
+// Studio Layouts (#1654): the mock's own handlers stage Layouts, Revisions and Templates; each write sample owns a fresh Layout so repeated calls never collide.
+const studioAction = (id: string) => MOCK_ACTIONS.find(action => action.spec.id === `eqv.${id}`)!;
+const studioRun = (id: string, input: Record<string, unknown>) => studioAction(id).handle({ input, actor: 'admin', scopeId: null }).data as Record<string, string>;
+const studioRead = (id: string, params: Record<string, unknown>) => endpoints.find(({ spec }) => spec.id === `eqv.${id}`)!.handle({ equipment: [], context: emptyGlobal, params, actor: 'admin' }) as { document: Record<string, unknown> };
+const STUDIO_LAYOUT = 'sample-layout';
+let studioSequence = 0;
+const stagedStudioLayout = (): string => {
+  const layoutId = `cf-layout-${++studioSequence}`;
+  studioRun('saveDraft', { layoutId, document: { ...studioRead('layoutDraft', { layoutId: STUDIO_LAYOUT }).document, id: layoutId } });
+  return layoutId;
+};
+const STUDIO_REVISION = studioRun('publishRevision', { layoutId: STUDIO_LAYOUT }).revision!;
+const STUDIO_TEMPLATE = 'conformance-template';
+studioRun('promoteTemplate', { layoutId: STUDIO_LAYOUT, revision: STUDIO_REVISION, templateId: STUDIO_TEMPLATE, name: 'Conformance' });
+const studioSamples: Record<string, () => Record<string, unknown>> = {
+  saveDraft: () => { const layoutId = `cf-new-${++studioSequence}`; return { layoutId, document: { ...studioRead('layoutDraft', { layoutId: STUDIO_LAYOUT }).document, id: layoutId } }; },
+  publishRevision: () => ({ layoutId: stagedStudioLayout() }),
+  promoteTemplate: () => { const layoutId = stagedStudioLayout(); const { revision } = studioRun('publishRevision', { layoutId }); return { layoutId, revision, templateId: `cf-template-${++studioSequence}`, name: 'Conformance' }; },
+};
 const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
 /** One request per endpoint that the granted actor (engineer at MEM) runs successfully. Endpoints with no params default to `{}`. */
 const PARAMS: Record<string, Record<string, unknown>> = {
@@ -145,12 +164,17 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   // EV (#801): the synthetic fixture's equipment; `continuationToken` stays omitted (first page).
   'eqv.topview-context': { equipmentId: 'eq-synth-01' },
   'eqv.topview-events': { equipmentId: 'eq-synth-01' },
+  // Studio Layouts reads (#1654): the mock's seeded Layout, a Revision and a Template staged above.
+  'eqv.layoutDraft': { layoutId: STUDIO_LAYOUT },
+  'eqv.layoutRevisions': { layoutId: STUDIO_LAYOUT },
+  'eqv.layoutRevision': { layoutId: STUDIO_LAYOUT, revision: STUDIO_REVISION },
+  'eqv.template': { templateId: STUDIO_TEMPLATE },
 };
 /** The EV specs declare `limits.maxHours: 8`, so their cases run in the fixture's 30-minute window, not the harness's 24 h (naive seconds, as the URL carries them). */
 const EQV_CONTEXT = { from: '2026-01-01T10:00:00', to: '2026-01-01T10:30:00' };
 
 // No oversizeParams samples (#175): mock data sits far below the declared maxRows, so no case can exceed a cap.
-const cases: ConformanceCase[] = endpoints.map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {}, ...(spec.id.startsWith('eqv.') ? { context: EQV_CONTEXT } : {}) }));
+const cases: ConformanceCase[] = endpoints.map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {}, ...(spec.id.startsWith('eqv.topview-') ? { context: EQV_CONTEXT } : {}) }));
 // No menu declares a write yet, so the write checks (ADR-0054) judge the mock engine over one fixture action on an
 // existing analytics menu; the version counter is the stored row the handler bumps and `currentVersion` reads.
 const trendSpec = endpoints.find(({ spec }) => spec.id === 'analytics.productivity.trend')!.spec;
@@ -302,6 +326,7 @@ const writeSamples: Record<string, Record<string, () => Record<string, unknown>>
   improvement: improvementSamples,
   logExplorer: explorerSamples,
   logLifecycle: lifecycleSamples,
+  eqv: studioSamples,
   logDataset: {
     baselineApprove: () => ({ id: stageDatasetBaseline(), reason: '적합성 승인' }),
     suiteRun: () => ({ suiteId: stageDatasetSuiteRun(), idempotencyKey: crypto.randomUUID() }),
