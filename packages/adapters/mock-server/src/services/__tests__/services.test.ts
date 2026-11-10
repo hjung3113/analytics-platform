@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { PREFERENCE_KEYS_MAX, PREFERENCE_VALUE_MAX_BYTES, QUEST_QUERY_MAX, QUEST_SEARCH_PAGE_SIZE_MAX } from '@ap/contracts';
-import { MOCK_QUESTS, QUEST_DOWN_ID, QUEST_UNSUPPORTED_QUERY, deleteNotice, getQuest, importPreferences, listNotices, lookupPeople, patchPreferences, readPreferences, resetNotices, resetPreferences, saveNotice, searchQuests } from '../services';
+import { PREFERENCE_KEYS_MAX, PREFERENCE_VALUE_MAX_BYTES } from '@ap/contracts';
+import { deleteNotice, importPreferences, listNotices, lookupPeople, patchPreferences, readPreferences, resetNotices, resetPreferences, saveNotice } from '../services';
 import { getRole, setRole, setScenario } from '../../server';
 import { createMockAdapter } from '../../adapter';
 import type { RoleId } from '../../world';
@@ -232,94 +232,5 @@ describe('notices', () => {
     expect(await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1', idempotencyKey: 'd2' }, undefined, as('admin'))).toMatchObject({ outcome: 'ok', replayed: true });
     expect((await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1', idempotencyKey: 'd3' }, undefined, as('admin'))).outcome).toBe('not_found');
     expect((await deleteNotice({ id: 'N-mock-2', expectedVersion: 'v1', idempotencyKey: 'd4', author: 'x' } as never, undefined, as('admin'))).outcome).toBe('invalid');
-  });
-});
-
-describe('quests (read-only port, #1328)', () => {
-  it('getQuest answers ok with the quest, for every mock row; the ids improvement-item fixtures link to resolve', async () => {
-    for (const quest of MOCK_QUESTS) expect(await getQuest(quest.id, undefined, fast)).toMatchObject({ outcome: 'ok', data: quest, trust: null, assessments: [] });
-    for (const id of ['Q-1', 'Q-2', 'Q-9']) expect((await getQuest(id, undefined, fast)).outcome).toBe('ok');
-  });
-
-  it('the mock rows cover the cases a picker must render: at least six, mixed statuses, a Korean title, a very long title', () => {
-    expect(MOCK_QUESTS.length).toBeGreaterThanOrEqual(6);
-    expect(new Set(MOCK_QUESTS.map(row => row.status)).size).toBeGreaterThanOrEqual(3);
-    expect(MOCK_QUESTS.some(row => /[가-힣]/.test(row.title))).toBe(true);
-    expect(MOCK_QUESTS.some(row => row.title.length > 300)).toBe(true);
-    expect(new Set(MOCK_QUESTS.map(row => row.id)).size).toBe(MOCK_QUESTS.length);
-  });
-
-  it('an unknown id is not_found: outcome empty with data null', async () => {
-    expect(await getQuest('Q-404', undefined, fast)).toMatchObject({ outcome: 'empty', data: null });
-  });
-
-  it('the trigger id answers unavailable: outcome error, no data, nothing thrown', async () => {
-    expect(await getQuest(QUEST_DOWN_ID, undefined, fast)).toMatchObject({ outcome: 'error', data: null });
-  });
-
-  it('an empty id is an input error, not a lookup', async () => {
-    expect(await getQuest('', undefined, fast)).toMatchObject({ outcome: 'error', data: null });
-  });
-
-  it.each(['error', 'timeout', 'forbidden'] as const)('the %s scenario answers that outcome for both reads', async (scenario) => {
-    setScenario(scenario);
-    expect((await getQuest('Q-1', undefined, fast)).outcome).toBe(scenario);
-    expect((await searchQuests({ page: 0, pageSize: 3 }, undefined, fast)).outcome).toBe(scenario);
-  });
-
-  it('search pages through every row: 9 rows in pages of 3, the last page has hasMore false (the paging boundary)', async () => {
-    const pages = [];
-    for (const page of [0, 1, 2, 3]) pages.push((await searchQuests({ page, pageSize: 3 }, undefined, fast)).data);
-    expect(pages.map(p => [p?.supported, p?.items.length, p?.page, p?.hasMore])).toEqual([[true, 3, 0, true], [true, 3, 1, true], [true, 3, 2, false], [true, 0, 3, false]]);
-    expect(pages.flatMap(p => p?.items ?? [])).toEqual(MOCK_QUESTS);
-  });
-
-  it('search matches id or title text case-insensitively, and status exactly; both together narrow', async () => {
-    expect((await searchQuests({ query: 'q-3', page: 0, pageSize: 10 }, undefined, fast)).data?.items.map(q => q.id)).toEqual(['Q-3']);
-    expect((await searchQuests({ query: '설비', page: 0, pageSize: 10 }, undefined, fast)).data?.items.map(q => q.id)).toEqual(['Q-3']);
-    expect((await searchQuests({ status: 'Open', page: 0, pageSize: 10 }, undefined, fast)).data?.items.map(q => q.id)).toEqual(['Q-1', 'Q-7', 'Q-9']);
-    expect((await searchQuests({ query: 'pump', status: 'Open', page: 0, pageSize: 10 }, undefined, fast)).data).toEqual({ supported: true, items: [], page: 0, hasMore: false });
-  });
-
-  it('a query matching nothing is supported with no items: that is "no match", not "cannot search"', async () => {
-    expect((await searchQuests({ query: 'zzz-no-such-quest', page: 0, pageSize: 5 }, undefined, fast)).data).toEqual({ supported: true, items: [], page: 0, hasMore: false });
-  });
-
-  it('the unsupported trigger answers ok with supported false, no items and no next page', async () => {
-    expect(await searchQuests({ query: QUEST_UNSUPPORTED_QUERY, page: 0, pageSize: 5 }, undefined, fast)).toMatchObject({ outcome: 'ok', data: { supported: false, items: [], page: 0, hasMore: false } });
-  });
-
-  it('the down trigger as a search text answers unavailable', async () => {
-    expect(await searchQuests({ query: QUEST_DOWN_ID, page: 0, pageSize: 5 }, undefined, fast)).toMatchObject({ outcome: 'error', data: null });
-  });
-
-  it.each([
-    ['a query over the limit', { query: 'x'.repeat(QUEST_QUERY_MAX + 1), page: 0, pageSize: 5 }],
-    ['a negative page', { page: -1, pageSize: 5 }],
-    ['a fractional page', { page: 0.5, pageSize: 5 }],
-    ['an unsafe page', { page: Number.MAX_SAFE_INTEGER + 1, pageSize: 5 }],
-    ['page size 0', { page: 0, pageSize: 0 }],
-    ['a page size over the limit', { page: 0, pageSize: QUEST_SEARCH_PAGE_SIZE_MAX + 1 }],
-    ['an unknown key', { page: 0, pageSize: 5, userId: 'admin' }],
-  ])('rejects %s as outcome error with no data', async (_name, input) => {
-    expect(await searchQuests(input as never, undefined, fast)).toMatchObject({ outcome: 'error', data: null });
-  });
-
-  it('accepts the largest safe page (the wire schemas allow it) and refuses its first successor', async () => {
-    const big = Number.MAX_SAFE_INTEGER;
-    expect(await searchQuests({ page: big, pageSize: 3 }, undefined, fast)).toMatchObject({ outcome: 'ok', data: { supported: true, items: [], page: big, hasMore: false } });
-    expect(await searchQuests({ page: big + 1, pageSize: 3 }, undefined, fast)).toMatchObject({ outcome: 'error', data: null });
-  });
-
-  it('answers are copies: changing a returned quest does not change the mock', async () => {
-    const first = (await getQuest('Q-1', undefined, fast)).data!;
-    first.title = 'changed';
-    expect((await getQuest('Q-1', undefined, fast)).data?.title).toBe('Chamber pressure drift review');
-  });
-
-  it('createMockAdapter serves both members', async () => {
-    const adapter = createMockAdapter({ endpoints: [], registry: { menus: [] } });
-    expect((await adapter.getQuest('Q-1')).outcome).toBe('ok');
-    expect((await adapter.searchQuests({ page: 0, pageSize: 2 })).data?.items).toHaveLength(2);
   });
 });

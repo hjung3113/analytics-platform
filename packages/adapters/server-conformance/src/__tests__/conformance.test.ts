@@ -1,6 +1,6 @@
 import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
 import { describe, expect, it } from 'vitest';
-import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type Quest, QUEST_QUERY_MAX, QUEST_SEARCH_PAGE_SIZE_MAX, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
+import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
 import { planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from '../index';
 import { SAVED_VIEW_PORT_METHODS } from '../plan/ports/saved-views';
 
@@ -49,11 +49,6 @@ const actionSpec = defineAction<{ text: string }, { id: number }>({
 });
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const QUESTS: readonly Quest[] = [
-  { id: 'Q-1', title: 'Pressure drift', status: 'Open' },
-  { id: 'Q-2', title: '설비 점검', status: 'Closed' },
-  { id: 'Q-3', title: 'Pump life', status: 'Open' },
-];
 const err = (message: string): ApiResponse<never> => ({ outcome: 'error', message, data: null, assessments: [], trust: null, correlationId: 'ref' });
 const forbidden: ApiResponse<unknown> = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'ref' };
 
@@ -649,25 +644,6 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       noticeRows.splice(index, 1);
       return noticeAnswer('ok', { data: { id: input.id }, version: input.expectedVersion });
     },
-    getQuest: async id => {
-      if (id === 'Q-DOWN') return err('bravo_down');
-      const quest = QUESTS.find(q => q.id === id);
-      if (!quest) return breaks.has('quest-notfound-error') ? err('not_found') : { ...envelope, outcome: 'empty', data: null };
-      return { ...envelope, outcome: 'ok', data: breaks.has('quest-extra-key') ? ({ ...quest, url: 'https://example.invalid' } as Quest) : { ...quest } };
-    },
-    searchQuests: async input => {
-      const body = input as Record<string, unknown>;
-      const badInput = Object.keys(body).some(k => !['query', 'status', 'page', 'pageSize'].includes(k)) || !Number.isSafeInteger(input.page) || input.page < 0 || !Number.isSafeInteger(input.pageSize) || input.pageSize < 1 || input.pageSize > QUEST_SEARCH_PAGE_SIZE_MAX || (input.query ?? '').length > QUEST_QUERY_MAX;
-      if (badInput && !breaks.has('quest-search-accepts-invalid')) return err('invalid input');
-      if (input.query === 'Q-NOSEARCH') return { ...envelope, outcome: 'ok', data: { supported: false, items: breaks.has('quest-unsupported-items') ? [QUESTS[0]!] : [], page: input.page, hasMore: false } };
-      const matches = QUESTS.filter(q => (input.query ?? '') === '' || q.title.includes(input.query!) || q.id.includes(input.query!));
-      if (matches.length === 0 && breaks.has('quest-nomatch-error')) return err('nothing');
-      if (matches.length === 0) return { ...envelope, outcome: 'ok', data: { supported: !breaks.has('quest-nomatch-unsupported'), items: [], page: input.page, hasMore: false } };
-      const start = (breaks.has('quest-page-stuck') ? 0 : input.page) * input.pageSize;
-      const size = breaks.has('quest-page-later-oversized') && input.page > 0 ? input.pageSize + 1 : input.pageSize;
-      const page = breaks.has('quest-page-wrong-number') && input.page > 0 ? 0 : breaks.has('quest-page-unsafe-number') && input.page > 0 ? Number.MAX_SAFE_INTEGER + 1 : input.page;
-      return { ...envelope, outcome: 'ok', data: { supported: true, items: matches.slice(start, start + size), page, hasMore: start + size < matches.length } };
-    },
     // The ports round D exercises (#152): contract-shaped answers, one break each.
     publishedMetrics: () => breaks.has('published-metrics')
       ? [{ metricId: '', publishedVersion: 3 as unknown as string | null }] // empty id, non-string version
@@ -709,7 +685,6 @@ const PORTS: PortSamples = {
   clientError: { correlationId: 'client-ref', menuId: 'fixture', spaceId: spaceId('mars'), path: '/fixture', name: 'Error' },
   otherGrantedScopeId: 'FDRY',
   visiblePersonId: 'engineer',
-  quests: { knownId: 'Q-1', unavailableId: 'Q-DOWN', unsupportedQuery: 'Q-NOSEARCH' },
 };
 
 function actors(state: RefState) {
@@ -876,13 +851,6 @@ describe('server conformance kit (#145)', () => {
       'port · saveNotice rejects a supplied author, id on create and unknown keys',
       'port · saveNotice without console:access → forbidden',
       'port · deleteNotice without console:access → forbidden',
-      'port · getQuest answers a known Quest as ok with exactly id, title and status',
-      'port · getQuest of an unknown id is not_found: outcome empty with data null, nothing thrown',
-      'port · getQuest while BRAVO is unavailable is outcome error with data null, nothing thrown',
-      'port · searchQuests pages: the asked page, at most pageSize items, a later page differs from the first',
-      'port · searchQuests with a query that matches nothing is ok with supported true, no items and no next page',
-      'port · searchQuests on a BRAVO that cannot search answers ok with supported false, not an error',
-      'port · searchQuests rejects an invalid query, page or page size as outcome error with data null',
       'savedViews: no sample',
       'actions: no sample',
       'condition: no sample',
@@ -1745,57 +1713,6 @@ describe('declared gaps: implemented ports, site grants, siteless destinations (
     expect(skipped).toContain('port · lookupPeople answers exact ids with GroupMember fields only; unknown ids are absent — not implemented: lookupPeople');
     expect(skipped).toContain('port · saveNotice without console:access → forbidden — not implemented: saveNotice');
     expect(results.find(r => r.id === 'port · defaultRangeTo() is a naive wall-clock')?.status).toBe('passed');
-  });
-
-  // #1328: one break per Quest port rule; each must fail its own check.
-  it.each([
-    ['quest-notfound-error', ['port · getQuest of an unknown id is not_found: outcome empty with data null, nothing thrown']],
-    ['quest-extra-key', ['port · getQuest answers a known Quest as ok with exactly id, title and status']],
-    ['quest-page-stuck', ['port · searchQuests pages: the asked page, at most pageSize items, a later page differs from the first']],
-    ['quest-page-wrong-number', ['port · searchQuests pages: the asked page, at most pageSize items, a later page differs from the first']],
-    ['quest-page-later-oversized', ['port · searchQuests pages: the asked page, at most pageSize items, a later page differs from the first']],
-    ['quest-page-unsafe-number', ['port · searchQuests pages: the asked page, at most pageSize items, a later page differs from the first']],
-    ['quest-nomatch-error', ['port · searchQuests with a query that matches nothing is ok with supported true, no items and no next page']],
-    ['quest-nomatch-unsupported', ['port · searchQuests with a query that matches nothing is ok with supported true, no items and no next page']],
-    ['quest-unsupported-items', ['port · searchQuests on a BRAVO that cannot search answers ok with supported false, not an error']],
-    ['quest-search-accepts-invalid', ['port · searchQuests rejects an invalid query, page or page size as outcome error with data null']],
-  ])('catches a server that breaks %s', async (broken, expected) => {
-    const results = await runServerConformance({ ...harness(new Set([broken])), ports: { ...PORTS, condition: undefined } });
-    expect(results.filter(r => r.failure !== null).map(r => r.id)).toEqual(expected);
-  });
-
-  it('a server whose search is always unsupported gets the no-match check skipped, never passed', async () => {
-    const h = fresh();
-    const plain = h.adapter.searchQuests.bind(h.adapter);
-    h.adapter.searchQuests = async input => {
-      const r = await plain(input);
-      return r.outcome === 'ok' && r.data !== null ? { ...r, data: { supported: false, items: [], page: r.data.page, hasMore: false } } : r;
-    };
-    const results = await runServerConformance(h);
-    const noMatch = results.find(r => r.id.includes('matches nothing'));
-    expect(noMatch?.status).toBe('skipped');
-    expect(results.filter(r => r.failure !== null).map(r => r.id)).toEqual([]);
-  });
-
-  it('the Quest checks pass on a conforming server, and without fixtures the fixture-bound ones are run-time skips with a reason', async () => {
-    const results = await runServerConformance(fresh());
-    for (const r of results.filter(r => r.id.startsWith('port · getQuest') || r.id.startsWith('port · searchQuests'))) expect(r.status, r.id).toBe('passed');
-    const without = await runServerConformance({ ...fresh(), ports: { ...PORTS, condition: undefined, quests: undefined } });
-    const skipped = without.filter(r => r.status === 'skipped' && (r.id.includes('getQuest') || r.id.includes('searchQuests')));
-    expect(skipped.map(r => r.reason)).toEqual([expect.stringMatching(/knownId/), expect.stringMatching(/unavailableId/), expect.stringMatching(/unsupportedQuery/)]);
-    expect(without.filter(r => r.status === 'failed')).toEqual([]);
-  });
-
-  it('shows the Quest port as visibly skipped when a server has not implemented it (optional for a real server)', async () => {
-    const h = fresh();
-    const NEW = ['getQuest', 'searchQuests'];
-    const implemented = ALL_METHODS.filter(m => !NEW.includes(m));
-    const boom = async () => { throw new Error('not implemented'); };
-    const results = await runServerConformance({ ...h, adapter: { ...h.adapter, ...Object.fromEntries(NEW.map(m => [m, boom])) } as PlatformAdapter, implemented });
-    expect(results.filter(r => r.status === 'failed')).toEqual([]);
-    const skipped = results.filter(r => r.status === 'skipped').map(r => r.id);
-    expect(skipped).toContain('port · getQuest of an unknown id is not_found: outcome empty with data null, nothing thrown — not implemented: getQuest');
-    expect(skipped).toContain('port · searchQuests rejects an invalid query, page or page size as outcome error with data null — not implemented: searchQuests');
   });
 
   it('skips the site checks on a server with no site grants, and only those', async () => {

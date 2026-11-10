@@ -113,26 +113,3 @@ export const createNoticeInputSchema = z.strictObject({ ...noticeDraft, idempote
 export const updateNoticeInputSchema = z.strictObject({ ...noticeDraft, id: z.string().min(1), expectedVersion: z.string().min(1), idempotencyKey });
 export const saveNoticeInputSchema = z.union([createNoticeInputSchema, updateNoticeInputSchema]);
 export const deleteNoticeInputSchema = z.strictObject({ id: z.string().min(1), expectedVersion: z.string().min(1), idempotencyKey });
-
-// Quest read-only port (#1328 node c, ADR-0106 amendment 2). Same limits as `QUEST_*` in @ap/contracts (a test compares them).
-export const QUEST_QUERY_MAX = 200;
-export const QUEST_SEARCH_PAGE_SIZE_MAX = 50;
-
-/** A BRAVO Quest: `status` is BRAVO's own display string, never an enum. Strict, so a forged extra field is refused. */
-export const questSchema = z.strictObject({ id: z.string().min(1), title: z.string(), status: z.string() });
-
-/** `page` is 0-based. Empty `query` and absent `query` mean the same: no text filter. */
-export const questSearchInputSchema = z.strictObject({
-  query: z.string().max(QUEST_QUERY_MAX).optional(),
-  status: z.string().optional(),
-  page: z.int().min(0),
-  pageSize: z.int().min(1).max(QUEST_SEARCH_PAGE_SIZE_MAX),
-});
-
-/**
- * `supported: false` (this BRAVO cannot search) carries no items and no next page; a runtime-only rule, as JSON Schema cannot tie `items` to
- * `supported`. At most `pageSize` items per page is a rule against the request and is checked by the caller, not here.
- */
-export const questSearchPageSchema = z
-  .strictObject({ supported: z.boolean(), items: z.array(questSchema).max(QUEST_SEARCH_PAGE_SIZE_MAX), page: z.int().min(0), hasMore: z.boolean() })
-  .refine((page) => page.supported || (page.items.length === 0 && !page.hasMore), { message: 'an unsupported search has no items and no next page' });

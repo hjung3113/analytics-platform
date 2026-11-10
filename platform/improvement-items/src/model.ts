@@ -1,5 +1,5 @@
-import type { ColumnFilter, Quest } from '@ap/contracts';
-import type { Effect, Origin, Target } from './endpoints';
+import type { ColumnFilter } from '@ap/contracts';
+import type { Effect, Origin, Quest, Target } from './endpoints';
 export function formatTarget(target: Target, labels: Record<Target['kind'], string>): string {
   const name = `${labels[target.kind]} · ${target.displayName}`;
   return target.displayName === target.externalKey ? name : `${name} · ${target.externalKey}`;

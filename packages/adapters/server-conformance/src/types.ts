@@ -71,12 +71,6 @@ export type PortSamples = {
    */
   visiblePersonId?: string;
   /**
-   * Optional fixtures of the Quest read port (#1328). `knownId`: a Quest the server holds (without it the ok check is a run-time skip).
-   * `unknownId`: an id that is not a Quest (default: a random one). `unavailableId`: an id that makes BRAVO answer unavailable.
-   * `unsupportedQuery`: a search text that makes the server answer `supported: false`. Each missing fixture ends its check as a skip with the reason.
-   */
-  quests?: { knownId?: string; unknownId?: string; unavailableId?: string; unsupportedQuery?: string };
-  /**
    * The saved-view store port (ADR-0099) with its two actors: `user`, a plain owner without the approval right, and
    * `admin`, the approver (`console:access`). Absent → every saved-view check stays a visible skip (#1131).
    */

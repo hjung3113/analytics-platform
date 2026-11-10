@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { groupId, type ApiResponse, type PlatformAdapter, type Quest } from '@ap/contracts';
+import { groupId, type ApiResponse, type PlatformAdapter } from '@ap/contracts';
 import { manifests } from '../index';
-import { MANAGE_PERMISSION, type ItemRow } from '../endpoints';
+import { MANAGE_PERMISSION, type ItemRow, type Quest, type QuestSearchPage, type QuestSearchParams } from '../endpoints';
 import ImprovementItems from './ImprovementItems';
 import ImprovementDetail from './ImprovementDetail';
 import { QuestPicker, QuestReference } from './QuestReference';
@@ -13,11 +14,13 @@ import { CreateDrawer } from './CreateDrawer';
 const row: ItemRow = { id: '13280000-0000-4000-8000-000000000001', itemNo: 1, problem: 'test problem', action: null, actionDate: null, status: 'open', assignee: null, quest: { id: 'Q1', titleSnapshot: 'saved Quest title' }, origin: { menuId: 'improvement-items', context: { from: '2026-11-01T00:00', to: '2026-11-05T00:00' } }, targets: [], effectResult: null, effectNote: null, effectCompareLink: null, dropReason: null, version: '1', createdAt: '2026-11-05T00:00:00Z', updatedAt: '2026-11-05T00:00:00Z', createdBy: 'admin', updatedBy: 'admin' };
 const registry = createRegistry({ spaces: [testSpace({ homeMenuId: 'test-home' })], menus: [...manifests, { ...manifests[0]!, id: 'drill-source', path: '/drill-source', primary: false, pageKeys: ['drillEquipment'], contextResetKeys: [], hiddenPageKeys: [], repeatedPageKeys: [], subjectPageKeys: { equipment: 'drillEquipment' } }, { ...manifests[0]!, id: 'test-home', path: '/test-home', group: groupId('test'), primary: true }], groups: [{ id: groupId('test'), label: { ko: '테스트', en: 'Test' }, icon: manifests[0]!.icon, space: testSpace().id }, { id: groupId('improvementItems'), label: { ko: '개선 아이템', en: 'Improvement items' }, icon: manifests[0]!.icon, space: null }], permissions: [MANAGE_PERMISSION] });
 function response<T>(data: T | null, outcome: ApiResponse<T>['outcome'] = 'ok'): ApiResponse<T> { return { outcome, data, assessments: [], trust: null, correlationId: 'fixture' }; }
-function mount({ detail = false, outcome = 'ok', loading = false, allowed = true, overrides = {}, children, url }: { children?: ReactNode; url?: string; detail?: boolean; outcome?: ApiResponse<unknown>['outcome']; loading?: boolean; allowed?: boolean; overrides?: Partial<PlatformAdapter> } = {}) {
+type QuestAnswer = (params: { id: string }) => Promise<ApiResponse<Quest | null>>;
+type SearchAnswer = (params: QuestSearchParams) => Promise<ApiResponse<QuestSearchPage>>;
+function mount({ detail = false, outcome = 'ok', loading = false, allowed = true, overrides = {}, quest, search, children, url }: { quest?: QuestAnswer; search?: SearchAnswer; children?: ReactNode; url?: string; detail?: boolean; outcome?: ApiResponse<unknown>['outcome']; loading?: boolean; allowed?: boolean; overrides?: Partial<PlatformAdapter> } = {}) {
   window.history.replaceState(null, '', url ?? (detail ? '/improvement-items/13280000-0000-4000-8000-000000000001?v=1&scopeId=MEM' : '/improvement-items?v=1&scopeId=MEM&view=all&q=retained'));
   const session = testSession(allowed ? ['platform:view', MANAGE_PERMISSION] : ['platform:view']);
   const api = testAdapter({ session: () => session,
-    menuQuery: vi.fn(async r => loading ? new Promise<ApiResponse<unknown>>(() => {}) : response(outcome !== 'ok' ? null : r.endpoint === 'improvement.itemDetail' ? row : { rows: r.endpoint === 'improvement.items' ? [row] : [], total: r.endpoint === 'improvement.items' ? 1 : 0 }, outcome)),
+    menuQuery: vi.fn(async r => r.endpoint === 'improvement.quest' ? (quest ? quest(r.params as { id: string }) : response(null)) : r.endpoint === 'improvement.questSearch' ? (search ? search(r.params as QuestSearchParams) : response({ supported: false, items: [], page: (r.params as QuestSearchParams).page, hasMore: false })) : loading ? new Promise<ApiResponse<unknown>>(() => {}) : response(outcome !== 'ok' ? null : r.endpoint === 'improvement.itemDetail' ? row : { rows: r.endpoint === 'improvement.items' ? [row] : [], total: r.endpoint === 'improvement.items' ? 1 : 0 }, outcome)),
     ...overrides,
   });
   render(<I18nProvider><PlatformProvider adapter={api} registry={registry}>{children ?? (detail ? <ImprovementDetail /> : <ImprovementItems />)}</PlatformProvider></I18nProvider>);
@@ -54,7 +57,7 @@ describe('improvement screens', () => {
     await waitFor(() => expect(document.body.textContent).toContain(state === 'loading' ? '불러오는 중' : state === 'error' ? '데이터를 불러오지 못했습니다' : state === 'forbidden' ? '권한' : '조건에 맞는 결과가 없습니다'));
   });
   it('shows both KST analysis endpoints, the Quest snapshot on failure, and the missing action date reason', async () => {
-    mount({ detail: true, overrides: { getQuest: async () => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'q' }) } });
+    mount({ detail: true, quest: async () => response<Quest | null>(null, 'error') });
     await screen.findByText('test problem');
     await screen.findByText('지금 확인할 수 없음');
     expect(screen.getByText('saved Quest title')).toBeTruthy();
@@ -112,20 +115,20 @@ describe('saved views and Quest adapter outcomes', () => {
     await waitFor(() => expect(api.menuQuery).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ filters: [{ id: 'questLinked', op: 'in', value: ['false'] }] }) }), expect.anything()));
   });
   it.each(['ok', 'empty', 'error', 'forbidden'] as const)('renders actual Quest %s with no invented link', async outcome => {
-    mount({ overrides: { getQuest: async () => response<Quest>(outcome === 'ok' ? { id: 'Q1', title: 'current title', status: 'Active' } : null, outcome) }, children: <QuestReference id="Q1" snapshot="stored title" /> });
+    mount({ quest: async () => response<Quest | null>(outcome === 'ok' ? { id: 'Q1', title: 'current title', status: 'Active' } : null, outcome), children: <QuestReference id="Q1" snapshot="stored title" /> });
     await screen.findByText(outcome === 'ok' ? 'current title' : outcome === 'empty' ? 'BRAVO에서 확인되지 않음' : outcome === 'forbidden' ? '과제(Quest)를 볼 권한이 없습니다.' : '지금 확인할 수 없음');
     expect(screen.getByText(outcome === 'ok' ? 'current title' : 'stored title')).toBeTruthy();
     expect(screen.queryByRole('link')).toBeNull();
   });
   it('falls back to direct ID when search is unsupported and selects a verified Quest', async () => {
     const select = vi.fn();
-    mount({ overrides: { searchQuests: async () => response({ supported: false, items: [], page: 0, hasMore: false }), getQuest: async id => response({ id, title: 'picked title', status: 'Active' }) }, children: <QuestPicker selected={null} onSelect={select} /> });
+    mount({ search: async () => response({ supported: false, items: [], page: 0, hasMore: false }), quest: async ({ id }) => response<Quest | null>({ id, title: 'picked title', status: 'Active' }), children: <QuestPicker selected={null} onSelect={select} /> });
     fireEvent.change(await screen.findByLabelText('과제(Quest) ID 직접 입력'), { target: { value: 'Q1' } });
     fireEvent.click(screen.getByRole('button', { name: '과제(Quest) 확인' }));
     await waitFor(() => expect(select).toHaveBeenCalledWith({ id: 'Q1', title: 'picked title' }));
   });
   it('can return to search after the unsupported-search fallback', async () => {
-    mount({ overrides: { searchQuests: async input => response({ supported: input.query !== 'Q-NOSEARCH', items: [], page: 0, hasMore: false }) }, children: <QuestPicker selected={null} onSelect={() => {}} /> });
+    mount({ search: async input => response({ supported: input.query !== 'Q-NOSEARCH', items: [], page: 0, hasMore: false }), children: <QuestPicker selected={null} onSelect={() => {}} /> });
     const search = await screen.findByRole('searchbox', { name: '과제(Quest) 제목 또는 ID 검색' });
     fireEvent.change(search, { target: { value: 'Q-NOSEARCH' } });
     fireEvent.keyDown(search, { key: 'Enter' });
@@ -134,9 +137,9 @@ describe('saved views and Quest adapter outcomes', () => {
     await screen.findByRole('searchbox', { name: '과제(Quest) 제목 또는 ID 검색' });
   });
   it('refuses a stale Quest lookup after the ID changes', async () => {
-    let complete!: (r: ApiResponse<Quest>) => void;
+    let complete!: (r: ApiResponse<Quest | null>) => void;
     const select = vi.fn();
-    mount({ overrides: { searchQuests: async () => response({ supported: false, items: [], page: 0, hasMore: false }), getQuest: () => new Promise(resolve => { complete = resolve; }) }, children: <QuestPicker selected={null} onSelect={select} /> });
+    mount({ search: async () => response({ supported: false, items: [], page: 0, hasMore: false }), quest: () => new Promise(resolve => { complete = resolve; }), children: <QuestPicker selected={null} onSelect={select} /> });
     const input = await screen.findByLabelText('과제(Quest) ID 직접 입력');
     fireEvent.change(input, { target: { value: 'Q1' } });
     fireEvent.click(screen.getByRole('button', { name: '과제(Quest) 확인' }));
@@ -144,6 +147,50 @@ describe('saved views and Quest adapter outcomes', () => {
     complete(response({ id: 'Q1', title: 'stale', status: 'Active' }));
     await waitFor(() => expect(screen.getByRole('button', { name: '과제(Quest) 확인' })).toBeTruthy());
     expect(select).not.toHaveBeenCalled();
+  });
+  it('shows a Quest BRAVO does not have (ok with null) as not found, next to the stored title', async () => {
+    mount({ quest: async () => response<Quest | null>(null), children: <QuestReference id="Q404" snapshot="stored title" /> });
+    await screen.findByText('BRAVO에서 확인되지 않음');
+    expect(screen.getByText('stored title')).toBeTruthy();
+  });
+  it('keeps the result of a Quest row when a second row of the same id mounts and reads again', async () => {
+    let calls = 0;
+    const quest: QuestAnswer = async ({ id }) => ++calls === 1 ? response<Quest | null>({ id, title: 'current title', status: 'Active' }) : new Promise(() => {});
+    function Twice() {
+      const [second, setSecond] = useState(false);
+      return <><div data-testid="first"><QuestReference id="Q1" snapshot="stored title" /></div><button type="button" onClick={() => setSecond(true)}>more</button>{second && <div data-testid="second"><QuestReference id="Q1" snapshot="stored title" /></div>}</>;
+    }
+    mount({ quest, children: <Twice /> });
+    const first = screen.getByTestId('first');
+    await within(first).findByText('Active');
+    fireEvent.click(screen.getByRole('button', { name: 'more' }));
+    await screen.findByTestId('second');
+    expect(within(first).queryByText('불러오는 중')).toBeNull();
+    expect(within(first).getByText('current title')).toBeTruthy();
+  });
+  it('reads again on a repeat press of the same ID after an unavailable answer, and selects the Quest', async () => {
+    let calls = 0;
+    const quest = vi.fn<QuestAnswer>(async ({ id }) => ++calls === 1 ? response<Quest | null>(null, 'error') : response<Quest | null>({ id, title: 'picked title', status: 'Active' }));
+    const select = vi.fn();
+    mount({ quest, children: <QuestPicker selected={null} onSelect={select} /> });
+    fireEvent.change(await screen.findByLabelText('과제(Quest) ID 직접 입력'), { target: { value: 'Q1' } });
+    fireEvent.click(screen.getByRole('button', { name: '과제(Quest) 확인' }));
+    await screen.findByText('지금 확인할 수 없음');
+    expect(select).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '과제(Quest) 확인' }));
+    await waitFor(() => expect(select).toHaveBeenCalledWith({ id: 'Q1', title: 'picked title' }));
+    expect(quest).toHaveBeenCalledTimes(2);
+  });
+  it('selects the Quest of an edited ID after a first lookup selected another', async () => {
+    const select = vi.fn();
+    mount({ quest: async ({ id }) => response<Quest | null>({ id, title: `title ${id}`, status: 'Active' }), children: <QuestPicker selected={null} onSelect={select} /> });
+    const input = await screen.findByLabelText('과제(Quest) ID 직접 입력');
+    fireEvent.change(input, { target: { value: 'Q1' } });
+    fireEvent.click(screen.getByRole('button', { name: '과제(Quest) 확인' }));
+    await waitFor(() => expect(select).toHaveBeenCalledWith({ id: 'Q1', title: 'title Q1' }));
+    fireEvent.change(input, { target: { value: 'Q2' } });
+    fireEvent.click(screen.getByRole('button', { name: '과제(Quest) 확인' }));
+    await waitFor(() => expect(select).toHaveBeenLastCalledWith({ id: 'Q2', title: 'title Q2' }));
   });
 });
 
@@ -210,21 +257,21 @@ describe('fix round (1328 d)', () => {
   it('does not submit creation on Enter in the Quest search and still commits the search (A2)', async () => {
     const search = vi.fn(async () => response({ supported: true, items: [], page: 0, hasMore: false }));
     const action = vi.fn(async () => ({ outcome: 'ok' as const, data: { itemId: row.id, itemNo: 1, version: '1' }, version: null, fieldErrors: [], replayed: false, correlationId: 'c' }));
-    mount({ url: drawerUrl, overrides: { menuAction: action, searchQuests: search } });
+    mount({ url: drawerUrl, overrides: { menuAction: action }, search });
     const box = await screen.findByRole('searchbox', { name: '과제(Quest) 제목 또는 ID 검색' });
     fireEvent.change(box, { target: { value: 'Q' } });
     expect(enterDefaultPrevented(box)).toBe(true);
-    await waitFor(() => expect(search).toHaveBeenCalledWith(expect.objectContaining({ query: 'Q' }), expect.anything()));
+    await waitFor(() => expect(search).toHaveBeenCalledWith(expect.objectContaining({ query: 'Q' })));
     expect(action).not.toHaveBeenCalled();
   });
   it('does not submit creation on Enter in the direct Quest ID entry and runs the lookup (A2)', async () => {
-    const getQuest = vi.fn(async () => response<Quest>({ id: 'Q1', title: 'picked', status: 'Active' }));
+    const getQuest = vi.fn(async (_params: { id: string }) => response<Quest | null>({ id: 'Q1', title: 'picked', status: 'Active' }));
     const action = vi.fn();
-    mount({ url: drawerUrl, overrides: { menuAction: action, searchQuests: async () => response({ supported: false, items: [], page: 0, hasMore: false }), getQuest } });
+    mount({ url: drawerUrl, overrides: { menuAction: action }, search: async () => response({ supported: false, items: [], page: 0, hasMore: false }), quest: getQuest });
     const input = await screen.findByLabelText('과제(Quest) ID 직접 입력');
     fireEvent.change(input, { target: { value: 'Q1' } });
     expect(enterDefaultPrevented(input)).toBe(true);
-    await waitFor(() => expect(getQuest).toHaveBeenCalledWith('Q1', expect.anything()));
+    await waitFor(() => expect(getQuest).toHaveBeenCalledWith({ id: 'Q1' }));
     expect(action).not.toHaveBeenCalled();
   });
   it('shows the problem guidance next to the field and focuses it on a failed save (A3)', async () => {
@@ -340,7 +387,7 @@ describe('unsaved-edit guard (#1388)', () => {
 describe('owner-decided create drawer (#1408)', () => {
   const source = { menuId: 'improvement-items', context: { selection: ['EQ-1'], roomNames: ['PHOTO'], metricId: 'catalog-id', metricVersion: '3', page: { q: 'source problem' } } };
   it('labels Selection and process separately and uses catalog and Registry names', async () => {
-    const query = vi.fn(async () => response({ metric: { name: { ko: '실제 카탈로그 지표', en: 'Catalog metric' } } }));
+    const query = vi.fn(async (r: { endpoint: string }) => response(r.endpoint === 'improvement.questSearch' ? { supported: false, items: [], page: 0, hasMore: false } : { metric: { name: { ko: '실제 카탈로그 지표', en: 'Catalog metric' } } }));
     mount({ overrides: { menuQuery: query }, children: <CreateDrawer origin={source} onClose={() => {}} /> });
     const context = await screen.findByRole('region', { name: '분석에서 가져온 Context' });
     await within(context).findByText('실제 카탈로그 지표 · v3');
@@ -477,7 +524,7 @@ describe('review fixes (#1408 round 2)', () => {
   it('blocks an oversized origin and preserves problem, action, Quest and targets after removing it', async () => {
     const action = vi.fn(async () => ({ outcome: 'error' as const, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'c' }));
     const origin = { menuId: 'improvement-items', context: { selection: ['EQ-1'], page: { q: '한'.repeat(3000) } } };
-    mount({ overrides: { menuAction: action, searchQuests: async () => response({ supported: true, items: [{ id: 'Q-1', title: 'Chosen Quest', status: 'Open' }], page: 0, hasMore: false }) }, children: <CreateDrawer origin={origin} onClose={() => {}} /> });
+    mount({ overrides: { menuAction: action }, search: async () => response({ supported: true, items: [{ id: 'Q-1', title: 'Chosen Quest', status: 'Open' }], page: 0, hasMore: false }), children: <CreateDrawer origin={origin} onClose={() => {}} /> });
     fireEvent.change(await screen.findByLabelText('문제 · 필수'), { target: { value: 'draft problem' } });
     fireEvent.change(screen.getByLabelText('조치'), { target: { value: 'draft action' } });
     fireEvent.click(await screen.findByRole('button', { name: 'Q-1 · Chosen Quest · Open' }));
@@ -504,7 +551,7 @@ describe('review fixes (#1408 round 2)', () => {
     expect(screen.getAllByRole('alert').some(node => node.textContent!.includes('입력한 대상을 추가하세요'))).toBe(true);
   });
   it('keeps target removal before the result list when Quest has many long titles', async () => {
-    mount({ overrides: { searchQuests: async () => response({ supported: true, items: Array.from({ length: 10 }, (_, i) => ({ id: `Q-${i}`, title: '긴 과제 제목 '.repeat(50), status: 'Open' })), page: 0, hasMore: false }) }, children: <CreateDrawer origin={{ menuId: 'improvement-items', context: { selection: ['EQ-1'] } }} onClose={() => {}} /> });
+    mount({ search: async () => response({ supported: true, items: Array.from({ length: 10 }, (_, i) => ({ id: `Q-${i}`, title: '긴 과제 제목 '.repeat(50), status: 'Open' })), page: 0, hasMore: false }), children: <CreateDrawer origin={{ menuId: 'improvement-items', context: { selection: ['EQ-1'] } }} onClose={() => {}} /> });
     const result = await screen.findByRole('button', { name: /^Q-0 ·/ });
     const remove = screen.getByRole('button', { name: '설비 · EQ-1 제거' });
     expect(remove.compareDocumentPosition(result) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

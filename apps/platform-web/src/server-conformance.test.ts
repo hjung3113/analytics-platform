@@ -139,6 +139,9 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'improvement.items': { q: null, ...page },
   'improvement.itemDetail': { itemId: '13280000-0000-4000-8000-000000000001' },
   'improvement.itemEvents': { itemId: '13280000-0000-4000-8000-000000000001', page: 0, pageSize: 10 },
+  // BRAVO Quest reads (#1641): `Q-1` is a mock Quest; the search takes a page and a size only.
+  'improvement.quest': { id: 'Q-1' },
+  'improvement.questSearch': { page: 0, pageSize: 10 },
   // EV (#801): the synthetic fixture's equipment; `continuationToken` stays omitted (first page).
   'eqv.topview-context': { equipmentId: 'eq-synth-01' },
   'eqv.topview-events': { equipmentId: 'eq-synth-01' },

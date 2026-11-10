@@ -73,8 +73,6 @@ export function testAdapter(over: Partial<PlatformAdapter> = {}): PlatformAdapte
     listNotices: async () => refused,
     saveNotice: async () => refusedAction,
     deleteNotice: async () => refusedAction,
-    getQuest: async () => empty,
-    searchQuests: async ({ page }) => ({ outcome: 'ok', data: { supported: false, items: [], page, hasMore: false }, assessments: [], trust: null, correlationId: 'fixture' }),
     subscribe: () => () => {},
     ...over,
   };

@@ -11,7 +11,7 @@
 - `bootstrapHttpAdapter(options)` never rejects. Its result is `ready` (adapter), `login` (401, 3xx, `opaqueredirect`), `unavailable` (`correlationId`) or `throttled` (429; `correlationId`, `retryAfterSeconds?`).
 - Transport (`src/calls/transport.ts`): connect the Kernel `signal` and the internal timer by hand (no `AbortSignal.any`), use `redirect: 'manual'`, `credentials: 'same-origin'` and `X-Correlation-Id`. The internal timeout is not an `AbortError`.
 - Conversion by call group (`src/calls/calls.ts`): envelope calls never reject, writes return `unknown`, non-envelope calls throw `TransportError`, optional ports throw `PortError`.
-- Response validation (`src/validate.ts`) ignores unknown keys. Exception: Quest reads (`isQuest`, `isQuestSearchPage`) check `ok` data strictly and reject unknown keys as an `invalid_response` `error`.
+- Response validation (`src/validate.ts`) ignores unknown keys.
 - Saved views (`src/saved-views/`, ADR-0099): `guards.ts` matches command/response wire schemas recursively and rejects unknown keys; `store.ts` sends each of the 16 commands once, with CSRF.
 - Session (`src/session/session.ts`): snapshot identity, `subscribe` polling, single-flight re-check with backoff, `onSessionLost`.
 - When a port method is added, the table in `src/__tests__/methods.test.ts` reports it as a type error.

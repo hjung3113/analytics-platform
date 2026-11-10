@@ -1,12 +1,10 @@
-import { PEOPLE_LOOKUP_MAX as C_PEOPLE_MAX, PREFERENCE_KEYS_MAX as C_KEYS, QUEST_QUERY_MAX as C_QUEST_QUERY, QUEST_SEARCH_PAGE_SIZE_MAX as C_QUEST_PAGE, PREFERENCE_KEY_PATTERN, PREFERENCE_REQUEST_MAX_BYTES as C_REQ, PREFERENCE_VALUE_MAX_BYTES as C_VALUE } from '@ap/contracts';
+import { PEOPLE_LOOKUP_MAX as C_PEOPLE_MAX, PREFERENCE_KEYS_MAX as C_KEYS, PREFERENCE_KEY_PATTERN, PREFERENCE_REQUEST_MAX_BYTES as C_REQ, PREFERENCE_VALUE_MAX_BYTES as C_VALUE } from '@ap/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   PEOPLE_LOOKUP_MAX,
   PREFERENCE_KEYS_MAX,
   PREFERENCE_REQUEST_MAX_BYTES,
   PREFERENCE_VALUE_MAX_BYTES,
-  QUEST_QUERY_MAX,
-  QUEST_SEARCH_PAGE_SIZE_MAX,
   SCHEMA_FILES,
   createNoticeInputSchema,
   deleteNoticeInputSchema,
@@ -18,9 +16,6 @@ import {
   preferencesImportSchema,
   preferencesPatchSchema,
   preferencesSnapshotSchema,
-  questSchema,
-  questSearchInputSchema,
-  questSearchPageSchema,
   saveNoticeInputSchema,
   toJsonSchema,
   updateNoticeInputSchema,
@@ -39,7 +34,7 @@ describe('port schemas are public and registered as artifacts', () => {
     expect(exported.length).toBeGreaterThanOrEqual(17);
     const registered = new Set(Object.values(SCHEMA_FILES));
     for (const [name, schema] of exported) expect(registered.has(schema as never), name).toBe(true);
-    for (const file of ['jsonValue', 'preferenceKey', 'preferencesSnapshot', 'preferencesPatch', 'preferencesImport', 'groupMember', 'peopleLookupRequest', 'peopleLookupResponse', 'notice', 'noticeListPage', 'createNoticeInput', 'updateNoticeInput', 'saveNoticeInput', 'deleteNoticeInput', 'quest', 'questSearchInput', 'questSearchPage']) {
+    for (const file of ['jsonValue', 'preferenceKey', 'preferencesSnapshot', 'preferencesPatch', 'preferencesImport', 'groupMember', 'peopleLookupRequest', 'peopleLookupResponse', 'notice', 'noticeListPage', 'createNoticeInput', 'updateNoticeInput', 'saveNoticeInput', 'deleteNoticeInput']) {
       expect(Object.keys(SCHEMA_FILES), file).toContain(file);
     }
   });
@@ -185,57 +180,5 @@ describe('notices', () => {
     for (const schema of [noticeSchema, createNoticeInputSchema, updateNoticeInputSchema, deleteNoticeInputSchema]) {
       expect(toJsonSchema(schema)).toMatchObject({ additionalProperties: false });
     }
-  });
-});
-
-describe('quest port (#1328)', () => {
-  const quest = { id: 'Q-1', title: '설비 점검 개선', status: 'In progress' };
-
-  it('limits equal the contracts constants', () => {
-    expect([QUEST_QUERY_MAX, QUEST_SEARCH_PAGE_SIZE_MAX]).toEqual([C_QUEST_QUERY, C_QUEST_PAGE]);
-  });
-
-  it('a Quest is exactly id, title and a free status string; an extra key (a forged url or owner) and an empty id are refused', () => {
-    expect(questSchema.safeParse(quest).success).toBe(true);
-    expect(questSchema.safeParse({ ...quest, status: 'Anything BRAVO says' }).success).toBe(true);
-    expect(questSchema.safeParse({ ...quest, url: 'https://example.invalid' }).success).toBe(false);
-    expect(questSchema.safeParse({ ...quest, id: '' }).success).toBe(false);
-    expect(questSchema.safeParse({ id: 'Q-1', title: 't' }).success).toBe(false);
-    expect(toJsonSchema(questSchema)).toMatchObject({ additionalProperties: false });
-  });
-
-  it.each([
-    ['page and size only', { page: 0, pageSize: 10 }],
-    ['query and status', { query: '점검', status: 'Open', page: 2, pageSize: QUEST_SEARCH_PAGE_SIZE_MAX }],
-    ['the longest query', { query: 'x'.repeat(QUEST_QUERY_MAX), page: 0, pageSize: 1 }],
-    ['an empty query', { query: '', page: 0, pageSize: 1 }],
-    ['the largest safe page', { page: Number.MAX_SAFE_INTEGER, pageSize: 1 }],
-  ])('search input accepts %s', (_name, input) => {
-    expect(questSearchInputSchema.safeParse(input).success).toBe(true);
-  });
-
-  it.each([
-    ['a query over the limit', { query: 'x'.repeat(QUEST_QUERY_MAX + 1), page: 0, pageSize: 10 }],
-    ['a negative page', { page: -1, pageSize: 10 }],
-    ['a fractional page', { page: 0.5, pageSize: 10 }],
-    ['an unsafe page', { page: Number.MAX_SAFE_INTEGER + 1, pageSize: 10 }],
-    ['page size 0', { page: 0, pageSize: 0 }],
-    ['a page size over the limit', { page: 0, pageSize: QUEST_SEARCH_PAGE_SIZE_MAX + 1 }],
-    ['a missing page', { pageSize: 10 }],
-    ['an identity key', { page: 0, pageSize: 10, userId: 'u1' }],
-  ])('search input rejects %s', (_name, input) => {
-    expect(questSearchInputSchema.safeParse(input).success).toBe(false);
-  });
-
-  it('a search page: supported with items, supported and empty (no match), unsupported only when empty with no next page', () => {
-    expect(questSearchPageSchema.safeParse({ supported: true, items: [quest], page: 0, hasMore: true }).success).toBe(true);
-    expect(questSearchPageSchema.safeParse({ supported: true, items: [], page: 0, hasMore: false }).success).toBe(true);
-    expect(questSearchPageSchema.safeParse({ supported: false, items: [], page: 0, hasMore: false }).success).toBe(true);
-    expect(questSearchPageSchema.safeParse({ supported: false, items: [quest], page: 0, hasMore: false }).success).toBe(false);
-    expect(questSearchPageSchema.safeParse({ supported: false, items: [], page: 0, hasMore: true }).success).toBe(false);
-    expect(questSearchPageSchema.safeParse({ supported: true, items: [], page: 0 }).success).toBe(false);
-    expect(questSearchPageSchema.safeParse({ supported: true, items: [], page: 0, hasMore: false, total: 3 }).success).toBe(false);
-    expect(questSearchPageSchema.safeParse({ supported: true, items: [], page: Number.MAX_SAFE_INTEGER, hasMore: false }).success).toBe(true);
-    expect(questSearchPageSchema.safeParse({ supported: true, items: [], page: Number.MAX_SAFE_INTEGER + 1, hasMore: false }).success).toBe(false);
   });
 });

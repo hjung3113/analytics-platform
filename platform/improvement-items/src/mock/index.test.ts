@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NO_FEATURES, contextCapabilities, groupId, type MenuMeta } from '@ap/contracts';
 import { createMockAdapter, getRole, setRole } from '@ap/mock-server';
-import { improvementItemsMock, improvementItemsActionsMock, resetItems } from './index';
-import { MANAGE_PERMISSION } from '../endpoints';
+import { MOCK_QUESTS, QUEST_DOWN_ID, QUEST_UNSUPPORTED_QUERY, improvementItemsMock, improvementItemsActionsMock, resetItems } from './index';
+import { MANAGE_PERMISSION, QUEST_QUERY_MAX, QUEST_SEARCH_PAGE_SIZE_MAX, type Quest, type QuestSearchPage } from '../endpoints';
 const menu: MenuMeta = { id: 'improvement-items', group: groupId('improvementItems'), label: { ko: '개선 아이템', en: 'Improvement items' }, description: { ko: '', en: '' }, path: '/improvement-items', permission: 'platform:view', requiresScope: false, context: contextCapabilities(), pageType: 'management', features: NO_FEATURES, pageKeys: [] };
 const registry = { menus: [menu] };
 const previous = getRole();
@@ -15,8 +15,8 @@ const query = (a: ReturnType<typeof adapter>, endpoint: string, p: object) => a.
 const write = (a: ReturnType<typeof adapter>, action: string, input: object, expectedVersion?: string) => a.menuAction({ action: `improvement.${action}`, context: {}, input, idempotencyKey: crypto.randomUUID(), ...(expectedVersion ? { expectedVersion } : {}) });
 
 describe('improvement mock dispatch', () => {
-  it('registers all three reads and six writes', () => {
-    expect(improvementItemsMock).toHaveLength(3); expect(improvementItemsActionsMock).toHaveLength(6); expect(adapter).not.toThrow();
+  it('registers all five reads and six writes', () => {
+    expect(improvementItemsMock).toHaveLength(5); expect(improvementItemsActionsMock).toHaveLength(6); expect(adapter).not.toThrow();
   });
   it('reads real rows, saved-view filters, target history, missing detail, and errors', async () => {
     const a = adapter();
@@ -159,5 +159,95 @@ describe('effect comparison persistence', () => {
     ...['//evil.test/x', '/%09/evil.test/x', '/x#fragment', '/x\\evil'].map(compareLink => [{ result: 'effective', compareLink }, ['effect', 'compareLink'], 'malformed'] as [Record<string, string>, string[], string]),
   ])('rejects invalid effect data %j', async (effect, path, code) => {
     expect(await write(adapter(), 'itemSetStatus', { itemId: doneId, status: 'verified', effect }, '1')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path, code }] });
+  });
+});
+
+describe('Quest reads (BRAVO is not served by the platform; the mock answers the shapes the real BRAVO server must)', () => {
+  const quest = (a: ReturnType<typeof adapter>, id: string) => query(a, 'improvement.quest', { id });
+  const search = (a: ReturnType<typeof adapter>, p: object) => query(a, 'improvement.questSearch', p);
+  const pageOf = (r: Awaited<ReturnType<typeof search>>) => r.data as QuestSearchPage | null;
+
+  it('answers ok with the Quest for every mock row; the ids the item fixtures link to resolve', async () => {
+    const a = adapter();
+    for (const row of MOCK_QUESTS) expect(await quest(a, row.id)).toMatchObject({ outcome: 'ok', data: row, trust: null, assessments: [] });
+    for (const q of ['Q-1', 'Q-2', 'Q-9']) expect((await quest(a, q)).outcome).toBe('ok');
+  });
+
+  it('has rows a picker must render: at least six, mixed statuses, a Korean title, a very long title', () => {
+    expect(MOCK_QUESTS.length).toBeGreaterThanOrEqual(6);
+    expect(new Set(MOCK_QUESTS.map(row => row.status)).size).toBeGreaterThanOrEqual(3);
+    expect(MOCK_QUESTS.some(row => /[가-힣]/.test(row.title))).toBe(true);
+    expect(MOCK_QUESTS.some(row => row.title.length > 300)).toBe(true);
+    expect(new Set(MOCK_QUESTS.map(row => row.id)).size).toBe(MOCK_QUESTS.length);
+  });
+
+  it('an unknown id is ok with data null, as the sibling item detail answers a miss', async () => {
+    expect(await quest(adapter(), 'Q-404')).toMatchObject({ outcome: 'ok', data: null });
+  });
+
+  it('the down id answers outcome error with no data', async () => {
+    expect(await quest(adapter(), QUEST_DOWN_ID)).toMatchObject({ outcome: 'error', data: null });
+  });
+
+  it.each([['an empty id', { id: '' }], ['a non-string id', { id: 7 }]])('rejects %s as outcome error', async (_name, p) => {
+    expect(await query(adapter(), 'improvement.quest', p)).toMatchObject({ outcome: 'error', data: null });
+  });
+
+  it('search pages through every row: 9 rows in pages of 3, the last page has hasMore false', async () => {
+    const a = adapter();
+    const pages = [];
+    for (const page of [0, 1, 2, 3]) pages.push(pageOf(await search(a, { page, pageSize: 3 })));
+    expect(pages.map(p => [p?.supported, p?.items.length, p?.page, p?.hasMore])).toEqual([[true, 3, 0, true], [true, 3, 1, true], [true, 3, 2, false], [true, 0, 3, false]]);
+    expect(pages.flatMap(p => p?.items ?? [])).toEqual(MOCK_QUESTS);
+  });
+
+  it('search matches id or title text case-insensitively, and status exactly; both together narrow', async () => {
+    const a = adapter();
+    const ids = async (p: object) => pageOf(await search(a, { page: 0, pageSize: 10, ...p }))?.items.map((q: Quest) => q.id);
+    expect(await ids({ query: 'q-3' })).toEqual(['Q-3']);
+    expect(await ids({ query: '설비' })).toEqual(['Q-3']);
+    expect(await ids({ status: 'Open' })).toEqual(['Q-1', 'Q-7', 'Q-9']);
+    expect(await ids({ query: 'pump', status: 'Open' })).toEqual([]);
+  });
+
+  it('a query matching nothing is supported with no items: "no match", not "cannot search"', async () => {
+    expect((await search(adapter(), { query: 'zzz-no-such-quest', page: 0, pageSize: 5 })).data).toEqual({ supported: true, items: [], page: 0, hasMore: false });
+  });
+
+  it('the unsupported trigger answers ok with supported false, no items and no next page', async () => {
+    expect(await search(adapter(), { query: QUEST_UNSUPPORTED_QUERY, page: 0, pageSize: 5 })).toMatchObject({ outcome: 'ok', data: { supported: false, items: [], page: 0, hasMore: false } });
+  });
+
+  it('the down trigger as a search text answers outcome error', async () => {
+    expect(await search(adapter(), { query: QUEST_DOWN_ID, page: 0, pageSize: 5 })).toMatchObject({ outcome: 'error', data: null });
+  });
+
+  it.each([
+    ['a query over the limit', { query: 'x'.repeat(QUEST_QUERY_MAX + 1), page: 0, pageSize: 5 }],
+    ['a non-string status', { status: 3, page: 0, pageSize: 5 }],
+    ['a negative page', { page: -1, pageSize: 5 }],
+    ['a fractional page', { page: 0.5, pageSize: 5 }],
+    ['an unsafe page', { page: Number.MAX_SAFE_INTEGER + 1, pageSize: 5 }],
+    ['page size 0', { page: 0, pageSize: 0 }],
+    ['a page size over the limit', { page: 0, pageSize: QUEST_SEARCH_PAGE_SIZE_MAX + 1 }],
+    ['an unknown key', { page: 0, pageSize: 5, userId: 'admin' }],
+  ])('rejects %s as outcome error with no data', async (_name, p) => {
+    expect(await search(adapter(), p)).toMatchObject({ outcome: 'error', data: null });
+  });
+
+  it('accepts the largest safe page and refuses its first successor', async () => {
+    const a = adapter(), big = Number.MAX_SAFE_INTEGER;
+    expect(await search(a, { page: big, pageSize: 3 })).toMatchObject({ outcome: 'ok', data: { supported: true, items: [], page: big, hasMore: false } });
+    expect(await search(a, { page: big + 1, pageSize: 3 })).toMatchObject({ outcome: 'error', data: null });
+  });
+
+  it('answers are copies: changing a returned Quest does not change the mock', async () => {
+    const a = adapter();
+    const first = (await quest(a, 'Q-1')).data as Quest;
+    first.title = 'changed';
+    expect(((await quest(a, 'Q-1')).data as Quest).title).toBe('Chamber pressure drift review');
+    const listed = pageOf(await search(a, { page: 0, pageSize: 1 }))!.items[0] as Quest;
+    listed.title = 'changed';
+    expect(pageOf(await search(a, { page: 0, pageSize: 1 }))!.items[0]!.title).toBe('Chamber pressure drift review');
   });
 });

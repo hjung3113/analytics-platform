@@ -1,7 +1,7 @@
 /** Deterministic menu-owned fixtures; production screens never import this module. */
 import { filterRows, validateFilters, type ActionSpec, type FieldError, type PageResult } from '@ap/contracts';
-import { MockActionInvalid, defineMockAction, defineMockEndpoint, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
-import { FORWARD, REOPEN, SORT_IDS, actionSpecs, detailEndpoint, eventsEndpoint, filterSpecs, itemCreate, itemsEndpoint, type CreateInput, type ItemEvent, type ItemRow, type ListParams, type Status, type StatusInput, type Target, type UpdateInput } from '../endpoints';
+import { MockActionInvalid, MockRequestError, defineMockAction, defineMockEndpoint, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
+import { FORWARD, QUEST_QUERY_MAX, QUEST_SEARCH_PAGE_SIZE_MAX, REOPEN, SORT_IDS, actionSpecs, detailEndpoint, eventsEndpoint, filterSpecs, itemCreate, itemsEndpoint, questEndpoint, questSearchEndpoint, type CreateInput, type ItemEvent, type ItemRow, type ListParams, type Quest, type QuestSearchParams, type Status, type StatusInput, type Target, type UpdateInput } from '../endpoints';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const at = '2026-11-05T01:00:00.000Z';
 const itemId = (n: number) => `13280000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -271,12 +271,51 @@ function list(p: ListParams, actor: string): PageResult<ItemRow> {
   const page = p.page ?? 0, size = p.pageSize ?? 50;
   return structuredClone({ rows: found.slice(page * size, (page + 1) * size), total: found.length });
 }
+/** Deterministic triggers: asking for this id (or searching this text) answers outcome `error`, as a BRAVO that is down would. */
+export const QUEST_DOWN_ID = 'Q-DOWN';
+/** Searching this text answers `supported: false`, as a BRAVO that cannot search would (the picker then takes an id by hand). */
+export const QUEST_UNSUPPORTED_QUERY = 'Q-NOSEARCH';
+/** Mixed statuses, one Korean title, one very long title. Ids `Q-1`, `Q-2` and `Q-9` are the ones the item fixtures link to. Nine rows: three pages of three. */
+export const MOCK_QUESTS: readonly Quest[] = [
+  { id: 'Q-1', title: 'Chamber pressure drift review', status: 'Open' },
+  { id: 'Q-2', title: 'Transfer robot teaching cycle', status: 'In progress' },
+  { id: 'Q-3', title: '설비 점검 주기 개선', status: '완료' },
+  { id: 'Q-4', title: 'Recipe change approval flow', status: 'Closed' },
+  { id: 'Q-5', title: `Reduce unplanned stops across every module of the coating line and the downstream inspection stage ${'(long title) '.repeat(24)}`.trim(), status: 'Pending review' },
+  { id: 'Q-6', title: 'Particle count alarm threshold', status: 'In progress' },
+  { id: 'Q-7', title: 'PM checklist consolidation', status: 'Open' },
+  { id: 'Q-8', title: 'Vacuum pump life tracking', status: 'Closed' },
+  { id: 'Q-9', title: 'Nine', status: 'Open' },
+];
+const BRAVO_DOWN = 'BRAVO is not answering';
+function questSearchMessage(input: unknown): string | null {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) return 'search must be an object';
+  const { query, status, page, pageSize } = input as Record<string, unknown>;
+  if (query !== undefined && (typeof query !== 'string' || query.length > QUEST_QUERY_MAX)) return `query must be at most ${QUEST_QUERY_MAX} characters`;
+  if (status !== undefined && typeof status !== 'string') return 'status must be a string';
+  if (!Number.isSafeInteger(page) || (page as number) < 0) return 'page must be an integer from 0';
+  if (!Number.isSafeInteger(pageSize) || (pageSize as number) < 1 || (pageSize as number) > QUEST_SEARCH_PAGE_SIZE_MAX) return `pageSize must be 1..${QUEST_SEARCH_PAGE_SIZE_MAX}`;
+  return null;
+}
+function searchQuests(input: QuestSearchParams) {
+  const { page, pageSize } = input;
+  const query = (input.query ?? '').trim();
+  if (query === QUEST_DOWN_ID) throw new MockRequestError(BRAVO_DOWN);
+  if (query === QUEST_UNSUPPORTED_QUERY) return { supported: false, items: [], page, hasMore: false };
+  const needle = query.toLowerCase();
+  const matches = MOCK_QUESTS.filter(row => (needle === '' || row.id.toLowerCase().includes(needle) || row.title.toLowerCase().includes(needle)) && (input.status === undefined || input.status === '' || row.status === input.status));
+  const start = page * pageSize;
+  return { supported: true, items: matches.slice(start, start + pageSize).map(row => ({ ...row })), page, hasMore: start + pageSize < matches.length };
+}
 export const improvementItemsMock: readonly AnyMockEndpoint[] = [
   defineMockEndpoint(itemsEndpoint, { mart: false, validate: ({ params }) => listMessage(params), handle: ({ params, actor }) => list(params, actor), isEmpty: d => d.total === 0 }),
   defineMockEndpoint(detailEndpoint, { mart: false, validate: ({ params: p }) => (p.itemId === undefined) === (p.itemNo === undefined) || (p.itemId !== undefined && !UUID.test(p.itemId)) || (p.itemNo !== undefined && !/^(?:IM-)?[1-9]\d*$/i.test(String(p.itemNo))) ? 'invalid detail key' : null,
     handle: ({ params: p }) => structuredClone(rows.find(r => p.itemId ? r.id === p.itemId.toLowerCase() : r.itemNo === Number(String(p.itemNo).replace(/^IM-/i, ''))) ?? null) }),
   defineMockEndpoint(eventsEndpoint, { mart: false, validate: ({ params: p }) => !UUID.test(p.itemId) || (p.order !== undefined && !['asc', 'desc'].includes(p.order)) || !Number.isInteger(p.page ?? 0) || (p.page ?? 0) < 0 || !Number.isInteger(p.pageSize ?? 50) || (p.pageSize ?? 50) < 1 || (p.pageSize ?? 50) > 200 ? 'invalid events params' : null,
     handle: ({ params: p }) => { const all = [...(events.get(p.itemId) ?? [])].sort((a, b) => (a.seq - b.seq) * (p.order === 'asc' ? 1 : -1)); return structuredClone({ rows: all.slice((p.page ?? 0) * (p.pageSize ?? 50), ((p.page ?? 0) + 1) * (p.pageSize ?? 50)), total: all.length }); } }),
+  defineMockEndpoint(questEndpoint, { mart: false, validate: ({ params: p }) => typeof p.id !== 'string' || p.id === '' ? 'id must be a non-empty string' : null,
+    handle: ({ params: p }) => { if (p.id === QUEST_DOWN_ID) throw new MockRequestError(BRAVO_DOWN); const quest = MOCK_QUESTS.find(row => row.id === p.id); return quest ? { ...quest } : null; } }),
+  defineMockEndpoint(questSearchEndpoint, { mart: false, validate: ({ params }) => questSearchMessage(params), handle: ({ params }) => searchQuests(params) }),
 ];
 function record(row: ItemRow, actor: string, eventType: string, before: object, reason: string | null = null) {
   const n = ++seq;
