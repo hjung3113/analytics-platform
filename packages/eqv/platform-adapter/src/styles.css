@@ -3,3 +3,4 @@
 @import "@eqv/ui/styles.css";
 @import "@eqv/replay/styles.css";
 @import "@eqv/views/styles.css";
+@source "./screens";

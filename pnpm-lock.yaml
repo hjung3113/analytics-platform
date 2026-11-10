@@ -474,24 +474,9 @@ importers:
       '@ap/ui':
         specifier: workspace:*
         version: link:../../packages/sdk/ui
-      '@eqv/core':
-        specifier: workspace:*
-        version: link:../../packages/eqv/core
       '@eqv/platform-adapter':
         specifier: workspace:*
         version: link:../../packages/eqv/platform-adapter
-      '@eqv/renderer':
-        specifier: workspace:*
-        version: link:../../packages/eqv/renderer
-      '@eqv/replay':
-        specifier: workspace:*
-        version: link:../../packages/eqv/replay
-      '@eqv/ui':
-        specifier: workspace:*
-        version: link:../../packages/eqv/ui
-      '@eqv/views':
-        specifier: workspace:*
-        version: link:../../packages/eqv/views
       '@fontsource-variable/inter':
         specifier: 5.3.0
         version: 5.3.0

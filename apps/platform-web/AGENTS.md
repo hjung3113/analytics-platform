@@ -45,7 +45,7 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
 - `src/dev/mock-assembly.tsx` — mock assembly. Register menu mock endpoints in the single `export const MOCK_ENDPOINTS` (`createMockAdapter` and the server conformance test read the same list) by spreading each menu's `<g>Mock` array from `@ap/menu-<g>/mock`. The `/mock` imports and spreads sit in the `// <gen:menu-mock-imports>` / `// <gen:menu-mock-spreads>` marker regions written by `pnpm gen:menu` (analytics mock included); never register by hand there, and wire outside the regions by hand.
   - The `platform:mock-menu-query` performance mark counts E2E requests: it carries only the endpoint name, never Context.
 - `src/dev/DevTools.tsx` — role switch and response-scenario simulator (`topBarTools` slot, below the rail). Not production code.
-- `src/modules.ts` — external host module mount (ADR-0053): registers EV's `eqv` with `mountModule` (`@eqv/*` depends on the EV release tarball URL, EV ADR-0014).
+- `src/modules.ts` — external host module mount (ADR-0053): registers EV's `eqv` with `mountModule` (`@eqv/platform-adapter` is a workspace package, ADR-0132).
   - The place is two constants in this one file: `EQV_SPACE` (tool space `tools`) and `EQV_PREFIX` (`/tools/topview`); `apps/platform-e2e/tests/eqv.spec.ts` keeps a copy of the path.
   - `menus.ts` merges `EQV_MODULE` only in the registry call (`GROUPS`, `MENUS`, `PERMISSIONS` stay the platform's).
   - Never declare the module permission `eqv:view` in the app: the Registry checks it by the `<moduleId>:` prefix, and declaring it reserves the `eqv` namespace so the module is rejected (ADR-0072). `modulePermissions(registry)` collects module menu permissions into the mock role vocabulary.
@@ -53,7 +53,6 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
   - The spec is a `mergeTimeDomain: false` copy: for `requiresScope: false` endpoints the engine merges time-domain evaluation over the whole mock-world equipment set regardless of the queried equipment (`eq-synth-01` is not in the world master). Mock-only; no issue number for the engine follow-up yet.
   - Export these as `MODULE_MOCK_ENDPOINTS` from `mock-assembly.tsx`, not into the generator-owned `MOCK_ENDPOINTS`; the adapter and the conformance test read `[...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS]`.
   - `@eqv/*/mock-data` is imported only by `src/dev/**` and `src/server-conformance.test.ts` (lint `app` preset); `check:prod-graph` (`scripts/prod-graph.ts` `FORBIDDEN`) guards the production graph.
-  - vitest inlines `@eqv/*` (`vite.config.ts` `test.server.deps.inline`) because the package imports `@ap/*` TS sources.
 - `src/real/endpoint-invalidation.ts`, `src/endpoint-invalidation-bridge.tsx` — refresh the Home banner after a notice write ([ADR-0098](../../docs/adr/0098-adapter-preferences-people-notices-ports.md) §4).
   - The real assembly wraps `saveNotice`/`deleteNotice` once; after `ok`, `conflict`, `unknown` (or a throw) it emits the app-declared `home.notices` through `Assembly.invalidation`.
   - `main.tsx` mounts one `EndpointInvalidationBridge` under `PlatformProvider`; it calls `refreshEpochs.bump` for that query only (not the full `adapter.subscribe` invalidation; the Kernel knows no menu names).
