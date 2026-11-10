@@ -465,6 +465,34 @@ describe('Top View equipment bar (#1644)', () => {
       else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
     }
   });
+  it('keeps the received list usable and focused while a replaced host refreshes it', async () => {
+    const pending = deferred<ApiResponse<unknown>>();
+    const fake = hostFor({ page: {}, query: call => call.id === optionsId ? Promise.resolve(ok({ options })) : server()(call) });
+    const Screen = eqvScreens.topview;
+    const view = render(<Screen host={fake.host} params={{}} />);
+    const setPage = fake.host.setPage;
+    fake.host.setPage = patch => {
+      setPage(patch);
+      const next = hostFor({ page: { equipment: EQUIPMENT }, query: call => call.id === optionsId ? pending.promise : server()(call) });
+      view.rerender(<Screen host={next.host} params={{}} />);
+    };
+    const select = await screen.findByRole('combobox', { name: '설비' }) as HTMLButtonElement;
+    await waitFor(() => expect(select.disabled).toBe(false));
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
+    try {
+      select.focus();
+      fireEvent.keyDown(select, { key: 'ArrowDown' });
+      fireEvent.click(await screen.findByRole('option', { name: EQUIPMENT }));
+      await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+      // The refresh is still pending: nothing below settles it.
+      expect(select.disabled).toBe(false);
+      await waitFor(() => expect(document.activeElement).toBe(select), { timeout: 1000 });
+    } finally {
+      if (descriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', descriptor);
+      else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+    }
+  });
   describe('focus through list failure and retry', () => {
     const retryButton = () => screen.getByRole('button', { name: '다시 시도' });
     const failedThenRetry = async () => {

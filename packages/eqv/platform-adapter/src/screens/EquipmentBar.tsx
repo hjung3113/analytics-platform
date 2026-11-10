@@ -35,15 +35,19 @@ function DataWindow({ host, props, range, focusTrigger }: { host: ModuleHost; pr
 /** Context-free discovery stays local to this bar; it never changes the replay board's status. */
 export function useEquipmentOptions(host: ModuleHost) {
   const [attempt, setAttempt] = useState(0);
-  const [settled, setSettled] = useState<{ host: ModuleHost; attempt: number; state: OptionsState } | null>(null);
-  const state = settled?.host === host && settled.attempt === attempt ? settled.state : null;
+  const [settled, setSettled] = useState<{ host: ModuleHost; attempt: number; generation: number; state: OptionsState } | null>(null);
+  const generation = host.session().generation;
+  // A URL write replaces the host and refetches. The list has no Context, so a received list stays usable meanwhile; a retry or a new session starts over.
+  const kept = settled?.attempt === attempt && settled.generation === generation && settled.state.kind === 'ready' ? settled.state : null;
+  const current = settled?.host === host && settled.attempt === attempt ? settled.state : null;
+  const state = current ?? kept;
   useEffect(() => {
     const controller = new AbortController();
     const abort = () => controller.abort();
     if (host.signal.aborted) abort();
     else host.signal.addEventListener('abort', abort, { once: true });
     const finish = (state: OptionsState) => {
-      if (!controller.signal.aborted) setSettled({ host, attempt, state });
+      if (!controller.signal.aborted) setSettled({ host, attempt, generation: host.session().generation, state });
     };
     void (async () => {
       try {
@@ -58,10 +62,10 @@ export function useEquipmentOptions(host: ModuleHost) {
     })();
     return () => { controller.abort(); host.signal.removeEventListener('abort', abort); };
   }, [host, attempt]);
-  return { state, failed: state?.kind === 'message' && state.message === FAILED, retry: () => setAttempt(value => value + 1) };
+  return { state, refreshing: current === null && kept !== null, failed: state?.kind === 'message' && state.message === FAILED, retry: () => setAttempt(value => value + 1) };
 }
 
-export function EquipmentBar({ host, props, state, retry }: { host: ModuleHost; props: HostProps; state: OptionsState | null; retry: () => void }) {
+export function EquipmentBar({ host, props, state, refreshing, retry }: { host: ModuleHost; props: HostProps; state: OptionsState | null; refreshing: boolean; retry: () => void }) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
   const statusRow = useRef<HTMLDivElement>(null);
@@ -70,14 +74,14 @@ export function EquipmentBar({ host, props, state, retry }: { host: ModuleHost; 
   // URL writes replace the host and briefly disable discovery. Radix cannot focus a disabled trigger on close.
   // The status row holds focus while the list loads; once settled, focus goes to the select, the retry action or the row.
   useEffect(() => {
-    if (state === null || !restoreFocus.current) return;
+    if (state === null || refreshing || !restoreFocus.current) return;
     const active = document.activeElement;
-    if (active === document.body || active === statusRow.current) {
+    if (active === document.body || active === statusRow.current || active === trigger.current) {
       const target = trigger.current && !trigger.current.disabled ? trigger.current : retryButton.current ?? statusRow.current;
       target?.focus();
     }
     restoreFocus.current = false;
-  }, [state, props.time]);
+  }, [state, refreshing, props.time]);
   const retryList = () => { restoreFocus.current = true; statusRow.current?.focus(); retry(); };
   const focusTrigger = () => { restoreFocus.current = true; trigger.current?.focus(); };
   const options = state?.kind === 'ready' ? state.options : [];
@@ -85,7 +89,7 @@ export function EquipmentBar({ host, props, state, retry }: { host: ModuleHost; 
   return <section aria-label="설비 선택" className="mb-4 space-y-3 border-b border-border-subtle pb-3 text-sm text-text-secondary">
     <div className="flex flex-wrap items-center gap-3">
       <label htmlFor={id} className="font-medium text-text-primary">설비</label>
-      <Select value={props.equipment ?? ''} onValueChange={equipment => host.setPage({ equipment })} disabled={options.length === 0}>
+      <Select value={props.equipment ?? ''} onValueChange={equipment => { restoreFocus.current = true; host.setPage({ equipment }); }} disabled={options.length === 0}>
         <SelectTrigger ref={trigger} id={id} density="compact" className="w-56" aria-describedby={`${id}-window`}><SelectValue placeholder="설비 선택" /></SelectTrigger>
         <SelectContent onCloseAutoFocus={event => {
           if (trigger.current?.disabled) { restoreFocus.current = true; event.preventDefault(); }

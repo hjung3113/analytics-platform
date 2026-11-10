@@ -63,7 +63,7 @@ function sceneAt(input: ReplayInput, to: SiteWallClock): Scene {
  */
 export function TopViewScreen({ host }: ModuleScreenProps) {
   const { props, load, resetKey } = useReplayScreen(host);
-  const { state: optionsState, failed: listFailed, retry } = useEquipmentOptions(host);
+  const { state: optionsState, refreshing, failed: listFailed, retry } = useEquipmentOptions(host);
   const publish = useDetailSlot(host);
   const [selection, setSelection] = useState<{ key: string; id: string | null }>({ key: resetKey, id: null });
   const [zoomHost, setZoomHost] = useState<HTMLElement | null>(null);
@@ -79,7 +79,7 @@ export function TopViewScreen({ host }: ModuleScreenProps) {
     ? { node: <ComponentDetail layout={ready.layout} state={ready.state} componentId={selectedId} />, label: `Component · ${selectedId}` } : null, [ready, selectedId]);
   usePublishDetail(publish, detail);
 
-  const bar = <EquipmentBar host={host} props={props} state={optionsState} retry={retry} />;
+  const bar = <EquipmentBar host={host} props={props} state={optionsState} refreshing={refreshing} retry={retry} />;
   const state = props.equipment === null && listFailed
     ? <StateMessage icon={ServerCrash} title="설비 목록을 다시 불러오세요" body="위의 다시 시도를 누르세요." />
     : stateFor(props, load, 'topview');
