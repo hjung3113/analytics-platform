@@ -33,6 +33,14 @@ beforeEach(() => { vi.spyOn(console, 'warn').mockImplementation(() => {}); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('AnalysisChartFrame right axis (#1657)', () => {
+  it('names each point\'s own unit in the point selector while the right axis is active', async () => {
+    mount({ rightAxis, pointActions: [{ id: 'a', label: 'Act', onSelect: () => {} }] });
+    await screen.findByRole('img');
+    const options = within(screen.getByRole('combobox', { name: '차트 지점 선택' })).getAllByRole('option').map(o => o.textContent);
+    expect(options.some(t => t?.includes('Rate') && t.endsWith('50 %'))).toBe(true);
+    expect(options.some(t => t?.includes('Time') && t.endsWith('10 s'))).toBe(true);
+  });
+
   it('draws axis:right series on a second y axis with the right unit', async () => {
     mount({ rightAxis });
     await screen.findByRole('img');

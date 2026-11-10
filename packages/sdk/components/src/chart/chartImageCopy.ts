@@ -71,12 +71,15 @@ export function laneImageBlob(parts: { axis: HTMLCanvasElement | null; plot: HTM
   if (labels && scroll) {
     const ratio = plot.clientWidth ? plot.width / plot.clientWidth : 1;
     const style = getComputedStyle(labels);
+    // The scroller clips a partly visible row on screen; the copy must not spill it into the axis strip.
+    ctx.save(); ctx.beginPath(); ctx.rect(0, axis.height, out.width, Math.min(plot.height, scroll.clientHeight * ratio)); ctx.clip();
     ctx.fillStyle = chartTheme().axisLabel.color; ctx.font = `${12 * ratio}px ${style.fontFamily}`; ctx.textBaseline = 'middle';
     for (const cell of Array.from(labels.children) as HTMLElement[]) {
       const top = cell.offsetTop - scroll.scrollTop;
       if (top + cell.offsetHeight < 0 || top > scroll.clientHeight) continue;
       ctx.fillText(cell.textContent ?? '', 8 * ratio, axis.height + (top + cell.offsetHeight / 2) * ratio, Math.max(0, cell.offsetWidth - 16) * ratio);
     }
+    ctx.restore();
   }
   return canvasBlob(out);
 }

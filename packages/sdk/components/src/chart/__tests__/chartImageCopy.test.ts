@@ -107,4 +107,27 @@ describe('image sources (#1657)', () => {
     expect(calls.slice(1)).toEqual([['drawImage', axis, 0, 0], ['drawImage', plot, 0, 60]]);
     vi.restoreAllMocks();
   });
+
+  it('clips lane labels to the visible plot so a partly scrolled row stays out of the axis strip', async () => {
+    const order: unknown[][] = [];
+    const ctx = { fillRect: () => {}, drawImage: () => {}, save: () => order.push(['save']), beginPath: () => {}, rect: (...a: unknown[]) => order.push(['rect', ...a]), clip: () => order.push(['clip']), restore: () => order.push(['restore']), fillText: (...a: unknown[]) => order.push(['fillText', ...a]), set fillStyle(_: string) {}, set font(_: string) {}, set textBaseline(_: string) {} };
+    const original = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = original(tag);
+      if (tag === 'canvas') { vi.spyOn(el as HTMLCanvasElement, 'getContext').mockReturnValue(ctx as never); (el as HTMLCanvasElement).toBlob = cb => cb(png()); }
+      return el;
+    });
+    const axis = original('canvas'); axis.width = 1200; axis.height = 80;
+    const plot = original('canvas'); plot.width = 1200; plot.height = 800;
+    Object.defineProperty(plot, 'clientWidth', { value: 600 });
+    const labels = original('div');
+    const cell = original('div'); cell.textContent = 'Lane A'; labels.append(cell);
+    Object.defineProperties(cell, { offsetTop: { value: 0 }, offsetHeight: { value: 24 }, offsetWidth: { value: 112 } });
+    const scroll = original('div');
+    Object.defineProperty(scroll, 'clientHeight', { value: 300 }); scroll.scrollTop = 20;
+    await laneImageBlob({ axis, plot, labels, scroll });
+    expect(order.map(c => c[0])).toEqual(['save', 'rect', 'clip', 'fillText', 'restore']);
+    expect(order[1]).toEqual(['rect', 0, 80, 1200, 600]);
+    vi.restoreAllMocks();
+  });
 });
