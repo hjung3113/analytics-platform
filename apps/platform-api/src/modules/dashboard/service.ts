@@ -431,7 +431,6 @@ export function createDashboardService(deps: DashboardDeps) {
       countRecoveryPermissionRequests(deps.db, deps.checkService, actor),
     );
     if (permissionRequests !== undefined) {
-      kpis.pending_request = (kpis.pending_request ?? 0) + permissionRequests;
       queues.push({
         id: 'permission-requests-pending',
         severity: 'info',

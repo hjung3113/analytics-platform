@@ -574,7 +574,7 @@ describe.skipIf(!runIntegration)('GET /dashboard/summary (#217)', () => {
     expect(afterAudit.rows[0]?.count).toBe(beforeAudit.rows[0]?.count);
     expectDelta(body.kpis.open_voc, before.kpis.open_voc, 17, 'open_voc');
     expectDelta(body.kpis.active_finding, before.kpis.active_finding, 12, 'active_finding');
-    expectDelta(body.kpis.pending_request, before.kpis.pending_request, 19, 'pending_request');
+    expectDelta(body.kpis.pending_request, before.kpis.pending_request, 10, 'pending_request');
     expectDelta(body.kpis.tasks_in_flight, before.kpis.tasks_in_flight, 14, 'tasks_in_flight');
     expect(body.kpis.coverage_percent).toBe(coverage(body, 'voc-task')?.percent);
     expect(systemRow(body, seed.msA)?.kpis).toEqual({

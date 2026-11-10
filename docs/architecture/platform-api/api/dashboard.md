@@ -25,8 +25,9 @@ that metric's capability for the system. An omitted key means the actor cannot
 receive that projection; it does not mean zero. A permitted empty result is
 present with zero. `kpis` contains `open_voc`, `active_finding`,
 `tasks_in_flight`, and `coverage_percent`, each under the corresponding
-VOC, Finding, or Task capability. It has no `pending_request` key because that
-projection combines workspace and permission-request data. These row KPI
+VOC, Finding, or Task capability. It has no `pending_request` key: the
+workspace-level `pending_request` counts Task Requests only, and pending permission
+requests appear only in the `permission-requests-pending` queue. These row KPI
 values are per-system projections, not sums or averages of the workspace-level
 roll-up. The same absence rule applies to `coverage` and `action_queues`.
 `analytics_areas` is omitted unless a readable system has at least one
