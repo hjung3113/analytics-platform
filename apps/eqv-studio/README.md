@@ -10,7 +10,7 @@ sharing one page-local cursor. `anchor` is read as an Occurrence id (`entityType
 is that Occurrence widened by a margin, or the whole batch with a notice. Focus replays one Sample Window, chosen with a picker
 (`?window=`); without `?window=` it is the latest-`from` window containing the anchor Occurrence (a notice when several do), else the
 latest window, and an unknown `?window=` is an error, never a fallback. The Gantt is bounded twice. It is computed only up to `TIMELINE_BUDGET`
-(`packages/views/src/timeline-cost.ts`, 4,800,000 of records + breakpoints × (Binding/Layout search and component build + (most Occurrences open at once + Time Anomaly inversions) × one location resolution), about 1 s at the worst measured rate), and drawn only up to `GANTT_SPAN_LIMIT` (5,000 spans: material and activity spans plus markers, about 100 ms to repaint; a whole 50k-Occurrence window has 100,000); above it a notice asks
+(`packages/eqv/views/src/timeline-cost.ts`, 4,800,000 of records + breakpoints × (Binding/Layout search and component build + (most Occurrences open at once + Time Anomaly inversions) × one location resolution), about 1 s at the worst measured rate), and drawn only up to `GANTT_SPAN_LIMIT` (5,000 spans: material and activity spans plus markers, about 100 ms to repaint; a whole 50k-Occurrence window has 100,000); above it a notice asks
 for a narrower range, and the Top View, state list, Occurrence list, Data Quality and evidence detail stay. `loadFocus` (`src/focus-data.ts`) reads and checks
 the batch, every Mapping Version a Binding names and each Binding's Layout (its published Layout Revision, else the draft with
 a notice); it never rejects. Playback (EV#15d) moves only the cursor: play/pause, speed x0.25–x4 (screen time), previous/next breakpoint, and a debug
@@ -20,7 +20,7 @@ page-local) adds badged example-motion ghosts between two observed boundaries of
 Journey (`/journey/:equipmentId?anchor=&window=`, EV#152) follows one wafer through one Sample Window. `anchor` is an Occurrence id
 whose material is a wafer with an id; Focus links to it (`Journey 열기`) from a selected wafer. The window is chosen as in Focus and
 loaded with the same `loadFocus`. The Top View shows the Layout the anchor's Binding names, with the wafer's hops as numbered badges
-(`docs/VIEWS.md` §Journey: discrete hops, no path or animation), and two tabs: `물리 경유` (the hop list, each hop with a Focus link)
+([VIEWS.md](../../docs/design/features/equipment-visualization/VIEWS.md) §Journey: discrete hops, no path or animation), and two tabs: `물리 경유` (the hop list, each hop with a Focus link)
 and `실행 이력` (PROCESS, POST_PROCESS and FUNCTION rows, including rows without a location).
 
 An imported document is unsaved until its draft is saved. While it is unsaved, opening another file or leaving the
@@ -48,7 +48,7 @@ The equipment data page imports Sample Windows, alias metadata and the Model Typ
 
 ## Styling
 
-Studio uses Tailwind v4 (`@tailwindcss/vite`) and the `@ap/ui` theme from the platform SDK tarball (EV ADR-0008, EV ADR-0013). The `@import` order at the top of `src/studio.css` (tailwindcss, tokens and semantic in `layer(base)`, theme, compat, then `sources.css` so Tailwind scans `@ap/ui`'s classes) is an invariant; `test/theme-tokens.test.ts` pins it. The `--eqv-*` rows in `:root` are declared only where `@ap/ui` defines the platform token, wrapped as `rgb(var(--token))`; every other `--eqv-*` row stays undeclared so the asset fallback hex applies.
+Studio uses Tailwind v4 (`@tailwindcss/vite`) and the `@ap/ui` theme from the platform SDK workspace package (EV ADR-0008, EV ADR-0013). The `@import` order at the top of `src/studio.css` (tailwindcss, tokens and semantic in `layer(base)`, theme, compat, then `sources.css` so Tailwind scans `@ap/ui`'s classes) is an invariant; `test/theme-tokens.test.ts` pins it. The `--eqv-*` rows in `:root` are declared only where `@ap/ui` defines the platform token, wrapped as `rgb(var(--token))`; every other `--eqv-*` row stays undeclared so the asset fallback hex applies.
 
 ## Run
 
@@ -111,13 +111,13 @@ Follow this order:
   including sub-millisecond precision, are rejected as `fraction-too-long` (EV ADR-0009 also defines `fraction-missing`, `offset`, and `malformed-time`).
 - Other `validateSampleWindow` rejection codes are `empty-range`, `empty-time-domain`, `equipment-mismatch`, `record-owner`,
   `duplicate-seq`, `duplicate-id`, `generation-mismatch`, and `outside-window`. The preview shows each code and path.
-- Import bodies over 32 MiB return 413. See [EV ADR-0009](../../products/eqv/docs/adr/0009-site-wall-clock-millisecond-precision.md) and
-  [EV ADR-0010](../../products/eqv/docs/adr/0010-studio-data-import.md) for the decisions.
+- Import bodies over 32 MiB return 413. See [EV ADR-0009](../../docs/adr/history/eqv/0009-site-wall-clock-millisecond-precision.md) and
+  [EV ADR-0010](../../docs/adr/history/eqv/0010-studio-data-import.md) for the decisions.
 
 ### Keep source converters outside this repository
 
 Studio accepts only source-paired `OccurrenceBatch` JSON. Put raw-log conversion in a separate, permissioned deployment layer;
-keep examples and tests synthetic, as required by [AGENTS.md: “Use synthetic test data”](../../products/eqv/EV-AGENTS.md).
+keep examples and tests synthetic, as required by [AGENTS.md: “Use synthetic test data”](../../packages/eqv/AGENTS.md).
 
 Try the synthetic files in [`fixtures/import/README.md`](../../packages/eqv/fixtures/import/README.md):
 `eq-synth-03.equipment.json`, `synth-maker-b.synth-wet.type-dictionary.json`, `eq-synth-03.alias-metadata.json`,
