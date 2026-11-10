@@ -366,7 +366,7 @@ function OwnerForm({
                   >
                     {candidate.managed_system_id
                       ? systemName(candidate.managed_system_id)
-                      : '워크스페이스 전체'}
+                      : '전체'}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -425,7 +425,7 @@ function OwnerForm({
             {COPY.scope} ·{' '}
             {detail.requested_managed_system_id
               ? systemName(detail.requested_managed_system_id)
-              : '워크스페이스 전체'}
+              : '전체'}
           </p>
           <Button
             disabled={readFailed || refreshing}

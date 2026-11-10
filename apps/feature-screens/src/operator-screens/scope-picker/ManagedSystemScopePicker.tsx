@@ -253,7 +253,7 @@ export function ManagedSystemScopePicker({
               className="px-2 py-1.5 text-caption text-text-muted"
               data-testid="scope-name-visibility-note"
             >
-              이름은 워크스페이스 전체에 공개되며, 접근하려면 권한을 요청하세요.
+              이름은 모든 사용자에게 공개되며, 접근하려면 권한을 요청하세요.
             </p>
           )}
         </div>

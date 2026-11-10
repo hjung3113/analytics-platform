@@ -148,7 +148,7 @@ describe('/admin/settings route', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        '관리자만 all을 워크스페이스 전체로 해석합니다. 다른 역할은 워크스페이스 범위와 부여된 범위가 겹치는 부분만 적용합니다.',
+        '관리자만 all을 전체로 해석합니다. 다른 역할은 전체 범위와 부여된 범위가 겹치는 부분만 적용합니다.',
       ),
     ).toBeInTheDocument();
     expect(screen.getAllByText('금지', { exact: true })).toHaveLength(2);
@@ -168,7 +168,7 @@ describe('/admin/settings route', () => {
       '권한 요청 재신청 기간',
       '설문 응답 → VOC',
       '개발자의 기본 시스템 범위',
-      'all = 워크스페이스 전체',
+      'all = 전체',
     ]) {
       const row = screen.getByText(label, { exact: true }).closest('div[class*="grid"]');
       expect(row?.querySelector('button,input,select')).toBeNull();
@@ -254,7 +254,7 @@ describe('/admin/settings route', () => {
     fireEvent.click(screen.getByRole('button', { name: '변경사항 저장' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '워크스페이스 설정 저장에 실패했습니다.',
+      '플랫폼 설정 저장에 실패했습니다.',
     );
     expect(screen.getByTestId('workspace-settings-save-bar')).toBeInTheDocument();
     expect(screen.getByLabelText('익명성 임계값')).toHaveValue(12);

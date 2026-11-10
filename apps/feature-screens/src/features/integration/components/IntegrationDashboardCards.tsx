@@ -34,7 +34,7 @@ const QUEUE_COPY: Record<QueueId, { title: string; detail: string }> = {
   },
   'permission-requests-pending': {
     title: '검토 대기 중인 권한 요청',
-    detail: '워크스페이스 관리자 검토를 기다리는 상위 권한 요청.',
+    detail: '관리자 검토를 기다리는 상위 권한 요청.',
   },
 };
 

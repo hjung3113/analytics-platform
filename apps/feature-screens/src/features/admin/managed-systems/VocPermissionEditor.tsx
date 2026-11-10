@@ -32,11 +32,11 @@ export function VocPermissionEditor({ row, state }: { row: SystemPermissionRow; 
       {row.archived && <p className="text-xs text-text-secondary">보관된 시스템은 수정할 수 없습니다.</p>}
         <p className="text-xs text-text-secondary">Admin은 별도 지정 없이 등록할 수 있습니다. 명시적인 거부 권한은 우선 적용됩니다.</p>
         <p className="text-xs text-text-muted">새 VOC 등록에만 적용됩니다. 기존 VOC는 영향을 받지 않습니다.</p>
-        <p className="text-xs text-text-muted">워크스페이스 전체 VOC 등록 권한도 적용됩니다. 여기서는 이 추적 시스템에 직접 부여한 사람만 관리합니다.</p>
+        <p className="text-xs text-text-muted">전체 VOC 등록 권한도 적용됩니다. 여기서는 이 추적 시스템에 직접 부여한 사람만 관리합니다.</p>
       </div>
       {draft.mode === 'restricted' && <div className="flex flex-col gap-3 border-t border-border-subtle pt-3">
         <div className="flex items-center justify-between gap-2"><h4 className="text-sm font-semibold">등록할 수 있는 사람</h4><span className="text-xs text-text-muted">{draft.people.length}명 · Admin 별도</span></div>
-        {draft.people.length === 0 && <Callout tone="amber" title="등록할 사람이 없습니다"><p>지정한 사람이 없어 Admin만 등록할 수 있습니다. 워크스페이스 전체 부여·명시적 거부는 별도로 적용됩니다.</p></Callout>}
+        {draft.people.length === 0 && <Callout tone="amber" title="등록할 사람이 없습니다"><p>지정한 사람이 없어 Admin만 등록할 수 있습니다. 전체 부여·명시적 거부는 별도로 적용됩니다.</p></Callout>}
         {draft.people.length > 0 && <table className="w-full text-left text-xs">
           <caption className="sr-only">지정한 사람 목록</caption>
           <thead className="text-text-secondary"><tr><th scope="col" className="py-1">이름</th><th scope="col">역할</th><th scope="col">부여일</th><th scope="col"><span className="sr-only">제거</span></th></tr></thead>

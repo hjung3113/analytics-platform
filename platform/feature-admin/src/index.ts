@@ -35,7 +35,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'settings', group: GROUP, label: { ko: '흐름 정책', en: 'Workflow policy' },
-    description: { ko: '커버리지 기준 등 워크스페이스 설정을 관리합니다', en: 'Manage workspace settings such as the coverage thresholds' },
+    description: { ko: '커버리지 기준 등 플랫폼 설정을 관리합니다', en: 'Manage workspace settings such as the coverage thresholds' },
     path: '/flow/settings', icon: SlidersHorizontal, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['section', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,

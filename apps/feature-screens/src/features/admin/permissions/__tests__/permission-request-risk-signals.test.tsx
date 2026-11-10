@@ -62,7 +62,7 @@ describe('permission request risk review', () => {
       const signals =
         riskIndicators.length === 0
           ? review.getByText('추가 확인 사항 없음')
-          : review.getByText('민감한 권한 · 워크스페이스 관리자 권한');
+          : review.getByText('민감한 권한 · 관리자 권한');
       const access = review.getByText('요청 범위의 현재 권한');
       expect(
         signals.compareDocumentPosition(access) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -123,18 +123,18 @@ describe('permission request risk review', () => {
     expect(review).toHaveTextContent('Payments Ops · Analytics Ops');
     expect(review).toHaveTextContent('만료 2099. 12. 31.');
     expect(review).toHaveTextContent('검토 권한');
-    expect(review).toHaveTextContent('워크스페이스 관리자 권한');
+    expect(review).toHaveTextContent('관리자 권한');
 
     const requestInfo = screen.getByText('요청 정보').closest('section');
     expect(requestInfo).toHaveTextContent('요청 만료일');
     expect(requestInfo).toHaveTextContent('만료 없음');
     expect(review).toHaveTextContent('민감한 권한');
-    expect(review).toHaveTextContent('민감한 권한 · 워크스페이스 관리자 권한');
-    expect(review).toHaveTextContent('워크스페이스 전체 범위');
+    expect(review).toHaveTextContent('민감한 권한 · 관리자 권한');
+    expect(review).toHaveTextContent('전체 범위');
     expect(review).toHaveTextContent('요청 만료일 없음');
     expect(review).toHaveTextContent('겹치는 활성 차단 2건');
     expect(review).toHaveTextContent(
-      '겹치는 활성 차단 2건 · 워크스페이스 전체 · 시스템 (50000000)',
+      '겹치는 활성 차단 2건 · 전체 · 시스템 (50000000)',
     );
   });
 
@@ -149,7 +149,7 @@ describe('permission request risk review', () => {
     render(<PermissionRequestDetail request={request} onClose={() => undefined} />);
 
     expect(screen.getByTestId('permission-request-risk-review')).toHaveTextContent(
-      '민감한 권한 · 워크스페이스 관리자 권한',
+      '민감한 권한 · 관리자 권한',
     );
     const header = screen.getByTestId('permission-request-detail-panel').querySelector('header');
     if (!header) throw new Error('Detail header is missing');
@@ -240,9 +240,9 @@ describe('permission request risk review', () => {
       />,
     );
     const review = within(screen.getByTestId('permission-request-risk-review'));
-    expect(review.getByText('워크스페이스 전체 범위')).toBeInTheDocument();
+    expect(review.getByText('전체 범위')).toBeInTheDocument();
     expect(review.getByText('요청 만료일 없음')).toBeInTheDocument();
-    expect(review.queryByText('요청 범위는 워크스페이스 전체입니다.')).not.toBeInTheDocument();
+    expect(review.queryByText('요청 범위는 전체입니다.')).not.toBeInTheDocument();
     expect(review.queryByText('요청 만료일이 없습니다.')).not.toBeInTheDocument();
   });
 });

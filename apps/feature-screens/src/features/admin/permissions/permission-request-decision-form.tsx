@@ -361,7 +361,7 @@ export function PermissionRequestDecisionForm({
       </fieldset>
       {selfApprovalBlockedByPolicy ? (
         <p className="text-xs text-accent-danger">
-          워크스페이스 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.
+          운영 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.
         </p>
       ) : null}
       <label
@@ -421,7 +421,7 @@ export function PermissionRequestDecisionForm({
                   >
                     {candidate.managed_system_id
                       ? `${candidate.managed_system_id === request.requested_managed_system_id ? (managedSystemName ?? '시스템') : '시스템'} · ${shortId(candidate.managed_system_id)}`
-                      : '워크스페이스 전체'}
+                      : '전체'}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -524,7 +524,7 @@ export function PermissionRequestDecisionForm({
               disabled={mutation.isPending || reviewBlocked}
               value={policyCitation}
               onChange={(event) => setPolicyCitation(event.target.value)}
-              placeholder="예: task.self_approve_request 범위 내 권한 — 워크스페이스 정책 §4.3"
+              placeholder="예: task.self_approve_request 범위 내 권한 — 운영 정책 §4.3"
             />
           </label>
           <label
@@ -577,11 +577,11 @@ export function PermissionRequestDecisionForm({
           </div>
           {selfApprovalForbidden ? (
             <p className="text-xs text-accent-danger">
-              워크스페이스 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.
+              운영 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.
             </p>
           ) : null}
           <p className="text-xs text-text-muted">
-            이 감사 기록은 워크스페이스 관리자 감사 내역과 규정 준수 내보내기에 모두 포함됩니다.
+            이 감사 기록은 관리자 감사 내역과 규정 준수 내보내기에 모두 포함됩니다.
             정책 근거가 모호하면 직접 승인 대신 추가 정보 요청을 선택하세요.
           </p>
         </section>

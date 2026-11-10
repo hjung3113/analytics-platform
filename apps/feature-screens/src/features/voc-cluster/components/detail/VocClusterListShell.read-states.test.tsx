@@ -113,7 +113,7 @@ describe('VocClusterListShell list states (#609)', () => {
 
     expect(
       await screen.findByText(
-        '반복 VOC 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+        '반복 VOC 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
         {},
         { timeout: 5000 },
       ),

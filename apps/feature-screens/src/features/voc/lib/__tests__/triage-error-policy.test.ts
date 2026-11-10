@@ -33,7 +33,7 @@ it('maps postpone_review invalid_state to an actionable state message', () => {
 
 it.each([
   ['ineligible_actor', '담당자를 배정할 수 없습니다. 배정에 필요한 권한이 없습니다.'],
-  ['foreign_workspace', '담당자를 배정할 수 없습니다. 현재 워크스페이스의 배정 대상이 아닙니다.'],
+  ['foreign_workspace', '담당자를 배정할 수 없습니다. 현재 배정 대상이 아닙니다.'],
 ])('maps owner %s through the existing rollback/toast path', (code, message) => {
   const err = new ApiError(422, {
     code: 'validation.failed',

@@ -85,14 +85,14 @@ const lockedScopeSettings: LockedSetting[] = [
     value: '내 담당 시스템만',
   },
   {
-    label: 'all = 워크스페이스 전체',
+    label: 'all = 전체',
     description: WORKSPACE_SETTINGS_SELF_APPROVAL_COPY.allScope,
     value: '관리자만',
   },
 ];
 
 const subtitle =
-  '권한 정책 · 익명성 임계값 · 시스템 간 연결 정책 등 워크스페이스 전역 동작을 정하는 설정입니다.';
+  '권한 정책 · 익명성 임계값 · 시스템 간 연결 정책 등 플랫폼 전역 동작을 정하는 설정입니다.';
 
 const settingLabels: Record<EditableKey, string> = {
   voc_cluster_suggestions_enabled: SUGGESTIONS.optInLabel,
@@ -179,7 +179,7 @@ export function WorkspaceSettingsScreen({ section }: { section?: string | null }
   const { hostOwnsTitle } = useHostSeam();
 
   return (
-    <PageShell {...(hostOwnsTitle ? {} : { header: { title: '워크스페이스 설정', subtitle } })}>
+    <PageShell {...(hostOwnsTitle ? {} : { header: { title: '플랫폼 설정', subtitle } })}>
       {settingsQuery.isPending ? (
         <p className="text-sm text-text-muted" data-testid="workspace-settings-loading">
           불러오는 중…
@@ -187,7 +187,7 @@ export function WorkspaceSettingsScreen({ section }: { section?: string | null }
       ) : settingsQuery.isError || !settingsQuery.data ? (
         <div className="flex items-center gap-2">
           <p className="text-sm text-accent-danger" data-testid="workspace-settings-error">
-            워크스페이스 설정을 불러오지 못했습니다.
+            플랫폼 설정을 불러오지 못했습니다.
           </p>
           <Button
             type="button"
@@ -500,7 +500,7 @@ export function WorkspaceSettingsForm({
       )}
       {updateMutation.isError && (
         <p className="text-sm text-accent-danger" role="alert">
-          워크스페이스 설정 저장에 실패했습니다.
+          플랫폼 설정 저장에 실패했습니다.
         </p>
       )}
     </div>

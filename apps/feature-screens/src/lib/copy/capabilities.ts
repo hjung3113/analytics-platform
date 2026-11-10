@@ -1,8 +1,8 @@
 import { type Capability, isCapability } from '@ap/feature-shared';
 
 export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
-  'workspace.read': '워크스페이스 전체 읽기',
-  'workspace.admin': '워크스페이스 관리자 권한',
+  'workspace.read': '전체 읽기',
+  'workspace.admin': '관리자 권한',
   'voc.triage': 'VOC 분류',
   'voc.read': 'VOC 조회',
   'voc.read_public': '공개 VOC 열람',

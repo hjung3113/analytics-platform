@@ -10,7 +10,7 @@ export const PERMISSION_REQUESTS_PAGE_COPY = {
   managedSystem: '시스템',
   managedSystemPlaceholder: '시스템 선택',
   managedSystemLoading: '시스템을 불러오는 중입니다.',
-  workspaceWide: '전체 (워크스페이스)',
+  workspaceWide: '전체',
   noManagedSystems: '선택할 수 있는 시스템이 없습니다',
   managedSystemRequired: '시스템 · 필수',
   reasonRequired: '사유 · 필수',

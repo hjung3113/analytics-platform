@@ -619,7 +619,7 @@ describe('HomeScreen route content', () => {
     renderHome();
     await screen.findByTestId('home-open-requests-list');
     const requests = within(screen.getByTestId('home-open-requests-list'));
-    expect(requests.getByText('워크스페이스 관리자 권한')).toBeInTheDocument();
+    expect(requests.getByText('관리자 권한')).toBeInTheDocument();
     expect(requests.getByText('Finding 관리')).toBeInTheDocument();
     expect(requests.queryByText('workspace.admin')).not.toBeInTheDocument();
     expect(requests.queryByText(/id:/i)).not.toBeInTheDocument();

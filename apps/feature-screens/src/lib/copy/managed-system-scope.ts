@@ -1,6 +1,6 @@
 export const SCOPE_SELECTOR_COPY = {
   allLabel: '전체 시스템',
-  workspaceAll: '워크스페이스 전체',
+  workspaceAll: '전체',
   assignedPrefix: '내 담당:',
   assignedCountPrefix: '내 담당',
   unionAccessibleQualifier: '내 담당 범위',

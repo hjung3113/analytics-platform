@@ -36,7 +36,7 @@ describe('WorkspaceSettingsScreen read retry (#609)', () => {
     );
 
     expect(await screen.findByTestId('workspace-settings-error')).toHaveTextContent(
-      '워크스페이스 설정을 불러오지 못했습니다.',
+      '플랫폼 설정을 불러오지 못했습니다.',
     );
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
 

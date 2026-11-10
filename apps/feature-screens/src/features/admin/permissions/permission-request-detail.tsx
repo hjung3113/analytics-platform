@@ -95,7 +95,7 @@ export function PermissionRequestDetail({
             <span>
               {request.requested_managed_system_id
                 ? (managedSystemName ?? '시스템')
-                : '워크스페이스 전체'}
+                : '전체'}
             </span>
             {request.requested_managed_system_id && !managedSystemName && (
               <span className="font-mono text-xs text-text-muted">

@@ -18,7 +18,7 @@ const GROUP = groupId('access');
 export const manifests: MenuEntry[] = [
   {
     id: 'permission-request-review', primary: true, group: GROUP, label: { ko: '권한 요청 검토', en: 'Permission request review' },
-    description: { ko: '워크스페이스 권한 요청을 검토하고 결정합니다', en: 'Review and decide workspace permission requests' },
+    description: { ko: '권한 요청을 검토하고 결정합니다', en: 'Review and decide workspace permission requests' },
     path: '/operations/permission-request-review', icon: FileCheck2, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['tab', 'focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -34,7 +34,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'service-tokens', group: GROUP, label: { ko: '서비스 토큰', en: 'Service tokens' },
-    description: { ko: '워크스페이스 토큰 조회·폐기와 system Actor 토큰 발급', en: 'Review workspace tokens and issue system Actor tokens' },
+    description: { ko: '플랫폼 토큰 조회·폐기와 system Actor 토큰 발급', en: 'Review workspace tokens and issue system Actor tokens' },
     path: '/operations/service-tokens', icon: KeySquare, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['noExpiry', 'kind'],
     component: lazy(() => import('./pages/ServiceTokens')),

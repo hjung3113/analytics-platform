@@ -197,17 +197,17 @@ describe('/admin/permissions/requests URL state', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
-        '워크스페이스 관리자 권한',
+        '관리자 권한',
       ),
     );
     // The active tab's list rendered — restore is not detail-only.
     expect(
-      within(screen.getByTestId('permission-requests-list')).getByText('워크스페이스 관리자 권한', {
+      within(screen.getByTestId('permission-requests-list')).getByText('관리자 권한', {
         exact: false,
       }),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByTestId('permission-requests-list')).queryByText('워크스페이스 전체 읽기', {
+      within(screen.getByTestId('permission-requests-list')).queryByText('전체 읽기', {
         exact: false,
       }),
     ).not.toBeInTheDocument();
@@ -235,7 +235,7 @@ describe('/admin/permissions/requests URL state', () => {
     });
     await waitFor(() =>
       expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
-        '워크스페이스 관리자 권한',
+        '관리자 권한',
       ),
     );
     expect(router.history.length).toBe(lengthBefore + 1);
@@ -245,7 +245,7 @@ describe('/admin/permissions/requests URL state', () => {
     const router = renderUrlState('/admin/permissions/requests');
     await waitFor(() =>
       expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
-        '워크스페이스 전체 읽기',
+        '전체 읽기',
       ),
     );
     const lengthBefore = router.history.length;
@@ -259,7 +259,7 @@ describe('/admin/permissions/requests URL state', () => {
       });
     });
     expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
-      '워크스페이스 전체 읽기',
+      '전체 읽기',
     );
     expect(router.history.length).toBe(lengthBefore + 1);
   });
@@ -281,7 +281,7 @@ describe('/admin/permissions/requests URL state', () => {
     expect(router.history.length).toBe(lengthBefore + 1);
     // Rows still rendered → the closed-panel assertion is not vacuous.
     expect(
-      within(screen.getByTestId('permission-requests-list')).getByText('워크스페이스 전체 읽기', {
+      within(screen.getByTestId('permission-requests-list')).getByText('전체 읽기', {
         exact: false,
       }),
     ).toBeInTheDocument();
@@ -311,11 +311,11 @@ describe('/admin/permissions/requests URL state', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
-        '워크스페이스 전체 읽기',
+        '전체 읽기',
       ),
     );
     expect(
-      within(screen.getByTestId('permission-requests-list')).getByText('워크스페이스 전체 읽기', {
+      within(screen.getByTestId('permission-requests-list')).getByText('전체 읽기', {
         exact: false,
       }),
     ).toBeInTheDocument();
@@ -338,11 +338,11 @@ describe('/admin/permissions/requests URL state', () => {
     expect(router.history.length).toBe(1);
     await waitFor(() =>
       expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
-        '워크스페이스 관리자 권한',
+        '관리자 권한',
       ),
     );
     expect(
-      within(screen.getByTestId('permission-requests-list')).getByText('워크스페이스 관리자 권한', {
+      within(screen.getByTestId('permission-requests-list')).getByText('관리자 권한', {
         exact: false,
       }),
     ).toBeInTheDocument();
@@ -352,7 +352,7 @@ describe('/admin/permissions/requests URL state', () => {
     const router = renderUrlState(`/admin/permissions/requests?tab=all&selected=${APPROVED_ID}`);
     await waitFor(() =>
       expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
-        '워크스페이스 관리자 권한',
+        '관리자 권한',
       ),
     );
     fireEvent.click(screen.getByRole('button', { name: '패널 닫기' }));
@@ -364,7 +364,7 @@ describe('/admin/permissions/requests URL state', () => {
     expect(router.state.location.search).toEqual({ tab: 'all' });
     expect(screen.queryByTestId('permission-request-detail-panel')).not.toBeInTheDocument();
     expect(
-      within(screen.getByTestId('permission-requests-list')).getByText('워크스페이스 전체 읽기', {
+      within(screen.getByTestId('permission-requests-list')).getByText('전체 읽기', {
         exact: false,
       }),
     ).toBeInTheDocument();
@@ -389,7 +389,7 @@ describe('/admin/permissions/requests URL state', () => {
     expect(router.state.location.search).toEqual({});
     expect(screen.queryByTestId('permission-request-detail-panel')).not.toBeInTheDocument();
     expect(
-      within(screen.getByTestId('permission-requests-list')).getByText('워크스페이스 전체 읽기', {
+      within(screen.getByTestId('permission-requests-list')).getByText('전체 읽기', {
         exact: false,
       }),
     ).toBeInTheDocument();
@@ -463,7 +463,7 @@ describe('/admin/permissions/requests URL state', () => {
       </QueryClientProvider>,
     );
 
-    await screen.findByText('민감한 권한 · 워크스페이스 전체 읽기');
+    await screen.findByText('민감한 권한 · 전체 읽기');
     fireEvent.click(screen.getByRole('button', { name: '거절' }));
     fireEvent.change(screen.getByLabelText(/^사유/), {
       target: { value: 'previous request draft' },
@@ -471,7 +471,7 @@ describe('/admin/permissions/requests URL state', () => {
     fireEvent.mouseDown(screen.getByRole('tab', { name: /^추가 정보 필요/ }));
 
     await screen.findByText('요청 만료일 없음');
-    expect(screen.queryByText('민감한 권한 · 워크스페이스 전체 읽기')).not.toBeInTheDocument();
+    expect(screen.queryByText('민감한 권한 · 전체 읽기')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '거절' }));
     expect(screen.getByLabelText(/^사유/)).toHaveValue('');
   });
@@ -531,7 +531,7 @@ describe('/admin/permissions/requests URL state', () => {
     expect(screen.getByTestId('permission-request-risk-review')).toHaveTextContent(
       '요청 만료일 없음',
     );
-    expect(screen.queryByText('민감한 권한 · 워크스페이스 전체 읽기')).not.toBeInTheDocument();
+    expect(screen.queryByText('민감한 권한 · 전체 읽기')).not.toBeInTheDocument();
     expect(screen.getByLabelText(/^사유/)).toHaveValue('new selected draft');
   });
 

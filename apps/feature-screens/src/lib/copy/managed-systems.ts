@@ -28,7 +28,7 @@ export const MANAGED_SYSTEM_COPY = {
   categories: {
     missing: '기본 배정 대상이 없습니다.',
     invalid_pair: '사람과 팀을 동시에 지정할 수 없습니다.',
-    foreign_workspace: '현재 워크스페이스의 배정 대상이 아닙니다.',
+    foreign_workspace: '현재 배정 대상이 아닙니다.',
     archived_team: '보관된 팀입니다.',
     ineligible_actor: '배정에 필요한 권한이 없습니다.',
   },

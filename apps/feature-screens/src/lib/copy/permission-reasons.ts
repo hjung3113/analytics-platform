@@ -1,16 +1,16 @@
 export const PERMISSION_BLOCKED_REASONS = {
-  taskList: 'Task 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+  taskList: 'Task 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
   taskDetail: '이 Task를 볼 권한이 없습니다.',
-  milestoneList: 'Milestone 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+  milestoneList: 'Milestone 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
   vocClusterList:
-    '반복 VOC 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+    '반복 VOC 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
   milestoneDetail: '이 Milestone을 볼 권한이 없습니다.',
   milestoneTasks: '이 Milestone의 Task를 볼 권한이 없습니다.',
   taskRequestQueue:
-    'Task 요청 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+    'Task 요청 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
   entityLinks: '연결 관계 목록을 볼 권한이 없습니다.',
-  findingsList: 'Finding 목록을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
-  vocTriage: 'VOC 분류 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+  findingsList: 'Finding 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
+  vocTriage: 'VOC 분류 권한이 없습니다. 관리자에게 권한을 요청하세요.',
   vocTriageManagedSystem: '선택한 시스템의 VOC 분류 권한이 없습니다.',
   vocTriageMissingRead: 'VOC 분류 권한이 있어도 VOC 조회 권한이 없으면 VOC를 볼 수 없습니다.',
   vocTriageMissingReadManagedSystem:

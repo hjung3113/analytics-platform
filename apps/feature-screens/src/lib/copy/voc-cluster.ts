@@ -15,7 +15,7 @@ export const CLUSTER_SUGGESTION_COPY = {
   error: '반복 VOC 제안을 불러오지 못했습니다',
   retryBody: '잠시 후 다시 시도하세요.',
   retry: '다시 시도',
-  denied: '반복 VOC 제안을 볼 권한이 없습니다. 워크스페이스 관리자에게 권한을 요청하세요.',
+  denied: '반복 VOC 제안을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
   stale: '제안이 변경되었습니다. 최신 내용을 불러온 후 다시 검토하세요.',
   reload: '최신 내용 불러오기',
   noDescription: '설명 없음',
@@ -28,5 +28,5 @@ export const CLUSTER_SUGGESTION_COPY = {
 
 export const CLUSTER_CREATE_COPY = {
   denied:
-    '이 시스템에서 반복 VOC를 만들 권한이 없습니다. 다른 시스템을 선택하거나 워크스페이스 관리자에게 권한을 요청하세요.',
+    '이 시스템에서 반복 VOC를 만들 권한이 없습니다. 다른 시스템을 선택하거나 관리자에게 권한을 요청하세요.',
 };
