@@ -12,9 +12,12 @@ import { testAdapter, testSession } from '@ap/kernel/testing';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 import { registry } from './menus';
 
-// The unsaved Mapping guard of 설비 온보딩 (#1658, kernel §6.4, ADR-0115): a step tab or Back is a push to another address, so dirty Board
-// edits ask first. The shell's leave dialog is drawn by a stand-in over `useLeaveRequest` (a menu test cannot import the host entry).
+// The unsaved Mapping guard of 설비 온보딩 (#1658, kernel §6.4, ADR-0115): the Board lives above the step tabs, so a push that changes only
+// `step` keeps dirty edits without asking (`leaves: { pageKeys }`, #1745); another `equipment` or `window` asks first. The shell's leave dialog is
+// drawn by a stand-in over `useLeaveRequest` (a menu test cannot import the host entry).
 vi.setConfig({ testTimeout: 30000 });
+// Radix Select scrolls its active option into view, which jsdom lacks.
+if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => undefined;
 
 const seedDir = join(process.cwd(), '../../menus/tools/topview-studio/src/mock/onboarding');
 const seed = <T,>(name: string): T => JSON.parse(readFileSync(join(seedDir, name), 'utf8')) as T;
@@ -71,28 +74,45 @@ async function ignorePm1() {
 afterEach(() => { cleanup(); writes.length = 0; });
 
 describe('unsaved Mapping guard of 설비 온보딩', () => {
-  it('a step tab asks: Stay keeps the tab and the edits; Leave moves and drops them, writing nothing', async () => {
+  it('a step tab keeps the edits without asking: Inventory and back to Mapping, nothing written (#1745)', async () => {
     await mount();
     await ignorePm1();
     fireEvent.mouseDown(screen.getByRole('tab', { name: /^Inventory/ }), { button: 0 });
-    fireEvent.click(within(await leaveDialog()).getByRole('button', { name: '머무르기' }));
-    expect(step()).toBe('mapping');
-    expect(within(pm1()).getByText(/무시/)).toBeTruthy();
-    fireEvent.mouseDown(screen.getByRole('tab', { name: /^Inventory/ }), { button: 0 });
-    fireEvent.click(within(await leaveDialog()).getByRole('button', { name: '나가기' }));
     await waitFor(() => expect(step()).toBe('inventory'), slow);
+    expect(screen.queryByRole('alertdialog', { name: '이동 확인' })).toBeNull();
     fireEvent.mouseDown(screen.getByRole('tab', { name: /^Mapping/ }), { button: 0 });
     await screen.findByRole('listbox', { name: 'Alias 목록' }, slow);
-    expect(within(pm1()).queryByText(/무시/)).toBeNull();
+    expect(within(pm1()).getByText(/무시/)).toBeTruthy();
     expect(writes).toEqual([]);
   });
 
-  it('Back asks too: Stay keeps the Mapping tab and the edits', async () => {
+  it('Back to the previous step keeps them too: only `step` changes', async () => {
     await mount();
     await ignorePm1();
     act(() => window.history.back());
-    fireEvent.click(within(await leaveDialog()).getByRole('button', { name: '머무르기' }));
-    await waitFor(() => expect(step()).toBe('mapping'), slow);
+    await waitFor(() => expect(step()).toBeNull(), slow);
+    expect(screen.queryByRole('alertdialog', { name: '이동 확인' })).toBeNull();
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^Mapping/ }), { button: 0 });
+    await screen.findByRole('listbox', { name: 'Alias 목록' }, slow);
     expect(within(pm1()).getByText(/무시/)).toBeTruthy();
+  });
+
+  it('another Sample Window asks: Stay keeps the window and the edits', async () => {
+    await mount();
+    await ignorePm1();
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Sample Window' }), { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: /^g2 · / }, slow));
+    fireEvent.click(within(await leaveDialog()).getByRole('button', { name: '머무르기' }));
+    expect(new URLSearchParams(window.location.search).get('window')).toBeNull();
+    expect(within(pm1()).getByText(/무시/)).toBeTruthy();
+  });
+
+  it('leaving the equipment for Fleet asks: Leave moves and drops the edits, writing nothing', async () => {
+    await mount();
+    await ignorePm1();
+    fireEvent.click(screen.getByRole('link', { name: '설비 온보딩' }));
+    fireEvent.click(within(await leaveDialog()).getByRole('button', { name: '나가기' }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('equipment')).toBeNull(), slow);
+    expect(writes).toEqual([]);
   });
 });

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render } from '@testing-library/react';
 import { PenTool } from 'lucide-react';
-import { groupId, menuPermission, spaceId, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
+import { groupId, menuPermission, spaceId, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery, type UploadFileInput } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../../index';
@@ -52,6 +52,10 @@ export function createServer() {
     writes: [] as MenuAction[],
     /** The next publishMapping answers this instead of running (one shot). */
     refuseMapping: null as null | { outcome: ActionResponse<unknown>['outcome']; code?: string },
+    /** Files `uploadFile` stored (#1658 import); the next upload or import answers `refuseUpload` / `refuseImport` instead (one shot). */
+    uploads: [] as { id: string; name: string; size: number; mimeType: string; text: string }[],
+    refuseUpload: null as null | { outcome: ActionResponse<unknown>['outcome']; code?: string },
+    refuseImport: null as null | { outcome: ActionResponse<unknown>['outcome']; path: string[]; code: string },
   };
   const ok = (data: unknown): ApiResponse<never> => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
   const empty = (): ApiResponse<never> => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
@@ -121,16 +125,47 @@ export function createServer() {
         if (row) row.state = req.action === 'eqv.retireSampleWindow' ? 'retired' : 'active';
         return done({ equipmentId: i.equipmentId }, null);
       }
+      // A stand-in for the server's import: it trusts the screen's validation and stores the window the file describes (staged over an active
+      // window of the same range, EV#105).
+      case 'eqv.importSampleWindow': {
+        if (state.refuseImport) { const r = state.refuseImport; state.refuseImport = null; return { outcome: r.outcome, data: null, version: null, fieldErrors: [{ path: r.path, code: r.code }], replayed: false, correlationId: 'fixture' } as ActionResponse<never>; }
+        const file = state.uploads.find((u) => u.id === i.uploadId);
+        if (!file) return { outcome: 'invalid', data: null, version: null, fieldErrors: [{ path: ['uploadId'], code: 'not_found' }], replayed: false, correlationId: 'fixture' } as ActionResponse<never>;
+        const batch = JSON.parse(file.text) as { from: string; to: string; dataGeneration: string; timeDomain: string; occurrences: unknown[] };
+        const rows = state.windows[String(i.equipmentId)] ?? [];
+        const active = rows.find((w) => w.state === 'active' && w.from === batch.from && w.to === batch.to) ?? null;
+        const row: WindowRow = { hash: `sha256:${'f'.repeat(64)}`, from: batch.from, to: batch.to, dataGeneration: batch.dataGeneration, timeDomain: batch.timeDomain, occurrences: batch.occurrences.length, state: active ? 'staged' : 'active', counterpart: active?.hash ?? null, mappingCount: 0 };
+        state.windows[String(i.equipmentId)] = [...rows, row];
+        if (!active) state.inventories['f'.repeat(64)] = { ...structuredClone(Object.values(state.inventories)[0]!), equipmentId: i.equipmentId };
+        return done(row, null);
+      }
+      case 'eqv.registerEquipment': {
+        const model = state.equipment.find((e) => e.vendorId === i.vendorId && e.modelId === i.modelId)!;
+        const record = { ...structuredClone(model), equipmentId: String(i.equipmentId), label: String(i.label), status: 'no-observations', coverage: null, unmappedReferences: null };
+        state.equipment.push(record);
+        state.fleet.push({ ...record, latestWindow: null });
+        return done({ equipmentId: i.equipmentId }, null);
+      }
       default: throw new Error(`unexpected write ${req.action}`);
     }
   }
-  return { state, query, action };
+  async function upload(input: UploadFileInput): Promise<ActionResponse<never>> {
+    if (state.refuseUpload) { const r = state.refuseUpload; state.refuseUpload = null; return { outcome: r.outcome, data: null, version: null, fieldErrors: r.code ? [{ path: ['file'], code: r.code }] : [], replayed: false, correlationId: 'fixture' } as ActionResponse<never>; }
+    const stored = { id: `F-${state.uploads.length + 1}`, name: input.name, size: input.file.size, mimeType: input.file.type, text: await new Promise<string>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsText(input.file); }) };
+    state.uploads.push(stored);
+    return done({ id: stored.id, name: stored.name, size: stored.size, mimeType: stored.mimeType }, null);
+  }
+  return { state, query, action, upload };
 }
 
-export function mountAt(server: Server, role: Roles, search = '') {
+/** `upload: false` mounts an adapter without the optional `uploadFile` port (ADR-0140). */
+export function mountAt(server: Server, role: Roles, search = '', { upload = true }: { upload?: boolean } = {}) {
   window.history.replaceState(null, '', `/tools/eqv-onboarding?v=1${search}`);
   const session = testSession(PERMISSIONS[role], { user: { id: 'u', name: 'u', title: { ko: '사용자', en: 'User' } } });
-  const adapter = testAdapter({ menuQuery: (req: MenuQuery) => server.query(req), menuAction: (req: MenuAction) => server.action(req), session: () => session });
+  const adapter = testAdapter({
+    menuQuery: (req: MenuQuery) => server.query(req), menuAction: (req: MenuAction) => server.action(req), session: () => session,
+    ...(upload ? { uploadFile: (input: UploadFileInput) => server.upload(input) } : {}),
+  });
   return render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><EqvOnboarding /></PlatformProvider></I18nProvider>);
 }
 

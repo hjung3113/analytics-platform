@@ -54,13 +54,14 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
   const { equipment, names, inventory, dictionaries, ruleFiles, templates, bindings, previous } = data;
   const layout = data.draft?.layout ?? null;
 
-  // ---- Mapping Board state lives above the tabs; the address guard asks before any push leaves unsaved edits (kernel §6.4, ADR-0115) ----
+  // ---- Mapping Board state lives above the tabs, so a step tab keeps unsaved edits; changing `equipment` or `window` (or leaving) asks first
+  // (kernel §6.4, ADR-0115, #1745) ----
   const boardInput = useMemo(() => (layout && inventory ? { equipment, inventory, dictionaries, layout, ruleFiles, templates } : null), [equipment, inventory, dictionaries, layout, ruleFiles, templates]);
   const [board, setBoard] = useState<BoardState | null>(null);
   const [saveScope, setSaveScope] = useState<SaveScope>('model');
   if (board === null && boardInput !== null) setBoard(createBoardState({ equipment, ruleFiles }));
   const dirty = board !== null && isBoardDirty(board);
-  useUnsavedGuard(dirty, { leaves: 'address', message: GUARD_MESSAGE, onDiscard: () => setBoard((b) => (b ? { ...b, present: b.baseline, past: [], future: [] } : b)) });
+  useUnsavedGuard(dirty, { leaves: { pageKeys: ['equipment', 'window'] }, message: GUARD_MESSAGE, onDiscard: () => setBoard((b) => (b ? { ...b, present: b.baseline, past: [], future: [] } : b)) });
 
   // ---- D8 dry-run of the saved rules and the draft, in the browser; the server judges again on publish ----
   const runInput = useMemo(() => (layout && inventory ? { equipment, inventory, dictionaries, layout, ruleFiles } : null), [equipment, inventory, dictionaries, layout, ruleFiles]);

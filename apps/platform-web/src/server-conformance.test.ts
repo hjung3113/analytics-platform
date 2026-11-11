@@ -4,6 +4,8 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
  * endpoint the app registers. The in-house server adapter runs the same harness shape
  * (docs/integration/real-server-checklist.md). The endpoint list is the mock assembly's own MOCK_ENDPOINTS (#153) plus its MODULE_MOCK_ENDPOINTS (#801) — lint lets exactly this test import it.
  */
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
@@ -80,6 +82,9 @@ const onboardingSamples: Record<string, () => Record<string, unknown>> = {
   },
   replaceSampleWindow: () => ({ equipmentId: 'eq-synth-02', windowHash: stageOnboardingWindow('staged') }),
   retireSampleWindow: () => ({ equipmentId: 'eq-synth-02', windowHash: stageOnboardingWindow('active') }),
+  // The synthetic eq-synth-01 batch, uploaded once by the granted actor below: importing stored content again answers the stored row.
+  importSampleWindow: () => ({ equipmentId: 'eq-synth-01', uploadId: onboardingUploadId }),
+  registerEquipment: () => ({ equipmentId: `cf-eq-${++onboardingSequence}`, label: 'Conformance', vendorId: 'synth-maker', modelId: 'synth-model' }),
 };
 const studioSamples: Record<string, () => Record<string, unknown>> = {
   saveDraft: () => { const layoutId = `cf-new-${++studioSequence}`; return { layoutId, document: { ...studioRead('layoutDraft', { layoutId: STUDIO_LAYOUT }).document, id: layoutId } }; },
@@ -416,6 +421,10 @@ describe('conformance harness covers what the app registers', () => {
 
 // The vocabulary carries the mounted modules' permissions (`eqv:view`), so the mock roles are built from it (#801).
 const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS, actions: [fixtureMockAction, ...MOCK_ACTIONS] });
+// Only the uploader reads an upload (ADR-0140 §6): the import sample's file belongs to the granted actor the eqv writes run as.
+const onboardingBatchDir = join(process.cwd(), '../../packages/eqv/assets/observations/eq-synth-01/windows');
+const onboardingBatch = readFileSync(join(onboardingBatchDir, readdirSync(onboardingBatchDir)[0]!), 'utf8');
+const onboardingUploadId = (await asRole(GRANTED, () => adapter.uploadFile!({ file: new Blob([onboardingBatch], { type: 'application/json' }), name: 'conformance.batch.json', idempotencyKey: crypto.randomUUID() }))).data!.id;
 
 // The SavedViewStore conformance sample (#1131): the browser-local store judged by the same checks as the real
 // server's. Both actors come from the mock directory (saved-view-seed) so the group share between them is real;

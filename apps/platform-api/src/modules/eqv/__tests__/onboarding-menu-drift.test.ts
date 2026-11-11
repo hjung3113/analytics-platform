@@ -31,7 +31,7 @@ const sorted = (keys: Iterable<string>) => [...keys].sort();
 
 /** Declared by the menu, «Server: pending (#1658 Sample Window·Fleet PR)»: the mock serves them; the server must not yet. */
 const PENDING_READS = ['eqv.fleet', 'eqv.sampleWindows', 'eqv.observedInventory', 'eqv.bundledTemplates'];
-const PENDING_ACTIONS = ['eqv.replaceSampleWindow', 'eqv.retireSampleWindow'];
+const PENDING_ACTIONS = ['eqv.replaceSampleWindow', 'eqv.retireSampleWindow', 'eqv.importSampleWindow', 'eqv.registerEquipment'];
 
 const servedReads = onboardingReadSpecs.filter((s) => !PENDING_READS.includes(s.id));
 const servedActions = onboardingActionSpecs.filter((s) => !PENDING_ACTIONS.includes(s.id));

@@ -5,7 +5,7 @@ import {
   DICTIONARY_GLOBAL_EDIT_PERMISSION, EQV_READ_PERMISSION, LAYOUT_EDIT_PERMISSION, LAYOUT_PUBLISH_PERMISSION, MAPPING_PUBLISH_PERMISSION, RULES_EDIT_PERMISSION, STUDIO_VIEW_PERMISSION,
   WINDOW_IMPORT_PERMISSION, onboardingActionSpecs, onboardingReadSpecs,
 } from '../endpoints';
-import { resetOnboardingMock, topviewOnboardingActionsMock, topviewStudioActionsMock, topviewStudioMock } from './index';
+import { resetOnboardingMock, setSampleWindowImport, topviewOnboardingActionsMock, topviewStudioActionsMock, topviewStudioMock, type SampleWindowImportHooks } from './index';
 import { flattenRules } from './onboarding-actions';
 
 /** Mirror the two manifests in '../index.ts' (importing it from `src/mock/**` is lint-banned); change them together. */
@@ -134,6 +134,93 @@ describe('onboarding mock writes', () => {
     setRole('viewer');
     const outcome = (await act('eqv.retireSampleWindow', { equipmentId: 'eq-synth-01', windowHash: G1 })).outcome;
     expect(outcome).toBe('forbidden');
+  });
+});
+
+// The app wires `@eqv/core`'s `checkSampleWindowImport` and `buildInventory` (`apps/platform-web/src/dev/eqv-onboarding-import.test.ts` runs
+// them on synthetic batches); mock code may not import core, so these tests drive the store with a stand-in verdict over the file's fields.
+type Batch = { equipmentId: string; from: string; to: string; timeDomain: string; dataGeneration: string; hash: string; bad?: boolean };
+const stub: SampleWindowImportHooks = {
+  async check(raw, ctx) {
+    const b = raw as Batch;
+    if (b.bad) return { ok: false, issues: [{ code: 'schema', path: ['occurrences', 0] }] };
+    const sameRange = ctx.existing.filter((r) => r.from === b.from && r.to === b.to);
+    const summary = { from: b.from, to: b.to, timeDomain: b.timeDomain, dataGeneration: b.dataGeneration, occurrences: 3, hash: b.hash };
+    return { ok: true, batch: b, summary, same: ctx.existing.find((r) => r.hash === b.hash) ?? null, replaces: ctx.sameRangeReplaces ? sameRange.filter((r) => r.hash !== b.hash) : [] };
+  },
+  inventory: (batch) => ({ schemaVersion: '0.4', equipmentId: (batch as Batch).equipmentId, aliases: [] }),
+};
+const H = (c: string) => `sha256:${c.repeat(64)}`;
+const upload = async (body: unknown, name = 'w.batch.json') => {
+  const answer = await adapter.uploadFile!({ file: new Blob([typeof body === 'string' ? body : JSON.stringify(body)], { type: 'application/json' }), name, idempotencyKey: crypto.randomUUID() });
+  return answer.data!.id;
+};
+const batch = (over: Partial<Batch> = {}): Batch => ({ equipmentId: 'eq-synth-03', from: '2026-01-02T10:00:00.000', to: '2026-01-02T10:30:00.000', timeDomain: 'site-synth', dataGeneration: 'g1', hash: H('d'), ...over });
+
+describe('onboarding mock import and registration', () => {
+  beforeEach(() => setSampleWindowImport(stub));
+
+  it('importSampleWindow stores the uploaded window as an active row, serves its Inventory and moves Fleet off no-observations (its Model has rules: draft)', async () => {
+    const answer = await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await upload(batch()) });
+    expect(answer).toMatchObject({ outcome: 'ok', data: { hash: H('d'), dataGeneration: 'g1', state: 'active', counterpart: null, mappingCount: 0, occurrences: 3, timeDomain: 'site-synth' } });
+    expect((await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-03' })).rows.map((w) => w.hash)).toEqual([H('d')]);
+    expect(await data('eqv.observedInventory', { equipmentId: 'eq-synth-03', windowHash: 'd'.repeat(64) })).toMatchObject({ equipmentId: 'eq-synth-03' });
+    const fleet = await data<{ rows: { equipmentId: string; status: string; latestWindow: { hash: string } | null }[] }>('eqv.fleet');
+    expect(fleet.rows[2]).toMatchObject({ equipmentId: 'eq-synth-03', status: 'draft', latestWindow: { hash: H('d') } });
+  });
+
+  it('the same content again answers the stored row and adds nothing', async () => {
+    await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await upload(batch()) });
+    expect(await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await upload(batch(), 'again.batch.json') })).toMatchObject({ outcome: 'ok', data: { hash: H('d'), state: 'active' } });
+    expect((await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-03' })).rows).toHaveLength(1);
+  });
+
+  it('a reprocessed generation of an active window\'s range is staged against it, never replacing it on import', async () => {
+    await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await upload(batch()) });
+    const staged = await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await upload(batch({ dataGeneration: 'g2', hash: H('e') }), 'g2.batch.json') });
+    expect(staged).toMatchObject({ outcome: 'ok', data: { hash: H('e'), state: 'staged', counterpart: H('d') } });
+    expect((await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-03' })).rows.map((w) => w.state)).toEqual(['active', 'staged']);
+  });
+
+  it.each([
+    ['another user\'s upload', async () => { setRole('admin'); const id = await upload(batch()); setRole('engineer'); return id; }, [{ path: ['uploadId'], code: 'not_found' }]],
+    ['an unknown upload id', async () => 'F-mock-404', [{ path: ['uploadId'], code: 'not_found' }]],
+    ['a file that is not JSON', async () => upload('{not json'), [{ path: ['file'], code: 'not_json' }]],
+    ['a file the validator refuses', async () => upload(batch({ bad: true })), [{ path: ['file', 'occurrences', '0'], code: 'schema' }]],
+  ])('importSampleWindow refuses %s as invalid and stores nothing', async (_what, uploadId, fieldErrors) => {
+    expect(await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await uploadId() })).toMatchObject({ outcome: 'invalid', fieldErrors });
+    expect((await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-03' })).rows).toEqual([]);
+  });
+
+  it('importSampleWindow refuses an unknown equipment', async () => {
+    expect(await act('eqv.importSampleWindow', { equipmentId: 'eq-unknown', uploadId: await upload(batch()) })).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['equipmentId'], code: 'not_found' }] });
+  });
+
+  it('registerEquipment adds a no-observations Fleet row under a known Hub model, with its scope', async () => {
+    const answer = await act('eqv.registerEquipment', { equipmentId: 'eq-new-01', label: ' New 01 ', vendorId: 'synth-maker', modelId: 'synth-model' });
+    expect(answer).toMatchObject({ outcome: 'ok', data: { equipmentId: 'eq-new-01' } });
+    const fleet = await data<{ rows: Record<string, unknown>[] }>('eqv.fleet');
+    expect(fleet.rows.at(-1)).toEqual({ equipmentId: 'eq-new-01', label: 'New 01', vendorId: 'synth-maker', vendorName: 'Synth Maker', modelId: 'synth-model', modelName: 'Synth Model', status: 'no-observations', latestWindow: null, coverage: null, unmappedReferences: null });
+    expect(await data('eqv.equipmentScopes', { equipmentId: 'eq-new-01' })).toEqual({ equipmentId: 'eq-new-01', vendorId: 'synth-maker', modelId: 'synth-model' });
+    expect(await data('eqv.bindings', { equipmentId: 'eq-new-01' })).toMatchObject({ version: '0' });
+  });
+
+  it.each([
+    ['an id that differs only by case', { equipmentId: 'EQ-SYNTH-01' }, [{ path: ['equipmentId'], code: 'exists' }]],
+    ['an id the address cannot carry', { equipmentId: 'eq new' }, [{ path: ['equipmentId'], code: 'invalid' }]],
+    ['an empty label', { label: '  ' }, [{ path: ['label'], code: 'invalid' }]],
+    ['an unknown Hub model', { modelId: 'other-model' }, [{ path: ['modelId'], code: 'not_found' }]],
+    ['an unknown Hub vendor', { vendorId: 'other-maker' }, [{ path: ['vendorId'], code: 'not_found' }]],
+  ])('registerEquipment refuses %s', async (_what, over, fieldErrors) => {
+    const answer = await act('eqv.registerEquipment', { equipmentId: 'eq-new-02', label: 'New 02', vendorId: 'synth-maker', modelId: 'synth-model', ...over });
+    expect(answer).toMatchObject({ outcome: 'invalid', fieldErrors });
+    expect((await data<{ rows: unknown[] }>('eqv.fleet')).rows).toHaveLength(3);
+  });
+
+  it('both writes need eqv-studio:window-import', async () => {
+    setRole('viewer');
+    expect((await act('eqv.registerEquipment', { equipmentId: 'eq-new-03', label: 'x', vendorId: 'synth-maker', modelId: 'synth-model' })).outcome).toBe('forbidden');
+    expect((await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: 'F-mock-1' })).outcome).toBe('forbidden');
   });
 });
 

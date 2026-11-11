@@ -82,7 +82,7 @@ export const RULES_EDIT_PERMISSION = menuPermission('eqv-studio:rules-edit');
 export const DICTIONARY_GLOBAL_EDIT_PERMISSION = menuPermission('eqv-studio:dictionary-global-edit');
 /** Mapping publish (capability `eqv.mapping.publish`). */
 export const MAPPING_PUBLISH_PERMISSION = menuPermission('eqv-studio:mapping-publish');
-/** Sample Window replace and retire (capability `eqv.window.import`). */
+/** Sample Window import, replace and retire, and equipment registration (capability `eqv.window.import`). */
 export const WINDOW_IMPORT_PERMISSION = menuPermission('eqv-studio:window-import');
 
 export type JsonDocument = Record<string, unknown>;
@@ -163,6 +163,16 @@ export type PublishMappingResult = { mappingHash: string; bindingId: string; ver
 export type WindowActionInput = { equipmentId: string; windowHash: string };
 export type ReplaceWindowResult = { equipmentId: string; activeHash: string; replacedHash: string };
 export type RetireWindowResult = { equipmentId: string; retiredHash: string };
+/** `uploadId` is the id `PlatformAdapter.uploadFile` answered for the `*.batch.json`; the server reads the file by id (ADR-0140 §6). */
+export type ImportWindowInput = { equipmentId: string; uploadId: string };
+/** `vendorId`/`modelId` are Hub ids (EV `maker`/`model` scopes); `label` is what Fleet shows next to the id. */
+export type RegisterEquipmentInput = { equipmentId: string; label: string; vendorId: string; modelId: string };
+export type RegisterEquipmentResult = { equipmentId: string };
+/** Longest equipment id the server accepts (`isEquipmentId`) and longest Fleet label. */
+export const EQUIPMENT_ID_MAX = 200;
+export const EQUIPMENT_LABEL_MAX = 120;
+/** The file a Sample Window import takes (EV ADR-0010); the screen pre-checks it, the server decides. */
+export const SAMPLE_WINDOW_FILE_SUFFIX = '.batch.json';
 
 /** `expectedVersion` is the version the author read (`'0'` while the scope has no file). A global level also needs `eqv-studio:dictionary-global-edit`. */
 export const saveAliasRules = defineAction<SaveScopedInput, SaveScopedResult>({
@@ -194,5 +204,26 @@ export const retireSampleWindow = defineAction<WindowActionInput, RetireWindowRe
   requiresScope: false, concurrency: 'none', invalidates: [sampleWindowsEndpoint, observedInventoryEndpoint, fleetEndpoint],
 });
 
-/** The writes: the server storage PR's three, then the two pending ones. */
-export const onboardingActionSpecs = [saveAliasRules, saveTypeDictionary, publishMapping, replaceSampleWindow, retireSampleWindow] as const;
+/**
+ * Server: pending (#1658 Sample Window·Fleet PR). Reads the uploaded `*.batch.json` by id, validates it like the dev tool (EV ADR-0010,
+ * `@eqv/core` `checkSampleWindowImport`) and stores it; answers the stored window as an `eqv.sampleWindows` row. The same content again
+ * answers the stored row. A reprocessed Data Generation of an active window's exact range is stored `staged` (EV#105), replaced only by
+ * `replaceSampleWindow`. Refusals are `invalid`: `uploadId/not_found` (unknown, expired or another user's upload), `file/not_json`,
+ * `file/<import code>` per validation issue, `equipmentId/not_found`.
+ */
+export const importSampleWindow = defineAction<ImportWindowInput, SampleWindowRow>({
+  id: 'eqv.importSampleWindow', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { equipmentId: true, uploadId: true }, permission: WINDOW_IMPORT_PERMISSION,
+  requiresScope: false, concurrency: 'none', invalidates: [sampleWindowsEndpoint, observedInventoryEndpoint, fleetEndpoint],
+});
+/**
+ * Server: pending (#1658 Sample Window·Fleet PR). Registers an equipment under a Hub vendor and model; it appears in Fleet as
+ * `no-observations`. Refusals are `invalid`: `equipmentId/invalid` (not an id), `equipmentId/exists` (also an id that differs only by
+ * letter case, like the dev tool), `label/invalid`, `vendorId`·`modelId/not_found` (no such Hub vendor and model for the actor).
+ */
+export const registerEquipment = defineAction<RegisterEquipmentInput, RegisterEquipmentResult>({
+  id: 'eqv.registerEquipment', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { equipmentId: true, label: true, vendorId: true, modelId: true }, permission: WINDOW_IMPORT_PERMISSION,
+  requiresScope: false, concurrency: 'none', invalidates: [fleetEndpoint, equipmentScopesEndpoint],
+});
+
+/** The writes: the server storage PR's three, then the four pending ones. */
+export const onboardingActionSpecs = [saveAliasRules, saveTypeDictionary, publishMapping, replaceSampleWindow, retireSampleWindow, importSampleWindow, registerEquipment] as const;

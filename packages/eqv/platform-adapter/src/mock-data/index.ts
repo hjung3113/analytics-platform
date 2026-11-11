@@ -1,4 +1,9 @@
 import { occurrenceOverlapsWindow, type OccurrenceBatch, type ReplayInput } from '@eqv/core';
+/**
+ * The Sample Window import verdict and Inventory build of the EV dev tool (`@eqv/core`), for the 설비 온보딩 menu mock: the app's mock
+ * assembly hands them to `setSampleWindowImport` (mock code and the app may not import `@eqv/core` directly). Dev and tests only.
+ */
+export { buildInventory, checkSampleWindowImport } from '@eqv/core';
 import { batch, bindings, layouts, mappings } from './cluster-single.generated.js';
 import type { EquipmentOptions } from '../endpoints.js';
 

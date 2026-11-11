@@ -1,6 +1,7 @@
 /** Words, steps and gates of the 설비 온보딩 screen (#1658). The server keeps codes; the screen owns the words (ONBOARDING §1, §6). */
 import { DIRTY_REASON, type PublishPlan } from '@eqv/editor';
-import type { FleetStatusCode, WindowState } from '../endpoints';
+import { UPLOAD_FILE_MAX_BYTES } from '@ap/contracts';
+import { EQUIPMENT_ID_MAX, EQUIPMENT_ID_PATTERN, SAMPLE_WINDOW_FILE_SUFFIX, type FleetStatusCode, type WindowState } from '../endpoints';
 
 export const FLEET_STATUS_LABEL: Record<FleetStatusCode, string> = {
   'no-observations': '관측 없음', unstarted: '미착수', draft: '초안', published: '게시됨', drift: 'Drift', 'drift-unknown': '게시됨 · Drift 미확인',
@@ -89,3 +90,41 @@ export const windowLabel = (w: { from: string; to: string; dataGeneration: strin
 
 export const percent = (ratio: number | null | undefined): string => (ratio === null || ratio === undefined ? '—' : `${Math.round(ratio * 100)}%`);
 export const windowHex = (hash: string): string => hash.replace(/^sha256:/, '');
+
+// ---- Sample Window import and equipment registration (#1658 import PR, ADR-0140) ----
+
+/** The picked file's pre-check, only to spare an upload: the server judges size, type and content again. */
+export function windowFileProblem(file: { name: string; size: number; type: string }): string | null {
+  if (file.size > UPLOAD_FILE_MAX_BYTES) return '32 MiB를 넘는 파일은 가져올 수 없습니다.';
+  // An empty `type` is common for `.json` files; the upload declares `application/json` for it.
+  if (!file.name.endsWith(SAMPLE_WINDOW_FILE_SUFFIX) || (file.type !== '' && file.type !== 'application/json')) return '*.batch.json 파일만 가져올 수 있습니다.';
+  return null;
+}
+
+/** What the screen says when `uploadFile` did not answer `ok`. */
+export function uploadFailure(answer: { outcome: string; fieldErrors: readonly { code: string }[] }): string {
+  if (answer.outcome === 'forbidden') return '권한이 없어 파일을 올리지 못했습니다.';
+  if (answer.outcome === 'conflict') return '같은 요청으로 다른 파일이 이미 올라갔습니다. 파일을 다시 고르세요.';
+  if (answer.outcome === 'invalid') {
+    const code = answer.fieldErrors[0]?.code;
+    return code === 'too_large' ? '파일이 32 MiB를 넘어 올리지 못했습니다.' : code === 'unsupported_type' ? '이 형식의 파일은 올릴 수 없습니다.' : '파일을 올리지 못했습니다.';
+  }
+  return '파일을 올리지 못했습니다. 다시 시도하세요.';
+}
+
+/** A field error as one short line: `code · path`. */
+export const fieldErrorLine = (error: { path: readonly (string | number)[]; code: string }): string => `${error.code} · ${error.path.map(String).join('.') || '(root)'}`;
+
+/** Registration words for the server's refusal codes (`eqv.registerEquipment`). */
+export function registerFailure(answer: { outcome: string; fieldErrors: readonly { path: readonly (string | number)[]; code: string }[] }): string {
+  if (answer.outcome === 'forbidden') return '권한이 없어 등록하지 못했습니다.';
+  const [first] = answer.fieldErrors;
+  if (answer.outcome !== 'invalid' || !first) return '등록하지 못했습니다. 다시 시도하세요.';
+  if (first.path[0] === 'equipmentId') return first.code === 'exists' ? '이미 등록된 설비 ID입니다. 대소문자만 다른 ID도 같은 설비로 봅니다.' : '설비 ID를 확인하세요.';
+  if (first.path[0] === 'label') return '이름을 확인하세요.';
+  if (first.path[0] === 'vendorId' || first.path[0] === 'modelId') return '이 Model을 찾을 수 없습니다.';
+  return `등록하지 못했습니다. ${fieldErrorLine(first)}`;
+}
+/** Client check of a new equipment id: what the address and the server both accept. */
+export const equipmentIdProblem = (id: string): string | null =>
+  id === '' ? null : id.length > EQUIPMENT_ID_MAX || !EQUIPMENT_ID_PATTERN.test(id) ? '영문·숫자로 시작하고 영문·숫자·.·_·-만 씁니다.' : null;

@@ -2,6 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { stubCompactTableGeometry } from '@ap/components/testing';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { G1, createServer, mountAt, params, type Roles, type Server } from './test-support';
 
 const { notify } = vi.hoisted(() => ({ notify: vi.fn() }));
@@ -198,15 +200,16 @@ describe('Mapping', () => {
     expect(option('LLA').getAttribute('aria-label')).not.toContain('새 규칙 반영 가능');
   });
 
-  it('unsaved edits hold a tab switch (the address guard waits for the shell) and stay', async () => {
+  it('unsaved edits survive a step tab switch, which moves without asking (#1745)', async () => {
     mount('engineer', '&equipment=eq-synth-01&step=mapping');
     const list = await aliasList();
     fireEvent.click(option('PM1'));
     fireEvent.keyDown(list, { key: 'i' });
     await screen.findByText('저장 안 됨 · Model', {}, slow);
     openTab(/^Inventory/);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(params().step).toBe('mapping');
+    await waitFor(() => expect(params().step).toBe('inventory'), slow);
+    openTab(/^Mapping/);
+    await aliasList();
     expect(within(option('PM1')).getByText(/무시/)).toBeTruthy();
   });
 });
@@ -321,10 +324,10 @@ describe('Data, Template and Drift', () => {
     expect(starts.length).toBeGreaterThan(0);
   });
 
-  it('an equipment with no Sample Window says so on 데이터, with where windows come from', async () => {
+  it('an equipment with no Sample Window says so on 데이터, with the import as the way out', async () => {
     mount('engineer', '&equipment=eq-synth-03');
     expect(await screen.findByText('Sample Window가 없습니다', {}, slow)).toBeTruthy();
-    expect(screen.getByText('설비 등록과 Sample Window 가져오기는 아직 EV 개발 도구에서 합니다.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sample Window 가져오기' })).toBeTruthy();
   });
 
   it('a drifted equipment lists the changes as the «Drift 검토» table; a row action opens Mapping', async () => {
@@ -362,3 +365,142 @@ describe('read only (eqv-studio:view and eqv:view)', () => {
   });
 });
 
+
+// ---- Sample Window import and equipment registration (#1658 import PR, ADR-0140) ----
+const windowsDir = join(process.cwd(), '../../../packages/eqv/assets/observations/eq-synth-02/windows');
+const synth02 = readFileSync(join(windowsDir, readdirSync(windowsDir)[0]!), 'utf8');
+/** eq-synth-02's synthetic batch, re-addressed (every record names the target) or reprocessed as another Data Generation (EV#105). */
+const batchFile = (text: string, name = 'w.batch.json', type = 'application/json') => new File([text], name, { type });
+const forEquipment = (equipmentId: string) => synth02.replaceAll('"eq-synth-02"', JSON.stringify(equipmentId));
+const reprocessed = () => JSON.stringify(JSON.parse(synth02)).replaceAll('"dataGeneration":"g1"', '"dataGeneration":"g7"');
+const importDialog = async () => {
+  fireEvent.click(await screen.findByRole('button', { name: 'Sample Window 가져오기' }, slow));
+  return screen.findByRole('dialog', { name: 'Sample Window 가져오기' }, slow);
+};
+const pick = (dialog: HTMLElement, file: File) => fireEvent.change(within(dialog).getByLabelText('Sample Window 파일'), { target: { files: [file] } });
+const confirmButton = (dialog: HTMLElement) => within(dialog).getByRole('button', { name: '가져오기' });
+
+describe('Sample Window import', () => {
+  it('previews the file\'s facts, then a confirm uploads it and imports by id; the window joins the table and the selector', async () => {
+    mount('engineer', '&equipment=eq-synth-03');
+    const dialog = await importDialog();
+    pick(dialog, batchFile(forEquipment('eq-synth-03')));
+    expect(await within(dialog).findByText(textIs('2026-01-01T10:00:00.000 – 2026-01-01T10:30:00.000'), {}, slow)).toBeTruthy();
+    expect(within(dialog).getByText('g1')).toBeTruthy();
+    expect(within(dialog).getByText('29개')).toBeTruthy();
+    expect(within(dialog).getByText('site-synth')).toBeTruthy();
+    expect(server.state.uploads).toEqual([]);
+    fireEvent.click(confirmButton(dialog));
+    await waitFor(() => expect(writes()).toEqual([{ action: 'eqv.importSampleWindow', input: { equipmentId: 'eq-synth-03', uploadId: 'F-1' }, expectedVersion: undefined }]), slow);
+    expect(server.state.uploads).toMatchObject([{ name: 'w.batch.json', mimeType: 'application/json' }]);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Sample Window 가져오기' })).toBeNull(), slow);
+    const table = await screen.findByRole('table', { name: /Sample Windows/ }, slow);
+    expect(within(table).getByText('사용 중')).toBeTruthy();
+    expect((await screen.findByRole('combobox', { name: 'Sample Window' }, slow)).textContent).toBe('g1 · 사용 중 · 2026-01-01 10:00–10:30');
+    expect(notify).toHaveBeenCalledWith('Sample Window를 가져왔습니다', 'info');
+  });
+
+  it.each([
+    ['a file over 32 MiB', () => { const f = batchFile('{}'); Object.defineProperty(f, 'size', { value: 33_554_433 }); return f; }, '32 MiB를 넘는 파일은 가져올 수 없습니다.'],
+    ['a file that is not *.batch.json', () => batchFile(forEquipment('eq-synth-03'), 'w.json'), '*.batch.json 파일만 가져올 수 있습니다.'],
+    ['a *.batch.json of another type', () => batchFile(forEquipment('eq-synth-03'), 'w.batch.json', 'text/plain'), '*.batch.json 파일만 가져올 수 있습니다.'],
+    ['a file that is not JSON', () => batchFile('{not json'), 'JSON으로 읽을 수 없습니다.'],
+  ])('refuses %s before uploading', async (_what, file, message) => {
+    mount('engineer', '&equipment=eq-synth-03');
+    const dialog = await importDialog();
+    pick(dialog, file());
+    expect(await within(dialog).findByText(message, {}, slow)).toBeTruthy();
+    expect(confirmButton(dialog).hasAttribute('disabled')).toBe(true);
+    expect(server.state.uploads).toEqual([]);
+  });
+
+  it('validation problems are listed and block the confirm', async () => {
+    mount('engineer', '&equipment=eq-synth-03');
+    const dialog = await importDialog();
+    pick(dialog, batchFile(synth02));
+    expect(await within(dialog).findByText(/가져올 수 없습니다 · 문제 \d+건/, {}, slow)).toBeTruthy();
+    expect(within(dialog).getAllByText(/equipment-mismatch/).length).toBeGreaterThan(0);
+    expect(confirmButton(dialog).hasAttribute('disabled')).toBe(true);
+    expect(server.state.uploads).toEqual([]);
+  });
+
+  it.each([
+    ['too large', { outcome: 'invalid' as const, code: 'too_large' }, '파일이 32 MiB를 넘어 올리지 못했습니다.'],
+    ['forbidden', { outcome: 'forbidden' as const }, '권한이 없어 파일을 올리지 못했습니다.'],
+    ['conflict', { outcome: 'conflict' as const }, '같은 요청으로 다른 파일이 이미 올라갔습니다. 파일을 다시 고르세요.'],
+    ['error', { outcome: 'error' as const }, '파일을 올리지 못했습니다. 다시 시도하세요.'],
+  ])('an upload answered %s says so and imports nothing', async (_what, refusal, message) => {
+    server.state.refuseUpload = refusal;
+    mount('engineer', '&equipment=eq-synth-03');
+    const dialog = await importDialog();
+    pick(dialog, batchFile(forEquipment('eq-synth-03')));
+    await within(dialog).findByText('site-synth', {}, slow);
+    fireEvent.click(confirmButton(dialog));
+    expect(await within(dialog).findByText(message, {}, slow)).toBeTruthy();
+    expect(writes()).toEqual([]);
+  });
+
+  it('a server refusal of the import lists its codes', async () => {
+    server.state.refuseImport = { outcome: 'invalid', path: ['file', 'from'], code: 'window-overlap' };
+    mount('engineer', '&equipment=eq-synth-03');
+    const dialog = await importDialog();
+    pick(dialog, batchFile(forEquipment('eq-synth-03')));
+    await within(dialog).findByText('site-synth', {}, slow);
+    fireEvent.click(confirmButton(dialog));
+    expect(await within(dialog).findByText('서버가 가져오기를 거부했습니다', {}, slow)).toBeTruthy();
+    expect(within(dialog).getByText(/window-overlap/)).toBeTruthy();
+  });
+
+  it('a reprocessed generation of the active range is imported as 교체 대기 and replaced only through 교체', async () => {
+    mount('engineer', '&equipment=eq-synth-02');
+    const dialog = await importDialog();
+    pick(dialog, batchFile(reprocessed()));
+    expect(await within(dialog).findByText(/교체 대기로 가져옵니다/, {}, slow)).toBeTruthy();
+    fireEvent.click(confirmButton(dialog));
+    await waitFor(() => expect(writes().map((w) => w.action)).toEqual(['eqv.importSampleWindow']), slow);
+    fireEvent.click(await screen.findByRole('button', { name: /g7로 교체$/ }, slow));
+    fireEvent.click(within(await screen.findByRole('alertdialog', {}, slow)).getByRole('button', { name: '교체' }));
+    await waitFor(() => expect(writes().map((w) => w.action)).toEqual(['eqv.importSampleWindow', 'eqv.replaceSampleWindow']), slow);
+  });
+
+  it('without the upload port the control is absent and a muted line says why', async () => {
+    mountAt(server, 'engineer', '&equipment=eq-synth-01', { upload: false });
+    expect(await screen.findByText('이 환경에서는 파일을 올릴 수 없어 Sample Window를 가져올 수 없습니다.', {}, slow)).toBeTruthy();
+    expect(maybe('Sample Window 가져오기')).toBeNull();
+  });
+});
+
+describe('equipment registration', () => {
+  it('registers an equipment under a Fleet Model; it appears in Fleet as 관측 없음', async () => {
+    mount('engineer');
+    fireEvent.click(await screen.findByRole('button', { name: '설비 등록' }, slow));
+    const dialog = await screen.findByRole('dialog', { name: '설비 등록' }, slow);
+    fireEvent.change(within(dialog).getByLabelText(/설비 ID/), { target: { value: 'eq-new-01' } });
+    fireEvent.change(within(dialog).getByLabelText(/이름/), { target: { value: 'New 01' } });
+    fireEvent.keyDown(within(dialog).getByRole('combobox', { name: /Model/ }), { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: 'Synth Maker / Synth Model' }, slow));
+    fireEvent.click(within(dialog).getByRole('button', { name: '등록' }));
+    await waitFor(() => expect(writes()).toEqual([{ action: 'eqv.registerEquipment', input: { equipmentId: 'eq-new-01', label: 'New 01', vendorId: 'synth-maker', modelId: 'synth-model' }, expectedVersion: undefined }]), slow);
+    expect(await screen.findByText('eq-new-01', {}, slow)).toBeTruthy();
+    expect(screen.getAllByText('관측 없음')).toHaveLength(2);
+  });
+
+  it('refuses an id the address cannot carry before writing', async () => {
+    mount('engineer');
+    fireEvent.click(await screen.findByRole('button', { name: '설비 등록' }, slow));
+    const dialog = await screen.findByRole('dialog', { name: '설비 등록' }, slow);
+    fireEvent.change(within(dialog).getByLabelText(/설비 ID/), { target: { value: 'eq new' } });
+    expect(within(dialog).getByText(/영문·숫자로 시작/)).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: '등록' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('a viewer sees neither registration nor import', async () => {
+    mount('viewer');
+    await screen.findByText('게시됨 · Drift 미확인', {}, slow);
+    expect(maybe('설비 등록')).toBeNull();
+    cleanup();
+    mount('viewer', '&equipment=eq-synth-01');
+    await screen.findByRole('table', { name: /Sample Windows/ }, slow);
+    expect(maybe('Sample Window 가져오기')).toBeNull();
+  });
+});

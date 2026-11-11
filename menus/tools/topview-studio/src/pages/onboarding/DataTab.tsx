@@ -5,7 +5,7 @@ import { PlatformDataTable, RowAction, type PlatformColumn } from '@ap/component
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, EmptyState, FieldList, FieldRow, StatusBadge } from '@ap/ui';
 import { WINDOW_IMPORT_PERMISSION, replaceSampleWindow, retireSampleWindow, type SampleWindowRow } from '../../endpoints';
 import { WINDOW_STATE_LABEL, WINDOW_STATE_TONE, rangeShort, windowHex } from '../../model/onboarding';
-import { DATA_SOURCE_LINE } from './Fleet';
+import { ImportWindowControl } from './ImportWindow';
 import { NoBreakStamps, ShortRange } from './WallClock';
 import type { EquipmentData } from './useEquipment';
 
@@ -39,10 +39,12 @@ export function DataTab({ data }: { data: EquipmentData }) {
       else setError(result.outcome === 'forbidden' ? '권한이 없어 바꾸지 못했습니다.' : '바꾸지 못했습니다.');
     } catch { setError('바꾸지 못했습니다.'); }
   };
-  if (data.windows.length === 0) return <div className="p-4"><EmptyState title="Sample Window가 없습니다" body={DATA_SOURCE_LINE} /></div>;
+  const importControl = <ImportWindowControl equipmentId={data.equipment.equipmentId} windows={data.windows} />;
+  if (data.windows.length === 0) return <div className="p-4"><EmptyState title="Sample Window가 없습니다" body="원천 변환기가 만든 *.batch.json을 가져오세요." action={importControl} /></div>;
+  // The spec's place (a-data.png): the import sits right above the table.
   return <div className="flex min-h-0 flex-1 flex-col gap-2 p-4">
+    <div className="flex shrink-0 justify-end">{importControl}</div>
     <PlatformDataTable title="Sample Windows" ariaLabel="Sample Windows" fill rows={data.windows} columns={COLUMNS} getRowId={(row) => row.hash} preferenceKey="eqv-onboarding-windows"
-      subtitle={DATA_SOURCE_LINE}
       isRowMuted={(row) => row.state === 'replaced' || row.state === 'retired'}
       rowAction={canWindows ? (row, { compact }) => (row.state === 'staged'
         ? <RowAction compact={compact} icon={Replace} label={`${rangeShort(row.from, row.to)} ${row.dataGeneration}로 교체`} text="교체" onClick={() => { setError(null); setAsk({ kind: 'replace', row }); }} />

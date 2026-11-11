@@ -7,9 +7,7 @@ import { FLEET_STATUSES, fleetEndpoint, type FleetRowDto } from '../../endpoints
 import { FLEET_STATUS_LABEL, FLEET_STATUS_TONE, percent } from '../../model/onboarding';
 import { rowsOf } from '../../model/query';
 import { ShortRange } from './WallClock';
-
-/** Where onboarding data comes from while the platform has no upload path (lead 2026-11-11, CHANGELOG «Not implemented»). */
-export const DATA_SOURCE_LINE = '설비 등록과 Sample Window 가져오기는 아직 EV 개발 도구에서 합니다.';
+import { RegisterEquipmentControl } from './RegisterEquipment';
 
 const STATUS_FILTER: ColumnFilterSpec = { kind: 'enum', options: FLEET_STATUSES.map((value) => ({ value, label: FLEET_STATUS_LABEL[value] })), ops: ['in', 'notIn'] };
 
@@ -36,12 +34,12 @@ export function Fleet() {
   const { setPage } = usePlatform();
   const fleetQ = useMenuQuery(fleetEndpoint, {});
   const rows = rowsOf(fleetQ);
-  return <PlatformPage layout="fill" title="설비 온보딩">
+  // The spec's place (a-fleet.png): 설비 등록 is the page's primary action.
+  return <PlatformPage layout="fill" title="설비 온보딩" primaryAction={rows === null ? undefined : <RegisterEquipmentControl rows={rows} />}>
     <div className="flex min-h-0 flex-1 flex-col break-keep">
       {rows === null ? <QueryView query={fleetQ}>{() => null}</QueryView>
-        : rows.length === 0 ? <EmptyState title="등록된 설비가 없습니다" body={DATA_SOURCE_LINE} />
+        : rows.length === 0 ? <EmptyState title="등록된 설비가 없습니다" body="설비를 등록한 뒤 Sample Window를 가져오세요." />
           : <PlatformDataTable title="Fleet" ariaLabel="Fleet" fill rows={rows} columns={COLUMNS} getRowId={(row) => row.equipmentId} preferenceKey="eqv-onboarding-fleet"
-            subtitle={DATA_SOURCE_LINE}
             rowAction={(row, { compact }) => <RowAction compact={compact} icon={ArrowRight} label={`${row.equipmentId} 열기`} text="열기"
               onClick={() => setPage({ equipment: row.equipmentId, step: null, window: null })} />} />}
     </div>

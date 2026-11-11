@@ -1,8 +1,17 @@
 import type { ActionResponse, ActionSpec, FieldError } from '@ap/contracts';
 import { checkScope, getRole, nextCorrelation, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
+import { readUploadAs, type UploadContent } from '../services/services';
 
-type ActionInput<I> = { input: I; actor: RoleId; scopeId: string | null };
+type ActionInput<I> = {
+  input: I; actor: RoleId; scopeId: string | null;
+  /**
+   * Reads a file the actor stored with `uploadFile` by its id, like the real server reads an unlinked upload (ADR-0140 §6): null for an
+   * unknown id or a file another user uploaded. The engine always passes it; a direct call in a test may omit it.
+   */
+  readUpload?(id: string): UploadContent | null;
+};
+type Handled<T> = { data: T; version: string | null };
 
 /** A menu's mock handler for one declared action (docs/adr/0054). Lives in the menu's `src/mock/` like endpoint handlers. */
 export type MockAction<I, T> = {
@@ -20,10 +29,20 @@ export type MockAction<I, T> = {
   /** Applies the write and returns the new data and version. The handler owns its domain audit, like the real server:
    * the engine writes no audit row itself, and the actor is never input (`unexpected_field` rejects an actor or time key).
    * A row-dependent refusal (illegal after the version check) throws `MockActionInvalid` with field errors. */
-  handle: (input: ActionInput<I>) => { data: T; version: string | null };
+  handle: (input: ActionInput<I>) => Handled<T>;
+  /** Set only by `defineMockAsyncAction`: the async handler the engine awaits instead of `handle`. */
+  handleAsync?: (input: ActionInput<I>) => Promise<Handled<T>>;
 };
 
-export const defineMockAction = <I, T>(spec: ActionSpec<I, T>, impl: Omit<MockAction<I, T>, 'spec'>): MockAction<I, T> => ({ spec, ...impl });
+export const defineMockAction = <I, T>(spec: ActionSpec<I, T>, impl: Omit<MockAction<I, T>, 'spec' | 'handleAsync'>): MockAction<I, T> => ({ spec, ...impl });
+/**
+ * Opt-in async form (e.g. a handler that awaits an async validator over an uploaded file). Same judgment order; the engine awaits
+ * `handle`. The returned action's sync `handle` throws, so a test that calls handlers directly must go through the adapter instead.
+ */
+export const defineMockAsyncAction = <I, T>(spec: ActionSpec<I, T>, impl: Omit<MockAction<I, T>, 'spec' | 'handle' | 'handleAsync'> & { handle: (input: ActionInput<I>) => Promise<Handled<T>> }): MockAction<I, T> => ({
+  spec, ...impl, handleAsync: impl.handle,
+  handle: () => { throw new Error(`${spec.id} is async: serve it through the mock adapter`); },
+});
 
 /**
  * A handler's refusal that mirrors the real server's `MenuActionInvalidError`-from-`handle` path: the request passed
@@ -147,7 +166,8 @@ export async function serveAction(
       if (current === null) return answer('not_found');
       if (current !== req.expectedVersion) return answer('conflict', { version: current });
     }
-    const done = action.handle(input);
+    const full = { ...input, readUpload: (id: string) => readUploadAs(actor, id) };
+    const done = action.handleAsync ? await action.handleAsync(full) : action.handle(full);
     const response = answer('ok', { data: done.data, version: done.version });
     // The record is a snapshot: a later handler write or a caller mutating its answer must not change a replay.
     store.set(`${actor}\n${key}`, { hash, response: structuredClone(response) });

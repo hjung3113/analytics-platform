@@ -2,6 +2,16 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.4.0 — 2026-11-11
+
+- Sample Window 가져오기와 설비 등록(#1658, ADR-0140): 데이터 탭 표 위 «Sample Window 가져오기» → 대화상자에서 `*.batch.json`을 고르면 구간·Generation·Occurrence·timeDomain과 검증 문제·경고를 미리 보이고(`@eqv/core` `checkSampleWindowImport`, 개발 도구와 같은 코드), 확인하면 `PlatformAdapter.uploadFile`로 올린 뒤 `eqv.importSampleWindow { equipmentId, uploadId }`. 사전 점검 32 MiB·`*.batch.json`/`application/json`, 업로드 `invalid`·`forbidden`·`conflict`·`error`와 서버 거부 코드를 대화상자에 표시. 같은 구간을 다시 처리한 Generation은 «교체 대기»로 들어가 기존 «교체»로만 바뀜(EV#105). `uploadFile`이 없는 어댑터는 버튼 대신 이유 한 줄. Fleet 머리의 «설비 등록»(`eqv.registerEquipment { equipmentId, label, vendorId, modelId }`) → Fleet에 «관측 없음». 두 쓰기 모두 `eqv-studio:window-import`, 서버는 Pending(mock만). mock은 올린 파일을 올린 사람으로만 id로 읽고(`readUpload`), 앱 mock 조립이 `setSampleWindowImport`로 core 판정·Inventory 계산을 넘긴다.
+- 단계 탭 전환은 미저장 Mapping 편집을 묻지 않고 지킨다(#1745 `useUnsavedGuard(dirty, { leaves: { pageKeys: ['equipment', 'window'] } })`). 설비·Sample Window를 바꾸거나 메뉴를 떠나면 묻는다.
+
+### Not implemented
+
+- 설비 등록의 Model 선택은 Fleet에 이미 있는 설비사·Model만 보인다: Hub Model 목록을 읽는 온보딩 읽기가 없다. 다시 열 조건: #1658 Sample Window·Fleet 서버 PR이 등록 action을 구현할 때 Hub Model 목록 읽기를 함께 정한다.
+- mock은 alias metadata를 저장하지 않아 가져온 window의 Inventory를 batch만으로 만든다(서버는 설비의 alias metadata를 함께 쓴다). 다시 열 조건: 같은 서버 PR.
+
 ## 0.3.0 — 2026-11-11
 
 - 설비 온보딩 화면(#1658): `도구 › Top View 작성 › 설비 온보딩`(`/tools/eqv-onboarding`, Management). Fleet 표(상태 컬럼 필터, 고정 `동작` 열) → 설비별 단계 탭(데이터·Inventory·Template·Mapping·검증·게시·Drift)과 Sample Window 선택기. page key `equipment`·`step`·`window`. Mapping Board(§4 단축키, 저장 범위, 실행 취소, 미저장 가드), 브라우저 dry-run과 충돌 강조, 게시 검토(diff·Revision·Binding 줄)와 `publishRevision` → `publishMapping`, Sample Window 교체·퇴역. 권한 `eqv-studio:rules-edit`·`eqv-studio:dictionary-global-edit`·`eqv-studio:mapping-publish`·`eqv-studio:window-import`. 서버가 없는 읽기·쓰기는 mock만(`docs/architecture/platform-api/api/eqv.md` «Pending server»).
@@ -9,9 +19,7 @@
 
 ### Not implemented
 
-- 설비 등록과 Sample Window 가져오기: 플랫폼에 업로드 경로가 없어 EV 개발 도구(`apps/eqv-studio`)에 남는다(lead 2026-11-11). 범용 업로드 부품은 소유자가 승인해 #1741로 진행 중이다. 다시 열 조건: #1741 병합 뒤 가져오기 PR.
 - Mapping Board 다중 선택(`Space`·`Shift`+이동·`⌘/Ctrl`+클릭)과 선택 행 일괄 확정·무시: 이번 화면은 `자동 일괄 확정`만 옮겼다. 다시 열 조건: 같은 Model 다설비 작업이 실제로 필요하다는 요청.
-- 단계 탭 전환의 미저장 편집 유지: Mapping 편집이 저장되지 않은 채 다른 단계 탭을 누르면 버리고 이동할지 묻는다. Kernel 이동 가드(`useUnsavedGuard(dirty, { leaves: 'address' })`)가 page key `step`만 바뀌는 이동을 예외로 둘 수 없다. 다시 열 조건: #1745(가드의 page key 예외 옵션).
 - 같은 Model 일괄 dry-run(ONBOARDING §6 D12)과 Type Dictionary·alias metadata 편집 화면(`eqv.saveTypeDictionary`는 선언만): 다른 설비의 inventory·초안을 한 번에 읽는 서버 읽기가 없다. 다시 열 조건: #1658 Sample Window·Fleet 서버 PR 병합.
 
 ## 0.2.1 — 2026-11-11
