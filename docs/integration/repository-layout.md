@@ -20,7 +20,6 @@
 | `packages/sdk/` | SDK 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`(`@ap/*`, 공개 API). 경계는 [패키지 경계](platform-packages.md) |
 | `packages/adapters/` | 어댑터·소비자 쪽 패키지 `mock-server`·`http-adapter`·`server-conformance`·`feature-bridge`(`@ap/*`, SDK 아님). 경계는 [패키지 경계](platform-packages.md) |
 | `packages/eqv/` | 설비 시각화 패키지(`@eqv/*`, [ADR-0132](../adr/0132-eqv-merges-into-platform.md)) |
-| `apps/eqv-studio/` | 설비 시각화 개발 도구(Studio) |
 | `menus/` | 업무 시스템 메뉴 Consumer 패키지 `menus/<system>/<group>/`(`@ap/menu-<group>`). 공간은 폴더가 원본이고 `GROUPS`와 일치를 검사 |
 | `platform/` | 플랫폼 기능 Consumer 패키지 `platform/<feature>/`(`@ap/menu-<name>`: 홈·내 활동·공지·운영 콘솔·기능 화면). 한 단계, SDK 아님. 공간은 `GROUPS`만 정한다 |
 | `tooling/` | 공유 도구: tsconfig, eslint 경계 규칙, `gen-menu`, `css-selectors` |

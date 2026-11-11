@@ -3,19 +3,15 @@ import { join, resolve } from 'node:path';
 import {
   aliasMetadataFileSchema, computeCoverage, equipmentRecordSchema, findMappingConflicts, layoutRevision, mappingVersionSchema, millisToWallClock,
   observedInventorySchema, replayTimeline, replayTimelineFrame, seekSceneState, typeDictionaryFileSchema, validateAliasRules, validateBindings,
-  validateLayout, validateSampleWindow, validateTypeDictionary, verifyMappingHash, wallClockToMillis,
-  type MappingVersion, type OccurrenceBatch, type ReplayInput, type SceneMaterial, type SceneState,
+  validateLayout, validateSampleWindow, validateTypeDictionary, verifyBindingContext, verifyMappingHash, wallClockToMillis,
+  type BindingsFile, type EquipmentLayoutDocument, type MappingVersion, type OccurrenceBatch, type ReplayInput, type SceneMaterial, type SceneState,
 } from '@eqv/core';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { createFileApi } from '../server/files.js';
-import { stubFileApi } from './file-api.js';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { GANTT_SPAN_LIMIT, TIMELINE_BUDGET, timelineCost } from '@eqv/views';
-import { loadFocus, type FocusData } from '../src/focus-data.js';
 import { generateDemo } from '../scripts/demo/generate.ts';
+import { layoutPath, mappingPath } from '../scripts/demo/paths.ts';
 
-const repo = resolve(process.cwd(), '../..');
-const ev = join(repo, 'packages/eqv');
-const assets = join(ev, 'assets');
+const assets = resolve(process.cwd(), '../assets');
 const EQUIPMENT = 'eq-demo-01';
 const SPAN_TARGET = 2_500;
 /** Every directory (or file) of the data root that belongs to the demo equipment. */
@@ -32,23 +28,36 @@ async function committed(path: string): Promise<string[]> {
   return (await Promise.all(entries.map((entry) => committed(`${path}/${entry.name}`)))).flat();
 }
 
+type FocusData = { batch: OccurrenceBatch; layouts: EquipmentLayoutDocument[]; layoutRevisions: Record<string, EquipmentLayoutDocument>; bindings: BindingsFile; mappings: MappingVersion[]; notices: string[] };
+
 let generated: Map<string, string>;
 let focus: { hex: string; data: FocusData; input: ReplayInput }[];
+/** What Focus replays, read from the generated files instead of a data root: the batch, and every Binding's Mapping Version and Layout, content-verified. */
+async function focusOf(path: string): Promise<FocusData> {
+  const read = async (file: string): Promise<unknown> => {
+    const text = generated.get(file);
+    return text === undefined ? undefined : JSON.parse(text);
+  };
+  const batch = JSON.parse(generated.get(path)!) as OccurrenceBatch;
+  const bindings = (await read(`onboarding/bindings/${EQUIPMENT}.bindings.json`)) as BindingsFile;
+  const verified = await verifyBindingContext(bindings.bindings, {
+    mapping: (binding) => read(mappingPath(EQUIPMENT, binding)),
+    layout: (layoutId, revision) => read(layoutPath(layoutId, revision)),
+  }, EQUIPMENT);
+  if (!verified.ok) throw new Error(JSON.stringify(verified));
+  const { mappings, layouts, layoutRevisions, notices } = verified;
+  return { batch, layouts, layoutRevisions, bindings, mappings, notices };
+}
 beforeAll(async () => {
   generated = await generateDemo();
-  // The real file API over the committed data root, read-only here: Focus reads it as it does in the dev server.
-  const api = createFileApi({ root: assets });
-  stubFileApi(api);
-  const hexes = [...generated.keys()].filter((path) => path.endsWith('.batch.json'))
-    .map((path) => path.slice(-'.batch.json'.length - 64, -'.batch.json'.length)).sort();
+  const batchFiles = [...generated.keys()].filter((path) => path.endsWith('.batch.json')).sort();
   focus = [];
-  for (const hex of hexes) {
-    const load = await loadFocus(EQUIPMENT, { window: hex });
-    if (load.kind !== 'ok') throw new Error(`${hex}: ${JSON.stringify(load)}`);
-    focus.push({ hex, data: load, input: { batch: load.batch, layouts: load.layouts, layoutRevisions: load.layoutRevisions, bindings: load.bindings, mappings: load.mappings } });
+  for (const path of batchFiles) {
+    const hex = path.slice(-'.batch.json'.length - 64, -'.batch.json'.length);
+    const data = await focusOf(path);
+    focus.push({ hex, data, input: { batch: data.batch, layouts: data.layouts, layoutRevisions: data.layoutRevisions, bindings: data.bindings, mappings: data.mappings } });
   }
 });
-afterAll(() => vi.unstubAllGlobals());
 
 const json = (path: string) => JSON.parse(generated.get(path)!) as unknown;
 const wafers = (state: SceneState): SceneMaterial[] => state.materials.filter((material) => material.kind === 'wafer');

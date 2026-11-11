@@ -1,14 +1,13 @@
-import { aliasMetadataPath, baselinePath, bindingsPath, equipmentPath, equipmentRulesPath, layoutPath, mappingPath, modelDictionaryPath, modelRulesPath, windowsDir } from '../../src/paths.ts';
+import { aliasMetadataPath, baselinePath, bindingsPath, equipmentPath, equipmentRulesPath, layoutPath, mappingPath, modelDictionaryPath, modelRulesPath, windowsDir } from './paths.ts';
 import {
   aliasMetadataFileSchema, aliasRulesFileSchema, buildInventory, instantiateLayout, layoutRevision, sampleWindowName,
   typeDictionaryFileSchema, validateLayout,
   type AliasMetadataFile, type AliasRulesFile, type EquipmentRecord, type OccurrenceBatch, type TypeDictionaryFile,
 } from '@eqv/core';
-// Not '@eqv/editor': its entry is TypeScript source with `.js` specifiers, which plain Node cannot load. publish.ts needs only @eqv/core.
-// eslint-disable-next-line ap/no-relative-package-escape -- plain Node runs this script and cannot load the @eqv/editor entry
-import { defaultEffectiveFrom, planPublish } from '../../../../packages/eqv/editor/src/publish.ts';
+// Not the package entry: it is TypeScript source with `.js` specifiers a plain Node run cannot load without register-ts.mjs; publish.ts needs only @eqv/core.
+import { defaultEffectiveFrom, planPublish } from '../../src/publish.ts';
 // eslint-disable-next-line ap/no-relative-package-escape -- the bundled Template is data in the EV assets folder, not a package export
-import template from '../../../../packages/eqv/assets/templates/cluster-single.template.json' with { type: 'json' };
+import template from '../../../assets/templates/cluster-single.template.json' with { type: 'json' };
 import { buildDemoWindows, EQUIPMENT_ID, PM_COUNT } from './scenario.ts';
 
 const MAKER = 'synth-maker';
@@ -61,12 +60,12 @@ const aliasMetadata: AliasMetadataFile = aliasMetadataFileSchema.parse({
   ],
 });
 
-/** Studio writes every JSON file as two-space JSON with a trailing newline (`server/files.ts` `write`). */
+/** Every JSON file is stored as two-space JSON with a trailing newline. */
 const text = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
 
 /**
  * The files of the synthetic demo equipment `eq-demo-01`, by data-root-relative path. Pure and deterministic: the files are
- * built through the same core and editor functions Studio's Onboarding and Publish use, and nothing is read or written here.
+ * built through the same core and editor functions Onboarding and Publish use, and nothing is read or written here.
  */
 export async function generateDemo(): Promise<Map<string, string>> {
   const parsedTemplate = validateLayout(template);

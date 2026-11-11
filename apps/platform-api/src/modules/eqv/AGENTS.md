@@ -35,5 +35,5 @@ Owns the `eqv` schema (#1645, #1607 step 5, [ADR-0135](../../../../../docs/adr/0
 - `@eqv/core` exports the bundled Template documents; reopen when it does, then delete the copy and the generator.
 - A permission-aware eqv audit view: the global audit projection excludes `eqv_` subjects (migration 0121, ADR-0135 §9) and the rows stay in `core.audit_log`. Reopen when a menu needs an eqv audit view (the Onboarding subjects `eqv_alias_rules`, `eqv_type_dictionary`, `eqv_binding` are excluded the same way).
 - A Hub Model list read for registration (the menu offers the Models Fleet shows). Reopen when the owner wants to register under a Model no equipment uses yet.
-- Alias metadata storage (`moduleType`, `isPort`, `isRobot`): imported windows' Inventories are built without it. Reopen with an alias-metadata import (the dev tool's `alias-metadata.json`).
+- Alias metadata storage (`moduleType`, `isPort`, `isRobot`): imported windows' Inventories are built without it. Reopen with an alias-metadata import.
 - `equipment` update or delete; `dataRange` (answers `null`, step 9).

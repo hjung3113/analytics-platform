@@ -12,7 +12,7 @@ Equipment-visualization (EV) domain packages: a reusable semantic equipment Top 
 ## Package boundaries
 
 - `core` and `renderer` import no `@ap/*`. Reason: the domain model and renderer must build and test without the platform (EV ADR-0001, kept by ADR-0132).
-- `editor`, `replay`, `ui`, `views` and `apps/eqv-studio` import only `@ap/ui` (plus EV siblings); no EV package imports `@ap/kernel`, `@ap/shell` or `@ap/components`. The boundary lint (`tooling/eslint`, `eqv-packages.js`) enforces it. Reason: one design system, no dependency on Kernel internals.
+- `editor`, `replay`, `ui` and `views` import only `@ap/ui` (plus EV siblings); no EV package imports `@ap/kernel`, `@ap/shell` or `@ap/components`. The boundary lint (`tooling/eslint`, `eqv-packages.js`) enforces it. Reason: one design system, no dependency on Kernel internals.
 - The viewer is the menu package `menus/tools/topview` (`@ap/menu-topview`); it reads data through declared `defineEndpoint` endpoints with the Kernel hooks, and the EV packages here never see the platform. Reason: auth, Scope, time, route, context, permissions and audit stay with the platform.
 - Import another package only through its `package.json` `exports`. Dependencies are `workspace:*`; there are no tarball URLs.
 - A UI pattern `@ap/ui` lacks (dense table, evidence badge, time slider) gets an EV component in `@eqv/ui` built on `@ap/ui` primitives and tokens, then screens use it. No screen-local restyling. Reason: the platform design system stays the only source of look.
@@ -40,7 +40,7 @@ Equipment-visualization (EV) domain packages: a reusable semantic equipment Top 
 
 ## Tests and checks
 
-- Run from the repo root: `pnpm --filter @eqv/<pkg> run lint|typecheck|test` for the package you changed; the Studio and the platform spec follow the root `AGENTS.md` verification section (`eqv.spec.ts` in `apps/platform-e2e` with `pnpm exec playwright test -g "<describe>"`).
+- Run from the repo root: `pnpm --filter @eqv/<pkg> run lint|typecheck|test` for the package you changed; the Top View menus (`menus/tools/topview`, `menus/tools/topview-studio`) and the platform spec follow the root `AGENTS.md` verification section (`eqv.spec.ts` in `apps/platform-e2e` with `pnpm exec playwright test -g "<describe>"`).
 - Replay changes cover: deterministic reducer, ties, open Occurrences (`end=null`), Data Quality Issues, Time Anomalies, Watermark and Binding boundaries, invalid mappings, duplicate wafer occupancy, evidence fidelity.
 - UI changes: check in the browser, keyboard and a11y, and compare side by side with a platform screen of the same kind; default browser controls fail it.
 - Behaviour changes and bug fixes: write the failing test first. Test behaviour, not implementation; one test per concept, `it.each` for variants; no tests of trivial passthrough. Reason: test code is a liability.

@@ -10,7 +10,7 @@
 >
 > 사실은 2026-10-17에 읽은 파일·이슈에서 왔고 [§9 출처](#9-출처)에 모았다. 읽지 않은 것에서 끌어낸 판단은 **추정**으로 표시했다. 지도 역할의 앞 문서는 [프레임워크 통합 계획](history/framework-unification-plan.md)(단계 0–5)이고, 이 문서는 그 단계 2(EV 첫 실소비자)·단계 5(두 번째 호스트)의 호스트 인터페이스를 구체화한다.
 
-> **2026-11-10 개정 ([ADR-0132](../adr/0132-eqv-merges-into-platform.md)):** equipment-visualization(EV)은 이 저장소에 합쳐졌다. 패키지는 `packages/eqv/*`, Studio는 `apps/eqv-studio`에 있고 `apps/platform-web`은 `workspace:*`로 쓴다. 아래 «다른 저장소», «릴리스 tarball», §6의 EV 저장소 서술은 과거 기록이다.
+> **2026-11-10 개정 ([ADR-0132](../adr/0132-eqv-merges-into-platform.md)):** equipment-visualization(EV)은 이 저장소에 합쳐졌다. 패키지는 `packages/eqv/*`에 있고 `apps/platform-web`은 `workspace:*`로 쓴다. 개발 도구 Studio(`apps/eqv-studio`)는 #1659에서 삭제했고 뷰어·Studio 화면은 메뉴 패키지(`menus/tools/topview`, `menus/tools/topview-studio`)가 맡는다. 아래 «다른 저장소», «릴리스 tarball», §6의 EV 저장소 서술은 과거 기록이다.
 >
 > **첫 외부 모듈 마운트(2026-10-25, [#801](https://github.com/hjung3113/analytics-platform/issues/801)):** EV의 `eqv`(Top View·Focus)를 EV 릴리스 tarball(`eqv-vX.Y.Z`의 `@eqv/*` 여섯 개, EV `docs/adr/0014`)로 설치해 `apps/platform-web/src/modules.ts`에서 `mountModule`로 마운트했다(mock 조립). 위 "서브모듈 고정 + workspace 패키지" 배치(§0, §4)는 이 경로로 대체됐다. 설치 절차는 EV ADR-0014와 `INTEGRATION.md`가 소유한다.
 
