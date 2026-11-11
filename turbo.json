@@ -118,6 +118,15 @@
         "$TURBO_ROOT$/packages/eqv/fixtures/**"
       ]
     },
+    "@eqv/editor#typecheck": {
+      "dependsOn": [
+        "transit"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/eqv/assets/templates/**"
+      ]
+    },
     "@eqv/editor#test": {
       "dependsOn": [
         "transit"

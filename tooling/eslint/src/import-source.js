@@ -44,7 +44,6 @@ function makeEvaluate(opts) {
     // eqvOnly: layers without an import allowlist (feature packages) take the EV ban alone.
     if (opts.eqvOnly) return isEqvPackage(source) && !eqvAllowed(source) ? opts.eqvMessage : null;
     if (devPattern !== null && devPattern.test(source)) return opts.devMessage;
-    if (opts.denyEqvMockData && /^@eqv\/[^/]+\/mock-data(\/|$)/.test(source)) return opts.eqvMockDataMessage;
     if (opts.eqvMessage && isEqvPackage(source) && !eqvAllowed(source)) return opts.eqvMessage;
     if ((opts.allowFeature ?? []).includes(source)) return null;
     if (isFeaturePackage(source)) return opts.featureMessage;
