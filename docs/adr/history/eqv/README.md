@@ -25,25 +25,6 @@ Citation forms: `EV ADR-NNNN` is a file here; bare `ADR-NNNN` is an AP ADR in `d
 
 The EV-side list of what AP ADR-0132 replaces is: EV ADR-0001 (placement), 0008 (design-system source), 0012 (host boundary wording), 0013 and 0014 (tarballs).
 
-## Open EV issues at absorption, not migrated
+## Open EV issues at absorption
 
-Open in the EV repository on 2026-11-10 (16). Moving or closing them belongs to the archive step ([absorption checklist](../../../design/features/equipment-visualization/absorption-checklist.md) condition 6) and is the owner's call. Numbers are `EV#N`.
-
-- EV#239 Top View material marker overlap W11 (follow-up of EV#236)
-- EV#187 SDK deferred
-- EV#184 Polish deferred
-- EV#177 Wrap-up and platform integration as an SDK
-- EV#170 Layout assembly deferred
-- EV#169 Custom part SVG, ADR proposal
-- EV#160 Layout edit deferred
-- EV#153 Journey deferred
-- EV#146 Replay UI deferred
-- EV#134 Replay UI deferred
-- EV#105 Import deferred
-- EV#91 Conductor preview tooling port
-- EV#60 Studio deferred
-- EV#3 M2 Replay
-- EV#2 M1 Standalone Studio
-- EV#1 M0 Design
-
-Not migrated: not implemented. Reopen condition: the owner decides at archive time; the deferred trackers go to `.planning/backlog.md` or close, EV#239 becomes an AP issue.
+Sixteen EV issues were open on 2026-11-10. Their disposition (imported, carried to a step, backlog or dropped) is owned by the [absorption checklist](../../../design/features/equipment-visualization/absorption-checklist.md) ([ADR-0132](../../0132-eqv-merges-into-platform.md)); this folder keeps only the frozen ADRs.

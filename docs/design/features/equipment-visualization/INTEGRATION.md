@@ -1,8 +1,10 @@
 # analytics-platform 통합안 — 실제 Repository 기준
 
+> 상태: v0.33.0부터 `@eqv/*` 패키지는 이 저장소의 workspace다(`packages/eqv/*`, `workspace:*`; [ADR-0132](../../../adr/0132-eqv-merges-into-platform.md)). v0.34.0부터 뷰어와 Studio는 메뉴 패키지 `menus/tools/topview`·`menus/tools/topview-studio`이고 개발 도구 `apps/eqv-studio`는 지웠다(#1659). 아래 «2026-10-14 조회 때 확인한 계약»은 그날의 기록이고, Release tarball 소비 설명은 흡수 전 이력이다.
+
 **검토 대상:** https://github.com/hjung3113/analytics-platform (main, 2026-10-14 조회). 이 저장소의 `packages/platform-adapter`가 호스트 계약 1을 구현했고, 마운트는 analytics-platform의 별도 PR(AP #333/#334)이다.
 
-## 확인된 현재 계약
+## 2026-10-14 조회 때 확인한 계약
 
 1. `README.md`: 플랫폼 FE는 `pnpm` workspace, `apps/platform-web`, `packages`, `menus` 구조. 서버는 현재 mock. Parser Postgres를 소비하는 분석 플랫폼.
 2. `AGENTS.md`, `docs/integration/platform-packages.md`: `packages/contracts → kernel/ui → components → shell → apps` 의존; 메뉴끼리 import 금지. 플랫폼 핵심 계층에 equipment-specific logic 금지.
@@ -19,8 +21,8 @@
 - 테마: `--eqv-*` → 플랫폼 토큰 매핑은 `@eqv/ui/theme.css`가 소유하고 어댑터 `styles.css`가 import한다. 호스트 입력(설비·진입 키·시간)은 `host-props.ts`가 읽는다.
 - 현재(#1659): 뷰어는 호스트 모듈이 아니라 일반 메뉴 패키지 `@ap/menu-topview`(`menus/tools/topview`)다. `manifests`(`eqv:topview`·`eqv:focus`, 그룹 `topview`)를 앱이 등록하고 화면은 lazy `import()`로 불러오며, Kernel 훅(`usePlatform`·`useMenuFetch`·`useMenuQuery`)으로 읽는다. 상세 슬롯·`host.status`는 없고 구성요소 상세는 인라인 패널이다.
 - 타 분석 메뉴는 `linkTo`로 **같은 화면으로 이동**하고 렌더러 코드를 import하지 않는다. 현재 `menu-*` 상호 import 금지와 `packages/components` 범용성 원칙을 그대로 지킨다.
-- 패키지 소비 방식은 게시된 SDK Release tarball이다(EV ADR-0013). submodule pin이 아니다.
-- 반대 방향(AP가 `@eqv/*`를 소비)도 Release tarball이다([EV ADR-0014](../../../adr/history/eqv/0014-eqv-release-tarballs.md)). Release `eqv-vX.Y.Z`의 여섯 파일(`eqv-{core,renderer,replay,ui,views,platform-adapter}-X.Y.Z.tgz`)을 모두 호스트의 직접 URL 의존으로 둔다. 패키지 안의 형제 `@eqv/*`는 정확 버전 peer이므로 `overrides`는 필요 없고, `dependencies`로 두면 `blockExoticSubdeps`가 `ERR_PNPM_EXOTIC_SUBDEP`로 막는다. packed manifest의 `@ap/*` peer는 SDK 정확 버전(오늘 `0.19.0`)이고 AP 워크스페이스는 `workspace:*`이므로 `peerDependencyRules.allowedVersions`에 `@eqv/*>@ap/*`를 둔다. CSS 진입은 `@import "tailwindcss"` → `@ap/ui/styles.css` → `@eqv/platform-adapter/styles.css` 순서다.
+- 패키지는 workspace로 소비한다(`workspace:*`, ADR-0132). 흡수 전에는 양방향 모두 Release tarball이었다(이력: [EV ADR-0013](../../../adr/history/eqv/0013-platform-sdk-release-tarballs.md)·[EV ADR-0014](../../../adr/history/eqv/0014-eqv-release-tarballs.md)의 `eqv-vX.Y.Z` 여섯 파일, 정확 버전 peer, `peerDependencyRules`).
+- CSS 진입은 `@import "tailwindcss"` → `@ap/ui/styles.css` → `@eqv/platform-adapter/styles.css` 순서다.
 - 원천 parser Result → Occurrence 변환은 플랫폼 **서버** read view(`eqv.topview-events`)의 책임이다([EV ADR-0002](../../../adr/history/eqv/0002-occurrence-input-contract.md)). 클라이언트와 이 저장소에는 원천 parser 코드·어휘를 두지 않는다.
 - 플랫폼 호스트에는 데이터 가져오기가 없다([EV ADR-0010](../../../adr/history/eqv/0010-studio-data-import.md)). 설비 식별은 플랫폼 설비 마스터가 소유하고, Occurrence는 `eqv.topview-events`가 준다. 가져오기(Sample Window)는 Studio 전용이다.
 - 플랫폼 코드에 설비별 로직을 두지 않는다. 호스트는 어댑터 화면을 마운트할 뿐이다.

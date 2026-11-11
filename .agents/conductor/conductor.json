@@ -39,7 +39,7 @@
           "match": {
             "any": [
               {
-                "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|platform/[^/]+/src|apps/platform-web/src|apps/feature-screens/src|packages/feature-ui/src|packages/eqv/[^/]+/src|apps/eqv-studio/src)/",
+                "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|platform/[^/]+/src|apps/platform-web/src|apps/feature-screens/src|packages/feature-ui/src|packages/eqv/[^/]+/src)/",
                 "suffix": [
                   ".tsx",
                   ".css"
