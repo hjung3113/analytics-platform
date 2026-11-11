@@ -20,6 +20,10 @@ const permission = VIEW_PERMISSION;
 export type TopviewContextParams = { equipmentId: string };
 export type TopviewEventsParams = { equipmentId: string; continuationToken?: string };
 
+/** The data shapes of the two replay reads, named so the mock (which may not import `@eqv/core`) types its injected source. */
+export type TopviewContextData = Omit<ReplayInput, 'batch'>;
+export type TopviewEventsData = OccurrenceBatch;
+
 export type EquipmentOptions = {
   options: { id: string; label: string; dataRange: { from: string; to: string } | null }[];
 };

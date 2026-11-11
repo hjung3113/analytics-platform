@@ -319,7 +319,7 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { x } from '@ap/mock-server';`, rule: '' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
   // #801, #1659: the viewer's synthetic endpoint data (the menu-topview mock-data subpath) is a dev-assembly and conformance-test import only.
-  { file: 'apps/platform-web/src/dev/eqv-mock.ts', code: `import { eqvMockContext } from '@ap/menu-topview/mock-data';`, rule: '' },
+  { file: 'apps/platform-web/src/dev/mock-assembly.tsx', code: `import { eqvMockContext } from '@ap/menu-topview/mock-data';`, rule: '' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { EQV_MOCK_WINDOW } from '@ap/menu-topview/mock-data';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { eqvMockContext } from '@ap/menu-topview/mock-data';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/menu-topview/mock-data');`, rule: 'ap/restricted-import-source' },

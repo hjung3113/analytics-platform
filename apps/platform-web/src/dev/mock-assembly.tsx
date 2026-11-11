@@ -12,6 +12,7 @@ import { improvementItemsMock } from '@ap/menu-improvement-items/mock';
 import { logAnalysisMock } from '@ap/menu-log-analysis/mock';
 import { logRulesMock } from '@ap/menu-log-rules/mock';
 import { logModelsMock } from '@ap/menu-log-models/mock';
+import { topviewMock } from '@ap/menu-topview/mock';
 import { topviewStudioMock } from '@ap/menu-topview-studio/mock';
 // </gen:menu-mock-imports>
 // Audit seeds of menu-owned destinations (ADR-0048) — hand-wired, outside the generator's import region.
@@ -24,14 +25,14 @@ import { datasetActionsMock } from '@ap/menu-log-rules/mock';
 import { logLifecycleActionsMock } from '@ap/menu-log-models/mock';
 import { logKnowledgeActionsMock } from '@ap/menu-log-knowledge/mock';
 import { improvementItemsActionsMock } from '@ap/menu-improvement-items/mock';
+import { setTopviewMockSource } from '@ap/menu-topview/mock';
 import { setSampleWindowImport, topviewOnboardingActionsMock, topviewStudioActionsMock } from '@ap/menu-topview-studio/mock';
 export { stageOnboardingWindow } from '@ap/menu-topview-studio/mock';
-import { buildInventory, checkSampleWindowImport } from '@ap/menu-topview/mock-data';
+import { buildInventory, checkSampleWindowImport, eqvMockContext, eqvMockEquipmentOptions, eqvMockEvents } from '@ap/menu-topview/mock-data';
 import type { CreateAssembly } from '#platform-assembly';
 import { menuPermissions, type AuditEvent } from '@ap/contracts';
 import { createMockAdapter, seedUsageNext, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
-import { eqvMock } from './eqv-mock';
 import { MOCK_SPACE_SYSTEMS } from './mock-space-systems';
 import { createLocalSavedViewStore } from '../saved-view-store';
 
@@ -53,21 +54,18 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
   ...logAnalysisMock,
   ...logRulesMock,
   ...logModelsMock,
+  ...topviewMock,
   ...topviewStudioMock,
   // </gen:menu-mock-spreads>
 ];
-
-/**
- * Endpoints answered by hand-wired handlers (the viewer's `eqv-mock.ts`, #801), kept out of MOCK_ENDPOINTS so the generator owns that array's skeleton byte for byte.
- * The mock adapter below and the conformance test read `[...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS]`.
- */
-export const MODULE_MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [...eqvMock];
 
 /**
  * Every menu mock action the app registers (hand-wired, ADR-0054). The mock adapter below and the conformance test read it.
  */
 // 설비 온보딩 Sample Window import (#1658): the mock judges an uploaded batch with the dev tool's own `@eqv/core` code.
 setSampleWindowImport({ check: checkSampleWindowImport, inventory: buildInventory });
+// Top View viewer (#801, #1659): the mock answers its three reads from the synthetic fixture.
+setTopviewMockSource({ equipmentOptions: eqvMockEquipmentOptions, context: eqvMockContext, events: eqvMockEvents });
 export const MOCK_ACTIONS: readonly AnyMockAction[] = [...logAnalysisActionsMock, ...logKnowledgeActionsMock, ...improvementItemsActionsMock, ...logLifecycleActionsMock, ...datasetActionsMock, ...topviewStudioActionsMock, ...topviewOnboardingActionsMock];
 
 /**
@@ -78,7 +76,7 @@ export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];
 
 /**
  * Mock assembly (#153, ADR-0009): what `#platform-assembly` resolves to in `vite` dev and `--mode mock` builds.
- * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`, the viewer's in MODULE_MOCK_ENDPOINTS by hand; a production build never reaches this file.
+ * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`; a production build never reaches this file.
  */
 export const createAssembly: CreateAssembly = ({ registry }) => {
   // #605: map the opt-in synthetic navigation cases onto real registry rows, only once per empty store.
@@ -89,7 +87,7 @@ export const createAssembly: CreateAssembly = ({ registry }) => {
     'seed-d4': 'productivity-overview', 'seed-d5': 'execution-detail', 'seed-d6': 'metric-detail',
   };
   if (storedUsage().length === 0 && Object.values(usageMenus).every(id => registry.menus.some(menu => menu.id === id))) seedUsageNext(Date.now(), usageMenus);
-  const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: [...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS], registry, permissions: registry.permissions, auditEvents: MOCK_AUDIT_EVENTS, actions: MOCK_ACTIONS });
+  const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: MOCK_ENDPOINTS, registry, permissions: registry.permissions, auditEvents: MOCK_AUDIT_EVENTS, actions: MOCK_ACTIONS });
   const savedViews = createLocalSavedViewStore({
     menuPermissionsOf: menuId => { try { return menuPermissions(registry.menuById(menuId)); } catch { return undefined; } },
     sessionPermissions: () => adapter.session().user.permissions,

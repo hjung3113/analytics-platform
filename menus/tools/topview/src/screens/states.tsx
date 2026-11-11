@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { CalendarClock, CalendarX2, Cpu, Inbox, ServerCrash, ShieldAlert } from 'lucide-react';
+import type { Trust } from '@ap/contracts';
 import { DataTrustIndicator, LoadingBlock, StateMessage } from '@ap/components';
 import type { HostProps } from '../host-props.js';
 import type { Trusted } from '../replay-load.js';
@@ -7,10 +8,16 @@ import type { ReplayLoad } from '../use-replay-input.js';
 
 const icon = (Icon: typeof Cpu) => <Icon className="size-4" aria-hidden />;
 
-/** The one Data Trust line of a read (EV#187): the assessments and Trust the server sent, with `unknown` never worded as clear. */
+/** What the line says about a read whose server sent assessments but no Trust (the mock replay reads): no time, no coverage, no claim beyond the assessments. */
+const NO_TRUST: Trust = { updatedAt: '', dataThrough: null, coverage: null, provisional: false, source: '응답에 Trust가 없음' };
+
+/**
+ * The one Data Trust line of a read (EV#187): the assessments and Trust the server sent, with `unknown` never worded as clear.
+ * A read with assessments but no Trust still gets its line, so «not verified» never looks like «nothing to report»; a read that said nothing at all gets none.
+ */
 export function TrustLine({ trust, assessments }: Trusted) {
-  if (trust === null) return null;
-  return <div className="mb-3"><DataTrustIndicator trust={trust} assessments={assessments} wrap /></div>;
+  if (trust === null && assessments.length === 0) return null;
+  return <div className="mb-3"><DataTrustIndicator trust={trust ?? NO_TRUST} assessments={assessments} wrap /></div>;
 }
 
 /** The state to show instead of the screen body, or null when the screen has verified data to draw. */

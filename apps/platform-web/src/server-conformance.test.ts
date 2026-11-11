@@ -2,14 +2,14 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
 /**
  * Server boundary conformance (#145): the adapter-agnostic kit judged against the mock adapter, over every menu
  * endpoint the app registers. The in-house server adapter runs the same harness shape
- * (docs/integration/real-server-checklist.md). The endpoint list is the mock assembly's own MOCK_ENDPOINTS (#153) plus its MODULE_MOCK_ENDPOINTS (#801) — lint lets exactly this test import it.
+ * (docs/integration/real-server-checklist.md). The endpoint list is the mock assembly's own MOCK_ENDPOINTS (#153) — lint lets exactly this test import it.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
-import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, stageOnboardingWindow, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
+import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, stageOnboardingWindow, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
 import { GROUPS, MENUS, PERMISSIONS, registry } from './menus';
 import { defineAction, emptyGlobal, menuPermission, menuPermissions, spaceId, type Permission } from '@ap/contracts';
@@ -17,7 +17,7 @@ import { ACTORS } from './saved-view-seed';
 import { createLocalSavedViewStore } from './saved-view-store';
 
 /** Exactly what the app registers: the mock assembly's lists, not a copy. */
-const endpoints = [...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS];
+const endpoints = MOCK_ENDPOINTS;
 
 /** A real RecordSequence from the mock: the first job of the equipment's day. */
 const OCCURRENCE_EQUIPMENT = 'MEM-PHOTO-0103';

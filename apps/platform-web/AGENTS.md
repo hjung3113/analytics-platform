@@ -47,9 +47,8 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
   - It hands `@eqv/core`'s Sample Window import check and Inventory build (re-exported by `@ap/menu-topview/mock-data`) to the 설비 온보딩 mock with `setSampleWindowImport`, because menu mock code may not import `@eqv/core`. Proof: `src/dev/eqv-onboarding-import.test.ts`.
 - `src/dev/DevTools.tsx` — role switch and response-scenario simulator (`topBarTools` slot, below the rail). Not production code.
 - The viewer (Top View, Focus) is the menu package `@ap/menu-topview` (`menus/tools/topview`), an ordinary `GROUPS` row `topview` plus `manifests` (ADR-0132; it replaced the host-module mount in `src/modules.ts`, #1659). `eqv:view` is declared in `PERMISSIONS`; `apps/platform-e2e/tests/eqv.spec.ts` keeps a copy of the paths.
-- `src/dev/eqv-mock.ts` — mock for the two EV endpoints (`eqv.topview-context`, `eqv.topview-events`), answered from synthetic fixtures of `@ap/menu-topview/mock-data`, `mart: false`. (Handlers stay in the app until the package can depend on `@ap/mock-server`.)
+- The mock for the three EV reads (`eqv.equipment-options`, `eqv.topview-context`, `eqv.topview-events`) is `topviewMock` of `@ap/menu-topview/mock` (`mart: false`), registered in the `MOCK_ENDPOINTS` marker like every menu mock. The assembly hands it the synthetic fixture of `@ap/menu-topview/mock-data` with `setTopviewMockSource`, because menu mock code may not import `@eqv/core`.
   - The spec is a `mergeTimeDomain: false` copy: for `requiresScope: false` endpoints the engine merges time-domain evaluation over the whole mock-world equipment set regardless of the queried equipment (`eq-synth-01` is not in the world master). Mock-only; no issue number for the engine follow-up yet.
-  - Export these as `MODULE_MOCK_ENDPOINTS` from `mock-assembly.tsx`, not into the generator-owned `MOCK_ENDPOINTS`; the adapter and the conformance test read `[...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS]`.
   - `@ap/menu-topview/mock-data` is imported only by `src/dev/**` and `src/server-conformance.test.ts` (lint `app` preset); `check:prod-graph` (`scripts/prod-graph.ts` `FORBIDDEN`) guards the production graph.
 - `src/real/endpoint-invalidation.ts`, `src/endpoint-invalidation-bridge.tsx` — refresh the Home banner after a notice write ([ADR-0098](../../docs/adr/0098-adapter-preferences-people-notices-ports.md) §4).
   - The real assembly wraps `saveNotice`/`deleteNotice` once; after `ok`, `conflict`, `unknown` (or a throw) it emits the app-declared `home.notices` through `Assembly.invalidation`.
@@ -65,7 +64,7 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
 
 - Menu screens and their screen-only synthetic data (`data.ts`) live in `menus/<space>/<group>/src/pages/` (platform features: `platform/<feature>/src/pages/`); computation of migrated screens is in `src/mock/`.
 - The server stand-in is `packages/adapters/mock-server`. The app keeps `src/dev/mock-assembly.tsx`, `src/dev/DevTools.tsx` and integration tests `src/*.test.ts` that use the real Registry and contracts (file name = subject).
-- `src/server-conformance.test.ts` reads `MOCK_ENDPOINTS` and `MODULE_MOCK_ENDPOINTS` as they are (lint allows only that import). An endpoint that declares params needs a sample in this test's `PARAMS` table. EV `eqv.topview-events` declares `limits.maxHours: 8`, so each case passes a `context` using the fixture's 30-minute window. The role vocabulary is `registry.permissions`.
+- `src/server-conformance.test.ts` reads `MOCK_ENDPOINTS` as it is (lint allows only that import). An endpoint that declares params needs a sample in this test's `PARAMS` table. EV `eqv.topview-events` declares `limits.maxHours: 8`, so each case passes a `context` using the fixture's 30-minute window. The role vocabulary is `registry.permissions`.
 
 ## Verification
 

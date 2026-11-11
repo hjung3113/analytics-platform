@@ -13,6 +13,7 @@
     ".": "./src/index.ts",
     "./model-topview": "./src/model-topview.tsx",
     "./styles.css": "./src/styles.css",
+    "./mock": "./src/mock/index.ts",
     "./mock-data": "./src/mock-data/index.ts"
   },
   "scripts": {
