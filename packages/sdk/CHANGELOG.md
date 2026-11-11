@@ -29,6 +29,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 (#1746) | components | 선택 옵션 추가(기본 동작 불변): `LaneTimelineProps.overlays?: TimelineOverlay[]`와 타입 `TimelineOverlay`(`instant`·`range`·`segments`)로 메뉴가 시각·구간·구간 집합을 선언형으로 표시한다([ADR-0144](../../docs/adr/0144-lane-timeline-declarative-overlays.md)). `LaneTimelineHandle`·기존 prop·기본 모양은 그대로다. | 없음 — 쓰려는 메뉴만 `useMemo`로 고정한 배열을 `overlays`에 넘긴다. |
 | [`sdk-v0.34.0`](https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.34.0) (#1769) | components | 선택 옵션 추가(기본 동작 불변): `DataTrustIndicator`의 `showWithoutTrust?: boolean`. `trust`가 null이고 `assessments`가 있으면 갱신·커버리지·확정 여부 없이 평가 항목만 그리고 «응답에 Trust 없음»을 보인다. 스냅샷 `tooling/sdk/api/components.root.api.txt`. | 없음 |
 | [`sdk-v0.34.0`](https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.34.0) (#1658) | shell | **동작 변경(공개 API 불변)** 저장 안 한 변경 확인 대화상자(`LeaveConfirmDialog`)는 목적지가 지금 메뉴일 때(메뉴 안 page 키 변경) «{메뉴}로 이동» 줄을 빼고, 다른 메뉴로 갈 때는 전과 같다. | 없음 |
 | [`sdk-v0.34.0`](https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.34.0) (#1658) | ui | 선택 옵션 추가(기본 동작 불변): `SearchInputProps.inputRef?: Ref<HTMLInputElement>`(입력란 ref, 예: `/` 단축키 포커스)와 `onKeyDown?`(내장 Enter·Escape 처리보다 먼저 실행, `preventDefault()`로 내장 처리 생략). 제어 모드에서만 쓴다. Snapshot: `ui.root.api.txt`. | 없음 — 쓰지 않으면 입력과 키 동작이 같다 |

@@ -154,6 +154,8 @@
 | [0141](0141-in-house-assembly-in-separate-repository.md) | 사내 조립은 이 저장소 밖의 별도 저장소에서 한다(방향 채택, 전제 변경은 저장소 밖 조립 시험 통과 뒤 발효) | Decided(2026-11-11) |
 | [0142](0142-out-of-repo-menu-package-and-host-module-split.md) | 사내 메뉴는 «저장소 밖 메뉴 패키지», 자체 UI 제품은 호스트 모듈로 나눈다 | Decided(2026-11-11) |
 | [0143](0143-release-units-and-compatibility-train.md) | 릴리스 단위는 셋(SDK, Host·어댑터, 코어 서버 묶음), 호환은 «같은 열차 N, 롤백용 N-1»만 | Decided(2026-11-11) |
+| [0144](0144-lane-timeline-declarative-overlays.md) | LaneTimeline 표시는 선언형 `overlays` prop으로 받고 명령형 그리기 콜백은 두지 않는다 | Decided(2026-11-11, lane 1746c, 되돌릴 수 있음) |
+| [0145](0145-lane-timeline-canvas-lod-before-worker-webgl.md) | LaneTimeline 성능은 Canvas 2D LOD로 먼저 풀고 Worker·WebGL은 측정이 모자랄 때만 연다 | Decided(2026-11-11, lane 1746c, 되돌릴 수 있음) |
 | [0146](0146-core-server-loads-in-house-declarations-from-deployment-config.md) | 코어 서버는 사내 확장을 코드가 아니라 선언으로 싣는다(배포 설정의 선언 묶음, 메뉴 권한 표) | Decided(2026-11-12) |
 | [0147](0147-scope-grants-come-from-an-injected-resolver.md) | Scope 부여의 원천은 사내가 주입하는 resolver, 단위는 site·room부터 | Decided(2026-11-12) |
 | [0148](0148-minimal-forwarder-and-identity-token.md) | 전달기는 menu-query 경로와 신원 토큰만 먼저(Scope claim·회수 반영 포함) | Candidate(2026-11-12) — 소유자 답 대기(#1087 질문 3·4) |
