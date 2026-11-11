@@ -1,0 +1,53 @@
+name: 플랫폼 환류 (사내 조립에서 찾은 것)
+description: 사내 조립에서 찾은 공통 빈 곳이나 플랫폼 결함을 공개 저장소로 알린다. 업무 의미는 여기에 올리지 않는다.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **사람이 검수하고 승인한 요약만 올립니다.** 값, 로그, 화면, 스키마, 사내 `.npmrc`, 사내 lockfile, 식별자·컬럼명·주소는 올리지 않습니다. 비식별화는 반출 허가가 아닙니다. 사내에서 이 양식을 자동으로 채워 보내지 마세요.
+        절차: `docs/integration/upstream-feedback-procedure.md`
+  - type: dropdown
+    id: category
+    attributes:
+      label: 분류
+      description: 업무 의미(사내 메뉴·어댑터·설정)의 문제는 사내에서 고칩니다. 여기에는 아래 둘만 올립니다.
+      options:
+        - 공통 빈 곳 (공개 계약이 더 있어야 풀림)
+        - 플랫폼 결함 (공개 코드의 오작동)
+    validations:
+      required: true
+  - type: input
+    id: contract-item
+    attributes:
+      label: 계약 항목 id
+      description: 어긋난 계약 항목의 id나 문서 절. 모르면 비워 두지 말고 가장 가까운 문서 절을 적습니다.
+    validations:
+      required: true
+  - type: input
+    id: platform-version
+    attributes:
+      label: 플랫폼 버전
+      description: 반입 묶음의 버전(예 v0.36.0)
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 일반화한 설명
+      description: 무엇이 어떻게 어긋났는가. 사내 식별자 없이 씁니다. 공통 빈 곳이면 «정적 조립으로 풀 수 없는 확장 지점»인 이유를 적습니다(허용 목록·기여 지점·defineSystem·manifest 필드를 되살리는 요청은 받지 않습니다).
+    validations:
+      required: true
+  - type: textarea
+    id: synthetic-repro
+    attributes:
+      label: 합성 재현
+      description: 합성 이름만 쓴 최소 재현. 플랫폼 결함이면 공통 수정과 회귀 시험 제안을 덧붙입니다.
+    validations:
+      required: true
+  - type: checkboxes
+    id: reviewed
+    attributes:
+      label: 반출 확인
+      options:
+        - label: 사람이 이 내용을 검수하고 승인했으며, 값·로그·화면·스키마·사내 설정 파일·식별자를 싣지 않았습니다.
+          required: true
