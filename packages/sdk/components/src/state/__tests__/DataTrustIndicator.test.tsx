@@ -130,3 +130,25 @@ describe('probe', () => {
     expect([...probeEl.querySelectorAll('[data-text]')].map(n => n.getAttribute('data-text')).join('|')).toBe('확인된 이슈 없음|·|커버리지 98.0%|·|갱신 10-16 09:00|잠정');
   });
 });
+
+describe('DataTrustIndicator showWithoutTrust (#1769)', () => {
+  const unknown = [{ kind: 'coverage', state: 'unknown', reason: 'check_failed' }] as const;
+  it('renders nothing for a null trust by default', () => {
+    const { container } = render(<I18nProvider><DataTrustIndicator trust={null} assessments={[...unknown]} /></I18nProvider>);
+    expect(container.textContent).toBe('');
+  });
+  it('shows assessments only, without update time, coverage or final status', () => {
+    render(<I18nProvider><DataTrustIndicator trust={null} assessments={[...unknown]} showWithoutTrust /></I18nProvider>);
+    const text = details().textContent ?? '';
+    expect(text).toContain('응답에 Trust 없음');
+    expect(text).not.toMatch(/커버리지|갱신/);
+    fireEvent.click(screen.getByRole('button', { name: '데이터 신뢰' }));
+    expect(screen.getByText(/갱신 시각·커버리지·확정 여부를 알 수 없습니다/)).toBeTruthy();
+    expect(screen.queryByText('확정')).toBeNull();
+    expect(screen.getByText('미확인')).toBeTruthy();
+  });
+  it('still renders nothing when there are no assessment items', () => {
+    const { container } = render(<I18nProvider><DataTrustIndicator trust={null} assessments={[]} showWithoutTrust /></I18nProvider>);
+    expect(container.textContent).toBe('');
+  });
+});

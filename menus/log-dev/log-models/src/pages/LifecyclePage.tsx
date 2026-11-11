@@ -53,7 +53,7 @@ const ui: Presentation = {
   table: parts => <MetadataTable {...parts} />,
   drawer: parts => <DetailDrawer title={parts.title} subtitle={parts.subtitle} onClose={parts.requestClose} returnFocusRef={parts.returnFocusRef} tabs={[{ id: 'detail', label: '상세', content: parts.body }]} />,
   timeline,
-  trust: (reasons, completedAt) => completedAt ? <DataTrustIndicator summary wrap trust={{ updatedAt: new Date(completedAt).toISOString(), dataThrough: null, coverage: null, provisional: false, source: 'Gate 서버 결정 가능 여부' }} assessments={reasons.length ? [{ kind: 'coverage', state: 'unknown', reason: 'check_failed', detail: reasons.join(', ') }] : []} /> : null,
+  trust: (reasons, completedAt) => completedAt ? <DataTrustIndicator summary wrap showWithoutTrust trust={null} assessments={reasons.length ? [{ kind: 'coverage', state: 'unknown', reason: 'check_failed', detail: reasons.join(', ') }] : []} /> : null,
 };
 
 export default function LifecyclePage({ params = {} }: PageProps) {
