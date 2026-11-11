@@ -1,4 +1,4 @@
-// generated — do not edit. Source: fixtures/cluster-single (synthetic). Regenerate: pnpm --filter @eqv/platform-adapter gen:mock-data
+// generated — do not edit. Source: fixtures/cluster-single (synthetic). Regenerate: pnpm --filter @ap/menu-topview gen:mock-data
 
 import type { BindingsFile, EquipmentLayoutDocument, MappingVersion, OccurrenceBatch } from '@eqv/core';
 

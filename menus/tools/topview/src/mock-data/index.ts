@@ -46,3 +46,6 @@ export function eqvMockEvents(params: { equipmentId: string; from: string; to: s
   }
   return { ...window, watermark, occurrences: kept.slice(PAGE_SIZE), issues };
 }
+
+/** The endpoint declarations the dev mock handlers answer (the index of this package exports manifests only). */
+export { equipmentOptions, topviewContext, topviewEvents } from '../endpoints.js';

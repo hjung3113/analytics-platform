@@ -3,7 +3,7 @@
  * `linkTopView`, `unlinkTopView`, answered like the real server (`modules/log-knowledge/topview-endpoints.ts`,
  * `topview-actions.ts`): resolution = the row whose start SW has the greatest release order at or below the target's, else the
  * model default, else unlinked; the Revision document comes with the read. The one published Revision is a small hand-written
- * synthetic Layout (`topview-fixture.json`, no real equipment); a test in `@eqv/platform-adapter` proves it validates and that
+ * synthetic Layout (`topview-fixture.json`, no real equipment); a test in `@ap/menu-topview` proves it validates and that
  * `FIXTURE_REVISION` is its real hash (this folder may not import `@eqv/*`). Seed: Alpha 100 links the fixture as its model default,
  * Alpha 200 has nothing linked.
  */

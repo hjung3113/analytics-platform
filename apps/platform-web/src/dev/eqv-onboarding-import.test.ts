@@ -5,7 +5,6 @@ import { createMockAdapter, getRole, setRole, type RoleId } from '@ap/mock-serve
 import { resetOnboardingMock } from '@ap/menu-topview-studio/mock';
 import { MOCK_ACTIONS, MOCK_ENDPOINTS } from './mock-assembly';
 import { registry } from '../menus';
-import { modulePermissions } from '../modules';
 
 // The 설비 온보딩 mock import as the app assembles it (#1658): an uploaded batch is read by id as the uploader and judged by the dev tool's
 // own `@eqv/core` code (`checkSampleWindowImport`, `buildInventory`). Batches are the synthetic assets, edited in memory.
@@ -19,7 +18,7 @@ const asEquipment = (equipmentId: string) => JSON.parse(JSON.stringify(asset('eq
 /** A reprocessed Data Generation of the same range (EV#105): other content, so another hash. */
 const reprocessed = (batch: Record<string, unknown>) => JSON.parse(JSON.stringify(batch).replaceAll('"dataGeneration":"g1"', '"dataGeneration":"g7"')) as Record<string, unknown>;
 
-const adapter = createMockAdapter({ endpoints: MOCK_ENDPOINTS, actions: MOCK_ACTIONS, registry, permissions: [...registry.permissions, ...modulePermissions(registry)] });
+const adapter = createMockAdapter({ endpoints: MOCK_ENDPOINTS, actions: MOCK_ACTIONS, registry, permissions: registry.permissions });
 const previous = getRole();
 beforeEach(() => { resetOnboardingMock(); setRole('engineer'); });
 afterEach(() => setRole(previous));

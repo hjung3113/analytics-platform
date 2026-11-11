@@ -27,11 +27,11 @@ const EQV_MOCK_DATA_PATTERN = '@eqv/*/mock-data';
 const EQV_MOCK_DATA_MESSAGE = '@eqv/*/mock-data is synthetic mock data; only src/dev/** and the server conformance test import it (ADR-0009, #801).';
 // EV packages are reached only through the host-module slot (ADR-0132, ADR-0128); the app assembles the one adapter.
 const EQV_MESSAGE = 'Platform and menus learn nothing about equipment: @eqv/* is reached only through the host-module slot, assembled in apps/platform-web (ADR-0132, ADR-0128).';
-// #1654: the one menu that is EV's own (menus/tools/topview-studio) imports exactly these four entries; every other menu stays under EQV_MESSAGE.
-const EQV_MENU_ENTRIES = ['@eqv/core', '@eqv/renderer', '@eqv/editor', '@eqv/ui'];
-const EQV_MENU_MESSAGE = `Only the Top View authoring menu (${pkg('menu-topview-studio')}, EV's own menu) imports exactly @eqv/core, @eqv/renderer, @eqv/editor and @eqv/ui (ADR-0132); no other @eqv/* entry or subpath, and nothing under src/mock/**.`;
+// #1654, #1659: the two menus that are EV's own (menus/tools/topview-studio, menus/tools/topview) import exactly these entries; every other menu stays under EQV_MESSAGE.
+const EQV_MENU_ENTRIES = ['@eqv/core', '@eqv/renderer', '@eqv/replay', '@eqv/views', '@eqv/editor', '@eqv/ui'];
+const EQV_MENU_MESSAGE = `Only EV's own menus (${pkg('menu-topview-studio')} and ${pkg('menu-topview')}) import exactly @eqv/core, @eqv/renderer, @eqv/replay, @eqv/views, @eqv/editor and @eqv/ui (ADR-0132); no other @eqv/* entry or subpath, and nothing under src/mock/**.`;
 const EQV_CORE_MESSAGE = 'EV core and renderer are design-system-free and platform-free: they import no @eqv package except @eqv/core (never @eqv/ui) (ADR-0132).';
-const EQV_UI_MESSAGE = 'EV ui, replay, views and editor use EV siblings but never @eqv/platform-adapter: it depends on them and is the one reader of the host port (ADR-0132).';
+const EQV_UI_MESSAGE = 'EV ui, replay, views and editor use EV siblings and the SDK ui only (ADR-0132).';
 const HTTP_ADAPTER_MESSAGE = `${PACKAGE_PREFIX}http-adapter is imported only by the production assembly in apps/platform-web/src/real/** (#154).`;
 // Radix primitives are wrapped once in the design system (ADR-0046); every other layer composes the ui wrappers.
 const RADIX_MESSAGE = `@radix-ui/* is wrapped by ${pkg('ui')}; import the ${pkg('ui')} component instead (ADR-0046).`;
@@ -121,16 +121,19 @@ const FEATURE_BRIDGE_PAGES_RESTRICTION = { ...FEATURE_BRIDGE_PACKAGE_RESTRICTION
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, denyQueryEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
 // The exact EV entries apps/platform-web uses: src/modules.ts (adapter, manifest) and the mock entry, which its own rule confines to src/dev/** and the conformance test.
-const APP_EQV_ENTRIES = ['@eqv/platform-adapter', '@eqv/platform-adapter/manifest', '@eqv/platform-adapter/mock-data', '@eqv/platform-adapter/model-topview'];
+// The app imports no @eqv/* source: the viewer is the menu package menu-topview (manifests, the model-topview subpath in main.tsx, the mock-data subpath in src/dev/** and the conformance test).
+const APP_EQV_ENTRIES = [];
+const TOPVIEW_MODEL_SUBPATH = 'menu-topview/model-topview';
+const TOPVIEW_MOCK_DATA_SUBPATH = 'menu-topview/mock-data';
 const APP_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: false, denyDev: true, denyHttpAdapter: true, denyEqvMockData: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
 // src/main.tsx is the composition root: only the screen API and notifications slot subpaths; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
-const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FEATURE_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, IMPROVEMENT_HOME_SLOT_SUBPATH, IMPROVEMENT_ANALYSIS_ACTIONS_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, LOG_EXPLORER_VIEW_SUBPATH, LOG_ROUND_SOURCE_SLOT_SUBPATH, LOG_MODEL_TOPVIEW_SLOT_SUBPATH] };
+const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FEATURE_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, IMPROVEMENT_HOME_SLOT_SUBPATH, IMPROVEMENT_ANALYSIS_ACTIONS_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, LOG_EXPLORER_VIEW_SUBPATH, LOG_ROUND_SOURCE_SLOT_SUBPATH, LOG_MODEL_TOPVIEW_SLOT_SUBPATH, TOPVIEW_MODEL_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
-const APP_DEV_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: true, denyHttpAdapter: true, denyEqvMockData: false, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
+const APP_DEV_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: true, denyHttpAdapter: true, denyEqvMockData: false, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH, TOPVIEW_MOCK_DATA_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
 // one source for "what the app registers"); no menu `/mock` subpath of its own.
-const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, denyEqvMockData: false, devAllow: ['./dev/mock-assembly'] };
+const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, denyEqvMockData: false, devAllow: ['./dev/mock-assembly'], allowSubpaths: [...APP_RESTRICTION.allowSubpaths, TOPVIEW_MOCK_DATA_SUBPATH] };
 // published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
@@ -548,22 +551,13 @@ export const eqvCore = [
   layerConfig({ restriction: EQV_CORE_RESTRICTION }),
 ];
 
-// ui, replay, views, editor: the SDK design system (its ui package) only; EV siblings are free except platform-adapter, the one reader of the host port.
-const EQV_UI_RESTRICTION = { allow: ['ui'], denyReact: false, mockAllowed: false, allowSubpaths: HOST_MODULE_RESTRICTION.allowSubpaths, allowEqvPackages: EQV_PACKAGES.filter((name) => name !== '@eqv/platform-adapter'), eqvMessage: EQV_UI_MESSAGE };
+// ui, replay, views, editor: the SDK design system (its ui package) only; EV siblings are free.
+const EQV_UI_RESTRICTION = { allow: ['ui'], denyReact: false, mockAllowed: false, allowSubpaths: HOST_MODULE_RESTRICTION.allowSubpaths, allowEqvPackages: EQV_PACKAGES, eqvMessage: EQV_UI_MESSAGE };
 /** @type {import('eslint').Linter.Config[]} */
 export const eqvUi = [
   REACT_HOOKS,
   BUILD_OUTPUT,
   layerConfig({ restriction: EQV_UI_RESTRICTION }),
-  designSystem({ eqvComponents: true }),
-];
-
-// platform-adapter: the hostModule rules (SDK contracts and ui only) with EV siblings allowed.
-/** @type {import('eslint').Linter.Config[]} */
-export const eqvHost = [
-  REACT_HOOKS,
-  BUILD_OUTPUT,
-  layerConfig({ restriction: { ...HOST_MODULE_RESTRICTION, allowEqvPackages: EQV_PACKAGES } }),
   designSystem({ eqvComponents: true }),
 ];
 
@@ -593,7 +587,7 @@ const menuPreset = (restriction) => [
 export const menu = menuPreset(MENU_RESTRICTION);
 
 /**
- * `menu` plus the four exact `@eqv/*` entries of EV's own menu (menus/tools/topview-studio, ADR-0132). `allowEqv` lists exact sources,
+ * `menu` plus the six exact `@eqv/*` entries of EV's own menus (menus/tools/topview-studio and menus/tools/topview, ADR-0132). `allowEqv` lists exact sources,
  * so subpaths such as `@eqv/ui/styles.css` stay banned; `src/mock/**` keeps the plain menu mock policy and may not import `@eqv/core`.
  * @type {import('eslint').Linter.Config[]}
  */

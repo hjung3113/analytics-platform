@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const fixtures = resolve(here, '../../fixtures/cluster-single');
+const fixtures = resolve(here, '../../../../packages/eqv/fixtures/cluster-single');
 const target = resolve(here, '../src/mock-data/cluster-single.generated.ts');
 // `@eqv/core` ships TypeScript source (no dist), which plain node cannot load, so core's hashHex (same pattern, same RangeError) is repeated here.
 export const hashHex = (hash) => {
@@ -21,7 +21,7 @@ const mappings = bindings.bindings.map(({ mappingHash }) =>
 const constant = (name, type, value) => `export const ${name}: ${type} = ${JSON.stringify(value, null, 2)};\n`;
 
 export const render = () => [
-  '// generated — do not edit. Source: fixtures/cluster-single (synthetic). Regenerate: pnpm --filter @eqv/platform-adapter gen:mock-data\n',
+  '// generated — do not edit. Source: fixtures/cluster-single (synthetic). Regenerate: pnpm --filter @ap/menu-topview gen:mock-data\n',
   "import type { BindingsFile, EquipmentLayoutDocument, MappingVersion, OccurrenceBatch } from '@eqv/core';\n",
   constant('layouts', 'EquipmentLayoutDocument[]', [json('layout.json')]),
   constant('bindings', 'BindingsFile', bindings),

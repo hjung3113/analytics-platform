@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { cleanup, configure, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, configure, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { eqvScreens } from '../src/index.js';
+import { FocusScreen } from '../src/screens/FocusScreen.js';
+import { TopViewScreen } from '../src/screens/TopViewScreen.js';
 import { EQV_MOCK_EQUIPMENT, EQV_MOCK_WINDOW, eqvMockContext, eqvMockEquipmentOptions, eqvMockEvents } from '../src/mock-data/index.js';
-import { createFakeHost, ok, type QueryCall } from './fake-host.js';
+import { createFake, ok, response, type QueryCall } from './test-support.js';
 import { batch } from './replay-fixture.js';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -13,11 +14,13 @@ afterEach(cleanup);
 
 // What a host's mock server does: answer the two endpoints from the mock data for the applied window.
 const mockServer = async ({ id, params }: QueryCall) => {
+  if (id === 'eqv.equipment-options') return response('ok', eqvMockEquipmentOptions(), { assessments: [] });
   const { equipmentId, continuationToken } = params as { equipmentId: string; continuationToken?: string };
   return ok(id === 'eqv.topview-context' ? eqvMockContext(equipmentId) : eqvMockEvents({ equipmentId, ...EQV_MOCK_WINDOW, continuationToken }));
 };
-const hostFor = (equipment: string) => createFakeHost({ page: { equipment }, context: EQV_MOCK_WINDOW, query: mockServer });
-const SCREENS = [['topview', eqvScreens.topview], ['focus', eqvScreens.focus]] as const;
+const PATHS = { topview: '/tools/eqv-topview', focus: '/tools/eqv-focus' } as const;
+const hostFor = (name: keyof typeof PATHS, equipment: string) => createFake({ path: PATHS[name], page: { equipment }, context: EQV_MOCK_WINDOW, query: mockServer });
+const SCREENS = [['topview', TopViewScreen], ['focus', FocusScreen]] as const;
 const NO_BINDING = '이 시점에 적용된 Binding이 없어 Top View를 표시할 수 없습니다';
 
 it('discovers the synthetic sample window and a second equipment without data', () => {
@@ -76,17 +79,16 @@ describe('eqvMockEvents', () => {
 
 describe('through the adapter', () => {
   it('Focus renders every fixture Occurrence from the mock, across both pages', async () => {
-    const fake = hostFor(EQV_MOCK_EQUIPMENT);
-    const Screen = eqvScreens.focus;
-    render(<Screen host={fake.host} params={{}} />);
+    const fake = hostFor('focus', EQV_MOCK_EQUIPMENT);
+    fake.render(FocusScreen);
     await waitFor(() => expect(document.querySelector('tr[data-occurrence-id="occ-open"]')).not.toBeNull());
     for (const { id } of batch.occurrences) expect(document.querySelector(`tr[data-occurrence-id="${id}"]`), id).not.toBeNull();
     expect(screen.queryByText(/데이터 오류/)).toBeNull();
   });
 
   it.each(SCREENS)('%s: an unknown equipment is ready with the no-Binding state, not outcome empty', async (name, Screen) => {
-    const fake = hostFor('eq-other');
-    render(<Screen host={fake.host} params={{}} />);
+    const fake = hostFor(name, 'eq-other');
+    fake.render(Screen);
     await screen.findByText(NO_BINDING);
     expect(screen.queryByText(/데이터 오류/)).toBeNull();
     expect(screen.queryByText('이 구간에 표시할 Occurrence가 없습니다')).toBeNull();

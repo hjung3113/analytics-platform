@@ -1,68 +1,62 @@
-import type { ApiResponse, Assessment, ModuleHost } from '@ap/contracts';
+import type { ApiResponse, Assessment, Trust } from '@ap/contracts';
 import {
   assertReplayInput, verifyBindingContext,
   type OccurrenceBatch, type ReplayInput,
 } from '@eqv/core';
-import { topviewContext, topviewEvents } from './endpoints.js';
+import { topviewEvents, type TopviewContextParams, type TopviewEventsParams } from './endpoints.js';
 
-export type LoadFailure = { kind: 'failed'; tone: 'danger' | 'warning'; title: string; message: string; errorId: string; notices: string[] };
-/** What one load settles to. `forbidden` and `empty` carry no data; `ready` is a verified, complete `ReplayInput`. */
+/** What the reads said about the data (EV#187): shown as the one Data Trust line, never as stacked notices. `unknown` stays `unknown`, never `clear`. */
+export type Trusted = { trust: Trust | null; assessments: Assessment[] };
+/** `errorId` is the server's correlation id when the failure came from a response; a failure raised on the client has none. */
+export type LoadFailure = { kind: 'failed'; tone: 'danger' | 'warning'; title: string; message: string; errorId: string | null } & Trusted;
+/** What one load settles to. `forbidden` and `empty` carry no data; `ready` is a verified, complete `ReplayInput`. `notices` are the Binding-context checks only. */
 export type Settled =
-  | { kind: 'ready'; input: ReplayInput; notices: string[] }
-  | { kind: 'empty'; notices: string[] }
+  | ({ kind: 'ready'; input: ReplayInput; notices: string[] } & Trusted)
+  | ({ kind: 'empty' } & Trusted)
   | { kind: 'forbidden' }
   | LoadFailure;
 
-const KIND_KO: Record<Assessment['kind'], string> = {
-  collection: '수집', processing_delay: '처리 지연', coverage: '범위', time_domain: '시간 기준', respondent_history: '응답자 이력',
+/** The two declared reads, as the Kernel's `useMenuFetch` gives them (each projects the applied Context itself). */
+export type ReplayReads = {
+  context: (params: TopviewContextParams, signal?: AbortSignal) => Promise<ApiResponse<Omit<ReplayInput, 'batch'>>>;
+  events: (params: TopviewEventsParams, signal?: AbortSignal) => Promise<ApiResponse<OccurrenceBatch>>;
 };
-const REASON_KO = { source_unavailable: '출처를 쓸 수 없음', check_failed: '점검 실패' } as const;
-
-/** `clear` raises no notice. `unknown` is worded as "not checked", never as "no problem" (unknown ≠ clear). */
-export function assessmentNotices(assessments: readonly Assessment[]): string[] {
-  const notices = assessments.flatMap((a) => {
-    if (a.state === 'clear') return [];
-    const detail = a.detail ? ` — ${a.detail}` : '';
-    if (a.state === 'confirmed') return [`${KIND_KO[a.kind]}: 문제가 확인되었습니다${detail}`];
-    return [`${KIND_KO[a.kind]}: 확인하지 못했습니다${a.reason ? ` (${REASON_KO[a.reason]})` : ''} — 이상 없음이 아닙니다${detail}`];
-  });
-  return [...new Set(notices)];
-}
+/** Assessments of every response so far and the last Trust a response carried. */
+type Acc = Trusted;
 
 type Step<T> = { ok: true; data: T } | { ok: false; settled: Settled };
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
 
 const TOO_LARGE_KO = `설비 재생은 한 번에 최대 ${topviewEvents.limits?.maxHours}시간까지 불러옵니다. 플랫폼의 기간을 ${topviewEvents.limits?.maxHours}시간 이하로 줄이세요.`;
 
-/** `serverText` (the host's raw, often English, message) goes to `reportError` only; the visible `text` is ours. */
-function failure(host: ModuleHost, tone: LoadFailure['tone'], title: string, text: string, assessments: Assessment[], correlationId?: string, serverText?: string): LoadFailure {
-  const errorId = host.reportError(new Error(`${title}: ${serverText || text}${correlationId ? ` (correlationId ${correlationId})` : ''}`));
-  return { kind: 'failed', tone, title, message: text, errorId, notices: assessmentNotices(assessments) };
+/** The visible `text` is ours; the server's raw (often English) message is never shown. */
+function failure(tone: LoadFailure['tone'], title: string, text: string, acc: Acc, correlationId?: string): LoadFailure {
+  return { kind: 'failed', tone, title, message: text, errorId: correlationId ?? null, trust: acc.trust, assessments: [...acc.assessments] };
 }
 
 /**
  * Outcome → screen (decided deliberately, not by default):
- *   ok                       → render `data` (a null `data` is a data error); the caller resets `host.status` to ready if this screen set another
- *   empty                    → the screen's empty state; no status call
- *   forbidden                → `host.status('auth_required')`; the host draws that state (ADR-0053 G4)
- *   error                    → screen-local danger state with `message` and the `reportError` id; no status call
- *   timeout, too_large       → screen-local warning state, same fields; no status call
- * `unavailable` would hand the whole screen to the host for one failed query while equipment and time selection still work, and
- * `identity_mismatch` is the host's session-generation concept: neither is ever set from a query outcome.
+ *   ok                       → render `data` (a null `data` is a data error)
+ *   empty                    → the screen's empty state
+ *   forbidden                → the screen's own «접근 권한이 필요합니다» state
+ *   error                    → screen-local danger state with `message` and the response's correlation id
+ *   timeout, too_large       → screen-local warning state, same fields
  */
-function step<T>(host: ModuleHost, response: ApiResponse<T>, assessments: Assessment[]): Step<T> {
-  assessments.push(...response.assessments);
+function step<T>(response: ApiResponse<T>, acc: Acc): Step<T> {
+  // The two reads (and every page) repeat the same checks: one line per distinct assessment.
+  for (const assessment of response.assessments) if (!acc.assessments.some((seen) => JSON.stringify(seen) === JSON.stringify(assessment))) acc.assessments.push(assessment);
+  acc.trust = response.trust ?? acc.trust;
   const text = response.message ?? '';
   switch (response.outcome) {
     case 'ok':
       return response.data === null
-        ? { ok: false, settled: failure(host, 'danger', '데이터 오류', '응답이 ok인데 data가 없습니다', assessments, response.correlationId) }
+        ? { ok: false, settled: failure('danger', '데이터 오류', '응답이 ok인데 data가 없습니다', acc, response.correlationId) }
         : { ok: true, data: response.data };
-    case 'empty': return { ok: false, settled: { kind: 'empty', notices: assessmentNotices(assessments) } };
+    case 'empty': return { ok: false, settled: { kind: 'empty', trust: acc.trust, assessments: [...acc.assessments] } };
     case 'forbidden': return { ok: false, settled: { kind: 'forbidden' } };
-    case 'timeout': return { ok: false, settled: failure(host, 'warning', '응답 시간 초과', '서버가 제때 응답하지 않았습니다', assessments, response.correlationId, text) };
-    case 'too_large': return { ok: false, settled: failure(host, 'warning', '구간이 너무 큽니다', TOO_LARGE_KO, assessments, response.correlationId, text) };
-    case 'error': return { ok: false, settled: failure(host, 'danger', '불러오지 못했습니다', text || '서버 오류', assessments, response.correlationId) };
+    case 'timeout': return { ok: false, settled: failure('warning', '응답 시간 초과', '서버가 제때 응답하지 않았습니다', acc, response.correlationId) };
+    case 'too_large': return { ok: false, settled: failure('warning', '구간이 너무 큽니다', TOO_LARGE_KO, acc, response.correlationId) };
+    case 'error': return { ok: false, settled: failure('danger', '불러오지 못했습니다', text || '서버 오류', acc, response.correlationId) };
   }
 }
 
@@ -115,30 +109,29 @@ export async function verifyContext(context: Omit<ReplayInput, 'batch'>, equipme
  * `continuationToken`; it is bounded by the server's `maxHours` window, a token seen twice (a cycle is a data error), and `signal`.
  * Resolves null when `signal` aborted: the caller drops the result.
  */
-export async function loadReplayInput(host: ModuleHost, equipmentId: string, signal: AbortSignal): Promise<Settled | null> {
-  const assessments: Assessment[] = [];
+export async function loadReplayInput(reads: ReplayReads, equipmentId: string, signal: AbortSignal): Promise<Settled | null> {
+  const acc: Acc = { trust: null, assessments: [] };
   try {
-    if (!host.query) return failure(host, 'danger', '불러오지 못했습니다', '호스트가 query 기능을 제공하지 않습니다', assessments);
-    const contextResponse = await host.query(topviewContext, { equipmentId }, signal);
+    const contextResponse = await reads.context({ equipmentId }, signal);
     if (signal.aborted) return null;
-    const context = step(host, contextResponse, assessments);
+    const context = step(contextResponse, acc);
     if (!context.ok) return context.settled;
     const pages: OccurrenceBatch[] = [];
     const seen = new Set<string>();
     let token: string | undefined;
     do {
-      const response = await host.query(topviewEvents, token === undefined ? { equipmentId } : { equipmentId, continuationToken: token }, signal);
+      const response = await reads.events(token === undefined ? { equipmentId } : { equipmentId, continuationToken: token }, signal);
       if (signal.aborted) return null;
-      const page = step(host, response, assessments);
+      const page = step(response, acc);
       if (!page.ok) {
         // An empty first page is an empty window; an empty later page leaves the batch incomplete.
         return pages.length > 0 && page.settled.kind === 'empty'
-          ? failure(host, 'danger', '데이터 오류', '연속 page가 비어 있어 batch가 완전하지 않습니다', assessments, response.correlationId)
+          ? failure('danger', '데이터 오류', '연속 page가 비어 있어 batch가 완전하지 않습니다', acc, response.correlationId)
           : page.settled;
       }
       pages.push(page.data);
       token = page.data.continuationToken;
-      if (token !== undefined && seen.has(token)) return failure(host, 'danger', '데이터 오류', 'continuationToken이 반복되어 page를 끝낼 수 없습니다', assessments);
+      if (token !== undefined && seen.has(token)) return failure('danger', '데이터 오류', 'continuationToken이 반복되어 page를 끝낼 수 없습니다', acc);
       if (token !== undefined) seen.add(token);
     } while (token !== undefined);
     try {
@@ -147,11 +140,11 @@ export async function loadReplayInput(host: ModuleHost, equipmentId: string, sig
       const verified = await verifyContext(context.data, equipmentId);
       const input: ReplayInput = { ...verified.input, batch };
       assertReplayInput(input);
-      return { kind: 'ready', input, notices: [...assessmentNotices(assessments), ...verified.notices] };
+      return { kind: 'ready', input, notices: verified.notices, trust: acc.trust, assessments: [...acc.assessments] };
     } catch (error) {
-      return signal.aborted ? null : failure(host, 'danger', '데이터 오류', message(error), assessments);
+      return signal.aborted ? null : failure('danger', '데이터 오류', message(error), acc);
     }
   } catch (error) {
-    return signal.aborted ? null : failure(host, 'danger', '불러오지 못했습니다', message(error), assessments);
+    return signal.aborted ? null : failure('danger', '불러오지 못했습니다', message(error), acc);
   }
 }

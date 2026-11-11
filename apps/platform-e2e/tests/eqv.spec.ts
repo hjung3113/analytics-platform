@@ -3,9 +3,9 @@ import { evidence, signInAs } from './support';
 import { chooseSystem } from './contract-helpers';
 
 /**
- * EV host module (#801): the first external module mounted from EV's release tarballs (`eqv:topview`, `eqv:focus`).
+ * EV viewer (#801, #1659): the menu package @ap/menu-topview (`eqv:topview`, `eqv:focus`); the describe name keeps the former host-module title.
  * Black-box: nothing from @eqv/* is imported; the window and equipment are the mock fixture's, spelled as the URL carries them
- * (naive seconds, no `Z`). The placement below is the provisional one in `apps/platform-web/src/modules.ts` — update both together.
+ * (naive seconds, no `Z`). The placement below is the one in `menus/tools/topview/src/index.ts` — update both together.
  * The server-side refusal of a viewer (`without eqv:view → forbidden`) is the conformance test; the client gate renders first here.
  */
 const TOPVIEW = '/tools/eqv-topview?equipment=eq-synth-01&from=2026-01-01T10:00:00&to=2026-01-01T10:30:00';
@@ -54,7 +54,7 @@ test.describe('EV host module (#801)', () => {
     await page.goto(TOPVIEW);
     await expect(sidebar(page).getByRole('link', { name: MENU })).toBeVisible();
     await expect(page.locator('[data-component-id]').first()).toBeVisible({ timeout: 15_000 });
-    // #804: the host draws the platform frame around a module screen (its page title; the Context bar is covered by the shell unit tests).
+    // #804: the platform page frame (PlatformPage) draws the page title around the screen (its page title; the Context bar is covered by the shell unit tests).
     await expect(page.getByRole('heading', { level: 1, name: MENU })).toBeVisible();
     await evidence(page, testInfo, 'eqv-topview');
 

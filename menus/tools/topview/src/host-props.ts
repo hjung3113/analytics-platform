@@ -1,4 +1,4 @@
-import type { ModuleHost } from '@ap/contracts';
+import type { MenuPlatform } from '@ap/kernel';
 import { parseWallClockRange, siteWallClockSchema, type SiteWallClock, type WallClockRange } from '@eqv/core';
 
 const NAIVE_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
@@ -12,8 +12,8 @@ export function hostWallClock(value: string): SiteWallClock | null {
   return parsed.success ? parsed.data : null;
 }
 
+/** The applied time of a screen. The menus declare `time: 'apply'`, so the Context always carries it; it is `missing` until a window is applied. */
 export type HostTime =
-  | { kind: 'unsupported' }
   | { kind: 'missing' }
   | { kind: 'invalid'; problem: string }
   | { kind: 'applied'; from: SiteWallClock; to: SiteWallClock };
@@ -34,23 +34,25 @@ function hostRange(from: string, to: string): WallClockRange {
   return a === null || b === null ? { ok: false, problem: 'format' } : parseWallClockRange(a, b);
 }
 
-function readRange(host: ModuleHost): HostProps['range'] {
-  const from = host.page('rangeFrom');
-  const to = host.page('rangeTo');
+/** What a screen reads from the platform: its page keys and the applied Global Context. */
+export type ScreenSource = Pick<MenuPlatform, 'pageParam' | 'global'>;
+
+function readRange(source: ScreenSource): HostProps['range'] {
+  const from = source.pageParam('rangeFrom');
+  const to = source.pageParam('rangeTo');
   if (from === null || to === null) return null;
   const range = hostRange(from, to);
   return range.ok ? { from: range.from, to: range.to } : null;
 }
 
-/** Equipment, entry keys, applied Focus range and applied time of a screen, read from the host. No default is ever filled in. */
-export function readHostProps(host: ModuleHost): HostProps {
-  const { values, unsupported } = host.context();
-  const base = { equipment: host.page('equipment'), entityType: host.page('entityType'), anchor: host.page('anchor'), range: readRange(host) };
-  if (unsupported.includes('time')) return { ...base, time: { kind: 'unsupported' } };
-  if (!values.from || !values.to) return { ...base, time: { kind: 'missing' } };
-  const range = hostRange(values.from, values.to);
+/** Equipment, entry keys, applied Focus range and applied time of a screen, read from the platform. No default is ever filled in. */
+export function readHostProps(source: ScreenSource): HostProps {
+  const { from, to } = source.global;
+  const base = { equipment: source.pageParam('equipment'), entityType: source.pageParam('entityType'), anchor: source.pageParam('anchor'), range: readRange(source) };
+  if (!from || !to) return { ...base, time: { kind: 'missing' } };
+  const range = hostRange(from, to);
   if (!range.ok) {
-    return { ...base, time: { kind: 'invalid', problem: range.problem === 'format' ? `Site Wall-clock 형식이 아닙니다 (${values.from} – ${values.to})` : '시작은 끝보다 앞서야 합니다' } };
+    return { ...base, time: { kind: 'invalid', problem: range.problem === 'format' ? `Site Wall-clock 형식이 아닙니다 (${from} – ${to})` : '시작은 끝보다 앞서야 합니다' } };
   }
   return { ...base, time: { kind: 'applied', from: range.from, to: range.to } };
 }

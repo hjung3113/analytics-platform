@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "@ap/ui/styles.css";
-@import "@eqv/platform-adapter/styles.css";
 @import "@ap/components/styles.css";
 @import "@ap/shell/styles.css";
 @import "@ap/feature-bridge/styles.css";
@@ -29,4 +28,5 @@
 @import "@ap/menu-log-models/styles.css";
 @import "@ap/menu-log-rules/styles.css";
 @import "@ap/menu-topview-studio/styles.css";
+@import "@ap/menu-topview/styles.css";
 /* </gen:menu-styles> */

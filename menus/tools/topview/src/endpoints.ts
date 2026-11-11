@@ -13,7 +13,9 @@ import { EQV_MAX_WINDOW_HOURS } from './limits.js';
  * `respondent_history` is left out: replay does not filter by equipment membership.
  */
 const kinds = ['collection', 'processing_delay', 'coverage', 'time_domain'] as const;
-const permission = menuPermission('eqv:view');
+/** The menus' entry permission and the reads' permission: the server module's `eqv:view`. */
+export const VIEW_PERMISSION = menuPermission('eqv:view');
+const permission = VIEW_PERMISSION;
 
 export type TopviewContextParams = { equipmentId: string };
 export type TopviewEventsParams = { equipmentId: string; continuationToken?: string };

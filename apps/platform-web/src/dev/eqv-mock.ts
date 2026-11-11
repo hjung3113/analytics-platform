@@ -1,9 +1,8 @@
-import { equipmentOptions, topviewContext, topviewEvents } from '@eqv/platform-adapter';
-import { eqvMockContext, eqvMockEquipmentOptions, eqvMockEvents } from '@eqv/platform-adapter/mock-data';
+import { equipmentOptions, eqvMockContext, eqvMockEquipmentOptions, eqvMockEvents, topviewContext, topviewEvents } from '@ap/menu-topview/mock-data';
 import { defineMockEndpoint, MockRequestError, type AnyMockEndpoint } from '@ap/mock-server';
 
 /**
- * EV's endpoints answered from its synthetic fixture (`@eqv/platform-adapter/mock-data`; the dev assembly and the conformance
+ * EV's endpoints answered from its synthetic fixture (`@ap/menu-topview/mock-data`; the dev assembly and the conformance
  * test are the only importers, lint and `check:prod-graph` enforce it). Not a mart source.
  */
 export const eqvMock: readonly AnyMockEndpoint[] = [

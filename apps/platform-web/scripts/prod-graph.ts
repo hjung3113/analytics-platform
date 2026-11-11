@@ -13,8 +13,8 @@ const FORBIDDEN: { label: string; test: (id: string) => boolean }[] = [
   { label: 'menus/*/*/src/mock/', test: id => /\/menus\/[^/]+\/[^/]+\/src\/mock\//.test(id) },
   { label: 'platform/*/src/mock/', test: id => /\/platform\/[^/]+\/src\/mock\//.test(id) },
   { label: 'apps/platform-web/src/dev/', test: id => id.includes('/apps/platform-web/src/dev/') },
-  // EV's synthetic endpoint data (#801): the bare specifier, or the resolved workspace source (packages/eqv/platform-adapter/src/mock-data, #1614); the old dist form stays harmless.
-  { label: '@eqv/platform-adapter/mock-data', test: id => /@eqv\/platform-adapter\/(dist\/)?mock-data(\/|$)/.test(id) || /\/packages\/eqv\/platform-adapter\/src\/mock-data(\/|$)/.test(id) },
+  // The viewer's synthetic endpoint data (#801, #1659): the menu package's mock-data subpath, bare or resolved to the workspace source.
+  { label: '@ap/menu-topview/mock-data', test: id => /@ap\/menu-topview\/mock-data(\/|$)/.test(id) || /\/menus\/tools\/topview\/src\/mock-data(\/|$)/.test(id) },
 ];
 
 /** Offending ids with the rule each one broke; Windows separators are normalised first. */

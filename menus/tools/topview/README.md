@@ -1,48 +1,23 @@
-# @eqv/platform-adapter
+# @ap/menu-topview
 
-The analytics-platform host module (EV ADR-0012, EV ADR-0013). The only package that imports `@ap/contracts`; it may import only `@ap/contracts` and `@ap/ui` from the platform SDK (ESLint-enforced, mirrors AP's `hostModule` preset). `@ap/contracts` and `@ap/ui` are peer dependencies (devDependencies: `workspace:*`).
+The Top View viewer as an ordinary menu package (#1659; it replaced the EV host-module mount `@eqv/platform-adapter`, EV ADR-0012, ADR-0132). Group `topview` (space `tools`), menus `eqv:topview` (primary, `/tools/eqv-topview`, alias `/tools/topview`) and `eqv:focus` (`/tools/eqv-focus`, alias `/tools/topview/focus`), permission `eqv:view` (declared in the app's `PERMISSIONS`). Read-only.
 
 ## Exports
 
-- `eqvManifest` — `ModuleManifest` (host contract 1): module `eqv`, `requires: ['query']`, `optional: ['detailSlot']`, group `eqv:equipment`, read-only screens `topview` (the module prefix itself, the group's primary screen; page key `equipment`, i.e. `?equipment=`) and `focus` (`<prefix>/focus`, child of `topview`; page keys `equipment`, `entityType`, `anchor`), permission `eqv:view`. The equipment id is a page key, not a route param, because AP's registry rejects a parent whose route needs params and requires one primary screen per group. The host registers the screens as `eqv:topview` / `eqv:focus`.
-- `TOPVIEW_SCREEN`, `FOCUS_SCREEN` — the bare screen ids.
-- `equipmentOptions` (`eqv.equipment-options`) — context-free, scope-free discovery with no params: `{ options: { id, label, dataRange: { from, to } | null }[] }`. Boundaries are naive seconds in `[from, to)`; `to` is the first whole second after the last record. A null range means no data.
-- `topviewContext` (`eqv.topview-context`) and `topviewEvents` (`eqv.topview-events`) — `defineEndpoint` declarations; responses are `@eqv/core` types. Time is host-projected (`context.time: 'apply'`), never a param. See [INTEGRATION.md](../../../docs/design/features/equipment-visualization/INTEGRATION.md).
-- `eqvScreens` — `Record<'topview' | 'focus', ComponentType<ModuleScreenProps>>`, keyed by the manifest screen ids (also `TopViewScreen`, `FocusScreen`).
-- `@eqv/platform-adapter/manifest` — `eqvManifest`, `TOPVIEW_SCREEN`, `FOCUS_SCREEN`, `equipmentOptions`, `topviewContext`, `topviewEvents` and their types with no React, screen, replay or renderer module reachable; a host registers from here and loads the screens lazily from the root.
-- `@eqv/platform-adapter/mock-data` — synthetic `eqvMockEquipmentOptions` / `eqvMockContext` / `eqvMockEvents` (+ `EQV_MOCK_EQUIPMENT`, `EQV_MOCK_WINDOW`) for a host's mock server, generated from `fixtures/cluster-single` (`pnpm --filter @eqv/platform-adapter gen:mock-data`); never import it from production code.
-- `@eqv/platform-adapter/styles.css` — imports `@eqv/ui/theme.css` (the single owner of the `--eqv-*` → platform-token mapping), `@eqv/ui/styles.css` and the `@eqv/replay` and `@eqv/views` styles.
-
-**Names are Candidates** until AP #334 confirms the endpoint ids, group and permission strings.
+- `.` — `manifests` only (screens are lazy, so `@eqv/*` stays out of the import graph).
+- `./model-topview` — `ModelTopView`, the read-only Top View body `main.tsx` plugs into the Hub model profile slot (#1656).
+- `./mock-data` — synthetic `eqvMockEquipmentOptions` / `eqvMockContext` / `eqvMockEvents`, the three endpoint declarations and `@eqv/core`'s Sample Window import check; dev and tests only (`pnpm --filter @ap/menu-topview gen:mock-data` regenerates from `packages/eqv/fixtures/cluster-single`).
+- `./styles.css` — the `--eqv-*` theme and the replay/views styles.
 
 ## Screens
 
-`eqv:topview` (the layout and scene state as of the end of the applied window, Component detail, "Focus 열기") and `eqv:focus` (`FocusView` on one cursor, "Top View로"). Both read the equipment from `host.page('equipment')` and the time from `host.context()` (naive host seconds padded once with `.000`), load through `host.query` with the two replay endpoints only (`src/replay-load.ts`, one hook `src/use-replay-input.ts`), verify every Mapping Version and Layout (`verifyBindingContext` from `@eqv/core`, then `assertReplayInput`) and draw nothing partial. Selection detail goes to `host.detail.show` when the host grants `detailSlot` (stable callback; `clear` on reset/unmount), inline otherwise. The full behaviour is in [INTEGRATION.md](../../../docs/design/features/equipment-visualization/INTEGRATION.md) (화면 동작).
+Both screens read the equipment from the page key `equipment`, the time from the applied Global Context (`time: 'apply'`, 8-hour default), and load through the Kernel's `useMenuFetch` with the two declared replay endpoints only (`src/replay-load.ts`, one hook `src/use-replay-input.ts`). They verify every Mapping Version and Layout (`verifyBindingContext`, then `assertReplayInput`) and draw nothing partial. Behaviour is in [INTEGRATION.md](../../../docs/design/features/equipment-visualization/INTEGRATION.md) (화면 동작).
 
-States (never a default range or a guessed equipment):
-
-- `time` unsupported → "이 화면에는 시간 구간이 적용되지 않습니다"; no equipment → "위에서 설비를 고르세요" on Top View and "Top View에서 설비를 고르세요" on Focus; no `from`/`to` → "시간 구간을 고르세요". None of them queries replay. Top View always keeps its equipment bar and context-free options query; Focus has no selector.
-- The Top View bar uses the platform `Select`, labelled "설비". Selection writes only `host.setPage({ equipment: id })`. It never guesses equipment or time. Both screens declare `defaultPeriodHours: 8`, sharing `EQV_MAX_WINDOW_HOURS` with the event-query limit; the host owns default materialization.
-- Once selected, the bar shows "데이터 구간 <from> ~ <to>". An outside or over-eight-hour applied window offers "이 구간 보기" through optional `host.setTime`. Data spanning over eight hours applies its last eight hours and explains that limit. Without `setTime`, it guides the user to the context bar. A null range shows "이 설비에는 표시할 데이터 구간이 없습니다", with no time action.
-- Bar-only states: "설비 목록을 불러오는 중…", "설비 목록을 불러오지 못했습니다", "설비 목록 접근 권한이 필요합니다", and "등록된 설비가 없습니다". Failure offers "다시 시도" for discovery alone; without equipment the body asks to reload the list. Replay and `host.status` stay unchanged. The bar reserves a guidance row and the applied action's space; focus returns to the select after selection or applying the data window. The mock offers `eq-synth-01` with `EQV_MOCK_WINDOW` and `eq-synth-02` with no data.
-- Outcomes (decided in `replay-load.ts`):
-
-| outcome | screen | `host.status` |
-| --- | --- | --- |
-| `ok` | renders `data` (null `data` = data error) | `ready` only if this screen had set `auth_required` |
-| `empty` | empty state | none |
-| `forbidden` | host-drawn state | `auth_required` |
-| `error` | danger state with `message` and the `reportError` id | none |
-| `timeout`, `too_large` | warning state, same fields | none |
-
-  `unavailable` (hands the whole screen to the host for one failed query) and `identity_mismatch` (host session concept) are never set from a query outcome.
-- Non-`clear` assessments become notices; `unknown` is worded "확인하지 못했습니다 — 이상 없음이 아닙니다", never as clear.
-- Continuation pages merge into one batch in server order (EV ADR-0002); the first page's window fields, a page that disagrees is a data error, the greatest Watermark, no token. The loop ends on a missing token and is bounded by the server `maxHours`, a repeated token (data error) and the screen signal.
-
-## Not here yet
-
-The Viewer is mounted in `apps/platform-web` through `@eqv/platform-adapter` in the workspace. Real-server endpoints remain unimplemented; see the current integration document and #155.
+- Outcomes: `ok` renders; `empty` empty state; `forbidden` an own «접근 권한이 필요합니다» state; `error`/`timeout`/`too_large` a danger or warning state with the response's correlation id.
+- Data Trust (EV#187): the reads' `trust` and `assessments` are one `DataTrustIndicator` line (`TrustLine`); `unknown` is never worded as clear. Binding-context checks stay as notices.
+- No detail slot: the Component detail (Top View) and the evidence detail (Focus tab) are inline.
+- Gap: `Panel` has no SDK equivalent and stays from `@eqv/ui`, with `ViewerZoomControls` and the theme.
 
 ## Check
 
-`test/screens.test.tsx` (jsdom, a fake `ModuleHost` typed against `@ap/contracts` in `test/fake-host.ts`) covers the screens; `test/replay-load.test.ts` the host-time padding, page merge and assessment wording. `test/contract.test.ts` re-implements the AP kernel's `mountModule` manifest rules and the `createRegistry` rules that apply to a module's menus (parent route without params, one primary per group, no global-Context page key, unique route shapes, `isPathPattern`) (the kernel is not importable here) and checks the endpoint declarations against the manifest.
+`pnpm --filter @ap/menu-topview lint typecheck test`. `test/screens.test.tsx` mounts the screens under the real Kernel (`test/test-support.tsx`); `test/contract.test.ts` registers the manifests in `createRegistry` and checks the endpoint declarations.

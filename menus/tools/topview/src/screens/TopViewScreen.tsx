@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { ModuleScreenProps } from '@ap/contracts';
+import { usePlatform } from '@ap/kernel';
+import { PlatformPage, StateMessage } from '@ap/components';
 import { ArrowRight, MapPinOff, MousePointerClick, ServerCrash } from 'lucide-react';
 import { Button, EmptyState, FieldRow } from '@ap/ui';
 import { bindingLayout, seekSceneState, type EquipmentLayoutDocument, type OccurrenceBatch, type ReplayInput, type SceneState, type SiteWallClock } from '@eqv/core';
 import { TopViewer, type ReplayOverlay } from '@eqv/renderer';
 import { ACTIVITY_KO, CursorStateList, Evidence, wallClockText } from '@eqv/replay';
-import { Panel, StateMessage, ViewerZoomControls } from '@eqv/ui';
+import { Panel, ViewerZoomControls } from '@eqv/ui';
 import { NoticeList } from '@eqv/views';
 import { useReplayScreen } from '../use-replay-input.js';
-import { useDetailSlot, usePublishDetail, type DetailPayload } from './detail-slot.js';
-import { stateFor } from './states.js';
+import { TrustLine, stateFor } from './states.js';
 import { EquipmentBar, useEquipmentOptions } from './EquipmentBar.js';
 
 type Scene = { state: SceneState; layout: EquipmentLayoutDocument | null } | { error: string };
@@ -58,13 +58,12 @@ function sceneAt(input: ReplayInput, to: SiteWallClock): Scene {
 
 /**
  * `eqv:topview` (the primary screen). The layout effective at the end of the applied window with the scene state as of `to`
- * (`seekSceneState`, evidence labels exactly as the reducer gives them). A selected Component's detail goes to the host's slot,
- * or an inline panel without `detailSlot`.
+ * (`seekSceneState`, evidence labels exactly as the reducer gives them). A selected Component's detail is an inline panel.
  */
-export function TopViewScreen({ host }: ModuleScreenProps) {
-  const { props, load, resetKey } = useReplayScreen(host);
-  const { state: optionsState, refreshing, failed: listFailed, retry } = useEquipmentOptions(host);
-  const publish = useDetailSlot(host);
+function TopViewBody() {
+  const { resolveLink, navigate } = usePlatform();
+  const { props, load, resetKey } = useReplayScreen();
+  const { state: optionsState, refreshing, failed: listFailed, retry } = useEquipmentOptions();
   const [selection, setSelection] = useState<{ key: string; id: string | null }>({ key: resetKey, id: null });
   const [zoomHost, setZoomHost] = useState<HTMLElement | null>(null);
   const input = load?.kind === 'ready' ? load.input : null;
@@ -75,26 +74,24 @@ export function TopViewScreen({ host }: ModuleScreenProps) {
   // The selection belongs to the load: another equipment or window clears it.
   if (selection.key !== resetKey) setSelection({ key: resetKey, id: null });
   const selectedId = selection.key === resetKey ? selection.id : null;
-  const detail = useMemo((): DetailPayload => ready?.layout && selectedId !== null
-    ? { node: <ComponentDetail layout={ready.layout} state={ready.state} componentId={selectedId} />, label: `Component · ${selectedId}` } : null, [ready, selectedId]);
-  usePublishDetail(publish, detail);
 
-  const bar = <EquipmentBar host={host} props={props} state={optionsState} refreshing={refreshing} retry={retry} />;
+  const bar = <EquipmentBar props={props} state={optionsState} refreshing={refreshing} retry={retry} />;
   const state = props.equipment === null && listFailed
-    ? <StateMessage icon={ServerCrash} title="설비 목록을 다시 불러오세요" body="위의 다시 시도를 누르세요." />
+    ? <StateMessage icon={<ServerCrash className="size-4" aria-hidden />} title="설비 목록을 다시 불러오세요" body="위의 다시 시도를 누르세요." />
     : stateFor(props, load, 'topview');
   if (state !== null || load?.kind !== 'ready' || props.equipment === null) return <>{bar}<div>{state}</div></>;
   const { equipment } = props;
-  if (scene === null || 'error' in scene) return <>{bar}<StateMessage tone="danger" icon={ServerCrash} title={`Replay 오류: ${scene?.error ?? ''}`} /></>;
+  if (scene === null || 'error' in scene) return <>{bar}<StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={`Replay 오류: ${scene?.error ?? ''}`} /></>;
   return (
     <>
       {bar}
+      <TrustLine trust={load.trust} assessments={load.assessments} />
       <NoticeList notices={load.notices} />
       <div className="flex flex-wrap items-start gap-4">
         <Panel title="Top View" subtitle={wallClockText(scene.state.at)} className="max-w-full min-w-0 flex-none overflow-auto"
           actions={<>
             <span ref={setZoomHost} className="contents" />
-            <Button variant="secondary" size="toolbar" onClick={() => host.navigate({ screen: 'focus', page: { equipment, ...focusEntry(scene.state, load.input.batch, selectedId) } })}><ArrowRight className="size-3.5" aria-hidden />Focus 열기</Button>
+            <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:focus', { page: { equipment, ...focusEntry(scene.state, load.input.batch, selectedId) } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowRight className="size-3.5" aria-hidden />Focus 열기</Button>
           </>}>
           {scene.layout ? (
             <TopViewer layout={scene.layout} width={720} height={420} replay={replay} selectedId={selectedId}
@@ -104,7 +101,7 @@ export function TopViewScreen({ host }: ModuleScreenProps) {
         </Panel>
         <div className="min-w-0 flex-1 basis-96">
           <CursorStateList state={scene.state} />
-          {!publish && scene.layout && (
+          {scene.layout && (
             <Panel title="Component 상세" className="mt-4">
               {selectedId === null
                 ? <EmptyState size="sm" icon={<MousePointerClick className="size-4" aria-hidden />} title="Component를 선택하세요" />
@@ -115,4 +112,9 @@ export function TopViewScreen({ host }: ModuleScreenProps) {
       </div>
     </>
   );
+}
+
+/** The platform page frame (page title, Context bar) around the board. */
+export function TopViewScreen() {
+  return <PlatformPage title="설비 Top View"><TopViewBody /></PlatformPage>;
 }

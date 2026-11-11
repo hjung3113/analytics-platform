@@ -12,7 +12,6 @@ import { describeServerConformance, type ConformanceCase } from '@ap/server-conf
 import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, stageOnboardingWindow, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MODULE_MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
 import { GROUPS, MENUS, PERMISSIONS, registry } from './menus';
-import { modulePermissions } from './modules';
 import { defineAction, emptyGlobal, menuPermission, menuPermissions, spaceId, type Permission } from '@ap/contracts';
 import { ACTORS } from './saved-view-seed';
 import { createLocalSavedViewStore } from './saved-view-store';
@@ -302,7 +301,7 @@ const stagedConcept = (): string => {
   return out.mappingId;
 };
 // The Top View pointer writes (#1656). `unlinkTopView` stages its own row once (only while none exists), so the version the harness
-// reads and the version it sends agree on every call. The Revision is the mock's synthetic Layout (hash proved in @eqv/platform-adapter).
+// reads and the version it sends agree on every call. The Revision is the mock's synthetic Layout (hash proved in @ap/menu-topview).
 const TOPVIEW = { layoutId: 'sample-layout', revision: 'sha256:0cd25afbcf9beeb516b7d6c65b16d12ba648c688c70c8c0b2db994170e1ec0f5' };
 const topViewSamples: Record<string, () => Record<string, unknown>> = {
   linkTopView: () => ({ modelId: A100, fromSoftwareId: null, ...TOPVIEW }),
@@ -420,8 +419,8 @@ describe('conformance harness covers what the app registers', () => {
   });
 });
 
-// The vocabulary carries the mounted modules' permissions (`eqv:view`), so the mock roles are built from it (#801).
-const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, permissions: [...registry.permissions, ...modulePermissions(registry)], auditEvents: MOCK_AUDIT_EVENTS, actions: [fixtureMockAction, ...MOCK_ACTIONS] });
+// The vocabulary carries `eqv:view` (declared in PERMISSIONS for the viewer menus), so the mock roles are built from it (#801).
+const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, permissions: registry.permissions, auditEvents: MOCK_AUDIT_EVENTS, actions: [fixtureMockAction, ...MOCK_ACTIONS] });
 // Only the uploader reads an upload (ADR-0140 §6): the import sample's file belongs to the granted actor the eqv writes run as.
 const onboardingBatchDir = join(process.cwd(), '../../packages/eqv/assets/observations/eq-synth-01/windows');
 const onboardingBatch = readFileSync(join(onboardingBatchDir, readdirSync(onboardingBatchDir)[0]!), 'utf8');

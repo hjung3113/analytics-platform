@@ -3,7 +3,6 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
-import { modulePermissions } from './modules';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 import { HOME_LAUNCHER_GROUPS, SPACES, registry } from './menus';
 
@@ -26,7 +25,7 @@ describe('app home launcher assembly (#1109)', () => {
     ['en', ['Analysis', 'Work operations', 'Tools', 'Platform administration'], 'Work systems'],
   ])('renders selected A through the actual registry (%s)', async (lang, headings, systems) => {
     localStorage.setItem('platform:lang', lang);
-    const session = testSession([...registry.permissions, ...modulePermissions(registry)]);
+    const session = testSession([...registry.permissions]);
     const adapter = testAdapter({ session: () => session, menuQuery: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }) });
     const Home = registry.menuById('home').component!;
     render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter} equipmentAxes={EQUIPMENT_AXES}><Suspense fallback={null}><Home params={{}} /></Suspense></PlatformProvider></I18nProvider>);

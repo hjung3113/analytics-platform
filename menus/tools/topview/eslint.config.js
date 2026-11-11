@@ -1,1 +1,1 @@
-export { eqvHost as default } from '@ap/eslint-config';
+export { eqvMenu as default } from '@ap/eslint-config';

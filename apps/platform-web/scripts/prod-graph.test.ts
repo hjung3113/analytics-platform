@@ -26,19 +26,15 @@ describe('findForbiddenModules (#153)', () => {
   });
 
   it.each([
-    '@eqv/platform-adapter/mock-data',
-    '/repo/node_modules/.pnpm/@eqv+platform-adapter@0.3.0/node_modules/@eqv/platform-adapter/dist/mock-data/index.js',
-    '/repo/packages/eqv/platform-adapter/src/mock-data/index.ts',
-  ])('flags the EV mock data (#801): %s', id => {
-    expect(findForbiddenModules([id])).toEqual([{ id, rule: '@eqv/platform-adapter/mock-data' }]);
+    '@ap/menu-topview/mock-data',
+    '/repo/node_modules/.pnpm/@ap+menu-topview/node_modules/@ap/menu-topview/mock-data/index.js',
+    '/repo/menus/tools/topview/src/mock-data/index.ts',
+  ])('flags the viewer mock data (#801, #1659): %s', id => {
+    expect(findForbiddenModules([id])).toEqual([{ id, rule: '@ap/menu-topview/mock-data' }]);
   });
 
-  it('lets the workspace EV adapter source into a production graph, only its mock-data out (#1614)', () => {
-    expect(findForbiddenModules(['/repo/packages/eqv/platform-adapter/src/index.ts', '/repo/packages/eqv/platform-adapter/src/endpoints.ts'])).toEqual([]);
-  });
-
-  it('lets the EV adapter itself into a production graph', () => {
-    expect(findForbiddenModules(['/repo/node_modules/.pnpm/@eqv+platform-adapter@0.3.0/node_modules/@eqv/platform-adapter/dist/index.js'])).toEqual([]);
+  it('lets the viewer menu source into a production graph, only its mock-data out', () => {
+    expect(findForbiddenModules(['/repo/menus/tools/topview/src/index.ts', '/repo/menus/tools/topview/src/endpoints.ts', '/repo/menus/tools/topview/src/model-topview.tsx'])).toEqual([]);
   });
 
   it('ignores obsolete one-level menu paths', () => {
