@@ -13,7 +13,7 @@
 3. **claim 구현.** 한 트랜잭션에서 `select … for update skip locked`로 가장 높은 우선순위·오래된 `queued`(`not_before` 지남) 한 건을 잠그고 `claimed`·lease(기본 5분; 설정)·`execution_attempt` 행을 만든다. 내줄 것이 없으면 `204`. 이 선택이라 별도 큐 인프라가 없다.
 4. **lease·heartbeat.** 하트비트는 lease를 현재 시각 + 기간으로 연장한다. lease가 만료된 요청은 claim 호출이나 주기 작업이 `queued`로 되돌린다. 만료 뒤 도착한 하트비트·결과는 이미 다른 시도가 있으면 `409 lease_lost`, 아무도 가져가지 않았으면 그 시도로 받는다(결과를 버리지 않는다).
 5. **멱등 결과.** 결과 제출의 키는 `(요청, 시도 번호, result_digest)`다. 같은 digest 재전송은 같은 응답을 돌려주고 새 행을 만들지 않는다. 같은 시도에 다른 digest는 `409 conflict.stale_write`다.
-6. **판정 축 분리.** 서버는 규칙별 결과에서 `verdict`(`pass`·`fail`·`incomplete`)를 **계산**한다. 작업자의 요약은 참고로만 저장한다. 필수 규칙의 `ERROR`·`NOT_CHECKED`·`SKIPPED`와 샘플 매니페스트 digest 불일치는 `incomplete`다. 결과 API는 AI 의견으로 규칙 결과를 바꾸는 경로를 두지 않으며, AI 의견은 나중에 **별도 테이블·별도 필드**로 붙는다. AI 의견이 스크립트 `FAIL`을 덮지 못한다(#1346 P0-3).
+6. **판정 축 분리.** 서버는 규칙별 결과에서 `verdict`(`pass`·`fail`·`incomplete`)를 **계산**한다. 작업자의 요약은 참고로만 저장한다. 필수 규칙의 `ERROR`·`NOT_CHECKED`·`SKIPPED`와 샘플 매니페스트 digest 불일치는 `incomplete`다. 결과 API는 AI 의견으로 규칙 결과를 바꾸는 경로를 두지 않으며, AI 의견은 **별도 테이블·별도 필드**로 붙는다(개정 2). AI 의견이 스크립트 `FAIL`을 덮지 못한다(#1346 P0-3).
 7. **저장 범위 — 로그 발췌도 허용한다**(소유자 2026-11-07; 추천 «위치·해시만»과 다름). 결과는 규칙 ID·결과·필수 여부·기대/관측·근거 위치(`fileRef`, 줄, 파일 해시)·실행기 버전/해시에 더해 **짧은 로그 발췌**를 저장한다. 원본 파일 전체나 발췌 범위를 넘는 본문은 받지 않는다. 근거 위치는 Round 샘플 목록에 있는 `fileRef`여야 한다. 발췌는 민감도가 높아 다음을 계약으로 둔다.
    - **크기 상한(시작값, 측정 후 조정):** 근거 하나의 발췌 2,000자, 규칙 결과당 근거 20개, 시도당 발췌 합계 256KB. 넘으면 `validation.failed`로 거절하고 자르지 않는다.
    - **분리 저장·기본 숨김.** 발췌는 `rule_result_excerpt` 별도 테이블에 둔다. 규칙 결과 목록 응답에는 발췌 유무(`hasExcerpt`)만 있고, 본문은 상세에서 «발췌 보기»를 눌렀을 때만 내려간다.
@@ -39,6 +39,18 @@
 2. **작업자 REST는 그대로(4개 경로).** `claim` 응답의 `request`는 `roundId`와 `suiteRunItemId` 중 하나만 채우고 다른 쪽은 `null`이며, `sampleSet`·`sampleManifestDigest`는 그 주체의 것이다(`specPin`은 회귀 항목에서 `null`). `execution_attempt`·`rule_result`는 변경 없다. 결과의 근거 위치 `fileRef`는 그 주체의 샘플 목록에 있어야 하고, 서버 verdict 규칙(입력 manifest digest 불일치 = `incomplete`)도 같다.
 3. **발췌 보관 시계(결정 7 확장, 소유자 확인 필요).** 회귀 항목에는 Round 닫힘 사건이 없다. 시계는 **그 suite 실행이 끝난 시각**이다: 실행의 모든 요청이 `queued`·`claimed`를 벗어나고 가장 늦은 `ended_at`이 보관 일수(워크스페이스 설정, 기본 90일)보다 오래됐을 때 본문을 지운다. 아직 열린 형제 요청이 있으면 지우지 않는다. 같은 정의기(`erase_excerpts`)가 두 주체를 처리한다. 대안은 «항목 요청 자신의 종료 시각»(구현이 더 단순, 형제 대기가 길면 더 일찍 지워짐)이다.
 4. **Round 요청 화면·취소는 Round 요청만 본다.** `logLifecycle.requests`·`requestDetail`·`requestCancel`은 Round 조인을 하므로 회귀 항목 요청을 목록·열기·취소하지 않는다(suite 실행의 취소와 운영 목록은 backlog). 회귀 항목 요청은 우선순위 0(가장 낮음), 즉시 아님으로 등록한다.
+
+## 개정 2 (2026-11-11, [#1778](https://github.com/hjung3113/analytics-platform/issues/1778), 결정자: 소유자 2026-11-11)
+
+결정 6이 미뤄 둔 «나중에 별도 테이블·별도 필드»를 지금 만든다: 규칙 결과 단위의 **의견**(rule result opinion). 결정 1–10의 상태 전이·lease·멱등 결과·verdict 계산은 그대로다.
+
+1. **의견은 규칙 결과에 붙는 추가 전용 행이다.** 테이블 `log_lifecycle.rule_result_opinion`(규칙 결과 FK, 작성 actor·토큰, 등급 키, 표식 키(선택), 메모, 근거 번호, 작성 시각). 갱신·삭제는 없고 정정은 새 행이다. 규칙 결과의 현재 의견은 가장 늦은 행이며 이력은 따로 읽는다. `verdict`·`rule_result`·Gate 결정·Knowledge 상태는 이 테이블을 읽지도 쓰지도 않는다(결정 6 유지: 의견이 스크립트 `FAIL`을 덮지 못한다). 이 불변식은 시험으로 고정한다.
+2. **등급과 표식의 값은 사내가 선언하고 플랫폼은 값을 갖지 않는다.** 선언은 워크스페이스의 `queue_settings.opinion_scale`(`{ grades: [{ key, label }], marks: [{ key, label }] }`, 순서는 배열 순서)에 두고 관리자가 `logLifecycle.queueSettingsUpdate`로 바꾼다(`console:access`, 감사). 플랫폼이 내는 기본값은 빈 선언이고, 선언이 비면 의견 쓰기는 `opinion.scale_undeclared`로 거절된다. 키는 `^[a-z0-9_-]{1,32}$`, 라벨은 40자 이하 텍스트, 등급·표식 각 12개 이하. 쓰기는 선언된 키만 받고, 선언에서 빠진 키의 기존 행은 라벨 없이 키 텍스트로 보인다. 대안과 버리는 이유: (a) 작업자가 요청마다 값 목록을 같이 보냄 — 순서·라벨이 흔들리고 화면이 비교할 기준이 없다. (b) 배포 설정 파일·환경변수 — 바꾸려면 배포가 필요하고 감사가 없다. (c) 코드 상수 — 사내 어휘가 저장소에 들어온다.
+3. **쓰기는 작업자 토큰 전용이다.** `POST /api/v1/validation-queue/requests/:id/attempts/:attemptNo/opinions`, 권한은 결정 9와 같은 `validation.worker`(서비스 토큰 전용 scope). 사람 세션과 scope 없는 토큰은 403이다. 사람이 직접 쓰는 경로는 이번에 만들지 않는다(다시 여는 조건은 backlog). 의견은 `succeeded` 시도의 규칙 결과에만 붙고, 그 시도를 가져간 작업자가 아니어도 된다(평가 작업자가 따로 있을 수 있다). Round 상태와 무관하다.
+4. **메모는 신뢰하지 않는 입력이다.** 결정 7의 입력 검사(제어 문자 제거, 비밀·토큰 패턴 거절, 길이 상한)를 그대로 쓰고, 화면은 텍스트로만 그린다. 메모는 로그 발췌가 아니며(작업자 계약: 로그 본문을 붙이지 않는다) 목록 응답에는 `hasNote`만 있고 본문은 상세 읽기에서만 내려간다. 감사 로그·알림·검색 인덱스·내보내기에는 메모 본문을 쓰지 않는다. 플랫폼은 메모에 로그 본문이 섞였는지 판정할 수 없으므로 이를 작업자 책임으로 계약에 적는다.
+5. **멱등.** 키는 `(규칙 결과, 작성 actor, opinion_digest)`다. 같은 digest 재전송은 새 행 없이 같은 응답, 다른 내용은 새 행이다.
+6. **감사.** 쓰기는 `lifecycle.opinion.recorded`(주체 `execution_request`, 시도 번호와 건수만, 본문 없음)를 남긴다.
+7. **잠정 `v0`.** 스키마는 `@ap/contract-schemas`의 `validationOpinion*`.
 
 ## 대안과 버리는 이유
 

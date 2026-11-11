@@ -126,7 +126,7 @@
 | [0114](0114-opt-in-keep-previous-for-page-input-params.md) | `useMenuQuery(..., { keepPrevious })` opt-in: 페이지 입력 `params`만 바뀌면 받아들인 마지막 `ok`·`empty` 결과를 `refreshing`으로 남김(`completedAt`은 그 결과의 시각). Context·Scope·세션·엔드포인트 변경은 그대로 가림, 새 응답은 오류도 대체, 기본 꺼짐. 켠 화면 6곳(#1382) | Decided(2026-11-05, 소유자, #1365) |
 | [0115](0115-kernel-navigation-guard-for-unsaved-edits.md) | Kernel 이동 가드: 메뉴가 `useUnsavedGuard(dirty, …)`로 선언하면 `commit`·popstate 한 곳에서 이동을 보류하고 셸 대화상자로 확인(`머무르기`/`이동`). 같은 경로 쓰기·재작성·Scope·세션 변경은 보류 안 함, popstate는 `apIdx` 보정, 새로고침은 `beforeunload`만 | Decided(2026-11-06, 소유자, #1388) |
 | [0116](0116-platform-api-tokens-personal-and-service.md) | 개인·서비스 API 토큰으로 기존 업무 API 호출, 고위험 동작은 세션 전용 | Decided(2026-11-07) |
-| [0117](0117-validation-request-queue-claim-lease-heartbeat.md) | 검증 요청 큐: pull 모델 claim·lease·heartbeat·멱등 결과, 서버가 실행 시간대 판단 | Decided(2026-11-07) |
+| [0117](0117-validation-request-queue-claim-lease-heartbeat.md) | 검증 요청 큐: pull 모델 claim·lease·heartbeat·멱등 결과, 서버가 실행 시간대 판단(개정 2: 규칙 결과 의견 축) | Decided(2026-11-07, 개정 2026-11-11) |
 | [0118](0118-dynamic-hierarchy-navigation-sdk-piece.md) | 동적 계층 탐색: 메뉴 navTree + SDK HierarchyNav, 기본 drill·선택 tree, 본문 보류 | Decided(2026-11-07) |
 | [0119](0119-log-explorer-source-read-port-and-evidence-refs.md) | 로그 탐색: 서버 `SourceReadPort`로 원본을 요청 때 읽고 플랫폼에는 근거 위치 참조·조사 상태만 저장, 토큰 호출·내보내기 허용(scope 분리·예산·감사), 근거 위치 넘기기는 참조 전달 | Decided(2026-11-07) |
 | [0120](0120-regression-runs-reuse-validation-queue-dataset-identity-separate-from-round.md) | 테스트 Dataset·Baseline은 Round와 별도 ID, 회귀 실행은 검증 요청 큐를 요청 주체 확장으로 재사용(ADR-0117 개정 포함), Baseline 자동 갱신 금지 | Decided(2026-11-07) |
