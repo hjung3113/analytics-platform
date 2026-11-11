@@ -49,11 +49,43 @@ export const MARK_WORD: Record<Exclude<StepMark, null>, string> = { done: '완�
  * D9/D10: the one reason `게시 검토` is disabled, or null. Only unsaved Board edits, `publishMapping` issues, an invalid `effectiveFrom`
  * and «이전 게시와 같습니다» block (all but the first come from `derivePublishPlan`'s problems); Mapping Conflicts never do.
  */
-export function publishBlockReason(input: { dirty: boolean; plan: PublishPlan | null }): string | null {
+export function publishBlockReason(input: { dirty: boolean; plan: Pick<PublishPlan, 'problems'> | null }): string | null {
   if (input.dirty) return DIRTY_REASON;
   if (input.plan === null) return '검증 결과를 계산하는 중입니다.';
-  return input.plan.problems[0] ?? null;
+  // Nothing new to publish says more than the empty effectiveFrom the D7 default leaves right after a publish.
+  return input.plan.problems.find((problem) => problem === SAME_AS_LATEST) ?? input.plan.problems[0] ?? null;
 }
+
+/** `derivePublishPlan`'s problem when the draft and saved rules equal the latest Binding. */
+export const SAME_AS_LATEST = '이전 게시와 같습니다';
+/** The header line stays short; the effectiveFrom input names the exact reason under itself. */
+export const publishHeaderReason = (problem: string): string => (problem.startsWith('effectiveFrom') ? 'effectiveFrom 확인 필요' : problem);
+
+/**
+ * C6: publishing a draft without a matching Layout Revision runs `publishRevision` first, which needs `eqv-studio:layout-publish`
+ * (the Layouts menu's right). `needsRevision` is null while the Revision list is not read yet.
+ */
+export function publishRightReason(input: { canLayoutPublish: boolean; needsRevision: boolean | null }): string | null {
+  if (input.canLayoutPublish || input.needsRevision === false) return null;
+  return input.needsRevision === null ? 'Layout Revision을 확인하는 중입니다.'
+    : 'Layout Revision 게시 권한(eqv-studio:layout-publish)이 없습니다. 레이아웃 메뉴에서 Revision을 먼저 게시하세요.';
+}
+
+const WALL_CLOCK = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):\d{2}\.\d{3}$/;
+/** Site Wall-clock as `YYYY-MM-DD HH:mm` where space is tight; anything else unchanged. Show the full value in `title`. */
+export const wallClockShort = (value: string): string => {
+  const match = WALL_CLOCK.exec(value);
+  return match ? `${match[1]} ${match[2]}` : value;
+};
+/** `2026-01-01 10:00–10:30` on one day, else both ends in full short form. */
+export const rangeShort = (from: string, to: string): string => {
+  const a = wallClockShort(from);
+  const b = wallClockShort(to);
+  return a.slice(0, 10) === b.slice(0, 10) && WALL_CLOCK.test(from) && WALL_CLOCK.test(to) ? `${a}–${b.slice(11)}` : `${a} – ${b}`;
+};
+/** Selector label: what differs between windows of one range first (EV#105 generations), then the short range. */
+export const windowLabel = (w: { from: string; to: string; dataGeneration: string; state: WindowState }): string =>
+  `${w.dataGeneration} · ${WINDOW_STATE_LABEL[w.state]} · ${rangeShort(w.from, w.to)}`;
 
 export const percent = (ratio: number | null | undefined): string => (ratio === null || ratio === undefined ? '—' : `${Math.round(ratio * 100)}%`);
 export const windowHex = (hash: string): string => hash.replace(/^sha256:/, '');

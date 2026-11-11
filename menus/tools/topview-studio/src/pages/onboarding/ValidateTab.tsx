@@ -3,14 +3,15 @@ import { latestBinding, type EquipmentLayoutDocument } from '@eqv/core';
 import { conflictHighlight, describeConflict, type DryRun, type PublishPlan } from '@eqv/editor';
 import { useMenuAction, usePlatform } from '@ap/kernel';
 import {
-  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, EmptyState, FieldLabel,
+  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, FieldLabel,
   FieldList, FieldRow, Input, PanelSectionTitle, cn,
 } from '@ap/ui';
 import { WALL_CLOCK_PATTERN, publishMapping, publishRevision, type JsonDocument, type RevisionRow } from '../../endpoints';
-import { percent } from '../../model/onboarding';
+import { percent, rangeShort } from '../../model/onboarding';
 import { Canvas, PANEL } from '../../parts/Canvas';
 import { Toolbar } from '../../parts/Toolbar';
 import type { EquipmentData } from './useEquipment';
+import { NoBreakStamps } from './WallClock';
 
 const CHANGE_WORD = { added: '추가', removed: '삭제', changed: '변경' } as const;
 export const CONFLICTS_DO_NOT_BLOCK = 'Mapping Conflict는 게시를 막지 않습니다. 건수는 게시 검토의 diff에 보입니다.';
@@ -27,8 +28,11 @@ export function ValidateTab({ data, layout, run, plan, error, effectiveFrom, onE
   const latest = data.bindings ? latestBinding(data.bindings.bindings) ?? null : null;
   const coverage = run?.coverage ?? null;
   const touched = effectiveFrom !== '';
-  const fromInvalid = touched && (!WALL_CLOCK_PATTERN.test(effectiveFrom) || (latest !== null && effectiveFrom <= latest.effectiveFrom));
-  const hint = latest ? `마지막 binding(${latest.effectiveFrom})보다 늦은 시각을 입력하세요 · YYYY-MM-DDTHH:mm:ss.sss` : 'Site 시각 YYYY-MM-DDTHH:mm:ss.sss · 기본은 window 시작';
+  // The message under the input names the actual reason; the header line only says «effectiveFrom 확인 필요».
+  const fromProblem = !touched ? null : !WALL_CLOCK_PATTERN.test(effectiveFrom) ? '형식이 올바르지 않습니다. YYYY-MM-DDTHH:mm:ss.sss로 입력하세요.'
+    : latest !== null && effectiveFrom <= latest.effectiveFrom ? `마지막 binding(${latest.effectiveFrom})보다 늦어야 합니다.` : null;
+  const fromInvalid = fromProblem !== null;
+  const hint = fromProblem ?? (latest ? `마지막 binding(${latest.effectiveFrom})보다 늦은 시각을 입력하세요 · YYYY-MM-DDTHH:mm:ss.sss` : 'Site 시각 YYYY-MM-DDTHH:mm:ss.sss · 기본은 window 시작');
   return <div className="flex min-h-0 flex-1 overflow-hidden">
     <section aria-label="검증 결과" className="w-96 shrink-0 space-y-4 overflow-y-auto border-r border-border-subtle bg-surface-card p-4 text-xs">
       <div className="space-y-2">
@@ -53,7 +57,7 @@ export function ValidateTab({ data, layout, run, plan, error, effectiveFrom, onE
         <FieldLabel htmlFor="effective-from" required>effectiveFrom</FieldLabel>
         <Input id="effective-from" inputSize="toolbar" autoComplete="off" spellCheck={false} value={effectiveFrom} placeholder="YYYY-MM-DDTHH:mm:ss.sss"
           aria-invalid={fromInvalid || undefined} aria-describedby="effective-from-hint" onChange={(event) => onEffectiveFrom(event.target.value)} />
-        <p id="effective-from-hint" className={cn('text-xs', fromInvalid ? 'text-text-danger' : 'text-text-muted')}>{hint}</p>
+        <p id="effective-from-hint" className={cn('text-xs', fromInvalid ? 'text-text-danger' : 'text-text-muted')}><NoBreakStamps text={hint} /></p>
       </div>
       {plan && <DiffSummary plan={plan} />}
     </section>
@@ -72,8 +76,8 @@ function DiffSummary({ plan }: { plan: PublishPlan }) {
     <PanelSectionTitle className="mb-0">이전 게시와 비교</PanelSectionTitle>
     <FieldList>
       <FieldRow layout="property" label="alias">{(Object.keys(CHANGE_WORD) as (keyof typeof CHANGE_WORD)[]).map((c) => `${CHANGE_WORD[c]} ${count(c)}`).join(' · ')} · 변경 없음 {plan.diff.unchanged}</FieldRow>
-      <FieldRow layout="property" label="Layout Revision" mono>{plan.diff.layout}</FieldRow>
-      <FieldRow layout="property" label="Binding">{plan.diff.binding.length ? plan.diff.binding.map((line) => <span key={line} className="block">{line}</span>) : '—'}</FieldRow>
+      <FieldRow layout="property" label="Layout Revision">{plan.diff.layout}</FieldRow>
+      <FieldRow layout="property" label="Binding">{plan.diff.binding.length ? plan.diff.binding.map((line) => <span key={line} className="block"><NoBreakStamps text={line} /></span>) : '—'}</FieldRow>
       <FieldRow layout="property" label="Mapping Conflict">{plan.diff.conflicts}</FieldRow>
     </FieldList>
     {plan.diff.entries.length > 0 && <table className="w-full text-left text-xs"><caption className="sr-only">alias 변경</caption>
@@ -123,14 +127,15 @@ export function PublishReview({ data, layout, plan, effectiveFrom, revisions, on
       <FieldList>
         <FieldRow layout="property" label="설비" mono>{data.equipment.equipmentId}</FieldRow>
         <FieldRow layout="property" label="alias">{(Object.keys(CHANGE_WORD) as (keyof typeof CHANGE_WORD)[]).map((c) => `${CHANGE_WORD[c]} ${count(c)}`).join(' · ')} · 변경 없음 {plan.diff.unchanged}</FieldRow>
-        <FieldRow layout="property" label="Layout Revision" mono>{plan.diff.layout}</FieldRow>
-        <FieldRow layout="property" label="Binding">{plan.diff.binding.map((line) => <span key={line} className="block">{line}</span>)}</FieldRow>
-        <FieldRow layout="property" label="effectiveFrom" mono>{effectiveFrom}</FieldRow>
+        <FieldRow layout="property" label="Baseline Sample Window">{data.window ? <NoBreakStamps text={`${rangeShort(data.window.from, data.window.to)} · ${data.window.dataGeneration}`} /> : '—'}</FieldRow>
+        <FieldRow layout="property" label="Layout Revision">{plan.diff.layout}</FieldRow>
+        <FieldRow layout="property" label="Binding">{plan.diff.binding.map((line) => <span key={line} className="block"><NoBreakStamps text={line} /></span>)}</FieldRow>
+        <FieldRow layout="property" label="effectiveFrom"><NoBreakStamps text={effectiveFrom} /></FieldRow>
         <FieldRow layout="property" label="Mapping Conflict">{plan.diff.conflicts}</FieldRow>
       </FieldList>
       {plan.diff.entries.length > 0 ? <div className="max-h-48 overflow-y-auto"><ul aria-label="alias 변경" className="m-0 list-none space-y-1 p-0 text-xs">
         {plan.diff.entries.map((e) => <li key={e.alias}><span className="font-mono">{e.alias}</span> · {CHANGE_WORD[e.change]} · <span className="break-all">{e.before ?? '—'} → {e.after ?? '—'}</span></li>)}
-      </ul></div> : <EmptyState size="sm" title="alias 변경 없음" />}
+      </ul></div> : <p className="text-xs text-text-secondary">변경 없음</p>}
       {error && <Callout tone="red" title="게시하지 못했습니다"><span role="alert">{error}</span></Callout>}
       <AlertDialogFooter>
         <Button ref={cancel} size="toolbar" variant="secondary" disabled={busy} onClick={onClose}>취소</Button>

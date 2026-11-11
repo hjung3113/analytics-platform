@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { stubCompactTableGeometry } from '@ap/components/testing';
-import { createServer, mountAt, params, type Roles, type Server } from './test-support';
+import { G1, createServer, mountAt, params, type Roles, type Server } from './test-support';
 
 const { notify } = vi.hoisted(() => ({ notify: vi.fn() }));
 vi.mock('@ap/kernel', async () => {
@@ -40,6 +40,8 @@ const aliasList = () => screen.findByRole('listbox', { name: 'Alias 목록' }, s
 const option = (alias: string) => screen.getByRole('option', { name: new RegExp(`^${alias},`) });
 const selectedAlias = () => screen.queryAllByRole('option').find((o) => o.getAttribute('aria-selected') === 'true')?.getAttribute('aria-label')?.split(',')[0] ?? null;
 const ALLOWED_KEYS = ['v', 'equipment', 'step', 'window'];
+/** The innermost element whose whole text is `text` (timestamps sit in their own no-wrap spans). */
+const textIs = (text: string) => (_: string, el: Element | null) => el?.textContent === text && [...(el?.children ?? [])].every((c) => c.textContent !== text);
 
 describe('Fleet', () => {
   it('lists the synthetic equipment with the status words; the 상태 column filter narrows the rows', async () => {
@@ -54,6 +56,15 @@ describe('Fleet', () => {
     expect(screen.getByText('eq-synth-02')).toBeTruthy();
     expect(screen.queryByText('eq-synth-03')).toBeNull();
     expect(Object.keys(params())).toEqual(['v']);
+  });
+
+  it('the breadcrumb names the menu once, and the latest window is one short line with the full value in its title', async () => {
+    mount('engineer');
+    await screen.findByText('게시됨 · Drift 미확인', {}, slow);
+    expect(screen.getByRole('navigation', { name: /breadcrumb|이동 경로|경로/i }).textContent).not.toContain('설비 온보딩');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('설비 온보딩');
+    const short = screen.getAllByText('2026-01-01 10:00–10:30')[0]!;
+    expect(short.getAttribute('title')).toBe('2026-01-01T10:00:00.000 – 2026-01-01T10:30:00.000');
   });
 
   it('a row opens the equipment with a push and no other key', async () => {
@@ -94,10 +105,18 @@ describe('page keys', () => {
     mount('engineer', '&equipment=eq-synth-01&step=inventory');
     const trigger = await screen.findByRole('combobox', { name: 'Sample Window' }, slow);
     fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-    fireEvent.click(await screen.findByRole('option', { name: /g2$/ }, slow));
+    fireEvent.click(await screen.findByRole('option', { name: 'g2 · 교체 대기 · 2026-01-01 10:00–10:30' }, slow));
     await waitFor(() => expect(params().window).toBe(STAGED), slow);
     await waitFor(() => expect(server.state.queries.some((q) => q.endpoint === 'eqv.observedInventory' && (q.params as { windowHash: string }).windowHash === STAGED)).toBe(true), slow);
     expect(await screen.findByText(/표본 기간 2026-01-01T10:00:00.000/, {}, slow)).toBeTruthy();
+  });
+
+  it('the header names the vendor and model as the Fleet does; the selector leads with generation and state', async () => {
+    mount('engineer', '&equipment=eq-synth-01&step=inventory');
+    const trigger = await screen.findByRole('combobox', { name: 'Sample Window' }, slow);
+    expect(screen.getByText('Synth Maker / Synth Model')).toBeTruthy();
+    expect(trigger.textContent).toBe('g1 · 사용 중 · 2026-01-01 10:00–10:30');
+    expect(screen.getAllByRole('heading', { name: '관측 Inventory' }).length).toBeLessThanOrEqual(1);
   });
 });
 
@@ -128,6 +147,25 @@ describe('Mapping', () => {
     fireEvent.click(option(alias));
     fireEvent.keyDown(list, { key });
     await waitFor(check, slow);
+  });
+
+  it('the rule dialog shows no problem on open even when the prefilled target is empty; a submit shows it', async () => {
+    mount('engineer', '&equipment=eq-synth-01&step=mapping');
+    const list = await aliasList();
+    fireEvent.click(option('PM9'));
+    fireEvent.keyDown(list, { key: 'r' });
+    const dialog = await screen.findByRole('dialog', {}, slow);
+    expect(within(dialog).queryByRole('list', { name: '규칙 문제' })).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: '규칙 추가' }));
+    expect(await within(dialog).findByRole('list', { name: '규칙 문제' }, slow)).toBeTruthy();
+  });
+
+  it('the save scope names the model as the Fleet does; undo and redo are icon buttons with their shortcut in the name', async () => {
+    mount('engineer', '&equipment=eq-synth-01&step=mapping');
+    await aliasList();
+    expect(screen.getByLabelText('Model (Synth Maker / Synth Model)')).toBeTruthy();
+    expect(button('실행 취소 · Ctrl/Cmd+Z').textContent).toBe('');
+    expect(button('다시 실행 · Ctrl/Cmd+Shift+Z').textContent).toBe('');
   });
 
   it('an edit is unsaved until 저장, which writes the Model scope at the version read; Ctrl+Z undoes', async () => {
@@ -182,8 +220,10 @@ describe('검증·게시', () => {
     const dialog = await screen.findByRole('alertdialog', {}, slow);
     expect(within(dialog).getByText('추가 0 · 삭제 0 · 변경 0 · 변경 없음 7')).toBeTruthy();
     expect(within(dialog).getByText(/^eq-synth-01-layout · revision [0-9a-f]{12} \(이전 기록 없음\)$/)).toBeTruthy();
-    expect(within(dialog).getByText('열린 binding(2026-01-01T10:04:30.000 ~)을 2026-01-01T10:30:00.000에서 닫습니다')).toBeTruthy();
-    expect(within(dialog).getByText(/^새 binding 2026-01-01T10:30:00.000 ~ \(열림\)/)).toBeTruthy();
+    expect(within(dialog).getByText(textIs('열린 binding(2026-01-01T10:04:30.000 ~)을 2026-01-01T10:30:00.000에서 닫습니다'))).toBeTruthy();
+    expect(within(dialog).getByText((_, el) => /^새 binding 2026-01-01T10:30:00.000 ~ \(열림\)/.test(el?.textContent ?? '') && el?.classList.contains('block') === true)).toBeTruthy();
+    expect(within(dialog).getByText('2026-01-01 10:00–10:30 · g1')).toBeTruthy();
+    expect(within(dialog).getByText('변경 없음')).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: '게시' }));
     await waitFor(() => expect(writes().map((w) => w.action)).toEqual(['eqv.publishRevision', 'eqv.publishMapping']), slow);
     expect(writes()[0]).toEqual({ action: 'eqv.publishRevision', input: { layoutId: 'eq-synth-01-layout' }, expectedVersion: '1' });
@@ -191,16 +231,40 @@ describe('검증·게시', () => {
     await waitFor(() => expect(notify).toHaveBeenCalledWith('Mapping을 게시했습니다', 'info'), slow);
   });
 
+  it('after a publish the Bindings are read again and effectiveFrom takes the new default, with no error', async () => {
+    mount('engineer', '&equipment=eq-synth-01&step=validate');
+    const review = await screen.findByRole('button', { name: '게시 검토' }, slow);
+    await waitFor(() => expect((review as HTMLButtonElement).disabled).toBe(false), slow);
+    fireEvent.click(review);
+    fireEvent.click(within(await screen.findByRole('alertdialog', {}, slow)).getByRole('button', { name: '게시' }));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Mapping을 게시했습니다', 'info'), slow);
+    const reads = () => server.state.queries.filter((q) => q.endpoint === 'eqv.bindings').length;
+    await waitFor(() => expect(reads()).toBeGreaterThan(1), slow);
+    const input = screen.getByLabelText(/effectiveFrom/) as HTMLInputElement;
+    await waitFor(() => expect(input.value).toBe(''), slow);
+    expect(input.getAttribute('aria-invalid')).toBeNull();
+    expect(document.getElementById('effective-from-hint')?.className).not.toContain('text-text-danger');
+  });
+
+  it('without eqv-studio:layout-publish, a draft with no Revision yet keeps 게시 검토 disabled and names the missing right', async () => {
+    mount('publisher', '&equipment=eq-synth-01&step=validate');
+    const review = await screen.findByRole('button', { name: '게시 검토' }, slow);
+    await waitFor(() => expect(document.getElementById('publish-reason')?.textContent).toMatch(/eqv-studio:layout-publish/), slow);
+    expect((review as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it.each([
-    ['empty', '', /^effectiveFrom 형식이 올바르지 않습니다/],
-    ['not after the latest Binding', '2026-01-01T10:00:00.000', /^effectiveFrom은 마지막 binding/],
-  ])('an effectiveFrom that is %s disables 게시 검토 with one reason line', async (_name, value, reason) => {
+    ['empty', '', null],
+    ['not Site Wall-clock', '2026-13-01 10:00', /^형식이 올바르지 않습니다/],
+    ['not after the latest Binding', '2026-01-01T10:00:00.000', /^마지막 binding\(2026-01-01T10:04:30.000\)보다 늦어야 합니다/],
+  ])('an effectiveFrom that is %s disables 게시 검토 with a short header line; the input names the reason', async (_name, value, reason) => {
     mount('engineer', '&equipment=eq-synth-01&step=validate');
     const review = await screen.findByRole('button', { name: '게시 검토' }, slow);
     await waitFor(() => expect((review as HTMLButtonElement).disabled).toBe(false), slow);
     fireEvent.change(screen.getByLabelText(/effectiveFrom/), { target: { value } });
     await waitFor(() => expect((review as HTMLButtonElement).disabled).toBe(true), slow);
-    expect(document.getElementById('publish-reason')?.textContent).toMatch(reason);
+    expect(document.getElementById('publish-reason')?.textContent).toBe('effectiveFrom 확인 필요');
+    if (reason) expect(document.getElementById('effective-from-hint')?.textContent).toMatch(reason);
   });
 
   it('Mapping Conflicts do not block; clicking one draws its rings and the dashed observation line', async () => {
@@ -255,6 +319,24 @@ describe('Data, Template and Drift', () => {
     await waitFor(() => expect(writes()).toEqual([{ action: 'eqv.saveDraft', input: expect.objectContaining({ layoutId: 'eq-synth-02-layout' }), expectedVersion: '0' }]), slow);
     await waitFor(() => expect(params().step).toBe('mapping'), slow);
     expect(starts.length).toBeGreaterThan(0);
+  });
+
+  it('an equipment with no Sample Window says so on 데이터, with where windows come from', async () => {
+    mount('engineer', '&equipment=eq-synth-03');
+    expect(await screen.findByText('Sample Window가 없습니다', {}, slow)).toBeTruthy();
+    expect(screen.getByText('설비 등록과 Sample Window 가져오기는 아직 EV 개발 도구에서 합니다.')).toBeTruthy();
+  });
+
+  it('a drifted equipment lists the changes as the «Drift 검토» table; a row action opens Mapping', async () => {
+    const latest = server.state.bindings.get('eq-synth-01')!.at(-1)!.mappingHash;
+    const inventory = structuredClone(server.state.inventories[G1]!) as { aliases: { alias: string }[] };
+    inventory.aliases = inventory.aliases.filter((a) => a.alias !== 'PM9');
+    server.state.baselines.set(`eq-synth-01/${latest}`, inventory);
+    mount('engineer', '&equipment=eq-synth-01&step=drift');
+    const table = await screen.findByRole('table', { name: /Drift 검토/ }, slow);
+    expect(within(table).getByText('PM9')).toBeTruthy();
+    fireEvent.click(within(table).getAllByRole('button', { name: /Mapping에서 검토/ })[0]!);
+    await waitFor(() => expect(params().step).toBe('mapping'), slow);
   });
 
   it('Drift of a published equipment without a stored Baseline is unknown with the reason, never «no drift»', async () => {

@@ -475,3 +475,10 @@ it('makes candidate ids unique through the pattern preview', () => {
   }))];
   expect(previewPatternRule(input, state.present, 'equipment', { pattern: 'PM{n}', target: 'pm-{n:letter}' }).rule?.id).toBe('pattern-pm-n-3');
 });
+
+it('resolves the Board with the saved global rules file as read-only context', () => {
+  const base = boardInput();
+  const global = { schemaVersion: '0.4', scope: { level: 'global' }, rules: [{ id: 'g', match: { exact: ['PM9'] }, target: { ignore: true }, certainty: 'verified' }] } as const;
+  const input = boardInput({ ruleFiles: { ...base.ruleFiles, global: structuredClone(global) as never } });
+  expect(row(input, 'PM9')).toMatchObject({ status: 'ignored', rule: { level: 'global', ruleId: 'g', kind: 'exact' } });
+});

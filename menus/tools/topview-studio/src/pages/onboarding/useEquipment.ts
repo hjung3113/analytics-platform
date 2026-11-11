@@ -7,7 +7,7 @@ import {
 import type { RuleFiles } from '@eqv/editor';
 import { useMenuQuery, type QueryState } from '@ap/kernel';
 import {
-  aliasRulesEndpoint, baselineInventoryEndpoint, bindingsEndpoint, bundledTemplatesEndpoint, equipmentScopesEndpoint, layoutDraftEndpoint, layoutRevisionEndpoint,
+  aliasRulesEndpoint, baselineInventoryEndpoint, bindingsEndpoint, bundledTemplatesEndpoint, equipmentScopesEndpoint, fleetEndpoint, layoutDraftEndpoint, layoutRevisionEndpoint,
   mappingVersionEndpoint, observedInventoryEndpoint, sampleWindowsEndpoint, typeDictionaryEndpoint, type SampleWindowRow,
 } from '../../endpoints';
 import { NO_REVISION, dataOf, settled } from '../../model/query';
@@ -20,7 +20,10 @@ type Issue = { path: readonly PropertyKey[]; message: string };
 const problems = (issues: readonly Issue[]) => issues.map(({ path, message }) => `${path.map(String).join('.') || '(root)'}: ${message}`).join('; ');
 
 export interface EquipmentData {
+  /** Hub ids (`maker` = vendor id), as the rules and the server key scopes. */
   equipment: { equipmentId: string; maker: string; model: string };
+  /** What people read: the Fleet's vendor and model names, the ids until the Fleet row is known. */
+  names: { maker: string; model: string };
   windows: readonly SampleWindowRow[];
   /** The window the page shows: `?window=` or the latest active one; null when there is none. */
   window: SampleWindowRow | null;
@@ -46,7 +49,7 @@ export type EquipmentLoad =
   | { kind: 'not-found' }
   | { kind: 'unknown-window'; windows: readonly SampleWindowRow[] }
   | { kind: 'error'; message: string; retry(): void }
-  | { kind: 'ok'; data: EquipmentData; refetchRules(): void; refetchDraft(): void };
+  | { kind: 'ok'; data: EquipmentData };
 
 type Q = QueryState<unknown>;
 const failed = (q: Q) => q.response !== null && !settled(q);
@@ -68,6 +71,8 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
   const dictGlobalQ = useMenuQuery(typeDictionaryEndpoint, { level: 'global' }, known);
   const dictMakerQ = useMenuQuery(typeDictionaryEndpoint, { level: 'maker', vendorId }, known);
   const dictModelQ = useMenuQuery(typeDictionaryEndpoint, { level: 'model', vendorId, modelId }, known);
+  // Every rules file publish applies (global, maker, model, equipment), so the browser dry-run equals what the server stores.
+  const rulesGlobalQ = useMenuQuery(aliasRulesEndpoint, { level: 'global' }, known);
   const rulesMakerQ = useMenuQuery(aliasRulesEndpoint, { level: 'maker', vendorId }, known);
   const rulesModelQ = useMenuQuery(aliasRulesEndpoint, { level: 'model', vendorId, modelId }, known);
   const rulesEquipmentQ = useMenuQuery(aliasRulesEndpoint, { level: 'equipment', equipmentId }, known);
@@ -75,8 +80,8 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
   const bindingsRaw = dataOf(bindingsQ);
   const bindingsParsed = useMemo(() => {
     if (!bindingsRaw) return null;
-    const { version: _version, ...file } = bindingsRaw;
-    return file.bindings.length === 0 ? { ok: true as const, file: null } : validateBindings(file);
+    const file = bindingsRaw.document;
+    return Array.isArray(file.bindings) && file.bindings.length === 0 ? { ok: true as const, file: null } : validateBindings(file);
   }, [bindingsRaw]);
   const latest = bindingsParsed?.ok && bindingsParsed.file ? latestBinding(bindingsParsed.file.bindings) ?? null : null;
   const mappingQ = useMenuQuery(mappingVersionEndpoint, { equipmentId, hash: latest?.mappingHash ?? NO_REVISION }, latest !== null, KEEP);
@@ -85,8 +90,11 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
   const draftQ = useMenuQuery(layoutDraftEndpoint, { layoutId });
   const pinnedQ = useMenuQuery(layoutRevisionEndpoint, { layoutId, revision: latest?.layoutRevision ?? NO_REVISION }, latest?.layoutRevision !== undefined && latest !== null, KEEP);
   const templatesQ = useMenuQuery(bundledTemplatesEndpoint, {});
+  // Names only; the page works with ids when the Fleet read fails.
+  const fleetRow = dataOf(useMenuQuery(fleetEndpoint, {}))?.rows.find((row) => row.equipmentId === equipmentId) ?? null;
+  const names = useMemo(() => ({ maker: fleetRow?.vendorName ?? vendorId, model: fleetRow?.modelName ?? modelId }), [fleetRow?.vendorName, fleetRow?.modelName, vendorId, modelId]);
 
-  const scopeData = [dictGlobalQ, dictMakerQ, dictModelQ, rulesMakerQ, rulesModelQ, rulesEquipmentQ].map(dataOf);
+  const scopeData = [dictGlobalQ, dictMakerQ, dictModelQ, rulesGlobalQ, rulesMakerQ, rulesModelQ, rulesEquipmentQ].map(dataOf);
   const inventoryRaw = dataOf(inventoryQ);
   const mappingRaw = dataOf(mappingQ);
   const baselineRaw = dataOf(baselineQ);
@@ -96,7 +104,7 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
 
   const parsed = useMemo(() => {
     try {
-      const [dg, dmk, dmd, rmk, rmd, req] = scopeData;
+      const [dg, dmk, dmd, rgl, rmk, rmd, req] = scopeData;
       const dictionaries = [dg, dmk, dmd].flatMap((entry) => {
         if (!entry) return [];
         const result = validateTypeDictionary(entry.document);
@@ -110,7 +118,8 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
         return result.file;
       };
       const ruleFiles: RuleFiles = {};
-      const maker = rules(rmk); const model = rules(rmd); const equipment = rules(req);
+      const global = rules(rgl); const maker = rules(rmk); const model = rules(rmd); const equipment = rules(req);
+      if (global) ruleFiles.global = global;
       if (maker) ruleFiles.maker = maker;
       if (model) ruleFiles.model = model;
       if (equipment) ruleFiles.equipment = equipment;
@@ -136,11 +145,11 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
       let driftLayout: EquipmentLayoutDocument | null = null;
       let driftProblem: string | null = null;
       if (mappingRaw) {
-        const result = mappingVersionSchema.safeParse(mappingRaw);
+        const result = mappingVersionSchema.safeParse(mappingRaw.document);
         if (result.success) previous = result.data; else driftProblem = `Mapping Version: ${problems(result.error.issues)}`;
       }
       if (baselineRaw) {
-        const result = observedInventorySchema.safeParse(baselineRaw);
+        const result = observedInventorySchema.safeParse(baselineRaw.document);
         if (result.success) baseline = result.data; else driftProblem = `Baseline Inventory: ${problems(result.error.issues)}`;
       }
       const pinnedDoc = latest?.layoutRevision ? pinnedRaw?.document : draftRaw?.document;
@@ -152,14 +161,14 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
     } catch (error) {
       return { ok: false as const, message: error instanceof Error ? error.message : String(error) };
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `scopeData` is rebuilt every render from the six query answers listed here
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `scopeData` is rebuilt every render from the seven query answers listed here
   }, [...scopeData, inventoryRaw, draftRaw, templatesRaw, mappingRaw, baselineRaw, pinnedRaw, latest, layoutId]);
 
-  const required: Q[] = [scopeQ, windowsQ, bindingsQ, draftQ, templatesQ, dictGlobalQ, dictMakerQ, dictModelQ, rulesMakerQ, rulesModelQ, rulesEquipmentQ];
+  const required: Q[] = [scopeQ, windowsQ, bindingsQ, draftQ, templatesQ, dictGlobalQ, dictMakerQ, dictModelQ, rulesGlobalQ, rulesMakerQ, rulesModelQ, rulesEquipmentQ];
   if (window !== null) required.push(inventoryQ);
   if (latest !== null) required.push(mappingQ, baselineQ);
   const retry = () => { for (const q of required) if (failed(q)) q.refetch(); };
-  if (scopeQ.response?.outcome === 'empty') return { kind: 'not-found' };
+  if (scopeQ.response?.outcome === 'empty' || bindingsQ.response?.outcome === 'empty') return { kind: 'not-found' };
   const broken = required.find(failed);
   if (broken) return { kind: 'error', message: '설비 데이터를 불러오지 못했습니다.', retry };
   if (required.some((q) => q.response === null) || (known && windows === null)) return { kind: 'loading' };
@@ -169,10 +178,8 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
   const version = (q: typeof rulesModelQ) => dataOf(q)?.version ?? '0';
   return {
     kind: 'ok',
-    refetchRules: () => { rulesModelQ.refetch(); rulesEquipmentQ.refetch(); },
-    refetchDraft: () => draftQ.refetch(),
     data: {
-      equipment,
+      equipment, names,
       windows: windows ?? [], window, inventory: parsed.inventory, dictionaries: parsed.dictionaries, ruleFiles: parsed.ruleFiles,
       ruleVersions: { model: version(rulesModelQ), equipment: version(rulesEquipmentQ) },
       bindings: bindingsParsed?.ok ? bindingsParsed.file : null, bindingsVersion: bindingsRaw?.version ?? '0',

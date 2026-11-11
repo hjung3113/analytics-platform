@@ -5,8 +5,11 @@ import { createBoardState, defaultEffectiveFrom, derivePublishPlan, dryRun, eval
 import { useI18n, useMenuQuery, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { PlatformPage } from '@ap/components';
 import { Button, Callout, EmptyState, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger, TooltipProvider } from '@ap/ui';
-import { EQV_ONBOARDING_MENU_ID, MAPPING_PUBLISH_PERMISSION, layoutRevisionsEndpoint, type FleetStatusCode } from '../../endpoints';
-import { DEFAULT_STEP, FLEET_STATUS_LABEL, FLEET_STATUS_TONE, MARK_WORD, STEPS, isStep, publishBlockReason, stepMarks, windowHex, type StepKey } from '../../model/onboarding';
+import { EQV_ONBOARDING_MENU_ID, LAYOUT_PUBLISH_PERMISSION, MAPPING_PUBLISH_PERMISSION, layoutRevisionsEndpoint, type FleetStatusCode } from '../../endpoints';
+import {
+  DEFAULT_STEP, FLEET_STATUS_LABEL, FLEET_STATUS_TONE, MARK_WORD, SAME_AS_LATEST, STEPS, isStep, publishBlockReason, publishHeaderReason, publishRightReason, stepMarks,
+  windowHex, windowLabel, type StepKey,
+} from '../../model/onboarding';
 import { rowsOf } from '../../model/query';
 import { useEquipment, type EquipmentData } from './useEquipment';
 import { DataTab } from './DataTab';
@@ -47,7 +50,8 @@ type Computed = { input: object; run: DryRun; revision: string } | { input: obje
 function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: StepKey; crumbs: { label: string; href: string }[]; title(status: FleetStatusCode | null): ReactNode }) {
   const { setPage, can } = usePlatform();
   const canPublish = can(MAPPING_PUBLISH_PERMISSION);
-  const { equipment, inventory, dictionaries, ruleFiles, templates, bindings, previous } = data;
+  const canLayoutPublish = can(LAYOUT_PUBLISH_PERMISSION);
+  const { equipment, names, inventory, dictionaries, ruleFiles, templates, bindings, previous } = data;
   const layout = data.draft?.layout ?? null;
 
   // ---- Mapping Board state lives above the tabs; the address guard asks before any push leaves unsaved edits (kernel §6.4, ADR-0115) ----
@@ -73,10 +77,19 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
   const current = computed !== null && computed.input === runInput ? computed : null;
   const run = current && 'run' in current ? current : null;
   const [effectiveFrom, setEffectiveFrom] = useState(() => (inventory ? defaultEffectiveFrom(inventory, bindings) : ''));
+  // A publish moves the latest Binding: take the D7 default again from the new Bindings (render-phase adjustment).
+  const [fromFor, setFromFor] = useState(data.bindingsVersion);
+  if (fromFor !== data.bindingsVersion) {
+    setFromFor(data.bindingsVersion);
+    setEffectiveFrom(inventory ? defaultEffectiveFrom(inventory, bindings) : '');
+  }
   const plan = useMemo(() => (runInput && run ? derivePublishPlan({ ...runInput, bindings, previous, effectiveFrom }, { run: run.run, revision: run.revision }) : null), [runInput, run, bindings, previous, effectiveFrom]);
-  const publishReason = layout === null ? 'Layout 초안이 없습니다. Template 탭에서 시작하세요.' : current && 'error' in current ? current.error : publishBlockReason({ dirty, plan });
   const [reviewing, setReviewing] = useState(false);
   const revisionsQ = useMenuQuery(layoutRevisionsEndpoint, { layoutId: data.layoutId }, canPublish && layout !== null);
+  const revisions = rowsOf(revisionsQ);
+  const rightReason = plan === null ? null : publishRightReason({ canLayoutPublish, needsRevision: revisions === null ? null : !revisions.some((r) => r.revision === plan.layoutRevision) });
+  const blockReason = layout === null ? 'Layout 초안이 없습니다. Template 탭에서 시작하세요.' : current && 'error' in current ? current.error : publishBlockReason({ dirty, plan }) ?? rightReason;
+  const publishReason = blockReason === null ? null : publishHeaderReason(blockReason);
 
   // ---- status and step marks ----
   const latest = bindings ? latestBinding(bindings.bindings) ?? null : null;
@@ -90,7 +103,7 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
     hasDraft: layout !== null,
     unmapped: run?.run.coverage ? run.run.coverage.unmapped.length : null,
     conflicts: run ? run.run.conflicts.length : null,
-    upToDate: plan ? plan.problems.includes('이전 게시와 같습니다') : null,
+    upToDate: plan ? plan.problems.includes(SAME_AS_LATEST) : null,
     drift: latest === null ? 'unpublished' : drift === null || drift.unknown !== null ? 'unknown' : drift.drifted ? 'drifted' : 'none',
   });
 
@@ -104,18 +117,19 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
   return <TooltipProvider><PlatformPage layout="fill" bodyInset="none" crumbs={crumbs} title={title(status)} primaryAction={actions || undefined}>
     <div className="relative min-h-0 flex-1"><div className="absolute inset-0 flex min-h-0 flex-col break-keep">
       <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
-        <span>{equipment.maker} / {equipment.model}</span>
+        <span title={`${equipment.maker} / ${equipment.model}`}>{names.maker} / {names.model}</span>
         {selectable.length > 0 && <span className="flex items-center gap-2">
           <Label htmlFor="onboarding-window">Sample Window</Label>
           <Select value={data.window ? windowHex(data.window.hash) : ''} onValueChange={(hex) => setPage({ window: hex })}>
-            <SelectTrigger id="onboarding-window" density="compact" className="w-80"><SelectValue placeholder="window를 고르세요" /></SelectTrigger>
-            <SelectContent>{selectable.map((w) => <SelectItem key={w.hash} value={windowHex(w.hash)}>{w.from} – {w.to} · {w.dataGeneration}</SelectItem>)}</SelectContent>
+            <SelectTrigger id="onboarding-window" density="compact" className="w-80" title={data.window ? `${data.window.dataGeneration} · ${data.window.from} – ${data.window.to}` : undefined}><SelectValue placeholder="window를 고르세요" /></SelectTrigger>
+            <SelectContent>{selectable.map((w) => <SelectItem key={w.hash} value={windowHex(w.hash)} title={`${w.from} – ${w.to}`}>{windowLabel(w)}</SelectItem>)}</SelectContent>
           </Select>
         </span>}
         {data.window && <span>Inventory · Template 제안 · 검증 · Drift가 이 window에서 나옵니다.</span>}
       </div>
       <Tabs value={step} onValueChange={go} className="flex min-h-0 flex-1 flex-col">
-        <TabsList aria-label="온보딩 단계" className="ml-2 h-11 shrink-0">
+        {/* TabsList is `w-full` and owns its spacing: inset it with a wrapper, never a margin (a margin overflows `main`). */}
+        <div className="shrink-0 px-2"><TabsList aria-label="온보딩 단계" className="h-11">
           {STEPS.map(({ key, label }) => {
             const mark = marks[key];
             return <TabsTrigger key={key} value={key}><span className="flex items-center gap-1.5">
@@ -124,7 +138,7 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
               {label}{mark && <span className="sr-only"> · {MARK_WORD[mark]}</span>}
             </span></TabsTrigger>;
           })}
-        </TabsList>
+        </TabsList></div>
         <TabsContent value="data" className="m-0 flex min-h-0 flex-1 flex-col"><DataTab data={data} /></TabsContent>
         <TabsContent value="inventory" className="m-0 flex min-h-0 flex-1 flex-col"><InventoryTab data={data} /></TabsContent>
         <TabsContent value="template" className="m-0 flex min-h-0 flex-1 flex-col"><TemplateTab data={data} /></TabsContent>
@@ -139,7 +153,7 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
         <TabsContent value="drift" className="m-0 flex min-h-0 flex-1 flex-col"><DriftTab data={data} drift={drift} onMapping={() => go('mapping')} /></TabsContent>
       </Tabs>
     </div></div>
-    {reviewing && plan && layout && inventory && <PublishReview data={data} layout={layout} plan={plan} effectiveFrom={effectiveFrom} revisions={rowsOf(revisionsQ)} onClose={() => setReviewing(false)} />}
+    {reviewing && plan && layout && inventory && <PublishReview data={data} layout={layout} plan={plan} effectiveFrom={effectiveFrom} revisions={revisions} onClose={() => setReviewing(false)} />}
   </PlatformPage></TooltipProvider>;
 }
 

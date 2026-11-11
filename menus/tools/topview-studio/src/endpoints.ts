@@ -92,8 +92,10 @@ export type ScopeParams = { level: ScopeLevel; vendorId?: string; modelId?: stri
 export type VersionedDocument = { document: JsonDocument; version: string };
 export type EquipmentScope = { equipmentId: string; vendorId: string; modelId: string };
 export type MappingVersionRow = { hash: string; layoutId: string; layoutRevision: string | null; entryCount: number; publishedAt: string };
-/** A BindingsFile (`schemaVersion`, `equipmentId`, `bindings`) plus the concurrency version of `publishMapping` (= the binding count). */
-export type BindingsRead = JsonDocument & { equipmentId: string; bindings: JsonDocument[]; version: string };
+/** The equipment's BindingsFile (`schemaVersion`, `equipmentId`, `bindings`) and the concurrency version of `publishMapping` (= the binding count). */
+export type BindingsRead = { document: JsonDocument; version: string };
+/** A stored Mapping Version with the Revision it was published against. */
+export type MappingVersionRead = { layoutRevision: string | null; publishedAt: string; document: JsonDocument };
 
 /** Fleet status codes; the screen owns the words (ONBOARDING §1, §6). */
 export const FLEET_STATUSES = ['no-observations', 'unstarted', 'draft', 'published', 'drift', 'drift-unknown'] as const;
@@ -134,9 +136,10 @@ export const aliasRulesEndpoint = onboardingRead<ScopeParams, VersionedDocument 
 export const typeDictionaryEndpoint = onboardingRead<Omit<ScopeParams, 'equipmentId'>, VersionedDocument | null>('eqv.typeDictionary', { level: true, vendorId: true, modelId: true });
 export const equipmentScopesEndpoint = onboardingRead<EquipmentParams, EquipmentScope | null>('eqv.equipmentScopes', { equipmentId: true });
 export const mappingVersionsEndpoint = onboardingRead<EquipmentParams, { rows: MappingVersionRow[] }>('eqv.mappingVersions', { equipmentId: true });
-export const mappingVersionEndpoint = onboardingRead<EquipmentParams & { hash: string }, JsonDocument | null>('eqv.mappingVersion', { equipmentId: true, hash: true });
-export const bindingsEndpoint = onboardingRead<EquipmentParams, BindingsRead>('eqv.bindings', { equipmentId: true });
-export const baselineInventoryEndpoint = onboardingRead<EquipmentParams & { mappingHash: string }, JsonDocument | null>('eqv.baselineInventory', { equipmentId: true, mappingHash: true });
+export const mappingVersionEndpoint = onboardingRead<EquipmentParams & { hash: string }, MappingVersionRead | null>('eqv.mappingVersion', { equipmentId: true, hash: true });
+/** Answers `empty` for an equipment the actor cannot address; an equipment without Bindings answers an empty `bindings` list at version `'0'`. */
+export const bindingsEndpoint = onboardingRead<EquipmentParams, BindingsRead | null>('eqv.bindings', { equipmentId: true });
+export const baselineInventoryEndpoint = onboardingRead<EquipmentParams & { mappingHash: string }, { document: JsonDocument } | null>('eqv.baselineInventory', { equipmentId: true, mappingHash: true });
 /** Server: pending (#1658 Sample Window·Fleet PR). */
 export const fleetEndpoint = onboardingRead<NoParams, { rows: FleetRowDto[] }>('eqv.fleet', {});
 /** Server: pending (#1658 Sample Window·Fleet PR). */
@@ -146,16 +149,17 @@ export const observedInventoryEndpoint = onboardingRead<EquipmentParams & { wind
 /** Server: pending (#1658 Sample Window·Fleet PR). The EV Templates the package ships (`BUNDLED_TEMPLATE_IDS`); `eqv.templates` lists promoted ones only. */
 export const bundledTemplatesEndpoint = onboardingRead<NoParams, { rows: BundledTemplateRow[] }>('eqv.bundledTemplates', {});
 
-/** The reads: the server storage PR's seven, then the four pending ones. */
+/** The reads: the server storage PR's seven, then the four pending ones (`onboarding-menu-drift.test.ts` lists them). */
 export const onboardingReadSpecs = [
   aliasRulesEndpoint, typeDictionaryEndpoint, equipmentScopesEndpoint, mappingVersionsEndpoint, mappingVersionEndpoint, bindingsEndpoint, baselineInventoryEndpoint,
   fleetEndpoint, sampleWindowsEndpoint, observedInventoryEndpoint, bundledTemplatesEndpoint,
 ] as const;
 
 export type SaveScopedInput = ScopeParams & { document: JsonDocument };
-export type SaveScopedResult = { level: ScopeLevel; version: string };
+/** `id` is the stored row's id. */
+export type SaveScopedResult = { id: string; version: string };
 export type PublishMappingInput = { equipmentId: string; layoutId: string; layoutRevision: string; baseline: JsonDocument; effectiveFrom: string };
-export type PublishMappingResult = { equipmentId: string; mappingHash: string; layoutRevision: string; version: string };
+export type PublishMappingResult = { mappingHash: string; bindingId: string; version: string };
 export type WindowActionInput = { equipmentId: string; windowHash: string };
 export type ReplaceWindowResult = { equipmentId: string; activeHash: string; replacedHash: string };
 export type RetireWindowResult = { equipmentId: string; retiredHash: string };
@@ -163,7 +167,7 @@ export type RetireWindowResult = { equipmentId: string; retiredHash: string };
 /** `expectedVersion` is the version the author read (`'0'` while the scope has no file). A global level also needs `eqv-studio:dictionary-global-edit`. */
 export const saveAliasRules = defineAction<SaveScopedInput, SaveScopedResult>({
   id: 'eqv.saveAliasRules', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { ...SCOPE_KEYS, document: true }, permission: RULES_EDIT_PERMISSION,
-  requiresScope: false, concurrency: 'version', invalidates: [aliasRulesEndpoint, fleetEndpoint],
+  requiresScope: false, concurrency: 'version', invalidates: [aliasRulesEndpoint],
 });
 export const saveTypeDictionary = defineAction<Omit<SaveScopedInput, 'equipmentId'>, SaveScopedResult>({
   id: 'eqv.saveTypeDictionary', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { level: true, vendorId: true, modelId: true, document: true }, permission: RULES_EDIT_PERMISSION,
@@ -172,12 +176,12 @@ export const saveTypeDictionary = defineAction<Omit<SaveScopedInput, 'equipmentI
 /**
  * `expectedVersion` is the equipment's binding count the author saw. The server flattens the saved rules against the published Layout
  * Revision, stores the Mapping Version and `baseline` (the selected window's ObservedInventory) and closes/opens the Binding; it refuses
- * `same-as-latest`. The Revision must exist: the screen calls `publishRevision` first when the draft has none (both are idempotent).
+ * `same-as-latest` (path `['mapping']`). The Revision must exist: the screen calls `publishRevision` first when the draft has none (both are idempotent).
  */
 export const publishMapping = defineAction<PublishMappingInput, PublishMappingResult>({
   id: 'eqv.publishMapping', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { equipmentId: true, layoutId: true, layoutRevision: true, baseline: true, effectiveFrom: true },
   permission: MAPPING_PUBLISH_PERMISSION, requiresScope: false, concurrency: 'version',
-  invalidates: [bindingsEndpoint, mappingVersionsEndpoint, mappingVersionEndpoint, baselineInventoryEndpoint, fleetEndpoint, sampleWindowsEndpoint],
+  invalidates: [mappingVersionsEndpoint, bindingsEndpoint],
 });
 /** Server: pending (#1658 Sample Window·Fleet PR). Activates a `staged` window and marks the window it replaces `replaced`. */
 export const replaceSampleWindow = defineAction<WindowActionInput, ReplaceWindowResult>({

@@ -1,12 +1,33 @@
+import { ArrowRight } from 'lucide-react';
 import type { evaluateDrift } from '@eqv/editor';
-import { Button, EmptyState, PanelSectionTitle } from '@ap/ui';
+import { PlatformDataTable, RowAction, type PlatformColumn } from '@ap/components';
+import { EmptyState } from '@ap/ui';
+import { NoBreakStamps } from './WallClock';
 import type { EquipmentData } from './useEquipment';
 
 export const DRIFT_UNKNOWN = 'Drift를 판단할 수 없습니다';
 
+type Drift = NonNullable<ReturnType<typeof evaluateDrift>['drift']>;
+type DriftRow = { id: string; change: string; alias: string; evidence: string };
+
+const COLUMNS: PlatformColumn<DriftRow>[] = [
+  { id: 'change', header: '변화', size: 240, value: (row) => row.change },
+  { id: 'alias', header: 'alias', size: 200, value: (row) => row.alias, cell: (row) => <span className="font-mono text-xs">{row.alias}</span> },
+  { id: 'evidence', header: '근거', size: 360, value: (row) => row.evidence },
+];
+
+/** One row per change, in spec A's order: new aliases, new slots, observed transfers without a Transfer Capability. */
+function driftRows(drift: Drift): DriftRow[] {
+  return [
+    ...drift.newAliases.map((alias) => ({ id: `alias\u0000${alias}`, change: '새 alias', alias, evidence: 'Baseline Inventory에 없음' })),
+    ...drift.newSlots.map(({ alias, slot }) => ({ id: `slot\u0000${alias}\u0000${slot}`, change: '새 slot', alias, evidence: `slot ${slot} · Baseline Inventory에 없음` })),
+    ...drift.transfersWithoutCapability.map(({ from, to, count }) => ({ id: `transfer\u0000${from}\u0000${to}`, change: 'Transfer Capability 없음', alias: `${from} → ${to}`, evidence: `관측 이송 ${count}건` })),
+  ];
+}
+
 /**
  * ⑦ Drift of the selected window against the latest Binding's Baseline Inventory (ONBOARDING §6). Unknown is its own state with the
- * reason, never «no drift»; nothing changes automatically.
+ * reason, never «no drift»; nothing changes automatically. A drifted state is the «Drift 검토» table (spec A).
  */
 export function DriftTab({ data, drift, onMapping }: { data: EquipmentData; drift: ReturnType<typeof evaluateDrift> | null; onMapping(): void }) {
   const range = data.window ? `${data.window.from} – ${data.window.to}` : null;
@@ -14,17 +35,10 @@ export function DriftTab({ data, drift, onMapping }: { data: EquipmentData; drif
     : drift === null ? <EmptyState title={DRIFT_UNKNOWN} body={data.inventory === null ? '선택한 Sample Window의 Inventory가 없습니다.' : '최신 Binding의 Mapping Version이 없습니다.'} />
       : drift.drift === null ? <EmptyState title={DRIFT_UNKNOWN} body={drift.unknown ?? undefined} />
         : !drift.drifted ? <EmptyState title="기준 대비 Drift 없음" />
-          : <div className="space-y-4 text-xs">
-            {drift.drift.newAliases.length > 0 && <section aria-label="새 alias"><PanelSectionTitle className="mb-1">새 alias · {drift.drift.newAliases.length}</PanelSectionTitle>
-              <ul className="m-0 list-disc pl-5 font-mono">{drift.drift.newAliases.map((alias) => <li key={alias}>{alias}</li>)}</ul></section>}
-            {drift.drift.newSlots.length > 0 && <section aria-label="새 slot"><PanelSectionTitle className="mb-1">새 slot · {drift.drift.newSlots.length}</PanelSectionTitle>
-              <ul className="m-0 list-disc pl-5 font-mono">{drift.drift.newSlots.map(({ alias, slot }) => <li key={`${alias}\u0000${slot}`}>{alias} / {slot}</li>)}</ul></section>}
-            {drift.drift.transfersWithoutCapability.length > 0 && <section aria-label="Transfer Capability 없는 관측 이송"><PanelSectionTitle className="mb-1">Transfer Capability 없는 관측 이송 · {drift.drift.transfersWithoutCapability.length}</PanelSectionTitle>
-              <ul className="m-0 list-disc pl-5">{drift.drift.transfersWithoutCapability.map(({ from, to, count }) => <li key={`${from}\u0000${to}`}><span className="font-mono">{from} → {to}</span> · {count}건</li>)}</ul></section>}
-            <Button size="toolbar" variant="secondary" onClick={onMapping}>Mapping에서 검토</Button>
-          </div>;
-  return <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-    <p className="text-xs text-text-secondary">{range ? `Sample Window ${range}` : 'Sample Window 없음'} · 최신 Binding의 Baseline Inventory와 비교합니다. 자동으로 바뀌지 않습니다.</p>
+          : <PlatformDataTable title="Drift 검토" ariaLabel="Drift 검토" fill rows={driftRows(drift.drift)} columns={COLUMNS} getRowId={(row) => row.id} preferenceKey="eqv-onboarding-drift"
+            rowAction={(row, { compact }) => <RowAction compact={compact} icon={ArrowRight} label={`${row.alias} Mapping에서 검토`} text="Mapping에서 검토" onClick={onMapping} />} />;
+  return <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+    <p className="text-xs text-text-secondary">{range ? <>Sample Window <NoBreakStamps text={range} /></> : 'Sample Window 없음'} · 최신 Binding의 Baseline Inventory와 비교합니다. 자동으로 바뀌지 않습니다.</p>
     {body}
   </div>;
 }

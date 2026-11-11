@@ -278,6 +278,19 @@ describe('serveAction judgment order (ADR-0054)', () => {
     expect(stored).toEqual({ text: 'seed', version: 1 });
   });
 
+  it('an authorize hook judges the input with the actor’s permissions after the declared one: false answers forbidden before the handler', async () => {
+    const seen: boolean[] = [];
+    actions.set('analytics.save', defineMockAction(spec, {
+      version: () => (stored ? String(stored.version) : null),
+      authorize: ({ input, can }) => { seen.push(can(menuPermission('analytics:view'))); return input.text !== 'guarded' || can(menuPermission('console:access')); },
+      handle: ({ input }) => { handled += 1; return { data: { id: 1 }, version: input.text }; },
+    }));
+    expect(await call(req({ input: { text: 'guarded' } }))).toMatchObject({ outcome: 'forbidden' });
+    expect(handled).toBe(0);
+    expect(await call(req({ idempotencyKey: OTHER_KEY }))).toMatchObject({ outcome: 'ok' });
+    expect(seen).toEqual([true, true]);
+  });
+
   it('rejects with AbortError when the signal aborts during the wait', async () => {
     const controller = new AbortController();
     const pending = serveAction(actions, req(), controller.signal, { role: 'engineer', latency: 50 });

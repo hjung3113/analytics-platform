@@ -5,9 +5,9 @@ import {
 } from '@eqv/core';
 import { describeConflict } from './conflict-text.js';
 
-/** Scope level whose alias-rules file the Board edits; the maker file is read-only context. */
+/** Scope level whose alias-rules file the Board edits; the global and maker files are read-only context. */
 export type SaveScope = 'model' | 'equipment';
-export type RuleFiles = { maker?: AliasRulesFile; model?: AliasRulesFile; equipment?: AliasRulesFile };
+export type RuleFiles = { global?: AliasRulesFile; maker?: AliasRulesFile; model?: AliasRulesFile; equipment?: AliasRulesFile };
 export type Pending = Record<SaveScope, AliasRulesFile>;
 export type BoardStatus = 'conflict' | 'ignored' | 'verified' | 'assumed' | 'unmapped';
 
@@ -150,7 +150,7 @@ function withRules(file: AliasRulesFile, rules: AliasRule[]): AliasRulesFile {
 }
 function allFiles(input: BoardInput, files: Pending, saveFile: AliasRulesFile, saveScope: SaveScope): AliasRulesFile[] {
   const byScope = { ...files, [saveScope]: saveFile };
-  return [input.ruleFiles.maker, byScope.model, byScope.equipment].flatMap((file) => file ? [file] : []);
+  return [input.ruleFiles.global, input.ruleFiles.maker, byScope.model, byScope.equipment].flatMap((file) => file ? [file] : []);
 }
 
 function conflictNames(conflict: MappingConflict, alias: string): boolean {
@@ -198,7 +198,7 @@ export function resolveBoard(input: BoardInput, files: Pending, saveScope: SaveS
   });
   const byAlias = new Map(resolved.aliases.map((row): [string, AliasResolution] => [row.alias, row]));
   const ruleKind = (entry: MappingEntry): 'exact' | 'pattern' => {
-    const file = [input.ruleFiles.maker, saveScopeFile, files[saveScope === 'model' ? 'equipment' : 'model']]
+    const file = [input.ruleFiles.global, input.ruleFiles.maker, saveScopeFile, files[saveScope === 'model' ? 'equipment' : 'model']]
       .find((candidate) => candidate && canonicalJson(candidate.scope) === canonicalJson(entry.rule.scope));
     const rule = file?.rules.find(({ id }) => id === entry.rule.ruleId);
     return rule && 'pattern' in rule.match ? 'pattern' : 'exact';

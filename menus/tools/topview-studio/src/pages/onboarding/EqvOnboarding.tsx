@@ -15,7 +15,7 @@ const RULES = [
 export default function EqvOnboardingScreen() {
   const { pageParam } = usePlatform();
   const rules = usePageKeyRules(RULES);
-  if (rules.invalid) return <PlatformPage crumbs={[{ label: '설비 온보딩' }]}><div className="break-keep"><PageKeyWarning sentences={rules.sentences} onRecover={rules.recover} /></div></PlatformPage>;
+  if (rules.invalid) return <PlatformPage title="설비 온보딩"><div className="break-keep"><PageKeyWarning sentences={rules.sentences} onRecover={rules.recover} /></div></PlatformPage>;
   const equipmentId = pageParam('equipment');
   return equipmentId === null ? <Fleet /> : <EquipmentWorkspace key={equipmentId} equipmentId={equipmentId} />;
 }

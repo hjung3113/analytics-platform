@@ -50,15 +50,17 @@ export const onboardingReadsMock: readonly AnyMockEndpoint[] = [
     isEmpty: (data) => data === null,
     handle: ({ params }) => {
       const found = onboarding().mappings.get(params.equipmentId)?.get(params.hash);
-      return found ? structuredClone(found.document) : null;
+      return found ? { layoutRevision: found.layoutRevision, publishedAt: found.publishedAt, document: structuredClone(found.document) } : null;
     },
   }),
   defineMockEndpoint(bindingsEndpoint, {
     mart: false,
     validate: ({ params }) => equipmentMessage(params.equipmentId),
+    isEmpty: (data) => data === null,
     handle: ({ params }) => {
+      if (!equipmentById(params.equipmentId)) return null;
       const bindings = onboarding().bindings.get(params.equipmentId) ?? [];
-      return { schemaVersion: '0.4', equipmentId: params.equipmentId, bindings: structuredClone(bindings), version: String(bindings.length) };
+      return { document: { schemaVersion: '0.4', equipmentId: params.equipmentId, bindings: structuredClone(bindings) }, version: String(bindings.length) };
     },
   }),
   defineMockEndpoint(baselineInventoryEndpoint, {
@@ -67,7 +69,7 @@ export const onboardingReadsMock: readonly AnyMockEndpoint[] = [
     isEmpty: (data) => data === null,
     handle: ({ params }) => {
       const found = onboarding().baselines.get(`${params.equipmentId}/${params.mappingHash}`);
-      return found ? structuredClone(found) : null;
+      return found ? { document: structuredClone(found) } : null;
     },
   }),
   defineMockEndpoint(fleetEndpoint, {

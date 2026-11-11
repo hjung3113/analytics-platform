@@ -1,3 +1,4 @@
+import type { KeyboardEvent, Ref } from 'react';
 import { Search, X } from 'lucide-react';
 import { Button } from '../components/Button.js';
 import { Input } from '../components/shadcn/input.js';
@@ -33,6 +34,13 @@ export interface SearchInputProps {
    * Escape keeps its own clear behaviour and never commits.
    */
   onCommit?: () => void;
+  /** Optional ref to the `<input>` (e.g. a `/` shortcut that focuses the search). Controlled mode only. */
+  inputRef?: Ref<HTMLInputElement>;
+  /**
+   * Optional key handler, controlled mode only. It runs before the built-in keys (Enter commit, Escape clear);
+   * `preventDefault()` skips them.
+   */
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
 }
 
 const DISABLED_TOOLTIP = '검색은 다음 슬라이스에서 제공됩니다';
@@ -44,6 +52,8 @@ export function SearchInput({
   value,
   onValueChange,
   onCommit,
+  inputRef,
+  onKeyDown,
   size = 'default',
   'aria-label': ariaLabel,
   clearLabel = 'Clear',
@@ -93,6 +103,7 @@ export function SearchInput({
         aria-hidden="true"
       />
       <Input
+        ref={inputRef}
         inputSize={size}
         type="search"
         value={value}
@@ -101,6 +112,7 @@ export function SearchInput({
         className={cn('pl-9', size === 'toolbar' && 'pr-9 [&::-webkit-search-cancel-button]:appearance-none')}
         onChange={(event) => onValueChange(event.target.value)}
         onKeyDown={(event) => {
+          onKeyDown?.(event);
           // A dialog (e.g. Radix) may have already handled this Escape on
           // document capture; one key must not also clear the box.
           if (event.defaultPrevented) return;

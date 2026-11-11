@@ -17,9 +17,12 @@ export type WindowRow = { hash: string; from: string; to: string; dataGeneration
 
 export const G1 = '23e9e214b396bfaa4539e7b30c5f8f9163fbac6c50201430231f641ff7c822ba';
 
-export type Roles = 'viewer' | 'engineer';
+/** `publisher`: may publish a Mapping but not a Layout Revision (C6). */
+export type Roles = 'viewer' | 'engineer' | 'publisher';
 const ALL = ['platform:view', 'eqv-studio:view', 'eqv:view', 'eqv-studio:layout-edit', 'eqv-studio:layout-publish', 'eqv-studio:rules-edit', 'eqv-studio:dictionary-global-edit', 'eqv-studio:mapping-publish', 'eqv-studio:window-import'] as const;
-const PERMISSIONS: Record<Roles, `${string}:${string}`[]> = { viewer: ['platform:view', 'eqv-studio:view', 'eqv:view'], engineer: [...ALL] };
+const PERMISSIONS: Record<Roles, `${string}:${string}`[]> = {
+  viewer: ['platform:view', 'eqv-studio:view', 'eqv:view'], engineer: [...ALL], publisher: ['platform:view', 'eqv-studio:view', 'eqv:view', 'eqv-studio:mapping-publish'],
+};
 
 const registry = createRegistry({
   permissions: ALL.filter((p) => p !== 'platform:view').map(menuPermission),
@@ -40,6 +43,8 @@ export function createServer() {
     dictionaries: new Map(Object.entries(seed<Record<string, Doc>>('dictionaries.json')).map(([k, document]) => [k, { document, version: 1 }])),
     bindings: new Map(Object.entries(seed<Record<string, { bindings: Binding[] }>>('bindings.json')).map(([k, f]) => [k, f.bindings])),
     mappings: seed<Record<string, Record<string, Doc>>>('mappings.json'),
+    /** Stored Baseline Inventories by `<equipmentId>/<mappingHash>` (none in the seed: Drift is unknown). */
+    baselines: new Map<string, Doc>(),
     drafts: new Map<string, { version: number; document: Doc }>([['eq-synth-01-layout', { version: 1, document: seed<Doc>('layout-eq-synth-01.json') }]]),
     revisions: [] as { layoutId: string; revision: string }[],
     templates: seed<Doc[]>('templates.json'),
@@ -52,7 +57,7 @@ export function createServer() {
   const empty = (): ApiResponse<never> => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
   const maybe = (value: unknown) => (value === undefined || value === null ? empty() : ok(structuredClone(value)));
   const done = (data: unknown, version: string | null = null): ActionResponse<never> => ({ outcome: 'ok', data, version, fieldErrors: [], replayed: false, correlationId: 'fixture' }) as ActionResponse<never>;
-  const answer = (outcome: ActionResponse<unknown>['outcome'], code?: string): ActionResponse<never> => ({ outcome, data: null, version: null, fieldErrors: code ? [{ path: ['equipmentId'], code }] : [], replayed: false, correlationId: 'fixture' }) as ActionResponse<never>;
+  const answer = (outcome: ActionResponse<unknown>['outcome'], code?: string): ActionResponse<never> => ({ outcome, data: null, version: null, fieldErrors: code ? [{ path: ['mapping'], code }] : [], replayed: false, correlationId: 'fixture' }) as ActionResponse<never>;
   const scopeKey = (p: Record<string, string | undefined>) => (p.level === 'global' ? 'global' : p.level === 'maker' ? `maker/${p.vendorId}` : p.level === 'model' ? `model/${p.vendorId}/${p.modelId}` : `equipment/${p.equipmentId}`);
   const versioned = (entry: { document: Doc; version: number } | undefined) => (entry ? ok({ document: structuredClone(entry.document), version: String(entry.version) }) : empty());
 
@@ -66,9 +71,14 @@ export function createServer() {
       case 'eqv.observedInventory': return maybe(state.windows[p.equipmentId!]?.some((w) => w.hash === `sha256:${p.windowHash}`) ? state.inventories[p.windowHash!] : null);
       case 'eqv.typeDictionary': return versioned(state.dictionaries.get(scopeKey(p)));
       case 'eqv.aliasRules': return versioned(state.rules.get(scopeKey(p)));
-      case 'eqv.bindings': { const b = state.bindings.get(p.equipmentId!) ?? []; return ok({ schemaVersion: '0.4', equipmentId: p.equipmentId, bindings: structuredClone(b), version: String(b.length) }); }
-      case 'eqv.mappingVersion': return maybe(state.mappings[p.equipmentId!]?.[p.hash!]);
-      case 'eqv.baselineInventory': return empty();
+      // The server's answer shapes (`apps/platform-api/src/modules/eqv/onboarding-endpoints.ts`).
+      case 'eqv.bindings': {
+        if (!state.equipment.some((e) => e.equipmentId === p.equipmentId)) return empty();
+        const b = state.bindings.get(p.equipmentId!) ?? [];
+        return ok({ document: { schemaVersion: '0.4', equipmentId: p.equipmentId, bindings: structuredClone(b) }, version: String(b.length) });
+      }
+      case 'eqv.mappingVersion': { const m = state.mappings[p.equipmentId!]?.[p.hash!]; return maybe(m ? { layoutRevision: null, publishedAt: '2026-11-10T00:00:00.000Z', document: m } : null); }
+      case 'eqv.baselineInventory': { const b = state.baselines.get(`${p.equipmentId}/${p.mappingHash}`); return maybe(b ? { document: b } : null); }
       case 'eqv.layoutDraft': { const d = state.drafts.get(p.layoutId!); return d ? ok({ id: `row-${p.layoutId}`, layoutId: p.layoutId, version: String(d.version), document: structuredClone(d.document), updatedAt: '2026-11-10T00:00:00.000Z' }) : empty(); }
       case 'eqv.layoutRevisions': return ok({ rows: state.revisions.filter((r) => r.layoutId === p.layoutId).map((r, i) => ({ id: `rev-${i}`, ...r, publishedAt: '2026-11-10T00:00:00.000Z' })) });
       case 'eqv.layoutRevision': return empty();
@@ -86,7 +96,7 @@ export function createServer() {
         if (req.expectedVersion !== String(current?.version ?? 0)) return answer('conflict');
         const version = (current?.version ?? 0) + 1;
         state.rules.set(key, { document: structuredClone(i.document as Doc), version });
-        return done({ level: i.level, version: String(version) }, String(version));
+        return done({ id: `row-${key}`, version: String(version) }, String(version));
       }
       case 'eqv.saveDraft': {
         if (state.drafts.has(String(i.layoutId)) && req.expectedVersion === '0') return answer('conflict');
@@ -104,7 +114,7 @@ export function createServer() {
         if (req.expectedVersion !== String(list.length)) return answer('conflict');
         const mappingHash = `sha256:${'c'.repeat(64)}`;
         state.bindings.set(String(i.equipmentId), [...list.map((b) => (b.effectiveTo ? b : { ...b, effectiveTo: String(i.effectiveFrom) })), { layoutId: String(i.layoutId), mappingHash, layoutRevision: String(i.layoutRevision), effectiveFrom: String(i.effectiveFrom) }]);
-        return done({ equipmentId: i.equipmentId, mappingHash, layoutRevision: i.layoutRevision, version: String(list.length + 1) }, String(list.length + 1));
+        return done({ mappingHash, bindingId: `binding-${list.length + 1}`, version: String(list.length + 1) }, String(list.length + 1));
       }
       case 'eqv.replaceSampleWindow': case 'eqv.retireSampleWindow': {
         const row = state.windows[String(i.equipmentId)]?.find((w) => w.hash === `sha256:${String(i.windowHash)}`);

@@ -52,20 +52,31 @@ describe('onboarding mock reads', () => {
     ['eqv.observedInventory', { equipmentId: 'eq-synth-01', windowHash: G1 }, 'ok'],
     ['eqv.observedInventory', { equipmentId: 'eq-synth-02', windowHash: G1 }, 'empty'],
     ['eqv.baselineInventory', { equipmentId: 'eq-synth-01', mappingHash: `sha256:${'0'.repeat(64)}` }, 'empty'],
+    ['eqv.bindings', { equipmentId: 'eq-unknown' }, 'empty'],
   ])('%s %j answers %s', async (endpoint, params, outcome) => {
     expect((await query(endpoint, params)).outcome).toBe(outcome);
   });
 
-  it('answers bindings with the binding count as version, and an empty file for an unpublished equipment', async () => {
-    expect(await data('eqv.bindings', { equipmentId: 'eq-synth-01' })).toMatchObject({ version: '2', bindings: [{}, {}] });
-    expect(await data('eqv.bindings', { equipmentId: 'eq-synth-02' })).toMatchObject({ version: '0', bindings: [] });
+  it('answers bindings as the server does, { document, version } with the binding count as version, and an empty file for an unpublished equipment', async () => {
+    expect(await data('eqv.bindings', { equipmentId: 'eq-synth-01' })).toMatchObject({ document: { schemaVersion: '0.4', equipmentId: 'eq-synth-01', bindings: [{}, {}] }, version: '2' });
+    expect(await data('eqv.bindings', { equipmentId: 'eq-synth-02' })).toEqual({ document: { schemaVersion: '0.4', equipmentId: 'eq-synth-02', bindings: [] }, version: '0' });
+  });
+
+  it('answers a Mapping Version as { layoutRevision, publishedAt, document } like the server', async () => {
+    const { document } = await data<{ document: { bindings: { mappingHash: string }[] } }>('eqv.bindings', { equipmentId: 'eq-synth-01' });
+    const hash = document.bindings.at(-1)!.mappingHash;
+    const read = await data<{ layoutRevision: string | null; publishedAt: string; document: { hash: string } }>('eqv.mappingVersion', { equipmentId: 'eq-synth-01', hash });
+    expect(Object.keys(read).sort()).toEqual(['document', 'layoutRevision', 'publishedAt']);
+    expect(read.document.hash).toBe(hash);
   });
 });
 
 describe('onboarding mock writes', () => {
   it('saveAliasRules: version 0 creates, a stale version conflicts, a scope that differs from the params is refused', async () => {
     const document = { schemaVersion: '0.4', scope: { level: 'equipment', equipmentId: 'eq-synth-02' }, rules: [] };
-    expect((await act('eqv.saveAliasRules', { level: 'equipment', equipmentId: 'eq-synth-02', document }, '0')).outcome).toBe('ok');
+    const created = await act('eqv.saveAliasRules', { level: 'equipment', equipmentId: 'eq-synth-02', document }, '0');
+    expect(created).toMatchObject({ outcome: 'ok', data: { id: expect.any(String), version: '1' } });
+    expect(Object.keys(created.data as object).sort()).toEqual(['id', 'version']);
     expect((await act('eqv.saveAliasRules', { level: 'equipment', equipmentId: 'eq-synth-02', document }, '0')).outcome).toBe('conflict');
     expect(await data('eqv.aliasRules', { level: 'equipment', equipmentId: 'eq-synth-02' })).toMatchObject({ version: '1' });
     const wrong = await act('eqv.saveAliasRules', { level: 'equipment', equipmentId: 'eq-synth-01', document }, '1');
@@ -81,16 +92,17 @@ describe('onboarding mock writes', () => {
     expect((await act('eqv.publishMapping', { ...input, layoutRevision }, '1')).outcome).toBe('conflict');
     const published = await act('eqv.publishMapping', { ...input, layoutRevision }, '2');
     expect(published.outcome).toBe('ok');
+    expect(Object.keys(published.data as object).sort()).toEqual(['bindingId', 'mappingHash', 'version']);
     const { mappingHash } = published.data as { mappingHash: string };
-    const bindings = await data<{ bindings: { effectiveFrom: string; effectiveTo?: string; mappingHash: string }[]; version: string }>('eqv.bindings', { equipmentId: 'eq-synth-01' });
+    const bindings = await data<{ document: { bindings: { effectiveFrom: string; effectiveTo?: string; mappingHash: string }[] }; version: string }>('eqv.bindings', { equipmentId: 'eq-synth-01' });
     expect(bindings.version).toBe('3');
-    expect(bindings.bindings.at(-2)!.effectiveTo).toBe('2026-01-01T10:30:00.000');
-    expect(bindings.bindings.at(-1)).toMatchObject({ mappingHash, layoutRevision, effectiveFrom: '2026-01-01T10:30:00.000' });
-    expect(await data('eqv.baselineInventory', { equipmentId: 'eq-synth-01', mappingHash })).toEqual(baseline);
+    expect(bindings.document.bindings.at(-2)!.effectiveTo).toBe('2026-01-01T10:30:00.000');
+    expect(bindings.document.bindings.at(-1)).toMatchObject({ mappingHash, layoutRevision, effectiveFrom: '2026-01-01T10:30:00.000' });
+    expect(await data('eqv.baselineInventory', { equipmentId: 'eq-synth-01', mappingHash })).toEqual({ document: baseline });
     expect((await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-01' })).rows.find((w) => w.hash.endsWith(G1))!.mappingCount).toBe(3);
     expect((await data<{ rows: { equipmentId: string; status: string }[] }>('eqv.fleet')).rows[0]!.status).toBe('published');
     const again = await act('eqv.publishMapping', { ...input, layoutRevision, effectiveFrom: '2026-01-01T11:00:00.000' }, '3');
-    expect(again).toMatchObject({ outcome: 'invalid', fieldErrors: [{ code: 'same-as-latest' }] });
+    expect(again).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['mapping'], code: 'same-as-latest' }] });
     const early = await act('eqv.publishMapping', { ...input, layoutRevision, effectiveFrom: '2026-01-01T10:00:00.000' }, '3');
     expect(early).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['effectiveFrom'], code: 'not_after_latest' }] });
   });
@@ -103,6 +115,19 @@ describe('onboarding mock writes', () => {
     expect(after.rows.map((w) => w.state)).toEqual(['replaced', 'active']);
     expect(await act('eqv.retireSampleWindow', { equipmentId: 'eq-synth-01', windowHash: G1 })).toMatchObject({ outcome: 'invalid', fieldErrors: [{ code: 'not_active' }] });
     expect((await act('eqv.retireSampleWindow', { equipmentId: 'eq-synth-01', windowHash: staged.hash.slice(7) })).outcome).toBe('ok');
+  });
+
+  it('a global-level save needs eqv-studio:dictionary-global-edit as well, like the server', async () => {
+    const global = { level: 'global', document: { schemaVersion: '0.4', scope: { level: 'global' }, rules: [] } };
+    // A mock adapter installs its permission vocabulary as the roles' world: build one without the global permission, then restore.
+    const build = (list: readonly string[]) => createMockAdapter({ endpoints: [...topviewStudioMock], actions: [...topviewStudioActionsMock, ...topviewOnboardingActionsMock], registry: { menus }, permissions: list as typeof permissions });
+    const withoutGlobal = build(permissions.filter((p) => p !== DICTIONARY_GLOBAL_EDIT_PERMISSION));
+    try {
+      const send = (input: Record<string, unknown>) => withoutGlobal.menuAction({ action: 'eqv.saveAliasRules', context: {}, input, idempotencyKey: crypto.randomUUID(), expectedVersion: '0' });
+      expect((await send(global)).outcome).toBe('forbidden');
+      expect((await send({ level: 'equipment', equipmentId: 'eq-synth-02', document: { schemaVersion: '0.4', scope: { level: 'equipment', equipmentId: 'eq-synth-02' }, rules: [] } })).outcome).toBe('ok');
+    } finally { build(permissions); }
+    expect((await act('eqv.saveAliasRules', global, '0')).outcome).toBe('ok');
   });
 
   it('a viewer may read but not write', async () => {

@@ -159,3 +159,10 @@ it('shows a missing draft and a load error in the row instead of numbers', async
   expect(rows.find(({ equipmentId }) => equipmentId === 'bad')).toMatchObject({ status: '—', error: 'inventory 읽기 실패', blockingIssues: null });
   expect(rows.find(({ equipmentId }) => equipmentId === 'ok')).toMatchObject({ status: '미게시', error: null, blockingIssues: 0, referenceRatio: expect.any(Number) });
 });
+
+it('dry-runs a global rules file too, as the server publish applies global, maker, model and equipment files', async () => {
+  const global: AliasRulesFile = { schemaVersion: '0.4', scope: { level: 'global' }, rules: [{ id: 'g', match: { exact: ['PM9'] }, target: { ignore: true }, certainty: 'verified' }] };
+  const run = await dryRun(base({ ruleFiles: { ...boardInput().ruleFiles, global } }));
+  expect(run.coverage?.unmapped).toEqual([]);
+  expect(run.mapping?.entries.find((entry) => entry.alias === 'PM9')?.rule.scope).toEqual({ level: 'global' });
+});

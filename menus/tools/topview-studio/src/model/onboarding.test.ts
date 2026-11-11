@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { layoutRevision, type BindingsFile, type MappingConflict } from '@eqv/core';
 import { DIRTY_REASON, derivePublishPlan, dryRun, type DryRun, type PlanInput } from '@eqv/editor';
 import { FLEET_STATUSES } from '../endpoints';
-import { FLEET_STATUS_LABEL, publishBlockReason, stepMarks, type StepFacts } from './onboarding';
+import { FLEET_STATUS_LABEL, publishBlockReason, publishHeaderReason, publishRightReason, rangeShort, stepMarks, wallClockShort, windowLabel, type StepFacts } from './onboarding';
 
 const seed = <T,>(name: string): T => JSON.parse(readFileSync(join(process.cwd(), 'src/mock/onboarding', name), 'utf8')) as T;
 
@@ -72,5 +72,40 @@ describe('step marks', () => {
     ['not published yet', { ...base, drift: 'unpublished' as const }, { drift: null }],
   ])('%s', (_name, facts, expected) => {
     expect(stepMarks(facts)).toMatchObject(expected);
+  });
+});
+
+describe('short Site Wall-clock for tight places (the full value goes in `title`)', () => {
+  it.each([
+    ['2026-01-01T10:04:30.000', '2026-01-01 10:04'],
+    ['not a wall clock', 'not a wall clock'],
+  ])('%s → %s', (value, short) => { expect(wallClockShort(value)).toBe(short); });
+  it.each([
+    ['same day', '2026-01-01T10:00:00.000', '2026-01-01T10:30:00.000', '2026-01-01 10:00–10:30'],
+    ['two days', '2026-01-01T23:00:00.000', '2026-01-02T01:00:00.000', '2026-01-01 23:00 – 2026-01-02 01:00'],
+  ])('a range on %s', (_name, from, to, short) => { expect(rangeShort(from, to)).toBe(short); });
+  it('a window label leads with what differs between windows of the same range: generation, then state', () => {
+    expect(windowLabel({ from: '2026-01-01T10:00:00.000', to: '2026-01-01T10:30:00.000', dataGeneration: 'g2', state: 'staged' })).toBe('g2 · 교체 대기 · 2026-01-01 10:00–10:30');
+  });
+});
+
+describe('publish gate wording', () => {
+  it('«이전 게시와 같습니다» outranks an empty effectiveFrom: right after a publish nothing new is left to publish', () => {
+    const plan = { problems: ['effectiveFrom 형식이 올바르지 않습니다 (YYYY-MM-DDTHH:mm:ss.sss)', '이전 게시와 같습니다'] } as Parameters<typeof publishBlockReason>[0]['plan'];
+    expect(publishBlockReason({ dirty: false, plan })).toBe('이전 게시와 같습니다');
+  });
+  it.each([
+    ['effectiveFrom 형식이 올바르지 않습니다 (YYYY-MM-DDTHH:mm:ss.sss)', 'effectiveFrom 확인 필요'],
+    ['effectiveFrom은 마지막 binding의 effectiveFrom(2026-01-01T10:04:30.000)보다 늦어야 합니다', 'effectiveFrom 확인 필요'],
+    ['이전 게시와 같습니다', '이전 게시와 같습니다'],
+  ])('the header line for «%s» is «%s»', (problem, header) => { expect(publishHeaderReason(problem)).toBe(header); });
+  it.each([
+    ['a Revision exists', { canLayoutPublish: false, needsRevision: false }, null],
+    ['layout-publish held', { canLayoutPublish: true, needsRevision: true }, null],
+    ['the Revision must be published first without layout-publish', { canLayoutPublish: false, needsRevision: true }, /eqv-studio:layout-publish/],
+    ['the Revision list is not read yet, without layout-publish', { canLayoutPublish: false, needsRevision: null }, /확인하는 중/],
+  ])('rights: %s', (_name, input, reason) => {
+    const text = publishRightReason(input);
+    if (reason === null) expect(text).toBeNull(); else expect(text).toMatch(reason);
   });
 });

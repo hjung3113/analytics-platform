@@ -1,5 +1,5 @@
 import { useId, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
-import { Redo2, Save, Search, Undo2 } from 'lucide-react';
+import { Redo2, Save, Undo2 } from 'lucide-react';
 import { canonicalJson } from '@eqv/core';
 import {
   addPatternRule, applyEdit, applyEdits, applySaveOutcome, buildSavePayload, canRedoBoard, canUndoBoard, dirtyScopes, explainRow, isBoardDirty, paletteOptions,
@@ -9,11 +9,11 @@ import {
 import { useMenuAction, usePlatform } from '@ap/kernel';
 import {
   Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, EmptyState, FieldLabel, FieldList, FieldRow, Input, Label,
-  PanelSectionTitle, RadioGroup, RadioGroupItem, StatusBadge, cn, type Tone,
+  PanelSectionTitle, RadioGroup, RadioGroupItem, SearchInput, StatusBadge, cn, type Tone,
 } from '@ap/ui';
 import { RULES_EDIT_PERMISSION, saveAliasRules, type JsonDocument } from '../../endpoints';
 import { Canvas, PANEL } from '../../parts/Canvas';
-import { Toolbar } from '../../parts/Toolbar';
+import { IconAction, Toolbar } from '../../parts/Toolbar';
 import type { EquipmentData } from './useEquipment';
 
 const STATUS_WORD: Record<BoardStatus, string> = { conflict: '충돌', ignored: '무시', verified: '확정', assumed: '자동', unmapped: '미매핑' };
@@ -50,12 +50,14 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
   const [savedState, setSavedState] = useState<BoardState | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [palette, setPalette] = useState<{ alias: string; filter: string; active: number } | null>(null);
-  const [rule, setRule] = useState<{ alias: string; pattern: string; target: string } | null>(null);
+  // `touched`: problems show after a change or a submit, not on open (a prefilled empty target is not an error yet).
+  const [rule, setRule] = useState<{ alias: string; pattern: string; target: string; touched: boolean } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
 
   const { equipment, layout } = input;
+  const { names } = data;
   const view = useMemo(() => resolveBoard(input, board.present, saveScope, board.baseline), [input, board.present, board.baseline, saveScope]);
   // What the saved rules give each alias, against the published Mapping Version (§5 «새 규칙 반영 가능»).
   const published = useMemo(() => new Map((data.previous?.entries ?? []).map((e) => [e.alias, snapshot({ target: e.target, certainty: e.certainty, level: e.rule.scope.level, ruleId: e.rule.ruleId })])), [data.previous]);
@@ -99,7 +101,7 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
   const openRule = () => {
     if (!writable || !selected) return;
     const suggestion = suggestPattern(selected.alias, selected.componentId);
-    setRule({ alias: selected.alias, pattern: suggestion?.pattern ?? '', target: suggestion?.target ?? '' });
+    setRule({ alias: selected.alias, pattern: suggestion?.pattern ?? '', target: suggestion?.target ?? '', touched: false });
   };
   // The Board follows the viewer (EV#60): a Component click selects the first alias assigned to it.
   const onViewerSelect = (componentId: string | null) => {
@@ -170,22 +172,21 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
     {writable && <div role="toolbar" aria-label="Mapping 도구" className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle px-4 py-2 text-xs">
       <span aria-hidden className="text-text-secondary">저장 범위</span>
       <RadioGroup aria-label="저장 범위" className="flex flex-wrap" value={saveScope} disabled={save.pending} onValueChange={(value) => setSaveScope(value as SaveScope)}>
-        {([['model', `Model (${equipment.maker}/${equipment.model})`], ['equipment', `설비 (${equipment.equipmentId})`]] as const).map(([scope, label]) =>
+        {([['model', `Model (${names.maker} / ${names.model})`], ['equipment', `설비 (${equipment.equipmentId})`]] as const).map(([scope, label]) =>
           <span key={scope} className="flex items-center gap-1.5"><RadioGroupItem id={`${ids}-scope-${scope}`} value={scope} /><Label htmlFor={`${ids}-scope-${scope}`}>{label}</Label></span>)}
       </RadioGroup>
-      <Button size="toolbar" variant="secondary" disabled={save.pending || !canUndoBoard(board)} aria-keyshortcuts="Control+Z Meta+Z" onClick={() => setBoard((b) => (b ? undoBoard(b) : b))}><Undo2 className="size-3.5" aria-hidden />실행 취소</Button>
-      <Button size="toolbar" variant="secondary" disabled={save.pending || !canRedoBoard(board)} aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z" onClick={() => setBoard((b) => (b ? redoBoard(b) : b))}><Redo2 className="size-3.5" aria-hidden />다시 실행</Button>
+      <IconAction label="실행 취소 · Ctrl/Cmd+Z" icon={<Undo2 className="size-4" aria-hidden />} disabled={save.pending || !canUndoBoard(board)} onClick={() => setBoard((b) => (b ? undoBoard(b) : b))} />
+      <IconAction label="다시 실행 · Ctrl/Cmd+Shift+Z" icon={<Redo2 className="size-4" aria-hidden />} disabled={save.pending || !canRedoBoard(board)} onClick={() => setBoard((b) => (b ? redoBoard(b) : b))} />
       <Button size="toolbar" variant="secondary" disabled={save.pending || autoRows.length === 0} onClick={confirmAuto}>자동 일괄 확정 ({autoRows.length})</Button>
       <Button size="toolbar" variant="primary" disabled={!canSave} onClick={() => void onSave()}><Save className="size-3.5" aria-hidden />저장</Button>
       <span ref={statusRef} role="status" tabIndex={-1} className="text-text-secondary">{statusText}</span>
-      {saveScope === 'model' && <span className="text-text-muted">Model 범위 규칙은 {equipment.maker}/{equipment.model}의 모든 설비에 적용됩니다.</span>}
+      {saveScope === 'model' && <span className="text-text-muted">Model 범위 규칙은 {names.maker} / {names.model}의 모든 설비에 적용됩니다.</span>}
     </div>}
     {saveError && <div className="shrink-0 border-b border-border-subtle p-2"><Callout tone="red"><span role="alert">{saveError}</span></Callout></div>}
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <aside aria-label="Alias" className="flex w-60 shrink-0 flex-col border-r border-border-subtle bg-surface-card">
         <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
-          <Search className="size-4 shrink-0 text-text-muted" aria-hidden />
-          <Input ref={searchRef} inputSize="toolbar" type="search" aria-label="Alias 검색" placeholder="/ 검색" value={query} onChange={(event) => setQuery(event.target.value)}
+          <SearchInput size="toolbar" className="w-full" inputRef={searchRef} aria-label="Alias 검색" clearLabel="검색어 지우기" placeholder="/ 검색" value={query} onValueChange={setQuery}
             onKeyDown={(event) => {
               if (event.key === 'Escape') { setQuery(''); listRef.current?.focus(); }
               else if (event.key === 'Enter' || event.key === 'ArrowDown') listRef.current?.focus();
@@ -228,7 +229,7 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
             <FieldRow layout="property" label="확실성">{selected.certainty ?? '—'}</FieldRow>
           </FieldList>
           {selected.overriddenBy && <Callout tone="amber">설비 범위 규칙({selected.overriddenBy})이 우선합니다. 확정하려면 저장 범위를 설비로 바꾸세요.</Callout>}
-          {saveScope === 'model' && selected.changedModelRule && <Callout tone="amber">Model 규칙 {selected.changedModelRule}을(를) 바꿉니다. {equipment.maker}/{equipment.model}의 모든 설비에 적용됩니다.</Callout>}
+          {saveScope === 'model' && selected.changedModelRule && <Callout tone="amber">Model 규칙 {selected.changedModelRule}을(를) 바꿉니다. {names.maker} / {names.model}의 모든 설비에 적용됩니다.</Callout>}
           {lines.length > 0 && <Callout tone="amber"><ul className="m-0 list-disc pl-4" aria-label="충돌과 문제">{lines.map((line) => <li key={line}>{line}</li>)}</ul></Callout>}
           {writable && <>
             {confirmReason && <p id={`${ids}-confirm-reason`} className="text-text-muted">{confirmReason}</p>}
@@ -276,21 +277,22 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
           <DialogDescription>패턴에 맞는 alias를 한 번에 같은 규칙으로 배정합니다. 추가 전에 결과를 확인하세요.</DialogDescription></DialogHeader>
         <form noValidate className="space-y-3" id={`${ids}-rule`} onSubmit={(event) => {
           event.preventDefault();
-          if (preview.problems.length || !writable) return;
+          if (preview.problems.length) { setRule({ ...rule, touched: true }); return; }
+          if (!writable) return;
           const next = addPatternRule(input, board, saveScope, { pattern: rule.pattern, target: rule.target });
           setBoard(next);
           setNotice({ state: next, text: `규칙 ${preview.rule?.id ?? ''} 추가${preview.removes.length ? ` · 정리 ${preview.removes.length}건` : ''}` });
           setRule(null);
         }}>
-          <div className="space-y-1"><FieldLabel htmlFor={`${ids}-pattern`}>패턴</FieldLabel><Input id={`${ids}-pattern`} inputSize="toolbar" value={rule.pattern} onChange={(event) => setRule({ ...rule, pattern: event.target.value })} /></div>
-          <div className="space-y-1"><FieldLabel htmlFor={`${ids}-target`}>대상 Component</FieldLabel><Input id={`${ids}-target`} inputSize="toolbar" value={rule.target} onChange={(event) => setRule({ ...rule, target: event.target.value })} /></div>
+          <div className="space-y-1"><FieldLabel htmlFor={`${ids}-pattern`}>패턴</FieldLabel><Input id={`${ids}-pattern`} inputSize="toolbar" value={rule.pattern} onChange={(event) => setRule({ ...rule, pattern: event.target.value, touched: true })} /></div>
+          <div className="space-y-1"><FieldLabel htmlFor={`${ids}-target`}>대상 Component</FieldLabel><Input id={`${ids}-target`} inputSize="toolbar" value={rule.target} onChange={(event) => setRule({ ...rule, target: event.target.value, touched: true })} /></div>
           <p role="status" className="text-xs">{preview.summary}</p>
           {preview.rows.length > 0 && <ul aria-label="규칙 미리보기" className="max-h-40 list-disc overflow-y-auto pl-5 text-xs">{preview.rows.map((row) => <li key={row.alias}>{row.alias} → {row.target ?? '—'} · {row.outcome}</li>)}</ul>}
-          {preview.problems.length > 0 && <Callout tone="amber"><ul id={`${ids}-rule-problem`} className="m-0 list-disc pl-4" aria-label="규칙 문제">{preview.problems.map((p) => <li key={p}>{p}</li>)}</ul></Callout>}
+          {rule.touched && preview.problems.length > 0 && <Callout tone="amber"><ul id={`${ids}-rule-problem`} className="m-0 list-disc pl-4" aria-label="규칙 문제">{preview.problems.map((p) => <li key={p}>{p}</li>)}</ul></Callout>}
         </form>
         <DialogFooter spacing="compact">
           <Button size="toolbar" variant="secondary" onClick={() => setRule(null)}>닫기</Button>
-          <Button size="toolbar" variant="primary" type="submit" form={`${ids}-rule`} disabled={preview.problems.length > 0} aria-describedby={preview.problems.length ? `${ids}-rule-problem` : undefined}>규칙 추가</Button>
+          <Button size="toolbar" variant="primary" type="submit" form={`${ids}-rule`} disabled={rule.touched && preview.problems.length > 0} aria-describedby={rule.touched && preview.problems.length ? `${ids}-rule-problem` : undefined}>규칙 추가</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>}

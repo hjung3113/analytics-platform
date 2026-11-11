@@ -29,8 +29,10 @@ const READS: Record<string, (p: Record<string, string>) => ApiResponse<never>> =
   'eqv.observedInventory': () => ok(seed<Record<string, unknown>>('inventories.json')[G1]),
   'eqv.typeDictionary': (p) => (p.level === 'model' ? ok({ document: seed<Record<string, unknown>>('dictionaries.json')['model/synth-maker/synth-model'], version: '1' }) : empty()),
   'eqv.aliasRules': (p) => { const doc = rules[p.level === 'model' ? 'model/synth-maker/synth-model' : `equipment/${p.equipmentId}`]; return p.level !== 'maker' && doc ? ok({ document: doc, version: '1' }) : empty(); },
-  'eqv.bindings': () => ok({ ...bindings, version: String(bindings.bindings.length) }),
-  'eqv.mappingVersion': (p) => ok(seed<Record<string, Record<string, unknown>>>('mappings.json')['eq-synth-01']![p.hash!]),
+  // The server's answer shapes (`apps/platform-api/src/modules/eqv/onboarding-endpoints.ts`).
+  'eqv.bindings': () => ok({ document: bindings, version: String(bindings.bindings.length) }),
+  'eqv.mappingVersion': (p) => ok({ layoutRevision: null, publishedAt: '2026-11-10T00:00:00.000Z', document: seed<Record<string, Record<string, unknown>>>('mappings.json')['eq-synth-01']![p.hash!] }),
+  'eqv.fleet': () => ok({ rows: [] }),
   'eqv.baselineInventory': () => empty(),
   'eqv.layoutDraft': (p) => ok({ id: 'row', layoutId: p.layoutId, version: '1', document: seed('layout-eq-synth-01.json'), updatedAt: '2026-11-10T00:00:00.000Z' }),
   'eqv.layoutRevisions': () => ok({ rows: [] }),

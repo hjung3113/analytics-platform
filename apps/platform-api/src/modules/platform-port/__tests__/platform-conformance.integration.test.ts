@@ -111,7 +111,8 @@ const testActionPair = { actions: [actionDeclaration(noneSpec), actionDeclaratio
  * The Scope-less menu reads the production run judges (#1669). The declarations come from the contract snapshot
  * `@ap/contract-schemas/endpoints.json` (the one place `kinds` of a menu endpoint is written; the server's own
  * declarations carry no `kinds`), narrowed to `requiresScope: false` — the server refuses a Scope-requiring
- * endpoint at registration (#1087). The Studio `eqv.*` reads come from the snapshot through the Studio Layouts menu (#1654);
+ * endpoint at registration (#1087). The Studio `eqv.*` reads come from the snapshot through the Studio Layouts menu (#1654),
+ * the served Onboarding reads through the Onboarding menu (#1658);
  * `eqv.equipment-options` belongs to the app's module, outside that snapshot (`endpoints.json` covers `menus/` and
  * `platform/` only), so its spec is written here, as the server declares it (no assessment kinds).
  */
@@ -173,6 +174,12 @@ const NOT_REGISTERED: readonly string[] = [
   'metrics.definition',
   'metrics.pair',
   'metrics.usage',
+  // Declared by the Onboarding menu and served by its mock; server pending (#1658 Sample Window·Fleet PR). Listed here, not in
+  // MENU_LEFT_OUT: no module registers them yet, and the coverage test below compares MENU_LEFT_OUT with the registered ids.
+  'eqv.fleet',
+  'eqv.sampleWindows',
+  'eqv.observedInventory',
+  'eqv.bundledTemplates',
 ];
 
 /** An id no row has; the detail reads answer `empty` for it. */
@@ -181,6 +188,8 @@ const NO_ROW_2 = '16690000-0000-4000-8000-000000000002';
 const listPage = { page: 0, pageSize: 10, sorting: [] as never[] };
 const pagedList = { page: 0, pageSize: 10 };
 const nilEqvLayout = 'conformance-layout';
+const nilEqvEquipment = 'conformance-equipment';
+const nilEqvHash = `sha256:${'0'.repeat(64)}`;
 
 /** Params the granted actor's request succeeds with (`ok` or `empty`) on a database with no domain rows. */
 const MENU_PARAMS: Record<string, Record<string, unknown>> = {
@@ -257,6 +266,13 @@ const MENU_PARAMS: Record<string, Record<string, unknown>> = {
   'eqv.templates': {},
   'eqv.template': { templateId: nilEqvLayout },
   'eqv.equipment-options': {},
+  'eqv.aliasRules': { level: 'global' },
+  'eqv.typeDictionary': { level: 'global' },
+  'eqv.equipmentScopes': { equipmentId: nilEqvEquipment },
+  'eqv.mappingVersions': { equipmentId: nilEqvEquipment },
+  'eqv.mappingVersion': { equipmentId: nilEqvEquipment, hash: nilEqvHash },
+  'eqv.bindings': { equipmentId: nilEqvEquipment },
+  'eqv.baselineInventory': { equipmentId: nilEqvEquipment, mappingHash: nilEqvHash },
 };
 
 /**
@@ -265,15 +281,7 @@ const MENU_PARAMS: Record<string, Record<string, unknown>> = {
  */
 const EXPLORER_PERMISSION_GAP =
   'every other check passes with a bare server (stateOnly, outcome ok), but the entry gate admits any token regardless of platform:view and answers an audited ok with a permission_denied state, so the kit\'s "without platform:view → forbidden" cannot hold';
-const ONBOARDING_LEFT_OUT = 'Onboarding read (#1658): not in the contract snapshot until the Onboarding menu package declares it; the eqv integration suite judges it';
 const MENU_LEFT_OUT: Readonly<Record<string, string>> = {
-  'eqv.aliasRules': ONBOARDING_LEFT_OUT,
-  'eqv.typeDictionary': ONBOARDING_LEFT_OUT,
-  'eqv.equipmentScopes': ONBOARDING_LEFT_OUT,
-  'eqv.mappingVersions': ONBOARDING_LEFT_OUT,
-  'eqv.mappingVersion': ONBOARDING_LEFT_OUT,
-  'eqv.bindings': ONBOARDING_LEFT_OUT,
-  'eqv.baselineInventory': ONBOARDING_LEFT_OUT,
   'logExplorer.records': EXPLORER_PERMISSION_GAP,
   'logExplorer.periods': EXPLORER_PERMISSION_GAP,
   'logExplorer.parsed': EXPLORER_PERMISSION_GAP,

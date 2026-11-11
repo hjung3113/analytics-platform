@@ -7,12 +7,12 @@
 import { defineMockAction, MockActionInvalid, type AnyMockAction } from '@ap/mock-server';
 import type { FieldError } from '@ap/contracts';
 import {
-  EQUIPMENT_ID_PATTERN, REVISION_PATTERN, TEMPLATE_ID_PATTERN, WALL_CLOCK_PATTERN, WINDOW_HEX_PATTERN,
+  DICTIONARY_GLOBAL_EDIT_PERMISSION, EQUIPMENT_ID_PATTERN, REVISION_PATTERN, TEMPLATE_ID_PATTERN, WALL_CLOCK_PATTERN, WINDOW_HEX_PATTERN,
   publishMapping, replaceSampleWindow, retireSampleWindow, saveAliasRules, saveTypeDictionary, type JsonDocument, type ScopeLevel,
 } from '../endpoints';
 import { fakeRevision } from './hash';
 import { equipmentById, hexOf, onboarding, scopeKey, type Binding } from './onboarding-store';
-import { revisions, stamp } from './store';
+import { mockId, revisions, stamp } from './store';
 
 const err = (path: string[], code: string): FieldError => ({ path, code });
 const LEVELS: readonly ScopeLevel[] = ['global', 'maker', 'model', 'equipment'];
@@ -29,15 +29,19 @@ function scopedErrors(input: { level: ScopeLevel; vendorId?: string; modelId?: s
 
 function scopedWrite(store: 'rules' | 'dictionaries') {
   return {
+    // Like the server: a `global` level needs the global permission (and only that); any other level the declared rules-edit one.
+    authorize: ({ input, can }: { input: { level: ScopeLevel }; can(permission: string): boolean }) => input.level !== 'global' || can(DICTIONARY_GLOBAL_EDIT_PERMISSION),
     version: ({ input }: { input: { level: ScopeLevel; vendorId?: string; modelId?: string; equipmentId?: string } }) => {
       const key = scopeKey(input);
       return String((key && onboarding()[store].get(key)?.version) ?? 0);
     },
     handle: ({ input }: { input: { level: ScopeLevel; vendorId?: string; modelId?: string; equipmentId?: string; document: JsonDocument } }) => {
       const key = scopeKey(input)!;
-      const next = (onboarding()[store].get(key)?.version ?? 0) + 1;
-      onboarding()[store].set(key, { document: structuredClone(input.document), version: next });
-      return { data: { level: input.level, version: String(next) }, version: String(next) };
+      const current = onboarding()[store].get(key);
+      const next = (current?.version ?? 0) + 1;
+      const id = current?.id ?? mockId();
+      onboarding()[store].set(key, { id, document: structuredClone(input.document), version: next });
+      return { data: { id, version: String(next) }, version: String(next) };
     },
   };
 }
@@ -99,7 +103,7 @@ export const onboardingActionsMock: readonly AnyMockAction[] = [
       const aliases = (input.baseline.aliases as { alias: string }[]).map(({ alias }) => alias);
       const body = { schemaVersion: '0.4', equipmentId, layoutId, entries: flattenRules(files, aliases) };
       const mappingHash = fakeRevision(body);
-      if (latest && latest.mappingHash === mappingHash && latest.layoutRevision === layoutRevision) throw new MockActionInvalid([err(['equipmentId'], 'same-as-latest')]);
+      if (latest && latest.mappingHash === mappingHash && latest.layoutRevision === layoutRevision) throw new MockActionInvalid([err(['mapping'], 'same-as-latest')]);
       const next: Binding[] = [...bindings.map((b) => (b === latest && b.effectiveTo === undefined ? { ...b, effectiveTo: effectiveFrom } : b)), { layoutId, mappingHash, layoutRevision, effectiveFrom }];
       onboarding().bindings.set(equipmentId, next);
       const byHash = onboarding().mappings.get(equipmentId) ?? new Map();
@@ -111,7 +115,7 @@ export const onboardingActionsMock: readonly AnyMockAction[] = [
       const window = onboarding().windows.get(equipmentId)?.find((w) => w.state === 'active' && w.from === input.baseline.from && w.to === input.baseline.to);
       if (window) window.mappingCount += 1;
       equipment.status = 'published';
-      return { data: { equipmentId, mappingHash, layoutRevision, version: String(next.length) }, version: String(next.length) };
+      return { data: { mappingHash, bindingId: mockId(), version: String(next.length) }, version: String(next.length) };
     },
   }),
   defineMockAction(replaceSampleWindow, {

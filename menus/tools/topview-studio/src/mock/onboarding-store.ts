@@ -22,7 +22,7 @@ export type EquipmentRec = {
 };
 export type Binding = { layoutId: string; mappingHash: string; layoutRevision?: string; effectiveFrom: string; effectiveTo?: string };
 export type MappingRec = { document: JsonDocument & { hash: string; layoutId: string; entries: unknown[] }; layoutRevision: string | null; publishedAt: string };
-type Versioned = { document: JsonDocument; version: number };
+type Versioned = { document: JsonDocument; version: number; id?: string };
 
 type State = {
   equipment: EquipmentRec[];
