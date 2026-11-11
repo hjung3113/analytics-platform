@@ -6,6 +6,8 @@ export type SendRequest = {
   path: string;
   query?: Readonly<Record<string, string | undefined>>;
   body?: unknown;
+  /** A multipart body (one file upload). Mutually exclusive with `body`; no `Content-Type` is set, so `fetch` writes the boundary. */
+  formData?: FormData;
   headers?: Readonly<Record<string, string>>;
   /** Kernel cancellation. Only this signal means "cancelled"; the internal timeout never does. */
   signal?: AbortSignal;
@@ -47,13 +49,13 @@ export function createTransport({ fetch: fetchImpl, base }: TransportConfig): Tr
       kernelSignal?.addEventListener('abort', onKernelAbort, { once: true });
 
       const headers: Record<string, string> = { Accept: 'application/json', 'X-Correlation-Id': requestId, ...request.headers };
-      if (request.body !== undefined) headers['Content-Type'] = 'application/json';
+      if (request.body !== undefined && request.formData === undefined) headers['Content-Type'] = 'application/json';
 
       try {
         const response = await fetchImpl(buildUrl(base, request.path, request.query), {
           method: request.method,
           headers,
-          body: request.body === undefined ? undefined : JSON.stringify(request.body),
+          body: request.formData ?? (request.body === undefined ? undefined : JSON.stringify(request.body)),
           signal: controller.signal,
           credentials: 'same-origin',
           redirect: 'manual',

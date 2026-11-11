@@ -20,6 +20,9 @@ export const MIME_ALLOWLIST: ReadonlySet<string> = new Set([
   // Documents
   'application/pdf',
   'text/plain',
+  // Data files (#1741). Safe to serve: the download route always sends `Content-Disposition: attachment` and the
+  // server sends `X-Content-Type-Options: nosniff` on every response.
+  'application/json',
   // Office (read-only consumption — write side is out of scope)
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

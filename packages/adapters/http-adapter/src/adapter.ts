@@ -28,9 +28,10 @@ import type {
   UsageNextQuery,
   UsageNextScreens,
   UsageRange,
+  UploadedFile,
   UsageSummary,
 } from '@ap/contracts';
-import { isRecord, type MenuAction } from '@ap/contracts';
+import { isRecord, UPLOAD_FILE_MAX_BYTES, type MenuAction } from '@ap/contracts';
 import { envelopeCall, actionCall, plainCall, portCall, TransportError, type CallContext, type PlainReply } from './calls/calls.js';
 import type { SessionStore } from './session/session.js';
 import type { Transport } from './calls/transport.js';
@@ -130,6 +131,25 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
     deleteNotice: (input, signal) =>
       actionCall(context, { method: 'POST', path: `${PLATFORM}/notices/delete`, body: input }, noticeAction('notice.delete', input), signal) as Promise<ActionResponse<{ id: string }>>,
 
+    // File upload: multipart (the transport writes the boundary), CSRF, the key as header only. A 32 MiB body needs more than the
+    // JSON-call deadline, so it gets its own. An `ok` answer whose data is not an UploadedFile is a broken response, never a success.
+    async uploadFile(input, signal) {
+      const form = new FormData();
+      // A drift probe calls every port with a placeholder: a non-Blob leaves an empty form (the server judges it `invalid`) rather than throwing before any request.
+      if (input.file instanceof Blob) form.append('file', input.file, input.name);
+      const response = await actionCall(
+        context,
+        { method: 'POST', path: `${PLATFORM}/files`, formData: form },
+        { action: 'file.upload', context: {}, input: { name: input.name }, idempotencyKey: input.idempotencyKey },
+        signal,
+        Math.max(config.timeoutMs, UPLOAD_TIMEOUT_MS),
+      );
+      if (response.outcome === 'ok' && !isUploadedFile(response.data)) {
+        return { outcome: 'unknown', data: null, version: null, fieldErrors: [], replayed: false, correlationId: response.correlationId, message: 'invalid_response' };
+      }
+      return response as ActionResponse<UploadedFile>;
+    },
+
     async recordUsage(events: readonly UsageEvent[]) {
       try {
         const value = await plainCall(
@@ -160,6 +180,20 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
 }
 
 /** The write headers of a notice request come from its own fields; the body is sent as given (no client-side pre-validation). */
+/** Deadline of one upload call: the largest body (UPLOAD_FILE_MAX_BYTES) on a slow link. */
+const UPLOAD_TIMEOUT_MS = 120_000;
+
+/** Equals `uploadedFileSchema` of `@ap/contract-schemas` (an equivalence test pins it): strict keys, non-empty strings, an integer size within the cap. */
+const UPLOADED_FILE_KEYS = ['id', 'name', 'size', 'mimeType'];
+const isUploadedFile = (value: unknown): value is UploadedFile =>
+  isRecord(value) &&
+  Object.keys(value).length === UPLOADED_FILE_KEYS.length &&
+  UPLOADED_FILE_KEYS.every((key) => key in value) &&
+  typeof value['id'] === 'string' && value['id'] !== '' &&
+  typeof value['name'] === 'string' && value['name'] !== '' &&
+  typeof value['mimeType'] === 'string' && value['mimeType'] !== '' &&
+  typeof value['size'] === 'number' && Number.isInteger(value['size']) && value['size'] >= 0 && value['size'] <= UPLOAD_FILE_MAX_BYTES;
+
 const noticeAction = (action: string, input: { idempotencyKey: string; expectedVersion?: string }): MenuAction =>
   ({ action, context: {}, input, idempotencyKey: input.idempotencyKey, ...(input.expectedVersion === undefined ? {} : { expectedVersion: input.expectedVersion }) });
 

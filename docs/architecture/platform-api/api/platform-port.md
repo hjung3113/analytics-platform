@@ -50,6 +50,13 @@ Which of the 30 `PlatformAdapter` methods this server answers. `implemented`: se
 | `listNotices` | implemented |
 | `saveNotice` | implemented |
 | `deleteNotice` | implemented |
+| `uploadFile` | implemented |
+
+## 파일 올리기
+
+`POST /api/v1/platform/files`(#1741, [ADR-0140](../../../adr/0140-generic-file-upload-port.md)): multipart 본문의 `file` 부분 하나, `Idempotency-Key` 헤더(UUIDv4), `X-CSRF-Token`. 쿠키 세션과 `platform:view`가 필요하다(`every-session`). Bearer API 토큰은 받지 않는다: 이 라우트는 토큰 호출을 허용하지 않아 토큰으로 부르면 `permission.session_required`로 거절된다. 세션·CSRF·권한·키·미디어 타입 판정은 본문을 읽기 전(`preParsing`)에 끝나고, `Idempotency-Key`는 소문자로 바꾼 한 철자로 잠그고 기록한다. 같은 키로 같은 이름·형식·크기의 다른 내용을 보내면 내용 SHA-256이 달라 `conflict`다. 저장은 첨부 모듈의 `uploadAttachmentCommand`를 그대로 부른다 — [Attachments](attachments.md)의 저장소 경계, 멱등 틀, 파일 이름이 없는 `attachment_uploaded` 감사, 24시간 정리, 연결 안 된 행은 올린 사람만 내려받기가 같다. 한도는 요청당 32 MiB(`POST /attachments`는 25 MiB 그대로)이고 `file` 부분 하나만 받으며(다른 이름의 파일은 `required`, 두 번째 파일은 `too_many_parts`) 텍스트 필드는 작은 수만 허용한다. 운영 엣지(nginx)는 이 경로만 34m까지 통과시킨다. 허용 MIME은 첨부 모듈의 닫힌 집합 하나다. 속도 제한은 첨부 쓰기 등급(`attachmentMutation`)이고 동시 올리기 슬롯은 `POST /attachments`와 같이 쓴다.
+
+답은 `ActionResponse<{ id, name, size, mimeType }>`이고 판정된 결과는 모두 HTTP 200이다: `ok`(같은 키·같은 파일의 재시도는 `replayed: true`), `invalid`(`fieldErrors`의 `code`: `too_large`·`unsupported_type`·`invalid_filename`·`too_many_parts`·`required`·`malformed`, 헤더 문제는 `path: ['headers', …]`), `conflict`(같은 키, 다른 파일), `forbidden`(`platform:view` 없음), `error`(저장소 장애, 또는 동시 올리기 슬롯이 없을 때 `Retry-After: 5`). 세션 없음 401, 다른 작업 공간 세션 403, CSRF 실패 403 `csrf.invalid`은 HTTP 오류다.
 
 ## 감사 응답
 

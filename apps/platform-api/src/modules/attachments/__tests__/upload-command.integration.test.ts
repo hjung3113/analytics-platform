@@ -274,9 +274,10 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
     const args = commandArgs();
     const first = await attachmentsService.uploadAttachmentCommand(args);
     expect(first.status).toBe(201);
+    expect(first.replayed).toBe(false);
 
     const replay = await attachmentsService.uploadAttachmentCommand(args);
-    expect(replay).toEqual(first);
+    expect(replay).toEqual({ ...first, replayed: true });
 
     expect(await attachmentRowCount(adminActorId)).toBe(1);
     expect(await auditEventTypes(first.body.id)).toEqual(['attachment_uploaded']);
@@ -446,12 +447,14 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
 
     expect(results.map((r) => r.status)).toEqual(Array(6).fill('fulfilled'));
     const bodies = results.map(
-      (r) => (r as PromiseFulfilledResult<{ status: number; body: unknown }>).value,
+      (r) => (r as PromiseFulfilledResult<{ status: number; body: unknown; replayed?: boolean }>).value,
     );
     for (const value of bodies) {
       expect(value.status).toBe(201);
-      expect(value).toEqual(bodies[0]);
+      // `replayed` is the one field that differs: the winner is false, every racer that lost is true.
+      expect({ ...value, replayed: undefined }).toEqual({ ...bodies[0], replayed: undefined });
     }
+    expect(bodies.filter((value) => (value as { replayed?: boolean }).replayed === false)).toHaveLength(1);
     expect(await attachmentRowCount(adminActorId)).toBe(1);
     // Every racer put its own object; the five replays deleted theirs.
     expect(storagePuts()).toHaveLength(6);
@@ -468,7 +471,7 @@ describe.skipIf(!runIntegration)('uploadAttachmentCommand (#393)', () => {
     storage.deleteBehavior = 'throw-unavailable';
     const replay = await attachmentsService.uploadAttachmentCommand(args);
 
-    expect(replay).toEqual(first);
+    expect(replay).toEqual({ ...first, replayed: true });
     expect(await attachmentRowCount(adminActorId)).toBe(1);
     // The orphan stays in the bucket for the attachments-orphans inventory.
     expect(storage.live.size).toBe(2);

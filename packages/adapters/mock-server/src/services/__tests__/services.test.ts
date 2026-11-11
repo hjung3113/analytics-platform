@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { PREFERENCE_KEYS_MAX, PREFERENCE_VALUE_MAX_BYTES } from '@ap/contracts';
-import { deleteNotice, importPreferences, listNotices, lookupPeople, patchPreferences, readPreferences, resetNotices, resetPreferences, saveNotice } from '../services';
+import { PREFERENCE_KEYS_MAX, PREFERENCE_VALUE_MAX_BYTES, UPLOAD_FILE_MAX_BYTES } from '@ap/contracts';
+import { deleteNotice, importPreferences, listNotices, lookupPeople, patchPreferences, readPreferences, resetNotices, resetPreferences, resetUploads, saveNotice, storedUploads, uploadFile } from '../services';
 import { getRole, setRole, setScenario } from '../../server';
 import { createMockAdapter } from '../../adapter';
 import type { RoleId } from '../../world';
@@ -8,7 +8,7 @@ import type { RoleId } from '../../world';
 const fast = { latency: 0 };
 const as = (role: RoleId) => ({ ...fast, role });
 const previousRole: RoleId = getRole();
-afterEach(() => { resetPreferences(); resetNotices(); setScenario('normal'); setRole(previousRole); });
+afterEach(() => { resetPreferences(); resetNotices(); resetUploads(); setScenario('normal'); setRole(previousRole); });
 
 const text = { ko: '제목', en: 'Title' };
 const draft = { title: text, content: text, scopeId: null, until: '2026-10-30T00:00:00' };
@@ -232,5 +232,70 @@ describe('notices', () => {
     expect(await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1', idempotencyKey: 'd2' }, undefined, as('admin'))).toMatchObject({ outcome: 'ok', replayed: true });
     expect((await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1', idempotencyKey: 'd3' }, undefined, as('admin'))).outcome).toBe('not_found');
     expect((await deleteNotice({ id: 'N-mock-2', expectedVersion: 'v1', idempotencyKey: 'd4', author: 'x' } as never, undefined, as('admin'))).outcome).toBe('invalid');
+  });
+});
+
+describe('uploadFile', () => {
+  const key = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const json = (text = '{}') => new Blob([text], { type: 'application/json' });
+  const upload = (over: Record<string, unknown> = {}, role: RoleId = 'engineer') =>
+    uploadFile({ file: json(), name: 'a.batch.json', idempotencyKey: key(1), ...over } as never, undefined, as(role));
+
+  it('stores one file and answers its id with the size and MIME it recorded, for a session without any menu permission', async () => {
+    const result = await upload({}, 'viewer');
+    expect(result).toMatchObject({ outcome: 'ok', replayed: false, data: { id: expect.any(String), name: 'a.batch.json', size: 2, mimeType: 'application/json' } });
+    expect(storedUploads()).toHaveLength(1);
+  });
+
+  it('replays the same key and file without a second object, and answers conflict for the same key with another file', async () => {
+    const first = await upload();
+    const replay = await upload();
+    expect(replay).toMatchObject({ outcome: 'ok', replayed: true, data: first.data });
+    expect(storedUploads()).toHaveLength(1);
+    expect(await upload({ file: json('{"a":1}') })).toMatchObject({ outcome: 'conflict', data: null });
+    expect(await upload({}, 'admin')).toMatchObject({ outcome: 'ok', replayed: false });
+    expect(storedUploads()).toHaveLength(2);
+  });
+
+  it('answers conflict for other bytes of the same name, type and size, and treats the two spellings of one UUID as one key', async () => {
+    const first = await upload({ file: json('{"a":1}') });
+    expect(await upload({ file: json('{"a":2}') })).toMatchObject({ outcome: 'conflict', data: null });
+    const upperKey = '0000000A-0000-4000-8000-00000000000B';
+    const lower = await upload({ idempotencyKey: upperKey.toLowerCase() }, 'admin');
+    expect(await upload({ idempotencyKey: upperKey }, 'admin')).toMatchObject({ outcome: 'ok', replayed: true, data: lower.data });
+    expect(first.outcome).toBe('ok');
+    expect(storedUploads()).toHaveLength(2);
+  });
+
+  it('reads the base type of the declared MIME and keeps only what follows the last path separator, like the server', async () => {
+    const result = await upload({ file: new Blob(['{}'], { type: 'application/json; charset=utf-8' }), name: 'dir/sub\\a.json' });
+    expect(result).toMatchObject({ outcome: 'ok', data: { name: 'a.json', mimeType: 'application/json' } });
+  });
+
+  it('accepts exactly the size limit and refuses one byte more as invalid too_large', async () => {
+    expect(await upload({ file: new Blob([new Uint8Array(UPLOAD_FILE_MAX_BYTES)], { type: 'application/json' }) })).toMatchObject({ outcome: 'ok', data: { size: UPLOAD_FILE_MAX_BYTES } });
+    expect(await upload({ file: new Blob([new Uint8Array(UPLOAD_FILE_MAX_BYTES + 1)], { type: 'application/json' }), idempotencyKey: key(2) })).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['file'], code: 'too_large' }] });
+    expect(storedUploads()).toHaveLength(1);
+  });
+
+  it.each([
+    ['a type outside the closed set', { file: new Blob(['x'], { type: 'application/x-msdownload' }) }, [{ path: ['file'], code: 'unsupported_type' }]],
+    ['an empty declared type', { file: new Blob(['x']) }, [{ path: ['file'], code: 'unsupported_type' }]],
+    ['a name that is empty after cleaning', { name: '//\\' }, [{ path: ['file', 'name'], code: 'invalid_filename' }]],
+    ['an unknown key', { author: 'u' }, [{ path: ['author'], code: 'unknown_key' }]],
+    ['a key that is not a UUIDv4', { idempotencyKey: 'k-1' }, [{ path: ['idempotencyKey'], code: 'invalid' }]],
+  ])('refuses %s as invalid and stores nothing', async (_label, over, fieldErrors) => {
+    expect(await upload(over)).toMatchObject({ outcome: 'invalid', data: null, fieldErrors });
+    expect(storedUploads()).toHaveLength(0);
+  });
+
+  it('follows the error and forbidden scenarios and is reachable through the adapter', async () => {
+    setScenario('error');
+    expect((await upload()).outcome).toBe('error');
+    setScenario('forbidden');
+    expect((await upload()).outcome).toBe('forbidden');
+    setScenario('normal');
+    const adapter = createMockAdapter({ endpoints: [], registry: { menus: [], permissions: [] } as never });
+    expect(typeof adapter.uploadFile).toBe('function');
   });
 });

@@ -1,6 +1,6 @@
 import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
 import { describe, expect, it } from 'vitest';
-import { defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
+import { UPLOAD_FILE_MAX_BYTES, defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type UploadedFile, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
 import { planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from '../index';
 import { SAVED_VIEW_PORT_METHODS } from '../plan/ports/saved-views';
 
@@ -115,6 +115,8 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
   const noticeReplays = new Map<string, ActionResponse<Notice>>();
   const noticeAnswer = <T,>(outcome: ActionResponse<T>['outcome'], over: Partial<ActionResponse<T>> = {}): ActionResponse<T> =>
     ({ outcome, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'ref', ...over });
+  const uploadRecords = new Map<string, { fingerprint: string; answer: ActionResponse<UploadedFile> }>();
+  let uploadSeq = 0;
   const noticeWriter = () => state.console || breaks.has('notice-forbidden');
   const toNotice = ({ n: _n, ...notice }: StoredNotice): Notice => notice;
   return {
@@ -644,6 +646,24 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       noticeRows.splice(index, 1);
       return noticeAnswer('ok', { data: { id: input.id }, version: input.expectedVersion });
     },
+    uploadFile: async input => {
+      const type = input.file.type;
+      const name = input.name.replace(/[/\\]/g, '').trim();
+      if (type !== 'application/json' && type !== 'text/plain' && !breaks.has('upload-type')) return noticeAnswer<UploadedFile>('invalid', { fieldErrors: [{ path: ['file'], code: 'unsupported_type' }] });
+      if (name === '') return noticeAnswer<UploadedFile>('invalid', { fieldErrors: [{ path: ['file', 'name'], code: 'invalid_filename' }] });
+      if (input.file.size > UPLOAD_FILE_MAX_BYTES && !breaks.has('upload-size')) return noticeAnswer<UploadedFile>('invalid', { fieldErrors: [{ path: ['file'], code: 'too_large' }] });
+      const key = `${actor()}:${input.idempotencyKey}`;
+      const content = await new Response(input.file).text();
+      const fingerprint = `${name}|${type}|${input.file.size}|${content}`;
+      const seen = uploadRecords.get(key);
+      if (seen && !breaks.has('upload-replay')) {
+        if (seen.fingerprint !== fingerprint && !breaks.has('upload-conflict')) return noticeAnswer<UploadedFile>('conflict');
+        return { ...seen.answer, replayed: true };
+      }
+      const answer = noticeAnswer<UploadedFile>('ok', { data: { id: `F-${++uploadSeq}`, name, size: input.file.size, mimeType: type } });
+      uploadRecords.set(key, { fingerprint, answer });
+      return answer;
+    },
     // The ports round D exercises (#152): contract-shaped answers, one break each.
     publishedMetrics: () => breaks.has('published-metrics')
       ? [{ metricId: '', publishedVersion: 3 as unknown as string | null }] // empty id, non-string version
@@ -851,6 +871,10 @@ describe('server conformance kit (#145)', () => {
       'port · saveNotice rejects a supplied author, id on create and unknown keys',
       'port · saveNotice without console:access → forbidden',
       'port · deleteNotice without console:access → forbidden',
+      'port · uploadFile stores one file and answers its id with the size and type recorded',
+      'port · uploadFile with the same idempotency key replays without a second object; the same key with another file conflicts',
+      'port · uploadFile refuses a file over the size limit as invalid, and stores nothing',
+      'port · uploadFile refuses an unsupported or empty type and an unusable name as invalid',
       'savedViews: no sample',
       'actions: no sample',
       'condition: no sample',
@@ -900,6 +924,10 @@ describe('server conformance kit (#145)', () => {
     ['notice-stale', ['port · notices: create, update under the version, stale update conflicts, delete, delete again not_found']],
     ['notice-author', ['port · saveNotice rejects a supplied author, id on create and unknown keys']],
     ['notice-forbidden', ['port · saveNotice without console:access → forbidden', 'port · deleteNotice without console:access → forbidden']],
+    ['upload-replay', ['port · uploadFile with the same idempotency key replays without a second object; the same key with another file conflicts']],
+    ['upload-conflict', ['port · uploadFile with the same idempotency key replays without a second object; the same key with another file conflicts']],
+    ['upload-size', ['port · uploadFile refuses a file over the size limit as invalid, and stores nothing']],
+    ['upload-type', ['port · uploadFile refuses an unsupported or empty type and an unusable name as invalid']],
   ])('catches a server that breaks %s', async (broken, expected) => {
     expect(await failing([broken])).toEqual(expect.arrayContaining(expected));
   });
@@ -1702,7 +1730,7 @@ describe('declared gaps: implemented ports, site grants, siteless destinations (
 
   it('shows the new ports as visibly skipped when a server has not implemented them yet', async () => {
     const h = fresh();
-    const NEW = ['readPreferences', 'patchPreferences', 'importPreferences', 'lookupPeople', 'listNotices', 'saveNotice', 'deleteNotice'];
+    const NEW = ['readPreferences', 'patchPreferences', 'importPreferences', 'lookupPeople', 'listNotices', 'saveNotice', 'deleteNotice', 'uploadFile'];
     const implemented = ALL_METHODS.filter(m => !NEW.includes(m));
     const boom = async () => { throw new Error('not implemented'); };
     const adapter = { ...h.adapter, ...Object.fromEntries(NEW.map(m => [m, boom])) } as PlatformAdapter;

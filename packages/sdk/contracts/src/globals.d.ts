@@ -22,6 +22,12 @@ interface AbortSignal {
   readonly aborted: boolean;
 }
 
+/** The file handed to `uploadFile`; browsers and Node have it. An interface, so it merges with the DOM one where DOM is present. */
+interface Blob {
+  readonly size: number;
+  readonly type: string;
+}
+
 /**
  * Web Crypto — used only by `correlation.ts`; exists in browsers and Node. `randomUUID` is absent outside a secure
  * context (plain HTTP), so it is optional here.

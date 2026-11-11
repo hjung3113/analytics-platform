@@ -98,10 +98,10 @@ export async function envelopeCall<T>(context: CallContext, request: Omit<SendRe
  * status, bad JSON — leaves the write's effect unknown, so it is `unknown` (never `error`, which means "answered and
  * changed nothing", checklist §2). Only the server's own judged answer is passed through.
  */
-export async function actionCall(context: CallContext, request: Omit<SendRequest, 'timeoutMs'>, action: MenuAction, signal?: AbortSignal): Promise<ActionResponse<unknown>> {
+export async function actionCall(context: CallContext, request: Omit<SendRequest, 'timeoutMs'>, action: MenuAction, signal?: AbortSignal, timeoutMs?: number): Promise<ActionResponse<unknown>> {
   const headers: Record<string, string> = { 'Idempotency-Key': action.idempotencyKey };
   if (action.expectedVersion !== undefined) headers['If-Match'] = action.expectedVersion;
-  const raw = await send(context, request, { signal, csrf: true, headers });
+  const raw = await send(context, request, { signal, csrf: true, headers, ...(timeoutMs === undefined ? {} : { timeoutMs }) });
   if (raw.kind === 'aborted') throw abortError();
   const unknown = (message: string, correlationId: string): ActionResponse<unknown> =>
     ({ outcome: 'unknown', data: null, version: null, fieldErrors: [], replayed: false, correlationId, message });

@@ -48,7 +48,11 @@ import {
   analyticsAreasRoutes,
   createAnalyticsAreaService,
 } from './modules/analytics-areas/index.js';
-import { MAX_ATTACHMENT_BYTES, attachmentsRoutes } from './modules/attachments/index.js';
+import {
+  MULTIPART_CEILING_BYTES,
+  attachmentsRoutes,
+  createUploadAdmission,
+} from './modules/attachments/index.js';
 import { createAttachmentsService } from './modules/attachments/service.js';
 import type { AuthProvider } from './modules/auth/auth-provider.js';
 import { listActorsRoutes } from './modules/auth/list-actors-routes.js';
@@ -146,7 +150,11 @@ import {
   permissionRecoveryProjection,
   permissionsRoutes,
 } from './modules/permissions/index.js';
-import { PLATFORM_PORT_PREFIX, platformPortRoutes } from './modules/platform-port/index.js';
+import {
+  PLATFORM_PORT_PREFIX,
+  platformFilesRoutes,
+  platformPortRoutes,
+} from './modules/platform-port/index.js';
 import { createPlatformPermissionResolver, holdsPlatformPermission } from './modules/platform-port/permissions.js';
 import { platformSavedViewRoutes } from './modules/platform-saved-views/index.js';
 import { createSavedViewsService, savedViewsRoutes } from './modules/saved-views/index.js';
@@ -365,11 +373,11 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   installCrossSiteGuard(app as unknown as FastifyInstance);
 
   // ── @fastify/multipart ─ PLAN-22 C3a ────────────────────────────────
-  // 25 MiB cap (D-06). Limits are global — only POST /attachments accepts
-  // multipart today; other routes still validate as JSON.
+  // Global ceiling 32 MiB (POST /platform/files, #1741). Each multipart route passes its own, lower or equal
+  // `fileSize` per request: POST /attachments keeps its 25 MiB (D-06). Other routes still validate as JSON.
   await app.register(multipart, {
     limits: {
-      fileSize: MAX_ATTACHMENT_BYTES,
+      fileSize: MULTIPART_CEILING_BYTES,
       files: 1,
     },
   });
@@ -1244,11 +1252,25 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     parents: [roundAttachmentParentReader],
     log: { warn: (msg, meta) => app.log.warn(meta ?? {}, msg) },
   });
+  // One admission for both upload routes: they buffer into the same memory budget (ATTACHMENT_UPLOAD_CONCURRENCY).
+  const uploadAdmission = createUploadAdmission(config.ATTACHMENT_UPLOAD_CONCURRENCY);
   await app.register(attachmentsRoutes, {
     sessionService,
     attachmentsService,
     workspaceId,
-    uploadConcurrency: config.ATTACHMENT_UPLOAD_CONCURRENCY,
+    uploadAdmission,
+    rateLimitConfig: {
+      attachmentMutation: app.rateLimitConfig.attachmentMutation,
+    },
+  });
+  // The generic upload of the platform port (#1741): registered here, after the attachments service exists.
+  await app.register(platformFilesRoutes, {
+    prefix: PLATFORM_PORT_PREFIX,
+    sessionService,
+    checkService,
+    attachmentsService,
+    uploadAdmission,
+    workspaceId,
     rateLimitConfig: {
       attachmentMutation: app.rateLimitConfig.attachmentMutation,
     },

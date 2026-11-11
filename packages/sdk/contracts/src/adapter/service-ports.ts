@@ -33,3 +33,11 @@ export type CreateNoticeInput = NoticeDraft & { idempotencyKey: string };
 export type UpdateNoticeInput = NoticeDraft & { id: string; expectedVersion: string; idempotencyKey: string };
 export type SaveNoticeInput = CreateNoticeInput | UpdateNoticeInput;
 export type DeleteNoticeInput = { id: string; expectedVersion: string; idempotencyKey: string };
+
+/** Largest file `PlatformAdapter.uploadFile` accepts: 32 MiB. The server judges it; UIs may use this only to pre-check. */
+export const UPLOAD_FILE_MAX_BYTES = 33_554_432;
+
+/** `file.type` is the declared MIME and must be set (an empty one is `application/octet-stream`, which the server rejects). */
+export type UploadFileInput = { file: Blob; name: string; idempotencyKey: string };
+/** What the store answers: an opaque id to hand to whoever consumes the file, and the size and MIME the server recorded. */
+export type UploadedFile = { id: string; name: string; size: number; mimeType: string };

@@ -5,7 +5,9 @@
 // may contain PII or attacker-controlled strings (mojibake, control chars,
 // homoglyphs) and the audit log is broadly readable. The sanitized filename
 // is persisted on `voc_attachments.filename` for the download path; the audit
-// log only references the row by id + storage_key. `.strict()` enforces this
+// log only references the row by id + a filename-free `storage_key` reference
+// (`{workspace_id}/{attachment_id}`, not the object key, which ends in the name).
+// `.strict()` enforces this
 // at the schema boundary — any caller that accidentally passes a `filename`
 // field is rejected before the row is written.
 //
