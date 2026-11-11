@@ -131,6 +131,46 @@ describe('request generations', () => {
   });
 });
 
+describe('server generation (session, Kernel revision, adapter)', () => {
+  const CHANGES = [
+    ['a user switch', (fake: ReturnType<typeof fakeFor>) => fake.switchUser('u2')],
+    ['a revision change', (fake: ReturnType<typeof fakeFor>) => fake.bumpRevision()],
+    ['an adapter swap', (fake: ReturnType<typeof fakeFor>) => fake.swapAdapter()],
+  ] as const;
+  const cases = SCREENS.flatMap(([name, Screen]) => CHANGES.map(([change, run]) => [name, change, Screen, run] as const));
+
+  it.each(cases)('%s: settled data is hidden at once after %s and the same equipment and time are read again', async (name, _change, Screen, run) => {
+    const late = deferred<ApiResponse<unknown>>();
+    let calls = 0;
+    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : call.id === CONTEXT_ID && ++calls === 2 ? await late.promise : await server()(call) });
+    fake.render(Screen);
+    await waitFor(() => expect(drawn()).not.toBeNull());
+    const url = fake.url();
+    await run(fake);
+    expect(drawn()).toBeNull();
+    await waitFor(() => expect(calls).toBe(2));
+    expect(screen.queryByRole('status', { busy: true })).not.toBeNull();
+    await act(async () => { late.resolve(ok(contextData())); await late.promise; });
+    await waitFor(() => expect(drawn()).not.toBeNull());
+    expect(fake.url()).toBe(url);
+  });
+
+  it.each(cases)('%s: a pending request is aborted by %s and its late reply is not shown', async (name, _change, Screen, run) => {
+    const late = deferred<ApiResponse<unknown>>();
+    let calls = 0;
+    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : call.id === CONTEXT_ID && ++calls === 1 ? await late.promise : await server()(call) });
+    fake.render(Screen);
+    await waitFor(() => expect(calls).toBe(1));
+    const first = fake.log.queries.find(call => call.id === CONTEXT_ID)!;
+    await run(fake);
+    await waitFor(() => expect(first.signal?.aborted).toBe(true));
+    await waitFor(() => expect(drawn()).not.toBeNull());
+    await act(async () => { late.resolve(response('error', null, { message: 'stale frame' })); await late.promise; });
+    expect(screen.queryByText(/stale frame/)).toBeNull();
+    expect(drawn()).not.toBeNull();
+  });
+});
+
 describe('outcomes', () => {
   const failing = (outcome: ApiResponse<unknown>['outcome']) => fakeFor('topview', { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : server({ context: response(outcome, null, { message: `${outcome}-text` }) })(call) });
 
@@ -164,6 +204,24 @@ describe('outcomes', () => {
     await waitFor(() => expect(row('occ-open')).not.toBeNull());
     expect(screen.queryByText('접근 권한이 필요합니다')).toBeNull();
     expect(screen.queryByText('데이터 오류')).toBeNull();
+  });
+
+  it.each(SCREENS)('%s: Retry on forbidden re-requests the same equipment and time and shows the data; the address does not change', async (name, Screen) => {
+    let denied = true;
+    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : denied ? response('forbidden', null) : await server()(call) });
+    fake.render(Screen);
+    await screen.findByText('접근 권한이 필요합니다');
+    const before = fake.url();
+    const first = fake.log.queries.filter(call => call.id === CONTEXT_ID);
+    denied = false;
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await waitFor(() => expect(drawn()).not.toBeNull());
+    expect(screen.queryByText('접근 권한이 필요합니다')).toBeNull();
+    expect(fake.url()).toBe(before);
+    const again = fake.log.queries.filter(call => call.id === CONTEXT_ID);
+    expect(again.length).toBeGreaterThan(first.length);
+    expect(again.at(-1)?.params).toEqual({ equipmentId: EQUIPMENT });
+    expect(again.at(-1)?.context).toMatchObject({ from: HOST_TIME.from, to: HOST_TIME.to });
   });
 
   it.each(SCREENS)('%s: non-clear assessments become one Data Trust line, not stacked notices; unknown is not worded as clear', async (name, Screen) => {
@@ -214,13 +272,52 @@ describe('outcomes', () => {
 });
 
 describe('Focus detail', () => {
-  it('the 근거 상세 tab is inline', async () => {
-    const fake = fakeFor('focus');
-    fake.render(FocusScreen);
+  const openDetail = async () => {
     await waitFor(() => expect(row('occ-pm1-process')).not.toBeNull());
     fireEvent.click(row('occ-pm1-process')!);
-    fireEvent.mouseDown(screen.getByRole('tab', { name: '근거 상세' }));
-    await screen.findByRole('region', { name: '근거 상세 occ-pm1-process' });
+    return await screen.findByRole('dialog');
+  };
+
+  it('selecting an Occurrence shows its evidence in the DetailDrawer, labelled by the Occurrence, and there is no inline tab', async () => {
+    const fake = fakeFor('focus');
+    fake.render(FocusScreen);
+    expect(screen.queryByRole('tab', { name: '근거 상세' })).toBeNull();
+    const dialog = await openDetail();
+    within(dialog).getByText('근거 상세 · occ-pm1-process');
+    await within(dialog).findByRole('region', { name: '근거 상세 occ-pm1-process' });
+    expect(screen.queryByRole('tab', { name: '근거 상세' })).toBeNull();
+  });
+
+  it('the drawer closes on its close button', async () => {
+    const fake = fakeFor('focus');
+    fake.render(FocusScreen);
+    const dialog = await openDetail();
+    fireEvent.click(within(dialog).getByRole('button', { name: '상세 닫기' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('the drawer closes on an equipment change', async () => {
+    const fake = fakeFor('focus');
+    fake.render(FocusScreen);
+    await openDetail();
+    fake.setPage({ equipment: 'eq-synth-02' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('the drawer closes on unmount', async () => {
+    const fake = fakeFor('focus');
+    const view = fake.render(FocusScreen);
+    await openDetail();
+    view.unmount();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('the drawer closes when the applied time changes', async () => {
+    const fake = fakeFor('focus');
+    fake.render(FocusScreen);
+    await openDetail();
+    fake.setTime({ from: '2026-01-02T10:00:00', to: '2026-01-02T11:00:00' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('Top View로 navigates to the topview menu with the equipment', async () => {
@@ -251,18 +348,57 @@ describe('Top View', () => {
   ] as const)('Focus 열기 at 10:08:30 with %s selected opens Focus on that Component\'s open Occurrence (its RecordSequence), else the first one open at the cursor', async (id, anchor) => {
     const fake = fakeFor('topview', { context: { from: HOST_TIME.from, to: '2026-01-01T10:08:30' } });
     fake.render(TopViewScreen);
-    await screen.findByText('Component를 선택하세요');
+    await screen.findAllByText('2026-01-01 10:08:30');
     if (id !== null) fireEvent.click(document.querySelector(`[data-component-id="${id}"]`)!);
     fireEvent.click(screen.getByRole('button', { name: 'Focus 열기' }));
     await waitFor(() => expect(opened()).toEqual({ path: '/tools/eqv-focus', equipment: EQUIPMENT, entityType: 'job', anchor }));
   });
 
-  it('the Component detail is an inline panel', async () => {
+  const openComponent = async (id: string) => {
+    await screen.findAllByText('2026-01-01 10:30:00');
+    fireEvent.click(document.querySelector(`[data-component-id="${id}"]`)!);
+    return await screen.findByRole('dialog');
+  };
+
+  it('selecting a Component shows its detail in the DetailDrawer, not in an inline panel', async () => {
     const fake = fakeFor('topview');
     fake.render(TopViewScreen);
-    await screen.findByText('Component를 선택하세요');
-    fireEvent.click(document.querySelector('[data-component-id="pm-a"]')!);
-    await screen.findByRole('region', { name: 'Component 상세 pm-a' });
+    const dialog = await openComponent('pm-a');
+    within(dialog).getByText('Component · pm-a');
+    within(dialog).getByRole('region', { name: 'Component 상세 pm-a' });
+    expect(screen.queryByText('Component를 선택하세요')).toBeNull();
+  });
+
+  it('the drawer closes on its close button', async () => {
+    const fake = fakeFor('topview');
+    fake.render(TopViewScreen);
+    const dialog = await openComponent('pm-a');
+    fireEvent.click(within(dialog).getByRole('button', { name: '상세 닫기' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('the drawer closes on an equipment change', async () => {
+    const fake = fakeFor('topview');
+    fake.render(TopViewScreen);
+    await openComponent('pm-a');
+    fake.setPage({ equipment: 'eq-synth-02' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('the drawer closes on unmount', async () => {
+    const fake = fakeFor('topview');
+    const view = fake.render(TopViewScreen);
+    await openComponent('pm-a');
+    view.unmount();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('the drawer closes when the applied time changes', async () => {
+    const fake = fakeFor('topview');
+    fake.render(TopViewScreen);
+    await openComponent('pm-a');
+    fake.setTime({ from: '2026-01-02T10:00:00', to: '2026-01-02T11:00:00' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('shows one Data Trust line for non-clear assessments above the board', async () => {
@@ -281,7 +417,7 @@ describe('Top View Component detail words', () => {
   ] as const)('%s shows the activity in Korean with its evidence badge', async (id, words) => {
     const fake = fakeFor('topview');
     fake.render(TopViewScreen);
-    await screen.findByText('Component를 선택하세요');
+    await screen.findAllByText('2026-01-01 10:30:00');
     fireEvent.click(document.querySelector(`[data-component-id="${id}"]`)!);
     const region = await screen.findByRole('region', { name: `Component 상세 ${id}` });
     expect(region.textContent).toMatch(words);
@@ -364,7 +500,6 @@ describe('Korean copy', () => {
     fake.render(FocusScreen);
     await waitFor(() => expect(row('occ-pm1-process')).not.toBeNull());
     fireEvent.click(row('occ-pm1-process')!);
-    fireEvent.mouseDown(screen.getByRole('tab', { name: '근거 상세' }));
     const detail = await screen.findByRole('region', { name: '근거 상세 occ-pm1-process' });
     for (const label of ['합성 데이터', 'Mapping Version', 'Ruleset Version']) expect(within(detail).getByText(label)).toBeTruthy();
     expect(within(detail).queryByText('synthetic')).toBeNull();
@@ -399,7 +534,7 @@ describe('Top View equipment bar (#1644)', () => {
       fireEvent.keyDown(select, { key: 'ArrowDown' });
       fireEvent.click(await screen.findByRole('option', { name: EQUIPMENT }));
       await waitFor(() => expect(fake.page('equipment')).toBe(EQUIPMENT));
-      await screen.findByText('Component를 선택하세요');
+      await screen.findAllByText('2026-01-01 10:30:00');
     });
   });
 
@@ -411,7 +546,7 @@ describe('Top View equipment bar (#1644)', () => {
       select.focus();
       fireEvent.keyDown(select, { key: 'ArrowDown' });
       fireEvent.click(await screen.findByRole('option', { name: EQUIPMENT }));
-      await screen.findByText('Component를 선택하세요');
+      await screen.findAllByText('2026-01-01 10:30:00');
       expect(screen.getByRole('combobox', { name: '설비' })).toBe(select);
       await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
       await waitFor(() => expect(document.activeElement).toBe(select), { timeout: 1000 });

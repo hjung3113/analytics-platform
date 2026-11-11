@@ -2,14 +2,15 @@ import type { ReactNode } from 'react';
 import { CalendarClock, CalendarX2, Cpu, Inbox, ServerCrash, ShieldAlert } from 'lucide-react';
 import type { Trust } from '@ap/contracts';
 import { DataTrustIndicator, LoadingBlock, StateMessage } from '@ap/components';
+import { Button } from '@ap/ui';
 import type { HostProps } from '../host-props.js';
 import type { Trusted } from '../replay-load.js';
 import type { ReplayLoad } from '../use-replay-input.js';
 
 const icon = (Icon: typeof Cpu) => <Icon className="size-4" aria-hidden />;
 
-/** What the line says about a read whose server sent assessments but no Trust (the mock replay reads): no time, no coverage, no claim beyond the assessments. */
-const NO_TRUST: Trust = { updatedAt: '', dataThrough: null, coverage: null, provisional: false, source: '응답에 Trust가 없음' };
+/** What the line says about a read whose server sent assessments but no Trust (the mock replay reads): provisional (finality is never claimed), update time «—», no coverage, no claim beyond the assessments. */
+const NO_TRUST: Trust = { updatedAt: '—', dataThrough: null, coverage: null, provisional: true, source: '응답에 Trust가 없음' };
 
 /**
  * The one Data Trust line of a read (EV#187): the assessments and Trust the server sent, with `unknown` never worded as clear.
@@ -21,7 +22,7 @@ export function TrustLine({ trust, assessments }: Trusted) {
 }
 
 /** The state to show instead of the screen body, or null when the screen has verified data to draw. */
-export function stateFor(props: HostProps, load: ReplayLoad | null, screen: 'topview' | 'focus' = 'focus'): ReactNode {
+export function stateFor(props: HostProps, load: ReplayLoad | null, screen: 'topview' | 'focus' = 'focus', retry?: () => void): ReactNode {
   const { time } = props;
   if (props.equipment === null) {
     return <StateMessage icon={icon(Cpu)} title={screen === 'topview' ? '위에서 설비를 고르세요' : 'Top View에서 설비를 고르세요'} />;
@@ -36,7 +37,8 @@ export function stateFor(props: HostProps, load: ReplayLoad | null, screen: 'top
     case 'empty':
       return <><TrustLine trust={load.trust} assessments={load.assessments} /><StateMessage icon={icon(Inbox)} title="이 구간에 표시할 Occurrence가 없습니다" body="선택한 설비와 시간 구간에 서버가 돌려준 데이터가 없습니다." /></>;
     case 'forbidden':
-      return <StateMessage tone="warning" icon={icon(ShieldAlert)} title="접근 권한이 필요합니다" body="이 설비를 볼 권한이 없습니다." />;
+      return <StateMessage tone="warning" icon={icon(ShieldAlert)} title="접근 권한이 필요합니다" body="이 설비를 볼 권한이 없습니다."
+        {...(retry === undefined ? {} : { action: <Button size="sm" variant="secondary" onClick={retry}>다시 시도</Button> })} />;
     case 'failed':
       return <><TrustLine trust={load.trust} assessments={load.assessments} /><StateMessage tone={load.tone} icon={icon(ServerCrash)} title={load.title} body={load.message} {...(load.errorId === null ? {} : { correlationId: load.errorId })} /></>;
   }

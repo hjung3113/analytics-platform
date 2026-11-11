@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { usePlatform } from '@ap/kernel';
-import { PlatformPage, StateMessage } from '@ap/components';
+import { useI18n, usePlatform } from '@ap/kernel';
+import { DetailDrawer, PlatformPage, StateMessage } from '@ap/components';
 import { ArrowRight, MapPinOff, MousePointerClick, ServerCrash } from 'lucide-react';
 import { Button, EmptyState, FieldRow } from '@ap/ui';
 import { bindingLayout, seekSceneState, type EquipmentLayoutDocument, type OccurrenceBatch, type ReplayInput, type SceneState, type SiteWallClock } from '@eqv/core';
@@ -58,11 +58,12 @@ function sceneAt(input: ReplayInput, to: SiteWallClock): Scene {
 
 /**
  * `eqv:topview` (the primary screen). The layout effective at the end of the applied window with the scene state as of `to`
- * (`seekSceneState`, evidence labels exactly as the reducer gives them). A selected Component's detail is an inline panel.
+ * (`seekSceneState`, evidence labels exactly as the reducer gives them). A selected Component's detail opens in the platform `DetailDrawer` (it closes on equipment, time or server-generation change, close and unmount).
  */
 function TopViewBody() {
   const { resolveLink, navigate } = usePlatform();
-  const { props, load, resetKey } = useReplayScreen();
+  const { lang } = useI18n();
+  const { props, load, resetKey, generation, retry: retryLoad } = useReplayScreen();
   const { state: optionsState, refreshing, failed: listFailed, retry } = useEquipmentOptions();
   const [selection, setSelection] = useState<{ key: string; id: string | null }>({ key: resetKey, id: null });
   const [zoomHost, setZoomHost] = useState<HTMLElement | null>(null);
@@ -71,14 +72,15 @@ function TopViewBody() {
   const scene = useMemo(() => input && to ? sceneAt(input, to) : null, [input, to]);
   const ready = scene && !('error' in scene) ? scene : null;
   const replay = useMemo((): ReplayOverlay | null => ready ? { state: ready.state } : null, [ready]);
-  // The selection belongs to the load: another equipment or window clears it.
-  if (selection.key !== resetKey) setSelection({ key: resetKey, id: null });
-  const selectedId = selection.key === resetKey ? selection.id : null;
+  // The selection belongs to the load: another equipment, window or server generation clears it.
+  const selectionKey = JSON.stringify([resetKey, generation]);
+  if (selection.key !== selectionKey) setSelection({ key: selectionKey, id: null });
+  const selectedId = selection.key === selectionKey ? selection.id : null;
 
   const bar = <EquipmentBar props={props} state={optionsState} refreshing={refreshing} retry={retry} />;
   const state = props.equipment === null && listFailed
     ? <StateMessage icon={<ServerCrash className="size-4" aria-hidden />} title="설비 목록을 다시 불러오세요" body="위의 다시 시도를 누르세요." />
-    : stateFor(props, load, 'topview');
+    : stateFor(props, load, 'topview', retryLoad);
   if (state !== null || load?.kind !== 'ready' || props.equipment === null) return <>{bar}<div>{state}</div></>;
   const { equipment } = props;
   if (scene === null || 'error' in scene) return <>{bar}<StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={`Replay 오류: ${scene?.error ?? ''}`} /></>;
@@ -87,6 +89,10 @@ function TopViewBody() {
       {bar}
       <TrustLine trust={load.trust} assessments={load.assessments} />
       <NoticeList notices={load.notices} />
+      {scene.layout && selectedId !== null && (
+        <DetailDrawer title={`Component · ${selectedId}`} onClose={() => setSelection({ key: selectionKey, id: null })}
+          tabs={[{ id: 'detail', label: lang === 'ko' ? '상세' : 'Detail', content: <ComponentDetail layout={scene.layout} state={scene.state} componentId={selectedId} /> }]} />
+      )}
       <div className="flex flex-wrap items-start gap-4">
         <Panel title="Top View" subtitle={wallClockText(scene.state.at)} className="max-w-full min-w-0 flex-none overflow-auto"
           actions={<>
@@ -95,19 +101,12 @@ function TopViewBody() {
           </>}>
           {scene.layout ? (
             <TopViewer layout={scene.layout} width={720} height={420} replay={replay} selectedId={selectedId}
-              onSelectedChange={(id) => setSelection({ key: resetKey, id })}
+              onSelectedChange={(id) => setSelection({ key: selectionKey, id })}
               renderControls={(controls) => zoomHost && createPortal(<ViewerZoomControls controls={controls} labels={{ zoomIn: '확대', zoomOut: '축소', fit: '맞춤' }} />, zoomHost)} />
           ) : <EmptyState size="sm" icon={<MapPinOff className="size-4" aria-hidden />} title="이 시점에 적용된 Binding이 없어 Top View를 표시할 수 없습니다" />}
         </Panel>
         <div className="min-w-0 flex-1 basis-96">
           <CursorStateList state={scene.state} />
-          {scene.layout && (
-            <Panel title="Component 상세" className="mt-4">
-              {selectedId === null
-                ? <EmptyState size="sm" icon={<MousePointerClick className="size-4" aria-hidden />} title="Component를 선택하세요" />
-                : <ComponentDetail layout={scene.layout} state={scene.state} componentId={selectedId} />}
-            </Panel>
-          )}
         </div>
       </div>
     </>

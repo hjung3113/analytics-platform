@@ -1,8 +1,9 @@
-import { useEffect, type ComponentType } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { act, render } from '@testing-library/react';
 import { Map as MapIcon } from 'lucide-react';
-import { groupId, menuPermission, spaceId, type ApiResponse, type Assessment, type MenuQuery, type Trust } from '@ap/contracts';
+import { groupId, menuPermission, spaceId, type ApiResponse, type Assessment, type MenuQuery, type PlatformAdapter, type Trust } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../src/index.js';
 
@@ -37,6 +38,12 @@ const registry = createRegistry({
 
 type Platform = ReturnType<typeof usePlatform>;
 
+/** The shell's docked detail slot: `DetailDrawer` renders into it. */
+function SlotHost() {
+  const slot = useDetailPanelSlotHost();
+  return <aside ref={slot.ref} aria-label="상세 패널" />;
+}
+
 /**
  * Mounts a viewer screen under the real Kernel (registry, URL state, query gates) with an adapter that records every read.
  * Page keys and the applied window live in the URL, as in the app.
@@ -44,15 +51,24 @@ type Platform = ReturnType<typeof usePlatform>;
 export function createFake(options: FakeOptions) {
   const log = { queries: [] as QueryCall[] };
   let platform!: Platform;
-  const adapter = testAdapter({
-    session: (() => { const session = testSession(['platform:view', 'eqv:view']); return () => session; })(),
-    menuQuery: async (request, signal) => {
-      const call: QueryCall = { id: request.endpoint, params: request.params, context: request.context, signal };
-      log.queries.push(call);
-      if (options.query === null) throw new Error('no query handler');
-      return await options.query(call) as ApiResponse<never>;
-    },
-  });
+  let session = testSession(['platform:view', 'eqv:view']);
+  // One adapter shares the log and the current session; `subscribe` lets a test announce a change (a user switch, a Kernel revision).
+  const makeAdapter = () => {
+    const listeners = new Set<() => void>();
+    const adapter = testAdapter({
+      session: () => session,
+      subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+      menuQuery: async (request, signal) => {
+        const call: QueryCall = { id: request.endpoint, params: request.params, context: request.context, signal };
+        log.queries.push(call);
+        if (options.query === null) throw new Error('no query handler');
+        return await options.query(call) as ApiResponse<never>;
+      },
+    });
+    return { adapter, announce: () => listeners.forEach((listener) => listener()) };
+  };
+  let current = makeAdapter();
+  let swapAdapter: ((next: PlatformAdapter) => void) | null = null;
   const search = new URLSearchParams({ v: '1', ...options.page, ...(options.context === null ? {} : options.context ?? {}) });
   window.history.replaceState(null, '', `${options.path ?? '/tools/eqv-topview'}?${search}`);
   function Capture() {
@@ -60,14 +76,25 @@ export function createFake(options: FakeOptions) {
     useEffect(() => { platform = current; });
     return null;
   }
+  function Root({ Screen }: { Screen: ComponentType }) {
+    const [adapter, setAdapter] = useState(current.adapter);
+    useEffect(() => { swapAdapter = setAdapter; return () => { swapAdapter = null; }; }, []);
+    return <I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider><Capture /><Screen /><SlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
+  }
   return {
     log,
+    /** Another user signs in on the same adapter (the session store announces it). */
+    switchUser: (id: string) => act(() => { session = testSession(['platform:view', 'eqv:view'], { user: { id } }); current.announce(); }),
+    /** The adapter announces a change without a new session: the Kernel revision moves. */
+    bumpRevision: () => act(() => { current.announce(); }),
+    /** A different adapter object (same session), as after a reconnect. */
+    swapAdapter: () => act(() => { current = makeAdapter(); swapAdapter?.(current.adapter); }),
     /** The page key as the address carries it. */
     page: (key: string) => new URLSearchParams(window.location.search).get(key),
     url: () => `${window.location.pathname}${window.location.search}`,
     setPage: (patch: Record<string, string | null>) => act(() => platform.setPage(patch)),
     setTime: (range: { from: string; to: string }) => act(() => platform.setGlobal(range)),
-    render: (Screen: ComponentType) => render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><Capture /><Screen /></PlatformProvider></I18nProvider>),
+    render: (Screen: ComponentType) => render(<Root Screen={Screen} />),
   };
 }
 

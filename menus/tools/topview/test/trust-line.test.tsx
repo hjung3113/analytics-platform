@@ -56,5 +56,11 @@ describe('replay reads like the mock server answers them for eq-synth-01 (no Tru
     const list = (await screen.findByText('수집')).closest('ul')!;
     expect(list.textContent).toContain('시간역');
     expect(list.textContent?.match(/미확인/g)).toHaveLength(2);
+    // No invented finality: the absent Trust reads provisional with an unknown update time, never «확정»/«Final».
+    const popover = list.closest('[role="dialog"]') ?? list.parentElement!;
+    expect(popover.textContent).not.toMatch(/확정|Final/);
+    expect(popover.textContent).toContain('잠정');
+    expect(popover.textContent).toContain('응답에 Trust가 없음');
+    expect(popover.textContent).toMatch(/갱신\s*—/);
   });
 });
