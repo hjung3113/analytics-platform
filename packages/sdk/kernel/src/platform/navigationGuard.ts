@@ -30,15 +30,18 @@ export type LeaveRequest = {
 };
 
 type Entry = { read: () => UnsavedGuardOptions; seq: number };
-export type AddressChange = { from: string; to: string };
+/** `hiddenKeys`: page keys the destination menu keeps out of its address; a Back/Forward address can still carry one from an older entry, so a `{ pageKeys }` comparison skips them. */
+export type AddressChange = { from: string; to: string; hiddenKeys?: readonly string[] };
 
 const pathOf = (url: string): string => url.split('?')[0].split('#')[0];
 const addressOf = (url: string): string => url.split('#')[0];
-/** The ordered values of one query key, joined so two lists compare with `!==` (NUL cannot occur in a decoded query value of a real address). */
-const valuesOf = (url: string, key: string): string => {
-  const query = addressOf(url).split('?')[1] ?? '';
-  return new URLSearchParams(query).getAll(key).join('\u0000');
+/** The ordered decoded values of one query key. The query is everything after the first `?` (a later `?` is part of a value), fragment excluded. */
+const valuesOf = (url: string, key: string): string[] => {
+  const address = addressOf(url);
+  const at = address.indexOf('?');
+  return new URLSearchParams(at === -1 ? '' : address.slice(at + 1)).getAll(key);
 };
+const sameValues = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((v, i) => v === b[i]);
 
 /**
  * The Kernel-internal registry of unsaved-edit guards and the one pending leave request. Headless: the shell draws the dialog.
@@ -64,7 +67,7 @@ export function createNavigationGuard() {
     const leaves = entry.read().leaves ?? 'path';
     if (leaves === 'address') return addressOf(change.from) !== addressOf(change.to);
     if (pathOf(change.from) !== pathOf(change.to)) return true;
-    return typeof leaves === 'object' && leaves.pageKeys.some(key => valuesOf(change.from, key) !== valuesOf(change.to, key));
+    return typeof leaves === 'object' && leaves.pageKeys.some(key => !(change.hiddenKeys?.includes(key) ?? false) && !sameValues(valuesOf(change.from, key), valuesOf(change.to, key)));
   };
   const blockersFor = (change: AddressChange): Entry[] => [...entries].filter(e => blocks(e, change)).sort((a, b) => a.seq - b.seq);
 

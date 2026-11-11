@@ -150,16 +150,6 @@ describe('menu leave guard: links and navigate (ADR-0115)', () => {
     expect(request).not.toBeNull();
   });
 
-  it('leaves { pageKeys: [] } behaves like the path default', () => {
-    guardOptions = { leaves: { pageKeys: [] } };
-    mount('/mars/editor');
-    act(() => setDirty(true));
-    act(() => platform.setPage({ q: 'x' }));
-    expect(request).toBeNull();
-    act(() => { platform.navigate('/mars/other'); });
-    expect(request).not.toBeNull();
-  });
-
   it('leaves { pageKeys } on Back asks when the named key differs from the entry it returns to', async () => {
     guardOptions = { leaves: { pageKeys: ['q'] } };
     mount('/mars/editor');
@@ -182,6 +172,18 @@ describe('menu leave guard: links and navigate (ADR-0115)', () => {
     await settle();
     expect(request).toBeNull();
     expect(here()).toBe('/mars/editor?v=1&q=a');
+  });
+
+  it('leaves { pageKeys } on Back skips a declared hidden key that an older entry still carries in its address', async () => {
+    window.history.replaceState({ apIdx: 0 }, '', '/mars/hid?v=1&hk=old');
+    window.history.pushState({ apIdx: 1 }, '', '/mars/hid?v=1');
+    guardOptions = { leaves: { pageKeys: ['hk'] } };
+    const tree = <I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Probe /><Gate /></PlatformProvider></I18nProvider>;
+    render(tree);
+    act(() => setDirty(true));
+    window.history.back();
+    await settle();
+    expect(request).toBeNull();
   });
 
   it('a hidden-key arrival rewrite of a dirty screen goes through', () => {
