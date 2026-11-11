@@ -15,18 +15,18 @@ const STATUS_FILTER: ColumnFilterSpec = { kind: 'enum', options: FLEET_STATUSES.
 
 // Sizes fit the 1440 body (≈1114 px) beside the pinned 동작 column (≈128 px): 120+110+110+150+90+120+100+180 = 980.
 const COLUMNS: PlatformColumn<FleetRowDto>[] = [
-  { id: 'equipmentId', header: '설비', size: 120, value: (row) => row.equipmentId, cell: (row) => <span className="font-mono text-xs">{row.equipmentId}</span> },
+  { id: 'equipmentId', header: '설비', size: 115, value: (row) => row.equipmentId, cell: (row) => <span className="font-mono text-xs">{row.equipmentId}</span> },
   { id: 'vendorName', header: '설비사', size: 110, value: (row) => row.vendorName },
   { id: 'modelName', header: 'Model', size: 110, value: (row) => row.modelName },
   {
-    id: 'status', header: '상태', size: 150, value: (row) => row.status, filter: STATUS_FILTER, filterPinned: 1,
+    id: 'status', header: '상태', size: 130, value: (row) => row.status, filter: STATUS_FILTER, filterPinned: 1,
     exportValue: (row) => FLEET_STATUS_LABEL[row.status], cell: (row) => <StatusBadge tone={FLEET_STATUS_TONE[row.status]}>{FLEET_STATUS_LABEL[row.status]}</StatusBadge>,
   },
-  { id: 'coverage', header: '커버리지', size: 90, align: 'right', value: (row) => row.coverage?.referenceRatio ?? null, cell: (row) => percent(row.coverage?.referenceRatio) },
-  { id: 'assumed', header: 'assumed 비율', size: 120, align: 'right', value: (row) => row.coverage?.assumedRatio ?? null, cell: (row) => percent(row.coverage?.assumedRatio) },
-  { id: 'unmapped', header: '미매핑 참조', size: 100, align: 'right', value: (row) => row.unmappedReferences, cell: (row) => row.unmappedReferences ?? '—' },
+  { id: 'coverage', header: '커버리지', size: 95, align: 'right', value: (row) => row.coverage?.referenceRatio ?? null, cell: (row) => percent(row.coverage?.referenceRatio) },
+  { id: 'assumed', header: 'assumed 비율', size: 135, align: 'right', value: (row) => row.coverage?.assumedRatio ?? null, cell: (row) => percent(row.coverage?.assumedRatio) },
+  { id: 'unmapped', header: '미매핑 참조', size: 105, align: 'right', value: (row) => row.unmappedReferences, cell: (row) => row.unmappedReferences ?? '—' },
   {
-    id: 'window', header: '최근 Sample Window', size: 180, sortable: false, value: (row) => row.latestWindow?.from ?? null,
+    id: 'window', header: '최근 Sample Window', size: 175, sortable: false, value: (row) => row.latestWindow?.from ?? null,
     cell: (row) => (row.latestWindow ? <span className="text-xs tabular-nums"><ShortRange from={row.latestWindow.from} to={row.latestWindow.to} /></span> : '—'),
   },
 ];
