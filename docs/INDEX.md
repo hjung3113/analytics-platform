@@ -53,7 +53,6 @@
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](overview/roadmap-and-open-questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
 | 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](architecture/architecture-and-data-contract.md#processing-status-report), 06 §19, [상태 기록 스키마](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` |
 | 기능 화면 연결·운영 화면 탑재 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/platform-inbound-links.md), [ADR-0081](adr/0081-feedbackops-operator-screens-platform-frame.md), [ADR-0066](adr/0066-feedbackops-merges-into-platform.md) | [feature-bridge](../packages/adapters/feature-bridge/AGENTS.md), [메뉴](../menus/AGENTS.md), [플랫폼 기능 메뉴](../platform/AGENTS.md), [앱 조립](../apps/platform-web/AGENTS.md), [Survey](../apps/feature-screens/src/features/surveys/AGENTS.md), [Admin](../apps/feature-screens/src/features/admin/AGENTS.md), [기능 도메인](agents/feature-implementation.md) | `packages/adapters/feature-bridge/src/feature/` · `apps/feature-screens/src/operator-screens/` · `platform/` |
-| 기능 저장소 시절 운영 프로필 기록 | — | [archive](../archive/AGENTS.md) | `archive/ops-platform-api-conductor/` |
 
 ## 번호 약칭 → 파일
 

@@ -23,7 +23,6 @@
 | `menus/` | 업무 시스템 메뉴 Consumer 패키지 `menus/<system>/<group>/`(`@ap/menu-<group>`). 공간은 폴더가 원본이고 `GROUPS`와 일치를 검사 |
 | `platform/` | 플랫폼 기능 Consumer 패키지 `platform/<feature>/`(`@ap/menu-<name>`: 홈·내 활동·공지·운영 콘솔·기능 화면). 한 단계, SDK 아님. 공간은 `GROUPS`만 정한다 |
 | `tooling/` | 공유 도구: tsconfig, eslint 경계 규칙, `gen-menu`, `css-selectors` |
-| `archive/` | 통합 전 Kernel 단위 프로토타입(개별 npm 프로젝트, workspace 밖). 보존 |
 | `apps/{platform-api,feature-screens}`, `packages/feature-*` | 기능 앱·패키지·문서(루트 workspace의 일부, 이력 합류 `c73c55c5`, [ADR-0090](../adr/0090-repo-structure-by-branch.md)) |
 | `apps/feature-screens/` | 기능 화면 라이브러리(플랫폼이 탑재, #597). `src/features/`에 업무 화면 구성. 새 화면은 만들지 않는다([ADR-0133](../adr/0133-feature-screens-frozen-new-screens-on-sdk.md)) |
 | `apps/platform-api/` | 코어 서버(Fastify). `src/modules/`에 업무 및 공통 기능 구현 |

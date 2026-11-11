@@ -177,7 +177,7 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 | --- | --- | --- | --- |
 | 1 | 패키지 구성·의존 방향 | §3 그대로 | 현재 폴더 구조와 거의 일치해 이동 비용이 적고, `contracts` 분리로 향후 백엔드와 계약 공유 가능 |
 | 2 | 메뉴 패키지 단위 | **그룹 단위** (`menu-analytics`에 생산성 개요·사이클타임·실행 상세) | 같은 그룹 안 목록→상세 import가 자연스럽고, 사이드바 그룹(06 §9)·소유 단위와 일치. 커지면 그때 분할 |
-| 3 | 프로토타입 처리 | `archive/platform-app` → `apps/platform-web`으로 **`git mv`** | 이력·리뷰 보고서 연결 유지, 코드 두 벌 방지 |
+| 3 | 프로토타입 처리 | `archive/platform-app` → `apps/platform-web`으로 **`git mv`**(`archive/`는 #1787에서 삭제) | 이력·리뷰 보고서 연결 유지, 코드 두 벌 방지 |
 | 4 | lint 도구 | **ESLint** | 경계·URL 조립 금지 같은 커스텀 규칙이 목적. `platform-api`·`feature-shared`·`feature-ui`는 ESLint 전체 소스 lint(#1102 a 완료), `feature-screens`도 같은 방식으로 전환했다(#1102 b 완료). 루트 lint의 ops leaf는 경계와 문서·ops 범위의 변경 파일 Biome allowlist만 수행한다. 하나의 workspace다 |
 | 5 | 이름 | 접두사 `@ap/`, 메뉴 폴더 `menus/<space>/<group>/`, 플랫폼 기능 폴더 `platform/<feature>/` | 업무 시스템 메뉴의 공간 소속은 폴더가 원본이며 선언과 일치하는지 검사([ADR-0031](../adr/0031-menu-folders-by-space.md)). 플랫폼 기능의 공간은 `GROUPS`만 정한다([ADR-0097](../adr/0097-platform-features-and-role-based-names.md)) |
 
