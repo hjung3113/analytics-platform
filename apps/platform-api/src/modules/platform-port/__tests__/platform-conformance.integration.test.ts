@@ -35,6 +35,7 @@ import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
+import { memoryStorage } from '../../../test-support/memory-storage.js';
 import { insertMsDirectly } from '../../../test-support/core-fixtures.js';
 import { insertFindingRow } from '../../../test-support/findings-fixtures.js';
 import { uid } from '../../../test-support/ids.js';
@@ -346,6 +347,7 @@ const IMPLEMENTED: readonly PortMethod[] = [
   'listNotices',
   'saveNotice',
   'deleteNotice',
+  'uploadFile',
 ];
 
 /**
@@ -387,11 +389,19 @@ function injectFetch(app: FastifyInstance, jar: Map<string, string>): typeof fet
     const headers = Object.fromEntries(new Headers(init.headers));
     const cookie = [...jar].map(([name, value]) => `${name}=${value}`).join('; ');
     if (cookie) headers.cookie = cookie;
+    // A multipart body (uploadFile): serialize it the way a browser would, boundary header included.
+    let payload: string | Buffer | undefined;
+    if (typeof init.body === 'string') payload = init.body;
+    else if (init.body instanceof FormData) {
+      const encoded = new Request('http://platform-api.test', { method: 'POST', body: init.body });
+      headers['content-type'] = encoded.headers.get('content-type') ?? '';
+      payload = Buffer.from(await encoded.arrayBuffer());
+    }
     const injected = app.inject({
       method: (init.method ?? 'GET') as 'GET' | 'POST',
       url: `${url.pathname}${url.search}`,
       headers,
-      ...(typeof init.body === 'string' ? { payload: init.body } : {}),
+      ...(payload !== undefined ? { payload } : {}),
     });
     let onAbort = () => {};
     const res = await (signal
@@ -518,6 +528,7 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
   let migrateHandle: DbHandle;
   let app: FastifyInstance;
   const actorIds: string[] = [];
+  const storage = memoryStorage();
   let msId = '';
   let n = 0;
   const adapters = new Map<Account, PlatformAdapter>();
@@ -607,7 +618,8 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
     // probes without a session, mock-logins), so it clears the table on the way in and out; left
     // behind, they push a later suite's mock-login over the 50/min limit (#681).
     await migrateHandle.pool.query('delete from core.rate_limits');
-    app = await buildServer({ config: loadConfig(), dbHandle, menuDispatch: [testActionPair] });
+    // Memory storage: the upload checks must pass where no S3 runs (the backend CI job starts PostgreSQL only).
+    app = await buildServer({ config: loadConfig(), dbHandle, storage, menuDispatch: [testActionPair] });
     await app.ready();
 
     msId = await insertMsDirectly(migrateHandle, WORKSPACE_ID, `${PREFIX}-ms`, 'Conformance MS');
@@ -715,6 +727,8 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
         ['platform.client_errors', 'actor_id'],
         ['platform.preferences', 'actor_id'],
         ['platform.notices', 'author_actor_id'],
+        // Uploads of the generic file port (#1741): the uploader FK has no cascade.
+        ['voc.voc_attachments', 'uploaded_by_actor_id'],
         ['core.api_tokens', 'actor_id'],
         ['core.idempotency_keys', 'actor_id'],
         ['core.audit_log', 'actor_id'],
@@ -801,6 +815,30 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
         saveAnnotation: 'forbidden',
         deleteAnnotation: 'forbidden',
       });
+    });
+  });
+
+  // What the kit cannot see: the stored objects (memory storage). A replay leaves one object; an invalid upload none (#1741).
+  describe('uploadFile storage effects', () => {
+    it('keeps one object after a replay, and none after an invalid upload', async () => {
+      const uploader = adapters.get('otherAnnotator');
+      if (!uploader?.uploadFile) throw new Error('no uploadFile on the otherAnnotator adapter');
+      const before = storage.store.size;
+      const input = {
+        file: new Blob(['{"effects":1}'], { type: 'application/json' }),
+        name: 'effects.json',
+        idempotencyKey: randomUUID(),
+      };
+      expect((await uploader.uploadFile(input)).outcome).toBe('ok');
+      expect(await uploader.uploadFile(input)).toMatchObject({ outcome: 'ok', replayed: true });
+      expect(storage.store.size).toBe(before + 1);
+      const refused = await uploader.uploadFile({
+        file: new Blob(['x'], { type: 'application/x-msdownload' }),
+        name: 'effects.bin',
+        idempotencyKey: randomUUID(),
+      });
+      expect(refused.outcome).toBe('invalid');
+      expect(storage.store.size).toBe(before + 1);
     });
   });
 

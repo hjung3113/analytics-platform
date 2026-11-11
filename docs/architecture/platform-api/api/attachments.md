@@ -19,6 +19,10 @@ success, failure, or client abort.
 A malformed multipart body (no boundary, or a file part truncated after its
 headers) returns 422 `validation.malformed_request`.
 
+`POST /api/v1/platform/files` ([platform-port.md](platform-port.md), #1741) stores through the same upload command and
+the same admission slots, with a 32 MiB per-request limit; `POST /attachments` keeps 25 MiB. The MIME allowlist is one
+closed set shared by both routes and includes `application/json`.
+
 `GET /attachments/:id/download` requires an authenticated Actor in the
 workspace and streams the authorized attachment with its MIME type, size, and
 filename headers.

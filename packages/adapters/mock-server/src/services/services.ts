@@ -4,8 +4,8 @@
  * so a switch while a call is in flight cannot make it write into the later user's data. No input carries an identity: an unknown
  * key (a forged `userId`, `author`, `at`) rejects the call.
  */
-import { PEOPLE_LOOKUP_MAX, PREFERENCE_KEYS_MAX, PREFERENCE_KEY_PATTERN, PREFERENCE_REQUEST_MAX_BYTES, PREFERENCE_VALUE_MAX_BYTES, PortError } from '@ap/contracts';
-import type { ActionResponse, ApiResponse, DeleteNoticeInput, FieldError, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput } from '@ap/contracts';
+import { PEOPLE_LOOKUP_MAX, UPLOAD_FILE_MAX_BYTES, PREFERENCE_KEYS_MAX, PREFERENCE_KEY_PATTERN, PREFERENCE_REQUEST_MAX_BYTES, PREFERENCE_VALUE_MAX_BYTES, PortError } from '@ap/contracts';
+import type { ActionResponse, ApiResponse, DeleteNoticeInput, FieldError, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UploadFileInput, UploadedFile } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
 
@@ -254,3 +254,93 @@ export const deleteNotice = (input: DeleteNoticeInput, signal?: AbortSignal, opt
     notices = notices.filter(row => row !== current);
     return answer('ok', { data: { id: current.id }, version: current.version });
   });
+
+// ───────────────────────────── file upload ─────────────────────────────
+
+/**
+ * Declared MIME types the mock store accepts. Mirrors the real server's closed set (`MIME_ALLOWLIST` of the attachments module); a
+ * type outside it is `invalid`, like the server's `unsupported_type`. No other rule of the real store is imitated (no purge, no link).
+ */
+const UPLOAD_MIME_TYPES: ReadonlySet<string> = new Set([
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf', 'text/plain', 'application/json',
+  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+]);
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+let uploads: UploadedFile[] = [];
+let uploadSeq = 1;
+const uploadReplays = new Map<string, { fingerprint: string; answer: ActionResponse<UploadedFile> }>();
+export function resetUploads() { uploads = []; uploadSeq = 1; uploadReplays.clear(); }
+export const storedUploads = (): readonly UploadedFile[] => uploads;
+
+/** The real server's name rule: no path separators or control characters, at most 255 UTF-8 bytes, never empty. */
+function uploadName(raw: string): string | null {
+  // The multipart parser keeps only what follows the last separator before the sanitizer runs.
+  const base = raw.slice(Math.max(raw.lastIndexOf('/'), raw.lastIndexOf('\\')) + 1);
+  const cleaned = [...base].filter(ch => ch !== '/' && ch !== '\\' && ch.codePointAt(0)! > 0x1f && ch.codePointAt(0) !== 0x7f).join('').trim();
+  if (cleaned === '') return null;
+  const encoder = new TextEncoder();
+  let name = cleaned;
+  while (encoder.encode(name).length > 255) name = name.slice(0, -1);
+  return name;
+}
+
+/** The bytes of a Blob where `Blob.arrayBuffer` is missing (an older DOM). */
+const readBytes = (blob: Blob): Promise<ArrayBuffer> =>
+  typeof blob.arrayBuffer === 'function'
+    ? blob.arrayBuffer()
+    : new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as ArrayBuffer);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsArrayBuffer(blob);
+      });
+
+/** A 64-bit content fingerprint (two 32-bit hashes). The mock stands for the server's SHA-256; it needs equality of bytes, not security, and `crypto.subtle` is absent outside secure contexts. */
+function bytesFingerprint(bytes: Uint8Array): string {
+  let fnv = 0x811c9dc5;
+  let djb = 5381;
+  for (const byte of bytes) {
+    fnv = Math.imul(fnv ^ byte, 0x01000193) >>> 0;
+    djb = (Math.imul(djb, 33) + byte) >>> 0;
+  }
+  return `${fnv.toString(16)}-${djb.toString(16)}`;
+}
+
+export async function uploadFile(input: UploadFileInput, signal?: AbortSignal, opts?: ServiceOptions): Promise<ActionResponse<UploadedFile>> {
+  const pinned = pin(opts);
+  await wait(pinned, signal, opts);
+  if (pinned.scenario === 'error') return answer<UploadedFile>('error', { message: '상류 요청이 실패했습니다' });
+  if (pinned.scenario === 'forbidden') return answer<UploadedFile>('forbidden', { message: '권한이 회수되었습니다(시나리오)' });
+  const body: unknown = input;
+  if (!isPlain(body)) return answer<UploadedFile>('invalid', { fieldErrors: [{ path: [], code: 'invalid' }] });
+  const errors: FieldError[] = Object.keys(body).filter(key => !['file', 'name', 'idempotencyKey'].includes(key)).map(key => ({ path: [key], code: 'unknown_key' }));
+  const key = body['idempotencyKey'];
+  if (typeof key !== 'string' || !UUID_V4.test(key)) errors.push({ path: ['idempotencyKey'], code: key === undefined ? 'required' : 'invalid' });
+  const file = body['file'];
+  if (!(file instanceof Blob)) errors.push({ path: ['file'], code: 'required' });
+  if (typeof body['name'] !== 'string') errors.push({ path: ['name'], code: 'required' });
+  if (errors.length > 0 || !(file instanceof Blob) || typeof key !== 'string') return answer<UploadedFile>('invalid', { fieldErrors: errors });
+  // The server reads the base type of the declared Content-Type (`text/plain; charset=utf-8` is `text/plain`).
+  const mimeType = (file.type.split(';')[0] ?? '').trim().toLowerCase();
+  if (!UPLOAD_MIME_TYPES.has(mimeType)) return answer<UploadedFile>('invalid', { fieldErrors: [{ path: ['file'], code: 'unsupported_type' }] });
+  const name = uploadName(String(body['name']));
+  if (name === null) return answer<UploadedFile>('invalid', { fieldErrors: [{ path: ['file', 'name'], code: 'invalid_filename' }] });
+  if (file.size > UPLOAD_FILE_MAX_BYTES) return answer<UploadedFile>('invalid', { fieldErrors: [{ path: ['file'], code: 'too_large' }] });
+
+  // The key is one UUID whatever its letter case (the server stores a `uuid`); the bytes are part of the file's identity.
+  const recordKey = `${pinned.userId}\0${key.toLowerCase()}`;
+  const fingerprint = canonical({ name, mimeType, size: file.size, bytes: bytesFingerprint(new Uint8Array(await readBytes(file))) });
+  const seen = uploadReplays.get(recordKey);
+  if (seen) {
+    // Same key, another file: the stored answer belongs to the first request only.
+    if (seen.fingerprint !== fingerprint) return answer<UploadedFile>('conflict', { message: 'Idempotency-Key was used with a different file' });
+    return { ...seen.answer, replayed: true };
+  }
+  const stored: UploadedFile = { id: `F-mock-${uploadSeq++}`, name, size: file.size, mimeType };
+  uploads = [...uploads, stored];
+  const result = answer<UploadedFile>('ok', { data: stored });
+  uploadReplays.set(recordKey, { fingerprint, answer: result });
+  return result;
+}

@@ -2,12 +2,26 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { ConformanceCheck, ConformanceResult, ServerConformanceHarness } from './types';
 import { planServerConformance } from './plan/endpoints';
 
+/** `check.run()` under the check's own deadline when it names one; the suite's `beforeAll` timeout still bounds the whole run. */
+async function withDeadline(check: ConformanceCheck): ReturnType<ConformanceCheck['run']> {
+  if (check.timeoutMs === undefined) return check.run();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<string>(resolve => {
+    timer = setTimeout(() => resolve(`did not finish within its own deadline of ${check.timeoutMs} ms`), check.timeoutMs);
+  });
+  try {
+    return await Promise.race([check.run(), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Runs every planned check: granted checks concurrently as the granted actor, then console checks concurrently as the console actor, then sequential checks one at a time (each switching actors itself), then permission checks one at a time. Skipped checks are not run — they stay visible in the returned list by id. */
 export async function runServerConformance(harness: ServerConformanceHarness): Promise<ConformanceResult[]> {
   const checks = planServerConformance(harness);
   const failureOf = async (check: ConformanceCheck): Promise<ConformanceResult> => {
     try {
-      const failure = await check.run();
+      const failure = await withDeadline(check);
       if (failure !== null && typeof failure === 'object') return { id: check.id, status: 'skipped', failure: null, reason: failure.skipped };
       return { id: check.id, status: failure === null ? 'passed' : 'failed', failure };
     } catch (error) {

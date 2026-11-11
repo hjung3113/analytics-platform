@@ -1,10 +1,12 @@
-import type { ActionResponse, ApiResponse, CreateNoticeInput, Notice, PreferencesSnapshot } from '@ap/contracts';
+import { UPLOAD_FILE_MAX_BYTES } from '@ap/contracts';
+import type { ActionResponse, ApiResponse, CreateNoticeInput, Notice, PreferencesSnapshot, UploadedFile } from '@ap/contracts';
 import type { ConformanceCheck, PortMethod, ServerConformanceHarness } from '../../types';
 import { CONSOLE_ACCESS, assessmentProblem, describeAction, describeResponse, missingEnvelopeKey } from '../../helpers';
 
 /** Each preference check reads back what it wrote, so every one declares the three preference methods. */
 const PREFERENCES: readonly PortMethod[] = ['readPreferences', 'patchPreferences', 'importPreferences'];
 const NOTICES: readonly PortMethod[] = ['listNotices', 'saveNotice', 'deleteNotice'];
+const UPLOAD: readonly PortMethod[] = ['uploadFile'];
 const MEMBER_KEYS = ['affiliation', 'displayName', 'userId'];
 /** A key in the preference grammar that no earlier run wrote (columns:<preferenceKey>, ADR-0098). */
 const freshKey = () => `columns:conformance-${crypto.randomUUID()}`;
@@ -230,5 +232,89 @@ export function planServiceChecks(harness: ServerConformanceHarness): Conformanc
       }),
     });
   }
+
+  // Generic file upload (#1741): optional port. An adapter without it, or a server not serving it, shows as skipped — never a pass.
+  const NO_UPLOAD = { skipped: 'the adapter has no uploadFile (an optional port): nothing to judge' };
+  const json = (text: string, type = 'application/json') => new Blob([text], { type });
+  const uploadedProblem = (r: ActionResponse<UploadedFile>, name: string, sent: Blob): string | null => {
+    if (r.outcome !== 'ok') return `${name}: expected ok, got ${describeAction(r)}`;
+    const f = r.data;
+    if (f === null || typeof f.id !== 'string' || f.id === '' || typeof f.name !== 'string' || f.name === '' || typeof f.mimeType !== 'string' || typeof f.size !== 'number') return `${name}: the ok answer carries the stored file — a server id, name, size and mimeType`;
+    if (f.size !== sent.size) return `${name}: size is the number of bytes sent (${sent.size}), got ${f.size}`;
+    if (f.mimeType !== sent.type) return `${name}: mimeType is the declared type ${sent.type}, got ${f.mimeType}`;
+    return null;
+  };
+  checks.push({
+    id: 'port · uploadFile stores one file and answers its id with the size and type recorded',
+    uses: UPLOAD,
+    mode: 'granted',
+    run: async () => {
+      if (typeof adapter.uploadFile !== 'function') return NO_UPLOAD;
+      const file = json(JSON.stringify({ conformance: crypto.randomUUID() }));
+      const r = await adapter.uploadFile({ file, name: 'conformance.batch.json', idempotencyKey: crypto.randomUUID() });
+      const bad = uploadedProblem(r, 'uploadFile', file);
+      if (bad) return bad;
+      if (r.replayed !== false) return 'a first upload is not replayed';
+      if (r.fieldErrors.length > 0) return 'an ok answer carries no field errors';
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · uploadFile with the same idempotency key replays without a second object; the same key with another file conflicts',
+    uses: UPLOAD,
+    mode: 'granted',
+    run: async () => {
+      if (typeof adapter.uploadFile !== 'function') return NO_UPLOAD;
+      const body = JSON.stringify({ conformance: crypto.randomUUID() });
+      const input = { file: json(body), name: 'conformance.batch.json', idempotencyKey: crypto.randomUUID() };
+      const first = await adapter.uploadFile(input);
+      const firstBad = uploadedProblem(first, 'uploadFile', input.file);
+      if (firstBad) return firstBad;
+      const retry = await adapter.uploadFile(input);
+      if (retry.outcome !== 'ok' || retry.replayed !== true) return `a retry with the same key and file: expected ok with replayed true, got ${describeAction(retry)}`;
+      if (retry.data?.id !== first.data!.id) return 'a replay answers the first file, not a second one';
+      const other = await adapter.uploadFile({ ...input, file: json(JSON.stringify({ conformance: crypto.randomUUID(), other: true })) });
+      if (other.outcome !== 'conflict') return `the same key with another file: expected conflict, got ${describeAction(other)}`;
+      if (other.data !== null) return 'a conflict carries no data';
+      // Same name, type and length, other bytes: still another file, never the first one's id.
+      const flipped = `[${body.slice(1)}`;
+      const sameShape = await adapter.uploadFile({ ...input, file: json(flipped) });
+      if (sameShape.outcome !== 'conflict') return `the same key with other bytes of the same name, type and size: expected conflict, got ${describeAction(sameShape)}`;
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · uploadFile refuses a file over the size limit as invalid, and stores nothing',
+    uses: UPLOAD,
+    mode: 'granted',
+    // Serializing and sending 32 MiB + 1 is slower than any other check: its own deadline, not the suite's.
+    timeoutMs: 60_000,
+    run: async () => {
+      if (typeof adapter.uploadFile !== 'function') return NO_UPLOAD;
+      const r = await adapter.uploadFile({ file: new Blob([new Uint8Array(UPLOAD_FILE_MAX_BYTES + 1)], { type: 'application/json' }), name: 'conformance-too-large.json', idempotencyKey: crypto.randomUUID() });
+      if (r.outcome !== 'invalid') return `a file of ${UPLOAD_FILE_MAX_BYTES + 1} bytes: expected invalid, got ${describeAction(r)}`;
+      if (r.data !== null) return 'a refused upload carries no data';
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · uploadFile refuses an unsupported or empty type and an unusable name as invalid',
+    uses: UPLOAD,
+    mode: 'granted',
+    run: async () => {
+      if (typeof adapter.uploadFile !== 'function') return NO_UPLOAD;
+      const attempts: [string, Blob, string][] = [
+        ['a type outside the allowed set', json('x', 'application/x-msdownload'), 'conformance.bin'],
+        ['an empty declared type', new Blob(['x']), 'conformance.json'],
+        ['a name that is empty once separators are removed', json('{}'), '//\\\\'],
+      ];
+      for (const [name, file, fileName] of attempts) {
+        const r = await adapter.uploadFile({ file, name: fileName, idempotencyKey: crypto.randomUUID() });
+        if (r.outcome !== 'invalid') return `${name}: expected invalid, got ${describeAction(r)}`;
+        if (r.data !== null) return `${name}: a refused upload carries no data`;
+      }
+      return null;
+    },
+  });
   return checks;
 }

@@ -12,3 +12,8 @@ export {
 } from './routes.js';
 export { canonicalJson, sessionVersionOf } from './session-version.js';
 export { seoulWallClock, seoulWallClockMinute } from './seoul-clock.js';
+export {
+  platformFilesRoutes,
+  PLATFORM_FILE_MAX_BYTES,
+  type PlatformFilesRoutesOptions,
+} from './files-routes.js';

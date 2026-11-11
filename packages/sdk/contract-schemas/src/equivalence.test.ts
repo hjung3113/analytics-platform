@@ -1,6 +1,6 @@
 // Type equivalence between the Zod sources and the hand-written @ap/contracts types (ADR-0096). `tsc --noEmit` (the package's
 // `typecheck`) proves it; `vitest run` only loads the file, because `expectTypeOf` is a no-op at runtime.
-import type { CreateNoticeInput, DeleteNoticeInput, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UpdateNoticeInput, ApiResponse, Capability, Assessment, AssessmentKind, AnyEndpointSpec, ColumnFilter, ColumnFilterSpec, MenuQuery, MenuQueryContext, Outcome, Trust } from '@ap/contracts';
+import type { CreateNoticeInput, DeleteNoticeInput, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UpdateNoticeInput, UploadedFile, ApiResponse, Capability, Assessment, AssessmentKind, AnyEndpointSpec, ColumnFilter, ColumnFilterSpec, MenuQuery, MenuQueryContext, Outcome, Trust } from '@ap/contracts';
 import { describe, expectTypeOf, it } from 'vitest';
 import { z } from 'zod/v4';
 import {
@@ -26,6 +26,7 @@ import {
   preferencesSnapshotSchema,
   saveNoticeInputSchema,
   updateNoticeInputSchema,
+  uploadedFileSchema,
 } from './index.ts';
 import { contextCapabilitySchema } from './menu-query.ts';
 import { APPLIED_CAPABILITIES } from './vocab.ts';
@@ -80,6 +81,7 @@ describe('schemas and @ap/contracts types are the same type', () => {
     expectTypeOf<Wire<z.infer<typeof updateNoticeInputSchema>>>().toEqualTypeOf<Wire<UpdateNoticeInput>>();
     expectTypeOf<Wire<z.infer<typeof saveNoticeInputSchema>>>().toEqualTypeOf<Wire<SaveNoticeInput>>();
     expectTypeOf<Wire<z.infer<typeof deleteNoticeInputSchema>>>().toEqualTypeOf<Wire<DeleteNoticeInput>>();
+    expectTypeOf<Wire<z.infer<typeof uploadedFileSchema>>>().toEqualTypeOf<Wire<UploadedFile>>();
   });
 
   it('column filter and its field spec (ADR-0105)', () => {

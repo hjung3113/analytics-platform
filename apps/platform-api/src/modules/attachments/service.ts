@@ -158,7 +158,8 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
       detail: {
         attachment_id: row.id,
         actor_id: actor.actor_id,
-        storage_key: storageKey,
+        // Filename-free reference: the object key ends in the submitted name, which the audit must never keep.
+        storage_key: `${actor.workspace_id}/${attachmentId}`,
         size_bytes: row.size_bytes,
         mime_type: row.mime_type,
       },
@@ -180,8 +181,8 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
   // lock, idempotency lookup, INSERT + audit, record. A replay, a key
   // conflict or a failure before COMMIT deletes the just-written object
   // best-effort; a failure at/after COMMIT keeps it (outcome unknown). Returns what
-  // the route assembles (`{ status, body }`); replay returns the stored
-  // status + envelope.
+  // the route assembles (`{ status, body, replayed }`); replay returns the stored
+  // status + envelope with `replayed: true`.
   async function uploadAttachmentCommand(args: {
     actor: UploadAttachmentActor;
     bytes: Buffer;
@@ -189,7 +190,7 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
     filename: string;
     idempotencyKey: string;
     requestHash: string;
-  }): Promise<{ status: number; body: AttachmentEnvelope }> {
+  }): Promise<{ status: number; body: AttachmentEnvelope; replayed: boolean }> {
     const { actor, bytes, mimeType, filename, idempotencyKey, requestHash } = args;
     const attachmentId = randomUUID();
     const storageKey = `${actor.workspace_id}/${attachmentId}/${filename}`;
@@ -223,7 +224,7 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
       });
       // Replay: the stored response references the first upload's object.
       if (!inserted) await discardObject(storageKey);
-      return result;
+      return { ...result, replayed: !inserted };
     } catch (err) {
       // Delete only when the transaction definitely did not commit: the body (or the key/hash check inside it)
       // failed before COMMIT. A failure at or after COMMIT is ambiguous (the server may have committed and lost

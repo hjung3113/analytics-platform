@@ -1,7 +1,9 @@
-import { PEOPLE_LOOKUP_MAX as C_PEOPLE_MAX, PREFERENCE_KEYS_MAX as C_KEYS, PREFERENCE_KEY_PATTERN, PREFERENCE_REQUEST_MAX_BYTES as C_REQ, PREFERENCE_VALUE_MAX_BYTES as C_VALUE } from '@ap/contracts';
+import { PEOPLE_LOOKUP_MAX as C_PEOPLE_MAX, UPLOAD_FILE_MAX_BYTES as C_UPLOAD, PREFERENCE_KEYS_MAX as C_KEYS, PREFERENCE_KEY_PATTERN, PREFERENCE_REQUEST_MAX_BYTES as C_REQ, PREFERENCE_VALUE_MAX_BYTES as C_VALUE } from '@ap/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   PEOPLE_LOOKUP_MAX,
+  UPLOAD_FILE_MAX_BYTES,
+  uploadedFileSchema,
   PREFERENCE_KEYS_MAX,
   PREFERENCE_REQUEST_MAX_BYTES,
   PREFERENCE_VALUE_MAX_BYTES,
@@ -34,7 +36,7 @@ describe('port schemas are public and registered as artifacts', () => {
     expect(exported.length).toBeGreaterThanOrEqual(17);
     const registered = new Set(Object.values(SCHEMA_FILES));
     for (const [name, schema] of exported) expect(registered.has(schema as never), name).toBe(true);
-    for (const file of ['jsonValue', 'preferenceKey', 'preferencesSnapshot', 'preferencesPatch', 'preferencesImport', 'groupMember', 'peopleLookupRequest', 'peopleLookupResponse', 'notice', 'noticeListPage', 'createNoticeInput', 'updateNoticeInput', 'saveNoticeInput', 'deleteNoticeInput']) {
+    for (const file of ['jsonValue', 'preferenceKey', 'preferencesSnapshot', 'preferencesPatch', 'preferencesImport', 'groupMember', 'peopleLookupRequest', 'peopleLookupResponse', 'notice', 'noticeListPage', 'createNoticeInput', 'updateNoticeInput', 'saveNoticeInput', 'deleteNoticeInput', 'uploadedFile']) {
       expect(Object.keys(SCHEMA_FILES), file).toContain(file);
     }
   });
@@ -42,6 +44,18 @@ describe('port schemas are public and registered as artifacts', () => {
   it('limits and key grammar equal the contracts constants', () => {
     expect([PREFERENCE_KEYS_MAX, PREFERENCE_VALUE_MAX_BYTES, PREFERENCE_REQUEST_MAX_BYTES, PEOPLE_LOOKUP_MAX]).toEqual([C_KEYS, C_VALUE, C_REQ, C_PEOPLE_MAX]);
     expect(PREFERENCE_KEY_SOURCE).toBe(PREFERENCE_KEY_PATTERN.source);
+    expect(UPLOAD_FILE_MAX_BYTES).toBe(C_UPLOAD);
+  });
+});
+
+describe('uploadedFileSchema', () => {
+  const file = { id: 'f-1', name: 'a.batch.json', size: 2, mimeType: 'application/json' };
+  it('accepts the stored-file shape and refuses a stray key, a missing key and a size over the limit', () => {
+    expect(uploadedFileSchema.safeParse(file).success).toBe(true);
+    expect(uploadedFileSchema.safeParse({ ...file, size: UPLOAD_FILE_MAX_BYTES }).success).toBe(true);
+    expect(uploadedFileSchema.safeParse({ ...file, size: UPLOAD_FILE_MAX_BYTES + 1 }).success).toBe(false);
+    expect(uploadedFileSchema.safeParse({ ...file, storageKey: 'x' }).success).toBe(false);
+    for (const key of Object.keys(file)) expect(uploadedFileSchema.safeParse({ ...file, [key]: undefined }).success, key).toBe(false);
   });
 });
 

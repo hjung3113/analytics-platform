@@ -14,7 +14,7 @@ import { accessDirectory } from './access/access';
 import { deleteAnnotation, listAnnotations, saveAnnotation } from './audit/annotations';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, installWorld, type RoleId, type World } from './world';
 import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './query/endpoints';
-import { deleteNotice, importPreferences, listNotices, lookupPeople, patchPreferences, readPreferences, saveNotice } from './services/services';
+import { deleteNotice, importPreferences, listNotices, lookupPeople, patchPreferences, readPreferences, saveNotice, uploadFile } from './services/services';
 import { serveAction, type AnyMockAction } from './actions/actions';
 
 const siteBoundContextKeys = new Set<ContextKey>(SITE_BOUND_CONTEXT_KEYS);
@@ -207,6 +207,7 @@ export function createMockAdapter(o: {
     listNotices: signal => listNotices(signal),
     saveNotice: (input, signal) => saveNotice(input, signal),
     deleteNotice: (input, signal) => deleteNotice(input, signal),
+    uploadFile: (input, signal) => uploadFile(input, signal),
     // Fire-and-forget telemetry: the kernel never awaits these and passes no AbortSignal.
     recordUsage: events => recordUsage(events),
     reportClientError: report => reportClientError(report),

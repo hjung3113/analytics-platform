@@ -13,6 +13,8 @@ export const PREFERENCE_KEYS_MAX = 200;
 export const PREFERENCE_VALUE_MAX_BYTES = 65_536;
 export const PREFERENCE_REQUEST_MAX_BYTES = 262_144;
 export const PEOPLE_LOOKUP_MAX = 200;
+/** Same as `UPLOAD_FILE_MAX_BYTES` in @ap/contracts (32 MiB); a test compares them. */
+export const UPLOAD_FILE_MAX_BYTES = 33_554_432;
 export const PREFERENCE_KEY_SOURCE = '^(?:favorites|recents|lastScope|lang|columns:[A-Za-z0-9_.-]{1,100})$';
 
 /** UTF-8 byte length of the JSON text of a value (a lone surrogate counts as its 3-byte replacement). */
@@ -113,3 +115,6 @@ export const createNoticeInputSchema = z.strictObject({ ...noticeDraft, idempote
 export const updateNoticeInputSchema = z.strictObject({ ...noticeDraft, id: z.string().min(1), expectedVersion: z.string().min(1), idempotencyKey });
 export const saveNoticeInputSchema = z.union([createNoticeInputSchema, updateNoticeInputSchema]);
 export const deleteNoticeInputSchema = z.strictObject({ id: z.string().min(1), expectedVersion: z.string().min(1), idempotencyKey });
+
+/** `data` of a successful `uploadFile`: the opaque id plus the size and MIME the server recorded. Strict, so a stray key is refused. */
+export const uploadedFileSchema = z.strictObject({ id: z.string().min(1), name: z.string().min(1), size: z.number().int().nonnegative().max(UPLOAD_FILE_MAX_BYTES), mimeType: z.string().min(1) });

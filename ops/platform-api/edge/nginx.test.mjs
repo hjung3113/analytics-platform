@@ -22,8 +22,31 @@ function locations() {
 test('edge: routes are declared in the decided order', () => {
   assert.deepEqual(
     locations().map(([header]) => header),
-    ['^~ /api/features/', '^~ /api/', '^~ /auth/', '^~ /assets/', '= /index.html', '/'],
+    [
+      '= /api/v1/platform/files',
+      '^~ /api/features/',
+      '^~ /api/',
+      '^~ /auth/',
+      '^~ /assets/',
+      '= /index.html',
+      '/',
+    ],
   );
+});
+
+test('edge: only the generic upload route accepts a body above 32 MiB; every other route keeps 26m', () => {
+  const byHeader = Object.fromEntries(locations());
+  const upload = byHeader['= /api/v1/platform/files'];
+  assert.match(upload, /proxy_pass http:\/\/\$backend_upstream;/);
+  const limit = Number(upload.match(/client_max_body_size (\d+)m;/)?.[1]);
+  // 32 MiB plus multipart overhead, and room for the one-byte-over file to reach the backend's own validation.
+  assert.ok(limit > 32, 'upload route allows more than 32 MiB');
+  assert.doesNotMatch(upload, /rewrite|try_files/);
+  for (const [header, body] of locations()) {
+    if (header !== '= /api/v1/platform/files')
+      assert.doesNotMatch(body, /client_max_body_size/, header);
+  }
+  assert.equal([...conf.matchAll(/client_max_body_size 26m;/g)].length, 1);
 });
 
 test('edge: /api/features/ is stripped, /api/ and /auth/ are forwarded unchanged', () => {

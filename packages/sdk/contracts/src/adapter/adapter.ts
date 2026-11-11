@@ -8,7 +8,7 @@ import type { Condition, IdSet } from '../links/url.js';
 import type { MenuQuery } from '../menu/menu-query.js';
 import type { ActionResponse, MenuAction } from './action.js';
 import type { GroupMember } from '../links/saved-view.js';
-import type { DeleteNoticeInput, NoticeListPage, Notice, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput } from './service-ports.js';
+import type { DeleteNoticeInput, NoticeListPage, Notice, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UploadedFile, UploadFileInput } from './service-ports.js';
 
 /**
  * Kernel port to the platform server (docs/integration/platform-packages.md §4). The kernel consumes it;
@@ -361,6 +361,17 @@ export type PlatformAdapter = {
   saveNotice(input: SaveNoticeInput, signal?: AbortSignal): Promise<ActionResponse<Notice>>;
   /** Deletes one notice; console:access, optimistic `expectedVersion`, replay-safe `idempotencyKey`. */
   deleteNotice(input: DeleteNoticeInput, signal?: AbortSignal): Promise<ActionResponse<{ id: string }>>;
+  /**
+   * Optional (an adapter without it behaves as before). Stores one file and answers an opaque id; the server decides
+   * size (UPLOAD_FILE_MAX_BYTES), MIME (a closed set; set `file.type`, an empty type is rejected), name and permission,
+   * so a UI pre-check never replaces the answer. Needs only a session: the right to *use* the file is judged by whoever
+   * consumes the id. The stored file is unlinked: only the uploader can read it back and it is purged after 24 h, so
+   * the consumer reads it within that window or links it. `idempotencyKey` is a UUIDv4 (the Kernel mints one per user action; anything else is `invalid`). A retry with the same key and file is `replayed`;
+   * the same key with another file is `conflict`; a second use of a key never stores a second object. Judged failures
+   * (too large, unsupported type, bad name, busy) are `invalid`/`error` outcomes, not thrown. No list, delete, link or
+   * resumable upload.
+   */
+  uploadFile?(input: UploadFileInput, signal?: AbortSignal): Promise<ActionResponse<UploadedFile>>;
   /**
    * Announces that the session or server-side state changed. The kernel then re-reads the session,
    * re-validates the scope when the session changed, and hides every earlier query result.

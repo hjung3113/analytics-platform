@@ -146,6 +146,8 @@ export type ConformanceCheck = {
    * method threw/rejected instead.
    */
   nonEnvelope?: boolean;
+  /** Own deadline for this check (ms), beside the suite's: a check that builds or sends a large body names it. A check still running at the deadline fails by name. */
+  timeoutMs?: number;
   /** The port methods `run` calls — `PlatformAdapter` members are gated by `harness.implemented`, `SavedViewStore` members by the saved-view sample's presence; a missing method turns the check into a skipped one. */
   uses?: readonly ConformanceUse[];
   /** The check needs a granted site; `harness.siteGrants: false` turns it into a skipped one. */

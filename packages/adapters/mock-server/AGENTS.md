@@ -27,6 +27,7 @@
   - Rows keep the `scopeId` of their creation and every read filters by `scopeId`, never by `chartId` alone.
   - The server stamps author and time; they are absent from the wire input (unknown keys are rejected). Trust is null (non-mart data).
   - `mine` is computed per response from the requesting role and never stored. Only the author deletes; success leaves a runtime audit row (`delete`, `annotation`) that `auditTrail` merges.
+- `uploadFile` (`src/services/services.ts`, #1741): an in-memory store keyed by minted id with the real server's 32 MiB cap and closed MIME set copied, replay by `(user, idempotencyKey)` (`replayed`, other file = `conflict`). No purge or link. `resetUploads()` clears it with the other service stores.
 - Jobs (`src/actions/jobs.ts`): `Job.startedAt` is the start time; `Job.anchor` is a decimal sequence string unique per equipment and ascending by `startedAt` (find with `findJobByAnchor`).
 - `MockEndpoint.provisional` is an optional hook for a menu to judge Trust by the target data's time. It replaces the period-length judgment only for normal, non-empty mart responses; unspecified, empty, error and malformed responses keep the existing judgment. An execution occurrence is judged by `startedAt >= DATA_THROUGH − 24h` (`anchor` is a RecordSequence, not a time, ADR-0094); the reference period does not apply.
 

@@ -1,4 +1,6 @@
 import type { PlatformAdapter } from '@ap/contracts';
+import { uploadedFileSchema } from '@ap/contract-schemas/source';
+import { UPLOAD_FILE_MAX_BYTES } from '@ap/contracts';
 import { describe, expect, it } from 'vitest';
 import { ACTION_OK, ENVELOPE, json, ready, type Call } from './test-support.js';
 
@@ -10,8 +12,9 @@ const REPORT = { correlationId: 'client-abc', menuId: 'home', spaceId: null, pat
 const TEXT = { ko: '제목', en: 'Title' };
 const NOTICE_CREATE = { title: TEXT, content: TEXT, scopeId: null, until: '2026-10-30T00:00:00', idempotencyKey: 'k-1' };
 const NOTICE_DELETE = { id: 'N-1', expectedVersion: 'v1', idempotencyKey: 'k-2' };
+const UPLOADED = { id: 'f-1', name: 'a.batch.json', size: 2, mimeType: 'application/json' };
 
-type Http = { method: 'GET' | 'POST'; path: string; search?: string; body?: unknown; csrf?: boolean; keepalive?: boolean; correlationId?: string };
+type Http = { method: 'GET' | 'POST'; path: string; search?: string; body?: unknown; csrf?: boolean; keepalive?: boolean; correlationId?: string; multipart?: boolean };
 type Row = { http: Http | null; reply?: unknown; call: (a: PlatformAdapter) => unknown };
 
 /** Every PlatformAdapter member, once. `satisfies` makes a missing member a type error; the runtime check below pins the keys. */
@@ -138,6 +141,11 @@ const TABLE = {
     reply: ACTION_OK,
     call: (a) => a.deleteNotice(NOTICE_DELETE),
   },
+  uploadFile: {
+    http: { method: 'POST', path: '/api/v1/platform/files', csrf: true, multipart: true },
+    reply: { ...ACTION_OK, data: UPLOADED },
+    call: (a) => a.uploadFile?.({ file: new Blob(['{}'], { type: 'application/json' }), name: 'a.batch.json', idempotencyKey: 'k-3' }),
+  },
 } satisfies Record<keyof PlatformAdapter, Row>;
 
 const entries = Object.entries(TABLE as Record<string, Row>);
@@ -165,7 +173,7 @@ describe('method table', () => {
     expect(call.init.redirect).toBe('manual');
     expect(call.init.keepalive).toBe(row.http.keepalive ? true : undefined);
     expect(call.url.startsWith('/')).toBe(true);
-    expect(call.headers['Content-Type']).toBe(row.http.method === 'POST' ? 'application/json' : undefined);
+    expect(call.headers['Content-Type']).toBe(row.http.method === 'POST' && !row.http.multipart ? 'application/json' : undefined);
   });
 
   it.each(syncRows)('%s never touches the network', async (_name, row) => {
@@ -233,6 +241,54 @@ describe('method table', () => {
   it('a notice write whose answer is lost is unknown, not error (the write may have applied)', async () => {
     const { adapter } = await ready(() => json({}, { status: 503 }));
     expect(await adapter.saveNotice(NOTICE_CREATE)).toMatchObject({ outcome: 'unknown', data: null });
+  });
+
+  it('uploadFile sends one multipart file part with the key and CSRF headers and no Content-Type, and returns the stored file', async () => {
+    const { adapter, sent } = await ready(() => json({ ...ACTION_OK, data: UPLOADED, replayed: true }));
+    const result = await adapter.uploadFile?.({ file: new Blob(['{}'], { type: 'application/json' }), name: 'a.batch.json', idempotencyKey: 'k-3' });
+    expect(result).toMatchObject({ outcome: 'ok', data: UPLOADED, replayed: true });
+    const [call] = sent() as [Call];
+    expect(call.headers['Idempotency-Key']).toBe('k-3');
+    expect(call.headers['X-CSRF-Token']).toBe('t1');
+    expect(Object.keys(call.headers).map((h) => h.toLowerCase())).not.toContain('content-type');
+    const form = call.init.body as FormData;
+    expect(form).toBeInstanceOf(FormData);
+    expect([...form.keys()]).toEqual(['file']);
+    const part = form.get('file') as File;
+    expect(part.name).toBe('a.batch.json');
+    expect(part.type).toBe('application/json');
+    expect(await part.text()).toBe('{}');
+  });
+
+  it('uploadFile passes a judged refusal through, treats a lost answer as unknown and an ok without a file as a broken response', async () => {
+    const input = { file: new Blob(['x'], { type: 'application/json' }), name: 'a.json', idempotencyKey: 'k-4' };
+    const refused = await ready(() => json({ ...ACTION_OK, outcome: 'invalid', data: null, version: null, fieldErrors: [{ path: ['file'], code: 'too_large' }] }));
+    expect(await refused.adapter.uploadFile?.(input)).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['file'], code: 'too_large' }] });
+    const lost = await ready(() => json({}, { status: 503 }));
+    expect(await lost.adapter.uploadFile?.(input)).toMatchObject({ outcome: 'unknown', data: null });
+    const broken = await ready(() => json({ ...ACTION_OK, data: { id: 'f-1' } }));
+    expect(await broken.adapter.uploadFile?.(input)).toMatchObject({ outcome: 'unknown', data: null, message: 'invalid_response' });
+  });
+
+  it.each<[string, unknown]>([
+    ['valid', UPLOADED],
+    ['empty size', { ...UPLOADED, size: 0 }],
+    ['size at the cap', { ...UPLOADED, size: UPLOAD_FILE_MAX_BYTES }],
+    ['size over the cap', { ...UPLOADED, size: UPLOAD_FILE_MAX_BYTES + 1 }],
+    ['negative size', { ...UPLOADED, size: -1 }],
+    ['fractional size', { ...UPLOADED, size: 1.5 }],
+    ['non-finite size', { ...UPLOADED, size: Number.POSITIVE_INFINITY }],
+    ['empty id', { ...UPLOADED, id: '' }],
+    ['empty name', { ...UPLOADED, name: '' }],
+    ['empty mimeType', { ...UPLOADED, mimeType: '' }],
+    ['extra key', { ...UPLOADED, extra: 1 }],
+    ['missing mimeType', { id: 'f-1', name: 'a', size: 2 }],
+    ['string size', { ...UPLOADED, size: '2' }],
+    ['array', [UPLOADED]],
+  ])('uploadFile accepts exactly what the wire schema accepts: %s', async (_name, data) => {
+    const { adapter } = await ready(() => json({ ...ACTION_OK, data }));
+    const result = await adapter.uploadFile?.({ file: new Blob(['{}'], { type: 'application/json' }), name: 'a.json', idempotencyKey: 'k-5' });
+    expect(result?.outcome === 'ok').toBe(uploadedFileSchema.safeParse(data).success);
   });
 
   it('lookupPeople returns the items and turns a judged 4xx into a PortError', async () => {

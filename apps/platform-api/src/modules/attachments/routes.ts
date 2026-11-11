@@ -12,8 +12,9 @@
 //   2. multipart parse + `file` part present.
 //   3. MIME allowlist (declared Content-Type).
 //   4. Filename sanitizer (strip path separators, control chars, clamp 255B).
-//   5. Size cap is enforced by @fastify/multipart's `limits.fileSize`; the
-//      throw is mapped to `attachment.too_large`.
+//   5. Size cap is passed per request to @fastify/multipart (`limits.fileSize`)
+//      and enforced while streaming; the throw is mapped to `attachment.too_large`.
+// Steps 2-5 live in `upload-part.ts`, shared with `POST /platform/files` (#1741).
 //
 // Rate-limit: 20/min per actor (admin bypass follow-up — server.ts already
 // carries a TODO for the admin-role helper).
@@ -27,10 +28,9 @@ import { requireSession } from '../../middleware/require-session.js';
 import { requireWorkspace } from '../../middleware/require-workspace.js';
 import type { SessionService } from '../auth/session-service.js';
 import type { AttachmentsService } from './service.js';
-import { FilenameSanitizeError, sanitizeFilename } from './filename-sanitize.js';
-import { MIME_ALLOWLIST } from './mime-allowlist.js';
 import { asciiFallback, encodeRfc5987 } from './rfc5987.js';
 import { createUploadAdmission, type UploadAdmission } from './upload-admission.js';
+import { isMultipartRequest, readUploadPart } from './upload-part.js';
 
 export const DEFAULT_ATTACHMENT_UPLOAD_CONCURRENCY = 4;
 export const UPLOAD_BUSY_RETRY_AFTER_SECONDS = 5;
@@ -73,17 +73,8 @@ export const attachmentsRoutes: FastifyPluginAsync<AttachmentsRoutesOptions> = a
       // 1. Idempotency-Key header (validated even before multipart parse).
       const idempotencyKey = requireIdempotencyKey(req.headers as Record<string, unknown>);
 
-      // 2. multipart parse. @fastify/multipart exposes app.req helpers via
-      //    decoration; `req.file()` returns the first file part.
-      const reqAny = req as unknown as {
-        isMultipart?: () => boolean;
-        file?: () => Promise<MultipartFile | undefined>;
-      };
-      if (
-        typeof reqAny.isMultipart !== 'function' ||
-        typeof reqAny.file !== 'function' ||
-        !reqAny.isMultipart()
-      ) {
+      // 2. multipart shape (parsing happens in readUploadPart, after admission).
+      if (!isMultipartRequest(req)) {
         throw new HttpError('validation.failed', 'request must be multipart/form-data', {
           fields: [{ path: ['headers', 'content-type'], code: 'invalid_content_type' }],
         });
@@ -99,7 +90,7 @@ export const attachmentsRoutes: FastifyPluginAsync<AttachmentsRoutesOptions> = a
         return sendError(reply, 'service.unavailable', 'too many uploads in progress; retry shortly');
       }
       try {
-        return await handleUpload(req, reply, sess, idempotencyKey, reqAny.file.bind(req));
+        return await handleUpload(req, reply, sess, idempotencyKey);
       } finally {
         release();
       }
@@ -111,104 +102,71 @@ export const attachmentsRoutes: FastifyPluginAsync<AttachmentsRoutesOptions> = a
     reply: FastifyReply,
     sess: { actor_id: string; workspace_id: string },
     idempotencyKey: string,
-    readFile: () => Promise<MultipartFile | undefined>,
   ): Promise<FastifyReply> {
-      let part: MultipartFile | undefined;
-      try {
-        part = await readFile();
-      } catch (err) {
-        // @fastify/multipart throws a synthetic error for limit violations.
-        if (isRequestFileTooLargeError(err)) {
+    // The 25 MiB cap is this route's own and is enforced while streaming (the plugin ceiling is higher, #1741).
+    const read = await readUploadPart(req, { maxBytes: MAX_ATTACHMENT_BYTES, tolerateTrailingErrors: true });
+    if (!read.ok) {
+      switch (read.reason) {
+        case 'too_large':
+        case 'extra_part':
           return sendError(reply, 'attachment.too_large', 'attachment exceeds 25MB limit', {
             fields: [{ path: ['file'], code: 'too_large' }],
             max_bytes: MAX_ATTACHMENT_BYTES,
           });
-        }
-        return sendMalformedMultipartRequest(req, reply, err);
-      }
-      if (!part) {
-        throw new HttpError('validation.failed', 'file part missing', {
-          fields: [{ path: ['file'], code: 'required' }],
-        });
-      }
-
-      // 3. MIME allowlist (declared Content-Type — magic-byte sniff is C3b).
-      const mimeType = part.mimetype;
-      if (!MIME_ALLOWLIST.has(mimeType)) {
-        // Drain the upload stream so the connection is not held open.
-        await drainPart(part);
-        return sendError(
-          reply,
-          'attachment.unsupported_type',
-          `content type ${mimeType} is not allowed`,
-          {
-            fields: [{ path: ['file'], code: 'unsupported_type' }],
-            mime_type: mimeType,
-          },
-        );
-      }
-
-      // 4. Filename sanitization.
-      let sanitized: string;
-      try {
-        sanitized = sanitizeFilename(part.filename ?? '');
-      } catch (err) {
-        await drainPart(part);
-        if (err instanceof FilenameSanitizeError) {
+        case 'malformed':
+          return sendMalformedMultipartRequest(req, reply, read.err);
+        case 'aborted':
+          // The client is gone; this only settles the handler so the admission slot is released.
+          return sendMalformedMultipartRequest(req, reply, null);
+        case 'not_multipart':
+          throw new HttpError('validation.failed', 'request must be multipart/form-data', {
+            fields: [{ path: ['headers', 'content-type'], code: 'invalid_content_type' }],
+          });
+        case 'missing':
+          throw new HttpError('validation.failed', 'file part missing', {
+            fields: [{ path: ['file'], code: 'required' }],
+          });
+        case 'unsupported_type':
+          return sendError(
+            reply,
+            'attachment.unsupported_type',
+            `content type ${read.mimeType} is not allowed`,
+            {
+              fields: [{ path: ['file'], code: 'unsupported_type' }],
+              mime_type: read.mimeType,
+            },
+          );
+        case 'invalid_filename':
           return sendError(reply, 'validation.failed', 'filename is not usable', {
             fields: [{ path: ['filename'], code: 'invalid_filename' }],
-            reason: err.reason,
+            reason: read.sanitizeReason,
           });
-        }
-        throw err;
       }
+    }
+    const { bytes, mimeType, filename: sanitized } = read;
 
-      // 5. Pull the bytes so the multipart parser observes the truncation
-      //    flag. We must consume the stream before checking `file.truncated`.
-      let bytes: Buffer;
-      try {
-        bytes = await consumeToBuffer(part);
-      } catch (err) {
-        if (isRequestFileTooLargeError(err) || (err as { code?: string }).code === 'FST_REQ_FILE_TOO_LARGE') {
-          return sendError(reply, 'attachment.too_large', 'attachment exceeds 25MB limit', {
-            fields: [{ path: ['file'], code: 'too_large' }],
-            max_bytes: MAX_ATTACHMENT_BYTES,
-          });
-        }
-        return sendMalformedMultipartRequest(req, reply, err);
-      }
-      // Defensive size re-check after buffering. @fastify/multipart's
-      // `limits.fileSize` is the primary gate; this catches the edge case
-      // where the limit is not configured.
-      if (bytes.byteLength > MAX_ATTACHMENT_BYTES) {
-        return sendError(reply, 'attachment.too_large', 'attachment exceeds 25MB limit', {
-          fields: [{ path: ['file'], code: 'too_large' }],
-          max_bytes: MAX_ATTACHMENT_BYTES,
-        });
-      }
+    // Hash binds idempotency to (route, filename, mime, size). The raw
+    // bytes are NOT hashed — a 25MB SHA over the body on every request
+    // would dominate p99. Same-key + different size/mime/name returns
+    // 409 conflict.idempotency_key_reuse. The frame itself (transaction
+    // + advisory lock + lookup/record) lives in uploadAttachmentCommand
+    // (#393), mirroring the VOC application commands.
+    const hash = hashRequestBody({
+      route: 'attachment.create',
+      filename: sanitized,
+      mime_type: mimeType,
+      size_bytes: bytes.byteLength,
+    });
 
-      // 6. Hash binds idempotency to (route, filename, mime, size). The raw
-      //    bytes are NOT hashed — a 25MB SHA over the body on every request
-      //    would dominate p99. Same-key + different size/mime/name returns
-      //    409 conflict.idempotency_key_reuse. The frame itself (transaction
-      //    + advisory lock + lookup/record) lives in uploadAttachmentCommand
-      //    (#393), mirroring the VOC application commands.
-      const hash = hashRequestBody({
-        route: 'attachment.create',
-        filename: sanitized,
-        mime_type: mimeType,
-        size_bytes: bytes.byteLength,
-      });
-
-      const result = await attachmentsService.uploadAttachmentCommand({
-        actor: { actor_id: sess.actor_id, workspace_id: sess.workspace_id },
-        bytes,
-        mimeType,
-        filename: sanitized,
-        idempotencyKey,
-        requestHash: hash,
-      });
-      return reply.code(result.status).send(result.body);
+    const result = await attachmentsService.uploadAttachmentCommand({
+      actor: { actor_id: sess.actor_id, workspace_id: sess.workspace_id },
+      bytes,
+      mimeType,
+      filename: sanitized,
+      idempotencyKey,
+      requestHash: hash,
+    });
+    return reply.code(result.status).send(result.body);
   }
 
   // ── GET /attachments/:id/download — PLAN-22 C4a ─────────────────────────
@@ -262,17 +220,6 @@ export const attachmentsRoutes: FastifyPluginAsync<AttachmentsRoutesOptions> = a
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-interface MultipartFile {
-  filename?: string;
-  mimetype: string;
-  file: NodeJS.ReadableStream & AsyncIterable<Buffer | string> & { truncated?: boolean };
-}
-
-function isRequestFileTooLargeError(err: unknown): boolean {
-  const code = (err as { code?: string } | null | undefined)?.code;
-  return code === 'FST_REQ_FILE_TOO_LARGE' || code === 'FST_FILES_LIMIT';
-}
-
 function sendMalformedMultipartRequest(
   req: FastifyRequest,
   reply: FastifyReply,
@@ -281,25 +228,4 @@ function sendMalformedMultipartRequest(
   const code = (err as { code?: unknown } | null | undefined)?.code;
   req.log.info({ ...(typeof code === 'string' ? { code } : {}) }, 'malformed multipart request');
   return sendError(reply, 'validation.malformed_request', 'malformed request');
-}
-
-async function drainPart(part: MultipartFile): Promise<void> {
-  try {
-    for await (const chunk of part.file) {
-      void chunk;
-    }
-  } catch {
-    // Draining is best-effort; early validation responses must still settle.
-  }
-}
-
-async function consumeToBuffer(part: MultipartFile): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of part.file) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  if (part.file.truncated) {
-    throw Object.assign(new Error('file too large'), { code: 'FST_REQ_FILE_TOO_LARGE' });
-  }
-  return Buffer.concat(chunks);
 }
