@@ -29,7 +29,8 @@ function scopedErrors(input: { level: ScopeLevel; vendorId?: string; modelId?: s
 
 function scopedWrite(store: 'rules' | 'dictionaries') {
   return {
-    // Like the server: a `global` level needs the global permission (and only that); any other level the declared rules-edit one.
+    // The engine first checks the declared rules-edit permission; a `global` level then also needs the global one. Stricter than
+    // the server (global only needs dictionary-global-edit), and the screen never saves at `global`.
     authorize: ({ input, can }: { input: { level: ScopeLevel }; can(permission: string): boolean }) => input.level !== 'global' || can(DICTIONARY_GLOBAL_EDIT_PERMISSION),
     version: ({ input }: { input: { level: ScopeLevel; vendorId?: string; modelId?: string; equipmentId?: string } }) => {
       const key = scopeKey(input);

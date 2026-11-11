@@ -117,7 +117,7 @@ describe('onboarding mock writes', () => {
     expect((await act('eqv.retireSampleWindow', { equipmentId: 'eq-synth-01', windowHash: staged.hash.slice(7) })).outcome).toBe('ok');
   });
 
-  it('a global-level save needs eqv-studio:dictionary-global-edit as well, like the server', async () => {
+  it('a global-level save also needs eqv-studio:dictionary-global-edit', async () => {
     const global = { level: 'global', document: { schemaVersion: '0.4', scope: { level: 'global' }, rules: [] } };
     // A mock adapter installs its permission vocabulary as the roles' world: build one without the global permission, then restore.
     const build = (list: readonly string[]) => createMockAdapter({ endpoints: [...topviewStudioMock], actions: [...topviewStudioActionsMock, ...topviewOnboardingActionsMock], registry: { menus }, permissions: list as typeof permissions });

@@ -13,7 +13,7 @@ export const DATA_SOURCE_LINE = '설비 등록과 Sample Window 가져오기는 
 
 const STATUS_FILTER: ColumnFilterSpec = { kind: 'enum', options: FLEET_STATUSES.map((value) => ({ value, label: FLEET_STATUS_LABEL[value] })), ops: ['in', 'notIn'] };
 
-// Sizes fit the 1440 body (≈1114 px) beside the pinned 동작 column (≈128 px): 120+110+110+150+90+120+100+180 = 980.
+// Sizes fit the 1440 body (≈1114 px) beside the pinned 동작 column (≈128 px): 115+110+110+130+95+135+105+175 = 975 (measured at 1440).
 const COLUMNS: PlatformColumn<FleetRowDto>[] = [
   { id: 'equipmentId', header: '설비', size: 115, value: (row) => row.equipmentId, cell: (row) => <span className="font-mono text-xs">{row.equipmentId}</span> },
   { id: 'vendorName', header: '설비사', size: 110, value: (row) => row.vendorName },
