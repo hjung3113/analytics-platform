@@ -184,6 +184,19 @@ jobs:
       - name: Real production build (DB-free)
         if: ${{ env.DOCS_ONLY != 'true' }}
         run: pnpm --filter @ap/platform-web build:real-prod
+      # #1678: the real build is what the edge serves, so the start-up closure is checked here too (the mock build is checked above;
+      # build:real-prod overwrites the same dist, so this reads the real one).
+      - name: Real build keeps heavy engines out of the start-up closure
+        if: ${{ env.DOCS_ONLY != 'true' }}
+        run: node tooling/scripts/check-lazy-chunks.mjs apps/platform-web/dist
+      # #1678: the production edge image (nginx + the real bundle, apps/platform-web/Dockerfile) is built from that dist and its
+      # config is checked with `nginx -t` (the entrypoint renders the template first; the backend upstream is a runtime variable,
+      # so no backend is needed). A broken Dockerfile, empty bundle or nginx syntax error fails here, not at the install site.
+      - name: Edge image builds and nginx -t passes
+        if: ${{ env.DOCS_ONLY != 'true' }}
+        run: |
+          DOCKER_BUILDKIT=1 docker build -f apps/platform-web/Dockerfile -t platform-release-web:ci .
+          docker run --rm --memory 256m platform-release-web:ci nginx -t
       # Entries older than 7 days are dropped before the save (a failure here must not skip the save). GitHub evicts the least recently used caches above the repository limit (10 GB).
       - name: Prune turbo cache
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}

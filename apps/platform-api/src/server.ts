@@ -326,7 +326,9 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     // in session/audit rows). FO ADR-0015:7-14 keys on `req.ip` so trust must
     // be bounded to the operator-configured hop count. Default 0 outside
     // prod (identical to `trustProxy: false`); prod operators set
-    // `TRUSTED_PROXY_HOPS=1` when a single ingress terminates TLS.
+    // `TRUSTED_PROXY_HOPS` to the proxies in front of the server: 2 for the release topology (company
+    // TLS ingress -> edge nginx -> backend), 1 when a single proxy terminates TLS. With too low a value
+    // every anonymous request shares the proxy's address and one rate-limit bucket.
     trustProxy: config.NODE_ENV === 'production' ? Math.max(config.TRUSTED_PROXY_HOPS, 0) : false,
     // #620 / platform ADR-0069 decision 3: Correlation ID. The id is the Fastify reqId; the log
     // field is `request_id` (FO ADR-0013) and every response echoes it below.
