@@ -13,14 +13,16 @@ export const FLAG_NEUTRAL = 4;
 const MIN_WIDTH = 1.5;
 
 /** Start-sorted order with a running-max-end array; segments longer than a bound sit in a side list. Built on first query. */
-export type LaneIndex = { order: Uint32Array; sortedStart: Float64Array; runMax: Float64Array; long: Uint32Array };
+export type LaneIndex = { order: Uint32Array; blockMax: Float64Array; superMax: Float64Array; long: Uint32Array };
+/** Narrowest unsigned integer array that holds the column's values (`Float64Array` beyond 2^32). */
+export type IntColumn = Uint8Array | Uint16Array | Uint32Array | Float64Array;
 /**
  * One lane as column arrays. `color` is 0 (none) or a 1-based index into `LaneModel.tokens` (never a resolved colour: the
  * palette is a render prop); `rank` is 0 (none) or a 1-based index into `LaneModel.ranks`. `segments` are the caller's objects.
  */
 export type LaneColumns = {
   count: number; segments: TimelineSegment[];
-  start: Float64Array; end: Float64Array; depth: Float64Array; color: Uint16Array; flags: Uint8Array; rank: Uint32Array;
+  start: Float64Array; end: Float64Array; depth: IntColumn; color: IntColumn; flags: Uint8Array; rank: IntColumn;
   index?: LaneIndex;
 };
 export type LaneItem = { segment: TimelineSegment; laneIndex: number; index: number };
@@ -43,20 +45,28 @@ function laneOfFlat(offsets: number[], flat: number) {
   return lo;
 }
 
+function fit(wide: Float64Array, n: number, max: number): IntColumn {
+  const Kind = max <= 255 ? Uint8Array : max <= 65535 ? Uint16Array : max <= 4294967295 ? Uint32Array : Float64Array;
+  const out = new Kind(n); for (let i = 0; i < n; i++) out[i] = wide[i]; return out;
+}
+
 export function prepareLanes(input: TimelineLane[], instants: number[]): LaneModel {
   const ids = new Set<string>(); const laneIds = new Set<string>();
   const tokenIndex = new Map<string, number>(); const tokens: ThemeColorToken[] = [];
   const rankIndex = new Map<string, number>(); const ranks: string[] = [];
   let min = Infinity; let max = -Infinity; let maxDepth = 0;
   const lanes: TimelineLane[] = []; const cols: LaneColumns[] = []; const offsets: number[] = [0];
+  // Duplicate lanes are reported before any segment is converted, as before.
   for (const lane of input) {
     if (laneIds.has(lane.id)) { laneDiagnostic('duplicate lane ID dropped'); continue; }
-    laneIds.add(lane.id);
+    laneIds.add(lane.id); lanes.push(lane);
+  }
+  for (const lane of lanes) {
     const src = lane.segments; const cap = src.length;
     const start = new Float64Array(cap); const end = new Float64Array(cap); const depthCol = new Float64Array(cap);
-    const color = new Uint16Array(cap); const flags = new Uint8Array(cap); const rankCol = new Uint32Array(cap);
+    const color = new Float64Array(cap); const flags = new Uint8Array(cap); const rankCol = new Float64Array(cap);
     const kept: TimelineSegment[] = new Array(cap);
-    let n = 0;
+    let n = 0; let laneDepth = 0;
     for (let i = 0; i < cap; i++) {
       const segment = src[i];
       if (ids.has(segment.id) || !Number.isFinite(segment.start) || !Number.isFinite(segment.end) || segment.start > segment.end || Math.abs(segment.start) > 8.64e15 || Math.abs(segment.end) > 8.64e15) {
@@ -69,7 +79,7 @@ export function prepareLanes(input: TimelineLane[], instants: number[]): LaneMod
       const token = segment.colorToken;
       const tokenOk = typeof token === 'string' && isThemeColorToken(token);
       if (token !== undefined && !tokenOk) laneDiagnostic('invalid segment color; using palette');
-      const d = depthOk ? depth : 0; if (d > maxDepth) maxDepth = d;
+      const d = depthOk ? depth : 0; if (d > maxDepth) maxDepth = d; if (d > laneDepth) laneDepth = d;
       start[n] = segment.start; end[n] = segment.end; depthCol[n] = d;
       if (tokenOk) {
         let t = tokenIndex.get(token); if (t === undefined) { tokens.push(token); t = tokens.length; tokenIndex.set(token, t); }
@@ -83,10 +93,11 @@ export function prepareLanes(input: TimelineLane[], instants: number[]): LaneMod
       kept[n] = segment; n++;
     }
     const whole = n === cap;
-    lanes.push(lane);
-    cols.push(whole
-      ? { count: n, segments: src, start, end, depth: depthCol, color, flags, rank: rankCol }
-      : { count: n, segments: kept.slice(0, n), start: start.slice(0, n), end: end.slice(0, n), depth: depthCol.slice(0, n), color: color.slice(0, n), flags: flags.slice(0, n), rank: rankCol.slice(0, n) });
+    cols.push({
+      count: n, segments: whole ? src : kept.slice(0, n),
+      start: whole ? start : start.slice(0, n), end: whole ? end : end.slice(0, n), flags: whole ? flags : flags.slice(0, n),
+      depth: fit(depthCol, n, laneDepth), color: fit(color, n, tokens.length), rank: fit(rankCol, n, ranks.length),
+    });
     offsets.push(offsets[offsets.length - 1] + n);
   }
   const total = offsets[offsets.length - 1];
@@ -104,29 +115,31 @@ export function prepareLanes(input: TimelineLane[], instants: number[]): LaneMod
       return Reflect.has(target, prop);
     },
   });
-  let idMap: Map<string, number> | null = null;
+  // Open-addressing table of flat positions (Int32Array, 2 slots per segment): about a quarter of a Map<string, number>'s heap.
+  let table: Int32Array | null = null; let mask = 0;
+  const hash = (id: string) => { let h = 0x811c9dc5; for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 0x01000193); return h >>> 0; };
   const byId = { get(id: string) {
-    if (!idMap) {
-      idMap = new Map();
-      for (let l = 0; l < cols.length; l++) { const segs = cols[l].segments; const base = offsets[l]; for (let i = 0; i < cols[l].count; i++) idMap.set(segs[i].id, base + i); }
+    if (!table) {
+      let size = 4; while (size < total * 2) size <<= 1;
+      mask = size - 1; table = new Int32Array(size).fill(-1);
+      for (let l = 0; l < cols.length; l++) {
+        const segs = cols[l].segments; const base = offsets[l];
+        for (let i = 0; i < cols[l].count; i++) { let slot = hash(segs[i].id) & mask; while (table[slot] !== -1) slot = (slot + 1) & mask; table[slot] = base + i; }
+      }
     }
-    const i = idMap.get(id); return i === undefined ? undefined : item(i);
+    for (let slot = hash(id) & mask; table[slot] !== -1; slot = (slot + 1) & mask) {
+      const found = item(table[slot]); if (found.segment.id === id) return found;
+    }
+    return undefined;
   } };
   return { lanes, cols, offsets, tokens, ranks, maxDepth, flat, byId, domain: min === Infinity ? [0, 1] : min === max ? [Math.max(-8.64e15, min - 1), Math.min(8.64e15, max + 1)] : [min, max], density: instants.filter(Number.isFinite).sort((a, b) => a - b) };
 }
 
-function lowerBound(values: Float64Array, value: number) {
-  let lo = 0; let hi = values.length;
-  while (lo < hi) { const mid = (lo + hi) >>> 1; if (values[mid] < value) lo = mid + 1; else hi = mid; }
-  return lo;
-}
-function upperBound(values: Float64Array, value: number) {
-  let lo = 0; let hi = values.length;
-  while (lo < hi) { const mid = (lo + hi) >>> 1; if (values[mid] <= value) lo = mid + 1; else hi = mid; }
-  return lo;
-}
 /** Segments longer than this many mean lengths leave the sorted index, so one domain-spanning segment cannot make every query linear. */
 const LONG_FACTOR = 8;
+/** Sorted entries per block, and blocks per super block: a query skips whole blocks whose latest end is before the window. */
+const BLOCK = 64;
+const SUPER = 64;
 export function laneIndex(cols: LaneColumns): LaneIndex {
   if (cols.index) return cols.index;
   const { start, end, count } = cols;
@@ -140,20 +153,35 @@ export function laneIndex(cols: LaneColumns): LaneIndex {
     else { if (o > 0 && start[order[o - 1]] > start[i]) sorted = false; order[o++] = i; }
   }
   if (!sorted) order.sort((a, b) => start[a] - start[b] || a - b);
-  const sortedStart = new Float64Array(order.length); const runMax = new Float64Array(order.length);
-  let running = -Infinity;
-  for (let i = 0; i < order.length; i++) { sortedStart[i] = start[order[i]]; if (end[order[i]] > running) running = end[order[i]]; runMax[i] = running; }
-  return (cols.index = { order, sortedStart, runMax, long });
+  // Block maxima make the skip independent of the length distribution: no single segment can pin the whole lane.
+  const blockMax = new Float64Array(Math.ceil(order.length / BLOCK)).fill(-Infinity);
+  const superMax = new Float64Array(Math.ceil(blockMax.length / SUPER)).fill(-Infinity);
+  for (let i = 0; i < order.length; i++) { const b = (i / BLOCK) | 0; if (end[order[i]] > blockMax[b]) blockMax[b] = end[order[i]]; }
+  for (let b = 0; b < blockMax.length; b++) { const s = (b / SUPER) | 0; if (blockMax[b] > superMax[s]) superMax[s] = blockMax[b]; }
+  return (cols.index = { order, blockMax, superMax, long });
 }
-/** Appends the lane offsets of every segment with `end >= a && start <= b` to `out`, in no particular order. `stats.scanned` counts examined entries. */
+/** Appends the lane offsets of every segment with `end >= a && start <= b` to `out` in start order, then the long ones. `stats.scanned` counts examined entries, blocks and super blocks. */
 export function laneWindow(cols: LaneColumns, a: number, b: number, out: number[], stats?: { scanned: number }) {
   if (!cols.count) return;
-  const { order, sortedStart, runMax, long } = laneIndex(cols);
+  const { order, blockMax, superMax, long } = laneIndex(cols);
   const { start, end } = cols;
-  const hi = upperBound(sortedStart, b); const lo = lowerBound(runMax, a);
-  for (let i = lo; i < hi; i++) { const o = order[i]; if (end[o] >= a) out.push(o); }
-  for (let i = 0; i < long.length; i++) { const o = long[i]; if (end[o] >= a && start[o] <= b) out.push(o); }
-  if (stats) stats.scanned += Math.max(0, hi - lo) + long.length;
+  // First sorted position with start > b.
+  let lo = 0; let hi = order.length;
+  while (lo < hi) { const mid = (lo + hi) >>> 1; if (start[order[mid]] <= b) lo = mid + 1; else hi = mid; }
+  const limit = lo; let scanned = 0;
+  const blocks = Math.ceil(limit / BLOCK);
+  for (let s = 0; s * SUPER < blocks; s++) {
+    scanned++; if (superMax[s] < a) continue;
+    const blockEnd = Math.min(blocks, (s + 1) * SUPER);
+    for (let k = s * SUPER; k < blockEnd; k++) {
+      scanned++; if (blockMax[k] < a) continue;
+      const stop = Math.min(limit, (k + 1) * BLOCK);
+      for (let i = k * BLOCK; i < stop; i++) { const off = order[i]; if (end[off] >= a) out.push(off); }
+      scanned += stop - k * BLOCK;
+    }
+  }
+  for (let i = 0; i < long.length; i++) { const off = long[i]; if (end[off] >= a && start[off] <= b) out.push(off); }
+  if (stats) stats.scanned += scanned + long.length;
 }
 
 const G = { x: 0, y: 0, width: 0, height: 0 };

@@ -1,6 +1,8 @@
-// Test-only oracle: the pre-#1746 per-segment model, linear scan and reverse linear hit test, kept verbatim as the reference.
+// Test-only oracle: the pre-#1746 geometry (origin/main laneTimelineGeometry.ts) as a per-segment model, linear scan and reverse linear
+// hit test. Domain, paint and hit arithmetic are copied from it; diagnostics and density are omitted, and its constants are frozen here.
 import { isThemeColorToken } from '@ap/ui/theme';
-import { GUTTER, ROW_HEIGHT } from '../laneTimelineModel';
+const GUTTER = 112;
+const ROW_HEIGHT = 24;
 import type { TimelineLane, TimelineSegment } from '../LaneTimeline';
 
 export type OldItem = { segment: TimelineSegment; laneIndex: number; index: number };
@@ -20,7 +22,7 @@ export function oldPrepareLanes(input: TimelineLane[]): OldModel {
   }) }));
   const flat = lanes.flatMap((lane, laneIndex) => lane.segments.map(segment => ({ segment, laneIndex, index: 0 })));
   flat.forEach((item, index) => { item.index = index; });
-  return { lanes, flat, byId: new Map(flat.map(item => [item.segment.id, item])), domain: min === Infinity ? [0, 1] : min === max ? [min - 1, max + 1] : [min, max] };
+  return { lanes, flat, byId: new Map(flat.map(item => [item.segment.id, item])), domain: min === Infinity ? [0, 1] : min === max ? [Math.max(-8.64e15, min - 1), Math.min(8.64e15, max + 1)] : [min, max] };
 }
 export function oldVisibleRects(model: OldModel, view: [number, number], width: number, height: number, scroll: number): OldRect[] {
   const first = Math.max(0, Math.floor(scroll / ROW_HEIGHT));

@@ -46,11 +46,20 @@ describe('hit test matches the old reverse linear search', () => {
   });
 });
 
+describe('single-point domain at the Date limits matches the old clamp', () => {
+  it.each([8.64e15, -8.64e15])('%s', t => {
+    const lanes = [{ id: 'l', label: 'L', segments: [{ id: 's', start: t, end: t }] }];
+    expect(prepareLanes(lanes, []).domain).toEqual(oldPrepareLanes(lanes).domain);
+    expect(prepareLanes(lanes, []).domain.map(v => Math.abs(v) <= 8.64e15)).toEqual([true, true]);
+  });
+});
+
 describe('window query cost', () => {
   const n = 200_000;
   const cases = [
     ['one early segment spanning the whole domain', (i: number, random: () => number) => (i === 0 ? { start: 0, end: n * 10 } : { start: i * 10, end: i * 10 + 5 + random() * 5 })],
     ['3% long segments', (i: number, random: () => number) => (random() < 0.03 ? { start: i * 10, end: i * 10 + 40_000 } : { start: i * 10, end: i * 10 + 5 + random() * 5 })],
+    ['long segments that all end after the query (running max pinned by a spanning one)', (i: number) => (i === 0 ? { start: 0, end: 2_000_000 } : { start: i, end: i + 1_000_000 })],
   ] as const;
   it.each(cases)('%s: a narrow query scans a short span of a 200k lane', (_name, make) => {
     const random = rng(42);
@@ -58,13 +67,14 @@ describe('window query cost', () => {
     const model = prepareLanes([{ id: 'a', label: 'A', segments }], []);
     const stats = { scanned: 0 }; const out: number[] = [];
     const started = performance.now();
-    for (let q = 0; q < 200; q++) { out.length = 0; const a = 100_000 + q * 9_000; laneWindow(model.cols[0], a, a + 200, out, stats); }
+    const first = _name.startsWith('long segments that') ? 1_500_000 : 100_000; const step = _name.startsWith('long segments that') ? 1 : 9_000;
+    for (let q = 0; q < 200; q++) { out.length = 0; const a = first + q * step; laneWindow(model.cols[0], a, a + 200, out, stats); }
     const elapsed = performance.now() - started;
     // Linear would scan 200k per query; the index scans the long side list plus a short run.
     expect(stats.scanned / 200).toBeLessThan(model.cols[0].count / 20);
     // Same answer as a linear scan.
-    out.length = 0; laneWindow(model.cols[0], 1_000_000, 1_000_200, out);
-    const want = segments.flatMap((s, i) => (s.end >= 1_000_000 && s.start <= 1_000_200 ? [i] : []));
+    out.length = 0; laneWindow(model.cols[0], first, first + 200, out);
+    const want = segments.flatMap((s, i) => (s.end >= first && s.start <= first + 200 ? [i] : []));
     expect(out.sort((x, y) => x - y)).toEqual(want);
     console.info(`LaneTimeline ${_name}: ${(stats.scanned / 200).toFixed(0)} scanned/query, ${(elapsed / 200).toFixed(3)} ms/query`);
   });
@@ -94,6 +104,11 @@ describe('validation and diagnostics are unchanged', () => {
     expect(messages).toEqual(['LaneTimeline: duplicate lane ID dropped', 'LaneTimeline: invalid range or duplicate segment ID dropped']);
     expect(model.flat.map(i => i.segment.id)).toEqual(['x', 'z']); expect(model.lanes.map(l => l.id)).toEqual(['a', 'b']);
   });
+  it('reports a duplicate lane before the segment diagnostics of the lane kept', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    prepareLanes([{ id: 'a', label: 'A', segments: [{ id: 's', start: 0, end: 1, depth: -1 }] }, { id: 'a', label: 'Duplicate', segments: [] }], []);
+    expect(spy.mock.calls.map(c => c[0])).toEqual(['LaneTimeline: duplicate lane ID dropped', 'LaneTimeline: invalid depth; using zero']);
+  });
   it('keeps the explicit token as an index, never a resolved colour', () => {
     const { model } = run([{ id: 'x', start: 0, end: 1, colorToken: 'chart-series-2' }, { id: 'y', start: 0, end: 1, neutral: true }]);
     expect(model.tokens).toEqual(['chart-series-2']); expect(Array.from(model.cols[0].color)).toEqual([1, 0]);
@@ -109,6 +124,11 @@ describe('model access', () => {
     expect(model.byId.get('missing')).toBeUndefined();
     expect(item.segment).toBe(lanes[1].segments[17]); // the caller's own object
   });
+  it('byId resolves every id of a larger model and rejects near-miss ids', () => {
+    const model = prepareLanes(randomLanes(11, 5, 800), []);
+    expect(model.flat.every(item => model.byId.get(item.segment.id)?.index === item.index)).toBe(true);
+    expect(model.byId.get('s0-800')).toBeUndefined(); expect(model.byId.get('')).toBeUndefined();
+  });
   it('tooltip and summary text show the normalised depth for an input depth of -1', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const segment = { id: 'b', start: 0, end: 1, depth: -1 };
@@ -120,20 +140,23 @@ describe('model access', () => {
   });
 });
 
-// Measurements (skipped by default): LANE_BENCH=1 NODE_OPTIONS=--expose-gc pnpm --filter @ap/components exec vitest run laneTimelineModel
+// Measurements (skipped by default). Run in a separate process per sample:
+//   LANE_BENCH=200000 NODE_OPTIONS=--expose-gc pnpm --filter @ap/components exec vitest run laneTimelineModel
 describe.skipIf(!process.env.LANE_BENCH)('bench', () => {
-  it('prepareLanes time and heap at 200k', () => {
-    const gc = (globalThis as { gc?: () => void }).gc;
-    const heap = () => { gc?.(); gc?.(); gc?.(); const m = process.memoryUsage(); return m.heapUsed + m.arrayBuffers; };
+  it('prepareLanes time and retained heap (input and model kept, all lanes queried, one byId.get)', () => {
+    const gc = (globalThis as { gc?: () => void }).gc!;
+    const heap = () => { for (let i = 0; i < 5; i++) gc(); const m = process.memoryUsage(); return m.heapUsed + m.arrayBuffers; };
     const make = (count: number) => Array.from({ length: 100 }, (_, l) => ({ id: `l${l}`, label: `L${l}`, segments: Array.from({ length: count / 100 }, (_, i) => ({ id: `s${l}-${i}`, start: i * 10, end: i * 10 + 9, depth: i % 4 })) }));
-    for (const count of [50_000, 200_000]) {
-      const before = heap(); const input = make(count); const floor = heap() - before;
+    for (const count of [Number(process.env.LANE_BENCH)]) { // LANE_BENCH=<segment count>: one size per process
+      const base = heap(); const input = make(count); const afterInput = heap();
       const timeIt = (fn: () => unknown) => { const t = []; for (let i = 0; i < 5; i++) { const s = performance.now(); fn(); t.push(performance.now() - s); } return t.sort((a, b) => a - b)[2]; };
       const oldMs = timeIt(() => oldPrepareLanes(input)); const newMs = timeIt(() => prepareLanes(input, []));
-      const h0 = heap(); const kept = prepareLanes(input, []); const newBytes = heap() - h0;
-      const h1 = heap(); const keptOld = oldPrepareLanes(input); const oldBytes = heap() - h1;
-      console.info(`BENCH ${count}: input floor ${(floor / 1e6).toFixed(1)} MB (${(floor / count).toFixed(0)} B/seg); old prepare ${oldMs.toFixed(1)} ms ${(oldBytes / 1e6).toFixed(1)} MB; new prepare ${newMs.toFixed(1)} ms ${(newBytes / 1e6).toFixed(1)} MB (${(newBytes / count).toFixed(1)} B/seg)`);
-      expect(kept.flat.length + keptOld.flat.length).toBe(2 * count);
+      const before = heap(); const model = prepareLanes(input, []); const cold = heap();
+      visibleRects(model, model.domain, 600, 2400, 0); const queried = heap();
+      model.byId.get('s0-1'); const mapped = heap();
+      const mb = (n: number) => (n / 1e6).toFixed(2);
+      console.info(`BENCH ${count}: input floor ${mb(afterInput - base)} MB; cold columns ${mb(cold - before)} MB (${((cold - before) / count).toFixed(1)} B/seg); +queried indexes ${mb(queried - cold)} MB; +first-id map ${mb(mapped - queried)} MB; model total ${mb(mapped - before)} MB (${((mapped - before) / count).toFixed(1)} B/seg); input+model ${mb(mapped - base)} MB; old prepare ${oldMs.toFixed(1)} ms, new prepare ${newMs.toFixed(1)} ms`);
+      expect(model.flat.length + input.length).toBe(count + 100);
     }
   });
 });
