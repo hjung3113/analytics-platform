@@ -80,25 +80,6 @@
         "@ap/contract-schemas#build"
       ]
     },
-    "@ap/eqv-studio#test": {
-      "dependsOn": [
-        "transit"
-      ],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/packages/eqv/assets/**",
-        "$TURBO_ROOT$/packages/eqv/fixtures/**"
-      ]
-    },
-    "@ap/eqv-studio#typecheck": {
-      "dependsOn": [
-        "transit"
-      ],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/packages/eqv/assets/templates/**"
-      ]
-    },
     "@eqv/core#test": {
       "dependsOn": [
         "transit"

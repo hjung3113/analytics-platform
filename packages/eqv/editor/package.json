@@ -13,7 +13,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --config vitest.config.ts"
+    "test": "vitest run --config vitest.config.ts",
+    "demo:generate": "node --import ./scripts/demo/register-ts.mjs scripts/demo/write.ts ../assets"
   },
   "peerDependencies": {
     "@ap/ui": "workspace:*",
@@ -29,6 +30,8 @@
     "@ap/eslint-config": "workspace:*",
     "@ap/tsconfig": "workspace:*",
     "@ap/ui": "workspace:*",
+    "@eqv/replay": "workspace:*",
+    "@eqv/views": "workspace:*",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.3",

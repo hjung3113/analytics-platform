@@ -98,4 +98,4 @@ The menu pre-checks the file (32 MiB, `*.batch.json` declared `application/json`
 
 ## Not implemented
 
-A Hub Model list read for registration (the menu offers only the Models Fleet already shows; reopen when the owner wants to register under a Model no equipment uses yet), alias metadata storage (`moduleType`, `isPort`, `isRobot` of an alias: the dev tool takes them from an optional file; imported windows are built without them, and the mock does the same; reopen with an alias-metadata import), a permission-aware eqv audit view.
+A Hub Model list read for registration (the menu offers only the Models Fleet already shows; reopen when the owner wants to register under a Model no equipment uses yet), alias metadata storage (`moduleType`, `isPort`, `isRobot` of an alias: imported windows are built without them, and the mock does the same; reopen with an alias-metadata import), a permission-aware eqv audit view.

@@ -28,7 +28,7 @@ Decisions are in [`docs/adr/history/eqv/`](../../../adr/history/eqv/README.md) (
 | `packages/platform-adapter` | `menus/tools/topview` (`@ap/menu-topview`, an ordinary menu package, #1659) |
 | `assets/` | `packages/eqv/assets` (provenance: `NOTICE.md`) |
 | test fixtures | `packages/eqv/fixtures` |
-| `apps/studio` | `apps/eqv-studio` (after #1613) |
+| `apps/studio` | `menus/tools/topview-studio` (the `apps/eqv-studio` dev tool of #1613 was deleted in #1659) |
 | `.agents`-style skill `reference-to-semantic-topview` | `.agents/skills/reference-to-semantic-topview` |
 | repository rules (`AGENTS.md`) | [`packages/eqv/AGENTS.md`](../../../../packages/eqv/AGENTS.md) |
 
