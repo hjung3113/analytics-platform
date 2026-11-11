@@ -147,6 +147,23 @@ describe('DataTrustIndicator showWithoutTrust (#1769)', () => {
     expect(screen.queryByText('확정')).toBeNull();
     expect(screen.getByText('미확인')).toBeTruthy();
   });
+  it('keeps the null-Trust claims out of summary wrap, compact and probe forms', () => {
+    for (const form of [{ summary: true, wrap: true }, { compact: true }] as const) {
+      const { container, unmount } = render(<I18nProvider><DataTrustIndicator trust={null} assessments={[...unknown]} showWithoutTrust {...form} /></I18nProvider>);
+      const button = screen.getByRole('button', { name: /데이터 신뢰/ });
+      expect(button.getAttribute('title')).toContain('응답에 Trust 없음');
+      expect(button.getAttribute('title')).not.toMatch(/커버리지|갱신/);
+      expect(container.textContent).not.toMatch(/잠정|확정|로직 버전 혼재/);
+      unmount();
+    }
+    let node: HTMLElement | null = null;
+    const { container } = render(<I18nProvider><DataTrustIndicator trust={null} assessments={[...unknown]} showWithoutTrust probe={n => { node = n ?? node; }} /></I18nProvider>);
+    expect(node).not.toBeNull();
+    expect(container.querySelector('[aria-hidden]')).not.toBeNull();
+    const words = [...container.querySelectorAll('[data-text]')].map(e => e.getAttribute('data-text')).join(' ');
+    expect(words).toContain('응답에 Trust 없음');
+    expect(words).not.toMatch(/커버리지|갱신/);
+  });
   it('still renders nothing when there are no assessment items', () => {
     const { container } = render(<I18nProvider><DataTrustIndicator trust={null} assessments={[]} showWithoutTrust /></I18nProvider>);
     expect(container.textContent).toBe('');
