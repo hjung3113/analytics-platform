@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  // Dist build for the release tarball (issue #1702, the shape of packages/sdk/shell): ESM .js + .d.ts from the same
+  // sources. Workspace consumers keep importing src (dev exports); only the staged release manifest points here.
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": [],
+    // base.json allows .ts specifiers for the noEmit workspace check; emitting forbids them (TS5096).
+    "allowImportingTsExtensions": false,
+    // The only @ap/* sibling resolves to its emitted declaration (build order: contracts, then the adapters).
+    "paths": {
+      "@ap/contracts": ["../../sdk/contracts/dist/index.d.ts"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["**/*.test.*", "**/__tests__/**", "**/__fixtures__/**", "src/test-setup.ts", "src/vitest.setup.ts"]
+}
