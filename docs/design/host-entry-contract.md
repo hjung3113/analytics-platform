@@ -1,6 +1,8 @@
-# Host 진입점 계약 — 저장소 밖 조립이 받는 도메인 없는 조립 함수 (#1702)
+# Host 조립 계약 — 저장소 밖 조립이 받는 도메인 없는 조립 함수 (#1702)
 
 상태: **Candidate** — 설계. 결정은 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)(방향), [ADR-0142](../adr/0142-out-of-repo-menu-package-and-host-module-split.md)(확장 방식), [ADR-0143](../adr/0143-release-units-and-compatibility-train.md)(릴리스 단위)가 소유하고, 이 문서는 그 결정을 따르는 Host 쪽 모양과 다음 노드의 수용 목록을 소유한다. 구현은 없다.
+
+용어: 여기서 «Host»는 조립 함수와 그 릴리스 단위다. 셸·앱만 import하는 `@ap/kernel/host` 진입점([ADR-0076](../adr/0076-kernel-host-entry-narrow-menu-platform.md))과 호스트 모듈([ADR-0053](../adr/0053-host-module-contract-v1.md))과는 다른 것이다.
 
 범위: [#1702](https://github.com/hjung3113/analytics-platform/issues/1702). 서버 쪽 절반은 [#1729](https://github.com/hjung3113/analytics-platform/issues/1729)(§9). 읽은 문서: [SDK 외부 확장 설계](sdk-external-extension.md)(#428 보류, §4.2·§8 기각), [ADR-0009](../adr/0009-production-assembly-injection.md), [ADR-0052](../adr/0052-rich-content-stays-in-the-sdk.md), [ADR-0053](../adr/0053-host-module-contract-v1.md), [ADR-0131](../adr/0131-sdk-consumer-skill-and-intent-table.md), [ADR-0132](../adr/0132-eqv-merges-into-platform.md), [platform-packages.md §3](../integration/platform-packages.md).
 
@@ -18,9 +20,9 @@
 
 ## 3. 계약
 
-1. **Host는 도메인을 모르는 조립 함수다.** 입력은 조립자가 주입한다: registry에 넣을 선언(공간·그룹·메뉴·권한), 어댑터 조립, 셸 slot, 축. 출력은 띄울 수 있는 앱이다. 함수 이름과 정확한 모양은 구현 노드가 정한다(후보 이름 `app-host`, #1702 본문).
-2. **slot은 조립자가 주입하고 SDK가 import하지 않는다.** 저장된 뷰, Scope 조작, 알림은 지금 `@ap/feature-bridge` slot이고 그 패키지는 `@ap/feature-screens`에 의존한다. Host가 이를 품으면 SDK가 기능 패키지를 import하게 되어 [platform-packages.md §3](../integration/platform-packages.md) 규칙 8을 어긴다. 그래서 slot은 선택 주입이고, Host는 `platform/*`와 `@ap/feature-bridge`를 import하지 않는다(경계 lint로 검사한다).
-3. **우선순위·replacement·overlay 규칙이 없다.** 사내 조립이 자기 `menus.ts`를 가지면 싣지 않을 공개 견본 메뉴는 import하지 않는다. 같은 id를 두 번 등록하면 지금의 `createRegistry` 거부가 그대로 막는다. 플랫폼 기능 패키지(`platform/*`)를 사내가 그대로 쓸지는 릴리스 단위([ADR-0143](../adr/0143-release-units-and-compatibility-train.md))가 정한다.
+1. **Host는 도메인을 모르는 조립 함수다.** 입력은 조립자가 주입한다: registry에 넣을 선언(업무 시스템(`Space`)·그룹·메뉴·권한), 어댑터 조립, 셸 slot, 축. 출력은 띄울 수 있는 앱이다. 함수 이름과 정확한 모양은 구현 노드가 정한다(후보 이름 `app-host`, #1702 본문).
+2. **slot은 조립자가 주입하고 SDK가 import하지 않는다.** 저장된 뷰, Scope 조작, 알림은 지금 `@ap/feature-bridge` slot이고 그 패키지는 `@ap/feature-screens`에 의존한다. Host가 이를 품으면 SDK가 기능 패키지를 import하게 되어 [platform-packages.md §3](../integration/platform-packages.md) 규칙 8을 어긴다. 그래서 slot은 선택 주입이고, Host는 `platform/*`와 `@ap/feature-bridge`를 import하지 않는다(구현 노드가 경계 lint로 검사한다).
+3. **우선순위·replacement·overlay 규칙이 없다.** 사내 조립이 자기 `menus.ts`를 가지면 싣지 않을 공개 견본 메뉴는 import하지 않는다. 같은 id를 두 번 등록하면 지금의 `createRegistry` 거부가 그대로 막는다. 플랫폼 기능 패키지(`platform/*`)를 사내가 그대로 쓸지는 [ADR-0143](../adr/0143-release-units-and-compatibility-train.md) Deferred에 둔다.
 4. **계약 정수 하나가 호환 검사다.** «capability/feature negotiation»은 새 협상을 만들지 않고 `HostFeature`를 넓히는 것으로만 쓴다. 호환은 «같은 열차 N, 롤백용 N-1»이다(ADR-0143).
 5. **공개 앱 `apps/platform-web`이 첫 소비자다.** Host 추출 뒤에도 기존 E2E가 통과해야 하고 화면 차이가 없다. UI 시안이 필요 없다.
 
@@ -52,7 +54,7 @@ Registry 검사와 위 §3의 거부는 실수를 막는다. 같은 JS 프로세
 
 `pnpm sdk:consumer-check`(저장소 밖 임시 프로젝트에 tarball 설치 → tsc·Vite 빌드·Vitest)를 넓혀 아래를 CI에서 돌린다. 이 시험의 통과가 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)의 발효 조건이다.
 
-1. **Host 진입점 추출.** `apps/platform-web/src/main.tsx`·`app-root.tsx`의 조립을 §3의 Host로 옮긴다. 공개 앱이 첫 소비자이고 기존 E2E가 통과한다.
+1. **Host 조립 함수 추출.** `apps/platform-web/src/main.tsx`·`app-root.tsx`의 조립을 §3의 Host로 옮긴다. 공개 앱이 첫 소비자이고 기존 E2E가 통과한다.
 2. **릴리스 대상 추가.** Host, `@ap/mock-server`, `@ap/http-adapter`, `@ap/server-conformance`를 tarball로 낸다. 무결성은 `SHA256SUMS`.
 3. **저장소 밖 조립.** tarball만으로 Host + 공개 합성 메뉴 1 + «사내 역할» 합성 메뉴 1(시험 픽스처 안에만 있는 패키지)을 조립하고 tsc, 빌드, 화면 띄우기를 한다.
 4. **왕복 하나.** 사내 역할 메뉴가 다른 축 묶음 1, 자기 page key 필터 1, mock 엔드포인트 1(`Trust`·`MeasureMeta` 포함), 메뉴 뷰 저장·복원 1회를 쓴다. `GlobalContext`는 바꾸지 않는다.
@@ -96,3 +98,5 @@ Registry 검사와 위 §3의 거부는 실수를 막는다. 같은 JS 프로세
 | 10 | «외부 AI·임베딩 호출 금지»를 플랫폼 규칙으로 | ADR 한 건으로 올리고 사내 프로필에서 외부 공급자 설정을 거부하는 시작 검사로 지킨다 | #1705, [#1711](https://github.com/hjung3113/analytics-platform/issues/1711), [#1714](https://github.com/hjung3113/analytics-platform/issues/1714) |
 | 12 | P1·P2 처리 | `on-hold` + 다시 여는 조건 | #1707–#1714 |
 | 13 | v0.36.0 범위 | §10과 [ADR-0143](../adr/0143-release-units-and-compatibility-train.md) | 이 문서 |
+
+열린 질문(소유자 확인 대기, `질문 #1702`): ADR-0141은 #428을 다시 열지만 [설계 §4.2·§8](sdk-external-extension.md)이 모두 기각이라 재개 뒤 #428이 내는 것이 없다. 추천: #428을 닫고 저장소 밖 조립 시험 노드(§10)로 대체한다. 소유자가 정하기 전에는 ADR-0141의 문구를 그대로 둔다.

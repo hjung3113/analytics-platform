@@ -12,9 +12,10 @@
 
 - **릴리스 단위는 셋이다.**
   1. **SDK tarball**: 현행([ADR-0056](0056-sdk-release-github-release-tarballs.md)) 그대로.
-  2. **Host·어댑터 tarball**: 신규. Host 진입점([Host 진입점 계약](../design/host-entry-contract.md)), `@ap/mock-server`, `@ap/http-adapter`, `@ap/server-conformance`. 무결성은 지금의 `SHA256SUMS` 방식을 쓴다.
+  2. **Host·어댑터 tarball**: 신규. Host 조립 함수([Host 조립 계약](../design/host-entry-contract.md)), `@ap/mock-server`, `@ap/http-adapter`, `@ap/server-conformance`. 무결성은 지금의 `SHA256SUMS` 방식을 쓴다.
   3. **코어 서버 이미지 + 마이그레이션 묶음**: 신규. v0.36.0에는 넣지 않는다.
 - **v0.36.0은 1과 2를 싣는다.**
+- **Host·어댑터 tarball은 SDK 다섯 패키지와 같은 태그, 같은 SemVer로 낸다**(«같은 열차»; [ADR-0044](0044-sdk-source-in-platform-repo-released-separately.md)의 고정 그룹을 넓힌다). 별도 SemVer가 필요해지면 다시 정한다. 되돌릴 수 있다.
 - **호환 정책은 «같은 릴리스 열차 N, 롤백용 N-1»만 지원한다.** Host × SDK × 확장 × 서버의 호환 매트릭스와 버전 협상은 만들지 않는다. 지금도 형제 패키지는 정확 버전 peer다([ADR-0056](0056-sdk-release-github-release-tarballs.md) 보충).
 
 ## Considered Options
@@ -26,6 +27,7 @@
 ## Deferred (구현 안 함)
 
 - 코어 서버 이미지 + 마이그레이션 묶음의 릴리스 자산, SBOM, provenance, 서명, 오프라인 의존 묶음, 사내 미러 규칙. 이유: 사내 패키지 레지스트리·대상 OS·아키텍처는 [#151](https://github.com/hjung3113/analytics-platform/issues/151)의 사내 답이 입력이다. 다시 여는 조건: #151 답 도착 또는 코어 서버 묶음 노드 착수([#1701](https://github.com/hjung3113/analytics-platform/issues/1701)).
+- 사내 조립이 `platform/*` 기능 패키지를 그대로 쓰는지와 그 릴리스 단위. 이유: v0.36.0 범위 밖. 다시 여는 조건: 저장소 밖 조립 시험 뒤 첫 사내 조립이 기능 메뉴를 요구할 때.
 - 릴리스 workflow 자동화(태그·Release 올리기). 이유: 지금은 사람이 한다. 다시 여는 조건: `ci.yml`을 고치는 열린 PR이 정리된 뒤 [#1701](https://github.com/hjung3113/analytics-platform/issues/1701).
 
 ## 결과
