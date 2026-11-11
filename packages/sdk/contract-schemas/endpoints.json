@@ -485,6 +485,16 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "eqv.equipment-options",
+    "menuId": "eqv:focus",
+    "paramKeys": [],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "eqv.equipmentScopes",
     "menuId": "eqv-onboarding",
     "paramKeys": [
@@ -623,6 +633,48 @@
     "requiresScope": false,
     "context": {},
     "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.topview-context",
+    "menuId": "eqv:focus",
+    "paramKeys": [
+      "equipmentId"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {
+      "time": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage",
+      "time_domain"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.topview-events",
+    "menuId": "eqv:focus",
+    "paramKeys": [
+      "equipmentId",
+      "continuationToken"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {
+      "time": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage",
+      "time_domain"
+    ],
+    "limits": {
+      "maxHours": 8
+    },
     "mergeTimeDomain": false
   },
   {
