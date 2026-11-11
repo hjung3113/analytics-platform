@@ -2,6 +2,8 @@
 
 상태: **Deferred — #428은 구현하지 않는다**(소유자 결정 2026-11-10). 이유: 여러 개발자가 이 저장소에서 개발하는 전제라 저장소 밖 패키지의 시스템 등록과 메뉴 기여가 아직 필요하지 않다. 다시 여는 조건: 저장소 밖 패키지가 이 확장을 실제로 필요로 할 때. #492는 범위를 줄여 «모듈도 `menuPermission`을 쓴다»는 한 문장만 [kernel §5](../contract/kernel.md)에 명시했다(타입·호출 때 검사 없음). §5의 실서버 모듈 권한 부여 경로(P5)는 [#1087](https://github.com/hjung3113/analytics-platform/issues/1087)로 옮겼고, §9의 질문은 더 남지 않았다. 아래 본문은 다시 열 때의 근거 설계(Candidate)이고, 「채택」·「컨펌 대기」 표현은 검토 당시의 것이며 현행 결정이 아니다.
 
+2026-11-11 추가: 사내 조립을 저장소 밖에서 하는 방향은 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)이 채택했다. #428 재개는 그 ADR의 발효 조건(저장소 밖 조립 시험 통과)을 따르고, 이 문서가 기각한 §4.2·§8 항목은 [ADR-0142](../adr/0142-out-of-repo-menu-package-and-host-module-split.md)에서도 그대로 기각이다. Host 쪽 모양은 [Host 진입점 계약](host-entry-contract.md)이 소유한다.
+
 읽은 결정: [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md)(원본은 이 저장소, SDK 따로 릴리스), [ADR-0053](../adr/0053-host-module-contract-v1.md), [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md)(Release tarball), [ADR-0072](../adr/0072-open-menu-vocabulary-app-declared-branded-ids.md)(열린 어휘), [#1207](https://github.com/hjung3113/analytics-platform/issues/1207) 소유자 결정(다른 저장소의 에이전트는 릴리스 tarball만 쓴다).
 
 용어: «모듈»은 **호스트 모듈**(ADR-0053)이다. «시스템»은 화면 문구상 `업무 시스템`(코드 이름 `Space`/`SpaceDef`; GLOSSARY가 `공간`을 피하라고 하므로 «공간»은 코드 이름을 가리킬 때만 쓴다). 설비의 Module/Slot, 셸 슬롯과 겹치지 않도록 issue의 `targetSlot`은 «기여 지점»(보류된 후보명이라 GLOSSARY에는 넣지 않는다)으로 쓴다.
