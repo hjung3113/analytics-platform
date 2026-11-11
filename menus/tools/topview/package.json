@@ -1,7 +1,10 @@
 {
-  "name": "@eqv/platform-adapter",
-  "version": "0.0.0",
+  "name": "@ap/menu-topview",
   "private": true,
+  "version": "0.1.0",
+  "ap": {
+    "sdk": ">=0.33.0 <0.34.0"
+  },
   "type": "module",
   "sideEffects": [
     "**/*.css"
@@ -20,12 +23,14 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "peerDependencies": {
-    "@ap/contracts": "workspace:*",
-    "@ap/ui": "workspace:*",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "dependencies": {
+    "@ap/components": "workspace:*",
+    "@ap/contracts": "workspace:*",
+    "@ap/kernel": "workspace:*",
+    "@ap/ui": "workspace:*",
     "@eqv/core": "workspace:*",
     "@eqv/renderer": "workspace:*",
     "@eqv/replay": "workspace:*",
@@ -34,10 +39,8 @@
     "lucide-react": "^1.48.0"
   },
   "devDependencies": {
-    "@ap/contracts": "workspace:*",
     "@ap/eslint-config": "workspace:*",
     "@ap/tsconfig": "workspace:*",
-    "@ap/ui": "workspace:*",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.3",
