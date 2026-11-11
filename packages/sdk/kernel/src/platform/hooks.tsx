@@ -92,8 +92,8 @@ export function useSelectionPortCache(): PortCache {
 }
 
 /**
- * Declares unsaved edits (ADR-0115). While `dirty` is true, leaving the menu (or the whole address with `leaves: 'address'`) by a link, `navigate`,
- * the browser Back/Forward or a reload asks first; the shell shows the dialog. Same-pathname writes, `replace`, Scope or session changes never ask.
+ * Declares unsaved edits (ADR-0115). While `dirty` is true, leaving the menu (or the whole address with `leaves: 'address'`, or a change of the page keys named by `leaves: { pageKeys }`) by a link, `navigate`,
+ * the browser Back/Forward or a reload asks first; the shell shows the dialog. Same-pathname writes never ask unless the chosen mode watches what they change (`'address'`, `{ pageKeys }`); `replace`, Scope or session changes never ask.
  * Unregisters when `dirty` turns false or the component unmounts. A no-op outside a provider.
  */
 export function useUnsavedGuard(dirty: boolean, options?: UnsavedGuardOptions): void {

@@ -31,6 +31,55 @@ describe('navigation guard store (ADR-0115)', () => {
     expect(g.shouldBlock({ from, to })).toBe(blocked);
   });
 
+  it.each([
+    ['a watched key changes', '/a?q=1&t=1', '/a?q=2&t=1', ['q'], true],
+    ['only an unwatched key changes', '/a?q=1&t=1', '/a?q=1&t=2', ['q'], false],
+    ['watched key added', '/a', '/a?q=1', ['q'], true],
+    ['empty value differs from absent', '/a', '/a?q=', ['q'], true],
+    ['same list, other key order in the address', '/a?q=1&t=1', '/a?t=1&q=1', ['q'], false],
+    ['repeated key: order matters', '/a?q=1&q=2', '/a?q=2&q=1', ['q'], true],
+    ['repeated key: [a%00b] is not [a, b]', '/a?q=a%00b', '/a?q=a&q=b', ['q'], true],
+    ['a literal second ? belongs to the value', '/a?q=a?old', '/a?q=a?new', ['q'], true],
+    ['percent-encoding equivalence', '/a?q=%41', '/a?q=A', ['q'], false],
+    ['fragment is ignored', '/a?q=1#x', '/a?q=1#y', ['q'], false],
+    ['leaving the path always asks', '/a?q=1', '/b?q=1', ['q'], true],
+    ['empty list is the path default (same path)', '/a?q=1', '/a?q=2', [], false],
+    ['empty list is the path default (other path)', '/a?q=1', '/b', [], true],
+  ] as const)('leaves { pageKeys }: %s', (_label, from, to, pageKeys, blocked) => {
+    const g = createNavigationGuard();
+    reg(g, { leaves: { pageKeys } });
+    expect(g.shouldBlock({ from, to })).toBe(blocked);
+  });
+
+  it('leaves { pageKeys } skips keys the destination declares hidden (an older entry can still carry one)', () => {
+    const g = createNavigationGuard();
+    reg(g, { leaves: { pageKeys: ['hk', 'q'] } });
+    expect(g.shouldBlock({ from: '/h?hk=old', to: '/h', hiddenKeys: ['hk'] })).toBe(false);
+    expect(g.shouldBlock({ from: '/h?hk=old&q=1', to: '/h?q=2', hiddenKeys: ['hk'] })).toBe(true);
+    expect(g.shouldBlock({ from: '/h?hk=old', to: '/h' })).toBe(true);
+    reg(g, { leaves: 'address' });
+    expect(g.shouldBlock({ from: '/h?hk=old', to: '/h', hiddenKeys: ['hk'] })).toBe(true);
+  });
+
+  it('registrants with different leaves: only the ones the move leaves are asked, discarded and heard', () => {
+    const g = createNavigationGuard();
+    const order: string[] = [];
+    reg(g, { leaves: { pageKeys: ['q'] }, message: 'watching q', onDiscard: () => order.push('q') });
+    reg(g, { leaves: { pageKeys: [] }, message: 'path only', onDiscard: () => order.push('path') });
+    reg(g, { onDiscard: () => order.push('default') });
+    const sameKeyMove = { from: '/a?q=1', to: '/a?q=2' };
+    const { view, proceed } = ask(g, vi.fn(), sameKeyMove);
+    expect(view?.message).toBe('watching q');
+    view?.confirm();
+    expect(order).toEqual(['q']);
+    expect(proceed).toHaveBeenCalledTimes(1);
+    order.length = 0;
+    const leave = ask(g, vi.fn(), { from: '/a?q=1', to: '/b' });
+    expect(leave.view?.message).toBe('path only');
+    leave.view?.confirm();
+    expect(order).toEqual(['default', 'path', 'q']);
+  });
+
   it('confirm runs every blocker onDiscard (newest first) once, then replays once; the innermost message wins', () => {
     const g = createNavigationGuard();
     const order: string[] = [];

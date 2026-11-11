@@ -4,8 +4,13 @@ import type { MainUsageVia, Text } from '@ap/contracts';
 export type UnsavedGuardOptions = {
   /** Detail line the shell shows next to the fixed consequence sentence; it never replaces it. */
   message?: string | Text;
-  /** `'path'` (default): only leaving the menu (the pathname changes) asks. `'address'`: any push to another pathname or query asks. `replace` and same-pathname writes under `'path'` never ask. */
-  leaves?: 'path' | 'address';
+  /**
+   * `'path'` (default): only leaving the menu (the pathname changes) asks. `'address'`: any push to another pathname or query asks.
+   * `{ pageKeys }`: leaving the menu asks, and so does a push that changes the value of one of these page keys (a key given more than once compares its
+   * whole list, in order); a change to any other key never asks. Only keys that stay in the address count: a hidden page key travels in the entry state,
+   * so naming one has no effect. An empty list behaves like `'path'`. `replace` and same-pathname writes under `'path'` never ask.
+   */
+  leaves?: 'path' | 'address' | { pageKeys: readonly string[] };
   /** Runs once, synchronously, only after the person confirmed leaving, before the destination is written. */
   onDiscard?: () => void;
 };
@@ -25,10 +30,18 @@ export type LeaveRequest = {
 };
 
 type Entry = { read: () => UnsavedGuardOptions; seq: number };
-export type AddressChange = { from: string; to: string };
+/** `hiddenKeys`: page keys the destination menu keeps out of its address; a Back/Forward address can still carry one from an older entry, so a `{ pageKeys }` comparison skips them. */
+export type AddressChange = { from: string; to: string; hiddenKeys?: readonly string[] };
 
 const pathOf = (url: string): string => url.split('?')[0].split('#')[0];
 const addressOf = (url: string): string => url.split('#')[0];
+/** The ordered decoded values of one query key. The query is everything after the first `?` (a later `?` is part of a value), fragment excluded. */
+const valuesOf = (url: string, key: string): string[] => {
+  const address = addressOf(url);
+  const at = address.indexOf('?');
+  return new URLSearchParams(at === -1 ? '' : address.slice(at + 1)).getAll(key);
+};
+const sameValues = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((v, i) => v === b[i]);
 
 /**
  * The Kernel-internal registry of unsaved-edit guards and the one pending leave request. Headless: the shell draws the dialog.
@@ -50,8 +63,12 @@ export function createNavigationGuard() {
     else if (entries.size === 0 && unloadAttached) { window.removeEventListener('beforeunload', onUnload); unloadAttached = false; }
   };
 
-  const blocks = (entry: Entry, change: AddressChange): boolean =>
-    (entry.read().leaves ?? 'path') === 'address' ? addressOf(change.from) !== addressOf(change.to) : pathOf(change.from) !== pathOf(change.to);
+  const blocks = (entry: Entry, change: AddressChange): boolean => {
+    const leaves = entry.read().leaves ?? 'path';
+    if (leaves === 'address') return addressOf(change.from) !== addressOf(change.to);
+    if (pathOf(change.from) !== pathOf(change.to)) return true;
+    return typeof leaves === 'object' && leaves.pageKeys.some(key => !(change.hiddenKeys?.includes(key) ?? false) && !sameValues(valuesOf(change.from, key), valuesOf(change.to, key)));
+  };
   const blockersFor = (change: AddressChange): Entry[] => [...entries].filter(e => blocks(e, change)).sort((a, b) => a.seq - b.seq);
 
   const dropRequest = () => { if (request !== null) { request = null; notify(); } };

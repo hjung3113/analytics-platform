@@ -157,7 +157,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       // The pop of a leave the person confirmed.
       if (replayIdx.current !== null && newIdx === replayIdx.current) { replayIdx.current = null; arrivePop(newIdx); return; }
       const raw = location.read() ?? '';
-      const change = { from: shownRef.current, to: raw };
+      const change = { from: shownRef.current, to: raw, hiddenKeys: hiddenKeysFor(raw) };
       if (guard.shouldBlock(change)) {
         if (newIdx !== null && cur !== null && sameSegment && newIdx !== cur && location.go !== undefined) {
           const delta = newIdx - cur;
@@ -186,7 +186,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, [pageNavigation, location, usageNav, arrive, guard, menuFor]);
+  }, [pageNavigation, location, usageNav, arrive, guard, menuFor, hiddenKeysFor]);
 
   // Recent visits (the main screen's own history; a pane never writes them).
   useEffect(() => {

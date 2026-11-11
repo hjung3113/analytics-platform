@@ -77,7 +77,7 @@ Toast | type | type Toast = { action?: @ap/kernel#ToastAction; detail?: string; 
 ToastAction | type | type ToastAction = { label: string; onAction: () => void; }
 ToastOptions | type | type ToastOptions = { action?: @ap/kernel#ToastAction; durationMs?: number; }
 UNDO_WINDOW_MS | const | const UNDO_WINDOW_MS: 8000
-UnsavedGuardOptions | type | type UnsavedGuardOptions = { leaves?: 'address' | 'path'; message?: @ap/contracts#Text | string; onDiscard?: () => void; }
+UnsavedGuardOptions | type | type UnsavedGuardOptions = { leaves?: 'address' | 'path' | { pageKeys: readonly string[]; }; message?: @ap/contracts#Text | string; onDiscard?: () => void; }
 VocAvailability | type | type VocAvailability = 'available' | 'denied' | 'off'
 VocComposeContext | type | type VocComposeContext = { carried: Readonly<Record<string, string>>; errorMenuId: null | string; href: null | string; items: readonly @ap/kernel#VocComposeContextItem[]; menuId: null | string; spaceId: @ap/contracts#SpaceId | null; traceId: null | string; }
 VocComposeContextItem | type | type VocComposeContextItem = { id: string; label: string; value: string; }
