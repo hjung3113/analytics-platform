@@ -112,7 +112,7 @@ const canvasBlob = (canvas: HTMLCanvasElement) => new Promise<Blob>((resolve, re
 
 /**
  * LaneTimeline: the axis canvas over the data canvas and the overlay canvas (the visible range, backing-store pixels) on the surface colour. The lane names are DOM,
- * not canvas, so they are drawn into the left gutter from the label cells at their scrolled positions. 
+ * not canvas, so they are drawn into the left gutter from the label cells at their scrolled positions.
  */
 export function laneImageBlob(parts: { axis: HTMLCanvasElement | null; plot: HTMLCanvasElement | null; overlay?: HTMLCanvasElement | null; labels: HTMLElement | null; scroll: HTMLElement | null }): Promise<Blob> {
   const { axis, plot, overlay, labels, scroll } = parts;

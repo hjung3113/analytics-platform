@@ -66,28 +66,32 @@ function paintExact(ctx: CanvasRenderingContext2D, style: LaneStyle, buf: RectBu
   decorate(ctx, style, lane, o, buf.x[i], buf.y[i], buf.width[i], buf.height[i]);
 }
 
-/** Best coverage and the winning lane offset per pixel column of one lane at one depth. Pooled; only the touched range is reset. */
-type Bucket = { cover: Float32Array; off: Int32Array; lo: number; hi: number; y: number; h: number };
-const pool: Bucket[] = []; let poolColumns = 0;
-function acquire(columns: number): Bucket {
-  if (columns > poolColumns) { pool.length = 0; poolColumns = columns; }
-  return pool.pop() ?? { cover: new Float32Array(poolColumns).fill(-1), off: new Int32Array(poolColumns).fill(-1), lo: 0, hi: -1, y: 0, h: 0 };
+/** One depth of the LOD lanes: fills as runs per colour id (colours in first-seen order), and the decorations of the winning rects.
+ * `deco` holds quadruples (lane, offset, clipFrom, clipTo): `clipFrom < 0` draws unclipped, otherwise the decoration is clipped to the x ranges `clips[clipFrom..clipTo)` (pairs). */
+type Pass = { runs: (number[] | undefined)[]; colors: number[]; deco: number[]; clips: number[] };
+/** Frame-local bucket storage: one width-sized column buffer pair and the winner intervals of one lane and depth, reused for every depth pass. Never retained between frames. */
+type Scratch = { cover: Float64Array; off: Int32Array; ivOffset: Int32Array; ivFrom: Int32Array; ivTo: Int32Array; found: Int32Array };
+/** Test hook: bytes of bucket storage allocated by a frame (O(width)) and of the per-lane depth grouping (O(visible segments)). */
+export type LodStats = { bucketBytes: number; groupBytes: number };
+function allocScratch(columns: number, stats?: LodStats): Scratch {
+  const s = { cover: new Float64Array(columns).fill(-1), off: new Int32Array(columns).fill(-1), ivOffset: new Int32Array(columns), ivFrom: new Int32Array(columns), ivTo: new Int32Array(columns), found: new Int32Array(columns) };
+  if (stats) stats.bucketBytes += s.cover.byteLength + s.off.byteLength + s.ivOffset.byteLength + s.ivFrom.byteLength + s.ivTo.byteLength + s.found.byteLength;
+  return s;
 }
-/** Distinct winners of one lane and depth in column order, sorted and de-duplicated in place. Reused across frames. */
-let foundScratch = new Int32Array(0);
-/** One depth of the LOD lanes: fills as runs per colour id (colours in first-seen order), and the winning rects (lane, offset) whose decorations follow the fills. */
-type Pass = { runs: (number[] | undefined)[]; colors: number[]; winnerLane: number[]; winnerOffset: number[] };
+/** The decoration glyphs reach this far (miter and dash included) beyond the rect they belong to, in pixels. */
+const DECO_REACH = 8;
 
 /**
  * Paints one frame of the data layer. A lane whose visible segment count reaches `lodAt` (the plot width in pixels; `Infinity` forces the exact path)
  * is painted by pixel columns straight from its time index; every other lane by rect, in the order and with the calls of the pre-LOD painter.
  * Per depth, ascending and never reordered: the exact rects of that depth, then the LOD lanes' runs grouped by colour, then the decorations of the
- * winning rects. `buf` is scratch for the exact lanes' rects.
+ * winning rects (each clipped to the columns no later-painted winner of that depth takes). `buf` is scratch for the exact lanes' rects.
  */
-export function paintFrame(ctx: CanvasRenderingContext2D, style: LaneStyle, frame: { view: [number, number]; width: number; height: number; scroll: number }, buf: RectBuffer, lodAt: number) {
+export function paintFrame(ctx: CanvasRenderingContext2D, style: LaneStyle, frame: { view: [number, number]; width: number; height: number; scroll: number }, buf: RectBuffer, lodAt: number, stats?: LodStats) {
   const { model } = style; const { view, width, height, scroll } = frame;
   const plot = Math.max(1, width - GUTTER); const [first, last] = visibleLanes(model, height, scroll);
   const windows: number[][] = []; const lodLane = new Uint8Array(model.lanes.length); let anyLod = false;
+  if (stats) { stats.bucketBytes = 0; stats.groupBytes = 0; }
   if (lodAt !== Infinity) {
     for (let l = first; l < last; l++) {
       const w: number[] = []; laneWindow(model.cols[l], view[0], view[1], w);
@@ -97,8 +101,8 @@ export function paintFrame(ctx: CanvasRenderingContext2D, style: LaneStyle, fram
   const count = fillVisibleRects(model, view, width, height, scroll, buf, undefined, anyLod ? lodLane : undefined);
   const passes = new Map<number, Pass>();
   if (anyLod) {
-    const columns = Math.ceil(width) + 2;
-    for (let l = first; l < last; l++) if (lodLane[l]) bucketLane(style, l, windows[l], frame, plot, columns, passes);
+    const columns = Math.ceil(width) + 2; const scratch = allocScratch(columns, stats);
+    for (let l = first; l < last; l++) if (lodLane[l]) bucketLane(style, l, windows[l], frame, plot, columns, passes, scratch, stats);
   }
   const depthAt = (i: number) => model.cols[buf.laneIndex[i]].depth[buf.offset[i]];
   const lodDepths = [...passes.keys()].sort((a, b) => a - b); let nextLod = 0;
@@ -109,10 +113,14 @@ export function paintFrame(ctx: CanvasRenderingContext2D, style: LaneStyle, fram
       ctx.fillStyle = style.fills[id];
       for (let r = 0; r < list.length; r += 4) ctx.fillRect(list[r], list[r + 1], list[r + 2], list[r + 3]);
     }
-    for (let k = 0; k < pass.winnerLane.length; k++) {
-      const lane = pass.winnerLane[k]; const o = pass.winnerOffset[k];
+    const { deco, clips } = pass;
+    for (let k = 0; k < deco.length; k += 4) {
+      const lane = deco[k]; const o = deco[k + 1]; const from = deco[k + 2]; const to = deco[k + 3];
       const g = laneGeometry(style.model.cols[lane], o, lane, frame.view, frame.width, plot, frame.scroll);
-      decorate(ctx, style, lane, o, g.x, g.y, g.width, g.height, true);
+      if (from < 0) { decorate(ctx, style, lane, o, g.x, g.y, g.width, g.height, true); continue; }
+      ctx.save(); ctx.beginPath();
+      for (let r = from; r < to; r += 2) ctx.rect(clips[r], 0, clips[r + 1] - clips[r], height);
+      ctx.clip(); decorate(ctx, style, lane, o, g.x, g.y, g.width, g.height, true); ctx.restore();
     }
   };
   for (let i = 0; i < count;) {
@@ -126,67 +134,94 @@ export function paintFrame(ctx: CanvasRenderingContext2D, style: LaneStyle, fram
   while (nextLod < lodDepths.length) flush(lodDepths[nextLod++]);
 }
 
-/** One LOD lane: winner per pixel column and depth (largest coverage, ties to the highest input index), equal neighbours merged into runs. */
-function bucketLane(style: LaneStyle, lane: number, offsets: number[], frame: { view: [number, number]; width: number; scroll: number }, plot: number, columns: number, passes: Map<number, Pass>) {
+/**
+ * The offsets of one lane's window grouped by depth, ascending (stable). Counting sort on the depth column into one Int32Array while the depths are
+ * small relative to the window (always, in practice); a comparator sort otherwise, so storage is O(window) either way.
+ */
+function groupByDepth(depthCol: ArrayLike<number>, offsets: number[], stats?: LodStats): Int32Array {
+  const n = offsets.length; let min = Infinity; let max = -Infinity;
+  for (let k = 0; k < n; k++) { const d = depthCol[offsets[k]]; if (d < min) min = d; if (d > max) max = d; }
+  const out = new Int32Array(n);
+  if (stats) stats.groupBytes += out.byteLength;
+  if (min === max) { for (let k = 0; k < n; k++) out[k] = offsets[k]; return out; }
+  if (max - min <= 2 * n + 64) {
+    const counts = new Int32Array(max - min + 2); if (stats) stats.groupBytes += counts.byteLength;
+    for (let k = 0; k < n; k++) counts[depthCol[offsets[k]] - min + 1]++;
+    for (let d = 1; d < counts.length; d++) counts[d] += counts[d - 1];
+    for (let k = 0; k < n; k++) out[counts[depthCol[offsets[k]] - min]++] = offsets[k];
+    return out;
+  }
+  for (let k = 0; k < n; k++) out[k] = offsets[k];
+  return out.sort((a, b) => depthCol[a] - depthCol[b] || a - b);
+}
+
+/** One LOD lane: winner per pixel column and depth (largest coverage at full precision, ties to the highest input index), equal neighbours merged into runs. */
+function bucketLane(style: LaneStyle, lane: number, window: number[], frame: { view: [number, number]; width: number; scroll: number }, plot: number, columns: number, passes: Map<number, Pass>, sc: Scratch, stats?: LodStats) {
   const cols = style.model.cols[lane]; const { view, width, scroll } = frame;
   // Constants of the lane (module imports are hoisted into locals: a property load per segment otherwise), in the arithmetic of `laneGeometry` (division kept so every column edge is bit-identical).
   const { start, end, depth: depthCol, color: colorCol, flags, rank: rankCol } = cols;
   const v0 = view[0]; const span = view[1] - view[0]; const minWidth = MIN_WIDTH; const gutter = GUTTER; const maxX = width - minWidth; const rowTop = lane * ROW_HEIGHT - scroll;
-  const buckets = new Map<number, Bucket>();
-  let curDepth = -1; let b!: Bucket; let cover!: Float32Array; let off!: Int32Array; let lo = 0; let hi = -1;
-  const n = offsets.length;
-  for (let k = 0; k < n; k++) {
-    const o = offsets[k]; const depth = depthCol[o];
-    if (depth !== curDepth) {
-      if (curDepth >= 0) { b.lo = lo; b.hi = hi; }
-      let next = buckets.get(depth);
-      if (!next) {
-        const inset = Math.min(depth * 2, 11);
-        next = acquire(columns); next.lo = columns; next.hi = -1; next.y = rowTop + inset; next.h = ROW_HEIGHT - inset * 2; buckets.set(depth, next);
-      }
-      b = next; cover = b.cover; off = b.off; lo = b.lo; hi = b.hi; curDepth = depth;
-    }
-    const x = gutter + Math.max(0, (start[o] - v0) / span * plot);
-    const endX = gutter + Math.min(plot, (end[o] - v0) / span * plot);
-    const x0 = Math.min(x, maxX); const x1 = x0 + Math.max(minWidth, endX - x);
-    const c0 = Math.max(0, Math.floor(x0)); const c1 = Math.min(columns, Math.ceil(x1));
-    if (c0 < lo) lo = c0; if (c1 - 1 > hi) hi = c1 - 1;
-    for (let c = c0; c < c1; c++) {
-      const covered = Math.min(x1, c + 1) - Math.max(x0, c);
-      const best = cover[c];
-      if (covered > best || (covered === best && o > off[c])) { cover[c] = covered; off[c] = o; }
-    }
-  }
-  if (curDepth >= 0) { b.lo = lo; b.hi = hi; }
-  if (foundScratch.length < columns) foundScratch = new Int32Array(columns);
+  const { cover, off, ivOffset, ivFrom, ivTo, found } = sc;
   const { codeId, neutralId, rankOutlineId, outlineCount, rankOutline } = style; const fallback = style.paletteIds[lane % style.paletteIds.length];
-  for (const [depth, bk] of buckets) {
-    let pass = passes.get(depth); if (!pass) { pass = { runs: [], colors: [], winnerLane: [], winnerOffset: [] }; passes.set(depth, pass); }
-    const bOff = bk.off; const bCover = bk.cover; const { runs, colors } = pass; const { y, h } = bk; const hiColumn = bk.hi;
-    let runStart = bk.lo; let runKey = -1; let runColor = -1; let prev = -1; let found = 0;
-    for (let c = bk.lo; c <= hiColumn + 1; c++) {
-      const o = c <= hiColumn ? bOff[c] : -1;
+  const offsets = groupByDepth(depthCol, window, stats); const n = offsets.length;
+  for (let from = 0; from < n;) {
+    const depth = depthCol[offsets[from]]; let to = from + 1;
+    while (to < n && depthCol[offsets[to]] === depth) to++;
+    const inset = Math.min(depth * 2, 11); const y = rowTop + inset; const h = ROW_HEIGHT - inset * 2;
+    let lo = columns; let hi = -1;
+    for (let k = from; k < to; k++) {
+      const o = offsets[k];
+      const x = gutter + Math.max(0, (start[o] - v0) / span * plot);
+      const endX = gutter + Math.min(plot, (end[o] - v0) / span * plot);
+      const x0 = Math.min(x, maxX); const x1 = x0 + Math.max(minWidth, endX - x);
+      const c0 = Math.max(0, Math.floor(x0)); const c1 = Math.min(columns, Math.ceil(x1));
+      if (c0 < lo) lo = c0; if (c1 - 1 > hi) hi = c1 - 1;
+      for (let c = c0; c < c1; c++) {
+        const covered = Math.min(x1, c + 1) - Math.max(x0, c);
+        const best = cover[c];
+        if (covered > best || (covered === best && o > off[c])) { cover[c] = covered; off[c] = o; }
+      }
+    }
+    from = to;
+    let pass = passes.get(depth); if (!pass) { pass = { runs: [], colors: [], deco: [], clips: [] }; passes.set(depth, pass); }
+    const { runs, colors } = pass;
+    let runStart = lo; let runKey = -1; let runColor = -1; let prev = -1; let ivStart = lo; let intervals = 0;
+    for (let c = lo; c <= hi + 1; c++) {
+      const o = c <= hi ? off[c] : -1;
       if (o !== prev) {
+        if (prev >= 0) { ivOffset[intervals] = prev; ivFrom[intervals] = ivStart; ivTo[intervals] = c; intervals++; }
+        ivStart = c;
         let key = -1; let color = -1;
-        if (o >= 0) {
-          const code = colorCol[o]; color = code ? codeId[code] : flags[o] & FLAG_NEUTRAL ? neutralId : fallback;
-          key = color * outlineCount + rankOutlineId[rankCol[o]]; foundScratch[found++] = o;
-        }
+        if (o >= 0) { const code = colorCol[o]; color = code ? codeId[code] : flags[o] & FLAG_NEUTRAL ? neutralId : fallback; key = color * outlineCount + rankOutlineId[rankCol[o]]; }
         if (key !== runKey) {
           if (runKey >= 0) { let list = runs[runColor]; if (!list) { list = []; runs[runColor] = list; colors.push(runColor); } list.push(runStart, y, c - runStart, h); }
           runStart = c; runKey = key; runColor = color;
         }
         prev = o;
       }
-      if (c <= hiColumn) { bOff[c] = -1; bCover[c] = -1; }
+      if (c <= hi) { off[c] = -1; cover[c] = -1; }
     }
-    // Native numeric sort (no comparator); only winners with something to stroke are kept, and the geometry is computed when they are drawn.
-    const list = foundScratch.subarray(0, found).sort();
-    for (let k = 0; k < list.length; k++) {
+    // Decorations: only winners with something to stroke. Each is visible where the exact painter would leave it, i.e. not in the columns a later-painted winner of this depth takes.
+    let wanted = 0;
+    for (let i = 0; i < intervals; i++) { const o = ivOffset[i]; if (rankOutline[rankCol[o]].width || flags[o] & (FLAG_ORPHAN | FLAG_OPEN)) found[wanted++] = o; }
+    if (!wanted) continue;
+    const list = found.subarray(0, wanted).sort(); const { deco, clips } = pass;
+    for (let k = 0; k < wanted; k++) {
       const o = list[k]; if (k > 0 && o === list[k - 1]) continue;
-      if (!rankOutline[rankCol[o]].width && !(flags[o] & (FLAG_ORPHAN | FLAG_OPEN))) continue;
-      pass.winnerLane.push(lane); pass.winnerOffset.push(o);
+      const g = laneGeometry(cols, o, lane, view, width, plot, scroll);
+      const lo2 = g.x - DECO_REACH; const hi2 = g.x + Math.max(g.width, 6) + DECO_REACH;
+      let a = 0; let b = intervals; // first interval ending after lo2
+      while (a < b) { const m = (a + b) >> 1; if (ivTo[m] > lo2) b = m; else a = m + 1; }
+      const clipFrom = clips.length; let cursor = lo2; let hidden = false;
+      for (let i = a; i < intervals && ivFrom[i] < hi2; i++) {
+        if (ivOffset[i] <= o) continue;
+        hidden = true;
+        if (ivFrom[i] > cursor) clips.push(cursor, ivFrom[i]);
+        if (ivTo[i] > cursor) cursor = ivTo[i];
+      }
+      if (!hidden) { deco.push(lane, o, -1, -1); continue; }
+      if (cursor < hi2) clips.push(cursor, hi2);
+      if (clips.length > clipFrom) deco.push(lane, o, clipFrom, clips.length);
     }
-    pool.push(bk);
   }
 }
