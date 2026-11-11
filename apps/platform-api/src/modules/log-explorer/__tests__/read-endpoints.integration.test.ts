@@ -265,6 +265,7 @@ describe.skipIf(!runIntegration)('log explorer reads (#1469)', () => {
     try {
       await holder.query('begin');
       await holder.query('select 1 from core.sessions where actor_id = $1 for update', [who.id]);
+      const holderPid = (await holder.query('select pg_backend_pid() as pid')).rows[0].pid as number;
       const address = await slowAddress();
       const ctl = new AbortController();
       const pending = fetch(`${address}/api/v1/menu-query`, {
@@ -273,7 +274,19 @@ describe.skipIf(!runIntegration)('log explorer reads (#1469)', () => {
         body: JSON.stringify({ endpoint: 'logExplorer.records', context: {}, params: page({ limit: 5 }) }),
         signal: ctl.signal,
       }).catch(() => null);
-      await new Promise((r) => setTimeout(r, 200)); // the request is inside authentication, blocked on the lock
+      // Abort only once the server is confirmed waiting on the held row lock (the request is inside authentication).
+      let waiting = false;
+      for (let i = 0; i < 60 && !waiting; i += 1) {
+        // The app role hides its query text and wait events from this connection; the blocking pids are visible.
+        const { rowCount } = await migrate.pool.query(
+          `select 1 from pg_stat_activity
+            where datname = current_database() and usename = 'platform_app' and $1 = any(pg_blocking_pids(pid))`,
+          [holderPid],
+        );
+        waiting = (rowCount ?? 0) > 0;
+        if (!waiting) await new Promise((r) => setTimeout(r, 50));
+      }
+      if (!waiting) throw new Error('the server never started waiting on the core.sessions row lock within 3 s');
       ctl.abort();
       await pending;
       await new Promise((r) => setTimeout(r, 200)); // the socket close reached the server before authentication returns
