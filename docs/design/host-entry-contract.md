@@ -85,17 +85,17 @@ Registry 검사와 위 §3의 거부는 실수를 막는다. 같은 JS 프로세
 | 서버 조립 구현 | §9 | #1729 결정 뒤 |
 | 공개 메뉴 대체·비활성 | [ADR-0142](../adr/0142-out-of-repo-menu-package-and-host-module-split.md) | 조립자와 대상 소유자가 다른 조립 |
 
-소유자가 «추천대로»로 답했고 아직 ADR이나 소유 문서로 옮기지 않은 결정(후속 이슈가 착수될 때 각각 옮긴다):
+소유자가 «추천대로»로 답한 결정과 옮긴 곳(결정 12·13은 이 문서가 소유한다):
 
 | # | 결정 | 추천 | 옮길 곳 |
 | --- | --- | --- | --- |
-| 4 | 사내 메뉴 권한 부여 경로(P5) | 서버 설정 표(P5-b), #1087·#1667과 함께. 정하기 전에는 파일럿을 mock 통과로만 센다 | #1087, #1729 |
-| 5 | 도메인 Context 확장 방식 | Kernel `ContextKey`를 늘리지 않는다. [ADR-0059](../adr/0059-app-injected-equipment-axes-and-condition.md)의 주입 축을 네임스페이스 축으로 일반화, URL `v=1` 유지, 기존 고정 키는 읽기 호환 | #1703 |
-| 6 | 메뉴 간 전달 규칙 | 기존 키는 현행 유지. 새 도메인 축만 양쪽이 같은 정의를 선언했을 때 전달 | #1703, [#1708](https://github.com/hjung3113/analytics-platform/issues/1708) |
-| 7 | 분석 서버 위치 | 골격·합성 핸들러·적합성은 공개, 실제 핸들러는 사내. [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md)에 한 줄 보충 | [#1704](https://github.com/hjung3113/analytics-platform/issues/1704), #1729 |
-| 8 | 공개 저장소의 기존 도메인 어휘([#232](https://github.com/hjung3113/analytics-platform/issues/232)) | 지금 있는 것을 허용 목록으로 동결하고 검사는 «목록 밖 신규 금지» | #1705, [#1706](https://github.com/hjung3113/analytics-platform/issues/1706) |
-| 9 | 사내 조립 저장소의 외부 클라우드 코딩 에이전트 사용 | 사내 규정 확인 전에는 쓰지 않는 것을 기본값으로 | #1705 |
-| 10 | «외부 AI·임베딩 호출 금지»를 플랫폼 규칙으로 | ADR 한 건으로 올리고 사내 프로필에서 외부 공급자 설정을 거부하는 시작 검사로 지킨다 | #1705, [#1711](https://github.com/hjung3113/analytics-platform/issues/1711), [#1714](https://github.com/hjung3113/analytics-platform/issues/1714) |
+| 4 | 사내 메뉴 권한 부여 경로(P5) | 서버 설정 표(P5-b), #1087·#1667과 함께. 정하기 전에는 파일럿을 mock 통과로만 센다 | [ADR-0146](../adr/0146-core-server-loads-in-house-declarations-from-deployment-config.md) 결정 3, [ADR-0147](../adr/0147-scope-grants-come-from-an-injected-resolver.md) |
+| 5 | 도메인 Context 확장 방식 | Kernel `ContextKey`를 늘리지 않는다. [ADR-0059](../adr/0059-app-injected-equipment-axes-and-condition.md)의 주입 축을 네임스페이스 축으로 일반화, URL `v=1` 유지, 기존 고정 키는 읽기 호환 | [ADR-0149](../adr/0149-domain-context-extends-through-namespaced-axes.md) |
+| 6 | 메뉴 간 전달 규칙 | 기존 키는 현행 유지. 새 도메인 축만 양쪽이 같은 정의를 선언했을 때 전달 | [ADR-0149](../adr/0149-domain-context-extends-through-namespaced-axes.md) 결정 4 |
+| 7 | 분석 서버 위치 | 골격·합성 핸들러·적합성은 공개, 실제 핸들러는 사내. [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md)에 한 줄 보충 | [ADR-0148](../adr/0148-minimal-forwarder-and-identity-token.md) 결정 3, [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md) 보충 |
+| 8 | 공개 저장소의 기존 도메인 어휘([#232](https://github.com/hjung3113/analytics-platform/issues/232)) | 지금 있는 것을 허용 목록으로 동결하고 검사는 «목록 밖 신규 금지» | [ADR-0151](../adr/0151-public-domain-vocabulary-is-frozen-by-an-allowlist.md) |
+| 9 | 사내 조립 저장소의 외부 클라우드 코딩 에이전트 사용 | 사내 규정 확인 전에는 쓰지 않는 것을 기본값으로 | 시작 키트 README([#1790](https://github.com/hjung3113/analytics-platform/issues/1790)) |
+| 10 | «외부 AI·임베딩 호출 금지»를 플랫폼 규칙으로 | ADR 한 건으로 올리고 사내 프로필에서 외부 공급자 설정을 거부하는 시작 검사로 지킨다 | [ADR-0150](../adr/0150-no-external-ai-or-embedding-calls-in-the-in-house-profile.md) |
 | 12 | P1·P2 처리 | `on-hold` + 다시 여는 조건 | #1707–#1714 |
 | 13 | v0.36.0 범위 | §10과 [ADR-0143](../adr/0143-release-units-and-compatibility-train.md) | 이 문서 |
 

@@ -1,9 +1,10 @@
 # 전달기는 menu-query 경로와 신원 토큰만 먼저 만든다 (Candidate)
 
-상태: **Candidate (2026-11-12)** — 소유자 확인 대기. 전달기 범위(결정 1·2·3)는 [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md)가 이미 정한 입구·분담을 v0.36.0 몫으로 좁힌 고문 검토(2026-11-11, [#1729](https://github.com/hjung3113/analytics-platform/issues/1729) 범위 정리)의 추천이고, 토큰의 Scope claim과 회수 반영(결정 4·5)은 [#1087](https://github.com/hjung3113/analytics-platform/issues/1087) 질문 3·4의 소유자 답이 없다. 소유자가 답하면 Decided로 올린다.
+상태: **Candidate (2026-11-12)** — 소유자 확인 대기. 전달기 범위(결정 1·2)는 [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md)가 이미 정한 입구·분담을 v0.36.0 몫으로 좁힌 고문 검토(2026-11-11, [#1729](https://github.com/hjung3113/analytics-platform/issues/1729) 범위 정리)의 추천이고, 토큰의 Scope claim과 회수 반영(결정 4·5)은 [#1087](https://github.com/hjung3113/analytics-platform/issues/1087) 질문 3·4의 소유자 답이 없다. 소유자가 답하면 Decided로 올린다.
 - 결정자: 미정(소유자). 소유자가 이미 정한 것은 [ADR-0146](0146-core-server-loads-in-house-declarations-from-deployment-config.md)의 입구·상류 분리와 [ADR-0147](0147-scope-grants-come-from-an-injected-resolver.md)의 resolver·단위뿐이다.
 - Scope: [#1729](https://github.com/hjung3113/analytics-platform/issues/1729), [#1087](https://github.com/hjung3113/analytics-platform/issues/1087). 관련: [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 2·5·9와 「설계 남음」, [ADR-0146](0146-core-server-loads-in-house-declarations-from-deployment-config.md), [ADR-0147](0147-scope-grants-come-from-an-injected-resolver.md).
-- Amends: [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) — 분석 서버 위치에 한 줄 보충(결정 3).
+- 이미 소유자 결정인 것: 결정 3(#1700 결정 7). Candidate 범위는 결정 1·2·4·5다.
+- Amends: [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) — 분석 서버 위치에 한 줄 보충(결정 3, 근거 #1700 결정 7).
 - 구현 없음.
 
 ## 맥락
@@ -14,7 +15,7 @@
 
 1. **v0.36.0이 정하는 범위는 menu-query 경로와 신원 토큰뿐이다.** 동작(menu-action), 엔티티·감사·export 경로, 큐는 이 ADR 범위 밖이다.
 2. **전달기는 ADR-0095 결정 2·9를 그대로 지킨다.** 소유자 표로 상류를 고르고, 등록된 id인지만 판정하고, outcome을 만들거나 응답 본문을 고치지 않는다. 브라우저가 상류를 직접 부르지 않는다. 시간 예산은 ADR-0095의 값(어댑터 30초 > 상류 27초 > 상류 판정 25초)이다.
-3. **분석 서버 위치 보충(결정 7).** 골격·합성 핸들러·적합성 검사는 공개 저장소가 소유하고, 실제 핸들러는 사내 데이터 서버가 소유한다. ADR-0095의 «FastAPI»를 «내부 데이터 서버»로 읽을 수 있다. 사내 데이터 서버가 FastAPI라는 구현 선택은 이 ADR이 정하지 않는다.
+3. **분석 서버 위치 보충([#1700](https://github.com/hjung3113/analytics-platform/issues/1700) 결정 7, 소유자 «추천대로» 2026-11-11).** 골격·합성 핸들러·적합성 검사는 공개 저장소가 소유하고, 실제 핸들러는 사내 데이터 서버가 소유한다. ADR-0095의 «FastAPI 분석 서버»와 이 문서들의 «사내 데이터 서버»는 같은 서버다. 사내 데이터 서버가 FastAPI라는 구현 선택은 이 ADR이 정하지 않는다.
 4. **(Candidate) 토큰은 요청마다 해석한 Scope 집합을 `scopes` claim으로 싣는다.** 확정된 claim 위에, 전달기가 요청마다 resolver([ADR-0147](0147-scope-grants-come-from-an-injected-resolver.md))로 해석한 허용 site·room 집합을 싣는다. 상류는 부여를 다시 계산하지 않고 담긴 집합만 확인한다. 이유: 상류가 Fastify에 되묻는 동기 호출은 ADR-0095 금지 8번이고, 토큰은 요청마다 발급되어 `exp`가 30초라 부여를 바꾸거나 회수하면 **다음 요청부터** 반영된다. `perms`(권한 목록)는 싣지 않는다. 권한 판정은 코어 서버 한 곳이 하고 상류는 사본을 계산하지 않는다.
 5. **(Candidate) 토큰은 부여의 사본을 저장하지 않는다.** 상류는 토큰의 집합을 캐시하지 않는다. 회수 반영의 상한은 «이미 발급된 토큰의 남은 `exp`(최대 30초)»이고, 그동안 진행 중인 요청은 끝까지 간다.
 

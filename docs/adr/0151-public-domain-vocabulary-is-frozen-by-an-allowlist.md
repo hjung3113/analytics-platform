@@ -7,7 +7,7 @@
 
 ## 맥락
 
-사내 조립을 저장소 밖으로 내는 목적은 사내 의미를 공개 저장소에 두지 않는 것이다([ADR-0141](0141-in-house-assembly-in-separate-repository.md)). 그러나 공개 저장소의 어휘가 이미 사내 도메인 어휘다: `apps/platform-web/src/menus.ts`의 공간·그룹 식별자, 조직 축 이름(`apps/platform-web/src/equipmentAxes.ts`), 도메인 Context 필드명(`url.ts`). «민감한 메타데이터를 공개에 넣지 않는다»는 기준은 지금 상태로는 통과 기준을 정할 수 없다([#1700](https://github.com/hjung3113/analytics-platform/issues/1700) 보강의 공개 범위 점검).
+사내 조립을 저장소 밖으로 내는 목적은 사내 의미를 공개 저장소에 두지 않는 것이다([ADR-0141](0141-in-house-assembly-in-separate-repository.md)). 그러나 공개 저장소의 어휘가 이미 사내 도메인 어휘다: `apps/platform-web/src/menus.ts`의 공간·그룹 식별자, 조직 축 이름(`apps/platform-web/src/equipmentAxes.ts`), 도메인 Context 필드명(`packages/sdk/contracts/src/links/url.ts`). «민감한 메타데이터를 공개에 넣지 않는다»는 기준은 지금 상태로는 통과 기준을 정할 수 없다([#1700](https://github.com/hjung3113/analytics-platform/issues/1700) 보강의 공개 범위 점검).
 
 ## 결정
 
