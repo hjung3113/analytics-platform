@@ -651,8 +651,11 @@ describe('equipment registration', () => {
     const dialog = await screen.findByRole('dialog', { name: '설비 등록' }, slow);
     fireEvent.change(within(dialog).getByLabelText(/설비 ID/), { target: { value: 'EQ-SYNTH-01' } });
     fireEvent.change(within(dialog).getByLabelText(/이름/), { target: { value: 'Dup' } });
-    fireEvent.keyDown(within(dialog).getByRole('combobox', { name: /Model/ }), { key: 'ArrowDown' });
+    const model = within(dialog).getByRole('combobox', { name: /Model/ });
+    fireEvent.keyDown(model, { key: 'ArrowDown' });
     fireEvent.click(await screen.findByRole('option', { name: 'Synth Maker / Synth Model' }, slow));
+    // Radix hands focus back to the trigger in a timer after the list closes; under load that timer could land after the refocus.
+    await waitFor(() => expect(document.activeElement).toBe(model), slow);
     fireEvent.click(within(dialog).getByRole('button', { name: '등록' }));
     expect(await within(dialog).findByText(/이미 등록된 설비 ID입니다/, {}, slow)).toBeTruthy();
     await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByLabelText(/설비 ID/)), slow);
