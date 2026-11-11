@@ -1,0 +1,101 @@
+import { cleanup, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { menuPermission } from '@ap/contracts';
+import { usePlatform } from '@ap/kernel';
+import { startAppHost } from './start';
+import type { StartAppHostOptions } from './types';
+import { AXES, QUERY_HISTORY, testAssembly, testDeclarations, testMenu } from './test-support';
+
+let container: HTMLElement;
+beforeEach(() => {
+  container = document.createElement('div');
+  document.body.append(container);
+  window.history.replaceState(null, '', '/first');
+});
+afterEach(() => { cleanup(); container.remove(); });
+
+const start = (over: Partial<StartAppHostOptions> = {}) => startAppHost({ container, declarations: testDeclarations(), createAssembly: () => testAssembly(), equipmentAxes: AXES, queryHistory: QUERY_HISTORY, ...over });
+const failure = () => screen.findByText('화면을 시작할 수 없습니다');
+
+describe('startAppHost', () => {
+  it('renders the app from a registry declaration and a mock-style assembly, with no slots', async () => {
+    await start();
+    expect(await screen.findByText('menu first')).toBeInTheDocument();
+  });
+
+  it('{ redirect } calls the injected redirect once and renders nothing', async () => {
+    const redirect = vi.fn();
+    await start({ createAssembly: () => ({ redirect: '/login' }), redirect });
+    expect(redirect).toHaveBeenCalledExactlyOnceWith('/login');
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('{ screen } renders the node without PlatformProvider', async () => {
+    function Probe() {
+      let inside = true;
+      try { usePlatform(); } catch { inside = false; }
+      return <p>{inside ? 'provider' : 'no provider'}</p>;
+    }
+    await start({ createAssembly: async () => ({ screen: <Probe /> as ReactNode }) });
+    expect(await screen.findByText('no provider')).toBeInTheDocument();
+  });
+
+  it('a throwing createAssembly renders StartupFailure without the error text', async () => {
+    await start({ createAssembly: () => { throw new Error('secret detail'); } });
+    expect(await failure()).toBeInTheDocument();
+    expect(screen.queryByText(/secret detail/)).toBeNull();
+  });
+
+  it.each([
+    ['duplicate menu id', () => testDeclarations({ menus: [testMenu('first'), testMenu('first', { path: '/other' })] })],
+    ['undeclared permission', () => testDeclarations({ permissions: [], menus: [testMenu('first', { permission: menuPermission('equipment:view') })] })],
+  ])('a registry rejection (%s) renders StartupFailure and never reaches createAssembly', async (_name, declarations) => {
+    const createAssembly = vi.fn(() => testAssembly());
+    await start({ declarations: declarations(), createAssembly });
+    expect(await failure()).toBeInTheDocument();
+    expect(createAssembly).not.toHaveBeenCalled();
+  });
+
+  it('injected slots win over the generic defaults', async () => {
+    await start({ createAssembly: () => testAssembly({ topBarTools: <span>default tools</span> }), slots: () => ({ topBarTools: <span>injected tools</span> }) });
+    await screen.findByText('menu first');
+    expect(screen.getByText('injected tools')).toBeInTheDocument();
+    expect(screen.queryByText('default tools')).toBeNull();
+  });
+
+  it('merges the assembly top-bar tools in as the default slot', async () => {
+    await start({ createAssembly: () => testAssembly({ topBarTools: <span>default tools</span> }) });
+    await screen.findByText('menu first');
+    expect(screen.getByText('default tools')).toBeInTheDocument();
+  });
+
+  it('runs onAssembly with the assembly and registry before the first render', async () => {
+    const order: string[] = [];
+    const assembly = testAssembly();
+    await start({
+      createAssembly: () => assembly,
+      onAssembly: (given, registry) => { order.push(`assembly:${given === assembly}:${registry.menus.length}`); },
+      children: () => { order.push('render'); return null; },
+    });
+    await screen.findByText('menu first');
+    expect(order[0]).toBe('assembly:true:1');
+    expect(order).toContain('render');
+  });
+
+  it('mounts provider children inside the provider', async () => {
+    function Child() { return <p>{`child sees ${usePlatform().registry.menus.length} menu`}</p>; }
+    await start({ children: () => <Child /> });
+    expect(await screen.findByText('child sees 1 menu')).toBeInTheDocument();
+  });
+});
+
+describe('startAppHost invalidation', () => {
+  it('subscribes the assembly invalidation source once the app is mounted', async () => {
+    const unsubscribe = vi.fn();
+    const subscribe = vi.fn(() => unsubscribe);
+    await start({ createAssembly: () => testAssembly({ invalidation: { subscribe } }) });
+    await screen.findByText('menu first');
+    expect(subscribe).toHaveBeenCalled();
+  });
+});

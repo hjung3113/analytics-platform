@@ -480,6 +480,19 @@ export const shell = [
   designSystem(),
 ];
 
+// Host assembly package (#1702, host-entry-contract §3): sits above the shell and is domain-free, so it sees exactly the SDK layers
+// below it. The allowlist is what rejects the feature bridge, every menu, @eqv/*, mock-server and http-adapter (an assembly injects those).
+const APP_HOST_RESTRICTION = { allow: ['contracts', 'kernel', 'components', 'ui', 'shell'], denyReact: false, denyQueryEngine: true, mockAllowed: false, allowSubpaths: [...UI_THEME_SUBPATHS, HOST_ENTRY_SUBPATH] };
+
+/** @type {import('eslint').Linter.Config[]} */
+export const appHost = [
+  REACT_HOOKS,
+  BUILD_OUTPUT,
+  layerConfig({ restriction: APP_HOST_RESTRICTION }),
+  testEntryOverride(APP_HOST_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
+  designSystem(),
+];
+
 const HTTP_ADAPTER_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllowed: false };
 
 /** @type {import('eslint').Linter.Config[]} */
