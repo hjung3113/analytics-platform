@@ -1316,6 +1316,9 @@ importers:
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
+      '@ap/mock-server':
+        specifier: workspace:*
+        version: link:../../../packages/adapters/mock-server
       '@ap/ui':
         specifier: workspace:*
         version: link:../../../packages/sdk/ui

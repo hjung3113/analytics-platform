@@ -29,6 +29,7 @@
     "@ap/components": "workspace:*",
     "@ap/contracts": "workspace:*",
     "@ap/kernel": "workspace:*",
+    "@ap/mock-server": "workspace:*",
     "@ap/ui": "workspace:*",
     "@eqv/core": "workspace:*",
     "@eqv/renderer": "workspace:*",
