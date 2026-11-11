@@ -295,7 +295,8 @@ jobs:
     needs: changes
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Runaway guard, not a budget: a PR that changes many packages (apps/feature-screens alone takes ~15 min) reaches the high 20s (main push 26.5 min), and #1749 was cancelled twice at 30 with no failing test (#1680).
+    timeout-minutes: 45
     env:
       DOCS_ONLY: ${{ needs.changes.outputs.code == 'false' }}
       TURBO_FORCE: ${{ needs.changes.outputs.full != 'false' }}
