@@ -112,9 +112,8 @@ const testActionPair = { actions: [actionDeclaration(noneSpec), actionDeclaratio
  * `@ap/contract-schemas/endpoints.json` (the one place `kinds` of a menu endpoint is written; the server's own
  * declarations carry no `kinds`), narrowed to `requiresScope: false` — the server refuses a Scope-requiring
  * endpoint at registration (#1087). The Studio `eqv.*` reads come from the snapshot through the Studio Layouts menu (#1654),
- * the served Onboarding reads through the Onboarding menu (#1658);
- * `eqv.equipment-options` belongs to the app's module, outside that snapshot (`endpoints.json` covers `menus/` and
- * `platform/` only), so its spec is written here, as the server declares it (no assessment kinds).
+ * the served Onboarding reads through the Onboarding menu (#1658), and `eqv.equipment-options` through the Top View viewer
+ * menu `@ap/menu-topview` (#1659; it was a module read written here before).
  */
 const SNAPSHOT = JSON.parse(
   readFileSync(
@@ -127,16 +126,6 @@ const snapshotSpec = (entry: (typeof SNAPSHOT)[number]): AnyEndpointSpec => ({
   ...entry,
   paramKeys: keysOf(entry.paramKeys),
   permission: menuPermission(entry.permission),
-});
-const eqvSpec = (id: string, paramKeys: readonly string[]): AnyEndpointSpec => ({
-  id,
-  menuId: id === 'eqv.equipment-options' ? 'eqv' : 'eqv-studio',
-  paramKeys: keysOf(paramKeys),
-  permission: menuPermission('eqv:view'),
-  requiresScope: false,
-  context: {},
-  kinds: [],
-  mergeTimeDomain: false,
 });
 
 /**
@@ -174,6 +163,9 @@ const NOT_REGISTERED: readonly string[] = [
   'metrics.definition',
   'metrics.pair',
   'metrics.usage',
+  // The Top View viewer's replay reads (`@ap/menu-topview`, #1659) are mock-only until #1607 step 9's server endpoints (blocked on #1087).
+  'eqv.topview-context',
+  'eqv.topview-events',
 ];
 
 /** An id no row has; the detail reads answer `empty` for it. */
@@ -294,7 +286,6 @@ const MENU_LEFT_OUT: Readonly<Record<string, string>> = {
 
 const menuSpecs: AnyEndpointSpec[] = [
   ...SNAPSHOT.filter((entry) => !entry.requiresScope && !NOT_REGISTERED.includes(entry.id)).map(snapshotSpec),
-  eqvSpec('eqv.equipment-options', []),
   ...INLINE_SPECS,
 ];
 const menuCases: ConformanceCase[] = menuSpecs
