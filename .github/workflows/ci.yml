@@ -154,14 +154,19 @@ jobs:
     name: Unit C (kernel-platform-table)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # `playwright install --with-deps` failed on apt when the runner mirror was unreachable; the official image ships
+    # Chromium and its system packages (#669). Same tag as the E2E shards; the guard step below fails when it drifts from
+    # @playwright/test in archive/kernel-platform-table/package-lock.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      # Playwright's Docker guidance: Chromium can crash on Docker's 64 MB default /dev/shm.
+      options: --ipc=host
     defaults:
       run:
         working-directory: archive/kernel-platform-table
     env:
-      # playwright.config.ts는 PLAYWRIGHT_BROWSERS_PATH ||= resolve('.browsers')를 설정하지만
-      # `playwright install`은 config를 읽지 않아 기본 ~/.cache/ms-playwright에 설치한다.
-      # install/run 양쪽이 같은 .browsers 경로를 쓰도록 Job 전체에 명시한다(README의 설치 커맨드와 동일).
-      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/archive/kernel-platform-table/.browsers
+      # The image's browsers. playwright.config.ts only sets PLAYWRIGHT_BROWSERS_PATH ||= .browsers when it is unset.
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     steps:
       - uses: actions/checkout@v5
         with:
@@ -175,8 +180,12 @@ jobs:
       - run: npm ci
       # package.json에 typecheck 스크립트가 없고 build가 `tsc --noEmit && vite build`로 타입 검사를 포함한다.
       - run: npm run test:unit
-      - run: npx playwright install --with-deps chromium
-      - name: Verify Chromium landed in PLAYWRIGHT_BROWSERS_PATH
+      # The image tag above and @playwright/test must move together; fail loudly instead of drifting.
+      - name: Playwright image matches @playwright/test
+        run: |
+          want="$(node -p "require('./node_modules/@playwright/test/package.json').version")"
+          test "$want" = "1.63.0" || { echo "::error::@playwright/test is $want but the Unit C container is mcr.microsoft.com/playwright:v1.63.0-noble — bump both"; exit 1; }
+      - name: Verify Chromium is in PLAYWRIGHT_BROWSERS_PATH
         run: ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*
       - run: npm run test:browser
       - run: npm run build
