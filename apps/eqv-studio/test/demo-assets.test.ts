@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
-  aliasMetadataFileSchema, computeCoverage, equipmentRecordSchema, layoutRevision, mappingVersionSchema, millisToWallClock,
+  aliasMetadataFileSchema, computeCoverage, equipmentRecordSchema, findMappingConflicts, typeDictionaryFileSchema, layoutRevision, mappingVersionSchema, millisToWallClock,
   observedInventorySchema, replayTimeline, replayTimelineFrame, seekSceneState, validateAliasRules, validateBindings,
   validateLayout, validateSampleWindow, validateTypeDictionary, verifyMappingHash, wallClockToMillis,
   type MappingVersion, type OccurrenceBatch, type ReplayInput, type SceneMaterial, type SceneState,
@@ -58,6 +58,18 @@ it('regenerates every committed demo file byte for byte, and commits no other de
   const onDisk = (await Promise.all(DEMO_ROOTS.map(committed))).flat().sort();
   expect(onDisk).toEqual([...generated.keys()].sort());
   for (const [path, text] of generated) expect(await readFile(join(assets, path), 'utf8'), path).toBe(text);
+});
+
+it('has no transfer without capability: the cluster-single template covers the EFEM-side hops the demo observes', () => {
+  const path = (suffix: string) => [...generated.keys()].find((key) => key.endsWith(suffix))!;
+  const baseline = observedInventorySchema.parse(json(path('.inventory.json')));
+  expect(baseline.transfers.length).toBeGreaterThan(0);
+  const conflicts = findMappingConflicts({
+    inventory: baseline, mapping: mappingVersionSchema.parse(json(path('.mapping.json'))),
+    layout: json(path('/draft.layout.json')) as Parameters<typeof findMappingConflicts>[0]['layout'],
+    dictionaries: [typeDictionaryFileSchema.parse(json(path('type-dictionary.json')))],
+  });
+  expect(conflicts.filter(({ kind }) => kind === 'transfer-without-capability')).toEqual([]);
 });
 
 it('passes every generated file through its @eqv/core validator', async () => {

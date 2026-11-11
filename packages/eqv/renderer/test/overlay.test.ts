@@ -15,7 +15,7 @@ const TEMPLATE_IDS = [
   'lithography-dual-stage', 'vertical-batch-furnace',
 ] as const;
 const PAIRS: Record<(typeof TEMPLATE_IDS)[number], number> = {
-  'cluster-single': 6,
+  'cluster-single': 12,
   'cluster-dual-hub': 10,
   'wet-linear': 9,
   'track-stacked': 7,
