@@ -4,6 +4,8 @@ Every asset below originates in `equipment-visualization-design-v0.3.zip`, SHA-2
 
 Templates are converted v0.4 semantic documents; primitives were restyled in EV#34 as redrawn generic glyphs from the owner-approved prototype (2026-10-15), with semantic theme tokens. They remain synthetic, not OEM depictions. Primitive references are pack-wide background, not claims about individual symbol geometry. All layout provenance cites the synthetic pack as assumed.
 
+The `cluster-single` EFEM-side Transfer Capabilities (handler `robot-1`; load port ↔ `aligner-1`, `aligner-1` ↔ load lock, load lock ↔ load port, on wafer sites only, the load port's first wafer slot standing for the port) are assumed from `src-v03-pack`: they follow only the EFEM topology the template already states (`edge-06`–`edge-10` Physical Interfaces, `robot-1` and `aligner-1` inside `efem-1`), and no hop the topology does not support (load port ↔ process module, aligner ↔ process module) is drawn. Removing a load port's first wafer slot in the editor also removes that port's EFEM links.
+
 The Korean Endura reference row states an upper bound of nine process chambers; it supplies no complete range. EV#27 therefore records **assumed** ranges (owner decision, 2026-10-15) for the repeated module Roles of the two cluster templates: `pm` 1–9 (upper bound from the Endura row, lower bound assumed), `ll` 1–2 and `lp` 1–4 (assumed). They are not measured on any specific equipment. Every other Role, and every Role of the other four templates, keeps min = max = its drawn count.
 
 ## Conversion rules (one-off converter, not committed)

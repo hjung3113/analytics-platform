@@ -2865,6 +2865,348 @@
           "src-v03-pack"
         ]
       }
+    },
+    {
+      "id": "ll-a-slot-1-aligner-1-station-1",
+      "a": {
+        "componentId": "ll-a",
+        "holdingSiteId": "slot-1"
+      },
+      "b": {
+        "componentId": "aligner-1",
+        "holdingSiteId": "station-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-a-slot-2-aligner-1-station-1",
+      "a": {
+        "componentId": "ll-a",
+        "holdingSiteId": "slot-2"
+      },
+      "b": {
+        "componentId": "aligner-1",
+        "holdingSiteId": "station-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-b-slot-1-aligner-1-station-1",
+      "a": {
+        "componentId": "ll-b",
+        "holdingSiteId": "slot-1"
+      },
+      "b": {
+        "componentId": "aligner-1",
+        "holdingSiteId": "station-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-b-slot-2-aligner-1-station-1",
+      "a": {
+        "componentId": "ll-b",
+        "holdingSiteId": "slot-2"
+      },
+      "b": {
+        "componentId": "aligner-1",
+        "holdingSiteId": "station-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "aligner-1-station-1-lp-1-slot-1",
+      "a": {
+        "componentId": "aligner-1",
+        "holdingSiteId": "station-1"
+      },
+      "b": {
+        "componentId": "lp-1",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "aligner-1-station-1-lp-2-slot-1",
+      "a": {
+        "componentId": "aligner-1",
+        "holdingSiteId": "station-1"
+      },
+      "b": {
+        "componentId": "lp-2",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "aligner-1-station-1-lp-3-slot-1",
+      "a": {
+        "componentId": "aligner-1",
+        "holdingSiteId": "station-1"
+      },
+      "b": {
+        "componentId": "lp-3",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-a-slot-1-lp-1-slot-1",
+      "a": {
+        "componentId": "ll-a",
+        "holdingSiteId": "slot-1"
+      },
+      "b": {
+        "componentId": "lp-1",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-a-slot-1-lp-2-slot-1",
+      "a": {
+        "componentId": "ll-a",
+        "holdingSiteId": "slot-1"
+      },
+      "b": {
+        "componentId": "lp-2",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-a-slot-1-lp-3-slot-1",
+      "a": {
+        "componentId": "ll-a",
+        "holdingSiteId": "slot-1"
+      },
+      "b": {
+        "componentId": "lp-3",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-a-slot-2-lp-1-slot-1",
+      "a": {
+        "componentId": "ll-a",
+        "holdingSiteId": "slot-2"
+      },
+      "b": {
+        "componentId": "lp-1",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-a-slot-2-lp-2-slot-1",
+      "a": {
+        "componentId": "ll-a",
+        "holdingSiteId": "slot-2"
+      },
+      "b": {
+        "componentId": "lp-2",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-a-slot-2-lp-3-slot-1",
+      "a": {
+        "componentId": "ll-a",
+        "holdingSiteId": "slot-2"
+      },
+      "b": {
+        "componentId": "lp-3",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-b-slot-1-lp-1-slot-1",
+      "a": {
+        "componentId": "ll-b",
+        "holdingSiteId": "slot-1"
+      },
+      "b": {
+        "componentId": "lp-1",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-b-slot-1-lp-2-slot-1",
+      "a": {
+        "componentId": "ll-b",
+        "holdingSiteId": "slot-1"
+      },
+      "b": {
+        "componentId": "lp-2",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-b-slot-1-lp-3-slot-1",
+      "a": {
+        "componentId": "ll-b",
+        "holdingSiteId": "slot-1"
+      },
+      "b": {
+        "componentId": "lp-3",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-b-slot-2-lp-1-slot-1",
+      "a": {
+        "componentId": "ll-b",
+        "holdingSiteId": "slot-2"
+      },
+      "b": {
+        "componentId": "lp-1",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-b-slot-2-lp-2-slot-1",
+      "a": {
+        "componentId": "ll-b",
+        "holdingSiteId": "slot-2"
+      },
+      "b": {
+        "componentId": "lp-2",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
+    },
+    {
+      "id": "ll-b-slot-2-lp-3-slot-1",
+      "a": {
+        "componentId": "ll-b",
+        "holdingSiteId": "slot-2"
+      },
+      "b": {
+        "componentId": "lp-3",
+        "holdingSiteId": "slot-1"
+      },
+      "handlerComponentId": "robot-1",
+      "provenance": {
+        "certainty": "assumed",
+        "sourceEvidence": [
+          "src-v03-pack"
+        ]
+      }
     }
   ],
   "processRoutes": [],
