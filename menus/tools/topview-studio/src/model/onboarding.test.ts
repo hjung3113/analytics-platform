@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { layoutRevision, type BindingsFile, type MappingConflict } from '@eqv/core';
 import { DIRTY_REASON, derivePublishPlan, dryRun, type DryRun, type PlanInput } from '@eqv/editor';
 import { FLEET_STATUSES } from '../endpoints';
-import { FLEET_STATUS_LABEL, publishBlockReason, publishHeaderReason, publishRightReason, rangeShort, stepMarks, wallClockShort, windowLabel, type StepFacts } from './onboarding';
+import { FLEET_STATUS_LABEL, importProblemHint, importProblemLines, importRefusalProblems, publishBlockReason, publishHeaderReason, publishRightReason, rangeShort, stepMarks, wallClockShort, windowLabel, type StepFacts } from './onboarding';
 
 const seed = <T,>(name: string): T => JSON.parse(readFileSync(join(process.cwd(), 'src/mock/onboarding', name), 'utf8')) as T;
 
@@ -107,5 +107,36 @@ describe('publish gate wording', () => {
   ])('rights: %s', (_name, input, reason) => {
     const text = publishRightReason(input);
     if (reason === null) expect(text).toBeNull(); else expect(text).toMatch(reason);
+  });
+});
+
+describe('import problem words (#1658 import PR)', () => {
+  it('groups one code across Occurrences into one Korean line with a count; paths and messages stay in the details', () => {
+    const issues = [0, 1, 2].map((i) => ({ code: 'generation-mismatch', path: ['occurrences', i, 'source', 'dataGeneration'], message: `occurrences[${i}] must match` }));
+    const lines = importProblemLines(issues, { dataGeneration: 'g2' });
+    expect(lines).toEqual([{ code: 'generation-mismatch', text: '이벤트 3건의 Generation이 파일의 Generation(g2)과 다릅니다.', details: issues.map((p) => `generation-mismatch · ${p.path.join('.')} — ${p.message}`) }]);
+  });
+  it('turns every schema failure into one line', () => {
+    const lines = importProblemLines(['equipmentId', 'from', 'to'].map((key) => ({ code: 'schema', path: [key], message: 'Invalid input' })));
+    expect(lines.map((l) => l.text)).toEqual(['Sample Window(batch) 파일 형식이 아닙니다.']);
+    expect(lines[0]!.details).toHaveLength(3);
+  });
+  it('words a code it does not know without hiding it', () => {
+    expect(importProblemLines([{ code: 'new-code', path: [] }])[0]!.text).toBe('확인하지 못한 문제입니다(new-code).');
+  });
+  it.each([
+    [[{ path: ['file'], code: 'staged_exists' }], '같은 구간에 교체 대기 window가 이미 있습니다.', '데이터 탭에서 교체 대기 window를 먼저 «교체»한 뒤 가져오세요.'],
+    [[{ path: ['file'], code: 'retired' }], '퇴역한 window와 같은 내용입니다.', '퇴역한 window는 다시 가져올 수 없습니다. 다른 파일을 고르세요.'],
+    [[{ path: ['uploadId'], code: 'not_found' }], '올린 파일을 찾을 수 없습니다.', '파일을 다시 고르세요.'],
+    [[{ path: ['file'], code: 'not_json' }], 'JSON으로 읽을 수 없습니다.', '원천 변환기가 만든 *.batch.json 파일을 고르세요.'],
+    [[{ path: ['file', 'from'], code: 'window-overlap' }], '이미 있는 window와 구간이 겹칩니다.', '이 설비의 window와 겹치지 않고 timeDomain이 같은 파일을 고르세요.'],
+  ])('maps the server refusal %j to a line and a hint', (fieldErrors, text, hint) => {
+    const problems = importRefusalProblems(fieldErrors);
+    expect(importProblemLines(problems).map((l) => l.text)).toEqual([text]);
+    expect(importProblemHint(problems, { equipmentId: 'eq-1', fileEquipmentId: null })).toBe(hint);
+  });
+  it('the hint of another equipment\'s file names both equipment', () => {
+    expect(importProblemHint([{ code: 'equipment-mismatch', path: ['equipmentId'] }, { code: 'record-owner', path: ['occurrences', 0, 'equipmentId'] }], { equipmentId: 'eq-ux-01', fileEquipmentId: 'eq-synth-03' }))
+      .toBe('이 파일은 eq-synth-03의 Sample Window입니다. eq-ux-01의 파일을 고르세요.');
   });
 });

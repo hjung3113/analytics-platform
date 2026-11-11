@@ -5,8 +5,8 @@ import { PlatformDataTable, RowAction, type PlatformColumn } from '@ap/component
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, EmptyState, FieldList, FieldRow, StatusBadge } from '@ap/ui';
 import { WINDOW_IMPORT_PERMISSION, replaceSampleWindow, retireSampleWindow, type SampleWindowRow } from '../../endpoints';
 import { WINDOW_STATE_LABEL, WINDOW_STATE_TONE, rangeShort, windowHex } from '../../model/onboarding';
-import { DATA_SOURCE_LINE } from './Fleet';
-import { NoBreakStamps, ShortRange } from './WallClock';
+import { ImportWindowControl } from './ImportWindow';
+import { ShortRange } from './WallClock';
 import type { EquipmentData } from './useEquipment';
 
 const COLUMNS: PlatformColumn<SampleWindowRow>[] = [
@@ -39,10 +39,13 @@ export function DataTab({ data }: { data: EquipmentData }) {
       else setError(result.outcome === 'forbidden' ? '권한이 없어 바꾸지 못했습니다.' : '바꾸지 못했습니다.');
     } catch { setError('바꾸지 못했습니다.'); }
   };
-  if (data.windows.length === 0) return <div className="p-4"><EmptyState title="Sample Window가 없습니다" body={DATA_SOURCE_LINE} /></div>;
+  const importControl = <ImportWindowControl equipmentId={data.equipment.equipmentId} windows={data.windows} />;
+  // Without the right the empty state only says what will appear here (it never asks for an import the person cannot do).
+  if (data.windows.length === 0) return <div className="p-4"><EmptyState title="Sample Window가 없습니다" body={canWindows ? '원천 변환기가 만든 *.batch.json을 가져오세요.' : '가져온 Sample Window가 여기에 나타납니다.'} action={importControl} /></div>;
+  // The spec's place (a-data.png): the import sits right above the table.
   return <div className="flex min-h-0 flex-1 flex-col gap-2 p-4">
+    <div className="flex shrink-0 justify-end">{importControl}</div>
     <PlatformDataTable title="Sample Windows" ariaLabel="Sample Windows" fill rows={data.windows} columns={COLUMNS} getRowId={(row) => row.hash} preferenceKey="eqv-onboarding-windows"
-      subtitle={DATA_SOURCE_LINE}
       isRowMuted={(row) => row.state === 'replaced' || row.state === 'retired'}
       rowAction={canWindows ? (row, { compact }) => (row.state === 'staged'
         ? <RowAction compact={compact} icon={Replace} label={`${rangeShort(row.from, row.to)} ${row.dataGeneration}로 교체`} text="교체" onClick={() => { setError(null); setAsk({ kind: 'replace', row }); }} />
@@ -64,7 +67,7 @@ function WindowConfirm({ ask, replaced, busy, error, onConfirm, onCancel }: { as
           : '퇴역한 window는 Inventory와 검증에 쓰지 않습니다. 이미 게시한 Mapping Version의 Baseline Inventory는 남습니다. 되돌릴 수 없습니다.'}</AlertDialogDescription>
       </AlertDialogHeader>
       <FieldList>
-        <FieldRow layout="property" label="구간"><NoBreakStamps text={`${row.from} – ${row.to}`} /></FieldRow>
+        <FieldRow layout="property" label="구간"><ShortRange from={row.from} to={row.to} /></FieldRow>
         <FieldRow layout="property" label="Generation" mono>{replaced ? `${replaced.dataGeneration} → ${row.dataGeneration}` : row.dataGeneration}</FieldRow>
         <FieldRow layout="property" label="사용 Mapping">{`${(replaced ?? row).mappingCount}개`}</FieldRow>
       </FieldList>

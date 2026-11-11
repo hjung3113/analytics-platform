@@ -5,7 +5,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type Text } from '@ap/contracts';
 import { PlatformPage } from '@ap/components';
-import { createRegistry, I18nProvider, PlatformLink, PlatformProvider, useI18n, useUnsavedGuard } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformLink, PlatformProvider, useI18n, useUnsavedGuard, type UnsavedGuardOptions } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppShell } from '../../frame/AppShell';
@@ -23,13 +23,16 @@ const registry = createRegistry({
 });
 const draftMenu = registry.menus[0];
 const discard = vi.fn();
+/** `leaves` of the editor's guard; the default (leaving the menu) unless a test widens it. */
+let editorLeaves: UnsavedGuardOptions['leaves'];
 function Editor({ message }: { message?: string | Text }) {
   const [draft, setDraft] = useState('');
-  useUnsavedGuard(draft !== '', { message, onDiscard: discard });
+  useUnsavedGuard(draft !== '', { message, onDiscard: discard, leaves: editorLeaves });
   const { navigate } = useHostPlatform();
   return <>
     <input aria-label="draft" value={draft} onChange={event => setDraft(event.target.value)} />
     <button onClick={() => navigate('/unknown?v=1')}>unknown destination</button>
+    <button onClick={() => navigate('/mars/draft?v=1&view=2')}>same menu move</button>
     <button onClick={() => navigate('/mars/target?v=1')}>programmatic move</button>
     <PlatformLink href="/mars/target?v=1">in-page target</PlatformLink>
   </>;
@@ -62,6 +65,7 @@ beforeEach(() => {
   localStorage.setItem('platform:sidebar-collapsed', '0');
   window.history.replaceState(null, '', '/mars/draft?v=1');
   discard.mockClear();
+  editorLeaves = undefined;
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -129,6 +133,14 @@ describe('leave confirmation (06 §6.4, §26)', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'unknown destination' }));
     expect(dialog()).toHaveAccessibleName('저장하지 않은 변경이 있습니다');
     expect(within(dialog()).queryByText(/으로 이동$/)).toBeNull();
+  });
+  it('omits the destination line when the move stays in the current menu', async () => {
+    editorLeaves = 'address';
+    await dirty();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'same menu move' }));
+    expect(dialog()).toHaveAccessibleName('저장하지 않은 변경이 있습니다');
+    expect(within(dialog()).queryByText('초안으로 이동')).toBeNull();
+    expect(leave()).toBeVisible();
   });
   it('uses the same confirmation for an in-page link and returns focus to it', async () => {
     await dirty();

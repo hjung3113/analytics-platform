@@ -22,8 +22,8 @@ const problems = (issues: readonly Issue[]) => issues.map(({ path, message }) =>
 export interface EquipmentData {
   /** Hub ids (`maker` = vendor id), as the rules and the server key scopes. */
   equipment: { equipmentId: string; maker: string; model: string };
-  /** What people read: the Fleet's vendor and model names, the ids until the Fleet row is known. */
-  names: { maker: string; model: string };
+  /** What people read: the Fleet's vendor and model names, the ids until the Fleet row is known; the registered name, null until then. */
+  names: { maker: string; model: string; label: string | null };
   windows: readonly SampleWindowRow[];
   /** The window the page shows: `?window=` or the latest active one; null when there is none. */
   window: SampleWindowRow | null;
@@ -92,7 +92,7 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
   const templatesQ = useMenuQuery(bundledTemplatesEndpoint, {});
   // Names only; the page works with ids when the Fleet read fails.
   const fleetRow = dataOf(useMenuQuery(fleetEndpoint, {}))?.rows.find((row) => row.equipmentId === equipmentId) ?? null;
-  const names = useMemo(() => ({ maker: fleetRow?.vendorName ?? vendorId, model: fleetRow?.modelName ?? modelId }), [fleetRow?.vendorName, fleetRow?.modelName, vendorId, modelId]);
+  const names = useMemo(() => ({ maker: fleetRow?.vendorName ?? vendorId, model: fleetRow?.modelName ?? modelId, label: fleetRow?.label || null }), [fleetRow?.vendorName, fleetRow?.modelName, fleetRow?.label, vendorId, modelId]);
 
   const scopeData = [dictGlobalQ, dictMakerQ, dictModelQ, rulesGlobalQ, rulesMakerQ, rulesModelQ, rulesEquipmentQ].map(dataOf);
   const inventoryRaw = dataOf(inventoryQ);

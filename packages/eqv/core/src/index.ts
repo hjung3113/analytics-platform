@@ -19,6 +19,7 @@ export { LEVEL_KO } from './occurrence/words.js';
 export { occurrenceOverlapsWindow } from './occurrence/overlap.js';
 export { validateSampleWindow, sampleWindowName, parseSampleWindowName } from './occurrence/window.js';
 export type { SampleWindowRef, SampleWindowSummary, SampleWindowResult, ImportIssue, ImportRejectCode, ImportWarningCode } from './occurrence/window.js';
+export { checkSampleWindowImport, WINDOW_CONFLICT_CODES, type SampleWindowImportCheck } from './occurrence/window-import.js';
 
 export { typeDictionaryFileSchema, aliasRulesFileSchema, mappingVersionSchema, bindingsFileSchema } from './mapping/schema.js';
 export type {

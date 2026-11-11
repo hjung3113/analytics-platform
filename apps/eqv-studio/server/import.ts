@@ -2,7 +2,7 @@ import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import {
-  aliasMetadataFileSchema, equipmentRecordSchema, parseSampleWindowName, validateSampleWindow, validateTypeDictionary,
+  aliasMetadataFileSchema, checkSampleWindowImport, equipmentRecordSchema, parseSampleWindowName, validateTypeDictionary,
   type EquipmentRecord, type SampleWindowRef,
 } from '@eqv/core';
 import { ApiError, contained, fail, NAME } from './errors.js';
@@ -13,7 +13,6 @@ export const MAX_IMPORT_BYTES = 32 * 1024 * 1024;
 export const IMPORT_API_PREFIX = '/api/import/';
 const REPO_REASON = '저장소 밖 경로를 EQV_STUDIO_ASSETS로 지정하세요';
 const WINDOW_FILE = '.batch.json';
-const CONFLICT_CODES = new Set(['window-overlap', 'time-domain-mismatch']);
 
 interface ImportDeps {
   root: string;
@@ -205,11 +204,10 @@ export function createImportApi(deps: ImportDeps) {
       if (typeof timeDomain !== 'string') return fail(422, `${dir.join('/')}/${name}: timeDomain is not a string`);
       existing.push({ ...parsedName, timeDomain });
     }
-    const result = await validateSampleWindow(body, { equipmentId, existing });
+    const result = await checkSampleWindowImport(body, { equipmentId, existing });
     if (!result.ok) {
-      const conflict = result.issues.length > 0 && result.issues.every(({ code }) => CONFLICT_CODES.has(code));
       return {
-        status: conflict ? 409 : 400,
+        status: result.conflict ? 409 : 400,
         body: { error: 'Sample Window rejected', issues: result.issues, warnings: result.warnings, ...(result.summary ? { summary: result.summary } : {}) },
       };
     }

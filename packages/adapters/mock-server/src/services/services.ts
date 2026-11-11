@@ -271,8 +271,19 @@ const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 let uploads: UploadedFile[] = [];
 let uploadSeq = 1;
 const uploadReplays = new Map<string, { fingerprint: string; answer: ActionResponse<UploadedFile> }>();
-export function resetUploads() { uploads = []; uploadSeq = 1; uploadReplays.clear(); }
+/** The bytes of each stored file and the user who uploaded it: the store is unlinked, so only that user reads it back (ADR-0140 §6). */
+const uploadContents = new Map<string, { owner: string; bytes: Uint8Array }>();
+export function resetUploads() { uploads = []; uploadSeq = 1; uploadReplays.clear(); uploadContents.clear(); }
 export const storedUploads = (): readonly UploadedFile[] => uploads;
+/** A stored upload as a consuming action reads it by id. */
+export type UploadContent = UploadedFile & { bytes: Uint8Array };
+/** The file `id` for `role` when that role uploaded it; null for an unknown id or another user's upload (the server answers both alike). */
+export function readUploadAs(role: RoleId, id: string): UploadContent | null {
+  const content = uploadContents.get(id);
+  const file = uploads.find(upload => upload.id === id);
+  if (!content || !file || content.owner !== activeWorld().users[role].role) return null;
+  return { ...file, bytes: content.bytes.slice() };
+}
 
 /** The real server's name rule: no path separators or control characters, at most 255 UTF-8 bytes, never empty. */
 function uploadName(raw: string): string | null {
@@ -331,7 +342,8 @@ export async function uploadFile(input: UploadFileInput, signal?: AbortSignal, o
 
   // The key is one UUID whatever its letter case (the server stores a `uuid`); the bytes are part of the file's identity.
   const recordKey = `${pinned.userId}\0${key.toLowerCase()}`;
-  const fingerprint = canonical({ name, mimeType, size: file.size, bytes: bytesFingerprint(new Uint8Array(await readBytes(file))) });
+  const bytes = new Uint8Array(await readBytes(file));
+  const fingerprint = canonical({ name, mimeType, size: file.size, bytes: bytesFingerprint(bytes) });
   const seen = uploadReplays.get(recordKey);
   if (seen) {
     // Same key, another file: the stored answer belongs to the first request only.
@@ -340,6 +352,7 @@ export async function uploadFile(input: UploadFileInput, signal?: AbortSignal, o
   }
   const stored: UploadedFile = { id: `F-mock-${uploadSeq++}`, name, size: file.size, mimeType };
   uploads = [...uploads, stored];
+  uploadContents.set(stored.id, { owner: pinned.userId, bytes });
   const result = answer<UploadedFile>('ok', { data: stored });
   uploadReplays.set(recordKey, { fingerprint, answer: result });
   return result;

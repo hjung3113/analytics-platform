@@ -24,8 +24,9 @@ import { datasetActionsMock } from '@ap/menu-log-rules/mock';
 import { logLifecycleActionsMock } from '@ap/menu-log-models/mock';
 import { logKnowledgeActionsMock } from '@ap/menu-log-knowledge/mock';
 import { improvementItemsActionsMock } from '@ap/menu-improvement-items/mock';
-import { topviewOnboardingActionsMock, topviewStudioActionsMock } from '@ap/menu-topview-studio/mock';
+import { setSampleWindowImport, topviewOnboardingActionsMock, topviewStudioActionsMock } from '@ap/menu-topview-studio/mock';
 export { stageOnboardingWindow } from '@ap/menu-topview-studio/mock';
+import { buildInventory, checkSampleWindowImport } from '@eqv/platform-adapter/mock-data';
 import type { CreateAssembly } from '#platform-assembly';
 import { menuPermissions, type AuditEvent } from '@ap/contracts';
 import { createMockAdapter, seedUsageNext, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
@@ -66,6 +67,8 @@ export const MODULE_MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [...eqvMock];
 /**
  * Every menu mock action the app registers (hand-wired, ADR-0054). The mock adapter below and the conformance test read it.
  */
+// 설비 온보딩 Sample Window import (#1658): the mock judges an uploaded batch with the dev tool's own `@eqv/core` code.
+setSampleWindowImport({ check: checkSampleWindowImport, inventory: buildInventory });
 export const MOCK_ACTIONS: readonly AnyMockAction[] = [...logAnalysisActionsMock, ...logKnowledgeActionsMock, ...improvementItemsActionsMock, ...logLifecycleActionsMock, ...datasetActionsMock, ...topviewStudioActionsMock, ...topviewOnboardingActionsMock];
 
 /**

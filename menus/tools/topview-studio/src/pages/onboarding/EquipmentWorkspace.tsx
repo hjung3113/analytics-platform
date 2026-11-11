@@ -31,7 +31,8 @@ export function EquipmentWorkspace({ equipmentId }: { equipmentId: string }) {
   const windowKey = pageParam('window');
   const load = useEquipment(equipmentId, windowKey);
   const crumbs = [{ label: '설비 온보딩', href: linkTo(EQV_ONBOARDING_MENU_ID) }];
-  const title = (status: FleetStatusCode | null) => <span className="flex min-w-0 items-center gap-2"><span className="truncate font-mono text-sm" title={equipmentId}>{equipmentId}</span>
+  const title = (status: FleetStatusCode | null, label: string | null = null) => <span className="flex min-w-0 items-center gap-2"><span className="truncate font-mono text-sm" title={equipmentId}>{equipmentId}</span>
+    {label && <span className="truncate text-sm text-text-secondary" title={label}>{label}</span>}
     {status && <StatusBadge tone={FLEET_STATUS_TONE[status]}>{FLEET_STATUS_LABEL[status]}</StatusBadge>}</span>;
   if (load.kind !== 'ok') {
     return <PlatformPage crumbs={crumbs} title={title(null)}><div className="break-keep">
@@ -47,20 +48,21 @@ export function EquipmentWorkspace({ equipmentId }: { equipmentId: string }) {
 
 type Computed = { input: object; run: DryRun; revision: string } | { input: object; error: string };
 
-function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: StepKey; crumbs: { label: string; href: string }[]; title(status: FleetStatusCode | null): ReactNode }) {
+function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: StepKey; crumbs: { label: string; href: string }[]; title(status: FleetStatusCode | null, label?: string | null): ReactNode }) {
   const { setPage, can } = usePlatform();
   const canPublish = can(MAPPING_PUBLISH_PERMISSION);
   const canLayoutPublish = can(LAYOUT_PUBLISH_PERMISSION);
   const { equipment, names, inventory, dictionaries, ruleFiles, templates, bindings, previous } = data;
   const layout = data.draft?.layout ?? null;
 
-  // ---- Mapping Board state lives above the tabs; the address guard asks before any push leaves unsaved edits (kernel §6.4, ADR-0115) ----
+  // ---- Mapping Board state lives above the tabs, so a step tab keeps unsaved edits; changing `equipment` or `window` (or leaving) asks first
+  // (kernel §6.4, ADR-0115, #1745) ----
   const boardInput = useMemo(() => (layout && inventory ? { equipment, inventory, dictionaries, layout, ruleFiles, templates } : null), [equipment, inventory, dictionaries, layout, ruleFiles, templates]);
   const [board, setBoard] = useState<BoardState | null>(null);
   const [saveScope, setSaveScope] = useState<SaveScope>('model');
   if (board === null && boardInput !== null) setBoard(createBoardState({ equipment, ruleFiles }));
   const dirty = board !== null && isBoardDirty(board);
-  useUnsavedGuard(dirty, { leaves: 'address', message: GUARD_MESSAGE, onDiscard: () => setBoard((b) => (b ? { ...b, present: b.baseline, past: [], future: [] } : b)) });
+  useUnsavedGuard(dirty, { leaves: { pageKeys: ['equipment', 'window'] }, message: GUARD_MESSAGE, onDiscard: () => setBoard((b) => (b ? { ...b, present: b.baseline, past: [], future: [] } : b)) });
 
   // ---- D8 dry-run of the saved rules and the draft, in the browser; the server judges again on publish ----
   const runInput = useMemo(() => (layout && inventory ? { equipment, inventory, dictionaries, layout, ruleFiles } : null), [equipment, inventory, dictionaries, layout, ruleFiles]);
@@ -114,7 +116,7 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
     <Button size="toolbar" variant="primary" disabled={publishReason !== null} aria-describedby={publishReason ? 'publish-reason' : undefined} onClick={() => setReviewing(true)}>게시 검토</Button>
   </span>;
 
-  return <TooltipProvider><PlatformPage layout="fill" bodyInset="none" crumbs={crumbs} title={title(status)} primaryAction={actions || undefined}>
+  return <TooltipProvider><PlatformPage layout="fill" bodyInset="none" crumbs={crumbs} title={title(status, names.label)} primaryAction={actions || undefined}>
     <div className="relative min-h-0 flex-1"><div className="absolute inset-0 flex min-h-0 flex-col break-keep">
       <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
         <span title={`${equipment.maker} / ${equipment.model}`}>{names.maker} / {names.model}</span>
@@ -135,7 +137,7 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
             return <TabsTrigger key={key} value={key}><span className="flex items-center gap-1.5">
               {mark === 'done' && <CircleCheck className="size-3.5 text-text-success" aria-hidden />}
               {mark === 'attention' && <CircleAlert className="size-3.5 text-text-warning" aria-hidden />}
-              {label}{mark && <span className="sr-only"> · {MARK_WORD[mark]}</span>}
+              {label}{key === 'mapping' && dirty && <span className="text-text-secondary"> · 저장 안 됨</span>}{mark && <span className="sr-only"> · {MARK_WORD[mark]}</span>}
             </span></TabsTrigger>;
           })}
         </TabsList></div>

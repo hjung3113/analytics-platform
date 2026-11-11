@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { defineAction, defineEndpoint, type FieldError, type MenuMeta, groupId, menuPermission } from '@ap/contracts';
 import { createMockAdapter } from '../../adapter';
-import { MockActionInvalid, defineMockAction, serveAction, type AnyMockAction } from '../actions';
+import { MockActionInvalid, defineMockAction, defineMockAsyncAction, serveAction, type AnyMockAction } from '../actions';
 import { defineMockEndpoint, MockRegistrationError } from '../../query/endpoints';
 import { getRole, setRole } from '../../server';
+import { resetUploads, uploadFile } from '../../services/services';
 import { USERS, type RoleId } from '../../world';
 
 type Input = { text: string };
@@ -322,5 +323,33 @@ describe('createMockAdapter action registration', () => {
     ['a version action without a version handler', () => build([defineMockAction(spec, { handle: () => ({ data: { id: 1 }, version: '1' }) })])],
   ])('throws MockRegistrationError for %s', (_what, make) => {
     expect(make()).toThrow(MockRegistrationError);
+  });
+});
+
+describe('reading an uploaded file in a handler (ADR-0140 §6)', () => {
+  const uploadKey = '00000000-0000-4000-8000-000000000001';
+  const readSpec = defineAction<{ uploadId: string }, { text: string }>({ ...plainSpec, id: 'analytics.read', inputKeys: { uploadId: true } });
+  // An async handler, as a consumer that parses the file with an async validator needs.
+  const readAction = defineMockAsyncAction(readSpec, {
+    handle: async ({ input, readUpload }) => {
+      const found = readUpload?.(input.uploadId);
+      if (!found) throw new MockActionInvalid([{ path: ['uploadId'], code: 'not_found' }]);
+      await Promise.resolve();
+      return { data: { text: `${found.name} ${found.mimeType} ${found.size} ${new TextDecoder().decode(found.bytes)}` }, version: null };
+    },
+  });
+  const read = (uploadId: string, role: RoleId) =>
+    serveAction(new Map([['analytics.read', readAction]]), { action: 'analytics.read', context: { scopeId: 'MEM' }, input: { uploadId }, idempotencyKey: crypto.randomUUID() }, undefined, { role, latency: 0 });
+  afterEach(() => resetUploads());
+
+  it('gives the uploader the bytes and the recorded name, type and size', async () => {
+    const uploaded = await uploadFile({ file: new Blob(['{"a":1}'], { type: 'application/json' }), name: 'w.batch.json', idempotencyKey: uploadKey }, undefined, { role: 'engineer', latency: 0 });
+    expect(await read(uploaded.data!.id, 'engineer')).toMatchObject({ outcome: 'ok', data: { text: 'w.batch.json application/json 7 {"a":1}' } });
+  });
+
+  it('answers nothing for another actor\'s upload and for an unknown id', async () => {
+    const uploaded = await uploadFile({ file: new Blob(['{}'], { type: 'application/json' }), name: 'w.batch.json', idempotencyKey: uploadKey }, undefined, { role: 'engineer', latency: 0 });
+    expect(await read(uploaded.data!.id, 'admin')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['uploadId'], code: 'not_found' }] });
+    expect(await read('F-mock-404', 'engineer')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['uploadId'], code: 'not_found' }] });
   });
 });
