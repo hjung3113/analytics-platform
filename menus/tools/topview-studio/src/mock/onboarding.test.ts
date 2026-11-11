@@ -192,6 +192,22 @@ describe('onboarding mock import and registration', () => {
     expect((await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-03' })).rows).toEqual([]);
   });
 
+  it('the content of a retired window is refused as file/retired and stays retired', async () => {
+    await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await upload(batch()) });
+    expect((await act('eqv.retireSampleWindow', { equipmentId: 'eq-synth-03', windowHash: 'd'.repeat(64) })).outcome).toBe('ok');
+    expect(await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await upload(batch(), 'again.batch.json') })).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['file'], code: 'retired' }] });
+    expect((await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-03' })).rows.map((w) => w.state)).toEqual(['retired']);
+  });
+
+  it('two imports for one equipment in flight together both land (the rows are read again after the check)', async () => {
+    const [a, b] = await Promise.all([upload(batch()), upload(batch({ from: '2026-01-03T10:00:00.000', to: '2026-01-03T10:30:00.000', hash: H('f') }), 'b.batch.json')]);
+    // A check slow enough that both handlers are waiting on it at once.
+    setSampleWindowImport({ ...stub, check: async (raw, ctx) => { await new Promise((resolve) => setTimeout(resolve, 20)); return stub.check(raw, ctx); } });
+    const answers = await Promise.all([act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: a }), act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: b })]);
+    expect(answers.map((x) => x.outcome)).toEqual(['ok', 'ok']);
+    expect((await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-03' })).rows.map((w) => w.hash).sort()).toEqual([H('d'), H('f')]);
+  });
+
   it('importSampleWindow refuses an unknown equipment', async () => {
     expect(await act('eqv.importSampleWindow', { equipmentId: 'eq-unknown', uploadId: await upload(batch()) })).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['equipmentId'], code: 'not_found' }] });
   });

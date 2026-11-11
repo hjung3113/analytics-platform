@@ -40,11 +40,15 @@ export const onboardingImportMock: readonly AnyMockAction[] = [
       if (hooks === null) throw new Error('setSampleWindowImport was not called');
       let raw: unknown;
       try { raw = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(upload.bytes)); } catch { throw new MockActionInvalid([err(['file'], 'not_json')]); }
-      const rows = onboarding().windows.get(input.equipmentId) ?? [];
-      const existing = rows.filter((w) => w.state !== 'retired').map(({ from, to, hash, timeDomain }) => ({ from, to, hash, timeDomain }));
+      const before = onboarding().windows.get(input.equipmentId) ?? [];
+      const existing = before.filter((w) => w.state !== 'retired').map(({ from, to, hash, timeDomain }) => ({ from, to, hash, timeDomain }));
       const verdict = await hooks.check(raw, { equipmentId: input.equipmentId, existing, sameRangeReplaces: true });
       if (!verdict.ok) throw new MockActionInvalid(verdict.issues.map(({ code, path }) => err(['file', ...path.map(String)], code)));
+      // Read the rows again: another import may have stored a window while the check ran.
+      const rows = onboarding().windows.get(input.equipmentId) ?? [];
       const known = rows.find((w) => w.hash === verdict.summary.hash);
+      // A retired window stays retired: importing its content again is refused, never answered as a success that changes nothing.
+      if (known?.state === 'retired') throw new MockActionInvalid([err(['file'], 'retired')]);
       if (known) return { data: structuredClone(known), version: null };
       // EV#105: a reprocessed generation of an active window's exact range waits as `staged` until `replaceSampleWindow`.
       const active = verdict.replaces.map((ref) => rows.find((w) => w.hash === ref.hash)).find((w) => w?.state === 'active') ?? null;

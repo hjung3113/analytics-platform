@@ -20,12 +20,14 @@ export function LeaveConfirmDialog() {
 
 function PendingLeave({ request }: { request: LeaveRequest }) {
   const { tx } = useI18n();
-  const { setPaletteOpen } = useHostPlatform();
+  const { setPaletteOpen, route } = useHostPlatform();
   const { paletteSession, paletteOpen } = useOverlayState();
   const safe = useRef<HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const confirmed = useRef(false);
-  const name = request.destination ? tx(request.destination) : '';
+  // A move inside the current menu (a page key the menu guards) has nowhere else to name: the line would read as leaving.
+  const destination = request.destination !== null && request.destination !== route?.menu.label ? request.destination : null;
+  const name = destination ? tx(destination) : '';
   const last = name.charCodeAt(name.length - 1);
   const jong = last >= 0xac00 && last <= 0xd7a3 ? (last - 0xac00) % 28 : 0;
   const particle = jong !== 0 && jong !== 8 ? '으로' : '로';
@@ -60,7 +62,7 @@ function PendingLeave({ request }: { request: LeaveRequest }) {
           <div>{detail && <p>{detail}</p>}<p>{tx(copy.consequence)}</p></div>
         </AlertDialogDescription>
       </AlertDialogHeader>
-      {request.destination && <p className="text-sm">{tx(copy.destination).replace(/\{(name|particle)\}/g, (_token, key: string) => key === 'name' ? name : particle)}</p>}
+      {destination && <p className="text-sm">{tx(copy.destination).replace(/\{(name|particle)\}/g, (_token, key: string) => key === 'name' ? name : particle)}</p>}
       <AlertDialogFooter>
         <Button ref={safe} size="sm" onClick={() => request.cancel()}>{tx(copy.stay)}</Button>
         <Button size="sm" variant="destructive" onClick={confirm}>{tx(copy.leave)}</Button>

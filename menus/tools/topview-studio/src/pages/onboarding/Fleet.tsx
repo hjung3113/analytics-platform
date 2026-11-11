@@ -3,7 +3,7 @@ import type { ColumnFilterSpec } from '@ap/contracts';
 import { useMenuQuery, usePlatform } from '@ap/kernel';
 import { PlatformDataTable, PlatformPage, QueryView, RowAction, type PlatformColumn } from '@ap/components';
 import { EmptyState, StatusBadge } from '@ap/ui';
-import { FLEET_STATUSES, fleetEndpoint, type FleetRowDto } from '../../endpoints';
+import { FLEET_STATUSES, WINDOW_IMPORT_PERMISSION, fleetEndpoint, type FleetRowDto } from '../../endpoints';
 import { FLEET_STATUS_LABEL, FLEET_STATUS_TONE, percent } from '../../model/onboarding';
 import { rowsOf } from '../../model/query';
 import { ShortRange } from './WallClock';
@@ -13,7 +13,12 @@ const STATUS_FILTER: ColumnFilterSpec = { kind: 'enum', options: FLEET_STATUSES.
 
 // Sizes fit the 1440 body (≈1114 px) beside the pinned 동작 column (≈128 px): 115+110+110+130+95+135+105+175 = 975 (measured at 1440).
 const COLUMNS: PlatformColumn<FleetRowDto>[] = [
-  { id: 'equipmentId', header: '설비', size: 115, value: (row) => row.equipmentId, cell: (row) => <span className="font-mono text-xs">{row.equipmentId}</span> },
+  {
+    id: 'equipmentId', header: '설비', size: 115, value: (row) => row.equipmentId,
+    // The registered name, small under the id (UX-4).
+    cell: (row) => <span className="flex min-w-0 flex-col"><span className="font-mono text-xs">{row.equipmentId}</span>
+      {row.label && <span className="truncate text-xs text-text-secondary" title={row.label}>{row.label}</span>}</span>,
+  },
   { id: 'vendorName', header: '설비사', size: 110, value: (row) => row.vendorName },
   { id: 'modelName', header: 'Model', size: 110, value: (row) => row.modelName },
   {
@@ -31,14 +36,15 @@ const COLUMNS: PlatformColumn<FleetRowDto>[] = [
 
 /** ① Fleet (Management archetype): one table with column filters and the pinned `동작` column; a row opens the equipment's step tabs. */
 export function Fleet() {
-  const { setPage } = usePlatform();
+  const { setPage, can } = usePlatform();
   const fleetQ = useMenuQuery(fleetEndpoint, {});
   const rows = rowsOf(fleetQ);
   // The spec's place (a-fleet.png): 설비 등록 is the page's primary action.
   return <PlatformPage layout="fill" title="설비 온보딩" primaryAction={rows === null ? undefined : <RegisterEquipmentControl rows={rows} />}>
     <div className="flex min-h-0 flex-1 flex-col break-keep">
       {rows === null ? <QueryView query={fleetQ}>{() => null}</QueryView>
-        : rows.length === 0 ? <EmptyState title="등록된 설비가 없습니다" body="설비를 등록한 뒤 Sample Window를 가져오세요." />
+        // No Fleet row means no Model to register under yet (no Hub Model list read): the first equipment comes from the EV dev tool.
+        : rows.length === 0 ? <EmptyState title="등록된 설비가 없습니다" body={can(WINDOW_IMPORT_PERMISSION) ? 'EV 개발 도구에서 첫 설비를 등록하세요.' : '등록된 설비가 여기에 나타납니다.'} />
           : <PlatformDataTable title="Fleet" ariaLabel="Fleet" fill rows={rows} columns={COLUMNS} getRowId={(row) => row.equipmentId} preferenceKey="eqv-onboarding-fleet"
             rowAction={(row, { compact }) => <RowAction compact={compact} icon={ArrowRight} label={`${row.equipmentId} 열기`} text="열기"
               onClick={() => setPage({ equipment: row.equipmentId, step: null, window: null })} />} />}

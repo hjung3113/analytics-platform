@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFoo
 import { WINDOW_IMPORT_PERMISSION, replaceSampleWindow, retireSampleWindow, type SampleWindowRow } from '../../endpoints';
 import { WINDOW_STATE_LABEL, WINDOW_STATE_TONE, rangeShort, windowHex } from '../../model/onboarding';
 import { ImportWindowControl } from './ImportWindow';
-import { NoBreakStamps, ShortRange } from './WallClock';
+import { ShortRange } from './WallClock';
 import type { EquipmentData } from './useEquipment';
 
 const COLUMNS: PlatformColumn<SampleWindowRow>[] = [
@@ -40,7 +40,8 @@ export function DataTab({ data }: { data: EquipmentData }) {
     } catch { setError('바꾸지 못했습니다.'); }
   };
   const importControl = <ImportWindowControl equipmentId={data.equipment.equipmentId} windows={data.windows} />;
-  if (data.windows.length === 0) return <div className="p-4"><EmptyState title="Sample Window가 없습니다" body="원천 변환기가 만든 *.batch.json을 가져오세요." action={importControl} /></div>;
+  // Without the right the empty state only says what will appear here (it never asks for an import the person cannot do).
+  if (data.windows.length === 0) return <div className="p-4"><EmptyState title="Sample Window가 없습니다" body={canWindows ? '원천 변환기가 만든 *.batch.json을 가져오세요.' : '가져온 Sample Window가 여기에 나타납니다.'} action={importControl} /></div>;
   // The spec's place (a-data.png): the import sits right above the table.
   return <div className="flex min-h-0 flex-1 flex-col gap-2 p-4">
     <div className="flex shrink-0 justify-end">{importControl}</div>
@@ -66,7 +67,7 @@ function WindowConfirm({ ask, replaced, busy, error, onConfirm, onCancel }: { as
           : '퇴역한 window는 Inventory와 검증에 쓰지 않습니다. 이미 게시한 Mapping Version의 Baseline Inventory는 남습니다. 되돌릴 수 없습니다.'}</AlertDialogDescription>
       </AlertDialogHeader>
       <FieldList>
-        <FieldRow layout="property" label="구간"><NoBreakStamps text={`${row.from} – ${row.to}`} /></FieldRow>
+        <FieldRow layout="property" label="구간"><ShortRange from={row.from} to={row.to} /></FieldRow>
         <FieldRow layout="property" label="Generation" mono>{replaced ? `${replaced.dataGeneration} → ${row.dataGeneration}` : row.dataGeneration}</FieldRow>
         <FieldRow layout="property" label="사용 Mapping">{`${(replaced ?? row).mappingCount}개`}</FieldRow>
       </FieldList>

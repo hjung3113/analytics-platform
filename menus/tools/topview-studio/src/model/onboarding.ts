@@ -115,6 +115,81 @@ export function uploadFailure(answer: { outcome: string; fieldErrors: readonly {
 /** A field error as one short line: `code · path`. */
 export const fieldErrorLine = (error: { path: readonly (string | number)[]; code: string }): string => `${error.code} · ${error.path.map(String).join('.') || '(root)'}`;
 
+/** One import problem: a `@eqv/core` import issue or warning, or a field error of the server's refusal (`file/…` paths without `file`). */
+export type ImportProblem = { code: string; path: readonly (string | number)[]; message?: string };
+/** One shown line per code: the Korean sentence, and the paths and original messages for the collapsed «자세히». */
+export type ImportProblemLine = { code: string; text: string; details: string[] };
+type ProblemFacts = { count: number; problems: readonly ImportProblem[]; dataGeneration: string | null };
+
+/** Distinct Occurrences a group of problems points at (`occurrences/<i>/…`); the problem count when none does. */
+const occurrenceCount = (problems: readonly ImportProblem[]): number => {
+  const indices = new Set(problems.filter((p) => p.path[0] === 'occurrences' && p.path[1] !== undefined).map((p) => String(p.path[1])));
+  return indices.size > 0 ? indices.size : problems.length;
+};
+/** Words of the import codes (core `ImportRejectCode`, `ImportWarningCode`) and the server's refusal codes. Occurrences read «이벤트», as in the 데이터 table. */
+const IMPORT_PROBLEM_TEXT: Record<string, (facts: ProblemFacts) => string> = {
+  schema: () => 'Sample Window(batch) 파일 형식이 아닙니다.',
+  'fraction-too-long': ({ count }) => `시각 ${count}개의 초 소수점이 세 자리를 넘습니다.`,
+  'fraction-missing': ({ count }) => `시각 ${count}개에 초 소수점 세 자리가 없습니다.`,
+  offset: ({ count }) => `시각 ${count}개에 시간대가 붙어 있습니다. 현장 시각은 시간대 없이 씁니다.`,
+  'malformed-time': ({ count }) => `시각 ${count}개가 YYYY-MM-DDTHH:mm:ss.fff 형식이 아닙니다.`,
+  'empty-range': () => '구간의 끝이 시작보다 늦지 않습니다.',
+  'empty-time-domain': () => 'timeDomain이 비어 있습니다.',
+  continuation: () => '이어지는 부분이 남은 batch입니다. 끝까지 담긴 batch만 가져올 수 있습니다.',
+  'equipment-mismatch': () => '다른 설비의 Sample Window입니다.',
+  'record-owner': ({ count }) => `기록 ${count}개의 설비가 파일의 설비와 다릅니다.`,
+  'duplicate-seq': ({ count }) => `Record Sequence ${count}개가 겹칩니다.`,
+  'duplicate-id': ({ count }) => `기록 ID ${count}개가 겹칩니다.`,
+  'generation-mismatch': ({ problems, dataGeneration }) => (problems.every((p) => p.path.at(-1) === 'dataGeneration')
+    ? `이벤트 ${occurrenceCount(problems)}건의 Generation이 파일의 Generation${dataGeneration ? `(${dataGeneration})` : ''}과 다릅니다.`
+    : `이벤트 ${occurrenceCount(problems)}건의 Generation이나 파서 버전이 파일과 다릅니다.`),
+  'outside-window': ({ problems }) => `이벤트 ${occurrenceCount(problems)}건이 구간 밖에 있습니다.`,
+  'window-overlap': ({ count }) => (count > 1 ? `이미 있는 window ${count}개와 구간이 겹칩니다.` : '이미 있는 window와 구간이 겹칩니다.'),
+  'time-domain-mismatch': () => '이미 있는 window와 timeDomain이 다릅니다.',
+  'illustrative-in-source': ({ count }) => `원천 근거 ${count}개가 illustrative입니다. 그대로 illustrative로 셉니다.`,
+  'no-occurrences': () => '이벤트가 없습니다.',
+  'dqi-outside-window': ({ count }) => `데이터 품질 이슈 ${count}건이 구간 밖 이벤트를 가리킵니다.`,
+  // The server's refusals (`eqv.importSampleWindow`).
+  staged_exists: () => '같은 구간에 교체 대기 window가 이미 있습니다.',
+  retired: () => '퇴역한 window와 같은 내용입니다.',
+  not_json: () => 'JSON으로 읽을 수 없습니다.',
+  'uploadId/not_found': () => '올린 파일을 찾을 수 없습니다.',
+  'uploadId/invalid': () => '올린 파일을 찾을 수 없습니다.',
+  'equipmentId/not_found': () => '설비를 찾을 수 없습니다.',
+};
+
+/** One Korean line per code, in first-seen order; the paths and original messages stay in `details`. */
+export function importProblemLines(problems: readonly ImportProblem[], facts: { dataGeneration?: string | null } = {}): ImportProblemLine[] {
+  const groups = new Map<string, ImportProblem[]>();
+  for (const problem of problems) groups.set(problem.code, [...(groups.get(problem.code) ?? []), problem]);
+  return [...groups].map(([code, group]) => {
+    const words = IMPORT_PROBLEM_TEXT[code];
+    return {
+      code,
+      text: words ? words({ count: group.length, problems: group, dataGeneration: facts.dataGeneration ?? null }) : `확인하지 못한 문제입니다(${code}).`,
+      details: group.map((p) => `${fieldErrorLine(p)}${p.message ? ` — ${p.message}` : ''}`),
+    };
+  });
+}
+
+/** The server's import refusal as problems: `file/<path>` loses its `file` prefix; a refusal of another input is coded `<input>/<code>` (`uploadId/not_found`). */
+export const importRefusalProblems = (fieldErrors: readonly { path: readonly (string | number)[]; code: string }[]): ImportProblem[] =>
+  fieldErrors.map(({ path, code }) => (path[0] === 'file' ? { code, path: path.slice(1) } : { code: `${String(path[0] ?? '')}/${code}`, path }));
+
+/** What to do next, by the kind of problem; null without problems. */
+export function importProblemHint(problems: readonly ImportProblem[], ctx: { equipmentId: string; fileEquipmentId: string | null }): string | null {
+  if (problems.length === 0) return null;
+  const codes = new Set(problems.map((p) => p.code));
+  if (codes.has('equipment-mismatch') && ctx.fileEquipmentId) return `이 파일은 ${ctx.fileEquipmentId}의 Sample Window입니다. ${ctx.equipmentId}의 파일을 고르세요.`;
+  if (codes.has('schema') || codes.has('not_json')) return '원천 변환기가 만든 *.batch.json 파일을 고르세요.';
+  if (codes.has('staged_exists')) return '데이터 탭에서 교체 대기 window를 먼저 «교체»한 뒤 가져오세요.';
+  if ([...codes].every((code) => code === 'retired')) return '퇴역한 window는 다시 가져올 수 없습니다. 다른 파일을 고르세요.';
+  if ([...codes].every((code) => code === 'window-overlap' || code === 'time-domain-mismatch')) return '이 설비의 window와 겹치지 않고 timeDomain이 같은 파일을 고르세요.';
+  if (codes.has('uploadId/not_found') || codes.has('uploadId/invalid')) return '파일을 다시 고르세요.';
+  if (codes.has('equipmentId/not_found')) return 'Fleet에서 설비를 다시 여세요.';
+  return '문제를 고친 파일을 고르세요.';
+}
+
 /** Registration words for the server's refusal codes (`eqv.registerEquipment`). */
 export function registerFailure(answer: { outcome: string; fieldErrors: readonly { path: readonly (string | number)[]; code: string }[] }): string {
   if (answer.outcome === 'forbidden') return '권한이 없어 등록하지 못했습니다.';
@@ -127,4 +202,4 @@ export function registerFailure(answer: { outcome: string; fieldErrors: readonly
 }
 /** Client check of a new equipment id: what the address and the server both accept. */
 export const equipmentIdProblem = (id: string): string | null =>
-  id === '' ? null : id.length > EQUIPMENT_ID_MAX || !EQUIPMENT_ID_PATTERN.test(id) ? '영문·숫자로 시작하고 영문·숫자·.·_·-만 씁니다.' : null;
+  id === '' ? null : id.length > EQUIPMENT_ID_MAX || !EQUIPMENT_ID_PATTERN.test(id) ? '영문·숫자로 시작하고 영문·숫자와 . _ - 만 씁니다.' : null;

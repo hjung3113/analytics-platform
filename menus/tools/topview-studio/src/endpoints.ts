@@ -209,7 +209,8 @@ export const retireSampleWindow = defineAction<WindowActionInput, RetireWindowRe
  * `@eqv/core` `checkSampleWindowImport`) and stores it; answers the stored window as an `eqv.sampleWindows` row. The same content again
  * answers the stored row. A reprocessed Data Generation of an active window's exact range is stored `staged` (EV#105), replaced only by
  * `replaceSampleWindow`. Refusals are `invalid`: `uploadId/not_found` (unknown, expired or another user's upload), `file/not_json`,
- * `file/<import code>` per validation issue, `equipmentId/not_found`.
+ * `file/<import code>` per validation issue, `file/staged_exists` (the active window already has a staged replacement), `file/retired`
+ * (the content of a retired window: it stays retired), `equipmentId/not_found`.
  */
 export const importSampleWindow = defineAction<ImportWindowInput, SampleWindowRow>({
   id: 'eqv.importSampleWindow', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { equipmentId: true, uploadId: true }, permission: WINDOW_IMPORT_PERMISSION,
