@@ -64,7 +64,7 @@ CI runs the default mock E2E config only; no CI job executes real specs or the r
 - Do not treat a shell heading as bridge success. Register the expected feature GET before navigation, require its 2xx response, and assert the screen's loaded rows or explicit valid empty state.
 - The usage table reads once per mount, so poll authenticated `GET /api/v1/platform/usage-summary?preset=all` directly when checking persisted visit deltas.
 - The platform home Todo slot hides its whole section when every group is empty. Home checks assert the survey, notification and own-permission-request GETs succeeded and the business-system cards rendered.
-- `E2E_PORT` selects the Vite port (default `4190`); `E2E_REAL_BACKEND_PORT` the backend port (default `3011`); avoid ports other sessions use. `e2e:real` runs the backend-down screen in a separate Vite-only config (no DB) after the healthy-backend specs.
+- `E2E_PORT` selects the Vite port (default `4190`); `E2E_REAL_BACKEND_PORT` the backend port (default `3011`); avoid ports other sessions use. `e2e:real` runs the backend-down screen in a separate Vite-only config (no DB) after the healthy-backend specs, even when those fail, and fails if either config fails (#1796).
 - Backend readiness uses `/health` (liveness). `/health/ready` also requires attachment storage, which this harness does not use.
 - Focused database safety checks (`node --test apps/platform-e2e/tests-real/database-safety.test.ts`) run in `gate.sh static-extra`; they do not connect to a database.
 
