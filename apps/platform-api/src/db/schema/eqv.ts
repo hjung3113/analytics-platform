@@ -18,7 +18,7 @@ import { actors, workspaces } from './core.js';
 // workspace-scoped. `layout_draft`, `layout_revision` and `template` carry a uuid `id` because `core.audit_log.subject_id` is a uuid;
 // the natural keys (`layout_id`, `template_id`: `idSchema` text; `revision`: the `sha256:<hex>` of `layoutRevision`) are unique per
 // workspace. `equipment.model_id` is a Hub catalog id (ADR-0132 decision 7) with no FK across the module boundary: the write path
-// checks it through `knowledgeLookup`. Sample Window tables arrive with a later step; Onboarding tables are at the end of this file (#1658).
+// checks it through `knowledgeLookup`. Onboarding tables and the Sample Window table are at the end of this file (#1658).
 export const eqvSchema = pgSchema('eqv');
 
 const REVISION_PATTERN = "'^sha256:[0-9a-f]{64}$'";
@@ -95,7 +95,7 @@ export const templates = eqvSchema.table(
   }),
 );
 
-// Read-only for the runtime role in this issue; Onboarding (step 8) adds the write action.
+// SELECT and INSERT for the runtime role (`eqv.registerEquipment`, #1658); no UPDATE, no DELETE.
 export const equipment = eqvSchema.table(
   'equipment',
   {
@@ -185,6 +185,48 @@ export const typeDictionaries = eqvSchema.table(
   }),
 );
 
+// Sample Windows (#1658 Sample Window·Fleet PR, ADR-0139 amendment «Sample Window storage»): the validated batch and the Inventory built at import,
+// one row per (equipment, content hash). Only `state`, `counterpart_hash` and the audit columns ever change; no DELETE for the runtime role.
+export const sampleWindows = eqvSchema.table(
+  'sample_window',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+    equipmentId: text('equipment_id').notNull(),
+    hash: text('hash').notNull(),
+    fromAt: text('from_at').notNull(),
+    toAt: text('to_at').notNull(),
+    dataGeneration: text('data_generation').notNull(),
+    timeDomain: text('time_domain').notNull(),
+    occurrences: integer('occurrences').notNull(),
+    state: text('state').notNull(),
+    counterpartHash: text('counterpart_hash'),
+    batch: jsonb('batch').notNull(),
+    inventory: jsonb('inventory').notNull(),
+    importedAt: timestamp('imported_at', { withTimezone: true }).notNull().default(sql`now()`),
+    importedBy: uuid('imported_by').notNull().references(() => actors.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().default(sql`now()`),
+    updatedBy: uuid('updated_by').notNull().references(() => actors.id),
+  },
+  (t) => ({
+    workspaceIdUq: unique('sample_window_workspace_id_id_uq').on(t.workspaceId, t.id),
+    naturalUq: unique('sample_window_workspace_equipment_hash_uq').on(t.workspaceId, t.equipmentId, t.hash),
+    listIdx: index('sample_window_workspace_equipment_from_idx').on(t.workspaceId, t.equipmentId, t.fromAt),
+    equipmentFk: foreignKey({
+      name: 'sample_window_equipment_fk',
+      columns: [t.workspaceId, t.equipmentId],
+      foreignColumns: [equipment.workspaceId, equipment.equipmentId],
+    }).onDelete('restrict'),
+    hashCheck: check('sample_window_hash_check', sql`${t.hash} ~ ${sql.raw(REVISION_PATTERN)}`),
+    counterpartCheck: check('sample_window_counterpart_check', sql`${t.counterpartHash} is null or ${t.counterpartHash} ~ ${sql.raw(REVISION_PATTERN)}`),
+    fromCheck: check('sample_window_from_check', sql`${t.fromAt} ~ ${sql.raw(WALL_CLOCK_PATTERN)}`),
+    toCheck: check('sample_window_to_check', sql`${t.toAt} ~ ${sql.raw(WALL_CLOCK_PATTERN)} and ${t.fromAt} < ${t.toAt}`),
+    stateCheck: check('sample_window_state_check', sql`${t.state} in ('active', 'staged', 'replaced', 'retired')`),
+    occurrencesCheck: check('sample_window_occurrences_check', sql`${t.occurrences} >= 0`),
+    batchCheck: check('sample_window_batch_check', sql`jsonb_typeof(${t.batch}) = 'object' and jsonb_typeof(${t.inventory}) = 'object'`),
+  }),
+);
+
 // Immutable. `layout_revision` is the Revision the hash was first published with; a Binding carries its own Revision.
 export const mappingVersions = eqvSchema.table(
   'mapping_version',
@@ -228,10 +270,17 @@ export const baselineInventories = eqvSchema.table(
     equipmentId: text('equipment_id').notNull(),
     mappingHash: text('mapping_hash').notNull(),
     document: jsonb('document').notNull(),
+    // The stored Sample Window the Baseline was taken from; null for rows published before windows were stored (#1658).
+    windowId: uuid('window_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`now()`),
     createdBy: uuid('created_by').notNull().references(() => actors.id),
   },
   (t) => ({
+    windowFk: foreignKey({
+      name: 'baseline_inventory_window_fk',
+      columns: [t.workspaceId, t.windowId],
+      foreignColumns: [sampleWindows.workspaceId, sampleWindows.id],
+    }).onDelete('restrict'),
     workspaceIdUq: unique('baseline_inventory_workspace_id_id_uq').on(t.workspaceId, t.id),
     naturalUq: unique('baseline_inventory_workspace_equipment_hash_uq').on(t.workspaceId, t.equipmentId, t.mappingHash),
     mappingFk: foreignKey({

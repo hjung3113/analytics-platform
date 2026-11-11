@@ -85,7 +85,7 @@ describe('onboarding mock writes', () => {
 
   it('publishMapping: needs a published Revision, opens a Binding closing the previous one, stores the Baseline, refuses same-as-latest', async () => {
     const baseline = await data<Record<string, unknown>>('eqv.observedInventory', { equipmentId: 'eq-synth-01', windowHash: G1 });
-    const input = { equipmentId: 'eq-synth-01', layoutId: 'eq-synth-01-layout', layoutRevision: `sha256:${'a'.repeat(64)}`, baseline, effectiveFrom: '2026-01-01T10:30:00.000' };
+    const input = { equipmentId: 'eq-synth-01', layoutId: 'eq-synth-01-layout', layoutRevision: `sha256:${'a'.repeat(64)}`, windowHash: G1, effectiveFrom: '2026-01-01T10:30:00.000' };
     expect(await act('eqv.publishMapping', input, '2')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['layoutRevision'], code: 'not_found' }] });
     const revision = await act('eqv.publishRevision', { layoutId: 'eq-synth-01-layout' }, '1');
     const layoutRevision = (revision.data as { revision: string }).revision;
@@ -105,6 +105,18 @@ describe('onboarding mock writes', () => {
     expect(again).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['mapping'], code: 'same-as-latest' }] });
     const early = await act('eqv.publishMapping', { ...input, layoutRevision, effectiveFrom: '2026-01-01T10:00:00.000' }, '3');
     expect(early).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['effectiveFrom'], code: 'not_after_latest' }] });
+  });
+
+  it('publishMapping takes the Baseline from an active window of the equipment: a staged, retired or foreign window is windowHash/not_active and nothing is stored', async () => {
+    const revision = await act('eqv.publishRevision', { layoutId: 'eq-synth-01-layout' }, '1');
+    const layoutRevision = (revision.data as { revision: string }).revision;
+    const base = { equipmentId: 'eq-synth-01', layoutId: 'eq-synth-01-layout', layoutRevision, effectiveFrom: '2026-01-01T10:30:00.000' };
+    const staged = (await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-01' })).rows.find((w) => w.state === 'staged')!;
+    for (const windowHash of [staged.hash.slice(7), 'f'.repeat(64)]) {
+      expect(await act('eqv.publishMapping', { ...base, windowHash }, '2')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['windowHash'], code: 'not_active' }] });
+    }
+    expect((await act('eqv.publishMapping', { ...base, windowHash: 'xyz' }, '2')).fieldErrors).toEqual([{ path: ['windowHash'], code: 'invalid' }]);
+    expect((await data<{ version: string }>('eqv.bindings', { equipmentId: 'eq-synth-01' })).version).toBe('2');
   });
 
   it('replace activates the staged generation and marks the old one replaced; retire refuses a window that is not active', async () => {

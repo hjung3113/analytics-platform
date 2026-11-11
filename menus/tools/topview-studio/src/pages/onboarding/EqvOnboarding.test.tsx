@@ -242,7 +242,7 @@ describe('검증·게시', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '게시' }));
     await waitFor(() => expect(writes().map((w) => w.action)).toEqual(['eqv.publishRevision', 'eqv.publishMapping']), slow);
     expect(writes()[0]).toEqual({ action: 'eqv.publishRevision', input: { layoutId: 'eq-synth-01-layout' }, expectedVersion: '1' });
-    expect(writes()[1]).toMatchObject({ input: { equipmentId: 'eq-synth-01', layoutId: 'eq-synth-01-layout', layoutRevision: `sha256:${'b'.repeat(64)}`, effectiveFrom: '2026-01-01T10:30:00.000', baseline: expect.objectContaining({ equipmentId: 'eq-synth-01' }) }, expectedVersion: '2' });
+    expect(writes()[1]).toMatchObject({ input: { equipmentId: 'eq-synth-01', layoutId: 'eq-synth-01-layout', layoutRevision: `sha256:${'b'.repeat(64)}`, effectiveFrom: '2026-01-01T10:30:00.000', windowHash: G1 }, expectedVersion: '2' });
     await waitFor(() => expect(notify).toHaveBeenCalledWith('Mapping을 게시했습니다', 'info'), slow);
   });
 

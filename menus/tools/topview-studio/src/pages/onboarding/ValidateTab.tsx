@@ -6,8 +6,8 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, FieldLabel,
   FieldList, FieldRow, Input, PanelSectionTitle, cn,
 } from '@ap/ui';
-import { WALL_CLOCK_PATTERN, publishMapping, publishRevision, type JsonDocument, type RevisionRow } from '../../endpoints';
-import { percent, rangeShort } from '../../model/onboarding';
+import { WALL_CLOCK_PATTERN, publishMapping, publishRevision, type RevisionRow } from '../../endpoints';
+import { percent, rangeShort, windowHex } from '../../model/onboarding';
 import { Canvas, PANEL } from '../../parts/Canvas';
 import { Toolbar } from '../../parts/Toolbar';
 import type { EquipmentData } from './useEquipment';
@@ -101,7 +101,7 @@ export function PublishReview({ data, layout, plan, effectiveFrom, revisions, on
   const busy = revisionAction.pending || mappingAction.pending;
   const count = (change: keyof typeof CHANGE_WORD) => plan.diff.entries.filter((e) => e.change === change).length;
   const onPublish = async () => {
-    if (busy || !data.inventory || !data.draft) return;
+    if (busy || !data.window || !data.inventory || !data.draft) return;
     setError(null);
     try {
       let revision = plan.layoutRevision;
@@ -110,7 +110,7 @@ export function PublishReview({ data, layout, plan, effectiveFrom, revisions, on
         if (published.outcome !== 'ok' || !published.data) { setError(published.outcome === 'conflict' ? 'Layout 초안이 바뀌었습니다. 다시 확인한 뒤 게시하세요.' : 'Layout Revision을 게시하지 못했습니다.'); return; }
         revision = published.data.revision;
       }
-      const result = await mappingAction.run({ equipmentId: data.equipment.equipmentId, layoutId: layout.id, layoutRevision: revision, baseline: data.inventory as unknown as JsonDocument, effectiveFrom },
+      const result = await mappingAction.run({ equipmentId: data.equipment.equipmentId, layoutId: layout.id, layoutRevision: revision, windowHash: windowHex(data.window.hash), effectiveFrom },
         { expectedVersion: data.bindingsVersion });
       if (result.outcome === 'ok') { toast('Mapping을 게시했습니다', 'info'); onClose(); return; }
       const code = result.fieldErrors[0]?.code;

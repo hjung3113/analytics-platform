@@ -1036,7 +1036,8 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
         ...(opts.logExplorer?.handoffSourceTotalMs !== undefined ? { sourceTotalMs: opts.logExplorer.handoffSourceTotalMs } : {}),
       },
     }),
-    eqvContribution({ db: dbHandle.db, checkService, knowledgeLookup }),
+    // The Sample Window import reads its upload through the attachments service, which is built further down (called per request, never here).
+    eqvContribution({ db: dbHandle.db, checkService, knowledgeLookup, uploads: { readUnlinkedUpload: (input) => attachmentsService.readUnlinkedUpload(input) } }),
     logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, ruleCoverage, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),
     ...(opts.menuDispatch ?? []),
   ]);

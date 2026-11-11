@@ -201,6 +201,10 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'eqv.type_dictionary.created',
   'eqv.type_dictionary.saved',
   'eqv.mapping.published',
+  'eqv.sample_window.imported',
+  'eqv.sample_window.replaced',
+  'eqv.sample_window.retired',
+  'eqv.equipment.registered',
   'actor_role_changed',
   'platform_notice_created',
   'platform_notice_updated',
@@ -216,7 +220,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(196);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(200);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });

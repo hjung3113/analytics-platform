@@ -16,7 +16,7 @@ const checkServiceHolding = (capabilities: readonly string[]): CheckService => (
 
 const NAMES = [
   'eqv:view', 'eqv-studio:view', 'eqv-studio:layout-edit', 'eqv-studio:layout-publish',
-  'eqv-studio:rules-edit', 'eqv-studio:dictionary-global-edit', 'eqv-studio:mapping-publish',
+  'eqv-studio:rules-edit', 'eqv-studio:dictionary-global-edit', 'eqv-studio:mapping-publish', 'eqv-studio:window-import',
 ] as const;
 const held = async (capabilities: readonly string[]) => {
   const service = checkServiceHolding(capabilities);
@@ -42,5 +42,6 @@ describe('eqv view permission names', () => {
     expect(await held(['eqv.rules.edit'])).toEqual(['eqv-studio:rules-edit']);
     expect(await held(['eqv.dictionary.global_edit'])).toEqual(['eqv-studio:dictionary-global-edit']);
     expect(await held(['eqv.mapping.publish'])).toEqual(['eqv-studio:mapping-publish']);
+    expect(await held(['eqv.window.import'])).toEqual(['eqv-studio:window-import']);
   });
 });

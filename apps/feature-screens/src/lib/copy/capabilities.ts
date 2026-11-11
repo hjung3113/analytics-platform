@@ -38,6 +38,7 @@ export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
   'eqv.rules.edit': '설비 시각화 Mapping 규칙 편집',
   'eqv.dictionary.global_edit': '설비 시각화 전역 Type Dictionary·규칙 편집',
   'eqv.mapping.publish': '설비 시각화 Mapping 게시',
+  'eqv.window.import': '설비 시각화 Sample Window 가져오기·설비 등록',
 };
 
 export function getCapabilityDisplayLabel(capability: string): string {

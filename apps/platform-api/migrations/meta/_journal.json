@@ -876,6 +876,13 @@
       "when": 1794350074215,
       "tag": "0124_eqv_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1794377087390,
+      "tag": "0125_eqv_sample_window",
+      "breakpoints": true
     }
   ]
 }

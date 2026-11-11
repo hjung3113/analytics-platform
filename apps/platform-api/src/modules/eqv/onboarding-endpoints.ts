@@ -6,11 +6,15 @@ import { bindingsFileSchema, mappingVersionSchema, observedInventorySchema, vali
 import type { Db } from '../../db/client.js';
 import type { MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
 import { type EqvDeps, eqvAuthorize } from './authorize.js';
+import { bundledTemplateRows } from './domain/bundled-templates.js';
 import { REVISION_PATTERN } from './domain/layout-checks.js';
 import { isEquipmentId, parseScope, type MappingScopeRef } from './domain/mapping-checks.js';
+import { isWindowHex, windowHashOf } from './domain/window-checks.js';
 import { EQV_ONBOARDING_MENU_ID, EQV_VIEW_CAPABILITY, EQV_VIEW_PERMISSION } from './menu.js';
+import { buildFleetRows } from './onboarding-fleet.js';
 import { equipmentScope, scopeAddressable, type ModelLookup } from './onboarding-scope.js';
 import * as read from './repositories/onboarding-read.js';
+import * as windowRead from './repositories/window-read.js';
 
 type Params = Record<string, unknown>;
 type Result = { outcome: 'ok' | 'empty'; data: unknown };
@@ -60,6 +64,10 @@ export function onboardingEndpoints(deps: OnboardingDeps): MenuEndpointDeclarati
       if (!(await equipmentScope(deps.db, deps.knowledgeLookup, actor, equipmentId))) return found(null);
       return body({ workspaceId, equipmentId, params });
     };
+
+  const equipmentAndHex = (key: string) => (p: Params): ParamsJudgment =>
+    !isEquipmentId(p.equipmentId) ? bad('equipmentId must be an equipment id') : isWindowHex(p[key]) ? { ok: true } : bad(`${key} must be 64 hex digits`);
+  const noParams = (): ParamsJudgment => ({ ok: true });
 
   const scopedRow = (allowEquipment: boolean, get: (ws: string, scope: MappingScopeRef) => Promise<{ document: unknown; version: number } | null>) =>
     async ({ workspaceId, actor, params }: { workspaceId: string; actor: Parameters<MenuEndpointDeclaration['handle']>[0]['actor']; params: Params }): Promise<Result> => {
@@ -141,5 +149,29 @@ export function onboardingEndpoints(deps: OnboardingDeps): MenuEndpointDeclarati
         return found({ document: parsed.data });
       }),
     ),
+    // Sample Window·Fleet PR: the four reads the menu declared as pending. Same permission and rules as the reads above.
+    declare('eqv.fleet', [], noParams, async ({ actor }) => ({ outcome: 'ok', data: { rows: await buildFleetRows({ db: deps.db, knowledgeLookup: deps.knowledgeLookup, log }, actor) } })),
+    declare(
+      'eqv.sampleWindows',
+      ['equipmentId'],
+      equipmentOnly,
+      withEquipment(async ({ workspaceId, equipmentId }) => ({ outcome: 'ok', data: { rows: await windowRead.listWindowRows(deps.db, workspaceId, equipmentId) } })),
+    ),
+    declare(
+      'eqv.observedInventory',
+      ['equipmentId', 'windowHash'],
+      equipmentAndHex('windowHash'),
+      withEquipment(async ({ workspaceId, equipmentId, params }) => {
+        const row = await windowRead.getWindowRow(deps.db, workspaceId, equipmentId, windowHashOf(String(params.windowHash)));
+        if (!row) return found(null);
+        const parsed = observedInventorySchema.safeParse(row.inventory);
+        if (!parsed.success) {
+          log(`eqv window read: stored Inventory of ${equipmentId} (${row.hash}) failed validation in workspace ${workspaceId}`);
+          return found(null);
+        }
+        return found(parsed.data);
+      }),
+    ),
+    declare('eqv.bundledTemplates', [], noParams, async () => ({ outcome: 'ok', data: { rows: bundledTemplateRows() } })),
   ];
 }

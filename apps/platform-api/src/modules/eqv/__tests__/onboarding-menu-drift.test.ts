@@ -3,16 +3,19 @@ import { describe, expect, it } from 'vitest';
 import {
   DICTIONARY_GLOBAL_EDIT_PERMISSION,
   EQV_ONBOARDING_MENU_ID as MENU_ID,
+  FLEET_STATUSES as MENU_FLEET_STATUSES,
   EQV_READ_PERMISSION,
   MAPPING_PUBLISH_PERMISSION,
   RULES_EDIT_PERMISSION,
   STUDIO_VIEW_PERMISSION,
+  WINDOW_IMPORT_PERMISSION,
   onboardingActionSpecs,
   onboardingReadSpecs,
 } from '../../../../../../menus/tools/topview-studio/src/endpoints.js';
 import type { Db } from '../../../db/client.js';
 import type { CheckService } from '../../permissions/check-service.js';
 import { eqvContribution } from '../index.js';
+import { FLEET_ROWS_MAX, FLEET_STATUSES } from '../onboarding-fleet.js';
 import {
   EQV_DICTIONARY_GLOBAL_EDIT_PERMISSION,
   EQV_MAPPING_PUBLISH_PERMISSION,
@@ -20,21 +23,18 @@ import {
   EQV_RULES_EDIT_PERMISSION,
   EQV_STUDIO_VIEW_PERMISSION,
   EQV_VIEW_PERMISSION,
+  EQV_WINDOW_IMPORT_PERMISSION,
 } from '../menu.js';
 
-// The server declares the Onboarding reads and writes; the menu (`@ap/menu-topview-studio`) declares the same ids, keys, rights and
+// The server declares all the Onboarding reads and writes (nothing is pending since the Sample Window·Fleet PR); the menu (`@ap/menu-topview-studio`) declares the same ids, keys, rights and
 // invalidations for the client and the mock. This test imports the menu's client-safe `src/endpoints.ts` and fails when they differ (#1658).
-const server = eqvContribution({ db: {} as Db, checkService: {} as CheckService, knowledgeLookup: { getModel: async () => null, getVendor: async () => null } });
+const server = eqvContribution({ db: {} as Db, checkService: {} as CheckService, knowledgeLookup: { getModel: async () => null, getVendor: async () => null }, uploads: { readUnlinkedUpload: async () => null } });
 const serverReads = (server.endpoints ?? []).filter((e) => e.spec.menuId === EQV_ONBOARDING_MENU_ID);
 const serverActions = (server.actions ?? []).filter((a) => a.spec.menuId === EQV_ONBOARDING_MENU_ID);
 const sorted = (keys: Iterable<string>) => [...keys].sort();
 
-/** Declared by the menu, «Server: pending (#1658 Sample Window·Fleet PR)»: the mock serves them; the server must not yet. */
-const PENDING_READS = ['eqv.fleet', 'eqv.sampleWindows', 'eqv.observedInventory', 'eqv.bundledTemplates'];
-const PENDING_ACTIONS = ['eqv.replaceSampleWindow', 'eqv.retireSampleWindow', 'eqv.importSampleWindow', 'eqv.registerEquipment'];
-
-const servedReads = onboardingReadSpecs.filter((s) => !PENDING_READS.includes(s.id));
-const servedActions = onboardingActionSpecs.filter((s) => !PENDING_ACTIONS.includes(s.id));
+const servedReads = onboardingReadSpecs;
+const servedActions = onboardingActionSpecs;
 
 describe('Onboarding menu declarations vs the eqv module (#1658)', () => {
   it('uses the server menu id and permission names', () => {
@@ -44,16 +44,15 @@ describe('Onboarding menu declarations vs the eqv module (#1658)', () => {
     expect(RULES_EDIT_PERMISSION).toBe(EQV_RULES_EDIT_PERMISSION);
     expect(DICTIONARY_GLOBAL_EDIT_PERMISSION).toBe(EQV_DICTIONARY_GLOBAL_EDIT_PERMISSION);
     expect(MAPPING_PUBLISH_PERMISSION).toBe(EQV_MAPPING_PUBLISH_PERMISSION);
+    expect(WINDOW_IMPORT_PERMISSION).toBe(EQV_WINDOW_IMPORT_PERMISSION);
   });
 
-  it('lists the pending declarations explicitly, and the server serves none of them yet', () => {
-    expect(onboardingReadSpecs.filter((s) => PENDING_READS.includes(s.id)).map((s) => s.id)).toEqual(PENDING_READS);
-    expect(onboardingActionSpecs.filter((s) => PENDING_ACTIONS.includes(s.id)).map((s) => s.id)).toEqual(PENDING_ACTIONS);
-    const ids = [...(server.endpoints ?? []).map((e) => e.spec.id), ...(server.actions ?? []).map((a) => a.spec.id)];
-    for (const id of [...PENDING_READS, ...PENDING_ACTIONS]) expect(ids, id).not.toContain(id);
+  it('uses the menu\'s Fleet status codes, and the Fleet row cap is the documented 500', () => {
+    expect([...FLEET_STATUSES]).toEqual([...MENU_FLEET_STATUSES]);
+    expect(FLEET_ROWS_MAX).toBe(500);
   });
 
-  it('declares the served reads in the server order: id, menu, right, keys, scope, context, time domain', () => {
+  it('declares every read in the server order: id, menu, right, keys, scope, context, time domain', () => {
     expect(servedReads.map((s) => s.id)).toEqual(serverReads.map((e) => e.spec.id));
     servedReads.forEach((menu, i) => {
       const spec = serverReads[i]?.spec;
@@ -65,7 +64,7 @@ describe('Onboarding menu declarations vs the eqv module (#1658)', () => {
     });
   });
 
-  it('declares the served writes in the server order: keys, right, scope, concurrency and invalidations', () => {
+  it('declares every write in the server order: keys, right, scope, concurrency and invalidations', () => {
     expect(servedActions.map((s) => s.id)).toEqual(serverActions.map((a) => a.spec.id));
     servedActions.forEach((menu, i) => {
       const spec = serverActions[i]?.spec;

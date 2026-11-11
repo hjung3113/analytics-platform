@@ -1,5 +1,5 @@
 // #1658 — the Onboarding reads and writes of the eqv module through the real `buildServer` over `app.inject`, against a real Postgres
-// (throwaway DB only; app as platform_app, fixtures and cleanup as platform_migrate). Needs migration 0124. Synthetic data only
+// (throwaway DB only; app as platform_app, fixtures and cleanup as platform_migrate). Needs migrations 0124 and 0125. Synthetic data only
 // (`eq-synth-*` equipment, synthetic vendor and model rows). Actors differ in exactly the capability under test.
 
 import { randomUUID } from 'node:crypto';
@@ -121,6 +121,17 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
     await sql('insert into eqv.equipment (workspace_id, equipment_id, label, model_id) values ($1, $2, $3, $4)', [WORKSPACE_ID, equipmentId, 'Synthetic', model]);
     return equipmentId;
   }
+  /** A stored Sample Window (a fixture row inserted as the migrate role) with the given aliases; returns the 64 hex digits of its hash. */
+  async function newWindow(equipmentId: string, aliases: string[], opts: { state?: string; to?: string } = {}): Promise<string> {
+    const hex = randomUUID().replaceAll('-', '').repeat(2);
+    const to = opts.to ?? '2026-01-02T00:00:00.000';
+    await sql(
+      `insert into eqv.sample_window (workspace_id, equipment_id, hash, from_at, to_at, data_generation, time_domain, occurrences, state, batch, inventory, imported_by, updated_by)
+       values ($1,$2,$3,'2026-01-01T00:00:00.000',$4,'g1','site-synth',1,$5,'{}'::jsonb,$6::jsonb,$7,$7)`,
+      [WORKSPACE_ID, equipmentId, `sha256:${hex}`, to, opts.state ?? 'active', JSON.stringify({ ...inventory(equipmentId, aliases), to }), admin.id],
+    );
+    return hex;
+  }
   async function publishedRevision(): Promise<[string, string]> {
     const layoutId = `${TAG}-l${seq++}`;
     layoutIds.push(layoutId);
@@ -185,6 +196,7 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
     await sql('delete from eqv.binding where workspace_id = $1 and created_by = any($2)', [WORKSPACE_ID, actorIds]);
     await sql('delete from eqv.baseline_inventory where workspace_id = $1 and created_by = any($2)', [WORKSPACE_ID, actorIds]);
     await sql('delete from eqv.mapping_version where workspace_id = $1 and published_by = any($2)', [WORKSPACE_ID, actorIds]);
+    await sql('delete from eqv.sample_window where workspace_id = $1 and imported_by = any($2)', [WORKSPACE_ID, actorIds]);
     await sql('delete from eqv.alias_rules where workspace_id = $1 and created_by = any($2)', [WORKSPACE_ID, actorIds]);
     await sql('delete from eqv.type_dictionary where workspace_id = $1 and created_by = any($2)', [WORKSPACE_ID, actorIds]);
     await sql('delete from eqv.layout_revision where workspace_id = $1 and published_by = any($2)', [WORKSPACE_ID, actorIds]);
@@ -242,7 +254,7 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
     it('publishMapping needs eqv.mapping.publish: nobody, a rules editor and a viewer are refused and nothing is written', async () => {
       const equipmentId = await newEquipment();
       const [layoutId, layoutRevision] = await publishedRevision();
-      const input = { equipmentId, layoutId, layoutRevision, baseline: inventory(equipmentId, []), effectiveFrom: '2026-01-01T00:00:00.000' };
+      const input = { equipmentId, layoutId, layoutRevision, windowHash: 'a'.repeat(64), effectiveFrom: '2026-01-01T00:00:00.000' };
       for (const who of [nobody, rulesEditor, viewer, globalEditor]) expect((await act('eqv.publishMapping', input, { who, expectedVersion: '0' })).outcome).toBe('forbidden');
       expect(await count('binding', 'workspace_id = $1 and equipment_id = $2', [WORKSPACE_ID, equipmentId])).toBe(0);
       expect(await count('mapping_version', 'workspace_id = $1 and equipment_id = $2', [WORKSPACE_ID, equipmentId])).toBe(0);
@@ -321,15 +333,16 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
   });
 
   describe('publishMapping', () => {
-    const publishInput = (equipmentId: string, layoutId: string, layoutRevision: string, effectiveFrom: string, aliases = ['PM1', 'PM2']) => ({
-      equipmentId, layoutId, layoutRevision, baseline: inventory(equipmentId, aliases), effectiveFrom,
+    /** A publish input over a new active window with these aliases (every call stores a window with a hash of its own). */
+    const publishInput = async (equipmentId: string, layoutId: string, layoutRevision: string, effectiveFrom: string, aliases = ['PM1', 'PM2'], to?: string) => ({
+      equipmentId, layoutId, layoutRevision, windowHash: await newWindow(equipmentId, aliases, to === undefined ? {} : { to }), effectiveFrom,
     });
 
     it('stores a Mapping Version, the Baseline and the first Binding in one transaction; answers ids and hashes; reads them back', async () => {
       await ensureGlobalRules();
       const equipmentId = await newEquipment();
       const [layoutId, revision] = await publishedRevision();
-      const answer = await act('eqv.publishMapping', publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000'), { who: mappingPublisher, expectedVersion: '0' });
+      const answer = await act('eqv.publishMapping', await publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000'), { who: mappingPublisher, expectedVersion: '0' });
       expect(answer).toMatchObject({ outcome: 'ok', version: '1' });
       expect(Object.keys(answer.data).sort()).toEqual(['bindingId', 'mappingHash', 'version']);
       const hash = answer.data.mappingHash as string;
@@ -357,13 +370,14 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
       const equipmentId = await newEquipment(visibleModel);
       const [layoutId, revision] = await publishedRevision();
       const key = randomUUID();
+      const replayInput = await publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000');
       const send = async () =>
         (
           await app.inject({
             method: 'POST',
             url: '/api/v1/menu-action',
             headers: { 'content-type': 'application/json', ...cookieHeader(mappingPublisher.cookie), 'x-csrf-token': mappingPublisher.csrf },
-            payload: JSON.stringify({ action: 'eqv.publishMapping', context: {}, input: publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000'), idempotencyKey: key, expectedVersion: '0' }),
+            payload: JSON.stringify({ action: 'eqv.publishMapping', context: {}, input: replayInput, idempotencyKey: key, expectedVersion: '0' }),
           })
         ).json<Answer & { replayed?: boolean }>();
       expect(await send()).toMatchObject({ outcome: 'ok' });
@@ -378,7 +392,7 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
       await ensureGlobalRules();
       const equipmentId = await newEquipment();
       const [layoutId, revision] = await publishedRevision();
-      const first = await act('eqv.publishMapping', publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000'), { expectedVersion: '0' });
+      const first = await act('eqv.publishMapping', await publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000'), { expectedVersion: '0' });
       expect(first.outcome).toBe('ok');
       // Test-only DB trigger (no production seam): the audit insert of the next publish of this equipment raises, after every eqv row was written.
       const fn = `eqv_fail_audit_${TAG}`;
@@ -390,7 +404,7 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
           url: '/api/v1/menu-action',
           headers: { 'content-type': 'application/json', ...cookieHeader(admin.cookie), 'x-csrf-token': admin.csrf },
           payload: JSON.stringify({
-            action: 'eqv.publishMapping', context: {}, input: publishInput(equipmentId, layoutId, revision, '2026-02-01T00:00:00.000', ['PM1']), idempotencyKey: randomUUID(), expectedVersion: '1',
+            action: 'eqv.publishMapping', context: {}, input: await publishInput(equipmentId, layoutId, revision, '2026-02-01T00:00:00.000', ['PM1']), idempotencyKey: randomUUID(), expectedVersion: '1',
           }),
         });
         expect(failed.statusCode).toBe(500);
@@ -409,20 +423,20 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
       await ensureGlobalRules();
       const equipmentId = await newEquipment();
       const [layoutId, revision] = await publishedRevision();
-      const first = await act('eqv.publishMapping', publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000'), { expectedVersion: '0' });
+      const first = await act('eqv.publishMapping', await publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000'), { expectedVersion: '0' });
       expect(first.outcome).toBe('ok');
       // Stale: the author saw no Binding.
-      expect((await act('eqv.publishMapping', publishInput(equipmentId, layoutId, revision, '2026-02-01T00:00:00.000', ['PM1']), { expectedVersion: '0' })).outcome).toBe('conflict');
+      expect((await act('eqv.publishMapping', await publishInput(equipmentId, layoutId, revision, '2026-02-01T00:00:00.000', ['PM1']), { expectedVersion: '0' })).outcome).toBe('conflict');
       // Order: not after the latest.
       for (const at of ['2026-01-01T00:00:00.000', '2025-12-31T23:59:59.999']) {
-        const refused = await act('eqv.publishMapping', publishInput(equipmentId, layoutId, revision, at, ['PM1']), { expectedVersion: '1' });
+        const refused = await act('eqv.publishMapping', await publishInput(equipmentId, layoutId, revision, at, ['PM1']), { expectedVersion: '1' });
         expect(refused.fieldErrors).toEqual([{ path: ['effectiveFrom'], code: 'not_after_latest' }]);
       }
       // Same mapping hash and Layout Revision as the latest.
-      const same = await act('eqv.publishMapping', publishInput(equipmentId, layoutId, revision, '2026-02-01T00:00:00.000'), { expectedVersion: '1' });
+      const same = await act('eqv.publishMapping', await publishInput(equipmentId, layoutId, revision, '2026-02-01T00:00:00.000'), { expectedVersion: '1' });
       expect(same.fieldErrors).toEqual([{ path: ['mapping'], code: 'same-as-latest' }]);
       // A real change closes the open Binding at the new effectiveFrom.
-      const second = await act('eqv.publishMapping', publishInput(equipmentId, layoutId, revision, '2026-02-01T00:00:00.000', ['PM1']), { expectedVersion: '1' });
+      const second = await act('eqv.publishMapping', await publishInput(equipmentId, layoutId, revision, '2026-02-01T00:00:00.000', ['PM1']), { expectedVersion: '1' });
       expect(second).toMatchObject({ outcome: 'ok', version: '2' });
       const bindings = (await read('eqv.bindings', { equipmentId })).data.document.bindings as { effectiveFrom: string; effectiveTo?: string }[];
       expect(bindings.map((b) => [b.effectiveFrom, b.effectiveTo])).toEqual([
@@ -436,12 +450,12 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
       await ensureGlobalRules();
       const equipmentId = await newEquipment();
       const [layoutId, revision] = await publishedRevision();
-      const both = await act('eqv.publishMapping', publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000'), { expectedVersion: '0' });
+      const both = await act('eqv.publishMapping', await publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000'), { expectedVersion: '0' });
       const baselines = async () => (await sql('select id, document from eqv.baseline_inventory where workspace_id = $1 and equipment_id = $2 order by id', [WORKSPACE_ID, equipmentId])).rows;
       const before = await baselines();
-      expect((await act('eqv.publishMapping', publishInput(equipmentId, layoutId, revision, '2026-02-01T00:00:00.000', ['PM1']), { expectedVersion: '1' })).outcome).toBe('ok');
+      expect((await act('eqv.publishMapping', await publishInput(equipmentId, layoutId, revision, '2026-02-01T00:00:00.000', ['PM1']), { expectedVersion: '1' })).outcome).toBe('ok');
       // Back to the first alias set: same hash as the first publish, a later effectiveFrom, a different Baseline window.
-      const back = await act('eqv.publishMapping', { ...publishInput(equipmentId, layoutId, revision, '2026-03-01T00:00:00.000'), baseline: { ...inventory(equipmentId, ['PM1', 'PM2']), to: '2026-01-03T00:00:00.000' } }, { expectedVersion: '2' });
+      const back = await act('eqv.publishMapping', await publishInput(equipmentId, layoutId, revision, '2026-03-01T00:00:00.000', ['PM1', 'PM2'], '2026-01-03T00:00:00.000'), { expectedVersion: '2' });
       expect(back).toMatchObject({ outcome: 'ok', version: '3' });
       expect(back.data.mappingHash).toBe(both.data.mappingHash);
       expect(await count('mapping_version', 'workspace_id = $1 and equipment_id = $2', [WORKSPACE_ID, equipmentId])).toBe(2);
@@ -451,14 +465,15 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
       expect(after.find((r) => r.id === before[0].id)).toEqual(before[0]);
     });
 
-    it('issues store nothing: unknown Layout Revision, a baseline of another equipment, truncated or offset wall-clock', async () => {
+    it('issues store nothing: unknown Layout Revision, an unknown window, truncated or offset wall-clock', async () => {
       await ensureGlobalRules();
       const equipmentId = await newEquipment();
       const [layoutId, revision] = await publishedRevision();
-      const base = publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000');
+      const base = await publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000');
       const bad: [Record<string, unknown>, { path: string[]; code: string }][] = [
         [{ ...base, layoutRevision: `sha256:${'b'.repeat(64)}` }, { path: ['layoutRevision'], code: 'not_found' }],
-        [{ ...base, baseline: inventory('eq-synth-other', []) }, { path: ['baseline', 'equipmentId'], code: 'equipment_mismatch' }],
+        [{ ...base, windowHash: 'b'.repeat(64) }, { path: ['windowHash'], code: 'not_active' }],
+        [{ ...base, windowHash: 'xyz' }, { path: ['windowHash'], code: 'invalid' }],
         [{ ...base, effectiveFrom: '2026-01-01T00:00:00' }, { path: ['effectiveFrom'], code: 'fraction-missing' }],
         [{ ...base, effectiveFrom: '2026-01-01T00:00:00.000123' }, { path: ['effectiveFrom'], code: 'fraction-too-long' }],
         [{ ...base, effectiveFrom: '2026-01-01T00:00:00.000Z' }, { path: ['effectiveFrom'], code: 'offset' }],
@@ -474,7 +489,7 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
       const [layoutId, revision] = await publishedRevision();
       const doc = { schemaVersion: '0.4', scope: { level: 'equipment', equipmentId }, rules: [{ id: 'ghost', match: { exact: ['GHOST'] }, target: { componentId: 'no-such-component' }, certainty: 'assumed' }] };
       expect((await act('eqv.saveAliasRules', { level: 'equipment', equipmentId, document: doc }, { expectedVersion: '0' })).outcome).toBe('ok');
-      const answer = await act('eqv.publishMapping', publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000', ['GHOST']), { expectedVersion: '0' });
+      const answer = await act('eqv.publishMapping', await publishInput(equipmentId, layoutId, revision, '2026-01-01T00:00:00.000', ['GHOST']), { expectedVersion: '0' });
       expect(answer.outcome).toBe('invalid');
       expect(answer.fieldErrors?.[0]?.code).toBe('unknown-target');
       expect(await count('binding', 'workspace_id = $1 and equipment_id = $2', [WORKSPACE_ID, equipmentId])).toBe(0);
@@ -486,12 +501,12 @@ describe.skipIf(!runIntegration)('eqv Onboarding storage, reads and publish (#16
       const draftOnly = `${TAG}-draft${seq++}`;
       layoutIds.push(draftOnly);
       await act('eqv.saveDraft', { layoutId: draftOnly, document: layoutFixture(draftOnly) }, { expectedVersion: '0' });
-      const refused = await act('eqv.publishMapping', publishInput(equipmentId, draftOnly, `sha256:${'c'.repeat(64)}`, '2026-01-01T00:00:00.000'), { expectedVersion: '0' });
+      const refused = await act('eqv.publishMapping', await publishInput(equipmentId, draftOnly, `sha256:${'c'.repeat(64)}`, '2026-01-01T00:00:00.000'), { expectedVersion: '0' });
       expect(refused.fieldErrors).toEqual([{ path: ['layoutRevision'], code: 'not_found' }]);
       const hidden = await newEquipment(hiddenModelId);
       const [layoutId, revision] = await publishedRevision();
-      expect((await act('eqv.publishMapping', publishInput(hidden, layoutId, revision, '2026-01-01T00:00:00.000'), { expectedVersion: '0' })).outcome).toBe('not_found');
-      expect((await act('eqv.publishMapping', publishInput(`eq-synth-${TAG}-none`, layoutId, revision, '2026-01-01T00:00:00.000'), { expectedVersion: '0' })).outcome).toBe('not_found');
+      expect((await act('eqv.publishMapping', await publishInput(hidden, layoutId, revision, '2026-01-01T00:00:00.000'), { expectedVersion: '0' })).outcome).toBe('not_found');
+      expect((await act('eqv.publishMapping', { equipmentId: `eq-synth-${TAG}-none`, layoutId, layoutRevision: revision, windowHash: 'a'.repeat(64), effectiveFrom: '2026-01-01T00:00:00.000' }, { expectedVersion: '0' })).outcome).toBe('not_found');
     });
   });
 

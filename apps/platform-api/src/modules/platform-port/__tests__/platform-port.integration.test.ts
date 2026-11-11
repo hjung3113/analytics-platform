@@ -288,6 +288,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       ['eqv-studio:rules-edit', 'eqv.rules.edit'],
       ['eqv-studio:dictionary-global-edit', 'eqv.dictionary.global_edit'],
       ['eqv-studio:mapping-publish', 'eqv.mapping.publish'],
+      ['eqv-studio:window-import', 'eqv.window.import'],
     ] as const)('%s is listed for Admin and for a workspace grant of %s, not for a plain user or a developer', async (permission, capability) => {
       const admin = await newActor('admin');
       const has = async (cookie: string) => (await bootstrap(cookie)).session.user.permissions.includes(permission);

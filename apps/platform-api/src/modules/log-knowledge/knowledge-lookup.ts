@@ -59,8 +59,8 @@ export type EffectiveRequirements =
   | { state: 'ambiguous_key'; specPin: SpecPin; requirements: []; ambiguousKeys: string[] };
 
 export interface KnowledgeLookup {
-  /** Whether the vendor exists in the workspace. Vendors carry no object access (only models and software versions do), so existence is the whole check. */
-  getVendor(tx: Tx, workspaceId: string, vendorId: string): Promise<{ id: string } | null>;
+  /** The vendor of the workspace (id and display name), or null. Vendors carry no object access (only models and software versions do), so existence is the whole check. */
+  getVendor(tx: Tx, workspaceId: string, vendorId: string): Promise<{ id: string; name: string } | null>;
   /**
    * The model of the workspace; null when it does not exist there. `viewerActorId` (#1504, object access): a model
    * that actor cannot see is null too, exactly like a missing one. Every caller that acts for a person passes it.
@@ -88,7 +88,7 @@ export interface KnowledgeLookup {
 
 export const knowledgeLookup: KnowledgeLookup = {
   async getVendor(tx, workspaceId, vendorId) {
-    const [row] = await tx.select({ id: vendors.id }).from(vendors).where(and(eq(vendors.workspaceId, workspaceId), eq(vendors.id, vendorId)));
+    const [row] = await tx.select({ id: vendors.id, name: vendors.name }).from(vendors).where(and(eq(vendors.workspaceId, workspaceId), eq(vendors.id, vendorId)));
     return row ?? null;
   },
   async getModel(tx, workspaceId, modelId, viewerActorId) {
