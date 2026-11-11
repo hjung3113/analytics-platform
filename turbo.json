@@ -147,6 +147,15 @@
         "$TURBO_ROOT$/packages/eqv/fixtures/**"
       ]
     },
+    "@ap/menu-topview-studio#test": {
+      "dependsOn": [
+        "transit"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/eqv/assets/**"
+      ]
+    },
     "@eqv/platform-adapter#test": {
       "dependsOn": [
         "transit"
