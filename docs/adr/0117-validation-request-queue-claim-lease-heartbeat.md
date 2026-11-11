@@ -48,9 +48,10 @@
 2. **등급과 표식의 값은 사내가 선언하고 플랫폼은 값을 갖지 않는다.** 선언은 워크스페이스의 `queue_settings.opinion_scale`(`{ grades: [{ key, label }], marks: [{ key, label }] }`, 순서는 배열 순서)에 두고 관리자가 `logLifecycle.queueSettingsUpdate`로 바꾼다(`console:access`, 감사). 플랫폼이 내는 기본값은 빈 선언이고, 선언이 비면 의견 쓰기는 `opinion.scale_undeclared`로 거절된다. 키는 `^[a-z0-9_-]{1,32}$`, 라벨은 40자 이하 텍스트, 등급·표식 각 12개 이하. 쓰기는 선언된 키만 받고, 선언에서 빠진 키의 기존 행은 라벨 없이 키 텍스트로 보인다. 대안과 버리는 이유: (a) 작업자가 요청마다 값 목록을 같이 보냄 — 순서·라벨이 흔들리고 화면이 비교할 기준이 없다. (b) 배포 설정 파일·환경변수 — 바꾸려면 배포가 필요하고 감사가 없다. (c) 코드 상수 — 사내 어휘가 저장소에 들어온다.
 3. **쓰기는 작업자 토큰 전용이다.** `POST /api/v1/validation-queue/requests/:id/attempts/:attemptNo/opinions`, 권한은 결정 9와 같은 `validation.worker`(서비스 토큰 전용 scope). 사람 세션과 scope 없는 토큰은 403이다. 사람이 직접 쓰는 경로는 이번에 만들지 않는다(다시 여는 조건은 backlog). 의견은 `succeeded` 시도의 규칙 결과에만 붙고, 그 시도를 가져간 작업자가 아니어도 된다(평가 작업자가 따로 있을 수 있다). Round 상태와 무관하다.
 4. **메모는 신뢰하지 않는 입력이다.** 결정 7의 입력 검사(제어 문자 제거, 비밀·토큰 패턴 거절, 길이 상한)를 그대로 쓰고, 화면은 텍스트로만 그린다. 메모는 로그 발췌가 아니며(작업자 계약: 로그 본문을 붙이지 않는다) 목록 응답에는 `hasNote`만 있고 본문은 상세 읽기에서만 내려간다. 감사 로그·알림·검색 인덱스·내보내기에는 메모 본문을 쓰지 않는다. 플랫폼은 메모에 로그 본문이 섞였는지 판정할 수 없으므로 이를 작업자 책임으로 계약에 적는다.
-5. **멱등.** 키는 `(규칙 결과, 작성 actor, opinion_digest)`다. 같은 digest 재전송은 새 행 없이 같은 응답, 다른 내용은 새 행이다.
-6. **감사.** 쓰기는 `lifecycle.opinion.recorded`(주체 `execution_request`, 시도 번호와 건수만, 본문 없음)를 남긴다.
-7. **잠정 `v0`.** 스키마는 `@ap/contract-schemas`의 `validationOpinion*`.
+5. **멱등.** 같은 규칙 결과에서 같은 작성 actor의 **가장 늦은 의견과 digest가 같은** 재전송은 새 행 없이 같은 응답이다. 그 밖(내용이 다르거나, 정정 뒤 예전 내용을 다시 보내는 경우)은 새 행이라 A→B→A가 현재 의견을 A로 되돌린다.
+6. **오류.** 쓰기 거절은 `opinion.scale_undeclared`(척도 비어 있음), `not_declared`(등급·표식), `unknown_rule`, `not_in_evidence`, `secret_detected`, `too_long`, `duplicate`(한 본문 안 같은 규칙)이고, `succeeded`가 아닌 시도는 `409 conflict.attempt_not_succeeded`, 요청·시도를 모르면 `404 not_found`다(Round 요청과 회귀 항목 요청 모두 대상). 정의는 API 계약이 소유한다.
+7. **감사.** 쓰기는 `lifecycle.opinion.recorded`(주체 `execution_request`, 시도 번호와 건수만, 본문 없음)를 남긴다.
+8. **잠정 `v0`.** 스키마는 `@ap/contract-schemas`의 `validationOpinion*`.
 
 ## 대안과 버리는 이유
 

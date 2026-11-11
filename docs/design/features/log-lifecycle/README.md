@@ -269,7 +269,7 @@ log-dev (기존 Space)
 | 항목 | 이유 | 다시 여는 조건 |
 | --- | --- | --- |
 | Validator·LLM 호출 어댑터 | 사내 인터페이스 실사 전 | 실제 CLI/API/출력/권한 실사 완료(#1330 §9-1) |
-| LLM 의견(`LlmSuggestionRef`) | P2, 사내 모델 능력 측정 전 | 측정 완료 + #1198 초안 경로 |
+| LLM 자동 의견 생성·초안 연결(`LlmSuggestionRef`; 의견 저장 자체는 ADR-0117 개정 2) | P2, 사내 모델 능력 측정 전 | 측정 완료 + #1198 초안 경로 |
 | Gate stale/needs_revalidation(재검증 필요) 계산 | 노드 e는 digest만 `basis`에 고정(구현 안 함) | 두 번째 Round 비교가 필요한 시점 |
 | Defect·재검증·Task/VOC 연결 | P3 | FindingLink의 실제 소비자 |
 | 레거시 이관(키 매핑·7단계 매핑) | 소유자 결정: 이번 릴리스 제외 가정 | 이관 슬라이스 착수 |
