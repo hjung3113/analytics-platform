@@ -18,7 +18,7 @@ const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'editor' })],
   groups: [{ id: groupId('g'), label: { ko: '그룹', en: 'G' }, icon: House, space: spaceId('mars') }],
   menus: [
-    entry({ id: 'editor', path: '/mars/editor', pageKeys: ['q'], primary: true }),
+    entry({ id: 'editor', path: '/mars/editor', pageKeys: ['q', 't'], primary: true }),
     entry({ id: 'other', path: '/mars/other', pageKeys: [] }),
     entry({ id: 'third', path: '/mars/third', pageKeys: [] }),
     entry({ id: 'hid', path: '/mars/hid', pageKeys: ['hk'], hiddenPageKeys: ['hk'] }),
@@ -128,6 +128,60 @@ describe('menu leave guard: links and navigate (ADR-0115)', () => {
     expect(request).not.toBeNull();
     act(() => platform.setPage({ q: 'x' }, { replace: true }));
     expect(here()).toBe('/mars/editor?v=1&q=x');
+  });
+
+  it('leaves { pageKeys } asks for a change of a named key and for leaving the menu, never for another key', () => {
+    guardOptions = { leaves: { pageKeys: ['q'] } };
+    mount('/mars/editor');
+    act(() => setDirty(true));
+    act(() => platform.setPage({ t: 'x' }));
+    expect(here()).toBe('/mars/editor?v=1&t=x');
+    expect(request).toBeNull();
+    act(() => platform.setGlobal({ scopeId: 'S1' }));
+    expect(here()).toBe('/mars/editor?v=1&scopeId=S1&t=x');
+    expect(request).toBeNull();
+    act(() => platform.setPage({ q: 'x' }));
+    expect(here()).toBe('/mars/editor?v=1&scopeId=S1&t=x');
+    expect(request).not.toBeNull();
+    act(() => request!.cancel());
+    act(() => platform.setPage({ q: 'x' }, { replace: true }));
+    expect(request).toBeNull();
+    act(() => { platform.navigate('/mars/other'); });
+    expect(request).not.toBeNull();
+  });
+
+  it('leaves { pageKeys: [] } behaves like the path default', () => {
+    guardOptions = { leaves: { pageKeys: [] } };
+    mount('/mars/editor');
+    act(() => setDirty(true));
+    act(() => platform.setPage({ q: 'x' }));
+    expect(request).toBeNull();
+    act(() => { platform.navigate('/mars/other'); });
+    expect(request).not.toBeNull();
+  });
+
+  it('leaves { pageKeys } on Back asks when the named key differs from the entry it returns to', async () => {
+    guardOptions = { leaves: { pageKeys: ['q'] } };
+    mount('/mars/editor');
+    act(() => platform.setPage({ t: '1' }));
+    act(() => platform.setPage({ q: 'a' }));
+    act(() => setDirty(true));
+    window.history.back();
+    await settle();
+    expect(request).not.toBeNull();
+    expect(here()).toBe('/mars/editor?v=1&t=1&q=a');
+  });
+
+  it('leaves { pageKeys } on Back goes through when only another key differs', async () => {
+    guardOptions = { leaves: { pageKeys: ['q'] } };
+    mount('/mars/editor');
+    act(() => platform.setPage({ q: 'a' }));
+    act(() => platform.setPage({ t: '1' }));
+    act(() => setDirty(true));
+    window.history.back();
+    await settle();
+    expect(request).toBeNull();
+    expect(here()).toBe('/mars/editor?v=1&q=a');
   });
 
   it('a hidden-key arrival rewrite of a dirty screen goes through', () => {
