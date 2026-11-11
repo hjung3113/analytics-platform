@@ -42,16 +42,18 @@
 
 ## 개정 2 (2026-11-11, [#1778](https://github.com/hjung3113/analytics-platform/issues/1778), 결정자: 소유자 2026-11-11)
 
-결정 6이 미뤄 둔 «나중에 별도 테이블·별도 필드»를 지금 만든다: 규칙 결과 단위의 **의견**(rule result opinion). 결정 1–10의 상태 전이·lease·멱등 결과·verdict 계산은 그대로다.
+결정 6이 미뤄 둔 «나중에 별도 테이블·별도 필드»를 지금 만든다: 시도의 항목별 **의견**(opinion). 결정 1–10의 상태 전이·lease·멱등 결과·verdict 계산은 그대로다.
 
-1. **의견은 규칙 결과에 붙는 추가 전용 행이다.** 테이블 `log_lifecycle.rule_result_opinion`(규칙 결과 FK, 작성 actor·토큰, 등급 키, 표식 키(선택), 메모, 근거 번호, 작성 시각). 갱신·삭제는 없고 정정은 새 행이다. 규칙 결과의 현재 의견은 가장 늦은 행이며 이력은 따로 읽는다. `verdict`·`rule_result`·Gate 결정·Knowledge 상태는 이 테이블을 읽지도 쓰지도 않는다(결정 6 유지: 의견이 스크립트 `FAIL`을 덮지 못한다). 이 불변식은 시험으로 고정한다.
+1. **의견은 시도에 붙는 추가 전용 행이고, 규칙 결과와 1:1이 아니다.** 사내 LLM만 찾은 항목이 있을 수 있어 `rule_result` 연결은 필수가 아니다. 테이블 `log_lifecycle.attempt_opinion`: 시도 FK(`execution_attempt`, 요청·Round 또는 회귀 항목은 시도에서 따라간다), **항목 키** `item_key`(사내가 정한 항목 식별자, 플랫폼은 해석하지 않는다), 규칙 결과 FK `rule_result_id`(nullable; 서버가 같은 시도에 `rule_id = item_key`인 규칙 결과가 있을 때만 채운다), 작성 actor·토큰, 등급 키, 표식 키(선택), 메모, 근거 위치(0–20), 입력 리비전·생산자 참조(선택), 제출 키, 작성 시각. 갱신·삭제는 없고 정정은 새 제출이다. 항목의 현재 의견은 같은 시도·항목 키의 가장 늦은 행이며, 다른 시도의 의견은 섞이지 않는다. `verdict`·`rule_result`·Gate 결정·Knowledge 상태·회귀 비교는 이 테이블을 읽지도 쓰지도 않는다(결정 6 유지: 의견이 스크립트 `FAIL`·`incomplete`를 덮지 못한다). 플랫폼은 LLM을 호출하지 않고 토큰으로 Gate·Knowledge를 승인하는 경로도 만들지 않는다(ADR-0116, 결정 9). 이 불변식은 시험으로 고정한다.
 2. **등급과 표식의 값은 사내가 선언하고 플랫폼은 값을 갖지 않는다.** 선언은 워크스페이스의 `queue_settings.opinion_scale`(`{ grades: [{ key, label }], marks: [{ key, label }] }`, 순서는 배열 순서)에 두고 관리자가 `logLifecycle.queueSettingsUpdate`로 바꾼다(`console:access`, 감사). 플랫폼이 내는 기본값은 빈 선언이고, 선언이 비면 의견 쓰기는 `opinion.scale_undeclared`로 거절된다. 키는 `^[a-z0-9_-]{1,32}$`, 라벨은 40자 이하 텍스트, 등급·표식 각 12개 이하. 쓰기는 선언된 키만 받고, 선언에서 빠진 키의 기존 행은 라벨 없이 키 텍스트로 보인다. 대안과 버리는 이유: (a) 작업자가 요청마다 값 목록을 같이 보냄 — 순서·라벨이 흔들리고 화면이 비교할 기준이 없다. (b) 배포 설정 파일·환경변수 — 바꾸려면 배포가 필요하고 감사가 없다. (c) 코드 상수 — 사내 어휘가 저장소에 들어온다.
-3. **쓰기는 작업자 토큰 전용이다.** `POST /api/v1/validation-queue/requests/:id/attempts/:attemptNo/opinions`, 권한은 결정 9와 같은 `validation.worker`(서비스 토큰 전용 scope). 사람 세션과 scope 없는 토큰은 403이다. 사람이 직접 쓰는 경로는 이번에 만들지 않는다(다시 여는 조건은 backlog). 의견은 `succeeded` 시도의 규칙 결과에만 붙고, 그 시도를 가져간 작업자가 아니어도 된다(평가 작업자가 따로 있을 수 있다). Round 상태와 무관하다.
-4. **메모는 신뢰하지 않는 입력이다.** 결정 7의 입력 검사(제어 문자 제거, 비밀·토큰 패턴 거절, 길이 상한)를 그대로 쓰고, 화면은 텍스트로만 그린다. 메모는 로그 발췌가 아니며(작업자 계약: 로그 본문을 붙이지 않는다) 목록 응답에는 `hasNote`만 있고 본문은 상세 읽기에서만 내려간다. 감사 로그·알림·검색 인덱스·내보내기에는 메모 본문을 쓰지 않는다. 플랫폼은 메모에 로그 본문이 섞였는지 판정할 수 없으므로 이를 작업자 책임으로 계약에 적는다.
-5. **멱등.** 같은 규칙 결과에서 같은 작성 actor의 **가장 늦은 의견과 digest가 같은** 재전송은 새 행 없이 같은 응답이다. 그 밖(내용이 다르거나, 정정 뒤 예전 내용을 다시 보내는 경우)은 새 행이라 A→B→A가 현재 의견을 A로 되돌린다.
-6. **오류.** 쓰기 거절은 `opinion.scale_undeclared`(척도 비어 있음), `not_declared`(등급·표식), `unknown_rule`, `not_in_evidence`, `secret_detected`, `too_long`, `duplicate`(한 본문 안 같은 규칙)이고, `succeeded`가 아닌 시도는 `409 conflict.attempt_not_succeeded`, 요청·시도를 모르면 `404 not_found`다(Round 요청과 회귀 항목 요청 모두 대상). 정의는 API 계약이 소유한다.
+3. **쓰기는 작업자 토큰 전용이다.** `POST /api/v1/validation-queue/requests/:id/attempts/:attemptNo/opinions`, 권한은 결정 9와 같은 `validation.worker`(서비스 토큰 전용 scope). 사람 세션과 scope 없는 토큰은 403이다. 사람이 직접 쓰는 경로는 이번에 만들지 않는다(다시 여는 조건은 backlog). 의견은 `succeeded` 시도에만 붙고, 그 시도를 가져간 작업자가 아니어도 된다(평가 작업자가 따로 있을 수 있다). Round 상태와 무관하다. 의견이 한 건도 없으면 읽기는 지금과 같은 응답이고 Round 화면도 지금과 같다.
+4. **메모와 근거는 신뢰하지 않는 입력이고 저장량에 상한이 있다.** 결정 7의 입력 검사(제어 문자 제거, 비밀·토큰 패턴 거절, 길이 상한)를 `note`·`item_key`·참조 필드에 그대로 쓰고, 화면은 텍스트로만 그린다. 메모는 로그 발췌가 아니며(작업자 계약: 로그 본문을 붙이지 않는다) 목록 응답에는 `hasNote`만 있고 본문은 상세 읽기에서만 내려간다. 근거는 위치(`fileRef`, 줄, 파일 해시)만이고 Round(또는 회귀 항목)의 샘플 목록에 있어야 한다. 상한: 메모 1,000자, 항목 키 200자, 참조 필드 200자, 호출당 500건, 시도당 2,000건·메모 합계 256KB. 넘으면 자르지 않고 거절한다. 감사 로그·알림·검색 인덱스·내보내기에는 메모 본문을 쓰지 않는다. 플랫폼은 메모에 로그 본문이 섞였는지 판정할 수 없으므로 이를 작업자 책임으로 계약에 적는다.
+5. **멱등은 제출 키로 한다.** 본문의 `submissionId`(작업자가 정하는 문자열, 200자 이하)와 `(시도, 작성 actor, submissionId, 항목 키)`가 같은 재전송은 새 행 없이 같은 응답이다. 다른 `submissionId`는 새 행이라 정정은 새 제출이고 A→B→A는 현재 의견을 A로 되돌린다. 같은 `submissionId`에 다른 내용은 `409 conflict.stale_write`다.
+6. **오류.** 쓰기 거절은 `opinion.scale_undeclared`(척도 비어 있음), `not_declared`(등급·표식), `not_in_sample`(근거 위치), `secret_detected`, `too_long`, `too_many`, `duplicate`(한 본문 안 같은 항목 키)이고, `succeeded`가 아닌 시도는 `409 conflict.attempt_not_succeeded`, 요청·시도를 모르면 `404 not_found`다(Round 요청과 회귀 항목 요청 모두 대상). 정의는 API 계약이 소유한다.
 7. **감사.** 쓰기는 `lifecycle.opinion.recorded`(주체 `execution_request`, 시도 번호와 건수만, 본문 없음)를 남긴다.
-8. **잠정 `v0`.** 스키마는 `@ap/contract-schemas`의 `validationOpinion*`.
+8. **잠정 `v0`.** 스키마는 `@ap/contract-schemas`의 `validationOpinion*`. fixture는 합성이다. 사내 원본·프롬프트·벤더 비공개 자료는 이 저장소에 두지 않는다.
+9. **미확정(사내 실사 전, 질문으로 둔다).** 등급 값의 의미와 순서, 표식(🟡 등)의 뜻이 경고 플래그인지 검토 플래그인지, 화면 용어 «설비사 질의»가 `note`의 화면 이름인지 상태를 가진 별도 항목인지, 사내 LLM 출력 포맷, 재실행의 의미. 플랫폼은 이를 확정하지 않고 사내 선언과 `note` 텍스트로만 담는다. 화면 용어는 «설비사 질의»를 쓴다.
+10. **시험(비변경 증명).** 의견을 쓰거나 다시 제출해도 스크립트 `FAIL`·`incomplete` verdict, 필수 규칙 상태, `roundDetail.gateAvailability`, Gate 승인 규칙, 회귀 비교(`lifecycleSuiteResults`)가 그대로임을 명시적으로 확인한다. 의견이 없는 Round 응답은 개정 전과 같다.
 
 ## 대안과 버리는 이유
 
