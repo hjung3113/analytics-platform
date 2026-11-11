@@ -20,10 +20,13 @@ test.describe('core 사용자 공간 접근 거부 (06 §9.1)', () => {
     await expect(systems.getByRole('link', { name: /운영 콘솔/ })).toHaveCount(0);
     await expect(systems.getByRole('link', { name: /FeedbackOps/ })).toHaveCount(0);
 
+    // expected-behavior/operations.md «메뉴별 권한»: a typed console address shows the menu permission state, not the
+    // space-entry denial, and keeps the address (#1796).
     await page.goto('/operations/admin-roles');
     const main = page.getByRole('main');
-    await expect(main).toContainText('이 업무 시스템에 들어갈 수 없습니다');
-    await expect(main).toContainText('운영 콘솔');
+    await expect(main).toContainText('이 메뉴에 대한 권한이 없습니다');
+    await expect(main).toContainText('권한/역할 관리');
+    await expect(main).not.toContainText('이 업무 시스템에 들어갈 수 없습니다');
     await expect(page).toHaveURL(/\/operations\/admin-roles$/);
     await evidence(page, testInfo, 'real-user-console-denied');
   });

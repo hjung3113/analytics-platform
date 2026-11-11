@@ -36,13 +36,15 @@ async function write(page: Page, csrf: string, path: 'save' | 'delete', body: Re
 // navigation starts, so a query already in flight from the previous page was issued earlier and is never in the
 // set. The body is read inside the `response` event, while the response's document is still alive, so a later
 // navigation cannot make it unavailable. A query of this navigation that is itself aborted (body unavailable) is
-// skipped and the next one is awaited.
+// skipped and the next one is awaited. Home issues other menu queries too (the «내 담당» card reads `improvement.items`,
+// #1387), so only a request whose body names the `home.notices` endpoint counts (#1796).
 type HomeNoticeAnswer = { status: number; body: { outcome: string; data: Array<{ id: string; title: { ko: string }; scopeId: string | null }>; trust: unknown } };
 
 async function openHome(page: Page): Promise<HomeNoticeAnswer> {
   const issued = new Set<Request>();
   const onRequest = (request: Request) => {
-    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/menu-query') issued.add(request);
+    if (request.method() !== 'POST' || new URL(request.url()).pathname !== '/api/v1/menu-query') return;
+    if ((request.postDataJSON() as { endpoint?: unknown } | null)?.endpoint === 'home.notices') issued.add(request);
   };
   const answer = new Promise<HomeNoticeAnswer>(resolve => {
     page.on('response', async response => {
