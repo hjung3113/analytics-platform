@@ -9,4 +9,4 @@ conditions:
     pattern: (^|/)archive/
 ---
 
-`archive/` preserves pre-integration Kernel prototypes. Do not add new features (`archive/AGENTS.md`).
+`archive/` holds read-only records. Do not add anything here (`archive/AGENTS.md`).

@@ -26,13 +26,13 @@ concurrency:
 # 워크플로 수준 경로 필터는 쓰지 않는다: 필수 검사가 아예 안 뜨면 병합이 Pending으로 막힌다. `changes` Job이 `.github/scripts/classify-changes.mjs`로 Markdown과 `.agents/` 아래만
 # 바뀐 PR(#1018)을 가려 `code=false`를 내면, 필수 Job 둘(workspace·E2E 병합)은 그대로 돌되 무거운 단계만 건너뛴다(#671 B6, D2). 필수 Job을 Job 수준 `if`로
 # 건너뛰면 Success로 보고되어, `changes`가 실패해도 필수 검사가 통과해 버린다 — 그래서 쓰지 않는다. 판정은 fail-safe다: `code`가
-# 정확히 'false'일 때만 건너뛰고, `changes`가 실패하면(출력 없음) 전부 돈다. 프로토타입 4개 Job은 늘 돈다(Unit C는 docs/06을 읽는다).
+# 정확히 'false'일 때만 건너뛰고, `changes`가 실패하면(출력 없음) 전부 돈다.
 # workspace 검사(#1019)는 turbo 캐시로 바뀐 패키지와 그 의존자만 다시 돈다(`.turbo/cache`를 main push가 저장하고 PR은 복원만 한다). 전체·cold는 `full`일 때뿐이다:
 # `workflow_dispatch`의 `full=true`(릴리스 태그 전 수동), 또는 `changes`가 판단하지 못해 `full`이 'false'가 아닐 때(출력 없음 포함) → 캐시를 복원하지 않고 `TURBO_FORCE=true`.
 # `Platform workspace (pnpm monorepo)`는 병렬 두 Job(Platform static·Platform test)의 모음 Job이고, 하위 결과가 둘 다 정확히 success일 때만 통과한다.
 # E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 4개)이고, 전체는 `workflow_dispatch`의
 # `full=true`(릴리스 태그 전)에서도 돈다. main push의 기준은 직전 커밋이 아니라 CI가 green이었던 마지막 main SHA다(`last-green-main-sha.mjs`) — 실패한 spec은 green이 될 때까지 범위에 남는다.
-# 기능 패키지는 서브모듈이 아니라 일반 디렉터리(apps/{platform-api,feature-screens}·packages/feature-*·docs/{product,design,user-guide}/features·docs/architecture/platform-api)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유). 프로토타입 4개 Job은 submodules: false를 명시한다.
+# 기능 패키지는 서브모듈이 아니라 일반 디렉터리(apps/{platform-api,feature-screens}·packages/feature-*·docs/{product,design,user-guide}/features·docs/architecture/platform-api)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유).
 
 jobs:
   changes:
@@ -85,101 +85,6 @@ jobs:
           SHA: ${{ github.sha }}
           FULL_INPUT: ${{ inputs.full }}
         run: node .github/scripts/select-e2e.mjs
-
-  python-codec:
-    name: Python codec (kernel-context-url-scope)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: archive/kernel-context-url-scope
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: false
-      - uses: actions/setup-python@v6
-        with:
-          # README requires "Python 3.9+ standard library only" (stdlib only, no version-specific features).
-          # Pinned to 3.12 rather than the 3.9 verified locally: 3.9 reached EOL 2025-10 and risks disappearing
-          # from setup-python's version manifest on ubuntu-latest. Reverified 14/14 passing on 3.12 before this change.
-          python-version: '3.12'
-      - run: python -m pip install pytest==8.4.2
-      - run: python3 -m pytest test_context_url.py -q
-
-  unit-a-app-shell:
-    name: Unit A (kernel-app-shell)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: archive/kernel-app-shell
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: false
-      - uses: actions/setup-node@v5
-        with:
-          # README: "설치된 Node 26.7.0 / npm 11.19.0으로 검증했다"
-          node-version: '26.7.0'
-          cache: npm
-          cache-dependency-path: archive/kernel-app-shell/package-lock.json
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run test
-      - run: npm run build
-
-  unit-b-chart-frame:
-    name: Unit B (kernel-chart-frame)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: archive/kernel-chart-frame
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: false
-      - uses: actions/setup-node@v5
-        with:
-          # README에 Node 버전 명시 없음 → Active LTS
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: archive/kernel-chart-frame/package-lock.json
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run test
-      - run: npm run build
-
-  unit-c-platform-table:
-    name: Unit C (kernel-platform-table)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: archive/kernel-platform-table
-    env:
-      # playwright.config.ts는 PLAYWRIGHT_BROWSERS_PATH ||= resolve('.browsers')를 설정하지만
-      # `playwright install`은 config를 읽지 않아 기본 ~/.cache/ms-playwright에 설치한다.
-      # install/run 양쪽이 같은 .browsers 경로를 쓰도록 Job 전체에 명시한다(README의 설치 커맨드와 동일).
-      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/archive/kernel-platform-table/.browsers
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: false
-      - uses: actions/setup-node@v5
-        with:
-          # README에 Node 버전 명시 없음 → Active LTS
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: archive/kernel-platform-table/package-lock.json
-      - run: npm ci
-      # package.json에 typecheck 스크립트가 없고 build가 `tsc --noEmit && vite build`로 타입 검사를 포함한다.
-      - run: npm run test:unit
-      - run: npx playwright install --with-deps chromium
-      - name: Verify Chromium landed in PLAYWRIGHT_BROWSERS_PATH
-        run: ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*
-      - run: npm run test:browser
-      - run: npm run build
 
   # Lint, typecheck, build and the checks that need the build output (#1019 splits the old single job so `pnpm test` runs beside it).
   platform-static:

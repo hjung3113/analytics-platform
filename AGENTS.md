@@ -91,7 +91,7 @@ The procedure for designing a new screen (Requirements → IA → Screen Spec �
 | [`tooling/`](tooling/AGENTS.md) | Shared tsconfig, boundary lint, menu generator (`pnpm gen:menu`), CSS selector comparison |
 | [`ops/platform-api/`](ops/platform-api/scripts/gates/AGENTS.md) | Core-server and feature operations tools (compose, DB and backup scripts) and static check gates |
 | [`site/`](site/AGENTS.md) | Intro page (static, outside the workspace) and Pages assembly |
-| [`archive/`](archive/AGENTS.md) | Pre-integration Kernel unit prototypes and old operating profiles (preserved, no new features) |
+| [`archive/`](archive/AGENTS.md) | Old operating profiles from the feature-repo era (read-only record, no new features) |
 | [`apps/platform-api/`](apps/platform-api/AGENTS.md) · [`apps/feature-screens/`](apps/feature-screens/AGENTS.md) | Core-server and feature-screen ownership; for feature domain work, read [feature implementation](docs/agents/feature-implementation.md) and its subject contracts. |
 
 ## Agent assets
