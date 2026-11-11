@@ -10,7 +10,7 @@ export function laneDiagnostic(message: string) { if (process.env.NODE_ENV !== '
 export const FLAG_ORPHAN = 1;
 export const FLAG_OPEN = 2;
 export const FLAG_NEUTRAL = 4;
-const MIN_WIDTH = 1.5;
+export const MIN_WIDTH = 1.5;
 
 /** Start-sorted order with a running-max-end array; segments longer than a bound sit in a side list. Built on first query. */
 export type LaneIndex = { order: Uint32Array; blockMax: Float64Array; superMax: Float64Array; long: Uint32Array };

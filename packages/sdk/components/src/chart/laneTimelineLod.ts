@@ -1,5 +1,5 @@
 import type { ThemeColorToken } from '@ap/ui/theme';
-import { fillVisibleRects, FLAG_NEUTRAL, FLAG_OPEN, FLAG_ORPHAN, GUTTER, laneGeometry, laneWindow, visibleLanes, type LaneModel, type RectBuffer } from './laneTimelineModel';
+import { fillVisibleRects, FLAG_NEUTRAL, FLAG_OPEN, FLAG_ORPHAN, GUTTER, laneGeometry, laneWindow, MIN_WIDTH, ROW_HEIGHT, visibleLanes, type LaneModel, type RectBuffer } from './laneTimelineModel';
 import { outlineStyle } from './laneTimelineGeometry';
 
 /**
@@ -73,8 +73,10 @@ function acquire(columns: number): Bucket {
   if (columns > poolColumns) { pool.length = 0; poolColumns = columns; }
   return pool.pop() ?? { cover: new Float32Array(poolColumns).fill(-1), off: new Int32Array(poolColumns).fill(-1), lo: 0, hi: -1, y: 0, h: 0 };
 }
-/** One depth of the LOD lanes: fills as runs per colour id, and the winning rects whose decorations follow the fills. */
-type Pass = { runs: Map<number, number[]>; winners: { lane: number; o: number; x: number; y: number; w: number; h: number }[] };
+/** Distinct winners of one lane and depth in column order, sorted and de-duplicated in place. Reused across frames. */
+let foundScratch = new Int32Array(0);
+/** One depth of the LOD lanes: fills as runs per colour id (colours in first-seen order), and the winning rects (lane, offset) whose decorations follow the fills. */
+type Pass = { runs: (number[] | undefined)[]; colors: number[]; winnerLane: number[]; winnerOffset: number[] };
 
 /**
  * Paints one frame of the data layer. A lane whose visible segment count reaches `lodAt` (the plot width in pixels; `Infinity` forces the exact path)
@@ -102,11 +104,16 @@ export function paintFrame(ctx: CanvasRenderingContext2D, style: LaneStyle, fram
   const lodDepths = [...passes.keys()].sort((a, b) => a - b); let nextLod = 0;
   const flush = (depth: number) => {
     const pass = passes.get(depth)!;
-    for (const [id, list] of pass.runs) {
+    for (let k = 0; k < pass.colors.length; k++) {
+      const id = pass.colors[k]; const list = pass.runs[id]!;
       ctx.fillStyle = style.fills[id];
       for (let r = 0; r < list.length; r += 4) ctx.fillRect(list[r], list[r + 1], list[r + 2], list[r + 3]);
     }
-    for (const v of pass.winners) decorate(ctx, style, v.lane, v.o, v.x, v.y, v.w, v.h, true);
+    for (let k = 0; k < pass.winnerLane.length; k++) {
+      const lane = pass.winnerLane[k]; const o = pass.winnerOffset[k];
+      const g = laneGeometry(style.model.cols[lane], o, lane, frame.view, frame.width, plot, frame.scroll);
+      decorate(ctx, style, lane, o, g.x, g.y, g.width, g.height, true);
+    }
   };
   for (let i = 0; i < count;) {
     const depth = depthAt(i); let j = i + 1;
@@ -122,41 +129,64 @@ export function paintFrame(ctx: CanvasRenderingContext2D, style: LaneStyle, fram
 /** One LOD lane: winner per pixel column and depth (largest coverage, ties to the highest input index), equal neighbours merged into runs. */
 function bucketLane(style: LaneStyle, lane: number, offsets: number[], frame: { view: [number, number]; width: number; scroll: number }, plot: number, columns: number, passes: Map<number, Pass>) {
   const cols = style.model.cols[lane]; const { view, width, scroll } = frame;
+  // Constants of the lane (module imports are hoisted into locals: a property load per segment otherwise), in the arithmetic of `laneGeometry` (division kept so every column edge is bit-identical).
+  const { start, end, depth: depthCol, color: colorCol, flags, rank: rankCol } = cols;
+  const v0 = view[0]; const span = view[1] - view[0]; const minWidth = MIN_WIDTH; const gutter = GUTTER; const maxX = width - minWidth; const rowTop = lane * ROW_HEIGHT - scroll;
   const buckets = new Map<number, Bucket>();
-  for (let n = 0; n < offsets.length; n++) {
-    const o = offsets[n]; const g = laneGeometry(cols, o, lane, view, width, plot, scroll);
-    const depth = cols.depth[o]; let b = buckets.get(depth);
-    if (!b) { b = acquire(columns); b.lo = columns; b.hi = -1; b.y = g.y; b.h = g.height; buckets.set(depth, b); }
-    const x0 = g.x; const x1 = x0 + g.width;
+  let curDepth = -1; let b!: Bucket; let cover!: Float32Array; let off!: Int32Array; let lo = 0; let hi = -1;
+  const n = offsets.length;
+  for (let k = 0; k < n; k++) {
+    const o = offsets[k]; const depth = depthCol[o];
+    if (depth !== curDepth) {
+      if (curDepth >= 0) { b.lo = lo; b.hi = hi; }
+      let next = buckets.get(depth);
+      if (!next) {
+        const inset = Math.min(depth * 2, 11);
+        next = acquire(columns); next.lo = columns; next.hi = -1; next.y = rowTop + inset; next.h = ROW_HEIGHT - inset * 2; buckets.set(depth, next);
+      }
+      b = next; cover = b.cover; off = b.off; lo = b.lo; hi = b.hi; curDepth = depth;
+    }
+    const x = gutter + Math.max(0, (start[o] - v0) / span * plot);
+    const endX = gutter + Math.min(plot, (end[o] - v0) / span * plot);
+    const x0 = Math.min(x, maxX); const x1 = x0 + Math.max(minWidth, endX - x);
     const c0 = Math.max(0, Math.floor(x0)); const c1 = Math.min(columns, Math.ceil(x1));
-    if (c0 < b.lo) b.lo = c0; if (c1 - 1 > b.hi) b.hi = c1 - 1;
-    const { cover, off } = b;
+    if (c0 < lo) lo = c0; if (c1 - 1 > hi) hi = c1 - 1;
     for (let c = c0; c < c1; c++) {
       const covered = Math.min(x1, c + 1) - Math.max(x0, c);
-      if (covered > cover[c] || (covered === cover[c] && o > off[c])) { cover[c] = covered; off[c] = o; }
+      const best = cover[c];
+      if (covered > best || (covered === best && o > off[c])) { cover[c] = covered; off[c] = o; }
     }
   }
-  for (const [depth, b] of buckets) {
-    let pass = passes.get(depth); if (!pass) { pass = { runs: new Map(), winners: [] }; passes.set(depth, pass); }
-    const { off, cover } = b; const found: number[] = [];
-    let runStart = b.lo; let runKey = -1; let runColor = -1; let last = -1;
-    for (let c = b.lo; c <= b.hi + 1; c++) {
-      const o = c <= b.hi ? off[c] : -1;
-      let key = -1; let color = -1;
-      if (o >= 0) { color = colorIdAt(style, lane, o); key = color * style.outlineCount + style.rankOutlineId[cols.rank[o]]; }
-      if (key !== runKey) {
-        if (runKey >= 0) { let list = pass.runs.get(runColor); if (!list) { list = []; pass.runs.set(runColor, list); } list.push(runStart, b.y, c - runStart, b.h); }
-        runStart = c; runKey = key; runColor = color;
+  if (curDepth >= 0) { b.lo = lo; b.hi = hi; }
+  if (foundScratch.length < columns) foundScratch = new Int32Array(columns);
+  const { codeId, neutralId, rankOutlineId, outlineCount, rankOutline } = style; const fallback = style.paletteIds[lane % style.paletteIds.length];
+  for (const [depth, bk] of buckets) {
+    let pass = passes.get(depth); if (!pass) { pass = { runs: [], colors: [], winnerLane: [], winnerOffset: [] }; passes.set(depth, pass); }
+    const bOff = bk.off; const bCover = bk.cover; const { runs, colors } = pass; const { y, h } = bk; const hiColumn = bk.hi;
+    let runStart = bk.lo; let runKey = -1; let runColor = -1; let prev = -1; let found = 0;
+    for (let c = bk.lo; c <= hiColumn + 1; c++) {
+      const o = c <= hiColumn ? bOff[c] : -1;
+      if (o !== prev) {
+        let key = -1; let color = -1;
+        if (o >= 0) {
+          const code = colorCol[o]; color = code ? codeId[code] : flags[o] & FLAG_NEUTRAL ? neutralId : fallback;
+          key = color * outlineCount + rankOutlineId[rankCol[o]]; foundScratch[found++] = o;
+        }
+        if (key !== runKey) {
+          if (runKey >= 0) { let list = runs[runColor]; if (!list) { list = []; runs[runColor] = list; colors.push(runColor); } list.push(runStart, y, c - runStart, h); }
+          runStart = c; runKey = key; runColor = color;
+        }
+        prev = o;
       }
-      if (o >= 0 && o !== last) { found.push(o); last = o; }
-      if (c <= b.hi) { off[c] = -1; cover[c] = -1; }
+      if (c <= hiColumn) { bOff[c] = -1; bCover[c] = -1; }
     }
-    found.sort((a, z) => a - z);
-    for (let k = 0; k < found.length; k++) {
-      if (k > 0 && found[k] === found[k - 1]) continue;
-      const g = laneGeometry(cols, found[k], lane, view, width, plot, scroll);
-      pass.winners.push({ lane, o: found[k], x: g.x, y: g.y, w: g.width, h: g.height });
+    // Native numeric sort (no comparator); only winners with something to stroke are kept, and the geometry is computed when they are drawn.
+    const list = foundScratch.subarray(0, found).sort();
+    for (let k = 0; k < list.length; k++) {
+      const o = list[k]; if (k > 0 && o === list[k - 1]) continue;
+      if (!rankOutline[rankCol[o]].width && !(flags[o] & (FLAG_ORPHAN | FLAG_OPEN))) continue;
+      pass.winnerLane.push(lane); pass.winnerOffset.push(o);
     }
-    pool.push(b);
+    pool.push(bk);
   }
 }
