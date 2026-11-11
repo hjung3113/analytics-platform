@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.5.1 — 2026-11-11
+
+- Baseline 승인 가능 여부 지표기가 지어낸 Trust(`provisional: false`로 «확정»처럼 보임)를 지우고 `DataTrustIndicator`의 `showWithoutTrust`로 평가 항목만 보인다(#1769).
+
 ## 0.5.0 — 2026-11-11
 
 - 테스트 데이터셋 목록 표가 가짜 `loadPage`와 `filterKey` 버전 대신 `rows`·`rowsLoading` 입력을 쓴다: 갱신해도 1페이지로 돌아가지 않고 선택이 남는다(#1672).

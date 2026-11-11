@@ -33,7 +33,7 @@ const ui: Presentation = {
   table: parts => <Table {...parts} />,
   drawer: parts => <DetailDrawer title={parts.title} onClose={parts.requestClose} returnFocusRef={parts.returnFocusRef} footer={parts.footer} tabs={[{ id: 'detail', label: '상세', content: parts.body }]} />,
   timeline,
-  trust: (reasons, completedAt) => <DataTrustIndicator summary wrap trust={{ updatedAt: new Date(completedAt ?? 0).toISOString(), dataThrough: null, coverage: null, provisional: false, source: 'Baseline 승인 가능 여부' }} assessments={reasons.map(detail => ({ kind: 'coverage', state: 'unknown', reason: 'check_failed', detail }))} />,
+  trust: reasons => <DataTrustIndicator summary wrap showWithoutTrust trust={null} assessments={reasons.map(detail => ({ kind: 'coverage', state: 'unknown', reason: 'check_failed', detail }))} />,
 };
 function DatasetPageFrame(parts: Parameters<Presentation['page']>[0]) {
   const { linkTo } = usePlatform();
