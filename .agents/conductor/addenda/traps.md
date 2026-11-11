@@ -38,7 +38,6 @@ Append new traps at the end, one bullet each: the symptom, then what to do. No d
 - Codex workers under workspace-write cannot edit `.agents/` files. The conductor applies those edits before dispatch and keeps them out of the worker brief; preserve host edits on resume (conductor-engine#153, open).
 - The feature Biome gate selects committed merge-base..HEAD paths; for an uncommitted implementation use bounded file checks, not root lint. A shorter renamed literal can make a previously wrapped array require one-line formatting.
 - The lead must not fast-forward `AP_MAIN` while a lane review tripwire is armed; an ff makes the review lose its base.
-- `archive/kernel-platform-table/tests/table.browser.test.ts` reads `docs/contract/components.md` and `DESIGN.md` table values and the prototype's CSS; when a contract value changes, update that check and the prototype class in the same PR.
 - `ship-check.sh` reads the review record (`W-<n>-FINAL.json` or `W-<n>-FINAL*.md`) from `$WAVE_STATE` or `$WAVE_BRIEFS`, while reviewers write in the worktree's `.review/`: copy the report over first.
 - A capture worker can report 1440×900 while saving 1200×962 files. Check every file with `sips -g pixelWidth -g pixelHeight` and put that check in the capture brief.
 - Gate a commit on the checks' exit status (`ok=1; pnpm lint || ok=0; …; [ $ok = 1 ] && git commit …`), never on `grep` of output or `(cmd && echo OK || echo FAIL); git commit`. A round that adds or edits tests also runs the package `typecheck`.

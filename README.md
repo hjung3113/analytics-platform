@@ -15,7 +15,6 @@ packages/                 플랫폼 패키지: contracts, ui, kernel, components
 menus/                    업무 시스템 메뉴 Consumer 패키지(menus/<system>/<group>, @ap/menu-<group>)
 platform/                 플랫폼 기능 Consumer 패키지(platform/<feature>, @ap/menu-<name>)
 tooling/                  공유 도구: tsconfig, eslint 경계 규칙, gen-menu, css-selectors
-archive/               통합 전 Kernel 단위 프로토타입(보존)
 apps/{platform-api,feature-screens}, packages/feature-*  기능 앱·패키지(feature packages), 도구는 ops/platform-api/
 .agents/                  플랫폼 에이전트 자산
 ```

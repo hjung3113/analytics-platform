@@ -2,7 +2,7 @@
 
 **mock 조립 기준 설명.** 실제 파서 데이터·SSO·권한 서버·mart가 없다. `@ap/mock-server`(`packages/adapters/mock-server`)이 서버 역할(Scope/room 재검증, `outcome`+`assessments[]` 응답 envelope)을 흉내낸다. Kernel은 mock을 직접 import하지 않고 `@ap/contracts`의 `PlatformAdapter`를 통해서만 서버에 닿는다(dev·mock 빌드에서는 `src/dev/mock-assembly.tsx`의 `createMockAdapter` 결과를 `main.tsx`가 `#platform-assembly`로 받아 주입, ADR-0009).
 
-기존 4개 Kernel 유닛(`kernel-app-shell`, `kernel-chart-frame`, `kernel-platform-table`, `kernel-context-url-scope`)을 하나의 앱으로 통합해, 플랫폼 다섯 갈래가 실제 메뉴 화면(Consumer) 아래에서 함께 동작하는지 검증한다. 기존 유닛은 수정하지 않았다.
+기존 4개 Kernel 유닛 프로토타입(`kernel-app-shell`, `kernel-chart-frame`, `kernel-platform-table`, `kernel-context-url-scope`)을 하나의 앱으로 통합해, 플랫폼 다섯 갈래가 실제 메뉴 화면(Consumer) 아래에서 함께 동작하는지 검증한다. 그 프로토타입은 #1787에서 지웠고 git 이력에 남아 있다.
 
 패키지 구조는 [플랫폼 모노레포 패키지 경계](../../docs/integration/platform-packages.md)를 따른다.
 

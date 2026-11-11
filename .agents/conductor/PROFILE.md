@@ -152,7 +152,7 @@ Reports are in Korean.
 - **Code names:** `apps/platform-api/src/db/schema/*`, `docs/architecture/platform-api/api/*`, menu manifests and i18n labels under `menus/*/*/src`, capability names.
 - **`conflict` examples:** a menu's own "project" or "task" noun beside the glossary's 과제(Quest), Finding or Task; the Korean "워크스페이스" where the glossary bans it; "게시" where the glossary says 발행; a term that blurs a permission or security boundary.
 - **Modes:** `terms` for a design PR (report path and PR number from the task file); `release-audit` follows [`addenda/doc-audit.md`](addenda/doc-audit.md).
-- **Out of scope:** `site/`, `.agents/`, `docs/agents/`, `archive/`, `docs/*/history/`; link and anchor checks (`pnpm docs:links`); screen copy against the glossary (`review-ux` Copy).
+- **Out of scope:** `site/`, `.agents/`, `docs/agents/`, `docs/*/history/`; link and anchor checks (`pnpm docs:links`); screen copy against the glossary (`review-ux` Copy).
 
 ## Review lens: quality
 
