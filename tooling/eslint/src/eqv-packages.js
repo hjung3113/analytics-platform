@@ -3,7 +3,7 @@
 export const EQV_PREFIX = '@eqv/';
 
 export const EQV_PACKAGES = Object.freeze([
-  'core', 'renderer', 'replay', 'ui', 'views', 'editor', 'platform-adapter',
+  'core', 'renderer', 'replay', 'ui', 'views', 'editor',
 ].map((name) => `${EQV_PREFIX}${name}`));
 
 // The EV components: the one EV package core and renderer may never reach, and the one the design-system rules treat as a component source.

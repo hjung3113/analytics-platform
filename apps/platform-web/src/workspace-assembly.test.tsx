@@ -17,9 +17,9 @@ const SPACE_DEFS: readonly SpaceDef[] = SPACES;
 const probeRun = process.env.GEN_MENU_PROBE === '1';
 
 describe('workspace assembly (#260)', () => {
-  it('FIX2 keeps module groups before Top View authoring in Tools', () => {
+  it('FIX2 keeps the viewer group before Top View authoring in Tools', () => {
     const tools = registry.groups.filter(group => group.space === 'tools');
-    expect(tools.map(group => group.id)).toEqual(['eqv:equipment', 'topviewStudio']);
+    expect(tools.map(group => group.id)).toEqual(['topview', 'topviewStudio']);
   });
   it.each([
     ['rcc', 'RCC', '프로세스 시간 분석 (예정)', 'Process time (planned)'],
@@ -117,6 +117,7 @@ describe('workspace assembly (#260)', () => {
       ['admin', 'operations'],
       ['access', 'operations'],
       ['systems', 'operations'],
+      ['topview', 'tools'],
       ['topviewStudio', 'tools'],
     ]);
     expect(SPACES.map(space => space.id)).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'flow', 'operations']);

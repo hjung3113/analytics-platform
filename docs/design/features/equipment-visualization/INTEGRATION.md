@@ -17,7 +17,7 @@
 [EV ADR-0012](../../../adr/history/eqv/0012-platform-first-sdk-host.md)(EV ADR-0001 일부 대체): `core`/`renderer`/`editor`/`replay`는 이 저장소의 독립 패키지가 정본이고 플랫폼을 모른다. 기본 호스트는 플랫폼 셸이고, 호스트 → 앱 계약은 플랫폼 SDK(게시된 `@ap/*`, [EV ADR-0013](../../../adr/history/eqv/0013-platform-sdk-release-tarballs.md))가 소유한다. `packages/platform-adapter`가 그 계약을 구현해 화면을 조립하고, 플랫폼 `menus/analytics/equipment`는 연결만 한다. 모델·reducer·renderer 코드를 플랫폼 안에 다시 만들지 않는다.
 
 - 테마: `--eqv-*` → 플랫폼 토큰 매핑은 `@eqv/ui/theme.css`가 소유하고 어댑터 `styles.css`가 import한다. 호스트 입력(설비·진입 키·시간)은 `host-props.ts`가 읽는다.
-- 호스트는 시작 시 `eqvManifest`·엔드포인트를 React 없는 `@eqv/platform-adapter/manifest`에서 등록하고, 화면(`eqvScreens`)은 루트 `@eqv/platform-adapter`에서 lazy `import()`로 불러온다. 루트도 모두 계속 export한다.
+- 현재(#1659): 뷰어는 호스트 모듈이 아니라 일반 메뉴 패키지 `@ap/menu-topview`(`menus/tools/topview`)다. `manifests`(`eqv:topview`·`eqv:focus`, 그룹 `topview`)를 앱이 등록하고 화면은 lazy `import()`로 불러오며, Kernel 훅(`usePlatform`·`useMenuFetch`·`useMenuQuery`)으로 읽는다. 상세 슬롯·`host.status`는 없고 구성요소 상세는 인라인 패널이다.
 - 타 분석 메뉴는 `linkTo`로 **같은 화면으로 이동**하고 렌더러 코드를 import하지 않는다. 현재 `menu-*` 상호 import 금지와 `packages/components` 범용성 원칙을 그대로 지킨다.
 - 패키지 소비 방식은 게시된 SDK Release tarball이다(EV ADR-0013). submodule pin이 아니다.
 - 반대 방향(AP가 `@eqv/*`를 소비)도 Release tarball이다([EV ADR-0014](../../../adr/history/eqv/0014-eqv-release-tarballs.md)). Release `eqv-vX.Y.Z`의 여섯 파일(`eqv-{core,renderer,replay,ui,views,platform-adapter}-X.Y.Z.tgz`)을 모두 호스트의 직접 URL 의존으로 둔다. 패키지 안의 형제 `@eqv/*`는 정확 버전 peer이므로 `overrides`는 필요 없고, `dependencies`로 두면 `blockExoticSubdeps`가 `ERR_PNPM_EXOTIC_SUBDEP`로 막는다. packed manifest의 `@ap/*` peer는 SDK 정확 버전(오늘 `0.19.0`)이고 AP 워크스페이스는 `workspace:*`이므로 `peerDependencyRules.allowedVersions`에 `@eqv/*>@ap/*`를 둔다. CSS 진입은 `@import "tailwindcss"` → `@ap/ui/styles.css` → `@eqv/platform-adapter/styles.css` 순서다.
@@ -48,7 +48,7 @@ Equipment Management
 - 불완전 데이터면 Canvas에 속이는 state 동작 대신 `DataTrustIndicator`와 이벤트 패널 표시.
 - 설비 선택 후 다른 Site 데이터나 다른 EquipmentID 이벤트를 클라이언트에서 섞어 보여주지 않음.
 
-## 선언된 엔드포인트 (`packages/platform-adapter/src/endpoints.ts`, 이름은 Candidate — AP #334 확정 전)
+## 선언된 엔드포인트 (`menus/tools/topview/src/endpoints.ts`, 이름은 Candidate — AP #334 확정 전)
 
 플랫폼 host contract 1의 `defineEndpoint`로 선언한 read 엔드포인트 셋. 모두 `menuId`는 `eqv:focus`, 권한은 `eqv:view`(화면 표시용; 서버가 요청마다 재검사)다. 설비 목록 조회는 Context 없이 수행하며, 두 화면(`eqv:topview`, `eqv:focus`)이 함께 쓰는 재생 조회 둘은 `context: { time: 'apply' }`다. 재생 조회의 `from`/`to`는 호스트가 적용된 Context에서 투영하며 params에 넣지 않는다. 재생 응답 타입은 `@eqv/core` 타입이다.
 
@@ -57,10 +57,10 @@ Equipment Management
 - `eqv.topview-context` — params `{ equipmentId }` → `Omit<ReplayInput, 'batch'>` (`layouts`, `layoutRevisions?`, `bindings`, `mappings`): 적용 시간에 유효한 모든 Binding, Mapping Version, draft Layout, Layout Revision (EV ADR-0011).
 - `eqv.topview-events` — params `{ equipmentId, continuationToken? }` → `OccurrenceBatch` (`REPLAY-CONTRACT.md`): `{ equipmentId, from, to, timeDomain, watermark, parserContractVersion, dataGeneration, occurrences, issues, continuationToken? }`. 구간과 **겹치는** source-paired Occurrence를 그대로 반환하며 클라이언트는 Start/End를 짝짓거나 재정렬하지 않는다(EV ADR-0002). `limits.maxHours: 8`(한 교대; REPLAY-CONTRACT/INTEGRATION에 수치가 없어 정한 값, Focus Gantt 예산이 단일 window batch로 측정됨).
 - 재생 엔드포인트 둘 공통: `kinds` = `collection`, `processing_delay`, `coverage`, `time_domain`(`mergeTimeDomain: false`: 재생은 설비 하나만 읽어 합칠 시간축이 없고, 서버 레지스트리가 #1087 전에는 `true`를 거부한다. 설비 여럿을 한 시간축으로 합치는 조회가 생길 때 다시 본다) — 창의 완전성(Watermark·늦은 데이터)과 Site 시간축을 알리는 assessment. `requiresScope: false`(설비는 page key `equipment`로 지정 — 모듈 prefix 뒤 `?equipment=<id>`; `eqv:topview`는 prefix 자체(그룹의 primary 화면), `eqv:focus`는 그 하위 `<prefix>/focus`이며 page key `equipment`·`entityType`·`anchor`·`rangeFrom`·`rangeTo`. AP 레지스트리가 param이 필요한 부모 경로와 primary 없는 그룹을 거부하므로 경로 param을 쓰지 않는다. 화면이 page key를 엔드포인트 params `{ equipmentId }`로 복사하고, 키가 없으면 Top View는 "위에서 설비를 고르세요", Focus는 "Top View에서 설비를 고르세요" 상태를 보인다).
-- 호스트의 mock 서버는 `@eqv/platform-adapter/mock-data`(`eqvMockEquipmentOptions`, `eqvMockContext`, `eqvMockEvents`, `EQV_MOCK_EQUIPMENT`, `EQV_MOCK_WINDOW`)로 세 엔드포인트에 답한다. `fixtures/cluster-single`에서 생성한 합성 데이터이며(`pnpm --filter @eqv/platform-adapter gen:mock-data`, drift 테스트가 검사), 패키지 루트 export에는 없고 프로덕션 코드가 import하지 않는다. 호스트에는 설비 데이터나 로직을 두지 않는다.
+- 호스트의 mock 서버는 `@ap/menu-topview/mock-data`(`eqvMockEquipmentOptions`, `eqvMockContext`, `eqvMockEvents`, `EQV_MOCK_EQUIPMENT`, `EQV_MOCK_WINDOW`)로 세 엔드포인트에 답한다. `fixtures/cluster-single`에서 생성한 합성 데이터이며(`pnpm --filter @ap/menu-topview gen:mock-data`, drift 테스트가 검사), 패키지 루트 export에는 없고 프로덕션 코드가 import하지 않는다. 호스트에는 설비 데이터나 로직을 두지 않는다.
 - metrics·inventory 엔드포인트와 변경 API(`saveDraft`/`publish`)는 선언하지 않았다: 첫 범위는 read-only(EV ADR-0012). 변경 API는 `defineAction`·감사·권한 경계를 갖춘 별도 설계 후속.
 
-### 화면 동작 (`packages/platform-adapter/src/screens/`, 177d)
+### 화면 동작 (`menus/tools/topview/src/screens/`, 177d)
 
 `eqvScreens`(`topview`, `focus`; 호스트가 `eqv:<id>`로 등록)는 `({ host, params })` 화면이다. 마운트는 AP PR(AP #333/#334)이며 이 저장소에는 아직 없다.
 

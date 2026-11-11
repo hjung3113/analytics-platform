@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createRegistry, pathFor } from '@ap/kernel';
-import { EQV_MODULE } from './modules';
 import { MENUS, SPACES, registry } from './menus';
 
 // Spy on the kernel's createRegistry so the test sees the arguments menus.ts really assembled with.
@@ -13,7 +12,7 @@ const ASSEMBLY_CALL = vi.mocked(createRegistry).mock.calls[0]![0];
 const RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq', 'tokens'];
 
 // ADR-0093 / kernel.md §6.4: the assembled app's old → canonical path table. A menu added without canonical/alias coverage fails here.
-const RAW = [...MENUS, ...EQV_MODULE.menus];
+const RAW = [...MENUS];
 const segments = (path: string) => path.split('/').filter(Boolean);
 const slugOf = (id: string) => id.replace(/:/g, '-').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 

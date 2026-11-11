@@ -24,7 +24,8 @@ Decisions are in [`docs/adr/history/eqv/`](../../../adr/history/eqv/README.md) (
 
 | EV repository path | Here |
 | --- | --- |
-| `packages/core`, `renderer`, `editor`, `replay`, `ui`, `views`, `platform-adapter` | `packages/eqv/<name>` (`@eqv/<name>`) |
+| `packages/core`, `renderer`, `editor`, `replay`, `ui`, `views` | `packages/eqv/<name>` (`@eqv/<name>`) |
+| `packages/platform-adapter` | `menus/tools/topview` (`@ap/menu-topview`, an ordinary menu package, #1659) |
 | `assets/` | `packages/eqv/assets` (provenance: `NOTICE.md`) |
 | test fixtures | `packages/eqv/fixtures` |
 | `apps/studio` | `apps/eqv-studio` (after #1613) |

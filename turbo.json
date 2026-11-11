@@ -156,7 +156,7 @@
         "$TURBO_ROOT$/packages/eqv/assets/**"
       ]
     },
-    "@eqv/platform-adapter#test": {
+    "@ap/menu-topview#test": {
       "dependsOn": [
         "transit"
       ],

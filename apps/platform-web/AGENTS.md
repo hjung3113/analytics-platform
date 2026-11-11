@@ -8,7 +8,7 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
 - Pages never modify `packages/*`. When a common part is missing, report the need and raise it as platform work.
 - Declare a new menu in the `manifests` of its group package (`menus/<space>/<group>/src/index.ts` or `platform/<feature>/src/index.ts`) and check 06 §5 (Menu Extension Contract) and §29 (Platform Done).
 - Screens must not import `@ap/mock-server` directly ([menus/AGENTS.md](../../menus/AGENTS.md)); `check:prod-graph` keeps it out of production builds.
-- Do not import design-system CSS (`@ap/ui` `styles/*`) individually: `src/style.css` `@import`s only `@ap/ui/styles.css` ([packages/sdk/ui/AGENTS.md](../../packages/sdk/ui/AGENTS.md)). The one addition is `@eqv/platform-adapter/styles.css` right after it (outside the generator region).
+- Do not import design-system CSS (`@ap/ui` `styles/*`) individually: `src/style.css` `@import`s only `@ap/ui/styles.css` ([packages/sdk/ui/AGENTS.md](../../packages/sdk/ui/AGENTS.md)). Menu styles, the viewer's included (`@ap/menu-topview/styles.css`, which brings the `--eqv-*` theme), sit in the generator region.
 
 ## Assembly (`src/main.tsx`, `src/app-root.tsx`)
 
@@ -44,16 +44,12 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
   - The private `@ap/menu-home/launcher` entry is allowed only here, outside generator markers; test files render the configured home through `registry`.
 - `src/dev/mock-assembly.tsx` — mock assembly. Register menu mock endpoints in the single `export const MOCK_ENDPOINTS` (`createMockAdapter` and the server conformance test read the same list) by spreading each menu's `<g>Mock` array from `@ap/menu-<g>/mock`. The `/mock` imports and spreads sit in the `// <gen:menu-mock-imports>` / `// <gen:menu-mock-spreads>` marker regions written by `pnpm gen:menu` (analytics mock included); never register by hand there, and wire outside the regions by hand.
   - The `platform:mock-menu-query` performance mark counts E2E requests: it carries only the endpoint name, never Context.
-  - It hands `@eqv/core`'s Sample Window import check and Inventory build (re-exported by `@eqv/platform-adapter/mock-data`) to the 설비 온보딩 mock with `setSampleWindowImport`, because menu mock code may not import `@eqv/core`. Proof: `src/dev/eqv-onboarding-import.test.ts`.
+  - It hands `@eqv/core`'s Sample Window import check and Inventory build (re-exported by `@ap/menu-topview/mock-data`) to the 설비 온보딩 mock with `setSampleWindowImport`, because menu mock code may not import `@eqv/core`. Proof: `src/dev/eqv-onboarding-import.test.ts`.
 - `src/dev/DevTools.tsx` — role switch and response-scenario simulator (`topBarTools` slot, below the rail). Not production code.
-- `src/modules.ts` — external host module mount (ADR-0053): registers EV's `eqv` with `mountModule` (`@eqv/platform-adapter` is a workspace package, ADR-0132).
-  - The place is two constants in this one file: `EQV_SPACE` (tool space `tools`) and `EQV_PREFIX` (`/tools/topview`); `apps/platform-e2e/tests/eqv.spec.ts` keeps a copy of the path.
-  - `menus.ts` merges `EQV_MODULE` only in the registry call (`GROUPS`, `MENUS`, `PERMISSIONS` stay the platform's).
-  - Never declare the module permission `eqv:view` in the app: the Registry checks it by the `<moduleId>:` prefix, and declaring it reserves the `eqv` namespace so the module is rejected (ADR-0072). `modulePermissions(registry)` collects module menu permissions into the mock role vocabulary.
-- `src/dev/eqv-mock.ts` — mock for the two EV endpoints (`eqv.topview-context`, `eqv.topview-events`), answered from synthetic fixtures of `@eqv/platform-adapter/mock-data`, `mart: false`.
+- The viewer (Top View, Focus) is the menu package `@ap/menu-topview` (`menus/tools/topview`), an ordinary `GROUPS` row `topview` plus `manifests` (ADR-0132; it replaced the host-module mount in `src/modules.ts`, #1659). `eqv:view` is declared in `PERMISSIONS`; `apps/platform-e2e/tests/eqv.spec.ts` keeps a copy of the paths.
+- The mock for the three EV reads (`eqv.equipment-options`, `eqv.topview-context`, `eqv.topview-events`) is `topviewMock` of `@ap/menu-topview/mock` (`mart: false`), registered in the `MOCK_ENDPOINTS` marker like every menu mock. The assembly hands it the synthetic fixture of `@ap/menu-topview/mock-data` with `setTopviewMockSource`, because menu mock code may not import `@eqv/core`.
   - The spec is a `mergeTimeDomain: false` copy: for `requiresScope: false` endpoints the engine merges time-domain evaluation over the whole mock-world equipment set regardless of the queried equipment (`eq-synth-01` is not in the world master). Mock-only; no issue number for the engine follow-up yet.
-  - Export these as `MODULE_MOCK_ENDPOINTS` from `mock-assembly.tsx`, not into the generator-owned `MOCK_ENDPOINTS`; the adapter and the conformance test read `[...MOCK_ENDPOINTS, ...MODULE_MOCK_ENDPOINTS]`.
-  - `@eqv/*/mock-data` is imported only by `src/dev/**` and `src/server-conformance.test.ts` (lint `app` preset); `check:prod-graph` (`scripts/prod-graph.ts` `FORBIDDEN`) guards the production graph.
+  - `@ap/menu-topview/mock-data` is imported only by `src/dev/**` and `src/server-conformance.test.ts` (lint `app` preset); `check:prod-graph` (`scripts/prod-graph.ts` `FORBIDDEN`) guards the production graph.
 - `src/real/endpoint-invalidation.ts`, `src/endpoint-invalidation-bridge.tsx` — refresh the Home banner after a notice write ([ADR-0098](../../docs/adr/0098-adapter-preferences-people-notices-ports.md) §4).
   - The real assembly wraps `saveNotice`/`deleteNotice` once; after `ok`, `conflict`, `unknown` (or a throw) it emits the app-declared `home.notices` through `Assembly.invalidation`.
   - `main.tsx` mounts one `EndpointInvalidationBridge` under `PlatformProvider`; it calls `refreshEpochs.bump` for that query only (not the full `adapter.subscribe` invalidation; the Kernel knows no menu names).
@@ -68,7 +64,7 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
 
 - Menu screens and their screen-only synthetic data (`data.ts`) live in `menus/<space>/<group>/src/pages/` (platform features: `platform/<feature>/src/pages/`); computation of migrated screens is in `src/mock/`.
 - The server stand-in is `packages/adapters/mock-server`. The app keeps `src/dev/mock-assembly.tsx`, `src/dev/DevTools.tsx` and integration tests `src/*.test.ts` that use the real Registry and contracts (file name = subject).
-- `src/server-conformance.test.ts` reads `MOCK_ENDPOINTS` and `MODULE_MOCK_ENDPOINTS` as they are (lint allows only that import). An endpoint that declares params needs a sample in this test's `PARAMS` table. EV `eqv.topview-events` declares `limits.maxHours: 8`, so each case passes a `context` using the fixture's 30-minute window. The role vocabulary is `[...registry.permissions, ...modulePermissions(registry)]`.
+- `src/server-conformance.test.ts` reads `MOCK_ENDPOINTS` as it is (lint allows only that import). An endpoint that declares params needs a sample in this test's `PARAMS` table. EV `eqv.topview-events` declares `limits.maxHours: 8`, so each case passes a `context` using the fixture's 30-minute window. The role vocabulary is `registry.permissions`.
 
 ## Verification
 

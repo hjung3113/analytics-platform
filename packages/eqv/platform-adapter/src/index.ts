@@ -1,7 +1,0 @@
-// @eqv/platform-adapter — the analytics-platform host module (EV ADR-0012, EV ADR-0013). The only package that imports @ap/contracts.
-export { eqvManifest, TOPVIEW_SCREEN, FOCUS_SCREEN } from './manifest.js';
-export { equipmentOptions, topviewContext, topviewEvents } from './endpoints.js';
-export type { EquipmentOptions, TopviewContextParams, TopviewEventsParams } from './endpoints.js';
-export { FocusScreen } from './screens/FocusScreen.js';
-export { TopViewScreen } from './screens/TopViewScreen.js';
-export { eqvScreens } from './screens/screens.js';

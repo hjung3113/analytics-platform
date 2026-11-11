@@ -11,7 +11,6 @@ import {
   contractSchemas,
   contracts,
   eqvCore,
-  eqvHost,
   eqvMenu,
   eqvUi,
   featureBridgePreset,
@@ -56,6 +55,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'menus/log-dev/log-models': featureBridgeMenuPreset,
   'menus/log-dev/log-analysis': menu,
   'menus/tools/topview-studio': eqvMenu,
+  'menus/tools/topview': eqvMenu,
   'apps/platform-web': app,
 };
 
@@ -318,12 +318,12 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/dev/mock-assembly.tsx', code: `import { DevTools } from './DevTools';`, rule: '' },
   { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { x } from '@ap/mock-server';`, rule: '' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
-  // #801: EV's synthetic endpoint data is a dev-assembly and conformance-test import only.
-  { file: 'apps/platform-web/src/dev/eqv-mock.ts', code: `import { eqvMockContext } from '@eqv/platform-adapter/mock-data';`, rule: '' },
-  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { EQV_MOCK_WINDOW } from '@eqv/platform-adapter/mock-data';`, rule: '' },
-  { file: 'apps/platform-web/src/modules.ts', code: `import { eqvMockContext } from '@eqv/platform-adapter/mock-data';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
-  { file: 'apps/platform-web/src/main.tsx', code: `await import('@eqv/platform-adapter/mock-data');`, rule: 'ap/restricted-import-source' },
-  { file: 'apps/platform-web/src/modules.ts', code: `import { eqvManifest } from '@eqv/platform-adapter';`, rule: '' },
+  // #801, #1659: the viewer's synthetic endpoint data (the menu-topview mock-data subpath) is a dev-assembly and conformance-test import only.
+  { file: 'apps/platform-web/src/dev/mock-assembly.tsx', code: `import { eqvMockContext } from '@ap/menu-topview/mock-data';`, rule: '' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { EQV_MOCK_WINDOW } from '@ap/menu-topview/mock-data';`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { eqvMockContext } from '@ap/menu-topview/mock-data';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/menu-topview/mock-data');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { manifests } from '@ap/menu-topview';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home/src/index';`, rule: 'no-restricted-imports' },
 
@@ -743,12 +743,12 @@ rows.push(
 );
 // The model profile Top View (#1656): the app joins EV's read-only body to menu-log-knowledge's slot in main.tsx only (the second ADR-0128 slot).
 rows.push(
-  { file: 'apps/platform-web/src/main.tsx', code: `import { ModelTopView } from '@eqv/platform-adapter/model-topview';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { ModelTopView } from '@ap/menu-topview/model-topview';`, rule: '' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { setModelTopView } from '@ap/menu-log-knowledge/model-topview-slot';`, rule: '' },
   { file: 'apps/platform-web/src/slots.ts', code: `import { setModelTopView } from '@ap/menu-log-knowledge/model-topview-slot';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-log-knowledge/src/model-topview-slot';`, rule: 'no-restricted-imports' },
   { file: 'menus/log-dev/log-models/src/pages/LifecyclePage.tsx', code: `import { setModelTopView } from '@ap/menu-log-knowledge/model-topview-slot';`, rule: 'no-restricted-imports' },
-  { file: 'menus/log-dev/log-models/src/pages/LifecyclePage.tsx', code: `import { ModelTopView } from '@eqv/platform-adapter/model-topview';`, rule: 'no-restricted-imports' },
+  { file: 'menus/log-dev/log-models/src/pages/LifecyclePage.tsx', code: `import { ModelTopView } from '@ap/menu-topview/model-topview';`, rule: 'no-restricted-imports' },
 );
 // The home 내 할 일 slot is main.tsx-only too (#657); `src/slots.ts` receives the value as a parameter.
 rows.push(
@@ -1036,38 +1036,33 @@ describe('EV ban outside the host slot', () => {
     const [result] = await eslint.lintText(code, { filePath: path.join(cwd, 'src/x.ts') });
     expect((result?.messages ?? []).filter((m) => m.message.includes('ADR-0132')), code).toEqual([]);
   });
-  it.each(['@eqv/renderer', '@eqv/platform-adapter', '@eqv/ui'].flatMap((source) => importForms(source)))('apps/platform-api rejects other EV packages ($form)', async ({ code, rule }) => {
+  it.each(['@eqv/renderer', '@eqv/ui'].flatMap((source) => importForms(source)))('apps/platform-api rejects other EV packages ($form)', async ({ code, rule }) => {
     const cwd = path.join(REPO_ROOT, 'apps/platform-api');
     const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: featureServerPreset });
     const [result] = await eslint.lintText(code, { filePath: path.join(cwd, 'src/x.ts') });
     expect((result?.messages ?? []).some((m) => m.ruleId === rule && m.message.includes('ADR-0132'))).toBe(true);
   });
 
-  it.each(['@eqv/platform-adapter', '@eqv/platform-adapter/manifest'])('apps/platform-web modules.ts keeps %s (static, dynamic, type)', async (source) => {
-    for (const code of [`import { x } from '${source}';`, `void import('${source}');`, `type X = import('${source}').X;`]) {
-      expect(await lint('apps/platform-web/src/modules.ts', code), code).toEqual([]);
-    }
-  });
-  it.each(['@eqv/core', '@eqv/ui', '@eqv/platform-adapter/other'].flatMap((source) => importForms(source)))('apps/platform-web rejects what it does not use today ($form)', async ({ code, rule }) => {
-    const messages = await lint('apps/platform-web/src/modules.ts', code);
+  it.each(['@eqv/core', '@eqv/ui', '@eqv/replay'].flatMap((source) => importForms(source)))('apps/platform-web imports no EV package ($form)', async ({ code, rule }) => {
+    const messages = await lint('apps/platform-web/src/menus.ts', code);
     expect(messages.some((m) => m.ruleId === rule && m.message.includes('ADR-0132')), JSON.stringify(messages, null, 2)).toBe(true);
   });
-  it.each(['@eqv-extra/x', '@eqv/uix', '@eqv/platform-adapter-extra', '@eqvx/core', '@eqv/unknown'])('near neighbour %s is not an EV identity', async (source) => {
-    for (const file of ['packages/sdk/kernel/src/x.ts', 'apps/platform-web/src/modules.ts', 'platform/my-activity/src/pages/x.tsx']) {
+  it.each(['@eqv-extra/x', '@eqv/uix', '@eqv/platform-adapter', '@eqvx/core', '@eqv/unknown'])('near neighbour %s is not an EV identity', async (source) => {
+    for (const file of ['packages/sdk/kernel/src/x.ts', 'apps/platform-web/src/menus.ts', 'platform/my-activity/src/pages/x.tsx']) {
       const messages = await lint(file, `import { x } from '${source}'; void import('${source}');`);
       expect(messages.filter((m) => m.message.includes('ADR-0132')), file).toEqual([]);
     }
   });
 });
 
-// --- EV's own menu (#1654, ADR-0132): menus/tools/topview-studio imports exactly four @eqv/* entries; every other menu stays banned ---
-describe('eqvMenu (menus/tools/topview-studio)', () => {
+// --- EV's own menus (#1654, #1659, ADR-0132): menus/tools/topview-studio and menus/tools/topview import exactly six @eqv/* entries; every other menu stays banned ---
+describe('eqvMenu (menus/tools/topview-studio, menus/tools/topview)', () => {
   const PAGE = 'menus/tools/topview-studio/src/pages/x.tsx';
   const MOCK = 'menus/tools/topview-studio/src/mock/x.ts';
-  it.each(['@eqv/core', '@eqv/renderer', '@eqv/editor', '@eqv/ui'].flatMap((source) => importForms(source).map((f) => ({ source, ...f }))))('allows $source ($form)', async ({ code }) => {
+  it.each(['@eqv/core', '@eqv/renderer', '@eqv/replay', '@eqv/views', '@eqv/editor', '@eqv/ui'].flatMap((source) => importForms(source).map((f) => ({ source, ...f }))))('allows $source ($form)', async ({ code }) => {
     expect((await lint(PAGE, code)).filter((m) => m.message.includes('ADR-0132')), code).toEqual([]);
   });
-  it.each(['@eqv/platform-adapter', '@eqv/platform-adapter/mock-data', '@eqv/replay', '@eqv/views', '@eqv/ui/styles.css'].flatMap((source) => importForms(source).map((f) => ({ source, ...f }))))('rejects $source ($form)', async ({ code, rule }) => {
+  it.each(['@eqv/ui/styles.css', '@eqv/replay/styles.css'].flatMap((source) => importForms(source).map((f) => ({ source, ...f }))))('rejects $source ($form)', async ({ code, rule }) => {
     const messages = await lint(PAGE, code);
     expect(messages.some((m) => m.ruleId === rule && m.message.includes('ADR-0132')), JSON.stringify(messages, null, 2)).toBe(true);
   });
@@ -1075,8 +1070,8 @@ describe('eqvMenu (menus/tools/topview-studio)', () => {
     const messages = await lint(MOCK, code);
     expect(messages.some((m) => m.ruleId === rule), JSON.stringify(messages, null, 2)).toBe(true);
   });
-  it.each(['menus/mars/analytics/src/x.ts', 'menus/log-dev/log-analysis/src/x.ts'])('another menu (%s) keeps rejecting the four entries', async (file) => {
-    for (const source of ['@eqv/core', '@eqv/renderer', '@eqv/editor', '@eqv/ui']) {
+  it.each(['menus/mars/analytics/src/x.ts', 'menus/log-dev/log-analysis/src/x.ts'])('another menu (%s) keeps rejecting the six entries', async (file) => {
+    for (const source of ['@eqv/core', '@eqv/renderer', '@eqv/replay', '@eqv/views', '@eqv/editor', '@eqv/ui']) {
       const messages = await lint(file, `import { x } from '${source}';`);
       expect(messages.some((m) => m.ruleId === 'no-restricted-imports' && m.message.includes('ADR-0132')), `${file} ${source}`).toBe(true);
     }
@@ -1095,7 +1090,7 @@ describe('eqvMenu (menus/tools/topview-studio)', () => {
         }
       }
     }
-    expect(owners).toEqual(['menus/tools/topview-studio']);
+    expect(owners).toEqual(['menus/tools/topview', 'menus/tools/topview-studio']);
   });
 });
 
@@ -1120,7 +1115,7 @@ describe('eqvCore (core, renderer)', () => {
     expect(messages.map((m) => m.ruleId)).toEqual([rule]);
     expect(messages[0]?.message).toContain('@eqv/core');
   });
-  it.each(['@eqv/replay', '@eqv/views', '@eqv/platform-adapter', '@eqv/ui/sub'])('core and renderer reject sibling %s', async (source) => {
+  it.each(['@eqv/replay', '@eqv/views', '@eqv/ui/sub'])('core and renderer reject sibling %s', async (source) => {
     for (const file of [CORE, RENDERER]) expect((await lintEqv(eqvCore, file, `import { x } from '${source}';`)).map((m) => m.ruleId)).toEqual(['no-restricted-imports']);
   });
   it.each([
@@ -1149,24 +1144,8 @@ describe('eqvUi (ui, replay, views, editor)', () => {
     const messages = await lintEqv(eqvUi, file, `import { x } from '${source}'; void import('${source}'); type X = import('${source}').X;`);
     expect(messages, JSON.stringify(messages, null, 2)).toEqual([]);
   });
-  it.each(UI_FILES.flatMap((file) => ['@eqv/platform-adapter', '@eqv/platform-adapter/manifest', '@eqv/platform-adapter/mock-data'].map((source) => ({ file, source }))))('rejects $source from $file: only the adapter reads the host port', async ({ file, source }) => {
-    const messages = await lintEqv(eqvUi, file, `import { x } from '${source}';`);
-    expect(messages.length, JSON.stringify(messages, null, 2)).toBeGreaterThan(0);
-  });
   it.each(['@eqv-extra/x', '@eqv/uix'])('near neighbour %s is not an EV identity', async (source) => {
     expect(await lintEqv(eqvUi, 'packages/eqv/ui/src/x.ts', `import { x } from '${source}';`)).toEqual([]);
-  });
-});
-
-describe('eqvHost (platform-adapter)', () => {
-  const ADAPTER = 'packages/eqv/platform-adapter/src/x.ts';
-  it.each(['@ap/kernel', '@ap/components', '@ap/shell', '@ap/menu-home'].flatMap((source) => importForms(source).map((f) => ({ source, ...f }))))('rejects $source ($form)', async ({ code, rule }) => {
-    const messages = await lintEqv(eqvHost, ADAPTER, code);
-    expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual([rule]);
-  });
-  it.each(['@ap/contracts', '@ap/ui', '@ap/ui/styles.css', '@eqv/core', '@eqv/views', '@eqv/replay'])('allows %s', async (source) => {
-    const messages = await lintEqv(eqvHost, ADAPTER, `import { x } from '${source}'; void import('${source}'); type X = import('${source}').X;`);
-    expect(messages, JSON.stringify(messages, null, 2)).toEqual([]);
   });
 });
 
@@ -1181,8 +1160,6 @@ describe('relative escape at packages/eqv/<name>', () => {
     ['core', eqvCore, 'void import(`../../../ui/src/y`);', ['ap/no-relative-package-escape']],
     ['core', eqvCore, `type X = import('../../../ui/src/y').X;`, ['ap/no-relative-package-escape']],
     ['ui', eqvUi, `import { y } from '../../replay/src/y';`, ['ap/no-relative-package-escape']],
-    ['platform-adapter', eqvHost, `import { y } from '../../core/src/y';`, ['ap/no-relative-package-escape']],
-    ['platform-adapter', eqvHost, `import { y } from './y';`, []],
   ] as const)('%s: %s', async (name, preset, code, expected) => {
     const messages = await lintEqv(preset as Linter.Config[], `packages/eqv/${name}/src/x.ts`, code);
     expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual(expected);
@@ -1197,7 +1174,7 @@ describe('relative escape at packages/eqv/<name>', () => {
   });
 });
 
-// Ported from EV's eslint-boundary.test.ts (verbatim cases, EV paths mapped: packages/core -> eqvCore, packages/platform-adapter -> eqvHost,
+// Ported from EV's eslint-boundary.test.ts (verbatim cases, EV paths mapped: packages/core -> eqvCore,
 // packages/ui|replay|editor|views -> eqvUi). Retired: the six 'analytics-platform/menus' cases and the 'apple'/'@apx' guard is kept.
 describe('ported from EV eslint-boundary', () => {
   const run = (preset: Linter.Config[], name: string, code: string) => lintEqv(preset, `packages/eqv/${name}/src/x.tsx`, code);
@@ -1208,15 +1185,6 @@ describe('ported from EV eslint-boundary', () => {
     [eqvCore, 'core', `export const dep = await import('@ap/kernel');`, 'ap/restricted-import-source'],
     [eqvCore, 'core', `export type Dep = import('@ap/kernel').Dep;`, 'ap/restricted-import-source'],
     [eqvCore, 'core', `const x = require('@ap/kernel');`, 'ap/restricted-import-source'],
-    [eqvHost, 'platform-adapter', `import x from '@ap/kernel';`, 'no-restricted-imports'],
-    [eqvHost, 'platform-adapter', `import x from '@ap/components';`, 'no-restricted-imports'],
-    [eqvHost, 'platform-adapter', `export const dep = await import('@ap/kernel');`, 'ap/restricted-import-source'],
-    [eqvHost, 'platform-adapter', `export type Dep = import('@ap/components').Dep;`, 'ap/restricted-import-source'],
-    [eqvHost, 'platform-adapter', `import { defineEndpoint } from '@ap/contracts';`, ''],
-    [eqvHost, 'platform-adapter', `import type { Text } from '@ap/contracts/i18n';`, 'no-restricted-imports'],
-    [eqvHost, 'platform-adapter', `import { Button } from '@ap/ui';`, ''],
-    [eqvHost, 'platform-adapter', `export const dep = await import('@ap/contracts');`, ''],
-    [eqvHost, 'platform-adapter', `export type Dep = import('@ap/ui').ButtonProps;`, ''],
     [eqvUi, 'ui', `import { defineEndpoint } from '@ap/contracts';`, 'no-restricted-imports'],
     [eqvCore, 'core', `import { Button } from '@ap/ui';`, 'no-restricted-imports'],
     [eqvCore, 'renderer', `export const dep = await import('@ap/ui');`, 'ap/restricted-import-source'],
@@ -1252,9 +1220,6 @@ describe('ported from EV design-lint', () => {
     ['packages/eqv/views/src/x.tsx', 'import { Button } from "@ap/ui"; export const X = ({ c }: { c: string }) => <Button className={`mt-${c}`}>x</Button>;', ['shadcn/require-static-classes']],
   ])('eqvUi %s: %s', async (file, code, expected) => {
     expect(await shadcnRules(eqvUi, file, code)).toEqual(expected);
-  });
-  it('eqvHost applies the design-system rules to platform-adapter', async () => {
-    expect(await shadcnRules(eqvHost, 'packages/eqv/platform-adapter/src/x.tsx', 'export const X = () => <div className="bg-red-500" />;')).toEqual(['shadcn/no-raw-colors']);
   });
   it('eqvCore stays design-system-free', async () => {
     expect(await shadcnRules(eqvCore, 'packages/eqv/renderer/src/x.tsx', 'export const X = () => <div style={{ color: "red" }} />;')).toEqual([]);
