@@ -6,6 +6,7 @@
 //   POST /requests/:id/heartbeat       { attemptNo }  -> 200 { leaseExpiresAt } | 409 queue.lease_lost
 //   POST /requests/:id/result          { attemptNo, ... } -> 200 | 409 conflict.stale_write | 409 queue.lease_lost | 422
 //   POST /requests/:id/fail            { attemptNo, reason? } -> 200 | 409 ...
+//   POST /requests/:id/attempts/:attemptNo/opinions  { submissionId, opinions } -> 200 | 404 | 409 conflict.attempt_not_succeeded | 409 conflict.stale_write | 422
 // The mutation judgments live in `queue-service.ts`; this file is authentication, the scope check and the wire shape.
 
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
@@ -18,6 +19,7 @@ import { requireWorkspace } from '../../middleware/require-workspace.js';
 import { refuseLostTokenContext } from '../api-tokens/gate.js';
 import { tokenSessionOf } from '../api-tokens/request-state.js';
 import type { SessionService } from '../auth/session-service.js';
+import { AttemptNotSucceededError } from './opinion-service.js';
 import { LeaseLostError, type QueueService, type WorkerCaller } from './queue-service.js';
 
 export const VALIDATION_QUEUE_ROUTE_PREFIX = '/api/v1/validation-queue';
@@ -69,6 +71,7 @@ export const workerRoutes: FastifyPluginAsync<WorkerRoutesOptions> = async (app,
       return await work();
     } catch (err) {
       if (err instanceof LeaseLostError) return reply.code(409).send({ code: 'queue.lease_lost', message: err.message });
+      if (err instanceof AttemptNotSucceededError) return reply.code(409).send({ code: 'conflict.attempt_not_succeeded', message: err.message });
       throw err;
     }
   }
@@ -87,5 +90,13 @@ export const workerRoutes: FastifyPluginAsync<WorkerRoutesOptions> = async (app,
   );
   app.post('/requests/:id/fail', { preHandler: pre, config }, async (req, reply) =>
     guard(reply, () => opts.queue.fail(callerOf(req), idOf(req), req.body)),
+  );
+  app.post('/requests/:id/attempts/:attemptNo/opinions', { preHandler: pre, config }, async (req, reply) =>
+    guard(reply, () => {
+      const raw = (req.params as { attemptNo?: string }).attemptNo ?? '';
+      const attemptNo = /^[1-9][0-9]{0,8}$/.test(raw) ? Number(raw) : 0;
+      if (attemptNo < 1) throw new HttpError('validation.failed', 'attemptNo must be a positive integer', { fields: [{ path: ['attemptNo'], code: 'malformed' }] });
+      return opts.queue.recordOpinions(callerOf(req), idOf(req), attemptNo, req.body);
+    }),
   );
 };

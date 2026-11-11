@@ -229,6 +229,8 @@ const MENU_PARAMS: Record<string, Record<string, unknown>> = {
   'logLifecycle.ruleResults': { attemptId: NO_ROW, page: 0, pageSize: 25 },
   'logLifecycle.hierarchy': { op: 'children', parentId: null, limit: 50 },
   'logLifecycle.excerpt': { ruleResultId: NO_ROW, evidenceIndex: 0 },
+  'logLifecycle.opinionScale': {},
+  'logLifecycle.opinions': { attemptId: NO_ROW, page: 0, pageSize: 25 },
   'logLifecycle.queueStatus': {},
   'logRules.catalogStatus': {},
   'logRules.ruleSets': { q: null, ...listPage },

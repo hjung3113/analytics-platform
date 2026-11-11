@@ -20,7 +20,9 @@ import {
   validationRounds,
 } from '../../../db/schema/log-lifecycle.js';
 import type { Tx } from '../../../db/tx.js';
-import type { RequestListQuery, RuleResultListQuery } from '../domain/queue-params.js';
+import { OPINION_GRADE_NONE, type RequestListQuery, type RuleResultListQuery } from '../domain/queue-params.js';
+import { type OpinionSummary, opinionCounts, opinionSummaries, summaryOut } from './opinion-read.js';
+import { getQueueSettings } from './queue-write.js';
 
 const q = executionRequests;
 const a = executionAttempts;
@@ -142,6 +144,8 @@ export interface AttemptOut {
   requiredUnchecked: number;
   /** Rule results by result value, e.g. `{ PASS: 8, FAIL: 1 }`. */
   counts: Record<string, number>;
+  /** Opinion rows stored for this attempt (#1778); 0 = the screen shows no opinion UI. Never read by the verdict. */
+  opinionCount: number;
 }
 
 export interface RequestDetail extends RequestRowOut {
@@ -171,6 +175,7 @@ export async function getRequestDetail(tx: Tx, workspaceId: string, requestId: s
     .innerJoin(a, and(eq(a.workspaceId, rr.workspaceId), eq(a.id, rr.attemptId)))
     .where(and(eq(rr.workspaceId, workspaceId), eq(a.requestId, requestId)))
     .groupBy(rr.attemptId, rr.result);
+  const opinionByAttempt = await opinionCounts(tx, workspaceId, requestId);
   const sourceOwner = (roundRow.sampleSet as { sourceOwner?: string }).sourceOwner ?? '';
   return {
     ...list.row,
@@ -197,6 +202,7 @@ export async function getRequestDetail(tx: Tx, workspaceId: string, requestId: s
         requiredUnchecked: mine.reduce((s, t) => s + Number(t.unchecked), 0),
         ruleCount: mine.reduce((s, t) => s + Number(t.n), 0),
         counts: Object.fromEntries(mine.map((t) => [t.result, Number(t.n)])),
+        opinionCount: opinionByAttempt.get(x.id) ?? 0,
       };
     }),
   };
@@ -246,6 +252,15 @@ export interface RuleResultOut {
   /** `[{ fileRef, line, fileSha256, hasExcerpt }]`: the body of an excerpt is never here. */
   evidence: unknown;
   hasExcerpt: boolean;
+  /** The latest opinion of the linked item (#1778); `null` when there is none. A separate axis: `result` and `required` never change with it. */
+  opinion: OpinionSummary | null;
+}
+
+/** `opinionGrade`: the grade of the item's latest opinion, or `none` for no opinion at all. Never touches `result`. */
+function opinionGradeFilter(grade: string | undefined) {
+  if (grade === undefined) return undefined;
+  if (grade === OPINION_GRADE_NONE) return sql`not exists (select 1 from log_lifecycle.attempt_opinion fo where fo.rule_result_id = ${rr.id})`;
+  return sql`(select fo.grade from log_lifecycle.attempt_opinion fo where fo.rule_result_id = ${rr.id} order by fo.created_at desc, fo.id desc limit 1) = ${grade}`;
 }
 
 /** The rule results of one attempt (server page, filter by result / required), rule id order. */
@@ -260,11 +275,15 @@ export async function listRuleResults(tx: Tx, workspaceId: string, query: RuleRe
     eq(rr.attemptId, query.attemptId),
     query.results ? inArray(rr.result, [...query.results]) : undefined,
     query.required === undefined ? undefined : eq(rr.required, query.required),
+    opinionGradeFilter(query.opinionGrade),
   );
   const sortColumns = { ruleId: rr.ruleId, result: rr.result, required: rr.required };
   const order = query.sorting.map((s) => (s.desc ? desc : asc)(sortColumns[s.id as keyof typeof sortColumns]));
   const rows = await tx.select().from(rr).where(where).orderBy(...order, asc(rr.id)).limit(query.pageSize).offset(query.page * query.pageSize);
   const [totalRow] = await tx.select({ n: count() }).from(rr).where(where);
+  const summaries = await opinionSummaries(tx, workspaceId, query.attemptId, rows.map((r) => r.id));
+  // The scale (for labels) is read only when some row on this page has an opinion: with none, no extra statement runs.
+  const scale = summaries.size > 0 ? (await getQueueSettings(tx, workspaceId)).opinionScale : null;
   return {
     total: Number(totalRow?.n ?? 0),
     rows: rows.map((r) => ({
@@ -276,6 +295,10 @@ export async function listRuleResults(tx: Tx, workspaceId: string, query: RuleRe
       observed: r.observed,
       evidence: r.evidence,
       hasExcerpt: Array.isArray(r.evidence) && r.evidence.some((e) => (e as { hasExcerpt?: unknown }).hasExcerpt === true),
+      opinion: (() => {
+        const s = summaries.get(r.id);
+        return s && scale ? summaryOut(scale, s) : null;
+      })(),
     })),
   };
 }

@@ -26,6 +26,7 @@ describe('log lifecycle audit detail schemas (#1444 c)', () => {
     ['lifecycle.excerpt_access.set', { actorId: ID, allowed: false }],
     ['lifecycle.excerpt.deleted', { scope: 'attempt', count: 2, attemptId: ID }],
     ['lifecycle.excerpt.purged', { count: 3, retentionDays: 90 }],
+    ['lifecycle.opinion.recorded', { attemptNo: 1, recorded: 2 }],
     ['lifecycle.gate.decided', { projectId: ID, seq: 1, gateDecisionId: ID, decision: 'exception', from: 'beta', targetStage: 'completed', selfApproved: true, attemptCount: 2, evidenceLinkCount: 1, riskAcceptedBy: ID }],
   ] as const)('%s accepts its detail', (type, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(true);

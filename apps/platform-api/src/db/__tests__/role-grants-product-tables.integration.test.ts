@@ -195,6 +195,8 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_lifecycle.execution_attempt': ['SELECT', 'INSERT'],
   'log_lifecycle.rule_result': ['SELECT', 'INSERT'],
   'log_lifecycle.rule_result_evidence': ['SELECT', 'INSERT'],
+  // Migration 0126 (#1778): opinions on attempt items are append-only (guard trigger on top of the missing UPDATE / DELETE grant).
+  'log_lifecycle.attempt_opinion': ['SELECT', 'INSERT'],
   'log_lifecycle.rule_result_excerpt': ['SELECT', 'INSERT'],
   'log_lifecycle.queue_settings': ['SELECT', 'INSERT'],
   'log_lifecycle.excerpt_reader': ['SELECT', 'INSERT'],
@@ -454,8 +456,9 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
     ['execution_attempt', ['outcome', 'ended_at', 'executor_version', 'executor_digest', 'rule_set_revision', 'input_manifest_digest', 'result_digest', 'verdict', 'worker_summary']],
     ['rule_result', []],
     ['rule_result_excerpt', []],
+    ['attempt_opinion', []],
     ['gate_decision', []],
-    ['queue_settings', ['run_window', 'lease_seconds', 'immediate_limit', 'excerpt_retention_days', 'updated_at', 'updated_by']],
+    ['queue_settings', ['run_window', 'lease_seconds', 'immediate_limit', 'excerpt_retention_days', 'opinion_scale', 'updated_at', 'updated_by']],
     ['excerpt_reader', ['granted_by', 'granted_at', 'revoked_at']],
   ] as const)('platform_app UPDATE on log_lifecycle.%s is limited to the mutable columns', async (table, columns) => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(

@@ -18,6 +18,7 @@ import {
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 import { type PlatformActor, holdsPlatformPermission } from '../platform-port/permissions.js';
 import { DEFAULT_MAX_ATTEMPTS, parseQueueInput, QUEUE_INPUT_KEYS, type QueueOp, validateQueueInput } from './domain/queue-input.js';
+import { readOpinionScale } from './domain/opinion-input.js';
 import { parseRunWindow } from './domain/run-window.js';
 import { LOG_VALIDATION_REQUESTS_MENU_ID } from './menu.js';
 import { LIFECYCLE_ROUND_MENU_PERMISSION, LIFECYCLE_ROUND_PERMISSION } from './round-actions.js';
@@ -167,6 +168,7 @@ export function requestActions(deps: RequestActionDeps): MenuActionDeclaration[]
         leaseSeconds: v.leaseSeconds ?? current.leaseSeconds,
         immediateLimit: v.immediateLimit ?? current.immediateLimit,
         excerptRetentionDays: v.excerptRetentionDays ?? current.excerptRetentionDays,
+        opinionScale: v.opinionScale === undefined ? current.opinionScale : readOpinionScale(v.opinionScale),
       };
       const changed = (Object.keys(next) as (keyof typeof next)[]).filter((k) => JSON.stringify(next[k]) !== JSON.stringify(current[k]));
       if (changed.length === 0) return { data: { changed: [] }, version: null };

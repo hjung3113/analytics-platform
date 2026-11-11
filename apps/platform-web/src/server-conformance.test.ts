@@ -133,6 +133,7 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'logLifecycle.roundEvidence': { roundId: '14470000-0000-4000-8000-000000000201' },
   'logLifecycle.requests': { page: 0, pageSize: 25 },
   'logLifecycle.requestDetail': { requestId: '14470000-0000-4000-8000-000000000301' },
+  'logLifecycle.opinions': { attemptId: '14470000-0000-4000-8000-000001778401', unlinked: true, page: 0, pageSize: 25 },
   'logLifecycle.ruleResults': { attemptId: '14470000-0000-4000-8000-000000000401', page: 0, pageSize: 25 },
   'logLifecycle.hierarchy': { op: 'children', parentId: null, limit: 50 },
   'logLifecycle.excerpt': { ruleResultId: '14470000-0000-4000-8000-000000000501', evidenceIndex: 0 },

@@ -39,6 +39,7 @@ import {
 } from './repositories/queue-write.js';
 import { countRuleResults } from './repositories/queue-read.js';
 import type { SampleSet } from './domain/sample-set.js';
+import { createOpinionService } from './opinion-service.js';
 
 export class LeaseLostError extends Error {
   constructor(message = 'the lease of this attempt is gone') {
@@ -279,7 +280,9 @@ export function createQueueService(deps: QueueServiceDeps) {
     });
   }
 
-  return { claim, heartbeat, submitResult, fail };
+  // Opinions on a succeeded attempt (#1778): their own service and axis; exposed here so the worker routes keep one handle.
+  const recordOpinions = createOpinionService({ db: deps.db }).record;
+  return { claim, heartbeat, submitResult, fail, recordOpinions };
 }
 
 export type QueueService = ReturnType<typeof createQueueService>;

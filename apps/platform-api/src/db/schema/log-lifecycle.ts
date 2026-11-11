@@ -434,6 +434,8 @@ export const queueSettings = logLifecycleSchema.table(
     leaseSeconds: integer('lease_seconds').notNull().default(300),
     immediateLimit: integer('immediate_limit').notNull().default(5),
     excerptRetentionDays: integer('excerpt_retention_days').notNull().default(90),
+    /** The in-house opinion scale (#1778, ADR-0117 amendment 2): `{ grades: [{ key, label }], marks: [{ key, label }] }`, array order = display order. */
+    opinionScale: jsonb('opinion_scale').notNull().default(sql`'{"grades":[],"marks":[]}'::jsonb`),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     updatedBy: uuid('updated_by')
       .notNull()
@@ -444,6 +446,63 @@ export const queueSettings = logLifecycleSchema.table(
     leaseCheck: check('queue_settings_lease_check', sql`${t.leaseSeconds} between 30 and 3600`),
     limitCheck: check('queue_settings_immediate_limit_check', sql`${t.immediateLimit} between 0 and 50`),
     retentionCheck: check('queue_settings_retention_check', sql`${t.excerptRetentionDays} between 1 and 3650`),
+    opinionScaleCheck: check(
+      'queue_settings_opinion_scale_check',
+      sql`jsonb_typeof(${t.opinionScale}) = 'object' and jsonb_typeof(${t.opinionScale} -> 'grades') = 'array' and jsonb_typeof(${t.opinionScale} -> 'marks') = 'array' and jsonb_array_length(${t.opinionScale} -> 'grades') <= 12 and jsonb_array_length(${t.opinionScale} -> 'marks') <= 12`,
+    ),
+  }),
+);
+
+/**
+ * Opinions on the items of a succeeded attempt (#1778, ADR-0117 amendment 2): append-only, on their own axis. Not one-to-one with a
+ * rule result (`rule_result_id` is set only when the same attempt has a rule result with `rule_id = item_key`). Nothing that computes
+ * a verdict, a Gate decision or a regression comparison reads this table. Notes are untrusted text, capped per row and per attempt.
+ */
+export const attemptOpinions = logLifecycleSchema.table(
+  'attempt_opinion',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    attemptId: uuid('attempt_id').notNull(),
+    itemKey: text('item_key').notNull(),
+    ruleResultId: uuid('rule_result_id'),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => actors.id),
+    /** The API token the write came in with (core.api_tokens, plain uuid: no cross-schema FK). */
+    tokenId: uuid('token_id'),
+    submissionId: text('submission_id').notNull(),
+    grade: text('grade').notNull(),
+    mark: text('mark'),
+    note: text('note'),
+    /** `[{ fileRef, line, fileSha256 }]`, at most 20; locations only. */
+    evidence: jsonb('evidence').notNull().default(sql`'[]'::jsonb`),
+    inputRevision: text('input_revision'),
+    producer: text('producer'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    attemptFk: foreignKey({
+      name: 'attempt_opinion_attempt_fk',
+      columns: [t.workspaceId, t.attemptId],
+      foreignColumns: [executionAttempts.workspaceId, executionAttempts.id],
+    }).onDelete('restrict'),
+    ruleResultFk: foreignKey({
+      name: 'attempt_opinion_rule_result_fk',
+      columns: [t.workspaceId, t.ruleResultId],
+      foreignColumns: [ruleResults.workspaceId, ruleResults.id],
+    }).onDelete('restrict'),
+    submissionUq: unique('attempt_opinion_submission_uq').on(t.attemptId, t.actorId, t.submissionId, t.itemKey),
+    itemIdx: index('attempt_opinion_item_idx').on(t.workspaceId, t.attemptId, t.itemKey, t.createdAt.desc(), t.id.desc()),
+    ruleResultIdx: index('attempt_opinion_rule_result_idx').on(t.ruleResultId).where(sql`${t.ruleResultId} is not null`),
+    gradeCheck: check('attempt_opinion_grade_check', sql`${t.grade} ~ '^[a-z0-9_-]{1,32}$' and (${t.mark} is null or ${t.mark} ~ '^[a-z0-9_-]{1,32}$')`),
+    textCheck: check(
+      'attempt_opinion_text_check',
+      sql`char_length(${t.itemKey}) between 1 and 200 and char_length(${t.submissionId}) between 1 and 200 and coalesce(char_length(${t.note}), 0) <= 1000 and coalesce(char_length(${t.inputRevision}), 0) <= 200 and coalesce(char_length(${t.producer}), 0) <= 200`,
+    ),
+    evidenceCheck: check('attempt_opinion_evidence_check', sql`jsonb_typeof(${t.evidence}) = 'array' and jsonb_array_length(${t.evidence}) <= 20`),
   }),
 );
 

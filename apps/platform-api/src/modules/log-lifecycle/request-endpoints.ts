@@ -14,16 +14,20 @@ import { withAttemptRuleSets } from './attempt-rule-set.js';
 import type { LogLifecycleDeps } from './deps.js';
 import {
   EXCERPT_PARAM_KEYS,
+  OPINION_PARAM_KEYS,
+  OPINION_SCALE_PARAM_KEYS,
   REQUEST_DETAIL_PARAM_KEYS,
   REQUEST_PARAM_KEYS,
   RULE_RESULT_PARAM_KEYS,
   parseExcerptParams,
+  parseOpinionListParams,
   parseRequestDetailParams,
   parseRequestListParams,
   parseRuleResultParams,
 } from './domain/queue-params.js';
 import { LOG_VALIDATION_REQUESTS_MENU_ID } from './menu.js';
 import { excerptTarget, getRequestDetail, listRequests, listRuleResults, readExcerpt } from './repositories/queue-read.js';
+import { listOpinions } from './repositories/opinion-read.js';
 import { isWithinRunWindow } from './domain/run-window.js';
 import { sql } from 'drizzle-orm';
 import { getQueueSettings, holdsExcerptRead } from './repositories/queue-write.js';
@@ -90,6 +94,18 @@ export function requestEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclaratio
       outcome: 'ok',
       data: await listRuleResults(deps.db, actor.workspace_id, query, viewerOf(actor)),
     })),
+    // The in-house grade / mark declaration (#1778), for the columns and filters of the rule results and the opinion list.
+    declare(deps, 'opinionScale', OPINION_SCALE_PARAM_KEYS, () => ({ ok: true, value: null }), async (actor) => ({
+      outcome: 'ok',
+      data: (await getQueueSettings(deps.db, actor.workspace_id)).opinionScale,
+    })),
+    // The opinions of one attempt, newest first, with the note text (the only read that returns it). Same visibility as `ruleResults`.
+    declare(deps, 'opinions', OPINION_PARAM_KEYS, parseOpinionListParams, async (actor, query) =>
+      deps.db.transaction(async (tx): Promise<EndpointResult> => {
+        const scale = (await getQueueSettings(tx, actor.workspace_id)).opinionScale;
+        return { outcome: 'ok', data: await listOpinions(tx, actor.workspace_id, query, scale, viewerOf(actor)) };
+      }),
+    ),
     declare(deps, 'excerpt', EXCERPT_PARAM_KEYS, parseExcerptParams, async (actor, q) => {
       // Human sessions only: no token can hold the per-source right, and a token read would have no person to audit.
       if (currentAuthContext().kind === 'token') return { outcome: 'forbidden', data: null, message: 'excerpt reads need a login session' };

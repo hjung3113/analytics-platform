@@ -72,6 +72,7 @@ describe('audit action map vs @ap/contracts AuditAction', () => {
     ['lifecycle.excerpt_access.set', 'update'],
     ['lifecycle.excerpt.deleted', 'retire'],
     ['lifecycle.excerpt.purged', 'retire'],
+    ['lifecycle.opinion.recorded', 'create'],
     ['dataset.created', 'create'],
     ['dataset.updated', 'update'],
     ['dataset.archived', 'retire'],
