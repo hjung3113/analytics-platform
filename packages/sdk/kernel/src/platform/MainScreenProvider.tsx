@@ -186,7 +186,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, [pageNavigation, location, usageNav, arrive, guard, menuFor]);
+  }, [pageNavigation, location, usageNav, arrive, guard, menuFor, hiddenKeysFor]);
 
   // Recent visits (the main screen's own history; a pane never writes them).
   useEffect(() => {
