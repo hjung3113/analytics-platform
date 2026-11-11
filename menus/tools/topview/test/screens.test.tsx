@@ -1,6 +1,6 @@
 import { act, cleanup, configure, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { ApiResponse } from '@ap/contracts';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { FocusScreen } from '../src/screens/FocusScreen.js';
 import { TopViewScreen } from '../src/screens/TopViewScreen.js';
 import { assessments, createFake, deferred, ok, response, type FakeOptions, type QueryCall } from './test-support.js';
@@ -556,26 +556,46 @@ describe('Top View equipment bar (#1644)', () => {
 
   describe('focus through list failure and retry', () => {
     const retryButton = () => screen.getByRole('button', { name: '다시 시도' });
+    // #1751 diagnostics: the status-row focus check failed once in CI (focus on <body>) and never locally. A failure prints
+    // the focus moves since the retry, the focused element and the list request state so a recurrence names its cause.
+    const describeNode = (node: EventTarget | null) => {
+      if (!(node instanceof Element)) return node === null ? 'null' : String(node);
+      const role = node.getAttribute('role');
+      return `${node.tagName.toLowerCase()}${node.id ? `#${node.id}` : ''}${role ? `[role=${role}]` : ''}${node.isConnected ? '' : '(detached)'} "${(node.textContent ?? '').slice(0, 30)}"`;
+    };
     const failedThenRetry = async () => {
       const retries: Array<ReturnType<typeof deferred<ApiResponse<unknown>>>> = [];
       let attempts = 0;
+      let settled = 0;
       const fake = fakeFor('topview', { page: {}, query: call => {
         if (call.id !== OPTIONS_ID) return server()(call);
-        if (++attempts === 1) return Promise.resolve(response('error', null, { assessments: [] }));
+        if (++attempts === 1) { settled += 1; return Promise.resolve(response('error', null, { assessments: [] })); }
         const next = deferred<ApiResponse<unknown>>();
         retries.push(next);
-        return next.promise;
+        return next.promise.finally(() => { settled += 1; });
       } });
       fake.render(TopViewScreen);
       await screen.findByText('설비 목록을 불러오지 못했습니다');
+      const trace: string[] = [];
+      const record = (event: FocusEvent) => trace.push(`${event.type} ${describeNode(event.target)} -> related ${describeNode(event.relatedTarget)}`);
+      document.addEventListener('focusin', record);
+      document.addEventListener('focusout', record);
+      onTestFinished(() => { document.removeEventListener('focusin', record); document.removeEventListener('focusout', record); });
       retryButton().focus();
       fireEvent.click(retryButton());
       await screen.findByText('설비 목록을 불러오는 중…');
-      return { retries };
+      const diagnose = () => [
+        `activeElement: ${describeNode(document.activeElement)}`,
+        `list requests: started ${attempts}, settled ${settled} (fetching: ${attempts > settled})`,
+        `bar: loading row ${screen.queryByText('설비 목록을 불러오는 중…') ? 'shown' : 'absent'}, retry action ${screen.queryByRole('button', { name: '다시 시도' }) ? 'shown' : 'absent'}`,
+        'focus moves since the retry:', ...trace.map(line => `  ${line}`),
+      ].join('\n');
+      return { retries, diagnose };
     };
     it('holds focus on the status row while retrying, then on the retry action after another failure', async () => {
-      const { retries } = await failedThenRetry();
-      expect(document.activeElement).toBe(screen.getByText('설비 목록을 불러오는 중…'));
+      const { retries, diagnose } = await failedThenRetry();
+      const row = screen.getByText('설비 목록을 불러오는 중…');
+      expect(document.activeElement, document.activeElement === row ? undefined : diagnose()).toBe(row);
       await act(async () => { retries[0]!.resolve(response('error', null, { assessments: [] })); await retries[0]!.promise; });
       await waitFor(() => expect(document.activeElement).toBe(retryButton()));
     });
