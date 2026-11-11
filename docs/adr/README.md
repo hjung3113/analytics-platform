@@ -151,6 +151,9 @@
 | [0138](0138-cross-site-guard-for-cookie-state-changing-requests.md) | 세션 쿠키 상태 변경 요청은 `Sec-Fetch-Site`가 `same-origin`이 아니면 거절 | Decided(2026-11-11, lane platform, 되돌릴 수 있음) — ADR-0071·0069 결정 4의 CSRF 문장을 고친다 |
 | [0139](0139-eqv-onboarding-storage-and-publish.md) | 서버 `eqv` Onboarding: alias 규칙·Type Dictionary·Mapping Version·Baseline·Binding의 저장과 게시 | Decided(2026-11-11, lane ev 코디네이터, 되돌릴 수 있음) — Scope 키는 Hub id, 게시는 한 트랜잭션, 구현 #1658 서버 |
 | [0140](0140-generic-file-upload-port.md) | 범용 파일 올리기는 선택 포트 `uploadFile`과 `POST /platform/files`, 저장은 첨부 모듈 재사용 | Decided(2026-11-11) |
+| [0141](0141-in-house-assembly-in-separate-repository.md) | 사내 조립은 이 저장소 밖의 별도 저장소에서 한다(방향 채택, 전제 변경은 저장소 밖 조립 시험 통과 뒤 발효) | Decided(2026-11-11) |
+| [0142](0142-out-of-repo-menu-package-and-host-module-split.md) | 사내 메뉴는 «저장소 밖 메뉴 패키지», 자체 UI 제품은 호스트 모듈로 나눈다 | Decided(2026-11-11) |
+| [0143](0143-release-units-and-compatibility-train.md) | 릴리스 단위는 셋(SDK, Host·어댑터, 코어 서버 묶음), 호환은 «같은 열차 N, 롤백용 N-1»만 | Decided(2026-11-11) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

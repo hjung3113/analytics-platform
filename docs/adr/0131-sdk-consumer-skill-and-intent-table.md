@@ -1,6 +1,6 @@
 # SDK 소비 지원은 스킬과 손으로 쓴 의도어 표로 시작하고, 생성형 Catalog는 만들지 않는다
 
-상태: **Decided (2026-11-10)**. 구현은 [#1207](https://github.com/hjung3113/analytics-platform/issues/1207)이다.
+상태: **Decided (2026-11-10)**. 구현은 [#1207](https://github.com/hjung3113/analytics-platform/issues/1207)이다. 대체 예정: [ADR-0141](0141-in-house-assembly-in-separate-repository.md)의 발효 조건(저장소 밖 조립 시험 통과)이 충족되면 «이 저장소에서 개발, 외부 배포 제외» 전제가 바뀐다.
 - 결정자: 사용자(소유자) — 2026-11-10. "여러 개발자가 이 저장소에서 개발하는 전제로 **외부 배포는 이번에서 뺍니다.** 2026-11-09의 외부 사용 결정을 대체합니다."
 - 결정자: 코디네이터(사용자 위임) — 리드, 2026-11-10, 독립 리뷰 반영. "첫 전달은 `ap-sdk-consumer` 스킬, 손으로 쓴 의도어 표 20행 안팎, 이름 존재 검사, 메뉴 작업 3건의 사용 전후 비교입니다. `inspect`와 `check`가 기존 `.api.txt`, lint, tsc와 겹치기 때문입니다." 이름, `*.api.txt` 재사용, Context 안내도 여기서 정했다. 되돌릴 수 있다.
 
