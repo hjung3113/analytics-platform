@@ -454,6 +454,35 @@ describe.skipIf(!runIntegration)('attempt opinions (#1778 a)', () => {
       }
     });
 
+    it('a resend stays idempotent after its grade or mark left the scale, or the scale was emptied; only new rows meet the current scale', async () => {
+      const s = await succeeded();
+      const body = { submissionId: 'scale-1', opinions: [item({ grade: 'high', mark: 'flag' })] };
+      expect((await write(s.requestId, body)).json()).toMatchObject({ recorded: 1, duplicate: 0 });
+      try {
+        await setScale({ grades: [{ key: 'low', label: 'Low' }], marks: [] });
+        const again = await write(s.requestId, body);
+        expect(again.statusCode, again.body).toBe(200);
+        expect(again.json()).toMatchObject({ recorded: 0, duplicate: 1 });
+        const changed = await write(s.requestId, { submissionId: 'scale-1', opinions: [item({ grade: 'low' })] });
+        expect(changed.statusCode).toBe(409);
+        expect(changed.json().code).toBe('conflict.stale_write');
+        const fresh = await write(s.requestId, { submissionId: 'scale-2', opinions: [item({ grade: 'high' })] });
+        expect(fresh.statusCode).toBe(422);
+        expect(fields(fresh)).toEqual(['opinions.0.grade:not_declared']);
+        await setScale({ grades: [], marks: [] });
+        const emptied = await write(s.requestId, body);
+        expect(emptied.statusCode, emptied.body).toBe(200);
+        expect(emptied.json()).toMatchObject({ recorded: 0, duplicate: 1 });
+        expect((await write(s.requestId, { submissionId: 'scale-1', opinions: [item({ grade: 'low' })] })).statusCode).toBe(409);
+        const brandNew = await write(s.requestId, { submissionId: 'scale-3', opinions: [item({ grade: 'high' })] });
+        expect(brandNew.statusCode).toBe(422);
+        expect(fields(brandNew)).toEqual(['opinions:opinion.scale_undeclared']);
+        expect(await opinionRows(s.attemptId)).toHaveLength(1);
+      } finally {
+        await setScale(SCALE);
+      }
+    });
+
     it('a correction is a new submissionId: A -> B -> A returns the current opinion to A, and resending the first changes nothing', async () => {
       const s = await succeeded();
       const current = async () => (await ruleResultsOf(s.attemptId)).rows.find((r) => r.ruleId === 'R1')?.opinion as Row;
@@ -561,14 +590,28 @@ describe.skipIf(!runIntegration)('attempt opinions (#1778 a)', () => {
       expect(JSON.stringify(list)).not.toContain('NOTE-MARKER');
       expect(JSON.stringify((await read('requestDetail', { requestId: s.requestId })).data)).not.toContain('NOTE-MARKER');
       expect(JSON.stringify((await read('requests', { roundId: s.roundId })).data)).not.toContain('NOTE-MARKER');
-      const page = (await read('opinions', { attemptId: s.attemptId })).data;
-      expect(page.total).toBe(3);
+      // No item filter: one summary row per item, never the note, evidence, revision or producer.
+      const general = (await read('opinions', { attemptId: s.attemptId })).data;
+      expect(general.total).toBe(2);
+      expect(JSON.stringify(general)).not.toContain('"note"');
+      expect(JSON.stringify(general)).not.toContain('NOTE-MARKER');
+      for (const r of general.rows as Row[]) expect(Object.keys(r).sort()).toEqual(['at', 'count', 'grade', 'hasNote', 'itemKey', 'mark']);
+      const byItem = (rows: Row[], k: string) => rows.find((r) => r.itemKey === k) as Row;
+      expect(byItem(general.rows, 'R1')).toMatchObject({ grade: { key: 'mid', label: 'Mid' }, mark: null, hasNote: false, count: 2 });
+      expect(byItem(general.rows, 'UNLINKED')).toMatchObject({ grade: { key: 'low', label: 'Low' }, hasNote: true, count: 1 });
+      const unlinked = (await read('opinions', { attemptId: s.attemptId, unlinked: true })).data;
+      expect(JSON.stringify(unlinked)).not.toContain('"note"');
+      expect(JSON.stringify(unlinked)).not.toContain('second memo');
+      expect(unlinked.rows.map((r: Row) => [r.itemKey, r.hasNote])).toEqual([['UNLINKED', true]]);
+      // An item-specific history carries the note newest first.
+      const page = (await read('opinions', { attemptId: s.attemptId, itemKey: 'R1' })).data;
+      expect(page.total).toBe(2);
       const label = (r: Row) => `${r.itemKey}:${(r.grade as Row).key}`;
-      expect(label(page.rows[0])).toBe('R1:mid'); // the later submission first; the two rows of one submission are in no fixed order
-      expect(page.rows.slice(1).map(label).sort()).toEqual(['R1:high', 'UNLINKED:low']);
-      const first = page.rows.find((r: Row) => label(r) === 'R1:high');
+      expect(page.rows.map(label)).toEqual(['R1:mid', 'R1:high']);
+      const first = page.rows[1];
       expect(first).toMatchObject({ note: NOTE, mark: { key: 'flag', label: 'Flag' }, evidence: [], inputRevision: null, producer: null, author: { id: systemA } });
       expect(typeof first.author.displayName).toBe('string');
+      expect((await read('opinions', { attemptId: s.attemptId, itemKey: 'UNLINKED' })).data.rows[0]).toMatchObject({ note: 'second memo' });
       expect((await read('requestDetail', { requestId: s.requestId })).data.attempts[0].opinionCount).toBe(3);
     });
 
@@ -581,8 +624,8 @@ describe.skipIf(!runIntegration)('attempt opinions (#1778 a)', () => {
       expect(await keys({ ruleResultId: r1 })).toEqual(['R1', 'R1']);
       expect(await keys({ itemKey: 'U1' })).toEqual(['U1']);
       expect((await keys({ unlinked: true })).sort()).toEqual(['U1', 'U2']);
-      expect(((await read('opinions', { attemptId: s.attemptId, pageSize: 2 })).data as { rows: Row[]; total: number })).toMatchObject({ total: 4 });
-      expect(((await read('opinions', { attemptId: s.attemptId, pageSize: 2, page: 1 })).data.rows as Row[]).length).toBe(2);
+      expect(((await read('opinions', { attemptId: s.attemptId, pageSize: 2 })).data as { rows: Row[]; total: number })).toMatchObject({ total: 3 });
+      expect(((await read('opinions', { attemptId: s.attemptId, pageSize: 2, page: 1 })).data.rows as Row[]).length).toBe(1);
       for (const bad of [{ pageSize: 101 }, { unlinked: false }, { unlinked: true, ruleResultId: r1 }, { attemptId: 'x' }]) {
         const res = await app.inject({
           method: 'POST',

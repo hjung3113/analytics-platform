@@ -20,5 +20,5 @@ const actionInputs: Record<string, string[]> = {
 export const actions: Record<string, ActionSpec<Params, Record<string, unknown>>> = Object.fromEntries(Object.entries(actionInputs).map(([name, input]) => [name, defineAction<Params, Record<string, unknown>>({ id: `logLifecycle.${name}`, menuId: name.startsWith('request') ? 'log-validation-requests' : 'log-models', permission: name === 'gateDecide' ? GATE_DECIDE : name.startsWith('project') ? PROJECT_MANAGE : ROUND_MANAGE, requiresScope: false, inputKeys: keys(input), concurrency: ['projectCreate', 'roundOpen', 'requestCreate'].includes(name) ? 'none' : 'version', invalidates: Object.values(endpoints).filter(e => e.id !== 'logLifecycle.excerpt' && e.menuId === (name.startsWith('request') ? 'log-validation-requests' : 'log-models')) })]));
 export const endpointSpecs = Object.values(endpoints);
 
-export type { Model, Project, ProjectEvent, Round, RoundDetail, RequestRow, RequestDetail, RuleResult, QueueStatus, GateDecision } from '@ap/feature-screens/operator-screens/log-lifecycle';
+export type { Model, Project, ProjectEvent, Round, RoundDetail, RequestRow, RequestDetail, RuleResult, Opinion, OpinionListRow, QueueStatus, GateDecision } from '@ap/feature-screens/operator-screens/log-lifecycle';
 

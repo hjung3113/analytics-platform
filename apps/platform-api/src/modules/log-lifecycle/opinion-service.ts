@@ -6,7 +6,7 @@
 import { createAuditService } from '../core/audit/audit-service.js';
 import type { Db } from '../../db/client.js';
 import { HttpError } from '../../lib/errors.js';
-import { judgeAttemptTotals, noteBytes, opinionFingerprint, parseOpinionBody } from './domain/opinion-input.js';
+import { checkOpinionScale, judgeAttemptTotals, noteBytes, opinionFingerprint, parseOpinionBody } from './domain/opinion-input.js';
 import type { WorkerCaller } from './queue-service.js';
 import { attemptOpinionTotals, insertOpinions, opinionsOfSubmission, ruleResultIdsByRuleId } from './repositories/opinion-write.js';
 import { getAttempt, getQueueSettings, lockRequest, subjectOf } from './repositories/queue-write.js';
@@ -40,20 +40,26 @@ export function createOpinionService(deps: { db: Db }) {
       const subject = await subjectOf(tx, caller.workspaceId, request, caller);
       if (!subject) throw new Error('execution request without a subject');
       const settings = await getQueueSettings(tx, caller.workspaceId);
-      const parsed = parseOpinionBody(rawBody, new Set(subject.sampleSet.files.map((f) => f.fileRef)), settings.opinionScale);
+      const parsed = parseOpinionBody(rawBody, new Set(subject.sampleSet.files.map((f) => f.fileRef)), null);
       if (!parsed.ok) throw new HttpError('validation.failed', 'opinions refused', { fields: parsed.errors.map((e) => ({ path: [...e.path], code: e.code })) });
       const { submissionId, opinions } = parsed.value;
 
       const stored = await opinionsOfSubmission(tx, caller.workspaceId, attempt.id, caller.actorId, submissionId, opinions.map((o) => o.itemKey));
+      // The resend check comes before the current scale: a stored submission stays idempotent after its grade left the scale.
       const fresh = [];
+      const freshAt: number[] = [];
       let duplicate = 0;
-      for (const o of opinions) {
+      for (const [i, o] of opinions.entries()) {
         const same = stored.get(o.itemKey);
-        if (!same) fresh.push(o);
-        else if (opinionFingerprint(same) === opinionFingerprint(o)) duplicate += 1;
+        if (!same) {
+          fresh.push(o);
+          freshAt.push(i);
+        } else if (opinionFingerprint(same) === opinionFingerprint(o)) duplicate += 1;
         else throw new HttpError('conflict.stale_write', 'this submissionId already holds different content for an item');
       }
       if (fresh.length > 0) {
+        const scaleErrors = checkOpinionScale(fresh, freshAt, settings.opinionScale);
+        if (scaleErrors.length > 0) throw new HttpError('validation.failed', 'opinions refused', { fields: scaleErrors.map((e) => ({ path: [...e.path], code: e.code })) });
         const totals = await attemptOpinionTotals(tx, caller.workspaceId, attempt.id);
         const over = judgeAttemptTotals(totals, { rows: fresh.length, noteBytes: fresh.reduce((s, o) => s + noteBytes(o), 0) });
         if (over) throw new HttpError('validation.failed', 'opinion limit of the attempt reached', { fields: [{ path: [...over.path], code: over.code }] });

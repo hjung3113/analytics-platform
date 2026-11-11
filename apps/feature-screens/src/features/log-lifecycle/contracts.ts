@@ -27,9 +27,11 @@ export type RuleResult = { opinion?: OpinionSummary | null; id: string; ruleId: 
 export type OpinionValue = { key: string; label: string | null };
 export type OpinionScale = { grades: { key: string; label: string }[]; marks: { key: string; label: string }[] };
 export type OpinionSummary = { grade: OpinionValue; mark: OpinionValue | null; hasNote: boolean; at: string; count: number };
-export type OpinionListRow = OpinionSummary & { id: string; itemKey: string };
+/** `logLifecycle.opinions` without an item filter and with `unlinked: true`: one summary row per item, never the note body. */
+export type OpinionListRow = OpinionSummary & { itemKey: string };
 export type OpinionEvidence = { fileRef: string; line: number; fileSha256: string };
-export type Opinion = OpinionListRow & { ruleResultId: string | null; note: string | null; evidence: OpinionEvidence[]; inputRevision: string | null; producer: string | null; author: { id: string; displayName: string } };
+/** `logLifecycle.opinions` with `itemKey` or `ruleResultId`: the item's history, the only read that carries the note body. */
+export type Opinion = { id: string; itemKey: string; grade: OpinionValue; mark: OpinionValue | null; at: string; ruleResultId: string | null; note: string | null; evidence: OpinionEvidence[]; inputRevision: string | null; producer: string | null; author: { id: string; displayName: string } };
 export type QueueStatus = { runWindow: { timezone: string; weekday: { fromHour: number; toHour: number }; weekendAllDay: boolean }; immediateLimit: number; serverAt: string; withinWindow: boolean };
 export type Params = Record<string, unknown>;
 export type ReadState<T> = { completedAt?: number | null; status: 'loading' | 'done' | 'error'; data: T | null; denied?: boolean; retry(): void };

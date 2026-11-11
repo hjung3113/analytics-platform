@@ -11,25 +11,26 @@ const rules: RuleResult[] = [
   { id: 'fail', ruleId: 'R-FAIL', result: 'FAIL', required: true, expected: '일치', observed: '불일치', evidence, hasExcerpt: false, opinion: summary },
   { id: 'none', ruleId: 'R-NONE', result: 'PASS', required: true, expected: null, observed: null, evidence: [], hasExcerpt: false, opinion: null },
 ];
+const [failRule, noneRule] = rules as [RuleResult, RuleResult];
 const attempt: Attempt = { id: 'attempt', attemptNo: 1, outcome: 'succeeded', workerActorId: 'worker', verdict: 'fail', manifestMatches: true, counts: { FAIL: 1, PASS: 1 }, requiredUnchecked: 0, ruleCount: 2, startedAt: summary.at, endedAt: summary.at, ruleSetRevision: null, inputManifestDigest: 'abc', opinionCount: 3 };
 const project = { id: 'project' } as Project;
 const round = { id: 'round', projectId: project.id, seq: 1, status: 'open', gateDecisions: [], sampleSet: { sourceOwner: 'test', files: [] }, gateAvailability: { targetStage: null, projectVersion: '1', reasons: [], decisions: { approved: { allowed: false, reasons: [] }, rejected: { allowed: false, reasons: [] }, exception: { allowed: false, reasons: [] } }, basis: {} } } as unknown as RoundDetail;
 const note = '<script>alert("query")</script>\n둘째 줄';
 const history: Opinion[] = [
-  { id: 'latest', itemKey: 'R-FAIL', ruleResultId: 'fail', ...summary, author: { id: 'author2', displayName: '작성자 2' }, note, evidence, inputRevision: '<r2>', producer: '<producer2>' },
-  { id: 'older', itemKey: 'R-FAIL', ruleResultId: 'fail', ...summary, at: '2026-11-06T00:00:00Z', author: { id: 'author1', displayName: '작성자 1' }, note: null, evidence: [], inputRevision: null, producer: null },
+  { id: 'latest', itemKey: 'R-FAIL', ruleResultId: 'fail', grade: summary.grade, mark: summary.mark, at: summary.at, author: { id: 'author2', displayName: '작성자 2' }, note, evidence, inputRevision: '<r2>', producer: '<producer2>' },
+  { id: 'older', itemKey: 'R-FAIL', ruleResultId: 'fail', grade: summary.grade, mark: summary.mark, at: '2026-11-06T00:00:00Z', author: { id: 'author1', displayName: '작성자 1' }, note: null, evidence: [], inputRevision: null, producer: null },
 ];
 function Table<T extends { id: string }>(p: TableParts<T>) { return <><table aria-label={p.title}><thead><tr>{p.columns.map(c => <th key={c.id}>{c.header}</th>)}</tr></thead><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}</tr>)}</tbody></table>{p.pagination}</>; }
 const ui: Presentation = { table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.subtitle}{p.body}<button type="button" onClick={p.requestClose}>닫기</button></section>, timeline: () => null, trust: () => null };
-function setup(options: { opinionCount?: number; undeclared?: boolean; scaleState?: 'loading' | 'error'; history?: Opinion[] } = {}) {
+function setup(options: { opinionCount?: number; undeclared?: boolean; grades?: { key: string; label: string }[]; ruleRows?: RuleResult[]; unlinkedRows?: Record<string, unknown>[]; scaleState?: 'loading' | 'error'; history?: Opinion[] } = {}) {
   const read = vi.fn((name: string, params: Record<string, unknown>, enabled = true): unknown => {
     if (!enabled) return null;
     if (name === 'roundDetail') return round;
     if (name === 'requests') return { rows: [{ id: 'request' }], total: 1 };
     if (name === 'requestDetail') return { roundId: 'round', attempts: [{ ...attempt, opinionCount: options.opinionCount ?? 3 }] } as RequestDetail;
-    if (name === 'opinionScale') return { grades: options.undeclared ? [] : [{ key: 'g2', label: '등급 2' }, { key: 'g1', label: '등급 1' }], marks: [] };
-    if (name === 'ruleResults') { const rows = rules.filter(r => !params.opinionGrade || (params.opinionGrade === 'none' ? !r.opinion : r.opinion?.grade.key === params.opinionGrade)); return { rows, total: rows.length }; }
-    if (name === 'opinions') return params.unlinked ? { rows: [{ id: 'unlinked', itemKey: 'extra', ...summary }], total: 1 } : { rows: options.history ?? history, total: 2 };
+    if (name === 'opinionScale') return { grades: options.undeclared ? [] : options.grades ?? [{ key: 'g2', label: '등급 2' }, { key: 'g1', label: '등급 1' }], marks: [] };
+    if (name === 'ruleResults') { const rows = (options.ruleRows ?? rules).filter(r => !params.opinionGrade || (params.opinionGrade === 'none' ? !r.opinion : r.opinion?.grade.key === params.opinionGrade)); return { rows, total: rows.length }; }
+    if (name === 'opinions') return params.unlinked ? { rows: options.unlinkedRows ?? [{ itemKey: 'extra', ...summary }], total: 1 } : { rows: options.history ?? history, total: 2 };
     return null;
   });
   const api: LifecycleApi = { useRead: <T,>(name: string, params: Record<string, unknown>, enabled = true): ReadState<T> => ({ status: name === 'opinionScale' ? options.scaleState ?? 'done' : 'done', data: read(name, params, enabled) as T | null, retry: vi.fn() }), useAction: () => ({ pending: false, run: vi.fn() }) };
@@ -99,11 +100,37 @@ it('keeps the original table and has no opinion UI or reads for opinionCount zer
   expect(parts?.preferenceKey).toBe('log-lifecycle-rule-results');
   expect(read.mock.calls.filter(([name, , enabled]) => (name === 'opinionScale' || name === 'opinions') && enabled)).toHaveLength(0);
 });
-it('shows one muted note and hides the opinion column/filter when the scale is undeclared', () => {
-  setup({ undeclared: true });
+it('keeps the opinion column and history reachable when the scale is empty but the attempt holds opinions; the filter stays hidden', async () => {
+  const stale = { ...summary, grade: { key: 'retired', label: null }, mark: null, hasNote: false, count: 1 };
+  setup({ undeclared: true, ruleRows: [{ ...failRule, opinion: stale }, noneRule] });
   expect(screen.getAllByText('의견 척도 미선언')).toHaveLength(1);
   expect(screen.queryByRole('combobox', { name: '의견 등급' })).toBeNull();
-  expect(within(screen.getByRole('table', { name: '규칙 결과' })).queryByRole('columnheader', { name: '의견' })).toBeNull();
+  const grid = screen.getByRole('table', { name: '규칙 결과' });
+  expect(within(grid).getByRole('columnheader', { name: '의견' })).toBeVisible();
+  const cell = within(grid).getByRole('button', { name: 'R-FAIL 의견 이력' });
+  expect(cell).toHaveTextContent('retired');
+  await userEvent.setup().click(cell);
+  expect(screen.getByRole('dialog', { name: '의견 이력' })).toBeVisible();
+});
+it('filters a declared grade whose key is all apart from 전체', async () => {
+  const user = userEvent.setup();
+  const allRow: RuleResult = { ...failRule, opinion: { ...summary, grade: { key: 'all', label: '종합' } } };
+  const { read } = setup({ grades: [{ key: 'all', label: '종합' }, { key: 'g1', label: '등급 1' }], ruleRows: [allRow, { ...noneRule, opinion: { ...summary, grade: { key: 'g1', label: '등급 1' } } }] });
+  const open = () => fireEvent.keyDown(screen.getByRole('combobox', { name: '의견 등급' }), { key: 'Enter' });
+  open();
+  expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['전체', '종합', '등급 1', '의견 없음']);
+  await user.click(screen.getByRole('option', { name: '종합' }));
+  expect(read.mock.calls.filter(([name]) => name === 'ruleResults').at(-1)?.[1]).toHaveProperty('opinionGrade', 'all');
+  expect(within(screen.getByRole('table', { name: '규칙 결과' })).queryByText('R-NONE')).toBeNull();
+  open();
+  await user.click(screen.getByRole('option', { name: '전체' }));
+  expect(read.mock.calls.filter(([name]) => name === 'ruleResults').at(-1)?.[1]).not.toHaveProperty('opinionGrade');
+});
+it('shows the 설비사 질의 marker of an unlinked row shaped like the real server response (no id, no note)', () => {
+  setup({ unlinkedRows: [{ itemKey: 'extra', grade: { key: 'g2', label: '등급 2' }, mark: null, hasNote: true, at: summary.at, count: 1 }] });
+  const list = screen.getByRole('table', { name: '규칙 결과에 연결되지 않은 의견' });
+  expect(within(list).getByText('설비사 질의', { selector: 'span' })).toBeVisible();
+  expect(within(list).getByText('등급 2')).toBeVisible();
 });
 it.each(['loading', 'error'] as const)('does not mislabel scale %s as undeclared', scaleState => {
   setup({ scaleState }); expect(screen.queryByText('의견 척도 미선언')).toBeNull();

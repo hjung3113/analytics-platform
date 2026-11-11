@@ -1,5 +1,5 @@
 // Read side of the attempt opinions (#1778, ADR-0117 amendment 2). Workspace-filtered and object-access-filtered like the rule
-// results read. The note is untrusted text: `listOpinions` is the only read that returns it; summaries carry `hasNote` only. Reads
+// results read. The note is untrusted text: `listOpinions` returns it only for an item-specific history (`itemKey` or `ruleResultId` given); every other list is one summary row per item that carries `hasNote` only. Reads
 // only: nothing here is joined into a verdict, a Gate input or a regression comparison.
 
 import { and, count, desc, eq, sql } from 'drizzle-orm';
@@ -89,20 +89,29 @@ export interface OpinionOut {
   at: string;
 }
 
-/** The opinions of one attempt, newest first; an unknown, foreign or hidden attempt answers an empty page. */
+/** One row per item of the general and the unlinked list: the latest opinion and the count. Never a note, evidence, revision or producer. */
+export interface OpinionItemSummary extends OpinionSummary {
+  itemKey: string;
+}
+
+/**
+ * The opinions of one attempt; an unknown, foreign or hidden attempt answers an empty page. With `itemKey` or `ruleResultId` it is the
+ * item's history (newest first, with note, evidence, revision, producer and author); without, one summary row per item, newest first.
+ */
 export async function listOpinions(
   tx: Tx,
   workspaceId: string,
   query: OpinionListQuery,
   scale: OpinionScale,
   viewer: Viewer,
-): Promise<{ total: number; rows: OpinionOut[] }> {
+): Promise<{ total: number; rows: OpinionOut[] } | { total: number; rows: OpinionItemSummary[] }> {
   const a = executionAttempts;
   const [owner] = await tx
     .select({ id: a.id })
     .from(a)
     .where(and(eq(a.workspaceId, workspaceId), eq(a.id, query.attemptId), attemptVisibleSql(viewer, ref(a.id))));
   if (!owner) return { total: 0, rows: [] };
+  if (query.itemKey === undefined && query.ruleResultId === undefined) return listItemSummaries(tx, workspaceId, query, scale);
   const where = and(
     eq(o.workspaceId, workspaceId),
     eq(o.attemptId, query.attemptId),
@@ -135,4 +144,27 @@ export async function listOpinions(
       at: iso(r.createdAt),
     })),
   };
+}
+
+async function listItemSummaries(
+  tx: Tx,
+  workspaceId: string,
+  query: OpinionListQuery,
+  scale: OpinionScale,
+): Promise<{ total: number; rows: OpinionItemSummary[] }> {
+  const res = await tx.execute(sql`
+    select t.item_key, t.grade, t.mark, t.has_note, t.created_at, t.cnt
+    from (
+      select x.item_key, x.grade, x.mark, (x.note is not null) as has_note, x.created_at,
+             count(*) over (partition by x.item_key) as cnt,
+             row_number() over (partition by x.item_key order by x.created_at desc, x.id desc) as rn
+      from log_lifecycle.attempt_opinion x
+      where x.workspace_id = ${workspaceId}::uuid and x.attempt_id = ${query.attemptId}::uuid
+        ${query.unlinked ? sql`and x.rule_result_id is null` : sql``}
+    ) t
+    where t.rn = 1`);
+  const all = (res as unknown as { rows: { item_key: string; grade: string; mark: string | null; has_note: boolean; created_at: Date | string; cnt: string | number }[] }).rows
+    .map((r) => ({ itemKey: r.item_key, ...summaryOut(scale, { grade: r.grade, mark: r.mark, hasNote: r.has_note, at: iso(r.created_at), count: Number(r.cnt) }) }))
+    .sort((x, y) => (x.at === y.at ? x.itemKey.localeCompare(y.itemKey) : x.at < y.at ? 1 : -1));
+  return { total: all.length, rows: all.slice(query.page * query.pageSize, (query.page + 1) * query.pageSize) };
 }

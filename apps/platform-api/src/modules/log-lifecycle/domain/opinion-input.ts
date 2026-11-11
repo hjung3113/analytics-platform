@@ -106,9 +106,10 @@ export type OpinionParse = { ok: true; value: ParsedOpinionBody } | { ok: false;
 
 /**
  * Strict parse + input checks. `sampleRefs` = the fileRefs of the request subject's sample list (evidence must be one of them);
- * `scale` = the workspace's declaration (an empty grade list refuses the whole call as `opinion.scale_undeclared`).
+ * `scale` = the workspace's declaration (an empty grade list refuses the whole call as `opinion.scale_undeclared`); `null` skips the
+ * scale checks so the caller can compare a resend with the stored rows first and judge only the NEW rows with `checkOpinionScale`.
  */
-export function parseOpinionBody(raw: unknown, sampleRefs: ReadonlySet<string>, scale: OpinionScale): OpinionParse {
+export function parseOpinionBody(raw: unknown, sampleRefs: ReadonlySet<string>, scale: OpinionScale | null): OpinionParse {
   const head = bodySchema.safeParse(raw);
   if (!head.success) return { ok: false, errors: zodErrors(head.error, []) };
   const body = head.data;
@@ -120,9 +121,9 @@ export function parseOpinionBody(raw: unknown, sampleRefs: ReadonlySet<string>, 
   else if (chars(submissionId) > OPINION_TEXT_MAX) add(['submissionId'], 'too_long');
   if (body.opinions.length === 0) return { ok: false, errors: [...errors, { path: ['opinions'], code: 'required' }] };
   if (body.opinions.length > OPINIONS_PER_CALL_MAX) return { ok: false, errors: [{ path: ['opinions'], code: 'too_many' }] };
-  if (scale.grades.length === 0) return { ok: false, errors: [{ path: ['opinions'], code: 'opinion.scale_undeclared' }] };
-  const grades = new Set(scale.grades.map((g) => g.key));
-  const marks = new Set(scale.marks.map((m) => m.key));
+  if (scale !== null && scale.grades.length === 0) return { ok: false, errors: [{ path: ['opinions'], code: 'opinion.scale_undeclared' }] };
+  const grades = new Set((scale ?? EMPTY_OPINION_SCALE).grades.map((g) => g.key));
+  const marks = new Set((scale ?? EMPTY_OPINION_SCALE).marks.map((m) => m.key));
 
   const opinions: ParsedOpinion[] = [];
   const seenKeys = new Set<string>();
@@ -142,11 +143,11 @@ export function parseOpinionBody(raw: unknown, sampleRefs: ReadonlySet<string>, 
 
     const grade = d.grade.trim();
     if (grade === '') add(['opinions', i, 'grade'], 'required');
-    else if (!grades.has(grade)) add(['opinions', i, 'grade'], 'not_declared');
+    else if (scale !== null && !grades.has(grade)) add(['opinions', i, 'grade'], 'not_declared');
     let mark: string | null = null;
     if (d.mark !== undefined && d.mark !== null && d.mark.trim() !== '') {
       mark = d.mark.trim();
-      if (!marks.has(mark)) add(['opinions', i, 'mark'], 'not_declared');
+      if (scale !== null && !marks.has(mark)) add(['opinions', i, 'mark'], 'not_declared');
     }
 
     let note: string | null = null;
@@ -186,6 +187,22 @@ export function parseOpinionBody(raw: unknown, sampleRefs: ReadonlySet<string>, 
   });
   if (errors.length > 0) return { ok: false, errors };
   return { ok: true, value: { submissionId, opinions } };
+}
+
+/**
+ * The declared-scale judgement of the NEW rows of a call (`at[i]` = the index of `rows[i]` in the body): an empty grade list refuses
+ * the call as `opinion.scale_undeclared`, otherwise each undeclared grade or mark is `not_declared`. Rows already stored are not judged.
+ */
+export function checkOpinionScale(rows: readonly ParsedOpinion[], at: readonly number[], scale: OpinionScale): FieldError[] {
+  if (rows.length > 0 && scale.grades.length === 0) return [{ path: ['opinions'], code: 'opinion.scale_undeclared' }];
+  const grades = new Set(scale.grades.map((g) => g.key));
+  const marks = new Set(scale.marks.map((m) => m.key));
+  const errors: FieldError[] = [];
+  rows.forEach((r, k) => {
+    if (!grades.has(r.grade)) errors.push({ path: ['opinions', String(at[k]), 'grade'], code: 'not_declared' });
+    if (r.mark !== null && !marks.has(r.mark)) errors.push({ path: ['opinions', String(at[k]), 'mark'], code: 'not_declared' });
+  });
+  return errors;
 }
 
 /** The fields a resend must repeat unchanged: the same `submissionId` + item key with other content is a conflict. */

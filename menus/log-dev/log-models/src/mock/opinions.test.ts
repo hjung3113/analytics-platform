@@ -46,3 +46,12 @@ it('pages history newest first by either item key or rule result, keeping text o
   expect(read('opinions', { attemptId, itemKey: 'ITEM-006' })).toMatchObject({ rows: [{ ruleResultId: null, evidence: [expect.objectContaining({ line: 186 })], inputRevision: 'r12', producer: 'model-x/p3' }] });
   expect(read('opinions', { attemptId: ATTEMPT_ID, unlinked: true })).toEqual({ rows: [], total: 0 });
 });
+it('serves the same two shapes as the server: summary rows without an item filter, bodies only for an item history', () => {
+  const keys = (rows: object[]) => rows.map(r => Object.keys(r).sort());
+  const summaryKeys = ['at', 'count', 'grade', 'hasNote', 'itemKey', 'mark'];
+  const general = read('opinions', { attemptId }) as { rows: object[] };
+  const unlinked = read('opinions', { attemptId, unlinked: true }) as { rows: object[] };
+  for (const k of [...keys(general.rows), ...keys(unlinked.rows)]) expect(k).toEqual(summaryKeys);
+  const history = read('opinions', { attemptId, itemKey: 'RULE-003' }) as { rows: object[] };
+  for (const k of keys(history.rows)) expect(k).toEqual(['at', 'author', 'evidence', 'grade', 'id', 'inputRevision', 'itemKey', 'mark', 'note', 'producer', 'ruleResultId']);
+});

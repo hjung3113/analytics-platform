@@ -52,11 +52,11 @@ function read(name: string, p: Params, actor: string): unknown {
   if (name === 'opinionScale') return opinionScale;
   if (name === 'opinions') {
     if (p.attemptId !== OPINION_ATTEMPT_ID) return page([], p);
-    if (p.unlinked === true) return page(unlinkedOpinions, p);
+    if (p.unlinked === true && !p.itemKey) return page(unlinkedOpinions, p);
     if (!p.itemKey && !p.ruleResultId) return page([
-      ...opinionRules.filter(r => r.opinion).map(r => ({ id: r.id, itemKey: r.ruleId, ...r.opinion! })),
+      ...opinionRules.filter(r => r.opinion).map(r => ({ itemKey: r.ruleId, ...r.opinion! })),
       ...unlinkedOpinions,
-    ].sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id)), p);
+    ].sort((a, b) => b.at.localeCompare(a.at) || a.itemKey.localeCompare(b.itemKey)), p);
     return page(opinionHistory.filter(row => (!p.itemKey || row.itemKey === p.itemKey) && (!p.ruleResultId || row.ruleResultId === p.ruleResultId)), p);
   }
   if (name === 'ruleResults') {
