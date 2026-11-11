@@ -30,7 +30,7 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
   service: boolean; actors: UseQueryResult<ActorListItem[], Error>;
   renderDrawer: (parts: ApiTokenDrawerParts) => ReactNode; onClose: () => void; onIssued: () => Promise<unknown>;
 }) {
-  const bundles = visibleApiTokenScopeBundles();
+  const bundles = visibleApiTokenScopeBundles(undefined, { service });
   const [name, setName] = useState('');
   const [selected, setSelected] = useState<string[]>(['read']);
   const [actorId, setActorId] = useState('');

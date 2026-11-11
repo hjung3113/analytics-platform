@@ -206,6 +206,14 @@ describe('API token management', () => {
     const request = vi.mocked(fetch).mock.calls.find(([input]) => String(input).includes('/actors/resolve?'));
     expect(new URL(String(request?.[0]), 'http://x').searchParams.get('actor_ids')?.split(',').sort()).toEqual([ACTOR, system, missing].sort());
   });
+  it('offers the token-only 검증 작업자 bundle on the service screen and issues its scope', async () => {
+    mount(true); const user = await openIssue();
+    await user.click(screen.getByRole('radio', { name: '검증 워커' }));
+    await user.click(screen.getByRole('checkbox', { name: /^검증 작업자/ }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '토큰 발급' }));
+    await screen.findByDisplayValue(SECRET);
+    expect(calls.find(c => c.method === 'POST')?.body).toMatchObject({ scopes: ['workspace.read', 'validation.worker'], actorId: ACTOR });
+  });
   it('offers first issuance without an orphan pager on the empty first page (B10)', async () => {
     rows = []; mount();
     expect(await screen.findByText('아직 발급한 토큰이 없습니다')).toBeVisible();
