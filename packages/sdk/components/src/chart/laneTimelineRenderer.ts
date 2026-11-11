@@ -15,7 +15,9 @@ type RendererInput = RendererState & {
 };
 const defaultPalette: ThemeColorToken[] = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'];
 /** The props that change how the data layer looks, compared by contents (menus pass inline arrays and objects). */
-const styleKeyOf = (props: LaneTimelineProps) => JSON.stringify([props.paletteTokens, props.neutralColorToken, props.outlineWidthsByRank, props.outlineMode]);
+const styleKeyOf = (props: LaneTimelineProps) => JSON.stringify([
+  props.paletteTokens, props.neutralColorToken, props.outlineWidthsByRank && Object.entries(props.outlineWidthsByRank).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)), props.outlineMode,
+]);
 /**
  * Owns all mutable view geometry, event subscriptions and frame scheduling. No React state. Created once per mount; later prop changes arrive
  * through `update()`, which redraws the data layer only for a new model or a changed look, and only the overlay layer for a selection or overlay change.
@@ -212,15 +214,19 @@ export function createLaneRenderer(input: RendererInput) {
     const modelChanged = next.model !== model; const prevProps = props; props = next.props;
     if (modelChanged) {
       model = next.model; view = [...model.domain]; drag = null; lastHover = null; invalidateHover(); onHover(null);
+      // The new model has not been painted: close the hit gate until drawData() runs, so hits never mix it with the old view.
+      hasDrawn = false; overlayCache = null;
       sizeKey = ''; resize(); styleCache = null; schedule();
     }
     if (styleKeyOf(props) !== styleKey) { readStyleProps(); styleCache = null; schedule(); }
     if (!modelChanged && props.height !== prevProps.height) resize();
     if (next.selectedId !== selectedId) { selectedId = next.selectedId; schedule(false); }
-    if (next.overlays !== overlays) { overlays = next.overlays; schedule(false); }
+    if (next.overlays !== overlays) { overlays = next.overlays; overlayCache = null; schedule(false); }
   }
   return {
     update,
+    /** Internal (tests): the model the overlay cache holds, or null. */
+    overlayCacheModel: () => overlayCache?.model ?? null,
     resetZoom: () => setView([...model.domain]), zoom, reveal,
     // Escape clears the React tooltip; the cache must follow or the next same-segment move would keep it empty (C3).
     clearHover: () => { lastHover = null; tooltip.hidden = true; },

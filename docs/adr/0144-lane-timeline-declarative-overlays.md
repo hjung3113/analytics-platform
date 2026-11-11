@@ -10,7 +10,7 @@
 
 ## 결정
 
-`overlays?: TimelineOverlay[]`를 선택 prop으로 둔다. 종류는 `instant`(시각), `range`(구간), `segments`(구간 집합) 셋이고, 모두 위치·색 토큰·모양만 가진다. 쌓는 순서는 데이터 층 < 오버레이(배열 순서) < 선택 윤곽이다. 오버레이 변경은 오버레이 canvas만 다시 그린다. 잘못된 항목은 제외하고 진단을 남기며, `label`이 있는 표시는 화면 읽기용 요약에 나온다. `LaneTimelineHandle`은 그대로다.
+`overlays?: TimelineOverlay[]`를 선택 prop으로 둔다. 종류는 `instant`(시각), `range`(구간), `segments`(구간 집합) 셋이고, 모두 위치·색 토큰·모양만 가진다. 쌓는 순서는 데이터 층 < 오버레이(range < instant < segments, 같은 종류 안에서는 배열 순서) < 선택 윤곽이다. 오버레이 변경은 오버레이 canvas만 다시 그린다. 잘못된 항목은 제외하고 진단을 남기며, `label`이 있는 표시는 화면 읽기용 요약에 나온다. `LaneTimelineHandle`은 그대로다.
 
 ## 대안과 이유
 

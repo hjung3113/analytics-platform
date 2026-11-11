@@ -2,6 +2,8 @@ import { isThemeColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import { GUTTER, laneDiagnostic, ROW_HEIGHT, segmentRect, utcTick, type LaneModel } from './laneTimelineGeometry';
 import type { TimelineOverlay } from './laneTimelineTypes';
 
+/** The JS Date limit, as for segments. */
+const MAX_TIME = 8.64e15;
 const DEFAULT_DASH = [4, 3];
 // eslint-disable-next-line shadcn/no-raw-colors -- canvas reads a theme token by name (resolved by the renderer), not a class string
 const MARK_TOKEN: ThemeColorToken = 'text-primary';
@@ -18,8 +20,10 @@ export function validateOverlays(input: readonly TimelineOverlay[] | undefined):
     let next: ValidOverlay = overlay;
     if (overlay.kind === 'instant') {
       if (!Number.isFinite(overlay.time)) { laneDiagnostic('overlay with a non-finite time dropped'); continue; }
+      if (Math.abs(overlay.time) > MAX_TIME) { laneDiagnostic('overlay time outside the date range dropped'); continue; }
     } else if (overlay.kind === 'range') {
       if (!Number.isFinite(overlay.start) || !Number.isFinite(overlay.end)) { laneDiagnostic('overlay with a non-finite time dropped'); continue; }
+      if (Math.abs(overlay.start) > MAX_TIME || Math.abs(overlay.end) > MAX_TIME) { laneDiagnostic('overlay time outside the date range dropped'); continue; }
       if (overlay.start > overlay.end) { laneDiagnostic('overlay range with start after end dropped'); continue; }
     } else if (overlay.kind === 'segments') {
       if (!Array.isArray(overlay.segmentIds)) { laneDiagnostic('segments overlay without segmentIds dropped'); continue; }
@@ -43,6 +47,7 @@ export function overlaySummaries(overlays: readonly ValidOverlay[]): string[] {
 }
 
 /** Overlays with lane and segment references resolved once per (overlays, model) pair. `flats` are flat segment positions; unknown ids are skipped. */
+const KIND_ORDER = { range: 0, instant: 1, segments: 2 } as const;
 export type ResolvedOverlays = { items: { overlay: ValidOverlay; lane: number; flats: number[] }[] };
 export function resolveOverlays(overlays: readonly ValidOverlay[], model: LaneModel): ResolvedOverlays {
   const items: ResolvedOverlays['items'] = []; let unknown = false;
@@ -60,6 +65,8 @@ export function resolveOverlays(overlays: readonly ValidOverlay[], model: LaneMo
     items.push({ overlay, lane, flats });
   }
   if (unknown) laneDiagnostic('overlay refers to an unknown lane or segment; skipped');
+  // Paint order is by kind (range < instant < segments), whatever the array order; input order holds within a kind (stable sort).
+  items.sort((a, b) => KIND_ORDER[a.overlay.kind] - KIND_ORDER[b.overlay.kind]);
   return { items };
 }
 
@@ -70,7 +77,7 @@ const dashOf = (dash: boolean | number[] | undefined) => {
 };
 
 /**
- * Paints the overlays in array order onto a cleared overlay canvas. The selection outline is drawn by the caller afterwards, so it stays on top.
+ * Paints the overlays by kind (range, instant, segments; array order within a kind) onto a cleared overlay canvas. The selection outline is drawn by the caller afterwards, so it stays on top.
  * Only what the view window and visible lane rows contain is touched.
  */
 export function drawOverlays(ctx: CanvasRenderingContext2D, resolved: ResolvedOverlays, frame: OverlayFrame) {

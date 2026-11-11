@@ -26,7 +26,7 @@ const spec: TopNBarSpec = {
 ## Lane
 
 ```tsx
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { LaneTimeline, type LaneTimelineHandle, type TimelineLane } from '@ap/components';
 
 const lanes: TimelineLane[] = [{ id: 'a', label: 'Lane A', segments: [
@@ -43,7 +43,7 @@ timeline.current?.reveal(0);
 timeline.current?.resetZoom();
 ```
 
-`overlays`는 메뉴가 시각·구간·구간 집합을 표시하는 선언형 선택 prop이다(SDK는 의미를 모른다). 배열은 `useMemo`로 고정한다: 인라인 배열은 값이 같아도 매 렌더 오버레이 층을 한 번 다시 그린다. 쌓는 순서는 구간 < 오버레이(배열 순서) < 선택 윤곽이다.
+`overlays`는 메뉴가 시각·구간·구간 집합을 표시하는 선언형 선택 prop이다(SDK는 의미를 모른다). 배열은 `useMemo`로 고정한다: 인라인 배열은 값이 같아도 매 렌더 오버레이 층을 한 번 다시 그린다. 쌓는 순서는 구간 < 오버레이(range < instant < segments, 같은 종류 안에서는 배열 순서) < 선택 윤곽이다.
 
 ```tsx
 import type { TimelineOverlay } from '@ap/components';
@@ -56,7 +56,7 @@ const overlays = useMemo<TimelineOverlay[]>(() => [
 <LaneTimeline ariaLabel="Intervals" lanes={lanes} overlays={overlays} />;
 ```
 
-유한하지 않은 시각·`start > end`·중복 `id`는 제외되고 개발 진단이 남는다. `label`이 있는 `instant`·`range`는 화면 읽기용 요약에 나온다.
+유한하지 않거나 Date 범위(±8.64e15)를 넘는 시각·`start > end`·중복 `id`는 제외되고 개발 진단이 남는다. `label`이 있는 `instant`·`range`는 화면 읽기용 요약에 나온다.
 
 `TimelineSegment.start/end`는 시간대 없는 설비 wall-clock을 UTC getter 기반 epoch ms로 인코딩한 값이며 `start <= end`다. 화면에는 `YYYY-MM-DD HH:mm:ss` 형식으로 시간대 없이 표시한다. `depth`는 0 기반 레이아웃 입력이다. `rank`는 소비자 문자열이며 SDK가 뜻을 추론하지 않는다. `paletteTokens`는 기본 네 series 색을 대체하고 `neutralColorToken`은 neutral 구간의 대체색이다. `colorToken`이 구간에 있으면 우선한다. `outlineMode`는 strong/weak/off이고 선택 테두리는 독립이다.
 
