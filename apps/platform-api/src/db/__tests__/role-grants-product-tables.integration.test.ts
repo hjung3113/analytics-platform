@@ -589,12 +589,18 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
     expect(rows.map((row) => row.column_name)).toEqual([...columns].sort());
   });
 
-  // #1645: the `eqv` schema is not in PRODUCT_SCHEMAS either, so its four tables are pinned explicitly (migration 0121).
+  // #1645: the `eqv` schema is not in PRODUCT_SCHEMAS either, so its tables are pinned explicitly (migrations 0121, 0124).
   it.each([
     ['layout_draft', ['SELECT', 'INSERT']],
     ['layout_revision', ['SELECT', 'INSERT']],
     ['template', ['SELECT', 'INSERT']],
     ['equipment', ['SELECT']],
+    // #1658 (migration 0124): Onboarding tables.
+    ['alias_rules', ['SELECT', 'INSERT']],
+    ['type_dictionary', ['SELECT', 'INSERT']],
+    ['mapping_version', ['SELECT', 'INSERT']],
+    ['baseline_inventory', ['SELECT', 'INSERT']],
+    ['binding', ['SELECT', 'INSERT']],
   ] as const)('platform_app holds exactly %s privileges on eqv.%s (no DELETE, no TRUNCATE, no table-wide UPDATE)', async (table, expected) => {
     const { rows } = await migrateHandle.pool.query<{ privilege_type: string }>(
       `select privilege_type from information_schema.role_table_grants
@@ -609,6 +615,11 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
     ['layout_revision', []],
     ['template', []],
     ['equipment', []],
+    ['alias_rules', ['document', 'updated_at', 'updated_by', 'version']],
+    ['type_dictionary', ['document', 'updated_at', 'updated_by', 'version']],
+    ['mapping_version', []],
+    ['baseline_inventory', []],
+    ['binding', ['effective_to']],
   ] as const)('platform_app UPDATE on eqv.%s is limited to the mutable columns', async (table, columns) => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name

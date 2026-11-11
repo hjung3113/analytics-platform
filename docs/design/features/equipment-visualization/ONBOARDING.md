@@ -203,6 +203,8 @@ assets/onboarding/
 assets/layouts/<layoutId>/draft.layout.json             # Mapping Board가 배정하는 Equipment Layout draft (§4)
 ```
 
+> 플랫폼의 저장은 이 파일 배치가 아니라 서버 `eqv` 스키마다([ADR-0139](../../../adr/0139-eqv-onboarding-storage-and-publish.md): 범위별 규칙 표, 불변 Mapping Version·Baseline 행, `binding` 표, 게시는 한 트랜잭션). 위 배치는 Studio 개발 도구의 이력으로 둔다.
+
 Studio dev 파일 API(EV#13)는 위 경로만 쓰며, 각 경로는 대응하는 core validator를 통과해야 한다.
 
 설비 기록(`equipmentRecordSchema`, `schemaVersion: "0.4"`, `equipmentId`·`maker`·`model`)은 파일 이름이 `equipmentId`와 같아야 하며, `maker`/`model`이 적용되는 Scope를 정한다. `equipment/`와 `observations/`는 일반 파일 API로는 쓰지 않는다(쓰기는 403). 승인된 규칙(EV ADR-0010): 가져오기 endpoint(`/api/import/*`)로만 쓴다. 설비 기록은 create-only, Sample Window는 불변 추가(겹치는 구간은 거부, 대체·폐기 없음), alias metadata는 확인 후 교체다. 데이터 루트(`EQV_STUDIO_ASSETS`)가 이 저장소 안이면 가져오기를 거부하고, 다른 git 작업 트리 안이면 경고한다. Studio는 읽을 때 각 파일을 core validator로 다시 검사하며, 404만 "없음"으로 취급하고 그 외 실패나 잘못된 내용은 해당 설비의 오류로 표시한다.
@@ -211,4 +213,4 @@ Studio dev 파일 API(EV#13)는 위 경로만 쓰며, 각 경로는 대응하는
 
 ## 8. 권한
 
-이 저장소는 액션 이름만 계약으로 정의한다: `onboarding:edit-rules`, `onboarding:publish-mapping`, `onboarding:edit-global-dictionary`. 강제는 플랫폼(Global 사전 수정은 소수). 독립 Studio는 로컬 도구로 권한 검사 없음.
+이 저장소는 액션 이름만 계약으로 정의한다: `onboarding:edit-rules`, `onboarding:publish-mapping`, `onboarding:edit-global-dictionary`. 강제는 플랫폼(Global 사전 수정은 소수): 서버 capability `eqv.rules.edit`·`eqv.dictionary.global_edit`·`eqv.mapping.publish`가 각각 `onboarding:edit-rules`·`onboarding:edit-global-dictionary`·`onboarding:publish-mapping`에 대응한다([ADR-0139](../../../adr/0139-eqv-onboarding-storage-and-publish.md)). 독립 Studio는 로컬 도구로 권한 검사 없음.

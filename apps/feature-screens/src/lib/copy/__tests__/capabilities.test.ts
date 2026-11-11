@@ -38,6 +38,9 @@ const EXPECTED_LABELS: Record<Capability, string> = {
   'eqv.view': '설비 시각화 Layout 조회',
   'eqv.layout.edit': '설비 시각화 Layout 편집',
   'eqv.layout.publish': '설비 시각화 Layout 게시',
+  'eqv.rules.edit': '설비 시각화 Mapping 규칙 편집',
+  'eqv.dictionary.global_edit': '설비 시각화 전역 Type Dictionary·규칙 편집',
+  'eqv.mapping.publish': '설비 시각화 Mapping 게시',
 };
 
 describe('capability display copy', () => {

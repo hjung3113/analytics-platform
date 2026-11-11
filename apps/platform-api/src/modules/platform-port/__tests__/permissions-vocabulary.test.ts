@@ -70,13 +70,16 @@ describe('menu permissions the modules declare (#1667)', () => {
     ['eqv-studio:view', 'eqv.view'],
     ['eqv-studio:layout-edit', 'eqv.layout.edit'],
     ['eqv-studio:layout-publish', 'eqv.layout.publish'],
+    ['eqv-studio:rules-edit', 'eqv.rules.edit'],
+    ['eqv-studio:dictionary-global-edit', 'eqv.dictionary.global_edit'],
+    ['eqv-studio:mapping-publish', 'eqv.mapping.publish'],
   ] as const)('declares %s once, with the capability %s', (permission, capability) => {
     expect(declared().filter((d) => d.permission === permission)).toEqual([{ permission, capability }]);
     expect(kernelPermissions()).not.toContain(permission);
   });
 
-  it('declares exactly the 18 menu permissions and none twice', () => {
-    expect(declared()).toHaveLength(18);
+  it('declares exactly the 21 menu permissions and none twice', () => {
+    expect(declared()).toHaveLength(21);
   });
 
   it('lists the kernel permissions first, then the declared ones in registration order', () => {

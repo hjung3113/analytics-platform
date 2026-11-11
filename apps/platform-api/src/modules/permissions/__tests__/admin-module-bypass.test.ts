@@ -38,6 +38,9 @@ const ALWAYS: Capability[] = [
   'eqv.view',
   'eqv.layout.edit',
   'eqv.layout.publish',
+  'eqv.rules.edit',
+  'eqv.dictionary.global_edit',
+  'eqv.mapping.publish',
 ];
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage', 'voc.create'];
 const NONE: Capability[] = [

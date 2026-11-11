@@ -1028,7 +1028,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
         ...(opts.logExplorer?.handoffSourceTotalMs !== undefined ? { sourceTotalMs: opts.logExplorer.handoffSourceTotalMs } : {}),
       },
     }),
-    eqvContribution({ db: dbHandle.db, checkService }),
+    eqvContribution({ db: dbHandle.db, checkService, knowledgeLookup }),
     logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, ruleCoverage, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),
     ...(opts.menuDispatch ?? []),
   ]);
