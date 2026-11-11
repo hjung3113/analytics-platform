@@ -360,6 +360,22 @@ _Avoid_: 플러그인, 확장 모듈 — 보류된 Plugin SDK·System Extension 
 메뉴 패키지와 합성 핸들러를 모아 Host로 플랫폼을 띄우는, 이 저장소 밖의 사내 저장소. 사내 도메인 의미는 여기가 소유한다([ADR-0141](docs/adr/0141-in-house-assembly-in-separate-repository.md)).
 _Avoid_: 포크 — 공개 파일을 고치는 안(ADR-0141 기각 B)과 섞인다.
 
+**전달기**:
+코어 서버(Fastify)가 소유자 표를 보고 menu-query 같은 요청을 사내 데이터 서버로 넘기는 구성요소. 등록된 id인지만 판정하고 outcome을 만들거나 응답 본문을 고치지 않는다([ADR-0095](docs/adr/0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 2). 브라우저는 상류를 직접 부르지 않는다. menu-query 경로는 구현 전이며 v0.36.0 범위는 [ADR-0148](docs/adr/0148-minimal-forwarder-and-identity-token.md)(Candidate).
+_Avoid_: 프록시, 게이트웨이 — 앞단(nginx) 경로 라우팅과 섞인다.
+
+**신원 토큰** (`X-Internal-Identity`):
+코어 서버가 전달할 때마다 서명해 싣는 30초짜리 내부 토큰. 확정 claim은 `sub`·`wid`·`sv`·`cid`이고 상류는 만들 수 없다([ADR-0095](docs/adr/0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 5). 사람이 아닌 호출자의 API 토큰([ADR-0116](docs/adr/0116-platform-api-tokens-personal-and-service.md))과 다르다.
+_Avoid_: 세션 토큰, API 토큰
+
+**Scope resolver**:
+요청한 행위자에게 허용된 site·room 집합을 내는, 서버 조립 때 주입하는 구성요소. 없으면 `requiresScope`·`mergeTimeDomain` 엔드포인트 등록이 거부된다([ADR-0147](docs/adr/0147-scope-grants-come-from-an-injected-resolver.md)). 메뉴 권한 판정기 `PlatformPermissionResolver`와 다르다.
+_Avoid_: 권한 해석기 — 메뉴 권한 판정기와 섞인다.
+
+**사내 데이터 서버**:
+사내 분석 데이터를 코어 서버 전달기 뒤에서 답하는 서버. ADR-0095의 FastAPI 분석 서버이며 골격·합성 핸들러·적합성 검사는 이 저장소, 실제 핸들러는 사내가 소유한다.
+_Avoid_: 분석 데이터 서버, 내부 데이터 서버
+
 **서버 어댑터** (`PlatformAdapter`):
 플랫폼이 서버와 주고받는 계약 함수 묶음. 앱이 mock이나 실서버 구현을 주입하고, Kernel·셸·메뉴는 구현을 모른다.
 _Avoid_: 서버 포트, API(단독) — 포트는 네트워크 포트와, API는 서버의 HTTP 엔드포인트와 섞인다.
