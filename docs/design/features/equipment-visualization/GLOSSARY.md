@@ -50,6 +50,9 @@ _Avoid_: confidence
 
 ## Onboarding
 
+**Fleet**:
+온보딩 대상 설비 목록. 설비별 관측 데이터 유무, 매핑 게시 상태와 Drift를 함께 살펴본다.
+
 **Onboarding**:
 로그에 관측된 구성으로부터 설비의 레이아웃과 Mapping Version을 만들고 유지하는 작업 흐름.
 _Avoid_: 등록, setup
