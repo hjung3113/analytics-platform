@@ -13,3 +13,17 @@ it('renders toolbar search with an explicit name and one clear control', () => {
   fireEvent.keyDown(input, { key: 'Escape' });
   expect(change).toHaveBeenCalledTimes(2);
 });
+
+it('takes an optional input ref and a key handler that runs first; preventDefault skips the built-in Escape clear', () => {
+  const change = vi.fn();
+  const ref = { current: null as HTMLInputElement | null };
+  const keys = vi.fn((event: { key: string; preventDefault(): void }) => { if (event.key === 'Escape') event.preventDefault(); });
+  render(<SearchInput size="toolbar" aria-label="Find nodes" value="needle" onValueChange={change} inputRef={ref} onKeyDown={keys} />);
+  const input = screen.getByRole('searchbox', { name: 'Find nodes' });
+  expect(ref.current).toBe(input);
+  fireEvent.keyDown(input, { key: 'Escape' });
+  expect(keys).toHaveBeenCalledTimes(1);
+  expect(change).not.toHaveBeenCalled();
+  fireEvent.keyDown(input, { key: 'ArrowDown' });
+  expect(keys).toHaveBeenCalledTimes(2);
+});

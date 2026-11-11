@@ -9,6 +9,12 @@ export type MockAction<I, T> = {
   spec: ActionSpec<I, T>;
   /** Current version of the target; `null` = target missing (`not_found`). Required when `spec.concurrency` is `version`. */
   version?: (input: ActionInput<I>) => string | null;
+  /**
+   * Optional right check that depends on the input, like the real server's `authorize(actor, tx, input)` (e.g. a write at a wider level
+   * needs one more permission). Runs right after the declared permission and Scope checks; `false` answers `forbidden`. `can` reads the
+   * acting role's permissions. Without it only `spec.permission` is judged.
+   */
+  authorize?: (args: { input: I; can(permission: string): boolean }) => boolean;
   /** Value check the allow-list cannot express; returns field errors (empty = valid). Runs after the replay check. */
   validate?: (input: I) => readonly FieldError[];
   /** Applies the write and returns the new data and version. The handler owns its domain audit, like the real server:
@@ -68,7 +74,7 @@ const answer = (outcome: ActionResponse<unknown>['outcome'], rest: Partial<Actio
 
 /**
  * Runs a menu action using the server-owned declaration. Judgment order (ADR-0054, real-server-checklist §3):
- * shape → key → permission → scope → replay → input → version → handler.
+ * shape → key → permission → scope → authorize (optional) → replay → input → version → handler.
  */
 export async function serveAction(
   actions: ReadonlyMap<string, AnyMockAction>,
@@ -113,6 +119,10 @@ export async function serveAction(
   if (spec.requiresScope) {
     const check = checkScope(actor, scopeId);
     if (check.status !== 'valid') return answer('forbidden', { message: check.status === 'forbidden' ? `No grant for scope ${scopeId}` : `Unknown scope ${scopeId}` });
+  }
+  if (action.authorize) {
+    const held: readonly string[] = activeWorld().users[actor].permissions;
+    if (!action.authorize({ input: req.input, can: (permission) => held.includes(permission) })) return answer('forbidden', { message: `No permission for this input of ${spec.id}` });
   }
 
   const store = records.get(actions) ?? new Map<string, Stored>();

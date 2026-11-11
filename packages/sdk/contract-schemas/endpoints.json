@@ -435,6 +435,78 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "eqv.aliasRules",
+    "menuId": "eqv-onboarding",
+    "paramKeys": [
+      "level",
+      "vendorId",
+      "modelId",
+      "equipmentId"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.baselineInventory",
+    "menuId": "eqv-onboarding",
+    "paramKeys": [
+      "equipmentId",
+      "mappingHash"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.bindings",
+    "menuId": "eqv-onboarding",
+    "paramKeys": [
+      "equipmentId"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.bundledTemplates",
+    "menuId": "eqv-onboarding",
+    "paramKeys": [],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.equipmentScopes",
+    "menuId": "eqv-onboarding",
+    "paramKeys": [
+      "equipmentId"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.fleet",
+    "menuId": "eqv-onboarding",
+    "paramKeys": [],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "eqv.layoutDraft",
     "menuId": "eqv-studio",
     "paramKeys": [
@@ -482,6 +554,56 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "eqv.mappingVersion",
+    "menuId": "eqv-onboarding",
+    "paramKeys": [
+      "equipmentId",
+      "hash"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.mappingVersions",
+    "menuId": "eqv-onboarding",
+    "paramKeys": [
+      "equipmentId"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.observedInventory",
+    "menuId": "eqv-onboarding",
+    "paramKeys": [
+      "equipmentId",
+      "windowHash"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.sampleWindows",
+    "menuId": "eqv-onboarding",
+    "paramKeys": [
+      "equipmentId"
+    ],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "eqv.template",
     "menuId": "eqv-studio",
     "paramKeys": [
@@ -497,6 +619,20 @@
     "id": "eqv.templates",
     "menuId": "eqv-studio",
     "paramKeys": [],
+    "permission": "eqv:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "eqv.typeDictionary",
+    "menuId": "eqv-onboarding",
+    "paramKeys": [
+      "level",
+      "vendorId",
+      "modelId"
+    ],
     "permission": "eqv:view",
     "requiresScope": false,
     "context": {},

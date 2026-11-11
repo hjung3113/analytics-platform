@@ -30,3 +30,16 @@
 | 동시 저장 | 같은 Layout을 두 탭에서 편집해 차례로 저장 | 두 번째 저장은 앞의 저장을 덮어쓰지 않고 충돌을 알린다. 내 편집은 남는다 | ADR-0135 결정 2 | 화면 점검(실서버) |
 | 게시본은 읽기 전용 | Revision 이력에서 게시된 Revision을 연다 | 주소에 `layout`·`revision`이 남고 `초안 저장`이 없다. 새로고침해도 같은 Revision이 열린다 | ADR-0135 결정 2, [§6.4](../../contract/kernel.md) | 화면 점검(실서버) |
 | Template 승격 | 게시된 Revision → `EV Template으로 승격` | EV Templates 목록에 새 Template이 나온다. 같은 ID로 다시 승격하면 거부되고 이유가 보인다 | ADR-0135 결정 4 | 화면 점검(실서버) |
+
+## 설비 온보딩(Top View 작성)
+
+`도구 › Top View 작성 › 설비 온보딩`(`/tools/eqv-onboarding`, #1658)은 `레이아웃` 옆 두 번째 메뉴다. 서버의 Fleet·Sample Window 읽기와 window 교체·퇴역은 아직 없어([eqv.md «Pending server»](../../architecture/platform-api/api/eqv.md#pending-server)) mock 조립에서 확인한다. 설비 등록과 Sample Window 가져오기는 EV 개발 도구에 남는다(메뉴 CHANGELOG «Not implemented»).
+
+| 플랫폼 기능 | 견본과 가는 길 | 맞는 모습 | 근거 | 확인 |
+| --- | --- | --- | --- | --- |
+| Management 표와 컬럼 필터 | Fleet의 `상태` 열 필터 | 표 위 별도 Select 없이 열 필터로 좁혀지고, 상태는 `관측 없음`·`미착수`·`초안`·`게시됨`·`Drift`·`게시됨 · Drift 미확인`으로 보인다. `동작` 열이 고정된다 | [ADR-0105](../../adr/0105-one-table-filter-model.md), [§12.6](../../contract/layout.md) | 화면 점검(mock) |
+| page key와 뒤로 가기 | Fleet → `열기` → 단계 탭 → 뒤로 | 주소에는 `equipment`·`step`·`window`만 남고, 뒤로 가기는 탭 → 설비 → Fleet 순이다 | [§6.4](../../contract/kernel.md) | 화면 점검(mock) |
+| 미저장 Mapping 가드 | Mapping에서 alias를 무시(`I`)한 뒤 다른 탭이나 뒤로 | 이동 전에 확인을 묻고, 머무르면 편집이 남는다 | §6.4, [ADR-0115](../../adr/0115-kernel-navigation-guard-for-unsaved-edits.md) | 화면 점검(mock) |
+| 게시 조건 | 검증·게시 탭 | Mapping Conflict가 있어도 `게시 검토`는 막히지 않는다. 막힐 때는 이유 한 줄이 버튼 옆에 보인다 | ONBOARDING §6 D9·D10 | 화면 점검(mock) |
+| 도면 표기와 충돌 강조 | 검증·게시 탭의 충돌 행 | 두 Component에 점선 링과 점선 관측선이 그려지고 경로가 아니라고 적힌다. 도면에 «개략도 · 실측 아님 · 제조사 도면 아님»이 보인다 | ONBOARDING §6 D11 | 화면 점검(mock) |
+| 읽기 전용 | 개발 도구의 역할 전환(viewer) | 메뉴는 열리고 저장·배정·게시·교체·퇴역·시작 버튼이 없다 | menus/AGENTS.md `@ap/menu-topview-studio` | 화면 점검(mock) |

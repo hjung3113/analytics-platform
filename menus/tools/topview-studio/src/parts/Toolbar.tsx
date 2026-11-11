@@ -4,7 +4,7 @@ import { Plus, Redo2, RotateCcw, RotateCw, Undo2 } from 'lucide-react';
 import { PRIMITIVE_CATALOG } from '@eqv/renderer';
 import { Button, Checkbox, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
 
-function IconAction({ label, icon, onClick, disabled = false, describedBy }: { label: string; icon: ReactNode; onClick(): void; disabled?: boolean; describedBy?: string }) {
+export function IconAction({ label, icon, onClick, disabled = false, describedBy }: { label: string; icon: ReactNode; onClick(): void; disabled?: boolean; describedBy?: string }) {
   return <Tooltip><TooltipTrigger asChild><span className="inline-flex shrink-0">
     <Button size="icon-sm" variant="ghost" aria-label={label} aria-describedby={describedBy} disabled={disabled} onClick={onClick}>{icon}</Button>
   </span></TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>;

@@ -56,7 +56,7 @@ export async function dryRun(input: DryRunInput): Promise<DryRun> {
   const { equipment, inventory, layout, ruleFiles } = input;
   const published = await publishMapping({
     ...equipment, layout, aliases: inventory.aliases.map(({ alias }) => alias),
-    ruleFiles: [ruleFiles.maker, ruleFiles.model, ruleFiles.equipment].flatMap((file) => file ? [file] : []),
+    ruleFiles: [ruleFiles.global, ruleFiles.maker, ruleFiles.model, ruleFiles.equipment].flatMap((file) => file ? [file] : []),
   });
   if (!published.ok) return { mapping: null, issues: published.issues, coverage: null, conflicts: [] };
   const { mapping } = published;

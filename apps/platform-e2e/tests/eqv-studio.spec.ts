@@ -18,6 +18,8 @@ test.describe('eqv studio layouts', () => {
     await chooseSystem(page, '도구');
     await page.getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name: 'Top View 작성', exact: true }).click();
     await sidebar(page).getByRole('link', { name: '레이아웃', exact: true }).click();
+    // The mock also seeds the 설비 온보딩 equipment's Layout (#1658), which lists first: open the synthetic sample by name.
+    await page.getByRole('region', { name: 'Layouts' }).getByRole('button', { name: 'sample-layout', exact: true }).click();
     await expect(heading(page)).toContainText('sample-layout');
     await expect(page.locator('[data-component-id]').first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('개략도 · 실측 아님 · 제조사 도면 아님', { exact: true })).toBeVisible();
