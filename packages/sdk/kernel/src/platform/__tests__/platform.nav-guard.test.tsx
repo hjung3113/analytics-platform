@@ -181,9 +181,19 @@ describe('menu leave guard: links and navigate (ADR-0115)', () => {
     const tree = <I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Probe /><Gate /></PlatformProvider></I18nProvider>;
     render(tree);
     act(() => setDirty(true));
+    const onDiscard = vi.fn();
+    guardOptions = { leaves: { pageKeys: ['hk'] }, onDiscard };
+    act(() => { setMounted(false); });
+    act(() => { setMounted(true); });
+    act(() => setDirty(true));
+    expect(traversals).toBe(0);
     window.history.back();
     await settle();
+    // The pop ran and was accepted as an ordinary arrival: the traversal signal fired, nothing was asked or discarded.
+    expect(traversals).toBe(1);
     expect(request).toBeNull();
+    expect(onDiscard).not.toHaveBeenCalled();
+    expect(here()).toBe('/mars/hid?v=1');
   });
 
   it('a hidden-key arrival rewrite of a dirty screen goes through', () => {
