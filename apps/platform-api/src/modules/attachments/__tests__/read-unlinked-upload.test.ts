@@ -27,7 +27,7 @@ function build(opts: { row?: { storage_key: string; size_bytes: string | number 
     vocReadService: {} as never,
   });
   const read = (maxBytes = 1024) => service.readUnlinkedUpload({ workspaceId: WS, actorId: ME, id: ATT, maxBytes });
-  return { read, execute, get };
+  return { read, execute, get, service };
 }
 
 describe('readUnlinkedUpload', () => {
@@ -35,6 +35,15 @@ describe('readUnlinkedUpload', () => {
     const t = build();
     expect((await t.read())?.toString('utf8')).toBe('{"a":1}');
     expect(t.get).toHaveBeenCalledWith(`${WS}/${ATT}/w.batch.json`);
+  });
+
+  it('reads the row on the caller\'s transaction when one is given, and not on the pool', async () => {
+    const t = build();
+    const txExecute = vi.fn(async () => ({ rows: [{ storage_key: `${WS}/${ATT}/w.batch.json`, size_bytes: 7 }] }));
+    const bytes = await t.service.readUnlinkedUpload({ workspaceId: WS, actorId: ME, id: ATT, maxBytes: 1024, db: { execute: txExecute } as never });
+    expect(bytes?.toString('utf8')).toBe('{"a":1}');
+    expect(txExecute).toHaveBeenCalledTimes(1);
+    expect(t.execute).not.toHaveBeenCalled();
   });
 
   it('asks only for a row of this uploader that is unlinked, not archived and younger than 24 h', async () => {

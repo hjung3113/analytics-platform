@@ -20,7 +20,7 @@ export async function listWindowRows(db: Tx, workspaceId: string, equipmentId: s
       occurrences: t.occurrences,
       state: t.state,
       counterpart: t.counterpartHash,
-      mappingCount: sql<number>`(select count(*)::int from eqv.baseline_inventory b where b.workspace_id = ${t.workspaceId} and b.window_id = ${t.id})`,
+      mappingCount: sql<number>`(select count(*)::int from eqv.baseline_inventory b where b.workspace_id = eqv.sample_window.workspace_id and b.window_id = eqv.sample_window.id)`,
     })
     .from(t)
     .where(and(eq(t.workspaceId, workspaceId), eq(t.equipmentId, equipmentId)))

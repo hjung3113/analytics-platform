@@ -50,12 +50,16 @@ export const MARK_WORD: Record<Exclude<StepMark, null>, string> = { done: '완�
  * D9/D10: the one reason `게시 검토` is disabled, or null. Only unsaved Board edits, `publishMapping` issues, an invalid `effectiveFrom`
  * and «이전 게시와 같습니다» block (all but the first come from `derivePublishPlan`'s problems); Mapping Conflicts never do.
  */
-export function publishBlockReason(input: { dirty: boolean; plan: Pick<PublishPlan, 'problems'> | null }): string | null {
+export function publishBlockReason(input: { dirty: boolean; plan: Pick<PublishPlan, 'problems'> | null; windowState?: string | null }): string | null {
   if (input.dirty) return DIRTY_REASON;
+  if (input.windowState != null && input.windowState !== 'active') return WINDOW_NOT_ACTIVE_REASON;
   if (input.plan === null) return '검증 결과를 계산하는 중입니다.';
   // Nothing new to publish says more than the empty effectiveFrom the D7 default leaves right after a publish.
   return input.plan.problems.find((problem) => problem === SAME_AS_LATEST) ?? input.plan.problems[0] ?? null;
 }
+
+/** Publishing takes the Baseline from an active window only (`publishMapping` answers `windowHash/not_active` otherwise). */
+export const WINDOW_NOT_ACTIVE_REASON = '활성 Sample Window에서만 게시할 수 있습니다';
 
 /** `derivePublishPlan`'s problem when the draft and saved rules equal the latest Binding. */
 export const SAME_AS_LATEST = '이전 게시와 같습니다';

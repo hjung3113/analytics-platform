@@ -204,6 +204,25 @@ describe('onboarding mock import and registration', () => {
     expect((await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-03' })).rows).toEqual([]);
   });
 
+  it('one active window per range: import A, stage B, retire A, then C is refused while B waits, and replacing B leaves one active row', async () => {
+    const imp = async (over: Partial<Batch>, name: string) => act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await upload(batch(over), name) });
+    const active = async () => (await data<Windows & { rows: { from: string }[] }>('eqv.sampleWindows', { equipmentId: 'eq-synth-03' })).rows.filter((w) => w.state === 'active');
+    await imp({}, 'a.batch.json');
+    expect(await imp({ dataGeneration: 'g2', hash: H('e') }, 'b.batch.json')).toMatchObject({ data: { state: 'staged' } });
+    await act('eqv.retireSampleWindow', { equipmentId: 'eq-synth-03', windowHash: 'd'.repeat(64) });
+    expect(await active()).toHaveLength(0);
+    expect(await imp({ dataGeneration: 'g3', hash: H('f') }, 'c.batch.json')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['file'], code: 'staged_exists' }] });
+    expect(await act('eqv.replaceSampleWindow', { equipmentId: 'eq-synth-03', windowHash: 'e'.repeat(64) })).toMatchObject({ outcome: 'ok', data: { activeHash: H('e'), replacedHash: '' } });
+    expect((await active()).map((w) => w.hash)).toEqual([H('e')]);
+  });
+
+  it('replace retires nothing but the active window of the staged row\'s exact range', async () => {
+    await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await upload(batch()) });
+    await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await upload(batch({ dataGeneration: 'g2', hash: H('e') }), 'b.batch.json') });
+    expect(await act('eqv.replaceSampleWindow', { equipmentId: 'eq-synth-03', windowHash: 'e'.repeat(64) })).toMatchObject({ data: { replacedHash: H('d') } });
+    expect((await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-03' })).rows.map((w) => w.state)).toEqual(['replaced', 'active']);
+  });
+
   it('the content of a retired window is refused as file/retired and stays retired', async () => {
     await act('eqv.importSampleWindow', { equipmentId: 'eq-synth-03', uploadId: await upload(batch()) });
     expect((await act('eqv.retireSampleWindow', { equipmentId: 'eq-synth-03', windowHash: 'd'.repeat(64) })).outcome).toBe('ok');

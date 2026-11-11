@@ -34,6 +34,7 @@ ALTER TABLE "eqv"."sample_window" ADD CONSTRAINT "sample_window_updated_by_actor
 ALTER TABLE "eqv"."sample_window" ADD CONSTRAINT "sample_window_equipment_fk" FOREIGN KEY ("workspace_id","equipment_id") REFERENCES "eqv"."equipment"("workspace_id","equipment_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "sample_window_workspace_equipment_from_idx" ON "eqv"."sample_window" USING btree ("workspace_id","equipment_id","from_at");--> statement-breakpoint
 ALTER TABLE "eqv"."baseline_inventory" ADD CONSTRAINT "baseline_inventory_window_fk" FOREIGN KEY ("workspace_id","window_id") REFERENCES "eqv"."sample_window"("workspace_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "baseline_inventory_workspace_window_idx" ON "eqv"."baseline_inventory" USING btree ("workspace_id","window_id");--> statement-breakpoint
 -- #1658 (ADR-0139 amendment «Sample Window storage»): runtime walls. sample_window: platform_app SELECT and INSERT, UPDATE of state,
 -- counterpart_hash and the audit columns only (replace and retire); never the content, no DELETE. eqv.equipment: INSERT of the four columns
 -- `eqv.registerEquipment` writes (decision D2; `created_at` takes its default); still no UPDATE and no DELETE. baseline_inventory.window_id is written on INSERT only (that table keeps

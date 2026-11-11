@@ -281,6 +281,7 @@ export const baselineInventories = eqvSchema.table(
       columns: [t.workspaceId, t.windowId],
       foreignColumns: [sampleWindows.workspaceId, sampleWindows.id],
     }).onDelete('restrict'),
+    windowIdx: index('baseline_inventory_workspace_window_idx').on(t.workspaceId, t.windowId),
     workspaceIdUq: unique('baseline_inventory_workspace_id_id_uq').on(t.workspaceId, t.id),
     naturalUq: unique('baseline_inventory_workspace_equipment_hash_uq').on(t.workspaceId, t.equipmentId, t.mappingHash),
     mappingFk: foreignKey({

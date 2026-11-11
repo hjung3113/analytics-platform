@@ -159,6 +159,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
           'eqv-studio:mapping-publish',
           'eqv-studio:rules-edit',
           'eqv-studio:view',
+          'eqv-studio:window-import',
           'eqv:view',
           'features:access',
           'improvement:manage',

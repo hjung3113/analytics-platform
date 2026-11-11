@@ -436,8 +436,10 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
     actorId: string;
     id: string;
     maxBytes: number;
+    /** The caller's transaction, when it has one: the read then takes no second connection. Default: the service's pool. */
+    db?: Pick<typeof deps.db, 'execute'>;
   }): Promise<Buffer | null> {
-    const rows = await deps.db.execute<{ storage_key: string; size_bytes: string | number }>(sql`
+    const rows = await (input.db ?? deps.db).execute<{ storage_key: string; size_bytes: string | number }>(sql`
       select storage_key, size_bytes
         from voc.voc_attachments
        where id = ${input.id}

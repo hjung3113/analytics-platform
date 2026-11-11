@@ -7,7 +7,7 @@ import {
   FieldList, FieldRow, Input, PanelSectionTitle, cn,
 } from '@ap/ui';
 import { WALL_CLOCK_PATTERN, publishMapping, publishRevision, type RevisionRow } from '../../endpoints';
-import { percent, rangeShort, windowHex } from '../../model/onboarding';
+import { WINDOW_NOT_ACTIVE_REASON, percent, rangeShort, windowHex } from '../../model/onboarding';
 import { Canvas, PANEL } from '../../parts/Canvas';
 import { Toolbar } from '../../parts/Toolbar';
 import type { EquipmentData } from './useEquipment';
@@ -114,7 +114,7 @@ export function PublishReview({ data, layout, plan, effectiveFrom, revisions, on
         { expectedVersion: data.bindingsVersion });
       if (result.outcome === 'ok') { toast('Mapping을 게시했습니다', 'info'); onClose(); return; }
       const code = result.fieldErrors[0]?.code;
-      setError(result.outcome === 'conflict' ? '다른 사용자가 먼저 게시했습니다. 다시 확인한 뒤 게시하세요.' : code === 'same-as-latest' ? '이전 게시와 같습니다'
+      setError(result.outcome === 'conflict' ? '다른 사용자가 먼저 게시했습니다. 다시 확인한 뒤 게시하세요.' : code === 'same-as-latest' ? '이전 게시와 같습니다' : code === 'not_active' ? WINDOW_NOT_ACTIVE_REASON
         : result.outcome === 'forbidden' ? '권한이 없어 게시하지 못했습니다.' : 'Mapping을 게시하지 못했습니다.');
     } catch { setError('Mapping을 게시하지 못했습니다.'); }
   };

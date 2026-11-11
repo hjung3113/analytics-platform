@@ -17,7 +17,7 @@ describe('eqv.bundledTemplates rows (#1658 Sample Window·Fleet PR)', () => {
 
   it.each(BUNDLED_TEMPLATE_IDS.map((id) => [id]))('%s: the document equals the asset file, is a valid template, and the row name is its name', (id) => {
     const row = defined(bundledTemplateRows().find((r) => r.templateId === id), id);
-    expect(row.document).toEqual(asset(id));
+    expect(row.document, `${id} differs from its asset: run pnpm --filter @ap/platform-api gen:bundled-templates`).toEqual(asset(id));
     expect(row.name).toBe((row.document as { name: string }).name);
     const parsed = layoutDocumentSchema.safeParse(row.document);
     expect(parsed.success, id).toBe(true);

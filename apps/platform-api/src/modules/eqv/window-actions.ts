@@ -59,7 +59,7 @@ export function windowActions(deps: EqvDeps & { knowledgeLookup: ModelLookup; up
       await enter(tx, actor, equipmentId);
 
       // Only the uploader reads an unlinked upload, within its 24 h; every other case is the same `not_found`.
-      const bytes = await deps.uploads.readUnlinkedUpload({ workspaceId: ws, actorId: actor.actor_id, id: String(input.uploadId), maxBytes: SAMPLE_WINDOW_MAX_BYTES });
+      const bytes = await deps.uploads.readUnlinkedUpload({ workspaceId: ws, actorId: actor.actor_id, id: String(input.uploadId), maxBytes: SAMPLE_WINDOW_MAX_BYTES, db: tx });
       if (bytes === null) throw invalid({ path: ['uploadId'], code: 'not_found' });
       const json = parseUploadJson(bytes);
       if (!json.ok) throw invalid({ path: ['file'], code: 'not_json' });
@@ -75,8 +75,10 @@ export function windowActions(deps: EqvDeps & { knowledgeLookup: ModelLookup; up
       if (known?.state === 'retired') throw invalid({ path: ['file'], code: 'retired' });
       if (known) return { data: known, version: null };
 
-      const active = rows.find((w) => w.state === 'active' && replaces.some((ref) => ref.hash === w.hash));
-      if (active && rows.some((w) => w.state === 'staged' && w.counterpart === active.hash)) throw invalid({ path: ['file'], code: 'staged_exists' });
+      // One window waits per range: a staged one blocks the import whether or not its counterpart is still active (it may have been retired meanwhile).
+      const sameRange = rows.filter((w) => replaces.some((ref) => ref.hash === w.hash));
+      if (sameRange.some((w) => w.state === 'staged')) throw invalid({ path: ['file'], code: 'staged_exists' });
+      const active = sameRange.find((w) => w.state === 'active');
       let inventory;
       try {
         inventory = buildInventory(batch);
@@ -114,13 +116,13 @@ export function windowActions(deps: EqvDeps & { knowledgeLookup: ModelLookup; up
       await enter(tx, actor, equipmentId);
       const staged = await read.getWindowRow(tx, ws, equipmentId, windowHashOf(String(input.windowHash)));
       if (!staged || staged.state !== 'staged') throw invalid({ path: ['windowHash'], code: 'not_staged' });
-      const before = staged.counterpartHash === null ? null : await read.getWindowRow(tx, ws, equipmentId, staged.counterpartHash);
-      // Only a window that is still active is replaced; Baselines taken from it stay (they point at the row, which keeps its content).
-      const replaced = before?.state === 'active' ? before : null;
+      // The window to replace is the active one over the staged row's exact range, whatever its recorded counterpart (that one may be retired):
+      // never two active rows on one range. Baselines taken from it stay (they point at the row, which keeps its content).
+      const replaced = (await read.listWindowRows(tx, ws, equipmentId)).find((w) => w.state === 'active' && w.from === staged.fromAt && w.to === staged.toAt && w.hash !== staged.hash) ?? null;
       if (replaced) await write.setWindowState(tx, { workspaceId: ws, equipmentId, hash: replaced.hash, state: 'replaced', counterpartHash: staged.hash, actorId: actor.actor_id });
       const activated = await write.setWindowState(tx, { workspaceId: ws, equipmentId, hash: staged.hash, state: 'active', counterpartHash: staged.counterpartHash, actorId: actor.actor_id });
       await recordWindowReplaced({
-        tx, actor, subjectId: activated.id, equipmentId, activeHash: staged.hash, replacedHash: replaced?.hash ?? '', summary: `Sample Window replaced for ${equipmentId}`,
+        tx, actor, subjectId: activated.id, equipmentId, activeHash: staged.hash, replacedHash: replaced?.hash ?? null, summary: `Sample Window replaced for ${equipmentId}`,
       });
       return { data: { equipmentId, activeHash: staged.hash, replacedHash: replaced?.hash ?? '' }, version: null };
     },

@@ -99,7 +99,7 @@ export const recordWindowImported = (b: Base & { equipmentId: string; windowHash
     detail: { equipmentId: b.equipmentId, windowHash: b.windowHash, state: b.state, ...(b.counterpartHash === null ? {} : { counterpartHash: b.counterpartHash }) },
   });
 
-export const recordWindowReplaced = (b: Base & { equipmentId: string; activeHash: string; replacedHash: string }) =>
+export const recordWindowReplaced = (b: Base & { equipmentId: string; activeHash: string; replacedHash: string | null }) =>
   audit.record(b.tx, {
     workspace_id: b.actor.workspace_id,
     actor_id: b.actor.actor_id,

@@ -129,7 +129,8 @@ export const onboardingActionsMock: readonly AnyMockAction[] = [
       const rows = onboarding().windows.get(input.equipmentId) ?? [];
       const staged = rows.find((w) => hexOf(w.hash) === input.windowHash);
       if (!staged || staged.state !== 'staged') throw new MockActionInvalid([err(['windowHash'], 'not_staged')]);
-      const replaced = rows.find((w) => w.hash === staged.counterpart);
+      // The active window over the staged row's exact range, whatever its recorded counterpart (that one may be retired).
+      const replaced = rows.find((w) => w.state === 'active' && w.from === staged.from && w.to === staged.to && w !== staged);
       staged.state = 'active';
       if (replaced) { replaced.state = 'replaced'; replaced.counterpart = staged.hash; }
       return { data: { equipmentId: input.equipmentId, activeHash: staged.hash, replacedHash: replaced?.hash ?? '' }, version: null };

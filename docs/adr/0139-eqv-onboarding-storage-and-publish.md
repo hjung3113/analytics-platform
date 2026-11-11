@@ -33,6 +33,8 @@
 4. **설비 등록.** `platform_app`은 `eqv.equipment`에 액션이 쓰는 네 열(`workspace_id`, `equipment_id`, `label`, `model_id`)의 INSERT만 가진다. UPDATE·DELETE는 여전히 없다.
 5. **권한.** 새 capability `eqv.window.import`(메뉴 권한 `eqv-studio:window-import`): 작업 영역 범위, 민감하지 않음, Admin 우회, 세션 전용, User 역할 불가. 가져오기·교체·퇴역·설비 등록이 쓴다.
 6. **무효화.** `publishMapping`은 `eqv.fleet`·`eqv.sampleWindows`도, 규칙·사전 저장은 `eqv.fleet`도 무효화한다. 그렇지 않으면 Fleet 상태(`unstarted`→`draft`)와 `mappingCount`가 새로고침 전까지 낡는다.
+7. **받아들인 예외 하나.** 설비 등록의 `equipmentId/exists`는 Hub 모델이 행위자에게 숨겨진 설비의 id가 이미 쓰였음을 드러내는 유일한 응답이다. 설비 id는 대소문자와 관계없이 작업 영역에서 유일하므로 다른 답을 줄 수 없고, `eqv.window.import` 보유자가 보이는 vendor·model로 그 검사에 닿을 때만 나온다. 모델·vendor·라벨·window는 드러나지 않는다. 통합 테스트가 응답이 정확히 `[{ path: ['equipmentId'], code: 'exists' }]`이고 감사 행이 없음을 고정한다.
+8. **한 범위에 활성 window 하나.** 가져오기는 같은 범위에 `staged` 행이 있으면(그 상대가 아직 활성이든 아니든) `file/staged_exists`다. 교체는 staged 행과 같은 `from`/`to`의 `active` 행을 `replaced`로 바꾸며, 기록된 상대(`counterpart_hash`)에 기대지 않는다. `baseline_inventory (workspace_id, window_id)` 인덱스는 `mappingCount` 부분 질의가 쓴다.
 
 거부한 대안:
 

@@ -47,6 +47,12 @@ describe('publish gate (D9, D10)', () => {
     expect(publishBlockReason({ dirty: false, plan: withConflicts })).toBeNull();
   });
 
+  it.each(['staged', 'replaced', 'retired'])('a %s window blocks publish with its reason; an active one does not', (windowState) => {
+    const plan = derivePublishPlan(input, { run, revision });
+    expect(publishBlockReason({ dirty: false, plan, windowState })).toBe('활성 Sample Window에서만 게시할 수 있습니다');
+    expect(publishBlockReason({ dirty: false, plan, windowState: 'active' })).toBeNull();
+  });
+
   it.each([
     ['unsaved Board edits', () => ({ dirty: true, plan: derivePublishPlan(input, { run, revision }) }), DIRTY_REASON],
     ['a publishMapping issue', () => ({ dirty: false, plan: derivePublishPlan(input, { run: { mapping: null, issues: [{ code: 'same-level-overlap', path: ['PM2'], message: 'two rules' }], coverage: null, conflicts: [] }, revision }) }), /^규칙 문제 \(same-level-overlap\)/],

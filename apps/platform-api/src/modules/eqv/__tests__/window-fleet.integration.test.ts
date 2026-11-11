@@ -329,6 +329,24 @@ describe.skipIf(!runIntegration)('eqv Sample Window and Fleet (#1658 Sample Wind
       expect((await act('eqv.replaceSampleWindow', { equipmentId, windowHash: stagedRow.hash.slice(7) })).fieldErrors).toEqual([{ path: ['windowHash'], code: 'not_staged' }]);
     });
 
+    it('one active window per range at every step: import A, stage B, retire A, import C is staged_exists, replace B', async () => {
+      const equipmentId = await newEquipment();
+      const importGen = async (generation: string) => act('eqv.importSampleWindow', { equipmentId, uploadId: await upload(importer, sampleBatch(equipmentId, { generation })) });
+      const activeCount = () => count('sample_window', "workspace_id = $1 and equipment_id = $2 and state = 'active'", [WORKSPACE_ID, equipmentId]);
+      const a = (await importGen('g1')).data as WindowRow;
+      expect(await activeCount()).toBe(1);
+      const b = (await importGen('g2')).data as WindowRow;
+      expect(b.state).toBe('staged');
+      expect((await act('eqv.retireSampleWindow', { equipmentId, windowHash: a.hash.slice(7) })).outcome).toBe('ok');
+      expect(await activeCount()).toBe(0);
+      expect((await importGen('g3')).fieldErrors).toEqual([{ path: ['file'], code: 'staged_exists' }]);
+      expect(await count('sample_window', 'workspace_id = $1 and equipment_id = $2', [WORKSPACE_ID, equipmentId])).toBe(2);
+      const replaced = await act('eqv.replaceSampleWindow', { equipmentId, windowHash: b.hash.slice(7) });
+      expect(replaced).toMatchObject({ outcome: 'ok', data: { activeHash: b.hash, replacedHash: '' } });
+      expect(await activeCount()).toBe(1);
+      expect((await windows(equipmentId)).find((w) => w.hash === b.hash)?.state).toBe('active');
+    });
+
     it('refusals: the batch of another equipment, not JSON and a malformed upload id answer {path, code} only and store nothing', async () => {
       const equipmentId = await newEquipment();
       await act('eqv.importSampleWindow', { equipmentId, uploadId: await upload(importer, sampleBatch(equipmentId)) });
@@ -558,6 +576,13 @@ describe.skipIf(!runIntegration)('eqv Sample Window and Fleet (#1658 Sample Wind
       ]);
       expect(answers.map((a) => a.outcome).sort()).toEqual(['invalid', 'ok']);
       expect(await count('equipment', 'workspace_id = $1 and lower(equipment_id) = $2', [WORKSPACE_ID, raceId.toLowerCase()])).toBe(1);
+    });
+
+    it('an id already used under a model hidden from the actor answers exactly equipmentId/exists and writes no audit row (accepted exception)', async () => {
+      const taken = await newEquipment(hiddenModelId);
+      const answer = await act('eqv.registerEquipment', { equipmentId: taken, label: 'Probe', vendorId, modelId });
+      expect(answer.fieldErrors).toEqual([{ path: ['equipmentId'], code: 'exists' }]);
+      expect((await auditRows('eqv_equipment')).filter((r) => r.detail.equipmentId === taken)).toEqual([]);
     });
 
     it('refuses a bad id, an empty, long or control-character label and non-uuid ids at validation', async () => {

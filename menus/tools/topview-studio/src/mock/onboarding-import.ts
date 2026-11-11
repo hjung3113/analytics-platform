@@ -51,8 +51,10 @@ export const onboardingImportMock: readonly AnyMockAction[] = [
       if (known?.state === 'retired') throw new MockActionInvalid([err(['file'], 'retired')]);
       if (known) return { data: structuredClone(known), version: null };
       // EV#105: a reprocessed generation of an active window's exact range waits as `staged` until `replaceSampleWindow`.
-      const active = verdict.replaces.map((ref) => rows.find((w) => w.hash === ref.hash)).find((w) => w?.state === 'active') ?? null;
-      if (active && rows.some((w) => w.state === 'staged' && w.counterpart === active.hash)) throw new MockActionInvalid([err(['file'], 'staged_exists')]);
+      const sameRange = verdict.replaces.map((ref) => rows.find((w) => w.hash === ref.hash));
+      // A staged window of the range blocks the import even when its counterpart was retired meanwhile.
+      const active = sameRange.find((w) => w?.state === 'active') ?? null;
+      if (sameRange.some((w) => w?.state === 'staged')) throw new MockActionInvalid([err(['file'], 'staged_exists')]);
       const { summary } = verdict;
       const row: SampleWindowRow = {
         hash: summary.hash, from: summary.from, to: summary.to, dataGeneration: summary.dataGeneration, timeDomain: summary.timeDomain,

@@ -307,6 +307,16 @@ describe('검증·게시', () => {
     fireEvent.click(within(await screen.findByRole('alertdialog', {}, slow)).getByRole('button', { name: '게시' }));
     expect(await screen.findByText('이전 게시와 같습니다', {}, slow)).toBeTruthy();
   });
+
+  it('a server refusal windowHash/not_active says why in the dialog', async () => {
+    server.state.refuseMapping = { outcome: 'invalid', code: 'not_active' };
+    mount('engineer', '&equipment=eq-synth-01&step=validate');
+    const review = await screen.findByRole('button', { name: '게시 검토' }, slow);
+    await waitFor(() => expect((review as HTMLButtonElement).disabled).toBe(false), slow);
+    fireEvent.click(review);
+    fireEvent.click(within(await screen.findByRole('alertdialog', {}, slow)).getByRole('button', { name: '게시' }));
+    expect(await screen.findByText('활성 Sample Window에서만 게시할 수 있습니다', {}, slow)).toBeTruthy();
+  });
 });
 
 describe('Data, Template and Drift', () => {

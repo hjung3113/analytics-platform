@@ -67,7 +67,7 @@ const WINDOW_HASH = REVISION;
 export const eqvSampleWindowImportedDetailSchema = z
   .object({ equipmentId: EQUIPMENT_ID, windowHash: WINDOW_HASH, state: z.enum(['active', 'staged']), counterpartHash: WINDOW_HASH.optional() })
   .strict();
-export const eqvSampleWindowReplacedDetailSchema = z.object({ equipmentId: EQUIPMENT_ID, activeHash: WINDOW_HASH, replacedHash: WINDOW_HASH }).strict();
+export const eqvSampleWindowReplacedDetailSchema = z.object({ equipmentId: EQUIPMENT_ID, activeHash: WINDOW_HASH, replacedHash: WINDOW_HASH.nullable() }).strict();
 export const eqvSampleWindowRetiredDetailSchema = z.object({ equipmentId: EQUIPMENT_ID, windowHash: WINDOW_HASH }).strict();
 export const eqvEquipmentRegisteredDetailSchema = z.object({ equipmentId: EQUIPMENT_ID, vendorId: UUID, modelId: UUID }).strict();
 
