@@ -21,6 +21,8 @@ export const EQV_PUBLISH_PERMISSION = 'eqv-studio:layout-publish';
 export const EQV_RULES_EDIT_PERMISSION = 'eqv-studio:rules-edit';
 export const EQV_DICTIONARY_GLOBAL_EDIT_PERMISSION = 'eqv-studio:dictionary-global-edit';
 export const EQV_MAPPING_PUBLISH_PERMISSION = 'eqv-studio:mapping-publish';
+/** Sample Window import, replace and retire and equipment registration (#1658 Sample Window·Fleet PR). */
+export const EQV_WINDOW_IMPORT_PERMISSION = 'eqv-studio:window-import';
 
 /** The capability behind each (the declaration of `MenuDispatchContribution.permissions`). */
 export const EQV_VIEW_CAPABILITY = 'eqv.view';
@@ -29,6 +31,7 @@ export const EQV_PUBLISH_CAPABILITY = 'eqv.layout.publish';
 export const EQV_RULES_EDIT_CAPABILITY = 'eqv.rules.edit';
 export const EQV_DICTIONARY_GLOBAL_EDIT_CAPABILITY = 'eqv.dictionary.global_edit';
 export const EQV_MAPPING_PUBLISH_CAPABILITY = 'eqv.mapping.publish';
+export const EQV_WINDOW_IMPORT_CAPABILITY = 'eqv.window.import';
 export const EQV_MENU_PERMISSIONS: readonly MenuPermissionDeclaration[] = [
   { permission: EQV_VIEW_PERMISSION, capability: EQV_VIEW_CAPABILITY },
   { permission: EQV_STUDIO_VIEW_PERMISSION, capability: EQV_VIEW_CAPABILITY },
@@ -37,4 +40,5 @@ export const EQV_MENU_PERMISSIONS: readonly MenuPermissionDeclaration[] = [
   { permission: EQV_RULES_EDIT_PERMISSION, capability: EQV_RULES_EDIT_CAPABILITY },
   { permission: EQV_DICTIONARY_GLOBAL_EDIT_PERMISSION, capability: EQV_DICTIONARY_GLOBAL_EDIT_CAPABILITY },
   { permission: EQV_MAPPING_PUBLISH_PERMISSION, capability: EQV_MAPPING_PUBLISH_CAPABILITY },
+  { permission: EQV_WINDOW_IMPORT_PERMISSION, capability: EQV_WINDOW_IMPORT_CAPABILITY },
 ];

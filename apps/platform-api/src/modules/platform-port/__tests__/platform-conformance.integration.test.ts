@@ -174,12 +174,6 @@ const NOT_REGISTERED: readonly string[] = [
   'metrics.definition',
   'metrics.pair',
   'metrics.usage',
-  // Declared by the Onboarding menu and served by its mock; server pending (#1658 Sample Window·Fleet PR). Listed here, not in
-  // MENU_LEFT_OUT: no module registers them yet, and the coverage test below compares MENU_LEFT_OUT with the registered ids.
-  'eqv.fleet',
-  'eqv.sampleWindows',
-  'eqv.observedInventory',
-  'eqv.bundledTemplates',
 ];
 
 /** An id no row has; the detail reads answer `empty` for it. */
@@ -273,6 +267,10 @@ const MENU_PARAMS: Record<string, Record<string, unknown>> = {
   'eqv.mappingVersion': { equipmentId: nilEqvEquipment, hash: nilEqvHash },
   'eqv.bindings': { equipmentId: nilEqvEquipment },
   'eqv.baselineInventory': { equipmentId: nilEqvEquipment, mappingHash: nilEqvHash },
+  'eqv.fleet': {},
+  'eqv.sampleWindows': { equipmentId: nilEqvEquipment },
+  'eqv.observedInventory': { equipmentId: nilEqvEquipment, windowHash: '0'.repeat(64) },
+  'eqv.bundledTemplates': {},
 };
 
 /**

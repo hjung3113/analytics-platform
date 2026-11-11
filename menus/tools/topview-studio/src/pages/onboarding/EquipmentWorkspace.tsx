@@ -90,7 +90,7 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
   const revisionsQ = useMenuQuery(layoutRevisionsEndpoint, { layoutId: data.layoutId }, canPublish && layout !== null);
   const revisions = rowsOf(revisionsQ);
   const rightReason = plan === null ? null : publishRightReason({ canLayoutPublish, needsRevision: revisions === null ? null : !revisions.some((r) => r.revision === plan.layoutRevision) });
-  const blockReason = layout === null ? 'Layout 초안이 없습니다. Template 탭에서 시작하세요.' : current && 'error' in current ? current.error : publishBlockReason({ dirty, plan }) ?? rightReason;
+  const blockReason = layout === null ? 'Layout 초안이 없습니다. Template 탭에서 시작하세요.' : current && 'error' in current ? current.error : publishBlockReason({ dirty, plan, windowState: data.window?.state }) ?? rightReason;
   const publishReason = blockReason === null ? null : publishHeaderReason(blockReason);
 
   // ---- status and step marks ----

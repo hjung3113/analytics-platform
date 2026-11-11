@@ -33,7 +33,7 @@
 
 ## 설비 온보딩(Top View 작성)
 
-`도구 › Top View 작성 › 설비 온보딩`(`/tools/eqv-onboarding`, #1658)은 `레이아웃` 옆 두 번째 메뉴다. 서버의 Fleet·Sample Window 읽기와 window 교체·퇴역은 아직 없어([eqv.md «Pending server»](../../architecture/platform-api/api/eqv.md#pending-server)) mock 조립에서 확인한다. 설비 등록과 Sample Window 가져오기는 EV 개발 도구에 남는다(메뉴 CHANGELOG «Not implemented»).
+`도구 › Top View 작성 › 설비 온보딩`(`/tools/eqv-onboarding`, #1658)은 `레이아웃` 옆 두 번째 메뉴다. 서버가 Fleet·Sample Window 읽기와 Sample Window 가져오기·교체·퇴역, 설비 등록을 제공한다([eqv.md](../../architecture/platform-api/api/eqv.md) «Sample Windows, Fleet and equipment registration»). `eqv.window.import` 권한이 필요한 쓰기다.
 
 | 플랫폼 기능 | 견본과 가는 길 | 맞는 모습 | 근거 | 확인 |
 | --- | --- | --- | --- | --- |

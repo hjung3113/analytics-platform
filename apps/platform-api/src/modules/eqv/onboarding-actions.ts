@@ -35,9 +35,11 @@ import {
   EQV_RULES_EDIT_PERMISSION,
 } from './menu.js';
 import { equipmentScope, scopeAddressable, type ModelLookup } from './onboarding-scope.js';
+import { isWindowHex, windowHashOf } from './domain/window-checks.js';
 import { findRevision } from './repositories/eqv-write.js';
 import * as read from './repositories/onboarding-read.js';
 import * as write from './repositories/onboarding-write.js';
+import { getWindowRow } from './repositories/window-read.js';
 
 const invalid = (...errors: FieldError[]) => new MenuActionInvalidError(errors);
 
@@ -127,7 +129,7 @@ export function onboardingActions(deps: EqvDeps & { knowledgeLookup: ModelLookup
     allowEquipment: true,
     check: checkAliasRules,
     inputKeys: ['level', 'vendorId', 'modelId', 'equipmentId', 'document'],
-    invalidates: ['eqv.aliasRules'],
+    invalidates: ['eqv.aliasRules', 'eqv.fleet'],
   });
   const saveTypeDictionary = scopedSave({
     id: 'eqv.saveTypeDictionary',
@@ -135,18 +137,19 @@ export function onboardingActions(deps: EqvDeps & { knowledgeLookup: ModelLookup
     allowEquipment: false,
     check: checkTypeDictionary,
     inputKeys: ['level', 'vendorId', 'modelId', 'document'],
-    invalidates: ['eqv.typeDictionary'],
+    invalidates: ['eqv.typeDictionary', 'eqv.fleet'],
   });
 
   const publish: MenuActionDeclaration = {
     spec: {
       id: 'eqv.publishMapping',
       menuId: O,
-      inputKeys: ['equipmentId', 'layoutId', 'layoutRevision', 'baseline', 'effectiveFrom'],
+      inputKeys: ['equipmentId', 'layoutId', 'layoutRevision', 'windowHash', 'effectiveFrom'],
       permission: EQV_MAPPING_PUBLISH_PERMISSION,
       requiresScope: false,
       concurrency: 'version',
-      invalidates: ['eqv.mappingVersions', 'eqv.bindings'],
+      // Fleet status and a window's `mappingCount` change with a publish (#1658 Sample Window·Fleet PR, D4).
+      invalidates: ['eqv.mappingVersions', 'eqv.bindings', 'eqv.fleet', 'eqv.sampleWindows'],
     },
     authorize: (actor, tx) => mappingPublish(actor, tx),
     async canReplay(tx, actor, input) {
@@ -159,12 +162,7 @@ export function onboardingActions(deps: EqvDeps & { knowledgeLookup: ModelLookup
       if (typeof input.layoutRevision !== 'string' || !REVISION_PATTERN.test(input.layoutRevision)) errors.push({ path: ['layoutRevision'], code: 'invalid' });
       const clock = wallClockProblem(input.effectiveFrom);
       if (clock) errors.push({ path: ['effectiveFrom'], code: clock });
-      if (isEquipmentId(input.equipmentId)) {
-        const baseline = checkBaseline(input.equipmentId, input.baseline);
-        if (!baseline.ok) errors.push(...baseline.errors);
-      } else if (!isObject(input.baseline)) {
-        errors.push({ path: ['baseline'], code: 'invalid' });
-      }
+      if (!isWindowHex(input.windowHash)) errors.push({ path: ['windowHash'], code: 'invalid' });
       return errors;
     },
     // The version the author saw is the number of Bindings of the equipment; the equipment lock is taken here and held to the end.
@@ -184,8 +182,12 @@ export function onboardingActions(deps: EqvDeps & { knowledgeLookup: ModelLookup
       if (!(await mappingPublish(actor, tx))) throw new MenuActionForbiddenError();
       const scope = await equipmentScope(tx, deps.knowledgeLookup, actor, equipmentId);
       if (!scope) throw invalid({ path: ['equipmentId'], code: 'not_found' });
-      const baseline = checkBaseline(equipmentId, input.baseline);
-      if (!baseline.ok) throw invalid(...baseline.errors);
+      // The Baseline is the stored Inventory of an active window of this equipment. An unknown, hidden, staged, replaced or retired window all
+      // answer the same `not_active` (no existence leak), and nothing is stored.
+      const window = await getWindowRow(tx, ws, equipmentId, windowHashOf(String(input.windowHash)));
+      if (!window || window.state !== 'active') throw invalid({ path: ['windowHash'], code: 'not_active' });
+      const baseline = checkBaseline(equipmentId, window.inventory, ['windowHash']);
+      if (!baseline.ok) throw new Error(`eqv publish: the stored Inventory of window ${window.hash} (${equipmentId}) failed validation`);
 
       // The action never publishes a draft: the Layout Revision exists already (the Layouts menu publishes it).
       const source = await findRevision(tx, ws, layoutId, revision);
@@ -235,7 +237,7 @@ export function onboardingActions(deps: EqvDeps & { knowledgeLookup: ModelLookup
         await write.insertMappingVersion(tx, { workspaceId: ws, equipmentId, layoutId, layoutRevision: revision, hash: mapping.hash, document: mapping, actorId: actor.actor_id });
       }
       if (!(await read.getBaselineRow(tx, ws, equipmentId, mapping.hash))) {
-        await write.insertBaseline(tx, { workspaceId: ws, equipmentId, mappingHash: mapping.hash, document: baseline.inventory, actorId: actor.actor_id });
+        await write.insertBaseline(tx, { workspaceId: ws, equipmentId, mappingHash: mapping.hash, document: baseline.inventory, windowId: window.id, actorId: actor.actor_id });
       }
       const open = latest && latest.effectiveTo === undefined ? rows.find((r) => r.effectiveFrom === latest.effectiveFrom) : undefined;
       if (open) await write.closeBinding(tx, { workspaceId: ws, id: open.id, effectiveTo: effectiveFrom });

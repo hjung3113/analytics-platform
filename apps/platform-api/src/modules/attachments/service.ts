@@ -425,7 +425,58 @@ export function createAttachmentsService(deps: AttachmentsServiceDeps) {
     };
   }
 
-  return { uploadAttachmentCommand, downloadAttachment };
+  // ── readUnlinkedUpload (#1658, ADR-0140 §6) ─────────────────────────────
+  //
+  // The bytes of an upload by id, for the module that consumes it (the eqv Sample Window import) within the upload's 24 h. Only the
+  // uploader reads it, only while it is unlinked and not archived, only in the workspace of the storage key. Anything else — unknown,
+  // linked, archived, expired, another user's, another workspace's, over `maxBytes`, or bytes gone from storage — is the same `null`,
+  // so the caller cannot tell a stranger's upload from a missing one. It never links the row and writes nothing.
+  async function readUnlinkedUpload(input: {
+    workspaceId: string;
+    actorId: string;
+    id: string;
+    maxBytes: number;
+    /** The caller's transaction, when it has one: the read then takes no second connection. Default: the service's pool. */
+    db?: Pick<typeof deps.db, 'execute'>;
+  }): Promise<Buffer | null> {
+    const rows = await (input.db ?? deps.db).execute<{ storage_key: string; size_bytes: string | number }>(sql`
+      select storage_key, size_bytes
+        from voc.voc_attachments
+       where id = ${input.id}
+         and uploaded_by_actor_id = ${input.actorId}
+         and voc_id is null and comment_id is null and parent_id is null
+         and archived_at is null
+         and created_at > now() - interval '24 hours'
+       limit 1
+    `);
+    const row = rows.rows[0];
+    if (!row || !row.storage_key.startsWith(`${input.workspaceId}/`) || Number(row.size_bytes) > input.maxBytes) return null;
+    let got;
+    try {
+      got = await deps.storage.get(row.storage_key);
+    } catch (err) {
+      if (err instanceof StorageUnavailableError) {
+        throw new HttpError('storage.unavailable', err.message);
+      }
+      const name = (err as { name?: string } | null | undefined)?.name;
+      if (name === 'NoSuchKey' || name === 'NotFound') return null;
+      throw err;
+    }
+    const chunks: Buffer[] = [];
+    let total = 0;
+    for await (const chunk of got.stream) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
+      total += buffer.length;
+      if (total > input.maxBytes) {
+        got.stream.destroy();
+        return null;
+      }
+      chunks.push(buffer);
+    }
+    return Buffer.concat(chunks);
+  }
+
+  return { uploadAttachmentCommand, downloadAttachment, readUnlinkedUpload };
 }
 
 export type AttachmentsService = ReturnType<typeof createAttachmentsService>;

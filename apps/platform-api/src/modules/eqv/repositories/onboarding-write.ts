@@ -7,7 +7,7 @@ import { aliasRules, baselineInventories, bindings, mappingVersions, typeDiction
 import type { MappingScopeRef } from '../domain/mapping-checks.js';
 
 /** One writer per scope row (or per equipment): a creation race waits here and then sees the first row. Held until the transaction ends. */
-export async function lockOnboarding(tx: Tx, kind: 'alias_rules' | 'type_dictionary' | 'equipment', workspaceId: string, id: string): Promise<void> {
+export async function lockOnboarding(tx: Tx, kind: 'alias_rules' | 'type_dictionary' | 'equipment' | 'equipment_register', workspaceId: string, id: string): Promise<void> {
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`eqv.${kind}`}), hashtext(${`${workspaceId}:${id}`}))`);
 }
 
@@ -80,10 +80,10 @@ export async function insertMappingVersion(
   return row;
 }
 
-export async function insertBaseline(tx: Tx, v: { workspaceId: string; equipmentId: string; mappingHash: string; document: unknown; actorId: string }) {
+export async function insertBaseline(tx: Tx, v: { workspaceId: string; equipmentId: string; mappingHash: string; document: unknown; windowId: string; actorId: string }) {
   const [row] = await tx
     .insert(baselineInventories)
-    .values({ workspaceId: v.workspaceId, equipmentId: v.equipmentId, mappingHash: v.mappingHash, document: v.document, createdBy: v.actorId })
+    .values({ workspaceId: v.workspaceId, equipmentId: v.equipmentId, mappingHash: v.mappingHash, document: v.document, windowId: v.windowId, createdBy: v.actorId })
     .returning({ id: baselineInventories.id });
   if (!row) throw new Error('eqv baseline insert returned no row');
   return row;

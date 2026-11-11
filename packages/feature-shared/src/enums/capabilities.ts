@@ -48,6 +48,7 @@ export const CAPABILITIES = [
   'eqv.rules.edit',
   'eqv.dictionary.global_edit',
   'eqv.mapping.publish',
+  'eqv.window.import',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -183,6 +184,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'eqv.rules.edit': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
   'eqv.dictionary.global_edit': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
   'eqv.mapping.publish': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
+  // Sample Window import, replace and retire and equipment registration (#1658): workspace-scoped, session-only like the other eqv writes.
+  'eqv.window.import': { sensitive: false, adminModuleBypass: 'always', sessionOnly: true },
 };
 
 export function isCapability(value: string): value is Capability {

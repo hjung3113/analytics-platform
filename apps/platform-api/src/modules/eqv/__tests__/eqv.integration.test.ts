@@ -458,7 +458,12 @@ describe.skipIf(!runIntegration)('eqv module (#1645)', () => {
       await expect(run(`update eqv.template set name = 'x' where workspace_id = $1 and template_id = $2`, [WORKSPACE_ID, templateId])).rejects.toThrow(/permission denied/);
       await expect(run(`delete from eqv.template where workspace_id = $1 and template_id = $2`, [WORKSPACE_ID, templateId])).rejects.toThrow(/permission denied/);
       await expect(run(`update eqv.layout_draft set layout_id = 'moved' where workspace_id = $1 and layout_id = $2`, [WORKSPACE_ID, layoutId])).rejects.toThrow(/permission denied/);
-      await expect(run(`insert into eqv.equipment (workspace_id, equipment_id, label, model_id) values ($1, 'x', 'x', $2)`, [WORKSPACE_ID, randomUUID()])).rejects.toThrow(/permission denied/);
+      // Decision D2 (#1658): the runtime role may INSERT the four columns `eqv.registerEquipment` writes, and nothing else on `eqv.equipment`.
+      const equipmentId = `${TAG}-wall-eq`;
+      await run(`insert into eqv.equipment (workspace_id, equipment_id, label, model_id) values ($1, $2, 'x', $3)`, [WORKSPACE_ID, equipmentId, randomUUID()]);
+      await expect(run(`insert into eqv.equipment (workspace_id, equipment_id, label, model_id, created_at) values ($1, $2, 'x', $3, now())`, [WORKSPACE_ID, `${equipmentId}-2`, randomUUID()])).rejects.toThrow(/permission denied/);
+      await expect(run(`update eqv.equipment set label = 'y' where workspace_id = $1 and equipment_id = $2`, [WORKSPACE_ID, equipmentId])).rejects.toThrow(/permission denied/);
+      await expect(run(`delete from eqv.equipment where workspace_id = $1 and equipment_id = $2`, [WORKSPACE_ID, equipmentId])).rejects.toThrow(/permission denied/);
     });
   });
 });

@@ -140,16 +140,14 @@ export const mappingVersionEndpoint = onboardingRead<EquipmentParams & { hash: s
 /** Answers `empty` for an equipment the actor cannot address; an equipment without Bindings answers an empty `bindings` list at version `'0'`. */
 export const bindingsEndpoint = onboardingRead<EquipmentParams, BindingsRead | null>('eqv.bindings', { equipmentId: true });
 export const baselineInventoryEndpoint = onboardingRead<EquipmentParams & { mappingHash: string }, { document: JsonDocument } | null>('eqv.baselineInventory', { equipmentId: true, mappingHash: true });
-/** Server: pending (#1658 Sample Window·Fleet PR). */
 export const fleetEndpoint = onboardingRead<NoParams, { rows: FleetRowDto[] }>('eqv.fleet', {});
-/** Server: pending (#1658 Sample Window·Fleet PR). */
 export const sampleWindowsEndpoint = onboardingRead<EquipmentParams, { rows: SampleWindowRow[] }>('eqv.sampleWindows', { equipmentId: true });
-/** Server: pending (#1658 Sample Window·Fleet PR). `windowHash` is the 64 hex digits; `empty` for an unknown window. */
+/** `windowHash` is the 64 hex digits; `empty` for an unknown window. */
 export const observedInventoryEndpoint = onboardingRead<EquipmentParams & { windowHash: string }, JsonDocument | null>('eqv.observedInventory', { equipmentId: true, windowHash: true });
-/** Server: pending (#1658 Sample Window·Fleet PR). The EV Templates the package ships (`BUNDLED_TEMPLATE_IDS`); `eqv.templates` lists promoted ones only. */
+/** The EV Templates the package ships (`BUNDLED_TEMPLATE_IDS`); `eqv.templates` lists promoted ones only. */
 export const bundledTemplatesEndpoint = onboardingRead<NoParams, { rows: BundledTemplateRow[] }>('eqv.bundledTemplates', {});
 
-/** The reads: the server storage PR's seven, then the four pending ones (`onboarding-menu-drift.test.ts` lists them). */
+/** The reads (`onboarding-menu-drift.test.ts` compares them with the server's). */
 export const onboardingReadSpecs = [
   aliasRulesEndpoint, typeDictionaryEndpoint, equipmentScopesEndpoint, mappingVersionsEndpoint, mappingVersionEndpoint, bindingsEndpoint, baselineInventoryEndpoint,
   fleetEndpoint, sampleWindowsEndpoint, observedInventoryEndpoint, bundledTemplatesEndpoint,
@@ -158,7 +156,7 @@ export const onboardingReadSpecs = [
 export type SaveScopedInput = ScopeParams & { document: JsonDocument };
 /** `id` is the stored row's id. */
 export type SaveScopedResult = { id: string; version: string };
-export type PublishMappingInput = { equipmentId: string; layoutId: string; layoutRevision: string; baseline: JsonDocument; effectiveFrom: string };
+export type PublishMappingInput = { equipmentId: string; layoutId: string; layoutRevision: string; windowHash: string; effectiveFrom: string };
 export type PublishMappingResult = { mappingHash: string; bindingId: string; version: string };
 export type WindowActionInput = { equipmentId: string; windowHash: string };
 export type ReplaceWindowResult = { equipmentId: string; activeHash: string; replacedHash: string };
@@ -177,35 +175,35 @@ export const SAMPLE_WINDOW_FILE_SUFFIX = '.batch.json';
 /** `expectedVersion` is the version the author read (`'0'` while the scope has no file). A global level also needs `eqv-studio:dictionary-global-edit`. */
 export const saveAliasRules = defineAction<SaveScopedInput, SaveScopedResult>({
   id: 'eqv.saveAliasRules', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { ...SCOPE_KEYS, document: true }, permission: RULES_EDIT_PERMISSION,
-  requiresScope: false, concurrency: 'version', invalidates: [aliasRulesEndpoint],
+  requiresScope: false, concurrency: 'version', invalidates: [aliasRulesEndpoint, fleetEndpoint],
 });
 export const saveTypeDictionary = defineAction<Omit<SaveScopedInput, 'equipmentId'>, SaveScopedResult>({
   id: 'eqv.saveTypeDictionary', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { level: true, vendorId: true, modelId: true, document: true }, permission: RULES_EDIT_PERMISSION,
-  requiresScope: false, concurrency: 'version', invalidates: [typeDictionaryEndpoint],
+  requiresScope: false, concurrency: 'version', invalidates: [typeDictionaryEndpoint, fleetEndpoint],
 });
 /**
  * `expectedVersion` is the equipment's binding count the author saw. The server flattens the saved rules against the published Layout
- * Revision, stores the Mapping Version and `baseline` (the selected window's ObservedInventory) and closes/opens the Binding; it refuses
- * `same-as-latest` (path `['mapping']`). The Revision must exist: the screen calls `publishRevision` first when the draft has none (both are idempotent).
+ * Revision, stores the Mapping Version and takes the Baseline from the stored Inventory of `windowHash` (the 64 hex digits of an `active`
+ * Sample Window of the equipment; any other window is `windowHash/not_active`), and closes/opens the Binding; it refuses `same-as-latest` (path `['mapping']`). The Revision must exist: the screen calls `publishRevision` first when the draft has none (both are idempotent).
  */
 export const publishMapping = defineAction<PublishMappingInput, PublishMappingResult>({
-  id: 'eqv.publishMapping', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { equipmentId: true, layoutId: true, layoutRevision: true, baseline: true, effectiveFrom: true },
+  id: 'eqv.publishMapping', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { equipmentId: true, layoutId: true, layoutRevision: true, windowHash: true, effectiveFrom: true },
   permission: MAPPING_PUBLISH_PERMISSION, requiresScope: false, concurrency: 'version',
-  invalidates: [mappingVersionsEndpoint, bindingsEndpoint],
+  invalidates: [mappingVersionsEndpoint, bindingsEndpoint, fleetEndpoint, sampleWindowsEndpoint],
 });
-/** Server: pending (#1658 Sample Window·Fleet PR). Activates a `staged` window and marks the window it replaces `replaced`. */
+/** Activates a `staged` window and marks the window it replaces `replaced`. */
 export const replaceSampleWindow = defineAction<WindowActionInput, ReplaceWindowResult>({
   id: 'eqv.replaceSampleWindow', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { equipmentId: true, windowHash: true }, permission: WINDOW_IMPORT_PERMISSION,
   requiresScope: false, concurrency: 'none', invalidates: [sampleWindowsEndpoint, observedInventoryEndpoint, fleetEndpoint],
 });
-/** Server: pending (#1658 Sample Window·Fleet PR). Retires an active window; published Mapping Versions keep their Baseline Inventory. */
+/** Retires an active window; published Mapping Versions keep their Baseline Inventory. */
 export const retireSampleWindow = defineAction<WindowActionInput, RetireWindowResult>({
   id: 'eqv.retireSampleWindow', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { equipmentId: true, windowHash: true }, permission: WINDOW_IMPORT_PERMISSION,
   requiresScope: false, concurrency: 'none', invalidates: [sampleWindowsEndpoint, observedInventoryEndpoint, fleetEndpoint],
 });
 
 /**
- * Server: pending (#1658 Sample Window·Fleet PR). Reads the uploaded `*.batch.json` by id, validates it like the dev tool (EV ADR-0010,
+ * Reads the uploaded `*.batch.json` by id, validates it like the dev tool (EV ADR-0010,
  * `@eqv/core` `checkSampleWindowImport`) and stores it; answers the stored window as an `eqv.sampleWindows` row. The same content again
  * answers the stored row. A reprocessed Data Generation of an active window's exact range is stored `staged` (EV#105), replaced only by
  * `replaceSampleWindow`. Refusals are `invalid`: `uploadId/not_found` (unknown, expired or another user's upload), `file/not_json`,
@@ -217,7 +215,7 @@ export const importSampleWindow = defineAction<ImportWindowInput, SampleWindowRo
   requiresScope: false, concurrency: 'none', invalidates: [sampleWindowsEndpoint, observedInventoryEndpoint, fleetEndpoint],
 });
 /**
- * Server: pending (#1658 Sample Window·Fleet PR). Registers an equipment under a Hub vendor and model; it appears in Fleet as
+ * Registers an equipment under a Hub vendor and model; it appears in Fleet as
  * `no-observations`. Refusals are `invalid`: `equipmentId/invalid` (not an id), `equipmentId/exists` (also an id that differs only by
  * letter case, like the dev tool), `label/invalid`, `vendorId`·`modelId/not_found` (no such Hub vendor and model for the actor).
  */
@@ -226,5 +224,5 @@ export const registerEquipment = defineAction<RegisterEquipmentInput, RegisterEq
   requiresScope: false, concurrency: 'none', invalidates: [fleetEndpoint, equipmentScopesEndpoint],
 });
 
-/** The writes: the server storage PR's three, then the four pending ones. */
+/** The writes (`onboarding-menu-drift.test.ts` compares them with the server's). */
 export const onboardingActionSpecs = [saveAliasRules, saveTypeDictionary, publishMapping, replaceSampleWindow, retireSampleWindow, importSampleWindow, registerEquipment] as const;

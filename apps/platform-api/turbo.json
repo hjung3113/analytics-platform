@@ -22,7 +22,9 @@
         "$TURBO_ROOT$/packages/sdk/contract-schemas/endpoints.json",
         "$TURBO_ROOT$/docs/design/features/log-knowledge-hub/design-v0.6-candidate.md",
         "$TURBO_ROOT$/apps/feature-screens/src/**",
-        "$TURBO_ROOT$/packages/eqv/fixtures/cluster-single/layout.json"
+        "$TURBO_ROOT$/packages/eqv/fixtures/cluster-single/layout.json",
+        "$TURBO_ROOT$/packages/eqv/assets/observations/eq-synth-02/windows/**",
+        "$TURBO_ROOT$/packages/eqv/assets/templates/**"
       ],
       "outputs": [
         "coverage/**"
@@ -46,7 +48,9 @@
         "$TURBO_ROOT$/packages/sdk/contract-schemas/endpoints.json",
         "$TURBO_ROOT$/docs/design/features/log-knowledge-hub/design-v0.6-candidate.md",
         "$TURBO_ROOT$/apps/feature-screens/src/**",
-        "$TURBO_ROOT$/packages/eqv/fixtures/cluster-single/layout.json"
+        "$TURBO_ROOT$/packages/eqv/fixtures/cluster-single/layout.json",
+        "$TURBO_ROOT$/packages/eqv/assets/observations/eq-synth-02/windows/**",
+        "$TURBO_ROOT$/packages/eqv/assets/templates/**"
       ]
     }
   }

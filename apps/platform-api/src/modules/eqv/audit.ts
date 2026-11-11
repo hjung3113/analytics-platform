@@ -1,5 +1,7 @@
 // The audit rows of the eqv writes (ids, versions and Revision hashes only: no document, no name). The caller owns the transaction, so
 // the row commits or rolls back with the write it describes (FO ADR-0008).
+import { createHash } from 'node:crypto';
+
 import type { Tx } from '../../db/tx.js';
 import { createAuditService } from '../core/audit/audit-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
@@ -83,3 +85,59 @@ export const recordMappingPublished = (b: Base & { equipmentId: string; mappingH
     summary: b.summary,
     detail: { equipmentId: b.equipmentId, mappingHash: b.mappingHash, layoutRevision: b.layoutRevision, effectiveFrom: b.effectiveFrom },
   });
+
+// Sample Windows and equipment registration (#1658 Sample Window·Fleet PR): equipment id and window hashes (and the Hub ids of a registration)
+// only; never the uploaded file, the batch, an Inventory or the label.
+export const recordWindowImported = (b: Base & { equipmentId: string; windowHash: string; state: 'active' | 'staged'; counterpartHash: string | null }) =>
+  audit.record(b.tx, {
+    workspace_id: b.actor.workspace_id,
+    actor_id: b.actor.actor_id,
+    event_type: 'eqv.sample_window.imported',
+    subject_type: 'eqv_sample_window',
+    subject_id: b.subjectId,
+    summary: b.summary,
+    detail: { equipmentId: b.equipmentId, windowHash: b.windowHash, state: b.state, ...(b.counterpartHash === null ? {} : { counterpartHash: b.counterpartHash }) },
+  });
+
+export const recordWindowReplaced = (b: Base & { equipmentId: string; activeHash: string; replacedHash: string | null }) =>
+  audit.record(b.tx, {
+    workspace_id: b.actor.workspace_id,
+    actor_id: b.actor.actor_id,
+    event_type: 'eqv.sample_window.replaced',
+    subject_type: 'eqv_sample_window',
+    subject_id: b.subjectId,
+    summary: b.summary,
+    detail: { equipmentId: b.equipmentId, activeHash: b.activeHash, replacedHash: b.replacedHash },
+  });
+
+export const recordWindowRetired = (b: Base & { equipmentId: string; windowHash: string }) =>
+  audit.record(b.tx, {
+    workspace_id: b.actor.workspace_id,
+    actor_id: b.actor.actor_id,
+    event_type: 'eqv.sample_window.retired',
+    subject_type: 'eqv_sample_window',
+    subject_id: b.subjectId,
+    summary: b.summary,
+    detail: { equipmentId: b.equipmentId, windowHash: b.windowHash },
+  });
+
+export const recordEquipmentRegistered = (b: Base & { equipmentId: string; vendorId: string; modelId: string }) =>
+  audit.record(b.tx, {
+    workspace_id: b.actor.workspace_id,
+    actor_id: b.actor.actor_id,
+    event_type: 'eqv.equipment.registered',
+    subject_type: 'eqv_equipment',
+    subject_id: b.subjectId,
+    summary: b.summary,
+    detail: { equipmentId: b.equipmentId, vendorId: b.vendorId, modelId: b.modelId },
+  });
+
+/**
+ * `eqv.equipment` has no uuid (its key is the equipment id) and `core.audit_log.subject_id` is a uuid: a registration's subject is a
+ * deterministic uuid (version-5 layout, SHA-256) of the workspace and the lower-cased equipment id, the same for every row about it.
+ */
+export function equipmentSubjectId(workspaceId: string, equipmentId: string): string {
+  const digest = createHash('sha256').update(`eqv.equipment:${workspaceId}:${equipmentId.toLowerCase()}`).digest('hex').slice(0, 32);
+  const hex = `${digest.slice(0, 12)}5${digest.slice(13, 16)}${((Number.parseInt(digest.slice(16, 17), 16) & 0x3) | 0x8).toString(16)}${digest.slice(17)}`;
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}

@@ -2,6 +2,14 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.4.1 — 2026-11-11
+
+- Sample Window·Fleet 서버(#1658): `eqv.fleet`·`eqv.sampleWindows`·`eqv.observedInventory`·`eqv.bundledTemplates`와 가져오기·교체·퇴역·설비 등록을 서버가 제공한다(«Server: pending» 표시 제거). `eqv.publishMapping` 입력 `baseline`이 `windowHash`(선택한 window의 64 hex)로 바뀌고 서버가 저장된 Inventory를 Baseline으로 쓴다(`ValidateTab`·mock·`endpoints.ts`). `invalidates`: 게시는 `eqv.fleet`·`eqv.sampleWindows`도, 규칙·사전 저장은 `eqv.fleet`도 비운다. 화면은 달라지지 않는다.
+
+### Not implemented
+
+- 설비 등록의 Hub Model 목록 읽기와 서버 쪽 alias metadata 저장(서버는 alias metadata 없이 Inventory를 만든다, mock과 같다): 이번 서버 PR에서도 만들지 않았다. 다시 열 조건: 소유자가 Fleet에 없는 Model로 등록하길 원할 때 / alias metadata 가져오기를 정할 때 (`docs/architecture/platform-api/api/eqv.md` «Not implemented»).
+
 ## 0.4.0 — 2026-11-11
 
 - Sample Window 가져오기와 설비 등록(#1658, ADR-0140): 데이터 탭 표 위 «Sample Window 가져오기» → 대화상자에서 `*.batch.json`을 고르면 구간·Generation·Occurrence·timeDomain과 검증 문제·경고를 미리 보이고(`@eqv/core` `checkSampleWindowImport`, 개발 도구와 같은 코드), 확인하면 `PlatformAdapter.uploadFile`로 올린 뒤 `eqv.importSampleWindow { equipmentId, uploadId }`. 사전 점검 32 MiB·`*.batch.json`/`application/json`, 업로드 `invalid`·`forbidden`·`conflict`·`error`와 서버 거부 코드를 대화상자에 표시. 같은 구간을 다시 처리한 Generation은 «교체 대기»로 들어가 기존 «교체»로만 바뀜(EV#105). `uploadFile`이 없는 어댑터는 버튼 대신 이유 한 줄. Fleet 머리의 «설비 등록»(`eqv.registerEquipment { equipmentId, label, vendorId, modelId }`) → Fleet에 «관측 없음». 두 쓰기 모두 `eqv-studio:window-import`, 서버는 Pending(mock만). mock은 올린 파일을 올린 사람으로만 id로 읽고(`readUpload`), 앱 mock 조립이 `setSampleWindowImport`로 core 판정·Inventory 계산을 넘긴다.

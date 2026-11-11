@@ -88,20 +88,24 @@ export const onboardingActionsMock: readonly AnyMockAction[] = [
       if (typeof input.layoutId !== 'string' || !TEMPLATE_ID_PATTERN.test(input.layoutId)) errors.push(err(['layoutId'], 'invalid'));
       if (typeof input.layoutRevision !== 'string' || !REVISION_PATTERN.test(input.layoutRevision)) errors.push(err(['layoutRevision'], 'invalid'));
       if (typeof input.effectiveFrom !== 'string' || !WALL_CLOCK_PATTERN.test(input.effectiveFrom)) errors.push(err(['effectiveFrom'], 'invalid'));
-      if (!isObject(input.baseline) || input.baseline.equipmentId !== input.equipmentId || !Array.isArray(input.baseline.aliases)) errors.push(err(['baseline'], 'invalid'));
+      if (typeof input.windowHash !== 'string' || !WINDOW_HEX_PATTERN.test(input.windowHash)) errors.push(err(['windowHash'], 'invalid'));
       return errors;
     },
     version: ({ input }) => String(onboarding().bindings.get(input.equipmentId)?.length ?? 0),
     handle: ({ input }) => {
       const { equipmentId, layoutId, layoutRevision, effectiveFrom } = input;
       if (!revisions().some((r) => r.layoutId === layoutId && r.revision === layoutRevision)) throw new MockActionInvalid([err(['layoutRevision'], 'not_found')]);
+      // The Baseline is the stored Inventory of an active window of the equipment; any other window is `not_active`, like the server.
+      const window = onboarding().windows.get(equipmentId)?.find((w) => hexOf(w.hash) === input.windowHash);
+      const baseline = window?.state === 'active' ? onboarding().inventories.get(input.windowHash) : undefined;
+      if (!window || !baseline) throw new MockActionInvalid([err(['windowHash'], 'not_active')]);
       const bindings = onboarding().bindings.get(equipmentId) ?? [];
       const latest = latestOf(bindings);
       if (latest && effectiveFrom <= latest.effectiveFrom) throw new MockActionInvalid([err(['effectiveFrom'], 'not_after_latest')]);
       const equipment = equipmentById(equipmentId)!;
       const files = [`equipment/${equipmentId}`, `model/${equipment.vendorId}/${equipment.modelId}`, `maker/${equipment.vendorId}`, 'global']
         .flatMap((key) => { const found = onboarding().rules.get(key); return found ? [found.document as unknown as RuleFile] : []; });
-      const aliases = (input.baseline.aliases as { alias: string }[]).map(({ alias }) => alias);
+      const aliases = (baseline.aliases as { alias: string }[]).map(({ alias }) => alias);
       const body = { schemaVersion: '0.4', equipmentId, layoutId, entries: flattenRules(files, aliases) };
       const mappingHash = fakeRevision(body);
       if (latest && latest.mappingHash === mappingHash && latest.layoutRevision === layoutRevision) throw new MockActionInvalid([err(['mapping'], 'same-as-latest')]);
@@ -111,10 +115,10 @@ export const onboardingActionsMock: readonly AnyMockAction[] = [
       if (!byHash.has(mappingHash)) byHash.set(mappingHash, { document: { ...body, hash: mappingHash }, layoutRevision, publishedAt: stamp() });
       onboarding().mappings.set(equipmentId, byHash);
       const baselineKey = `${equipmentId}/${mappingHash}`;
-      if (!onboarding().baselines.has(baselineKey)) onboarding().baselines.set(baselineKey, structuredClone(input.baseline));
-      // The window the Baseline came from now backs one more Mapping Version.
-      const window = onboarding().windows.get(equipmentId)?.find((w) => w.state === 'active' && w.from === input.baseline.from && w.to === input.baseline.to);
-      if (window) window.mappingCount += 1;
+      const firstOfHash = !onboarding().baselines.has(baselineKey);
+      if (firstOfHash) onboarding().baselines.set(baselineKey, structuredClone(baseline));
+      // The window the Baseline came from now backs one more Mapping Version (the first Baseline of a hash stays, so a repeated hash adds none).
+      if (firstOfHash) window.mappingCount += 1;
       equipment.status = 'published';
       return { data: { mappingHash, bindingId: mockId(), version: String(next.length) }, version: String(next.length) };
     },
@@ -125,7 +129,8 @@ export const onboardingActionsMock: readonly AnyMockAction[] = [
       const rows = onboarding().windows.get(input.equipmentId) ?? [];
       const staged = rows.find((w) => hexOf(w.hash) === input.windowHash);
       if (!staged || staged.state !== 'staged') throw new MockActionInvalid([err(['windowHash'], 'not_staged')]);
-      const replaced = rows.find((w) => w.hash === staged.counterpart);
+      // The active window over the staged row's exact range, whatever its recorded counterpart (that one may be retired).
+      const replaced = rows.find((w) => w.state === 'active' && w.from === staged.from && w.to === staged.to && w !== staged);
       staged.state = 'active';
       if (replaced) { replaced.state = 'replaced'; replaced.counterpart = staged.hash; }
       return { data: { equipmentId: input.equipmentId, activeHash: staged.hash, replacedHash: replaced?.hash ?? '' }, version: null };

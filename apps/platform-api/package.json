@@ -14,6 +14,7 @@
     "test:integration": "pnpm run build:schemas && bash ../../ops/platform-api/scripts/test-integration.sh",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.platform-tests.json",
+    "gen:bundled-templates": "node scripts/gen-bundled-templates.mjs",
     "db:generate": "node scripts/bundle-schema.mjs && drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:check": "drizzle-kit check",

@@ -589,7 +589,7 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
     expect(rows.map((row) => row.column_name)).toEqual([...columns].sort());
   });
 
-  // #1645: the `eqv` schema is not in PRODUCT_SCHEMAS either, so its tables are pinned explicitly (migrations 0121, 0124).
+  // #1645: the `eqv` schema is not in PRODUCT_SCHEMAS either, so its tables are pinned explicitly (migrations 0121, 0124, 0125).
   it.each([
     ['layout_draft', ['SELECT', 'INSERT']],
     ['layout_revision', ['SELECT', 'INSERT']],
@@ -601,6 +601,8 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
     ['mapping_version', ['SELECT', 'INSERT']],
     ['baseline_inventory', ['SELECT', 'INSERT']],
     ['binding', ['SELECT', 'INSERT']],
+    // #1658 (migration 0125): Sample Window storage.
+    ['sample_window', ['SELECT', 'INSERT']],
   ] as const)('platform_app holds exactly %s privileges on eqv.%s (no DELETE, no TRUNCATE, no table-wide UPDATE)', async (table, expected) => {
     const { rows } = await migrateHandle.pool.query<{ privilege_type: string }>(
       `select privilege_type from information_schema.role_table_grants
@@ -608,6 +610,16 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
       [table],
     );
     expect(rows.map((row) => row.privilege_type).sort()).toEqual([...expected].sort());
+  });
+
+  // #1658 (migration 0125): `eqv.registerEquipment` inserts exactly these columns of eqv.equipment (a column-level INSERT, no table-wide one).
+  it('platform_app INSERT on eqv.equipment is limited to the columns registerEquipment writes', async () => {
+    const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
+      `select column_name from information_schema.column_privileges
+        where grantee = 'platform_app' and table_schema = 'eqv' and table_name = 'equipment' and privilege_type = 'INSERT'
+        order by column_name`,
+    );
+    expect(rows.map((row) => row.column_name)).toEqual(['equipment_id', 'label', 'model_id', 'workspace_id']);
   });
 
   it.each([
@@ -620,6 +632,7 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
     ['mapping_version', []],
     ['baseline_inventory', []],
     ['binding', ['effective_to']],
+    ['sample_window', ['counterpart_hash', 'state', 'updated_at', 'updated_by']],
   ] as const)('platform_app UPDATE on eqv.%s is limited to the mutable columns', async (table, columns) => {
     const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
       `select column_name

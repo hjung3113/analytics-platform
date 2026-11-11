@@ -14,6 +14,10 @@ export const EQV_AUDIT_EVENT_TYPES = [
   'eqv.type_dictionary.created',
   'eqv.type_dictionary.saved',
   'eqv.mapping.published',
+  'eqv.sample_window.imported',
+  'eqv.sample_window.replaced',
+  'eqv.sample_window.retired',
+  'eqv.equipment.registered',
 ] as const;
 
 export const EQV_SUBJECT_TYPES = [
@@ -23,6 +27,8 @@ export const EQV_SUBJECT_TYPES = [
   'eqv_alias_rules',
   'eqv_type_dictionary',
   'eqv_binding',
+  'eqv_sample_window',
+  'eqv_equipment',
 ] as const;
 
 const LAYOUT_ID = z.string().regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/);
@@ -56,6 +62,15 @@ export const eqvMappingPublishedDetailSchema = z
   .object({ equipmentId: EQUIPMENT_ID, mappingHash: REVISION, layoutRevision: REVISION, effectiveFrom: WALL_CLOCK })
   .strict();
 
+// Sample Windows and equipment registration (#1658, ADR-0139 amendment): ids and content hashes only. Never the file, the batch, the Inventory or a label.
+const WINDOW_HASH = REVISION;
+export const eqvSampleWindowImportedDetailSchema = z
+  .object({ equipmentId: EQUIPMENT_ID, windowHash: WINDOW_HASH, state: z.enum(['active', 'staged']), counterpartHash: WINDOW_HASH.optional() })
+  .strict();
+export const eqvSampleWindowReplacedDetailSchema = z.object({ equipmentId: EQUIPMENT_ID, activeHash: WINDOW_HASH, replacedHash: WINDOW_HASH.nullable() }).strict();
+export const eqvSampleWindowRetiredDetailSchema = z.object({ equipmentId: EQUIPMENT_ID, windowHash: WINDOW_HASH }).strict();
+export const eqvEquipmentRegisteredDetailSchema = z.object({ equipmentId: EQUIPMENT_ID, vendorId: UUID, modelId: UUID }).strict();
+
 export const EQV_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'eqv.layout.draft_created': eqvDraftDetailSchema,
   'eqv.layout.draft_saved': eqvDraftDetailSchema,
@@ -66,4 +81,8 @@ export const EQV_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'eqv.type_dictionary.created': eqvTypeDictionaryDetailSchema,
   'eqv.type_dictionary.saved': eqvTypeDictionaryDetailSchema,
   'eqv.mapping.published': eqvMappingPublishedDetailSchema,
+  'eqv.sample_window.imported': eqvSampleWindowImportedDetailSchema,
+  'eqv.sample_window.replaced': eqvSampleWindowReplacedDetailSchema,
+  'eqv.sample_window.retired': eqvSampleWindowRetiredDetailSchema,
+  'eqv.equipment.registered': eqvEquipmentRegisteredDetailSchema,
 } as const satisfies Record<(typeof EQV_AUDIT_EVENT_TYPES)[number], z.ZodTypeAny>;

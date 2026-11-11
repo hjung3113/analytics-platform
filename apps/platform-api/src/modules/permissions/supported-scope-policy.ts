@@ -30,6 +30,7 @@ export const NOT_FOR_USER_ROLE: ReadonlySet<Capability> = new Set([
   'eqv.rules.edit',
   'eqv.dictionary.global_edit',
   'eqv.mapping.publish',
+  'eqv.window.import',
 ]);
 
 /** True when the User role may never exercise this capability, whatever grant rows exist (#1531). */
@@ -68,7 +69,8 @@ export async function supportedScopeCandidates(
     capability === 'eqv.layout.publish' ||
     capability === 'eqv.rules.edit' ||
     capability === 'eqv.dictionary.global_edit' ||
-    capability === 'eqv.mapping.publish'
+    capability === 'eqv.mapping.publish' ||
+    capability === 'eqv.window.import'
   ) {
     return [{ managed_system_id: null }];
   }

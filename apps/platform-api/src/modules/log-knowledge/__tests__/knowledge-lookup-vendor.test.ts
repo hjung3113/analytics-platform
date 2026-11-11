@@ -9,7 +9,7 @@ const dialect = new PgDialect();
 
 describe('knowledgeLookup.getVendor (#1658)', () => {
   it.each([
-    ['an existing vendor', [{ id: VENDOR }], { id: VENDOR }],
+    ['an existing vendor', [{ id: VENDOR, name: 'Synth Maker' }], { id: VENDOR, name: 'Synth Maker' }],
     ['a missing vendor', [], null],
   ])('answers %s', async (_name, rows, expected) => {
     const predicates: Parameters<PgDialect['sqlToQuery']>[0][] = [];

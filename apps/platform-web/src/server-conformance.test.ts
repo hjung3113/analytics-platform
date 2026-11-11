@@ -69,7 +69,8 @@ studioRun('promoteTemplate', { layoutId: STUDIO_LAYOUT, revision: STUDIO_REVISIO
 // Binding; a window sample stages its own synthetic window (`stageOnboardingWindow`) on eq-synth-02.
 const ONBOARDING_G1 = '23e9e214b396bfaa4539e7b30c5f8f9163fbac6c50201430231f641ff7c822ba';
 const ONBOARDING_MAPPING = 'sha256:0abf3e9ff0b22cb0e7993bfe143461f44ef1b8828df2cdce8e25af3d02987aef';
-const onboardingBaseline = () => endpoints.find(({ spec }) => spec.id === 'eqv.observedInventory')!.handle({ equipment: [], context: emptyGlobal, params: { equipmentId: 'eq-synth-02', windowHash: '38098e59b24809a728006d2b635e8034d7303ea9403f69f6da7201fe635f9da8' }, actor: 'admin' });
+/** The seeded active window of eq-synth-02: a publish names it and the mock takes its stored Inventory as the Baseline. */
+const ONBOARDING_WINDOW = '38098e59b24809a728006d2b635e8034d7303ea9403f69f6da7201fe635f9da8';
 let onboardingSequence = 0;
 const onboardingSamples: Record<string, () => Record<string, unknown>> = {
   saveAliasRules: () => ({ level: 'equipment', equipmentId: 'eq-synth-02', document: { schemaVersion: '0.4', scope: { level: 'equipment', equipmentId: 'eq-synth-02' }, rules: [] } }),
@@ -78,7 +79,7 @@ const onboardingSamples: Record<string, () => Record<string, unknown>> = {
     const layoutId = stagedStudioLayout();
     const { revision } = studioRun('publishRevision', { layoutId });
     const effectiveFrom = new Date(Date.UTC(2027, 0, 1) + ++onboardingSequence * 1000).toISOString().slice(0, 23);
-    return { equipmentId: 'eq-synth-02', layoutId, layoutRevision: revision, baseline: onboardingBaseline(), effectiveFrom };
+    return { equipmentId: 'eq-synth-02', layoutId, layoutRevision: revision, windowHash: ONBOARDING_WINDOW, effectiveFrom };
   },
   replaceSampleWindow: () => ({ equipmentId: 'eq-synth-02', windowHash: stageOnboardingWindow('staged') }),
   retireSampleWindow: () => ({ equipmentId: 'eq-synth-02', windowHash: stageOnboardingWindow('active') }),
