@@ -45,7 +45,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const { tx, lang } = useI18n();
   const section = useContext(AnalysisSectionContext);
   const root = useRef<HTMLElement>(null); const scroll = useRef<HTMLDivElement>(null);
-  const canvas = useRef<HTMLCanvasElement>(null); const axis = useRef<HTMLCanvasElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null); const overlay = useRef<HTMLCanvasElement>(null); const axis = useRef<HTMLCanvasElement>(null);
   const spacer = useRef<HTMLDivElement>(null); const tooltip = useRef<HTMLDivElement>(null);
   const savedView = useRef<{ model?: ReturnType<typeof prepareLanes>; view?: [number, number] }>({});
   const engine = useRef<ReturnType<typeof createLaneRenderer> | null>(null);
@@ -63,8 +63,8 @@ export function LaneTimeline(props: LaneTimelineProps) {
     revealById: id => engine.current?.revealById(id),
   }), []);
   useEffect(() => {
-    if (!root.current || !scroll.current || !canvas.current || !axis.current || !spacer.current || !tooltip.current) return;
-    const renderer = createLaneRenderer({ root: root.current, scroll: scroll.current, canvas: canvas.current, axis: axis.current, spacer: spacer.current, tooltip: tooltip.current,
+    if (!root.current || !scroll.current || !canvas.current || !overlay.current || !axis.current || !spacer.current || !tooltip.current) return;
+    const renderer = createLaneRenderer({ root: root.current, scroll: scroll.current, canvas: canvas.current, overlay: overlay.current, axis: axis.current, spacer: spacer.current, tooltip: tooltip.current,
       model, props, savedView: savedView.current, selectedId: selectedItem?.segment.id ?? null,
       lang,
       onSelect: id => { setLocalSelection(id); props.onSelectedChange?.(id); },
@@ -104,8 +104,8 @@ export function LaneTimeline(props: LaneTimelineProps) {
           <TooltipContent>{tx(interactionHelp)}</TooltipContent>
         </Tooltip></TooltipProvider>
         <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{tx({ ko: '확대', en: 'Zoom in' })}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{tx({ ko: '축소', en: 'Zoom out' })}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.resetZoom()}>{tx({ ko: '확대 초기화', en: 'Zoom Reset' })}</Button>
-        {props.imageCopy && <ChartImageCopyButton fileName={`${displayFileName(props.ariaLabel) || 'timeline'}.png`} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, labels: spacer.current, scroll: scroll.current })} />}
-        {props.imagePrint && <ChartImagePrintButton title={() => props.ariaLabel} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, labels: spacer.current, scroll: scroll.current })} />}
+        {props.imageCopy && <ChartImageCopyButton fileName={`${displayFileName(props.ariaLabel) || 'timeline'}.png`} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
+        {props.imagePrint && <ChartImagePrintButton title={() => props.ariaLabel} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
       </div>
     </header>
     <p className="px-4 py-2 text-text-secondary">{tx(boundaryHelp)}</p>
@@ -114,7 +114,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
       <div className="min-w-[352px]">
         <canvas ref={axis} aria-hidden className="block w-full" />
         <div ref={scroll} data-lane-scroll className="relative overflow-y-auto overscroll-contain">
-          <div className="sticky top-0 h-0"><canvas ref={canvas} role="img" aria-label={props.ariaLabel} className="block w-full touch-pan-y" /></div>
+          <div className="sticky top-0 h-0"><canvas ref={canvas} role="img" aria-label={props.ariaLabel} className="block w-full touch-pan-y" /><canvas ref={overlay} aria-hidden className="pointer-events-none absolute left-0 top-0 block w-full" /></div>
           <div ref={spacer} className="pointer-events-none relative">
             {model.lanes.map(lane => <div key={lane.id} className="h-6 w-28 truncate bg-surface-card px-2 py-1 text-text-secondary" title={lane.label}>{lane.label}</div>)}
           </div>

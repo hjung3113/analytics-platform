@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession, useToastsForTest } from '@ap/kernel/testing';
@@ -90,4 +90,19 @@ it('toasts the outcome through the platform toast', async () => {
   fireEvent.click(button()!);
   expect(await screen.findByText('이미지를 복사하거나 내려받지 못했습니다')).toBeTruthy();
   expect(plotted).toBeGreaterThan(0);
+});
+
+it('LaneTimeline copy composes the axis, data and overlay canvases into one PNG, in that order', async () => {
+  const drawn: HTMLCanvasElement[] = [];
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => ({ drawImage: (c: HTMLCanvasElement) => drawn.push(c), fillRect() {}, setTransform() {}, clearRect() {}, fillText() {}, measureText: () => ({ width: 10 }), save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, moveTo() {}, lineTo() {}, stroke() {}, strokeRect() {}, setLineDash() {} }) as never);
+  vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(cb => cb(new Blob(['x'], { type: 'image/png' })));
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  URL.createObjectURL = () => 'blob:x'; URL.revokeObjectURL = () => {};
+  Object.defineProperty(window, 'isSecureContext', { configurable: true, value: false });
+  mount(components.lane(true), true);
+  const data = screen.getByRole('img') as HTMLCanvasElement;
+  const overlay = data.parentElement!.querySelector<HTMLCanvasElement>('canvas:not([role])')!;
+  const axis = data.closest('[data-lane-scroll]')!.previousElementSibling as HTMLCanvasElement;
+  fireEvent.click(button()!);
+  await waitFor(() => expect(drawn).toEqual([axis, data, overlay]));
 });
