@@ -18,6 +18,7 @@ import { loginAs } from '../../../test-support/auth.js';
 import { toCodeKey } from '../../log-knowledge/index.js';
 import { sampleManifestDigest } from '../domain/sample-set.js';
 import { lifecycleSuiteResults } from '../suite-result-read-port.js';
+import { defined } from '../../../test-support/defined.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -329,10 +330,11 @@ describe.skipIf(!runIntegration)('attempt opinions (#1778 a)', () => {
       expect(await opinionRows(other.attemptId)).toHaveLength(0);
       const events = (await audit(s.requestId)).filter((e) => e.event_type === 'lifecycle.opinion.recorded');
       expect(events).toHaveLength(1);
-      expect(events[0]).toMatchObject({ event_type: 'lifecycle.opinion.recorded', subject_type: 'execution_request', actor_id: systemA });
+      const event = defined(events[0], 'the opinion audit row');
+      expect(event).toMatchObject({ event_type: 'lifecycle.opinion.recorded', subject_type: 'execution_request', actor_id: systemA });
       // A token call also carries the token id (api_token_id); the detail never has text.
-      expect(Object.keys(events[0].detail as object).sort()).toEqual(['api_token_id', 'attemptNo', 'recorded']);
-      expect(events[0].detail).toMatchObject({ attemptNo: 1, recorded: 3 });
+      expect(Object.keys(event.detail as object).sort()).toEqual(['api_token_id', 'attemptNo', 'recorded']);
+      expect(event.detail).toMatchObject({ attemptNo: 1, recorded: 3 });
       const allAudit = (await sql('select detail::text as d, summary from core.audit_log where workspace_id = $1', [WORKSPACE_ID])).rows;
       expect(JSON.stringify(allAudit)).not.toContain('NOTE-MARKER');
     });
