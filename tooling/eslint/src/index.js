@@ -22,11 +22,8 @@ const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu 
 const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 const FEATURE_MESSAGE = `Feature server/screens/shared/UI/ops are consumer dependencies; the design system lives in ${pkg('ui')} (ADR-0046).`;
 // #160: the table engine is components-internal; menus declare columns with the platform types.
-// EV's synthetic endpoint data (#801): reaches the app through src/dev/** (the mock assembly) and the conformance test only.
-const EQV_MOCK_DATA_PATTERN = '@eqv/*/mock-data';
-const EQV_MOCK_DATA_MESSAGE = '@eqv/*/mock-data is synthetic mock data; only src/dev/** and the server conformance test import it (ADR-0009, #801).';
-// EV packages are reached only through the host-module slot (ADR-0132, ADR-0128); the app assembles the one adapter.
-const EQV_MESSAGE = 'Platform and menus learn nothing about equipment: @eqv/* is reached only through the host-module slot, assembled in apps/platform-web (ADR-0132, ADR-0128).';
+// EV packages are imported only by EV's own two menus and by other EV packages; the app reaches the viewer through the menu package (ADR-0132, #1659).
+const EQV_MESSAGE = `Platform and other menus learn nothing about equipment: only EV's own menus (${pkg('menu-topview')}, ${pkg('menu-topview-studio')}) and EV packages import @eqv/*; the app reaches the viewer through ${pkg('menu-topview')} (ADR-0132).`;
 // #1654, #1659: the two menus that are EV's own (menus/tools/topview-studio, menus/tools/topview) import exactly these entries; every other menu stays under EQV_MESSAGE.
 const EQV_MENU_ENTRIES = ['@eqv/core', '@eqv/renderer', '@eqv/replay', '@eqv/views', '@eqv/editor', '@eqv/ui'];
 const EQV_MENU_MESSAGE = `Only EV's own menus (${pkg('menu-topview-studio')} and ${pkg('menu-topview')}) import exactly @eqv/core, @eqv/renderer, @eqv/replay, @eqv/views, @eqv/editor and @eqv/ui (ADR-0132); no other @eqv/* entry or subpath, and nothing under src/mock/**.`;
@@ -120,20 +117,19 @@ const FEATURE_BRIDGE_PACKAGE_RESTRICTION = { ...MENU_RESTRICTION, denyQueryEngin
 const FEATURE_BRIDGE_PAGES_RESTRICTION = { ...FEATURE_BRIDGE_PACKAGE_RESTRICTION, denyQueryEngine: false, allowFeature: FEATURE_BRIDGE_ENTRIES };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, denyQueryEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
-// The exact EV entries apps/platform-web uses: src/modules.ts (adapter, manifest) and the mock entry, which its own rule confines to src/dev/** and the conformance test.
 // The app imports no @eqv/* source: the viewer is the menu package menu-topview (manifests, the model-topview subpath in main.tsx, the mock-data subpath in src/dev/** and the conformance test).
 const APP_EQV_ENTRIES = [];
 const TOPVIEW_MODEL_SUBPATH = 'menu-topview/model-topview';
 const TOPVIEW_MOCK_DATA_SUBPATH = 'menu-topview/mock-data';
-const APP_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: false, denyDev: true, denyHttpAdapter: true, denyEqvMockData: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
+const APP_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: false, denyDev: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
 // src/main.tsx is the composition root: only the screen API and notifications slot subpaths; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
 const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FEATURE_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, IMPROVEMENT_HOME_SLOT_SUBPATH, IMPROVEMENT_ANALYSIS_ACTIONS_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, LOG_EXPLORER_VIEW_SUBPATH, LOG_ROUND_SOURCE_SLOT_SUBPATH, LOG_MODEL_TOPVIEW_SLOT_SUBPATH, TOPVIEW_MODEL_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
-const APP_DEV_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: true, denyHttpAdapter: true, denyEqvMockData: false, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH, TOPVIEW_MOCK_DATA_SUBPATH] };
+const APP_DEV_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH, TOPVIEW_MOCK_DATA_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
 // one source for "what the app registers"); no menu `/mock` subpath of its own.
-const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, denyEqvMockData: false, devAllow: ['./dev/mock-assembly'], allowSubpaths: [...APP_RESTRICTION.allowSubpaths, TOPVIEW_MOCK_DATA_SUBPATH] };
+const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, devAllow: ['./dev/mock-assembly'], allowSubpaths: [...APP_RESTRICTION.allowSubpaths, TOPVIEW_MOCK_DATA_SUBPATH] };
 // published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
@@ -144,7 +140,7 @@ const eqvRegex = (allowEqv = [], allowEqvPackages = []) => {
   return `^${exact}${roots}(?:${EQV_PACKAGES.map(escapeRegex).join('|')})(?:/|$)`;
 };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine = false, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, denyEqvMockData = false, allowEqv = [], allowEqvPackages = [], eqvMessage = EQV_MESSAGE, allowDockEngine = false, allowRadix = false, allowFeature = [] }) {
+function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine = false, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, allowEqv = [], allowEqvPackages = [], eqvMessage = EQV_MESSAGE, allowDockEngine = false, allowRadix = false, allowFeature = [] }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...new Set(allowFeature.map((source) => `!${source.split('/').slice(0, 2).join('/')}`)),
@@ -181,7 +177,6 @@ function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine
           : [{ group: [`${PACKAGE_PREFIX}*`, ...negations], message: LAYER_MESSAGE }]),
         ...(mockAllowed ? [] : [{ group: [pkg('mock-server'), pkg('mock-server/*')], message: MOCK_SERVER_MESSAGE }]),
         ...(denyHttpAdapter ? [{ group: [pkg('http-adapter')], message: HTTP_ADAPTER_MESSAGE }] : []),
-        ...(denyEqvMockData ? [{ group: [EQV_MOCK_DATA_PATTERN, `${EQV_MOCK_DATA_PATTERN}/**`], message: EQV_MOCK_DATA_MESSAGE }] : []),
         { regex: eqvRegex(allowEqv, allowEqvPackages), message: eqvMessage },
         ...(denyReact ? [{ group: ['react/*', 'react-dom/*'], message: REACT_MESSAGE }] : []),
         ...(denyTableEngine ? [{ group: TABLE_ENGINE_PACKAGES.map((name) => `${name}/*`), message: TABLE_ENGINE_MESSAGE }] : []),
@@ -220,7 +215,6 @@ function importSourceOptions(restriction) {
     layerMessage: LAYER_MESSAGE,
     mockMessage: MOCK_SERVER_MESSAGE,
     httpAdapterMessage: HTTP_ADAPTER_MESSAGE,
-    eqvMockDataMessage: EQV_MOCK_DATA_MESSAGE,
     eqvMessage: restriction.eqvMessage ?? EQV_MESSAGE,
     devRegex: devRegex(restriction.devAllow),
     devMessage: DEV_MESSAGE,
