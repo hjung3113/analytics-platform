@@ -312,9 +312,9 @@ type Account =
 /**
  * The menu reads of the production run (about 17 checks each) would spend far more than one actor's budget of 100 a
  * minute (the global per-actor limit, never changed), so the `granted` account's menuQuery calls rotate over a pool
- * of twins with the same grants. `MENU_POOL` twins serve about 1,200 calls with room to spare.
+ * of twins with the same grants. `MENU_POOL` twins serve the calls with room to spare (16 ran out once the menu read inventory passed ~90 endpoints, #1815; the pool grows with the inventory).
  */
-const MENU_POOL = 16;
+const MENU_POOL = 20;
 /** Menu permissions every session holds (`every-session` in `PLATFORM_PERMISSION_TABLE`): only an API token without `workspace.read` lacks them. */
 const EVERY_SESSION_PERMISSIONS: readonly string[] = ['platform:view', 'notice:view', 'metrics:view'];
 /** Menu permissions a capability opens; a developer without the grant lacks them. */
