@@ -10,6 +10,7 @@ import { isModelHierarchyNodeId } from '../hierarchy';
 // Lookup mirrors only; these are owned and implemented by log-knowledge, never contributed a second time.
 const lookupEndpoints: Record<string, EndpointSpec<Params, unknown>> = Object.fromEntries(['vendors', 'processes'].map(name => [name, defineEndpoint<Params, unknown>({ id: `logKnowledge.${name}`, menuId: 'log-knowledge-catalog', permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false, paramKeys: { q: true, page: true, pageSize: true, sorting: true, filters: true } })]));
 
+const SOURCE_GATED = new Set(['excerpt', 'evidenceStates']);
 function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> {
   const { pageParam, route } = usePlatform();
   const listRead = name === 'models' && route?.menu.id === 'log-models';
@@ -21,7 +22,8 @@ function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> 
   const spec = endpoints[name] ?? lookupEndpoints[name];
   if (!spec) throw new Error(`Unknown lifecycle read: ${name}`);
   const query = useMenuQuery(spec, projected, enabled);
-  const response = query.response;
+  // Source-gated reads never show a prior result while they are re-read: a revoked right must not re-show the last answer.
+  const response = SOURCE_GATED.has(name) && query.status === 'refreshing' ? undefined : query.response;
   return { status: response ? response.outcome === 'ok' || response.outcome === 'empty' ? 'done' : 'error' : 'loading', completedAt: query.completedAt, data: response?.data as T | null, denied: response?.outcome === 'forbidden', retry: query.refetch };
 }
 function useAction(name: string): Action {

@@ -70,12 +70,21 @@ function read(name: string, p: Params, actor: string): unknown {
     if (sort) selected.sort((a,b) => String(a[sort.id as 'ruleId']).localeCompare(String(b[sort.id as 'ruleId'])) * (sort.desc ? -1 : 1));
     return page(selected, p);
   }
+  if (name === 'evidenceStates') {
+    const rule = [...rules, ...opinionRules].find(r => r.id === p.ruleResultId);
+    if (!rule) return null;
+    // Synthetic rules cover every state pair: the first rule is readable, the second has an erased excerpt and a changed hash, the third lacks the rights.
+    const at = rules.findIndex(r => r.id === rule.id);
+    return { rows: rule.evidence.map((e, evidenceIndex) => ({ ruleResultId: rule.id, evidenceIndex, evidenceRef: { fileRef: e.fileRef, line: e.line, fileSha256: e.fileSha256 },
+      excerptState: !e.hasExcerpt ? 'not_submitted' : at === 2 ? 'no_permission' : at === 1 ? 'unknown' : 'not_loaded',
+      sourceState: at === 2 ? 'no_permission' : at === 1 ? 'hash_mismatch' : 'not_checked' })) };
+  }
   if (name === 'excerpt') return p.ruleResultId === rules[1]?.id ? { deleted: true, excerpt: null } : { deleted: false, excerpt: 'SYNTHETIC FIXTURE · 이벤트 형식 해석 실패' };
   return null;
 }
 export const logLifecycleMock: readonly AnyMockEndpoint[] = Object.entries(endpoints).map(([name, spec]) => defineMockEndpoint(spec, { mart: false, validate: ({ params }) => {
   if (name === 'hierarchy') return validateHierarchy(params);
-  const idKey = { projectDetail: 'projectId', projectEvents: 'projectId', rounds: 'projectId', roundDetail: 'roundId', roundEvidence: 'roundId', requestDetail: 'requestId', ruleResults: 'attemptId', opinions: 'attemptId', excerpt: 'ruleResultId' }[name];
+  const idKey = { projectDetail: 'projectId', projectEvents: 'projectId', rounds: 'projectId', roundDetail: 'roundId', roundEvidence: 'roundId', requestDetail: 'requestId', ruleResults: 'attemptId', opinions: 'attemptId', excerpt: 'ruleResultId', evidenceStates: 'ruleResultId' }[name];
   return idKey && (typeof params[idKey] !== 'string' || !isUuid(params[idKey] as string)) ? `${idKey} must be UUID` : null;
 }, handle: ({ params, actor }) => read(name, params, actor) }));
 export const logLifecycleActionsMock: readonly AnyMockAction[] = Object.entries(actions).map(([name, spec]) => defineMockAction(spec, {

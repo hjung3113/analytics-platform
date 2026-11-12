@@ -33,6 +33,14 @@ describe('synthetic lifecycle screen fixture', () => {
     expect(data).toMatchObject({ total: 1, rows: [{ ruleId: 'TIME-001', hasExcerpt: true }] });
     expect(JSON.stringify(data)).not.toContain('SYNTHETIC FIXTURE');
   });
+  it('serves evidence states per original index with both axes and no body text', () => {
+    const rows = (n: number) => (read('evidenceStates', { ruleResultId: fixtureId(501 + n) }) as { rows: { evidenceIndex: number; excerptState: string; sourceState: string }[] }).rows;
+    expect(rows(0).map(r => [r.evidenceIndex, r.excerptState, r.sourceState])).toEqual([[0, 'not_loaded', 'not_checked'], [1, 'not_submitted', 'not_checked']]);
+    expect(rows(1).map(r => [r.excerptState, r.sourceState])).toEqual([['unknown', 'hash_mismatch']]);
+    expect(rows(2).map(r => [r.excerptState, r.sourceState])).toEqual([['no_permission', 'no_permission']]);
+    expect(read('evidenceStates', { ruleResultId: fixtureId(999) })).toBeNull();
+    expect(JSON.stringify(rows(0))).not.toContain('SYNTHETIC FIXTURE');
+  });
   it('records a human rejection independently from the machine verdict', () => {
     const saved = write('gateDecide', { roundId: ROUND_ID, targetStage: 'beta', decision: 'rejected', reason: '필수 규칙 재확인' });
     expect(saved?.version).toBe('2');

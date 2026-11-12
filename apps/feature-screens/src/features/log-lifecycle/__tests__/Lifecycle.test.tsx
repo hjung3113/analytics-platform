@@ -93,7 +93,7 @@ describe('Round and request states', () => {
   });
   it.each(['denied', 'deleted', 'readable'])('opens excerpt state %s only after an explicit read', async kind => {
     const attempt = { id: ID, attemptNo: 1, outcome: 'succeeded', workerActorId: ID, verdict: 'incomplete', manifestMatches: true, counts: { ERROR: 1 }, requiredUnchecked: 1, ruleCount: 1, startedAt: '2026-11-07T00:00:00Z', endedAt: '2026-11-07T00:01:00Z', ruleSetRevision: 'r1', inputManifestDigest: 'a'.repeat(64) };
-    const p = props({ roundDetail: gate(), requests: { rows: [request], total: 1 }, requestDetail: { ...request, attempts: [attempt] }, ruleResults: { rows: [result], total: 1 }, excerpt: { deleted: kind === 'deleted', excerpt: '짧은 합성 로그' } });
+    const p = props({ roundDetail: gate(), requests: { rows: [request], total: 1 }, requestDetail: { ...request, attempts: [attempt] }, ruleResults: { rows: [result], total: 1 }, evidenceStates: { rows: [{ ruleResultId: ID, evidenceIndex: 0, evidenceRef: { fileRef: 's3://sample/file.log', line: 1, fileSha256: 'a'.repeat(64) }, excerptState: 'not_loaded', sourceState: 'not_checked' }] }, excerpt: { deleted: kind === 'deleted', excerpt: '짧은 합성 로그' } });
     const base = p.api.useRead;
     p.api.useRead = <T,>(name: string, params: Record<string, unknown>, enabled?: boolean) => name === 'excerpt' && kind === 'denied' ? { status: 'error', data: null, denied: true, retry: vi.fn() } : base<T>(name, params, enabled);
     render(<RoundScreen {...p} project={project} roundId={ID} />);

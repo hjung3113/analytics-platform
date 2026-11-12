@@ -9,18 +9,12 @@ import { Attempts, QueueWindow, RequestRegister } from './RequestsScreen';
 import { Choice, Disclosure, GateBadge, Pager, ReadView, Section, StateBadge, time } from './presentation';
 import { usePageValue } from './usePageValue';
 import { useRoundExecution } from './RoundExecution';
+import { RuleEvidence } from './EvidenceRows';
 
 function Excerpt({ api, ui, ruleResultId, evidenceIndex, onClose }: Pick<ScreenProps, 'api' | 'ui'> & { ruleResultId: string; evidenceIndex: number; onClose(): void }) {
   // Only mounted after the person's explicit read. Kernel cancels and discards it on close/session change.
   const q = api.useRead<{ deleted: boolean; excerpt: string | null }>('excerpt', { ruleResultId, evidenceIndex });
   return ui.drawer({ title: '로그 발췌', requestClose: onClose, body: q.denied ? <p role="alert" className="text-sm">권한 없음 · 이 원본의 발췌 열람 권한이 없습니다.</p> : <ReadView query={q} empty="저장된 발췌가 없습니다.">{data => data.deleted ? <p className="text-sm">보관 기간 지남으로 삭제됨</p> : <pre className="whitespace-pre-wrap break-all text-xs">{data.excerpt}</pre>}</ReadView> });
-}
-function RuleEvidence({ rule, round, onOpenSource, onExcerpt }: { rule: RuleResult; round: RoundDetail; onOpenSource?: ((order: number, line: number) => void) | undefined; onExcerpt(index: number): void }) {
-  return <Section title="근거·원본 라인">{rule.evidence.length === 0 ? <p role="status" className="text-xs text-text-secondary">근거 위치 없음 · 발췌 없음</p> : rule.evidence.map((e, index) => {
-    const file = round.sampleSet.files.find(f => f.fileRef === e.fileRef);
-    const mismatch = file?.sha256 !== e.fileSha256;
-    return <div key={`${e.fileRef}:${e.line}:${e.fileSha256}`} className="grid min-w-0 gap-2 text-xs"><p className="break-all font-mono">{e.fileRef}:{e.line}</p>{mismatch ? <p className="text-text-warning-label">해시 불일치</p> : null}<div className="flex flex-wrap gap-2">{onOpenSource && !mismatch && file ? <Button variant="link" size="toolbar" aria-label={`${rule.ruleId} ${e.fileRef}:${e.line} 원본에서 보기`} onClick={() => onOpenSource(file.order, e.line)}>원본에서 보기</Button> : <span className="text-text-muted">원본 확인 불가</span>}{e.hasExcerpt ? <Button variant="link" size="toolbar" onClick={() => onExcerpt(index)}>발췌 보기</Button> : <span className="text-text-muted">발췌 없음</span>}</div></div>;
-  })}</Section>;
 }
 /** The compact table omits repeated sentences; the detail retains the complete server text. */
 function observationSummary(value: string | null) { return value ? [...new Set(value.split(/(?<=[.!?])\s+/u))].join(' ') : '관측 없음'; }
@@ -63,7 +57,7 @@ function SelectedRuleDetail({ api, ui, round, attempt, item, returnFocusRef, onC
   const selectedRule = query.data?.rows.find(row => row.id === item);
   const searching = query.status === 'done' && !!query.data && !selectedRule && (page + 1) * 25 < query.data.total;
   useEffect(() => { if (searching) setPage(previous => previous + 1); }, [searching, page]);
-  return ui.drawer({ title: selectedRule ? `${selectedRule.ruleId} · 규칙 상세` : '규칙 상세', subtitle: `Round ${round.seq} · 시도 #${attempt.attemptNo}`, returnFocusRef, requestClose: onClose, body: <ReadView query={query}>{() => selectedRule ? <div className="grid min-w-0 gap-4 break-keep"><div className="flex flex-wrap items-center gap-2"><StateBadge value={selectedRule.result} /><span className="text-xs">{selectedRule.required ? '필수' : '선택'}</span></div><dl className="grid gap-2 text-sm"><dt className="font-semibold">기대</dt><dd className="whitespace-pre-wrap">{selectedRule.expected ?? '없음'}</dd><dt className="font-semibold">관측</dt><dd className="whitespace-pre-wrap">{selectedRule.observed ?? '없음'}</dd></dl><RuleEvidence rule={selectedRule} round={round} onOpenSource={onOpenSource} onExcerpt={index => onExcerpt(selectedRule.id, index)} /><Section title="의견">{selectedRule.opinion ? <OpinionCell itemKey={selectedRule.ruleId} opinion={selectedRule.opinion} onOpen={() => onOpinion(selectedRule.ruleId)} /> : <p className="text-xs text-text-secondary">의견 없음</p>}</Section></div> : searching ? <p role="status" className="text-sm">불러오는 중…</p> : <p role="alert" className="text-sm">선택한 규칙 결과를 찾을 수 없습니다. 목록에서 다시 선택해 주세요.</p>}</ReadView> });
+  return ui.drawer({ title: selectedRule ? `${selectedRule.ruleId} · 규칙 상세` : '규칙 상세', subtitle: `Round ${round.seq} · 시도 #${attempt.attemptNo}`, returnFocusRef, requestClose: onClose, body: <ReadView query={query}>{() => selectedRule ? <div className="grid min-w-0 gap-4 break-keep"><div className="flex flex-wrap items-center gap-2"><StateBadge value={selectedRule.result} /><span className="text-xs">{selectedRule.required ? '필수' : '선택'}</span></div><dl className="grid gap-2 text-sm"><dt className="font-semibold">기대</dt><dd className="whitespace-pre-wrap">{selectedRule.expected ?? '없음'}</dd><dt className="font-semibold">관측</dt><dd className="whitespace-pre-wrap">{selectedRule.observed ?? '없음'}</dd></dl><RuleEvidence api={api} rule={selectedRule} round={round} onOpenSource={onOpenSource} onExcerpt={index => onExcerpt(selectedRule.id, index)} /><Section title="의견">{selectedRule.opinion ? <OpinionCell itemKey={selectedRule.ruleId} opinion={selectedRule.opinion} onOpen={() => onOpinion(selectedRule.ruleId)} /> : <p className="text-xs text-text-secondary">의견 없음</p>}</Section></div> : searching ? <p role="status" className="text-sm">불러오는 중…</p> : <p role="alert" className="text-sm">선택한 규칙 결과를 찾을 수 없습니다. 목록에서 다시 선택해 주세요.</p>}</ReadView> });
 }
 export function RoundScreen(props: ScreenProps & { roundId: string; project: Project }) {
   const round = props.api.useRead<RoundDetail>('roundDetail', { roundId: props.roundId });
