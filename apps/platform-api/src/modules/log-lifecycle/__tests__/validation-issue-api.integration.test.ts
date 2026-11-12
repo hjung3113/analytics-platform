@@ -159,7 +159,19 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE)('human validation issue 
   it.each(actions)('%s requires its narrow capability for visible targets', async name => {
     // Fresh actors keep each mutation bucket within its real limit.
     const without = await person();
-    expect((await act(name, input(name), without)).outcome).toBe('forbidden');
+    if (name !== 'validationIssueCorrect') {
+      expect((await act(name, input(name), without)).outcome).toBe('forbidden');
+      return;
+    }
+    // The caller reports the issue itself, so only the capability (not the reporter guard) can refuse.
+    const own = { ...input(name), issueId: (await service.execute(caller(without), 'create', input('validationIssueRegister'), id())).id };
+    expect((await act(name, own, without)).outcome).toBe('forbidden');
+    await grant(without, 'lifecycle.issue.contribute');
+    const key = id();
+    expect((await act(name, own, without, key)).outcome).toBe('ok');
+    await query('update permission.permission_grants set revoked_at=now(),revoked_by_actor_id=$2 where actor_id=$1', [without.id, admin.id]);
+    expect((await act(name, own, without, key)).outcome).toBe('forbidden');
+    expect((await act(name, { ...own, body: 'Synthetic second correction' }, without)).outcome).toBe('forbidden');
   });
   it.each(actions)('%s replays exactly once with a body-free audit and rejects unknown input', async name => {
     const who = await person();

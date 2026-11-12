@@ -82,8 +82,8 @@ describe('menu permissions the modules declare (#1667)', () => {
     expect(kernelPermissions()).not.toContain(permission);
   });
 
-  it('declares exactly the 22 menu permissions and none twice', () => {
-    expect(declared()).toHaveLength(22);
+  it('declares exactly the 24 menu permissions and none twice', () => {
+    expect(declared()).toHaveLength(24);
   });
 
   it('lists the kernel permissions first, then the declared ones in registration order', () => {

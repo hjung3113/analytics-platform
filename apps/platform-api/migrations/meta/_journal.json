@@ -904,6 +904,13 @@
       "when": 1794493833319,
       "tag": "0128_validation_issues",
       "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1794502856782,
+      "tag": "0129_audit_issue_capabilities",
+      "breakpoints": true
     }
   ]
 }
