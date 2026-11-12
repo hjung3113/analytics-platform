@@ -1,5 +1,5 @@
 import type { ActionResponse, ActionSpec, FieldError } from '@ap/contracts';
-import { checkScope, getRole, nextCorrelation, sleep } from '../server';
+import { checkScope, getRole, nextCorrelation, defaultDelay, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
 import { readUploadAs, type UploadContent } from '../services/services';
 
@@ -133,7 +133,7 @@ export async function serveAction(
   if (!has('idempotencyKey')) return answer('invalid', { fieldErrors: [{ path: ['idempotencyKey'], code: 'required' }] });
   if (typeof key !== 'string' || !UUID.test(key)) return answer('invalid', { fieldErrors: [{ path: ['idempotencyKey'], code: 'malformed' }] });
 
-  await sleep(opts?.latency ?? 80, signal);
+  await sleep(opts?.latency ?? defaultDelay(80), signal);
   if (!activeWorld().users[actor].permissions.includes(spec.permission)) return answer('forbidden', { message: `No permission ${spec.permission}` });
   if (spec.requiresScope) {
     const check = checkScope(actor, scopeId);

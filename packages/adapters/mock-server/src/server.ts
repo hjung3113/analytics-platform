@@ -43,7 +43,17 @@ export function partialFails(s: Scenario): boolean {
  */
 export const DEFAULT_QUERY_LATENCY_MS = 120;
 export const QUERY_LATENCY_JITTER_MS = 60;
-export const queryDelay = (latency: number | undefined, s: Scenario) => (latency ?? DEFAULT_QUERY_LATENCY_MS) + (s === 'slow' ? 2200 : 0) + Math.random() * QUERY_LATENCY_JITTER_MS;
+let adapterLatency: number | undefined;
+/**
+ * Internal: `createMockAdapter({ latency })` sets one fixed delay (no jitter) for every read, write and service call that names
+ * no `latency` of its own; `undefined` restores the defaults below. The `slow` scenario still adds its 2.2 s.
+ */
+export const setAdapterLatency = (ms: number | undefined) => { adapterLatency = ms; };
+/** The default delay `ms` of a call site, or the adapter-wide latency when one is set. */
+export const defaultDelay = (ms: number): number => adapterLatency ?? ms;
+export const queryDelay = (latency: number | undefined, s: Scenario) =>
+  (latency === undefined && adapterLatency !== undefined ? adapterLatency : (latency ?? DEFAULT_QUERY_LATENCY_MS) + Math.random() * QUERY_LATENCY_JITTER_MS)
+  + (s === 'slow' ? 2200 : 0);
 export const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve, reject) => {
   const id = setTimeout(resolve, ms);
   signal?.addEventListener('abort', () => { clearTimeout(id); reject(new DOMException('aborted', 'AbortError')); });
@@ -59,7 +69,7 @@ export function checkScope(role: RoleId, scopeId: string | null): ScopeCheck {
 export async function validateScope(role: RoleId, scopeId: string, signal?: AbortSignal): Promise<ScopeCheck> {
   // Pin the scenario at send time, like the other request paths — a switch mid-wait must not change this outcome.
   const s = scenario;
-  await sleep(350, signal);
+  await sleep(defaultDelay(350), signal);
   // scope_error: only Scope validation fails (#167); every other request behaves as `normal`.
   if (s === 'scope_error') throw new Error('Scope check failed (scenario)');
   return checkScope(role, scopeId);
@@ -647,7 +657,7 @@ export async function usageSummary(range: UsageRange, signal?: AbortSignal, opts
   const s = scenario;
   const requestRole = opts?.role ?? role;
   const correlationId = nextCorrelation();
-  await sleep(opts?.latency ?? 80, signal);
+  await sleep(opts?.latency ?? defaultDelay(80), signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   if (!activeWorld().users[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: '조회가 30초 제한을 넘었습니다' };
@@ -666,7 +676,7 @@ export async function usageNextScreens(query: UsageNextQuery, signal?: AbortSign
   const s = scenario;
   const requestRole = opts?.role ?? role;
   const correlationId = nextCorrelation();
-  await sleep(opts?.latency ?? 80, signal);
+  await sleep(opts?.latency ?? defaultDelay(80), signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   if (!activeWorld().users[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: '조회가 30초 제한을 넘었습니다' };

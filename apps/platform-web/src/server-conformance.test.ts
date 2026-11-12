@@ -421,7 +421,7 @@ describe('conformance harness covers what the app registers', () => {
 });
 
 // The vocabulary carries `eqv:view` (declared in PERMISSIONS for the viewer menus), so the mock roles are built from it (#801).
-const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, permissions: registry.permissions, auditEvents: MOCK_AUDIT_EVENTS, actions: [fixtureMockAction, ...MOCK_ACTIONS] });
+const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, registry, permissions: registry.permissions, auditEvents: MOCK_AUDIT_EVENTS, actions: [fixtureMockAction, ...MOCK_ACTIONS], latency: 0 });
 // Only the uploader reads an upload (ADR-0140 §6): the import sample's file belongs to the granted actor the eqv writes run as.
 const onboardingBatchDir = join(process.cwd(), '../../packages/eqv/assets/observations/eq-synth-01/windows');
 const onboardingBatch = readFileSync(join(onboardingBatchDir, readdirSync(onboardingBatchDir)[0]!), 'utf8');

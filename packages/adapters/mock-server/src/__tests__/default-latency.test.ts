@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emptyGlobal, menuPermission } from '@ap/contracts';
-import { DEFAULT_QUERY_LATENCY_MS, QUERY_LATENCY_JITTER_MS, getEntity, queryDelay, serve, setScenario } from '../server';
+import { DEFAULT_QUERY_LATENCY_MS, QUERY_LATENCY_JITTER_MS, defaultDelay, getEntity, queryDelay, serve, setAdapterLatency, setScenario } from '../server';
 
 const period = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 
@@ -27,5 +27,22 @@ describe('default read latency', () => {
     await vi.advanceTimersByTimeAsync(200);
     await Promise.all([read, entity]);
     expect([served, looked]).toEqual([true, true]);
+  });
+});
+
+// #1680: server conformance sends ~500 requests one at a time; an adapter-wide latency keeps that suite from sleeping ~70 s.
+describe('adapter-wide latency', () => {
+  afterEach(() => { setAdapterLatency(undefined); });
+
+  it('replaces every default delay with the fixed value, keeps an explicit per-call latency and the slow scenario, and resets when omitted', () => {
+    setAdapterLatency(0);
+    expect(queryDelay(undefined, 'normal')).toBe(0);
+    expect(defaultDelay(80)).toBe(0);
+    expect(defaultDelay(350)).toBe(0);
+    expect(queryDelay(undefined, 'slow')).toBe(2200);
+    expect(queryDelay(40, 'normal')).toBeGreaterThanOrEqual(40);
+    setAdapterLatency(undefined);
+    expect(defaultDelay(80)).toBe(80);
+    expect(queryDelay(undefined, 'normal')).toBeGreaterThanOrEqual(DEFAULT_QUERY_LATENCY_MS);
   });
 });

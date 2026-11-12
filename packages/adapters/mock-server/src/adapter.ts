@@ -7,7 +7,7 @@ import type { AuditEvent, EquipmentAxisDescriptor, ContextKey, MenuMeta, Permiss
 import { instantEpochMs, requiredContextError, SITE_BOUND_CONTEXT_KEYS } from '@ap/contracts';
 import { createSelectionPorts } from './query/selection-ports';
 import { contextShapeError } from './access/context-validation';
-import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageNextScreens, usageSummary, validateScope } from './server';
+import { checkScope, defaultDelay, getEntity, getRole, matchesCondition, recordUsage, reportClientError, setAdapterLatency, subscribeServer, usageNextScreens, usageSummary, validateScope } from './server';
 import { AUDIT_TYPES, auditTrail, entityAudit } from './audit/audit';
 import { AUDIT_EVENTS } from './audit/audit-fixtures';
 import { accessDirectory } from './access/access';
@@ -20,7 +20,7 @@ import { serveAction, type AnyMockAction } from './actions/actions';
 const siteBoundContextKeys = new Set<ContextKey>(SITE_BOUND_CONTEXT_KEYS);
 
 /** Short async hop so the shell exercises its loading path, as it would against a real server. */
-function pause(signal?: AbortSignal, ms = 80) {
+function pause(signal?: AbortSignal, ms = defaultDelay(80)) {
   return new Promise<void>((resolve, reject) => {
     const id = setTimeout(resolve, ms);
     signal?.addEventListener('abort', () => { clearTimeout(id); reject(new DOMException('aborted', 'AbortError')); });
@@ -76,7 +76,15 @@ export function createMockAdapter(o: {
    * permission), e.g. a publishing right that is no menu's entry permission; omitted, only a menu's permission is accepted.
    */
   permissions?: readonly Permission[];
+  /**
+   * One fixed delay in ms (no jitter) for every call that names no `latency` of its own, instead of the defaults (reads 120–180 ms,
+   * writes and services 80 ms, Scope check 350 ms). For suites that send thousands of requests one at a time (#1680:
+   * server conformance); omitted, the defaults apply. Like the world, it is process-wide: the latest adapter's value wins.
+   */
+  latency?: number;
 }): PlatformAdapter {
+  if (o.latency !== undefined && !(Number.isFinite(o.latency) && o.latency >= 0)) throw new MockRegistrationError('latency must be a finite number ≥ 0');
+  setAdapterLatency(o.latency);
   const world = installWorld(o.permissions);
   const sessionFor = sessionsOf(world);
   const seeds = o.auditEvents ?? [];

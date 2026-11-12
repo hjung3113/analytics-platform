@@ -1179,10 +1179,20 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
   test('마우스로 끈 패널 경계 크기는 저장되고 새로고침 뒤에도 남는다 (#754)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(CYCLE);
-    await workspaceReady(page);
-    await page.evaluate(() => { Object.keys(localStorage).filter(key => key.startsWith('platform:workspace:v1:')).forEach(key => { localStorage.removeItem(key); }); });
     const stored = () => page.evaluate(() => Object.entries(localStorage)
       .filter(([key]) => /^platform:workspace:v1:.+:cycle-time:drilldown$/.test(key)).map(([, value]) => JSON.parse(value) as { layout: unknown }));
+    await workspaceReady(page);
+    // workspaceReady switches the fresh (stacked) workspace to fit; the preference is written 300 ms after each change while the
+    // layout settles. Clearing before the last write let it land after the clear on a slow runner, so the empty check saw it:
+    // clear only once the stored value has held for longer than one write delay.
+    let last = '';
+    await expect.poll(async () => {
+      const now = JSON.stringify(await stored());
+      const settled = now === last && now !== '[]';
+      last = now;
+      return settled;
+    }, { message: 'the fit-mode preference stops changing before the clear', intervals: [400], timeout: 10_000 }).toBe(true);
+    await page.evaluate(() => { Object.keys(localStorage).filter(key => key.startsWith('platform:workspace:v1:')).forEach(key => { localStorage.removeItem(key); }); });
     expect(await stored()).toEqual([]);
     const before = await verticalSash(workspace(page));
     await dragSashBy(page, before.sash, 120);
