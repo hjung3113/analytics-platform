@@ -3,6 +3,8 @@
 import { Gauge, Wrench } from 'lucide-react';
 import type { CreateRegistryInput } from '@ap/app-host';
 import type { MenuEntry } from '@ap/kernel';
+// Menu packages of this kit (README «둘째 메뉴»: one import and one MENU_PACKAGES entry per copied folder).
+import { manifests as sample } from './menus/sample';
 import { contextCapabilities, groupId, KERNEL_PERMISSIONS, menuPermission, spaceId, type EquipmentAxisDescriptor, type Permission } from '@ap/contracts';
 
 const noContext = contextCapabilities();
@@ -24,6 +26,9 @@ const IN_HOUSE_MENUS: readonly MenuEntry[] = [{
 }];
 // kit:inhouse-end
 
+/** Menu packages' manifests. Their mock lists are registered in mock/assembly.ts. */
+const MENU_PACKAGES: readonly (readonly MenuEntry[])[] = [sample];
+
 /** The kit's menu permissions on top of the kernel's. Declaring is not granting: the mock server's roles decide who holds them. */
 export const KIT_PERMISSIONS = [menuPermission('kit:inhouse-view')] as const;
 
@@ -35,6 +40,6 @@ export const KIT_AXES: readonly EquipmentAxisDescriptor[] = [];
 export const declarations: CreateRegistryInput = {
   spaces: [{ id: spaceId('kit'), label: { ko: '키트', en: 'Kit' }, description: { ko: '시작 키트의 합성 메뉴', en: 'Synthetic menus of the start kit' }, homeMenuId: 'kit-overview' }],
   groups: [{ id: groupId('kit'), label: { ko: '키트', en: 'Kit' }, icon: Gauge, space: spaceId('kit'), hideLabelWhenSingle: true }],
-  menus: [...PUBLIC_MENUS, ...IN_HOUSE_MENUS],
+  menus: [...PUBLIC_MENUS, ...IN_HOUSE_MENUS, ...MENU_PACKAGES.flat()],
   permissions: [...KIT_PERMISSIONS],
 };
