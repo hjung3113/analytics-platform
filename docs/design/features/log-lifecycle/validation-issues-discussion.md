@@ -88,6 +88,7 @@ Task/VOC/Finding/지식 초안으로의 전달은 H8 답 뒤 사용자가 명시
 | N0 도메인·권한 결정 | 이 설계 merge, H1–H8 관련 답·용어 검토 | 문서. 물리 저장 구현 없음 |
 | N1 **As-built** #1855 저장·이력·멱등 | N0의 모델/상태/댓글 정책 확정 | **후속 DDL PR**, backend only. #1809 미접촉 |
 | N2 **As-built** #1906 사람 API/가시성/감사 | N1 + 역할/Source 정책 확정 | backend only. #1809보다 먼저 가능. service token 부정 테스트 포함 |
+| H3 상태 노드 **As-built** #1917 처리 상태·전이 | N1·N2 + H3 자문 결정(2026-11-13) | 상태 9개, 추가 전용 `validation_issue_transition`, `validationIssueChangeState`, `lifecycle.issue.triage`, 마이그레이션 0130. 심각도·Gate 차단·종료 상태 재오픈은 미구현(백로그) |
 | N2 사람 API/가시성/감사 | N1 + 역할/Source 정책 확정 | backend only. #1809보다 먼저 가능. service token 부정 테스트 포함 |
 | N4 진단/근거 연결 UI | N3 + #1815 A3, B 진단 연결은 B1 이후 | `RoundScreen.tsx` 연결 가능. 공통 EvidenceRef 유지 |
 | N5 재검증/도메인 전달 | N2 + H8 및 기존 대상 API 권한·링크 쌍 확인, UI는 N3 | 요청 생성은 기존 API, 외부 도메인 쓰기 직접 금지 |
@@ -101,7 +102,7 @@ Task/VOC/Finding/지식 초안으로의 전달은 H8 답 뒤 사용자가 명시
 | --- | --- | --- |
 | H1 Decided (소유자 2026-11-12, 추천안; 한국어 대표명은 Open) | 보고 즉시 결함인가, 검토 후 확정인가? 관찰과 결함을 별도 종류로 둘까? 동일 항목의 식별 범위는 개발 건인가? | 중립 ValidationIssue로 등록하고 검토 후 결함 확인, 우선 개발 건 범위. 관찰을 공식 FAIL과 혼동하지 않음. 명칭도 용어 검토 필요 |
 | H2 Decided (소유자 2026-11-12, 추천안; 능력 이름 `lifecycle.issue.contribute`·`lifecycle.issue.link`, 팀장 2026-11-13) | read/comment/register/change state/link 각각 누가 하는가? round.manage만, 좁은 contribute, 별도 역할 중 선택 | User 참여용 comment/register와 처리·연결 권한 분리. 요청/Gate는 기존 권한 유지 |
-| H3 Open (자동 PASS 해결 금지만 Decided; 단계 값·필수 여부는 실제 업무 확인 전 미확정, 상태 열은 N1에 없고 별도 마이그레이션으로 추가) | 단순 open/resolved/reopened 또는 조사·수정요청·재검증 포함 다단계? 담당·심각도 필수/값은? | 실제 업무가 확인되면 위 다단계, 그 전 값/필수 여부 미확정. 자동 PASS 해결은 금지 |
+| H3 Decided (자문, 소유자 위임, 2026-11-13; #1917 구현. 심각도 열은 미생성) | 단순 open/resolved/reopened 또는 조사·수정요청·재검증 포함 다단계? 담당·심각도 필수/값은? | 상태 9개·담당·추가 전용 전이 구현. 심각도 값·필수 여부는 결정 전. 자동 PASS 해결은 금지 |
 | H4 Decided (소유자 2026-11-12, 추천안) | 열린 Round만 작성, 닫힌 Round도 토론/항목 등록 허용? | 과거 결과 검토를 위해 닫힌 Round도 사람 기록 허용 추천. 샘플/규칙 결과는 불변 |
 | H5 Decided (소유자 2026-11-12 방향; 수치 팀장 2026-11-13: 제목 200·본문 8000·댓글 4000자, 페이지 50/최대 100, occurrence당 근거 20; 코드 상수 `domain/validation-issue-limits.ts`) | append-only 정정, 본인 시간제 수정, 관리자 삭제 중 정책은? plain text/rich content, 답글/멘션·본문/페이지 상한은? | 텍스트·추가 전용 정정·명시 대상의 평면 댓글과 페이지부터. provenance와 구현 범위를 줄임. 삭제·멘션·rich는 필요 확인 후 |
 | H6 Decided (소유자 2026-11-12, 추천안; 미구현) | 첨부 없음, 기존 수동 Round 첨부 참조, Issue/댓글 전용 첨부 중 어디까지? | 최초에는 안전한 기존 참조만. #1815 결과 아티팩트와 사람 첨부의 권한·보관을 혼합하지 않음 |
