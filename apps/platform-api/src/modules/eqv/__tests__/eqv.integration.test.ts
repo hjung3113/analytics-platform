@@ -14,6 +14,7 @@ import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
 import { grantCapability, revokeCapabilityGrant } from '../../../test-support/permissions-fixtures.js';
+import { toCodeKey } from '../../log-knowledge/domain/code-key.js';
 import { recordDraft } from '../audit.js';
 import { insertDraft } from '../repositories/eqv-write.js';
 import { cyclicLayoutFixture, layoutFixture } from './fixture.js';
@@ -55,6 +56,9 @@ describe.skipIf(!runIntegration)('eqv module (#1645)', () => {
   let viewer: Person; // eqv.view only
   let editor: Person; // eqv.layout.edit only
   let publisher: Person; // eqv.layout.publish only
+  let allowedViewer: Person; // eqv.view plus an allow rule on the restricted Hub model
+  let publicModelId: string;
+  let hiddenModelId: string;
   const actorIds: string[] = [];
   let n = 0;
   let seq = 0;
@@ -143,6 +147,34 @@ describe.skipIf(!runIntegration)('eqv module (#1645)', () => {
     viewer = await person('developer', 'eqv.view');
     editor = await person('developer', 'eqv.layout.edit');
     publisher = await person('developer', 'eqv.layout.publish');
+    allowedViewer = await person('developer', 'eqv.view');
+    const vendorId = (
+      await sql(`insert into knowledge.vendor (workspace_id, code, code_key, name, created_by, updated_by) values ($1,$2,$3,$2,$4,$4) returning id`, [
+        WORKSPACE_ID,
+        `${TAG}-v`,
+        toCodeKey(`${TAG}-v`),
+        admin.id,
+      ])
+    ).rows[0].id as string;
+    const model = async (code: string) =>
+      (
+        await sql(`insert into knowledge.equipment_model (workspace_id, vendor_id, code, code_key, name, created_by, updated_by) values ($1,$2,$3,$4,$3,$5,$5) returning id`, [
+          WORKSPACE_ID,
+          vendorId,
+          code,
+          toCodeKey(code),
+          admin.id,
+        ])
+      ).rows[0].id as string;
+    publicModelId = await model(`${TAG}-m1`);
+    hiddenModelId = await model(`${TAG}-m2`);
+    await sql(`update knowledge.equipment_model set access_mode = 'restricted', row_version = row_version + 1 where id = $1`, [hiddenModelId]);
+    await sql(`insert into knowledge.object_access_rule (workspace_id, target_kind, target_id, grantee_id, effect, created_by) values ($1,'model',$2,$3,'allow',$4)`, [
+      WORKSPACE_ID,
+      hiddenModelId,
+      allowedViewer.id,
+      admin.id,
+    ]);
   });
 
   beforeEach(async () => {
@@ -154,6 +186,9 @@ describe.skipIf(!runIntegration)('eqv module (#1645)', () => {
     await sql('delete from eqv.layout_revision where workspace_id = $1 and published_by = any($2)', [WORKSPACE_ID, actorIds]);
     await sql('delete from eqv.layout_draft where workspace_id = $1 and created_by = any($2)', [WORKSPACE_ID, actorIds]);
     await sql('delete from eqv.equipment where workspace_id = $1 and equipment_id like $2', [WORKSPACE_ID, `${TAG}%`]);
+    await sql('delete from knowledge.object_access_rule where workspace_id = $1 and grantee_id = any($2)', [WORKSPACE_ID, actorIds]);
+    await sql('delete from knowledge.equipment_model where workspace_id = $1 and code like $2', [WORKSPACE_ID, `${TAG}%`]);
+    await sql('delete from knowledge.vendor where workspace_id = $1 and code like $2', [WORKSPACE_ID, `${TAG}%`]);
     await sql('delete from core.idempotency_keys where actor_id = any($1)', [actorIds]);
     for (const [table, column] of [
       ['core.audit_log', 'actor_id'],
@@ -437,13 +472,35 @@ describe.skipIf(!runIntegration)('eqv module (#1645)', () => {
     });
 
     it('equipment options answer exactly { options: [{ id, label, dataRange: null }] }', async () => {
-      const modelId = randomUUID();
-      await sql('insert into eqv.equipment (workspace_id, equipment_id, label, model_id) values ($1, $2, $3, $4)', [WORKSPACE_ID, `${TAG}-eq1`, 'Synthetic one', modelId]);
+      await sql('insert into eqv.equipment (workspace_id, equipment_id, label, model_id) values ($1, $2, $3, $4)', [WORKSPACE_ID, `${TAG}-eq1`, 'Synthetic one', publicModelId]);
       const answer = await read('eqv.equipment-options', {}, viewer);
       expect(answer.outcome).toBe('ok');
       expect(Object.keys(answer.data)).toEqual(['options']);
       const mine = (answer.data.options as { id: string }[]).filter((o) => o.id.startsWith(TAG));
       expect(mine).toEqual([{ id: `${TAG}-eq1`, label: 'Synthetic one', dataRange: null }]);
+    });
+
+    it('equipment options leave out equipment of a Hub model hidden from the viewer, like a missing one (#1878)', async () => {
+      await sql('insert into eqv.equipment (workspace_id, equipment_id, label, model_id) values ($1, $2, $3, $4), ($1, $5, $6, $7)', [
+        WORKSPACE_ID,
+        `${TAG}-vis-public`,
+        'Visible public',
+        publicModelId,
+        `${TAG}-vis-hidden`,
+        'Visible hidden',
+        hiddenModelId,
+      ]);
+      const mine = async (who: Person) => {
+        const answer = await read('eqv.equipment-options', {}, who);
+        expect(answer.outcome).toBe('ok');
+        return (answer.data.options as { id: string; label: string }[]).filter((o) => o.id.startsWith(`${TAG}-vis-`));
+      };
+      // No access to the restricted model: neither its id nor its label appears anywhere in the answer.
+      const denied = await mine(viewer);
+      expect(denied.map((o) => o.id)).toEqual([`${TAG}-vis-public`]);
+      expect(JSON.stringify(await read('eqv.equipment-options', {}, viewer))).not.toContain('vis-hidden');
+      // An allow rule on the restricted model makes both visible.
+      expect((await mine(allowedViewer)).map((o) => o.id)).toEqual([`${TAG}-vis-hidden`, `${TAG}-vis-public`]);
     });
   });
 

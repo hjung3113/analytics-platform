@@ -20,7 +20,7 @@ Menu `eqv-studio` unless noted. Reads that find nothing by id answer `empty`; a 
 | `eqv.layoutRevision` | `layoutId`, `revision` (`sha256:<64 hex>`) | `{ id, layoutId, revision, document, publishedAt }` |
 | `eqv.templates` | — | `{ rows: { id, templateId, name, promotedFromLayoutId, promotedFromRevision, createdAt }[] }` |
 | `eqv.template` | `templateId` | the row plus `document` |
-| `eqv.equipment-options` (menu `eqv:focus`) | — | `{ options: { id, label, dataRange: { from, to } \| null }[] }`, at most 1000. `dataRange` is `[from, to)`, `null` until step 9 |
+| `eqv.equipment-options` (menu `eqv:focus`) | — | `{ options: { id, label, dataRange: { from, to } \| null }[] }`, at most 1000, only equipment whose Hub model the viewer may see (#1504 object access; filtered before the limit, a hidden model's equipment is absent like a missing one, #1878). `dataRange` is `[from, to)`, `null` until step 9 |
 
 `eqv.topview-context` and `eqv.topview-events` are declared client-side (`mergeTimeDomain: false`) and answered by the mock server only; the real server does not serve them. They take an equipment id, and the per-equipment access judgment waits for #1087 ([backlog](../../../../.planning/backlog.md)).
 
@@ -73,7 +73,7 @@ Menu `eqv-onboarding`, migration `0125_eqv_sample_window.sql`. The menu declares
 
 | Read | Params | Data |
 | --- | --- | --- |
-| `eqv.fleet` | — | `{ rows: { equipmentId, label, vendorId, vendorName, modelId, modelName, status, latestWindow: { hash, from, to } \| null, coverage: { referenceRatio, aliasRatio, assumedRatio } \| null, unmappedReferences }[] }`, ordered by `equipmentId`, **at most 500 rows** (`FLEET_ROWS_MAX`; the cap applies to the first 500 equipment of the workspace by id before the Hub hides models, so a larger workspace shows fewer rows), only equipment whose Hub model the actor can see |
+| `eqv.fleet` | — | `{ rows: { equipmentId, label, vendorId, vendorName, modelId, modelName, status, latestWindow: { hash, from, to } \| null, coverage: { referenceRatio, aliasRatio, assumedRatio } \| null, unmappedReferences }[] }`, ordered by `equipmentId`, **at most 500 rows** (`FLEET_ROWS_MAX`; the first 500 equipment by id among those whose Hub model the actor can see: the filter is in the statement before the cap, so hidden equipment takes no slot and the row count never reveals it, #1878), only equipment whose Hub model the actor can see |
 | `eqv.sampleWindows` | `equipmentId` | `{ rows: { hash, from, to, dataGeneration, timeDomain, occurrences, state, counterpart, mappingCount }[] }`, oldest range first; `mappingCount` is the Baselines taken from the window |
 | `eqv.observedInventory` | `equipmentId`, `windowHash` (64 hex) | the window's `ObservedInventory` (any state); `empty` for a window the equipment does not have |
 | `eqv.bundledTemplates` | — | `{ rows: { templateId, name, document }[] }`: the EV Templates the package ships (`BUNDLED_TEMPLATE_IDS`, documents copied into `domain/bundled-templates-data.ts` and kept equal to the assets by a test), in id order |

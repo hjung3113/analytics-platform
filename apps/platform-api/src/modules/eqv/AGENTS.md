@@ -11,7 +11,7 @@ Owns the `eqv` schema (#1645, #1607 step 5, [ADR-0135](../../../../../docs/adr/0
 - **Templates** come from a published Revision (EV ADR-0015). Bundled ids (`BUNDLED_TEMPLATE_IDS`) are refused.
 - **Menu ids.** This rule covers the Layouts reads and actions (`EQV_STUDIO_MENU_ID`); Onboarding sits on `EQV_ONBOARDING_MENU_ID` (see the Onboarding section). Every Layouts read except `eqv.equipment-options` (`eqv:focus`) and all actions sit on `EQV_STUDIO_MENU_ID` because `invalidates` names only same-menu endpoints. Do not declare `eqv.topview-context` / `eqv.topview-events` (step 9).
 - **Permissions** are declared in `EQV_MENU_PERMISSIONS` (`menu.ts`, handed over by `eqvContribution`) (`eqv:view`, `eqv-studio:view`, `eqv-studio:layout-edit`, `eqv-studio:layout-publish`; `eqv-studio:view` is the entry permission of the Studio Layouts menu, #1654, with the same capability `eqv.view` as `eqv:view`, which the reads keep), not `eqv:*`-prefixed write names: the `eqv` namespace belongs to the app's module (Kernel registry refuses a clash). Real-server Site Scope is enforced by capability alone until #1087.
-- `equipment.model_id` is a Hub catalog id with no FK; the Onboarding writes and reads check it through `knowledgeLookup.getModel` (`onboarding-scope.ts`), so a model hidden from the actor is "not there", the same as a missing equipment.
+- `equipment.model_id` is a Hub catalog id with no FK; the Onboarding writes and reads check it through `knowledgeLookup.getModel` (`onboarding-scope.ts`), so a model hidden from the actor is "not there", the same as a missing equipment. `eqv.equipment-options` applies the same rule in its statement (`visibleModelSql` before the limit, #1878).
 
 ## Onboarding (#1658)
 

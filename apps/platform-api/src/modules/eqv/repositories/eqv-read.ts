@@ -3,6 +3,7 @@ import { and, asc, desc, eq } from 'drizzle-orm';
 
 import type { Tx } from '../../../db/tx.js';
 import { equipment, layoutDrafts, layoutRevisions, templates } from '../../../db/schema/eqv.js';
+import { type Viewer, ref, visibleModelSql } from '../../log-knowledge/index.js';
 
 const iso = (value: Date | string): string => (value instanceof Date ? value : new Date(value)).toISOString();
 
@@ -79,12 +80,16 @@ export async function getTemplate(db: Tx, workspaceId: string, templateId: strin
   return r ? { ...r, createdAt: iso(r.createdAt) } : null;
 }
 
-/** Equipment the viewer can pick. `dataRange` is `[from, to)` and stays `null` until step 9 reads recorded data. At most 1000 options. */
-export async function equipmentOptions(db: Tx, workspaceId: string) {
+/**
+ * Equipment the viewer can pick: only equipment whose Hub model the viewer may see (#1504 object access, #1878), filtered in the
+ * statement before the limit, so a hidden model's equipment answers like a missing one. `dataRange` is `[from, to)` and stays `null`
+ * until step 9 reads recorded data. At most 1000 options.
+ */
+export async function equipmentOptions(db: Tx, viewer: Viewer) {
   const rows = await db
     .select({ id: equipment.equipmentId, label: equipment.label })
     .from(equipment)
-    .where(eq(equipment.workspaceId, workspaceId))
+    .where(and(eq(equipment.workspaceId, viewer.workspaceId), visibleModelSql(viewer, ref(equipment.modelId))))
     .orderBy(asc(equipment.label), asc(equipment.equipmentId))
     .limit(1000);
   return rows.map((r) => ({ id: r.id, label: r.label, dataRange: null as { from: string; to: string } | null }));
