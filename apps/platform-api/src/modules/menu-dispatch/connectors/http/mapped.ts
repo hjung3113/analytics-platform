@@ -1,5 +1,5 @@
 import { MenuUpstreamError, normalizeMenuUpstreamBaseUrl } from '../../forwarder.js';
-import { pointerValue } from '../../scope-check.js';
+import { JsonRows } from './json-rows.js';
 import type { ConnectorFactory } from '../types.js';
 import { TargetJudgmentTimeout } from '../types.js';
 
@@ -56,21 +56,33 @@ export function createHttpConnector({ fetch: fetchImpl = fetch, byteCap = HTTP_R
           }), aborted]);
           if (!response.ok || !response.body) throw new MenuUpstreamError('unavailable');
           reader = response.body.getReader();
-          const chunks: Uint8Array[] = [];
+          const parser = new JsonRows(call.response.rows ?? '');
+          const decoder = new TextDecoder('utf-8', { fatal: true });
           let bytes = 0;
+          let count = 0;
           for (;;) {
-            const item = await Promise.race([reader.read(), aborted]);
-            if (item.done) break;
-            bytes += item.value.byteLength;
-            if (bytes > byteCap) throw new MenuUpstreamError('unavailable');
-            chunks.push(item.value);
-          }
-          const body: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-          const rows = pointerValue(body, call.response.rows ?? '');
-          if (!Array.isArray(rows)) throw new MenuUpstreamError('unavailable');
-          for (let index = 0; index < rows.length && index < options.rowCap; index++) {
             if (failure) throw failure;
-            yield rows[index];
+            const item = await Promise.race([reader.read(), aborted]);
+            if (failure) throw failure;
+            if (!item.done) {
+              bytes += item.value.byteLength;
+              if (bytes > byteCap) throw new MenuUpstreamError('unavailable');
+            }
+            const text = decoder.decode(item.value, { stream: !item.done });
+            for (const row of parser.write(text, item.done)) {
+              if (failure) throw failure;
+              count++;
+              if (count === options.rowCap) {
+                // Cancel before yielding: callers may suspend or immediately return at overflow.
+                controller.signal.removeEventListener('abort', rejectAbort);
+                controller.abort();
+                void reader.cancel().catch(() => {});
+                yield row;
+                return;
+              }
+              yield row;
+            }
+            if (item.done) break;
           }
         } catch (error) {
           if (failure) throw failure;

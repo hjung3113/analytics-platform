@@ -133,6 +133,8 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 - `deadlineMs` 타이머는 `TargetJudgmentTimeout`이다. 코어/호출자 signal과 먼저 작동한 자체 중단 원인을 보존하며 오류 문자열은 보지 않는다. 코어의 `MenuUpstreamError('timeout')` signal은 504, 그 밖의 호출자 중단은 502다.
 - 라우팅된 envelope 토큰의 `scopes`는 `JSON.stringify({ site: 요청 site, rooms: R ∩ 경로 rooms })` 문자열 하나의 배열이다(Scope 없는 요청은 빈 배열). `aud`는 대상 선언값, 생략 시 `analytics`다. 문자열 owner 행의 토큰은 그대로다.
 
+- 기동 시 envelope 대상의 유효 `aud`(`aud ?? 'analytics'`)는 서로 다른 정규화 `baseUrl` 사이에 중복될 수 없다. 문자열 owner 행이 함께 있으면 `analytics`는 기본 상류 전용이다. 단일 대상의 기본값과 기존 문자열 행의 서명은 유지하며, 충돌 오류에는 두 대상 id만 싣고 URL은 싣지 않는다.
+
 ### 8. DB 연결기 (`kind: "sql"`) — dialect 중립
 
 - **대상:** `dialect`, 접속 문자열 파일, 풀 상한과 동시 조회 상한(기본 작게 — 대상은 운영 중인 기존 DB다), 사내 DBA가 식별할 `application_name`(지원하는 dialect에서). 첫 dialect는 둘이다: `postgres`(이미 쓰는 드라이버, CI에서 시험한다)와 `mssql`(첫 사내 대상 가정, 드라이버 하나 추가). 다른 dialect는 같은 인터페이스의 드라이버 모듈로 더한다.

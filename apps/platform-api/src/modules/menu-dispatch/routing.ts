@@ -1,3 +1,4 @@
+import { envelopeAudienceProblems } from './bundle/validation.js';
 import { isEnvelope } from './bundle/calls.js';
 import type { DeclarationBundle } from './declarations-file.js';
 import type { Route, Routing } from './bundle/routing.js';
@@ -31,7 +32,7 @@ export function mapValue(value: string, map: Record<string, string> | undefined,
   return inverse ? Object.entries(map).find(([, mapped]) => mapped === value)?.[0] : Object.hasOwn(map, value) ? map[value] : undefined;
 }
 export function routedBootProblems(bundle: DeclarationBundle, factories: ConnectorFactories, scopeCatalog?: Readonly<Record<string, readonly string[]>>): string[] {
-  const problems: string[] = [];
+  const problems = envelopeAudienceProblems(bundle);
   for (const endpoint of bundle.endpoints) {
     const owner = bundle.endpointOwners[endpoint.id];
     if (!owner || typeof owner === 'string') continue;

@@ -5,6 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { loadMenuDeclarationSetup, type MenuDeclarationConfig } from '../menu-declarations.js';
 import type { ConnectorFactories } from '../modules/menu-dispatch/connectors/types.js';
+import { routedBootProblems } from '../modules/menu-dispatch/routing.js';
+import { createHttpConnector } from '../modules/menu-dispatch/connectors/http/mapped.js';
 import { DeclarationBundleError } from '../modules/menu-dispatch/declarations-file.js';
 import { declaredContribution } from '../modules/menu-dispatch/declared-endpoints.js';
 import type { DeclarationBundle } from '../modules/menu-dispatch/declarations-file.js';
@@ -135,4 +137,35 @@ it.each(['file', 'programmatic'] as const)('refuses duplicate kinds in a legacy-
   const value = { ...base, endpoints: base.endpoints.map((row) => ({ ...row, kinds: ['coverage', 'coverage'] })) };
   const boot = assembly === 'file' ? setup(value) : Promise.resolve().then(() => declaredContribution({ bundle: value as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService }));
   expect(await problems(boot)).toEqual(['endpoint syn.rows: kinds must not contain duplicates']);
+});
+
+function envelopePair(aud?: string) {
+  const endpoint = legacy().endpoints[0];
+  return {
+    ...emptyBundle(), endpoints: [{ ...endpoint, id: 'syn.a' }, { ...endpoint, id: 'syn.b' }],
+    targets: { t1: { kind: 'http', baseUrl: 'https://a.test/query', ...(aud ? { aud } : {}) }, t2: { kind: 'http', baseUrl: 'https://b.test/query', ...(aud ? { aud } : {}) } },
+    endpointOwners: { 'syn.a': { call: { mode: 'envelope' }, routes: [{ targets: ['t1'] }] }, 'syn.b': { call: { mode: 'envelope' }, routes: [{ targets: ['t2'] }] } },
+  };
+}
+it.each([undefined, 'syn-duplicate'])('refuses duplicate effective envelope audience %s on both assembly paths', async (aud) => {
+  const bundle = envelopePair(aud);
+  const message = 'envelope audience collision between targets t1 and t2';
+  expect(routedBootProblems(bundle as unknown as DeclarationBundle, { http: createHttpConnector() })).toEqual([message]);
+  expect(await problems(setup(bundle))).toEqual([message]);
+  expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService })).toThrow(message);
+});
+it.each([undefined, 'analytics'])('reserves analytics for legacy string owners with routed audience %s', async (aud) => {
+  const pair = envelopePair(aud);
+  const bundle = { ...pair, endpoints: [pair.endpoints[0], ...legacy().endpoints], endpointOwners: { 'syn.a': pair.endpointOwners['syn.a'], ...legacy().endpointOwners } };
+  const message = 'envelope audience collision between targets legacy-default and t1';
+  expect(routedBootProblems(bundle as unknown as DeclarationBundle, { http: createHttpConnector() })).toEqual([message]);
+  expect(await problems(setup(bundle))).toEqual([message]);
+  expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService })).toThrow(message);
+});
+it('accepts a sole default audience and shared destinations, and distinct audiences for distinct destinations', () => {
+  const pair = envelopePair();
+  const shared = { ...pair, targets: { ...pair.targets, t2: { ...pair.targets.t2, baseUrl: pair.targets.t1.baseUrl } } };
+  const distinct = { ...pair, targets: { ...pair.targets, t2: { ...pair.targets.t2, aud: 'syn-b' } } };
+  const sole = { ...pair, endpoints: [pair.endpoints[0]], endpointOwners: { 'syn.a': pair.endpointOwners['syn.a'] } };
+  for (const bundle of [shared, distinct, sole]) expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService })).not.toThrow();
 });

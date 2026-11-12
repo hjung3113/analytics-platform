@@ -107,6 +107,43 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)('HTTP mapped connecto
   it('maxRows overflow returns too_large and data null', async () => {
     behavior = 'overflow'; const hit = await query(); expect(hit.statusCode).toBe(200); expect(hit.json()).toMatchObject({ outcome: 'too_large', data: null });
   });
+  it('cancels an unfinished HTTP body at the overflow row and responds too_large', async () => {
+    let closed: () => void = () => {};
+    const cancelled = new Promise<void>((resolve) => { closed = resolve; });
+    const stalled = createServer((_request, response) => {
+      response.on('close', closed);
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.write('[{"id":1},{"id":2},{"id":3},');
+    });
+    let boundedApp: FastifyInstance | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await new Promise<void>((resolve) => stalled.listen(0, '127.0.0.1', resolve));
+      const address = stalled.address(); if (!address || typeof address === 'string') throw new Error('synthetic address missing');
+      const file = join(dir, 'stalled.json');
+      await writeFile(file, JSON.stringify({
+        endpoints: [{ id: 'syn.stalled', menuId: 'syn', permission: 'platform:view', paramKeys: [], requiresScope: false, context: {}, limits: { maxRows: 2 }, mergeTimeDomain: false }], actions: [], permissions: [],
+        targets: { stalled: { kind: 'http', baseUrl: `http://127.0.0.1:${address.port}` } },
+        endpointOwners: { 'syn.stalled': { call: { mode: 'mapped', method: 'GET', path: '/rows', response: {} }, routes: [{ targets: ['stalled'] }] } },
+      }));
+      const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: file, MENU_UPSTREAM_TIMEOUT_MS: 5000 };
+      const setup = await loadMenuDeclarationSetup(config, { checkService: createCheckService({ db: db.db }), log: () => {} });
+      if (!setup) throw new Error('setup missing');
+      boundedApp = await buildServer({ config, dbHandle: db, menuDispatch: setup.menuDispatch }); await boundedApp.ready();
+      const pending = boundedApp.inject({ method: 'POST', url: '/api/v1/menu-query', headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` }, payload: { endpoint: 'syn.stalled', context: {}, params: {} } });
+      const early = new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error('overflow waited for tail or judgment timer')), 1000); });
+      const hit = await Promise.race([pending, early]);
+      expect(hit.statusCode).toBe(200);
+      expect(hit.json()).toMatchObject({ outcome: 'too_large', data: null });
+      await Promise.race([cancelled, early]);
+    } finally {
+      clearTimeout(timer);
+      stalled.closeAllConnections();
+      if (stalled.listening) await new Promise<void>((resolve, reject) => stalled.close((error) => error ? reject(error) : resolve()));
+      await boundedApp?.close();
+    }
+  });
+
 });
 
 // Separate fixtures leave the existing mapped/legacy wire cases unchanged.

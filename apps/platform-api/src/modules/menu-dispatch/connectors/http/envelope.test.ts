@@ -40,3 +40,19 @@ it('routes an envelope through its target URL and only its selected rooms', asyn
   expect(result).toMatchObject({ outcome: 'ok', data: [1] });
   expect(forward.mock.calls[0]?.[0]).toMatchObject({ args, endpointId: 'syn.rows', routed: { baseUrl: 'https://synthetic.test/query', aud: 'syn-audience', site: 'S1', rooms: ['R1'] } });
 });
+
+it('verifies an A token independently and refuses replay at B with a distinct audience', async () => {
+  const { jwtVerify } = await import('jose');
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  const tokenSigner = createIdentityTokenSigner({ privateKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(), keyId: 'syn-key' });
+  const fetchImpl = vi.fn<MenuUpstreamFetch>(async () => new Response(JSON.stringify({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'syn-cid' })));
+  const forwarder = createMenuForwarder({ baseUrl: 'https://legacy.test', timeoutMs: 1000, signer: tokenSigner, fetch: fetchImpl });
+  for (const [host, aud] of [['a', 'syn-a'], ['b', 'syn-b']]) {
+    await forwarder.forward({ endpointId: 'syn.rows', path: '', args, routed: { baseUrl: `https://${host}.test/query`, aud: defined(aud), site: 'S1', rooms: ['R1'] } });
+  }
+  const a = defined(fetchImpl.mock.calls[0]?.[1]?.headers['x-internal-identity']);
+  const b = defined(fetchImpl.mock.calls[1]?.[1]?.headers['x-internal-identity']);
+  await expect(jwtVerify(a, publicKey, { algorithms: ['EdDSA'], audience: 'syn-a' })).resolves.toMatchObject({ payload: { htm: 'POST', htu: '/query' } });
+  await expect(jwtVerify(b, publicKey, { algorithms: ['EdDSA'], audience: 'syn-b' })).resolves.toMatchObject({ payload: { htm: 'POST', htu: '/query' } });
+  await expect(jwtVerify(a, publicKey, { algorithms: ['EdDSA'], audience: 'syn-b' })).rejects.toMatchObject({ code: 'ERR_JWT_CLAIM_VALIDATION_FAILED', claim: 'aud' });
+});

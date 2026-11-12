@@ -17,12 +17,41 @@ interface EndpointRow {
   kinds?: readonly string[] | undefined;
 }
 
+/** Audience binds a token to one envelope destination, independently of path and Scope. */
+export function envelopeAudienceProblems(bundle: {
+  endpointOwners: Readonly<Record<string, string | Routing>>;
+  targets?: Readonly<Record<string, Target>> | undefined;
+}): string[] {
+  const problems: string[] = [];
+  const audiences = new Map<string, { id: string; destination: string }>();
+  if (Object.values(bundle.endpointOwners).some((owner) => typeof owner === 'string')) {
+    audiences.set('analytics', { id: 'legacy-default', destination: '' });
+  }
+  for (const owner of Object.values(bundle.endpointOwners)) {
+    if (typeof owner === 'string') continue;
+    for (const route of owner.routes) {
+      const call = route.call ?? owner.call;
+      if (!call || !isEnvelope(call)) continue;
+      for (const id of route.targets) {
+        const target = bundle.targets?.[id];
+        if (target?.kind !== 'http') continue;
+        const aud = target.aud ?? 'analytics';
+        const destination = new URL(target.baseUrl).href.replace(/\/+$/, '');
+        const prior = audiences.get(aud);
+        if (prior && prior.destination !== destination) problems.push(`envelope audience collision between targets ${prior.id} and ${id}`);
+        else if (!prior) audiences.set(aud, { id, destination });
+      }
+    }
+  }
+  return [...new Set(problems)];
+}
+
 export function routingProblems(bundle: {
   endpoints: readonly EndpointRow[];
   endpointOwners: Readonly<Record<string, string | Routing>>;
   targets?: Readonly<Record<string, Target>> | undefined;
 }): string[] {
-  const problems: string[] = [];
+  const problems = envelopeAudienceProblems(bundle);
   const targetSites = new Map<string, Set<string>>();
   for (const owner of Object.values(bundle.endpointOwners)) {
     if (typeof owner === 'string') continue;

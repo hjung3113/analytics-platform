@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readTargetSecrets, TargetSecret } from '../../bundle/secrets.js';
 import { expect, it, vi } from 'vitest';
+import type { Routing } from '../../declarations-file.js';
 import type { ConnectorLeg } from '../types.js';
 import { MenuUpstreamError } from '../../forwarder.js';
 import { TargetJudgmentTimeout } from '../types.js';
@@ -114,4 +115,94 @@ it('sanitizes a pre-aborted caller even if a reserved identity header is declare
   const connector = createHttpConnector({ fetch: fetchImpl })({ kind: 'http', baseUrl: 'https://synthetic.test' }, { kind: 'http', headers: { 'x-internal-identity': new TargetSecret('syn-private-identity') } });
   await expect(collect(connector.query(leg('key'), { signal: controller.signal, deadlineMs: 1000, rowCap: 2 }))).rejects.toEqual(new MenuUpstreamError('unavailable'));
   expect(fetchImpl).not.toHaveBeenCalled();
+});
+
+it('returns too_large and cancels a stalled tail before the judgment timer or EOF', async () => {
+  const { handleRouted } = await import('../../routed-handler.js');
+  const { runQuery } = await import('../../query.js');
+  const cancelled = vi.fn();
+  let signal: AbortSignal | null | undefined;
+  const factory = createHttpConnector({ fetch: async (_url, init) => {
+    signal = init?.signal;
+    return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('[{"id":1},{"id":2},{"id":3},')); }, cancel: cancelled }));
+  } });
+  const endpoint = { id: 'syn.rows', menuId: 'syn', permission: 'platform:view', paramKeys: [], requiresScope: false, context: {}, mergeTimeDomain: false, limits: { maxRows: 2 } };
+  const owner: Routing = { call: { mode: 'mapped', method: 'GET', path: '/rows', response: {} }, routes: [{ targets: ['t1'] }], unroutedRooms: 'error' };
+  vi.useFakeTimers();
+  try {
+    let result: unknown;
+    const actor = { actor_id: 'syn-actor', workspace_id: 'syn-workspace', role_level: 'user' } as const;
+    const pending = runQuery({ ok: true, context: {}, params: {}, declaration: {
+      spec: endpoint, authorize: async () => true, validate: () => ({ ok: true }),
+      handle: (args) => handleRouted(endpoint, owner, { endpoints: [endpoint], actions: [], permissions: [], targets: { t1: { kind: 'http', baseUrl: 'https://syn.test' } }, endpointOwners: { 'syn.rows': owner } }, { connectorFactories: { http: factory }, timeoutMs: 3000 }, args),
+    } }, actor, 'syn-cid').then((value) => { result = value; });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(result).toMatchObject({ outcome: 'too_large', data: null });
+    expect(signal?.aborted).toBe(true);
+    expect(cancelled).toHaveBeenCalledOnce();
+    await pending;
+  } finally { vi.useRealTimers(); }
+});
+
+it.each([1, 2, 7, 1024])('streams nested escaped pointers across %i-byte chunks without collecting siblings', async (chunkSize) => {
+  const body = new TextEncoder().encode('{"skip":[{"rows":[0]}],"a/b":{"~rows":[{"text":"한글 \\" \\u0041","nested":[true,null,-1.25e2]},"x",false,null,2]},"tail":true}');
+  const connector = createHttpConnector({ fetch: async () => new Response(new ReadableStream({ start(controller) {
+    for (let offset = 0; offset < body.length; offset += chunkSize) controller.enqueue(body.slice(offset, offset + chunkSize));
+    controller.close();
+  } })) })({ kind: 'http', baseUrl: 'https://synthetic.test' }, undefined);
+  const request: ConnectorLeg = { ...leg('key'), call: { mode: 'mapped', method: 'GET', path: '/rows', response: { rows: '/a~1b/~0rows' } } };
+  expect(await collect(connector.query(request, { signal: new AbortController().signal, deadlineMs: 1000, rowCap: 10 }))).toEqual([{ text: '한글 " A', nested: [true, null, -125] }, 'x', false, null, 2]);
+});
+it.each(['[1,]', '[1}', '[{"x":1,}]', '[01]', '[true false]', '["bad\\q"]', '{"rows":[]}{}', '{"rows":[1]', '{"other":[]}'])('sanitizes malformed or missing selected JSON rows: %s', async (body) => {
+  const connector = createHttpConnector({ fetch: async () => new Response(body) })({ kind: 'http', baseUrl: 'https://synthetic.test' }, undefined);
+  const request: ConnectorLeg = { ...leg('key'), call: { mode: 'mapped', method: 'GET', path: '/rows', response: { rows: body.startsWith('{') ? '/rows' : '' } } };
+  await expect(collect(connector.query(request, { signal: new AbortController().signal, deadlineMs: 1000, rowCap: 10 }))).rejects.toEqual(new MenuUpstreamError('unavailable'));
+});
+it('discards buffered rows and a partial row on caller cancellation', async () => {
+  const caller = new AbortController();
+  const cancelled = vi.fn();
+  const connector = createHttpConnector({ fetch: async () => new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('[{"id":1},{"id":2},{"partial":')); }, cancel: cancelled })) })({ kind: 'http', baseUrl: 'https://synthetic.test' }, undefined);
+  const iterator = connector.query(leg('key'), { signal: caller.signal, deadlineMs: 1000, rowCap: 10 })[Symbol.asyncIterator]();
+  expect(await iterator.next()).toMatchObject({ value: { id: 1 } });
+  caller.abort();
+  await expect(iterator.next()).rejects.toEqual(new MenuUpstreamError('unavailable'));
+  expect(await iterator.next()).toMatchObject({ done: true });
+  expect(cancelled).toHaveBeenCalledOnce();
+});
+it('cancels fetch at rowCap even while the consumer is suspended on the last row', async () => {
+  const cancelled = vi.fn();
+  let signal: AbortSignal | null | undefined;
+  const connector = createHttpConnector({ fetch: async (_url, init) => { signal = init?.signal; return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('[1,2,3,')); }, cancel: cancelled })); } })({ kind: 'http', baseUrl: 'https://synthetic.test' }, undefined);
+  const iterator = connector.query(leg('key'), { signal: new AbortController().signal, deadlineMs: 1000, rowCap: 2 })[Symbol.asyncIterator]();
+  expect(await iterator.next()).toMatchObject({ value: 1 });
+  expect(await iterator.next()).toMatchObject({ value: 2 });
+  expect(signal?.aborted).toBe(true); expect(cancelled).toHaveBeenCalledOnce();
+  expect(await iterator.next()).toMatchObject({ done: true });
+});
+
+it.each(['{"outer":[{"rows":[]}]}', '{"outer":[{"rows":[[1],{"id":2}]}]}'])('selects arrays through object and array pointer segments: %s', async (body) => {
+  const connector = createHttpConnector({ fetch: async () => new Response(body) })({ kind: 'http', baseUrl: 'https://synthetic.test' }, undefined);
+  const request: ConnectorLeg = { ...leg('key'), call: { mode: 'mapped', method: 'GET', path: '/rows', response: { rows: '/outer/0/rows' } } };
+  expect(await collect(connector.query(request, { signal: new AbortController().signal, deadlineMs: 1000, rowCap: 10 }))).toEqual(body.includes('"id"') ? [[1], { id: 2 }] : []);
+});
+it('keeps counting bytes after selected nested rows end', async () => {
+  const cancelled = vi.fn();
+  const connector = createHttpConnector({ byteCap: 40, fetch: async () => new Response(new ReadableStream({ start(controller) {
+    controller.enqueue(new TextEncoder().encode('{"data":{"rows":[1]},"tail":"'));
+    controller.enqueue(new TextEncoder().encode('x'.repeat(41)));
+  }, cancel: cancelled })) })({ kind: 'http', baseUrl: 'https://synthetic.test' }, undefined);
+  const request: ConnectorLeg = { ...leg('key'), call: { mode: 'mapped', method: 'GET', path: '/rows', response: { rows: '/data/rows' } } };
+  await expect(collect(connector.query(request, { signal: new AbortController().signal, deadlineMs: 1000, rowCap: 10 }))).rejects.toEqual(new MenuUpstreamError('unavailable'));
+  expect(cancelled).toHaveBeenCalledOnce();
+});
+it('cancels a pending read without yielding an incomplete row', async () => {
+  const caller = new AbortController();
+  const cancelled = vi.fn();
+  const connector = createHttpConnector({ fetch: async () => new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('[{"partial":')); }, cancel: cancelled })) })({ kind: 'http', baseUrl: 'https://synthetic.test' }, undefined);
+  const iterator = connector.query(leg('key'), { signal: caller.signal, deadlineMs: 1000, rowCap: 10 })[Symbol.asyncIterator]();
+  const pending = iterator.next();
+  caller.abort();
+  await expect(pending).rejects.toEqual(new MenuUpstreamError('unavailable'));
+  expect(await iterator.next()).toMatchObject({ done: true });
+  expect(cancelled).toHaveBeenCalledOnce();
 });
