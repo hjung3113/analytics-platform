@@ -55,7 +55,7 @@ it('keeps FAIL and fixed column widths while appending the opinion column', () =
   expect(within(grid).getByText('실패')).toBeVisible();
   expect(within(grid).getByRole('button', { name: 'R-FAIL 의견 이력' })).toBeVisible();
   const parts = table.mock.calls.map(([p]) => p).find(p => p.title === '규칙 결과');
-  expect(parts?.columns.map(c => [c.header, c.size])).toEqual([['규칙·필수', 100], ['결과', 90], ['기대·관측', 210], ['근거 위치·발췌', 280], ['의견', undefined]]);
+  expect(parts?.columns.map(c => [c.header, c.size])).toEqual([['규칙 · 상세', 300], ['판정', 100], ['관측 요약', 210], ['의견', 100]]);
 });
 it('filters only rule rows in scale order, preserving result chips, summary and the unlinked list', async () => {
   const user = userEvent.setup(); const { read } = setup();
@@ -91,13 +91,13 @@ it('opens the same history and evidence drawer from the unlinked list', async ()
   await userEvent.setup().click(screen.getByRole('button', { name: '근거 1 · sample.log:12' }));
   expect(screen.getByRole('dialog', { name: '근거 위치' })).toHaveTextContent('abc');
 });
-it('keeps the original table and has no opinion UI or reads for opinionCount zero', () => {
+it('keeps the compact result table without opinion UI or reads for opinionCount zero', () => {
   const { read, table } = setup({ opinionCount: 0 });
   expect(screen.queryByRole('combobox', { name: '의견 등급' })).toBeNull();
   expect(screen.queryByText('규칙 결과에 연결되지 않은 의견')).toBeNull(); expect(screen.queryByText('의견 척도 미선언')).toBeNull();
   const parts = table.mock.calls.map(([p]) => p).find(p => p.title === '규칙 결과');
-  expect(parts?.columns.map(c => c.id)).toEqual(['rule', 'result', 'observed', 'evidence']);
-  expect(parts?.preferenceKey).toBe('log-lifecycle-rule-results');
+  expect(parts?.columns.map(c => c.id)).toEqual(['rule', 'result', 'observed']);
+  expect(parts?.preferenceKey).toBe('log-lifecycle-rule-results-workbench');
   expect(read.mock.calls.filter(([name, , enabled]) => (name === 'opinionScale' || name === 'opinions') && enabled)).toHaveLength(0);
 });
 it('keeps the opinion column and history reachable when the scale is empty but the attempt holds opinions; the filter stays hidden', async () => {

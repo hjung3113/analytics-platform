@@ -1,13 +1,14 @@
 # Log Lifecycle — v0.30.0 최소 슬라이스 설계 (As-built, 사이드바 계층 g2만 부분)
 
-> **Status: As-built (v0.30.0 슬라이스 노드 a–h), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영.** 구현된 것: API 토큰 a(#1442)·b(#1443), 개발 건·이벤트·Round c(#1444)와 수동 검증 첨부 c2(#1451)·Entity Link c3(#1466), 검증 요청 큐 d(#1445, 참조 작업자는 «합성 fixture»), Gate 결정 e(#1446), 화면 f(#1447, 컨펌 A2), 사이드바 계층 g(#1448 SDK 조각)·g2(#1449), 통합 h(#1450, 토큰 → claim → 결과 → Gate 계약 E2E). **부분 구현은 g2 하나다:** `node` 없는 개발 건·Round 딥링크에서 현재 노드를 찾는 기능은 SDK seam 결정 전 미구현이다(§7, [백로그](../../../../.planning/backlog.md)). 노드 f 화면의 데스크톱 시각 확인은 호스트 몫이다(§12). 이 슬라이스가 만들지 않은 것은 §1 «하지 않는 것»과 §9가 그대로 갖는다. 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md). 노드별 표기는 §7을 따른다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: As-built (v0.30.0 슬라이스 노드 a–h), ADR 0116–0118 Decided, 소유자 13개 질문 답 반영.** 구현된 것: API 토큰 a(#1442)·b(#1443), 개발 건·이벤트·Round c(#1444)와 수동 검증 첨부 c2(#1451)·Entity Link c3(#1466), 검증 요청 큐 d(#1445, 참조 작업자는 «합성 fixture»), Gate 결정 e(#1446), 화면 f(#1447, #1809 수정 A), 사이드바 계층 g(#1448 SDK 조각)·g2(#1449), 통합 h(#1450, 토큰 → claim → 결과 → Gate 계약 E2E). **부분 구현은 g2 하나다:** `node` 없는 개발 건·Round 딥링크에서 현재 노드를 찾는 기능은 SDK seam 결정 전 미구현이다(§7, [백로그](../../../../.planning/backlog.md)). 노드 f 화면의 데스크톱 시각 확인은 호스트 몫이다(§12). 이 슬라이스가 만들지 않은 것은 §1 «하지 않는 것»과 §9가 그대로 갖는다. 계약 원본은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md). 노드별 표기는 §7을 따른다. 릴리스 묶음(v0.30.0 = #1108 + #1330 P0 + #1419 + #1420, 이후 v0.31.0 = #1198 + #1344)은 소유자 2026-11-07 확정이다. 근거는 [#1330](https://github.com/hjung3113/analytics-platform/issues/1330)(Epic)·[#1346](https://github.com/hjung3113/analytics-platform/issues/1346)(우선순위)·[#1420](https://github.com/hjung3113/analytics-platform/issues/1420)(검증 요청 큐)·[#1419](https://github.com/hjung3113/analytics-platform/issues/1419)(API 토큰)이고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > 사내 스크립트 Validator·사내 LLM은 별도 개발 중이다. 인터페이스·출력·권한은 실사 전이므로 **연동 완료로 쓰지 않는다.** 이 슬라이스는 플랫폼 쪽 틀(요청 등록·가져가기·결과 저장·사람 기록)만 만든다.
 
-## 후속 설계 (Candidate)
+## 후속 설계와 화면 결정
 
 | 범위 | 소유 문서 | 상태 |
 | --- | --- | --- |
+| #1809 결과 중심 Round workbench | [화면·URL·Gate 계약](#121-결과-중심-round-workbench-1809) | Decided · 수정 A, 소유자 2026-11-12 |
 | #1807 분리 작업자 입력 바이트 전달 | [ADR-0152](../../../adr/0152-worker-input-delivery-source-owner-step.md), [API 상세·Open decisions](../../../architecture/platform-api/api/log-lifecycle.md#작업자-입력-전달-1807) | Candidate · 미구현, 공급자 미선택 |
 | #1815 진단 보존·상세·근거표·선택 첨부 | [손실 매트릭스·Slice A/B·노드·Open decisions](diagnostic-report-parity.md), [API 읽기 투영](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815) | Candidate · 미구현 |
 | #1808 사람 등록 항목·Round/항목별 토론 | [논리 모델·권한·노드·Open decisions](validation-issues-discussion.md) | Candidate · 미구현, DDL은 설계 merge 뒤 별도 PR |
@@ -233,7 +234,7 @@ log-dev (기존 Space)
 
 ### 6.4 Wireframe 수준
 
-1440×900과 1280 폭만 다룬다(데스크톱 범위). 전체 높이를 채우는 표 + 오른쪽 서랍 구조이고 새 컴포넌트는 만들지 않는다 — `PlatformDataTable`·`DetailDrawer`·`AuditTimeline`·`DataTrustIndicator`와 기존 단계 스테퍼 후보를 찾는다(없으면 Open Decision D5). **시각이 바뀌는 구현 전에 `?variant=` 시안을 아티팩트로 컨펌**받는다(루트 AGENTS «UI는 프로토타입 컨펌 뒤 구현»). 컨펌된 안은 §12의 A2다.
+1440×900과 1280 폭만 다룬다(데스크톱 범위). 전체 높이를 채우는 표 + 오른쪽 서랍 구조이고 새 컴포넌트는 만들지 않는다 — `PlatformDataTable`·`DetailDrawer`·`AuditTimeline`·`DataTrustIndicator`와 기존 단계 스테퍼 후보를 찾는다(없으면 Open Decision D5). **시각이 바뀌는 구현 전에 `?variant=` 시안을 아티팩트로 컨펌**받는다(루트 AGENTS «UI는 프로토타입 컨펌 뒤 구현»). 컨펌된 안은 §12.1의 수정 A다.
 
 ### 6.5 URL
 
@@ -251,7 +252,7 @@ log-dev (기존 Space)
 | c | `log-lifecycle` 스키마·마이그레이션·개발 건·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 검증 첨부는 c2 #1451, 구현됨) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
 | d **As-built** #1445 | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
 | e **As-built** #1446 | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
-| f **As-built** #1447 | 컨펌 A2 모델 표·개발 건/Round 상세·검증 요청. `PlatformDataTable`·확장 가능한 `DetailDrawer`·`AuditTimeline`·Gate 우측 고정. 사이드바 계층은 g2 #1449가 연결한다; | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
+| f **As-built** #1447 | 모델 표·개발 건/Round 상세·검증 요청. #1809 수정 A의 결과 우선 배치와 Gate 상세 슬롯은 §12.1을 따른다. `PlatformDataTable`·`DetailDrawer`·`AuditTimeline`을 재사용한다. 사이드바 계층은 g2 #1449가 연결한다; | full, `ux=required`, 시각 부분은 `impl-complex-sol` high | c(읽기), d·e(쓰기), 시안 컨펌 |
 | g | **#1108 SDK 조각**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)): `navTree` + `HierarchyNav`, 합성 source·실제 AppShell 테스트 — **As-built**(#1448, 호스트 검증 대기; 본문 조각 보류) | full, `impl-complex`(공개 API `sdk:api`) | 시안 컨펌(소비자는 확정) |
 | g2 **As-built(부분)** #1449 | `log-models` tree 선언·4단계 source·서버/합성 조회·노드 목적지 연결. 계층 링크의 개발 건·Round는 객체 경로 `node`로, 모델 목록은 `vendorId`·`processId`·`modelId`로 현재 노드를 복원한다. `node` 없는 개발 건·Round 딥링크만 SDK seam 결정 전 미구현([백로그](../../../../.planning/backlog.md)) | full, `ux=required` | g, c |
 | h **As-built** #1450 | 통합: 계약 E2E 한 건(서비스 토큰 발급 → 등록 → claim·heartbeat·결과 → verdict → Round 읽기 → 세션 Gate → 단계·이벤트·감사), 소유 문서 갱신, `.planning` 줄. 아래 §13 | full | a–f |
@@ -304,15 +305,26 @@ log-dev (기존 Space)
 
 
 
-## 12. 노드 f As-built (#1447)
+## 12. 노드 f As-built (#1447, #1809)
 
-- 소유자 2026-11-07 컨펌 A2. 내부 단계 값은 그대로 두고 화면은 등록·착수·알파·베타·완료의 5단계, 취소는 별도 배지로 표시한다. 용어는 «개발 건». Gate는 우측 sticky 패널, 사람 아이콘과 외곽선으로 검증 판정과 구분한다.
+- 소유자 2026-11-12 확정 수정 A. 내부 단계 값은 그대로 두고 화면은 등록·착수·알파·베타·완료의 5단계, 취소는 별도 배지로 표시한다. 용어는 «개발 건». Gate는 헤더 상태와 우측 상세 슬롯으로 제공하고 검증 판정과 구분한다.
 - 모델 표(`/log/models`), 숨은 개발 건·Round 상세(`/log/models/:projectId[/rounds/:roundId]`), 검증 요청(`/log/validation-requests`). 화면은 `apps/feature-screens/src/features/log-lifecycle/`, 메뉴 조립은 `menus/log-dev/log-models/`. 조회·쓰기는 기존 Kernel menu-query/action 훅을 주입하고, 이동은 feature host seam을 통해 `linkTo`로 연결한다. 모델 표는 `includeClosedProjects: true`로 열린 개발 건을 우선하고 없으면 최근 종료·취소 건을 표시한다(A2). 기존 API의 기본값은 열린 개발 건만으로 유지하며, 종료·취소 행에서도 새 개발 건을 만들 수 있다.
 - 모델 검색·단계/검증/설비사/공정/활성 필터·정렬·페이지, 요청 상태/우선순위/모델/기간 필터·선택, 규칙 결과/필수/정렬·선택 시도와 상세 탭을 주소에서 복원한다. 샘플 위치·해시·발췌·사유는 URL에 넣지 않는다.
 - Round의 요청 목록은 `requestsPage`, 규칙 결과는 `rulesPage`(각각 1부터 시작, 생략 = 첫 페이지)를 쓴다. 요청 페이지 변경은 요청·시도 선택과 규칙 페이지를, 요청 선택은 시도·규칙 페이지를, 시도 선택과 규칙 필터·정렬 변경은 규칙 페이지를 한 URL 변경에서 초기화한다. 모델·검증 요청 목록과 이력의 기존 `page`는 유지한다.
-- 신규 개발 건, 속성 수정, 서버 허용 단계 이동·재개, 샘플 순서 확정 후 Round 열기/종료, 고정 Round 또는 모델→Round 선택 요청 등록, 시도·결과·취소를 제공한다. 발췌는 명시적 클릭 때만 열며 권한 없음·삭제 상태를 구분한다. 연결된 원본 도구가 없으므로 근거 위치는 `unresolved`로 표시한다.
+- 신규 개발 건, 속성 수정, 서버 허용 단계 이동·재개, 샘플 순서 확정 후 Round 열기/종료, 고정 Round 또는 모델→Round 선택 요청 등록, 시도·결과·취소를 제공한다. 발췌는 명시적 클릭 때만 열며 권한 없음·삭제 상태를 구분한다. 주입된 원본 도구와 샘플 해시가 맞는 근거만 원본 탭으로 연결하고, 그렇지 않으면 원본 확인 불가로 표시한다.
 - 서버 보강은 모델·Round·요청 표시용 projection, `roundDetail.gateAvailability`, `queueStatus`, 규칙 결과 서버 정렬뿐이다. 마이그레이션·권한·GRANT 변경 없음. 실제 Validator 연동은 여전히 미구현(§9); mock은 합성 fixture다.
 - 데스크톱 1440×900/1280 실앱 확인·캡처와 `log-lifecycle screens` E2E는 워커의 브라우저 금지 규칙 때문에 호스트 확인 대기다. 이 표기는 시각 검증 통과를 뜻하지 않는다.
+
+### 12.1. 결과 중심 Round workbench (#1809)
+
+**Decided — 소유자 2026-11-12, 수정 A.** Gate 위치와 저장·링크 상태 변경도 승인한 범위다. 새 SDK API·검증 엔진·결함 저장·토론 저장은 추가하지 않는다.
+
+- Round는 모델·SW/개발 건·Round, 최신 실행 상태, 선택한 완료 시도의 서버 판정을 먼저 보여 준다. 최신 실패·대기와 과거 완료 판정은 별도 축이다. 기본 완료 시도는 서버 Gate 근거의 결정 시도이며, 선택한 시도의 서버 집계로 실패·미검증·전체 규칙 수를 표시한다. 현재 25행 페이지에서 합산하지 않는다. 검증 요청이 없는 Round의 개발 건 요약은 완료 시도·규칙 결과 없음과 서버 결함 집계의 제공 여부를 표시한다.
+- 탭은 `결과·결함` / `Round 토론` / `원본` / `설정·이력`이다. 기본은 결과이며 문제 규칙을 우선 표시한다. 샘플 위치·해시·고정 명세·요청·lease·시도 이력과 Round 관리 동작은 설정·이력에 둔다. 개발 건의 속성·단계 스테퍼는 개발 건 화면에만 둔다.
+- 규칙 표 다음에 서버가 제공한 미해결 결함 표를 둔다. 헤더 결함 수는 이 Round 전체 집계이며 키보드와 클릭으로 해당 표 영역에 이동하고 포커스를 준다. 결함 공급이 없는 설치는 `미해결 결함 집계 불가`로 표시하고 표를 만들지 않는다. 결함·토론 미구현은 #1808이 소유하며 원본 탭이나 규칙 결과를 막지 않는다.
+- 모든 규칙 상태는 ID/기대 요약의 상세 열기 버튼을 제공한다. 우측 `DetailDrawer`에 기대·관측 원문, 근거 없음·권한 없음·삭제·오류·조회 중과 의견 없음을 표시한다. 관측 요약에서는 같은 문장 반복을 줄이되 상세 원문은 보존한다. 발췌는 명시적으로 열 때만 읽는다. 진단 리포트·추가 첨부는 #1815의 서버 공급 전까지 만들지 않는다.
+- 헤더의 Gate 상태와 `lifecycle:gate-decide` 권한자의 `Gate 결정` 버튼은 같은 우측 슬롯을 쓴다. 처음에는 결정 종류를 고르지 않는다. 결정·사유·예외 입력 초안과 기록 action·결과·동일 요청 재시도는 Round 수명에 속한다. 슬롯 교체·닫기·탭 방문 중에도 진행 중 결과를 받고 재시도가 유지되며 URL에 저장하지 않는다. 기록 동작의 이름은 `Gate 결정 기록`이다. 읽기 전용 서버 근거는 Gate의 결정 시도에 대한 실패 규칙과 미해결 결함 집계를 보여 주며 verdict를 바꾸지 않는다.
+- URL의 `rule`은 규칙 결과 UUID, `issue`는 사람 항목 UUID다. 규칙을 열 때 `request`·`attempt`도 같은 변경으로 고정한다. 탭은 `view`(생략 = 결과, `discussion` / `source` / `history`), 결과 범위는 `result`(생략 = 문제만, `all` 또는 결과 값)다. 페이지·필터·정렬을 함께 복원한다. 선택한 규칙 상세는 표 페이지·의견 필터와 독립적으로 UUID를 찾는다. 현재 API에 단건 조회·ID 필터가 없어 선택한 시도의 필터 없는 25행 페이지를 순서대로 읽고, 전체 조회 후에도 없는 UUID만 찾을 수 없다고 표시한다. 요청/시도 전환은 종속 규칙·항목 선택을 초기화한다. 샘플 위치·본문·발췌·사유·서명 URL은 주소에 넣지 않는다. 검증 요청 상세의 결과 열기는 해당 요청과 완료 시도 ID를 전달한다.
 
 ## 13. 노드 h As-built (#1450)
 

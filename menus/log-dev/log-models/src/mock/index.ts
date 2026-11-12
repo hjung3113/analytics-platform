@@ -24,8 +24,12 @@ function availability(r: RoundDetail, actor: string) {
   const p = findProject(r.projectId);
   const newest = rounds.filter(x => x.projectId === r.projectId).sort((a,b) => b.seq - a.seq)[0];
   const reasons = [...(actor === 'admin' ? [] : ['permission_denied']), ...(!p?.gateTarget ? ['project_not_open'] : []), ...(newest?.id === r.id ? [] : ['round_not_current']), ...(p?.stage === r.stage ? [] : ['round_stage_mismatch'])];
-  const verdict = requests.filter(q => q.roundId === r.id).flatMap(q => q.attempts).filter(a => a.outcome === 'succeeded').sort((a,b) => a.endedAt!.localeCompare(b.endedAt!)).at(-1)?.verdict;
-  return { targetStage: p?.gateTarget ?? null, projectVersion: p?.version ?? '', reasons, decisions: { approved: { allowed: reasons.length === 0 && verdict === 'pass', reasons: [...reasons, ...(verdict === 'pass' ? [] : ['verdict_not_pass'])] }, rejected: { allowed: reasons.length === 0, reasons }, exception: { allowed: reasons.length === 0 && verdict !== 'pass', reasons: [...reasons, ...(verdict === 'pass' ? ['exception_not_needed'] : [])] } }, basis: { decisiveVerdict: verdict ?? null, specPin: r.specPin, sampleManifestDigest: r.sampleManifestDigest } };
+  const roundRequests = requests.filter(q => q.roundId === r.id);
+  const completed = roundRequests.flatMap(q => q.attempts.filter(a => a.outcome === 'succeeded').map(a => ({ ...a, requestId: q.id }))).sort((a,b) => a.endedAt!.localeCompare(b.endedAt!) || a.startedAt.localeCompare(b.startedAt) || a.id.localeCompare(b.id));
+  const decisive = completed.at(-1);
+  const verdict = decisive?.verdict;
+  const basis = { version: 1, attempts: completed.map(a => ({ attemptId: a.id, attemptNo: a.attemptNo, requestId: a.requestId, verdict: a.verdict, ruleSetRevision: a.ruleSetRevision, inputManifestDigest: a.inputManifestDigest, endedAt: a.endedAt })), decisiveAttemptId: decisive?.id ?? null, decisiveVerdict: verdict ?? null, specPin: r.specPin, sampleManifestDigest: r.sampleManifestDigest, requestDigest: null, evidenceLinks: [] };
+  return { targetStage: p?.gateTarget ?? null, projectVersion: p?.version ?? '', reasons, decisions: { approved: { allowed: reasons.length === 0 && verdict === 'pass', reasons: [...reasons, ...(verdict === 'pass' ? [] : ['verdict_not_pass'])] }, rejected: { allowed: reasons.length === 0, reasons }, exception: { allowed: reasons.length === 0 && verdict !== 'pass', reasons: [...reasons, ...(verdict === 'pass' ? ['exception_not_needed'] : [])] } }, basis };
 }
 function read(name: string, p: Params, actor: string): unknown {
   if (name === 'hierarchy') return readHierarchy(p, actor);

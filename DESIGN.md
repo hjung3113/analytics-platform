@@ -402,6 +402,10 @@ posthog와 sentry(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 - `cat-amber-stroke`는 이전 기간 amber 차트 선·외곽선에만 쓰며 작은 글자에는 쓰지 않는다. P95/reference `markLine`과 라벨은 모든 경우 `text-secondary`다.
 - 사이클타임 상세의 이전 P50/P95는 각각 현재 대응 시리즈의 `dashed` 선언을 따른다. 생산성 개요의 P95도 점선으로 맞추며 해당 manifest의 Compare 기능은 바꾸지 않는다.
 
+### Round result workbench — Decided (2026-11-12)
+
+#1809 수정 A는 결과 우선 배치다. 모델·SW/개발 건·Round와 실행/판정을 짧게 표시하고, 규칙 결과 아래에 서버가 제공한 미해결 결함을 둔다. Gate는 헤더 상태와 같은 우측 상세 슬롯으로 제공한다. 메타데이터·해시·시도 이력은 기본 숨김 탭에 둔다. 기존 표·탭·상태 배지·DetailDrawer와 토큰을 재사용한다. 상세와 URL 계약은 [Log Lifecycle §12.1](docs/design/features/log-lifecycle/README.md#121-결과-중심-round-workbench-1809)을 따른다.
+
 ## Open Decisions
 
 ### Remaining decisions and reference limits

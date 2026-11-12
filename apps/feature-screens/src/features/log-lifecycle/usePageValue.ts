@@ -3,7 +3,7 @@ import type { ScreenProps } from './contracts';
 
 type Widen<T> = T extends number ? number : string;
 const pageKeys = new Set(['page', 'requestsPage', 'rulesPage']);
-const dependentKeys: Record<string, readonly string[]> = { page: [], requestsPage: ['request', 'attempt', 'rulesPage'], rulesPage: [], request: ['attempt', 'rulesPage'], attempt: ['rulesPage'] };
+const dependentKeys: Record<string, readonly string[]> = { page: [], requestsPage: ['request', 'attempt', 'rulesPage', 'rule', 'issue'], rulesPage: [], request: ['attempt', 'rulesPage', 'rule', 'issue'], attempt: ['rulesPage', 'rule', 'issue'] };
 /** Menu host owns persistence and history; tests and embedded previews can use local state. */
 export function usePageValue<T extends string | number>(props: Pick<ScreenProps, 'state' | 'setState'>, key: string, fallback: T, resets: readonly string[] = dependentKeys[key] ?? ['page']): [Widen<T>, (value: Widen<T>) => void] {
   const [local, setLocal] = useState<string | number>(fallback);

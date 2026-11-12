@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { emptyGlobal, type HierarchyNode, type HierarchyPage } from '@ap/contracts';
 import { logLifecycleActionsMock, logLifecycleMock, PROJECT_ID, ROUND_ID, REQUEST_ID, ATTEMPT_ID, resetLifecycle, fixtureId } from './index';
+import type { RequestDetail, RuleResult, RoundDetail } from '../endpoints';
 import type { PageSort } from '@ap/contracts';
 
 type Params = Record<string, unknown>;
@@ -45,4 +46,29 @@ describe('synthetic lifecycle screen fixture', () => {
     write('requestCancel', { id, reason: '샘플 교체' });
     expect(read('requestDetail', { requestId: id })).toMatchObject({ state: 'cancelled', cancelReason: '샘플 교체', version: '2' });
   });
+});
+
+
+it('keeps the real Gate basis identities when a new queued request has no attempt', () => {
+  const before = read('roundDetail', { roundId: ROUND_ID }) as RoundDetail;
+  const created = write('requestCreate', { roundId: ROUND_ID, priority: 1, immediate: false });
+  const after = read('roundDetail', { roundId: ROUND_ID }) as RoundDetail;
+  expect(after.gateAvailability.basis).toMatchObject({
+    version: 1,
+    decisiveAttemptId: fixtureId(1778401),
+    decisiveVerdict: 'fail',
+    attempts: [
+      { attemptId: ATTEMPT_ID, requestId: REQUEST_ID, attemptNo: 1, verdict: 'incomplete', ruleSetRevision: 'synthetic-v1', inputManifestDigest: 'a'.repeat(64), endedAt: '2026-11-07T00:30:00Z' },
+      { attemptId: fixtureId(1778401), requestId: fixtureId(1778301), verdict: 'fail' },
+    ],
+    evidenceLinks: [],
+  });
+  expect(after.gateAvailability.basis).toEqual(before.gateAvailability.basis);
+  const basis = after.gateAvailability.basis as { decisiveAttemptId: string; attempts: { attemptId: string; requestId: string }[] };
+  const reference = basis.attempts.find(a => a.attemptId === basis.decisiveAttemptId)!;
+  const detail = read('requestDetail', { requestId: reference.requestId }) as RequestDetail;
+  expect(detail.attempts.find(a => a.id === reference.attemptId)).toMatchObject({ outcome: 'succeeded', counts: { FAIL: 1 }, ruleCount: 5 });
+  const failing = read('ruleResults', { attemptId: reference.attemptId, results: ['FAIL'], page: 0, pageSize: 25 }) as { rows: RuleResult[]; total: number };
+  expect(failing).toMatchObject({ total: 1, rows: [{ ruleId: 'RULE-005', result: 'FAIL' }] });
+  expect(read('requestDetail', { requestId: created?.data.requestId })).toMatchObject({ state: 'queued', attempts: [] });
 });

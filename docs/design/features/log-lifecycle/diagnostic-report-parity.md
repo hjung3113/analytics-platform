@@ -26,7 +26,7 @@
 - `AttemptOut`의 기존 필드 목록과 추가 `workerSummaryState`, `workerSummary` 및 정확한 허용 키/타입은 [API의 읽기 투영](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815)에 한 번만 정의한다. 추천은 기존 합성 fixture의 enum 메타데이터만이며, 실제 설명 필드는 Open R1 답 후 정한다.
 - 규칙 상세는 저장된 기대/관측을 잘림 없는 텍스트로, 근거는 모든 행을 표로 제공한다. 이는 로컬 원문이나 제거된 개행의 복원을 뜻하지 않는다. 읽기 필드·상한·행 identity·중복 위치와 발췌 index 연결은 [API의 근거 행 계약](../../../architecture/platform-api/api/log-lifecycle.md#근거-행의-두-상태-축)을 따른다.
 - 발췌/원본 상태·삭제 provenance·재인증·감사·숨겨진 대상 처리는 같은 API 계약이 소유한다. 화면은 그 상태를 구분해 표시하며, 원본 링크의 파일 순서·줄 이동은 기존 Source 통합을 사용한다. 보관된 발췌와 원본은 수명이 다르므로 하나의 상태로 합치지 않는 이유도 API를 따른다.
-- `PlatformDataTable`·`DetailDrawer`·`@ap/ui`를 재사용한다. #1809가 탐색/Drawer 구조를 소유하며 이 문서는 픽셀·문구·새 URL 키를 정하지 않는다. UI 구현은 같은 실제 앱 variant와 소유자 Artifact 승인 뒤 진행한다.
+- `PlatformDataTable`·`DetailDrawer`·`@ap/ui`를 재사용한다. [#1809 수정 A](README.md#121-결과-중심-round-workbench-1809)가 결과 우선 탐색과 공용 우측 Drawer 구조를 확정했다. 이 문서는 진단 출력의 픽셀·문구·추가 URL 키를 정하지 않는다. UI 구현은 같은 실제 앱 variant와 소유자 Artifact 승인 뒤 진행한다.
 
 Slice A는 풍부한 로컬 보고서 전체 parity를 약속하지 않는다. 기존 계약으로 보존할 수 없는 설명·진단표는 인벤토리에 손실과 이유를 남기고 Slice B 판단으로 보낸다.
 
