@@ -7,6 +7,7 @@
 //   e2e_base_path  'true' | 'false'  whether the base-path run (`pnpm e2e:base-path`) runs
 //   e2e_shards     JSON matrix: [1,2,3,4] for 'all', [1] for anything else (the shard job is skipped for 'none')
 //   e2e_total      '4' for 'all', '1' otherwise
+//   e2e_kit        'true' for 'all', 'false' otherwise: conservatively covers kit, app-host, mock-server and SDK dependency changes
 //
 // Rules (safe side, a file is judged alone and the strictest verdict wins):
 //   Markdown or .agents/ (the same set classify-changes.mjs treats as docs)  → needs nothing
@@ -96,7 +97,7 @@ function main() {
     result = { ...ALL };
   }
   if (files) process.stdout.write(`changed files:\n${files.join('\n')}\n`);
-  const text = Object.entries(result).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
+  const text = Object.entries({ ...result, e2e_kit: String(result.e2e === 'all') }).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
   process.stdout.write(text);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, text);
 }

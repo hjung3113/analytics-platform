@@ -49,6 +49,14 @@ Boots the assembled app (`apps/platform-web`, mock adapter) in a browser and che
   - A full run (4 shards) happens on `workflow_dispatch` `full=true` (the required cold full gate before release), manual `full=false`, PR/push changing `menus/**`, `packages/**`, `apps/**`, tooling, workflows or unclassified paths, and when selection or base-SHA computation fails (fail-safe). Changing non-spec files under `tests/` (`contract-helpers.ts`, `support.ts`), config or `package.json` also runs full.
 - Lint and typecheck are part of root `pnpm lint` / `pnpm typecheck`, not of `pnpm test`.
 
+## Start-kit browser check (#1702)
+
+- `playwright.kit.config.ts` drives `tests-kit/*.spec.ts` against an installed kit outside the repository. Like the other specs, it imports no `@ap/*`; the kit installs release tarballs only.
+- Prepare with `pnpm sdk:pack --out <empty-directory>`, then `AP_SDK_KIT_DIR_FILE=<path-file> pnpm sdk:consumer-check <directory>`. On success the file contains the installed kit directory, which is retained for the browser run. Export that path as `AP_SDK_KIT_DIR`, then run `pnpm --filter @ap/platform-e2e exec playwright test --config playwright.kit.config.ts`. Remove the retained kit and tarball directory when finished.
+- `E2E_KIT_PORT` defaults to 4192, separate from app 4190 and base-path 4191; Vite uses `strictPort` and never reuses a listener. Desktop only, no retries. Screenshots and traces go to the kit report uploaded as `platform-start-kit-browser-report`.
+- CI runs the named `Start kit browser check` step once in the Playwright shard job. `select-e2e.mjs` selects it conservatively with every full selection, including kit, app-host, mock-server and SDK changes. The static job runs the workflow pin tests in `tests-kit/*.test.mjs`.
+- This gate proves **mock 통과** only. It does not prove a real-server assembly.
+
 ## Real-server contract E2E (#593)
 
 CI runs the default mock E2E config only; no CI job executes real specs or the real assembly browser flow. Covered contracts and the unavailable-on-real table: [`real-server-checklist.md`](../../docs/integration/real-server-checklist.md).
