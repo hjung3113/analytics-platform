@@ -11,6 +11,7 @@
 // `sensitive: true`. See F-014 in `.review/SLICE-1-REVIEW.md`.
 
 export const CAPABILITIES = [
+  'scope.read',
   'workspace.read',
   'workspace.admin',
   'voc.triage',
@@ -103,6 +104,8 @@ export interface CapabilityMeta {
 export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // The four role-derived Slice 1 capabilities are satisfied by `roleSatisfies`
   // itself, so no module layers anything on top: `adminModuleBypass: 'none'`.
+  // ADR-0154: carrier for site/room grants; no role or module bypass.
+  'scope.read': { sensitive: false, adminModuleBypass: 'none' },
   'workspace.read': { sensitive: false, adminModuleBypass: 'none' },
   'workspace.admin': { sensitive: true, adminModuleBypass: 'none', sessionOnly: true },
   // voc.triage: NOT sensitive — Developers may request it for a specific MS.
@@ -208,7 +211,7 @@ export function isTokenOnlyCapability(cap: Capability): boolean {
   return CAPABILITY_META[cap].tokenOnly === true;
 }
 
-/** Capability names an API token may carry as scopes: every capability that is not session-only. */
+/** Capability names an API token may carry as scopes: non-session-only capabilities. */
 export const TOKEN_SCOPE_CAPABILITIES: readonly Capability[] = CAPABILITIES.filter(
   (cap) => !isSessionOnlyCapability(cap),
 );

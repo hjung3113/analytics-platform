@@ -6,7 +6,7 @@ import { allManagedSystemIds } from '../managed-systems/read-projections.js';
 
 /** `workspace.admin` is granted only through the approval path, never requested ordinarily. */
 export function isOrdinarilyRequestable(capability: Capability): boolean {
-  return capability !== 'workspace.admin';
+  return capability !== 'workspace.admin' && capability !== 'scope.read';
 }
 
 /** ADR-0107: a User cannot receive these (request, approval, direct grant); Admin-only restrictions are judged below. */
@@ -43,6 +43,7 @@ export async function supportedScopeCandidates(
   workspaceId: string,
   capability: Capability,
 ): Promise<PermissionScopeCandidate[]> {
+  if (capability === 'scope.read') return [];
   if (
     capability === 'workspace.read' ||
     capability === 'workspace.admin' ||
@@ -109,7 +110,7 @@ export async function validateSupportedScope(
     capabilityField?: string;
   } = {},
 ): Promise<void> {
-  if (!options.approval && !isOrdinarilyRequestable(capability)) {
+  if (!options.approval && capability === 'workspace.admin') {
     throw new HttpError('validation.failed', 'ordinary workspace.admin requests are unsupported', {
       fields: [{ path: ['requested_capability'], code: 'custom' }],
     });

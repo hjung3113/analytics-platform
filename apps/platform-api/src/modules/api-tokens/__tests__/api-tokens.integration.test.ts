@@ -183,6 +183,20 @@ describe.skipIf(!runIntegration)('API tokens: issue, revoke, auth hook, scope âˆ
       expect(issued.at(-1)?.detail).toMatchObject({ token_id: item.id, kind: 'personal', prefix: item.prefix });
     });
 
+    it('issues a personal token with scope.read as a token scope', async () => {
+      const owner = await newPerson('user');
+      const res = await app.inject({ method: 'POST', url: '/api-tokens', headers: cookieHeader(owner.cookie), payload: { name: 'scope-read', scopes: ['scope.read'] } });
+      expect(res.statusCode).toBe(201);
+      const { token, item } = res.json<{ token: string; item: { id: string; prefix: string; scopes: string[] } }>();
+      expect(token).toMatch(/^ap_[0-9a-f]{8}_[A-Za-z0-9_-]{43}$/);
+      expect(item.scopes).toEqual(['scope.read']);
+      const stored = await migrate.pool.query('select actor_id, kind, scopes from core.api_tokens where id = $1', [item.id]);
+      expect(stored.rows).toEqual([{ actor_id: owner.id, kind: 'personal', scopes: ['scope.read'] }]);
+      const issued = await auditRows('api_token.issue', owner.id);
+      expect(issued.at(-1)?.detail).toMatchObject({ token_id: item.id, kind: 'personal', prefix: item.prefix });
+      expect(JSON.stringify(issued)).not.toContain(token);
+    });
+
     it.each([
       ['an unknown capability', ['nope.cap'], 'unknown_capability'],
       ['a session-only capability', ['knowledge.item.publish'], 'session_only'],

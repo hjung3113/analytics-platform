@@ -307,6 +307,7 @@ export function createRequestService(deps: RequestServiceDeps) {
         .where(
           and(
             eq(permissionRequests.id, requestId),
+            eq(permissionRequests.requestedScopeKind, 'managed_system'),
             eq(permissionRequests.workspaceId, actor.workspace_id),
             eq(permissionRequests.requesterActorId, actor.actor_id),
           ),
@@ -322,6 +323,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           .where(
             and(
               eq(permissionRequests.id, requestId),
+              eq(permissionRequests.requestedScopeKind, 'managed_system'),
               eq(permissionRequests.workspaceId, actor.workspace_id),
               eq(permissionRequests.requesterActorId, actor.actor_id),
             ),
@@ -542,6 +544,7 @@ export function createRequestService(deps: RequestServiceDeps) {
         .where(
           and(
             eq(permissionRequests.id, requestId),
+            eq(permissionRequests.requestedScopeKind, 'managed_system'),
             eq(permissionRequests.workspaceId, actor.workspace_id),
             eq(permissionRequests.requesterActorId, actor.actor_id),
           ),
@@ -557,6 +560,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           .where(
             and(
               eq(permissionRequests.id, requestId),
+              eq(permissionRequests.requestedScopeKind, 'managed_system'),
               eq(permissionRequests.workspaceId, actor.workspace_id),
               eq(permissionRequests.requesterActorId, actor.actor_id),
             ),
@@ -643,6 +647,7 @@ export function createRequestService(deps: RequestServiceDeps) {
       .from(permissionRequests)
       .where(
         and(
+          eq(permissionRequests.requestedScopeKind, 'managed_system'),
           eq(permissionRequests.workspaceId, scope.workspace_id),
           eq(permissionRequests.requesterActorId, actor.actor_id),
           eq(permissionRequests.requestedCapability, capability),
@@ -690,6 +695,7 @@ export function createRequestService(deps: RequestServiceDeps) {
       .from(permissionRequests)
       .where(
         and(
+          eq(permissionRequests.requestedScopeKind, 'managed_system'),
           eq(permissionRequests.workspaceId, actor.workspace_id),
           inArray(permissionRequests.status, [...selectedStatuses]),
         ),
@@ -737,6 +743,7 @@ export function createRequestService(deps: RequestServiceDeps) {
       .from(permissionRequests)
       .where(
         and(
+          eq(permissionRequests.requestedScopeKind, 'managed_system'),
           eq(permissionRequests.workspaceId, actor.workspace_id),
           eq(permissionRequests.requesterActorId, actor.actor_id),
           status === 'all' ? undefined : inArray(permissionRequests.status, [...ACTIVE_STATUSES]),
@@ -779,6 +786,7 @@ export function createRequestService(deps: RequestServiceDeps) {
       .where(
         and(
           eq(permissionRequests.id, requestId),
+          eq(permissionRequests.requestedScopeKind, 'managed_system'),
           eq(permissionRequests.workspaceId, actor.workspace_id),
         ),
       )
