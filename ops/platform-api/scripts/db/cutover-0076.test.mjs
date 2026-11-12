@@ -378,6 +378,29 @@ test('gate.sh integration provisioning validates the effective admin target befo
   });
 });
 
+// #1680: CI passes --shard=<i>/<n>; anything else is refused before the first psql call.
+test('gate.sh integration refuses a malformed shard argument before psql, and forwards a valid one', () => {
+  const url = 'postgres://postgres:S3cretPw@localhost:5432/postgres';
+  for (const args of [['--shard=1junk/2'], ['--shard=1/2/3'], ['--shard=3/2'], ['--shard=0/2'], ['--shard=1/2', '--bad'], ['--bad']]) {
+    withShim(({ env, calls }) => {
+      const result = spawnSync('bash', [GATE, 'integration', ...args], {
+        encoding: 'utf8',
+        env: { ...process.env, ...noPgEnv, ...env, CI_PG_ADMIN_URL: url },
+      });
+      assert.equal(result.status, 2, `${args.join(' ')}: ${result.stderr}`);
+      assert.deepEqual(calls(), [], args.join(' '));
+    });
+  }
+  withShim(({ env, calls }) => {
+    const result = spawnSync('bash', [GATE, 'integration', '--shard=2/2'], {
+      encoding: 'utf8',
+      env: { ...process.env, ...noPgEnv, ...env, CI_PG_ADMIN_URL: url },
+    });
+    assert.notEqual(result.status, 0);
+    assert.ok(calls().some((call) => call.includes('init.sql')));
+  });
+});
+
 // An existing POSTGRES_PASSWORD may hold URL-reserved characters, so the release job must not splice it into a URL.
 // The admin URL is password-free and libpq reads PGPASSWORD, which only the one-off cutover job receives.
 const COMPOSE = readFileSync(

@@ -73,12 +73,20 @@ stage_unit() {
 }
 
 stage_integration() {
+  # Checked before any database step: at most one argument, two positive integers, index ≤ count.
   local shard_args=()
-  case "${1:-}" in
-    "") ;;
-    --shard=[1-9]*/[1-9]*) shard_args=("$1") ;;
-    *) echo "gate.sh integration: unknown argument $1 (expected --shard=<i>/<n>)" >&2; exit 2 ;;
-  esac
+  if [ "$#" -gt 1 ]; then
+    echo "gate.sh integration: takes at most one argument (--shard=<i>/<n>), got $#" >&2
+    exit 2
+  fi
+  if [ "$#" -eq 1 ]; then
+    if [[ "$1" =~ ^--shard=([1-9][0-9]*)/([1-9][0-9]*)$ ]] && [ "${BASH_REMATCH[1]}" -le "${BASH_REMATCH[2]}" ]; then
+      shard_args=("$1")
+    else
+      echo "gate.sh integration: unknown argument $1 (expected --shard=<i>/<n> with 1 ≤ i ≤ n)" >&2
+      exit 2
+    fi
+  fi
   local raw_admin_url="${CI_PG_ADMIN_URL:?set CI_PG_ADMIN_URL to a disposable Postgres superuser URL}"
   local admin_url host port
   # Validate the EFFECTIVE target before any connection (scripts/db/pg-target.mjs): query overrides, PGPORT defaults
