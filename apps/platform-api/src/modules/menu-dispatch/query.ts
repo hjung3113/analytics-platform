@@ -166,6 +166,11 @@ function overHourLimit(declaration: MenuEndpointDeclaration, context: Record<str
   return hours > maxHours && !narrowed;
 }
 
+/** Only the routed core timer creates this reason; caller-supplied upstream errors remain Scope denial. */
+class CoreDeadlineExpired extends MenuUpstreamError {
+  constructor() { super('timeout'); }
+}
+
 /** Scope resolution fails closed; resolver timeouts are owned by the injected adapter. */
 export async function resolveRequestScopes(
   resolver: ScopeResolver | undefined,
@@ -182,7 +187,7 @@ export async function resolveRequestScopes(
     if (Array.isArray(rooms) && !rooms.every((room) => site.some((grant) => grant.rooms.includes(room)))) return null;
     return scopes;
   } catch {
-    if (signal?.aborted && signal.reason instanceof MenuUpstreamError) throw signal.reason;
+    if (signal?.aborted && signal.reason instanceof CoreDeadlineExpired) throw signal.reason;
     return null;
   }
 }
@@ -207,7 +212,7 @@ export async function runQuery(
   const combined = AbortSignal.any([core.signal, ...(signal ? [signal] : [])]);
   const remaining = deadlineAtMs - Date.now();
   if (remaining <= 0) throw new MenuUpstreamError('timeout');
-  const timer = setTimeout(() => core.abort(new MenuUpstreamError('timeout')), remaining);
+  const timer = setTimeout(() => core.abort(new CoreDeadlineExpired()), remaining);
   const checkActive = () => {
     if (core.signal.aborted || Date.now() >= deadlineAtMs) throw new MenuUpstreamError('timeout');
     if (combined.aborted) throw new MenuUpstreamError('unavailable');

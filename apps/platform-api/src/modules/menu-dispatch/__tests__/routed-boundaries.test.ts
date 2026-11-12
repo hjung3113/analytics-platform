@@ -8,6 +8,7 @@ import { createMenuDispatchRegistry } from '../registry.js';
 import { judgeQueryShape, runQuery } from '../query.js';
 import { enforceRowScope } from '../scope-check.js';
 import { MenuUpstreamError } from '../forwarder.js';
+import { handleRouted } from '../routed-handler.js';
 
 const actor = { actor_id: 'syn-actor', workspace_id: 'syn-workspace', role_level: 'user' } as const;
 const owner = (): Routing => ({ routes: [{ sites: ['SITE-A'], targets: ['syn-target'] }], call: { statement: 'SELECT :rooms', params: { rooms: 'scope.rooms' } }, scopeCheck: { mode: 'verify-rows', roomField: '/room' }, unroutedRooms: 'error' });
@@ -48,6 +49,42 @@ it.each(['missing check', 'aggregate without rooms', 'missing maxRows', 'non-inj
 
 it('row Scope enforcement refuses an absent check without exposing the row', () => {
   expect(() => enforceRowScope({ secret: 'syn-private-row' }, undefined, 'SITE-A', ['RA1'], {})).toThrow(new MenuUpstreamError('unavailable'));
+});
+
+it('scope-free routed endpoint returns rows without a Scope check', async () => {
+  const routing: Routing = { routes: [{ targets: ['syn-target'] }], call: { statement: 'SELECT 1', params: {} }, unroutedRooms: 'error' };
+  const source = bundle(routing);
+  const input = { ...source, endpoints: source.endpoints.map((endpoint) => ({ ...endpoint, requiresScope: false })) };
+  const rows = [{ value: 'syn-public-row' }];
+  const contribution = declaredContribution({ bundle: input, checkService: stubCheckService(true), connectorFactories: { sql: () => ({ async *query() { yield* rows; } }) } });
+  const shape = judgeQueryShape({ endpoint: 'syn.rows', context: {}, params: {} }, createMenuDispatchRegistry([contribution]));
+  if (!shape.ok) throw new Error(shape.message);
+  await expect(runQuery(shape, actor, 'syn-cid')).resolves.toMatchObject({ outcome: 'ok', data: rows });
+});
+
+it('scoped routed endpoint without a check still refuses rows when bypassing validation', async () => {
+  const { scopeCheck: _check, ...routing } = owner();
+  const input = bundle(routing);
+  await expect(handleRouted(defined(input.endpoints[0]), routing, input, {
+    timeoutMs: 27000,
+    connectorFactories: { sql: () => ({ async *query() { yield { secret: 'syn-private-row' }; } }) },
+  }, { actor, context: { scopeId: 'SITE-A' }, scopes, params: {}, correlationId: 'syn-cid', sessionVersion: async () => 'syn-sv' })).rejects.toThrow(new MenuUpstreamError('unavailable'));
+});
+
+it('legacy resolver rejection stays forbidden when the caller aborts with an upstream timeout', async () => {
+  const source = bundle();
+  const input = { ...source, endpoints: source.endpoints.map(({ limits: _limits, ...endpoint }) => endpoint), endpointOwners: { 'syn.rows': '/syn/rows' } };
+  const forward = vi.fn();
+  const contribution = declaredContribution({ bundle: input, checkService: stubCheckService(true), forwarder: { forward } });
+  const controller = new AbortController();
+  const registry = createMenuDispatchRegistry([contribution], { scopeResolver: { resolve: async () => {
+    controller.abort(new MenuUpstreamError('timeout'));
+    throw new Error('syn-resolver-rejection');
+  } } });
+  const shape = judgeQueryShape({ endpoint: 'syn.rows', context: { scopeId: 'SITE-A' }, params: {} }, registry);
+  if (!shape.ok) throw new Error(shape.message);
+  await expect(runQuery(shape, actor, 'syn-cid', controller.signal)).resolves.toMatchObject({ outcome: 'forbidden', data: null });
+  expect(forward).not.toHaveBeenCalled();
 });
 
 it.each(['authorization', 'Scope resolver'] as const)('arrival deadline races pending %s and cancels Scope without connector calls', async (phase) => {

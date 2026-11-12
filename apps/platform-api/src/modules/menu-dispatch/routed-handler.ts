@@ -127,7 +127,7 @@ export async function handleRouted(endpoint: DeclaredEndpoint, owner: Routing, b
     const rows: unknown[] = [];
     await readRows(connector, leg(call), signal, deadlineAt, rowCap, (row) => {
       rowsRead++;
-      if (enforceRowScope(row, owner.scopeCheck, site, chosen.rooms, map)) rows.push(projectRow(row, call));
+      if (!endpoint.requiresScope || enforceRowScope(row, owner.scopeCheck, site, chosen.rooms, map)) rows.push(projectRow(row, call));
     });
     return { outcome: rows.length ? 'ok' : 'empty', data: rows, rowsRead, assessments: (endpoint.kinds ?? []).filter((kind) => kind !== 'coverage').map((kind) => ({ kind, state: 'unknown', reason: 'source_unavailable' })), trust: null };
   } catch (error) {
