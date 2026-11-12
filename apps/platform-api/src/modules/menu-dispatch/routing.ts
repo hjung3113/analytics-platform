@@ -1,5 +1,6 @@
 import type { DeclarationBundle } from './declarations-file.js';
 import type { Route, Routing } from './bundle/routing.js';
+import { routeCall } from './bundle/routing.js';
 import type { ValueMap } from './bundle/targets.js';
 import type { ConnectorFactories } from './connectors/types.js';
 import type { EndpointHandlerArgs } from './types.js';
@@ -37,6 +38,12 @@ export function routedBootProblems(bundle: DeclarationBundle, factories: Connect
     for (const route of owner.routes) for (const id of route.targets) {
       const target = bundle.targets?.[id];
       if (target && !factories[target.kind]) problems.push(`connector kind ${target.kind} is not available`);
+      if (target?.kind === 'sql') {
+        if (target.dialect === 'mssql') problems.push('sql dialect mssql is not available yet (ADR-0153 node 1839b2)');
+        else if ('procedure' in routeCall(owner, route) || (owner.scopeCheck?.mode === 'resolve-keys' && 'procedure' in owner.scopeCheck.lookup)) {
+          problems.push('sql procedure calls are not available for dialect postgres');
+        }
+      }
     }
     if (scopeCatalog && owner.unroutedRooms !== 'skip') {
       for (const [site, rooms] of Object.entries(scopeCatalog)) {

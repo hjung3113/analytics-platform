@@ -69,6 +69,16 @@
 - [ ] SSO 게이트웨이가 미인증 `/api/**`에 302가 아니라 401을 답하게 설정할 수 있는지(초안 §6, #150과 함께)
 - [ ] 사내 표준 브라우저가 `AbortSignal.any`(Chromium 116+)를 지원하는지 — 전송 초안 §5가 Chromium 116+를 가정
 
+### DB 대상 준비물
+
+- [ ] 읽기 전용 로그인 계정. 필요한 스키마의 `USAGE`와 조회할 표·뷰의 `SELECT`만 부여. 프로시저 대상은 지정 프로시저 실행 권한만 부여(현재 PostgreSQL 연결기는 프로시저 호출 불가).
+- [ ] 코어 서버에서 DB 주소·포트로 가는 네트워크와 TLS 설정 확인.
+- [ ] DBA가 감시할 `applicationName` 지정(PostgreSQL `application_name`). 대상별 풀 `pool.max`·동시 조회 `pool.concurrency` 합의. 생략 시 4연결·2조회, 취소 중 별도 제어 연결 최대 2개.
+- [ ] 문장 시간 제한 확인. 풀 대기도 대상 예산에 포함하며, PostgreSQL은 읽기 전용 트랜잭션의 `SET LOCAL statement_timeout`으로 제한. 기본 코어 27초 마감의 남은 시간에서 2초를 뺀 값 사용.
+- [ ] 접속 문자열 파일을 코어 서버만 읽는 위치에 배치(예: `/synthetic/secrets/shared`, 소유자 전용 `0600`). 선언의 `connectionFile`에는 경로만 기록. 접속 문자열은 저장소·응답·로그에 기록 금지.
+- [ ] Site·room별 대상 배치, 열 대응, Scope 검증 방식과 행 상한 확인. [합성 선언 묶음 예시](examples/routed-declarations.example.json)는 여러 Site의 공용 대상과 한 Site의 room별 분할 대상, 기존 문자열 경로를 함께 제시.
+- [ ] 플랫폼은 쓰기·DDL을 수행하지 않으며, 조회 SQL에 `LIMIT`·`ORDER BY`·`COUNT`를 덧붙이지 않음. 선언된 문장을 파라미터로 실행하고 행 상한에서 커서를 닫음. 읽기 전용 계정 권한이 1차 보장([ADR-0153 결정 8](../adr/0153-upstream-target-routing-and-declared-connectors.md)).
+
 ### 3.3 사내 백엔드(FastAPI) 담당 — [#148](https://github.com/hjung3113/analytics-platform/issues/148)·[#149](https://github.com/hjung3113/analytics-platform/issues/149)·[#155](https://github.com/hjung3113/analytics-platform/issues/155)
 
 - [ ] 선언 원본은 TS(Zod) → JSON Schema로 정해졌다(ADR-0096). 백엔드 담당은 생성한 Pydantic 모델·`endpoints.json`을 쓰는 데 이의가 없는지 확인 — #148(닫힘)

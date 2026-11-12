@@ -132,6 +132,12 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 - **드라이버 오류:** 그대로 던지거나 로그에 넘기지 않는다 — 드라이버 오류에는 행 값·문장 조각이 실린다. 고정 메시지의 `MenuUpstreamError`(또는 결정 5의 `timeout`)로 바꾸고 `cause`를 달지 않는다.
 - **읽기 전용의 근거는 계정이다.** 사내가 주는 계정 권한(읽기, 또는 지정 프로시저 실행만)이 1차이자 모든 dialect에서의 보장이다. `postgres`는 여기에 읽기 전용 트랜잭션을 더한다. 프로시저 호출이나 읽기 전용 트랜잭션이 없는 dialect에서는 계정 한 겹뿐이다. `statement`의 «SELECT/WITH로 시작» 기동 검사는 오타 방지일 뿐 보장이 아니다(`WITH … DELETE … RETURNING`, 부작용 있는 함수). 문장·프로시저는 대상 DB에서만 실행되며 코어 프로세스 안에서 실행되는 코드가 아니다(ADR-0146 결정 2 개정).
 
+### 연결기의 구체 모양 (1839b)
+
+- PostgreSQL 대상별 기본 풀 상한 4, 동시 조회 2(실효값은 풀 상한 이하). 운영 중인 DB 부담을 작게 두면서 한 조회의 대기가 다른 조회를 모두 막지 않게 한다. 취소는 조회별 별도 제어 연결 하나(기본 최대 2개)를 쓰며 즉시 닫는다. 기본 `application_name`에 시스템 이름을 추측하지 않으며 배포자가 `applicationName`을 정한다.
+- 설치된 `pg`의 확장 프로토콜로 `DECLARE … NO SCROLL CURSOR` / `FETCH FORWARD 1` / `CLOSE`를 실행한다. 추가 커서 의존성 없이 서버 커서로 행 상한에서 읽기를 멈추며, 중단·iterator 반환은 별도 연결의 `pg_cancel_backend`와 롤백·연결 해제로 이어진다. 원래 문장에는 값·정렬·행 제한을 삽입하지 않는다.
+- 풀에만 적용한 text parser로 `int8`·`numeric`·`timestamp`·`date`를 원문 문자열로 받는다. 전역 parser는 바꾸지 않으며 벽시계 투영은 기존 `fields.type: wallclock`이 맡는다.
+
 ### 9. Scope 부여는 resolver 포트에서 받는다 (#1844)
 
 - 이 ADR의 라우팅·Scope 집행은 요청마다 Scope resolver 포트(`ScopeResolver`, `buildServer` 옵션)가 준 `[{ site, rooms }]` 집합만 쓴다. 부여를 직접 읽는 연결기는 두지 않는다.
@@ -162,7 +168,7 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 | 1839d2 | `coverage` 부분 실패·페이지 fan-out(결정 5) | d1 |
 | 1839e | 남은 문서: 체크리스트 §3·부여 계약, http-adapter 시간 값, `in-house-rollout.md` §3.3·§4 | 각 노드의 몫은 그 노드 PR에 |
 
-시험(#1839 수용 기준): 합성 대상으로 N site → 1 대상, 1 site → N 대상(단일 대상 라우팅과 fan-out 병합), 기본 단일 상류 불변. 부정 시험: 무부여, 다른 room, `null` roomNames, 대상 일부 실패, 판정 시간 초과와 마감 초과, `maxRows` 초과, 행 Scope 위반(`verify-rows`), 범위 밖 행(`drop-rows` — 응답·로그에 없음), 풀리지 않는 키(`resolve-keys`), 덮이지 않는 room, 대응표 밖 값 — 모두 원본 행이 응답에 없다. SQL 시험은 전용 읽기 전용 role로 붙어 쓰기가 거부되는 것까지 확인하고, 연결기가 빈 room 목록을 대상에 보내지 않는 것을 확인한다.
+시험(#1839 수용 기준): 합성 대상으로 N site → 1 대상, 1 site → N 대상(단일 대상 라우팅과 fan-out 병합), 기본 단일 상류 불변. 부정 시험: 무부여, 다른 room, `null` roomNames, 대상 일부 실패, 판정 시간 초과와 마감 초과, `maxRows` 초과, 행 Scope 위반(`verify-rows`), 범위 밖 행(`drop-rows` — 응답·로그에 없음), 풀리지 않는 키(`resolve-keys`), 덮이지 않는 room, 대응표 밖 값 — 모두 원본 행이 응답에 없다. SQL 시험은 합성 스키마·표에만 `USAGE`·`SELECT`를 받은 기존 `platform_app` 계정으로 붙어 쓰기 거부를 확인한다. 같은 표에 `DELETE`를 추가 부여해도 PostgreSQL 읽기 전용 트랜잭션이 쓰기를 거부하는 것을 별도로 확인하고 시험 뒤 권한과 스키마를 회수한다. 사내 운영 대상은 전용 읽기 전용 계정을 준비하며, 연결기가 빈 room 목록을 대상에 보내지 않는 것을 확인한다.
 
 ## Considered Options
 
