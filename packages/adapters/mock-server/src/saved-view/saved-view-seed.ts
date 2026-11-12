@@ -67,3 +67,13 @@ export function seedViews(ownerId: string, menuId: string | null): SavedView[] {
     default: return [];
   }
 }
+
+/** What the store starts from; a caller passing another seed replaces all four parts. */
+export type SavedViewSeed = {
+  actors: Readonly<Record<string, Actor>>;
+  directory: readonly DirectoryPerson[];
+  groups: () => GroupRecord[];
+  views: (ownerId: string, menuId: string | null) => SavedView[];
+};
+
+export const defaultSavedViewSeed: SavedViewSeed = { actors: ACTORS, directory: DIRECTORY, groups: seedGroups, views: seedViews };

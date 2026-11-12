@@ -55,10 +55,10 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
   - `startAppHost` mounts one `EndpointInvalidationBridge` under `PlatformProvider`; it calls `refreshEpochs.bump` for that query only (not the full `adapter.subscribe` invalidation; the Kernel knows no menu names).
   - Create the decorated adapter once per bootstrap, never per render. Proof: `src/notice-invalidation.test.tsx`.
 - `src/query-history-store.ts` — current-browser local implementation of the SDK history port (06 §11), injected by `main.tsx`. It owns tuple keys, schema validation, Web Locks serialization and the 20-entry merge/retention. A storage exception is rejected with a fixed non-sensitive error; content never goes to instrumentation.
-- `src/saved-view-store.ts`, `src/saved-view-seed.ts` — browser-local mock of the SDK saved-view port (`SavedViewStore`, 06 §21), injected by `main.tsx` as `PlatformProvider savedViews`. It simulates server ACL only (no server storage, audit or `PlatformAdapter` extension).
+- The browser-local mock of the SDK saved-view port (`createLocalSavedViewStore`, 06 §21) lives in `@ap/mock-server` (`packages/adapters/mock-server/src/saved-view/`); `src/dev/mock-assembly.tsx` injects it as `PlatformProvider savedViews`. It simulates server ACL only (no server storage, audit or `PlatformAdapter` extension).
   - Current user comes from the `platform:role` session role; user ID equals the mock session `user.id` (`engineer|admin|viewer`). Menu permission is judged by a lookup `main.tsx` injects from the Registry (unregistered menu denied).
   - An edit to an official registered view is kept as a pending-approval change set separate from the approved copy. Per-object capability, approval/group transitions, conflict and the people directory are computed only here.
-  - Keys are user·menu JSON tuples (`platform:saved-views:v1:`, `…-default:v1:`, `…-groups:v1:`). Serialize mutations with one Web Lock; without locks, fail closed. The seed (one fictional person; out-of-permission, stale and pending views) is `saved-view-seed.ts`.
+  - Keys are user·menu JSON tuples (`platform:saved-views:v1:`, `…-default:v1:`, `…-groups:v1:`). Serialize mutations with one Web Lock; without locks, fail closed. The seed (fictional people; out-of-permission, stale and pending views) is the package's default seed, replaceable whole through the store's `seed` option.
 
 ## Where things live
 

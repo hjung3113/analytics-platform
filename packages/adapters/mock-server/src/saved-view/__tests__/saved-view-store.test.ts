@@ -1,7 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { memoryStorage } from '@ap/kernel/testing';
-import type { SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewStore } from '@ap/contracts';
-import { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsStorageKey, savedViewsStorageKey } from './saved-view-store';
+import type { SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewStore } from '@ap/contracts';
+import { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsStorageKey, savedViewsStorageKey } from '../saved-view-store';
+// The kernel `testing` entry is not a dependency of this package, so the storage helper is defined here with the same semantics.
+const memoryStorage = (): Storage => {
+  const data = new Map<string, string>();
+  return {
+    getItem: key => data.get(String(key)) ?? null,
+    setItem: (key, value) => { data.set(String(key), String(value)); },
+    removeItem: key => { data.delete(String(key)); },
+    clear: () => data.clear(),
+    key: index => Array.from(data.keys())[index] ?? null,
+    get length() { return data.size; },
+  };
+};
+
 
 const MENU = 'productivity-overview';
 const storage = memoryStorage();
@@ -357,4 +369,44 @@ describe('a menu requiring platform:view AND console:access', () => {
       expect(await s.update(saved.view.id, { name: '막힘' }, { expectedVersion: saved.view.version + 1 })).toMatchObject({ ok: false });
     }
   });
+});
+
+// The seed option (#1702h): another seed replaces actors, directory, groups and views at once.
+it('passing a seed replaces actors, directory, groups and views', async () => {
+  const shared: SavedView = {
+    id: `u1|${MENU}|1`, schemaVersion: 1, kind: 'menu-view', menuId: MENU, menuSchemaVersion: 2,
+    name: '사용자 정의 시드 뷰', ownerId: 'u1', version: 1, updatedAt: 5,
+    visibility: { kind: 'people', userIds: ['admin'] }, approval: 'none',
+    context: { relativePeriod: { hours: 24 } }, page: { granularity: ['hour'] }, chartOptions: { stacked: true }, layout: null, panels: null,
+  };
+  as('admin');
+  const s = createLocalSavedViewStore({
+    getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf,
+    seed: {
+      actors: { admin: { userId: 'admin', admin: true, permissions: ['analytics:view'], rooms: [] } },
+      directory: [
+        { userId: 'admin', displayName: '관리자', affiliation: '테스트팀' },
+        { userId: 'u1', displayName: '사용자', affiliation: '테스트팀' },
+      ],
+      groups: () => [{ id: 'g-custom', kind: 'custom', name: '사용자 그룹', managerIds: ['admin'], memberIds: ['admin', 'u1'] }],
+      views: (ownerId, menuId) => ownerId === 'u1' && menuId === MENU ? [shared] : [],
+    },
+  });
+  expect(visible(await s.list(key('admin'))).map(i => i.view.name)).toEqual(['사용자 정의 시드 뷰']); // views and directory replaced
+  expect(await s.listGroups()).toMatchObject([{ group: { id: 'g-custom', name: '사용자 그룹' } }]); // groups replaced
+  expect((await s.searchPeople('관리자', new AbortController().signal)).map(p => p.userId)).toEqual(['admin']); // directory replaced
+  expect(await s.searchPeople('한지우', new AbortController().signal)).toEqual([]); // the default directory is gone
+  ok(await s.setDefault(key('admin'), shared.id)); // the actor is the seed's admin, not the default one
+});
+
+// The three storage key formats as literals, so a rename cannot slip through the exported helpers.
+it('the three storage key formats are the pinned literals', async () => {
+  const s = store(); ok(await s.save(draft()));
+  const id = visible(await s.list(key(ENG)))[0]!.view.id;
+  ok(await s.setDefault(key(ENG), id));
+  ok(await s.createGroup({ name: '새 그룹', memberIds: [] }));
+  const keys = Array.from({ length: storage.length }, (_, i) => storage.key(i)!);
+  expect(keys).toContain(`platform:saved-views:v1:${JSON.stringify([1, ENG, MENU])}`);
+  expect(keys).toContain(`platform:saved-view-default:v1:${JSON.stringify([1, ENG, MENU])}`);
+  expect(keys).toContain(`platform:saved-view-groups:v1:${JSON.stringify([1])}`);
 });

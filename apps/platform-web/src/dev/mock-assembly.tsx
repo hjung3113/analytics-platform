@@ -31,10 +31,9 @@ export { stageOnboardingWindow } from '@ap/menu-topview-studio/mock';
 import { buildInventory, checkSampleWindowImport, eqvMockContext, eqvMockEquipmentOptions, eqvMockEvents } from '@ap/menu-topview/mock-data';
 import type { CreateAssembly } from '#platform-assembly';
 import { menuPermissions, type AuditEvent } from '@ap/contracts';
-import { createMockAdapter, seedUsageNext, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
+import { createMockAdapter, createLocalSavedViewStore, seedUsageNext, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
 import { MOCK_SPACE_SYSTEMS } from './mock-space-systems';
-import { createLocalSavedViewStore } from '../saved-view-store';
 
 /**
  * Every menu mock endpoint the app registers — the one list (#153): the mock adapter below and the server
