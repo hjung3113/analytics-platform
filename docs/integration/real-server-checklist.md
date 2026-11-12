@@ -63,6 +63,21 @@
 9. **행 상한** → `limits.maxRows`를 선언한 비페이지 엔드포인트(내보내기·탐색)는 핸들러가 돌려준 결과 **전체**(페이지가 아님)로 판정한다. 배열 길이가 `maxRows`를 넘으면 데이터 없이 `too_large`(원천을 다 읽기 전에 판정할 수 있으면 그렇게 — 단, 1–8단계 판정이 언제나 앞선다). ids를 params로 받는 선택 내보내기(#173)는 ids로 거른 **뒤의 크기**가 기준이라 큰 필터 결과 안의 작은 선택도 내보낼 수 있다. 선언했는데 핸들러가 배열이 아닌 값을 돌려주면 데이터 답이 아니라 계약 `error`(선언 오용)다. 페이지 엔드포인트에 선언하면 등록 검증이 거부한다.
 10. **응답** → `assessments`는 선언한 kind마다 정확히 하나. mart 데이터면 `trust`(갱신 시각·데이터 기준 시각·커버리지·지표 버전·잠정 여부·원천), 기능 같은 비 mart 원천이면 `trust: null`. 원천 의존 kind(`collection`·`processing_delay`·`coverage`)의 원천이 아직 없으면(적재 워커 기록 구현 전 — 스키마는 #37로 Decided) 빼지 않고 `state: 'unknown'`, `reason: 'source_unavailable'`로 답한다(06 §19 — 생략은 계약 위반, 행 수로 `clear`를 추론하지 않음). Trust는 키가 모두 필수이고 모르는 값(`dataThrough`·`coverage`)은 `null`(06 §18, `@ap/contracts` `Trust`).
 
+**위 순서는 문자열 행(`MENU_UPSTREAM_BASE_URL`로 가는 envelope 전달)에서 바뀌지 않는다.** `endpointOwners`의 값이 경로 문자열이면 1~7단계는 코어가 끝내고 8단계 핸들러가 상류에 그대로 전달하며, 9단계(`limits.maxRows`)는 이 행에 선언하면 기동 거부다. 아래는 선언 묶음이 `targets`와 라우팅 객체를 쓰는 엔드포인트에서 8~10단계가 달라지는 부분이다([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md) 결정 3~6·10). 1~7단계(형태·params·권한·Scope·한도·공집합)는 같은 순서로 코어가 먼저 끝낸다. 라우팅은 8단계 핸들러 안에서만 일어난다.
+
+**라우팅된 대상의 8~10단계 (코어가 판정자)** — 순서도 계약이다:
+
+1. **params 값(2단계)** — 바인딩되는 `params` 키는 묶음의 `paramTypes`(형·`maxLength`·`maxItems`·`enum`)로 코어가 거부한다(`error`, 대상까지 가지 않음).
+2. **허용 room 집합 R** — 엔드포인트가 `roomNames`를 적용하고 요청 값이 배열이면 그 배열, 아니면(적용 안 함·`null`) 그 site에서 부여받은 room 전체. 대상에 «room 제약 없음»을 넘기지 않는다. R이 비면 대상을 부르지 않고 `empty`.
+3. **경로 선택(Scope 키)** — 요청 site가 `sites`에 있고 `rooms`가 없거나 R과 겹치는 경로를 고른다. 라우팅 키는 Scope 키(site, room)뿐이다. 맞는 경로가 없으면 데이터 없이 `error`. R의 room 중 어느 경로에도 없는 것이 있으면 `unroutedRooms: "skip"`이면 그 room을 건너뛰고(남는 것이 없으면 `empty`), 기본 `"error"`이면 `error`. 각 대상에는 site와 `R ∩ 경로 rooms`만 넘기고, 선언된 값 대응표(`valueMap`)에 없는 값은 `error`다.
+4. **leg별 Scope 집행(`scopeCheck.mode`)** — `requiresScope` 엔드포인트에 필수. `verify-rows`: 병합 전에 모든 행의 site·room이 그 leg에 넘긴 값 안인지 보고 하나라도 벗어나면 응답 전체를 데이터 없이 502 경로(`unavailable`)로 실패시킨다. `drop-rows`: 범위 밖 행을 버리고 나머지로 답한다(페이지 엔드포인트에는 금지, 행 상한은 읽은 행 기준). `resolve-keys`: 본 호출 전에 `lookup`을 키마다 한 번 불러 정확히 한 행으로 풀고 그 leg의 room 안일 때만 본 호출을 한다(아니면 `forbidden`, 키 없는 집계는 `keys: { const: [] }`).
+5. **행 상한** — 비페이지는 leg마다 `limits.maxRows + 1`행째에서 읽기를 끊고(스트림 취소, 문장에 `LIMIT`을 끼우지 않는다) 넘으면 형제 leg도 취소한다. 핸들러가 초과 표식(`rowsRead`)을 돌려주면 9단계가 데이터 없이 `too_large`로 판정한다(leg별 상한 안이어도 합친 행이 상한을 넘으면 같다). 페이지는 `merge.maxWindow + 1`행에서 끊고 넘으면 `too_large`.
+6. **병합** — 경로·대상 선언 순서 또는 `merge.sort`(코드포인트·수치, `null`은 끝, 마지막 유일 키)로 코어가 합친다. 페이지는 병합 뒤 `page`(0부터)·`pageSize`로 자르고 `total`은 자르기 전 행 수이며 요청 `sorting`은 `merge.sort`에 적은 필드만 허용한다. 하나라도 실패하면 나머지를 끊고 데이터 없이 실패한다(우선순위 502 > 504 > `timeout`). `merge.partial: "coverage"`(비페이지, `kinds`에 `coverage`)는 성공한 leg로 답하고 `coverage` assessment를 한 번 싣는다 — 모두 성공 `clear`, 일부 실패 `confirmed`(`detail`은 빠진 대상 수, `statusSource: "upstream-routing"`), 전부 실패면 위 우선순위의 실패.
+7. **응답(10단계)** — 코어가 만든 envelope이고 `trust: null`(마트가 아닌 원천)이다. 선언한 kind마다 하나이며 코어가 상태를 알 수 없는 kind는 `unknown`/`source_unavailable`. 대상의 판정 제한 초과는 200 `timeout`, 코어 마감 초과는 504, 연결 실패·비 2xx·모양 오류는 502(`MenuUpstreamError`)다. 시간 값은 [전송 형식 §5](http-adapter-contract.md#5-취소타임아웃).
+8. **로그** — leg마다 행위자·correlation id·엔드포인트 id·대상 id만 남긴다(행·바인딩 값·비밀·원본 오류 없음). 응답에도 대상 id·주소가 없다.
+
+envelope 대상은 fan-out 하지 않는다(Deferred). 라우팅된 envelope 대상은 기존 전달기로 대상별 주소에 보내며 신원 토큰의 `aud`는 그 대상의 `aud`(없으면 `analytics`)다. 변환형 HTTP 대상(`mapped`)은 코어가 요청·응답을 선언대로 바꾸고 판정자가 된다(위 1~7).
+
 - 구간의 행이 둘 이상의 파서 `logic_version`에서 왔으면 `trust.sourceLogicVersions`에 그 버전들을 보낸다(서로 다른 비어 있지 않은 문자열). 판단할 수 없으면 필드를 **생략**한다 — `[]`는 적합성 위반이다(06 §18).
 
 **필수 Context:** requiredContext의 의미·등록 검증은 [06 §5·§11](../contract/platform-ui-contract.md)이 소유한다. 모든 투영 필드의 구조적 존재 검사를 유지하고 required의 null을 원천 조회 전에 error로 거부한다. 공집합은 기존 empty 예외를 따른다. ConformanceCase.context에 부여 계정이 성공하는 필수값 표본을 제공한다(공통 Scope·기간과 합친 뒤 투영). 표본이 없으면 해당 엔드포인트의 검사는 required Context: no valid sample로 명시적으로 건너뛴다. 표본이 있으면 각 required 키의 null·필드 생략 변이를 다른 필드와 독립적으로 검사한다.
@@ -96,12 +111,22 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 **쓰기 답 크기 상한:** 재생을 위해 `ok` 답(JSON)을 통째로 저장하며 상한은 128 KiB(UTF-8 바이트)다. 넘으면 트랜잭션(핸들러의 쓰기 포함)을 되돌리고 `error`, `message: 'response too large to record'`로 답한다 — 재생할 수 없는 `ok`는 내지 않는다. 핸들러의 `data`는 이 안에 들어와야 한다. 멱등 키는 소문자 UUID로 정규화해 잠금·조회·기록에 쓴다.
 
 - **시간 도메인(§3 7단계)** — 선언의 `mergeTimeDomain` 플래그로 정해지지만 서버는 아직 이 판정을 하지 못한다. 합칠 설비 집합이 Scope에서 나오기 때문이다.
+- **라우팅된 묶음이 더하는 기동 거부** — 선언 묶음에 `targets`·라우팅 객체가 있으면 위에 더해 아래도 기동을 거부한다(코드의 메시지 그대로, 한 번에 모아서 낸다). 문자열 행만 있는 묶음은 영향이 없다.
+  - 규칙 7(`maxRows`)의 확장: 코어가 응답을 만드는 비페이지 엔드포인트는 `limits.maxRows`가 없으면 `non-paged core-answered endpoint needs limits.maxRows`, 페이지 엔드포인트가 `maxRows`를 선언하면 `limits.maxRows is refused on a paged core-answered endpoint`, envelope 목적지·문자열 행에 선언하면 `limits.maxRows is refused on an envelope destination` / 문자열 행의 `maxRows` 거부 사유. 페이지 엔드포인트는 `merge.maxWindow`가 필수다(`paged core-answered endpoint needs merge.maxWindow`, `page`·`pageSize` 필수·`cursor` 불가, `filters` 불가, `merge.partial`·`drop-rows` 불가).
+  - 코어 페이지의 유일 정렬 키: `paged core-answered endpoint needs merge.sort with a unique final field`, 모든 `merge.sort`는 `merge.sort last field must declare unique: true`.
+  - 중복 kind: `endpoint <id>: kinds must not contain duplicates`(`merge.partial: "coverage"`는 `merge.partial coverage requires coverage in kinds`).
+  - 경로·대상·`scopeCheck`: `requiresScope core-answered endpoint needs scopeCheck`, `route N: requiresScope route needs sites`, `unknown target id`, `call kind does not match target`, 같은 site에서 `rooms` 있는 경로와 없는 경로의 공존(`site mixes routes with and without rooms`)이나 겹침(`overlapping rooms for one site`), `verify-rows call must bind scope.rooms`(여러 site를 서비스하는 대상은 `scope.site`와 `siteField`도), 쓰이지 않는 기본 `call`, `call` 종류가 대상과 안 맞는 `lookup`, 형 선언 없는 `params` 바인딩.
+  - envelope 대상 하나만: `route N: envelope call cannot select more than one target`. 실효 `aud`(없으면 `analytics`)는 목적지마다 하나여야 한다 — 다른 목적지가 같은 `aud`를 쓰면 `envelope audience collision between targets <a> and <b>`(문자열 행이 있으면 `analytics`는 그 기본 목적지 `legacy-default` 몫).
+  - `unroutedRooms: "error"`(기본)와 Scope 카탈로그: 카탈로그가 주어지면 room으로 나눈 site의 모든 카탈로그 room을 경로가 덮어야 하고 빠지면 `endpoint <id>: site <site>: room <room> is not covered by a route`로 거부한다(카탈로그가 없으면 이 검사만 생략).
+  - 연결기: factory 없는 종류는 `connector kind <kind> is not available`(코어에는 `http`·`sql`이 있다). `postgres`의 프로시저 호출(`call` 또는 `resolve-keys`의 `lookup`)은 `sql procedure calls are not available for dialect postgres`로 거부한다. `mssql`은 목록 값(`scope.rooms`, `string[]` params, 상수 배열, Context ID 집합 필드)을 받는 프로시저 인자에 `listJoin`이 없으면 기동을 거부한다. SQL 문장은 `statement must start with SELECT or WITH after whitespace/comments`이고 `SQL placeholders must match params exactly`다. 프로시저의 `listJoin`은 선언된 `args` 이름만 가질 수 있다(`listJoin must name declared args`).
 - **Scope 선언 등록 조건:** 주입된 resolver가 있을 때만 엔드포인트·동작의 `requiresScope`를 등록한다. 요청마다 권한 다음에 site·room 부여를 판정하며, 부여 없음·실패·타임아웃·부여 밖 요청은 `forbidden`이다. `mergeTimeDomain`은 시간 도메인 판정이 없어 계속 등록을 거부한다.
 - 서버가 하는 등록 검증: 동작·엔드포인트 id 중복 없음, `invalidates`가 같은 `menuId`의 등록된 엔드포인트, `concurrency: 'version'`에 `currentVersion`, `limits.maxRows` 양의 정수이고 페이지·커서 엔드포인트 아님, `limits.maxHours` 양수이고 `context.time` 적용, `requiredContext`는 적용된 키, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`line`·`prcGroup`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`하지 않음(규칙 6). 메뉴 Registry와 대조하는 항목(`menuId`·권한 이름·Scope·`apply` 키 일치)은 등록부가 하지 않는다. 서버는 앱의 메뉴 Registry를 갖지 않는다. 배포 선언 묶음으로 들어오는 엔드포인트·동작은 기동 때 메뉴 선언 스냅샷과 대조해 그 항목을 판정한다(아래 «서버 선언 레지스트리», [ADR-0156](../adr/0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md)). 모듈이 코드로 기여하는 선언은 대조하지 않는다.
 
 #### Scope 부여 서비스 계약
 
 기본 원천은 플랫폼 부여 표 + 선언 묶음의 `scopeCatalog`다([ADR-0154](../adr/0154-site-and-room-grants-are-platform-owned.md)). 사내 부여 서비스는 선택 사항이다. `scopeCatalog`와 `MENU_SCOPE_GRANT_SERVICE_URL`을 함께 설정하면 기동이 실패한다. 세션·Scope 확인·메뉴 조회·상류 토큰은 같은 resolver를 사용한다. 카탈로그가 없는 HTTP 원천은 `requestableScopes`를 내지 않고 `scope.read` 신청·부여 쓰기를 거부한다.
+
+라우팅·Scope 집행([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md) 결정 9)은 요청마다 이 resolver 포트(`ScopeResolver`)가 준 `[{ site, rooms }]` 집합만 쓴다. 부여를 직접 읽는 연결기는 없고, 부여·신청의 원천은 [#1844](https://github.com/hjung3113/analytics-platform/issues/1844)가 맡은 플랫폼 부여 표다.
 
 선택 HTTP 원천에서는 `createHttpScopeResolver({ baseUrl, timeoutMs, fetch? })`가 아래 계약으로 사내 부여 서비스를 호출한다. 사내 코드를 코어 프로세스에 직접 주입하지 않는다.
 
