@@ -94,8 +94,18 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 **쓰기 답 크기 상한:** 재생을 위해 `ok` 답(JSON)을 통째로 저장하며 상한은 128 KiB(UTF-8 바이트)다. 넘으면 트랜잭션(핸들러의 쓰기 포함)을 되돌리고 `error`, `message: 'response too large to record'`로 답한다 — 재생할 수 없는 `ok`는 내지 않는다. 핸들러의 `data`는 이 안에 들어와야 한다. 멱등 키는 소문자 UUID로 정규화해 잠금·조회·기록에 쓴다.
 
 - **시간 도메인(§3 7단계)** — 선언의 `mergeTimeDomain` 플래그로 정해지지만 서버는 아직 이 판정을 하지 못한다. 합칠 설비 집합이 Scope에서 나오기 때문이다.
-- **구현 안 함 — `requiresScope`·`mergeTimeDomain` 선언(4·7단계):** 서버에 Scope 해석기(site·room 부여)가 없어 두 선언은 기동 시 등록 검증이 거부한다(메시지에 #1087). 이유: 부여를 판정하지 못한 채 받으면 `forbidden`을 낼 근거가 없다. 다시 여는 조건: #1087 서버 Scope 해석기가 생길 때(백로그 줄 참조).
+- **Scope 선언 등록 조건:** `createMenuDispatchRegistry(contributions, { scopeResolver })`에 resolver가 있을 때만 엔드포인트의 `requiresScope`·`mergeTimeDomain`, 동작의 `requiresScope` 선언을 받는다. 없으면 기존 #1087 메시지로 기동 시 등록을 거부한다. 이 등록 조건은 요청별 Scope 판정을 대신하지 않는다.
 - 서버가 하는 등록 검증: 동작·엔드포인트 id 중복 없음, `invalidates`가 같은 `menuId`의 등록된 엔드포인트, `concurrency: 'version'`에 `currentVersion`, `limits.maxRows` 양의 정수이고 페이지·커서 엔드포인트 아님, `limits.maxHours` 양수이고 `context.time` 적용, `requiredContext`는 적용된 키, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`line`·`prcGroup`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`하지 않음(규칙 6). 메뉴 Registry와 대조하는 항목(`menuId`·권한 이름·`apply` 키 일치)은 서버가 앱의 메뉴 Registry를 갖지 않아 하지 않는다.
+
+#### Scope 부여 서비스 계약
+
+[ADR-0147](../adr/0147-scope-grants-come-from-an-injected-resolver.md)에 따라 공개 HTTP 어댑터 `createHttpScopeResolver({ baseUrl, timeoutMs, fetch? })`가 사내 부여 서비스를 호출한다. 사내 코드를 코어 프로세스에 직접 주입하지 않는다.
+
+- 요청: baseUrl 경로 아래 `POST /scopes/resolve`, `Content-Type: application/json`, 본문 `{ "actor_id": "행위자 id", "workspace_id": "워크스페이스 id" }`. 예: baseUrl `https://grants.example/internal` → `/internal/scopes/resolve`.
+- 성공: 2xx와 JSON 배열 `[{ "site": "site-a", "rooms": ["PHOTO", "ETCH"] }]`. 각 항목은 `site`·`rooms`만 가지며 site와 room은 빈 문자열이 아닌 식별자다. room은 `room_name`이고 Line은 부여 축이 아니다. `[]`는 부여 없음이며 호출자가 접근을 거부한다. `rooms: []`는 허용된 room 없음이다.
+- 실패: 비 2xx·네트워크 오류·JSON 해석 실패·스키마 불일치·타임아웃·호출자 취소는 모두 reject한다. 호출자는 접근을 열지 않는다. 어댑터는 상류 본문이나 오류 상세를 로그·반환 오류에 싣지 않는다.
+- 타임아웃: 배포 설정에서 받은 양의 정수 `timeoutMs`(밀리초)를 `AbortSignal.timeout`으로 적용하고 호출자 signal과 결합한다. 요청 전송과 응답 본문 읽기에 같은 signal을 쓴다. 재시도·이전 부여 캐시는 없다.
+- 시험용 `createSyntheticScopeResolver(table)`은 actor·workspace별 고정 부여 표를 읽는다. 운영 모듈 진입점에서 재수출하지 않는다.
 
 ### `menuAction` 판정 순서
 

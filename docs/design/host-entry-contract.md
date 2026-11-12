@@ -57,6 +57,8 @@ Registry 검사와 위 §3의 거부는 실수를 막는다. 같은 JS 프로세
 
 코어 서버에 사내 확장을 싣는 방법은 [#1729](https://github.com/hjung3113/analytics-platform/issues/1729)가 소유하고 구현하지 않는다. 방향 메모(추천, 결정 아님): 사내 서버 코드를 코어 서버 프로세스에 넣지 않고 엔드포인트·동작 선언, 소유자 표, 권한 규칙을 배포 설정으로 읽는다. 권한 부여 경로는 서버 설정 표(P5-b)이며 [#1087](https://github.com/hjung3113/analytics-platform/issues/1087)·[#1667](https://github.com/hjung3113/analytics-platform/issues/1667)과 함께 정한다. 그 전에는 파일럿을 mock 통과로만 센다.
 
+파일 형식(#1729 노드 1729a가 정했다, [ADR-0146](../adr/0146-core-server-loads-in-house-declarations-from-deployment-config.md) Deferred 결정): 선언 묶음은 JSON 파일 하나에 `endpoints`(엔드포인트 선언 행), `actions`(동작 선언 행), `permissions`(`{permission, capability}` 메뉴 권한 행), 그리고 소유자 표 `endpointOwners`(`엔드포인트 id → 상류 경로`, 경로는 `/`로 시작)를 함께 담는다. 핸들러는 파일에 없다(전달기 조립이 따로 한다). 읽는 `loadDeclarationBundle`(`apps/platform-api/src/modules/menu-dispatch/declarations-file.ts`)은 파일 없음·JSON 오류·스키마 오류·id 중복·소유자 표와 엔드포인트 불일치·선언되지 않은 권한 사용, 그리고 `limits.maxRows`(ADR-0095 금지 7)를 모두 기동 실패로 닫힌 쪽으로 거부한다.
+
 ## 10. 저장소 밖 조립 시험 계획 (다음 노드의 수용 목록)
 
 `pnpm sdk:consumer-check`(저장소 밖 임시 프로젝트에 tarball 설치 → tsc·Vite 빌드·Vitest)를 넓혀 아래를 CI에서 돌린다. 이 시험의 통과가 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)의 발효 조건이다.

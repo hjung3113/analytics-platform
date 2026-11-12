@@ -1,0 +1,20 @@
+{
+  "endpoints": [
+    {
+      "id": "synthetic.rows",
+      "menuId": "synthetic",
+      "paramKeys": ["q"],
+      "permission": "synthetic:view",
+      "requiresScope": false,
+      "context": {},
+      "mergeTimeDomain": false
+    }
+  ],
+  "actions": [],
+  "permissions": [
+    { "permission": "synthetic:view", "capability": "workspace.read" }
+  ],
+  "endpointOwners": {
+    "synthetic.rows": "/upstream/synthetic/rows"
+  }
+}
