@@ -84,7 +84,7 @@ export function ApiTokensScreen({ service = false, canManageService = false, ren
     { id: 'lastUsedAt', header: '마지막 사용 · 주소', sortable: false, cell: row => <div className="space-y-1"><p>{row.lastUsedAt ? `${formatDateTime(row.lastUsedAt)} KST` : COPY.noUse}</p>{row.lastUsedIp ? <p className="font-mono text-xs text-text-secondary">{row.lastUsedIp}</p> : <p className="text-xs text-text-secondary">{COPY.noAddress}</p>}</div> },
     { id: 'status', header: '상태', sortable: false, cell: row => row.revokedAt ? <StatusBadge tone="neutral">{COPY.revoked}</StatusBadge>
       : row.expiresAt && new Date(row.expiresAt).getTime() <= Date.now() ? <StatusBadge tone="neutral">{COPY.expired}</StatusBadge>
-      : <StatusBadge tone={row.unusedWarning ? 'warning' : 'success'}>{row.unusedWarning ? COPY.unused : COPY.available}</StatusBadge> },
+      : <StatusBadge tone={row.unusedWarning ? 'warning' : 'success'}>{row.unusedWarning ? COPY.unused : service ? COPY.tokenValid : COPY.available}</StatusBadge> },
   ];
   const primary = <Button ref={issueTrigger} variant="primary" size="sm" disabled={issuing || revoking} onClick={() => setIssuing(true)}><Plus className="size-4" />{COPY.issue}</Button>;
   const pagination = <div className="flex justify-end gap-2">
@@ -116,7 +116,14 @@ export function ApiTokensScreen({ service = false, canManageService = false, ren
         summary: `현재 페이지 ${rows.length}건 · ${page.index + 1}페이지`, pagination,
         rowAction: row => row.revokedAt ? <span className="text-xs text-text-muted">폐기 완료</span> : <Button variant="secondary" size="toolbar" aria-label={`${row.name} 폐기`} disabled={issuing || revoking} onClick={() => { setRevokeError(null); setRevoke(row); }}>폐기</Button>,
       })}
-    {service ? <SystemActorGrantStatus actors={actors.data ?? []} tokens={rows} /> : null}
+    {service ? (
+      <SystemActorGrantStatus
+        actors={actors.data ?? []}
+        tokens={rows}
+        tokensPending={tokens.isPending}
+        tokensError={tokens.isError}
+      />
+    ) : null}
     {issuing ? <TokenIssueDrawer returnFocusRef={issueTrigger} service={service} actors={actors} renderDrawer={renderDrawer} onClose={() => setIssuing(false)} onIssued={refresh} /> : null}
     <AlertDialog open={revoke !== null} onOpenChange={open => { if (!open && !revoking) setRevoke(null); }}>
       <AlertDialogContent className="break-keep"><AlertDialogHeader><AlertDialogTitle>{COPY.revokeTitle}</AlertDialogTitle><AlertDialogDescription>{COPY.revokeHint}</AlertDialogDescription></AlertDialogHeader>

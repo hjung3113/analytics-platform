@@ -168,6 +168,15 @@ export function PermissionDirectGrantForm({
       setRecipientKind('person');
     } else if (draft) setActorId(draft.actorId);
   }
+  // #1806: restore a draft recipient's kind from the workspace actor list
+  // once the list names its type; a system Actor draft must not reopen as a
+  // person. Until then the form claims neither person nor system.
+  React.useEffect(() => {
+    if (!open || !draft || actorId !== draft.actorId) return;
+    const actor = (actors.actors ?? []).find((item) => item.id === draft.actorId);
+    if (!actor) return;
+    setRecipientKind(actor.actor_type === 'system' ? 'system' : 'person');
+  }, [open, draft, actorId, actors.actors]);
   const actorSelectId = React.useId();
   const recipientKindSelectId = React.useId();
   const grantOptionsQuery = useQuery({
@@ -190,7 +199,10 @@ export function PermissionDirectGrantForm({
       ? actor.actor_type === 'system'
       : actor.actor_type !== 'system',
   );
-  const selectedActor = recipientActors.find((actor) => actor.id === actorId);
+  // Look the recipient up across the whole workspace actor list: a restored
+  // draft recipient stays typed and labeled even while its kind filter has
+  // not caught up yet.
+  const selectedActor = (actors.actors ?? []).find((actor) => actor.id === actorId);
 
   const prefilledDraft = draft?.actorId === actorId ? draft : undefined;
 
@@ -335,7 +347,7 @@ export function PermissionDirectGrantForm({
               options={grantOptions}
               managedSystemNames={managedSystemNames}
               activeGrants={activeGrants}
-              recipientActorType={selectedActor?.actor_type ?? 'internal_member'}
+              recipientActorType={selectedActor?.actor_type}
               selectionContext={selectionContext}
               optionsUnconfirmed={optionsUnconfirmed}
               cacheReturnedGrant={cacheReturnedGrant}
@@ -380,7 +392,8 @@ function DirectGrantFields({
 }: {
   options: PermissionGrantOptions;
   managedSystemNames: Record<string, string>;
-  recipientActorType: 'internal_member' | 'system';
+  /** Known from the workspace actor list; `undefined` while unconfirmed. */
+  recipientActorType: 'internal_member' | 'system' | undefined;
   activeGrants: PermissionGrantAdminItem[];
   selectionContext: string;
   optionsUnconfirmed: boolean;
@@ -546,9 +559,13 @@ function DirectGrantFields({
     <>
       <section className="flex flex-col gap-4" data-testid="direct-grant-fields">
         <p className="-mt-2 text-xs text-text-muted" data-testid="direct-grant-recipient">
-          {recipientActorType === 'system'
-            ? `${options.recipient.display_name} · ${DIRECT_GRANT_COPY.systemActorTag}`
-            : `${options.recipient.display_name} · ${roleLevelLabel(options.recipient.role_level)}`}
+          {recipientActorType === undefined
+            ? // Recipient type not yet confirmed by the workspace actor list:
+              // claim neither person nor system.
+              options.recipient.display_name
+            : recipientActorType === 'system'
+              ? `${options.recipient.display_name} · ${DIRECT_GRANT_COPY.systemActorTag}`
+              : `${options.recipient.display_name} · ${roleLevelLabel(options.recipient.role_level)}`}
         </p>
         {options.recipient.role_level === 'admin' ? (
           <p className="text-sm text-text-secondary" data-testid="direct-grant-admin-note">

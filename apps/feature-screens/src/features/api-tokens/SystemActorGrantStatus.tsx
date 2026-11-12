@@ -14,15 +14,21 @@ import { permissionGrantsListKey } from '../admin/permissions/useRevokePermissio
 
 /** #1806: token-only capabilities are usable only when the Actor holds the grant
  * AND a live service token carries the scope. The two states are shown
- * separately and never summarized as "usable"; nothing is auto-granted. */
+ * separately and never summarized as "usable"; nothing is auto-granted.
+ * The token list state is passed in so a pending or failed token query is
+ * never read as a confirmed empty scope. */
 const TOKEN_ONLY_CAPABILITIES = CAPABILITIES.filter(isTokenOnlyCapability);
 
 export function SystemActorGrantStatus({
   actors,
   tokens,
+  tokensPending,
+  tokensError,
 }: {
   actors: ActorListItem[];
   tokens: ApiTokenItem[];
+  tokensPending: boolean;
+  tokensError: boolean;
 }) {
   const { canLink } = useHostSeam();
   const grants = useQuery({
@@ -48,6 +54,12 @@ export function SystemActorGrantStatus({
         !token.revokedAt &&
         (!token.expiresAt || Date.parse(token.expiresAt) > now),
     );
+  // Pending and failed token queries are unconfirmed states, never an empty scope.
+  const scopeStateLabel = (actorId: string, capability: string) => {
+    if (tokensPending) return COPY.actorStatusScopeChecking;
+    if (tokensError) return COPY.actorStatusScopeError;
+    return scopeHeld(actorId, capability) ? COPY.actorStatusIncluded : COPY.actorStatusMissing;
+  };
   return (
     <section
       className="flex flex-col gap-2 break-keep"
@@ -74,9 +86,7 @@ export function SystemActorGrantStatus({
                     ? COPY.actorStatusHeld
                     : COPY.actorStatusMissing}{' '}
                   · {COPY.actorStatusScopeLabel}:{' '}
-                  {scopeHeld(actor.id, capability)
-                    ? COPY.actorStatusIncluded
-                    : COPY.actorStatusMissing}
+                  {scopeStateLabel(actor.id, capability)}
                 </p>
               ))}
             </div>

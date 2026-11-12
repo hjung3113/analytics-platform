@@ -21,7 +21,7 @@ export const API_TOKEN_COPY = {
   requiredName: '토큰 이름을 입력하세요.', requiredScopes: '권한 묶음을 하나 이상 선택하세요.',
   requiredActor: '귀속 Actor를 선택하세요.', invalidDate: '오늘 이후의 만료 날짜를 선택하세요.',
   retry: '다시 시도', loading: '불러오는 중…', previous: '이전', next: '다음',
-  available: '사용 가능', unused: '30일 이상 미사용', revoked: '폐기됨', expired: '만료됨',
+  available: '사용 가능', tokenValid: '토큰 유효', unused: '30일 이상 미사용', revoked: '폐기됨', expired: '만료됨',
   noUse: '사용 기록 없음', noAddress: '주소 기록 없음', adminOnly: '관리자만 서비스 토큰을 관리할 수 있습니다.',
   actorStatusTitle: '시스템 Actor 권한·토큰 상태',
   actorStatusHint:
@@ -31,6 +31,8 @@ export const API_TOKEN_COPY = {
   actorStatusHeld: '보유',
   actorStatusIncluded: '포함',
   actorStatusMissing: '없음',
+  actorStatusScopeChecking: '확인 중',
+  actorStatusScopeError: '확인 실패',
   actorStatusError: '권한 상태를 불러오지 못했습니다.',
   grantsLink: '권한 관리 화면 보기',
 } as const;

@@ -2018,6 +2018,74 @@ describe('/admin/permissions/grants screen', () => {
       capability: 'validation.catalog.report',
     });
   });
+
+  // #1806 C2: reopening the follow-up dialog from a system Actor draft must
+  // restore the recipient kind and recipient from the workspace actor list,
+  // so the kind, the picker list, the recipient description and the final
+  // POST all name the same system Actor.
+  test('restores the system Actor kind and recipient when the follow-up dialog reopens', async () => {
+    workspaceActorsMock.actors = [...DEFAULT_WORKSPACE_ACTORS, SYSTEM_ACTOR];
+    const api = installApi({
+      initialGrants: [],
+      grantOptionsByActor: {
+        [SYSTEM_ACTOR_ID]: grantOptionsFor(SYSTEM_ACTOR_ID, {
+          candidates: [
+            triagePrerequisiteCandidate('missing'),
+            readGrantCandidate({ state: 'available' }),
+          ],
+        }),
+      },
+    });
+    renderScreen();
+    await openDirectGrantDialog();
+
+    await chooseSelectOption('대상자 유형', '시스템 Actor');
+    await chooseSelectOption('대상자', '검증 리포터 · 시스템 Actor');
+    await waitFor(() =>
+      expect(screen.getByTestId('direct-grant-recipient')).toHaveTextContent('검증 리포터'),
+    );
+    await chooseSelectOption('부여 권한 및 범위', /VOC 분류.*Payments/);
+    fireEvent.change(screen.getByLabelText('사유 · 필수'), {
+      target: { value: '리포트 분류 운영을 맡깁니다.' },
+    });
+    fireEvent.click(screen.getByTestId('direct-grant-submit'));
+    await waitFor(() => expect(grantPosts(api)).toHaveLength(1));
+    expect(directPermissionGrantSchema.parse(grantPosts(api)[0]?.body)).toMatchObject({
+      actor_id: SYSTEM_ACTOR_ID,
+      capability: 'voc.triage',
+      managed_system_id: MANAGED_SYSTEM_ID,
+    });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '권한 부여' })).toBeNull());
+
+    fireEvent.click(screen.getByRole('button', { name: 'VOC 조회 권한도 부여' }));
+    const followUp = await screen.findByRole('dialog', { name: '권한 부여' });
+    expect(within(followUp).getByRole('combobox', { name: '대상자 유형' })).toHaveTextContent(
+      '시스템 Actor',
+    );
+    expect(within(followUp).getByRole('combobox', { name: '대상자' })).toHaveTextContent(
+      '검증 리포터 · 시스템 Actor',
+    );
+    expect(within(followUp).getByTestId('direct-grant-recipient')).toHaveTextContent(
+      '검증 리포터 · 시스템 Actor',
+    );
+    // A restored system Actor draft must not fall back to a Role Level.
+    expect(within(followUp).getByTestId('direct-grant-recipient')).not.toHaveTextContent('User');
+    expect(within(followUp).getByTestId('direct-grant-system-actor-note')).toBeInTheDocument();
+    expect(within(followUp).getByRole('combobox', { name: '부여 권한 및 범위' })).toHaveTextContent(
+      'VOC 조회',
+    );
+    expect(within(followUp).getByLabelText('사유 · 필수')).toHaveValue(
+      '리포트 분류 운영을 맡깁니다.',
+    );
+
+    await waitFor(() => expect(within(followUp).getByTestId('direct-grant-submit')).toBeEnabled());
+    fireEvent.click(within(followUp).getByTestId('direct-grant-submit'));
+    await waitFor(() => expect(grantPosts(api)).toHaveLength(2));
+    expect(directPermissionGrantSchema.parse(grantPosts(api)[1]?.body)).toMatchObject({
+      actor_id: SYSTEM_ACTOR_ID,
+      capability: 'voc.read',
+    });
+  });
 });
 
 // #1291 B2 — under a host that offers a head target, the direct-grant trigger is drawn there; the form and the focus recovery keep their place in the screen.
