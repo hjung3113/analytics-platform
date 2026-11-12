@@ -23,7 +23,7 @@ it('serves validated single-target routing with an injected factory', async () =
   expect((await setup())?.menuDispatch[0]?.endpoints?.[0]?.spec.limits).toEqual({ maxRows: 100 });
 });
 it('refuses a missing connector with its exact boot message', async () => {
-  await expect(setup({}, {})).rejects.toMatchObject({ problems: ['connector kind sql is not available'] });
+  await expect(setup({}, { connectorFactories: {} })).rejects.toMatchObject({ problems: ['connector kind sql is not available'] });
 });
 it('accepts multi-target routes once fan-out merge is served (node 1839d1)', async () => {
   const owner = routedBundle().endpointOwners['syn.rows'];

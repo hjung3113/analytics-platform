@@ -1,0 +1,192 @@
+{
+  "endpoints": [
+    {
+      "id": "syn.legacy",
+      "menuId": "syn",
+      "paramKeys": [],
+      "permission": "syn:view",
+      "requiresScope": false,
+      "context": {},
+      "mergeTimeDomain": false
+    },
+    {
+      "id": "syn.shared",
+      "menuId": "syn",
+      "paramKeys": [],
+      "permission": "syn:view",
+      "requiresScope": true,
+      "context": {
+        "roomNames": "apply"
+      },
+      "limits": {
+        "maxRows": 100
+      },
+      "kinds": [
+        "collection"
+      ],
+      "mergeTimeDomain": false
+    },
+    {
+      "id": "syn.split",
+      "menuId": "syn",
+      "paramKeys": [],
+      "permission": "syn:view",
+      "requiresScope": true,
+      "context": {
+        "roomNames": "apply"
+      },
+      "limits": {
+        "maxRows": 100
+      },
+      "kinds": [
+        "collection"
+      ],
+      "mergeTimeDomain": false
+    }
+  ],
+  "actions": [],
+  "permissions": [
+    {
+      "permission": "syn:view",
+      "capability": "workspace.read"
+    }
+  ],
+  "targets": {
+    "shared": {
+      "kind": "sql",
+      "dialect": "postgres",
+      "connectionFile": "/synthetic/secrets/shared",
+      "applicationName": "syn-platform-shared",
+      "pool": {
+        "max": 4,
+        "concurrency": 2
+      }
+    },
+    "left": {
+      "kind": "sql",
+      "dialect": "postgres",
+      "connectionFile": "/synthetic/secrets/left",
+      "applicationName": "syn-platform-left",
+      "pool": {
+        "max": 4,
+        "concurrency": 2
+      }
+    },
+    "right": {
+      "kind": "sql",
+      "dialect": "postgres",
+      "connectionFile": "/synthetic/secrets/right",
+      "applicationName": "syn-platform-right",
+      "pool": {
+        "max": 4,
+        "concurrency": 2
+      }
+    }
+  },
+  "endpointOwners": {
+    "syn.legacy": "/synthetic/legacy",
+    "syn.shared": {
+      "routes": [
+        {
+          "sites": [
+            "SITE-A",
+            "SITE-B"
+          ],
+          "targets": [
+            "shared"
+          ]
+        }
+      ],
+      "call": {
+        "statement": "SELECT site, room, seq, at, value FROM synthetic.rows WHERE site = :site AND room = ANY(:rooms::text[])",
+        "params": {
+          "site": "scope.site",
+          "rooms": "scope.rooms"
+        },
+        "response": {
+          "fields": {
+            "site": {
+              "from": "/site"
+            },
+            "room": {
+              "from": "/room"
+            },
+            "seq": {
+              "from": "/seq"
+            },
+            "at": {
+              "from": "/at",
+              "type": "wallclock"
+            },
+            "value": {
+              "from": "/value"
+            }
+          }
+        }
+      },
+      "scopeCheck": {
+        "mode": "verify-rows",
+        "siteField": "/site",
+        "roomField": "/room"
+      }
+    },
+    "syn.split": {
+      "routes": [
+        {
+          "sites": [
+            "SITE-C"
+          ],
+          "rooms": [
+            "RC1"
+          ],
+          "targets": [
+            "left"
+          ]
+        },
+        {
+          "sites": [
+            "SITE-C"
+          ],
+          "rooms": [
+            "RC2"
+          ],
+          "targets": [
+            "right"
+          ]
+        }
+      ],
+      "call": {
+        "statement": "SELECT site, room, seq, at, value FROM synthetic.rows WHERE site = :site AND room = ANY(:rooms::text[])",
+        "params": {
+          "site": "scope.site",
+          "rooms": "scope.rooms"
+        },
+        "response": {
+          "fields": {
+            "site": {
+              "from": "/site"
+            },
+            "room": {
+              "from": "/room"
+            },
+            "seq": {
+              "from": "/seq"
+            },
+            "at": {
+              "from": "/at",
+              "type": "wallclock"
+            },
+            "value": {
+              "from": "/value"
+            }
+          }
+        }
+      },
+      "scopeCheck": {
+        "mode": "verify-rows",
+        "siteField": "/site",
+        "roomField": "/room"
+      }
+    }
+  }
+}

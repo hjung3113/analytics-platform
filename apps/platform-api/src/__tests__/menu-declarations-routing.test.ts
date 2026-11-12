@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { loadMenuDeclarationSetup, type MenuDeclarationConfig } from '../menu-declarations.js';
+import type { ConnectorFactories } from '../modules/menu-dispatch/connectors/types.js';
 import { DeclarationBundleError } from '../modules/menu-dispatch/declarations-file.js';
 import { declaredContribution } from '../modules/menu-dispatch/declared-endpoints.js';
 import type { DeclarationBundle } from '../modules/menu-dispatch/declarations-file.js';
@@ -27,10 +28,10 @@ function config(over: Partial<MenuDeclarationConfig> = {}): MenuDeclarationConfi
     MENU_SCOPE_GRANT_SERVICE_URL: undefined, MENU_RESOLVER_TIMEOUT_MS: 3000, MENU_UPSTREAM_TIMEOUT_MS: 27000, ...over,
   };
 }
-async function setup(bundle: unknown, over: Partial<MenuDeclarationConfig> = {}) {
+async function setup(bundle: unknown, over: Partial<MenuDeclarationConfig> = {}, connectorFactories?: ConnectorFactories) {
   const file = join(dir, `${serial++}.json`);
   await writeFile(file, JSON.stringify(bundle));
-  return loadMenuDeclarationSetup(config({ MENU_DECLARATIONS_FILE: file, ...over }), { checkService });
+  return loadMenuDeclarationSetup(config({ MENU_DECLARATIONS_FILE: file, ...over }), { checkService, ...(connectorFactories ? { connectorFactories } : {}) });
 }
 const emptyBundle = () => ({ endpoints: [], actions: [], permissions: [], endpointOwners: {} });
 const routed = () => ({ ...routedBundle(), targets: { 'tgt-1': { ...routedBundle().targets['tgt-1'], connectionFile: secretFile } } });
@@ -49,7 +50,7 @@ describe('declaration boot gates (ADR-0153 a1)', () => {
     expect(await setup(emptyBundle())).toEqual({ menuDispatch: [{ permissions: [], endpoints: [] }] });
   });
   it('refuses SQL without a connector factory, without requiring envelope env', async () => {
-    expect(await problems(setup(routed()))).toEqual(['connector kind sql is not available']);
+    expect(await problems(setup(routed(), {}, {}))).toEqual(['connector kind sql is not available']);
   });
   it('checks the bundle before connector availability checks or any secret reads', async () => {
     const bundle = routed();
@@ -58,7 +59,7 @@ describe('declaration boot gates (ADR-0153 a1)', () => {
     expect(await problems(setup(bundle))).toContain('endpoint syn.rows: route 0: unknown target id absent');
   });
   it('guards programmatic routed contributions as well as file loading', () => {
-    expect(() => declaredContribution({ bundle: routed() as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService }))
+    expect(() => declaredContribution({ bundle: routed() as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService, connectorFactories: {} }))
       .toThrow('connector kind sql is not available');
   });
   it.each(['MENU_UPSTREAM_BASE_URL', 'MENU_IDENTITY_KEY_FILE', 'MENU_IDENTITY_KEY_ID'] as const)('requires %s for a string owner', async (missing) => {

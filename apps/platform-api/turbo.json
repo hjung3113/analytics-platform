@@ -11,6 +11,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/ops/platform-api/**",
+        "$TURBO_ROOT$/docs/integration/examples/routed-declarations.example.json",
         "$TURBO_ROOT$/menus/log-dev/log-analysis/src/endpoints.ts",
         "$TURBO_ROOT$/menus/log-dev/log-knowledge/src/endpoints.ts",
         "$TURBO_ROOT$/menus/tools/topview-studio/src/endpoints.ts",
@@ -37,6 +38,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/ops/platform-api/**",
+        "$TURBO_ROOT$/docs/integration/examples/routed-declarations.example.json",
         "$TURBO_ROOT$/menus/log-dev/log-analysis/src/endpoints.ts",
         "$TURBO_ROOT$/menus/log-dev/log-knowledge/src/endpoints.ts",
         "$TURBO_ROOT$/menus/tools/topview-studio/src/endpoints.ts",
