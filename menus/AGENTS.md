@@ -43,7 +43,7 @@ Holds only business-system menu Consumer packages: `menus/<system>/<group>/` (tw
    - The package writes its group and permissions in one place: `const GROUP = groupId('…')` and `menuPermission('…')`. Declare a new permission in the app's `PERMISSIONS` too.
 2. Run `pnpm gen:menu <group> --label-ko … --label-en …`, then `pnpm install` (outputs and wiring: [tooling/AGENTS.md](../tooling/AGENTS.md)).
    - The generator places the package by the `GROUPS` row's `space`: `menus/<space>/<group>/`. With `space: null` or `--platform` it creates `platform/<group>/` (platform feature, `platform/AGENTS.md`).
-   - `repo-invariants` checks that the `menus/` folder space equals `GROUPS` `space` ([ADR-0031](../docs/adr/0031-menu-folders-by-space.md)). `platform/` does not set a space by folder name. The `SPACES` list is managed at the app assembly point.
+   - `repo-invariants` checks that the `menus/` folder space equals `GROUPS` `space` ([ADR-0031](../docs/adr/0031-menu-folders-by-space.md)). `platform/` does not set a space by folder name. The `SPACES` list is managed at the app assembly point; a new space follows the app checklist [«Adding a space»](../apps/platform-web/AGENTS.md#adding-a-space).
 3. The result is a skeleton, not Domain Done. Do not generate several menus at once. `overview` is owned by `platform/home`.
 
 ## Verification
