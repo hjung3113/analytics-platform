@@ -18,6 +18,9 @@ export default defineConfig({
   testDir: './tests-kit',
   testMatch: '**/*.spec.ts',
   workers: 1,
+  // The first browser load of a fresh install pays Vite's dependency optimisation; the default 30 s flaked on a cold CI install.
+  timeout: 90_000,
+  expect: { timeout: 15_000 },
   retries: 0,
   outputDir: './test-results/kit',
   reporter: [['list'], ['html', { outputFolder: './playwright-report/kit', open: 'never' }]],
