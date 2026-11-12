@@ -75,7 +75,7 @@ export function declaredContribution({ bundle, forwarder, checkService, connecto
         // Step 2: routed calls judge typed values here; legacy envelope values stay upstream-owned.
         validate: (params) => routed ? validateParamValues(spec.paramTypes ?? {}, params) : { ok: true },
         handle: (args) => {
-          if (typeof path !== 'string') return handleRouted({ ...spec, ...(limits ? { limits } : {}) }, path, bundle, { connectorFactories, timeoutMs, ...(targetSecrets ? { targetSecrets } : {}), ...(log ? { log } : {}) }, args);
+          if (typeof path !== 'string') return handleRouted({ ...spec, ...(limits ? { limits } : {}) }, path, bundle, { connectorFactories, timeoutMs, ...(forwarder ? { forwarder } : {}), ...(targetSecrets ? { targetSecrets } : {}), ...(log ? { log } : {}) }, args);
           if (!forwarder) throw new DeclarationBundleError(['declared endpoints require a forwarder']);
           return forwarder.forward({ endpointId: spec.id, path, args });
         },

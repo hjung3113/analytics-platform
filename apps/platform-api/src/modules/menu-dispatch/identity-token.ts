@@ -10,6 +10,7 @@ export interface IdentityTokenClaims {
   scopes: readonly string[];
   htm: string;
   htu: string;
+  aud?: string;
 }
 
 export interface IdentityTokenSigner {
@@ -38,7 +39,7 @@ export function createIdentityTokenSigner({
   const header = Buffer.from(JSON.stringify({ alg: 'EdDSA', typ: 'JWT', kid: keyId })).toString('base64url');
 
   return {
-    sign({ sub, wid, sv, cid, scopes, htm, htu }) {
+    sign({ sub, wid, sv, cid, scopes, htm, htu, aud = 'analytics' }) {
       if (typeof sub !== 'string' || sub.length === 0) throw new Error('Identity token sub must be non-empty');
       if (typeof wid !== 'string' || wid.length === 0) throw new Error('Identity token wid must be non-empty');
       if (typeof cid !== 'string' || !CORRELATION_ID_PATTERN.test(cid)) throw new Error('Identity token cid must be a valid correlation id');
@@ -48,7 +49,7 @@ export function createIdentityTokenSigner({
         if (typeof scope !== 'string') throw new Error('Identity token scopes must be an array of strings');
       }
       const iat = Math.floor(now() / 1000);
-      const payload = Buffer.from(JSON.stringify({ sub, wid, sv, cid, scopes, aud: 'analytics', htm, htu, iat, exp: iat + 30 })).toString('base64url');
+      const payload = Buffer.from(JSON.stringify({ sub, wid, sv, cid, scopes, aud, htm, htu, iat, exp: iat + 30 })).toString('base64url');
       const signingInput = `${header}.${payload}`;
       return `${signingInput}.${sign(null, Buffer.from(signingInput), privateKey).toString('base64url')}`;
     },

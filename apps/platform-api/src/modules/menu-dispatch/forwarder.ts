@@ -93,8 +93,14 @@ function destinationOf(baseUrl: string, path: string): URL {
 /** Lossless string form of a scope grant for the token claim (`{site, rooms}` is not a string). */
 const scopeClaim = (grant: ScopeGrant): string => JSON.stringify(grant);
 
+export interface RoutedEnvelopeDestination {
+  baseUrl: string;
+  aud?: string;
+  site: string | null;
+  rooms: readonly string[];
+}
 export interface MenuForwarder {
-  forward({ endpointId, path, args }: { endpointId: string; path: string; args: EndpointHandlerArgs }): Promise<EndpointResult>;
+  forward(input: { endpointId: string; path: string; args: EndpointHandlerArgs; routed?: RoutedEnvelopeDestination }): Promise<EndpointResult>;
 }
 
 export function createMenuForwarder({
@@ -110,14 +116,15 @@ export function createMenuForwarder({
 }): MenuForwarder {
   const normalizedBaseUrl = normalizeMenuUpstreamBaseUrl(baseUrl);
   return {
-    async forward({ endpointId, path, args }) {
-      const destination = destinationOf(normalizedBaseUrl, path);
+    async forward({ endpointId, path, args, routed }) {
+      const destination = routed ? new URL(normalizeMenuUpstreamBaseUrl(routed.baseUrl)) : destinationOf(normalizedBaseUrl, path);
       const token = signer.sign({
         sub: args.actor.actor_id,
         wid: args.actor.workspace_id,
         sv: await args.sessionVersion(),
         cid: args.correlationId,
-        scopes: args.scopes.map(scopeClaim),
+        scopes: routed ? (routed.site === null ? [] : [scopeClaim({ site: routed.site, rooms: [...routed.rooms] })]) : args.scopes.map(scopeClaim),
+        ...(routed ? { aud: routed.aud ?? 'analytics' } : {}),
         htm: 'POST',
         htu: destination.pathname,
       });
