@@ -320,6 +320,7 @@ export async function loadDenyAndGrantRows(
       .from(permissionGrants)
       .where(
         and(
+          eq(permissionGrants.scopeKind, 'managed_system'),
           eq(permissionGrants.workspaceId, actor.workspace_id),
           eq(permissionGrants.actorId, actor.actor_id),
           eq(permissionGrants.capability, capability),
@@ -371,6 +372,7 @@ export async function loadDenyAndGrantRowsBatch(
       .from(permissionGrants)
       .where(
         and(
+          eq(permissionGrants.scopeKind, 'managed_system'),
           inArray(permissionGrants.workspaceId, workspaceIds),
           inArray(permissionGrants.actorId, actorIds),
           inArray(permissionGrants.capability, capabilityList),

@@ -329,13 +329,14 @@ export async function runSeed(handle: DbHandle): Promise<SeedResult> {
       if (!actorId || (grant.msSlug !== null && !managedSystemId)) {
         throw new Error(`Seed could not resolve persona grant '${grant.externalId}:${grant.capability}'.`);
       }
-      // The active unique key omits managed_system_id, so pre-check its actual
-      // tuple rather than using onConflictDoNothing against a partial index.
+      // Persona grants use only managed_system kinds; preserve the existing
+      // capability pre-check rather than targeting a partial index.
       const existing = await db
         .select({ id: permissionGrants.id })
         .from(permissionGrants)
         .where(
           and(
+            eq(permissionGrants.scopeKind, 'managed_system'),
             eq(permissionGrants.workspaceId, workspaceId),
             eq(permissionGrants.actorId, actorId),
             eq(permissionGrants.capability, grant.capability),

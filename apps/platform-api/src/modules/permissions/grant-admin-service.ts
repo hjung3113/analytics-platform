@@ -101,6 +101,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       .from(permissionRequests)
       .where(
         and(
+          eq(permissionRequests.requestedScopeKind, 'managed_system'),
           eq(permissionRequests.workspaceId, workspaceId),
           eq(permissionRequests.requesterActorId, actorId),
           eq(permissionRequests.requestedCapability, capability),
@@ -363,6 +364,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       .from(permissionGrants)
       .where(
         and(
+          eq(permissionGrants.scopeKind, 'managed_system'),
           eq(permissionGrants.workspaceId, actor.workspace_id),
           isNull(permissionGrants.revokedAt),
           isNull(permissionGrants.supersededAt),
@@ -436,6 +438,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           .where(
             and(
               eq(permissionGrants.id, grantId),
+              eq(permissionGrants.scopeKind, 'managed_system'),
               eq(permissionGrants.workspaceId, actor.workspace_id),
             ),
           )
@@ -458,6 +461,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           .where(
             and(
               eq(permissionGrants.id, grant.id),
+              eq(permissionGrants.scopeKind, 'managed_system'),
               eq(permissionGrants.workspaceId, actor.workspace_id),
             ),
           )
@@ -604,7 +608,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       })
       .from(permissionGrants)
       .where(
-        and(eq(permissionGrants.id, grantId), eq(permissionGrants.workspaceId, actor.workspace_id)),
+        and(eq(permissionGrants.scopeKind, 'managed_system'), eq(permissionGrants.id, grantId), eq(permissionGrants.workspaceId, actor.workspace_id)),
       )
       .limit(1);
     const grant = rows[0];

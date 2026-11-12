@@ -104,6 +104,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
         .where(
           and(
             eq(permissionRequests.id, requestId),
+            eq(permissionRequests.requestedScopeKind, 'managed_system'),
             eq(permissionRequests.workspaceId, actor.workspace_id),
           ),
         );
@@ -125,6 +126,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
           .where(
             and(
               eq(permissionRequests.id, requestId),
+              eq(permissionRequests.requestedScopeKind, 'managed_system'),
               eq(permissionRequests.workspaceId, actor.workspace_id),
             ),
           )

@@ -37,6 +37,7 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
       .where(
         and(
           eq(permissionRequests.id, id),
+          eq(permissionRequests.requestedScopeKind, 'managed_system'),
           eq(permissionRequests.workspaceId, actor.workspace_id),
           ...(owner ? [eq(permissionRequests.requesterActorId, actor.actor_id)] : []),
         ),
@@ -181,6 +182,7 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
                 .where(
                   and(
                     eq(permissionGrants.id, decision.grant_id),
+                    eq(permissionGrants.scopeKind, 'managed_system'),
                     eq(permissionGrants.workspaceId, actor.workspace_id),
                     eq(permissionGrants.actorId, requester.id),
                   ),

@@ -49,7 +49,7 @@ import * as React from 'react';
 // `workspace.admin` is never ordinarily requestable (supported-scope policy); `validation.catalog.report` is token-only
 // (a human session can never use it, so it is not offered); the server decides the rest.
 const REQUESTABLE_CAPABILITIES = CAPABILITIES.filter(
-  (c) => c !== 'workspace.admin' && c !== 'validation.catalog.report',
+  (c) => c !== 'scope.read' && c !== 'workspace.admin' && c !== 'validation.catalog.report',
 );
 // `workspace.read` and the log knowledge catalog capabilities take no Managed System; `survey.export` takes one or the whole workspace; the others need one.
 const NO_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>([

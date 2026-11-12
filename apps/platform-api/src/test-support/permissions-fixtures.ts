@@ -158,3 +158,35 @@ export async function seedPermissionSelectedReadScale(
     taskCount: population.task_count,
   };
 }
+
+/** ADR-0154 fixture: explicit kinds, including malformed combinations for DB constraint tests. */
+export async function insertScopePermissionRow(
+  handle: Pick<DbHandle, 'pool'>,
+  input: {
+    table: 'permission_grants' | 'permission_requests';
+    workspaceId: string;
+    actorId: string;
+    kind: string;
+    site?: string | null;
+    room?: string | null;
+    capability?: string;
+    managedSystemId?: string | null;
+  },
+): Promise<string> {
+  const request = input.table === 'permission_requests';
+  // Identifiers come only from the closed table discriminator, values are parameters.
+  const prefix = request ? 'requested_' : '';
+  const result = await handle.pool.query<{ id: string }>(
+    `insert into permission.${input.table}
+      (workspace_id, ${request ? 'requester_actor_id' : 'actor_id'}, ${prefix}capability,
+       ${prefix}scope_kind, ${prefix}scope_site, ${prefix}scope_room, ${prefix}managed_system_id,
+       ${request ? 'reason, status' : 'granted_by_actor_id'})
+     values ($1,$2,$3,$4,$5,$6,$7,$8${request ? `,'pending'` : ''}) returning id`,
+    [input.workspaceId, input.actorId, input.capability ?? 'scope.read', input.kind,
+      input.site ?? null, input.room ?? null, input.managedSystemId ?? null,
+      request ? 'scope fixture' : input.actorId],
+  );
+  const id = result.rows[0]?.id;
+  if (!id) throw new Error('insertScopePermissionRow: no row returned');
+  return id;
+}

@@ -16,7 +16,7 @@
 //   rows and expiry is enforced at write time in the permission service.
 
 import { sql } from 'drizzle-orm';
-import { index, integer, pgSchema, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { check, index, integer, pgSchema, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 // NOTE: Drizzle-kit's CJS loader cannot resolve the `.js` re-write that
 // NodeNext requires at runtime for cross-file `.ts` imports, so we declare
@@ -38,6 +38,10 @@ export const permissionGrants = permissionSchema.table(
     workspaceId: uuid('workspace_id').notNull(),
     actorId: uuid('actor_id').notNull(),
     capability: text('capability').notNull(),
+    // ADR-0154: site/room rows never participate in Managed System judgments.
+    scopeKind: text('scope_kind').notNull().default('managed_system'),
+    scopeSite: text('scope_site'),
+    scopeRoom: text('scope_room'),
     managedSystemId: uuid('managed_system_id'),
     objectType: text('object_type'),
     objectId: uuid('object_id'),
@@ -61,8 +65,13 @@ export const permissionGrants = permissionSchema.table(
     // write time in the permission service.
     // NOTE: Drizzle 0.38 does not encode COALESCE expressions on partial
     // indexes; this index is replaced/normalised by hand in the generated SQL.
+    scopeKindCheck: check('permission_grants_scope_kind_check', sql`(
+      (${t.scopeKind} = 'managed_system' AND ${t.scopeSite} IS NULL AND ${t.scopeRoom} IS NULL AND ${t.capability} <> 'scope.read')
+      OR (${t.scopeKind} = 'site' AND ${t.capability} = 'scope.read' AND ${t.managedSystemId} IS NULL AND ${t.scopeRoom} IS NULL AND ${t.scopeSite} IS NOT NULL AND btrim(${t.scopeSite}) <> '')
+      OR (${t.scopeKind} = 'site_room' AND ${t.capability} = 'scope.read' AND ${t.managedSystemId} IS NULL AND ${t.scopeSite} IS NOT NULL AND btrim(${t.scopeSite}) <> '' AND ${t.scopeRoom} IS NOT NULL AND btrim(${t.scopeRoom}) <> '')
+    )`),
     activeUniq: uniqueIndex('permission_grants_active_uq')
-      .on(t.workspaceId, t.actorId, t.capability)
+      .on(t.workspaceId, t.actorId, t.capability, t.scopeKind, t.scopeSite, t.scopeRoom)
       .where(sql`${t.revokedAt} is null AND ${t.supersededAt} is null`),
   }),
 );
@@ -105,6 +114,10 @@ export const permissionRequests = permissionSchema.table(
     workspaceId: uuid('workspace_id').notNull(),
     requesterActorId: uuid('requester_actor_id').notNull(),
     requestedCapability: text('requested_capability').notNull(),
+    // Existing request writers keep the managed_system default.
+    requestedScopeKind: text('requested_scope_kind').notNull().default('managed_system'),
+    requestedScopeSite: text('requested_scope_site'),
+    requestedScopeRoom: text('requested_scope_room'),
     requestedManagedSystemId: uuid('requested_managed_system_id'),
     requestedObjectType: text('requested_object_type'),
     requestedObjectId: uuid('requested_object_id'),
@@ -140,8 +153,13 @@ export const permissionRequests = permissionSchema.table(
     ),
     // Active = pending | needs_more_info; expanded with full COALESCEd scope
     // tuple in hand-edited generated SQL.
+    scopeKindCheck: check('permission_requests_scope_kind_check', sql`(
+      (${t.requestedScopeKind} = 'managed_system' AND ${t.requestedScopeSite} IS NULL AND ${t.requestedScopeRoom} IS NULL AND ${t.requestedCapability} <> 'scope.read')
+      OR (${t.requestedScopeKind} = 'site' AND ${t.requestedCapability} = 'scope.read' AND ${t.requestedManagedSystemId} IS NULL AND ${t.requestedScopeRoom} IS NULL AND ${t.requestedScopeSite} IS NOT NULL AND btrim(${t.requestedScopeSite}) <> '')
+      OR (${t.requestedScopeKind} = 'site_room' AND ${t.requestedCapability} = 'scope.read' AND ${t.requestedManagedSystemId} IS NULL AND ${t.requestedScopeSite} IS NOT NULL AND btrim(${t.requestedScopeSite}) <> '' AND ${t.requestedScopeRoom} IS NOT NULL AND btrim(${t.requestedScopeRoom}) <> '')
+    )`),
     activeUniq: uniqueIndex('permission_requests_active_uq')
-      .on(t.workspaceId, t.requesterActorId, t.requestedCapability)
+      .on(t.workspaceId, t.requesterActorId, t.requestedCapability, t.requestedScopeKind, t.requestedScopeSite, t.requestedScopeRoom)
       .where(sql`${t.status} in ('pending','needs_more_info')`),
   }),
 );

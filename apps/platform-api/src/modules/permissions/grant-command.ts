@@ -27,6 +27,7 @@ export async function writePermissionGrant(
     .from(permissionGrants)
     .where(
       and(
+        eq(permissionGrants.scopeKind, 'managed_system'),
         eq(permissionGrants.workspaceId, input.workspaceId),
         eq(permissionGrants.actorId, input.actorId),
         eq(permissionGrants.capability, input.capability),

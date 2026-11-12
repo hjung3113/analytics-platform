@@ -46,6 +46,7 @@ const ALWAYS: Capability[] = [
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage', 'voc.create'];
 const NONE: Capability[] = [
   'workspace.read',
+  'scope.read',
   'workspace.admin',
   'voc.triage',
   'voc.read',
