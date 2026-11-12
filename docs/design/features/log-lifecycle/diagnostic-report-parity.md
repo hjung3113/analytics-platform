@@ -64,7 +64,7 @@ items 수, 항목별 표 수, 열 수, 행 수, 셀 길이, payload 총 bytes, �
 | --- | --- | --- |
 | P0 출력 인벤토리/Golden 매핑 | 사내 합성 등가 구조 확보, R1 | 문서/fixture. #1809와 독립 |
 | A1 summary 안전 투영 | 이 설계 merge + R1의 허용 키 승인 | backend `queue-read`/DTO·읽기 권한 테스트. RoundScreen 미접촉, 먼저 가능 |
-| A2 발췌/원본 상태 읽기 | 이 설계 merge + R3 삭제 provenance 결정 | backend excerpt/Source 읽기·ACL/상태 테스트. RoundScreen 미접촉, 먼저 가능. 기존 상태만으로 만료를 추정하는 구현 금지 |
+| A2 **As-built** #1840 발췌/원본 상태 읽기 | 이 설계 merge + R3 삭제 provenance 결정 | backend excerpt/Source 읽기·ACL/상태 테스트. RoundScreen 미접촉, 먼저 가능. 기존 상태만으로 만료를 추정하는 구현 금지 |
 | A3 상세/근거표 | A1/A2 + **#1809 merge** + 실제 앱 variant 승인 | `RoundScreen.tsx`, 화면 contracts·상세 Drawer. #1809 뒤 stack |
 | A4 parity 회귀 | P0 + A1/A2/A3 | 합성 DB/read/UI 검증. UI 사양은 A3 의존 |
 | B0 진단/첨부 계약 | P0 + R2/R4/R5 및 권한·보관 확정 | 별도 API/저장 설계. #1807 공급자 선택과 동일시하지 않음 |
@@ -81,8 +81,8 @@ items 수, 항목별 표 수, 열 수, 행 수, 셀 길이, payload 총 bytes, �
 | --- | --- | --- |
 | R1 Open | 실제 보고서에 제목/설명/원인/통계/버전 중 무엇이 있으며 어느 것이 필수인가? Slice A 허용 키를 enum만 둘까, 검증된 자유 설명까지 열까? | enum 메타데이터로 시작하고 설명은 구조 실사 후 결정. secret 정규식만으로 원본 유출을 막을 수 없음 |
 | R2 Open | 기존 기대/관측·근거로 충분한가, AttemptDiagnostic이 필요한가? 표의 열/행/셀·총량·페이지 상한은? | 실제 Golden에서 사라지는 정보가 입증될 때 B 도입. 수치는 합성 크기와 운영 예산을 함께 측정 |
-| R3 Open | 관리자 삭제와 retention의 과거 provenance를 어떻게 구별할까? unknown 유지, 제한된 안전 사유 읽기, 후속 provenance 보강 중 선택 | 권위가 없는 과거 행은 unknown. 만료를 추정하면 거짓 상태가 됨. 보강에 DDL이 필요하면 별도 승인 PR |
-| R4 Open | 첨부 불필요, Source 소유 참조, 플랫폼 attempt/issue 첨부 중 어느 범위·형식·보관 기간인가? | Source 참조 우선. 필요한 최소 형식만 선택하고 발췌 90일과 별도 수명 차이를 명시 |
-| R5 Open | 진단 상세/첨부를 누가 읽고 생산자는 누구인가? Source 유래 표·설명을 통째로 보호할까, 검증된 메타데이터만 분리할까? | Source 유래 내용은 매 접근 ACL. 독립 metadata만 명시적으로 투영해 목록 누출 방지 |
+| R3 Decided (소유자 2026-11-12, 추천안; 과거 삭제 provenance는 unknown) | 관리자 삭제와 retention의 과거 provenance를 어떻게 구별할까? unknown 유지, 제한된 안전 사유 읽기, 후속 provenance 보강 중 선택 | 권위가 없는 과거 행은 unknown. 만료를 추정하면 거짓 상태가 됨. 보강에 DDL이 필요하면 별도 승인 PR |
+| R4 Decided (소유자 2026-11-12, 추천안; 미구현) | 첨부 불필요, Source 소유 참조, 플랫폼 attempt/issue 첨부 중 어느 범위·형식·보관 기간인가? | Source 참조 우선. 필요한 최소 형식만 선택하고 발췌 90일과 별도 수명 차이를 명시 |
+| R5 Decided (소유자 2026-11-12, 추천안) | 진단 상세/첨부를 누가 읽고 생산자는 누구인가? Source 유래 표·설명을 통째로 보호할까, 검증된 메타데이터만 분리할까? | Source 유래 내용은 매 접근 ACL. 독립 metadata만 명시적으로 투영해 목록 누출 방지 |
 
 R1–R5의 미확정 범위는 구현하지 않는다. 같은 ID의 답과 소유자 승인으로 해당 노드만 다시 연다.

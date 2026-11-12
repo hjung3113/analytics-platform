@@ -86,8 +86,8 @@ Task/VOC/Finding/지식 초안으로의 전달은 H8 답 뒤 사용자가 명시
 | 노드 | 선행 / 게이트 | 위치·stack |
 | --- | --- | --- |
 | N0 도메인·권한 결정 | 이 설계 merge, H1–H8 관련 답·용어 검토 | 문서. 물리 저장 구현 없음 |
-| N1 저장·이력·멱등 | N0의 모델/상태/댓글 정책 확정 | **후속 DDL PR**, backend only. #1809 미접촉 |
-| N2 사람 API/가시성/감사 | N1 + 역할/Source 정책 확정 | backend only. #1809보다 먼저 가능. service token 부정 테스트 포함 |
+| N1 **As-built** #1855 저장·이력·멱등 | N0의 모델/상태/댓글 정책 확정 | **후속 DDL PR**, backend only. #1809 미접촉 |
+| N2 **As-built** #1906 사람 API/가시성/감사 | N1 + 역할/Source 정책 확정 | backend only. #1809보다 먼저 가능. service token 부정 테스트 포함 |
 | N3 Round 토론/항목 목록·상세 | N2 + **#1809 merge** + 실제 앱 variant/Artifact 승인 | `RoundScreen.tsx`·thread/Drawer 연결, #1809 뒤 stack |
 | N4 진단/근거 연결 UI | N3 + #1815 A3, B 진단 연결은 B1 이후 | `RoundScreen.tsx` 연결 가능. 공통 EvidenceRef 유지 |
 | N5 재검증/도메인 전달 | N2 + H8 및 기존 대상 API 권한·링크 쌍 확인, UI는 N3 | 요청 생성은 기존 API, 외부 도메인 쓰기 직접 금지 |
@@ -99,11 +99,11 @@ Task/VOC/Finding/지식 초안으로의 전달은 H8 답 뒤 사용자가 명시
 
 | ID / 상태 | 선택지·질문 | 추천과 이유 |
 | --- | --- | --- |
-| H1 Open | 보고 즉시 결함인가, 검토 후 확정인가? 관찰과 결함을 별도 종류로 둘까? 동일 항목의 식별 범위는 개발 건인가? | 중립 ValidationIssue로 등록하고 검토 후 결함 확인, 우선 개발 건 범위. 관찰을 공식 FAIL과 혼동하지 않음. 명칭도 용어 검토 필요 |
-| H2 Open | read/comment/register/change state/link 각각 누가 하는가? round.manage만, 좁은 contribute, 별도 역할 중 선택 | User 참여용 comment/register와 처리·연결 권한 분리. 요청/Gate는 기존 권한 유지 |
-| H3 Open | 단순 open/resolved/reopened 또는 조사·수정요청·재검증 포함 다단계? 담당·심각도 필수/값은? | 실제 업무가 확인되면 위 다단계, 그 전 값/필수 여부 미확정. 자동 PASS 해결은 금지 |
-| H4 Open | 열린 Round만 작성, 닫힌 Round도 토론/항목 등록 허용? | 과거 결과 검토를 위해 닫힌 Round도 사람 기록 허용 추천. 샘플/규칙 결과는 불변 |
-| H5 Open | append-only 정정, 본인 시간제 수정, 관리자 삭제 중 정책은? plain text/rich content, 답글/멘션·본문/페이지 상한은? | 텍스트·추가 전용 정정·명시 대상의 평면 댓글과 페이지부터. provenance와 구현 범위를 줄임. 삭제·멘션·rich는 필요 확인 후 |
-| H6 Open | 첨부 없음, 기존 수동 Round 첨부 참조, Issue/댓글 전용 첨부 중 어디까지? | 최초에는 안전한 기존 참조만. #1815 결과 아티팩트와 사람 첨부의 권한·보관을 혼합하지 않음 |
-| H7 Open | 사람 prose와 AI 의견을 별도 영역/연결 타임라인 중 어떻게 보여줄까? Source 권한 없는 thread 독자는 사람 글만 볼까, 전체 숨길까? | 축을 분리하고 명시 참조로 연결. Source 유래 본문은 보호 읽기만 허용해 철회 후 유출 방지 |
-| H8 Open | 어느 시점에 Task Request/VOC/Finding/지식 초안으로 넘기는가? | 사용자가 처리 목적·대상·권한을 확인한 명시 동작. Issue 상태에서 자동 변환하면 소유권과 업무 의미가 바뀜 |
+| H1 Decided (소유자 2026-11-12, 추천안; 한국어 대표명은 Open) | 보고 즉시 결함인가, 검토 후 확정인가? 관찰과 결함을 별도 종류로 둘까? 동일 항목의 식별 범위는 개발 건인가? | 중립 ValidationIssue로 등록하고 검토 후 결함 확인, 우선 개발 건 범위. 관찰을 공식 FAIL과 혼동하지 않음. 명칭도 용어 검토 필요 |
+| H2 Decided (소유자 2026-11-12, 추천안; 능력 이름 `lifecycle.issue.contribute`·`lifecycle.issue.link`, 팀장 2026-11-13) | read/comment/register/change state/link 각각 누가 하는가? round.manage만, 좁은 contribute, 별도 역할 중 선택 | User 참여용 comment/register와 처리·연결 권한 분리. 요청/Gate는 기존 권한 유지 |
+| H3 Open (자동 PASS 해결 금지만 Decided; 단계 값·필수 여부는 실제 업무 확인 전 미확정, 상태 열은 N1에 없고 별도 마이그레이션으로 추가) | 단순 open/resolved/reopened 또는 조사·수정요청·재검증 포함 다단계? 담당·심각도 필수/값은? | 실제 업무가 확인되면 위 다단계, 그 전 값/필수 여부 미확정. 자동 PASS 해결은 금지 |
+| H4 Decided (소유자 2026-11-12, 추천안) | 열린 Round만 작성, 닫힌 Round도 토론/항목 등록 허용? | 과거 결과 검토를 위해 닫힌 Round도 사람 기록 허용 추천. 샘플/규칙 결과는 불변 |
+| H5 Decided (소유자 2026-11-12 방향; 수치 팀장 2026-11-13: 제목 200·본문 8000·댓글 4000자, 페이지 50/최대 100, occurrence당 근거 20; 코드 상수 `domain/validation-issue-limits.ts`) | append-only 정정, 본인 시간제 수정, 관리자 삭제 중 정책은? plain text/rich content, 답글/멘션·본문/페이지 상한은? | 텍스트·추가 전용 정정·명시 대상의 평면 댓글과 페이지부터. provenance와 구현 범위를 줄임. 삭제·멘션·rich는 필요 확인 후 |
+| H6 Decided (소유자 2026-11-12, 추천안; 미구현) | 첨부 없음, 기존 수동 Round 첨부 참조, Issue/댓글 전용 첨부 중 어디까지? | 최초에는 안전한 기존 참조만. #1815 결과 아티팩트와 사람 첨부의 권한·보관을 혼합하지 않음 |
+| H7 Decided (소유자 2026-11-12, 추천안; 미구현) | 사람 prose와 AI 의견을 별도 영역/연결 타임라인 중 어떻게 보여줄까? Source 권한 없는 thread 독자는 사람 글만 볼까, 전체 숨길까? | 축을 분리하고 명시 참조로 연결. Source 유래 본문은 보호 읽기만 허용해 철회 후 유출 방지 |
+| H8 Decided (소유자 2026-11-12, 추천안; 미구현) | 어느 시점에 Task Request/VOC/Finding/지식 초안으로 넘기는가? | 사용자가 처리 목적·대상·권한을 확인한 명시 동작. Issue 상태에서 자동 변환하면 소유권과 업무 의미가 바뀜 |
