@@ -1,7 +1,7 @@
 import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { permissionGrants } from '../../db/schema/permission.js';
-import type { ScopeResolver } from '../menu-dispatch/scope-resolver.js';
+import type { ScopeResolver } from '../menu-dispatch/index.js';
 import type { ScopeCatalog } from './scope-catalog.js';
 
 /** One uncached read per call; DB failures propagate to the dispatch boundary's forbidden outcome. */
