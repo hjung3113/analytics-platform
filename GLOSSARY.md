@@ -9,7 +9,7 @@
 ### 물리 조직과 접근 범위
 
 **Site**:
-공장이 위치한 최상위 물리 조직 단위. 여러 room_name과 Line을 포함한다. 접근 범위의 관계는 Site → room_name → StGroup → Equipment이며, Line은 room_name과 교차하는 독립 축이다. Site별로 물리 DB가 분리돼 있어 Site는 DB 연결 경계이며, 설비 ID를 쓰기 전에 활성 Scope에서 먼저 확립돼 있어야 한다([ADR-0004](docs/adr/0004-site-is-db-partition-not-column.md)).
+공장이 위치한 최상위 물리 조직 단위. 여러 room_name과 Line을 포함한다. 접근 범위의 관계는 Site → room_name → StGroup → Equipment이며, Line은 room_name과 교차하는 독립 축이다. Site는 Scope 부여 축이고, 어느 DB·서버가 그 Site의 데이터를 갖는지는 배포 설정의 라우팅이 정한다(N:M, [ADR-0153](docs/adr/0153-upstream-target-routing-and-declared-connectors.md)이 [ADR-0004](docs/adr/0004-site-is-db-partition-not-column.md)를 대체). 설비 ID를 쓰기 전에 활성 Scope에서 먼저 확립돼 있어야 한다.
 사이트는 MEM(메모리)·FDRY(파운드리)다(mock 값).
 _Avoid_: 사업장 — 기존 문서에서 느슨하게 쓰이던 표현으로, 앞으로는 Site로 통일한다.
 

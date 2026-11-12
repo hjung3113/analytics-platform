@@ -1,6 +1,6 @@
 # Site는 조회 조건이 아니라 물리적으로 분리된 DB다
 
-상태: **Decided (2026-09-24)**.
+상태: **Superseded by [ADR-0153](0153-upstream-target-routing-and-declared-connectors.md) (2026-11-12)** — Site는 부여 축이고 DB 배치는 배포 라우팅이다(N:M: 한 Site가 여러 DB에, 한 DB가 여러 Site를). 아래의 «설비 ID로 Site를 역산하지 않는다»와 «설비 ID를 쓰기 전에 활성 Scope의 Site가 확립돼 있어야 한다»는 Scope 규칙으로 남는다. 원 상태: Decided (2026-09-24).
 
 설비 마스터 테이블에는 Site 컬럼이 없다 — Site 단위로 DB 자체가 분리돼 있다(2026-09-24 도메인 인터뷰 확인). 따라서 Site 선택은 같은 DB 안의 필터 조건이 아니라 "어느 DB 연결로 조회할지"를 고르는 문제다.
 
