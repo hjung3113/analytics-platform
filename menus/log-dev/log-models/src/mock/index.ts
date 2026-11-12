@@ -1,7 +1,7 @@
 import { type ColumnFilter, type FieldError, type PageSort } from '@ap/contracts';
 import { defineMockAction, defineMockEndpoint, MockActionInvalid, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { actions, endpoints, isUuid, type Project, type RoundDetail } from '../endpoints';
-import { ATTEMPT_ID, OPINION_ATTEMPT_ID, events, models, projects, requests, rounds, rules } from './fixtures';
+import { ATTEMPT_ID, OPINION_ATTEMPT_ID, events, excerptReaders, excerpts, models, projects, requests, rounds, rules } from './fixtures';
 import { opinionScale, opinionRules, unlinkedOpinions, opinionHistory } from './opinions';
 import { readHierarchy, validateHierarchy } from './hierarchy';
 export { PROJECT_ID, ROUND_ID, REQUEST_ID, ATTEMPT_ID, fixtureId, resetLifecycle, stageLifecycleFixture } from './fixtures';
@@ -30,6 +30,14 @@ function availability(r: RoundDetail, actor: string) {
   const verdict = decisive?.verdict;
   const basis = { version: 1, attempts: completed.map(a => ({ attemptId: a.id, attemptNo: a.attemptNo, requestId: a.requestId, verdict: a.verdict, ruleSetRevision: a.ruleSetRevision, inputManifestDigest: a.inputManifestDigest, endedAt: a.endedAt })), decisiveAttemptId: decisive?.id ?? null, decisiveVerdict: verdict ?? null, specPin: r.specPin, sampleManifestDigest: r.sampleManifestDigest, requestDigest: null, evidenceLinks: [] };
   return { targetStage: p?.gateTarget ?? null, projectVersion: p?.version ?? '', reasons, decisions: { approved: { allowed: reasons.length === 0 && verdict === 'pass', reasons: [...reasons, ...(verdict === 'pass' ? [] : ['verdict_not_pass'])] }, rejected: { allowed: reasons.length === 0, reasons }, exception: { allowed: reasons.length === 0 && verdict !== 'pass', reasons: [...reasons, ...(verdict === 'pass' ? ['exception_not_needed'] : [])] } }, basis };
+}
+/** The rule result and the Round whose sample manifest and Source owner it is judged against. */
+function sourceTarget(ruleResultId: unknown) {
+  const rule = [...rules, ...opinionRules].find(r => r.id === ruleResultId);
+  const attemptId = rule && (rules.includes(rule) ? ATTEMPT_ID : OPINION_ATTEMPT_ID);
+  const request = requests.find(q => q.attempts.some(a => a.id === attemptId));
+  const round = roundOf(request?.roundId);
+  return rule && round ? { rule, round } : null;
 }
 function read(name: string, p: Params, actor: string): unknown {
   if (name === 'hierarchy') return readHierarchy(p, actor);
@@ -70,16 +78,26 @@ function read(name: string, p: Params, actor: string): unknown {
     if (sort) selected.sort((a,b) => String(a[sort.id as 'ruleId']).localeCompare(String(b[sort.id as 'ruleId'])) * (sort.desc ? -1 : 1));
     return page(selected, p);
   }
-  if (name === 'evidenceStates') {
-    const rule = [...rules, ...opinionRules].find(r => r.id === p.ruleResultId);
-    if (!rule) return null;
-    // Synthetic rules cover every state pair: the first rule is readable, the second has an erased excerpt and a changed hash, the third lacks the rights.
-    const at = rules.findIndex(r => r.id === rule.id);
-    return { rows: rule.evidence.map((e, evidenceIndex) => ({ ruleResultId: rule.id, evidenceIndex, evidenceRef: { fileRef: e.fileRef, line: e.line, fileSha256: e.fileSha256 },
-      excerptState: !e.hasExcerpt ? 'not_submitted' : at === 2 ? 'no_permission' : at === 1 ? 'unknown' : 'not_loaded',
-      sourceState: at === 2 ? 'no_permission' : at === 1 ? 'hash_mismatch' : 'not_checked' })) };
+  if (name === 'evidenceStates' || name === 'excerpt') {
+    // Same rules as the server (`domain/evidence-states.ts`): the right is judged per Source owner of the rule's Round, a hash
+    // mismatch needs a different pinned hash for the same manifest file, and an erased excerpt has no provenance (`unknown`).
+    const target = sourceTarget(p.ruleResultId);
+    if (!target) return null;
+    const allowed = excerptReaders[target.round.sampleSet.sourceOwner]?.includes(actor) ?? false;
+    const stored = (index: number) => excerpts.find(x => x.ruleResultId === target.rule.id && x.evidenceIndex === index);
+    if (name === 'excerpt') {
+      // The mock cannot answer `forbidden` from data; without the right it serves no body (the screen offers no read then).
+      const found = allowed && target.rule.evidence[Number(p.evidenceIndex)]?.hasExcerpt ? stored(Number(p.evidenceIndex)) : undefined;
+      return found ? { ruleResultId: target.rule.id, evidenceIndex: found.evidenceIndex, deleted: found.deletedAt !== null, excerpt: found.deletedAt === null ? found.body : null } : null;
+    }
+    return { rows: target.rule.evidence.map((e, evidenceIndex) => {
+      const kept = stored(evidenceIndex);
+      const sample = target.round.sampleSet.files.find(f => f.fileRef === e.fileRef);
+      return { ruleResultId: target.rule.id, evidenceIndex, evidenceRef: { fileRef: e.fileRef, line: e.line, fileSha256: e.fileSha256 },
+        excerptState: !e.hasExcerpt ? 'not_submitted' : !allowed ? 'no_permission' : kept && kept.deletedAt === null ? 'not_loaded' : 'unknown',
+        sourceState: !allowed ? 'no_permission' : sample && sample.sha256 !== e.fileSha256 ? 'hash_mismatch' : 'not_checked' };
+    }) };
   }
-  if (name === 'excerpt') return p.ruleResultId === rules[1]?.id ? { deleted: true, excerpt: null } : { deleted: false, excerpt: 'SYNTHETIC FIXTURE · 이벤트 형식 해석 실패' };
   return null;
 }
 export const logLifecycleMock: readonly AnyMockEndpoint[] = Object.entries(endpoints).map(([name, spec]) => defineMockEndpoint(spec, { mart: false, validate: ({ params }) => {

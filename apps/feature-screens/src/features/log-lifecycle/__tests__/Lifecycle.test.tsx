@@ -101,7 +101,9 @@ describe('Round and request states', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'R-001 상세 열기' }));
     await user.click(screen.getByRole('button', { name: '발췌 보기' }));
-    expect(screen.getByText(kind === 'denied' ? /권한 없음 · 이 원본/ : kind === 'deleted' ? '보관 기간 지남으로 삭제됨' : '짧은 합성 로그')).toBeVisible();
+    expect(screen.getByText(kind === 'denied' ? /권한 없음 · 이 원본/ : kind === 'deleted' ? /^발췌 상태 알 수 없음/ : '짧은 합성 로그')).toBeVisible();
+    // A body deleted between the state read and the explicit read never claims a cause (R3).
+    expect(screen.queryByText(/삭제됨|만료|보관 기간/)).toBeNull();
   });
   it('keeps another Round’s request results out of this Round', () => {
     render(<RoundScreen {...props({ roundDetail: gate(), requests: { rows: [request], total: 1 }, requestDetail: { ...request, roundId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', attempts: [] } })} project={project} roundId={ID} />);

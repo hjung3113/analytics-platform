@@ -140,6 +140,67 @@ describe('lifecycle interactions with the real Kernel host', () => {
     expect([...document.querySelectorAll('button')].some(b => b.textContent === '발췌 보기')).toBe(false);
   });
 
+  it('never shows a cached excerpt body or evidence state after close, revocation and an offline reopen', async () => {
+    const BODY = 'SYNTHETIC BODY · 합성 발췌';
+    const ev = { fileRef: 'synthetic://sample-01', line: 7, fileSha256: 'a'.repeat(64), hasExcerpt: true };
+    const denied = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' } as ApiResponse<never>;
+    let revoked = false;
+    const t = mount('&result=all', 1, 'round', q => {
+      const p = q.params as Record<string, unknown>;
+      if (q.endpoint === 'logLifecycle.ruleResults') return ok({ rows: rules.map(r => r.ruleId === 'R-002' ? { ...r, evidence: [ev], hasExcerpt: true } : r), total: rules.length });
+      if (q.endpoint === 'logLifecycle.evidenceStates') return ok(revoked ? null : { rows: [{ ruleResultId: p.ruleResultId, evidenceIndex: 0, evidenceRef: { fileRef: ev.fileRef, line: ev.line, fileSha256: ev.fileSha256 }, excerptState: 'not_loaded', sourceState: 'not_checked' }] });
+      if (q.endpoint === 'logLifecycle.excerpt') return revoked ? denied : ok({ deleted: false, excerpt: BODY });
+      return undefined;
+    });
+    const reads = (name: string) => t.queries.filter(q => q.endpoint === `logLifecycle.${name}`).length;
+    const dialog = () => document.querySelector('[role="dialog"]')?.textContent ?? '';
+    const page = () => document.body.textContent ?? '';
+    const network = (online: boolean) => act(() => { window.dispatchEvent(new Event(online ? 'online' : 'offline')); });
+    try {
+      await ready();
+      click(element('button[aria-label="R-002 상세 열기"]'));
+      await waitFor(() => expect(button('발췌 보기')).toBeTruthy());
+      click(button('발췌 보기'));
+      await waitFor(() => expect(dialog()).toContain(BODY));
+      expect(reads('excerpt')).toBe(1);
+      // Closing the excerpt returns to the rule drawer, which reads the states again.
+      click(element('[role="dialog"] button[aria-label="상세 닫기"]'));
+      await waitFor(() => expect(button('발췌 보기')).toBeTruthy());
+      expect(reads('evidenceStates')).toBe(2);
+      // Revoked and offline: a reopened excerpt starts with no prior body and sends nothing until the connection returns.
+      revoked = true;
+      network(false);
+      click(button('발췌 보기'));
+      await waitFor(() => expect(dialog()).toContain('로그 발췌'));
+      await act(async () => { await settleQueries(); });
+      expect(page()).not.toContain(BODY);
+      expect(reads('excerpt')).toBe(1);
+      network(true);
+      await waitFor(() => expect(dialog()).toContain('권한 없음 · 이 원본의 발췌 열람 권한이 없습니다.'));
+      expect(reads('excerpt')).toBe(2);
+      expect(page()).not.toContain(BODY);
+      click(element('[role="dialog"] button[aria-label="상세 닫기"]'));
+      await waitFor(() => expect(dialog()).toContain('근거 상태를 읽을 수 없습니다'));
+      click(element('[role="dialog"] button[aria-label="상세 닫기"]'));
+      await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+      // Offline reopen of the rule drawer: no cached `not_loaded` row or 발췌 보기 button, no request until online.
+      const before = reads('evidenceStates');
+      network(false);
+      click(element('button[aria-label="R-002 상세 열기"]'));
+      await waitFor(() => expect(dialog()).toContain('R-002'));
+      await act(async () => { await settleQueries(); });
+      expect(dialog()).not.toContain('발췌 열람 전');
+      expect([...document.querySelectorAll('button')].some(b => b.textContent === '발췌 보기')).toBe(false);
+      expect(reads('evidenceStates')).toBe(before);
+      network(true);
+      await waitFor(() => expect(dialog()).toContain('근거 상태를 읽을 수 없습니다'));
+      expect(reads('evidenceStates')).toBe(before + 1);
+      expect(page()).not.toContain(BODY);
+    } finally {
+      network(true);
+    }
+  });
+
   it.each([['modelId', ID, { id: 'id', op: 'in', value: [ID] }], ['processId', 'none', { id: 'processes', op: 'isEmpty' }]])('projects the hierarchy %s page key into the existing list condition', async (key, value, condition) => {
     const queries: MenuQuery<Record<string, unknown>>[] = [];
     const adapter = testAdapter({ menuQuery: async q => { queries.push(q as MenuQuery<Record<string, unknown>>); return ok({ rows: [], total: 0 }); } });

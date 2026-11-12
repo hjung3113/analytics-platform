@@ -12,9 +12,10 @@ import { useRoundExecution } from './RoundExecution';
 import { RuleEvidence } from './EvidenceRows';
 
 function Excerpt({ api, ui, ruleResultId, evidenceIndex, onClose }: Pick<ScreenProps, 'api' | 'ui'> & { ruleResultId: string; evidenceIndex: number; onClose(): void }) {
-  // Only mounted after the person's explicit read. Kernel cancels and discards it on close/session change.
+  // Only mounted after the person's explicit read; every mount starts a fresh read with no prior answer. A deleted excerpt has no
+  // authoritative cause (admin deletion and retention purge answer alike, R3), so it reads as an unknown state, never as «expired».
   const q = api.useRead<{ deleted: boolean; excerpt: string | null }>('excerpt', { ruleResultId, evidenceIndex });
-  return ui.drawer({ title: '로그 발췌', requestClose: onClose, body: q.denied ? <p role="alert" className="text-sm">권한 없음 · 이 원본의 발췌 열람 권한이 없습니다.</p> : <ReadView query={q} empty="저장된 발췌가 없습니다.">{data => data.deleted ? <p className="text-sm">보관 기간 지남으로 삭제됨</p> : <pre className="whitespace-pre-wrap break-all text-xs">{data.excerpt}</pre>}</ReadView> });
+  return ui.drawer({ title: '로그 발췌', requestClose: onClose, body: q.denied ? <p role="alert" className="text-sm">권한 없음 · 이 원본의 발췌 열람 권한이 없습니다.</p> : <ReadView query={q} empty="저장된 발췌가 없습니다.">{data => data.deleted ? <p className="text-sm">발췌 상태 알 수 없음 · 저장된 발췌를 더 이상 읽을 수 없습니다.</p> : <pre className="whitespace-pre-wrap break-all text-xs">{data.excerpt}</pre>}</ReadView> });
 }
 /** The compact table omits repeated sentences; the detail retains the complete server text. */
 function observationSummary(value: string | null) { return value ? [...new Set(value.split(/(?<=[.!?])\s+/u))].join(' ') : '관측 없음'; }
