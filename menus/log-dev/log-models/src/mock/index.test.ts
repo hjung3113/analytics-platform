@@ -6,6 +6,7 @@ import type { PageSort } from '@ap/contracts';
 
 type Params = Record<string, unknown>;
 const read = (name: string, params: Params = {}) => logLifecycleMock.find(e => e.spec.id === `logLifecycle.${name}`)?.handle({ params, context: emptyGlobal, equipment: [], actor: 'admin' });
+const readAs = (actor: string, name: string, params: Params = {}) => logLifecycleMock.find(e => e.spec.id === `logLifecycle.${name}`)?.handle({ params, context: emptyGlobal, equipment: [], actor: actor as 'admin' });
 const write = (name: string, input: Params) => logLifecycleActionsMock.find(a => a.spec.id === `logLifecycle.${name}`)?.handle({ input, actor: 'admin', scopeId: null });
 beforeEach(resetLifecycle);
 describe('synthetic lifecycle screen fixture', () => {
@@ -32,6 +33,25 @@ describe('synthetic lifecycle screen fixture', () => {
     const data = read('ruleResults', { attemptId: ATTEMPT_ID, results: ['ERROR'], pageSize: 1, sorting: [{ id: 'ruleId', desc: false }] satisfies PageSort[] });
     expect(data).toMatchObject({ total: 1, rows: [{ ruleId: 'TIME-001', hasExcerpt: true }] });
     expect(JSON.stringify(data)).not.toContain('SYNTHETIC FIXTURE');
+  });
+  it('derives evidence states from the manifest, the stored excerpts and the Source owner right', () => {
+    type Row = { evidenceIndex: number; excerptState: string; sourceState: string };
+    const rows = (n: number, actor = 'admin') => (readAs(actor, 'evidenceStates', { ruleResultId: fixtureId(501 + n) }) as { rows: Row[] }).rows.map(r => [r.evidenceIndex, r.excerptState, r.sourceState]);
+    // Same pinned hash as the Round manifest → not_checked; a stored excerpt → not_loaded; no submitted excerpt → not_submitted.
+    expect(rows(0)).toEqual([[0, 'not_loaded', 'not_checked'], [1, 'not_submitted', 'not_checked']]);
+    // A different pinned hash for the manifest file → hash_mismatch; an erased excerpt → unknown (no provenance).
+    expect(rows(1)).toEqual([[0, 'unknown', 'hash_mismatch']]);
+    expect(rows(2)).toEqual([[0, 'not_loaded', 'not_checked']]);
+    // Without the right for the Round's Source owner every rule of that Round reads no_permission (not_submitted stays).
+    expect([0, 1, 2].map(n => rows(n, 'viewer'))).toEqual([[[0, 'no_permission', 'no_permission'], [1, 'not_submitted', 'no_permission']], [[0, 'no_permission', 'no_permission']], [[0, 'no_permission', 'no_permission']]]);
+    expect(read('evidenceStates', { ruleResultId: fixtureId(999) })).toBeNull();
+    expect(JSON.stringify(rows(0))).not.toContain('SYNTHETIC FIXTURE');
+  });
+  it('serves an excerpt body only from the same fixture: stored, erased, not submitted, no right', () => {
+    expect(read('excerpt', { ruleResultId: fixtureId(501), evidenceIndex: 0 })).toMatchObject({ deleted: false, excerpt: 'SYNTHETIC FIXTURE · 이벤트 형식 해석 실패' });
+    expect(read('excerpt', { ruleResultId: fixtureId(502), evidenceIndex: 0 })).toMatchObject({ deleted: true, excerpt: null });
+    expect(read('excerpt', { ruleResultId: fixtureId(501), evidenceIndex: 1 })).toBeNull();
+    expect(readAs('viewer', 'excerpt', { ruleResultId: fixtureId(501), evidenceIndex: 0 })).toBeNull();
   });
   it('records a human rejection independently from the machine verdict', () => {
     const saved = write('gateDecide', { roundId: ROUND_ID, targetStage: 'beta', decision: 'rejected', reason: '필수 규칙 재확인' });

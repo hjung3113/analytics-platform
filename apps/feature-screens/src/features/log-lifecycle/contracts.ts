@@ -25,6 +25,10 @@ export type AttemptRuleSet = null | { state: 'matched'; ruleSetKey: string; revi
 export type Attempt = { opinionCount?: number; id: string; attemptNo: number; outcome: string; workerActorId: string; verdict: string | null; manifestMatches: boolean; counts: Record<string, number>; requiredUnchecked: number; ruleCount: number; startedAt: string; endedAt: string | null; ruleSetRevision: string | null; inputManifestDigest: string; ruleSet?: AttemptRuleSet };
 export type RequestDetail = RequestRow & { attempts: Attempt[]; cancelReason: string | null };
 export type RuleResult = { opinion?: OpinionSummary | null; id: string; ruleId: string; result: string; required: boolean; expected: string | null; observed: string | null; evidence: { fileRef: string; line: number; fileSha256: string; hasExcerpt: boolean }[]; hasExcerpt: boolean };
+/** `logLifecycle.evidenceStates`: the excerpt axis and the Source axis of one evidence row; never one merged status, never body text. */
+export type ExcerptState = 'not_submitted' | 'not_loaded' | 'no_permission' | 'unknown';
+export type SourceState = 'no_permission' | 'hash_mismatch' | 'not_checked';
+export type EvidenceStateRow = { ruleResultId: string; evidenceIndex: number; evidenceRef: { fileRef: string; line: number; fileSha256: string }; excerptState: ExcerptState; sourceState: SourceState };
 /** Labels are nullable when a historical key has left the workspace declaration. */
 export type OpinionValue = { key: string; label: string | null };
 export type OpinionScale = { grades: { key: string; label: string }[]; marks: { key: string; label: string }[] };

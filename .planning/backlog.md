@@ -9,7 +9,7 @@
 ## 연결된 기능 후속
 
 - **구현 안 함 — Round 사람 결함·토론 공급 (#1808, #1809):** 결과 우선 화면은 서버가 결함을 공급할 때만 표와 Round 전체 집계를 표시한다. 이유: #1809는 결함 DB·댓글 저장을 소유하지 않는다. 다시 여는 조건: #1808의 사람 API·가시성·감사 노드가 준비될 때. [설계·선행 노드](../docs/design/features/log-lifecycle/validation-issues-discussion.md).
-- **구현 안 함 — Round 진단 리포트·첨부 상세 (#1815, #1809):** 기존 서버 규칙 결과·근거·발췌만 표시한다. 이유: 출력 보존·진단 읽기·첨부 ACL은 #1815 범위다. 다시 여는 조건: #1815의 읽기/첨부 노드와 시안 승인이 준비될 때. [설계·선행 노드](../docs/design/features/log-lifecycle/diagnostic-report-parity.md).
+- **구현 안 함 — Round 진단 리포트·첨부 상세 (#1815, #1809):** 기존 서버 규칙 결과·근거·발췌만 표시한다. 이유: 출력 보존·진단 읽기·첨부 ACL은 #1815 범위다. 다시 여는 조건: #1815의 읽기/첨부 노드와 시안 승인이 준비될 때. 구현됨: A3의 근거 행 두 상태(A2 부분); 남음: A1 summary 투영·Slice B 표/첨부 상세(R1·R2 범위 확정 대기). [설계·선행 노드](../docs/design/features/log-lifecycle/diagnostic-report-parity.md).
 
 ## 작은 후속 (확인된 것)
 

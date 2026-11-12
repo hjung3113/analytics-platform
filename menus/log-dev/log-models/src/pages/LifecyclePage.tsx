@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { AuditTimeline, DataTrustIndicator, PageKeyWarning, usePageKeyRules, DetailDrawer, PlatformDataTable, PlatformPage } from '@ap/components';
-import { PlatformLink, useMenuAction, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
+import { PlatformLink, useEndpointRefreshEpoch, useMenuAction, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, type PageProps } from '@ap/kernel';
 import { defineEndpoint, type AuditEvent, type EndpointSpec } from '@ap/contracts';
 import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
 import { roundSourceView } from '../round-source-slot';
@@ -10,6 +10,7 @@ import { isModelHierarchyNodeId } from '../hierarchy';
 // Lookup mirrors only; these are owned and implemented by log-knowledge, never contributed a second time.
 const lookupEndpoints: Record<string, EndpointSpec<Params, unknown>> = Object.fromEntries(['vendors', 'processes'].map(name => [name, defineEndpoint<Params, unknown>({ id: `logKnowledge.${name}`, menuId: 'log-knowledge-catalog', permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false, paramKeys: { q: true, page: true, pageSize: true, sorting: true, filters: true } })]));
 
+const SOURCE_GATED = new Set(['excerpt', 'evidenceStates']);
 function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> {
   const { pageParam, route } = usePlatform();
   const listRead = name === 'models' && route?.menu.id === 'log-models';
@@ -20,8 +21,17 @@ function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> 
   ] } : params;
   const spec = endpoints[name] ?? lookupEndpoints[name];
   if (!spec) throw new Error(`Unknown lifecycle read: ${name}`);
-  const query = useMenuQuery(spec, projected, enabled);
-  const response = query.response;
+  // Source-gated reads (R5: ACL and audit on every access) run on a per-instance query: each mount (drawer open) starts with no
+  // prior result and only shows what that instance itself received, so a cached answer never outlives a close, also offline
+  // (a paused re-read of a shared key would show the old body as `done`). Every other read stays on the shared menu query.
+  const gated = SOURCE_GATED.has(name);
+  const shared = useMenuQuery(spec, projected, enabled && !gated);
+  const { ready, fetch } = useMenuFetch(spec);
+  const epoch = useEndpointRefreshEpoch(gated ? [spec.id] : []);
+  const own = usePlatformQuery(signal => fetch(projected, signal), [spec.id, projected], enabled && gated && ready, 'context', epoch);
+  const query = gated ? own : shared;
+  // Within one instance a re-read (retry, write refresh) never shows the prior answer either: a revoked right must not re-show it.
+  const response = gated && query.status === 'refreshing' ? undefined : query.response;
   return { status: response ? response.outcome === 'ok' || response.outcome === 'empty' ? 'done' : 'error' : 'loading', completedAt: query.completedAt, data: response?.data as T | null, denied: response?.outcome === 'forbidden', retry: query.refetch };
 }
 function useAction(name: string): Action {

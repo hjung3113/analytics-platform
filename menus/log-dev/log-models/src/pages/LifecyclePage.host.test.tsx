@@ -40,7 +40,7 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => root.unmount()); container.remove(); restoreGeometry(); vi.restoreAllMocks(); });
 
-function mount(search = '', count = 1, route = 'round') {
+function mount(search = '', count = 1, route = 'round', override?: (q: MenuQuery<Record<string, unknown>>) => ApiResponse<never> | undefined) {
   const queries: MenuQuery<Record<string, unknown>>[] = [];
   const sent: { request: MenuAction; resolve(value: ActionResponse<unknown>): void }[] = [];
   const listeners = new Set<() => void>();
@@ -49,6 +49,8 @@ function mount(search = '', count = 1, route = 'round') {
   const adapter = testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => listeners.delete(l); }, menuQuery: async q => {
     queries.push(q as MenuQuery<Record<string, unknown>>);
     const p = q.params as Record<string, unknown>;
+    const overridden = override?.(q as MenuQuery<Record<string, unknown>>);
+    if (overridden) return overridden;
     if (q.endpoint === 'logLifecycle.models') {
       const filters = (p.filters ?? []) as { id: string; value?: string[] }[];
       const rows: Model[] = [{ id: B, code: 'MODEL-B', name: '다른 모델', vendorName: '설비사', vendorId: ID, processes: [], updatedAt: AT, validation: 'none', pendingRequests: 0, gateDecision: null, project: { projectId: B, stage: 'alpha', latestRound: { id: B, seq: 1, status: 'open' } } }];
@@ -64,6 +66,11 @@ function mount(search = '', count = 1, route = 'round') {
       let rows = rules.filter(r => (!p.results || (p.results as string[]).includes(r.result)) && (!p.required || r.required));
       if ((p.sorting as { id: string }[] | undefined)?.[0]?.id === 'result') rows = [...rows].sort((a, b) => a.result.localeCompare(b.result));
       return ok({ rows: rows.slice(Number(p.page ?? 0) * 25, (Number(p.page ?? 0) + 1) * 25), total: rows.length });
+    }
+    if (q.endpoint === 'logLifecycle.evidenceStates') {
+      // Mirrors the server's rules over the fixture: no stored excerpt means not_submitted, and a different pinned hash for the same file means hash_mismatch.
+      const found = rules.find(r => r.id === p.ruleResultId);
+      return ok(found ? { rows: found.evidence.map((e, evidenceIndex) => ({ ruleResultId: found.id, evidenceIndex, evidenceRef: { fileRef: e.fileRef, line: e.line, fileSha256: e.fileSha256 }, excerptState: e.hasExcerpt ? 'not_loaded' : 'not_submitted', sourceState: round.sampleSet.files.some(f => f.fileRef === e.fileRef && f.sha256 !== e.fileSha256) ? 'hash_mismatch' : 'not_checked' })) } : null);
     }
     return ok(null);
   }, menuAction: req => new Promise(resolve => sent.push({ request: req, resolve })) });
@@ -105,6 +112,95 @@ function change(selector: string, value: string) {
 }
 
 describe('lifecycle interactions with the real Kernel host', () => {
+  it('re-reads evidence states on every drawer open and never re-shows a prior answer after revocation', async () => {
+    const ev = { fileRef: 'synthetic://sample-01', line: 7, fileSha256: 'a'.repeat(64), hasExcerpt: true };
+    let revoked = false;
+    const t = mount('&result=all', 1, 'round', q => {
+      const p = q.params as Record<string, unknown>;
+      if (q.endpoint === 'logLifecycle.ruleResults') return ok({ rows: rules.map(r => r.ruleId === 'R-002' ? { ...r, evidence: [ev], hasExcerpt: true } : r), total: rules.length });
+      if (q.endpoint === 'logLifecycle.evidenceStates') return ok(revoked ? null : { rows: [{ ruleResultId: p.ruleResultId, evidenceIndex: 0, evidenceRef: { fileRef: ev.fileRef, line: ev.line, fileSha256: ev.fileSha256 }, excerptState: 'not_loaded', sourceState: 'not_checked' }] });
+      return undefined;
+    });
+    await ready();
+    const evidenceReads = () => t.queries.filter(q => q.endpoint === 'logLifecycle.evidenceStates');
+    click(element('button[aria-label="R-002 상세 열기"]'));
+    await waitFor(() => expect(button('발췌 보기')).toBeTruthy());
+    expect(evidenceReads()).toHaveLength(1);
+    expect(evidenceReads()[0]?.params).toEqual({ ruleResultId: rules[1]?.id });
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('발췌 열람 전');
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('원본 미확인');
+    click(element('[role="dialog"] button[aria-label="상세 닫기"]'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+    revoked = true;
+    click(element('button[aria-label="R-002 상세 열기"]'));
+    // Immediately after reopening, the previous answer is not shown while the new read is pending.
+    expect(document.querySelector('[role="dialog"]')?.textContent ?? '').not.toContain('발췌 열람 전');
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('근거 상태를 읽을 수 없습니다'));
+    expect(evidenceReads()).toHaveLength(2);
+    expect([...document.querySelectorAll('button')].some(b => b.textContent === '발췌 보기')).toBe(false);
+  });
+
+  it('never shows a cached excerpt body or evidence state after close, revocation and an offline reopen', async () => {
+    const BODY = 'SYNTHETIC BODY · 합성 발췌';
+    const ev = { fileRef: 'synthetic://sample-01', line: 7, fileSha256: 'a'.repeat(64), hasExcerpt: true };
+    const denied = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' } as ApiResponse<never>;
+    let revoked = false;
+    const t = mount('&result=all', 1, 'round', q => {
+      const p = q.params as Record<string, unknown>;
+      if (q.endpoint === 'logLifecycle.ruleResults') return ok({ rows: rules.map(r => r.ruleId === 'R-002' ? { ...r, evidence: [ev], hasExcerpt: true } : r), total: rules.length });
+      if (q.endpoint === 'logLifecycle.evidenceStates') return ok(revoked ? null : { rows: [{ ruleResultId: p.ruleResultId, evidenceIndex: 0, evidenceRef: { fileRef: ev.fileRef, line: ev.line, fileSha256: ev.fileSha256 }, excerptState: 'not_loaded', sourceState: 'not_checked' }] });
+      if (q.endpoint === 'logLifecycle.excerpt') return revoked ? denied : ok({ deleted: false, excerpt: BODY });
+      return undefined;
+    });
+    const reads = (name: string) => t.queries.filter(q => q.endpoint === `logLifecycle.${name}`).length;
+    const dialog = () => document.querySelector('[role="dialog"]')?.textContent ?? '';
+    const page = () => document.body.textContent ?? '';
+    const network = (online: boolean) => act(() => { window.dispatchEvent(new Event(online ? 'online' : 'offline')); });
+    try {
+      await ready();
+      click(element('button[aria-label="R-002 상세 열기"]'));
+      await waitFor(() => expect(button('발췌 보기')).toBeTruthy());
+      click(button('발췌 보기'));
+      await waitFor(() => expect(dialog()).toContain(BODY));
+      expect(reads('excerpt')).toBe(1);
+      // Closing the excerpt returns to the rule drawer, which reads the states again.
+      click(element('[role="dialog"] button[aria-label="상세 닫기"]'));
+      await waitFor(() => expect(button('발췌 보기')).toBeTruthy());
+      expect(reads('evidenceStates')).toBe(2);
+      // Revoked and offline: a reopened excerpt starts with no prior body and sends nothing until the connection returns.
+      revoked = true;
+      network(false);
+      click(button('발췌 보기'));
+      await waitFor(() => expect(dialog()).toContain('로그 발췌'));
+      await act(async () => { await settleQueries(); });
+      expect(page()).not.toContain(BODY);
+      expect(reads('excerpt')).toBe(1);
+      network(true);
+      await waitFor(() => expect(dialog()).toContain('권한 없음 · 이 원본의 발췌 열람 권한이 없습니다.'));
+      expect(reads('excerpt')).toBe(2);
+      expect(page()).not.toContain(BODY);
+      click(element('[role="dialog"] button[aria-label="상세 닫기"]'));
+      await waitFor(() => expect(dialog()).toContain('근거 상태를 읽을 수 없습니다'));
+      click(element('[role="dialog"] button[aria-label="상세 닫기"]'));
+      await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+      // Offline reopen of the rule drawer: no cached `not_loaded` row or 발췌 보기 button, no request until online.
+      const before = reads('evidenceStates');
+      network(false);
+      click(element('button[aria-label="R-002 상세 열기"]'));
+      await waitFor(() => expect(dialog()).toContain('R-002'));
+      await act(async () => { await settleQueries(); });
+      expect(dialog()).not.toContain('발췌 열람 전');
+      expect([...document.querySelectorAll('button')].some(b => b.textContent === '발췌 보기')).toBe(false);
+      expect(reads('evidenceStates')).toBe(before);
+      network(true);
+      await waitFor(() => expect(dialog()).toContain('근거 상태를 읽을 수 없습니다'));
+      expect(reads('evidenceStates')).toBe(before + 1);
+      expect(page()).not.toContain(BODY);
+    } finally {
+      network(true);
+    }
+  });
+
   it.each([['modelId', ID, { id: 'id', op: 'in', value: [ID] }], ['processId', 'none', { id: 'processes', op: 'isEmpty' }]])('projects the hierarchy %s page key into the existing list condition', async (key, value, condition) => {
     const queries: MenuQuery<Record<string, unknown>>[] = [];
     const adapter = testAdapter({ menuQuery: async q => { queries.push(q as MenuQuery<Record<string, unknown>>); return ok({ rows: [], total: 0 }); } });
@@ -294,7 +390,7 @@ describe('Round «원본/시퀀스» tab (#1475)', () => {
     click(button(/^R-001/));
     await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
     expect(() => button('원본에서 보기', element('[role="dialog"]'))).toThrow();
-    expect(text('해시 불일치', element('[role="dialog"]'))).toBe(true);
+    expect(text('원본 해시 불일치', element('[role="dialog"]'))).toBe(true);
     expect(text('원본 확인 불가', element('[role="dialog"]'))).toBe(true);
   });
   it('refuses a wrong view value with the invalid-value panel, and recovery clears only that key', async () => {

@@ -93,7 +93,7 @@ describe('Round and request states', () => {
   });
   it.each(['denied', 'deleted', 'readable'])('opens excerpt state %s only after an explicit read', async kind => {
     const attempt = { id: ID, attemptNo: 1, outcome: 'succeeded', workerActorId: ID, verdict: 'incomplete', manifestMatches: true, counts: { ERROR: 1 }, requiredUnchecked: 1, ruleCount: 1, startedAt: '2026-11-07T00:00:00Z', endedAt: '2026-11-07T00:01:00Z', ruleSetRevision: 'r1', inputManifestDigest: 'a'.repeat(64) };
-    const p = props({ roundDetail: gate(), requests: { rows: [request], total: 1 }, requestDetail: { ...request, attempts: [attempt] }, ruleResults: { rows: [result], total: 1 }, excerpt: { deleted: kind === 'deleted', excerpt: '짧은 합성 로그' } });
+    const p = props({ roundDetail: gate(), requests: { rows: [request], total: 1 }, requestDetail: { ...request, attempts: [attempt] }, ruleResults: { rows: [result], total: 1 }, evidenceStates: { rows: [{ ruleResultId: ID, evidenceIndex: 0, evidenceRef: { fileRef: 's3://sample/file.log', line: 1, fileSha256: 'a'.repeat(64) }, excerptState: 'not_loaded', sourceState: 'not_checked' }] }, excerpt: { deleted: kind === 'deleted', excerpt: '짧은 합성 로그' } });
     const base = p.api.useRead;
     p.api.useRead = <T,>(name: string, params: Record<string, unknown>, enabled?: boolean) => name === 'excerpt' && kind === 'denied' ? { status: 'error', data: null, denied: true, retry: vi.fn() } : base<T>(name, params, enabled);
     render(<RoundScreen {...p} project={project} roundId={ID} />);
@@ -101,7 +101,9 @@ describe('Round and request states', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'R-001 상세 열기' }));
     await user.click(screen.getByRole('button', { name: '발췌 보기' }));
-    expect(screen.getByText(kind === 'denied' ? /권한 없음 · 이 원본/ : kind === 'deleted' ? '보관 기간 지남으로 삭제됨' : '짧은 합성 로그')).toBeVisible();
+    expect(screen.getByText(kind === 'denied' ? /권한 없음 · 이 원본/ : kind === 'deleted' ? /^발췌 상태 알 수 없음/ : '짧은 합성 로그')).toBeVisible();
+    // A body deleted between the state read and the explicit read never claims a cause (R3).
+    expect(screen.queryByText(/삭제됨|만료|보관 기간/)).toBeNull();
   });
   it('keeps another Round’s request results out of this Round', () => {
     render(<RoundScreen {...props({ roundDetail: gate(), requests: { rows: [request], total: 1 }, requestDetail: { ...request, roundId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', attempts: [] } })} project={project} roundId={ID} />);

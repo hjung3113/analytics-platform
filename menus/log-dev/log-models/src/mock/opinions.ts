@@ -1,6 +1,6 @@
 /** Synthetic read data. The grade/mark labels have no domain meaning. */
 import type { Opinion, OpinionListRow, RuleResult } from '../endpoints';
-import { fixtureId, rules } from './fixtures';
+import { excerpts, fixtureId, rules } from './fixtures';
 export const opinionScale = { grades: [1, 2, 3, 4].map(n => ({ key: `g${n}`, label: `등급 ${n}` })), marks: [1, 2].map(n => ({ key: `m${n}`, label: `표식 ${n}` })) };
 const at = '2026-11-07T00:35:00Z';
 type Summary = NonNullable<RuleResult['opinion']>;
@@ -13,6 +13,8 @@ export const opinionRules: RuleResult[] = Array.from({ length: 5 }, (_, i) => ({
   ...(i === 2 ? { evidence: [rules[2]!.evidence[0]!, { ...rules[2]!.evidence[0]!, line: 191 }] } : {}),
   opinion: i === 0 ? null : i === 1 ? summary(0, null, false) : i === 2 ? summary(1, 0, true, 2) : i === 3 ? { ...summary(0, null, false), grade: { key: 'g_retired', label: null }, mark: { key: 'm_retired', label: null } } : summary(3, 1, true),
 }));
+// Every submitted excerpt of the opinion attempt is stored and readable.
+excerpts.push(...opinionRules.flatMap(r => r.evidence.flatMap((e, evidenceIndex) => e.hasExcerpt ? [{ ruleResultId: r.id, evidenceIndex, body: 'SYNTHETIC FIXTURE · 이벤트 형식 해석 실패', deletedAt: null }] : [])));
 export const unlinkedOpinions: OpinionListRow[] = [
   { itemKey: 'ITEM-006', ...summary(2, 0, true) },
   { itemKey: 'ITEM-007', ...summary(0, null, false) },

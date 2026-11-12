@@ -71,6 +71,8 @@ items 수, 항목별 표 수, 열 수, 행 수, 셀 길이, payload 총 bytes, �
 | B1 버전 진단 쓰기/읽기 | B0 승인 | backend·schema·후속 DDL. RoundScreen 미접촉 |
 | B2 표/첨부 상세 | B1 + A3 + 실제 앱 variant 승인 | `RoundScreen.tsx` 연결 가능, #1809 뒤 stack |
 
+**A3 상태 · 부분 구현(A2 부분만).** 규칙 상세 Drawer의 «근거·원본 라인»이 `logLifecycle.evidenceStates`를 열 때마다 읽어 근거 행마다 발췌 축(`not_submitted`·`not_loaded`·`no_permission`·`unknown`)과 원본 축(`no_permission`·`hash_mismatch`·`not_checked`)을 따로 보인다. 발췌 보기는 `not_loaded`일 때만, 원본에서 보기는 `not_checked`일 때만 열린다. 근거 상태와 발췌 본문은 Drawer 인스턴스마다 따로 읽어, 다시 열면 이전 결과 없이 새로 읽는다(오프라인으로 다시 열어도 캐시된 본문·상태를 보이지 않고 연결 뒤 새 요청만 보인다). 상태 조회 뒤 삭제된 발췌도 원인을 단정하지 않고 «발췌 상태 알 수 없음»으로 보인다(R3). A1 summary 투영과 Slice B(표·첨부 상세)는 Candidate로 남는다. 다시 여는 조건: R1·R2 범위를 사내 리포트 점검 뒤 소유자가 확정할 때.
+
 #1808은 [사람 등록/토론 설계](validation-issues-discussion.md)의 N1/N2 backend를 먼저 준비할 수 있지만 진단 연결 UI는 A3의 안정 참조를 따른다.
 
 ## 6. Open decisions (통합)
