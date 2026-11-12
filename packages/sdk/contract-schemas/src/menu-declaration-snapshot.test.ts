@@ -1,4 +1,5 @@
-import { canonicalJson, collectDeclarations, defineAction, defineEndpoint, menuDeclarationSnapshot, MENU_DECLARATION_SNAPSHOT_VERSION, MenuDeclarationSnapshotError, menuPermission } from '@ap/contracts';
+import { defineAction, defineEndpoint, menuPermission } from '@ap/contracts';
+import { canonicalJson, collectDeclarations, menuDeclarationSnapshot, MENU_DECLARATION_SNAPSHOT_VERSION, MenuDeclarationSnapshotError } from '@ap/contracts/build';
 import { describe, expect, it } from 'vitest';
 import { menuDeclarationSnapshotSchema, MENU_DECLARATION_SNAPSHOT_SCHEMA_VERSION, SCHEMA_FILES, toJsonSchema } from './index.ts';
 

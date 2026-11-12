@@ -11,17 +11,6 @@ export * from './i18n.js';
 export * from './values/instant.js';
 export * from './menu/menu.js';
 export * from './menu/menu-query.js';
-export {
-  MENU_DECLARATION_SNAPSHOT_FILE,
-  MENU_DECLARATION_SNAPSHOT_VERSION,
-  MenuDeclarationSnapshotError,
-  canonicalJson,
-  collectDeclarations,
-  menuDeclarationSnapshot,
-  menuDeclarationSnapshotDigest,
-  menuDeclarationSnapshotPlugin,
-} from './menu/declaration-snapshot.js';
-export type { MenuDeclarationSnapshot, MenuDeclarationSnapshotInput, MenuDeclarationSnapshotPluginOptions, SnapshotAction, SnapshotContext, SnapshotEmitContext, SnapshotEndpoint, SnapshotMenu, SnapshotMenuInput } from './menu/declaration-snapshot.js';
 export * from './values/measure.js';
 export * from './adapter/paging.js';
 export * from './adapter/column-filters.js';

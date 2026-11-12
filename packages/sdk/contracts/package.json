@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./build": "./src/build.ts",
     "./vocab.json": "./src/vocab.json"
   },
   "publishConfig": {
@@ -12,6 +13,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./build": {
+        "types": "./dist/build.d.ts",
+        "import": "./dist/build.js"
       },
       "./vocab.json": "./dist/vocab.json"
     }

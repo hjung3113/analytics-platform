@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { runnerImport } from 'vite';
 import { defineConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
-import { menuDeclarationSnapshotPlugin } from '@ap/contracts';
+import { menuDeclarationSnapshotPlugin } from '@ap/contracts/build';
 
 const kitRoot = fileURLToPath(new URL('.', import.meta.url));
 const sdkVersion = () => (JSON.parse(readFileSync(new URL('./node_modules/@ap/contracts/package.json', import.meta.url), 'utf8')) as { version: string }).version;
