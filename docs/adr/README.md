@@ -157,7 +157,7 @@
 | [0144](0144-lane-timeline-declarative-overlays.md) | LaneTimeline 표시는 선언형 `overlays` prop으로 받고 명령형 그리기 콜백은 두지 않는다 | Decided(2026-11-11, lane 1746c, 되돌릴 수 있음) |
 | [0145](0145-lane-timeline-canvas-lod-before-worker-webgl.md) | LaneTimeline 성능은 Canvas 2D LOD로 먼저 풀고 Worker·WebGL은 측정이 모자랄 때만 연다 | Decided(2026-11-11, lane 1746c, 되돌릴 수 있음) |
 | [0146](0146-core-server-loads-in-house-declarations-from-deployment-config.md) | 코어 서버는 사내 확장을 코드가 아니라 선언으로 싣는다(배포 설정의 선언 묶음, 메뉴 권한 표) | Decided(2026-11-12) |
-| [0147](0147-scope-grants-come-from-an-injected-resolver.md) | Scope 부여의 원천은 사내가 주입하는 resolver, 단위는 site·room부터 | Decided(2026-11-12) — 결정 1·2는 0154가 대체(Candidate) |
+| [0147](0147-scope-grants-come-from-an-injected-resolver.md) | Scope 부여의 원천은 사내가 주입하는 resolver, 단위는 site·room부터 | Decided(2026-11-12) — 결정 1·2·4 일부는 0154(Candidate)가 Decided 되면 대체 |
 | [0148](0148-minimal-forwarder-and-identity-token.md) | 전달기는 menu-query 경로와 신원 토큰만 먼저(요청마다 해석한 Scope 집합을 30초 토큰에) | Decided(2026-11-12) |
 | [0149](0149-domain-context-extends-through-namespaced-axes.md) | 도메인 Context는 `ContextKey`를 늘리지 않고 앱이 주입하는 네임스페이스 축으로 넓힌다 | Decided(2026-11-11) |
 | [0150](0150-no-external-ai-or-embedding-calls-in-the-in-house-profile.md) | 사내 프로필에서는 외부 AI·임베딩 호출을 하지 않고 시작 검사로 지킨다 | Decided(2026-11-11) |
