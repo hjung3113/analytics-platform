@@ -121,10 +121,18 @@ test.describe('log-lifecycle screens', () => {
     await page.goto(`${roundPath}?request=${REQUEST}&attempt=${ATTEMPT}&result=NOT_CHECKED`);
     await expect(page.getByRole('table', { name: '규칙 결과', exact: true })).toContainText('SEQ-002');
     await expect(page.getByRole('table', { name: '규칙 결과', exact: true })).not.toContainText('TIME-001');
-    await expect(page.getByText('보관 기간 지남으로 삭제됨', { exact: true })).toHaveCount(0);
+    // A purged excerpt reads as an unknown state (no deletion provenance), never as «삭제됨»; the audited body read is not offered.
     await page.getByRole('button', { name: 'SEQ-002 상세 열기', exact: true }).click();
-    await page.getByRole('button', { name: '발췌 보기', exact: true }).click();
-    await expect(page.getByText('보관 기간 지남으로 삭제됨', { exact: true })).toBeVisible();
+    await expect(page.getByText('발췌 상태 알 수 없음').first()).toBeVisible();
+    await expect(page.getByText(/삭제됨|만료/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '발췌 보기', exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.goto(`${roundPath}?request=${REQUEST}&attempt=${ATTEMPT}&result=ERROR`);
+    await page.getByRole('button', { name: 'TIME-001 상세 열기', exact: true }).click();
+    await expect(page.getByText('SYNTHETIC FIXTURE · 이벤트 형식 해석 실패')).toHaveCount(0);
+    await page.getByRole('button', { name: '발췌 보기', exact: true }).first().click();
+    await expect(page.getByText('SYNTHETIC FIXTURE · 이벤트 형식 해석 실패')).toBeVisible();
+    await page.goto(`${roundPath}?request=${REQUEST}&attempt=${ATTEMPT}&result=NOT_CHECKED`);
     await page.reload();
     await expect(page.getByRole('table', { name: '규칙 결과', exact: true })).toContainText('SEQ-002');
     await evidence(page, testInfo, 'rule-filter-restored');
