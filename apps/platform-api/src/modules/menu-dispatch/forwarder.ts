@@ -76,11 +76,12 @@ export function validateMenuOwnerPath(path: string): void {
 
 /** Strict input, then canonical URL and no trailing slash so concatenation has one separator. */
 export function normalizeMenuUpstreamBaseUrl(baseUrl: string): string {
-  const invalid = () => new Error('Invalid MENU_UPSTREAM_BASE_URL: expected an http(s) URL without whitespace, query or fragment');
+  const invalid = () => new Error('Invalid MENU_UPSTREAM_BASE_URL: expected an http(s) URL without whitespace, credentials, query or fragment');
   if (/[\s?#]/.test(baseUrl)) throw invalid();
   let url: URL;
   try { url = new URL(baseUrl); } catch { throw invalid(); }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw invalid();
+  if (url.username !== '' || url.password !== '') throw invalid();
   return url.href.replace(/\/+$/, '');
 }
 

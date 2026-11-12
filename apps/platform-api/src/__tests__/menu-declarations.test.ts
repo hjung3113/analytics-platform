@@ -127,6 +127,7 @@ describe('loadMenuDeclarationSetup (#1729 h)', () => {
     'https://upstream.test?',
     'https://upstream.test?debug=1',
     'ftp://upstream.test',
+    'https://user:pass@upstream.test',
   ])('refuses invalid MENU_UPSTREAM_BASE_URL at startup: %s', async (baseUrl) => {
     await expect(loadMenuDeclarationSetup(config({
       MENU_DECLARATIONS_FILE: bundleFile,
