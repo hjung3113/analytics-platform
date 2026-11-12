@@ -17,7 +17,9 @@ export function scopeTargetOf(target: PermissionRequestTarget): RequestAccessSco
 export default function AccessRequest({ target, returnTo, open, onOpenChange }: { target: PermissionRequestTarget; returnTo: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const scopeTarget = scopeTargetOf(target);
   if (scopeTarget === null) return null;
+  // Keyed by the target: the form keeps its draft and completion step only for the same site/room (review C1); a changed target is a new form.
+  const key = scopeTarget.kind === 'site_room' ? `site_room\u0000${scopeTarget.site}\u0000${scopeTarget.room}` : `site\u0000${scopeTarget.site}`;
   return <FeatureBridge>
-    <RequestAccessButton scopeTarget={scopeTarget} returnRouteIntent={returnTo} open={open} onOpenChange={onOpenChange} />
+    <RequestAccessButton key={key} scopeTarget={scopeTarget} returnRouteIntent={returnTo} open={open} onOpenChange={onOpenChange} />
   </FeatureBridge>;
 }

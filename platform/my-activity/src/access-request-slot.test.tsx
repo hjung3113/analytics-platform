@@ -88,6 +88,24 @@ describe('accessRequest slot', () => {
       expect(calls.filter(call => call.path === MINE).length).toBe(2);
     });
 
+    it('a retained dialog follows a changed target: cancel on one room, reopen on another (review C1)', async () => {
+      const calls = stubFetch((path) => path === MINE ? json({ requests: [] }) : json({ sites: [{ site: 'site-alpha', label: 'Site alpha', rooms: [{ room: 'room-one', granted: false }, { room: 'room-two', granted: false }], siteGranted: false }] }));
+      const { adapter } = switchableAdapter();
+      const tree = (target: PermissionRequestTarget) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Place target={target} /></PlatformProvider></I18nProvider>;
+      const view = render(tree({ kind: 'site_room', site: 'site-alpha', room: 'room-one' }));
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: '열기' }));
+      const first = await screen.findByTestId('permission-request-dialog');
+      expect((await within(first).findByRole('combobox', { name: '공정' })).textContent).toContain('room-one');
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByTestId('permission-request-dialog')).toBeNull());
+      view.rerender(tree({ kind: 'site_room', site: 'site-alpha', room: 'room-two' }));
+      await user.click(screen.getByRole('button', { name: '열기' }));
+      const dialog = await screen.findByTestId('permission-request-dialog');
+      expect((await within(dialog).findByRole('combobox', { name: '공정' })).textContent).toContain('room-two');
+      expect(calls.some(call => call.method === 'POST')).toBe(false);
+    });
+
     it('a permission place reports unknown without a status link, reads nothing and draws no dialog', async () => {
       const calls = stubFetch(() => json({ requests: [mineRow('site-alpha')] }));
       mount({ kind: 'permission', permission: 'synthetic:view' as never });
