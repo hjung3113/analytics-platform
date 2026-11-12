@@ -15,12 +15,19 @@
 
 ## 설치 검사
 
-묶음 설치 전에 스크립트가 아래를 검사하고 하나라도 어긋나면 설치를 시작하지 않는다.
+묶음 설치 전에 스크립트가 아래를 검사하고 하나라도 어긋나면 설치를 시작하지 않는다. 스크립트는 [`tooling/sdk/sdk-bundle-check.mjs`](../../tooling/sdk/sdk-bundle-check.mjs)이고 Node 내장 모듈만 써서 묶음 안에 그대로 실린다. 묶음 폴더는 키트 폴더 자체다: `vendor/`에 tarball 아홉, `pnpm-lock.yaml`은 이들을 `file:vendor/…`로 풀고, `third-party.json`이 나머지 패키지의 정확 버전 목록, `SHA256SUMS`가 실린 파일을 덮는다.
+
+| 명령 | 하는 일 |
+| --- | --- |
+| `verify` | 설치 전 1–4. 어긋난 것을 모두 적고 exit 1 |
+| `mirror --registry <url>` | 5. 미러에 없는 이름·버전과 무결성 값이 다른 것을 적는다. 설치하지 않는다. 인증이 필요하면 `AP_MIRROR_AUTH`에 Authorization 값 |
+| `installed` | 설치 뒤 `node_modules/.pnpm`에 `@ap/*`가 하나씩만 있는지 |
+| `third-party --lockfile <path>` | 릴리스 쪽에서 lockfile로 `third-party.json`을 만든다 |
 
 1. 체크섬: `SHA256SUMS`와 파일이 일치한다.
-2. `@ap/*` 단일 사본: 같은 패키지가 둘 설치되지 않는다.
+2. `@ap/*` 단일 사본: 같은 패키지가 둘 설치되지 않는다. 설치 전에는 lockfile의 `snapshots`에서 다른 peer 묶음으로 두 번 풀린 `@ap/*`를 찾고, 설치 뒤에는 `installed`로 디스크를 본다.
 3. 정확 버전 peer: 아홉이 같은 버전이다.
-4. 설치 스크립트와 git·URL 의존이 없다(묶음 tarball 밖의 것).
+4. 설치 스크립트와 git·URL 의존이 없다(묶음 tarball 밖의 것). tarball 아홉의 `scripts`·의존 선언과 lockfile의 `resolution`을 본다. 서드파티의 설치 스크립트는 pnpm 11이 `allowBuilds`에 없는 것을 돌리지 않는 것으로 막는다.
 5. **미러 대조 모드.** 사내 npm 미러가 모든 패키지를 갖는지 확신할 수 없으므로, 서드파티 정확 버전 목록을 미러에 대조해 없는 패키지·버전을 설치 전에 목록으로 보고한다. 미러 URL은 사내가 넣고 결과는 사내에 남는다. 이 대조는 보고만 하고 설치를 대신하지 않는다.
 
 ## 설치 형태 확인 (pnpm 11.1.1, Linux x64)
@@ -36,7 +43,9 @@
 | store가 비어 있는 환경에서 `--offline` | 서드파티 패키지가 없어 `ERR_PNPM_NO_OFFLINE_TARBALL`로 실패한다. 사내 미러나 같은 OS·아키텍처에서 만든 store가 필요하다 |
 | `vendor/`의 tarball 끝에 한 바이트를 더함 | `ERR_PNPM_TARBALL_INTEGRITY`로 실패한다 |
 
-확인하지 못한 것: 아홉 tarball 전부, 다른 OS·아키텍처, 다른 pnpm 버전, 사내 미러에서의 설치, `file:` tarball의 하위 의존 해석 차이. 위 표는 구현 노드가 아홉 tarball로 다시 확인해 이 절을 고친다.
+아홉 tarball로 다시 확인한 것(macOS arm64, `0.0.0-bundle`, react·react-dom을 더한 임시 프로젝트, 서드파티 267개): `file:` 설치와 lockfile 생성, `verify` 통과, 다른 경로로 복사한 뒤 데워진 store로 `--offline --frozen-lockfile` 설치, `installed` 통과, 공개 npm 레지스트리를 미러 자리에 넣은 `mirror`에서 누락 0.
+
+확인하지 못한 것: 다른 OS·아키텍처, 다른 pnpm 버전, 사내 미러에서의 설치, 빈 store의 linux-x64 컨테이너 설치(키트가 생긴 뒤 CI 작업으로 한다).
 
 ## 설치 경로 둘
 
