@@ -10,7 +10,7 @@ export function laneDiagnostic(message: string) { if (process.env.NODE_ENV !== '
 export const FLAG_ORPHAN = 1;
 export const FLAG_OPEN = 2;
 export const FLAG_NEUTRAL = 4;
-const MIN_WIDTH = 1.5;
+export const MIN_WIDTH = 1.5;
 
 /** Start-sorted order with a running-max-end array; segments longer than a bound sit in a side list. Built on first query. */
 export type LaneIndex = { order: Uint32Array; blockMax: Float64Array; superMax: Float64Array; long: Uint32Array };
@@ -186,13 +186,16 @@ export function laneWindow(cols: LaneColumns, a: number, b: number, out: number[
 
 const G = { x: 0, y: 0, width: 0, height: 0 };
 /** Painted geometry of one segment (same arithmetic as the old per-rect code). Writes into the shared scratch `G`. */
-function geometry(cols: LaneColumns, o: number, laneIndexValue: number, view: [number, number], width: number, plotWidth: number, scroll: number) {
+function geometry(cols: LaneColumns, o: number, laneIndexValue: number, view: [number, number], width: number, plotWidth: number, scroll: number): typeof G {
   const inset = Math.min(cols.depth[o] * 2, 11);
   const x = GUTTER + Math.max(0, (cols.start[o] - view[0]) / (view[1] - view[0]) * plotWidth);
   const endX = GUTTER + Math.min(plotWidth, (cols.end[o] - view[0]) / (view[1] - view[0]) * plotWidth);
   G.x = Math.min(x, width - MIN_WIDTH); G.y = laneIndexValue * ROW_HEIGHT - scroll + inset; G.width = Math.max(MIN_WIDTH, endX - x); G.height = ROW_HEIGHT - inset * 2;
+  return G;
 }
-function visibleLanes(model: LaneModel, height: number, scroll: number) {
+/** `geometry` for callers outside this file; the returned object is shared scratch, valid until the next call. */
+export const laneGeometry = geometry;
+export function visibleLanes(model: LaneModel, height: number, scroll: number) {
   return [Math.max(0, Math.floor(scroll / ROW_HEIGHT)), Math.min(model.lanes.length, Math.ceil((scroll + height) / ROW_HEIGHT))] as const;
 }
 
@@ -210,11 +213,13 @@ export class RectBuffer {
 }
 const TWO32 = 4294967296;
 /** Fills `buf` with the visible rects in paint order and returns the count. Index-backed: no scan of segments outside the window. */
-export function fillVisibleRects(model: LaneModel, view: [number, number], width: number, height: number, scroll: number, buf: RectBuffer, stats?: { scanned: number }): number {
+/** `skip[lane] === 1` leaves that lane out (the LOD painter handles it from its own window). */
+export function fillVisibleRects(model: LaneModel, view: [number, number], width: number, height: number, scroll: number, buf: RectBuffer, stats?: { scanned: number }, skip?: Uint8Array): number {
   const [first, last] = visibleLanes(model, height, scroll);
   const plotWidth = Math.max(1, width - GUTTER);
   const found: number[] = []; const local: number[] = [];
   for (let laneIndexValue = first; laneIndexValue < last; laneIndexValue++) {
+    if (skip?.[laneIndexValue]) continue;
     local.length = 0; laneWindow(model.cols[laneIndexValue], view[0], view[1], local, stats);
     const base = model.offsets[laneIndexValue];
     for (let i = 0; i < local.length; i++) found.push(base + local[i]);
@@ -240,6 +245,16 @@ export function fillVisibleRects(model: LaneModel, view: [number, number], width
     buf.flat[i] = flat; buf.laneIndex[i] = l; buf.offset[i] = o; buf.x[i] = G.x; buf.y[i] = G.y; buf.width[i] = G.width; buf.height[i] = G.height;
   }
   return m;
+}
+/** The painted rect of one segment (flat position) when it is in the visible lanes and the view window, else undefined. */
+export function segmentRect(model: LaneModel, flat: number, view: [number, number], width: number, height: number, scroll: number): LaneRect | undefined {
+  const laneIndexValue = laneOfFlat(model.offsets, flat); const o = flat - model.offsets[laneIndexValue];
+  if (flat < 0 || flat >= model.offsets[model.offsets.length - 1]) return undefined;
+  const [first, last] = visibleLanes(model, height, scroll);
+  const cols = model.cols[laneIndexValue];
+  if (laneIndexValue < first || laneIndexValue >= last || cols.end[o] < view[0] || cols.start[o] > view[1]) return undefined;
+  geometry(cols, o, laneIndexValue, view, width, Math.max(1, width - GUTTER), scroll);
+  return { segment: cols.segments[o], laneIndex: laneIndexValue, index: flat, offset: o, x: G.x, y: G.y, width: G.width, height: G.height };
 }
 export function visibleRects(model: LaneModel, view: [number, number], width: number, height: number, scroll: number): LaneRect[] {
   const buf = new RectBuffer(); const m = fillVisibleRects(model, view, width, height, scroll, buf);

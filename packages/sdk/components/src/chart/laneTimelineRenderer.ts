@@ -1,16 +1,17 @@
 import { isThemeColorToken, readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import type { LaneTimelineProps } from './LaneTimeline';
-import { clampView, densityBins, FLAG_NEUTRAL, FLAG_OPEN, FLAG_ORPHAN, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic, laneTickLabel, niceTicks, outlineStyle, ROW_HEIGHT, segmentText, visibleRects, type LaneModel, type LaneRect } from './laneTimelineGeometry';
+import { clampView, densityBins, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic, laneTickLabel, niceTicks, RectBuffer, ROW_HEIGHT, segmentRect, segmentText, type LaneModel } from './laneTimelineGeometry';
+import { createLaneStyle, paintFrame, type LaneStyle } from './laneTimelineLod';
 
 type RendererInput = {
-  root: HTMLElement; scroll: HTMLDivElement; canvas: HTMLCanvasElement; axis: HTMLCanvasElement;
+  root: HTMLElement; scroll: HTMLDivElement; canvas: HTMLCanvasElement; overlay: HTMLCanvasElement; axis: HTMLCanvasElement;
   spacer: HTMLDivElement; tooltip: HTMLDivElement; model: LaneModel; props: LaneTimelineProps;
   selectedId: string | null; lang: 'ko' | 'en'; savedView: { model?: LaneModel; view?: [number, number] }; onSelect: (id: string | null) => void; onHover: (text: string | null) => void;
 };
 const defaultPalette: ThemeColorToken[] = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'];
 /** Owns all mutable view geometry, event subscriptions and frame scheduling. No React state. */
 export function createLaneRenderer(input: RendererInput) {
-  const { root, canvas, axis, scroll, spacer, tooltip, model, props } = input;
+  const { root, canvas, overlay, axis, scroll, spacer, tooltip, model, props } = input;
   let view: [number, number] = input.savedView.model === model && input.savedView.view ? [...input.savedView.view] : [...model.domain];
   let width = 600; let height = 320; let raf: number | null = null; let destroyed = false;
   let drawn: { view: [number, number]; width: number; height: number; scroll: number } = { view: [...view], width, height, scroll: 0 };
@@ -29,12 +30,18 @@ export function createLaneRenderer(input: RendererInput) {
   function color(token: ThemeColorToken) {
     let value = resolved.get(token); if (!value) { value = readColorToken(token, root); resolved.set(token, value); } return value;
   }
+  // Colours and outline styles as strings and small ids; dropped with `resolved` on a theme change or resize.
+  let styleCache: LaneStyle | null = null;
+  function laneStyle() {
+    return styleCache ??= createLaneStyle({ model, colors, neutral, resolve: color, outlineWidthsByRank: props.outlineWidthsByRank, outlineMode: props.outlineMode ?? 'strong' });
+  }
+  const buf = new RectBuffer();
   function schedule() { if (!destroyed && raf === null) raf = requestAnimationFrame(draw); }
   function resize() {
     width = Math.max(352, scroll.clientWidth || scroll.getBoundingClientRect().width || 600);
     height = Math.max(24, (Number.isFinite(props.height) ? props.height! : 360) - HEADER_HEIGHT);
     scroll.style.height = `${height}px`; spacer.style.height = `${model.lanes.length * ROW_HEIGHT}px`;
-    resolved = new Map(); schedule();
+    resolved = new Map(); styleCache = null; schedule();
   }
   function setup(target: HTMLCanvasElement, h: number) {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -65,34 +72,24 @@ export function createLaneRenderer(input: RendererInput) {
       const max = Math.max(1, ...bins); header.fillStyle = color('chart-series-1');
       bins.forEach((count, i) => { const h = count / max * 8; header.fillRect(GUTTER + i * plotWidth / bins.length, HEADER_HEIGHT - h, plotWidth / bins.length, h); });
     }
-    const rects: LaneRect[] = visibleRects(model, view, width, height, scroll.scrollTop);
     hasDrawn = true; drawn = { view: [...view], width, height, scroll: scroll.scrollTop };
-    if (!ctx) return;
-    ctx.save(); ctx.beginPath(); ctx.rect(GUTTER, 0, plotWidth, height); ctx.clip();
-    for (const rect of rects) {
-      const { segment } = rect;
-      const cols = model.cols[rect.laneIndex]; const flags = cols.flags[rect.offset];
-      // Colour, rank and boundaries come from the normalised columns, not the caller's segment (an invalid token is already "none").
-      ctx.fillStyle = color(cols.color[rect.offset] ? model.tokens[cols.color[rect.offset] - 1] : flags & FLAG_NEUTRAL ? neutral : colors[rect.laneIndex % colors.length]);
-      ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-      const outline = outlineStyle(cols.rank[rect.offset] ? model.ranks[cols.rank[rect.offset] - 1] : undefined, props.outlineWidthsByRank, props.outlineMode ?? 'strong');
-      const borderWidth = Math.min(outline.width, rect.width, rect.height);
-      // eslint-disable-next-line shadcn/no-raw-colors -- canvas reads a theme token by name (color()), not a class string
-      ctx.lineWidth = borderWidth; ctx.globalAlpha = outline.alpha; ctx.setLineDash(outline.dash); ctx.strokeStyle = color('border-strong');
-      if (borderWidth) ctx.strokeRect(rect.x + borderWidth / 2, rect.y + borderWidth / 2, Math.max(0, rect.width - borderWidth), Math.max(0, rect.height - borderWidth));
-      ctx.globalAlpha = 1; ctx.setLineDash([]);
-      // Semantic boundaries are glyphs on the visible rect, even when its time edge is clipped.
-      // eslint-disable-next-line shadcn/no-raw-colors -- canvas reads a theme token by name (color()), not a class string
-      ctx.strokeStyle = color('text-primary'); ctx.lineWidth = 1.5;
-      if (flags & FLAG_ORPHAN) {
-        ctx.beginPath(); ctx.moveTo(rect.x + 5, rect.y + 2); ctx.lineTo(rect.x + 1, rect.y + rect.height / 2); ctx.lineTo(rect.x + 5, rect.y + rect.height - 2); ctx.stroke();
-      }
-      if (flags & FLAG_OPEN) {
-        ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(rect.x + rect.width - 1, rect.y); ctx.lineTo(rect.x + rect.width - 1, rect.y + rect.height); ctx.stroke(); ctx.setLineDash([]);
-      }
-      if (segment.id === input.selectedId) { ctx.strokeStyle = color('chart-selection-outline'); ctx.lineWidth = 2; ctx.strokeRect(rect.x + 1, rect.y + 1, Math.max(0, rect.width - 2), Math.max(0, rect.height - 2)); }
+    if (ctx) {
+      ctx.save(); ctx.beginPath(); ctx.rect(GUTTER, 0, plotWidth, height); ctx.clip();
+      paintFrame(ctx, laneStyle(), { view, width, height, scroll: scroll.scrollTop }, buf, Math.max(1, plotWidth));
+      ctx.restore();
     }
-    ctx.restore();
+    drawOverlay(plotWidth);
+  }
+  /** Selection lives on its own canvas above the data layer, so it is never covered by a later rect. */
+  function drawOverlay(plotWidth: number) {
+    const top = setup(overlay, height);
+    const item = input.selectedId ? model.byId.get(input.selectedId) : undefined;
+    if (!top || !item) return;
+    const rect = segmentRect(model, item.index, view, width, height, scroll.scrollTop);
+    if (!rect) return;
+    top.save(); top.beginPath(); top.rect(GUTTER, 0, plotWidth, height); top.clip();
+    top.strokeStyle = color('chart-selection-outline'); top.lineWidth = 2; top.strokeRect(rect.x + 1, rect.y + 1, Math.max(0, rect.width - 2), Math.max(0, rect.height - 2));
+    top.restore();
   }
   function invalidateHover() { tooltip.hidden = true; }
   function setView(next: [number, number]) { view = clampView(next, model.domain); invalidateHover(); schedule(); }
@@ -159,7 +156,7 @@ export function createLaneRenderer(input: RendererInput) {
     setView([center - span / 2, center + span / 2]);
   }
   const observer = new ResizeObserver(resize); observer.observe(scroll);
-  const theme = new MutationObserver(() => { resolved = new Map(); schedule(); });
+  const theme = new MutationObserver(() => { resolved = new Map(); styleCache = null; schedule(); });
   // Observe the cascade roots (including caller-owned containers), not the canvas mutations.
   for (let element: HTMLElement | null = root; element; element = element.parentElement) theme.observe(element, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
   canvas.addEventListener('wheel', wheel, { passive: false });

@@ -2,7 +2,7 @@ import type { TimelineLane, TimelineSegment } from './LaneTimeline';
 import type { LaneItem, LaneModel } from './laneTimelineModel';
 
 // The column-array model and its time index live in laneTimelineModel.ts; this file keeps the import path stable.
-export { GUTTER, ROW_HEIGHT, HEADER_HEIGHT, laneDiagnostic, prepareLanes, visibleRects, fillVisibleRects, hitTest, RectBuffer, laneWindow, FLAG_ORPHAN, FLAG_OPEN, FLAG_NEUTRAL } from './laneTimelineModel';
+export { GUTTER, ROW_HEIGHT, HEADER_HEIGHT, laneDiagnostic, prepareLanes, visibleRects, fillVisibleRects, segmentRect, laneGeometry, visibleLanes, hitTest, RectBuffer, laneWindow, FLAG_ORPHAN, FLAG_OPEN, FLAG_NEUTRAL } from './laneTimelineModel';
 export type { LaneItem, LaneModel, LaneRect, LaneColumns, LaneIndex } from './laneTimelineModel';
 export function utcTick(time: number) { return new Date(time).toISOString().slice(0, 19).replace('T', ' '); }
 /** `depth` is the normalised depth from the model columns; omitted, the segment's own depth is used. */

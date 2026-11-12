@@ -109,6 +109,26 @@ describe('image sources (#1657)', () => {
     vi.restoreAllMocks();
   });
 
+  it('draws the overlay canvas after the data canvas and before the lane labels (axis + data + overlay)', async () => {
+    const calls: unknown[][] = [];
+    const ctx = { fillRect: () => {}, drawImage: (...a: unknown[]) => calls.push(['drawImage', ...a]), fillText: () => calls.push(['fillText']), save: () => {}, restore: () => {}, beginPath: () => {}, rect: () => {}, clip: () => {}, set fillStyle(_: string) {}, set font(_: string) {}, set textBaseline(_: string) {} };
+    const original = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = original(tag);
+      if (tag === 'canvas') { vi.spyOn(el as HTMLCanvasElement, 'getContext').mockReturnValue(ctx as never); (el as HTMLCanvasElement).toBlob = cb => cb(png()); }
+      return el;
+    });
+    const axis = original('canvas'); axis.width = 1200; axis.height = 60;
+    const plot = original('canvas'); plot.width = 1200; plot.height = 400;
+    const overlay = original('canvas'); overlay.width = 1200; overlay.height = 400;
+    const labels = original('div'); const cell = original('div'); cell.textContent = 'Lane A'; labels.append(cell);
+    Object.defineProperties(cell, { offsetTop: { value: 0 }, offsetHeight: { value: 24 }, offsetWidth: { value: 112 } });
+    const scroll = original('div'); Object.defineProperty(scroll, 'clientHeight', { value: 300 });
+    await laneImageBlob({ axis, plot, overlay, labels, scroll });
+    expect(calls).toEqual([['drawImage', axis, 0, 0], ['drawImage', plot, 0, 60], ['drawImage', overlay, 0, 60], ['fillText']]);
+    vi.restoreAllMocks();
+  });
+
   it('clips lane labels to the visible plot so a partly scrolled row stays out of the axis strip', async () => {
     const order: unknown[][] = [];
     const ctx = { fillRect: () => {}, drawImage: () => {}, save: () => order.push(['save']), beginPath: () => {}, rect: (...a: unknown[]) => order.push(['rect', ...a]), clip: () => order.push(['clip']), restore: () => order.push(['restore']), fillText: (...a: unknown[]) => order.push(['fillText', ...a]), set fillStyle(_: string) {}, set font(_: string) {}, set textBaseline(_: string) {} };

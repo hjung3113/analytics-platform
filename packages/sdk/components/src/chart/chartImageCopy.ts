@@ -111,11 +111,11 @@ export function echartImageBlob(instance: ECharts | null): Blob {
 const canvasBlob = (canvas: HTMLCanvasElement) => new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('empty canvas'))), 'image/png'));
 
 /**
- * LaneTimeline: the axis canvas over the plot canvas (the visible range, backing-store pixels) on the surface colour. The lane names are DOM,
- * not canvas, so they are drawn into the left gutter from the label cells at their scrolled positions. The renderer's draw path is untouched.
+ * LaneTimeline: the axis canvas over the data canvas and the overlay canvas (the visible range, backing-store pixels) on the surface colour. The lane names are DOM,
+ * not canvas, so they are drawn into the left gutter from the label cells at their scrolled positions.
  */
-export function laneImageBlob(parts: { axis: HTMLCanvasElement | null; plot: HTMLCanvasElement | null; labels: HTMLElement | null; scroll: HTMLElement | null }): Promise<Blob> {
-  const { axis, plot, labels, scroll } = parts;
+export function laneImageBlob(parts: { axis: HTMLCanvasElement | null; plot: HTMLCanvasElement | null; overlay?: HTMLCanvasElement | null; labels: HTMLElement | null; scroll: HTMLElement | null }): Promise<Blob> {
+  const { axis, plot, overlay, labels, scroll } = parts;
   if (!axis || !plot) return Promise.reject(new Error('timeline is not ready'));
   const out = document.createElement('canvas');
   out.width = Math.max(axis.width, plot.width); out.height = axis.height + plot.height;
@@ -123,6 +123,7 @@ export function laneImageBlob(parts: { axis: HTMLCanvasElement | null; plot: HTM
   if (!ctx) return Promise.reject(new Error('no canvas context'));
   ctx.fillStyle = readColorToken('surface-card'); ctx.fillRect(0, 0, out.width, out.height);
   ctx.drawImage(axis, 0, 0); ctx.drawImage(plot, 0, axis.height);
+  if (overlay) ctx.drawImage(overlay, 0, axis.height); // selection layer; transient hover is never drawn on a canvas
   if (labels && scroll) {
     const ratio = plot.clientWidth ? plot.width / plot.clientWidth : 1;
     const style = getComputedStyle(labels);
