@@ -1,3 +1,4 @@
+import { isEnvelope } from './bundle/calls.js';
 import type { DeclarationBundle } from './declarations-file.js';
 import type { Route, Routing } from './bundle/routing.js';
 import { routeCall } from './bundle/routing.js';
@@ -34,6 +35,11 @@ export function routedBootProblems(bundle: DeclarationBundle, factories: Connect
   for (const endpoint of bundle.endpoints) {
     const owner = bundle.endpointOwners[endpoint.id];
     if (!owner || typeof owner === 'string') continue;
+    const sites = endpoint.requiresScope ? [...new Set(owner.routes.flatMap((route) => route.sites ?? []))] : [null];
+    for (const site of sites) {
+      const routes = owner.routes.filter((route) => site === null || route.sites?.includes(site));
+      if (routes.some((route) => isEnvelope(routeCall(owner, route))) && routes.reduce((count, route) => count + route.targets.length, 0) > 1) problems.push('envelope call cannot select more than one target');
+    }
     for (const route of owner.routes) for (const id of route.targets) {
       const target = bundle.targets?.[id];
       if (target && !factories[target.kind]) problems.push(`connector kind ${target.kind} is not available`);

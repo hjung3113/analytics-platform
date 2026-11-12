@@ -1,6 +1,7 @@
 import type { DeclaredEndpoint, DeclarationBundle, Routing, Call } from './declarations-file.js';
 import type { Connector, ConnectorFactories, ConnectorLeg, RoutingLog } from './connectors/types.js';
 import { TargetJudgmentTimeout } from './connectors/types.js';
+import { InvalidHttpPath } from './connectors/http/mapped.js';
 import type { TargetSecrets } from './bundle/secrets.js';
 import { callBindings, isEnvelope } from './bundle/calls.js';
 import { routeCall } from './bundle/routing.js';
@@ -9,10 +10,11 @@ import type { SelectedLeg } from './routing.js';
 import { mergeRows, pagePlan } from './merge.js';
 import { allowedRooms, effectiveValueMap, mapValue, selectRoutes } from './routing.js';
 import { enforceRowScope, pointerValue, rowInScope } from './scope-check.js';
-import { MenuUpstreamError } from './forwarder.js';
+import { MenuUpstreamError, type MenuForwarder } from './forwarder.js';
 import type { EndpointHandlerArgs, EndpointResult } from './types.js';
 
 export interface RoutedDependencies {
+  forwarder?: MenuForwarder;
   connectorFactories: ConnectorFactories;
   targetSecrets?: Readonly<Record<string, TargetSecrets>>;
   timeoutMs: number;
@@ -167,6 +169,11 @@ export async function handleRouted(endpoint: DeclaredEndpoint, owner: Routing, b
 async function handleLeg(endpoint: DeclaredEndpoint, owner: Routing, bundle: DeclarationBundle, deps: RoutedDependencies, args: EndpointHandlerArgs, chosen: SelectedLeg, onOverflow?: () => void): Promise<EndpointResult> {
   const site = endpoint.requiresScope ? args.context.scopeId as string : null;
   const target = bundle.targets?.[chosen.targetId];
+  const call = routeCall(owner, chosen.route);
+  if (target?.kind === 'http' && 'mode' in call && call.mode === 'envelope') {
+    if (!deps.forwarder) throw new MenuUpstreamError('unavailable');
+    return deps.forwarder.forward({ endpointId: endpoint.id, path: '', args, routed: { baseUrl: target.baseUrl, ...(target.aud ? { aud: target.aud } : {}), site, rooms: chosen.rooms } });
+  }
   const factory = target && deps.connectorFactories[target.kind];
   if (!target || !factory) throw new MenuUpstreamError('unavailable');
   const map = effectiveValueMap(target.valueMap, chosen.route.valueMap);
@@ -174,7 +181,6 @@ async function handleLeg(endpoint: DeclaredEndpoint, owner: Routing, bundle: Dec
   const mappedRooms = chosen.rooms.map((room) => mapValue(room, map.room));
   if (mappedSite === undefined || mappedRooms.some((room) => room === undefined)) return noData('error');
   const outgoingRooms = mappedRooms as string[];
-  const call = routeCall(owner, chosen.route);
   const deadlineAt = args.deadlineAtMs ?? (args.arrivedAtMs ?? Date.now()) + deps.timeoutMs;
   const controller = new AbortController();
   const remaining = deadlineAt - Date.now();
@@ -216,6 +222,7 @@ async function handleLeg(endpoint: DeclaredEndpoint, owner: Routing, bundle: Dec
     return { outcome: rows.length ? 'ok' : 'empty', data: rows, rowsRead, assessments: (endpoint.kinds ?? []).filter((kind) => kind !== 'coverage' || endpoint.paramKeys.includes('page')).map((kind) => ({ kind, state: 'unknown', reason: 'source_unavailable' })), trust: null };
   } catch (error) {
     if (error instanceof ScopeFailure) throw error;
+    if (error instanceof InvalidHttpPath) return noData('error');
     if (onOverflow) {
       if (error instanceof SiblingCancellation) throw error;
       if (error instanceof TargetJudgmentTimeout) return noData('timeout');
