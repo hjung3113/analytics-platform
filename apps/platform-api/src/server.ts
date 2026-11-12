@@ -118,6 +118,7 @@ import {
   MENU_ACTION_PREFIX,
   type MenuDispatchContribution,
   createMenuDispatchRegistry,
+  type ScopeResolver,
   menuActionRoutes,
 } from './modules/menu-dispatch/index.js';
 import {
@@ -155,6 +156,9 @@ import {
   platformFilesRoutes,
   platformPortRoutes,
 } from './modules/platform-port/index.js';
+import { createSessionSnapshot } from './modules/platform-port/session-snapshot.js';
+import { sessionVersionOf } from './modules/platform-port/session-version.js';
+import type { LoadedSession } from './modules/platform-port/transport.js';
 import { createPlatformPermissionResolver, holdsPlatformPermission } from './modules/platform-port/permissions.js';
 import { platformSavedViewRoutes } from './modules/platform-saved-views/index.js';
 import { createSavedViewsService, savedViewsRoutes } from './modules/saved-views/index.js';
@@ -246,6 +250,12 @@ export interface BuildServerOptions {
    * registration validation stops the boot. Tests pass their own pair here.
    */
   menuDispatch?: readonly MenuDispatchContribution[];
+  /**
+   * Site/room Scope resolver for menu dispatch (ADR-0147). Production builds it from
+   * `MENU_SCOPE_GRANT_SERVICE_URL` (`menu-declarations.ts`); the synthetic resolver is test-only.
+   * Absent → the registry refuses any `requiresScope` declaration; every existing default is unchanged.
+   */
+  scopeResolver?: ScopeResolver;
   /**
    * Log explorer Source seams (#1469). Production defaults to neither; an explicit Source provider configuration enables the adapter. Without it every read answers
    * `source_absent` (`source_not_connected`) and no Source owner is granted. The dev/test assembly injects the synthetic adapter
@@ -1043,9 +1053,14 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     eqvContribution({ db: dbHandle.db, checkService, knowledgeLookup, uploads: { readUnlinkedUpload: (input) => attachmentsService.readUnlinkedUpload(input) } }),
     logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, ruleCoverage, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead ?? opts.logExplorer?.sourceReadPort, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? logExplorerDeps.sourceOwnerAccess }),
     ...(opts.menuDispatch ?? []),
-  ]);
+  ], opts.scopeResolver ? { scopeResolver: opts.scopeResolver } : {});
   // The menu permissions the modules declared are what this server's bootstrap, session-state and access directory resolve (#1667).
   platformPermissions.use(menuRegistry.permissions);
+  // The dispatch identity token's `sv` claim must equal the `/bootstrap` `sessionVersion` (#1729 h):
+  // one snapshot factory (platform-port/session-snapshot.ts) feeds both hashes.
+  const buildMenuSession = createSessionSnapshot({ permissions: platformPermissions, checkService });
+  const menuSessionVersionOf = async (loaded: LoadedSession) =>
+    sessionVersionOf(await buildMenuSession(loaded));
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is
   // registered here beside the module's contribution (the contribution type has no route hook).
   // The log explorer export (#1472) is a streamed download, which the JSON menu envelope cannot carry: its own REST route, session or token.
@@ -1082,6 +1097,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     workspaceId,
     db: dbHandle.db,
     registry: menuRegistry,
+    sessionVersionOf: menuSessionVersionOf,
   });
   await app.register(menuActionRoutes, {
     prefix: MENU_ACTION_PREFIX,
@@ -1089,6 +1105,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     workspaceId,
     db: dbHandle.db,
     registry: menuRegistry,
+    sessionVersionOf: menuSessionVersionOf,
   });
   // The validation request queue worker REST (#1445 d, ADR-0117): token-only, `validation.worker` scope.
   await app.register(workerRoutes, {

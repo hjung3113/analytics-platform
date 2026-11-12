@@ -34,8 +34,10 @@ import {
 } from './modules/notifications/index.js';
 import { createEmbeddingProvider, isEmbeddingEnabled } from './modules/voc/embedding/factory.js';
 import { registerVocJobs } from './modules/voc/index.js';
+import { createCheckService } from './modules/permissions/index.js';
 import { createPublicUpdateReviewCandidatesService } from './modules/voc/public-update-review-candidates/service.js';
 import { sourceAssemblyFromEnv } from './modules/log-explorer/source-assembly.js';
+import { loadMenuDeclarationSetup } from './menu-declarations.js';
 import { buildServer } from './server.js';
 
 const config = loadConfig();
@@ -164,11 +166,21 @@ await registerJobsUnlessDisabled(config.JOBS_DISABLED, jobLog, [
 ]);
 
 const drainState = createDrainState();
+
+// #1729 h (ADR-0146/0147/0148): the production menu-declaration path — bundle, Ed25519 identity
+// key, forwarder and (when configured) the Scope grant-service resolver — loads after the guards
+// and before HTTP; any failure stops the boot (fail closed, no key material in errors). An unset
+// `MENU_DECLARATIONS_FILE` builds nothing and the server starts exactly as before.
+const menuDeclarations = await loadMenuDeclarationSetup(config, {
+  checkService: createCheckService({ db: dbHandle.db }),
+});
 const app = await buildServer({
   config,
   drainState,
-  ...(sourceAssembly.sourceReadPort ? { logExplorer: { sourceReadPort: sourceAssembly.sourceReadPort, sourceOwnerAccess: sourceAssembly.sourceOwnerAccess } } : {}),
-  dbHandle,
+   ...(sourceAssembly.sourceReadPort ? { logExplorer: { sourceReadPort: sourceAssembly.sourceReadPort, sourceOwnerAccess: sourceAssembly.sourceOwnerAccess } } : {}),
+  ...(menuDeclarations ? { menuDispatch: menuDeclarations.menuDispatch } : {}),
+  ...(menuDeclarations?.scopeResolver ? { scopeResolver: menuDeclarations.scopeResolver } : {}),
+   dbHandle,
   boss,
   logger,
   notificationDispatcher,
