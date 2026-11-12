@@ -10,7 +10,7 @@ import {
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type React from 'react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { ApiError } from '@/lib/api/types';
 import { HeadTargetHost } from '@/test/primary-action-host';
@@ -553,14 +553,26 @@ async function selectDirectGrantTargetAndScopeWithUser(
   await user.click(await screen.findByRole('radio', { name: scopeName }));
 }
 
+/** The screen judges a grant's expiry against `Date.now()`; fixtures use fixed dates, so every test runs on this pinned day (#1885). Only `Date` is faked, timers stay real. */
+const PINNED_NOW = new Date('2026-11-13T00:00:00.000Z');
+
 describe('/admin/permissions/grants screen', () => {
+  beforeEach(() => {
+    vi.setSystemTime(PINNED_NOW);
+  });
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     useMeMock.mockReset();
     useWorkspaceSettingsMock.mockReset();
     workspaceActorsMock.actors = null;
     toast.success.mockReset();
     toast.error.mockReset();
+  });
+
+  test('runs on the pinned day, so fixed fixture expiry dates never depend on the real clock (#1885)', () => {
+    expect(new Date().toISOString()).toBe(PINNED_NOW.toISOString());
+    expect(Date.parse('2026-12-31T23:59:59.000Z')).toBeGreaterThan(Date.now());
   });
 
   test.each([
@@ -2105,7 +2117,11 @@ function renderHostedScreen(initialPath = '/admin/permissions/grants') {
 }
 
 describe('/admin/permissions/grants screen — host head action (#1291 B2)', () => {
+  beforeEach(() => {
+    vi.setSystemTime(PINNED_NOW);
+  });
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     useMeMock.mockReset();
     useWorkspaceSettingsMock.mockReset();
