@@ -1,5 +1,6 @@
 import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Root } from 'react-dom/client';
 import { startAppHost } from '@ap/app-host';
 import type { PlatformAdapter } from '@ap/contracts';
 import { testSession } from '@ap/kernel/testing';
@@ -17,8 +18,16 @@ const MOCK_SPACE_SYSTEMS: SpaceSystems = await ((await createAssembly({ registry
 /** What `main.tsx` injects into the Host, with the other slots empty as this test mounts only the features slot. */
 const useAppSlots = makeAppSlots({ notifications: undefined as never, vocCompose: undefined as never, homeTodo: undefined as never, scopeControl: undefined as never, navCounts: undefined as never, spaceNavSection: undefined as never });
 
-/** The Host owns its React root, so each mount's container is removed by hand (the Host exposes no unmount). */
+/** The Host owns its React root, so each mount's container is removed by hand. */
 const containers: HTMLElement[] = [];
+/** The Host owns its React root and exposes no unmount, so the test records every root `createRoot` makes and unmounts them in teardown, before the stores are reset. */
+const roots: Root[] = [];
+vi.mock('react-dom/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-dom/client')>();
+  return { ...actual, createRoot: (...args: Parameters<typeof actual.createRoot>) => { const root = actual.createRoot(...args); roots.push(root); return root; } };
+});
+async function unmountRoots() { await act(async () => { for (const root of roots.splice(0)) root.unmount(); }); }
+
 
 async function mountAt(url: string, spaceSystemsSource: Assembly['spaceSystems']) {
   const mock = await createAssembly({ registry }) as Assembly;
@@ -47,7 +56,7 @@ async function mountAt(url: string, spaceSystemsSource: Assembly['spaceSystems']
 const featureBlock = () => screen.queryByRole('navigation', { name: /^기능 · / });
 
 beforeEach(() => { spaceSystems.reset(); });
-afterEach(() => { cleanup(); for (const container of containers.splice(0)) container.remove(); spaceSystems.reset(); window.history.replaceState(null, '', '/'); });
+afterEach(async () => { cleanup(); await unmountRoots(); for (const container of containers.splice(0)) container.remove(); spaceSystems.reset(); window.history.replaceState(null, '', '/'); });
 
 describe('the mounted app root (#1289 node j)', () => {
   it('draws the sidebar feature block when the link store answers, with no navigation in between', async () => {

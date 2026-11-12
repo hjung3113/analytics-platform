@@ -13,7 +13,7 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
 ## Assembly (`src/main.tsx`, `@ap/app-host`)
 
 - Tree: `I18nProvider` → `AppRoot` (`PlatformProvider adapter registry slots` → `AppShell` + `RouteOutlet`). Assemble only.
-- `main.tsx` never imports mock or `src/dev/**` ([ADR-0009](../../docs/adr/0009-production-assembly-injection.md)). Take the adapter and rail tools from `createAssembly({ registry })` of `#platform-assembly` (contract type `src/platform-assembly.d.ts`). `createAssembly` may return a `Promise` and may return `{ redirect }` or `{ screen }` to choose a redirect or notice screen instead of rendering; `main.tsx` awaits it before mounting.
+- `main.tsx` never imports mock or `src/dev/**` ([ADR-0009](../../docs/adr/0009-production-assembly-injection.md)). Take the adapter and rail tools from `createAssembly({ registry })` of `#platform-assembly` (contract type `src/platform-assembly.d.ts`). `createAssembly` may return a `Promise` and may return `{ redirect }` or `{ screen }` to choose a redirect or notice screen instead of rendering; `startAppHost` (`@ap/app-host`) awaits it before mounting; `main.tsx` supplies `createAssembly`, the joins and `children`.
 - Put the assembly's `featureApi` (real-server assembly only; mock otherwise) into `@ap/feature-bridge/feature-api` (ADR-0071).
 - `vite.config.ts` picks the assembly by mode:
   - dev server, `--mode mock`, vitest → `src/dev/mock-assembly.tsx`.
@@ -52,7 +52,7 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
   - `@ap/menu-topview/mock-data` is imported only by `src/dev/**` and `src/server-conformance.test.ts` (lint `app` preset); `check:prod-graph` (`scripts/prod-graph.ts` `FORBIDDEN`) guards the production graph.
 - `src/real/endpoint-invalidation.ts` (the mounting bridge is `EndpointInvalidationBridge` in `@ap/app-host`) — refresh the Home banner after a notice write ([ADR-0098](../../docs/adr/0098-adapter-preferences-people-notices-ports.md) §4).
   - The real assembly wraps `saveNotice`/`deleteNotice` once; after `ok`, `conflict`, `unknown` (or a throw) it emits the app-declared `home.notices` through `Assembly.invalidation`.
-  - `main.tsx` mounts one `EndpointInvalidationBridge` under `PlatformProvider`; it calls `refreshEpochs.bump` for that query only (not the full `adapter.subscribe` invalidation; the Kernel knows no menu names).
+  - `startAppHost` mounts one `EndpointInvalidationBridge` under `PlatformProvider`; it calls `refreshEpochs.bump` for that query only (not the full `adapter.subscribe` invalidation; the Kernel knows no menu names).
   - Create the decorated adapter once per bootstrap, never per render. Proof: `src/notice-invalidation.test.tsx`.
 - `src/query-history-store.ts` — current-browser local implementation of the SDK history port (06 §11), injected by `main.tsx`. It owns tuple keys, schema validation, Web Locks serialization and the 20-entry merge/retention. A storage exception is rejected with a fixed non-sensitive error; content never goes to instrumentation.
 - `src/saved-view-store.ts`, `src/saved-view-seed.ts` — browser-local mock of the SDK saved-view port (`SavedViewStore`, 06 §21), injected by `main.tsx` as `PlatformProvider savedViews`. It simulates server ACL only (no server storage, audit or `PlatformAdapter` extension).
