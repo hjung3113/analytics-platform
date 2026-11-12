@@ -22,6 +22,7 @@ import {
   platformActorOf,
 } from '../platform-port/transport.js';
 import { createMenuActionEngine } from './action.js';
+import { MenuUpstreamError } from './forwarder.js';
 import { judgeQueryShape, runQuery, unavailableSessionVersion } from './query.js';
 import type { MenuDispatchRegistry } from './registry.js';
 
@@ -69,7 +70,18 @@ export const menuQueryDispatchRoutes: FastifyPluginAsync<MenuDispatchRoutesOptio
     const sessionVersion = () => version ??= opts.sessionVersionOf
       ? opts.sessionVersionOf(loaded)
       : unavailableSessionVersion();
-    return answerOf(req, await runQuery(shape, platformActorOf(loaded), req.id, abandoned.signal, sessionVersion));
+    let answer;
+    try {
+      answer = await runQuery(shape, platformActorOf(loaded), req.id, abandoned.signal, sessionVersion);
+    } catch (error) {
+      // A forwarded endpoint's upstream failed as transport (forwarder.ts): 502/504 with the same
+      // correlation id and none of the upstream's body text. Anything else keeps the 500 path.
+      if (error instanceof MenuUpstreamError) {
+        return reply.code(error.httpStatus).send({ code: error.code, message: error.message, correlationId: req.id });
+      }
+      throw error;
+    }
+    return answerOf(req, answer);
   });
 };
 
