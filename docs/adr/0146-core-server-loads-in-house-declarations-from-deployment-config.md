@@ -17,7 +17,7 @@
 
 ## 결정
 
-1. **사내 서버 코드를 코어 서버 프로세스에 넣지 않는다.** 코어 서버에는 선언만 싣는다. 예외는 Scope resolver의 주입 지점 하나이며, 그 구현도 공개 어댑터가 설정된 사내 부여 서비스를 부르는 것이 기본이다([ADR-0147](0147-scope-grants-come-from-an-injected-resolver.md)). 사내 데이터 핸들러는 코어 서버 전달기 뒤의 사내 데이터 서버(ADR-0095의 FastAPI 분석 서버)에 둔다([ADR-0148](0148-minimal-forwarder-and-identity-token.md)).
+1. **사내 서버 코드를 코어 서버 프로세스에 넣지 않는다.** 코어 서버에는 선언만 싣는다. Scope resolver도 예외가 아니다: 공개 어댑터가 설정된 사내 부여 서비스를 부르며 사내 코드를 직접 주입하지 않는다([ADR-0147](0147-scope-grants-come-from-an-injected-resolver.md), 소유자 2026-11-12). 사내 데이터 핸들러는 코어 서버 전달기 뒤의 사내 데이터 서버(ADR-0095의 FastAPI 분석 서버)에 둔다([ADR-0148](0148-minimal-forwarder-and-identity-token.md)).
 2. **선언은 배포 설정으로 읽는다.** 엔드포인트·동작 선언, 소유자 표([ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 2의 `server-routing.json`: 어느 상류가 소유하는가), 메뉴 권한 행을 한 묶음의 검증된 데이터 파일로 두고, 기동 때 읽어 기존 `menuDispatch` 옵션과 같은 등록 검증을 통과시킨다. 공개 서버 파일을 고치지 않는다. 설정에는 코드 실행도 원격 로딩도 넣지 않는다([#1700](https://github.com/hjung3113/analytics-platform/issues/1700) §2).
 3. **메뉴 권한 표(P5-b).** 메뉴 권한은 `permission → capability` 행으로 같은 설정에 둔다. 권한 선언은 부여가 아니다. capability를 누구에게 주는지는 지금의 부여 체계([ADR-0068](0068-permission-scope-and-business-system-link.md))가 하나로 정하고, 판정은 코어 서버 한 곳이 한다. capability를 가진 사람이 없으면(Admin 우회는 capability 메타가 정한 대로) 열리지 않는다.
 4. **기동 검증은 닫힌 쪽으로 실패한다.** 선언에 없는 엔드포인트 id, 중복 id, 소유자 표에 빠진 엔드포인트, 선언에 없는 권한 사용은 기동 실패다. 기존 등록 검증을 약화하지 않는다.
