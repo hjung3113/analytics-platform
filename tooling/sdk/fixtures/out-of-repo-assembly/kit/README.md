@@ -27,6 +27,15 @@ node sdk-bundle-check.mjs installed                     # @ap/* 패키지가 하
 
 필요한 것: Node 26.7 이상, pnpm 11.1.1. 공개 CI는 linux-x64에서만 시험한다.
 
+### 인터넷이 없는 기계에 설치
+
+`vendor/`의 아홉 tarball은 키트 안에 있고, 나머지 패키지는 `third-party.json`에 정확 버전으로 적혀 있다. 서드파티 패키지를 받는 길은 둘이다.
+
+- **사내 npm 미러(기본).** `mirror` 검사로 빠진 패키지가 없는지 먼저 본 뒤 미러를 레지스트리로 두고 `pnpm install --frozen-lockfile`.
+- **연결된 기계에서 만든 store.** 설치할 기계와 같은 OS·아키텍처의 연결된 기계에서 `pnpm fetch --store-dir <store>`로 store를 만들어 옮긴 뒤, 설치할 기계에서 `pnpm install --offline --frozen-lockfile --store-dir <store>`. 공개 CI가 이 길을 리눅스 컨테이너 둘(연결된 쪽, `--network none` 쪽)로 매 PR 재현한다.
+
+고정한 서드파티 조건은 `pnpm-workspace.yaml`의 `overrides`(정확 버전 목록)와 `patchedDependencies` + `patches/`다. 설치 스크립트는 `allowBuilds`에 적힌 것만 돈다. 이 셋은 고치지 않는다.
+
 ## 실행
 
 ```sh
@@ -68,4 +77,4 @@ pnpm check   # tsc + vitest 렌더 시험
 
 ## 이 폴더를 검사하는 것 (공개 저장소)
 
-이 폴더의 원본은 공개 저장소의 `tooling/sdk/fixtures/out-of-repo-assembly/kit/`이다. `pnpm sdk:consumer-check`는 원본을 아홉 tarball로 조립해 보고, `tooling/sdk/sdk-kit.mjs`가 릴리스 자산을 만들며, `tooling/sdk/sdk-kit-check.mjs`가 그 자산을 빈 폴더에 풀어 위의 설치·실행·둘째 메뉴를 그대로 돈다.
+이 폴더의 원본은 공개 저장소의 `tooling/sdk/fixtures/out-of-repo-assembly/kit/`이다. `pnpm sdk:consumer-check`는 원본을 아홉 tarball로 조립해 보고, `tooling/sdk/sdk-kit.mjs`가 릴리스 자산을 만들며, `tooling/sdk/sdk-kit-check.mjs`가 그 자산을 빈 폴더에 풀어 위의 설치·실행·둘째 메뉴를 그대로 돌고, `tooling/sdk/sdk-kit-offline.mjs`가 네트워크를 끈 리눅스 컨테이너에서 설치·검사·빌드를 돈다.

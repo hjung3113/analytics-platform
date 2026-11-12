@@ -57,3 +57,15 @@ test('second menu: a fixture the README steps no longer match fails with the fil
   writeFileSync(join(kit, 'mock', 'assembly.ts'), readFileSync(join(kit, 'mock', 'assembly.ts'), 'utf8').replace('const MOCK_ENDPOINTS = [', 'const ENDPOINT_LISTS = ['));
   assert.throws(() => addSecondMenu(kit), /mock\/assembly\.ts has no .*README «둘째 메뉴» step out of date/);
 });
+
+test('offline check: the isolated container has no network, a memory cap, the caller uid and is removed on exit', async () => {
+  const { dockerArgs, IMAGE, NO_NETWORK_PROBE } = await import('./sdk-kit-offline.mjs');
+  const args = dockerArgs({ network: 'none', mounts: [['/host/kit', '/kit']], script: NO_NETWORK_PROBE });
+  assert.equal(args[0], 'run');
+  for (const flag of ['--rm', '--network=none']) assert.ok(args.includes(flag), flag);
+  assert.ok(args.some((arg) => arg.startsWith('--memory=')));
+  assert.ok(args.includes('/host/kit:/kit'));
+  assert.ok(args.includes(IMAGE));
+  if (typeof process.getuid === 'function') assert.ok(args.includes(`${process.getuid()}:${process.getgid()}`));
+  assert.match(args.at(-1), /fetch\('https:\/\/registry\.npmjs\.org\/'\)/);
+});
