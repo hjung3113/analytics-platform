@@ -13,6 +13,8 @@ import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import { withAttemptRuleSets } from './attempt-rule-set.js';
 import type { LogLifecycleDeps } from './deps.js';
 import {
+  EVIDENCE_STATES_PARAM_KEYS,
+  parseEvidenceStatesParams,
   EXCERPT_PARAM_KEYS,
   OPINION_PARAM_KEYS,
   OPINION_SCALE_PARAM_KEYS,
@@ -26,7 +28,7 @@ import {
   parseRuleResultParams,
 } from './domain/queue-params.js';
 import { LOG_VALIDATION_REQUESTS_MENU_ID } from './menu.js';
-import { excerptTarget, getRequestDetail, listRequests, listRuleResults, readExcerpt } from './repositories/queue-read.js';
+import { excerptTarget, getRequestDetail, listRequests, listRuleResults, readEvidenceStates, readExcerpt } from './repositories/queue-read.js';
 import { listOpinions } from './repositories/opinion-read.js';
 import { isWithinRunWindow } from './domain/run-window.js';
 import { sql } from 'drizzle-orm';
@@ -106,6 +108,16 @@ export function requestEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclaratio
         return { outcome: 'ok', data: await listOpinions(tx, actor.workspace_id, query, scale, viewerOf(actor)) };
       }),
     ),
+    declare(deps, 'evidenceStates', EVIDENCE_STATES_PARAM_KEYS, parseEvidenceStatesParams, async (actor, ruleResultId) => {
+      if (currentAuthContext().kind === 'token') return { outcome: 'forbidden', data: null, message: 'evidence state reads need a login session' };
+      return deps.db.transaction(async (tx): Promise<EndpointResult> => {
+        const viewer = viewerOf(actor);
+        const target = await excerptTarget(tx, actor.workspace_id, ruleResultId, viewer);
+        if (!target) return { outcome: 'ok', data: null };
+        const allowed = await holdsExcerptRead(tx, actor.workspace_id, target.sourceOwner, actor.actor_id);
+        return { outcome: 'ok', data: await readEvidenceStates(tx, actor.workspace_id, ruleResultId, viewer, allowed) };
+      });
+    }),
     declare(deps, 'excerpt', EXCERPT_PARAM_KEYS, parseExcerptParams, async (actor, q) => {
       // Human sessions only: no token can hold the per-source right, and a token read would have no person to audit.
       if (currentAuthContext().kind === 'token') return { outcome: 'forbidden', data: null, message: 'excerpt reads need a login session' };

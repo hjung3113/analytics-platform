@@ -18,6 +18,8 @@ export const OPINION_SCALE_PARAM_KEYS = [] as const;
 export const OPINION_PAGE_SIZE_MAX = 100;
 /** The `opinionGrade` filter value for rule results without any opinion. */
 export const OPINION_GRADE_NONE = 'none';
+export const EVIDENCE_STATES_PARAM_KEYS = ['ruleResultId'] as const;
+export const parseEvidenceStatesParams = (p: Record<string, unknown>) => uuidOf(p, 'ruleResultId');
 export const EXCERPT_PARAM_KEYS = ['ruleResultId', 'evidenceIndex'] as const;
 
 function pageOf(params: Record<string, unknown>, fallbackSize: number): { ok: true; page: number; pageSize: number } | Fail {

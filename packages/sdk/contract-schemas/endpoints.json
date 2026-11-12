@@ -1451,6 +1451,18 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logLifecycle.evidenceStates",
+    "menuId": "log-validation-requests",
+    "paramKeys": [
+      "ruleResultId"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logLifecycle.excerpt",
     "menuId": "log-validation-requests",
     "paramKeys": [

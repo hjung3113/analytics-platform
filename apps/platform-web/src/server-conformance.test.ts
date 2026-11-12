@@ -134,6 +134,7 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'logLifecycle.opinions': { attemptId: '14470000-0000-4000-8000-000001778401', unlinked: true, page: 0, pageSize: 25 },
   'logLifecycle.ruleResults': { attemptId: '14470000-0000-4000-8000-000000000401', page: 0, pageSize: 25 },
   'logLifecycle.hierarchy': { op: 'children', parentId: null, limit: 50 },
+  'logLifecycle.evidenceStates': { ruleResultId: '14470000-0000-4000-8000-000000000501' },
   'logLifecycle.excerpt': { ruleResultId: '14470000-0000-4000-8000-000000000501', evidenceIndex: 0 },
   // Log knowledge catalog reads (#1194 r): the table's page + `filters` shape, no filter = every row.
   // Read-only validation catalog / coverage (#1495), synthetic fixture stable ids.
