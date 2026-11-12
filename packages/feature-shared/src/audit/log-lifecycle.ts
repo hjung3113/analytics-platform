@@ -21,6 +21,7 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_TYPES = [
   'lifecycle.request.result_submitted',
   'lifecycle.request.failed',
   'lifecycle.request.lease_expired',
+  'lifecycle.opinion.recorded',
   'lifecycle.excerpt.read',
   'lifecycle.queue_settings.updated',
   'lifecycle.excerpt_access.set',
@@ -126,12 +127,14 @@ export const lifecycleRequestFailedDetailSchema = z.object({ attemptNo: ATTEMPT_
 export const lifecycleRequestLeaseExpiredDetailSchema = z
   .object({ attemptNo: ATTEMPT_NO, to: z.enum(['queued', 'expired']) })
   .strict();
+/** Opinions written on a succeeded attempt (#1778): the attempt number and the count of new rows only, never a note or any other text. */
+export const lifecycleOpinionRecordedDetailSchema = z.object({ attemptNo: ATTEMPT_NO, recorded: z.number().int().min(0) }).strict();
 export const lifecycleExcerptReadDetailSchema = z
   .object({ attemptId: z.string().uuid(), ruleResultId: z.string().uuid(), evidenceIndex: z.number().int().min(0).max(19) })
   .strict();
 export const lifecycleQueueSettingsUpdatedDetailSchema = z
   .object({
-    /** Names of the settings the call changed (`runWindow`, `leaseSeconds`, `immediateLimit`, `excerptRetentionDays`). */
+    /** Names of the settings the call changed (`runWindow`, `leaseSeconds`, `immediateLimit`, `excerptRetentionDays`, `opinionScale`). */
     changed: z.array(z.string()).min(1),
   })
   .strict();
@@ -184,6 +187,7 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.request.result_submitted': lifecycleRequestResultSubmittedDetailSchema,
   'lifecycle.request.failed': lifecycleRequestFailedDetailSchema,
   'lifecycle.request.lease_expired': lifecycleRequestLeaseExpiredDetailSchema,
+  'lifecycle.opinion.recorded': lifecycleOpinionRecordedDetailSchema,
   'lifecycle.excerpt.read': lifecycleExcerptReadDetailSchema,
   'lifecycle.queue_settings.updated': lifecycleQueueSettingsUpdatedDetailSchema,
   'lifecycle.excerpt_access.set': lifecycleExcerptAccessSetDetailSchema,

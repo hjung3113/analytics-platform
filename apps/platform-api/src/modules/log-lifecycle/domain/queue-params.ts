@@ -2,6 +2,7 @@
 // engine's params judgment (`error` outcome), never an empty page. Pages are 0-based.
 
 import { PAGE_SIZE_MAX } from '../../../lib/list-params/list-params.js';
+import { SCALE_KEY_PATTERN } from './opinion-input.js';
 import { REQUEST_STATES } from './request-states.js';
 import { RULE_RESULTS } from './verdict.js';
 
@@ -11,7 +12,12 @@ const fail = (message: string): Fail => ({ ok: false, message });
 
 export const REQUEST_PARAM_KEYS = ['page', 'pageSize', 'states', 'priority', 'immediate', 'roundId', 'modelId', 'from', 'to'] as const;
 export const REQUEST_DETAIL_PARAM_KEYS = ['requestId'] as const;
-export const RULE_RESULT_PARAM_KEYS = ['attemptId', 'page', 'pageSize', 'results', 'required', 'sorting'] as const;
+export const RULE_RESULT_PARAM_KEYS = ['attemptId', 'page', 'pageSize', 'results', 'required', 'sorting', 'opinionGrade'] as const;
+export const OPINION_PARAM_KEYS = ['attemptId', 'ruleResultId', 'itemKey', 'unlinked', 'page', 'pageSize'] as const;
+export const OPINION_SCALE_PARAM_KEYS = [] as const;
+export const OPINION_PAGE_SIZE_MAX = 100;
+/** The `opinionGrade` filter value for rule results without any opinion. */
+export const OPINION_GRADE_NONE = 'none';
 export const EXCERPT_PARAM_KEYS = ['ruleResultId', 'evidenceIndex'] as const;
 
 function pageOf(params: Record<string, unknown>, fallbackSize: number): { ok: true; page: number; pageSize: number } | Fail {
@@ -88,6 +94,8 @@ export interface RuleResultListQuery {
   results: string[] | undefined;
   required: boolean | undefined;
   sorting: { id: string; desc: boolean }[];
+  /** A declared grade key, or `none` (no opinion): filters on the latest opinion of the item; never on `verdict` (#1778). */
+  opinionGrade: string | undefined;
 }
 export function parseRuleResultParams(params: Record<string, unknown>): { ok: true; value: RuleResultListQuery } | Fail {
   const id = uuidOf(params, 'attemptId');
@@ -99,7 +107,9 @@ export function parseRuleResultParams(params: Record<string, unknown>): { ok: tr
   if (params.required !== undefined && typeof params.required !== 'boolean') return fail('required must be a boolean');
   const sorting = params.sorting ?? [{ id: 'ruleId', desc: false }];
   if (!Array.isArray(sorting) || sorting.length > 3 || !sorting.every((s) => s && typeof s === 'object' && Object.keys(s).every((k) => k === 'id' || k === 'desc') && ['ruleId', 'result', 'required'].includes(s.id) && typeof s.desc === 'boolean')) return fail('sorting must use ruleId, result or required');
-  return { ok: true, value: { attemptId: id.value, page: pg.page, pageSize: pg.pageSize, results: results.value, required: params.required as boolean | undefined, sorting } };
+  const grade = params.opinionGrade;
+  if (grade !== undefined && (typeof grade !== 'string' || (grade !== OPINION_GRADE_NONE && !SCALE_KEY_PATTERN.test(grade)))) return fail('opinionGrade must be a grade key or none');
+  return { ok: true, value: { attemptId: id.value, page: pg.page, pageSize: pg.pageSize, results: results.value, required: params.required as boolean | undefined, sorting, opinionGrade: grade as string | undefined } };
 }
 
 export function parseExcerptParams(params: Record<string, unknown>): { ok: true; value: { ruleResultId: string; evidenceIndex: number } } | Fail {
@@ -108,4 +118,33 @@ export function parseExcerptParams(params: Record<string, unknown>): { ok: true;
   const i = params.evidenceIndex;
   if (typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i > 19) return fail('evidenceIndex must be an integer from 0 to 19');
   return { ok: true, value: { ruleResultId: id.value, evidenceIndex: i } };
+}
+
+export interface OpinionListQuery {
+  attemptId: string;
+  ruleResultId: string | undefined;
+  itemKey: string | undefined;
+  unlinked: boolean;
+  page: number;
+  pageSize: number;
+}
+/** `logLifecycle.opinions`: one attempt, optionally one rule result or one item key, or `unlinked: true` (items without a rule result). */
+export function parseOpinionListParams(params: Record<string, unknown>): { ok: true; value: OpinionListQuery } | Fail {
+  const id = uuidOf(params, 'attemptId');
+  if (!id.ok) return id;
+  const pg = pageOf(params, 50);
+  if (!pg.ok) return pg;
+  if (pg.pageSize > OPINION_PAGE_SIZE_MAX) return fail(`pageSize must be an integer from 1 to ${OPINION_PAGE_SIZE_MAX}`);
+  let ruleResultId: string | undefined;
+  if (params.ruleResultId !== undefined) {
+    const r = uuidOf(params, 'ruleResultId');
+    if (!r.ok) return r;
+    ruleResultId = r.value;
+  }
+  const itemKey = params.itemKey;
+  if (itemKey !== undefined && (typeof itemKey !== 'string' || itemKey === '' || [...itemKey].length > 200)) return fail('itemKey must be a non-empty string of at most 200 characters');
+  if (params.unlinked !== undefined && params.unlinked !== true) return fail('unlinked must be true when given');
+  const unlinked = params.unlinked === true;
+  if (unlinked && ruleResultId !== undefined) return fail('unlinked cannot be combined with ruleResultId');
+  return { ok: true, value: { attemptId: id.value, ruleResultId, itemKey: itemKey as string | undefined, unlinked, page: pg.page, pageSize: pg.pageSize } };
 }

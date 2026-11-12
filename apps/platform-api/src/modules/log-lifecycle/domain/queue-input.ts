@@ -8,6 +8,7 @@ import { bounded, uuid } from '../../../lib/input/fields.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
 import { MAX_ATTEMPTS_DEFAULT, MAX_ATTEMPTS_LIMIT, PRIORITY_MAX, PRIORITY_MIN } from './request-states.js';
 import { REASON_MAX } from './lifecycle-input.js';
+import { parseOpinionScale } from './opinion-input.js';
 import { parseRunWindow } from './run-window.js';
 
 const NON_NUMBER = { required_error: 'required', invalid_type_error: 'malformed' } as const;
@@ -29,12 +30,17 @@ export const QUEUE_INPUT_SCHEMAS = {
       leaseSeconds: intIn(30, 3600).optional(),
       immediateLimit: intIn(0, 50).optional(),
       excerptRetentionDays: intIn(1, 3650).optional(),
+      opinionScale: z.unknown().optional(),
     })
     .superRefine((v, ctx) => {
-      if (v.runWindow === undefined && v.leaseSeconds === undefined && v.immediateLimit === undefined && v.excerptRetentionDays === undefined) {
+      if (v.runWindow === undefined && v.leaseSeconds === undefined && v.immediateLimit === undefined && v.excerptRetentionDays === undefined && v.opinionScale === undefined) {
         ctx.addIssue({ code: 'custom', path: ['runWindow'], message: 'required' });
       }
       if (v.runWindow !== undefined && parseRunWindow(v.runWindow) === null) ctx.addIssue({ code: 'custom', path: ['runWindow'], message: 'malformed' });
+      if (v.opinionScale !== undefined) {
+        const scale = parseOpinionScale(v.opinionScale);
+        if (!scale.ok) ctx.addIssue({ code: 'custom', path: ['opinionScale'], message: scale.code });
+      }
     }),
   excerptAccessSet: z.object({
     sourceOwner: bounded(200).refine((v) => v.trim() !== '', { message: 'required' }).transform((v) => v.trim()),
@@ -51,14 +57,14 @@ export type QueueInput<Op extends QueueOp> = z.infer<(typeof QUEUE_INPUT_SCHEMAS
 export const QUEUE_INPUT_KEYS = {
   requestCreate: ['roundId', 'priority', 'immediate', 'engineProfileRef', 'maxAttempts'],
   requestCancel: ['id', 'reason'],
-  queueSettingsUpdate: ['runWindow', 'leaseSeconds', 'immediateLimit', 'excerptRetentionDays'],
+  queueSettingsUpdate: ['runWindow', 'leaseSeconds', 'immediateLimit', 'excerptRetentionDays', 'opinionScale'],
   excerptAccessSet: ['sourceOwner', 'actorId', 'allowed'],
   excerptDelete: ['scope', 'id', 'reason'],
 } as const satisfies Record<QueueOp, readonly string[]>;
 
 export const DEFAULT_MAX_ATTEMPTS = MAX_ATTEMPTS_DEFAULT;
 
-const KNOWN = ['required', 'too_long', 'malformed'];
+const KNOWN = ['required', 'too_long', 'malformed', 'duplicate_key', 'too_many'];
 function fieldErrors(error: z.ZodError): FieldError[] {
   const seen = new Set<string>();
   const out: FieldError[] = [];

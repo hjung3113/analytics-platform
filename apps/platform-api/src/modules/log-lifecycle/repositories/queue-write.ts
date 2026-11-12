@@ -23,6 +23,7 @@ import { type RunWindow, DEFAULT_RUN_WINDOW, parseRunWindow } from '../domain/ru
 import type { ParsedRuleResult } from '../domain/result-payload.js';
 import { type Verdict, stateAfterLeaseExpiry } from '../domain/request-states.js';
 import type { SampleSet } from '../domain/sample-set.js';
+import { EMPTY_OPINION_SCALE, type OpinionScale, readOpinionScale } from '../domain/opinion-input.js';
 
 export type RequestRow = typeof executionRequests.$inferSelect;
 export type AttemptRow = typeof executionAttempts.$inferSelect;
@@ -36,12 +37,15 @@ export interface QueueSettings {
   leaseSeconds: number;
   immediateLimit: number;
   excerptRetentionDays: number;
+  /** The in-house grade / mark declaration (#1778); empty until an administrator declares it. */
+  opinionScale: OpinionScale;
 }
 export const DEFAULT_QUEUE_SETTINGS: QueueSettings = {
   runWindow: DEFAULT_RUN_WINDOW,
   leaseSeconds: 300,
   immediateLimit: 5,
   excerptRetentionDays: 90,
+  opinionScale: EMPTY_OPINION_SCALE,
 };
 
 /** The workspace's queue settings; a missing row (or an unreadable stored window) resolves to the defaults. */
@@ -54,6 +58,7 @@ export async function getQueueSettings(tx: Tx, workspaceId: string, lock = false
     leaseSeconds: row.leaseSeconds,
     immediateLimit: row.immediateLimit,
     excerptRetentionDays: row.excerptRetentionDays,
+    opinionScale: readOpinionScale(row.opinionScale),
   };
 }
 
@@ -73,6 +78,7 @@ export async function putQueueSettings(tx: Tx, workspaceId: string, actorId: str
     leaseSeconds: next.leaseSeconds,
     immediateLimit: next.immediateLimit,
     excerptRetentionDays: next.excerptRetentionDays,
+    opinionScale: next.opinionScale,
     updatedBy: actorId,
   };
   await tx

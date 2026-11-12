@@ -1,7 +1,8 @@
 import { type ColumnFilter, type FieldError, type PageSort } from '@ap/contracts';
 import { defineMockAction, defineMockEndpoint, MockActionInvalid, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { actions, endpoints, isUuid, type Project, type RoundDetail } from '../endpoints';
-import { ATTEMPT_ID, events, models, projects, requests, rounds, rules } from './fixtures';
+import { ATTEMPT_ID, OPINION_ATTEMPT_ID, events, models, projects, requests, rounds, rules } from './fixtures';
+import { opinionScale, opinionRules, unlinkedOpinions, opinionHistory } from './opinions';
 import { readHierarchy, validateHierarchy } from './hierarchy';
 export { PROJECT_ID, ROUND_ID, REQUEST_ID, ATTEMPT_ID, fixtureId, resetLifecycle, stageLifecycleFixture } from './fixtures';
 
@@ -48,9 +49,19 @@ function read(name: string, p: Params, actor: string): unknown {
   if (name === 'roundEvidence') return roundOf(p.roundId) ? { rows: [] } : null;
   if (name === 'requests') return page(requests.filter(r => (!p.roundId || r.roundId === p.roundId) && (!p.states || (p.states as string[]).includes(r.state)) && (p.priority === undefined || p.priority === r.priority) && (!p.modelId || p.modelId === r.modelId)).map(({ attempts: _attempts, cancelReason: _cancelReason, ...row }) => row), p);
   if (name === 'requestDetail') return requestOf(p.requestId) ?? null;
+  if (name === 'opinionScale') return opinionScale;
+  if (name === 'opinions') {
+    if (p.attemptId !== OPINION_ATTEMPT_ID) return page([], p);
+    if (p.unlinked === true && !p.itemKey) return page(unlinkedOpinions, p);
+    if (!p.itemKey && !p.ruleResultId) return page([
+      ...opinionRules.filter(r => r.opinion).map(r => ({ itemKey: r.ruleId, ...r.opinion! })),
+      ...unlinkedOpinions,
+    ].sort((a, b) => b.at.localeCompare(a.at) || a.itemKey.localeCompare(b.itemKey)), p);
+    return page(opinionHistory.filter(row => (!p.itemKey || row.itemKey === p.itemKey) && (!p.ruleResultId || row.ruleResultId === p.ruleResultId)), p);
+  }
   if (name === 'ruleResults') {
-    if (p.attemptId !== ATTEMPT_ID) return { rows: [], total: 0 };
-    const selected = rules.filter(r => (!p.results || (p.results as string[]).includes(r.result)) && (p.required === undefined || p.required === r.required));
+    if (p.attemptId !== ATTEMPT_ID && p.attemptId !== OPINION_ATTEMPT_ID) return { rows: [], total: 0 };
+    const selected = (p.attemptId === ATTEMPT_ID ? rules : opinionRules).filter(r => (!p.opinionGrade || (p.opinionGrade === 'none' ? !r.opinion : r.opinion?.grade.key === p.opinionGrade)) && (!p.results || (p.results as string[]).includes(r.result)) && (p.required === undefined || p.required === r.required));
     const sort = (p.sorting as PageSort[] | undefined)?.[0];
     if (sort) selected.sort((a,b) => String(a[sort.id as 'ruleId']).localeCompare(String(b[sort.id as 'ruleId'])) * (sort.desc ? -1 : 1));
     return page(selected, p);
@@ -60,7 +71,7 @@ function read(name: string, p: Params, actor: string): unknown {
 }
 export const logLifecycleMock: readonly AnyMockEndpoint[] = Object.entries(endpoints).map(([name, spec]) => defineMockEndpoint(spec, { mart: false, validate: ({ params }) => {
   if (name === 'hierarchy') return validateHierarchy(params);
-  const idKey = { projectDetail: 'projectId', projectEvents: 'projectId', rounds: 'projectId', roundDetail: 'roundId', roundEvidence: 'roundId', requestDetail: 'requestId', ruleResults: 'attemptId', excerpt: 'ruleResultId' }[name];
+  const idKey = { projectDetail: 'projectId', projectEvents: 'projectId', rounds: 'projectId', roundDetail: 'roundId', roundEvidence: 'roundId', requestDetail: 'requestId', ruleResults: 'attemptId', opinions: 'attemptId', excerpt: 'ruleResultId' }[name];
   return idKey && (typeof params[idKey] !== 'string' || !isUuid(params[idKey] as string)) ? `${idKey} must be UUID` : null;
 }, handle: ({ params, actor }) => read(name, params, actor) }));
 export const logLifecycleActionsMock: readonly AnyMockAction[] = Object.entries(actions).map(([name, spec]) => defineMockAction(spec, {

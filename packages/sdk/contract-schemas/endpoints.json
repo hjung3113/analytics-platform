@@ -1497,6 +1497,33 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logLifecycle.opinionScale",
+    "menuId": "log-validation-requests",
+    "paramKeys": [],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.opinions",
+    "menuId": "log-validation-requests",
+    "paramKeys": [
+      "attemptId",
+      "ruleResultId",
+      "itemKey",
+      "unlinked",
+      "page",
+      "pageSize"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logLifecycle.projectDetail",
     "menuId": "log-models",
     "paramKeys": [
@@ -1609,7 +1636,8 @@
       "pageSize",
       "results",
       "required",
-      "sorting"
+      "sorting",
+      "opinionGrade"
     ],
     "permission": "platform:view",
     "requiresScope": false,

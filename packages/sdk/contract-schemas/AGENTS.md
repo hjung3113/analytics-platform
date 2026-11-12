@@ -36,3 +36,4 @@ Release consumers and generators must preserve these conventions:
 ## Deferred work
 
 [The #531 scope record](https://github.com/hjung3113/analytics-platform/issues/531#issuecomment-6464260358) records reasons and reopen conditions for unimplemented endpoint-specific schemas, z.infer type replacement, Pydantic/Python generation and CI, reference engines, internal identity-token schemas, declaration-header activation and a sixth SDK package tarball. Reopen each under its recorded consumer or design prerequisite.
+- Validation opinions `v0` (provisional; ADR-0117 amendment 2, #1778): `validation-opinion.ts` holds the worker body / response and the scale declaration. Declared grade and mark keys, the sample-list check, the secret-pattern refusal and the per-attempt totals (2,000 rows, 256 KB of notes) are server rules; the schema only fixes shapes and per-field caps.

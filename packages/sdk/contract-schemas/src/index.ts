@@ -8,6 +8,7 @@ import * as source from './source-read.ts';
 import * as catalog from './validation-catalog-report.ts';
 import * as exportContract from './log-explorer-export.ts';
 import * as queue from './validation-queue.ts';
+import * as opinion from './validation-opinion.ts';
 import * as knowledgeSearch from './knowledge-search.ts';
 import { z } from 'zod/v4';
 
@@ -159,6 +160,15 @@ export {
   validationResultResponseSchema,
   verdictSchema,
 } from './validation-queue.ts';
+export {
+  VALIDATION_OPINION_ERROR_CODES,
+  VALIDATION_OPINION_VERSION,
+  validationOpinionEvidenceSchema,
+  validationOpinionInputSchema,
+  validationOpinionItemSchema,
+  validationOpinionResponseSchema,
+  validationOpinionScaleSchema,
+} from './validation-opinion.ts';
 export { schemaFileText, toJsonSchema } from './export.ts';
 
 /**
@@ -278,4 +288,9 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   validationResultResponse: queue.validationResultResponseSchema,
   validationFailInput: queue.validationFailInputSchema,
   validationFailResponse: queue.validationFailResponseSchema,
+  validationOpinionEvidence: opinion.validationOpinionEvidenceSchema,
+  validationOpinionItem: opinion.validationOpinionItemSchema,
+  validationOpinionInput: opinion.validationOpinionInputSchema,
+  validationOpinionResponse: opinion.validationOpinionResponseSchema,
+  validationOpinionScale: opinion.validationOpinionScaleSchema,
 };
