@@ -32,7 +32,7 @@ export type StartAppHostOptions<A extends HostAssembly = HostAssembly> = {
   spaceIdMigrations?: Readonly<Record<string, string>>;
   equipmentAxes: readonly EquipmentAxisDescriptor[];
   queryHistory: QueryHistoryStore;
-  /** App slots; the Host puts `contextBar`, `boardEntry` and `topBarTools` UNDER these, so an injected value wins. Called on every render of the root. */
+  /** App slots; the Host puts `contextBar`, `boardEntry` and `topBarTools` UNDER these, so an injected value wins. Called once at startup, before the first render. An assembler whose slots change after startup (for example from a store) wraps the exported `AppRoot`, which takes ready `slots` and `children`. */
   slots?: (assembly: A) => PlatformSlots;
   /** Runs once after the Registry and the assembly exist and before the first render (the app wires its feature API and slot joins here). */
   onAssembly?: (assembly: A, registry: Registry) => void;
