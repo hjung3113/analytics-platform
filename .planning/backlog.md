@@ -8,6 +8,7 @@
 
 ## 연결된 기능 후속
 
+- **구현 안 함 — 상류 대상 라우팅의 미룬 7가지 (#1839, [ADR-0153 Deferred](../docs/adr/0153-upstream-target-routing-and-declared-connectors.md#deferred-구현-안-함)):** envelope 대상 fan-out, 커서 페이지 fan-out, 정렬·창을 대상에 내려보내는 페이지 최적화, 코어 응답 엔드포인트의 열 필터 `filters`, `postgres`·`mssql` 밖 dialect, 기간 값 라우팅, `menuQuery` 밖 FastAPI 원천 포트의 연결기. 이유와 항목별 다시 여는 조건은 ADR-0153 Deferred가 소유한다(요약: 첫 사내 메뉴·대상이 그 기능을 쓸 때, 또는 측정된 fan-out 비용 문제). 다시 여는 조건: 위 항목 중 하나를 쓰는 사내 메뉴나 대상이 정해질 때 — 그 항목을 이슈로 올리고 여기서 지운다.
 - **구현 안 함 — Round 사람 결함·토론 공급 (#1808, #1809):** 결과 우선 화면은 서버가 결함을 공급할 때만 표와 Round 전체 집계를 표시한다. 이유: #1809는 결함 DB·댓글 저장을 소유하지 않는다. 다시 여는 조건: #1808의 사람 API·가시성·감사 노드가 준비될 때. [설계·선행 노드](../docs/design/features/log-lifecycle/validation-issues-discussion.md).
 - **구현 안 함 — 검증 항목 처리 상태·담당·심각도 (#1808 H3):** N1 저장에는 상태·담당·심각도 열과 전이가 없다. 이유: 소유자가 단계 값·필수 여부를 실제 업무 확인 전까지 정하지 않았다. 다시 여는 조건: H3 답이 오면 별도 마이그레이션과 상태 변경 액션을 추가한다(자동 PASS 해결 금지는 유지). 같은 조건에 재검증 요청(N5)·Task/VOC/Finding 전달(H8)·첨부(H6)가 걸려 있다. [설계](../docs/design/features/log-lifecycle/validation-issues-discussion.md).
 - **구현 안 함 — 새 읽기의 모의 어댑터 처리기 (#1815 A2, #1808 N2):** `logLifecycle.evidenceStates`와 검증 항목 읽기 5개는 서버 계약과 목록에만 있고 모의 서버는 값을 만들지 않는다. 이유: 이를 쓰는 화면(#1815 A3, #1808 N3)이 아직 없다. 다시 여는 조건: 해당 화면 노드 시작 때 모의 처리기와 UUID 검증을 함께 추가한다.
