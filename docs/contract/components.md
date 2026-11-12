@@ -423,6 +423,8 @@ Unknown
 
 `clear`는 "그 kind가 표현하는 문제가 해당 Context에 없음을 원천이 실제로 확인했다"는 제한적 주장이며 전반적 데이터 건강/완전성 선언이 아니다(가짜 `clear` 금지). `confirmed`/`clear`는 논리적 `statusSource`(원천 서비스 id)와 `observedAt`이 필수다. `unknown`은 생략하지 않으며 `source_unavailable`/`check_failed`(현재 코드 어휘)와 `retention_expired`(원천 보존 기간 밖, 적재 워커 스키마 합의 뒤 추가 — 이름 Candidate) 같은 평가 불가 이유를 명시한다.
 
+`coverage`의 `statusSource: "upstream-routing"`은 라우팅된 대상 일부가 답하지 않았음을 뜻하며, `clear`는 라우팅된 대상이 모두 답했다는 뜻만 가진다.
+
 `Loading`/`Refreshing same context`는 이 응답 페이로드에 없다(클라이언트 요청 생명주기). `Partial widget failure`는 위젯 결과가 섞일 때 페이지가 종합해 도출한다.
 
 `explainsEmpty`(이름 Candidate)는 `outcome=empty`이고 해당 평가가 `confirmed`이며 원천이 **그 요청 결과의 0건 원인**을 확인한 경우에만 true다(기본 false). UI는 배열 순서·행 수로 인과를 추론하지 않는다. 복수 원인이 확인되면 모두 유지한다. `No matching result`만 보이는 조건은 `outcome=empty`이고 표시할 `explainsEmpty=true` finding이 없을 때다 — 원인 원천이 없다는 것이 `empty`의 필수조건은 아니다.

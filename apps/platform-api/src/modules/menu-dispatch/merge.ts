@@ -1,7 +1,7 @@
 import type { Routing } from './bundle/routing.js';
 import { MenuUpstreamError } from './forwarder.js';
 
-type Sort = NonNullable<NonNullable<Routing['merge']>['sort']>;
+type Sort = NonNullable<NonNullable<Routing['merge']>['sort']>[number][];
 type Value = number | string | null;
 function sortValue(row: unknown, field: string): Value {
   const value = row !== null && typeof row === 'object' && Object.hasOwn(row, field) ? (row as Record<string, unknown>)[field] : undefined;
@@ -57,4 +57,26 @@ export function mergeRows(legs: readonly (readonly unknown[])[], sort: Sort | un
     return 0;
   });
   return rows.map(({ row }) => row);
+}
+
+export interface PagePlan { page: number; pageSize: number; sort: Sort }
+/** merge.sort is the bundle's sortable-field allowlist; its unique key always sorts last. */
+export function pagePlan(merge: Routing['merge'], params: Record<string, unknown>): PagePlan | undefined {
+  const { page, pageSize, sorting = [] } = params;
+  if (typeof page !== 'number' || !Number.isSafeInteger(page) || page < 0 || typeof pageSize !== 'number' || !Number.isSafeInteger(pageSize) || pageSize < 1 || !Number.isSafeInteger((page + 1) * pageSize)) return undefined;
+  if (!Array.isArray(sorting) || sorting.length > (merge?.sort?.length ?? 0)) return undefined;
+  const requested: Sort = [];
+  for (const item of sorting) {
+    if (item === null || typeof item !== 'object' || typeof item.id !== 'string' || typeof item.desc !== 'boolean' || Object.keys(item).some((key) => !['id', 'desc'].includes(key)) || !merge?.sort?.some(({ field }) => field === item.id) || requested.some(({ field }) => field === item.id)) return undefined;
+    requested.push({ field: item.id, direction: item.desc ? 'desc' : 'asc' });
+  }
+  const last = merge?.sort?.at(-1);
+  if (!last?.unique) return undefined;
+  const tie = requested.find(({ field }) => field === last.field);
+  const sort = [
+    ...requested.filter(({ field }) => field !== last.field),
+    ...(merge?.sort ?? []).filter(({ field }) => field !== last.field && !requested.some((item) => item.field === field)),
+    { ...last, ...(tie ? { direction: tie.direction } : {}) },
+  ];
+  return { page, pageSize, sort };
 }

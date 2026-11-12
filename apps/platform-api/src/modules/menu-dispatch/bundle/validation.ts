@@ -53,6 +53,7 @@ export function routingProblems(bundle: {
       if (endpoint.requiresScope && !owner.scopeCheck) add('requiresScope core-answered endpoint needs scopeCheck');
       if (paged) {
         if (!endpoint.paramKeys.includes('page') || !endpoint.paramKeys.includes('pageSize') || endpoint.paramKeys.includes('cursor')) add('paged core-answered endpoint requires page and pageSize; cursor is not supported');
+        if (!owner.merge?.sort) add('paged core-answered endpoint needs merge.sort with a unique final field');
         if (owner.merge?.maxWindow === undefined) add('paged core-answered endpoint needs merge.maxWindow');
         if (endpoint.limits?.maxRows !== undefined) add('limits.maxRows is refused on a paged core-answered endpoint');
       } else if (endpoint.limits?.maxRows === undefined) add('non-paged core-answered endpoint needs limits.maxRows');

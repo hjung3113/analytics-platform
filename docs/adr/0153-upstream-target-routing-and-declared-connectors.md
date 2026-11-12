@@ -68,11 +68,18 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 
 ### fan-out 병합의 구체 모양 (1839d1)
 
-- 비페이지 fan-out은 한 경로의 여러 대상과 room별 여러 경로 모두 실행한다. a1·a2의 fan-out 거부를 해제하며, `merge.partial`과 페이지의 `… node 1839d2` 기동 거부는 유지한다.
+- 비페이지 fan-out은 한 경로의 여러 대상과 room별 여러 경로 모두 실행한다. a1·a2의 fan-out 거부를 해제한다. `merge.partial`과 페이지는 아래 1839d2 규칙을 따른다.
 - 모든 leg는 요청 도착 기준 마감 하나와 취소 신호를 공유한다. 연결기를 부를 때마다 남은 시간에서 2초를 뺀 `deadlineMs`를 준다. 실패 즉시 형제 leg의 signal과 iterator `return`으로 취소하고, 정착한 실패의 우선순위는 `502 > 504 > timeout`이다. 형제 취소 자체는 실패 등급에 넣지 않는다.
 - leg별 원본 읽기는 `maxRows + 1`에서 멈춘다. 한 leg가 넘으면 형제도 취소하고 `rowsRead` 초과 표식을 `query.ts`에 넘겨 `too_large`, `data: null`을 판정하게 한다. leg별 상한 안에서도 투영 후 합친 행 수가 상한을 넘으면 같은 판정을 쓴다.
 - 순수 함수 `mergeRows`는 경로·대상 선언 순서와 leg 안의 행 순서를 보존하거나 `merge.sort`로 정렬한다. 문자열은 Unicode 코드포인트 순서, 숫자는 수치 순서이며 `null`은 방향과 무관하게 끝이다. 정렬 필드의 누락·지원하지 않는 값·혼합 형과 leg 사이의 마지막 유일 키 중복은 값 없는 고정 `MenuUpstreamError('unavailable')`로 실패한다.
 - `resolve-keys`의 `lookup` 결과는 그 leg의 room(R ∩ 경로 rooms)으로 판정한다. 요청 전체 R이 아니다. 다른 leg의 room이나 `unroutedRooms: "skip"`으로 빠진 room으로 풀리는 키는 `forbidden`이고 본 호출은 돌지 않는다. 이유: `resolve-keys`에서는 본 호출 행을 다시 검사하지 않으므로, 넓은 집합으로 판정하면 다른 room의 키를 이 대상에서 읽는다. 단일 대상 `skip`에서 이전에 받아들이던 조회가 거부로 바뀐다(닫힌 쪽).
+
+### coverage·페이지 fan-out의 구체 모양 (1839d2)
+
+- `merge.partial: "coverage"`는 성공한 leg를 기다려 합치며 `coverage`를 한 번 싣는다. 모두 성공하면 `clear`, 일부 실패하면 `confirmed`이고 `detail`은 빠진 대상 수의 십진 문자열 하나다. `observedAt`은 `new Date().toISOString()`의 ISO instant이며 `statusSource`는 `upstream-routing`이다. 다른 선언 kind는 `unknown/source_unavailable`이다. 엔드포인트의 중복 kind 선언은 기동 시 거부한다. 전부 실패하면 `502 > 504 > timeout`, Scope 행 위반·키 조회 거부는 전체 실패, 한 leg라도 상한을 넘으면 `too_large`다. 공유 코어 마감·요청 취소 뒤 성공 응답을 만들지 않는다.
+- 페이지는 단일 대상도 같은 코어 병합 경로로 처리한다. 종전 단일 대상 페이지도 d2 기동 거부 아래 있었으므로 기존 지원 동작을 바꾸지 않는다. 각 leg를 `merge.maxWindow + 1`까지만 읽고 초과하면 `too_large`; 병합 후 0부터 시작하는 `page`와 양의 정수 `pageSize`로 자른다. `total`은 자르기 전 전체 행 수다. 빈 페이지도 `{ rows: [], total }`이다.
+- 요청 `sorting`은 `PageSort[]`(`{ id, desc }`)이며 생략하면 빈 목록이다. `merge.sort`에 적은 필드가 정렬 허용 목록이다. 요청 키 순서 뒤에 나머지 선언 키를 붙이고 선언의 마지막 유일 키를 항상 마지막에 둔다(그 키의 요청 방향은 허용). 코어 페이지는 마지막 키가 `unique: true`인 `merge.sort` 선언이 없으면 엔드포인트 이름을 명시해 기동을 거부한다. 페이지 값·정렬 값이 틀리면 대상 호출 전에 `error`다. 대상 호출·바인딩 문장은 고치지 않는다.
+- 부분 응답·페이지 경로도 결정 3.5의 다리별 라우팅 로그(행위자·correlation id·엔드포인트 id·대상 id)를 남긴다. 응답에는 대상 id·주소·원본 오류·원본 행을 싣지 않고(`detail`은 빠진 대상 수만), 로그에도 원본 오류·행은 싣지 않는다. 페이지+부분 실패, coverage kind 없는 부분 실패, 코어 응답의 `filters`, envelope fan-out 거부는 유지한다.
 
 ### 3. 요청마다의 라우팅과 Scope 판정의 끝
 

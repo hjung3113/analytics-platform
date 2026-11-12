@@ -30,6 +30,7 @@ export function declaredContribution({ bundle, forwarder, checkService, connecto
   if (!forwarder && Object.values(bundle.endpointOwners).some((owner) => typeof owner === 'string')) problems.push('declared endpoints require a forwarder');
   problems.push(...routedBootProblems(bundle, connectorFactories));
   for (const row of bundle.endpoints) {
+    if (new Set(row.kinds).size !== (row.kinds?.length ?? 0)) problems.push(`endpoint ${row.id}: kinds must not contain duplicates`);
     if (row.limits?.maxRows !== undefined && typeof bundle.endpointOwners[row.id] === 'string') problems.push(`endpoint ${row.id}: ${MAX_ROWS_REASON}`);
   }
   if (bundle.actions.length > 0) problems.push('declared actions are refused: the forwarder serves menu-query only');

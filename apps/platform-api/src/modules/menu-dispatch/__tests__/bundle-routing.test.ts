@@ -80,7 +80,7 @@ it.each([
   ['one envelope target', ownerBundle({ call: { mode: 'envelope' } }, { limits: undefined }, { targets: { 'tgt-1': httpTarget } })],
   ['mapped HTTP', ownerBundle({ call: httpCall }, {}, { targets: { 'tgt-1': httpTarget } })],
   ['route call override', ownerBundle({ routes: [{ ...route(), call: httpCall }], call: undefined }, {}, { targets: { 'tgt-1': httpTarget } })],
-  ['paged with maxWindow', ownerBundle({ merge: { maxWindow: 100 } }, paging)],
+  ['paged with maxWindow and unique sort', ownerBundle({ merge: { maxWindow: 100, sort: [{ field: 'id', direction: 'asc', unique: true }] } }, paging)],
   ['nonpaged drop rows', ownerBundle({ scopeCheck: { mode: 'drop-rows', roomField: '/room' }, call: statement({}) })],
   ['keyed guard', ownerBundle({ scopeCheck: resolveKeys, call: statement({ q: 'params.q' }) })],
   ['aggregate guard', ownerBundle({ scopeCheck: { ...resolveKeys, keys: { const: [] } } })],

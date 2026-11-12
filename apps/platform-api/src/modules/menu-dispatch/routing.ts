@@ -34,7 +34,6 @@ export function routedBootProblems(bundle: DeclarationBundle, factories: Connect
   for (const endpoint of bundle.endpoints) {
     const owner = bundle.endpointOwners[endpoint.id];
     if (!owner || typeof owner === 'string') continue;
-    if (owner.merge?.partial !== undefined || endpoint.paramKeys.some((key) => ['page', 'pageSize', 'cursor'].includes(key))) problems.push('fan-out merge is not available yet (ADR-0153 node 1839d2)');
     for (const route of owner.routes) for (const id of route.targets) {
       const target = bundle.targets?.[id];
       if (target && !factories[target.kind]) problems.push(`connector kind ${target.kind} is not available`);
