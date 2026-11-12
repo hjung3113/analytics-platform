@@ -20,12 +20,21 @@ const signer = createIdentityTokenSigner({
   privateKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
   keyId: 'declared-test',
 });
-const envelope = { outcome: 'ok', data: [{ id: 'row-1' }], assessments: [{ kind: 'freshness' }], trust: { source: 'synthetic' }, message: 'owner answer' };
+const ASSESSMENT = {
+  kind: 'collection', state: 'confirmed', statusSource: 'owner', observedAt: '2026-11-12T00:00:00Z',
+  reason: 'check_failed', explainsEmpty: false, detail: 'owner assessment',
+} as const;
+const TRUST = {
+  updatedAt: '2026-11-12T00:00:00Z', dataThrough: null, coverage: 0, metricVersion: 'v1',
+  sourceLogicVersions: ['owner-v1'], provisional: false, source: 'owner',
+};
+/** The owner's complete wire envelope (the forwarder validates it strictly); its correlation id echoes the forwarded one. */
+const envelope = { outcome: 'ok', data: [{ id: 'row-1' }], assessments: [ASSESSMENT], trust: TRUST, message: 'owner answer' };
 const actor = { actor_id: ACTOR, workspace_id: WORKSPACE, role_level: 'admin' };
 const resolver: ScopeResolver = { resolve: async () => [{ site: 'synthetic', rooms: ['r1'] }] };
 
 function assemble(bundle: DeclarationBundle, allowed = true) {
-  const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => envelope }));
+  const fetch = vi.fn(async (_url: string, init: { headers: Record<string, string> }) => ({ ok: true, status: 200, json: async () => ({ ...envelope, correlationId: init.headers['x-correlation-id'] }) }));
   const forwarder = createMenuForwarder({ baseUrl: 'http://synthetic.test', timeoutMs: 5000, signer, fetch });
   const checkService = stubCheckService(allowed);
   const check = vi.spyOn(checkService, 'checkCapability');
