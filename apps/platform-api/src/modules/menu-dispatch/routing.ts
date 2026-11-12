@@ -4,6 +4,7 @@ import type { DeclarationBundle } from './declarations-file.js';
 import type { Route, Routing } from './bundle/routing.js';
 import { routeCall } from './bundle/routing.js';
 import type { ValueMap } from './bundle/targets.js';
+import { mssqlCallProblems } from './connectors/sql/mssql.js';
 import type { ConnectorFactories } from './connectors/types.js';
 import type { EndpointHandlerArgs } from './types.js';
 
@@ -45,8 +46,10 @@ export function routedBootProblems(bundle: DeclarationBundle, factories: Connect
       const target = bundle.targets?.[id];
       if (target && !factories[target.kind]) problems.push(`connector kind ${target.kind} is not available`);
       if (target?.kind === 'sql') {
-        if (target.dialect === 'mssql') problems.push('sql dialect mssql is not available yet (ADR-0153 node 1839b2)');
-        else if ('procedure' in routeCall(owner, route) || (owner.scopeCheck?.mode === 'resolve-keys' && 'procedure' in owner.scopeCheck.lookup)) {
+        if (target.dialect === 'mssql') {
+          problems.push(...mssqlCallProblems(routeCall(owner, route), endpoint.paramTypes));
+          if (owner.scopeCheck?.mode === 'resolve-keys') problems.push(...mssqlCallProblems(owner.scopeCheck.lookup, endpoint.paramTypes));
+        } else if ('procedure' in routeCall(owner, route) || (owner.scopeCheck?.mode === 'resolve-keys' && 'procedure' in owner.scopeCheck.lookup)) {
           problems.push('sql procedure calls are not available for dialect postgres');
         }
       }

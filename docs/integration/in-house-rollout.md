@@ -71,13 +71,14 @@
 
 ### DB 대상 준비물
 
-- [ ] 읽기 전용 로그인 계정. 필요한 스키마의 `USAGE`와 조회할 표·뷰의 `SELECT`만 부여. 프로시저 대상은 지정 프로시저 실행 권한만 부여(현재 PostgreSQL 연결기는 프로시저 호출 불가).
+- [ ] 읽기 전용 로그인 계정. 필요한 스키마의 `USAGE`와 조회할 표·뷰의 `SELECT`만 부여. 프로시저 대상은 지정 프로시저 실행 권한만 부여(PostgreSQL 연결기는 프로시저 호출 불가, MSSQL 연결기만 호출).
+- [ ] MSSQL 대상: 지정 프로시저의 `EXECUTE`만 가진 계정(프로시저 대상) 또는 조회할 표·뷰의 `SELECT`만 가진 계정(문장 대상). MSSQL에는 읽기 전용 트랜잭션이 없어 계정 권한이 유일한 보장. 목록 인자는 `listJoin` 구분자로 이은 문자열 하나로 전달되므로 프로시저가 그 구분자로 나누는지 확인. 문장의 목록 자리표시자는 값 개수만큼 `@p1, @p2, …`로 늘어나며 2000개 초과 시 거부. 결과 집합은 하나만 읽고, `datetimeoffset`·이진·`sql_variant`·UDT 열과 중복 열 이름은 거부되므로 해당 열은 문자열로 변환해 조회.
 - [ ] 코어 서버에서 DB 주소·포트로 가는 네트워크와 TLS 설정 확인.
-- [ ] DBA가 감시할 `applicationName` 지정(PostgreSQL `application_name`). 대상별 풀 `pool.max`·동시 조회 `pool.concurrency` 합의. 생략 시 4연결·2조회, 취소 중 별도 제어 연결 최대 2개.
-- [ ] 문장 시간 제한 확인. 풀 대기도 대상 예산에 포함하며, PostgreSQL은 읽기 전용 트랜잭션의 `SET LOCAL statement_timeout`으로 제한. 기본 코어 27초 마감의 남은 시간에서 2초를 뺀 값 사용.
-- [ ] 접속 문자열 파일을 코어 서버만 읽는 위치에 배치(예: `/synthetic/secrets/shared`, 소유자 전용 `0600`). 선언의 `connectionFile`에는 경로만 기록. 접속 문자열은 저장소·응답·로그에 기록 금지.
-- [ ] Site·room별 대상 배치, 열 대응, Scope 검증 방식과 행 상한 확인. [합성 선언 묶음 예시](examples/routed-declarations.example.json)는 여러 Site의 공용 대상과 한 Site의 room별 분할 대상, 기존 문자열 경로를 함께 제시.
-- [ ] 플랫폼은 쓰기·DDL을 수행하지 않으며, 조회 SQL에 `LIMIT`·`ORDER BY`·`COUNT`를 덧붙이지 않음. 선언된 문장을 파라미터로 실행하고 행 상한에서 커서를 닫음. 읽기 전용 계정 권한이 1차 보장([ADR-0153 결정 8](../adr/0153-upstream-target-routing-and-declared-connectors.md)).
+- [ ] DBA가 감시할 `applicationName` 지정(PostgreSQL `application_name`, MSSQL `appName`). 생략 시 드라이버 기본값. 대상별 풀 `pool.max`·동시 조회 `pool.concurrency` 합의. 생략 시 4연결·2조회, 취소 중 별도 제어 연결 최대 2개.
+- [ ] 문장 시간 제한 확인. 풀 대기도 대상 예산에 포함하며, PostgreSQL은 읽기 전용 트랜잭션의 `SET LOCAL statement_timeout`으로 제한. MSSQL은 요청별 `requestTimeout`으로 제한하고 초과 시 요청 취소. 기본 코어 27초 마감의 남은 시간에서 2초를 뺀 값 사용.
+- [ ] 접속 문자열 파일을 코어 서버만 읽는 위치에 배치(예: `/synthetic/secrets/shared`, 소유자 전용 `0600`). MSSQL 파일은 ADO 형식 한 줄(예: `Server=syn-db.invalid,1433;Database=synthetic;User Id=syn_reader;Password=…;Encrypt=true`). 선언의 `connectionFile`에는 경로만 기록. 접속 문자열은 저장소·응답·로그에 기록 금지.
+- [ ] Site·room별 대상 배치, 열 대응, Scope 검증 방식과 행 상한 확인. [합성 선언 묶음 예시](examples/routed-declarations.example.json)는 여러 Site의 공용 대상과 한 Site의 room별 분할 대상, `listJoin`을 쓰는 MSSQL 프로시저 대상, 기존 문자열 경로를 함께 제시.
+- [ ] 플랫폼은 쓰기·DDL을 수행하지 않으며, 조회 SQL에 `LIMIT`·`ORDER BY`·`COUNT`를 덧붙이지 않음. 선언된 문장·프로시저를 파라미터로 실행하고 행 상한에서 커서를 닫거나(PostgreSQL) 요청을 취소(MSSQL). 읽기 전용 계정 권한이 1차 보장([ADR-0153 결정 8](../adr/0153-upstream-target-routing-and-declared-connectors.md)).
 
 ### 선언 묶음과 메뉴 선언 스냅샷
 

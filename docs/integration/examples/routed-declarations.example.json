@@ -42,6 +42,23 @@
         "collection"
       ],
       "mergeTimeDomain": false
+    },
+    {
+      "id": "syn.procedure",
+      "menuId": "syn",
+      "paramKeys": [],
+      "permission": "syn:view",
+      "requiresScope": true,
+      "context": {
+        "roomNames": "apply"
+      },
+      "limits": {
+        "maxRows": 100
+      },
+      "kinds": [
+        "collection"
+      ],
+      "mergeTimeDomain": false
     }
   ],
   "actions": [],
@@ -77,6 +94,16 @@
       "dialect": "postgres",
       "connectionFile": "/synthetic/secrets/right",
       "applicationName": "syn-platform-right",
+      "pool": {
+        "max": 4,
+        "concurrency": 2
+      }
+    },
+    "procedural": {
+      "kind": "sql",
+      "dialect": "mssql",
+      "connectionFile": "/synthetic/secrets/procedural",
+      "applicationName": "syn-platform-procedural",
       "pool": {
         "max": 4,
         "concurrency": 2
@@ -160,6 +187,53 @@
         "params": {
           "site": "scope.site",
           "rooms": "scope.rooms"
+        },
+        "response": {
+          "fields": {
+            "site": {
+              "from": "/site"
+            },
+            "room": {
+              "from": "/room"
+            },
+            "seq": {
+              "from": "/seq"
+            },
+            "at": {
+              "from": "/at",
+              "type": "wallclock"
+            },
+            "value": {
+              "from": "/value"
+            }
+          }
+        }
+      },
+      "scopeCheck": {
+        "mode": "verify-rows",
+        "siteField": "/site",
+        "roomField": "/room"
+      }
+    },
+    "syn.procedure": {
+      "routes": [
+        {
+          "sites": [
+            "SITE-D"
+          ],
+          "targets": [
+            "procedural"
+          ]
+        }
+      ],
+      "call": {
+        "procedure": "synthetic.read_rows",
+        "args": {
+          "site": "scope.site",
+          "rooms": "scope.rooms"
+        },
+        "listJoin": {
+          "rooms": ","
         },
         "response": {
           "fields": {

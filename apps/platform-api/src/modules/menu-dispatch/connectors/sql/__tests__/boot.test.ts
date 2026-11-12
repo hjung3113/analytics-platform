@@ -21,17 +21,50 @@ it.each(['main procedure', 'lookup procedure', 'mssql'] as const)('refuses %s at
       ...base,
       targets: { 'tgt-1': { ...base.targets['tgt-1'], dialect: variant === 'mssql' ? 'mssql' : 'postgres', connectionFile: join(dir, 'secret') } },
       endpointOwners: { 'syn.rows': { ...owner,
-        ...(variant === 'main procedure' ? { call: procedure } : {}),
+        ...(variant === 'main procedure' || variant === 'mssql' ? { call: procedure } : {}),
         ...(variant === 'lookup procedure' ? { scopeCheck: { mode: 'resolve-keys', lookup: procedure, keys: 'params.q', siteField: '/site', roomField: '/room' } } : {}),
       } },
     };
     await writeFile(join(dir, 'secret'), 'synthetic-secret');
     const file = join(dir, 'bundle.json');
     await writeFile(file, JSON.stringify(bundle));
-    const reason = variant === 'mssql' ? 'sql dialect mssql is not available yet (ADR-0153 node 1839b2)' : 'sql procedure calls are not available for dialect postgres';
+    const reason = variant === 'mssql' ? 'sql procedure arg rooms binds a list and needs listJoin on dialect mssql' : 'sql procedure calls are not available for dialect postgres';
     const checkService = {} as CheckService;
     await expect(loadMenuDeclarationSetup(withMenuSnapshotFile({ ...loadConfig(), MENU_DECLARATIONS_FILE: file }), { checkService })).rejects.toMatchObject({ problems: [reason] });
     expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, snapshot: menuSnapshotFor(bundle), checkService })).toThrow(reason);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+it.each(['main', 'lookup'] as const)('refuses context.lineNames without listJoin in the %s procedure and accepts it with one', async (where) => {
+  const dir = await mkdtemp(join(tmpdir(), 'syn-sql-boot-'));
+  try {
+    const base = routedBundle();
+    const owner = base.endpointOwners['syn.rows'];
+    const bundleWith = (listJoin?: Record<string, string>) => {
+      const procedure = { procedure: 'syn.read_rows', args: { rooms: 'scope.rooms', lines: 'context.lineNames' }, listJoin: { rooms: ',', ...listJoin } };
+      return {
+        ...base,
+        endpoints: [{ ...base.endpoints[0], context: { time: 'apply', line: 'apply' } }],
+        targets: { 'tgt-1': { ...base.targets['tgt-1'], dialect: 'mssql', connectionFile: join(dir, 'secret') } },
+        endpointOwners: { 'syn.rows': { ...owner,
+          ...(where === 'main' ? { call: procedure } : { scopeCheck: { mode: 'resolve-keys', lookup: procedure, keys: 'params.q', siteField: '/site', roomField: '/room' } }),
+        } },
+      };
+    };
+    await writeFile(join(dir, 'secret'), 'synthetic-secret');
+    const reason = 'sql procedure arg lines binds a list and needs listJoin on dialect mssql';
+    const checkService = {} as CheckService;
+    const refused = bundleWith();
+    const file = join(dir, 'bundle.json');
+    await writeFile(file, JSON.stringify(refused));
+    await expect(loadMenuDeclarationSetup(withMenuSnapshotFile({ ...loadConfig(), MENU_DECLARATIONS_FILE: file }), { checkService })).rejects.toMatchObject({ problems: [reason] });
+    expect(() => declaredContribution({ bundle: refused as unknown as DeclarationBundle, snapshot: menuSnapshotFor(refused), checkService })).toThrow(reason);
+    const accepted = bundleWith({ lines: ',' });
+    await writeFile(file, JSON.stringify(accepted));
+    await expect(loadMenuDeclarationSetup(withMenuSnapshotFile({ ...loadConfig(), MENU_DECLARATIONS_FILE: file }), { checkService })).resolves.toBeDefined();
+    expect(() => declaredContribution({ bundle: accepted as unknown as DeclarationBundle, snapshot: menuSnapshotFor(accepted), checkService })).not.toThrow();
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

@@ -153,6 +153,18 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 - 설치된 `pg`의 확장 프로토콜로 `DECLARE … NO SCROLL CURSOR` / `FETCH FORWARD 1` / `CLOSE`를 실행한다. 추가 커서 의존성 없이 서버 커서로 행 상한에서 읽기를 멈추며, 중단·iterator 반환은 별도 연결의 `pg_cancel_backend`와 롤백·연결 해제로 이어진다. 원래 문장에는 값·정렬·행 제한을 삽입하지 않는다.
 - 풀에만 적용한 text parser로 `int8`·`numeric`·`timestamp`·`date`를 원문 문자열로 받는다. 전역 parser는 바꾸지 않으며 벽시계 투영은 기존 `fields.type: wallclock`이 맡는다.
 
+### 연결기의 구체 모양 (1839b2)
+
+- 드라이버는 `mssql` 12.7.14(정확한 버전 고정, 내부 `tedious` 20, 순수 JS·설치 스크립트 없음)다. `tedious` 직접 사용 대신 고른 이유: 접속 문자열 해석(ADO 형식), 연결 풀, 요청별 `requestTimeout`, 스트림 행·`pause`·`cancel`, 프로시저 RPC 호출(`execute`)을 한 의존성이 이미 갖고, 연결 생성 직전 훅(`beforeConnect`)으로 연결별 설정을 걸 수 있다.
+- 풀 기본값은 postgres와 같다(상한 4, 동시 조회 2, 실효값은 풀 상한 이하). `appName`은 `applicationName`이 있을 때만 넣고, 없으면 드라이버 기본값이다(시스템 이름을 추측하지 않는다). 풀 연결과 동시 조회 대기는 판정 예산에 든다.
+- 문장의 `:name`은 mssql 토크나이저로 찾아 `@pN`으로 바꾼다. 목록 값은 자리표시자 개수만 늘리고(`:rooms` → `@p2, @p3, …`, 이름 첫 등장 순서·목록 순서), 값마다 파라미터 하나다. 빈 목록과 2000개 초과(서버 RPC 한도 2100 안, `sp_executesql`의 문장·선언 인자 몫을 둔 값)는 연결을 잡기 전 고정 메시지로 거부한다. 값 형: 문자열·`null` → `NVarChar`, 안전 정수 → `BigInt`, 그 밖의 수 → `Float`, 불리언 → `Bit`, 그 밖은 거부.
+- 프로시저는 드라이버의 RPC 호출로만 부르고 `EXEC` 문을 만들지 않는다. 인자는 선언 이름으로 묶는다. 목록 인자는 `listJoin` 구분자로 이은 문자열 하나다. `listJoin` 없는 목록 바인딩(`scope.rooms`, `string[]` params, 배열 상수)은 기동 실패다(`routing.ts`의 dialect별 기동 검사, `connectors/sql/mssql.ts`의 `mssqlCallProblems`).
+- 행은 스트림으로 한 행씩 받고(행마다 `pause`), `rowCap`번째 행에서 요청을 취소한다. 중단·마감·iterator `return`도 요청 취소이며, 드라이버가 연결을 풀에 돌려주는 `done`을 1초 한도로 기다린다. 판정 제한은 요청별 `requestTimeout`(남은 예산)과 코어 타이머이고, 초과는 `TargetJudgmentTimeout`, 코어 중단은 `MenuUpstreamError('timeout')`, 접속·로그인·문법·권한·없는 프로시저는 `MenuUpstreamError('unavailable')`(고정 메시지, `cause` 없음)다. 두 번째 결과 집합과 중복 열 이름도 `unavailable`이다(행 모양이 하나로 정해지지 않는다).
+- 읽기 전용은 계정만 보장한다(결정 8). mssql에는 읽기 전용 트랜잭션을 흉내 내는 설정을 두지 않는다. 문장은 `sp_executesql` RPC로 가며, postgres 확장 프로토콜과 달리 여러 문장을 프로토콜에서 막지 않는다. 이것도 계정 권한이 막는다.
+- 값의 형: `tedious`는 `decimal`·`numeric`·`money`를 JS 수로 바꿔 15자리를 넘으면 정밀도를 잃고 옵션도 없다. 커넥터가 만든 연결의 옵션 객체만 등록해 두고, 드라이버의 값 해석 함수를 감싸 등록된 연결에서만 같은 바이트를 정확한 10진 문자열로 다시 읽는다. 같은 프로세스의 다른 연결은 드라이버 동작 그대로다. 감쌀 지점이 없으면 연결기를 만들지 않고, 정밀 수 열에 JS 수가 오면 그 응답을 거부한다. `bigint`는 드라이버가 이미 문자열로 준다. 날짜·시각은 풀 설정 `useUTC: true`로 받아 UTC 필드를 벽시계로 쓴다(`YYYY-MM-DD HH:mm:ss[.소수]`, `date`는 `YYYY-MM-DD`, `time`은 시각만, 소수 자릿수는 열의 scale). 프로세스 시간대와 무관하다. `datetimeoffset`(순간이며 벽시계가 아님), 이진, `sql_variant`, UDT 열은 고정 메시지로 거부한다.
+- 드라이버 진단 로그: `DEBUG`가 `mssql:*`를 켜면 드라이버가 문장·프로시저 이름·파라미터 값을 stderr에 쓰며 커넥터의 고정 메시지 규칙이 닿지 않는다. 드라이버를 패치하지 않고 그 로그를 끈다 — 모듈 로드 때 설치된 `mssql`이 해석하는 `debug`(그 위치에서 `createRequire`)의 활성 네임스페이스는 그대로 두고 `-mssql:*`만 덧붙인다(프로세스 전체지만 `mssql:*`는 다른 코드가 쓰지 않는다). 못 끄면(`debug`를 못 찾는 등) 연결기를 만들지 않고 `unavailable`이다. tedious 연결 옵션 `debug`(packet·data·payload·token)는 접속 문자열과 무관하게 모두 `false`로 고정한다. 값이 담기는 진단이라 패치가 아니라 침묵이다.
+- 실제 SQL Server 시험(`mssql.integration.test.ts`)은 `MSSQL_TEST_URL`이 있을 때만 돌며 CI에서는 돌지 않는다.
+
 ### 9. Scope 부여는 resolver 포트에서 받는다 (#1844)
 
 - 이 ADR의 라우팅·Scope 집행은 요청마다 Scope resolver 포트(`ScopeResolver`, `buildServer` 옵션)가 준 `[{ site, rooms }]` 집합만 쓴다. 부여를 직접 읽는 연결기는 두지 않는다.
