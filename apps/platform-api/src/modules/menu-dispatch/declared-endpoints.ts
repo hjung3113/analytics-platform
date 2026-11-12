@@ -13,11 +13,16 @@ import { validateParamValues } from './binding-values.js';
 import { routedBootProblems } from './routing.js';
 import { handleRouted } from './routed-handler.js';
 import { MAX_ROWS_REASON } from './bundle/validation.js';
+import { assertBundleMatchesMenuSnapshot, parseMenuSnapshot, type MenuDeclarationSnapshot } from './menu-snapshot.js';
 import type { MenuDispatchContribution, MenuPermissionDeclaration } from './types.js';
 
-/** Assemble loaded bundle data; refuse inconsistent programmatic bundles too, before registration. */
-export function declaredContribution({ bundle, forwarder, checkService, connectorFactories = defaultFactories, targetSecrets, timeoutMs = 27000, log }: {
+/**
+ * Assemble loaded bundle data; refuse inconsistent programmatic bundles too, before registration. `snapshot` is the
+ * menu declaration snapshot (ADR-0156): required on both assembly paths, so a programmatic bundle meets the same rules.
+ */
+export function declaredContribution({ bundle, snapshot, forwarder, checkService, connectorFactories = defaultFactories, targetSecrets, timeoutMs = 27000, log }: {
   bundle: DeclarationBundle;
+  snapshot: MenuDeclarationSnapshot;
   forwarder?: MenuForwarder;
   checkService: CheckService;
   connectorFactories?: ConnectorFactories;
@@ -57,6 +62,7 @@ export function declaredContribution({ bundle, forwarder, checkService, connecto
     }
   }
   if (problems.length > 0) throw new DeclarationBundleError(problems);
+  assertBundleMatchesMenuSnapshot(bundle, parseMenuSnapshot(snapshot));
 
   return {
     permissions,

@@ -7,6 +7,7 @@ import { routedBundle } from '../modules/menu-dispatch/__tests__/bundle-fixtures
 import { loadMenuDeclarationSetup, type MenuDeclarationConfig } from '../menu-declarations.js';
 import { DeclarationBundleError, loadDeclarationBundle } from '../modules/menu-dispatch/declarations-file.js';
 import type { CheckService } from '../modules/permissions/check-service.js';
+import { withMenuSnapshotFile } from '../test-support/menu-snapshot.js';
 
 const empty = { endpoints: [], actions: [], permissions: [], endpointOwners: {} };
 const catalog = [{ site: 'SITE-A', label: 'A', rooms: ['RA1'] }];
@@ -40,13 +41,13 @@ describe('Scope catalog declaration boundary', () => {
     await expect(loadDeclarationBundle(await file(entries))).rejects.toBeInstanceOf(DeclarationBundleError);
   });
   it('selects the grant-table source for a catalog-only bundle', async () => {
-    const setup = await loadMenuDeclarationSetup(config(await file(catalog)), { checkService: {} as CheckService, db: handle.db, connectorFactories: { sql: () => ({ async *query() { yield { room: 'RA1' }; } }) } });
+    const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config(await file(catalog))), { checkService: {} as CheckService, db: handle.db, connectorFactories: { sql: () => ({ async *query() { yield { room: 'RA1' }; } }) } });
     expect(setup?.scopeResolver).toBeDefined();
     expect(setup?.scopeCatalog?.sites).toEqual(catalog);
   });
   it('selects the HTTP source without a catalog', async () => {
     const cfg = { ...config(await file(undefined)), MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test' };
-    const setup = await loadMenuDeclarationSetup(cfg, { checkService: {} as CheckService,
+    const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(cfg), { checkService: {} as CheckService,
       fetch: async () => new Response(JSON.stringify([{ site: 'SITE-A', rooms: ['RA1'] }])) });
     expect(setup?.scopeCatalog).toBeUndefined();
     expect(await setup?.scopeResolver?.resolve({ actor_id: 'synthetic', workspace_id: 'synthetic' })).toEqual([{ site: 'SITE-A', rooms: ['RA1'] }]);
@@ -60,15 +61,15 @@ describe('Scope catalog declaration boundary', () => {
       targets: { 'tgt-1': { ...base.targets['tgt-1'], connectionFile: secret } },
       scopeCatalog: [{ site: 'SITE-A', label: 'A', rooms: ['RA1', 'RA2'] }],
     }));
-    await expect(loadMenuDeclarationSetup(config(path), { checkService: {} as CheckService, db: handle.db, connectorFactories: { sql: () => ({ async *query() { yield { room: 'RA1' }; } }) } })).rejects.toThrow('room RA2 is not covered by a route');
+    await expect(loadMenuDeclarationSetup(withMenuSnapshotFile(config(path)), { checkService: {} as CheckService, db: handle.db, connectorFactories: { sql: () => ({ async *query() { yield { room: 'RA1' }; } }) } })).rejects.toThrow('room RA2 is not covered by a route');
     await writeFile(path, JSON.stringify({ ...base,
       targets: { 'tgt-1': { ...base.targets['tgt-1'], connectionFile: secret } }, scopeCatalog: catalog,
     }));
-    expect((await loadMenuDeclarationSetup(config(path), { checkService: {} as CheckService, db: handle.db, connectorFactories: { sql: () => ({ async *query() { yield { room: 'RA1' }; } }) } }))?.scopeCatalog?.sites).toEqual(catalog);
+    expect((await loadMenuDeclarationSetup(withMenuSnapshotFile(config(path)), { checkService: {} as CheckService, db: handle.db, connectorFactories: { sql: () => ({ async *query() { yield { room: 'RA1' }; } }) } }))?.scopeCatalog?.sites).toEqual(catalog);
   });
   it('refuses both sources and names only the configuration keys', async () => {
     const cfg = { ...config(await file(catalog)), MENU_SCOPE_GRANT_SERVICE_URL: 'https://private-service.test' };
-    const failure = loadMenuDeclarationSetup(cfg, { checkService: {} as CheckService });
+    const failure = loadMenuDeclarationSetup(withMenuSnapshotFile(cfg), { checkService: {} as CheckService });
     await expect(failure).rejects.toThrow(/scopeCatalog.*MENU_SCOPE_GRANT_SERVICE_URL/);
     await expect(failure).rejects.not.toThrow('private-service');
   });

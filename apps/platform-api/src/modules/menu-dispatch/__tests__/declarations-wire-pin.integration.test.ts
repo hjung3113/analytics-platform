@@ -15,6 +15,7 @@ import { createCheckService } from '../../permissions/index.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
+import { withMenuSnapshotFile } from '../../../test-support/menu-snapshot.js';
 import { uid } from '../../../test-support/ids.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
@@ -50,7 +51,7 @@ describe.skipIf(!runIntegration)('string-owner forwarding byte pin (ADR-0153 a1)
       ...loadConfig(), MENU_DECLARATIONS_FILE: bundleFile, MENU_UPSTREAM_BASE_URL: 'https://upstream.test/base/',
       MENU_IDENTITY_KEY_FILE: keyFile, MENU_IDENTITY_KEY_ID: 'syn-key', MENU_SCOPE_GRANT_SERVICE_URL: undefined,
     };
-    const setup = await loadMenuDeclarationSetup(config, {
+    const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config), {
       checkService: createCheckService({ db: dbHandle.db }),
       fetch: (async (input: unknown, init: RequestInit) => {
         requests.push({ url: String(input), method: init.method, redirect: init.redirect, headers: init.headers as Record<string, string>, body: init.body });

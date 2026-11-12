@@ -51,6 +51,8 @@ function menuEnv(
 ): Record<string, string | undefined> {
   const env: Record<string, string | undefined> = {
     MENU_DECLARATIONS_FILE: '/app/menu-declarations.json',
+    // #1900 (ADR-0156): required beside the bundle.
+    MENU_DECLARATIONS_SNAPSHOT_FILE: '/app/menu-declarations.snapshot.json',
     MENU_UPSTREAM_BASE_URL: 'https://upstream.example.com',
     MENU_IDENTITY_KEY_FILE: '/app/keys/identity.pem',
     MENU_IDENTITY_KEY_ID: '2026-11',
@@ -72,6 +74,12 @@ describe('menu declaration/forwarder/resolver config via loadConfig', () => {
 
   it('accepts an entirely absent MENU_* surface (existing behaviour unchanged)', () => {
     expect(menuIssues({})).toEqual([]);
+  });
+
+  it('rejects declarations without MENU_DECLARATIONS_SNAPSHOT_FILE (#1900: required, no switch)', () => {
+    expect(menuIssues(menuEnv({ MENU_DECLARATIONS_SNAPSHOT_FILE: undefined }))).toEqual([
+      { path: 'MENU_DECLARATIONS_SNAPSHOT_FILE', message: 'MENU_DECLARATIONS_SNAPSHOT_FILE is required when MENU_DECLARATIONS_FILE is set' },
+    ]);
   });
 
   it('accepts declarations without a grant-service URL (no resolver)', () => {

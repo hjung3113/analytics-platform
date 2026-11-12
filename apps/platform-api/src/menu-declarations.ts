@@ -20,6 +20,7 @@ import { connectorFactories as defaultFactories } from './modules/menu-dispatch/
 import type { ConnectorFactories, RoutingLog } from './modules/menu-dispatch/connectors/types.js';
 import { routedBootProblems } from './modules/menu-dispatch/routing.js';
 import { declaredContribution } from './modules/menu-dispatch/declared-endpoints.js';
+import { loadMenuSnapshot, menuSnapshotProblems } from './modules/menu-dispatch/menu-snapshot.js';
 import { createMenuForwarder, normalizeMenuUpstreamBaseUrl, validateMenuOwnerPath } from './modules/menu-dispatch/forwarder.js';
 import { createHttpScopeResolver } from './modules/menu-dispatch/http-scope-resolver.js';
 import { createIdentityTokenSigner } from './modules/menu-dispatch/identity-token.js';
@@ -30,6 +31,7 @@ import type { CheckService } from './modules/permissions/check-service.js';
 export type MenuDeclarationConfig = Pick<
   AppConfig,
   | 'MENU_DECLARATIONS_FILE'
+  | 'MENU_DECLARATIONS_SNAPSHOT_FILE'
   | 'MENU_UPSTREAM_BASE_URL'
   | 'MENU_IDENTITY_KEY_FILE'
   | 'MENU_IDENTITY_KEY_ID'
@@ -59,8 +61,13 @@ export async function loadMenuDeclarationSetup(
 ): Promise<MenuDeclarationSetup | null> {
   const file = config.MENU_DECLARATIONS_FILE;
   if (file === undefined) return null;
+  // #1900 (ADR-0156): the bundle must match the menu declarations the app build wrote. No snapshot, no boot; the
+  // comparison's problems join the bundle's own in one refusal.
+  const snapshotFile = config.MENU_DECLARATIONS_SNAPSHOT_FILE;
+  if (snapshotFile === undefined) throw new DeclarationBundleError(['MENU_DECLARATIONS_SNAPSHOT_FILE is required when MENU_DECLARATIONS_FILE is set']);
+  const snapshot = await loadMenuSnapshot(snapshotFile);
   // Validate before reading any secret. No partially validated target can reach a connector.
-  const bundle = await loadDeclarationBundle(file);
+  const bundle = await loadDeclarationBundle(file, (rows) => menuSnapshotProblems(rows, snapshot));
   const scopeCatalog = bundle.scopeCatalog;
   if (scopeCatalog && config.MENU_SCOPE_GRANT_SERVICE_URL !== undefined) {
     throw new DeclarationBundleError(['scopeCatalog and MENU_SCOPE_GRANT_SERVICE_URL cannot both be configured']);
@@ -88,7 +95,7 @@ export async function loadMenuDeclarationSetup(
       ...(deps.fetch ? { fetch: deps.fetch } : {}),
     });
   if (!envelope) return {
-    menuDispatch: [declaredContribution({ bundle, checkService: deps.checkService, ...routedDeps })],
+    menuDispatch: [declaredContribution({ bundle, snapshot, checkService: deps.checkService, ...routedDeps })],
     ...(scopeResolver ? { scopeResolver } : {}),
     ...(scopeCatalog ? { scopeCatalog } : {}),
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
@@ -125,7 +132,7 @@ export async function loadMenuDeclarationSetup(
   });
   return {
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
-    menuDispatch: [declaredContribution({ bundle, forwarder, checkService: deps.checkService, ...routedDeps })],
+    menuDispatch: [declaredContribution({ bundle, snapshot, forwarder, checkService: deps.checkService, ...routedDeps })],
     ...(scopeResolver ? { scopeResolver } : {}),
     ...(scopeCatalog ? { scopeCatalog } : {}),
   };

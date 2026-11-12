@@ -12,6 +12,18 @@ export function bundledModuleIds(result) {
   ].sort();
 }
 
+/** The kit's menu declaration snapshot (ADR-0156): the real build writes it (with the sample endpoint), the mock build does not. */
+export function assertKitSnapshot(mode, result) {
+  const assets = [result].flat().flatMap(({ output }) => output.filter((entry) => entry.type === 'asset' && entry.fileName === 'menu-declarations.snapshot.json'));
+  if (mode !== 'real') {
+    if (assets.length) throw new Error(`${mode}: writes menu-declarations.snapshot.json, which only the real build may`);
+    return;
+  }
+  if (assets.length !== 1) throw new Error('real: menu-declarations.snapshot.json is not in the build output');
+  const snapshot = JSON.parse(String(assets[0].source));
+  if (snapshot.schemaVersion !== 1 || !snapshot.endpoints?.length || !snapshot.menus?.length) throw new Error('real: menu-declarations.snapshot.json lacks the kit menus or endpoints');
+}
+
 /**
  * The kit folder by its real path: Vite reports module ids and resolves index.html by the real path, so a root reached
  * through a symbolic link (macOS TMPDIR /var → /private/var, #1852) must be compared and built as its real path.
@@ -53,6 +65,7 @@ export async function checkKitGraphs(givenRoot) {
     const path = join(directory, `${mode}.json`);
     writeFileSync(path, `${JSON.stringify(ids, null, 2)}\n`);
     assertKitGraph(mode, ids, root);
+    assertKitSnapshot(mode, result);
     process.stdout.write(`kit ${mode}: ${ids.length} bundled module ids listed in ${path}\n`);
   }
 }

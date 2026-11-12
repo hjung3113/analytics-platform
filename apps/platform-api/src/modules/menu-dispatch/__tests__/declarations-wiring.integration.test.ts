@@ -23,6 +23,7 @@ import { createCheckService } from '../../../modules/permissions/index.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
+import { withMenuSnapshotFile } from '../../../test-support/menu-snapshot.js';
 import { uid } from '../../../test-support/ids.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
@@ -137,7 +138,7 @@ describe.skipIf(!runIntegration)('menu declarations through buildServer (#1729 h
       MENU_IDENTITY_KEY_ID: `${PREFIX}-key`,
       MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test',
     };
-    const setup = await loadMenuDeclarationSetup(config, {
+    const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config), {
       checkService: createCheckService({ db: dbHandle.db }),
       fetch: fetchImpl,
     });

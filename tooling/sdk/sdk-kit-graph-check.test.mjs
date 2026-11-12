@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { assertKitGraph, bundledModuleIds } from './sdk-kit-graph-check.mjs';
+import { assertKitGraph, assertKitSnapshot, bundledModuleIds } from './sdk-kit-graph-check.mjs';
 
 const mock = ['/kit/mock/assembly.ts', '/kit/node_modules/@ap/mock-server/dist/index.js'];
 const real = ['/kit/real/assembly.tsx', '/kit/node_modules/@ap/http-adapter/dist/index.js'];
@@ -50,4 +50,14 @@ test('a root given through a symbolic link matches module ids reported by the re
   const ids = [`${kit}/mock/assembly.ts`, `${kit}/node_modules/@ap/mock-server/dist/index.js`];
   assert.doesNotThrow(() => assertKitGraph('mock', ids, link));
   assert.throws(() => assertKitGraph('mock', [...ids, `${base}/elsewhere/source.ts`], link), /outside/);
+});
+
+test('only the real build carries the menu declaration snapshot, with the kit menus and endpoints (#1900)', () => {
+  const asset = (snapshot) => ({ type: 'asset', fileName: 'menu-declarations.snapshot.json', source: JSON.stringify(snapshot) });
+  const kit = { schemaVersion: 1, menus: [{ id: 'kit-sample' }], endpoints: [{ id: 'kit-sample.rows' }] };
+  assert.doesNotThrow(() => assertKitSnapshot('real', { output: [asset(kit)] }));
+  assert.doesNotThrow(() => assertKitSnapshot('mock', { output: [] }));
+  assert.throws(() => assertKitSnapshot('real', { output: [] }), /not in the build output/);
+  assert.throws(() => assertKitSnapshot('real', { output: [asset({ ...kit, endpoints: [] })] }), /lacks/);
+  assert.throws(() => assertKitSnapshot('mock', { output: [asset(kit)] }), /only the real build/);
 });

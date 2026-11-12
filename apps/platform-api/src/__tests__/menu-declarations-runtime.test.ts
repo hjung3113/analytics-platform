@@ -6,6 +6,7 @@ import { loadMenuDeclarationSetup, type MenuDeclarationConfig } from '../menu-de
 import type { ConnectorFactories } from '../modules/menu-dispatch/connectors/types.js';
 import type { CheckService } from '../modules/permissions/check-service.js';
 import { routedBundle } from '../modules/menu-dispatch/__tests__/bundle-fixtures.js';
+import { withMenuSnapshotFile } from '../test-support/menu-snapshot.js';
 
 let dir: string;
 let serial = 0;
@@ -17,7 +18,7 @@ async function setup(over: Record<string, unknown> = {}, deps: { connectorFactor
   const bundle = { ...base, targets: { 'tgt-1': { ...base.targets['tgt-1'], connectionFile: join(dir, 'secret') }, 'tgt-2': { ...base.targets['tgt-1'], connectionFile: join(dir, 'secret') } }, ...over };
   const file = join(dir, `${serial++}.json`); await writeFile(file, JSON.stringify(bundle));
   const config: MenuDeclarationConfig = { MENU_DECLARATIONS_FILE: file, MENU_UPSTREAM_BASE_URL: undefined, MENU_IDENTITY_KEY_FILE: undefined, MENU_IDENTITY_KEY_ID: undefined, MENU_SCOPE_GRANT_SERVICE_URL: undefined, MENU_RESOLVER_TIMEOUT_MS: 3000, MENU_UPSTREAM_TIMEOUT_MS: 27000 };
-  return loadMenuDeclarationSetup(config, { checkService: {} as CheckService, ...deps });
+  return loadMenuDeclarationSetup(withMenuSnapshotFile(config), { checkService: {} as CheckService, ...deps });
 }
 it('serves validated single-target routing with an injected factory', async () => {
   expect((await setup())?.menuDispatch[0]?.endpoints?.[0]?.spec.limits).toEqual({ maxRows: 100 });

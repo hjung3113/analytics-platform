@@ -14,7 +14,8 @@
 | 자기 `menus.ts` | 이 키트가 싣는 메뉴와 업무 시스템(`Space`)·그룹·권한 선언. 싣지 않을 공개 견본 메뉴는 import하지 않는다 |
 | 견본 메뉴 1 | 복사해서 시작하는 메뉴 패키지 하나(`menus/sample/`: 메뉴 선언, 엔드포인트 선언, mock 핸들러, 화면) |
 | mock 조립 | 서버 없이 도는 어댑터 조립(`@ap/mock-server`) |
-| 스크립트 | `install`, `dev`, `build`, `check` |
+| 스크립트 | `install`, `dev`, `build`, `build:real`, `check` |
+| 실서버 빌드 산출물 | `build:real`이 `dist/`에 웹과 함께 메뉴 선언 스냅샷 `menu-declarations.snapshot.json`을 쓴다. `menus.ts`의 선언과 각 메뉴 `endpoints.ts`에서 만들고 손으로 고치지 않는다. 코어 서버가 선언 묶음을 이 파일과 대조한다(`MENU_DECLARATIONS_SNAPSHOT_FILE`, [ADR-0156](../adr/0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md)) |
 | 설치 재료와 검사 | `vendor/`의 tarball 아홉, `pnpm-lock.yaml`, `third-party.json`, 설치 검사 `sdk-bundle-check.mjs`, `SHA256SUMS` |
 | README | 이 글의 내용 |
 

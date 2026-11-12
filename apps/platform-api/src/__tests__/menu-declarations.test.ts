@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { loadMenuDeclarationSetup, type MenuDeclarationConfig } from '../menu-declarations.js';
 import type { CheckService } from '../modules/permissions/check-service.js';
+import { withMenuSnapshotFile } from '../test-support/menu-snapshot.js';
 
 const bundle = (over: Record<string, unknown> = {}) =>
   JSON.stringify({
@@ -32,7 +33,8 @@ const bundle = (over: Record<string, unknown> = {}) =>
     ...over,
   });
 
-const config = (over: Partial<MenuDeclarationConfig> = {}): MenuDeclarationConfig => ({
+// #1900: a bundle file gets the matching synthetic menu declaration snapshot beside it (ADR-0156).
+const config = (over: Partial<MenuDeclarationConfig> = {}): MenuDeclarationConfig => withMenuSnapshotFile({
   MENU_DECLARATIONS_FILE: undefined,
   MENU_UPSTREAM_BASE_URL: undefined,
   MENU_IDENTITY_KEY_FILE: undefined,

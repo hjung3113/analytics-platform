@@ -12,6 +12,7 @@ import { createCheckService } from '../../../../permissions/index.js';
 import { buildServer } from '../../../../../server.js';
 import { insertActorRow } from '../../../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../../../test-support/auth.js';
+import { withMenuSnapshotFile } from '../../../../../test-support/menu-snapshot.js';
 import { uid } from '../../../../../test-support/ids.js';
 import { createSyntheticSqlTarget, syntheticRows, type SyntheticSqlTarget } from '../../../../../test-support/synthetic-targets.js';
 
@@ -65,7 +66,7 @@ describe.skipIf(!runIntegration)('postgres connector through production setup an
       },
     }));
     const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: file, MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test', MENU_UPSTREAM_TIMEOUT_MS: 2400 };
-    const setup = await loadMenuDeclarationSetup(config, { checkService: createCheckService({ db: db.db }), fetch: (async () => new Response(JSON.stringify(grants))) as typeof fetch, log: (entry) => logs.push(entry) });
+    const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config), { checkService: createCheckService({ db: db.db }), fetch: (async () => new Response(JSON.stringify(grants))) as typeof fetch, log: (entry) => logs.push(entry) });
     if (!setup) throw new Error('missing setup');
     app = await buildServer({ config, dbHandle: db, menuDispatch: setup.menuDispatch, ...(setup.scopeResolver ? { scopeResolver: setup.scopeResolver } : {}) }); await app.ready();
     actorId = (await insertActorRow(db, { workspaceId: WORKSPACE_ID, externalId, displayName: 'Synthetic SQL user', roleLevel: 'user' })).id;

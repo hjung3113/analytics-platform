@@ -5,13 +5,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { loadMenuDeclarationSetup, type MenuDeclarationConfig } from '../menu-declarations.js';
 import { DeclarationBundleError } from '../modules/menu-dispatch/declarations-file.js';
+import type { SnapshotEndpoint } from '../modules/menu-dispatch/menu-snapshot.js';
 import { routedBundle } from '../modules/menu-dispatch/__tests__/bundle-fixtures.js';
 import type { CheckService } from '../modules/permissions/check-service.js';
+import { menuSnapshot } from '../test-support/menu-snapshot.js';
 
 // #1900: the core server must refuse a declaration bundle that differs from the menu declarations it serves
 // (a hand copy that weakens a permission, drops a Scope requirement or names an unknown menu).
-// The menu declarations reach the server as a generated snapshot (direction on #1900); `boot` is the only place
-// that knows how the snapshot is handed over, so a different hand-over changes this helper, not the cases.
+// The menu declarations reach the server as the snapshot file the app build writes (`MENU_DECLARATIONS_SNAPSHOT_FILE`,
+// ADR-0156); `boot` is the only place that knows how the snapshot is handed over.
 
 const checkService = {} as CheckService;
 let dir: string;
@@ -55,11 +57,12 @@ const bundle = () => ({ ...routedBundle(), targets: { 'tgt-1': { ...routedBundle
 /** The menu side as the app assembly declares it (synthetic): menu `syn`, endpoint `syn.rows`. */
 function snapshot() {
   const { limits: _limits, paramTypes: _paramTypes, ...endpoint } = first(routedBundle().endpoints);
-  return {
+  return menuSnapshot({
     menus: [{ id: 'syn', permission: 'syn:view', requiresScope: true, context: { time: 'apply' } }],
-    endpoints: [endpoint],
+    permissions: ['syn:view'],
+    endpoints: [endpoint as SnapshotEndpoint],
     actions: [],
-  };
+  });
 }
 
 describe('declaration bundle is checked against the menu declarations at boot (#1900)', () => {
@@ -79,6 +82,13 @@ describe('declaration bundle is checked against the menu declarations at boot (#
     first(open.endpoints).requiresScope = false;
     const found = await problems(boot(open, snapshot()));
     expect(found.some((problem) => problem.includes('syn.rows') && problem.includes('requiresScope'))).toBe(true);
+  });
+
+  it('refuses to boot a bundle without a menu declaration snapshot (no switch turns the check off)', async () => {
+    const bundleFile = join(dir, `bundle-${serial++}.json`);
+    await writeFile(bundleFile, JSON.stringify(bundle()));
+    const found = await problems(loadMenuDeclarationSetup(config({ MENU_DECLARATIONS_FILE: bundleFile }), { checkService }));
+    expect(found).toEqual(['MENU_DECLARATIONS_SNAPSHOT_FILE is required when MENU_DECLARATIONS_FILE is set']);
   });
 
   it('H1: refuses an endpoint whose menuId the menu declarations do not have', async () => {

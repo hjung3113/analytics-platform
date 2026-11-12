@@ -9,6 +9,7 @@ import type { CheckService } from '../../../../permissions/check-service.js';
 import { routedBundle } from '../../../__tests__/bundle-fixtures.js';
 import { declaredContribution } from '../../../declared-endpoints.js';
 import type { DeclarationBundle } from '../../../declarations-file.js';
+import { menuSnapshotFor, withMenuSnapshotFile } from '../../../../../test-support/menu-snapshot.js';
 
 it.each(['main procedure', 'lookup procedure', 'mssql'] as const)('refuses %s at setup load and programmatic assembly', async (variant) => {
   const dir = await mkdtemp(join(tmpdir(), 'syn-sql-boot-'));
@@ -29,8 +30,8 @@ it.each(['main procedure', 'lookup procedure', 'mssql'] as const)('refuses %s at
     await writeFile(file, JSON.stringify(bundle));
     const reason = variant === 'mssql' ? 'sql dialect mssql is not available yet (ADR-0153 node 1839b2)' : 'sql procedure calls are not available for dialect postgres';
     const checkService = {} as CheckService;
-    await expect(loadMenuDeclarationSetup({ ...loadConfig(), MENU_DECLARATIONS_FILE: file }, { checkService })).rejects.toMatchObject({ problems: [reason] });
-    expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, checkService })).toThrow(reason);
+    await expect(loadMenuDeclarationSetup(withMenuSnapshotFile({ ...loadConfig(), MENU_DECLARATIONS_FILE: file }), { checkService })).rejects.toMatchObject({ problems: [reason] });
+    expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, snapshot: menuSnapshotFor(bundle), checkService })).toThrow(reason);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

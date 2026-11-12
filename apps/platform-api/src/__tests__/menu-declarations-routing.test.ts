@@ -13,6 +13,7 @@ import type { DeclarationBundle } from '../modules/menu-dispatch/declarations-fi
 import type { MenuForwarder } from '../modules/menu-dispatch/forwarder.js';
 import { routedBundle } from '../modules/menu-dispatch/__tests__/bundle-fixtures.js';
 import type { CheckService } from '../modules/permissions/check-service.js';
+import { menuSnapshotFor, withMenuSnapshotFile } from '../test-support/menu-snapshot.js';
 
 const checkService = {} as CheckService;
 let dir: string;
@@ -33,7 +34,7 @@ function config(over: Partial<MenuDeclarationConfig> = {}): MenuDeclarationConfi
 async function setup(bundle: unknown, over: Partial<MenuDeclarationConfig> = {}, connectorFactories?: ConnectorFactories) {
   const file = join(dir, `${serial++}.json`);
   await writeFile(file, JSON.stringify(bundle));
-  return loadMenuDeclarationSetup(config({ MENU_DECLARATIONS_FILE: file, ...over }), { checkService, ...(connectorFactories ? { connectorFactories } : {}) });
+  return loadMenuDeclarationSetup(withMenuSnapshotFile(config({ MENU_DECLARATIONS_FILE: file, ...over })), { checkService, ...(connectorFactories ? { connectorFactories } : {}) });
 }
 const emptyBundle = () => ({ endpoints: [], actions: [], permissions: [], endpointOwners: {} });
 const routed = () => ({ ...routedBundle(), targets: { 'tgt-1': { ...routedBundle().targets['tgt-1'], connectionFile: secretFile } } });
@@ -61,7 +62,7 @@ describe('declaration boot gates (ADR-0153 a1)', () => {
     expect(await problems(setup(bundle))).toContain('endpoint syn.rows: route 0: unknown target id absent');
   });
   it('guards programmatic routed contributions as well as file loading', () => {
-    expect(() => declaredContribution({ bundle: routed() as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService, connectorFactories: {} }))
+    expect(() => declaredContribution({ bundle: routed() as unknown as DeclarationBundle, snapshot: menuSnapshotFor(routed()), forwarder: {} as MenuForwarder, checkService, connectorFactories: {} }))
       .toThrow('connector kind sql is not available');
   });
   it.each(['MENU_UPSTREAM_BASE_URL', 'MENU_IDENTITY_KEY_FILE', 'MENU_IDENTITY_KEY_ID'] as const)('requires %s for a string owner', async (missing) => {
@@ -116,7 +117,7 @@ it.each(['file', 'programmatic'] as const)('refuses unstable core paging at boot
         targets: { ...base.targets, 'tgt-2': base.targets['tgt-1'] },
         endpointOwners: { 'syn.rows': { ...base.endpointOwners['syn.rows'], routes: [{ sites: ['SITE-A'], rooms: ['RA1'], targets }], merge: { maxWindow: 100, ...(sort ? { sort } : {}) } } },
       };
-      const boot = assembly === 'file' ? setup(value) : Promise.resolve().then(() => declaredContribution({ bundle: value as unknown as DeclarationBundle, checkService }));
+      const boot = assembly === 'file' ? setup(value) : Promise.resolve().then(() => declaredContribution({ bundle: value as unknown as DeclarationBundle, snapshot: menuSnapshotFor(value), checkService }));
       expect(await problems(boot)).toEqual([sort ? 'endpoint syn.rows: merge.sort last field must declare unique: true' : 'endpoint syn.rows: paged core-answered endpoint needs merge.sort with a unique final field']);
     }
   }
@@ -128,14 +129,14 @@ it.each(['file', 'programmatic'] as const)('refuses duplicate kinds at boot thro
     endpoints: base.endpoints.map((row) => ({ ...row, kinds: ['coverage', 'coverage', 'collection'] })),
     endpointOwners: { 'syn.rows': { ...base.endpointOwners['syn.rows'], merge: { partial: 'coverage' } } },
   };
-  const boot = assembly === 'file' ? setup(value) : Promise.resolve().then(() => declaredContribution({ bundle: value as unknown as DeclarationBundle, checkService }));
+  const boot = assembly === 'file' ? setup(value) : Promise.resolve().then(() => declaredContribution({ bundle: value as unknown as DeclarationBundle, snapshot: menuSnapshotFor(value), checkService }));
   expect(await problems(boot)).toEqual(['endpoint syn.rows: kinds must not contain duplicates']);
 });
 
 it.each(['file', 'programmatic'] as const)('refuses duplicate kinds in a legacy-only bundle at boot through %s assembly', async (assembly) => {
   const base = legacy();
   const value = { ...base, endpoints: base.endpoints.map((row) => ({ ...row, kinds: ['coverage', 'coverage'] })) };
-  const boot = assembly === 'file' ? setup(value) : Promise.resolve().then(() => declaredContribution({ bundle: value as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService }));
+  const boot = assembly === 'file' ? setup(value) : Promise.resolve().then(() => declaredContribution({ bundle: value as unknown as DeclarationBundle, snapshot: menuSnapshotFor(value), forwarder: {} as MenuForwarder, checkService }));
   expect(await problems(boot)).toEqual(['endpoint syn.rows: kinds must not contain duplicates']);
 });
 
