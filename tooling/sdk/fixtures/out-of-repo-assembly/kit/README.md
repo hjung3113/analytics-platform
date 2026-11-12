@@ -11,6 +11,8 @@
 | `menus/sample/` | 견본 메뉴 패키지. 복사해서 메뉴를 시작한다(아래 «둘째 메뉴») |
 | `mock/assembly.ts` | 서버 없이 도는 어댑터 조립(`@ap/mock-server`). 메뉴 패키지의 mock 목록을 `MOCK_ENDPOINTS`에 등록한다 |
 | `real/assembly.tsx` | `@ap/http-adapter`로 bootstrap한 뒤 Host 입력·로그인 이동·연결 실패·요청 제한 화면을 고르는 조립 |
+| `menus/<메뉴>/conformance.ts` | 그 메뉴 엔드포인트의 서버 경계 적합성 사례. 폴더를 복사하면 따라온다(아래 «적합성 검사») |
+| `src/conformance.test.tsx` | 모든 메뉴 폴더의 적합성 사례를 mock 어댑터로 돌리는 시험 |
 | `src/start.test.tsx` | 렌더 시험. `menus/sample`을 복사한 메뉴는 시험을 고치지 않아도 자기 URL에서 렌더되는지 검사된다 |
 | `vendor/`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `patches/` | 고정 버전 설치 재료. 고치지 않는다 |
 | `sdk-bundle-check.mjs`, `third-party.json`, `SHA256SUMS` | 설치 검사와 그 입력 |
@@ -59,6 +61,14 @@ Vite의 `--mode real` 하나로 `#kit-assembly`가 `real/assembly.tsx`를 가리
 5. `pnpm check && pnpm build`
 
 화면은 `menus/second/SamplePage.tsx`, 읽는 데이터의 선언은 `endpoints.ts`, mock 응답은 `mock.ts`에서 바꾼다. 화면은 `mock.ts`를 import하지 않는다. 실어댑터 조립이 mock 코드를 싣지 않게 하기 위해서다.
+
+## 적합성 검사
+
+메뉴 폴더마다 `conformance.ts`가 그 메뉴가 읽는 엔드포인트의 사례를 낸다. 사례 하나는 엔드포인트 선언과, 권한 있는 세션의 요청이 성공하는 `params`다. 엔드포인트를 더하면 사례도 하나 더한다. `pnpm check`가 `src/conformance.test.tsx`로 모든 메뉴 폴더의 사례를 `@ap/server-conformance`에 넣어 mock 어댑터로 돌린다. 사례가 없는 메뉴 패키지가 있으면 실패한다.
+
+- 판정하는 것: 메뉴 조회 경계(성공 요청, 알 수 없는 키·적용하지 않는 Context 키 거부, 권한 없으면 `forbidden` 등)와 `session`. 나머지 포트(목적지, 주석, 활용률, 콘솔 조회 등)는 플랫폼 몫이라 « — not implemented»로 건너뛴 검사로 남는다. 건너뜀은 통과가 아니다.
+- 이 결과는 «mock 통과»다. 사내에서는 같은 사례 목록을 실어댑터와 사내 테스트 계정으로 만든 하네스로 돌린다. 준비할 것은 공개 저장소의 `docs/integration/real-server-checklist.md` §4에 있다.
+- 사내 실행 결과·로그·값은 사내에 둔다. 공개 이슈에는 계약 항목 id·상태·일반화한 설명·합성 재현만 싣는다.
 
 ## 확장 경로
 

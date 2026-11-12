@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { addSecondMenu, ALLOWED_ORIGINS, scanBuildOutput } from './sdk-kit-check.mjs';
+import { addSecondMenu, ALLOWED_ORIGINS, kitTestFailures, scanBuildOutput } from './sdk-kit-check.mjs';
 import { assertNoPlatformSource, listFiles, platformSourceHashes } from './sdk-kit.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -43,12 +43,30 @@ test('second menu: the README steps apply to the fixture and register the copy i
   cpSync(KIT_FIXTURE, kit, { recursive: true });
   addSecondMenu(kit);
   assert.ok(listFiles(kit).includes('menus/second/SamplePage.tsx'));
+  assert.ok(listFiles(kit).includes('menus/second/conformance.ts'), 'the copy carries its conformance cases');
   const menu = readFileSync(join(kit, 'menus', 'second', 'menu.ts'), 'utf8');
   assert.match(menu, /MENU_ID = 'kit-second'/);
   assert.match(menu, /MENU_PATH = '\/second'/);
   assert.match(readFileSync(join(kit, 'menus.ts'), 'utf8'), /\[sample, second\]/);
   assert.match(readFileSync(join(kit, 'mock', 'assembly.ts'), 'utf8'), /MOCK_ENDPOINTS = \[sample, second\]/);
   assert.equal(readFileSync(join(kit, 'menus', 'sample', 'menu.ts'), 'utf8'), readFileSync(join(KIT_FIXTURE, 'menus', 'sample', 'menu.ts'), 'utf8'));
+});
+
+test('menu tests: each menu needs a passed render test and a passed granted conformance check of its own', () => {
+  const passed = (title) => ({ title, status: 'passed' });
+  const full = [
+    passed('menu package kit-sample renders its mock rows at its own URL'),
+    passed('kit-sample.rows · granted request succeeds with exactly the declared assessment kinds'),
+    passed('menu package kit-second renders its mock rows at its own URL'),
+    passed('kit-second.rows · granted request succeeds with exactly the declared assessment kinds'),
+  ];
+  assert.deepEqual(kitTestFailures(full, ['kit-sample', 'kit-second']), []);
+  // A copied menu whose conformance.ts was deleted: only its render test runs.
+  assert.deepEqual(kitTestFailures(full.slice(0, 3), ['kit-sample', 'kit-second']), ['no conformance check ran for kit-second']);
+  // A skipped check is not a pass; a sibling id prefix (kit-sample-x) does not count for kit-sample.
+  const skipped = [full[0], { title: 'kit-sample.rows · granted request succeeds with exactly the declared assessment kinds', status: 'skipped' }];
+  assert.deepEqual(kitTestFailures(skipped, ['kit-sample']), ['conformance check for kit-sample skipped']);
+  assert.deepEqual(kitTestFailures([full[0], passed('kit-sample-x.rows · granted request succeeds')], ['kit-sample']), ['no conformance check ran for kit-sample']);
 });
 
 test('second menu: a fixture the README steps no longer match fails with the file named', () => {
