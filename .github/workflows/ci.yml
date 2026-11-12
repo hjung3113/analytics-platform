@@ -169,6 +169,10 @@ jobs:
           out="$(mktemp -d)"
           pnpm sdk:pack --out "$out"
           pnpm sdk:consumer-check "$out"
+          # #1702 §10.5 (ADR-0141 entry condition): every negative check of the out-of-repo assembly, each id failing
+          # with its own message (duplicate id, undeclared permission, contract integer, host feature, two kernels,
+          # kept stored items, preserved URL key, output scans, offline install).
+          node tooling/sdk/sdk-consumer-negatives.mjs "$out"
           # #1790: the start-kit asset built from the same tarballs, then checked unpacked (install, check, build, no .map or
           # external origin, dev first screen, README second-menu steps).
           node tooling/sdk/sdk-kit.mjs --tarballs "$out"
