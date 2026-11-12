@@ -5,6 +5,7 @@ export const PERMISSION_REQUESTS_PAGE_COPY = {
   notice:
     '업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 여기서는 VOC·Task 등의 기능 권한을 요청합니다.',
   newRequest: '새 권한 요청',
+  targetKind: '요청 대상',
   capability: '기능',
   capabilityPlaceholder: '기능 선택',
   managedSystem: '시스템',

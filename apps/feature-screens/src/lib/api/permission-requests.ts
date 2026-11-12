@@ -23,6 +23,10 @@ export type { MinePermissionRequestRow };
 
 export interface CreatePermissionRequestBody {
   requested_capability: string;
+  /** Site/room targets (ADR-0154): `scope.read` only; omitted = a Managed System request. */
+  requested_scope_kind?: 'site' | 'site_room';
+  requested_scope_site?: string;
+  requested_scope_room?: string;
   requested_managed_system_id?: string;
   requested_object_type?: string;
   requested_object_id?: string;

@@ -1,5 +1,6 @@
 import { ListStateMessage } from '@/components/ListStateMessage';
 import type { PermissionGrantAdminItem } from '@ap/feature-shared';
+import { OutlineBadge } from '@ap/feature-ui';
 import { Button, ListShell, ListTabs, type ListToolbarTab, ObjectRow } from '@ap/ui';
 import * as React from 'react';
 
@@ -7,6 +8,7 @@ import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
+import { PERMISSION_SCOPE_COPY, scopeTargetLabelOf } from '@/lib/copy/permission-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { useHostSeam } from '@/lib/host/host-seam';
@@ -268,20 +270,27 @@ function ActivePermissionRow({
   const { kind, item } = permission;
   const when = kind === 'grants' ? item.granted_at : item.created_at;
   const expiration = kind === 'grants' ? item.expires_at : null;
+  const scopeTarget = kind === 'grants' ? scopeTargetLabelOf(item) : null;
+  // ADR-0154 decision 3: a grant whose Site·공정 left the catalog stays listed and revocable.
+  const outOfCatalog = kind === 'grants' && scopeTarget !== null && item.in_catalog === false;
 
   return (
     <ObjectRow
       title={`${actorName ?? GLOSSARY.unknownUser} · ${getCapabilityDisplayLabel(item.capability)}`}
       selected={selected}
       onClick={onSelect}
+      {...(outOfCatalog
+        ? { badges: <OutlineBadge>{PERMISSION_SCOPE_COPY.notInCatalog}</OutlineBadge> }
+        : {})}
       meta={
         <>
           <span className="font-mono text-text-muted">{item.capability}</span>
           <span>·</span>
           <span>
-            {item.managed_system_id
-              ? (managedSystemName ?? GLOSSARY.managedSystem)
-              : SCOPE_SELECTOR_COPY.workspaceAll}
+            {scopeTarget ??
+              (item.managed_system_id
+                ? (managedSystemName ?? GLOSSARY.managedSystem)
+                : SCOPE_SELECTOR_COPY.workspaceAll)}
           </span>
           {item.managed_system_id && !managedSystemName ? (
             <span className="font-mono text-text-muted">{shortId(item.managed_system_id)}</span>
