@@ -121,6 +121,42 @@ describe.skipIf(!runIntegration)('Scope session and check through buildServer', 
     expect(second.session.scopes).toEqual([]);
     expect(second.sessionVersion).not.toBe(first.sessionVersion);
   });
+  it('changes sessionVersion and identity sv when a granted room is replaced at the same count, without exposing room names', async () => {
+    const { privateKey } = generateKeyPairSync('ed25519');
+    let sv: string | undefined;
+    const forwarder = createMenuForwarder({ baseUrl: 'https://synthetic.test', timeoutMs: 1000,
+      signer: createIdentityTokenSigner({ privateKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(), keyId: 'synthetic' }),
+      fetch: async (_url, init) => {
+        sv = JSON.parse(Buffer.from((init.headers['x-internal-identity'] ?? '').split('.')[1] ?? '', 'base64url').toString()).sv;
+        return { ok: true, status: 200, json: async () => ({ outcome: 'ok', data: [], assessments: [], trust: null, correlationId: init.headers['x-correlation-id'] }) };
+      },
+    });
+    const contribution: MenuDispatchContribution = { endpoints: [{
+      spec: { id: 'synthetic.replace', menuId: 'synthetic', paramKeys: [], permission: 'platform:view', requiresScope: true,
+        context: { roomNames: 'apply' }, mergeTimeDomain: false },
+      authorize: async () => true, validate: () => ({ ok: true }),
+      handle: args => forwarder.forward({ endpointId: 'synthetic.replace', path: '/rows', args }),
+    }] };
+    const server = await buildServer({ config: loadConfig(), dbHandle: handle, scopeCatalog: catalog, menuDispatch: [contribution] });
+    apps.push(server);
+    const query = (room: string) => server.inject({ method: 'POST', url: '/api/v1/menu-query', headers: headers(),
+      payload: { endpoint: 'synthetic.replace', params: {}, context: { scopeId: 'SITE-A', roomNames: [room] } } });
+    const ra1 = await grant('site_room', 'SITE-A', 'RA1');
+    const before = await get('/bootstrap', server);
+    const beforeState = await get('/session-state', server);
+    expect(beforeState.json().sessionVersion).toBe(before.json().sessionVersion);
+    await grant('site_room', 'SITE-A', 'RA2');
+    await handle.pool.query('update permission.permission_grants set revoked_at = now() where id = $1', [ra1]);
+    const after = await get('/bootstrap', server);
+    const afterState = await get('/session-state', server);
+    expect(after.json().session).toEqual(before.json().session);
+    expect(after.json().sessionVersion).not.toBe(before.json().sessionVersion);
+    expect(afterState.json().sessionVersion).toBe(after.json().sessionVersion);
+    expect((await get('/scopes/SITE-A/check', server)).json()).toEqual({ status: 'valid', grantedRooms: ['RA2'] });
+    expect((await query('RA2')).json().outcome).toBe('ok');
+    expect(sv).toBe(after.json().sessionVersion);
+    for (const response of [before, beforeState, after, afterState]) expect(response.body).not.toMatch(/RA1|RA2/);
+  });
   it('fails closed on resolver errors and omits requestableScopes for that snapshot', async () => {
     const failing = await buildServer({ config: loadConfig(), dbHandle: handle, scopeCatalog: catalog,
       scopeResolver: { resolve: async () => { throw new Error('private grant data'); } } });

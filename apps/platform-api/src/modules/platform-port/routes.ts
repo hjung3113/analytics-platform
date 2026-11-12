@@ -30,8 +30,7 @@ import {
 import { OVERSIZE_BODY, createPreferencesBodyParser } from './preferences-body.js';
 import { type PreferencesJudgement, createPlatformPreferencesService } from './preferences.js';
 import { seoulWallClockMinute } from './seoul-clock.js';
-import { sessionVersionOf } from './session-version.js';
-import { createSessionSnapshot } from './session-snapshot.js';
+import { createSessionState } from './session-snapshot.js';
 import {
   MALFORMED_BODY,
   createAuthenticator,
@@ -95,7 +94,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   });
 
   const scopeWarning = () => app.log.warn('Scope resolution failed');
-  const buildSession = createSessionSnapshot({ ...opts, scopeWarning });
+  const buildSession = createSessionState({ ...opts, scopeWarning });
 
   app.get<{ Params: { scopeId: string } }>('/scopes/:scopeId/check', async (req, reply) => {
     const loaded = await authenticate(req, reply, true);
@@ -116,14 +115,14 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   app.get('/bootstrap', async (req, reply) => {
     const loaded = await authenticate(req, reply, true);
     if (!loaded) return reply;
-    const session = await buildSession(loaded);
+    const { session, version } = await buildSession(loaded);
     const csrfToken = await opts.sessionService.ensureCsrfToken(loaded.session.id);
     if (!csrfToken) return sendError(reply, 'auth.session_invalid', 'session not active');
     return {
       session,
       publishedMetrics: [],
       defaultRangeTo: seoulWallClockMinute(now()),
-      sessionVersion: sessionVersionOf(session),
+      sessionVersion: version,
       csrfToken,
     };
   });
@@ -132,7 +131,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   app.get('/session-state', async (req, reply) => {
     const loaded = await authenticate(req, reply, false);
     if (!loaded) return reply;
-    return { sessionVersion: sessionVersionOf(await buildSession(loaded)) };
+    return { sessionVersion: (await buildSession(loaded)).version };
   });
 
   // Read POSTs (platform ADR-0069 decision 4): no CSRF. Every judged result is HTTP 200 + envelope.
