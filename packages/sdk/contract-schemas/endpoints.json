@@ -1617,6 +1617,20 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "logLifecycle.roundDiscussion",
+    "menuId": "log-models",
+    "paramKeys": [
+      "roundId",
+      "cursor",
+      "limit"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "logLifecycle.roundEvidence",
     "menuId": "log-models",
     "paramKeys": [
@@ -1651,6 +1665,63 @@
       "required",
       "sorting",
       "opinionGrade"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.validationIssueDetail",
+    "menuId": "log-models",
+    "paramKeys": [
+      "issueId",
+      "cursor",
+      "limit"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.validationIssueHistory",
+    "menuId": "log-models",
+    "paramKeys": [
+      "issueId",
+      "cursor",
+      "limit"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.validationIssueThread",
+    "menuId": "log-models",
+    "paramKeys": [
+      "issueId",
+      "cursor",
+      "limit"
+    ],
+    "permission": "platform:view",
+    "requiresScope": false,
+    "context": {},
+    "kinds": [],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "logLifecycle.validationIssues",
+    "menuId": "log-models",
+    "paramKeys": [
+      "projectId",
+      "roundId",
+      "cursor",
+      "limit"
     ],
     "permission": "platform:view",
     "requiresScope": false,

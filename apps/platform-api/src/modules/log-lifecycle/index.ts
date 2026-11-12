@@ -1,3 +1,4 @@
+import { validationIssueActions, VALIDATION_ISSUE_PERMISSIONS } from './validation-issue-actions.js';
 import { withLifecycleReplayAccess } from './replay-access.js';
 import type { MenuDispatchContribution } from '../menu-dispatch/types.js';
 import type { LogLifecycleDeps } from './deps.js';
@@ -11,11 +12,12 @@ import { LIFECYCLE_ROUND_MENU_PERMISSION, LIFECYCLE_ROUND_PERMISSION, roundActio
 export function logLifecycleContribution(deps: LogLifecycleDeps): MenuDispatchContribution {
   return {
     endpoints: [...lifecycleEndpoints(deps), ...requestEndpoints(deps)],
-    actions: [...projectActions(deps), ...roundActions(deps), ...requestActions(deps), ...gateActions(deps)].map(withLifecycleReplayAccess),
+    actions: [...projectActions(deps), ...roundActions(deps), ...requestActions(deps), ...gateActions(deps)].map(withLifecycleReplayAccess).concat(validationIssueActions(deps)),
     permissions: [
       { permission: LIFECYCLE_PROJECT_MENU_PERMISSION, capability: LIFECYCLE_PROJECT_PERMISSION },
       { permission: LIFECYCLE_ROUND_MENU_PERMISSION, capability: LIFECYCLE_ROUND_PERMISSION },
       { permission: LIFECYCLE_GATE_MENU_PERMISSION, capability: LIFECYCLE_GATE_PERMISSION },
+      ...VALIDATION_ISSUE_PERMISSIONS,
     ],
   };
 }
