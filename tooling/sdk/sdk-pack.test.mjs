@@ -43,6 +43,18 @@ test('a dist file importing an undeclared @ap/* package fails, naming file and p
   assert.throws(() => validateImports('kernel', files, peersManifest), /dist\/index\.js.*@ap\/ui.*not a peerDependencies entry/);
 });
 
+test('comments between the keyword and the specifier do not hide an undeclared import', () => {
+  for (const text of [
+    "export const load = () => import(/* chunk annotation */ '@ap/undeclared');\n",
+    "import { x } from /* note */ '@ap/undeclared';\n",
+    "import { x } from // note\n '@ap/undeclared';\n",
+  ]) {
+    assert.throws(() => validateImports('kernel', [{ path: 'dist/index.js', text }], peersManifest), /@ap\/undeclared/);
+  }
+  const commented = [{ path: 'dist/index.js', text: "/* import '@ap/ui'; */\nconst u = 'http://x.test/a';\n" }];
+  assert.doesNotThrow(() => validateImports('kernel', commented, peersManifest));
+});
+
 test('a declared peer and a subpath of it pass the import check', () => {
   const files = [
     { path: 'dist/index.js', text: "import { a } from '@ap/contracts';\nexport const b = (await import('@ap/contracts/vocab')).b;\n" },

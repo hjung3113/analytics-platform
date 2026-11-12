@@ -149,7 +149,9 @@ export function validateImports(name, files, manifest) {
   const allowed = new Set([manifest.name, ...Object.keys(manifest.peerDependencies ?? {})]);
   for (const file of files) {
     if (!/^dist\/.+\.(?:js|mjs|cjs)$/.test(file.path) && !/^dist\/.+\.d\.(?:ts|mts|cts)$/.test(file.path)) continue;
-    for (const match of file.text.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*(['"])(@ap\/[^'"]+)\1/g)) {
+    // Comments between the keyword and the specifier must not hide an import; `//` counts only at a token start, so URLs in strings stay intact.
+    const code = file.text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[\s;{}()])\/\/[^\n]*/g, '$1');
+    for (const match of code.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*(['"])(@ap\/[^'"]+)\1/g)) {
       const specifier = match[2];
       const packageName = specifier.split('/').slice(0, 2).join('/');
       if (!allowed.has(packageName)) {
