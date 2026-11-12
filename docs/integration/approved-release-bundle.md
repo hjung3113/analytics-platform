@@ -27,6 +27,7 @@
 | `third-party --lockfile <path>` | 릴리스 쪽에서 lockfile로 `third-party.json`을 만든다 |
 | `adopt --from <지금 폴더> [--bundle <새 키트 폴더>]` | 버전 교체·되돌리기: 갓 푼 키트에 조립 몫을 옮긴다. 키트 파일을 고쳤거나 덮어쓰게 되면 아무것도 바꾸지 않고 exit 1([시작 키트](../guides/standalone-start-kit.md#버전-교체와-되돌리기)) |
 
+0. (설치 전, 스크립트 밖) 내려받은 키트 자산을 릴리스의 바깥 `SHA256SUMS`로 먼저 확인한다(`sha256sum -c --ignore-missing SHA256SUMS`). 아래 1은 키트 안의 목록을 보므로 같은 압축 파일에서 나온 목록과 파일은 서로 맞는다.
 1. 체크섬: `SHA256SUMS`와 파일이 일치한다.
 2. `@ap/*` 단일 사본: 같은 패키지가 둘 설치되지 않는다. 설치 전에는 lockfile의 `snapshots`에서 다른 peer 묶음으로 두 번 풀린 `@ap/*`를 찾고, 설치 뒤에는 `installed`로 디스크를 본다.
 3. 정확 버전 peer: 아홉이 같은 버전이다.

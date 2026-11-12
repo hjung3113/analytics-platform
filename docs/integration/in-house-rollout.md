@@ -5,6 +5,7 @@
 ## 0. 지금 어디까지 왔나
 
 - 플랫폼 쪽 준비는 끝났다. 메뉴 데이터는 모두 범용 조회 포트(`menuQuery`, #100)로 오고, 서버 경계 적합성 묶음(`@ap/server-conformance`, #145·#152)이 어떤 어댑터든 같은 잣대로 판정한다 — `menuQuery`와 포트 메서드 전부(세션·Scope·조건 편집기 포트·목적지·감사·콘솔 조회·주석·활용률·오류 보고)를 지금 mock으로 모든 메뉴 엔드포인트가 통과한다(oversize 표본이 없는 `maxRows` 검사 3개는 건너뜀 — 통과로 세지 않는다).
+- 사내 메뉴는 이 저장소 밖의 조립 저장소에서 시작 키트(`ap-start-kit-<버전>.tgz`)로 만든다: [시작 키트 안내](../guides/standalone-start-kit.md). 키트의 실조립 빌드는 `pnpm build:real`이고, 아래 `AP_PLATFORM_ASSEMBLY … build:prod`는 이 저장소에서 조립을 꽂는 길이다.
 - 사내 적용은 `#platform-assembly` 조립 모듈(dev·mock은 `apps/platform-web/src/dev/mock-assembly.tsx`의 `createMockAdapter(...)`)을 **실어댑터를 돌려주는 조립 모듈로 바꿔 꽂는 일**이다(`AP_PLATFORM_ASSEMBLY`, #153·ADR-0009). Kernel·셸·공통 컴포넌트·메뉴 화면은 고치지 않는다(체크리스트 §1).
 - 남은 일의 대부분은 **사내 입력**(SSO 사양, 배포 환경, 백엔드 담당과의 합의)에 막혀 있다. 외부 입력 없이 할 수 있는 플랫폼 작업은 §4의 작은 후속뿐이다.
 - 디자인(M2)은 v0.1.0으로 끝났고 이 트랙과 별개다.
@@ -93,7 +94,7 @@
 - site·room을 없애거나 이름을 바꾸기 전에 해당 값의 부여를 먼저 회수한다. 카탈로그 밖 부여는 판정에서 제외되지만 행은 남으므로 같은 이름이 돌아오면 접근이 되살아날 수 있다.
 - 첫 배포는 카탈로그 설정 → 서버 기동 → Admin의 첫 Scope 부여 순서다. `permission_self_approval: forbidden`이면 첫 부여를 위해 Admin이 두 명 이상 필요하다.
 
-### 3.3 사내 백엔드(FastAPI) 담당 — [#148](https://github.com/hjung3113/analytics-platform/issues/148)·[#149](https://github.com/hjung3113/analytics-platform/issues/149)·[#155](https://github.com/hjung3113/analytics-platform/issues/155)
+### 3.3 기존 시스템 연결·서버 계약 담당 — [#148](https://github.com/hjung3113/analytics-platform/issues/148)·[#149](https://github.com/hjung3113/analytics-platform/issues/149)·[#155](https://github.com/hjung3113/analytics-platform/issues/155)
 
 - [ ] 선언 원본은 TS(Zod) → JSON Schema로 정해졌다(ADR-0096). 백엔드 담당은 생성한 Pydantic 모델·`endpoints.json`을 쓰는 데 이의가 없는지 확인 — #148(닫힘)
 - [ ] 전송 형식 초안 검토: HTTP 상태와 `outcome` 관계, 부트스트랩 엔드포인트, 알림 경로(폴링·SSE), 타임아웃 값, CSRF, Correlation ID 헤더 — #149. 초안과 질문 목록: [전송 형식 초안](http-adapter-contract.md) §10
@@ -103,7 +104,7 @@
   - 라우팅 키: Scope 키(site, room)로 어느 대상이 어느 데이터를 갖는지 — N site → 1 대상, 한 site를 room별 여러 대상으로, 또는 플랫폼이 볼 수 없는 기준(설비 묶음·기간)으로 나뉘면 모두에 묻고 병합. 대상에 없는 room이 부여될 수 있으면 `unroutedRooms: "skip"`으로 둘지 정한다.
   - 응답 행에 site·room이 있는지, 호출이 room으로 거를 수 있는지: 있고 거를 수 있으면 `verify-rows`(벗어난 행이 하나라도 있으면 응답 전체 실패), 있지만 못 거르면 `drop-rows`, 행에 room이 없으면 `resolve-keys`(키를 site·room으로 푸는 조회 하나). site·room 표기가 플랫폼 값과 다르면 대응표(`valueMap`).
   - 엔드포인트마다 행 상한(`limits.maxRows`, 페이지는 `merge.maxWindow`), 행을 합칠 때의 유일한 정렬 키, 읽기 전용 계정·주소·비밀 파일(위 «DB 대상 준비물»).
-- [ ] 체크리스트를 읽고 "이 규칙은 FastAPI에서 어렵다"는 항목 — 있으면 계약 변경 결정으로 올린다(루트 `AGENTS.md`)
+- [ ] 체크리스트를 읽고 "기존 시스템에서 이 규칙을 지킬 수 없다"는 항목 — 있으면 계약 변경 결정으로 올린다(루트 `AGENTS.md`)
 
 ### 3.4 파서 담당 — [#37](https://github.com/hjung3113/analytics-platform/issues/37)
 
@@ -146,8 +147,8 @@
 2. **그룹·패키지:** 기존 그룹에 manifest를 추가한다. 새 그룹은 사람이 앱 조립 파일(`apps/platform-web/src/menus.ts`)의 `GROUPS` 행을 먼저 추가한 뒤(그룹 id는 `groupId('…')`, 새 공간·권한도 같은 파일의 `SPACES`·`PERMISSIONS`에 선언하고 계약 패키지는 고치지 않는다, ADR-0072) `pnpm gen:menu`로 만든다. 패키지 규칙은 [menus/AGENTS.md](../../menus/AGENTS.md).
 3. **조회 선언:** `menus/<space>/<g>/src/endpoints.ts`에 `defineEndpoint`로 권한(데이터 접근 권한 — 메뉴 권한과 다를 수 있음)·적용 Context·params 키·assessment kind·한도를 선언한다. 서버 판정 규칙은 [체크리스트 §3](real-server-checklist.md), 결정은 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md).
 4. **화면:** [페이지 작성 가이드](../../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙).
-5. **서버 쪽:** 개발 중에는 `menus/<space>/<g>/src/mock/`에 핸들러를 둔다(생성기가 앱 mock 조립에 등록하고 운영 빌드에는 실리지 않는다). 실서버에는 같은 엔드포인트 id로 FastAPI 핸들러를 만든다(선언 사본은 `sdk-v*` 산출물 `endpoints.json`·`schemas/*.json`, ADR-0096).
-6. **적합성 묶음 등록:** [`apps/platform-web/src/server-conformance.test.ts`](../../apps/platform-web/src/server-conformance.test.ts)는 mock 조립의 `MOCK_ENDPOINTS`(생성기가 등록)를 그대로 쓰므로 mock은 따로 넣지 않는다. 엔드포인트가 params를 선언하면 `PARAMS` 표에 표본 params를 넣는다(빠지면 테스트가 실패한다). 표본 params는 하네스의 권한 있는 역할(`engineer` — `console:access` 없음), site `MEM`, 하네스 기간으로 `ok` 또는 `empty`가 나와야 한다. 엔드포인트가 `console:access`를 요구하면 그 하네스로는 성공 요청을 만들 수 없으니 먼저 묻는다.
+5. **서버 쪽:** 개발 중에는 `menus/<space>/<g>/src/mock/`에 핸들러를 둔다(생성기가 앱 mock 조립에 등록하고 운영 빌드에는 실리지 않는다). 실서버는 새 핸들러를 만들지 않는다: 코어 서버의 선언 묶음이 같은 엔드포인트 id를 기존 시스템의 연결기에 붙인다([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md), 위 §3.3; 선언 사본은 `sdk-v*` 산출물 `endpoints.json`·`schemas/*.json`, ADR-0096).
+6. **적합성 묶음 등록(이 저장소):** 시작 키트에서는 메뉴 폴더마다 `conformance.ts`가 사례를 내고 키트의 `src/conformance.test.tsx`가 모은다([시작 키트 안내](../guides/standalone-start-kit.md)). [`apps/platform-web/src/server-conformance.test.ts`](../../apps/platform-web/src/server-conformance.test.ts)는 mock 조립의 `MOCK_ENDPOINTS`(생성기가 등록)를 그대로 쓰므로 mock은 따로 넣지 않는다. 엔드포인트가 params를 선언하면 `PARAMS` 표에 표본 params를 넣는다(빠지면 테스트가 실패한다). 표본 params는 하네스의 권한 있는 역할(`engineer` — `console:access` 없음), site `MEM`, 하네스 기간으로 `ok` 또는 `empty`가 나와야 한다. 엔드포인트가 `console:access`를 요구하면 그 하네스로는 성공 요청을 만들 수 없으니 먼저 묻는다.
 7. **검증:** [루트 AGENTS.md의 검증 규칙](../../AGENTS.md#verification)을 따른다. 변경 패키지와 영향받는 describe로 좁혀 검증하고, 화면 변경은 브라우저로 확인한다. 실서버 브라우저 실행은 [실서버 체크리스트 §8](real-server-checklist.md#8-실서버-브라우저-계약-검사-593)을 따른다.
 
 하지 말 것: 메뉴 작업 중에 `packages/*`를 고치지 않는다(부족하면 이슈로 올려 플랫폼 작업으로 한다). 새 메뉴 데이터를 위해 `PlatformAdapter` 포트 메서드를 늘리지 않는다. 그 밖의 금지(표 엔진 import, 메뉴 간 import, URL 직접 조립, 화면의 권한 판단, wall-clock TZ 변환)는 [menus/AGENTS.md](../../menus/AGENTS.md)·페이지 작성 가이드·06 §6.3·§22가 원본이다. 메뉴 화면 3개 이상을 연속으로 만들 때는 먼저 범위를 확인한다(루트 `AGENTS.md`).

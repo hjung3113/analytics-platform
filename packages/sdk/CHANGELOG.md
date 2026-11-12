@@ -23,6 +23,8 @@
 
 ## 변경 기록
 
+`sdk-v0.35.0`은 플랫폼 `v0.36.0`과 함께 나가는 SDK다. 시험판 `sdk-v0.35.0-rc.1`·`rc.2`가 먼저 나갔고, 플랫폼 `v0.35.0` 릴리스는 «SDK 변화 없음, `sdk-v0.34.0` 그대로»라서 SDK와 플랫폼 버전 번호가 한 칸씩 어긋난다. 아래 `sdk-v0.35.0` 행은 모두 이 정식판의 변경이다.
+
 팀장은 SDK 태그를 낼 때 `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>`로 자산을 만들고 `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`로 함께 올린다. [릴리스 순서](../../.agents/conductor/PROFILE.md#slice-close)를 따른다.
 
 스냅샷 줄이 삭제되거나 바뀌면 같은 PR에서 이 표에 기록하고, [ADR-0044](../../docs/adr/0044-sdk-source-in-platform-repo-released-separately.md)에 따라 한 SDK 릴리스 전에 소비자에게 예고한다.

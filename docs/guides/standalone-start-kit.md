@@ -23,6 +23,7 @@
 
 ## 시작 순서
 
+0. 내려받은 자산은 풀기 전에 릴리스의 바깥 `SHA256SUMS`로 확인한다: `gh release download <태그> --pattern 'ap-start-kit-*.tgz' --pattern SHA256SUMS` 뒤 `sha256sum -c --ignore-missing SHA256SUMS`. 키트 안의 `SHA256SUMS`는 같은 압축 파일에서 나오므로 바뀐 키트도 통과시킨다. 신뢰 뿌리는 바깥 목록이다.
 1. 키트를 빈 폴더에 풀고 설치 검사(`node sdk-bundle-check.mjs verify`) 뒤에 `pnpm install --frozen-lockfile`을 돌린다. 사내 npm 미러를 쓰는 환경은 [반입 묶음](../integration/approved-release-bundle.md#설치-검사)의 미러 대조를 먼저 돌린다.
 2. `dev`로 첫 화면이 뜨는 것을 확인한다.
 3. 견본 메뉴 패키지 `menus/sample/`을 복사해 세 상수를 바꾸고 `menus.ts`와 `mock/assembly.ts`에 등록한다(키트 README «둘째 메뉴»). 둘째 메뉴가 등록된 채 `build`와 렌더가 통과하면 시작이 끝난 것이다. 공개 CI가 이 순서를 스크립트로 따라 한다.
@@ -75,7 +76,7 @@
 | 하고 싶은 것 | 어디에 | 비고 |
 | --- | --- | --- |
 | 필터를 더한다 | 메뉴의 page key, 또는 앱이 주입하는 축([ADR-0149](../adr/0149-domain-context-extends-through-namespaced-axes.md)) | `GlobalContext`는 바꾸지 않는다 |
-| 데이터를 읽는다 | 엔드포인트 선언 + mock 핸들러 + 서버 쪽 | 서버 쪽은 사내 데이터 서버가 소유한다([ADR-0146](../adr/0146-core-server-loads-in-house-declarations-from-deployment-config.md)) |
+| 데이터를 읽는다 | 엔드포인트 선언 + mock 핸들러 + 서버 쪽 | 서버 쪽은 코어 서버의 배포 선언 묶음과 연결기가 맡는다. 사내에 새 서버를 두지 않는다([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md)) |
 | 권한을 정한다 | registry의 메뉴 권한 선언 + 서버가 부여 | 선언은 부여가 아니다 |
 
 ## 「mock 통과」 표시
