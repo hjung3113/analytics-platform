@@ -262,3 +262,14 @@ it('preserves an existing capped handler empty result with data null', async () 
   const result = await runQuery({ ok: true, declaration: { ...endpoint, handle: async () => ({ outcome: 'empty', data: null }) }, context: { scopeId: 'SITE-A' }, params: { q: 'a' }, scopeResolver: { resolve: async () => [{ site: 'SITE-A', rooms: ['RA1'] }] } }, actor, 'syn-cid');
   expect(result).toMatchObject({ outcome: 'empty', data: null });
 });
+it('resolve-keys with skip: a key resolving to a skipped room is forbidden and the main call never runs', async () => {
+  // `unroutedRooms: 'skip'` declares that this endpoint's data lives only in routed rooms; a key in RA2 cannot be read from RA1's target.
+  const routing = owner(); routing.unroutedRooms = 'skip'; routing.routes = [{ sites: ['SITE-A'], rooms: ['RA1'], targets: ['tgt-1'] }];
+  routing.scopeCheck = { mode: 'resolve-keys', keys: 'params.q', lookup: { statement: 'SELECT :key', params: { key: 'params.q' } }, siteField: '/site', roomField: '/room' };
+  let mainCalls = 0;
+  const { endpoint } = runtime(routing, { async *query(leg) {
+    if ('statement' in leg.call && leg.call.statement === 'SELECT :key') { yield { site: 'SITE-A', room: 'RA2' }; return; }
+    mainCalls++; yield { value: 1 };
+  } });
+  expect(await endpoint.handle(args())).toMatchObject({ outcome: 'forbidden', data: null }); expect(mainCalls).toBe(0);
+});
