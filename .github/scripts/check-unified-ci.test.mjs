@@ -54,7 +54,8 @@ test('mock-dist readers precede real production build; folded feature coverage s
   assert.match(workflow, /pnpm exec turbo run test \$SHARD_FILTER/);
   assert.match(workflow, /if:.*needs.changes.outputs.code != 'false'/);
   assert.match(workflow, /image: mirror.gcr.io\/pgvector\/pgvector:pg16/);
-  assert.match(workflow, /run: bash ops\/platform-api\/scripts\/ci\/gate.sh integration/);
+  assert.match(workflow, /run: bash ops\/platform-api\/scripts\/ci\/gate.sh integration --shard=\$\{\{ matrix.shard \}\}\/2/);
+  assert.match(workflow, /Backend integration \(\$\{\{ matrix.shard \}\}\/2\)[\s\S]*?matrix:\n\s+shard: \[1, 2\]/);
   assert.equal(existsSync(new URL('../workflows/feedbackops.yml', import.meta.url)), false);
 });
 

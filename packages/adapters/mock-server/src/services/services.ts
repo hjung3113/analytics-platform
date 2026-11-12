@@ -6,7 +6,7 @@
  */
 import { PEOPLE_LOOKUP_MAX, UPLOAD_FILE_MAX_BYTES, PREFERENCE_KEYS_MAX, PREFERENCE_KEY_PATTERN, PREFERENCE_REQUEST_MAX_BYTES, PREFERENCE_VALUE_MAX_BYTES, PortError } from '@ap/contracts';
 import type { ActionResponse, ApiResponse, DeleteNoticeInput, FieldError, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UploadFileInput, UploadedFile } from '@ap/contracts';
-import { checkScope, getRole, getScenario, nextCorrelation, sleep } from '../server';
+import { checkScope, getRole, getScenario, nextCorrelation, defaultDelay, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
 
 export type ServiceOptions = { role?: RoleId; latency?: number };
@@ -20,7 +20,7 @@ function pin(opts?: ServiceOptions): Pinned {
   const role = opts?.role ?? getRole();
   return { role, userId: activeWorld().users[role].role, scenario: getScenario() };
 }
-const wait = (pinned: Pinned, signal: AbortSignal | undefined, opts?: ServiceOptions) => sleep((opts?.latency ?? DEFAULT_LATENCY_MS) + (pinned.scenario === 'slow' ? 2200 : 0), signal);
+const wait = (pinned: Pinned, signal: AbortSignal | undefined, opts?: ServiceOptions) => sleep((opts?.latency ?? defaultDelay(DEFAULT_LATENCY_MS)) + (pinned.scenario === 'slow' ? 2200 : 0), signal);
 const baseOf = (): Base => ({ correlationId: nextCorrelation(), data: null, trust: null, assessments: [] });
 
 /** The scenario outcome an envelope read answers before looking at the request, or null for normal service. */

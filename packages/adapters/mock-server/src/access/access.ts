@@ -10,7 +10,7 @@
  * assignment would hide the assignment. SiteGrant room names are master values (ADR-0005), never translated.
  */
 import { type AccessDirectoryPage, type AccessDirectoryQuery, type AccessPrincipal, type AccessSortField, type ApiResponse, type Assessment } from '@ap/contracts';
-import { getRole, getScenario, nextCorrelation, sleep } from '../server';
+import { getRole, getScenario, nextCorrelation, defaultDelay, sleep } from '../server';
 import { SITES, activeWorld, type RoleId } from '../world';
 
 export type AccessOptions = { role?: RoleId; latency?: number };
@@ -88,7 +88,7 @@ export async function accessDirectory(query: AccessDirectoryQuery, signal?: Abor
   const s = getScenario();
   const requestRole = opts?.role ?? getRole();
   const correlationId = nextCorrelation();
-  await sleep(opts?.latency ?? 80, signal);
+  await sleep(opts?.latency ?? defaultDelay(80), signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   // The console permission beats every scenario and every filter.
   if (!activeWorld().users[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };

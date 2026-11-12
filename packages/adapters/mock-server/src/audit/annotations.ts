@@ -5,7 +5,7 @@
  * data: trust is null and assessments are empty on every branch, so this does not go through finish().
  * The server stamps the author and `at`; the wire input has no field for either and an unknown key rejects the call.
  */
-import { checkScope, getRole, getScenario, nextCorrelation, sleep } from '../server';
+import { checkScope, getRole, getScenario, nextCorrelation, defaultDelay, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
 import { menuPermission, type AnnotationInput, type AnnotationRef, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation } from '@ap/contracts';
 
@@ -55,7 +55,7 @@ async function gate(ref: AnnotationRef, signal: AbortSignal | undefined, opts: A
   // Pin identity at send time, like serve(): a role switch while in flight must not re-evaluate this request.
   const scenario = getScenario();
   const requestRole = opts?.role ?? getRole();
-  await sleep((opts?.latency ?? 80) + (scenario === 'slow' ? 2200 : 0), signal);
+  await sleep((opts?.latency ?? defaultDelay(80)) + (scenario === 'slow' ? 2200 : 0), signal);
   const base: Base = { correlationId: nextCorrelation(), data: null, trust: null, assessments: [] };
   const fail = (outcome: ApiResponse<never>['outcome'], message: string): Gated => ({ fail: { ...base, outcome, message } });
   if (!activeWorld().users[requestRole].permissions.includes(ANNOTATION_PERMISSION)) return fail('forbidden', `No permission ${ANNOTATION_PERMISSION}`);

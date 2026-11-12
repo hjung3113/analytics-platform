@@ -287,9 +287,16 @@ jobs:
   feature-integration:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
-    name: Platform API · Backend integration
+    name: Platform API · Backend integration (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # #1680: the suite runs one file at a time (fileParallelism: false, one shared DB) and was the PR critical path
+    # (~16 min, vitest ~944 s). Each shard is its own job with its own Postgres service, so the shards share no data.
+    # The aggregate below reads `needs.feature-integration.result`, which fails when any shard fails.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     services:
       postgres:
         # Google's Docker Hub mirror (same digest): GitHub runners hit Docker Hub's unauthenticated pull limit.
@@ -316,7 +323,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
         working-directory: .
-      - run: bash ops/platform-api/scripts/ci/gate.sh integration
+      - run: bash ops/platform-api/scripts/ci/gate.sh integration --shard=${{ matrix.shard }}/2
         env:
           CI_PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
       # The service container log is printed only when the job ends; on failure, put its slow statements (log_min_duration_statement),

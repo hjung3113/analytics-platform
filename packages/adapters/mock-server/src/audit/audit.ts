@@ -12,7 +12,7 @@
  * `entityAudit` consults `partial` through getEntity's shared counter.
  */
 import { ENTITY_AUDIT_PAGE_MAX, compareAuditEvents, instantEpochMs, menuPermission, type ApiResponse, type Assessment, type AuditAction, type AuditEvent, type AuditSortField, type AuditSource, type AuditTrailPage, type AuditTrailQuery, type EntityAuditPage, type EntityAuditRequest } from '@ap/contracts';
-import { checkScope, getRole, getScenario, nextCorrelation, partialFails, sleep } from '../server';
+import { checkScope, getRole, getScenario, nextCorrelation, partialFails, defaultDelay, sleep } from '../server';
 import { AUDIT_EVENTS } from './audit-fixtures';
 import { runtimeAuditEvents } from './annotations';
 import { EQUIPMENT, activeWorld, type RoleId } from '../world';
@@ -129,7 +129,7 @@ export async function auditTrail(query: AuditTrailQuery, signal?: AbortSignal, o
   const s = getScenario();
   const requestRole = opts?.role ?? getRole();
   const correlationId = nextCorrelation();
-  await sleep(opts?.latency ?? 80, signal);
+  await sleep(opts?.latency ?? defaultDelay(80), signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   // Operator permission beats every scenario and every filter (a targetId here is search text, not the detail read).
   if (!activeWorld().users[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
@@ -167,7 +167,7 @@ export async function entityAudit(ref: EntityAuditRequest, signal?: AbortSignal,
   const s = getScenario();
   const requestRole = opts?.role ?? getRole();
   const correlationId = nextCorrelation();
-  await sleep(opts?.latency ?? 80, signal);
+  await sleep(opts?.latency ?? defaultDelay(80), signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   // 1. Unknown entity type, before the permission check (same as getEntity).
   if (ref.type !== 'equipment' && ref.type !== 'metric') return { ...base, outcome: 'error', message: 'Unknown entity type' };
