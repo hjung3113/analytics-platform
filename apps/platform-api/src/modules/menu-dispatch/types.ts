@@ -47,6 +47,8 @@ export interface EndpointDeclarationSpec {
 export type EndpointOutcome = 'ok' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout';
 
 export interface EndpointResult {
+  /** Internal read count, including rows discarded by Scope enforcement; never serialized. */
+  rowsRead?: number;
   outcome: EndpointOutcome;
   data: unknown;
   /** One per kind the endpoint declares (06 §19); the module owns them. Default `[]`. */
@@ -59,6 +61,10 @@ export interface EndpointResult {
 export type ParamsJudgment = { ok: true } | { ok: false; message: string };
 
 export interface EndpointHandlerArgs {
+  /** Request arrival epoch milliseconds, before authentication and Scope resolution. */
+  arrivedAtMs?: number;
+  /** Absolute core deadline shared by routed authorization, Scope and connector work. */
+  deadlineAtMs?: number;
   actor: PlatformActor;
   /** Full grant set resolved for this request; scope-free endpoints receive an empty set. */
   scopes: readonly ScopeGrant[];
@@ -73,6 +79,8 @@ export interface EndpointHandlerArgs {
 }
 
 export interface MenuEndpointDeclaration {
+  /** Routed core budget; absent for legacy string forwarding and module-owned handlers. */
+  upstreamTimeoutMs?: number;
   spec: EndpointDeclarationSpec;
   /** Maps the declared permission to a platform permission or a capability check. */
   authorize(actor: PlatformActor, tx?: Tx): Promise<boolean>;

@@ -48,10 +48,10 @@ describe('declaration boot gates (ADR-0153 a1)', () => {
   it('accepts an empty bundle without envelope-only environment', async () => {
     expect(await setup(emptyBundle())).toEqual({ menuDispatch: [{ permissions: [], endpoints: [] }] });
   });
-  it('refuses validated routing before any endpoint can be served, without requiring envelope env for SQL', async () => {
-    expect(await problems(setup(routed()))).toEqual(['routed endpoints are not served yet (ADR-0153 node 1839a2)']);
+  it('refuses SQL without a connector factory, without requiring envelope env', async () => {
+    expect(await problems(setup(routed()))).toEqual(['connector kind sql is not available']);
   });
-  it('checks the bundle before the not-served gate or any secret reads', async () => {
+  it('checks the bundle before connector availability checks or any secret reads', async () => {
     const bundle = routed();
     bundle.targets['tgt-1'].connectionFile = join(dir, 'not-read.secret');
     bundle.endpointOwners['syn.rows'].routes[0] = { sites: ['SITE-A'], rooms: ['RA1'], targets: ['absent'] };
@@ -59,7 +59,7 @@ describe('declaration boot gates (ADR-0153 a1)', () => {
   });
   it('guards programmatic routed contributions as well as file loading', () => {
     expect(() => declaredContribution({ bundle: routed() as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService }))
-      .toThrow('routed endpoints are not served yet (ADR-0153 node 1839a2)');
+      .toThrow('connector kind sql is not available');
   });
   it.each(['MENU_UPSTREAM_BASE_URL', 'MENU_IDENTITY_KEY_FILE', 'MENU_IDENTITY_KEY_ID'] as const)('requires %s for a string owner', async (missing) => {
     const env = { MENU_UPSTREAM_BASE_URL: 'https://upstream.test', MENU_IDENTITY_KEY_FILE: secretFile, MENU_IDENTITY_KEY_ID: 'syn-key', [missing]: undefined };
