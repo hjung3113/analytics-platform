@@ -58,9 +58,9 @@ export function createValidationIssueService(deps: { db: Db }) {
         const v = parse(action, raw);
         const i = await issueOwner(tx, viewer, v.issueId);
         const requestId = await occurrenceRequest(tx, viewer, v.roundId, v.attemptId, v.ruleResultId);
-        const result = await insertOccurrence(tx, viewer, { ...v, projectId: i.project_id, requestId });
-        if (result.added) await audit.record(tx, { ...base, event_type: 'lifecycle.validation_issue.occurrence_linked', subject_type: 'validation_issue', subject_id: i.id, summary: 'validation occurrence linked', detail: { occurrenceId: result.id, roundId: v.roundId } });
-        return { ...result, issueId: i.id };
+        const link = await insertOccurrence(tx, viewer, { ...v, projectId: i.project_id, requestId });
+        if (link.added) await audit.record(tx, { ...base, event_type: 'lifecycle.validation_issue.occurrence_linked', subject_type: 'validation_issue', subject_id: i.id, summary: 'validation occurrence linked', detail: { occurrenceId: link.id, roundId: v.roundId } });
+        return { ...link, issueId: i.id };
       }
       case 'linkEvidence': {
         const v = parse(action, raw);
