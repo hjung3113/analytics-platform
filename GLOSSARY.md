@@ -18,7 +18,7 @@ Site 내부의 실제 생산 라인. room_name과 교차하는 독립 조회축�
 _Avoid_: 공장, Factory — 구어로는 Line과 같은 뜻으로 쓰이지만, 공식 계층에는 Factory 레벨이 없으므로 Line만 쓴다. 근거: [ADR-0005](docs/adr/0005-scope-room-name-line-independent.md).
 
 **Scope** (`scopeId`):
-사용자가 조회 한 번에 고르는 단일 접근·조회 범위로, 단위는 Site다 — 데이터가 Site별로 나뉘어 있고 사용 권한도 보통 Site 단위로 나뉜다. 그 Site 안에서는 부여된 room_name만 보이며, 서버가 요청마다 권한을 다시 검증한다. v1은 단일 Scope 선택이다([06 §6.2](docs/contract/kernel.md#62-scope와-권한-decided--open)).
+사용자가 조회 한 번에 고르는 단일 접근·조회 범위로, 단위는 Site다 — 사용 권한이 보통 Site 단위로 나뉜다(데이터가 어느 DB에 있는지는 Scope와 무관하다, [ADR-0153](docs/adr/0153-upstream-target-routing-and-declared-connectors.md)). 그 Site 안에서는 부여된 room_name만 보이며, 서버가 요청마다 권한을 다시 검증한다. v1은 단일 Scope 선택이다([06 §6.2](docs/contract/kernel.md#62-scope와-권한-decided--open)).
 _Avoid_: 범위, 조회 범위(단독) — 화면 문구도 `Scope`로 쓴다. 결과 크기를 말할 때는 범위 대신 조건·결과를 쓴다.
 
 ### 로그 지식 허브 명세
@@ -383,7 +383,7 @@ _Avoid_: Host 진입점 — `@ap/kernel/host`(ADR-0076)와 섞인다.
 _Avoid_: 포크 — 공개 파일을 고치는 안(ADR-0141 기각 B)과 섞인다.
 
 **전달기**:
-코어 서버(Fastify)가 소유자 표를 보고 menu-query 같은 요청을 사내 데이터 서버로 넘기는 구성요소. 등록된 id인지만 판정하고 outcome을 만들거나 응답 본문을 고치지 않는다([ADR-0095](docs/adr/0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 2). 브라우저는 상류를 직접 부르지 않는다. menu-query 경로는 구현 전이며 v0.36.0 범위는 [ADR-0148](docs/adr/0148-minimal-forwarder-and-identity-token.md).
+코어 서버(Fastify)가 소유자 표를 보고 menu-query 같은 요청을 envelope를 말하는 상류(기본 상류 또는 envelope 상류 대상)로 넘기는 구성요소. 등록된 id인지만 판정하고 outcome을 만들거나 응답 본문을 고치지 않는다. 코어가 행을 읽어 outcome을 만드는 경로는 **연결기**다([ADR-0153](docs/adr/0153-upstream-target-routing-and-declared-connectors.md))([ADR-0095](docs/adr/0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 2). 브라우저는 상류를 직접 부르지 않는다. menu-query 경로는 구현 전이며 v0.36.0 범위는 [ADR-0148](docs/adr/0148-minimal-forwarder-and-identity-token.md).
 _Avoid_: 프록시, 게이트웨이 — 앞단(nginx) 경로 라우팅과 섞인다.
 
 **신원 토큰** (`X-Internal-Identity`):
@@ -394,8 +394,19 @@ _Avoid_: 세션 토큰, API 토큰
 요청한 행위자에게 허용된 site·room 집합을 내는, 서버 조립 때 주입하는 구성요소. 없으면 `requiresScope`·`mergeTimeDomain` 엔드포인트 등록이 거부된다([ADR-0147](docs/adr/0147-scope-grants-come-from-an-injected-resolver.md)). 메뉴 권한 판정기 `PlatformPermissionResolver`와 다르다.
 _Avoid_: 권한 해석기 — 메뉴 권한 판정기와 섞인다.
 
+**상류 대상** (`targets`):
+코어 서버가 menu-query 데이터나 Scope 부여를 읽으러 가는 기존 시스템 하나로, 선언 묶음에 id와 종류(`http`·`sql`)로 선언한다. 어느 대상이 어느 Site·room_name을 답하는지는 엔드포인트의 라우팅이 정한다(N:M, [ADR-0153](docs/adr/0153-upstream-target-routing-and-declared-connectors.md)). 지식 항목의 **Subject (대상)**, Rule의 **대상 범위**와 다르다.
+_Avoid_: 대상(단독), 백엔드, 상류 서버 — 대상 하나가 서버 여러 대(복제본)일 수 있다.
+
+**연결기**:
+상류 대상을 선언된 요청·응답 변환(`http` mapped)이나 SQL 문장·프로시저(`sql`)로 읽는 코어 서버의 범용 구성요소. 전달기와 달리 행을 읽고 outcome을 코어가 만든다. 사내 코드가 아니라 선언으로만 움직인다([ADR-0153](docs/adr/0153-upstream-target-routing-and-declared-connectors.md)).
+_Avoid_: 어댑터 — 서버 어댑터(`PlatformAdapter`)와 섞인다. 전달기 — 응답을 고치지 않는 구성요소다.
+
+**Scope 집행 방식** (`scopeCheck`):
+코어가 응답을 만드는 Scope 엔드포인트가 원본 행이 부여 밖으로 새지 않게 하는 방식. `verify-rows`(대상이 거르고 코어가 확인, 벗어나면 응답 전체 실패), `drop-rows`(코어가 범위 밖 행을 버림), `resolve-keys`(본 호출 전에 요청 키를 site·room_name으로 풀어 확인) 중 하나다([ADR-0153](docs/adr/0153-upstream-target-routing-and-declared-connectors.md) 결정 6). 열 필터 `filters`와 다르다.
+
 **사내 데이터 서버**:
-사내 분석 데이터를 코어 서버 전달기 뒤에서 답하는 서버. ADR-0095의 FastAPI 분석 서버이며 골격·합성 핸들러·적합성 검사는 이 저장소, 실제 핸들러는 사내가 소유한다.
+사내 분석 데이터를 코어 서버 전달기 뒤에서 06 §19 envelope로 답하는 서버. 선택이다 — 기존 시스템에는 연결기로 직접 붙는다([ADR-0153](docs/adr/0153-upstream-target-routing-and-declared-connectors.md)). ADR-0095의 FastAPI 분석 서버이며 골격·합성 핸들러·적합성 검사는 이 저장소, 실제 핸들러는 사내가 소유한다.
 _Avoid_: 분석 데이터 서버, 내부 데이터 서버
 
 **서버 어댑터** (`PlatformAdapter`):
