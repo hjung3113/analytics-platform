@@ -127,7 +127,7 @@ function crossProblems(bundle: z.infer<typeof bundleSchema>): string[] {
     if (!endpointIds.has(id)) problems.push(`owner table names endpoint ${id}, which is not declared (owner path ${path})`);
   }
   for (const row of bundle.endpoints) {
-    if (!(row.id in bundle.endpointOwners)) problems.push(`endpoint ${row.id}: no owner-table row`);
+    if (!Object.hasOwn(bundle.endpointOwners, row.id)) problems.push(`endpoint ${row.id}: no owner-table row`);
     if (!declaredPermissions.has(row.permission) && !kernelPermission(row.permission)) {
       problems.push(`endpoint ${row.id}: permission ${row.permission} is neither declared in the bundle nor a kernel permission`);
     }

@@ -147,6 +147,10 @@ describe('menu declaration/forwarder/resolver config via loadConfig', () => {
     ]);
   });
 
+  it('does not apply the upstream budget when no MENU_* setting is present', () => {
+    expect(menuIssues({ HTTP_REQUEST_TIMEOUT_MS: '10000' })).toEqual([]);
+  });
+
   it('accepts upstream timeout below HTTP_REQUEST_TIMEOUT_MS', () => {
     expect(
       menuIssues(menuEnv({ MENU_UPSTREAM_TIMEOUT_MS: '27000', HTTP_REQUEST_TIMEOUT_MS: '30000' })),

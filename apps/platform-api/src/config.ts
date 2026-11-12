@@ -189,7 +189,7 @@ const envSchema = z
         });
       }
     }
-    if (config.MENU_UPSTREAM_TIMEOUT_MS >= config.HTTP_REQUEST_TIMEOUT_MS) {
+    if (config.MENU_DECLARATIONS_FILE !== undefined && config.MENU_UPSTREAM_TIMEOUT_MS >= config.HTTP_REQUEST_TIMEOUT_MS) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['MENU_UPSTREAM_TIMEOUT_MS'],

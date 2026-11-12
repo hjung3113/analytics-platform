@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { platformVocab } from '../../platform-port/__tests__/platform-vocab.js';
 import { MenuDispatchRegistrationError, SITE_BOUND_KEYS, createMenuDispatchRegistry } from '../registry.js';
-import { createSyntheticScopeResolver } from '../scope-resolver.js';
 import { registryOf, testAction, testEndpoint } from './test-declarations.js';
 
 const refused = (build: () => unknown) => {
@@ -95,39 +94,5 @@ describe('menu dispatch registration validation', () => {
         [testAction({ concurrency: 'version' }).declaration],
       ),
     ).not.toThrow();
-  });
-});
-
-
-describe('Scope resolver registration gate', () => {
-  const scopeResolver = createSyntheticScopeResolver([]);
-
-  it.each([
-    { requiresScope: true },
-    { mergeTimeDomain: true },
-    { requiresScope: true, mergeTimeDomain: true, context: { roomNames: 'apply' as const } },
-  ])('accepts endpoint %j only with a resolver', (spec) => {
-    const declaration = testEndpoint(spec).declaration;
-    expect(() => createMenuDispatchRegistry([{ endpoints: [declaration] }], { scopeResolver }))
-      .not.toThrow();
-    expect(() => createMenuDispatchRegistry([{ endpoints: [declaration] }], {}))
-      .toThrow(MenuDispatchRegistrationError);
-  });
-
-  it('accepts a scoped action only with a resolver', () => {
-    const declaration = testAction({ requiresScope: true }).declaration;
-    const registry = createMenuDispatchRegistry([{ actions: [declaration] }], { scopeResolver });
-    expect(registry.action('test.save')).toBe(declaration);
-    expect(() => createMenuDispatchRegistry([{ actions: [declaration] }], {}))
-      .toThrow(/requiresScope.*#1087/);
-  });
-
-  it('retains other endpoint and action validation with a resolver', () => {
-    const message = refused(() => createMenuDispatchRegistry([{
-      endpoints: [testEndpoint({ context: { roomNames: 'apply' } }).declaration],
-      actions: [testAction({ requiresScope: true, invalidates: ['missing'] }).declaration],
-    }], { scopeResolver }));
-    expect(message).toContain('scope-free endpoint cannot apply site-bound context roomNames');
-    expect(message).toContain('invalidates missing, which is not a registered endpoint');
   });
 });

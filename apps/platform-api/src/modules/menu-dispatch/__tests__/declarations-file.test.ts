@@ -87,6 +87,12 @@ describe('declaration bundle loader (fail-closed, ADR-0146 decision 4)', () => {
     expect(message).toMatch(/bad-json\.txt.*not valid JSON/);
   });
 
+  it('does not count inherited property names as owner rows', async () => {
+    const bundle = validBundle();
+    const path = await write('proto-owner.json', { ...bundle, endpoints: bundle.endpoints.map((row, i) => (i === 0 ? { ...row, id: 'constructor' } : row)), endpointOwners: {} });
+    expect(await refusing(path)).toMatch(/endpoint constructor.*no owner-table row/);
+  });
+
   it.each([
     ['a missing required field', { endpoints: [{ id: 'synthetic.rows' }] }, /endpoints\.0.*requiresScope/],
     ['an unknown root key', { extra: 1 }, /Unrecognized key.*extra/],

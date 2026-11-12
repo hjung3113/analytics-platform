@@ -2,8 +2,8 @@
 // (real-server-checklist §3 «등록 검증»). A failing validation throws, which stops `buildServer`.
 // Checks the server can make without the app's menu Registry: duplicate ids, `invalidates` entries
 // are registered endpoints of the same menu, a `version` action has `currentVersion`, `limits`
-// rules, scope-free endpoints applying no site-bound Context (rule 6), and the Scope declarations that require
-// a server Scope resolver (#1087).
+// rules, scope-free endpoints applying no site-bound Context (rule 6), and the two refusals that wait
+// for a server Scope resolver (#1087).
 //
 // Action replay size bound: an `ok` answer is stored whole in `core.idempotency_keys` for replay, up to
 // 128 KiB of JSON (`MENU_ACTION_REPLAY_MAX_BYTES`). A handler whose `data` is larger gets its transaction
@@ -19,7 +19,6 @@ import type {
   MenuPermissionDeclaration,
 } from './types.js';
 import { PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
-import type { ScopeResolver } from './scope-resolver.js';
 import { CONTEXT_KEYS } from './types.js';
 
 export interface MenuDispatchRegistry {
@@ -50,11 +49,11 @@ export class MenuDispatchRegistrationError extends Error {
   }
 }
 
-function endpointProblems(spec: EndpointDeclarationSpec, hasScopeResolver: boolean): string[] {
+function endpointProblems(spec: EndpointDeclarationSpec): string[] {
   const at = `endpoint ${spec.id}`;
   const problems: string[] = [];
-  if (spec.requiresScope && !hasScopeResolver) problems.push(`${at}: requiresScope is refused — ${SCOPE_BLOCKER}`);
-  if (spec.mergeTimeDomain && !hasScopeResolver) {
+  if (spec.requiresScope) problems.push(`${at}: requiresScope is refused — ${SCOPE_BLOCKER}`);
+  if (spec.mergeTimeDomain) {
     problems.push(
       `${at}: mergeTimeDomain is refused — step 7 (§6.3) compares the time domains of the resolved equipment set, and ${SCOPE_BLOCKER}`,
     );
@@ -97,11 +96,10 @@ function actionProblems(
   spec: ActionDeclarationSpec,
   declaration: MenuActionDeclaration,
   endpointMenus: ReadonlyMap<string, string>,
-  hasScopeResolver: boolean,
 ): string[] {
   const at = `action ${spec.id}`;
   const problems: string[] = [];
-  if (spec.requiresScope && !hasScopeResolver) problems.push(`${at}: requiresScope is refused — ${SCOPE_BLOCKER}`);
+  if (spec.requiresScope) problems.push(`${at}: requiresScope is refused — ${SCOPE_BLOCKER}`);
   if (spec.concurrency === 'version' && typeof declaration.currentVersion !== 'function') {
     problems.push(`${at}: concurrency 'version' needs a currentVersion reader`);
   }
@@ -119,9 +117,7 @@ function actionProblems(
 /** Builds the registry from what modules contribute; throws `MenuDispatchRegistrationError` on any problem. */
 export function createMenuDispatchRegistry(
   contributions: readonly MenuDispatchContribution[],
-  options?: { scopeResolver?: ScopeResolver },
 ): MenuDispatchRegistry {
-  const hasScopeResolver = options?.scopeResolver !== undefined;
   const endpoints = new Map<string, MenuEndpointDeclaration>();
   const actions = new Map<string, MenuActionDeclaration>();
   const permissions = new Map<string, MenuPermissionDeclaration>();
@@ -147,9 +143,9 @@ export function createMenuDispatchRegistry(
     }
   }
   const endpointMenus = new Map([...endpoints].map(([id, d]) => [id, d.spec.menuId]));
-  for (const declaration of endpoints.values()) problems.push(...endpointProblems(declaration.spec, hasScopeResolver));
+  for (const declaration of endpoints.values()) problems.push(...endpointProblems(declaration.spec));
   for (const declaration of actions.values()) {
-    problems.push(...actionProblems(declaration.spec, declaration, endpointMenus, hasScopeResolver));
+    problems.push(...actionProblems(declaration.spec, declaration, endpointMenus));
   }
   if (problems.length > 0) throw new MenuDispatchRegistrationError(problems);
   return {
