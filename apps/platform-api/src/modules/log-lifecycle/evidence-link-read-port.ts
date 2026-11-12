@@ -5,8 +5,9 @@ import { attemptVisibleSql } from './repositories/access-visibility.js';
 // and its rule result / attempt / request / Round rows, all filtered by the caller's workspace and by object access for the
 // caller's `Viewer` (#1504; the same visibility as the lifecycle request reads, `platform:view` judged by the caller's endpoint). Locations and ids only: no excerpt, no log text.
 // ONE statement, and the visibility predicate in it ONCE (#1850). The predicate is ~13 nested `exists`; Postgres plans every copy
-// on every read (≈5–10 ms CPU warm vs ≈0.3 ms execution), and a read's time grew with the number of copies it planned: four, in
-// three statements, went from ≈30 ms to 0.6–1.3 s under a contended CPU while the request's other statements stayed fast. So the
+// on every read (measured warm: planning ≈15 ms vs execution ≈6 ms per read; planning share 73 % of the read's DB time), and the
+// planning share scales with the number of copies. Observed in CI: reads of 0.25–1.3 s while the request's other statements stayed
+// fast; the cause of that CI-only slowdown (a contended CPU is the hypothesis) is not proven. So the
 // visible citations are judged once in a materialized CTE, and both pages and both totals are read from it.
 // An unknown location, or one only another workspace cites, answers the same empty page.
 
@@ -71,8 +72,8 @@ interface RoundRow {
   last: string;
 }
 interface Answer {
-  results_total: number;
-  rounds_total: number;
+  results_total: number | string;
+  rounds_total: number | string;
   result_rows: LinkRow[] | null;
   round_rows: RoundRow[] | null;
 }
@@ -95,8 +96,8 @@ export const lifecycleEvidenceRead: LifecycleEvidenceRead = {
            and ${attemptVisibleSql(viewer, sql`rr.attempt_id`)}
       )
       select
-        (select count(*) from cited)::int as results_total,
-        (select count(distinct round_id) from cited)::int as rounds_total,
+        (select count(*) from cited) as results_total,
+        (select count(distinct round_id) from cited) as rounds_total,
         (select json_agg(p order by p.at desc, p.rule_result_id desc) from (
            select rule_result_id, rule_key, result, required, attempt_id, request_id, round_id, verdict, at
              from cited order by at desc, rule_result_id desc limit ${query.pageSize} offset ${offset}) p) as result_rows,
