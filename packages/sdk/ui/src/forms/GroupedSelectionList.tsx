@@ -30,7 +30,7 @@ export const GROUPED_SELECTION_MESSAGES: Readonly<Record<'ko' | 'en', GroupedSel
   en: { search: 'Search…', clearSearch: 'Clear search', clear: 'Clear all', all: 'Select all', none: 'No selection', empty: 'No results',
     selectedCount: count => `${count} selected`, selectedItem: label => `Selected: ${label}` },
 };
-type CommonProps = {
+type GroupedSelectionCommonProps = {
   groups: readonly GroupedSelectionGroup[];
   searchPlaceholder?: string;
   'aria-label': string;
@@ -38,7 +38,7 @@ type CommonProps = {
   messages?: Partial<GroupedSelectionMessages>;
 };
 /** Presets and bulk actions are multiple-only. The caller owns the single scroll layer. */
-export type GroupedSelectionListProps = CommonProps & (
+export type GroupedSelectionListProps = GroupedSelectionCommonProps & (
   | { mode: 'multiple'; value: readonly string[]; onChange: (ids: string[]) => void; presets?: readonly GroupedSelectionPreset[] }
   | { mode: 'single'; value: string | null; onChange: (id: string) => void; presets?: never }
 );

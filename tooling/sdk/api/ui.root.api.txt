@@ -92,6 +92,13 @@ FieldListProps | interface | interface FieldListProps { children: React.ReactNod
 FieldRow | function | function FieldRow({ label, children, inset, layout, mono, className, }: @ap/ui#FieldRowProps): React.JSX.Element
 FieldRowProps | interface | interface FieldRowProps { children: React.ReactNode; className?: string; inset?: 'default' | 'none'; label: React.ReactNode; layout?: 'default' | 'detail' | 'property'; mono?: boolean; }
 FilterCategory | interface | interface FilterCategory { key: string; label: string; options: { label: string; value: string; }[]; }
+GROUPED_SELECTION_MESSAGES | const | const GROUPED_SELECTION_MESSAGES: Readonly<Record<'en' | 'ko', @ap/ui#GroupedSelectionMessages>>
+GroupedSelectionGroup | type | type GroupedSelectionGroup = { id: string; items: readonly @ap/ui#GroupedSelectionItem[]; label: string; }
+GroupedSelectionItem | type | type GroupedSelectionItem = { badge?: { label: string; tone?: @ap/ui#Tone; }; description?: string; disabledReason?: string; id: string; label: string; }
+GroupedSelectionList | function | function GroupedSelectionList(props: @ap/ui#GroupedSelectionListProps): import("react").JSX.Element
+GroupedSelectionListProps | type | type GroupedSelectionListProps = GroupedSelectionCommonProps & ({ mode: 'multiple'; onChange: (ids: string[]) => void; presets?: readonly @ap/ui#GroupedSelectionPreset[]; value: readonly string[]; } | { mode: 'single'; onChange: (id: string) => void; presets?: never; value: null | string; })
+GroupedSelectionMessages | type | type GroupedSelectionMessages = { all: string; clear: string; clearSearch: string; empty: string; none: string; search: string; selectedCount: (count: number) => string; selectedItem: (label: string) => string; }
+GroupedSelectionPreset | type | type GroupedSelectionPreset = { description: string; id: string; itemIds: readonly string[]; label: string; }
 HoverCard | const | const HoverCard: React.FC<HoverCardPrimitive.HoverCardProps>
 HoverCardContent | const | const HoverCardContent: React.ForwardRefExoticComponent<Omit<HoverCardPrimitive.HoverCardContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
 HoverCardTrigger | const | const HoverCardTrigger: React.ForwardRefExoticComponent<HoverCardPrimitive.HoverCardTriggerProps & React.RefAttributes<HTMLAnchorElement>>
@@ -253,6 +260,7 @@ CardProps | interface | interface CardProps extends React.HTMLAttributes<HTMLDiv
 ClientSanitizeSurface | type | type ClientSanitizeSurface = UISurface
 DialogContentProps | interface | interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> { closeLabel?: string; scrim?: 'modal' | 'palette'; }
 DialogFooterProps | interface | interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> { spacing?: 'compact' | 'default'; }
+GroupedSelectionCommonProps | type | type GroupedSelectionCommonProps = { 'aria-label': string; groups: readonly @ap/ui#GroupedSelectionGroup[]; messages?: Partial<@ap/ui#GroupedSelectionMessages>; searchPlaceholder?: string; }
 LegacyVariant | type | type LegacyVariant = 'primary' | 'subtle'
 MultiComboboxBaseProps | interface | interface MultiComboboxBaseProps { 'aria-describedby'?: string; 'aria-invalid'?: React.AriaAttributes['aria-invalid']; className?: string; clearAllLabel: string; disabled?: boolean; emptyText: string; error?: string; getLabel?: (value: string) => string; hasMore?: boolean; id?: string; listboxLabel: string; loading?: boolean; loadingText: string; maxVisibleChips?: number; moreLabel: string; onLoadMore?: () => void; onRetry?: () => void; onSearchChange?: (search: string) => void; onValuesChange: (values: string[]) => void; options: readonly @ap/ui#MultiComboboxOption[]; placeholder?: string; removeLabel: (label: string) => string; retryLabel: string; search?: string; searchPlaceholder?: string; selectedSummaryLabel: (count: number) => string; values: readonly string[]; }
 PopoverContentPadding | type | type PopoverContentPadding = 'compact' | 'default' | 'none'
