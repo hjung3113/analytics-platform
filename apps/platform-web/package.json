@@ -17,6 +17,7 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "@ap/app-host": "workspace:*",
     "@ap/components": "workspace:*",
     "@ap/contracts": "workspace:*",
     "@ap/feature-bridge": "workspace:*",

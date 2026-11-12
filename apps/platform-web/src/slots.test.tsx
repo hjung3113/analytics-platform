@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { act, cleanup, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AnalysisActionsSlot } from '@ap/kernel';
-import { appSlots } from './slots';
+import { spaceSystems, type SpaceSystems } from './space-systems';
+import { appSlots, makeAppSlots } from './slots';
 
 describe('analysis action slot assembly (#1408)', () => {
   it('passes the app-supplied actions through without a menu exclusion', () => {
@@ -11,5 +13,35 @@ describe('analysis action slot assembly (#1408)', () => {
     expect(slots.analysisActions?.pageTypes).toEqual(['analysis', 'overview']);
     const narrowed = appSlots({ topBarTools: null }, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, { ...analysisActions, pageTypes: ['analysis'] });
     expect(narrowed.analysisActions?.pageTypes).toEqual(['analysis']);
+  });
+});
+
+describe('the slots hook the Host calls on every render (#1702b)', () => {
+  // A stand-in for the compose slot `main.tsx` builds once: identity, not contents, is the contract under test.
+  const vocCompose = { Compose: () => null } as never;
+  const useAppSlots = makeAppSlots({ notifications: undefined as never, vocCompose, homeTodo: undefined as never, scopeControl: undefined as never, navCounts: undefined as never, spaceNavSection: undefined as never });
+
+  beforeEach(() => { spaceSystems.reset(); });
+  afterEach(() => { cleanup(); spaceSystems.reset(); });
+
+  it('rebuilds the slots when the space-systems store answers and keeps the vocCompose identity, so a held draft does not remount', async () => {
+    const view = renderHook(() => useAppSlots({ topBarTools: null }));
+    const before = view.result.current;
+    expect(before.vocCompose).toBe(vocCompose);
+    let answer!: (data: SpaceSystems) => void;
+    act(() => { spaceSystems.start([], () => new Promise<SpaceSystems>((resolve) => { answer = resolve; })); });
+    const pending = view.result.current;
+    expect(pending).not.toBe(before);
+    expect(pending.vocCompose).toBe(vocCompose);
+    await act(async () => { answer({ links: [], platformManagedSystemId: 'platform-system' }); });
+    expect(view.result.current).not.toBe(pending);
+    expect(view.result.current.vocCompose).toBe(vocCompose);
+  });
+
+  it('carries the assembly through to the slots', () => {
+    const tools = <p>tools</p>;
+    const view = renderHook(() => useAppSlots({ topBarTools: tools }));
+    expect(view.result.current.topBarTools).toBe(tools);
+    expect(view.result.current.features).toBeDefined();
   });
 });

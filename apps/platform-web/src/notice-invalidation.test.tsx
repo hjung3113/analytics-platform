@@ -2,19 +2,20 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Suspense, useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { EndpointInvalidationBridge } from '@ap/app-host';
 import { defineEndpoint, type ActionOutcome, type ActionResponse, type MenuQuery, type Notice, type PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, useMenuQuery } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import { EndpointInvalidationBridge } from './endpoint-invalidation-bridge';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 import { registry } from './menus';
 import { createEndpointInvalidation, withNoticeInvalidation } from './real/endpoint-invalidation';
 import { createRealAssembly } from './real/http-assembly';
 
-// Mounted real-assembly evidence for #1106: the actual decorated adapter, the actual bridge, the actual Home page's
-// useMenuQuery and the Kernel's targeted invalidation, over a controlled transport. No module is replaced. The real
-// server and the browser are covered separately (apps/platform-e2e tests-real/notices.admin.real.spec.ts); there is no
-// notice CRUD screen in this release, so the write below is issued by the test through the adapter port.
+// Mounted real-assembly evidence for #1106: the actual decorated adapter, the actual bridge (the Host's since #1702),
+// the actual Home page's useMenuQuery and the Kernel's targeted invalidation, over a controlled transport. No module
+// is replaced. The real server and the browser are covered separately (apps/platform-e2e
+// tests-real/notices.admin.real.spec.ts); there is no notice CRUD screen in this release, so the write below is issued
+// by the test through the adapter port.
 
 const session = testSession(['platform:view', 'notice:view']);
 const other = defineEndpoint<Record<string, never>, string>({ id: 'home.unrelated', menuId: 'home', paramKeys: {}, permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false });
