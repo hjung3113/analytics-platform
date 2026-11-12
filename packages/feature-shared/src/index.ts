@@ -7,6 +7,7 @@ export * from './enums/audit-events.js';
 export * from './errors/codes.js';
 export * from './entity-links.js';
 export * from './permissions/index.js';
+export { VALIDATION_ISSUE_STATES } from './audit/log-lifecycle.js';
 export * from './audit/voc.js';
 export * from './audit/attachments.js';
 export * from './audit/survey.js';

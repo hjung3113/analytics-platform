@@ -183,8 +183,9 @@ const issueCreatedDetail = z.object({ projectId: z.string().uuid(), firstRoundId
 const issueOccurrenceDetail = z.object({ occurrenceId: z.string().uuid(), roundId: z.string().uuid() }).strict();
 const issueEvidenceDetail = z.object({ occurrenceId: z.string().uuid(), count: z.number().int().min(1).max(20) }).strict();
 const discussionCommentDetail = z.object({ commentId: z.string().uuid(), correctsCommentId: z.string().uuid().nullable() }).strict();
-// #1808 H3: same list as ISSUE_STATES of platform-api `domain/validation-issue-states.ts`. No reason or comment text.
-const ISSUE_STATE = z.enum(['reported', 'investigating', 'fix_requested', 'vendor_inquiry', 'on_hold', 'fix_verified', 'by_design', 'waived', 'dismissed']);
+// #1808 H3: the one list of validation issue states; platform-api `domain/validation-issue-states.ts` re-exports it as ISSUE_STATES. No reason or comment text.
+export const VALIDATION_ISSUE_STATES = ['reported', 'investigating', 'fix_requested', 'vendor_inquiry', 'on_hold', 'fix_verified', 'by_design', 'waived', 'dismissed'] as const;
+const ISSUE_STATE = z.enum(VALIDATION_ISSUE_STATES);
 const issueStateChangedDetail = z.object({ transitionId: z.string().uuid(), seq: z.number().int().min(1), fromState: ISSUE_STATE, toState: ISSUE_STATE }).strict();
 const issueCorrectionDetail = z.object({ eventId: z.string().uuid(), field: z.enum(['title', 'body', 'expected', 'actual', 'repro']), correctsEventId: z.string().uuid().nullable() }).strict();
 

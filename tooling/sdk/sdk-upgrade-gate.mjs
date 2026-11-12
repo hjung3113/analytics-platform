@@ -14,7 +14,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { releasePackages } from './sdk-exports.mjs';
 import { releaseTarball, writeKitProject } from './sdk-consumer-check.mjs';
-import { readTarEntry } from './sdk-bundle-check.mjs';
+import { parseSums, readTarEntry } from './sdk-bundle-check.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const names = releasePackages().map(({ name }) => name);
@@ -25,12 +25,8 @@ export const FINAL_REPORT = 'rc-based replacement passed; first real N-1 to N is
 export function verifyBundle(directory, { version, sha256 } = {}) {
   const sums = readFileSync(join(directory, 'SHA256SUMS'));
   if (sha256 && digest(sums) !== sha256) throw new Error('SHA256SUMS checksum does not match the previous-bundle pin');
-  const entries = new Map();
-  for (const line of sums.toString('utf8').trim().split(/\r?\n/)) {
-    const match = /^([a-f0-9]{64})  ([^/\\]+)$/.exec(line);
-    if (!match || entries.has(match[2])) throw new Error(`Invalid or duplicate SHA256SUMS entry: ${line}`);
-    entries.set(match[2], match[1]);
-  }
+  const entries = parseSums(sums.toString('utf8'));
+  for (const path of entries.keys()) if (path.includes('/') || path.includes('\\')) throw new Error(`Invalid or duplicate SHA256SUMS entry: ${path}`);
   const files = names.map(name => {
     const file = version ? `ap-${name}-${version}.tgz` : basename(releaseTarball(directory, name));
     if (!existsSync(join(directory, file))) throw new Error(`Missing previous bundle file: ${file}`);
@@ -44,11 +40,11 @@ export function verifyBundle(directory, { version, sha256 } = {}) {
 export function verifyStartKit(directory, version) {
   const file = `ap-start-kit-${version}.tgz`;
   const present = existsSync(join(directory, file));
-  const line = readFileSync(join(directory, 'SHA256SUMS'), 'utf8').split(/\r?\n/).find(entry => entry.endsWith(`  ${file}`));
-  if (!present && !line) return null;
-  if (!line) throw new Error(`Start kit missing from SHA256SUMS: ${file}`);
+  const expected = parseSums(readFileSync(join(directory, 'SHA256SUMS'), 'utf8')).get(file);
+  if (!present && !expected) return null;
+  if (!expected) throw new Error(`Start kit missing from SHA256SUMS: ${file}`);
   if (!present) throw new Error(`Missing previous start kit file: ${file}`);
-  if (line.slice(0, 64) !== digest(readFileSync(join(directory, file)))) throw new Error(`Start kit checksum mismatch: ${file}`);
+  if (expected !== digest(readFileSync(join(directory, file)))) throw new Error(`Start kit checksum mismatch: ${file}`);
   return file;
 }
 
