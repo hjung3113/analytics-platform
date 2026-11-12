@@ -1256,11 +1256,11 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
       }
     });
 
-    it('answers one evidenceLinks read with three statements: both totals from one (#1850)', async () => {
-      // Every evidence statement embeds the multi-KB nested-`exists` visibility predicate, and Postgres re-parses and re-plans
-      // each one per read: measured #1850 ≈30 ms parse/plan vs ≈2 ms execution on near-empty tables, so the four statements the
-      // read used to send (page × 2 + count × 2) were mostly planner CPU, and that is what stalled the reads under CI load.
-      // The two totals must come from ONE statement, not one each.
+    it('answers one evidenceLinks read with one statement that carries the visibility predicate once (#1850)', async () => {
+      // The visibility predicate is ~13 nested `exists`; Postgres plans every copy on every read (≈5–10 ms CPU warm, ≈0.3 ms
+      // execution). The time of a read grew with the number of copies it planned (four, in three statements), and under a
+      // contended CPU it went from ≈30 ms to 0.6–1.3 s while the other statements of the request stayed fast (#1850).
+      // The read must plan the predicate ONCE: one statement, one copy.
       const LOC = { fileRef: `s3://${TAG}/structure.log`, line: 40, fileSha256: H('9') };
       const seeded = await answered([rule('RS', 'FAIL', true, { evidence: [LOC] })], sampleWith(LOC.fileRef));
       expect(seeded.res.statusCode).toBe(200);
@@ -1282,8 +1282,9 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
         pg.Client.prototype.query = clientQuery;
       }
       const evidence = statements.filter((s) => s.includes('rule_result_evidence') && s.includes('exists'));
-      expect(evidence).toHaveLength(3); // two page queries + one combined totals statement
-      expect(evidence.filter((s) => s.includes('count(distinct'))).toHaveLength(1); // both totals ride in one statement
+      expect(evidence).toHaveLength(1); // both pages and both totals ride in one statement
+      // One copy of the predicate: its attempt level (`execution_attempt acl_a`) appears once in the whole read.
+      expect(evidence.join('\n').split('log_lifecycle.execution_attempt acl_a').length - 1).toBe(1);
     });
 
     it('evidenceStates hides a result from another workspace', async () => {
