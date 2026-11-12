@@ -170,16 +170,7 @@ export async function loadDeclarationBundle(path: string): Promise<DeclarationBu
   } catch {
     throw new DeclarationBundleError([`declaration bundle at ${path} is not valid JSON`]);
   }
-  const parsed = bundleSchema.safeParse(json);
-  if (!parsed.success) {
-    throw new DeclarationBundleError([
-      `declaration bundle at ${path} failed its schema`,
-      ...schemaProblems(parsed.error),
-    ]);
-  }
-  const problems = crossProblems(parsed.data);
-  if (problems.length > 0) throw new DeclarationBundleError(problems);
-  const { endpoints, actions, permissions, endpointOwners, targets } = parsed.data;
+  const { endpoints, actions, permissions, endpointOwners, targets } = validateDeclarationBundle(json, `declaration bundle at ${path} failed its schema`);
   return {
     endpoints: endpoints.map(({ limits, ...row }) => {
       const owner = endpointOwners[row.id];
@@ -195,4 +186,18 @@ export async function loadDeclarationBundle(path: string): Promise<DeclarationBu
     endpointOwners,
     ...(targets === undefined ? {} : { targets }),
   };
+}
+
+/** Shared file/programmatic boundary: schema first, then all semantic cross-checks. */
+export function validateDeclarationBundle(input: unknown, schemaMessage = 'declaration bundle failed its schema'): z.infer<typeof bundleSchema> {
+  const parsed = bundleSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new DeclarationBundleError([
+      schemaMessage,
+      ...schemaProblems(parsed.error),
+    ]);
+  }
+  const problems = crossProblems(parsed.data);
+  if (problems.length > 0) throw new DeclarationBundleError(problems);
+  return parsed.data;
 }

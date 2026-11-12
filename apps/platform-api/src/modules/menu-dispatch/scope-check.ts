@@ -21,7 +21,8 @@ export function rowInScope(row: unknown, check: ScopeCheck, site: string | null,
   return actualSite === site && room !== undefined && rooms.includes(room);
 }
 export function enforceRowScope(row: unknown, check: ScopeCheck | undefined, site: string | null, rooms: readonly string[], map: ValueMap): boolean {
-  if (!check || check.mode === 'resolve-keys') return true;
+  if (!check) throw new MenuUpstreamError('unavailable');
+  if (check.mode === 'resolve-keys') return true;
   if (rowInScope(row, check, site, rooms, map)) return true;
   if (check.mode === 'verify-rows') throw new MenuUpstreamError('unavailable');
   return false;

@@ -112,6 +112,38 @@ describe.skipIf(!runIntegration)('single-target routing through production setup
   it.each([['judgment', 200, { outcome: 'timeout', data: null }], ['transport', 502, { code: 'upstream.unavailable' }], ['core', 504, { code: 'upstream.timeout' }]] as const)('%s keeps its HTTP/error category', async (kind, status, body) => {
     behavior = kind; const hit = await query('syn.shared', 'SITE-A', ['RA1']); expect(hit.statusCode).toBe(status); expect(hit.json()).toMatchObject(body);
   });
+  it('returns timely 504 while the HTTP Scope resolver is still pending and aborts it', async () => {
+    const factoryCalls: unknown[] = [];
+    let resolverSignal: AbortSignal | null | undefined;
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: join(dir, 'bundle.json'), MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test', MENU_UPSTREAM_TIMEOUT_MS: 100 };
+    const setup = await loadMenuDeclarationSetup(config, {
+      checkService: createCheckService({ db: db.db }),
+      fetch: (async (_url: unknown, init?: RequestInit) => {
+        resolverSignal = init?.signal;
+        await held;
+        return new Response('[]', { status: 200 });
+      }) as typeof fetch,
+      connectorFactories: { sql: () => { factoryCalls.push('constructed'); return { async *query() { yield { site: 'SITE-A', room: 'RA1' }; } }; } },
+    });
+    if (!setup) throw new Error('setup missing');
+    const deadlineApp = await buildServer({ config, dbHandle: db, menuDispatch: setup.menuDispatch, ...(setup.scopeResolver ? { scopeResolver: setup.scopeResolver } : {}) });
+    await deadlineApp.ready();
+    // A finite release makes a missing race fail with forbidden rather than hanging the suite.
+    const watchdog = setTimeout(release, 1000);
+    const started = performance.now();
+    try {
+      const hit = await deadlineApp.inject({ method: 'POST', url: '/api/v1/menu-query', headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` }, payload: { endpoint: 'syn.shared', context: { scopeId: 'SITE-A', roomNames: ['RA1'] }, params: {} } });
+      expect(hit.statusCode).toBe(504);
+      expect(hit.json()).toMatchObject({ code: 'upstream.timeout', correlationId: expect.any(String) });
+      expect(performance.now() - started).toBeLessThan(800);
+      expect(resolverSignal?.aborted).toBe(true);
+      expect(factoryCalls).toEqual([]);
+    } finally {
+      clearTimeout(watchdog); release(); await deadlineApp.close();
+    }
+  });
   it('keeps a string-only bundle wire-identical', async () => {
     const file = join(dir, 'legacy.json'); const keyFile = join(dir, 'key');
     await writeFile(keyFile, generateKeyPairSync('ed25519').privateKey.export({ type: 'pkcs8', format: 'pem' }));

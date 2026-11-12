@@ -97,11 +97,11 @@ export async function handleRouted(endpoint: DeclaredEndpoint, owner: Routing, b
   if (mappedSite === undefined || mappedRooms.some((room) => room === undefined)) return noData('error');
   const outgoingRooms = mappedRooms as string[];
   const call = routeCall(owner, chosen.route);
-  const deadlineAt = (args.arrivedAtMs ?? Date.now()) + deps.timeoutMs;
+  const deadlineAt = args.deadlineAtMs ?? (args.arrivedAtMs ?? Date.now()) + deps.timeoutMs;
   const controller = new AbortController();
   const remaining = deadlineAt - Date.now();
   if (remaining <= 0) throw new MenuUpstreamError('timeout');
-  const timer = setTimeout(() => controller.abort(), remaining);
+  const timer = args.deadlineAtMs === undefined ? setTimeout(() => controller.abort(), remaining) : undefined;
   const signal = AbortSignal.any([controller.signal, ...(args.signal ? [args.signal] : [])]);
   const rowCap = (endpoint.limits?.maxRows ?? 0) + 1;
   try {
@@ -132,7 +132,7 @@ export async function handleRouted(endpoint: DeclaredEndpoint, owner: Routing, b
     return { outcome: rows.length ? 'ok' : 'empty', data: rows, rowsRead, assessments: (endpoint.kinds ?? []).filter((kind) => kind !== 'coverage').map((kind) => ({ kind, state: 'unknown', reason: 'source_unavailable' })), trust: null };
   } catch (error) {
     if (controller.signal.aborted) throw new MenuUpstreamError('timeout');
-    if (signal.aborted) throw new MenuUpstreamError('unavailable');
+    if (signal.aborted) throw new MenuUpstreamError(signal.reason instanceof MenuUpstreamError ? signal.reason.kind : 'unavailable');
     if (error instanceof TargetJudgmentTimeout) return noData('timeout');
     if (error instanceof MenuUpstreamError) throw new MenuUpstreamError(error.kind);
     throw new MenuUpstreamError('unavailable');

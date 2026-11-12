@@ -172,8 +172,12 @@ it('rejects a source value absent from the inverse map', async () => {
 });
 it('does not partially answer a request spanning room shards', async () => {
   const routing = owner(); routing.routes = [{ sites: ['SITE-A'], rooms: ['RA1'], targets: ['tgt-1'] }, { sites: ['SITE-A'], rooms: ['RA2'], targets: ['tgt-2'] }];
-  const { endpoint, calls } = runtime(routing);
-  expect(await endpoint.handle(args())).toMatchObject({ outcome: 'error', data: null }); expect(calls).toEqual([]);
+  const { bundle } = runtime();
+  const factory = vi.fn();
+  const contribution = declaredContribution({ bundle: { ...bundle, endpointOwners: { 'syn.rows': routing }, targets: { ...bundle.targets, 'tgt-2': { kind: 'sql', dialect: 'postgres', connectionFile: '/syn/second-secret' } } }, checkService: {} as CheckService, connectorFactories: { sql: factory } });
+  const endpoint = contribution.endpoints?.[0];
+  if (!endpoint) throw new Error('endpoint missing');
+  expect(await endpoint.handle(args())).toMatchObject({ outcome: 'error', data: null }); expect(factory).not.toHaveBeenCalled();
 });
 it('counts authorized overflow at the core row judgment too', async () => {
   let pulled = 0;

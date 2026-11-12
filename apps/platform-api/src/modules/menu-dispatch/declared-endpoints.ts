@@ -4,7 +4,7 @@ import { isCapability } from '@ap/feature-shared';
 
 import type { CheckService } from '../permissions/check-service.js';
 import { holdsPlatformPermission, PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
-import { DeclarationBundleError, type DeclarationBundle } from './declarations-file.js';
+import { DeclarationBundleError, validateDeclarationBundle, type DeclarationBundle } from './declarations-file.js';
 import type { MenuForwarder } from './forwarder.js';
 import { connectorFactories as defaultFactories } from './connectors/index.js';
 import type { ConnectorFactories, RoutingLog } from './connectors/types.js';
@@ -25,6 +25,7 @@ export function declaredContribution({ bundle, forwarder, checkService, connecto
   timeoutMs?: number;
   log?: (entry: RoutingLog) => void;
 }): MenuDispatchContribution {
+  if (Object.values(bundle.endpointOwners).some((owner) => typeof owner !== 'string')) validateDeclarationBundle(bundle);
   const problems: string[] = [];
   if (!forwarder && Object.values(bundle.endpointOwners).some((owner) => typeof owner === 'string')) problems.push('declared endpoints require a forwarder');
   problems.push(...routedBootProblems(bundle, connectorFactories));
@@ -68,6 +69,7 @@ export function declaredContribution({ bundle, forwarder, checkService, connecto
           ...(requiredContext === undefined ? {} : { requiredContext }),
           ...(routed ? (limits === undefined ? {} : { limits: { ...(limits.maxHours === undefined ? {} : { maxHours: limits.maxHours }), ...(limits.maxRows === undefined ? {} : { maxRows: limits.maxRows }) } }) : (limits?.maxHours === undefined ? {} : { limits: { maxHours: limits.maxHours } })),
         },
+        ...(routed ? { upstreamTimeoutMs: timeoutMs } : {}),
         authorize: (actor, tx) => holdsPlatformPermission(checkService, actor, spec.permission, { ...(tx ? { tx } : {}), menuPermissions: permissions }),
         // Step 2: routed calls judge typed values here; legacy envelope values stay upstream-owned.
         validate: (params) => routed ? validateParamValues(spec.paramTypes ?? {}, params) : { ok: true },

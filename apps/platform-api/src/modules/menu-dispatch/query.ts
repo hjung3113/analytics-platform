@@ -6,6 +6,8 @@
 
 import { menuQueryContextSchema } from '@ap/contract-schemas';
 
+import { MenuUpstreamError } from './forwarder.js';
+
 import type { PlatformActor } from '../platform-port/permissions.js';
 import type { ScopeGrant, ScopeResolver } from './scope-resolver.js';
 import type { MenuDispatchRegistry } from './registry.js';
@@ -180,6 +182,7 @@ export async function resolveRequestScopes(
     if (Array.isArray(rooms) && !rooms.every((room) => site.some((grant) => grant.rooms.includes(room)))) return null;
     return scopes;
   } catch {
+    if (signal?.aborted && signal.reason instanceof MenuUpstreamError) throw signal.reason;
     return null;
   }
 }
@@ -197,19 +200,61 @@ export async function runQuery(
   sessionVersion: () => Promise<string> = unavailableSessionVersion,
   arrivedAtMs?: number,
 ): Promise<QueryAnswer> {
+  const timeoutMs = shape.declaration.upstreamTimeoutMs;
+  if (timeoutMs === undefined) return runQuerySteps(shape, actor, correlationId, signal, sessionVersion, arrivedAtMs);
+  const deadlineAtMs = (arrivedAtMs ?? Date.now()) + timeoutMs;
+  const core = new AbortController();
+  const combined = AbortSignal.any([core.signal, ...(signal ? [signal] : [])]);
+  const remaining = deadlineAtMs - Date.now();
+  if (remaining <= 0) throw new MenuUpstreamError('timeout');
+  const timer = setTimeout(() => core.abort(new MenuUpstreamError('timeout')), remaining);
+  const checkActive = () => {
+    if (core.signal.aborted || Date.now() >= deadlineAtMs) throw new MenuUpstreamError('timeout');
+    if (combined.aborted) throw new MenuUpstreamError('unavailable');
+  };
+  let onAbort: () => void = () => {};
+  try {
+    checkActive();
+    const aborted = new Promise<never>((_resolve, reject) => {
+      onAbort = () => reject(new MenuUpstreamError(core.signal.aborted ? 'timeout' : 'unavailable'));
+      combined.addEventListener('abort', onAbort, { once: true });
+      if (combined.aborted) onAbort();
+    });
+    const result = await Promise.race([runQuerySteps(shape, actor, correlationId, combined, sessionVersion, arrivedAtMs, deadlineAtMs, checkActive), aborted]);
+    checkActive();
+    return result;
+  } finally {
+    clearTimeout(timer);
+    combined.removeEventListener('abort', onAbort);
+  }
+}
+
+async function runQuerySteps(
+  shape: Extract<QueryShape, { ok: true }>,
+  actor: PlatformActor,
+  correlationId: string,
+  signal: AbortSignal | undefined,
+  sessionVersion: () => Promise<string>,
+  arrivedAtMs?: number,
+  deadlineAtMs?: number,
+  checkActive: () => void = () => {},
+): Promise<QueryAnswer> {
   const { declaration, context, params } = shape;
-  if (!(await declaration.authorize(actor))) {
+  const authorized = await declaration.authorize(actor);
+  checkActive();
+  if (!authorized) {
     return answer('forbidden', { message: `No permission ${declaration.spec.permission}` });
   }
   const scopes = declaration.spec.requiresScope
     ? await resolveRequestScopes(shape.scopeResolver, actor, context, signal)
     : [];
+  checkActive();
   if (scopes === null) return answer('forbidden');
   if (overHourLimit(declaration, context)) return answer('too_large');
   if (SET_FIELDS.some((field) => Array.isArray(context[field]) && context[field].length === 0)) {
     return answer('empty');
   }
-  const result = await declaration.handle({ actor, context, params, correlationId, scopes, sessionVersion, ...(arrivedAtMs === undefined ? {} : { arrivedAtMs }), ...(signal ? { signal } : {}) });
+  const result = await declaration.handle({ actor, context, params, correlationId, scopes, sessionVersion, ...(arrivedAtMs === undefined ? {} : { arrivedAtMs }), ...(deadlineAtMs === undefined ? {} : { deadlineAtMs }), ...(signal ? { signal } : {}) });
   const { maxRows } = declaration.spec.limits ?? {};
   if (maxRows !== undefined && (result.outcome === 'ok' || (result.outcome === 'empty' && result.rowsRead !== undefined))) {
     if (!Array.isArray(result.data)) {
