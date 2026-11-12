@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SQL_DIALECTS } from './sql-placeholders.js';
+
 export const valueMapSchema = z.strictObject({
   site: z.record(z.string().min(1), z.string().min(1)).optional(),
   room: z.record(z.string().min(1), z.string().min(1)).optional(),
@@ -25,7 +27,7 @@ export const targetSchema = z.discriminatedUnion('kind', [
     aud: z.string().min(1).optional(), valueMap: valueMapSchema.optional(),
   }),
   z.strictObject({
-    kind: z.literal('sql'), dialect: z.enum(['postgres', 'mssql']), connectionFile: z.string().min(1),
+    kind: z.literal('sql'), dialect: z.enum(SQL_DIALECTS), connectionFile: z.string().min(1),
     pool: z.strictObject({ max: z.number().int().positive(), concurrency: z.number().int().positive() }).optional(),
     applicationName: z.string().min(1).optional(), valueMap: valueMapSchema.optional(),
   }),

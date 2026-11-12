@@ -1,6 +1,7 @@
 /** The SQL dialects whose lexical rules differ here: `[ ]` quotes an identifier only in mssql (in postgres it is an array
  * constructor or subscript, which may hold a live placeholder), and `$tag$` dollar quoting exists only in postgres. */
-export type SqlDialect = 'postgres' | 'mssql';
+export const SQL_DIALECTS = ['postgres', 'mssql'] as const;
+export type SqlDialect = (typeof SQL_DIALECTS)[number];
 
 /** Lexical skipping only; this is not a SQL parser or a read-only security boundary. */
 function skippedEnd(sql: string, at: number, dialect: SqlDialect): number | undefined {

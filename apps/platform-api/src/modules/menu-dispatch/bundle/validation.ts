@@ -1,5 +1,6 @@
 import { bindingProblems, type ParamType } from './bindings.js';
 import { callBindings, callKind, isEnvelope, statementProblems } from './calls.js';
+import { SQL_DIALECTS } from './sql-placeholders.js';
 import type { Routing } from './routing.js';
 import type { Target } from './targets.js';
 import type { ContextKey } from '../types.js';
@@ -69,6 +70,18 @@ export function routingProblems(bundle: {
     if (owner.scopeCheck?.mode === 'resolve-keys') {
       for (const problem of bindingProblems([...callBindings(owner.scopeCheck.lookup), owner.scopeCheck.keys], endpoint)) add(problem);
       if (isEnvelope(owner.scopeCheck.lookup)) add('scopeCheck.lookup must be a non-envelope call');
+    }
+    // An unused default statement call (every route overrides it) is still judged, under the dialect of every SQL target the
+    // endpoint's routes name: unused declarations must not hide defects, and the dialect decides the lexis (ADR-0153 decision 8).
+    if ('statement' in owner.call && owner.routes.every((route) => route.call !== undefined)) {
+      const dialects = new Set(owner.routes.flatMap((route) => route.targets.flatMap((id) => {
+        const target = Object.hasOwn(bundle.targets ?? {}, id) ? bundle.targets?.[id] : undefined;
+        return target?.kind === 'sql' ? [target.dialect] : [];
+      })));
+      // No SQL target names a dialect: the statement must then hold under every supported dialect.
+      for (const dialect of dialects.size > 0 ? dialects : SQL_DIALECTS) {
+        for (const problem of statementProblems(owner.call, dialect)) add(`call (unused default, ${dialect}): ${problem}`);
+      }
     }
     for (const [index, route] of owner.routes.entries()) {
       const prefix = `route ${index}`;

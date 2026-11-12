@@ -109,6 +109,11 @@ it.each([
   ['SQL extra binding', ownerBundle({ call: { statement: 'SELECT :q', params: { q: 'params.q', rooms: 'scope.rooms' } } }), 'endpoint syn.rows: route 0: target tgt-1: call SQL placeholders must match params exactly'],
   ['SQL keyword', ownerBundle({ call: { statement: 'DELETE FROM syn.rows', params: {} } }), 'endpoint syn.rows: route 0: target tgt-1: call statement must start with SELECT or WITH after whitespace/comments'],
   ['postgres array placeholder needs its binding', ownerBundle({ call: { statement: 'SELECT ARRAY[:n], :q', params: { q: 'params.q' } } }), 'endpoint syn.rows: route 0: target tgt-1: call SQL placeholders must match params exactly'],
+  ['resolve-keys lookup placeholder', ownerBundle({ scopeCheck: { ...resolveKeys, lookup: { statement: 'SELECT :keys, :missing', params: { keys: 'params.q' } } } }), 'endpoint syn.rows: route 0: target tgt-1: scopeCheck.lookup SQL placeholders must match params exactly'],
+  ['mssql brackets are not postgres identifiers', ownerBundle({ call: { statement: 'SELECT [a:b] FROM t WHERE r = :rooms AND q = :q', params: { rooms: 'scope.rooms', q: 'params.q' } } }), 'endpoint syn.rows: route 0: target tgt-1: call SQL placeholders must match params exactly'],
+  ['mssql target sees no dollar quoting', ownerBundle({ call: { statement: 'SELECT $x$ :hidden $x$ FROM t WHERE r = :rooms AND q = :q', params: { rooms: 'scope.rooms', q: 'params.q' } } }, {}, { targets: { 'tgt-1': { kind: 'sql', dialect: 'mssql', connectionFile: '/secrets/syn-db' } } }), 'endpoint syn.rows: route 0: target tgt-1: call SQL placeholders must match params exactly'],
+  ['unused default statement on HTTP-only routes', ownerBundle({ call: { statement: 'SELECT [a:b], :q', params: { q: 'params.q' } }, routes: [{ ...route(), call: httpCall }] }, {}, { targets: { 'tgt-1': httpTarget } }), 'endpoint syn.rows: call (unused default, postgres): SQL placeholders must match params exactly'],
+  ['unused default statement', ownerBundle({ call: { statement: 'SELECT :q, :missing', params: { q: 'params.q' } }, routes: [{ ...route(['RA1']), call: baseOwner().call }] }), 'endpoint syn.rows: call (unused default, postgres): SQL placeholders must match params exactly'],
   ['procedure identifier', ownerBundle({ call: { procedure: 'syn.proc_rows; SELECT 1', args: {} } }), 'endpointOwners.syn.rows.call.procedure: procedure must have 1 to 3 identifier parts'],
   ['actor binding', ownerBundle({ call: statement({ rooms: 'actor.email' }) }), 'endpointOwners.syn.rows.call.params.rooms: binding must use the closed vocabulary'],
   ['binding expression', ownerBundle({ call: statement({ rooms: 'scope.rooms.map(x => x)' }) }), 'endpointOwners.syn.rows.call.params.rooms: binding must use the closed vocabulary'],
@@ -132,6 +137,8 @@ it.each([
   ['all param types', ownerBundle({}, { paramTypes: { q: { type: 'string', maxLength: 20, enum: ['x'] }, n: { type: 'number', enum: [1] }, yes: { type: 'boolean', enum: [true] }, ids: { type: 'string[]', maxLength: 30, maxItems: 10 } }, paramKeys: ['q', 'n', 'yes', 'ids'] })],
   ['mapped path binding', ownerBundle({ call: { ...httpCall, path: '/rows/{key}', pathParams: { key: 'params.q' }, query: { from: 'context.from' }, arrayStyle: { mode: 'repeat' }, response: { fields: { value: { from: '/v', type: 'string' } } } } }, {}, { targets: { 'tgt-1': httpTarget } })],
   ['SQL response fields', ownerBundle({ call: { ...baseOwner().call, response: { fields: { stamp: { from: '/stamp', type: 'wallclock' } } } } })],
+  ['mssql bracketed identifier', ownerBundle({ call: { statement: 'SELECT [a:b] FROM t WHERE r = :rooms AND q = :q', params: { rooms: 'scope.rooms', q: 'params.q' } } }, {}, { targets: { 'tgt-1': { kind: 'sql', dialect: 'mssql', connectionFile: '/secrets/syn-db' } } })],
+  ['resolve-keys lookup on mssql', ownerBundle({ scopeCheck: { ...resolveKeys, lookup: { statement: 'SELECT [k:v], :keys', params: { keys: 'params.q' } } } }, {}, { targets: { 'tgt-1': { kind: 'sql', dialect: 'mssql', connectionFile: '/secrets/syn-db' } } })],
 ])('accepts %s schema', async (_name, value) => {
   await expect(load(value)).resolves.toBeDefined();
 });
