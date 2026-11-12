@@ -1,4 +1,8 @@
-import type { PermissionGrantAdminItem, PermissionGrantOptions } from '@ap/feature-shared';
+import {
+  isTokenOnlyCapability,
+  type PermissionGrantAdminItem,
+  type PermissionGrantOptions,
+} from '@ap/feature-shared';
 import {
   Button,
   Checkbox,
@@ -58,6 +62,15 @@ function candidateKey(candidate: DirectGrantCandidate): string {
   return `${candidate.capability}|${candidate.managed_system_id ?? 'workspace'}`;
 }
 
+function actorOptionLabel(actor: {
+  display_name: string;
+  email: string;
+  actor_type: string;
+}): string {
+  return actor.actor_type === 'system'
+    ? `${actor.display_name} · ${DIRECT_GRANT_COPY.systemActorTag}`
+    : `${actor.display_name} · ${actor.email}`;
+}
 function candidateLabel(
   candidate: DirectGrantCandidate,
   managedSystemNames: Record<string, string>,
@@ -143,16 +156,29 @@ export function PermissionDirectGrantForm({
 }) {
   const actors = useWorkspaceActors({ retry: false });
   const [actorId, setActorId] = React.useState('');
+  const [recipientKind, setRecipientKind] = React.useState<'person' | 'system'>('person');
   const [busy, setBusy] = React.useState(false);
   const [seenOpen, setSeenOpen] = React.useState(open);
   const [seenDraft, setSeenDraft] = React.useState(draft);
   if (open !== seenOpen || draft !== seenDraft) {
     setSeenOpen(open);
     setSeenDraft(draft);
-    if (!open) setActorId('');
-    else if (draft) setActorId(draft.actorId);
+    if (!open) {
+      setActorId('');
+      setRecipientKind('person');
+    } else if (draft) setActorId(draft.actorId);
   }
+  // #1806: restore a draft recipient's kind from the workspace actor list
+  // once the list names its type; a system Actor draft must not reopen as a
+  // person. Until then the form claims neither person nor system.
+  React.useEffect(() => {
+    if (!open || !draft || actorId !== draft.actorId) return;
+    const actor = (actors.actors ?? []).find((item) => item.id === draft.actorId);
+    if (!actor) return;
+    setRecipientKind(actor.actor_type === 'system' ? 'system' : 'person');
+  }, [open, draft, actorId, actors.actors]);
   const actorSelectId = React.useId();
+  const recipientKindSelectId = React.useId();
   const grantOptionsQuery = useQuery({
     queryKey: permissionGrantOptionsKey(actorId),
     queryFn: ({ signal }) => fetchPermissionGrantOptions(actorId, signal),
@@ -168,8 +194,16 @@ export function PermissionDirectGrantForm({
       ? grantOptionsQuery.data
       : undefined;
   const optionsUnconfirmed = grantOptionsQuery.isFetching || grantOptionsQuery.isError;
-  const recipientActors = (actors.actors ?? []).filter((actor) => actor.actor_type !== 'system');
-  const selectedActor = recipientActors.find((actor) => actor.id === actorId);
+  const recipientActors = (actors.actors ?? []).filter((actor) =>
+    recipientKind === 'system'
+      ? actor.actor_type === 'system'
+      : actor.actor_type !== 'system',
+  );
+  // Look the recipient up across the whole workspace actor list: a restored
+  // draft recipient stays typed and labeled even while its kind filter has
+  // not caught up yet.
+  const selectedActor = (actors.actors ?? []).find((actor) => actor.id === actorId);
+
   const prefilledDraft = draft?.actorId === actorId ? draft : undefined;
 
   React.useEffect(() => {
@@ -180,6 +214,20 @@ export function PermissionDirectGrantForm({
   function handleActorChange(nextActorId: string) {
     if (busy || nextActorId === actorId) return;
     setActorId(nextActorId);
+  }
+  function handleRecipientKindChange(kind: string) {
+    if (busy) return;
+    const nextKind = kind === 'system' ? 'system' : 'person';
+    if (nextKind === recipientKind) return;
+    setRecipientKind(nextKind);
+    const stillSelectable = (actors.actors ?? []).some(
+      (actor) =>
+        actor.id === actorId &&
+        (nextKind === 'system'
+          ? actor.actor_type === 'system'
+          : actor.actor_type !== 'system'),
+    );
+    if (!stillSelectable) setActorId('');
   }
 
   function retryActors() {
@@ -205,28 +253,65 @@ export function PermissionDirectGrantForm({
           <div className="flex flex-col gap-4">
             <label
               className="flex flex-col gap-2 text-sm text-text-secondary"
+              htmlFor={recipientKindSelectId}
+            >
+              {DIRECT_GRANT_COPY.recipientKindLabel}
+              <Select
+                value={recipientKind}
+                onValueChange={handleRecipientKindChange}
+                disabled={busy}
+              >
+                <SelectTrigger
+                  id={recipientKindSelectId}
+                  aria-label={DIRECT_GRANT_COPY.recipientKindLabel}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="person">
+                      {DIRECT_GRANT_COPY.recipientKindPerson}
+                    </SelectItem>
+                    <SelectItem value="system">
+                      {DIRECT_GRANT_COPY.recipientKindSystem}
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </label>
+            <label
+              className="flex flex-col gap-2 text-sm text-text-secondary"
               htmlFor={actorSelectId}
             >
               {DIRECT_GRANT_COPY.actorLabel}
               <Select value={actorId} onValueChange={handleActorChange} disabled={busy}>
                 <SelectTrigger id={actorSelectId} aria-label={DIRECT_GRANT_COPY.actorLabel}>
                   <SelectValue placeholder={DIRECT_GRANT_COPY.actorPlaceholder}>
-                    {selectedActor
-                      ? `${selectedActor.display_name} · ${selectedActor.email}`
-                      : undefined}
+                    {selectedActor ? actorOptionLabel(selectedActor) : undefined}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
                     {recipientActors.map((actor) => (
                       <SelectItem key={actor.id} value={actor.id}>
-                        {actor.display_name} · {actor.email}
+                        {actorOptionLabel(actor)}
                       </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
             </label>
+            {recipientKind === 'system' &&
+            !actors.isPending &&
+            !actors.isError &&
+            recipientActors.length > 0 ? (
+              <p
+                className="text-xs text-text-muted"
+                data-testid="direct-grant-system-actor-note"
+              >
+                {DIRECT_GRANT_COPY.systemActorNote}
+              </p>
+            ) : null}
             {actors.isPending ? (
               <p className="text-xs text-text-muted">{DIRECT_GRANT_COPY.actorLoading}</p>
             ) : null}
@@ -262,6 +347,7 @@ export function PermissionDirectGrantForm({
               options={grantOptions}
               managedSystemNames={managedSystemNames}
               activeGrants={activeGrants}
+              recipientActorType={selectedActor?.actor_type}
               selectionContext={selectionContext}
               optionsUnconfirmed={optionsUnconfirmed}
               cacheReturnedGrant={cacheReturnedGrant}
@@ -292,6 +378,7 @@ export function PermissionDirectGrantForm({
 function DirectGrantFields({
   options,
   managedSystemNames,
+  recipientActorType,
   activeGrants,
   selectionContext,
   optionsUnconfirmed,
@@ -305,6 +392,8 @@ function DirectGrantFields({
 }: {
   options: PermissionGrantOptions;
   managedSystemNames: Record<string, string>;
+  /** Known from the workspace actor list; `undefined` while unconfirmed. */
+  recipientActorType: 'internal_member' | 'system' | undefined;
   activeGrants: PermissionGrantAdminItem[];
   selectionContext: string;
   optionsUnconfirmed: boolean;
@@ -470,7 +559,13 @@ function DirectGrantFields({
     <>
       <section className="flex flex-col gap-4" data-testid="direct-grant-fields">
         <p className="-mt-2 text-xs text-text-muted" data-testid="direct-grant-recipient">
-          {options.recipient.display_name} · {roleLevelLabel(options.recipient.role_level)}
+          {recipientActorType === undefined
+            ? // Recipient type not yet confirmed by the workspace actor list:
+              // claim neither person nor system.
+              options.recipient.display_name
+            : recipientActorType === 'system'
+              ? `${options.recipient.display_name} · ${DIRECT_GRANT_COPY.systemActorTag}`
+              : `${options.recipient.display_name} · ${roleLevelLabel(options.recipient.role_level)}`}
         </p>
         {options.recipient.role_level === 'admin' ? (
           <p className="text-sm text-text-secondary" data-testid="direct-grant-admin-note">
@@ -523,6 +618,11 @@ function DirectGrantFields({
             </SelectContent>
           </Select>
         </label>
+        {selectedCandidate && isTokenOnlyCapability(selectedCandidate.capability) ? (
+          <p className="text-xs text-text-secondary" data-testid="direct-grant-token-only-hint">
+            {DIRECT_GRANT_COPY.tokenOnlyHint}
+          </p>
+        ) : null}
         {heldEntries.length > 0 ? (
           <div
             className="flex flex-col gap-1 text-sm text-text-secondary"

@@ -124,6 +124,7 @@ describe.skipIf(!runIntegration)('permission request decisions', () => {
   // design, FO ADR-0008/0019), and only then the actors themselves.
   async function cleanupFixtures(): Promise<void> {
     const actorPattern = `(external_id like 'mock-dev-read-perm-decision-%'
+                            or external_id like 'perm-decision-sys-%'
                             or external_id like 'perm-self-%')`;
     const actorIds = `select id from core.actors
                        where workspace_id = $1 and ${actorPattern}`;
@@ -1142,6 +1143,62 @@ describe.skipIf(!runIntegration)('permission request decisions', () => {
     });
     expect((await directGrant()).json()).toMatchObject({
       code: 'conflict.capability_already_granted',
+    });
+  });
+
+  // #1806: a system Actor is a valid direct-grant recipient; the admin path,
+  // audit envelope and grant-options behave exactly as for a human recipient.
+  it('direct grant to a system Actor recipient is audited and listed in grant-options', async () => {
+    const system = await insertActorRow(db, {
+      workspaceId: WORKSPACE_ID,
+      externalId: `perm-decision-sys-${randomUUID()}`,
+      displayName: 'Decision system actor',
+      roleLevel: 'user',
+      actorType: 'system',
+    });
+    const grant = await app.inject({
+      method: 'POST',
+      url: '/permissions/grants',
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`,
+        'idempotency-key': randomUUID(),
+      },
+      payload: {
+        actor_id: system.id,
+        capability: 'validation.catalog.report',
+        reason: `${TEST_REASON} system recipient`,
+      },
+    });
+    expect(grant.statusCode).toBe(201);
+    expect(grant.json()).toMatchObject({
+      actor_id: system.id,
+      capability: 'validation.catalog.report',
+      managed_system_id: null,
+      granted_by_actor_id: adminId,
+      expires_at: null,
+    });
+    const audit = await migrateDb.pool.query(
+      'select event_type, subject_type from core.audit_log where subject_id = $1',
+      [grant.json().id],
+    );
+    expect(audit.rows).toEqual([
+      { event_type: 'permission_granted', subject_type: 'permission_grant' },
+    ]);
+    const options = await app.inject({
+      method: 'GET',
+      url: `/permissions/grant-options?actor_id=${system.id}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(options.statusCode).toBe(200);
+    expect(options.json().recipient).toMatchObject({
+      id: system.id,
+      display_name: 'Decision system actor',
+    });
+    expect(options.json().candidates).toContainEqual({
+      capability: 'validation.catalog.report',
+      managed_system_id: null,
+      governance_required: false,
+      preflight: { state: 'available' },
     });
   });
 

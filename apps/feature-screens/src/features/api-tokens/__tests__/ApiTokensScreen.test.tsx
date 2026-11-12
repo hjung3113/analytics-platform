@@ -214,6 +214,83 @@ describe('API token management', () => {
     await screen.findByDisplayValue(SECRET);
     expect(calls.find(c => c.method === 'POST')?.body).toMatchObject({ scopes: ['workspace.read', 'validation.worker'], actorId: ACTOR });
   });
+
+  // #1806: grant state and token-scope state are shown separately per system
+  // Actor; neither alone is ever presented as usable.
+  it.each([
+    { withGrant: true, withScope: false },
+    { withGrant: false, withScope: true },
+  ])(
+    'shows grant and token-scope state separately (grant %s, scope %s)',
+    async ({ withGrant, withScope }) => {
+      const system = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+      rows = [row({ id: system, kind: 'service', actorId: ACTOR, scopes: withScope ? ['workspace.read', 'validation.catalog.report'] : ['workspace.read'] })];
+      const original = fetch;
+      vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).includes('/permissions/grants'))
+          return Promise.resolve(json({
+            items: withGrant
+              ? [{ id: 'ffffffff-ffff-4fff-8fff-ffffffffffff', actor_id: ACTOR, capability: 'validation.catalog.report', managed_system_id: null, granted_by_actor_id: ACTOR, granted_at: '2026-11-01T00:00:00Z', expires_at: null }]
+              : [],
+          }));
+        return original(input, init);
+      }));
+      mount(true);
+      const panel = await screen.findByTestId('service-token-actor-status');
+      expect(await within(panel).findByText('검증 워커')).toBeVisible();
+      expect(within(panel).getByText(/규칙 카탈로그 보고\(토큰 전용\)/)).toBeVisible();
+      expect(within(panel).getByText(withGrant ? /권한 grant: 보유/ : /권한 grant: 없음/)).toBeVisible();
+      expect(within(panel).getByText(withScope ? /토큰 scope: 포함/ : /토큰 scope: 없음/)).toBeVisible();
+      expect(within(panel).queryByText('사용 가능')).toBeNull();
+      // C3: the row badge reports credential validity only, so neither the
+      // grant-only nor the scope-only screen claims a usable capability.
+      expect(within(screen.getByRole('table')).getByText('토큰 유효')).toBeVisible();
+      expect(screen.queryByText('사용 가능')).toBeNull();
+      expect(within(panel).getByText(/grant와 토큰 scope이 모두 있어야/)).toBeVisible();
+    },
+  );
+  // C1: a pending or failed token query is an unconfirmed scope state, never
+  // an empty scope; the grant column stays independent of the token query.
+  const systemActorGrant = {
+    id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+    actor_id: ACTOR,
+    capability: 'validation.catalog.report',
+    managed_system_id: null,
+    granted_by_actor_id: ACTOR,
+    granted_at: '2026-11-01T00:00:00Z',
+    expires_at: null,
+  };
+  function stubWithTokenState(tokenResponse: (input: RequestInfo | URL) => Promise<Response>) {
+    const original = fetch;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes('/permissions/grants')) return Promise.resolve(json({ items: [systemActorGrant] }));
+      if (String(input).includes('/api-tokens')) return tokenResponse(input);
+      return original(input, init);
+    }));
+  }
+  it('keeps token scope unconfirmed while the token query is pending and confirms only the result', async () => {
+    rows = [row({ id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', kind: 'service', actorId: ACTOR, scopes: ['workspace.read'] })];
+    let releaseTokens: (() => void) | undefined;
+    const tokensWaiter = new Promise<void>((resolve) => { releaseTokens = resolve; });
+    stubWithTokenState(() => tokensWaiter.then(() => json({ items: rows, nextCursor: null })));
+    mount(true);
+    const panel = await screen.findByTestId('service-token-actor-status');
+    expect(await within(panel).findByText(/권한 grant: 보유/)).toBeVisible();
+    expect(within(panel).getByText(/토큰 scope: 확인 중/)).toBeVisible();
+    expect(within(panel).queryByText(/토큰 scope: 없음/)).toBeNull();
+    expect(within(panel).queryByText(/토큰 scope: 포함/)).toBeNull();
+    releaseTokens?.();
+    expect(await within(panel).findByText(/토큰 scope: 없음/)).toBeVisible();
+  });
+  it('reports a failed token scope check instead of confirming 없음 on a 500 response', async () => {
+    rows = [row({ id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', kind: 'service', actorId: ACTOR, scopes: ['workspace.read'] })];
+    stubWithTokenState(() => Promise.resolve(json({ code: 'internal.unexpected', message: 'token list failed' }, 500)));
+    mount(true);
+    const panel = await screen.findByTestId('service-token-actor-status');
+    expect(await within(panel).findByText(/권한 grant: 보유/)).toBeVisible();
+    expect(within(panel).getByText(/토큰 scope: 확인 실패/)).toBeVisible();
+    expect(within(panel).queryByText(/토큰 scope: 없음/)).toBeNull();
+  });
   it('offers first issuance without an orphan pager on the empty first page (B10)', async () => {
     rows = []; mount();
     expect(await screen.findByText('아직 발급한 토큰이 없습니다')).toBeVisible();

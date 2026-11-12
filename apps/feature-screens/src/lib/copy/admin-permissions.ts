@@ -105,6 +105,13 @@ export const ADMIN_PERMISSIONS_COPY = {
     actorLoading: '대상자를 불러오는 중입니다.',
     actorError: '대상자 목록을 불러오지 못했습니다.',
     actorEmpty: '선택할 수 있는 대상자가 없습니다.',
+    recipientKindLabel: '대상자 유형',
+    recipientKindPerson: '사람',
+    recipientKindSystem: '시스템 Actor',
+    systemActorTag: '시스템 Actor',
+    systemActorNote:
+      '시스템 Actor는 사람 계정이 아니며 로그인 세션이 없습니다. 서비스 토큰 호출에만 쓰입니다.',
+    tokenOnlyHint: '토큰 호출 전용 · 사람 로그인 세션 불가 · 토큰 scope도 필요',
     optionLabel: '부여 권한 및 범위',
     optionPlaceholder: '권한과 범위를 선택하세요.',
     optionLoading: '서버에서 허용한 권한 범위를 불러오는 중입니다.',
