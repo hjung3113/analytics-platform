@@ -21,7 +21,7 @@ const project: Project = { id: ID, modelId: ID, model: { code: 'ETCH-300', name:
 const round: RoundDetail = { id: ID, projectId: ID, seq: 3, stage: 'alpha', status: 'open', version: '1', createdAt: AT, specPin: null, sampleManifestDigest: '', note: null, sampleSet: { sourceOwner: 'team', files: [] }, gateDecisions: [], gateAvailability: { targetStage: 'beta', projectVersion: '7', reasons: [], decisions: { approved: { allowed: true, reasons: [] }, rejected: { allowed: true, reasons: [] }, exception: { allowed: true, reasons: [] } }, basis: {} } };
 const attempt = (id: string): RequestDetail['attempts'][number] => ({ id, attemptNo: 1, outcome: 'succeeded', workerActorId: ID, verdict: 'fail', manifestMatches: true, counts: { FAIL: 13, PASS: 13 }, requiredUnchecked: 0, ruleCount: 26, startedAt: AT, endedAt: AT, ruleSetRevision: 'r1', inputManifestDigest: '' });
 const request = (id: string): RequestDetail => ({ id, roundId: ID, roundSeq: 3, projectId: ID, modelId: ID, modelCode: 'ETCH-300', softwareLabel: null, priority: 1, immediate: false, state: 'succeeded', attemptCount: 1, maxAttempts: 3, leaseExpiresAt: null, lastHeartbeatAt: null, requestedBy: { id: ID, displayName: '김개발' }, createdAt: AT, endedAt: AT, latestVerdict: 'fail', version: '9', cancelReason: null, attempts: [attempt(id)] });
-const rules: RuleResult[] = Array.from({ length: 26 }, (_, i) => ({ id: `rule-${i}`, ruleId: `R-${String(i + 1).padStart(3, '0')}`, result: i % 2 ? 'FAIL' : 'PASS', required: i % 2 === 1, expected: '기대', observed: '관측', evidence: [], hasExcerpt: false }));
+const rules: RuleResult[] = Array.from({ length: 26 }, (_, i) => ({ id: `dddddddd-dddd-4ddd-8ddd-${String(i).padStart(12, '0')}`, ruleId: `R-${String(i + 1).padStart(3, '0')}`, result: i % 2 ? 'FAIL' : 'PASS', required: i % 2 === 1, expected: '기대', observed: '관측', evidence: [], hasExcerpt: false }));
 const ok = (data: unknown): ApiResponse<never> => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
 const registry = createRegistry({ permissions: [PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE], spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '개발 모델 관리', en: 'Model development' }, homeMenuId: 'log-models' }], groups: [{ id: groupId('logModels'), label: { ko: '모델', en: 'Models' }, icon: Cpu, space: spaceId('logDev') }], menus: manifests });
 function DetailHost() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
@@ -90,10 +90,11 @@ async function waitFor(assertion: () => void) {
     try { assertion(); return; } catch (error) { if (i === 49) throw error; }
   }
 }
+function activateRoundTab(name: string) { const node = [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find(n => n.textContent?.startsWith(name)); if (!node) throw new Error('Missing tab ' + name); act(() => { node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); }); }
 const rulesRegion = () => element('section[aria-label="규칙 결과"]');
 const requestsRegion = () => element('section[aria-label="Round 검증 요청"]');
 const query = () => new URLSearchParams(window.location.search);
-const ready = () => waitFor(() => expect(text('R-001')).toBe(true));
+const ready = () => waitFor(() => expect(text('R-002')).toBe(true));
 function change(selector: string, value: string) {
   const node = element(selector) as HTMLInputElement;
   act(() => {
@@ -136,7 +137,7 @@ describe('lifecycle interactions with the real Kernel host', () => {
     expect(query().get('node')).toBe(node);
   });
   it('keeps the one request and its results mounted on rule page two and returns with Previous', async () => {
-    const t = mount(); await ready();
+    const t = mount('&result=all'); await ready();
     click(button('다음', rulesRegion()));
     await waitFor(() => expect(text('R-026')).toBe(true));
     expect(query().get('rulesPage')).toBe('2');
@@ -148,9 +149,11 @@ describe('lifecycle interactions with the real Kernel host', () => {
     expect(query().has('rulesPage')).toBe(false);
   });
   it('selects B and clears its dependent attempt and rule page in one host write', async () => {
-    const t = mount(`&request=${ID}&attempt=${ID}&rulesPage=2`, 2);
+    const t = mount(`&result=all&request=${ID}&attempt=${ID}&rulesPage=2`, 2);
     await waitFor(() => expect(text('R-026')).toBe(true));
     t.history.mockClear();
+    activateRoundTab('설정·이력');
+    await waitFor(() => expect(text('bbbbbbbb', requestsRegion())).toBe(true)); t.history.mockClear();
     click(button('bbbbbbbb', requestsRegion()));
     await ready();
     expect(query().get('request')).toBe(B);
@@ -160,8 +163,9 @@ describe('lifecycle interactions with the real Kernel host', () => {
     expect(t.queries.some(q => q.endpoint === 'logLifecycle.ruleResults' && q.params.attemptId === B)).toBe(true);
   });
   it('pages requests and clears request, attempt and rule page atomically', async () => {
-    const t = mount(`&request=${ID}&attempt=${ID}&rulesPage=2`, 26);
+    const t = mount(`&result=all&request=${ID}&attempt=${ID}&rulesPage=2`, 26);
     await waitFor(() => expect(text('R-026')).toBe(true)); t.history.mockClear();
+    activateRoundTab('설정·이력'); t.history.mockClear();
     click(button('다음', requestsRegion()));
     await waitFor(() => expect(query().get('requestsPage')).toBe('2'));
     expect(['request', 'attempt', 'rulesPage'].some(k => query().has(k))).toBe(false);
@@ -171,10 +175,11 @@ describe('lifecycle interactions with the real Kernel host', () => {
     await waitFor(() => expect(query().has('requestsPage')).toBe(false));
   });
   it.each(['FAIL', 'required', 'sort'])('applies %s from an unfiltered URL with one host write and a rule-page reset', async control => {
-    const t = mount('&rulesPage=2'); await waitFor(() => expect(text('R-026')).toBe(true)); t.history.mockClear();
+    const t = mount('&result=all&rulesPage=2'); await waitFor(() => expect(text('R-026')).toBe(true)); t.history.mockClear();
     if (control === 'FAIL') click(button('실패 13'));
-    else if (control === 'required') click(element('#rules-required'));
+    else if (control === 'required') { activateRoundTab('설정·이력'); t.history.mockClear(); click(element('#rules-required')); }
     else {
+      activateRoundTab('설정·이력'); t.history.mockClear();
       click(element('[role="combobox"][aria-label="결과 정렬"]'));
       await waitFor(() => expect(document.querySelector('[role="option"]')).not.toBeNull());
       click([...document.querySelectorAll<HTMLElement>('[role="option"]')].find(n => n.textContent === '결과순')!);
@@ -202,9 +207,12 @@ describe('lifecycle interactions with the real Kernel host', () => {
   it.each(['gate', 'close', 'register'])('consumes a %s retry rejection after a session change', async kind => {
     const t = mount(); await ready();
     if (kind === 'gate') {
+      click(button('Gate 결정'));
+      click(element('[role="radio"][value="approved"]'));
       change('textarea[id^="gate-reason"]', '검토 완료');
-      click(button(/진입 결정 기록/));
+      click(button('Gate 결정 기록'));
     } else {
+      activateRoundTab('설정·이력');
       const title = kind === 'close' ? 'Round 종료' : '요청 등록';
       click(button(title));
       await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
@@ -236,38 +244,43 @@ describe('Round «원본/시퀀스» tab (#1475)', () => {
   }
   afterEach(() => { setRoundSourceView(null); round.sampleSet = original.sampleSet; rules[0] = original.first; });
 
-  it('has no tab and the unchanged verification layout when the app injects nothing', async () => {
+  it('keeps the result workbench and explains unavailable Source when the app injects nothing', async () => {
     mount(); await ready();
-    expect(tabs()).toBeNull();
-    expect(document.querySelector('[data-testid="round-gate-layout"]')).not.toBeNull();
+    expect(tabs()).not.toBeNull();
+    activate(tab('원본'));
+    expect(text('원본 보기를 사용할 수 없습니다.')).toBe(true);
+    expect(document.querySelector('[data-testid="result-first-workbench"]')).not.toBeNull();
   });
   it('shows the verification tab first, then mounts the injected body with this Round only after the tab opens', async () => {
     wire(); mount(); await ready();
     expect(tabs()).not.toBeNull();
     expect(document.querySelector('[data-testid="fake-source"]')).toBeNull();
-    activate(tab('원본/시퀀스'));
+    activate(tab('원본'));
     await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')?.textContent).toBe(`${ID}|2:${FILE.fileRef}`));
     expect(query().get('view')).toBe('source');
-    expect(element('[data-testid="round-gate-layout"]').closest('[hidden]')).not.toBeNull();
+    expect(element('section[aria-label="규칙 결과"]').closest('[hidden]')).not.toBeNull();
     expect(document.querySelector('[data-testid="round-source-slot"]')?.textContent).toContain('읽기 전용');
-    activate(tab('검증 · Gate'));
+    activate(tab('결과·결함'));
     await ready();
     expect(query().has('view')).toBe(false);
   });
   it('keeps a Gate draft while the Source tab is open and brings it back', async () => {
     wire(); mount(); await ready();
+    click(button('Gate 결정'));
     change('textarea[id^="gate-reason"]', '근거 확인 중');
-    activate(tab('원본/시퀀스'));
+    activate(tab('원본'));
     await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')).not.toBeNull());
-    expect(element('textarea[id^="gate-reason"]').closest('[hidden]')).not.toBeNull();
-    activate(tab('검증 · Gate'));
+    expect(document.querySelector('textarea[id^="gate-reason"]')).toBeNull();
+    activate(tab('결과·결함'));
     await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')).toBeNull());
     expect((element('textarea[id^="gate-reason"]') as HTMLTextAreaElement).value).toBe('근거 확인 중');
     expect(element('textarea[id^="gate-reason"]').closest('[hidden]')).toBeNull();
   });
   it('「원본에서 보기」 on a rule result opens the tab on that line in one host write', async () => {
-    wire(); const t = mount(); await ready(); t.history.mockClear();
-    const link = button('원본에서 보기', rulesRegion());
+    wire(); const t = mount('&result=all'); await ready();
+    click(button(/^R-001/));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull()); t.history.mockClear();
+    const link = button('원본에서 보기', element('[role="dialog"]'));
     expect(link.getAttribute('aria-label')).toMatch(/^R-\d{3} s3:\/\/synthetic\/a\.log:7 원본에서 보기$/);
     click(link);
     await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')).not.toBeNull());
@@ -277,10 +290,12 @@ describe('Round «원본/시퀀스» tab (#1475)', () => {
     expect(t.history).toHaveBeenCalledTimes(1);
   });
   it('keeps 원본 확인 불가 with a hash warning when the evidence hash differs from the pinned sample', async () => {
-    wire('b'.repeat(64)); mount(); await ready();
-    expect(() => button('원본에서 보기', rulesRegion())).toThrow();
-    expect(text('해시 불일치', rulesRegion())).toBe(true);
-    expect(text('원본 확인 불가', rulesRegion())).toBe(true);
+    wire('b'.repeat(64)); mount('&result=all'); await ready();
+    click(button(/^R-001/));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+    expect(() => button('원본에서 보기', element('[role="dialog"]'))).toThrow();
+    expect(text('해시 불일치', element('[role="dialog"]'))).toBe(true);
+    expect(text('원본 확인 불가', element('[role="dialog"]'))).toBe(true);
   });
   it('refuses a wrong view value with the invalid-value panel, and recovery clears only that key', async () => {
     wire(); mount('&view=bogus&request=' + ID);
@@ -297,5 +312,55 @@ describe('Round «원본/시퀀스» tab (#1475)', () => {
     wire(); mount('&view=source&sourceFocus=1:10000000000');
     await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')).not.toBeNull());
     expect(document.querySelector('[role="alert"]')).toBeNull();
+  });
+});
+
+describe('result-first selection (#1809)', () => {
+  it('pins the request, completed attempt and rule UUID in a single URL write and restores focus on close', async () => {
+    const t = mount('&result=all'); await ready(); t.history.mockClear();
+    const opener = element('button[aria-label="R-002 상세 열기"]');
+    click(opener);
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세'));
+    expect(element('button[aria-label="R-002 상세 열기"]')).toBe(opener);
+    expect(query().get('request')).toBe(ID);
+    expect(query().get('attempt')).toBe(ID);
+    expect(query().get('rule')).toBe(rules[1]?.id);
+    expect(t.history).toHaveBeenCalledTimes(1);
+    expect(window.location.search).not.toMatch(/fileRef|s3|excerpt|signed/i);
+    click(element('[role="dialog"] button[aria-label="상세 닫기"]'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+    expect(query().has('rule')).toBe(false);
+    // An explicit returnFocusRef restores focus one task after the closing commit.
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(document.activeElement).toBe(opener);
+  });
+  it('restores the completed attempt and rule selection on page two from a refreshed URL', async () => {
+    mount(`&result=all&request=${ID}&attempt=${ID}&rulesPage=2&rule=${rules[25]?.id}`);
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-026 · 규칙 상세'));
+    expect(text('26건 · 2페이지', rulesRegion())).toBe(true);
+    expect(element(`[data-row-id="${rules[25]?.id}"]`).getAttribute('aria-current')).toBe('true');
+  });
+  it('restores the previous selected rule when the browser goes back', async () => {
+    mount('&result=all'); await ready();
+    click(element('button[aria-label="R-001 상세 열기"]'));
+    await waitFor(() => expect(query().get('rule')).toBe(rules[0]?.id));
+    click(element('button[aria-label="R-002 상세 열기"]'));
+    await waitFor(() => expect(query().get('rule')).toBe(rules[1]?.id));
+    await act(async () => { window.history.back(); await new Promise(resolve => setTimeout(resolve, 20)); });
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-001 · 규칙 상세'));
+    expect(query().get('rule')).toBe(rules[0]?.id);
+  });
+  it.each(['rule', 'issue'])('rejects an unstable %s selection before reading Round data', async key => {
+    const t = mount(`&${key}=s3%3A%2F%2Fsynthetic%2Ffile.log`);
+    await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain(key));
+    expect(t.queries.some(q => q.endpoint === 'logLifecycle.roundDetail')).toBe(false);
+  });
+  it('opens the request’s completed attempt directly in Round results', async () => {
+    mount(`&request=${ID}`, 1, 'requests');
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Round 결과 열기'));
+    click(button('Round 결과 열기', element('[role="dialog"]')));
+    await waitFor(() => expect(window.location.pathname).toBe(`/logDev/log-model-round/${ID}/${ID}`));
+    expect(query().get('request')).toBe(ID);
+    expect(query().get('attempt')).toBe(ID);
   });
 });

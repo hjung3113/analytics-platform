@@ -57,6 +57,7 @@ describe('log lifecycle screens', () => {
   });
   it('requires a reason and submits the project version for the human decision', async () => {
     const user = userEvent.setup(); render(<GatePanel {...props()} round={gate()} />);
+    await user.click(screen.getByRole('radio', { name: '승인' }));
     await user.type(screen.getByLabelText('결정 사유 (필수)'), '검토 완료');
     await user.click(screen.getByRole('button', { name: /결정 기록/ }));
     expect(run).toHaveBeenCalledWith({ roundId: ID, targetStage: 'beta', decision: 'approved', reason: '검토 완료' }, { expectedVersion: '7' });
@@ -97,7 +98,9 @@ describe('Round and request states', () => {
     p.api.useRead = <T,>(name: string, params: Record<string, unknown>, enabled?: boolean) => name === 'excerpt' && kind === 'denied' ? { status: 'error', data: null, denied: true, retry: vi.fn() } : base<T>(name, params, enabled);
     render(<RoundScreen {...p} project={project} roundId={ID} />);
     expect(screen.queryByText('짧은 합성 로그')).toBeNull();
-    await userEvent.setup().click(screen.getByRole('button', { name: '발췌 보기' }));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'R-001 상세 열기' }));
+    await user.click(screen.getByRole('button', { name: '발췌 보기' }));
     expect(screen.getByText(kind === 'denied' ? /권한 없음 · 이 원본/ : kind === 'deleted' ? '보관 기간 지남으로 삭제됨' : '짧은 합성 로그')).toBeVisible();
   });
   it('keeps another Round’s request results out of this Round', () => {
@@ -166,7 +169,8 @@ describe('mutation and recovery boundaries', () => {
 it('does not present a session-superseded Gate delivery as a server write error', async () => {
   run.mockRejectedValueOnce(new DOMException('Session changed', 'AbortError'));
   const user = userEvent.setup(); render(<GatePanel {...props()} round={gate()} />);
-  await user.type(screen.getByLabelText('결정 사유 (필수)'), '검토 완료');
+  await user.click(screen.getByRole('radio', { name: '승인' }));
+    await user.type(screen.getByLabelText('결정 사유 (필수)'), '검토 완료');
   await user.click(screen.getByRole('button', { name: /결정 기록/ }));
   expect(screen.queryByRole('alert')).toBeNull();
 });

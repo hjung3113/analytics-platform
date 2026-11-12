@@ -4,7 +4,7 @@ import { PlatformLink, useMenuAction, useMenuQuery, usePlatform, type PageProps 
 import { defineEndpoint, type AuditEvent, type EndpointSpec } from '@ap/contracts';
 import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
 import { roundSourceView } from '../round-source-slot';
-import { actions, endpoints, isUuid, PROJECT_MANAGE, ROUND_MANAGE } from '../endpoints';
+import { actions, endpoints, isUuid, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE } from '../endpoints';
 import { isModelHierarchyNodeId } from '../hierarchy';
 
 // Lookup mirrors only; these are owned and implemented by log-knowledge, never contributed a second time.
@@ -30,8 +30,8 @@ function useAction(name: string): Action {
   return useMenuAction(spec);
 }
 const api: LifecycleApi = { useRead, useAction };
-function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, preferenceKey }: TableParts<T>) {
-  return <div className="grid min-w-0 grid-cols-1"><PlatformDataTable title={title} hideTitle ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
+function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, fill, preferenceKey }: TableParts<T>) {
+  return <div className="grid min-w-0 grid-cols-1"><PlatformDataTable title={title} hideTitle ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} fill={fill} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
 }
 const eventLabels: Record<string, string> = { created: '개발 건 등록', stage_changed: '개발 단계', owner_changed: '담당', target_changed: '목표일·SW', cancelled: '취소', reopened: '재개', gate_decided: 'Gate 결정' };
 const fieldLabels: Record<string, string> = { stage: '단계', ownerActorId: '담당 ID', targetDate: '목표일', softwareId: 'SW ID', decision: '결정', targetStage: '대상 단계', gateDecisionId: '결정 ID', selfApproved: '자기 승인' };
@@ -63,12 +63,12 @@ export default function LifecyclePage({ params = {} }: PageProps) {
     const url = new URL(to, 'https://host.invalid');
     const match = /^\/log\/models\/([^/]+)(?:\/rounds\/([^/]+))?$/.exec(url.pathname);
     const model = /^\/log\/knowledge\/models\/([^/]+)$/.exec(url.pathname);
-    if (match?.[1] && isUuid(match[1]) && (!match[2] || isUuid(match[2]))) navigate(linkTo(match[2] ? 'log-model-round' : 'log-model-project', { params: { projectId: match[1], ...(match[2] ? { roundId: match[2] } : {}) }, page: { node: match[1] === params.projectId ? pageParam('node') : null }, returnTo: true }));
+    if (match?.[1] && isUuid(match[1]) && (!match[2] || isUuid(match[2]))) navigate(linkTo(match[2] ? 'log-model-round' : 'log-model-project', { params: { projectId: match[1], ...(match[2] ? { roundId: match[2] } : {}) }, page: { node: match[1] === params.projectId ? pageParam('node') : null, ...Object.fromEntries(['request', 'attempt'].flatMap(key => { const value = url.searchParams.get(key); return value && isUuid(value) ? [[key, value]] : []; })) }, returnTo: true }));
     else if (model?.[1] && isUuid(model[1])) navigate(linkTo('log-knowledge-model', { params: { modelId: model[1] }, returnTo: true }));
     else if (url.pathname === '/log/models') navigate(linkTo('log-models'));
     else if (url.pathname === '/log/validation-requests') navigate(linkTo('log-validation-requests', { page: Object.fromEntries(url.searchParams) }));
   }, [navigate, linkTo, params.projectId, pageParam]);
-  const props = useMemo<ScreenProps>(() => ({ api, ui, state: Object.fromEntries(page), setState: patch => setPage(Object.fromEntries(Object.entries(patch).map(([k,v]) => [k, v ?? null]))), actorId: user.id, canProject: can(PROJECT_MANAGE), canRound: can(ROUND_MANAGE), selection: pageParam('request') ?? undefined, setSelection: id => setPage({ request: id ?? null }),
+  const props = useMemo<ScreenProps>(() => ({ api, ui, state: Object.fromEntries(page), setState: patch => setPage(Object.fromEntries(Object.entries(patch).map(([k,v]) => [k, v ?? null]))), actorId: user.id, canProject: can(PROJECT_MANAGE), canRound: can(ROUND_MANAGE), canGate: can(GATE_DECIDE), selection: pageParam('request') ?? undefined, setSelection: id => setPage({ request: id ?? null }),
     // The RuleSet history of the validation rules menu (#1496); a registry without that menu shows the name without a link.
     RuleSetLink: ({ ruleSetKey, children }) => { let href: string | null = null; try { href = linkTo('log-rules', { page: { ruleSetKey } }); } catch { href = null; } return href ? <PlatformLink className="min-w-0 truncate text-accent-primary hover:underline" href={href}>{children}</PlatformLink> : children; } }), [page, user.id, can, pageParam, setPage, linkTo]);
   const projectId = params.projectId;
@@ -76,7 +76,7 @@ export default function LifecyclePage({ params = {} }: PageProps) {
   const selection = pageParam('request');
   const keys = usePageKeyRules([
     { key: 'node', label: { ko: '계층 노드', en: 'Hierarchy node' }, valid: isModelHierarchyNodeId },
-    ...['request', 'attempt', 'vendorId', 'modelId'].map(key => ({ key, label: { ko: key, en: key }, valid: isUuid })),
+    ...['request', 'attempt', 'rule', 'issue', 'vendorId', 'modelId'].map(key => ({ key, label: { ko: key, en: key }, valid: isUuid })),
     { key: 'processId', label: { ko: '공정', en: 'Process' }, valid: v => v === 'none' || isUuid(v) },
     ...['page', 'requestsPage', 'rulesPage'].map(key => ({ key, label: { ko: '페이지', en: 'Page' }, valid: (v: string) => /^[1-9]\d{0,6}$/.test(v) && Number(v) <= 1000001 })),
     { key: 'q', label: { ko: '검색', en: 'Search' }, valid: v => v.length <= 200 },
@@ -85,11 +85,11 @@ export default function LifecyclePage({ params = {} }: PageProps) {
     { key: 'state', label: { ko: '요청 상태', en: 'Request state' }, valid: v => ['queued','claimed','succeeded','failed','cancelled','expired'].includes(v) },
     { key: 'priority', label: { ko: '우선순위', en: 'Priority' }, valid: v => ['0','1','2'].includes(v) },
     { key: 'tab', label: { ko: '탭', en: 'Tab' }, valid: v => ['rounds','history'].includes(v) },
-    { key: 'view', label: { ko: '보기', en: 'View' }, valid: v => v === 'source' },
+    { key: 'view', label: { ko: '보기', en: 'View' }, valid: v => ['source', 'discussion', 'history'].includes(v) },
     { key: 'sourceTab', label: { ko: '원본/시퀀스', en: 'Source tab' }, valid: v => v === 'raw' || v === 'sequence' },
     { key: 'sourceFocus', label: { ko: '근거 위치', en: 'Evidence location' }, valid: v => { const m = /^([1-9]\d{0,6}):([1-9]\d*)$/.exec(v); return !!m && Number.isSafeInteger(Number(m[2])); } },
     { key: 'sourceDrawer', label: { ko: '서랍', en: 'Drawer' }, valid: v => v === 'record' },
-    { key: 'result', label: { ko: '규칙 결과', en: 'Rule result' }, valid: v => ['PASS','FAIL','ERROR','WARN','NOT_CHECKED','SKIPPED','NOT_APPLICABLE'].includes(v) },
+    { key: 'result', label: { ko: '규칙 결과', en: 'Rule result' }, valid: v => ['all','problems','PASS','FAIL','ERROR','WARN','NOT_CHECKED','SKIPPED','NOT_APPLICABLE'].includes(v) },
     ...['required','active'].map(key => ({ key, label: { ko: key, en: key }, valid: (v: string) => ['true','false'].includes(v) })),
     { key: 'sort', label: { ko: '정렬', en: 'Sort' }, valid: v => ['code','vendorName','stage','updatedAt','ruleId','result','required'].includes(v) },
     ...['requestedFrom','requestedTo'].map(key => ({ key, label: { ko: key, en: key }, valid: (v: string) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) && Number.isFinite(Date.parse(`${v}:00+09:00`)) })),

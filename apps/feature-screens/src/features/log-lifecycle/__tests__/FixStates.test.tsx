@@ -12,11 +12,12 @@ function props(state: Record<string, string> = {}): ScreenProps {
 }
 const round = (allowed: string[]): RoundDetail => ({ id: 'round', projectId: 'project', seq: 1, stage: 'alpha', status: 'open', version: '1', createdAt: '', specPin: null, sampleManifestDigest: '', note: null, sampleSet: { sourceOwner: 'team', files: [] }, gateDecisions: [], gateAvailability: { targetStage: 'beta', projectVersion: '7', reasons: [], decisions: { approved: { allowed: allowed.includes('approved'), reasons: [] }, rejected: { allowed: allowed.includes('rejected'), reasons: [] }, exception: { allowed: allowed.includes('exception'), reasons: [] } }, basis: {} } });
 
-it('selects the first server-allowed Gate decision, reconciles availability, and requires a reason', async () => {
+it('requires an explicit server-allowed Gate decision and a reason, and reconciles availability', async () => {
   const p = props(); const user = userEvent.setup();
   const view = render(<GatePanel {...p} round={round(['rejected', 'exception'])} />);
   expect(screen.getByRole('radio', { name: '승인' })).not.toBeChecked();
-  expect(screen.getByRole('radio', { name: '거절' })).toBeChecked();
+  expect(screen.getByRole('radio', { name: '거절' })).not.toBeChecked();
+  await user.click(screen.getByRole('radio', { name: '거절' }));
   expect(screen.getByRole('button', { name: /결정 기록/ })).toBeDisabled();
   await user.type(screen.getByLabelText('결정 사유 (필수)'), '재검증 필요');
   expect(screen.getByRole('button', { name: /결정 기록/ })).toBeEnabled();
