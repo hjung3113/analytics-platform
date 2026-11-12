@@ -55,3 +55,21 @@ describe('log lifecycle audit detail schemas (#1444 c)', () => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(false);
   });
 });
+
+// #1808 N1: all human-discussion audit details are strict and body-free.
+describe('human validation issue audit details', () => {
+  it.each([
+    ['lifecycle.validation_issue.created', { projectId: ID, firstRoundId: ID }],
+    ['lifecycle.validation_issue.occurrence_linked', { occurrenceId: ID, roundId: ID }],
+    ['lifecycle.validation_issue.evidence_linked', { occurrenceId: ID, count: 20 }],
+    ['lifecycle.validation_issue.commented', { commentId: ID, correctsCommentId: null }],
+    ['lifecycle.round.commented', { commentId: ID, correctsCommentId: ID }],
+    ['lifecycle.validation_issue.field_corrected', { eventId: ID, field: 'body', correctsEventId: null }],
+  ] as const)('%s allows only ids/enums/counts', (type, detail) => {
+    const schema = AUDIT_EVENT_DETAIL_SCHEMAS[type];
+    expect(schema.safeParse(detail).success).toBe(true);
+    for (const field of ['title', 'body', 'comment', 'fileRef', 'path', 'token']) {
+      expect(schema.safeParse({ ...detail, [field]: 'private synthetic text' }).success).toBe(false);
+    }
+  });
+});

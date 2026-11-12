@@ -143,6 +143,7 @@ export const validationRounds = logLifecycleSchema.table(
     closedBy: uuid('closed_by').references(() => actors.id),
   },
   (t) => ({
+    ownershipUq: unique('validation_round_ownership_uq').on(t.workspaceId, t.projectId, t.id),
     workspaceIdUq: unique('validation_round_workspace_id_id_uq').on(t.workspaceId, t.id),
     projectFk: foreignKey({
       name: 'validation_round_project_fk',
@@ -225,6 +226,7 @@ export const executionRequests = logLifecycleSchema.table(
     endedAt: timestamp('ended_at', { withTimezone: true }),
   },
   (t) => ({
+    ownershipUq: unique('execution_request_ownership_uq').on(t.workspaceId, t.roundId, t.id),
     workspaceIdUq: unique('execution_request_workspace_id_id_uq').on(t.workspaceId, t.id),
     roundFk: foreignKey({
       name: 'execution_request_round_fk',
@@ -296,6 +298,7 @@ export const executionAttempts = logLifecycleSchema.table(
     workerSummary: jsonb('worker_summary'),
   },
   (t) => ({
+    ownershipUq: unique('execution_attempt_ownership_uq').on(t.workspaceId, t.requestId, t.id),
     workspaceIdUq: unique('execution_attempt_workspace_id_id_uq').on(t.workspaceId, t.id),
     requestFk: foreignKey({
       name: 'execution_attempt_request_fk',
@@ -340,6 +343,7 @@ export const ruleResults = logLifecycleSchema.table(
     evidence: jsonb('evidence').notNull().default(sql`'[]'::jsonb`),
   },
   (t) => ({
+    ownershipUq: unique('rule_result_ownership_uq').on(t.workspaceId, t.attemptId, t.id),
     workspaceIdUq: unique('rule_result_workspace_id_id_uq').on(t.workspaceId, t.id),
     attemptFk: foreignKey({
       name: 'rule_result_attempt_fk',
@@ -624,3 +628,123 @@ export const roundEvidenceRefs = logLifecycleSchema.table(
     originCheck: check('round_evidence_ref_origin_check', sql`${t.originKind} in ('log_explorer')`),
   }),
 );
+
+// Human observations and discussion (#1808 N1): immutable originals, append-only corrections. No status axis.
+export const validationIssues = logLifecycleSchema.table('validation_issue', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+    projectId: uuid('project_id').notNull(),
+    firstRoundId: uuid('first_round_id').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    expected: text('expected'),
+    actual: text('actual'),
+    repro: text('repro'),
+    reporterActorId: uuid('reporter_actor_id').notNull().references(() => actors.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  }, (t) => ({
+    workspaceIdUq: unique('validation_issue_workspace_id_id_uq').on(t.workspaceId, t.id),
+    ownershipUq: unique('validation_issue_ownership_uq').on(t.workspaceId, t.projectId, t.id),
+    validation_issue_project_fk: foreignKey({ name: 'validation_issue_project_fk', columns: [t.workspaceId, t.projectId], foreignColumns: [developmentProjects.workspaceId, developmentProjects.id] }).onDelete('restrict'),
+    validation_issue_first_round_fk: foreignKey({ name: 'validation_issue_first_round_fk', columns: [t.workspaceId, t.projectId, t.firstRoundId], foreignColumns: [validationRounds.workspaceId, validationRounds.projectId, validationRounds.id] }).onDelete('restrict'),
+    projectIdx: index('validation_issue_project_idx').on(t.workspaceId, t.projectId, t.createdAt, t.id),
+    titleCheck: check('validation_issue_title_check', sql`char_length(${t.title}) between 1 and 200`),
+    bodyCheck: check('validation_issue_body_check', sql`char_length(${t.body}) between 1 and 8000 and coalesce(char_length(${t.expected}), 0) <= 8000 and coalesce(char_length(${t.actual}), 0) <= 8000 and coalesce(char_length(${t.repro}), 0) <= 8000`),
+  }));
+
+export const validationIssueOccurrences = logLifecycleSchema.table('validation_issue_occurrence', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+    projectId: uuid('project_id').notNull(),
+    issueId: uuid('issue_id').notNull(),
+    roundId: uuid('round_id').notNull(),
+    // Internal ownership witnesses: nullable only when there is no attempt.
+    requestId: uuid('request_id'),
+    attemptId: uuid('attempt_id'),
+    ruleResultId: uuid('rule_result_id'),
+    linkerActorId: uuid('linker_actor_id').notNull().references(() => actors.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  }, (t) => ({
+    workspaceIdUq: unique('validation_issue_occurrence_workspace_id_id_uq').on(t.workspaceId, t.id),
+    locationUq: unique('validation_issue_occurrence_location_uq').on(t.issueId, t.roundId, t.attemptId, t.ruleResultId).nullsNotDistinct(),
+    validation_issue_occurrence_issue_fk: foreignKey({ name: 'validation_issue_occurrence_issue_fk', columns: [t.workspaceId, t.projectId, t.issueId], foreignColumns: [validationIssues.workspaceId, validationIssues.projectId, validationIssues.id] }).onDelete('restrict'),
+    validation_issue_occurrence_round_fk: foreignKey({ name: 'validation_issue_occurrence_round_fk', columns: [t.workspaceId, t.projectId, t.roundId], foreignColumns: [validationRounds.workspaceId, validationRounds.projectId, validationRounds.id] }).onDelete('restrict'),
+    validation_issue_occurrence_request_fk: foreignKey({ name: 'validation_issue_occurrence_request_fk', columns: [t.workspaceId, t.roundId, t.requestId], foreignColumns: [executionRequests.workspaceId, executionRequests.roundId, executionRequests.id] }).onDelete('restrict'),
+    validation_issue_occurrence_attempt_fk: foreignKey({ name: 'validation_issue_occurrence_attempt_fk', columns: [t.workspaceId, t.requestId, t.attemptId], foreignColumns: [executionAttempts.workspaceId, executionAttempts.requestId, executionAttempts.id] }).onDelete('restrict'),
+    validation_issue_occurrence_result_fk: foreignKey({ name: 'validation_issue_occurrence_result_fk', columns: [t.workspaceId, t.attemptId, t.ruleResultId], foreignColumns: [ruleResults.workspaceId, ruleResults.attemptId, ruleResults.id] }).onDelete('restrict'),
+    ownershipCheck: check('validation_issue_occurrence_ownership_check', sql`(${t.attemptId} is null) = (${t.requestId} is null) and (${t.ruleResultId} is null or ${t.attemptId} is not null)`),
+    issueIdx: index('validation_issue_occurrence_issue_idx').on(t.workspaceId, t.issueId, t.createdAt, t.id),
+    roundIdx: index('validation_issue_occurrence_round_idx').on(t.workspaceId, t.roundId, t.issueId),
+  }));
+
+export const validationIssueEvidenceRefs = logLifecycleSchema.table('validation_issue_evidence_ref', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+    occurrenceId: uuid('occurrence_id').notNull(),
+    fileRef: text('file_ref').notNull(),
+    line: bigint('line', { mode: 'number' }).notNull(),
+    fileSha256: text('file_sha256').notNull(),
+    linkerActorId: uuid('linker_actor_id').notNull().references(() => actors.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  }, (t) => ({
+    tripleUq: unique('validation_issue_evidence_ref_triple_uq').on(t.occurrenceId, t.fileRef, t.line, t.fileSha256),
+    validation_issue_evidence_ref_occurrence_fk: foreignKey({ name: 'validation_issue_evidence_ref_occurrence_fk', columns: [t.workspaceId, t.occurrenceId], foreignColumns: [validationIssueOccurrences.workspaceId, validationIssueOccurrences.id] }).onDelete('restrict'),
+    refCheck: check('validation_issue_evidence_ref_ref_check', sql`char_length(${t.fileRef}) between 1 and 1024`),
+    lineCheck: check('validation_issue_evidence_ref_line_check', sql`${t.line} between 1 and 9007199254740991`),
+    hashCheck: check('validation_issue_evidence_ref_hash_check', sql`${t.fileSha256} ~ '^[0-9a-f]{64}$'`),
+  }));
+
+export const validationIssueComments = logLifecycleSchema.table('validation_issue_comment', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+    issueId: uuid('issue_id').notNull(),
+    authorActorId: uuid('author_actor_id').notNull().references(() => actors.id),
+    body: text('body').notNull(),
+    correctsCommentId: uuid('corrects_comment_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  }, (t) => ({
+    targetUq: unique('validation_issue_comment_target_uq').on(t.workspaceId, t.issueId, t.id),
+    validation_issue_comment_target_fk: foreignKey({ name: 'validation_issue_comment_target_fk', columns: [t.workspaceId, t.issueId], foreignColumns: [validationIssues.workspaceId, validationIssues.id] }).onDelete('restrict'),
+    validation_issue_comment_correction_fk: foreignKey({ name: 'validation_issue_comment_correction_fk', columns: [t.workspaceId, t.issueId, t.correctsCommentId], foreignColumns: [t.workspaceId, t.issueId, t.id] }).onDelete('restrict'),
+    bodyCheck: check('validation_issue_comment_body_check', sql`char_length(${t.body}) between 1 and 4000`),
+    selfCheck: check('validation_issue_comment_self_check', sql`${t.correctsCommentId} is null or ${t.correctsCommentId} <> ${t.id}`),
+    pageIdx: index('validation_issue_comment_page_idx').on(t.workspaceId, t.issueId, t.createdAt, t.id),
+  }));
+
+export const roundComments = logLifecycleSchema.table('round_comment', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+    roundId: uuid('round_id').notNull(),
+    authorActorId: uuid('author_actor_id').notNull().references(() => actors.id),
+    body: text('body').notNull(),
+    correctsCommentId: uuid('corrects_comment_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  }, (t) => ({
+    targetUq: unique('round_comment_target_uq').on(t.workspaceId, t.roundId, t.id),
+    round_comment_target_fk: foreignKey({ name: 'round_comment_target_fk', columns: [t.workspaceId, t.roundId], foreignColumns: [validationRounds.workspaceId, validationRounds.id] }).onDelete('restrict'),
+    round_comment_correction_fk: foreignKey({ name: 'round_comment_correction_fk', columns: [t.workspaceId, t.roundId, t.correctsCommentId], foreignColumns: [t.workspaceId, t.roundId, t.id] }).onDelete('restrict'),
+    bodyCheck: check('round_comment_body_check', sql`char_length(${t.body}) between 1 and 4000`),
+    selfCheck: check('round_comment_self_check', sql`${t.correctsCommentId} is null or ${t.correctsCommentId} <> ${t.id}`),
+    pageIdx: index('round_comment_page_idx').on(t.workspaceId, t.roundId, t.createdAt, t.id),
+  }));
+
+export const validationIssueEvents = logLifecycleSchema.table('validation_issue_event', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+    issueId: uuid('issue_id').notNull(),
+    kind: text('kind').notNull(),
+    field: text('field').notNull(),
+    body: text('body').notNull(),
+    correctsEventId: uuid('corrects_event_id'),
+    actorId: uuid('actor_id').notNull().references(() => actors.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  }, (t) => ({
+    targetUq: unique('validation_issue_event_target_uq').on(t.workspaceId, t.issueId, t.field, t.id),
+    validation_issue_event_issue_fk: foreignKey({ name: 'validation_issue_event_issue_fk', columns: [t.workspaceId, t.issueId], foreignColumns: [validationIssues.workspaceId, validationIssues.id] }).onDelete('restrict'),
+    validation_issue_event_correction_fk: foreignKey({ name: 'validation_issue_event_correction_fk', columns: [t.workspaceId, t.issueId, t.field, t.correctsEventId], foreignColumns: [t.workspaceId, t.issueId, t.field, t.id] }).onDelete('restrict'),
+    kindCheck: check('validation_issue_event_kind_check', sql`${t.kind} = 'field_corrected'`),
+    fieldCheck: check('validation_issue_event_field_check', sql`${t.field} in ('title','body','expected','actual','repro')`),
+    bodyCheck: check('validation_issue_event_body_check', sql`char_length(${t.body}) <= 8000 and (${t.field} <> 'title' or char_length(${t.body}) between 1 and 200) and (${t.field} <> 'body' or char_length(${t.body}) >= 1)`),
+    selfCheck: check('validation_issue_event_self_check', sql`${t.correctsEventId} is null or ${t.correctsEventId} <> ${t.id}`),
+    pageIdx: index('validation_issue_event_page_idx').on(t.workspaceId, t.issueId, t.createdAt, t.id),
+  }));

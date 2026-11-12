@@ -22,6 +22,14 @@ Owns the development project of a model, its append-only history and its validat
 - Reads filter by the session workspace and by object access; a foreign or hidden id answers `ok` with `data: null` (empty page for lists). No read or action accepts an unknown param/input key.
   - The hierarchy read answers `{ failure: 'deleted' }` for an unknown, moved or foreign path so the menu Source can produce `HierarchyFailure('deleted')`; contract: [log-lifecycle.md](../../../../../docs/architecture/platform-api/api/log-lifecycle.md#hierarchy-1449).
 
+## Human validation records (#1808 N1)
+
+- Storage only: `validation-issue-service.ts` / `validation-issue-read.ts`; no registered API or capability until N2. N2 authorizes before invoking `handle` in the engine transaction. `execute` is the standalone Core-idempotency transaction boundary; its receipts contain ids/counts only, and replay rechecks object visibility.
+- Issue originals, occurrences, evidence references, both comment tables and field-correction events are append-only. Corrections insert new rows with same-workspace/target provenance (events also bind the field). No status, assignee or severity; no automatic PASS resolution. These records never alter machine results, opinions, verdicts, Gate or comparisons.
+- Lock project then Round, then stabilize/rejudge owner access; the project lock serialises evidence cap checks. Occurrence ownership includes internal project/request witnesses and composite FKs through Round→request→attempt→rule-result. A rule-result read checks membership only, never its judgment. Evidence reuses `evidence-ref-intake.ts`; at most 20 pointers per occurrence, Round sample membership required, supplied hashes preserved.
+- Limits live in `domain/validation-issue-limits.ts` and SQL CHECKs. Text is plain, controls normalized as in opinion intake, shared worker secret patterns refused, oversized input rejected. Audit contains ids/enums/counts only. Discussion prose and file locations never enter audit or idempotency receipts.
+- Reads apply the existing visibility predicates before counts/activity; hidden targets are missing. Issue pages use visible activity/id descending; comment/history pages use timestamp/id ascending. Cursors bind workspace, actor, target/filters and page size. The first-page timestamp cutoff is not a cross-request MVCC snapshot; current ACL is reevaluated on every page.
+
 ## Validation request queue
 
 - The worker side (claim, heartbeat, result, fail) is token-only REST (`validation.worker`, a token-only scope for service tokens); the human side (`request-actions.ts`, `request-endpoints.ts`) is separate. Time is the database's `now()`; only the run-window judgment takes the injected clock.
