@@ -29,6 +29,8 @@ export const PERMISSION_DECLARATIONS: Record<Capability | TokenOnlyScope, { cate
   'improvement.manage': { category: '개선 아이템', description: '개선 아이템을 작성하고 변경합니다.' },
   'lifecycle.project.manage': { category: '로그 개발·검증', description: '로그 개발 건을 만들고 관리합니다.' },
   'lifecycle.round.manage': { category: '로그 개발·검증', description: '로그 검증 Round를 만들고 관리합니다.' },
+  'lifecycle.issue.contribute': { category: '로그 개발·검증', description: '로그 검증 항목을 등록하고 댓글을 씁니다.' },
+  'lifecycle.issue.link': { category: '로그 개발·검증', description: '로그 검증 항목에 Round의 결과와 근거를 연결합니다.' },
   'lifecycle.gate.decide': { category: '로그 개발·검증', description: '로그 개발 단계의 Gate를 승인하거나 반려합니다.' },
   'knowledge.draft.create': { category: '로그 지식 허브', description: '새 지식이나 지식 개정 초안을 작성합니다.' },
   'explorer.source.read': { category: '로그 탐색', description: 'Source 소유자의 접근 규칙에 따라 로그 원문을 읽습니다.' },
