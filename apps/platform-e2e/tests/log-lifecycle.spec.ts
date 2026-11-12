@@ -4,6 +4,7 @@ import { evidence, signInAs } from './support';
 const PROJECT = '14470000-0000-4000-8000-000000000101';
 const ROUND = '14470000-0000-4000-8000-000000000201';
 const REQUEST = '14470000-0000-4000-8000-000000000301';
+const ATTEMPT = '14470000-0000-4000-8000-000000000401';
 const modelNode = 'v/14470000-0000-4000-8000-000000000011/p/14470000-0000-4000-8000-000000000021/m/14470000-0000-4000-8000-000000000001';
 const roundPath = `/log-dev/log-model-round/${PROJECT}/${ROUND}`;
 
@@ -116,7 +117,8 @@ test.describe('log-lifecycle screens', () => {
 
   test('rule filters restore after reload and excerpts require an explicit read', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto(`${roundPath}?result=NOT_CHECKED`);
+    // The default population is the decisive (latest completed) attempt; pin the first attempt, whose rules carry the deleted excerpt.
+    await page.goto(`${roundPath}?request=${REQUEST}&attempt=${ATTEMPT}&result=NOT_CHECKED`);
     await expect(page.getByRole('table', { name: '규칙 결과', exact: true })).toContainText('SEQ-002');
     await expect(page.getByRole('table', { name: '규칙 결과', exact: true })).not.toContainText('TIME-001');
     await expect(page.getByText('보관 기간 지남으로 삭제됨', { exact: true })).toHaveCount(0);
