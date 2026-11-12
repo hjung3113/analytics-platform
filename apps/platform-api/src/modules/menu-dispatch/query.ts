@@ -175,7 +175,7 @@ export async function resolveRequestScopes(
     const scopes = await resolver?.resolve(actor, signal);
     if (signal?.aborted || !scopes?.length) return null;
     const site = scopes.filter((grant) => grant.site === context.scopeId);
-    if (typeof context.scopeId !== 'string' || site.length === 0) return null;
+    if (typeof context.scopeId !== 'string' || !site.some((grant) => grant.rooms.length > 0)) return null;
     const rooms = context.roomNames;
     if (Array.isArray(rooms) && !rooms.every((room) => site.some((grant) => grant.rooms.includes(room)))) return null;
     return scopes;

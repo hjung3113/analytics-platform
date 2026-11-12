@@ -19,6 +19,13 @@ afterEach(async () => { await app?.close(); app = undefined; });
 
 const cases = [
   ['no grants', async () => [], body(), 'forbidden'],
+  ...[null, [], ['R1'], undefined].flatMap((rooms) =>
+    [false, true].map((otherSite) => [
+      `empty requested-site rooms (${String(rooms)}), other site ${otherSite}`,
+      async () => [{ site: 'MEM', rooms: [] }, ...(otherSite ? [{ site: 'FDRY', rooms: ['R9'] }] : [])],
+      { endpoint: 'test.rows', context: { scopeId: 'MEM', ...(rooms === undefined ? {} : { roomNames: rooms }) }, params: {} },
+      'forbidden',
+    ] as const)),
   ['throws', async () => { throw new Error('private resolver detail'); }, body(), 'forbidden'],
   ['timeout', createHttpScopeResolver({
     baseUrl: 'https://grants.example', timeoutMs: 5,
@@ -36,7 +43,7 @@ for (const mode of ['engine', 'route'] as const) {
   describe(`Scope judgment through ${mode}`, () => {
     it.each(cases)('%s', async (_name, resolve, payload, outcome) => {
       const resolver: ScopeResolver = { resolve: vi.fn(resolve) };
-      const { declaration } = testEndpoint({ requiresScope: true, context: { roomNames: 'apply' } });
+      const { declaration } = testEndpoint({ requiresScope: true, context: Object.hasOwn(payload.context, 'roomNames') ? { roomNames: 'apply' } : {} });
       const handle = vi.fn(async () => ({ outcome: 'ok' as const, data: [1] }));
       declaration.handle = handle;
       const registry = createMenuDispatchRegistry([{ endpoints: [declaration] }], { scopeResolver: resolver });

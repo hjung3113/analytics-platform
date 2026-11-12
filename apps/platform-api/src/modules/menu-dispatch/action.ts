@@ -17,6 +17,7 @@ import { resolveRequestScopes } from './query.js';
 import type { MenuDispatchRegistry } from './registry.js';
 import {
   type ActionAnswer,
+  type ActionHandlerContext,
   type ActionOutcome,
   type FieldError,
   type MenuActionDeclaration,
@@ -146,10 +147,16 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
       : [];
     if (scopes === null) return answer(correlationId, 'forbidden');
 
+    const actionContext: ActionHandlerContext = {
+      correlationId,
+      scopeId: spec.requiresScope ? context.scopeId as string : null,
+      scopes,
+      ...(signal ? { signal } : {}),
+    };
     const requestHash = hashRequestBody({
       action: spec.id,
       workspaceId: actor.workspace_id,
-      scopeId: spec.requiresScope ? context.scopeId : null,
+      scopeId: actionContext.scopeId,
       expectedVersion,
       input,
     });
@@ -187,7 +194,7 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
 
         // Step 7: version.
         if (spec.concurrency === 'version') {
-          const current = await declaration.currentVersion?.(tx, actor, input);
+          const current = await declaration.currentVersion?.(tx, actor, input, actionContext);
           if (current === undefined) {
             throw new Error(`action ${spec.id}: concurrency 'version' without a currentVersion reader`);
           }
@@ -200,7 +207,7 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
         }
 
         // Step 8: the write.
-        const written = await declaration.handle(tx, actor, input, { correlationId, scopes, ...(signal ? { signal } : {}) });
+        const written = await declaration.handle(tx, actor, input, actionContext);
         if (spec.concurrency === 'version' && typeof written.version !== 'string') {
           throw new Error(`action ${spec.id}: a versioned write must return the new version`);
         }

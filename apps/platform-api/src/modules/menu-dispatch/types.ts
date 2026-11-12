@@ -131,6 +131,14 @@ export interface ActionHandlerResult {
   version: string | null;
 }
 
+export interface ActionHandlerContext {
+  correlationId: string;
+  /** Validated requested site; null for scope-free actions. Never inferred from the grants. */
+  scopeId: string | null;
+  scopes: readonly ScopeGrant[];
+  signal?: AbortSignal;
+}
+
 export interface MenuActionDeclaration {
   spec: ActionDeclarationSpec;
   /** Current object visibility before returning a matched saved answer; false answers not_found without replaying or rewriting. */
@@ -143,13 +151,13 @@ export interface MenuActionDeclaration {
   /** Value check of `input` (keys are already judged); an empty list means valid. */
   validate(input: Record<string, unknown>): readonly FieldError[];
   /** Required for `concurrency: 'version'`. `null` = the target does not exist (`not_found`). Lock the target here. */
-  currentVersion?(tx: Tx, actor: PlatformActor, input: Record<string, unknown>): Promise<string | null>;
+  currentVersion?(tx: Tx, actor: PlatformActor, input: Record<string, unknown>, ctx: ActionHandlerContext): Promise<string | null>;
   /** The write. Same transaction as the idempotency record; the handler writes its own audit rows. */
   handle(
     tx: Tx,
     actor: PlatformActor,
     input: Record<string, unknown>,
-    ctx: { correlationId: string; scopes: readonly ScopeGrant[]; signal?: AbortSignal },
+    ctx: ActionHandlerContext,
   ): Promise<ActionHandlerResult>;
 }
 
