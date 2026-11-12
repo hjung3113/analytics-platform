@@ -507,6 +507,97 @@ describe.skipIf(!runIntegration)('log explorer evidence handoff (#1474 X-h)', ()
     }, 30_000);
   });
 
+  describe('last owner ACL wait is bounded (C4)', () => {
+    it('only the last ACL passes the total deadline: no status list, receiver rows or success audit', async () => {
+      const who = await person(['explorer.investigate', 'explorer.handoff', 'lifecycle.round.manage']);
+      const s = await seed([REF(26)], who);
+      const roundId = await makeRound();
+      const before = await inv(s.id);
+      const audits = await allAudit(s.id);
+      let calls = 0;
+      const delayed = await buildServer({ config: loadConfig(), dbHandle, logExplorer: {
+        ...devLogExplorerServerOptions(access, 'typical'),
+        handoffSourceTotalMs: 200,
+        sourceOwnerAccess: { allows: async (actor, owner) => {
+          if (++calls === 3) await new Promise(resolve => setTimeout(resolve, 400));
+          return access.allows(actor, owner);
+        } },
+        sourceReadPort: { ...createSyntheticScenario('typical').port, getWindow: async () => ({ status: 'ok', rows: [], truncated: false }) },
+      } });
+      try {
+        await delayed.ready();
+        const a = await act('evidenceHandoff', { id: s.id, refs: KEYS(s.refs), target: toRound(roundId) }, { who, server: delayed, expectedVersion: s.version });
+        expect(a.outcome, JSON.stringify(a)).toBe('invalid');
+        expect(fe(a)).toEqual(['refs:source_unavailable']);
+        expect(calls).toBe(3);
+        calls = 0;
+        const res = await delayed.inject({
+          method: 'POST', url: '/api/v1/menu-query',
+          headers: { 'content-type': 'application/json', ...cookieHeader(who.cookie) },
+          payload: { endpoint: 'logExplorer.handoffCheck', context: {}, params: { investigationId: s.id } },
+        });
+        expect(res.statusCode, res.body).toBe(200);
+        expect(res.json<Answer>().data).toEqual({ state: 'source_unavailable', refs: [] });
+        expect(calls).toBe(3);
+        expect(await roundRefs(roundId)).toEqual([]);
+        expect(await handoffAudit(s.id)).toEqual([]);
+        expect(await inv(s.id)).toEqual(before);
+        expect(await allAudit(s.id)).toEqual(audits);
+      } finally {
+        await delayed.close();
+      }
+    }, 30_000);
+
+    it('external disconnect during only the last ACL suppresses statuses and leaves data and audit unchanged', async () => {
+      const who = await person(['explorer.investigate', 'explorer.handoff', 'lifecycle.round.manage']);
+      const s = await seed([REF(26)], who);
+      const roundId = await makeRound();
+      const before = await inv(s.id);
+      const audits = await allAudit(s.id);
+      let response: ServerResponse | undefined;
+      let calls = 0;
+      let sent: unknown;
+      let complete: () => void = () => undefined;
+      const completed = new Promise<void>(resolve => { complete = resolve; });
+      const cancelled = await buildServer({ config: loadConfig(), dbHandle, logExplorer: {
+        ...devLogExplorerServerOptions(access, 'typical'),
+        handoffSourceTotalMs: 1500,
+        sourceOwnerAccess: { allows: async (actor, owner) => {
+          if (++calls === 3) {
+            expect(response).toBeDefined();
+            response?.emit('close');
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          return access.allows(actor, owner);
+        } },
+        sourceReadPort: { ...createSyntheticScenario('typical').port, getWindow: async () => ({ status: 'ok', rows: [], truncated: false }) },
+      } });
+      cancelled.addHook('onRequest', async (req, reply) => { if (req.url === '/api/v1/menu-query') response = reply.raw; });
+      cancelled.addHook('onSend', async (req, _reply, payload) => {
+        if (req.url === '/api/v1/menu-query') { sent = payload; complete(); }
+        return payload;
+      });
+      try {
+        await cancelled.ready();
+        await cancelled.inject({
+          method: 'POST', url: '/api/v1/menu-query',
+          headers: { 'content-type': 'application/json', ...cookieHeader(who.cookie) },
+          payload: { endpoint: 'logExplorer.handoffCheck', context: {}, params: { investigationId: s.id } },
+        }).catch((error: Error) => { expect(error.message).toBe('response destroyed before completion'); });
+        await completed;
+        expect(calls).toBe(3);
+        expect(typeof sent).toBe('string');
+        expect((JSON.parse(String(sent)) as Answer).data).toEqual({ state: 'source_unavailable', refs: [] });
+        expect(await roundRefs(roundId)).toEqual([]);
+        expect(await handoffAudit(s.id)).toEqual([]);
+        expect(await inv(s.id)).toEqual(before);
+        expect(await allAudit(s.id)).toEqual(audits);
+      } finally {
+        await cancelled.close();
+      }
+    }, 30_000);
+  });
+
   describe('Source owner grant revoked mid-read', () => {
     // The grant file is replaced with [] while the Source answers: the pre-flight judgment passed, so only a re-judgment around
     // the batch can stop the job. The stubbed Source answers a valid `ok` (empty rows) to prove the denial wins over resolved

@@ -1,5 +1,9 @@
 // #1474 X-h — the pure side of `logExplorer.evidenceHandoff`: input parsing, ref selection, Source resolution mapping, hash mismatch.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+import type { HandoffDeps } from '../deps.js';
+import { resolveHandoffRefs } from '../handoff-source.js';
+import { createSyntheticScenario } from '../adapters/synthetic/index.js';
 
 import { hashMismatchOf, parseHandoff, resolutionOf, selectStoredRefs } from '../domain/handoff.js';
 
@@ -79,5 +83,66 @@ describe('Source resolution and hash mismatch', () => {
     expect(hashMismatchOf({ fileRef: 'f1.log', fileSha256: H('a') }, files)).toBe(false);
     expect(hashMismatchOf({ fileRef: 'f1.log', fileSha256: H('b') }, files)).toBe(true);
     expect(hashMismatchOf({ fileRef: 'f2.log', fileSha256: H('a') }, files)).toBe(true);
+  });
+});
+
+
+describe('handoff ACL cancellation boundary (C4)', () => {
+  const actor = { actor_id: ID, workspace_id: OTHER, role_level: 'developer' };
+  it.each([
+    ['pre-batch', 2, 'timeout'], ['post-batch', 3, 'timeout'],
+    ['pre-batch', 2, 'cancel'], ['post-batch', 3, 'cancel'],
+  ])('%s ACL (call %i) cannot hold the job past %s', async (_phase, delayedCall, stop) => {
+    vi.useFakeTimers();
+    let release: (allowed: boolean) => void = () => undefined;
+    let entered: () => void = () => undefined;
+    const waiting = new Promise<void>(resolve => { entered = resolve; });
+    const acl = new Promise<boolean>(resolve => { release = resolve; });
+    const controller = new AbortController();
+    let calls = 0;
+    let settled = false;
+    const handoff: HandoffDeps = {
+      // Receivers are outside this helper's Source-only seam.
+      roundIntake: {} as never, draftIntake: {} as never, knowledgeLookup: {} as never,
+      sourceReadPort: { ...createSyntheticScenario('typical').port, getWindow: async () => ({ status: 'ok' as const, rows: [], truncated: false }) },
+      sourceOwnerAccess: { allows: async () => { if (++calls === delayedCall) { entered(); return acl; } return true; } },
+      sourceTotalMs: 50,
+    };
+    const result = resolveHandoffRefs(handoff, actor, 'owner', [ref(1)], undefined, controller.signal)
+      .then(value => ({ value, error: null }), (error: unknown) => ({ value: null, error }))
+      .finally(() => { settled = true; });
+    try {
+      await waiting;
+      if (stop === 'cancel') controller.abort();
+      await vi.advanceTimersByTimeAsync(stop === 'timeout' ? 50 : 0);
+      const settledBeforeAcl = settled;
+      release(true);
+      const outcome = await result;
+      expect(outcome).toMatchObject({ value: null, error: { fieldErrors: [{ path: ['refs'], code: 'source_unavailable' }] } });
+      expect(settledBeforeAcl).toBe(true);
+    } finally {
+      release(true);
+      await result;
+      vi.useRealTimers();
+    }
+  });
+
+  it('subtracts the pre-batch ACL wait from the Source time budget', async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    const getWindow = vi.fn(async () => ({ status: 'ok' as const, rows: [], truncated: false }));
+    const handoff: HandoffDeps = {
+      // Receivers are outside this helper's Source-only seam.
+      roundIntake: {} as never, draftIntake: {} as never, knowledgeLookup: {} as never,
+      sourceReadPort: { ...createSyntheticScenario('typical').port, getWindow },
+      sourceOwnerAccess: { allows: async () => { if (++calls === 2) vi.setSystemTime(Date.now() + 30); return true; } },
+      sourceTotalMs: 50,
+    };
+    try {
+      expect(await resolveHandoffRefs(handoff, actor, 'owner', [ref(1)])).toEqual([true]);
+      expect(getWindow).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ timeBudgetMs: 20 }));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

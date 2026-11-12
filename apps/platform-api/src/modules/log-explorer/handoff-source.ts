@@ -39,12 +39,31 @@ export async function resolveHandoffRefs(handoff: HandoffDeps, actor: PlatformAc
   const startedAt = Date.now();
   const timer = setTimeout(() => controller.abort(), totalMs);
   const out: boolean[] = [];
+  const remainingTime = () => {
+    const remaining = totalMs - (Date.now() - startedAt);
+    if (controller.signal.aborted || remaining <= 0) throw invalid({ path: ['refs'], code: 'source_unavailable' });
+    return remaining;
+  };
+  const checkOwner = async () => {
+    remainingTime();
+    let onCancel: () => void = () => undefined;
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      onCancel = () => reject(invalid({ path: ['refs'], code: 'source_unavailable' }));
+      controller.signal.addEventListener('abort', onCancel, { once: true });
+    });
+    try {
+      const allowed = await Promise.race([handoff.sourceOwnerAccess.allows(actor, sourceOwner), cancelled]);
+      remainingTime();
+      if (!allowed) throw forbidden();
+    } finally {
+      controller.signal.removeEventListener('abort', onCancel);
+    }
+  };
   try {
     for (let from = 0; from < refs.length; from += SOURCE_PARALLEL) {
       const batch = refs.slice(from, from + SOURCE_PARALLEL);
-      const remaining = totalMs - (Date.now() - startedAt);
-      if (controller.signal.aborted || remaining <= 0) throw invalid({ path: ['refs'], code: 'source_unavailable' });
-      if (!(await handoff.sourceOwnerAccess.allows(actor, sourceOwner))) throw forbidden();
+      await checkOwner();
+      const remaining = remainingTime();
       const answers = await Promise.all(
         batch.map(async (ref): Promise<boolean | null> => {
           try {
@@ -58,16 +77,17 @@ export async function resolveHandoffRefs(handoff: HandoffDeps, actor: PlatformAc
           }
         }),
       );
-      if (controller.signal.aborted) throw invalid({ path: ['refs'], code: 'source_unavailable' });
-      if (!(await handoff.sourceOwnerAccess.allows(actor, sourceOwner))) throw forbidden();
+      await checkOwner();
+      remainingTime();
       for (const resolved of answers) {
         if (resolved === null) throw invalid({ path: ['refs'], code: 'source_unavailable' });
         out.push(resolved);
       }
     }
+    remainingTime();
+    return out;
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', onAbort);
   }
-  return out;
 }
