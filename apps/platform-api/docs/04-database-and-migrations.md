@@ -432,7 +432,7 @@ used in the current migrations directory.
 
 `apps/platform-api/migrations/meta/*.json` files are Drizzle-generated metadata and
 must not be hand-edited. Commit them with their generated SQL migration. The
-root `pnpm gate:db-migration-drift` gate mechanically verifies that every
+`pnpm --filter @ap/platform-api-ops gate:db-migration-drift` gate mechanically verifies that every
 `migrations/*.sql` file has exactly one `_journal.json` registration (and vice
 versa), runs `drizzle-kit check` against the committed migration history, then
 diffs the live TS schema against a throwaway copy of the committed migrations:

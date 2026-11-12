@@ -55,7 +55,7 @@ The root design-lint rules apply here; package specifics:
 - Import shared parts (shadcn primitives, panel/toolbar/forms/feedback/layout shells, rich content, `cn`) from `@ap/ui`; feature-owned components (badges, pickers, `LinkedEntityTrail`, `useDetailPanelSlot`) from `@ap/feature-ui`, which no longer re-exports `@ap/ui` names (#713q). Never import shadcn/Radix primitives directly.
 - The detail slot is `@ap/ui`'s (bundle 2b); there is no `DetailPanelSlotContext`.
   - The consuming host wraps its frame in `DetailPanelSlotProvider` and hosts the panel through `useDetailPanelSlotHost()`.
-  - Shells forward `detailPanel` with `useDetailPanelSlot(node)` (`@ap/feature-ui`) = `@ap/ui`'s `useDetailPanelContent` (`undefined` clears, `null` closes). Tests rendering a shell with `detailPanel` mount `DetailPanelSlotProvider` plus a host element.
+  - Production screens take the host's detail slot (`renderDetail`) and hand its result to the shell's `detailPanel`. `useDetailPanelSlot(node)` (`@ap/feature-ui`) = `@ap/ui`'s `useDetailPanelContent` (`undefined` clears, `null` closes) is used only by the test screen hosts (`src/test/screen-host/**`). Tests rendering a shell with `detailPanel` mount `DetailPanelSlotProvider` plus a host element.
 - Use installed libraries, shadcn/Radix wrappers and `lucide-react` before hand-rolling interaction behavior, accessibility primitives, icons, popovers, menus, tabs, dialogs or form controls; icon-only controls need accessible labels.
 - Add new tokens or variants to docs before using them broadly.
 
