@@ -1,14 +1,15 @@
 import type { ActionOutcome, ActionResponse, DeleteNoticeInput, Notice, PlatformAdapter, SaveNoticeInput } from '@ap/contracts';
+import type { EndpointInvalidationSource } from '@ap/app-host';
 
 /**
  * Targeted query invalidation owned by the app composition (ADR-0098 §4, #1106). A notice write goes through the
  * adapter port, not a menu action, so the Kernel's `ActionSpec.invalidates` never runs for it: the Home banner
- * would stay stale until something else refreshed it. The app declares which of its endpoints a write affects and
+ * would stay stale until something else refreshed it. The app declares which of its endpoint ids a write affects and
  * the bridge (`EndpointInvalidationBridge`) hands the ids to `refreshEpochs.bump`. The Kernel learns no menu name.
+ * `EndpointInvalidationSource` is the Host's type since #1702; it is re-exported under the same name so `real/*` and
+ * the tests keep compiling.
  */
-export type EndpointInvalidationSource = {
-  subscribe: (listener: (endpointIds: readonly string[]) => void) => () => void;
-};
+export type { EndpointInvalidationSource };
 
 export type EndpointInvalidation = EndpointInvalidationSource & {
   emit: (endpointIds: readonly string[]) => void;

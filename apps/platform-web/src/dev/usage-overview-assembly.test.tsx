@@ -1,16 +1,25 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider } from '@ap/kernel';
+import { startAppHost } from '@ap/app-host';
 import { createAssembly, type Assembly } from '#platform-assembly';
 import { getRole, setRole } from '@ap/mock-server';
-import { AppRoot } from '../app-root';
-import { registry } from '../menus';
+import { EQUIPMENT_AXES } from '../equipmentAxes';
+import { declarations, registry } from '../menus';
 import { spaceSystems } from '../space-systems';
+import { SpaceSystemsSession } from '../space-systems-session';
+
+/** The Host owns its React root, so each mount's container is removed by hand. */
+const containers: HTMLElement[] = [];
 
 async function mountAt(url: string) {
   const assembly = await createAssembly({ registry }) as Assembly;
   window.history.replaceState(null, '', url);
-  render(<I18nProvider><AppRoot assembly={assembly} queryHistory={undefined as never} location={undefined} makeSlots={() => ({})} /></I18nProvider>);
+  const container = document.createElement('div');
+  document.body.append(container);
+  containers.push(container);
+  await act(async () => {
+    await startAppHost({ container, declarations, createAssembly: () => assembly, basePath: '/', equipmentAxes: EQUIPMENT_AXES, queryHistory: undefined as never, slots: () => ({}), children: (mounted) => <SpaceSystemsSession source={mounted.spaceSystems ?? null} /> });
+  });
 }
 
 const previousRole = getRole();
@@ -24,7 +33,7 @@ beforeEach(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn();
   HTMLElement.prototype.scrollTo = vi.fn();
 });
-afterEach(() => { cleanup(); spaceSystems.reset(); setRole(previousRole); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); for (const container of containers.splice(0)) container.remove(); spaceSystems.reset(); setRole(previousRole); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('admin usage in the real AppRoot assembly (#605 FIXB)', () => {
   it('renders a populated usage drawer with no test-only TooltipProvider', async () => {

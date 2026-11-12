@@ -10,7 +10,7 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
 - Screens must not import `@ap/mock-server` directly ([menus/AGENTS.md](../../menus/AGENTS.md)); `check:prod-graph` keeps it out of production builds.
 - Do not import design-system CSS (`@ap/ui` `styles/*`) individually: `src/style.css` `@import`s only `@ap/ui/styles.css` ([packages/sdk/ui/AGENTS.md](../../packages/sdk/ui/AGENTS.md)). Menu styles, the viewer's included (`@ap/menu-topview/styles.css`, which brings the `--eqv-*` theme), sit in the generator region.
 
-## Assembly (`src/main.tsx`, `src/app-root.tsx`)
+## Assembly (`src/main.tsx`, `@ap/app-host`)
 
 - Tree: `I18nProvider` → `AppRoot` (`PlatformProvider adapter registry slots` → `AppShell` + `RouteOutlet`). Assemble only.
 - `main.tsx` never imports mock or `src/dev/**` ([ADR-0009](../../docs/adr/0009-production-assembly-injection.md)). Take the adapter and rail tools from `createAssembly({ registry })` of `#platform-assembly` (contract type `src/platform-assembly.d.ts`). `createAssembly` may return a `Promise` and may return `{ redirect }` or `{ screen }` to choose a redirect or notice screen instead of rendering; `main.tsx` awaits it before mounting.
@@ -32,7 +32,7 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
   - Source: `Assembly.spaceSystems` (real: feature API `GET /managed-systems/space-links`; mock: same-shape data from `src/dev/mock-space-systems.ts`; absent means no links). Read once per session.
   - `entriesFor` and `managedSystemFor` read the store synchronously and return `null` until ready, so the Kernel slot contract and `/bootstrap` are unchanged.
   - Only `declared` links make entries (withdrawn or unlinked spaces get no block). `managedSystemFor(null)` (spaceless screens: home, 소통, 내 활동) is the «플랫폼» system.
-  - The store is observable: `src/app-root.tsx` subscribes and rebuilds the slots on each completion, failure and refresh (the `vocCompose` slot object and an open form stay). `src/space-systems-session.tsx` clears old links at once when the session (adapter, revision, user) changes, reads the new session, and drops late results of a previous session or a superseded refresh.
+  - The store is observable: `useAppSlots` (`src/slots.ts`, called by `@ap/app-host` in the root's render) subscribes and rebuilds the slots on each completion, failure and refresh (the `vocCompose` slot object and an open form stay). `src/space-systems-session.tsx` clears old links at once when the session (adapter, revision, user) changes, reads the new session, and drops late results of a previous session or a superseded refresh.
   - Rail `VOC 등록` blocks submit until `useComposeDefaultStatus()` is `ready` (the form still opens); after a failure it re-reads on the next open.
   - Every entry is a shell menu with no all-link. The block shows only to `features:access` holders.
 
@@ -50,10 +50,10 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
 - The mock for the three EV reads (`eqv.equipment-options`, `eqv.topview-context`, `eqv.topview-events`) is `topviewMock` of `@ap/menu-topview/mock` (`mart: false`), registered in the `MOCK_ENDPOINTS` marker like every menu mock. The assembly hands it the synthetic fixture of `@ap/menu-topview/mock-data` with `setTopviewMockSource`, because menu mock code may not import `@eqv/core`.
   - The EV declarations themselves are `mergeTimeDomain: false` (#1661), so the mock uses them as is; there is no mock-only copy.
   - `@ap/menu-topview/mock-data` is imported only by `src/dev/**` and `src/server-conformance.test.ts` (lint `app` preset); `check:prod-graph` (`scripts/prod-graph.ts` `FORBIDDEN`) guards the production graph.
-- `src/real/endpoint-invalidation.ts`, `src/endpoint-invalidation-bridge.tsx` — refresh the Home banner after a notice write ([ADR-0098](../../docs/adr/0098-adapter-preferences-people-notices-ports.md) §4).
+- `src/real/endpoint-invalidation.ts` (the mounting bridge is `EndpointInvalidationBridge` in `@ap/app-host`) — refresh the Home banner after a notice write ([ADR-0098](../../docs/adr/0098-adapter-preferences-people-notices-ports.md) §4).
   - The real assembly wraps `saveNotice`/`deleteNotice` once; after `ok`, `conflict`, `unknown` (or a throw) it emits the app-declared `home.notices` through `Assembly.invalidation`.
   - `main.tsx` mounts one `EndpointInvalidationBridge` under `PlatformProvider`; it calls `refreshEpochs.bump` for that query only (not the full `adapter.subscribe` invalidation; the Kernel knows no menu names).
-  - Create the decorated adapter once per bootstrap, never per render. Proof: `src/endpoint-invalidation-bridge.test.tsx`.
+  - Create the decorated adapter once per bootstrap, never per render. Proof: `src/notice-invalidation.test.tsx`.
 - `src/query-history-store.ts` — current-browser local implementation of the SDK history port (06 §11), injected by `main.tsx`. It owns tuple keys, schema validation, Web Locks serialization and the 20-entry merge/retention. A storage exception is rejected with a fixed non-sensitive error; content never goes to instrumentation.
 - `src/saved-view-store.ts`, `src/saved-view-seed.ts` — browser-local mock of the SDK saved-view port (`SavedViewStore`, 06 §21), injected by `main.tsx` as `PlatformProvider savedViews`. It simulates server ACL only (no server storage, audit or `PlatformAdapter` extension).
   - Current user comes from the `platform:role` session role; user ID equals the mock session `user.id` (`engineer|admin|viewer`). Menu permission is judged by a lookup `main.tsx` injects from the Registry (unregistered menu denied).

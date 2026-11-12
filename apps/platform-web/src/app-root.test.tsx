@@ -1,18 +1,24 @@
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider } from '@ap/kernel';
-import { testSession } from '@ap/kernel/testing';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { startAppHost } from '@ap/app-host';
 import type { PlatformAdapter } from '@ap/contracts';
+import { testSession } from '@ap/kernel/testing';
 import { createAssembly, type Assembly } from '#platform-assembly';
-import { AppRoot } from './app-root';
-import { featureSlot } from './feature-systems';
-import { registry } from './menus';
+import { EQUIPMENT_AXES } from './equipmentAxes';
+import { declarations, registry } from './menus';
 import { spaceSystems, type SpaceSystems } from './space-systems';
-import { appSlots } from './slots';
+import { SpaceSystemsSession } from './space-systems-session';
+import { makeAppSlots } from './slots';
 
 /** The shell's sidebar draws the feature block (VOC · Task · 설문) of the space it sits in once the app's link store answers; completion must reach it with no navigation (#1289 node j). */
 /** The mock assembly's answer (ADR-0009: tests reach `src/dev/**` only through the assembly). */
 const MOCK_SPACE_SYSTEMS: SpaceSystems = await ((await createAssembly({ registry })) as Assembly).spaceSystems!();
+
+/** What `main.tsx` injects into the Host, with the other slots empty as this test mounts only the features slot. */
+const useAppSlots = makeAppSlots({ notifications: undefined as never, vocCompose: undefined as never, homeTodo: undefined as never, scopeControl: undefined as never, navCounts: undefined as never, spaceNavSection: undefined as never });
+
+/** The Host owns its React root, so each mount's container is removed by hand (the Host exposes no unmount). */
+const containers: HTMLElement[] = [];
 
 async function mountAt(url: string, spaceSystemsSource: Assembly['spaceSystems']) {
   const mock = await createAssembly({ registry }) as Assembly;
@@ -20,16 +26,30 @@ async function mountAt(url: string, spaceSystemsSource: Assembly['spaceSystems']
   const adapter: PlatformAdapter = { ...mock.adapter, session: () => session };
   const assembly: Assembly = { ...mock, adapter, spaceSystems: spaceSystemsSource };
   window.history.replaceState(null, '', url);
-  const makeSlots = () => ({ ...appSlots(assembly, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never), features: featureSlot() });
-  return render(<I18nProvider><AppRoot assembly={assembly} queryHistory={undefined as never} location={undefined} makeSlots={makeSlots} /></I18nProvider>);
+  const container = document.createElement('div');
+  document.body.append(container);
+  containers.push(container);
+  await act(async () => {
+    await startAppHost({
+      container,
+      declarations,
+      createAssembly: () => assembly,
+      basePath: '/',
+      equipmentAxes: EQUIPMENT_AXES,
+      queryHistory: undefined as never,
+      slots: useAppSlots,
+      children: (mounted) => <SpaceSystemsSession source={mounted.spaceSystems ?? null} />,
+    });
+  });
+  return container;
 }
 
 const featureBlock = () => screen.queryByRole('navigation', { name: /^기능 · / });
 
 beforeEach(() => { spaceSystems.reset(); });
-afterEach(() => { cleanup(); spaceSystems.reset(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); for (const container of containers.splice(0)) container.remove(); spaceSystems.reset(); window.history.replaceState(null, '', '/'); });
 
-describe('AppRoot (#1289 node j)', () => {
+describe('the mounted app root (#1289 node j)', () => {
   it('draws the sidebar feature block when the link store answers, with no navigation in between', async () => {
     let answer!: (data: SpaceSystems) => void;
     await mountAt('/mars/equipment-master', () => new Promise<SpaceSystems>((resolve) => { answer = resolve; }));

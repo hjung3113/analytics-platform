@@ -11,8 +11,8 @@ vi.mock('@ap/kernel', async importOriginal => ({
   PlatformProvider: (props: Record<string, unknown>) => { seen.providerProps.push(props); return null; },
   I18nProvider: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock('@ap/shell', () => ({ AppShell: () => null, RouteOutlet: () => null }));
-vi.mock('./slots', () => ({ appSlots: () => ({}) }));
+vi.mock('@ap/shell', () => ({ AppShell: () => null, RouteOutlet: () => null, GlobalContextBar: () => null, OpenInBoardAction: () => null }));
+vi.mock('./slots', () => ({ makeAppSlots: () => () => ({}) }));
 
 async function boot(assembly: unknown) {
   seen.assembly = assembly;

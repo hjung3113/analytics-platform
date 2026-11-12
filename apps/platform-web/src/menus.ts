@@ -7,6 +7,7 @@ import {
   BarChart3, BookOpen, Boxes, ClipboardCheck, ClipboardList, Cpu, Database, FileSearch, ScrollText, Gauge, Inbox, KeyRound, Server, LayoutDashboard, LineChart, ListChecks, ListTodo, Megaphone, Ruler, Settings, ShieldCheck, SlidersHorizontal, Timer, UserRound, Waves, Workflow, CircleGauge,
   PenTool, Map as MapIcon,
 } from 'lucide-react';
+import type { CreateRegistryInput } from '@ap/app-host';
 import { carrySetId, groupId, menuPermission, spaceId, type CarrySetDef, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
 import { createHomeComponent, type HomeLauncherGroup } from '@ap/menu-home/launcher';
@@ -177,4 +178,8 @@ export const CARRY_SETS: readonly CarrySetDef[] = [{ id: carrySetId('features'),
 /** Roots the app's own screens and feature serve outside the Registry; no space may take one (ADR-0093). The Kernel reserves only its own `board`, `api` and `auth`. */
 export const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq', 'tokens'];
 
-export const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: placeGlobalGroups(configureHome(MENUS)), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS });
+/** The whole `createRegistry` input (spaces, groups, menus, permissions, carrySets, platformHomeMenuId, reservedRoots): the Host (`startAppHost` in `main.tsx`) builds the mounted app's Registry from it. */
+export const declarations: CreateRegistryInput = { spaces: SPACES, groups: GROUPS, menus: placeGlobalGroups(configureHome(MENUS)), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS };
+
+/** Built once here for tests and any direct reader; the running app mounts the Registry the Host builds from the same `declarations` (one extra build, unchanged behaviour). */
+export const registry = createRegistry(declarations);
