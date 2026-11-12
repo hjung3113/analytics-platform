@@ -1,6 +1,6 @@
 # Scope 부여의 원천은 사내가 주입하는 resolver이고, 단위는 site·room부터 시작한다
 
-상태: **Decided (2026-11-12)**.
+상태: **Decided (2026-11-12)**. 결정 1·2(원천·구현 모양)는 [ADR-0154](0154-site-and-room-grants-are-platform-owned.md)가 대체한다(소유자 2026-11-12, #1844, Candidate).
 - 결정자: 사용자(소유자) — 2026-11-12 [#1087](https://github.com/hjung3113/analytics-platform/issues/1087) 질문 1·2 «OK»: Scope 부여 원천은 사내가 주입하는 resolver, 단위는 site·room부터(Line은 뒤로). 실제 Scope 부여는 사내 책임이라는 소유자 분할과 맞다.
 - Scope: [#1729](https://github.com/hjung3113/analytics-platform/issues/1729), [#1087](https://github.com/hjung3113/analytics-platform/issues/1087). 관련: [ADR-0005](0005-scope-room-name-line-independent.md), [ADR-0068](0068-permission-scope-and-business-system-link.md), [ADR-0069](0069-platform-port-in-feedbackops-backend.md) 결정 8, [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md).
 - 소유자 답이 직접 덮는 것은 결정 1·5(#1087 질문 1·2)와 결정 2의 구현 모양(서비스 호출, #1087 2026-11-12)이고, 결정 2~4는 [#1729](https://github.com/hjung3113/analytics-platform/issues/1729) 범위 정리에서 유도했다. 구현 노드가 되돌릴 수 있다.
