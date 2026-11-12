@@ -5,6 +5,7 @@
 // owns the judgment order (docs/integration/real-server-checklist.md §3) and never any business write.
 
 import type { Capability } from '@ap/feature-shared';
+import type { ScopeGrant } from './scope-resolver.js';
 import type { Tx } from '../../db/tx.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 
@@ -32,14 +33,14 @@ export interface EndpointDeclarationSpec {
   paramKeys: readonly string[];
   /** The endpoint's own data permission name (declared; never read from the request). */
   permission: string;
-  /** Refused at startup until the server has a Scope resolver (#1087). */
+  /** Requires an injected Scope resolver at startup. */
   requiresScope: boolean;
   /** Applied Context keys. A key that is absent is unsupported; `reference` is carried, not a filter. */
   context: Partial<Record<ContextKey, 'apply' | 'reference'>>;
   /** Applied Context keys that must be non-null (empty sets stay present). */
   requiredContext?: readonly ContextKey[];
   limits?: { maxHours?: number; maxRows?: number };
-  /** Refused at startup until the server has a Scope resolver (#1087): §6.3 needs the resolved equipment set. */
+  /** Refused at startup until the server implements the §6.3 time-domain judgment. */
   mergeTimeDomain: boolean;
 }
 
@@ -59,6 +60,10 @@ export type ParamsJudgment = { ok: true } | { ok: false; message: string };
 
 export interface EndpointHandlerArgs {
   actor: PlatformActor;
+  /** Full grant set resolved for this request; scope-free endpoints receive an empty set. */
+  scopes: readonly ScopeGrant[];
+  /** Lazy bootstrap-equivalent revision. Available when the host injects a session reader. */
+  sessionVersion(): Promise<string>;
   /** Only the applied Context keys, by their wire names (`from`, `to`, `lineNames`, …). */
   context: Record<string, unknown>;
   params: Record<string, unknown>;
@@ -87,7 +92,7 @@ export interface ActionDeclarationSpec {
   /** Runtime allow-list of `input` keys; list every key, including optional ones. */
   inputKeys: readonly string[];
   permission: string;
-  /** Refused at startup until the server has a Scope resolver (#1087). */
+  /** Requires an injected Scope resolver at startup. */
   requiresScope: boolean;
   /** `version`: the request carries `expectedVersion`; a mismatch answers `conflict`. */
   concurrency: 'none' | 'version';
@@ -144,7 +149,7 @@ export interface MenuActionDeclaration {
     tx: Tx,
     actor: PlatformActor,
     input: Record<string, unknown>,
-    ctx: { correlationId: string },
+    ctx: { correlationId: string; scopes: readonly ScopeGrant[]; signal?: AbortSignal },
   ): Promise<ActionHandlerResult>;
 }
 

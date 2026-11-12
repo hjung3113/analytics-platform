@@ -1,5 +1,5 @@
 // `menuQuery` judgment (real-server-checklist §3 steps 1–10) against the server's own declarations.
-// Order is contract: shape → params → permission → [scope: refused at registration] → limits →
+// Order is contract: shape → params → permission → scope → limits →
 // explicit empty set → [time domain: refused at registration] → handler → row cap → response.
 // The module that contributes an endpoint owns the data and its assessments/trust; this file owns
 // only the order and the generic checks. It never reads a table.
@@ -7,6 +7,7 @@
 import { menuQueryContextSchema } from '@ap/contract-schemas';
 
 import type { PlatformActor } from '../platform-port/permissions.js';
+import type { ScopeGrant, ScopeResolver } from './scope-resolver.js';
 import type { MenuDispatchRegistry } from './registry.js';
 import type { ContextKey, EndpointOutcome, MenuEndpointDeclaration } from './types.js';
 
@@ -71,6 +72,7 @@ export type QueryShape =
       declaration: MenuEndpointDeclaration;
       context: Record<string, unknown>;
       params: Record<string, unknown>;
+      scopeResolver?: ScopeResolver;
     }
   | { ok: false; message: string };
 
@@ -93,7 +95,7 @@ export function judgeQueryShape(body: unknown, registry: MenuDispatchRegistry): 
 
   const { context, params } = body;
   if (!isPlain(context)) return fail(`${spec.id}: context must be an object`);
-  const applied = appliedContextFields(declaration);
+  const applied = [...(spec.requiresScope ? ['scopeId'] : []), ...appliedContextFields(declaration)];
   for (const key of Object.keys(context)) {
     if (!applied.includes(key)) return fail(`${spec.id} does not apply context ${key}`);
   }
@@ -141,7 +143,7 @@ export function judgeQueryShape(body: unknown, registry: MenuDispatchRegistry): 
   }
   const judged = declaration.validate(params);
   if (!judged.ok) return fail(judged.message);
-  return { ok: true, declaration, context, params };
+  return { ok: true, declaration, context, params, ...(registry.scopeResolver ? { scopeResolver: registry.scopeResolver } : {}) };
 }
 
 const answer = (
@@ -162,22 +164,51 @@ function overHourLimit(declaration: MenuEndpointDeclaration, context: Record<str
   return hours > maxHours && !narrowed;
 }
 
+/** Scope resolution fails closed; resolver timeouts are owned by the injected adapter. */
+export async function resolveRequestScopes(
+  resolver: ScopeResolver | undefined,
+  actor: PlatformActor,
+  context: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<readonly ScopeGrant[] | null> {
+  try {
+    const scopes = await resolver?.resolve(actor, signal);
+    if (signal?.aborted || !scopes?.length) return null;
+    const site = scopes.filter((grant) => grant.site === context.scopeId);
+    if (typeof context.scopeId !== 'string' || site.length === 0) return null;
+    const rooms = context.roomNames;
+    if (Array.isArray(rooms) && !rooms.every((room) => site.some((grant) => grant.rooms.includes(room)))) return null;
+    return scopes;
+  } catch {
+    return null;
+  }
+}
+
+export const unavailableSessionVersion = async (): Promise<string> => {
+  throw new Error('Menu dispatch sessionVersion reader is not configured');
+};
+
 /** Steps 3–10 for a request that passed `judgeQueryShape`. */
 export async function runQuery(
   shape: Extract<QueryShape, { ok: true }>,
   actor: PlatformActor,
   correlationId: string,
   signal?: AbortSignal,
+  sessionVersion: () => Promise<string> = unavailableSessionVersion,
 ): Promise<QueryAnswer> {
   const { declaration, context, params } = shape;
   if (!(await declaration.authorize(actor))) {
     return answer('forbidden', { message: `No permission ${declaration.spec.permission}` });
   }
+  const scopes = declaration.spec.requiresScope
+    ? await resolveRequestScopes(shape.scopeResolver, actor, context, signal)
+    : [];
+  if (scopes === null) return answer('forbidden');
   if (overHourLimit(declaration, context)) return answer('too_large');
   if (SET_FIELDS.some((field) => Array.isArray(context[field]) && context[field].length === 0)) {
     return answer('empty');
   }
-  const result = await declaration.handle({ actor, context, params, correlationId, ...(signal ? { signal } : {}) });
+  const result = await declaration.handle({ actor, context, params, correlationId, scopes, sessionVersion, ...(signal ? { signal } : {}) });
   const { maxRows } = declaration.spec.limits ?? {};
   if (maxRows !== undefined && result.outcome === 'ok') {
     if (!Array.isArray(result.data)) {

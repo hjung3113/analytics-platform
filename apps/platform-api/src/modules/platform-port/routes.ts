@@ -8,7 +8,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
 import type { Db } from '../../db/client.js';
 import { sendError } from '../../lib/errors.js';
-import type { ActorRecord, SessionRecord, SessionService } from '../auth/session-service.js';
+import type { SessionService } from '../auth/session-service.js';
 import type { FindingsService } from '../findings/index.js';
 import type { CheckService } from '../permissions/check-service.js';
 import { platformNoticeRoutes } from '../platform-notices/index.js';
@@ -29,7 +29,7 @@ import { OVERSIZE_BODY, createPreferencesBodyParser } from './preferences-body.j
 import { type PreferencesJudgement, createPlatformPreferencesService } from './preferences.js';
 import { seoulWallClockMinute } from './seoul-clock.js';
 import { sessionVersionOf } from './session-version.js';
-import { titleFor } from './titles.js';
+import { createSessionSnapshot } from './session-snapshot.js';
 import {
   MALFORMED_BODY,
   createAuthenticator,
@@ -90,23 +90,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     ...(opts.now ? { now: opts.now } : {}),
   });
 
-  async function buildSession(loaded: { session: SessionRecord; actor: ActorRecord }) {
-    const { actor, session } = loaded;
-    const permissions = await opts.permissions.resolve(opts.checkService, {
-      actor_id: actor.id,
-      workspace_id: session.workspaceId,
-      role_level: actor.roleLevel,
-    });
-    return {
-      user: {
-        id: actor.id,
-        name: actor.displayName,
-        title: titleFor(actor.roleLevel),
-        permissions,
-      },
-      scopes: [],
-    };
-  }
+  const buildSession = createSessionSnapshot(opts);
 
   app.get('/bootstrap', async (req, reply) => {
     const loaded = await authenticate(req, reply, true);

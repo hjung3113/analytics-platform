@@ -57,7 +57,7 @@ function world(over: { lines?: SyntheticLine[] } = {}) {
   };
   const endpoints = new Map<string, MenuEndpointDeclaration>(logExplorerReadEndpoints(deps).map((d) => [d.spec.id, d]));
   const call = (endpoint: string, params: Record<string, unknown>, actor = ACTOR): Promise<EndpointResult> =>
-    must(endpoints.get(`logExplorer.${endpoint}`)).handle({ actor, context: {}, params, correlationId: 'cid' });
+    must(endpoints.get(`logExplorer.${endpoint}`)).handle({ actor, context: {}, params, correlationId: 'cid', scopes: [], sessionVersion: async () => 'sv' });
   const records = (extra: Record<string, unknown> = {}) => call('records', { sampleSet: synthetic.sampleSet, query: {}, limit: 10, ...extra });
   return { state, audits, usage, endpoints, call, records, asked: () => asked, sampleSet: synthetic.sampleSet };
 }

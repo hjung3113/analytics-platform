@@ -54,7 +54,7 @@ function harness(scenario: SyntheticScenario | null, over: { port?: SourceReadPo
   const call: Harness['call'] = (endpoint, params, extra = {}) => {
     const declaration = endpoints.get(`logExplorer.${endpoint}`);
     if (!declaration) throw new Error(`no endpoint ${endpoint}`);
-    return declaration.handle({ actor: ACTOR, context: {}, params, correlationId: 'cid', ...extra });
+    return declaration.handle({ actor: ACTOR, context: {}, params, correlationId: 'cid', scopes: [], sessionVersion: async () => 'sv', ...extra });
   };
   return { call, audits, state, counter, usage, sampleSet: synthetic.sampleSet, owner: synthetic.sampleSet.sourceOwner, endpoints };
 }
@@ -317,7 +317,7 @@ describe('page cursor is bound to its request', () => {
     const mine = harness('typical');
     const c2 = await firstPage(mine);
     const call = mine.endpoints.get('logExplorer.records') as MenuEndpointDeclaration;
-    const as = await call.handle({ actor: { ...ACTOR, actor_id: '00000000-0000-4000-8000-0000000000b2' }, context: {}, params: { sampleSet: mine.sampleSet, query: {}, limit: 5, cursor: c2 }, correlationId: 'c' });
+    const as = await call.handle({ actor: { ...ACTOR, actor_id: '00000000-0000-4000-8000-0000000000b2' }, context: {}, params: { sampleSet: mine.sampleSet, query: {}, limit: 5, cursor: c2 }, correlationId: 'c', scopes: [], sessionVersion: async () => 'sv' });
     invalid(as);
     expect(mine.audits.at(-1)?.detail).toMatchObject({ result: 'cursor_invalid' });
   });
@@ -444,7 +444,7 @@ describe('audit holds no body', () => {
       sourceOwnerAccess: { allows: async () => true },
     }).find((d) => d.spec.id === 'logExplorer.records') as MenuEndpointDeclaration;
     expect(call).toBeTruthy();
-    await expect(broken.handle({ actor: ACTOR, context: {}, params: { sampleSet: h.sampleSet, query: {}, limit: 5 }, correlationId: 'c' })).rejects.toThrow('audit down');
+    await expect(broken.handle({ actor: ACTOR, context: {}, params: { sampleSet: h.sampleSet, query: {}, limit: 5 }, correlationId: 'c', scopes: [], sessionVersion: async () => 'sv' })).rejects.toThrow('audit down');
   });
 });
 

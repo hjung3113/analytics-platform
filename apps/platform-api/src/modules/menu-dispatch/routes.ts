@@ -22,7 +22,7 @@ import {
   platformActorOf,
 } from '../platform-port/transport.js';
 import { createMenuActionEngine } from './action.js';
-import { judgeQueryShape, runQuery } from './query.js';
+import { judgeQueryShape, runQuery, unavailableSessionVersion } from './query.js';
 import type { MenuDispatchRegistry } from './registry.js';
 
 export const MENU_QUERY_PREFIX = '/api/v1/menu-query';
@@ -32,6 +32,7 @@ export interface MenuDispatchRoutesOptions {
   sessionService: SessionService;
   workspaceId: string;
   registry: MenuDispatchRegistry;
+  sessionVersionOf?: (loaded: LoadedSession) => Promise<string>;
 }
 
 export interface MenuActionRoutesOptions extends MenuDispatchRoutesOptions {
@@ -64,7 +65,11 @@ export const menuQueryDispatchRoutes: FastifyPluginAsync<MenuDispatchRoutesOptio
     if (refuseLostTokenContext(req, reply)) return reply; // fail closed again right before dispatch authorizes
     const shape = judgeQueryShape(req.body === MALFORMED_BODY ? null : req.body, opts.registry);
     if (!shape.ok) return answerOf(req, { outcome: 'error', message: shape.message });
-    return answerOf(req, await runQuery(shape, platformActorOf(loaded), req.id, abandoned.signal));
+    let version: Promise<string> | undefined;
+    const sessionVersion = () => version ??= opts.sessionVersionOf
+      ? opts.sessionVersionOf(loaded)
+      : unavailableSessionVersion();
+    return answerOf(req, await runQuery(shape, platformActorOf(loaded), req.id, abandoned.signal, sessionVersion));
   });
 };
 
@@ -111,6 +116,9 @@ export const menuActionRoutes: FastifyPluginAsync<MenuActionRoutesOptions> = asy
     const loaded = authenticated.get(req);
     if (!loaded) return reply.code(401).send({ code: 'auth.session_invalid' });
     if (refuseLostTokenContext(req, reply)) return reply; // fail closed again right before dispatch authorizes
-    return engine.run(platformActorOf(loaded), req.body === MALFORMED_BODY ? null : req.body, req.id);
+    const abandoned = new AbortController();
+    reply.raw.once('close', () => { if (!reply.raw.writableFinished) abandoned.abort(); });
+    if (reply.raw.destroyed) abandoned.abort();
+    return engine.run(platformActorOf(loaded), req.body === MALFORMED_BODY ? null : req.body, req.id, abandoned.signal);
   });
 };
