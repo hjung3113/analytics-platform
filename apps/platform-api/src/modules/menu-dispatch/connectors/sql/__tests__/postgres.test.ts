@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events';
 import pg from 'pg';
 import { afterEach, expect, it, vi } from 'vitest';
 import { TargetSecret } from '../../../bundle/secrets.js';
@@ -23,8 +24,9 @@ function fake(errorAt?: string, code = '42501') {
     if (config.text.startsWith(errorAt ?? 'NEVER')) throw Object.assign(new Error('syn-private-statement-value'), { code });
     return { rows: config.text.startsWith('FETCH') ? [{ value: ++fetches }] : config.text === 'SELECT pg_backend_pid() AS pid' ? [{ pid: 123 }] : [] };
   });
-  const pool = { connect: vi.fn(async () => ({ query, release })), on: vi.fn() };
-  const cancel = { connect: vi.fn(async () => {}), query: vi.fn(async () => ({ rows: [] })), end: vi.fn(async () => {}) };
+  const data = Object.assign(new EventEmitter(), { query, release, processID: 123 });
+  const pool = { connect: vi.fn(async () => data), on: vi.fn() };
+  const cancel = Object.assign(new EventEmitter(), { connect: vi.fn(async () => {}), query: vi.fn(async () => ({ rows: [] })), end: vi.fn(async () => {}) });
   const pools = vi.spyOn(pg, 'Pool').mockImplementation(function () { return pool as unknown as pg.Pool; });
   vi.spyOn(pg, 'Client').mockImplementation(function () { return cancel as unknown as pg.Client; });
   return { commands, release, query, pool, pools, cancel };
@@ -35,8 +37,8 @@ it('rewrites only live placeholders using the dialect tokenizer and binds arrays
 it('uses read-only transaction, local budget and cursor; stops exactly at rowCap and closes', async () => {
   const f = fake(); const connector = createPostgresConnector(target, secret);
   expect(await collect(connector.query(leg, options()))).toEqual([{ value: 1 }, { value: 2 }]);
-  expect(f.commands.map((q) => q.text)).toEqual(['SELECT pg_backend_pid() AS pid', 'BEGIN READ ONLY', expect.stringMatching(/^SET LOCAL statement_timeout = \d+$/), 'DECLARE ap_rows NO SCROLL CURSOR FOR SELECT $1::text, $2::text[]', 'FETCH FORWARD 1 FROM ap_rows', 'FETCH FORWARD 1 FROM ap_rows', 'CLOSE ap_rows', 'COMMIT']);
-  expect(f.commands[3]?.values).toEqual(['SITE-A', ['RA1']]); expect(f.release).toHaveBeenCalledOnce();
+  expect(f.commands.map((q) => q.text)).toEqual(['BEGIN READ ONLY', expect.stringMatching(/^SET LOCAL statement_timeout = \d+$/), 'DECLARE ap_rows NO SCROLL CURSOR FOR SELECT $1::text, $2::text[]', 'FETCH FORWARD 1 FROM ap_rows', 'FETCH FORWARD 1 FROM ap_rows', 'CLOSE ap_rows', 'COMMIT']);
+  expect(f.commands[2]?.values).toEqual(['SITE-A', ['RA1']]); expect(f.release).toHaveBeenCalledOnce();
 });
 it('does not acquire or send an empty scoped room list', async () => {
   const f = fake(); expect(await collect(createPostgresConnector(target, secret).query({ ...leg, rooms: [] }, options()))).toEqual([]); expect(f.pool.connect).not.toHaveBeenCalled();
@@ -54,7 +56,7 @@ it('abort cancels and releases even while consumer is paused at a yielded row', 
   expect(f.cancel.query).toHaveBeenCalled(); expect(f.release).toHaveBeenCalledOnce();
   await expect(iterator.next()).rejects.toEqual(new MenuUpstreamError('timeout'));
 });
-it.each([['FETCH', '57014', new TargetJudgmentTimeout()], ['DECLARE', '42601', new MenuUpstreamError('unavailable')], ['BEGIN', '42501', new MenuUpstreamError('unavailable')]])('sanitizes %s / %s without cause or source text', async (stage, code, expected) => {
+it.each([['FETCH', '57014', new MenuUpstreamError('unavailable')], ['DECLARE', '42601', new MenuUpstreamError('unavailable')], ['BEGIN', '42501', new MenuUpstreamError('unavailable')]])('sanitizes %s / %s without cause or source text', async (stage, code, expected) => {
   fake(stage, code); const result = collect(createPostgresConnector(target, secret).query(leg, options()));
   await expect(result).rejects.toEqual(expected); await result.catch((error: Error) => { expect(error.cause).toBeUndefined(); expect(JSON.stringify(error) + error.message).not.toContain('syn-private'); });
 });
@@ -74,7 +76,7 @@ it('pool acquisition consumes judgment budget and releases late arrivals', async
   f.pool.connect.mockImplementation(() => new Promise((resolve) => { arrive = resolve; }));
   const result = collect(createPostgresConnector(target, secret).query(leg, { ...options(), deadlineMs: 10 }));
   await expect(result).rejects.toEqual(new TargetJudgmentTimeout());
-  arrive({ query: f.query, release: f.release }); await Promise.resolve();
+  arrive(Object.assign(new EventEmitter(), { query: f.query, release: f.release, processID: 123 })); await Promise.resolve();
   expect(f.release).toHaveBeenCalledWith(true);
 });
 it('extended protocol is used even when no values are bound', async () => {
