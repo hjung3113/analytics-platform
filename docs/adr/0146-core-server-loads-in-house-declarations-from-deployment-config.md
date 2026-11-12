@@ -32,8 +32,8 @@
 
 ## Deferred (구현 안 함)
 
-- 설정 파일 형식, 읽는 코드, 선언 묶음 안에서 소유자 표를 담는 방식(별도 파일 유지 여부). 이유: 전달기 구현([ADR-0148](0148-minimal-forwarder-and-identity-token.md))과 함께 정한다. 다시 여는 조건: v0.37.0 서버 조립 노드 착수.
-- 어휘 일치 시험(`permissions-vocabulary.test.ts`)이 설정 표도 읽는 방식, 서버가 메뉴 권한 어휘(`vocab.json`)를 아는 방식([SDK 외부 확장 설계](../design/sdk-external-extension.md) §5 P5-b). 이유: 설정 형식과 함께 정한다. 다시 여는 조건: v0.37.0 서버 조립 노드 착수.
+- Decided 2026-11-12 (#1729 node 1729a): one JSON bundle file holds everything — `endpoints`, `actions`, `permissions` and the owner table `endpointOwners` (`endpointId → upstream path`, must start with `/`), no separate file. Reason: one file keeps the endpoint declaration and its owner row from drifting apart, and the boot has one fail-closed read (`loadDeclarationBundle`, `apps/platform-api/src/modules/menu-dispatch/declarations-file.ts`). Every failure — missing file, bad JSON, schema error, duplicate id, owner-table/endpoint mismatch, permission use the bundle does not declare, `limits.maxRows` (ADR-0095 prohibition 7) — is a startup failure.
+- Decided 2026-11-12 (#1729 node 1729a): `permissions-vocabulary.test.ts` also reads the declaration bundle — through the loader, from a synthetic fixture (decision 6). Its permission rows must not shadow `vocab.json` `kernelPermissions`, and each `capability` must be a platform capability (`CAPABILITIES`, `@ap/feature-shared`; the loader rejects an unknown capability itself). Reason: the same two vocabularies the shipped modules are checked against, with no real in-house names in the public repo.
 - 선언 버전 확인(`X-Platform-Declarations`, [http-adapter 계약](../integration/http-adapter-contract.md)). 선언 전체의 해시 하나로 웹과 서버를 맞추면 사내 선언이 더해질 때마다 불일치가 난다. 이유: 아직 켜져 있지 않다. 다시 여는 조건: 켜기 전에 엔드포인트별 비교로 할지 정한다.
 - 코어 서버 이미지·마이그레이션 묶음의 릴리스 자산. 이유: [ADR-0143](0143-release-units-and-compatibility-train.md) Deferred. v0.37.0은 승인 스냅샷에서 `ops/platform-api/scripts/release/`로 직접 빌드한다.
 

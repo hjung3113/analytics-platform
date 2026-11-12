@@ -1,11 +1,12 @@
+import { CAPABILITIES } from '@ap/feature-shared';
 import { describe, expect, it } from 'vitest';
-
 import { eqvContribution } from '../../eqv/index.js';
 import { improvementItemsContribution } from '../../improvement-items/item-endpoints.js';
 import { logDatasetsContribution } from '../../log-datasets/index.js';
 import { investigationContribution } from '../../log-explorer/index.js';
 import { logKnowledgeContribution } from '../../log-knowledge/catalog-endpoints.js';
 import { logLifecycleContribution } from '../../log-lifecycle/index.js';
+import { loadDeclarationBundle } from '../../menu-dispatch/declarations-file.js';
 import { createMenuDispatchRegistry } from '../../menu-dispatch/registry.js';
 import type { MenuDispatchContribution } from '../../menu-dispatch/types.js';
 import { PLATFORM_PERMISSION_TABLE, createPlatformPermissionResolver } from '../permissions.js';
@@ -96,5 +97,24 @@ describe('menu permissions the modules declare (#1667)', () => {
     expect(() =>
       createMenuDispatchRegistry([{ permissions: [{ permission: 'platform:view', capability: 'eqv.view' }] }]),
     ).toThrow(/platform:view: is a kernel permission/);
+  });
+});
+
+describe('declaration bundle vocabulary (ADR-0146, the deployment config the loader reads)', () => {
+  // The fixture is synthetic (ADR-0146 decision 6): it exercises the vocabulary rule, not a real in-house menu.
+  const bundle = () =>
+    loadDeclarationBundle(new URL('../../menu-dispatch/__tests__/fixtures/declaration-bundle.json', import.meta.url).pathname);
+
+  it('declares no permission that shadows a kernel permission', async () => {
+    const vocabulary = kernelPermissions();
+    const declaredInBundle = (await bundle()).permissions.map((row) => row.permission);
+    expect(declaredInBundle.length).toBeGreaterThan(0);
+    for (const permission of declaredInBundle) expect(vocabulary, permission).not.toContain(permission);
+  });
+
+  it('names only platform capabilities', async () => {
+    for (const row of (await bundle()).permissions) {
+      expect(CAPABILITIES, row.capability).toContain(row.capability);
+    }
   });
 });
