@@ -27,6 +27,7 @@
 ## Deferred (구현 안 함)
 
 - 메뉴 lint 프리셋의 배포 방법과 `gen:menu`의 저장소 밖 사용. 이유: 이 ADR은 범주를 정하고 구현 방식은 정하지 않는다. 다시 여는 조건: 조립 시험 노드가 프리셋을 소비자 쪽에 어떻게 둘지 정할 때([Host 조립 계약](../design/host-entry-contract.md) §10).
+- 2026-11-12: 메뉴 lint 프리셋(`appHost`·`menu` 등)은 v0.36.0 릴리스 단위에 들어가지 않고 시작 키트(#1790)도 실지 않는다. 배포 경로(별도 패키지 또는 키트 동봉)는 정해지지 않았다(#1702).
 - 우선순위·overlay·replacement·플러그인 생명주기·런타임 켜고 끄기. 이유: 위 기각 사유와 [components.md](../contract/components.md)의 Deferred 「외부 설치형 Plugin SDK」. 다시 여는 조건: 조립자와 대상 소유자가 다른 조립이 생길 때.
 
 ## 결과
