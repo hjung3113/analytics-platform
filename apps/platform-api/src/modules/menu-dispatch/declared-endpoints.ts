@@ -4,7 +4,7 @@ import { isCapability } from '@ap/feature-shared';
 
 import type { CheckService } from '../permissions/check-service.js';
 import { holdsPlatformPermission, PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
-import { DeclarationBundleError, validateDeclarationBundle, type DeclarationBundle } from './declarations-file.js';
+import { DeclarationBundleError, validateDeclarationBundle, type DeclarationBundle, type DeclarationBundleInput } from './declarations-file.js';
 import type { MenuForwarder } from './forwarder.js';
 import { connectorFactories as defaultFactories } from './connectors/index.js';
 import type { ConnectorFactories, RoutingLog } from './connectors/types.js';
@@ -13,15 +13,16 @@ import { validateParamValues } from './binding-values.js';
 import { routedBootProblems } from './routing.js';
 import { handleRouted } from './routed-handler.js';
 import { MAX_ROWS_REASON } from './bundle/validation.js';
-import { assertBundleMatchesMenuSnapshot, parseMenuSnapshot, type MenuDeclarationSnapshot } from './menu-snapshot.js';
+import { assertBundleMatchesMenuSnapshot, fillEndpointsFromSnapshot, parseMenuSnapshot, type MenuDeclarationSnapshot } from './menu-snapshot.js';
 import type { MenuDispatchContribution, MenuPermissionDeclaration } from './types.js';
 
 /**
  * Assemble loaded bundle data; refuse inconsistent programmatic bundles too, before registration. `snapshot` is the
- * menu declaration snapshot (ADR-0156): required on both assembly paths, so a programmatic bundle meets the same rules.
+ * menu declaration snapshot (ADR-0156): required on both assembly paths, so a programmatic bundle meets the same rules;
+ * its endpoint rows may be partial and are filled from the snapshot by the same function as the file path (node 1900b).
  */
-export function declaredContribution({ bundle, snapshot, forwarder, checkService, connectorFactories = defaultFactories, targetSecrets, timeoutMs = 27000, log }: {
-  bundle: DeclarationBundle;
+export function declaredContribution({ bundle: input, snapshot, forwarder, checkService, connectorFactories = defaultFactories, targetSecrets, timeoutMs = 27000, log }: {
+  bundle: DeclarationBundleInput;
   snapshot: MenuDeclarationSnapshot;
   forwarder?: MenuForwarder;
   checkService: CheckService;
@@ -30,6 +31,10 @@ export function declaredContribution({ bundle, snapshot, forwarder, checkService
   timeoutMs?: number;
   log?: (entry: RoutingLog) => void;
 }): MenuDispatchContribution {
+  const declarations = parseMenuSnapshot(snapshot);
+  const filled = fillEndpointsFromSnapshot(input.endpoints, declarations);
+  if (filled.problems.length > 0) throw new DeclarationBundleError(filled.problems);
+  const bundle: DeclarationBundle = { ...input, endpoints: filled.endpoints };
   if (Object.values(bundle.endpointOwners).some((owner) => typeof owner !== 'string')) validateDeclarationBundle(bundle);
   const problems: string[] = [];
   if (!forwarder && Object.values(bundle.endpointOwners).some((owner) => typeof owner === 'string')) problems.push('declared endpoints require a forwarder');
@@ -62,7 +67,7 @@ export function declaredContribution({ bundle, snapshot, forwarder, checkService
     }
   }
   if (problems.length > 0) throw new DeclarationBundleError(problems);
-  assertBundleMatchesMenuSnapshot(bundle, parseMenuSnapshot(snapshot));
+  assertBundleMatchesMenuSnapshot(bundle, declarations);
 
   return {
     permissions,

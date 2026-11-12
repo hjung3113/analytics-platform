@@ -1,64 +1,25 @@
 {
   "endpoints": [
     {
-      "id": "syn.legacy",
-      "menuId": "syn",
-      "paramKeys": [],
-      "permission": "syn:view",
-      "requiresScope": false,
-      "context": {},
-      "mergeTimeDomain": false
+      "id": "syn.legacy"
     },
     {
       "id": "syn.shared",
-      "menuId": "syn",
-      "paramKeys": [],
-      "permission": "syn:view",
-      "requiresScope": true,
-      "context": {
-        "roomNames": "apply"
-      },
       "limits": {
         "maxRows": 100
-      },
-      "kinds": [
-        "collection"
-      ],
-      "mergeTimeDomain": false
+      }
     },
     {
       "id": "syn.split",
-      "menuId": "syn",
-      "paramKeys": [],
-      "permission": "syn:view",
-      "requiresScope": true,
-      "context": {
-        "roomNames": "apply"
-      },
       "limits": {
         "maxRows": 100
-      },
-      "kinds": [
-        "collection"
-      ],
-      "mergeTimeDomain": false
+      }
     },
     {
       "id": "syn.procedure",
-      "menuId": "syn",
-      "paramKeys": [],
-      "permission": "syn:view",
-      "requiresScope": true,
-      "context": {
-        "roomNames": "apply"
-      },
       "limits": {
         "maxRows": 100
-      },
-      "kinds": [
-        "collection"
-      ],
-      "mergeTimeDomain": false
+      }
     }
   ],
   "actions": [],

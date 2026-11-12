@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "sdkVersion": "0.0.0-synthetic",
+  "menus": [
+    {
+      "id": "syn",
+      "permission": "syn:view",
+      "requiresScope": false,
+      "context": {
+        "roomNames": "apply"
+      }
+    }
+  ],
+  "permissions": [
+    "syn:view"
+  ],
+  "endpoints": [
+    {
+      "id": "syn.legacy",
+      "menuId": "syn",
+      "paramKeys": [],
+      "permission": "syn:view",
+      "requiresScope": false,
+      "context": {},
+      "kinds": [],
+      "mergeTimeDomain": false
+    },
+    {
+      "id": "syn.procedure",
+      "menuId": "syn",
+      "paramKeys": [],
+      "permission": "syn:view",
+      "requiresScope": true,
+      "context": {
+        "roomNames": "apply"
+      },
+      "kinds": [
+        "collection"
+      ],
+      "mergeTimeDomain": false
+    },
+    {
+      "id": "syn.shared",
+      "menuId": "syn",
+      "paramKeys": [],
+      "permission": "syn:view",
+      "requiresScope": true,
+      "context": {
+        "roomNames": "apply"
+      },
+      "kinds": [
+        "collection"
+      ],
+      "mergeTimeDomain": false
+    },
+    {
+      "id": "syn.split",
+      "menuId": "syn",
+      "paramKeys": [],
+      "permission": "syn:view",
+      "requiresScope": true,
+      "context": {
+        "roomNames": "apply"
+      },
+      "kinds": [
+        "collection"
+      ],
+      "mergeTimeDomain": false
+    }
+  ],
+  "actions": [],
+  "digest": "sha256:8fbef392167bc6d01e9deb27c0728f59721530f1c98606b62cc2e7138cc5d4b4"
+}

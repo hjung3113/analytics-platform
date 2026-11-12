@@ -48,6 +48,16 @@ const endpointSchema = z.strictObject({
   mergeTimeDomain: z.boolean(),
 });
 
+/**
+ * An endpoint row as the bundle may write it with a menu declaration snapshot (#1900 node 1900b, ADR-0156): only `id`
+ * is required; the menu-owned fields it leaves out are filled from the snapshot (`fillEndpointsFromSnapshot`) before
+ * any other check, and the filled row must then pass `endpointSchema`.
+ */
+const endpointRowSchema = endpointSchema.partial({
+  menuId: true, paramKeys: true, kinds: true, permission: true, requiresScope: true,
+  context: true, requiredContext: true, mergeTimeDomain: true,
+});
+
 const actionSchema = z.strictObject({
   id: z.string().min(1),
   menuId: z.string().min(1),
@@ -77,8 +87,13 @@ const bundleSchema = z.strictObject({
   scopeCatalog: z.unknown().optional(),
 });
 
+/** The bundle before the snapshot fill: endpoint rows may be partial. */
+const bundleRowsSchema = bundleSchema.extend({ endpoints: z.array(endpointRowSchema) });
+
 export type DeclaredEndpointLimits = z.infer<typeof limitsSchema>;
 export type DeclaredEndpoint = z.infer<typeof endpointSchema>;
+/** A bundle endpoint row before the snapshot fill: `id` plus whatever fields the deployment wrote. */
+export type DeclaredEndpointRow = z.infer<typeof endpointRowSchema>;
 export type DeclaredAction = z.infer<typeof actionSchema>;
 export type DeclaredPermission = z.infer<typeof permissionSchema>;
 export type DeclarationBundle = {
@@ -89,6 +104,8 @@ export type DeclarationBundle = {
   readonly endpointOwners: Readonly<z.infer<typeof bundleSchema>['endpointOwners']>;
   readonly targets?: z.infer<typeof targetsSchema> | undefined;
 };
+/** A programmatic bundle before the snapshot fill (`declaredContribution`): endpoint rows may be partial. */
+export type DeclarationBundleInput = Omit<DeclarationBundle, 'endpoints'> & { readonly endpoints: readonly DeclaredEndpointRow[] };
 export type { Binding, ParamType } from './bundle/bindings.js';
 export type { Call } from './bundle/calls.js';
 export type { Route, Routing, ScopeCheck } from './bundle/routing.js';
@@ -159,11 +176,18 @@ function schemaProblems(error: z.ZodError): string[] {
   });
 }
 
-/** Problems a caller adds to the bundle's own (the menu declaration snapshot check, ADR-0156), reported in one refusal. */
-export type ExtraBundleProblems = (bundle: Pick<z.infer<typeof bundleSchema>, 'endpoints' | 'actions'>) => string[];
+/**
+ * The menu declaration snapshot step (ADR-0156), built by `bundleSnapshotCheck` in `menu-snapshot.ts`. `fill` completes
+ * partial endpoint rows from the snapshot before any other check sees them (#1900 node 1900b); its problems refuse
+ * alone, since an unfilled row cannot be checked further. `problems` joins the comparison's problems to the bundle's own.
+ */
+export type BundleSnapshotCheck = {
+  readonly fill: (endpoints: readonly DeclaredEndpointRow[]) => { endpoints: readonly DeclaredEndpointRow[]; problems: readonly string[] };
+  readonly problems: (bundle: Pick<z.infer<typeof bundleSchema>, 'endpoints' | 'actions'>) => string[];
+};
 
 /** Reads and validates the declaration bundle. Throws `DeclarationBundleError` on every failure mode; never logs contents. */
-export async function loadDeclarationBundle(path: string, extraProblems?: ExtraBundleProblems): Promise<DeclarationBundle> {
+export async function loadDeclarationBundle(path: string, snapshotCheck?: BundleSnapshotCheck): Promise<DeclarationBundle> {
   let text: string;
   try {
     text = await readFile(path, 'utf8');
@@ -177,7 +201,7 @@ export async function loadDeclarationBundle(path: string, extraProblems?: ExtraB
   } catch {
     throw new DeclarationBundleError([`declaration bundle at ${path} is not valid JSON`]);
   }
-  const { endpoints, actions, permissions, endpointOwners, targets, scopeCatalog } = validateDeclarationBundle(json, `declaration bundle at ${path} failed its schema`, extraProblems);
+  const { endpoints, actions, permissions, endpointOwners, targets, scopeCatalog } = validateDeclarationBundle(json, `declaration bundle at ${path} failed its schema`, snapshotCheck);
   return {
     endpoints: endpoints.map(({ limits, ...row }) => {
       const owner = endpointOwners[row.id];
@@ -197,11 +221,19 @@ export async function loadDeclarationBundle(path: string, extraProblems?: ExtraB
 }
 
 /** Shared file/programmatic boundary: schema first, then all semantic cross-checks. */
-export function validateDeclarationBundle(input: unknown, schemaMessage = 'declaration bundle failed its schema', extraProblems?: ExtraBundleProblems): Omit<z.infer<typeof bundleSchema>, 'scopeCatalog'> & { scopeCatalog?: ScopeCatalog } {
+export function validateDeclarationBundle(input: unknown, schemaMessage = 'declaration bundle failed its schema', snapshotCheck?: BundleSnapshotCheck): Omit<z.infer<typeof bundleSchema>, 'scopeCatalog'> & { scopeCatalog?: ScopeCatalog } {
   // Loaded bundles also pass this boundary during routed contribution assembly.
   const candidate = input as { scopeCatalog?: ScopeCatalog } | null;
-  const normalized = candidate?.scopeCatalog && typeof candidate.scopeCatalog.roomsOf === 'function'
+  let normalized: unknown = candidate?.scopeCatalog && typeof candidate.scopeCatalog.roomsOf === 'function'
     ? { ...candidate, scopeCatalog: candidate.scopeCatalog.sites } : input;
+  if (snapshotCheck) {
+    // #1900 node 1900b: fill partial endpoint rows first, so every later check sees complete rows.
+    const rows = bundleRowsSchema.safeParse(normalized);
+    if (!rows.success) throw new DeclarationBundleError([schemaMessage, ...schemaProblems(rows.error)]);
+    const filled = snapshotCheck.fill(rows.data.endpoints);
+    if (filled.problems.length > 0) throw new DeclarationBundleError([...filled.problems]);
+    normalized = { ...(normalized as object), endpoints: filled.endpoints };
+  }
   const parsed = bundleSchema.safeParse(normalized);
   if (!parsed.success) {
     throw new DeclarationBundleError([
@@ -209,7 +241,7 @@ export function validateDeclarationBundle(input: unknown, schemaMessage = 'decla
       ...schemaProblems(parsed.error),
     ]);
   }
-  const problems = [...crossProblems(parsed.data), ...(extraProblems ? extraProblems(parsed.data) : [])];
+  const problems = [...crossProblems(parsed.data), ...(snapshotCheck ? snapshotCheck.problems(parsed.data) : [])];
   let scopeCatalog: ScopeCatalog | undefined;
   if (parsed.data.scopeCatalog !== undefined) {
     try { scopeCatalog = parseScopeCatalog(parsed.data.scopeCatalog); } catch (error) {
