@@ -19,8 +19,9 @@ it('loads the published synthetic example through the real loader and production
   const file = fileURLToPath(new URL('../../../../../../../../docs/integration/examples/routed-declarations.example.json', import.meta.url));
   const bundle = await loadDeclarationBundle(file);
   expect(bundle.endpointOwners['syn.legacy']).toBe('/synthetic/legacy');
-  expect(bundle.endpoints).toHaveLength(3); expect(Object.keys(bundle.targets ?? {})).toHaveLength(3);
+  expect(bundle.endpoints).toHaveLength(4); expect(Object.keys(bundle.targets ?? {})).toHaveLength(4);
+  expect(bundle.targets?.procedural).toMatchObject({ dialect: 'mssql' });
   const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile({ ...loadConfig(), MENU_DECLARATIONS_FILE: file, MENU_UPSTREAM_BASE_URL: 'https://synthetic.invalid', MENU_IDENTITY_KEY_FILE: '/synthetic/key', MENU_IDENTITY_KEY_ID: 'syn-key' }), { checkService: {} as CheckService });
-  expect(setup?.menuDispatch[0]?.endpoints).toHaveLength(3);
+  expect(setup?.menuDispatch[0]?.endpoints).toHaveLength(4);
   expect(JSON.stringify(setup?.targetSecrets)).not.toContain('postgres://');
 });
