@@ -171,17 +171,32 @@ async function assertDevServes(kit) {
   }
 }
 
-/** The vitest JSON report of `pnpm run check` lists a passed render test for every given menu id. */
-function assertRendered(kit, ids) {
+/**
+ * Failures of the kit's per-menu tests in vitest JSON assertion results: every given menu id needs a passed render test
+ * and a passed granted-request conformance check of its own endpoint (`<id>.<endpoint> · granted request succeeds …`).
+ */
+export function kitTestFailures(results, ids) {
+  const failures = [];
+  const expect = (id, label, match) => {
+    const hit = results.find((result) => match(result.title));
+    if (!hit) failures.push(`no ${label} ran for ${id}`);
+    else if (hit.status !== 'passed') failures.push(`${label} for ${id} ${hit.status}`);
+  };
+  for (const id of ids) {
+    expect(id, 'render test', (title) => title.includes(`menu package ${id} renders`));
+    expect(id, 'conformance check', (title) => title.startsWith(`${id}.`) && title.includes(' · granted request succeeds'));
+  }
+  return failures;
+}
+
+/** Runs the kit's vitest with a JSON report and fails on `kitTestFailures`. */
+function assertMenuTests(kit, ids) {
   const report = join(kit, 'vitest-report.json');
   run('pnpm', ['exec', 'vitest', 'run', '--reporter=json', `--outputFile=${report}`], kit);
   const results = JSON.parse(readFileSync(report, 'utf8')).testResults.flatMap((file) => file.assertionResults);
   rmSync(report, { force: true });
-  for (const id of ids) {
-    const hit = results.find((result) => result.title.includes(`menu package ${id} renders`));
-    if (!hit) fail(`no render test ran for ${id}`);
-    if (hit.status !== 'passed') fail(`render test for ${id} ${hit.status}`);
-  }
+  const failures = kitTestFailures(results, ids);
+  if (failures.length > 0) fail(failures.join('\n'));
 }
 
 async function main() {
@@ -222,7 +237,7 @@ async function main() {
     await runStepAsync("kit script 'dev' serves the first screen", () => assertDevServes(kit));
     runStep('README «둘째 메뉴»: copy menus/sample, change its constants, register it', () => addSecondMenu(kit));
     runStep("kit script 'check' with the second menu", () => run('pnpm', ['run', 'check'], kit));
-    runStep('render tests ran and passed for kit-sample and kit-second', () => assertRendered(kit, ['kit-sample', 'kit-second']));
+    runStep('render tests and mock conformance checks ran and passed for kit-sample and kit-second', () => assertMenuTests(kit, ['kit-sample', 'kit-second']));
     runStep("kit script 'build' with the second menu", () => run('pnpm', ['run', 'build'], kit));
     process.stdout.write('sdk:kit-check passed\n');
   } finally {
