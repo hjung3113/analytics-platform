@@ -1,4 +1,4 @@
-// Storage application commands only. N2 supplies capability checks and transport declarations.
+// Storage application commands. Menu declarations supply authorization; execute remains an internal storage boundary.
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -25,7 +25,7 @@ function parse<A extends ValidationIssueAction>(action: A, raw: unknown) {
   return p.data;
 }
 /** Rechecked on replay too. No write grants or capabilities are inferred from visibility. */
-async function lockTarget(tx: Tx, viewer: Viewer, action: ValidationIssueAction, raw: unknown) {
+export async function lockValidationIssueTarget(tx: Tx, viewer: Viewer, action: ValidationIssueAction, raw: unknown) {
   const v = parse(action, raw);
   if ('firstRoundId' in v) return lockIssueRound(tx, viewer, v.projectId, v.firstRoundId);
   if ('occurrenceId' in v) {
@@ -41,10 +41,10 @@ async function lockTarget(tx: Tx, viewer: Viewer, action: ValidationIssueAction,
   if ('roundId' in v) await lockIssueRound(tx, viewer, await roundOwner(tx, viewer, v.roundId), v.roundId);
 }
 export function createValidationIssueService(deps: { db: Db }) {
-  /** Called by the future menu-action handler inside its transaction/idempotency frame. */
+  /** Called by the menu-action handler inside its transaction/idempotency frame. */
   async function handle(tx: Tx, caller: Caller, action: ValidationIssueAction, raw: unknown): Promise<ValidationIssueWriteResult> {
     const viewer = viewerOf(caller);
-    await lockTarget(tx, viewer, action, raw);
+    await lockValidationIssueTarget(tx, viewer, action, raw);
     const base = { workspace_id: viewer.workspaceId, actor_id: viewer.actorId };
     switch (action) {
       case 'create': {
@@ -111,7 +111,7 @@ export function createValidationIssueService(deps: { db: Db }) {
     const hash = hashRequestBody({ workspace: caller.workspace_id, action: `validationIssue.${action}`, input: raw });
     return deps.db.transaction(async tx => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${caller.actor_id}), hashtext(${normalizedKey}))`);
-      await lockTarget(tx, viewerOf(caller), action, raw);
+      await lockValidationIssueTarget(tx, viewerOf(caller), action, raw);
       const result = await idempotency.runIdempotent(tx, caller.actor_id, normalizedKey, hash, async () => ({ status: 200, body: await handle(tx, caller, action, raw) }));
       return result.body;
     });

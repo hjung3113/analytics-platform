@@ -45,6 +45,8 @@ const ALWAYS: Capability[] = [
 ];
 const UNLESS_DENIED: Capability[] = ['survey.read', 'survey.manage', 'voc.create'];
 const NONE: Capability[] = [
+  'lifecycle.issue.contribute',
+  'lifecycle.issue.link',
   'workspace.read',
   'scope.read',
   'workspace.admin',

@@ -59,6 +59,8 @@ describe('menu permissions the modules declare (#1667)', () => {
     ['improvement:manage', 'improvement.manage'],
     ['lifecycle:project-manage', 'lifecycle.project.manage'],
     ['lifecycle:round-manage', 'lifecycle.round.manage'],
+    ['lifecycle:issue-contribute', 'lifecycle.issue.contribute'],
+    ['lifecycle:issue-link', 'lifecycle.issue.link'],
     ['lifecycle:gate-decide', 'lifecycle.gate.decide'],
     ['knowledge:draft-create', 'knowledge.draft.create'],
     ['explorer:investigate', 'explorer.investigate'],

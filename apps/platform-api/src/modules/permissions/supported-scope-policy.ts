@@ -56,6 +56,8 @@ export async function supportedScopeCandidates(
     capability === 'improvement.manage' ||
     capability === 'lifecycle.project.manage' ||
     capability === 'lifecycle.round.manage' ||
+    capability === 'lifecycle.issue.contribute' ||
+    capability === 'lifecycle.issue.link' ||
     capability === 'lifecycle.gate.decide' ||
     capability === 'knowledge.draft.create' ||
     capability === 'explorer.source.read' ||

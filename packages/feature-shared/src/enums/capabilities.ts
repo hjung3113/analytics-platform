@@ -32,6 +32,8 @@ export const CAPABILITIES = [
   'improvement.manage',
   'lifecycle.project.manage',
   'lifecycle.round.manage',
+  'lifecycle.issue.contribute',
+  'lifecycle.issue.link',
   'lifecycle.gate.decide',
   'knowledge.draft.create',
   'explorer.source.read',
@@ -150,6 +152,9 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // Log lifecycle (#1444 c): workspace-scoped, not sensitive; development projects and validation rounds. User role refused (supported-scope policy).
   'lifecycle.project.manage': { sensitive: false, adminModuleBypass: 'always' },
   'lifecycle.round.manage': { sensitive: false, adminModuleBypass: 'always' },
+  // Human discussion rights are explicit grants for every role, including User and Admin.
+  'lifecycle.issue.contribute': { sensitive: false, adminModuleBypass: 'none', sessionOnly: true },
+  'lifecycle.issue.link': { sensitive: false, adminModuleBypass: 'none', sessionOnly: true },
   // Log lifecycle Gate (#1446 e, ADR-0116 decision 4): the business approval of a stage. A human decision: sensitive (a request states a reason, and the
   // permission rows stay out of the audit projection allow-list) and session-only (a token, personal or service, is refused before any write).
   // Admin passes through the module bypass; a User role is refused by the supported-scope policy; Developer holds it only by an explicit grant.

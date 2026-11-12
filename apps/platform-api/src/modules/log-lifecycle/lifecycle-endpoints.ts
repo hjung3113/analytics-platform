@@ -1,3 +1,4 @@
+import { validationIssueEndpoints } from './validation-issue-endpoints.js';
 import { viewerOf } from '../log-knowledge/index.js';
 // The log lifecycle reads (#1444 c, design §5) as menu-dispatch declarations: the model list with the open project
 // and latest round, one project, its history, its rounds and one round. Same read right and workspace rule as the other
@@ -66,6 +67,7 @@ const judgeOf = (parse: (p: Record<string, unknown>) => ParamsJudgment): Judge =
 export function lifecycleEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclaration[] {
   const readHierarchy = hierarchyReader(deps);
   return [
+    ...validationIssueEndpoints(deps),
     declareRead(deps, 'hierarchy', HIERARCHY_PARAM_KEYS, parseHierarchyParams, async (actor, params) => {
       const parsed = parseHierarchyParams(params);
       return parsed.ok ? readHierarchy(actor, parsed.value) : { outcome: 'error', data: null, message: parsed.message };

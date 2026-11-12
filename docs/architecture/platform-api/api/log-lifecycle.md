@@ -2,9 +2,48 @@
 
 Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file is the normative contract for the development project, its append-only history and the validation rounds (#1444 node c): seven reads and seven writes of menu `log-models`, including the hierarchy read (#1449). Design and decisions: the log-lifecycle design (`docs/design/features/log-lifecycle/`) §3–§5 and ADR-0117. Manual validation attachments (node c2, #1451) are included (one read, one write; see below). Node d (#1445) adds the validation request queue: [§Validation request queue](#validation-request-queue-node-d-1445). Node e (#1446) adds the Gate decision: [§Gate decision](#gate-decision-node-e-1446). The seams between the nodes (service token → claim → result → verdict → Gate) are pinned by one chain test, `apps/platform-api/src/modules/log-lifecycle/__tests__/contract-chain.integration.test.ts` (#1450 h; `-t "contract chain"`).
 
-## Human validation records — As-built storage / API not yet (#1808 N1)
+## Human validation records — As-built (#1808 N1/N2)
 
-Migration 0128 stores neutral `validation_issue` records under a project and first Round, append-only `validation_issue_occurrence` links, reference-only `validation_issue_evidence_ref` rows, separate `validation_issue_comment` / `round_comment` discussions and `validation_issue_event` field corrections. Same-workspace composite FKs enforce parent ownership down to an optional attempt/rule-result; correction provenance stays on the same target. No status/assignee/severity or automatic resolution exists. Domain services reuse Core idempotency, project→Round locks and atomic body-free audit writes. Storage readers apply the existing knowledge/project/Round visibility before paging/counts; list cursors use visible activity/id and comment/history cursors use timestamp/id, bound to workspace/actor/filters/target with a first-page timestamp cutoff and current visibility on every page. The timestamp cutoff is not a cross-request MVCC snapshot. SQL walls and limits: [database document](../../../../apps/platform-api/docs/04-database-and-migrations.md#human-validation-issues--as-built-storage--api-not-yet-1808-n1). **No HTTP endpoint, menu action, capability or permission declaration is registered by N1.** N2 implements those surfaces and authorization before these internal commands become reachable.
+Migration 0128 stores neutral `validation_issue` records under a project and first Round, append-only occurrences, evidence references, separate issue / Round comments and field corrections. Same-workspace composite FKs enforce parent ownership down to an optional attempt/rule-result. SQL walls and limits: [database document](../../../../apps/platform-api/docs/04-database-and-migrations.md#human-validation-issues--as-built-storage--api-not-yet-1808-n1).
+
+All eleven surfaces belong to `log-models`, use no Context or Scope and require a human login session. Every API token (including `validation.worker`, `workspace.read` and scope-less tokens) receives `forbidden`. Reads require `platform:view` plus current workspace/project/first-Round visibility; linked occurrences also require their own Round visibility. Missing, foreign or hidden targets return `ok` + `null`, or `{ rows: [] }` for the issue list. Counts/activity exclude hidden objects. Discussion prose grants no Source access: excerpts remain exclusively behind the existing audited `excerpt` read and `lifecycle.excerpt.read`.
+
+### Reads
+
+`POST /api/v1/menu-query`, prefix `logLifecycle.`:
+
+| Endpoint | Params | Data |
+| --- | --- | --- |
+| `validationIssues` | `projectId?`, `roundId?`, `cursor?`, `limit?` | `{ rows, nextCursor? }`; rows contain id/project/first Round, corrected title, reporter/time, visible activity/time and `commentCount`, `occurrenceCount`, `roundCount` |
+| `validationIssueDetail` | `issueId`, `cursor?`, `limit?` | corrected title/body/expected/actual/repro, reporter/time and `occurrences: { rows, nextCursor? }`, or null; occurrences contain Round/optional attempt/result ids and reference-only evidence |
+| `validationIssueThread` | `issueId`, `cursor?`, `limit?` | issue comments `{ rows, nextCursor? }` or null |
+| `validationIssueHistory` | `issueId`, `cursor?`, `limit?` | append-only field correction events `{ rows, nextCursor? }` or null |
+| `roundDiscussion` | `roundId`, `cursor?`, `limit?` | Round comments `{ rows, nextCursor? }` or null; never issue comments |
+
+Comment rows are `{ id, authorActorId, body, correctsCommentId, createdAt }`. History rows are `{ id, kind: 'field_corrected', field, body, correctsEventId, actorId, createdAt }`. Occurrence rows are `{ id, roundId, attemptId, ruleResultId, linkerActorId, createdAt, evidence: [{ fileRef, line, fileSha256 }] }`; hidden occurrences are omitted. Detail includes `id`, `projectId`, `firstRoundId`, `title`, `body`, `expected`, `actual`, `repro`, `reporterActorId`, `createdAt` and its occurrence page. List timestamps are `createdAt` and `lastActivityAt`; comment/occurrence/Round counts are `commentCount`, `occurrenceCount`, `roundCount`.
+
+Target/filter ids are UUIDs. Unknown keys, invalid values or cursors return `outcome: error`. Pages default to 50, maximum 100. Instance-scoped authenticated cursors expire after 30 minutes and bind workspace, actor, filters/target and limit. Issue lists sort visible activity/id descending; comments, corrections and occurrences sort timestamp/id ascending. The first-page timestamp cutoff excludes later inserts but is not a cross-request MVCC snapshot. Every page reevaluates current ACL before counts/activity. Detail's cursor pages only its occurrences. Reads write no audit.
+
+### Actions
+
+`POST /api/v1/menu-action`, prefix `logLifecycle.`, concurrency `none`; every write requires the existing session/CSRF checks and an `idempotencyKey` UUID:
+
+| Action | Input | Capability | N1 command / audit event |
+| --- | --- | --- | --- |
+| `validationIssueRegister` | `projectId`, `firstRoundId`, `title`, `body`, `expected?`, `actual?`, `repro?` | `lifecycle.issue.contribute` | `create` / `lifecycle.validation_issue.created` |
+| `validationIssueComment` | `issueId`, `body`, `correctsCommentId?` | contribute | `commentIssue` / `lifecycle.validation_issue.commented` |
+| `validationIssueCorrect` | `issueId`, `field` (title/body/expected/actual/repro), `body`, `correctsEventId?` | contribute | `correctField` / `lifecycle.validation_issue.field_corrected` |
+| `validationIssueLinkOccurrence` | `issueId`, `roundId`, `attemptId?`, `ruleResultId?` | `lifecycle.issue.link` | `linkOccurrence` / `lifecycle.validation_issue.occurrence_linked` |
+| `validationIssueLinkEvidence` | `occurrenceId`, `refs: [{ fileRef, line, fileSha256 }]` | link | `linkEvidence` / `lifecycle.validation_issue.evidence_linked` |
+| `roundDiscussionComment` | `roundId`, `body`, `correctsCommentId?` | contribute | `commentRound` / `lifecycle.round.commented` |
+
+Successful action `data`: registration and Round comments return `{ id }`; issue comments and field corrections return `{ id, issueId }`; occurrence links return `{ id, issueId, added }` (`added: false` for an existing tuple); evidence links return `{ id: occurrenceId, issueId, count }`, where count is newly added references. The standard menu-action envelope carries `version: null` and the replay flag. No write response contains prose or evidence locations.
+
+The contribution declares menu permissions `lifecycle:issue-contribute` and `lifecycle:issue-link`. Both capabilities are workspace-only, non-sensitive, session-only explicit grants, with no Admin bypass or default role grant. User recipients are allowed. Neither widens `lifecycle.round.manage` or Source rights. Closed Rounds accept registration and comments. Field corrections require the original reporter; comment corrections require the original author and same-target provenance. Originals remain immutable. Limits/normalization reuse `domain/validation-issue-input.ts` and `validation-issue-limits.ts`: title 200, prose 8,000, comments 4,000 characters; 20 evidence references per occurrence, all within Round samples, supplied hashes preserved. Unknown input keys and status/verdict/opinion/Gate inputs are rejected, never truncated.
+
+Targets are checked before capability denial: a hidden/foreign target is `404 not_found.record`; a visible target without the capability is `forbidden`. Invalid input is `invalid` with field errors; failed storage provenance uses the same safe field errors. Locks follow project → Round → owner ACL, then recheck capability before writing. Row, audit and menu receipt share one transaction. Receipts contain only ids/counts; audits contain stable ids, enum field names and counts, never title/body/comment/fileRef. Duplicate occurrence/reference links add no duplicate audit. A replay rechecks capability, ownership and current target visibility and adds no audit. The existing menu-action frame hashes workspace/action/input for the actor/key: same content returns the saved result; changed content returns the framework's `outcome: error`, `idempotency_key_reuse` (its conflict signal, not a version conflict).
+
+No status/assignee/severity, revalidation, attachments, rich text or external hand-off action is implemented. These records never change machine results, verdicts, opinions, Gate, sample sets or comparisons; those decisions never consult human records. The owning [design](../../../design/features/log-lifecycle/validation-issues-discussion.md) records the later-node gates.
 
 ## Transport and permission
 
