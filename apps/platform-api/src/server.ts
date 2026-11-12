@@ -1,3 +1,5 @@
+import { createGrantTableScopeResolver, countOutOfCatalogScopeGrants } from './modules/permissions/grant-table-scope-resolver.js';
+import type { ScopeCatalog } from './modules/permissions/scope-catalog.js';
 import type { NotificationSubjectReference } from '@ap/feature-shared';
 import { resolveCorrelationId } from './lib/correlation-id.js';
 import { createOwnerRecoveryRecorder } from './modules/dashboard/truth.js';
@@ -251,11 +253,12 @@ export interface BuildServerOptions {
    */
   menuDispatch?: readonly MenuDispatchContribution[];
   /**
-   * Site/room Scope resolver for menu dispatch (ADR-0147). Production builds it from
-   * `MENU_SCOPE_GRANT_SERVICE_URL` (`menu-declarations.ts`); the synthetic resolver is test-only.
+   * Site/room Scope resolver shared by session, checks and dispatch (ADR-0154). Production
+   * selects the grant table with a catalog, or the optional HTTP service; synthetic resolvers are test-only.
    * Absent → the registry refuses any `requiresScope` declaration; every existing default is unchanged.
    */
   scopeResolver?: ScopeResolver;
+  scopeCatalog?: ScopeCatalog;
   /**
    * Log explorer Source seams (#1469). Production defaults to neither; an explicit Source provider configuration enables the adapter. Without it every read answers
    * `source_absent` (`source_not_connected`) and no Source owner is granted. The dev/test assembly injects the synthetic adapter
@@ -580,7 +583,15 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     opts.notificationDispatcher ??
     (boss ? createPgBossNotificationDispatcher(boss) : createNoopNotificationDispatcher());
   const notify = createNotificationNotifier(notificationDispatcher);
+  const scopeCatalog = opts.scopeCatalog;
+  const scopeResolver = opts.scopeResolver ?? (scopeCatalog ? createGrantTableScopeResolver({ db: dbHandle.db, catalog: scopeCatalog }) : undefined);
+  const scopeDeps = { ...(scopeCatalog ? { scopeCatalog } : {}), ...(scopeResolver ? { scopeResolver } : {}) };
+  if (scopeCatalog) {
+    const count = await countOutOfCatalogScopeGrants(dbHandle.db, scopeCatalog);
+    if (count > 0) app.log.warn({ count }, 'Active Scope grants outside catalog');
+  }
   const requestService = createRequestService({
+    ...scopeDeps,
     recoveryRecorder,
     db: dbHandle.db,
     checkService,
@@ -589,6 +600,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     notify,
   });
   const decisionService = createDecisionService({
+    ...scopeDeps,
     recoveryRecorder,
     db: dbHandle.db,
     checkService,
@@ -598,6 +610,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     resolveWorkspaceSettings: getResolvedWorkspaceSettings,
   });
   const grantAdminService = createGrantAdminService({
+    ...scopeDeps,
     db: dbHandle.db,
     checkService,
     auditService,
@@ -608,7 +621,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     sessionService,
     checkService,
     requestService,
-    selectedReadService: createSelectedReadService({ db: dbHandle.db, checkService }),
+    selectedReadService: createSelectedReadService({ db: dbHandle.db, checkService, ...scopeDeps }),
     decisionService,
     grantAdminService,
     workspaceId,
@@ -977,6 +990,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // This server's own permission rules; the menu permissions are bound once the menu registry is built below.
   const platformPermissions = createPlatformPermissionResolver();
   await app.register(platformPortRoutes, {
+    ...scopeDeps,
     prefix: PLATFORM_PORT_PREFIX,
     permissions: platformPermissions,
     sessionService,
@@ -1053,12 +1067,12 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     eqvContribution({ db: dbHandle.db, checkService, knowledgeLookup, uploads: { readUnlinkedUpload: (input) => attachmentsService.readUnlinkedUpload(input) } }),
     logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, ruleCoverage, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead ?? opts.logExplorer?.sourceReadPort, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? logExplorerDeps.sourceOwnerAccess }),
     ...(opts.menuDispatch ?? []),
-  ], opts.scopeResolver ? { scopeResolver: opts.scopeResolver } : {});
+  ], scopeResolver ? { scopeResolver } : {});
   // The menu permissions the modules declared are what this server's bootstrap, session-state and access directory resolve (#1667).
   platformPermissions.use(menuRegistry.permissions);
   // The dispatch identity token's `sv` claim must equal the `/bootstrap` `sessionVersion` (#1729 h):
   // one snapshot factory (platform-port/session-snapshot.ts) feeds both hashes.
-  const buildMenuSession = createSessionSnapshot({ permissions: platformPermissions, checkService });
+  const buildMenuSession = createSessionSnapshot({ permissions: platformPermissions, checkService, ...scopeDeps, scopeWarning: () => app.log.warn('Scope resolution failed') });
   const menuSessionVersionOf = async (loaded: LoadedSession) =>
     sessionVersionOf(await buildMenuSession(loaded));
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is

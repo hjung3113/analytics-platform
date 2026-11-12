@@ -771,6 +771,7 @@ describe('server conformance kit (#145)', () => {
       'fixture.list · explicit empty roomNames: [] → empty with no assessments and no trust',
       'fixture.list · explicit empty selection: [] → empty with no assessments and no trust',
       'fixture.list · without analytics:view → forbidden',
+      'port · requestableScopes never lists a site present in scopes',
       'port · session() returns the same object until the session changes',
       'port · session lists the granted sites and not the foreign one',
       'port · subscribe returns an unsubscribe function',
@@ -1963,5 +1964,17 @@ describe('savedViews denied-entry shape (ADR-0099 §1)', () => {
   });
   it('passes a store answering exactly { id, denied, reason }', async () => {
     await expect(runInvisibility(false)).resolves.toBeNull();
+  });
+});
+
+describe('requestable Scope disjointness (ADR-0154)', () => {
+  it.each([false, true])('rejects a granted site in requestableScopes: %s', async overlap => {
+    const sample = harness();
+    const original = sample.adapter.session();
+    const snapshot = { ...original, requestableScopes: [{ id: overlap ? original.scopes[0]!.id : 'SITE-C', label: 'C', totalRooms: 1 }] };
+    const adapter = { ...sample.adapter, session: () => snapshot };
+    const check = planServerConformance({ ...sample, adapter }).find(row => row.id === 'port · requestableScopes never lists a site present in scopes');
+    expect(check).toBeDefined();
+    expect(await check!.run()).toEqual(overlap ? 'requestableScopes must not list a granted site' : null);
   });
 });

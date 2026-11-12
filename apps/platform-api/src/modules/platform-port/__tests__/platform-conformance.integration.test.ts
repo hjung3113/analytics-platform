@@ -329,6 +329,7 @@ type Role = 'admin' | 'developer' | 'user';
 /** The `PlatformAdapter` members this backend serves under `/api/v1/platform` (routes.ts). */
 const IMPLEMENTED: readonly PortMethod[] = [
   'session',
+  'validateScope',
   'publishedMetrics',
   'defaultRangeTo',
   'subscribe',

@@ -15,6 +15,7 @@ import { readFile } from 'node:fs/promises';
 import { isCapability } from '@ap/feature-shared';
 import { z } from 'zod';
 
+import { parseScopeCatalog, type ScopeCatalog } from '../permissions/scope-catalog.js';
 import { PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
 import { CONTEXT_KEYS } from './types.js';
 import { isEnvelope } from './bundle/calls.js';
@@ -73,6 +74,7 @@ const bundleSchema = z.strictObject({
   /** Owner table: every declared endpoint exactly once → the upstream path the forwarder posts to (ADR-0148). */
   endpointOwners: z.record(z.string().min(1), z.union([ownerPathSchema, routingSchema])),
   targets: targetsSchema.optional(),
+  scopeCatalog: z.unknown().optional(),
 });
 
 export type DeclaredEndpointLimits = z.infer<typeof limitsSchema>;
@@ -80,6 +82,7 @@ export type DeclaredEndpoint = z.infer<typeof endpointSchema>;
 export type DeclaredAction = z.infer<typeof actionSchema>;
 export type DeclaredPermission = z.infer<typeof permissionSchema>;
 export type DeclarationBundle = {
+  readonly scopeCatalog?: ScopeCatalog;
   readonly endpoints: readonly DeclaredEndpoint[];
   readonly actions: readonly DeclaredAction[];
   readonly permissions: readonly DeclaredPermission[];
@@ -170,7 +173,7 @@ export async function loadDeclarationBundle(path: string): Promise<DeclarationBu
   } catch {
     throw new DeclarationBundleError([`declaration bundle at ${path} is not valid JSON`]);
   }
-  const { endpoints, actions, permissions, endpointOwners, targets } = validateDeclarationBundle(json, `declaration bundle at ${path} failed its schema`);
+  const { endpoints, actions, permissions, endpointOwners, targets, scopeCatalog } = validateDeclarationBundle(json, `declaration bundle at ${path} failed its schema`);
   return {
     endpoints: endpoints.map(({ limits, ...row }) => {
       const owner = endpointOwners[row.id];
@@ -181,6 +184,7 @@ export async function loadDeclarationBundle(path: string): Promise<DeclarationBu
         ...(limits === undefined ? {} : { limits: typeof owner === 'string' ? { maxHours: limits.maxHours } : limits }),
       };
     }),
+    ...(scopeCatalog === undefined ? {} : { scopeCatalog }),
     actions,
     permissions,
     endpointOwners,
@@ -189,8 +193,12 @@ export async function loadDeclarationBundle(path: string): Promise<DeclarationBu
 }
 
 /** Shared file/programmatic boundary: schema first, then all semantic cross-checks. */
-export function validateDeclarationBundle(input: unknown, schemaMessage = 'declaration bundle failed its schema'): z.infer<typeof bundleSchema> {
-  const parsed = bundleSchema.safeParse(input);
+export function validateDeclarationBundle(input: unknown, schemaMessage = 'declaration bundle failed its schema'): Omit<z.infer<typeof bundleSchema>, 'scopeCatalog'> & { scopeCatalog?: ScopeCatalog } {
+  // Loaded bundles also pass this boundary during routed contribution assembly.
+  const candidate = input as { scopeCatalog?: ScopeCatalog } | null;
+  const normalized = candidate?.scopeCatalog && typeof candidate.scopeCatalog.roomsOf === 'function'
+    ? { ...candidate, scopeCatalog: candidate.scopeCatalog.sites } : input;
+  const parsed = bundleSchema.safeParse(normalized);
   if (!parsed.success) {
     throw new DeclarationBundleError([
       schemaMessage,
@@ -198,6 +206,13 @@ export function validateDeclarationBundle(input: unknown, schemaMessage = 'decla
     ]);
   }
   const problems = crossProblems(parsed.data);
+  let scopeCatalog: ScopeCatalog | undefined;
+  if (parsed.data.scopeCatalog !== undefined) {
+    try { scopeCatalog = parseScopeCatalog(parsed.data.scopeCatalog); } catch (error) {
+      problems.push(`scopeCatalog: ${error instanceof Error ? error.message : 'invalid catalog'}`);
+    }
+  }
   if (problems.length > 0) throw new DeclarationBundleError(problems);
-  return parsed.data;
+  const { scopeCatalog: _raw, ...data } = parsed.data;
+  return { ...data, ...(scopeCatalog === undefined ? {} : { scopeCatalog }) };
 }

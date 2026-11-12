@@ -6,6 +6,8 @@
 
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
+import type { ScopeCatalog } from '../permissions/scope-catalog.js';
+import type { ScopeResolver } from '../menu-dispatch/scope-resolver.js';
 import type { Db } from '../../db/client.js';
 import { sendError } from '../../lib/errors.js';
 import type { SessionService } from '../auth/session-service.js';
@@ -51,6 +53,8 @@ export interface PlatformPortOptions {
   tasksService: TasksService;
   /** This server's permission rules; bootstrap, session-state and the access directory resolve through it. */
   permissions: PlatformPermissionResolver;
+  scopeCatalog?: ScopeCatalog;
+  scopeResolver?: ScopeResolver;
   now?: () => Date;
 }
 
@@ -90,7 +94,24 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     ...(opts.now ? { now: opts.now } : {}),
   });
 
-  const buildSession = createSessionSnapshot(opts);
+  const scopeWarning = () => app.log.warn('Scope resolution failed');
+  const buildSession = createSessionSnapshot({ ...opts, scopeWarning });
+
+  app.get<{ Params: { scopeId: string } }>('/scopes/:scopeId/check', async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const site = req.params.scopeId;
+    if (!opts.scopeCatalog?.hasSite(site)) return { status: 'unknown_scope', grantedRooms: [] };
+    try {
+      const grants = await opts.scopeResolver?.resolve(actorOf(loaded)) ?? [];
+      const grantedRooms = opts.scopeCatalog.roomsOf(site).filter(room =>
+        grants.some(grant => grant.site === site && grant.rooms.includes(room)));
+      return { status: grantedRooms.length ? 'valid' : 'forbidden', grantedRooms };
+    } catch {
+      scopeWarning();
+      return { status: 'forbidden', grantedRooms: [] };
+    }
+  });
 
   app.get('/bootstrap', async (req, reply) => {
     const loaded = await authenticate(req, reply, true);

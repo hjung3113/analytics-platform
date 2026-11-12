@@ -390,6 +390,18 @@ _Avoid_: 프록시, 게이트웨이 — 앞단(nginx) 경로 라우팅과 섞인
 코어 서버가 전달할 때마다 서명해 싣는 30초짜리 내부 토큰. 확정 claim은 `sub`·`wid`·`sv`·`cid`이고 상류는 만들 수 없다([ADR-0095](docs/adr/0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 5). 사람이 아닌 호출자의 API 토큰([ADR-0116](docs/adr/0116-platform-api-tokens-personal-and-service.md))과 다르다.
 _Avoid_: 세션 토큰, API 토큰
 
+**scope.read**:
+site·room 데이터 읽기 부여를 운반하는 capability. 메뉴 권한이 아니며 플랫폼 부여 표에 site 또는 site_room 종류로 저장한다. Admin도 이 부여가 있어야 데이터를 본다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
+
+**Scope 카탈로그 (Scope catalog)** (`scopeCatalog`):
+배포 설정 묶음이 내는 `{ site, label, rooms }` 목록. 부여·신청할 수 있는 site·room과 표시 순서의 원본이며 배포의 모든 workspace가 공유한다. 카탈로그만으로 접근을 부여하지 않는다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
+
+**막힌 자리 (blocked place)**:
+메뉴·Scope·room 또는 조회 권한이 없어 사용자가 진행하지 못한 자리. 그 대상이 미리 채워진 권한 신청으로 이어진다. 진입 방식과 화면 구현은 시안 확정 후 1844f다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
+
+**신청 가능 site** (`requestableScopes`):
+Scope 카탈로그에 있고 사용자에게 부여된 room이 없는 site. 플랫폼 부여 표가 원천일 때 세션의 별도 선택 필드로 내며 `{ id, label, totalRooms }`만 담는다. 부여된 site를 나열하는 `scopes`와 겹치지 않는다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
+
 **Scope resolver**:
 요청한 행위자에게 허용된 site·room 집합을 내는, 서버 조립 때 주입하는 구성요소. 없으면 `requiresScope`·`mergeTimeDomain` 엔드포인트 등록이 거부된다([ADR-0147](docs/adr/0147-scope-grants-come-from-an-injected-resolver.md)). 메뉴 권한 판정기 `PlatformPermissionResolver`와 다르다.
 _Avoid_: 권한 해석기 — 메뉴 권한 판정기와 섞인다.

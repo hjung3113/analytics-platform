@@ -183,13 +183,16 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 ### 6.2 Scope와 권한 (Decided / Open)
 
 - Scope는 사용자가 요청하는 조직·데이터 접근 범위이며 단위는 Site다. Site 안에서는 부여된 room_name만 보인다. `scopeId`는 URL에 담지만 권한 증명이 아니다. 서버는 **매 요청마다** 사용자 권한과 요청 Scope를 재검증한다.
+- **Scope 부여 원천(Decided, [ADR-0154](../adr/0154-site-and-room-grants-are-platform-owned.md)):** 플랫폼 부여 표가 site·room 부여를 소유한다. 배포 설정의 `scopeCatalog`가 부여할 수 있는 site·room을 정한다. 세션 `scopes`는 room 부여가 하나 이상 있는 site만 내고, 선택 필드 `requestableScopes`는 카탈로그에서 부여가 없는 site만 낸다. 부여받지 않은 room 이름은 세션·`ScopeCheck`에 싣지 않는다.
+- **site 부여는 그 site의 Scope 카탈로그 room 전체(이후 추가 room 포함)를 준다(Decided, ADR-0154).** 나머지 상속 규칙(room → StGroup → Equipment, 조회 필터 자동 포함)은 Open이다.
+- **막힌 자리의 신청 진입(Decided, ADR-0154):** 접근하지 못한 메뉴·Scope·room은 해당 대상이 미리 채워진 권한 신청으로 이어진다. 진입 방식·URL 키와 화면 구현은 시안 확정 후 1844f다.
 - 접근할 수 없는 Scope는 명시적 오류/선택 상태로 처리하며 다른 Scope로 조용히 대체하지 않는다. 같은 URL이 다른 사용자에게 같은 접근 권한을 부여하지 않는다.
 - 세션·최근방문 값은 미검증 후보이며, 재적용 전에 현재 Scope에서 설비·Lot 선택과 권한의 유효성을 다시 검증한다.
 - **요청 `scopeId`는 하나다(Decided).** 부재는 명시적 선택 상태이며 임의 Scope로 대체하지 않는다. Scope 선택지 조회와 분석 데이터 조회는 구분한다. 사용자가 명시한 무단 ID는 조용히 제거하지 않으며, 전체 권한 실패는 `outcome=forbidden`이다(§19).
 - **권한·조회 범위는 Site → room_name → StGroup → Equipment 관계를 따른다(Decided, 2026-09-24).** 실무 권한 부여 축은 Site 내 room_name이다. room_name과 StGroup은 여러 Line에 걸칠 수 있으며 Line은 독립 생산·조회 축이다. Factory는 별도 Scope 레벨로 모델링하지 않는다. [ADR-0005](../adr/0005-scope-room-name-line-independent.md)가 ADR-0001의 Line 중심 Scope 주장을 대체한다.
 - 설비 분류(Maker → Model → ChamberType → EquipmentID)는 위 접근 범위와 별개다. StGroup은 room_name·Site 경계를 넘지 않는 설비 능력 묶음이며 분임조는 엔지니어 조직 묶음이다. 둘의 소속은 외부 공급값이다. Group 조건이나 Line 선택이 room_name 권한을 대신하거나 넓히지 않는다. 근거: [GLOSSARY](../../GLOSSARY.md).
 - **요청 `scopeId`는 v1에서 단일 선택만 허용한다(Decided, 2026-09-22).** 복수 Scope 선택은 이후 확장 후보로 남기되 v1 범위 밖이다.
-- **부모·자식 권한 상속 및 조회 필터 자동 포함의 세부 규칙은 Open domain decision이다.** room_name이 실무 권한 축이라는 결정과 구별한다. Site 선택만으로 모든 room_name에 대한 접근이 허용된다고 해석하지 않으며, 셸에 고정 다단 선택기를 요구하지 않는다.
+- **room → StGroup → Equipment의 권한 상속 및 조회 필터 자동 포함의 세부 규칙은 Open domain decision이다.** room_name이 실무 권한 축이라는 결정과 구별한다. Site 선택만으로 모든 room_name에 대한 접근이 허용된다고 해석하지 않으며, 셸에 고정 다단 선택기를 요구하지 않는다.
 - **Site는 부여 축이고 DB 배치는 배포 라우팅이다(Decided, [ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md)이 ADR-0004를 대체).** 어느 서버·DB가 그 Site의 데이터를 갖는지는 코어 서버의 배포 설정이 정하며 N:M이다(한 Site가 여러 DB에, 한 DB가 여러 Site를). 화면·Kernel은 DB를 모른다. 설비 ID 사용 전에 활성 Scope의 Site가 확립돼 있어야 한다. URL에 없는 `scopeId`를 세션에서 몰래 채우거나 EquipmentID로 Site를 역산하지 않는다.
 - **Scope 확인 상태(현재 코드 어휘, 이름 Candidate):** `none`·`validating`·`valid`·`forbidden`·`unknown_scope`(서버가 모르는 id — 권한 거부가 아니다)·`error`(확인 요청 실패). `error`는 자동 재시도 없이 사용자가 '다시 시도'하며, 현재 세션에서 `valid`가 되기 전에는 Scope가 필요한 조회를 보내지 않는다.
 

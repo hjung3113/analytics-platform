@@ -8,6 +8,9 @@
 
 import { readFile } from 'node:fs/promises';
 
+import type { Db } from './db/client.js';
+import { createGrantTableScopeResolver } from './modules/permissions/grant-table-scope-resolver.js';
+import type { ScopeCatalog } from './modules/permissions/scope-catalog.js';
 import type { AppConfig } from './config.js';
 import { DeclarationBundleError, loadDeclarationBundle } from './modules/menu-dispatch/declarations-file.js';
 import { isEnvelope } from './modules/menu-dispatch/bundle/calls.js';
@@ -40,8 +43,9 @@ export interface MenuDeclarationSetup {
   menuDispatch: readonly MenuDispatchContribution[];
   /** Validated target credentials, opaque until a connector explicitly reveals them. */
   targetSecrets?: Readonly<Record<string, TargetSecrets>>;
-  /** Present only when `MENU_SCOPE_GRANT_SERVICE_URL` is set (ADR-0147). */
+  /** The sole Scope source: grant table with a catalog, or optional HTTP service (ADR-0154). */
   scopeResolver?: ScopeResolver;
+  scopeCatalog?: ScopeCatalog;
 }
 
 /**
@@ -51,12 +55,17 @@ export interface MenuDeclarationSetup {
  */
 export async function loadMenuDeclarationSetup(
   config: MenuDeclarationConfig,
-  deps: { checkService: CheckService; fetch?: typeof globalThis.fetch; connectorFactories?: ConnectorFactories; scopeCatalog?: Readonly<Record<string, readonly string[]>>; log?: (entry: RoutingLog) => void },
+  deps: { db?: Db; checkService: CheckService; fetch?: typeof globalThis.fetch; connectorFactories?: ConnectorFactories; scopeCatalog?: Readonly<Record<string, readonly string[]>>; log?: (entry: RoutingLog) => void },
 ): Promise<MenuDeclarationSetup | null> {
   const file = config.MENU_DECLARATIONS_FILE;
   if (file === undefined) return null;
   // Validate before reading any secret. No partially validated target can reach a connector.
   const bundle = await loadDeclarationBundle(file);
+  const scopeCatalog = bundle.scopeCatalog;
+  if (scopeCatalog && config.MENU_SCOPE_GRANT_SERVICE_URL !== undefined) {
+    throw new DeclarationBundleError(['scopeCatalog and MENU_SCOPE_GRANT_SERVICE_URL cannot both be configured']);
+  }
+  if (scopeCatalog && !deps.db) throw new DeclarationBundleError(['scopeCatalog requires a database']);
   const envelope = Object.values(bundle.endpointOwners).some((owner) =>
     typeof owner === 'string' || owner.routes.some((route) => isEnvelope(routeCall(owner, route))));
   if (envelope) {
@@ -66,10 +75,12 @@ export async function loadMenuDeclarationSetup(
   }
   const targetSecrets = bundle.targets === undefined ? undefined : await readTargetSecrets(bundle.targets);
   const connectorFactories = deps.connectorFactories ?? defaultFactories;
-  const problems = routedBootProblems(bundle, connectorFactories, deps.scopeCatalog);
+  const problems = routedBootProblems(bundle, connectorFactories, scopeCatalog ? Object.fromEntries(scopeCatalog.sites.map(entry => [entry.site, entry.rooms])) : deps.scopeCatalog);
   if (problems.length) throw new DeclarationBundleError(problems);
   const routedDeps = { connectorFactories, timeoutMs: config.MENU_UPSTREAM_TIMEOUT_MS, ...(targetSecrets ? { targetSecrets } : {}), log: deps.log ?? ((entry: RoutingLog) => { console.info(JSON.stringify(entry)); }) };
-  const scopeResolver = config.MENU_SCOPE_GRANT_SERVICE_URL === undefined
+  const scopeResolver = scopeCatalog && deps.db
+    ? createGrantTableScopeResolver({ db: deps.db, catalog: scopeCatalog })
+    : config.MENU_SCOPE_GRANT_SERVICE_URL === undefined
     ? undefined
     : createHttpScopeResolver({
       baseUrl: config.MENU_SCOPE_GRANT_SERVICE_URL,
@@ -79,6 +90,7 @@ export async function loadMenuDeclarationSetup(
   if (!envelope) return {
     menuDispatch: [declaredContribution({ bundle, checkService: deps.checkService, ...routedDeps })],
     ...(scopeResolver ? { scopeResolver } : {}),
+    ...(scopeCatalog ? { scopeCatalog } : {}),
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
   };
   const keyId = config.MENU_IDENTITY_KEY_ID;
@@ -115,5 +127,6 @@ export async function loadMenuDeclarationSetup(
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
     menuDispatch: [declaredContribution({ bundle, forwarder, checkService: deps.checkService, ...routedDeps })],
     ...(scopeResolver ? { scopeResolver } : {}),
+    ...(scopeCatalog ? { scopeCatalog } : {}),
   };
 }
