@@ -516,6 +516,7 @@ async function openDirectGrantDialogWithUser(user: ReturnType<typeof userEvent.s
 }
 
 async function chooseSelectOption(label: string, optionName: string | RegExp) {
+  if (label === '부여 권한 및 범위') { fireEvent.click(await screen.findByRole('radio', { name: optionName })); return; }
   fireEvent.click(screen.getByRole('combobox', { name: label }));
   fireEvent.click(await screen.findByRole('option', { name: optionName }));
 }
@@ -549,11 +550,7 @@ async function selectDirectGrantTargetAndScopeWithUser(
   await waitFor(() =>
     expect(screen.getByTestId('direct-grant-recipient')).toHaveTextContent(actorName),
   );
-  await chooseSelectOptionWithUser(
-    user,
-    '부여 권한 및 범위',
-    typeof scopeName === 'string' && scopeName.includes('관리자 권한') ? 1 : 0,
-  );
+  await user.click(await screen.findByRole('radio', { name: scopeName }));
 }
 
 describe('/admin/permissions/grants screen', () => {
@@ -1618,12 +1615,11 @@ describe('/admin/permissions/grants screen', () => {
     );
     await act(async () => api.releaseGrantOptions());
 
-    fireEvent.click(within(dialog).getByRole('combobox', { name: '부여 권한 및 범위' }));
     expect(
-      await screen.findByRole('option', { name: /관리자 권한.*전체/ }),
+      await screen.findByRole('radio', { name: /관리자 권한.*전체/ }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('option', { name: /Finding 관리.*Payments/ }),
+      screen.queryByRole('radio', { name: /Finding 관리.*Payments/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -1650,20 +1646,14 @@ describe('/admin/permissions/grants screen', () => {
     await waitFor(() =>
       expect(screen.getByTestId('direct-grant-recipient')).toHaveTextContent('Actor One'),
     );
-    fireEvent.click(within(dialog).getByRole('combobox', { name: '부여 권한 및 범위' }));
 
-    const heldOption = await screen.findByRole('option', {
-      name: /VOC 분류.*Payments.*이미 부여됨/,
+    const heldOption = await screen.findByRole('radio', {
+      name: /VOC 분류.*Payments/,
     });
-    expect(heldOption).toHaveAttribute('aria-disabled', 'true');
+    expect(heldOption).toBeDisabled();
     fireEvent.click(heldOption);
-    // The listbox stays open over a disabled option; Escape closes the select
-    // only, and the trigger still shows the placeholder (nothing was selected).
-    fireEvent.keyDown(document.body, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
-    expect(within(dialog).getByRole('combobox', { name: '부여 권한 및 범위' })).toHaveTextContent(
-      '권한과 범위를 선택하세요.',
-    );
+    expect(heldOption).not.toBeChecked();
+    expect(within(dialog).getByText('선택 없음')).toBeInTheDocument();
     expect(within(dialog).getByTestId('direct-grant-submit')).toBeDisabled();
     fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), {
       target: { value: '이미 보유한 권한을 다시 부여합니다.' },
@@ -1812,9 +1802,8 @@ describe('/admin/permissions/grants screen', () => {
     expect(within(followUp).getByRole('combobox', { name: '대상자' })).toHaveTextContent(
       'Actor One',
     );
-    expect(within(followUp).getByRole('combobox', { name: '부여 권한 및 범위' })).toHaveTextContent(
-      'VOC 조회',
-    );
+    expect(within(followUp).getByRole('radio', { name: /VOC 조회.*Payments/ })).toBeChecked();
+    expect(within(followUp).getByText(/선택: VOC 조회/)).toBeInTheDocument();
     const reason = within(followUp).getByLabelText('사유 · 필수');
     expect(reason).toHaveValue('VOC 분류 운영을 맡깁니다.');
     expect(reason).toBeEnabled();
@@ -2071,9 +2060,8 @@ describe('/admin/permissions/grants screen', () => {
     // A restored system Actor draft must not fall back to a Role Level.
     expect(within(followUp).getByTestId('direct-grant-recipient')).not.toHaveTextContent('User');
     expect(within(followUp).getByTestId('direct-grant-system-actor-note')).toBeInTheDocument();
-    expect(within(followUp).getByRole('combobox', { name: '부여 권한 및 범위' })).toHaveTextContent(
-      'VOC 조회',
-    );
+    expect(within(followUp).getByRole('radio', { name: /VOC 조회.*Payments/ })).toBeChecked();
+    expect(within(followUp).getByText(/선택: VOC 조회/)).toBeInTheDocument();
     expect(within(followUp).getByLabelText('사유 · 필수')).toHaveValue(
       '리포트 분류 운영을 맡깁니다.',
     );

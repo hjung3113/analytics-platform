@@ -3,6 +3,9 @@ import { API_TOKEN_SCOPE_BUNDLES, visibleApiTokenScopeBundles } from './api-toke
 import { CAPABILITIES, CAPABILITY_META, isCapability, isTokenOnlyScope } from './capabilities.js';
 
 describe('API token scope bundles', () => {
+  it('includes knowledge draft creation in the write preset', () => {
+    expect(API_TOKEN_SCOPE_BUNDLES.find(bundle => bundle.id === 'write')?.capabilities).toContain('knowledge.draft.create');
+  });
   it('hides a whole bundle until every capability is registered', () => {
     expect(visibleApiTokenScopeBundles().map(b => b.id)).toEqual(['read', 'write']);
     expect(visibleApiTokenScopeBundles(['knowledge.catalog.manage']).map(b => b.id)).not.toContain('write');
@@ -14,7 +17,7 @@ describe('API token scope bundles', () => {
   });
   it('never offers a session-only capability and pins the token-callable menu write rights', () => {
     expect(API_TOKEN_SCOPE_BUNDLES.find(b => b.id === 'write')?.capabilities).toEqual([
-      'knowledge.catalog.manage', 'knowledge.catalog.import', 'improvement.manage',
+      'knowledge.catalog.manage', 'knowledge.catalog.import', 'improvement.manage', 'knowledge.draft.create',
     ]);
     for (const bundle of visibleApiTokenScopeBundles(CAPABILITIES, { service: true })) for (const capability of bundle.capabilities) {
       if (isTokenOnlyScope(capability)) continue;

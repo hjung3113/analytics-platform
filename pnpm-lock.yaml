@@ -42,6 +42,9 @@ importers:
 
   apps/feature-screens:
     dependencies:
+      '@ap/components':
+        specifier: workspace:*
+        version: link:../../packages/sdk/components
       '@ap/feature-shared':
         specifier: workspace:*
         version: link:../../packages/feature-shared

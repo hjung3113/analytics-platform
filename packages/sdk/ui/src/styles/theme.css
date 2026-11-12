@@ -68,6 +68,7 @@
   --color-text-inverse: rgb(var(--color-pitch-black));
 
   /* --- Border tokens --- */
+  --color-border-control: rgb(var(--border-control));
   --color-border-default: rgb(var(--border-default)); /* compat alias (semantic.css) */
   --color-border-subtle: rgb(var(--border-subtle));
   --color-border-strong: rgb(var(--border-strong));

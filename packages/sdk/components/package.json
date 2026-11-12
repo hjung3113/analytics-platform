@@ -3,12 +3,15 @@
   "private": true,
   "version": "0.34.0",
   "type": "module",
-  "sideEffects": ["**/*.css"],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "exports": {
     ".": "./src/index.ts",
     "./testing": "./src/testing.ts",
     "./testing/engines": "./src/testing-engines.tsx",
     "./dock": "./src/dock/index.ts",
+    "./selection": "./src/selection/index.ts",
     "./styles.css": "./src/styles.css"
   },
   "scripts": {

@@ -17,6 +17,7 @@ import { formatDate, formatDateTime } from '@/lib/format/datetime';
 import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { TokenIssueDrawer } from './TokenIssueDrawer';
+import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { SystemActorGrantStatus } from './SystemActorGrantStatus';
 
 export type ApiTokenDrawerParts = ClosableDetailParts & { returnFocusRef: RefObject<HTMLElement | null> };
@@ -38,13 +39,11 @@ const validateFilters = (raw: HostSearch) => ({ noExpiry: raw.noExpiry === 'true
 
 export const API_TOKENS_QUERY_KEY = ['api-tokens'] as const;
 
-/** Exact decomposition only: a partial/unknown bundle is displayed as raw capability names. */
+/** Complete bundles keep their aliases; remaining individual scopes use the feature labels. */
 export function scopeLabel(scopes: readonly string[]): string {
   const matches = visibleApiTokenScopeBundles(undefined, { service: true }).filter(bundle => bundle.capabilities.every(cap => scopes.includes(cap)));
   const covered = new Set<string>(matches.flatMap(bundle => [...bundle.capabilities]));
-  return scopes.length > 0 && scopes.every(cap => covered.has(cap))
-    ? matches.map(bundle => bundle.label).join(' · ')
-    : scopes.join(' · ') || '—';
+  return [...matches.map(bundle => bundle.label), ...scopes.filter(scope => !covered.has(scope)).map(scope => scope === 'validation.worker' ? '검증 작업자' : getCapabilityDisplayLabel(scope))].join(' · ') || '—';
 }
 
 export function ApiTokensScreen({ service = false, canManageService = false, renderTable, renderDrawer }: ApiTokensScreenProps) {
@@ -79,7 +78,7 @@ export function ApiTokensScreen({ service = false, canManageService = false, ren
       const actor = owners.data?.actors.find(a => a.id === row.actorId);
       return actor ? <UserChip user={{ display_name: actor.display_name }} size="sm" /> : <span className="text-text-muted">—</span>;
     } }] : []),
-    { id: 'scopes', header: '권한 묶음', sortable: false, cell: row => scopeLabel(row.scopes) },
+    { id: 'scopes', header: '권한', sortable: false, cell: row => scopeLabel(row.scopes) },
     { id: 'expiresAt', header: COPY.expiry, sortable: false, cell: row => row.expiresAt ? formatDate(row.expiresAt) : <StatusBadge tone="neutral">{COPY.never}</StatusBadge> },
     { id: 'lastUsedAt', header: '마지막 사용 · 주소', sortable: false, cell: row => <div className="space-y-1"><p>{row.lastUsedAt ? `${formatDateTime(row.lastUsedAt)} KST` : COPY.noUse}</p>{row.lastUsedIp ? <p className="font-mono text-xs text-text-secondary">{row.lastUsedIp}</p> : <p className="text-xs text-text-secondary">{COPY.noAddress}</p>}</div> },
     { id: 'status', header: '상태', sortable: false, cell: row => row.revokedAt ? <StatusBadge tone="neutral">{COPY.revoked}</StatusBadge>
