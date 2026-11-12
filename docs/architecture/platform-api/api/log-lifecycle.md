@@ -222,9 +222,9 @@ The 참조 작업자 is `tooling/scripts/validation-worker-mock.mjs`: a **합성
 
 ### 근거 행의 두 상태 축
 
-기존 `RuleResultOut`의 `id`, `ruleId`, `result`, `required`, `expected`, `observed`, `evidence`, `hasExcerpt`, `opinion`을 유지한다. `evidence[]`는 `{ fileRef, line, fileSha256, hasExcerpt }`이며 상세는 저장된 expected/observed 전체를 텍스트로 표시한다. 발췌 본문은 목록에 넣지 않는다.
+기존 `RuleResultOut`의 `id`, `ruleId`, `result`, `required`, `expected`, `observed`, `evidence`, `hasExcerpt`, `opinion`을 유지한다. `evidence[]`는 `{ fileRef, line, fileSha256, hasExcerpt }`이다. 발췌 본문은 목록에 넣지 않는다.
 
-상세의 근거 행 후보는 `{ ruleResultId, evidenceIndex, evidenceRef: { fileRef, line, fileSha256 }, excerptState, sourceState }`다. 이는 별도 상태 읽기의 조합이며 `hasExcerpt`를 실시간 권한·보관 상태로 해석하지 않는다. 상태 읽기와 발췌 읽기는 현재 객체 가시성과 사람 세션/Source ACL을 재검사하고, 권한 없는 대상에는 존재 상태를 먼저 조회해 반환하지 않는다.
+상세의 근거 행 후보는 `{ ruleResultId, evidenceIndex, evidenceRef: { fileRef, line, fileSha256 }, excerptState, sourceState }`다. 중복 위치도 원래 evidenceIndex와 연결한다. 이는 별도 상태 읽기의 조합이며 `hasExcerpt`를 실시간 권한·보관 상태로 해석하지 않는다. 상태 읽기와 발췌 읽기는 현재 객체 가시성과 사람 세션/Source ACL을 재검사하고, 권한 없는 대상에는 존재 상태를 먼저 조회해 반환하지 않는다. 숨겨진 대상은 상태·카운트·직접 URL에서도 노출하지 않는다. 발췌 본문은 명시적 열기로 기존 세션·Source 권한·감사를 유지하며, 원본 열기도 현재 Source ACL을 다시 검사한다.
 
 | 축 / 값 후보 | 권위와 처리 |
 | --- | --- |

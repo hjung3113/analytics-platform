@@ -20,7 +20,7 @@ occurrence/근거 연결은 같은 workspace·개발 건의 읽을 수 있는 Ro
 
 ## 2. 상태 기계 후보와 재검증
 
-아래 전이는 **Candidate**이며 H1/H2에서 단계·역할을 결정하기 전 구현하지 않는다. 단순 `open/resolved/reopened` 대안과 함께 비교한다.
+아래 전이는 **Candidate**이며 H1/H2/H3에서 단계·역할을 결정하기 전 구현하지 않는다. 단순 `open/resolved/reopened` 대안과 함께 비교한다.
 
 | 사건 후보 | 전이 후보 | 조건·기록 |
 | --- | --- | --- |
@@ -85,13 +85,13 @@ Task/VOC/Finding/지식 초안으로의 전달은 H8 답 뒤 사용자가 명시
 
 | 노드 | 선행 / 게이트 | 위치·stack |
 | --- | --- | --- |
-| H0 도메인·권한 결정 | 이 설계 merge, H1–H8 관련 답·용어 검토 | 문서. 물리 저장 구현 없음 |
-| H1 저장·이력·멱등 | H0의 모델/상태/댓글 정책 확정 | **후속 DDL PR**, backend only. #1809 미접촉 |
-| H2 사람 API/가시성/감사 | H1 + 역할/Source 정책 확정 | backend only. #1809보다 먼저 가능. service token 부정 테스트 포함 |
-| H3 Round 토론/항목 목록·상세 | H2 + **#1809 merge** + 실제 앱 variant/Artifact 승인 | `RoundScreen.tsx`·thread/Drawer 연결, #1809 뒤 stack |
-| H4 진단/근거 연결 UI | H3 + #1815 A3, B 진단 연결은 B1 이후 | `RoundScreen.tsx` 연결 가능. 공통 EvidenceRef 유지 |
-| H5 재검증/도메인 전달 | H2 + H8 및 기존 대상 API 권한·링크 쌍 확인, UI는 H3 | 요청 생성은 기존 API, 외부 도메인 쓰기 직접 금지 |
-| H6 합성 수직 검증 | H2/H3/H4, 전달은 H5 뒤 | Round 전체 대화 + 두 항목 thread, 재발·권한 철회·직접 링크·충돌·긴 페이지 확인 |
+| N0 도메인·권한 결정 | 이 설계 merge, H1–H8 관련 답·용어 검토 | 문서. 물리 저장 구현 없음 |
+| N1 저장·이력·멱등 | N0의 모델/상태/댓글 정책 확정 | **후속 DDL PR**, backend only. #1809 미접촉 |
+| N2 사람 API/가시성/감사 | N1 + 역할/Source 정책 확정 | backend only. #1809보다 먼저 가능. service token 부정 테스트 포함 |
+| N3 Round 토론/항목 목록·상세 | N2 + **#1809 merge** + 실제 앱 variant/Artifact 승인 | `RoundScreen.tsx`·thread/Drawer 연결, #1809 뒤 stack |
+| N4 진단/근거 연결 UI | N3 + #1815 A3, B 진단 연결은 B1 이후 | `RoundScreen.tsx` 연결 가능. 공통 EvidenceRef 유지 |
+| N5 재검증/도메인 전달 | N2 + H8 및 기존 대상 API 권한·링크 쌍 확인, UI는 N3 | 요청 생성은 기존 API, 외부 도메인 쓰기 직접 금지 |
+| N6 합성 수직 검증 | N2/N3/N4, 전달은 N5 뒤 | Round 전체 대화 + 두 항목 thread, 재발·권한 철회·직접 링크·충돌·긴 페이지 확인 |
 
 수용 검증은 규칙 없이 등록→다른 허가자 댓글→상태 변경→다음 Round 연결을 포함한다. 자기/타인 댓글 정정, 중복 제출, 동시 처리, 닫힌 Round, 보관/재열기, 외부 링크 실패, Source 철회·숨겨진 대상·카운트 누출도 확인한다. 모든 단계에서 기계 결과·Gate·의견·회귀 비교는 불변이어야 한다. H1–H8 답이 필요한 기능은 미구현으로 두고 해당 답으로만 다시 연다.
 

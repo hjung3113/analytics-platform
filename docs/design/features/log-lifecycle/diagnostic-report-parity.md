@@ -24,10 +24,8 @@
 **Candidate.** 새 Worker 쓰기 필드·DDL·대용량 저장 없이 진행하는 범위다. 기존 verdict/Gate/회귀 비교·의견을 바꾸지 않는다. 이유: 상세 읽기와 기계 판정을 분리한다.
 
 - `AttemptOut`의 기존 필드 목록과 추가 `workerSummaryState`, `workerSummary` 및 정확한 허용 키/타입은 [API의 읽기 투영](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815)에 한 번만 정의한다. 추천은 기존 합성 fixture의 enum 메타데이터만이며, 실제 설명 필드는 Open R1 답 후 정한다.
-- 규칙 상세는 기존 `id`, `ruleId`, `result`, `required`, `expected`, `observed`, `evidence`, `hasExcerpt`, `opinion`을 쓴다. 기대/관측은 **저장된 최대 500자 전체**를 텍스트로 읽는다. 로컬 원문이나 제거된 개행의 복원을 뜻하지 않는다.
-- 근거는 파일·줄·해시·발췌 상태 표로 모든 행을 제공한다. 행 identity는 `(ruleResultId, evidenceIndex)`로 두고 Source 재열기 identity는 공통 `EvidenceRef` 삼중값을 유지한다. 중복 위치도 원래 발췌 index와 연결해야 한다.
-- 미제출/권한 없음/보관 만료/원본 부재/해시 불일치는 한 상태로 합치지 않는다. **발췌 상태와 원본 상태를 별도 축**으로 둔다. 발췌가 만료돼도 원본은 있을 수 있고 그 반대도 가능하기 때문이다. 현재 데이터로 확정하지 못한 것은 unknown/확인 전으로 두며 만료·부재로 추정하지 않는다. 삭제 사유의 권위와 과거 행 처리는 Open R3이다.
-- 발췌 본문은 명시적 열기와 기존 세션·Source 권한·감사를 유지한다. 원본 링크는 기존 Source 통합에서 파일 순서·줄·hash를 확인하고, Source ACL은 열 때 다시 검사한다. 숨겨진 대상은 상태·카운트·직접 URL에서도 노출하지 않는다.
+- 규칙 상세는 저장된 기대/관측을 잘림 없는 텍스트로, 근거는 모든 행을 표로 제공한다. 이는 로컬 원문이나 제거된 개행의 복원을 뜻하지 않는다. 읽기 필드·상한·행 identity·중복 위치와 발췌 index 연결은 [API의 근거 행 계약](../../../architecture/platform-api/api/log-lifecycle.md#근거-행의-두-상태-축)을 따른다.
+- 발췌/원본 상태·삭제 provenance·재인증·감사·숨겨진 대상 처리는 같은 API 계약이 소유한다. 화면은 그 상태를 구분해 표시하며, 원본 링크의 파일 순서·줄 이동은 기존 Source 통합을 사용한다. 보관된 발췌와 원본은 수명이 다르므로 하나의 상태로 합치지 않는 이유도 API를 따른다.
 - `PlatformDataTable`·`DetailDrawer`·`@ap/ui`를 재사용한다. #1809가 탐색/Drawer 구조를 소유하며 이 문서는 픽셀·문구·새 URL 키를 정하지 않는다. UI 구현은 같은 실제 앱 variant와 소유자 Artifact 승인 뒤 진행한다.
 
 Slice A는 풍부한 로컬 보고서 전체 parity를 약속하지 않는다. 기존 계약으로 보존할 수 없는 설명·진단표는 인벤토리에 손실과 이유를 남기고 Slice B 판단으로 보낸다.
@@ -73,7 +71,7 @@ items 수, 항목별 표 수, 열 수, 행 수, 셀 길이, payload 총 bytes, �
 | B1 버전 진단 쓰기/읽기 | B0 승인 | backend·schema·후속 DDL. RoundScreen 미접촉 |
 | B2 표/첨부 상세 | B1 + A3 + 실제 앱 variant 승인 | `RoundScreen.tsx` 연결 가능, #1809 뒤 stack |
 
-#1808은 [사람 등록/토론 설계](validation-issues-discussion.md)의 H1/H2 backend를 먼저 준비할 수 있지만 진단 연결 UI는 A3의 안정 참조를 따른다.
+#1808은 [사람 등록/토론 설계](validation-issues-discussion.md)의 N1/N2 backend를 먼저 준비할 수 있지만 진단 연결 UI는 A3의 안정 참조를 따른다.
 
 ## 6. Open decisions (통합)
 
