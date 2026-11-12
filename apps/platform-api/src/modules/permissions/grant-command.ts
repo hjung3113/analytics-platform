@@ -1,3 +1,4 @@
+import { grantScope, managedScope, scopeFields, type GrantScope } from './site-scope-policy.js';
 import {
   type Capability,
   type PermissionGrantAdminItem,
@@ -13,6 +14,7 @@ import { HttpError } from '../../lib/errors.js';
 export async function writePermissionGrant(
   tx: Tx,
   input: {
+    scope?: GrantScope;
     workspaceId: string;
     actorId: string;
     capability: Capability;
@@ -22,12 +24,15 @@ export async function writePermissionGrant(
     reason: string | null;
   },
 ): Promise<{ item: PermissionGrantAdminItem; previousGrantId?: string }> {
+  const scope = input.scope ?? managedScope;
   const [predecessor] = await tx
     .select()
     .from(permissionGrants)
     .where(
       and(
-        eq(permissionGrants.scopeKind, 'managed_system'),
+        eq(permissionGrants.scopeKind, scope.kind),
+        scope.site === null ? isNull(permissionGrants.scopeSite) : eq(permissionGrants.scopeSite, scope.site),
+        scope.room === null ? isNull(permissionGrants.scopeRoom) : eq(permissionGrants.scopeRoom, scope.room),
         eq(permissionGrants.workspaceId, input.workspaceId),
         eq(permissionGrants.actorId, input.actorId),
         eq(permissionGrants.capability, input.capability),
@@ -60,6 +65,9 @@ export async function writePermissionGrant(
       workspaceId: input.workspaceId,
       actorId: input.actorId,
       capability: input.capability,
+      scopeKind: scope.kind,
+      scopeSite: scope.site,
+      scopeRoom: scope.room,
       managedSystemId: input.managedSystemId,
       grantedByActorId: input.grantedByActorId,
       expiresAt: input.expiresAt,
@@ -69,6 +77,7 @@ export async function writePermissionGrant(
   if (!grant) throw new HttpError('internal.unexpected', 'permission grant insert returned no row');
   return {
     item: permissionGrantAdminItemSchema.parse({
+      ...scopeFields(grantScope(grant)),
       id: grant.id,
       actor_id: grant.actorId,
       capability: grant.capability,

@@ -1,3 +1,5 @@
+import type { ScopeCatalog } from './scope-catalog.js';
+import { findCoveringSiteGrant, requestScope, requestedScopeFields, scopeFields, scopeCatalogCandidates } from './site-scope-policy.js';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import type { RecoveryRecorder } from '../dashboard/recorder.js';
 import { RECOVERY_PERMISSION_ACTIVE_STATUSES } from './recovery-read.js';
@@ -55,6 +57,9 @@ import type { OpenRequestSummary } from './state-mapper.js';
 import { validateRequestExpiration, validateSupportedScope } from './supported-scope-policy.js';
 
 export interface CreatePermissionRequestBody {
+  requested_scope_kind?: 'managed_system' | 'site' | 'site_room' | undefined;
+  requested_scope_site?: string | null | undefined;
+  requested_scope_room?: string | null | undefined;
   requested_capability: string;
   requested_managed_system_id?: string | undefined;
   requested_object_type?: string | undefined;
@@ -88,6 +93,7 @@ export interface SubmitMoreInfoPermissionRequestResultEnvelope {
 }
 
 export interface RequestServiceDeps {
+  scopeCatalog?: ScopeCatalog | undefined;
   recoveryRecorder?: RecoveryRecorder;
   db: Db;
   checkService: CheckService;
@@ -127,6 +133,7 @@ export function createRequestService(deps: RequestServiceDeps) {
       });
     }
     const capability: Capability = body.requested_capability;
+    const scope = { kind: body.requested_scope_kind ?? 'managed_system', site: body.requested_scope_site ?? null, room: body.requested_scope_room ?? null };
     const sensitive = isSensitiveCapability(capability);
     // Sensitive capabilities (docs/architecture/platform-api/05-permission-policy.md ## Sensitive Permissions)
     // require a non-empty `reason`. The route Zod schema already requires
@@ -152,7 +159,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           body.requested_managed_system_id ?? null,
           body.requested_object_type ?? null,
           body.requested_object_id ?? null,
-          { recipientRole: actor.role_level },
+          { recipientRole: actor.role_level, scope, scopeCatalog: deps.scopeCatalog },
         );
         validateRequestExpiration(
           body.requested_expiration ? new Date(body.requested_expiration) : null,
@@ -162,7 +169,9 @@ export function createRequestService(deps: RequestServiceDeps) {
         // S-002: thread the open tx so this re-check observes any grant a
         // concurrent admin commit may have just made visible (and reads the
         // same snapshot the subsequent insert will).
-        const decision = await checkService.checkCapability(
+        const decision = scope.kind !== 'managed_system'
+          ? { allow: Boolean(await findCoveringSiteGrant(tx, actor.workspace_id, actor.actor_id, scope)) }
+          : await checkService.checkCapability(
           actor,
           capability,
           {
@@ -190,6 +199,9 @@ export function createRequestService(deps: RequestServiceDeps) {
               workspaceId: actor.workspace_id,
               requesterActorId: actor.actor_id,
               requestedCapability: capability,
+              requestedScopeKind: scope.kind,
+              requestedScopeSite: scope.site,
+              requestedScopeRoom: scope.room,
               requestedManagedSystemId: body.requested_managed_system_id ?? null,
               requestedObjectType: body.requested_object_type ?? null,
               requestedObjectId: body.requested_object_id ?? null,
@@ -237,6 +249,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           summary: `Permission requested: ${capability}`,
           detail: {
             revision: 1,
+            ...scopeFields(scope),
             capability,
             managed_system_id: body.requested_managed_system_id ?? null,
             reason: body.reason,
@@ -262,6 +275,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           status: 'pending' as const,
           revision: 1,
           created_at: insertedCreatedAt.toISOString(),
+          ...requestedScopeFields(scope),
         };
 
         return { status: 201, body: responseBody };
@@ -307,7 +321,6 @@ export function createRequestService(deps: RequestServiceDeps) {
         .where(
           and(
             eq(permissionRequests.id, requestId),
-            eq(permissionRequests.requestedScopeKind, 'managed_system'),
             eq(permissionRequests.workspaceId, actor.workspace_id),
             eq(permissionRequests.requesterActorId, actor.actor_id),
           ),
@@ -323,8 +336,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           .where(
             and(
               eq(permissionRequests.id, requestId),
-              eq(permissionRequests.requestedScopeKind, 'managed_system'),
-              eq(permissionRequests.workspaceId, actor.workspace_id),
+                eq(permissionRequests.workspaceId, actor.workspace_id),
               eq(permissionRequests.requesterActorId, actor.actor_id),
             ),
           )
@@ -367,6 +379,11 @@ export function createRequestService(deps: RequestServiceDeps) {
           });
         }
 
+        const scope = {
+          kind: body.requested_scope_kind ?? request.requestedScopeKind,
+          site: body.requested_scope_site === undefined ? request.requestedScopeSite : body.requested_scope_site,
+          room: body.requested_scope_room === undefined ? request.requestedScopeRoom : body.requested_scope_room,
+        };
         const requestedManagedSystemId =
           body.requested_managed_system_id === undefined
             ? request.requestedManagedSystemId
@@ -387,16 +404,19 @@ export function createRequestService(deps: RequestServiceDeps) {
           requestedManagedSystemId,
           requestedObjectType,
           requestedObjectId,
-          { recipientRole: actor.role_level },
+          { recipientRole: actor.role_level, scope, scopeCatalog: deps.scopeCatalog },
         );
         validateRequestExpiration(requestedExpiration);
 
         const scopeChanged =
+          scope.kind !== request.requestedScopeKind || scope.site !== request.requestedScopeSite || scope.room !== request.requestedScopeRoom ||
           requestedManagedSystemId !== request.requestedManagedSystemId ||
           requestedObjectType !== request.requestedObjectType ||
           requestedObjectId !== request.requestedObjectId;
         if (scopeChanged) {
-          const decision = await checkService.checkCapability(
+          const decision = scope.kind !== 'managed_system'
+            ? { allow: Boolean(await findCoveringSiteGrant(tx, actor.workspace_id, actor.actor_id, scope)) }
+            : await checkService.checkCapability(
             actor,
             capability,
             {
@@ -421,6 +441,9 @@ export function createRequestService(deps: RequestServiceDeps) {
             .update(permissionRequests)
             .set({
               reason,
+              requestedScopeKind: scope.kind,
+              requestedScopeSite: scope.site,
+              requestedScopeRoom: scope.room,
               requestedManagedSystemId,
               requestedObjectType,
               requestedObjectId,
@@ -466,6 +489,7 @@ export function createRequestService(deps: RequestServiceDeps) {
                   previous_revision: request.revision,
                   revision: request.revision + 1,
                   previous: {
+                    ...scopeFields(requestScope(request)),
                     reason: request.reason,
                     managed_system_id: request.requestedManagedSystemId,
                     requested_object_type: request.requestedObjectType,
@@ -473,6 +497,7 @@ export function createRequestService(deps: RequestServiceDeps) {
                     requested_expiration: request.requestedExpiration?.toISOString() ?? null,
                   },
                   resulting: {
+                    ...scopeFields(scope),
                     reason,
                     managed_system_id: requestedManagedSystemId,
                     requested_object_type: requestedObjectType,
@@ -483,6 +508,7 @@ export function createRequestService(deps: RequestServiceDeps) {
               : {
                   previous_revision: request.revision,
                   revision: request.revision + 1,
+                  ...scopeFields(scope),
                   capability,
                   managed_system_id: requestedManagedSystemId,
                   requester_actor_id: request.requesterActorId,
@@ -492,6 +518,7 @@ export function createRequestService(deps: RequestServiceDeps) {
                   requested_object_id: requestedObjectId,
                   requested_expiration: requestedExpiration?.toISOString() ?? null,
                   previous: {
+                    ...scopeFields(requestScope(request)),
                     reason: request.reason,
                     managed_system_id: request.requestedManagedSystemId,
                     requested_object_type: request.requestedObjectType,
@@ -514,6 +541,7 @@ export function createRequestService(deps: RequestServiceDeps) {
             status: 'pending',
             revision: request.revision + 1,
             updated_at: updatedAt.toISOString(),
+            ...requestedScopeFields(scope),
           },
         };
       };
@@ -544,7 +572,6 @@ export function createRequestService(deps: RequestServiceDeps) {
         .where(
           and(
             eq(permissionRequests.id, requestId),
-            eq(permissionRequests.requestedScopeKind, 'managed_system'),
             eq(permissionRequests.workspaceId, actor.workspace_id),
             eq(permissionRequests.requesterActorId, actor.actor_id),
           ),
@@ -560,8 +587,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           .where(
             and(
               eq(permissionRequests.id, requestId),
-              eq(permissionRequests.requestedScopeKind, 'managed_system'),
-              eq(permissionRequests.workspaceId, actor.workspace_id),
+                eq(permissionRequests.workspaceId, actor.workspace_id),
               eq(permissionRequests.requesterActorId, actor.actor_id),
             ),
           )
@@ -598,6 +624,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           subject_id: request.id,
           summary: 'Permission request cancelled',
           detail: {
+            ...scopeFields(requestScope(request)),
             capability: request.requestedCapability,
             requester_actor_id: request.requesterActorId,
             managed_system_id: request.requestedManagedSystemId,
@@ -618,6 +645,7 @@ export function createRequestService(deps: RequestServiceDeps) {
             status: 'cancelled',
             revision,
             updated_at: row.updatedAt.toISOString(),
+            ...requestedScopeFields(requestScope(request)),
           },
         };
       };
@@ -683,6 +711,9 @@ export function createRequestService(deps: RequestServiceDeps) {
       .select({
         id: permissionRequests.id,
         requesterActorId: permissionRequests.requesterActorId,
+        requestedScopeKind: permissionRequests.requestedScopeKind,
+        requestedScopeSite: permissionRequests.requestedScopeSite,
+        requestedScopeRoom: permissionRequests.requestedScopeRoom,
         requestedCapability: permissionRequests.requestedCapability,
         requestedManagedSystemId: permissionRequests.requestedManagedSystemId,
         requestedExpiration: permissionRequests.requestedExpiration,
@@ -695,7 +726,6 @@ export function createRequestService(deps: RequestServiceDeps) {
       .from(permissionRequests)
       .where(
         and(
-          eq(permissionRequests.requestedScopeKind, 'managed_system'),
           eq(permissionRequests.workspaceId, actor.workspace_id),
           inArray(permissionRequests.status, [...selectedStatuses]),
         ),
@@ -706,6 +736,7 @@ export function createRequestService(deps: RequestServiceDeps) {
       requests: rows.map((r) => ({
         id: r.id,
         requester_actor_id: r.requesterActorId,
+        ...requestedScopeFields(requestScope(r)),
         requested_capability: r.requestedCapability,
         requested_managed_system_id: r.requestedManagedSystemId,
         requested_expiration: r.requestedExpiration?.toISOString() ?? null,
@@ -725,6 +756,9 @@ export function createRequestService(deps: RequestServiceDeps) {
     const query = db
       .select({
         id: permissionRequests.id,
+        requestedScopeKind: permissionRequests.requestedScopeKind,
+        requestedScopeSite: permissionRequests.requestedScopeSite,
+        requestedScopeRoom: permissionRequests.requestedScopeRoom,
         requestedCapability: permissionRequests.requestedCapability,
         requestedManagedSystemId: permissionRequests.requestedManagedSystemId,
         reason: permissionRequests.reason,
@@ -743,7 +777,6 @@ export function createRequestService(deps: RequestServiceDeps) {
       .from(permissionRequests)
       .where(
         and(
-          eq(permissionRequests.requestedScopeKind, 'managed_system'),
           eq(permissionRequests.workspaceId, actor.workspace_id),
           eq(permissionRequests.requesterActorId, actor.actor_id),
           status === 'all' ? undefined : inArray(permissionRequests.status, [...ACTIVE_STATUSES]),
@@ -758,6 +791,7 @@ export function createRequestService(deps: RequestServiceDeps) {
 
     return rows.map((r) => ({
       id: r.id,
+      ...requestedScopeFields(requestScope(r)),
       requested_capability: r.requestedCapability,
       requested_managed_system_id: r.requestedManagedSystemId,
       reason: r.reason,
@@ -780,13 +814,15 @@ export function createRequestService(deps: RequestServiceDeps) {
       .select({
         id: permissionRequests.id,
         requesterActorId: permissionRequests.requesterActorId,
+        requestedScopeKind: permissionRequests.requestedScopeKind,
+        requestedScopeSite: permissionRequests.requestedScopeSite,
+        requestedScopeRoom: permissionRequests.requestedScopeRoom,
         requestedCapability: permissionRequests.requestedCapability,
       })
       .from(permissionRequests)
       .where(
         and(
           eq(permissionRequests.id, requestId),
-          eq(permissionRequests.requestedScopeKind, 'managed_system'),
           eq(permissionRequests.workspaceId, actor.workspace_id),
         ),
       )
@@ -805,6 +841,7 @@ export function createRequestService(deps: RequestServiceDeps) {
   }
 
   return {
+    scopeCandidates: (actor: ActorContext) => scopeCatalogCandidates(db, actor.workspace_id, actor.actor_id, deps.scopeCatalog),
     createRequest,
     submitMoreInfoRequest,
     editRequest: (

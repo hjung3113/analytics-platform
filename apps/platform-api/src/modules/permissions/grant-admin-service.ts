@@ -1,3 +1,5 @@
+import type { ScopeCatalog } from './scope-catalog.js';
+import { grantScope, managedScope, scopeFields, inScopeCatalog, type GrantScope } from './site-scope-policy.js';
 import { randomUUID } from 'node:crypto';
 
 import { and, asc, desc, eq, gt, inArray, isNull, or } from 'drizzle-orm';
@@ -11,6 +13,7 @@ import {
   type PermissionGrantAdminItem,
   type PermissionGrantOptions,
   type PermissionGrantPreflight,
+  type PermissionGrantListQuery,
   type RevokePermissionBody,
   type RevokePermissionResult,
   directPermissionGrantSchema,
@@ -44,6 +47,7 @@ import {
 } from './supported-scope-policy.js';
 
 export interface GrantAdminServiceDeps {
+  scopeCatalog?: ScopeCatalog | undefined;
   db: Db;
   checkService: CheckService;
   auditService: AuditService;
@@ -95,13 +99,16 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
     actorId: string,
     capability: Capability,
     managedSystemId: string | null,
+    scope: GrantScope = managedScope,
   ): Promise<PermissionGrantPreflight> {
     const [request] = await tx
       .select({ id: permissionRequests.id })
       .from(permissionRequests)
       .where(
         and(
-          eq(permissionRequests.requestedScopeKind, 'managed_system'),
+          eq(permissionRequests.requestedScopeKind, scope.kind),
+          scope.site === null ? isNull(permissionRequests.requestedScopeSite) : eq(permissionRequests.requestedScopeSite, scope.site),
+          scope.room === null ? isNull(permissionRequests.requestedScopeRoom) : eq(permissionRequests.requestedScopeRoom, scope.room),
           eq(permissionRequests.workspaceId, workspaceId),
           eq(permissionRequests.requesterActorId, actorId),
           eq(permissionRequests.requestedCapability, capability),
@@ -121,6 +128,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         request_id: request.id,
         review_route: `/admin/permissions/requests?selected=${request.id}`,
       };
+    if (scope.kind !== 'managed_system') return { state: 'available' };
     const denies = await tx
       .select({ id: permissionDenies.id })
       .from(permissionDenies)
@@ -194,6 +202,10 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         };
         const candidates: PermissionGrantOptions['candidates'] = [];
         for (const capability of CAPABILITIES) {
+          if (capability === 'scope.read') {
+            candidates.push({ capability, managed_system_id: null, scope_kinds: ['site', 'site_room'], governance_required: false, preflight: { state: 'available' } });
+            continue;
+          }
           const scopes = await supportedScopeCandidates(tx, actor.workspace_id, capability);
           for (const scope of scopes) {
             const candidate = {
@@ -257,6 +269,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       if (!recipient) throw new HttpError('not_found.record', 'recipient not found');
       const requestHash = hashRequestBody({ action: 'direct_grant', ...input });
       const run = async (): Promise<{ status: number; body: PermissionGrantAdminItem }> => {
+        const scope = { kind: input.scope_kind ?? 'managed_system', site: input.scope_site ?? null, room: input.scope_room ?? null };
         const managedSystemId = input.managed_system_id ?? null;
         await validateSupportedScope(
           tx,
@@ -267,6 +280,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           null,
           {
             approval: true,
+            scope, scopeCatalog: deps.scopeCatalog, scopePrefix: '',
             field: 'managed_system_id',
             recipientRole: recipient.role_level,
             capabilityField: 'capability',
@@ -280,6 +294,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           input.actor_id,
           input.capability,
           managedSystemId,
+          scope,
         );
         if (state.state === 'request_review')
           throw new HttpError(
@@ -312,6 +327,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           workspaceId: actor.workspace_id,
           actorId: input.actor_id,
           capability: input.capability,
+          scope,
           managedSystemId,
           grantedByActorId: actor.actor_id,
           expiresAt,
@@ -328,6 +344,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
             grant_id: result.item.id,
             grantee_actor_id: input.actor_id,
             capability: input.capability,
+            ...scopeFields(scope),
             managed_system_id: managedSystemId,
             reason: input.reason,
             expires_at: result.item.expires_at,
@@ -348,7 +365,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       );
     });
   }
-  async function listGrants(actor: ActorContext): Promise<{ items: PermissionGrantAdminItem[] }> {
+  async function listGrants(actor: ActorContext, filters: PermissionGrantListQuery = {}): Promise<{ items: PermissionGrantAdminItem[] }> {
     await assertAdmin(actor);
     const now = new Date();
     const rows = await deps.db
@@ -356,6 +373,9 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         id: permissionGrants.id,
         actorId: permissionGrants.actorId,
         capability: permissionGrants.capability,
+        scopeKind: permissionGrants.scopeKind,
+        scopeSite: permissionGrants.scopeSite,
+        scopeRoom: permissionGrants.scopeRoom,
         managedSystemId: permissionGrants.managedSystemId,
         grantedByActorId: permissionGrants.grantedByActorId,
         grantedAt: permissionGrants.grantedAt,
@@ -364,7 +384,8 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       .from(permissionGrants)
       .where(
         and(
-          eq(permissionGrants.scopeKind, 'managed_system'),
+          filters.scope_kind ? eq(permissionGrants.scopeKind, filters.scope_kind) : undefined,
+          filters.scope_site ? eq(permissionGrants.scopeSite, filters.scope_site) : undefined,
           eq(permissionGrants.workspaceId, actor.workspace_id),
           isNull(permissionGrants.revokedAt),
           isNull(permissionGrants.supersededAt),
@@ -375,6 +396,8 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
 
     return {
       items: rows.map((row) => ({
+        ...scopeFields(grantScope(row)),
+        ...(row.scopeKind !== 'managed_system' ? { in_catalog: inScopeCatalog(grantScope(row), deps.scopeCatalog) } : {}),
         id: row.id,
         actor_id: row.actorId,
         capability: row.capability,
@@ -430,6 +453,13 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       await assertAdmin(actor, tx);
       const reason = requireReason(body.reason);
       const requestHash = hashRequestBody({ grant_id: grantId, reason });
+      // Site writes serialize with request/approve/direct grant by recipient before the grant lock.
+      const [target] = await tx.select({ actorId: permissionGrants.actorId, kind: permissionGrants.scopeKind })
+        .from(permissionGrants).where(and(eq(permissionGrants.id, grantId), eq(permissionGrants.workspaceId, actor.workspace_id)));
+      if (target && target.kind !== 'managed_system') {
+        await lockWorkspaceActor(tx, { workspaceId: actor.workspace_id, actorId: target.actorId });
+      }
+
 
       const run = async (): Promise<{ status: number; body: RevokePermissionResult }> => {
         const rows = await tx
@@ -438,7 +468,6 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           .where(
             and(
               eq(permissionGrants.id, grantId),
-              eq(permissionGrants.scopeKind, 'managed_system'),
               eq(permissionGrants.workspaceId, actor.workspace_id),
             ),
           )
@@ -461,7 +490,6 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           .where(
             and(
               eq(permissionGrants.id, grant.id),
-              eq(permissionGrants.scopeKind, 'managed_system'),
               eq(permissionGrants.workspaceId, actor.workspace_id),
             ),
           )
@@ -482,6 +510,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           detail: {
             grant_id: grant.id,
             capability: grant.capability,
+            ...scopeFields(grantScope(grant)),
             managed_system_id: grant.managedSystemId,
             grantee_actor_id: grant.actorId,
             reason,
@@ -608,7 +637,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       })
       .from(permissionGrants)
       .where(
-        and(eq(permissionGrants.scopeKind, 'managed_system'), eq(permissionGrants.id, grantId), eq(permissionGrants.workspaceId, actor.workspace_id)),
+        and(eq(permissionGrants.id, grantId), eq(permissionGrants.workspaceId, actor.workspace_id)),
       )
       .limit(1);
     const grant = rows[0];

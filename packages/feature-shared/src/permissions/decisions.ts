@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { requestedPermissionScopeFields, grantedPermissionScopeFields } from './scope-kinds.js';
 
 const optionalReasonSchema = z
   .object({
@@ -10,6 +11,7 @@ const optionalReasonSchema = z
 export const approvePermissionRequestSchema = z
   .object({
     expected_revision: z.number().int().positive(),
+    ...grantedPermissionScopeFields,
     granted_managed_system_id: z.string().uuid().nullable().optional(),
     reason: z.string().max(2000).optional(),
     expiration: z.string().datetime().nullable().optional(),
@@ -36,7 +38,9 @@ export const permissionDecisionResultSchema = z
     revision: z.number().int().positive(),
     status: z.enum(['approved', 'rejected', 'needs_more_info']),
     updated_at: z.string().datetime(),
+    ...requestedPermissionScopeFields,
     requested_managed_system_id: z.string().uuid().nullable().optional(),
+    ...grantedPermissionScopeFields,
     granted_managed_system_id: z.string().uuid().nullable().optional(),
     requested_expiration: z.string().datetime().nullable().optional(),
     granted_expiration: z.string().datetime().nullable().optional(),
@@ -55,6 +59,7 @@ export const revokePermissionBodySchema = z
 export const createPermissionRequestSchema = z
   .object({
     requested_capability: z.string().min(1),
+    ...requestedPermissionScopeFields,
     requested_managed_system_id: z.string().uuid().optional(),
     requested_object_type: z.string().min(1).optional(),
     requested_object_id: z.string().uuid().optional(),

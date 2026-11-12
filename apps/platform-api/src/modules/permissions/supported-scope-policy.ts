@@ -1,3 +1,5 @@
+import { managedScope, validateSiteScope, type GrantScope } from './site-scope-policy.js';
+import type { ScopeCatalog } from './scope-catalog.js';
 // Permission owns the write policy; source object fields are provenance only.
 import type { Capability, PermissionScopeCandidate } from '@ap/feature-shared';
 import type { Tx } from '../../db/tx.js';
@@ -103,6 +105,9 @@ export async function validateSupportedScope(
   objectType: string | null,
   objectId: string | null,
   options: {
+    scope?: GrantScope;
+    scopeCatalog?: ScopeCatalog | undefined;
+    scopePrefix?: string;
     approval?: boolean;
     field?: string;
     /** Role Level of the actor who would hold the capability. */
@@ -110,6 +115,9 @@ export async function validateSupportedScope(
     capabilityField?: string;
   } = {},
 ): Promise<void> {
+  const scope = options.scope ?? managedScope;
+  validateSiteScope(capability, scope, managedSystemId, objectType, objectId, options.scopeCatalog, options.scopePrefix ?? 'requested_');
+  if (scope.kind !== 'managed_system') return;
   if (!options.approval && capability === 'workspace.admin') {
     throw new HttpError('validation.failed', 'ordinary workspace.admin requests are unsupported', {
       fields: [{ path: ['requested_capability'], code: 'custom' }],

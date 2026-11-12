@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { requestedPermissionScopeFields } from './scope-kinds.js';
 
 import { permissionRequestStatusSchema } from './selected-detail.js';
 
@@ -13,6 +14,7 @@ export const PERMISSION_REQUESTS_MINE_ALL_LIMIT = 50;
 
 export const minePermissionRequestRowSchema = z.object({
   id: z.string().uuid(),
+  ...requestedPermissionScopeFields,
   requested_capability: z.string().min(1),
   requested_managed_system_id: z.string().uuid().nullable(),
   reason: z.string(),
@@ -38,6 +40,7 @@ export type MinePermissionRequestsResponse = z.infer<typeof minePermissionReques
 // POST /permission-requests 201 body.
 // Shape check only: callers show the id as an opaque request identifier.
 export const createPermissionRequestResultSchema = z.object({
+  ...requestedPermissionScopeFields,
   id: z.string().min(1),
   status: z.literal('pending'),
   created_at: z.string().min(1),

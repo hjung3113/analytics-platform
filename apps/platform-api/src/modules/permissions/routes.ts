@@ -23,6 +23,8 @@ import {
   isCapability,
   needMoreInfoPermissionRequestSchema,
   permissionRequestsMineQuerySchema,
+  permissionGrantListQuerySchema,
+  permissionScopeCandidatesResponseSchema,
   rejectPermissionRequestSchema,
   revokePermissionBodySchema,
   submitMoreInfoPermissionRequestSchema,
@@ -72,6 +74,18 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
     workspaceId,
     rateLimitConfig,
   } = opts;
+
+  app.route({
+    method: 'GET', url: '/permission-requests/scope-candidates',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    handler: async (req) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      return permissionScopeCandidatesResponseSchema.parse({ sites: await requestService.scopeCandidates({
+        actor_id: sess.actor_id, workspace_id: sess.workspace_id, role_level: sess.role_level,
+      }) });
+    },
+  });
 
   // ── GET /me/permissions/check ───────────────────────────────────────────
   // Query: capability=<cap>&managed_system_id=<uuid?>
@@ -520,7 +534,11 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
   const activePermissionListRoutes = [
     {
       url: '/permissions/grants',
-      list: (actor: ActorContext) => grantAdminService.listGrants(actor),
+      list: (actor: ActorContext, query: unknown) => {
+        const parsed = permissionGrantListQuerySchema.safeParse(query);
+        if (!parsed.success) throw new HttpError('validation.failed', 'invalid grant filters', { fields: fieldsFromZodIssues(parsed.error.issues) });
+        return grantAdminService.listGrants(actor, parsed.data);
+      },
     },
     {
       url: '/permissions/denies',
@@ -540,7 +558,7 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
           actor_id: sess.actor_id,
           workspace_id: sess.workspace_id,
           role_level: sess.role_level,
-        });
+        }, req.query);
       },
     });
   }

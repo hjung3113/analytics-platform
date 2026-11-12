@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { permissionScopeFields } from './scope-kinds.js';
 
 import { CAPABILITIES } from '../enums/capabilities.js';
 
@@ -8,6 +9,8 @@ export const permissionGrantAdminItemSchema = z
     actor_id: z.string().uuid(),
     capability: z.string().min(1),
     managed_system_id: z.string().uuid().nullable(),
+    ...permissionScopeFields,
+    in_catalog: z.boolean().optional(),
     granted_by_actor_id: z.string().uuid(),
     granted_at: z.string().datetime(),
     expires_at: z.string().datetime().nullable(),
@@ -45,6 +48,7 @@ export const directPermissionGrantSchema = z
     managed_system_id: z.string().uuid().optional(),
     expires_at: z.string().datetime().optional(),
     reason: z.string().trim().min(1).max(2000),
+    ...permissionScopeFields,
     self_approval: z
       .object({
         policy_citation: z.string().trim().min(1),
@@ -100,6 +104,8 @@ export const permissionGrantOptionsSchema = z
         .object({
           capability: z.enum(CAPABILITIES),
           managed_system_id: z.string().uuid().nullable(),
+          // scope.read advertises supported kinds, never a workspace-wide grant.
+          scope_kinds: z.tuple([z.literal('site'), z.literal('site_room')]).optional(),
           governance_required: z.boolean(),
           preflight: permissionGrantPreflightSchema,
           prerequisites: z.array(permissionGrantPrerequisiteSchema).min(1).optional(),
