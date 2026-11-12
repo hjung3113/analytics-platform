@@ -4,9 +4,10 @@ import { attemptVisibleSql } from './repositories/access-visibility.js';
 // cite `(fileRef, line, fileSha256)` and which Rounds those results belong to. Reads only the side table `rule_result_evidence`
 // and its rule result / attempt / request / Round rows, all filtered by the caller's workspace and by object access for the
 // caller's `Viewer` (#1504; the same visibility as the lifecycle request reads, `platform:view` judged by the caller's endpoint). Locations and ids only: no excerpt, no log text.
-// Three statements, not four (#1850): both totals come from ONE statement, because each of these statements embeds the multi-KB
-// nested-`exists` visibility predicate and Postgres re-parses and re-plans it every time — that planner CPU (measured #1850:
-// ~30 ms per statement on near-empty tables vs ~2 ms execution), not row work, is what stalled the reads under CI load.
+// Three statements, not four (#1850): both totals come from ONE statement. Each statement embeds the multi-KB nested-`exists`
+// visibility predicate, and with no prepared-statement reuse Postgres parses and plans it on every call. Measured with
+// PREPARE/EXECUTE on near-empty tables: ~23-39 ms parse+plan vs ~2-4 ms execution. Dropping one of four statements removes
+// that planning cost once per read; whether this alone ends the CI stall is judged on CI, not assumed.
 // An unknown location, or one only another workspace cites, answers the same empty page.
 
 import { and, count, desc, eq, sql } from 'drizzle-orm';
@@ -40,6 +41,7 @@ export interface EvidenceLinkRound {
   projectId: string;
   seq: number;
   status: string;
+  /** Rule results of this Round that cite the location. */
   citingResults: number;
   lastCitedAt: string;
 }
@@ -50,6 +52,7 @@ export interface EvidenceLinks {
 
 /** `lifecycleEvidenceRead.findEvidenceLinks` (log-explorer D4). */
 export interface LifecycleEvidenceRead {
+  /** Rule results and Rounds that cite the location in `workspaceId`, newest first, page-limited. */
   findEvidenceLinks(tx: Tx, workspaceId: string, query: EvidenceLinkQuery, viewer: Viewer): Promise<EvidenceLinks>;
 }
 
