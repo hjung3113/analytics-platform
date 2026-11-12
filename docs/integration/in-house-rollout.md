@@ -97,6 +97,11 @@
 - [ ] 선언 원본은 TS(Zod) → JSON Schema로 정해졌다(ADR-0096). 백엔드 담당은 생성한 Pydantic 모델·`endpoints.json`을 쓰는 데 이의가 없는지 확인 — #148(닫힘)
 - [ ] 전송 형식 초안 검토: HTTP 상태와 `outcome` 관계, 부트스트랩 엔드포인트, 알림 경로(폴링·SSE), 타임아웃 값, CSRF, Correlation ID 헤더 — #149. 초안과 질문 목록: [전송 형식 초안](http-adapter-contract.md) §10
 - [ ] [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md) §1·§3의 코어/분석 스키마 소유와 교차 접근 경계를 사내 구성에 반영할 수 있는지 확인한다. site·site_room 부여는 ADR-0154의 플랫폼 부여 표와 배포 Scope 카탈로그를 따른다.
+- [ ] **기존 시스템을 선언 묶음으로 붙일 때 시스템마다 정해 주는 것**([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md), 합성 예시 [routed-declarations.example.json](examples/routed-declarations.example.json)). 새 서버·백엔드 수정은 필요 없다.
+  - 연결 방식 하나: HTTP 변환형(`mapped`: 코어가 요청·응답을 선언대로 바꿔 부른다), envelope(그 시스템이 06 §19 envelope와 신원 토큰을 말할 때만), DB 읽기 전용(`statement`) 또는 프로시저(`procedure`). 지금 코어에 올라 있는 연결기는 PostgreSQL `statement`뿐이고 나머지(HTTP 두 모드, mssql, 프로시저)는 아직 기동 거부다.
+  - 라우팅 키: Scope 키(site, room)로 어느 대상이 어느 데이터를 갖는지 — N site → 1 대상, 한 site를 room별 여러 대상으로, 또는 플랫폼이 볼 수 없는 기준(설비 묶음·기간)으로 나뉘면 모두에 묻고 병합. 대상에 없는 room이 부여될 수 있으면 `unroutedRooms: "skip"`으로 둘지 정한다.
+  - 응답 행에 site·room이 있는지, 호출이 room으로 거를 수 있는지: 있고 거를 수 있으면 `verify-rows`(벗어난 행이 하나라도 있으면 응답 전체 실패), 있지만 못 거르면 `drop-rows`, 행에 room이 없으면 `resolve-keys`(키를 site·room으로 푸는 조회 하나). site·room 표기가 플랫폼 값과 다르면 대응표(`valueMap`).
+  - 엔드포인트마다 행 상한(`limits.maxRows`, 페이지는 `merge.maxWindow`), 행을 합칠 때의 유일한 정렬 키, 읽기 전용 계정·주소·비밀 파일(위 «DB 대상 준비물»).
 - [ ] 체크리스트를 읽고 "이 규칙은 FastAPI에서 어렵다"는 항목 — 있으면 계약 변경 결정으로 올린다(루트 `AGENTS.md`)
 
 ### 3.4 파서 담당 — [#37](https://github.com/hjung3113/analytics-platform/issues/37)
@@ -116,6 +121,19 @@
 ## 4. 지금 바로 할 수 있는 일 (외부 입력 없음)
 
 - 작은 후속: #122(목적지 단건 provisional), #90(지표 이력을 감사 저장소로).
+
+[ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md) 조각 중 지금 쓸 수 있는 것과 사내 입력이 필요한 것:
+
+| 조각 | 상태 |
+| --- | --- |
+| 선언 묶음 스키마·기동 검증, 문자열 행(기본 상류) 불변 | 지금 가능 — 합성 묶음으로 시험됨 |
+| Scope 키 라우팅(N site → 1 대상, room별 분할), `verify-rows`·`drop-rows`·`resolve-keys`, `unroutedRooms` | 지금 가능 — 사내 입력은 시스템별 site·room 표기와 거를 수 있는지 |
+| fan-out 병합(정렬·`maxRows`·페이지·`coverage` 부분 실패) | 지금 가능 — 사내 입력은 유일한 정렬 키 |
+| PostgreSQL 읽기 전용 연결기 | 지금 가능 — 사내 입력은 시스템별 대상 종류, 읽기 전용 계정, 주소·네트워크 |
+| mssql·프로시저, HTTP `mapped`·라우팅된 envelope | 코어에 아직 없음(노드 1839b2·1839c) — 구현 뒤 사내 입력: 대상 종류, HTTP 자격 증명 |
+| 카탈로그 기반 Scope 부여 | 지금 가능 — 사내 입력은 `scopeCatalog`의 site·room 목록 |
+
+사내 입력은 모두 계정·주소·선언 묶음 파일이며 사내 서버를 새로 두는 일은 없다.
 
 ## 5. 사내 메뉴 개발 가이드
 

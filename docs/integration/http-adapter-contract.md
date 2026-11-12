@@ -175,6 +175,11 @@ GET /api/v1/platform/bootstrap
 
 - Kernel이 넘긴 `AbortSignal`을 `fetch`에 넘긴다 — `AbortSignal.any([kernelSignal, AbortSignal.timeout(30_000)])` 또는 같은 동작의 수동 연결(Kernel 신호 리스너 + 타이머). `AbortSignal.any`는 Chrome·Edge 116+, Firefox 124+, Safari 17.4+에서만 되고 사내 표준 브라우저는 [#151] Open이다(이 절은 Chromium 116+를 가정). 수동 연결이면 내부 타임아웃을 `AbortError`로 만들지 않는 것을 권한다(§2.2 — 취향일 뿐 필수는 아니다). 취소 판정은 `kernelSignal.aborted`로 한다(#183 — 오류 이름으로 판정하지 않는다). Kernel 신호로 인한 중단은 outcome이 아니다(superseded — §2.1).
 - **클라이언트 타임아웃 30초** [제안] — mock의 30초 예산과 같은 값. 어댑터 타임아웃은 envelope 메서드에서 `timeout` + `message: 'client_timeout'`(§2.1 — 짧은 코드), 비 envelope 메서드에서는 reject. 이 30초에는 브라우저 연결 큐 대기도 들어간다 — HTTP/1.1이면 출처당 6연결 제한이라 위젯이 많은 화면은 큐에서 기다리는 시간도 예산을 쓴다. 타이머를 큐 대기와 떼어 둘 수 없으므로 프록시 HTTP/2 여부를 [#151]에 묻는다.
+- **시간 값 30/27/25 — 누가 무엇을 갖나** ([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md) 결정 5). 선언 묶음이 대상을 선언한 `menuQuery`에서 코어 서버가 판정자다.
+  - **30초, 요청 예산(코어 서버 HTTP, `HTTP_REQUEST_TIMEOUT_MS`):** 어댑터(클라이언트) 30초와 같은 값으로 가장 바깥 한도다.
+  - **27초, 코어의 상류 마감(`MENU_UPSTREAM_TIMEOUT_MS`):** 코어가 가진다. **요청 도착 시각부터** 재므로 Scope resolver 시간이 이 안에 들고, 여러 대상(fan-out)이 마감 하나를 나눠 쓴다. 30초보다 작아야 하며 선언 파일을 켜면 설정 검증이 이를 확인한다. 넘으면 504.
+  - **25초 이하, 대상의 판정 제한(leg별 `deadlineMs`):** 코어가 연결기를 부를 때마다 남은 마감에서 2초를 뺀 값을 준다. 대상 쪽 수단으로 걸린다(`postgres`는 읽기 전용 트랜잭션의 `SET LOCAL statement_timeout` + 취소, 풀 대기도 포함). 넘으면 코어가 200 `timeout` envelope를 낸다. 남은 시간이 2초 이하이면 대상을 부르지 않고 같은 판정이다.
+  - 대상(사내 DB·API)은 시간 값을 따로 정하지 않는다. 문장 시간 제한은 코어가 건다. 프록시 read timeout(60초)은 [#151] 몫이다.
 - **서버 쿼리 타임아웃**: 서버는 자기 예산(예: 25초 — 클라이언트 30초보다 짧게 해서 서버 판정이 먼저 오게)을 넘기면 200 + `timeout` envelope로 답하고 DB 쿼리를 취소한다 [백엔드]. 프록시 read timeout은 둘보다 길게(예: 60초) [#151].
 - 클라이언트 중단 시 서버는 연결 끊김을 감지하면 쿼리를 취소해도 된다(선택) [백엔드].
 - fire-and-forget는 `signal`이 없다 — 어댑터가 짧은 타임아웃(예: 10초)만 건다.
