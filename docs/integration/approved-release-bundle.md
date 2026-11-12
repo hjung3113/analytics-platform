@@ -1,16 +1,16 @@
 # 승인 릴리스 반입 묶음 — 사외에서 만든 릴리스를 사내로 고정 버전으로 가져오는 형식
 
-상태: **Candidate** — 설계. 묶음은 아직 없다. v0.36.0 몫의 수용 기준은 [#1701](https://github.com/hjung3113/analytics-platform/issues/1701)의 댓글이 소유하고, 이 글은 그 기준을 구현 노드가 따를 수 있게 모양을 적는다. 결정은 [ADR-0143](../adr/0143-release-units-and-compatibility-train.md)(릴리스 단위, 호환 «같은 열차 N, 롤백용 N-1»)과 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)이 소유한다.
+상태: **Candidate** — 묶음이 있다: 시작 키트 자산 `ap-start-kit-<버전>.tgz`(아래 «묶음 구성»). v0.36.0 몫의 수용 기준은 [#1701](https://github.com/hjung3113/analytics-platform/issues/1701)의 댓글이 소유하고, 이 글은 그 기준을 구현 노드가 따를 수 있게 모양을 적는다. 결정은 [ADR-0143](../adr/0143-release-units-and-compatibility-train.md)(릴리스 단위, 호환 «같은 열차 N, 롤백용 N-1»)과 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)이 소유한다.
 
 ## 묶음 구성
 
 한 릴리스 열차의 묶음은 아래를 한 폴더에 둔다.
 
 - tarball 아홉: SDK 다섯과 Host·어댑터 넷(`@ap/app-host`, `@ap/mock-server`, `@ap/http-adapter`, `@ap/server-conformance`). 형제 `@ap/*`는 정확 버전 peer이므로 일부만 고를 수 없다.
-- 시작 키트([시작 키트 안내](../guides/standalone-start-kit.md))와 키트의 lockfile. 키트의 lockfile이 묶음의 lockfile이다.
-- `patches/`와 override 목록(소비자가 따로 맞춰야 하는 서드파티 patch·override).
+- 시작 키트([시작 키트 안내](../guides/standalone-start-kit.md))와 키트의 lockfile. 키트의 lockfile이 묶음의 lockfile이다. 실제로는 묶음 폴더가 키트 폴더 자체이고, 릴리스 자산 `ap-start-kit-<버전>.tgz` 하나에 아래 전부가 들어 있다(`tooling/sdk/sdk-kit.mjs`).
+- `patches/`와 override 목록(소비자가 따로 맞춰야 하는 서드파티 patch·override). 키트의 `pnpm-workspace.yaml` `overrides`·`patchedDependencies`와 `patches/`다.
 - 서드파티 정확 버전 목록.
-- 설치 안내와 설치 검사 스크립트.
+- 설치 안내(키트 README «설치»)와 설치 검사 스크립트(`sdk-bundle-check.mjs`).
 - `SHA256SUMS`.
 
 ## 설치 검사
@@ -45,7 +45,7 @@
 
 아홉 tarball로 다시 확인한 것(macOS arm64, `0.0.0-bundle`, react·react-dom을 더한 임시 프로젝트, 서드파티 267개): `file:` 설치와 lockfile 생성, `verify` 통과, 다른 경로로 복사한 뒤 데워진 store로 `--offline --frozen-lockfile` 설치, `installed` 통과, 공개 npm 레지스트리를 미러 자리에 넣은 `mirror`에서 누락 0.
 
-확인하지 못한 것: 다른 OS·아키텍처, 다른 pnpm 버전, 사내 미러에서의 설치, 빈 store의 linux-x64 컨테이너 설치(키트가 생긴 뒤 CI 작업으로 한다).
+확인하지 못한 것: 다른 pnpm 버전, 사내 미러에서의 설치, Windows·macOS 호스트에서의 오프라인 설치. 리눅스 컨테이너의 오프라인 설치는 아래 «공개 CI의 오프라인 설치»가 매 PR 확인한다.
 
 ## 설치 경로 둘
 
@@ -54,7 +54,13 @@
 
 ## 공개 CI의 오프라인 설치
 
-CI는 네트워크를 끈 linux-x64 컨테이너에서 묶음 그대로 `--offline --frozen-lockfile` 설치·빌드·실행을 한다. 사내 Docker와 같은 축이다. 이 한계(linux-x64만 시험함)는 설치 안내에 적는다.
+CI는 시작 키트 자산을 [`tooling/sdk/sdk-kit-offline.mjs`](../../tooling/sdk/sdk-kit-offline.mjs)로 네트워크 없이 설치한다. 사내 Docker와 같은 축이다.
+
+1. 연결된 컨테이너(`node:26.7.0-bookworm-slim`): pnpm 11.1.1을 도구 폴더에 깔고 키트 lockfile로 `pnpm fetch`해 store를 만든다.
+2. `--network none` 컨테이너: 자산에서 새로 푼 키트와 store·도구 폴더만 가진다. 네트워크가 막혔는지 확인한 뒤 `verify` → `pnpm install --offline --frozen-lockfile` → `installed` → `check` → `build`.
+3. 자체 시험: 빈 store로 같은 설치를 하면 `ERR_PNPM_NO_OFFLINE_TARBALL`로 실패해야 한다.
+
+CI 러너가 linux-x64라서 시험하는 축은 linux-x64뿐이다. 이 한계는 키트 README의 설치 안내에 적었다. 같은 스크립트를 다른 아키텍처의 Docker 호스트에서 돌리면 그 축을 시험한다(macOS arm64 호스트의 linux-arm64 컨테이너에서 통과를 확인했다).
 
 ## 미루는 것 (구현 안 함)
 

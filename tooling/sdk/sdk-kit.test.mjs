@@ -75,3 +75,15 @@ test('dev server stop: the whole process group ends, a grandchild included (a pl
   await stopProcessGroup(child, 2000);
   assert.equal(alive(grandchild), false, 'the grandchild outlived the stop');
 });
+
+test('offline check: the isolated container has no network, a memory cap, the caller uid and is removed on exit', async () => {
+  const { dockerArgs, IMAGE, NO_NETWORK_PROBE } = await import('./sdk-kit-offline.mjs');
+  const args = dockerArgs({ network: 'none', mounts: [['/host/kit', '/kit']], script: NO_NETWORK_PROBE });
+  assert.equal(args[0], 'run');
+  for (const flag of ['--rm', '--network=none']) assert.ok(args.includes(flag), flag);
+  assert.ok(args.some((arg) => arg.startsWith('--memory=')));
+  assert.ok(args.includes('/host/kit:/kit'));
+  assert.ok(args.includes(IMAGE));
+  if (typeof process.getuid === 'function') assert.ok(args.includes(`${process.getuid()}:${process.getgid()}`));
+  assert.match(args.at(-1), /fetch\('https:\/\/registry\.npmjs\.org\/'\)/);
+});
