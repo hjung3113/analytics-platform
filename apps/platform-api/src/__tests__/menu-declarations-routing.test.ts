@@ -102,3 +102,30 @@ it('keeps the configured ScopeResolver available without an envelope destination
   const result = await setup(emptyBundle(), { MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test' });
   expect(result?.scopeResolver).toBeDefined();
 });
+
+// Boot refusals must agree before either assembly path reaches connectors or secrets.
+it.each(['file', 'programmatic'] as const)('refuses unstable core paging at boot through %s assembly', async (assembly) => {
+  for (const targets of [['tgt-1'], ['tgt-1', 'tgt-2']]) {
+    for (const sort of [undefined, [{ field: 'id', direction: 'asc' }]]) {
+      const base = routed();
+      const value = {
+        ...base,
+        endpoints: base.endpoints.map(({ limits: _limits, ...row }) => ({ ...row, paramKeys: ['q', 'page', 'pageSize'] })),
+        targets: { ...base.targets, 'tgt-2': base.targets['tgt-1'] },
+        endpointOwners: { 'syn.rows': { ...base.endpointOwners['syn.rows'], routes: [{ sites: ['SITE-A'], rooms: ['RA1'], targets }], merge: { maxWindow: 100, ...(sort ? { sort } : {}) } } },
+      };
+      const boot = assembly === 'file' ? setup(value) : Promise.resolve().then(() => declaredContribution({ bundle: value as unknown as DeclarationBundle, checkService }));
+      expect(await problems(boot)).toEqual([sort ? 'endpoint syn.rows: merge.sort last field must declare unique: true' : 'endpoint syn.rows: paged core-answered endpoint needs merge.sort with a unique final field']);
+    }
+  }
+});
+it.each(['file', 'programmatic'] as const)('refuses duplicate kinds at boot through %s assembly', async (assembly) => {
+  const base = routed();
+  const value = {
+    ...base,
+    endpoints: base.endpoints.map((row) => ({ ...row, kinds: ['coverage', 'coverage', 'collection'] })),
+    endpointOwners: { 'syn.rows': { ...base.endpointOwners['syn.rows'], merge: { partial: 'coverage' } } },
+  };
+  const boot = assembly === 'file' ? setup(value) : Promise.resolve().then(() => declaredContribution({ bundle: value as unknown as DeclarationBundle, checkService }));
+  expect(await problems(boot)).toEqual(['endpoint syn.rows: kinds must not contain duplicates']);
+});

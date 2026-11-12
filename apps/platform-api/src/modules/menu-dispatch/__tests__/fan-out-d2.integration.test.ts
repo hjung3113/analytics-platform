@@ -1,3 +1,4 @@
+import { assessmentSchema } from '@ap/contract-schemas';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -73,10 +74,11 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)('coverage and paging 
     behavior = 'failure'; const hit = await query();
     expect(hit.statusCode).toBe(200);
     expect(hit.json()).toMatchObject({ outcome: 'ok', data: [{ id: 2, value: 'syn-healthy-value' }, { id: 4, value: 'syn-healthy-value' }], assessments: [
-      { kind: 'coverage', state: 'confirmed', statusSource: 'upstream-routing', detail: '1', observedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/) },
+      { kind: 'coverage', state: 'confirmed', statusSource: 'upstream-routing', detail: '1', observedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/) },
       { kind: 'collection', state: 'unknown', reason: 'source_unavailable' },
     ], trust: null });
     expect(hit.json().assessments).toHaveLength(2);
+    expect(assessmentSchema.safeParse(hit.json().assessments[0]).success).toBe(true);
     for (const text of ['syn-1', 'syn-2', 'syn-source-only', 'syn-private-secret', 'menu-query upstream is unavailable']) expect(hit.body).not.toContain(text);
   });
   it('pages 0 and 1 are disjoint and complete, with total measured before slicing', async () => {

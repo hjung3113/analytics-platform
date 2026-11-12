@@ -2,7 +2,6 @@ import type { DeclaredEndpoint, DeclarationBundle, Routing, Call } from './decla
 import type { Connector, ConnectorFactories, ConnectorLeg, RoutingLog } from './connectors/types.js';
 import { TargetJudgmentTimeout } from './connectors/types.js';
 import type { TargetSecrets } from './bundle/secrets.js';
-import { seoulWallClock } from '../platform-port/index.js';
 import { callBindings, isEnvelope } from './bundle/calls.js';
 import { routeCall } from './bundle/routing.js';
 import { bindingValue, resolveBindings, sameBinding } from './binding-values.js';
@@ -158,7 +157,7 @@ export async function handleRouted(endpoint: DeclaredEndpoint, owner: Routing, b
       const sliced = rows.slice(page.page * page.pageSize, (page.page + 1) * page.pageSize);
       return { outcome: sliced.length ? 'ok' : 'empty', data: { rows: sliced, total: rows.length }, assessments: results[0]?.assessments ?? [], trust: null };
     }
-    return { outcome: rows.length ? 'ok' : 'empty', data: rows, rowsRead: rows.length, assessments: partial ? (endpoint.kinds ?? []).map((kind) => kind === 'coverage' ? { kind, state: missing ? 'confirmed' : 'clear', statusSource: 'upstream-routing', observedAt: seoulWallClock(new Date()), ...(missing ? { detail: String(missing) } : {}) } : { kind, state: 'unknown', reason: 'source_unavailable' }) : results[0]?.assessments ?? [], trust: null };
+    return { outcome: rows.length ? 'ok' : 'empty', data: rows, rowsRead: rows.length, assessments: partial ? (endpoint.kinds ?? []).map((kind) => kind === 'coverage' ? { kind, state: missing ? 'confirmed' : 'clear', statusSource: 'upstream-routing', observedAt: new Date().toISOString(), ...(missing ? { detail: String(missing) } : {}) } : { kind, state: 'unknown', reason: 'source_unavailable' }) : results[0]?.assessments ?? [], trust: null };
   } finally {
     clearTimeout(timer);
     cancelSiblings();

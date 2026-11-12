@@ -1,3 +1,4 @@
+import { assessmentSchema } from '@ap/contract-schemas';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { declaredContribution } from '../declared-endpoints.js';
@@ -30,11 +31,13 @@ function runtime(connector: Connector, options: { paged?: boolean; single?: bool
 }
 const healthy: Connector = { async *query(leg) { yield { room: 'R1', value: 1, id: leg.targetId === 'syn-1' ? 2 : 1 }; } };
 afterEach(() => vi.useRealTimers());
-it('partial all-success carries exactly one clear coverage with wall-clock observation', async () => {
+it('partial all-success carries exactly one clear coverage with an ISO instant observation', async () => {
   vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-12T00:30:45Z'));
   const { run } = runtime(healthy);
-  expect(await run()).toMatchObject({ outcome: 'ok', assessments: [
-    { kind: 'coverage', state: 'clear', statusSource: 'upstream-routing', observedAt: '2026-11-12T09:30:45' },
+  const result = await run();
+  expect(assessmentSchema.safeParse(result.assessments?.[0]).success).toBe(true);
+  expect(result).toMatchObject({ outcome: 'ok', assessments: [
+    { kind: 'coverage', state: 'clear', statusSource: 'upstream-routing', observedAt: '2026-11-12T00:30:45.000Z' },
     { kind: 'collection', state: 'unknown', reason: 'source_unavailable' },
   ] });
 });

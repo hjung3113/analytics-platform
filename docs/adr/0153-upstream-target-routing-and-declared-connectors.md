@@ -76,9 +76,9 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 
 ### coverage·페이지 fan-out의 구체 모양 (1839d2)
 
-- `merge.partial: "coverage"`는 성공한 leg를 기다려 합치며 `coverage`를 한 번 싣는다. 모두 성공하면 `clear`, 일부 실패하면 `confirmed`이고 `detail`은 빠진 대상 수의 십진 문자열 하나다. `observedAt`은 `seoulWallClock`의 초 단위 wall-clock이며 `statusSource`는 `upstream-routing`이다. 다른 선언 kind는 `unknown/source_unavailable`이다. 전부 실패하면 `502 > 504 > timeout`, Scope 행 위반·키 조회 거부는 전체 실패, 한 leg라도 상한을 넘으면 `too_large`다. 공유 코어 마감·요청 취소 뒤 성공 응답을 만들지 않는다.
+- `merge.partial: "coverage"`는 성공한 leg를 기다려 합치며 `coverage`를 한 번 싣는다. 모두 성공하면 `clear`, 일부 실패하면 `confirmed`이고 `detail`은 빠진 대상 수의 십진 문자열 하나다. `observedAt`은 `new Date().toISOString()`의 ISO instant이며 `statusSource`는 `upstream-routing`이다. 다른 선언 kind는 `unknown/source_unavailable`이다. 엔드포인트의 중복 kind 선언은 기동 시 거부한다. 전부 실패하면 `502 > 504 > timeout`, Scope 행 위반·키 조회 거부는 전체 실패, 한 leg라도 상한을 넘으면 `too_large`다. 공유 코어 마감·요청 취소 뒤 성공 응답을 만들지 않는다.
 - 페이지는 단일 대상도 같은 코어 병합 경로로 처리한다. 종전 단일 대상 페이지도 d2 기동 거부 아래 있었으므로 기존 지원 동작을 바꾸지 않는다. 각 leg를 `merge.maxWindow + 1`까지만 읽고 초과하면 `too_large`; 병합 후 0부터 시작하는 `page`와 양의 정수 `pageSize`로 자른다. `total`은 자르기 전 전체 행 수다. 빈 페이지도 `{ rows: [], total }`이다.
-- 요청 `sorting`은 `PageSort[]`(`{ id, desc }`)이며 생략하면 빈 목록이다. `merge.sort`에 적은 필드가 정렬 허용 목록이다. 요청 키 순서 뒤에 나머지 선언 키를 붙이고 선언의 마지막 유일 키를 항상 마지막에 둔다(그 키의 요청 방향은 허용). 선언 정렬이 없으면 선언·원천 행 순서만 보존하고 요청 정렬 필드는 거부한다. 페이지 값·정렬 값이 틀리면 대상 호출 전에 `error`다. 대상 호출·바인딩 문장은 고치지 않는다.
+- 요청 `sorting`은 `PageSort[]`(`{ id, desc }`)이며 생략하면 빈 목록이다. `merge.sort`에 적은 필드가 정렬 허용 목록이다. 요청 키 순서 뒤에 나머지 선언 키를 붙이고 선언의 마지막 유일 키를 항상 마지막에 둔다(그 키의 요청 방향은 허용). 코어 페이지는 마지막 키가 `unique: true`인 `merge.sort` 선언이 없으면 엔드포인트 이름을 명시해 기동을 거부한다. 페이지 값·정렬 값이 틀리면 대상 호출 전에 `error`다. 대상 호출·바인딩 문장은 고치지 않는다.
 - 부분 응답·페이지 경로도 결정 3.5의 다리별 라우팅 로그(행위자·correlation id·엔드포인트 id·대상 id)를 남긴다. 응답에는 대상 id·주소·원본 오류·원본 행을 싣지 않고(`detail`은 빠진 대상 수만), 로그에도 원본 오류·행은 싣지 않는다. 페이지+부분 실패, coverage kind 없는 부분 실패, 코어 응답의 `filters`, envelope fan-out 거부는 유지한다.
 
 ### 3. 요청마다의 라우팅과 Scope 판정의 끝

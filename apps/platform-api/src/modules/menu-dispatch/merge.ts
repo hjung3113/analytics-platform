@@ -59,7 +59,7 @@ export function mergeRows(legs: readonly (readonly unknown[])[], sort: Sort | un
   return rows.map(({ row }) => row);
 }
 
-export interface PagePlan { page: number; pageSize: number; sort: Sort | undefined }
+export interface PagePlan { page: number; pageSize: number; sort: Sort }
 /** merge.sort is the bundle's sortable-field allowlist; its unique key always sorts last. */
 export function pagePlan(merge: Routing['merge'], params: Record<string, unknown>): PagePlan | undefined {
   const { page, pageSize, sorting = [] } = params;
@@ -71,7 +71,7 @@ export function pagePlan(merge: Routing['merge'], params: Record<string, unknown
     requested.push({ field: item.id, direction: item.desc ? 'desc' : 'asc' });
   }
   const last = merge?.sort?.at(-1);
-  if (!last) return { page, pageSize, sort: undefined };
+  if (!last?.unique) return undefined;
   const tie = requested.find(({ field }) => field === last.field);
   const sort = [
     ...requested.filter(({ field }) => field !== last.field),

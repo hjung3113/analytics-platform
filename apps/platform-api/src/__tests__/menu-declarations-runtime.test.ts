@@ -33,7 +33,7 @@ it.each(['partial', 'paged'])('serves validated %s routing once d2 is available'
   const base = routedBundle();
   const endpoint = base.endpoints[0];
   await expect(setup(variant === 'partial' ? { endpointOwners: { 'syn.rows': { ...base.endpointOwners['syn.rows'], merge: { partial: 'coverage' } } } } : {
-    endpoints: [{ ...endpoint, limits: undefined, paramKeys: ['q', 'page', 'pageSize'] }], endpointOwners: { 'syn.rows': { ...base.endpointOwners['syn.rows'], merge: { maxWindow: 100 } } },
+    endpoints: [{ ...endpoint, limits: undefined, paramKeys: ['q', 'page', 'pageSize'] }], endpointOwners: { 'syn.rows': { ...base.endpointOwners['syn.rows'], merge: { maxWindow: 100, sort: [{ field: 'id', direction: 'asc', unique: true }] } } },
   })).resolves.toBeDefined();
 });
 it('checks every catalog room of a split site when provided', async () => {
