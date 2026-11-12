@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { parseEvidenceRefs } from './evidence-ref-intake.js';
 import { looksSecret } from './result-payload.js';
 import { VALIDATION_ISSUE_LIMITS as L } from './validation-issue-limits.js';
+import { ISSUE_STATES } from './validation-issue-states.js';
 
 // Same normalisation as opinion-input: title is one line; prose keeps LF and TAB.
 function clean(value: string, oneLine: boolean): string {
@@ -22,6 +23,7 @@ function prose(max: number, required: boolean, oneLine = false) {
 const id = z.string().uuid();
 const optionalBody = prose(L.body, false).nullish().transform(v => v || null);
 const comment = { body: prose(L.comment, true), correctsCommentId: id.nullish().transform(v => v ?? null) };
+const optionalId = id.nullish().transform(v => v ?? null);
 export const VALIDATION_ISSUE_FIELDS = ['title', 'body', 'expected', 'actual', 'repro'] as const;
 const evidence = z.array(z.object({ fileRef: z.string(), line: z.number(), fileSha256: z.string() }).strict())
   .min(1).max(L.evidencePerOccurrence).transform((refs, ctx) => {
@@ -51,6 +53,12 @@ const schemas = {
       }
       return { ...v, body: parsed.data };
     }),
+  // #1808 H3: legality and required inputs are judged against the current state by the service (domain/validation-issue-states.ts).
+  changeState: z.object({
+    issueId: id, toState: z.enum(ISSUE_STATES),
+    reason: prose(L.comment, false).nullish().transform(v => v || null),
+    assigneeActorId: optionalId, basisCommentId: optionalId, occurrenceId: optionalId, duplicateOfIssueId: optionalId,
+  }).strict(),
 };
 export type ValidationIssueAction = keyof typeof schemas;
 export type ValidationIssueInput<A extends ValidationIssueAction> = z.output<(typeof schemas)[A]>;

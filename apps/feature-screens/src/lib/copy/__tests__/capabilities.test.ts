@@ -26,6 +26,7 @@ const EXPECTED_LABELS: Record<Capability, string> = {
   'lifecycle.round.manage': '로그 검증 Round 관리',
   'lifecycle.issue.contribute': '로그 검증 등록 항목 작성·댓글',
   'lifecycle.issue.link': '로그 검증 등록 항목 근거 연결',
+  'lifecycle.issue.triage': '로그 검증 등록 항목 처리',
   'lifecycle.gate.decide': '로그 개발 건 Gate 결정',
   'knowledge.draft.create': '지식 초안 작성',
   'explorer.source.read': '로그 원본 열람',

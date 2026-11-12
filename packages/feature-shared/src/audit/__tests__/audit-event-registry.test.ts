@@ -165,6 +165,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'lifecycle.validation_issue.evidence_linked',
   'lifecycle.validation_issue.commented',
   'lifecycle.validation_issue.field_corrected',
+  'lifecycle.validation_issue.state_changed',
   'lifecycle.round.commented',
   'knowledge.draft.created',
   'knowledge.draft.updated',
@@ -227,7 +228,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(207);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(208);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });

@@ -23,6 +23,7 @@ const actionInput: Record<string, Record<string, unknown>> = {
   'logLifecycle.validationIssueLinkOccurrence': { issueId: ID, roundId: ID },
   'logLifecycle.validationIssueLinkEvidence': { occurrenceId: ID, refs: [{ fileRef: 'synthetic.log', line: 1, fileSha256: 'b'.repeat(64) }] },
   'logLifecycle.roundDiscussionComment': { roundId: ID, body: 'Synthetic discussion' },
+  'logLifecycle.validationIssueChangeState': { issueId: ID, toState: 'waived', reason: 'Synthetic reason', assigneeActorId: ID, basisCommentId: ID },
 };
 const readParams: Record<string, Record<string, unknown>> = {
   'logLifecycle.validationIssues': { projectId: ID },

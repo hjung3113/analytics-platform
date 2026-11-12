@@ -61,6 +61,7 @@ describe('menu permissions the modules declare (#1667)', () => {
     ['lifecycle:round-manage', 'lifecycle.round.manage'],
     ['lifecycle:issue-contribute', 'lifecycle.issue.contribute'],
     ['lifecycle:issue-link', 'lifecycle.issue.link'],
+    ['lifecycle:issue-triage', 'lifecycle.issue.triage'],
     ['lifecycle:gate-decide', 'lifecycle.gate.decide'],
     ['knowledge:draft-create', 'knowledge.draft.create'],
     ['explorer:investigate', 'explorer.investigate'],
@@ -82,8 +83,8 @@ describe('menu permissions the modules declare (#1667)', () => {
     expect(kernelPermissions()).not.toContain(permission);
   });
 
-  it('declares exactly the 24 menu permissions and none twice', () => {
-    expect(declared()).toHaveLength(24);
+  it('declares exactly the 25 menu permissions and none twice', () => {
+    expect(declared()).toHaveLength(25);
   });
 
   it('lists the kernel permissions first, then the declared ones in registration order', () => {

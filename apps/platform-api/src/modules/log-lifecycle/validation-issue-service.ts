@@ -9,16 +9,18 @@ import { createAuditService } from '../core/audit/audit-service.js';
 import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import { createIdempotencyService } from '../core/idempotency/idempotency-service.js';
 import { type Viewer, viewerOf } from '../log-knowledge/index.js';
-import { validationIssues, validationIssueEvidenceRefs, validationIssueComments, roundComments, validationIssueEvents } from '../../db/schema/log-lifecycle.js';
+import { validationIssues, validationIssueEvidenceRefs, validationIssueComments, roundComments, validationIssueEvents, validationIssueTransitions } from '../../db/schema/log-lifecycle.js';
 import { parseValidationIssueInput, type ValidationIssueAction } from './domain/validation-issue-input.js';
 import { VALIDATION_ISSUE_LIMITS as L } from './domain/validation-issue-limits.js';
 import { sampleSetMisses, evidenceRefTripleKey } from './domain/evidence-ref-intake.js';
-import { assertCorrection, invalid, issueOwner, lockIssueRound, occurrenceOwner, occurrenceRequest, roundOwner, insertOccurrence } from './repositories/validation-issue-write.js';
+import { currentIssueState, judgeTransition } from './domain/validation-issue-states.js';
+import { actorInWorkspace } from './repositories/lifecycle-write.js';
+import { assertCorrection, invalid, issueCommentExists, issueOwner, lastTransition, lockIssueRound, occurrenceAfter, occurrenceOwner, occurrenceRequest, roundOwner, insertOccurrence } from './repositories/validation-issue-write.js';
 
 const audit = createAuditService();
 const idempotency = createIdempotencyService();
 type Caller = { workspace_id: string; actor_id: string };
-export interface ValidationIssueWriteResult { id: string; issueId?: string; added?: boolean; count?: number }
+export interface ValidationIssueWriteResult { id: string; issueId?: string; added?: boolean; count?: number; seq?: number; state?: string }
 function parse<A extends ValidationIssueAction>(action: A, raw: unknown) {
   const p = parseValidationIssueInput(action, raw);
   if (!p.success) throw new HttpError('validation.failed', 'validation issue input refused', { fields: p.error.issues.map(e => ({ path: e.path.map(String), code: e.code === 'custom' ? e.message : 'malformed' })) });
@@ -27,6 +29,12 @@ function parse<A extends ValidationIssueAction>(action: A, raw: unknown) {
 /** Rechecked on replay too. No write grants or capabilities are inferred from visibility. */
 export async function lockValidationIssueTarget(tx: Tx, viewer: Viewer, action: ValidationIssueAction, raw: unknown) {
   const v = parse(action, raw);
+  // A state change locks its issue's project and first Round; its optional occurrence is judged by the handler.
+  if ('toState' in v) {
+    const i = await issueOwner(tx, viewer, v.issueId);
+    await lockIssueRound(tx, viewer, i.project_id, i.first_round_id);
+    return;
+  }
   if ('firstRoundId' in v) return lockIssueRound(tx, viewer, v.projectId, v.firstRoundId);
   if ('occurrenceId' in v) {
     const o = await occurrenceOwner(tx, viewer, v.occurrenceId);
@@ -101,6 +109,39 @@ export function createValidationIssueService(deps: { db: Db }) {
         await tx.insert(validationIssueEvents).values({ ...v, id, kind: 'field_corrected', workspaceId: viewer.workspaceId, actorId: viewer.actorId, createdAt: sql`clock_timestamp()` });
         await audit.record(tx, { ...base, event_type: 'lifecycle.validation_issue.field_corrected', subject_type: 'validation_issue', subject_id: v.issueId, summary: 'validation issue field corrected', detail: { eventId: id, field: v.field, correctsEventId: v.correctsEventId } });
         return { id, issueId: v.issueId };
+      }
+      case 'changeState': {
+        const v = parse(action, raw);
+        const i = await issueOwner(tx, viewer, v.issueId);
+        // The chain head is read under the project lock; the unique (issue_id, seq) stays the final judge.
+        const head = await lastTransition(tx, viewer.workspaceId, i.id);
+        const fromState = currentIssueState(head?.to_state);
+        const seq = (head?.seq ?? 0) + 1;
+        const refusals = judgeTransition(fromState, v.toState, seq, v);
+        if (refusals.length) throw new HttpError('validation.failed', 'validation issue transition refused', { fields: refusals.map(r => ({ path: [r.path], code: r.code })) });
+        if (v.assigneeActorId && !await actorInWorkspace(tx, viewer.workspaceId, v.assigneeActorId)) invalid('assigneeActorId', 'not_found');
+        if (v.basisCommentId && !await issueCommentExists(tx, viewer.workspaceId, i.id, v.basisCommentId)) invalid('basisCommentId', 'not_found');
+        if (v.duplicateOfIssueId) {
+          if (v.duplicateOfIssueId.toLowerCase() === i.id) invalid('duplicateOfIssueId', 'self');
+          const other = await issueOwner(tx, viewer, v.duplicateOfIssueId).catch((e: unknown) => {
+            if (e instanceof HttpError && e.code === 'not_found.record') invalid('duplicateOfIssueId', 'not_found');
+            throw e;
+          });
+          if (other.project_id !== i.project_id) invalid('duplicateOfIssueId', 'other_project');
+        }
+        // fix_verified comes only from fix_requested, so the head is the entry into fix_requested.
+        if (v.occurrenceId) {
+          const located = head ? await occurrenceAfter(tx, viewer, i.id, v.occurrenceId, head.created_at) : 'not_found';
+          if (located !== 'ok') invalid('occurrenceId', located);
+        }
+        const id = randomUUID();
+        await tx.insert(validationIssueTransitions).values({
+          id, workspaceId: viewer.workspaceId, projectId: i.project_id, issueId: i.id, seq, fromState, toState: v.toState,
+          duplicateOfIssueId: v.duplicateOfIssueId, reason: v.reason, assigneeActorId: v.assigneeActorId, basisCommentId: v.basisCommentId,
+          occurrenceId: v.occurrenceId, actorId: viewer.actorId, createdAt: sql`clock_timestamp()`,
+        });
+        await audit.record(tx, { ...base, event_type: 'lifecycle.validation_issue.state_changed', subject_type: 'validation_issue', subject_id: i.id, summary: 'validation issue state changed', detail: { transitionId: id, seq, fromState, toState: v.toState } });
+        return { id, issueId: i.id, seq, state: v.toState };
       }
     }
   }

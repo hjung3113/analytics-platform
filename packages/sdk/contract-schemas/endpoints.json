@@ -1691,6 +1691,7 @@
     "menuId": "log-models",
     "paramKeys": [
       "issueId",
+      "of",
       "cursor",
       "limit"
     ],
@@ -1720,6 +1721,7 @@
     "paramKeys": [
       "projectId",
       "roundId",
+      "states",
       "cursor",
       "limit"
     ],

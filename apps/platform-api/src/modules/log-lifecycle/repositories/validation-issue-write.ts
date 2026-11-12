@@ -67,3 +67,26 @@ export async function assertCorrection(tx: Tx, viewer: Viewer, kind: 'issue' | '
     and id = ${correctionId}::uuid ${kind === 'event' ? sql`and field = ${field}` : sql``}`);
   if (!result.rows.length) invalid(kind === 'event' ? 'correctsEventId' : 'correctsCommentId', 'not_found');
 }
+
+/** #1808 H3: the chain head of an issue (no row = `reported`, seq 0). Read under the project lock taken by the caller. */
+export interface TransitionHead { seq: number; to_state: string; created_at: string }
+export async function lastTransition(tx: Tx, workspaceId: string, issueId: string): Promise<TransitionHead | null> {
+  const rows = await tx.execute(sql`select t.seq, t.to_state, t.created_at::text as created_at from log_lifecycle.validation_issue_transition t
+    where t.workspace_id = ${workspaceId}::uuid and t.issue_id = ${issueId}::uuid order by t.seq desc limit 1`);
+  const row = rows.rows[0] as { seq: number | string; to_state: string; created_at: string } | undefined;
+  return row ? { seq: Number(row.seq), to_state: row.to_state, created_at: row.created_at } : null;
+}
+export async function issueCommentExists(tx: Tx, workspaceId: string, issueId: string, commentId: string): Promise<boolean> {
+  const rows = await tx.execute(sql`select 1 from log_lifecycle.validation_issue_comment c where c.workspace_id = ${workspaceId}::uuid
+    and c.issue_id = ${issueId}::uuid and c.id = ${commentId}::uuid`);
+  return rows.rows.length > 0;
+}
+/** Whether the occurrence belongs to the issue, sits in a visible Round, and that Round was created after `after`. */
+export async function occurrenceAfter(tx: Tx, viewer: Viewer, issueId: string, occurrenceId: string, after: string): Promise<'ok' | 'not_found' | 'round_too_early'> {
+  const rows = await tx.execute(sql`select r.created_at > ${after}::timestamptz as later from log_lifecycle.validation_issue_occurrence o
+    join log_lifecycle.validation_round r on r.workspace_id = o.workspace_id and r.id = o.round_id
+    where o.workspace_id = ${viewer.workspaceId}::uuid and o.issue_id = ${issueId}::uuid and o.id = ${occurrenceId}::uuid and ${roundVisibleSql(viewer, sql`o.round_id`)}`);
+  const row = rows.rows[0] as { later: boolean } | undefined;
+  if (!row) return 'not_found';
+  return row.later ? 'ok' : 'round_too_early';
+}

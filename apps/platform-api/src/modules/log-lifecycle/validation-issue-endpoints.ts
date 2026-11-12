@@ -23,12 +23,12 @@ export function validationIssueEndpoints(deps: LogLifecycleDeps): MenuEndpointDe
         if (name === 'validationIssues') {
           const f = parseValidationIssueParams('validationIssues', params);
           if (!f.success) throw new Error('validated issue filters');
-          return { outcome: 'ok', data: await reader.list(actor, { projectId: f.data.projectId, roundId: f.data.roundId }, options) };
+          return { outcome: 'ok', data: await reader.list(actor, { projectId: f.data.projectId, roundId: f.data.roundId, states: f.data.states }, options) };
         }
         if ('roundId' in q && name === 'roundDiscussion') return { outcome: 'ok', data: await reader.comments(actor, { kind: 'round', id: q.roundId as string }, options) };
         if (!('issueId' in q)) throw new Error('validated issue target');
         if (name === 'validationIssueThread') return { outcome: 'ok', data: await reader.comments(actor, { kind: 'issue', id: q.issueId }, options) };
-        if (name === 'validationIssueHistory') return { outcome: 'ok', data: await reader.history(actor, q.issueId, options) };
+        if (name === 'validationIssueHistory') return { outcome: 'ok', data: await reader.history(actor, q.issueId, options, 'of' in q ? q.of : undefined) };
         const detail = await reader.detail(actor, q.issueId);
         if (!detail) return { outcome: 'ok', data: null };
         const occurrences = await reader.occurrences(actor, q.issueId, options);

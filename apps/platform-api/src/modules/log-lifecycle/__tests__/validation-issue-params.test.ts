@@ -22,4 +22,11 @@ describe('human validation issue query params', () => {
       expect(parseValidationIssueParams('validationIssues', params).success).toBe(false);
     }
   });
+  // #1808 H3
+  it('filters issues by distinct known states and pages history by corrections or transitions', () => {
+    expect(parseValidationIssueParams('validationIssues', { projectId: id, states: ['reported', 'on_hold'] }).success).toBe(true);
+    for (const states of [[], ['done'], ['reported', 'reported'], 'reported']) expect(parseValidationIssueParams('validationIssues', { states }).success).toBe(false);
+    expect(parseValidationIssueParams('validationIssueHistory', { issueId: id, of: 'transitions' }).success).toBe(true);
+    expect(parseValidationIssueParams('validationIssueHistory', { issueId: id, of: 'verdicts' }).success).toBe(false);
+  });
 });
