@@ -195,24 +195,35 @@ describe('assembly-injected annotation permissions (#1863)', () => {
   const kitPermission = menuPermission('kit:inhouse-view');
 
   afterEach(() => {
-    createMockAdapter({ endpoints: [], registry: { menus: [] } }); // back to the default world and the default permission
+    createMockAdapter({ endpoints: [], registry: { menus: [] } }); // back to the default world
   });
 
   it('a kit-shaped menu permission (not analytics:view) saves and reads an annotation for a holder', async () => {
-    createMockAdapter({ endpoints: [], registry: { menus: [] }, permissions: [kitPermission], annotationPermissions: [kitPermission] });
+    const adapter = createMockAdapter({ endpoints: [], registry: { menus: [] }, permissions: [kitPermission], annotationPermissions: [kitPermission] });
     setRole('engineer');
-    const saved = await saveAnnotation(input({ chartId: 'kit-chart' }), undefined, fast);
+    const saved = await adapter.saveAnnotation(input({ chartId: 'kit-chart' }));
     expect(saved.outcome).toBe('ok');
-    const read = await listAnnotations({ chartId: 'kit-chart', scopeId: 'MEM' }, undefined, fast);
+    const read = await adapter.listAnnotations({ chartId: 'kit-chart', scopeId: 'MEM' });
     expect(read.outcome).toBe('ok');
     expect(read.data?.items).toEqual([saved.data]);
   });
 
   it('a session without the injected permission is forbidden on both read and write', async () => {
-    createMockAdapter({ endpoints: [], registry: { menus: [] }, permissions: [kitPermission], annotationPermissions: [kitPermission] });
+    const adapter = createMockAdapter({ endpoints: [], registry: { menus: [] }, permissions: [kitPermission], annotationPermissions: [kitPermission] });
     setRole('viewer');
-    expect(await saveAnnotation(input(), undefined, fast)).toMatchObject({ outcome: 'forbidden', message: 'No permission kit:inhouse-view' });
-    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' }, undefined, fast)).outcome).toBe('forbidden');
+    expect(await adapter.saveAnnotation(input())).toMatchObject({ outcome: 'forbidden', message: 'No permission kit:inhouse-view' });
+    expect((await adapter.listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' })).outcome).toBe('forbidden');
     expect(storedAnnotations()).toHaveLength(0);
+  });
+
+  it('keeps the policy with its own adapter: creating another assembly neither lifts nor resets it', async () => {
+    const a = createMockAdapter({ endpoints: [], registry: { menus: [] } }); // the default analytics:view
+    const b = createMockAdapter({ endpoints: [], registry: { menus: [] }, annotationPermissions: [menuPermission('metrics:view')] });
+    setRole('viewer'); // the default world's viewer holds metrics:view, not analytics:view
+    expect(await a.saveAnnotation(input())).toMatchObject({ outcome: 'forbidden', message: 'No permission analytics:view' });
+    expect((await b.saveAnnotation(input())).outcome).toBe('ok');
+    createMockAdapter({ endpoints: [], registry: { menus: [] } }); // a later default assembly leaves both adapters alone
+    expect(await a.saveAnnotation(input())).toMatchObject({ outcome: 'forbidden', message: 'No permission analytics:view' });
+    expect((await b.listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' })).data?.items).toHaveLength(1);
   });
 });

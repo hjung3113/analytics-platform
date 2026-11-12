@@ -83,7 +83,7 @@ Vite의 `--mode real` 하나로 `#kit-assembly`가 `real/assembly.tsx`를 가리
 | 필터를 더한다 | 메뉴의 page key(`pageKeys`), 또는 `startAppHost`에 주입하는 축(ADR-0149) | `GlobalContext`는 바꾸지 않는다 |
 | 데이터를 읽는다 | 엔드포인트 선언(`endpoints.ts`) + mock 핸들러(`mock.ts`) + 서버 쪽 | 서버 쪽은 사내 데이터 서버가 소유한다(ADR-0146) |
 | 권한을 정한다 | `menus.ts`의 메뉴 권한 선언(`KIT_PERMISSIONS`) + 서버가 부여 | 선언은 부여가 아니다 |
-| 저장된 뷰를 쓴다 | 메뉴 선언의 `features.savedView` + `mock/assembly.ts`의 저장된 뷰 저장소 | 저장된 뷰 선택기는 `query: { mode: 'apply' }` + `context.time: 'apply'` 메뉴에만 나온다 |
+| 저장된 뷰를 쓴다 | 메뉴 선언의 `features.savedView` + `mock/assembly.ts`의 저장된 뷰 저장소 | 메뉴 컴포넌트가 `useSavedViewSupport`로 `menuId`·`menuSchemaVersion`·지원 Context/page 키를 가진 support 객체(모듈 상수)를 등록한다. 저장된 뷰 선택기는 `query: { mode: 'apply' }` + `context.time: 'apply'` 메뉴에만 나온다 |
 
 ## «mock 통과»
 

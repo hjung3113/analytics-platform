@@ -11,7 +11,7 @@ import { checkScope, defaultDelay, getEntity, getRole, matchesCondition, recordU
 import { AUDIT_TYPES, auditTrail, entityAudit } from './audit/audit';
 import { AUDIT_EVENTS } from './audit/audit-fixtures';
 import { accessDirectory } from './access/access';
-import { deleteAnnotation, listAnnotations, saveAnnotation, setAnnotationPermissions } from './audit/annotations';
+import { ANNOTATION_PERMISSION, deleteAnnotation, listAnnotations, saveAnnotation } from './audit/annotations';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, installWorld, type RoleId, type World } from './world';
 import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './query/endpoints';
 import { deleteNotice, importPreferences, listNotices, lookupPeople, patchPreferences, readPreferences, saveNotice, uploadFile } from './services/services';
@@ -85,13 +85,18 @@ export function createMockAdapter(o: {
   /**
    * The permissions that guard chart annotations (#1863). Default: the sample menus' `analytics:view`, so repo menus
    * are unchanged. An app whose annotate-enabled menus hold other permissions (a kit) injects them here; like the
-   * real server's gate, a session holding any one of them may read and write annotations.
+   * real server's gate, a session holding any one of them may read and write annotations. Captured per adapter:
+   * another assembly's option never changes this adapter's gate.
    */
   annotationPermissions?: readonly Permission[];
 }): PlatformAdapter {
   if (o.latency !== undefined && !(Number.isFinite(o.latency) && o.latency >= 0)) throw new MockRegistrationError('latency must be a finite number ≥ 0');
   setAdapterLatency(o.latency);
-  setAnnotationPermissions(o.annotationPermissions);
+  // #1863: the annotation policy is this adapter's own, captured at creation — creating another assembly must
+  // neither lift nor reset it. Omitted or empty: the sample menus' `analytics:view`.
+  const annotationPermissions = o.annotationPermissions === undefined || o.annotationPermissions.length === 0
+    ? [ANNOTATION_PERMISSION]
+    : [...o.annotationPermissions];
   const world = installWorld(o.permissions);
   const sessionFor = sessionsOf(world);
   const seeds = o.auditEvents ?? [];
@@ -212,9 +217,9 @@ export function createMockAdapter(o: {
     auditTrail: (query, signal) => auditTrail(query, signal, { seeds }),
     entityAudit: (req, signal) => entityAudit(req, signal, { seeds }),
     accessDirectory: (query, signal) => accessDirectory(query, signal),
-    listAnnotations: (ref, signal) => listAnnotations(ref, signal),
-    saveAnnotation: (input, signal) => saveAnnotation(input, signal),
-    deleteAnnotation: (ref, signal) => deleteAnnotation(ref, signal),
+    listAnnotations: (ref, signal) => listAnnotations(ref, signal, undefined, annotationPermissions),
+    saveAnnotation: (input, signal) => saveAnnotation(input, signal, undefined, annotationPermissions),
+    deleteAnnotation: (ref, signal) => deleteAnnotation(ref, signal, undefined, annotationPermissions),
     readPreferences: signal => readPreferences(signal),
     patchPreferences: (patch, signal) => patchPreferences(patch, signal),
     importPreferences: (input, signal) => importPreferences(input, signal),

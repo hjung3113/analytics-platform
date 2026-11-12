@@ -14,17 +14,14 @@ export type AnnotationOptions = { role?: RoleId; latency?: number };
 type StoredAnnotation = Omit<ChartAnnotation, 'mine'> & { authorId: string };
 
 /** The chart menus' permission. A server-side constant like getEntity's type map, never a client argument. */
-const ANNOTATION_PERMISSION = menuPermission('analytics:view');
+export const ANNOTATION_PERMISSION = menuPermission('analytics:view');
 /**
- * The permissions that guard annotations (#1863). The sample menus' permission is the default, so today's repo menus
- * behave exactly as before; `createMockAdapter({ annotationPermissions })` injects the app's own menu permission(s)
- * (a kit menu that declares no `analytics:view` must not lose annotations). Same rule as the real server's gate
- * (`holdsPlatformPermission`): the session must hold one of the listed permissions.
+ * The permissions that guard annotations (#1863). Standalone helpers guard with the sample menus' permission;
+ * `createMockAdapter` captures a copy of its effective list (this one when the option is omitted or empty) when
+ * it is created and hands it to its own ports, so one assembly's policy never replaces another adapter's. Same
+ * rule as the real server's gate (`holdsPlatformPermission`): the session must hold one of the listed permissions.
  */
-let annotationPermissions: readonly Permission[] = [ANNOTATION_PERMISSION];
-export function setAnnotationPermissions(list: readonly Permission[] | undefined): void {
-  annotationPermissions = list === undefined || list.length === 0 ? [ANNOTATION_PERMISSION] : list;
-}
+const DEFAULT_ANNOTATION_PERMISSIONS: readonly Permission[] = [ANNOTATION_PERMISSION];
 const REF_KEYS = ['chartId', 'scopeId'] as const;
 const INPUT_KEYS = [...REF_KEYS, 'from', 'to', 'text'] as const;
 const DELETE_KEYS = [...REF_KEYS, 'id'] as const;
@@ -61,15 +58,15 @@ const toWire = ({ authorId, ...row }: StoredAnnotation, requestRole: RoleId): Ch
 
 type Base = { correlationId: string; data: null; trust: null; assessments: Assessment[] };
 type Gated = { fail: ApiResponse<never> } | { fail?: undefined; requestRole: RoleId; scenario: ReturnType<typeof getScenario>; base: Base };
-async function gate(ref: AnnotationRef, signal: AbortSignal | undefined, opts: AnnotationOptions | undefined, invalid: boolean): Promise<Gated> {
+async function gate(ref: AnnotationRef, signal: AbortSignal | undefined, opts: AnnotationOptions | undefined, invalid: boolean, permissions: readonly Permission[]): Promise<Gated> {
   // Pin identity at send time, like serve(): a role switch while in flight must not re-evaluate this request.
   const scenario = getScenario();
   const requestRole = opts?.role ?? getRole();
   await sleep((opts?.latency ?? defaultDelay(80)) + (scenario === 'slow' ? 2200 : 0), signal);
   const base: Base = { correlationId: nextCorrelation(), data: null, trust: null, assessments: [] };
   const fail = (outcome: ApiResponse<never>['outcome'], message: string): Gated => ({ fail: { ...base, outcome, message } });
-  if (!annotationPermissions.some(permission => activeWorld().users[requestRole].permissions.includes(permission)))
-    return fail('forbidden', `No permission ${annotationPermissions.join(', ')}`);
+  if (!permissions.some(permission => activeWorld().users[requestRole].permissions.includes(permission)))
+    return fail('forbidden', `No permission ${permissions.join(', ')}`);
   if (scenario === 'timeout') return fail('timeout', '조회가 30초 제한을 넘었습니다');
   if (scenario === 'error') return fail('error', '상류 mart 쿼리가 실패했습니다');
   if (scenario === 'forbidden') return fail('forbidden', '권한이 회수되었습니다(시나리오)');
@@ -80,16 +77,16 @@ async function gate(ref: AnnotationRef, signal: AbortSignal | undefined, opts: A
   return { requestRole, scenario, base };
 }
 
-export async function listAnnotations(ref: AnnotationRef, signal?: AbortSignal, opts?: AnnotationOptions): Promise<ApiResponse<{ items: readonly ChartAnnotation[] }>> {
-  const g = await gate(ref, signal, opts, invalidRef(ref));
+export async function listAnnotations(ref: AnnotationRef, signal?: AbortSignal, opts?: AnnotationOptions, permissions: readonly Permission[] = DEFAULT_ANNOTATION_PERMISSIONS): Promise<ApiResponse<{ items: readonly ChartAnnotation[] }>> {
+  const g = await gate(ref, signal, opts, invalidRef(ref), permissions);
   if (g.fail) return g.fail;
   const items = g.scenario === 'empty' ? [] : rows.filter(r => r.scopeId === ref.scopeId && r.chartId === ref.chartId).map(r => toWire(r, g.requestRole));
   if (items.length === 0) return { ...g.base, outcome: 'empty' };
   return { ...g.base, outcome: 'ok', data: { items } };
 }
 
-export async function saveAnnotation(input: AnnotationInput, signal?: AbortSignal, opts?: AnnotationOptions): Promise<ApiResponse<ChartAnnotation>> {
-  const g = await gate(input, signal, opts, invalidInput(input));
+export async function saveAnnotation(input: AnnotationInput, signal?: AbortSignal, opts?: AnnotationOptions, permissions: readonly Permission[] = DEFAULT_ANNOTATION_PERMISSIONS): Promise<ApiResponse<ChartAnnotation>> {
+  const g = await gate(input, signal, opts, invalidInput(input), permissions);
   if (g.fail) return g.fail;
   const stored: StoredAnnotation = {
     id: `ann-${nextId++}`, chartId: input.chartId, scopeId: input.scopeId as string, from: input.from, to: input.to, text: input.text.trim(),
@@ -104,8 +101,8 @@ export async function saveAnnotation(input: AnnotationInput, signal?: AbortSigna
  * `forbidden` before any lookup. Then the lookup is inside `(chartId, scopeId)` only: an id of another site or
  * chart is `empty`, a note of another author is `forbidden`. A successful delete leaves an audit row.
  */
-export async function deleteAnnotation(ref: AnnotationRef & { id: string }, signal?: AbortSignal, opts?: AnnotationOptions): Promise<ApiResponse<{ id: string }>> {
-  const g = await gate(ref, signal, opts, invalidDelete(ref));
+export async function deleteAnnotation(ref: AnnotationRef & { id: string }, signal?: AbortSignal, opts?: AnnotationOptions, permissions: readonly Permission[] = DEFAULT_ANNOTATION_PERMISSIONS): Promise<ApiResponse<{ id: string }>> {
+  const g = await gate(ref, signal, opts, invalidDelete(ref), permissions);
   if (g.fail) return g.fail;
   const index = rows.findIndex(r => r.id === ref.id && r.scopeId === ref.scopeId && r.chartId === ref.chartId);
   if (index < 0) return { ...g.base, outcome: 'empty' };
