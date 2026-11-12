@@ -62,6 +62,12 @@ Vite의 `--mode real` 하나로 `#kit-assembly`가 `real/assembly.tsx`를 가리
 
 화면은 `menus/second/SamplePage.tsx`, 읽는 데이터의 선언은 `endpoints.ts`, mock 응답은 `mock.ts`에서 바꾼다. 화면은 `mock.ts`를 import하지 않는다. 실어댑터 조립이 mock 코드를 싣지 않게 하기 위해서다.
 
+## 저장된 뷰·주석·기준 시각
+
+- `mock/assembly.ts`가 저장된 뷰 저장소(`createLocalSavedViewStore`, 브라우저 저장소 시뮬레이션)를 기본으로 넣는다. 메뉴 권한은 Registry에서, 세션 권한은 어댑터에서 판정한다(#1864).
+- 주석 권한은 `createMockAdapter`의 `annotationPermissions`에 키트 메뉴 권한(`KIT_PERMISSIONS`)을 넣어 판정한다. 넘기지 않으면 저장소 견본 메뉴의 `analytics:view`가 기본이다(#1863).
+- mock 서버의 기준 시각은 `DEFAULT_RANGE_TO`(`@ap/mock-server` 공개 export)다. 합성 시계열은 이 시각을 기준으로 만든다(견본 `menus/sample/mock.ts` 참고, #1864).
+
 ## 적합성 검사
 
 메뉴 폴더마다 `conformance.ts`가 그 메뉴가 읽는 엔드포인트의 사례를 낸다. 사례 하나는 엔드포인트 선언과, 권한 있는 세션의 요청이 성공하는 `params`다. 엔드포인트를 더하면 사례도 하나 더한다. `pnpm check`가 `src/conformance.test.tsx`로 모든 메뉴 폴더의 사례를 `@ap/server-conformance`에 넣어 mock 어댑터로 돌린다. 사례가 없는 메뉴 패키지가 있으면 실패한다.
@@ -77,6 +83,7 @@ Vite의 `--mode real` 하나로 `#kit-assembly`가 `real/assembly.tsx`를 가리
 | 필터를 더한다 | 메뉴의 page key(`pageKeys`), 또는 `startAppHost`에 주입하는 축(ADR-0149) | `GlobalContext`는 바꾸지 않는다 |
 | 데이터를 읽는다 | 엔드포인트 선언(`endpoints.ts`) + mock 핸들러(`mock.ts`) + 서버 쪽 | 서버 쪽은 사내 데이터 서버가 소유한다(ADR-0146) |
 | 권한을 정한다 | `menus.ts`의 메뉴 권한 선언(`KIT_PERMISSIONS`) + 서버가 부여 | 선언은 부여가 아니다 |
+| 저장된 뷰를 쓴다 | 메뉴 선언의 `features.savedView` + `mock/assembly.ts`의 저장된 뷰 저장소 | 저장된 뷰 선택기는 `query: { mode: 'apply' }` + `context.time: 'apply'` 메뉴에만 나온다 |
 
 ## «mock 통과»
 
