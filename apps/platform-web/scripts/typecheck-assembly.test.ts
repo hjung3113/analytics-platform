@@ -22,19 +22,6 @@ describe('typecheckAssembly (#153)', () => {
     expect(resolveAssemblyPath('/abs/a.ts', '/repo/app')).toBe('/abs/a.ts');
   });
 
-  it('passes the mock assembly, and keeps the event loop free while tsc runs (#1311: a blocked Vitest worker misses its onTaskUpdate RPC)', async () => {
-    const before = leftovers().length;
-    let ticks = 0;
-    const timer = setInterval(() => { ticks += 1; }, 50);
-    try {
-      expect(await typecheckAssembly(resolveAssemblyPath('src/dev/mock-assembly.tsx'), APP_ROOT, tmpRoot)).toBeNull();
-    } finally {
-      clearInterval(timer);
-    }
-    expect(ticks).toBeGreaterThan(5);
-    expect(leftovers().length).toBe(before);
-  }, 60_000);
-
   it('rejects browser assembly access to process.env keys other than NODE_ENV', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ap-env-assembly-'));
     try {
@@ -48,9 +35,13 @@ describe('typecheckAssembly (#153)', () => {
     }
   }, 60_000);
 
-  it('fails an assembly of the wrong shape with a tsc error naming the property', async () => {
+  // #1680: the mock assembly's success case was dropped; `pnpm typecheck` (Platform static) checks src/dev/mock-assembly.tsx against
+  // CreateAssembly, and `build:real-prod` runs this script's success path on the real assembly.
+  it('fails an assembly of the wrong shape with a tsc error naming the property, and keeps the event loop free while tsc runs (#1311: a blocked Vitest worker misses its onTaskUpdate RPC)', async () => {
     const before = leftovers().length;
     const dir = mkdtempSync(join(tmpdir(), 'ap-bad-assembly-'));
+    let ticks = 0;
+    const timer = setInterval(() => { ticks += 1; }, 50);
     try {
       const file = join(dir, 'bad-assembly.ts');
       writeFileSync(file, 'export const createAssembly = () => ({ topBarTools: null });\n');
@@ -58,8 +49,10 @@ describe('typecheckAssembly (#153)', () => {
       expect(errors).toMatch(/error TS\d+/);
       expect(errors).toContain('adapter');
     } finally {
+      clearInterval(timer);
       rmSync(dir, { recursive: true, force: true });
     }
+    expect(ticks).toBeGreaterThan(5);
     expect(leftovers().length).toBe(before);
   }, 60_000);
 });

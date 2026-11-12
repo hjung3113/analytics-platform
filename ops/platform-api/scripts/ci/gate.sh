@@ -19,6 +19,7 @@
 #       runs `pnpm --filter @ap/platform-api test:integration`, which truncates and re-seeds.
 #       Needs CI_PG_ADMIN_URL: a superuser URL for an EMPTY, disposable Postgres 16
 #       server with pgvector, e.g. postgres://postgres:postgres@localhost:5432/postgres.
+#       Optional --shard=<i>/<n> runs that vitest shard of the files (#1680); each shard needs its own server.
 
 set -euo pipefail
 
@@ -72,6 +73,12 @@ stage_unit() {
 }
 
 stage_integration() {
+  local shard_args=()
+  case "${1:-}" in
+    "") ;;
+    --shard=[1-9]*/[1-9]*) shard_args=("$1") ;;
+    *) echo "gate.sh integration: unknown argument $1 (expected --shard=<i>/<n>)" >&2; exit 2 ;;
+  esac
   local raw_admin_url="${CI_PG_ADMIN_URL:?set CI_PG_ADMIN_URL to a disposable Postgres superuser URL}"
   local admin_url host port
   # Validate the EFFECTIVE target before any connection (scripts/db/pg-target.mjs): query overrides, PGPORT defaults
@@ -124,16 +131,16 @@ stage_integration() {
     set +a
     step env CUTOVER_ADMIN_URL="$admin_url" bash "$FEATURE_OPS/scripts/db/cutover-0076-platform-identity.sh" all
   )
-  step env PLATFORM_API_ENV_FILE="$env_file" pnpm --filter @ap/platform-api test:integration
+  step env PLATFORM_API_ENV_FILE="$env_file" pnpm --filter @ap/platform-api test:integration ${shard_args[@]+"${shard_args[@]}"}
 }
 
 case "${1:-}" in
   static) shift; stage_static "$@" ;;
   static-extra) stage_static_extra ;;
   unit) stage_unit ;;
-  integration) stage_integration ;;
+  integration) shift; stage_integration "$@" ;;
   *)
-    echo "usage: ops/platform-api/scripts/ci/gate.sh static [--base <ref>] | unit | integration" >&2
+    echo "usage: ops/platform-api/scripts/ci/gate.sh static [--base <ref>] | unit | integration [--shard=<i>/<n>]" >&2
     exit 2
     ;;
 esac
