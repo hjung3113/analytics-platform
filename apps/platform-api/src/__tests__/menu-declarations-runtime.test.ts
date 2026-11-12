@@ -29,12 +29,12 @@ it('accepts multi-target routes once fan-out merge is served (node 1839d1)', asy
   const owner = routedBundle().endpointOwners['syn.rows'];
   expect((await setup({ endpointOwners: { 'syn.rows': { ...owner, routes: [{ sites: ['SITE-A'], rooms: ['RA1'], targets: ['tgt-1', 'tgt-2'] }] } } }))?.menuDispatch[0]?.endpoints?.[0]?.spec.limits).toEqual({ maxRows: 100 });
 });
-it.each(['partial', 'paged'])('retains the d2 boot gate for %s', async (variant) => {
+it.each(['partial', 'paged'])('serves validated %s routing once d2 is available', async (variant) => {
   const base = routedBundle();
   const endpoint = base.endpoints[0];
   await expect(setup(variant === 'partial' ? { endpointOwners: { 'syn.rows': { ...base.endpointOwners['syn.rows'], merge: { partial: 'coverage' } } } } : {
     endpoints: [{ ...endpoint, limits: undefined, paramKeys: ['q', 'page', 'pageSize'] }], endpointOwners: { 'syn.rows': { ...base.endpointOwners['syn.rows'], merge: { maxWindow: 100 } } },
-  })).rejects.toMatchObject({ problems: ['fan-out merge is not available yet (ADR-0153 node 1839d2)'] });
+  })).resolves.toBeDefined();
 });
 it('checks every catalog room of a split site when provided', async () => {
   await expect(setup({}, { connectorFactories: factories, scopeCatalog: { 'SITE-A': ['RA1', 'RA2'] } })).rejects.toMatchObject({ problems: ['endpoint syn.rows: site SITE-A: room RA2 is not covered by a route'] });
