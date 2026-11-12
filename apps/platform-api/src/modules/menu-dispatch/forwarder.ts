@@ -64,7 +64,7 @@ const envelopeSchema = apiResponseSchema(z.unknown().refine((value) => value !==
   .strict();
 
 /** Owner declarations must name a pathname, without URL normalization or query/fragment policy. */
-function destinationOf(baseUrl: string, path: string): URL {
+export function validateMenuOwnerPath(path: string): void {
   const dotSegment = path.split('/').some((segment) => {
     const decoded = segment.replace(/%2e/gi, '.');
     return decoded === '.' || decoded === '..';
@@ -72,6 +72,21 @@ function destinationOf(baseUrl: string, path: string): URL {
   if (!path.startsWith('/') || /[?#\\\s]/.test(path) || dotSegment) {
     throw new Error('Invalid menu upstream owner path: expected an absolute pathname without dot segments, query, fragment, backslash or whitespace');
   }
+}
+
+/** Strict input, then canonical URL and no trailing slash so concatenation has one separator. */
+export function normalizeMenuUpstreamBaseUrl(baseUrl: string): string {
+  const invalid = () => new Error('Invalid MENU_UPSTREAM_BASE_URL: expected an http(s) URL without whitespace, credentials, query or fragment');
+  if (/[\s?#]/.test(baseUrl)) throw invalid();
+  let url: URL;
+  try { url = new URL(baseUrl); } catch { throw invalid(); }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw invalid();
+  if (url.username !== '' || url.password !== '') throw invalid();
+  return url.href.replace(/\/+$/, '');
+}
+
+function destinationOf(baseUrl: string, path: string): URL {
+  validateMenuOwnerPath(path);
   return new URL(`${baseUrl}${path}`);
 }
 
@@ -93,9 +108,10 @@ export function createMenuForwarder({
   signer: IdentityTokenSigner;
   fetch?: MenuUpstreamFetch;
 }): MenuForwarder {
+  const normalizedBaseUrl = normalizeMenuUpstreamBaseUrl(baseUrl);
   return {
     async forward({ endpointId, path, args }) {
-      const destination = destinationOf(baseUrl, path);
+      const destination = destinationOf(normalizedBaseUrl, path);
       const token = signer.sign({
         sub: args.actor.actor_id,
         wid: args.actor.workspace_id,
