@@ -120,6 +120,33 @@ const MANAGED_SYSTEM_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const RECIPIENT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const SELF_ACTOR_ID = '11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const ADMIN_RECIPIENT_ID = 'd0d0d0d0-d0d0-4d0d-8d0d-d0d0d0d0d0d0';
+const SYSTEM_ACTOR_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+const DEFAULT_WORKSPACE_ACTORS = [
+  {
+    id: RECIPIENT_ID,
+    display_name: 'Actor One',
+    email: 'actor-one@example.com',
+    actor_type: 'internal_member' as const,
+  },
+  {
+    id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    display_name: 'Actor Two',
+    email: 'actor-two@example.com',
+    actor_type: 'internal_member' as const,
+  },
+  {
+    id: SELF_ACTOR_ID,
+    display_name: 'Admin One',
+    email: 'admin-one@example.com',
+    actor_type: 'internal_member' as const,
+  },
+];
+const SYSTEM_ACTOR = {
+  id: SYSTEM_ACTOR_ID,
+  display_name: '검증 리포터',
+  email: 'system-report@example.com',
+  actor_type: 'system' as const,
+};
 const CREATED_GRANT_ID = '44444444-4444-4444-8444-444444444444';
 const SECOND_CREATED_GRANT_ID = '55555555-5555-4555-8555-555555555555';
 const THIRD_CREATED_GRANT_ID = '88888888-8888-4888-8888-888888888888';
@@ -150,7 +177,9 @@ function grantOptionsFor(
         ? 'Admin One'
         : actorId === ADMIN_RECIPIENT_ID
           ? 'Admin Two'
-          : 'Actor Two';
+          : actorId === SYSTEM_ACTOR_ID
+            ? '검증 리포터'
+            : 'Actor Two';
   return permissionGrantOptionsSchema.parse({
     recipient: {
       id: actorId,
@@ -1916,6 +1945,78 @@ describe('/admin/permissions/grants screen', () => {
     expect(directPermissionGrantSchema.parse(grantPosts(api)[0]?.body).capability).toBe(
       'voc.triage',
     );
+  });
+
+  // #1806: the direct-grant recipient picker must offer system Actors as a
+  // separate recipient kind, without making them look like people.
+  test('defaults to 사람 recipients with email and hides system Actors from the list', async () => {
+    workspaceActorsMock.actors = [...DEFAULT_WORKSPACE_ACTORS, SYSTEM_ACTOR];
+    installApi();
+    renderScreen();
+    await openDirectGrantDialog();
+
+    fireEvent.click(screen.getByRole('combobox', { name: '대상자' }));
+    expect(
+      await screen.findByRole('option', { name: 'Actor One · actor-one@example.com' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /검증 리포터/ })).toBeNull();
+  });
+
+  test('grants to a system Actor through the existing grant path and shows the token-only hint', async () => {
+    workspaceActorsMock.actors = [...DEFAULT_WORKSPACE_ACTORS, SYSTEM_ACTOR];
+    const api = installApi({
+      initialGrants: [],
+      grantOptionsByActor: {
+        [SYSTEM_ACTOR_ID]: grantOptionsFor(SYSTEM_ACTOR_ID, {
+          candidates: [
+            {
+              capability: 'validation.catalog.report',
+              managed_system_id: null,
+              governance_required: false,
+              preflight: { state: 'available' },
+            },
+          ],
+        }),
+      },
+    });
+    renderScreen();
+    await openDirectGrantDialog();
+
+    await chooseSelectOption('대상자 유형', '시스템 Actor');
+    expect(
+      screen.getByText('시스템 Actor는 사람 계정이 아니며 로그인 세션이 없습니다. 서비스 토큰 호출에만 쓰입니다.'),
+    ).toBeInTheDocument();
+    await chooseSelectOption('대상자', '검증 리포터 · 시스템 Actor');
+    await waitFor(() =>
+      expect(screen.getByTestId('direct-grant-recipient')).toHaveTextContent(
+        '검증 리포터 · 시스템 Actor',
+      ),
+    );
+    expect(screen.getByTestId('direct-grant-recipient')).not.toHaveTextContent(
+      'system-report@example.com',
+    );
+    expect(
+      api.requests.some(
+        (request) =>
+          request.method === 'GET' &&
+          request.path === `/permissions/grant-options?actor_id=${SYSTEM_ACTOR_ID}`,
+      ),
+    ).toBe(true);
+
+    await chooseSelectOption('부여 권한 및 범위', /규칙 카탈로그 보고/);
+    expect(screen.getByTestId('direct-grant-token-only-hint')).toHaveTextContent(
+      '토큰 호출 전용 · 사람 로그인 세션 불가 · 토큰 scope도 필요',
+    );
+
+    fireEvent.change(screen.getByLabelText('사유 · 필수'), {
+      target: { value: '리포트 연동을 위해 부여합니다.' },
+    });
+    fireEvent.click(screen.getByTestId('direct-grant-submit'));
+    await waitFor(() => expect(grantPosts(api)).toHaveLength(1));
+    expect(directPermissionGrantSchema.parse(grantPosts(api)[0]?.body)).toMatchObject({
+      actor_id: SYSTEM_ACTOR_ID,
+      capability: 'validation.catalog.report',
+    });
   });
 });
 

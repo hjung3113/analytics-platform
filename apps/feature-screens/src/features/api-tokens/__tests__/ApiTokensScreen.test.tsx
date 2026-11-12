@@ -214,6 +214,37 @@ describe('API token management', () => {
     await screen.findByDisplayValue(SECRET);
     expect(calls.find(c => c.method === 'POST')?.body).toMatchObject({ scopes: ['workspace.read', 'validation.worker'], actorId: ACTOR });
   });
+
+  // #1806: grant state and token-scope state are shown separately per system
+  // Actor; neither alone is ever presented as usable.
+  it.each([
+    { withGrant: true, withScope: false },
+    { withGrant: false, withScope: true },
+  ])(
+    'shows grant and token-scope state separately (grant %s, scope %s)',
+    async ({ withGrant, withScope }) => {
+      const system = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+      rows = [row({ id: system, kind: 'service', actorId: ACTOR, scopes: withScope ? ['workspace.read', 'validation.catalog.report'] : ['workspace.read'] })];
+      const original = fetch;
+      vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).includes('/permissions/grants'))
+          return Promise.resolve(json({
+            items: withGrant
+              ? [{ id: 'ffffffff-ffff-4fff-8fff-ffffffffffff', actor_id: ACTOR, capability: 'validation.catalog.report', managed_system_id: null, granted_by_actor_id: ACTOR, granted_at: '2026-11-01T00:00:00Z', expires_at: null }]
+              : [],
+          }));
+        return original(input, init);
+      }));
+      mount(true);
+      const panel = await screen.findByTestId('service-token-actor-status');
+      expect(await within(panel).findByText('검증 워커')).toBeVisible();
+      expect(within(panel).getByText(/규칙 카탈로그 보고\(토큰 전용\)/)).toBeVisible();
+      expect(within(panel).getByText(withGrant ? /권한 grant: 보유/ : /권한 grant: 없음/)).toBeVisible();
+      expect(within(panel).getByText(withScope ? /토큰 scope: 포함/ : /토큰 scope: 없음/)).toBeVisible();
+      expect(within(panel).queryByText('사용 가능')).toBeNull();
+      expect(within(panel).getByText(/grant와 토큰 scope이 모두 있어야/)).toBeVisible();
+    },
+  );
   it('offers first issuance without an orphan pager on the empty first page (B10)', async () => {
     rows = []; mount();
     expect(await screen.findByText('아직 발급한 토큰이 없습니다')).toBeVisible();

@@ -23,4 +23,14 @@ export const API_TOKEN_COPY = {
   retry: '다시 시도', loading: '불러오는 중…', previous: '이전', next: '다음',
   available: '사용 가능', unused: '30일 이상 미사용', revoked: '폐기됨', expired: '만료됨',
   noUse: '사용 기록 없음', noAddress: '주소 기록 없음', adminOnly: '관리자만 서비스 토큰을 관리할 수 있습니다.',
+  actorStatusTitle: '시스템 Actor 권한·토큰 상태',
+  actorStatusHint:
+    '토큰 전용 권한은 권한 grant와 토큰 scope이 모두 있어야 호출할 수 있습니다. grant는 전체 권한 목록, 토큰 scope은 현재 조회 결과 기준입니다. 이 표는 읽기 전용이며 권한을 자동으로 부여하거나 늘리지 않습니다.',
+  actorStatusGrantLabel: '권한 grant',
+  actorStatusScopeLabel: '토큰 scope',
+  actorStatusHeld: '보유',
+  actorStatusIncluded: '포함',
+  actorStatusMissing: '없음',
+  actorStatusError: '권한 상태를 불러오지 못했습니다.',
+  grantsLink: '권한 관리 화면 보기',
 } as const;

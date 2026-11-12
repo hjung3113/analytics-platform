@@ -8,13 +8,14 @@ export async function insertActorRow(
     email?: string;
     displayName?: string;
     roleLevel: 'admin' | 'developer' | 'user';
+    actorType?: 'internal_member' | 'system';
   },
 ): Promise<{ id: string }> {
   const res = await dbHandle.pool.query<{ id: string }>(
     `insert into core.actors (
         workspace_id, external_id, email, display_name, role_level, actor_type
       )
-     values ($1, $2, $3, $4, $5, 'internal_member')
+     values ($1, $2, $3, $4, $5, $6)
      returning id`,
     [
       input.workspaceId,
@@ -22,6 +23,7 @@ export async function insertActorRow(
       input.email ?? `${input.externalId}@local`,
       input.displayName ?? input.externalId,
       input.roleLevel,
+      input.actorType ?? 'internal_member',
     ],
   );
   const id = res.rows[0]?.id;

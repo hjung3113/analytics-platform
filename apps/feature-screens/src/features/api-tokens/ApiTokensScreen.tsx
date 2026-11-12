@@ -17,6 +17,7 @@ import { formatDate, formatDateTime } from '@/lib/format/datetime';
 import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { TokenIssueDrawer } from './TokenIssueDrawer';
+import { SystemActorGrantStatus } from './SystemActorGrantStatus';
 
 export type ApiTokenDrawerParts = ClosableDetailParts & { returnFocusRef: RefObject<HTMLElement | null> };
 export interface ApiTokenTableParts {
@@ -115,7 +116,7 @@ export function ApiTokensScreen({ service = false, canManageService = false, ren
         summary: `현재 페이지 ${rows.length}건 · ${page.index + 1}페이지`, pagination,
         rowAction: row => row.revokedAt ? <span className="text-xs text-text-muted">폐기 완료</span> : <Button variant="secondary" size="toolbar" aria-label={`${row.name} 폐기`} disabled={issuing || revoking} onClick={() => { setRevokeError(null); setRevoke(row); }}>폐기</Button>,
       })}
-    <p className="text-xs text-text-secondary">{COPY.session}</p>
+    {service ? <SystemActorGrantStatus actors={actors.data ?? []} tokens={rows} /> : null}
     {issuing ? <TokenIssueDrawer returnFocusRef={issueTrigger} service={service} actors={actors} renderDrawer={renderDrawer} onClose={() => setIssuing(false)} onIssued={refresh} /> : null}
     <AlertDialog open={revoke !== null} onOpenChange={open => { if (!open && !revoking) setRevoke(null); }}>
       <AlertDialogContent className="break-keep"><AlertDialogHeader><AlertDialogTitle>{COPY.revokeTitle}</AlertDialogTitle><AlertDialogDescription>{COPY.revokeHint}</AlertDialogDescription></AlertDialogHeader>
