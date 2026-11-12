@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { bindingSchema } from './bindings.js';
-import { callSchema, jsonPointerSchema } from './calls.js';
+import { type Call, callSchema, jsonPointerSchema } from './calls.js';
 import { valueMapSchema } from './targets.js';
 
 export const ASSESSMENT_KINDS = ['collection', 'processing_delay', 'coverage', 'time_domain', 'respondent_history'] as const;
@@ -16,7 +16,7 @@ export const routeSchema = z.strictObject({
   targets: z.array(z.string().min(1)).nonempty(), call: callSchema.optional(), valueMap: valueMapSchema.optional(),
 });
 export const routingSchema = z.strictObject({
-  routes: z.array(routeSchema).nonempty(), call: callSchema, scopeCheck: scopeCheckSchema.optional(),
+  routes: z.array(routeSchema).nonempty(), call: callSchema.optional(), scopeCheck: scopeCheckSchema.optional(),
   merge: z.strictObject({
     sort: z.array(z.strictObject({ field: z.string().min(1), direction: z.enum(['asc', 'desc']), unique: z.boolean().optional() })).nonempty().optional(),
     partial: z.literal('coverage').optional(), maxWindow: z.number().int().positive().optional(),
@@ -25,3 +25,10 @@ export const routingSchema = z.strictObject({
 });
 export type Routing = z.infer<typeof routingSchema>;
 export type Route = z.infer<typeof routeSchema>;
+
+/** The call a route runs: its own, else the endpoint default (`routingProblems` refuses a route with neither). */
+export function routeCall(owner: Routing, route: Route): Call {
+  const call = route.call ?? owner.call;
+  if (call === undefined) throw new Error('validated routing has a call for every route');
+  return call;
+}

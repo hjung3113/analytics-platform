@@ -53,6 +53,7 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 
 - `scopeCheck.mode`: `verify-rows` / `drop-rows` / `resolve-keys`. `siteField`·`roomField`는 JSON 포인터다. `resolve-keys`는 같은 연결기 종류의 `lookup` 호출과 `keys` 바인딩을 갖는다. 키 없는 집계는 `keys: { const: [] }`로 명시한다. 생략이나 다른 빈 값으로 추측하지 않으며, 본 호출에 `scope.rooms`가 필요하다.
 - `unroutedRooms`: `"skip"` / `"error"`; 생략은 `"error"`다. `coverage` assessment kind와 구분하기 위해 누락 room 처리의 이름을 따로 둔다. `"skip"`은 이 엔드포인트의 데이터가 선언된 room에만 있다는 배포자의 선언이다.
+- 라우팅 객체의 `call`은 자기 `call`이 없는 경로의 기본값이다. 그런 경로가 있는데 기본값이 없거나, 모든 경로가 덮어써 기본값이 쓰이지 않으면 기동 실패다. 쓰이지 않는 기본값은 대상이 없어 판정할 dialect도 없기 때문이다.
 - `merge.sort`: `{ field, direction: "asc" | "desc", unique?: boolean }[]`. 마지막 항목에 `unique: true`가 필수다. 행 식별자의 이름을 플랫폼이 추측하지 않도록 배포자가 동률 깨기 키를 명시한다.
 - HTTP `mapped`: 경로 조각 `{name}`의 바인딩 표는 `pathParams`다. 이름 집합은 경로 변수와 정확히 같아야 한다. `arrayStyle`은 `{ mode: "repeat" }` 또는 `{ mode: "join", separator }`다. `response.fields`는 `{ out: { from: "/pointer", type?: "number" | "string" | "wallclock" } }`다.
 - SQL 프로시저의 `listJoin`은 인자 이름 → 구분자 표다. 대상 `pool`은 `{ max, concurrency }`, DB 응용 이름은 `applicationName`이다. SQL도 `response.fields`를 사용한다.

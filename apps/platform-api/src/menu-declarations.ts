@@ -11,6 +11,7 @@ import { readFile } from 'node:fs/promises';
 import type { AppConfig } from './config.js';
 import { DeclarationBundleError, loadDeclarationBundle } from './modules/menu-dispatch/declarations-file.js';
 import { isEnvelope } from './modules/menu-dispatch/bundle/calls.js';
+import { routeCall } from './modules/menu-dispatch/bundle/routing.js';
 import { readTargetSecrets, type TargetSecrets } from './modules/menu-dispatch/bundle/secrets.js';
 import { declaredContribution } from './modules/menu-dispatch/declared-endpoints.js';
 import { createMenuForwarder, normalizeMenuUpstreamBaseUrl, validateMenuOwnerPath } from './modules/menu-dispatch/forwarder.js';
@@ -54,7 +55,7 @@ export async function loadMenuDeclarationSetup(
   // Validate before reading any secret. No partially validated target can reach a connector.
   const bundle = await loadDeclarationBundle(file);
   const envelope = Object.values(bundle.endpointOwners).some((owner) =>
-    typeof owner === 'string' || owner.routes.some((route) => isEnvelope(route.call ?? owner.call)));
+    typeof owner === 'string' || owner.routes.some((route) => isEnvelope(routeCall(owner, route))));
   if (envelope) {
     const missing = (['MENU_UPSTREAM_BASE_URL', 'MENU_IDENTITY_KEY_FILE', 'MENU_IDENTITY_KEY_ID'] as const)
       .filter((key) => !config[key]);

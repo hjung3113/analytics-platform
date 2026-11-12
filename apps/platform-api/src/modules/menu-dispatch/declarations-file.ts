@@ -19,7 +19,7 @@ import { PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
 import { CONTEXT_KEYS } from './types.js';
 import { isEnvelope } from './bundle/calls.js';
 import { paramTypeSchema } from './bundle/bindings.js';
-import { ASSESSMENT_KINDS, routingSchema } from './bundle/routing.js';
+import { ASSESSMENT_KINDS, routeCall, routingSchema } from './bundle/routing.js';
 import { targetsSchema } from './bundle/targets.js';
 import { routingProblems } from './bundle/validation.js';
 
@@ -183,7 +183,7 @@ export async function loadDeclarationBundle(path: string): Promise<DeclarationBu
   return {
     endpoints: endpoints.map(({ limits, ...row }) => {
       const owner = endpointOwners[row.id];
-      const core = owner !== undefined && typeof owner !== 'string' && owner.routes.some((route) => !isEnvelope(route.call ?? owner.call));
+      const core = owner !== undefined && typeof owner !== 'string' && owner.routes.some((route) => !isEnvelope(routeCall(owner, route)));
       return {
         ...row,
         ...(core ? { kinds: row.kinds ?? [] } : {}),
