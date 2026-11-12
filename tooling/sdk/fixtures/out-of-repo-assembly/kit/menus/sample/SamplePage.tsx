@@ -15,7 +15,7 @@ export default function SamplePage() {
             <p className="t-caption text-text-muted">{lang === 'ko' ? MENU_LABEL.ko : MENU_LABEL.en}</p>
             <ul className="space-y-1">
               {rows.map((row) => (
-                <li key={row.name} className="t-body">{row.name}: {row.value}</li>
+                <li key={row.name} className="t-body">{row.name} ({row.at}): {row.value}</li>
               ))}
             </ul>
           </section>

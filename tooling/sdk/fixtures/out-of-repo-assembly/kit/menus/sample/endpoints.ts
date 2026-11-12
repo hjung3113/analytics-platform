@@ -3,8 +3,8 @@
 import { defineEndpoint } from '@ap/contracts';
 import { MENU_ID, MENU_PERMISSION } from './menu';
 
-/** One synthetic row. Replace with the menu's real data shape. */
-export type SampleRow = { name: string; value: number };
+/** One synthetic row. `at` is the synthetic time, made relative to the mock reference time DEFAULT_RANGE_TO (#1864). Replace with the menu's real data shape. */
+export type SampleRow = { name: string; at: string; value: number };
 
 export const sampleEndpoint = defineEndpoint<Record<never, true>, SampleRow[]>({
   id: `${MENU_ID}.rows`,
