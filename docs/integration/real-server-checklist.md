@@ -132,6 +132,8 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 
 [`@ap/server-conformance`](../../packages/adapters/server-conformance/AGENTS.md)는 §3의 1·3·4·6·10(그리고 표본이 있으면 9)을 엔드포인트 선언에서 도출해 검사한다(엔드포인트마다 성공 요청, 알 수 없는 키·비적용 키·적용 키 누락·`from` null·`metricVersion` 단독 거부, 권한 없으면 `forbidden`, 부여 안 된 site·`null` Scope `forbidden`, 명시적 공집합, kind 정확히 일치). 선언한 `maxRows`가 있고 표본 요청이 `oversizeParams`를 갖고 있으면(#175), 그 요청이 `too_large`로 데이터 없이 답하는지도 검사한다. 지금은 `apps/platform-web/src/server-conformance.test.ts`가 앱의 모든 메뉴 엔드포인트와 mock 어댑터로 돌리고, 플랫폼 API 통합 테스트 `apps/platform-api/src/modules/platform-port/__tests__/platform-conformance.integration.test.ts`가 실서버에 실어댑터(`app.inject` 위 `fetch`)로 돌린다(#674) — 아직 없는 포트는 건너뛴 검사로 남아 실서버 준비 현황표가 된다.
 
+저장소 밖 메뉴(시작 키트, #1706): 메뉴 폴더마다 `conformance.ts`가 그 메뉴 엔드포인트의 사례(`cases`)를 내보내고, 키트의 `src/conformance.test.tsx`가 모든 메뉴 폴더의 사례를 모아 mock 어댑터로 돌린다. 메뉴 조회 경계와 `session`만 판정하고 나머지 포트 검사는 ` — not implemented`로 건너뛴 것으로 남는다(포트는 메뉴가 아니라 플랫폼 몫이다). 이 결과는 «mock 통과»일 뿐 실서버 통과가 아니다. 사내에서는 같은 `cases`를 아래 하네스(실어댑터·사내 계정)로 돌린다. 그 결과와 로그는 사내에 두고, 공개 저장소로 나가는 형식은 [업데이트와 문제 환류 절차 §3](upstream-feedback-procedure.md#3-나가도-되는-것과-안-되는-것)뿐이다.
+
 실어댑터를 붙이면 같은 하네스를 실어댑터로 만든다. 사내에서 준비할 것:
 
 - `adapter`: 실어댑터(테스트 환경 서버를 가리킴).
