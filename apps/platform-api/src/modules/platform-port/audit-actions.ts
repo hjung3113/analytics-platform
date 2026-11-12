@@ -165,6 +165,7 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   'lifecycle.validation_issue.evidence_linked': 'update',
   'lifecycle.validation_issue.commented': 'update',
   'lifecycle.validation_issue.field_corrected': 'update',
+  'lifecycle.validation_issue.state_changed': 'update',
   'lifecycle.round.commented': 'update',
   'knowledge.draft.created': 'create',
   'knowledge.draft.updated': 'update',

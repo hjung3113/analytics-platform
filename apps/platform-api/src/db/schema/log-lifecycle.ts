@@ -666,6 +666,8 @@ export const validationIssueOccurrences = logLifecycleSchema.table('validation_i
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   }, (t) => ({
     workspaceIdUq: unique('validation_issue_occurrence_workspace_id_id_uq').on(t.workspaceId, t.id),
+    // #1808 H3: lets a state transition cite an occurrence of the same issue through a composite FK.
+    issueOwnershipUq: unique('validation_issue_occurrence_issue_ownership_uq').on(t.workspaceId, t.issueId, t.id),
     locationUq: unique('validation_issue_occurrence_location_uq').on(t.issueId, t.roundId, t.attemptId, t.ruleResultId).nullsNotDistinct(),
     validation_issue_occurrence_issue_fk: foreignKey({ name: 'validation_issue_occurrence_issue_fk', columns: [t.workspaceId, t.projectId, t.issueId], foreignColumns: [validationIssues.workspaceId, validationIssues.projectId, validationIssues.id] }).onDelete('restrict'),
     validation_issue_occurrence_round_fk: foreignKey({ name: 'validation_issue_occurrence_round_fk', columns: [t.workspaceId, t.projectId, t.roundId], foreignColumns: [validationRounds.workspaceId, validationRounds.projectId, validationRounds.id] }).onDelete('restrict'),
@@ -747,4 +749,39 @@ export const validationIssueEvents = logLifecycleSchema.table('validation_issue_
     bodyCheck: check('validation_issue_event_body_check', sql`char_length(${t.body}) <= 8000 and (${t.field} <> 'title' or char_length(${t.body}) between 1 and 200) and (${t.field} <> 'body' or char_length(${t.body}) >= 1)`),
     selfCheck: check('validation_issue_event_self_check', sql`${t.correctsEventId} is null or ${t.correctsEventId} <> ${t.id}`),
     pageIdx: index('validation_issue_event_page_idx').on(t.workspaceId, t.issueId, t.createdAt, t.id),
+  }));
+
+// Same list and order as ISSUE_STATES in modules/log-lifecycle/domain/validation-issue-states.ts (drift test).
+const VALIDATION_ISSUE_STATES_SQL = "('reported','investigating','fix_requested','vendor_inquiry','on_hold','fix_verified','by_design','waived','dismissed')";
+// #1808 H3: append-only state transitions of a human validation issue. No status column on `validation_issue`: the
+// current state is the last transition's `to_state`, or `reported` when there is none. `(issue_id, seq)` is the
+// concurrency judge. The legality table and the chain/`fix_verified` checks live in the guard trigger of migration 0130.
+export const validationIssueTransitions = logLifecycleSchema.table('validation_issue_transition', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+    projectId: uuid('project_id').notNull(),
+    issueId: uuid('issue_id').notNull(),
+    seq: integer('seq').notNull(),
+    fromState: text('from_state').notNull(),
+    toState: text('to_state').notNull(),
+    duplicateOfIssueId: uuid('duplicate_of_issue_id'),
+    reason: text('reason'),
+    assigneeActorId: uuid('assignee_actor_id').references(() => actors.id),
+    basisCommentId: uuid('basis_comment_id'),
+    occurrenceId: uuid('occurrence_id'),
+    actorId: uuid('actor_id').notNull().references(() => actors.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  }, (t) => ({
+    seqUq: unique('validation_issue_transition_seq_uq').on(t.issueId, t.seq),
+    validation_issue_transition_issue_fk: foreignKey({ name: 'validation_issue_transition_issue_fk', columns: [t.workspaceId, t.projectId, t.issueId], foreignColumns: [validationIssues.workspaceId, validationIssues.projectId, validationIssues.id] }).onDelete('restrict'),
+    validation_issue_transition_duplicate_fk: foreignKey({ name: 'validation_issue_transition_duplicate_fk', columns: [t.workspaceId, t.projectId, t.duplicateOfIssueId], foreignColumns: [validationIssues.workspaceId, validationIssues.projectId, validationIssues.id] }).onDelete('restrict'),
+    validation_issue_transition_basis_fk: foreignKey({ name: 'validation_issue_transition_basis_fk', columns: [t.workspaceId, t.issueId, t.basisCommentId], foreignColumns: [validationIssueComments.workspaceId, validationIssueComments.issueId, validationIssueComments.id] }).onDelete('restrict'),
+    validation_issue_transition_occurrence_fk: foreignKey({ name: 'validation_issue_transition_occurrence_fk', columns: [t.workspaceId, t.issueId, t.occurrenceId], foreignColumns: [validationIssueOccurrences.workspaceId, validationIssueOccurrences.issueId, validationIssueOccurrences.id] }).onDelete('restrict'),
+    stateCheck: check('validation_issue_transition_state_check', sql`${t.fromState} in ${sql.raw(VALIDATION_ISSUE_STATES_SQL)} and ${t.toState} in ${sql.raw(VALIDATION_ISSUE_STATES_SQL)} and ${t.fromState} <> ${t.toState}`),
+    seqCheck: check('validation_issue_transition_seq_check', sql`${t.seq} >= 1 and (${t.seq} <> 1 or ${t.fromState} = 'reported')`),
+    reasonCheck: check('validation_issue_transition_reason_check', sql`(${t.reason} is null or char_length(${t.reason}) between 1 and 4000) and (${t.reason} is not null or (${t.seq} = 1 and ${t.toState} <> 'dismissed'))`),
+    assigneeCheck: check('validation_issue_transition_assignee_check', sql`${t.assigneeActorId} is not null or (${t.toState} = 'dismissed' and ${t.fromState} = 'reported')`),
+    basisCheck: check('validation_issue_transition_basis_check', sql`${t.basisCommentId} is not null or not (${t.toState} in ('on_hold', 'waived') or (${t.toState} = 'by_design' and ${t.fromState} = 'vendor_inquiry'))`),
+    occurrenceCheck: check('validation_issue_transition_occurrence_check', sql`(${t.occurrenceId} is not null) = (${t.toState} = 'fix_verified')`),
+    duplicateCheck: check('validation_issue_transition_duplicate_check', sql`${t.duplicateOfIssueId} is null or (${t.toState} = 'dismissed' and ${t.duplicateOfIssueId} <> ${t.issueId})`),
   }));

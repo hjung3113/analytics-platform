@@ -203,6 +203,7 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_lifecycle.validation_issue_comment': ['SELECT', 'INSERT'],
   'log_lifecycle.round_comment': ['SELECT', 'INSERT'],
   'log_lifecycle.validation_issue_event': ['SELECT', 'INSERT'],
+  'log_lifecycle.validation_issue_transition': ['SELECT', 'INSERT'],
 
   'log_lifecycle.rule_result_excerpt': ['SELECT', 'INSERT'],
   'log_lifecycle.queue_settings': ['SELECT', 'INSERT'],
@@ -470,6 +471,7 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
     ['validation_issue_comment', []],
     ['round_comment', []],
     ['validation_issue_event', []],
+    ['validation_issue_transition', []],
 
     ['gate_decision', []],
     ['queue_settings', ['run_window', 'lease_seconds', 'immediate_limit', 'excerpt_retention_days', 'opinion_scale', 'updated_at', 'updated_by']],

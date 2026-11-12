@@ -78,6 +78,7 @@ describe('audit action map vs @ap/contracts AuditAction', () => {
     ['lifecycle.validation_issue.evidence_linked', 'update'],
     ['lifecycle.validation_issue.commented', 'update'],
     ['lifecycle.validation_issue.field_corrected', 'update'],
+    ['lifecycle.validation_issue.state_changed', 'update'],
     ['lifecycle.round.commented', 'update'],
     ['dataset.created', 'create'],
     ['dataset.updated', 'update'],

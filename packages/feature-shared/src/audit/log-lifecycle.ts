@@ -33,6 +33,7 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_TYPES = [
   'lifecycle.validation_issue.evidence_linked',
   'lifecycle.validation_issue.commented',
   'lifecycle.validation_issue.field_corrected',
+  'lifecycle.validation_issue.state_changed',
   'lifecycle.round.commented',
 ] as const;
 
@@ -182,6 +183,9 @@ const issueCreatedDetail = z.object({ projectId: z.string().uuid(), firstRoundId
 const issueOccurrenceDetail = z.object({ occurrenceId: z.string().uuid(), roundId: z.string().uuid() }).strict();
 const issueEvidenceDetail = z.object({ occurrenceId: z.string().uuid(), count: z.number().int().min(1).max(20) }).strict();
 const discussionCommentDetail = z.object({ commentId: z.string().uuid(), correctsCommentId: z.string().uuid().nullable() }).strict();
+// #1808 H3: same list as ISSUE_STATES of platform-api `domain/validation-issue-states.ts`. No reason or comment text.
+const ISSUE_STATE = z.enum(['reported', 'investigating', 'fix_requested', 'vendor_inquiry', 'on_hold', 'fix_verified', 'by_design', 'waived', 'dismissed']);
+const issueStateChangedDetail = z.object({ transitionId: z.string().uuid(), seq: z.number().int().min(1), fromState: ISSUE_STATE, toState: ISSUE_STATE }).strict();
 const issueCorrectionDetail = z.object({ eventId: z.string().uuid(), field: z.enum(['title', 'body', 'expected', 'actual', 'repro']), correctsEventId: z.string().uuid().nullable() }).strict();
 
 export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
@@ -212,5 +216,6 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.validation_issue.evidence_linked': issueEvidenceDetail,
   'lifecycle.validation_issue.commented': discussionCommentDetail,
   'lifecycle.validation_issue.field_corrected': issueCorrectionDetail,
+  'lifecycle.validation_issue.state_changed': issueStateChangedDetail,
   'lifecycle.round.commented': discussionCommentDetail,
 } as const satisfies Record<(typeof LOG_LIFECYCLE_AUDIT_EVENT_TYPES)[number], z.ZodTypeAny>;

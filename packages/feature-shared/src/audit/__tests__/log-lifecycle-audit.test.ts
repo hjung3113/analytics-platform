@@ -65,6 +65,7 @@ describe('human validation issue audit details', () => {
     ['lifecycle.validation_issue.commented', { commentId: ID, correctsCommentId: null }],
     ['lifecycle.round.commented', { commentId: ID, correctsCommentId: ID }],
     ['lifecycle.validation_issue.field_corrected', { eventId: ID, field: 'body', correctsEventId: null }],
+    ['lifecycle.validation_issue.state_changed', { transitionId: ID, seq: 2, fromState: 'investigating', toState: 'waived' }],
   ] as const)('%s allows only ids/enums/counts', (type, detail) => {
     const schema = AUDIT_EVENT_DETAIL_SCHEMAS[type];
     expect(schema.safeParse(detail).success).toBe(true);
