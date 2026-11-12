@@ -46,10 +46,15 @@ async function problems(promise: Promise<unknown>) {
   throw new Error('setup accepted a bundle that differs from the menu declarations');
 }
 
+function first<T>(rows: readonly T[]): T {
+  const [row] = rows;
+  if (row === undefined) throw new Error('fixture has no endpoint');
+  return row;
+}
 const bundle = () => ({ ...routedBundle(), targets: { 'tgt-1': { ...routedBundle().targets['tgt-1'], connectionFile: secretFile } } });
 /** The menu side as the app assembly declares it (synthetic): menu `syn`, endpoint `syn.rows`. */
 function snapshot() {
-  const { limits: _limits, paramTypes: _paramTypes, ...endpoint } = routedBundle().endpoints[0]!;
+  const { limits: _limits, paramTypes: _paramTypes, ...endpoint } = first(routedBundle().endpoints);
   return {
     menus: [{ id: 'syn', permission: 'syn:view', requiresScope: true, context: { time: 'apply' } }],
     endpoints: [endpoint],
@@ -64,21 +69,21 @@ describe('declaration bundle is checked against the menu declarations at boot (#
 
   it('H5: refuses an endpoint whose permission is weaker than the menu declaration', async () => {
     const weak = bundle();
-    weak.endpoints[0]!.permission = 'platform:view';
+    first(weak.endpoints).permission = 'platform:view';
     const found = await problems(boot(weak, snapshot()));
     expect(found.some((problem) => problem.includes('syn.rows') && problem.includes('permission') && problem.includes('platform:view') && problem.includes('syn:view'))).toBe(true);
   });
 
   it('H3: refuses an endpoint that drops the Scope requirement the menu declares', async () => {
     const open = bundle();
-    open.endpoints[0]!.requiresScope = false;
+    first(open.endpoints).requiresScope = false;
     const found = await problems(boot(open, snapshot()));
     expect(found.some((problem) => problem.includes('syn.rows') && problem.includes('requiresScope'))).toBe(true);
   });
 
   it('H1: refuses an endpoint whose menuId the menu declarations do not have', async () => {
     const stray = bundle();
-    stray.endpoints[0]!.menuId = 'no-such-menu';
+    first(stray.endpoints).menuId = 'no-such-menu';
     const found = await problems(boot(stray, snapshot()));
     expect(found.some((problem) => problem.includes('syn.rows') && problem.includes('no-such-menu'))).toBe(true);
   });
