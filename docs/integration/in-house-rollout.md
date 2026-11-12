@@ -11,11 +11,13 @@
 
 ## 1. 무엇이 바뀌고 무엇이 그대로인가
 
+**전제 규칙([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md)):** 사내 적용은 기존 시스템의 백엔드·DB를 고치지 않고, 사내에 새 서버를 두지 않는다. 계약 맞춤은 플랫폼(코어 서버 설정·연결기)이 한다. 사내가 준비하는 것은 계정·주소·선언 묶음 파일이다.
+
 | 바뀌는 것 | 그대로인 것 |
 | --- | --- |
 | 운영 조립 모듈(`createAssembly` → 실어댑터, `AP_PLATFORM_ASSEMBLY`, #154; 이 레포의 실서버 조립은 `apps/platform-web/src/real/http-assembly.tsx` + `@ap/http-adapter`) | Kernel(`@ap/kernel`)·셸·공통 컴포넌트·`@ap/contracts` 타입 |
 | 운영 빌드에서 mock 핸들러·dev 도구 제외(#153 완료 — CI `check:prod-graph`) | 메뉴 화면(`menus/*/*/src/pages`·`platform/*/src/pages`)과 엔드포인트 선언(`menus/*/*/src/endpoints.ts`·`platform/*/src/endpoints.ts`) |
-| 서버: 메뉴 `src/mock/` 계산 → 사내 FastAPI 핸들러(파서 Postgres·mart SQL, #155) | 판정 규칙(체크리스트 §3 순서), 06 §19 응답 envelope, URL·딥링크 계약 |
+| 서버: 메뉴 `src/mock/` 계산 → 코어 서버의 선언 묶음이 기존 시스템에 직접 붙는다 — 상류 대상 표·Scope 키 라우팅·읽기 전용 DB 연결기·HTTP 연결기([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md), #1839). 기존 시스템의 백엔드·DB는 고치지 않고 사내에 새 서버를 두지 않는다 | 판정 규칙(체크리스트 §3 순서), 06 §19 응답 envelope, URL·딥링크 계약 |
 | 인증: Mock 역할 전환 → 사내 SSO 세션(#150) | 개발·E2E는 계속 mock으로 돈다(`pnpm dev`·`pnpm e2e`) |
 
 ## 2. 전체 순서
@@ -28,7 +30,8 @@
 | 1. 결정 | 전송 형식(HTTP 경계) | [#149](https://github.com/hjung3113/analytics-platform/issues/149) | 초안 작성(Candidate) — 합의 대기. 합의는 #151 답 뒤가 낫다 | 에이전트 초안 → 백엔드 담당 합의 | `http-adapter-contract.md`가 Decided |
 | 2. 구현 | 실어댑터(HTTP) + 적합성 묶음을 사내 테스트 서버로 | [#154](https://github.com/hjung3113/analytics-platform/issues/154) | #148·#149·#150 | 에이전트(사내 실행은 사람) | 사내 테스트 서버 대상 적합성 묶음 전부 통과 |
 | 2. 구현 | Kernel 5분 폴링·계산 세대 재검증 | [#165](https://github.com/hjung3113/analytics-platform/issues/165) | #149(+#155 세대 신호) | 에이전트 | 세대가 바뀔 때만 다시 읽고 갱신 표시, Kernel 테스트·E2E |
-| 2. 구현 | FastAPI 플랫폼 API | [#155](https://github.com/hjung3113/analytics-platform/issues/155) | #148·#149·#150, 신뢰 원천은 #37 | 사내 백엔드 담당 | 체크리스트 §2·§3 전부 + 적합성 묶음 통과 |
+| 2. 구현 | 기존 시스템 연결: 선언 묶음(대상·라우팅·연결기·부여 조회) | [#1839](https://github.com/hjung3113/analytics-platform/issues/1839) | #150 | 에이전트(공개 코드) + 사용자(사내 계정·주소·묶음 파일) | 합성 대상 통합 시험 통과, 사내 대상에서 첫 메뉴 조회 |
+| 2. 구현(선택) | 사내 데이터 서버(FastAPI) — 06 §19 envelope를 말하는 서버를 따로 둘 때만, envelope 대상 하나로 붙는다 | [#155](https://github.com/hjung3113/analytics-platform/issues/155) | #148·#149·#150, 신뢰 원천은 #37 | 사내 백엔드 담당 | 체크리스트 §2·§3 전부 + 적합성 묶음 통과 |
 | 3. 운영 | §6 완료 기준 확인 → 첫 사내 메뉴 | — | 2단계 | 사내 메뉴 개발자 | §6 체크 전부 |
 
 1단계 네 개는 서로 독립이라 동시에 물어도 된다.

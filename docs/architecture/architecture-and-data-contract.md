@@ -101,6 +101,6 @@ API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/
 
 ## 멀티테넌시/확장성
 
-초기 1개 Site/Line 운영 범위에서 시작하되 확장 가능한 구조를 유지한다([05 결정 상태](../overview/roadmap-and-open-questions.md#결정-상태)). 권한·조회 범위는 Site→room_name→StGroup→Equipment 관계이고 Line은 독립 축이며, Factory/plant는 별도 Scope로 두지 않는다. v1은 단일 Scope 선택, 상속 세부는 Open이다([06 §6.2](../contract/kernel.md#62-scope와-권한-decided--open), [ADR-0005](../adr/0005-scope-room-name-line-independent.md)). Site별 물리 DB 분리는 현행 사실이며 Site 컬럼 필터가 아니다([ADR-0004](../adr/0004-site-is-db-partition-not-column.md)). 구체 행 스코핑 구현과 RLS 도입 여부는 별도 검토한다.
+초기 1개 Site/Line 운영 범위에서 시작하되 확장 가능한 구조를 유지한다([05 결정 상태](../overview/roadmap-and-open-questions.md#결정-상태)). 권한·조회 범위는 Site→room_name→StGroup→Equipment 관계이고 Line은 독립 축이며, Factory/plant는 별도 Scope로 두지 않는다. v1은 단일 Scope 선택, 상속 세부는 Open이다([06 §6.2](../contract/kernel.md#62-scope와-권한-decided--open), [ADR-0005](../adr/0005-scope-room-name-line-independent.md)). Site는 Scope 부여 축이며 어느 DB가 그 Site의 데이터를 갖는지는 코어 서버 배포 설정의 라우팅이 정한다(N:M, [ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md)이 ADR-0004를 대체). 구체 행 스코핑 구현과 RLS 도입 여부는 별도 검토한다.
 
 확장성에서는 프레임워크보다 한 요청이 읽는 행 수와 반환하는 점 수가 중요하다. 초기 설계에 조회 기간·반환량 제한, SQL timeout, 장기 작업의 비동기 실행, 서버 집계·다운샘플링을 포함할 것.
