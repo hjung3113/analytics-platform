@@ -1,7 +1,10 @@
 // Host-only integration: node tooling/sdk/sdk-upgrade-gate.mjs <current bundle directory>
 // --self-test packs this tree at gate-a/gate-b and exercises replacement, rollback, mutation and strict peers.
+// The assembly is the PREVIOUS release's start kit (`ap-start-kit-<V>.tgz`) for rc, formal and rollback alike: a menu built on N-1
+// must run unchanged on N and back, so the kit never changes between phases. The current tree's kit against the new bundle is
+// sdk-kit-check's job. Without a start-kit asset (the --self-test path) the tree kit is the assembly.
 // Tests inject the download and phase execution; they never install, fetch or launch browsers.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -37,12 +40,41 @@ export function verifyBundle(directory, { version, sha256 } = {}) {
   return files;
 }
 
+/** The start-kit asset is optional only when absent from both the directory and SHA256SUMS; otherwise it must match the list. */
+export function verifyStartKit(directory, version) {
+  const file = `ap-start-kit-${version}.tgz`;
+  const present = existsSync(join(directory, file));
+  const line = readFileSync(join(directory, 'SHA256SUMS'), 'utf8').split(/\r?\n/).find(entry => entry.endsWith(`  ${file}`));
+  if (!present && !line) return null;
+  if (!line) throw new Error(`Start kit missing from SHA256SUMS: ${file}`);
+  if (!present) throw new Error(`Missing previous start kit file: ${file}`);
+  if (line.slice(0, 64) !== digest(readFileSync(join(directory, file)))) throw new Error(`Start kit checksum mismatch: ${file}`);
+  return file;
+}
+
+/** Project root from the previous start kit when the directory has one, else from this tree's kit. */
+export function buildProject(root, previous, apSpec) {
+  const kit = readdirSync(previous).find(file => /^ap-start-kit-.+\.tgz$/.test(file));
+  if (!kit) writeKitProject(root, apSpec);
+  else extractStartKit(root, join(previous, kit));
+  // The round-trip fixture is not part of the kit asset: it is the same browser assertion for every phase, so it comes from this tree.
+  cpSync(join(repo, 'tooling/sdk/fixtures/out-of-repo-assembly/round-trip'), join(root, 'round-trip'), { recursive: true });
+  return kit ? 'previous-kit' : 'tree';
+}
+function extractStartKit(root, file) {
+  mkdirSync(root, { recursive: true });
+  const result = spawnSync('tar', ['-xzf', file, '-C', root, '--strip-components=1']);
+  if (result.status !== 0) throw new Error(`Cannot extract ${kit}: ${result.stderr}`);
+  const scripts = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts ?? {};
+  for (const script of ['check', 'build']) if (!scripts[script]) throw new Error(`Previous start kit has no "${script}" script`);
+}
+
 async function fetchPrevious(pin, destination) {
   const url = new URL(pin.url);
   if (url.origin !== 'https://github.com' || !url.pathname.startsWith('/hjung3113/analytics-platform/releases/tag/')) throw new Error('Previous bundle must be pinned to this repository release');
   const base = pin.url.replace('/releases/tag/', '/releases/download/');
   mkdirSync(destination, { recursive: true });
-  for (const file of ['SHA256SUMS', ...names.map(name => `ap-${name}-${pin.version}.tgz`)]) {
+  for (const file of ['SHA256SUMS', ...names.map(name => `ap-${name}-${pin.version}.tgz`), `ap-start-kit-${pin.version}.tgz`]) {
     const response = await fetch(`${base}/${file}`);
     if (!response.ok) throw new Error(`Previous download ${file}: HTTP ${response.status}`);
     writeFileSync(join(destination, file), Buffer.from(await response.arrayBuffer()));
@@ -53,6 +85,7 @@ async function fetchPrevious(pin, destination) {
 export async function downloadPrevious(pin, destination, download = fetchPrevious) {
   await download(pin, destination);
   verifyBundle(destination, pin);
+  verifyStartKit(destination, pin.version);
   return destination;
 }
 
@@ -216,8 +249,7 @@ async function integration(previous, formal, work, { mutate = false, strictPeerP
   const root = join(work, `project-${randomUUID()}`);
   const served = await serveBundles([previous, formal]);
   try {
-    writeKitProject(root, name => `${served.base(previous)}/${basename(releaseTarball(previous, name))}`);
-    cpSync(join(repo, 'tooling/sdk/fixtures/out-of-repo-assembly/round-trip'), join(root, 'round-trip'), { recursive: true });
+    console.log(`sdk:upgrade-gate assembly from ${buildProject(root, previous, name => `${served.base(previous)}/${basename(releaseTarball(previous, name))}`)}`);
     const state = join(work, `storage-${randomUUID()}.json`);
     const started = Date.now();
     await runSequence({ root, previous, formal, execute: async (phase, directory, mode) => {

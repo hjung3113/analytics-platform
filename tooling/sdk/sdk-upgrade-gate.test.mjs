@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { releasePackages } from './sdk-exports.mjs';
-import { assemblyHash, assertAssembly, downloadPrevious, replaceBundle, runSequence, verifyBundle, FINAL_REPORT } from './sdk-upgrade-gate.mjs';
+import { assemblyHash, assertAssembly, buildProject, downloadPrevious, replaceBundle, runSequence, verifyBundle, verifyStartKit, FINAL_REPORT } from './sdk-upgrade-gate.mjs';
 
 const names = releasePackages().map(({ name }) => name);
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -151,3 +151,52 @@ test('required upgrade verdict rejects every failed, cancelled, missing or skipp
     }
   }
 });
+
+/** A previous release directory that also holds a fake `ap-start-kit-<V>.tgz` (top folder stripped on extraction). */
+function withStartKit(root, version, { sums = true, corrupt = false } = {}) {
+  const entry = bundle(root, version);
+  const kit = join(root, `kit-src-${version}`, `ap-start-kit-${version}`);
+  mkdirSync(kit, { recursive: true });
+  writeFileSync(join(kit, 'package.json'), JSON.stringify({ scripts: { check: 'x', build: 'y' }, dependencies: { react: '19', ...Object.fromEntries(names.map(name => [`@ap/${name}`, `file:vendor/${name}.tgz`])) } }));
+  writeFileSync(join(kit, 'menus.ts'), 'export const menus = [];\n');
+  writeFileSync(join(kit, 'FROM-PREVIOUS-KIT.txt'), 'marker');
+  const file = `ap-start-kit-${version}.tgz`;
+  const tar = spawnSync('tar', ['-czf', join(entry.directory, file), '-C', join(root, `kit-src-${version}`), `ap-start-kit-${version}`]);
+  assert.equal(tar.status, 0);
+  const bytes = readFileSync(join(entry.directory, file));
+  if (sums) writeFileSync(join(entry.directory, 'SHA256SUMS'), `${readFileSync(join(entry.directory, 'SHA256SUMS'), 'utf8')}${hash(bytes)}  ${file}\n`);
+  if (corrupt) writeFileSync(join(entry.directory, file), 'tampered');
+  return { ...entry, sha256: hash(readFileSync(join(entry.directory, 'SHA256SUMS'))) };
+}
+
+test('previous start kit is the assembly for rc, formal and rollback (same hash in every phase)', () => fixture(async root => {
+  const previous = withStartKit(root, '0.0.0-prev');
+  const formal = bundle(root, '0.0.0-next');
+  const project = join(root, 'p');
+  buildProject(project, previous.directory, name => `http://127.0.0.1:1/${name}`);
+  assert.ok(existsSync(join(project, 'FROM-PREVIOUS-KIT.txt')), 'files come from the previous kit, top folder stripped');
+  assert.ok(!existsSync(join(project, 'README.md')) && !existsSync(join(project, 'src')), 'tree kit sample is not used');
+  assert.ok(existsSync(join(project, 'round-trip/main.tsx')), 'round-trip fixture still comes from the tree');
+  const hashes = [];
+  await runSequence({ root: project, previous: previous.directory, formal: formal.directory, log: () => {}, execute: async (_phase, directory) => {
+    replaceBundle(project, directory, 'http://127.0.0.1:1/x');
+    hashes.push(assemblyHash(project));
+  } });
+  assert.equal(new Set(hashes).size, 1);
+}));
+test('start kit checksum mismatch or missing entry fails before install', () => fixture(async root => {
+  const bad = withStartKit(root, '0.0.0-a', { corrupt: true });
+  assert.throws(() => verifyStartKit(bad.directory, bad.version), /Start kit checksum mismatch: ap-start-kit-0.0.0-a.tgz/);
+  const missing = withStartKit(root, '0.0.0-b', { sums: false });
+  assert.throws(() => verifyStartKit(missing.directory, missing.version), /Start kit missing from SHA256SUMS: ap-start-kit-0.0.0-b.tgz/);
+  const { cpSync } = await import('node:fs');
+  await assert.rejects(downloadPrevious(missing, join(root, 'dl'), async (_pin, destination) => cpSync(missing.directory, destination, { recursive: true })), /Start kit missing from SHA256SUMS/);
+}));
+test('without a start kit (self-test path) the tree kit is still used', () => fixture(root => {
+  const previous = bundle(root, '0.0.0-c');
+  assert.equal(verifyStartKit(previous.directory, previous.version), null);
+  const project = join(root, 'p');
+  buildProject(project, previous.directory, name => `http://127.0.0.1:1/${name}`);
+  assert.ok(existsSync(join(project, 'menus.ts')) && existsSync(join(project, 'round-trip')));
+  assert.ok(!existsSync(join(project, 'FROM-PREVIOUS-KIT.txt')));
+}));
