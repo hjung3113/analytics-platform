@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { releaseManifest, validateArchive } from './sdk-pack.mjs';
+import { releaseManifest, validateArchive, validateImports } from './sdk-pack.mjs';
 
 const source = {
   name: '@ap/components',
@@ -30,4 +30,28 @@ test('the archive check rejects a sibling dependency and a loose sibling peer', 
   assert.throws(() => validateArchive('kernel', paths, { exports, dependencies: { '@ap/contracts': '1.2.3' } }, '1.2.3'), /siblings must be exact-version peerDependencies/);
   assert.throws(() => validateArchive('kernel', paths, { exports, peerDependencies: { '@ap/contracts': '^1.2.3' } }, '1.2.3'), /expected exactly 1\.2\.3/);
   assert.doesNotThrow(() => validateArchive('kernel', paths, { exports, peerDependencies: { '@ap/contracts': '1.2.3' } }, '1.2.3'));
+});
+
+const peersManifest = {
+  name: '@ap/kernel',
+  exports: { '.': './dist/index.js' },
+  peerDependencies: { '@ap/contracts': '1.2.3' },
+};
+
+test('a dist file importing an undeclared @ap/* package fails, naming file and package', () => {
+  const files = [{ path: 'dist/index.js', text: "import { x } from '@ap/ui';\n" }];
+  assert.throws(() => validateImports('kernel', files, peersManifest), /dist\/index\.js.*@ap\/ui.*not a peerDependencies entry/);
+});
+
+test('a declared peer and a subpath of it pass the import check', () => {
+  const files = [
+    { path: 'dist/index.js', text: "import { a } from '@ap/contracts';\nexport const b = (await import('@ap/contracts/vocab')).b;\n" },
+    { path: 'dist/index.d.ts', text: "import type { A } from '@ap/contracts';\nimport '@ap/contracts';\n" },
+  ];
+  assert.doesNotThrow(() => validateImports('kernel', files, peersManifest));
+});
+
+test('the import check allows the package importing itself and skips non-dist files', () => {
+  assert.doesNotThrow(() => validateImports('kernel', [{ path: 'dist/index.js', text: "import '@ap/kernel/host';\n" }], peersManifest));
+  assert.doesNotThrow(() => validateImports('kernel', [{ path: 'src/index.ts', text: "import '@ap/ui';\n" }], peersManifest));
 });

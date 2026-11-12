@@ -1,10 +1,33 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { SDK_PACKAGES, distTarget } from './sdk-exports.mjs';
+import { RELEASE_UNIT2_PACKAGES, SDK_PACKAGES, distTarget, releasePackages } from './sdk-exports.mjs';
 
 test('SDK packages have one ordered shared list', () => {
   assert.deepEqual(SDK_PACKAGES, ['contracts', 'kernel', 'ui', 'components', 'shell']);
+});
+
+test('release unit 2 has its own ordered list with directories', () => {
+  assert.deepEqual(RELEASE_UNIT2_PACKAGES, [
+    { name: 'mock-server', dir: 'packages/adapters/mock-server' },
+    { name: 'http-adapter', dir: 'packages/adapters/http-adapter' },
+    { name: 'server-conformance', dir: 'packages/adapters/server-conformance' },
+    { name: 'app-host', dir: 'packages/app-host' },
+  ]);
+});
+
+test('releasePackages returns all nine in build order', () => {
+  assert.deepEqual(releasePackages(), [
+    { name: 'contracts', dir: 'packages/sdk/contracts' },
+    { name: 'kernel', dir: 'packages/sdk/kernel' },
+    { name: 'ui', dir: 'packages/sdk/ui' },
+    { name: 'components', dir: 'packages/sdk/components' },
+    { name: 'shell', dir: 'packages/sdk/shell' },
+    { name: 'mock-server', dir: 'packages/adapters/mock-server' },
+    { name: 'http-adapter', dir: 'packages/adapters/http-adapter' },
+    { name: 'server-conformance', dir: 'packages/adapters/server-conformance' },
+    { name: 'app-host', dir: 'packages/app-host' },
+  ]);
 });
 
 test('distTarget maps TypeScript exports and preserves asset exports', () => {
