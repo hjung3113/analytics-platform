@@ -44,6 +44,20 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
   });
   // Idle errors must never enter pg's default unhandled-error path with driver diagnostics.
   pool.on('error', () => {});
+  // Installed on creation, before pg-pool removes its idle listener at checkout.
+  // Keep only sanitized state, and retain the listener through socket destruction.
+  const lifetimes = new WeakMap<pg.PoolClient, { failed: boolean; notify: (() => void) | undefined }>();
+  const ownClient = (data: pg.PoolClient) => {
+    let state = lifetimes.get(data);
+    if (!state) {
+      state = { failed: false, notify: undefined };
+      lifetimes.set(data, state);
+      const lifetime = state;
+      data.on('error', () => { lifetime.failed = true; lifetime.notify?.(); });
+    }
+    return state;
+  };
+  pool.on('connect', ownClient);
   let active = 0;
   const waiters = new Set<() => void>();
   return {
@@ -58,6 +72,10 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
       const expires = Date.now() + deadlineMs;
       let client: pg.PoolClient | undefined;
       let pid: number | undefined;
+      let lifetime: ReturnType<typeof ownClient> | undefined;
+      let cancelSent = false;
+      let statementStarted: number | undefined;
+      let statementBudget = 0;
       let cursor = false;
       let transaction = false;
       let completed = false;
@@ -93,7 +111,7 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
           let bound: ReturnType<typeof setTimeout> | undefined;
           let rejectControl: (error: Error) => void = () => {};
           const controlFailed = new Promise<never>((_resolve, reject) => { rejectControl = reject; });
-          const onControlError = () => rejectControl(new MenuUpstreamError('unavailable'));
+          const onControlError = () => { broken = true; rejectControl(new MenuUpstreamError('unavailable')); };
           const work = async () => {
             if (broken) throw new MenuUpstreamError('unavailable');
             if (cancel) {
@@ -101,7 +119,9 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
               canceller = new pg.Client({ connectionString, application_name: target.applicationName, connectionTimeoutMillis: 1000, query_timeout: 1000 });
               canceller.on('error', onControlError);
               await canceller.connect();
+              if (broken) throw new MenuUpstreamError('unavailable');
               if (released) return;
+              cancelSent = true;
               await canceller.query(extended('SELECT pg_cancel_backend($1)', [pid]));
             }
             if (released) return;
@@ -126,9 +146,8 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
             if (canceller) void canceller.end().catch(() => {});
             released = true;
             data.release(broken ? new MenuUpstreamError('unavailable') : undefined);
-            // pg-pool installs its idle handler synchronously in release(). Keep our handler
-            // on destroyed clients to absorb late transport errors during socket teardown.
-            if (!broken) data.removeListener('error', onClientError);
+            // Drop the checkout closure; the creation-time listener remains for life.
+            if (lifetime) lifetime.notify = undefined;
             releaseCapacity();
           }
         })();
@@ -157,12 +176,16 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
         const pending = pool.connect();
         void pending.then((late) => { if (failure && !client) late.release(true); }, () => {});
         client = await Promise.race([pending, stopped]);
-        client.on('error', onClientError);
+        lifetime = ownClient(client);
+        lifetime.notify = onClientError;
+        if (lifetime.failed) onClientError();
         // pg sets processID from BackendKeyData before resolving pool.connect().
         // The pinned @types/pg predates this runtime field.
         pid = (client as pg.PoolClient & { processID?: number }).processID;
         await run('BEGIN READ ONLY'); transaction = true;
         const remaining = Math.max(1, Math.floor(expires - Date.now()));
+        statementBudget = remaining;
+        statementStarted = Date.now();
         await run(`SET LOCAL statement_timeout = ${remaining}`);
         const statement = rewriteStatement(leg.call.statement, leg.bindings.params ?? {});
         await run(`DECLARE ap_rows NO SCROLL CURSOR FOR ${statement.text}`, statement.values); cursor = true;
@@ -174,12 +197,17 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
         }
         if (failure) throw failure;
         completed = true;
-      } catch {
+      } catch (error) {
         if (returning) return;
         if (signal.aborted) throw new MenuUpstreamError('timeout');
+        // Classify from our state, independent of timer/rejection callback ordering.
+        // One millisecond allows for the integer statement budget's rounding.
+        if (typeof error === 'object' && error !== null && 'code' in error && error.code === '57014') {
+          if (cancelSent) throw new MenuUpstreamError('unavailable');
+          if (statementStarted !== undefined && Date.now() - statementStarted >= statementBudget - 1) throw new TargetJudgmentTimeout();
+          throw new MenuUpstreamError('unavailable');
+        }
         if (failure) throw failure;
-        // SQLSTATE 57014 also covers user cancellation and source-raised errors. Only
-        // our judgment timer owns a target timeout; never infer ownership from text.
         throw new MenuUpstreamError('unavailable');
       } finally {
         clearTimeout(timer); signal.removeEventListener('abort', onAbort);
