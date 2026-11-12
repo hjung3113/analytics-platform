@@ -24,6 +24,8 @@ const EXPECTED_LABELS: Record<Capability, string> = {
   'improvement.manage': '개선 아이템 관리',
   'lifecycle.project.manage': '로그 개발 건 관리',
   'lifecycle.round.manage': '로그 검증 Round 관리',
+  'lifecycle.issue.contribute': '로그 검증 등록 항목 작성·댓글',
+  'lifecycle.issue.link': '로그 검증 등록 항목 근거 연결',
   'lifecycle.gate.decide': '로그 개발 건 Gate 결정',
   'knowledge.draft.create': '지식 초안 작성',
   'explorer.source.read': '로그 원본 열람',
