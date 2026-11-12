@@ -3,6 +3,7 @@ import type { Connector, ConnectorFactories, ConnectorLeg, RoutingLog } from './
 import { TargetJudgmentTimeout } from './connectors/types.js';
 import type { TargetSecrets } from './bundle/secrets.js';
 import { callBindings } from './bundle/calls.js';
+import { routeCall } from './bundle/routing.js';
 import { bindingValue, resolveBindings, sameBinding } from './binding-values.js';
 import { allowedRooms, effectiveValueMap, mapValue, selectRoutes } from './routing.js';
 import { enforceRowScope, pointerValue, rowInScope } from './scope-check.js';
@@ -95,7 +96,7 @@ export async function handleRouted(endpoint: DeclaredEndpoint, owner: Routing, b
   const mappedRooms = chosen.rooms.map((room) => mapValue(room, map.room));
   if (mappedSite === undefined || mappedRooms.some((room) => room === undefined)) return noData('error');
   const outgoingRooms = mappedRooms as string[];
-  const call = chosen.route.call ?? owner.call;
+  const call = routeCall(owner, chosen.route);
   const deadlineAt = (args.arrivedAtMs ?? Date.now()) + deps.timeoutMs;
   const controller = new AbortController();
   const remaining = deadlineAt - Date.now();
