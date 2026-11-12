@@ -5,9 +5,9 @@ import { applyAdminModuleBypass, decideFromRows } from '../check-service.js';
 import { supportedScopeCandidates, validateSupportedScope } from '../supported-scope-policy.js';
 
 describe('scope.read isolation from existing writes', () => {
-  it('has no role bypass or token scope/bundle', () => {
+  it('has no role bypass, allows token scopes and stays out of token bundles', () => {
     expect(CAPABILITY_META['scope.read']).toEqual({ sensitive: false, adminModuleBypass: 'none' });
-    expect(TOKEN_SCOPE_CAPABILITIES).not.toContain('scope.read');
+    expect(TOKEN_SCOPE_CAPABILITIES).toContain('scope.read');
     expect(API_TOKEN_SCOPE_BUNDLES.flatMap(bundle => [...bundle.capabilities])).not.toContain('scope.read');
     for (const role of ['admin', 'developer', 'user']) {
       expect(decideFromRows({ actor_id: 'actor', workspace_id: 'workspace', role_level: role }, 'scope.read', { workspace_id: 'workspace' }, { denyRows: [], grantRows: [] }, new Date()).allow).toBe(false);

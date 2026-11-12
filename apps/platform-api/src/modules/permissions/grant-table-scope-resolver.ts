@@ -2,13 +2,15 @@ import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { permissionGrants } from '../../db/schema/permission.js';
 import type { ScopeResolver } from '../menu-dispatch/index.js';
+import { tokenDenial } from './check-service.js';
 import type { ScopeCatalog } from './scope-catalog.js';
 
-/** One uncached read per call; DB failures propagate to the dispatch boundary's forbidden outcome. */
+/** One uncached read per token-permitted call; DB failures propagate to the dispatch boundary's forbidden outcome. */
 export function createGrantTableScopeResolver({ db, catalog }: { db: Db; catalog: ScopeCatalog }): ScopeResolver {
   return {
     async resolve(actor, signal) {
       signal?.throwIfAborted();
+      if (tokenDenial('scope.read')) return [];
       const rows = await db.select({ kind: permissionGrants.scopeKind, site: permissionGrants.scopeSite, room: permissionGrants.scopeRoom })
         .from(permissionGrants)
         .where(and(

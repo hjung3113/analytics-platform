@@ -211,9 +211,9 @@ export function isTokenOnlyCapability(cap: Capability): boolean {
   return CAPABILITY_META[cap].tokenOnly === true;
 }
 
-/** Capability names an API token may carry as scopes: non-session-only capabilities except the site/room grant carrier. */
+/** Capability names an API token may carry as scopes: non-session-only capabilities. */
 export const TOKEN_SCOPE_CAPABILITIES: readonly Capability[] = CAPABILITIES.filter(
-  (cap) => cap !== 'scope.read' && !isSessionOnlyCapability(cap),
+  (cap) => !isSessionOnlyCapability(cap),
 );
 
 /**

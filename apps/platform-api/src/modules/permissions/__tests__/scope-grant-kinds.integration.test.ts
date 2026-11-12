@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
+import { runAsToken } from '../../../lib/auth-context.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs, SESSION_COOKIE_NAME } from '../../../test-support/auth.js';
@@ -120,6 +121,56 @@ describe.skipIf(!runIntegration)('scope grant kinds', () => {
     await grant('site_room', 'SITE-A', 'RA1');
     await grant('site', 'SITE-A');
     expect(await resolve().resolve(actor())).toEqual([{ site: 'SITE-A', rooms: ['RA2', 'RA1'] }, { site: 'SITE-B', rooms: ['RA1'] }]);
+  });
+
+  it('revoking only the site grant leaves the site_room grant on the next resolve call', async () => {
+    const localCatalog = parseScopeCatalog([{ site: 'SITE-B', label: 'B', rooms: ['RB1', 'RB2'] }]);
+    const siteId = await grant('site', 'SITE-B');
+    await grant('site_room', 'SITE-B', 'RB1');
+    const resolver = createGrantTableScopeResolver({ db: handle.db, catalog: localCatalog });
+    expect(await resolver.resolve(actor())).toEqual([{ site: 'SITE-B', rooms: ['RB1', 'RB2'] }]);
+    await handle.pool.query('update permission.permission_grants set revoked_at = now() where id = $1', [siteId]);
+    expect(await resolver.resolve(actor())).toEqual([{ site: 'SITE-B', rooms: ['RB1'] }]);
+  });
+
+  it('catalog growth adds RB6 only for a site grant, never for a site_room grant', async () => {
+    const original = parseScopeCatalog([{ site: 'SITE-B', label: 'B', rooms: ['RB1', 'RB2'] }]);
+    const expanded = parseScopeCatalog([{ site: 'SITE-B', label: 'B', rooms: ['RB1', 'RB2', 'RB6'] }]);
+    await grant('site', 'SITE-B');
+    await insertScopePermissionRow(handle, { table: 'permission_grants', workspaceId: WORKSPACE, actorId: otherId, kind: 'site_room', site: 'SITE-B', room: 'RB1' });
+    const roomActor = { ...actor(), actor_id: otherId };
+    const first = createGrantTableScopeResolver({ db: handle.db, catalog: original });
+    const second = createGrantTableScopeResolver({ db: handle.db, catalog: expanded });
+    expect(await first.resolve(actor())).toEqual([{ site: 'SITE-B', rooms: ['RB1', 'RB2'] }]);
+    expect(await second.resolve(actor())).toEqual([{ site: 'SITE-B', rooms: ['RB1', 'RB2', 'RB6'] }]);
+    expect(await first.resolve(roomActor)).toEqual([{ site: 'SITE-B', rooms: ['RB1'] }]);
+    expect(await second.resolve(roomActor)).toEqual([{ site: 'SITE-B', rooms: ['RB1'] }]);
+  });
+
+  it('an Admin without a scope.read grant has no Scope role shortcut', async () => {
+    await grant('site', 'SITE-A');
+    const resolver = resolve();
+    const admin = { actor_id: adminId, workspace_id: WORKSPACE, role_level: 'admin' };
+    expect(await resolver.resolve(actor())).toEqual([{ site: 'SITE-A', rooms: ['RA2', 'RA1'] }]);
+    expect(await resolver.resolve(admin)).toEqual([]);
+  });
+
+  it('API token scopes intersect owner grants before any grant read', async () => {
+    await grant('site', 'SITE-A');
+    await grant('site_room', 'SITE-B', 'RA1');
+    const resolver = resolve();
+    const ownerSet = [{ site: 'SITE-A', rooms: ['RA2', 'RA1'] }, { site: 'SITE-B', rooms: ['RA1'] }];
+    expect(await resolver.resolve(actor())).toEqual(ownerSet);
+    // Observe the real DB method without replacing it: a denied token must not even start a SELECT.
+    const select = vi.spyOn(handle.db, 'select');
+    try {
+      expect(await runAsToken('scope-token', ['workspace.read'], () => resolver.resolve(actor()))).toEqual([]);
+      expect(select).not.toHaveBeenCalled();
+    } finally {
+      select.mockRestore();
+    }
+    expect(await runAsToken('scope-token', ['scope.read'], () => resolver.resolve(actor()))).toEqual(ownerSet);
+    expect(await resolver.resolve(actor())).toEqual(ownerSet);
   });
 
   it.each(['site', 'site_room'].flatMap(kind => ['expires_at', 'revoked_at', 'superseded_at'].map(column => [kind, column] as const)))('%s %s drops the row on the next resolve call', async (kind, column) => {
