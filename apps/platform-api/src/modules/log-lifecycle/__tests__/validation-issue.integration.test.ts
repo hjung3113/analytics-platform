@@ -38,7 +38,7 @@ describe.skipIf(!runIntegration)('human validation issue storage (#1808 N1; migr
   const run = (action: ValidationIssueAction, input: unknown, key = randomUUID()) => service.execute(caller, action, input, key);
   const create = (title = 'Synthetic observation') => run('create', { projectId, firstRoundId: roundId, title, body: 'Synthetic description' });
   const ref = (line: number) => ({ fileRef: 'synthetic.log', line, fileSha256: sha });
-  const auditRows = async (id: string) => (await app.pool.query('select event_type, summary, detail from core.audit_log where subject_id = $1 order by created_at, id', [id])).rows as { event_type: string; summary: string; detail: Record<string, unknown> }[];
+  const auditRows = async (id: string) => (await migrate.pool.query('select event_type, summary, detail from core.audit_log where subject_id = $1 order by created_at, id', [id])).rows as { event_type: string; summary: string; detail: Record<string, unknown> }[];
 
   async function seedProject(hidden = false) {
     const code = `${tag}-${randomUUID().slice(0, 6)}`;
@@ -124,6 +124,8 @@ describe.skipIf(!runIntegration)('human validation issue storage (#1808 N1; migr
     await expect(run('linkOccurrence', { issueId: issue.id, roundId: secondRoundId, attemptId, ruleResultId })).rejects.toMatchObject({ code: 'validation.failed' });
     await expect(app.db.insert(validationIssueOccurrences).values({ workspaceId: WORKSPACE, projectId, issueId: issue.id, roundId: secondRoundId, requestId, attemptId, ruleResultId, linkerActorId: caller.actor_id })).rejects.toMatchObject({ code: '23503' });
     const different = await seedAttempt(secondRoundId);
+    // The Round and request match, but the attempt belongs to another request: the (workspace, request, attempt) key refuses it.
+    await expect(app.db.insert(validationIssueOccurrences).values({ workspaceId: WORKSPACE, projectId, issueId: issue.id, roundId, requestId, attemptId: different.attemptId, linkerActorId: caller.actor_id })).rejects.toMatchObject({ code: '23503' });
     await expect(run('linkOccurrence', { issueId: issue.id, roundId, attemptId, ruleResultId: different.ruleResultId })).rejects.toMatchObject({ code: 'validation.failed' });
     await expect(app.db.insert(validationIssueOccurrences).values({ workspaceId: WORKSPACE, projectId, issueId: issue.id, roundId, requestId, attemptId, ruleResultId: different.ruleResultId, linkerActorId: caller.actor_id })).rejects.toMatchObject({ code: '23503' });
     await expect(run('create', { projectId: await seedProject(), firstRoundId: roundId, title: 'Cross project', body: 'Synthetic' })).rejects.toMatchObject({ code: 'not_found.record' });
