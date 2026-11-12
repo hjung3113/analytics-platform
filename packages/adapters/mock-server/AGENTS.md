@@ -8,7 +8,7 @@
 - Do not import apps (`apps/*`) or menus (`menus/*/*`, `platform/*`). Menu-specific mock handlers and calculations live in each menu package's `src/mock/`; this package knows no menu.
 - Menu data touchpoints are each menu's endpoint declarations (`menus/<space>/<group>/src/endpoints.ts`) and its mock handlers (`src/mock/`). Productivity and cycle aggregation stays on the menu side.
 - Menu `src/mock/**` handlers may import this package. `serve()` is an engine-internal step: do not export it publicly.
-- In the app, only `src/dev/**` (mock assembly, `DevTools.tsx`) and the app integration tests `src/server-conformance.test.ts` and `src/published-metrics.test.ts` import this package; lint blocks `main.tsx`. Menu pages do not import mock handlers relatively; the app registers them through the menu's `/mock` subpath.
+- In the app, only `src/dev/**` (mock assembly, `DevTools.tsx`) and the app integration tests `src/server-conformance.test.ts`, `src/published-metrics.test.ts` and `src/saved-view-assembly.test.tsx` import this package; lint blocks `main.tsx`. Menu pages do not import mock handlers relatively; the app registers them through the menu's `/mock` subpath.
 - Keep tests that look at mock and screen calculation together out of this package. Metric publication versions are split across `menus/bravo/metrics/src/mock/published-pointers.test.ts` (catalog pointer comparison), `menus/mars/analytics/src/resolve-metric.test.ts` (page default version) and `apps/platform-web/src/published-metrics.test.ts` (kernel `classifyMetricInit` + mock).
 - Export explicitly from `src/index.ts`; `export *` is forbidden.
 

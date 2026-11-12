@@ -410,3 +410,60 @@ it('the three storage key formats are the pinned literals', async () => {
   expect(keys).toContain(`platform:saved-view-default:v1:${JSON.stringify([1, ENG, MENU])}`);
   expect(keys).toContain(`platform:saved-view-groups:v1:${JSON.stringify([1])}`);
 });
+
+// Fix-round 1 (#1702h): condition sets pass through the same room ACL as menu views, and the denial reasons
+// stay the user-facing Korean strings (ViewSelector renders `reason` as-is).
+const SCOPE_REASON = '조회 권한이 없는 공정이 포함되어 있습니다.';
+const conditionDraft = (roomNames: string[]): SavedViewDraft =>
+  ({ schemaVersion: 1, kind: 'condition-set', name: 'CMP 조건', context: { roomNames } });
+
+it('a condition set with a room outside the actor is refused on save, like a menu view', async () => {
+  expect(await store().save(conditionDraft(['CMP']))).toMatchObject({ ok: false, reason: 'forbidden' });
+  expect(storage.getItem(savedViewsStorageKey(ENG, null))).toBeNull(); // nothing was written
+});
+
+it('a condition set saved earlier is re-judged on every read after the room is lost (get/list/update/default)', async () => {
+  const owner = 'u-limchaewon'; // in the seed directory, so the owner's bucket is iterated on list
+  const setKey = { userId: owner, menuId: null };
+  const withCmp = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf, getActor: () => ({ userId: owner, admin: false, permissions: ['analytics:view'], rooms: ['PHOTO', 'CMP'] }) });
+  const withoutCmp = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf, getActor: () => ({ userId: owner, admin: false, permissions: ['analytics:view'], rooms: ['PHOTO'] }) });
+  const saved = ok(await withCmp().save(conditionDraft(['CMP'])));
+  ok(await withCmp().setDefault(setKey, saved.view.id));
+  expect(await withoutCmp().get(saved.view.id)).toEqual({ id: saved.view.id, denied: true, reason: SCOPE_REASON });
+  expect(await withoutCmp().list(setKey)).toEqual([{ id: saved.view.id, denied: true, reason: SCOPE_REASON }]);
+  expect(await withoutCmp().update(saved.view.id, { name: '수정' }, { expectedVersion: saved.view.version })).toMatchObject({ ok: false, reason: 'forbidden' });
+  expect(await withoutCmp().getDefaultId(setKey)).toBeNull();
+  expect(await withoutCmp().setDefault(setKey, saved.view.id)).toMatchObject({ ok: false, reason: 'invalid' });
+});
+
+it('denial reasons are the user-facing Korean messages, not internal codes', async () => {
+  const s = store(); ok(await s.save(draft('내 뷰'))); // engineer saves
+  const items = await s.list(key(ENG));
+  expect(items.find(i => i.denied)).toEqual({ id: 'u-limchaewon|productivity-overview|1', denied: true, reason: SCOPE_REASON });
+  as('viewer');
+  const raw = JSON.parse(storage.getItem(savedViewsStorageKey(ENG, MENU))!);
+  raw.views.find((v: { name: string }) => v.name === '내 뷰')!.visibility = { kind: 'people', userIds: ['viewer'] };
+  storage.setItem(savedViewsStorageKey(ENG, MENU), JSON.stringify(raw));
+  expect((await store().list(key('viewer'))).every(i => i.denied && i.reason === '이 메뉴를 열 권한이 없습니다.')).toBe(true);
+});
+
+it('a replacement seed falls back to its first actor when the stored role is missing or obsolete', async () => {
+  const make = (): SavedViewStore => createLocalSavedViewStore({
+    getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf,
+    seed: {
+      actors: { alice: { userId: 'alice', admin: false, permissions: ['analytics:view'], rooms: ['PHOTO'] } },
+      directory: [{ userId: 'alice', displayName: '앨리스', affiliation: '테스트팀' }],
+      groups: () => [],
+      views: () => [],
+    },
+  });
+  storage.removeItem('platform:role'); // missing role storage: no `engineer` was ever stored
+  const saved = ok(await make().save(draft('앨리스 뷰')));
+  expect(saved.view.ownerId).toBe('alice');
+  storage.setItem('platform:role', JSON.stringify('engineer')); // obsolete role for this seed
+  expect(visible(await make().list(key('alice'))).map(i => i.view.name)).toEqual(['앨리스 뷰']);
+  expect(() => createLocalSavedViewStore({
+    getStorage: () => storage, locks, now: () => 5,
+    seed: { actors: {}, directory: [], groups: () => [], views: () => [] },
+  })).toThrow(/at least one actor/);
+});

@@ -49,10 +49,10 @@ const viewShape = (v: unknown, ownerId: string, menuId: string | null): v is Rec
 const storedView = (ownerId: string, menuId: string | null) => (v: unknown) => viewShape(v, ownerId, menuId) && (v.pending === undefined || viewShape(v.pending, ownerId, menuId));
 const storedGroup = (v: unknown) => isObject(v) && typeof v.id === 'string' && (v.kind === 'org-team' || v.kind === 'custom') && typeof v.name === 'string' && isStrings(v.memberIds) && isStrings(v.managerIds);
 
-/** The current user comes from the mock session role the app already keeps in `platform:role`. */
-const storedActor = (storage: StoragePort, actors: SavedViewSeed['actors']): Actor => {
-  let role = 'engineer';
-  try { const raw = storage.getItem(ROLE_KEY); const parsed = raw ? JSON.parse(raw) : null; if (typeof parsed === 'string' && Object.hasOwn(actors, parsed)) role = parsed; } catch { /* keep the default role */ }
+/** The current user comes from the mock session role the app already keeps in `platform:role`; a missing or obsolete role falls back to the seed's first actor. */
+const storedActor = (storage: StoragePort, actors: SavedViewSeed['actors'], fallbackRole: string): Actor => {
+  let role = fallbackRole;
+  try { const raw = storage.getItem(ROLE_KEY); const parsed = raw ? JSON.parse(raw) : null; if (typeof parsed === 'string' && Object.hasOwn(actors, parsed)) role = parsed; } catch { /* keep the fallback role */ }
   return actors[role];
 };
 
@@ -91,14 +91,15 @@ type LocalSavedViewStoreOptions = {
 type Stored = SavedView & { pending?: SavedView };
 /** The owner and an approver see the proposed change; everyone else the approved copy. */
 const shownTo = (v: Stored, a: Actor, owner: boolean): SavedView => { const { pending, ...published } = v; return pending && (owner || a.admin) ? pending : (published as SavedView); };
-/** Why this content is out of the actor's reach, or null. An unknown menu is denied, not waved through. */
+/** Why this content is out of the actor's reach, or null. An unknown menu is denied, not waved through. The messages are shown as-is by the ViewSelector. */
 function denial(content: { kind: string; menuId?: string; context: { roomNames?: string[] | null } }, a: Actor, perm: MenuPermissionsOf): string | null {
-  if (content.kind !== 'menu-view' || !content.menuId) return null;
-  const need = perm(content.menuId);
-  if (need === undefined) return 'unknown-menu';
-  if (!need.every(p => a.permissions.includes(p))) return 'menu-permission';
-  const rooms = content.context.roomNames;
-  if (rooms && !rooms.every(r => a.rooms.includes(r))) return 'scope';
+  const menuId = viewMenuId(content);
+  if (menuId !== null) {
+    const needed = perm(menuId);
+    if (needed === undefined) return '알 수 없는 메뉴입니다.';
+    if (!needed.every(p => a.permissions.includes(p))) return '이 메뉴를 열 권한이 없습니다.';
+  }
+  if (content.context.roomNames?.some(r => !a.rooms.includes(r))) return '조회 권한이 없는 공정이 포함되어 있습니다.';
   return null;
 }
 function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm: MenuPermissionsOf, forced = false): SavedViewListItem | null {
@@ -145,9 +146,12 @@ type Tx = { buckets: Map<string, { ownerId: string; menuId: string | null; views
 
 /** Browser-local simulation of a server ACL behind the SavedViewStore port. Mutations need the origin lock and fail closed without it. */
 export function createLocalSavedViewStore({ getStorage = () => localStorage, locks = typeof navigator === 'undefined' ? undefined : navigator.locks, now = Date.now, getActor, menuPermissionsOf = () => undefined, sessionPermissions, seed = defaultSavedViewSeed }: LocalSavedViewStoreOptions = {}): SavedViewStore {
+  /** The fallback actor for a missing/obsolete stored role is the seed's first actor, not a hard-coded one; a seed with no actor cannot answer who is asking. */
+  const fallbackRole = Object.keys(seed.actors)[0];
+  if (!fallbackRole) throw new Error('saved-view seed must contain at least one actor');
   const ev = (v: Stored, a: Actor, groups: readonly GroupRecord[], forced = false) => evaluate(v, a, groups, menuPermissionsOf, forced);
   /** The permission vocabulary is the real session's (what the Kernel judges menus by); the mock role fills it in before a session exists. */
-  const actorNow = (): Actor => { const a = (getActor ?? (() => storedActor(getStorage(), seed.actors)))(); const p = sessionPermissions?.(); return p ? { ...a, permissions: p } : a; };
+  const actorNow = (): Actor => { const a = (getActor ?? (() => storedActor(getStorage(), seed.actors, fallbackRole)))(); const p = sessionPermissions?.(); return p ? { ...a, permissions: p } : a; };
   const readBucket = (storage: StoragePort, ownerId: string, menuId: string | null) => {
     const r = readEnvelope<Stored>(storage, savedViewsStorageKey(ownerId, menuId), 'views', storedView(ownerId, menuId));
     return { future: r.future, views: r.value ?? seed.views(ownerId, menuId) };

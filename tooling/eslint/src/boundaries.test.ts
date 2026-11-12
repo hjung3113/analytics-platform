@@ -320,6 +320,14 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/dev/mock-assembly.tsx', code: `import { DevTools } from './DevTools';`, rule: '' },
   { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { x } from '@ap/mock-server';`, rule: '' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
+  // #1702h: the saved-view assembly test keeps the mock-server exemption plus the app test entries (kernel/host, kernel/testing), and nothing more.
+  { file: 'apps/platform-web/src/saved-view-assembly.test.tsx', code: `import { createLocalSavedViewStore } from '@ap/mock-server';`, rule: '' },
+  { file: 'apps/platform-web/src/saved-view-assembly.test.tsx', code: `import { x } from '@ap/kernel/host';`, rule: '' },
+  { file: 'apps/platform-web/src/saved-view-assembly.test.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'apps/platform-web/src/saved-view-assembly.test.tsx', code: `import { mock } from '@ap/menu-home/mock';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/saved-view-assembly.test.tsx', code: `await import('@ap/menu-home/mock');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/saved-view-assembly.test.tsx', code: `import { DevTools } from './dev/DevTools';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/saved-view-assembly.test.tsx', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
   // #801, #1659: the viewer's synthetic endpoint data (the menu-topview mock-data subpath) is a dev-assembly and conformance-test import only.
   { file: 'apps/platform-web/src/dev/mock-assembly.tsx', code: `import { eqvMockContext } from '@ap/menu-topview/mock-data';`, rule: '' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { EQV_MOCK_WINDOW } from '@ap/menu-topview/mock-data';`, rule: '' },
