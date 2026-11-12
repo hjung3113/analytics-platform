@@ -29,7 +29,7 @@ concurrency:
 # 정확히 'false'일 때만 건너뛰고, `changes`가 실패하면(출력 없음) 전부 돈다.
 # workspace 검사(#1019)는 turbo 캐시로 바뀐 패키지와 그 의존자만 다시 돈다(`.turbo/cache`를 main push가 저장하고 PR은 복원만 한다). 전체·cold는 `full`일 때뿐이다(바뀐 패키지가 많은 보통 PR은 20분대까지 걸릴 수 있고, 서버 시험은 `Platform test`가 아니라 `integration`이 한 번만 돈다):
 # `workflow_dispatch`의 `full=true`(릴리스 태그 전 수동), 또는 `changes`가 판단하지 못해 `full`이 'false'가 아닐 때(출력 없음 포함) → 캐시를 복원하지 않고 `TURBO_FORCE=true`.
-# `Platform workspace (pnpm monorepo)`는 병렬 두 Job(Platform static·Platform test)의 모음 Job이고, 하위 결과가 둘 다 정확히 success일 때만 통과한다.
+# `Platform workspace (pnpm monorepo)`는 병렬 Job(Platform static·Platform test 조각 3개, #1680)의 모음 Job이고, 하위 결과가 모두 정확히 success일 때만 통과한다.
 # E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 4개)이고 대부분의 코드 PR이 전부 돈다. `apps/platform-api/**`·`ops/platform-api/**`만 바뀐 PR은 mock E2E가 필요 없다(`ops/platform-api/tsconfig.base.json` 제외, #1680). 전체는 `workflow_dispatch`의
 # `full=true`(릴리스 태그 전)에서도 돈다. main push의 기준은 직전 커밋이 아니라 CI가 green이었던 마지막 main SHA다(`last-green-main-sha.mjs`) — 실패한 spec은 green이 될 때까지 범위에 남는다.
 # 기능 패키지는 서브모듈이 아니라 일반 디렉터리(apps/{platform-api,feature-screens}·packages/feature-*·docs/{product,design,user-guide}/features·docs/architecture/platform-api)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유).
@@ -208,13 +208,26 @@ jobs:
           key: turbo-${{ runner.os }}-node26.7.0-static-${{ github.sha }}
 
   # `pnpm test` beside Platform static. #166: turbo concurrency is capped at 2 in turbo.json (vitest workers × parallel packages oversubscribe a runner or a 16 GB Mac).
+  # #1680: three package groups on three runners, so the longest package (`@ap/feature-screens`, ~560 s of vitest in the
+  # v0.35.0 cold run) no longer queues behind the other 46 (~1,190 s together, turbo runs 2 at a time). Shard 3 is
+  # "everything else" written only as exclusions, so a new package is tested without editing this list; its
+  # exclusions must name exactly what shards 1 and 2 include (`.github/scripts/check-unified-ci.test.mjs` checks it).
+  # `needs.platform-test.result` is success only when every shard succeeds, so the required aggregate is unchanged.
   platform-test:
-    name: Platform test
+    name: Platform test (${{ matrix.label }})
     needs: changes
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    # Runaway guard, not a budget: a PR that changes many packages (apps/feature-screens alone takes ~15 min) reaches the high 20s (main push 26.5 min), and #1749 was cancelled twice at 30 with no failing test (#1680).
-    timeout-minutes: 45
+    # Runaway guard, not a budget (#1680: #1749 was cancelled twice at 30 with no failing test on the old single job).
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Alone on its runner, the package may use every vCPU (same total-workers rule as below).
+          - { shard: 1, label: feature-screens, filter: "--filter=@ap/feature-screens", workers: '4' }
+          - { shard: 2, label: sdk + platform-web, filter: "--filter=./packages/sdk/* --filter=@ap/platform-web", workers: '2' }
+          - { shard: 3, label: menus + others, filter: "--filter=!@ap/platform-api --filter=!@ap/feature-screens --filter=!./packages/sdk/* --filter=!@ap/platform-web", workers: '2' }
     env:
       DOCS_ONLY: ${{ needs.changes.outputs.code == 'false' }}
       TURBO_FORCE: ${{ needs.changes.outputs.full != 'false' }}
@@ -222,9 +235,10 @@ jobs:
       # ubuntu-latest. Uncapped, each package starts ncpu-1 workers (6 on 4 vCPUs) that compete for CPU, and a jsdom test that takes
       # about 1 s alone takes 3-4 s, so tests near vitest's 5 s default time out in some runs (#1559: measured 1.3-1.8 s max per test
       # with the cap vs 2.6-3.5 s without, for a 10-15 % longer package run). Same values as ~/.zshenv; the 5 s timeout stays as is.
-      VITEST_MAX_WORKERS: '2'
-      VITEST_MAX_FORKS: '2'
-      VITEST_MAX_THREADS: '2'
+      # Shard 1 runs one package, so its cap is 4 (one package × 4 workers = 4 vCPUs).
+      VITEST_MAX_WORKERS: ${{ matrix.workers }}
+      VITEST_MAX_FORKS: ${{ matrix.workers }}
+      VITEST_MAX_THREADS: ${{ matrix.workers }}
       VITEST_MIN_FORKS: '1'
       VITEST_MIN_THREADS: '1'
     steps:
@@ -244,16 +258,22 @@ jobs:
         if: ${{ env.DOCS_ONLY != 'true' && env.TURBO_FORCE != 'true' }}
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-node26.7.0-test-${{ github.sha }}
-          restore-keys: turbo-${{ runner.os }}-node26.7.0-test-
+          key: turbo-${{ runner.os }}-node26.7.0-test-${{ matrix.shard }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-node26.7.0-test-${{ matrix.shard }}-
       # Load context for a vitest `Timeout calling "onTaskUpdate"` or a 5 s test timeout (#1227): runner CPUs, load and the worker cap in force.
       - name: Runner load context
         if: ${{ env.DOCS_ONLY != 'true' }}
         run: |
           echo "vCPUs=$(nproc) loadavg=$(cut -d' ' -f1-3 /proc/loadavg) VITEST_MAX_WORKERS=$VITEST_MAX_WORKERS"
-      # @ap/platform-api is excluded: the `feature-integration` job runs its whole suite once, against a database, on every code PR. The root `test` script stays `turbo run test` (local verify=full uses it).
-      - run: pnpm exec turbo run test --filter='!@ap/platform-api'
+      # @ap/platform-api is in no shard: the `feature-integration` job runs its whole suite once, against a database, on every code PR. The root `test` script stays `turbo run test` (local verify=full uses it).
+      # `set -f` keeps the shell from expanding `./packages/sdk/*`; turbo reads it as a workspace path glob.
+      - name: Test (shard ${{ matrix.shard }})
         if: ${{ env.DOCS_ONLY != 'true' }}
+        env:
+          SHARD_FILTER: ${{ matrix.filter }}
+        run: |
+          set -f
+          pnpm exec turbo run test $SHARD_FILTER
       # Entries older than 7 days are dropped before the save (a failure here must not skip the save). GitHub evicts the least recently used caches above the repository limit (10 GB).
       - name: Prune turbo cache
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
@@ -262,7 +282,7 @@ jobs:
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-node26.7.0-test-${{ github.sha }}
+          key: turbo-${{ runner.os }}-node26.7.0-test-${{ matrix.shard }}-${{ github.sha }}
 
   feature-integration:
     needs: changes
