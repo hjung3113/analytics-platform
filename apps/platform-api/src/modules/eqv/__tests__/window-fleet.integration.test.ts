@@ -504,6 +504,34 @@ describe.skipIf(!runIntegration)('eqv Sample Window and Fleet (#1658 Sample Wind
       expect(rows.some((r) => r.equipmentId === hidden)).toBe(false);
       expect(JSON.stringify(rows)).not.toContain(hiddenModelId);
     });
+
+    it('hidden equipment takes no slot of the 500-row cap, so the row count does not reveal how many exist (#1878)', async () => {
+      const first = `0-${TAG.toLowerCase()}`;
+      const ids = (rows: FleetRow[]) => rows.map((r) => r.equipmentId);
+      const fleet = async () => (await read('eqv.fleet', {})).data.rows as FleetRow[];
+      try {
+        // Fill the visible side to exactly the cap, then add hidden equipment whose ids sort before every visible one.
+        const have = (await fleet()).length;
+        await sql(
+          `insert into eqv.equipment (workspace_id, equipment_id, label, model_id)
+           select $1, 'eq-synth-' || $2 || '-cap-' || g, 'Cap', $3 from generate_series(1, $4::int) g`,
+          [WORKSPACE_ID, TAG.toLowerCase(), modelId, 500 - have],
+        );
+        const withoutHidden = await fleet();
+        expect(withoutHidden).toHaveLength(500);
+        await sql(
+          `insert into eqv.equipment (workspace_id, equipment_id, label, model_id)
+           select $1, $2 || '-' || g, 'Hidden', $3 from generate_series(1, 3) g`,
+          [WORKSPACE_ID, first, hiddenModelId],
+        );
+        const withHidden = await fleet();
+        expect(ids(withHidden).filter((id) => id.startsWith(first))).toEqual([]);
+        expect(ids(withHidden)).toEqual(ids(withoutHidden));
+        expect(withHidden).toHaveLength(500);
+      } finally {
+        await sql('delete from eqv.equipment where workspace_id = $1 and (equipment_id like $2 or equipment_id like $3)', [WORKSPACE_ID, `${first}-%`, `eq-synth-${TAG.toLowerCase()}-cap-%`]);
+      }
+    }, 60_000);
   });
 
   describe('a hidden Hub model is indistinguishable from a missing equipment', () => {

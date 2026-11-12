@@ -4,6 +4,7 @@ import { and, asc, eq, ne, sql } from 'drizzle-orm';
 
 import type { Tx } from '../../../db/tx.js';
 import { equipment, sampleWindows } from '../../../db/schema/eqv.js';
+import { type Viewer, ref, visibleModelSql } from '../../log-knowledge/index.js';
 
 export type WindowRow = typeof sampleWindows.$inferSelect;
 
@@ -58,12 +59,12 @@ export interface FleetEquipmentRow {
   modelId: string;
 }
 
-/** The first `limit` equipment of the workspace by id (the Fleet screen's rows before the Hub filters hidden models). */
-export async function listEquipmentRows(db: Tx, workspaceId: string, limit: number): Promise<FleetEquipmentRow[]> {
+/** The first `limit` equipment by id whose Hub model the viewer may see; the filter is in the statement, before the limit, so hidden equipment never takes a slot or changes a count (#1878). */
+export async function listEquipmentRows(db: Tx, viewer: Viewer, limit: number): Promise<FleetEquipmentRow[]> {
   return db
     .select({ equipmentId: equipment.equipmentId, label: equipment.label, modelId: equipment.modelId })
     .from(equipment)
-    .where(eq(equipment.workspaceId, workspaceId))
+    .where(and(eq(equipment.workspaceId, viewer.workspaceId), visibleModelSql(viewer, ref(equipment.modelId))))
     .orderBy(asc(equipment.equipmentId))
     .limit(limit);
 }

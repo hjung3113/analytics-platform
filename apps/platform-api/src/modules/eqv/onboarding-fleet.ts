@@ -15,13 +15,14 @@ import {
 } from '@eqv/core';
 
 import type { Db } from '../../db/client.js';
+import { viewerOf } from '../log-knowledge/index.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 import { checkEquipmentLayout } from './domain/layout-checks.js';
 import type { ModelLookup } from './onboarding-scope.js';
 import { findRevision } from './repositories/eqv-write.js';
 import * as windows from './repositories/window-read.js';
 
-/** Fleet shows at most this many equipment (by id). The limit applies before the Hub hides models, so a workspace over it shows fewer rows. */
+/** Fleet shows at most this many equipment (by id) among those whose model the viewer may see; hidden equipment takes no slot. */
 export const FLEET_ROWS_MAX = 500;
 
 export const FLEET_STATUSES = ['no-observations', 'unstarted', 'draft', 'published', 'drift', 'drift-unknown'] as const;
@@ -58,9 +59,9 @@ export async function buildFleetRows(
 ): Promise<FleetRow[]> {
   const { db, knowledgeLookup } = deps;
   const ws = actor.workspace_id;
-  const all = await windows.listEquipmentRows(db, ws, FLEET_ROWS_MAX);
+  const all = await windows.listEquipmentRows(db, viewerOf(actor), FLEET_ROWS_MAX);
 
-  // The Hub answers for the viewer: a hidden model is a row that is not there.
+  // Hidden models are already out of `all` (statement filter); `getModel` supplies the names.
   const models = new Map<string, NonNullable<Awaited<ReturnType<ModelLookup['getModel']>>>>();
   for (const modelId of new Set(all.map((e) => e.modelId))) {
     const model = await knowledgeLookup.getModel(db, ws, modelId, actor.actor_id);
