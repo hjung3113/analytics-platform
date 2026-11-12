@@ -153,7 +153,7 @@ it.each([undefined, 'syn-duplicate'])('refuses duplicate effective envelope audi
   const message = 'envelope audience collision between targets t1 and t2';
   expect(routedBootProblems(bundle as unknown as DeclarationBundle, { http: createHttpConnector() })).toEqual([message]);
   expect(await problems(setup(bundle))).toEqual([message]);
-  expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService })).toThrow(message);
+  expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, snapshot: menuSnapshotFor(bundle), forwarder: {} as MenuForwarder, checkService })).toThrow(message);
 });
 it.each([undefined, 'analytics'])('reserves analytics for legacy string owners with routed audience %s', async (aud) => {
   const pair = envelopePair(aud);
@@ -161,12 +161,12 @@ it.each([undefined, 'analytics'])('reserves analytics for legacy string owners w
   const message = 'envelope audience collision between targets legacy-default and t1';
   expect(routedBootProblems(bundle as unknown as DeclarationBundle, { http: createHttpConnector() })).toEqual([message]);
   expect(await problems(setup(bundle))).toEqual([message]);
-  expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService })).toThrow(message);
+  expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, snapshot: menuSnapshotFor(bundle), forwarder: {} as MenuForwarder, checkService })).toThrow(message);
 });
 it('accepts a sole default audience and shared destinations, and distinct audiences for distinct destinations', () => {
   const pair = envelopePair();
   const shared = { ...pair, targets: { ...pair.targets, t2: { ...pair.targets.t2, baseUrl: pair.targets.t1.baseUrl } } };
   const distinct = { ...pair, targets: { ...pair.targets, t2: { ...pair.targets.t2, aud: 'syn-b' } } };
   const sole = { ...pair, endpoints: [pair.endpoints[0]], endpointOwners: { 'syn.a': pair.endpointOwners['syn.a'] } };
-  for (const bundle of [shared, distinct, sole]) expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService })).not.toThrow();
+  for (const bundle of [shared, distinct, sole]) expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, snapshot: menuSnapshotFor(bundle), forwarder: {} as MenuForwarder, checkService })).not.toThrow();
 });
