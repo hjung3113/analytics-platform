@@ -6,7 +6,8 @@
 // error, timeout, non-2xx, non-JSON or malformed envelope — surfaces as `MenuUpstreamError`, which
 // the route answers with 502/504 and no upstream body text.
 
-import { z } from 'zod';
+import { apiResponseSchema, assessmentSchema, trustSchema } from '@ap/contract-schemas';
+import { z } from 'zod/v4';
 
 import type { IdentityTokenSigner } from './identity-token.js';
 import type { ScopeGrant } from './scope-resolver.js';
@@ -24,6 +25,7 @@ export type MenuUpstreamFetch = (
   input: string,
   init: {
     method: 'POST';
+    redirect: 'error';
     headers: Record<string, string>;
     body: string;
     signal: AbortSignal;
@@ -54,19 +56,24 @@ export class MenuUpstreamError extends Error {
 }
 
 /**
- * The upstream response envelope (`answerOf` of the upstream route). Strict: an unknown key means
- * the upstream contract diverged, and the request fails closed as 502 instead of silently passing
- * a field this side never agreed to. `correlationId` is the upstream's own echo and is dropped —
- * this side's correlation id is already the request id.
+ * Validate the complete canonical wire envelope. Reject unknown keys, including nested metadata,
+ * instead of stripping fields that the upstream sent. The correlation echo must match this request.
  */
-const envelopeSchema = z.strictObject({
-  outcome: z.enum(['ok', 'empty', 'error', 'forbidden', 'too_large', 'timeout']),
-  data: z.unknown().refine((value) => value !== undefined, 'data is required'),
-  assessments: z.array(z.unknown()).optional(),
-  trust: z.unknown().optional(),
-  message: z.string().optional(),
-  correlationId: z.string().optional(),
-});
+const envelopeSchema = apiResponseSchema(z.unknown().refine((value) => value !== undefined, 'data is required'))
+  .extend({ assessments: z.array(assessmentSchema.strict()), trust: trustSchema.strict().nullable() })
+  .strict();
+
+/** Owner declarations must name a pathname, without URL normalization or query/fragment policy. */
+function destinationOf(baseUrl: string, path: string): URL {
+  const dotSegment = path.split('/').some((segment) => {
+    const decoded = segment.replace(/%2e/gi, '.');
+    return decoded === '.' || decoded === '..';
+  });
+  if (!path.startsWith('/') || /[?#\\\s]/.test(path) || dotSegment) {
+    throw new Error('Invalid menu upstream owner path: expected an absolute pathname without dot segments, query, fragment, backslash or whitespace');
+  }
+  return new URL(`${baseUrl}${path}`);
+}
 
 /** Lossless string form of a scope grant for the token claim (`{site, rooms}` is not a string). */
 const scopeClaim = (grant: ScopeGrant): string => JSON.stringify(grant);
@@ -88,6 +95,7 @@ export function createMenuForwarder({
 }): MenuForwarder {
   return {
     async forward({ endpointId, path, args }) {
+      const destination = destinationOf(baseUrl, path);
       const token = signer.sign({
         sub: args.actor.actor_id,
         wid: args.actor.workspace_id,
@@ -95,15 +103,16 @@ export function createMenuForwarder({
         cid: args.correlationId,
         scopes: args.scopes.map(scopeClaim),
         htm: 'POST',
-        htu: path,
+        htu: destination.pathname,
       });
       const timeout = AbortSignal.timeout(timeoutMs);
       const signal = AbortSignal.any([...(args.signal ? [args.signal] : []), timeout]);
       let body: unknown;
       try {
         signal.throwIfAborted();
-        const response = await fetchImpl(`${baseUrl}${path}`, {
+        const response = await fetchImpl(destination.href, {
           method: 'POST',
+          redirect: 'error',
           headers: {
             'content-type': 'application/json',
             'x-correlation-id': args.correlationId,
@@ -120,13 +129,13 @@ export function createMenuForwarder({
         throw new MenuUpstreamError(timeout.aborted && signal.reason === timeout.reason ? 'timeout' : 'unavailable');
       }
       const parsed = envelopeSchema.safeParse(body);
-      if (!parsed.success) throw new MenuUpstreamError('unavailable');
+      if (!parsed.success || parsed.data.correlationId !== args.correlationId) throw new MenuUpstreamError('unavailable');
       const envelope = parsed.data;
       return {
         outcome: envelope.outcome,
         data: envelope.data,
-        ...(envelope.assessments !== undefined ? { assessments: envelope.assessments } : {}),
-        ...(envelope.trust !== undefined ? { trust: envelope.trust } : {}),
+        assessments: envelope.assessments,
+        trust: envelope.trust,
         ...(envelope.message !== undefined ? { message: envelope.message } : {}),
       };
     },

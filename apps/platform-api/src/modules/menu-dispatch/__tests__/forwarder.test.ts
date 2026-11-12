@@ -1,8 +1,9 @@
 // Forwarder tests (plan node 1729f): DB-free, plugin level. `app.inject` of `menuQueryDispatchRoutes`
 // with a synthetic declaration whose `handle` forwards through a fake upstream `fetch`; the identity
-// token is verified with `jose` (devDependency). No real network, no real database.
+// token is verified with `jose` (devDependency). Loopback HTTP verifies native fetch; no database.
 
 import { generateKeyPairSync } from 'node:crypto';
+import { createServer, type RequestListener } from 'node:http';
 
 import cookie from '@fastify/cookie';
 import { jwtVerify } from 'jose';
@@ -11,7 +12,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { defined } from '../../../test-support/defined.js';
 import { ACTOR, COOKIE, WORKSPACE, stubSessionService } from '../../../test-support/platform-route-stubs.js';
-import { createMenuForwarder } from '../forwarder.js';
+import { createMenuForwarder, type MenuUpstreamFetch } from '../forwarder.js';
 import { createIdentityTokenSigner } from '../identity-token.js';
 import { createMenuDispatchRegistry } from '../registry.js';
 import { menuQueryDispatchRoutes } from '../routes.js';
@@ -20,6 +21,30 @@ import { testEndpoint } from './test-declarations.js';
 const CORRELATION_ID = 'fwd-test-corr-1';
 const PATH = '/owner/marts/test.rows';
 const BASE_URL = 'http://upstream.test';
+const ENVELOPE = { outcome: 'ok', data: null, assessments: [], trust: null, correlationId: CORRELATION_ID } as const;
+const ASSESSMENT = {
+  kind: 'collection', state: 'confirmed', statusSource: 'owner', observedAt: '2026-11-12T00:00:00Z',
+  reason: 'check_failed', explainsEmpty: false, detail: 'owner assessment',
+} as const;
+const TRUST = {
+  updatedAt: '2026-11-12T00:00:00Z', dataThrough: null, coverage: 0, metricVersion: 'v1',
+  sourceLogicVersions: ['owner-v1'], provisional: false, source: 'owner',
+};
+
+/** Independent loopback origins; close even when the regression assertion fails. */
+async function origin(handler: RequestListener) {
+  const server = createServer(handler);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Expected a loopback port');
+  return {
+    url: `http://127.0.0.1:${address.port}`,
+    close: () => new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+      server.closeAllConnections();
+    }),
+  };
+}
 
 const { privateKey, publicKey } = generateKeyPairSync('ed25519');
 const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
@@ -71,11 +96,14 @@ afterEach(async () => { await app?.close(); });
 const SCOPES = [{ site: 'mills', rooms: ['r1'] }, { site: 'labs', rooms: [] }];
 
 /** An app whose one endpoint `test.rows` forwards to the fake upstream. */
-async function forwarderApp(upstream: ReturnType<typeof fakeUpstream>, timeoutMs = 5000, scoped = false, client?: AbortSignal) {
-  const forwarder = createMenuForwarder({ baseUrl: BASE_URL, timeoutMs, signer, fetch: upstream.fetch });
+async function forwarderApp(upstream: ReturnType<typeof fakeUpstream>, timeoutMs = 5000, scoped = false, client?: AbortSignal,
+  config: { baseUrl?: string; path?: string; fetch?: MenuUpstreamFetch; errors?: Error[] } = {},
+) {
+  const forwarder = createMenuForwarder({ baseUrl: config.baseUrl ?? BASE_URL, timeoutMs, signer, fetch: config.fetch ?? upstream.fetch });
   const { declaration } = testEndpoint(scoped ? { requiresScope: true } : {});
-  declaration.handle = (args) => forwarder.forward({ endpointId: 'test.rows', path: PATH, args });
+  declaration.handle = (args) => forwarder.forward({ endpointId: 'test.rows', path: config.path ?? PATH, args });
   app = Fastify({ logger: false, genReqId: () => CORRELATION_ID });
+  app.addHook('onError', async (_req, _reply, error) => { config.errors?.push(error); });
   // Injection has no live client socket; destroy the raw reply to model a disconnect after POST consumption.
   if (client) app.addHook('onRequest', async (_req, reply) => {
     client.addEventListener('abort', () => reply.raw.destroy(), { once: true });
@@ -103,28 +131,82 @@ async function send(instance: FastifyInstance, context = {}) {
 
 describe('menu forwarder (1729f)', () => {
   it.each([
-    ['ok', { outcome: 'ok', data: [{ id: 1 }], assessments: [{ kind: 'freshness' }], trust: { level: 'mart' }, correlationId: 'up-1' }],
-    ['error', { outcome: 'error', data: false, assessments: [], trust: null, message: 'upstream judgment' }],
-    ['too_large', { outcome: 'too_large', data: 0, assessments: [], trust: null }],
-    ['timeout', { outcome: 'timeout', data: '', assessments: [], trust: null }],
-    ['empty', { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'up-2' }],
-    ['forbidden', { outcome: 'forbidden', data: null, assessments: [{ kind: 'scope' }], trust: null, message: 'no scope', correlationId: 'up-3' }],
-  ] as const)('passes the upstream %s envelope through unchanged', async (_name, envelope) => {
+    { ...ENVELOPE, data: [{ id: 1 }], assessments: [ASSESSMENT], trust: TRUST },
+    { ...ENVELOPE, outcome: 'error', data: false, message: 'upstream judgment' },
+    { ...ENVELOPE, outcome: 'too_large', data: 0 },
+    { ...ENVELOPE, outcome: 'timeout', data: '' },
+    { ...ENVELOPE, outcome: 'empty' },
+    { ...ENVELOPE, outcome: 'forbidden', assessments: [ASSESSMENT], message: 'no scope' },
+  ])('passes the upstream $outcome envelope through unchanged', async (envelope) => {
     const upstream = fakeUpstream(() => ({ status: 200, body: envelope }));
     const response = await send(await forwarderApp(upstream));
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({
-      outcome: envelope.outcome,
-      data: envelope.data,
-      assessments: envelope.assessments,
-      trust: envelope.trust,
-      ...('message' in envelope ? { message: envelope.message } : {}),
-      correlationId: CORRELATION_ID,
+    expect(response.json()).toEqual(envelope);
+  });
+
+  it.each([301, 302, 303, 307, 308])('rejects a native %s redirect without contacting the second origin', async (status) => {
+    const destinationCalls: unknown[] = [];
+    const destination = await origin((req, res) => {
+      destinationCalls.push({ headers: req.headers, method: req.method });
+      req.resume();
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(ENVELOPE));
     });
+    let ownerCalls = 0;
+    const owner = await origin((req, res) => {
+      ownerCalls++;
+      req.resume();
+      res.writeHead(status, { location: `${destination.url}/escaped` }).end();
+    });
+    try {
+      const upstream = fakeUpstream(() => 'network');
+      const response = await send(await forwarderApp(upstream, 5000, false, undefined, { baseUrl: owner.url, fetch }));
+      expect(ownerCalls).toBe(1);
+      expect(destinationCalls).toEqual([]);
+      expect(response.statusCode).toBe(502);
+      expect(response.json()).toEqual({ code: 'upstream.unavailable', message: 'menu-query upstream is unavailable', correlationId: CORRELATION_ID });
+    } finally {
+      await Promise.all([owner.close(), destination.close()]);
+    }
+  });
+
+  it('signs the final pathname including the base prefix seen by the upstream', async () => {
+    let wirePath: string | undefined;
+    let identity: string | undefined;
+    const owner = await origin((req, res) => {
+      wirePath = req.url;
+      identity = req.headers['x-internal-identity'] as string;
+      req.resume();
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(ENVELOPE));
+    });
+    try {
+      const upstream = fakeUpstream(() => 'network');
+      const response = await send(await forwarderApp(upstream, 5000, false, undefined, {
+        baseUrl: `${owner.url}/internal`, path: '/owner/query', fetch,
+      }));
+      expect(response.statusCode).toBe(200);
+      expect(wirePath).toBe('/internal/owner/query');
+      const { payload } = await jwtVerify(defined(identity), publicKey, { algorithms: ['EdDSA'] });
+      expect(payload.htu).toBe(wirePath);
+    } finally {
+      await owner.close();
+    }
+  });
+
+  it.each([
+    'owner/query', '/owner/../query', '/../query', '/owner/..', '/owner/./query',
+    '/owner/query#fragment', '/owner/query?x=1', '/owner\\query',
+    '/owner/%2e%2e/query', '/owner/%2E./query', '/owner/.%2e/query', '/owner/%2e/query',
+  ])('rejects invalid owner path %s before contacting upstream', async (path) => {
+    const upstream = fakeUpstream(() => ({ status: 200, body: ENVELOPE }));
+    const errors: Error[] = [];
+    const response = await send(await forwarderApp(upstream, 5000, false, undefined, { path, errors }));
+    expect(response.statusCode).toBe(500);
+    expect(defined(errors[0]).message).toContain('Invalid menu upstream owner path');
+    expect(upstream.calls).toEqual([]);
   });
 
   it('posts the owner path with correlation id, identity token claims and the original body shape', async () => {
-    const upstream = fakeUpstream(() => ({ status: 200, body: { outcome: 'ok', data: null, correlationId: 'up' } }));
+    const upstream = fakeUpstream(() => ({ status: 200, body: ENVELOPE }));
     const response = await send(await forwarderApp(upstream));
     expect(response.statusCode).toBe(200);
     const call = upstream.last();
@@ -147,7 +229,7 @@ describe('menu forwarder (1729f)', () => {
   });
 
   it('serializes each scope grant into the token scopes claim', async () => {
-    const upstream = fakeUpstream(() => ({ status: 200, body: { outcome: 'ok', data: null } }));
+    const upstream = fakeUpstream(() => ({ status: 200, body: ENVELOPE }));
     const response = await send(await forwarderApp(upstream, 5000, true), { scopeId: 'mills' });
     expect(response.statusCode).toBe(200);
     expect(upstream.last().body).toEqual({ endpoint: 'test.rows', context: { scopeId: 'mills' }, params: { q: 'x' } });
@@ -158,15 +240,32 @@ describe('menu forwarder (1729f)', () => {
   });
 
   it.each([
-    ['a non-2xx status', () => ({ status: 500, body: { outcome: 'ok' } })],
-    ['a non-JSON body', () => ({ status: 200, raw: '<html>upstream exploded</html>' })],
-    ['an invalid outcome', () => ({ status: 200, body: { outcome: 'made_up', data: null } })],
-    ['an unknown envelope key', () => ({ status: 200, body: { outcome: 'ok', data: null, extra: 'x' } })],
-    ['missing data', () => ({ status: 200, body: { outcome: 'ok' } })],
-    ['invalid assessments', () => ({ status: 200, body: { outcome: 'ok', data: null, assessments: 'invalid' } })],
-    ['a non-object body', () => ({ status: 200, body: 'plain text' })],
+    ['a non-2xx status', { status: 500, body: ENVELOPE }],
+    ['a redirect response', { status: 307, body: ENVELOPE }],
+    ['a non-JSON body', { status: 200, raw: '<html>upstream exploded</html>' }],
+    ['an invalid outcome', { status: 200, body: { ...ENVELOPE, outcome: 'made_up' } }],
+    ['an unknown envelope key', { status: 200, body: { ...ENVELOPE, extra: 'x' } }],
+    ['invalid assessments', { status: 200, body: { ...ENVELOPE, assessments: 'invalid' } }],
+    ['a null assessment', { status: 200, body: { ...ENVELOPE, assessments: [null] } }],
+    ['a missing assessment state', { status: 200, body: { ...ENVELOPE, assessments: [{ kind: 'collection' }] } }],
+    ['an invalid assessment kind', { status: 200, body: { ...ENVELOPE, assessments: [{ ...ASSESSMENT, kind: 'freshness' }] } }],
+    ['an invalid assessment timestamp', { status: 200, body: { ...ENVELOPE, assessments: [{ ...ASSESSMENT, observedAt: 'today' }] } }],
+    ['an unknown assessment field', { status: 200, body: { ...ENVELOPE, assessments: [{ ...ASSESSMENT, extra: 1 }] } }],
+    ['non-object trust', { status: 200, body: { ...ENVELOPE, trust: 42 } }],
+    ['missing trust fields', { status: 200, body: { ...ENVELOPE, trust: { source: 'owner' } } }],
+    ['invalid nested trust', { status: 200, body: { ...ENVELOPE, trust: { ...TRUST, provisional: 'false' } } }],
+    ['an invalid trust timestamp', { status: 200, body: { ...ENVELOPE, trust: { ...TRUST, updatedAt: 'today' } } }],
+    ['duplicate source versions', { status: 200, body: { ...ENVELOPE, trust: { ...TRUST, sourceLogicVersions: ['v1', 'v1'] } } }],
+    ['empty source versions', { status: 200, body: { ...ENVELOPE, trust: { ...TRUST, sourceLogicVersions: [] } } }],
+    ['an unknown trust field', { status: 200, body: { ...ENVELOPE, trust: { ...TRUST, extra: 1 } } }],
+    ['mismatched correlationId', { status: 200, body: { ...ENVELOPE, correlationId: 'upstream-cid' } }],
+    ['non-string correlationId', { status: 200, body: { ...ENVELOPE, correlationId: 42 } }],
+    ['a non-object body', { status: 200, body: 'plain text' }],
+    ...['outcome', 'data', 'assessments', 'trust', 'correlationId'].map((field) => [
+      `missing ${field}`, { status: 200, body: Object.fromEntries(Object.entries(ENVELOPE).filter(([key]) => key !== field)) },
+    ] as const),
   ] as const)('maps %s to 502 without upstream text', async (_name, plan) => {
-    const upstream = fakeUpstream(() => plan());
+    const upstream = fakeUpstream(() => plan);
     const response = await send(await forwarderApp(upstream));
     expect(response.statusCode).toBe(502);
     const body = response.json();
