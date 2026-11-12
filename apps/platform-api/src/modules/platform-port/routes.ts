@@ -6,6 +6,8 @@
 
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
+import type { ScopeCatalog } from '../permissions/index.js';
+import type { ScopeResolver } from '../menu-dispatch/index.js';
 import type { Db } from '../../db/client.js';
 import { sendError } from '../../lib/errors.js';
 import type { SessionService } from '../auth/session-service.js';
@@ -28,8 +30,7 @@ import {
 import { OVERSIZE_BODY, createPreferencesBodyParser } from './preferences-body.js';
 import { type PreferencesJudgement, createPlatformPreferencesService } from './preferences.js';
 import { seoulWallClockMinute } from './seoul-clock.js';
-import { sessionVersionOf } from './session-version.js';
-import { createSessionSnapshot } from './session-snapshot.js';
+import { createSessionState } from './session-snapshot.js';
 import {
   MALFORMED_BODY,
   createAuthenticator,
@@ -51,6 +52,8 @@ export interface PlatformPortOptions {
   tasksService: TasksService;
   /** This server's permission rules; bootstrap, session-state and the access directory resolve through it. */
   permissions: PlatformPermissionResolver;
+  scopeCatalog?: ScopeCatalog;
+  scopeResolver?: ScopeResolver;
   now?: () => Date;
 }
 
@@ -90,19 +93,36 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     ...(opts.now ? { now: opts.now } : {}),
   });
 
-  const buildSession = createSessionSnapshot(opts);
+  const scopeWarning = () => app.log.warn('Scope resolution failed');
+  const buildSession = createSessionState({ ...opts, scopeWarning });
+
+  app.get<{ Params: { scopeId: string } }>('/scopes/:scopeId/check', async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const site = req.params.scopeId;
+    if (!opts.scopeCatalog?.hasSite(site)) return { status: 'unknown_scope', grantedRooms: [] };
+    try {
+      const grants = await opts.scopeResolver?.resolve(actorOf(loaded)) ?? [];
+      const grantedRooms = opts.scopeCatalog.roomsOf(site).filter(room =>
+        grants.some(grant => grant.site === site && grant.rooms.includes(room)));
+      return { status: grantedRooms.length ? 'valid' : 'forbidden', grantedRooms };
+    } catch {
+      scopeWarning();
+      return { status: 'forbidden', grantedRooms: [] };
+    }
+  });
 
   app.get('/bootstrap', async (req, reply) => {
     const loaded = await authenticate(req, reply, true);
     if (!loaded) return reply;
-    const session = await buildSession(loaded);
+    const { session, version } = await buildSession(loaded);
     const csrfToken = await opts.sessionService.ensureCsrfToken(loaded.session.id);
     if (!csrfToken) return sendError(reply, 'auth.session_invalid', 'session not active');
     return {
       session,
       publishedMetrics: [],
       defaultRangeTo: seoulWallClockMinute(now()),
-      sessionVersion: sessionVersionOf(session),
+      sessionVersion: version,
       csrfToken,
     };
   });
@@ -111,7 +131,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   app.get('/session-state', async (req, reply) => {
     const loaded = await authenticate(req, reply, false);
     if (!loaded) return reply;
-    return { sessionVersion: sessionVersionOf(await buildSession(loaded)) };
+    return { sessionVersion: (await buildSession(loaded)).version };
   });
 
   // Read POSTs (platform ADR-0069 decision 4): no CSRF. Every judged result is HTTP 200 + envelope.

@@ -40,3 +40,16 @@ export function createGrantTableScopeResolver({ db, catalog }: { db: Db; catalog
     },
   };
 }
+
+/** Deployment-wide count only: stale grants are not fatal and never disclose recipients or names. */
+export async function countOutOfCatalogScopeGrants(db: Db, catalog: ScopeCatalog): Promise<number> {
+  const rows = await db.select({ kind: permissionGrants.scopeKind, site: permissionGrants.scopeSite, room: permissionGrants.scopeRoom })
+    .from(permissionGrants).where(and(
+      eq(permissionGrants.capability, 'scope.read'),
+      inArray(permissionGrants.scopeKind, ['site', 'site_room']),
+      isNull(permissionGrants.revokedAt), isNull(permissionGrants.supersededAt),
+      or(isNull(permissionGrants.expiresAt), gt(permissionGrants.expiresAt, sql`now()`)),
+    ));
+  return rows.filter(row => row.site === null || !catalog.hasSite(row.site) ||
+    (row.kind === 'site_room' && (row.room === null || !catalog.hasRoom(row.site, row.room)))).length;
+}

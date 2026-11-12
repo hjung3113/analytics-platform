@@ -99,12 +99,14 @@ export type BootstrapPayload = {
 
 function isSession(value: unknown): value is Session {
   if (!isRecord(value)) return false;
-  const { user, scopes } = value;
+  const { user, scopes, requestableScopes } = value;
   if (!isRecord(user) || !isNonEmpty(user['id']) || !isString(user['name'])) return false;
   const title = user['title'];
   if (!isRecord(title) || !isString(title['ko']) || !isString(title['en'])) return false;
   if (!Array.isArray(user['permissions']) || !user['permissions'].every(isString)) return false;
   return (
+    isOptional(requestableScopes, v => Array.isArray(v) && v.every(s =>
+      isRecord(s) && isNonEmpty(s['id']) && isString(s['label']) && typeof s['totalRooms'] === 'number')) &&
     Array.isArray(scopes) &&
     scopes.every((s) => isRecord(s) && isNonEmpty(s['id']) && isString(s['label']) && typeof s['grantedRooms'] === 'number' && typeof s['totalRooms'] === 'number')
   );

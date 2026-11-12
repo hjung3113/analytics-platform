@@ -172,6 +172,7 @@ const drainState = createDrainState();
 // and before HTTP; any failure stops the boot (fail closed, no key material in errors). An unset
 // `MENU_DECLARATIONS_FILE` builds nothing and the server starts exactly as before.
 const menuDeclarations = await loadMenuDeclarationSetup(config, {
+  db: dbHandle.db,
   checkService: createCheckService({ db: dbHandle.db }),
 });
 const app = await buildServer({
@@ -179,6 +180,7 @@ const app = await buildServer({
   drainState,
    ...(sourceAssembly.sourceReadPort ? { logExplorer: { sourceReadPort: sourceAssembly.sourceReadPort, sourceOwnerAccess: sourceAssembly.sourceOwnerAccess } } : {}),
   ...(menuDeclarations ? { menuDispatch: menuDeclarations.menuDispatch } : {}),
+  ...(menuDeclarations?.scopeCatalog ? { scopeCatalog: menuDeclarations.scopeCatalog } : {}),
   ...(menuDeclarations?.scopeResolver ? { scopeResolver: menuDeclarations.scopeResolver } : {}),
    dbHandle,
   boss,

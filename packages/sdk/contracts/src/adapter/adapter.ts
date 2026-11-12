@@ -22,7 +22,12 @@ export type SessionUser = { id: string; name: string; title: Text; permissions: 
 /** A scope the user holds at least one room_name grant in. Counts are for display only; the server re-validates. */
 export type ScopeOption = { id: string; label: string; grantedRooms: number; totalRooms: number };
 
-export type Session = { user: SessionUser; scopes: readonly ScopeOption[] };
+export type Session = {
+  user: SessionUser;
+  scopes: readonly ScopeOption[];
+  /** Catalog sites without any room grant; only a platform grant-table source emits this field. */
+  requestableScopes?: readonly { id: string; label: string; totalRooms: number }[];
+};
 
 export type ScopeCheck = { status: 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
 

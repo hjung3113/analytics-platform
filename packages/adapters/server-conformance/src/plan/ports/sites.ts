@@ -5,6 +5,17 @@ export function planSiteChecks(harness: ServerConformanceHarness): ConformanceCh
   const { adapter, ports } = harness;
   const checks: ConformanceCheck[] = [];
   checks.push({
+    id: 'port · requestableScopes never lists a site present in scopes',
+    uses: ['session'],
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const { scopes, requestableScopes } = adapter.session();
+      return requestableScopes?.some(site => scopes.some(granted => granted.id === site.id))
+        ? 'requestableScopes must not list a granted site' : null;
+    },
+  });
+  checks.push({
     id: 'port · session() returns the same object until the session changes',
     uses: ['session'],
     mode: 'granted',

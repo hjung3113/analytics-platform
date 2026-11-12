@@ -6,6 +6,8 @@ This file owns what the core server implements of the platform port: routes, sup
 
 Implemented (#620): `GET /bootstrap` (session, permissions from the platform vocabulary table, `defaultRangeTo`, `sessionVersion`, `csrfToken`) and `GET /session-state` (`sessionVersion` only; does not touch `last_seen_at`). Server-wide: `X-Correlation-Id` is adopted when it matches `^[A-Za-z0-9._-]{1,128}$`, otherwise generated as `srv-<epoch-ms>-<random>`, echoed on every response and logged as `request_id`. `requireCsrf` (exported from the module) checks `X-CSRF-Token` against `core.sessions.csrf_token` and replies `403 { code: 'csrf.invalid' }`; the write routes below apply it.
 
+Implemented (#1844d, ADR-0154): `GET /scopes/:scopeId/check` authenticates the session and returns plain `ScopeCheck` JSON with no-store. A catalog-unknown id (or absent catalog) is `unknown_scope` with `grantedRooms: []`; a known site without a grant or a resolver failure is `forbidden` with `[]`; otherwise it is `valid` with granted rooms in catalog order. Bootstrap and session-state use the same uncached resolver as dispatch. Catalog deployments expose granted sites in session `scopes` and ungranted sites in optional `requestableScopes`; resolver failure empties `scopes` and omits that optional field. The default deployment without a catalog keeps `scopes: []`.
+
 Implemented (#621): `POST /audit-trail/search` (`AuditTrailQuery` → `ApiResponse<AuditTrailPage>`, gate `console:access`) and `POST /entity/audit` (`EntityRef` + optional `cursor` → `ApiResponse<{ events, nextCursor }>`, pages of 50 ordered `at` desc then `id` asc, `nextCursor` null on the last page, a cursor bound to the ref and read only after the gate (a bad or foreign one is `error` `Invalid cursor`), gate = the same entity read gate as `getEntity`). Read POSTs: no CSRF, every judged result (`forbidden`, `empty`, malformed body → `error`) is HTTP 200 + envelope, no session is 401. Reads go only through `core.platform_audit_events` (platform ADR-0069 decision 6; `core/AGENTS.md`); `AuditEvent` carries no `reason`; only API-token issue/revoke events with recorded, nonempty scopes carry `changes.scopes` as `[null, scopes]` / `[scopes, null]` (capability names joined by `, `; ADR-0069 amendment #1690). The envelope builder is `platform-port/envelope.ts`.
 
 Implemented (#623): `POST /entity` (`EntityRef` → `ApiResponse<entity>`) and `POST /access-directory/search` (`AccessDirectoryQuery` → `ApiResponse<AccessDirectoryPage>`, gate `console:access`, internal members only, `sites: []`). The entity gate (`platform-port/entity-read.ts`) is the owning module's detail read — `resolveVocReference`, `getFinding`, `getTask` — shared by `getEntity` and `entityAudit`; a non-uuid, missing or unreadable id is one `forbidden` "Not readable" with `data: null`; `scopeId` set or any other type is `error`. `getEntity` returns identifiers, title and status fields only (voc: `displayId`, `title`, `status`; finding adds `severity`, `managedSystemId`; task adds `priority`, `managedSystemId`, `dueDate`). `empty` is unreachable for `getEntity`.
@@ -16,7 +18,7 @@ Implemented (#622): `POST /usage-events` (`{ events }` → `{ accepted: n }`), `
 
 ## Method support
 
-Which of the 30 `PlatformAdapter` methods this server answers. `implemented`: served and judged by the conformance run. `partial`: the route exists but answers only part of the declared contract (`menuQuery` answers the Scope-less endpoints the modules register, `menuAction` the writes they register; a Scope-requiring endpoint is refused at registration, #1087). `gate-only`: the route exists and answers `forbidden` to everyone, so the kit counts it as not implemented. `none`: no server handler. This table is checked against the constants `IMPLEMENTED`, `SERVED_PARTIAL` and `GATE_ONLY` of `apps/platform-api/src/modules/platform-port/__tests__/platform-conformance.integration.test.ts`; a method that changes status fails that test until the row changes with it.
+Which of the 30 `PlatformAdapter` methods this server answers. `implemented`: served and judged by the conformance run. `partial`: the route exists but answers only part of the declared contract (`menuQuery` answers the Scope-less endpoints the modules register, `menuAction` the writes they register; a Scope-requiring endpoint requires a configured Scope resolver at registration). `gate-only`: the route exists and answers `forbidden` to everyone, so the kit counts it as not implemented. `none`: no server handler. This table is checked against the constants `IMPLEMENTED`, `SERVED_PARTIAL` and `GATE_ONLY` of `apps/platform-api/src/modules/platform-port/__tests__/platform-conformance.integration.test.ts`; a method that changes status fails that test until the row changes with it.
 
 | Method | Support |
 | --- | --- |
@@ -24,7 +26,7 @@ Which of the 30 `PlatformAdapter` methods this server answers. `implemented`: se
 | `publishedMetrics` | implemented |
 | `defaultRangeTo` | implemented |
 | `subscribe` | implemented |
-| `validateScope` | none |
+| `validateScope` | implemented |
 | `contextOptions` | none |
 | `evaluateSelection` | none |
 | `listAxisOptions` | none |

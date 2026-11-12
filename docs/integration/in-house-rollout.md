@@ -79,11 +79,18 @@
 - [ ] Site·room별 대상 배치, 열 대응, Scope 검증 방식과 행 상한 확인. [합성 선언 묶음 예시](examples/routed-declarations.example.json)는 여러 Site의 공용 대상과 한 Site의 room별 분할 대상, 기존 문자열 경로를 함께 제시.
 - [ ] 플랫폼은 쓰기·DDL을 수행하지 않으며, 조회 SQL에 `LIMIT`·`ORDER BY`·`COUNT`를 덧붙이지 않음. 선언된 문장을 파라미터로 실행하고 행 상한에서 커서를 닫음. 읽기 전용 계정 권한이 1차 보장([ADR-0153 결정 8](../adr/0153-upstream-target-routing-and-declared-connectors.md)).
 
+### Scope 카탈로그와 첫 부여
+
+사내는 `MENU_DECLARATIONS_FILE` 묶음의 `scopeCatalog`에 `{ site, label, rooms: [room_name, …] }` 값을 준비한다. 부여 서비스는 준비하지 않는다. 원천 선택·검증 계약은 [체크리스트의 Scope 부여 서비스 계약](real-server-checklist.md#scope-부여-서비스-계약), 결정 근거는 [ADR-0154](../adr/0154-site-and-room-grants-are-platform-owned.md)다.
+
+- site·room을 없애거나 이름을 바꾸기 전에 해당 값의 부여를 먼저 회수한다. 카탈로그 밖 부여는 판정에서 제외되지만 행은 남으므로 같은 이름이 돌아오면 접근이 되살아날 수 있다.
+- 첫 배포는 카탈로그 설정 → 서버 기동 → Admin의 첫 Scope 부여 순서다. `permission_self_approval: forbidden`이면 첫 부여를 위해 Admin이 두 명 이상 필요하다.
+
 ### 3.3 사내 백엔드(FastAPI) 담당 — [#148](https://github.com/hjung3113/analytics-platform/issues/148)·[#149](https://github.com/hjung3113/analytics-platform/issues/149)·[#155](https://github.com/hjung3113/analytics-platform/issues/155)
 
 - [ ] 선언 원본은 TS(Zod) → JSON Schema로 정해졌다(ADR-0096). 백엔드 담당은 생성한 Pydantic 모델·`endpoints.json`을 쓰는 데 이의가 없는지 확인 — #148(닫힘)
 - [ ] 전송 형식 초안 검토: HTTP 상태와 `outcome` 관계, 부트스트랩 엔드포인트, 알림 경로(폴링·SSE), 타임아웃 값, CSRF, Correlation ID 헤더 — #149. 초안과 질문 목록: [전송 형식 초안](http-adapter-contract.md) §10
-- [ ] [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md) §1·§3의 코어/분석 스키마 소유와 교차 접근 경계를 사내 구성에 반영할 수 있는지 확인한다. site·site_room 부여 설계는 #1087의 결정 전까지 구현하지 않는다.
+- [ ] [ADR-0095](../adr/0095-dual-backend-fastify-core-fastapi-analytics.md) §1·§3의 코어/분석 스키마 소유와 교차 접근 경계를 사내 구성에 반영할 수 있는지 확인한다. site·site_room 부여는 ADR-0154의 플랫폼 부여 표와 배포 Scope 카탈로그를 따른다.
 - [ ] 체크리스트를 읽고 "이 규칙은 FastAPI에서 어렵다"는 항목 — 있으면 계약 변경 결정으로 올린다(루트 `AGENTS.md`)
 
 ### 3.4 파서 담당 — [#37](https://github.com/hjung3113/analytics-platform/issues/37)

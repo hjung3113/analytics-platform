@@ -31,6 +31,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 (#1844) | contracts | 선택 필드 추가(기본 동작 불변): `Session.requestableScopes?: readonly { id; label; totalRooms }[]` — 플랫폼 부여 표가 Scope 원천일 때만 서버가 내는 «신청할 수 있는 site»(부여 room 없는 Scope 카탈로그 site). `scopes`의 뜻은 그대로([ADR-0154](../../docs/adr/0154-site-and-room-grants-are-platform-owned.md) 결정 5) | 없음. 필드가 없으면 지금과 같다 |
 | 다음 릴리스 (#1746) | components | 선택 옵션 추가(기본 동작 불변): `LaneTimelineProps.overlays?: TimelineOverlay[]`와 타입 `TimelineOverlay`(`instant`·`range`·`segments`)로 메뉴가 시각·구간·구간 집합을 선언형으로 표시한다([ADR-0144](../../docs/adr/0144-lane-timeline-declarative-overlays.md)). `LaneTimelineHandle`·기존 prop·기본 모양은 그대로다. | 없음 — 쓰려는 메뉴만 `useMemo`로 고정한 배열을 `overlays`에 넘긴다. |
 | 미출시 | release tooling | `sdk:pack`이 release unit 2(`@ap/app-host`·`@ap/mock-server`·`@ap/http-adapter`·`@ap/server-conformance`)도 같이 묶고 `SHA256SUMS` 하나로 아홉 tarball을 적는다(ADR-0143). 새 스냅샷 `tooling/sdk/api/app-host.root.api.txt`·`app-host.styles.css.api.txt` | 없음 |
 | [`sdk-v0.34.0`](https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.34.0) (#1769) | components | 선택 옵션 추가(기본 동작 불변): `DataTrustIndicator`의 `showWithoutTrust?: boolean`. `trust`가 null이고 `assessments`가 있으면 갱신·커버리지·확정 여부 없이 평가 항목만 그리고 «응답에 Trust 없음»을 보인다. 스냅샷 `tooling/sdk/api/components.root.api.txt`. | 없음 |
