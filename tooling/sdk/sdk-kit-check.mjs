@@ -101,10 +101,41 @@ function freePort() {
   });
 }
 
-/** `pnpm dev` on a free port: the index page and the transformed entry module answer, then the server stops. */
+/**
+ * Starts a command in its own process group. `pnpm run dev` forks vite (and esbuild); on Linux a SIGTERM to pnpm alone
+ * leaves them serving and keeps this process alive, so the whole group is stopped with `stopProcessGroup`.
+ */
+export function spawnGroup(command, args, options) {
+  return spawn(command, args, { ...options, detached: true });
+}
+
+/** SIGTERM to the group, SIGKILL after `graceMs`; resolves when the leader has exited and the group is gone. */
+export async function stopProcessGroup(child, graceMs = 5000) {
+  const signalGroup = (signal) => {
+    try {
+      process.kill(-child.pid, signal);
+      return true;
+    } catch {
+      return false; // the group is already gone
+    }
+  };
+  const exited = child.exitCode !== null || child.signalCode !== null ? Promise.resolve() : new Promise((resolvePromise) => child.once('close', resolvePromise));
+  if (!signalGroup('SIGTERM')) return exited;
+  const deadline = Date.now() + graceMs;
+  while (Date.now() < deadline) {
+    if (!signalGroup(0)) break;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+  }
+  signalGroup('SIGKILL');
+  child.stdout?.destroy();
+  child.stderr?.destroy();
+  await exited;
+}
+
+/** `pnpm dev` on a free port: the index page and the transformed entry module answer, then the server's group stops. */
 async function assertDevServes(kit) {
   const port = await freePort();
-  const child = spawn('pnpm', ['run', 'dev', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: kit, env: { ...process.env, CI: 'true' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawnGroup('pnpm', ['run', 'dev', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: kit, env: { ...process.env, CI: 'true' }, stdio: ['ignore', 'pipe', 'pipe'] });
   let output = '';
   child.stdout.on('data', (chunk) => { output += chunk; });
   child.stderr.on('data', (chunk) => { output += chunk; });
@@ -130,7 +161,13 @@ async function assertDevServes(kit) {
     const entry = await fetch(`${base}/src/main.tsx`);
     if (!entry.ok) fail(`dev server did not transform src/main.tsx (HTTP ${entry.status})`);
   } finally {
-    child.kill('SIGTERM');
+    await stopProcessGroup(child);
+  }
+  try {
+    await fetch(`http://127.0.0.1:${port}/`);
+    fail(`the dev server still answers on port ${port} after its process group was stopped`);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('the dev server still answers')) throw error;
   }
 }
 

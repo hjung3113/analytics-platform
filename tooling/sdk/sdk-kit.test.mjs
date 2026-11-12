@@ -57,3 +57,21 @@ test('second menu: a fixture the README steps no longer match fails with the fil
   writeFileSync(join(kit, 'mock', 'assembly.ts'), readFileSync(join(kit, 'mock', 'assembly.ts'), 'utf8').replace('const MOCK_ENDPOINTS = [', 'const ENDPOINT_LISTS = ['));
   assert.throws(() => addSecondMenu(kit), /mock\/assembly\.ts has no .*README «둘째 메뉴» step out of date/);
 });
+
+test('dev server stop: the whole process group ends, a grandchild included (a plain kill leaves it running on Linux)', async () => {
+  const { spawnGroup, stopProcessGroup } = await import('./sdk-kit-check.mjs');
+  // The shell stands in for `pnpm run dev`: it forks a long-running grandchild (vite) and waits on it.
+  const child = spawnGroup('bash', ['-c', 'node -e "setInterval(() => {}, 1000)" & echo $!; wait'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const grandchild = await new Promise((resolvePromise) => child.stdout.once('data', (chunk) => resolvePromise(Number(String(chunk).trim()))));
+  const alive = (pid) => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  assert.equal(alive(grandchild), true);
+  await stopProcessGroup(child, 2000);
+  assert.equal(alive(grandchild), false, 'the grandchild outlived the stop');
+});
