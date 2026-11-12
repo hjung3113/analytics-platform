@@ -10,6 +10,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import pg from 'pg';
 
 import { runMockWorker } from '../../../../../../tooling/scripts/validation-worker-mock.mjs';
 import { loadConfig } from '../../../config.js';
@@ -1253,6 +1254,36 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
       for (const miss of [{ ...LOC, line: 41 }, { ...LOC, fileSha256: H('8') }, { ...LOC, fileRef: 'nope' }]) {
         expect((await readLinks(miss)).data).toEqual({ results: { total: 0, rows: [] }, rounds: { total: 0, rows: [] } });
       }
+    });
+
+    it('answers one evidenceLinks read with three statements: both totals from one (#1850)', async () => {
+      // Every evidence statement embeds the multi-KB nested-`exists` visibility predicate, and Postgres re-parses and re-plans
+      // each one per read: measured #1850 ≈30 ms parse/plan vs ≈2 ms execution on near-empty tables, so the four statements the
+      // read used to send (page × 2 + count × 2) were mostly planner CPU, and that is what stalled the reads under CI load.
+      // The two totals must come from ONE statement, not one each.
+      const LOC = { fileRef: `s3://${TAG}/structure.log`, line: 40, fileSha256: H('9') };
+      const seeded = await answered([rule('RS', 'FAIL', true, { evidence: [LOC] })], sampleWith(LOC.fileRef));
+      expect(seeded.res.statusCode).toBe(200);
+      const statements: string[] = [];
+      const clientQuery = pg.Client.prototype.query;
+      // One-off capture wrapper: same signature as the original method (the compiler cannot infer the overloads).
+      const captured = function capturedQuery(this: pg.Client, ...args: Parameters<typeof clientQuery>) {
+        const first = args[0] as unknown as { text?: string } | string;
+        statements.push(typeof first === 'string' ? first : (first?.text ?? ''));
+        return clientQuery.apply(this, args);
+      } as typeof clientQuery;
+      pg.Client.prototype.query = captured;
+      try {
+        const got = await readLinks(LOC);
+        expect(got.outcome).toBe('ok');
+        expect(got.data.results.total).toBe(1);
+        expect(got.data.rounds.total).toBe(1);
+      } finally {
+        pg.Client.prototype.query = clientQuery;
+      }
+      const evidence = statements.filter((s) => s.includes('rule_result_evidence') && s.includes('exists'));
+      expect(evidence).toHaveLength(3); // two page queries + one combined totals statement
+      expect(evidence.filter((s) => s.includes('count(distinct'))).toHaveLength(1); // both totals ride in one statement
     });
 
     it('evidenceStates hides a result from another workspace', async () => {
