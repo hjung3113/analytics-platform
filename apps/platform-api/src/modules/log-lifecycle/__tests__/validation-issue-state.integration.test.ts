@@ -338,4 +338,124 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE)('human validation issue 
     await expect(db.pool.query('update log_lifecycle.validation_issue_transition set reason=$1 where project_id=$2', ['x', projectId])).rejects.toThrow();
     await expect(db.pool.query('delete from log_lifecycle.validation_issue_transition where project_id=$1', [projectId])).rejects.toThrow();
   });
+
+  // The database walls on their own: direct INSERTs through the migrate role, bypassing the API checks. Every refused
+  // row is otherwise valid, so exactly one guard (trigger or named CHECK/UNIQUE/FK) answers and its removal fails here.
+  describe('SQL guards without the API', () => {
+    const put = (row: Record<string, unknown>) => {
+      const cols = Object.keys(row);
+      return query(`insert into log_lifecycle.validation_issue_transition (${cols.join(',')}) values (${cols.map((_, n) => `$${n + 1}`).join(',')})`, Object.values(row));
+    };
+    const trigger = (message: RegExp) => ({ code: '23514', message: expect.stringMatching(message) as unknown });
+    const check = (name: string) => ({ code: '23514', constraint: `validation_issue_transition_${name}_check` });
+    /** A fresh issue with transitions inserted directly up to `fix_requested` (seq 2) or `investigating` (seq 1). */
+    async function chain(upTo: 'investigating' | 'fix_requested') {
+      const issueId = await newIssue();
+      const base = { workspace_id: WORKSPACE, project_id: projectId, issue_id: issueId, actor_id: admin.id, assignee_actor_id: admin.id };
+      await put({ ...base, seq: 1, from_state: 'reported', to_state: 'investigating' });
+      if (upTo === 'fix_requested') await put({ ...base, seq: 2, from_state: 'investigating', to_state: 'fix_requested', reason: 'r' });
+      return { issueId, base, next: upTo === 'fix_requested' ? 3 : 2 };
+    }
+
+    it('refuses an illegal pair and a broken chain in the trigger', async () => {
+      const issueId = await newIssue();
+      const base = { workspace_id: WORKSPACE, project_id: projectId, issue_id: issueId, actor_id: admin.id, assignee_actor_id: admin.id };
+      await expect(put({ ...base, seq: 1, from_state: 'reported', to_state: 'fix_requested' })).rejects.toMatchObject(trigger(/cannot move/));
+      await put({ ...base, seq: 1, from_state: 'reported', to_state: 'investigating' });
+      // Gap: seq 3 after seq 1.
+      await expect(put({ ...base, seq: 3, from_state: 'investigating', to_state: 'fix_requested', reason: 'r' })).rejects.toMatchObject(trigger(/does not continue/));
+      // Mismatched from_state: the previous to_state is investigating.
+      await expect(put({ ...base, seq: 2, from_state: 'vendor_inquiry', to_state: 'investigating', reason: 'r' })).rejects.toMatchObject(trigger(/does not continue/));
+      await put({ ...base, seq: 2, from_state: 'investigating', to_state: 'fix_requested', reason: 'r' });
+      await expect(put({ ...base, seq: 3, from_state: 'fix_requested', to_state: 'dismissed', reason: 'r' })).rejects.toMatchObject(trigger(/cannot move/));
+    });
+
+    it('refuses a duplicate seq and a first transition that does not leave reported', async () => {
+      const { base } = await chain('investigating');
+      await expect(put({ ...base, seq: 1, from_state: 'reported', to_state: 'dismissed', reason: 'r' })).rejects.toMatchObject({ code: '23505', constraint: 'validation_issue_transition_seq_uq' });
+      const other = await newIssue();
+      await expect(put({ ...base, issue_id: other, seq: 1, from_state: 'investigating', to_state: 'fix_requested' })).rejects.toMatchObject(check('seq'));
+    });
+
+    it('refuses missing reason, assignee and basis comment through their CHECKs', async () => {
+      const { base, next, issueId } = await chain('investigating');
+      const step = { ...base, seq: next, from_state: 'investigating' };
+      await expect(put({ ...step, to_state: 'fix_requested' })).rejects.toMatchObject(check('reason'));
+      await expect(put({ ...step, to_state: 'fix_requested', reason: 'r', assignee_actor_id: null })).rejects.toMatchObject(check('assignee'));
+      await expect(put({ ...step, to_state: 'on_hold', reason: 'r' })).rejects.toMatchObject(check('basis'));
+      // A basis comment of another issue fails the same-issue FK.
+      await expect(put({ ...step, to_state: 'on_hold', reason: 'r', basis_comment_id: await comment(await newIssue()) })).rejects.toMatchObject({ code: '23503', constraint: 'validation_issue_transition_basis_fk' });
+      await put({ ...step, to_state: 'on_hold', reason: 'r', basis_comment_id: await comment(issueId) });
+    });
+
+    it('refuses fix_verified without a later-Round occurrence and an occurrence on any other move', async () => {
+      const { base, next, issueId } = await chain('fix_requested');
+      const step = { ...base, seq: next, from_state: 'fix_requested', reason: 'r' };
+      await expect(put({ ...step, to_state: 'fix_verified' })).rejects.toMatchObject(trigger(/needs an occurrence/));
+      const early = await occurrence(issueId, firstRoundId);
+      await expect(put({ ...step, to_state: 'fix_verified', occurrence_id: early })).rejects.toMatchObject(trigger(/needs an occurrence/));
+      const later = await occurrence(issueId, await newRound());
+      await expect(put({ ...step, to_state: 'investigating', occurrence_id: later })).rejects.toMatchObject(check('occurrence'));
+      await put({ ...step, to_state: 'fix_verified', occurrence_id: later });
+    });
+
+    it('refuses duplicate_of_issue_id on a non-dismissed row, on itself and across projects', async () => {
+      const { base, next, issueId } = await chain('investigating');
+      const original = await newIssue();
+      await expect(put({ ...base, seq: next, from_state: 'investigating', to_state: 'fix_requested', reason: 'r', duplicate_of_issue_id: original })).rejects.toMatchObject(check('duplicate'));
+      await expect(put({ ...base, seq: next, from_state: 'investigating', to_state: 'dismissed', reason: 'r', duplicate_of_issue_id: issueId })).rejects.toMatchObject(check('duplicate'));
+      const elsewhere = await newIssue(otherProjectId, await newRound(otherProjectId));
+      await expect(put({ ...base, seq: next, from_state: 'investigating', to_state: 'dismissed', reason: 'r', duplicate_of_issue_id: elsewhere })).rejects.toMatchObject({ code: '23503', constraint: 'validation_issue_transition_duplicate_fk' });
+      await put({ ...base, seq: next, from_state: 'investigating', to_state: 'dismissed', reason: 'r', duplicate_of_issue_id: original });
+    });
+
+    it('keeps transitions append-only for the migrate role through the trigger', async () => {
+      const { issueId } = await chain('investigating');
+      await expect(query('update log_lifecycle.validation_issue_transition set reason=$1 where issue_id=$2', ['x', issueId])).rejects.toMatchObject({ code: '23514', message: expect.stringMatching(/append-only/) as unknown });
+      await expect(query('delete from log_lifecycle.validation_issue_transition where issue_id=$1', [issueId])).rejects.toMatchObject({ code: '23514', message: expect.stringMatching(/append-only/) as unknown });
+    });
+  });
+
+  describe('replay rejudges the rights after the target lock', () => {
+    const revoke = (who: Person) => query("update permission.permission_grants set revoked_at=now(),revoked_by_actor_id=$2 where actor_id=$1 and capability='lifecycle.issue.triage'", [who.id, admin.id]);
+
+    it('refuses a replay after the triage grant is revoked', async () => {
+      const who = await triager();
+      const issueId = await newIssue();
+      const key = id();
+      const input = { issueId, toState: 'investigating', assigneeActorId: who.id };
+      expect((await change(input, '0', who, key)).outcome).toBe('ok');
+      await revoke(who);
+      expect((await change(input, '0', who, key)).outcome).toBe('forbidden');
+    });
+
+    it('refuses a replay whose triage grant is revoked while it waits for the project lock', async () => {
+      const who = await triager();
+      const issueId = await newIssue();
+      const key = id();
+      const input = { issueId, toState: 'investigating', assigneeActorId: who.id };
+      expect((await change(input, '0', who, key)).outcome).toBe('ok');
+      const holder = await migrate.pool.connect();
+      try {
+        await holder.query('begin');
+        await holder.query('select id from log_lifecycle.development_project where id=$1 for update', [projectId]);
+        const pending = change(input, '0', who, key);
+        // Wait until the replay is queued behind the held project row (pg_locks is readable by every role).
+        const deadline = Date.now() + 10_000;
+        for (;;) {
+          const waiting = Number(defined((await query('select count(*)::int as n from pg_locks where not granted and pid <> $1', [defined((await holder.query<{ pid: number }>('select pg_backend_pid() as pid')).rows[0]).pid])).rows[0]).n);
+          if (waiting > 0) break;
+          if (Date.now() > deadline) throw new Error('the replay never waited for the project lock');
+          await new Promise(r => setTimeout(r, 50));
+        }
+        await revoke(who);
+        await holder.query('commit');
+        expect(await pending).toMatchObject({ outcome: 'forbidden' });
+      } finally {
+        await holder.query('rollback').catch(() => undefined);
+        holder.release();
+      }
+      expect(Number(defined((await query('select count(*)::int as n from log_lifecycle.validation_issue_transition where issue_id=$1', [issueId])).rows[0]).n)).toBe(1);
+    });
+  });
 });

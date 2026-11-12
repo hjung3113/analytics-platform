@@ -95,9 +95,12 @@ function changeStateAction(deps: LogLifecycleDeps, service: ReturnType<typeof cr
       const p = parseValidationIssueInput('changeState', input);
       return p.success ? [] : p.error.issues.map(e => ({ path: e.path.map(String), code: e.code === 'custom' ? e.message : 'malformed' }));
     },
+    // A replay rejudges the rights after the target locks, like a fresh write: a grant lost while waiting is `forbidden`.
     async canReplay(tx, actor, input) {
-      try { await lockValidationIssueTarget(tx, viewerOf(actor), 'changeState', input); return true; }
+      try { await lockValidationIssueTarget(tx, viewerOf(actor), 'changeState', input); }
       catch (e) { if (notFound(e)) return false; throw e; }
+      if (!await allowed(actor, tx, input)) throw new MenuActionForbiddenError();
+      return true;
     },
     // The version is the issue's last transition seq ("0" before the first one); a stale one answers `conflict`.
     async currentVersion(tx, actor, input) {
