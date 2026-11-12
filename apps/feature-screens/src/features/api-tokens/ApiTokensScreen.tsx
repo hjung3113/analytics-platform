@@ -39,7 +39,7 @@ export const API_TOKENS_QUERY_KEY = ['api-tokens'] as const;
 
 /** Exact decomposition only: a partial/unknown bundle is displayed as raw capability names. */
 export function scopeLabel(scopes: readonly string[]): string {
-  const matches = visibleApiTokenScopeBundles().filter(bundle => bundle.capabilities.every(cap => scopes.includes(cap)));
+  const matches = visibleApiTokenScopeBundles(undefined, { service: true }).filter(bundle => bundle.capabilities.every(cap => scopes.includes(cap)));
   const covered = new Set<string>(matches.flatMap(bundle => [...bundle.capabilities]));
   return scopes.length > 0 && scopes.every(cap => covered.has(cap))
     ? matches.map(bundle => bundle.label).join(' · ')

@@ -1,4 +1,4 @@
-import { CAPABILITIES } from './capabilities.js';
+import { CAPABILITIES, isTokenOnlyScope } from './capabilities.js';
 
 /** ADR-0116: display aliases only; the server still judges every individual capability. */
 export const API_TOKEN_SCOPE_BUNDLES = [
@@ -9,6 +9,16 @@ export const API_TOKEN_SCOPE_BUNDLES = [
 
 export type ApiTokenScopeBundle = (typeof API_TOKEN_SCOPE_BUNDLES)[number];
 
-export function visibleApiTokenScopeBundles(registry: readonly string[] = CAPABILITIES): readonly ApiTokenScopeBundle[] {
-  return API_TOKEN_SCOPE_BUNDLES.filter(bundle => bundle.capabilities.every(capability => registry.includes(capability)));
+/**
+ * Bundles a token screen offers. A bundle whose scopes are all registered capabilities is shown everywhere. A bundle made of
+ * token-only scopes (`validation.worker`, ADR-0117 decision 9) is shown only for service tokens: the server refuses it on a
+ * personal token (`service_only`), so the personal screen never offers it.
+ */
+export function visibleApiTokenScopeBundles(
+  registry: readonly string[] = CAPABILITIES,
+  options: { service?: boolean } = {},
+): readonly ApiTokenScopeBundle[] {
+  return API_TOKEN_SCOPE_BUNDLES.filter(bundle => bundle.capabilities.every(scope => (
+    isTokenOnlyScope(scope) ? options.service === true : registry.includes(scope)
+  )));
 }
