@@ -381,7 +381,14 @@ test('gate.sh integration provisioning validates the effective admin target befo
 // #1680: CI passes --shard=<i>/<n>; anything else is refused before the first psql call.
 test('gate.sh integration refuses a malformed shard argument before psql, and forwards a valid one', () => {
   const url = 'postgres://postgres:S3cretPw@localhost:5432/postgres';
-  for (const args of [['--shard=1junk/2'], ['--shard=1/2/3'], ['--shard=3/2'], ['--shard=0/2'], ['--shard=1/2', '--bad'], ['--bad']]) {
+  for (const args of [
+    ['--shard=1junk/2'],
+    ['--shard=1/2/3'],
+    ['--shard=3/2'],
+    ['--shard=0/2'],
+    ['--shard=1/2', '--bad'],
+    ['--bad'],
+  ]) {
     withShim(({ env, calls }) => {
       const result = spawnSync('bash', [GATE, 'integration', ...args], {
         encoding: 'utf8',
