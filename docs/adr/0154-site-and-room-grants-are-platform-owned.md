@@ -31,6 +31,7 @@
 - 판정·유효 권한 계산·부여 목록·활성 unique 인덱스를 한 변경으로 고친다. 지금 grant를 읽는 모든 판정(check-service, 플랫폼 권한 resolver, scope-service, recovery·selected read)은 `scope_kind = 'managed_system'`만 읽는다. 활성 unique 인덱스는 `(workspace_id, actor_id, capability, scope_kind, COALESCE(managed_system_id), COALESCE(scope_site), COALESCE(scope_room))`이다.
 - **누출 시험(kind마다, 경로 수준):** `site` 부여가 workspace 전체 capability로 판정되지 않음, `site_room` 부여가 다른 room·다른 site로 넓어지지 않음, `managed_system` 부여가 site·room 부여로 읽히지 않음, 만료·회수·대체된 행은 다음 요청부터 빠짐.
 - 명시 거부(deny)는 site·room에 두지 않는다(Deferred). 회수가 그 일을 한다.
+- `scope.read`의 신청·결정·부여·회수 기록은 다른 비민감 capability처럼 플랫폼 감사 투영에 들어간다(투영 허용 목록에 더한다).
 - Admin도 부여가 있어야 본다. Scope에는 무조건 우회가 없다(scope-service의 지금 규칙과 같다).
 
 ### 3. 부여할 수 있는 값(카탈로그)은 배포 설정이 낸다
