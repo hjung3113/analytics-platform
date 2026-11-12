@@ -2,6 +2,7 @@
 // bypass). `requiresScope: false` and no site-bound Context: real-server Site Scope is enforced by the capability alone until #1087.
 // The workspace is the session actor's, never a param. `eqv.topview-context` and `eqv.topview-events` are step 9's.
 import type { Db } from '../../db/client.js';
+import { type Viewer, viewerOf } from '../log-knowledge/index.js';
 import type { MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
 import { type EqvDeps, eqvAuthorize } from './authorize.js';
 import { isLayoutId, REVISION_PATTERN } from './domain/layout-checks.js';
@@ -17,13 +18,13 @@ function declare(
   menuId: string,
   paramKeys: readonly string[],
   validate: (params: Params) => ParamsJudgment,
-  run: (workspaceId: string, params: Params) => Promise<{ outcome: 'ok' | 'empty'; data: unknown }>,
+  run: (workspaceId: string, params: Params, viewer: Viewer) => Promise<{ outcome: 'ok' | 'empty'; data: unknown }>,
 ): MenuEndpointDeclaration {
   return {
     spec: { id, menuId, paramKeys, permission: EQV_VIEW_PERMISSION, requiresScope: false, context: {}, mergeTimeDomain: false },
     authorize: eqvAuthorize(deps, EQV_VIEW_CAPABILITY),
     validate,
-    handle: async (args) => run(args.actor.workspace_id, args.params),
+    handle: async (args) => run(args.actor.workspace_id, args.params, viewerOf(args.actor)),
   };
 }
 
@@ -57,9 +58,9 @@ export function eqvEndpoints(deps: EqvDeps & { db: Db }): MenuEndpointDeclaratio
       (p) => (isLayoutId(p.templateId) ? { ok: true } : bad('templateId must be a template id')),
       async (ws, p) => found(await read.getTemplate(deps.db, ws, String(p.templateId))),
     ),
-    declare(deps, 'eqv.equipment-options', EQV_FOCUS_MENU_ID, [], none, async (ws) => ({
+    declare(deps, 'eqv.equipment-options', EQV_FOCUS_MENU_ID, [], none, async (_ws, _p, viewer) => ({
       outcome: 'ok',
-      data: { options: await read.equipmentOptions(deps.db, ws) },
+      data: { options: await read.equipmentOptions(deps.db, viewer) },
     })),
   ];
 }

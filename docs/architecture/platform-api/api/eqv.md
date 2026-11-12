@@ -20,7 +20,7 @@ Menu `eqv-studio` unless noted. Reads that find nothing by id answer `empty`; a 
 | `eqv.layoutRevision` | `layoutId`, `revision` (`sha256:<64 hex>`) | `{ id, layoutId, revision, document, publishedAt }` |
 | `eqv.templates` | — | `{ rows: { id, templateId, name, promotedFromLayoutId, promotedFromRevision, createdAt }[] }` |
 | `eqv.template` | `templateId` | the row plus `document` |
-| `eqv.equipment-options` (menu `eqv:focus`) | — | `{ options: { id, label, dataRange: { from, to } \| null }[] }`, at most 1000. `dataRange` is `[from, to)`, `null` until step 9 |
+| `eqv.equipment-options` (menu `eqv:focus`) | — | `{ options: { id, label, dataRange: { from, to } \| null }[] }`, at most 1000, only equipment whose Hub model the viewer may see (#1504 object access; filtered before the limit, a hidden model's equipment is absent like a missing one, #1878). `dataRange` is `[from, to)`, `null` until step 9 |
 
 `eqv.topview-context` and `eqv.topview-events` are declared client-side (`mergeTimeDomain: false`) and answered by the mock server only; the real server does not serve them. They take an equipment id, and the per-equipment access judgment waits for #1087 ([backlog](../../../../.planning/backlog.md)).
 
