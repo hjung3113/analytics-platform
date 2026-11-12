@@ -174,7 +174,8 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       id: '__total', type: 'scatter', silent: false, animation: false, z: 4,
       // ECharts draws no label for a symbol of `none`, so the anchor is a 1px transparent dot.
       symbol: 'circle', symbolSize: 1, itemStyle: { color: 'transparent', opacity: 1 },
-      tooltip: { trigger: 'item', formatter: (p: { data?: { tip?: string } }) => p.data?.tip ?? '' },
+      // richText: the series names in the tip come from server data; HTML mode would set the formatter's string as innerHTML (#1879).
+      tooltip: { trigger: 'item', renderMode: 'richText', formatter: (p: { data?: { tip?: string } }) => p.data?.tip ?? '' },
       label: { show: true, position: 'right', fontSize: 11, fontWeight: 'bold', color: palette.totalText },
       data: categories.flatMap(x => {
         const t = totals.get(x);

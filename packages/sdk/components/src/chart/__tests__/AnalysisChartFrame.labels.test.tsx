@@ -155,6 +155,14 @@ describe('totals (#580d, UX-7/8)', () => {
     expect(screen.getAllByText(/^◇ ≥ 합계/)).toHaveLength(1);
     expect(screen.getByText('◇ ≥ 합계: 미측정 계열이 있는 행의 합계')).toBeTruthy();
   });
+  it('draws the partial-total tooltip as richText, so a series name is text and never markup (#1879)', async () => {
+    const hostile = '<img src=x onerror=alert(1)>';
+    await mount({ valueLabels: 'total', reaggregation: 'sum', series: [{ ...SERIES[0], name: hostile }, SERIES[1]] });
+    const tooltip = (total() as unknown as { tooltip: { renderMode: string; formatter: (p: { data: unknown }) => string } }).tooltip;
+    expect(tooltip.renderMode).toBe('richText');
+    const partial = (total().data as { tip?: string }[]).find(d => d.tip !== undefined)!;
+    expect(tooltip.formatter({ data: partial })).toContain(hostile);
+  });
   it('drops the partial note with partialTotalNote={false}', async () => {
     await mount({ valueLabels: 'total', reaggregation: 'sum', partialTotalNote: false });
     expect(screen.queryByText(/^◇ ≥ 합계/)).toBeNull();
