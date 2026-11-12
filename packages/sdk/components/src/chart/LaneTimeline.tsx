@@ -5,12 +5,15 @@ import { useI18n } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { prepareLanes, segmentText } from './laneTimelineGeometry';
 import { ChartTrustFooter } from './analysisChartFrameParts';
-import { createLaneRenderer } from './laneTimelineRenderer';
+import { createLaneRenderer, type RendererState } from './laneTimelineRenderer';
+import { overlaySummaries, validateOverlays } from './laneTimelineOverlays';
+import type { TimelineOverlay } from './laneTimelineTypes';
 import { ChartImageCopyButton, ChartImagePrintButton } from './ChartImageCopyButton';
 import { laneImageBlob } from './chartImageCopy';
 import { displayFileName } from '../table/download';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 
+export type { TimelineOverlay } from './laneTimelineTypes';
 export type TimelineSegment = {
   id: string; start: number; end: number; depth?: number; rank?: string;
   colorToken?: ThemeColorToken; neutral?: boolean;
@@ -28,9 +31,12 @@ export type LaneTimelineProps = {
   imageCopy?: boolean;
   /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Shown only when the current menu manifest enables `features.export`. */
   imagePrint?: boolean;
+  /** Marks drawn above the segments and below the selection outline: time instants, time ranges and segment sets. Memoize the array: a new array redraws the overlay layer once. */
+  overlays?: TimelineOverlay[];
   selectedId?: string | null; defaultSelectedId?: string | null; onSelectedChange?: (id: string | null) => void;
 };
 const noInstants: number[] = [];
+const noOverlays: TimelineOverlay[] = [];
 const interactionHelp = {
   ko: 'Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 방향키: 탐색 · Enter: 선택 · Escape: 해제',
   en: 'Ctrl/⌘ + wheel: Zoom · Drag: Pan · Arrows: Navigate · Enter: Select · Escape: Clear',
@@ -47,9 +53,10 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const root = useRef<HTMLElement>(null); const scroll = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null); const overlay = useRef<HTMLCanvasElement>(null); const axis = useRef<HTMLCanvasElement>(null);
   const spacer = useRef<HTMLDivElement>(null); const tooltip = useRef<HTMLDivElement>(null);
-  const savedView = useRef<{ model?: ReturnType<typeof prepareLanes>; view?: [number, number] }>({});
   const engine = useRef<ReturnType<typeof createLaneRenderer> | null>(null);
   const model = useMemo(() => prepareLanes(props.lanes, props.densityInstants ?? noInstants), [props.lanes, props.densityInstants]);
+  const overlays = useMemo(() => validateOverlays(props.overlays ?? noOverlays), [props.overlays]);
+  const overlayLines = useMemo(() => overlaySummaries(overlays), [overlays]);
   const [localSelection, setLocalSelection] = useState<string | null>(props.defaultSelectedId ?? null);
   const selected = props.selectedId === undefined ? localSelection : props.selectedId;
   const selectedItem = selected ? model.byId.get(selected) : undefined;
@@ -62,17 +69,17 @@ export function LaneTimeline(props: LaneTimelineProps) {
     reveal: index => engine.current?.reveal(index),
     revealById: id => engine.current?.revealById(id),
   }), []);
+  const state: RendererState = {
+    model, props, selectedId: selectedItem?.segment.id ?? null, lang, overlays,
+    onSelect: id => { setLocalSelection(id); props.onSelectedChange?.(id); }, onHover: setHover,
+  };
+  // The renderer is created once per mount; every later render only hands it the latest values, and `update()` diffs them.
   useEffect(() => {
+    if (engine.current) { engine.current.update(state); return; }
     if (!root.current || !scroll.current || !canvas.current || !overlay.current || !axis.current || !spacer.current || !tooltip.current) return;
-    const renderer = createLaneRenderer({ root: root.current, scroll: scroll.current, canvas: canvas.current, overlay: overlay.current, axis: axis.current, spacer: spacer.current, tooltip: tooltip.current,
-      model, props, savedView: savedView.current, selectedId: selectedItem?.segment.id ?? null,
-      lang,
-      onSelect: id => { setLocalSelection(id); props.onSelectedChange?.(id); },
-      onHover: setHover,
-    });
-    engine.current = renderer;
-    return () => { renderer.destroy(); engine.current = null; };
-  }, [model, props, lang, selectedItem?.segment.id]);
+    engine.current = createLaneRenderer({ root: root.current, scroll: scroll.current, canvas: canvas.current, overlay: overlay.current, axis: axis.current, spacer: spacer.current, tooltip: tooltip.current, ...state });
+  });
+  useEffect(() => () => { engine.current?.destroy(); engine.current = null; }, []);
   function summary(item: typeof focused) {
     if (!item) return '';
     return segmentText(model, item, props.formatTooltip, lang);
@@ -123,6 +130,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
     </div>
     {!model.flat.length && <p className="px-4 py-3 text-text-secondary">{tx({ ko: '데이터 없음', en: 'No data' })}</p>}
     <section aria-label={tx({ ko: '선택 요약', en: 'Selection summary' })} className="bg-surface-sunken px-4 py-2 text-text-secondary">{selectedItem ? summary(selectedItem) : tx({ ko: '선택 없음', en: 'No selection' })}</section>
+    {overlayLines.length > 0 && <ul aria-label={tx({ ko: '표시 목록', en: 'Marked times' })} className="sr-only">{overlayLines.map((line, i) => <li key={i}>{line}</li>)}</ul>}
     <p id={summaryId} role="status" aria-live="polite" className="px-4 py-2 text-text-secondary">{summary(focused)}</p>
     <ChartTrustFooter trust={props.trust} />
     <div ref={tooltip} role="tooltip" hidden={!hover} className="pointer-events-none fixed z-50 max-w-xs break-words rounded border border-border-subtle bg-surface-card px-3 py-2 text-text-primary shadow-lg">{hover}</div>

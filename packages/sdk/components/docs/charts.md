@@ -26,7 +26,7 @@ const spec: TopNBarSpec = {
 ## Lane
 
 ```tsx
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { LaneTimeline, type LaneTimelineHandle, type TimelineLane } from '@ap/components';
 
 const lanes: TimelineLane[] = [{ id: 'a', label: 'Lane A', segments: [
@@ -42,6 +42,21 @@ timeline.current?.revealById('segment-a');
 timeline.current?.reveal(0);
 timeline.current?.resetZoom();
 ```
+
+`overlays`는 메뉴가 시각·구간·구간 집합을 표시하는 선언형 선택 prop이다(SDK는 의미를 모른다). 배열은 `useMemo`로 고정한다: 인라인 배열은 값이 같아도 매 렌더 오버레이 층을 한 번 다시 그린다. 쌓는 순서는 구간 < 오버레이(range < instant < segments, 같은 종류 안에서는 배열 순서) < 선택 윤곽이다.
+
+```tsx
+import type { TimelineOverlay } from '@ap/components';
+
+const overlays = useMemo<TimelineOverlay[]>(() => [
+  { kind: 'instant', id: 'e1', time: 1792540830000, label: '알림', dash: true },
+  { kind: 'range', id: 'r1', start: 1792540800000, end: 1792540860000, laneId: 'a', label: '점검' },
+  { kind: 'segments', id: 's1', segmentIds: ['segment-a'], style: 'outline' },
+], []);
+<LaneTimeline ariaLabel="Intervals" lanes={lanes} overlays={overlays} />;
+```
+
+유한하지 않거나 Date 범위(±8.64e15)를 넘는 시각·`start > end`·중복 `id`는 제외되고 개발 진단이 남는다. `label`이 있는 `instant`·`range`는 화면 읽기용 요약에 나온다.
 
 `TimelineSegment.start/end`는 시간대 없는 설비 wall-clock을 UTC getter 기반 epoch ms로 인코딩한 값이며 `start <= end`다. 화면에는 `YYYY-MM-DD HH:mm:ss` 형식으로 시간대 없이 표시한다. `depth`는 0 기반 레이아웃 입력이다. `rank`는 소비자 문자열이며 SDK가 뜻을 추론하지 않는다. `paletteTokens`는 기본 네 series 색을 대체하고 `neutralColorToken`은 neutral 구간의 대체색이다. `colorToken`이 구간에 있으면 우선한다. `outlineMode`는 strong/weak/off이고 선택 테두리는 독립이다.
 
@@ -60,3 +75,5 @@ Ctrl/⌘+wheel·+/−·확대 버튼으로 확대하고 plot drag로 이동한�
 2026-11-10 / #1657: 선택 옵션 추가(기본 동작 불변). `ChartSeries.axis?: 'left' | 'right'`와 `AnalysisChartFrame`의 `rightAxis?: { unit; valueFormat? }`로 세로 비누적 차트에 오른쪽 값 축을 둔다(가로·누적은 무시하고 개발 중 경고; 툴팁·표·CSV는 시리즈별 단위; `markLines`는 왼쪽). `AnalysisChartFrame`·`AnalysisChart`·`LaneTimeline`에 `imageCopy?: boolean`을 추가한다 — `이미지 복사` 버튼은 prop이 true이고 메뉴 `features.export`가 켜졌을 때만 보이며, PNG를 클립보드에 복사하거나(보안 컨텍스트가 아니면 다운로드) 결과를 토스트로 알린다. 소비자 조치 없음. 규칙은 `docs/contract/chart.md` §16.
 
 2026-11-10 / #1665: 선택 옵션 추가(기본 동작 불변). `AnalysisChartFrame`·`AnalysisChart`·`LaneTimeline`의 `imagePrint?: boolean`은 `imageCopy`와 같은 PNG를 차트 제목과 함께 인쇄한다(`features.export`가 켜진 메뉴에서만 표시).
+
+2026-11-11 / #1746: 선택 옵션 추가(기본 동작 불변). `LaneTimelineProps.overlays?: TimelineOverlay[]`와 타입 `TimelineOverlay`(`instant`·`range`·`segments`) 추가. 렌더러는 마운트마다 한 번 만들어지고, 선택·오버레이 변경은 오버레이 층만 다시 그린다. `LaneTimelineHandle`은 그대로다.
