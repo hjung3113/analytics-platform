@@ -2,12 +2,13 @@
 
 상태: **Decided (2026-11-12)** — 방향과 규칙. 정확한 필드 이름은 구현 노드가 정하고 이 문서를 고친다.
 - 결정자: 사용자(소유자) — 2026-11-12 [#1839](https://github.com/hjung3113/analytics-platform/issues/1839) 지시 «설계하고 고문한테 리뷰 받고 빨리 구현해»와 그날 팀장이 전달한 소유자 답: (1) 사내 적용은 기존 시스템의 백엔드·DB를 고치지 않고 사내에 새 서버를 두지 않는다(새 사내 서버 안은 기각), (2) 한 Site가 여러 DB 서버로 나뉘고 DB 하나가 여러 Site를 서비스한다, (3) HTTP API를 여는지 DB 접속만 되는지는 시스템마다 다르며 첫 사내 대상은 DB 직접 접속이다, (4) #1839 범위는 빼지 않고 우선순위만 둔다.
-- 소유자 답 (1)·(3)이 직접 덮는 것: 06 계약(kernel.md §6.2 Site)의 변경, [ADR-0004](0004-site-is-db-partition-not-column.md) 대체, [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) D1(분석 `menuQuery`의 FastAPI 소유)·금지 7·12의 개정, [ADR-0147](0147-scope-grants-come-from-an-injected-resolver.md) 결정 2 구현 모양(사내 부여 서비스 호출)의 개정, [ADR-0148](0148-minimal-forwarder-and-identity-token.md) 결정 2 대체. 모두 «사내에 새 서버를 두지 않는다»의 직접 결과다.
+- 소유자 답 (1)·(3)이 직접 덮는 것: 06 계약(kernel.md §6.2 Site)의 변경, [ADR-0004](0004-site-is-db-partition-not-column.md) 대체, [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) D1(분석 `menuQuery`의 FastAPI 소유)·금지 7·12의 개정, [ADR-0148](0148-minimal-forwarder-and-identity-token.md) 결정 2 대체. 모두 «사내에 새 서버를 두지 않는다»의 직접 결과다.
 - 나머지 세부(병합 규칙·시간 배분·연결기 모양·Scope 집행 방식)는 위 답에서 유도한 에이전트 결정이고, 고문 리뷰(2026-11-12, APPROVE-WITH-CHANGES)를 반영했다. 구현 노드가 되돌릴 수 있다.
-- 사내 사실 가정(되돌릴 수 있음): 첫 사내 대상은 저장 프로시저를 호출해 읽는 MSSQL로 가정한다([기존 시스템](../product/existing-systems.md)). 부여 정보의 위치와 사용자 식별자는 소유자에게 묻는 중이다. 답이 다르면 노드 b2와 결정 4의 바인딩만 바뀐다.
-- Scope: [#1839](https://github.com/hjung3113/analytics-platform/issues/1839). 관련: [#1836](https://github.com/hjung3113/analytics-platform/issues/1836), [#1729](https://github.com/hjung3113/analytics-platform/issues/1729), [#1087](https://github.com/hjung3113/analytics-platform/issues/1087), [#155](https://github.com/hjung3113/analytics-platform/issues/155).
+- 사내 사실 가정(되돌릴 수 있음): 첫 사내 대상은 저장 프로시저를 호출해 읽는 MSSQL로 가정한다([기존 시스템](../product/existing-systems.md)). 답이 다르면 노드 b2만 바뀐다.
+- Scope 부여의 원천은 플랫폼이다(소유자 2026-11-12: 운영자 부여 + 사용자 신청, [#1844](https://github.com/hjung3113/analytics-platform/issues/1844)). 이 ADR은 부여를 읽지 않고 Scope resolver 포트가 준 집합만 쓴다(결정 9).
+- Scope: [#1839](https://github.com/hjung3113/analytics-platform/issues/1839). 관련: [#1836](https://github.com/hjung3113/analytics-platform/issues/1836), [#1729](https://github.com/hjung3113/analytics-platform/issues/1729), [#1087](https://github.com/hjung3113/analytics-platform/issues/1087), [#1844](https://github.com/hjung3113/analytics-platform/issues/1844), [#155](https://github.com/hjung3113/analytics-platform/issues/155).
 - Supersedes: [ADR-0004](0004-site-is-db-partition-not-column.md)(Site = 물리 DB 경계).
-- Amends: [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 1(분석 `menuQuery` 행)·2(시간 예산의 `timeout` 판정자)·3(파서 DB 직접 읽기)·5(토큰 `aud`)·금지 7·10·12, [ADR-0146](0146-core-server-loads-in-house-declarations-from-deployment-config.md) 결정 1·2와 Deferred의 1729a 줄(`limits.maxRows`), [ADR-0147](0147-scope-grants-come-from-an-injected-resolver.md) 결정 2 구현 모양, [ADR-0148](0148-minimal-forwarder-and-identity-token.md) 결정 2·4.
+- Amends: [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 1(분석 `menuQuery` 행)·2(시간 예산의 `timeout` 판정자)·3(파서 DB 직접 읽기)·5(토큰 `aud`)·금지 7·10·12, [ADR-0146](0146-core-server-loads-in-house-declarations-from-deployment-config.md) 결정 1·2와 Deferred의 1729a 줄(`limits.maxRows`), [ADR-0148](0148-minimal-forwarder-and-identity-token.md) 결정 2·4.
 
 ## 전제 규칙
 
@@ -18,11 +19,11 @@
 ## 맥락
 
 - 지금 전달기([ADR-0148](0148-minimal-forwarder-and-identity-token.md), #1729 h)는 상류가 (1) 주소 하나(`MENU_UPSTREAM_BASE_URL`), (2) 신원 토큰 검증과 `scopes` 해석, (3) 06 §19 envelope 응답을 한다고 가정한다. 손대지 않은 기존 백엔드는 셋 다 하지 않는다.
-- Scope 부여도 같다. 운영 resolver는 `POST {base}/scopes/resolve` 계약을 말하는 사내 부여 서비스를 부른다(`http-scope-resolver.ts`). 손대지 않은 사내 시스템은 이 계약을 말하지 않으므로, 그대로면 사내가 서비스를 새로 띄워야 한다.
+- Scope 부여는 운영 resolver가 `POST {base}/scopes/resolve` 계약의 부여 서비스를 부른다(`http-scope-resolver.ts`). 사내에 그런 서비스를 두지 않으므로 부여의 원천은 플랫폼으로 옮긴다([#1844](https://github.com/hjung3113/analytics-platform/issues/1844)).
 - 기존 시스템 하나의 한 Site가 여러 DB 서버(백엔드 겸)로 나뉘어 있고, DB 하나가 여러 Site를 서비스하는 경우도 있다. 무엇으로 나뉘는지(room·설비 묶음·기간·부하 분산)도 시스템마다 다르다. 첫 대상은 표 SELECT가 아니라 저장 프로시저를 호출해 읽을 수 있다.
 - 화면·Kernel 코드는 DB를 모른다 — Scope는 site·room 값이다. 그러나 ADR-0004·kernel.md §6.2·GLOSSARY Site는 «Site = 물리 DB 연결 경계»라고 적었다.
 - 권한(capability)과 Scope(site·room) 판정은 이미 코어 서버가 요청마다 끝낸다(`query.ts` 3·4단계, `resolveRequestScopes`). 전달기는 그 뒤의 `handle`이다.
-- 세션 스냅샷은 아직 `scopes: []`이고 `validateScope`(`GET …/scopes/{id}/check`)를 답하는 라우트가 없어, 부여가 있어도 Kernel이 Scope가 필요한 조회를 보내지 않는다(kernel §6.2).
+- 세션 스냅샷은 아직 `scopes: []`이고 `validateScope`(`GET …/scopes/{id}/check`)를 답하는 라우트가 없어, 부여가 있어도 Kernel이 Scope가 필요한 조회를 보내지 않는다(kernel §6.2). 이것은 [#1844](https://github.com/hjung3113/analytics-platform/issues/1844)가 맡는다.
 
 ## 결정
 
@@ -35,7 +36,7 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 선언 묶음에 선택 필드 `targets`를 더하고, `endpointOwners`의 값은 지금의 문자열(경로) 또는 라우팅 객체다.
 
 - **대상(`targets`):** id → `{ kind, … }`. `kind`는 `http`·`sql` 둘이다(결정 7·8). 비밀(토큰·DB 접속 문자열)은 묶음에 쓰지 않고 파일 경로로 가리키며, 기동 때 읽고 실패하면 기동 실패다. 오류·로그에 비밀과 접속 문자열을 싣지 않는다.
-- **값 대응표(선택, 대상 또는 경로에):** 플랫폼의 site·room 값 ↔ 그 시스템의 표기. 나가는 바인딩과 들어오는 행 확인·부여 조회 결과에 같은 표를 쓴다. 표를 둔 대상에서 표에 없는 값은 닫힌 쪽이다(요청이면 실패, 부여 조회 결과면 그 행을 버린다 — 접근이 줄어드는 방향). 이유: 플랫폼 Scope 값이 한 시스템의 표기에 맞춰지지 않게 한다.
+- **값 대응표(선택, 대상 또는 경로에):** 플랫폼의 site·room 값 ↔ 그 시스템의 표기. 나가는 바인딩과 들어오는 행 확인에 같은 표를 쓴다. 표를 둔 대상에서 표에 없는 값은 닫힌 쪽이다(나가는 값이면 요청 실패, 들어오는 행이면 Scope 위반으로 본다). 이유: 플랫폼 Scope 값이 한 시스템의 표기에 맞춰지지 않게 한다.
 - **문자열 행은 지금 그대로다.** `"endpointId": "/path"`는 기본 상류(`MENU_UPSTREAM_BASE_URL`)의 envelope 전달이다. `targets`를 쓰지 않는 묶음은 지금과 같은 바이트로 동작한다(기본 동작 불변). `MENU_UPSTREAM_BASE_URL`·`MENU_IDENTITY_KEY_FILE`·`MENU_IDENTITY_KEY_ID`는 envelope로 가는 행(문자열 행이나 envelope 대상)이 하나라도 있을 때만 필수다.
 - **라우팅 객체:** `{ routes, call, scopeCheck, merge?, unroutedRooms? }`.
   - `routes`: `{ sites?, rooms?, targets: [id, …] }`의 목록. 라우팅 키는 Scope 키(site, room)뿐이다 — 코어가 판정한 값이라서다.
@@ -59,7 +60,7 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 
 ### 4. 바인딩과 값 검증
 
-- 바인딩 어휘(닫힌 목록): `scope.site`, `scope.rooms`(결정 3의 그 대상 몫), `context.<적용된 wire 필드>`, `params.<선언된 키>`, 상수. 식·템플릿 언어·코드는 없다(ADR-0146 결정 2). 부여 조회(결정 9)에서만 `actor.externalId`·`actor.email`을 더 쓴다.
+- 바인딩 어휘(닫힌 목록): `scope.site`, `scope.rooms`(결정 3의 그 대상 몫), `context.<적용된 wire 필드>`, `params.<선언된 키>`, 상수. 식·템플릿 언어·코드는 없다(ADR-0146 결정 2).
 - 바인딩되는 `params` 키마다 형(`string`·`number`·`boolean`·`string[]`)과 상한(문자열 길이, 배열 개수, 필요하면 허용 값 목록)을 묶음에 선언하고, 체크리스트 §3 2단계에서 어긋나면 `error`로 거부한다(대상까지 가지 않는다). 지금 선언 엔드포인트의 «값 검증은 상류 몫»(`declared-endpoints.ts`)은 envelope 대상에만 남는다.
 
 ### 5. fan-out과 병합
@@ -105,12 +106,11 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 - **드라이버 오류:** 그대로 던지거나 로그에 넘기지 않는다 — 드라이버 오류에는 행 값·문장 조각이 실린다. 고정 메시지의 `MenuUpstreamError`(또는 결정 5의 `timeout`)로 바꾸고 `cause`를 달지 않는다.
 - **읽기 전용의 근거는 계정이다.** 사내가 주는 계정 권한(읽기, 또는 지정 프로시저 실행만)이 1차이자 모든 dialect에서의 보장이다. `postgres`는 여기에 읽기 전용 트랜잭션을 더한다. 프로시저 호출이나 읽기 전용 트랜잭션이 없는 dialect에서는 계정 한 겹뿐이다. `statement`의 «SELECT/WITH로 시작» 기동 검사는 오타 방지일 뿐 보장이 아니다(`WITH … DELETE … RETURNING`, 부작용 있는 함수). 문장·프로시저는 대상 DB에서만 실행되며 코어 프로세스 안에서 실행되는 코드가 아니다(ADR-0146 결정 2 개정).
 
-### 9. Scope 부여 조회도 선언형 연결기로 받는다 (ADR-0147 결정 2 구현 모양 개정)
+### 9. Scope 부여는 resolver 포트에서 받는다 (#1844)
 
-- 묶음의 선택 필드 `scopeGrants: { target, call, fields: { site, room }, 값 대응표? }`. 결정 7·8의 연결기를 그대로 쓰고, 바인딩에 `actor.externalId`(로그인 공급자의 subject)·`actor.email`을 이 호출에서만 허용한다. 결과 행을 `[{ site, rooms }]`로 묶는다.
-- 실패·시간 초과(`MENU_RESOLVER_TIMEOUT_MS`)·0행은 지금처럼 접근 거부, 캐시 없음(요청마다, ADR-0147 결정 4). 대응표에 없는 site·room 행은 버린다(접근이 줄어드는 방향).
-- 기존 HTTP 부여 서비스(`MENU_SCOPE_GRANT_SERVICE_URL`)는 선택지로 남는다. 둘 다 설정하면 기동 실패다.
-- **같은 resolver가 세션과 `validateScope`도 답한다.** 세션 스냅샷의 `scopes`와 `GET …/scopes/{id}/check`를 이 resolver로 채운다(노드 b). 그래야 Kernel이 Scope가 필요한 조회를 보낸다. Scope 선택지의 이름·순서는 부여 결과에서 내고 별도 site 레지스트리를 요구하지 않는다.
+- 이 ADR의 라우팅·Scope 집행은 요청마다 Scope resolver 포트(`ScopeResolver`, `buildServer` 옵션)가 준 `[{ site, rooms }]` 집합만 쓴다. 부여를 직접 읽는 연결기는 두지 않는다.
+- 부여의 원천은 플랫폼이다 — 운영자 직접 부여와 사용자 신청·승인(소유자 2026-11-12, [#1844](https://github.com/hjung3113/analytics-platform/issues/1844)). 세션 `scopes`·`validateScope`도 그 이슈가 같은 원천으로 답한다. ADR-0147과의 관계는 #1844의 ADR이 정한다.
+- 부여할 수 있는 site·room 목록을 이 ADR의 라우팅 선언에서 낼지는 #1844가 정한다. 라우팅에 없는 site·room의 부여는 결정 3.4대로 다뤄진다.
 
 ### 10. 개정되는 기존 결정
 
@@ -118,19 +118,18 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 - **ADR-0095:** 결정 1의 «분석 `menuQuery` → FastAPI, Site별 DB», 결정 3의 «Fastify는 파서 DB를 직접 읽지 않는다», 금지 7·12는 선언 묶음이 대상을 선언한 배포에서는 적용하지 않는다. 그 배포의 코어 서버는 기존 시스템 DB를 연결기로 읽고 outcome을 만든다. 결정 2의 `timeout` envelope는 그 배포에서 코어가 낸다(결정 5). 결정 5의 `aud`는 결정 3.6. 금지 10은 결정 5의 메모리 상한으로 지킨다.
   - **이 ADR은 `menuQuery`와 Scope 부여만 다룬다.** ADR-0095 결정 1이 FastAPI 원천으로 둔 다른 포트(조건 축 선택지·설비 검색·Selection 해석·설비 `getEntity`·`publishedMetrics`·`defaultRangeTo`·site 레지스트리)는 원천이 없으면 지금처럼 답하지 않는다. 첫 사내 메뉴가 그중 무엇을 쓰는지는 사내 준비물 목록에서 확인한다(Deferred).
 - **ADR-0146 결정 1(사내 데이터 핸들러는 전달기 뒤 사내 데이터 서버):** 핸들러는 묶음의 선언(변환·SQL·프로시저)일 수도 있다. 사내 코드를 코어 프로세스에 넣지 않는다는 규칙은 그대로다. **결정 2:** 결정 8 끝 문장. **Deferred 1729a 줄(`limits.maxRows`는 기동 실패):** 문자열 행·envelope 대상에는 그대로, 코어가 응답을 만드는 엔드포인트에는 필수다.
-- **ADR-0147 결정 2 구현 모양:** 결정 9. 결정 1(원천은 사내)·3·4·5는 그대로다.
 - **ADR-0004:** Superseded(결정 1).
-- 체크리스트 §3 9단계·등록 검증 규칙 7(`maxWindow`), «Scope 부여 서비스 계약», [http-adapter 계약](../integration/http-adapter-contract.md)의 시간 값, [components.md §19](../contract/components.md)의 `coverage` 출처(노드 d2)는 구현 노드가 같은 PR에서 고친다. 코어가 내는 `coverage`의 `statusSource`는 `upstream-routing`이고 `clear`는 «라우팅된 대상이 모두 답했다»만 뜻한다.
+- 체크리스트 §3 9단계·등록 검증 규칙 7(`maxWindow`), [http-adapter 계약](../integration/http-adapter-contract.md)의 시간 값, [components.md §19](../contract/components.md)의 `coverage` 출처(노드 d2)는 구현 노드가 같은 PR에서 고친다. 코어가 내는 `coverage`의 `statusSource`는 `upstream-routing`이고 `clear`는 «라우팅된 대상이 모두 답했다»만 뜻한다.
 
 ### 11. 구현 노드와 순서 (빼는 것 없음, 우선순위만)
 
-노드마다 끝나는 대로 병합한다. `targets`·`scopeGrants`를 쓰지 않는 묶음은 어느 노드에서도 동작이 바뀌지 않으므로(노드 a1의 고정 시험) 중간 병합이 안전하다. #1838(1729h) 위에 쌓고, 그것이 병합되면 `main`으로 옮긴다.
+노드마다 끝나는 대로 병합한다. `targets`를 쓰지 않는 묶음은 어느 노드에서도 동작이 바뀌지 않으므로(노드 a1의 고정 시험) 중간 병합이 안전하다. #1838(1729h) 위에 쌓고, 그것이 병합되면 `main`으로 옮긴다.
 
 | 노드 | 내용 | 선행 |
 | --- | --- | --- |
-| 1839a1 | 묶음 스키마·기동 검증 전부(결정 2·4·6·8·9의 선언 모양), `limits.maxRows` 전환(envelope 거부 / 코어 응답 필수), envelope 전용 설정의 조건부 필수, 기본 상류 불변 고정 시험(문자열 행 묶음의 요청·응답 바이트). 런타임 동작 없음 | — |
+| 1839a1 | 묶음 스키마·기동 검증 전부(결정 2·4·6·7·8의 선언 모양), `limits.maxRows` 전환(envelope 거부 / 코어 응답 필수), envelope 전용 설정의 조건부 필수, 기본 상류 불변 고정 시험(문자열 행 묶음의 요청·응답 바이트). 런타임 동작 없음 | — |
 | 1839a2 | 요청 라우팅(결정 3), 바인딩·값 검증(결정 4), Scope 집행 `verify-rows`·`drop-rows`·`resolve-keys`(결정 6), dialect 중립 연결기 인터페이스(행 상한 취소·판정 시간 초과 구분 포함), `handle` 연결, 단일 대상 | a1 |
-| 1839b | DB 연결기 `postgres`(결정 8) + 부여 조회(결정 9)와 세션 `scopes`·`validateScope` + 사내 준비물 목록·합성 설정 예시 | a2 |
+| 1839b | DB 연결기 `postgres`(결정 8) + 사내 준비물 목록·합성 설정 예시 | a2 |
 | 1839d1 | fan-out 기본 병합: 마감 공유·전부 아니면 실패·`maxRows`·코어 정렬 | a2 (b와 병렬) |
 | 1839b2 | DB 연결기 `mssql`(프로시저 호출, 드라이버 의존성 추가) | b |
 | 1839c | HTTP 연결기 `mapped`·라우팅된 `envelope`(결정 7, 결정 3.6) | a2 |
@@ -141,8 +140,8 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 
 ## Considered Options
 
-- **(A, 채택) 코어 서버가 설정 선언과 범용 연결기로 기존 시스템에 직접 붙는다(데이터와 부여 모두).** 기존 시스템도 새 사내 서버도 바뀌지 않고, 시스템별 차이는 데이터(선언)로만 받는다. 대가: 코어가 일부 대상에서 outcome을 만들고(금지 7 개정), DB를 직접 읽는다(금지 12 개정).
-- **(B) 사내에 새 데이터 서버(FastAPI)·부여 서비스를 두고 거기서 계약을 맞춘다(ADR-0095 원안, ADR-0147 구현 모양).** 소유자가 기각했다(전제 규칙). 서버 신설·배포·담당 합의가 선행되어 아침 목표를 못 맞춘다.
+- **(A, 채택) 코어 서버가 설정 선언과 범용 연결기로 기존 시스템에 직접 붙는다.** 기존 시스템도 새 사내 서버도 바뀌지 않고, 시스템별 차이는 데이터(선언)로만 받는다. 대가: 코어가 일부 대상에서 outcome을 만들고(금지 7 개정), DB를 직접 읽는다(금지 12 개정).
+- **(B) 사내에 새 데이터 서버(FastAPI)를 두고 거기서 계약을 맞춘다(ADR-0095 원안).** 소유자가 기각했다(전제 규칙). 서버 신설·배포·담당 합의가 선행되어 아침 목표를 못 맞춘다.
 - **(C) 기존 백엔드가 신원 토큰·envelope를 말하게 고친다.** 전제 규칙 위반이다.
 - **(D) 대상마다 TypeScript 어댑터 코드를 공개 저장소에 둔다.** 한 시스템에 맞춘 코드·이름이 공개 저장소에 들어가고(ADR-0146 결정 1·6), 시스템이 늘 때마다 코어 릴리스가 필요하다.
 - **(E) Site를 DB 연결 하나에 고정(ADR-0004 그대로).** N:M 사실과 맞지 않는다.
