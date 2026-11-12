@@ -78,16 +78,12 @@ describe('menu declaration/forwarder/resolver config via loadConfig', () => {
     expect(menuIssues(menuEnv({ MENU_SCOPE_GRANT_SERVICE_URL: undefined }))).toEqual([]);
   });
 
+  // ADR-0153 decision 2: the envelope companions are required only when the bundle has an envelope destination,
+  // which config cannot see — `loadMenuDeclarationSetup` judges them after the bundle loads (menu-declarations-routing.test.ts).
   it.each(['MENU_UPSTREAM_BASE_URL', 'MENU_IDENTITY_KEY_FILE'])(
-    'declarations file without %s → one issue naming exactly that variable',
+    'declarations file without %s → no env-level issue (judged by the bundle-aware setup)',
     (variable) => {
-      const issues = menuIssues(menuEnv({ [variable]: undefined })) ?? [];
-      expect(issues).toEqual([
-        {
-          path: variable,
-          message: `${variable} is required when MENU_DECLARATIONS_FILE is set`,
-        },
-      ]);
+      expect(menuIssues(menuEnv({ [variable]: undefined }))).toEqual([]);
     },
   );
 
@@ -157,12 +153,7 @@ describe('menu declaration/forwarder/resolver config via loadConfig', () => {
     ).toEqual([]);
   });
 
-  it('rejects blank declarations companions without echoing them', () => {
-    const issues =
-      menuIssues(menuEnv({ MENU_UPSTREAM_BASE_URL: '', MENU_IDENTITY_KEY_FILE: '' })) ?? [];
-    expect(issues.map((issue) => issue.path).sort()).toEqual([
-      'MENU_IDENTITY_KEY_FILE',
-      'MENU_UPSTREAM_BASE_URL',
-    ]);
+  it('treats blank declarations companions as absent (judged by the bundle-aware setup)', () => {
+    expect(menuIssues(menuEnv({ MENU_UPSTREAM_BASE_URL: '', MENU_IDENTITY_KEY_FILE: '' }))).toEqual([]);
   });
 });

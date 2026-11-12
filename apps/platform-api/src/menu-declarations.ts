@@ -9,7 +9,10 @@
 import { readFile } from 'node:fs/promises';
 
 import type { AppConfig } from './config.js';
-import { loadDeclarationBundle } from './modules/menu-dispatch/declarations-file.js';
+import { DeclarationBundleError, loadDeclarationBundle } from './modules/menu-dispatch/declarations-file.js';
+import { isEnvelope } from './modules/menu-dispatch/bundle/calls.js';
+import { routeCall } from './modules/menu-dispatch/bundle/routing.js';
+import { readTargetSecrets, type TargetSecrets } from './modules/menu-dispatch/bundle/secrets.js';
 import { declaredContribution } from './modules/menu-dispatch/declared-endpoints.js';
 import { createMenuForwarder, normalizeMenuUpstreamBaseUrl, validateMenuOwnerPath } from './modules/menu-dispatch/forwarder.js';
 import { createHttpScopeResolver } from './modules/menu-dispatch/http-scope-resolver.js';
@@ -32,6 +35,8 @@ export type MenuDeclarationConfig = Pick<
 export interface MenuDeclarationSetup {
   /** The declared endpoints/permissions, appended to `buildServer`'s own contributions. */
   menuDispatch: readonly MenuDispatchContribution[];
+  /** Validated target credentials, opaque until a connector explicitly reveals them. */
+  targetSecrets?: Readonly<Record<string, TargetSecrets>>;
   /** Present only when `MENU_SCOPE_GRANT_SERVICE_URL` is set (ADR-0147). */
   scopeResolver?: ScopeResolver;
 }
@@ -47,19 +52,38 @@ export async function loadMenuDeclarationSetup(
 ): Promise<MenuDeclarationSetup | null> {
   const file = config.MENU_DECLARATIONS_FILE;
   if (file === undefined) return null;
-  // config.ts already refuses these; the recheck keeps this module fail-closed on its own inputs.
-  if (config.MENU_UPSTREAM_BASE_URL === undefined || config.MENU_IDENTITY_KEY_FILE === undefined) {
-    throw new Error('MENU_DECLARATIONS_FILE requires MENU_UPSTREAM_BASE_URL and MENU_IDENTITY_KEY_FILE');
-  }
-  const keyId = config.MENU_IDENTITY_KEY_ID;
-  if (keyId === undefined) {
-    throw new Error('MENU_DECLARATIONS_FILE requires MENU_IDENTITY_KEY_ID (the identity token kid)');
-  }
-
-  // Step 1: the bundle (ADR-0146) — every failure mode throws from the loader itself.
+  // Validate before reading any secret. No partially validated target can reach a connector.
   const bundle = await loadDeclarationBundle(file);
-  const baseUrl = normalizeMenuUpstreamBaseUrl(config.MENU_UPSTREAM_BASE_URL);
+  const envelope = Object.values(bundle.endpointOwners).some((owner) =>
+    typeof owner === 'string' || owner.routes.some((route) => isEnvelope(routeCall(owner, route))));
+  if (envelope) {
+    const missing = (['MENU_UPSTREAM_BASE_URL', 'MENU_IDENTITY_KEY_FILE', 'MENU_IDENTITY_KEY_ID'] as const)
+      .filter((key) => !config[key]);
+    if (missing.length) throw new DeclarationBundleError(missing.map((key) => `${key} is required when the bundle has an envelope destination`));
+  }
+  const targetSecrets = bundle.targets === undefined ? undefined : await readTargetSecrets(bundle.targets);
+  if (Object.values(bundle.endpointOwners).some((owner) => typeof owner !== 'string')) {
+    throw new DeclarationBundleError(['routed endpoints are not served yet (ADR-0153 node 1839a2)']);
+  }
+  const scopeResolver = config.MENU_SCOPE_GRANT_SERVICE_URL === undefined
+    ? undefined
+    : createHttpScopeResolver({
+      baseUrl: config.MENU_SCOPE_GRANT_SERVICE_URL,
+      timeoutMs: config.MENU_RESOLVER_TIMEOUT_MS,
+      ...(deps.fetch ? { fetch: deps.fetch } : {}),
+    });
+  if (!envelope) return {
+    menuDispatch: [declaredContribution({ bundle, checkService: deps.checkService })],
+    ...(scopeResolver ? { scopeResolver } : {}),
+    ...(targetSecrets === undefined ? {} : { targetSecrets }),
+  };
+  const keyId = config.MENU_IDENTITY_KEY_ID;
+  const keyFile = config.MENU_IDENTITY_KEY_FILE;
+  const upstreamBaseUrl = config.MENU_UPSTREAM_BASE_URL;
+  if (!keyId || !keyFile || !upstreamBaseUrl) throw new DeclarationBundleError(['envelope destination configuration is incomplete']);
+  const baseUrl = normalizeMenuUpstreamBaseUrl(upstreamBaseUrl);
   for (const [id, path] of Object.entries(bundle.endpointOwners)) {
+    if (typeof path !== 'string') throw new DeclarationBundleError(['routed endpoints are not served yet (ADR-0153 node 1839a2)']);
     try { validateMenuOwnerPath(path); } catch {
       throw new Error(`Invalid endpointOwners field for ${id}: invalid menu upstream owner path`);
     }
@@ -69,9 +93,9 @@ export async function loadMenuDeclarationSetup(
   // refuses anything that is not an Ed25519 key. Neither path exposes key material.
   let privateKeyPem: string;
   try {
-    privateKeyPem = await readFile(config.MENU_IDENTITY_KEY_FILE, 'utf8');
+    privateKeyPem = await readFile(keyFile, 'utf8');
   } catch {
-    throw new Error(`identity key file at ${config.MENU_IDENTITY_KEY_FILE} cannot be read`);
+    throw new Error(`identity key file at ${keyFile} cannot be read`);
   }
 
   // Step 3: the pieces (ADR-0147/0148) — signer, forwarder against the upstream, optional
@@ -83,14 +107,8 @@ export async function loadMenuDeclarationSetup(
     signer,
     ...(deps.fetch ? { fetch: deps.fetch } : {}),
   });
-  const scopeResolver = config.MENU_SCOPE_GRANT_SERVICE_URL === undefined
-    ? undefined
-    : createHttpScopeResolver({
-      baseUrl: config.MENU_SCOPE_GRANT_SERVICE_URL,
-      timeoutMs: config.MENU_RESOLVER_TIMEOUT_MS,
-      ...(deps.fetch ? { fetch: deps.fetch } : {}),
-    });
   return {
+    ...(targetSecrets === undefined ? {} : { targetSecrets }),
     menuDispatch: [declaredContribution({ bundle, forwarder, checkService: deps.checkService })],
     ...(scopeResolver ? { scopeResolver } : {}),
   };

@@ -90,8 +90,8 @@ const envSchema = z
     // #1266 b4: per-process cap on concurrent POST /attachments (each buffers up to 25 MiB).
     ATTACHMENT_UPLOAD_CONCURRENCY: z.coerce.number().int().positive().default(4),
     // #1729 node b: menu declaration/forwarder/resolver path (ADR-0146/0147/0148).
-    // All optional; MENU_DECLARATIONS_FILE set makes the upstream base URL and the
-    // identity signing key file required (superRefine). Grant-service URL absent =
+    // All optional; bundle-aware setup requires upstream/identity settings only for
+    // envelope destinations (ADR-0153). Grant-service URL absent =
     // no resolver (requiresScope endpoints stay refused). Time budget ADR-0095 §2:
     // adapter (HTTP_REQUEST_TIMEOUT_MS, default 30 s) > upstream call (27 s) > judgment.
     MENU_DECLARATIONS_FILE: optionalEnvString,
@@ -151,17 +151,6 @@ const envSchema = z
           message:
             'SMTP_USERNAME and SMTP_PASSWORD must be set together when NOTIFICATION_EMAIL_CHANNEL=smtp',
         });
-      }
-    }
-    if (config.MENU_DECLARATIONS_FILE !== undefined) {
-      for (const variable of ['MENU_UPSTREAM_BASE_URL', 'MENU_IDENTITY_KEY_FILE'] as const) {
-        if (config[variable] === undefined) {
-          context.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [variable],
-            message: `${variable} is required when MENU_DECLARATIONS_FILE is set`,
-          });
-        }
       }
     }
     for (const [variable, value] of [
