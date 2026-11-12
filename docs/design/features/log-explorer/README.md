@@ -4,7 +4,7 @@
 >
 > **구현이 이 문서와 다른 곳.** (1) 근거 위치의 권한 철회 상태는 읽는 사람 기준 두 가지 사유(`capability_lost`, `round_not_visible`)이고 Source ACL 판정은 읽기·내보내기·넘기기 호출 시점에 한다(§3.2). (2) Round 탭은 읽기 전용이다: 조사 행을 만들지 않고 Round의 샘플 목록으로 읽으며 바구니·저장이 없고, 앱 `main.tsx`가 두 메뉴를 이어 «탭 슬롯에 꽂는다»(§6.2)를 구현한다. (3) 화면의 내보내기 버튼은 REST 어댑터가 없어 이유와 함께 비활성이다([backlog](../../../../.planning/backlog.md)).
 >
-> 원본 로그의 소유자(Source API)·Parser·Top View(#1200)는 사내 쪽에서 개발 중이거나 실사 전이다. 초기 슬라이스는 읽기 포트와 합성 어댑터를 제공했고, #1817은 명시적 directory provider의 Round 원문 창을 추가한다. 사내 적합성 시험 전에는 «연동됨» 표시를 두지 않는다.
+> 원본 로그의 소유자(Source API)·Parser·Top View(#1200)는 사내 쪽에서 개발 중이거나 실사 전이다. 초기 슬라이스는 읽기 포트와 합성 어댑터를 제공했고, #1817은 명시적 directory provider의 Round 원문 창을 추가한다. 사내 적합성 시험 전에는 «연동됨» 표시를 두지 않는다. directory provider는 Linux 전용이다(열린 descriptor를 `/proc/self/fd`로 확인): macOS 로컬 개발에서는 디렉터리 Source가 `source_absent`로 닫히며, 검증된 창이 필요한 시험은 Linux에서만 돌고 fail-closed 시험은 모든 플랫폼에서 돈다(#1829).
 
 ## 1. 이 설계가 하는 것
 

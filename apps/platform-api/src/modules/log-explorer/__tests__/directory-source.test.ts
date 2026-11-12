@@ -5,6 +5,9 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDirectoryProvider, createProviderSourceReadPort } from '../adapters/provider-source.js';
 
+// The provider resolves the opened descriptor through /proc/self/fd, so it answers `ok` only on Linux (production runs in Linux Docker).
+// Elsewhere (macOS local development) a directory Source closes as `source_absent`; fail-closed tests below run on every platform.
+const itVerified = it.runIf(process.platform === 'linux');
 const dirs: string[] = [];
 afterEach(async () => { await Promise.all(dirs.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
 async function fixture(text = 'first\nsecond\nthird\n') {
@@ -17,7 +20,7 @@ async function fixture(text = 'first\nsecond\nthird\n') {
   return { root, sampleSet, port, ctx, request };
 }
 describe('directory Source window', () => {
-  it('returns the verified registered window in file order', async () => {
+  itVerified('returns the verified registered window in file order', async () => {
     const f = await fixture();
     expect(await f.port.getWindow(f.request, f.ctx)).toMatchObject({ status: 'ok', rows: [{ line: 1, text: 'first', fileOrder: 1 }, { line: 2, text: 'second' }, { line: 3, text: 'third' }] });
   });
@@ -30,7 +33,7 @@ describe('directory Source window', () => {
     const empty = await fixture('');
     await expect(empty.port.getWindow({ ...empty.request, line: 1, before: 0, after: 0 }, empty.ctx)).resolves.toEqual({ status: 'source_absent' });
   });
-  it('counts lines by the trailing newline: the last line answers ok, one past it answers source_absent', async () => {
+  itVerified('counts lines by the trailing newline: the last line answers ok, one past it answers source_absent', async () => {
     const withNl = await fixture('first\nsecond\n');
     await expect(withNl.port.getWindow({ ...withNl.request, line: 2, before: 0, after: 0 }, withNl.ctx)).resolves.toMatchObject({ status: 'ok', rows: [{ line: 2, text: 'second' }] });
     await expect(withNl.port.getWindow({ ...withNl.request, line: 3, before: 0, after: 0 }, withNl.ctx)).resolves.toEqual({ status: 'source_absent' });
@@ -53,7 +56,7 @@ describe('directory Source window', () => {
     f.request.fileRef = fileRef; f.sampleSet.files[0] = { fileRef, order: 1, sha256: 'a'.repeat(64) };
     expect(await f.port.getWindow(f.request, f.ctx)).toEqual({ status: 'source_absent' });
   });
-  it('bounds a giant line and a 200-row window without buffering the file', async () => {
+  itVerified('bounds a giant line and a 200-row window without buffering the file', async () => {
     const f = await fixture('x'.repeat(16 * 1024 * 1024) + '\n' + 'short\n'.repeat(450));
     expect(await f.port.getWindow({ ...f.request, line: 1, before: 0, after: 1 }, f.ctx)).toMatchObject({ status: 'ok', truncated: true, rows: [{ text: 'x'.repeat(8000), truncated: true }, { text: 'short', truncated: false }] });
     const answer = await f.port.getWindow({ ...f.request, line: 200, before: 100, after: 99 }, f.ctx);
