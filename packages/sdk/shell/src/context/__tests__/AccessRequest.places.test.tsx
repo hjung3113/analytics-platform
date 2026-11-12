@@ -11,10 +11,11 @@ import { GlobalContextBar } from '../GlobalContextBar';
 
 // Places (b) Scope selector and (d) room field of the blocked-place request (ADR-0154 decision 6). Synthetic names only (ADR-0151).
 let pendingTargets: PermissionRequestTarget[] = [];
+let pendingAnswer: 'known' | 'unknown' = 'known';
 const dialogs: PermissionRequestTarget[] = [];
 const fakeSlot: AccessRequestSlot = {
   Pending: ({ target, children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) => {
-    const pending = pendingTargets.some(row => JSON.stringify(row) === JSON.stringify(target));
+    const pending = pendingAnswer === 'unknown' ? null : pendingTargets.some(row => JSON.stringify(row) === JSON.stringify(target));
     return <>{children({ pending, statusHref: pending ? '/permission-requests?id=req-1' : null })}</>;
   },
   Dialog: ({ target, open, onOpenChange }) => {
@@ -30,7 +31,7 @@ const partialAndFull: readonly ScopeOption[] = [
 ];
 const grantTable = (scopes = partialAndFull): Session => ({ ...testSession(['platform:view'], { scopes }), requestableScopes: [{ id: 'SITE-C', label: 'SITE-C', totalRooms: 4 }] });
 
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); pendingTargets = []; dialogs.length = 0; });
+beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); pendingTargets = []; pendingAnswer = 'known'; dialogs.length = 0; });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('place (b): Scope selector request items', () => {
@@ -85,6 +86,15 @@ describe('place (b): Scope selector request items', () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
+  it('an unknown pending state (loading or failed read) lists the plain request items', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-A');
+    pendingAnswer = 'unknown';
+    mount(grantTable(), fakeSlot);
+    openMenu();
+    expect(await screen.findByRole('menuitem', { name: 'SITE-C · 공정 4개 권한 없음' })).toBeTruthy();
+    expect(screen.queryByText(/요청 대기 중/)).toBeNull();
+  });
+
   it('a site with a pending request reads «요청 대기 중» and leads to the request status, the same after a remount', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-A');
     pendingTargets = [{ kind: 'site', site: 'SITE-C' }];
@@ -133,6 +143,13 @@ describe('place (d): room field request entry', () => {
     mount('&roomNames=RB4', grantTable(), fakeSlot);
     fireEvent.click(await screen.findByRole('button', { name: '공정 권한 요청' }));
     expect(dialogs.at(-1)).toEqual({ kind: 'site_room', site: 'SITE-B', room: 'RB4' });
+  });
+
+  it('an unknown pending state (loading or failed read) draws the plain request button', async () => {
+    pendingAnswer = 'unknown';
+    mount('&roomNames=RB4', grantTable(), fakeSlot);
+    expect(await screen.findByRole('button', { name: '공정 권한 요청' })).toBeTruthy();
+    expect(screen.queryByText('요청 대기 중')).toBeNull();
   });
 
   it('a pending request for the room reads «요청 대기 중» with the status link, the same after a remount', async () => {

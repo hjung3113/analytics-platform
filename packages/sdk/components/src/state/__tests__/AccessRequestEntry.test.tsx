@@ -1,10 +1,11 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, type AccessRequestSlot, type AccessRequestState, type QueryState } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type ApiResponse, type PermissionRequestTarget, type ScopeCheck, type ScopeOption, type Session } from '@ap/contracts';
+import { Dialog as UiDialog, DialogContent, DialogDescription, DialogTitle } from '@ap/ui';
 import { PlatformPage } from '../../archetypes/PlatformPage';
 import { QueryView } from '../../StateView';
 import { scopeRequestTarget } from '../AccessRequestEntry';
@@ -37,6 +38,11 @@ function adapterFor(session: Session, validateScope: () => Promise<ScopeCheck>) 
 }
 const requestable = (scopes: readonly ScopeOption[] = []): Session => ({ ...testSession(['platform:view'], { scopes }), requestableScopes: [{ id: 'SITE-C', label: 'SITE-C', totalRooms: 4 }] });
 const forbiddenCheck = async (): Promise<ScopeCheck> => ({ status: 'forbidden', grantedRooms: [] });
+
+const forbiddenResponse: ApiResponse<unknown> = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' };
+const forbiddenQuery: QueryState<unknown> = { status: 'done', response: forbiddenResponse, refetch: vi.fn(), missing: [], completedAt: null };
+const partial = [{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 5 }];
+const full = [{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 2 }];
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); pendingTargets = []; pendingAnswer = 'known'; dialogs.length = 0; });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -131,10 +137,6 @@ describe('place (c): the Scope forbidden gate', () => {
 });
 
 describe('place (e): one request banner for forbidden widgets on a partially granted Scope', () => {
-  const forbiddenResponse: ApiResponse<unknown> = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' };
-  const forbiddenQuery: QueryState<unknown> = { status: 'done', response: forbiddenResponse, refetch: vi.fn(), missing: [], completedAt: null };
-  const partial = [{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 5 }];
-  const full = [{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 2 }];
   const renderPage = (session: Session, slot?: AccessRequestSlot) => render(<I18nProvider><PlatformProvider adapter={adapterFor(session, async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }))} registry={registry} slots={slot ? { accessRequest: slot } : undefined}>
     <PlatformPage>
       <QueryView query={forbiddenQuery} widgetName="Widget A">{() => <p>ok</p>}</QueryView>
@@ -167,6 +169,48 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
     expect(dialogs.at(-1)?.target).toEqual({ kind: 'site_room', site: 'SITE-B', room: 'RB4' });
   });
 
+  it('with the slot but a session without requestableScopes keeps today\'s per-widget rendering and no banner', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+    const view = renderPage(testSession(['platform:view'], { scopes: partial }), fakeSlot);
+    expect(await screen.findAllByText('이 Scope에 접근 권한이 없습니다')).toHaveLength(2);
+    expect(view.container.querySelector('[data-access-request-banner]')).toBeNull();
+    expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
+  });
+
+  it('a single forbidden widget draws exactly one banner', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+    const view = render(<I18nProvider><PlatformProvider adapter={adapterFor(requestable(partial), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }))} registry={registry} slots={{ accessRequest: fakeSlot }}>
+      <PlatformPage><QueryView query={forbiddenQuery} widgetName="Widget A">{() => <p>ok</p>}</QueryView></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await vi.waitFor(() => { if (!view.container.querySelector('[data-access-request-banner]')) throw new Error('no banner'); });
+    expect(view.container.querySelectorAll('[data-access-request-banner]')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: '권한 요청' })).toHaveLength(1);
+  });
+
+  it('when the last forbidden widget disappears the banner is gone and the focused entry hands focus to the page body', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+    const adapter = adapterFor(requestable(partial), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }));
+    const okQuery: QueryState<unknown> = { ...forbiddenQuery, response: { ...forbiddenResponse, outcome: 'ok' } };
+    const tree = (query: QueryState<unknown>) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ accessRequest: fakeSlot }}>
+      <PlatformPage><QueryView query={query} widgetName="Widget A">{() => <p>ok</p>}</QueryView></PlatformPage>
+    </PlatformProvider></I18nProvider>;
+    const view = render(tree(forbiddenQuery));
+    const button = await screen.findByRole('button', { name: '권한 요청' });
+    button.focus();
+    view.rerender(tree(okQuery));
+    await vi.waitFor(() => { if (view.container.querySelector('[data-access-request-banner]')) throw new Error('banner still there'); });
+    expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
+    expect(document.activeElement?.hasAttribute('data-platform-page-content')).toBe(true);
+  });
+
+  it('an unknown pending state (loading or failed read) draws the plain request entry in the banner', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+    pendingAnswer = 'unknown';
+    renderPage(requestable(partial), fakeSlot);
+    expect(await screen.findByRole('button', { name: '권한 요청' })).toBeTruthy();
+    expect(screen.queryByText('요청 대기 중')).toBeNull();
+  });
+
   it('reads the pending state from the server data, the same after a remount', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     pendingTargets = [{ kind: 'site', site: 'SITE-B' }];
@@ -176,5 +220,71 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
       expect(screen.getByRole('link', { name: '요청 상태' })).toBeTruthy();
       view.unmount();
     }
+  });
+});
+
+// The real @ap/ui Dialog as the slot's Dialog (portal + autofocus), with a pending state the test flips: the focus paths the fake dialog cannot reach.
+describe('focus ownership with the real dialog (portal + autofocus)', () => {
+  const store = { pending: false, listeners: new Set<() => void>() };
+  const setPending = (pending: boolean) => { store.pending = pending; act(() => store.listeners.forEach(listener => listener())); };
+  const realSlot: AccessRequestSlot = {
+    Pending: ({ children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) => {
+      const pending = useSyncExternalStore(listener => { store.listeners.add(listener); return () => { store.listeners.delete(listener); }; }, () => store.pending);
+      return <>{children({ pending, statusHref: pending ? '/permission-requests?id=req-1' : null })}</>;
+    },
+    Dialog: ({ open, onOpenChange }) => <UiDialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent><DialogTitle>request</DialogTitle><DialogDescription>request dialog</DialogDescription><button type="button">inner</button></DialogContent>
+    </UiDialog>,
+  };
+  beforeEach(() => { store.pending = false; });
+  const listeners = new Set<() => void>();
+  const swapAdapter = (initial: Session, later: Session, validateScope: () => Promise<ScopeCheck>) => {
+    let current = initial;
+    listeners.clear();
+    return { adapter: testAdapter({ session: () => current, validateScope, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; } }), swap: () => { current = later; act(() => listeners.forEach(listener => listener())); } };
+  };
+  const openDialog = async (name = '권한 요청') => {
+    fireEvent.click(await screen.findByRole('button', { name }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    return dialog;
+  };
+  const onPageFallback = () => document.activeElement?.hasAttribute('data-platform-page-content') === true;
+  const granted = (scopes: readonly ScopeOption[]): Session => ({ ...testSession(['platform:view'], { scopes }), requestableScopes: [] });
+
+  it('pending replaces the opener while the dialog is open: closing returns focus to the status action', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
+    render(<I18nProvider><PlatformProvider adapter={adapterFor(requestable(), forbiddenCheck)} registry={registry} slots={{ accessRequest: realSlot }}><PlatformPage><p>page body</p></PlatformPage></PlatformProvider></I18nProvider>);
+    const dialog = await openDialog();
+    setPending(true);
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-access-request="pending"] a')));
+  });
+
+  it('place (c): the gate is removed by a session swap while the dialog holds focus → focus goes to the page body', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
+    let valid = false;
+    const { adapter, swap } = swapAdapter(requestable(), granted([{ id: 'SITE-C', label: 'SITE-C', grantedRooms: 1, totalRooms: 1 }]), async () => valid ? { status: 'valid', grantedRooms: ['RC1'] } : { status: 'forbidden', grantedRooms: [] });
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ accessRequest: realSlot }}><PlatformPage><p>page body</p></PlatformPage></PlatformProvider></I18nProvider>);
+    await openDialog();
+    valid = true;
+    swap();
+    expect(await screen.findByText('page body')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(onPageFallback()).toBe(true));
+  });
+
+  it('place (e): the banner is removed by a session swap while the dialog holds focus → focus goes to the page body', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+    const { adapter, swap } = swapAdapter(requestable([{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 5 }]), granted([{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 2 }]), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }));
+    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ accessRequest: realSlot }}><PlatformPage>
+      <QueryView query={forbiddenQuery} widgetName="Widget A">{() => <p>ok</p>}</QueryView>
+    </PlatformPage></PlatformProvider></I18nProvider>);
+    await openDialog();
+    swap();
+    await waitFor(() => expect(view.container.querySelector('[data-access-request-banner]')).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(onPageFallback()).toBe(true));
   });
 });
