@@ -10,7 +10,9 @@ const roots: string[] = [];
 const marker = 'synthetic-provider-private-failure';
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 
-runSourceWindowContract({ describe, it, expect } as never, {
+// Needs a verified window, which the directory provider gives only on Linux (descriptor realpath via /proc); fail-closed cases are in directory-source.test.ts on every platform.
+const linuxOnly = { describe: describe.runIf(process.platform === 'linux'), it, expect };
+runSourceWindowContract(linuxOnly as never, {
   name: 'directory verified window', synthetic: false, failureMarker: marker, capabilities: ['getWindow'],
   async setup(scenario) {
     const root = await mkdtemp(join(tmpdir(), 'source-contract-')); roots.push(root);
