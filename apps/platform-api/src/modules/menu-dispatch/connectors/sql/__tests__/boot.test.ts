@@ -59,12 +59,12 @@ it.each(['main', 'lookup'] as const)('refuses context.lineNames without listJoin
     const refused = bundleWith();
     const file = join(dir, 'bundle.json');
     await writeFile(file, JSON.stringify(refused));
-    await expect(loadMenuDeclarationSetup({ ...loadConfig(), MENU_DECLARATIONS_FILE: file }, { checkService })).rejects.toMatchObject({ problems: [reason] });
-    expect(() => declaredContribution({ bundle: refused as unknown as DeclarationBundle, checkService })).toThrow(reason);
+    await expect(loadMenuDeclarationSetup(withMenuSnapshotFile({ ...loadConfig(), MENU_DECLARATIONS_FILE: file }), { checkService })).rejects.toMatchObject({ problems: [reason] });
+    expect(() => declaredContribution({ bundle: refused as unknown as DeclarationBundle, snapshot: menuSnapshotFor(refused), checkService })).toThrow(reason);
     const accepted = bundleWith({ lines: ',' });
     await writeFile(file, JSON.stringify(accepted));
-    await expect(loadMenuDeclarationSetup({ ...loadConfig(), MENU_DECLARATIONS_FILE: file }, { checkService })).resolves.toBeDefined();
-    expect(() => declaredContribution({ bundle: accepted as unknown as DeclarationBundle, checkService })).not.toThrow();
+    await expect(loadMenuDeclarationSetup(withMenuSnapshotFile({ ...loadConfig(), MENU_DECLARATIONS_FILE: file }), { checkService })).resolves.toBeDefined();
+    expect(() => declaredContribution({ bundle: accepted as unknown as DeclarationBundle, snapshot: menuSnapshotFor(accepted), checkService })).not.toThrow();
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

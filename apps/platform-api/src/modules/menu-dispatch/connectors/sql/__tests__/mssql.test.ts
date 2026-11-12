@@ -10,6 +10,7 @@ import type { CheckService } from '../../../../permissions/check-service.js';
 import { declaredContribution } from '../../../declared-endpoints.js';
 import type { DeclarationBundle } from '../../../declarations-file.js';
 import { TargetSecret } from '../../../bundle/secrets.js';
+import { menuSnapshotFor } from '../../../../../test-support/menu-snapshot.js';
 import { MenuUpstreamError } from '../../../forwarder.js';
 import { TargetJudgmentTimeout, type ConnectorLeg } from '../../types.js';
 import {
@@ -260,5 +261,5 @@ it('boot: a list arg needs listJoin on mssql; statements, joined lists and a mis
   const base = routedBundle();
   const bundle = { ...base, targets: { 'tgt-1': { kind: 'sql', dialect: 'mssql', connectionFile: '/synthetic/secret' } },
     endpointOwners: { 'syn.rows': { ...base.endpointOwners['syn.rows'], call: { procedure: 'syn.read_rows', args: { rooms: 'scope.rooms', q: 'params.q' }, listJoin: { rooms: ',' } } } } };
-  expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, checkService: {} as CheckService })).not.toThrow();
+  expect(() => declaredContribution({ bundle: bundle as unknown as DeclarationBundle, snapshot: menuSnapshotFor(bundle), checkService: {} as CheckService })).not.toThrow();
 });
