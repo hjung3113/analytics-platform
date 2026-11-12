@@ -13,3 +13,6 @@ export { createFeatureQueryClient } from '@/lib/query/query-client';
 export { FeatureScreenRoot } from './FeatureScreenRoot';
 export { scopeSwitchClears } from '@/lib/host/scope-switch';
 export type { ScopeSwitchInput } from '@/lib/host/scope-switch';
+// The blocked-place request slot's pending read (ADR-0154 decision 6): the caller's open requests under the shared mine key.
+export { fetchPermissionRequestsMine, permissionRequestsMineKey } from '@/lib/api/permission-requests';
+export type { MinePermissionRequestRow } from '@/lib/api/permission-requests';

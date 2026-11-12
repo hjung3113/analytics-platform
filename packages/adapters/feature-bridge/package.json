@@ -9,6 +9,7 @@
     "./home-todo-slot": "./src/home-todo-slot.tsx",
     "./notifications-slot": "./src/notifications-slot.tsx",
     "./voc-compose-slot": "./src/voc-compose-slot.tsx",
+    "./access-request-slot": "./src/access-request-slot.tsx",
     "./scope-control": "./src/scope-control.tsx",
     "./nav-counts": "./src/nav-counts.tsx",
     "./saved-views": "./src/saved-views.tsx",

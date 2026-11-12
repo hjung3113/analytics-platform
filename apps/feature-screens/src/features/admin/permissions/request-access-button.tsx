@@ -70,6 +70,12 @@ interface RequestAccessButtonCommonProps {
   onRequestSubmitted?: () => void;
   /** Uses a caller-owned trigger while this component retains the request dialog and flow. */
   renderTrigger?: (open: () => void) => ReactNode;
+  /**
+   * Controlled mode (the platform's blocked-place request slot, ADR-0154 decision 6): the caller owns the open state and
+   * its own trigger, so no trigger and no wrapper are drawn. Absent = the component owns `open`.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 const SCOPE_CAPABILITY = 'scope.read';
@@ -88,7 +94,13 @@ const RECOVERABLE_CONFLICT_CODES = new Set([
 
 export function RequestAccessButton(props: RequestAccessButtonProps) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = props.open !== undefined;
+  const open = controlled ? props.open === true : ownOpen;
+  const setOpen = (next: boolean) => {
+    if (controlled) props.onOpenChange?.(next);
+    else setOwnOpen(next);
+  };
   const [reason, setReason] = useState('');
   const [expiration, setExpiration] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -198,15 +210,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
     },
   });
 
-  return (
-    <div>
-      {props.renderTrigger !== undefined ? (
-        props.renderTrigger(() => setOpen(true))
-      ) : (
-        <Button variant="primary" size="md" onClick={() => setOpen(true)}>
-          권한 요청
-        </Button>
-      )}
+  const dialog = (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent data-testid="permission-request-dialog">
           {submitted ? (
@@ -433,6 +437,20 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
           )}
         </DialogContent>
       </Dialog>
+  );
+
+  // Controlled: the caller draws its own entry and owns where the dialog sits (outside any menu).
+  if (controlled) return dialog;
+  return (
+    <div>
+      {props.renderTrigger !== undefined ? (
+        props.renderTrigger(() => setOpen(true))
+      ) : (
+        <Button variant="primary" size="md" onClick={() => setOpen(true)}>
+          권한 요청
+        </Button>
+      )}
+      {dialog}
     </div>
   );
 }

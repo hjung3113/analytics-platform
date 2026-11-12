@@ -3,6 +3,7 @@ import '@fontsource-variable/jetbrains-mono';
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './style.css';
 import { startAppHost } from '@ap/app-host';
+import { accessRequestSlot } from '@ap/feature-bridge/access-request-slot';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { homeTodoSlot } from '@ap/feature-bridge/home-todo-slot';
 import { navCountsSlot } from '@ap/feature-bridge/nav-counts';
@@ -32,7 +33,7 @@ import { SpaceSystemsSession } from './space-systems-session';
 const homeTodo = { Todo: () => <><improvementHomeTodoSlot.Todo /><homeTodoSlot.Todo /></> };
 // One slot object for the page's lifetime: its `Compose` component must keep its identity so a held draft does not remount.
 const vocCompose = vocComposeSlot(managedSystemFor, useComposeDefaultStatus);
-const useAppSlots = makeAppSlots({ notifications: notificationsSlot, vocCompose, homeTodo, scopeControl: scopeControlSlot, navCounts: navCountsSlot, spaceNavSection: savedViewsSlot, analysisActions: improvementAnalysisActions });
+const useAppSlots = makeAppSlots({ notifications: notificationsSlot, vocCompose, homeTodo, scopeControl: scopeControlSlot, navCounts: navCountsSlot, spaceNavSection: savedViewsSlot, analysisActions: improvementAnalysisActions, accessRequest: accessRequestSlot });
 
 void startAppHost({
   container: document.getElementById('root')!,
