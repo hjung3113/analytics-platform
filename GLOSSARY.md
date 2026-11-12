@@ -88,6 +88,24 @@ _Avoid_: AI 판정, 등급 판정 — 의견은 판정이 아니다.
 원본 로그의 한 줄을 가리키는 참조. 규칙 결과와 로그 탐색이 **같은 타입**을 쓰고 본문을 담지 않는다. 같은 이름 계열이지만 다른 항목: Finding에 붙는 근거 조각(Evidence Highlight), 로그 지식 허브의 지식 근거(Evidence Ref). 사람이 올린 파일은 `수동 검증 첨부`로 부른다. **발췌**는 근거 위치에 딸린 짧은 로그 본문으로 별도 상한·권한·보관 기한을 갖는다.
 _Avoid_: 증거(화면 문구), 근거 위치를 첨부와 같은 이름으로 부르는 것
 
+#### 검증 설계의 후보 용어 (Candidate)
+
+아래는 [진단 리포트 설계](docs/design/features/log-lifecycle/diagnostic-report-parity.md)·[사람 등록/토론 설계](docs/design/features/log-lifecycle/validation-issues-discussion.md)의 미확정 개념이다. 정본 명칭·화면 문구를 고르는 결정이 아니며 독립 용어 검토와 소유자 확인 전에는 확정 용어로 사용하지 않는다.
+
+**AttemptDiagnostic** · **DiagnosticItem** (Candidate):
+시도에서 생성한 설명·구조화 진단의 묶음과 그 안의 안정된 항목. 규칙 결과·작업자 의견·사람의 주장과 구별하는 후보 개념이다.
+
+**ValidationIssue** (Candidate):
+사람이 검증 중 발견한 관찰·검토 필요 사항·문제를 등록하는 항목. 공식 결함으로 확정하는 시점과 한국어 명칭은 Open이며 Finding·Task·규칙 결과와 다른 객체다.
+
+**IssueOccurrence** · **LinkedEvidence** (Candidate):
+사람 등록 항목이 특정 Round에서 관찰·재발·재검증된 기록과 그 기록에 연결된 근거 위치. 근거 위치 자체의 의미는 기존 EvidenceRef를 따른다.
+
+**Round discussion** · **Issue thread** (Candidate):
+Round 전체를 대상으로 하는 대화와 사람 등록 항목 하나를 대상으로 하는 대화. 댓글 대상이 다르며 작업자가 제출하는 의견과도 구별한다.
+
+#### 표준 로그 개발의 기존 용어 (계속)
+
 **Event 관계 기록** (`EventRelationRecord`):
 지식 Item의 Revision이 «Event A가 Event B보다 먼저 일어난다»를 **관찰했는지(`observed`) 명세가 기대하는지(`expected`)** 구조화해 적은 한 줄. 안정 키(`moduleKey/eventKey`)로 명세를 가리키고 본문 문장과 별개이며 추가 전용이다. 방향 검색은 이 기록에서만 만든다([ADR-0125](docs/adr/0125-event-order-search-uses-structured-event-relation-records.md)). 모델 명세가 선언한 순서(`spec_event_relation`)와 다른 객체다.
 _Avoid_: 이벤트 관계(명세의 순서 선언과 섞임), Finding

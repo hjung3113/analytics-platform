@@ -162,6 +162,7 @@
 | [0149](0149-domain-context-extends-through-namespaced-axes.md) | 도메인 Context는 `ContextKey`를 늘리지 않고 앱이 주입하는 네임스페이스 축으로 넓힌다 | Decided(2026-11-11) |
 | [0150](0150-no-external-ai-or-embedding-calls-in-the-in-house-profile.md) | 사내 프로필에서는 외부 AI·임베딩 호출을 하지 않고 시작 검사로 지킨다 | Decided(2026-11-11) |
 | [0151](0151-public-domain-vocabulary-is-frozen-by-an-allowlist.md) | 공개 저장소의 기존 도메인 어휘는 허용 목록으로 동결하고 목록 밖 신규만 막는다 | Decided(2026-11-11) |
+| [0152](0152-worker-input-delivery-source-owner-step.md) | 작업자 입력 전달은 공급자 중립인 Source 소유자의 별도 단계로 둔다 | Candidate |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

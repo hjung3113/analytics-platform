@@ -4,6 +4,16 @@
 >
 > 사내 스크립트 Validator·사내 LLM은 별도 개발 중이다. 인터페이스·출력·권한은 실사 전이므로 **연동 완료로 쓰지 않는다.** 이 슬라이스는 플랫폼 쪽 틀(요청 등록·가져가기·결과 저장·사람 기록)만 만든다.
 
+## 후속 설계 (Candidate)
+
+| 범위 | 소유 문서 | 상태 |
+| --- | --- | --- |
+| #1807 분리 작업자 입력 바이트 전달 | [ADR-0152](../../../adr/0152-worker-input-delivery-source-owner-step.md), [API 상세·Open decisions](../../../architecture/platform-api/api/log-lifecycle.md#작업자-입력-전달-1807) | Candidate · 미구현, 공급자 미선택 |
+| #1815 진단 보존·상세·근거표·선택 첨부 | [손실 매트릭스·Slice A/B·노드·Open decisions](diagnostic-report-parity.md), [API 읽기 투영](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815) | Candidate · 미구현 |
+| #1808 사람 등록 항목·Round/항목별 토론 | [논리 모델·권한·노드·Open decisions](validation-issues-discussion.md) | Candidate · 미구현, DDL은 설계 merge 뒤 별도 PR |
+
+아래 v0.30.0의 비범위는 이 후보 설계로 구현 상태가 바뀌지 않는다. #1809의 Round 탐색 구현과 충돌하는 화면 노드는 각 문서의 그래프를 따른다.
+
 ## 1. 이 슬라이스가 하는 것
 
 v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)) + **#1330 P0 최소** + **#1419 API 토큰**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)) + **#1420 검증 요청 큐**([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)). 이 문서는 이 중 #1330 P0 + #1420을 담는 `log-lifecycle` 모듈을 정한다.
