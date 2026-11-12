@@ -13,6 +13,9 @@ import { DeclarationBundleError, loadDeclarationBundle } from './modules/menu-di
 import { isEnvelope } from './modules/menu-dispatch/bundle/calls.js';
 import { routeCall } from './modules/menu-dispatch/bundle/routing.js';
 import { readTargetSecrets, type TargetSecrets } from './modules/menu-dispatch/bundle/secrets.js';
+import { connectorFactories as defaultFactories } from './modules/menu-dispatch/connectors/index.js';
+import type { ConnectorFactories, RoutingLog } from './modules/menu-dispatch/connectors/types.js';
+import { routedBootProblems } from './modules/menu-dispatch/routing.js';
 import { declaredContribution } from './modules/menu-dispatch/declared-endpoints.js';
 import { createMenuForwarder, normalizeMenuUpstreamBaseUrl, validateMenuOwnerPath } from './modules/menu-dispatch/forwarder.js';
 import { createHttpScopeResolver } from './modules/menu-dispatch/http-scope-resolver.js';
@@ -48,7 +51,7 @@ export interface MenuDeclarationSetup {
  */
 export async function loadMenuDeclarationSetup(
   config: MenuDeclarationConfig,
-  deps: { checkService: CheckService; fetch?: typeof globalThis.fetch },
+  deps: { checkService: CheckService; fetch?: typeof globalThis.fetch; connectorFactories?: ConnectorFactories; scopeCatalog?: Readonly<Record<string, readonly string[]>>; log?: (entry: RoutingLog) => void },
 ): Promise<MenuDeclarationSetup | null> {
   const file = config.MENU_DECLARATIONS_FILE;
   if (file === undefined) return null;
@@ -62,9 +65,10 @@ export async function loadMenuDeclarationSetup(
     if (missing.length) throw new DeclarationBundleError(missing.map((key) => `${key} is required when the bundle has an envelope destination`));
   }
   const targetSecrets = bundle.targets === undefined ? undefined : await readTargetSecrets(bundle.targets);
-  if (Object.values(bundle.endpointOwners).some((owner) => typeof owner !== 'string')) {
-    throw new DeclarationBundleError(['routed endpoints are not served yet (ADR-0153 node 1839a2)']);
-  }
+  const connectorFactories = deps.connectorFactories ?? defaultFactories;
+  const problems = routedBootProblems(bundle, connectorFactories, deps.scopeCatalog);
+  if (problems.length) throw new DeclarationBundleError(problems);
+  const routedDeps = { connectorFactories, timeoutMs: config.MENU_UPSTREAM_TIMEOUT_MS, ...(targetSecrets ? { targetSecrets } : {}), log: deps.log ?? ((entry: RoutingLog) => { console.info(JSON.stringify(entry)); }) };
   const scopeResolver = config.MENU_SCOPE_GRANT_SERVICE_URL === undefined
     ? undefined
     : createHttpScopeResolver({
@@ -73,7 +77,7 @@ export async function loadMenuDeclarationSetup(
       ...(deps.fetch ? { fetch: deps.fetch } : {}),
     });
   if (!envelope) return {
-    menuDispatch: [declaredContribution({ bundle, checkService: deps.checkService })],
+    menuDispatch: [declaredContribution({ bundle, checkService: deps.checkService, ...routedDeps })],
     ...(scopeResolver ? { scopeResolver } : {}),
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
   };
@@ -83,7 +87,7 @@ export async function loadMenuDeclarationSetup(
   if (!keyId || !keyFile || !upstreamBaseUrl) throw new DeclarationBundleError(['envelope destination configuration is incomplete']);
   const baseUrl = normalizeMenuUpstreamBaseUrl(upstreamBaseUrl);
   for (const [id, path] of Object.entries(bundle.endpointOwners)) {
-    if (typeof path !== 'string') throw new DeclarationBundleError(['routed endpoints are not served yet (ADR-0153 node 1839a2)']);
+    if (typeof path !== 'string') continue;
     try { validateMenuOwnerPath(path); } catch {
       throw new Error(`Invalid endpointOwners field for ${id}: invalid menu upstream owner path`);
     }
@@ -109,7 +113,7 @@ export async function loadMenuDeclarationSetup(
   });
   return {
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
-    menuDispatch: [declaredContribution({ bundle, forwarder, checkService: deps.checkService })],
+    menuDispatch: [declaredContribution({ bundle, forwarder, checkService: deps.checkService, ...routedDeps })],
     ...(scopeResolver ? { scopeResolver } : {}),
   };
 }

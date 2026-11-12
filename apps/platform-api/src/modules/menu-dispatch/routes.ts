@@ -44,6 +44,8 @@ export const menuQueryDispatchRoutes: FastifyPluginAsync<MenuDispatchRoutesOptio
   app,
   opts,
 ) => {
+  const arrivals = new WeakMap<FastifyRequest, number>();
+  app.addHook('onRequest', async (req) => { arrivals.set(req, Date.now()); });
   installPlatformTransport(app, { notFound: false });
   const authenticate = createAuthenticator({
     sessionService: opts.sessionService,
@@ -72,7 +74,7 @@ export const menuQueryDispatchRoutes: FastifyPluginAsync<MenuDispatchRoutesOptio
       : unavailableSessionVersion();
     let answer;
     try {
-      answer = await runQuery(shape, platformActorOf(loaded), req.id, abandoned.signal, sessionVersion);
+      answer = await runQuery(shape, platformActorOf(loaded), req.id, abandoned.signal, sessionVersion, arrivals.get(req));
     } catch (error) {
       // A forwarded endpoint's upstream failed as transport (forwarder.ts): 502/504 with the same
       // correlation id and none of the upstream's body text. Anything else keeps the 500 path.

@@ -6,20 +6,28 @@ import type { CheckService } from '../permissions/check-service.js';
 import { holdsPlatformPermission, PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
 import { DeclarationBundleError, type DeclarationBundle } from './declarations-file.js';
 import type { MenuForwarder } from './forwarder.js';
+import { connectorFactories as defaultFactories } from './connectors/index.js';
+import type { ConnectorFactories, RoutingLog } from './connectors/types.js';
+import type { TargetSecrets } from './bundle/secrets.js';
+import { validateParamValues } from './binding-values.js';
+import { routedBootProblems } from './routing.js';
+import { handleRouted } from './routed-handler.js';
 import { MAX_ROWS_REASON } from './bundle/validation.js';
 import type { MenuDispatchContribution, MenuPermissionDeclaration } from './types.js';
 
 /** Assemble loaded bundle data; refuse inconsistent programmatic bundles too, before registration. */
-export function declaredContribution({ bundle, forwarder, checkService }: {
+export function declaredContribution({ bundle, forwarder, checkService, connectorFactories = defaultFactories, targetSecrets, timeoutMs = 27000, log }: {
   bundle: DeclarationBundle;
   forwarder?: MenuForwarder;
   checkService: CheckService;
+  connectorFactories?: ConnectorFactories;
+  targetSecrets?: Readonly<Record<string, TargetSecrets>>;
+  timeoutMs?: number;
+  log?: (entry: RoutingLog) => void;
 }): MenuDispatchContribution {
   const problems: string[] = [];
-  if (!forwarder && bundle.endpoints.length > 0) problems.push('declared endpoints require a forwarder');
-  if (Object.values(bundle.endpointOwners).some((owner) => typeof owner !== 'string')) {
-    problems.push('routed endpoints are not served yet (ADR-0153 node 1839a2)');
-  }
+  if (!forwarder && Object.values(bundle.endpointOwners).some((owner) => typeof owner === 'string')) problems.push('declared endpoints require a forwarder');
+  problems.push(...routedBootProblems(bundle, connectorFactories));
   for (const row of bundle.endpoints) {
     if (row.limits?.maxRows !== undefined && typeof bundle.endpointOwners[row.id] === 'string') problems.push(`endpoint ${row.id}: ${MAX_ROWS_REASON}`);
   }
@@ -53,18 +61,21 @@ export function declaredContribution({ bundle, forwarder, checkService }: {
     endpoints: bundle.endpoints.map(({ limits, requiredContext, ...spec }) => {
       const path = bundle.endpointOwners[spec.id];
       if (path === undefined) throw new DeclarationBundleError([`endpoint ${spec.id}: no owner-table row`]);
-      if (!forwarder) throw new DeclarationBundleError(['declared endpoints require a forwarder']);
-      if (typeof path !== 'string') throw new DeclarationBundleError(['routed endpoints are not served yet (ADR-0153 node 1839a2)']);
+      const routed = typeof path !== 'string';
       return {
         spec: {
           ...spec,
           ...(requiredContext === undefined ? {} : { requiredContext }),
-          ...(limits?.maxHours === undefined ? {} : { limits: { maxHours: limits.maxHours } }),
+          ...(routed ? (limits === undefined ? {} : { limits: { ...(limits.maxHours === undefined ? {} : { maxHours: limits.maxHours }), ...(limits.maxRows === undefined ? {} : { maxRows: limits.maxRows }) } }) : (limits?.maxHours === undefined ? {} : { limits: { maxHours: limits.maxHours } })),
         },
         authorize: (actor, tx) => holdsPlatformPermission(checkService, actor, spec.permission, { ...(tx ? { tx } : {}), menuPermissions: permissions }),
-        // judgeQueryShape already checks plain objects and paramKeys; values belong to the upstream.
-        validate: () => ({ ok: true }),
-        handle: (args) => forwarder.forward({ endpointId: spec.id, path, args }),
+        // Step 2: routed calls judge typed values here; legacy envelope values stay upstream-owned.
+        validate: (params) => routed ? validateParamValues(spec.paramTypes ?? {}, params) : { ok: true },
+        handle: (args) => {
+          if (typeof path !== 'string') return handleRouted({ ...spec, ...(limits ? { limits } : {}) }, path, bundle, { connectorFactories, timeoutMs, ...(targetSecrets ? { targetSecrets } : {}), ...(log ? { log } : {}) }, args);
+          if (!forwarder) throw new DeclarationBundleError(['declared endpoints require a forwarder']);
+          return forwarder.forward({ endpointId: spec.id, path, args });
+        },
       };
     }),
   };

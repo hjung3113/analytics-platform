@@ -58,7 +58,13 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 - HTTP `mapped`: 경로 조각 `{name}`의 바인딩 표는 `pathParams`다. 이름 집합은 경로 변수와 정확히 같아야 한다. `arrayStyle`은 `{ mode: "repeat" }` 또는 `{ mode: "join", separator }`다. `response.fields`는 `{ out: { from: "/pointer", type?: "number" | "string" | "wallclock" } }`다.
 - SQL 프로시저의 `listJoin`은 인자 이름 → 구분자 표다. 대상 `pool`은 `{ max, concurrency }`, DB 응용 이름은 `applicationName`이다. SQL도 `response.fields`를 사용한다.
 - `paramTypes`의 `maxLength`·`maxItems`·`enum`은 선택 필드이며, 주어지면 양의 상한과 선언 형에 맞는 enum 값이어야 한다. 문자열 배열은 `maxLength`를 항목 길이, `maxItems`를 항목 수에 쓴다. `kinds` 생략은 빈 kind 목록이다.
-- 비밀 파일은 선언 검증 뒤 읽는다. setup의 `targetSecrets`는 JSON·로그 검사에 내용이 드러나지 않는 값이며 연결기만 명시적으로 꺼낸다. 1839a1 단계에서는 검증된 라우팅 객체도 `routed endpoints are not served yet (ADR-0153 node 1839a2)`로 기동 거부한다. 실행 구현은 a2 이후의 몫이다.
+- 비밀 파일은 선언 검증 뒤 읽는다. setup의 `targetSecrets`는 JSON·로그 검사에 내용이 드러나지 않는 값이며 연결기만 명시적으로 꺼낸다. 단일 대상 라우팅은 연결기 factory가 있을 때만 기동하며, factory 없는 종류는 `connector kind <k> is not available`로 거부한다. 여러 대상을 적은 경로는 노드 d1, `merge.partial`·페이지는 노드 d2까지 기동 거부한다.
+
+### 실행 인터페이스의 구체 모양 (1839a2)
+
+- 연결기는 `query(leg, { signal, deadlineMs, rowCap }) → AsyncIterable<row>`다. `deadlineMs`는 호출 시 남은 코어 시간에서 2초를 뺀 밀리초 예산이며, `rowCap`은 초과 판정용 한 행을 포함한다. `signal` 중단과 iterator `return`은 드라이버 취소로 이어져야 한다. 대상 판정 제한은 고정 메시지의 `TargetJudgmentTimeout`, 전송·코어 마감은 `MenuUpstreamError`로 구분한다.
+- `resolve-keys`의 `lookup`은 키별로 한 번 호출하고 정확히 한 행으로 풀려야 한다. `keys`와 같은 바인딩을 현재 키로 대체하며 배열 바인딩은 한 항목 배열을 유지한다. 선언된 lookup은 그 바인딩을 사용해야 한다. 동적인 빈 키 목록은 `forbidden`이며 집계는 `{ const: [] }`만 허용한다.
+- 경로 `valueMap`은 축별로 대상의 표를 덮어쓰며, 없는 축은 대상의 표를 쓴다. `fields`의 JSON 포인터는 own property만 읽고, `wallclock` 입력은 시간대 없는 문자열로 받는다.
 
 ### 3. 요청마다의 라우팅과 Scope 판정의 끝
 
@@ -66,6 +72,7 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 2. **허용 room 집합 R:** 엔드포인트가 `roomNames`를 적용하고 요청 값이 배열이면 그 배열(이미 부여의 부분집합으로 판정됨). 적용하지 않거나 요청 값이 `null`(제약 없음)이면 그 site에서 부여받은 room 전체. **R은 언제나 유한한 명시적 목록이다** — 대상에 «room 제약 없음»(`null`·빈 목록)을 넘기는 경우는 없다. 빈 R은 데이터 없이 `empty`이고 대상을 부르지 않는다.
 3. 요청 site가 `sites`에 있고 `rooms`가 없거나 R과 겹치는 경로를 고른다. 각 대상에는 **site와 R ∩ 경로 rooms만** 넘긴다. 부여 집합 전체·다른 site는 넘기지 않는다.
 4. **덮이지 않는 범위:** 요청 site에 맞는 경로가 없으면 데이터 없이 `error`(설정 결함)다. R의 room 중 어느 경로에도 없는 것이 있으면 — `unroutedRooms: "skip"`이면 그 room은 «데이터가 없는 room»으로 묻지 않고 건너뛴다(남는 room이 없으면 `empty`), 기본(`"error"`)이면 데이터 없이 `error`다. 이유: 선언 없는 누락은 조용한 부분 답이고, 선언이 있으면 부여 변경(이 시스템에 없는 room을 받은 사용자)이 장애가 되지 않는다.
+   `loadMenuDeclarationSetup`에 기동 시 고정된 `scopeCatalog`가 주어지면 room으로 나눈 site의 `unroutedRooms: "error"` 엔드포인트는 카탈로그의 모든 room을 경로가 덮어야 하며, 빠지면 endpoint·site·room을 이름으로 기동 실패한다(카탈로그가 없으면 검사 생략).
 5. **신원 토큰을 검증하지 못하는 대상(`http` 변환형, `sql`):** 권한·Scope 판정은 코어에서 끝나고(fail-closed), 대상은 플랫폼의 서비스 계정으로만 접근된다. 대상 쪽 감사는 사용자를 모르므로 코어가 요청마다 행위자·correlation id·대상 id를 로그에 남긴다(행·바인딩 값·비밀은 남기지 않는다).
 6. **envelope 대상의 토큰:** 문자열 행(기본 상류)은 지금 그대로다. 라우팅 객체로 고른 envelope 대상의 토큰 `scopes` claim에는 요청 site와 그 경로 몫의 room만 싣고(ADR-0148 결정 4 개정), `aud`는 대상 선언값이다(기본 `analytics`, ADR-0095 결정 5 개정) — 한 대상이 받은 토큰을 30초 안에 다른 대상에 다시 쓰지 못하게 한다.
 

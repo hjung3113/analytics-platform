@@ -195,6 +195,7 @@ export async function runQuery(
   correlationId: string,
   signal?: AbortSignal,
   sessionVersion: () => Promise<string> = unavailableSessionVersion,
+  arrivedAtMs?: number,
 ): Promise<QueryAnswer> {
   const { declaration, context, params } = shape;
   if (!(await declaration.authorize(actor))) {
@@ -208,14 +209,14 @@ export async function runQuery(
   if (SET_FIELDS.some((field) => Array.isArray(context[field]) && context[field].length === 0)) {
     return answer('empty');
   }
-  const result = await declaration.handle({ actor, context, params, correlationId, scopes, sessionVersion, ...(signal ? { signal } : {}) });
+  const result = await declaration.handle({ actor, context, params, correlationId, scopes, sessionVersion, ...(arrivedAtMs === undefined ? {} : { arrivedAtMs }), ...(signal ? { signal } : {}) });
   const { maxRows } = declaration.spec.limits ?? {};
-  if (maxRows !== undefined && result.outcome === 'ok') {
+  if (maxRows !== undefined && (result.outcome === 'ok' || (result.outcome === 'empty' && result.rowsRead !== undefined))) {
     if (!Array.isArray(result.data)) {
       // Declared a row cap but did not return rows: a declaration misuse, not a data answer.
       return answer('error', { message: `${declaration.spec.id} declares maxRows but returned no rows` });
     }
-    if (result.data.length > maxRows) return answer('too_large');
+    if ((result.rowsRead ?? result.data.length) > maxRows) return answer('too_large');
   }
   return answer(result.outcome, {
     data: result.data ?? null,
