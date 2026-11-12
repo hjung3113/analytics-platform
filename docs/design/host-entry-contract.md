@@ -1,6 +1,6 @@
 # Host 조립 계약 — 저장소 밖 조립이 받는 도메인 없는 조립 함수 (#1702)
 
-상태: **Candidate** — 설계. 결정은 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)(방향), [ADR-0142](../adr/0142-out-of-repo-menu-package-and-host-module-split.md)(확장 방식), [ADR-0143](../adr/0143-release-units-and-compatibility-train.md)(릴리스 단위)가 소유하고, 이 문서는 그 결정을 따르는 Host 쪽 모양과 다음 노드의 수용 목록을 소유한다. Host 조립 함수는 `packages/app-host`(`@ap/app-host`, 노드 1702a)에 구현됐고, 공개 앱의 전환은 다음 노드(1702b)다.
+상태: **Candidate** — 설계. 결정은 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)(방향), [ADR-0142](../adr/0142-out-of-repo-menu-package-and-host-module-split.md)(확장 방식), [ADR-0143](../adr/0143-release-units-and-compatibility-train.md)(릴리스 단위)가 소유하고, 이 문서는 그 결정을 따르는 Host 쪽 모양과 다음 노드의 수용 목록을 소유한다. Host 조립 함수는 `packages/app-host`(`@ap/app-host`, 노드 1702a)에 구현됐고, 공개 앱 `apps/platform-web`도 이 함수를 쓴다(#1812).
 
 용어: 여기서 «Host»는 조립 함수와 그 릴리스 단위다. 셸·앱만 import하는 `@ap/kernel/host` 진입점([ADR-0076](../adr/0076-kernel-host-entry-narrow-menu-platform.md))과 호스트 모듈([ADR-0053](../adr/0053-host-module-contract-v1.md))과는 다른 것이다.
 
@@ -53,11 +53,9 @@ Registry 검사와 위 §3의 거부는 실수를 막는다. 같은 JS 프로세
 
 `mountModule`의 `features` 기본값은 `['query', 'detailSlot', 'write']`이고 조립자가 생략하면 쓰기가 켜진다. 기본값을 빈 목록으로 바꿀지는 공개 SDK 기본값 변경이라 소유자 확인 뒤에 한다. 이 문서는 바꾸지 않는다.
 
-## 9. 서버 쪽 절반은 방향만 적는다
+## 9. 서버 선언 조립
 
-코어 서버에 사내 확장을 싣는 방법은 [#1729](https://github.com/hjung3113/analytics-platform/issues/1729)가 소유하고 구현하지 않는다. 방향 메모(추천, 결정 아님): 사내 서버 코드를 코어 서버 프로세스에 넣지 않고 엔드포인트·동작 선언, 소유자 표, 권한 규칙을 배포 설정으로 읽는다. 권한 부여 경로는 서버 설정 표(P5-b)이며 [#1087](https://github.com/hjung3113/analytics-platform/issues/1087)·[#1667](https://github.com/hjung3113/analytics-platform/issues/1667)과 함께 정한다. 그 전에는 파일럿을 mock 통과로만 센다.
-
-파일 형식(#1729 노드 1729a가 정했다, [ADR-0146](../adr/0146-core-server-loads-in-house-declarations-from-deployment-config.md) Deferred 결정): 선언 묶음은 JSON 파일 하나에 `endpoints`(엔드포인트 선언 행), `actions`(동작 선언 행), `permissions`(`{permission, capability}` 메뉴 권한 행), 그리고 소유자 표 `endpointOwners`(`엔드포인트 id → 상류 경로`, 경로는 `/`로 시작)를 함께 담는다. 핸들러는 파일에 없다(전달기 조립이 따로 한다). 읽는 `loadDeclarationBundle`(`apps/platform-api/src/modules/menu-dispatch/declarations-file.ts`)은 파일 없음·JSON 오류·스키마 오류·id 중복·소유자 표와 엔드포인트 불일치·선언되지 않은 권한 사용, 그리고 `limits.maxRows`(ADR-0095 금지 7)를 모두 기동 실패로 닫힌 쪽으로 거부한다.
+코어 서버의 배포 선언 조립은 [#1729](https://github.com/hjung3113/analytics-platform/issues/1729)에 구현됐다. 선언 묶음·메뉴 선언 스냅샷 대조·Scope 원천·연결기별 기동 조건의 원본은 [실서버 연결 체크리스트](../integration/real-server-checklist.md)다. 사내 배포 준비는 [사내 적용 가이드](../integration/in-house-rollout.md)를 따른다. 실제 사내 대상의 적합성은 합성 시험 통과와 별도로 확인한다.
 
 ## 10. 저장소 밖 조립 시험 계획 (다음 노드의 수용 목록)
 

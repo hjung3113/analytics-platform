@@ -140,7 +140,7 @@
 
 > 사내 조립 저장소에서 메뉴를 만드는 개발자는 이 순서 대신 릴리스 자산 `ap-start-kit-<버전>.tgz`로 시작한다: [시작 키트 안내](../guides/standalone-start-kit.md), 반입은 [승인 릴리스 반입 묶음](approved-release-bundle.md), 방향은 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md). 아래 순서는 이 저장소의 `menus/`에 견본 메뉴를 더는 길이다.
 
-실제 메뉴는 사내에서 새로 만든다. 이 저장소의 메뉴 화면은 플랫폼 계약을 검증하는 견본이다. 사내 메뉴 개발자는 아래 순서를 따르고, 규칙의 원본은 각 링크다.
+실제 메뉴는 사내에서 새로 만든다. 이 저장소의 메뉴 화면은 플랫폼 계약을 검증하는 견본이다. 이 저장소의 견본 메뉴를 더할 때는 아래 순서를 따르고, 규칙의 원본은 각 링크다.
 
 1. **시작 전:** [06](../contract/platform-ui-contract.md) §5 Menu Extension Contract와 §29 Platform-first Definition of Done을 읽고, Page Archetype(§12)·쓸 공통 컴포넌트·연결할 메뉴(§22)를 먼저 적는다. 화면 설계는 [설계 스킬](../../.agents/skills/analysis-platform-wireframe/SKILL.md) 절차(Requirements → IA → Screen Spec → Wireframe → Open Decisions).
 2. **그룹·패키지:** 기존 그룹에 manifest를 추가한다. 새 그룹은 사람이 앱 조립 파일(`apps/platform-web/src/menus.ts`)의 `GROUPS` 행을 먼저 추가한 뒤(그룹 id는 `groupId('…')`, 새 공간·권한도 같은 파일의 `SPACES`·`PERMISSIONS`에 선언하고 계약 패키지는 고치지 않는다, ADR-0072) `pnpm gen:menu`로 만든다. 패키지 규칙은 [menus/AGENTS.md](../../menus/AGENTS.md).

@@ -58,7 +58,7 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 - HTTP `mapped`: 경로 조각 `{name}`의 바인딩 표는 `pathParams`다. 이름 집합은 경로 변수와 정확히 같아야 한다. `arrayStyle`은 `{ mode: "repeat" }` 또는 `{ mode: "join", separator }`다. `response.fields`는 `{ out: { from: "/pointer", type?: "number" | "string" | "wallclock" } }`다.
 - SQL 프로시저의 `listJoin`은 인자 이름 → 구분자 표다. 대상 `pool`은 `{ max, concurrency }`, DB 응용 이름은 `applicationName`이다. SQL도 `response.fields`를 사용한다.
 - `paramTypes`의 `maxLength`·`maxItems`·`enum`은 선택 필드이며, 주어지면 양의 상한과 선언 형에 맞는 enum 값이어야 한다. 문자열 배열은 `maxLength`를 항목 길이, `maxItems`를 항목 수에 쓴다. `kinds` 생략은 빈 kind 목록이다.
-- 비밀 파일은 선언 검증 뒤 읽는다. setup의 `targetSecrets`는 JSON·로그 검사에 내용이 드러나지 않는 값이며 연결기만 명시적으로 꺼낸다. 단일 대상 라우팅은 연결기 factory가 있을 때만 기동하며, factory 없는 종류는 `connector kind <k> is not available`로 거부한다. 여러 대상을 적은 경로는 노드 d1, `merge.partial`·페이지는 노드 d2까지 기동 거부한다.
+- 비밀 파일은 선언 검증 뒤 읽는다. setup의 `targetSecrets`는 JSON·로그 검사에 내용이 드러나지 않는 값이며 연결기만 명시적으로 꺼낸다. 단일 대상 라우팅은 연결기 factory가 있을 때만 기동하며, factory 없는 종류는 `connector kind <k> is not available`로 거부한다. fan-out·`merge.partial`·페이지의 지원 조건은 아래 병합 계약을 따른다.
 
 ### 실행 인터페이스의 구체 모양 (1839a2)
 
@@ -68,7 +68,7 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 
 ### fan-out 병합의 구체 모양 (1839d1)
 
-- 비페이지 fan-out은 한 경로의 여러 대상과 room별 여러 경로 모두 실행한다. a1·a2의 fan-out 거부를 해제한다. `merge.partial`과 페이지는 아래 1839d2 규칙을 따른다.
+- 비페이지 fan-out은 한 경로의 여러 대상과 room별 여러 경로 모두 실행한다. `merge.partial`과 페이지는 아래 1839d2 규칙을 따른다.
 - 모든 leg는 요청 도착 기준 마감 하나와 취소 신호를 공유한다. 연결기를 부를 때마다 남은 시간에서 2초를 뺀 `deadlineMs`를 준다. 실패 즉시 형제 leg의 signal과 iterator `return`으로 취소하고, 정착한 실패의 우선순위는 `502 > 504 > timeout`이다. 형제 취소 자체는 실패 등급에 넣지 않는다.
 - leg별 원본 읽기는 `maxRows + 1`에서 멈춘다. 한 leg가 넘으면 형제도 취소하고 `rowsRead` 초과 표식을 `query.ts`에 넘겨 `too_large`, `data: null`을 판정하게 한다. leg별 상한 안에서도 투영 후 합친 행 수가 상한을 넘으면 같은 판정을 쓴다.
 - 순수 함수 `mergeRows`는 경로·대상 선언 순서와 leg 안의 행 순서를 보존하거나 `merge.sort`로 정렬한다. 문자열은 Unicode 코드포인트 순서, 숫자는 수치 순서이며 `null`은 방향과 무관하게 끝이다. 정렬 필드의 누락·지원하지 않는 값·혼합 형과 leg 사이의 마지막 유일 키 중복은 값 없는 고정 `MenuUpstreamError('unavailable')`로 실패한다.
@@ -182,7 +182,7 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 
 ### 11. 구현 노드와 순서 (빼는 것 없음, 우선순위만)
 
-노드마다 끝나는 대로 병합한다. `targets`를 쓰지 않는 묶음은 어느 노드에서도 동작이 바뀌지 않으므로(노드 a1의 고정 시험) 중간 병합이 안전하다. #1838(1729h) 위에 쌓고, 그것이 병합되면 `main`으로 옮긴다.
+노드마다 끝나는 대로 병합한다. `targets`를 쓰지 않는 묶음은 어느 노드에서도 동작이 바뀌지 않으므로(노드 a1의 고정 시험) 중간 병합이 안전하다. 구현 기록은 [#1839](https://github.com/hjung3113/analytics-platform/issues/1839)와 각 병합 PR을 따른다.
 
 | 노드 | 내용 | 선행 |
 | --- | --- | --- |
