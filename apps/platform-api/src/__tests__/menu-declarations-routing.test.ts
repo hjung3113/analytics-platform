@@ -129,3 +129,10 @@ it.each(['file', 'programmatic'] as const)('refuses duplicate kinds at boot thro
   const boot = assembly === 'file' ? setup(value) : Promise.resolve().then(() => declaredContribution({ bundle: value as unknown as DeclarationBundle, checkService }));
   expect(await problems(boot)).toEqual(['endpoint syn.rows: kinds must not contain duplicates']);
 });
+
+it.each(['file', 'programmatic'] as const)('refuses duplicate kinds in a legacy-only bundle at boot through %s assembly', async (assembly) => {
+  const base = legacy();
+  const value = { ...base, endpoints: base.endpoints.map((row) => ({ ...row, kinds: ['coverage', 'coverage'] })) };
+  const boot = assembly === 'file' ? setup(value) : Promise.resolve().then(() => declaredContribution({ bundle: value as unknown as DeclarationBundle, forwarder: {} as MenuForwarder, checkService }));
+  expect(await problems(boot)).toEqual(['endpoint syn.rows: kinds must not contain duplicates']);
+});
