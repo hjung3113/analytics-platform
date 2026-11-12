@@ -1803,7 +1803,8 @@ describe('/admin/permissions/grants screen', () => {
       'Actor One',
     );
     expect(within(followUp).getByRole('radio', { name: /VOC 조회.*Payments/ })).toBeChecked();
-    expect(within(followUp).getByText(/선택: VOC 조회/)).toBeInTheDocument();
+    // #1842 review C1: the chosen permission is also shown outside the scroll area, above the footer.
+    expect(within(followUp).getByTestId('direct-grant-selected')).toHaveTextContent(/선택: VOC 조회.*Payments/);
     const reason = within(followUp).getByLabelText('사유 · 필수');
     expect(reason).toHaveValue('VOC 분류 운영을 맡깁니다.');
     expect(reason).toBeEnabled();
@@ -2061,7 +2062,8 @@ describe('/admin/permissions/grants screen', () => {
     expect(within(followUp).getByTestId('direct-grant-recipient')).not.toHaveTextContent('User');
     expect(within(followUp).getByTestId('direct-grant-system-actor-note')).toBeInTheDocument();
     expect(within(followUp).getByRole('radio', { name: /VOC 조회.*Payments/ })).toBeChecked();
-    expect(within(followUp).getByText(/선택: VOC 조회/)).toBeInTheDocument();
+    // #1842 review C1: the chosen permission is also shown outside the scroll area, above the footer.
+    expect(within(followUp).getByTestId('direct-grant-selected')).toHaveTextContent(/선택: VOC 조회.*Payments/);
     expect(within(followUp).getByLabelText('사유 · 필수')).toHaveValue(
       '리포트 분류 운영을 맡깁니다.',
     );

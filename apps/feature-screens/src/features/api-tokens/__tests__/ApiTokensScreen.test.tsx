@@ -89,6 +89,15 @@ describe('API token management', () => {
     expect(submit.closest('form')).toBeNull();
     expect(document.getElementById(submit.getAttribute('form') ?? '')).toBe(screen.getByLabelText('토큰 이름').closest('form'));
   });
+  it('refuses an empty selection with the per-permission message and sends no request (#1842 review C3)', async () => {
+    mount(); const user = await openIssue();
+    const dialog = within(screen.getByRole('dialog'));
+    await user.click(dialog.getByRole('button', { name: '모두 해제' }));
+    const posts = calls.filter(call => call.method === 'POST').length;
+    await user.click(dialog.getByRole('button', { name: '토큰 발급' }));
+    expect(await screen.findByText('권한을 하나 이상 선택하세요.')).toBeVisible();
+    expect(calls.filter(call => call.method === 'POST')).toHaveLength(posts);
+  });
   it('renders unused, revoked, no-expiry, expired and unmapped scopes without actions on revoked rows', async () => {
     rows = [row({ unusedWarning: true }), row({ id: ACTOR, name: '폐기한 토큰', revokedAt: '2026-11-01T00:00:00Z', scopes: ['workspace.read', 'voc.read'] }), row({ id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', name: '만료 토큰', expiresAt: '2020-01-01T00:00:00Z' })];
     mount();

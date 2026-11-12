@@ -18,7 +18,7 @@ export const API_TOKEN_COPY = {
   revoke: '토큰 폐기', cancel: '취소', empty: '아직 발급한 토큰이 없습니다',
   emptyHint: '스크립트나 검증 도구에서 API를 호출할 때 토큰을 발급하세요.',
   noResults: '조건에 맞는 토큰이 없습니다', noActors: '발급할 system Actor가 없습니다.',
-  requiredName: '토큰 이름을 입력하세요.', requiredScopes: '권한 묶음을 하나 이상 선택하세요.',
+  requiredName: '토큰 이름을 입력하세요.', requiredScopes: '권한을 하나 이상 선택하세요.',
   requiredActor: '귀속 Actor를 선택하세요.', invalidDate: '오늘 이후의 만료 날짜를 선택하세요.',
   retry: '다시 시도', loading: '불러오는 중…', previous: '이전', next: '다음',
   available: '사용 가능', tokenValid: '토큰 유효', unused: '30일 이상 미사용', revoked: '폐기됨', expired: '만료됨',

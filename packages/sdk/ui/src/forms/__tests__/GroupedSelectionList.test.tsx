@@ -38,10 +38,47 @@ describe('GroupedSelectionList', () => {
     expect(screen.getByRole('checkbox', { name: 'Beta' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Blocked' })).toBeDisabled();
   });
-  it.each(['Group', 'Alpha', 'First description', 'a'])('searches %s', query => {
-    render(<Multiple />);
+  // Each query matches exactly one field of one row, so a list that ignored the search would keep the other rows (#1842 review C2).
+  const searchGroups = [
+    { id: 'fruit', label: 'Fruit', items: [{ id: 'apple-id', label: 'Apple', description: 'Red round' }, { id: 'banana', label: 'Banana', description: 'Yellow' }] },
+    { id: 'tools', label: 'Tools', items: [{ id: 'hammer', label: 'Hammer', description: 'Hits nails' }] },
+  ];
+  function SearchMultiple() {
+    const [value, onChange] = useState<string[]>([]);
+    return <GroupedSelectionList mode="multiple" groups={searchGroups} value={value} onChange={onChange} aria-label="Things" />;
+  }
+  const visibleRows = () => screen.queryAllByRole('checkbox').map(box => box.getAttribute('aria-label') ?? box.textContent ?? '').filter(Boolean);
+  it.each([
+    ['group label', 'Tools', ['Hammer'], ['Fruit']],
+    ['item label', 'Banana', ['Banana'], ['Tools']],
+    ['description', 'Hits nails', ['Hammer'], ['Fruit']],
+    ['id', 'apple-id', ['Apple'], ['Tools']],
+  ])('searches by %s: only matching rows and their groups stay', (_field, query, shown, hiddenGroups) => {
+    render(<SearchMultiple />);
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: query } });
-    expect(screen.getByRole('checkbox', { name: 'Alpha' })).toBeInTheDocument();
+    for (const label of ['Apple', 'Banana', 'Hammer']) {
+      if (shown.includes(label)) expect(screen.getByRole('checkbox', { name: label })).toBeInTheDocument();
+      else expect(screen.queryByRole('checkbox', { name: label })).toBeNull();
+    }
+    for (const group of hiddenGroups) expect(screen.queryByRole('heading', { name: group })).toBeNull();
+    expect(visibleRows().length).toBeGreaterThan(0);
+  });
+  it('shows the empty result and restores every row when the search is cleared', () => {
+    render(<SearchMultiple />);
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'no such thing' } });
+    expect(screen.getByText('검색 결과 없음')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Apple' })).toBeNull();
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
+    for (const label of ['Apple', 'Banana', 'Hammer']) expect(screen.getByRole('checkbox', { name: label })).toBeInTheDocument();
+  });
+  it('group «all» under a search selects only the visible rows; a hidden enabled row stays unselected', () => {
+    render(<SearchMultiple />);
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Banana' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Fruit 모두 선택' }));
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
+    expect(screen.getByRole('checkbox', { name: 'Banana' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Apple' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Fruit 모두 선택' })).toHaveAttribute('aria-checked', 'mixed');
   });
   it('shows the single selection label without presets, bulk controls or counts', async () => {
     function Single() {

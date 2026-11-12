@@ -767,6 +767,10 @@ function DirectGrantFields({
           </div>
         ) : null}
       </section>
+      {/* Outside the scroll area: the chosen permission stays in view while the reason and audit fields below the list are filled (#1842 M2). */}
+      <p className="shrink-0 break-keep text-xs text-text-secondary" data-testid="direct-grant-selected">
+        {selectedCandidate ? `선택: ${candidateLabel(selectedCandidate, managedSystemNames)}` : '선택한 권한 없음'}
+      </p>
       <DialogFooter className="shrink-0">
         <Button type="button" variant="secondary" onClick={onClose}>
           {DIRECT_GRANT_COPY.cancel}
