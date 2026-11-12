@@ -142,7 +142,6 @@ export async function handleRouted(endpoint: DeclaredEndpoint, owner: Routing, b
 
 async function handleLeg(endpoint: DeclaredEndpoint, owner: Routing, bundle: DeclarationBundle, deps: RoutedDependencies, args: EndpointHandlerArgs, chosen: SelectedLeg, onOverflow?: () => void): Promise<EndpointResult> {
   const site = endpoint.requiresScope ? args.context.scopeId as string : null;
-  const rooms = allowedRooms(endpoint.context.roomNames === 'apply', args);
   const target = bundle.targets?.[chosen.targetId];
   const factory = target && deps.connectorFactories[target.kind];
   if (!target || !factory) throw new MenuUpstreamError('unavailable');
@@ -174,7 +173,7 @@ async function handleLeg(endpoint: DeclaredEndpoint, owner: Routing, bundle: Dec
         for (const key of new Set(list)) {
           const resolved: unknown[] = [];
           await readRows(connector, leg(check.lookup, { binding: check.keys, value: Array.isArray(keys) ? [key] : key }), signal, deadlineAt, 2, (row) => resolved.push(row));
-          if (resolved.length !== 1 || !rowInScope(resolved[0], check, site, rooms, map)) return noData('forbidden');
+          if (resolved.length !== 1 || !rowInScope(resolved[0], check, site, chosen.rooms, map)) return noData('forbidden');
         }
       }
     }

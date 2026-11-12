@@ -132,3 +132,35 @@ it('does not rank a driver rejection caused by sibling cancellation as a fresh t
   } });
   expect(await endpoint.handle(args())).toMatchObject({ outcome: 'timeout', data: null });
 });
+function keyedRuntime(connector: Connector) {
+  const owner: Routing = {
+    routes: [{ sites: ['SITE-A'], rooms: ['R1'], targets: ['syn-1'] }, { sites: ['SITE-A'], rooms: ['R2'], targets: ['syn-2'] }],
+    call: { statement: 'SELECT :key AS main', params: { key: 'params.q' }, response: { fields: { id: { from: '/id', type: 'number' } } } },
+    scopeCheck: { mode: 'resolve-keys', keys: 'params.q', lookup: { statement: 'SELECT :key', params: { key: 'params.q' } }, siteField: '/site', roomField: '/room' }, unroutedRooms: 'error',
+  };
+  const bundle: DeclarationBundle = {
+    endpoints: [{ id: 'syn.rows', menuId: 'syn', permission: 'syn:view', paramKeys: ['q'], paramTypes: { q: { type: 'string' } }, requiresScope: true, context: {}, limits: { maxRows: 4 }, mergeTimeDomain: false }],
+    actions: [], permissions: [{ permission: 'syn:view', capability: 'workspace.read' }], endpointOwners: { 'syn.rows': owner },
+    targets: Object.fromEntries(['syn-1', 'syn-2'].map((id) => [id, { kind: 'sql' as const, dialect: 'postgres' as const, connectionFile: '/syn/secret' }])),
+  } as DeclarationBundle;
+  return defined(declaredContribution({ bundle, checkService: stubCheckService(true), connectorFactories: { sql: () => connector } }).endpoints?.[0]);
+}
+it('resolve-keys judges each fan-out leg against its own rooms, not the request rooms', async () => {
+  const mains: string[] = [];
+  const endpoint = keyedRuntime({ async *query(leg) {
+    // The lookup resolves the key to R2: inside the request rooms, outside leg syn-1's shard (R1).
+    if ('statement' in leg.call && leg.call.statement === 'SELECT :key') { yield { site: 'SITE-A', room: 'R2' }; return; }
+    mains.push(leg.targetId);
+    yield { id: 1 };
+  } });
+  expect(await endpoint.handle({ ...args(), params: { q: 'syn-key' } })).toMatchObject({ outcome: 'forbidden', data: null });
+  expect(mains).not.toContain('syn-1');
+});
+it('resolve-keys answers from every leg when each lookup resolves inside its own shard', async () => {
+  const endpoint = keyedRuntime({ async *query(leg) {
+    if ('statement' in leg.call && leg.call.statement === 'SELECT :key') { yield { site: 'SITE-A', room: leg.rooms[0] }; return; }
+    yield { id: leg.targetId === 'syn-1' ? 1 : 2 };
+  } });
+  const answer = await endpoint.handle({ ...args(), params: { q: 'syn-key' } });
+  expect(answer).toMatchObject({ outcome: 'ok' }); expect((answer as { data: unknown[] }).data).toHaveLength(2);
+});
