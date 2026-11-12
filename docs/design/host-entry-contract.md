@@ -1,6 +1,6 @@
 # Host 조립 계약 — 저장소 밖 조립이 받는 도메인 없는 조립 함수 (#1702)
 
-상태: **Candidate** — 설계. 결정은 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)(방향), [ADR-0142](../adr/0142-out-of-repo-menu-package-and-host-module-split.md)(확장 방식), [ADR-0143](../adr/0143-release-units-and-compatibility-train.md)(릴리스 단위)가 소유하고, 이 문서는 그 결정을 따르는 Host 쪽 모양과 다음 노드의 수용 목록을 소유한다. 구현은 없다.
+상태: **Candidate** — 설계. 결정은 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)(방향), [ADR-0142](../adr/0142-out-of-repo-menu-package-and-host-module-split.md)(확장 방식), [ADR-0143](../adr/0143-release-units-and-compatibility-train.md)(릴리스 단위)가 소유하고, 이 문서는 그 결정을 따르는 Host 쪽 모양과 다음 노드의 수용 목록을 소유한다. Host 조립 함수는 `packages/app-host`(`@ap/app-host`, 노드 1702a)에 구현됐고, 공개 앱의 전환은 다음 노드(1702b)다.
 
 용어: 여기서 «Host»는 조립 함수와 그 릴리스 단위다. 셸·앱만 import하는 `@ap/kernel/host` 진입점([ADR-0076](../adr/0076-kernel-host-entry-narrow-menu-platform.md))과 호스트 모듈([ADR-0053](../adr/0053-host-module-contract-v1.md))과는 다른 것이다.
 
@@ -20,7 +20,14 @@
 
 ## 3. 계약
 
-1. **Host는 도메인을 모르는 조립 함수다.** 입력은 조립자가 주입한다: registry에 넣을 선언(업무 시스템(`Space`)·그룹·메뉴·권한), 어댑터 조립, 셸 slot, 축. 출력은 띄울 수 있는 앱이다. 함수 이름과 정확한 모양은 구현 노드가 정한다(후보 이름 `app-host`, #1702 본문).
+1. **Host는 도메인을 모르는 조립 함수다.** 입력은 조립자가 주입한다: registry에 넣을 선언(업무 시스템(`Space`)·그룹·메뉴·권한), 어댑터 조립, 셸 slot, 축. 출력은 띄울 수 있는 앱이다. 구현은 `@ap/app-host`의 `startAppHost(options): Promise<void>`다. SDK 다섯 패키지에 속하지 않는 릴리스 단위 2의 패키지이고, 앱과 저장소 밖 조립만 import한다.
+   - `container`: 마운트할 요소. Host가 그 위에 React root를 만든다.
+   - `declarations`: `createRegistry` 입력 전체(`spaces`, `groups`, `menus`, `permissions`, `carrySets`, `platformHomeMenuId`, `reservedRoots`).
+   - `createAssembly({ registry })`: 동기 또는 비동기. 답은 `HostAssembly`(`adapter`, `topBarTools`, 선택 `savedViews`·`serverPreferences`·`invalidation`), `{ redirect }`(`redirect`를 한 번 부르고 아무것도 그리지 않는다), `{ screen }`(`PlatformProvider` 없이 그 노드만 그린다) 중 하나다.
+   - `basePath`, `spaceIdMigrations`, `equipmentAxes`, `queryHistory`: 조립자가 주입하는 값. `import.meta.env`와 Vite alias는 쓰지 않는다.
+   - `slots(assembly)`: 앱의 `PlatformSlots`. Host는 `contextBar`, `boardEntry`, `topBarTools` 셋만 기본값으로 깔고 주입된 값이 이긴다. 루트가 그릴 때마다 호출되므로 React hook을 쓸 수 있다(hook 순서는 고정). 저장소 변화에 따라 슬롯이 바뀌는 조립은 거기서 구독해 현재 슬롯을 돌려준다.
+   - `onAssembly(assembly, registry)`: 첫 렌더 전에 한 번. `children(assembly)`: `PlatformProvider` 안에 붙일 자식. `redirect(url)`: 기본은 `window.location.replace`.
+   - `buildRegistry(declarations)`는 따로 export된 동기 단계다. 거부 선언은 Kernel의 `RegistryError`를 그대로 던진다. `startAppHost` 안에서는 이 던짐과 `createAssembly`의 던짐 모두 고정 문구의 `StartupFailure`로 보인다.
 2. **slot은 조립자가 주입하고 SDK가 import하지 않는다.** 저장된 뷰, Scope 조작, 알림은 지금 `@ap/feature-bridge` slot이고 그 패키지는 `@ap/feature-screens`에 의존한다. Host가 이를 품으면 SDK가 기능 패키지를 import하게 되어 [platform-packages.md §3](../integration/platform-packages.md) 규칙 8을 어긴다. 그래서 slot은 선택 주입이고, Host는 `platform/*`와 `@ap/feature-bridge`를 import하지 않는다(구현 노드가 경계 lint로 검사한다).
 3. **우선순위·replacement·overlay 규칙이 없다.** 사내 조립이 자기 `menus.ts`를 가지면 싣지 않을 공개 견본 메뉴는 import하지 않는다. 같은 id를 두 번 등록하면 지금의 `createRegistry` 거부가 그대로 막는다. 플랫폼 기능 패키지(`platform/*`)를 사내가 그대로 쓸지는 [ADR-0143](../adr/0143-release-units-and-compatibility-train.md) Deferred에 둔다.
 4. **계약 정수 하나가 호환 검사다.** «capability/feature negotiation»은 새 협상을 만들지 않고 `HostFeature`를 넓히는 것으로만 쓴다. 호환은 «같은 열차 N, 롤백용 N-1»이다(ADR-0143).
@@ -40,7 +47,7 @@ Registry 검사와 위 §3의 거부는 실수를 막는다. 같은 JS 프로세
 
 ## 7. 없어진 메뉴의 저장물
 
-메뉴가 빠진 뒤 그 메뉴의 저장된 뷰, 최근 방문, 보드 칸은 지우지 않고 «사용할 수 없음»으로 보인다. 보드는 더 새 버전을 읽기 전용으로 여는 처리가 있다(`packages/sdk/shell/src/board/boardStore.ts`). 저장된 뷰의 «없는 메뉴» 처리는 아직 확인하지 못했다. 시험 대상이다(§10).
+메뉴가 빠진 뒤 그 메뉴의 저장된 뷰, 최근 방문, 보드 칸은 지우지 않고 남긴다(pinned). 이 계약은 «지우지도 던지지도 않는다»까지다. 사이드바의 최근 방문처럼 지금 보이지 않는 곳은 그대로 보이지 않고, 보드가 이미 보여 주는 «사용할 수 없는 패널» 표시는 유지한다. 새 «사용할 수 없음» 표시를 더하는 일은 별도 이슈(UI 시안 필요)로 다룬다. 보드는 더 새 버전을 읽기 전용으로 여는 처리가 있다(`packages/sdk/shell/src/board/boardStore.ts`). 저장된 뷰의 «없는 메뉴» 처리는 아직 확인하지 못했다. 시험 대상이다(§10).
 
 ## 8. 소유자 확인 뒤에 한다
 
@@ -63,7 +70,7 @@ Registry 검사와 위 §3의 거부는 실수를 막는다. 같은 JS 프로세
    - 선언되지 않은 권한.
    - 지원하지 않는 계약 정수.
    - 필수 `HostFeature` 누락.
-   - 없어진 메뉴의 저장된 뷰(지우지 않고 사용 불가로 표시, §7).
+   - 없어진 메뉴의 저장물은 남는다: 지우지도 던지지도 않는다(§7, stored items of a removed menu are kept (pinned)). 보드의 기존 «사용할 수 없는 패널» 표시는 바꾸지 않고, 새 표시는 이 시험의 범위가 아니다.
    - 모르는 URL 키 보존.
    - `@ap/kernel` 사본이 둘이면 빌드 실패(§5).
    - 네트워크 없는 설치.

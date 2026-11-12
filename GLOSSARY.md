@@ -356,6 +356,10 @@ SDK(`@ap/kernel`·`@ap/components`)를 쓰는 사내 메뉴는 호스트 모듈�
 사내 조립 저장소가 SDK로 만들어 이 플랫폼에 올리는 메뉴 패키지. 이 저장소의 `menus/*/*`와 같은 규칙을 따르고 저장소 밖에 있다는 점만 다르다([ADR-0142](docs/adr/0142-out-of-repo-menu-package-and-host-module-split.md), [platform-packages.md §3](docs/integration/platform-packages.md) 규칙 11). 자체 UI 제품이 올리는 `호스트 모듈`과 용도로 나뉜다.
 _Avoid_: 플러그인, 확장 모듈 — 보류된 Plugin SDK·System Extension 후보 이름과 호스트 모듈에 섞인다.
 
+**Host 조립 함수**:
+도메인을 모르는 채로 주입된 registry 선언, 어댑터 조립, slot, 축을 받아 띄울 수 있는 앱을 마운트하는 함수. `@ap/app-host`의 `startAppHost`이며 공개 앱 `apps/platform-web`과 조립 저장소가 부른다([Host 조립 계약](docs/design/host-entry-contract.md) §3). 셸·앱만 import하는 `@ap/kernel/host` 진입점이나 호스트 모듈과 다른 것이다.
+_Avoid_: Host 진입점 — `@ap/kernel/host`(ADR-0076)와 섞인다.
+
 **조립 저장소**:
 메뉴 패키지와 합성 핸들러를 모아 Host로 플랫폼을 띄우는, 이 저장소 밖의 사내 저장소. 사내 도메인 의미는 여기가 소유한다([ADR-0141](docs/adr/0141-in-house-assembly-in-separate-repository.md)).
 _Avoid_: 포크 — 공개 파일을 고치는 안(ADR-0141 기각 B)과 섞인다.

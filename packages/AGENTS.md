@@ -6,7 +6,7 @@ The source of boundaries and dependency direction is [package boundary](../docs/
 
 ## Packages and dependency direction
 
-Folders are grouped one level (ADR-0090): the five SDK packages and the unpublished `contract-schemas` are in `sdk/`, the four adapter/consumer-side packages in `adapters/`, and the feature package set (`tooling/eslint/src/feature-packages.js`) `feature-shared/` and `feature-ui/` directly under `packages/`. Package names (`@ap/*`) and public APIs do not depend on the folder. The relative path from inside a package to the repo root is `../../../`.
+Folders are grouped one level (ADR-0090): `app-host/` sits directly under `packages/`; the five SDK packages and the unpublished `contract-schemas` are in `sdk/`, the four adapter/consumer-side packages in `adapters/`, and the feature package set (`tooling/eslint/src/feature-packages.js`) `feature-shared/` and `feature-ui/` directly under `packages/`. Package names (`@ap/*`) and public APIs do not depend on the folder. The relative path from inside a package to the repo root is `../../../`.
 
 | Package | Role | May import |
 | --- | --- | --- |
@@ -16,6 +16,7 @@ Folders are grouped one level (ADR-0090): the five SDK packages and the unpublis
 | `sdk/kernel/` (`@ap/kernel`) | Registry runtime, `PlatformProvider`, global Context/URL/Scope state, request lifecycle (internal engine `@tanstack/react-query`, ADR-0086), i18n | `contracts` + external `@tanstack/react-query` (internal only) |
 | `sdk/components/` (`@ap/components`) | `PlatformPage`, table, drawer, audit, trust indicators, state screens, chart frame | `contracts`, `kernel`, `ui` |
 | `sdk/shell/` (`@ap/shell`) | AppShell, AppRail, AppSidebar, ScopeSelector, CommandPalette, GlobalContextBar, RouteOutlet | `contracts`, `kernel`, `components`, `ui` |
+| `app-host/` (`@ap/app-host`) | Host assembly function `startAppHost` (+ `buildRegistry`, `AppRoot`, `StartupFailure`): mounts injected registry declarations, adapter assembly, slots and axes ([host contract](../docs/design/host-entry-contract.md) §3). Release unit 2, not in `SDK_PACKAGES`. Domain-free: no menu, bridge, EV, mock or http client | `contracts`, `kernel` (+ `kernel/host`), `components`, `ui`, `shell`; imported only by apps and out-of-repo assemblies |
 | `adapters/feature-bridge/` (`@ap/feature-bridge`) | Feature-screen bridge runtime (session singleton, `FeatureBridge`, `hostLinks`, `feature-api`, Kernel slot values; ADR-0071, 0081). Consumer side, not SDK. Bridge menus and app files import the root; only app `main.tsx` imports the slot and API subpaths | `contracts`, `kernel`, `components`, `ui` + `@ap/feature-screens/global-screens/core` |
 | `adapters/mock-server/` (`@ap/mock-server`) | Dev server stand-in (menu query engine `serveEndpoint`, `defineMockEndpoint`, `createMockAdapter`). The app injects it; each menu's `src/mock/` owns its handlers. No Tailwind | `contracts` |
 | `adapters/http-adapter/` (`@ap/http-adapter`) | Real-server client (`bootstrapHttpAdapter` → `PlatformAdapter`, [wire format](../docs/integration/http-adapter-contract.md)). Only the app's production assembly `src/real/**` imports it | `contracts` |

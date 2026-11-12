@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   app,
+  appHost,
   components,
   contractSchemas,
   contracts,
@@ -42,6 +43,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'packages/sdk/kernel': kernel,
   'packages/sdk/components': components,
   'packages/sdk/shell': shell,
+  'packages/app-host': appHost,
   'packages/adapters/mock-server': mockServer,
   'packages/adapters/http-adapter': httpAdapter,
   'modules/fixture': hostModule,
@@ -829,6 +831,19 @@ rows.push(
   { file: 'packages/sdk/contracts/src/x.ts', code: `export function f(on: boolean) { return on; }`, rule: '' },
   // A disable comment that suppresses nothing fails.
   { file: 'packages/sdk/kernel/src/x.ts', code: `// eslint-disable-next-line no-console\nexport const n = 1;`, rule: null, token: 'Unused eslint-disable' },
+);
+
+// #1702: the Host assembly package sees contracts, kernel (+ host entry), components, ui and shell only; an assembly injects everything else.
+const APP_HOST = 'packages/app-host/src/x.ts';
+rows.push(
+  ...['@ap/feature-bridge', '@ap/menu-home', '@eqv/core', '@ap/mock-server', '@ap/http-adapter'].flatMap((source) => [
+    { file: APP_HOST, code: `import { x } from '${source}';`, rule: 'no-restricted-imports' },
+    { file: APP_HOST, code: `void import('${source}');`, rule: 'ap/restricted-import-source' },
+  ]),
+  ...['@ap/contracts', '@ap/kernel', '@ap/kernel/host', '@ap/components', '@ap/ui', '@ap/shell', 'react', 'react-dom/client', 'lucide-react', './local'].map((source) => ({ file: APP_HOST, code: `import { x } from '${source}';`, rule: '' })),
+  { file: 'packages/app-host/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: APP_HOST, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from '@ap/app-host';`, rule: 'no-restricted-imports' },
 );
 
 // #1640: vi.mock-style calls name a module path like an import, so the boundary rules apply to their first string argument.
