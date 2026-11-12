@@ -1,7 +1,7 @@
 /**
  * Global Context URL contract (docs/06 §6.1–6.4). Field names are Candidate; mechanisms are Decided.
- * Extends the bounded kernel-app-shell codec: time, Lot/PPID/Recipe and the metric pair are applied
- * globals here instead of opaque preserved values.
+ * Extends the old bounded kernel-app-shell prototype codec (deleted in #1787; see git history): time, Lot/PPID/Recipe
+ * and the metric pair are applied globals here instead of opaque preserved values.
  */
 export class ContractError extends Error {
   /** `field` (the URL key) and `raw` (its value as written) are set only when one key's one value is at fault; `message` stays the English diagnostic. */
@@ -51,7 +51,7 @@ const SETS = [
 const SINGLES = ['v', 'scopeId', 'from', 'to', 'equipmentGroup', 'membershipBasis', 'ppid', 'metricId', 'metricVersion', ...SETS.map(s => s.marker)];
 export const GLOBAL_KEYS = new Set<string>([...SINGLES, ...SETS.flatMap(s => ('alias' in s ? [s.key, s.alias] : [s.key]))]);
 
-// Python str.isspace() code points (parity with the kernel-app-shell codec).
+// Python str.isspace() code points (parity with the old kernel-app-shell prototype codec in git history).
 const SPACE_CODES = [[0x09, 0x0d], [0x1c, 0x20], [0x85, 0x85], [0xa0, 0xa0], [0x1680, 0x1680], [0x2000, 0x200a], [0x2028, 0x2029], [0x202f, 0x202f], [0x205f, 0x205f], [0x3000, 0x3000]];
 const isSpace = (c: number) => SPACE_CODES.some(([lo, hi]) => c >= lo && c <= hi);
 /** `field` is the diagnostic name; `urlKey` (only parseQuery passes it) is the URL key to blame, with the value as written. */
