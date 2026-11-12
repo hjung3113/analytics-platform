@@ -1,6 +1,6 @@
 // Unit tests for the negative-check table (network-free; the end-to-end run is `node tooling/sdk/sdk-consumer-negatives.mjs`).
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import test from 'node:test';
@@ -63,7 +63,8 @@ function consumerTree(root) {
 }
 
 test('kernelCopyMismatches: one kernel copy is clean; a second copy nested under @ap/components is named', () => {
-  const root = mkdtempSync(join(tmpdir(), 'ap-sdk-neg-kernel-'));
+  // The real path: the check reports resolved paths, and macOS TMPDIR is a symbolic link (/var → /private/var, #1852).
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'ap-sdk-neg-kernel-')));
   try {
     const kernel = consumerTree(root);
     assert.deepEqual(kernelCopyMismatches(root), [], 'a single kernel copy is no mismatch');

@@ -1,5 +1,5 @@
 // Build the installed outside-consumer kit twice. Rollup chunk.modules is the evidence, never JS text markers.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -12,9 +12,18 @@ export function bundledModuleIds(result) {
   ].sort();
 }
 
+/**
+ * The kit folder by its real path: Vite reports module ids and resolves index.html by the real path, so a root reached
+ * through a symbolic link (macOS TMPDIR /var → /private/var, #1852) must be compared and built as its real path.
+ */
+export function kitRoot(root) {
+  const absolute = resolve(root);
+  return existsSync(absolute) ? realpathSync(absolute) : absolute;
+}
+
 export function assertKitGraph(mode, ids, root) {
   const normalized = ids.map((id) => id.replaceAll('\\', '/').replace(/^\0/, '').split('?')[0]);
-  const directory = `${resolve(root).replaceAll('\\', '/')}/`;
+  const directory = `${kitRoot(root).replaceAll('\\', '/')}/`;
   const adapter = mode === 'real' ? 'http-adapter' : 'mock-server';
   const other = mode === 'real' ? 'mock-server' : 'http-adapter';
   const assembly = `${directory}${mode}/assembly.${mode === 'real' ? 'tsx' : 'ts'}`;
@@ -32,7 +41,8 @@ export function assertKitGraph(mode, ids, root) {
   if (outside.length) throw new Error(`${mode}: source outside the installed kit:\n${outside.join('\n')}`);
 }
 
-export async function checkKitGraphs(root) {
+export async function checkKitGraphs(givenRoot) {
+  const root = kitRoot(givenRoot);
   const require = createRequire(join(root, 'package.json'));
   const { build } = await import(pathToFileURL(require.resolve('vite')).href);
   const directory = join(root, '.kit-graphs');
