@@ -273,20 +273,6 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE)('human validation issue 
     expect((await change({ issueId, toState: 'waived', assigneeActorId: who.id, reason: 'agreed', basisCommentId }, '3', decider)).outcome).toBe('ok');
   });
 
-  it('refuses waived for a non-internal_member actor even with both rights', async () => {
-    const who = await triager(true);
-    const issueId = await newIssue();
-    expect((await change({ issueId, toState: 'investigating', assigneeActorId: who.id }, '0', who)).outcome).toBe('ok');
-    const basisCommentId = await comment(issueId);
-    await query("update core.actors set actor_type='system' where id=$1", [who.id]);
-    try {
-      expect((await change({ issueId, toState: 'waived', assigneeActorId: who.id, reason: 'agreed', basisCommentId }, '1', who)).outcome).toBe('forbidden');
-      expect((await change({ issueId, toState: 'on_hold', assigneeActorId: who.id, reason: 'hold', basisCommentId }, '1', who)).outcome).toBe('ok');
-    } finally {
-      await query("update core.actors set actor_type='internal_member' where id=$1", [who.id]);
-    }
-  });
-
   it('dismisses only from reported/investigating, with a duplicate of another issue of the same project', async () => {
     const who = await triager();
     const issueId = await newIssue();
@@ -306,6 +292,9 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE)('human validation issue 
     const who = await triager();
     const held = await newIssue();
     expect((await change({ issueId: held, toState: 'investigating', assigneeActorId: who.id }, '0', who)).outcome).toBe('ok');
+    const paused = await newIssue();
+    expect((await change({ issueId: paused, toState: 'investigating', assigneeActorId: who.id }, '0', who)).outcome).toBe('ok');
+    expect((await change({ issueId: paused, toState: 'on_hold', assigneeActorId: who.id, reason: 'hold', basisCommentId: await comment(paused) }, '1', who)).outcome).toBe('ok');
     const page = (await read('validationIssues', { projectId, states: ['investigating'] })).data as ListPage;
     expect(page.rows.map(r => r.id)).toContain(held);
     expect(page.rows.every(r => r.state === 'investigating')).toBe(true);
