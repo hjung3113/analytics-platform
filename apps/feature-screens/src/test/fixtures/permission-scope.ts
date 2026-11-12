@@ -153,6 +153,24 @@ export const scopeAdminDetailBody = (row: ReturnType<typeof scopeAdminRowBody>) 
     allowed_actions: ['approve', 'reject', 'need_more_info'],
   });
 
+/** The admin detail when a Site or 공정 grant already covers the request (selected-read-service covering branch). */
+export const scopeAdminCoveredDetailBody = (
+  row: ReturnType<typeof scopeAdminRowBody>,
+  held: { kind: 'site' | 'site_room'; site: string; room: string | null; grantId: string },
+) => {
+  const detail = scopeAdminDetailBody(row);
+  return permissionRequestAdminDetailSchema.parse({
+    ...detail,
+    effective_access: {
+      ...detail.effective_access,
+      decision: { allow: true, via: 'direct_grant', grant_id: held.grantId },
+      granted_scope_kind: held.kind,
+      granted_scope_site: held.site,
+      granted_scope_room: held.room,
+    },
+  });
+};
+
 export const scopeGrantItemBody = (
   id: string,
   kind: 'site' | 'site_room',

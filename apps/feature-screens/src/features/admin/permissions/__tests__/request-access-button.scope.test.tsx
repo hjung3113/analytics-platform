@@ -156,6 +156,39 @@ describe('<RequestAccessButton> Site·공정 target', () => {
     expect(await screen.findByText('권한 요청 완료')).toBeInTheDocument();
   });
 
+  it('while the POST is pending the scope controls are locked and completion shows the submitted target', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const base = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') await gate;
+      return base(input, init);
+    }) as typeof fetch;
+    const user = mount({
+      scopeTarget: { kind: 'site_room', site: 'SITE-B', room: 'RB4' },
+      returnRouteIntent: RETURN_ROUTE,
+    });
+    await user.click(screen.getByRole('button', { name: '권한 요청' }));
+    expect(await screen.findByRole('combobox', { name: '공정' })).toHaveTextContent('RB4');
+    await user.type(screen.getByTestId('permission-request-reason'), '공정 확인');
+    await user.click(screen.getByRole('button', { name: '요청 제출' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: '요청 제출' })).toBeDisabled());
+    expect(screen.getByRole('combobox', { name: '범위 종류' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: '공정' })).toBeDisabled();
+    // A field left editable while pending must not leak into the completion step either.
+    await user.type(screen.getByTestId('permission-request-reason'), ' 수정');
+
+    release();
+    expect(await screen.findByText('권한 요청 완료')).toBeInTheDocument();
+    expect(posts()).toHaveLength(1);
+    expect(posts()[0]?.body).toMatchObject({ requested_scope_room: 'RB4', reason: '공정 확인' });
+    expect(screen.getByText('Site SITE-B · 공정 RB4')).toBeInTheDocument();
+    expect(screen.getByText('공정 확인')).toBeInTheDocument();
+  });
+
   it('a capability target keeps today\'s form and never reads Site·공정 candidates', async () => {
     created = () => json({ id: REQUEST_ID, status: 'pending', created_at: '2026-11-12T00:00:00.000Z' }, 201);
     const user = mount({ capability: 'workspace.read', returnRouteIntent: RETURN_ROUTE });

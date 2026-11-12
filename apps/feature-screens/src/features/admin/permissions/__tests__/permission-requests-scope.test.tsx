@@ -3,6 +3,7 @@
 
 import type { AdminPermissionRequestRow } from '@/lib/api/permission-reads';
 import {
+  scopeAdminCoveredDetailBody,
   scopeAdminDetailBody,
   scopeAdminRowBody,
   scopeCandidatesBody,
@@ -135,6 +136,24 @@ describe('review console — Site·공정 requests', () => {
     expect(args.action).toBe('approve');
     expect(args).not.toHaveProperty('grantedScope');
     expect(args).not.toHaveProperty('grantedManagedSystemId');
+  });
+
+  it.each([
+    ['a covering Site grant', { kind: 'site' as const, site: 'SITE-B', room: null }, 'Site SITE-B 전체'],
+    ['a covering 공정 grant', { kind: 'site_room' as const, site: 'SITE-B', room: 'RB4' }, 'Site SITE-B · 공정 RB4'],
+  ])('the risk review names %s by its Site·공정 target, never «전체»', (_label, held, expected) => {
+    withClient(
+      <PermissionRequestDetail
+        request={scopeAdminCoveredDetailBody(ROOM_ROW, {
+          ...held,
+          grantId: '99999999-9999-4999-8999-999999999999',
+        })}
+        onClose={() => undefined}
+      />,
+    );
+    const review = screen.getByTestId('permission-request-risk-review');
+    expect(review).toHaveTextContent(`직접 부여 · 현재 직접 부여 범위: ${expected}`);
+    expect(review).not.toHaveTextContent('현재 직접 부여 범위: 전체');
   });
 
   it('never offers deny for scope.read even if the server lists it', () => {

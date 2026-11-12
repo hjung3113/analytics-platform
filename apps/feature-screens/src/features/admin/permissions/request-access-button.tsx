@@ -35,6 +35,7 @@ import { type ReactNode, useMemo, useState } from 'react';
 
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import {
+  type CreatePermissionRequestBody,
   type CreatePermissionRequestSuccess,
   createPermissionRequest,
   permissionRequestsMineKey,
@@ -72,6 +73,13 @@ interface RequestAccessButtonCommonProps {
 }
 
 const SCOPE_CAPABILITY = 'scope.read';
+
+/** What one submit posted, captured when the POST starts. */
+interface PermissionRequestSubmission {
+  body: CreatePermissionRequestBody;
+  idempotencyKey: string;
+  scopeTargetLabel: string | null;
+}
 
 const RECOVERABLE_CONFLICT_CODES = new Set([
   'conflict.capability_already_granted',
@@ -140,42 +148,27 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
           }),
         });
 
-  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- react-query's `void` variables type makes mutate() take no argument; `undefined` would force mutate(undefined) at every call site (the former Biome rule allowed void call-site type arguments)
-  const mutation = useMutation<CreatePermissionRequestSuccess, unknown, void>({
+  // The submitted body and its labels travel as mutation variables: a field edited while the POST is in flight
+  // must change neither the request nor the completion step that names it.
+  const mutation = useMutation<CreatePermissionRequestSuccess, unknown, PermissionRequestSubmission>({
     // Disable React Query's silent retries on this mutation — server-side
     // idempotency reconciliation is the only retry path we honor, and the
     // user explicitly clicks again if they want a new attempt.
     retry: false,
-    mutationFn: async () => {
-      return await createPermissionRequest(
-        {
-          requested_capability: capability,
-          ...(scopeTarget && scopeKind !== ''
-            ? {
-                requested_scope_kind: scopeKind,
-                requested_scope_site: scopeTarget.site,
-                ...(scopeKind === 'site_room' ? { requested_scope_room: scopeRoom } : {}),
-              }
-            : {}),
-          ...(props.managedSystemId !== undefined
-            ? { requested_managed_system_id: props.managedSystemId }
-            : {}),
-          reason: reason.trim(),
-          ...(expiration ? { requested_expiration: `${expiration}T23:59:59.000Z` } : {}),
-          return_route_intent: props.returnRouteIntent,
-        },
-        { idempotencyKey },
-      );
+    mutationFn: async ({ body, idempotencyKey: key }) => {
+      return await createPermissionRequest(body, { idempotencyKey: key });
     },
-    onSuccess: async (result) => {
+    onSuccess: async (result, submission) => {
       setErrorMessage(null);
       setSubmitted({
         id: result.id,
         status: result.status,
         createdAt: result.created_at,
-        reason: reason.trim(),
-        ...(expiration ? { expiration: `${expiration}T23:59:59.000Z` } : {}),
-        scopeTargetLabel,
+        reason: submission.body.reason,
+        ...(submission.body.requested_expiration
+          ? { expiration: submission.body.requested_expiration }
+          : {}),
+        scopeTargetLabel: submission.scopeTargetLabel,
       });
       // Successful submit — rotate the key so a future click counts as a
       // new logical intent.
@@ -312,7 +305,26 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                     return;
                   }
                   setErrorMessage(null);
-                  mutation.mutate();
+                  mutation.mutate({
+                    body: {
+                      requested_capability: capability,
+                      ...(scopeTarget && scopeKind !== ''
+                        ? {
+                            requested_scope_kind: scopeKind,
+                            requested_scope_site: scopeTarget.site,
+                            ...(scopeKind === 'site_room' ? { requested_scope_room: scopeRoom } : {}),
+                          }
+                        : {}),
+                      ...(props.managedSystemId !== undefined
+                        ? { requested_managed_system_id: props.managedSystemId }
+                        : {}),
+                      reason: reason.trim(),
+                      ...(expiration ? { requested_expiration: `${expiration}T23:59:59.000Z` } : {}),
+                      return_route_intent: props.returnRouteIntent,
+                    },
+                    idempotencyKey,
+                    scopeTargetLabel,
+                  });
                 }}
               >
                 {scopeTarget ? (
@@ -327,6 +339,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                       </Label>
                       <Select
                         value={scopeKind}
+                        disabled={mutation.isPending}
                         onValueChange={(next) => {
                           setScopeKind(next as PermissionScopeTargetKind);
                           setErrorMessage(null);
@@ -353,6 +366,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                         idPrefix="permission-request-scope"
                         mode="request"
                         showSite={false}
+                        disabled={mutation.isPending}
                         draft={{ kind: 'site_room', site: scopeTarget.site, room: scopeRoom }}
                         onChange={(next) => {
                           setScopeRoom(next.room);

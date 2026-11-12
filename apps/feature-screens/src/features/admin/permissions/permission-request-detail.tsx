@@ -7,7 +7,7 @@ import * as React from 'react';
 
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
-import { requestedScopeTargetLabel } from '@/lib/copy/permission-scope';
+import { grantedScopeTargetLabel, requestedScopeTargetLabel } from '@/lib/copy/permission-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { shortId } from '@/lib/identity';
@@ -233,10 +233,11 @@ function PermissionRequestRiskReview({
             <>
               {' · '}
               {copy.effectiveGrantScope}:{' '}
-              {formatManagedSystemScope(
-                request.effective_access.granted_managed_system_id,
-                managedSystemNames,
-              )}
+              {grantedScopeTargetLabel(request.effective_access) ??
+                formatManagedSystemScope(
+                  request.effective_access.granted_managed_system_id,
+                  managedSystemNames,
+                )}
             </>
           ) : null}
           {accessDecision.allow ? (

@@ -60,3 +60,16 @@ export function requestedScopeTargetLabel(row: {
     scope_room: row.requested_scope_room,
   });
 }
+
+/** Same as `scopeTargetLabelOf` for a held grant (`granted_scope_*`), e.g. a request detail's covering grant. */
+export function grantedScopeTargetLabel(row: {
+  granted_scope_kind?: string | undefined;
+  granted_scope_site?: string | null | undefined;
+  granted_scope_room?: string | null | undefined;
+}): string | null {
+  return scopeTargetLabelOf({
+    scope_kind: row.granted_scope_kind,
+    scope_site: row.granted_scope_site,
+    scope_room: row.granted_scope_room,
+  });
+}
