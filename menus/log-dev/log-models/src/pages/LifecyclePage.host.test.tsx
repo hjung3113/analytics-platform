@@ -364,3 +364,125 @@ describe('result-first selection (#1809)', () => {
     expect(query().get('attempt')).toBe(ID);
   });
 });
+
+
+describe('review-final regressions (#1809)', () => {
+  it.each(['unknown', 'error'] as const)('retries the same Gate request after %s, tab and slot replacement', async outcome => {
+    const t = mount('&result=all'); await ready();
+    click(button('Gate 결정'));
+    click(element('[role="radio"][value="approved"]'));
+    change('textarea[id^="gate-reason"]', '합성 검토 완료');
+    click(button('Gate 결정 기록'));
+    await waitFor(() => expect(t.sent).toHaveLength(1));
+    await act(async () => { t.sent[0]!.resolve({ outcome, data: null, fieldErrors: [], version: null, replayed: false, correlationId: 'gate-retained' }); await settleQueries(); });
+    activateRoundTab('설정·이력');
+    expect(document.querySelector('textarea[id^="gate-reason"]')).toBeNull();
+    activateRoundTab('결과·결함');
+    click(element('button[aria-label="R-002 상세 열기"]'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세'));
+    click(button('Gate 결정'));
+    click(button('같은 요청 다시 확인'));
+    await waitFor(() => expect(t.sent).toHaveLength(2));
+    expect(t.sent[1]!.request).toBe(t.sent[0]!.request);
+    await act(async () => { t.sent[1]!.resolve({ outcome: 'ok', data: null, fieldErrors: [], version: '8', replayed: true, correlationId: 'gate-retained' }); await settleQueries(); });
+    await waitFor(() => expect(text('Gate 결정을 기록했습니다.')).toBe(true));
+    expect((element('textarea[id^="gate-reason"]') as HTMLTextAreaElement).disabled).toBe(false);
+  });
+  it('receives an in-flight Gate result while its panel is replaced', async () => {
+    const t = mount('&result=all'); await ready();
+    click(button('Gate 결정'));
+    click(element('[role="radio"][value="approved"]'));
+    change('textarea[id^="gate-reason"]', '합성 검토 완료');
+    click(button('Gate 결정 기록'));
+    await waitFor(() => expect(t.sent).toHaveLength(1));
+    click(element('button[aria-label="R-002 상세 열기"]'));
+    await waitFor(() => expect(document.querySelector('textarea[id^="gate-reason"]')).toBeNull());
+    await act(async () => { t.sent[0]!.resolve({ outcome: 'ok', data: null, fieldErrors: [], version: '8', replayed: false, correlationId: 'gate-inflight' }); await settleQueries(); });
+    click(button('Gate 결정'));
+    await waitFor(() => expect(text('Gate 결정을 기록했습니다.')).toBe(true));
+  });
+  it('keeps selected rule detail across next page, reload and Back independently from table membership', async () => {
+    mount('&result=all'); await ready();
+    click(element('button[aria-label="R-002 상세 열기"]'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세'));
+    click(button('다음', rulesRegion()));
+    await waitFor(() => expect(text('R-026')).toBe(true));
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세');
+    const saved = window.location.search.slice('?v=1'.length);
+    act(() => root.unmount()); root = createRoot(container);
+    mount(saved);
+    await waitFor(() => expect(text('R-026')).toBe(true));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세'));
+    click(button('이전', rulesRegion())); await ready();
+    await act(async () => { window.history.back(); await new Promise(resolve => setTimeout(resolve, 20)); });
+    await waitFor(() => expect(query().get('rulesPage')).toBe('2'));
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세');
+  });
+  it('reports a truly missing rule UUID only after searching the independent unfiltered pages', async () => {
+    const t = mount(`&request=${ID}&attempt=${ID}&rule=${B}`); await ready();
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('선택한 규칙 결과를 찾을 수 없습니다.'));
+    expect(query().get('rule')).toBe(B);
+    expect(t.queries.some(q => q.endpoint === 'logLifecycle.ruleResults' && q.params.page === 1 && !q.params.results && !q.params.required && !q.params.opinionGrade)).toBe(true);
+  });
+  it.each([false, true])('finishes all Project summary cells for a zero-request Round (known defects: %s)', async known => {
+    try {
+      if (known) round.defects = { unresolvedCount: 2, rows: [] };
+      const t = mount('', 0, 'project');
+      await waitFor(() => expect(document.body.textContent).toContain('완료 시도 없음'));
+      expect(document.body.textContent).toContain('규칙 결과 없음');
+      expect(document.body.textContent).toContain(known ? '미해결 결함 2' : '미해결 결함 집계 불가');
+      expect(document.body.textContent).not.toContain('불러오는 중');
+      expect(t.queries.some(q => q.endpoint === 'logLifecycle.requestDetail')).toBe(false);
+    } finally { delete round.defects; }
+  });
+  it('keeps the exact server-defect opener connected and returns focus after close', async () => {
+    try {
+      round.defects = { unresolvedCount: 1, rows: [{ id: B, title: '합성 결함', status: 'open', description: '합성 결함 설명' }] };
+      mount(); await ready();
+      const region = element('[role="region"][aria-label="미해결 결함"]');
+      const opener = button('합성 결함', region);
+      click(opener);
+      await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('합성 결함 설명'));
+      expect(button('합성 결함', region)).toBe(opener);
+      expect(opener.isConnected).toBe(true);
+      click(element('[role="dialog"] button[aria-label="상세 닫기"]'));
+      await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+      expect(document.activeElement).toBe(opener);
+    } finally { delete round.defects; }
+  });
+  it('retains the server decisive attempt after registering a new queued request and lists its failing rules', async () => {
+    let queued = false;
+    const session = testSession(['platform:view', PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE], { user: { id: ID } });
+    const adapter = testAdapter({
+      session: () => session,
+      menuQuery: async q => {
+        const params = q.params as Record<string, unknown>;
+        if (q.endpoint === 'logLifecycle.projectDetail') return ok(project);
+        if (q.endpoint === 'logLifecycle.roundDetail') return ok({ ...round, gateAvailability: { ...round.gateAvailability, basis: { version: 1, decisiveAttemptId: ID, decisiveVerdict: 'fail', attempts: [{ attemptId: ID, requestId: ID }] } } });
+        if (q.endpoint === 'logLifecycle.requests') return ok({ rows: queued ? [{ ...request(B), state: 'queued', attempts: [], attemptCount: 0 }, request(ID)] : [request(ID)], total: queued ? 2 : 1 });
+        if (q.endpoint === 'logLifecycle.requestDetail') return ok(params.requestId === B ? { ...request(B), state: 'queued', attempts: [], attemptCount: 0 } : request(ID));
+        if (q.endpoint === 'logLifecycle.ruleResults') return ok({ rows: rules.filter(r => r.result === 'FAIL'), total: 13 });
+        if (q.endpoint === 'logLifecycle.queueStatus') return ok({ runWindow: { timezone: 'Asia/Seoul', weekday: { fromHour: 22, toHour: 6 }, weekendAllDay: true }, immediateLimit: 5, withinWindow: true, serverAt: AT });
+        return ok(null);
+      },
+      menuAction: async () => { queued = true; return { outcome: 'ok', data: { requestId: B }, version: '1', fieldErrors: [], replayed: false, correlationId: 'queued-host' }; },
+    });
+    window.history.replaceState(null, '', `/logDev/log-model-round/${ID}/${ID}?v=1`);
+    act(() => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><LifecyclePage params={{ projectId: ID, roundId: ID }} /><DetailHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>));
+    await ready();
+    expect(element('[aria-label="선택 시도 서버 판정"]').textContent).toContain('전체 규칙 26건');
+    activateRoundTab('설정·이력'); click(button('요청 등록'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+    click(button('요청 등록', element('[role="dialog"]')));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+    activateRoundTab('결과·결함');
+    await waitFor(() => expect(element('[aria-label="최신 실행 상태"]').textContent).toContain('요청 대기'));
+    expect(element('[aria-label="선택 시도 서버 판정"]').textContent).toContain('전체 규칙 26건');
+    expect(text('R-002')).toBe(true);
+    click(button('Gate 결정'));
+    await waitFor(() => expect(element('[aria-label="서버 결정 근거"]').textContent).toContain('R-002'));
+    expect(element('[aria-label="서버 결정 근거"]').textContent).toContain('실패 13');
+    expect(element('[aria-label="서버 결정 근거"]').textContent).not.toContain('Gate 기준 시도 없음');
+  });
+});
