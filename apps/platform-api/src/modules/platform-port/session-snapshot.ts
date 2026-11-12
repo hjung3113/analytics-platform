@@ -1,5 +1,5 @@
-import type { ScopeResolver } from '../menu-dispatch/scope-resolver.js';
-import type { ScopeCatalog } from '../permissions/scope-catalog.js';
+import type { ScopeResolver } from '../menu-dispatch/index.js';
+import type { ScopeCatalog } from '../permissions/index.js';
 import type { CheckService } from '../permissions/check-service.js';
 import type { PlatformPermissionResolver } from './permissions.js';
 import { titleFor } from './titles.js';

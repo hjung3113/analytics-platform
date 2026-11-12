@@ -6,8 +6,8 @@
 
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
-import type { ScopeCatalog } from '../permissions/scope-catalog.js';
-import type { ScopeResolver } from '../menu-dispatch/scope-resolver.js';
+import type { ScopeCatalog } from '../permissions/index.js';
+import type { ScopeResolver } from '../menu-dispatch/index.js';
 import type { Db } from '../../db/client.js';
 import { sendError } from '../../lib/errors.js';
 import type { SessionService } from '../auth/session-service.js';

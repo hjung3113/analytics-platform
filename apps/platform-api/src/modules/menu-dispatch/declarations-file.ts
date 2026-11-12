@@ -15,7 +15,7 @@ import { readFile } from 'node:fs/promises';
 import { isCapability } from '@ap/feature-shared';
 import { z } from 'zod';
 
-import { parseScopeCatalog, type ScopeCatalog } from '../permissions/scope-catalog.js';
+import { parseScopeCatalog, type ScopeCatalog } from '../permissions/index.js';
 import { PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
 import { CONTEXT_KEYS } from './types.js';
 import { isEnvelope } from './bundle/calls.js';
