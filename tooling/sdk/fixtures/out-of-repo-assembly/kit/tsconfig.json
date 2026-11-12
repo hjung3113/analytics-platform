@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.browser.json",
   "compilerOptions": { "types": [] },
-  "include": ["src", "menus.ts", "mock", "vite.config.ts"]
+  "include": ["src", "menus.ts", "mock", "real", "vite.config.ts"]
 }

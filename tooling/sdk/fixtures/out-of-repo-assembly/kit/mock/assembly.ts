@@ -1,5 +1,5 @@
 // Mock assembly: the adapter comes from @ap/mock-server over the kit's own declarations; no server, no slots.
-// A real-adapter assembly replaces this file, not the Host (node 1702i).
+// Vite selects this file by default, or real/assembly.tsx with --mode real.
 import type { HostAssembly } from '@ap/app-host';
 import type { Registry } from '@ap/kernel';
 import { createMockAdapter } from '@ap/mock-server';
