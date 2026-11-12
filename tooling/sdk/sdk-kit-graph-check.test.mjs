@@ -36,3 +36,18 @@ test('fixture-local menus pass, repository source outside the fixture fails', ()
   }
   assert.throws(() => assertKitGraph('real', [...real, '/repo/node_modules/@ap/http-adapter/src/index.ts'], '/kit'), /outside/);
 });
+
+// #1852: macOS TMPDIR (/var/folders/…) is a symbolic link to /private/var/…; Vite reports module ids by their real path.
+test('a root given through a symbolic link matches module ids reported by the real path', async () => {
+  const { mkdtempSync, mkdirSync, realpathSync, symlinkSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'ap-kit-graph-link-')));
+  const kit = join(base, 'kit');
+  mkdirSync(kit);
+  const link = join(base, 'link');
+  symlinkSync(kit, link, 'dir');
+  const ids = [`${kit}/mock/assembly.ts`, `${kit}/node_modules/@ap/mock-server/dist/index.js`];
+  assert.doesNotThrow(() => assertKitGraph('mock', ids, link));
+  assert.throws(() => assertKitGraph('mock', [...ids, `${base}/elsewhere/source.ts`], link), /outside/);
+});
