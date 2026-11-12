@@ -2,7 +2,7 @@
 
 상태: **Decided (2026-11-13)**
 - 결정자: 소유자 위임 advisor — 2026-11-13 [#1900](https://github.com/hjung3113/analytics-platform/issues/1900) 판단(«변경해서 승인»). 소유자가 되돌릴 수 있다.
-- Scope: [#1900](https://github.com/hjung3113/analytics-platform/issues/1900) 노드 1900a(대조와 기동 거부). 관련: [ADR-0146](0146-core-server-loads-in-house-declarations-from-deployment-config.md), [ADR-0096](0096-contract-schemas-zod-source-and-reference-implementations.md), [실서버 체크리스트](../integration/real-server-checklist.md) §3 «등록 검증».
+- Scope: [#1900](https://github.com/hjung3113/analytics-platform/issues/1900) 노드 1900a(대조와 기동 거부), 노드 1900b(묶음 엔드포인트 행을 스냅샷에서 채움, 결정 8). 관련: [ADR-0146](0146-core-server-loads-in-house-declarations-from-deployment-config.md), [ADR-0096](0096-contract-schemas-zod-source-and-reference-implementations.md), [실서버 체크리스트](../integration/real-server-checklist.md) §3 «등록 검증».
 
 ## 맥락
 
@@ -19,6 +19,7 @@
 5. **대조하지 않는 것(배포 소유):** `paramTypes`·`limits`·소유자 표(`endpointOwners`)·`targets`·`scopeCatalog`·권한→capability 행. 메뉴 선언에 없다.
 6. **서버의 스키마는 로컬 사본이다.** 서버 menu-dispatch 모듈은 로컬 zod 사본을 쓰고, 시험(`menu-snapshot.test.ts`)이 필드·중첩·필수 집합과 판정 결과를 `@ap/contract-schemas` 원천에 고정한다(`SITE_BOUND_KEYS`와 같은 방식).
 7. **공개 시험은 합성 스냅샷만 쓴다**(ADR-0146 결정 6).
+8. **묶음 엔드포인트 행은 스냅샷에서 채운다(노드 1900b, As-built).** 엔드포인트 행은 `{ id }`(+배포 소유 `paramTypes`·`limits`)만 써도 된다. 행이 빠뜨린 메뉴 소유 필드는 `menuOwnedEndpoint`가 답하는 스냅샷 값으로 채우고(`limits`는 채우지 않는다), 적힌 필드는 결정 4대로 완전 일치해야 한다(규칙 하나, 모든 필드를 적은 기존 묶음은 그대로 유효하다. 적지 않은 선택 필드 `requiredContext`·`kinds`도 스냅샷 값을 이어받고, 스냅샷에 `requiredContext`가 없을 때만 빈 목록으로 본다. 코드로 조립할 때 값을 `undefined`로 적은 필드는 빠뜨린 것이 아니라 다르게 적은 것으로 보고 거부한다). 채움은 스냅샷을 읽은 뒤, 묶음의 다른 검사(소유자 표·라우팅·`paramTypes`/`paramKeys`·Context)보다 먼저 한 함수(`fillEndpointsFromSnapshot`)에서 하고, 파일 기동(`loadDeclarationBundle`의 스냅샷 단계)과 프로그램 조립(`declaredContribution`)이 같은 함수를 쓴다. 스냅샷에 없는 id의 부분 행은 «not in the menu declarations»로 기동을 거부한다. **동작 행은 채우지 않는다**: 모든 필드를 적고 결정 4의 대조를 받는다(advisor 판단은 엔드포인트 행만 정했다). 이렇게 해 메뉴 선언 변경에 묶음 손 수정이 따라붙지 않고, 새 엔드포인트에 남는 손 작업은 소유자 표 한 행이다.
 
 ## 신뢰 한계
 
@@ -33,7 +34,6 @@
 
 ## Deferred (구현 안 함)
 
-- **묶음 행을 스냅샷에서 채움(노드 1900b).** 묶음 엔드포인트 행은 `{ id }`(+`paramTypes`)만 써도 되고 메뉴 소유 필드는 스냅샷에서 채운다. 적혀 있으면 완전 일치해야 한다. 이유: 이 노드는 대조와 기동 거부만 맡는다. 다시 여는 조건: 같은 릴리스의 다음 노드(1900b). 그래도 밀리면 «첫 사내 실서버 파일럿 묶음을 쓰기 전». 서버의 `menuOwnedEndpoint`가 «엔드포인트 X의 메뉴 소유 필드»를 답하는 한 곳이다. 지금 묶음에서 빠진 선택 필드(`requiredContext`·`kinds`)는 오늘의 런타임 의미(빈 목록)로 대조한다.
 - **배포된 웹과 스냅샷의 일치(`X-Platform-Declarations`).** ADR-0146 Deferred 그대로다. 스냅샷 digest가 있어 나중에 켤 수 있다. 다시 여는 조건: 헤더를 켜는 계약 결정.
 
 ## 결과

@@ -17,7 +17,7 @@ import { z } from 'zod';
 
 import { PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
 import { ASSESSMENT_KINDS } from './bundle/routing.js';
-import { DeclarationBundleError, type DeclaredAction, type DeclaredEndpoint } from './declarations-file.js';
+import { DeclarationBundleError, type BundleSnapshotCheck, type DeclaredAction, type DeclaredEndpoint, type DeclaredEndpointRow } from './declarations-file.js';
 import { CONTEXT_KEYS } from './types.js';
 
 export const MENU_SNAPSHOT_SCHEMA_VERSION = 1;
@@ -125,9 +125,51 @@ export async function loadMenuSnapshot(path: string): Promise<MenuDeclarationSna
   return parseMenuSnapshot(json, `menu declaration snapshot at ${path}`);
 }
 
-/** The menu-owned declaration of endpoint `id` — the one place that answers it (#1900 node b fills bundle rows from it). */
+/** The menu-owned declaration of endpoint `id` — the one place that answers it (`fillEndpointsFromSnapshot` fills from it). */
 export function menuOwnedEndpoint(snapshot: MenuDeclarationSnapshot, id: string): SnapshotEndpoint | undefined {
   return snapshot.endpoints.find((row) => row.id === id);
+}
+
+/**
+ * Completes bundle endpoint rows from the snapshot (#1900 node 1900b) — the one fill both assembly paths use. A row
+ * keeps every field it carries (the comparison then requires it to equal the snapshot); each menu-owned field it leaves
+ * out comes from `menuOwnedEndpoint`. Deployment-owned `limits` are never filled. A row the snapshot lacks stays as it
+ * is when it is complete (the comparison names it) and is a problem when it is partial (it cannot be completed).
+ */
+export function fillEndpointsFromSnapshot<Row extends DeclaredEndpointRow>(
+  rows: readonly Row[],
+  snapshot: MenuDeclarationSnapshot,
+): { endpoints: (Row & DeclaredEndpoint)[]; problems: string[] } {
+  const endpoints: (Row & DeclaredEndpoint)[] = [];
+  const problems: string[] = [];
+  for (const row of rows) {
+    const declared = menuOwnedEndpoint(snapshot, row.id);
+    if (!declared) {
+      const complete = row.menuId !== undefined && row.paramKeys !== undefined && row.permission !== undefined &&
+        row.requiresScope !== undefined && row.mergeTimeDomain !== undefined;
+      if (complete) endpoints.push(row as Row & DeclaredEndpoint);
+      else problems.push(`endpoint ${row.id}: not in the menu declarations`);
+      continue;
+    }
+    const { id: _id, limits: _limits, ...owned } = declared;
+    // A field the row carries is compared, never filled — an explicit `undefined` (possible on the programmatic path)
+    // is a carried value that differs, not an omission, so it refuses with the 1900a line.
+    for (const [name, value] of Object.entries(row)) {
+      const declaredValue = (owned as Record<string, unknown>)[name];
+      if (value === undefined && declaredValue !== undefined) problems.push(`endpoint ${row.id}: ${name} is undefined in the bundle, ${show(declaredValue)} in the menu declarations`);
+    }
+    const carried = Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined));
+    endpoints.push({ ...owned, ...carried } as Row & DeclaredEndpoint);
+  }
+  return { endpoints, problems };
+}
+
+/** The snapshot step of the bundle loader (`validateDeclarationBundle`): fill, then compare. */
+export function bundleSnapshotCheck(snapshot: MenuDeclarationSnapshot): BundleSnapshotCheck {
+  return {
+    fill: (rows) => fillEndpointsFromSnapshot(rows, snapshot),
+    problems: (bundle) => menuSnapshotProblems(bundle, snapshot),
+  };
 }
 
 /** The menu-owned declaration of action `id`. */
