@@ -17,6 +17,9 @@
 //   absent_source      every call answers `source_absent`
 //   permission_denied  every call answers `permission_denied`
 //   failing            every call fails inside the adapter with an error whose text contains `failureMarker`
+//
+// The window harness additionally runs one optional case: `target.beyondEof` supplies a fixture whose probe line is past the
+// file's end (with verified neighbours below it) and the answer must stay `source_absent`, never an `ok` without the target line.
 
 import {
   SOURCE_READ_ROWS_MAX,
@@ -74,6 +77,11 @@ export interface SourceReadContractTarget {
   capabilities?: readonly SourceReadCapability[];
   /** `null` only for `unsupported`: the adapter has no fixture lacking a capability, so the scenario is skipped. */
   setup(scenario: ContractScenario): ContractFixture | null | Promise<ContractFixture | null>;
+  /**
+   * Optional (window harness only): a fixture whose `probe` names a line past the end of the file, with at least two verified
+   * lines below it. Absent or `null`: the beyond-EOF case is skipped.
+   */
+  beyondEof?(): ContractFixture | null | Promise<ContractFixture | null>;
 }
 
 /** The slice of vitest this suite needs; pass `{ describe, it, expect }` from 'vitest'. */
@@ -422,6 +430,13 @@ export function runSourceWindowContract(api: ContractTestApi, target: SourceRead
     });
     it('missing source discloses no rows', async () => {
       expect(await read(await fixtureOf('absent_source'))).toEqual({ status: 'source_absent' });
+    });
+    it('answers source_absent, discarding neighbours, when the target line is past EOF', async () => {
+      const f = (await target.beyondEof?.()) ?? null;
+      if (!f) return;
+      expect(await read(f, ctx(), 1, 1)).toEqual({ status: 'source_absent' });
+      // The verified neighbours below the missing line do not make the window `ok` without the target line.
+      expect(await read(f, ctx(), 2, 0)).toEqual({ status: 'source_absent' });
     });
     it('rejects an already aborted read', async () => {
       const f = await fixtureOf('typical');

@@ -21,6 +21,23 @@ describe('directory Source window', () => {
     const f = await fixture();
     expect(await f.port.getWindow(f.request, f.ctx)).toMatchObject({ status: 'ok', rows: [{ line: 1, text: 'first', fileOrder: 1 }, { line: 2, text: 'second' }, { line: 3, text: 'third' }] });
   });
+  it('does not answer ok for a target line beyond EOF, even when the hash matches and neighbours exist', async () => {
+    const f = await fixture();
+    await expect(f.port.getWindow({ ...f.request, line: 4, before: 0, after: 0 }, f.ctx)).resolves.toEqual({ status: 'source_absent' });
+    // The two neighbours below the missing line verify fine; without the target line the answer is still not `ok`.
+    await expect(f.port.getWindow({ ...f.request, line: 4, before: 2, after: 0 }, f.ctx)).resolves.toEqual({ status: 'source_absent' });
+    // An empty file has no line 1 either.
+    const empty = await fixture('');
+    await expect(empty.port.getWindow({ ...empty.request, line: 1, before: 0, after: 0 }, empty.ctx)).resolves.toEqual({ status: 'source_absent' });
+  });
+  it('counts lines by the trailing newline: the last line answers ok, one past it answers source_absent', async () => {
+    const withNl = await fixture('first\nsecond\n');
+    await expect(withNl.port.getWindow({ ...withNl.request, line: 2, before: 0, after: 0 }, withNl.ctx)).resolves.toMatchObject({ status: 'ok', rows: [{ line: 2, text: 'second' }] });
+    await expect(withNl.port.getWindow({ ...withNl.request, line: 3, before: 0, after: 0 }, withNl.ctx)).resolves.toEqual({ status: 'source_absent' });
+    const withoutNl = await fixture('first\nsecond');
+    await expect(withoutNl.port.getWindow({ ...withoutNl.request, line: 2, before: 0, after: 0 }, withoutNl.ctx)).resolves.toMatchObject({ status: 'ok', rows: [{ line: 2, text: 'second' }] });
+    await expect(withoutNl.port.getWindow({ ...withoutNl.request, line: 3, before: 0, after: 0 }, withoutNl.ctx)).resolves.toEqual({ status: 'source_absent' });
+  });
   it.each(['hash', 'missing', 'unregistered', 'owner', 'unbound'] as const)('fails closed: %s', async mode => {
     const f = await fixture();
     if (mode === 'hash') await writeFile(join(f.root, 'sample.log'), 'private replacement');

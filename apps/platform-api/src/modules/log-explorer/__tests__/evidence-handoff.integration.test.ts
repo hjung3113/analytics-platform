@@ -507,6 +507,74 @@ describe.skipIf(!runIntegration)('log explorer evidence handoff (#1474 X-h)', ()
     }, 30_000);
   });
 
+  describe('Source owner grant revoked mid-read', () => {
+    // The grant file is replaced with [] while the Source answers: the pre-flight judgment passed, so only a re-judgment around
+    // the batch can stop the job. The stubbed Source answers a valid `ok` (empty rows) to prove the denial wins over resolved
+    // statuses: the whole handoff aborts with refs:source_forbidden and nothing is published or written.
+    it('a grant removed while the Source answers aborts the whole job: refs:source_forbidden, no receiver rows, no success audit, and the check exposes no per-location list', async () => {
+      const who = await person(['explorer.investigate', 'explorer.handoff', 'lifecycle.round.manage']);
+      const s = await seed([REF(26)], who);
+      const roundId = await makeRound();
+      const before = await inv(s.id);
+      const audits = await allAudit(s.id);
+      let grants = true;
+      const flipping = await buildServer({ config: loadConfig(), dbHandle, logExplorer: {
+        ...devLogExplorerServerOptions(access, 'typical'),
+        sourceOwnerAccess: { allows: async (actor, owner) => grants && access.allows(actor, owner) },
+        sourceReadPort: { ...createSyntheticScenario('typical').port, getWindow: async () => { grants = false; return { status: 'ok', rows: [], truncated: false }; } },
+      } });
+      try {
+        await flipping.ready();
+        const a = await act('evidenceHandoff', { id: s.id, refs: KEYS(s.refs), target: toRound(roundId) }, { who, server: flipping, expectedVersion: s.version });
+        expect(a.outcome, JSON.stringify(a)).toBe('invalid');
+        expect(fe(a)).toEqual(['refs:source_forbidden']);
+        expect(await roundRefs(roundId)).toEqual([]);
+        expect(await handoffAudit(s.id)).toEqual([]);
+        expect(await inv(s.id)).toEqual(before);
+        expect(await allAudit(s.id)).toEqual(audits);
+
+        // The read dialog answers the same revocation with the state alone: no per-location statuses leave the server.
+        grants = true;
+        const res = await flipping.inject({
+          method: 'POST',
+          url: '/api/v1/menu-query',
+          headers: { 'content-type': 'application/json', ...cookieHeader(who.cookie) },
+          payload: JSON.stringify({ endpoint: 'logExplorer.handoffCheck', context: {}, params: { investigationId: s.id } }),
+        });
+        expect(res.statusCode, res.body).toBe(200);
+        const check = res.json<Answer>();
+        expect(check.data).toEqual({ state: 'source_forbidden', refs: [] });
+        expect(JSON.stringify(check)).not.toContain(FILE_A);
+      } finally {
+        await flipping.close();
+      }
+    }, 30_000);
+
+    it('a revocation seen after one batch stops the remaining batches: the Source is never asked for later files', async () => {
+      const who = await person(['explorer.investigate', 'explorer.handoff', 'lifecycle.round.manage']);
+      const s = await seed(Array.from({ length: 11 }, (_, i) => REF(i + 30)), who);
+      const roundId = await makeRound();
+      let grants = true;
+      let calls = 0;
+      const flipping = await buildServer({ config: loadConfig(), dbHandle, logExplorer: {
+        ...devLogExplorerServerOptions(access, 'typical'),
+        sourceOwnerAccess: { allows: async (actor, owner) => grants && access.allows(actor, owner) },
+        sourceReadPort: { ...createSyntheticScenario('typical').port, getWindow: async () => { calls += 1; grants = false; return { status: 'ok', rows: [], truncated: false }; } },
+      } });
+      try {
+        await flipping.ready();
+        const a = await act('evidenceHandoff', { id: s.id, refs: KEYS(s.refs), target: toRound(roundId) }, { who, server: flipping, expectedVersion: s.version });
+        expect(a.outcome, JSON.stringify(a)).toBe('invalid');
+        expect(fe(a)).toEqual(['refs:source_forbidden']);
+        // The first batch of 10 ran; the post-batch re-judgment denied the 11th ref's batch before it started.
+        expect(calls).toBe(10);
+        expect(await roundRefs(roundId)).toEqual([]);
+      } finally {
+        await flipping.close();
+      }
+    }, 30_000);
+  });
+
   describe('refusals write nothing', () => {
     const expectUntouched = async (id: string, before: Row, drafts: number) => {
       expect(await inv(id)).toEqual(before);

@@ -31,4 +31,11 @@ runSourceWindowContract({ describe, it, expect } as never, {
       })() } : directory;
     return { port: createProviderSourceReadPort(provider), sampleSet, probe: { fileRef: 'sample.log', line: scenario === 'long_line' ? 2 : 160 } };
   },
+  async beyondEof() {
+    const root = await mkdtemp(join(tmpdir(), 'source-contract-')); roots.push(root);
+    const text = 'synthetic row\n'.repeat(30);
+    await writeFile(join(root, 'sample.log'), text);
+    const sampleSet = { sourceOwner: 'fixture', files: [{ fileRef: 'sample.log', order: 1, sha256: createHash('sha256').update(text).digest('hex') }] };
+    return { port: createProviderSourceReadPort(createDirectoryProvider({ fixture: root })), sampleSet, probe: { fileRef: 'sample.log', line: 31 } };
+  },
 });

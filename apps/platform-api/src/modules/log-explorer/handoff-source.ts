@@ -16,12 +16,16 @@ const SOURCE_PARALLEL = 10;
 const IDLE_HEADROOM_MS = 15_000;
 
 const invalid = (...errors: ConstructorParameters<typeof MenuActionInvalidError>[0]) => new MenuActionInvalidError(errors);
+/** Denied at any judgment: the job stops whole with `source_forbidden` — no status list, no receiver data, no success audit. */
+const forbidden = () => invalid({ path: ['refs'], code: 'source_forbidden' });
 /** One guarded existence check per ref; `null` = not known. The answer's rows are dropped on the spot. */
 export async function resolveHandoffRefs(handoff: HandoffDeps, actor: PlatformActor, sourceOwner: string, refs: readonly EvidenceRef[], tx?: Tx, signal?: AbortSignal, trustedSampleSet?: SourceSampleSet): Promise<boolean[]> {
   if (signal?.aborted) throw invalid({ path: ['refs'], code: 'source_unavailable' });
   const port = handoff.sourceReadPort ? guardSourceReadPort(handoff.sourceReadPort) : null;
   const totalMs = handoff.sourceTotalMs ?? HANDOFF_SOURCE_TOTAL_MS;
-  if (!(await handoff.sourceOwnerAccess.allows(actor, sourceOwner))) throw invalid({ path: ['refs'], code: 'source_forbidden' });
+  // The owner's grant is judged before the work and again around every batch: a revocation mid-read stops the job before a later
+  // file is read or the answers are handed on (the same post-answer re-judgment the window reads make).
+  if (!(await handoff.sourceOwnerAccess.allows(actor, sourceOwner))) throw forbidden();
   if (port === null) throw invalid({ path: ['refs'], code: 'source_unavailable' });
   // The transaction sits idle while the Source answers. The runtime pool's idle-in-transaction budget (default 30 s) may be
   // as short as the Source cap, and its clock started earlier: the DB would then cut the connection before the Source budget
@@ -40,6 +44,7 @@ export async function resolveHandoffRefs(handoff: HandoffDeps, actor: PlatformAc
       const batch = refs.slice(from, from + SOURCE_PARALLEL);
       const remaining = totalMs - (Date.now() - startedAt);
       if (controller.signal.aborted || remaining <= 0) throw invalid({ path: ['refs'], code: 'source_unavailable' });
+      if (!(await handoff.sourceOwnerAccess.allows(actor, sourceOwner))) throw forbidden();
       const answers = await Promise.all(
         batch.map(async (ref): Promise<boolean | null> => {
           try {
@@ -54,6 +59,7 @@ export async function resolveHandoffRefs(handoff: HandoffDeps, actor: PlatformAc
         }),
       );
       if (controller.signal.aborted) throw invalid({ path: ['refs'], code: 'source_unavailable' });
+      if (!(await handoff.sourceOwnerAccess.allows(actor, sourceOwner))) throw forbidden();
       for (const resolved of answers) {
         if (resolved === null) throw invalid({ path: ['refs'], code: 'source_unavailable' });
         out.push(resolved);

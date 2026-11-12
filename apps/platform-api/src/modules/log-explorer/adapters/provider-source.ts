@@ -117,6 +117,9 @@ export function createProviderSourceReadPort(provider: SourceProvider): SourceRe
         if (!endedWithNewline) finish();
         live();
         if (hash.digest('hex') !== file.sha256) return { status: 'source_absent' };
+        // The digest proves the file, not the location: a target line past EOF must not turn a verified file into a resolved
+        // pointer, and the neighbours below the missing line are dropped with it.
+        if (!rows.some(row => row.line === request.line)) return { status: 'source_absent' };
         return { status: 'ok', rows, truncated: rows.some(row => row.truncated) };
       } catch (error) {
         live(); throw toSourceReadError(error);
