@@ -3,7 +3,10 @@
 // migration (drift test). The current state is the last transition's `to_state`, or `reported` when there is none.
 // No rule result, verdict, opinion or Gate is ever an input here: a PASS never closes and a FAIL never reopens.
 
-export const ISSUE_STATES = ['reported', 'investigating', 'fix_requested', 'vendor_inquiry', 'on_hold', 'fix_verified', 'by_design', 'waived', 'dismissed'] as const;
+import { VALIDATION_ISSUE_STATES } from '@ap/feature-shared';
+
+/** The list lives in `@ap/feature-shared` so the audit event schema cannot drift from it. */
+export const ISSUE_STATES = VALIDATION_ISSUE_STATES;
 export type IssueState = (typeof ISSUE_STATES)[number];
 export const INITIAL_ISSUE_STATE: IssueState = 'reported';
 /** `on_hold` stays open: it is still counted unresolved. */
