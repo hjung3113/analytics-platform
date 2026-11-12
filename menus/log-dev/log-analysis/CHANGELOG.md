@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- #1817: Round 원문 창 요청에 Round ID 전달. 서버가 등록 manifest의 파일 순서·SHA-256을 확인한 뒤 원문 반환.
+
 ## 0.3.0
 
 - #1475: Round 상세 «원본/시퀀스» 탭 본문 `./view`(`RoundSourceView`, 읽기 전용·`source*` 주소 키). 조사 본문이 페이지 틀(`frame`)·주소 키 이름·읽기 전용(`embedded`)을 받는다. 앱 `main.tsx`만 이 경로를 import한다.

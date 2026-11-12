@@ -122,3 +122,9 @@ Admin이 되어도 **Scope가 필요한 분석 메뉴는 열리지 않습니다.
 
 - 프로젝트 이름을 바꿔도 볼륨 이름은 따로 정해져 있습니다. `RELEASE_POSTGRES_VOLUME`·`RELEASE_MINIO_VOLUME`의 기본값이 옛 설치(`feedbackops-release-1060_…`)를 가리키므로, 연습용으로 띄웠다가 `down -v` 하면 **같은 이름의 기존 데이터 볼륨이 지워집니다.** 연습 전에 두 변수를 다른 이름으로 지정하세요. 자세한 것은 oidc-and-images.md의 「Existing installs: data volumes」입니다.
 - `.env.production`과 `docker compose config` 출력을 티켓이나 로그에 붙이지 않습니다.
+
+## 원문 창 Source 연결 (선택, #1817)
+
+기본 비활성입니다. [서버 Source 설정](../../../../apps/platform-api/README.md#optional-source-window-provider-1817)의 세 환경 변수와 grant 파일을 준비합니다. 환경 변수의 경로는 backend 컨테이너 안의 경로입니다. 운영 compose 원본을 유지하고 배포별 override의 backend `environment`에 세 변수를 명시하며, Source 루트와 grant 파일의 부모 디렉터리를 읽기 전용으로 마운트합니다. 부모 디렉터리를 마운트해야 호스트의 grant 파일 원자 교체가 컨테이너에 반영됩니다. Linux `/proc/self/fd` 접근이 필요합니다.
+
+Source 소유자별 루트에는 공개 가능한 fixture 또는 해당 소유자가 관리하는 원문만 둡니다. grant 파일은 일반 사용자에게 공개하지 않습니다. Round에 실제 바이트의 SHA-256·파일 순서를 등록한 뒤, 조회 권한과 정확한 workspace·actor·owner grant를 가진 계정으로 EvidenceRef 링크의 원문 창을 확인합니다. grant 제거 후 다음 요청과 읽기 도중 철회도 확인합니다. 실제 사내 mount·ACL 적합성 확인 전에는 운영 연동 완료로 판정하지 않습니다.

@@ -1,4 +1,5 @@
 // Shared body-free Source existence checks. Reads pass no transaction; the action lifts only its own transaction's idle budget.
+import type { SourceSampleSet } from '@ap/contract-schemas';
 import { sql } from 'drizzle-orm';
 import type { Tx } from '../../db/tx.js';
 import { MenuActionInvalidError } from '../menu-dispatch/types.js';
@@ -16,7 +17,7 @@ const IDLE_HEADROOM_MS = 15_000;
 
 const invalid = (...errors: ConstructorParameters<typeof MenuActionInvalidError>[0]) => new MenuActionInvalidError(errors);
 /** One guarded existence check per ref; `null` = not known. The answer's rows are dropped on the spot. */
-export async function resolveHandoffRefs(handoff: HandoffDeps, actor: PlatformActor, sourceOwner: string, refs: readonly EvidenceRef[], tx?: Tx, signal?: AbortSignal): Promise<boolean[]> {
+export async function resolveHandoffRefs(handoff: HandoffDeps, actor: PlatformActor, sourceOwner: string, refs: readonly EvidenceRef[], tx?: Tx, signal?: AbortSignal, trustedSampleSet?: SourceSampleSet): Promise<boolean[]> {
   if (signal?.aborted) throw invalid({ path: ['refs'], code: 'source_unavailable' });
   const port = handoff.sourceReadPort ? guardSourceReadPort(handoff.sourceReadPort) : null;
   const totalMs = handoff.sourceTotalMs ?? HANDOFF_SOURCE_TOTAL_MS;
@@ -44,7 +45,7 @@ export async function resolveHandoffRefs(handoff: HandoffDeps, actor: PlatformAc
           try {
             const answer = await port.getWindow(
               { sourceOwner, fileRef: ref.fileRef, line: ref.line, before: 0, after: 0 },
-              { signal: controller.signal, timeBudgetMs: Math.min(PLATFORM_SOURCE_LIMITS.timeBudgetMs, remaining) },
+              { signal: controller.signal, timeBudgetMs: Math.min(PLATFORM_SOURCE_LIMITS.timeBudgetMs, remaining), ...(trustedSampleSet ? { trustedSampleSet } : {}) },
             );
             return resolutionOf(answer.status);
           } catch {

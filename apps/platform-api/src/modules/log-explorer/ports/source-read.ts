@@ -6,6 +6,7 @@
 // 'adapter_failed'. Permission denied, an absent source and an unsupported capability are answered states, not errors.
 
 import type {
+  SourceSampleSet,
   SourceDescribeRequest,
   SourceDescribeResponse,
   SourceParsedRequest,
@@ -23,6 +24,8 @@ import type {
 export interface SourceReadContext {
   /** Cancels the call. Required: a call without a way to stop it is not allowed. */
   signal: AbortSignal;
+  /** Server-resolved Round manifest only. Never supplied from client sampleSet/sha fields. */
+  trustedSampleSet?: SourceSampleSet;
   /** Wall-clock budget of this call in ms. The server never passes more than SOURCE_READ_TIME_BUDGET_MS. */
   timeBudgetMs: number;
 }

@@ -46,7 +46,7 @@ export function handoffEndpoints(deps: InvestigationDeps): MenuEndpointDeclarati
       if (refs.length > EVIDENCE_MAX) return unavailable;
       try {
         // All database reads finish before Source work; no transaction is held while awaiting it.
-        const resolved = await resolveHandoffRefs(handoff, actor, sample.sourceOwner, refs, undefined, signal);
+        const resolved = await resolveHandoffRefs(handoff, actor, sample.sourceOwner, refs, undefined, signal, row.origin === 'round' ? sample : undefined);
         return { state: 'ok', refs: refs.map((ref, i) => ({ fileRef: ref.fileRef, line: ref.line, status: !resolved[i] ? 'unresolved' : hashMismatchOf(ref, sample.files) ? 'hash_mismatch' : 'ok' })) };
       } catch (error) {
         if (error instanceof MenuActionInvalidError && error.fieldErrors.some(e => e.code === 'source_forbidden')) return { state: 'source_forbidden', refs: [] };

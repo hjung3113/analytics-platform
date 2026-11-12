@@ -9,6 +9,7 @@
 // no port configured) refuses `['refs'] source_unavailable` — an unknown state is never stored as «원본 없음». The window body is
 // discarded at once: nothing from it is stored, returned or audited. Pointers only.
 
+import type { SourceSampleSet } from '@ap/contract-schemas';
 import type { Tx } from '../../db/tx.js';
 import { viewerOf } from '../log-knowledge/index.js';
 import { createAuditService } from '../core/audit/audit-service.js';
@@ -40,10 +41,7 @@ import { resolveHandoffRefs } from './handoff-source.js';
 
 const invalid = (...errors: FieldError[]) => new MenuActionInvalidError(errors);
 
-interface SampleLike {
-  sourceOwner: string;
-  files: { fileRef: string; sha256: string }[];
-}
+type SampleLike = SourceSampleSet;
 
 /** What the investigation actions share with the handoff: the locked-own-row helpers and the declaration base. */
 export interface HandoffShared {
@@ -116,7 +114,7 @@ export function evidenceHandoffAction(deps: InvestigationDeps, handoff: HandoffD
       if (!holds) throw invalid({ path: ['target'], code: 'forbidden' });
 
       const sample = await sampleSetOf(tx, row, actor);
-      const resolved = await resolveHandoffRefs(handoff, actor, sample.sourceOwner, refs, tx);
+      const resolved = await resolveHandoffRefs(handoff, actor, sample.sourceOwner, refs, tx, undefined, row.origin === 'round' ? sample : undefined);
       const resolvedCount = resolved.filter(Boolean).length;
       const origin = { kind: 'log_explorer' as const, id: row.id };
       const common = { refCount: refs.length, resolvedCount, unresolvedCount: refs.length - resolvedCount };

@@ -35,9 +35,11 @@ import {
 import { createEmbeddingProvider, isEmbeddingEnabled } from './modules/voc/embedding/factory.js';
 import { registerVocJobs } from './modules/voc/index.js';
 import { createPublicUpdateReviewCandidatesService } from './modules/voc/public-update-review-candidates/service.js';
+import { sourceAssemblyFromEnv } from './modules/log-explorer/source-assembly.js';
 import { buildServer } from './server.js';
 
 const config = loadConfig();
+const sourceAssembly = sourceAssemblyFromEnv();
 const workspaceId = config.WORKSPACE_ID;
 if (!workspaceId) throw new Error('WORKSPACE_ID is required for recovery reconciliation');
 if (!config.DATABASE_URL) {
@@ -165,6 +167,7 @@ const drainState = createDrainState();
 const app = await buildServer({
   config,
   drainState,
+  ...(sourceAssembly.sourceReadPort ? { logExplorer: { sourceReadPort: sourceAssembly.sourceReadPort, sourceOwnerAccess: sourceAssembly.sourceOwnerAccess } } : {}),
   dbHandle,
   boss,
   logger,

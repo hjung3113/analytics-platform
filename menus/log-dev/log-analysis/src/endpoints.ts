@@ -22,7 +22,7 @@ const read = <P, T>(name: string, paramKeys: Record<keyof P & string, true>) => 
 export const investigationsEndpoint = read<{ status?: 'open' | 'archived'; page: number; pageSize: number }, { rows: InvestigationSummary[]; total: number }>('investigations', { status: true, page: true, pageSize: true });
 export const investigationDetailEndpoint = read<{ investigationId: string }, Investigation | null>('investigationDetail', { investigationId: true });
 export const recordsEndpoint = read<PagedRead, RecordsPage>('records', { sampleSet: true, query: true, cursor: true, limit: true });
-export const windowEndpoint = read<{ sourceOwner: string; fileRef: string; line: number; before: number; after: number }, WindowPage>('window', { sourceOwner: true, fileRef: true, line: true, before: true, after: true });
+export const windowEndpoint = read<{ sourceOwner: string; fileRef: string; line: number; before: number; after: number; roundId?: string }, WindowPage>('window', { sourceOwner: true, fileRef: true, line: true, before: true, after: true, roundId: true });
 export const parsedEndpoint = read<{ sourceOwner: string; fileRef: string; line: number }, ParsedLine>('parsed', { sourceOwner: true, fileRef: true, line: true });
 export const periodsEndpoint = read<PagedRead, PeriodsPage>('periods', { sampleSet: true, query: true, cursor: true, limit: true });
 export type HandoffCheck = { state: 'ok' | 'source_forbidden' | 'source_unavailable'; refs: { fileRef: string; line: number; status: 'ok' | 'hash_mismatch' | 'unresolved' }[] };

@@ -363,3 +363,98 @@ export function runSourceReadContract(api: ContractTestApi, target: SourceReadCo
     return f.port.searchRecords({ sampleSet: f.sampleSet, query: {}, cursor: null, limit: 10 }, c);
   }
 }
+
+/** Window-only providers use the same schema, limit and error rules without pretending to support search or parsing.
+ * The trusted manifest is server-owned context, never part of the public window request.
+ * `slow` and `failing` exercise provider I/O; `absent_source` must return no body.
+ */
+export function runSourceWindowContract(api: ContractTestApi, target: SourceReadContractTarget): void {
+  const { describe, it, expect } = api;
+  const fixtureOf = async (scenario: ContractScenario) => {
+    const fixture = await target.setup(scenario);
+    if (!fixture) throw new Error(`${scenario}_fixture_required`);
+    return fixture;
+  };
+  const read = (f: ContractFixture, c = ctx(), before = 1, after = 1) => f.port.getWindow(
+    { sourceOwner: f.sampleSet.sourceOwner, ...f.probe, before, after }, { ...c, trustedSampleSet: f.sampleSet },
+  );
+  describe(`SourceReadPort window contract: ${target.name}`, () => {
+    it('advertises only window within platform limits and returns valid ordered rows', async () => {
+      const f = await fixtureOf('many_rows');
+      const d = await f.port.describe({ sourceOwner: f.sampleSet.sourceOwner }, ctx());
+      expect(sourceDescribeResponseSchema.safeParse(d).success).toBe(true);
+      if (d.status !== 'ok') throw new Error('describe_not_ok');
+      expect(d.capabilities).toEqual(['getWindow']);
+      expect(d.synthetic).toBe(target.synthetic);
+      expect(d.limits.maxRows).toBeLessThanOrEqual(SOURCE_READ_ROWS_MAX);
+      expect(d.limits.maxWindow).toBeLessThanOrEqual(SOURCE_READ_WINDOW_MAX);
+      expect(d.limits.maxRowChars).toBeLessThanOrEqual(SOURCE_READ_ROW_CHARS_MAX);
+      expect(d.limits.timeBudgetMs).toBeLessThanOrEqual(SOURCE_READ_TIME_BUDGET_MS);
+      const before = Math.min(d.limits.maxWindow, d.limits.maxRows - 1);
+      const after = Math.min(d.limits.maxWindow, d.limits.maxRows - before - 1);
+      const res = await read(f, ctx(), before, after);
+      expect(sourceWindowResponseSchema.safeParse(res).success).toBe(true);
+      if (res.status !== 'ok') throw new Error('window_not_ok');
+      expect(res.rows).toHaveLength(before + after + 1);
+      expect(isInSourceOrder(res.rows)).toBe(true);
+      expect(res.rows.some(row => row.line === f.probe.line)).toBe(true);
+      for (const row of res.rows) expect(row.synthetic).toBe(target.synthetic);
+    });
+    it('refuses requests exceeding the 200-row window', async () => {
+      const f = await fixtureOf('many_rows');
+      await expect(read(f, ctx(), 100, 100)).rejects.toMatchObject({ code: 'invalid_request' });
+    });
+    it('cuts long rows at 8000 chars and flags row and window', async () => {
+      const res = await read(await fixtureOf('long_line'));
+      if (res.status !== 'ok') throw new Error('window_not_ok');
+      expect(res.truncated).toBe(true);
+      expect(res.rows.some(row => row.truncated)).toBe(true);
+      expect(res.rows.some(row => !row.truncated)).toBe(true);
+      for (const row of res.rows) expect(row.text.length).toBeLessThanOrEqual(SOURCE_READ_ROW_CHARS_MAX);
+    });
+    it('returns explicit unsupported states for every unadvertised operation', async () => {
+      const f = await fixtureOf('typical');
+      const at = { sourceOwner: f.sampleSet.sourceOwner, ...f.probe };
+      expect(await f.port.searchRecords({ sampleSet: f.sampleSet, query: {}, cursor: null, limit: 1 }, ctx())).toEqual({ status: 'unsupported', reason: 'capability_missing' });
+      expect(unsupportedViolation('getParsed', await f.port.getParsed(at, ctx()))).toBeNull();
+      expect(unsupportedViolation('getPeriods', await f.port.getPeriods({ sampleSet: f.sampleSet, query: {}, cursor: null, limit: 1 }, ctx()))).toBeNull();
+      expect(unsupportedViolation('getTopViewLink', await f.port.getTopViewLink(at, ctx()))).toBeNull();
+    });
+    it('missing source discloses no rows', async () => {
+      expect(await read(await fixtureOf('absent_source'))).toEqual({ status: 'source_absent' });
+    });
+    it('rejects an already aborted read', async () => {
+      const f = await fixtureOf('typical');
+      const controller = new AbortController(); controller.abort();
+      await expect(read(f, ctx(10000, controller.signal))).rejects.toMatchObject({ code: 'aborted' });
+    });
+    it('aborts active provider I/O promptly', async () => {
+      const f = await fixtureOf('slow');
+      const controller = new AbortController();
+      const started = Date.now();
+      const call = read(f, ctx(10000, controller.signal));
+      const timer = setTimeout(() => controller.abort(), 20);
+      try { await expect(call).rejects.toMatchObject({ code: 'aborted' }); }
+      finally { clearTimeout(timer); }
+      expect(Date.now() - started).toBeLessThanOrEqual(5000);
+    });
+    it('times out provider I/O with a code-only error', async () => {
+      const f = await fixtureOf('slow');
+      const started = Date.now();
+      await expect(read(f, ctx(50))).rejects.toMatchObject({ code: 'time_budget_exceeded' });
+      expect(Date.now() - started).toBeLessThanOrEqual(5000);
+    });
+    it('sanitizes provider failures without source text or cause', async () => {
+      const outcome = await settle(read(await fixtureOf('failing')));
+      expect(outcome.kind).toBe('error');
+      const error = outcome.kind === 'error' ? outcome.error : undefined;
+      expect(error instanceof SourceReadError).toBe(true);
+      const e = error as SourceReadError;
+      expect(e.code).toBe('adapter_failed');
+      expect(e.message).not.toContain(target.failureMarker);
+      expect(String(e.stack)).not.toContain(target.failureMarker);
+      expect(JSON.stringify(e)).not.toContain(target.failureMarker);
+      expect((e as { cause?: unknown }).cause).toBeUndefined();
+    });
+  });
+}

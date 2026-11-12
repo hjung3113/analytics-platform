@@ -292,6 +292,20 @@ describe('RoundSourceView, the Round tab body the app injects (#1475)', () => {
     expect(screen.queryByRole('button', { name: /근거 위치 바구니|조건 저장|근거 위치 담기/ })).toBeNull();
     expect(write).not.toHaveBeenCalled();
   });
+  it('opens a linked window with the Round binding even when search and Parser are unsupported', async () => {
+    await read.withImplementation(async request => {
+      if (request.endpoint === 'logExplorer.records' || request.endpoint === 'logExplorer.parsed') return ok({ state: 'unsupported', reason: 'capability_missing', rows: [], synthetic: false, label: null });
+      if (request.endpoint === 'logExplorer.window') return ok({ state: 'ok', reason: null, rows: [row], truncated: false, synthetic: true, label: '합성' });
+      throw new Error('unexpected_source_endpoint');
+    }, async () => {
+      window.history.replaceState(null, '', '/log/explorer?v=1&sourceFocus=1:1&sourceDrawer=record');
+      view();
+      expect(await screen.findByRole('heading', { name: '원문 줄' })).toBeTruthy();
+      const request = read.mock.calls.map(([value]) => value).find(value => value.endpoint === 'logExplorer.window');
+      expect(request?.params).toEqual({ sourceOwner: set.sourceOwner, fileRef: 'source-b', line: 1, before: 3, after: 3, roundId: '14750000-0000-4000-8000-000000000001' });
+      expect(screen.getByText('<script>private-source</script>')).toBeTruthy();
+    });
+  });
   it('keeps its address keys apart from the host: sourceFocus and sourceDrawer, never tab, focus or drawer', async () => {
     view();
     fireEvent.click(await screen.findByRole('button', { name: 'source-b:1 상세' }));
