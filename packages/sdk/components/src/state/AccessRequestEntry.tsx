@@ -46,6 +46,9 @@ export function AccessRequestEntry({ slot, target, size = 'action', label, child
   const openRef = useRef(false);
   const holder = useRef<HTMLSpanElement>(null);
   const anchor = useRef<HTMLSpanElement>(null);
+  // Whether focus is inside this entry's own dialog. The dialog is portaled, but React focus events bubble through the
+  // React tree, so the anchor below sees them; another dialog on the page never sets it.
+  const dialogFocus = useRef(false);
   const changeOpen = useCallback((next: boolean) => {
     openRef.current = next;
     setOpen(next);
@@ -63,9 +66,8 @@ export function AccessRequestEntry({ slot, target, size = 'action', label, child
     return () => {
       // Owned only while focus is really the entry's: on its action, or in its open (portaled) dialog. An open dialog alone is
       // not ownership: focus the user moved elsewhere stays where it is.
-      const active = document.activeElement;
-      const inDialog = openRef.current && (isFocusLost() || active?.closest('[role="dialog"], [role="alertdialog"]') != null);
-      if (!element?.contains(active) && !inDialog) return;
+      const inDialog = openRef.current && (dialogFocus.current || isFocusLost());
+      if (!element?.contains(document.activeElement) && !inDialog) return;
       // Resolved now: the entry is detached by the time the deferred focus runs.
       const target = pageFallbackTarget(marker ?? element);
       target?.focus({ preventScroll: true });
@@ -83,7 +85,7 @@ export function AccessRequestEntry({ slot, target, size = 'action', label, child
         : <Button type="button" size={size === 'field' ? 'toolbar' : 'sm'} variant={size === 'field' ? 'ghost' : 'secondary'} aria-label={label} onClick={() => changeOpen(true)}>{t('accessRequest')}</Button>}</span>;
       return children ? children(state, action) : action;
     }}</Pending>
-    <span ref={anchor} className="contents"><Dialog target={target} returnTo={url} open={open} onOpenChange={changeOpen} /></span>
+    <span ref={anchor} className="contents" onFocus={() => { dialogFocus.current = true; }} onBlur={() => { dialogFocus.current = false; }}><Dialog target={target} returnTo={url} open={open} onOpenChange={changeOpen} /></span>
   </>;
 }
 

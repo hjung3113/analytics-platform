@@ -203,7 +203,12 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
     expect(document.activeElement?.hasAttribute('data-platform-page-content')).toBe(true);
   });
 
-  it.each(['the last forbidden widget disappears', 'the owner page is disposed'] as const)('focus the user moved outside the entry and its open dialog stays there when %s (review C3)', async (removal) => {
+  it.each([
+    ['the last forbidden widget disappears', null],
+    ['the owner page is disposed', null],
+    ['the last forbidden widget disappears', 'dialog'],
+    ['the last forbidden widget disappears', 'alertdialog'],
+  ] as const)('focus the user moved outside the entry and its open dialog stays there when %s (unrelated %s; review C3)', async (removal, container) => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     const adapter = adapterFor(requestable(partial), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }));
     const okQuery: QueryState<unknown> = { ...forbiddenQuery, response: { ...forbiddenResponse, outcome: 'ok' } };
@@ -212,7 +217,9 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
     </PlatformProvider></I18nProvider>;
     const outside = document.createElement('button');
     outside.textContent = 'outside';
-    document.body.append(outside);
+    const host = container === null ? outside : Object.assign(document.createElement('div'), { role: container });
+    if (host !== outside) { host.setAttribute('role', container ?? ''); host.append(outside); }
+    document.body.append(host);
     try {
       const view = render(tree(forbiddenQuery, true));
       fireEvent.click(await screen.findByRole('button', { name: '권한 요청' }));
@@ -225,7 +232,7 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
       expect(blurs).toEqual([]);
       expect(document.activeElement).toBe(outside);
-    } finally { outside.remove(); }
+    } finally { host.remove(); }
   });
 
   it('an unknown pending state (loading or failed read) draws the plain request entry in the banner', async () => {
