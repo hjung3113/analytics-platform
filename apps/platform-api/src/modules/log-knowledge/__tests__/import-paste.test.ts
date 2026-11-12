@@ -80,7 +80,7 @@ describe('importPaste: header refusals as field errors', () => {
   const action = importIntakeActions({ db: {} as never, checkService: {} as never }).find((a) => a.spec.id === 'logKnowledge.importPaste');
   const run = async (text: string) => {
     try {
-      await action?.handle({} as never, {} as never, { text }, { correlationId: 'c' });
+      await action?.handle({} as never, {} as never, { text }, { correlationId: 'c', scopeId: null, scopes: [] });
     } catch (error) {
       return error instanceof MenuActionInvalidError ? error.fieldErrors : error;
     }

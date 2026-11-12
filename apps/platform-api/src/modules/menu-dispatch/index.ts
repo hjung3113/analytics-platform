@@ -6,3 +6,4 @@ export {
   type MenuDispatchRegistry,
 } from './registry.js';
 export type * from './types.js';
+export type { ScopeGrant, ScopeResolver } from './scope-resolver.js';

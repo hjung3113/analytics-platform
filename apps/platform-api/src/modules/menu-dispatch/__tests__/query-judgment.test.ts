@@ -193,13 +193,15 @@ describe('runQuery order (steps 3–10)', () => {
   });
 
   it('judges maxHours before the empty set, and a narrowing Selection lifts it', async () => {
-    // A selection endpoint needs Scope, which registration refuses (F3, #1087): the judgment is exercised on a stub registry.
+    // Scope is judged before limits; a granted site reaches the maxHours and Selection checks.
     const spec = { requiresScope: true, context: { time: 'apply', selection: 'apply' } as const, limits: { maxHours: 24 } };
     const { declaration, calls } = testEndpoint(spec);
-    const registry = unvalidatedRegistry(declaration);
+    const registry = createMenuDispatchRegistry([{ endpoints: [declaration] }], {
+      scopeResolver: { resolve: async () => [{ site: 'MEM', rooms: ['R1'] }] },
+    });
     const wide = (selection: string[] | null) => ({
       endpoint: 'test.rows',
-      context: { from: '2026-10-01T00:00:00', to: '2026-10-03T00:00:00', selection },
+      context: { scopeId: 'MEM', from: '2026-10-01T00:00:00', to: '2026-10-03T00:00:00', selection },
       params: { q: 'x' },
     });
     expect(await run(registry, wide(null))).toMatchObject({ outcome: 'too_large', data: null });

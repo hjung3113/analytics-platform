@@ -11,6 +11,7 @@ import type { SessionService } from '../auth/session-service.js';
 import {
   MENU_QUERY_PREFIX,
   type MenuDispatchRegistry,
+  type MenuDispatchRoutesOptions,
   createMenuDispatchRegistry,
   menuQueryDispatchRoutes,
 } from '../menu-dispatch/index.js';
@@ -27,6 +28,7 @@ export interface MenuQueryRoutesOptions {
   now?: () => Date;
   /** The shared registry; absent = a registry holding only `home.notices`. */
   registry?: MenuDispatchRegistry;
+  sessionVersionOf?: MenuDispatchRoutesOptions['sessionVersionOf'];
 }
 
 export const menuQueryRoutes: FastifyPluginAsync<MenuQueryRoutesOptions> = async (app, opts) => {
@@ -43,5 +45,6 @@ export const menuQueryRoutes: FastifyPluginAsync<MenuQueryRoutesOptions> = async
     sessionService: opts.sessionService,
     workspaceId: opts.workspaceId,
     registry,
+    ...(opts.sessionVersionOf ? { sessionVersionOf: opts.sessionVersionOf } : {}),
   });
 };

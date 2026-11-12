@@ -94,7 +94,7 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 **쓰기 답 크기 상한:** 재생을 위해 `ok` 답(JSON)을 통째로 저장하며 상한은 128 KiB(UTF-8 바이트)다. 넘으면 트랜잭션(핸들러의 쓰기 포함)을 되돌리고 `error`, `message: 'response too large to record'`로 답한다 — 재생할 수 없는 `ok`는 내지 않는다. 핸들러의 `data`는 이 안에 들어와야 한다. 멱등 키는 소문자 UUID로 정규화해 잠금·조회·기록에 쓴다.
 
 - **시간 도메인(§3 7단계)** — 선언의 `mergeTimeDomain` 플래그로 정해지지만 서버는 아직 이 판정을 하지 못한다. 합칠 설비 집합이 Scope에서 나오기 때문이다.
-- **Scope 선언 등록 조건(미구현, 노드 1729e):** resolver가 있을 때만 엔드포인트의 `requiresScope`·`mergeTimeDomain`, 동작의 `requiresScope` 선언을 받는 등록 조건은 요청별 Scope 판정(fail-closed)과 같은 변경으로 들어간다. 그 전에는 기존 #1087 메시지로 등록을 거부한다.
+- **Scope 선언 등록 조건:** 주입된 resolver가 있을 때만 엔드포인트·동작의 `requiresScope`를 등록한다. 요청마다 권한 다음에 site·room 부여를 판정하며, 부여 없음·실패·타임아웃·부여 밖 요청은 `forbidden`이다. `mergeTimeDomain`은 시간 도메인 판정이 없어 계속 등록을 거부한다.
 - 서버가 하는 등록 검증: 동작·엔드포인트 id 중복 없음, `invalidates`가 같은 `menuId`의 등록된 엔드포인트, `concurrency: 'version'`에 `currentVersion`, `limits.maxRows` 양의 정수이고 페이지·커서 엔드포인트 아님, `limits.maxHours` 양수이고 `context.time` 적용, `requiredContext`는 적용된 키, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`line`·`prcGroup`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`하지 않음(규칙 6). 메뉴 Registry와 대조하는 항목(`menuId`·권한 이름·`apply` 키 일치)은 서버가 앱의 메뉴 Registry를 갖지 않아 하지 않는다.
 
 #### Scope 부여 서비스 계약

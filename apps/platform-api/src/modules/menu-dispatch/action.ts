@@ -13,9 +13,11 @@ import type { Tx } from '../../db/tx.js';
 import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import { createIdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
+import { resolveRequestScopes } from './query.js';
 import type { MenuDispatchRegistry } from './registry.js';
 import {
   type ActionAnswer,
+  type ActionHandlerContext,
   type ActionOutcome,
   type FieldError,
   type MenuActionDeclaration,
@@ -48,6 +50,7 @@ export type ActionShape =
       ok: true;
       declaration: MenuActionDeclaration;
       input: Record<string, unknown>;
+      context: Record<string, unknown>;
       expectedVersion: string | null;
       /** Raw `idempotencyKey` as sent; judged by step 2. */
       idempotencyKey: unknown;
@@ -70,8 +73,10 @@ export function judgeActionShape(body: unknown, registry: MenuDispatchRegistry):
   for (const key of ['context', 'input']) {
     if (!Object.hasOwn(body, key)) return shapeFail(`${spec.id} needs ${key}`);
   }
-  // `scopeId` travels exactly when the action requires a scope, and a scope action is refused at registration.
-  if (!isPlain(body.context) || Object.keys(body.context).length > 0) {
+  const contextKeys = spec.requiresScope ? ['scopeId'] : [];
+  if (!isPlain(body.context) || Object.keys(body.context).some((key) => !contextKeys.includes(key)) ||
+    (spec.requiresScope && !Object.hasOwn(body.context, 'scopeId')) ||
+    (spec.requiresScope && body.context.scopeId !== null && typeof body.context.scopeId !== 'string')) {
     return shapeFail(`${spec.id} takes no context`);
   }
   if (!isPlain(body.input)) return shapeFail(`${spec.id}: input must be an object`);
@@ -82,6 +87,7 @@ export function judgeActionShape(body: unknown, registry: MenuDispatchRegistry):
     ok: true,
     declaration,
     input: body.input,
+    context: body.context,
     expectedVersion: versioned ? (body.expectedVersion as string) : null,
     idempotencyKey: body.idempotencyKey,
   };
@@ -121,14 +127,14 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
   });
 
   /** Steps 1–8. `body` is the parsed JSON (or `null` for malformed JSON). */
-  async function run(actor: PlatformActor, body: unknown, correlationId: string): Promise<ActionAnswer> {
+  async function run(actor: PlatformActor, body: unknown, correlationId: string, signal?: AbortSignal): Promise<ActionAnswer> {
     const shape = judgeActionShape(body, deps.registry);
     if (!shape.ok) return answer(correlationId, 'error', { message: shape.message });
     const keyError = judgeIdempotencyKey(shape.idempotencyKey);
     if (keyError) return answer(correlationId, 'invalid', { fieldErrors: [keyError] });
     // The uuid column folds spelling, so lock, lookup and record all use one canonical spelling.
     const key = (shape.idempotencyKey as string).toLowerCase();
-    const { declaration, input, expectedVersion } = shape;
+    const { declaration, input, expectedVersion, context } = shape;
     const { spec } = declaration;
 
     const forbidden = () =>
@@ -136,10 +142,21 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
     // Step 3, before any lock: a caller without permission takes no lock and reads nothing.
     if (!(await declaration.authorize(actor, deps.db, input))) return forbidden();
 
+    const scopes = spec.requiresScope
+      ? await resolveRequestScopes(deps.registry.scopeResolver, actor, context, signal)
+      : [];
+    if (scopes === null) return answer(correlationId, 'forbidden');
+
+    const actionContext: ActionHandlerContext = {
+      correlationId,
+      scopeId: spec.requiresScope ? context.scopeId as string : null,
+      scopes,
+      ...(signal ? { signal } : {}),
+    };
     const requestHash = hashRequestBody({
       action: spec.id,
       workspaceId: actor.workspace_id,
-      scopeId: null,
+      scopeId: actionContext.scopeId,
       expectedVersion,
       input,
     });
@@ -177,7 +194,7 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
 
         // Step 7: version.
         if (spec.concurrency === 'version') {
-          const current = await declaration.currentVersion?.(tx, actor, input);
+          const current = await declaration.currentVersion?.(tx, actor, input, actionContext);
           if (current === undefined) {
             throw new Error(`action ${spec.id}: concurrency 'version' without a currentVersion reader`);
           }
@@ -190,7 +207,7 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
         }
 
         // Step 8: the write.
-        const written = await declaration.handle(tx, actor, input, { correlationId });
+        const written = await declaration.handle(tx, actor, input, actionContext);
         if (spec.concurrency === 'version' && typeof written.version !== 'string') {
           throw new Error(`action ${spec.id}: a versioned write must return the new version`);
         }
