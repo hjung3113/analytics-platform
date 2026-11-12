@@ -1,10 +1,10 @@
 # Log Explorer — 범용 로그 탐색 워크벤치 설계 (v0.31.0, As-built; 결함 수신 j와 지식 초안 넘기기 대화상자만 미완)
 
-> **Status: As-built (v0.31.0 슬라이스 노드 a–i·k), 소유자 답 7개 반영, ADR 0119·0121·0128 Decided.** 구현된 것: 읽기 포트·합성 어댑터 a(#1467), 조사 상태 b(#1468), 읽기 엔드포인트 c(#1469), `rule_result_evidence` d(#1470), 시퀀스 SDK 조각 e(#1471), 토큰·예산·내보내기 REST f(#1472), 「로그 분석」 그룹과 조사 화면 g(#1473), 근거 위치 넘기기 h(#1474: Round·지식 초안 수신과 `logExplorer.evidenceHandoff`, Round·지식 초안 확인 대화상자), Round 상세 «원본/시퀀스» 탭 i(#1475), 통합 계약 테스트 k(#1476, 아래 §11). 노드 j(결함 수신)는 수신 객체가 없어 구현 전이다. 운영 조립에는 Source 어댑터가 없어 읽기는 «미연결» 상태로 답하고, 합성 Source 위의 검사는 사내 Source 연동의 증거가 아니다. 근거는 [#1344](https://github.com/hjung3113/analytics-platform/issues/1344)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 설계 [`log-lifecycle`](../log-lifecycle/README.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0(= #1198 + #1344, 소유자 2026-11-07). 결정은 [ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)(읽기 포트·토큰·내보내기), [ADR-0121](../../../adr/0121-ordered-interval-track-sdk-piece.md)(시퀀스 SDK 조각), [ADR-0128](../../../adr/0128-app-joins-menus-for-embedded-bodies.md)(Round 탭 연결)가 소유하고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 정확한 계약은 [api/log-explorer.md](../../../architecture/platform-api/api/log-explorer.md)가 갖는다. 결정마다 «소유자 2026-11-07»로 표시한다.
+> **Status: As-built (v0.31.0 슬라이스 노드 a–i·k), 소유자 답 7개 반영, ADR 0119·0121·0128 Decided.** 구현된 것: 읽기 포트·합성 어댑터 a(#1467), 조사 상태 b(#1468), 읽기 엔드포인트 c(#1469), `rule_result_evidence` d(#1470), 시퀀스 SDK 조각 e(#1471), 토큰·예산·내보내기 REST f(#1472), 「로그 분석」 그룹과 조사 화면 g(#1473), 근거 위치 넘기기 h(#1474: Round·지식 초안 수신과 `logExplorer.evidenceHandoff`, Round·지식 초안 확인 대화상자), Round 상세 «원본/시퀀스» 탭 i(#1475), 통합 계약 테스트 k(#1476, 아래 §11). 노드 j(결함 수신)는 수신 객체가 없어 구현 전이다. 운영 조립은 기본 «미연결»이며, #1817의 명시적 directory provider 설정으로 Round 원문 창을 읽을 수 있다. 합성 Source 위의 검사는 사내 Source 연동의 증거가 아니다. 근거는 [#1344](https://github.com/hjung3113/analytics-platform/issues/1344)이고, [#1330](https://github.com/hjung3113/analytics-platform/issues/1330) Epic과 v0.30.0 설계 [`log-lifecycle`](../log-lifecycle/README.md)을 **재사용**한다(중복 설계 금지). 릴리스는 v0.31.0(= #1198 + #1344, 소유자 2026-11-07). 결정은 [ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)(읽기 포트·토큰·내보내기), [ADR-0121](../../../adr/0121-ordered-interval-track-sdk-piece.md)(시퀀스 SDK 조각), [ADR-0128](../../../adr/0128-app-joins-menus-for-embedded-bodies.md)(Round 탭 연결)가 소유하고, 실제 코드와 Decided ADR이 이 문서보다 우선한다. 정확한 계약은 [api/log-explorer.md](../../../architecture/platform-api/api/log-explorer.md)가 갖는다. 결정마다 «소유자 2026-11-07»로 표시한다.
 >
 > **구현이 이 문서와 다른 곳.** (1) 근거 위치의 권한 철회 상태는 읽는 사람 기준 두 가지 사유(`capability_lost`, `round_not_visible`)이고 Source ACL 판정은 읽기·내보내기·넘기기 호출 시점에 한다(§3.2). (2) Round 탭은 읽기 전용이다: 조사 행을 만들지 않고 Round의 샘플 목록으로 읽으며 바구니·저장이 없고, 앱 `main.tsx`가 두 메뉴를 이어 «탭 슬롯에 꽂는다»(§6.2)를 구현한다. (3) 화면의 내보내기 버튼은 REST 어댑터가 없어 이유와 함께 비활성이다([backlog](../../../../.planning/backlog.md)).
 >
-> 원본 로그의 소유자(Source API)·Parser·Top View(#1200)는 사내 쪽에서 개발 중이거나 실사 전이다. 이 슬라이스는 **읽기 포트와 합성 어댑터까지만** 만들고 «연동됨» 표시를 두지 않는다.
+> 원본 로그의 소유자(Source API)·Parser·Top View(#1200)는 사내 쪽에서 개발 중이거나 실사 전이다. 초기 슬라이스는 읽기 포트와 합성 어댑터를 제공했고, #1817은 명시적 directory provider의 Round 원문 창을 추가한다. 사내 적합성 시험 전에는 «연동됨» 표시를 두지 않는다.
 
 ## 1. 이 설계가 하는 것
 
@@ -57,7 +57,7 @@ SourceReadPort (capability discovery 후 지원하는 것만 노출)
 - 모든 호출은 서버가 `sourceOwner` 범위 ACL을 **그 요청에서** 판정하고, 요청 취소(`AbortSignal`)와 시간 예산을 강제한다.
 - 상한(시작값, 측정 후 조정): 한 응답 행 200, 행당 본문 8,000자(넘으면 `truncated=true`로 표시하고 자르지 않은 척하지 않음), 창 `before/after` 각 100(대상 줄 포함 한 응답 200행 상한이 우선하므로 `before + after + 1 > 200` 요청은 `invalid_request`로 거부하고 조용히 자르지 않음), 요청 시간 예산 10초. 브라우저에 전체 파일을 내려 한 번에 파싱하지 않는다.
 - `unsupported`는 오류가 아니라 **명시된 상태**다(«Parser 추적 미연결», «기간 행 미지원», «Top View 미연결»). 가짜 trace·가짜 Top View·가짜 판정을 만들지 않는다.
-- 사내 Source API가 확정되기 전에는 **합성 어댑터**(synthetic fixture)만 있고 화면·PR에 «합성»을 표시한다. 운영 연동 완료로 쓰지 않는다.
+- #1817은 provider seam과 Linux directory provider의 원문 창만 구현한다. 기본 비활성·비밀 workspace/actor/owner allowlist·Round manifest 바인딩이며, 전체 바이트 SHA-256 확인 뒤 행을 반환한다. Parser·검색·기간·Top View는 미지원이다. 설정은 [서버 README](../../../../apps/platform-api/README.md#optional-source-window-provider-1817). 합성 fixture 결과는 사내 Source 연동의 증거가 아니다.
 
 ### 3.2 `investigation` (조사 상태, 최소)
 

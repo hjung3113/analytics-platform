@@ -16,6 +16,7 @@ import {
 } from '@ap/contract-schemas';
 import type { LOG_EXPLORER_READ_ENDPOINTS, LOG_EXPLORER_READ_RESULTS } from '@ap/feature-shared';
 
+import { viewerOf } from '../log-knowledge/index.js';
 import { currentAuthContext } from '../../lib/auth-context.js';
 import type { EndpointHandlerArgs, EndpointResult } from '../menu-dispatch/types.js';
 import { budgetSpent, reserveBody, subjectsOf } from './domain/budget.js';
@@ -167,6 +168,10 @@ export function createReadService(deps: LogExplorerReadDeps, port: SourceReadPor
   ): Promise<EndpointResult> {
     const finish = async (settled: Settled): Promise<EndpointResult> => {
       await record(args, subject, settled);
+      if (settled.rowCount > 0 && port !== null) {
+        const still = await judge(args, subject.sourceOwner);
+        if (still !== 'ok') return stateOnly(subject.kind, 'permission_denied', still).response;
+      }
       return settled.response;
     };
     // Nothing is connected (production today): a capability holder is told so; the Source-owner rule needs a Source to judge against.
@@ -295,13 +300,20 @@ export function createReadService(deps: LogExplorerReadDeps, port: SourceReadPor
     records: (args: EndpointHandlerArgs, input: { sampleSet: SourceSampleSet; query: SourceRecordQuery; cursor: string | null; limit: number }) => paged('records', args, input),
     periods: (args: EndpointHandlerArgs, input: { sampleSet: SourceSampleSet; query: SourceRecordQuery; cursor: string | null; limit: number }) => paged('periods', args, input),
 
-    window(args: EndpointHandlerArgs, input: { sourceOwner: string; fileRef: string; line: number; before: number; after: number }): Promise<EndpointResult> {
+    window(args: EndpointHandlerArgs, input: { sourceOwner: string; fileRef: string; line: number; before: number; after: number; roundId?: string }): Promise<EndpointResult> {
       const subject: Subject = { kind: 'window', sourceOwner: input.sourceOwner, sampleSet: null, query: null };
       return perform<SourceWindowResponse>(
         args,
         subject,
         () => null,
-        (guarded, ctx) => guarded.getWindow(input, ctx),
+        async (guarded, ctx) => {
+          const { roundId, ...request } = input;
+          if (roundId === undefined) return guarded.getWindow(request, ctx);
+          const manifest = await deps.lifecycleRead?.getRoundSampleSet(deps.db, args.actor.workspace_id, roundId, viewerOf(args.actor));
+          if (!manifest || manifest.sourceOwner !== input.sourceOwner || !manifest.files.some(file => file.fileRef === input.fileRef)) return { status: 'source_absent' };
+          subject.sampleSet = manifest;
+          return guarded.getWindow(request, { ...ctx, trustedSampleSet: manifest });
+        },
         (answer) => {
           const truncated = answer.truncated || answer.rows.some((row) => row.truncated);
           const synthetic = answer.rows.some((row) => row.synthetic);

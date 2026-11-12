@@ -27,7 +27,7 @@ export interface LogExplorerDeps {
 /**
  * The Source-owner half of `explorer.source.read` (design §4): the capability is a workspace grant, and which `sourceOwner`s a holder may read
  * is judged here, per request. Nothing in the permission model carries a Source owner yet, so the assembly injects the rule; the production
- * default refuses every owner (fail closed) until the owner-scoped grant model is decided (backlog, #1469).
+ * default refuses every owner (fail closed) until the owner-scoped grant model is decided (in-house ACL follow-up #1705; explicit secret allowlist #1817).
  */
 export interface SourceOwnerAccess {
   allows(actor: { actor_id: string; workspace_id: string }, sourceOwner: string): Promise<boolean>;
@@ -49,6 +49,8 @@ export interface LogExplorerReadDeps {
   sourceOwnerAccess: SourceOwnerAccess;
   /** The lifecycle read port of `logExplorer.evidenceLinks` (#1470); absent = the endpoint is not declared. */
   lifecycleEvidence?: LifecycleEvidenceRead;
+  /** Resolves the authenticated caller’s Round manifest; never accepts a client manifest as trusted. */
+  lifecycleRead?: LifecycleRoundRead;
   /** HMAC key of the page cursors; absent = a random key per process. */
   cursorKey?: Buffer;
   /** Counters of the token budget and export count (#1472); absent = the `core.rate_limits` store over `db`. A test injects the in-memory one. */

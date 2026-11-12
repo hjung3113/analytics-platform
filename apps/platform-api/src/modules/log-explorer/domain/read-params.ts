@@ -19,7 +19,7 @@ export const DEFAULT_PAGE_LIMIT = 50;
 export { WIRE_CURSOR_MAX } from './cursor.js';
 
 export const RECORDS_PARAM_KEYS = ['sampleSet', 'query', 'cursor', 'limit'] as const;
-export const WINDOW_PARAM_KEYS = ['sourceOwner', 'fileRef', 'line', 'before', 'after'] as const;
+export const WINDOW_PARAM_KEYS = ['sourceOwner', 'fileRef', 'line', 'before', 'after', 'roundId'] as const;
 export const PARSED_PARAM_KEYS = ['sourceOwner', 'fileRef', 'line'] as const;
 export const PERIODS_PARAM_KEYS = RECORDS_PARAM_KEYS;
 
@@ -64,9 +64,11 @@ function parsePaged(
 export const parseRecordsParams = (params: Record<string, unknown>) => parsePaged(params, sourceSearchRequestSchema);
 export const parsePeriodsParams = (params: Record<string, unknown>) => parsePaged(params, sourcePeriodsRequestSchema);
 
-export function parseWindowParams(params: Record<string, unknown>): Parsed<SourceWindowRequest> {
-  const parsed = sourceWindowRequestSchema.safeParse({ ...params, before: params.before ?? 0, after: params.after ?? 0 });
-  return parsed.success ? { ok: true, value: parsed.data } : { ok: false, message: describeIssues(parsed.error) };
+export function parseWindowParams(params: Record<string, unknown>): Parsed<SourceWindowRequest & { roundId?: string }> {
+  const { roundId, ...request } = params;
+  if (roundId !== undefined && (typeof roundId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(roundId))) return { ok: false, message: 'invalid params: roundId: must be a uuid' };
+  const parsed = sourceWindowRequestSchema.safeParse({ ...request, before: params.before ?? 0, after: params.after ?? 0 });
+  return parsed.success ? { ok: true, value: { ...parsed.data, ...(typeof roundId === 'string' ? { roundId } : {}) } } : { ok: false, message: describeIssues(parsed.error) };
 }
 
 export function parseParsedParams(params: Record<string, unknown>): Parsed<SourceParsedRequest> {

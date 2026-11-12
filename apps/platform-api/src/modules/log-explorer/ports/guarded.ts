@@ -75,7 +75,7 @@ async function run<T, R>(ctx: SourceReadContext, call: (inner: SourceReadContext
   ctx.signal.addEventListener('abort', onAbort, { once: true });
   const timer = setTimeout(() => stop('time_budget_exceeded'), budgetMs);
   try {
-    const answer = call({ signal: inner.signal, timeBudgetMs: budgetMs });
+    const answer = call({ ...ctx, signal: inner.signal, timeBudgetMs: budgetMs });
     // An adapter that ignores the signal still cannot outlive it; a late rejection of the dropped call is swallowed.
     answer.catch(() => undefined);
     const value = await Promise.race([answer, interrupted]);

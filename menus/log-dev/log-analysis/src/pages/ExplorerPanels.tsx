@@ -82,7 +82,7 @@ export function BasketDrawer({ investigation, onClose }: { investigation: Invest
 }
 export function RecordDrawer({ investigation, set, selection, blocked, embedded = false, onDenied, onClose }: { blocked: boolean; embedded?: boolean; onDenied: () => void; investigation: Investigation; set: SampleSet; selection: { fileRef: string; line: number }; onClose: () => void }) {
   const location = { fileRef: selection.fileRef, line: selection.line }; // the read contracts reject unknown keys such as fileOrder
-  const windowRead = useSourceRead(windowEndpoint, { sourceOwner: set.sourceOwner, ...location, before: 3, after: 3 });
+  const windowRead = useSourceRead(windowEndpoint, { sourceOwner: set.sourceOwner, ...location, before: 3, after: 3, ...(investigation.roundId ? { roundId: investigation.roundId } : {}) });
   const parsedRead = useSourceRead(parsedEndpoint, { sourceOwner: set.sourceOwner, ...location });
   const add = useMenuAction(evidenceAdd);
   const [notice, setNotice] = useState('');

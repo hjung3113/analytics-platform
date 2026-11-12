@@ -247,7 +247,7 @@ export interface BuildServerOptions {
    */
   menuDispatch?: readonly MenuDispatchContribution[];
   /**
-   * Log explorer Source seams (#1469). Production passes neither: no Source adapter is connected yet, so every read answers
+   * Log explorer Source seams (#1469). Production defaults to neither; an explicit Source provider configuration enables the adapter. Without it every read answers
    * `source_absent` (`source_not_connected`) and no Source owner is granted. The dev/test assembly injects the synthetic adapter
    * (`test-support/log-explorer-dev-assembly.ts`); the production graph check keeps it out of the production entry.
    */
@@ -1006,6 +1006,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     sourceReadPort: opts.logExplorer?.sourceReadPort ?? null,
     sourceOwnerAccess: opts.logExplorer?.sourceOwnerAccess ?? denyAllSourceOwners,
     lifecycleEvidence: lifecycleEvidenceRead,
+    lifecycleRead: lifecycleRoundRead,
     ...(opts.logExplorer?.cursorKey ? { cursorKey: opts.logExplorer.cursorKey } : {}),
     ...(opts.logExplorer?.usage ? { usage: opts.logExplorer.usage } : {}),
   };
@@ -1040,7 +1041,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     }),
     // The Sample Window import reads its upload through the attachments service, which is built further down (called per request, never here).
     eqvContribution({ db: dbHandle.db, checkService, knowledgeLookup, uploads: { readUnlinkedUpload: (input) => attachmentsService.readUnlinkedUpload(input) } }),
-    logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, ruleCoverage, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? denyAllSourceOwners }),
+    logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, ruleCoverage, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead ?? opts.logExplorer?.sourceReadPort, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? logExplorerDeps.sourceOwnerAccess }),
     ...(opts.menuDispatch ?? []),
   ]);
   // The menu permissions the modules declared are what this server's bootstrap, session-state and access directory resolve (#1667).
