@@ -171,6 +171,8 @@ jobs:
           # external origin, dev first screen, README second-menu steps).
           node tooling/sdk/sdk-kit.mjs --tarballs "$out"
           node tooling/sdk/sdk-kit-check.mjs "$out"
+          # #1701: the same asset installed with no network in a linux-x64 container, from a store a connected container built.
+          node tooling/sdk/sdk-kit-offline.mjs "$out"
       # #153 (ADR-0009): the production module graph (assembly external) carries no mock-server, menu mock or src/dev
       - run: pnpm --filter @ap/platform-web check:prod-graph
         if: ${{ env.DOCS_ONLY != 'true' }}
