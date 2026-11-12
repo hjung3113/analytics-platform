@@ -390,7 +390,7 @@ describe('Round «원본/시퀀스» tab (#1475)', () => {
     click(button(/^R-001/));
     await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
     expect(() => button('원본에서 보기', element('[role="dialog"]'))).toThrow();
-    expect(text('해시 불일치', element('[role="dialog"]'))).toBe(true);
+    expect(text('원본 해시 불일치', element('[role="dialog"]'))).toBe(true);
     expect(text('원본 확인 불가', element('[role="dialog"]'))).toBe(true);
   });
   it('refuses a wrong view value with the invalid-value panel, and recovery clears only that key', async () => {

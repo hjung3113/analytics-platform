@@ -21,8 +21,8 @@ const COMBOS: [ExcerptState, SourceState, string, string][] = [
   ['not_submitted', 'not_checked', '발췌 미제출', '원본 미확인'],
   ['not_loaded', 'not_checked', '발췌 열람 전', '원본 미확인'],
   ['no_permission', 'no_permission', '발췌 열람 권한 없음', '원본 열람 권한 없음'],
-  ['unknown', 'hash_mismatch', '발췌 상태 알 수 없음', '해시 불일치'],
-  ['not_loaded', 'hash_mismatch', '발췌 열람 전', '해시 불일치'],
+  ['unknown', 'hash_mismatch', '발췌 상태 알 수 없음', '원본 해시 불일치'],
+  ['not_loaded', 'hash_mismatch', '발췌 열람 전', '원본 해시 불일치'],
   ['unknown', 'not_checked', '발췌 상태 알 수 없음', '원본 미확인'],
   ['not_submitted', 'no_permission', '발췌 미제출', '원본 열람 권한 없음'],
 ];
