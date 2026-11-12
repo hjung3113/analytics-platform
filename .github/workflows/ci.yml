@@ -51,6 +51,7 @@ jobs:
       e2e_base_path: ${{ steps.e2e.outputs.e2e_base_path }}
       e2e_shards: ${{ steps.e2e.outputs.e2e_shards }}
       e2e_total: ${{ steps.e2e.outputs.e2e_total }}
+      e2e_kit: ${{ steps.e2e.outputs.e2e_kit }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -136,6 +137,7 @@ jobs:
           node .github/scripts/check-platform-turbo-scope.mjs
           node .github/scripts/check-platform-turbo-scope.mjs --self-test
           node --test .github/scripts/check-unified-ci.test.mjs
+          node --test apps/platform-e2e/tests-kit/*.test.mjs
       - run: pnpm lint
         if: ${{ env.DOCS_ONLY != 'true' }}
       - run: pnpm typecheck
@@ -479,6 +481,25 @@ jobs:
         run: |
           want="$(node -p "require('./apps/platform-e2e/node_modules/@playwright/test/package.json').version")"
           test "$want" = "1.63.0" || { echo "::error::@playwright/test is $want but the E2E container is mcr.microsoft.com/playwright:v1.63.0-noble — bump both"; exit 1; }
+      - name: Start kit browser check
+        if: ${{ matrix.shard == 1 && needs.changes.outputs.e2e_kit != 'false' }}
+        run: |
+          out="$(mktemp -d)"
+          kit_dir_file="$out/kit-dir"
+          trap 'if [ -f "$kit_dir_file" ]; then kit_dir=$(cat "$kit_dir_file"); rm -rf "$kit_dir"; fi; rm -rf "$out"' EXIT
+          pnpm sdk:pack --out "$out"
+          AP_SDK_KIT_DIR_FILE="$kit_dir_file" pnpm sdk:consumer-check "$out"
+          export AP_SDK_KIT_DIR="$(cat "$kit_dir_file")"
+          pnpm --filter @ap/platform-e2e exec playwright test --config playwright.kit.config.ts
+      - name: Upload start kit browser evidence
+        if: ${{ matrix.shard == 1 && needs.changes.outputs.e2e_kit != 'false' && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-start-kit-browser-report
+          path: |
+            apps/platform-e2e/playwright-report/kit/
+            apps/platform-e2e/test-results/kit/
+          retention-days: 14
       # pnpm forwards the flags to `playwright test` as they are (no `--`, which Playwright would read as file filters).
       # The blob reporter replaces the configured reporters; the final job merges the blobs into one contract report.
       # A spec selection (#1019) is appended as positional paths relative to apps/platform-e2e; 'all' and empty (`changes` failed) run every spec.

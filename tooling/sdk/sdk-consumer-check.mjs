@@ -1,5 +1,6 @@
 // Clean outside-consumer gate for the SDK release tarballs (ADR-0056, ADR-0044 ②③, #519; release unit 2, ADR-0143).
 // Usage: pnpm sdk:consumer-check <dir with the nine ap-*.tgz from `pnpm sdk:pack`>
+// AP_SDK_KIT_DIR_FILE=<path>: after success, write the installed kit directory there and keep that directory for browser E2E.
 //
 // Serves the tarball directory over HTTP on 127.0.0.1 and creates a temp project outside the repo that lists the nine tarballs
 // (SDK five + app-host, mock-server, http-adapter, server-conformance) as direct URL dependencies, the way a release consumer
@@ -297,6 +298,7 @@ async function main() {
   const root = mkdtempSync(join(tmpdir(), 'ap-sdk-consumer-'));
   const selfTestRoot = mkdtempSync(join(tmpdir(), 'ap-sdk-consumer-selftest-'));
   let server;
+  let keptKit = false;
   try {
     const served = await serveTarballs(tarballDir);
     server = served.server;
@@ -322,10 +324,15 @@ async function main() {
     runStep('removal self-test: tsc --noEmit (browser program)', () => run('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'tsconfig.browser.json'], selfTestRoot));
     runStep('removal self-test: kit script build', () => run('pnpm', ['run', 'build'], selfTestRoot));
     runStep('removal self-test: vitest renders the public menu without the in-house menu', () => run('pnpm', ['exec', 'vitest', 'run', '-t', 'public session'], selfTestRoot));
+    if (process.env.AP_SDK_KIT_DIR_FILE) {
+      writeFileSync(resolve(process.env.AP_SDK_KIT_DIR_FILE), `${root}\n`);
+      keptKit = true;
+      process.stdout.write(`sdk:consumer-check AP_SDK_KIT_DIR=${root}\n`);
+    }
     process.stdout.write('sdk:consumer-check passed\n');
   } finally {
     server?.close();
-    for (const project of process.env.AP_SDK_KEEP === '1' ? [] : [root, selfTestRoot]) rmSync(project, { recursive: true, force: true });
+    for (const project of process.env.AP_SDK_KEEP === '1' ? [] : [root, selfTestRoot].filter((project) => project !== root || !keptKit)) rmSync(project, { recursive: true, force: true });
     if (process.env.AP_SDK_KEEP === '1') process.stdout.write(`sdk:consumer-check kept ${root} and ${selfTestRoot}\n`);
   }
 }
