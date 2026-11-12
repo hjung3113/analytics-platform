@@ -14,7 +14,7 @@ export type AnnotationOptions = { role?: RoleId; latency?: number };
 type StoredAnnotation = Omit<ChartAnnotation, 'mine'> & { authorId: string };
 
 /** The chart menus' permission. A server-side constant like getEntity's type map, never a client argument. */
-export const ANNOTATION_PERMISSION = menuPermission('analytics:view');
+export const ANNOTATION_PERMISSION: Permission = menuPermission('analytics:view');
 /**
  * The permissions that guard annotations (#1863). Standalone helpers guard with the sample menus' permission;
  * `createMockAdapter` captures a copy of its effective list (this one when the option is omitted or empty) when
