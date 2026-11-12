@@ -1,37 +1,14 @@
 import type { TimelineLane, TimelineSegment } from './LaneTimeline';
-import { isThemeColorToken } from '@ap/ui/theme';
+import type { LaneItem, LaneModel } from './laneTimelineModel';
 
-export const GUTTER = 112;
-export const ROW_HEIGHT = 24;
-export const HEADER_HEIGHT = 40;
-export type LaneItem = { segment: TimelineSegment; laneIndex: number; index: number };
-export type LaneModel = { lanes: TimelineLane[]; flat: LaneItem[]; byId: Map<string, LaneItem>; domain: [number, number]; density: number[] };
-export type LaneRect = LaneItem & { x: number; y: number; width: number; height: number };
-export function laneDiagnostic(message: string) { if (process.env.NODE_ENV !== 'production') console.error(`LaneTimeline: ${message}`); }
-export function prepareLanes(input: TimelineLane[], instants: number[]): LaneModel {
-  const ids = new Set<string>(); const laneIds = new Set<string>();
-  let min = Infinity; let max = -Infinity;
-  const lanes = input.filter(lane => {
-    if (laneIds.has(lane.id)) { laneDiagnostic('duplicate lane ID dropped'); return false; }
-    laneIds.add(lane.id); return true;
-  }).map(lane => ({ ...lane, segments: lane.segments.flatMap(segment => {
-    if (ids.has(segment.id) || !Number.isFinite(segment.start) || !Number.isFinite(segment.end) || segment.start > segment.end || Math.abs(segment.start) > 8.64e15 || Math.abs(segment.end) > 8.64e15) {
-      laneDiagnostic('invalid range or duplicate segment ID dropped'); return [];
-    }
-    ids.add(segment.id); min = Math.min(min, segment.start); max = Math.max(max, segment.end);
-    const depth = segment.depth ?? 0;
-    if (!Number.isInteger(depth) || depth < 0) laneDiagnostic('invalid depth; using zero');
-    if (segment.colorToken !== undefined && !(typeof segment.colorToken === 'string' && isThemeColorToken(segment.colorToken))) laneDiagnostic('invalid segment color; using palette');
-    return [{ ...segment, depth: Number.isInteger(depth) && depth >= 0 ? depth : 0, colorToken: (typeof segment.colorToken === 'string' && isThemeColorToken(segment.colorToken)) ? segment.colorToken : undefined }];
-  }) }));
-  const flat = lanes.flatMap((lane, laneIndex) => lane.segments.map(segment => ({ segment, laneIndex, index: 0 })));
-  flat.forEach((item, index) => { item.index = index; });
-  return { lanes, flat, byId: new Map(flat.map(item => [item.segment.id, item])), domain: min === Infinity ? [0, 1] : min === max ? [Math.max(-8.64e15, min - 1), Math.min(8.64e15, max + 1)] : [min, max], density: instants.filter(Number.isFinite).sort((a, b) => a - b) };
-}
+// The column-array model and its time index live in laneTimelineModel.ts; this file keeps the import path stable.
+export { GUTTER, ROW_HEIGHT, HEADER_HEIGHT, laneDiagnostic, prepareLanes, visibleRects, fillVisibleRects, hitTest, RectBuffer, laneWindow, FLAG_ORPHAN, FLAG_OPEN, FLAG_NEUTRAL } from './laneTimelineModel';
+export type { LaneItem, LaneModel, LaneRect, LaneColumns, LaneIndex } from './laneTimelineModel';
 export function utcTick(time: number) { return new Date(time).toISOString().slice(0, 19).replace('T', ' '); }
-export function segmentSummary(segment: TimelineSegment, lang: 'ko' | 'en') {
+/** `depth` is the normalised depth from the model columns; omitted, the segment's own depth is used. */
+export function segmentSummary(segment: TimelineSegment, lang: 'ko' | 'en', depth: number = segment.depth ?? 0) {
   const ko = lang === 'ko';
-  return `${utcTick(segment.start)} – ${utcTick(segment.end)} · ${ko ? '깊이' : 'Depth'} ${segment.depth ?? 0}${segment.rank ? ` · ${segment.rank}` : ''}${segment.startBoundary === 'orphan' ? ` · ${ko ? '시작 미확인' : 'Start unknown'}` : ''}${segment.endBoundary === 'open' ? ` · ${ko ? '종료 미확인' : 'End unknown'}` : ''}`;
+  return `${utcTick(segment.start)} – ${utcTick(segment.end)} · ${ko ? '깊이' : 'Depth'} ${depth}${segment.rank ? ` · ${segment.rank}` : ''}${segment.startBoundary === 'orphan' ? ` · ${ko ? '시작 미확인' : 'Start unknown'}` : ''}${segment.endBoundary === 'open' ? ` · ${ko ? '종료 미확인' : 'End unknown'}` : ''}`;
 }
 export function segmentText(
   model: LaneModel,
@@ -41,7 +18,7 @@ export function segmentText(
 ) {
   const lane = model.lanes[item.laneIndex];
   const formatted = formatTooltip?.(item.segment, lane);
-  return `${lane.label} · ${formatted ? `${formatted} · ` : ''}${segmentSummary(item.segment, lang)}`;
+  return `${lane.label} · ${formatted ? `${formatted} · ` : ''}${segmentSummary(item.segment, lang, model.cols[item.laneIndex].depth[item.index - model.offsets[item.laneIndex]])}`;
 }
 const MINUTE = 60_000; const HOUR = 3_600_000; const DAY = 86_400_000;
 // Calendar steps only: epoch ms aligns with UTC minute/hour/midnight boundaries, so every tick lands on a wall-clock unit.
@@ -74,29 +51,6 @@ export function densityBins(sorted: number[], view: [number, number], count: num
     const to = view[0] + (view[1] - view[0]) * (i + 1) / count;
     return (i === count - 1 ? lowerBound(sorted, to + Math.max(Number.EPSILON, Math.abs(to) * Number.EPSILON)) : lowerBound(sorted, to)) - lowerBound(sorted, from);
   });
-}
-export function visibleRects(model: LaneModel, view: [number, number], width: number, height: number, scroll: number): LaneRect[] {
-  const first = Math.max(0, Math.floor(scroll / ROW_HEIGHT));
-  const last = Math.min(model.lanes.length, Math.ceil((scroll + height) / ROW_HEIGHT));
-  const plotWidth = Math.max(1, width - GUTTER);
-  const rects: LaneRect[] = [];
-  for (let laneIndex = first; laneIndex < last; laneIndex++) {
-    for (const segment of model.lanes[laneIndex].segments) {
-      if (segment.end < view[0] || segment.start > view[1]) continue;
-      const inset = Math.min((segment.depth ?? 0) * 2, 11);
-      const x = GUTTER + Math.max(0, (segment.start - view[0]) / (view[1] - view[0]) * plotWidth);
-      const endX = GUTTER + Math.min(plotWidth, (segment.end - view[0]) / (view[1] - view[0]) * plotWidth);
-      rects.push({ ...model.byId.get(segment.id)!, x: Math.min(x, width - 1.5), y: laneIndex * ROW_HEIGHT - scroll + inset, width: Math.max(1.5, endX - x), height: ROW_HEIGHT - inset * 2 });
-    }
-  }
-  // Painter order and hit order agree, with last input breaking depth ties.
-  return rects.sort((a, b) => (a.segment.depth ?? 0) - (b.segment.depth ?? 0) || a.index - b.index);
-}
-export function hitTest(rects: LaneRect[], x: number, y: number): LaneRect | undefined {
-  for (let i = rects.length - 1; i >= 0; i--) {
-    const rect = rects[i];
-    if (x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height) return rect;
-  }
 }
 export function clampView(next: [number, number], domain: [number, number]): [number, number] {
   const span = Math.max(Math.min(1, domain[1] - domain[0]), Math.min(domain[1] - domain[0], next[1] - next[0]));

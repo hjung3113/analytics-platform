@@ -25,9 +25,9 @@ it('clips geometry, preserves semantic flags, selects deepest then last input on
   expect(rects.find(rect => rect.segment.id === 'b')).toMatchObject({ x: 112, y: 4, height: 16, width: 288 });
   // Paints depth 0 with the last-input tie ('c') after 'a', and the deepest mark ('b') last.
   expect(rects.map(rect => rect.segment.id)).toEqual(['a', 'c', 'b']);
-  expect(hitTest(rects, 250, 10)?.segment.id).toBe('b');
+  expect(hitTest(model, [30, 70], 400, 24, 0, 250, 10)?.segment.id).toBe('b');
   // x=256.5 hits all three marks; the later shallow 'c' must lose to the deeper 'b'.
-  expect(hitTest(rects, 256.5, 10)?.segment.id).toBe('b');
+  expect(hitTest(model, [30, 70], 400, 24, 0, 256.5, 10)?.segment.id).toBe('b');
   expect(rects.find(rect => rect.segment.id === 'c')!.width).toBe(1.5);
   expect(segmentSummary(rects.find(rect => rect.segment.id === 'b')!.segment, 'ko')).toContain('시작 미확인');
   expect(segmentSummary(rects.find(rect => rect.segment.id === 'b')!.segment, 'ko')).toContain('종료 미확인');
@@ -38,7 +38,7 @@ it('drops invalid ranges and duplicate IDs, normalizes invalid depth and sorts d
   const instants = [4, 1, NaN, 3];
   const model = prepareLanes([{ id: 'a', label: 'A', segments: [{ id: 'a', start: 4, end: 2 }, { id: 'b', start: 1, end: 2, depth: -1 }, { id: 'b', start: 1, end: 2 }, { id: 'c', start: NaN, end: 2 }] }], instants);
   expect(model.flat.map(item => item.segment.id)).toEqual(['b']);
-  expect(model.flat[0].segment.depth).toBe(0);
+  expect(model.cols[0].depth[0]).toBe(0);
   expect(model.density).toEqual([1, 3, 4]); expect(instants[0]).toBe(4);
   vi.restoreAllMocks();
 });
@@ -47,21 +47,21 @@ it('bounds canvas geometry to visible rows for 100 lanes and 2000 segments', () 
   const rects = visibleRects(model, model.domain, 600, 240, 1200);
   expect(rects.length).toBeLessThanOrEqual(220);
   const start = performance.now();
-  for (let i = 0; i < 2000; i++) hitTest(rects, 200, i % 240);
+  for (let i = 0; i < 2000; i++) hitTest(model, model.domain, 600, 240, 1200, 200, i % 240);
   console.info(`LaneTimeline 2000 hit tests: ${(performance.now() - start).toFixed(3)} ms; visible rects: ${rects.length}`);
 });
 it('orders equal-depth overlaps by last input and keeps arbitrary depth inside the row', () => {
   const model = prepareLanes([{ id: 'lane', label: 'Lane', segments: [{ id: 'first', start: 0, end: 10, depth: 80 }, { id: 'last', start: 0, end: 10, depth: 80 }] }], []);
   const rects = visibleRects(model, model.domain, 400, 24, 0);
   expect(rects[0].height).toBe(2);
-  expect(hitTest(rects, 200, 12)?.segment.id).toBe('last');
+  expect(hitTest(model, model.domain, 400, 24, 0, 200, 12)?.segment.id).toBe('last');
 });
 it('measures visible-row hit testing with 100 lanes × 2000 segments', () => {
   const model = prepareLanes(Array.from({ length: 100 }, (_, lane) => ({ id: String(lane), label: String(lane), segments: Array.from({ length: 2000 }, (_, i) => ({ id: `${lane}-${i}`, start: i * 10, end: i * 10 + 9 })) })), []);
   const rects = visibleRects(model, model.domain, 600, 240, 1200);
   expect(model.flat).toHaveLength(200000); expect(rects).toHaveLength(20000);
   const start = performance.now();
-  for (let i = 0; i < 2000; i++) hitTest(rects, 200, i % 240);
+  for (let i = 0; i < 2000; i++) hitTest(model, model.domain, 600, 240, 1200, 200, i % 240);
   console.info(`LaneTimeline 100×2000 fixture: 2000 hit tests ${(performance.now() - start).toFixed(3)} ms; backing 600×240 CSS pixels; ${rects.length} visible rects`);
 });
 it.each(['strong', 'weak', 'off'] as const)('defines %s rank outlines independently of selection', mode => {

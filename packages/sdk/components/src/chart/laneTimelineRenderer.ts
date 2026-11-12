@@ -1,6 +1,6 @@
 import { isThemeColorToken, readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import type { LaneTimelineProps } from './LaneTimeline';
-import { clampView, densityBins, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic, laneTickLabel, niceTicks, outlineStyle, ROW_HEIGHT, segmentText, visibleRects, type LaneModel, type LaneRect } from './laneTimelineGeometry';
+import { clampView, densityBins, FLAG_NEUTRAL, FLAG_OPEN, FLAG_ORPHAN, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic, laneTickLabel, niceTicks, outlineStyle, ROW_HEIGHT, segmentText, visibleRects, type LaneModel, type LaneRect } from './laneTimelineGeometry';
 
 type RendererInput = {
   root: HTMLElement; scroll: HTMLDivElement; canvas: HTMLCanvasElement; axis: HTMLCanvasElement;
@@ -13,7 +13,9 @@ export function createLaneRenderer(input: RendererInput) {
   const { root, canvas, axis, scroll, spacer, tooltip, model, props } = input;
   let view: [number, number] = input.savedView.model === model && input.savedView.view ? [...input.savedView.view] : [...model.domain];
   let width = 600; let height = 320; let raf: number | null = null; let destroyed = false;
-  let rects: LaneRect[] = [];
+  let drawn: { view: [number, number]; width: number; height: number; scroll: number } = { view: [...view], width, height, scroll: 0 };
+  let hasDrawn = false;
+  const hit = (x: number, y: number) => !hasDrawn ? undefined : hitTest(model, drawn.view, drawn.width, drawn.height, drawn.scroll, x, y);
   let drag: { pointer: number; x: number; view: [number, number]; moved: boolean } | null = null;
   let tooltipFrame: number | null = null;
   let lastHover: string | null = null;
@@ -63,14 +65,17 @@ export function createLaneRenderer(input: RendererInput) {
       const max = Math.max(1, ...bins); header.fillStyle = color('chart-series-1');
       bins.forEach((count, i) => { const h = count / max * 8; header.fillRect(GUTTER + i * plotWidth / bins.length, HEADER_HEIGHT - h, plotWidth / bins.length, h); });
     }
-    rects = visibleRects(model, view, width, height, scroll.scrollTop);
+    const rects: LaneRect[] = visibleRects(model, view, width, height, scroll.scrollTop);
+    hasDrawn = true; drawn = { view: [...view], width, height, scroll: scroll.scrollTop };
     if (!ctx) return;
     ctx.save(); ctx.beginPath(); ctx.rect(GUTTER, 0, plotWidth, height); ctx.clip();
     for (const rect of rects) {
       const { segment } = rect;
-      ctx.fillStyle = color(segment.colorToken ?? (segment.neutral ? neutral : colors[rect.laneIndex % colors.length]));
+      const cols = model.cols[rect.laneIndex]; const flags = cols.flags[rect.offset];
+      // Colour, rank and boundaries come from the normalised columns, not the caller's segment (an invalid token is already "none").
+      ctx.fillStyle = color(cols.color[rect.offset] ? model.tokens[cols.color[rect.offset] - 1] : flags & FLAG_NEUTRAL ? neutral : colors[rect.laneIndex % colors.length]);
       ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-      const outline = outlineStyle(segment.rank, props.outlineWidthsByRank, props.outlineMode ?? 'strong');
+      const outline = outlineStyle(cols.rank[rect.offset] ? model.ranks[cols.rank[rect.offset] - 1] : undefined, props.outlineWidthsByRank, props.outlineMode ?? 'strong');
       const borderWidth = Math.min(outline.width, rect.width, rect.height);
       // eslint-disable-next-line shadcn/no-raw-colors -- canvas reads a theme token by name (color()), not a class string
       ctx.lineWidth = borderWidth; ctx.globalAlpha = outline.alpha; ctx.setLineDash(outline.dash); ctx.strokeStyle = color('border-strong');
@@ -79,10 +84,10 @@ export function createLaneRenderer(input: RendererInput) {
       // Semantic boundaries are glyphs on the visible rect, even when its time edge is clipped.
       // eslint-disable-next-line shadcn/no-raw-colors -- canvas reads a theme token by name (color()), not a class string
       ctx.strokeStyle = color('text-primary'); ctx.lineWidth = 1.5;
-      if (segment.startBoundary === 'orphan') {
+      if (flags & FLAG_ORPHAN) {
         ctx.beginPath(); ctx.moveTo(rect.x + 5, rect.y + 2); ctx.lineTo(rect.x + 1, rect.y + rect.height / 2); ctx.lineTo(rect.x + 5, rect.y + rect.height - 2); ctx.stroke();
       }
-      if (segment.endBoundary === 'open') {
+      if (flags & FLAG_OPEN) {
         ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(rect.x + rect.width - 1, rect.y); ctx.lineTo(rect.x + rect.width - 1, rect.y + rect.height); ctx.stroke(); ctx.setLineDash([]);
       }
       if (segment.id === input.selectedId) { ctx.strokeStyle = color('chart-selection-outline'); ctx.lineWidth = 2; ctx.strokeRect(rect.x + 1, rect.y + 1, Math.max(0, rect.width - 2), Math.max(0, rect.height - 2)); }
@@ -116,7 +121,7 @@ export function createLaneRenderer(input: RendererInput) {
       return;
     }
     const bounds = canvas.getBoundingClientRect();
-    const rect = hitTest(rects, event.clientX - bounds.left, event.clientY - bounds.top);
+    const rect = hit(event.clientX - bounds.left, event.clientY - bounds.top);
     const text = rect ? segmentText(model, rect, props.formatTooltip, input.lang) : null;
     if (lastHover !== text) { lastHover = text; input.onHover(text); }
     tooltip.hidden = !text;
@@ -136,7 +141,7 @@ export function createLaneRenderer(input: RendererInput) {
   function endDrag(event: PointerEvent) {
     if (!drag || event.pointerId !== drag.pointer) return;
     if (!drag.moved && event.type === 'pointerup') {
-      const bounds = canvas.getBoundingClientRect(); const rect = hitTest(rects, event.clientX - bounds.left, event.clientY - bounds.top);
+      const bounds = canvas.getBoundingClientRect(); const rect = hit(event.clientX - bounds.left, event.clientY - bounds.top);
       input.onSelect(rect?.segment.id ?? null);
     }
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
