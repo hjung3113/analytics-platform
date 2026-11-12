@@ -206,4 +206,28 @@ describe('<RequestAccessButton> Site·공정 target', () => {
     });
     expect(candidateReads()).toHaveLength(0);
   });
+
+  it('controlled mode draws no trigger, opens on the caller\'s `open` and reports closes through `onOpenChange`', async () => {
+    const onOpenChange = vi.fn();
+    const props = { scopeTarget: { kind: 'site', site: 'SITE-B' } as const, returnRouteIntent: RETURN_ROUTE, onOpenChange };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(
+      <QueryClientProvider client={client}>
+        <RequestAccessButton {...props} open={false} />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('permission-request-dialog')).not.toBeInTheDocument();
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <RequestAccessButton {...props} open />
+      </QueryClientProvider>,
+    );
+    const dialog = await screen.findByTestId('permission-request-dialog');
+    expect(within(dialog).getByText('Site SITE-B')).toBeInTheDocument();
+    await userEvent.setup().click(within(dialog).getByRole('button', { name: '취소' }));
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    // Still open: the caller owns `open`.
+    expect(screen.getByTestId('permission-request-dialog')).toBeInTheDocument();
+  });
 });

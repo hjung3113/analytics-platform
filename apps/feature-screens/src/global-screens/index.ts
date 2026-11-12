@@ -25,5 +25,9 @@ export {
   type VocComposeScreenProps,
 } from '@/features/voc/components/compose/VocComposeScreen';
 export { PermissionRequestsScreen } from '@/features/home/permission-requests/PermissionRequestsScreen';
+export {
+  RequestAccessButton,
+  type RequestAccessScopeTarget,
+} from '@/features/admin/permissions/request-access-button';
 export { HomeTodoPanel } from '@/features/home/todo/HomeTodoPanel';
 export { ApiTokensScreen, type ApiTokenDrawerParts, type ApiTokenTableParts } from '@/features/api-tokens/ApiTokensScreen';

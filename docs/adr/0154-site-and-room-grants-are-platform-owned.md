@@ -112,6 +112,7 @@
   - 1844e: 신청 진입 시안 → 소유자 확인.
   - 1844f: SDK 신청 포트와 셸 진입, 내 활동 신청 화면, 콘솔 폼. 실서버 확인 한 번, review-ux 한 번.
     - 1844f1a: `@ap/contracts` `PermissionRequestTarget`, Kernel 선택 슬롯 `PlatformSlots.accessRequest`(`Pending`·`Dialog`, `PlatformAdapter` 메서드가 아님), 자리 (b)–(e)의 진입(그 자리의 대화상자, 새 URL 키 없음, layout §8), 승인 뒤 세션 스냅샷이 바뀌면 다시 확인해 열리는 Kernel 시험. 앱은 슬롯을 주입하지 않아 모든 자리가 그대로다.
-    - 1844f1b: 브리지 슬롯(대기 상태는 내 권한 요청 서버 읽기, 자리별 대기 판정 한 함수), `main.tsx` 조립, 자리 (a).
+    - 1844f1b: 브리지 슬롯 `@ap/feature-bridge/access-request-slot`(대기 상태는 내 열린 권한 요청 서버 읽기 `GET /permission-requests/mine`를 `featureQueryClient`의 `permissionRequestsMineKey`로, 자리별 대기 판정 한 함수 `isPendingFor`, 상태 링크는 내 활동 › 권한 요청), 대화상자는 feature 권한 요청 대화상자의 제어 모드(지연 로드, 제출이 목록을 무효화해 다시 읽지 않고 대기로 바뀜), `main.tsx` 조립(feature API가 있는 세션만, mock은 슬롯 없음). `permission` 자리는 대기 null·대화상자 없음.
+    - 1844f1c: 자리 (a). 클라이언트가 볼 수 있는 메뉴 권한 → capability 대응이 없어 서버 추가와 함께 따로 간다.
 - #1729 h·#1839와 함께 쓸 때 사내 준비물은 계정·주소·설정 묶음(Scope 카탈로그 포함)뿐이다.
 - 시험·예시·픽스처의 site·room 값은 합성 이름만 쓴다([ADR-0151](0151-public-domain-vocabulary-is-frozen-by-an-allowlist.md)). GLOSSARY 항목(`scope.read`, Scope 카탈로그, 막힌 자리)은 1844d에서 더한다.

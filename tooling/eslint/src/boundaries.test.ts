@@ -717,6 +717,8 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { vocComposeSlot } from '@ap/feature-bridge/voc-compose-slot';`, rule: '' },
   { file: 'apps/platform-web/src/slots.ts', code: `import { vocComposeSlot } from '@ap/feature-bridge/voc-compose-slot';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/feature-bridge/src/voc-compose-slot';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { accessRequestSlot } from '@ap/feature-bridge/access-request-slot';`, rule: '' },
+  { file: 'apps/platform-web/src/slots.ts', code: `import { accessRequestSlot } from '@ap/feature-bridge/access-request-slot';`, rule: 'no-restricted-imports' },
 );
 
 // Improvement assignments enter home only through the app composition root (#1328 e2).

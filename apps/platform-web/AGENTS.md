@@ -23,11 +23,12 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
 
 ### Slots
 
-- `src/slots.ts` `appSlots(assembly, notifications, vocCompose, homeTodo, scopeControl, navCounts, spaceNavSection, analysisActions)` builds the slots: `contextBar`, `topBarTools`, `features`, `plannedSpaces`, and the header `⋯` `boardEntry` (shell `OpenInBoardAction`) of board-capable menus.
+- `src/slots.ts` `appSlots(assembly, notifications, vocCompose, homeTodo, scopeControl, navCounts, spaceNavSection, analysisActions, accessRequest)` builds the slots: `contextBar`, `topBarTools`, `features`, `plannedSpaces`, and the header `⋯` `boardEntry` (shell `OpenInBoardAction`) of board-capable menus.
 - `main.tsx` injects:
   - `analysisActions` from `@ap/menu-improvement-items/analysis-actions` (`improvementAnalysisActions`).
   - `notificationsSlot`, `homeTodoSlot`, `scopeControlSlot`, `navCountsSlot`, `savedViewsSlot` from `@ap/feature-bridge/notifications-slot|home-todo-slot|scope-control|nav-counts|saved-views`.
   - `vocCompose` from `/voc-compose-slot` as `vocComposeSlot(managedSystemFor)`.
+  - `accessRequestSlot` from `/access-request-slot` (blocked-place request entry, ADR-0154 decision 6). `useAppSlots` passes it only when the assembly has a `featureApi`; mock gets none, so every blocked place renders as without it.
 - The `features` slot comes from `featureSlot()` in `src/feature-systems.ts` (ADR-0045, ADR-0110 decision 5). The space → Managed System link lives on the server and is received by the `src/space-systems.ts` store:
   - Source: `Assembly.spaceSystems` (real: feature API `GET /managed-systems/space-links`; mock: same-shape data from `src/dev/mock-space-systems.ts`; absent means no links). Read once per session.
   - `entriesFor` and `managedSystemFor` read the store synchronously and return `null` until ready, so the Kernel slot contract and `/bootstrap` are unchanged.
