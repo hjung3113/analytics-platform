@@ -102,7 +102,7 @@ function TextField({ id, label, value, limit, multiline = true, required = false
   const over = n > limit;
   return <div className="grid gap-2"><Label htmlFor={id}>{label}{required ? ' (필수)' : ''}</Label>
     {multiline ? <Textarea id={id} value={value} disabled={disabled} aria-invalid={over} aria-describedby={`${id}-count`} onChange={e => onChange(e.target.value)} /> : <Input inputSize="toolbar" id={id} value={value} disabled={disabled} aria-invalid={over} aria-describedby={`${id}-count`} onChange={e => onChange(e.target.value)} />}
-    <p id={`${id}-count`} className={over ? 'text-xs text-text-danger-label' : 'text-xs text-text-secondary'}>{n.toLocaleString('ko-KR')} / {limit.toLocaleString('ko-KR')}자{over ? ' · 상한을 넘어 저장할 수 없습니다.' : ''}</p></div>;
+    <p id={`${id}-count`} className={over ? 'text-xs text-text-danger-label' : 'text-xs text-text-secondary'}>{n} / {limit}자{over ? ' · 상한을 넘어 저장할 수 없습니다.' : ''}</p></div>;
 }
 const fits = (value: string | undefined, limit: number, required: boolean) => { const v = (value ?? '').trim(); return (!required || v.length > 0) && length(value ?? '') <= limit; };
 /** A pending send or an answer awaiting the same-request retry locks the draft so a new key cannot duplicate it. */

@@ -119,7 +119,7 @@ it('enforces the comment limit before submit and keeps the draft across tab visi
   tab('Round 토론');
   const box = screen.getByLabelText('Round 전체 댓글 (필수)');
   fireEvent.change(box, { target: { value: '가'.repeat(4001) } });
-  expect(screen.getByText(/4,001 \/ 4,000자 · 상한을 넘어/)).toBeVisible();
+  expect(screen.getByText(/4001 \/ 4000자 · 상한을 넘어/)).toBeVisible();
   expect(screen.getByRole('button', { name: '댓글 남기기' })).toBeDisabled();
   fireEvent.change(box, { target: { value: '합성 초안' } });
   tab('원본'); tab('Round 토론');
