@@ -209,4 +209,8 @@ esac
 
 [ "$problems" -eq 0 ] || exit 1
 [ "$mock_notice" = yes ] && echo "preflight: email disabled (mock): notifications reach the inbox only"
+# The release topology is company TLS ingress -> edge -> backend (oidc-and-images.md «Hops»). With 1 the backend takes the
+# edge's address for every request, so all anonymous requests share one rate-limit bucket. A warning, not a failure: a site
+# without the ingress hop legitimately uses 1.
+[ "$hops" = "2" ] || echo "preflight: warning: TRUSTED_PROXY_HOPS=$hops, the release topology (ingress -> edge -> backend) needs 2; with 1 all anonymous requests share one rate-limit bucket"
 echo "preflight: ok"
