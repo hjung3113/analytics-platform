@@ -5,6 +5,10 @@
 // Supplement, edit and expiration stay in the standalone app (`OwnerPermissionRequestDialog`).
 
 import { ListStateMessage } from '@/components/ListStateMessage';
+import {
+  PermissionScopeTargetFields,
+  scopeTargetMissing,
+} from '@/components/PermissionScopeTargetFields';
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import {
@@ -16,6 +20,7 @@ import {
   permissionRequestsMineKey,
   withdrawPermissionRequest,
 } from '@/lib/api/permission-requests';
+import { permissionScopeCandidatesKey } from '@/lib/api/permission-scope-candidates';
 import { fetchManagedSystems } from '@/lib/api/registry-reads';
 import { ApiError } from '@/lib/api/types';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
@@ -23,6 +28,11 @@ import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { permissionRequestStatusLabel } from '@/lib/copy/enum-labels';
 import { HOME_PERMISSION_COPY } from '@/lib/copy/home';
 import { PERMISSION_REQUESTS_PAGE_COPY as COPY } from '@/lib/copy/permission-requests';
+import {
+  PERMISSION_SCOPE_COPY,
+  type PermissionScopeTargetKind,
+  requestedScopeTargetLabel,
+} from '@/lib/copy/permission-scope';
 import { formatDate } from '@/lib/format/datetime';
 import { useHostSeam } from '@/lib/host/host-seam';
 import {
@@ -83,6 +93,8 @@ const OPTIONAL_MANAGED_SYSTEM: ReadonlySet<string> = new Set<Capability>(['surve
 const WORKSPACE_WIDE = '__workspace__';
 const REASON_MAX = 2000;
 const SKELETON_KEYS = ['skeleton-0', 'skeleton-1', 'skeleton-2'];
+// The request target kind: a feature capability (today's form) or a Site·공정 `scope.read` target (ADR-0154).
+type TargetKind = 'capability' | PermissionScopeTargetKind;
 
 export function PermissionRequestsScreen(): React.ReactElement {
   return (
@@ -108,6 +120,17 @@ function NewRequestForm(): React.ReactElement {
   const { notifyError, notifySuccess } = useHostSeam();
   const queryClient = useQueryClient();
   const managedSystems = useManagedSystemsQuery();
+  const [targetKind, setTargetKind] = React.useState<TargetKind>('capability');
+  const [scopeSite, setScopeSite] = React.useState('');
+  const [scopeRoom, setScopeRoom] = React.useState('');
+  const [scopeError, setScopeError] = React.useState<{ site: string | null; room: string | null }>({
+    site: null,
+    room: null,
+  });
+  const scopeSiteRef = React.useRef<HTMLButtonElement>(null);
+  const scopeRoomRef = React.useRef<HTMLButtonElement>(null);
+  const scopeKind: PermissionScopeTargetKind | null = targetKind === 'capability' ? null : targetKind;
+  const isScope = scopeKind !== null;
   const [capability, setCapability] = React.useState('');
   const [managedSystemId, setManagedSystemId] = React.useState('');
   const [reason, setReason] = React.useState('');
@@ -118,7 +141,7 @@ function NewRequestForm(): React.ReactElement {
   const systemRef = React.useRef<HTMLButtonElement>(null);
   const reasonRef = React.useRef<HTMLTextAreaElement>(null);
 
-  const showManagedSystem = capability !== '' && !NO_MANAGED_SYSTEM.has(capability);
+  const showManagedSystem = !isScope && capability !== '' && !NO_MANAGED_SYSTEM.has(capability);
   const managedSystemOptional = OPTIONAL_MANAGED_SYSTEM.has(capability);
   const activeSystems = (managedSystems.data?.items ?? []).filter((ms) => ms.archived_at === null);
   const systemMissing = showManagedSystem && !managedSystemOptional && managedSystemId === '';
@@ -131,20 +154,30 @@ function NewRequestForm(): React.ReactElement {
       : undefined;
   // A changed request body gets a new key; a retry of the same body reuses it.
   const { key, markConsumed } = useIdempotencyKey(
-    `${capability}|${sentManagedSystemId ?? ''}|${trimmedReason}`,
+    isScope
+      ? `scope.read|${targetKind}|${scopeSite}|${scopeRoom}|${trimmedReason}`
+      : `${capability}|${sentManagedSystemId ?? ''}|${trimmedReason}`,
   );
 
   const mutation = useMutation({
     retry: false,
     mutationFn: () =>
       createPermissionRequest(
-        {
-          requested_capability: capability,
-          ...(sentManagedSystemId !== undefined
-            ? { requested_managed_system_id: sentManagedSystemId }
-            : {}),
-          reason: trimmedReason,
-        },
+        scopeKind !== null
+          ? {
+              requested_capability: 'scope.read',
+              requested_scope_kind: scopeKind,
+              requested_scope_site: scopeSite,
+              ...(scopeKind === 'site_room' ? { requested_scope_room: scopeRoom } : {}),
+              reason: trimmedReason,
+            }
+          : {
+              requested_capability: capability,
+              ...(sentManagedSystemId !== undefined
+                ? { requested_managed_system_id: sentManagedSystemId }
+                : {}),
+              reason: trimmedReason,
+            },
         { idempotencyKey: key },
       ),
     onSuccess: async () => {
@@ -152,11 +185,16 @@ function NewRequestForm(): React.ReactElement {
       notifySuccess(COPY.sent);
       setCapability('');
       setManagedSystemId('');
+      setScopeSite('');
+      setScopeRoom('');
       setReason('');
       setReasonError(null);
       setCapabilityError(null);
       setSystemError(null);
-      await queryClient.invalidateQueries({ queryKey: permissionRequestsMineKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: permissionRequestsMineKey }),
+        queryClient.invalidateQueries({ queryKey: permissionScopeCandidatesKey }),
+      ]);
     },
     onError: (error) => {
       // A 401 already retired the bridge session; the host shows the expiry state, not a toast.
@@ -177,6 +215,19 @@ function NewRequestForm(): React.ReactElement {
   }, [sent]);
 
   const submit = () => {
+    if (scopeKind !== null) {
+      const scopeMissing = scopeTargetMissing({ kind: scopeKind, site: scopeSite, room: scopeRoom });
+      setScopeError({
+        site: scopeMissing === 'site' ? PERMISSION_SCOPE_COPY.siteMissing : null,
+        room: scopeMissing === 'room' ? PERMISSION_SCOPE_COPY.roomMissing : null,
+      });
+      setReasonError(trimmedReason === '' ? COPY.reasonMissing : null);
+      if (scopeMissing === 'site') scopeSiteRef.current?.focus();
+      else if (scopeMissing === 'room') scopeRoomRef.current?.focus();
+      else if (trimmedReason === '') reasonRef.current?.focus();
+      else mutation.mutate();
+      return;
+    }
     const missing = {
       capability: capability === '',
       system: systemMissing || noSystemsAvailable,
@@ -216,43 +267,88 @@ function NewRequestForm(): React.ReactElement {
         }}
       >
         <div className="flex flex-col gap-2">
-          <Label htmlFor="permission-request-capability">{COPY.capability}</Label>
+          <Label htmlFor="permission-request-target-kind">{COPY.targetKind}</Label>
           <Select
-            value={capability}
-            onValueChange={onCapabilityChange}
+            value={targetKind}
+            onValueChange={(next) => {
+              setTargetKind(next as TargetKind);
+              setScopeSite('');
+              setScopeRoom('');
+              setScopeError({ site: null, room: null });
+            }}
             disabled={mutation.isPending}
           >
-            <SelectTrigger
-              ref={capabilityRef}
-              id="permission-request-capability"
-              aria-label={COPY.capability}
-              aria-invalid={capabilityError !== null}
-              aria-describedby={
-                capabilityError !== null ? 'permission-request-capability-error' : undefined
-              }
-            >
-              <SelectValue placeholder={COPY.capabilityPlaceholder} />
+            <SelectTrigger id="permission-request-target-kind" aria-label={COPY.targetKind}>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {REQUESTABLE_CAPABILITIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {getCapabilityDisplayLabel(c)}
-                  </SelectItem>
-                ))}
+                <SelectItem value="capability">{PERMISSION_SCOPE_COPY.kindCapability}</SelectItem>
+                <SelectItem value="site">{PERMISSION_SCOPE_COPY.kindSite}</SelectItem>
+                <SelectItem value="site_room">{PERMISSION_SCOPE_COPY.kindSiteRoom}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
-          {capabilityError !== null && (
-            <p
-              id="permission-request-capability-error"
-              role="alert"
-              className="text-xs text-text-danger"
-            >
-              {capabilityError}
-            </p>
-          )}
         </div>
+
+        {scopeKind !== null && (
+          <PermissionScopeTargetFields
+            idPrefix="permission-request-scope"
+            mode="request"
+            draft={{ kind: scopeKind, site: scopeSite, room: scopeRoom }}
+            onChange={(next) => {
+              setScopeSite(next.site);
+              setScopeRoom(next.room);
+              setScopeError({ site: null, room: null });
+            }}
+            disabled={mutation.isPending}
+            siteError={scopeError.site}
+            roomError={scopeError.room}
+            siteRef={scopeSiteRef}
+            roomRef={scopeRoomRef}
+          />
+        )}
+
+        {!isScope && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="permission-request-capability">{COPY.capability}</Label>
+            <Select
+              value={capability}
+              onValueChange={onCapabilityChange}
+              disabled={mutation.isPending}
+            >
+              <SelectTrigger
+                ref={capabilityRef}
+                id="permission-request-capability"
+                aria-label={COPY.capability}
+                aria-invalid={capabilityError !== null}
+                aria-describedby={
+                  capabilityError !== null ? 'permission-request-capability-error' : undefined
+                }
+              >
+                <SelectValue placeholder={COPY.capabilityPlaceholder} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {REQUESTABLE_CAPABILITIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {getCapabilityDisplayLabel(c)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            {capabilityError !== null && (
+              <p
+                id="permission-request-capability-error"
+                role="alert"
+                className="text-xs text-text-danger"
+              >
+                {capabilityError}
+              </p>
+            )}
+          </div>
+        )}
 
         {showManagedSystem && (
           <div className="flex flex-col gap-2">
@@ -456,14 +552,17 @@ function MyRequests(): React.ReactElement {
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="text-sm font-medium text-text-primary">
-                  {getCapabilityDisplayLabel(row.requested_capability)}
+                  {requestedScopeTargetLabel(row) ?? getCapabilityDisplayLabel(row.requested_capability)}
                 </span>
                 <span className="text-xs text-text-secondary">
                   {permissionRequestStatusLabel[row.status]}
                 </span>
               </div>
               <p className="text-xs text-text-muted">
-                {systemName(row.requested_managed_system_id)} · {formatDate(row.created_at)}
+                {requestedScopeTargetLabel(row) !== null
+                  ? getCapabilityDisplayLabel(row.requested_capability)
+                  : systemName(row.requested_managed_system_id)}{' '}
+                · {formatDate(row.created_at)}
               </p>
               <p className="line-clamp-2 text-sm text-text-primary">{row.reason}</p>
               {row.status === 'needs_more_info' && <MoreInfoNote id={row.id} />}
@@ -511,7 +610,7 @@ function MyRequests(): React.ReactElement {
                       type="button"
                       variant="secondary"
                       size="sm"
-                      aria-label={`${HOME_PERMISSION_COPY.withdraw}: ${getCapabilityDisplayLabel(row.requested_capability)} · ${systemName(row.requested_managed_system_id)}`}
+                      aria-label={`${HOME_PERMISSION_COPY.withdraw}: ${requestedScopeTargetLabel(row) ?? `${getCapabilityDisplayLabel(row.requested_capability)} · ${systemName(row.requested_managed_system_id)}`}`}
                       onClick={() => {
                         setConfirmingId(row.id);
                         setFocusTarget({ kind: 'cancel' });

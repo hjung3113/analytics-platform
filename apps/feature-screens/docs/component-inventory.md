@@ -251,6 +251,16 @@ replacing loaded rows or counts. Copy reuses `HOME_INBOX_COPY`'s load-more,
 loading and retry strings. Ordinary Button keyboard focus remains available;
 permission-blocked and initial-error screens do not render the control.
 
+### PermissionScopeTargetFields (Site·공정 permission target)
+
+`apps/feature-screens/src/components/PermissionScopeTargetFields.tsx` renders the
+Site and 공정 `Select`s of a `scope.read` target (ADR-0154 decision 6). The request
+dialog, the requester's 권한 요청 page and the 권한 부여 form consume it; each
+host owns its own scope-kind control. Choices come only from
+`GET /permission-requests/scope-candidates` (decision 5): `request` mode offers
+what the caller does not hold yet, `grant` mode the whole catalog. Copy and
+target labels live in `lib/copy/permission-scope.ts`.
+
 
 ### MyVocsRecoveryLink (blocked-state recovery link)
 

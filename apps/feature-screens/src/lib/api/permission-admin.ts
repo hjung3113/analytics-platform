@@ -98,6 +98,8 @@ export async function decidePermissionRequest(
   selfApproval?: ApprovePermissionRequest['self_approval'],
   expiration?: ApprovePermissionRequest['expiration'],
   grantedManagedSystemId?: ApprovePermissionRequest['granted_managed_system_id'],
+  /** A Site request narrowed to one 공정 of the same site (ADR-0154); omitted keeps the requested target. */
+  grantedScope?: { site: string; room: string },
 ): Promise<PermissionDecisionResult> {
   const body =
     action === 'need-more-info'
@@ -107,6 +109,13 @@ export async function decidePermissionRequest(
           ...(reason ? { reason } : {}),
           ...(action === 'approve' && grantedManagedSystemId !== undefined
             ? { granted_managed_system_id: grantedManagedSystemId }
+            : {}),
+          ...(action === 'approve' && grantedScope !== undefined
+            ? {
+                granted_scope_kind: 'site_room' as const,
+                granted_scope_site: grantedScope.site,
+                granted_scope_room: grantedScope.room,
+              }
             : {}),
           ...(action === 'approve' && expiration !== undefined ? { expiration } : {}),
           ...(action === 'approve' && selfApproval !== undefined

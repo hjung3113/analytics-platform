@@ -22,6 +22,12 @@ import {
   DialogHeader,
   DialogTitle,
   Label,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
 } from '@ap/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -29,24 +35,50 @@ import { type ReactNode, useMemo, useState } from 'react';
 
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import {
+  type CreatePermissionRequestBody,
   type CreatePermissionRequestSuccess,
   createPermissionRequest,
   permissionRequestsMineKey,
 } from '@/lib/api/permission-requests';
+import { permissionScopeCandidatesKey } from '@/lib/api/permission-scope-candidates';
 import { ApiError } from '@/lib/api/types';
+import { PermissionScopeTargetFields } from '@/components/PermissionScopeTargetFields';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
+import {
+  PERMISSION_SCOPE_COPY,
+  type PermissionScopeTargetKind,
+  formatPermissionScopeTarget,
+} from '@/lib/copy/permission-scope';
 import { useManagedSystemNames } from '@/lib/cross-system/useManagedSystemNames';
 import { permissionCheckQueryKey } from '@/lib/cross-system/usePermissionCheckBridge';
 import { permissionRequestStatusLabel } from './permission-requests-search.js';
 
-export interface RequestAccessButtonProps {
-  capability: string;
-  managedSystemId?: string;
+/** A blocked Site or 공정 (ADR-0154 decision 6). A Site target lets the user pick the scope kind. */
+export type RequestAccessScopeTarget =
+  | { kind: 'site'; site: string }
+  | { kind: 'site_room'; site: string; room: string };
+
+export type RequestAccessButtonProps = RequestAccessButtonCommonProps &
+  (
+    | { capability: string; managedSystemId?: string; scopeTarget?: undefined }
+    | { scopeTarget: RequestAccessScopeTarget; capability?: undefined; managedSystemId?: undefined }
+  );
+
+interface RequestAccessButtonCommonProps {
   returnRouteIntent: string;
   onRequestSubmitted?: () => void;
   /** Uses a caller-owned trigger while this component retains the request dialog and flow. */
   renderTrigger?: (open: () => void) => ReactNode;
+}
+
+const SCOPE_CAPABILITY = 'scope.read';
+
+/** What one submit posted, captured when the POST starts. */
+interface PermissionRequestSubmission {
+  body: CreatePermissionRequestBody;
+  idempotencyKey: string;
+  scopeTargetLabel: string | null;
 }
 
 const RECOVERABLE_CONFLICT_CODES = new Set([
@@ -60,12 +92,24 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
   const [reason, setReason] = useState('');
   const [expiration, setExpiration] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const scopeTarget = props.scopeTarget;
+  const capability = scopeTarget ? SCOPE_CAPABILITY : props.capability;
+  const initialScopeKind: PermissionScopeTargetKind | '' =
+    scopeTarget?.kind === 'site_room' ? 'site_room' : '';
+  const initialScopeRoom = scopeTarget?.kind === 'site_room' ? scopeTarget.room : '';
+  const [scopeKind, setScopeKind] = useState<PermissionScopeTargetKind | ''>(initialScopeKind);
+  const [scopeRoom, setScopeRoom] = useState(initialScopeRoom);
+  const scopeTargetLabel =
+    scopeTarget && scopeKind !== ''
+      ? formatPermissionScopeTarget(scopeKind, scopeTarget.site, scopeRoom)
+      : null;
   const [submitted, setSubmitted] = useState<{
     id: string;
     status: CreatePermissionRequestSuccess['status'];
     createdAt: string;
     reason: string;
     expiration?: string;
+    scopeTargetLabel: string | null;
   } | null>(null);
   // Bumping `attempt` rotates the memoized Idempotency-Key, which we do
   // only after a successful submit (a new logical intent). Concurrent
@@ -75,7 +119,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
   // Scope summary shows the Managed System name; the raw UUID is only a
   // fallback while the name is unresolved (#1170). Fetched when the dialog
   // opens so a blocked panel mount costs no extra request.
-  const managedSystemNames = useManagedSystemNames({ enabled: open });
+  const managedSystemNames = useManagedSystemNames({ enabled: open && !scopeTarget });
   const managedSystemName = props.managedSystemId
     ? managedSystemNames.get(props.managedSystemId)
     : undefined;
@@ -88,50 +132,49 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
   const idempotencyKey = useMemo(
     () => crypto.randomUUID(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the dep list is the intent key (FO ADR-0015:71-90), see above
-    [props.capability, props.managedSystemId, attempt],
+    [capability, props.managedSystemId, scopeTarget?.site, scopeKind, scopeRoom, attempt],
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- react-query's `void` variables type makes mutate() take no argument; `undefined` would force mutate(undefined) at every call site (the former Biome rule allowed void call-site type arguments)
-  const mutation = useMutation<CreatePermissionRequestSuccess, unknown, void>({
+  // A Site·공정 request refreshes the candidate read (its coverage); a capability request refreshes its check.
+  const invalidateCheck = () =>
+    scopeTarget
+      ? qc.invalidateQueries({ queryKey: permissionScopeCandidatesKey })
+      : qc.invalidateQueries({
+          queryKey: permissionCheckQueryKey({
+            capability,
+            ...(props.managedSystemId !== undefined
+              ? { managedSystemId: props.managedSystemId }
+              : {}),
+          }),
+        });
+
+  // The submitted body and its labels travel as mutation variables: a field edited while the POST is in flight
+  // must change neither the request nor the completion step that names it.
+  const mutation = useMutation<CreatePermissionRequestSuccess, unknown, PermissionRequestSubmission>({
     // Disable React Query's silent retries on this mutation — server-side
     // idempotency reconciliation is the only retry path we honor, and the
     // user explicitly clicks again if they want a new attempt.
     retry: false,
-    mutationFn: async () => {
-      return await createPermissionRequest(
-        {
-          requested_capability: props.capability,
-          ...(props.managedSystemId !== undefined
-            ? { requested_managed_system_id: props.managedSystemId }
-            : {}),
-          reason: reason.trim(),
-          ...(expiration ? { requested_expiration: `${expiration}T23:59:59.000Z` } : {}),
-          return_route_intent: props.returnRouteIntent,
-        },
-        { idempotencyKey },
-      );
+    mutationFn: async ({ body, idempotencyKey: key }) => {
+      return await createPermissionRequest(body, { idempotencyKey: key });
     },
-    onSuccess: async (result) => {
+    onSuccess: async (result, submission) => {
       setErrorMessage(null);
       setSubmitted({
         id: result.id,
         status: result.status,
         createdAt: result.created_at,
-        reason: reason.trim(),
-        ...(expiration ? { expiration: `${expiration}T23:59:59.000Z` } : {}),
+        reason: submission.body.reason,
+        ...(submission.body.requested_expiration
+          ? { expiration: submission.body.requested_expiration }
+          : {}),
+        scopeTargetLabel: submission.scopeTargetLabel,
       });
       // Successful submit — rotate the key so a future click counts as a
       // new logical intent.
       setAttempt((n) => n + 1);
       await Promise.all([
-        qc.invalidateQueries({
-          queryKey: permissionCheckQueryKey({
-            capability: props.capability,
-            ...(props.managedSystemId !== undefined
-              ? { managedSystemId: props.managedSystemId }
-              : {}),
-          }),
-        }),
+        invalidateCheck(),
         qc.invalidateQueries({ queryKey: permissionRequestsMineKey }),
       ]);
       props.onRequestSubmitted?.();
@@ -142,14 +185,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
         // surface an error message; the gate will re-render with the truth.
         setErrorMessage(null);
         await Promise.all([
-          qc.invalidateQueries({
-            queryKey: permissionCheckQueryKey({
-              capability: props.capability,
-              ...(props.managedSystemId !== undefined
-                ? { managedSystemId: props.managedSystemId }
-                : {}),
-            }),
-          }),
+          invalidateCheck(),
           qc.invalidateQueries({ queryKey: permissionRequestsMineKey }),
         ]);
         return;
@@ -184,20 +220,29 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                 <dd className="font-mono text-text-primary" data-testid="permission-request-id">
                   {submitted.id}
                 </dd>
-                <dt className="text-text-muted">권한</dt>
-                <dd className="text-text-primary">{getCapabilityDisplayLabel(props.capability)}</dd>
-                <dt className="text-text-muted">시스템</dt>
-                <dd
-                  className={
-                    props.managedSystemId && !managedSystemName
-                      ? 'font-mono text-text-primary'
-                      : 'text-text-primary'
-                  }
-                >
-                  {props.managedSystemId === undefined
-                    ? '전체'
-                    : (managedSystemName ?? props.managedSystemId)}
-                </dd>
+                {submitted.scopeTargetLabel !== null ? (
+                  <>
+                    <dt className="text-text-muted">{PERMISSION_SCOPE_COPY.target}</dt>
+                    <dd className="text-text-primary">{submitted.scopeTargetLabel}</dd>
+                  </>
+                ) : (
+                  <>
+                    <dt className="text-text-muted">권한</dt>
+                    <dd className="text-text-primary">{getCapabilityDisplayLabel(capability)}</dd>
+                    <dt className="text-text-muted">시스템</dt>
+                    <dd
+                      className={
+                        props.managedSystemId && !managedSystemName
+                          ? 'font-mono text-text-primary'
+                          : 'text-text-primary'
+                      }
+                    >
+                      {props.managedSystemId === undefined
+                        ? '전체'
+                        : (managedSystemName ?? props.managedSystemId)}
+                    </dd>
+                  </>
+                )}
                 <dt className="text-text-muted">사유</dt>
                 <dd className="text-text-primary">{submitted.reason}</dd>
                 <dt className="text-text-muted">상태</dt>
@@ -222,6 +267,8 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                     setSubmitted(null);
                     setReason('');
                     setExpiration('');
+                    setScopeKind(initialScopeKind);
+                    setScopeRoom(initialScopeRoom);
                   }}
                 >
                   다른 권한 요청
@@ -245,32 +292,109 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                 data-testid="permission-request-form"
                 onSubmit={(event) => {
                   event.preventDefault();
+                  if (scopeTarget && scopeKind === '') {
+                    setErrorMessage(PERMISSION_SCOPE_COPY.kindMissing);
+                    return;
+                  }
+                  if (scopeTarget && scopeKind === 'site_room' && scopeRoom === '') {
+                    setErrorMessage(PERMISSION_SCOPE_COPY.roomMissing);
+                    return;
+                  }
                   if (!reason.trim()) {
                     setErrorMessage('사유는 필수입니다.');
                     return;
                   }
                   setErrorMessage(null);
-                  mutation.mutate();
+                  mutation.mutate({
+                    body: {
+                      requested_capability: capability,
+                      ...(scopeTarget && scopeKind !== ''
+                        ? {
+                            requested_scope_kind: scopeKind,
+                            requested_scope_site: scopeTarget.site,
+                            ...(scopeKind === 'site_room' ? { requested_scope_room: scopeRoom } : {}),
+                          }
+                        : {}),
+                      ...(props.managedSystemId !== undefined
+                        ? { requested_managed_system_id: props.managedSystemId }
+                        : {}),
+                      reason: reason.trim(),
+                      ...(expiration ? { requested_expiration: `${expiration}T23:59:59.000Z` } : {}),
+                      return_route_intent: props.returnRouteIntent,
+                    },
+                    idempotencyKey,
+                    scopeTargetLabel,
+                  });
                 }}
               >
-                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 rounded-md border border-border-subtle bg-surface-card p-3 text-sm">
-                  <dt className="text-text-muted">권한</dt>
-                  <dd className="text-text-primary">
-                    {getCapabilityDisplayLabel(props.capability)}
-                  </dd>
-                  <dt className="text-text-muted">시스템</dt>
-                  <dd
-                    className={
-                      props.managedSystemId && !managedSystemName
-                        ? 'font-mono text-text-primary'
-                        : 'text-text-primary'
-                    }
-                  >
-                    {props.managedSystemId === undefined
-                      ? '전체'
-                      : (managedSystemName ?? props.managedSystemId)}
-                  </dd>
-                </dl>
+                {scopeTarget ? (
+                  <>
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 rounded-md border border-border-subtle bg-surface-card p-3 text-sm">
+                      <dt className="text-text-muted">{PERMISSION_SCOPE_COPY.target}</dt>
+                      <dd className="text-text-primary">Site {scopeTarget.site}</dd>
+                    </dl>
+                    <div className="space-y-1">
+                      <Label htmlFor="permission-request-scope-kind">
+                        {PERMISSION_SCOPE_COPY.kind}
+                      </Label>
+                      <Select
+                        value={scopeKind}
+                        disabled={mutation.isPending}
+                        onValueChange={(next) => {
+                          setScopeKind(next as PermissionScopeTargetKind);
+                          setErrorMessage(null);
+                        }}
+                      >
+                        <SelectTrigger
+                          id="permission-request-scope-kind"
+                          aria-label={PERMISSION_SCOPE_COPY.kind}
+                        >
+                          <SelectValue placeholder={PERMISSION_SCOPE_COPY.kindPlaceholder} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectItem value="site">{PERMISSION_SCOPE_COPY.kindSite}</SelectItem>
+                            <SelectItem value="site_room">
+                              {PERMISSION_SCOPE_COPY.kindSiteRoom}
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {scopeKind === 'site_room' ? (
+                      <PermissionScopeTargetFields
+                        idPrefix="permission-request-scope"
+                        mode="request"
+                        showSite={false}
+                        disabled={mutation.isPending}
+                        draft={{ kind: 'site_room', site: scopeTarget.site, room: scopeRoom }}
+                        onChange={(next) => {
+                          setScopeRoom(next.room);
+                          setErrorMessage(null);
+                        }}
+                      />
+                    ) : null}
+                  </>
+                ) : (
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 rounded-md border border-border-subtle bg-surface-card p-3 text-sm">
+                    <dt className="text-text-muted">권한</dt>
+                    <dd className="text-text-primary">
+                      {getCapabilityDisplayLabel(capability)}
+                    </dd>
+                    <dt className="text-text-muted">시스템</dt>
+                    <dd
+                      className={
+                        props.managedSystemId && !managedSystemName
+                          ? 'font-mono text-text-primary'
+                          : 'text-text-primary'
+                      }
+                    >
+                      {props.managedSystemId === undefined
+                        ? '전체'
+                        : (managedSystemName ?? props.managedSystemId)}
+                    </dd>
+                  </dl>
+                )}
                 <div className="space-y-1">
                   <Label htmlFor="permission-request-reason">사유 · 필수</Label>
                   <Textarea

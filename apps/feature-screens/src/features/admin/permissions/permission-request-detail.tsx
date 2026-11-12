@@ -7,6 +7,7 @@ import * as React from 'react';
 
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
+import { grantedScopeTargetLabel, requestedScopeTargetLabel } from '@/lib/copy/permission-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { shortId } from '@/lib/identity';
@@ -93,9 +94,10 @@ export function PermissionRequestDetail({
         <FieldRow label="범위" inset="none">
           <span className="flex flex-col gap-0.5">
             <span>
-              {request.requested_managed_system_id
-                ? (managedSystemName ?? '시스템')
-                : '전체'}
+              {requestedScopeTargetLabel(request) ??
+                (request.requested_managed_system_id
+                  ? (managedSystemName ?? '시스템')
+                  : '전체')}
             </span>
             {request.requested_managed_system_id && !managedSystemName && (
               <span className="font-mono text-xs text-text-muted">
@@ -231,10 +233,11 @@ function PermissionRequestRiskReview({
             <>
               {' · '}
               {copy.effectiveGrantScope}:{' '}
-              {formatManagedSystemScope(
-                request.effective_access.granted_managed_system_id,
-                managedSystemNames,
-              )}
+              {grantedScopeTargetLabel(request.effective_access) ??
+                formatManagedSystemScope(
+                  request.effective_access.granted_managed_system_id,
+                  managedSystemNames,
+                )}
             </>
           ) : null}
           {accessDecision.allow ? (

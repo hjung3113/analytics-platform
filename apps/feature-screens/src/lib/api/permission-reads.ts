@@ -41,6 +41,10 @@ export interface AdminPermissionRequestRow {
   requester_actor_id: string;
   requested_capability: string;
   requested_managed_system_id: string | null;
+  /** Site/room requests only (ADR-0154). */
+  requested_scope_kind?: 'managed_system' | 'site' | 'site_room';
+  requested_scope_site?: string | null;
+  requested_scope_room?: string | null;
   requested_expiration: string | null;
   reason: string;
   status: PermissionRequestStatus;

@@ -36,6 +36,15 @@ import { ApiError } from '@/lib/api/types';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
+import {
+  PERMISSION_SCOPE_COPY,
+  type PermissionScopeTargetKind,
+  formatPermissionScopeTarget,
+} from '@/lib/copy/permission-scope';
+import {
+  PermissionScopeTargetFields,
+  scopeTargetMissing,
+} from '@/components/PermissionScopeTargetFields';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { shortId } from '@/lib/identity';
@@ -60,6 +69,9 @@ export type DirectGrantReadFollowUp = {
 };
 
 const DIRECT_GRANT_COPY = ADMIN_PERMISSIONS_COPY.directGrant;
+
+// 시스템 = today's capability list (`managed_system` kind); the Site·공정 kinds grant `scope.read` (ADR-0154 decision 6).
+type GrantScopeKind = 'managed_system' | PermissionScopeTargetKind;
 
 function candidateKey(candidate: DirectGrantCandidate): string {
   return `${candidate.capability}|${candidate.managed_system_id ?? 'workspace'}`;
@@ -416,6 +428,16 @@ function DirectGrantFields({
   const { canLink } = useHostSeam();
   const actorId = me.data?.actor.id ?? null;
   const [selectedCandidateKey, setSelectedCandidateKey] = React.useState(initialCandidateKey);
+  const [grantScopeKind, setGrantScopeKind] = React.useState<GrantScopeKind>('managed_system');
+  const [scopeSite, setScopeSite] = React.useState('');
+  const [scopeRoom, setScopeRoom] = React.useState('');
+  // The advisory `scope.read` candidate names the Site·공정 kinds; its catalog values come from the candidate read.
+  const scopeCandidate = options.candidates.find((candidate) => candidate.scope_kinds !== undefined);
+  const systemCandidates = options.candidates.filter((candidate) => candidate.scope_kinds === undefined);
+  const scopeGrant = grantScopeKind !== 'managed_system' ? grantScopeKind : null;
+  const scopeDraft =
+    scopeGrant !== null ? { kind: scopeGrant, site: scopeSite, room: scopeRoom } : null;
+  const scopeReady = scopeDraft === null || scopeTargetMissing(scopeDraft) === null;
   const [reason, setReason] = React.useState(initialReason);
   const [expirationDate, setExpirationDate] = React.useState(initialExpirationDate);
   const [expirationDraftValid, setExpirationDraftValid] = React.useState(true);
@@ -430,6 +452,7 @@ function DirectGrantFields({
   const governanceId = React.useId();
   const policyCitationId = React.useId();
   const peerReviewerAbsenceId = React.useId();
+  const scopeKindId = React.useId();
   const mutation = useDirectPermissionGrant(cacheReturnedGrant);
 
   React.useEffect(() => {
@@ -443,7 +466,7 @@ function DirectGrantFields({
     (candidate) => candidateKey(candidate) === selectedCandidateKey,
   );
   // Held = an active (non-expired) grant the screen already loaded for this recipient.
-  const heldEntries = options.candidates.flatMap((candidate) => {
+  const heldEntries = systemCandidates.flatMap((candidate) => {
     const grant = activeGrants.find(
       (item) =>
         item.actor_id === options.recipient.id &&
@@ -488,6 +511,7 @@ function DirectGrantFields({
     reasonReady &&
     expirationReady &&
     selectedCandidate !== undefined &&
+    scopeReady &&
     !preflightBlocked &&
     !selfGrantForbidden &&
     !selfPolicyUnconfirmed &&
@@ -511,6 +535,13 @@ function DirectGrantFields({
       capability: selectedCandidate.capability,
       ...(selectedCandidate.managed_system_id !== null
         ? { managed_system_id: selectedCandidate.managed_system_id }
+        : {}),
+      ...(scopeDraft !== null
+        ? {
+            scope_kind: scopeDraft.kind,
+            scope_site: scopeDraft.site,
+            ...(scopeDraft.kind === 'site_room' ? { scope_room: scopeDraft.room } : {}),
+          }
         : {}),
       ...(expiration !== undefined ? { expires_at: expiration } : {}),
       reason: reason.trim(),
@@ -575,10 +606,56 @@ function DirectGrantFields({
             {DIRECT_GRANT_COPY.adminRoleNote}
           </p>
         ) : null}
+        {scopeCandidate ? (
+          <label className="flex flex-col gap-2 text-sm text-text-secondary" htmlFor={scopeKindId}>
+            {PERMISSION_SCOPE_COPY.kind}
+            <Select
+              value={grantScopeKind}
+              onValueChange={(next) =>
+                clearErrorAndUpdate(() => {
+                  const kind = next as GrantScopeKind;
+                  setGrantScopeKind(kind);
+                  setScopeSite('');
+                  setScopeRoom('');
+                  setSelectedCandidateKey(kind === 'managed_system' ? '' : candidateKey(scopeCandidate));
+                  setGovernanceConfirmed(false);
+                  setPolicyCitation('');
+                  setPeerReviewerAbsence('');
+                })
+              }
+              disabled={mutation.isPending}
+            >
+              <SelectTrigger id={scopeKindId} aria-label={PERMISSION_SCOPE_COPY.kind}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="managed_system">{PERMISSION_SCOPE_COPY.kindSystem}</SelectItem>
+                  <SelectItem value="site">{PERMISSION_SCOPE_COPY.kindSite}</SelectItem>
+                  <SelectItem value="site_room">{PERMISSION_SCOPE_COPY.kindSiteRoom}</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </label>
+        ) : null}
+        {scopeDraft !== null ? (
+          <PermissionScopeTargetFields
+            idPrefix="direct-grant-scope"
+            mode="grant"
+            draft={scopeDraft}
+            onChange={(next) =>
+              clearErrorAndUpdate(() => {
+                setScopeSite(next.site);
+                setScopeRoom(next.room);
+              })
+            }
+            disabled={mutation.isPending}
+          />
+        ) : (
         <GroupedSelectionList mode="single" aria-label={DIRECT_GRANT_COPY.optionLabel} searchPlaceholder="권한 이름·설명 검색"
           groups={groupPermissionItems(CAPABILITIES.flatMap(capability => {
             const item = permissionSelectionItem(capability);
-            const candidates = options.candidates.filter(candidate => candidate.capability === capability);
+            const candidates = systemCandidates.filter(candidate => candidate.capability === capability);
             if (candidates.length === 0) return [{ ...item, capability, disabledReason: '이 대상에 부여할 수 없음' }];
             return candidates.map(candidate => ({ ...item, capability, id: candidateKey(candidate), label: candidateLabel(candidate, managedSystemNames),
               ...(heldEntries.some(entry => entry.candidate === candidate) ? { disabledReason: DIRECT_GRANT_COPY.alreadyGranted } : mutation.isPending ? { disabledReason: '부여 중…' } : {}) }));
@@ -589,6 +666,7 @@ function DirectGrantFields({
             setPolicyCitation('');
             setPeerReviewerAbsence('');
           })} />
+        )}
         {selectedCandidate && isTokenOnlyCapability(selectedCandidate.capability) ? (
           <p className="text-xs text-text-secondary" data-testid="direct-grant-token-only-hint">
             {DIRECT_GRANT_COPY.tokenOnlyHint}
@@ -769,7 +847,13 @@ function DirectGrantFields({
       </section>
       {/* Outside the scroll area: the chosen permission stays in view while the reason and audit fields below the list are filled (#1842 M2). */}
       <p className="shrink-0 break-keep text-xs text-text-secondary" data-testid="direct-grant-selected">
-        {selectedCandidate ? `선택: ${candidateLabel(selectedCandidate, managedSystemNames)}` : '선택한 권한 없음'}
+        {scopeDraft !== null
+          ? scopeReady
+            ? `선택: ${getCapabilityDisplayLabel('scope.read')} · ${formatPermissionScopeTarget(scopeDraft.kind, scopeDraft.site, scopeDraft.room)}`
+            : '선택한 권한 없음'
+          : selectedCandidate
+            ? `선택: ${candidateLabel(selectedCandidate, managedSystemNames)}`
+            : '선택한 권한 없음'}
       </p>
       <DialogFooter className="shrink-0">
         <Button type="button" variant="secondary" onClick={onClose}>

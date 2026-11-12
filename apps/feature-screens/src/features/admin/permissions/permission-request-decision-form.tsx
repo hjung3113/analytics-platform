@@ -21,12 +21,19 @@ import {
 } from '@ap/ui';
 import * as React from 'react';
 
+import { scopeRoomsFor } from '@/components/PermissionScopeTargetFields';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { useMeBridge } from '@/lib/api/me';
 import type { PermissionRequestDecisionAction } from '@/lib/api/permission-admin';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
+import { usePermissionScopeCandidates } from '@/lib/api/permission-scope-candidates';
+import {
+  PERMISSION_SCOPE_COPY,
+  formatPermissionScopeTarget,
+  requestedScopeTargetLabel,
+} from '@/lib/copy/permission-scope';
 import { formatDateOnly } from '@/lib/format/datetime';
 import { shortId } from '@/lib/identity';
 
@@ -45,6 +52,11 @@ const ACTIONS: Array<{
 ];
 
 type ApprovalExpirationMode = 'keep' | 'change' | 'clear';
+
+// Approval keeps the requested Site·공정 target unless a Site request is narrowed to one 공정 of the same site,
+// the only change the server allows (ADR-0154; permissions.md «Request and decision fields»).
+const REQUESTED_SCOPE = 'requested';
+const ROOM_PREFIX = 'room:';
 
 const APPROVAL_EXPIRATION_ERROR = '만료일은 현재 시각보다 이후여야 합니다.';
 
@@ -133,6 +145,12 @@ export function PermissionRequestDecisionForm({
   const intent = React.useRef<{ fingerprint: string; key: string } | null>(null);
   const submitting = React.useRef(false);
   const [scope, setScope] = React.useState(request.requested_managed_system_id ?? 'workspace');
+  const scopeTargetLabel = requestedScopeTargetLabel(request);
+  const siteRequest =
+    request.requested_scope_kind === 'site' && request.requested_scope_site
+      ? request.requested_scope_site
+      : null;
+  const [scopeNarrow, setScopeNarrow] = React.useState(REQUESTED_SCOPE);
   React.useEffect(() => {
     onDraftChanged?.({
       revision: request.revision,
@@ -143,7 +161,8 @@ export function PermissionRequestDecisionForm({
         peerReviewerAbsence !== '' ||
         expirationMode !== 'keep' ||
         expirationDate !== (request.requested_expiration?.slice(0, 10) ?? '') ||
-        scope !== (request.requested_managed_system_id ?? 'workspace'),
+        scope !== (request.requested_managed_system_id ?? 'workspace') ||
+        scopeNarrow !== REQUESTED_SCOPE,
       reason,
     });
   }, [
@@ -158,6 +177,7 @@ export function PermissionRequestDecisionForm({
     expirationMode,
     expirationDate,
     scope,
+    scopeNarrow,
   ]);
   const mutation = useDecidePermissionRequest(
     (succeeded) => {
@@ -185,6 +205,9 @@ export function PermissionRequestDecisionForm({
     (result) => onDecisionSucceeded?.(result),
   );
   const me = useMeBridge();
+  const siteCandidateOffered = request.approval_scope_candidates.some(
+    (candidate) => candidate.scope_kind === 'site' && candidate.scope_site === siteRequest,
+  );
   const captureCopy = ADMIN_PERMISSIONS_COPY.selfApprovalCapture;
   const workspaceSettings = useWorkspaceSettings();
   const minExpirationDate = localDateInputValue(new Date());
@@ -239,6 +262,7 @@ export function PermissionRequestDecisionForm({
   React.useEffect(() => {
     intent.current = null;
     setScope(request.requested_managed_system_id ?? 'workspace');
+    setScopeNarrow(REQUESTED_SCOPE);
     setAction(null);
     setReason('');
     setReasonAttempted(false);
@@ -278,8 +302,13 @@ export function PermissionRequestDecisionForm({
       expectedRevision: request.revision,
       action,
       reason: reason.trim(),
-      ...(action === 'approve' && scope !== (request.requested_managed_system_id ?? 'workspace')
+      ...(action === 'approve' &&
+      scopeTargetLabel === null &&
+      scope !== (request.requested_managed_system_id ?? 'workspace')
         ? { grantedManagedSystemId: scope === 'workspace' ? null : scope }
+        : {}),
+      ...(action === 'approve' && siteRequest !== null && scopeNarrow.startsWith(ROOM_PREFIX)
+        ? { grantedScope: { site: siteRequest, room: scopeNarrow.slice(ROOM_PREFIX.length) } }
         : {}),
       ...(approvalExpirationChanged
         ? {
@@ -329,10 +358,13 @@ export function PermissionRequestDecisionForm({
       <PanelSectionTitle>결정</PanelSectionTitle>
       {resetNotice}
       <fieldset className="flex flex-wrap gap-2" aria-label="결정 선택">
-        {ACTIONS.filter((candidate) =>
-          request.allowed_actions.includes(
-            candidate.value === 'need-more-info' ? 'need_more_info' : candidate.value,
-          ),
+        {ACTIONS.filter(
+          (candidate) =>
+            request.allowed_actions.includes(
+              candidate.value === 'need-more-info' ? 'need_more_info' : candidate.value,
+            ) &&
+            // Site·공정 grants have no explicit deny (ADR-0154 decision 2); revocation does that job.
+            !(candidate.value === 'deny' && request.requested_capability === 'scope.read'),
         ).map((candidate) => (
           <Button
             key={candidate.value}
@@ -399,7 +431,17 @@ export function PermissionRequestDecisionForm({
           {ADMIN_PERMISSIONS_COPY.reviewAgain}
         </p>
       ) : null}
-      {action === 'approve' && request.approval_scope_candidates.length > 0 ? (
+      {action === 'approve' && siteRequest !== null && siteCandidateOffered ? (
+        <SiteApprovalScopeSelect
+          site={siteRequest}
+          value={scopeNarrow}
+          onChange={setScopeNarrow}
+          disabled={mutation.isPending}
+        />
+      ) : null}
+      {action === 'approve' &&
+      scopeTargetLabel === null &&
+      request.approval_scope_candidates.length > 0 ? (
         <label
           htmlFor="permission-approval-scope"
           className="flex flex-col gap-2 text-sm text-text-secondary"
@@ -556,9 +598,10 @@ export function PermissionRequestDecisionForm({
             </span>
             <span>
               {captureCopy.scope}:{' '}
-              {request.requested_managed_system_id
-                ? (managedSystemName ?? '시스템')
-                : ADMIN_PERMISSIONS_COPY.riskReview.allScope}
+              {scopeTargetLabel ??
+                (request.requested_managed_system_id
+                  ? (managedSystemName ?? '시스템')
+                  : ADMIN_PERMISSIONS_COPY.riskReview.allScope)}
             </span>
             {request.requested_managed_system_id && !managedSystemName && (
               <span className="font-mono text-text-muted">
@@ -604,5 +647,48 @@ export function PermissionRequestDecisionForm({
         실행해야 합니다.
       </p>
     </section>
+  );
+}
+
+// Room names for narrowing come only from the candidate read (ADR-0154 decision 5); the selected detail carries
+// the requested target alone. Mounted only while a Site request is being approved.
+function SiteApprovalScopeSelect({
+  site,
+  value,
+  onChange,
+  disabled,
+}: {
+  site: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+}) {
+  const candidates = usePermissionScopeCandidates(true);
+  const rooms = candidates.data ? scopeRoomsFor(candidates.data, site, 'grant') : [];
+  return (
+    <label
+      htmlFor="permission-approval-scope"
+      className="flex flex-col gap-2 text-sm text-text-secondary"
+    >
+      {ADMIN_PERMISSIONS_COPY.approvalScope}
+      <Select value={value} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger id="permission-approval-scope" aria-label={ADMIN_PERMISSIONS_COPY.approvalScope}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectItem value={REQUESTED_SCOPE}>{formatPermissionScopeTarget('site', site)}</SelectItem>
+            {rooms.map((room) => (
+              <SelectItem key={room} value={`${ROOM_PREFIX}${room}`}>
+                {formatPermissionScopeTarget('site_room', site, room)}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      {candidates.isError ? (
+        <span className="text-xs text-accent-danger">{PERMISSION_SCOPE_COPY.loadError}</span>
+      ) : null}
+    </label>
   );
 }

@@ -24,6 +24,7 @@ export interface DecidePermissionRequestArgs {
   idempotencyKey: string;
   selfApproval?: ApprovePermissionRequest['self_approval'];
   grantedManagedSystemId?: ApprovePermissionRequest['granted_managed_system_id'];
+  grantedScope?: { site: string; room: string };
   expiration?: ApprovePermissionRequest['expiration'];
 }
 
@@ -45,6 +46,7 @@ export function useDecidePermissionRequest(
       selfApproval,
       expiration,
       grantedManagedSystemId,
+      grantedScope,
     }: DecidePermissionRequestArgs) =>
       decidePermissionRequest(
         id,
@@ -55,6 +57,7 @@ export function useDecidePermissionRequest(
         selfApproval,
         expiration,
         grantedManagedSystemId,
+        grantedScope,
       ),
     retry: false,
     onSettled: (data) => onSettled?.(data !== undefined),

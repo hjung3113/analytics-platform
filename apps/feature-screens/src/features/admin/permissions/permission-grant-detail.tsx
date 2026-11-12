@@ -1,3 +1,4 @@
+import { OutlineBadge } from '@ap/feature-ui';
 import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from '@ap/ui';
 import type { ReactNode } from 'react';
 
@@ -5,6 +6,7 @@ import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
+import { PERMISSION_SCOPE_COPY, scopeTargetLabelOf } from '@/lib/copy/permission-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { shortId } from '@/lib/identity';
@@ -55,10 +57,19 @@ export function PermissionGrantDetail({
           </span>
         </FieldRow>
         <FieldRow label={ADMIN_PERMISSIONS_COPY.scope} inset="none">
-          <PermissionScope
-            id={item.managed_system_id}
-            name={item.managed_system_id ? managedSystemNames[item.managed_system_id] : undefined}
-          />
+          {kind === 'grants' && scopeTargetLabelOf(item) !== null ? (
+            <span className="flex flex-wrap items-center gap-2">
+              <span>{scopeTargetLabelOf(item)}</span>
+              {item.in_catalog === false ? (
+                <OutlineBadge>{PERMISSION_SCOPE_COPY.notInCatalog}</OutlineBadge>
+              ) : null}
+            </span>
+          ) : (
+            <PermissionScope
+              id={item.managed_system_id}
+              name={item.managed_system_id ? managedSystemNames[item.managed_system_id] : undefined}
+            />
+          )}
         </FieldRow>
         {kind === 'grants' ? (
           <GrantFields item={item} actorNames={actorNames} />

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 
 import type { AdminPermissionRequestRow } from '@/lib/api/permission-reads';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
+import { requestedScopeTargetLabel } from '@/lib/copy/permission-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { useHostSeam } from '@/lib/host/host-seam';
@@ -152,6 +153,7 @@ function PermissionRequestRow({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const scopeTarget = requestedScopeTargetLabel(request);
   return (
     <ObjectRow
       id="권한 요청"
@@ -162,9 +164,8 @@ function PermissionRequestRow({
       meta={
         <>
           <span>
-            {request.requested_managed_system_id
-              ? (managedSystemName ?? '시스템')
-              : '전체'}
+            {scopeTarget ??
+              (request.requested_managed_system_id ? (managedSystemName ?? '시스템') : '전체')}
           </span>
           {request.requested_managed_system_id && !managedSystemName && (
             <span className="font-mono text-text-muted">
