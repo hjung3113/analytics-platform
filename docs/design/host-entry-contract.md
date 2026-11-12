@@ -25,7 +25,7 @@
    - `declarations`: `createRegistry` 입력 전체(`spaces`, `groups`, `menus`, `permissions`, `carrySets`, `platformHomeMenuId`, `reservedRoots`).
    - `createAssembly({ registry })`: 동기 또는 비동기. 답은 `HostAssembly`(`adapter`, `topBarTools`, 선택 `savedViews`·`serverPreferences`·`invalidation`), `{ redirect }`(`redirect`를 한 번 부르고 아무것도 그리지 않는다), `{ screen }`(`PlatformProvider` 없이 그 노드만 그린다) 중 하나다.
    - `basePath`, `spaceIdMigrations`, `equipmentAxes`, `queryHistory`: 조립자가 주입하는 값. `import.meta.env`와 Vite alias는 쓰지 않는다.
-   - `slots(assembly)`: 앱의 `PlatformSlots`. Host는 `contextBar`, `boardEntry`, `topBarTools` 셋만 기본값으로 깔고 주입된 값이 이긴다.
+   - `slots(assembly)`: 앱의 `PlatformSlots`. Host는 `contextBar`, `boardEntry`, `topBarTools` 셋만 기본값으로 깔고 주입된 값이 이긴다. 루트가 그릴 때마다 호출되므로 React hook을 쓸 수 있다(hook 순서는 고정). 저장소 변화에 따라 슬롯이 바뀌는 조립은 거기서 구독해 현재 슬롯을 돌려준다.
    - `onAssembly(assembly, registry)`: 첫 렌더 전에 한 번. `children(assembly)`: `PlatformProvider` 안에 붙일 자식. `redirect(url)`: 기본은 `window.location.replace`.
    - `buildRegistry(declarations)`는 따로 export된 동기 단계다. 거부 선언은 Kernel의 `RegistryError`를 그대로 던진다. `startAppHost` 안에서는 이 던짐과 `createAssembly`의 던짐 모두 고정 문구의 `StartupFailure`로 보인다.
 2. **slot은 조립자가 주입하고 SDK가 import하지 않는다.** 저장된 뷰, Scope 조작, 알림은 지금 `@ap/feature-bridge` slot이고 그 패키지는 `@ap/feature-screens`에 의존한다. Host가 이를 품으면 SDK가 기능 패키지를 import하게 되어 [platform-packages.md §3](../integration/platform-packages.md) 규칙 8을 어긴다. 그래서 slot은 선택 주입이고, Host는 `platform/*`와 `@ap/feature-bridge`를 import하지 않는다(구현 노드가 경계 lint로 검사한다).

@@ -1,6 +1,6 @@
-import { createElement, StrictMode } from 'react';
+import { createElement, StrictMode, useMemo, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBasePathLocation, I18nProvider, type PlatformSlots } from '@ap/kernel';
+import { createBasePathLocation, I18nProvider, type PlatformLocation, type PlatformSlots, type Registry } from '@ap/kernel';
 import { GlobalContextBar, OpenInBoardAction } from '@ap/shell';
 import { AppRoot } from './app-root';
 import { buildRegistry } from './build-registry';
@@ -30,15 +30,27 @@ export async function startAppHost<A extends HostAssembly = HostAssembly>(option
     options.onAssembly?.(assembly, registry);
     const base = options.basePath;
     const location = base === undefined || base === '/' ? undefined : createBasePathLocation(base);
-    const slots: PlatformSlots = { contextBar: createElement(GlobalContextBar), boardEntry: createElement(OpenInBoardAction), topBarTools: assembly.topBarTools, ...options.slots?.(assembly) };
     root.render(
       <StrictMode>
         <I18nProvider>
-          <AppRoot assembly={assembly} registry={registry} queryHistory={options.queryHistory} location={location} slots={slots} spaceIdMigrations={options.spaceIdMigrations} equipmentAxes={options.equipmentAxes}>
-            {options.children?.(assembly)}
-          </AppRoot>
+          <HostRoot options={options} assembly={assembly} registry={registry} location={location} />
         </I18nProvider>
       </StrictMode>,
     );
   });
+}
+
+/**
+ * Renders `AppRoot` with the merged slots. `options.slots` runs in this component's render on every render, so it may use React hooks
+ * (keep the hook order fixed) and an assembler whose slots depend on a store returns the current slots; the three generic defaults are
+ * built once per assembly and sit under the caller's slots.
+ */
+function HostRoot<A extends HostAssembly>({ options, assembly, registry, location }: { options: StartAppHostOptions<A>; assembly: A; registry: Registry; location: PlatformLocation | undefined }): ReactNode {
+  const defaults = useMemo<PlatformSlots>(() => ({ contextBar: createElement(GlobalContextBar), boardEntry: createElement(OpenInBoardAction), topBarTools: assembly.topBarTools }), [assembly]);
+  const slots: PlatformSlots = { ...defaults, ...options.slots?.(assembly) };
+  return (
+    <AppRoot assembly={assembly} registry={registry} queryHistory={options.queryHistory} location={location} slots={slots} spaceIdMigrations={options.spaceIdMigrations} equipmentAxes={options.equipmentAxes}>
+      {options.children?.(assembly)}
+    </AppRoot>
+  );
 }

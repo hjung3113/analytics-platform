@@ -1,5 +1,5 @@
-import { cleanup, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { act, cleanup, screen } from '@testing-library/react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { menuPermission } from '@ap/contracts';
 import { usePlatform } from '@ap/kernel';
@@ -62,6 +62,18 @@ describe('startAppHost', () => {
     await screen.findByText('menu first');
     expect(screen.getByText('injected tools')).toBeInTheDocument();
     expect(screen.queryByText('default tools')).toBeNull();
+  });
+
+  it('slots runs in the root render and a hook-driven change re-renders the shell with the new slots', async () => {
+    let label = 'before';
+    const listeners = new Set<() => void>();
+    const store = { subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); }, get: () => label };
+    const useTestSlots = () => { const value = useSyncExternalStore(store.subscribe, store.get); return { topBarTools: <span>{value} tools</span> }; };
+    await start({ slots: useTestSlots });
+    expect(await screen.findByText('before tools')).toBeInTheDocument();
+    await act(async () => { label = 'after'; listeners.forEach(l => l()); });
+    expect(await screen.findByText('after tools')).toBeInTheDocument();
+    expect(screen.queryByText('before tools')).toBeNull();
   });
 
   it('merges the assembly top-bar tools in as the default slot', async () => {
