@@ -11,7 +11,7 @@ import { checkScope, defaultDelay, getEntity, getRole, matchesCondition, recordU
 import { AUDIT_TYPES, auditTrail, entityAudit } from './audit/audit';
 import { AUDIT_EVENTS } from './audit/audit-fixtures';
 import { accessDirectory } from './access/access';
-import { deleteAnnotation, listAnnotations, saveAnnotation } from './audit/annotations';
+import { deleteAnnotation, listAnnotations, saveAnnotation, setAnnotationPermissions } from './audit/annotations';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, installWorld, type RoleId, type World } from './world';
 import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './query/endpoints';
 import { deleteNotice, importPreferences, listNotices, lookupPeople, patchPreferences, readPreferences, saveNotice, uploadFile } from './services/services';
@@ -82,9 +82,16 @@ export function createMockAdapter(o: {
    * server conformance); omitted, the defaults apply. Like the world, it is process-wide: the latest adapter's value wins.
    */
   latency?: number;
+  /**
+   * The permissions that guard chart annotations (#1863). Default: the sample menus' `analytics:view`, so repo menus
+   * are unchanged. An app whose annotate-enabled menus hold other permissions (a kit) injects them here; like the
+   * real server's gate, a session holding any one of them may read and write annotations.
+   */
+  annotationPermissions?: readonly Permission[];
 }): PlatformAdapter {
   if (o.latency !== undefined && !(Number.isFinite(o.latency) && o.latency >= 0)) throw new MockRegistrationError('latency must be a finite number ≥ 0');
   setAdapterLatency(o.latency);
+  setAnnotationPermissions(o.annotationPermissions);
   const world = installWorld(o.permissions);
   const sessionFor = sessionsOf(world);
   const seeds = o.auditEvents ?? [];

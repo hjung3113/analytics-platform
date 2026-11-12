@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { AnnotationInput } from '@ap/contracts';
+import { menuPermission, type AnnotationInput } from '@ap/contracts';
+import { createMockAdapter } from '../../adapter';
 import { auditTrail } from '../audit';
 import { deleteAnnotation, listAnnotations, resetAnnotations, saveAnnotation, storedAnnotations } from '../annotations';
 import { getRole, setRole, setScenario } from '../../server';
@@ -187,5 +188,31 @@ describe('author-only delete with audit (#399, ADR-0041)', () => {
     }]);
     setRole('engineer');
     expect((await auditTrail({ type: 'annotation' }, undefined, fast)).outcome).toBe('forbidden');
+  });
+});
+
+describe('assembly-injected annotation permissions (#1863)', () => {
+  const kitPermission = menuPermission('kit:inhouse-view');
+
+  afterEach(() => {
+    createMockAdapter({ endpoints: [], registry: { menus: [] } }); // back to the default world and the default permission
+  });
+
+  it('a kit-shaped menu permission (not analytics:view) saves and reads an annotation for a holder', async () => {
+    createMockAdapter({ endpoints: [], registry: { menus: [] }, permissions: [kitPermission], annotationPermissions: [kitPermission] });
+    setRole('engineer');
+    const saved = await saveAnnotation(input({ chartId: 'kit-chart' }), undefined, fast);
+    expect(saved.outcome).toBe('ok');
+    const read = await listAnnotations({ chartId: 'kit-chart', scopeId: 'MEM' }, undefined, fast);
+    expect(read.outcome).toBe('ok');
+    expect(read.data?.items).toEqual([saved.data]);
+  });
+
+  it('a session without the injected permission is forbidden on both read and write', async () => {
+    createMockAdapter({ endpoints: [], registry: { menus: [] }, permissions: [kitPermission], annotationPermissions: [kitPermission] });
+    setRole('viewer');
+    expect(await saveAnnotation(input(), undefined, fast)).toMatchObject({ outcome: 'forbidden', message: 'No permission kit:inhouse-view' });
+    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' }, undefined, fast)).outcome).toBe('forbidden');
+    expect(storedAnnotations()).toHaveLength(0);
   });
 });

@@ -7,7 +7,7 @@
  */
 import { checkScope, getRole, getScenario, nextCorrelation, defaultDelay, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
-import { menuPermission, type AnnotationInput, type AnnotationRef, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation } from '@ap/contracts';
+import { menuPermission, type AnnotationInput, type AnnotationRef, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type Permission } from '@ap/contracts';
 
 export type AnnotationOptions = { role?: RoleId; latency?: number };
 /** `mine` is computed per response from the requesting role and never stored. */
@@ -15,6 +15,16 @@ type StoredAnnotation = Omit<ChartAnnotation, 'mine'> & { authorId: string };
 
 /** The chart menus' permission. A server-side constant like getEntity's type map, never a client argument. */
 const ANNOTATION_PERMISSION = menuPermission('analytics:view');
+/**
+ * The permissions that guard annotations (#1863). The sample menus' permission is the default, so today's repo menus
+ * behave exactly as before; `createMockAdapter({ annotationPermissions })` injects the app's own menu permission(s)
+ * (a kit menu that declares no `analytics:view` must not lose annotations). Same rule as the real server's gate
+ * (`holdsPlatformPermission`): the session must hold one of the listed permissions.
+ */
+let annotationPermissions: readonly Permission[] = [ANNOTATION_PERMISSION];
+export function setAnnotationPermissions(list: readonly Permission[] | undefined): void {
+  annotationPermissions = list === undefined || list.length === 0 ? [ANNOTATION_PERMISSION] : list;
+}
 const REF_KEYS = ['chartId', 'scopeId'] as const;
 const INPUT_KEYS = [...REF_KEYS, 'from', 'to', 'text'] as const;
 const DELETE_KEYS = [...REF_KEYS, 'id'] as const;
@@ -58,7 +68,8 @@ async function gate(ref: AnnotationRef, signal: AbortSignal | undefined, opts: A
   await sleep((opts?.latency ?? defaultDelay(80)) + (scenario === 'slow' ? 2200 : 0), signal);
   const base: Base = { correlationId: nextCorrelation(), data: null, trust: null, assessments: [] };
   const fail = (outcome: ApiResponse<never>['outcome'], message: string): Gated => ({ fail: { ...base, outcome, message } });
-  if (!activeWorld().users[requestRole].permissions.includes(ANNOTATION_PERMISSION)) return fail('forbidden', `No permission ${ANNOTATION_PERMISSION}`);
+  if (!annotationPermissions.some(permission => activeWorld().users[requestRole].permissions.includes(permission)))
+    return fail('forbidden', `No permission ${annotationPermissions.join(', ')}`);
   if (scenario === 'timeout') return fail('timeout', '조회가 30초 제한을 넘었습니다');
   if (scenario === 'error') return fail('error', '상류 mart 쿼리가 실패했습니다');
   if (scenario === 'forbidden') return fail('forbidden', '권한이 회수되었습니다(시나리오)');
