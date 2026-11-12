@@ -63,5 +63,3 @@ export type { ApprovalRequestInfo, ViewActionOutcome, ViewDecideHandler, ViewDia
 export { HierarchyNav, type HierarchyNavProps } from './hierarchy/HierarchyNav';
 export { useHierarchyNavState } from './hierarchy/useHierarchyNavState';
 export { type HierarchyNavState } from './hierarchy/hierarchyState';
-
-export { GROUPED_SELECTION_MESSAGES, GroupedSelectionList, type GroupedSelectionGroup, type GroupedSelectionItem, type GroupedSelectionListProps, type GroupedSelectionMessages, type GroupedSelectionPreset } from './selection';

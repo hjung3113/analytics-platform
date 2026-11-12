@@ -86,7 +86,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - LegendTree (계층 범례의 보이기·단일 현재 항목 또는 드릴 현재 단계(`onDrill`·`currentId`·`drillOnly`·`canDrill`, 보이기와 분리)·키보드 행 이동, [§16](chart.md#16-analysis-chart-contract), [ADR-0057](../adr/0057-legend-tree-arrow-key-row-navigation.md))
 - PlatformDataTable
 - DetailDrawer
-- GroupedSelectionList (분류된 체크박스·radio 선택과 검색·다중 선택 프리셋, 아래 계약)
+- GroupedSelectionList (`@ap/ui`, 분류된 체크박스·radio 선택과 검색·다중 선택 프리셋, 아래 계약)
 - AuditTimeline
 - QueryView / OutcomeView / StateMessage (응답 상태, EmptyState 역할), PlatformPage-provided shared outcome scope / banner (§19)
 - StatCard / Panel
@@ -114,7 +114,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 ### GroupedSelectionList — 분류된 선택 목록 (Decided, ADR-0155)
 
-`@ap/components`의 도메인 없는 제어형 목록. 소비자는 `{ id, label, items: { id, label, description?, badge?: { label, tone? }, disabledReason? }[] }[]`와 검색 placeholder·목록 `aria-label`을 선언한다. 각 id는 목록 전체에서 유일해야 한다. 내장 문구는 `useI18n`의 ko/en을 따른다.
+`@ap/ui`의 도메인 없는 제어형 목록. 기능 패키지는 플랫폼 중 `@ap/ui`만 import할 수 있어서(경계 게이트 `ops/platform-api/scripts/check-boundaries.mjs`, [ADR-0097](../adr/0097-platform-features-and-role-based-names.md)) 토큰 발급·권한 부여 화면이 쓰는 이 조각은 `@ap/ui`에 두고, `@ap/ui`는 Kernel에 의존하지 않으므로 문구를 prop으로 받는다. 소비자는 `{ id, label, items: { id, label, description?, badge?: { label, tone? }, disabledReason? }[] }[]`와 검색 placeholder·목록 `aria-label`을 선언한다. 각 id는 목록 전체에서 유일해야 한다. 문구는 `messages?: Partial<GroupedSelectionMessages>`이고 비운 키는 한국어 기본값이다. `GROUPED_SELECTION_MESSAGES`가 ko/en 표를 내보내므로 `useI18n`을 쓰는 메뉴는 `GROUPED_SELECTION_MESSAGES[lang]`을 넘긴다.
 
 - `mode: 'multiple'`은 `value: readonly string[]`와 `onChange(ids)`를 받는다. Checkbox 행, 현재 검색에 보이는 활성 행만 대상으로 하는 그룹 3상태 선택·`n/m`, 전체 선택 수, 모두 해제를 제공한다. `presets?: { id, label, description, itemIds }[]`는 활성 항목을 기존 선택에 더한다. 설명은 공유 Tooltip과 버튼의 접근성 설명으로 제공한다.
 - `mode: 'single'`은 `value: string | null`과 `onChange(id)`를 받는다. RadioGroup/RadioGroupItem을 사용하고 선택한 행 이름을 표시한다. 프리셋은 다중 선택 전용으로 타입에서도 금지하며 그룹 전체 선택·개수를 보이지 않는다.

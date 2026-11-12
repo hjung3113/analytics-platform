@@ -6,7 +6,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, Checkbox, Input,
   Label, RadioGroup, RadioGroupItem,
 } from '@ap/ui';
-import { GroupedSelectionList } from '@ap/components/selection';
+import { GroupedSelectionList } from '@ap/ui';
 import { tokenSelectionGroups } from '@/lib/copy/permission-selection';
 import { Copy } from 'lucide-react';
 import { useHostUnsavedGuard } from '@/lib/host/host-seam';

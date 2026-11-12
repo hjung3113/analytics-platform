@@ -1,5 +1,10 @@
 import { useId, useState } from 'react';
-import { Button, Checkbox, RadioGroup, RadioGroupItem, SearchInput, StatusBadge, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, type Tone } from '@ap/ui';
+import { Button } from '../components/Button';
+import { Checkbox } from '../components/shadcn/checkbox';
+import { RadioGroup, RadioGroupItem } from '../components/shadcn/radio-group';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/shadcn/tooltip';
+import { StatusBadge, type Tone } from '../components/StatusBadge';
+import { SearchInput } from './SearchInput';
 
 export type GroupedSelectionItem = {
   id: string;
@@ -16,8 +21,8 @@ export type GroupedSelectionMessages = {
   selectedCount: (count: number) => string; selectedItem: (label: string) => string;
 };
 /**
- * ko/en copy. The piece takes copy as a prop instead of calling `useI18n` so that it depends on `@ap/ui` only: feature
- * packages consume the SDK through `@ap/ui` and import this piece from the `@ap/components/selection` entry (#1842).
+ * ko/en copy. The piece takes copy as a prop instead of calling `useI18n` so that it stays in `@ap/ui`: feature packages
+ * may import only `@ap/ui` from the platform (ADR-0097), and `@ap/ui` does not depend on the kernel (#1842).
  */
 export const GROUPED_SELECTION_MESSAGES: Readonly<Record<'ko' | 'en', GroupedSelectionMessages>> = {
   ko: { search: '검색…', clearSearch: '검색 지우기', clear: '모두 해제', all: '모두 선택', none: '선택 없음', empty: '검색 결과 없음',

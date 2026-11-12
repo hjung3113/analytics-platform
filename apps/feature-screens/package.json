@@ -51,7 +51,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@ap/components": "workspace:*",
     "@ap/feature-shared": "workspace:*",
     "@ap/feature-ui": "workspace:*",
     "@ap/ui": "workspace:*",

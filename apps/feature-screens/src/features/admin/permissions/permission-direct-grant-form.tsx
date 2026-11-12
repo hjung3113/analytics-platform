@@ -23,7 +23,7 @@ import {
   SelectValue,
   Textarea,
 } from '@ap/ui';
-import { GroupedSelectionList } from '@ap/components/selection';
+import { GroupedSelectionList } from '@ap/ui';
 import { groupPermissionItems, permissionSelectionItem } from '@/lib/copy/permission-selection';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';

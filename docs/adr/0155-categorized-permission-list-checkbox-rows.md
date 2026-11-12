@@ -11,7 +11,7 @@ A는 체크박스 행, B는 스위치 행이다. A를 채택한다. 체크박스
 
 ## 결정
 
-도메인을 모르는 `GroupedSelectionList`를 `@ap/components`에 둔다([ADR-0052](0052-rich-content-stays-in-the-sdk.md)). 이름·분류·설명·민감 표시는 feature 선언이 소유한다. 동작 계약의 원본은 [공통 컴포넌트 §13](../contract/components.md#groupedselectionlist--분류된-선택-목록-decided-adr-0155)이다.
+도메인을 모르는 `GroupedSelectionList`를 SDK에 둔다([ADR-0052](0052-rich-content-stays-in-the-sdk.md)). 자리는 `@ap/ui`다. 소비자인 기능 화면은 플랫폼 중 `@ap/ui`만 import할 수 있고([ADR-0097](0097-platform-features-and-role-based-names.md)), `@ap/components`의 다른 조각과 달리 Kernel 문구 대신 `messages` prop을 받는다. 이름·분류·설명·민감 표시는 feature 선언이 소유한다. 동작 계약의 원본은 [공통 컴포넌트 §13](../contract/components.md#groupedselectionlist--분류된-선택-목록-decided-adr-0155)이다.
 
 토큰 발급은 개별 체크박스와 더하기 방식 프리셋을 제공한다. 운영 콘솔 부여 창은 서버 후보인 권한 × 대상 시스템마다 radio 한 행을 제공한다. 현재 API가 후보 하나와 사유·감사 기록을 받으므로 한 번에 하나를 부여한다. 단일 모드에는 프리셋과 일괄 선택이 없다. 필수 입력은 접근 가능하게 두고 제출·취소는 스크롤 영역 밖에 둔다.
 

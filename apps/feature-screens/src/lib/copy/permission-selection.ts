@@ -1,5 +1,5 @@
 import { CAPABILITIES, CAPABILITY_META, TOKEN_ONLY_SCOPES, isCapability, type Capability, type TokenOnlyScope } from '@ap/feature-shared';
-import type { GroupedSelectionGroup, GroupedSelectionItem } from '@ap/components/selection';
+import type { GroupedSelectionGroup, GroupedSelectionItem } from '@ap/ui';
 import { CAPABILITY_LABELS } from './capabilities';
 
 /** Categories in screen order (advisor decision #1842). A capability names one of these; there is no default category. */

@@ -1,9 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { I18nProvider } from '@ap/kernel';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { GroupedSelectionList } from '../selection';
+import { GroupedSelectionList } from '../GroupedSelectionList';
 
 afterEach(cleanup);
 const groups = [{ id: 'g', label: 'Group', items: [
@@ -18,7 +17,7 @@ function Multiple() {
 }
 describe('GroupedSelectionList', () => {
   it('adds presets without replacing selection, describes them, and clears all', () => {
-    render(<I18nProvider><Multiple /></I18nProvider>);
+    render(<Multiple />);
     fireEvent.click(screen.getByRole('checkbox', { name: 'Beta' }));
     expect(screen.getByRole('button', { name: 'Preset' })).toHaveAccessibleDescription('Adds Alpha');
     fireEvent.click(screen.getByRole('button', { name: 'Preset' }));
@@ -29,7 +28,7 @@ describe('GroupedSelectionList', () => {
     expect(screen.getByRole('button', { name: '모두 해제' })).toBeDisabled();
   });
   it('uses mixed state and toggles only enabled filtered group members', () => {
-    render(<I18nProvider><Multiple /></I18nProvider>);
+    render(<Multiple />);
     fireEvent.click(screen.getByRole('checkbox', { name: 'Alpha' }));
     expect(screen.getByRole('checkbox', { name: 'Group 모두 선택' })).toHaveAttribute('aria-checked', 'mixed');
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Beta' } });
@@ -40,7 +39,7 @@ describe('GroupedSelectionList', () => {
     expect(screen.getByRole('checkbox', { name: 'Blocked' })).toBeDisabled();
   });
   it.each(['Group', 'Alpha', 'First description', 'a'])('searches %s', query => {
-    render(<I18nProvider><Multiple /></I18nProvider>);
+    render(<Multiple />);
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: query } });
     expect(screen.getByRole('checkbox', { name: 'Alpha' })).toBeInTheDocument();
   });
@@ -49,7 +48,7 @@ describe('GroupedSelectionList', () => {
       const [value, onChange] = useState<string | null>('a');
       return <GroupedSelectionList mode="single" groups={groups} value={value} onChange={onChange} aria-label="Choices" />;
     }
-    render(<I18nProvider><Single /></I18nProvider>);
+    render(<Single />);
     expect(screen.getByText('선택: Alpha')).toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '모두 해제' })).not.toBeInTheDocument();
@@ -60,7 +59,7 @@ describe('GroupedSelectionList', () => {
   });
   it('uses checkbox keyboard interaction', async () => {
     const user = userEvent.setup();
-    render(<I18nProvider><Multiple /></I18nProvider>);
+    render(<Multiple />);
     screen.getByRole('checkbox', { name: 'Alpha' }).focus();
     await user.keyboard(' ');
     expect(screen.getByRole('checkbox', { name: 'Alpha' })).toBeChecked();
