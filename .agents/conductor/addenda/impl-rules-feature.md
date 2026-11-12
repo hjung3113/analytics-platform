@@ -9,7 +9,7 @@ The feature code is `apps/platform-api`, `apps/feature-screens`, `packages/featu
    database** (port 5439) and the exact command, run from the repository root:
    `PLATFORM_API_ENV_FILE=<abs worktree>/.review/env.verify pnpm --filter @ap/platform-api test:integration <files>`
    (paths relative to `apps/platform-api`). Run **only the integration files you added or touched**, never the full
-   suite, never another env file, never `.env`; the runner refuses port 5434 (the dev database). Each run
+   suite or the whole `@ap/platform-api` unit run (44+ min serial), never another env file, never `.env`; the runner refuses port 5434 (the dev database). Each run
    truncates and re-seeds that database, which is expected. The suites run as the low-priv `platform_app` role: write
    the tests so they pass under it. Report the command and its result. If your task adds a migration, the issue
    database does not have it (you cannot migrate): skip the suites that need it and say so; the conductor

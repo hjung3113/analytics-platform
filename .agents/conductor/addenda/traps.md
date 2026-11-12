@@ -55,3 +55,4 @@ Append new traps at the end, one bullet each: the symptom, then what to do. No d
 - `ship-pr.sh` stopping on a GraphQL 503/504: the PR may already exist. Check `gh pr view`, wait for its checks, then merge per `references/lane-merge.md`.
 - Pass `worker-wait.sh --state` the exact state file of the worker you launched, never a `W-<n>*.json` glob: an older sibling state (`W-<n>-CAP.json`) matches first and the lane waits on a finished worker while the live one ends unseen.
 - Retargeting a stacked PR's base to `main` does not start CI (zero checks, so the merge wait stalls). After a retarget, run `gh pr update-branch <n>` to start it (#1777).
+- Run `tier.sh` only on the committed branch: a dirty tree under-reports the tier. Judge `ship-check.sh` and `ship-pr.sh` by their exit code and final JSON, never through a pipe such as `| tail`.
