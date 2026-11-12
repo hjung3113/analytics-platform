@@ -12,7 +12,9 @@ const MOCK_ASSEMBLY = fileURLToPath(new URL('./src/dev/mock-assembly.tsx', impor
 const REAL_ASSEMBLY = fileURLToPath(new URL('./src/real/http-assembly.tsx', import.meta.url));
 /** Feature sources reached through @ap/feature-screens/global-screens import themselves with the `@/` alias (ADR-0071). */
 const FEATURE_SRC = fileURLToPath(new URL('../../apps/feature-screens/src', import.meta.url));
-/** @eqv/core is workspace source on zod 4 while feature screens use zod 3: the dev server pre-bundles one `zod` for every importer, so core's imports get zod 3 (`z.int is not a function`). Route only core's own `zod` to its copy (ADR-0132, plan P12). */
+/** @eqv/core is workspace source on zod 4; all other consumers use zod 3 (ADR-0132, plan P12).
+ * Keep core's resolution, and exclude bare zod from dev optimization below: the optimizer has one entry per
+ * bare id, so whichever version it scans first would otherwise replace the other version for every importer. */
 const EQV_CORE_DIR = fileURLToPath(new URL('../../packages/eqv/core/', import.meta.url));
 const eqvCoreZod = (): Plugin => ({
   name: 'eqv-core-zod',
@@ -48,7 +50,7 @@ export default defineConfig(({ mode, command, isPreview = false }) => {
     base: process.env.AP_BASE_PATH ?? '/',
     plugins: [eqvCoreZod(), tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : [])],
     // Bare `echarts/*` entries are imported only inside a lazy chunk: without this list a warm dep cache that predates a new entry makes the dev server re-optimize and reload the page mid-interaction (#580 DIAG1).
-    optimizeDeps: { include: ['echarts/core', 'echarts/charts', 'echarts/components', 'echarts/features', 'echarts/renderers'].map(entry => `@ap/components > ${entry}`) },
+    optimizeDeps: { exclude: ['zod'], include: ['echarts/core', 'echarts/charts', 'echarts/components', 'echarts/features', 'echarts/renderers'].map(entry => `@ap/components > ${entry}`) },
     resolve: { alias: { '@': FEATURE_SRC, ...assemblyAlias(choice) } },
     server: choice.kind === 'real-dev' ? { proxy: realDevProxy(BACKEND_ORIGIN) } : undefined,
     test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'] },
