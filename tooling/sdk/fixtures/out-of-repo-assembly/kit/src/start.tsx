@@ -34,7 +34,7 @@ function KitProbe() {
 }
 
 /** In-memory QueryHistoryStore: the kit stores nothing between reloads. */
-function inMemoryQueryHistory(): QueryHistoryStore {
+export function inMemoryQueryHistory(): QueryHistoryStore {
   const rows = new Map<string, QueryHistoryEntry[]>();
   const keyOf = (key: QueryHistoryKey) => JSON.stringify([key.userId, key.menuId, key.scopeId]);
   return {
