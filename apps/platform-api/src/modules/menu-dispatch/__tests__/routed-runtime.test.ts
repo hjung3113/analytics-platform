@@ -170,14 +170,17 @@ it('rejects a source value absent from the inverse map', async () => {
   const { endpoint } = runtime(routing, { async *query() { yield { site: 'SITE-A', room: 'RA1' }; } });
   await expect(endpoint.handle(args())).rejects.toEqual(new MenuUpstreamError('unavailable'));
 });
-it('does not partially answer a request spanning room shards', async () => {
+it('answers a request spanning room shards from every owning target, each with only its rooms', async () => {
   const routing = owner(); routing.routes = [{ sites: ['SITE-A'], rooms: ['RA1'], targets: ['tgt-1'] }, { sites: ['SITE-A'], rooms: ['RA2'], targets: ['tgt-2'] }];
   const { bundle } = runtime();
-  const factory = vi.fn();
+  const legs: { targetId: string; rooms: readonly string[] }[] = [];
+  const factory = vi.fn(() => ({ async *query(leg: { targetId: string; rooms: readonly string[] }) { legs.push({ targetId: leg.targetId, rooms: leg.rooms }); yield { site: 'SITE-A', room: leg.rooms[0] }; } }));
   const contribution = declaredContribution({ bundle: { ...bundle, endpointOwners: { 'syn.rows': routing }, targets: { ...bundle.targets, 'tgt-2': { kind: 'sql', dialect: 'postgres', connectionFile: '/syn/second-secret' } } }, checkService: {} as CheckService, connectorFactories: { sql: factory } });
   const endpoint = contribution.endpoints?.[0];
   if (!endpoint) throw new Error('endpoint missing');
-  expect(await endpoint.handle(args())).toMatchObject({ outcome: 'error', data: null }); expect(factory).not.toHaveBeenCalled();
+  const answer = await endpoint.handle(args());
+  expect(answer).toMatchObject({ outcome: 'ok' }); expect((answer as { data: unknown[] }).data).toHaveLength(2);
+  expect(legs.sort((a, b) => a.targetId.localeCompare(b.targetId))).toEqual([{ targetId: 'tgt-1', rooms: ['RA1'] }, { targetId: 'tgt-2', rooms: ['RA2'] }]);
 });
 it('counts authorized overflow at the core row judgment too', async () => {
   let pulled = 0;

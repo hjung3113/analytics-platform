@@ -5,6 +5,8 @@ import type { TargetSecrets } from './bundle/secrets.js';
 import { callBindings } from './bundle/calls.js';
 import { routeCall } from './bundle/routing.js';
 import { bindingValue, resolveBindings, sameBinding } from './binding-values.js';
+import type { SelectedLeg } from './routing.js';
+import { mergeRows } from './merge.js';
 import { allowedRooms, effectiveValueMap, mapValue, selectRoutes } from './routing.js';
 import { enforceRowScope, pointerValue, rowInScope } from './scope-check.js';
 import { MenuUpstreamError } from './forwarder.js';
@@ -48,6 +50,8 @@ export function projectRow(row: unknown, call: Call): unknown {
   }));
 }
 
+class SiblingCancellation extends Error {}
+
 /** Race each pull against cancellation, including drivers that have not yielded a first row. */
 async function readRows(connector: Connector, leg: ConnectorLeg, signal: AbortSignal, deadlineAt: number, rowCap: number, consume: (row: unknown) => void): Promise<void> {
   const local = new AbortController();
@@ -58,13 +62,19 @@ async function readRows(connector: Connector, leg: ConnectorLeg, signal: AbortSi
   const iterator = connector.query(leg, { signal: combined, deadlineMs: Math.max(0, deadlineAt - Date.now() - 2000), rowCap })[Symbol.asyncIterator]();
   let onAbort: () => void = () => {};
   const aborted = new Promise<never>((_resolve, reject) => {
-    onAbort = () => reject(new MenuUpstreamError('timeout'));
+    onAbort = () => reject(signal.reason instanceof SiblingCancellation ? signal.reason : new MenuUpstreamError(signal.reason instanceof MenuUpstreamError ? signal.reason.kind : 'timeout'));
     signal.addEventListener('abort', onAbort, { once: true });
     if (signal.aborted) onAbort();
   });
   try {
     for (let read = 0; read < rowCap; read++) {
-      const item = await Promise.race([iterator.next(), aborted]);
+      const next = Promise.resolve(iterator.next()).catch((error: unknown) => {
+        // Some drivers reject their pull synchronously from an abort listener. That is cancellation,
+        // not a newly observed transport failure that can outrank the original target judgment.
+        if (signal.aborted && signal.reason instanceof SiblingCancellation) throw signal.reason;
+        throw error;
+      });
+      const item = await Promise.race([next, aborted]);
       signal.throwIfAborted();
       if (deadlineAt <= Date.now()) throw new MenuUpstreamError('timeout');
       if (item.done) return;
@@ -84,10 +94,55 @@ export async function handleRouted(endpoint: DeclaredEndpoint, owner: Routing, b
   const selected = selectRoutes(owner, site, rooms);
   if (!selected.ok) return noData('error');
   if (selected.legs.length === 0) return noData('empty');
-  // A request spanning room shards is not partially answered before node d1.
-  if (selected.legs.length !== 1) return noData('error');
-  const chosen = selected.legs[0];
-  if (!chosen) return noData('error');
+  if (selected.legs.length === 1) {
+    const chosen = selected.legs[0];
+    if (!chosen) return noData('error');
+    return handleLeg(endpoint, owner, bundle, deps, args, chosen);
+  }
+  const deadlineAtMs = args.deadlineAtMs ?? (args.arrivedAtMs ?? Date.now()) + deps.timeoutMs;
+  const core = new AbortController();
+  const siblings = new AbortController();
+  const remaining = deadlineAtMs - Date.now();
+  if (remaining <= 0) throw new MenuUpstreamError('timeout');
+  const timer = setTimeout(() => core.abort(new MenuUpstreamError('timeout')), remaining);
+  const signal = AbortSignal.any([core.signal, siblings.signal, ...(args.signal ? [args.signal] : [])]);
+  const cancelSiblings = () => siblings.abort(new SiblingCancellation());
+  let overflow = false;
+  try {
+    const settled = await Promise.allSettled(selected.legs.map(async (chosen) => {
+      try {
+        const result = await handleLeg(endpoint, owner, bundle, deps, { ...args, deadlineAtMs, signal }, chosen, () => { overflow = true; cancelSiblings(); });
+        if (result.outcome !== 'ok' && result.outcome !== 'empty') cancelSiblings();
+        return result;
+      } catch (error) {
+        cancelSiblings();
+        throw error;
+      }
+    }));
+    // Cancellation is not a target failure. Rank observed failures only after every leg settles.
+    const failures = settled.flatMap((item) => item.status === 'rejected' && !(item.reason instanceof SiblingCancellation)
+      ? [item.reason instanceof MenuUpstreamError ? item.reason.kind : 'unavailable'] : []);
+    if (failures.includes('unavailable')) throw new MenuUpstreamError('unavailable');
+    if (failures.includes('timeout') || core.signal.aborted) throw new MenuUpstreamError('timeout');
+    const results = settled.flatMap((item) => item.status === 'fulfilled' ? [item.value] : []);
+    const refused = results.find((result) => result.outcome === 'error' || result.outcome === 'forbidden');
+    if (refused) return noData(refused.outcome === 'forbidden' ? 'forbidden' : 'error');
+    if (results.some((result) => result.outcome === 'timeout')) return noData('timeout');
+    // Hand the overflow marker to query.ts; it alone owns the too_large judgment.
+    const legs = results.map((result) => Array.isArray(result.data) ? result.data : []);
+    const count = legs.reduce((total, rows) => total + rows.length, 0);
+    if (overflow || count > (endpoint.limits?.maxRows ?? 0)) return { outcome: 'ok', data: [], rowsRead: (endpoint.limits?.maxRows ?? 0) + 1 };
+    const rows = mergeRows(legs, owner.merge?.sort);
+    return { outcome: rows.length ? 'ok' : 'empty', data: rows, rowsRead: rows.length, assessments: results[0]?.assessments ?? [], trust: null };
+  } finally {
+    clearTimeout(timer);
+    cancelSiblings();
+  }
+}
+
+async function handleLeg(endpoint: DeclaredEndpoint, owner: Routing, bundle: DeclarationBundle, deps: RoutedDependencies, args: EndpointHandlerArgs, chosen: SelectedLeg, onOverflow?: () => void): Promise<EndpointResult> {
+  const site = endpoint.requiresScope ? args.context.scopeId as string : null;
+  const rooms = allowedRooms(endpoint.context.roomNames === 'apply', args);
   const target = bundle.targets?.[chosen.targetId];
   const factory = target && deps.connectorFactories[target.kind];
   if (!target || !factory) throw new MenuUpstreamError('unavailable');
@@ -128,9 +183,15 @@ export async function handleRouted(endpoint: DeclaredEndpoint, owner: Routing, b
     await readRows(connector, leg(call), signal, deadlineAt, rowCap, (row) => {
       rowsRead++;
       if (!endpoint.requiresScope || enforceRowScope(row, owner.scopeCheck, site, chosen.rooms, map)) rows.push(projectRow(row, call));
+      if (rowsRead === rowCap) onOverflow?.();
     });
     return { outcome: rows.length ? 'ok' : 'empty', data: rows, rowsRead, assessments: (endpoint.kinds ?? []).filter((kind) => kind !== 'coverage').map((kind) => ({ kind, state: 'unknown', reason: 'source_unavailable' })), trust: null };
   } catch (error) {
+    if (onOverflow) {
+      if (error instanceof SiblingCancellation) throw error;
+      if (error instanceof TargetJudgmentTimeout) return noData('timeout');
+      if (error instanceof MenuUpstreamError) throw new MenuUpstreamError(error.kind);
+    }
     if (controller.signal.aborted) throw new MenuUpstreamError('timeout');
     if (signal.aborted) throw new MenuUpstreamError(signal.reason instanceof MenuUpstreamError ? signal.reason.kind : 'unavailable');
     if (error instanceof TargetJudgmentTimeout) return noData('timeout');
