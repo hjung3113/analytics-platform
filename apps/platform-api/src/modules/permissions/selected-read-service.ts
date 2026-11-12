@@ -1,3 +1,5 @@
+import type { ScopeCatalog } from './scope-catalog.js';
+import { requestScope, requestedScopeFields, grantedScopeFields, scopeFields, findCoveringSiteGrant, inScopeCatalog } from './site-scope-policy.js';
 import {
   type PermissionRequestAdminDetail,
   type PermissionRequestOwnerDetail,
@@ -27,7 +29,7 @@ import { isSupportedScope, supportedScopeCandidates } from './supported-scope-po
 type RequestRow = typeof permissionRequests.$inferSelect;
 export type SelectedReadService = ReturnType<typeof createSelectedReadService>;
 
-export function createSelectedReadService(deps: { db: Db; checkService: CheckService }) {
+export function createSelectedReadService(deps: { db: Db; checkService: CheckService; scopeCatalog?: ScopeCatalog | undefined }) {
   const { db, checkService } = deps;
 
   async function selected(tx: Tx, actor: ActorContext, id: string, owner: boolean) {
@@ -37,7 +39,6 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
       .where(
         and(
           eq(permissionRequests.id, id),
-          eq(permissionRequests.requestedScopeKind, 'managed_system'),
           eq(permissionRequests.workspaceId, actor.workspace_id),
           ...(owner ? [eq(permissionRequests.requesterActorId, actor.actor_id)] : []),
         ),
@@ -68,6 +69,7 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
     return {
       id: row.id,
       requester_actor_id: row.requesterActorId,
+      ...requestedScopeFields(requestScope(row)),
       requested_capability: row.requestedCapability,
       requested_managed_system_id: row.requestedManagedSystemId,
       requested_object_type: row.requestedObjectType,
@@ -99,7 +101,9 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
           row.id,
         );
         const cap = capability(row);
-        const editable_scope_candidates = await supportedScopeCandidates(
+        const editable_scope_candidates = row.requestedScopeKind !== 'managed_system'
+          ? (inScopeCatalog(requestScope(row), deps.scopeCatalog) ? [{ managed_system_id: null, ...scopeFields(requestScope(row)) }] : [])
+          : await supportedScopeCandidates(
           tx,
           actor.workspace_id,
           cap,
@@ -148,6 +152,30 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
           workspace_id: actor.workspace_id,
           role_level: requester.role_level,
         };
+        if (row.requestedScopeKind !== 'managed_system') {
+          const target = requestScope(row);
+          const known = inScopeCatalog(target, deps.scopeCatalog);
+          const covering = known ? await findCoveringSiteGrant(tx, actor.workspace_id, requester.id, target) : undefined;
+          const policy = await getResolvedWorkspaceSettings(tx, actor.workspace_id);
+          const is_requester = actor.actor_id === requester.id;
+          const open = row.status === 'pending' || row.status === 'needs_more_info';
+          const canApprove = known && !(is_requester && policy.permission_self_approval === 'forbidden');
+          return permissionRequestAdminDetailSchema.parse({
+            ...(await common(tx, actor, row)), requester,
+            effective_access: {
+              decision: covering ? { allow: true, via: 'direct_grant', grant_id: covering.id } : { allow: false, reason: 'no_grant', requestable: null },
+              scope: { kind: 'scoped', managed_system_ids: [] },
+              ...scopeFields(target),
+              expires_at: covering?.expiresAt?.toISOString() ?? null, granted_managed_system_id: null,
+              ...(covering ? grantedScopeFields({ kind: covering.scopeKind, site: covering.scopeSite, room: covering.scopeRoom }) : {}),
+            },
+            administrative_authority: { capability: 'workspace.admin', allowed: true, is_requester,
+              permission_self_approval: policy.permission_self_approval, self_approval_required: is_requester && policy.permission_self_approval === 'allowed' },
+            approval_scope_candidates: known ? [{ managed_system_id: null, ...scopeFields(target) }] : [],
+            matching_denies: [], risk_indicators: row.requestedExpiration === null ? [{ code: 'no_expiration', evidence: { requested_expiration: null } }] : [],
+            allowed_actions: open ? [...(canApprove ? ['approve'] : []), 'reject', 'need_more_info'] : [],
+          });
+        }
         const decision = applyAdminModuleBypass(
           requester.role_level,
           cap,

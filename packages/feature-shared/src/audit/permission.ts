@@ -4,6 +4,7 @@
 // AUDIT_EVENT_DETAIL_SCHEMAS.
 
 import { z } from 'zod';
+import { permissionScopeFields, requestedPermissionScopeFields, grantedPermissionScopeFields } from '../permissions/scope-kinds.js';
 
 import { CAPABILITIES } from '../enums/capabilities.js';
 
@@ -29,6 +30,7 @@ export const PERMISSION_AUDIT_EVENT_TYPES = [
 export const permissionRequestedDetailSchema = z.object({
   revision: z.number().int().positive(),
   capability: z.string().min(1),
+  ...permissionScopeFields,
   managed_system_id: z.string().uuid().nullable(),
   reason: z.string().min(1),
   sensitive: z.boolean(),
@@ -43,9 +45,12 @@ export const permissionApprovedDetailSchema = z
     previous_revision: z.number().int().positive(),
     revision: z.number().int().positive(),
     capability: z.string().min(1),
-    managed_system_id: z.string().uuid().nullable(),
+    ...permissionScopeFields,
+  managed_system_id: z.string().uuid().nullable(),
     requester_actor_id: z.string().uuid(),
     reason: z.string().min(1).nullable(),
+    ...requestedPermissionScopeFields,
+    ...grantedPermissionScopeFields,
     requested_managed_system_id: z.string().uuid().nullable(),
     granted_managed_system_id: z.string().uuid().nullable(),
     grant_id: z.string().uuid(),
@@ -68,7 +73,8 @@ export const permissionRejectedDetailSchema = z
     previous_revision: z.number().int().positive(),
     revision: z.number().int().positive(),
     capability: z.string().min(1),
-    managed_system_id: z.string().uuid().nullable(),
+    ...permissionScopeFields,
+  managed_system_id: z.string().uuid().nullable(),
     requester_actor_id: z.string().uuid(),
     reason: z.string().min(1),
   })
@@ -80,7 +86,8 @@ export const permissionNeedsMoreInfoDetailSchema = z
     previous_revision: z.number().int().positive(),
     revision: z.number().int().positive(),
     capability: z.string().min(1),
-    managed_system_id: z.string().uuid().nullable(),
+    ...permissionScopeFields,
+  managed_system_id: z.string().uuid().nullable(),
     requester_actor_id: z.string().uuid(),
     note: z.string().min(1),
   })
@@ -92,7 +99,8 @@ export const permissionDeniedDetailSchema = z
     previous_revision: z.number().int().positive(),
     revision: z.number().int().positive(),
     capability: z.string().min(1),
-    managed_system_id: z.string().uuid().nullable(),
+    ...permissionScopeFields,
+  managed_system_id: z.string().uuid().nullable(),
     requester_actor_id: z.string().uuid(),
     reason: z.string().min(1),
     deny_id: z.string().uuid(),
@@ -103,7 +111,8 @@ export type PermissionDeniedDetail = z.infer<typeof permissionDeniedDetailSchema
 export const permissionMoreInfoPreviousSchema = z
   .object({
     reason: z.string().min(1),
-    managed_system_id: z.string().uuid().nullable(),
+    ...permissionScopeFields,
+  managed_system_id: z.string().uuid().nullable(),
     requested_object_type: z.string().nullable(),
     requested_object_id: z.string().uuid().nullable(),
     requested_expiration: z.string().datetime().nullable(),
@@ -115,7 +124,8 @@ export const permissionMoreInfoSubmittedDetailSchema = z
     previous_revision: z.number().int().positive(),
     revision: z.number().int().positive(),
     capability: z.string().min(1),
-    managed_system_id: z.string().uuid().nullable(),
+    ...permissionScopeFields,
+  managed_system_id: z.string().uuid().nullable(),
     requester_actor_id: z.string().uuid(),
     reason: z.string().min(1),
     sensitive: z.boolean(),
@@ -143,7 +153,8 @@ export const permissionRequestCancelledDetailSchema = z
   .object({
     capability: z.string().min(1),
     requester_actor_id: z.string().uuid(),
-    managed_system_id: z.string().uuid().nullable(),
+    ...permissionScopeFields,
+  managed_system_id: z.string().uuid().nullable(),
     requested_object_type: z.string().nullable(),
     requested_object_id: z.string().uuid().nullable(),
     previous_status: z.enum(['pending', 'needs_more_info']),
@@ -157,7 +168,8 @@ export const permissionRevokedDetailSchema = z
   .object({
     grant_id: z.string().uuid(),
     capability: z.string().min(1),
-    managed_system_id: z.string().uuid().nullable(),
+    ...permissionScopeFields,
+  managed_system_id: z.string().uuid().nullable(),
     grantee_actor_id: z.string().uuid(),
     reason: z.string().min(1),
   })
@@ -168,7 +180,8 @@ export const permissionDenyRevokedDetailSchema = z
   .object({
     deny_id: z.string().uuid(),
     capability: z.string().min(1),
-    managed_system_id: z.string().uuid().nullable(),
+    ...permissionScopeFields,
+  managed_system_id: z.string().uuid().nullable(),
     denied_actor_id: z.string().uuid(),
     reason: z.string().min(1),
     self_lift: z.literal(true).optional(),
@@ -181,7 +194,8 @@ export const permissionGrantedDetailSchema = z
     grant_id: z.string().uuid(),
     grantee_actor_id: z.string().uuid(),
     capability: z.enum(CAPABILITIES),
-    managed_system_id: z.string().uuid().nullable(),
+    ...permissionScopeFields,
+  managed_system_id: z.string().uuid().nullable(),
     reason: z.string().trim().min(1).max(2000),
     expires_at: z.string().datetime().nullable(),
     mode: z.enum(['create', 'reissue']),

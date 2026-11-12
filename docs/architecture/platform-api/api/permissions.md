@@ -605,3 +605,117 @@ replacement and idempotency. No fake request, Role Level change, entity link,
 request-decided notification or automatic domain action. No stored queue writes or
 owner/reviewer resolution. Next privileged call on an existing recipient session
 sees access immediately; invalidate client check/scope/grant caches on success.
+
+## Site and room grants (ADR-0154; #1844c)
+
+Permission services accept an optional `scopeCatalog: ScopeCatalog`. The module
+factory `createPermissionServices` passes it to request, decision, direct-grant
+and selected-read services. Boot selects the sole Scope source and supplies the
+catalog in #1844d; no catalog means every site/room write fails closed with
+`422 validation.failed`, message `scope catalog is not configured` and the kind
+field path. Existing Managed System flows do not depend on this catalog.
+
+Only `scope.read` accepts `site` and `site_room`; it never accepts
+`managed_system`. Every other capability retains `managed_system`. Input fields
+are optional without schema defaults; services resolve omitted kind to
+`managed_system`. Managed System payloads keep their existing keys and values.
+Site/room responses add scope fields and retain the nullable Managed System field.
+Site scope includes future rooms added to that site's catalog. Site/room writes
+reject Managed System or object authorization fields and unknown catalog values
+with `validation.failed` and the relevant field path.
+
+### Request and decision fields
+
+`POST /permission-requests` additionally accepts:
+
+```json
+{
+  "requested_capability": "scope.read",
+  "requested_scope_kind": "site_room",
+  "requested_scope_site": "SITE-A",
+  "requested_scope_room": "RA1",
+  "reason": "Read synthetic room data"
+}
+```
+
+For `site`, omit room or send null. The creation, mine, collection, owner detail,
+supplement/edit/cancel and decision responses add `requested_scope_kind`,
+`requested_scope_site`, `requested_scope_room` for site/room requests. Requester
+item authorization remains workspace plus owner, with 404 for another actor.
+Editing/supplementing accepts the same optional scope fields; omitted means keep
+and null clears site/room only if the resulting target remains valid.
+
+Approval accepts `granted_scope_kind`, `granted_scope_site`, `granted_scope_room`.
+Omitted values retain the requested target. A site request may narrow to a room
+in the same site; changing site, changing a requested room or widening a room to
+a site is refused. Approval validates both the requested and resulting targets
+against the current catalog. Success adds both requested and granted scope fields.
+Rejection and needs-more-info retain the requested fields. Explicit deny for
+`scope.read` is `validation.failed`; selected review never offers that action.
+Selected admin `effective_access` adds `scope_kind`, `scope_site`, `scope_room`
+and, when held, `granted_scope_*`. Its legacy Managed System `scope` is always
+`{ kind: "scoped", managed_system_ids: [] }` for these targets, never `kind: "all"`.
+Keeping the existing union avoids forcing screen consumers to adapt in this API node. A site request is never a workspace-scope risk.
+
+### Candidate read
+
+`GET /permission-requests/scope-candidates` requires a valid workspace-member
+session and returns the caller's coverage, never another actor's grants:
+
+```json
+{
+  "sites": [
+    {
+      "site": "SITE-A",
+      "label": "Synthetic A",
+      "rooms": [{ "room": "RA1", "granted": false }],
+      "siteGranted": false
+    }
+  ]
+}
+```
+
+No catalog returns `{ "sites": [] }`. Only catalog sites and rooms are emitted.
+`granted` includes an active site grant's coverage; `siteGranted` means an active
+site grant, rather than independently held room grants. This candidate read is
+the only endpoint enumerating ungranted room names. Selected-detail candidates
+contain only the selected request target; the candidate read supplies room choices.
+No session or `ScopeCheck` room-name expansion is added here.
+
+### Direct grants and lists
+
+`POST /permissions/grants` additionally accepts `scope_kind`, `scope_site`,
+`scope_room`, with the same scope rules as requests. For example:
+
+```json
+{
+  "actor_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "capability": "scope.read",
+  "scope_kind": "site_room",
+  "scope_site": "SITE-A",
+  "scope_room": "RA1",
+  "reason": "Read synthetic room data"
+}
+```
+
+The response retains the existing grant item fields and adds `scope_kind`,
+`scope_site`, `scope_room`. Grant options add a `scope.read` candidate with
+`scope_kinds: ["site", "site_room"]`, `managed_system_id: null`,
+`governance_required: false`, `preflight: { "state": "available" }`.
+The kind list, rather than the null Managed System field, identifies supported
+site/room targets. This advisory candidate does not enumerate rooms or replace
+write-time target preflight.
+
+`GET /permissions/grants` additionally accepts optional `scope_kind` and
+`scope_site` filters. Site/room items add `in_catalog: boolean`; missing catalog
+or removed values produce false. These rows remain visible and revocable by ID.
+The original active/expiry filter remains. Revoke accepts site/room grant IDs
+without catalog validation so removed targets can be cleaned up.
+
+Approval and direct grant share `writePermissionGrant`, including exact-kind/site/
+room predecessor identity, fresh-ID expired reissue, recipient serialization,
+transactional audit and idempotency. Every site/room lifecycle audit carries scope
+fields; approval also records requested/granted targets. Any Role Level can hold
+`scope.read`; Admin self-grant uses the existing policy/envelope and self_grant
+audit. Resolver calls observe writes immediately. Production session snapshot and
+sessionVersion polling integration remain #1844d's assembly responsibility.

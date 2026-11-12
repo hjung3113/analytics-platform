@@ -1,3 +1,5 @@
+import type { ScopeCatalog } from './scope-catalog.js';
+import { assertScopeNarrowing, requestScope, requestedScopeFields, grantedScopeFields, scopeFields } from './site-scope-policy.js';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import type { RecoveryRecorder } from '../dashboard/recorder.js';
 // Permission-request decision application service. Decisions mint the actual
@@ -36,6 +38,7 @@ import { writePermissionGrant } from './grant-command.js';
 import { validateRequestExpiration, validateSupportedScope } from './supported-scope-policy.js';
 
 export interface DecisionServiceDeps {
+  scopeCatalog?: ScopeCatalog | undefined;
   recoveryRecorder?: RecoveryRecorder;
   db: Db;
   checkService: CheckService;
@@ -61,6 +64,9 @@ type SelfApprovalEnvelope = {
 };
 type DecisionBody = {
   expected_revision: number;
+  granted_scope_kind?: 'managed_system' | 'site' | 'site_room' | undefined;
+  granted_scope_site?: string | null | undefined;
+  granted_scope_room?: string | null | undefined;
   granted_managed_system_id?: string | null | undefined;
   reason?: string | undefined;
   note?: string | undefined;
@@ -104,7 +110,6 @@ export function createDecisionService(deps: DecisionServiceDeps) {
         .where(
           and(
             eq(permissionRequests.id, requestId),
-            eq(permissionRequests.requestedScopeKind, 'managed_system'),
             eq(permissionRequests.workspaceId, actor.workspace_id),
           ),
         );
@@ -126,8 +131,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
           .where(
             and(
               eq(permissionRequests.id, requestId),
-              eq(permissionRequests.requestedScopeKind, 'managed_system'),
-              eq(permissionRequests.workspaceId, actor.workspace_id),
+                eq(permissionRequests.workspaceId, actor.workspace_id),
             ),
           )
           .for('update');
@@ -151,6 +155,13 @@ export function createDecisionService(deps: DecisionServiceDeps) {
           });
         }
         const capability: Capability = request.requestedCapability;
+        if (action === 'deny' && capability === 'scope.read') {
+          throw new HttpError('validation.failed', 'scope.read denies are unsupported', { fields: [{ path: ['requested_capability'], code: 'custom' }] });
+        }
+        const scope = requestScope(request);
+        const grantedScope = { kind: body.granted_scope_kind ?? scope.kind,
+          site: body.granted_scope_site === undefined ? scope.site : body.granted_scope_site,
+          room: body.granted_scope_room === undefined ? scope.room : body.granted_scope_room };
         const reason = body.reason?.trim();
         const note = body.note?.trim();
         const isSelfApproval = action === 'approve' && request.requesterActorId === actor.actor_id;
@@ -219,8 +230,19 @@ export function createDecisionService(deps: DecisionServiceDeps) {
             request.requestedManagedSystemId,
             request.requestedObjectType,
             request.requestedObjectId,
-            { approval: true, recipientRole: requester?.role_level },
+            { approval: true, recipientRole: requester?.role_level, scope, scopeCatalog: deps.scopeCatalog },
           );
+          if (scope.kind !== 'managed_system' || grantedScope.kind !== 'managed_system' ||
+            body.granted_scope_site !== undefined || body.granted_scope_room !== undefined) {
+            await validateSupportedScope(
+              tx, actor.workspace_id, capability,
+              body.granted_managed_system_id === undefined ? grantedManagedSystemId : body.granted_managed_system_id,
+              null, null,
+              { approval: true, recipientRole: requester?.role_level, scope: grantedScope,
+                scopeCatalog: deps.scopeCatalog, scopePrefix: 'granted_' },
+            );
+            assertScopeNarrowing(scope, grantedScope);
+          }
           if (body.granted_managed_system_id !== undefined) {
             if (
               request.requestedManagedSystemId !== null &&
@@ -244,6 +266,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
               null,
               {
                 approval: true,
+                scope: grantedScope, scopeCatalog: deps.scopeCatalog, scopePrefix: 'granted_',
                 field: 'granted_managed_system_id',
                 recipientRole: requester?.role_level,
               },
@@ -288,6 +311,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
               workspaceId: request.workspaceId,
               actorId: request.requesterActorId,
               capability,
+              scope: grantedScope,
               managedSystemId: grantedManagedSystemId,
               grantedByActorId: actor.actor_id,
               expiresAt: grantedExpiration,
@@ -345,6 +369,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
           previous_revision: request.revision,
           revision: request.revision + 1,
           capability,
+          ...scopeFields(scope),
           managed_system_id: request.requestedManagedSystemId,
           requester_actor_id: request.requesterActorId,
           ...(action === 'need_more_info' ? { note: note as string } : { reason: reason || null }),
@@ -352,6 +377,8 @@ export function createDecisionService(deps: DecisionServiceDeps) {
           ...(previousGrantId ? { previous_grant_id: previousGrantId } : {}),
           ...(action === 'approve'
             ? {
+                ...requestedScopeFields(scope),
+                ...grantedScopeFields(grantedScope),
                 requested_managed_system_id: request.requestedManagedSystemId,
                 granted_managed_system_id: grantedManagedSystemId,
                 requested_expiration: request.requestedExpiration?.toISOString() ?? null,
@@ -390,12 +417,14 @@ export function createDecisionService(deps: DecisionServiceDeps) {
             updated_at: updatedAt.toISOString(),
             ...(action === 'approve'
               ? {
+                  ...grantedScopeFields(grantedScope),
                   requested_managed_system_id: request.requestedManagedSystemId,
                   granted_managed_system_id: grantedManagedSystemId,
                   requested_expiration: request.requestedExpiration?.toISOString() ?? null,
                   granted_expiration: grantedExpiration?.toISOString() ?? null,
                 }
               : {}),
+            ...requestedScopeFields(scope),
             status,
             ...(grantId ? { grant_id: grantId } : {}),
             ...(denyId ? { deny_id: denyId } : {}),

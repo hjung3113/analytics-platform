@@ -47,3 +47,5 @@ export type PermissionDecisionsEnvelope = Record<string, PermissionDecision>;
 
 export * from './selected-detail.js';
 export * from './mine.js';
+
+export * from './scope-kinds.js';

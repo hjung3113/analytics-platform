@@ -1,9 +1,11 @@
 import { z } from 'zod';
+import { requestedPermissionScopeFields, permissionScopeFields } from './scope-kinds.js';
 
 export const submitMoreInfoPermissionRequestSchema = z
   .object({
     expected_revision: z.number().int().positive(),
     reason: z.string().min(1).max(2000).optional(),
+    ...requestedPermissionScopeFields,
     requested_managed_system_id: z.string().uuid().nullable().optional(),
     requested_expiration: z.string().datetime().nullable().optional(),
   })
@@ -11,6 +13,7 @@ export const submitMoreInfoPermissionRequestSchema = z
 
 export const submitMoreInfoPermissionRequestResultSchema = z
   .object({
+    ...requestedPermissionScopeFields,
     revision: z.number().int().positive(),
     id: z.string().uuid(),
     status: z.literal('pending'),
@@ -39,6 +42,7 @@ export type CancelPermissionRequest = z.infer<typeof cancelPermissionRequestSche
 export type CancelPermissionRequestResult = z.infer<typeof cancelPermissionRequestResultSchema>;
 export const permissionScopeCandidateSchema = z
   .object({
+    ...permissionScopeFields,
     managed_system_id: z.string().uuid().nullable(),
   })
   .strict();

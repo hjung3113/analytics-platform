@@ -45,3 +45,5 @@ export { permissionRecoveryProjection, countRecoveryPermissionRequests } from '.
 
 export { parseScopeCatalog, type ScopeCatalog } from './scope-catalog.js';
 export { createGrantTableScopeResolver } from './grant-table-scope-resolver.js';
+
+export { createPermissionServices } from './services.js';

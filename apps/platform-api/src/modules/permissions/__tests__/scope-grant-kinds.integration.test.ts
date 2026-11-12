@@ -103,7 +103,10 @@ describe.skipIf(!runIntegration)('scope grant kinds', () => {
     expect(await canReadVocAsSource(check, actor(), { managedSystemId: systemId, reporterId: null })).toBe(false);
     const grants = await get('/permissions/grants', adminCookie);
     expect(grants.statusCode).toBe(200);
-    expect(grants.json().items.filter((row: { actor_id: string }) => row.actor_id === actorId)).toEqual([]);
+    expect(grants.json().items.filter((row: { actor_id: string }) => row.actor_id === actorId)).toEqual([
+      expect.objectContaining({ actor_id: actorId, capability: 'scope.read', managed_system_id: null,
+        scope_kind: kind, scope_site: 'SITE-A', scope_room: kind === 'site' ? null : 'RA1', in_catalog: false }),
+    ]);
   });
 
   it('site_room yields only RA1, excludes managed-system rows and isolates actor and workspace', async () => {
@@ -234,7 +237,7 @@ describe.skipIf(!runIntegration)('scope grant kinds', () => {
     }
   });
 
-  it.each(['site', 'site_room'])('keeps %s requests out of legacy lists, selected read, recovery and decision paths', async kind => {
+  it.each(['site', 'site_room'])('lists and reads %s requests kind-aware while isolating recovery and refusing unsupported decisions', async kind => {
     const checkService = createCheckService({ db: handle.db });
     const admin = { actor_id: adminId, workspace_id: WORKSPACE, role_level: 'admin' };
     const before = await countRecoveryPermissionRequests(handle.db, checkService, admin);
@@ -245,17 +248,32 @@ describe.skipIf(!runIntegration)('scope grant kinds', () => {
     expect((await handle.db.execute(permissionRecoveryTruth(WORKSPACE, id))).rows).toEqual([]);
     const mine = await get('/permission-requests/mine');
     expect(mine.statusCode).toBe(200);
-    expect(mine.json().requests).toEqual([]);
+    const target = { id, requested_capability: 'scope.read', requested_managed_system_id: null,
+      requested_scope_kind: kind, requested_scope_site: 'SITE-A', requested_scope_room: kind === 'site' ? null : 'RA1' };
+    expect(mine.json().requests).toEqual([expect.objectContaining(target)]);
     const list = await get('/permissions/requests', adminCookie);
     expect(list.statusCode).toBe(200);
-    expect(list.json().requests.some((row: { id: string }) => row.id === id)).toBe(false);
-    expect((await get(`/permission-requests/${id}`)).statusCode).toBe(404);
-    expect((await get(`/permissions/requests/${id}`, adminCookie)).statusCode).toBe(404);
+    expect(list.json().requests).toContainEqual(expect.objectContaining({ ...target, requester_actor_id: actorId }));
+    const owner = await get(`/permission-requests/${id}`);
+    expect(owner.statusCode).toBe(200);
+    expect(owner.json()).toMatchObject(target);
+    const otherCookie = await loginAs(app, `${PREFIX}-other`);
+    expect((await get(`/permission-requests/${id}`, otherCookie)).statusCode).toBe(404);
+    const detail = await get(`/permissions/requests/${id}`, adminCookie);
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json()).toMatchObject({ ...target, requester_actor_id: actorId,
+      effective_access: { scope_kind: kind, scope_site: 'SITE-A', scope_room: kind === 'site' ? null : 'RA1',
+        scope: { kind: 'scoped', managed_system_ids: [] } } });
+    expect(detail.json().effective_access.scope.kind).not.toBe('all');
+    expect(detail.json().risk_indicators.some((risk: { code: string }) => risk.code === 'workspace_scope')).toBe(false);
     const check = await get('/me/permissions/check?capability=scope.read');
     expect(check.json().state).toBe('blocked_non_requestable');
-    for (const action of [kind === 'site' ? 'approve' : 'deny']) {
+    for (const action of ['approve', 'deny']) {
       const response = await app.inject({ method: 'POST', url: `/permissions/requests/${id}/${action}`, headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` }, payload: { expected_revision: 1, reason: 'Scope fixture' } });
-      expect(response.statusCode).toBe(404);
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toMatchObject({ code: 'validation.failed',
+        message: action === 'approve' ? 'scope catalog is not configured' : 'scope.read denies are unsupported',
+        detail: { fields: [{ path: [action === 'approve' ? 'requested_scope_kind' : 'requested_capability'], code: 'custom' }] } });
     }
     const stored = await handle.pool.query('select status from permission.permission_requests where id=$1', [id]);
     expect(stored.rows).toEqual([{ status: 'pending' }]);

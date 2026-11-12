@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { requestedPermissionScopeFields, grantedPermissionScopeFields, permissionScopeFields } from './scope-kinds.js';
 import { permissionScopeCandidateSchema } from './submit-more-info.js';
 
 export const permissionRequestStatusSchema = z.enum([
@@ -62,6 +63,7 @@ const permissionSelectedRequestSchema = z
   .object({
     id: z.string().uuid(),
     requester_actor_id: z.string().uuid(),
+    ...requestedPermissionScopeFields,
     requested_capability: z.string().min(1),
     requested_managed_system_id: z.string().uuid().nullable(),
     requested_object_type: z.string().nullable(),
@@ -140,6 +142,8 @@ export const permissionRequestAdminDetailSchema = permissionSelectedRequestSchem
           .strict(),
       ]),
       expires_at: z.string().datetime().nullable(),
+      ...permissionScopeFields,
+      ...grantedPermissionScopeFields,
       granted_managed_system_id: z.string().uuid().nullable(),
     })
     .strict(),
