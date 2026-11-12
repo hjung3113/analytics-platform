@@ -14,7 +14,8 @@ const REAL_ASSEMBLY = fileURLToPath(new URL('./src/real/http-assembly.tsx', impo
 const FEATURE_SRC = fileURLToPath(new URL('../../apps/feature-screens/src', import.meta.url));
 /** @eqv/core is workspace source on zod 4; all other consumers use zod 3 (ADR-0132, plan P12).
  * Keep core's resolution, and exclude bare zod from dev optimization below: the optimizer has one entry per
- * bare id, so whichever version it scans first would otherwise replace the other version for every importer. */
+ * bare id, so whichever version it scans first would otherwise replace the other version for every importer.
+ * Invariant: no prebundled npm dependency imports `zod` (an excluded dep is not resolvable from inside a prebundled one). */
 const EQV_CORE_DIR = fileURLToPath(new URL('../../packages/eqv/core/', import.meta.url));
 const eqvCoreZod = (): Plugin => ({
   name: 'eqv-core-zod',
