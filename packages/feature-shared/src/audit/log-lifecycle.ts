@@ -28,10 +28,16 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_TYPES = [
   'lifecycle.excerpt.deleted',
   'lifecycle.excerpt.purged',
   'lifecycle.gate.decided',
+  'lifecycle.validation_issue.created',
+  'lifecycle.validation_issue.occurrence_linked',
+  'lifecycle.validation_issue.evidence_linked',
+  'lifecycle.validation_issue.commented',
+  'lifecycle.validation_issue.field_corrected',
+  'lifecycle.round.commented',
 ] as const;
 
 /** Subject id of the project events is the project id; of the round events the round id. */
-export const LOG_LIFECYCLE_SUBJECT_TYPES = ['development_project', 'validation_round', 'execution_request', 'queue_settings', 'excerpt_reader'] as const;
+export const LOG_LIFECYCLE_SUBJECT_TYPES = ['development_project', 'validation_round', 'execution_request', 'queue_settings', 'excerpt_reader', 'validation_issue'] as const;
 
 const STAGE = z.enum(['registered', 'kickoff', 'alpha', 'beta', 'completed', 'cancelled']);
 const OPEN_STAGE = z.enum(['registered', 'kickoff', 'alpha', 'beta']);
@@ -171,6 +177,13 @@ export const lifecycleGateDecidedDetailSchema = z
   })
   .strict();
 
+/** Human issue/discussion writes: only stable ids, field enums and counts. */
+const issueCreatedDetail = z.object({ projectId: z.string().uuid(), firstRoundId: z.string().uuid() }).strict();
+const issueOccurrenceDetail = z.object({ occurrenceId: z.string().uuid(), roundId: z.string().uuid() }).strict();
+const issueEvidenceDetail = z.object({ occurrenceId: z.string().uuid(), count: z.number().int().min(1).max(20) }).strict();
+const discussionCommentDetail = z.object({ commentId: z.string().uuid(), correctsCommentId: z.string().uuid().nullable() }).strict();
+const issueCorrectionDetail = z.object({ eventId: z.string().uuid(), field: z.enum(['title', 'body', 'expected', 'actual', 'repro']), correctsEventId: z.string().uuid().nullable() }).strict();
+
 export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.project.created': lifecycleProjectCreatedDetailSchema,
   'lifecycle.project.updated': lifecycleProjectUpdatedDetailSchema,
@@ -194,4 +207,10 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.excerpt.deleted': lifecycleExcerptDeletedDetailSchema,
   'lifecycle.excerpt.purged': lifecycleExcerptPurgedDetailSchema,
   'lifecycle.gate.decided': lifecycleGateDecidedDetailSchema,
+  'lifecycle.validation_issue.created': issueCreatedDetail,
+  'lifecycle.validation_issue.occurrence_linked': issueOccurrenceDetail,
+  'lifecycle.validation_issue.evidence_linked': issueEvidenceDetail,
+  'lifecycle.validation_issue.commented': discussionCommentDetail,
+  'lifecycle.validation_issue.field_corrected': issueCorrectionDetail,
+  'lifecycle.round.commented': discussionCommentDetail,
 } as const satisfies Record<(typeof LOG_LIFECYCLE_AUDIT_EVENT_TYPES)[number], z.ZodTypeAny>;

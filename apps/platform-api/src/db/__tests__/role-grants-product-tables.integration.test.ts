@@ -197,6 +197,13 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_lifecycle.rule_result_evidence': ['SELECT', 'INSERT'],
   // Migration 0126 (#1778): opinions on attempt items are append-only (guard trigger on top of the missing UPDATE / DELETE grant).
   'log_lifecycle.attempt_opinion': ['SELECT', 'INSERT'],
+  'log_lifecycle.validation_issue': ['SELECT', 'INSERT'],
+  'log_lifecycle.validation_issue_occurrence': ['SELECT', 'INSERT'],
+  'log_lifecycle.validation_issue_evidence_ref': ['SELECT', 'INSERT'],
+  'log_lifecycle.validation_issue_comment': ['SELECT', 'INSERT'],
+  'log_lifecycle.round_comment': ['SELECT', 'INSERT'],
+  'log_lifecycle.validation_issue_event': ['SELECT', 'INSERT'],
+
   'log_lifecycle.rule_result_excerpt': ['SELECT', 'INSERT'],
   'log_lifecycle.queue_settings': ['SELECT', 'INSERT'],
   'log_lifecycle.excerpt_reader': ['SELECT', 'INSERT'],
@@ -457,6 +464,13 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
     ['rule_result', []],
     ['rule_result_excerpt', []],
     ['attempt_opinion', []],
+    ['validation_issue', []],
+    ['validation_issue_occurrence', []],
+    ['validation_issue_evidence_ref', []],
+    ['validation_issue_comment', []],
+    ['round_comment', []],
+    ['validation_issue_event', []],
+
     ['gate_decision', []],
     ['queue_settings', ['run_window', 'lease_seconds', 'immediate_limit', 'excerpt_retention_days', 'opinion_scale', 'updated_at', 'updated_by']],
     ['excerpt_reader', ['granted_by', 'granted_at', 'revoked_at']],
