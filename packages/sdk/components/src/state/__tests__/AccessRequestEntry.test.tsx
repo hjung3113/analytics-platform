@@ -203,6 +203,31 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
     expect(document.activeElement?.hasAttribute('data-platform-page-content')).toBe(true);
   });
 
+  it.each(['the last forbidden widget disappears', 'the owner page is disposed'] as const)('focus the user moved outside the entry and its open dialog stays there when %s (review C3)', async (removal) => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+    const adapter = adapterFor(requestable(partial), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }));
+    const okQuery: QueryState<unknown> = { ...forbiddenQuery, response: { ...forbiddenResponse, outcome: 'ok' } };
+    const tree = (query: QueryState<unknown>, page: boolean) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ accessRequest: fakeSlot }}>
+      {page ? <PlatformPage><QueryView query={query} widgetName="Widget A">{() => <p>ok</p>}</QueryView></PlatformPage> : null}
+    </PlatformProvider></I18nProvider>;
+    const outside = document.createElement('button');
+    outside.textContent = 'outside';
+    document.body.append(outside);
+    try {
+      const view = render(tree(forbiddenQuery, true));
+      fireEvent.click(await screen.findByRole('button', { name: '권한 요청' }));
+      expect(screen.getByRole('dialog', { name: 'fake request dialog' })).toBeTruthy();
+      outside.focus();
+      const blurs: string[] = [];
+      outside.addEventListener('blur', () => blurs.push(document.activeElement?.tagName ?? 'none'));
+      view.rerender(removal === 'the owner page is disposed' ? tree(forbiddenQuery, false) : tree(okQuery, true));
+      await vi.waitFor(() => { if (view.container.querySelector('[data-access-request-banner]')) throw new Error('banner still there'); });
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+      expect(blurs).toEqual([]);
+      expect(document.activeElement).toBe(outside);
+    } finally { outside.remove(); }
+  });
+
   it('an unknown pending state (loading or failed read) draws the plain request entry in the banner', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     pendingAnswer = 'unknown';

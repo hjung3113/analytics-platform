@@ -61,11 +61,15 @@ export function AccessRequestEntry({ slot, target, size = 'action', label, child
     const element = holder.current;
     const marker = anchor.current;
     return () => {
-      if (!openRef.current && !element?.contains(document.activeElement)) return;
+      // Owned only while focus is really the entry's: on its action, or in its open (portaled) dialog. An open dialog alone is
+      // not ownership: focus the user moved elsewhere stays where it is.
+      const active = document.activeElement;
+      const inDialog = openRef.current && (isFocusLost() || active?.closest('[role="dialog"], [role="alertdialog"]') != null);
+      if (!element?.contains(active) && !inDialog) return;
       // Resolved now: the entry is detached by the time the deferred focus runs.
       const target = pageFallbackTarget(marker ?? element);
       target?.focus({ preventScroll: true });
-      if (openRef.current) later(() => { if (isFocusLost()) target?.focus({ preventScroll: true }); });
+      if (inDialog) later(() => { if (isFocusLost()) target?.focus({ preventScroll: true }); });
     };
   }, []);
   const { Pending, Dialog } = slot;
