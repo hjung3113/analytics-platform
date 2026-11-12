@@ -65,7 +65,7 @@ export interface PlatformPermissionResolver {
     options?: { tx?: Tx },
   ): Promise<Map<string, string[]>>;
   /** Sorted subset of the vocabulary this actor holds. */
-  resolve(checkService: CheckService, actor: PlatformActor): Promise<string[]>;
+  resolve(checkService: CheckService, actor: PlatformActor, options?: { auditTokenDenials?: boolean }): Promise<string[]>;
   /** Whether this actor holds one permission, kernel or declared. */
   holds(checkService: CheckService, actor: PlatformActor, permission: string, options?: { tx?: Tx }): Promise<boolean>;
 }
@@ -88,8 +88,8 @@ export function createPlatformPermissionResolver(
     order: () => [...PLATFORM_PERMISSION_TABLE.map((e) => e.permission), ...menu.map((d) => d.permission)],
     resolveBatch: (checkService: CheckService, actors: readonly PlatformActor[], options: { tx?: Tx } = {}) =>
       resolveBatchWith(menu, checkService, actors, options),
-    resolve: async (checkService: CheckService, actor: PlatformActor) =>
-      ((await resolveBatchWith(menu, checkService, [actor])).get(actor.actor_id) ?? []).sort(),
+    resolve: async (checkService: CheckService, actor: PlatformActor, options: { auditTokenDenials?: boolean } = {}) =>
+      ((await resolveBatchWith(menu, checkService, [actor], options)).get(actor.actor_id) ?? []).sort(),
     holds: (checkService: CheckService, actor: PlatformActor, permission: string, options: { tx?: Tx } = {}) =>
       holdsPlatformPermission(checkService, actor, permission, { ...options, menuPermissions: menu }),
   };
@@ -186,7 +186,7 @@ async function resolveBatchWith(
   menu: readonly MenuPermissionDeclaration[],
   checkService: CheckService,
   actors: readonly PlatformActor[],
-  options: { tx?: Tx } = {},
+  options: { tx?: Tx; auditTokenDenials?: boolean } = {},
 ): Promise<Map<string, string[]>> {
   const snapshot = await checkService.loadCapabilitySnapshot(actors, capabilitiesRead(menu), options);
   const out = new Map<string, string[]>();

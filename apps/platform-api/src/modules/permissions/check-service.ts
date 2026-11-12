@@ -65,8 +65,9 @@ export type DenyReason =
  * `session_required` (even when the capability is in its scopes); a capability outside the token's scopes is
  * `token_scope`. Null = the normal check for the token's actor runs (issuer's / system actor's current grants and
  * role, so the effective right is that intersect the scopes). Session calls and non-request code are unaffected.
+ * Snapshot readers may disable audit marking; the denial decision itself is unchanged.
  */
-export function tokenDenial(capability: Capability): Decision | null {
+export function tokenDenial(capability: Capability, options: { auditTokenDenials?: boolean } = {}): Decision | null {
   const auth = currentAuthContext();
   if (auth.kind !== 'token') {
     return isTokenOnlyCapability(capability)
@@ -74,7 +75,7 @@ export function tokenDenial(capability: Capability): Decision | null {
       : null;
   }
   if (isSessionOnlyCapability(capability)) {
-    noteSessionOnlyDenial(capability);
+    if (options.auditTokenDenials !== false) noteSessionOnlyDenial(capability);
     return { allow: false, reason: 'session_required', requestable: null };
   }
   if (!auth.scopes.includes(capability)) {
@@ -196,7 +197,7 @@ export function createCheckService(deps: CheckServiceDeps) {
   async function loadCapabilitySnapshot(
     actors: readonly ActorContext[],
     capabilities: readonly Capability[],
-    options: { tx?: Tx } = {},
+    options: { tx?: Tx; auditTokenDenials?: boolean } = {},
   ): Promise<CapabilitySnapshot> {
     const db: Tx = options.tx ?? deps.db;
     const rowsByKey = await loadDenyAndGrantRowsBatch(db, actors, capabilities);
@@ -220,7 +221,7 @@ export function createCheckService(deps: CheckServiceDeps) {
     };
     return {
       decision(actor, capability) {
-        const byToken = tokenDenial(capability);
+        const byToken = tokenDenial(capability, options);
         if (byToken) return byToken;
         return decideFromRows(
           actor,
@@ -231,7 +232,7 @@ export function createCheckService(deps: CheckServiceDeps) {
         );
       },
       async scope(actor, capability) {
-        if (tokenDenial(capability)) return { kind: 'scoped', managed_system_ids: [] };
+        if (tokenDenial(capability, options)) return { kind: 'scoped', managed_system_ids: [] };
         const bypass = actor.role_level === 'admin' ? adminModuleBypassFor(capability) : 'none';
         if (bypass === 'always') return { kind: 'all' };
         return scopeFromRows(actor, capability, rowsOf(actor, capability), rightNow, () =>
