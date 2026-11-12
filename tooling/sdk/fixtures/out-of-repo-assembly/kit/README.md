@@ -10,6 +10,7 @@
 | `menus.ts` | 이 키트의 선언 전체: 업무 시스템(`Space`)·그룹·메뉴·권한. 메뉴 패키지는 `MENU_PACKAGES`에 등록한다 |
 | `menus/sample/` | 견본 메뉴 패키지. 복사해서 메뉴를 시작한다(아래 «둘째 메뉴») |
 | `mock/assembly.ts` | 서버 없이 도는 어댑터 조립(`@ap/mock-server`). 메뉴 패키지의 mock 목록을 `MOCK_ENDPOINTS`에 등록한다 |
+| `real/assembly.tsx` | `@ap/http-adapter`로 bootstrap한 뒤 Host 입력·로그인 이동·연결 실패·요청 제한 화면을 고르는 조립 |
 | `src/start.test.tsx` | 렌더 시험. `menus/sample`을 복사한 메뉴는 시험을 고치지 않아도 자기 URL에서 렌더되는지 검사된다 |
 | `vendor/`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `patches/` | 고정 버전 설치 재료. 고치지 않는다 |
 | `sdk-bundle-check.mjs`, `third-party.json`, `SHA256SUMS` | 설치 검사와 그 입력 |
@@ -42,7 +43,10 @@ node sdk-bundle-check.mjs installed                     # @ap/* 패키지가 하
 pnpm dev     # vite dev 서버: 첫 화면(키트 개요)
 pnpm build   # 운영 빌드(dist/)
 pnpm check   # tsc + vitest 렌더 시험
+pnpm build:real # 실어댑터 빌드(dist/): vite build --mode real
 ```
+
+Vite의 `--mode real` 하나로 `#kit-assembly`가 `real/assembly.tsx`를 가리킨다. 기본 `dev`와 `build`는 `mock/assembly.ts`를 쓴다. 실어댑터는 같은 origin의 `/api/v1/platform/bootstrap`을 읽는다. 로그인은 현재 경로와 query를 인코딩해 `/auth/login?return_to=…`로 이동하고, 연결 실패·요청 제한은 상관 번호와 다시 시도 버튼을 표시한다. 실서버와 인증 경로는 배포 환경이 제공한다. `check`는 fake fetch로 네 bootstrap 결과를 검사한다. 공개 `sdk:consumer-check`는 두 mode를 빌드하고 번들 모듈 목록에서 mock 빌드의 http-adapter와 real 빌드의 mock 코드를 거부한다.
 
 ## 둘째 메뉴
 

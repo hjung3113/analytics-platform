@@ -1,4 +1,4 @@
-// The kit's start: everything the Host needs is injected here — declarations, the mock assembly, the query-history port.
+// The kit's start: declarations, the mode-selected assembly and the query-history port are injected here.
 import { compareQueryHistory, KERNEL_PERMISSIONS, type QueryHistoryEntry, type QueryHistoryKey, type QueryHistoryStore } from '@ap/contracts';
 import { startAppHost } from '@ap/app-host';
 import { usePlatform } from '@ap/kernel';
@@ -8,7 +8,7 @@ import { DockLayout, normalizeDockTree } from '@ap/components/dock';
 import { Button } from '@ap/ui';
 import { readColorToken, THEME_COLOR_TOKENS } from '@ap/ui/theme';
 import { declarations, KIT_AXES } from '../menus';
-import { createAssembly } from '../mock/assembly';
+import { createAssembly } from '#kit-assembly';
 
 /**
  * Cross-package probe mounted inside PlatformProvider next to the shell: the consumer-side proof that kernel/host hooks,

@@ -313,6 +313,7 @@ async function main() {
     runStep('browser tsc self-test: a Node-only declaration is rejected', () => assertBrowserCheckRejectsNode(root));
     runStep('tsc --noEmit (app source only, strict, Bundler, no @types/node)', () => run('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'tsconfig.browser.json'], root));
     runStep("kit script 'check' (tsc vite config + tests, then vitest render of both roles)", () => run('pnpm', ['run', 'check'], root));
+    runStep('kit mock/real Vite module graphs (ADR-0009)', () => process.stdout.write(run('node', [join(repoRoot, 'tooling/sdk/sdk-kit-graph-check.mjs'), root], root)));
     runStep("kit script 'build' (vite build)", () => run('pnpm', ['run', 'build'], root));
     runStep('built JS has no Button dev-only error (NODE_ENV reached dist)', () => assertProductionSignal(root));
     runStep('built CSS carries utility classes from package-specific ui, components, shell and app-host dist JS', () => assertCssClasses(root));
