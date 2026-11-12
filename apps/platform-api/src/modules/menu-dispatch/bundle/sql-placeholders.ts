@@ -1,7 +1,11 @@
+/** The SQL dialects whose lexical rules differ here: `[ ]` quotes an identifier only in mssql (in postgres it is an array
+ * constructor or subscript, which may hold a live placeholder), and `$tag$` dollar quoting exists only in postgres. */
+export type SqlDialect = 'postgres' | 'mssql';
+
 /** Lexical skipping only; this is not a SQL parser or a read-only security boundary. */
-function skippedEnd(sql: string, at: number): number | undefined {
+function skippedEnd(sql: string, at: number, dialect: SqlDialect): number | undefined {
   const char = sql[at];
-  if (char === "'" || char === '"' || char === '[') {
+  if (char === "'" || char === '"' || (char === '[' && dialect === 'mssql')) {
     const close = char === '[' ? ']' : char;
     let i = at + 1;
     while (i < sql.length) {
@@ -26,7 +30,7 @@ function skippedEnd(sql: string, at: number): number | undefined {
     }
     return i;
   }
-  if (char === '$') {
+  if (char === '$' && dialect === 'postgres') {
     const tag = /^(?:\$\$|\$[A-Za-z_][A-Za-z0-9_]*\$)/.exec(sql.slice(at))?.[0];
     if (tag) {
       const end = sql.indexOf(tag, at + tag.length);
@@ -37,10 +41,10 @@ function skippedEnd(sql: string, at: number): number | undefined {
 }
 
 /** Unique placeholder names in appearance order; quoted text, comments and casts are ignored. */
-export function sqlPlaceholders(sql: string): string[] {
+export function sqlPlaceholders(sql: string, dialect: SqlDialect): string[] {
   const names = new Set<string>();
   for (let i = 0; i < sql.length;) {
-    const end = skippedEnd(sql, i);
+    const end = skippedEnd(sql, i, dialect);
     if (end !== undefined) { i = end; continue; }
     if (sql.startsWith('::', i)) { i += 2; continue; }
     const match = sql[i] === ':' ? /^:([A-Za-z_][A-Za-z0-9_]*)/.exec(sql.slice(i)) : null;
@@ -50,12 +54,12 @@ export function sqlPlaceholders(sql: string): string[] {
   return [...names];
 }
 
-export function startsReadStatement(sql: string): boolean {
+export function startsReadStatement(sql: string, dialect: SqlDialect): boolean {
   let i = 0;
   while (i < sql.length) {
     if (/\s/.test(sql[i] ?? '')) { i++; continue; }
     if (sql.startsWith('--', i) || sql.startsWith('/*', i)) {
-      i = skippedEnd(sql, i) ?? sql.length;
+      i = skippedEnd(sql, i, dialect) ?? sql.length;
       continue;
     }
     return /^(SELECT|WITH)\b/i.test(sql.slice(i));

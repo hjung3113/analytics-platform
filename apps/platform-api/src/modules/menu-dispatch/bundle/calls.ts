@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { bindingsSchema, type Binding } from './bindings.js';
-import { sqlPlaceholders, startsReadStatement } from './sql-placeholders.js';
+import { type SqlDialect, sqlPlaceholders, startsReadStatement } from './sql-placeholders.js';
 
 export const jsonPointerSchema = z.string().regex(/^(?:\/(?:[^~]|~[01])*)*$/, 'must be a JSON pointer');
 const fieldsSchema = z.record(z.string().min(1), z.strictObject({ from: jsonPointerSchema, type: z.enum(['number', 'string', 'wallclock']).optional() }));
@@ -22,13 +22,19 @@ const mappedSchema = z.strictObject({
     ctx.addIssue({ code: 'custom', path: ['pathParams'], message: 'path variables must match pathParams exactly' });
   }
 });
-const statementSchema = z.strictObject({ statement: z.string().min(1), params: bindingsSchema, response: sqlResponseSchema.optional() }).superRefine((call, ctx) => {
-  if (!startsReadStatement(call.statement)) ctx.addIssue({ code: 'custom', path: ['statement'], message: 'statement must start with SELECT or WITH after whitespace/comments' });
-  const names = sqlPlaceholders(call.statement);
+const statementSchema = z.strictObject({ statement: z.string().min(1), params: bindingsSchema, response: sqlResponseSchema.optional() });
+
+/** Lexical checks of a SQL statement call against the dialect of the target it runs on (judged per effective target in validation.ts). */
+export function statementProblems(call: Call, dialect: SqlDialect): string[] {
+  if (!('statement' in call)) return [];
+  const problems: string[] = [];
+  if (!startsReadStatement(call.statement, dialect)) problems.push('statement must start with SELECT or WITH after whitespace/comments');
+  const names = sqlPlaceholders(call.statement, dialect);
   if (names.some((name) => !Object.hasOwn(call.params, name)) || Object.keys(call.params).some((name) => !names.includes(name))) {
-    ctx.addIssue({ code: 'custom', path: ['params'], message: 'SQL placeholders must match params exactly' });
+    problems.push('SQL placeholders must match params exactly');
   }
-});
+  return problems;
+}
 const procedureSchema = z.strictObject({
   procedure: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*){0,2}$/, 'procedure must have 1 to 3 identifier parts'),
   args: bindingsSchema, listJoin: z.record(z.string(), z.string().min(1)).optional(), response: sqlResponseSchema.optional(),

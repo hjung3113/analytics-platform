@@ -1,5 +1,5 @@
 import { bindingProblems, type ParamType } from './bindings.js';
-import { callBindings, callKind, isEnvelope } from './calls.js';
+import { callBindings, callKind, isEnvelope, statementProblems } from './calls.js';
 import type { Routing } from './routing.js';
 import type { Target } from './targets.js';
 import type { ContextKey } from '../types.js';
@@ -83,6 +83,12 @@ export function routingProblems(bundle: {
         if (!target) { add(`${prefix}: unknown target id ${id}`); continue; }
         if (callKind(call) !== target.kind) add(`${prefix}: call kind does not match target ${id}`);
         if (owner.scopeCheck?.mode === 'resolve-keys' && callKind(owner.scopeCheck.lookup) !== target.kind) add(`${prefix}: scopeCheck.lookup kind does not match target ${id}`);
+        if (target.kind === 'sql') {
+          for (const problem of statementProblems(call, target.dialect)) add(`${prefix}: target ${id}: call ${problem}`);
+          if (owner.scopeCheck?.mode === 'resolve-keys') {
+            for (const problem of statementProblems(owner.scopeCheck.lookup, target.dialect)) add(`${prefix}: target ${id}: scopeCheck.lookup ${problem}`);
+          }
+        }
         if (!isEnvelope(call) && endpoint.requiresScope && owner.scopeCheck) {
           const bindings = callBindings(call);
           const multiSite = (targetSites.get(id)?.size ?? 0) > 1;

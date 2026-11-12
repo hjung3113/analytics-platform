@@ -105,9 +105,10 @@ it('keeps a string-only bundle deep-equal to the existing loaded shape', async (
 it.each([
   ['target map injectivity', ownerBundle({}, {}, { targets: { 'tgt-1': { ...routedBundle().targets['tgt-1'], valueMap: { site: { 'SITE-A': 'one', 'SITE-B': 'one' } } } } }), 'targets.tgt-1.valueMap.site: valueMap must be injective'],
   ['route map injectivity', ownerBundle({ routes: [{ ...route(), valueMap: { room: { RA1: 'one', RA2: 'one' } } }] }), 'endpointOwners.syn.rows.routes.0.valueMap.room: valueMap must be injective'],
-  ['SQL placeholder missing binding', ownerBundle({ call: { statement: 'SELECT :q, :missing', params: { q: 'params.q' } } }), 'endpointOwners.syn.rows.call.params: SQL placeholders must match params exactly'],
-  ['SQL extra binding', ownerBundle({ call: { statement: 'SELECT :q', params: { q: 'params.q', rooms: 'scope.rooms' } } }), 'endpointOwners.syn.rows.call.params: SQL placeholders must match params exactly'],
-  ['SQL keyword', ownerBundle({ call: { statement: 'DELETE FROM syn.rows', params: {} } }), 'endpointOwners.syn.rows.call.statement: statement must start with SELECT or WITH after whitespace/comments'],
+  ['SQL placeholder missing binding', ownerBundle({ call: { statement: 'SELECT :q, :missing', params: { q: 'params.q' } } }), 'endpoint syn.rows: route 0: target tgt-1: call SQL placeholders must match params exactly'],
+  ['SQL extra binding', ownerBundle({ call: { statement: 'SELECT :q', params: { q: 'params.q', rooms: 'scope.rooms' } } }), 'endpoint syn.rows: route 0: target tgt-1: call SQL placeholders must match params exactly'],
+  ['SQL keyword', ownerBundle({ call: { statement: 'DELETE FROM syn.rows', params: {} } }), 'endpoint syn.rows: route 0: target tgt-1: call statement must start with SELECT or WITH after whitespace/comments'],
+  ['postgres array placeholder needs its binding', ownerBundle({ call: { statement: 'SELECT ARRAY[:n], :q', params: { q: 'params.q' } } }), 'endpoint syn.rows: route 0: target tgt-1: call SQL placeholders must match params exactly'],
   ['procedure identifier', ownerBundle({ call: { procedure: 'syn.proc_rows; SELECT 1', args: {} } }), 'endpointOwners.syn.rows.call.procedure: procedure must have 1 to 3 identifier parts'],
   ['actor binding', ownerBundle({ call: statement({ rooms: 'actor.email' }) }), 'endpointOwners.syn.rows.call.params.rooms: binding must use the closed vocabulary'],
   ['binding expression', ownerBundle({ call: statement({ rooms: 'scope.rooms.map(x => x)' }) }), 'endpointOwners.syn.rows.call.params.rooms: binding must use the closed vocabulary'],
