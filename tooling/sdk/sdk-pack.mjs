@@ -142,6 +142,38 @@ function distTextFiles(root) {
 }
 
 /**
+ * Replaces JS comments with a space, leaving string and template contents untouched, so a `/*` or `//` inside a string
+ * cannot hide a later import and a comment between `from`/`import(` and the specifier cannot hide one either.
+ * Regex literals are not tracked; a quote inside one can only make the scan stricter or lose sync until the next quote.
+ */
+export function maskComments(text) {
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (ch === "'" || ch === '"' || ch === '`') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== ch) j += text[j] === '\\' ? 2 : 1;
+      out += text.slice(i, j + 1);
+      i = j + 1;
+    } else if (ch === '/' && next === '*') {
+      const end = text.indexOf('*/', i + 2);
+      out += ' ';
+      i = end === -1 ? text.length : end + 2;
+    } else if (ch === '/' && next === '/') {
+      const end = text.indexOf('\n', i + 2);
+      out += ' ';
+      i = end === -1 ? text.length : end;
+    } else {
+      out += ch;
+      i += 1;
+    }
+  }
+  return out;
+}
+
+/**
  * A dist file may only import `@ap/*` packages the release manifest declares as peers (or the package itself): siblings
  * resolve to the consumer's own URL installs (ADR-0056), so an undeclared sibling import breaks outside consumers.
  */
@@ -149,8 +181,7 @@ export function validateImports(name, files, manifest) {
   const allowed = new Set([manifest.name, ...Object.keys(manifest.peerDependencies ?? {})]);
   for (const file of files) {
     if (!/^dist\/.+\.(?:js|mjs|cjs)$/.test(file.path) && !/^dist\/.+\.d\.(?:ts|mts|cts)$/.test(file.path)) continue;
-    // Comments between the keyword and the specifier must not hide an import; `//` counts only at a token start, so URLs in strings stay intact.
-    const code = file.text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[\s;{}()])\/\/[^\n]*/g, '$1');
+    const code = maskComments(file.text);
     for (const match of code.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*(['"])(@ap\/[^'"]+)\1/g)) {
       const specifier = match[2];
       const packageName = specifier.split('/').slice(0, 2).join('/');

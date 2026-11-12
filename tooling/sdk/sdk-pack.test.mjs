@@ -48,6 +48,9 @@ test('comments between the keyword and the specifier do not hide an undeclared i
     "export const load = () => import(/* chunk annotation */ '@ap/undeclared');\n",
     "import { x } from /* note */ '@ap/undeclared';\n",
     "import { x } from // note\n '@ap/undeclared';\n",
+    "import// note\n'@ap/undeclared';\n",
+    "const glob = '/*';\nimport { x } from '@ap/undeclared';\nconst end = '*/';\n",
+    "const s = 'msg // tail'; import { y } from '@ap/undeclared';\n",
   ]) {
     assert.throws(() => validateImports('kernel', [{ path: 'dist/index.js', text }], peersManifest), /@ap\/undeclared/);
   }
