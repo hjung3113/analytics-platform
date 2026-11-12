@@ -3,7 +3,7 @@ import {
   type ApprovalRequestInfo, type GroupCapabilities, type GroupMember, type Result, type SavedView, type SavedViewDraft, type SavedViewEntry, type SavedViewKey,
   type SavedViewListItem, type SavedViewPatch, type SavedViewStore, type ViewCapabilities, type ViewGroupEntry, type ViewVisibility,
 } from '@ap/contracts';
-import { ACTORS, DIRECTORY, ROLE_KEY, seedGroups, seedViews, type Actor, type GroupRecord } from './saved-view-seed';
+import { ROLE_KEY, defaultSavedViewSeed, type Actor, type GroupRecord, type SavedViewSeed } from './saved-view-seed';
 
 // Not the feature `savedViewsSlot` (sidebar list): this is the SDK saved-view port's browser-local simulation of a server ACL (#1011).
 type StoragePort = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -49,11 +49,11 @@ const viewShape = (v: unknown, ownerId: string, menuId: string | null): v is Rec
 const storedView = (ownerId: string, menuId: string | null) => (v: unknown) => viewShape(v, ownerId, menuId) && (v.pending === undefined || viewShape(v.pending, ownerId, menuId));
 const storedGroup = (v: unknown) => isObject(v) && typeof v.id === 'string' && (v.kind === 'org-team' || v.kind === 'custom') && typeof v.name === 'string' && isStrings(v.memberIds) && isStrings(v.managerIds);
 
-/** The current user comes from the mock session role the app already keeps in `platform:role`. */
-const storedActor = (storage: StoragePort): Actor => {
-  let role = 'engineer';
-  try { const raw = storage.getItem(ROLE_KEY); const parsed = raw ? JSON.parse(raw) : null; if (typeof parsed === 'string' && Object.hasOwn(ACTORS, parsed)) role = parsed; } catch { /* keep the default role */ }
-  return ACTORS[role];
+/** The current user comes from the mock session role the app already keeps in `platform:role`; a missing or obsolete role falls back to the seed's first actor. */
+const storedActor = (storage: StoragePort, actors: SavedViewSeed['actors'], fallbackRole: string): Actor => {
+  let role = fallbackRole;
+  try { const raw = storage.getItem(ROLE_KEY); const parsed = raw ? JSON.parse(raw) : null; if (typeof parsed === 'string' && Object.hasOwn(actors, parsed)) role = parsed; } catch { /* keep the fallback role */ }
+  return actors[role];
 };
 
 const parseId = (id: string): { ownerId: string; menuId: string | null } | null => {
@@ -84,12 +84,14 @@ type LocalSavedViewStoreOptions = {
   getActor?: () => Actor;
   menuPermissionsOf?: MenuPermissionsOf;
   sessionPermissions?: () => readonly string[] | undefined;
+  /** Replaces actors, directory, groups and views at once; the default is the mock directory (#1702h). */
+  seed?: SavedViewSeed;
 };
 /** A stored view; `pending` is an edit of the approved official copy waiting for (re)approval, kept apart so readers keep the approved content. */
 type Stored = SavedView & { pending?: SavedView };
 /** The owner and an approver see the proposed change; everyone else the approved copy. */
 const shownTo = (v: Stored, a: Actor, owner: boolean): SavedView => { const { pending, ...published } = v; return pending && (owner || a.admin) ? pending : (published as SavedView); };
-/** Why this content is out of the actor's reach, or null. An unknown menu is denied, not waved through. */
+/** Why this content is out of the actor's reach, or null. An unknown menu is denied, not waved through. The messages are shown as-is by the ViewSelector. */
 function denial(content: { kind: string; menuId?: string; context: { roomNames?: string[] | null } }, a: Actor, perm: MenuPermissionsOf): string | null {
   const menuId = viewMenuId(content);
   if (menuId !== null) {
@@ -143,20 +145,23 @@ function proposalChanges(stored: Stored): string[] {
 type Tx = { buckets: Map<string, { ownerId: string; menuId: string | null; views: Stored[] }>; groups: GroupRecord[] | null; defaults: Map<string, string | null> };
 
 /** Browser-local simulation of a server ACL behind the SavedViewStore port. Mutations need the origin lock and fail closed without it. */
-export function createLocalSavedViewStore({ getStorage = () => localStorage, locks = typeof navigator === 'undefined' ? undefined : navigator.locks, now = Date.now, getActor, menuPermissionsOf = () => undefined, sessionPermissions }: LocalSavedViewStoreOptions = {}): SavedViewStore {
+export function createLocalSavedViewStore({ getStorage = () => localStorage, locks = typeof navigator === 'undefined' ? undefined : navigator.locks, now = Date.now, getActor, menuPermissionsOf = () => undefined, sessionPermissions, seed = defaultSavedViewSeed }: LocalSavedViewStoreOptions = {}): SavedViewStore {
+  /** The fallback actor for a missing/obsolete stored role is the seed's first actor, not a hard-coded one; a seed with no actor cannot answer who is asking. */
+  const fallbackRole = Object.keys(seed.actors)[0];
+  if (!fallbackRole) throw new Error('saved-view seed must contain at least one actor');
   const ev = (v: Stored, a: Actor, groups: readonly GroupRecord[], forced = false) => evaluate(v, a, groups, menuPermissionsOf, forced);
   /** The permission vocabulary is the real session's (what the Kernel judges menus by); the mock role fills it in before a session exists. */
-  const actorNow = (): Actor => { const a = (getActor ?? (() => storedActor(getStorage())))(); const p = sessionPermissions?.(); return p ? { ...a, permissions: p } : a; };
+  const actorNow = (): Actor => { const a = (getActor ?? (() => storedActor(getStorage(), seed.actors, fallbackRole)))(); const p = sessionPermissions?.(); return p ? { ...a, permissions: p } : a; };
   const readBucket = (storage: StoragePort, ownerId: string, menuId: string | null) => {
     const r = readEnvelope<Stored>(storage, savedViewsStorageKey(ownerId, menuId), 'views', storedView(ownerId, menuId));
-    return { future: r.future, views: r.value ?? seedViews(ownerId, menuId) };
+    return { future: r.future, views: r.value ?? seed.views(ownerId, menuId) };
   };
   const readGroups = (storage: StoragePort) => {
     const r = readEnvelope<GroupRecord>(storage, savedViewGroupsStorageKey(), 'groups', storedGroup);
-    return { future: r.future, groups: r.value ?? seedGroups() };
+    return { future: r.future, groups: r.value ?? seed.groups() };
   };
   const visibleIn = (storage: StoragePort, a: Actor, menuId: string | null, groups: readonly GroupRecord[]) =>
-    DIRECTORY.flatMap(p => readBucket(storage, p.userId, menuId).views.map(v => ev(v, a, groups))).filter((x): x is SavedViewListItem => x !== null);
+    seed.directory.flatMap(p => readBucket(storage, p.userId, menuId).views.map(v => ev(v, a, groups))).filter((x): x is SavedViewListItem => x !== null);
   const find = (storage: StoragePort, a: Actor, id: string, groups: readonly GroupRecord[]) => {
     const at = parseId(id); if (!at) return null;
     const view = readBucket(storage, at.ownerId, at.menuId).views.find(v => v.id === id);
@@ -210,7 +215,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     if (view.version !== expectedVersion) return fail('conflict');
     return { ok: true, value: view };
   };
-  const person = (userId: string): GroupMember | undefined => { const p = DIRECTORY.find(d => d.userId === userId); return p && { userId, displayName: p.displayName, affiliation: p.affiliation }; };
+  const person = (userId: string): GroupMember | undefined => { const p = seed.directory.find(d => d.userId === userId); return p && { userId, displayName: p.displayName, affiliation: p.affiliation }; };
   const groupEntry = (g: GroupRecord, a: Actor): ViewGroupEntry => ({
     group: { id: g.id, kind: g.kind, name: g.name, memberCount: g.memberIds.length, ...(g.managerIds.length ? { managerIds: g.managerIds } : {}) },
     members: g.memberIds.flatMap(id => person(id) ?? []), capabilities: groupCapabilities(g, a),
@@ -318,7 +323,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     listApprovalRequests: async key => {
       const storage = getStorage(); const a = actorNow(); if (key.userId !== a.userId) return [];
       const groups = readGroups(storage).groups;
-      return DIRECTORY.flatMap(p => readBucket(storage, p.userId, key.menuId).views.flatMap((stored: Stored): ApprovalRequestInfo[] => {
+      return seed.directory.flatMap(p => readBucket(storage, p.userId, key.menuId).views.flatMap((stored: Stored): ApprovalRequestInfo[] => {
         const proposal = stored.pending ?? stored;
         if (proposal.approval !== 'pending' && proposal.approval !== 'rejected') return [];
         const item = ev(stored, a, groups);
@@ -358,7 +363,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     searchPeople: async (query, signal) => {
       const q = query.trim().toLowerCase();
       if (signal.aborted || !q) return [];
-      return DIRECTORY.filter(p => p.displayName.toLowerCase().includes(q) || p.affiliation.toLowerCase().includes(q)).map(p => ({ userId: p.userId, displayName: p.displayName, affiliation: p.affiliation }));
+      return seed.directory.filter(p => p.displayName.toLowerCase().includes(q) || p.affiliation.toLowerCase().includes(q)).map(p => ({ userId: p.userId, displayName: p.displayName, affiliation: p.affiliation }));
     },
   };
 }

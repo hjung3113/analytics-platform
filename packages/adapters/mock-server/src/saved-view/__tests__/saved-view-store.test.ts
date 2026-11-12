@@ -1,7 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { memoryStorage } from '@ap/kernel/testing';
-import type { SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewStore } from '@ap/contracts';
-import { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsStorageKey, savedViewsStorageKey } from './saved-view-store';
+import type { SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewStore } from '@ap/contracts';
+import { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsStorageKey, savedViewsStorageKey } from '../saved-view-store';
+// The kernel `testing` entry is not a dependency of this package, so the storage helper is defined here with the same semantics.
+const memoryStorage = (): Storage => {
+  const data = new Map<string, string>();
+  return {
+    getItem: key => data.get(String(key)) ?? null,
+    setItem: (key, value) => { data.set(String(key), String(value)); },
+    removeItem: key => { data.delete(String(key)); },
+    clear: () => data.clear(),
+    key: index => Array.from(data.keys())[index] ?? null,
+    get length() { return data.size; },
+  };
+};
+
 
 const MENU = 'productivity-overview';
 const storage = memoryStorage();
@@ -357,4 +369,101 @@ describe('a menu requiring platform:view AND console:access', () => {
       expect(await s.update(saved.view.id, { name: '막힘' }, { expectedVersion: saved.view.version + 1 })).toMatchObject({ ok: false });
     }
   });
+});
+
+// The seed option (#1702h): another seed replaces actors, directory, groups and views at once.
+it('passing a seed replaces actors, directory, groups and views', async () => {
+  const shared: SavedView = {
+    id: `u1|${MENU}|1`, schemaVersion: 1, kind: 'menu-view', menuId: MENU, menuSchemaVersion: 2,
+    name: '사용자 정의 시드 뷰', ownerId: 'u1', version: 1, updatedAt: 5,
+    visibility: { kind: 'people', userIds: ['admin'] }, approval: 'none',
+    context: { relativePeriod: { hours: 24 } }, page: { granularity: ['hour'] }, chartOptions: { stacked: true }, layout: null, panels: null,
+  };
+  as('admin');
+  const s = createLocalSavedViewStore({
+    getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf,
+    seed: {
+      actors: { admin: { userId: 'admin', admin: true, permissions: ['analytics:view'], rooms: [] } },
+      directory: [
+        { userId: 'admin', displayName: '관리자', affiliation: '테스트팀' },
+        { userId: 'u1', displayName: '사용자', affiliation: '테스트팀' },
+      ],
+      groups: () => [{ id: 'g-custom', kind: 'custom', name: '사용자 그룹', managerIds: ['admin'], memberIds: ['admin', 'u1'] }],
+      views: (ownerId, menuId) => ownerId === 'u1' && menuId === MENU ? [shared] : [],
+    },
+  });
+  expect(visible(await s.list(key('admin'))).map(i => i.view.name)).toEqual(['사용자 정의 시드 뷰']); // views and directory replaced
+  expect(await s.listGroups()).toMatchObject([{ group: { id: 'g-custom', name: '사용자 그룹' } }]); // groups replaced
+  expect((await s.searchPeople('관리자', new AbortController().signal)).map(p => p.userId)).toEqual(['admin']); // directory replaced
+  expect(await s.searchPeople('한지우', new AbortController().signal)).toEqual([]); // the default directory is gone
+  ok(await s.setDefault(key('admin'), shared.id)); // the actor is the seed's admin, not the default one
+});
+
+// The three storage key formats as literals, so a rename cannot slip through the exported helpers.
+it('the three storage key formats are the pinned literals', async () => {
+  const s = store(); ok(await s.save(draft()));
+  const id = visible(await s.list(key(ENG)))[0]!.view.id;
+  ok(await s.setDefault(key(ENG), id));
+  ok(await s.createGroup({ name: '새 그룹', memberIds: [] }));
+  const keys = Array.from({ length: storage.length }, (_, i) => storage.key(i)!);
+  expect(keys).toContain(`platform:saved-views:v1:${JSON.stringify([1, ENG, MENU])}`);
+  expect(keys).toContain(`platform:saved-view-default:v1:${JSON.stringify([1, ENG, MENU])}`);
+  expect(keys).toContain(`platform:saved-view-groups:v1:${JSON.stringify([1])}`);
+});
+
+// Fix-round 1 (#1702h): condition sets pass through the same room ACL as menu views, and the denial reasons
+// stay the user-facing Korean strings (ViewSelector renders `reason` as-is).
+const SCOPE_REASON = '조회 권한이 없는 공정이 포함되어 있습니다.';
+const conditionDraft = (roomNames: string[]): SavedViewDraft =>
+  ({ schemaVersion: 1, kind: 'condition-set', name: 'CMP 조건', context: { roomNames } });
+
+it('a condition set with a room outside the actor is refused on save, like a menu view', async () => {
+  expect(await store().save(conditionDraft(['CMP']))).toMatchObject({ ok: false, reason: 'forbidden' });
+  expect(storage.getItem(savedViewsStorageKey(ENG, null))).toBeNull(); // nothing was written
+});
+
+it('a condition set saved earlier is re-judged on every read after the room is lost (get/list/update/default)', async () => {
+  const owner = 'u-limchaewon'; // in the seed directory, so the owner's bucket is iterated on list
+  const setKey = { userId: owner, menuId: null };
+  const withCmp = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf, getActor: () => ({ userId: owner, admin: false, permissions: ['analytics:view'], rooms: ['PHOTO', 'CMP'] }) });
+  const withoutCmp = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf, getActor: () => ({ userId: owner, admin: false, permissions: ['analytics:view'], rooms: ['PHOTO'] }) });
+  const saved = ok(await withCmp().save(conditionDraft(['CMP'])));
+  ok(await withCmp().setDefault(setKey, saved.view.id));
+  expect(await withoutCmp().get(saved.view.id)).toEqual({ id: saved.view.id, denied: true, reason: SCOPE_REASON });
+  expect(await withoutCmp().list(setKey)).toEqual([{ id: saved.view.id, denied: true, reason: SCOPE_REASON }]);
+  expect(await withoutCmp().update(saved.view.id, { name: '수정' }, { expectedVersion: saved.view.version })).toMatchObject({ ok: false, reason: 'forbidden' });
+  expect(await withoutCmp().getDefaultId(setKey)).toBeNull();
+  expect(await withoutCmp().setDefault(setKey, saved.view.id)).toMatchObject({ ok: false, reason: 'invalid' });
+});
+
+it('denial reasons are the user-facing Korean messages, not internal codes', async () => {
+  const s = store(); ok(await s.save(draft('내 뷰'))); // engineer saves
+  const items = await s.list(key(ENG));
+  expect(items.find(i => i.denied)).toEqual({ id: 'u-limchaewon|productivity-overview|1', denied: true, reason: SCOPE_REASON });
+  as('viewer');
+  const raw = JSON.parse(storage.getItem(savedViewsStorageKey(ENG, MENU))!);
+  raw.views.find((v: { name: string }) => v.name === '내 뷰')!.visibility = { kind: 'people', userIds: ['viewer'] };
+  storage.setItem(savedViewsStorageKey(ENG, MENU), JSON.stringify(raw));
+  expect((await store().list(key('viewer'))).every(i => i.denied && i.reason === '이 메뉴를 열 권한이 없습니다.')).toBe(true);
+});
+
+it('a replacement seed falls back to its first actor when the stored role is missing or obsolete', async () => {
+  const make = (): SavedViewStore => createLocalSavedViewStore({
+    getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf,
+    seed: {
+      actors: { alice: { userId: 'alice', admin: false, permissions: ['analytics:view'], rooms: ['PHOTO'] } },
+      directory: [{ userId: 'alice', displayName: '앨리스', affiliation: '테스트팀' }],
+      groups: () => [],
+      views: () => [],
+    },
+  });
+  storage.removeItem('platform:role'); // missing role storage: no `engineer` was ever stored
+  const saved = ok(await make().save(draft('앨리스 뷰')));
+  expect(saved.view.ownerId).toBe('alice');
+  storage.setItem('platform:role', JSON.stringify('engineer')); // obsolete role for this seed
+  expect(visible(await make().list(key('alice'))).map(i => i.view.name)).toEqual(['앨리스 뷰']);
+  expect(() => createLocalSavedViewStore({
+    getStorage: () => storage, locks, now: () => 5,
+    seed: { actors: {}, directory: [], groups: () => [], views: () => [] },
+  })).toThrow(/at least one actor/);
 });

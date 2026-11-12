@@ -22,7 +22,7 @@ export const SAVED_VIEW_PORT_METHODS: readonly SavedViewPortMethod[] = [
   'decide', 'revoke', 'listApprovalRequests', 'listGroups', 'createGroup', 'updateGroup', 'searchPeople',
 ];
 
-// The decision values this suite exists to pin (#1131): the mock (apps/platform-web/src/saved-view-store.ts) and
+// The decision values this suite exists to pin (#1131): the mock (@ap/mock-server saved-view/saved-view-store.ts) and
 // the server (apps/platform-api/src/modules/platform-saved-views) implement the ACL, messages and change summary
 // separately, so the shared literals live here once — the side that drifts fails its check.
 const NO_ACCESS = 'no-access';

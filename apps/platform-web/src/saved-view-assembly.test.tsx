@@ -7,7 +7,7 @@ import { useHostPlatform, useSavedViews, type SavedViews } from '@ap/kernel/host
 import { memoryStorage, noContext, testSpace } from '@ap/kernel/testing';
 import { createAssembly, type Assembly } from '#platform-assembly';
 import { registry as appRegistry } from './menus';
-import { createLocalSavedViewStore } from './saved-view-store';
+import { createLocalSavedViewStore } from '@ap/mock-server';
 
 // The store must agree with the id the Kernel really passes (`session.user.id`), not with a test-made id (#1011c review C1).
 const support: SavedViewSupport = { menuId: 'productivity-overview', menuSchemaVersion: 2, contextKeys: ['time'], pageKeys: [] };

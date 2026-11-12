@@ -7,14 +7,12 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
+import { ACTORS, createLocalSavedViewStore, createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
 import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, stageOnboardingWindow, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
 import { GROUPS, MENUS, PERMISSIONS, registry } from './menus';
 import { defineAction, emptyGlobal, menuPermission, menuPermissions, spaceId, type Permission } from '@ap/contracts';
-import { ACTORS } from './saved-view-seed';
-import { createLocalSavedViewStore } from './saved-view-store';
 
 /** Exactly what the app registers: the mock assembly's lists, not a copy. */
 const endpoints = MOCK_ENDPOINTS;
@@ -428,7 +426,7 @@ const onboardingBatch = readFileSync(join(onboardingBatchDir, readdirSync(onboar
 const onboardingUploadId = (await asRole(GRANTED, () => adapter.uploadFile!({ file: new Blob([onboardingBatch], { type: 'application/json' }), name: 'conformance.batch.json', idempotencyKey: crypto.randomUUID() }))).data!.id;
 
 // The SavedViewStore conformance sample (#1131): the browser-local store judged by the same checks as the real
-// server's. Both actors come from the mock directory (saved-view-seed) so the group share between them is real;
+// server's. Both actors come from the mock directory of @ap/mock-server so the group share between them is real;
 // the storage is this file's own memory (this test's import allowlist is deliberately narrow, #153) and one
 // queue serializes the two stores like the origin lock.
 const savedViewMemory = new Map<string, string>();

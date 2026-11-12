@@ -2,10 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
 // The composition entrypoint decides which SavedViewStore reaches the Kernel (#1043 Q2): the assembly's own, never a local mock store the entrypoint builds itself.
-const seen = vi.hoisted(() => ({ providerProps: [] as Record<string, unknown>[], storeFactory: vi.fn(() => ({ local: true })), assembly: undefined as unknown }));
+const seen = vi.hoisted(() => ({ providerProps: [] as Record<string, unknown>[], assembly: undefined as unknown }));
 
 vi.mock('#platform-assembly', () => ({ createAssembly: () => seen.assembly }));
-vi.mock('./saved-view-store', () => ({ createLocalSavedViewStore: seen.storeFactory }));
+// The store factory itself moved to @ap/mock-server (1702h) and lint bans that import here and in main.tsx,
+// so "builds no local store" is now enforced by the import boundary, not by mocking the factory.
 vi.mock('@ap/kernel', async importOriginal => ({
   ...(await importOriginal<typeof import('@ap/kernel')>()),
   PlatformProvider: (props: Record<string, unknown>) => { seen.providerProps.push(props); return null; },
@@ -24,7 +25,6 @@ async function boot(assembly: unknown) {
 beforeEach(() => {
   vi.resetModules();
   seen.providerProps.length = 0;
-  seen.storeFactory.mockClear();
   document.body.innerHTML = '<div id="root"></div>';
 });
 afterEach(() => { document.body.innerHTML = ''; });
@@ -33,7 +33,6 @@ afterEach(() => { document.body.innerHTML = ''; });
 describe('main.tsx saved view wiring', { timeout: 30_000 }, () => {
   it('a real assembly (no savedViews) builds no local store and passes none to PlatformProvider', async () => {
     const props = await boot({ adapter: {}, topBarTools: null });
-    expect(seen.storeFactory).not.toHaveBeenCalled();
     expect(props.savedViews).toBeUndefined();
   });
 
@@ -41,6 +40,5 @@ describe('main.tsx saved view wiring', { timeout: 30_000 }, () => {
     const store = { mock: true };
     const props = await boot({ adapter: {}, topBarTools: null, savedViews: store });
     expect(props.savedViews).toBe(store);
-    expect(seen.storeFactory).not.toHaveBeenCalled();
   });
 });

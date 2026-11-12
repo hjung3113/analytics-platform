@@ -55,6 +55,7 @@ const APP_DEV_FILES = 'src/dev/**/*.{ts,tsx}';
 const APP_REAL_FILES = 'src/real/**/*.{ts,tsx}';
 const APP_REAL_TEST_FILES = 'src/real/**/*.test.{ts,tsx}';
 const APP_PUBLISHED_METRICS_FILE = 'src/published-metrics.test.ts';
+const APP_SAVED_VIEW_ASSEMBLY_FILE = 'src/saved-view-assembly.test.tsx';
 const DEV_MESSAGE = 'src/dev/** (mock assembly, DevTools) is reached only through #platform-assembly in mock builds (ADR-0009).';
 // Specifiers that name a `dev` folder segment: relative ./dev, ./dev/x, ../dev/x, ../../src/dev/x, and Vite's
 // root-absolute /src/dev/x. Matched case-insensitively by both rules (ESLint's `regex` uses the `i` flag).
@@ -130,7 +131,7 @@ const APP_DEV_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact:
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
 // one source for "what the app registers"); no menu `/mock` subpath of its own.
 const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, devAllow: ['./dev/mock-assembly'], allowSubpaths: [...APP_RESTRICTION.allowSubpaths, TOPVIEW_MOCK_DATA_SUBPATH] };
-// published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
+// published-metrics.test.ts and saved-view-assembly.test.tsx (the browser saved-view store lives in mock-server, #1702h) keep the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
 // Exact EV identities (not the namespace), minus the layer's exact sources and identity roots.
@@ -656,6 +657,7 @@ export const app = [
   appOverride(['src/main.tsx'], APP_MAIN_RESTRICTION),
   appOverride([APP_CONFORMANCE_FILE], APP_CONFORMANCE_RESTRICTION),
   appOverride([APP_PUBLISHED_METRICS_FILE], APP_PUBLISHED_METRICS_RESTRICTION),
+  appOverride([APP_SAVED_VIEW_ASSEMBLY_FILE], { ...APP_PUBLISHED_METRICS_RESTRICTION, allowSubpaths: [...APP_PUBLISHED_METRICS_RESTRICTION.allowSubpaths, ...ABOVE_COMPONENTS_TEST_ENTRIES] }),
   appOverride([APP_DEV_FILES], APP_DEV_RESTRICTION),
   // The production assembly (and its tests) is the one app place that sees the http-adapter package. Last, so it wins over
   // the test-entry override for src/real/**/*.test.*; the test files keep the test entry subpaths.

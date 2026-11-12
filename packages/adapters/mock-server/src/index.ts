@@ -15,3 +15,5 @@ export {
 } from './server';
 
 export { EQUIPMENT, PUBLISHED_METRICS, USERS, type Equipment, type RoleId } from './world';
+export { ACTORS, defaultSavedViewSeed, type Actor, type DirectoryPerson, type GroupRecord, type SavedViewSeed } from './saved-view/saved-view-seed';
+export { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsStorageKey, savedViewsStorageKey } from './saved-view/saved-view-store';
