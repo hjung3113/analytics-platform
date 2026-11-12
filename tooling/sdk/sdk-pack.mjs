@@ -1,19 +1,20 @@
-// Builds the five SDK packages and packs them into release tarballs (ADR-0056, #519).
+// Builds the nine release packages — the SDK five plus release unit 2 (@ap/app-host, @ap/mock-server, @ap/http-adapter,
+// @ap/server-conformance, ADR-0143) — and packs them into release tarballs (ADR-0056, #519).
 // Usage: pnpm sdk:pack --version X.Y.Z --out <dir>   (--version defaults to 0.0.0-ci)
 //
 // Builds each package in dependency order (the build configs resolve siblings to the emitted declarations of the sibling),
 // stages `dist` plus a generated release manifest in a temp directory outside the repo, runs `pnpm pack` there, writes
 // SHA256SUMS next to the tarballs and rejects archives that carry source, tests, tsconfigs or a loose @ap/* version.
-// `--out` must be absent or an empty directory (nothing in it is ever deleted); the five tarballs + SHA256SUMS are built in
+// `--out` must be absent or an empty directory (nothing in it is ever deleted); the nine tarballs + SHA256SUMS are built in
 // the temp directory and moved into `--out` only after every step passed.
-// Tracked files are never touched; the only repo writes are the git-ignored `packages/sdk/<name>/dist` folders.
+// Tracked files are never touched; the only repo writes are the git-ignored `packages/<...>/dist` folders.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SDK_PACKAGES, distTarget } from './sdk-exports.mjs';
+import { distTarget, releasePackages } from './sdk-exports.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SCOPE = '@ap/';
@@ -129,6 +130,68 @@ function assertOutDirFree(outDir) {
   if (readdirSync(outDir).length > 0) fail(`--out ${outDir} is not empty; pass a new or empty directory (nothing is deleted)`);
 }
 
+/** Every `.js`/`.d.ts` file of a built dist tree, as absolute paths. */
+function distTextFiles(root) {
+  const files = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) files.push(...distTextFiles(path));
+    else if (/\.(?:js|mjs|cjs)$/.test(entry.name) || /\.d\.(?:ts|mts|cts)$/.test(entry.name)) files.push(path);
+  }
+  return files;
+}
+
+/**
+ * Replaces JS comments with a space, leaving string and template contents untouched, so a `/*` or `//` inside a string
+ * cannot hide a later import and a comment between `from`/`import(` and the specifier cannot hide one either.
+ * Regex literals are not tracked; a quote inside one can only make the scan stricter or lose sync until the next quote.
+ */
+export function maskComments(text) {
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (ch === "'" || ch === '"' || ch === '`') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== ch) j += text[j] === '\\' ? 2 : 1;
+      out += text.slice(i, j + 1);
+      i = j + 1;
+    } else if (ch === '/' && next === '*') {
+      const end = text.indexOf('*/', i + 2);
+      out += ' ';
+      i = end === -1 ? text.length : end + 2;
+    } else if (ch === '/' && next === '/') {
+      const end = text.indexOf('\n', i + 2);
+      out += ' ';
+      i = end === -1 ? text.length : end;
+    } else {
+      out += ch;
+      i += 1;
+    }
+  }
+  return out;
+}
+
+/**
+ * A dist file may only import `@ap/*` packages the release manifest declares as peers (or the package itself): siblings
+ * resolve to the consumer's own URL installs (ADR-0056), so an undeclared sibling import breaks outside consumers.
+ */
+export function validateImports(name, files, manifest) {
+  const allowed = new Set([manifest.name, ...Object.keys(manifest.peerDependencies ?? {})]);
+  for (const file of files) {
+    if (!/^dist\/.+\.(?:js|mjs|cjs)$/.test(file.path) && !/^dist\/.+\.d\.(?:ts|mts|cts)$/.test(file.path)) continue;
+    const code = maskComments(file.text);
+    for (const match of code.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*(['"])(@ap\/[^'"]+)\1/g)) {
+      const specifier = match[2];
+      const packageName = specifier.split('/').slice(0, 2).join('/');
+      if (!allowed.has(packageName)) {
+        fail(`${name} dist imports ${specifier} in ${file.path}, but ${packageName} is not a peerDependencies entry`);
+      }
+    }
+  }
+}
+
 function main() {
   const { version, out } = parseArgs(process.argv.slice(2));
   const outDir = resolve(out);
@@ -141,8 +204,8 @@ function main() {
     mkdirSync(collected);
 
     const tarballs = [];
-    for (const name of SDK_PACKAGES) {
-      const packageRoot = join(repoRoot, 'packages', 'sdk', name);
+    for (const { name, dir } of releasePackages()) {
+      const packageRoot = join(repoRoot, dir);
       const source = readJson(join(packageRoot, 'package.json'));
       // dist is git-ignored; clearing it keeps a deleted source file from lingering in the tarball.
       rmSync(join(packageRoot, 'dist'), { recursive: true, force: true });
@@ -168,7 +231,16 @@ function main() {
       const extracted = join(staging, `extract-${name}`);
       mkdirSync(extracted);
       run('tar', ['-xzf', join(packDir, packed[0]), '-C', extracted], staging);
-      validateArchive(name, archivePaths, readJson(join(extracted, 'package', 'package.json')), version);
+      const extractedManifest = readJson(join(extracted, 'package', 'package.json'));
+      validateArchive(name, archivePaths, extractedManifest, version);
+      validateImports(
+        name,
+        distTextFiles(join(extracted, 'package', 'dist')).map((path) => ({
+          path: relative(join(extracted, 'package'), path).split(sep).join('/'),
+          text: readFileSync(path, 'utf8'),
+        })),
+        extractedManifest,
+      );
 
       cpSync(join(packDir, packed[0]), join(collected, packed[0]));
       tarballs.push(packed[0]);

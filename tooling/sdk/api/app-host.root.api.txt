@@ -1,0 +1,13 @@
+AppRoot | function | function AppRoot({ assembly, registry, queryHistory, location, slots, spaceIdMigrations, equipmentAxes, children }: { assembly: @ap/app-host#HostAssembly; children?: ReactNode; equipmentAxes: readonly @ap/contracts#EquipmentAxisDescriptor[]; location: @ap/kernel#PlatformLocation | undefined; queryHistory: @ap/contracts#QueryHistoryStore; registry: @ap/kernel#Registry; slots: @ap/kernel#PlatformSlots; spaceIdMigrations?: Readonly<Record<string, string>>; }): import("react").JSX.Element
+CreateHostAssembly | type | type CreateHostAssembly = (o: { registry: @ap/kernel#Registry; }) => @ap/app-host#HostAssemblyOutcome | Promise<@ap/app-host#HostAssemblyOutcome>
+CreateRegistryInput | type | type CreateRegistryInput = Parameters<typeof @ap/kernel#createRegistry>[0]
+EndpointInvalidationBridge | function | function EndpointInvalidationBridge({ source }: { source: @ap/app-host#EndpointInvalidationSource; }): null
+EndpointInvalidationSource | type | type EndpointInvalidationSource = { subscribe: (listener: (endpointIds: readonly string[]) => void) => () => void; }
+HostAssembly | type | type HostAssembly = { adapter: @ap/contracts#PlatformAdapter; invalidation?: @ap/app-host#EndpointInvalidationSource; savedViews?: @ap/contracts#SavedViewStore; serverPreferences?: boolean; topBarTools: ReactNode; }
+HostAssemblyOutcome | type | type HostAssemblyOutcome = @ap/app-host#HostAssembly | { redirect: string; } | { screen: ReactNode; }
+StartAppHostOptions | type | type StartAppHostOptions<A extends @ap/app-host#HostAssembly = @ap/app-host#HostAssembly> = { basePath?: string; children?: (assembly: A) => ReactNode; container: HTMLElement; createAssembly: (o: { registry: @ap/kernel#Registry; }) => A | Promise<A | { redirect: string; } | { screen: ReactNode; }> | { redirect: string; } | { screen: ReactNode; }; declarations: @ap/app-host#CreateRegistryInput; equipmentAxes: readonly @ap/contracts#EquipmentAxisDescriptor[]; onAssembly?: (assembly: A, registry: @ap/kernel#Registry) => void; queryHistory: @ap/contracts#QueryHistoryStore; redirect?: (url: string) => void; slots?: (assembly: A) => @ap/kernel#PlatformSlots; spaceIdMigrations?: Readonly<Record<string, string>>; }
+StartupFailure | function | function StartupFailure(): import("react").JSX.Element
+buildRegistry | function | function buildRegistry(declarations: @ap/app-host#CreateRegistryInput): @ap/kernel#Registry
+startAppHost | function | function startAppHost<A extends @ap/app-host#HostAssembly = @ap/app-host#HostAssembly>(options: @ap/app-host#StartAppHostOptions<A>): Promise<void>
+startOrFail | function | function startOrFail(root: { render: (node: ReactNode) => void; }, start: () => Promise<void> | void): Promise<void>
+# reachable types

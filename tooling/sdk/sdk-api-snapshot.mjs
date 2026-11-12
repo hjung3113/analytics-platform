@@ -112,8 +112,8 @@ function createCompilerProgram(ts, declarationPaths, baseUrl, paths) {
 
 // The SDK package that owns a built declaration file, or undefined for third-party and lib files.
 function ownerPackage(fileName) {
-  const match = fileName.replace(/\\/g, '/').match(/\/packages\/sdk\/([^/]+)\/dist\//);
-  return match ? match[1] : undefined;
+  const match = fileName.replace(/\\/g, '/').match(/\/packages\/(?:sdk\/([^/]+)|(app-host))\/dist\//);
+  return match ? match[1] ?? match[2] : undefined;
 }
 
 function declarationIsTypeOnly(ts, declaration) {
@@ -516,10 +516,14 @@ function entrySnapshotPath(packageName, subpath) {
 }
 
 function packageConfigs() {
-  return SDK_PACKAGES.map((name) => {
-    const packageRoot = join(repoRoot, 'packages', 'sdk', name);
-    const manifest = readJson(join(packageRoot, 'package.json'));
-    return { name, packageRoot, manifest };
+  // app-host joins the SDK five (ADR-0143); the adapters publish no public TS surface yet, so they get no snapshot.
+  const snapshotPackages = [
+    ...SDK_PACKAGES.map((name) => ({ name, dir: join(repoRoot, 'packages/sdk', name) })),
+    { name: 'app-host', dir: join(repoRoot, 'packages/app-host') },
+  ];
+  return snapshotPackages.map(({ name, dir }) => {
+    const manifest = readJson(join(dir, 'package.json'));
+    return { name, packageRoot: dir, manifest };
   });
 }
 
