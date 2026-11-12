@@ -170,14 +170,17 @@ it('rejects a source value absent from the inverse map', async () => {
   const { endpoint } = runtime(routing, { async *query() { yield { site: 'SITE-A', room: 'RA1' }; } });
   await expect(endpoint.handle(args())).rejects.toEqual(new MenuUpstreamError('unavailable'));
 });
-it('does not partially answer a request spanning room shards', async () => {
+it('answers a request spanning room shards from every owning target, each with only its rooms', async () => {
   const routing = owner(); routing.routes = [{ sites: ['SITE-A'], rooms: ['RA1'], targets: ['tgt-1'] }, { sites: ['SITE-A'], rooms: ['RA2'], targets: ['tgt-2'] }];
   const { bundle } = runtime();
-  const factory = vi.fn();
+  const legs: { targetId: string; rooms: readonly string[] }[] = [];
+  const factory = vi.fn(() => ({ async *query(leg: { targetId: string; rooms: readonly string[] }) { legs.push({ targetId: leg.targetId, rooms: leg.rooms }); yield { site: 'SITE-A', room: leg.rooms[0] }; } }));
   const contribution = declaredContribution({ bundle: { ...bundle, endpointOwners: { 'syn.rows': routing }, targets: { ...bundle.targets, 'tgt-2': { kind: 'sql', dialect: 'postgres', connectionFile: '/syn/second-secret' } } }, checkService: {} as CheckService, connectorFactories: { sql: factory } });
   const endpoint = contribution.endpoints?.[0];
   if (!endpoint) throw new Error('endpoint missing');
-  expect(await endpoint.handle(args())).toMatchObject({ outcome: 'error', data: null }); expect(factory).not.toHaveBeenCalled();
+  const answer = await endpoint.handle(args());
+  expect(answer).toMatchObject({ outcome: 'ok' }); expect((answer as { data: unknown[] }).data).toHaveLength(2);
+  expect(legs.sort((a, b) => a.targetId.localeCompare(b.targetId))).toEqual([{ targetId: 'tgt-1', rooms: ['RA1'] }, { targetId: 'tgt-2', rooms: ['RA2'] }]);
 });
 it('counts authorized overflow at the core row judgment too', async () => {
   let pulled = 0;
@@ -258,4 +261,15 @@ it('preserves an existing capped handler empty result with data null', async () 
   const { endpoint } = runtime();
   const result = await runQuery({ ok: true, declaration: { ...endpoint, handle: async () => ({ outcome: 'empty', data: null }) }, context: { scopeId: 'SITE-A' }, params: { q: 'a' }, scopeResolver: { resolve: async () => [{ site: 'SITE-A', rooms: ['RA1'] }] } }, actor, 'syn-cid');
   expect(result).toMatchObject({ outcome: 'empty', data: null });
+});
+it('resolve-keys with skip: a key resolving to a skipped room is forbidden and the main call never runs', async () => {
+  // `unroutedRooms: 'skip'` declares that this endpoint's data lives only in routed rooms; a key in RA2 cannot be read from RA1's target.
+  const routing = owner(); routing.unroutedRooms = 'skip'; routing.routes = [{ sites: ['SITE-A'], rooms: ['RA1'], targets: ['tgt-1'] }];
+  routing.scopeCheck = { mode: 'resolve-keys', keys: 'params.q', lookup: { statement: 'SELECT :key', params: { key: 'params.q' } }, siteField: '/site', roomField: '/room' };
+  let mainCalls = 0;
+  const { endpoint } = runtime(routing, { async *query(leg) {
+    if ('statement' in leg.call && leg.call.statement === 'SELECT :key') { yield { site: 'SITE-A', room: 'RA2' }; return; }
+    mainCalls++; yield { value: 1 };
+  } });
+  expect(await endpoint.handle(args())).toMatchObject({ outcome: 'forbidden', data: null }); expect(mainCalls).toBe(0);
 });

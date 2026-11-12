@@ -25,9 +25,9 @@ it('serves validated single-target routing with an injected factory', async () =
 it('refuses a missing connector with its exact boot message', async () => {
   await expect(setup({}, {})).rejects.toMatchObject({ problems: ['connector kind sql is not available'] });
 });
-it('retains the d1 boot gate for multi-target routes', async () => {
+it('accepts multi-target routes once fan-out merge is served (node 1839d1)', async () => {
   const owner = routedBundle().endpointOwners['syn.rows'];
-  await expect(setup({ endpointOwners: { 'syn.rows': { ...owner, routes: [{ sites: ['SITE-A'], rooms: ['RA1'], targets: ['tgt-1', 'tgt-2'] }] } } })).rejects.toMatchObject({ problems: ['fan-out merge is not available yet (ADR-0153 node 1839d1)'] });
+  expect((await setup({ endpointOwners: { 'syn.rows': { ...owner, routes: [{ sites: ['SITE-A'], rooms: ['RA1'], targets: ['tgt-1', 'tgt-2'] }] } } }))?.menuDispatch[0]?.endpoints?.[0]?.spec.limits).toEqual({ maxRows: 100 });
 });
 it.each(['partial', 'paged'])('retains the d2 boot gate for %s', async (variant) => {
   const base = routedBundle();
