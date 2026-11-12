@@ -1,10 +1,12 @@
-// Clean outside-consumer gate for the SDK release tarballs (ADR-0056, ADR-0044 ②③, #519).
-// Usage: pnpm sdk:consumer-check <dir with the five ap-*.tgz from `pnpm sdk:pack`>
+// Clean outside-consumer gate for the SDK release tarballs (ADR-0056, ADR-0044 ②③, #519; release unit 2, ADR-0143).
+// Usage: pnpm sdk:consumer-check <dir with the nine ap-*.tgz from `pnpm sdk:pack`>
 //
-// Serves the tarball directory over HTTP on 127.0.0.1 and creates a temp project outside the repo that lists the five tarballs
-// as direct URL dependencies, the way a release consumer does (no workspace link, no SDK source, no @ap/* overrides, pnpm's
-// default blockExoticSubdeps; a `file:` install would hide #806), then runs: install → single-copy check → tsc → vite build
-// (CSS classes) → vitest. The first failing step is named in the error.
+// Serves the tarball directory over HTTP on 127.0.0.1 and creates a temp project outside the repo that lists the nine tarballs
+// (SDK five + app-host, mock-server, http-adapter, server-conformance) as direct URL dependencies, the way a release consumer
+// does (no workspace link, no SDK source, no @ap/* overrides, pnpm's default blockExoticSubdeps; a `file:` install would hide
+// #806). The app is the #1790 start-kit fixture (tooling/sdk/fixtures/out-of-repo-assembly/kit): Host assembly with one public
+// synthetic menu and one in-house-role menu. Steps: install → single-copy check → tsc → kit scripts check/build (CSS classes,
+// NODE_ENV signal) → vitest → removal self-test on a copy without the in-house menu. The first failing step is named in the error.
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -12,11 +14,13 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SDK_PACKAGES } from './sdk-exports.mjs';
+import { releasePackages } from './sdk-exports.mjs';
 import { hasCssSelector, selectCssProbes } from './sdk-css-probes.mjs';
 import { readAutoAnimatePatch, readWorkspaceBlock } from './sdk-pnpm-config.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const KIT_FIXTURE = join(repoRoot, 'tooling', 'sdk', 'fixtures', 'out-of-repo-assembly', 'kit');
+const RELEASE_NAMES = releasePackages().map((entry) => entry.name);
 // The consumer installs the versions this repo's workspace resolved (the web app is the reference install).
 const REFERENCE_APP = join(repoRoot, 'apps', 'platform-web');
 const CONSUMER_DEPENDENCIES = ['react', 'react-dom', 'vite', 'vitest', 'typescript', 'jsdom', 'tailwindcss', '@tailwindcss/vite', '@testing-library/react', '@testing-library/dom', '@types/react', '@types/react-dom'];
@@ -119,136 +123,63 @@ async function runStepAsync(name, action) {
   return result;
 }
 
-const APP_FILES = {
-  'index.html': `<!doctype html><html><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>\n`,
-  'vite.config.ts': `import { defineConfig } from 'vitest/config';
-import tailwindcss from '@tailwindcss/vite';
-
-export default defineConfig({
-  plugins: [tailwindcss()],
-  test: { environment: 'jsdom', include: ['src/**/*.test.tsx'] },
-});
-`,
-  // Browser SDK check: the program is the app source only (no vite.config.ts, no tests, so no Vite/Vitest Node declarations).
-  'tsconfig.browser.json': `${JSON.stringify({
-    compilerOptions: {
-      target: 'ES2022',
-      lib: ['ES2022', 'DOM', 'DOM.Iterable'],
-      module: 'ESNext',
-      moduleResolution: 'Bundler',
-      jsx: 'react-jsx',
-      strict: true,
-      noEmit: true,
-      // No @types/node, no vitest/globals: the SDK must not need either from its consumer.
-      types: [],
-      skipLibCheck: false,
-    },
-    include: ['src/main.tsx'],
-  }, null, 2)}\n`,
-  // Self-test: the same browser program plus a file that needs Node types; the browser check must reject it.
+// Gate machinery written next to the copied kit fixture: the browser-poisoned self-test files (not kit content).
+const POISON_FILES = {
   'tsconfig.poisoned.json': `${JSON.stringify({ extends: './tsconfig.browser.json', include: ['src/main.tsx', 'src/poison.ts'] }, null, 2)}\n`,
   'src/poison.ts': `export const poisoned: NodeJS.Timeout | undefined = undefined;\n`,
-  // Config and tests may use Node/Vitest types; they are checked apart from the browser program.
-  'tsconfig.json': `${JSON.stringify({
-    extends: './tsconfig.browser.json',
-    compilerOptions: { types: [] },
-    include: ['src', 'vite.config.ts'],
-  }, null, 2)}\n`,
-  'src/style.css': `@import "tailwindcss";
-@import "@ap/ui/styles.css";
-@import "@ap/components/styles.css";
-@import "@ap/shell/styles.css";
-`,
-  'src/App.tsx': `import { House } from 'lucide-react';
-import { groupId, KERNEL_PERMISSIONS, spaceId, type Permission } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
-import { useOverlayState } from '@ap/kernel/host';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { Button } from '@ap/ui';
-import { readColorToken, THEME_COLOR_TOKENS } from '@ap/ui/theme';
-import { AuditTimeline } from '@ap/components';
-import { DockLayout, normalizeDockTree } from '@ap/components/dock';
-import { AppShell } from '@ap/shell';
-
-const registry = createRegistry({
-  spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'home' })],
-  groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars'), hideLabelWhenSingle: true }],
-  menus: [{
-    id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/',
-    icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview',
-    features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [],
-  }],
-});
-
-const session = testSession(['platform:view']);
-export const adapter = testAdapter({ session: () => session });
-
-/** Kernel hook used under a Provider from the same kernel copy; components and shell render around it. */
-function Probe() {
-  const { session: current } = usePlatform();
-  const { paletteOpen } = useOverlayState();
-  const known: readonly Permission[] = KERNEL_PERMISSIONS;
-  const token = THEME_COLOR_TOKENS[0];
-  return (
-    <section data-testid="probe" data-user={current.user.id} data-permissions={known.length} data-token={token} data-resolved={typeof readColorToken} data-host={String(paletteOpen)} data-dock={typeof DockLayout + ':' + normalizeDockTree(null, ['a']).type}>
-      <Button>consumer button</Button>
-      <AuditTimeline events={[]} />
-    </section>
-  );
-}
-
-export function App() {
-  return (
-    <I18nProvider>
-      <PlatformProvider adapter={adapter} registry={registry}>
-        <AppShell><Probe /></AppShell>
-      </PlatformProvider>
-    </I18nProvider>
-  );
-}
-`,
-  'src/main.tsx': `import { createRoot } from 'react-dom/client';
-import './style.css';
-import { App } from './App';
-
-const root = document.getElementById('root');
-if (root) createRoot(root).render(<App />);
-`,
-  'src/App.test.tsx': `import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, expect, it } from 'vitest';
-import { App } from './App';
-
-afterEach(cleanup);
-
-it('renders the shell, a components widget and a kernel hook under one PlatformProvider', async () => {
-  render(<App />);
-  const probe = await screen.findByTestId('probe');
-  expect(probe.getAttribute('data-user')).toBe('u1');
-  expect(Number(probe.getAttribute('data-permissions'))).toBeGreaterThan(0);
-  expect(screen.getByText('consumer button')).toBeTruthy();
-  expect(screen.getByText('변경 이력이 없습니다.')).toBeTruthy();
-  expect(screen.getByRole('navigation', { name: '시스템 레일' })).toBeTruthy();
-});
-`,
 };
 
-function writeProject(root, tarballDir, base) {
+const IN_HOUSE_START = '// kit:inhouse-start';
+const IN_HOUSE_END = '// kit:inhouse-end';
+
+/**
+ * The removal self-test's transform: the kit's `menus.ts` with the marked in-house-role menu block replaced by an empty
+ * list, so the rest (spreads, the mock vocabulary) keeps compiling. The public menu must still build and render.
+ */
+export function removeInHouseMenus(source) {
+  const start = source.indexOf(IN_HOUSE_START);
+  const end = source.indexOf(IN_HOUSE_END);
+  if (start === -1 && end === -1) fail(`kit menus.ts carries no "${IN_HOUSE_START}"/"${IN_HOUSE_END}" markers`);
+  if (start === -1 || end === -1 || end < start) fail(`kit menus.ts markers are unbalanced (start ${start}, end ${end})`);
+  const before = source.slice(0, start);
+  const after = source.slice(end + IN_HOUSE_END.length);
+  return `${before}const IN_HOUSE_MENUS: readonly MenuEntry[] = [];${after}`;
+}
+
+/** Which @ap/* siblings each release package must resolve to the app's own single copy (unit 2 included, §10.3). */
+export function singleCopyPeers() {
+  return [
+    ['kernel', ['contracts']],
+    ['components', ['kernel', 'ui', 'contracts']],
+    ['shell', ['components', 'kernel', 'ui', 'contracts']],
+    ['app-host', ['shell', 'components', 'kernel', 'ui', 'contracts']],
+    ['mock-server', ['contracts']],
+    ['http-adapter', ['contracts']],
+    ['server-conformance', ['contracts']],
+  ];
+}
+
+function writeProject(root, tarballDir, base, { withoutInHouseMenu = false } = {}) {
+  if (!existsSync(join(KIT_FIXTURE, 'menus.ts'))) fail(`kit fixture not found at ${KIT_FIXTURE}`);
+  cpSync(KIT_FIXTURE, root, { recursive: true });
+  if (withoutInHouseMenu) {
+    writeFileSync(join(root, 'menus.ts'), removeInHouseMenus(readFileSync(join(root, 'menus.ts'), 'utf8')));
+  }
+
   const tarball = (name) => {
     const files = readdirSync(tarballDir).filter((candidate) => candidate.startsWith(`ap-${name}-`) && candidate.endsWith('.tgz'));
     if (files.length === 0) fail(`no ap-${name}-*.tgz in ${tarballDir}`);
     if (files.length > 1) fail(`more than one ap-${name}-*.tgz in ${tarballDir}: ${files.join(', ')}; pass a directory with one release`);
     return join(tarballDir, files[0]);
   };
+  // The kit template carries the dev/build/check scripts; the check fills in the dependencies (nine tarballs + toolchain).
+  const template = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   const dependencies = {};
-  for (const name of SDK_PACKAGES) dependencies[`@ap/${name}`] = `${base}/${basename(tarball(name))}`;
+  for (const name of RELEASE_NAMES) dependencies[`@ap/${name}`] = `${base}/${basename(tarball(name))}`;
   const external = { 'lucide-react': installedVersion('lucide-react') };
   for (const name of CONSUMER_DEPENDENCIES) external[name] = installedVersion(name);
-  writeFileSync(join(root, 'package.json'), `${JSON.stringify({
-    name: 'ap-sdk-outside-consumer',
-    private: true,
-    type: 'module',
-    dependencies: { ...dependencies, ...external },
-  }, null, 2)}\n`);
+  template.dependencies = { ...dependencies, ...external };
+  writeFileSync(join(root, 'package.json'), `${JSON.stringify(template, null, 2)}\n`);
 
   const workspaceYaml = readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8');
   const autoAnimatePatch = readAutoAnimatePatch(workspaceYaml);
@@ -272,7 +203,7 @@ function writeProject(root, tarballDir, base) {
     '',
   ].join('\n'));
 
-  for (const [path, content] of Object.entries(APP_FILES)) {
+  for (const [path, content] of Object.entries(POISON_FILES)) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), content);
   }
@@ -288,16 +219,16 @@ function assertSingleCopies(root) {
       if (dirname(current) === current) fail(`${name} does not resolve from ${dir}`);
     }
   };
-  const dirs = Object.fromEntries(SDK_PACKAGES.map((name) => [name, dirOf(root, `@ap/${name}`)]));
+  const dirs = Object.fromEntries(RELEASE_NAMES.map((name) => [name, dirOf(root, `@ap/${name}`)]));
   const mismatches = [];
-  for (const [consumer, wants] of [['kernel', ['contracts']], ['components', ['kernel', 'ui', 'contracts']], ['shell', ['components', 'kernel', 'ui', 'contracts']]]) {
+  for (const [consumer, wants] of singleCopyPeers()) {
     for (const dep of wants) {
       const found = dirOf(dirs[consumer], `@ap/${dep}`);
       if (found !== dirs[dep]) mismatches.push(`@ap/${consumer} resolves @ap/${dep} to ${found}, the app resolves ${dirs[dep]}`);
     }
   }
   const reactDirs = new Set([dirOf(root, 'react')]);
-  for (const name of SDK_PACKAGES.filter((candidate) => candidate !== 'contracts')) reactDirs.add(dirOf(dirs[name], 'react'));
+  for (const name of RELEASE_NAMES.filter((candidate) => candidate !== 'contracts')) reactDirs.add(dirOf(dirs[name], 'react'));
   if (reactDirs.size !== 1) mismatches.push(`react resolves to ${[...reactDirs].join(' and ')}`);
   if (mismatches.length > 0) fail(mismatches.join('; '));
 }
@@ -314,7 +245,7 @@ function assertCssClasses(root) {
   const cssFiles = existsSync(assets) ? readdirSync(assets).filter((file) => file.endsWith('.css')) : [];
   if (cssFiles.length === 0) fail('vite build emitted no CSS file');
   const css = cssFiles.map((file) => readFileSync(join(assets, file), 'utf8')).join('\n');
-  const packages = SDK_PACKAGES.map((name) => {
+  const packages = RELEASE_NAMES.map((name) => {
     const packageDirectory = join(root, 'node_modules', '@ap', name);
     const manifest = JSON.parse(readFileSync(join(packageDirectory, 'package.json'), 'utf8'));
     const files = javascriptFiles(join(packageDirectory, 'dist'));
@@ -354,32 +285,46 @@ async function main() {
   const tarballDir = resolve(tarballArg);
   if (!existsSync(tarballDir)) fail(`tarball directory ${tarballDir} does not exist`);
   const root = mkdtempSync(join(tmpdir(), 'ap-sdk-consumer-'));
+  const selfTestRoot = mkdtempSync(join(tmpdir(), 'ap-sdk-consumer-selftest-'));
   let server;
   try {
     const served = await serveTarballs(tarballDir);
     server = served.server;
     const { base } = served;
-    const relativeRoot = relative(repoRoot, root);
-    if (relativeRoot === '' || !relativeRoot.startsWith(`..${sep}`)) fail('consumer directory must be outside the repository');
-    runStep('write consumer project', () => writeProject(root, tarballDir, base));
-    await runStepAsync('pnpm install (tarballs over http://127.0.0.1, no @ap overrides, tiptap overrides, auto-animate patch)', () => runAsync('pnpm', ['install', '--no-frozen-lockfile'], root));
-    runStep('single copy of react and @ap/* packages', () => assertSingleCopies(root));
+    for (const project of [root, selfTestRoot]) {
+      const relativeRoot = relative(repoRoot, project);
+      if (relativeRoot === '' || !relativeRoot.startsWith(`..${sep}`)) fail('consumer directory must be outside the repository');
+    }
+    runStep('write consumer project (kit fixture: Host assembly, public + in-house-role synthetic menus)', () => writeProject(root, tarballDir, base));
+    await runStepAsync('pnpm install (nine tarballs over http://127.0.0.1, no @ap overrides, tiptap overrides, auto-animate patch)', () => runAsync('pnpm', ['install', '--no-frozen-lockfile'], root));
+    runStep('single copy of react and @ap/* packages (nine release packages)', () => assertSingleCopies(root));
     runStep('browser tsc self-test: a Node-only declaration is rejected', () => assertBrowserCheckRejectsNode(root));
     runStep('tsc --noEmit (app source only, strict, Bundler, no @types/node)', () => run('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'tsconfig.browser.json'], root));
-    runStep('tsc --noEmit (vite config + tests)', () => run('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'tsconfig.json'], root));
-    runStep('vite build', () => run('pnpm', ['exec', 'vite', 'build'], root));
+    runStep("kit script 'check' (tsc vite config + tests, then vitest render of both roles)", () => run('pnpm', ['run', 'check'], root));
+    runStep("kit script 'build' (vite build)", () => run('pnpm', ['run', 'build'], root));
     runStep('built JS has no Button dev-only error (NODE_ENV reached dist)', () => assertProductionSignal(root));
-    runStep('built CSS carries utility classes from package-specific ui, components and shell dist JS', () => assertCssClasses(root));
-    runStep('vitest (jsdom): shell + components + kernel under one PlatformProvider', () => run('pnpm', ['exec', 'vitest', 'run'], root));
+    runStep('built CSS carries utility classes from package-specific ui, components, shell and app-host dist JS', () => assertCssClasses(root));
+    runStep('write removal self-test project (kit copy without the in-house-role menu)', () => {
+      writeProject(selfTestRoot, tarballDir, base, { withoutInHouseMenu: true });
+      cpSync(join(root, 'pnpm-lock.yaml'), join(selfTestRoot, 'pnpm-lock.yaml'));
+    });
+    await runStepAsync('pnpm install (removal self-test copy, frozen lockfile)', () => runAsync('pnpm', ['install', '--frozen-lockfile'], selfTestRoot));
+    runStep('removal self-test: tsc --noEmit (browser program)', () => run('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'tsconfig.browser.json'], selfTestRoot));
+    runStep('removal self-test: kit script build', () => run('pnpm', ['run', 'build'], selfTestRoot));
+    runStep('removal self-test: vitest renders the public menu without the in-house menu', () => run('pnpm', ['exec', 'vitest', 'run', '-t', 'public session'], selfTestRoot));
     process.stdout.write('sdk:consumer-check passed\n');
   } finally {
     server?.close();
-    if (process.env.AP_SDK_KEEP === '1') process.stdout.write(`sdk:consumer-check kept ${root}\n`);
-    else rmSync(root, { recursive: true, force: true });
+    for (const project of process.env.AP_SDK_KEEP === '1' ? [] : [root, selfTestRoot]) rmSync(project, { recursive: true, force: true });
+    if (process.env.AP_SDK_KEEP === '1') process.stdout.write(`sdk:consumer-check kept ${root} and ${selfTestRoot}\n`);
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`sdk:consumer-check FAILED at step "${step}": ${error instanceof Error ? error.message : String(error)}\n`);
-  process.exitCode = 1;
-});
+// Unit tests import the helpers above; main runs only when invoked as the check.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    process.stderr.write(`sdk:consumer-check FAILED at step "${step}": ${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  });
+}
+
