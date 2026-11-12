@@ -365,7 +365,7 @@ _Avoid_: Host 진입점 — `@ap/kernel/host`(ADR-0076)와 섞인다.
 _Avoid_: 포크 — 공개 파일을 고치는 안(ADR-0141 기각 B)과 섞인다.
 
 **전달기**:
-코어 서버(Fastify)가 소유자 표를 보고 menu-query 같은 요청을 사내 데이터 서버로 넘기는 구성요소. 등록된 id인지만 판정하고 outcome을 만들거나 응답 본문을 고치지 않는다([ADR-0095](docs/adr/0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 2). 브라우저는 상류를 직접 부르지 않는다. menu-query 경로는 구현 전이며 v0.36.0 범위는 [ADR-0148](docs/adr/0148-minimal-forwarder-and-identity-token.md)(Candidate).
+코어 서버(Fastify)가 소유자 표를 보고 menu-query 같은 요청을 사내 데이터 서버로 넘기는 구성요소. 등록된 id인지만 판정하고 outcome을 만들거나 응답 본문을 고치지 않는다([ADR-0095](docs/adr/0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 2). 브라우저는 상류를 직접 부르지 않는다. menu-query 경로는 구현 전이며 v0.36.0 범위는 [ADR-0148](docs/adr/0148-minimal-forwarder-and-identity-token.md).
 _Avoid_: 프록시, 게이트웨이 — 앞단(nginx) 경로 라우팅과 섞인다.
 
 **신원 토큰** (`X-Internal-Identity`):
