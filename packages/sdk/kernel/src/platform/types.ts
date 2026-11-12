@@ -7,7 +7,7 @@ import { CONTEXT_LABELS, type MenuEntry, type Registry, type RouteMatch } from '
 import type { QueryHistory } from '../query/query-history';
 import type { QueryDraft, QueryMissing } from '../query/query-draft';
 import type { RefreshEpochs } from '../query/refresh-epochs';
-import type { ContextKey, PageType, ContractError, EquipmentAxisDescriptor, GlobalContext, ModuleScopedId, Pair, Permission, PlatformAdapter, QueryHistoryStore, SavedViewStore, Session, SessionUser, SpaceDef, SpaceId, Text, MainUsageVia } from '@ap/contracts';
+import type { ContextKey, PageType, ContractError, EquipmentAxisDescriptor, GlobalContext, ModuleScopedId, Pair, Permission, PermissionRequestTarget, PlatformAdapter, QueryHistoryStore, SavedViewStore, Session, SessionUser, SpaceDef, SpaceId, Text, MainUsageVia } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -80,6 +80,7 @@ export type HomeTodoSlot = { Todo: ComponentType };
  * navCounts: per-menu and per-`navViews` count badges in a space's sidebar (06 §8, #761).
  * spaceNavSection: a space's own sidebar section between the primary menu and favorites (06 §8, #761).
  * homeTodo: the home `내 할 일` section; the home menu reads it through `MenuPlatform.homeTodo`, the shell never does (ADR-0070 decision 8, ADR-0076, #657).
+ * accessRequest: the blocked-place request entry (`AccessRequestSlot`, ADR-0154 decision 6); the shell and `PlatformPage` draw the places.
  */
 export type ScopeControlSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) => ComponentType<{ collapsed: boolean }> | null };
 /**
@@ -114,7 +115,20 @@ export type AnalysisActionsSlot = {
   /** Page types whose main screen gets the slot (#1429). Absent = `['analysis']`, the original behaviour. */
   pageTypes?: readonly PageType[];
 };
-export type PlatformSlots = { analysisActions?: AnalysisActionsSlot; scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot };
+/** A blocked place's request state from the server (the user's own requests): `pending` null = unknown, loading or failed (draw the plain request entry). `statusHref` is where the request status is read; null = no link. */
+export type AccessRequestState = { pending: boolean | null; statusHref: string | null };
+/**
+ * The blocked-place request entry (ADR-0154 decision 6, contract/kernel.md §6.2 and §8). The shell and the page components own the entry's
+ * place and look; the app owns the dialog, the pending read and the per-place pending rule. Absent slot → every place renders as without it.
+ * Site and room places draw it only while `Session.requestableScopes` is present (a platform grant-table source).
+ * `Pending` must be module-level (stable identity) and call `children(state)` at one stable position on every render.
+ * `Dialog` is controlled: the place owns `open`, renders it outside any menu, and `returnTo` is the app-relative address of the blocked screen.
+ */
+export type AccessRequestSlot = {
+  Pending: ComponentType<{ target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }>;
+  Dialog: ComponentType<{ target: PermissionRequestTarget; returnTo: string; open: boolean; onOpenChange: (open: boolean) => void }>;
+};
+export type PlatformSlots = { analysisActions?: AnalysisActionsSlot; scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot; accessRequest?: AccessRequestSlot };
 export type LinkOptions = { params?: Record<string, string>; /** A value may be a list for a repeated page key of the destination: one pair per item, in order. */ page?: Record<string, string | readonly string[] | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;

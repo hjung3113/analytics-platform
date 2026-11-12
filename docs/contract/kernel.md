@@ -185,7 +185,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 - Scope는 사용자가 요청하는 조직·데이터 접근 범위이며 단위는 Site다. Site 안에서는 부여된 room_name만 보인다. `scopeId`는 URL에 담지만 권한 증명이 아니다. 서버는 **매 요청마다** 사용자 권한과 요청 Scope를 재검증한다.
 - **Scope 부여 원천(Decided, [ADR-0154](../adr/0154-site-and-room-grants-are-platform-owned.md)):** 플랫폼 부여 표가 site·room 부여를 소유한다. 배포 설정의 `scopeCatalog`가 부여할 수 있는 site·room을 정한다. 세션 `scopes`는 room 부여가 하나 이상 있는 site만 내고, 선택 필드 `requestableScopes`는 카탈로그에서 부여가 없는 site만 낸다. 부여받지 않은 room 이름은 세션·`ScopeCheck`에 싣지 않는다.
 - **site 부여는 그 site의 Scope 카탈로그 room 전체(이후 추가 room 포함)를 준다(Decided, ADR-0154).** 나머지 상속 규칙(room → StGroup → Equipment, 조회 필터 자동 포함)은 Open이다.
-- **막힌 자리의 신청 진입(Decided, ADR-0154):** 접근하지 못한 메뉴·Scope·room은 해당 대상이 미리 채워진 권한 신청으로 이어진다. 진입 방식·URL 키와 화면 구현은 시안 확정 후 1844f다.
+- **막힌 자리의 신청 진입(Decided, ADR-0154):** 접근하지 못한 메뉴·Scope·room은 해당 대상이 미리 채워진 권한 신청으로 이어진다. 진입은 그 자리에서 여는 앱의 요청 대화상자이고 새 URL 키를 만들지 않는다. SDK는 앱이 주입하는 선택 슬롯 `PlatformSlots.accessRequest`로 받고 자리와 대상 규칙은 [§8](layout.md#8-shell-slots)이 정한다. 대기 상태는 사용자 자신의 요청을 서버에서 읽어 새로고침 뒤에도 같다. 승인·부여로 `sessionVersion`이 바뀌어 세션 스냅샷이 바뀌면 Kernel이 지금 Scope를 다시 확인하므로(`validatedFor`), 막힌 자리는 다음 폴링에서 새로고침 없이 열린다.
 - 접근할 수 없는 Scope는 명시적 오류/선택 상태로 처리하며 다른 Scope로 조용히 대체하지 않는다. 같은 URL이 다른 사용자에게 같은 접근 권한을 부여하지 않는다.
 - 세션·최근방문 값은 미검증 후보이며, 재적용 전에 현재 Scope에서 설비·Lot 선택과 권한의 유효성을 다시 검증한다.
 - **요청 `scopeId`는 하나다(Decided).** 부재는 명시적 선택 상태이며 임의 Scope로 대체하지 않는다. Scope 선택지 조회와 분석 데이터 조회는 구분한다. 사용자가 명시한 무단 ID는 조용히 제거하지 않으며, 전체 권한 실패는 `outcome=forbidden`이다(§19).

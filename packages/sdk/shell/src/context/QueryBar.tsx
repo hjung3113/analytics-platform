@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, queryMissingSentence, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { formatQuerySummary, presetOutsideAxes, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
+import { AccessRequestEntry, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
 import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
 import { ShareControl } from './ShareControl';
@@ -58,6 +58,12 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const [editError, setEditError] = useState<string | null>(null);
   const [presetNotice, setPresetNotice] = useState({ id: '', text: '' });
   const conditionPreset = useConditionPreset();
+  const accessRequest = useScopeAccessRequest();
+  // Place (d) (ADR-0154 decision 6): a request entry under the room field while the validated Scope is only partially granted.
+  const roomScope = scope.status === 'valid' && scope.validatedFor === session && scope.scopeId !== null ? session.scopes.find(option => option.id === scope.scopeId) : undefined;
+  const roomRequest = (roomNames: IdSet, name: string) => accessRequest && roomScope && roomScope.grantedRooms < roomScope.totalRooms
+    ? <AccessRequestEntry slot={accessRequest} size="field" label={t('accessRequestField', { name })} target={scopeRequestTarget(roomScope.id, roomNames, scope.grantedRooms)} />
+    : null;
   useLayoutEffect(() => {
     if (expanded && focusFirst.current) editor.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus();
     focusFirst.current = false;
@@ -151,7 +157,8 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
       <legend className="px-1 text-xs font-medium text-text-secondary">{ko ? '기간과 Scope' : 'Period and query scope'}</legend>
       <div className="flex flex-wrap items-start gap-3">
         {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} reportInvalid={() => setEditError(ko ? '유효한 시작·종료 시각을 입력하세요.' : 'Enter valid start and end times.')} />}
-        {cap.roomNames === 'apply' && <SetField name={ko ? '공정' : 'Process'} values={g.roomNames} options={scope.status === 'valid' && scope.validatedFor === session ? scope.grantedRooms.map(value => ({ value, label: value })) : []} onChange={roomNames => write({ roomNames })} invalid={invalid('roomNames')} reasonId={reasonId} />}
+        {cap.roomNames === 'apply' && <SetField name={ko ? '공정' : 'Process'} values={g.roomNames} options={scope.status === 'valid' && scope.validatedFor === session ? scope.grantedRooms.map(value => ({ value, label: value })) : []} onChange={roomNames => write({ roomNames })} invalid={invalid('roomNames')} reasonId={reasonId}
+          request={roomRequest(g.roomNames, ko ? '공정' : 'Process')} />}
         {cap.line === 'apply' && <AxisField axisId="lineNames" name={tx(CONTEXT_LABELS.line)} values={g.lineNames} context={context} parents={g.roomNames === null ? {} : { roomNames: g.roomNames }} onChange={lineNames => write({ lineNames })} invalid={invalid('line')} reasonId={reasonId} />}
         {cap.prcGroup === 'apply' && <AxisField axisId="prcGroups" name={tx(CONTEXT_LABELS.prcGroup)} values={g.prcGroups} context={context} parents={{ ...(g.roomNames === null ? {} : { roomNames: g.roomNames }), ...(g.lineNames === null ? {} : { lineNames: g.lineNames }) }} onChange={prcGroups => write({ prcGroups })} invalid={invalid('prcGroup')} reasonId={reasonId} />}
       </div>
@@ -215,14 +222,15 @@ function useSearchQuery(search: string): string {
   return query;
 }
 
-type SetFieldProps = { name: string; values: IdSet; options: { value: string; label: string }[]; onChange: (values: IdSet) => void; invalid?: boolean; reasonId: string };
-function SetField({ name, values, onChange, invalid, reasonId, ...props }: SetFieldProps & Partial<Pick<ComponentProps<typeof MultiCombobox>, 'getLabel' | 'search' | 'onSearchChange' | 'loading' | 'error' | 'onRetry' | 'hasMore' | 'onLoadMore'>>) {
+type SetFieldProps = { name: string; values: IdSet; options: { value: string; label: string }[]; onChange: (values: IdSet) => void; invalid?: boolean; reasonId: string; /** Drawn beside `전체 후보로` (the room field's request entry); absent → today's field. */ request?: ReactNode };
+function SetField({ name, values, onChange, invalid, reasonId, request, ...props }: SetFieldProps & Partial<Pick<ComponentProps<typeof MultiCombobox>, 'getLabel' | 'search' | 'onSearchChange' | 'loading' | 'error' | 'onRetry' | 'hasMore' | 'onLoadMore'>>) {
   const { lang, t } = useI18n();
   const ko = lang === 'ko';
+  const reset = <Button type="button" variant="ghost" size="toolbar" aria-label={ko ? `${name} 전체 후보로 되돌리기` : `Reset ${name} to all candidates`} disabled={values === null} onClick={() => onChange(null)}>{ko ? '전체 후보로' : 'Reset to all candidates'}</Button>;
   return <div className="grid w-56 min-w-0 max-w-full gap-1 text-xs text-text-secondary">
     <span>{name}</span>
     <MultiCombobox {...props} label={name} values={values ?? []} onValuesChange={onChange} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} listboxLabel={name} emptyText={ko ? '후보 없음' : 'No candidates'} placeholder={values === null ? (ko ? '전체 후보' : 'All candidates') : values.length === 0 ? (ko ? '명시적 빈 선택' : 'Explicit empty selection') : undefined} selectedSummaryLabel={count => ko ? `선택한 항목 ${count}개` : `${count} selected items`} moreLabel={ko ? '더 보기' : 'Load more'} clearAllLabel={ko ? '선택 모두 비우기' : 'Clear selection'} removeLabel={value => `${t('clear')} ${value}`} loadingText={ko ? '후보 확인 중' : 'Loading candidates'} retryLabel={t('retry')} />
-    <Button type="button" variant="ghost" size="toolbar" aria-label={ko ? `${name} 전체 후보로 되돌리기` : `Reset ${name} to all candidates`} disabled={values === null} onClick={() => onChange(null)}>{ko ? '전체 후보로' : 'Reset to all candidates'}</Button>
+    {request ? <div className="flex flex-wrap items-center gap-1">{reset}{request}</div> : reset}
   </div>;
 }
 function AxisField({ axisId, context, parents, ...props }: Omit<SetFieldProps, 'options'> & { axisId: string; context: PortContext; parents: Record<string, string[]> }) {
