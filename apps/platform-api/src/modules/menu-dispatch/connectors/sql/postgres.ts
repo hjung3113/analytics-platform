@@ -34,20 +34,9 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
   const connectionString = secrets.connection.reveal().trim();
   const max = target.pool?.max ?? 4;
   const concurrency = Math.min(max, target.pool?.concurrency ?? 2);
-  const pool = new pg.Pool({
-    connectionString, max, application_name: target.applicationName,
-    connectionTimeoutMillis: 1000, idleTimeoutMillis: 1000, allowExitOnIdle: true,
-    types: { getTypeParser: ((oid: number, format?: 'text' | 'binary') => {
-      if (format !== 'binary' && [20, 1700, 1114, 1082].includes(oid)) return (value: string) => value;
-      return format === 'binary' ? pg.types.getTypeParser(oid, 'binary') : pg.types.getTypeParser(oid, 'text');
-    }) as typeof pg.types.getTypeParser },
-  });
-  // Idle errors must never enter pg's default unhandled-error path with driver diagnostics.
-  pool.on('error', () => {});
-  // Installed on creation, before pg-pool removes its idle listener at checkout.
-  // Keep only sanitized state, and retain the listener through socket destruction.
-  const lifetimes = new WeakMap<pg.PoolClient, { failed: boolean; notify: (() => void) | undefined }>();
-  const ownClient = (data: pg.PoolClient) => {
+  // Keep sanitized ownership from construction through socket destruction.
+  const lifetimes = new WeakMap<pg.ClientBase, { failed: boolean; notify: (() => void) | undefined }>();
+  const ownClient = (data: pg.ClientBase) => {
     let state = lifetimes.get(data);
     if (!state) {
       state = { failed: false, notify: undefined };
@@ -57,6 +46,23 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
     }
     return state;
   };
+  class OwnedClient extends pg.Client {
+    constructor(config?: pg.ClientConfig) {
+      super(config);
+      ownClient(this);
+    }
+  }
+  const pool = new pg.Pool({
+    Client: OwnedClient, connectionString, max, application_name: target.applicationName,
+    connectionTimeoutMillis: 1000, idleTimeoutMillis: 1000, allowExitOnIdle: true,
+    types: { getTypeParser: ((oid: number, format?: 'text' | 'binary') => {
+      if (format !== 'binary' && [20, 1700, 1114, 1082].includes(oid)) return (value: string) => value;
+      return format === 'binary' ? pg.types.getTypeParser(oid, 'binary') : pg.types.getTypeParser(oid, 'text');
+    }) as typeof pg.types.getTypeParser },
+  });
+  // Idle errors must never enter pg's default unhandled-error path with driver diagnostics.
+  pool.on('error', () => {});
+  // Idempotent fallback for injected pools that supply clients without our constructor.
   pool.on('connect', ownClient);
   let active = 0;
   const waiters = new Set<() => void>();
@@ -116,8 +122,8 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
             if (broken) throw new MenuUpstreamError('unavailable');
             if (cancel) {
               if (!Number.isSafeInteger(pid) || !pid || pid <= 0) throw new MenuUpstreamError('unavailable');
-              canceller = new pg.Client({ connectionString, application_name: target.applicationName, connectionTimeoutMillis: 1000, query_timeout: 1000 });
-              canceller.on('error', onControlError);
+              canceller = new OwnedClient({ connectionString, application_name: target.applicationName, connectionTimeoutMillis: 1000, query_timeout: 1000 });
+              ownClient(canceller).notify = onControlError;
               await canceller.connect();
               if (broken) throw new MenuUpstreamError('unavailable');
               if (released) return;
@@ -143,7 +149,10 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
           finally {
             clearTimeout(bound);
             // end() destroys an active control socket; never let its promise hold capacity.
-            if (canceller) void canceller.end().catch(() => {});
+            if (canceller) {
+              ownClient(canceller).notify = undefined;
+              void canceller.end().catch(() => {});
+            }
             released = true;
             data.release(broken ? new MenuUpstreamError('unavailable') : undefined);
             // Drop the checkout closure; the creation-time listener remains for life.
