@@ -51,7 +51,7 @@ test('mock-dist readers precede real production build; folded feature coverage s
   assert.match(staticJob, /fetch-depth: 0/);
   assert.match(staticJob, /FEATURE_LINT_BASE:.*pull_request.base.sha.*github.event.before/);
   assert.match(staticJob, /gate.sh static-extra/);
-  assert.match(workflow, /run: pnpm test/);
+  assert.match(workflow, /run: pnpm exec turbo run test --filter='!@ap\/platform-api'/);
   assert.match(workflow, /if:.*needs.changes.outputs.code != 'false'/);
   assert.match(workflow, /image: mirror.gcr.io\/pgvector\/pgvector:pg16/);
   assert.match(workflow, /run: bash ops\/platform-api\/scripts\/ci\/gate.sh integration/);

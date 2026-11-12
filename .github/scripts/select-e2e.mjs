@@ -12,9 +12,11 @@
 //   Markdown or .agents/ (the same set classify-changes.mjs treats as docs)  → needs nothing
 //   apps/platform-e2e/tests/<x>.spec.ts that still exists                      → that spec (base-path.spec.ts → base-path run)
 //   a deleted or renamed spec                                                  → needs nothing
+//   apps/platform-api/** or ops/platform-api/** except ops/platform-api/tsconfig.base.json → needs nothing (the mock E2E web server is `@ap/platform-web` on the mock adapter and its workspace
+//     dependency graph reaches neither tree; the one exception is tsconfig.base.json, which packages/feature-shared, feature-ui and apps/feature-screens extend)
 //   a spec file name outside [A-Za-z0-9_.-] (it would become a regex filter)    → all
 //   everything else → all: packages/**, apps/**, menus/** and platform/** (the contract-*.spec.ts files read many menus, so there is no menu→spec table), tooling/**, patches/**,
-//   ops/**, root manifests, .github/**, the e2e helpers/configs (contract-helpers.ts, support.ts, playwright*.config.ts, contract-reporter.ts, package.json), style.css,
+//   the rest of ops/**, root manifests, .github/**, the e2e helpers/configs (contract-helpers.ts, support.ts, playwright*.config.ts, contract-reporter.ts, package.json), style.css,
 //   and any path no rule knows.
 // Events: a pull request diffs BASE...HEAD; a push diffs BASELINE (the last main SHA whose CI run was green, last-green-main-sha.mjs) against SHA, so a spec that failed
 // stays in scope until a green run covers it; a manual run, FULL_INPUT=true, an empty diff, a missing baseline, an unknown event or any exception → all.
@@ -35,6 +37,9 @@ const SPEC = /^apps\/platform-e2e\/tests\/([^/]+\.spec\.ts)$/;
 const BASE_PATH_SPEC = 'base-path.spec.ts';
 // Playwright reads positional arguments as regular expressions, so a name goes out only if it is plain: letters, digits, `_`, `-`, `.`, starting with a letter or digit.
 // `.` only over-matches (an extra spec may run); every other regex, glob, shell or line-break character could miss the file or inject output lines.
+// Server trees the mock E2E never builds (verified against the @ap/platform-web dependency graph, #1680). The one file in them that the graph reads stays a full run.
+const SERVER_ONLY = /^(?:apps|ops)\/platform-api\//;
+const SERVER_ONLY_EXCEPTION = 'ops/platform-api/tsconfig.base.json';
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]*\.spec\.ts$/;
 
 const ALL = Object.freeze({ e2e: 'all', e2e_base_path: 'true', e2e_shards: '[1,2,3,4]', e2e_total: '4' });
@@ -53,6 +58,7 @@ export function select({ event, files, fullInput, exists }) {
   let basePath = false;
   for (const f of list) {
     if (DOCS_ONLY.test(f)) continue;
+    if (SERVER_ONLY.test(f) && f !== SERVER_ONLY_EXCEPTION) continue;
     const m = SPEC.exec(f);
     if (!m || !SAFE_NAME.test(m[1])) return { ...ALL };
     if (!exists(m[1])) continue;
@@ -149,7 +155,7 @@ function selfTest() {
   // Everything that is not provably limited → all.
   for (const f of [
     'packages/sdk/kernel/src/a.ts', 'packages/adapters/mock-server/src/a.ts', 'packages/feature-ui/src/a.ts', 'apps/platform-web/src/a.ts', 'apps/platform-web/vite.config.ts',
-    'apps/feature-screens/src/a.ts', 'apps/platform-api/src/a.ts', 'menus/mars/hw-time/src/a.ts', 'platform/home/src/a.ts', 'platform/dashboard/package.json', 'tooling/x.mjs', 'patches/x.patch', 'ops/platform-api/x.sh',
+    'apps/feature-screens/src/a.ts', 'menus/mars/hw-time/src/a.ts', 'platform/home/src/a.ts', 'platform/dashboard/package.json', 'tooling/x.mjs', 'patches/x.patch', 'ops/platform-api/tsconfig.base.json', 'ops/other/x.sh', 'apps/platform-api-x/src/a.ts', 'ops/platform-api-x/a.sh',
     'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'turbo.json', '.nvmrc', '.github/workflows/ci.yml', '.github/scripts/select-e2e.mjs',
     'packages/sdk/shell/src/style.css', 'site/index.html', 'docs/diagram.png', 'unknown/file.bin', '.gitignore',
   ]) check(`all: ${f}`, pr([f]), ALLV);
@@ -157,6 +163,15 @@ function selfTest() {
   check('all: docs + code', pr(['a.md', 'tooling/x.mjs']), ALLV);
   check('all: menus change never maps to a spec', pr(['menus/mars/hw-time/src/a.ts', `${T}hw-time.spec.ts`]), ALLV);
   check('all: platform change never maps to a spec', pr(['platform/home/src/a.ts', `${T}hw-time.spec.ts`]), ALLV);
+  // Server-only trees (#1680) → none, except the tsconfig base the graph extends.
+  for (const f of ['apps/platform-api/src/a.ts', 'apps/platform-api/package.json', 'apps/platform-api/migrations/0001.sql', 'ops/platform-api/scripts/ci/gate.sh', 'ops/platform-api/package.json', 'ops/platform-api/biome.json']) check(`none: ${f}`, pr([f]), NONEV);
+  check('server: server + docs → none', pr(['apps/platform-api/src/a.ts', 'README.md']), NONEV);
+  check('server: server + spec → the spec', pr(['apps/platform-api/src/a.ts', `${T}hw-time.spec.ts`]), sub('hw-time.spec.ts'));
+  check('server: server + code outside → all', pr(['apps/platform-api/src/a.ts', 'packages/sdk/kernel/src/a.ts']), ALLV);
+  check('server: tsconfig.base.json alone → all', pr(['ops/platform-api/tsconfig.base.json']), ALLV);
+  check('server: tsconfig.base.json + server file → all', pr(['apps/platform-api/src/a.ts', 'ops/platform-api/tsconfig.base.json']), ALLV);
+  check('server: nested tsconfig.base.json is not the exception → none', pr(['ops/platform-api/sub/tsconfig.base.json']), NONEV);
+  check('server: push uses the same rule', push(['apps/platform-api/src/a.ts']), NONEV);
   // Events and undecidable inputs → all.
   check('all: computation failed (null)', pr(null), ALLV);
   check('all: empty diff', pr([]), ALLV);
@@ -206,8 +221,12 @@ function selfTest() {
     check('git push: missing baseline → all', r({ EVENT: 'push', SHA: code }), ALLV);
     check('git push: unreachable baseline → all', r({ EVENT: 'push', BASELINE: 'abc123'.repeat(6), SHA: code }), ALLV);
     check('git push: baseline == sha (empty diff) → all', r({ EVENT: 'push', BASELINE: code, SHA: code }), ALLV);
+    const server = commit('server', ['apps/platform-api/src/a.ts', 'ops/platform-api/scripts/x.sh']);
+    check('git pr: server-only range → none', r({ EVENT: 'pull_request', BASE: del, HEAD: server }), NONEV);
+    const tsbase = commit('tsbase', ['ops/platform-api/tsconfig.base.json']);
+    check('git pr: tsconfig.base.json range → all', r({ EVENT: 'pull_request', BASE: server, HEAD: tsbase }), ALLV);
     const odd = commit('odd', [`${T}a\nb.spec.ts`, `${T}x y.spec.ts`]);
-    check('git pr: newline/space spec names (git quotes them) → all', r({ EVENT: 'pull_request', BASE: del, HEAD: odd }), ALLV);
+    check('git pr: newline/space spec names (git quotes them) → all', r({ EVENT: 'pull_request', BASE: tsbase, HEAD: odd }), ALLV);
     check('git dispatch: needs no git', run({ EVENT: 'workflow_dispatch', FULL_INPUT: 'true' }, join(dir, 'does-not-exist')).result, ALLV);
     check('git pr: not a repository → all', run({ EVENT: 'pull_request', BASE: base, HEAD: spec }, tmpdir()).result, ALLV);
   } finally {
