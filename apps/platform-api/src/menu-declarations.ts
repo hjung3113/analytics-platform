@@ -11,7 +11,7 @@ import { readFile } from 'node:fs/promises';
 import type { AppConfig } from './config.js';
 import { loadDeclarationBundle } from './modules/menu-dispatch/declarations-file.js';
 import { declaredContribution } from './modules/menu-dispatch/declared-endpoints.js';
-import { createMenuForwarder } from './modules/menu-dispatch/forwarder.js';
+import { createMenuForwarder, normalizeMenuUpstreamBaseUrl, validateMenuOwnerPath } from './modules/menu-dispatch/forwarder.js';
 import { createHttpScopeResolver } from './modules/menu-dispatch/http-scope-resolver.js';
 import { createIdentityTokenSigner } from './modules/menu-dispatch/identity-token.js';
 import type { ScopeResolver } from './modules/menu-dispatch/scope-resolver.js';
@@ -58,6 +58,12 @@ export async function loadMenuDeclarationSetup(
 
   // Step 1: the bundle (ADR-0146) — every failure mode throws from the loader itself.
   const bundle = await loadDeclarationBundle(file);
+  const baseUrl = normalizeMenuUpstreamBaseUrl(config.MENU_UPSTREAM_BASE_URL);
+  for (const [id, path] of Object.entries(bundle.endpointOwners)) {
+    try { validateMenuOwnerPath(path); } catch {
+      throw new Error(`Invalid endpointOwners field for ${id}: invalid menu upstream owner path`);
+    }
+  }
 
   // Step 2: the Ed25519 private key (ADR-0095 §2/§5). Fail closed on read errors; the signer
   // refuses anything that is not an Ed25519 key. Neither path exposes key material.
@@ -72,7 +78,7 @@ export async function loadMenuDeclarationSetup(
   // grant-service resolver, and the contribution that turns the bundle rows into declarations.
   const signer = createIdentityTokenSigner({ privateKeyPem, keyId });
   const forwarder = createMenuForwarder({
-    baseUrl: config.MENU_UPSTREAM_BASE_URL,
+    baseUrl,
     timeoutMs: config.MENU_UPSTREAM_TIMEOUT_MS,
     signer,
     ...(deps.fetch ? { fetch: deps.fetch } : {}),

@@ -9,7 +9,8 @@ export function createSessionSnapshot(deps: {
   checkService: CheckService;
 }) {
   return async (loaded: LoadedSession) => {
-    const permissions = await deps.permissions.resolve(deps.checkService, platformActorOf(loaded));
+    // Enumerating permissions is descriptive: unrelated denied capabilities are not attempted calls.
+    const permissions = await deps.permissions.resolve(deps.checkService, platformActorOf(loaded), { auditTokenDenials: false });
     return {
       user: {
         id: loaded.actor.id,

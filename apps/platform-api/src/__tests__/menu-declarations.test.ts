@@ -121,6 +121,32 @@ describe('loadMenuDeclarationSetup (#1729 h)', () => {
     ).rejects.toThrow(/declaration bundle/);
   });
 
+  it.each([
+    'https://upstream.test ',
+    'https://upstream.test#',
+    'https://upstream.test?',
+    'https://upstream.test?debug=1',
+    'ftp://upstream.test',
+  ])('refuses invalid MENU_UPSTREAM_BASE_URL at startup: %s', async (baseUrl) => {
+    await expect(loadMenuDeclarationSetup(config({
+      MENU_DECLARATIONS_FILE: bundleFile,
+      MENU_UPSTREAM_BASE_URL: baseUrl,
+      MENU_IDENTITY_KEY_FILE: keyFile,
+      MENU_IDENTITY_KEY_ID: 'k1',
+    }), { checkService })).rejects.toThrow(/MENU_UPSTREAM_BASE_URL/);
+  });
+
+  it('refuses an owner query at startup and names the endpoint field', async () => {
+    const invalidOwners = join(dir, 'invalid-owners.json');
+    await writeFile(invalidOwners, bundle({ endpointOwners: { 'synthetic.rows': '/upstream/rows?debug=1' } }));
+    await expect(loadMenuDeclarationSetup(config({
+      MENU_DECLARATIONS_FILE: invalidOwners,
+      MENU_UPSTREAM_BASE_URL: 'https://upstream.test',
+      MENU_IDENTITY_KEY_FILE: keyFile,
+      MENU_IDENTITY_KEY_ID: 'k1',
+    }), { checkService })).rejects.toThrow(/endpointOwners.*synthetic.rows/);
+  });
+
   it('builds the contribution without a resolver when no grant service is configured', async () => {
     const setup = await loadMenuDeclarationSetup(
       config({
@@ -155,7 +181,7 @@ describe('loadMenuDeclarationSetup (#1729 h)', () => {
     const setup = await loadMenuDeclarationSetup(
       config({
         MENU_DECLARATIONS_FILE: bundleFile,
-        MENU_UPSTREAM_BASE_URL: 'https://upstream.test',
+        MENU_UPSTREAM_BASE_URL: 'https://upstream.test/',
         MENU_IDENTITY_KEY_FILE: keyFile,
         MENU_IDENTITY_KEY_ID: 'k1',
         MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test',
