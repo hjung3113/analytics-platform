@@ -14,7 +14,7 @@ import { MenuUpstreamError } from '../../../forwarder.js';
 import { TargetJudgmentTimeout, type ConnectorLeg } from '../../types.js';
 import {
   createMssqlConnector, installExactNumericReader, markExactConnection, MSSQL_MAX_PARAMETERS, mssqlCallProblems,
-  rewriteMssqlStatement, type MssqlColumn, type MssqlDriver,
+  rewriteMssqlStatement, silenceDriverDiagnostics, type MssqlColumn, type MssqlDriver,
 } from '../mssql.js';
 
 const T = Object.fromEntries(['NVarChar', 'BigInt', 'Float', 'Bit', 'Int', 'DateTime', 'DateTime2', 'SmallDateTime', 'Date', 'Time', 'DateTimeOffset', 'Decimal', 'Numeric', 'Money', 'SmallMoney', 'Binary', 'VarBinary', 'Image', 'UDT', 'Variant'].map((name) => [name, { name }]));
@@ -229,6 +229,27 @@ it.each([
   ['binary', { name: 'blob', type: T.VarBinary }, Buffer.from('syn-private')],
 ])('refuses %s with a fixed message', async (_name, column, value) => {
   await sanitized(collect(createMssqlConnector(target, secret, fake({ columns: [column], rows: [[value]] }).driver).query(statementLeg, options())), new MenuUpstreamError('unavailable'));
+});
+it.each(['lineNames', 'roomNames', 'prcGroups', 'selection', 'lotIds', 'recipeIds'])('boot: context.%s is a list and needs listJoin; scalar context fields do not', (field) => {
+  const call = (listJoin?: Record<string, string>) => ({ procedure: 'syn.read_rows', args: { ids: `context.${field}`, ppid: 'context.ppid', from: 'context.from' }, ...(listJoin ? { listJoin } : {}) });
+  expect(mssqlCallProblems(call())).toEqual(['sql procedure arg ids binds a list and needs listJoin on dialect mssql']);
+  expect(mssqlCallProblems(call({ ids: ',' }))).toEqual([]);
+});
+it('keeps the tedious packet/data/payload/token debug options off, whatever the connection string says', () => {
+  const f = fake({});
+  createMssqlConnector(target, secret, f.driver);
+  expect(f.pools[0]?.config.options).toMatchObject({ debug: { packet: false, data: false, payload: false, token: false } });
+});
+it('silences mssql:* diagnostics on the given debug copy and reports failure when they stay on', () => {
+  let namespaces = 'syn-other:*';
+  const lib = (stays: boolean) => ({
+    disable: () => { const current = namespaces; namespaces = ''; return current; },
+    enable: (next: string) => { namespaces = next; },
+    enabled: (name: string) => (stays ? true : !namespaces.split(',').includes('-mssql:*') && name.startsWith('mssql:')),
+  });
+  expect(silenceDriverDiagnostics(lib(false))).toBe(true);
+  expect(namespaces).toBe('syn-other:*,-mssql:*');
+  expect(silenceDriverDiagnostics(lib(true))).toBe(false);
 });
 it('boot: a list arg needs listJoin on mssql; statements, joined lists and a missing applicationName boot', () => {
   const procedure = (listJoin?: Record<string, string>) => ({ procedure: 'syn.read_rows', args: { rooms: 'scope.rooms', tags: 'params.tags', fixed: { const: ['A'] }, q: 'params.q' }, ...(listJoin ? { listJoin } : {}) });

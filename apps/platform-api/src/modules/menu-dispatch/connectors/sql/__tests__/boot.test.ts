@@ -36,3 +36,36 @@ it.each(['main procedure', 'lookup procedure', 'mssql'] as const)('refuses %s at
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+it.each(['main', 'lookup'] as const)('refuses context.lineNames without listJoin in the %s procedure and accepts it with one', async (where) => {
+  const dir = await mkdtemp(join(tmpdir(), 'syn-sql-boot-'));
+  try {
+    const base = routedBundle();
+    const owner = base.endpointOwners['syn.rows'];
+    const bundleWith = (listJoin?: Record<string, string>) => {
+      const procedure = { procedure: 'syn.read_rows', args: { rooms: 'scope.rooms', lines: 'context.lineNames' }, listJoin: { rooms: ',', ...listJoin } };
+      return {
+        ...base,
+        endpoints: [{ ...base.endpoints[0], context: { time: 'apply', line: 'apply' } }],
+        targets: { 'tgt-1': { ...base.targets['tgt-1'], dialect: 'mssql', connectionFile: join(dir, 'secret') } },
+        endpointOwners: { 'syn.rows': { ...owner,
+          ...(where === 'main' ? { call: procedure } : { scopeCheck: { mode: 'resolve-keys', lookup: procedure, keys: 'params.q', siteField: '/site', roomField: '/room' } }),
+        } },
+      };
+    };
+    await writeFile(join(dir, 'secret'), 'synthetic-secret');
+    const reason = 'sql procedure arg lines binds a list and needs listJoin on dialect mssql';
+    const checkService = {} as CheckService;
+    const refused = bundleWith();
+    const file = join(dir, 'bundle.json');
+    await writeFile(file, JSON.stringify(refused));
+    await expect(loadMenuDeclarationSetup({ ...loadConfig(), MENU_DECLARATIONS_FILE: file }, { checkService })).rejects.toMatchObject({ problems: [reason] });
+    expect(() => declaredContribution({ bundle: refused as unknown as DeclarationBundle, checkService })).toThrow(reason);
+    const accepted = bundleWith({ lines: ',' });
+    await writeFile(file, JSON.stringify(accepted));
+    await expect(loadMenuDeclarationSetup({ ...loadConfig(), MENU_DECLARATIONS_FILE: file }, { checkService })).resolves.toBeDefined();
+    expect(() => declaredContribution({ bundle: accepted as unknown as DeclarationBundle, checkService })).not.toThrow();
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

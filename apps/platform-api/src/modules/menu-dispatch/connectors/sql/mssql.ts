@@ -1,5 +1,7 @@
 import { createRequire } from 'node:module';
 
+import { menuQueryContextSchema } from '@ap/contract-schemas';
+
 import type { Binding, ParamType } from '../../bundle/bindings.js';
 import type { Call } from '../../bundle/calls.js';
 import { sqlPlaceholders } from '../../bundle/sql-placeholders.js';
@@ -109,8 +111,27 @@ export function markExactConnection(connection: unknown): void {
   if (typeof options === 'object' && options !== null) exactOptions.add(options);
 }
 
+// --- Driver diagnostics ----------------------------------------------------------------------------------------------
+// With DEBUG enabling `mssql:*`, the driver writes statement text, procedure names and parameter values to stderr, past
+// every sanitization here. Nothing else uses these namespaces, so they are excluded process-wide, on the same `debug`
+// copy the installed driver resolves, and the factory refuses when that cannot be done.
+
+/** Appends `-mssql:*` to the namespaces `debug` already has active; returns whether the driver's logger is now off. */
+export function silenceDriverDiagnostics(debugLib: { disable(): string; enable(namespaces: string): void; enabled(namespace: string): boolean }): boolean {
+  const current = debugLib.disable();
+  debugLib.enable([current, '-mssql:*'].filter(Boolean).join(','));
+  return !debugLib.enabled('mssql:tedi') && !debugLib.enabled('mssql:base');
+}
+const diagnosticsSilenced = (() => {
+  try {
+    const driverRequire = createRequire(createRequire(import.meta.url).resolve('mssql'));
+    return silenceDriverDiagnostics(driverRequire('debug') as Parameters<typeof silenceDriverDiagnostics>[0]);
+  } catch { return false; }
+})();
+
 let loaded: { driver: MssqlDriver; exact: boolean } | undefined;
 function defaultDriver(): MssqlDriver {
+  if (!diagnosticsSilenced) throw new MenuUpstreamError('unavailable');
   if (!loaded) {
     const require = createRequire(import.meta.url);
     const driver = require('mssql') as MssqlDriver;
@@ -205,9 +226,14 @@ export function procedureArgs(call: Extract<Call, { procedure: string }>, args: 
     return [name, value.join(separator)] as const;
   });
 }
+/** Context wire fields that carry an ID set, read from the request Context schema so a new set field is covered. */
+const contextListFields: ReadonlySet<string> = new Set(
+  Object.entries(menuQueryContextSchema.shape).filter(([, field]) => field.safeParse(['id']).success).map(([name]) => name),
+);
 function isListBinding(binding: Binding, paramTypes: Readonly<Record<string, ParamType>> | undefined): boolean {
   if (typeof binding !== 'string') return Array.isArray(binding.const);
   if (binding === 'scope.rooms') return true;
+  if (binding.startsWith('context.')) return contextListFields.has(binding.slice(8));
   return binding.startsWith('params.') && paramTypes?.[binding.slice(7)]?.type === 'string[]';
 }
 /** Boot checks for a call on an mssql target: MSSQL has no array parameter, so a list arg needs a declared join. */
@@ -230,7 +256,7 @@ export function createMssqlConnector(target: SqlTarget, secrets: TargetSecrets |
   const pool = new driver.ConnectionPool({
     ...parsed,
     pool: { max, min: 0, idleTimeoutMillis: 1000 },
-    options: { ...options, useUTC: true, ...(target.applicationName ? { appName: target.applicationName } : {}) },
+    options: { ...options, useUTC: true, debug: { packet: false, data: false, payload: false, token: false }, ...(target.applicationName ? { appName: target.applicationName } : {}) },
     stream: true, arrayRowMode: true,
     beforeConnect: markExactConnection,
   });
