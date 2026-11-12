@@ -49,6 +49,18 @@ describe('FeatureDetailDrawer', () => {
     expect(body?.closest('.fo-detail-body')).toBeTruthy();
   });
 
+  it('places an optional footer outside the scroll region', () => {
+    const root = createRoot(document.body.appendChild(document.createElement('div')));
+    roots.push(root);
+    act(() => root.render(<I18nProvider><DetailPanelSlotProvider>
+      <FeatureDetailDrawer parts={{ ...parts, footer: <button type="button">Footer action</button> }} onClose={vi.fn()} />
+      <SlotHost />
+    </DetailPanelSlotProvider></I18nProvider>));
+    const button = [...document.querySelectorAll('button')].find(node => node.textContent === 'Footer action');
+    expect(button).toBeTruthy();
+    expect(button?.closest('[role="region"]')).toBeNull();
+  });
+
   it('closes through onClose when the detail has no requestClose', () => {
     const onClose = vi.fn();
     mount(onClose).close();

@@ -1,3 +1,5 @@
+import { CAPABILITY_LABELS } from '@/lib/copy/capabilities';
+import { TOKEN_SCOPE_CAPABILITIES, TOKEN_ONLY_SCOPES, isTokenOnlyCapability } from '@ap/feature-shared';
 import { useState, type ReactNode } from 'react';
 import { configureApiClient } from '@/lib/api/client';
 import { HostSeamProvider } from '@/lib/host/host-seam';
@@ -28,7 +30,7 @@ function Table(parts: ApiTokenTableParts) {
   return <><p>{parts.summary}</p><table aria-label="토큰 목록"><thead><tr>{parts.columns.map(c => <th key={c.id}>{c.header}</th>)}<th>동작</th></tr></thead><tbody>{parts.rows.map(r => <tr key={r.id}>{parts.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}<td>{parts.rowAction(r)}</td></tr>)}</tbody></table>{parts.pagination}</>;
 }
 function Drawer(parts: ApiTokenDrawerParts) {
-  return <section role="dialog" aria-label={String(parts.title)}><h2>{parts.title}</h2><button type="button" onClick={parts.requestClose}>상세 닫기</button>{parts.body}</section>;
+  return <section role="dialog" aria-label={String(parts.title)}><h2>{parts.title}</h2><button type="button" onClick={parts.requestClose}>상세 닫기</button>{parts.body}{parts.footer}</section>;
 }
 function TestHost({ children }: { children: ReactNode }) {
   const [search, setSearch] = useState<Record<string, string>>({});
@@ -67,6 +69,35 @@ beforeEach(() => {
 afterEach(() => { cleanup(); client?.clear(); configureApiClient({ basePath: '' }); vi.unstubAllGlobals(); });
 
 describe('API token management', () => {
+  it('displays an existing three-scope write token with Korean labels', async () => {
+    rows = [row({ scopes: ['knowledge.catalog.manage', 'knowledge.catalog.import', 'improvement.manage'] })];
+    mount();
+    expect(await screen.findByText('카탈로그 관리 · 카탈로그 가져오기 · 개선 아이템 관리')).toBeVisible();
+  });
+  it.each([false, true])('renders every scope for the right token kind (service=%s)', async service => {
+    mount(service); await openIssue();
+    for (const id of TOKEN_SCOPE_CAPABILITIES) {
+      const control = screen.queryByRole('checkbox', { name: CAPABILITY_LABELS[id] });
+      if (!service && isTokenOnlyCapability(id)) expect(control).toBeNull();
+      else expect(control).toBeEnabled();
+    }
+    for (const id of TOKEN_ONLY_SCOPES) {
+      expect(screen.queryByRole('checkbox', { name: id === 'validation.worker' ? '검증 작업자' : id })).toBe(service ? screen.getByRole('checkbox', { name: '검증 작업자' }) : null);
+    }
+    expect(screen.getByRole('checkbox', { name: '관리자 권한' })).toBeDisabled();
+    const submit = within(screen.getByRole('dialog')).getByRole('button', { name: '토큰 발급' });
+    expect(submit.closest('form')).toBeNull();
+    expect(document.getElementById(submit.getAttribute('form') ?? '')).toBe(screen.getByLabelText('토큰 이름').closest('form'));
+  });
+  it('refuses an empty selection with the per-permission message and sends no request (#1842 review C3)', async () => {
+    mount(); const user = await openIssue();
+    const dialog = within(screen.getByRole('dialog'));
+    await user.click(dialog.getByRole('button', { name: '모두 해제' }));
+    const posts = calls.filter(call => call.method === 'POST').length;
+    await user.click(dialog.getByRole('button', { name: '토큰 발급' }));
+    expect(await screen.findByText('권한을 하나 이상 선택하세요.')).toBeVisible();
+    expect(calls.filter(call => call.method === 'POST')).toHaveLength(posts);
+  });
   it('renders unused, revoked, no-expiry, expired and unmapped scopes without actions on revoked rows', async () => {
     rows = [row({ unusedWarning: true }), row({ id: ACTOR, name: '폐기한 토큰', revokedAt: '2026-11-01T00:00:00Z', scopes: ['workspace.read', 'voc.read'] }), row({ id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', name: '만료 토큰', expiresAt: '2020-01-01T00:00:00Z' })];
     mount();
@@ -74,18 +105,18 @@ describe('API token management', () => {
     expect(screen.getAllByText('무기한')).toHaveLength(2);
     expect(screen.getByText('폐기됨')).toBeVisible();
     expect(screen.getByText('만료됨')).toBeVisible();
-    expect(screen.getByText('workspace.read · voc.read')).toBeVisible();
+    expect(screen.getByText('조회 · VOC 조회')).toBeVisible();
     expect(within(screen.getByText('폐기한 토큰').closest('tr') as HTMLElement).queryByRole('button')).toBeNull();
     expect(screen.getAllByText('10.0.0.1')).toHaveLength(3);
   });
   it('unions selected bundles; keeps the one-time value out of caches, URLs, storage and notices; confirms close', async () => {
     mount(); const user = await openIssue();
     expect(screen.queryByRole('checkbox', { name: /검증 작업자/ })).toBeNull();
-    await user.click(screen.getByRole('checkbox', { name: /^기록/ }));
+    await user.click(screen.getByRole('button', { name: '기록' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '토큰 발급' }));
     expect(await screen.findByDisplayValue(SECRET)).toBeVisible();
     const post = calls.find(c => c.method === 'POST');
-    expect(post?.body).toMatchObject({ name: '새 토큰', scopes: ['workspace.read', 'knowledge.catalog.manage', 'knowledge.catalog.import', 'improvement.manage'] });
+    expect(post?.body).toMatchObject({ name: '새 토큰', scopes: ['workspace.read', 'knowledge.catalog.manage', 'knowledge.catalog.import', 'improvement.manage', 'knowledge.draft.create'] });
     const expiresAt = (post?.body as { expiresAt: string }).expiresAt;
     expect(Math.abs(new Date(expiresAt).getTime() - Date.now() - 90 * 86400000)).toBeLessThan(5000);
     expect(screen.getByRole('button', { name: '토큰 발급' })).toBeDisabled();

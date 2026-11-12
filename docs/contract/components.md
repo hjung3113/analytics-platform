@@ -86,6 +86,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - LegendTree (계층 범례의 보이기·단일 현재 항목 또는 드릴 현재 단계(`onDrill`·`currentId`·`drillOnly`·`canDrill`, 보이기와 분리)·키보드 행 이동, [§16](chart.md#16-analysis-chart-contract), [ADR-0057](../adr/0057-legend-tree-arrow-key-row-navigation.md))
 - PlatformDataTable
 - DetailDrawer
+- GroupedSelectionList (`@ap/ui`, 분류된 체크박스·radio 선택과 검색·다중 선택 프리셋, 아래 계약)
 - AuditTimeline
 - QueryView / OutcomeView / StateMessage (응답 상태, EmptyState 역할), PlatformPage-provided shared outcome scope / banner (§19)
 - StatCard / Panel
@@ -110,6 +111,15 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 `AuditTimeline`이 보이는 이벤트 타입은 `@ap/contracts`의 `AuditEvent`다. `at`은 실제 시점이라 `formatInstant`로 표시한다(§6.3). `target`은 목적지 참조(§22)이지 분석 Context가 아니다. 전역 감사 조회(`auditTrail`)와 목적지 감사 — 설비 상세 감사 탭, 지표 상세 변경 이력(`entityAudit`, 지표는 `scopeId: null`) — 는 같은 저장소를 어댑터 포트([패키지 경계](../integration/platform-packages.md) §4)로 읽으며 셸 위젯이 아니다(#50, #90). 메뉴가 소유한 대상의 감사 기록은 mock에서 메뉴가 시드로 내고 앱 조립이 넣는다([ADR-0048](../adr/0048-menu-audit-seeds-join-shared-mock-audit-store.md)); 사유·값은 기록된 문자열 그대로다.
 
 `AuditTimeline`의 페이지 계약([ADR-0085](../adr/0085-entity-audit-cursor-pages.md), #826): 목적지 감사(`entityAudit`)는 서버가 쪽 크기를 정하고(상한 `ENTITY_AUDIT_PAGE_MAX` = 50, 클라이언트 `limit` 없음) `at` 내림차순(instant)·같으면 `id` 오름차순으로 keyset 커서(`nextCursor`, 불투명 문자열)를 준다. 마지막 쪽은 `nextCursor: null`이고 키가 없는 응답은 끝으로 읽는다. `AuditTimeline({ events, more? })`의 `more`는 Kernel `useEntityAudit`이 만든 `AuditMore`(`status` idle·loading·error·end, `load()`, `error`, `last`)다. 첫 쪽이 끝이면 버튼도 캡션도 없고(지금 모양), 더 있으면 목록 끝에 `이전 변경 이력 더 보기` 버튼(secondary·sm)을 둔다. 불러오는 동안은 `aria-disabled`·`aria-busy`로 라벨·폭을 유지하고, 성공하면 포커스가 아직 그 버튼에 있을 때만 붙인 첫 항목(없으면 끝 캡션)으로 옮기며 polite 상태 영역이 `변경 이력 N건을 더 불러왔습니다.`를 알린다. 끝에는 캡션 `더 이전 변경 이력이 없습니다.`, 실패는 목록을 그대로 둔 채 같은 버튼이 `다시 시도`로 바뀌고 `role=alert`(+ Correlation ID)가 뜬다. `forbidden`이면 버튼 없이 권한 안내 문장이다(첫 쪽 §19 배너에는 넣지 않는다). 붙인 쪽 수는 URL에 두지 않고, ref·Scope·세션이 바뀌거나 같은 대상을 다시 조회하면 첫 쪽부터 다시 읽는다.
+
+### GroupedSelectionList — 분류된 선택 목록 (Decided, ADR-0155)
+
+`@ap/ui`의 도메인 없는 제어형 목록. 기능 패키지는 플랫폼 중 `@ap/ui`만 import할 수 있어서(경계 게이트 `ops/platform-api/scripts/check-boundaries.mjs`, [ADR-0097](../adr/0097-platform-features-and-role-based-names.md)) 토큰 발급·권한 부여 화면이 쓰는 이 조각은 `@ap/ui`에 두고, `@ap/ui`는 Kernel에 의존하지 않으므로 문구를 prop으로 받는다. 소비자는 `{ id, label, items: { id, label, description?, badge?: { label, tone? }, disabledReason? }[] }[]`와 검색 placeholder·목록 `aria-label`을 선언한다. 각 id는 목록 전체에서 유일해야 한다. 문구는 `messages?: Partial<GroupedSelectionMessages>`이고 비운 키는 한국어 기본값이다. `GROUPED_SELECTION_MESSAGES`가 ko/en 표를 내보내므로 `useI18n`을 쓰는 메뉴는 `GROUPED_SELECTION_MESSAGES[lang]`을 넘긴다.
+
+- `mode: 'multiple'`은 `value: readonly string[]`와 `onChange(ids)`를 받는다. Checkbox 행, 현재 검색에 보이는 활성 행만 대상으로 하는 그룹 3상태 선택·`n/m`, 전체 선택 수, 모두 해제를 제공한다. `presets?: { id, label, description, itemIds }[]`는 활성 항목을 기존 선택에 더한다. 설명은 공유 Tooltip과 버튼의 접근성 설명으로 제공한다.
+- `mode: 'single'`은 `value: string | null`과 `onChange(id)`를 받는다. RadioGroup/RadioGroupItem을 사용하고 선택한 행 이름을 표시한다. 프리셋은 다중 선택 전용으로 타입에서도 금지하며 그룹 전체 선택·개수를 보이지 않는다.
+- 검색은 그룹 이름·항목 이름·설명·id를 대소문자 구분 없이 찾는다. 검색과 프리셋 머리는 소비자가 소유한 한 스크롤 층 안에서 sticky다. 목록은 자체 높이 제한이나 스크롤 층을 만들지 않는다.
+- 비활성 항목은 설명 아래 이유를 표시하고 조작·프리셋·그룹 선택으로 바꾸지 않는다. 배지는 SDK가 StatusBadge로 렌더링한다. 키보드와 포커스는 공유 Checkbox·RadioGroup primitive를 따른다.
 
 ### OrderedIntervalTrack — 선언과 상태 (Decided, ADR-0121)
 

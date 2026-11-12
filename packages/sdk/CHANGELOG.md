@@ -23,6 +23,8 @@
 
 ## 변경 기록
 
+- #1842: `@ap/ui`에 검색·다중 선택 프리셋·단일 선택을 제공하는 `GroupedSelectionList`와 문구 표 `GROUPED_SELECTION_MESSAGES` 추가(ADR-0155).
+
 팀장은 SDK 태그를 낼 때 `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>`로 자산을 만들고 `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`로 함께 올린다. [릴리스 순서](../../.agents/conductor/PROFILE.md#slice-close)를 따른다.
 
 스냅샷 줄이 삭제되거나 바뀌면 같은 PR에서 이 표에 기록하고, [ADR-0044](../../docs/adr/0044-sdk-source-in-platform-repo-released-separately.md)에 따라 한 SDK 릴리스 전에 소비자에게 예고한다.

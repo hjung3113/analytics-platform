@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, type RefObject, useRef, useState } from 'react';
+import { type FormEvent, type ReactNode, type RefObject, useId, useRef, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { type ActorListItem, visibleApiTokenScopeBundles } from '@ap/feature-shared';
 import {
@@ -6,6 +6,8 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, Checkbox, Input,
   Label, RadioGroup, RadioGroupItem,
 } from '@ap/ui';
+import { GroupedSelectionList } from '@ap/ui';
+import { tokenSelectionGroups } from '@/lib/copy/permission-selection';
 import { Copy } from 'lucide-react';
 import { useHostUnsavedGuard } from '@/lib/host/host-seam';
 import { issueApiToken } from '@/lib/api/api-tokens';
@@ -31,8 +33,10 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
   renderDrawer: (parts: ApiTokenDrawerParts) => ReactNode; onClose: () => void; onIssued: () => Promise<unknown>;
 }) {
   const bundles = visibleApiTokenScopeBundles(undefined, { service });
+  const formId = useId();
+  const groups = tokenSelectionGroups(service);
   const [name, setName] = useState('');
-  const [selected, setSelected] = useState<string[]>(['read']);
+  const [selected, setSelected] = useState<string[]>(() => [...(bundles.find(bundle => bundle.id === 'read')?.capabilities ?? [])]);
   const [actorId, setActorId] = useState('');
   const [expiry, setExpiry] = useState('90');
   const [date, setDate] = useState('');
@@ -67,7 +71,7 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
     if (errors.length) return;
     lock.current = true; setPending(true);
     try {
-      const result = await issueApiToken(service, { name: name.trim(), scopes: [...new Set(bundles.filter(bundle => selected.includes(bundle.id)).flatMap(bundle => [...bundle.capabilities]))], expiresAt, ...(service ? { actorId } : {}) });
+      const result = await issueApiToken(service, { name: name.trim(), scopes: selected, expiresAt, ...(service ? { actorId } : {}) });
       setSecret(result.token);
       // Only list metadata is invalidated. Never hand the issued response to a query/mutation cache or a toast.
       void onIssued();
@@ -83,7 +87,7 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
     <p role="status" className="text-sm text-text-secondary">{copyMessage}</p>
     <label className="flex items-center gap-2 text-sm"><Checkbox checked={stored} onCheckedChange={checked => setStored(checked === true)} />{COPY.stored}</label>
     <Button variant="primary" className="w-full" disabled={!stored} onClick={requestClose}>완료 · 토큰 값 닫기</Button>
-  </div> : <form onSubmit={event => void submit(event)} className="space-y-5 break-keep">
+  </div> : <form id={formId} onSubmit={event => void submit(event)} className="space-y-5 break-keep">
     <p className="text-xs text-text-secondary">{COPY.session}</p>
     <div className="space-y-2"><Label htmlFor="token-name">{COPY.name}</Label><Input id="token-name" value={name} onChange={event => setName(event.target.value)} maxLength={100} autoComplete="off" disabled={pending} aria-invalid={fieldError('name').length > 0} aria-describedby="token-name-error" />{errorsFor('name')}</div>
     {service ? <fieldset className="space-y-2" disabled={pending}><legend className="text-sm font-medium">{COPY.actor}</legend>
@@ -93,13 +97,6 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
         </RadioGroup>}
       {actors.isSuccess && actors.data.length === 0 ? <p className="text-sm text-text-muted">{COPY.noActors}</p> : null}{errorsFor('actorId')}
     </fieldset> : null}
-    <fieldset className="space-y-2" disabled={pending} aria-describedby="token-scopes-error"><legend className="mb-2 text-sm font-medium">{COPY.bundles}</legend>
-      {bundles.map(bundle => <label key={bundle.id} htmlFor={`token-bundle-${bundle.id}`} className="flex items-start gap-3 rounded-md border border-border-subtle p-3">
-        <Checkbox id={`token-bundle-${bundle.id}`} disabled={pending} checked={selected.includes(bundle.id)} onCheckedChange={checked => setSelected(previous => checked === true ? [...previous, bundle.id] : previous.filter(id => id !== bundle.id))} />
-        <span className="space-y-1 text-sm"><span className="block font-medium">{bundle.label}</span><span className="block text-xs text-text-secondary">{bundle.description}</span></span>
-      </label>)}{errorsFor('scopes')}
-    </fieldset>
-    <p className="text-xs text-text-secondary">{service ? COPY.serviceIntersection : COPY.personalIntersection}</p>
     <fieldset className="space-y-2" disabled={pending}><legend className="mb-2 text-sm font-medium">{COPY.expiry}</legend>
       <RadioGroup value={expiry} onValueChange={setExpiry} orientation="horizontal" appearance="segmented" aria-label={COPY.expiry}>
         {([['30', '30일'], ['90', '90일'], ['custom', '날짜 지정'], ['never', COPY.never]] as const).map(([value, label]) => <RadioGroupItem key={value} value={value} appearance="segmented">{label}</RadioGroupItem>)}
@@ -107,11 +104,17 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
       {expiry === 'custom' ? <div className="space-y-2"><Label htmlFor="token-date">{COPY.customDate}</Label><Input id="token-date" type="date" value={date} onChange={event => setDate(event.target.value)} aria-invalid={fieldError('expiresAt').length > 0} aria-describedby="token-expiresAt-error" /></div> : null}
       {expiry === 'never' ? <Callout tone="amber" title={COPY.warning}>{null}</Callout> : null}{errorsFor('expiresAt')}
     </fieldset>
+    <fieldset className="space-y-2" disabled={pending} aria-describedby="token-scopes-error"><legend className="mb-2 text-sm font-medium">권한</legend>
+      <GroupedSelectionList mode="multiple" groups={groups} value={selected} onChange={setSelected} aria-label="권한" searchPlaceholder="권한 이름·설명 검색"
+        presets={bundles.map(bundle => ({ id: bundle.id, label: bundle.label, description: bundle.description, itemIds: bundle.capabilities }))} />
+      {errorsFor('scopes')}
+    </fieldset>
+    <p className="text-xs text-text-secondary">{service ? COPY.serviceIntersection : COPY.personalIntersection}</p>
     {error ? <p role="alert" className="text-sm text-text-danger-label">{error}</p> : null}
     {fields.filter(field => !['name', 'scopes', 'actorId', 'expiresAt'].some(path => field.path === path || field.path.startsWith(`${path}.`))).map(field => <p role="alert" key={`${field.path}-${field.message}`}>{field.path}: {field.message}</p>)}
-    <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={pending} onClick={requestClose}>{COPY.cancel}</Button><Button type="submit" variant="primary" disabled={pending || (service && !actors.isSuccess)}>{pending ? '발급 중…' : COPY.issue}</Button></div>
+
   </form>;
-  return <>{renderDrawer({ title: secret ? COPY.secretTitle : service ? COPY.serviceIssue : COPY.personalIssue, returnFocusRef, subtitle: secret ? COPY.secretSubtitle : service ? 'system Actor 귀속' : '내 계정에 귀속', body, requestClose })}
+  return <>{renderDrawer({ title: secret ? COPY.secretTitle : service ? COPY.serviceIssue : COPY.personalIssue, returnFocusRef, subtitle: secret ? COPY.secretSubtitle : service ? 'system Actor 귀속' : '내 계정에 귀속', body, footer: secret ? undefined : <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={pending} onClick={requestClose}>{COPY.cancel}</Button><Button type="submit" form={formId} variant="primary" disabled={pending || (service && !actors.isSuccess)}>{pending ? '발급 중…' : COPY.issue}</Button></div>, requestClose })}
     <AlertDialog open={closeConfirm} onOpenChange={setCloseConfirm}><AlertDialogContent className="break-keep"><AlertDialogHeader><AlertDialogTitle>{COPY.closeTitle}</AlertDialogTitle><AlertDialogDescription>{COPY.closeHint}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{COPY.keep}</AlertDialogCancel><AlertDialogAction onClick={closeSecret}>{COPY.close}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </>;
 }

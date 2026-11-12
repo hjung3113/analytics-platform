@@ -27,6 +27,7 @@ export type BoardDetailOptions = {
 
 /** The board's Task detail, rendered in place by the screen (`renderDetail`): the standalone order, body then the next-status footer. Key it on the Task. */
 export function BoardTaskDrawer({ taskId, onClose, ...options }: { taskId: string } & BoardDetailOptions) {
-  const parts = useTaskDetailParts({ taskId, view: 'board', onClose, titleInHeader: true, ...options });
-  return <FeatureDetailDrawer parts={{ ...parts, body: <>{parts.body}{parts.footer}</> }} onClose={onClose} requestClose={parts.requestClose} />;
+  // The next-status footer stays at the end of the body (the board's standalone order), not in the drawer's footer slot.
+  const { footer, ...parts } = useTaskDetailParts({ taskId, view: 'board', onClose, titleInHeader: true, ...options });
+  return <FeatureDetailDrawer parts={{ ...parts, body: <>{parts.body}{footer}</> }} onClose={onClose} requestClose={parts.requestClose} />;
 }

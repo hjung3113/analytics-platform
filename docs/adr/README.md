@@ -165,6 +165,7 @@
 | [0152](0152-worker-input-delivery-source-owner-step.md) | 작업자 입력 전달은 공급자 중립인 Source 소유자의 별도 단계로 둔다 | Candidate |
 | [0153](0153-upstream-target-routing-and-declared-connectors.md) | 코어 서버가 기존 시스템에 직접 붙는다: 상류 대상 표·Scope 키 라우팅·fan-out 병합·선언형 연결기 | Decided(2026-11-12) |
 | [0154](0154-site-and-room-grants-are-platform-owned.md) | Site·room 부여는 플랫폼 부여 표가 소유하고, 막힌 자리에서 바로 신청한다 | Decided(2026-11-12) |
+| [0155](0155-categorized-permission-list-checkbox-rows.md) | 분류된 권한 목록은 체크박스 행·프리셋, 부여는 후보별 radio | Decided(2026-11-12, 고문·소유자 위임, 되돌릴 수 있음) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

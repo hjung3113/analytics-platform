@@ -38,6 +38,7 @@ export { useDetailPanelContent } from './layout/useDetailPanelContent';
 export { FieldLabel, type FieldLabelProps } from './forms/FieldLabel';
 export { DatePicker, type DatePickerProps } from './forms/DatePicker.js';
 export { SearchInput, type SearchInputProps } from './forms/SearchInput';
+export { GROUPED_SELECTION_MESSAGES, GroupedSelectionList, type GroupedSelectionGroup, type GroupedSelectionItem, type GroupedSelectionListProps, type GroupedSelectionMessages, type GroupedSelectionPreset } from './forms/GroupedSelectionList';
 export { DirtyConfirmation, type DirtyConfirmationProps } from './feedback/DirtyConfirmation';
 export { UndoToast, type UndoToastProps } from './feedback/UndoToast';
 // Kept for consumers that still mount sonner; the analysis board raises its undo notices through the shell toast stack (#886).

@@ -1,5 +1,6 @@
 import {
   isTokenOnlyCapability,
+  CAPABILITIES,
   type PermissionGrantAdminItem,
   type PermissionGrantOptions,
 } from '@ap/feature-shared';
@@ -22,6 +23,8 @@ import {
   SelectValue,
   Textarea,
 } from '@ap/ui';
+import { GroupedSelectionList } from '@ap/ui';
+import { groupPermissionItems, permissionSelectionItem } from '@/lib/copy/permission-selection';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
@@ -242,15 +245,15 @@ export function PermissionDirectGrantForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open ? (
         <DialogContent
-          className="max-h-screen overflow-y-auto"
+          className="flex max-h-screen flex-col break-keep"
           closeLabel={DIRECT_GRANT_COPY.cancel}
           data-testid="permission-direct-grant-dialog"
         >
-          <DialogHeader>
+          <DialogHeader className="shrink-0">
             <DialogTitle>{DIRECT_GRANT_COPY.title}</DialogTitle>
             <DialogDescription>{DIRECT_GRANT_COPY.description}</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-4">
+          <div className="flex shrink-0 flex-col gap-4">
             <label
               className="flex flex-col gap-2 text-sm text-text-secondary"
               htmlFor={recipientKindSelectId}
@@ -363,7 +366,7 @@ export function PermissionDirectGrantForm({
                 : {})}
             />
           ) : (
-            <DialogFooter>
+            <DialogFooter className="shrink-0">
               <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
                 {DIRECT_GRANT_COPY.cancel}
               </Button>
@@ -557,7 +560,7 @@ function DirectGrantFields({
 
   return (
     <>
-      <section className="flex flex-col gap-4" data-testid="direct-grant-fields">
+      <section className="flex min-h-0 flex-col gap-4 overflow-y-auto" data-testid="direct-grant-fields">
         <p className="-mt-2 text-xs text-text-muted" data-testid="direct-grant-recipient">
           {recipientActorType === undefined
             ? // Recipient type not yet confirmed by the workspace actor list:
@@ -572,52 +575,20 @@ function DirectGrantFields({
             {DIRECT_GRANT_COPY.adminRoleNote}
           </p>
         ) : null}
-        <label
-          className="flex flex-col gap-2 text-sm text-text-secondary"
-          htmlFor="permission-direct-grant-candidate"
-        >
-          {DIRECT_GRANT_COPY.optionLabel}
-          <Select
-            value={selectedCandidateKey}
-            onValueChange={(value) =>
-              clearErrorAndUpdate(() => {
-                setSelectedCandidateKey(value);
-                setGovernanceConfirmed(false);
-                setPolicyCitation('');
-                setPeerReviewerAbsence('');
-              })
-            }
-            disabled={mutation.isPending}
-          >
-            <SelectTrigger
-              id="permission-direct-grant-candidate"
-              aria-label={DIRECT_GRANT_COPY.optionLabel}
-            >
-              <SelectValue placeholder={DIRECT_GRANT_COPY.optionPlaceholder}>
-                {selectedCandidate
-                  ? candidateLabel(selectedCandidate, managedSystemNames)
-                  : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {options.candidates.map((candidate) => {
-                  const held = heldEntries.some((entry) => entry.candidate === candidate);
-                  return (
-                    <SelectItem
-                      key={candidateKey(candidate)}
-                      value={candidateKey(candidate)}
-                      disabled={held}
-                    >
-                      {candidateLabel(candidate, managedSystemNames)}
-                      {held ? ` · ${DIRECT_GRANT_COPY.alreadyGranted}` : null}
-                    </SelectItem>
-                  );
-                })}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </label>
+        <GroupedSelectionList mode="single" aria-label={DIRECT_GRANT_COPY.optionLabel} searchPlaceholder="권한 이름·설명 검색"
+          groups={groupPermissionItems(CAPABILITIES.flatMap(capability => {
+            const item = permissionSelectionItem(capability);
+            const candidates = options.candidates.filter(candidate => candidate.capability === capability);
+            if (candidates.length === 0) return [{ ...item, capability, disabledReason: '이 대상에 부여할 수 없음' }];
+            return candidates.map(candidate => ({ ...item, capability, id: candidateKey(candidate), label: candidateLabel(candidate, managedSystemNames),
+              ...(heldEntries.some(entry => entry.candidate === candidate) ? { disabledReason: DIRECT_GRANT_COPY.alreadyGranted } : mutation.isPending ? { disabledReason: '부여 중…' } : {}) }));
+          }))}
+          value={selectedCandidateKey || null} onChange={value => clearErrorAndUpdate(() => {
+            setSelectedCandidateKey(value);
+            setGovernanceConfirmed(false);
+            setPolicyCitation('');
+            setPeerReviewerAbsence('');
+          })} />
         {selectedCandidate && isTokenOnlyCapability(selectedCandidate.capability) ? (
           <p className="text-xs text-text-secondary" data-testid="direct-grant-token-only-hint">
             {DIRECT_GRANT_COPY.tokenOnlyHint}
@@ -796,7 +767,11 @@ function DirectGrantFields({
           </div>
         ) : null}
       </section>
-      <DialogFooter>
+      {/* Outside the scroll area: the chosen permission stays in view while the reason and audit fields below the list are filled (#1842 M2). */}
+      <p className="shrink-0 break-keep text-xs text-text-secondary" data-testid="direct-grant-selected">
+        {selectedCandidate ? `선택: ${candidateLabel(selectedCandidate, managedSystemNames)}` : '선택한 권한 없음'}
+      </p>
+      <DialogFooter className="shrink-0">
         <Button type="button" variant="secondary" onClick={onClose}>
           {DIRECT_GRANT_COPY.cancel}
         </Button>
