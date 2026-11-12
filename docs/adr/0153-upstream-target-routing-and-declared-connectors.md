@@ -49,6 +49,16 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 - **코어가 응답을 만드는 엔드포인트의 묶음 행:** 06 §19 assessment kind 목록 `kinds`(없으면 `[]`), `limits.maxRows`(비페이지) 또는 `merge.maxWindow`(페이지) 중 하나 필수, 바인딩되는 `params`마다 형과 상한(결정 4).
 - **기동 검증(닫힌 쪽으로 실패, ADR-0146 결정 4):** 없는 대상 id, `kind`와 맞지 않는 `call`, `requiresScope` 엔드포인트인데 `sites` 없는 경로, Scope 없는 엔드포인트에 `sites`/`rooms`가 있는 경로, 한 site에서 `rooms` 없는 경로와 `rooms` 있는 경로의 공존, 같은 site의 경로끼리 room이 겹침(같은 행을 두 번 읽는다), `scopeCheck` 누락이나 결정 6의 방식별 조건 위반, 형 선언 없는 `params` 키의 바인딩, 페이지 엔드포인트에 `maxRows`·`filters`, `merge.partial`과 페이지의 조합, envelope 대상 둘 이상을 고르는 경로는 기동 실패다.
 
+### 선언 필드의 구체 모양 (1839a1)
+
+- `scopeCheck.mode`: `verify-rows` / `drop-rows` / `resolve-keys`. `siteField`·`roomField`는 JSON 포인터다. `resolve-keys`는 같은 연결기 종류의 `lookup` 호출과 `keys` 바인딩을 갖는다. 키 없는 집계는 `keys: { const: [] }`로 명시한다. 생략이나 다른 빈 값으로 추측하지 않으며, 본 호출에 `scope.rooms`가 필요하다.
+- `unroutedRooms`: `"skip"` / `"error"`; 생략은 `"error"`다. `coverage` assessment kind와 구분하기 위해 누락 room 처리의 이름을 따로 둔다. `"skip"`은 이 엔드포인트의 데이터가 선언된 room에만 있다는 배포자의 선언이다.
+- `merge.sort`: `{ field, direction: "asc" | "desc", unique?: boolean }[]`. 마지막 항목에 `unique: true`가 필수다. 행 식별자의 이름을 플랫폼이 추측하지 않도록 배포자가 동률 깨기 키를 명시한다.
+- HTTP `mapped`: 경로 조각 `{name}`의 바인딩 표는 `pathParams`다. 이름 집합은 경로 변수와 정확히 같아야 한다. `arrayStyle`은 `{ mode: "repeat" }` 또는 `{ mode: "join", separator }`다. `response.fields`는 `{ out: { from: "/pointer", type?: "number" | "string" | "wallclock" } }`다.
+- SQL 프로시저의 `listJoin`은 인자 이름 → 구분자 표다. 대상 `pool`은 `{ max, concurrency }`, DB 응용 이름은 `applicationName`이다. SQL도 `response.fields`를 사용한다.
+- `paramTypes`의 `maxLength`·`maxItems`·`enum`은 선택 필드이며, 주어지면 양의 상한과 선언 형에 맞는 enum 값이어야 한다. 문자열 배열은 `maxLength`를 항목 길이, `maxItems`를 항목 수에 쓴다. `kinds` 생략은 빈 kind 목록이다.
+- 비밀 파일은 선언 검증 뒤 읽는다. setup의 `targetSecrets`는 JSON·로그 검사에 내용이 드러나지 않는 값이며 연결기만 명시적으로 꺼낸다. 1839a1 단계에서는 검증된 라우팅 객체도 `routed endpoints are not served yet (ADR-0153 node 1839a2)`로 기동 거부한다. 실행 구현은 a2 이후의 몫이다.
+
 ### 3. 요청마다의 라우팅과 Scope 판정의 끝
 
 1. 형태·params·권한·Scope·한도 판정은 지금 순서 그대로 코어가 끝낸다(체크리스트 §3 1~6단계). 라우팅은 그 뒤 `handle` 안에서만 일어난다.

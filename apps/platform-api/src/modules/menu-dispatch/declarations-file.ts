@@ -17,21 +17,16 @@ import { z } from 'zod';
 
 import { PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
 import { CONTEXT_KEYS } from './types.js';
+import { isEnvelope } from './bundle/calls.js';
+import { paramTypeSchema } from './bundle/bindings.js';
+import { ASSESSMENT_KINDS, routingSchema } from './bundle/routing.js';
+import { targetsSchema } from './bundle/targets.js';
+import { routingProblems } from './bundle/validation.js';
 
-/** A `limits.maxRows` on a declared endpoint would make the engine turn an upstream `ok` into `too_large` — a Fastify-made outcome, forbidden by ADR-0095 prohibition 7. */
-const MAX_ROWS_REASON =
-  'limits.maxRows is refused on a declared endpoint: the engine would map an upstream ok to too_large, a Fastify-made outcome (ADR-0095 prohibition 7)';
-
-const limitsSchema = z
-  .strictObject({
-    maxHours: z.number().positive().optional(),
-    maxRows: z.number().optional(),
-  })
-  .superRefine((limits, ctx) => {
-    if (limits.maxRows !== undefined) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['maxRows'], message: MAX_ROWS_REASON });
-    }
-  });
+const limitsSchema = z.strictObject({
+  maxHours: z.number().positive().optional(),
+  maxRows: z.number().int().positive().optional(),
+});
 
 const contextSchema = z
   .strictObject(Object.fromEntries(CONTEXT_KEYS.map((key) => [key, z.enum(['apply', 'reference']).optional()])))
@@ -42,6 +37,8 @@ const endpointSchema = z.strictObject({
   id: z.string().min(1),
   menuId: z.string().min(1),
   paramKeys: z.array(z.string().min(1)),
+  paramTypes: z.record(z.string().min(1), paramTypeSchema).optional(),
+  kinds: z.array(z.enum(ASSESSMENT_KINDS)).optional(),
   permission: z.string().min(1),
   requiresScope: z.boolean(),
   context: contextSchema,
@@ -74,20 +71,25 @@ const bundleSchema = z.strictObject({
   actions: z.array(actionSchema),
   permissions: z.array(permissionSchema),
   /** Owner table: every declared endpoint exactly once → the upstream path the forwarder posts to (ADR-0148). */
-  endpointOwners: z.record(z.string().min(1), ownerPathSchema),
+  endpointOwners: z.record(z.string().min(1), z.union([ownerPathSchema, routingSchema])),
+  targets: targetsSchema.optional(),
 });
 
-export type DeclaredEndpointLimits = { maxHours?: number | undefined };
-export type DeclaredEndpoint = Omit<z.infer<typeof endpointSchema>, 'limits'> & { limits?: DeclaredEndpointLimits };
+export type DeclaredEndpointLimits = z.infer<typeof limitsSchema>;
+export type DeclaredEndpoint = z.infer<typeof endpointSchema>;
 export type DeclaredAction = z.infer<typeof actionSchema>;
 export type DeclaredPermission = z.infer<typeof permissionSchema>;
-
-export interface DeclarationBundle {
-  endpoints: readonly DeclaredEndpoint[];
-  actions: readonly DeclaredAction[];
-  permissions: readonly DeclaredPermission[];
-  endpointOwners: Readonly<Record<string, string>>;
-}
+export type DeclarationBundle = {
+  readonly endpoints: readonly DeclaredEndpoint[];
+  readonly actions: readonly DeclaredAction[];
+  readonly permissions: readonly DeclaredPermission[];
+  readonly endpointOwners: Readonly<z.infer<typeof bundleSchema>['endpointOwners']>;
+  readonly targets?: z.infer<typeof targetsSchema> | undefined;
+};
+export type { Binding, ParamType } from './bundle/bindings.js';
+export type { Call } from './bundle/calls.js';
+export type { Route, Routing, ScopeCheck } from './bundle/routing.js';
+export type { Target, ValueMap } from './bundle/targets.js';
 
 export class DeclarationBundleError extends Error {
   constructor(readonly problems: readonly string[]) {
@@ -137,7 +139,20 @@ function crossProblems(bundle: z.infer<typeof bundleSchema>): string[] {
       problems.push(`action ${row.id}: permission ${row.permission} is neither declared in the bundle nor a kernel permission`);
     }
   }
-  return problems;
+  return [...problems, ...routingProblems(bundle)];
+}
+
+function schemaProblems(error: z.ZodError): string[] {
+  return error.issues.flatMap((issue) => {
+    if (issue.code === 'invalid_union') {
+      // Keep every branch's safe diagnostics; do not print union received values.
+      return issue.unionErrors.flatMap(schemaProblems);
+    }
+    const message = issue.code === 'invalid_enum_value' || issue.code === 'invalid_literal'
+      ? 'value is not in the allowed vocabulary'
+      : issue.message;
+    return [`${issue.path.join('.') || '(root)'}: ${message}`];
+  });
 }
 
 /** Reads and validates the declaration bundle. Throws `DeclarationBundleError` on every failure mode; never logs contents. */
@@ -159,16 +174,25 @@ export async function loadDeclarationBundle(path: string): Promise<DeclarationBu
   if (!parsed.success) {
     throw new DeclarationBundleError([
       `declaration bundle at ${path} failed its schema`,
-      ...parsed.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`),
+      ...schemaProblems(parsed.error),
     ]);
   }
   const problems = crossProblems(parsed.data);
   if (problems.length > 0) throw new DeclarationBundleError(problems);
-  const { endpoints, actions, permissions, endpointOwners } = parsed.data;
+  const { endpoints, actions, permissions, endpointOwners, targets } = parsed.data;
   return {
-    endpoints: endpoints.map(({ limits, ...row }) => ({ ...row, ...(limits === undefined ? {} : { limits: { maxHours: limits.maxHours } }) })),
+    endpoints: endpoints.map(({ limits, ...row }) => {
+      const owner = endpointOwners[row.id];
+      const core = owner !== undefined && typeof owner !== 'string' && owner.routes.some((route) => !isEnvelope(route.call ?? owner.call));
+      return {
+        ...row,
+        ...(core ? { kinds: row.kinds ?? [] } : {}),
+        ...(limits === undefined ? {} : { limits: typeof owner === 'string' ? { maxHours: limits.maxHours } : limits }),
+      };
+    }),
     actions,
     permissions,
     endpointOwners,
+    ...(targets === undefined ? {} : { targets }),
   };
 }
