@@ -210,7 +210,7 @@ The 참조 작업자 is `tooling/scripts/validation-worker-mock.mjs`: a **합성
 
 ## 진단 읽기 투영 (#1815)
 
-**Candidate · 미구현.** [진단 리포트 설계](../../../design/features/log-lifecycle/diagnostic-report-parity.md)의 Slice A 읽기 계약 후보다. 그 문서의 Open R1/R3/R5 답을 구현 게이트로 삼으며 기존 worker result 쓰기 shape·상한·verdict는 바꾸지 않는다.
+**A2 As-built; A1 Candidate · 미구현.** [진단 리포트 설계](../../../design/features/log-lifecycle/diagnostic-report-parity.md)의 Slice A 중 근거 상태 읽기(A2)는 아래 계약으로 구현했다. summary 투영(A1)은 R1 실사 전까지 후보로 유지한다. 기존 worker result 쓰기 shape·상한·verdict는 바꾸지 않는다.
 
 ### AttemptOut과 summary 허용 목록
 
@@ -224,22 +224,25 @@ The 참조 작업자 is `tooling/scripts/validation-worker-mock.mjs`: a **합성
 
 기존 `RuleResultOut`의 `id`, `ruleId`, `result`, `required`, `expected`, `observed`, `evidence`, `hasExcerpt`, `opinion`을 유지한다. `evidence[]`는 `{ fileRef, line, fileSha256, hasExcerpt }`이다. 발췌 본문은 목록에 넣지 않는다.
 
-상세의 근거 행 후보는 `{ ruleResultId, evidenceIndex, evidenceRef: { fileRef, line, fileSha256 }, excerptState, sourceState }`다. 중복 위치도 원래 evidenceIndex와 연결한다. 이는 별도 상태 읽기의 조합이며 `hasExcerpt`를 실시간 권한·보관 상태로 해석하지 않는다. 상태 읽기와 발췌 읽기는 현재 객체 가시성과 사람 세션/Source ACL을 재검사하고, 권한 없는 대상에는 존재 상태를 먼저 조회해 반환하지 않는다. 숨겨진 대상은 상태·카운트·직접 URL에서도 노출하지 않는다. 발췌 본문은 명시적 열기로 기존 세션·Source 권한·감사를 유지하며, 원본 열기도 현재 Source ACL을 다시 검사한다.
+**As-built · #1815 A2.** `POST /api/v1/menu-query`, endpoint `logLifecycle.evidenceStates`, params `{ ruleResultId }` (uuid; unknown keys including `evidenceIndex` are rejected with `outcome: error`). Right `platform:view`, menu `log-validation-requests`, `requiresScope: false`, no Context. A human session is required; tokens return `forbidden` before any state lookup.
 
-| 축 / 값 후보 | 권위와 처리 |
+Returns `ok` + `{ rows: [{ ruleResultId, evidenceIndex, evidenceRef: { fileRef, line, fileSha256 }, excerptState, sourceState }] }`, one row per original evidence entry (at most 20), including duplicate locations at their original indices. An unknown, foreign-workspace or currently hidden result returns `ok` + `null`. A visible result without evidence returns `{ rows: [] }`. The read rechecks object visibility and the Round's current source-owner `lifecycle.excerpt.read` ACL each call in its transaction; revocation applies to the next call in the same session. It never reads excerpt storage for a caller without that right. The references and `hasExcerpt=false` fact already visible in `ruleResults` remain visible.
+
+| Axis / returned value | Authority and handling |
 | --- | --- |
-| excerptState `not_submitted` | 읽을 수 있는 결과에서 hasExcerpt=false이며 발췌 미제출이 확인됨 |
-| `not_loaded` / `available` | 본문 열기 전 / 허용된 본문 읽기 성공. available 본문은 기존 별도 excerpt 응답에만 존재 |
-| `no_permission` | 객체 자체는 보이되 해당 Source 발췌 권한 거절. 본문·삭제 상세 미노출 |
-| `expired` | retention 삭제임을 서버가 권위 있게 확인한 경우만. 현재 deleted boolean만으로 결정 금지 |
-| `deleted` / `unknown` | 관리자 삭제 확인 / 삭제 사유·누락을 판별할 수 없음. legacy provenance는 R3 게이트 |
-| sourceState `not_checked` / `available` | 원본 열기 전 / Source에서 현재 존재·해시 확인 |
-| `no_permission` | Source 접근 거절. 원본 존재·해시 상세 미노출 |
-| `absent` | 권한 검사 뒤 Source가 부재 확인. 로컬 UI 미주입을 부재로 표시하지 않음 |
-| `hash_mismatch` | 샘플 해시와 EvidenceRef 불일치 또는 Source의 현재 해시 불일치. 다른 파일로 자동 대체 금지 |
-| `unsupported` / `temporarily_unavailable` | Source 기능 미지원 / 일시 장애. 부재와 구분 |
+| excerptState `not_submitted` | The visible result's evidence entry has `hasExcerpt=false`; no excerpt right is needed to learn this public fact |
+| `not_loaded` | Right held and a live excerpt row exists; the body still requires the separate audited `excerpt` read |
+| `no_permission` | Object visible, evidence has `hasExcerpt=true`, source-owner excerpt right missing; no existence or erasure metadata queried |
+| `unknown` | Right held but the submitted excerpt has no stored row or has been erased; no authoritative deletion provenance |
+| sourceState `no_permission` | Source-owner excerpt right missing; source existence/hash state is not checked |
+| `hash_mismatch` | Right held and the same `fileRef` in the Round's sample manifest has a different sha256 than the evidence `fileSha256` |
+| `not_checked` | Right held; no known same-file manifest mismatch. Does not assert current Source availability or existence |
 
-원본 상태는 기존 Source 읽기 계약에서 확인하며 상태를 얻으려고 ACL을 우회하는 원본 요청을 만들지 않는다. 보관된 발췌와 원본의 생존 상태는 독립적이다. 삭제 사유 문자열을 그대로 반환하지 않고 안전한 분류만 제공하는 후보이며, 현행 저장 메타데이터가 권위 있게 구별하지 못하면 unknown을 유지한다. 새 endpoint 이름·경로·DDL은 확정하지 않는다.
+Erasure reasons share one free-text `deleted_reason` column: the purge job writes `retention`, but the admin action can also write that exact text. Without authoritative provenance this read returns `unknown` for both, including legacy rows, and emits neither `expired` nor `deleted`. It never returns or parses the reason. No DDL, migration or backfill is added.
+
+This module has no Source check available for this read. It makes no new Source call and reports no `available`, `absent`, `unsupported` or `temporarily_unavailable`; missing local injection means `not_checked`, never `absent`. Only the manifest comparison uses data already stored for the same file. Opening the original still uses the existing Source contract with a fresh ACL check. Excerpt and Source survival remain independent.
+
+This read contains no body text and writes no audit row, verdict, Gate decision or opinion. The existing `RuleResultOut`, `hasExcerpt` and audited `excerpt` response remain unchanged; body access still records `lifecycle.excerpt.read` without text.
 
 ## 작업자 입력 전달 (#1807)
 

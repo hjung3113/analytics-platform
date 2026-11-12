@@ -1,3 +1,5 @@
+import { evidenceStateRows } from '../domain/evidence-states.js';
+import type { SampleSet } from '../domain/sample-set.js';
 import { type Viewer, ref } from '../../log-knowledge/index.js';
 import { requestVisibleSql, roundVisibleSql, attemptVisibleSql } from './access-visibility.js';
 // Read side of the validation request queue (#1445 d). These reads are the ROUND requests': every list and detail joins the round, so a
@@ -23,6 +25,8 @@ import type { Tx } from '../../../db/tx.js';
 import { OPINION_GRADE_NONE, type RequestListQuery, type RuleResultListQuery } from '../domain/queue-params.js';
 import { type OpinionSummary, opinionCounts, opinionSummaries, summaryOut } from './opinion-read.js';
 import { getQueueSettings } from './queue-write.js';
+
+type EvidenceStateInput = { fileRef: string; line: number; fileSha256: string; hasExcerpt: boolean };
 
 const q = executionRequests;
 const a = executionAttempts;
@@ -341,4 +345,21 @@ export async function readExcerpt(
     );
   if (!row) return null;
   return row.deletedAt ? { excerpt: null, deleted: true } : { excerpt: row.excerpt, deleted: false };
+}
+
+/** Visibility is checked again here; denied callers never query excerpt storage or learn erasure metadata. */
+export async function readEvidenceStates(tx: Tx, workspaceId: string, ruleResultId: string, viewer: Viewer, allowed: boolean) {
+  const [row] = await tx
+    .select({ evidence: rr.evidence, sampleSet: validationRounds.sampleSet })
+    .from(rr)
+    .innerJoin(a, and(eq(a.workspaceId, rr.workspaceId), eq(a.id, rr.attemptId)))
+    .innerJoin(q, and(eq(q.workspaceId, a.workspaceId), eq(q.id, a.requestId)))
+    .innerJoin(validationRounds, and(eq(validationRounds.workspaceId, q.workspaceId), eq(validationRounds.id, q.roundId)))
+    .where(and(eq(rr.workspaceId, workspaceId), eq(rr.id, ruleResultId), roundVisibleSql(viewer, ref(validationRounds.id))));
+  if (!row) return null;
+  const metadata = allowed ? await tx
+    .select({ evidenceIndex: ruleResultExcerpts.evidenceIndex, deletedAt: ruleResultExcerpts.deletedAt })
+    .from(ruleResultExcerpts)
+    .where(and(eq(ruleResultExcerpts.workspaceId, workspaceId), eq(ruleResultExcerpts.ruleResultId, ruleResultId))) : [];
+  return { rows: evidenceStateRows(ruleResultId, row.evidence as EvidenceStateInput[], (row.sampleSet as SampleSet).files, allowed, metadata) };
 }

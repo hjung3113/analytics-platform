@@ -968,6 +968,76 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
       await expect(sql('delete from log_lifecycle.rule_result_excerpt where rule_result_id = $1', [ruleId])).rejects.toThrow(/cannot be deleted/); // the erased tombstone too
       expect((await stored(ruleId))).toHaveLength(1);
     });
+    describe('evidenceStates (#1815 A2)', () => {
+      it('returns live and unsubmitted states, same-file hash mismatches and no body or audit text', async () => {
+        const { ruleId, request } = await failedRequestWithExcerpt();
+        const got = await read('evidenceStates', { ruleResultId: ruleId }, reader);
+        expect(got.outcome).toBe('ok');
+        expect(got.data.rows).toEqual([
+          { ruleResultId: ruleId, evidenceIndex: 0, evidenceRef: { fileRef: FILES()[0]?.fileRef, line: 12, fileSha256: H('b') }, excerptState: 'not_loaded', sourceState: 'hash_mismatch' },
+          { ruleResultId: ruleId, evidenceIndex: 1, evidenceRef: { fileRef: FILES()[1]?.fileRef, line: 2, fileSha256: H('c') }, excerptState: 'not_submitted', sourceState: 'hash_mismatch' },
+        ]);
+        expect(JSON.stringify(got)).not.toContain(EXCERPT);
+        expect(JSON.stringify(await audit(request.id))).not.toContain(EXCERPT);
+      });
+
+      it('checks source rights each call, preserves public not_submitted, and refuses tokens', async () => {
+        const { ruleId } = await failedRequestWithExcerpt();
+        const denied = await read('evidenceStates', { ruleResultId: ruleId }, user);
+        expect(denied.outcome).toBe('ok');
+        expect(denied.data.rows.map((r: Row) => [r.excerptState, r.sourceState])).toEqual([['no_permission', 'no_permission'], ['not_submitted', 'no_permission']]);
+        expect((await read('evidenceStates', { ruleResultId: ruleId }, reader)).data.rows[0].excerptState).toBe('not_loaded');
+        expect((await act('excerptAccessSet', { sourceOwner: SOURCE, actorId: reader.id, allowed: false })).outcome).toBe('ok');
+        expect((await read('evidenceStates', { ruleResultId: ruleId }, reader)).data.rows[0].excerptState).toBe('no_permission');
+        expect((await act('excerptAccessSet', { sourceOwner: SOURCE, actorId: reader.id, allowed: true })).outcome).toBe('ok');
+        expect((await read('evidenceStates', { ruleResultId: ruleId }, reader, noScopeToken)).outcome).toBe('forbidden');
+      });
+
+      it('refuses a token that passes the platform read permission before looking up source state', async () => {
+        const { ruleId } = await failedRequestWithExcerpt();
+        const token = await issueServiceToken(systemA, ['workspace.read']);
+        expect(await read('evidenceStates', { ruleResultId: ruleId }, reader, token)).toMatchObject({ outcome: 'forbidden', data: null, message: 'evidence state reads need a login session' });
+      });
+
+      it('treats hidden and unknown results as missing and rejects index probes or unknown keys', async () => {
+        const { ruleId, round } = await failedRequestWithExcerpt();
+        await sql("update knowledge.equipment_model set access_mode = 'restricted' where id = $1", [round.modelId]);
+        for (const who of [reader, user]) expect(await read('evidenceStates', { ruleResultId: ruleId }, who)).toMatchObject({ outcome: 'ok', data: null });
+        expect(await read('evidenceStates', { ruleResultId: randomUUID() }, user)).toMatchObject({ outcome: 'ok', data: null });
+        for (const params of [{ ruleResultId: ruleId, evidenceIndex: 19 }, { ruleResultId: ruleId, extra: true }, { ruleResultId: 'bad' }]) {
+          expect((await read('evidenceStates', params)).outcome).toBe('error');
+        }
+      });
+
+      it.each(['retention', 'synthetic-admin-reason', 'legacy-unknown'])('never guesses erasure provenance from free text (%s)', async (reason) => {
+        const { ruleId, attemptId } = await failedRequestWithExcerpt();
+        expect((await act('excerptDelete', { scope: 'attempt', id: attemptId, reason })).outcome).toBe('ok');
+        const got = await read('evidenceStates', { ruleResultId: ruleId }, reader);
+        expect(got.data.rows[0].excerptState).toBe('unknown');
+        expect(JSON.stringify(got)).not.toContain(reason);
+      });
+
+      it('keeps purge erasure unknown because the same retention marker is also accepted from admins', async () => {
+        const { ruleId, round } = await failedRequestWithExcerpt();
+        expect((await act('roundClose', { id: round.roundId }, { expectedVersion: '1' })).outcome).toBe('ok');
+        await purgeExpiredExcerpts({ db: dbHandle.db, now: () => new Date(Date.now() + 100 * DAY) });
+        expect((await stored(ruleId))[0]).toMatchObject({ deleted_reason: 'retention' });
+        expect((await read('evidenceStates', { ruleResultId: ruleId }, reader)).data.rows[0].excerptState).toBe('unknown');
+      });
+
+      it('preserves duplicate indices and leaves a matching Source unchecked', async () => {
+        const round = await makeRound();
+        const request = await makeRequest(round.roundId);
+        const claimed = (await claim()).json();
+        const loc = { fileRef: FILES()[0]?.fileRef, line: 7, fileSha256: H('a') };
+        expect((await post(workerA, `/requests/${request.id}/result`, resultBody(claimed, [rule('SYN-1', 'FAIL', true, { evidence: [{ ...loc, excerpt: EXCERPT }, loc] })]))).statusCode).toBe(200);
+        const ruleId = (await sql('select id from log_lifecycle.rule_result where attempt_id = $1', [claimed.attempt.id])).rows[0].id;
+        const got = await read('evidenceStates', { ruleResultId: ruleId }, reader);
+        expect(got.data.rows.map((r: Row) => [r.evidenceIndex, r.excerptState, r.sourceState])).toEqual([[0, 'not_loaded', 'not_checked'], [1, 'not_submitted', 'not_checked']]);
+        expect(got.data.rows[0].evidenceRef).toEqual(got.data.rows[1].evidenceRef);
+      });
+    });
+
   });
 
   describe('reads', () => {
@@ -1183,6 +1253,11 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
       for (const miss of [{ ...LOC, line: 41 }, { ...LOC, fileSha256: H('8') }, { ...LOC, fileRef: 'nope' }]) {
         expect((await readLinks(miss)).data).toEqual({ results: { total: 0, rows: [] }, rounds: { total: 0, rows: [] } });
       }
+    });
+
+    it('evidenceStates hides a result from another workspace', async () => {
+      const foreign = await seedForeignChain({ fileRef: `s3://${TAG}/state-foreign.log`, line: 1, fileSha256: H('a') });
+      expect(await read('evidenceStates', { ruleResultId: foreign.result }, reader)).toMatchObject({ outcome: 'ok', data: null });
     });
 
     it('another workspace\'s citation answers like an unknown location and never changes a total or a page', async () => {
