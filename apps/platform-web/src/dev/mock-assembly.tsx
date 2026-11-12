@@ -19,7 +19,7 @@ import { topviewStudioMock } from '@ap/menu-topview-studio/mock';
 import { metricsAuditEvents } from '@ap/menu-metrics/mock';
 // Menu mock actions (ADR-0054) — hand-wired: the generator writes endpoint markers only (backlog: generator support once a second menu has mock actions).
 import { logAnalysisActionsMock } from '@ap/menu-log-analysis/mock';
-export { stageLifecycleFixture } from '@ap/menu-log-models/mock';
+export { stageLifecycleFixture, stageValidationIssue } from '@ap/menu-log-models/mock';
 export { stageDatasetBaseline, stageDatasetSuiteRun } from '@ap/menu-log-rules/mock';
 import { datasetActionsMock } from '@ap/menu-log-rules/mock';
 import { logLifecycleActionsMock } from '@ap/menu-log-models/mock';

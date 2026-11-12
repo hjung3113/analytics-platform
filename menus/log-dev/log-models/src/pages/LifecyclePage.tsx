@@ -4,13 +4,14 @@ import { PlatformLink, useEndpointRefreshEpoch, useMenuAction, useMenuFetch, use
 import { defineEndpoint, type AuditEvent, type EndpointSpec } from '@ap/contracts';
 import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
 import { roundSourceView } from '../round-source-slot';
-import { actions, endpoints, isUuid, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE } from '../endpoints';
+import { actions, endpoints, isUuid, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE, ISSUE_CONTRIBUTE, ISSUE_LINK } from '../endpoints';
 import { isModelHierarchyNodeId } from '../hierarchy';
 
 // Lookup mirrors only; these are owned and implemented by log-knowledge, never contributed a second time.
 const lookupEndpoints: Record<string, EndpointSpec<Params, unknown>> = Object.fromEntries(['vendors', 'processes'].map(name => [name, defineEndpoint<Params, unknown>({ id: `logKnowledge.${name}`, menuId: 'log-knowledge-catalog', permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false, paramKeys: { q: true, page: true, pageSize: true, sorting: true, filters: true } })]));
 
-const SOURCE_GATED = new Set(['excerpt', 'evidenceStates']);
+/** Source excerpts/evidence states and human validation records (#1808 N3: issue bodies, threads, history, Round discussion, titles). */
+const PROTECTED_READS = new Set(['excerpt', 'evidenceStates', 'validationIssues', 'validationIssueDetail', 'validationIssueThread', 'validationIssueHistory', 'roundDiscussion']);
 function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> {
   const { pageParam, route } = usePlatform();
   const listRead = name === 'models' && route?.menu.id === 'log-models';
@@ -21,10 +22,11 @@ function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> 
   ] } : params;
   const spec = endpoints[name] ?? lookupEndpoints[name];
   if (!spec) throw new Error(`Unknown lifecycle read: ${name}`);
-  // Source-gated reads (R5: ACL and audit on every access) run on a per-instance query: each mount (drawer open) starts with no
-  // prior result and only shows what that instance itself received, so a cached answer never outlives a close, also offline
-  // (a paused re-read of a shared key would show the old body as `done`). Every other read stays on the shared menu query.
-  const gated = SOURCE_GATED.has(name);
+  // Protected reads run on a per-instance query (the #1815 A3 mechanism): each mount (drawer open, page, list) starts with no
+  // prior result and shows only what that instance itself received, so a cached body never outlives a close or a revoked
+  // right, also offline (a paused re-read of a shared key would show the old answer as `done`). Write invalidation still
+  // re-reads through the endpoint refresh epoch. Every other read stays on the shared menu query.
+  const gated = PROTECTED_READS.has(name);
   const shared = useMenuQuery(spec, projected, enabled && !gated);
   const { ready, fetch } = useMenuFetch(spec);
   const epoch = useEndpointRefreshEpoch(gated ? [spec.id] : []);
@@ -78,7 +80,7 @@ export default function LifecyclePage({ params = {} }: PageProps) {
     else if (url.pathname === '/log/models') navigate(linkTo('log-models'));
     else if (url.pathname === '/log/validation-requests') navigate(linkTo('log-validation-requests', { page: Object.fromEntries(url.searchParams) }));
   }, [navigate, linkTo, params.projectId, pageParam]);
-  const props = useMemo<ScreenProps>(() => ({ api, ui, state: Object.fromEntries(page), setState: patch => setPage(Object.fromEntries(Object.entries(patch).map(([k,v]) => [k, v ?? null]))), actorId: user.id, canProject: can(PROJECT_MANAGE), canRound: can(ROUND_MANAGE), canGate: can(GATE_DECIDE), selection: pageParam('request') ?? undefined, setSelection: id => setPage({ request: id ?? null }),
+  const props = useMemo<ScreenProps>(() => ({ api, ui, state: Object.fromEntries(page), setState: patch => setPage(Object.fromEntries(Object.entries(patch).map(([k,v]) => [k, v ?? null]))), actorId: user.id, canProject: can(PROJECT_MANAGE), canRound: can(ROUND_MANAGE), canGate: can(GATE_DECIDE), canContribute: can(ISSUE_CONTRIBUTE), canLink: can(ISSUE_LINK), selection: pageParam('request') ?? undefined, setSelection: id => setPage({ request: id ?? null }),
     // The RuleSet history of the validation rules menu (#1496); a registry without that menu shows the name without a link.
     RuleSetLink: ({ ruleSetKey, children }) => { let href: string | null = null; try { href = linkTo('log-rules', { page: { ruleSetKey } }); } catch { href = null; } return href ? <PlatformLink className="min-w-0 truncate text-accent-primary hover:underline" href={href}>{children}</PlatformLink> : children; } }), [page, user.id, can, pageParam, setPage, linkTo]);
   const projectId = params.projectId;

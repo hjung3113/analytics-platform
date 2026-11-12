@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ACTORS, createLocalSavedViewStore, createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
-import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, stageOnboardingWindow, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS } from './dev/mock-assembly';
+import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, stageValidationIssue, stageOnboardingWindow, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
 import { GROUPS, MENUS, PERMISSIONS, registry } from './menus';
 import { defineAction, emptyGlobal, menuPermission, menuPermissions, spaceId, type Permission } from '@ap/contracts';
@@ -376,6 +376,13 @@ const lifecycleSamples: Record<string, () => Record<string, unknown>> = {
   requestCreate: () => ({ roundId: stageLifecycleFixture().roundId, priority: 1, immediate: false }),
   requestCancel: () => ({ id: stageLifecycleFixture().requestId, reason: '적합성 취소' }),
   gateDecide: () => ({ roundId: stageLifecycleFixture().roundId, targetStage: 'beta', decision: 'rejected', reason: '적합성 검토' }),
+  // #1808 human validation records: each request gets a fresh Round and issue.
+  validationIssueRegister: () => { const t = stageLifecycleFixture(); return { projectId: t.projectId, firstRoundId: t.roundId, title: '적합성 항목', body: '적합성 설명' }; },
+  validationIssueComment: () => ({ issueId: stageValidationIssue(stageLifecycleFixture()).issueId, body: '적합성 댓글' }),
+  validationIssueCorrect: () => ({ issueId: stageValidationIssue(stageLifecycleFixture()).issueId, field: 'body', body: '적합성 정정' }),
+  validationIssueLinkOccurrence: () => { const t = stageLifecycleFixture(); return { issueId: stageValidationIssue(t).issueId, roundId: t.roundId }; },
+  validationIssueLinkEvidence: () => ({ occurrenceId: stageValidationIssue(stageLifecycleFixture()).occurrenceId, refs: [{ fileRef: 's3://synthetic/sample-01.log', line: 1, fileSha256: 'a'.repeat(64) }] }),
+  roundDiscussionComment: () => ({ roundId: stageLifecycleFixture().roundId, body: '적합성 Round 의견' }),
 };
 const writeSamples: Record<string, Record<string, () => Record<string, unknown>>> = {
   logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples, ...specSamples, ...conceptSamples, ...topViewSamples },

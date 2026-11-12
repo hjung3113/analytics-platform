@@ -32,7 +32,7 @@ export function ProjectScreen(props: ScreenProps & { projectId: string; roundId?
         { id: 'round', header: 'Round', sortable: false, cell: r => <Button variant="link" size="toolbar" onClick={() => navigate('round', projectId, r.id)}>Round {r.seq}</Button> },
         { id: 'execution', header: '최신 실행', sortable: false, cell: r => <RoundSummaryCell api={api} roundId={r.id} field="execution" /> },
         { id: 'verdict', header: '완료 시도 판정', sortable: false, cell: r => <RoundSummaryCell api={api} roundId={r.id} field="verdict" /> },
-        { id: 'counts', header: '규칙 결과 · 미해결 결함', sortable: false, cell: r => <RoundSummaryCell api={api} roundId={r.id} field="counts" /> },
+        { id: 'counts', header: '규칙 결과 · 검증 항목', sortable: false, cell: r => <RoundSummaryCell api={api} roundId={r.id} field="counts" /> },
         { id: 'gate', header: 'GATE', sortable: false, cell: r => <GateBadge decision={r.gateDecision} /> },
       ] })}</ReadView></TabsContent><TabsContent value="history"><Section title="개발 건 이력"><ReadView query={events}>{data => <>{ui.timeline(data.rows, projectId)}<Pager page={eventPage} total={data.total} onChange={setEventPage} /></>}</ReadView></Section></TabsContent></Tabs>
     </>}

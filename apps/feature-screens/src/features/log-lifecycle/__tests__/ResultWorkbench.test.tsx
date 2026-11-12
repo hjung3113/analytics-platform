@@ -39,17 +39,10 @@ it('uses completed server counts while identifying the newer failed execution', 
   expect(screen.getByLabelText('최신 실행 상태')).toHaveTextContent('시도 #3');
   expect(screen.queryByRole('table', { name: 'Round 검증 요청' })).toBeNull();
 });
-it('shows no synthetic defect table when the server has no defect projection', () => {
+it('shows no synthetic issue table or count when the server returns no issue list', () => {
   setup();
-  expect(screen.queryByRole('table', { name: '미해결 결함' })).toBeNull();
-  expect(screen.getByText('미해결 결함 집계 불가')).toBeVisible();
-});
-it('moves keyboard focus to the server-provided unresolved defect table from the header count', async () => {
-  setup({ round: { ...round, defects: { unresolvedCount: 1, rows: [{ id: 'issue', title: '합성 결함', status: 'open', ruleResultId: rule.id }] } } });
-  const count = screen.getByRole('button', { name: '미해결 결함 1' });
-  count.focus(); await userEvent.setup().keyboard('{Enter}');
-  expect(screen.getByRole('region', { name: '미해결 결함' })).toHaveFocus();
-  expect(screen.getByRole('table', { name: '규칙 결과' })).toBeVisible();
+  expect(screen.queryByRole('table', { name: '검증 항목' })).toBeNull();
+  expect(screen.getByText('검증 항목 집계 불가')).toBeVisible();
 });
 it('fills the read-only server Gate basis and preserves the reason through rule replacement and tab visits', async () => {
   setup(); const user = userEvent.setup();
