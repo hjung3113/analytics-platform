@@ -95,6 +95,8 @@ const envSchema = z
     // no resolver (requiresScope endpoints stay refused). Time budget ADR-0095 §2:
     // adapter (HTTP_REQUEST_TIMEOUT_MS, default 30 s) > upstream call (27 s) > judgment.
     MENU_DECLARATIONS_FILE: optionalEnvString,
+    // #1900 (ADR-0156): the menu declaration snapshot the app assembly build wrote; required with the bundle, no switch.
+    MENU_DECLARATIONS_SNAPSHOT_FILE: optionalEnvString,
     MENU_UPSTREAM_BASE_URL: optionalEnvString,
     MENU_IDENTITY_KEY_FILE: optionalEnvString,
     MENU_IDENTITY_KEY_ID: optionalEnvString,
@@ -177,6 +179,13 @@ const envSchema = z
           message: `${variable} must be an absolute http(s) URL without credentials, query, or fragment`,
         });
       }
+    }
+    if (config.MENU_DECLARATIONS_FILE !== undefined && config.MENU_DECLARATIONS_SNAPSHOT_FILE === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MENU_DECLARATIONS_SNAPSHOT_FILE'],
+        message: 'MENU_DECLARATIONS_SNAPSHOT_FILE is required when MENU_DECLARATIONS_FILE is set',
+      });
     }
     if (config.MENU_DECLARATIONS_FILE !== undefined && config.MENU_UPSTREAM_TIMEOUT_MS >= config.HTTP_REQUEST_TIMEOUT_MS) {
       context.addIssue({

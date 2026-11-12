@@ -79,6 +79,11 @@
 - [ ] Site·room별 대상 배치, 열 대응, Scope 검증 방식과 행 상한 확인. [합성 선언 묶음 예시](examples/routed-declarations.example.json)는 여러 Site의 공용 대상과 한 Site의 room별 분할 대상, 기존 문자열 경로를 함께 제시.
 - [ ] 플랫폼은 쓰기·DDL을 수행하지 않으며, 조회 SQL에 `LIMIT`·`ORDER BY`·`COUNT`를 덧붙이지 않음. 선언된 문장을 파라미터로 실행하고 행 상한에서 커서를 닫음. 읽기 전용 계정 권한이 1차 보장([ADR-0153 결정 8](../adr/0153-upstream-target-routing-and-declared-connectors.md)).
 
+### 선언 묶음과 메뉴 선언 스냅샷
+
+- [ ] 웹 빌드(키트 `build:real`)가 빌드 출력에 쓴 `menu-declarations.snapshot.json`을 코어 서버가 읽는 위치에 둔다. 손으로 만들거나 고치지 않는다. 메뉴 선언이 바뀌면 웹을 다시 빌드하고 이 파일도 함께 바꾼다.
+- [ ] 코어 서버 설정 `MENU_DECLARATIONS_SNAPSHOT_FILE`에 그 경로를 준다. `MENU_DECLARATIONS_FILE`이 있으면 필수다. 묶음의 엔드포인트·동작이 이 스냅샷의 메뉴 선언과 다르면 서버가 뜨지 않고, 어느 행의 어느 필드인지 알려 준다([ADR-0156](../adr/0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md)).
+
 ### Scope 카탈로그와 첫 부여
 
 사내는 `MENU_DECLARATIONS_FILE` 묶음의 `scopeCatalog`에 `{ site, label, rooms: [room_name, …] }` 값을 준비한다. 부여 서비스는 준비하지 않는다. 원천 선택·검증 계약은 [체크리스트의 Scope 부여 서비스 계약](real-server-checklist.md#scope-부여-서비스-계약), 결정 근거는 [ADR-0154](../adr/0154-site-and-room-grants-are-platform-owned.md)다.

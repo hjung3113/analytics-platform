@@ -9,6 +9,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../../config.js';
 import { createDb, type DbHandle } from '../../../db/client.js';
 import { loadMenuDeclarationSetup } from '../../../menu-declarations.js';
+import { withMenuSnapshotFile } from '../../../test-support/menu-snapshot.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { createCheckService } from '../../permissions/index.js';
 import { buildServer } from '../../../server.js';
@@ -59,14 +60,14 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)('HTTP mapped connecto
       endpointOwners: { 'syn.shared': { routes: [{ sites: ['S1', 'S2'], targets: ['t1'] }], call, scopeCheck }, 'syn.split': { routes: [{ sites: ['S3'], rooms: ['R1'], targets: ['t1'] }, { sites: ['S3'], rooms: ['R2'], targets: ['t2'] }], call, scopeCheck } },
     }));
     const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: file, MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test', MENU_UPSTREAM_TIMEOUT_MS: 3000 };
-    const setup = await loadMenuDeclarationSetup(config, { checkService: createCheckService({ db: db.db }), fetch: (async () => new Response(JSON.stringify([{ site: 'S1', rooms: ['R1'] }, { site: 'S2', rooms: ['R2'] }, { site: 'S3', rooms: ['R1', 'R2'] } ]))) as typeof fetch, log: (entry) => logs.push(entry) });
+    const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config), { checkService: createCheckService({ db: db.db }), fetch: (async () => new Response(JSON.stringify([{ site: 'S1', rooms: ['R1'] }, { site: 'S2', rooms: ['R2'] }, { site: 'S3', rooms: ['R1', 'R2'] } ]))) as typeof fetch, log: (entry) => logs.push(entry) });
     if (!setup) throw new Error('setup missing');
     app = await buildServer({ config, dbHandle: db, menuDispatch: setup.menuDispatch, ...(setup.scopeResolver ? { scopeResolver: setup.scopeResolver } : {}) }); await app.ready();
     const keyFile = join(dir, 'identity'); const legacyFile = join(dir, 'legacy.json');
     await writeFile(keyFile, generateKeyPairSync('ed25519').privateKey.export({ type: 'pkcs8', format: 'pem' }));
     await writeFile(legacyFile, JSON.stringify({ endpoints: [{ id: 'syn.legacy', menuId: 'syn', paramKeys: [], permission: 'platform:view', requiresScope: false, context: {}, mergeTimeDomain: false }], actions: [], permissions: [], endpointOwners: { 'syn.legacy': '/legacy' } }));
     const legacyConfig = { ...loadConfig(), MENU_DECLARATIONS_FILE: legacyFile, MENU_UPSTREAM_BASE_URL: baseUrl, MENU_IDENTITY_KEY_FILE: keyFile, MENU_IDENTITY_KEY_ID: 'syn-key' };
-    const legacySetup = await loadMenuDeclarationSetup(legacyConfig, { checkService: createCheckService({ db: db.db }) });
+    const legacySetup = await loadMenuDeclarationSetup(withMenuSnapshotFile(legacyConfig), { checkService: createCheckService({ db: db.db }) });
     if (!legacySetup) throw new Error('legacy setup missing');
     legacyApp = await buildServer({ config: legacyConfig, dbHandle: db, menuDispatch: legacySetup.menuDispatch }); await legacyApp.ready();
     actorId = (await insertActorRow(db, { workspaceId: WORKSPACE_ID, externalId, displayName: 'Synthetic HTTP user', roleLevel: 'user' })).id; cookie = await loginAs(app, externalId);
@@ -127,7 +128,7 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)('HTTP mapped connecto
         endpointOwners: { 'syn.stalled': { call: { mode: 'mapped', method: 'GET', path: '/rows', response: {} }, routes: [{ targets: ['stalled'] }] } },
       }));
       const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: file, MENU_UPSTREAM_TIMEOUT_MS: 5000 };
-      const setup = await loadMenuDeclarationSetup(config, { checkService: createCheckService({ db: db.db }), log: () => {} });
+      const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config), { checkService: createCheckService({ db: db.db }), log: () => {} });
       if (!setup) throw new Error('setup missing');
       boundedApp = await buildServer({ config, dbHandle: db, menuDispatch: setup.menuDispatch }); await boundedApp.ready();
       const pending = boundedApp.inject({ method: 'POST', url: '/api/v1/menu-query', headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` }, payload: { endpoint: 'syn.stalled', context: {}, params: {} } });
@@ -180,7 +181,7 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)('HTTP routed continua
       },
     }));
     const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: file, MENU_UPSTREAM_BASE_URL: `${baseUrl}/unused`, MENU_IDENTITY_KEY_FILE: keyFile, MENU_IDENTITY_KEY_ID: 'syn-key' };
-    const setup = await loadMenuDeclarationSetup(config, { checkService: createCheckService({ db: db.db }), log: () => {} });
+    const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config), { checkService: createCheckService({ db: db.db }), log: () => {} });
     if (!setup) throw new Error('setup missing');
     app = await buildServer({ config, dbHandle: db, menuDispatch: setup.menuDispatch, scopeResolver: { resolve: async () => [{ site: 'S1', rooms: ['R1', 'R2'] }, { site: 'S2', rooms: ['R3'] }] } }); await app.ready();
     actorId = (await insertActorRow(db, { workspaceId: WORKSPACE_ID, externalId: continuationActor, displayName: 'Synthetic continuation user', roleLevel: 'user' })).id;

@@ -9,6 +9,7 @@ import { runQuery } from '../query.js';
 import type { EndpointHandlerArgs } from '../types.js';
 import { defined } from '../../../test-support/defined.js';
 import { stubCheckService } from '../../../test-support/platform-route-stubs.js';
+import { menuSnapshotFor } from '../../../test-support/menu-snapshot.js';
 
 const actor = { actor_id: 'syn-actor', workspace_id: 'syn-workspace', role_level: 'user' } as const;
 const args = (): EndpointHandlerArgs => ({ actor, context: { scopeId: 'SITE-A' }, params: {}, scopes: [{ site: 'SITE-A', rooms: ['R1', 'R2'] }], correlationId: 'syn-cid', sessionVersion: async () => 'syn-version' });
@@ -25,7 +26,7 @@ function runtime(connector: Connector, maxRows = 4, sort = true) {
     targets: Object.fromEntries(['syn-1', 'syn-2'].map((id) => [id, { kind: 'sql' as const, dialect: 'postgres' as const, connectionFile: '/syn/secret' }])),
   };
   const logs: RoutingLog[] = [];
-  const endpoint = defined(declaredContribution({ bundle, checkService: stubCheckService(true), connectorFactories: { sql: () => connector }, log: (entry) => logs.push(entry) }).endpoints?.[0]);
+  const endpoint = defined(declaredContribution({ bundle, snapshot: menuSnapshotFor(bundle), checkService: stubCheckService(true), connectorFactories: { sql: () => connector }, log: (entry) => logs.push(entry) }).endpoints?.[0]);
   return { endpoint, logs, bundle, owner, run: () => runQuery({ ok: true, declaration: endpoint, context: args().context, params: {}, scopeResolver: { resolve: async () => args().scopes } }, actor, 'syn-cid') };
 }
 afterEach(() => vi.useRealTimers());
@@ -143,7 +144,7 @@ function keyedRuntime(connector: Connector) {
     actions: [], permissions: [{ permission: 'syn:view', capability: 'workspace.read' }], endpointOwners: { 'syn.rows': owner },
     targets: Object.fromEntries(['syn-1', 'syn-2'].map((id) => [id, { kind: 'sql' as const, dialect: 'postgres' as const, connectionFile: '/syn/secret' }])),
   } as DeclarationBundle;
-  return defined(declaredContribution({ bundle, checkService: stubCheckService(true), connectorFactories: { sql: () => connector } }).endpoints?.[0]);
+  return defined(declaredContribution({ bundle, snapshot: menuSnapshotFor(bundle), checkService: stubCheckService(true), connectorFactories: { sql: () => connector } }).endpoints?.[0]);
 }
 it('resolve-keys judges each fan-out leg against its own rooms, not the request rooms', async () => {
   const mains: string[] = [];

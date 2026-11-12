@@ -9,6 +9,7 @@ import { judgeQueryShape, runQuery } from '../query.js';
 import { enforceRowScope } from '../scope-check.js';
 import { MenuUpstreamError } from '../forwarder.js';
 import { handleRouted } from '../routed-handler.js';
+import { menuSnapshotFor } from '../../../test-support/menu-snapshot.js';
 
 const actor = { actor_id: 'syn-actor', workspace_id: 'syn-workspace', role_level: 'user' } as const;
 const owner = (): Routing => ({ routes: [{ sites: ['SITE-A'], targets: ['syn-target'] }], call: { statement: 'SELECT :rooms', params: { rooms: 'scope.rooms' } }, scopeCheck: { mode: 'verify-rows', roomField: '/room' }, unroutedRooms: 'error' });
@@ -43,7 +44,7 @@ it.each(['missing check', 'aggregate without rooms', 'missing maxRows', 'non-inj
     message = 'valueMap must be injective';
   }
   const factory = vi.fn();
-  expect(() => createMenuDispatchRegistry([declaredContribution({ bundle: input, checkService: stubCheckService(true), connectorFactories: { sql: factory } })], { scopeResolver: { resolve: async () => scopes } })).toThrow(message);
+  expect(() => createMenuDispatchRegistry([declaredContribution({ bundle: input, snapshot: menuSnapshotFor(input), checkService: stubCheckService(true), connectorFactories: { sql: factory } })], { scopeResolver: { resolve: async () => scopes } })).toThrow(message);
   expect(factory).not.toHaveBeenCalled();
 });
 
@@ -56,7 +57,7 @@ it('scope-free routed endpoint returns rows without a Scope check', async () => 
   const source = bundle(routing);
   const input = { ...source, endpoints: source.endpoints.map((endpoint) => ({ ...endpoint, requiresScope: false })) };
   const rows = [{ value: 'syn-public-row' }];
-  const contribution = declaredContribution({ bundle: input, checkService: stubCheckService(true), connectorFactories: { sql: () => ({ async *query() { yield* rows; } }) } });
+  const contribution = declaredContribution({ bundle: input, snapshot: menuSnapshotFor(input), checkService: stubCheckService(true), connectorFactories: { sql: () => ({ async *query() { yield* rows; } }) } });
   const shape = judgeQueryShape({ endpoint: 'syn.rows', context: {}, params: {} }, createMenuDispatchRegistry([contribution]));
   if (!shape.ok) throw new Error(shape.message);
   await expect(runQuery(shape, actor, 'syn-cid')).resolves.toMatchObject({ outcome: 'ok', data: rows });
@@ -75,7 +76,7 @@ it('legacy resolver rejection stays forbidden when the caller aborts with an ups
   const source = bundle();
   const input = { ...source, endpoints: source.endpoints.map(({ limits: _limits, ...endpoint }) => endpoint), endpointOwners: { 'syn.rows': '/syn/rows' } };
   const forward = vi.fn();
-  const contribution = declaredContribution({ bundle: input, checkService: stubCheckService(true), forwarder: { forward } });
+  const contribution = declaredContribution({ bundle: input, snapshot: menuSnapshotFor(input), checkService: stubCheckService(true), forwarder: { forward } });
   const controller = new AbortController();
   const registry = createMenuDispatchRegistry([contribution], { scopeResolver: { resolve: async () => {
     controller.abort(new MenuUpstreamError('timeout'));
@@ -90,7 +91,7 @@ it('legacy resolver rejection stays forbidden when the caller aborts with an ups
 it.each(['authorization', 'Scope resolver'] as const)('arrival deadline races pending %s and cancels Scope without connector calls', async (phase) => {
   vi.useFakeTimers(); vi.setSystemTime(10000);
   const factory = vi.fn();
-  const contribution = declaredContribution({ bundle: bundle(), checkService: stubCheckService(true), connectorFactories: { sql: factory }, timeoutMs: 3000 });
+  const contribution = declaredContribution({ bundle: bundle(), snapshot: menuSnapshotFor(bundle()), checkService: stubCheckService(true), connectorFactories: { sql: factory }, timeoutMs: 3000 });
   const declaration = defined(contribution.endpoints?.[0]);
   let release: () => void = () => {};
   let entered: () => void = () => {};

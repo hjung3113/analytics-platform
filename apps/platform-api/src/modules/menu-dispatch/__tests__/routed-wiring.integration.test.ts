@@ -13,6 +13,7 @@ import { createCheckService } from '../../permissions/index.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
+import { withMenuSnapshotFile } from '../../../test-support/menu-snapshot.js';
 import { uid } from '../../../test-support/ids.js';
 import type { ConnectorLeg, RoutingLog } from '../connectors/types.js';
 import { TargetJudgmentTimeout } from '../connectors/types.js';
@@ -48,7 +49,7 @@ describe.skipIf(!runIntegration)('single-target routing through production setup
       },
     }));
     const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: file, MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test', MENU_UPSTREAM_TIMEOUT_MS: 10000 };
-    const setup = await loadMenuDeclarationSetup(config, {
+    const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config), {
       checkService: createCheckService({ db: db.db }),
       fetch: (async () => new Response(JSON.stringify(grants), { status: 200 })) as typeof fetch,
       connectorFactories: { sql: () => ({ async *query(leg) {
@@ -118,7 +119,7 @@ describe.skipIf(!runIntegration)('single-target routing through production setup
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => { release = resolve; });
     const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: join(dir, 'bundle.json'), MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test', MENU_UPSTREAM_TIMEOUT_MS: 100 };
-    const setup = await loadMenuDeclarationSetup(config, {
+    const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config), {
       checkService: createCheckService({ db: db.db }),
       fetch: (async (_url: unknown, init?: RequestInit) => {
         resolverSignal = init?.signal;
@@ -150,7 +151,7 @@ describe.skipIf(!runIntegration)('single-target routing through production setup
     await writeFile(file, JSON.stringify({ endpoints: [{ id: 'syn.legacy', menuId: 'syn', paramKeys: [], permission: 'platform:view', requiresScope: false, context: {}, mergeTimeDomain: false }], actions: [], permissions: [], endpointOwners: { 'syn.legacy': '/syn/rows' } }));
     const bytes = '{"outcome":"ok","data":[{"value":7}],"assessments":[],"trust":null,"correlationId":"syn-wire"}';
     const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: file, MENU_UPSTREAM_BASE_URL: 'https://upstream.test', MENU_IDENTITY_KEY_FILE: keyFile, MENU_IDENTITY_KEY_ID: 'syn-key' };
-    const setup = await loadMenuDeclarationSetup(config, { checkService: createCheckService({ db: db.db }), fetch: (async (url: unknown, init: RequestInit) => {
+    const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config), { checkService: createCheckService({ db: db.db }), fetch: (async (url: unknown, init: RequestInit) => {
       expect(String(url)).toBe('https://upstream.test/syn/rows'); expect(init.body).toBe('{"endpoint":"syn.legacy","context":{},"params":{}}'); return new Response(bytes);
     }) as typeof fetch });
     if (!setup) throw new Error('legacy setup missing');

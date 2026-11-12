@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "sdkVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "menus": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "permission": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requiresScope": {
+            "type": "boolean"
+          },
+          "context": {
+            "type": "object",
+            "properties": {
+              "time": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "roomNames": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "line": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "prcGroup": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "condition": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "selection": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "lot": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "ppid": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "recipe": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "metric": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "permission",
+          "requiresScope",
+          "context"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "permissions": {
+      "uniqueItems": true,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "endpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "menuId": {
+            "type": "string"
+          },
+          "paramKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "permission": {
+            "type": "string"
+          },
+          "requiresScope": {
+            "type": "boolean"
+          },
+          "context": {
+            "type": "object",
+            "properties": {
+              "time": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "roomNames": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "line": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "prcGroup": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "condition": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "selection": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "lot": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "ppid": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "recipe": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              },
+              "metric": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "reference"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "requiredContext": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "time",
+                "roomNames",
+                "line",
+                "prcGroup",
+                "condition",
+                "selection",
+                "lot",
+                "ppid",
+                "recipe",
+                "metric"
+              ]
+            }
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "collection",
+                "processing_delay",
+                "coverage",
+                "time_domain",
+                "respondent_history"
+              ]
+            }
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "maxHours": {
+                "type": "number"
+              },
+              "maxRows": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "additionalProperties": false
+          },
+          "mergeTimeDomain": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "menuId",
+          "paramKeys",
+          "permission",
+          "requiresScope",
+          "context",
+          "kinds",
+          "mergeTimeDomain"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "menuId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "inputKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "permission": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requiresScope": {
+            "type": "boolean"
+          },
+          "concurrency": {
+            "type": "string",
+            "enum": [
+              "none",
+              "version"
+            ]
+          },
+          "invalidates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "id",
+          "menuId",
+          "inputKeys",
+          "permission",
+          "requiresScope",
+          "concurrency",
+          "invalidates"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "sdkVersion",
+    "menus",
+    "permissions",
+    "endpoints",
+    "actions",
+    "digest"
+  ],
+  "additionalProperties": false
+}

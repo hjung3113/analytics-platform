@@ -159,8 +159,11 @@ function schemaProblems(error: z.ZodError): string[] {
   });
 }
 
+/** Problems a caller adds to the bundle's own (the menu declaration snapshot check, ADR-0156), reported in one refusal. */
+export type ExtraBundleProblems = (bundle: Pick<z.infer<typeof bundleSchema>, 'endpoints' | 'actions'>) => string[];
+
 /** Reads and validates the declaration bundle. Throws `DeclarationBundleError` on every failure mode; never logs contents. */
-export async function loadDeclarationBundle(path: string): Promise<DeclarationBundle> {
+export async function loadDeclarationBundle(path: string, extraProblems?: ExtraBundleProblems): Promise<DeclarationBundle> {
   let text: string;
   try {
     text = await readFile(path, 'utf8');
@@ -174,7 +177,7 @@ export async function loadDeclarationBundle(path: string): Promise<DeclarationBu
   } catch {
     throw new DeclarationBundleError([`declaration bundle at ${path} is not valid JSON`]);
   }
-  const { endpoints, actions, permissions, endpointOwners, targets, scopeCatalog } = validateDeclarationBundle(json, `declaration bundle at ${path} failed its schema`);
+  const { endpoints, actions, permissions, endpointOwners, targets, scopeCatalog } = validateDeclarationBundle(json, `declaration bundle at ${path} failed its schema`, extraProblems);
   return {
     endpoints: endpoints.map(({ limits, ...row }) => {
       const owner = endpointOwners[row.id];
@@ -194,7 +197,7 @@ export async function loadDeclarationBundle(path: string): Promise<DeclarationBu
 }
 
 /** Shared file/programmatic boundary: schema first, then all semantic cross-checks. */
-export function validateDeclarationBundle(input: unknown, schemaMessage = 'declaration bundle failed its schema'): Omit<z.infer<typeof bundleSchema>, 'scopeCatalog'> & { scopeCatalog?: ScopeCatalog } {
+export function validateDeclarationBundle(input: unknown, schemaMessage = 'declaration bundle failed its schema', extraProblems?: ExtraBundleProblems): Omit<z.infer<typeof bundleSchema>, 'scopeCatalog'> & { scopeCatalog?: ScopeCatalog } {
   // Loaded bundles also pass this boundary during routed contribution assembly.
   const candidate = input as { scopeCatalog?: ScopeCatalog } | null;
   const normalized = candidate?.scopeCatalog && typeof candidate.scopeCatalog.roomsOf === 'function'
@@ -206,7 +209,7 @@ export function validateDeclarationBundle(input: unknown, schemaMessage = 'decla
       ...schemaProblems(parsed.error),
     ]);
   }
-  const problems = crossProblems(parsed.data);
+  const problems = [...crossProblems(parsed.data), ...(extraProblems ? extraProblems(parsed.data) : [])];
   let scopeCatalog: ScopeCatalog | undefined;
   if (parsed.data.scopeCatalog !== undefined) {
     try { scopeCatalog = parseScopeCatalog(parsed.data.scopeCatalog); } catch (error) {

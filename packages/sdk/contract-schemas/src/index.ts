@@ -10,10 +10,12 @@ import * as exportContract from './log-explorer-export.ts';
 import * as queue from './validation-queue.ts';
 import * as opinion from './validation-opinion.ts';
 import * as knowledgeSearch from './knowledge-search.ts';
+import { menuDeclarationSnapshotSchema } from './menu-declaration-snapshot.ts';
 import { z } from 'zod/v4';
 
 export { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
 export { endpointDeclarationSchema, menuQueryContextSchema, menuQuerySchema } from './menu-query.ts';
+export { MENU_DECLARATION_SNAPSHOT_SCHEMA_VERSION, menuDeclarationSnapshotSchema } from './menu-declaration-snapshot.ts';
 export { columnFilterSchema, columnFilterSpecSchema } from './column-filter.ts';
 export {
   createNoticeInputSchema,
@@ -209,6 +211,7 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   menuQueryContext: menuQueryContextSchema,
   menuQuery: menuQuerySchema,
   endpointDeclaration: endpointDeclarationSchema,
+  menuDeclarationSnapshot: menuDeclarationSnapshotSchema,
   columnFilter: columnFilterSchema,
   columnFilterSpec: columnFilterSpecSchema,
   jsonValue: ports.jsonValueSchema,

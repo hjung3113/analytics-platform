@@ -12,6 +12,7 @@ import { createMenuDispatchRegistry } from '../registry.js';
 import type { EndpointHandlerArgs } from '../types.js';
 import type { CheckService } from '../../permissions/check-service.js';
 import { routedBundle } from './bundle-fixtures.js';
+import { menuSnapshotFor } from '../../../test-support/menu-snapshot.js';
 
 const actor = { actor_id: 'syn-actor', workspace_id: 'syn-workspace', role_level: 'user' } as EndpointHandlerArgs['actor'];
 const args = (context: Record<string, unknown> = { scopeId: 'SITE-A' }): EndpointHandlerArgs => ({ actor, context, scopes: [{ site: 'SITE-A', rooms: ['RA1', 'RA2'] }, { site: 'SITE-B', rooms: ['RB1'] }], params: { q: 'synthetic' }, correlationId: 'syn-cid', sessionVersion: async () => 'syn-sv' });
@@ -22,7 +23,7 @@ function runtime(routing = owner(), connector?: Connector, over: Record<string, 
   const fake: Connector = connector ?? { async *query(leg) { calls.push(leg); yield { site: leg.site, room: leg.rooms[0], value: '7' }; } };
   const bundle = { ...routedBundle(), endpoints: [{ ...routedBundle().endpoints[0], context: {}, kinds: ['collection'], ...over }], endpointOwners: { 'syn.rows': routing } } as unknown as DeclarationBundle;
   const factories: ConnectorFactories = { sql: () => fake };
-  const contribution = declaredContribution({ bundle, checkService: { checkCapability: async () => ({ allow: true }) } as unknown as CheckService, connectorFactories: factories, timeoutMs: 27000, log: (entry) => logs.push(entry) });
+  const contribution = declaredContribution({ bundle, snapshot: menuSnapshotFor(bundle), checkService: { checkCapability: async () => ({ allow: true }) } as unknown as CheckService, connectorFactories: factories, timeoutMs: 27000, log: (entry) => logs.push(entry) });
   const endpoint = contribution.endpoints?.[0];
   if (!endpoint) throw new Error('endpoint missing');
   return { endpoint, bundle, calls, logs };
@@ -160,7 +161,7 @@ it('uses target valueMap and route axis overrides consistently', async () => {
   routing.routes[0] = { sites: ['SITE-A'], targets: ['tgt-1'], valueMap: { room: { RA1: 'route-1', RA2: 'route-2' } } };
   const { bundle } = runtime();
   const modified = { ...bundle, targets: { 'tgt-1': { kind: 'sql' as const, dialect: 'postgres' as const, connectionFile: '/syn/secret', valueMap: { site: { 'SITE-A': 'mapped-a' }, room: { RA1: 'target-1', RA2: 'target-2' } } } }, endpointOwners: { 'syn.rows': routing } };
-  const endpoints = declaredContribution({ bundle: modified, checkService: {} as CheckService, connectorFactories: { sql: () => ({ async *query(leg) {
+  const endpoints = declaredContribution({ bundle: modified, snapshot: menuSnapshotFor(modified), checkService: {} as CheckService, connectorFactories: { sql: () => ({ async *query(leg) {
     expect(leg).toMatchObject({ site: 'mapped-a', rooms: ['route-1', 'route-2'] }); yield { site: 'mapped-a', room: 'route-1' };
   } }) } }).endpoints;
   expect((await endpoints?.[0]?.handle(args()))?.outcome).toBe('ok');
@@ -175,7 +176,7 @@ it('answers a request spanning room shards from every owning target, each with o
   const { bundle } = runtime();
   const legs: { targetId: string; rooms: readonly string[] }[] = [];
   const factory = vi.fn(() => ({ async *query(leg: { targetId: string; rooms: readonly string[] }) { legs.push({ targetId: leg.targetId, rooms: leg.rooms }); yield { site: 'SITE-A', room: leg.rooms[0] }; } }));
-  const contribution = declaredContribution({ bundle: { ...bundle, endpointOwners: { 'syn.rows': routing }, targets: { ...bundle.targets, 'tgt-2': { kind: 'sql', dialect: 'postgres', connectionFile: '/syn/second-secret' } } }, checkService: {} as CheckService, connectorFactories: { sql: factory } });
+  const contribution = declaredContribution({ bundle: { ...bundle, endpointOwners: { 'syn.rows': routing }, targets: { ...bundle.targets, 'tgt-2': { kind: 'sql', dialect: 'postgres', connectionFile: '/syn/second-secret' } } }, snapshot: menuSnapshotFor(bundle), checkService: {} as CheckService, connectorFactories: { sql: factory } });
   const endpoint = contribution.endpoints?.[0];
   if (!endpoint) throw new Error('endpoint missing');
   const answer = await endpoint.handle(args());

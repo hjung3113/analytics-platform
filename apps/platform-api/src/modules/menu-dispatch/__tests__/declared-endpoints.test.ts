@@ -13,6 +13,7 @@ import { createIdentityTokenSigner } from '../identity-token.js';
 import { createMenuDispatchRegistry } from '../registry.js';
 import { menuQueryDispatchRoutes } from '../routes.js';
 import type { ScopeResolver } from '../scope-resolver.js';
+import { menuSnapshotFor } from '../../../test-support/menu-snapshot.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/declaration-bundle.json', import.meta.url));
 const { privateKey } = generateKeyPairSync('ed25519');
@@ -38,7 +39,7 @@ function assemble(bundle: DeclarationBundle, allowed = true) {
   const forwarder = createMenuForwarder({ baseUrl: 'http://synthetic.test', timeoutMs: 5000, signer, fetch });
   const checkService = stubCheckService(allowed);
   const check = vi.spyOn(checkService, 'checkCapability');
-  return { contribution: declaredContribution({ bundle, forwarder, checkService }), fetch, check };
+  return { contribution: declaredContribution({ bundle, snapshot: menuSnapshotFor(bundle), forwarder, checkService }), fetch, check };
 }
 
 let app: FastifyInstance | undefined;

@@ -9,6 +9,7 @@ import { MenuUpstreamError } from '../forwarder.js';
 import { runQuery } from '../query.js';
 import { defined } from '../../../test-support/defined.js';
 import { stubCheckService } from '../../../test-support/platform-route-stubs.js';
+import { menuSnapshotFor } from '../../../test-support/menu-snapshot.js';
 
 const actor = { actor_id: 'syn-actor', workspace_id: 'syn-workspace', role_level: 'user' } as const;
 function runtime(connector: Connector, options: { paged?: boolean; single?: boolean; max?: number; keyed?: boolean } = {}) {
@@ -25,7 +26,7 @@ function runtime(connector: Connector, options: { paged?: boolean; single?: bool
     targets: Object.fromEntries(['syn-1', 'syn-2'].map((id) => [id, { kind: 'sql' as const, dialect: 'postgres' as const, connectionFile: '/syn/secret' }])),
   };
   const logs: RoutingLog[] = [];
-  const endpoint = defined(declaredContribution({ bundle, checkService: stubCheckService(true), connectorFactories: { sql: () => connector }, log: (entry) => logs.push(entry) }).endpoints?.[0]);
+  const endpoint = defined(declaredContribution({ bundle, snapshot: menuSnapshotFor(bundle), checkService: stubCheckService(true), connectorFactories: { sql: () => connector }, log: (entry) => logs.push(entry) }).endpoints?.[0]);
   const run = (params: Record<string, unknown> = {}) => runQuery({ ok: true, declaration: endpoint, context: { scopeId: 'SITE-A' }, params, scopeResolver: { resolve: async () => [{ site: 'SITE-A', rooms: ['R1'] }] } }, actor, 'syn-cid');
   return { run, logs, bundle };
 }

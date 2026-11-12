@@ -12,6 +12,7 @@ import { createCheckService } from '../../permissions/index.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
+import { withMenuSnapshotFile } from '../../../test-support/menu-snapshot.js';
 import { uid } from '../../../test-support/ids.js';
 import { MenuUpstreamError } from '../forwarder.js';
 
@@ -42,7 +43,7 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)('fan-out through depl
       },
     }));
     const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: file, MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test', MENU_UPSTREAM_TIMEOUT_MS: 10000 };
-    const setup = await loadMenuDeclarationSetup(config, {
+    const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config), {
       checkService: createCheckService({ db: db.db }),
       fetch: (async () => new Response(JSON.stringify([{ site: 'SITE-A', rooms: ['R1'] }]))) as typeof fetch,
       connectorFactories: { sql: () => ({ async *query(leg) {
