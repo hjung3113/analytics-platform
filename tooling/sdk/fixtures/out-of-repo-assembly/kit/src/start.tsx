@@ -1,5 +1,5 @@
 // The kit's start: everything the Host needs is injected here — declarations, the mock assembly, the query-history port.
-import { KERNEL_PERMISSIONS, type QueryHistoryEntry, type QueryHistoryKey, type QueryHistoryStore } from '@ap/contracts';
+import { compareQueryHistory, KERNEL_PERMISSIONS, type QueryHistoryEntry, type QueryHistoryKey, type QueryHistoryStore } from '@ap/contracts';
 import { startAppHost } from '@ap/app-host';
 import { usePlatform } from '@ap/kernel';
 import { useOverlayState } from '@ap/kernel/host';
@@ -43,7 +43,9 @@ function inMemoryQueryHistory(): QueryHistoryStore {
       const id = keyOf(key);
       const previous = rows.get(id) ?? [];
       const count = (previous.find((row) => row.id === entry.id && row.query === entry.query)?.count ?? 0) + 1;
-      rows.set(id, [{ ...entry, count, lastAppliedAt: Date.now() }, ...previous.filter((row) => !(row.id === entry.id && row.query === entry.query))]);
+      const merged = [{ ...entry, count, lastAppliedAt: Date.now() }, ...previous.filter((row) => !(row.id === entry.id && row.query === entry.query))];
+      // The port assigns ordering and the 20-entry cap to the store (contracts links/query-history).
+      rows.set(id, merged.sort(compareQueryHistory).slice(0, 20));
     },
     remove: async (key, id) => {
       const current = keyOf(key);

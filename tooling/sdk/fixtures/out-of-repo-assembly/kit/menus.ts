@@ -3,8 +3,9 @@
 import { Gauge, Wrench } from 'lucide-react';
 import type { CreateRegistryInput } from '@ap/app-host';
 import type { MenuEntry } from '@ap/kernel';
-import { groupId, KERNEL_PERMISSIONS, menuPermission, spaceId, type EquipmentAxisDescriptor, type Permission } from '@ap/contracts';
-import { noContext, testSpace } from '@ap/kernel/testing';
+import { contextCapabilities, groupId, KERNEL_PERMISSIONS, menuPermission, spaceId, type EquipmentAxisDescriptor, type Permission } from '@ap/contracts';
+
+const noContext = contextCapabilities();
 
 const NO_FEATURES = { export: false, savedView: false, annotate: false, compare: false } as const;
 
@@ -32,7 +33,7 @@ export const VOCABULARY: readonly Permission[] = [...KERNEL_PERMISSIONS, ...KIT_
 /** The kit injects no equipment axis of its own. */
 export const KIT_AXES: readonly EquipmentAxisDescriptor[] = [];
 export const declarations: CreateRegistryInput = {
-  spaces: [testSpace({ id: spaceId('kit'), homeMenuId: 'kit-overview' })],
+  spaces: [{ id: spaceId('kit'), label: { ko: '키트', en: 'Kit' }, description: { ko: '시작 키트의 합성 메뉴', en: 'Synthetic menus of the start kit' }, homeMenuId: 'kit-overview' }],
   groups: [{ id: groupId('kit'), label: { ko: '키트', en: 'Kit' }, icon: Gauge, space: spaceId('kit'), hideLabelWhenSingle: true }],
   menus: [...PUBLIC_MENUS, ...IN_HOUSE_MENUS],
   permissions: [...KIT_PERMISSIONS],
