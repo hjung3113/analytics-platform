@@ -5,12 +5,13 @@ import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExt
 import { QueryBarStatusContext, useQueryBarStatus, type QueryBarStatus } from '../filters/QueryBarStatus';
 import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
-import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
+import { Ban, ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useConditionPreset, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
+import { AccessRequestEntry, scopeRequestTarget, useScopeAccessRequest } from '../state/AccessRequestEntry';
 import { useReturnNavigation } from './DrillLayout';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
 import { consumePageFocus, drillDestinationOf, focusPageFallback } from '../state/pageFocus';
@@ -143,7 +144,8 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', arrivalTarget, children }: PlatformPageProps) {
-  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft, pageParams } = useHostPlatform();
+  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft, pageParams, session } = useHostPlatform();
+  const accessRequest = useScopeAccessRequest();
   const detailFullscreen = useContext(DetailPanelFullscreenContext);
   const covered = detailFullscreen?.expanded === true;
   const conditionPreset = useConditionPreset();
@@ -266,9 +268,21 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
         : scope.status === 'unknown_scope'
           ? <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('scopeUnknownTitle')}
               body={t('scopeUnknownBody')} />
-          : <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
-            body={t('stateForbiddenBody')} />;
+          : accessRequest && scope.scopeId !== null
+            // Place (c): the forbidden Scope itself is the request target (site only; the dialog lets the user pick the range kind, ADR-0154 decision 6).
+            ? <AccessRequestEntry slot={accessRequest} target={{ kind: 'site', site: scope.scopeId }}>{(state, action) => <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
+                body={t(state.pending ? 'accessRequestPendingBody' : 'accessRequestBody')} action={action} />}</AccessRequestEntry>
+            : <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
+              body={t('stateForbiddenBody')} />;
   }
+  // Place (e): one request banner for the page body when a widget answers `forbidden` on a partially granted Scope (ADR-0154 decision 6).
+  // A fully granted Scope keeps today's per-widget rendering: its `forbidden` is a capability matter, not a Scope target.
+  const scopeOption = scope.scopeId === null ? undefined : session.scopes.find(option => option.id === scope.scopeId);
+  const forbiddenRequest = accessRequest && menu.requiresScope && scope.status === 'valid' && scope.scopeId !== null && scopeOption !== undefined && scopeOption.grantedRooms < scopeOption.totalRooms
+    ? <AccessRequestEntry slot={accessRequest} target={scopeRequestTarget(scope.scopeId, global.roomNames, scope.grantedRooms)}>{(state, action) => <div data-access-request-banner className="mb-3">
+        <StateMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={t('stateForbidden')} body={t(state.pending ? 'accessRequestPendingBody' : 'accessRequestBody')} action={action} />
+      </div>}</AccessRequestEntry>
+    : null;
 
   const notes = (contextNotes ?? []).filter(note => note != null && note !== false);
   const headVisible = (notes.length > 0 || Boolean(contextExtension)) && !gate;
@@ -357,8 +371,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       ? bodyInset === 'none' ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7')}>{gate}</div> : gate
       : <OutcomeScope>
         {bodyInset === 'none'
-          ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'has-[[data-outcome-banner]]:pt-3' : 'has-[[data-outcome-banner]]:pt-7')}><OutcomeBanners compact={layout === 'fill'} /></div>
-          : <OutcomeBanners compact={layout === 'fill'} />}
+          ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'has-[[data-outcome-banner]]:pt-3' : 'has-[[data-outcome-banner]]:pt-7')}><OutcomeBanners compact={layout === 'fill'} forbidden={forbiddenRequest} /></div>
+          : <OutcomeBanners compact={layout === 'fill'} forbidden={forbiddenRequest} />}
         {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
       </OutcomeScope>}</div>
     </div>

@@ -1,6 +1,7 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronDown, Loader2, MapPin, RotateCw, ShieldAlert } from 'lucide-react';
-import { useI18n } from '@ap/kernel';
+import { useI18n, type AccessRequestSlot } from '@ap/kernel';
+import { useScopeAccessRequest } from '@ap/components';
 import { useHostPlatform } from '@ap/kernel/host';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
@@ -10,8 +11,25 @@ import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLa
  */
 export function ScopeSelector({ collapsed = false, layout = 'sidebar' }: { collapsed?: boolean; layout?: 'sidebar' | 'bar' }) {
   const bar = layout === 'bar';
-  const { global, setGlobal, scope, retryScope, session } = useHostPlatform();
+  const { global, setGlobal, scope, retryScope, session, url, navigate } = useHostPlatform();
   const { t, lang } = useI18n();
+  const accessRequest = useScopeAccessRequest();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // Place (b) (ADR-0154 decision 6): the item only records the site; the dialog opens after the menu has closed and lives outside it,
+  // so it is not unmounted with the menu content. Closing it returns focus to the Scope trigger.
+  const chosenSite = useRef<string | null>(null);
+  const [requestSite, setRequestSite] = useState<string | null>(null);
+  const [closedDialogs, setClosedDialogs] = useState(0);
+  useEffect(() => {
+    if (closedDialogs === 0) return;
+    // After the dialog's own close autofocus, which is scheduled the same way and runs first.
+    const timer = setTimeout(() => triggerRef.current?.focus());
+    return () => clearTimeout(timer);
+  }, [closedDialogs]);
+  const requestSites = accessRequest ? [
+    ...session.scopes.filter(s => s.grantedRooms < s.totalRooms).map(s => ({ id: s.id, label: s.label, missing: s.totalRooms - s.grantedRooms })),
+    ...(session.requestableScopes ?? []).map(s => ({ id: s.id, label: s.label, missing: s.totalRooms })),
+  ] : [];
   const current = session.scopes.find(s => s.id === global.scopeId);
   const name = current?.label ?? global.scopeId ?? t('scopeNone');
   const descriptionId = useId();
@@ -20,7 +38,7 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar' }: { colla
       : scope.status === 'error' ? t('scopeCheckFailed') : t('scopeForbidden');
   const warn = !['none', 'valid', 'validating'].includes(scope.status);
   const trigger = <DropdownMenuTrigger asChild>
-    <button type="button" aria-label={`${t('scope')}: ${current?.label ?? global.scopeId ?? t('scopeNone')}`}
+    <button ref={triggerRef} type="button" aria-label={`${t('scope')}: ${current?.label ?? global.scopeId ?? t('scopeNone')}`}
       aria-describedby={descriptionId}
       className={cn('flex items-center gap-2 rounded-md border border-border-control px-2 text-left text-sm hover:bg-surface-row-hover', bar ? 'h-8 w-52' : 'min-h-10 w-full py-2')}>
       <span className={cn('grid size-5 shrink-0 place-items-center rounded text-xs font-semibold', warn ? 'bg-accent-warn-soft text-text-warning-label' : 'bg-accent-primary-soft text-accent-primary')}>
@@ -38,7 +56,13 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar' }: { colla
   return <TooltipProvider><div className={bar ? 'shrink-0' : 'shrink-0 border-b border-border-subtle p-2'}>
     <DropdownMenu>
       {collapsed ? <Tooltip><TooltipTrigger asChild>{trigger}</TooltipTrigger><TooltipContent side="right">{name} · {status}{current && ` · room ${current.grantedRooms}/${current.totalRooms}`}</TooltipContent></Tooltip> : trigger}
-      <DropdownMenuContent align="start" className="w-72">
+      <DropdownMenuContent align="start" className="w-72" onCloseAutoFocus={event => {
+        const site = chosenSite.current;
+        if (site === null) return;
+        chosenSite.current = null;
+        event.preventDefault();
+        setRequestSite(site);
+      }}>
         <DropdownMenuLabel>{lang === 'ko' ? '요청 Scope (단일 선택, 서버 재검증)' : 'Requested scope (single, server re-validated)'}</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={global.scopeId ?? ''} onValueChange={v => {
           // Re-picking the current Scope from a failed check retries the validation — setGlobal(same) is a
@@ -53,9 +77,33 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar' }: { colla
         {scope.status === 'error' && <DropdownMenuItem onSelect={() => retryScope()} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
           <RotateCw className="mr-2 size-3.5" aria-hidden />{t('scopeRetryCheck')}
         </DropdownMenuItem>}
+        {accessRequest && requestSites.length > 0 && <>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>{t('accessRequest')}</DropdownMenuLabel>
+          {requestSites.map(site => <SiteRequestItem key={site.id} slot={accessRequest} site={site}
+            onRequest={() => { chosenSite.current = site.id; }} onStatus={href => navigate(href)} />)}
+        </>}
         <DropdownMenuSeparator />
         <p className="px-2 py-1.5 text-tiny leading-4 text-text-secondary">{lang === 'ko' ? '권한 축은 Site 안의 room_name입니다. Scope를 바꾸면 Site 경계를 넘는 room·설비 조건/선택은 초기화됩니다.' : 'Grants are room_name within a Site. Changing scope clears site-bound room/equipment context.'}</p>
       </DropdownMenuContent>
     </DropdownMenu>
+    {accessRequest && requestSite !== null && <accessRequest.Dialog target={{ kind: 'site', site: requestSite }} returnTo={url} open onOpenChange={open => {
+      if (open) return;
+      setRequestSite(null);
+      setClosedDialogs(n => n + 1);
+    }} />}
   </div></TooltipProvider>;
+}
+
+/** One `권한 요청` row: a site with ungranted rooms. A pending request (the app's server read) turns it into a link to the request status. */
+function SiteRequestItem({ slot, site, onRequest, onStatus }: { slot: AccessRequestSlot; site: { id: string; label: string; missing: number }; onRequest: () => void; onStatus: (href: string) => void }) {
+  const { t } = useI18n();
+  const { Pending } = slot;
+  return <Pending target={{ kind: 'site', site: site.id }}>{state => state.pending
+    ? <DropdownMenuItem data-access-request="pending" disabled={state.statusHref === null} onSelect={() => { if (state.statusHref !== null) onStatus(state.statusHref); }} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+      {t('accessRequestSitePending', { site: site.label })}
+    </DropdownMenuItem>
+    : <DropdownMenuItem data-access-request="request" onSelect={onRequest} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+      {t('accessRequestSiteRooms', { site: site.label, count: site.missing })}
+    </DropdownMenuItem>}</Pending>;
 }

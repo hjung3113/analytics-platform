@@ -21,7 +21,10 @@ function createStore() {
   const listeners = new Set<() => void>();
   const pending = new Map<string, Map<string, PendingMember>>();
   let snapshot = EMPTY;
+  // Place (e) of the blocked-place request (ADR-0154 decision 6): whether at least one widget of this body answered `forbidden`.
+  let forbidden = false;
   const publish = () => {
+    forbidden = [...widgets.values()].some(widget => widget.response?.outcome === 'forbidden');
     for (const [key, members] of pending) {
       for (const [id, member] of members) {
         const widget = widgets.get(id);
@@ -45,6 +48,7 @@ function createStore() {
   const store = {
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     getSnapshot: () => snapshot,
+    getForbidden: () => forbidden,
     isGrouped: (id: string, key: string | null) => key !== null && [...widgets.values()].some(widget => widget.id !== id && groupingKey(widget.response) === key),
     set: (widget: Widget) => {
       const old = widgets.get(widget.id);
@@ -66,6 +70,7 @@ function createStore() {
 const OutcomeContext = createContext<ReturnType<typeof createStore> | null>(null);
 const subscribeNone = () => () => {};
 const emptySnapshot = () => EMPTY;
+const noForbidden = () => false;
 
 export function OutcomeScope({ children }: { children: ReactNode }) {
   const [store] = useState(createStore);
@@ -145,9 +150,11 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
   </section>;
 }
 
-export function OutcomeBanners({ compact = false }: { compact?: boolean } = {}) {
+/** `forbidden`: the page's request banner, drawn once above the groups while at least one widget of the body answers `forbidden`. */
+export function OutcomeBanners({ compact = false, forbidden }: { compact?: boolean; forbidden?: ReactNode } = {}) {
   const store = useContext(OutcomeContext);
   const groups = useSyncExternalStore(store?.subscribe ?? subscribeNone, store?.getSnapshot ?? emptySnapshot, emptySnapshot);
+  const anyForbidden = useSyncExternalStore(store?.subscribe ?? subscribeNone, store?.getForbidden ?? noForbidden, noForbidden);
   const { t } = useI18n();
   const announcement = (danger: boolean) => groups.filter(group => (group.widgets[0].response!.outcome !== 'empty') === danger).map(group => {
     const outcome = group.widgets[0].response!.outcome;
@@ -158,6 +165,7 @@ export function OutcomeBanners({ compact = false }: { compact?: boolean } = {}) 
   return <>
     <div data-outcome-announcer="assertive" aria-live="assertive" aria-atomic="true" className="sr-only">{announcement(true)}</div>
     <div data-outcome-announcer="polite" aria-live="polite" aria-atomic="true" className="sr-only">{announcement(false)}</div>
+    {anyForbidden && forbidden}
     {groups.map(group => <OutcomeBanner key={group.key} group={group} compact={compact} onRetry={() => store?.retry(group.key)} />)}
   </>;
 }

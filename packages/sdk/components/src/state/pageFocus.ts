@@ -25,12 +25,16 @@ export function detailFocusFallback(
 }
 
 // A disappearing action returns focus to its pane root (a board pane, ADR-0049), else main, or page content outside a shell (06 §26).
-export function focusPageFallback(source: HTMLElement | null) {
-  const target = source?.closest<HTMLElement>(`${PANE_ROOT_SELECTOR}[tabindex]`)
+export function pageFallbackTarget(source: HTMLElement | null): HTMLElement | null {
+  return source?.closest<HTMLElement>(`${PANE_ROOT_SELECTOR}[tabindex]`)
     ?? source?.closest<HTMLElement>('main[tabindex]')
     ?? source?.closest<HTMLElement>('[data-platform-page-content]')
-    ?? source?.querySelector<HTMLElement>('[data-platform-page-content]');
-  target?.focus({ preventScroll: true });
+    ?? source?.querySelector<HTMLElement>('[data-platform-page-content]')
+    ?? null;
+}
+
+export function focusPageFallback(source: HTMLElement | null) {
+  pageFallbackTarget(source)?.focus({ preventScroll: true });
 }
 
 // ReturnLink calls this after its synchronous Kernel navigation, before the destination commits.

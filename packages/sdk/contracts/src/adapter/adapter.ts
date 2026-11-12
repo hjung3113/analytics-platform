@@ -31,6 +31,16 @@ export type Session = {
 
 export type ScopeCheck = { status: 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
 
+/**
+ * What a blocked place asks access for (ADR-0154 decision 6): a menu permission, a whole site (every catalog room,
+ * later rooms included) or one room of a site. The shell fills it from the place; the app's request dialog maps it.
+ * `site`/`room` are Scope catalog values (`ScopeOption.id`, room_name), never invented by the shell.
+ */
+export type PermissionRequestTarget =
+  | { kind: 'permission'; permission: Permission }
+  | { kind: 'site'; site: string }
+  | { kind: 'site_room'; site: string; room: string };
+
 /** Server-owned published pointer per metricId (docs/06 §6.1). Bare version token. Null = known, unpublished. */
 export type PublishedMetric = { metricId: string; publishedVersion: string | null };
 
