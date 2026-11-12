@@ -1226,34 +1226,56 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
       expect(got.data.results.rows[0]).toMatchObject({ ruleKey: 'RBIG', roundId: a.round.roundId });
     });
 
-    it('finds the rule results and Rounds that cite a location, newest first, deduped, paged; a body never appears', async () => {
-      const LOC = { fileRef: `s3://${TAG}/lookup.log`, line: 40, fileSha256: H('9') };
-      const first = await answered([rule('RA', 'FAIL', true, { evidence: [{ ...LOC, excerpt: `secret-body-${TAG}` }, { ...LOC }] }), rule('RB', 'WARN', false, { evidence: [LOC] })], sampleWith(LOC.fileRef));
-      const second = await answered([rule('RC', 'PASS', true, { evidence: [LOC, { fileRef: F1, line: 1, fileSha256: H('1') }] })], sampleWith(LOC.fileRef));
-      expect(first.res.statusCode).toBe(200);
-      expect(second.res.statusCode).toBe(200);
-      const got = await readLinks(LOC);
-      expect(got.outcome).toBe('ok');
-      expect(got.data.results.total).toBe(3);
-      expect(got.data.results.rows.map((r: Row) => r.ruleKey)[0]).toBe('RC'); // the newest attempt first
-      expect(new Set(got.data.results.rows.map((r: Row) => r.ruleKey))).toEqual(new Set(['RA', 'RB', 'RC']));
-      expect(got.data.results.rows.find((r: Row) => r.ruleKey === 'RA')).toMatchObject({ result: 'FAIL', required: true, roundId: first.round.roundId, requestId: first.request.id, attemptId: first.attemptId });
-      expect(got.data.rounds.total).toBe(2);
-      expect(got.data.rounds.rows.map((r: Row) => r.roundId)).toEqual([second.round.roundId, first.round.roundId]);
-      expect(got.data.rounds.rows[1]).toMatchObject({ citingResults: 2, status: 'open' });
-      expect(JSON.stringify(got)).not.toContain('secret-body');
-      // Paging: one per page, no overlap, same total.
-      const p0 = await readLinks({ ...LOC, pageSize: 1, page: 0 });
-      const p1 = await readLinks({ ...LOC, pageSize: 1, page: 1 });
-      expect(p0.data.results.rows).toHaveLength(1);
-      expect(p1.data.results.rows).toHaveLength(1);
-      expect(p0.data.results.rows[0].ruleResultId).not.toBe(p1.data.results.rows[0].ruleResultId);
-      expect(p1.data.results.total).toBe(3);
-      // Unknown location, other line or other hash: the same empty answer.
-      for (const miss of [{ ...LOC, line: 41 }, { ...LOC, fileSha256: H('8') }, { ...LOC, fileRef: 'nope' }]) {
-        expect((await readLinks(miss)).data).toEqual({ results: { total: 0, rows: [] }, rounds: { total: 0, rows: [] } });
-      }
-    });
+    // [DEBUG-1850] TEMPORARY stall probe, not for merge: repeats the failing test and, when one run passes 2.5 s, prints what
+    // Postgres is doing (non-idle sessions and ungranted locks) while it is stuck.
+    const dump = async (label: string) => {
+      const act = await sql(`select pid, state, wait_event_type, wait_event, round(extract(epoch from now() - query_start)::numeric, 2) as age_s, left(regexp_replace(query, '\\s+', ' ', 'g'), 140) as q from pg_stat_activity where datname = current_database() and pid <> pg_backend_pid() and state <> 'idle' order by query_start`);
+      const locks = await sql(`select l.pid, l.locktype, l.mode, l.granted, left(a.query, 100) as q from pg_locks l join pg_stat_activity a on a.pid = l.pid where not l.granted`);
+      console.warn(`[DEBUG-1850] ${label} active=${JSON.stringify(act.rows)} waitingLocks=${JSON.stringify(locks.rows)} pool=${JSON.stringify({ total: dbHandle.pool.totalCount, idle: dbHandle.pool.idleCount, waiting: dbHandle.pool.waitingCount })}`);
+    };
+    for (let i = 0; i < 40; i += 1) {
+      it(`[DEBUG-1850] repeat ${i}: finds the rule results and Rounds that cite a location`, async () => {
+        const started = performance.now();
+        const marks: string[] = [];
+        const mark = (label: string) => marks.push(`${label}=${Math.round(performance.now() - started)}`);
+        const watchdog = setTimeout(() => { void dump(`run ${i} still going after 2500 ms (${marks.join(' ')})`); }, 2500);
+        try {
+        const LOC = { fileRef: `s3://${TAG}/lookup-${i}.log`, line: 40, fileSha256: H('9') };
+        const first = await answered([rule('RA', 'FAIL', true, { evidence: [{ ...LOC, excerpt: `secret-body-${TAG}` }, { ...LOC }] }), rule('RB', 'WARN', false, { evidence: [LOC] })], sampleWith(LOC.fileRef));
+        mark('first');
+        const second = await answered([rule('RC', 'PASS', true, { evidence: [LOC, { fileRef: F1, line: 1, fileSha256: H('1') }] })], sampleWith(LOC.fileRef));
+        mark('second');
+        expect(first.res.statusCode).toBe(200);
+        expect(second.res.statusCode).toBe(200);
+        const got = await readLinks(LOC);
+        expect(got.outcome).toBe('ok');
+        expect(got.data.results.total).toBe(3);
+        expect(got.data.results.rows.map((r: Row) => r.ruleKey)[0]).toBe('RC'); // the newest attempt first
+        expect(new Set(got.data.results.rows.map((r: Row) => r.ruleKey))).toEqual(new Set(['RA', 'RB', 'RC']));
+        expect(got.data.results.rows.find((r: Row) => r.ruleKey === 'RA')).toMatchObject({ result: 'FAIL', required: true, roundId: first.round.roundId, requestId: first.request.id, attemptId: first.attemptId });
+        expect(got.data.rounds.total).toBe(2);
+        expect(got.data.rounds.rows.map((r: Row) => r.roundId)).toEqual([second.round.roundId, first.round.roundId]);
+        expect(got.data.rounds.rows[1]).toMatchObject({ citingResults: 2, status: 'open' });
+        expect(JSON.stringify(got)).not.toContain('secret-body');
+        // Paging: one per page, no overlap, same total.
+        mark('read');
+        const p0 = await readLinks({ ...LOC, pageSize: 1, page: 0 });
+        const p1 = await readLinks({ ...LOC, pageSize: 1, page: 1 });
+        expect(p0.data.results.rows).toHaveLength(1);
+        expect(p1.data.results.rows).toHaveLength(1);
+        expect(p0.data.results.rows[0].ruleResultId).not.toBe(p1.data.results.rows[0].ruleResultId);
+        expect(p1.data.results.total).toBe(3);
+        // Unknown location, other line or other hash: the same empty answer.
+        for (const miss of [{ ...LOC, line: 41 }, { ...LOC, fileSha256: H('8') }, { ...LOC, fileRef: 'nope' }]) {
+          expect((await readLinks(miss)).data).toEqual({ results: { total: 0, rows: [] }, rounds: { total: 0, rows: [] } });
+        }
+      mark('end');
+        } finally {
+          clearTimeout(watchdog);
+          if (performance.now() - started > 2500) console.warn(`[DEBUG-1850] run ${i} took ${Math.round(performance.now() - started)} ms: ${marks.join(' ')}`);
+        }
+      });
+    }
 
     it('evidenceStates hides a result from another workspace', async () => {
       const foreign = await seedForeignChain({ fileRef: `s3://${TAG}/state-foreign.log`, line: 1, fileSha256: H('a') });
