@@ -159,23 +159,22 @@ export function singleCopyPeers() {
   ];
 }
 
-function writeProject(root, tarballDir, base, { withoutInHouseMenu = false } = {}) {
+/**
+ * Writes the kit project: the fixture copy, its package.json dependencies (`apSpec(name)` → the @ap/<name> specifier; the
+ * toolchain at the versions this repo resolved) and the pnpm-workspace.yaml consumer conditions (tiptap overrides,
+ * auto-animate patch). Shared by this check (URL specifiers) and sdk-kit.mjs (file:./vendor specifiers, the release asset).
+ */
+export function writeKitProject(root, apSpec, { withoutInHouseMenu = false } = {}) {
   if (!existsSync(join(KIT_FIXTURE, 'menus.ts'))) fail(`kit fixture not found at ${KIT_FIXTURE}`);
   cpSync(KIT_FIXTURE, root, { recursive: true });
   if (withoutInHouseMenu) {
     writeFileSync(join(root, 'menus.ts'), removeInHouseMenus(readFileSync(join(root, 'menus.ts'), 'utf8')));
   }
 
-  const tarball = (name) => {
-    const files = readdirSync(tarballDir).filter((candidate) => candidate.startsWith(`ap-${name}-`) && candidate.endsWith('.tgz'));
-    if (files.length === 0) fail(`no ap-${name}-*.tgz in ${tarballDir}`);
-    if (files.length > 1) fail(`more than one ap-${name}-*.tgz in ${tarballDir}: ${files.join(', ')}; pass a directory with one release`);
-    return join(tarballDir, files[0]);
-  };
   // The kit template carries the dev/build/check scripts; the check fills in the dependencies (nine tarballs + toolchain).
   const template = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   const dependencies = {};
-  for (const name of RELEASE_NAMES) dependencies[`@ap/${name}`] = `${base}/${basename(tarball(name))}`;
+  for (const name of RELEASE_NAMES) dependencies[`@ap/${name}`] = apSpec(name);
   const external = { 'lucide-react': installedVersion('lucide-react') };
   for (const name of CONSUMER_DEPENDENCIES) external[name] = installedVersion(name);
   template.dependencies = { ...dependencies, ...external };
@@ -202,7 +201,18 @@ function writeProject(root, tarballDir, base, { withoutInHouseMenu = false } = {
     ...tiptapOverrides(),
     '',
   ].join('\n'));
+}
 
+/** The one ap-<name>-*.tgz of a release directory. */
+export function releaseTarball(tarballDir, name) {
+  const files = readdirSync(tarballDir).filter((candidate) => candidate.startsWith(`ap-${name}-`) && candidate.endsWith('.tgz'));
+  if (files.length === 0) fail(`no ap-${name}-*.tgz in ${tarballDir}`);
+  if (files.length > 1) fail(`more than one ap-${name}-*.tgz in ${tarballDir}: ${files.join(', ')}; pass a directory with one release`);
+  return join(tarballDir, files[0]);
+}
+
+function writeProject(root, tarballDir, base, options = {}) {
+  writeKitProject(root, (name) => `${base}/${basename(releaseTarball(tarballDir, name))}`, options);
   for (const [path, content] of Object.entries(POISON_FILES)) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), content);
