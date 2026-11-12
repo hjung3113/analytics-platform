@@ -42,7 +42,7 @@ const endpointSchema = z.strictObject({
   context: appliedContext,
   requiredContext: z.array(z.enum(CONTEXT_KEYS)).optional(),
   kinds: z.array(z.enum(ASSESSMENT_KINDS)),
-  limits: z.strictObject({ maxHours: z.number().optional(), maxRows: z.number().int().positive().optional() }).optional(),
+  limits: z.strictObject({ maxHours: z.number().optional(), maxRows: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional() }).optional(),
   mergeTimeDomain: z.boolean(),
 });
 

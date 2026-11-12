@@ -11,7 +11,7 @@ import { defined } from '../../../test-support/defined.js';
 import { menuSnapshot, menuSnapshotFor } from '../../../test-support/menu-snapshot.js';
 import { DeclarationBundleError, type DeclaredAction, type DeclaredEndpoint } from '../declarations-file.js';
 import { declaredContribution } from '../declared-endpoints.js';
-import { loadMenuSnapshot, menuOwnedEndpoint, menuSnapshotDigest, menuSnapshotProblems, menuSnapshotSchema } from '../menu-snapshot.js';
+import { loadMenuSnapshot, menuOwnedEndpoint, menuSnapshotDigest, menuSnapshotProblems, menuSnapshotSchema, parseMenuSnapshot } from '../menu-snapshot.js';
 import { routedBundle } from './bundle-fixtures.js';
 
 // #1900 (ADR-0156): the server's local copy of the menu declaration snapshot schema and the comparison rules beyond the
@@ -121,28 +121,89 @@ describe('menu declaration snapshot file', () => {
 });
 
 describe('local schema copy is pinned to @ap/contract-schemas menuDeclarationSnapshotSchema', () => {
-  type Json = { properties?: Record<string, Json>; required?: string[]; items?: Json };
-  const shape = (schema: Json | undefined): unknown => {
-    if (!schema) return null;
-    if (schema.items) return { items: shape(schema.items) };
-    if (!schema.properties) return 'leaf';
-    return { required: [...(schema.required ?? [])].sort(), properties: Object.fromEntries(Object.entries(schema.properties).sort().map(([key, inner]) => [key, shape(inner)])) };
+  // Both schemas are reduced to one normal form that keeps types, enum/literal values, numeric bounds, string
+  // minima/patterns, required sets and object strictness. Intentional differences (the only normalisations):
+  //  1. `uniqueItems` is dropped from the source: the local copy states uniqueness as `.refine` (menus, endpoints,
+  //     actions by id; permissions by value), which the probes below pin by behaviour.
+  //  2. `$schema` is dropped, and `const: x` / `{type: number, const: 1}` is read as the literal `x`.
+  //  3. Integer bounds: `exclusiveMinimum: 0` is the same as zod 3 `.positive()` (a non-inclusive minimum of 0).
+  type Json = { type?: string; const?: unknown; enum?: unknown[]; properties?: Record<string, Json>; required?: string[]; items?: Json; additionalProperties?: boolean; minLength?: number; maxLength?: number; pattern?: string; minimum?: number; maximum?: number; exclusiveMinimum?: number; exclusiveMaximum?: number };
+  type Normal = Record<string, unknown>;
+  const sourceNormal = (schema: Json): Normal => {
+    if (schema.const !== undefined) return { literal: schema.const };
+    if (schema.enum) return { type: schema.type, enum: [...schema.enum] };
+    if (schema.properties) {
+      return {
+        type: 'object',
+        strict: schema.additionalProperties === false,
+        required: [...(schema.required ?? [])].sort(),
+        properties: Object.fromEntries(Object.entries(schema.properties).sort().map(([key, inner]) => [key, sourceNormal(inner)])),
+      };
+    }
+    if (schema.items) return { type: 'array', items: sourceNormal(schema.items) };
+    const { minLength, maxLength, pattern, minimum, maximum, exclusiveMinimum, exclusiveMaximum } = schema;
+    return Object.fromEntries(Object.entries({ type: schema.type, minLength, maxLength, pattern, minimum, maximum, exclusiveMinimum, exclusiveMaximum }).filter(([, value]) => value !== undefined));
   };
-  const localShape = (schema: z.ZodTypeAny): unknown => {
-    const def = schema._def as { typeName: string; innerType?: z.ZodTypeAny; schema?: z.ZodTypeAny; type?: z.ZodTypeAny; shape?: () => Record<string, z.ZodTypeAny> };
-    if (def.typeName === 'ZodEffects') return localShape(defined(def.schema));
-    if (def.typeName === 'ZodOptional' || def.typeName === 'ZodDefault') return localShape(defined(def.innerType));
-    if (def.typeName === 'ZodArray') return { items: localShape(defined(def.type)) };
-    if (def.typeName !== 'ZodObject') return 'leaf';
-    const fields = defined(def.shape)();
-    return {
-      required: Object.entries(fields).filter(([, inner]) => !inner.isOptional()).map(([key]) => key).sort(),
-      properties: Object.fromEntries(Object.entries(fields).sort().map(([key, inner]) => [key, localShape(inner)])),
-    };
+  type Def = { typeName: string; innerType?: z.ZodTypeAny; schema?: z.ZodTypeAny; type?: z.ZodTypeAny; shape?: () => Record<string, z.ZodTypeAny>; unknownKeys?: string; values?: unknown[]; value?: unknown; checks?: { kind: string; value?: number; inclusive?: boolean; regex?: RegExp }[] };
+  const localNormal = (schema: z.ZodTypeAny): Normal => {
+    const def = schema._def as Def;
+    switch (def.typeName) {
+      case 'ZodEffects': return localNormal(defined(def.schema));
+      case 'ZodOptional': return localNormal(defined(def.innerType));
+      case 'ZodArray': return { type: 'array', items: localNormal(defined(def.type)) };
+      case 'ZodBoolean': return { type: 'boolean' };
+      case 'ZodLiteral': return { literal: def.value };
+      case 'ZodEnum': return { type: 'string', enum: [...defined(def.values)] };
+      case 'ZodString': {
+        const out: Normal = { type: 'string' };
+        for (const check of def.checks ?? []) {
+          if (check.kind === 'min') out.minLength = check.value;
+          else if (check.kind === 'max') out.maxLength = check.value;
+          else if (check.kind === 'regex') out.pattern = defined(check.regex).source;
+          else throw new Error(`pin: unmapped string check ${check.kind}`);
+        }
+        return out;
+      }
+      case 'ZodNumber': {
+        const out: Normal = { type: 'number' };
+        for (const check of def.checks ?? []) {
+          if (check.kind === 'int') out.type = 'integer';
+          else if (check.kind === 'min') out[check.inclusive ? 'minimum' : 'exclusiveMinimum'] = check.value;
+          else if (check.kind === 'max') out[check.inclusive ? 'maximum' : 'exclusiveMaximum'] = check.value;
+          else throw new Error(`pin: unmapped number check ${check.kind}`);
+        }
+        return out;
+      }
+      case 'ZodObject': {
+        const fields = defined(def.shape)();
+        return {
+          type: 'object',
+          strict: def.unknownKeys === 'strict',
+          required: Object.entries(fields).filter(([, inner]) => !inner.isOptional()).map(([key]) => key).sort(),
+          properties: Object.fromEntries(Object.entries(fields).sort().map(([key, inner]) => [key, localNormal(inner)])),
+        };
+      }
+      default: throw new Error(`pin: unmapped zod type ${def.typeName}`);
+    }
   };
+  const withoutUnique = (schema: Json): Json => JSON.parse(JSON.stringify(schema, (key, value: unknown) => (key === 'uniqueItems' || key === '$schema' ? undefined : value))) as Json;
+  const sourceJson = () => withoutUnique(toJsonSchema(menuDeclarationSnapshotSchema) as Json);
 
-  it('has the same fields, nesting and required set', () => {
-    expect(localShape(menuSnapshotSchema)).toEqual(shape(toJsonSchema(menuDeclarationSnapshotSchema) as Json));
+  it('has the same types, vocabularies, bounds, patterns, required sets and strictness', () => {
+    expect(localNormal(menuSnapshotSchema)).toEqual(sourceNormal(sourceJson()));
+  });
+
+  it('the pin sees a constraint-only change (a mutated copy of the source schema differs)', () => {
+    const mutated = sourceJson() as { properties: { endpoints: { items: { properties: { limits: { properties: { maxRows: Json } } } } } } };
+    mutated.properties.endpoints.items.properties.limits.properties.maxRows.maximum = 9007199254740992;
+    expect(localNormal(menuSnapshotSchema)).not.toEqual(sourceNormal(mutated as unknown as Json));
+  });
+
+  const withDigest = (value: Record<string, unknown>) => ({ ...value, digest: menuSnapshotDigest(value as never) });
+
+  it('refuses a snapshot whose maxRows is not a safe integer, even with a recomputed digest', () => {
+    const value = withDigest({ ...(declarations() as unknown as Record<string, unknown>), endpoints: [{ ...declarations().endpoints[0], limits: { maxRows: 9007199254740992 } }] });
+    expect(() => parseMenuSnapshot(value)).toThrow(DeclarationBundleError);
   });
 
   it.each([
@@ -152,6 +213,11 @@ describe('local schema copy is pinned to @ap/contract-schemas menuDeclarationSna
     ['bad digest', (s: Record<string, unknown>) => ({ ...s, digest: 'sha256:xyz' })],
     ['duplicate menu', (s: Record<string, unknown>) => ({ ...s, menus: [...(s.menus as unknown[]), (s.menus as unknown[])[0]] })],
     ['unknown kind', (s: Record<string, unknown>) => ({ ...s, endpoints: [{ ...(s.endpoints as Record<string, unknown>[])[0], kinds: ['nope'] }] })],
+    ['unsafe integer maxRows', (s: Record<string, unknown>) => withDigest({ ...s, endpoints: [{ ...(s.endpoints as Record<string, unknown>[])[0], limits: { maxRows: 9007199254740992 } }] })],
+    ['safe integer maxRows', (s: Record<string, unknown>) => withDigest({ ...s, endpoints: [{ ...(s.endpoints as Record<string, unknown>[])[0], limits: { maxRows: Number.MAX_SAFE_INTEGER } }] })],
+    ['fractional maxRows', (s: Record<string, unknown>) => ({ ...s, endpoints: [{ ...(s.endpoints as Record<string, unknown>[])[0], limits: { maxRows: 1.5 } }] })],
+    ['empty sdkVersion', (s: Record<string, unknown>) => ({ ...s, sdkVersion: '' })],
+    ['duplicate permission', (s: Record<string, unknown>) => ({ ...s, permissions: [...(s.permissions as string[]), (s.permissions as string[])[0]] })],
     ['bad concurrency', (s: Record<string, unknown>) => ({ ...s, actions: [{ ...(s.actions as Record<string, unknown>[])[0], concurrency: 'maybe' }] })],
   ])('accepts or refuses alike: %s', (_name, mutate) => {
     const value = mutate(declarations() as unknown as Record<string, unknown>);

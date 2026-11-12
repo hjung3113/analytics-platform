@@ -1,12 +1,12 @@
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
+import { runnerImport } from 'vite';
 import { defineConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
 import { ASSEMBLY_SPECIFIER, prodGraphGuard } from './scripts/prod-graph.ts';
 import { realDevProxy } from './scripts/real-dev-proxy.ts';
 import { chooseAssembly, MOCK_MODES, type AssemblyChoice } from './scripts/assembly-choice.ts';
-import { menuDeclarationSnapshot } from './scripts/menu-declaration-snapshot.ts';
 
 /** `#platform-assembly` (src/platform-assembly.d.ts) is resolved here by mode — #153, ADR-0009. */
 const MOCK_ASSEMBLY = fileURLToPath(new URL('./src/dev/mock-assembly.tsx', import.meta.url));
@@ -49,11 +49,17 @@ const guardGraph = (mode: string): boolean => !MOCK_MODES.has(mode);
 /** Every non-mock build writes the menu declaration snapshot the core server checks (ADR-0156); the in-memory graph check skips it. */
 const writesSnapshot = (mode: string, command: string): boolean => command === 'build' && !MOCK_MODES.has(mode) && process.env.AP_PROD_GRAPH_CHECK !== '1';
 
-export default defineConfig(({ mode, command, isPreview = false }) => {
+/** Loaded only on the non-mock build path, through Vite's source-aware runner: the script reaches the `@ap/contracts` source barrel, whose `.js` specifiers plain Node cannot resolve at config time. */
+async function loadSnapshotPlugin(): Promise<Plugin> {
+  const { module } = await runnerImport<typeof import('./scripts/menu-declaration-snapshot.ts')>(fileURLToPath(new URL('./scripts/menu-declaration-snapshot.ts', import.meta.url)), { configFile: false, logLevel: 'error' });
+  return module.menuDeclarationSnapshot() as Plugin;
+}
+
+export default defineConfig(async ({ mode, command, isPreview = false }) => {
   const choice = chooseAssembly({ mode, command, isPreview, env: process.env });
   return {
     base: process.env.AP_BASE_PATH ?? '/',
-    plugins: [eqvCoreZod(), tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : []), ...(writesSnapshot(mode, command) ? [menuDeclarationSnapshot()] : [])],
+    plugins: [eqvCoreZod(), tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : []), ...(writesSnapshot(mode, command) ? [await loadSnapshotPlugin()] : [])],
     // Bare `echarts/*` entries are imported only inside a lazy chunk: without this list a warm dep cache that predates a new entry makes the dev server re-optimize and reload the page mid-interaction (#580 DIAG1).
     optimizeDeps: { exclude: ['zod'], include: ['echarts/core', 'echarts/charts', 'echarts/components', 'echarts/features', 'echarts/renderers'].map(entry => `@ap/components > ${entry}`) },
     resolve: { alias: { '@': FEATURE_SRC, ...assemblyAlias(choice) } },
