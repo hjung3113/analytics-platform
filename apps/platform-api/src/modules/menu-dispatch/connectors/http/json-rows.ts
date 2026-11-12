@@ -4,9 +4,10 @@ interface Frame {
   state: 'key-or-end' | 'key' | 'colon' | 'value-or-end' | 'value' | 'comma-or-end';
   key: string;
   index: number;
+  keys?: Set<string>;
 }
 
-/** Incremental JSON grammar scanner. Retains one token/row, never the response or rows array. */
+/** Incremental JSON scanner. Retains ancestor keys and one token/row, never the response or rows array. */
 export class JsonRows {
   private readonly pointer: string[];
   private readonly stack: Frame[] = [];
@@ -62,6 +63,8 @@ export class JsonRows {
       if (token === '}' && frame.state === 'key-or-end') { yield* this.close(token); return; }
       if (!token.startsWith('"')) throw new Error('Expected JSON key');
       frame.key = JSON.parse(token) as string;
+      if (frame.keys?.has(frame.key)) throw new Error('Duplicate JSON ancestor key');
+      frame.keys?.add(frame.key);
       frame.state = 'colon';
       this.row?.push(token);
       return;
@@ -91,7 +94,9 @@ export class JsonRows {
     }
     this.row?.push(token);
     if (token === '{' || token === '[') {
-      this.stack.push({ kind: token === '{' ? 'object' : 'array', path, state: token === '{' ? 'key-or-end' : 'value-or-end', key: '', index: 0 });
+      // Only pointer ancestors need duplicate tracking; row objects keep JSON.parse semantics.
+      const keys = token === '{' && path !== undefined && path.length < this.pointer.length ? new Set<string>() : undefined;
+      this.stack.push({ kind: token === '{' ? 'object' : 'array', path, state: token === '{' ? 'key-or-end' : 'value-or-end', key: '', index: 0, ...(keys ? { keys } : {}) });
     } else {
       // JSON.parse supplies strict scalar syntax, escapes and number validation.
       if ('}],:'.includes(token)) throw new Error('Expected JSON value');
