@@ -171,4 +171,13 @@ describe('bundle endpoint rows filled from the menu declaration snapshot (#1900 
     expect(() => programmatic([{ id: 'fill.nope' }])).toThrow(/endpoint fill\.nope: not in the menu declarations/);
     expect(() => programmatic([{ id: 'fill.rows', permission: 'platform:view' }])).toThrow(/endpoint fill\.rows: permission is platform:view in the bundle, fill:view in the menu declarations/);
   });
+
+  it('refuses an explicitly undefined carried field instead of filling it (programmatic rows can carry undefined)', () => {
+    const programmatic = (endpoints: Record<string, unknown>[]) => declaredContribution({
+      bundle: envelopeBundle(endpoints) as never, snapshot: declarations(), forwarder: { forward: vi.fn() } as never, checkService: stubCheckService(true),
+    });
+    expect(() => programmatic([{ id: 'fill.rows', context: undefined }])).toThrow(/endpoint fill\.rows: context is undefined in the bundle, \{"metric":"apply"\} in the menu declarations/);
+    expect(() => programmatic([{ id: 'fill.rows', permission: undefined }])).toThrow(/endpoint fill\.rows: permission is undefined in the bundle, fill:view in the menu declarations/);
+    expect(() => programmatic([{ id: 'fill.totals', paramKeys: [], context: {}, requiresScope: true }])).not.toThrow();
+  });
 });

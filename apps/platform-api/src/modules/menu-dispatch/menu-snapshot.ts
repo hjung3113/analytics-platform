@@ -152,6 +152,12 @@ export function fillEndpointsFromSnapshot<Row extends DeclaredEndpointRow>(
       continue;
     }
     const { id: _id, limits: _limits, ...owned } = declared;
+    // A field the row carries is compared, never filled — an explicit `undefined` (possible on the programmatic path)
+    // is a carried value that differs, not an omission, so it refuses with the 1900a line.
+    for (const [name, value] of Object.entries(row)) {
+      const declaredValue = (owned as Record<string, unknown>)[name];
+      if (value === undefined && declaredValue !== undefined) problems.push(`endpoint ${row.id}: ${name} is undefined in the bundle, ${show(declaredValue)} in the menu declarations`);
+    }
     const carried = Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined));
     endpoints.push({ ...owned, ...carried } as Row & DeclaredEndpoint);
   }
