@@ -1,10 +1,13 @@
 import { type ColumnFilter, type FieldError, type PageSort } from '@ap/contracts';
 import { defineMockAction, defineMockEndpoint, MockActionInvalid, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { actions, endpoints, isUuid, type Project, type RoundDetail } from '../endpoints';
-import { ATTEMPT_ID, OPINION_ATTEMPT_ID, events, excerptReaders, excerpts, models, projects, requests, rounds, rules } from './fixtures';
+import { ATTEMPT_ID, OPINION_ATTEMPT_ID, events, excerptReaders, excerpts, models, projects, requests, rounds, rules, resetLifecycle as resetFixtures } from './fixtures';
+import { ISSUE_ACTIONS, ISSUE_READS, handleIssueAction, readIssues, resetIssues, validateIssueAction, validateIssueRead } from './issues';
 import { opinionScale, opinionRules, unlinkedOpinions, opinionHistory } from './opinions';
 import { readHierarchy, validateHierarchy } from './hierarchy';
-export { PROJECT_ID, ROUND_ID, REQUEST_ID, ATTEMPT_ID, fixtureId, resetLifecycle, stageLifecycleFixture } from './fixtures';
+export { PROJECT_ID, ROUND_ID, REQUEST_ID, ATTEMPT_ID, fixtureId, stageLifecycleFixture } from './fixtures';
+export { stageValidationIssue } from './issues';
+export function resetLifecycle() { resetFixtures(); resetIssues(); }
 
 type Params = Record<string, unknown>;
 function page<T>(rows: T[], params: Params) { const start = Number(params.page ?? 0) * Number(params.pageSize ?? 25); return { rows: rows.slice(start, start + Number(params.pageSize ?? 25)), total: rows.length }; }
@@ -41,6 +44,7 @@ function sourceTarget(ruleResultId: unknown) {
 }
 function read(name: string, p: Params, actor: string): unknown {
   if (name === 'hierarchy') return readHierarchy(p, actor);
+  if (ISSUE_READS.has(name)) return readIssues(name, p, actor, rounds);
   if (name === 'queueStatus') return { runWindow: { timezone: 'Asia/Seoul', weekday: { fromHour: 22, toHour: 6 }, weekendAllDay: true }, immediateLimit: 5, serverAt: '2026-11-07T00:30:00Z', withinWindow: true };
   if (name === 'models') {
     let rows = models.map(m => p.includeClosedProjects || !m.project || !['completed','cancelled'].includes(m.project.stage) ? m : { ...m, project: null }).filter(m => !p.q || `${m.code} ${m.name}`.toLowerCase().includes(String(p.q).toLowerCase()));
@@ -102,13 +106,15 @@ function read(name: string, p: Params, actor: string): unknown {
 }
 export const logLifecycleMock: readonly AnyMockEndpoint[] = Object.entries(endpoints).map(([name, spec]) => defineMockEndpoint(spec, { mart: false, validate: ({ params }) => {
   if (name === 'hierarchy') return validateHierarchy(params);
+  if (ISSUE_READS.has(name)) return validateIssueRead(name, params, isUuid);
   const idKey = { projectDetail: 'projectId', projectEvents: 'projectId', rounds: 'projectId', roundDetail: 'roundId', roundEvidence: 'roundId', requestDetail: 'requestId', ruleResults: 'attemptId', opinions: 'attemptId', excerpt: 'ruleResultId', evidenceStates: 'ruleResultId' }[name];
   return idKey && (typeof params[idKey] !== 'string' || !isUuid(params[idKey] as string)) ? `${idKey} must be UUID` : null;
 }, handle: ({ params, actor }) => read(name, params, actor) }));
 export const logLifecycleActionsMock: readonly AnyMockAction[] = Object.entries(actions).map(([name, spec]) => defineMockAction(spec, {
   version: ({ input }) => name === 'gateDecide' ? findProject(roundOf(input.roundId)?.projectId)?.version ?? null : name === 'requestCancel' ? requestOf(input.id)?.version ?? null : name === 'roundClose' ? roundOf(input.id)?.version ?? null : findProject(input.id)?.version ?? null,
-  validate: input => ['projectSetStage', 'projectReopen', 'requestCancel', 'gateDecide'].includes(name) && !String(input.reason ?? '').trim() ? [field('reason', 'required')] : [],
+  validate: input => ISSUE_ACTIONS.has(name) ? validateIssueAction(name, input) : ['projectSetStage', 'projectReopen', 'requestCancel', 'gateDecide'].includes(name) && !String(input.reason ?? '').trim() ? [field('reason', 'required')] : [],
   handle: ({ input, actor }) => {
+    if (ISSUE_ACTIONS.has(name)) return handleIssueAction(name, input, actor, rounds, [...rules, ...opinionRules]);
     if (name === 'projectCreate') {
       const model = models.find(m => m.id === input.modelId); if (!model || (model.project && !['completed','cancelled'].includes(model.project.stage))) throw new MockActionInvalid([field('modelId', model ? 'open_project_exists' : 'not_found')]);
       const p: Project = { ...structuredClone(projects[0]!), id: crypto.randomUUID(), modelId: model.id, model: { code: model.code, name: model.name, vendorName: model.vendorName }, softwareId: typeof input.softwareId === 'string' ? input.softwareId : null, stage: 'registered', owner: { id: String(input.ownerActorId), displayName: actor }, targetDate: typeof input.targetDate === 'string' ? input.targetDate : null, openRound: null, version: '0', gate: { latest: null } };

@@ -9,7 +9,7 @@ import { stubCompactTableGeometry } from '@ap/components/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { groupId, spaceId, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
 import type { Model, Project, RequestDetail, RoundDetail, RuleResult } from '../endpoints';
-import { GATE_DECIDE, PROJECT_MANAGE, ROUND_MANAGE } from '../endpoints';
+import { GATE_DECIDE, ISSUE_CONTRIBUTE, ISSUE_LINK, PROJECT_MANAGE, ROUND_MANAGE } from '../endpoints';
 import { manifests } from '../index';
 import { setRoundSourceView } from '../round-source-slot';
 import LifecyclePage from './LifecyclePage';
@@ -23,7 +23,7 @@ const attempt = (id: string): RequestDetail['attempts'][number] => ({ id, attemp
 const request = (id: string): RequestDetail => ({ id, roundId: ID, roundSeq: 3, projectId: ID, modelId: ID, modelCode: 'ETCH-300', softwareLabel: null, priority: 1, immediate: false, state: 'succeeded', attemptCount: 1, maxAttempts: 3, leaseExpiresAt: null, lastHeartbeatAt: null, requestedBy: { id: ID, displayName: '김개발' }, createdAt: AT, endedAt: AT, latestVerdict: 'fail', version: '9', cancelReason: null, attempts: [attempt(id)] });
 const rules: RuleResult[] = Array.from({ length: 26 }, (_, i) => ({ id: `dddddddd-dddd-4ddd-8ddd-${String(i).padStart(12, '0')}`, ruleId: `R-${String(i + 1).padStart(3, '0')}`, result: i % 2 ? 'FAIL' : 'PASS', required: i % 2 === 1, expected: '기대', observed: '관측', evidence: [], hasExcerpt: false }));
 const ok = (data: unknown): ApiResponse<never> => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
-const registry = createRegistry({ permissions: [PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE], spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '개발 모델 관리', en: 'Model development' }, homeMenuId: 'log-models' }], groups: [{ id: groupId('logModels'), label: { ko: '모델', en: 'Models' }, icon: Cpu, space: spaceId('logDev') }], menus: manifests });
+const registry = createRegistry({ permissions: [PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE, ISSUE_CONTRIBUTE, ISSUE_LINK], spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '개발 모델 관리', en: 'Model development' }, homeMenuId: 'log-models' }], groups: [{ id: groupId('logModels'), label: { ko: '모델', en: 'Models' }, icon: Cpu, space: spaceId('logDev') }], menus: manifests });
 function DetailHost() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
 let restoreGeometry: () => void;
 let root: Root;
@@ -40,11 +40,15 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => root.unmount()); container.remove(); restoreGeometry(); vi.restoreAllMocks(); });
 
-function mount(search = '', count = 1, route = 'round', override?: (q: MenuQuery<Record<string, unknown>>) => ApiResponse<never> | undefined) {
+/** Optional extra server reads (#1808 issue endpoints); unset = the Kernel gets `ok(null)` as before. */
+let extraRead: ((q: MenuQuery<Record<string, unknown>>) => ApiResponse<never> | undefined) | null = null;
+function mount(search = '', count = 1, route = 'round', extra: (typeof ISSUE_CONTRIBUTE)[] | ((q: MenuQuery<Record<string, unknown>>) => ApiResponse<never> | undefined) = []) {
+  const extraPermissions = Array.isArray(extra) ? extra : [];
+  const override = typeof extra === 'function' ? extra : undefined;
   const queries: MenuQuery<Record<string, unknown>>[] = [];
   const sent: { request: MenuAction; resolve(value: ActionResponse<unknown>): void }[] = [];
   const listeners = new Set<() => void>();
-  const permissions = ['platform:view' as const, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE];
+  const permissions = ['platform:view' as const, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE, ...extraPermissions];
   let session = testSession(permissions, { user: { id: ID } });
   const adapter = testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => listeners.delete(l); }, menuQuery: async q => {
     queries.push(q as MenuQuery<Record<string, unknown>>);
@@ -72,13 +76,15 @@ function mount(search = '', count = 1, route = 'round', override?: (q: MenuQuery
       const found = rules.find(r => r.id === p.ruleResultId);
       return ok(found ? { rows: found.evidence.map((e, evidenceIndex) => ({ ruleResultId: found.id, evidenceIndex, evidenceRef: { fileRef: e.fileRef, line: e.line, fileSha256: e.fileSha256 }, excerptState: e.hasExcerpt ? 'not_loaded' : 'not_submitted', sourceState: round.sampleSet.files.some(f => f.fileRef === e.fileRef && f.sha256 !== e.fileSha256) ? 'hash_mismatch' : 'not_checked' })) } : null);
     }
-    return ok(null);
+    return extraRead?.(q as MenuQuery<Record<string, unknown>>) ?? ok(null);
   }, menuAction: req => new Promise(resolve => sent.push({ request: req, resolve })) });
   window.history.replaceState(null, '', route === 'requests' ? `/logDev/log-validation-requests?v=1${search}` : route === 'project' ? `/logDev/log-model-project/${ID}?v=1${search}` : `/logDev/log-model-round/${ID}/${ID}?v=1${search}`);
   const history = vi.spyOn(window.history, 'pushState');
   act(() => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><LifecyclePage params={route === 'requests' ? {} : { projectId: ID, ...(route === 'round' ? { roundId: ID } : {}) }} /><DetailHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>));
   return { queries, sent, history, switchSession: () => act(() => { session = testSession(permissions, { user: { id: B } }); listeners.forEach(l => l()); }) };
 }
+const issueRow = (id: string, title: string) => ({ id, projectId: ID, firstRoundId: ID, title, reporterActorId: ID, createdAt: AT, lastActivityAt: AT, commentCount: 0, occurrenceCount: 0, roundCount: 0 });
+const issueDetail = (id: string, title: string, body: string) => ({ ...issueRow(id, title), body, expected: null, actual: null, repro: null, occurrences: { rows: [] } });
 function element(selector: string, parent: ParentNode = document): HTMLElement {
   const found = parent.querySelector<HTMLElement>(selector);
   if (!found) throw new Error(`Missing ${selector}`);
@@ -520,22 +526,24 @@ describe('review-final regressions (#1809)', () => {
     expect(query().get('rule')).toBe(B);
     expect(t.queries.some(q => q.endpoint === 'logLifecycle.ruleResults' && q.params.page === 1 && !q.params.results && !q.params.required && !q.params.opinionGrade)).toBe(true);
   });
-  it.each([false, true])('finishes all Project summary cells for a zero-request Round (known defects: %s)', async known => {
+  it.each([false, true])('finishes all Project summary cells for a zero-request Round without a page-length issue total (issue rows served: %s)', async known => {
     try {
-      if (known) round.defects = { unresolvedCount: 2, rows: [] };
+      if (known) extraRead = q => q.endpoint === 'logLifecycle.validationIssues' ? ok({ rows: [issueRow(B, '합성 항목 1'), issueRow(ID, '합성 항목 2')] }) : undefined;
       const t = mount('', 0, 'project');
       await waitFor(() => expect(document.body.textContent).toContain('완료 시도 없음'));
       expect(document.body.textContent).toContain('규칙 결과 없음');
-      expect(document.body.textContent).toContain(known ? '미해결 결함 2' : '미해결 결함 집계 불가');
+      await waitFor(() => expect(document.body.textContent).toContain('검증 항목 집계 불가'));
+      expect(document.body.textContent).not.toMatch(/검증 항목 \d+건/);
       expect(document.body.textContent).not.toContain('불러오는 중');
       expect(t.queries.some(q => q.endpoint === 'logLifecycle.requestDetail')).toBe(false);
-    } finally { delete round.defects; }
+    } finally { extraRead = null; }
   });
-  it('keeps the exact server-defect opener connected and returns focus after close', async () => {
+  it('keeps the exact issue opener connected and returns focus after close', async () => {
     try {
-      round.defects = { unresolvedCount: 1, rows: [{ id: B, title: '합성 결함', status: 'open', description: '합성 결함 설명' }] };
+      extraRead = q => q.endpoint === 'logLifecycle.validationIssues' ? ok({ rows: [issueRow(B, '합성 결함')] }) : q.endpoint === 'logLifecycle.validationIssueDetail' ? ok(issueDetail(B, '합성 결함', '합성 결함 설명')) : q.endpoint.startsWith('logLifecycle.validationIssue') ? ok({ rows: [] }) : undefined;
       mount(); await ready();
-      const region = element('[role="region"][aria-label="미해결 결함"]');
+      await waitFor(() => expect(text('합성 결함')).toBe(true));
+      const region = element('[role="region"][aria-label="검증 항목"]');
       const opener = button('합성 결함', region);
       click(opener);
       await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('합성 결함 설명'));
@@ -545,7 +553,7 @@ describe('review-final regressions (#1809)', () => {
       await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
       expect(document.activeElement).toBe(opener);
-    } finally { delete round.defects; }
+    } finally { extraRead = null; }
   });
   it('retains the server decisive attempt after registering a new queued request and lists its failing rules', async () => {
     let queued = false;
@@ -580,5 +588,230 @@ describe('review-final regressions (#1809)', () => {
     await waitFor(() => expect(element('[aria-label="서버 결정 근거"]').textContent).toContain('R-002'));
     expect(element('[aria-label="서버 결정 근거"]').textContent).toContain('실패 13');
     expect(element('[aria-label="서버 결정 근거"]').textContent).not.toContain('Gate 기준 시도 없음');
+  });
+});
+
+describe('human validation records with the real Kernel host (#1808 N3)', () => {
+  type Comment = { id: string; authorActorId: string; body: string; correctsCommentId: null; createdAt: string };
+  const response = (outcome: string, data: unknown, id: string): ActionResponse<unknown> => ({ outcome, data, version: null, fieldErrors: [], replayed: false, correlationId: id }) as ActionResponse<unknown>;
+  function mountIssues() {
+    const server = { issues: [] as ReturnType<typeof issueDetail>[], comments: [] as Comment[], actions: [] as MenuAction[], queries: [] as MenuQuery<Record<string, unknown>>[] };
+    const listeners = new Set<() => void>();
+    let actor = ID;
+    let session = testSession(['platform:view', ISSUE_CONTRIBUTE], { user: { id: actor } });
+    const adapter = testAdapter({
+      session: () => session, subscribe: l => { listeners.add(l); return () => listeners.delete(l); },
+      menuQuery: async q => {
+        server.queries.push(q as MenuQuery<Record<string, unknown>>);
+        const p = q.params as Record<string, unknown>;
+        if (q.endpoint === 'logLifecycle.projectDetail') return ok(project);
+        if (q.endpoint === 'logLifecycle.roundDetail') return ok(round);
+        if (q.endpoint === 'logLifecycle.requests') return ok({ rows: [], total: 0 });
+        if (q.endpoint === 'logLifecycle.validationIssues') return ok({ rows: server.issues.map(i => issueRow(i.id, i.title)) });
+        if (q.endpoint === 'logLifecycle.validationIssueDetail') return ok(server.issues.find(i => i.id === p.issueId) ?? null);
+        // The synthetic server pages one comment at a time so a short thread exercises the cursor.
+        if (q.endpoint === 'logLifecycle.validationIssueThread') return ok(p.cursor === 'page-2' ? { rows: server.comments.slice(1) } : { rows: server.comments.slice(0, 1), ...(server.comments.length > 1 ? { nextCursor: 'page-2' } : {}) });
+        if (q.endpoint === 'logLifecycle.validationIssueHistory' || q.endpoint === 'logLifecycle.roundDiscussion') return ok({ rows: [] });
+        return ok(null);
+      },
+      menuAction: async req => {
+        server.actions.push(req);
+        const input = req.input as Record<string, unknown>;
+        if (req.action === 'logLifecycle.validationIssueRegister') { server.issues.push(issueDetail(B, String(input.title), String(input.body))); return response('ok', { id: B }, 'register'); }
+        const comment = { id: `cccccccc-cccc-4ccc-8ccc-${String(server.comments.length).padStart(12, '0')}`, authorActorId: actor, body: String(input.body), correctsCommentId: null, createdAt: AT };
+        server.comments.push(comment);
+        return response('ok', { id: comment.id, issueId: input.issueId }, 'comment');
+      },
+    });
+    window.history.replaceState(null, '', `/logDev/log-model-round/${ID}/${ID}?v=1`);
+    act(() => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><LifecyclePage params={{ projectId: ID, roundId: ID }} /><DetailHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>));
+    return { server, switchActor: (next: string) => act(() => { actor = next; session = testSession(['platform:view', ISSUE_CONTRIBUTE], { user: { id: next } }); listeners.forEach(l => l()); }) };
+  }
+  const dialog = () => element('[role="dialog"]');
+  const commentBox = () => element('textarea[id^="comment-issue"]') as HTMLTextAreaElement;
+
+  it('registers without a rule, comments as another person, keeps the draft across tabs and pages the thread', async () => {
+    const t = mountIssues();
+    await waitFor(() => expect(text('검증 항목 없음')).toBe(true));
+    click(button('검증 항목 등록'));
+    await waitFor(() => expect(document.querySelector('#issue-title')).not.toBeNull());
+    change('#issue-title', '규칙 밖 관찰');
+    change('#issue-body', '합성 자유 설명');
+    click(button('검증 항목 등록', dialog()));
+    await waitFor(() => expect(dialog().textContent).toContain('합성 자유 설명'));
+    expect(query().get('issue')).toBe(B);
+    expect(t.server.actions[0]).toMatchObject({ action: 'logLifecycle.validationIssueRegister', input: { projectId: ID, firstRoundId: ID, title: '규칙 밖 관찰', body: '합성 자유 설명' } });
+    expect(Object.keys(t.server.actions[0]!.input as object)).not.toContain('ruleResultId');
+    // Another person with the contribute grant: the session change remounts and the drawer is restored from `issue`.
+    t.switchActor(B);
+    await waitFor(() => expect(commentBox()).toBeTruthy());
+    expect(dialog().textContent).toContain('등록 사용자 aaaaaaaa');
+    change('textarea[id^="comment-issue"]', '다른 사람 첫 댓글');
+    click(button('댓글 남기기', dialog()));
+    await waitFor(() => expect(text('다른 사람 첫 댓글')).toBe(true));
+    change('textarea[id^="comment-issue"]', '탭 전환 초안');
+    activateRoundTab('Round 토론');
+    await waitFor(() => expect(document.querySelector('textarea[id^="comment-issue"]')).toBeNull());
+    activateRoundTab('결과·결함');
+    await waitFor(() => expect(commentBox().value).toBe('탭 전환 초안'));
+    click(button('댓글 남기기', dialog()));
+    await waitFor(() => expect(text('더 보기')).toBe(true));
+    expect(text('탭 전환 초안')).toBe(false);
+    click(button('더 보기', dialog()));
+    await waitFor(() => expect(text('탭 전환 초안')).toBe(true));
+    expect(text('다른 사람 첫 댓글')).toBe(true);
+    expect(t.server.queries.some(q => q.endpoint === 'logLifecycle.validationIssueThread' && q.params.cursor === 'page-2' && q.params.issueId === B)).toBe(true);
+    const comments = t.server.actions.filter(a => a.action === 'logLifecycle.validationIssueComment');
+    expect(comments.map(a => a.input)).toEqual([{ issueId: B, body: '다른 사람 첫 댓글' }, { issueId: B, body: '탭 전환 초안' }]);
+    expect(new Set(t.server.actions.map(a => a.idempotencyKey)).size).toBe(3);
+  });
+  it.each([['denied', () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'denied' }) as unknown as ApiResponse<never>, '읽기 권한이 없습니다'], ['hidden', () => ok(null), '찾을 수 없거나 읽을 수 없습니다']] as const)('shows no cached issue body after access is %s on a session change', async (_, revokedAnswer, feedback) => {
+    let revoked = false;
+    try {
+      extraRead = q => q.endpoint.startsWith('logLifecycle.validationIssue') && revoked ? revokedAnswer() : q.endpoint === 'logLifecycle.validationIssues' ? ok({ rows: [issueRow(B, '합성 항목')] }) : q.endpoint === 'logLifecycle.validationIssueDetail' ? ok(issueDetail(B, '합성 항목', '합성 보호 본문')) : q.endpoint.startsWith('logLifecycle.validationIssue') ? ok({ rows: [] }) : undefined;
+      const t = mount(`&issue=${B}`); await ready();
+      await waitFor(() => expect(text('합성 보호 본문')).toBe(true));
+      revoked = true;
+      t.switchSession();
+      await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain(feedback));
+      expect(document.body.textContent).not.toContain('합성 보호 본문');
+    } finally { extraRead = null; }
+  });
+  const denied = () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'denied' }) as unknown as ApiResponse<never>;
+  const network = (online: boolean) => act(() => { window.dispatchEvent(new Event(online ? 'online' : 'offline')); });
+  it('never re-shows a closed issue body or thread in the same session after revocation, also on an offline reopen', async () => {
+    let revoked = false;
+    try {
+      extraRead = q => q.endpoint === 'logLifecycle.validationIssues' ? ok({ rows: [issueRow(B, '합성 항목')] })
+        : revoked && q.endpoint.startsWith('logLifecycle.validationIssue') ? denied()
+        : q.endpoint === 'logLifecycle.validationIssueDetail' ? ok(issueDetail(B, '합성 항목', '합성 보호 본문'))
+        : q.endpoint === 'logLifecycle.validationIssueThread' ? ok({ rows: [{ id: ID, authorActorId: B, body: '합성 보호 댓글', correctsCommentId: null, createdAt: AT }] })
+        : q.endpoint.startsWith('logLifecycle.validationIssue') ? ok({ rows: [] }) : undefined;
+      const t = mount(); await ready();
+      const reads = () => t.queries.filter(q => q.endpoint === 'logLifecycle.validationIssueDetail').length;
+      const region = () => element('[role="region"][aria-label="검증 항목"]');
+      await waitFor(() => expect(text('합성 항목', region())).toBe(true));
+      click(button('합성 항목', region()));
+      await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('합성 보호 댓글'));
+      expect(document.querySelector('[role="dialog"]')?.textContent).toContain('합성 보호 본문');
+      click(element('[role="dialog"] button[aria-label="상세 닫기"]'));
+      await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+      // Same user and revision (no Kernel generation change): only the per-mount read keeps the old answer away.
+      revoked = true;
+      network(false);
+      const before = reads();
+      click(button('합성 항목', region()));
+      await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+      await act(async () => { await settleQueries(); });
+      expect(document.body.textContent).not.toContain('합성 보호 본문');
+      expect(document.body.textContent).not.toContain('합성 보호 댓글');
+      expect(reads()).toBe(before);
+      network(true);
+      await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('읽기 권한이 없습니다'));
+      expect(reads()).toBe(before + 1);
+      expect(document.body.textContent).not.toContain('합성 보호 본문');
+      expect(document.body.textContent).not.toContain('합성 보호 댓글');
+    } finally { network(true); extraRead = null; }
+  });
+  it('pages again from a fresh first page after a comment, under the server cutoff (51 comments, then a 52nd)', async () => {
+    const comments = Array.from({ length: 51 }, (_, i) => ({ id: `cccccccc-cccc-4ccc-8ccc-${String(i).padStart(12, '0')}`, authorActorId: ID, body: `합성 댓글 ${i + 1}`, correctsCommentId: null, createdAt: AT }));
+    try {
+      extraRead = q => {
+        const p = q.params as Record<string, unknown>;
+        if (q.endpoint === 'logLifecycle.validationIssues') return ok({ rows: [issueRow(B, '합성 항목')] });
+        if (q.endpoint === 'logLifecycle.validationIssueDetail') return ok(issueDetail(B, '합성 항목', '합성 본문'));
+        if (q.endpoint === 'logLifecycle.validationIssueThread') {
+          // Cursor = first-page cutoff (row count at that time) and offset: comments written later never join an old chain.
+          const limit = Number(p.limit ?? 50);
+          const [cutoff, offset] = typeof p.cursor === 'string' ? p.cursor.split(':').map(Number) as [number, number] : [comments.length, 0];
+          const rows = comments.slice(0, cutoff).slice(offset, offset + limit);
+          return ok({ rows, ...(offset + limit < cutoff ? { nextCursor: `${cutoff}:${offset + limit}` } : {}) });
+        }
+        return q.endpoint.startsWith('logLifecycle.validationIssue') ? ok({ rows: [] }) : undefined;
+      };
+      const t = mount(`&issue=${B}`, 1, 'round', [ISSUE_CONTRIBUTE]); await ready();
+      await waitFor(() => expect(text('합성 댓글 50')).toBe(true));
+      click(button('더 보기', dialog()));
+      await waitFor(() => expect(text('합성 댓글 51')).toBe(true));
+      expect([...dialog().querySelectorAll('button')].some(b => b.textContent === '더 보기')).toBe(false);
+      change('textarea[id^="comment-issue"]', '새 댓글 52');
+      click(button('댓글 남기기', dialog()));
+      await waitFor(() => expect(t.sent).toHaveLength(1));
+      comments.push({ ...comments[0]!, id: 'cccccccc-cccc-4ccc-8ccc-000000000052', body: '새 댓글 52' });
+      await act(async () => { t.sent[0]!.resolve(response('ok', { id: ID, issueId: B }, 'comment-52')); await settleQueries(); });
+      await waitFor(() => expect([...dialog().querySelectorAll('button')].some(b => b.textContent === '더 보기')).toBe(true));
+      click(button('더 보기', dialog()));
+      await waitFor(() => expect(text('새 댓글 52')).toBe(true));
+      expect([...dialog().querySelectorAll('p')].filter(n => n.textContent === '합성 댓글 51')).toHaveLength(1);
+    } finally { extraRead = null; }
+  });
+  it('never lets one issue’s retry join another issue’s in-flight comment, and retries with its own idempotency key', async () => {
+    const C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    try {
+      extraRead = q => {
+        const p = q.params as Record<string, unknown>;
+        if (q.endpoint === 'logLifecycle.validationIssues') return ok({ rows: [issueRow(B, '항목 A'), issueRow(C, '항목 B')] });
+        if (q.endpoint === 'logLifecycle.validationIssueDetail') return ok(p.issueId === B ? issueDetail(B, '항목 A', '항목 A 설명') : issueDetail(C, '항목 B', '항목 B 설명'));
+        return q.endpoint.startsWith('logLifecycle.validationIssue') ? ok({ rows: [] }) : undefined;
+      };
+      const t = mount('', 1, 'round', [ISSUE_CONTRIBUTE]); await ready();
+      const region = () => element('[role="region"][aria-label="검증 항목"]');
+      const retry = () => button('같은 요청 다시 확인', dialog());
+      await waitFor(() => expect(text('항목 B', region())).toBe(true));
+      click(button('항목 A', region()));
+      await waitFor(() => expect(dialog().textContent).toContain('항목 A 설명'));
+      change('textarea[id^="comment-issue"]', '초안 A');
+      click(button('댓글 남기기', dialog()));
+      await waitFor(() => expect(t.sent).toHaveLength(1));
+      await act(async () => { t.sent[0]!.resolve(response('unknown', null, 'a-unknown')); await settleQueries(); });
+      await waitFor(() => expect(retry()).toBeTruthy());
+      click(button('항목 B', region()));
+      await waitFor(() => expect(dialog().textContent).toContain('항목 B 설명'));
+      change('textarea[id^="comment-issue"]', '초안 B');
+      click(button('댓글 남기기', dialog()));
+      await waitFor(() => expect(t.sent).toHaveLength(2));
+      click(button('항목 A', region()));
+      await waitFor(() => expect(dialog().textContent).toContain('항목 A 설명'));
+      await waitFor(() => expect(retry()).toBeTruthy());
+      // B's request is in flight: A's retry waits instead of joining B's promise and taking B's answer.
+      expect(retry().disabled).toBe(true);
+      click(retry());
+      await act(async () => { t.sent[1]!.resolve(response('ok', { id: ID, issueId: C }, 'b-ok')); await settleQueries(); });
+      expect(t.sent).toHaveLength(2);
+      expect(t.sent[1]!.request).toMatchObject({ input: { issueId: C, body: '초안 B' } });
+      expect(text('댓글을 남겼습니다.', dialog())).toBe(false);
+      expect(commentBox().value).toBe('초안 A');
+      await waitFor(() => expect(retry().disabled).toBe(false));
+      click(retry());
+      await waitFor(() => expect(t.sent).toHaveLength(3));
+      expect(t.sent[2]!.request).toBe(t.sent[0]!.request);
+      expect(t.sent[2]!.request.idempotencyKey).not.toBe(t.sent[1]!.request.idempotencyKey);
+      await act(async () => { t.sent[2]!.resolve({ ...response('ok', { id: ID, issueId: B }, 'a-ok'), replayed: true }); await settleQueries(); });
+      await waitFor(() => expect(text('댓글을 남겼습니다.', dialog())).toBe(true));
+      expect(commentBox().value).toBe('');
+    } finally { extraRead = null; }
+  });
+  it('sends a double-clicked comment once and resends the same request after an unknown answer', async () => {
+    try {
+      extraRead = q => q.endpoint === 'logLifecycle.validationIssues' ? ok({ rows: [issueRow(B, '합성 항목')] }) : q.endpoint === 'logLifecycle.validationIssueDetail' ? ok(issueDetail(B, '합성 항목', '합성 본문')) : q.endpoint.startsWith('logLifecycle.validationIssue') ? ok({ rows: [] }) : undefined;
+      const t = mount(`&issue=${B}`, 1, 'round', [ISSUE_CONTRIBUTE]); await ready();
+      await waitFor(() => expect(commentBox()).toBeTruthy());
+      change('textarea[id^="comment-issue"]', '한 번만 저장');
+      const submit = button('댓글 남기기', dialog());
+      await act(async () => { submit.click(); submit.click(); await Promise.resolve(); });
+      await waitFor(() => expect(t.sent).toHaveLength(1));
+      await act(async () => { await settleQueries(); });
+      expect(t.sent).toHaveLength(1);
+      expect(t.sent[0]!.request).toMatchObject({ action: 'logLifecycle.validationIssueComment', input: { issueId: B, body: '한 번만 저장' } });
+      await act(async () => { t.sent[0]!.resolve(response('unknown', null, 'comment-unknown')); await settleQueries(); });
+      await waitFor(() => expect(text('같은 요청 다시 확인')).toBe(true));
+      expect(commentBox().disabled).toBe(true);
+      click(button('같은 요청 다시 확인'));
+      await waitFor(() => expect(t.sent).toHaveLength(2));
+      expect(t.sent[1]!.request).toBe(t.sent[0]!.request);
+      await act(async () => { t.sent[1]!.resolve({ ...response('ok', { id: ID, issueId: B }, 'comment-unknown'), replayed: true }); await settleQueries(); });
+      await waitFor(() => expect(text('댓글을 남겼습니다.')).toBe(true));
+      expect(commentBox().value).toBe('');
+    } finally { extraRead = null; }
   });
 });

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Button, Input, Label, RadioGroup, RadioGroupItem, Textarea } from '@ap/ui';
-import { GATE_LABEL, REASON_COPY, type Page, type RequestDetail, type RuleResult, type RoundDetail, type ScreenProps, type WriteResult } from './contracts';
+import { GATE_LABEL, REASON_COPY, type CursorPage, type Page, type ValidationIssueRow, type RequestDetail, type RuleResult, type RoundDetail, type ScreenProps, type WriteResult } from './contracts';
 import { Disclosure, GateBadge, ReadView, time, writeFailure, WriteError } from './presentation';
 import { decisiveReference } from './RoundExecution';
+import { ISSUE_TOTAL_UNAVAILABLE } from './Discussion';
 
 export type GateDraft = { decision: 'approved' | 'rejected' | 'exception' | ''; reason: string; riskActor: string; scope: string; until: string; result: WriteResult | null };
 export function emptyGateDraft(actorId: string): GateDraft { return { decision: '', reason: '', riskActor: actorId, scope: '', until: '', result: null }; }
@@ -41,6 +42,7 @@ function GatePanelView({ api, ui, round, completedAt, controller }: GateProps & 
   const request = api.useRead<RequestDetail>('requestDetail', { requestId: reference?.requestId ?? '' }, !!reference);
   const decisive = request.data?.roundId === round.id ? request.data.attempts.find(a => a.id === reference?.attemptId) : undefined;
   const failing = api.useRead<Page<RuleResult>>('ruleResults', { attemptId: reference?.attemptId ?? '', results: ['FAIL'], page: 0, pageSize: 25 }, !!reference);
+  const issues = api.useRead<CursorPage<ValidationIssueRow>>('validationIssues', { roundId: round.id, limit: 10 });
   const selected = decision ? available.decisions[decision] : undefined;
   const reasons = [...new Set([...available.reasons, ...(selected?.reasons ?? [])])];
   const locked = pending || result?.outcome === 'unknown' || result?.outcome === 'error';
@@ -49,8 +51,8 @@ function GatePanelView({ api, ui, round, completedAt, controller }: GateProps & 
     {reasons.length > 0 ? <div className="grid gap-2">{ui.trust(reasons, completedAt)}{reasons.map(r => <p key={r} className="text-xs text-text-secondary">{REASON_COPY[r] ?? '결정 가능 여부를 확인하지 못했습니다.'}</p>)}</div> : null}
     <section aria-label="서버 결정 근거" className="grid gap-2 text-xs"><h3 className="font-semibold">서버 결정 근거</h3>
       {reference ? <ReadView query={request}>{() => decisive ? <><p>완료 시도 #{decisive.attemptNo} · 실패 {decisive.counts.FAIL ?? 0} · 미검증 {decisive.counts.NOT_CHECKED ?? 0} / 전체 규칙 {decisive.ruleCount}건</p><ReadView query={failing}>{data => <><p>{data.rows.length ? data.rows.map(rule => rule.ruleId).join(' · ') : '실패 규칙 없음'}</p>{data.total > data.rows.length ? <p>실패 규칙 {data.total}건 중 {data.rows.length}건 표시</p> : null}</>}</ReadView></> : <p>결정 근거 시도를 확인할 수 없습니다.</p>}</ReadView> : <p>Gate 기준 시도 없음 · 서버가 결정 근거로 삼은 완료 시도가 아직 없습니다.</p>}
-      <p>{round.defects ? `미해결 결함 ${round.defects.unresolvedCount}건 · 이 Round 전체` : '미해결 결함 집계 불가'}</p>
-      {round.defects?.rows.map(defect => <p key={defect.id}>{defect.title}</p>)}
+      <p>{ISSUE_TOTAL_UNAVAILABLE} · 이 Round 전체 · 사람 기록이며 판정에 쓰이지 않음</p>
+      {issues.status === 'done' && issues.data?.rows.length ? <><p className="text-text-secondary">최근 활동 검증 항목{issues.data.nextCursor ? ` ${issues.data.rows.length}건만 표시` : ''}</p>{issues.data.rows.map(row => <p key={row.id}>{row.title}</p>)}</> : null}
     </section>
     <Disclosure label="근거 스냅샷"><pre className="mt-2 overflow-auto whitespace-pre-wrap break-all text-xs">{JSON.stringify(available.basis, null, 2)}</pre></Disclosure>
     <form className="grid gap-3" onSubmit={e => { e.preventDefault(); void submit(); }}>
