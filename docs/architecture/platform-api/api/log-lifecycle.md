@@ -208,6 +208,94 @@ The barrel read port `lifecycleEvidenceRead.findEvidenceLinks(tx, workspaceId, {
 The 참조 작업자 is `tooling/scripts/validation-worker-mock.mjs`: a **합성 fixture** that invents rule results from the sample list. It is not evidence of any in-house Validator integration.
 
 
+## 진단 읽기 투영 (#1815)
+
+**Candidate · 미구현.** [진단 리포트 설계](../../../design/features/log-lifecycle/diagnostic-report-parity.md)의 Slice A 읽기 계약 후보다. 그 문서의 Open R1/R3/R5 답을 구현 게이트로 삼으며 기존 worker result 쓰기 shape·상한·verdict는 바꾸지 않는다.
+
+### AttemptOut과 summary 허용 목록
+
+현재 `AttemptOut` 필드는 `id`, `attemptNo`, `workerActorId`, `startedAt`, `endedAt`, `outcome`, `executorVersion`, `executorDigest`, `ruleSetRevision`, `inputManifestDigest`, `manifestMatches`, `resultDigest`, `verdict`, `ruleCount`, `requiredUnchecked`, `counts`, `opinionCount`다. `withAttemptRuleSets`가 붙이는 별도 RuleSet 연결 투영도 유지한다. `requestDetail`은 Round 요청만 읽는다.
+
+추가 필드 후보는 `workerSummaryState: not_submitted | no_allowed_fields | available`, `workerSummary: { fixture?: 'synthetic', mode?: 'pass' | 'fail' | 'incomplete' } | null`이다. 허용된 값이 하나 이상이면 available, 저장 summary가 null이면 not_submitted, 객체는 있으나 유효한 허용 키가 없으면 no_allowed_fields다. 값이 잘못된 필드·미지 키·중첩 객체·배열은 투영하지 않고 빈 객체 대신 null을 반환한다. 기존 저장 행도 읽을 때 타입·enum을 다시 검사한다. 원본 JSON·누락 키 이름·누락 값은 DTO/로그에 덤프하지 않는다. 이유: 기존 쓰기 summary에는 임의 JSON이 들어갈 수 있다.
+
+허용 `workerSummary` 키는 **`fixture`, `mode` 두 개만**이라는 추천안이며 R1에서 승인할 후보이지 사내 출력 포맷의 확정이 아니다. `note`, 실패의 `reason`, 임의 제목/설명/경로/URL/표는 제외한다. free text는 비밀 패턴 검사만으로 원본 비포함을 증명할 수 없기 때문이다. `counts`·verdict는 서버 계산 필드를 그대로 쓰며 worker summary 수치로 대체하지 않는다. summary 투영은 기존 객체 가시성 안에서만 내려주고 검색·감사·알림에 본문을 추가하지 않는다.
+
+### 근거 행의 두 상태 축
+
+기존 `RuleResultOut`의 `id`, `ruleId`, `result`, `required`, `expected`, `observed`, `evidence`, `hasExcerpt`, `opinion`을 유지한다. `evidence[]`는 `{ fileRef, line, fileSha256, hasExcerpt }`이다. 발췌 본문은 목록에 넣지 않는다.
+
+상세의 근거 행 후보는 `{ ruleResultId, evidenceIndex, evidenceRef: { fileRef, line, fileSha256 }, excerptState, sourceState }`다. 중복 위치도 원래 evidenceIndex와 연결한다. 이는 별도 상태 읽기의 조합이며 `hasExcerpt`를 실시간 권한·보관 상태로 해석하지 않는다. 상태 읽기와 발췌 읽기는 현재 객체 가시성과 사람 세션/Source ACL을 재검사하고, 권한 없는 대상에는 존재 상태를 먼저 조회해 반환하지 않는다. 숨겨진 대상은 상태·카운트·직접 URL에서도 노출하지 않는다. 발췌 본문은 명시적 열기로 기존 세션·Source 권한·감사를 유지하며, 원본 열기도 현재 Source ACL을 다시 검사한다.
+
+| 축 / 값 후보 | 권위와 처리 |
+| --- | --- |
+| excerptState `not_submitted` | 읽을 수 있는 결과에서 hasExcerpt=false이며 발췌 미제출이 확인됨 |
+| `not_loaded` / `available` | 본문 열기 전 / 허용된 본문 읽기 성공. available 본문은 기존 별도 excerpt 응답에만 존재 |
+| `no_permission` | 객체 자체는 보이되 해당 Source 발췌 권한 거절. 본문·삭제 상세 미노출 |
+| `expired` | retention 삭제임을 서버가 권위 있게 확인한 경우만. 현재 deleted boolean만으로 결정 금지 |
+| `deleted` / `unknown` | 관리자 삭제 확인 / 삭제 사유·누락을 판별할 수 없음. legacy provenance는 R3 게이트 |
+| sourceState `not_checked` / `available` | 원본 열기 전 / Source에서 현재 존재·해시 확인 |
+| `no_permission` | Source 접근 거절. 원본 존재·해시 상세 미노출 |
+| `absent` | 권한 검사 뒤 Source가 부재 확인. 로컬 UI 미주입을 부재로 표시하지 않음 |
+| `hash_mismatch` | 샘플 해시와 EvidenceRef 불일치 또는 Source의 현재 해시 불일치. 다른 파일로 자동 대체 금지 |
+| `unsupported` / `temporarily_unavailable` | Source 기능 미지원 / 일시 장애. 부재와 구분 |
+
+원본 상태는 기존 Source 읽기 계약에서 확인하며 상태를 얻으려고 ACL을 우회하는 원본 요청을 만들지 않는다. 보관된 발췌와 원본의 생존 상태는 독립적이다. 삭제 사유 문자열을 그대로 반환하지 않고 안전한 분류만 제공하는 후보이며, 현행 저장 메타데이터가 권위 있게 구별하지 못하면 unknown을 유지한다. 새 endpoint 이름·경로·DDL은 확정하지 않는다.
+
+## 작업자 입력 전달 (#1807)
+
+**Candidate · 미구현.** [ADR-0152](../../../adr/0152-worker-input-delivery-source-owner-step.md)의 상세 계약 후보다. 소유자 확정·사내 적합성 확인 뒤 구현하며 endpoint 경로와 DDL은 정하지 않는다. 기존 Worker REST·SourceReadPort 동작은 그대로다.
+
+### 해석 단계와 응답
+
+논리 동작 이름 후보는 `resolveWorkerInput`이다. 작업자의 `requestId`, `attemptNo`, `sourceOwner`, `fileRef`, expected `sha256`를 받아 서버가 요청 주체의 고정 샘플 목록과 대조한다. Round와 회귀 항목 모두 claim에 고정된 순서·해시·manifest digest를 사용한다. 이유: 작업자가 다른 파일·시도의 읽기 권한을 만들 수 없어야 한다.
+
+`fileRef`는 Source 종속 불투명 안정 참조로 유지한다. Source 어댑터만 실제 위치를 해석하고 URL·로컬 경로·스토리지 키를 DB의 `fileRef`로 쓰지 않는다. 응답 후보의 공통 메타데이터는 상태와 요청/시도 식별자이며 `ready`만 expected SHA-256, 만료 시각, 읽기 전용 전달 수단을 갖는다. 수단은 Source 소유 스트림, storage key broker, 짧은 TTL의 signed GET 중 하나다. 내부 키는 broker 안에 감추고 signed URL은 작업자 전달 응답에만 일시적으로 둔다. 영속 DTO·공개 딥링크에는 넣지 않는다.
+
+| 상태 후보 | 의미와 작업자 동작 |
+| --- | --- |
+| `ready` | 현재 접근이 허용된 바이트 전달 수단. 읽은 뒤 별도로 해시 검증 |
+| `absent` | 허가된 Source에서 원본 부재 확인. Rule FAIL로 바꾸지 않음 |
+| `revoked` | 토큰·Source 접근 철회 또는 유효 claim 상실. 재발급·이어 읽기 중단 |
+| `hash_mismatch` | Source가 확인한 바이트 해시가 고정값과 다름. 실행 금지 |
+| `unsupported` | 해당 Source가 입력 전달을 지원하지 않음. 성공으로 대체하지 않음 |
+| `temporarily_unavailable` | 일시 장애·전송 예산 초과. 제한된 재시도만 허용 |
+
+인증·객체 가시성 판정 전에는 원본 존재 상태도 노출하지 않는다. 인증 실패·숨겨진 요청의 오류 봉투는 기존 서버 계약을 따르며 위 상태는 인증 이후의 전달 상태다.
+
+### 권한과 수명
+
+- 서비스 토큰 `validation.worker`와 현재 claim의 Actor·attempt·lease, workspace, Source ACL을 **매 접근** 서버에서 함께 판정한다. Source 권한을 토큰 scope로 대체하지 않는다.
+- 새 전달 수단 발급은 유효 lease에만 허용하는 후보이며, 만료 시 기존 heartbeat로 연장/재획득한 뒤 다시 해석한다. 기존 큐의 늦은 result/fail 수락 규칙은 변경하지 않는다. 이유: 완료 결과 보존과 신규 원본 접근 승인은 다르다.
+- 철회 뒤 재발급은 즉시 거절한다. 이미 발급한 signed GET은 만료까지 접근될 수 있고 진행 중 전송도 즉시 중단을 보장하지 못한다. TTL은 남은 lease·Source 정책 상한 중 짧은 값 이내로 제한한다. 즉시 철회가 필요하면 매 접근 검사와 활성 스트림 중단을 지원하는 게이트웨이를 선택한다. TTL 수치·허용 철회 지연은 Open이다.
+- 대용량 전송 중에도 heartbeat를 유지한다. 취소·lease 재할당·권한 철회가 확인되면 전송·실행을 중단하고 임시 파일을 정리한다. 임시 스테이징도 Source 보관·삭제·사내 무반출 정책을 따른다.
+
+### 무결성과 오류
+
+작업자는 실제 끝까지 읽은 바이트의 SHA-256을 expected hash와 비교하고 사용자 파일 순서를 보존해 전체 manifest digest를 다시 계산한다. ETag를 SHA-256으로 쓰지 않는다. 부분 전송·절단·누락·해시 불일치는 성공 근거가 될 수 없다.
+
+파일 접근 오류는 **Rule FAIL과 별개**다. 실행 전 실패는 기존 fail 경로로 시도를 종료한다. 부분 검증은 실제 검사하지 못한 필수 규칙을 `ERROR|NOT_CHECKED|SKIPPED`로 제출해 기존 verdict 계산을 따른다. 이미 확인한 FAIL이 있으면 기존 우선순위대로 verdict는 fail일 수 있다. 가짜 FAIL·PASS를 만들지 않는다. 재시도는 유효 lease·취소·전송 예산을 다시 확인하며 결과 멱등성은 ADR-0117 그대로다.
+
+### 전송 한도와 기록 경계
+
+파일 수는 기존 sampleSet 상한 안에서 정하고 파일별/총 바이트·동시 다운로드·전송 시간·재시도 수를 유한하게 제한한다. 스트리밍·백프레셔·취소를 지원하고 파일 전체를 플랫폼 메모리에 모으지 않는다. 구체 수치는 실사 항목이며 무제한 기본값은 허용하지 않는다.
+
+호스트·스킴·포트 allowlist, redirect 재검사, DNS 해석 뒤 목적지 검증으로 SSRF를 막는다. 사용자 제공 URL을 직접 fetch하지 않고 Source가 해석한 목적지만 쓴다. 사내 목적지는 승인된 것만 허용하며 메타데이터 서비스·경로 탐색·임의 로컬 파일 접근을 차단한다. 업로드 MIME allowlist를 원본 로그 읽기 형식의 근거로 쓰지 않는다. 이유: 원본 입력과 수동 첨부는 다른 자원이다.
+
+감사·서버/프록시/작업자 로그·추적·오류·알림에는 signed URL, query credential, 스토리지 키, 원본 경로, 토큰, 원문을 기록하지 않는다. 감사 후보는 request/attempt 식별자, 상태 코드, 바이트 수, 소요 시간뿐이며 원본 `fileRef`도 생략한다. 다운로드 credential은 메모리 수명 안에서만 다룬다.
+
+### 적합성 확인과 Open decisions
+
+공개 검증은 합성 파일로 분리 컨테이너 사이 공유 로컬 경로 없이 claim→해석→전송→SHA-256→result를 확인한다. 다른 Actor/attempt, 토큰 철회, URL 만료, hash mismatch, 부분 전송, lease 재할당, 전송 중 취소를 포함한다. 사내 실제 원본 적합성은 내부에서만 수행하며 경로·호스트·토큰·원문을 공개 CI/Artifact/AI에 옮기지 않는다.
+
+| ID / 상태 | 선택지와 확인 질문 | 추천과 이유 |
+| --- | --- | --- |
+| I1 Open | Source 스트림/게이트웨이, storage broker, 임시 MinIO/S3 signed GET 중 어느 연결이 가능한가? 원본 위치·접근 주체·작업자 망 연결은? | 기존 Source 게이트웨이 우선. 복사를 줄이고 철회 판정을 한 곳에 둠. 공급자는 실사 전 미선택 |
+| I2 Open | 짧은 URL TTL과 만료까지 철회 지연 허용, 또는 즉시 중단 프록시? | 철회 지연을 허용하지 않으면 프록시. 수치는 최대 파일·망 속도와 함께 확인 |
+| I3 Open | 파일별/총 크기·동시 수·시간·재시도·임시 보관 상한은? | 측정한 최대 입력과 운영 예산에 맞춘 유한 상한. 업로드 32 MiB를 전용하지 않음 |
+| I4 Open | 유효 lease에서만 새 전달 발급, 또는 별도 읽기 유예? | 유효 lease만 추천. heartbeat 재획득으로 재할당과 원본 접근 경합을 줄임 |
+
+입력 전달은 미구현이며 I1–I4 답과 사내 적합성 조건이 갖춰질 때 구현 노드를 연다. 출력 리포트는 [#1815 설계](../../../design/features/log-lifecycle/diagnostic-report-parity.md)가 소유한다.
+
 ## Screen reads (node f, #1447)
 
 `logLifecycle.queueStatus {}` belongs to `log-validation-requests`, requires only the existing `platform:view`, and answers `{ runWindow, immediateLimit, serverAt, withinWindow }`. Settings come from the workspace's existing queue settings/defaults; `serverAt` is the database instant and `withinWindow` uses that instant. No default schedule is invented by the screen.
