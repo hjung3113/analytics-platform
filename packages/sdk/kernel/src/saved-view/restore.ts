@@ -72,11 +72,19 @@ export function restoreSavedView(input: { view: SavedView; support: SavedViewSup
  * The patch of 현재 뷰에 저장 (#2031): stores replace `context` and `page` wholesale, so the patch is complete. Saved fields and page keys this menu does
  * not support stay as stored (06 §21.1); supported ones take the applied value, an emptied one is cleared. A relative period whose window the user
  * did not change (applied `from`/`to` equal the view resolved at `anchor`, as the restore did) stays relative; a changed window is saved absolute.
+ * The shared `membershipBasis` stays as stored while the view holds an owner (`condition`/`prcGroups`) this menu does not support (06 §21.3).
  */
 export function overwritePatch(view: SavedView, applied: SavedState, support: SavedViewSupport, anchor: string | null): Pick<SavedViewPatch, 'context' | 'page'> {
   const fields = supportedFields(support);
   const kept = Object.fromEntries(Object.entries(view.context).filter(([field]) => !fields.has(field as keyof SavedViewContext))) as SavedViewContext;
   let context: SavedViewContext = { ...kept, ...applied.context };
+  // `membershipBasis` is shared by `condition` and `prcGroups`: support of one owner is no write authority over a stored owner this menu hides.
+  // The stored basis stays (absent = current membership), whatever the applied one says — the address drops a basis with no owner, and an
+  // explicit edit would recast the hidden owner, so that edit is not saved into this view (it keeps reading 수정됨).
+  if ((view.context.condition && !fields.has('condition')) || (view.context.prcGroups && !fields.has('prcGroups'))) {
+    const { membershipBasis: _basis, ...rest } = context;
+    context = view.context.membershipBasis === undefined ? rest : { ...rest, membershipBasis: view.context.membershipBasis };
+  }
   const { relativePeriod } = view.context;
   if (relativePeriod && fields.has('relativePeriod') && anchor !== null) {
     const resolved = resolveContext(view.context, anchor);
