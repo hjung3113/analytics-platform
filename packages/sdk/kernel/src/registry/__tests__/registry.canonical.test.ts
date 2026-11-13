@@ -60,6 +60,11 @@ describe('canonical path and legacy aliases', () => {
     expect(registry.safeReturnTo('/nowhere?v=1')).toBeNull();
   });
 
+  // A dot segment matches a param route, then the browser folds the path to another address (#2008 KER-5).
+  it.each(['/mars/metric-detail/..', '/mars/metric-detail/%2e%2e?v=1', '/mars/metric-detail/%2E%2E', '/metrics/..?v=1'])('safeReturnTo rejects the dot segment in %s', value => {
+    expect(registry.safeReturnTo(value)).toBeNull();
+  });
+
   it('keeps a menu path already equal to its canonical path without an alias', () => {
     const r = createRegistry({ ...base, menus: [menu('catalog', '/mars/catalog', { primary: true })] });
     expect(r.menuById('catalog').aliases).toBeUndefined();

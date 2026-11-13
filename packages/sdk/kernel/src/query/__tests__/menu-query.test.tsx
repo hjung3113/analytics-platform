@@ -1024,3 +1024,77 @@ const equipmentAxes = [
   { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
   { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
 ];
+
+describe('drill gap closes the menu query gate (06 §6.4, #2007)', () => {
+  const drillRegistry = createRegistry({
+    spaces: [testSpace()],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
+    menus: [{
+      id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' },
+      path: '/', icon: House, permission: 'platform:view', requiresScope: false,
+      context: {
+        time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+        lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
+      },
+      pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false },
+      pageKeys: ['drillModule', 'drillMotion', 'trend'], contextResetKeys: ['drillModule', 'drillMotion'],
+      drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: '동작', en: 'Motion' } }] },
+    }],
+  });
+  const spec: EndpointSpec<Params, QueryData> = { ...endpoint, context: {} };
+
+  function GapProbe() {
+    const { setPage } = useHostPlatform();
+    const query = useMenuQuery(spec, params);
+    return (
+      <>
+        <p data-testid="query">{query.status}:{query.response?.data?.call ?? '-'}</p>
+        <button type="button" data-testid="fill" onClick={() => setPage({ drillModule: 'M1' })}>fill</button>
+      </>
+    );
+  }
+  const mountGap = (f: ReturnType<typeof fixture>) => render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={drillRegistry}><GapProbe /></PlatformProvider></I18nProvider>);
+
+  it('useMenuQuery: a URL with only a later drill step calls adapter.menuQuery 0 times', async () => {
+    window.history.replaceState(null, '', '/?v=1&drillMotion=X&trend=a');
+    const f = fixture();
+    mountGap(f);
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await Promise.resolve(); });
+    expect(f.adapter.menuQuery).toHaveBeenCalledTimes(0);
+  });
+
+  it('useMenuFetch: a URL with only a later drill step is not ready and answers not_ready without the adapter', async () => {
+    window.history.replaceState(null, '', '/?v=1&drillMotion=X');
+    const f = fixture();
+    let latest!: MenuFetch<Params, QueryData>;
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={drillRegistry}><FetchProbe spec={spec} onFetch={fetcher => { latest = fetcher; }} /></PlatformProvider></I18nProvider>);
+    expect(screen.getByTestId('ready').textContent).toBe('false');
+    const result = await latest.fetch({ page: 1 });
+    expect(result.message).toMatch(/^not_ready: fixture\.list/);
+    expect(f.adapter.menuQuery).toHaveBeenCalledTimes(0);
+  });
+
+  it.each([
+    ['the full drill path', '/?v=1&drillModule=M1&drillMotion=X'],
+    ['the leading step only', '/?v=1&drillModule=M1'],
+    ['no drill step (summary)', '/?v=1'],
+  ])('queries once for %s', async (_name, url) => {
+    window.history.replaceState(null, '', url);
+    const f = fixture();
+    mountGap(f);
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(f.adapter.menuQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('gap → URL fixed: the query starts once', async () => {
+    window.history.replaceState(null, '', '/?v=1&drillMotion=X');
+    const f = fixture();
+    mountGap(f);
+    await act(async () => { await Promise.resolve(); });
+    expect(f.adapter.menuQuery).toHaveBeenCalledTimes(0);
+    act(() => screen.getByTestId('fill').click());
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(f.adapter.menuQuery).toHaveBeenCalledTimes(1);
+  });
+});

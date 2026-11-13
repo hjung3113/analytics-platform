@@ -63,7 +63,7 @@ export default function TablePage(_props: PageProps) {
   const exports = useMenuFetch(hwTime.exportRows);
 
   // The level response gives the empty/partial states and the drawer's row at every level; the table pages through its own fetch.
-  const levelQ = useHwTimeLevel(drillParams(module, motion), drill.invalid === null);
+  const levelQ = useHwTimeLevel(drillParams(module, motion));
   // The row counts below describe the kept level result (#1365): they name the Module/Motion it was loaded with.
   const kept = shownDrill(levelQ, drillParams(module, motion));
   const response: HwTimeLevelData | null = levelQ.response?.outcome === 'ok' ? levelQ.response.data : null;

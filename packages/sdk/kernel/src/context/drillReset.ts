@@ -19,6 +19,20 @@ export function drillLevelChanged(menu: DrillRule | null | undefined, current: r
 }
 
 /**
+ * The first declared level that has a value while an earlier level is empty (06 §6.4 format error), or `null` when the filled steps
+ * form one leading run. `useDrill` reports it as `invalid`; the screen state closes its menu query gate on it. Kernel-internal.
+ */
+export function drillGap<L extends { key: string }>(levels: readonly L[], current: readonly Current[]): { level: L; value: string } | null {
+  let empty = false;
+  for (const level of levels) {
+    const value = normalized(current.find(([k]) => k === level.key)?.[1]);
+    if (value === null) empty = true;
+    else if (empty) return { level, value };
+  }
+  return null;
+}
+
+/**
  * The page keys `patch` removes in addition to its own: the menu's `drill.resetKeys` when the patch changes a drill level value (same write,
  * one history entry — 06 §6.4). A reset key the patch sets itself keeps the patch's value. Without `resetKeys` or without a level change
  * the patch is returned as is. History traversal never calls this. Kernel-internal.

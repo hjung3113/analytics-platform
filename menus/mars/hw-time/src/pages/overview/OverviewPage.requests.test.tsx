@@ -121,3 +121,33 @@ describe('HW Time overview: UI state never re-queries (real data hooks, counted 
     expect(levelRequests().length).toBe(before + 1);
   });
 });
+
+// 06 §6.4: a drill URL with an earlier step missing is a format error and is not queried. The Kernel closes the gate (#2007);
+// the trend panel sits outside DrillLayout, so before that it still asked the server.
+describe('HW Time pages: a drill URL with a gap sends no query (06 §6.4, #2007)', () => {
+  const pages = [
+    ['steps', () => import('../steps/StepsPage')],
+    ['overview', () => import('./OverviewPage')],
+    ['compare', () => import('../compare/ComparePage')],
+  ] as const;
+  async function renderAt(page: (typeof pages)[number], search: string) {
+    const { default: Page } = await page[1]();
+    const adapter = testAdapter({ session: () => session, menuQuery: async (request: MenuQuery) => { requests.push(request); return answer(request); } });
+    window.history.replaceState(null, '', `/hw-time/${page[0]}?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Page params={{}} /></PlatformProvider></I18nProvider>);
+  }
+
+  it.each(pages)('%s: ?drillMotion=X&trend=… without drillModule asks for neither level nor trend', async (...page) => {
+    await renderAt(page, '&drillMotion=Pump&trend=EQ-001.H1');
+    expect(await screen.findByText(/앞 단계 없이 쓸 수 없습니다/, undefined, { timeout: 10_000 })).toBeTruthy();
+    await settle();
+    expect(trendRequests()).toHaveLength(0);
+    expect(levelRequests()).toHaveLength(0);
+  });
+
+  it.each(pages)('%s: the full drill path still asks for the trend', async (...page) => {
+    await renderAt(page, '&drillModule=PM1&drillMotion=Pump&trend=EQ-001.H1');
+    await waitFor(() => expect(trendRequests().length).toBeGreaterThan(0), { timeout: 10_000 });
+    expect(levelRequests().length).toBeGreaterThan(0);
+  });
+});

@@ -83,7 +83,7 @@ export default function OverviewPage(_props: PageProps) {
   // Frame names only a row it draws (a URL row of another level shows no active row).
   const state = useHwTimeLevelState({ hiddenKey: `${module ?? ''}/${drill.depth}`, row: true, revealTrend: true });
   const { invalid, sort, sortText, row, trendRows, hidden, setHidden, notice, reveal } = state;
-  const levelQ = useHwTimeLevel(params, drill.invalid === null && invalid === null);
+  const levelQ = useHwTimeLevel(params, invalid === null);
   const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0 && invalid === null);
   // While the previous level is kept (#1365), titles and drill actions follow the Module/Motion the rows were loaded with; drilling from old rows is off.
   const kept = shownDrill(levelQ, params);
