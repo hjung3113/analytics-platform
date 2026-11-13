@@ -68,6 +68,10 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
     : unknown.length ? (lang === 'ko' ? '일부 미확인' : 'Partly unconfirmed') : (lang === 'ko' ? '이슈 없음' : 'No issues');
   // Wrapping form: a line break may fall between the fragments, never inside one.
   const fragment = cn('tabular', wrap && 'whitespace-nowrap');
+  // Wrapping form (not collapsed): the dot travels with the headline and the info icon with the last fragment, so a break falls only between fragments and neither sits alone on a line.
+  const grouped = wrap && !collapsed;
+  const unit = 'inline-flex items-center gap-2 whitespace-nowrap';
+  const infoIcon = <Info className="size-3.5 text-text-muted" aria-hidden />;
   const detailsText = lang === 'ko' ? '자세히' : 'Details';
   const summaryName = `${trust ? `${headline} · ${coverageText} · ${updatedText}` : `${headline} · ${noTrustText}`}${collapsed && mixed ? ` · ${mixedText}` : ''}`;
   if (probe) {
@@ -85,22 +89,22 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
   return <Popover>
     <PopoverTrigger asChild>
       <button type="button" className={cn('group/trust inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', wrap && 'min-w-0 max-w-full flex-wrap text-left', className)} aria-label={summary ? `${t('dataTrust')} · ${shortStatus} · ${detailsText}${mixed ? ` · ${mixedText}` : ''}` : compact && mixed ? summaryName : mixed ? `${t('dataTrust')} · ${mixedText}` : t('dataTrust')} title={summaryName}>
-        <Dot tone={tone} />
+        {!grouped && <Dot tone={tone} />}
         {summary && <span data-trust-short className="inline-flex items-center gap-2 whitespace-nowrap"><span className="tabular">{shortStatus}</span><span className="text-text-disabled" aria-hidden>·</span><span className="text-accent-primary underline-offset-2 group-hover/trust:underline">{detailsText}</span></span>}
-        <span data-trust-summary-details className={cn('inline-flex items-center gap-2', wrap && 'min-w-0 flex-wrap gap-y-0', (compact || summary) && 'sr-only')}>
-          <span className={fragment}>{headline}</span>
+        <span data-trust-summary-details className={cn('inline-flex items-center gap-2', wrap && 'min-w-0 flex-wrap justify-start gap-y-0 text-left', (compact || summary) && 'sr-only')}>
+          {grouped ? <span className={unit}><Dot tone={tone} /><span className={fragment}>{headline}</span></span> : <span className={fragment}>{headline}</span>}
           <span className="text-text-disabled" aria-hidden>·</span>
           {trust ? <>
             <span className={fragment}>{coverageText}</span>
             <span className="text-text-disabled" aria-hidden>·</span>
-            <span className={fragment}>{updatedText}</span>
+            {grouped ? <span className={unit}><span className={fragment}>{updatedText}</span>{infoIcon}</span> : <span className={fragment}>{updatedText}</span>}
           </> : <>
-            <span className={fragment}>{noTrustText}</span>
+            {grouped ? <span className={unit}><span className={fragment}>{noTrustText}</span>{infoIcon}</span> : <span className={fragment}>{noTrustText}</span>}
           </>}
         </span>
         {trust?.provisional && !hideProvisional && !summary && <StatusBadge tone="warning">{t('provisional')}</StatusBadge>}
         {mixed && !hideProvisional && !summary && <StatusBadge tone="warning">{mixedText}</StatusBadge>}
-        <Info className="size-3.5 text-text-muted" aria-hidden />
+        {!grouped && infoIcon}
       </button>
     </PopoverTrigger>
     <PopoverContent align="end" className="w-80">

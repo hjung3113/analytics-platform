@@ -69,7 +69,11 @@ describe('EquipmentDetail data trust line', () => {
     expect(button.classList.contains('flex-wrap')).toBe(true);
     expect(button.classList.contains('text-left')).toBe(true);
     expect(button.classList.contains('break-keep')).toBe(true);
-    for (const f of button.querySelectorAll('[data-trust-summary-details] .tabular')) expect(f.classList.contains('whitespace-nowrap')).toBe(true);
+    const fragments = [...button.querySelectorAll('[data-trust-summary-details] .tabular')];
+    for (const f of fragments) expect(f.classList.contains('whitespace-nowrap')).toBe(true);
+    // The dot rides with the headline and the info icon with the last fragment, so neither sits alone on a line.
+    expect(fragments[0]!.parentElement!.classList.contains('whitespace-nowrap')).toBe(true);
+    expect(fragments.at(-1)!.parentElement!.querySelector('svg')).not.toBeNull();
   });
 });
 

@@ -864,6 +864,17 @@ describe('platform sidebar (ADR-0070)', () => {
     expect(screen.queryByRole('navigation', { name: '플랫폼 메뉴' })).toBeNull();
   });
 
+  it('offers 메뉴로 건너뛰기 only where a sidebar renders; the board keeps just 본문으로 건너뛰기 (#1942)', () => {
+    window.history.replaceState(null, '', '/equipment?v=1');
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    expect(screen.getByRole('link', { name: '메뉴로 건너뛰기' })).toBeTruthy();
+    cleanup();
+    window.history.replaceState(null, '', '/board');
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    expect(screen.getByRole('link', { name: '본문으로 건너뛰기' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: '메뉴로 건너뛰기' })).toBeNull();
+  });
+
   it('shares one collapse state with the business sidebar: button and [ key toggle platform:sidebar-collapsed', () => {
     window.history.replaceState(null, '', '/?v=1');
     const view = mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());

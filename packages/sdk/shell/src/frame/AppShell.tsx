@@ -69,7 +69,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
   return <DetailPanelFullscreenContext.Provider value={fullscreen}><VocDrawerContext.Provider value={voc}><div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
     {/* The menu is the second stop after the content link: Enter focuses the first menu link (the nav itself is not a focus stop). */}
-    <a href="#platform-nav" onClick={e => { const first = document.querySelector<HTMLElement>('#platform-nav a[href]'); if (first) { e.preventDefault(); first.focus(); } }} className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToMenu')}</a>
+    {(showSidebar || showPlatformSidebar) && <a href="#platform-nav" onClick={e => { const first = document.querySelector<HTMLElement>('#platform-nav a[href]'); if (first) { e.preventDefault(); first.focus(); } }} className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToMenu')}</a>}
     <AppRail />
     {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
     {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}

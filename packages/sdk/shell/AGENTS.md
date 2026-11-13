@@ -14,7 +14,7 @@ App Shell (06 §8–9, screen design [07](../../../docs/design/app-shell.md)). R
 ## Frame
 
 - `AppShell.tsx` — rail (52px), light sidebar (240/56px), scrolling main, full-height right detail aside (06 §13, ADR-0013). No top bar.
-  - `/board` (a platform screen) gets no sidebar. Registry screens outside a space (`space: null`: home, my activity, notices) get `PlatformSidebar` instead of the business sidebar (ADR-0070).
+  - `/board` (a platform screen) gets no sidebar and no `메뉴로 건너뛰기` link (that link renders only with a sidebar). Registry screens outside a space (`space: null`: home, my activity, notices) get `PlatformSidebar` instead of the business sidebar (ADR-0070).
   - Sidebar collapse state, the `platform:sidebar-collapsed` storage key and the `[` shortcut are shared by both sidebars; keep the default-collapsed state below 1440px.
   - Toasts: `Toasts` sits `absolute` at a height-0 `relative` anchor (`data-toast-anchor`) on the bottom edge of the content column (`data-shell-content`), outside the detail aside and VOC drawer. Never give the column itself `relative`: `absolute` elements inside main (sr-only and the like) would then overflow the column instead of being clipped by main.
   - The stack is one list regardless of tone, newest at the bottom (`data-toast-item`, no live semantics). Announcement uses two visually hidden persistent polite/assertive regions that receive tone name and body once when a toast appears (not on dismiss or layout change).

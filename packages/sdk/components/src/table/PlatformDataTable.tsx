@@ -101,6 +101,11 @@ const COMPACT_ACTION_WIDTH = 72;
 /** A table narrower than this (a detail drawer beside it) takes the compact action column when columns are scrolled off anyway, so the freed 56px shows more data. */
 const NARROW_TABLE_WIDTH = 800;
 const DEFAULT_COLUMN_WIDTH = 150;
+const MIN_COLUMN_WIDTH = 60;
+const MAX_COLUMN_WIDTH = 600;
+const SELECT_COLUMN_SIZE = 40;
+/** The width the engine renders for a declared size: `defaultColumn` min/max apply to every column, `_select` included (40 → 60). */
+const renderedWidth = (size: number) => Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, size));
 /** Keyboard focus ring only (ADR-0023): the feature-ui item focus tint is not distinguishable on the popover surface, so the menu keeps an inset ring — never clipped by the content's `overflow-hidden`, and it stays on top of the shared focus background. */
 const exportItemClass = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 export type TableUrlState = {
@@ -327,11 +332,13 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const columnPrefsId = useId();
   // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
   // it scrolls with the rest so pinned regions never overlap. Never user-pinnable, never stored (`_action` stays out of preferences).
-  const leftPinnedWidth = (preferences.pinning.left ?? []).reduce((sum, id) => preferences.visibility[id] === false ? sum : sum + (preferences.sizing[id] ?? Math.round((p.columns.find(c => c.id === id)?.size ?? DEFAULT_COLUMN_WIDTH) * widthScale)), 0);
+  // One width model for the fit estimates: the stored or declared size, clamped to what the table renders.
+  const columnWidth = (id: string, size: number | undefined) => renderedWidth(preferences.sizing[id] ?? Math.round((size ?? DEFAULT_COLUMN_WIDTH) * widthScale));
+  const leftPinnedWidth = (preferences.pinning.left ?? []).reduce((sum, id) => preferences.visibility[id] === false ? sum : sum + columnWidth(id, p.columns.find(c => c.id === id)?.size), 0);
   // When only the compact (72px, icon-only) form fits beside the left pins it stays pinned; narrower still it unpins in the normal form.
   const fitsFull = fit.width === null || fit.width === 0 || fit.width >= leftPinnedWidth + ACTION_COLUMN_WIDTH + ACTION_PIN_MIN_SCROLL;
   // Narrow table with columns scrolled off by more than a whole action column: the 56px saved by the compact form is worth more as data.
-  const dataColumnsWidth = (selectable ? 40 : 0) + p.columns.reduce((sum, c) => preferences.visibility[c.id] === false ? sum : sum + (preferences.sizing[c.id] ?? Math.round((c.size ?? DEFAULT_COLUMN_WIDTH) * widthScale)), 0);
+  const dataColumnsWidth = (selectable ? renderedWidth(SELECT_COLUMN_SIZE) : 0) + p.columns.reduce((sum, c) => preferences.visibility[c.id] === false ? sum : sum + columnWidth(c.id, c.size), 0);
   const narrowScrolling = fit.width !== null && fit.width > 0 && fit.width < NARROW_TABLE_WIDTH && dataColumnsWidth > fit.width + ACTION_COLUMN_WIDTH;
   const actionCompact = !!p.rowAction && (fitsFull ? narrowScrolling : fit.width !== null && fit.width >= leftPinnedWidth + COMPACT_ACTION_WIDTH + ACTION_PIN_MIN_SCROLL);
   const actionPinned = !!p.rowAction && (fitsFull || actionCompact);
@@ -344,7 +351,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   // The data and selection definitions do not depend on the action width: a band crossing must keep their cell functions (and the DOM they render).
   const baseColumns = useMemo<ColumnDef<T>[]>(() => [
     ...(selectable ? [{
-      id: '_select', size: 40, enableSorting: false, enableHiding: false, enableResizing: false,
+      id: '_select', size: SELECT_COLUMN_SIZE, enableSorting: false, enableHiding: false, enableResizing: false,
       // #556c: while a select-all-results selection is active the header speaks for the whole result; clicking it clears the selection.
       // The changing state arrives through `table.options.meta` so this renderer keeps its identity (a new component type would remount the focused checkbox).
       header: ({ table }) => {
@@ -384,7 +391,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     meta: { headerState, clear: clearSelection } satisfies SelectionMeta,
     manualSorting: true, manualPagination: true, enableRowSelection: selectable, columnResizeMode: 'onChange',
     enableMultiSort: !p.urlState,
-    defaultColumn: { size: DEFAULT_COLUMN_WIDTH, minSize: 60, maxSize: 600 },
+    defaultColumn: { size: DEFAULT_COLUMN_WIDTH, minSize: MIN_COLUMN_WIDTH, maxSize: MAX_COLUMN_WIDTH },
     state: { sorting: activeSorting, rowSelection: effectiveSelection, columnSizing: preferences.sizing, columnVisibility: preferences.visibility, columnPinning: pinningState, columnOrder },
     onSortingChange: u => {
       const next = typeof u === 'function' ? u(p.urlState ? p.urlState.sorting : sorting) : u;
