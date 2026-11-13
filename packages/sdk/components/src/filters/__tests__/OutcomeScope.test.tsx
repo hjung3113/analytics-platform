@@ -64,6 +64,19 @@ describe('shared outcome contract #55', () => {
     expect(state).toHaveTextContent('Confirmed explanation'); expect(state).toHaveTextContent('corr-widget');
     expect(within(state).getByRole('button', { name: '다시 시도' })).toBeVisible();
   });
+  it('names the confirmed cause in the title, never the plain "no matching result", also for a finding without detail and in the shared banner (#1886, 06 §19)', () => {
+    const noDetail: Assessment[] = [{ kind: 'collection', state: 'confirmed', explainsEmpty: true, statusSource: 'worker', observedAt: '2026-10-04' }];
+    const view = render(<Page><Widget q={query(response('empty', '', noDetail))} /><Widget q={query(response('empty', '', noDetail))} name="Widget B" /></Page>);
+    const state = screen.getByRole('group', { name: 'Widget A' });
+    expect(state).toHaveTextContent('아직 수집되지 않았습니다');
+    expect(state).toHaveTextContent('원천이 0건의 원인을 확인했습니다: 아직 수집되지 않았습니다.');
+    expect(state).not.toHaveTextContent('조건에 맞는 결과가 없습니다');
+    expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('아직 수집되지 않았습니다');
+    expect(screen.getByRole('group', { name: '위젯 상태 요약' })).not.toHaveTextContent('조건에 맞는 결과가 없습니다');
+    view.unmount();
+    render(<Page><Widget q={query(response('empty', ''))} /></Page>);
+    expect(screen.getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
+  });
   it('does not group different messages or explanation evidence', () => {
     const a: Assessment = { kind: 'collection', state: 'confirmed', explainsEmpty: true, detail: 'one', statusSource: 'worker', observedAt: '2026-10-04' };
     render(<Page><Widget q={query(response('error', 'one'))} /><Widget q={query(response('error', 'two'))} />

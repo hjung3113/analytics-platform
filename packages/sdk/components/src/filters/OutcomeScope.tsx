@@ -3,6 +3,7 @@ import { Clock, Inbox, Loader2, RotateCw, ServerCrash } from 'lucide-react';
 import type { ApiResponse } from '@ap/contracts';
 import { useI18n, type QueryState } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { emptyCauses, emptyOutcomeText } from '../state/emptyCause';
 
 type Widget = { id: string; response: ApiResponse<unknown> | null; retry: () => void; name?: string; status: QueryState<unknown>['status'] };
 type Group = { key: string; widgets: Widget[]; busy: boolean };
@@ -114,7 +115,7 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
   }, [detailsId]);
   const outcome = group.widgets[0].response!.outcome;
   const danger = outcome === 'error' || outcome === 'timeout';
-  const title = outcome === 'error' ? t('stateError') : outcome === 'timeout' ? t('stateTimeout') : t('stateEmpty');
+  const title = outcome === 'error' ? t('stateError') : outcome === 'timeout' ? t('stateTimeout') : emptyOutcomeText(emptyCauses(group.widgets[0].response!), t).title;
   const label = outcome === 'error' ? t('sharedOutcomeError') : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
   const Icon = outcome === 'error' ? ServerCrash : outcome === 'timeout' ? Clock : Inbox;
   const summary = t('sharedOutcomeSummary', { count: group.widgets.length, outcome: label });
