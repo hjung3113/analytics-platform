@@ -3,13 +3,16 @@ import type { ReactNode } from 'react';
 import { PermissionBlockedPanel } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
   permissionCheckQueryKey,
   permissionRequestsMineKey,
 } from '@/lib/cross-system/usePermissionCheck';
+import { registerAnchorLinkHost } from '@/test/anchor-link-host';
 import { RequestAccessButton } from '../request-access-button.js';
+
+beforeAll(registerAnchorLinkHost);
 
 const CAPABILITY = 'finding.manage';
 const CAPABILITY_LABEL = 'Finding 관리';
@@ -249,6 +252,49 @@ describe('<RequestAccessButton>', () => {
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: permissionRequestsMineKey });
     });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  test('#1907 duplicate request conflict explains itself in the open dialog, links to the status page and refetches', async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ code: 'conflict.permission_request_duplicate', message: 'dup' }),
+          { status: 409, headers: { 'content-type': 'application/json' } },
+        ),
+    ) as typeof globalThis.fetch;
+    const { invalidateSpy } = wrap();
+    openForm();
+
+    fillReasonAndSubmit();
+
+    const notice = await screen.findByTestId('permission-request-conflict');
+    expect(notice).toHaveTextContent('이미 같은 대상의 요청이 검토 중입니다');
+    expect(screen.getByRole('link', { name: '요청 상태 보기' })).toHaveAttribute(
+      'href',
+      '/permission-requests',
+    );
+    expect(screen.getByTestId('permission-request-form')).toBeInTheDocument();
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: permissionRequestsMineKey });
+  });
+
+  test('#1907 already-granted conflict shows the plain message without a status link', async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ code: 'conflict.capability_already_granted', message: 'granted' }),
+          { status: 409, headers: { 'content-type': 'application/json' } },
+        ),
+    ) as typeof globalThis.fetch;
+    wrap();
+    openForm();
+
+    fillReasonAndSubmit();
+
+    expect(await screen.findByTestId('permission-request-conflict')).toHaveTextContent(
+      '이미 권한이 부여되어 있습니다.',
+    );
+    expect(screen.queryByRole('link', { name: '요청 상태 보기' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('permission-request-form')).toBeInTheDocument();
   });
 
   test('AC-D8h failed retry reuses the key and a post-success new intent rotates it', async () => {

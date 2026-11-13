@@ -14,6 +14,7 @@
 
 import {
   Button,
+  Callout,
   DatePicker,
   Dialog,
   DialogContent,
@@ -43,6 +44,7 @@ import {
 import { permissionScopeCandidatesKey } from '@/lib/api/permission-scope-candidates';
 import { ApiError } from '@/lib/api/types';
 import { PermissionScopeTargetFields } from '@/components/PermissionScopeTargetFields';
+import { PERMISSION_REQUESTS_PAGE_COPY } from '@/lib/copy/permission-requests';
 import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import {
@@ -50,6 +52,7 @@ import {
   type PermissionScopeTargetKind,
   formatPermissionScopeTarget,
 } from '@/lib/copy/permission-scope';
+import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { useManagedSystemNames } from '@/lib/cross-system/useManagedSystemNames';
 import { permissionCheckQueryKey } from '@/lib/cross-system/usePermissionCheckBridge';
 import { permissionRequestStatusLabel } from './permission-requests-search.js';
@@ -87,6 +90,9 @@ interface PermissionRequestSubmission {
   scopeTargetLabel: string | null;
 }
 
+/** The user's own requests (내 활동 › 권한 요청); the duplicate message points there. */
+const REQUEST_STATUS_ROUTE = '/permission-requests';
+
 const RECOVERABLE_CONFLICT_CODES = new Set([
   'conflict.capability_already_granted',
   'conflict.permission_request_duplicate',
@@ -95,15 +101,19 @@ const RECOVERABLE_CONFLICT_CODES = new Set([
 export function RequestAccessButton(props: RequestAccessButtonProps) {
   const qc = useQueryClient();
   const [ownOpen, setOwnOpen] = useState(false);
+  // A recoverable conflict keeps the dialog open and says why: the message, and whether it is the duplicate (links to the status page).
+  const [conflict, setConflict] = useState<{ message: string; duplicate: boolean } | null>(null);
   const controlled = props.open !== undefined;
   const open = controlled ? props.open === true : ownOpen;
   const setOpen = (next: boolean) => {
+    setConflict(null);
     if (controlled) props.onOpenChange?.(next);
     else setOwnOpen(next);
   };
   const [reason, setReason] = useState('');
   const [expiration, setExpiration] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { canLink } = useHostSeam();
   const scopeTarget = props.scopeTarget;
   const capability = scopeTarget ? SCOPE_CAPABILITY : props.capability;
   const initialScopeKind: PermissionScopeTargetKind | '' =
@@ -172,6 +182,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
     },
     onSuccess: async (result, submission) => {
       setErrorMessage(null);
+      setConflict(null);
       setSubmitted({
         id: result.id,
         status: result.status,
@@ -193,9 +204,16 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
     },
     onError: async (err) => {
       if (err instanceof ApiError && RECOVERABLE_CONFLICT_CODES.has(err.envelope.code)) {
-        // Treat as "the world has moved on; recover by refetching." Don't
-        // surface an error message; the gate will re-render with the truth.
+        // "The world has moved on": refetch so the gate re-renders with the truth, and tell the user
+        // why nothing was created (the dialog stays open).
         setErrorMessage(null);
+        const duplicate = err.envelope.code === 'conflict.permission_request_duplicate';
+        setConflict({
+          message: duplicate
+            ? PERMISSION_REQUESTS_PAGE_COPY.duplicateInReview
+            : mapUnknownError(err).message,
+          duplicate,
+        });
         await Promise.all([
           invalidateCheck(),
           qc.invalidateQueries({ queryKey: permissionRequestsMineKey }),
@@ -309,6 +327,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                     return;
                   }
                   setErrorMessage(null);
+                  setConflict(null);
                   mutation.mutate({
                     body: {
                       requested_capability: capability,
@@ -419,6 +438,26 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                     data-testid="permission-request-expiration"
                   />
                 </div>
+                {conflict ? (
+                  <div role="status" data-testid="permission-request-conflict">
+                    <Callout
+                      tone="cyan"
+                      action={
+                        conflict.duplicate && canLink(REQUEST_STATUS_ROUTE) ? (
+                          <HostLink
+                            className="whitespace-nowrap text-accent-primary underline underline-offset-2"
+                            to={REQUEST_STATUS_ROUTE}
+                            onClick={() => setOpen(false)}
+                          >
+                            {PERMISSION_REQUESTS_PAGE_COPY.duplicateStatusLink}
+                          </HostLink>
+                        ) : undefined
+                      }
+                    >
+                      {conflict.message}
+                    </Callout>
+                  </div>
+                ) : null}
                 {errorMessage ? (
                   <p role="alert" className="text-sm text-accent-danger">
                     {errorMessage}
