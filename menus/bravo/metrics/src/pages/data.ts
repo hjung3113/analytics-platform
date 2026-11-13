@@ -1,7 +1,7 @@
 /** Metric display labels (client only). Record types and the shared diff live in `../endpoints`. */
 import type { Tone } from '@ap/ui';
 import type { CatalogExportFilter, CatalogFilter, ConsumerMenuId, Domain, MetricKind, PublicationState, Text } from '../endpoints';
-import { exportScopeIds, type TableExportRequest } from '@ap/components';
+import { tableExportParams, type TableExportRequest } from '@ap/components';
 
 export const DOMAIN_LABEL: Record<Domain, Text> = {
   productivity: { ko: '생산성', en: 'Productivity' },
@@ -40,10 +40,7 @@ export function exportParams(
   filter: CatalogFilter,
   request: TableExportRequest,
 ): CatalogExportFilter {
-  const scope = exportScopeIds(request.scope);
-  // This table does not enable selectAllResults: an `all` scope would export the excluded rows, so it is refused.
-  if (scope.mode === 'all-except') throw new Error('select-all export scope is not supported by this table');
-  return { ...filter, ids: scope.ids, sorting: request.sorting, ...(request.filters?.length ? { filters: request.filters } : {}) };
+  return { ...filter, ...tableExportParams(request) };
 }
 
 /** Readable page filter for the XLSX 조회 정보 sheet (#173 review P2-3); an unset search is omitted. The conditions are listed by the table itself (`필터 · 상태` …). */

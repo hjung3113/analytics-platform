@@ -1,5 +1,5 @@
 import { EQUIPMENT_STATUS_VALUES, equipmentFilterSpecs, type Equipment, type EquipmentExportFilter, type EquipmentFilter } from '../endpoints';
-import { exportScopeIds, type TableExportRequest } from '@ap/components';
+import { tableExportParams, type TableExportRequest } from '@ap/components';
 import { parseDateTime, shift, type ColumnFilterSpec } from '@ap/contracts';
 export const statusText = {
   active: { ko: '사용중', en: 'Active' }, idle: { ko: '대기', en: 'Idle' },
@@ -44,9 +44,7 @@ export function exportParams(
   { q }: EquipmentFilter,
   request: TableExportRequest,
 ): EquipmentExportFilter {
-  const scope = exportScopeIds(request.scope);
-  const selection = scope.mode === 'all-except' ? { ids: null, excludedIds: scope.excludedIds } : { ids: scope.ids };
-  return { q, ...selection, sorting: request.sorting, ...(request.filters ? { filters: request.filters } : {}) };
+  return { q, ...tableExportParams(request, { selectAll: true }) };
 }
 
 /** Readable page filter for the XLSX 조회 정보 sheet (#173 review P2-3); an unset search is omitted. Conditions are listed by the table itself (`필터 · <label>`). */
