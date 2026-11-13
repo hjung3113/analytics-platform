@@ -29,10 +29,19 @@ const mergeVisit = (list: readonly Recent[], visit: Recent): Recent[] => [visit,
 const RECENT_WRITE_DELAY_MS = 1000;
 const browserLocation = createBrowserLocation();
 
+/**
+ * `state` is the Provider's hold on this adapter. Its layout cleanup only suspends it: StrictMode's replay runs the cleanup, then the
+ * descendants' layout setup, then the Provider's setup again, so a current closure called in between must still work. When no setup
+ * follows by the end of the commit's synchronous work (microtask), the adapter was replaced or the Provider unmounted: released, final.
+ */
 function counterStore(adapter: PlatformAdapter) {
   let n = 0;
-  return { subscribe: (listener: () => void) => adapter.subscribe(() => { n++; listener(); }), get: () => n };
+  return { state: 'active' as 'active' | 'suspended' | 'released', subscribe: (listener: () => void) => adapter.subscribe(() => { n++; listener(); }), get: () => n };
 }
+const NO_TOASTS: readonly Toast[] = [];
+/** The toast list carries the generation it belongs to; an update issued by another generation is a no-op. */
+type ToastList = { gen: string; list: readonly Toast[] };
+const withoutToast = (id: number) => (held: ToastList): ToastList => held.list.some(t => t.id === id) ? { gen: held.gen, list: held.list.filter(t => t.id !== id) } : held;
 
 /** Fallback tab-session id when sessionStorage is unavailable (privacy mode, tests). One per JS runtime. */
 let fallbackUsageSession: string | null = null;
@@ -129,7 +138,13 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       setLastScope(readPreference(`platform:lastScope:${userId}`, decodeScopeId, null));
     }
   }
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  // Toasts belong to one session generation (#2075): a toast can name the previous user's data (a private view name), so a new
+  // generation drops the list (and with it every action) in the same render; their timers are retired in the layout effect below.
+  // The list is tagged with its generation and every update with the generation that issued it: an old screen's layout cleanup runs in
+  // the swap commit after this render, and its update must not land in the new list. Only the current generation's list is exposed.
+  const [toastList, setToastList] = useState<ToastList>(() => ({ gen, list: NO_TOASTS }));
+  if (toastList.gen !== gen) setToastList({ gen, list: NO_TOASTS });
+  const toasts = toastList.gen === gen ? toastList.list : NO_TOASTS;
   const { open: paletteOpen, session: paletteSession, setOpen: setPaletteOpen } = useFocusGate(paletteFocus, session);
   const { open: switcherOpen, session: switcherSession, setOpen: setSwitcherOpen } = useFocusGate(switcherFocus, session);
   const toastId = useRef(1);
@@ -144,6 +159,8 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   }, []);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   const durations = useRef(new Map<number, number>());
+  // The generation each live toast was raised in; a toast of another generation has its timer and duration retired.
+  const toastOwners = useRef(new Map<number, string>());
   const armToast = useCallback((id: number) => {
     clearTimeout(timers.current.get(id));
     // An action toast without an explicit durationMs has no timer (Infinity): it stays until acted on or dismissed (06 Toast).
@@ -151,28 +168,61 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     timers.current.set(id, setTimeout(() => {
       timers.current.delete(id);
       durations.current.delete(id);
-      if (mounted.current) setToasts(list => list.filter(t => t.id !== id));
+      toastOwners.current.delete(id);
+      if (mounted.current) setToastList(withoutToast(id));
     }, durations.current.get(id)));
   }, []);
+  useLayoutEffect(() => {
+    revisions.state = 'active';
+    return () => {
+      revisions.state = 'suspended';
+      queueMicrotask(() => { if (revisions.state === 'suspended') revisions.state = 'released'; });
+    };
+  }, [revisions]);
+  // Generations the Provider committed and then replaced. One is retired in the Provider's own layout setup, after the descendants'
+  // (old screens' cleanups, new screens' mount setups), so from then on a closure of it is refused; the new generation's mount toasts are not.
+  // Generation strings never repeat (the adapter epoch and the revision only rise); the set grows by one per session change.
+  const committedGen = useRef(gen);
+  const retiredGens = useRef(new Set<string>());
+  useLayoutEffect(() => {
+    if (committedGen.current !== gen) retiredGens.current.add(committedGen.current);
+    committedGen.current = gen;
+    for (const [id, owner] of toastOwners.current) {
+      if (owner === gen) continue;
+      clearTimeout(timers.current.get(id));
+      timers.current.delete(id);
+      durations.current.delete(id);
+      toastOwners.current.delete(id);
+    }
+  }, [gen]);
   const toast = useCallback((text: string, tone: Toast['tone'] = 'info', detail?: string, options?: ToastOptions) => {
+    // A call from an older generation (a callback that resolved after a session change notice or an adapter swap) shows nothing: the
+    // counter moves at the notice itself, before any re-render, so even a call in the same task as the notice is refused. The id is never live.
+    // A suspended adapter (StrictMode replay) still takes calls of its current generation; inside the swap commit, before the Provider's
+    // setup, an old call is taken but its list update is a no-op on the new list and its timer is retired with the old generation.
+    if (revisions.state === 'released' || revisions.get() !== revision || retiredGens.current.has(gen)) return -1;
     const id = toastId.current++;
+    toastOwners.current.set(id, gen);
     // Live ids are the duration keys (set here, deleted on expiry/dismiss); the cap drops all but the newest three.
     for (const old of [...durations.current.keys()].slice(0, -3)) {
       clearTimeout(timers.current.get(old));
       timers.current.delete(old);
       durations.current.delete(old);
+      toastOwners.current.delete(old);
     }
-    setToasts(list => [...list.slice(-3), { id, text, tone, ...(detail === undefined ? {} : { detail }), ...(options?.action ? { action: options.action } : {}) }]);
+    const entry: Toast = { id, text, tone, ...(detail === undefined ? {} : { detail }), ...(options?.action ? { action: options.action } : {}) };
+    setToastList(held => held.gen === gen ? { gen, list: [...held.list.slice(-3), entry] } : held);
     // An action toast stays by default: the user has to reach and read it first (06 Toast paragraph).
     durations.current.set(id, options?.durationMs ?? (options?.action ? Infinity : 5000));
     armToast(id);
     return id;
-  }, [armToast]);
+  }, [armToast, revisions, revision, gen]);
   const dismissToast = useCallback((id: number) => {
     clearTimeout(timers.current.get(id));
     timers.current.delete(id);
     durations.current.delete(id);
-    setToasts(list => list.filter(t => t.id !== id));
+    toastOwners.current.delete(id);
+    setToastList(withoutToast(id));
   }, []);
   const holdToast = useCallback((id: number, held: boolean) => {
     if (held) { clearTimeout(timers.current.get(id)); timers.current.delete(id); }

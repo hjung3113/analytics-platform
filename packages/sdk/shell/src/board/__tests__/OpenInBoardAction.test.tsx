@@ -228,7 +228,10 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     session = testSession(['platform:view'], { user: { id: 'u2' } });
     act(() => { for (const listener of listeners) listener(); });
     await settle();
-    const open = screen.getByRole('dialog', { name: '분석 보드에 열기' });
+    // The screen is a new instance for the new user (#2075): the dialog opened for u1 is gone; reopened, it lists only u2's sheets.
+    expect(screen.queryByText('u1 sheet')).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '분석 보드에 열기' })).toBeNull();
+    const open = await openDialog();
     expect(within(open).queryByText('u1 sheet')).toBeNull();
     fireEvent.click(within(open).getByRole('radio', { name: '기존 칸 바꾸기' }));
     expect(within(open).queryByRole('radio', { name: 'u1 sheet' })).toBeNull();

@@ -752,20 +752,23 @@ describe('toast action and caller-driven dismiss (#761 k2)', () => {
   it('a held toast whose shell unmounts releases the hold and still expires', () => {
     function Host() {
       const [shown, setShown] = useState(true);
-      return <I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
+      // One adapter for the Host's life: a new adapter is a new session generation, which drops every toast (#2075).
+      const [adapter] = useState(() => adapterWith());
+      return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
         <ActionProbe onAction={vi.fn()} durationMs={8000} />
         <button type="button" onClick={() => setShown(false)}>drop shell</button>
         {shown && <AppShell>{null}</AppShell>}
       </PlatformProvider></I18nProvider>;
     }
     render(<Host />);
-    const base = vi.getTimerCount();
     fireEvent.click(screen.getByRole('button', { name: 'fire' }));
     act(() => { screen.getByRole('button', { name: '되돌리기' }).focus(); });
     act(() => { vi.advanceTimersByTime(20000); });
     expect(screen.getByRole('button', { name: '되돌리기' })).toBeInTheDocument();
+    // Measured while held, after mount-time timers have run: the held toast has no timer, and dropping the shell arms exactly one.
+    const held = vi.getTimerCount();
     fireEvent.click(screen.getByRole('button', { name: 'drop shell' }));
-    expect(vi.getTimerCount()).toBe(base + 1);
+    expect(vi.getTimerCount()).toBe(held + 1);
   });
   it('a toast without action still auto-dismisses after 5 s and has no action button', () => {
     function Plain() { const { toast } = useHostPlatform(); return <button type="button" onClick={() => toast('안내')}>plain</button>; }
