@@ -50,7 +50,7 @@ pnpm build:real # 실어댑터 빌드(dist/): vite build --mode real
 
 `build:real`은 `dist/menu-declarations.snapshot.json`도 쓴다. `menus.ts`의 선언과 각 메뉴 폴더의 `endpoints.ts`에서 만든 메뉴 선언 스냅샷이다. 손으로 고치지 않는다. 코어 서버는 선언 묶음을 이 파일과 대조하고, 다르면 뜨지 않는다(설정 `MENU_DECLARATIONS_SNAPSHOT_FILE`, 공개 저장소 `docs/adr/0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md`). 메뉴 폴더를 복사해 더하면 그 `endpoints.ts`도 자동으로 들어간다.
 
-Vite의 `--mode real` 하나로 `#kit-assembly`가 `real/assembly.tsx`를 가리킨다. 기본 `dev`와 `build`는 `mock/assembly.ts`를 쓴다. 실어댑터는 같은 origin의 `/api/v1/platform/bootstrap`을 읽는다. 로그인은 현재 경로와 query를 인코딩해 `/auth/login?return_to=…`로 이동하고, 연결 실패·요청 제한은 상관 번호와 다시 시도 버튼을 표시한다. 실서버와 인증 경로는 배포 환경이 제공한다. `check`는 fake fetch로 네 bootstrap 결과를 검사한다. 공개 `sdk:consumer-check`는 두 mode를 빌드하고 번들 모듈 목록에서 mock 빌드의 http-adapter와 real 빌드의 mock 코드를 거부한다.
+Vite의 `--mode real` 하나로 `#kit-assembly`가 `real/assembly.tsx`를 가리킨다. 기본 `dev`와 `build`는 `mock/assembly.ts`를 쓴다. 실어댑터는 같은 origin의 `/api/v1/platform/bootstrap`을 읽는다. 로그인은 현재 경로와 query를 인코딩해 `/auth/login?return_to=…`로 이동하고, 연결 실패·요청 제한은 상관 번호와 다시 시도 버튼을 표시한다. 실서버와 인증 경로는 배포 환경이 제공한다. 운영 스택에 올릴 때는 `build:real`이 낸 `dist/`를 공개 저장소의 같은 커밋에서 `bash ops/platform-api/scripts/release/build-web-image.sh --dist <이 폴더>/dist --tag <태그>`로 edge 이미지(`platform-release-web:<태그>`)에 얹고, 서버 쪽 `MENU_*` 연결은 `ops/platform-api/docs/release/run-guide.md`의 «메뉴 조립 연결»을 따른다. `check`는 fake fetch로 네 bootstrap 결과를 검사한다. 공개 `sdk:consumer-check`는 두 mode를 빌드하고 번들 모듈 목록에서 mock 빌드의 http-adapter와 real 빌드의 mock 코드를 거부한다.
 
 ## 둘째 메뉴
 

@@ -123,6 +123,27 @@ Admin이 되어도 **Scope가 필요한 분석 메뉴는 열리지 않습니다.
 - 프로젝트 이름을 바꿔도 볼륨 이름은 따로 정해져 있습니다. `RELEASE_POSTGRES_VOLUME`·`RELEASE_MINIO_VOLUME`의 기본값이 옛 설치(`feedbackops-release-1060_…`)를 가리키므로, 연습용으로 띄웠다가 `down -v` 하면 **같은 이름의 기존 데이터 볼륨이 지워집니다.** 연습 전에 두 변수를 다른 이름으로 지정하세요. 자세한 것은 oidc-and-images.md의 「Existing installs: data volumes」입니다.
 - `.env.production`과 `docker compose config` 출력을 티켓이나 로그에 붙이지 않습니다.
 
+## 메뉴 조립 연결 (선택, #1881)
+
+기본 비활성입니다. 저장소 밖에서 만든 메뉴 조립(선언 묶음·스냅샷·데이터 서버 연결)을 운영 스택에 붙입니다. 운영 compose 원본이 이미 `MENU_*`를 비어 있는 기본값으로 backend에 넘기고 읽기 전용 마운트 둘을 갖고 있으므로, `.env.production`만 채우면 됩니다. `upgrade.sh`·백업 스크립트는 compose 파일 하나만 읽기 때문에 override 파일 대신 원본에 둔 것입니다.
+
+1. 호스트에 디렉터리 둘을 만듭니다. 선언 묶음(`menu-declarations.json`), 앱 빌드가 쓴 `menu-declarations.snapshot.json`, 교체할 `platform-systems.json`(선택)은 `MENU_ASSEMBLY_DIR`에, 전달기 신원 키는 `MENU_KEY_DIR`에 둡니다. 신원 키는 묶음에 envelope 목적지가 있을 때만 필요합니다(연결기만 쓰는 묶음은 키 없이 올라갑니다). 키 파일은 backend 컨테이너의 실행 사용자(이미지의 `USER node`, 보통 uid/gid 1000)가 읽어야 합니다. 마운트는 호스트의 소유자·모드를 그대로 가져가므로 `chown -R 1000:1000 "$MENU_KEY_DIR" && chmod 0700 "$MENU_KEY_DIR" && chmod 0600 "$MENU_KEY_DIR"/<키 파일>`처럼 맞춥니다. 운영자 계정으로 읽힌다고 컨테이너에서 읽히는 것은 아닙니다(root 소유 0600이면 읽지 못합니다). 다른 uid로 실행하면 `.env.production`에 `MENU_RUNTIME_UID`·`MENU_RUNTIME_GID`를 적어 preflight가 그 사용자로 검사하게 합니다.
+2. `.env.production`에 [`.env.production.example`](../../.env.production.example)의 `MENU_*` 항목을 채웁니다. 파일 경로는 컨테이너 안 경로입니다(`/menu-assembly/…`, `/menu-identity/…`). 교체 업무 시스템 파일은 `PLATFORM_SYSTEMS_FILE=/menu-assembly/platform-systems.json`.
+3. `scripts/release/production-preflight.sh .env.production`이 묶음·스냅샷이 호스트에 있고 읽히는지 봅니다. `MENU_IDENTITY_KEY_FILE`을 적었다면 그 파일이 있는지, world-readable이 아닌지, backend 실행 사용자가 읽을 수 있는지, 키 id가 함께 있는지도 봅니다. 키가 필요한지(envelope 목적지가 있는지)는 서버가 묶음을 읽고 판단하며, 필요한데 없으면 기동하지 않습니다(fail closed).
+4. `docker compose --env-file .env.production -f docker-compose.production.yml up -d`로 backend를 다시 만듭니다. `restart backend`는 컨테이너를 만들 때의 환경 변수와 마운트를 그대로 쓰므로 `.env.production`을 고친 뒤에는 반영되지 않습니다. 같은 설정에서 마운트된 파일 내용만 바꿨을 때만 `restart backend`로 다시 읽힙니다.
+
+`MENU_DECLARATIONS_FILE`을 비우면 서버의 조립 처리와 위 preflight 검사만 꺼집니다. 두 마운트는 compose에 그대로 남아 있어(비운 경우 빈 `menu-assembly/`) 디렉터리 내용은 backend에서 읽을 수 있는 상태이므로, 키를 쓰지 않는다면 `MENU_KEY_DIR`을 키가 없는 디렉터리로 두세요. `docker compose config`에는 키 경로·URL이 나오므로 [주의](#주의)대로 붙이지 않습니다.
+
+### 이미 빌드한 web dist로 edge 이미지 만들기
+
+저장소 밖 조립은 `vite build --mode real`로 만든 `dist/`(그 안에 `menu-declarations.snapshot.json`)를 갖습니다. 같은 커밋의 이 저장소에서 한 명령으로 같은 `apps/platform-web/Dockerfile`·nginx edge 설정에 얹습니다.
+
+```sh
+bash scripts/release/build-web-image.sh --dist /path/to/dist --tag <tag>   # platform-release-web:<tag>
+```
+
+`--tag`를 생략하면 `:local`입니다(저장소 안 빌드와 같은 태그). `dist/index.html`이 없으면 빌드 전에 멈춥니다. 이어서 backend·migrate 이미지를 같은 `<tag>`로 준비하고 `BACKUP_ROOT=… bash scripts/release/upgrade.sh <tag>`를 실행하면 세 이미지가 함께 `:local`로 올라갑니다. 저장소 안 빌드 경로(인자 없음)는 바뀌지 않았습니다.
+
 ## 원문 창 Source 연결 (선택, #1817)
 
 기본 비활성입니다. [서버 Source 설정](../../../../apps/platform-api/README.md#optional-source-window-provider-1817)의 세 환경 변수와 grant 파일을 준비합니다. 환경 변수의 경로는 backend 컨테이너 안의 경로입니다. 운영 compose 원본을 유지하고 배포별 override의 backend `environment`에 세 변수를 명시하며, Source 루트와 grant 파일의 부모 디렉터리를 읽기 전용으로 마운트합니다. 부모 디렉터리를 마운트해야 호스트의 grant 파일 원자 교체가 컨테이너에 반영됩니다. Linux `/proc/self/fd` 접근이 필요합니다.

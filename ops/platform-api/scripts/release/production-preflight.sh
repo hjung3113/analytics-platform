@@ -207,6 +207,70 @@ case "$channel" in
   *) fail "NOTIFICATION_EMAIL_CHANNEL must be mock or smtp" ;;
 esac
 
+# Out-of-repo menu assembly (#1881): with MENU_DECLARATIONS_FILE set the backend reads the bundle, its snapshot and the
+# identity key from the two read-only mounts (container paths /menu-assembly and /menu-identity, host dirs
+# MENU_ASSEMBLY_DIR and MENU_KEY_DIR, relative ones from ops/platform-api). Unset: nothing here applies.
+host_dir() { # var-name, default -> absolute host path
+  local d
+  d="$(val_of "$1")"; [ -n "$d" ] || d="$2"
+  case "$d" in /*) printf '%s' "$d" ;; *) printf '%s/../../%s' "$here" "${d#./}" ;; esac
+}
+menu_file_ok() { # var-name, container-prefix, host-dir
+  local name="$1" prefix="$2" hostdir="$3" cpath
+  cpath="$(val_of "$name")"
+  if [ -z "$cpath" ]; then fail "$name is required when MENU_DECLARATIONS_FILE is set"; return 1; fi
+  case "$cpath" in
+    "$prefix"/*) ;;
+    *) fail "$name must be under $prefix/ (the read-only mount)"; return 1 ;;
+  esac
+  case "$cpath" in *..*) fail "$name must not contain .."; return 1 ;; esac
+  if [ ! -f "$hostdir/${cpath#"$prefix"/}" ] || [ ! -r "$hostdir/${cpath#"$prefix"/}" ]; then
+    fail "$name: file not found or not readable on the host ($hostdir/${cpath#"$prefix"/})"
+    return 1
+  fi
+  return 0
+}
+if [ -n "$(val_of MENU_DECLARATIONS_FILE)" ]; then
+  assembly_dir="$(host_dir MENU_ASSEMBLY_DIR ./menu-assembly)"
+  key_dir="$(host_dir MENU_KEY_DIR ./menu-assembly)"
+  menu_file_ok MENU_DECLARATIONS_FILE /menu-assembly "$assembly_dir" || true
+  menu_file_ok MENU_DECLARATIONS_SNAPSHOT_FILE /menu-assembly "$assembly_dir" || true
+  # The identity key is needed only for a bundle with an envelope destination; the backend refuses to boot when that
+  # case lacks it (menu-declarations.ts). A bundle of mapped connectors only is legal without one, so check the key
+  # only when it is supplied, and a key file always together with its id.
+  if [ -n "$(val_of MENU_IDENTITY_KEY_FILE)" ]; then
+    if menu_file_ok MENU_IDENTITY_KEY_FILE /menu-identity "$key_dir"; then
+      key_path="$key_dir/$(val_of MENU_IDENTITY_KEY_FILE | sed 's|^/menu-identity/||')"
+      perm="$(stat -c '%a' "$key_path" 2>/dev/null || stat -f '%Lp' "$key_path" 2>/dev/null || echo 0)"
+      case "$perm" in
+        *[0-9]) [ "$(( 8#${perm: -1} & 4 ))" -eq 0 ] || fail "MENU_IDENTITY_KEY_FILE is world-readable (mode $perm): chmod 600" ;;
+      esac
+      # The backend reads the mount as its image user (USER node, uid/gid 1000 in the node image; compose sets no user:
+      # for backend). Operator readability proves nothing: check the file and its directory for that uid/gid.
+      ruid="$(val_of MENU_RUNTIME_UID)"; [ -n "$ruid" ] || ruid=1000
+      rgid="$(val_of MENU_RUNTIME_GID)"; [ -n "$rgid" ] || rgid=1000
+      reader_can() { # path, bit (4 read, 1 traverse)
+        local info u g m
+        info="$(stat -c '%u %g %a' "$1" 2>/dev/null || stat -f '%u %g %Lp' "$1" 2>/dev/null || echo '')"
+        [ -n "$info" ] || return 0 # cannot inspect: do not guess
+        read -r u g m <<<"$info"
+        if [ "$u" = "$ruid" ]; then [ "$(( 8#${m: -3:1} & $2 ))" -ne 0 ]
+        elif [ "$g" = "$rgid" ]; then [ "$(( 8#${m: -2:1} & $2 ))" -ne 0 ]
+        else [ "$(( 8#${m: -1} & $2 ))" -ne 0 ]
+        fi
+      }
+      if ! reader_can "$key_path" 4 || ! reader_can "$key_dir" 1; then
+        fail "MENU_IDENTITY_KEY_FILE is not readable by the backend user (uid $ruid gid $rgid): chown -R $ruid:$rgid '$key_dir' && chmod 0700 '$key_dir' && chmod 0600 '$key_path' (set MENU_RUNTIME_UID/MENU_RUNTIME_GID if the backend runs as another user)"
+      fi
+    fi
+    [ -n "$(val_of MENU_IDENTITY_KEY_ID)" ] || fail "MENU_IDENTITY_KEY_ID is required when MENU_IDENTITY_KEY_FILE is set"
+  fi
+  systems="$(val_of PLATFORM_SYSTEMS_FILE)"
+  case "$systems" in
+    /menu-assembly/*) menu_file_ok PLATFORM_SYSTEMS_FILE /menu-assembly "$assembly_dir" || true ;;
+  esac
+fi
+
 [ "$problems" -eq 0 ] || exit 1
 [ "$mock_notice" = yes ] && echo "preflight: email disabled (mock): notifications reach the inbox only"
 # The release topology is company TLS ingress -> edge -> backend (oidc-and-images.md «Hops»). With 1 the backend takes the
