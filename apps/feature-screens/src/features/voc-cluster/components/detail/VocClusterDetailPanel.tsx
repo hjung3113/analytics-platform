@@ -103,6 +103,7 @@ export function useClusterDetailParts({
   const [createFindingOpen, setCreateFindingOpen] = useState(false);
   const [linkFindingOpen, setLinkFindingOpen] = useState(false);
   const [requestTaskOpen, setRequestTaskOpen] = useState(false);
+  const [membersExpanded, setMembersExpanded] = useState(false);
   const { key: requestTaskIdempotencyKey, markConsumed: markRequestTaskConsumed } =
     useIdempotencyKey();
 
@@ -395,12 +396,12 @@ export function useClusterDetailParts({
                     ? undefined
                     : 'overflow-hidden rounded-md border border-border-subtle bg-surface-card'}
                 >
-                  {members.slice(0, 4).map((member, i) => (
+                  {(membersExpanded ? members : members.slice(0, 4)).map((member, i, visible) => (
                     <VocClusterMemberRow
                       key={member.voc_id}
                       member={member}
                       embedded={embedded}
-                      last={i === Math.min(members.length, 4) - 1}
+                      last={i === visible.length - 1}
                       canRemove={canMutate && data.status === 'draft'}
                       onRemove={() => handleRemoveMember(member.voc_id)}
                       isRemoving={
@@ -410,14 +411,18 @@ export function useClusterDetailParts({
                     />
                   ))}
                   {members.length > 4 && (
-                    <div
-                      className={cn(
-                        'border-t border-border-subtle py-2 text-xs text-text-muted',
-                        !embedded && 'px-4',
-                      )}
-                      data-testid="cluster-members-more"
-                    >
-                      +{members.length - 4} 더보기
+                    <div className={cn('border-t border-border-subtle', !embedded && 'px-4')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        className="w-full justify-center"
+                        data-testid="cluster-members-more"
+                        aria-expanded={membersExpanded}
+                        onClick={() => setMembersExpanded((expanded) => !expanded)}
+                      >
+                        {membersExpanded ? '접기' : `+${members.length - 4} 더보기`}
+                      </Button>
                     </div>
                   )}
                 </div>
