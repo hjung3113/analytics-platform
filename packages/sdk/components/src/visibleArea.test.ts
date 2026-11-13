@@ -185,10 +185,21 @@ describe('restoreScrollOffset (#1978)', () => {
   it.each(['wheel', 'keydown', 'pointerdown'])('lets a %s from the user end the retries', type => withFrames(() => {
     const { element, grow } = clamped(0);
     restoreScrollOffset(element, 300);
+    frames(1);
     element.dispatchEvent(new Event(type));
     grow(900);
     frames(5);
     expect(element.scrollTop).toBe(0);
+  }));
+  it('is not ended by the key press that triggered the restore (Escape closes the maximize while the same event still bubbles to the container)', () => withFrames(() => {
+    const { element, grow } = clamped(0);
+    const child = document.createElement('button');
+    element.append(child);
+    child.addEventListener('keydown', () => { restoreScrollOffset(element, 300); });
+    child.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    grow(900);
+    frames(3);
+    expect(element.scrollTop).toBe(300);
   }));
   it('can be cancelled by the caller', () => withFrames(() => {
     const { element, grow } = clamped(0);
