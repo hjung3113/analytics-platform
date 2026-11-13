@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Clock3, Star } from 'lucide-react';
-import { emptyGlobal, type NavView } from '@ap/contracts';
+import { emptyGlobal, type NavView, type SpaceId } from '@ap/contracts';
 import { badgeCountText } from '@ap/components';
 import { type MenuEntry, PlatformLink, useI18n, useRecentVisits } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
@@ -29,8 +29,8 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
   // The counts component is rendered once around the menu list; without a slot (or for a space without counts) the list gets `null` counts (06 §8 `navCounts`).
   // A matched menu the actor cannot open is refused by the outlet; its space-slot subtrees (and their sessions and queries) are never resolved or mounted either, even when another member keeps the space reachable.
   const slotMenu = route !== null && !canOpen(route.menu.id) ? undefined : route?.menu ?? null;
-  const CountsHost = (sidebarSpace === null || slotMenu === undefined ? null : slots.navCounts?.For(sidebarSpace.id, slotMenu)) ?? NoCounts;
-  const sectionSlot = sidebarSpace === null || slotMenu === undefined ? null : slots.spaceNavSection?.For(sidebarSpace.id, slotMenu) ?? null;
+  // The slots' `For` selectors run inside their own boundary (a leaf component each), so a throwing selector costs only that region (#1876).
+  const slotSpaceId = sidebarSpace === null || slotMenu === undefined ? null : sidebarSpace.id;
 
   return <TooltipProvider delayDuration={200}>
     <aside data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
@@ -48,7 +48,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       </div>
       <SidebarScope collapsed={collapsed} />
       <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
-        <CountsBoundary Host={CountsHost}>{counts => <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
+        <CountsBoundary key={`counts:${slotSpaceId}`} spaceId={slotSpaceId} menu={slotMenu ?? null}>{counts => <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
           {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
             {!collapsed && systems === null && !(group.hideLabelWhenSingle && items.length === 1) && <p className={cn('mx-2 mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
             {collapsed && index > 0 && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
@@ -63,10 +63,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
             {items.filter(menu => menu.navTree && canOpen(menu.id)).map(menu => <SidebarHierarchy key={menu.id} menu={menu} collapsed={collapsed} />)}
           </div>)}
         </nav>}</CountsBoundary>
-        {!collapsed && sectionSlot !== null && <section aria-label={tx(sectionSlot.label)}>
-          <p className="mx-2 mb-1 mt-3.5 text-caption font-semibold uppercase tracking-wide text-text-muted">{tx(sectionSlot.label)}</p>
-          <ShellBoundary><sectionSlot.Body /></ShellBoundary>
-        </section>}
+        {!collapsed && slotSpaceId !== null && <ShellBoundary key={`section:${slotSpaceId}`}><SpaceNavSectionSlot spaceId={slotSpaceId} menu={slotMenu ?? null} /></ShellBoundary>}
         {/* Expanded only (prototype C). An empty list keeps its guidance (07 §3 empty state). */}
         {!collapsed && <section aria-label={t('favorites')}>
           <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-caption font-semibold uppercase tracking-wide text-text-muted"><Star className="size-3" aria-hidden />{t('favorites')}</p>
@@ -76,7 +73,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
         </section>}
         {!collapsed && <SidebarRecent />}
       </div>
-      <ShellBoundary fallback={null}><FeatureBlock collapsed={collapsed} /></ShellBoundary>
+      <ShellBoundary key={`features:${sidebarSpace?.id ?? ''}`} fallback={null}><FeatureBlock collapsed={collapsed} /></ShellBoundary>
       {!collapsed && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
     </aside>
   </TooltipProvider>;
@@ -84,9 +81,26 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
 
 const NoCounts = ({ children }: { children: (counts: null) => ReactNode }) => <>{children(null)}</>;
 type CountsRender = (counts: Readonly<Record<string, number>> | null) => ReactNode;
-/** Menu code (`navCounts`) wraps the menu list: when it throws, the same list renders without counts (#1876). */
-function CountsBoundary({ Host, children }: { Host: ComponentType<{ children: CountsRender }>; children: CountsRender }) {
-  return <ShellBoundary fallback={<NoCounts>{children}</NoCounts>}><Host>{children}</Host></ShellBoundary>;
+/** Menu code (`navCounts`, its `For` selector included) wraps the menu list: when it throws, the same list renders without counts (#1876). */
+function CountsBoundary({ spaceId, menu, children }: { spaceId: SpaceId | null; menu: MenuEntry | null; children: CountsRender }) {
+  return <ShellBoundary fallback={<NoCounts>{children}</NoCounts>}><CountsHostSlot spaceId={spaceId} menu={menu}>{children}</CountsHostSlot></ShellBoundary>;
+}
+function CountsHostSlot({ spaceId, menu, children }: { spaceId: SpaceId | null; menu: MenuEntry | null; children: CountsRender }) {
+  const { slots } = useHostPlatform();
+  const Host: ComponentType<{ children: CountsRender }> = (spaceId === null ? null : slots.navCounts?.For(spaceId, menu)) ?? NoCounts;
+  return <Host>{children}</Host>;
+}
+
+/** The space's own nav section (`spaceNavSection`): the `For` selector and the body both run under the caller's boundary. */
+function SpaceNavSectionSlot({ spaceId, menu }: { spaceId: SpaceId; menu: MenuEntry | null }) {
+  const { slots } = useHostPlatform();
+  const { tx } = useI18n();
+  const section = slots.spaceNavSection?.For(spaceId, menu) ?? null;
+  if (section === null) return null;
+  return <section aria-label={tx(section.label)}>
+    <p className="mx-2 mb-1 mt-3.5 text-caption font-semibold uppercase tracking-wide text-text-muted">{tx(section.label)}</p>
+    <ShellBoundary><section.Body /></ShellBoundary>
+  </section>;
 }
 
 /** The recent-visit list, a leaf of its own: a visit wakes only this list, never the menu tree around it (#824). */
@@ -119,9 +133,16 @@ function currentNavView(views: readonly NavView[], page: readonly (readonly [str
 function SidebarScope({ collapsed }: { collapsed: boolean }) {
   const { slots, sidebarSpace, route, canOpen } = useHostPlatform();
   const denied = route !== null && !canOpen(route.menu.id);
-  const Control = sidebarSpace === null || denied ? null : slots.scopeControl?.For(sidebarSpace.id, route?.menu ?? null) ?? null;
-  if (Control !== null) return <ShellBoundary fallback={collapsed ? null : undefined}><Control collapsed={collapsed} /></ShellBoundary>;
-  return sidebarSpace?.scopePresentation === 'hidden' ? null : <ScopeSelector collapsed={collapsed} />;
+  const fallback = sidebarSpace?.scopePresentation === 'hidden' ? null : <ScopeSelector collapsed={collapsed} />;
+  if (sidebarSpace === null || denied || !slots.scopeControl) return fallback;
+  return <ShellBoundary key={`scope:${sidebarSpace.id}`} fallback={collapsed ? null : undefined}><ScopeControlSlot collapsed={collapsed} spaceId={sidebarSpace.id} menu={route?.menu ?? null} fallback={fallback} /></ShellBoundary>;
+}
+
+/** Leaf of its own so the `scopeControl.For` selector runs under the boundary; a `null` selection keeps the default selector. */
+function ScopeControlSlot({ collapsed, spaceId, menu, fallback }: { collapsed: boolean; spaceId: SpaceId; menu: MenuEntry | null; fallback: ReactNode }) {
+  const { slots } = useHostPlatform();
+  const Control = slots.scopeControl?.For(spaceId, menu) ?? null;
+  return Control === null ? fallback : <Control collapsed={collapsed} />;
 }
 
 function FeatureBlock({ collapsed }: { collapsed: boolean }) {

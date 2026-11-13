@@ -29,8 +29,8 @@ export function RouteOutlet() {
   const fallback = <div className="p-5"><LoadingBlock rows={6} height={320} /></div>;
   return <>
     {!maximized && <Suspense fallback={fallback}><ScreenOutlet /></Suspense>}
-    {/* A stale board chunk (or a board render throw) shows a retry in place of the open board, nothing under an ordinary screen; the rail and the screen stay (#1876). */}
-    {mounted && <ShellBoundary fallback={maximized ? undefined : null}><Suspense fallback={maximized ? fallback : null}><BoardHost Outlet={ScreenOutlet} display={maximized ? 'maximized' : floating ? 'window' : 'minimized'} /></Suspense></ShellBoundary>}
+    {/* A stale board chunk (or a board render throw) shows a retry in place of the open or windowed board; only a really minimized board draws nothing. The rail and the screen stay (#1876). */}
+    {mounted && <ShellBoundary fallback={maximized || floating ? undefined : null}><Suspense fallback={maximized ? fallback : null}><BoardHost Outlet={ScreenOutlet} display={maximized ? 'maximized' : floating ? 'window' : 'minimized'} /></Suspense></ShellBoundary>}
   </>;
 }
 

@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffe
 import { useI18n, type Lang, type VocComposeContext, type VocComposeSlot } from '@ap/kernel';
 import { Button, cn, DetailPanelFullscreenContext, DetailPanelFullscreenToggle, DetailPanelReadingColumn, TransientOverlayScope, useDetailPanelEscape } from '@ap/ui';
 import { expandedDetailClass } from '../frame/expandedDetailClass';
+import { ShellBoundary } from '../frame/ShellBoundary';
 import { freezeVocContext, type VocFreezeInput } from './vocContext';
 
 const TEXT = {
@@ -206,7 +207,9 @@ export function VocDrawer({ voc, lang, expandedStyle }: { voc: VocDrawerControll
       </div>}
       <div className="min-h-0 flex-1"><DetailPanelReadingColumn>
         <TransientOverlayScope active={voc.visible}>
-          <slot.Compose key={voc.generation} context={context} onSubmitted={voc.onSubmitted} onCancel={voc.onCancel} onDirtyChange={voc.onDirtyChange} />
+          <ShellBoundary key={voc.generation}>
+            <slot.Compose key={voc.generation} context={context} onSubmitted={voc.onSubmitted} onCancel={voc.onCancel} onDirtyChange={voc.onDirtyChange} />
+          </ShellBoundary>
         </TransientOverlayScope>
       </DetailPanelReadingColumn></div>
     </div>}

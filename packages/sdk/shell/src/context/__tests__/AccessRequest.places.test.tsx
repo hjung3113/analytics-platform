@@ -111,6 +111,28 @@ describe('place (b): Scope selector request items', () => {
       view.unmount();
     }
   });
+
+  // #1876: the slot's components are menu code mounted outside the screen's boundary; a throw must not blank the app.
+  it('a throwing Pending drops only its request row: the selector and its other items stay', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-A');
+    mount(grantTable(), { ...fakeSlot, Pending: () => { throw new Error('fixture pending failure'); } });
+    openMenu();
+    expect(await screen.findByRole('menuitemradio', { name: /SITE-B/ })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: /권한 없음/ })).toBeNull();
+  });
+
+  it('a throwing Dialog is contained: the Scope selector trigger stays', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-A');
+    let attempts = 0;
+    mount(grantTable(), { ...fakeSlot, Dialog: () => { attempts += 1; throw new Error('fixture dialog failure'); } });
+    openMenu();
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SITE-C · 공정 4개 권한 없음' }));
+    await waitFor(() => expect(attempts).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(screen.getByRole('button', { name: /^Scope: SITE-A/ })).toBeTruthy();
+  });
 });
 
 describe('place (d): room field request entry', () => {

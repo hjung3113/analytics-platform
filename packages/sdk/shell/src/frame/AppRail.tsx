@@ -67,7 +67,7 @@ export function AppRail() {
       </TooltipTrigger><TooltipContent side="right">{vocLabel}</TooltipContent></Tooltip>}
       {/* Menu code (count, recent list): a throw drops only the bell (#1876). */}
       {slots.notifications && canOpen(slots.notifications.menuId) && <ShellBoundary fallback={null}><NotificationsBell slot={slots.notifications} /></ShellBoundary>}
-      <div className="flex shrink-0 flex-col items-center gap-1">{slots.topBarTools}</div>
+      <div className="flex shrink-0 flex-col items-center gap-1"><ShellBoundary fallback={null}>{slots.topBarTools}</ShellBoundary></div>
       <div className="my-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
       <Popover>
         <PopoverTrigger asChild><button type="button" aria-label={lang === 'ko' ? '도움말' : 'Help'} title={lang === 'ko' ? '도움말' : 'Help'} className="grid size-8 place-items-center rounded-md text-text-secondary hover:bg-surface-sunken"><CircleHelp className="size-4" aria-hidden /></button></PopoverTrigger>

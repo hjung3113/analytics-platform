@@ -14,11 +14,11 @@ type Props = {
 /**
  * Contains a render failure of one region the shell mounts outside the menu screen (a lazy shell chunk, a menu's `navTree.Source`, an injected
  * slot; 06 §4 Kernel duty: one menu's failure never blanks the platform). The rail, the other regions and the screen stay. The failure is
- * reported through the same Kernel `reportError` as `RouteErrorBoundary`; a new session user or server revision clears it. Internal to the shell.
+ * reported through Kernel `reportShellError` (the `reportError` payload, but a healthy screen's pending arrival focus stays); a new session user or server revision clears it. Internal to the shell.
  */
 export function ShellBoundary({ fallback, children }: Props) {
-  const { reportError, session, revision } = useHostPlatform();
-  return <ShellBoundaryInner onError={reportError} resetKey={`${session.user.id}|${revision}`} fallback={fallback}>{children}</ShellBoundaryInner>;
+  const { reportShellError, session, revision } = useHostPlatform();
+  return <ShellBoundaryInner onError={reportShellError} resetKey={`${session.user.id}|${revision}`} fallback={fallback}>{children}</ShellBoundaryInner>;
 }
 
 type InnerProps = Props & { onError: (error: unknown) => string; resetKey: string };

@@ -3,6 +3,7 @@ import { ChevronDown, Loader2, MapPin, RotateCw, ShieldAlert } from 'lucide-reac
 import { useI18n, type AccessRequestSlot } from '@ap/kernel';
 import { useScopeAccessRequest } from '@ap/components';
 import { useHostPlatform } from '@ap/kernel/host';
+import { ShellBoundary } from '../frame/ShellBoundary';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
 /**
@@ -87,11 +88,11 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar' }: { colla
         <p className="px-2 py-1.5 text-tiny leading-4 text-text-secondary">{lang === 'ko' ? '권한 축은 Site 안의 room_name입니다. Scope를 바꾸면 Site 경계를 넘는 room·설비 조건/선택은 초기화됩니다.' : 'Grants are room_name within a Site. Changing scope clears site-bound room/equipment context.'}</p>
       </DropdownMenuContent>
     </DropdownMenu>
-    {accessRequest && requestSite !== null && <accessRequest.Dialog target={{ kind: 'site', site: requestSite }} returnTo={url} open onOpenChange={open => {
+    {accessRequest && requestSite !== null && <ShellBoundary fallback={null}><accessRequest.Dialog target={{ kind: 'site', site: requestSite }} returnTo={url} open onOpenChange={open => {
       if (open) return;
       setRequestSite(null);
       setClosedDialogs(n => n + 1);
-    }} />}
+    }} /></ShellBoundary>}
   </div></TooltipProvider>;
 }
 
@@ -99,11 +100,11 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar' }: { colla
 function SiteRequestItem({ slot, site, onRequest, onStatus }: { slot: AccessRequestSlot; site: { id: string; label: string; missing: number }; onRequest: () => void; onStatus: (href: string) => void }) {
   const { t } = useI18n();
   const { Pending } = slot;
-  return <Pending target={{ kind: 'site', site: site.id }}>{state => state.pending
+  return <ShellBoundary fallback={null}><Pending target={{ kind: 'site', site: site.id }}>{state => state.pending
     ? <DropdownMenuItem data-access-request="pending" disabled={state.statusHref === null} onSelect={() => { if (state.statusHref !== null) onStatus(state.statusHref); }} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
       {t('accessRequestSitePending', { site: site.label })}
     </DropdownMenuItem>
     : <DropdownMenuItem data-access-request="request" onSelect={onRequest} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
       {t('accessRequestSiteRooms', { site: site.label, count: site.missing })}
-    </DropdownMenuItem>}</Pending>;
+    </DropdownMenuItem>}</Pending></ShellBoundary>;
 }

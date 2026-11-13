@@ -198,6 +198,8 @@ export type HostPlatform = {
    * identity fields go out — no URL, Context value or stack.
    */
   reportError: (error: unknown) => string;
+  /** Host-only: `reportError` for a shell region failing beside a healthy screen. Same report, but the pending arrival focus of the screen stays. */
+  reportShellError: (error: unknown) => string;
   returnTarget: () => string;
   /** Accepted `returnTo`: that menu's label and its leading drill values. Otherwise an openable parent (or home), an empty trail and no reverted Context. Accepted origins report changed global Context keys. `href` equals `returnTarget()` (06 §22, ADR-0025). */
   returnOrigin: () => ReturnOrigin;

@@ -414,8 +414,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const returnTarget = useCallback(() => resolveReturnOrigin().href, [resolveReturnOrigin]);
   const returnOrigin = useCallback((): ReturnOrigin => resolveReturnOrigin(), [resolveReturnOrigin]);
 
-  const reportError = useCallback((error: unknown): string => {
-    pageNavigation.cancel();
+  // One serialization for both reports; only the screen failure cancels the pending arrival (a shell region failing beside a healthy screen must not).
+  const sendClientError = useCallback((error: unknown): string => {
     const correlationId = clientCorrelationId();
     if (!route) return correlationId;
     try {
@@ -427,7 +427,12 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       }).catch(() => { /* silent */ });
     } catch { /* silent */ }
     return correlationId;
-  }, [adapter, registry, route, pageNavigation]);
+  }, [adapter, registry, route]);
+  const reportError = useCallback((error: unknown): string => {
+    pageNavigation.cancel();
+    return sendClientError(error);
+  }, [sendClientError, pageNavigation]);
+  const reportShellError = sendClientError;
 
   const queryPolicy = useStable({ ...appliedQueryPolicy(route?.menu ?? null, global, page, routeContractError !== null || metricInit.phase !== 'skip'),
     ready: route?.menu.query?.mode !== 'apply' || !route.menu.requiresScope || (scopeView.status === 'valid' && scopeView.scopeId === global.scopeId && scopeView.validatedFor === session) }, sameQueryPolicy);
@@ -435,8 +440,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null,
     commit: commitState, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
-    detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
+    detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, reportShellError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId, paneLabel,
-  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
+  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
   return { screen, sidebarSpace, resolveEntryLink };
 }
