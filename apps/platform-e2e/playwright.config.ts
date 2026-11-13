@@ -27,6 +27,8 @@ export default defineConfig({
   fullyParallel: true,
   // A contract gate does not retry: an intermittent violation is a violation. The reporter still marks flaky if retries are enabled locally.
   retries: 0,
+  // A leftover `.only` would make the required E2E check pass on one test; CI refuses it, local runs still allow it.
+  forbidOnly: !!process.env.CI,
   outputDir: './test-results',
   reporter: [['list'], ['./contract-reporter.ts', { outputDir: './contract-report' }], ['html', { outputFolder: './playwright-report', open: 'never' }]],
   use: {

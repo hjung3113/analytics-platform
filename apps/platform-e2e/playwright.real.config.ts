@@ -24,6 +24,8 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   retries: 0,
+  // A leftover `.only` would make the required E2E check pass on one test; CI refuses it, local runs still allow it.
+  forbidOnly: !!process.env.CI,
   outputDir: './test-results-real/results',
   reporter: [['list'], ['./contract-reporter.ts', { outputDir: './contract-report-real' }], ['html', { outputFolder: './playwright-report-real', open: 'never' }]],
   use: {
