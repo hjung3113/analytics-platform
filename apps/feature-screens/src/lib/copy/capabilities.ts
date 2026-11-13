@@ -1,7 +1,7 @@
 import { type Capability, type DeclaredCapabilityItem, isCapability, isDeclaredCapabilityId } from '@ap/feature-shared';
 
 export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
-  'scope.read': 'Site·room 조회',
+  'scope.read': 'Site·공정 조회',
   'workspace.read': '전체 읽기',
   'workspace.admin': '관리자 권한',
   'voc.triage': 'VOC 분류',

@@ -271,14 +271,14 @@ describe('권한 부여 — 범위 종류', () => {
       site: 'SITE-C · Synthetic C',
       room: null,
       expected: { scope_kind: 'site', scope_site: 'SITE-C' },
-      selected: '선택: Site·room 조회 · Site SITE-C 전체',
+      selected: '선택: Site·공정 조회 · Site SITE-C 전체',
     },
     {
       kind: 'Site·공정',
       site: 'SITE-A · Synthetic A',
       room: 'RA1',
       expected: { scope_kind: 'site_room', scope_site: 'SITE-A', scope_room: 'RA1' },
-      selected: '선택: Site·room 조회 · Site SITE-A · 공정 RA1',
+      selected: '선택: Site·공정 조회 · Site SITE-A · 공정 RA1',
     },
   ])('$kind posts the scope.read payload with catalog values', async ({ kind, site, room, expected, selected }) => {
     const user = userEvent.setup();

@@ -45,7 +45,7 @@ const EXPECTED_LABELS: Record<Capability, string> = {
   'eqv.dictionary.global_edit': '설비 시각화 전역 Type Dictionary·규칙 편집',
   'eqv.mapping.publish': '설비 시각화 Mapping 게시',
   'eqv.window.import': '설비 시각화 Sample Window 가져오기·설비 등록',
-  'scope.read': 'Site·room 조회',
+  'scope.read': 'Site·공정 조회',
 };
 
 describe('capability display copy', () => {

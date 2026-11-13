@@ -529,6 +529,8 @@ async function selectDirectGrantTargetAndScope(
   await waitFor(() =>
     expect(screen.getByTestId('direct-grant-recipient')).toHaveTextContent(actorName),
   );
+  // #1895: a negative margin pushed the line out of the scrolling fields section, which clipped its top half.
+  expect(screen.getByTestId('direct-grant-recipient').className).not.toMatch(/(^|\s)-m[tby]?-/);
   await chooseSelectOption('부여 권한 및 범위', scopeName);
 }
 

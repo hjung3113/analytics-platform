@@ -600,7 +600,7 @@ function DirectGrantFields({
   return (
     <>
       <section className="flex min-h-0 flex-col gap-4 overflow-y-auto" data-testid="direct-grant-fields">
-        <p className="-mt-2 text-xs text-text-muted" data-testid="direct-grant-recipient">
+        <p className="text-xs text-text-muted" data-testid="direct-grant-recipient">
           {recipientActorType === undefined
             ? // Recipient type not yet confirmed by the workspace actor list:
               // claim neither person nor system.
