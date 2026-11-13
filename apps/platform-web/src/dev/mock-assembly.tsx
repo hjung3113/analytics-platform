@@ -15,9 +15,12 @@ import { logModelsMock } from '@ap/menu-log-models/mock';
 import { topviewMock } from '@ap/menu-topview/mock';
 import { topviewStudioMock } from '@ap/menu-topview-studio/mock';
 // </gen:menu-mock-imports>
+// Mock actions and write samples of generated menus (ADR-0054) — written by `pnpm gen:menu`.
+// <gen:menu-mock-action-imports>
+// </gen:menu-mock-action-imports>
 // Audit seeds of menu-owned destinations (ADR-0048) — hand-wired, outside the generator's import region.
 import { metricsAuditEvents } from '@ap/menu-metrics/mock';
-// Menu mock actions (ADR-0054) — hand-wired: the generator writes endpoint markers only (backlog: generator support once a second menu has mock actions).
+// Menu mock actions (ADR-0054) of menus that predate the generator's action markers — hand-wired, outside the regions.
 import { logAnalysisActionsMock } from '@ap/menu-log-analysis/mock';
 export { stageLifecycleFixture, stageValidationIssue } from '@ap/menu-log-models/mock';
 export { stageDatasetBaseline, stageDatasetSuiteRun } from '@ap/menu-log-rules/mock';
@@ -59,13 +62,27 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
 ];
 
 /**
- * Every menu mock action the app registers (hand-wired, ADR-0054). The mock adapter below and the conformance test read it.
+ * Every menu mock action the app registers (ADR-0054); `pnpm gen:menu` writes the marker region. The mock adapter below and the conformance test read it.
  */
 // 설비 온보딩 Sample Window import (#1658): the mock judges an uploaded batch with the dev tool's own `@eqv/core` code.
 setSampleWindowImport({ check: checkSampleWindowImport, inventory: buildInventory });
 // Top View viewer (#801, #1659): the mock answers its three reads from the synthetic fixture.
 setTopviewMockSource({ equipmentOptions: eqvMockEquipmentOptions, context: eqvMockContext, events: eqvMockEvents });
-export const MOCK_ACTIONS: readonly AnyMockAction[] = [...logAnalysisActionsMock, ...logKnowledgeActionsMock, ...improvementItemsActionsMock, ...logLifecycleActionsMock, ...datasetActionsMock, ...topviewStudioActionsMock, ...topviewOnboardingActionsMock];
+export const MOCK_ACTIONS: readonly AnyMockAction[] = [
+  // <gen:menu-mock-action-spreads>
+  // </gen:menu-mock-action-spreads>
+  ...logAnalysisActionsMock, ...logKnowledgeActionsMock, ...improvementItemsActionsMock, ...logLifecycleActionsMock, ...datasetActionsMock, ...topviewStudioActionsMock, ...topviewOnboardingActionsMock,
+];
+
+/**
+ * Conformance write samples of generated menus, keyed by the full action id (`<group>.<action>`) — each menu's `./mock`
+ * exports them next to its actions. The conformance test merges them with its hand table for the older menus and fails
+ * by action id when a registered action has neither (#1904).
+ */
+export const MOCK_WRITE_SAMPLES: readonly Readonly<Record<string, () => Record<string, unknown>>>[] = [
+  // <gen:menu-mock-sample-entries>
+  // </gen:menu-mock-sample-entries>
+];
 
 /**
  * Audit events of menu-owned destinations (ADR-0048). The mock server joins them with its own equipment events,

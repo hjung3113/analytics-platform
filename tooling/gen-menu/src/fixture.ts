@@ -102,12 +102,24 @@ export const fixtureMenusTs = (): string => fixtureMenusTsText([]);
 const mockAssemblyTsx = `// <gen:menu-mock-imports>
 import { analyticsMock } from '${PACKAGE_PREFIX}menu-analytics/mock';
 // </gen:menu-mock-imports>
-import type { AnyMockEndpoint } from '${PACKAGE_PREFIX}mock-server';
+// <gen:menu-mock-action-imports>
+// </gen:menu-mock-action-imports>
+import type { AnyMockAction, AnyMockEndpoint } from '${PACKAGE_PREFIX}mock-server';
 
 export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
   // <gen:menu-mock-spreads>
   ...analyticsMock,
   // </gen:menu-mock-spreads>
+];
+
+export const MOCK_ACTIONS: readonly AnyMockAction[] = [
+  // <gen:menu-mock-action-spreads>
+  // </gen:menu-mock-action-spreads>
+];
+
+export const MOCK_WRITE_SAMPLES: readonly Readonly<Record<string, () => Record<string, unknown>>>[] = [
+  // <gen:menu-mock-sample-entries>
+  // </gen:menu-mock-sample-entries>
 ];
 `;
 

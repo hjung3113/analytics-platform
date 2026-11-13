@@ -5,13 +5,18 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   APP_PKG, GROUPS_END, IMPORT_END, IMPORT_START, MOCK_ASSEMBLY_TSX, MENUS_TS, MOCK_IMPORTS_END, MOCK_IMPORTS_START,
-  MOCK_SPREADS_END, MOCK_SPREADS_START, SPREADS_END, SPREADS_START,
+  MOCK_ACTION_IMPORTS_END, MOCK_ACTION_IMPORTS_START, MOCK_ACTION_SPREADS_END, MOCK_ACTION_SPREADS_START,
+  MOCK_SAMPLE_ENTRIES_END, MOCK_SAMPLE_ENTRIES_START, MOCK_SPREADS_END, MOCK_SPREADS_START, SPREADS_END, SPREADS_START,
   STYLES_END, STYLES_START, STYLE_CSS, manifestEntries, packageName, parseDepLine, pathShape,
 } from './generate.ts';
 import { PACKAGE_PREFIX } from './prefix.ts';
 
 const MENUS_MARKERS = [IMPORT_START, IMPORT_END, GROUPS_END, SPREADS_START, SPREADS_END] as const;
-const MOCK_ASSEMBLY_MARKERS = [MOCK_IMPORTS_START, MOCK_IMPORTS_END, MOCK_SPREADS_START, MOCK_SPREADS_END] as const;
+const MOCK_ASSEMBLY_MARKERS = [
+  MOCK_IMPORTS_START, MOCK_IMPORTS_END, MOCK_ACTION_IMPORTS_START, MOCK_ACTION_IMPORTS_END,
+  MOCK_SPREADS_START, MOCK_SPREADS_END, MOCK_ACTION_SPREADS_START, MOCK_ACTION_SPREADS_END,
+  MOCK_SAMPLE_ENTRIES_START, MOCK_SAMPLE_ENTRIES_END,
+] as const;
 
 /** Everything the wiring invariants read from one repo tree. */
 export type RepoShape = {
@@ -90,7 +95,7 @@ export function checkCodeowners(folders: string[], codeowners: string, systems =
 }
 
 /** Markers exist exactly once and in import → groups → spreads (→ styles) order; the mock-assembly.tsx
- * mock markers exist exactly once and in imports → spreads order. */
+ * mock markers exist exactly once and in imports → action imports → spreads → action spreads → sample entries order. */
 export function checkMarkers(shape: RepoShape): void {
   for (const marker of MENUS_MARKERS) {
     if (countOccurrences(shape.menusTs, marker) !== 1) {
@@ -221,6 +226,19 @@ function regionSpreads(lines: string[], start: string, end: string): string[] {
   return names;
 }
 
+/** Plain identifier elements (`name,`) of one marker region. */
+function regionIdentifiers(lines: string[], start: string, end: string): string[] {
+  const text = lines.slice(markerIndex(lines, start) + 1, markerIndex(lines, end)).join('\n');
+  const sf = ts.createSourceFile('region.ts', `const region = [\n${text}\n];`, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const names: string[] = [];
+  const walk = (node: ts.Node): void => {
+    if (ts.isArrayLiteralExpression(node)) for (const el of node.elements) if (ts.isIdentifier(el)) names.push(el.text);
+    ts.forEachChild(node, walk);
+  };
+  walk(sf);
+  return names;
+}
+
 const countOf = <T,>(items: T[], pick: (item: T) => boolean): number => items.filter(pick).length;
 
 /** Names a mock index exports (`export const x`, `export { a as b }`). */
@@ -307,6 +325,44 @@ export function checkWiring(shape: RepoShape): void {
   for (const spread of mockSpreads) {
     if (!mockImports.some(i => i.local === spread)) {
       throw new Error(`spread '...${spread}' inside the mock-assembly.tsx mock spread markers has no matching mock import`);
+    }
+  }
+  // Generated mock actions and write samples (#1904): imports name an export of a package mock, and each imported name is wired exactly once.
+  const actionImports = regionImports(mainLines, MOCK_ACTION_IMPORTS_START, MOCK_ACTION_IMPORTS_END);
+  const actionSpreads = regionSpreads(mainLines, MOCK_ACTION_SPREADS_START, MOCK_ACTION_SPREADS_END);
+  const sampleEntries = regionIdentifiers(mainLines, MOCK_SAMPLE_ENTRIES_START, MOCK_SAMPLE_ENTRIES_END);
+  for (const imp of actionImports) {
+    const folder = shape.mockFolders.find(f => `${shape.packageNames[f]}/mock` === imp.module);
+    if (folder === undefined) throw new Error(`mock action import '${imp.module}' inside the mock-assembly.tsx mock action import markers belongs to no package with a src/mock`);
+    if (!exportedNames(shape.mockIndexes[folder] ?? '').has(imp.imported)) throw new Error(`${folder}/src/mock does not export '${imp.imported}' imported inside the mock-assembly.tsx mock action import markers`);
+    const wired = imp.imported.endsWith('WriteSamples') ? sampleEntries : actionSpreads;
+    const count = countOf(wired, n => n === imp.local);
+    if (count !== 1) throw new Error(`'${imp.local}' imported inside the mock-assembly.tsx mock action import markers is wired ${count} times (expected exactly once)`);
+  }
+  for (const name of [...actionSpreads, ...sampleEntries]) {
+    if (!actionImports.some(i => i.local === name)) throw new Error(`'${name}' inside the mock-assembly.tsx mock action markers has no matching mock action import`);
+  }
+  // Expected pairs come from the mock exports, so a removed registration cannot pass by being absent (hand-wired lists with other names stay accepted).
+  for (const folder of shape.mockFolders) {
+    const name = shape.packageNames[folder];
+    const exported = [...exportedNames(shape.mockIndexes[folder] ?? '')];
+    const actions = exported.filter(n => n.endsWith('ActionsMock'));
+    const samples = exported.filter(n => n.endsWith('WriteSamples'));
+    if (samples.length > 0 && actions.length === 0) throw new Error(`${folder}/src/mock exports '${samples[0]}' but no '*ActionsMock' (${name}): actions and write samples come as a pair`);
+    if (samples.length === 0) {
+      // Actions without samples are the older hand-wired shape: accepted only when imported outside the generated markers.
+      for (const action of actions) {
+        const handWired = new RegExp(`\\b${action}\\b[^;]*from '${name}/mock'`).test(shape.mockAssemblyTsx);
+        if (!handWired || actionImports.some(i => i.module === `${name}/mock` && i.imported === action)) throw new Error(`${folder}/src/mock exports '${action}' but no '*WriteSamples' (${name}): actions and write samples come as a pair, or the actions are hand-wired outside the generated markers`);
+        if (!new RegExp(`\\.\\.\\.${action}\\b`).test(shape.mockAssemblyTsx)) throw new Error(`${folder} (${name}): hand-wired '${action}' is imported but never spread into MOCK_ACTIONS in mock-assembly.tsx`);
+      }
+      continue;
+    }
+    for (const [exportName, wired, place] of [...actions.map(n => [n, actionSpreads, 'spread'] as const), ...samples.map(n => [n, sampleEntries, 'entry'] as const)]) {
+      const imports = actionImports.filter(i => i.module === `${name}/mock` && i.imported === exportName);
+      if (imports.length !== 1) throw new Error(`${folder} (${name}): '${exportName}' exported by src/mock is imported ${imports.length} times inside the mock-assembly.tsx mock action import markers (expected exactly once)`);
+      const count = countOf(wired, n => n === (imports[0] as ImportSpec).local);
+      if (count !== 1) throw new Error(`${folder} (${name}): '${exportName}' exported by src/mock has ${count} ${place} registrations inside the mock-assembly.tsx mock action markers (expected exactly once)`);
     }
   }
 }

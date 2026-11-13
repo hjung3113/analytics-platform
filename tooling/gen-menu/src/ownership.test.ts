@@ -80,6 +80,20 @@ describe('remove ownership is bounded to the marker region (F4)', () => {
     expect(existsSync(join(root, 'menus', 'mars', FIXTURE_FOLDER))).toBe(true);
   });
 
+  it.each([
+    { name: 'action spread', line: `  ...${FIXTURE_GROUP}ActionsMock,`, end: '  // </gen:menu-mock-action-spreads>' },
+    { name: 'write sample entry', line: `  ${FIXTURE_GROUP}WriteSamples,`, end: '  // </gen:menu-mock-sample-entries>' },
+  ])('refuses when the generated $name line appears twice inside its region (#1904)', async ({ line, end }) => {
+    const root = fresh();
+    expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS], root)).status).toBe(0);
+    writeFileSync(join(root, MOCK_ASSEMBLY_TSX), mainOf(root).replace(end, `${line}\n${end}`));
+    const tampered = appSnapshot(root);
+    const res = await runCli(['--remove', FIXTURE_GROUP], root);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/appears 2 times inside its owned region/);
+    expect(appSnapshot(root)).toEqual(tampered);
+  });
+
   it('removes the in-region mock import and leaves an identical copy outside the region untouched', async () => {
     const root = fresh();
     const pristine = appSnapshot(root);

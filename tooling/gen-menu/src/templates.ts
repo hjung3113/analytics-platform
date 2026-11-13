@@ -47,6 +47,16 @@ export const mockImportLine = (i: MenuInputs): string =>
 /** apps/platform-web/src/dev/mock-assembly.tsx `MOCK_ENDPOINTS` spread insert. */
 export const mockSpreadLine = (i: MenuInputs): string => `  ...${i.group}Mock,`;
 
+/** apps/platform-web/src/dev/mock-assembly.tsx action/sample import insert (one line, both names). */
+export const mockActionImportLine = (i: MenuInputs): string =>
+  `import { ${i.group}ActionsMock, ${i.group}WriteSamples } from '${menuPackage(i.folder)}/mock';`;
+
+/** apps/platform-web/src/dev/mock-assembly.tsx `MOCK_ACTIONS` spread insert. */
+export const mockActionSpreadLine = (i: MenuInputs): string => `  ...${i.group}ActionsMock,`;
+
+/** apps/platform-web/src/dev/mock-assembly.tsx `MOCK_WRITE_SAMPLES` entry insert. */
+export const mockSampleEntryLine = (i: MenuInputs): string => `  ${i.group}WriteSamples,`;
+
 /** apps/platform-web/src/style.css insert. */
 export const styleLine = (i: MenuInputs): string => `@import "${menuPackage(i.folder)}/styles.css";`;
 
@@ -223,12 +233,21 @@ function mockIndexTs(i: MenuInputs): string {
   return `/** Mock server half of the sample endpoint (${menuPackage(i.folder)}, #126). The app composition
  * root registers this list via '${menuPackage(i.folder)}/mock' → createMockAdapter({ endpoints, registry });
  * pages never import this module. */
-import { defineMockEndpoint, type AnyMockEndpoint } from '${PACKAGE_PREFIX}mock-server';
+import { defineMockEndpoint, type AnyMockAction, type AnyMockEndpoint } from '${PACKAGE_PREFIX}mock-server';
 import { sampleEndpoint } from '../endpoints';
 
 export const ${i.group}Mock: readonly AnyMockEndpoint[] = [
   defineMockEndpoint(sampleEndpoint, { handle: () => ({ ready: true }) }),
 ];
+
+/** Mock write actions of this menu (ADR-0054); the app registers the list as is. Add \`defineMockAction(...)\` entries here. */
+export const ${i.group}ActionsMock: readonly AnyMockAction[] = [];
+
+/**
+ * Conformance write samples: one input factory per action above, keyed by the FULL action id (\`<group>.<action>\`).
+ * The app's server-conformance test fails by action id when an action has no sample here.
+ */
+export const ${i.group}WriteSamples: Readonly<Record<string, () => Record<string, unknown>>> = {};
 `;
 }
 
@@ -346,7 +365,7 @@ function mockIndexTest(i: MenuInputs): string {
   return `import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NO_FEATURES, contextCapabilities, groupId, type ApiResponse, type MenuMeta } from '${PACKAGE_PREFIX}contracts';
 import { createMockAdapter, getRole, setRole } from '${PACKAGE_PREFIX}mock-server';
-import { ${i.group}Mock } from './index';
+import { ${i.group}ActionsMock, ${i.group}Mock, ${i.group}WriteSamples } from './index';
 import { sampleEndpoint } from '../endpoints';
 
 /**
@@ -385,6 +404,11 @@ describe('${i.group} mock registration', () => {
     const result: ApiResponse<unknown> = await adapter.menuQuery({ endpoint: '${i.group}.sample', context: {}, params: {} });
     expect(result.outcome).toBe('ok');
     expect(result.data).toEqual({ ready: true });
+  });
+
+  it('gives every mock action a write sample keyed by its full id', () => {
+    expect(${i.group}ActionsMock.filter(action => !(action.spec.id in ${i.group}WriteSamples)).map(action => action.spec.id)).toEqual([]);
+    expect(Object.keys(${i.group}WriteSamples).filter(id => !${i.group}ActionsMock.some(action => action.spec.id === id))).toEqual([]);
   });
 });
 `;

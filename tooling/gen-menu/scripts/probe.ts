@@ -3,11 +3,12 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  GenMenuError, MOCK_ASSEMBLY_TSX, MENUS_TS, MOCK_IMPORTS_END, MOCK_IMPORTS_START, MOCK_SPREADS_END, MOCK_SPREADS_START,
+  GenMenuError, MOCK_ASSEMBLY_TSX, MENUS_TS, MOCK_ACTION_IMPORTS_END, MOCK_ACTION_IMPORTS_START, MOCK_ACTION_SPREADS_END, MOCK_ACTION_SPREADS_START,
+  MOCK_IMPORTS_END, MOCK_IMPORTS_START, MOCK_SAMPLE_ENTRIES_END, MOCK_SAMPLE_ENTRIES_START, MOCK_SPREADS_END, MOCK_SPREADS_START,
   STYLE_CSS, APP_PKG, checkAppMarkers, ownedLine, pageName, resolveRoot, splitLines,
 } from '../src/generate.ts';
 import { PACKAGE_PREFIX } from '../src/prefix.ts';
-import { mockImportLine, mockSpreadLine, type MenuInputs, type PageType } from '../src/templates.ts';
+import { mockActionImportLine, mockActionSpreadLine, mockImportLine, mockSampleEntryLine, mockSpreadLine, type MenuInputs, type PageType } from '../src/templates.ts';
 import {
   PROBE_FOLDER, PROBE_PLACEMENTS, PROBE_SPACE, PROBE_TEST_REL, assertCleanTree, gitPorcelain,
   insertGroupsRow, preflightReservedPaths, probePackageRel, runRevert, writeRegistryTest,
@@ -201,13 +202,16 @@ function verifyGeneratedScaffold(placement: ProbePlacement): void {
     [MOCK_IMPORTS_START, MOCK_IMPORTS_END, `import { analyticsMock } from '${PACKAGE_PREFIX}menu-analytics/mock';`],
     [MOCK_SPREADS_START, MOCK_SPREADS_END, mockSpreadLine(PROBE_INPUTS)],
     [MOCK_SPREADS_START, MOCK_SPREADS_END, mockSpreadLine({ ...PROBE_INPUTS, group: 'analytics' })],
+    [MOCK_ACTION_IMPORTS_START, MOCK_ACTION_IMPORTS_END, mockActionImportLine(PROBE_INPUTS)],
+    [MOCK_ACTION_SPREADS_START, MOCK_ACTION_SPREADS_END, mockActionSpreadLine(PROBE_INPUTS)],
+    [MOCK_SAMPLE_ENTRIES_START, MOCK_SAMPLE_ENTRIES_END, mockSampleEntryLine(PROBE_INPUTS)],
   ];
   for (const [start, end, line] of expected) {
     if (ownedLine(lines, start, end, line).kind !== 'found') {
       throw new GenMenuError(`probe: mock-assembly.tsx mock marker region does not contain '${line.trim()}'`);
     }
   }
-  console.log('probe: generated endpoints/mock + mock-assembly.tsx mock registration (genProbe + analytics) verified');
+  console.log('probe: generated endpoints/mock + mock-assembly.tsx mock registration (genProbe + analytics) and action/sample wiring (genProbe) verified');
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
