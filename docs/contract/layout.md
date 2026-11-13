@@ -192,10 +192,10 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 | Archetype | layout 부품 | 검증 소비자 (메뉴 경로 또는 화면) | 상태 |
 | --- | --- | --- | --- |
-| Overview (12.1) | 없음. 뼈대만 | 공통 layout을 검증하는 소비자 없음. `pageType`만 선언: `/home`, `/log/my-queue`, `/analytics/productivity` | Deferred: 승격 여부 [#1684](https://github.com/hjung3113/analytics-platform/issues/1684) |
+| Overview (12.1) | 없음. 뼈대만 | 공통 layout을 검증하는 소비자 없음. `pageType`만 선언: `/home`, `/log/my-queue`, `/analytics/productivity`, `/tools/eqv-topview` | Deferred: 승격 여부 [#1684](https://github.com/hjung3113/analytics-platform/issues/1684) |
 | Analysis Workspace (12.2) | `AnalysisLayout` | `menus/clas/clas`의 `OperationTime`. 다른 analysis 메뉴는 `pageType`만 선언하고 자체 배치를 쓴다 | Decided |
 | Management (12.3) | `ManagementLayout` | `EquipmentMaster`, `AccessDirectory`, `AuditTrail`, `ImprovementItems`, `RulesScreen`, `CatalogManagement`, `ItemList`, `ModelExplore` | Decided |
-| Catalog (12.4) | 없음. 뼈대만 | 공통 layout을 검증하는 소비자 없음. `pageType`만 선언: `/metrics`, `/metrics/:metricId`, `/log/recent-models`, `/log/rules`, `/log/rules/:ruleSetKey/:ruleKey`, `/admin/registry`, `/operations/systems` | Deferred: 승격 여부 [#1684](https://github.com/hjung3113/analytics-platform/issues/1684) |
+| Catalog (12.4) | 없음. 뼈대만 | 공통 layout을 검증하는 소비자 없음. `pageType`만 선언: `/metrics`, `/metrics/:metricId`, `/log/recent-models`, `/log/rules`, `/log/rules/:ruleSetKey/:ruleKey`, `/admin/registry`, `/operations/systems`, `/tools/eqv-studio` | Deferred: 승격 여부 [#1684](https://github.com/hjung3113/analytics-platform/issues/1684) |
 | Workflow (12.5) | 없음. 뼈대만 | 없음. 선언한 메뉴가 없고, VOC 메뉴도 `management`다 | Deferred: 검증 [#1685](https://github.com/hjung3113/analytics-platform/issues/1685) |
 
 새 메뉴가 뼈대만 있는 Archetype을 고르면 생성기의 점선 구획만 받는다.
