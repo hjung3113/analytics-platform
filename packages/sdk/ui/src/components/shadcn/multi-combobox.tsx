@@ -39,6 +39,8 @@ interface MultiComboboxBaseProps {
   disabled?: boolean;
   id?: string;
   className?: string;
+  /** `compact` is the 32px toolbar height (the same option `SelectTrigger` has); the default is unchanged. */
+  density?: 'default' | 'compact';
   'aria-invalid'?: React.AriaAttributes['aria-invalid'];
   'aria-describedby'?: string;
 }
@@ -62,7 +64,7 @@ export function MultiCombobox({
   listboxLabel, emptyText, selectedSummaryLabel, moreLabel, clearAllLabel, removeLabel,
   clearAction, placeholder, searchPlaceholder, search: controlledSearch, onSearchChange,
   loading, loadingText, error, onRetry, retryLabel, hasMore, onLoadMore,
-  maxVisibleChips = 2, maxSelected, maxSelectedText, disabled, id, className,
+  maxVisibleChips = 2, maxSelected, maxSelectedText, disabled, id, className, density = 'default',
   'aria-invalid': invalid, 'aria-describedby': describedBy,
 }: MultiComboboxProps) {
   const [open, setOpen] = React.useState(false);
@@ -128,7 +130,7 @@ export function MultiCombobox({
   return (
     <Popover open={open && !disabled} onOpenChange={next => { setOpen(next); if (next) { setSelectedView(false); setActiveValue(null); } }}>
       <PopoverAnchor asChild>
-        <div className={cn('flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-border-control bg-surface-field px-3 py-2 text-sm text-text-primary', className)}>
+        <div className={cn('flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-border-control bg-surface-field px-3 py-2 text-sm text-text-primary', density === 'compact' && 'min-h-8 px-2 py-1', className)}>
           {values.slice(0, Math.max(0, maxVisibleChips)).map(value => (
             <Button key={value} type="button" variant="secondary" size="toolbar" disabled={disabled}
               aria-label={removeLabel(valueLabel(value))} onClick={() => { remove(value); triggerRef.current?.focus(); }}>

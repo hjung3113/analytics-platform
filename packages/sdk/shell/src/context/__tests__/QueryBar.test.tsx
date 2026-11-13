@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
 import { PlatformPage, QueryBarExtensionContext, QueryView, type QueryBarExtension } from '@ap/components';
@@ -8,6 +9,7 @@ import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQ
 import { useHostPlatform, PaneQueryDraftProvider, PaneScreenProvider } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { GlobalContextBar, contextBarVisible } from '../GlobalContextBar';
+import { QueryBar } from '../QueryBar';
 
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: { ...noContext, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', prcGroup: 'apply' }, query: { mode: 'apply', required: { context: ['time', 'roomNames'] } }, pageKeys: ['grain'], pageType: 'analysis', features: { export: false, savedView: false, annotate: false, compare: false } }] });
 const endpoint = defineEndpoint<null, unknown>({ id: 'fixture.query', menuId: 'home', paramKeys: {}, permission: 'platform:view', requiresScope: true, context: { time: 'apply', roomNames: 'apply' }, requiredContext: ['time', 'roomNames'], kinds: ['collection'], mergeTimeDomain: false });
@@ -126,7 +128,7 @@ it('distinguishes explicit empty selection/rooms, removes the last Condition key
   expect(screen.queryByRole('button', { name: 'EquipmentID 전체로 되돌리기' })).toBeNull();
   expect(draft.canApply).toBe(true);
   act(() => draft.setDraftGlobal({ prcGroups: ['P1'] }));
-  expect(screen.getByRole('button', { name: /그 시점 소속/ })).toBeEnabled();
+  expect(screen.getByRole('radio', { name: /그 시점 소속/ })).toBeEnabled();
 });
 it('shows metadata transport failures without dropping selections or blocking valid draft application', async () => {
   mount('', { listAxisOptions: async () => { throw new Error('axis unavailable'); }, searchEquipment: async () => { throw new Error('equipment unavailable'); }, resolveSelection: async () => { throw new Error('resolve unavailable'); } });
@@ -181,9 +183,9 @@ it('ignores unused history-incapable axes, then disables asOf when one becomes u
   mount('', {}, false);
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => draft.setDraftGlobal({ roomNames: [], prcGroups: ['P'] }));
-  expect(screen.getByRole('button', { name: /그 시점 소속/ })).toBeEnabled();
+  expect(screen.getByRole('radio', { name: /그 시점 소속/ })).toBeEnabled();
   act(() => draft.setDraftGlobal({ condition: { vendor: ['V'] } }));
-  expect(screen.getByRole('button', { name: /그 시점 소속/ })).toBeDisabled();
+  expect(screen.getByRole('radio', { name: /그 시점 소속/ })).toBeDisabled();
   expect(screen.getByText(/설비 조건이나 PRC 그룹을 선택하고 소속 이력을 확인하세요/)).toBeTruthy();
 });
 it('merges consumer page diagnostics into the only Apply gate', async () => {
@@ -261,16 +263,62 @@ it.each([['reference', true], ['reference', false], ['unsupported', true], ['uns
   expect(send).not.toHaveBeenCalled();
 });
 
-it('reserves a full period row and date-time input widths, and uses product membership copy', async () => {
+it('keeps named compact field groups and content-sized native date-time inputs, and uses product membership copy', async () => {
   mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
-  expect(screen.getByRole('group', { name: '기간' })).toHaveClass('basis-full');
-  expect(screen.getByLabelText('시작 시각')).toHaveClass('min-w-64');
-  expect(screen.getByLabelText('종료 시각 (제외)')).toHaveClass('min-w-64');
+  expect(screen.getByRole('group', { name: '기간과 Scope' }).tagName).toBe('DIV');
+  expect(screen.getByRole('group', { name: '설비 조건' }).tagName).toBe('DIV');
+  expect(screen.getByRole('group', { name: '기간' })).not.toHaveClass('basis-full', 'flex-1');
+  for (const name of ['시작 시각', '종료 시각 (제외)']) {
+    expect(screen.getByLabelText(name)).toHaveAttribute('type', 'datetime-local');
+    expect(screen.getByLabelText(name)).not.toHaveClass('flex-1');
+  }
   expect(screen.getByText('설비 조건이나 PRC 그룹을 선택하고 소속 이력을 확인하세요.')).toBeTruthy();
   expect(screen.getByRole('region', { name: '조회 조건' }).textContent).not.toMatch(/Condition|축|Draft/);
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
   expect(screen.getByRole('region', { name: '조회 조건' })).toHaveClass('sticky', 'top-[50px]');
+});
+it('keeps membership single-choice, explains the disabled history option and changes only the draft', async () => {
+  const user = userEvent.setup();
+  const push = mount();
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  const membership = screen.getByRole('radiogroup', { name: '소속 기준' });
+  const current = within(membership).getByRole('radio', { name: '지금 소속' });
+  const historical = within(membership).getByRole('radio', { name: /그 시점 소속/ });
+  expect(current).toBeChecked();
+  expect(historical).toBeDisabled();
+  expect(historical).toHaveAccessibleDescription('설비 조건이나 PRC 그룹을 선택하고 소속 이력을 확인하세요.');
+  fireEvent.click(historical);
+  expect(draft.draft.global.membershipBasis).toBeNull();
+  await user.click(current);
+  await user.keyboard('{ArrowRight}');
+  expect(current).toHaveFocus();
+  expect(current).toBeChecked();
+  act(() => draft.setDraftGlobal({ condition: { vendor: ['V1'] } }));
+  expect(historical).toBeEnabled();
+  await user.keyboard('{ArrowRight}');
+  await waitFor(() => expect(historical).toBeChecked());
+  expect(historical).toHaveFocus();
+  expect(current).not.toBeChecked();
+  expect(draft.draft.global.membershipBasis).toBe('asOf');
+  await user.keyboard('{ArrowLeft}');
+  await waitFor(() => expect(current).toBeChecked());
+  expect(draft.draft.global.membershipBasis).toBeNull();
+  expect(push).not.toHaveBeenCalled();
+  expect(send).not.toHaveBeenCalled();
+  fireEvent.keyDown(current, { key: 'Escape' });
+  expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toHaveFocus();
+});
+it('keeps Apply last after history and saved-view actions when expanded and collapsed', async () => {
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })}>
+    <QueryBar historySlot={<button>History fixture</button>} viewSlot={<button>View fixture</button>} />
+  </PlatformProvider></I18nProvider>);
+  const names = () => within(screen.getByRole('group', { name: '조회 조건 동작' })).getAllByRole('button').map(button => button.textContent);
+  await waitFor(() => expect(names()).toEqual(['초안 되돌리기', '조건 초기화', 'History fixture', 'View fixture', '적용']));
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
+  expect(names()).toEqual(['초안 되돌리기', '조건 초기화', 'History fixture', 'View fixture', '적용']);
 });
 it('asks the equipment port once for a typed search, after typing pauses, not per key (#823)', async () => {
   const searchEquipment = vi.fn(async () => ({ outcome: 'ok' as const, data: { items: [], nextCursor: null }, assessments: [], trust: null, correlationId: 'test' }));

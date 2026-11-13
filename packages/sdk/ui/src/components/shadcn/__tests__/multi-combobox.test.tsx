@@ -42,6 +42,14 @@ describe('MultiCombobox', () => {
     expect(screen.getByRole('button', { name: 'Reset items' })).toBeDisabled();
   });
 
+  it('keeps the 40px default and gives the opt-in compact density the 32px toolbar height (#1939)', () => {
+    const { rerender } = render(<Harness />);
+    const field = () => screen.getByRole('button', { name: 'Items' }).closest('div[class*="min-h-"]')!;
+    expect(field().className).toContain('min-h-10');
+    expect(field().className).not.toContain('min-h-8');
+    rerender(<Harness density="compact" />);
+    expect(field().className).toContain('min-h-8');
+  });
   it.each(['label', 'aria-labelledby'] as const)('names the dialog with %s and keeps both opening controls aligned across views', naming => {
     const accessibleName = naming === 'label' ? 'Items' : 'External items';
     const namingProps = naming === 'label' ? { label: 'Items' } : { 'aria-labelledby': 'external-items' };

@@ -752,6 +752,20 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     if (await expand.count()) await expand.click();
     return bar;
   }
+  test('펼친 조회 조건에서도 첫 차트는 y=600 위에서 시작하고 적용은 마지막 동작이다 (#1939)', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.addInitScript(() => localStorage.removeItem('platform:query-bar-collapsed:cycle-time'));
+    await page.goto(`/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
+    await expectScopeValid(page, 'MEM · 메모리');
+    const bar = await expandQuery(page);
+    await expect(bar.getByRole('button', { name: '조회 조건 접기' })).toHaveAttribute('aria-expanded', 'true');
+    const canvas = page.getByRole('region', { name: '사이클타임 추세' }).locator('canvas').first();
+    await expect(canvas).toBeVisible();
+    // Read geometry without scrolling the chart into view: scrolling could hide a tall editor regression.
+    await expect.poll(async () => (await canvas.boundingBox())?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(600);
+    await expect(bar.getByRole('group', { name: '조회 조건 동작' }).getByRole('button').last()).toHaveAccessibleName('적용');
+    await evidence(page, testInfo, 'query-bar-expanded-compact');
+  });
   test('bare URL은 조회 전이며 편집·Enter는 주소를 바꾸지 않고 적용 후 완료를 표시한다', async ({ page }, testInfo) => {
     await page.goto('/mars/cycle-time?scopeId=MEM');
     await expectScopeValid(page, 'MEM · 메모리');
