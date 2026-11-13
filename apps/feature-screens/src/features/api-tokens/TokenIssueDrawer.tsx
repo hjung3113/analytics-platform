@@ -14,9 +14,11 @@ import { issueApiToken } from '@/lib/api/api-tokens';
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { ApiError } from '@/lib/api/types';
 import { API_TOKEN_COPY as COPY } from '@/lib/copy/api-tokens';
+import { draftRecord, draftString, draftStrings, useSessionDraft } from '@/lib/session-draft/useSessionDraft';
 import type { ApiTokenDrawerParts } from './ApiTokensScreen';
 
 type Field = { path: string; message: string };
+const EXPIRY_CHOICES = ['30', '90', 'custom', 'never'] as const;
 function validationFields(error: unknown): Field[] {
   if (!(error instanceof ApiError) || error.code !== 'validation.failed' || !Array.isArray(error.detail?.fields)) return [];
   return error.detail.fields.flatMap((field: unknown) => {
@@ -36,7 +38,8 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
   const formId = useId();
   const groups = tokenSelectionGroups(service);
   const [name, setName] = useState('');
-  const [selected, setSelected] = useState<string[]>(() => [...(bundles.find(bundle => bundle.id === 'read')?.capabilities ?? [])]);
+  const [initialScopes] = useState<string[]>(() => [...(bundles.find(bundle => bundle.id === 'read')?.capabilities ?? [])]);
+  const [selected, setSelected] = useState<string[]>(initialScopes);
   const [actorId, setActorId] = useState('');
   const [expiry, setExpiry] = useState('90');
   const [date, setDate] = useState('');
@@ -49,7 +52,24 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
   const [copyMessage, setCopyMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Field[]>([]);
-  function requestClose() { if (pending) return; if (secret) setCloseConfirm(true); else onClose(); }
+  // Kept across a session expiry (#1887): only the typed name, the chosen scopes and expiry. The issued token value is never kept,
+  // and once it is shown there is nothing to keep (the system Actor choice is not kept either).
+  const { discard: discardDraft } = useSessionDraft({
+    key: `api-token-issue:${service ? 'service' : 'personal'}`,
+    read: () => secret !== null || (name === '' && expiry === '90' && date === '' && selected.join('\n') === initialScopes.join('\n'))
+      ? null
+      : { name, scopes: selected, expiry, date },
+    parse: value => {
+      const record = draftRecord(value);
+      if (record === null) return null;
+      const restoredExpiry = EXPIRY_CHOICES.find(choice => choice === draftString(record, 'expiry'));
+      const scopes = draftStrings(record, 'scopes');
+      const restoredName = draftString(record, 'name');
+      return restoredExpiry === undefined || scopes === null || restoredName === null ? null : { name: restoredName, scopes, expiry: restoredExpiry, date: draftString(record, 'date') ?? '' };
+    },
+    restore: draft => { setName(draft.name); setSelected(draft.scopes); setExpiry(draft.expiry); setDate(draft.date); },
+  });
+  function requestClose() { if (pending) return; if (secret) setCloseConfirm(true); else { discardDraft(); onClose(); } }
   function closeSecret() { setSecret(null); setCopyMessage(''); setCloseConfirm(false); onClose(); }
   async function copySecret() {
     if (!secret) return;
@@ -73,6 +93,7 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
     try {
       const result = await issueApiToken(service, { name: name.trim(), scopes: selected, expiresAt, ...(service ? { actorId } : {}) });
       setSecret(result.token);
+      discardDraft();
       // Only list metadata is invalidated. Never hand the issued response to a query/mutation cache or a toast.
       void onIssued();
     } catch (cause) { setError(mapUnknownError(cause).message); setFields(validationFields(cause)); }

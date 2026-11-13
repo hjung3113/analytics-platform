@@ -10,11 +10,12 @@ import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
 import { useHostNavigate, useHostNotice, useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
+import { draftRecord, draftString, useSessionDraft } from '@/lib/session-draft/useSessionDraft';
 import type { TaskRequestDto } from '@ap/feature-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 
-import type { DecisionDialogState } from './TaskRequestDecisionDialog';
+import type { DecisionAction, DecisionDialogState } from './TaskRequestDecisionDialog';
 import {
   canApproveTaskRequest,
   canRejectTaskRequest,
@@ -74,6 +75,24 @@ export function useTaskRequestDecision({
     decisionSubmittingRef.current = false;
   }, [item]);
 
+  // The open decision and its typed reason are kept across a session expiry (#1887) and reopen for the same request.
+  const { discard: discardDraft } = useSessionDraft({
+    key: `task-request-decision:${item.id}`,
+    read: () =>
+      decisionDialog !== null && decisionDialog.requestId === item.id && decisionDialog.value !== ''
+        ? { action: decisionDialog.action, value: decisionDialog.value }
+        : null,
+    parse: (value) => {
+      const record = draftRecord(value);
+      const action = record === null ? null : draftString(record, 'action');
+      const text = record === null ? null : draftString(record, 'value');
+      const decision: DecisionAction | null =
+        action === 'approve' || action === 'request-more-evidence' || action === 'reject' ? action : null;
+      return text !== null && decision !== null ? { action: decision, value: text } : null;
+    },
+    restore: (draft) => setDecisionDialog({ requestId: item.id, action: draft.action, value: draft.value, error: null }),
+  });
+
   const selfApprovalCheck = useQuery({
     queryKey: ['permission-check', 'task_request.self_approve', item.primary_managed_system_id],
     queryFn: ({ signal }) =>
@@ -108,6 +127,7 @@ export function useTaskRequestDecision({
       decisionSubmittingRef.current = false;
       setIsDecisionSubmitting(false);
       setDecisionDialog(null);
+      discardDraft();
       invalidateNavCounts(queryClient);
       void queryClient.invalidateQueries({ queryKey: ['task-requests'] });
       void queryClient.invalidateQueries({ queryKey: ['task-request'] });
@@ -201,7 +221,9 @@ export function useTaskRequestDecision({
   }
 
   function close(): void {
-    if (!decisionSubmittingRef.current) setDecisionDialog(null);
+    if (decisionSubmittingRef.current) return;
+    setDecisionDialog(null);
+    discardDraft();
   }
 
   return {

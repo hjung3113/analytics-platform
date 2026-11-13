@@ -70,6 +70,7 @@ export function VocComposeScreen({
     handleSubmit,
     handleAttachmentError,
     notifyError,
+    discardDraft,
   } = useVocComposeController({ initialManagedSystemId, contextBlock, errorReport, onSubmitted, onDirtyChange });
 
   const [title, description, managedSystemId] = form.watch([
@@ -312,7 +313,7 @@ export function VocComposeScreen({
           </span>
         )}
         <div className="flex items-center justify-end gap-3">
-          <Button type="button" variant="subtle" onClick={onCancel} disabled={isSubmitting}>
+          <Button type="button" variant="subtle" onClick={() => { discardDraft(); onCancel(); }} disabled={isSubmitting}>
             취소
           </Button>
           <Button
