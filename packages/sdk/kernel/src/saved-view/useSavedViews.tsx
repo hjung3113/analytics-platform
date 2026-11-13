@@ -186,7 +186,8 @@ export function useSavedViews(): SavedViews {
   useEffect(() => {
     if (!enabled || !support || blocked || loaded?.status !== 'ready') return;
     const arriving = entered.current !== entryGen;
-    if (!arriving && validated.current === gen) return;
+    // A reread in the same generation (after a write, a conflict included) that no longer lists the selected view readably drops its id, as a revalidation does.
+    if (!arriving && validated.current === gen) { if (selectedId !== null && selected === null) clearSelection(); return; }
     entered.current = entryGen;
     validated.current = gen;
     // Revalidated in the same screen: a selection the store no longer allows is dropped, an edited one stays.

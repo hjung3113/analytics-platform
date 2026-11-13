@@ -163,9 +163,14 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   // Conditions the screen was opened with (or that a cleared selection left) are not the user's edit: with no view, only a change after that point is worth a confirmation.
   const appliedNow = useMemo(() => JSON.stringify(captureApplied({ global: host.global, page: host.page }, support)), [host.global, host.page, support]);
   const selectedId = selected?.view.id ?? null;
-  const [baseline, setBaseline] = useState({ id: selectedId, key: appliedNow });
-  if (baseline.id !== selectedId) setBaseline({ id: selectedId, key: appliedNow });
-  const discards = modified || unapplied || (unsaved && appliedNow !== baseline.key);
+  // An edited view that a reread no longer lists readably (deleted elsewhere, access revoked) leaves the edit the user's own: `kept` holds it dirty until the selection changes (#2046).
+  // A selection cleared while the view is still listed (address arrival, a failed pick, the user's own delete) starts clean as before.
+  const [baseline, setBaseline] = useState({ id: selectedId, key: appliedNow, edited: modified, kept: false });
+  if (baseline.id !== selectedId) {
+    const lost = selectedId === null && baseline.id !== null && baseline.edited && !entriesOf(items).some(entry => entry.view.id === baseline.id);
+    setBaseline({ id: selectedId, key: appliedNow, edited: modified, kept: lost });
+  } else if (selectedId !== null && baseline.edited !== modified) setBaseline({ ...baseline, edited: modified });
+  const discards = modified || unapplied || (unsaved && (baseline.kept || appliedNow !== baseline.key));
   const updatable = selected?.capabilities.canEdit ? { name: selected.view.name, unit: selected.view.kind } : undefined;
 
   // A save holds the applied conditions only; with an unapplied draft the user is told the draft is lost, and cancelling saves nothing.
@@ -222,7 +227,9 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
         let now: SavedViewListItem | null;
         try { now = await store.get(id); } catch { now = null; }
         if (!alive.current) return false;
-        if (!now || now.denied || created.current?.id !== id) return refused('conflict', true);
+        // The conflict text says the latest version was loaded: a denied reread says so, a failed or missing one is unavailable.
+        if (now?.denied) return refused('forbidden', true);
+        if (!now || created.current?.id !== id) return refused('unavailable', true);
         created.current = { id, version: now.view.version };
         if (!shareApplied(now.view, draft.mode === 'official', visibility)) return refused('conflict', true);
       }
