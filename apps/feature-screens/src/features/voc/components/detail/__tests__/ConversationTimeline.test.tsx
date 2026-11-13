@@ -114,7 +114,7 @@ function renderTimeline(
   vi.mocked(useVocConversation).mockReturnValue(
     pages
       ? makeConversationQuery({
-          data: { pages: pages.map((items) => ({ items, has_more: false })) },
+          data: { pages: pages.map((items) => ({ items, page: { has_more: false } })) },
         })
       : makeConversationQuery({ data: undefined, isPending: true }),
   );
@@ -336,4 +336,37 @@ describe('deduplicated timeline rendering', () => {
       expect(ids).toHaveLength(3);
     },
   );
+
+  it.each([
+    ['Public', PublicTimeline, publicInline],
+    ['Internal', InternalTimeline, internalInline],
+  ] as const)(
+    '%s timeline shows a load-error line and retries the query',
+    (_, Component, inline) => {
+      const refetch = vi.fn(async () => makeConversationQuery());
+      vi.mocked(useVocConversation).mockReturnValue(
+        makeConversationQuery({
+          data: undefined,
+          isError: true,
+          isSuccess: false,
+          status: 'error',
+          refetch,
+        } as never),
+      );
+      const { container } = render(
+        <Component vocId="voc-timeline" inline={inline} hasMore={false} />,
+        { wrapper: makeWrapper() },
+      );
+
+      expect(screen.getByRole('alert')).toHaveTextContent('대화를 불러오지 못했습니다.');
+      expect(renderedIds(container)).toHaveLength(inline.length);
+      fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+      expect(refetch).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not show the load-error line when the query succeeds', () => {
+    renderTimeline(PublicTimeline, publicInline, [[]]);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });

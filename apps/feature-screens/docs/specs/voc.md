@@ -554,7 +554,7 @@ Endpoint contracts (request and response bodies, error codes, permissions, audit
 |---|---|
 | `POST /vocs` | `docs/architecture/platform-api/api/voc.md` → VOC Create And Conversation Contract |
 | `GET /vocs` | `docs/architecture/platform-api/api/voc.md` → VOC (endpoint list); query schema `packages/feature-shared/src/vocs/list-query.ts` |
-| `GET /vocs/:id`, `GET /vocs/:id/conversation` | `docs/architecture/platform-api/api/voc.md` → VOC (endpoint list); response schema `packages/feature-shared/src/vocs/detail.ts` |
+| `GET /vocs/:id`, `GET /vocs/:id/conversation` | `docs/architecture/platform-api/api/voc.md` → VOC (endpoint list); response schemas `packages/feature-shared/src/vocs/detail.ts` and `conversation.ts` (`conversationPageSchema`) |
 | `PATCH /vocs/:id` | `docs/architecture/platform-api/api/voc.md` → VOC (endpoint list); request schema `packages/feature-shared/src/vocs/patch-request.ts`; `If-Match` rule in `docs/architecture/platform-api/03-api-contracts.md` |
 | `POST /vocs/:id/public-updates`, `POST /vocs/:id/reporter-replies`, `POST /vocs/:id/internal-comments` | `docs/architecture/platform-api/api/voc.md` → VOC Create And Conversation Contract (VOC conversation endpoints) |
 
@@ -564,7 +564,7 @@ Endpoint contracts (request and response bodies, error codes, permissions, audit
 - **Query key shape.** `GET /vocs` uses `['vocs', view, managedSystemId, tab, q, filters, sort, cursor, pinVocId]`; `limit`, when supplied, is inserted immediately before `pinVocId` so different page sizes cannot share cached or retained pages. `pinVocId` is part of the key so two deep links differing only by target cannot share a cached queue.
 - **Triage deep link.** The detail panel's `트리아지에서 변경` link opens `/vocs?view=triage&selected=:vocId`; `TriageRoute` forwards `selected` to `GET /vocs` as `pin_voc_id` (#383), which unions that one in-scope VOC into the triage queue even though the triage predicate excludes it. An out-of-scope or unknown id is dropped silently with 200; the missing-target notice (`요청한 VOC를 이 대기열에서 찾을 수 없습니다.`) is suppressed until the queue request settles (#922) — an uncached deep link mounts with a pending queue and empty items, which is not yet evidence the target is missing.
 - **`out_of_scope_summary`.** `GET /vocs` may return `out_of_scope_summary: { count, severity_distribution }`; it powers the Triage `<PermissionBlockedPanel state="summary_visible">` peek banner.
-- **Conversation pagination.** The conversation infinite-query hook issues its first `GET /vocs/:id/conversation` without a `cursor`; later pages carry the cursor returned by the previous page.
+- **Conversation pagination.** The conversation infinite-query hook issues its first `GET /vocs/:id/conversation` without a `cursor`; later pages carry `page.cursor` returned by the previous page, and `page.has_more` ends the paging. The response is `{ items, page: { cursor?, has_more } }`, parsed with `conversationPageSchema`. A failed load shows a retry line in the public and internal timelines.
 
 ### 8.2 Headers, rate limit, error rendering
 

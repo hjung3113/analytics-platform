@@ -63,6 +63,15 @@ export function PublicTimeline({
         </div>
       )}
 
+      {query.isError && (
+        <div role="alert" className="flex items-center justify-center gap-2 py-2 text-sm text-text-muted">
+          <span>대화를 불러오지 못했습니다.</span>
+          <Button type="button" variant="ghost" size="sm" onClick={() => void query.refetch()}>
+            다시 시도
+          </Button>
+        </div>
+      )}
+
       {entries.length === 0 ? (
         <EmptyState size="sm" title="아직 대화가 없습니다." />
       ) : (
