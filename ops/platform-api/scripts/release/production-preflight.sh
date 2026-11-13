@@ -235,14 +235,36 @@ if [ -n "$(val_of MENU_DECLARATIONS_FILE)" ]; then
   key_dir="$(host_dir MENU_KEY_DIR ./menu-assembly)"
   menu_file_ok MENU_DECLARATIONS_FILE /menu-assembly "$assembly_dir" || true
   menu_file_ok MENU_DECLARATIONS_SNAPSHOT_FILE /menu-assembly "$assembly_dir" || true
-  if menu_file_ok MENU_IDENTITY_KEY_FILE /menu-identity "$key_dir"; then
-    key_path="$key_dir/$(val_of MENU_IDENTITY_KEY_FILE | sed 's|^/menu-identity/||')"
-    perm="$(stat -c '%a' "$key_path" 2>/dev/null || stat -f '%Lp' "$key_path" 2>/dev/null || echo 0)"
-    case "$perm" in
-      *[0-9]) [ "$(( 8#${perm: -1} & 4 ))" -eq 0 ] || fail "MENU_IDENTITY_KEY_FILE is world-readable (mode $perm): chmod 600" ;;
-    esac
+  # The identity key is needed only for a bundle with an envelope destination; the backend refuses to boot when that
+  # case lacks it (menu-declarations.ts). A bundle of mapped connectors only is legal without one, so check the key
+  # only when it is supplied, and a key file always together with its id.
+  if [ -n "$(val_of MENU_IDENTITY_KEY_FILE)" ]; then
+    if menu_file_ok MENU_IDENTITY_KEY_FILE /menu-identity "$key_dir"; then
+      key_path="$key_dir/$(val_of MENU_IDENTITY_KEY_FILE | sed 's|^/menu-identity/||')"
+      perm="$(stat -c '%a' "$key_path" 2>/dev/null || stat -f '%Lp' "$key_path" 2>/dev/null || echo 0)"
+      case "$perm" in
+        *[0-9]) [ "$(( 8#${perm: -1} & 4 ))" -eq 0 ] || fail "MENU_IDENTITY_KEY_FILE is world-readable (mode $perm): chmod 600" ;;
+      esac
+      # The backend reads the mount as its image user (USER node, uid/gid 1000 in the node image; compose sets no user:
+      # for backend). Operator readability proves nothing: check the file and its directory for that uid/gid.
+      ruid="$(val_of MENU_RUNTIME_UID)"; [ -n "$ruid" ] || ruid=1000
+      rgid="$(val_of MENU_RUNTIME_GID)"; [ -n "$rgid" ] || rgid=1000
+      reader_can() { # path, bit (4 read, 1 traverse)
+        local info u g m
+        info="$(stat -c '%u %g %a' "$1" 2>/dev/null || stat -f '%u %g %Lp' "$1" 2>/dev/null || echo '')"
+        [ -n "$info" ] || return 0 # cannot inspect: do not guess
+        read -r u g m <<<"$info"
+        if [ "$u" = "$ruid" ]; then [ "$(( 8#${m: -3:1} & $2 ))" -ne 0 ]
+        elif [ "$g" = "$rgid" ]; then [ "$(( 8#${m: -2:1} & $2 ))" -ne 0 ]
+        else [ "$(( 8#${m: -1} & $2 ))" -ne 0 ]
+        fi
+      }
+      if ! reader_can "$key_path" 4 || ! reader_can "$key_dir" 1; then
+        fail "MENU_IDENTITY_KEY_FILE is not readable by the backend user (uid $ruid gid $rgid): chown -R $ruid:$rgid '$key_dir' && chmod 0700 '$key_dir' && chmod 0600 '$key_path' (set MENU_RUNTIME_UID/MENU_RUNTIME_GID if the backend runs as another user)"
+      fi
+    fi
+    [ -n "$(val_of MENU_IDENTITY_KEY_ID)" ] || fail "MENU_IDENTITY_KEY_ID is required when MENU_IDENTITY_KEY_FILE is set"
   fi
-  [ -n "$(val_of MENU_IDENTITY_KEY_ID)" ] || fail "MENU_IDENTITY_KEY_ID is required when MENU_DECLARATIONS_FILE is set"
   systems="$(val_of PLATFORM_SYSTEMS_FILE)"
   case "$systems" in
     /menu-assembly/*) menu_file_ok PLATFORM_SYSTEMS_FILE /menu-assembly "$assembly_dir" || true ;;

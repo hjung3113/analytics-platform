@@ -127,12 +127,12 @@ Admin이 되어도 **Scope가 필요한 분석 메뉴는 열리지 않습니다.
 
 기본 비활성입니다. 저장소 밖에서 만든 메뉴 조립(선언 묶음·스냅샷·데이터 서버 연결)을 운영 스택에 붙입니다. 운영 compose 원본이 이미 `MENU_*`를 비어 있는 기본값으로 backend에 넘기고 읽기 전용 마운트 둘을 갖고 있으므로, `.env.production`만 채우면 됩니다. `upgrade.sh`·백업 스크립트는 compose 파일 하나만 읽기 때문에 override 파일 대신 원본에 둔 것입니다.
 
-1. 호스트에 디렉터리 둘을 만듭니다. 선언 묶음(`menu-declarations.json`), 앱 빌드가 쓴 `menu-declarations.snapshot.json`, 교체할 `platform-systems.json`(선택)은 `MENU_ASSEMBLY_DIR`에, 전달기 신원 키는 `MENU_KEY_DIR`에 둡니다. 키 파일은 모드 0600입니다.
+1. 호스트에 디렉터리 둘을 만듭니다. 선언 묶음(`menu-declarations.json`), 앱 빌드가 쓴 `menu-declarations.snapshot.json`, 교체할 `platform-systems.json`(선택)은 `MENU_ASSEMBLY_DIR`에, 전달기 신원 키는 `MENU_KEY_DIR`에 둡니다. 신원 키는 묶음에 envelope 목적지가 있을 때만 필요합니다(연결기만 쓰는 묶음은 키 없이 올라갑니다). 키 파일은 backend 컨테이너의 실행 사용자(이미지의 `USER node`, 보통 uid/gid 1000)가 읽어야 합니다. 마운트는 호스트의 소유자·모드를 그대로 가져가므로 `chown -R 1000:1000 "$MENU_KEY_DIR" && chmod 0700 "$MENU_KEY_DIR" && chmod 0600 "$MENU_KEY_DIR"/<키 파일>`처럼 맞춥니다. 운영자 계정으로 읽힌다고 컨테이너에서 읽히는 것은 아닙니다(root 소유 0600이면 읽지 못합니다). 다른 uid로 실행하면 `.env.production`에 `MENU_RUNTIME_UID`·`MENU_RUNTIME_GID`를 적어 preflight가 그 사용자로 검사하게 합니다.
 2. `.env.production`에 [`.env.production.example`](../../.env.production.example)의 `MENU_*` 항목을 채웁니다. 파일 경로는 컨테이너 안 경로입니다(`/menu-assembly/…`, `/menu-identity/…`). 교체 업무 시스템 파일은 `PLATFORM_SYSTEMS_FILE=/menu-assembly/platform-systems.json`.
-3. `scripts/release/production-preflight.sh .env.production`이 묶음·스냅샷·키 파일이 호스트에 있고 읽히는지, 키가 world-readable이 아닌지, 키 id가 있는지 봅니다. 없으면 실패합니다. 서버는 묶음이 있는데 키 파일이 없으면 기동하지 않습니다(fail closed).
-4. `docker compose --env-file .env.production -f docker-compose.production.yml up -d`(또는 `restart backend`).
+3. `scripts/release/production-preflight.sh .env.production`이 묶음·스냅샷이 호스트에 있고 읽히는지 봅니다. `MENU_IDENTITY_KEY_FILE`을 적었다면 그 파일이 있는지, world-readable이 아닌지, backend 실행 사용자가 읽을 수 있는지, 키 id가 함께 있는지도 봅니다. 키가 필요한지(envelope 목적지가 있는지)는 서버가 묶음을 읽고 판단하며, 필요한데 없으면 기동하지 않습니다(fail closed).
+4. `docker compose --env-file .env.production -f docker-compose.production.yml up -d`로 backend를 다시 만듭니다. `restart backend`는 컨테이너를 만들 때의 환경 변수와 마운트를 그대로 쓰므로 `.env.production`을 고친 뒤에는 반영되지 않습니다. 같은 설정에서 마운트된 파일 내용만 바꿨을 때만 `restart backend`로 다시 읽힙니다.
 
-`MENU_DECLARATIONS_FILE`을 비우면 위 검사와 마운트 내용은 모두 꺼지고 배포는 이전과 같습니다. `docker compose config`에는 키 경로·URL이 나오므로 [주의](#주의)대로 붙이지 않습니다.
+`MENU_DECLARATIONS_FILE`을 비우면 서버의 조립 처리와 위 preflight 검사만 꺼집니다. 두 마운트는 compose에 그대로 남아 있어(비운 경우 빈 `menu-assembly/`) 디렉터리 내용은 backend에서 읽을 수 있는 상태이므로, 키를 쓰지 않는다면 `MENU_KEY_DIR`을 키가 없는 디렉터리로 두세요. `docker compose config`에는 키 경로·URL이 나오므로 [주의](#주의)대로 붙이지 않습니다.
 
 ### 이미 빌드한 web dist로 edge 이미지 만들기
 

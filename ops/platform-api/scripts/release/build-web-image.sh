@@ -9,6 +9,7 @@
 # Both forms use the same apps/platform-web/Dockerfile and ops/platform-api/edge/nginx.conf. The dist must hold index.html.
 set -Eeuo pipefail
 
+caller_dir="$PWD" # a relative --dist is the caller's path: resolve it before the cd below
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$repo_root"
 
@@ -35,6 +36,7 @@ if [ -z "$dist" ]; then
   exit 0
 fi
 
+case "$dist" in /*) ;; *) dist="$caller_dir/$dist" ;; esac
 [ -d "$dist" ] || { echo "build-web-image: --dist $dist is not a directory" >&2; exit 1; }
 test -s "$dist/index.html" || { echo "build-web-image: $dist/index.html is missing or empty" >&2; exit 1; }
 # A temporary build context holds only what the Dockerfile copies, so the prebuilt dist never has to sit inside this checkout.

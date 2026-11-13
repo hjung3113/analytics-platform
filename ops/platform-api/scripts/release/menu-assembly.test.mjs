@@ -60,6 +60,11 @@ const MENU = {
   MENU_RESOLVER_TIMEOUT_MS: '2500',
   MENU_UPSTREAM_TIMEOUT_MS: '20000',
 };
+// Preflight checks the key for the backend's uid/gid; these synthetic files belong to the test process.
+const RUNTIME = {
+  MENU_RUNTIME_UID: String(process.getuid()),
+  MENU_RUNTIME_GID: String(process.getgid()),
+};
 
 let n = 0;
 function envFile(env) {
@@ -74,7 +79,7 @@ function envFile(env) {
   return file;
 }
 function preflight(overrides = {}) {
-  const r = spawnSync('bash', [PREFLIGHT, envFile({ ...BASE, ...overrides })], {
+  const r = spawnSync('bash', [PREFLIGHT, envFile({ ...BASE, ...RUNTIME, ...overrides })], {
     encoding: 'utf8',
   });
   return { code: r.status, out: r.stdout };
@@ -99,6 +104,34 @@ test('preflight: a missing identity key file is refused with a clear message', (
   assert.match(r.out, /not found|not readable/);
 });
 
+test('preflight: a keyless connector-only bundle passes without identity key, key id or upstream URL', () => {
+  const r = preflight({
+    ...MENU,
+    MENU_KEY_DIR: undefined,
+    MENU_IDENTITY_KEY_FILE: undefined,
+    MENU_IDENTITY_KEY_ID: undefined,
+    MENU_UPSTREAM_BASE_URL: undefined,
+  });
+  assert.equal(r.code, 0, r.out);
+});
+
+test('preflight: a supplied identity key file without a key id is refused', () => {
+  const r = preflight({ ...MENU, MENU_IDENTITY_KEY_ID: undefined });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /MENU_IDENTITY_KEY_ID is required when MENU_IDENTITY_KEY_FILE is set/);
+});
+
+test('preflight: a key the backend user cannot read (other owner, 0600) is refused with the chown to apply', () => {
+  const r = preflight({
+    ...MENU,
+    MENU_RUNTIME_UID: String(process.getuid() + 1),
+    MENU_RUNTIME_GID: String(process.getgid() + 1),
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /not readable by the backend user/);
+  assert.match(r.out, /chown -R \d+:\d+/);
+});
+
 test('preflight: a missing declaration bundle or snapshot is refused', () => {
   const emptyDir = join(dir, 'empty');
   mkdirSync(emptyDir, { recursive: true });
@@ -118,10 +151,7 @@ test('preflight: a world-readable identity key is refused', () => {
   assert.match(r.out, /world-readable/);
 });
 
-test('preflight: bundle without a key id, or with a path outside the mounts, is refused', () => {
-  const noId = preflight({ ...MENU, MENU_IDENTITY_KEY_ID: undefined });
-  assert.equal(noId.code, 1, noId.out);
-  assert.match(noId.out, /MENU_IDENTITY_KEY_ID/);
+test('preflight: a path outside the mounts is refused', () => {
   const outside = preflight({ ...MENU, MENU_DECLARATIONS_FILE: '/etc/passwd' });
   assert.equal(outside.code, 1, outside.out);
   assert.match(outside.out, /MENU_DECLARATIONS_FILE must be under \/menu-assembly\//);
@@ -210,6 +240,20 @@ test('build-web-image.sh --dist packages a prebuilt dist with the same Dockerfil
   assert.match(calls, /-t platform-release-web:v0\.36\.0/);
   // pnpm must not run on the prebuilt path (the stub PATH would not stop it, so check the output).
   assert.doesNotMatch(r.stdout + r.stderr, /build:real-prod/);
+});
+
+test('build-web-image.sh --dist resolves a relative path from the caller cwd, spaces included', () => {
+  const caller = join(dir, 'caller cwd');
+  mkdirSync(join(caller, 'rel dist'), { recursive: true });
+  writeFileSync(join(caller, 'rel dist', 'index.html'), '<html></html>');
+  const { bin, log } = stubDocker();
+  const r = spawnSync('bash', [BUILD_WEB, '--dist', 'rel dist', '--tag', 'rel'], {
+    cwd: caller,
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(readFileSync(log, 'utf8'), /-t platform-release-web:rel/);
 });
 
 test('build-web-image.sh --dist refuses a directory without index.html and builds nothing', () => {
