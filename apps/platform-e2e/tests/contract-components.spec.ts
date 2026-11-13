@@ -817,7 +817,7 @@ test.describe('페이지 머리 접기 (#680)', () => {
       if (sessionStorage.getItem('platform:e2e-head-reset')) return;
       localStorage.removeItem('platform:page-head-collapsed:cycle-time');
       localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
-      localStorage.removeItem('platform:query-bar-collapsed:cycle-time');
+      localStorage.setItem('platform:query-bar-collapsed:cycle-time', 'false'); // an applied address starts collapsed without a stored choice (#1892); these specs measure the open bar
       sessionStorage.setItem('platform:e2e-head-reset', '1');
     });
   });

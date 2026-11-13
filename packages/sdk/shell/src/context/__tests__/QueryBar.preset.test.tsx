@@ -32,7 +32,7 @@ function mount(query: string, withPresets = true) {
   const session = testSession(['platform:view']);
   return render(<I18nProvider><PlatformProvider registry={registryOf(withPresets)} equipmentAxes={axes} adapter={testAdapter({ session: () => session, menuQuery: send as never })}><Probe /><GlobalContextBar /></PlatformProvider></I18nProvider>);
 }
-beforeEach(() => { send.mockClear(); vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); });
+beforeEach(() => { send.mockClear(); vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); localStorage.setItem('platform:query-bar-collapsed:home', 'false'); /* these tests drive the open editor; the arrival default is pinned in QueryBar.test.tsx (#1892) */ });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 it('shows the switcher first in the equipment fieldset with only the active preset\'s axes, and lists the rest as carried', async () => {

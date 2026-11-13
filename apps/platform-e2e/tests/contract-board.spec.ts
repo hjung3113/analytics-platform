@@ -1019,10 +1019,10 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
   const trendPlot = (page: Page) => page.getByRole('img', { name: /^사이클타임 추세/ });
   const mainScrolls = (page: Page) => page.locator('#platform-main').evaluate(element => element.scrollHeight > element.clientHeight + 1);
 
-  /** The two stored collapse flags are cleared before every load, so the bars start expanded (the default). */
+  /** The page filter and head flags are cleared and the query bar's stored choice is set to open before every load, so the bars start expanded (an applied address would otherwise start collapsed, #1892). */
   async function expandedBarsAtLoad(page: Page) {
     await page.addInitScript(() => {
-      localStorage.removeItem('platform:query-bar-collapsed:cycle-time');
+      localStorage.setItem('platform:query-bar-collapsed:cycle-time', 'false'); // an applied address starts collapsed without a stored choice (#1892); these specs measure the open bar
       localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
       localStorage.removeItem('platform:page-head-collapsed:cycle-time');
     });

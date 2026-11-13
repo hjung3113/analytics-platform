@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
 import { PlatformPage, QueryBarExtensionContext, QueryView, type QueryBarExtension } from '@ap/components';
 import { House } from 'lucide-react';
@@ -307,6 +307,7 @@ it('no server anchor: an explicit period in the address still applies and querie
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   expect(platform.global.from).toBe('2026-01-01T00:00:00');
   expect(platform.global.to).toBe('2026-01-02T00:00:00');
+  fireEvent.click(await screen.findByRole('button', { name: '조회 조건 펼치기' })); // an applied address starts collapsed (#1892)
   expect(screen.getByRole('button', { name: '최근 24시간' })).toBeDisabled();
   expect(screen.getByRole('button', { name: '최근 24시간' })).toHaveAttribute('aria-pressed', 'false');
 });
@@ -380,4 +381,47 @@ it.each([['compact', 'px-4'], ['comfortable', 'px-3']] as const)('%s page: the c
   expect(row.className).not.toContain(inset === 'px-4' ? 'px-3' : 'px-4');
   const content = document.querySelector('[data-platform-page-content]') as HTMLElement;
   if (density === 'compact') expect(content.className).toContain('px-4');
+});
+
+const APPLIED = '&roomNames=PHOTO&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00';
+const bar = () => screen.getByRole('region', { name: '조회 조건' });
+describe('initial disclosure (#1892)', () => {
+  it('starts collapsed when the incoming URL already carries an applied query', async () => {
+    mount(APPLIED);
+    await waitFor(() => expect(bar()).toHaveAttribute('data-query-bar-collapsed'));
+    expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toBeTruthy();
+  });
+  it('starts expanded while required conditions are missing, and stays expanded after validation settles', async () => {
+    mount('');
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    expect(bar()).not.toHaveAttribute('data-query-bar-collapsed');
+    expect(screen.getByRole('button', { name: '조회 조건 접기' })).toBeTruthy();
+  });
+  it('opens once validation settles when the address has a period but a required condition is missing', async () => {
+    mount('&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00');
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    await waitFor(() => expect(bar()).not.toHaveAttribute('data-query-bar-collapsed'));
+  });
+  it('draws an applied address collapsed on the first commit, with no open-then-fold flash', () => {
+    mount(APPLIED);
+    expect(bar()).toHaveAttribute('data-query-bar-collapsed');
+  });
+  it('lets a stored expanded choice win over an applied URL, and a stored collapsed choice over a bare one', async () => {
+    localStorage.setItem('platform:query-bar-collapsed:home', 'false');
+    mount(APPLIED);
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    expect(bar()).not.toHaveAttribute('data-query-bar-collapsed');
+    cleanup();
+    localStorage.setItem('platform:query-bar-collapsed:home', 'true');
+    mount('');
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    expect(bar()).toHaveAttribute('data-query-bar-collapsed');
+  });
+  it('keeps the bar open once the user edits, and a toggle is remembered per menu', async () => {
+    mount(APPLIED);
+    await waitFor(() => expect(bar()).toHaveAttribute('data-query-bar-collapsed'));
+    fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+    expect(bar()).not.toHaveAttribute('data-query-bar-collapsed');
+    expect(localStorage.getItem('platform:query-bar-collapsed:home')).toBe('false');
+  });
 });

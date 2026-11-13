@@ -51,10 +51,19 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const focusFirst = useRef(false);
   const board = screenMode === 'pane';
   const preference = `platform:query-bar-collapsed:${route?.menu.id}`;
-  const [expanded, setExpanded] = useState(() => {
+  // `null` = no stored choice yet. Without one, an arrival whose URL already carries an applied query starts collapsed (#1892);
+  // a bar that cannot run yet (required conditions missing) starts expanded. A stored choice always wins.
+  const [choice, setChoice] = useState<boolean | null>(() => {
     if (board) return false;
-    return readLocalStorage(preference, v => v !== 'true', true);
+    return readLocalStorage<boolean | null>(preference, raw => raw === null ? null : raw !== 'true', null);
   });
+  // Until the decision is taken an address with an applied period is drawn collapsed already, so the common deep link has no open-then-fold flash.
+  const expanded = choice ?? !(global.from !== null && global.to !== null);
+  // Scope and metric validation settle after mount, so the arrival decision is taken once they have; an edit seals it as expanded.
+  if (choice === null && (dirty.length > 0 || (platform.queryPolicy.ready && platform.metricInit.phase === 'skip'))) {
+    const applied = global.from !== null && global.to !== null && canApply && missing.length === 0 && dirty.length === 0 && !applying && !platform.queryPolicy.idle;
+    setChoice(!applied);
+  }
   const [editError, setEditError] = useState<string | null>(null);
   const [presetNotice, setPresetNotice] = useState({ id: '', text: '' });
   const conditionPreset = useConditionPreset();
@@ -70,7 +79,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   }, [expanded]);
   const toggle = (open: boolean) => {
     focusFirst.current = open;
-    setExpanded(open);
+    setChoice(open);
     if (!board) writeLocalStorage(preference, String(!open)); // optional preference
     if (!open) disclosure.current?.focus();
   };
