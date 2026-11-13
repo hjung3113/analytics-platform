@@ -4,6 +4,7 @@ import { createBasePathLocation, I18nProvider, type PlatformLocation, type Platf
 import { GlobalContextBar, OpenInBoardAction } from '@ap/shell';
 import { AppRoot } from './app-root';
 import { buildRegistry } from './build-registry';
+import { installStaleChunkNotice } from './stale-chunk-notice';
 import { StartupBoundary, startOrFail } from './startup-failure';
 import type { HostAssembly, StartAppHostOptions } from './types';
 
@@ -12,10 +13,12 @@ import type { HostAssembly, StartAppHostOptions } from './types';
  * `{ redirect }` calls `redirect` once and renders nothing, `{ screen }` renders the node without `PlatformProvider`, an assembly is
  * mounted as `<StrictMode><I18nProvider><AppRoot/></I18nProvider></StrictMode>`. A throw in any step renders `StartupFailure`, and so does a later
  * render throw that no inner boundary contains (`StartupBoundary`, #1876).
+ * It also installs the global stale-chunk notice once (`vite:preloadError`, unhandled chunk-load rejection: a reload button, never an automatic reload, #1981).
  * The Host merges three generic slots (`contextBar`, `boardEntry`, `topBarTools`) under the caller's `slots`.
  */
 export async function startAppHost<A extends HostAssembly = HostAssembly>(options: StartAppHostOptions<A>): Promise<void> {
   const root = createRoot(options.container);
+  installStaleChunkNotice();
   await startOrFail(root, async () => {
     const registry = buildRegistry(options.declarations);
     const outcome = await Promise.resolve(options.createAssembly({ registry }));

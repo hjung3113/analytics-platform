@@ -17,6 +17,7 @@ Unsupported | type | type Unsupported = { key: string; kind: 'context' | 'page';
 ViewState | type | type ViewState = { modified: boolean; unapplied: boolean; unsaved: boolean; }
 captureApplied | function | function captureApplied(applied: Applied, support: SupportedKeys): SavedState
 hasDotSegment | function | function hasDotSegment(pathname: string): boolean
+isChunkLoadFailure | function | function isChunkLoadFailure(error: unknown): boolean
 paneHref | function | function paneHref(registry: @ap/kernel#Registry, screen: @ap/kernel/host#PaneScreen): string
 useAdapterRequest | function | function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled?: boolean): @ap/kernel#RequestState<T>
 useHostPlatform | function | function useHostPlatform(): @ap/kernel/host#HostPlatform

@@ -14,6 +14,7 @@ import { groupOf } from './commands';
 import { DockSeparators, type DockRect } from './DockSeparators';
 import type { DockLayoutProps, DockPanel, DockRows } from './dockTypes';
 import { fromEngineLayout, keepStoredSizes, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
+import { PanelBoundary } from './PanelBoundary';
 import { PageBoundContext, PageFlowContext } from '../pageFlow';
 import { isProgrammaticFocus, programmaticFocus } from './programmaticFocus';
 import { canonicalDockTree, type DockNode } from './schema';
@@ -77,7 +78,7 @@ function PanelHost({ api }: IDockviewPanelProps) {
       if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) engine.onActivate(id);
     }}>
     {/* A panel is a page-flow boundary: a workspace stacked inside it scrolls inside the panel and never changes the page around the dock. */}
-    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><div data-dock-panel-content className="h-full min-w-0 w-full">{panel?.render() ?? null}</div></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
+    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><div data-dock-panel-content className="h-full min-w-0 w-full"><PanelBoundary render={panel?.render} /></div></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
   </div>;
 }
 

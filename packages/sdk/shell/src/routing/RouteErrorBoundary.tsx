@@ -6,7 +6,7 @@ import { Button } from '@ap/ui';
 import { HomeLink } from '../frame/HomeLink';
 import { reloadApp } from '../frame/reload';
 import { useErrorReport } from '../voc/useErrorReport';
-import { isChunkLoadFailure } from './chunkFailure';
+import { isChunkLoadFailure } from '@ap/kernel/host';
 
 type Props = {
   /** Reports the contained error and returns the correlation id to show. */

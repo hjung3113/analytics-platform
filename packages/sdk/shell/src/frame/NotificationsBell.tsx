@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { badgeCountText } from '@ap/components';
 import { PlatformLink, useI18n, usePlatform, type NotificationsSlot } from '@ap/kernel';
 import { Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
+import { ShellBoundary } from './ShellBoundary';
 import { MenuUnread } from './unread';
 
 /**
@@ -49,7 +50,7 @@ export function NotificationsBell({ slot }: { slot: NotificationsSlot }) {
         <h2 id={titleId} className="text-sm font-semibold">{label}</h2>
         <MenuUnread menuId={slot.menuId}>{count => count !== null && count > 0 ? <span className="text-caption text-text-secondary">{t('unreadCount', { count })}</span> : null}</MenuUnread>
       </div>
-      <div className="max-h-[min(480px,70vh)] overflow-y-auto"><slot.Recent /></div>
+      <div className="max-h-[min(480px,70vh)] overflow-y-auto"><ShellBoundary><slot.Recent /></ShellBoundary></div>
       <div className="border-t border-border-subtle px-4 py-2.5 text-sm">
         <PlatformLink via="sidebar" href={linkTo(slot.menuId)} onClick={() => setOpen(false)}
           className="rounded-md px-1.5 py-0.5 font-medium text-accent-primary hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('viewAll')}</PlatformLink>

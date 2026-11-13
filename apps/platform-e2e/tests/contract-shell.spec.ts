@@ -869,6 +869,22 @@ test.describe('화면 오류 격리 (06 §4 전역 Error Boundary)', () => {
     await expect(mainHeading(page)).toHaveText('생산성 개요');
   });
 
+  test('배포 뒤 낡은 셸 조각(알림 팝오버 청크)이 404여도 현재 화면·내비게이션·알림 단추는 남고, 조각 안에서 다시 시도를 보인다 (#1981)', async ({ page }, testInfo) => {
+    await page.route('**/pages/RecentInbox.tsx*', route => route.abort());
+    await page.goto(PRODUCTIVITY);
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    const rail = page.getByRole('navigation', { name: '시스템 레일' });
+    const bell = rail.getByRole('button', { name: /^알림/ });
+    await bell.click();
+    const popover = page.getByRole('dialog', { name: '알림' });
+    await expect(popover.getByRole('button', { name: '다시 시도' })).toBeVisible();
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    await expect(rail).toBeVisible();
+    await expect(page.getByRole('navigation', { name: '주 메뉴' })).toBeVisible();
+    await expect(bell).toBeVisible();
+    await evidence(page, testInfo, 'shell-chunk-failure');
+  });
+
   test('오류 화면의 홈 링크로 다른 메뉴로 벗어난다', async ({ page }) => {
     await page.goto(PRODUCTIVITY);
     await expect(mainHeading(page)).toHaveText('생산성 개요');
