@@ -11,7 +11,7 @@
 //   node .github/scripts/classify-changes.mjs                 reads EVENT, BASE, HEAD (pull_request), BEFORE, SHA (push), FULL_INPUT (dispatch); writes $GITHUB_OUTPUT once
 //   node .github/scripts/classify-changes.mjs --self-test
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +24,8 @@ export const CODE_READS_MD = [
   /^packages\/eqv\/assets\/primitives\/README\.md$/, // eqv core/renderer tests: the token table
   /^packages\/eqv\/fixtures\/[^/]+\/README\.md$/, // eqv core occurrence test
   /^docs\/architecture\/platform-api\/api\/platform-port\.md$/, // platform-port conformance integration test: the method support table
+  /^docs\/architecture\/platform-api\/api\/log-knowledge\.md$/, // platform-api spec-tsv test: the log-knowledge API doc
+  /^docs\/design\/features\/log-knowledge-hub\/design-v0\.6-candidate\.md$/, // platform-api spec-tsv test: the design's TSV section
   /^tooling\/sdk\/fixtures\/out-of-repo-assembly\/kit\/README\.md$/, // sdk-kit test: the README «둘째 메뉴» steps
 ];
 const docsOnly = (file) => DOCS_ONLY.test(file) && !CODE_READS_MD.some((pattern) => pattern.test(file));
@@ -132,6 +134,8 @@ function selfTest() {
   check('pr: eqv primitives README → code=true', pr(['packages/eqv/assets/primitives/README.md']).code, T);
   check('pr: eqv fixture README → code=true', pr(['packages/eqv/fixtures/cluster-single/README.md']).code, T);
   check('pr: platform-port API doc → code=true', pr(['docs/architecture/platform-api/api/platform-port.md']).code, T);
+  check('pr: log-knowledge API doc → code=true', pr(['docs/architecture/platform-api/api/log-knowledge.md']).code, T);
+  check('pr: log-knowledge design v0.6 → code=true', pr(['docs/design/features/log-knowledge-hub/design-v0.6-candidate.md']).code, T);
   check('pr: kit README → code=true', pr(['tooling/sdk/fixtures/out-of-repo-assembly/kit/README.md']).code, T);
   check('pr: CHANGELOG + other docs → code=true', pr(['docs/a.md', 'menus/mars/hw-time/CHANGELOG.md']).code, T);
   check('pr: menu README (not read by code) → code=false', pr(['menus/mars/hw-time/README.md']).code, F);
@@ -141,6 +145,24 @@ function selfTest() {
   const tracked = (() => { try { return lines(git(['ls-files', '*.md'], resolve(fileURLToPath(import.meta.url), '../../..'))); } catch { return null; } })();
   if (tracked) for (const pattern of CODE_READS_MD) check(`CODE_READS_MD ${pattern} matches a tracked file`, tracked.some((f) => pattern.test(f)), true);
   else { bad += 1; console.error('FAIL git ls-files unavailable for the CODE_READS_MD check'); }
+  // #2002: every repo-root Markdown input a turbo.json declares ($TURBO_ROOT$/…*.md) is code input, so CODE_READS_MD must cover each
+  // tracked file it names. The two lists live apart; this check keeps the turbo list from growing past the classifier.
+  try {
+    const repo = resolve(fileURLToPath(import.meta.url), '../../..');
+    const globToRegExp = (glob) => new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]+').replace(/\u0000/g, '.*')}$`);
+    const turboFiles = lines(git(['ls-files', 'turbo.json', '*/turbo.json'], repo));
+    const declared = turboFiles.flatMap((file) => {
+      const json = JSON.parse(readFileSync(join(repo, file), 'utf8'));
+      return Object.values(json.tasks ?? {}).flatMap((task) => task.inputs ?? [])
+        .filter((input) => input.startsWith('$TURBO_ROOT$/') && input.endsWith('.md'))
+        .map((input) => ({ file, glob: input.slice('$TURBO_ROOT$/'.length) }));
+    });
+    for (const { file, glob } of declared) {
+      const matches = (tracked ?? []).filter((f) => globToRegExp(glob).test(f));
+      check(`${file} input ${glob} names a tracked file`, matches.length > 0, true);
+      for (const f of matches) check(`${file} input ${f} is in CODE_READS_MD`, CODE_READS_MD.some((pattern) => pattern.test(f)), true);
+    }
+  } catch (error) { bad += 1; console.error(`FAIL turbo.json Markdown inputs unreadable: ${error.message}`); }
   check('pr: computation failed (null) → everything cold', pr(null), out(T, T, T));
   // Push to main: code stays true, turbo decides the scope; undecidable base → cold.
   check('push: diff known → code=true site=true full=false', classify({ event: 'push', files: ['docs/a.md'] }), out(T, T, F));

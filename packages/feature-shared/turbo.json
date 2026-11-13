@@ -4,7 +4,8 @@
   "tasks": {
     "test": {
       "dependsOn": ["^build"],
-      "outputs": ["coverage/**"]
+      "outputs": ["coverage/**"],
+      "inputs": ["$TURBO_EXTENDS$", "$TURBO_ROOT$/menus/log-dev/log-models/src/mock/issues.ts"]
     },
     "typecheck": {
       "dependsOn": ["^build"]
