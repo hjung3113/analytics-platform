@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { groupId, spaceId } from '@ap/contracts';
@@ -15,7 +16,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 it.each(['AppSidebar.tsx', 'PlatformSidebar.tsx', 'SidebarHierarchy.tsx'])('%s shares the navigation group typography constant', file => {
   expect(SIDEBAR_GROUP_TITLE.split(' ')).toContain('t-nav-group');
   expect(SIDEBAR_GROUP_TITLE).not.toMatch(/text-caption|font-semibold|uppercase|tracking-wide/);
-  const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+  const source = readFileSync(join(process.cwd(), 'src/frame', file), 'utf8');
   const titles = source.match(/<p className=\{cn\(SIDEBAR_GROUP_TITLE/g) ?? [];
   expect(titles).toHaveLength(file === 'AppSidebar.tsx' ? 5 : 1);
 });
