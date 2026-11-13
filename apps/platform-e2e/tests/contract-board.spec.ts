@@ -1892,7 +1892,10 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     expect(before).toBeGreaterThan(ROUNDING);
     const group = groupOf(page, TITLES.trend);
     // The trend header is above the visible area at this scroll position: a real click would first scroll it into view and move the position the restore must return to.
-    await group.getByRole('button', { name: `${TITLES.trend} 최대화` }).dispatchEvent('click');
+    // Focus it without scrolling, as a real click would, so Escape later reaches the workspace.
+    const maximize = group.getByRole('button', { name: `${TITLES.trend} 최대화` });
+    await maximize.evaluate(button => { (button as HTMLElement).focus({ preventScroll: true }); });
+    await maximize.dispatchEvent('click');
     await expect(dropStrip(page)).toHaveCount(0);
     const restore = group.getByRole('button', { name: '원래 크기로' });
     await expect(restore).toBeVisible();
