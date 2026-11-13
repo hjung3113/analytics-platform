@@ -3,6 +3,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform } from '../platform';
+import { createBasePathLocation } from '../../context/location';
 import { readSpaceLast, writeSpaceLast } from '../preferences';
 import { createRegistry, type PlatformMenuEntry } from '../../registry/registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
@@ -142,6 +143,35 @@ describe('spaceResume (06 §9.1)', () => {
     sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: stored }));
     mountAt('/notices?v=1&scopeId=MEM', ADMIN);
     expect(screen.getByTestId('ana').textContent).toBe('null');
+  });
+
+  // #1967: a stored resume value is read back into a navigation, so a hostile one is dropped and the switch enters the space home instead.
+  it.each([
+    ['a protocol-relative URL', '//evil.example/x'],
+    ['an absolute URL', 'https://evil.example'],
+    ['a backslash host', '/\\evil.example'],
+    ['a script URL', 'javascript:alert(1)'],
+    ['a raw fragment', '/equipment#x'],
+    ['a fragment in the query', '/equipment?v=1&page=2#x'],
+    ['a control character', '/equipment?v=1&page=2\u0007'],
+    ['an encoded protocol-relative path', '/%2Fevil.example'],
+  ])('drops %s and switchSpace enters the space home instead', (_label, stored) => {
+    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: stored }));
+    mountAt('/notices?v=1&scopeId=MEM', ADMIN);
+    expect(screen.getByTestId('ana').textContent).toBe('null');
+    act(() => screen.getByTestId('to-ana').click());
+    expect(window.location.pathname).toBe('/mars/equipment');
+    expect(window.location.hash).toBe('');
+    expect(new URLSearchParams(window.location.search).get('page')).toBeNull();
+  });
+
+  it('resumes a valid stored path with its query under a base path', () => {
+    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: '/equipment?v=1&page=2' }));
+    window.history.replaceState(null, '', '/app/notices?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider adapter={fixture(ADMIN)} registry={registry} location={createBasePathLocation('/app')}><Probe /></PlatformProvider></I18nProvider>);
+    act(() => screen.getByTestId('to-ana').click());
+    expect(window.location.pathname).toBe('/app/mars/equipment');
+    expect(new URLSearchParams(window.location.search).get('page')).toBe('2');
   });
 
   describe('spaceIdMigrations (a renamed space id, #713m)', () => {

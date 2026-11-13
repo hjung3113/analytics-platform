@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { DetailDrawer } from '@ap/components';
 import { House, ListTodo, MessagesSquare, MessageSquarePlus, Rocket, Star } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, useI18n } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createBasePathLocation, createRegistry, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import type { FeatureSlot, PlatformSlots } from '@ap/kernel';
 import { AppShell } from '../AppShell';
@@ -1220,5 +1220,41 @@ describe('favorites inside a carry set (#1099b)', () => {
     // The plain menu row still carries within the set.
     const primary = screen.getByRole('navigation', { name: '주 메뉴' });
     expect(within(primary).getByRole('link', { name: 'other' }).getAttribute('href')).toContain('managedSystem=ms1');
+  });
+});
+
+// #1967: a stored recent URL becomes a sidebar link, so a hostile stored value must never reach an `href`.
+describe('recent links from stored values (#1967)', () => {
+  const recentRegistry = sidebarRegistry(groupId('equipment'), '설비관리', ['m-a', 'm-b']);
+  function mountRecent(stored: string, base?: string) {
+    localStorage.setItem('platform:sidebar-collapsed', '0');
+    localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'm-b', url: stored, at: 1 }]));
+    window.history.replaceState(null, '', `${base ?? ''}/m-a`);
+    const location = base ? createBasePathLocation(base) : undefined;
+    render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={recentRegistry} location={location}><AppSidebar collapsed={false} onToggle={() => {}} /></PlatformProvider></I18nProvider>);
+  }
+  const recentLink = async () => within(await screen.findByRole('region', { name: '최근 방문' })).queryByRole('link', { name: '최근 방문: 메뉴 2' });
+
+  it.each([
+    ['a protocol-relative URL', '//evil.example/x'],
+    ['an absolute URL', 'https://evil.example'],
+    ['a backslash host', '/\\evil.example'],
+    ['a script URL', 'javascript:alert(1)'],
+    ['a raw fragment', '/m-b#x'],
+    ['a fragment in the query', '/m-b?v=1#x'],
+    ['a control character', '/m-b?v=1\u0007'],
+    ['an encoded protocol-relative path', '/%2Fevil.example'],
+  ])('drops %s instead of linking to it', async (_label, stored) => {
+    mountRecent(stored);
+    expect(await recentLink()).toBeNull();
+    for (const link of screen.getAllByRole('link')) expect(link.getAttribute('href')).not.toMatch(/evil|javascript|#/);
+  });
+
+  it.each([
+    ['at the root', undefined, '/m-b?v=1&page=2'],
+    ['under a base path', '/app', '/app/m-b?v=1&page=2'],
+  ])('keeps a valid stored path with its query %s', async (_label, base, expected) => {
+    mountRecent('/m-b?v=1&page=2', base);
+    expect((await recentLink())?.getAttribute('href')).toBe(expected);
   });
 });
