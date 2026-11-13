@@ -1,8 +1,7 @@
 /**
  * Synthetic metric catalog — the server half of the metric endpoints (#129). Definitions are fabricated; they are
  * not registered production metrics. `publishedPointer` and `catalogVersion` are stored on the record — the
- * client does not pick a max version number (13 §3.2, Open policy). Equipment examples are population
- * illustrations, not a runtime coverage rate.
+ * client does not pick a max version number (13 §3.2, Open policy).
  */
 import type { AuditEvent } from '@ap/contracts';
 import {

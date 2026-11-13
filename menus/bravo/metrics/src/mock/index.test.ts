@@ -72,6 +72,11 @@ describe('metric endpoints', () => {
     for (const metric of METRICS) {
       for (const version of [null, metric.versions[metric.versions.length - 1].version, '999']) {
         const response = await adapter.menuQuery({ endpoint: definitionEndpoint.id, context: {}, params: { metricId: metric.metricId, version } });
+        // A refusal or an error carries `data: null`, which would pass every absence check below: pin the answer first.
+        expect(response.outcome).toBe('ok');
+        const payload = response.data as DefinitionPayload;
+        expect(payload.problem).toBe(version === null ? 'need-version' : version === '999' ? 'version-not-member' : null);
+        expect(payload.metric?.metricId).toBe(metric.metricId);
         const body = JSON.stringify(response.data);
         expect(body).not.toMatch(/exampleEquipmentIds|exampleRooms/);
         for (const e of forbidden) expect(body).not.toContain(e.equipmentId);

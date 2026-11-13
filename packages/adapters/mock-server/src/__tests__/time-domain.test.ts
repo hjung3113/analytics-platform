@@ -242,32 +242,23 @@ describe('serve time-domain guard', () => {
     expect(res.message ?? '').not.toMatch(/time_domain_/);
   });
 
-  it('mismatches when one request sees KR-WALL and CN-XIA', async () => {
-    const res = await serve({
-      role: 'admin', permission: menuPermission('analytics:view'),
-      global: ctx(),
-      requiresScope: false,
-      latency: 0,
-      compute: () => { throw new Error('must not merge'); },
+  // A request that spans several sites is not reachable through `serve` any more: an endpoint with no Scope gets no equipment (#2054), and a Scope names one site.
+  // The cross-site verdicts are therefore pinned on the verdict function over the whole seeded world.
+  const everyEquipment = EQUIPMENT.map(e => e.equipmentId);
+
+  it('mismatches when one request sees KR-WALL and CN-XIA', () => {
+    expect(evaluateTimeDomainMerge(everyEquipment, DAY_FROM, DEFAULT_RANGE_TO, TIME_DOMAIN_ASSERTIONS)).toEqual({
+      ok: false, code: 'time_domain_mismatch', message: 'time_domain_mismatch: CN-XIA, KR-WALL',
     });
-    expect(res.outcome).toBe('error');
-    expect(res.message).toBe('time_domain_mismatch: CN-XIA, KR-WALL');
-    expect(res.assessments).toEqual([]);
   });
 
-  it('lets a gap win over a cross-site domain conflict', async () => {
-    const res = await serve({
-      role: 'admin', permission: menuPermission('analytics:view'),
-      global: ctx({ from: WEEK_FROM, to: WEEK_TO }),
-      requiresScope: false,
-      latency: 0,
-      compute: () => { throw new Error('must not merge'); },
+  it('lets a gap win over a cross-site domain conflict', () => {
+    expect(evaluateTimeDomainMerge(everyEquipment, WEEK_FROM, WEEK_TO, TIME_DOMAIN_ASSERTIONS)).toEqual({
+      ok: false, code: 'time_domain_unverified', message: 'time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105',
     });
-    expect(res.outcome).toBe('error');
-    expect(res.message).toBe('time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105');
   });
 
-  it('opt-out skips the guard and does not claim clear', async () => {
+  it('opt-out skips the guard and does not claim clear; a handler with no Scope is given no equipment', async () => {
     const res = await serve({
       role: 'admin', permission: menuPermission('analytics:view'),
       global: ctx({ from: WEEK_FROM, to: WEEK_TO }),
@@ -278,7 +269,7 @@ describe('serve time-domain guard', () => {
       compute: ({ equipment }) => equipment.length,
     });
     expect(res.outcome).toBe('ok');
-    expect(res.data).toBe(EQUIPMENT.length);
+    expect(res.data).toBe(0);
     expect(res.assessments).toEqual([{ kind: 'time_domain', state: 'unknown', reason: 'source_unavailable' }]);
   });
 
