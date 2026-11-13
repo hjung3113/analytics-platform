@@ -29,6 +29,7 @@ import {
 import {
   Button,
   DetailPanelHeaderActions,
+  EmptyState,
   DetailPanelSectionNav,
   FieldRow,
   type PanelSection,
@@ -117,6 +118,7 @@ export interface UseTaskDetailPartsArgs extends DetailPartsOptions {
 export type TaskDetailView =
   | { kind: 'loading' }
   | { kind: 'error' }
+  | { kind: 'not-found' }
   | { kind: 'forbidden' }
   | { kind: 'ready'; task: TaskDetailDto };
 
@@ -235,6 +237,25 @@ export function useTaskDetailParts({
           category="Task detail"
           reason={PERMISSION_BLOCKED_REASONS.taskDetail}
           className="m-4"
+        />
+      ),
+    };
+  }
+  if ((taskQuery.error as { code?: string } | null)?.code === 'not_found.record') {
+    return {
+      ...base,
+      view: { kind: 'not-found' },
+      title: 'Task',
+      body: (
+        <EmptyState
+          title="Task를 찾을 수 없습니다."
+          body="해당 Task는 삭제되었거나 접근 권한이 없습니다."
+          action={
+            <Button variant="outline" size="sm" onClick={onClose}>
+              닫기
+            </Button>
+          }
+          padding="wide"
         />
       ),
     };

@@ -11,6 +11,7 @@ import { fetchApiTokens, fetchSystemActors, revokeApiToken } from '@/lib/api/api
 import { resolveActors } from '@/lib/api/actors';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import type { HostSearch } from '@/lib/host/search';
+import { ApiError } from '@/lib/api/types';
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { API_TOKEN_COPY as COPY } from '@/lib/copy/api-tokens';
 import { formatDate, formatDateTime } from '@/lib/format/datetime';
@@ -97,7 +98,11 @@ export function ApiTokensScreen({ service = false, canManageService = false, ren
     if (!revoke || revokeLock.current) return;
     revokeLock.current = true; setRevoking(true); setRevokeError(null);
     try { await revokeApiToken(service, revoke.id); setRevoke(null); await refresh(); }
-    catch (error) { setRevokeError(mapUnknownError(error).message); }
+    catch (error) {
+      setRevokeError(mapUnknownError(error).message);
+      // Already revoked or gone: the row on screen is stale, so re-read the list.
+      if (error instanceof ApiError && (error.status === 404 || error.status === 409)) await refresh().catch(() => undefined);
+    }
     finally { revokeLock.current = false; setRevoking(false); }
   }
   return <div className="flex w-full flex-col gap-4 break-keep" data-testid={service ? 'service-tokens' : 'api-tokens'}>

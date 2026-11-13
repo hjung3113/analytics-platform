@@ -163,6 +163,20 @@ describe('listVocsQuerySchema — filter.owner', () => {
     expect(listVocsQuerySchema.parse({ view: 'inbox', 'filter.owner': owner })['filter.owner']).toBe(owner);
   });
 
+  it.each(['assigned,unassigned', 'unassigned,assigned', 'assigned,assigned,unassigned', ''])(
+    'treats the pair %j as no owner filter',
+    (owner) => {
+      const parsed = listVocsQuerySchema.parse({ view: 'inbox', 'filter.owner': owner });
+      expect(parsed['filter.owner']).toBeUndefined();
+    },
+  );
+
+  it('keeps a single value inside a list', () => {
+    expect(
+      listVocsQuerySchema.parse({ view: 'inbox', 'filter.owner': 'assigned,assigned' })['filter.owner'],
+    ).toBe('assigned');
+  });
+
   it('rejects unknown filter.owner value', () => {
     expect(() =>
       listVocsQuerySchema.parse({ view: 'inbox', 'filter.owner': 'all' }),
