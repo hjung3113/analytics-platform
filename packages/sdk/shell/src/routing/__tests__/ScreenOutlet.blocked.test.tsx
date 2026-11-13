@@ -1,9 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { StrictMode } from 'react';
+import { StrictMode, type ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type Permission } from '@ap/contracts';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider, type AccessRequestSlot } from '@ap/kernel';
 import { PaneScreenProvider, useHostPlatform, useOverlayState } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppSidebar } from '../../frame/AppSidebar';
@@ -210,5 +210,63 @@ describe('Kernel blocked screens (#1893, 06 §26)', () => {
     expect(heading).not.toHaveFocus();
     release();
     expect(heading).toHaveFocus();
+  });
+});
+
+describe('Kernel blocked screens: next actions (#1940)', () => {
+  const targets: unknown[] = [];
+  const slot: AccessRequestSlot = {
+    Pending: ({ target, children }) => { targets.push(target); return <>{children({ pending: null, statusHref: '/permission-requests' })}</>; },
+    Dialog: () => null,
+  };
+  const mountWith = (url: string, slots?: { accessRequest: AccessRequestSlot }) => {
+    window.history.replaceState(null, '', url);
+    const session = testSession(['platform:view']);
+    return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots}>
+      <Probe /><main id="platform-main" tabIndex={-1}><ScreenOutlet /></main>
+    </PlatformProvider></I18nProvider>);
+  };
+
+  it('unregistered route: 메뉴 검색 button opens the palette beside 홈', () => {
+    mountWith('/no-such-menu?v=1');
+    const main = within(screen.getByRole('main'));
+    expect(main.getByRole('link', { name: '홈' })).toBeTruthy();
+    expect(overlay.paletteOpen).toBe(false);
+    fireEvent.click(main.getByRole('button', { name: /^메뉴 검색 \((⌘K|Ctrl\+K)\)$/ }));
+    expect(overlay.paletteOpen).toBe(true);
+  });
+
+  it('menu denied: 권한 요청 goes to the address the slot gives, asked for the missing permission', () => {
+    targets.length = 0;
+    mountWith('/mars/equipment?v=1', { accessRequest: slot });
+    const link = within(screen.getByRole('main')).getByRole('link', { name: '권한 요청' });
+    expect(link.getAttribute('href')).toBe('/permission-requests');
+    expect(targets).toContainEqual({ kind: 'permission', permission: 'console:access' });
+  });
+
+  it.each([
+    ['no slot', undefined],
+    ['a slot with no address', { accessRequest: { ...slot, Pending: ({ children }: ComponentProps<AccessRequestSlot['Pending']>) => <>{children({ pending: null, statusHref: null })}</> } }],
+  ])('menu denied with %s draws no 권한 요청', (_name, slots) => {
+    mountWith('/mars/equipment?v=1', slots);
+    expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('설비 마스터');
+    expect(screen.queryByText('권한 요청')).toBeNull();
+  });
+
+  it('a slot that throws while rendering leaves the denial, the home link and the page (reported like any shell region)', () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const throwing: AccessRequestSlot = { Pending: () => { throw new Error('slot failed'); }, Dialog: () => null };
+    mountWith('/mars/equipment?v=1', { accessRequest: throwing });
+    const main = within(screen.getByRole('main'));
+    expect(main.getByRole('status')).toHaveTextContent('설비 마스터');
+    expect(main.getByRole('link', { name: '홈' })).toBeTruthy();
+    expect(screen.queryByText('권한 요청')).toBeNull();
+    quiet.mockRestore();
+  });
+
+  it('other blocked screens do not get either new button', () => {
+    mountWith('/operations/roles?v=1', { accessRequest: slot });
+    expect(screen.queryByText('권한 요청')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^메뉴 검색/ })).toBeNull();
   });
 });

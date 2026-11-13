@@ -115,7 +115,7 @@ export type AnalysisActionsSlot = {
   /** Page types whose main screen gets the slot (#1429). Absent = `['analysis']`, the original behaviour. */
   pageTypes?: readonly PageType[];
 };
-/** A blocked place's request state from the server (the user's own requests): `pending` null = unknown, loading or failed (draw the plain request entry). `statusHref` is where the request status is read; null = no link. */
+/** A blocked place's request state from the server (the user's own requests): `pending` null = unknown, loading or failed (draw the plain request entry). `statusHref` is where the request status is read; null = no link. For a `permission` place it is the page where the missing capability is requested (the forbidden menu screen draws it as `권한 요청`). */
 export type AccessRequestState = { pending: boolean | null; statusHref: string | null };
 /**
  * The blocked-place request entry (ADR-0154 decision 6, contract/kernel.md §6.2 and §8). The shell and the page components own the entry's

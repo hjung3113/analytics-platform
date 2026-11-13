@@ -248,6 +248,8 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
 
   it('renders forbidden as the no-access state with the server message, never as the empty state', async () => {
     renderRoles('/admin/roles', { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture', message: 'Permission revoked (scenario)' });
+    // The server's own sentence sits behind «기술 정보» (#1940): open it first.
+    fireEvent.click(await screen.findByRole('button', { name: '기술 정보' }));
     await screen.findByText('Permission revoked (scenario)');
     expect(screen.getAllByText(/이 Scope에 접근 권한이 없습니다|You do not have access to this scope/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/조건에 맞는 결과가 없습니다|No matching result/)).toBeNull();
@@ -338,6 +340,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     // In flight: no rows yet, so no verdict about the focus.
     expect(screen.queryByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeNull();
     resolveFirst({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture', message: 'No permission console:access' });
+    fireEvent.click(await screen.findByRole('button', { name: '기술 정보' }));
     await screen.findByText('No permission console:access');
     // No access is not "no such principal": the drawer alert stays off and no drawer opens.
     expect(screen.queryByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeNull();

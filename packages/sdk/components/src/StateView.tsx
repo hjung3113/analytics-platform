@@ -6,7 +6,7 @@ import { useQueryBarStatus } from './filters/QueryBarStatus';
 import { QueryRefreshNotice } from './state/QueryRefreshNotice';
 import { emptyCauses, emptyOutcomeText } from './state/emptyCause';
 import { Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
-import { useContext, useId, type ReactNode } from 'react';
+import { useContext, useId, useState, type ReactNode } from 'react';
 import { errorGuidance, queryMissingSentence, type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { Button, cn, Skeleton } from '@ap/ui';
@@ -17,8 +17,14 @@ type StateProps = { icon: ReactNode; title: string; body?: ReactNode; action?: R
 
 function ServerDetail({ detail }: { detail?: string }) {
   const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const panel = useId();
   if (!detail) return null;
-  return <span className="max-w-full break-all text-tiny" role="note" aria-label={t('serverDetail')}>{detail}</span>;
+  // The server's own sentence is for support, not the reader: folded until the user opens it (#1940).
+  return <span className="max-w-full text-tiny">
+    <button type="button" aria-expanded={open} aria-controls={panel} onClick={() => setOpen(value => !value)} className="cursor-pointer underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-focus-ring">{t('technicalInfo')}</button>
+    {open && <span id={panel} className="mt-1 block max-w-full break-all" role="note" aria-label={t('serverDetail')}>{detail}</span>}
+  </span>;
 }
 
 export function StateMessage({ icon, title, body, action, tone = 'neutral', correlationId, compact, detail }: StateProps) {

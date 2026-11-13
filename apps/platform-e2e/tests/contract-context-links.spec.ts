@@ -258,8 +258,10 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
     await expectScopeValid(page, 'MEM · 메모리');
     await expect(mainHeading(page)).toHaveText('MEM-DIFF-0176'); // the URL id, not a fetched field
     await expect(header.getByText('이 Scope에 접근 권한이 없습니다')).toBeVisible();
+    await header.getByRole('button', { name: '기술 정보' }).click(); // the server's sentence is folded (#1940)
     await expect(header.getByText('No grant for equipment')).toBeVisible();
     await expect(panel.getByText('이 Scope에 접근 권한이 없습니다')).toBeVisible();
+    await panel.getByRole('button', { name: '기술 정보' }).click(); // the server's sentence is folded (#1940)
     await expect(panel.getByText('No grant for equipment')).toBeVisible();
     await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
     const denied = await page.getByRole('main').innerText();

@@ -1,10 +1,10 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
 import { lazy, Suspense, useLayoutEffect, useRef } from 'react';
-import { CONTEXT_LABELS, PAGE_TYPE_LABELS, contractErrorSentence, useI18n } from '@ap/kernel';
+import { CONTEXT_LABELS, PAGE_TYPE_LABELS, PlatformLink, contractErrorSentence, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { LoadingBlock, Panel, PlatformPage, StateMessage, focusPageFallback } from '@ap/components';
-import { Button, StatusBadge } from '@ap/ui';
-import { menuPermissions, type Capability, type ContextKey } from '@ap/contracts';
+import { Button, StatusBadge, shortcutLabel } from '@ap/ui';
+import { menuPermissions, type Capability, type ContextKey, type Permission } from '@ap/contracts';
 import { contextBarVisible } from '../context/GlobalContextBar';
 import { HomeLink } from '../frame/HomeLink';
 import { ShellBoundary } from '../frame/ShellBoundary';
@@ -44,7 +44,7 @@ export function ScreenOutlet() {
   const { route, contractError, can, url, global, metricInit, setGlobal, currentSpace, reportError } = useHostPlatform();
   const sessionKey = useSessionKey();
   const { t, tx, lang } = useI18n();
-  if (!route) return <KernelMessage icon={<FileQuestion className="size-4" aria-hidden />} title={t('notFound')} body={<span className="t-mono">{url}</span>} />;
+  if (!route) return <KernelMessage icon={<FileQuestion className="size-4" aria-hidden />} title={t('notFound')} body={<span className="t-mono">{url}</span>} extra={<OpenPaletteButton />} />;
   // An alias address is replaced by the canonical one right after this render (ADR-0093): the screen waits, so nothing queries on the legacy path.
   if (route.viaAlias) return null;
   if (contractError) return <ContractErrorView />;
@@ -73,8 +73,9 @@ export function ScreenOutlet() {
       action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); setGlobal({ metricId: null, metricVersion: null }, { replace: true }); }}>{lang === 'ko' ? '이 지표 쌍 지우기' : 'Clear this metric pair'}</Button>} /></div>;
   }
   // Direct URL to a menu hidden by permission: the server check still answers (§17), distinct from "no data".
-  if (!menuPermissions(route.menu).every(can)) return <KernelMessage heading={tx(route.menu.label)} tone="warning" icon={<Ban className="size-4" aria-hidden />} title={t('menuDenied')}
-    body={<>{tx(route.menu.label)}. {t('askAccessOwner')}</>} />;
+  const missing = menuPermissions(route.menu).find(permission => !can(permission));
+  if (missing !== undefined) return <KernelMessage heading={tx(route.menu.label)} tone="warning" icon={<Ban className="size-4" aria-hidden />} title={t('menuDenied')}
+    body={<>{tx(route.menu.label)}. {t('askAccessOwner')}</>} extra={<RequestPermissionLink permission={missing} />} />;
   const Page = route.menu.component;
   // Every screen is a different instance per session generation (#2075): a session change notice (revision), another user or an adapter
   // swap (its revision count restarts at 0, even for the same user) remounts it and drops its local state; URL state survives because it comes from the URL.
@@ -110,8 +111,29 @@ function KernelStatePage({ title, children }: { title: string; children: React.R
   </div>;
 }
 
-function KernelMessage({ heading, icon, title, body, tone }: { heading?: string; icon: React.ReactNode; title: string; body: React.ReactNode; tone?: 'warning' | 'danger' }) {
-  return <KernelStatePage title={heading ?? title}><StateMessage tone={tone} icon={icon} title={title} body={body} action={<HomeLink />} /></KernelStatePage>;
+function KernelMessage({ heading, icon, title, body, tone, extra }: { heading?: string; icon: React.ReactNode; title: string; body: React.ReactNode; tone?: 'warning' | 'danger'; extra?: React.ReactNode }) {
+  return <KernelStatePage title={heading ?? title}><StateMessage tone={tone} icon={icon} title={title} body={body} action={<><HomeLink />{extra}</>} /></KernelStatePage>;
+}
+
+/** `메뉴 검색 (⌘K)`: the way out of an address nothing answers to; it opens the same palette the rail and the shortcut open. */
+function OpenPaletteButton() {
+  const { t } = useI18n();
+  const { setPaletteOpen } = useHostPlatform();
+  return <Button type="button" size="sm" variant="secondary" aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K" onClick={() => setPaletteOpen(true)}>{t('paletteName')} ({shortcutLabel('K')})</Button>;
+}
+
+/**
+ * `권한 요청` for a menu the user may not open. The Shell does not know the request page: the app's `accessRequest` slot gives its address for the
+ * missing permission (`statusHref`). No slot, or no address → no button. It names only the missing permission the screen already denies.
+ */
+function RequestPermissionLink({ permission }: { permission: Permission }) {
+  const { t } = useI18n();
+  const { slots } = useHostPlatform();
+  const Pending = slots.accessRequest?.Pending;
+  if (!Pending) return null;
+  // An injected slot is outside the menu's `RouteErrorBoundary`: its failure leaves the denial and the home link, and is reported like any shell region.
+  return <ShellBoundary fallback={null}><Pending target={{ kind: 'permission', permission }}>{state => state.statusHref === null ? null
+    : <Button asChild size="sm" variant="secondary"><PlatformLink href={state.statusHref}>{t('accessRequest')}</PlatformLink></Button>}</Pending></ShellBoundary>;
 }
 
 function ContractErrorView() {
