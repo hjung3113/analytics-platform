@@ -121,8 +121,6 @@ export type DefinitionPayload = {
   metric: MetricDef | null;
   version: MetricVersion | null;
   previous: MetricVersion | null;
-  exampleEquipmentIds: string[];
-  exampleRooms: string[];
 };
 
 export type UsageRow = { menuId: ConsumerMenuId; place: Text; version: string; evidenceSource: 'declared-dependency'; observedAt: null };

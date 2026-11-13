@@ -134,7 +134,6 @@ function definitionResponse(metric: MetricDef, requested: string): ApiResponse<D
       problem: null, requestedVersion: requested,
       metric, version: metric.versions[index] ?? null,
       previous: index > 0 ? metric.versions[index - 1] : null,
-      exampleEquipmentIds: ['MEM-ETCH-0101', 'MEM-ETCH-0102'], exampleRooms: ['ETCH'],
     },
     assessments: [...MART_ASSESSMENTS], trust: trustEnvelope(requested), correlationId: 'corr-fixture',
   };
@@ -157,7 +156,7 @@ function fixtureAdapter(): PlatformAdapter {
       // (W-s9 F1) — and a known metric travels with need-version/version-not-member, or the page would show
       // "metric not found" instead of the no-version definition state.
       const problemResponse = (problem: 'unknown-metric' | 'need-version' | 'version-not-member', requestedVersion: string | null, withMetric: boolean): ApiResponse<never> =>
-        asFixtureResponse({ outcome: 'ok', data: { problem, requestedVersion, metric: withMetric ? metric : null, version: null, previous: null, exampleEquipmentIds: [], exampleRooms: [] }, assessments: [...MART_ASSESSMENTS], trust: null, correlationId: 'corr-fixture' });
+        asFixtureResponse({ outcome: 'ok', data: { problem, requestedVersion, metric: withMetric ? metric : null, version: null, previous: null }, assessments: [...MART_ASSESSMENTS], trust: null, correlationId: 'corr-fixture' });
       if (!metric) return problemResponse('unknown-metric', version, false);
       if (version === null) return problemResponse('need-version', version, true);
       if (!metric.versions.some(v => v.version === version)) return problemResponse('version-not-member', version, true);

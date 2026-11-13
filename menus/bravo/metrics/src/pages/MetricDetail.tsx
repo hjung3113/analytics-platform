@@ -166,7 +166,7 @@ export default function MetricDetailPage({ params }: PageProps) {
               </div>
               <div className="space-y-3">
                 {data.version ? <DefinitionSection metric={data.metric} version={data.version} previous={data.previous} /> : <Panel id={sectionId('definition')} title={lang === 'ko' ? '정의' : 'Definition'}><p className="text-xs text-text-secondary">{lang === 'ko' ? '버전을 고르기 전에는 정의를 보여 주지 않습니다.' : 'The definition stays hidden until a version is selected.'}</p></Panel>}
-                {data.version && <CoverageSection version={data.version} ids={data.exampleEquipmentIds} rooms={data.exampleRooms} />}
+                {data.version && <CoverageSection version={data.version} />}
               </div>
             </div>
           </div>
@@ -292,7 +292,7 @@ function DefinitionSection({ metric, version, previous }: { metric: MetricDef; v
   </Panel>;
 }
 
-function CoverageSection({ version, ids, rooms }: { version: MetricVersion; ids: string[]; rooms: string[] }) {
+function CoverageSection({ version }: { version: MetricVersion }) {
   const { lang, tx } = useI18n();
   const c = version.coverage;
   return <Panel id={sectionId('coverage')} title={lang === 'ko' ? '커버리지 기준' : 'Coverage basis'} subtitle={lang === 'ko' ? '지표 정의에 적힌 기준입니다. 조회 결과에 보이는 커버리지 비율과는 다른 값입니다.' : 'The basis written in the metric definition. It is not the coverage rate shown with query results.'}>
@@ -304,14 +304,5 @@ function CoverageSection({ version, ids, rooms }: { version: MetricVersion; ids:
       <FieldRow layout="detail" label="sourceRef" mono>{c.sourceRef ?? (lang === 'ko' ? '미정' : 'Unset')}</FieldRow>
     </FieldList>
     <p className="mt-3 text-xs font-semibold text-text-primary">{lang === 'ko' ? '실행 Coverage 값 없음' : 'No runtime coverage value'}</p>
-    <p className="mt-1 text-xs text-text-secondary">
-      {lang === 'ko'
-        ? '아래 설비 ID는 정의의 모집단 규칙에 맞는 합성 예시입니다. 건수·비율로 읽지 않습니다. 설비 선택으로 좁히지 않습니다.'
-        : 'The equipment IDs below are synthetic examples matching the definition’s population rule. Do not read them as a count or a rate. The equipment selection does not narrow them.'}
-    </p>
-    {ids.length === 0
-      ? <p className="mt-2 text-xs text-text-secondary">{lang === 'ko' ? '예시 설비가 없습니다. 0%로 표시하지 않습니다.' : 'No example equipment. This is not shown as 0%.'}</p>
-      : <ul className="mt-2 space-y-1">{ids.map(id => <li key={id} className="t-mono text-text-primary">{id}</li>)}</ul>}
-    {rooms.length > 0 && <p className="mt-2 text-xs text-text-muted">room_name: <span className="t-mono">{rooms.join(', ')}</span></p>}
   </Panel>;
 }

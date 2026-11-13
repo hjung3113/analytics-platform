@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createMockAdapter, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
+import { createMockAdapter, EQUIPMENT, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { metricsAuditEvents, metricsMock } from './index';
 import { METRICS } from './catalog';
 import {
@@ -64,6 +64,21 @@ describe('metric endpoints', () => {
     const bad = (await adapter.menuQuery({ endpoint: definitionEndpoint.id, context: {}, params: { metricId: 'cycle_time', version: '999' } })).data as DefinitionPayload;
     expect(bad.problem).toBe('version-not-member');
   });
+
+  it('never carries equipment IDs or room names in a definition: the endpoint declares no Scope, so nothing it reads is filtered by the caller\'s grants (#2054)', async () => {
+    // viewer is granted MEM/PHOTO only; every other seeded equipment ID and room name is out of reach.
+    const forbidden = EQUIPMENT.filter(e => !(e.site === 'MEM' && e.room === 'PHOTO'));
+    expect(forbidden.length).toBeGreaterThan(0);
+    for (const metric of METRICS) {
+      for (const version of [null, metric.versions[metric.versions.length - 1].version, '999']) {
+        const response = await adapter.menuQuery({ endpoint: definitionEndpoint.id, context: {}, params: { metricId: metric.metricId, version } });
+        const body = JSON.stringify(response.data);
+        expect(body).not.toMatch(/exampleEquipmentIds|exampleRooms/);
+        for (const e of forbidden) expect(body).not.toContain(e.equipmentId);
+        for (const room of new Set(forbidden.map(e => e.room))) expect(body).not.toContain(`"${room}"`);
+      }
+    }
+  }, 30_000);
 
   it('re-checks metrics:view per request, so the export list is forbidden without it', async () => {
     const params = { lang: 'en' as const };

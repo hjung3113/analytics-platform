@@ -45,7 +45,7 @@ export const metricsMock: readonly AnyMockEndpoint[] = [
     },
   }),
   defineMockEndpoint(definitionEndpoint, {
-    handle: ({ equipment, params }) => buildDefinition(params.metricId, params.version, equipment),
+    handle: ({ params }) => buildDefinition(params.metricId, params.version),
     metricVersion: ({ params }) => params.version ?? undefined,
   }),
   defineMockEndpoint(usageEndpoint, {
