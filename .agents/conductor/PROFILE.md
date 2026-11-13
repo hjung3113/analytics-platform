@@ -106,6 +106,7 @@ Every step must exit 0 before commit.
    - Public SDK types or exports change → `pnpm build`, then `pnpm sdk:api` (intended changes: `--update` plus one line in `packages/sdk/CHANGELOG.md`), `pnpm sdk:test`.
    - SDK files move or are renamed → `pnpm sdk:pack --out <d> && pnpm sdk:consumer-check <d>`.
    - A CSS rule is removed → add the `css-removal-ok` label and wait for the rerun before ship.
+8. PR CI budget: until production, PR CI stays minimal at about 10 minutes of wall clock; the owner names the go-live date (#1931). The SDK upgrade gate, SDK tarball and outside-consumer checks, the kit browser check, site captures and backend image builds run on main push and `workflow_dispatch` (release `full=true`), never on a PR, so run step 7's SDK checks locally when their inputs change. A new CI check goes to main push or release first; it joins PR CI only if the PR still fits the budget. Reason: the PR wait was the bottleneck.
 
 - **Fix round:** changed packages, root lint/typecheck/test (cached), affected `-g` E2E, affected screen gates, hygiene, and step 7 if its inputs changed. No build, full E2E or probe unless a build input changed.
 - **Final head:** hygiene only; rerun the fix-round checks only after a rebase conflict.
