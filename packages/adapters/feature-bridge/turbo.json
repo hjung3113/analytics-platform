@@ -14,6 +14,17 @@
         "$TURBO_ROOT$/packages/feature-ui/package.json"
       ]
     },
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/platform/**/*.css",
+        "$TURBO_ROOT$/menus/**/*.css",
+        "$TURBO_ROOT$/packages/**/*.css",
+        "$TURBO_ROOT$/apps/platform-web/**/*.css",
+        "!$TURBO_ROOT$/**/node_modules/**",
+        "!$TURBO_ROOT$/**/dist/**"
+      ]
+    },
     "build": {
       "dependsOn": ["transit", "@ap/components#build", "@ap/contracts#build", "@ap/kernel#build", "@ap/ui#build"]
     }

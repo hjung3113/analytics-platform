@@ -16,7 +16,13 @@
         "$TURBO_ROOT$/menus/*/*/tsconfig*.json",
         "$TURBO_ROOT$/platform/*/package.json",
         "$TURBO_ROOT$/platform/*/tsconfig*.json",
-        "$TURBO_ROOT$/apps/platform-web/tsconfig*.json"
+        "$TURBO_ROOT$/apps/platform-web/tsconfig*.json",
+        "$TURBO_ROOT$/menus/*/*/eslint.config.js",
+        "$TURBO_ROOT$/platform/*/eslint.config.js",
+        "$TURBO_ROOT$/apps/platform-api/package.json",
+        "$TURBO_ROOT$/apps/platform-api/eslint.config.js",
+        "$TURBO_ROOT$/apps/feature-screens/package.json",
+        "$TURBO_ROOT$/apps/feature-screens/eslint.config.js"
       ]
     },
     "transit": {

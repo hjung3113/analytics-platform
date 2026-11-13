@@ -5,7 +5,13 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/menus/log-dev/log-models/src/mock/issues.ts"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/menus/log-dev/log-models/src/mock/issues.ts",
+        "$TURBO_ROOT$/apps/platform-api/src/**",
+        "$TURBO_ROOT$/apps/feature-screens/src/**",
+        "$TURBO_ROOT$/packages/feature-ui/src/**"
+      ]
     },
     "typecheck": {
       "dependsOn": ["^build"]
