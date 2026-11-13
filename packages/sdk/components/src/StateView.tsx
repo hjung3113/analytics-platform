@@ -4,6 +4,7 @@ import { useCompactPageDensity } from './pageDensity';
 import { useSharedOutcome } from './filters/OutcomeScope';
 import { useQueryBarStatus } from './filters/QueryBarStatus';
 import { QueryRefreshNotice } from './state/QueryRefreshNotice';
+import { emptyCauses, emptyOutcomeText } from './state/emptyCause';
 import { Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
 import { useContext, useId, type ReactNode } from 'react';
 import { errorGuidance, queryMissingSentence, type QueryState, useI18n } from '@ap/kernel';
@@ -81,9 +82,9 @@ export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, gro
   switch (response.outcome) {
     case 'ok': return <>{children(response.data as T)}</>;
     case 'empty': {
-      const explained = response.assessments.filter(a => a.explainsEmpty && a.state === 'confirmed');
-      return <OutcomeStateMessage {...widget} compact={compact} icon={<Inbox className={icon} aria-hidden />} title={t('stateEmpty')}
-        body={explained.length ? explained.map(a => a.detail).join(' · ') : t('stateEmptyBody')} action={grouped ? <><Button size="sm" variant="secondary" onClick={onRetry}><RotateCw aria-hidden className="size-3.5" />{t('retry')}</Button>{emptyAction}</> : emptyAction} correlationId={grouped ? response.correlationId : undefined} detail={grouped ? detail : undefined} />;
+      const empty = emptyOutcomeText(emptyCauses(response), t);
+      return <OutcomeStateMessage {...widget} compact={compact} icon={<Inbox className={icon} aria-hidden />} title={empty.title}
+        body={empty.body} action={grouped ? <><Button size="sm" variant="secondary" onClick={onRetry}><RotateCw aria-hidden className="size-3.5" />{t('retry')}</Button>{emptyAction}</> : emptyAction} correlationId={grouped ? response.correlationId : undefined} detail={grouped ? detail : undefined} />;
     }
     case 'forbidden': return <OutcomeStateMessage {...widget} compact={compact} tone="warning" icon={<Ban className={icon} aria-hidden />} title={t('stateForbidden')}
       body={t('stateForbiddenBody')} detail={detail} correlationId={response.correlationId} />;
