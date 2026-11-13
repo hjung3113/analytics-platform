@@ -40,6 +40,10 @@ const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
 const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
 const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
+const TRUST = {
+  updatedAt: '2026-11-12T00:00:00Z', dataThrough: null, coverage: 0, metricVersion: 'v1',
+  sourceLogicVersions: ['owner-v1'], provisional: false, source: 'owner',
+};
 const PREFIX = uid('itdeclcap').replace(/[^a-z0-9]/gi, '').slice(0, 20).toLowerCase();
 
 const ANNOTATE = `ext.${PREFIX}.annotate` as const;
@@ -132,9 +136,12 @@ describe.skipIf(!runIntegration)('declared capabilities (ADR-0157)', () => {
     const keyFile = join(dir, `${name}.key`);
     const { privateKey } = generateKeyPairSync('ed25519');
     await Promise.all([writeFile(bundleFile, JSON.stringify(bundle)), writeFile(keyFile, privateKey.export({ type: 'pkcs8', format: 'pem' }))]);
-    const fetchImpl = (async (input: unknown) => {
+    // The forwarder validates the owner's envelope strictly: a complete one echoes the forwarded correlation id.
+    const fetchImpl = (async (input: unknown, init?: { headers?: Record<string, string> }) => {
       upstreamCalls.push(String(input));
-      return new Response(JSON.stringify({ outcome: 'ok', data: { passed: true }, assessments: [], trust: null }), { status: 200 });
+      return new Response(JSON.stringify({
+        outcome: 'ok', data: { passed: true }, assessments: [], trust: TRUST, correlationId: init?.headers?.['x-correlation-id'],
+      }), { status: 200 });
     }) as unknown as typeof globalThis.fetch;
     const config = {
       ...loadConfig(),
