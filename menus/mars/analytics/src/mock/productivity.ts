@@ -7,9 +7,10 @@
  */
 import { formatDateTime, parseDateTime } from '@ap/contracts';
 import {
-  bucketStart, jobPercentile, jobsInPeriod, observableHours,
+  bucketStart, jobPercentile, observableHours,
   type Equipment, type Job,
 } from '@ap/mock-server';
+import { jobsFor, type JobContext } from './job-context';
 import type { AttentionRow, BreakdownRow, DrillEquipmentRow, DrillStgroupRow, Granularity, KpiSet, TrendBucket } from '../endpoints';
 
 const HOUR = 3_600_000;
@@ -56,8 +57,8 @@ export function buckets(from: string, to: string, g: Granularity): Bucket[] {
   return out;
 }
 
-export function computeKpis(equipment: Equipment[], from: string, to: string): KpiSet {
-  const jobs = jobsInPeriod(equipment, from, to);
+export function computeKpis(equipment: Equipment[], from: string, to: string, global: JobContext): KpiSet {
+  const jobs = jobsFor(equipment, from, to, global, false);
   const dwellHours = jobs.reduce((sum, job) => sum + job.dwellMin / 60, 0);
   const occupiedHours = jobs.reduce((sum, job) => sum + job.occupiedMin / 60, 0);
   const observable = observableHours(from, to) * equipment.length;
@@ -74,8 +75,8 @@ export function computeKpis(equipment: Equipment[], from: string, to: string): K
 }
 
 /** Per-bucket values are sums and percentiles over the same clipped job population. */
-export function trendBuckets(equipment: Equipment[], from: string, to: string, g: Granularity): TrendBucket[] {
-  const jobs = jobsInPeriod(equipment, from, to);
+export function trendBuckets(equipment: Equipment[], from: string, to: string, g: Granularity, global: JobContext): TrendBucket[] {
+  const jobs = jobsFor(equipment, from, to, global, false);
   return buckets(from, to, g).map(bucket => {
     const fromValue = formatDateTime(new Date(bucket.from));
     const toValue = formatDateTime(new Date(bucket.to));
@@ -101,10 +102,10 @@ export function trendBuckets(equipment: Equipment[], from: string, to: string, g
 }
 
 /** Occupancy composition per room_name or StGroup, grouped from the shared job population. */
-export function occupancyBreakdown(equipment: Equipment[], from: string, to: string, axis: 'room' | 'stgroup'): BreakdownRow[] {
+export function occupancyBreakdown(equipment: Equipment[], from: string, to: string, axis: 'room' | 'stgroup', global: JobContext): BreakdownRow[] {
   const equipmentById = new Map(equipment.map(row => [row.equipmentId, row]));
   const groups = new Map<string, { equipmentIds: Set<string>; occupiedHours: number; jobs: number }>();
-  for (const job of jobsInPeriod(equipment, from, to)) {
+  for (const job of jobsFor(equipment, from, to, global, false)) {
     const key = axis === 'room' ? job.room : equipmentById.get(job.equipmentId)?.stgroup ?? 'unknown';
     let group = groups.get(key);
     if (!group) {
@@ -128,8 +129,8 @@ export function occupancyBreakdown(equipment: Equipment[], from: string, to: str
 }
 
 /** StGroups present on the received equipment. Composition rows supply job counts; groups with no jobs stay, at zero. */
-export function drillStgroupRows(equipment: Equipment[], from: string, to: string): DrillStgroupRow[] {
-  const composed = new Map(occupancyBreakdown(equipment, from, to, 'stgroup').map(row => [row.key, row]));
+export function drillStgroupRows(equipment: Equipment[], from: string, to: string, global: JobContext): DrillStgroupRow[] {
+  const composed = new Map(occupancyBreakdown(equipment, from, to, 'stgroup', global).map(row => [row.key, row]));
   const groups = new Map<string, Equipment[]>();
   for (const item of equipment) {
     const list = groups.get(item.stgroup) ?? [];
@@ -139,7 +140,7 @@ export function drillStgroupRows(equipment: Equipment[], from: string, to: strin
   return [...groups.entries()]
     .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
     .map(([stgroup, rows]) => {
-      const kpi = computeKpis(rows, from, to);
+      const kpi = computeKpis(rows, from, to, global);
       const composition = composed.get(stgroup);
       const occupancyPct = composition && composition.observableHours > 0
         ? (composition.occupiedHours / composition.observableHours) * 100
@@ -154,12 +155,12 @@ export function drillStgroupRows(equipment: Equipment[], from: string, to: strin
 }
 
 /** One row per received equipment. No ids are invented. P95 is the pooled cycle of that equipment's jobs. */
-export function drillEquipmentRows(equipment: Equipment[], from: string, to: string): DrillEquipmentRow[] {
+export function drillEquipmentRows(equipment: Equipment[], from: string, to: string, global: JobContext): DrillEquipmentRow[] {
   return [...equipment]
     .sort((a, b) => (a.equipmentId < b.equipmentId ? -1 : a.equipmentId > b.equipmentId ? 1 : 0))
     .map(item => {
-      const jobs = jobsInPeriod([item], from, to);
-      const kpi = computeKpis([item], from, to);
+      const jobs = jobsFor([item], from, to, global, false);
+      const kpi = computeKpis([item], from, to, global);
       return {
         equipmentId: item.equipmentId,
         occupancyPct: kpi.occupancy?.pct ?? null,
@@ -170,9 +171,9 @@ export function drillEquipmentRows(equipment: Equipment[], from: string, to: str
 }
 
 /** Top equipment by non-process dwell per job and by slowest pooled P95. Ranking only. */
-export function attentionRows(equipment: Equipment[], from: string, to: string, topN = 3): AttentionRow[] {
+export function attentionRows(equipment: Equipment[], from: string, to: string, global: JobContext, topN = 3): AttentionRow[] {
   const per = equipment.map(e => {
-    const jobs: Job[] = jobsInPeriod([e], from, to);
+    const jobs: Job[] = jobsFor([e], from, to, global, false);
     const dwellHours = jobs.reduce((sum, job) => sum + job.dwellMin / 60, 0);
     return {
       e,

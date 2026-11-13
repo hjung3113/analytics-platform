@@ -35,6 +35,7 @@
 
 - Time/Equipment는 메뉴 간 전달되는 직접 조회 조건. Equipment 선택지는 현재 Scope·권한으로 제한한다. Scope 선택기는 사이드바 머리 한 곳에만 둔다(06 §7).
 - Lot은 이 화면이 지원하지 않는다. 전달된 Lot은 보존하고 미적용으로 표시한다. PPID와 Recipe는 분석 필터 축으로 받되 적용 가능한 지표와 조인 범위는 메뉴 정의 Candidate로 둔다. Recipe가 Job 전체를 포함할지 매칭 PRC 구간만 포함할지, 점유율 분모에 어떻게 적용할지는 이 화면의 분석 로직 담당자가 정하며 Kernel이 강제하지 않는다. 미지원 지표에는 미적용을 표시한다.
+- PPID와 Recipe는 구현에서 다섯 조회(KPI 요약·추세·점유 구성·드릴·주의 목록) 모두의 Job 모집단을 같은 조건으로 좁힌다(#2072). 설비 수·관측 bucket 수는 설비 축 값이므로 그대로다. 적용 범위를 바꾸는 결정(예: 점유율 분모 적용)은 이 문서와 매니페스트 선언을 함께 고친다.
 - **room_name은 Global Context**다. 공개 키 후보 `roomNames`를 소비하며 별도 `processIds` Page Filter를 만들지 않는다. 현재 Site·room_name 권한 범위 안에서 설비를 좁히며 다른 메뉴로 보존·전달한다. Line은 독립 축이고 room_name의 상위 계층이 아니다(`06` §6.1–6.2).
 - **Equipment Group은 Global Context의 Condition/Selection 두 층**이다. StGroup / 분임조 / Maker+Model 중 한 축만 조건으로 사용한다. Condition(`equipmentGroup`)은 현재 결과를 재평가하고, 결과 안에서 사용자가 명시 선택한 설비만 Selection(`selectedEquipmentIds`, 기존 `equipmentIds` 대응)에 고정한다. 조건 적용과 설비 명시 선택을 구분하고 상세 열기만으로 선택을 바꾸지 않는다. [ADR-0002](../../../../docs/adr/0002-stgroup-materializes-to-equipment-ids.md)를 모든 축에 동일 적용한다.
 - **page-owned URL 키(등록: [06](../../../../docs/contract/kernel.md) §6.1)**: `granularity=hour|day|week`는 기간과 다른 축이며 전역 Context로 전달하지 않는다. 미지정이면 조회 기간이 48시간 이하일 때 `hour`, 아니면 `day`로 본다(Candidate 기본값). bucket 경계/주 시작일/부분 bucket 규칙은 지표 계약으로 확정 전 Open. `kpi=occupancy|dwell|cycleTime|throughput`(추세에 보일 지표, 기본 `throughput`), `axis=room|stgroup`(점유 구성의 구성 축, 기본 `room`), `sort=key|occ|obs|pct|jobs:asc|desc`(점유 구성 표 정렬, 기본 `key` 오름차순)도 page-owned다. 등록된 값 밖의 값은 다른 값으로 바꾸지 않고 오류로 보인다.

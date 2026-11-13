@@ -28,8 +28,8 @@ export const analyticsMock: readonly AnyMockEndpoint[] = [
       if (from === null || to === null) return EMPTY_KPIS;
       const hours = periodHours(context);
       return {
-        current: computeKpis(equipment, from, to),
-        previous: hours !== null ? computeKpis(equipment, shift(from, -hours), from) : null,
+        current: computeKpis(equipment, from, to, context),
+        previous: hours !== null ? computeKpis(equipment, shift(from, -hours), from, context) : null,
       };
     },
     isEmpty: d => d.current.equipmentCount === 0 || d.current.knownBuckets === 0,
@@ -43,8 +43,8 @@ export const analyticsMock: readonly AnyMockEndpoint[] = [
       const hours = periodHours(context);
       return {
         equipmentCount: equipment.length,
-        current: trendBuckets(equipment, from, to, params.granularity),
-        previous: hours !== null ? trendBuckets(equipment, shift(from, -hours), from, params.granularity) : [],
+        current: trendBuckets(equipment, from, to, params.granularity, context),
+        previous: hours !== null ? trendBuckets(equipment, shift(from, -hours), from, params.granularity, context) : [],
       };
     },
     isEmpty: d => d.equipmentCount === 0 || d.current.length === 0 || d.current.every(b => !b.known),
@@ -54,7 +54,7 @@ export const analyticsMock: readonly AnyMockEndpoint[] = [
     handle: ({ equipment, context, params }) => {
       const { from, to } = context;
       if (from === null || to === null) return [];
-      return occupancyBreakdown(equipment, from, to, params.axis);
+      return occupancyBreakdown(equipment, from, to, params.axis, context);
     },
     isEmpty: rows => rows.length === 0,
     metricVersion: () => METRIC_VERSIONS.occupancy,
@@ -70,8 +70,8 @@ export const analyticsMock: readonly AnyMockEndpoint[] = [
         return {
           roomFound: true,
           stgroupFound: false,
-          kpi: computeKpis(inRoom, from, to),
-          stgroups: drillStgroupRows(inRoom, from, to),
+          kpi: computeKpis(inRoom, from, to, context),
+          stgroups: drillStgroupRows(inRoom, from, to, context),
           equipment: [],
         };
       }
@@ -82,9 +82,9 @@ export const analyticsMock: readonly AnyMockEndpoint[] = [
       return {
         roomFound: true,
         stgroupFound: true,
-        kpi: computeKpis(inGroup, from, to),
+        kpi: computeKpis(inGroup, from, to, context),
         stgroups: [],
-        equipment: drillEquipmentRows(inGroup, from, to),
+        equipment: drillEquipmentRows(inGroup, from, to, context),
       };
     },
     // A miss stays ok so the page can show "없는 값" instead of the generic empty state.
@@ -100,7 +100,7 @@ export const analyticsMock: readonly AnyMockEndpoint[] = [
     handle: ({ equipment, context }) => {
       const { from, to } = context;
       if (from === null || to === null) return [];
-      return attentionRows(equipment, from, to);
+      return attentionRows(equipment, from, to, context);
     },
     isEmpty: rows => rows.length === 0,
     metricVersion: () => `dwell v${METRIC_VERSIONS.dwell} · cycleTime v${METRIC_VERSIONS.cycleTime}`,
