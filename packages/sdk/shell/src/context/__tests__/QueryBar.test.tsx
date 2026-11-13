@@ -406,6 +406,31 @@ describe('initial disclosure (#1892)', () => {
     mount(APPLIED);
     expect(bar()).toHaveAttribute('data-query-bar-collapsed');
   });
+  it.each([['forbidden', async () => ({ status: 'forbidden' as const, grantedRooms: [] })], ['unknown_scope', async () => ({ status: 'unknown_scope' as const, grantedRooms: [] })], ['error', async () => { throw new Error('offline'); }]])('opens an applied address whose Scope ends as %s, because no query can run', async (status, validateScope) => {
+    mount(APPLIED, { validateScope });
+    await waitFor(() => expect(platform.scope.status).toBe(status));
+    await waitFor(() => expect(bar()).not.toHaveAttribute('data-query-bar-collapsed'));
+  });
+  it('keeps the bar open after an edit made while Scope validation is still pending, also once validation completes', async () => {
+    let finish: (value: { status: 'valid'; grantedRooms: string[] }) => void = () => {};
+    mount(APPLIED, { validateScope: () => new Promise(resolve => { finish = resolve; }) });
+    await waitFor(() => expect(platform.scope.status).toBe('validating'));
+    expect(bar()).toHaveAttribute('data-query-bar-collapsed');
+    act(() => { draft.setDraftGlobal({ roomNames: ['ETCH'] }); });
+    await waitFor(() => expect(bar()).not.toHaveAttribute('data-query-bar-collapsed'));
+    await act(async () => { finish({ status: 'valid', grantedRooms: [] }); });
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    expect(bar()).not.toHaveAttribute('data-query-bar-collapsed');
+  });
+  it('keeps a manual choice made while Scope validation is pending', async () => {
+    let finish: (value: { status: 'valid'; grantedRooms: string[] }) => void = () => {};
+    mount(APPLIED, { validateScope: () => new Promise(resolve => { finish = resolve; }) });
+    await waitFor(() => expect(platform.scope.status).toBe('validating'));
+    fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+    await act(async () => { finish({ status: 'valid', grantedRooms: [] }); });
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    expect(bar()).not.toHaveAttribute('data-query-bar-collapsed');
+  });
   it('lets a stored expanded choice win over an applied URL, and a stored collapsed choice over a bare one', async () => {
     localStorage.setItem('platform:query-bar-collapsed:home', 'false');
     mount(APPLIED);

@@ -60,8 +60,12 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   // Until the decision is taken an address with an applied period is drawn collapsed already, so the common deep link has no open-then-fold flash.
   const expanded = choice ?? !(global.from !== null && global.to !== null);
   // Scope and metric validation settle after mount, so the arrival decision is taken once they have; an edit seals it as expanded.
-  if (choice === null && (dirty.length > 0 || (platform.queryPolicy.ready && platform.metricInit.phase === 'skip'))) {
-    const applied = global.from !== null && global.to !== null && canApply && missing.length === 0 && dirty.length === 0 && !applying && !platform.queryPolicy.idle;
+  // A Scope that is absent or failed is a finished state that cannot run a query: it settles the decision as expanded, it does not wait.
+  const scopeStatus = platform.scope.status;
+  const scopeSettled = scopeStatus === 'valid' || scopeStatus === 'forbidden' || scopeStatus === 'unknown_scope' || scopeStatus === 'error' || (scopeStatus === 'none' && global.scopeId === null);
+  const settled = platform.metricInit.phase === 'skip' && (platform.queryPolicy.ready || scopeSettled);
+  if (choice === null && (dirty.length > 0 || settled)) {
+    const applied = settled && platform.queryPolicy.ready && global.from !== null && global.to !== null && canApply && missing.length === 0 && dirty.length === 0 && !applying && !platform.queryPolicy.idle;
     setChoice(!applied);
   }
   const [editError, setEditError] = useState<string | null>(null);
