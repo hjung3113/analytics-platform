@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { hasDotSegment } from '../context/location';
+import { hasDotSegment, isAppPath } from '../context/location';
 import { readHiddenState, sameHidden, splitHidden, validateHidden, withHiddenState } from '../context/hiddenState';
 import type { PageFocus } from '../context/pageNavigation';
 import { routeParamNames } from '../registry/registry';
@@ -56,15 +56,21 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       const q = current.indexOf('?');
       next = next.split('?')[0] + (q === -1 ? '' : current.slice(q));
     }
-    // A redirect destination was built by pathFor and checked by the caller (same menu, same params); its query is the address's own and already
-    // passed the URL reader, so the return-link guard (which also rejects a decoded `#` or `:`) does not apply to it.
-    const allowed = options.redirect ? next.startsWith('/') && !next.startsWith('//') && !/[#\\\u0000-\u001F\u007F]/.test(next.split('?')[0]) : isAppRelativePath(next);
+    // One path-only check for every write (#1875): query values are codec-encoded, and the return-link guard (`isAppRelativePath`, which also
+    // rejects a decoded `#`, `\`, `//` or `:` anywhere) is for a `returnTo` value, not for the address the Kernel writes.
+    if (!isAppPath(next)) {
+      if (!options.materialize) pageNavigation.cancel();
+      const error = new Error('NavTargetRefused');
+      error.name = 'NavTargetRefused';
+      reportRef.current(error);
+      return false;
+    }
     // Hidden keys of the destination leave the address and travel in the entry's state; an alias redirect keeps the hidden pairs of the entry it replaces.
     const keys = hiddenKeysFor(next);
     const split = splitHidden(next, keys);
     // A return trip restores the hidden pairs the origin held, checked against what the destination declares (F1).
     const nextHidden = options.redirect ? hiddenRef.current : split.hidden.length > 0 || !options.restoreHidden ? split.hidden : validateHidden(options.restoreHidden, menuFor(next));
-    if (!allowed || (split.url === (location.read() ?? '') && sameHidden(nextHidden, hiddenRef.current))) { if (!options.materialize) pageNavigation.cancel(); return false; }
+    if ((split.url ===(location.read() ?? '') && sameHidden(nextHidden, hiddenRef.current))) { if (!options.materialize) pageNavigation.cancel(); return false; }
     const moveBlocked = how === 'push' && !options.redirect && !options.materialize && !options.bypassGuard;
     // Leaving with unsaved edits asks first (ADR-0115). Redirects, arrival materialization, `replace` and the confirmed replay are never held.
     if (moveBlocked) {

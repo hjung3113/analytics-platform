@@ -217,6 +217,29 @@ describe('PaneScreenProvider — navigation and links', () => {
     expect(p.onChange).not.toHaveBeenCalled();
   });
 
+  it('pane navigation checks only the path: encoded `#`, `\\`, `//` in query values pass, a bad path is refused and reported (#1875)', async () => {
+    const p = spies();
+    const reportClientError = vi.fn(async () => ({ accepted: true as const }));
+    mount(<Pane id="p" initial={screenA()} spies={p} echo={false} />, fixture({ reportClientError }).adapter);
+    await flush();
+    for (const query of ['?lotIds=LOT%231', '?tab=a%2F%2Fb', '?tab=a%5Cb']) {
+      let accepted = false;
+      act(() => { accepted = at('p').navigate(`/b${query}`); });
+      expect(accepted).toBe(true);
+      expect(p.onChange).toHaveBeenLastCalledWith({ menuId: 'board-b', params: {}, query }, 'push');
+    }
+    p.onChange.mockClear();
+    for (const bad of ['//evil.example/b', 'http://x', '/%2F%2Fevil.example']) {
+      let accepted = true;
+      act(() => { accepted = at('p').navigate(bad); });
+      expect(accepted).toBe(false);
+    }
+    expect(p.onChange).not.toHaveBeenCalled();
+    expect(p.onLeave).not.toHaveBeenCalled();
+    expect(reportClientError).toHaveBeenCalledTimes(3);
+    expect(reportClientError.mock.calls).toEqual(Array.from({ length: 3 }, () => [expect.objectContaining({ name: 'NavTargetRefused' })]));
+  });
+
   it('an accepted same-pane destination honors replace and a no-op navigation returns false', async () => {
     const p = spies();
     mount(<Pane id="p" initial={screenA()} spies={p} echo={false} />, fixture().adapter);

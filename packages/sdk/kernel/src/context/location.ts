@@ -66,6 +66,20 @@ export function isDotSegment(segment: string): boolean {
   return decoded === '.' || decoded === '..';
 }
 
+/**
+ * Kernel-internal check of a destination the Kernel writes into the address (`commit`, pane `go`): the open-redirect guard covers the PATH only.
+ * The query is codec-encoded (`#`, `\`, `//` in a value arrive percent-encoded), so it is not a redirect risk; a `returnTo` value is checked
+ * where it is read (`safeReturnTo`). A raw `#` or control character anywhere is still refused: the codec never writes one (#1875).
+ */
+export function isAppPath(href: string): boolean {
+  if (/[#\u0000-\u001F\u007F]/.test(href)) return false;
+  const path = href.split('?')[0];
+  if (!path.startsWith('/') || path.includes('//') || path.includes('\\')) return false;
+  let decoded: string;
+  try { decoded = decodeURIComponent(path); } catch { return false; }
+  return !decoded.startsWith('//') && !decoded.startsWith('/\\');
+}
+
 /** Any path segment of `pathname` is a dot segment, by the {@link isDotSegment} rule. */
 export function hasDotSegment(pathname: string): boolean {
   return pathname.split('/').some(isDotSegment);
