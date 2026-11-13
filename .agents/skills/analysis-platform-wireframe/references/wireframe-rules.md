@@ -1,6 +1,6 @@
 # Wireframe Rules
 
-Loaded by `analysis-platform-wireframe` before Step 2 of the pipeline. This file holds the templates and the platform's opinions on density/tables/charts — it does not do visual design (that's `interface-design` + `frontend-design`'s job).
+Loaded by `analysis-platform-wireframe` before Step 2 of the pipeline. This file holds the templates and the platform's opinions on density/tables/charts — it does not do visual design (that's `impeccable` + `frontend-design`'s job).
 
 **Scope reminder (see root `AGENTS.md`):** this project's goal is the platform core — global filter context, deep-link protocol, menu registry, metric governance, permissions, audit — not an exhaustive set of domain screens. When designing any individual screen, check first whether it correctly reuses the platform-common contracts before polishing the screen itself.
 
@@ -89,7 +89,7 @@ Only after a separate implementation request opens Step 5:
 
 1. Optionally pull 1–3 references from `.agents/references/design-md/` (74 brand folders from awesome-design-md). For this project, prefer developer-tool / observability / data-platform / enterprise-SaaS entries over consumer ones. Reasonable candidates already in the folder: `linear.app`, `sentry`, `clickhouse`, `posthog`, `mongodb`, `hashicorp`, `ibm`, `supabase`, `cursor`.
 2. Extract only specific principles (density, navigation pattern, typography, spacing, table treatment, surface hierarchy) — never copy a brand's `DESIGN.md` wholesale into this project.
-3. Combine with `ui-ux-pro-max` (pattern/chart/color/type intelligence) and `interface-design` (enterprise density/hierarchy/spacing/consistency rules) to write this project's own `DESIGN.md` at the repo root.
+3. Combine with `ui-ux-pro-max` (pattern/chart/color/type intelligence) and `impeccable` (enterprise density/hierarchy/spacing/consistency rules) to write this project's own `DESIGN.md` at the repo root.
 4. Once `DESIGN.md` exists, treat it as the source of truth — later screens conform to it instead of re-deriving tokens.
 
 ## Required output checklist (copy into the response for every new major UI)

@@ -6,6 +6,8 @@
 
 #597 retires the standalone portions of ADR-0027/0045 and FO ADR-0071 under [ADR-0097](0097-platform-features-and-role-based-names.md). Their bodies remain historical; the live link contract is [platform-inbound-links.md](../integration/platform-inbound-links.md). Inbound platform hops remain supported.
 
+주제별로 찾으려면 [주제별 색인](by-topic.md)을 본다.
+
 ## 목록
 
 | ADR | 결정 | 상태 |
