@@ -53,7 +53,11 @@ export { createSelectedReadService, type SelectedReadService } from './selected-
 export { permissionRecoveryProjection, countRecoveryPermissionRequests } from './recovery-read.js';
 
 export { parseScopeCatalog, type ScopeCatalog } from './scope-catalog.js';
-export { createGrantTableScopeResolver } from './grant-table-scope-resolver.js';
+export {
+  createGrantTableScopeResolver,
+  grantedRoomsBySite,
+  readActiveSiteScopeGrants,
+} from './grant-table-scope-resolver.js';
 
 export { createPermissionServices } from './services.js';
 export {

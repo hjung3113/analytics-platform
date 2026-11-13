@@ -2,11 +2,14 @@
 // workspace's internal members. Judges a request and returns an outcome; the route wraps it in the
 // envelope. Permissions come from the one rule set (`resolvePlatformPermissionsBatch`: every member in one batched
 // read, whatever the member count), in the platform's canonical permission order (kernel first, then the modules'
-// declared menu permissions); feature has no sites, so `sites` is always [].
+// declared menu permissions). Sites (#2015): with a Scope catalog, one `SiteGrant` per catalog site in catalog order
+// (zero-grant sites included) from the members' active `scope.read` grants, read in one query and decided by the same
+// rule as the grant-table Scope resolver; without a catalog (default, or the HTTP grant-service deployment) `sites: []`.
 
 import type { Db } from '../../db/client.js';
 import { listWorkspaceInternalMembers } from '../auth/index.js';
 import type { CheckService } from '../permissions/check-service.js';
+import { type ScopeCatalog, grantedRoomsBySite, readActiveSiteScopeGrants } from '../permissions/index.js';
 import type { AuditJudgement } from './audit-service.js';
 import {
   type PlatformActor,
@@ -20,13 +23,21 @@ type AccessSortField = (typeof ACCESS_SORT_FIELDS)[number];
 
 const ACCESS_QUERY_KEYS = ['role', 'permission', 'page', 'pageSize', 'sort'] as const;
 
+/** One site's rooms granted to a principal (`SiteGrant`, SDK `adapter.ts`). Room names are master values. */
+export interface SiteGrant {
+  id: string;
+  label: string;
+  grantedRooms: string[];
+  totalRooms: number;
+}
+
 export interface AccessPrincipal {
   id: string;
   name: string;
   title: { ko: string; en: string };
   role: string;
   permissions: string[];
-  sites: never[];
+  sites: SiteGrant[];
 }
 
 interface ParsedAccessQuery {
@@ -90,13 +101,30 @@ export function parseAccessQuery(body: unknown): ParsedAccessQuery | null {
   };
 }
 
+const grantedRoomCount = (p: AccessPrincipal): number =>
+  p.sites.reduce((sum, site) => sum + site.grantedRooms.length, 0);
+
+/** One row per catalog site in catalog order, zero-grant sites included; out-of-catalog grant values are dropped. */
+export function buildSiteGrants(
+  catalog: ScopeCatalog,
+  rows: Parameters<typeof grantedRoomsBySite>[1],
+): SiteGrant[] {
+  const granted = grantedRoomsBySite(catalog, rows);
+  return catalog.sites.map(({ site, label, rooms }) => ({
+    id: site,
+    label,
+    grantedRooms: granted.get(site) ?? [],
+    totalRooms: rooms.length,
+  }));
+}
+
 function compareBy(sort: ParsedAccessQuery['sort']) {
   return (a: AccessPrincipal, b: AccessPrincipal): number => {
     const ordered =
       sort.field === 'permissionCount'
         ? a.permissions.length - b.permissions.length
         : sort.field === 'grantCount'
-          ? 0 // no sites here, so every principal has zero grants
+          ? grantedRoomCount(a) - grantedRoomCount(b)
           : sort.field === 'name'
             ? a.name.localeCompare(b.name)
             : a.role.localeCompare(b.role);
@@ -111,6 +139,8 @@ export interface AccessDirectoryDeps {
   checkService: CheckService;
   /** This server's permission rules (kernel plus the menu permissions its modules declared). */
   permissions: PlatformPermissionResolver;
+  /** The deployment's site/room catalog; absent → every principal has `sites: []`. */
+  scopeCatalog?: ScopeCatalog;
 }
 
 export function createAccessDirectoryService(deps: AccessDirectoryDeps) {
@@ -131,6 +161,17 @@ export function createAccessDirectoryService(deps: AccessDirectoryDeps) {
       members.map((m) => ({ actor_id: m.id, workspace_id: actor.workspace_id, role_level: m.role_level })),
     );
     const canonical = deps.permissions.order();
+    const catalog = deps.scopeCatalog;
+    // One read for every member's site grants, like the permissions above.
+    const grantRows = catalog
+      ? await readActiveSiteScopeGrants(deps.db, actor.workspace_id, members.map((m) => m.id))
+      : [];
+    const grantsByMember = new Map<string, typeof grantRows>();
+    for (const row of grantRows) {
+      const rows = grantsByMember.get(row.actorId) ?? [];
+      rows.push(row);
+      grantsByMember.set(row.actorId, rows);
+    }
     const principals = members.map((m) => {
       const held = new Set(heldByMember.get(m.id) ?? []);
       return {
@@ -139,7 +180,7 @@ export function createAccessDirectoryService(deps: AccessDirectoryDeps) {
         title: titleFor(m.role_level),
         role: m.role_level,
         permissions: canonical.filter((p) => held.has(p)),
-        sites: [],
+        sites: catalog ? buildSiteGrants(catalog, grantsByMember.get(m.id) ?? []) : [],
       } satisfies AccessPrincipal;
     });
     const filtered = principals
