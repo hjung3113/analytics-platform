@@ -393,6 +393,17 @@ describe('wiring invariants against a fixture repo', () => {
     c.mockAssemblyTsx = wire(c, `import { qualityActionsMock } from ${from};`, '  ...qualityActionsMock,', '');
     expect(() => checkWiring(c)).toThrow(/qualityActionsMock.*pair/);
     });
+    it('(d) rejects a hand-wired actions-only export that is never spread', () => {
+      const d = loadShape(fresh());
+      d.mockIndexes['menus/mars/quality'] = 'export const qualityMock = []; export const qualityActionsMock = [];';
+      d.mockAssemblyTsx = `import { qualityActionsMock } from ${from};\n${d.mockAssemblyTsx}`;
+      expect(() => checkWiring(d)).toThrow(/qualityActionsMock' is imported but never spread/);
+    });
+    it('(e) rejects write samples exported without an action list', () => {
+      const e = loadShape(fresh());
+      e.mockIndexes['menus/mars/quality'] = 'export const qualityMock = []; export const qualityWriteSamples = {};';
+      expect(() => checkWiring(e)).toThrow(/qualityWriteSamples' but no '\*ActionsMock'/);
+    });
   });
 
   it('accepts a mock import under a local alias when the spread uses the alias', () => {

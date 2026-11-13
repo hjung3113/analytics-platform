@@ -354,6 +354,7 @@ export function checkWiring(shape: RepoShape): void {
       for (const action of actions) {
         const handWired = new RegExp(`\\b${action}\\b[^;]*from '${name}/mock'`).test(shape.mockAssemblyTsx);
         if (!handWired || actionImports.some(i => i.module === `${name}/mock` && i.imported === action)) throw new Error(`${folder}/src/mock exports '${action}' but no '*WriteSamples' (${name}): actions and write samples come as a pair, or the actions are hand-wired outside the generated markers`);
+        if (!new RegExp(`\\.\\.\\.${action}\\b`).test(shape.mockAssemblyTsx)) throw new Error(`${folder} (${name}): hand-wired '${action}' is imported but never spread into MOCK_ACTIONS in mock-assembly.tsx`);
       }
       continue;
     }
