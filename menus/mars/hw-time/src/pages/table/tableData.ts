@@ -38,13 +38,13 @@ export const columnSizeOf = (level: number) => level === 0
 export const exportNumber = (value: number | null | undefined, lang: 'ko' | 'en'): number | string => value === null || value === undefined ? missingText(lang) : Number(value.toFixed(2));
 
 export function valueText(value: number | null | undefined, lang: 'ko' | 'en'): string {
-  return value === null || value === undefined ? missingText(lang) : formatSeconds(value);
+  return value === null || value === undefined ? missingText(lang) : formatSeconds(value, lang);
 }
 
 /** MEG rows show their label in the sub-item cell, two decimals and the unit like the stack bars. */
 export function auxiliaryText(row: HwTimeRow, lang: 'ko' | 'en'): string {
   const seconds = Number(/-?\d+(?:\.\d+)?\s*$/.exec(row.auxiliary?.label ?? '')?.[0]);
-  return `${row.auxiliary?.kind ?? ''}${Number.isFinite(seconds) ? ` ${formatSeconds(seconds)} ${unitOf(lang)}` : ''}`;
+  return `${row.auxiliary?.kind ?? ''}${Number.isFinite(seconds) ? ` ${formatSeconds(seconds, lang)} ${unitOf(lang)}` : ''}`;
 }
 
 export function exportParams(drill: HwTimeDrill, request: TableExportRequest) {

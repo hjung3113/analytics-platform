@@ -3,7 +3,7 @@
  * the distinct new maker / process count, the conflict guide, and the three loops that talk to the server (read every page, resolve in
  * batches, apply until done). No React: the screens call these with their action and fetch functions.
  */
-import type { ActionResult, ApiResponse, ColumnFilter, FieldError } from '@ap/contracts';
+import { formatNumber, type ActionResult, type ApiResponse, type ColumnFilter, type FieldError } from '@ap/contracts';
 import type { ImportApplyCounts, ImportApplyResult, ImportApplyStatus, ImportDetail, ImportJobStatus, ImportPlanState, ImportResolveInput, ImportRowView, ImportStepResult } from '../../endpoints';
 
 export const PASTE_ROW_LIMIT = 1000;
@@ -105,7 +105,7 @@ const PASTE_SENTENCE: Record<string, (headers: string[]) => string> = {
   empty: () => '붙여넣은 내용이 없습니다.',
   too_many_columns: () => '열이 너무 많습니다. 설비사명 · 공정명 · 모델명 열만 복사해 주세요.',
   unreadable: () => '줄마다 칸 수가 달라 읽을 수 없습니다. 엑셀에서 열을 그대로 복사했는지 확인하세요.',
-  too_many_rows: () => `한 번에 ${PASTE_ROW_LIMIT.toLocaleString('ko-KR')}행까지 가져올 수 있습니다. 나누어 붙여넣어 주세요.`,
+  too_many_rows: () => `한 번에 ${formatNumber(PASTE_ROW_LIMIT, 'ko')}행까지 가져올 수 있습니다. 나누어 붙여넣어 주세요.`,
   file_too_large: () => '내용이 너무 큽니다. 나누어 붙여넣어 주세요.',
   required: () => '붙여넣은 내용이 없습니다.',
 };

@@ -1,4 +1,4 @@
-import { formatMetricVersion, periodHours } from '@ap/contracts';
+import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
 /**
  * 생산성 분석 — 개요 (wireframe 11, Overview archetype §12.1).
  * Header → Global Context (kernel) → page-owned granularity → KPI row → main trend →
@@ -89,10 +89,9 @@ export default function ProductivityOverview(_: PageProps) {
   const shownGranLabel = trendShown.granularity === 'hour' ? (ko ? '시간' : 'hourly') : trendShown.granularity === 'day' ? (ko ? '일별' : 'daily') : (ko ? '주별' : 'weekly');
   const shownAxis = breakdownQ.resultParams?.axis ?? axis;
 
-  const locale = ko ? 'ko-KR' : 'en-US';
-  const n1 = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  const n2 = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const ni = (v: number) => Math.round(v).toLocaleString(locale);
+  const n1 = (v: number) => formatNumber(v, lang, { decimals: 1 });
+  const n2 = (v: number) => formatNumber(v, lang, { decimals: 2 });
+  const ni = (v: number) => formatNumber(Math.round(v), lang);
 
   function deltaOf(cur: number | null, prev: number | null | undefined, goodWhenUp: boolean, format: (v: number) => string): Delta | undefined {
     if (cur === null || prev === null || prev === undefined || prev === 0) return undefined;
@@ -179,7 +178,7 @@ export default function ProductivityOverview(_: PageProps) {
   const meta = trendMeta[shownKpi];
   const trendValue = (b: TrendBucket, i: number): number | null =>
     shownKpi === 'occupancy' ? b.occupancyPct : shownKpi === 'dwell' ? b.dwellPerJobH : shownKpi === 'throughput' ? b.jobs : i === 0 ? b.p50 : b.p95;
-  const fmtTrend = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: meta.decimals, maximumFractionDigits: meta.decimals });
+  const fmtTrend = (v: number) => formatNumber(v, lang, { decimals: meta.decimals });
 
   function trendSeriesFor(data: TrendData): { series: ChartSeries[]; compareSeries: ChartSeries[]; total: number | null } {
     const build = (source: TrendBucket[], previous: boolean): ChartSeries[] => meta.names.map((name, i) => ({

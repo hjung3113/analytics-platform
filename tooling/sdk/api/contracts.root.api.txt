@@ -73,6 +73,7 @@ FilterParamsResult | type | type FilterParamsResult = { filters: @ap/contracts#C
 FilterRejection | type | type FilterRejection = 'bad-value' | 'duplicate-field' | 'invalid-id' | 'multiple-not-allowed' | 'op-not-allowed' | 'requires-unmet' | 'undeclared-field'
 FilterRowsOptions | type | type FilterRowsOptions = { specs?: Readonly<Record<string, @ap/contracts#ColumnFilterSpec>>; }
 FilterValidation | type | type FilterValidation = { filter: @ap/contracts#ColumnFilter; ok: false; reason: @ap/contracts#FilterRejection; } | { ok: true; }
+FormatNumberOptions | interface | interface FormatNumberOptions { decimals?: number; maximumFractionDigits?: number; minimumFractionDigits?: number; }
 GLOBAL_KEYS | const | const GLOBAL_KEYS: Set<string>
 GlobalContext | type | type GlobalContext = { condition: @ap/contracts#Condition | null; from: null | string; lineNames: @ap/contracts#IdSet; lotIds: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; metricId: null | string; metricVersion: null | string; ppid: null | string; prcGroups: @ap/contracts#IdSet; recipeIds: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: null | string; selection: @ap/contracts#IdSet; to: null | string; }
 Grain | type | type Grain = 'day' | 'hour' | 'week'
@@ -227,6 +228,7 @@ filterRows | function | function filterRows<T>(rows: readonly T[], filters: read
 formatDateTime | function | function formatDateTime(date: Date): string
 formatInstant | function | function formatInstant(instant: number | string, lang: keyof @ap/contracts#Text, timeZone?: string): string
 formatMetricVersion | function | function formatMetricVersion(version: string): string
+formatNumber | function | function formatNumber(value: number, lang: 'en' | 'ko', options?: @ap/contracts#FormatNumberOptions): string
 formatPeriod | function | function formatPeriod(from: null | string, to: null | string, lang: 'en' | 'ko'): string
 groupId | const | const groupId: <const S extends string>(id: S) => S & @ap/contracts#GroupId
 groupPage | function | function groupPage<T>(rows: readonly T[], options: GroupPageOptions<T>): { groups: @ap/contracts#PageGroup[]; rows: T[]; total: number; }

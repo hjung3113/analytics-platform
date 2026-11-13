@@ -139,7 +139,7 @@ export default function OverviewPage(_props: PageProps) {
     if (shown.rows.length === 0) return ko ? '기록 없음' : 'No records';
     const measured = values.filter((value): value is number => value !== null);
     if (measured.length === 0) return missingText(lang);
-    const sum = `${formatSeconds(measured.reduce((a, b) => a + b, 0))} ${unit}`;
+    const sum = `${formatSeconds(measured.reduce((a, b) => a + b, 0), lang)} ${unit}`;
     return measured.length < values.length ? `${sum} · ${ko ? '일부 미측정' : 'partly not measured'}` : sum;
   };
   const summary = !response || !kept.module ? undefined

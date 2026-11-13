@@ -43,7 +43,7 @@ const DETAIL_FILL_MIN = 200;
 export function rowLabel(row: HwTimeRow, lang: 'ko' | 'en' = 'ko') {
   if (!row.auxiliary) return rowIdLabel(row.id);
   const seconds = Number(/-?\d+(?:\.\d+)?\s*$/.exec(row.auxiliary.label)?.[0]);
-  const value = Number.isFinite(seconds) ? ` ${formatSeconds(seconds)}${HW_TIME_UNIT[lang]}` : '';
+  const value = Number.isFinite(seconds) ? ` ${formatSeconds(seconds, lang)}${HW_TIME_UNIT[lang]}` : '';
   return `${row.equipmentId} ${row.auxiliary.kind}${value}`;
 }
 
@@ -90,7 +90,7 @@ export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleS
         if (rowId) onActiveRowChange(rowId, how);
       })}
       legend={false} partialTotalNote={false} valueLabels="both" reaggregation="sum" isPointSelectable={isPointSelectable} startAlign={startAlign} minMax={minMax}
-      series={series} unit={HW_TIME_UNIT[lang]} valueFormat={formatSeconds} canApplyRange={false}
+      series={series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} canApplyRange={false}
       visibleSeriesIds={visibleSeriesIds} onVisibleSeriesChange={onVisibleSeriesChange}
       pointActivation={onActivate ? { on: 'click', onActivate: point => { const rowId = rowOf(point); if (rowId) onActivate({ seriesId: point.seriesId, rowId }); } } : undefined}
       pointActions={rowActions && ((point: ChartPoint) => {
