@@ -22,7 +22,7 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
   const create = useMenuAction(specDraftCreate), save = useMenuAction(specDraftSave), publish = useMenuAction(specPublish), reject = useMenuAction(specReject);
   const latest = useMenuFetch(modelSpecEndpoint), history = useMenuFetch(modelSpecRevisionsEndpoint), openDraft = useMenuFetch(specDraftEndpoint);
   // What recovery read, shown read-only until the user picks; nothing is written before that (#2073).
-  const [recovery, setRecovery] = useState<{ kind: 'published'; revisionNo: number; text: string } | { kind: 'draft'; revisionNo: number; text: string; draft: SpecDraftData; publishedNo: number | null } | null>(null);
+  const [recovery, setRecovery] = useState<{ kind: 'published'; revisionNo: number; text: string; rows: ReturnType<typeof specRows> } | { kind: 'draft'; revisionNo: number; text: string; draft: SpecDraftData; publishedNo: number | null } | null>(null);
   const [baseNo, setBaseNo] = useState<number | null>(null);
   const [text, setText] = useState('kind\tmodule\tevent\n'), [savedText, setSavedText] = useState('kind\tmodule\tevent\n');
   // The loaded draft as structured rows: metadata-only saves never funnel stored tabs/newlines through unquoted TSV (fix C1).
@@ -90,7 +90,7 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
         return;
       }
       if (!published) { setProblem(w('발행된 명세를 찾지 못했습니다. 입력은 유지됩니다.', 'No published specification was found. Your input is preserved.')); return; }
-      setProblem(''); setRecovery({ kind: 'published', revisionNo: published.revision.revisionNo, text: specText(published) });
+      setProblem(''); setRecovery({ kind: 'published', revisionNo: published.revision.revisionNo, text: specText(published), rows: specRows(published) });
     } finally { setRecovering(false); }
   }
   /** The user's pick after recovery: `replace` takes the shown content into the editor, `keep` leaves the typed text; either way the shown content becomes the saved state. */
@@ -101,15 +101,18 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
       if (recovery.kind === 'draft') {
         const d = recovery.draft, ref = { docLabel: d.revision.sourceDocRef.docLabel, docVersion: d.revision.sourceDocRef.docVersion, link: d.revision.sourceDocRef.link ?? '' };
         setLoaded(d.revision.id); setVersion(String(d.revision.version)); setSavedText(recovery.text); setSavedSource(ref); setBaseNo(recovery.publishedNo);
-        if (pick === 'replace') { setText(recovery.text); setSource(ref); setRows(specRows(d)); setTextDirty(false); } else { setRows(null); setTextDirty(true); }
+        if (pick === 'replace') { setText(recovery.text); setSource(ref); setRows(specRows(d)); setTextDirty(false); } else if (textDirty) setRows(null);
         setConflict(false); setRecovery(null); setPage({ revision: d.revision.id }, { replace: true });
         return;
       }
       const result = await create.run({ modelId, sourceDocRef: doc() });
-      if (!failure(result) && result.outcome === 'ok' && result.data) {
+      // A lost create race (someone opened a draft after the read): drop the stale snapshot so the next read shows the open draft; the typed text and the conflict gate stay.
+      if (failure(result)) { setRecovery(null); return; }
+      if (result.outcome === 'ok' && result.data) {
         // The new draft is empty on the server: its saved state stays empty, so either pick must be saved before 발행 (never publish an empty draft).
-        setLoaded(result.data.revisionId); setVersion(String(result.data.version)); setSavedText(''); setRows(null); setBaseNo(recovery.revisionNo);
-        if (pick === 'replace') { setText(recovery.text); setTextDirty(false); } else setTextDirty(true);
+        setLoaded(result.data.revisionId); setVersion(String(result.data.version)); setSavedText(''); setBaseNo(recovery.revisionNo);
+        // The chosen content keeps its structured snapshot (stored tabs/newlines never pass through the unquoted preview) until the text is edited.
+        if (pick === 'replace') { setText(recovery.text); setRows(recovery.rows); setTextDirty(false); } else if (textDirty) setRows(null);
         setConflict(false); setRecovery(null); setPage({ revision: result.data.revisionId }, { replace: true });
       }
     } finally { setRecovering(false); }

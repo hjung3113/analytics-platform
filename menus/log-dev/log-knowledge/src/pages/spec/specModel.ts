@@ -38,7 +38,7 @@ export function specText(spec: Pick<SpecDraftData, 'modules' | 'events' | 'relat
 
 /** The same draft as structured rows: stored tabs/newlines round-trip without the unquoted TSV (fix C1). The TSV
  *  text above stays the human preview; a save uses these rows unless the user edited the text or loaded a file. */
-export function specRows(spec: SpecDraftData): Pick<SpecDraftSaveInput, 'modules' | 'events' | 'relations'> {
+export function specRows(spec: Pick<SpecDraftData, 'modules' | 'events' | 'relations'>): Pick<SpecDraftSaveInput, 'modules' | 'events' | 'relations'> {
   const names = new Map(spec.modules.map(m => [m.id, m.name]));
   const eventOf = (id: string) => spec.events.find(e => e.id === id);
   return {
