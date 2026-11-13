@@ -187,6 +187,7 @@ const dict = {
   paletteName: { ko: '메뉴 검색', en: 'Search menus' },
   palettePlatform: { ko: '플랫폼', en: 'Platform' },
   paletteEmpty: { ko: '일치하는 메뉴가 없습니다.', en: 'No matching menus.' },
+  paletteDidYouMean: { ko: '이 메뉴를 찾으셨나요', en: 'Did you mean this menu?' },
   paletteHint: { ko: '메뉴 이동만 할 수 있습니다.', en: 'Menu navigation only.' },
   goTo: { ko: '이동', en: 'Go to' },
   planned: { ko: '예정', en: 'Planned' },

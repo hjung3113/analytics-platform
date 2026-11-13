@@ -150,6 +150,8 @@ export type MenuMeta = {
   linkTargets?: { required?: readonly string[]; optional?: readonly string[] };
   /** Id-only metricId is completed from PUBLISHED_METRICS. Every other menu rejects it as metric_pair_incomplete. */
   initializesMetric?: boolean;
+  /** Other names users call this menu, matched by the command palette after the menu name and before group/system names (ko/en lists, blanks ignored; spaces and case do not matter). Absent = none. The platform keeps no synonym dictionary: the menu owns its vocabulary (#1943). */
+  keywords?: { ko?: readonly string[]; en?: readonly string[] };
   /** Detail/destination routes are reachable through Context Links, not the sidebar. */
   navHidden?: boolean;
   /**
