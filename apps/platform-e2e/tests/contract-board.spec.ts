@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, PRODUCTIVITY, openSwitcher, chooseSystem, headerMore } from './contract-helpers';
-import { evidence, expandPageHead, mainHeading, query, setScenario, signInAs } from './support';
+import { evidence, expandPageHead, mainHeading, nextFrames, query, settleOn, setScenario, signInAs } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -360,7 +360,7 @@ async function dragSashBy(page: Page, sash: Locator, dx: number) {
   await page.mouse.down();
   await page.mouse.move(x + dx, y, { steps: 10 });
   for (let i = 0; i < 4; i++) {
-    await page.waitForTimeout(50);
+    await nextFrames(page);
     await page.mouse.move(x + dx + (i % 2 === 0 ? -1 : 1), y);
   }
   await page.mouse.move(x + dx, y);
@@ -376,7 +376,7 @@ async function holdSashBy(page: Page, sash: Locator, dx: number) {
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.move(x + dx, y, { steps: 20 });
-  await page.waitForTimeout(100);
+  await nextFrames(page);
   return x + dx;
 }
 
@@ -445,7 +445,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await page.mouse.down();
     await page.mouse.move(x, y, { steps: 8 });
     for (let i = 0; i < 6; i++) {
-      await page.waitForTimeout(80);
+      await nextFrames(page);
       await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y);
     }
     await page.mouse.up();
@@ -914,7 +914,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     for (let width = 680; width >= 360; width -= 8) {
       await page.setViewportSize({ width, height: 900 });
       await expect(groups(page)).toHaveCount(1);
-      await page.waitForTimeout(120);
+      await settleOn(compactCount, `compact tab count settles at ${width}px`);
       const count = await compactCount();
       seen.push(count);
       log.push(`${width}px: ${count}`);
@@ -958,7 +958,7 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     const preview = page.locator('[data-dock-layout] .dv-drop-target-dropzone, [data-dock-layout] .dv-drop-target-anchor');
     const hoverAt = async (x: number, y: number) => {
       await page.mouse.move(x, y, { steps: 8 });
-      for (let i = 0; i < 4; i++) { await page.waitForTimeout(80); await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y); }
+      for (let i = 0; i < 4; i++) { await nextFrames(page); await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y); }
     };
     await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
     await page.mouse.down();
@@ -1102,7 +1102,8 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(CYCLE);
     await workspaceReady(page);
-    await page.waitForTimeout(500);
+    // Every query has answered once no status region is busy, so the request count read next is the settled baseline.
+    await expect(page.locator('[role="status"][aria-busy="true"]')).toHaveCount(0);
     const before = await cycleRequests(page);
     expect(before).toBeGreaterThanOrEqual(3);
 
@@ -1123,6 +1124,7 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await groupOf(page, TITLES.trend).getByRole('button', { name: '원래 크기로' }).click();
     await expect(groupOf(page, TITLES.trend).getByRole('button', { name: `${TITLES.trend} 최대화` })).toBeVisible();
 
+    // Nothing happens: a wrongly sent query would show up as a new request, so give it time to arrive.
     await page.waitForTimeout(500);
     expect(await cycleRequests(page)).toBe(before);
   });
@@ -1282,7 +1284,7 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await page.mouse.down();
     await page.mouse.move(x, y, { steps: 8 });
     for (let i = 0; i < 6; i++) {
-      await page.waitForTimeout(80);
+      await nextFrames(page);
       await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y);
     }
     await page.mouse.up();
@@ -1340,6 +1342,7 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
       .filter(([key]) => key.startsWith('platform:board:v2:') || key.startsWith('platform:workspace:v1:')).sort(([a], [b]) => a.localeCompare(b))));
     await expect(boardTab(1)).toBeVisible();
     await expect(boardTab(2)).toBeVisible();
+    // Nothing happens: let the debounced layout saves (300 ms) land, so the snapshot holds the settled state.
     await page.waitForTimeout(600);
     const snapshot = { stored: await stored(), board: await boardTabLabels(), inner: await innerTabLabels() };
     expect(snapshot.board).toHaveLength(2);
@@ -1355,6 +1358,7 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await dragLike(page, innerTab, body2, { x: body2Box.width / 2, y: body2Box.height / 2 });
     await dragLike(page, innerTab, body2, { x: body2Box.width - 6, y: body2Box.height / 2 });
     await dragLike(page, innerTab, boardTab(1), { x: 20, y: 10 });
+    // Nothing happens: the refused drops change no state, so there is nothing to poll for; give a wrongly accepted one time to show.
     await page.waitForTimeout(600);
 
     expect(await boardTabLabels()).toEqual(snapshot.board);
@@ -1431,7 +1435,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await page.mouse.down();
     await page.mouse.move(x, y, { steps: 8 });
     for (let i = 0; i < 6; i++) {
-      await page.waitForTimeout(80);
+      await nextFrames(page);
       await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y);
     }
     await page.mouse.up();
@@ -1468,6 +1472,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await expect(page.locator('[data-platform-page]')).toHaveClass(/(^|\s)h-full(\s|$)/);
     await expect(rowSeparators(page)).toHaveCount(0);
     await expect(dropStrip(page)).toHaveCount(0);
+    // Nothing happens: switching the height mode must not re-query; give a wrongly sent query time to arrive.
     await page.waitForTimeout(500);
     expect(await cycleRequests(page)).toBe(requests);
   });
@@ -1604,6 +1609,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
       strip.dispatchEvent(new DragEvent('dragover', { dataTransfer: data, bubbles: true, cancelable: true }));
       strip.dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true }));
     });
+    // Nothing happens: a refused drop changes no state, so there is nothing to poll for; give a wrongly accepted one time to show.
     await page.waitForTimeout(400);
     expect(await rowPx(page)).toEqual(before);
 
@@ -1619,7 +1625,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     const zone = (await dropStrip(page).boundingBox())!;
     await page.mouse.move(zone.x + 40, zone.y + 30, { steps: 8 });
     for (let i = 0; i < 6; i++) {
-      await page.waitForTimeout(80);
+      await nextFrames(page);
       await page.mouse.move(zone.x + 40 + (i % 2 === 0 ? -2 : 2), zone.y + 30);
     }
     await page.mouse.up();
@@ -1664,7 +1670,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', rows }]);
     const snapshot = JSON.stringify(await stored(page));
     await dragLike(page, group.locator('.dv-void-container'), dropStrip(page), { x: 40, y: 30 });
-    // Pacing, not a save: a refused drop changes nothing, so there is no state to poll for; give a wrongly accepted one time to show.
+    // Nothing happens (kept wait): a refused drop changes nothing, so there is no state to poll for; give a wrongly accepted one time to show.
     await page.waitForTimeout(600);
     expect(await rowPx(page)).toEqual(rows);
     await expect(group.getByRole('tab')).toHaveCount(2);
@@ -1691,6 +1697,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     const reset = await rowPx(page);
     await page.getByRole('button', { name: '기본 배치', exact: true }).click();
     await page.getByRole('button', { name: '기본 배치', exact: true }).click();
+    // Nothing happens: repeating the default layout must not stack more height; give a wrong stack time to show.
     await page.waitForTimeout(300);
     expect(await rowPx(page)).toEqual(reset);
 
@@ -1698,9 +1705,11 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await chooseMode(page, '아래로 쌓기');
     await chooseMode(page, '화면 맞춤');
     await chooseMode(page, '아래로 쌓기');
-    await page.waitForTimeout(300);
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
+    await settleOn(() => rowPx(page), 'row heights settle after the mode round trip');
     const roundTrip = await rowPx(page);
     roundTrip.forEach((px, index) => { expect(near(px, reset[index]!, 3)).toBe(true); });
+    // Nothing happens: switching modes must not re-query; give a wrongly sent query time to arrive.
     await page.waitForTimeout(500);
     expect(await cycleRequests(page)).toBe(requests);
     await page.getByRole('radio', { name: '집중', exact: true }).click();
@@ -1719,7 +1728,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await expect(await modeItem(page, '아래로 쌓기')).toHaveAttribute('aria-disabled', 'true');
     await expect(page.getByRole('menu').getByRole('group')).toHaveAccessibleDescription('좁은 폭에서는 화면 맞춤으로 보입니다');
     await page.keyboard.press('Escape');
-    // Pacing, not a save: the narrow display must write nothing, so there is no state to poll for.
+    // Nothing happens (kept wait): the narrow display must write nothing, so there is no state to poll for.
     await page.waitForTimeout(600);
     expect(JSON.stringify(await stored(page))).toBe(snapshot);
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1792,7 +1801,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     const boardOnStrip = await boardKey();
     const outerOnStrip = await outerSeparators();
     await dragLike(page, boardTab, dropStrip(page), { x: 40, y: 30 });
-    // Pacing, not a save: a refused drop changes nothing, so there is no state to poll for; give a wrongly accepted one time to show.
+    // Nothing happens (kept wait): a refused drop changes nothing, so there is no state to poll for; give a wrongly accepted one time to show.
     await page.waitForTimeout(600);
     await expect(workspace(page).locator('[role="tab"][data-tab-panel-id][aria-label^="칸 "]')).toHaveCount(0);
     expect(await rowPx(page)).toEqual(rowsOnStrip);
@@ -2166,7 +2175,8 @@ test.describe('분석 보드 최소화·복원 (#893 893c)', () => {
     const names = ['이 브라우저에만 저장', '칸 추가', '기본 배치', '최소화', '보드 닫기'];
     for (const width of [1440, 1280, 600]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.waitForTimeout(500);
+      const buttonBoxes = () => Promise.all(names.map(name => page.getByRole('main').getByRole('button', { name, exact: true }).first().boundingBox()));
+      await settleOn(buttonBoxes, `header button layout settles at ${width}px`);
       const boxes = [];
       for (const name of names) {
         const button = page.getByRole('main').getByRole('button', { name, exact: true }).first();

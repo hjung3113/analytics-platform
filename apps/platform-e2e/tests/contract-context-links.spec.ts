@@ -411,6 +411,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     // The return click leaves the pointer on the title; Radix opens its tooltip after 700 ms.
     // Every table row has tab stops before the panel, so the bound is generous.
     await heading.hover();
+    // Nothing happens: the tooltip must NOT open for the returned title; wait past the 700 ms open delay so a wrongly opened one is there to be caught below.
     await page.waitForTimeout(800);
     for (let i = 0; i < 300 && (await dialog.locator(':focus').count()) === 0; i++) await page.keyboard.press('Tab');
     await expect(dialog.locator(':focus')).toHaveCount(1);
@@ -900,6 +901,7 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     const before = await kpiRequests(page);
     await switcher(bar).getByRole('radio', { name: '조직 기준' }).click();
     await expect(switcher(bar).getByRole('radio', { name: '조직 기준' })).toBeChecked();
+    // Nothing happens: a draft change must send no request; give a wrongly sent one time to arrive.
     await page.waitForTimeout(1000);
     expect(await kpiRequests(page)).toBe(before);
     expect(query(page).get('conditionSet')).toBeNull();
@@ -908,6 +910,7 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     await expect.poll(() => kpiRequests(page)).toBeGreaterThan(before);
     await expect(busy).toHaveCount(0);
     await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    // Nothing happens: applying must send exactly one query; give a second, wrongly sent one time to arrive.
     await page.waitForTimeout(1000);
     expect(await kpiRequests(page)).toBe(before + 1);
     await expect(bar.getByText(/설비사 .* · 조직 기준에서 미적용/)).toBeVisible();

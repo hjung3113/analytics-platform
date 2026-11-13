@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, PRODUCTIVITY, periodPreset } from './contract-helpers';
-import { contextBar, evidence, expectScopeValid, mainHeading, query, showSlowExecutions, signInAs, switchScope } from './support';
+import { contextBar, evidence, expectScopeValid, mainHeading, nextFrames, query, settleOn, showSlowExecutions, signInAs, switchScope } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -189,10 +189,10 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     const y = box.y + box.height * 0.5;
     await page.mouse.move(box.x + box.width * 0.1, y);
     await page.mouse.down();
-    for (let i = 1; i <= 8; i++) { await page.mouse.move(box.x + box.width * (0.1 + 0.1 * i / 8), y); await page.waitForTimeout(30); }
+    for (let i = 1; i <= 8; i++) { await page.mouse.move(box.x + box.width * (0.1 + 0.1 * i / 8), y); await nextFrames(page); }
     await page.setViewportSize({ width: 1400, height: 900 });
-    await page.waitForTimeout(300);
-    for (let i = 1; i <= 8; i++) { await page.mouse.move(box.x + box.width * (0.2 + 0.1 * i / 8), y); await page.waitForTimeout(30); }
+    await settleOn(() => plot.boundingBox(), 'the plot has finished resizing');
+    for (let i = 1; i <= 8; i++) { await page.mouse.move(box.x + box.width * (0.2 + 0.1 * i / 8), y); await nextFrames(page); }
     await page.mouse.up();
     await expect(summary).toContainText(/선택 구간: /);
     await expect.poll(() => summary.innerText(), { message: 'the brush drawn across the resize became the selection' }).not.toBe(before);
@@ -446,13 +446,24 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
     // Compare only the x-axis tick strip at the plot's bottom: the zoom window changes the ticks, while the hover tooltip and
     // axis pointer (near the pointer at the centre) stay out of it.
     const axisStrip = { x: at.box.x, y: at.box.y + at.box.height - 30, width: at.box.width, height: 28 };
-    const settled = async (x: number, y: number) => { await page.mouse.move(x, y); await page.waitForTimeout(600); return page.screenshot({ clip: axisStrip, animations: 'disabled' }); };
+    // `differentFrom` names the frame the interaction must have changed, so a frame drawn before the chart reacted cannot count as settled.
+    const settled = async (x: number, y: number, differentFrom?: Buffer) => {
+      await page.mouse.move(x, y);
+      let latest = await page.screenshot({ clip: axisStrip, animations: 'disabled' });
+      await expect.poll(async () => {
+        const next = await page.screenshot({ clip: axisStrip, animations: 'disabled' });
+        const still = next.equals(latest) && (!differentFrom || !next.equals(differentFrom));
+        latest = next;
+        return still;
+      }, { message: 'the x-axis tick strip stopped changing' }).toBe(true);
+      return latest;
+    };
     const flat = await settled(at.x, at.y);
     await page.keyboard.down('Shift');
     // Zoom well in (three notches) so the zoomed window has room to pan in both directions.
-    for (let i = 0; i < 3; i++) { await page.mouse.wheel(0, -300); await page.waitForTimeout(150); }
+    for (let i = 0; i < 3; i++) { await page.mouse.wheel(0, -300); await nextFrames(page); }
     await page.keyboard.up('Shift');
-    const zoomed = await settled(at.x, at.y);
+    const zoomed = await settled(at.x, at.y, flat);
     expect(zoomed.equals(flat), 'Shift+wheel zoomed the plot').toBe(false);
     expect(await main(page).evaluate(element => element.scrollTop)).toBe(top);
     expect(page.url()).toBe(url);
@@ -464,19 +475,30 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
     const plot = trendPlot(page);
     const at = await centerOf(plot);
     const axisStrip = { x: at.box.x, y: at.box.y + at.box.height - 30, width: at.box.width, height: 28 };
-    const settled = async (x: number, y: number) => { await page.mouse.move(x, y); await page.waitForTimeout(600); return page.screenshot({ clip: axisStrip, animations: 'disabled' }); };
+    // `differentFrom` names the frame the interaction must have changed, so a frame drawn before the chart reacted cannot count as settled.
+    const settled = async (x: number, y: number, differentFrom?: Buffer) => {
+      await page.mouse.move(x, y);
+      let latest = await page.screenshot({ clip: axisStrip, animations: 'disabled' });
+      await expect.poll(async () => {
+        const next = await page.screenshot({ clip: axisStrip, animations: 'disabled' });
+        const still = next.equals(latest) && (!differentFrom || !next.equals(differentFrom));
+        latest = next;
+        return still;
+      }, { message: 'the x-axis tick strip stopped changing' }).toBe(true);
+      return latest;
+    };
     const start = { x: at.x, y: at.box.y + at.box.height * 0.2 };
     const flat = await settled(start.x, start.y);
     await page.keyboard.down('Shift');
-    for (let i = 0; i < 3; i++) { await page.mouse.wheel(0, -300); await page.waitForTimeout(150); }
+    for (let i = 0; i < 3; i++) { await page.mouse.wheel(0, -300); await nextFrames(page); }
     await page.keyboard.up('Shift');
-    const zoomed = await settled(start.x, start.y);
+    const zoomed = await settled(start.x, start.y, flat);
     expect(zoomed.equals(flat), 'Shift+wheel zoomed the plot').toBe(false);
     const dx = -at.box.width * 0.25;
     await page.mouse.down();
-    for (let i = 1; i <= 12; i++) { await page.mouse.move(start.x + (dx * i) / 12, start.y); await page.waitForTimeout(30); }
+    for (let i = 1; i <= 12; i++) { await page.mouse.move(start.x + (dx * i) / 12, start.y); await nextFrames(page); }
     await page.mouse.up();
-    const panned = await settled(start.x, start.y);
+    const panned = await settled(start.x, start.y, zoomed);
     expect(panned.equals(zoomed), 'the drag moved the zoomed window').toBe(false);
     expect(panned.equals(flat), 'the window is still zoomed after the drag').toBe(false);
   });
@@ -526,13 +548,13 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
     const area = workspace(page).getByLabel('스크롤 가능한 행 영역');
     await expect(area).toBeVisible();
     const at = await centerOf(area);
-    // Row heights settle after the first layout, so pin the bottom until two reads 300 ms apart agree.
+    // Row heights settle after the first layout, so pin the bottom until two consecutive polls read the same height at the bottom.
     const pinBottom = () => area.evaluate(element => { element.scrollTop = element.scrollHeight; return element.scrollHeight; });
-    await expect.poll(async () => { const first = await pinBottom(); await page.waitForTimeout(300); return (await pinBottom()) === first && await area.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop <= 1); }).toBe(true);
+    let lastHeight = -1;
+    await expect.poll(async () => { const height = await pinBottom(); const same = height === lastHeight; lastHeight = height; return same && await area.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop <= 1); }).toBe(true);
     const before = await ancestorScroll(area);
     await page.mouse.move(at.x, at.y);
     await page.mouse.wheel(0, 300);
-    await page.waitForTimeout(400);
     await expect.poll(() => ancestorScroll(area)).toBeGreaterThan(before);
   });
 

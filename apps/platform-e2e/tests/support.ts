@@ -133,3 +133,14 @@ export async function fitWorkspace(page: Page) {
   await expect(root).toHaveAttribute('data-workspace-mode', 'fit');
   await page.evaluate(() => new Promise(done => { requestAnimationFrame(() => { requestAnimationFrame(done); }); }));
 }
+
+/** Waits for two animation frames, so a layout or a React commit that the last input caused has been drawn. A frame wait is not a sleep: it ends when the browser has painted. */
+export async function nextFrames(page: Page) {
+  await page.evaluate(() => new Promise(done => { requestAnimationFrame(() => { requestAnimationFrame(done); }); }));
+}
+
+/** Waits until `read()` returns the same value on two consecutive polls (a layout, a count or a stored value that has stopped moving). */
+export async function settleOn(read: () => Promise<unknown>, message?: string) {
+  let last: string | undefined;
+  await expect.poll(async () => { const now = JSON.stringify(await read()); const same = now === last; last = now; return same; }, { message }).toBe(true);
+}
