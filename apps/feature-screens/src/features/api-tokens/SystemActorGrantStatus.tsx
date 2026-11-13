@@ -16,7 +16,9 @@ import { permissionGrantsListKey } from '../admin/permissions/useRevokePermissio
  * AND a live service token carries the scope. The two states are shown
  * separately and never summarized as "usable"; nothing is auto-granted.
  * The token list state is passed in so a pending or failed token query is
- * never read as a confirmed empty scope. */
+ * never read as a confirmed empty scope. #2013: `tokens` is every service
+ * token of the workspace (`fetchAllServiceTokens`), never the list's current
+ * page or filters; a read that hit the page cap arrives as an error. */
 const TOKEN_ONLY_CAPABILITIES = CAPABILITIES.filter(isTokenOnlyCapability);
 
 export function SystemActorGrantStatus({
