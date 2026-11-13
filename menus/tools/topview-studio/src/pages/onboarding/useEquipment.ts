@@ -1,5 +1,5 @@
 /** Every read of one equipment's onboarding, validated at the boundary with `@eqv/core` (the dev tool's `onboarding-data.ts`, over menu reads). */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   latestBinding, mappingVersionSchema, observedInventorySchema, validateAliasRules, validateBindings, validateLayout, validateTypeDictionary,
   type AliasRulesFile, type BindingsFile, type EquipmentLayoutDocument, type MappingVersion, type ObservedInventory, type TemplateDocument, type TypeDictionaryFile,
@@ -42,6 +42,14 @@ export interface EquipmentData {
   driftLayout: EquipmentLayoutDocument | null;
   driftProblem: string | null;
   templates: TemplateDocument[];
+  /**
+   * #2053: a publish was refused as `mapping/changed` (rules saved since the review). `reloadRules` marks it and reads the four alias rule
+   * scopes again, so the review is recomputed from the new rules; the mark outlives that recompute (the dialog remounts with the new plan)
+   * until `dismissRulesChanged`.
+   */
+  rulesChanged: boolean;
+  reloadRules(): void;
+  dismissRulesChanged(): void;
 }
 
 export type EquipmentLoad =
@@ -66,6 +74,11 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
   const usable = windows?.filter((w) => w.state === 'active' || w.state === 'replaced' || w.state === 'staged') ?? [];
   const latestActive = [...usable].filter((w) => w.state === 'active').sort((a, b) => (a.from < b.from ? 1 : a.from > b.from ? -1 : 0))[0] ?? null;
   const window = windowKey === null ? latestActive : windows?.find((w) => windowHex(w.hash) === windowKey) ?? null;
+  // The Sample Window whose review was refused as `mapping/changed`; another window (or none) shows no notice, and a window change clears it.
+  const [rulesChangedFor, setRulesChangedFor] = useState<string | null>(null);
+  const reviewKey = window ? windowHex(window.hash) : 'none';
+  const [keyFor, setKeyFor] = useState(reviewKey);
+  if (keyFor !== reviewKey) { setKeyFor(reviewKey); setRulesChangedFor(null); }
   const inventoryQ = useMenuQuery(observedInventoryEndpoint, { equipmentId, windowHash: window ? windowHex(window.hash) : NO_HEX }, window !== null);
 
   const dictGlobalQ = useMenuQuery(typeDictionaryEndpoint, { level: 'global' }, known);
@@ -185,6 +198,9 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
       bindings: bindingsParsed?.ok ? bindingsParsed.file : null, bindingsVersion: bindingsRaw?.version ?? '0',
       previous: parsed.previous, baseline: parsed.baseline, layoutId, draft: parsed.draft,
       driftLayout: parsed.driftLayout, driftProblem: parsed.driftProblem, templates: parsed.templates,
+      rulesChanged: rulesChangedFor === reviewKey,
+      reloadRules: () => { setRulesChangedFor(reviewKey); for (const q of [rulesGlobalQ, rulesMakerQ, rulesModelQ, rulesEquipmentQ]) q.refetch(); },
+      dismissRulesChanged: () => setRulesChangedFor(null),
     },
   };
 }

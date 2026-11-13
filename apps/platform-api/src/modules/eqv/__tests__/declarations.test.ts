@@ -60,7 +60,7 @@ describe('eqv declarations (#1645)', () => {
     for (const id of ['eqv.importSampleWindow', 'eqv.replaceSampleWindow', 'eqv.retireSampleWindow', 'eqv.registerEquipment']) {
       expect(byId.get(id), id).toMatchObject({ menuId: EQV_ONBOARDING_MENU_ID, concurrency: 'none', permission: 'eqv-studio:window-import', requiresScope: false });
     }
-    expect(byId.get('eqv.publishMapping')?.inputKeys).toEqual(['equipmentId', 'layoutId', 'layoutRevision', 'windowHash', 'effectiveFrom']);
+    expect(byId.get('eqv.publishMapping')?.inputKeys).toEqual(['equipmentId', 'layoutId', 'layoutRevision', 'windowHash', 'effectiveFrom', 'expectedMappingHash']);
     expect(byId.get('eqv.publishMapping')?.invalidates).toEqual(['eqv.mappingVersions', 'eqv.bindings', 'eqv.fleet', 'eqv.sampleWindows']);
     expect(byId.get('eqv.saveAliasRules')?.invalidates).toEqual(['eqv.aliasRules', 'eqv.fleet']);
     expect(byId.get('eqv.saveTypeDictionary')?.invalidates).toEqual(['eqv.typeDictionary', 'eqv.fleet']);

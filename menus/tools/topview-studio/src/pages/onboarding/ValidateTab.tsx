@@ -14,6 +14,8 @@ import type { EquipmentData } from './useEquipment';
 import { NoBreakStamps } from './WallClock';
 
 const CHANGE_WORD = { added: '추가', removed: '삭제', changed: '변경' } as const;
+/** A publish refused because the rules were saved since the review (`mapping/changed`, #2053). */
+const RULES_CHANGED = '규칙이 바뀌었습니다. 다시 확인한 뒤 게시하세요.';
 export const CONFLICTS_DO_NOT_BLOCK = 'Mapping Conflict는 게시를 막지 않습니다. 건수는 게시 검토의 diff에 보입니다.';
 
 /**
@@ -103,6 +105,10 @@ export function PublishReview({ data, layout, plan, effectiveFrom, revisions, on
   const onPublish = async () => {
     if (busy || !data.window || !data.inventory || !data.draft) return;
     setError(null);
+    data.dismissRulesChanged();
+    // The server publishes only the Mapping the author reviewed (#2053); without one there is nothing to publish.
+    const reviewed = plan.mapping?.hash;
+    if (!reviewed) { setError('Mapping을 게시하지 못했습니다.'); return; }
     try {
       let revision = plan.layoutRevision;
       if (!(revisions ?? []).some((r) => r.revision === revision)) {
@@ -110,15 +116,20 @@ export function PublishReview({ data, layout, plan, effectiveFrom, revisions, on
         if (published.outcome !== 'ok' || !published.data) { setError(published.outcome === 'conflict' ? 'Layout 초안이 바뀌었습니다. 다시 확인한 뒤 게시하세요.' : 'Layout Revision을 게시하지 못했습니다.'); return; }
         revision = published.data.revision;
       }
-      const result = await mappingAction.run({ equipmentId: data.equipment.equipmentId, layoutId: layout.id, layoutRevision: revision, windowHash: windowHex(data.window.hash), effectiveFrom },
+      const result = await mappingAction.run({ equipmentId: data.equipment.equipmentId, layoutId: layout.id, layoutRevision: revision, windowHash: windowHex(data.window.hash), effectiveFrom, expectedMappingHash: reviewed },
         { expectedVersion: data.bindingsVersion });
       if (result.outcome === 'ok') { toast('Mapping을 게시했습니다', 'info'); onClose(); return; }
       const code = result.fieldErrors[0]?.code;
+      // Rules saved since the review: read them again so this dialog shows the diff that would be published now.
+      if (result.outcome === 'invalid' && result.fieldErrors.some((f) => f.path.join('.') === 'mapping' && f.code === 'changed')) { data.reloadRules(); return; }
       setError(result.outcome === 'conflict' ? '다른 사용자가 먼저 게시했습니다. 다시 확인한 뒤 게시하세요.' : code === 'same-as-latest' ? '이전 게시와 같습니다' : code === 'not_active' ? WINDOW_NOT_ACTIVE_REASON
         : result.outcome === 'forbidden' ? '권한이 없어 게시하지 못했습니다.' : 'Mapping을 게시하지 못했습니다.');
     } catch { setError('Mapping을 게시하지 못했습니다.'); }
   };
-  return <AlertDialog open onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
+  const close = () => { data.dismissRulesChanged(); onClose(); };
+  // The rules-changed notice is held by the page data: the dialog remounts when the re-read rules give a new plan.
+  const shown = error ?? (data.rulesChanged ? RULES_CHANGED : null);
+  return <AlertDialog open onOpenChange={(open) => { if (!open && !busy) close(); }}>
     <AlertDialogContent className="break-keep" onOpenAutoFocus={(event) => { event.preventDefault(); cancel.current?.focus(); }}>
       <AlertDialogHeader>
         <AlertDialogTitle>Mapping을 게시할까요?</AlertDialogTitle>
@@ -136,9 +147,9 @@ export function PublishReview({ data, layout, plan, effectiveFrom, revisions, on
       {plan.diff.entries.length > 0 ? <div className="max-h-48 overflow-y-auto"><ul aria-label="alias 변경" className="m-0 list-none space-y-1 p-0 text-xs">
         {plan.diff.entries.map((e) => <li key={e.alias}><span className="font-mono">{e.alias}</span> · {CHANGE_WORD[e.change]} · <span className="break-all">{e.before ?? '—'} → {e.after ?? '—'}</span></li>)}
       </ul></div> : <p className="text-xs text-text-secondary">변경 없음</p>}
-      {error && <Callout tone="red" title="게시하지 못했습니다"><span role="alert">{error}</span></Callout>}
+      {shown && <Callout tone="red" title="게시하지 못했습니다"><span role="alert">{shown}</span></Callout>}
       <AlertDialogFooter>
-        <Button ref={cancel} size="toolbar" variant="secondary" disabled={busy} onClick={onClose}>취소</Button>
+        <Button ref={cancel} size="toolbar" variant="secondary" disabled={busy} onClick={close}>취소</Button>
         <Button size="toolbar" disabled={busy} onClick={() => void onPublish()}>게시</Button>
       </AlertDialogFooter>
     </AlertDialogContent>

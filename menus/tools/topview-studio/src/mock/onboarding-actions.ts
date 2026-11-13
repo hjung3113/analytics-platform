@@ -1,7 +1,8 @@
 /**
  * The 설비 온보딩 writes (#1658), answered like the server without `@eqv/core`. `publishMapping` flattens the saved rules with a
  * small stand-in of core's resolution (equipment > model > maker > global; exact before pattern; `{n}` and `{n:letter}` captures) and
- * hashes the Mapping Version with `fakeRevision`, so a mock hash never equals the one the screen computes; the mock still refuses a
+ * hashes the Mapping Version with `fakeRevision`, so a mock hash never equals the one the screen computes; it therefore checks only the
+ * format of `expectedMappingHash` and never answers `mapping/changed` like the server does. The mock still refuses a
  * publish whose own hash and Layout Revision equal the latest Binding's (`same-as-latest`). No audit row (the engine has no audit hook).
  */
 import { defineMockAction, MockActionInvalid, type AnyMockAction } from '@ap/mock-server';
@@ -89,6 +90,7 @@ export const onboardingActionsMock: readonly AnyMockAction[] = [
       if (typeof input.layoutRevision !== 'string' || !REVISION_PATTERN.test(input.layoutRevision)) errors.push(err(['layoutRevision'], 'invalid'));
       if (typeof input.effectiveFrom !== 'string' || !WALL_CLOCK_PATTERN.test(input.effectiveFrom)) errors.push(err(['effectiveFrom'], 'invalid'));
       if (typeof input.windowHash !== 'string' || !WINDOW_HEX_PATTERN.test(input.windowHash)) errors.push(err(['windowHash'], 'invalid'));
+      if (typeof input.expectedMappingHash !== 'string' || !REVISION_PATTERN.test(input.expectedMappingHash)) errors.push(err(['expectedMappingHash'], 'invalid'));
       return errors;
     },
     version: ({ input }) => String(onboarding().bindings.get(input.equipmentId)?.length ?? 0),

@@ -156,7 +156,8 @@ export const onboardingReadSpecs = [
 export type SaveScopedInput = ScopeParams & { document: JsonDocument };
 /** `id` is the stored row's id. */
 export type SaveScopedResult = { id: string; version: string };
-export type PublishMappingInput = { equipmentId: string; layoutId: string; layoutRevision: string; windowHash: string; effectiveFrom: string };
+/** `expectedMappingHash` is the Mapping hash the author reviewed (`PublishPlan.mapping.hash`). */
+export type PublishMappingInput = { equipmentId: string; layoutId: string; layoutRevision: string; windowHash: string; effectiveFrom: string; expectedMappingHash: string };
 export type PublishMappingResult = { mappingHash: string; bindingId: string; version: string };
 export type WindowActionInput = { equipmentId: string; windowHash: string };
 export type ReplaceWindowResult = { equipmentId: string; activeHash: string; replacedHash: string };
@@ -184,10 +185,11 @@ export const saveTypeDictionary = defineAction<Omit<SaveScopedInput, 'equipmentI
 /**
  * `expectedVersion` is the equipment's binding count the author saw. The server flattens the saved rules against the published Layout
  * Revision, stores the Mapping Version and takes the Baseline from the stored Inventory of `windowHash` (the 64 hex digits of an `active`
- * Sample Window of the equipment; any other window is `windowHash/not_active`), and closes/opens the Binding; it refuses `same-as-latest` (path `['mapping']`). The Revision must exist: the screen calls `publishRevision` first when the draft has none (both are idempotent).
+ * Sample Window of the equipment; any other window is `windowHash/not_active`), and closes/opens the Binding; a flattened hash other than `expectedMappingHash` is `mapping/changed` (rules saved since the review, nothing
+ * stored), and it refuses `same-as-latest` (path `['mapping']`). The Revision must exist: the screen calls `publishRevision` first when the draft has none (both are idempotent).
  */
 export const publishMapping = defineAction<PublishMappingInput, PublishMappingResult>({
-  id: 'eqv.publishMapping', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { equipmentId: true, layoutId: true, layoutRevision: true, windowHash: true, effectiveFrom: true },
+  id: 'eqv.publishMapping', menuId: EQV_ONBOARDING_MENU_ID, inputKeys: { equipmentId: true, layoutId: true, layoutRevision: true, windowHash: true, effectiveFrom: true, expectedMappingHash: true },
   permission: MAPPING_PUBLISH_PERMISSION, requiresScope: false, concurrency: 'version',
   invalidates: [mappingVersionsEndpoint, bindingsEndpoint, fleetEndpoint, sampleWindowsEndpoint],
 });

@@ -20,7 +20,7 @@ import { defined } from '../../../test-support/defined.js';
 import { memoryStorage } from '../../../test-support/memory-storage.js';
 import { grantCapability } from '../../../test-support/permissions-fixtures.js';
 import { toCodeKey } from '../../log-knowledge/domain/code-key.js';
-import { layoutFixture, sampleBatch } from './fixture.js';
+import { layoutFixture, reviewedMappingHash, sampleBatch, UNREVIEWED_HASH } from './fixture.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -163,7 +163,8 @@ describe.skipIf(!runIntegration)('eqv Sample Window and Fleet (#1658 Sample Wind
     expect(rules.outcome).toBe('ok');
     const [layoutId, layoutRevision] = await publishedRevision();
     const hex = await fixtureWindow(equipmentId, ['PM1', 'PM2']);
-    const published = await act('eqv.publishMapping', { equipmentId, layoutId, layoutRevision, windowHash: hex, effectiveFrom: '2026-01-02T00:00:00.000' }, { who: admin, expectedVersion: '0' });
+    const expectedMappingHash = await reviewedMappingHash(sql, WORKSPACE_ID, equipmentId, layoutId, ['PM1', 'PM2']);
+    const published = await act('eqv.publishMapping', { equipmentId, layoutId, layoutRevision, windowHash: hex, effectiveFrom: '2026-01-02T00:00:00.000', expectedMappingHash }, { who: admin, expectedVersion: '0' });
     expect(published.outcome).toBe('ok');
     return { equipmentId, layoutId, layoutRevision, hex, mappingHash: published.data.mappingHash as string };
   }
@@ -415,7 +416,8 @@ describe.skipIf(!runIntegration)('eqv Sample Window and Fleet (#1658 Sample Wind
       // A fixture window with PM aliases carries the publish (the synthetic batch's aliases need not match the PM rule).
       const hex = await fixtureWindow(equipmentId, ['PM1'], { from: '2026-02-01T00:00:00.000', to: '2026-02-02T00:00:00.000' });
       const [layoutId, layoutRevision] = await publishedRevision();
-      const published = await act('eqv.publishMapping', { equipmentId, layoutId, layoutRevision, windowHash: hex, effectiveFrom: '2026-02-02T00:00:00.000' }, { who: admin, expectedVersion: '0' });
+      const expectedMappingHash = await reviewedMappingHash(sql, WORKSPACE_ID, equipmentId, layoutId, ['PM1']);
+      const published = await act('eqv.publishMapping', { equipmentId, layoutId, layoutRevision, windowHash: hex, effectiveFrom: '2026-02-02T00:00:00.000', expectedMappingHash }, { who: admin, expectedVersion: '0' });
       expect(published.outcome).toBe('ok');
       expect((await windows(equipmentId)).find((w) => w.hash === `sha256:${hex}`)?.mappingCount).toBe(1);
 
@@ -455,7 +457,7 @@ describe.skipIf(!runIntegration)('eqv Sample Window and Fleet (#1658 Sample Wind
       const replaced = await fixtureWindow(equipmentId, ['PM1'], { state: 'replaced' });
       const foreign = await fixtureWindow(other, ['PM1']);
       for (const windowHash of [staged, retired, replaced, foreign, 'f'.repeat(64)]) {
-        const refused = await act('eqv.publishMapping', { equipmentId, layoutId, layoutRevision, windowHash, effectiveFrom: '2026-01-02T00:00:00.000' }, { who: admin, expectedVersion: '0' });
+        const refused = await act('eqv.publishMapping', { equipmentId, layoutId, layoutRevision, windowHash, effectiveFrom: '2026-01-02T00:00:00.000', expectedMappingHash: UNREVIEWED_HASH }, { who: admin, expectedVersion: '0' });
         expect(refused.fieldErrors, windowHash).toEqual([{ path: ['windowHash'], code: 'not_active' }]);
       }
       expect(await count('binding', 'workspace_id = $1 and equipment_id = $2', [WORKSPACE_ID, equipmentId])).toBe(0);
@@ -551,7 +553,7 @@ describe.skipIf(!runIntegration)('eqv Sample Window and Fleet (#1658 Sample Wind
         expect((await act('eqv.retireSampleWindow', { equipmentId, windowHash: hex })).fieldErrors, 'retire').toEqual(notFound);
       }
       const [layoutId, layoutRevision] = await publishedRevision();
-      const publishInput = (equipmentId: string) => ({ equipmentId, layoutId, layoutRevision, windowHash: hex, effectiveFrom: '2026-01-02T00:00:00.000' });
+      const publishInput = (equipmentId: string) => ({ equipmentId, layoutId, layoutRevision, windowHash: hex, effectiveFrom: '2026-01-02T00:00:00.000', expectedMappingHash: UNREVIEWED_HASH });
       const hiddenPublish = await act('eqv.publishMapping', publishInput(hidden), { who: admin, expectedVersion: '0' });
       const missingPublish = await act('eqv.publishMapping', publishInput(missing), { who: admin, expectedVersion: '0' });
       expect(hiddenPublish.outcome).toBe('not_found');

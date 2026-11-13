@@ -298,6 +298,57 @@ describe('검증·게시', () => {
     expect(screen.getByTestId('viewer').getAttribute('data-highlight')).toBe('');
   });
 
+  it('rules saved by someone else since the review: the server answers mapping/changed; the dialog says so, stays open and recomputes from the re-read rules (#2053)', async () => {
+    server.state.refuseMapping = { outcome: 'invalid', code: 'changed' };
+    mount('engineer', '&equipment=eq-synth-01&step=validate');
+    const review = await screen.findByRole('button', { name: '게시 검토' }, slow);
+    await waitFor(() => expect((review as HTMLButtonElement).disabled).toBe(false), slow);
+    fireEvent.click(review);
+    const dialog = await screen.findByRole('alertdialog', {}, slow);
+    expect(within(dialog).getByText('추가 0 · 삭제 0 · 변경 0 · 변경 없음 7')).toBeTruthy();
+    const shown = /mapping ([0-9a-f]{12})$/.exec(within(dialog).getByText((_, el) => /^새 binding .* · mapping [0-9a-f]{12}$/.test(el?.textContent ?? '') && el?.classList.contains('block') === true).textContent ?? '')?.[1];
+    // Another author saves the equipment rule (PM2 becomes verified) while this dialog is open.
+    const key = 'equipment/eq-synth-01';
+    const saved = server.state.rules.get(key)!;
+    const document = structuredClone(saved.document) as { rules: { certainty: string }[] };
+    document.rules[0]!.certainty = 'verified';
+    server.state.rules.set(key, { document: document as never, version: saved.version + 1 });
+    const ruleReads = () => server.state.queries.filter((q) => q.endpoint === 'eqv.aliasRules').length;
+    const before = ruleReads();
+    fireEvent.click(within(dialog).getByRole('button', { name: '게시' }));
+    const sent = await waitFor(() => { const w = writes().find((x) => x.action === 'eqv.publishMapping'); expect(w).toBeTruthy(); return w!.input as { expectedMappingHash: string }; }, slow);
+    expect(sent.expectedMappingHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(sent.expectedMappingHash.slice(7, 19)).toBe(shown);
+    await waitFor(() => expect(ruleReads()).toBeGreaterThanOrEqual(before + 4), slow);
+    const open = await screen.findByRole('alertdialog', {}, slow);
+    await waitFor(() => expect(within(open).getByText('추가 0 · 삭제 0 · 변경 1 · 변경 없음 6')).toBeTruthy(), slow);
+    expect(within(open).getByRole('alert').textContent).toBe('규칙이 바뀌었습니다. 다시 확인한 뒤 게시하세요.');
+    expect(notify).not.toHaveBeenCalledWith('Mapping을 게시했습니다', 'info');
+  });
+
+  it('the rules-changed notice belongs to the refused review: a Sample Window change by Back/Forward clears it (#2053)', async () => {
+    server.state.refuseMapping = { outcome: 'invalid', code: 'changed' };
+    mount('engineer', `&equipment=eq-synth-01&step=validate&window=${STAGED}`);
+    const trigger = await screen.findByRole('combobox', { name: 'Sample Window' }, slow);
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    const active = (await screen.findAllByRole('option', {}, slow)).find((o) => !/교체 대기/.test(o.textContent ?? ''))!;
+    fireEvent.click(active);
+    await waitFor(() => expect(params().window).not.toBe(STAGED), slow);
+    const openReview = async () => {
+      const review = await screen.findByRole('button', { name: '게시 검토' }, slow);
+      await waitFor(() => expect((review as HTMLButtonElement).disabled).toBe(false), slow);
+      fireEvent.click(review);
+      return screen.findByRole('alertdialog', {}, slow);
+    };
+    fireEvent.click(within(await openReview()).getByRole('button', { name: '게시' }));
+    await waitFor(() => expect(within(screen.getByRole('alertdialog')).getByRole('alert').textContent).toBe('규칙이 바뀌었습니다. 다시 확인한 뒤 게시하세요.'), slow);
+    act(() => window.history.back());
+    await waitFor(() => expect(params().window).toBe(STAGED), slow);
+    act(() => window.history.forward());
+    await waitFor(() => expect(params().window).not.toBe(STAGED), slow);
+    expect(within(await openReview()).queryByRole('alert')).toBeNull();
+  });
+
   it('a server refusal as the same as the latest publish says so in the dialog', async () => {
     server.state.refuseMapping = { outcome: 'invalid', code: 'same-as-latest' };
     mount('engineer', '&equipment=eq-synth-01&step=validate');
