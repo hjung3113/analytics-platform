@@ -76,6 +76,7 @@ vi.mock('@ap/feature-screens/operator-screens/task-detail', () => ({
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const TASK_A = '99999999-9999-4999-8999-99999999999a';
 const TASK_B = '99999999-9999-4999-8999-99999999999b';
+const MILESTONE = '88888888-8888-4888-8888-888888888881';
 const request = vi.fn();
 
 beforeAll(warmPages, 60_000);
@@ -177,9 +178,9 @@ describe('Milestones through the feature bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
   it('renders the detail parts on focus and the create parts of Milestone 생성 in the shell slot', async () => {
-    mountAt('/flow/milestones?focus=m-1');
+    mountAt(`/flow/milestones?focus=${MILESTONE}`);
     const aside = await screen.findByRole('complementary', { name: '상세 패널' });
-    expect(await within(aside).findByText('Milestone 본문 m-1')).toBeTruthy();
+    expect(await within(aside).findByText(`Milestone 본문 ${MILESTONE}`)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Milestone 생성' }));
     expect(await within(aside).findByText('생성 본문')).toBeTruthy();
     fireEvent.click(within(aside).getByRole('button', { name: '상세 닫기' }));
@@ -233,6 +234,8 @@ const REJECTED = [
   ['내 Task', '/my-tasks', 'list', 'status', 'bogus'],
   ['Task 목록', '/flow/task-list', 'list', 'status', 'bogus'],
   ['Task 목록', '/flow/task-list', 'list', 'managedSystem', 'x'],
+  // #2041: `focus` becomes a request path segment, so only a UUID passes (06 §6.4, ADR-0071 decision 9).
+  ...(['abc', `../vocs/${TASK_A}`] as const).flatMap(value => PAGES.map(([name, path, testId]) => [name, path, testId, 'focus', value] as const)),
 ] as const;
 
 describe('Task pages with an invalid address value', () => {

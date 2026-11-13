@@ -22,6 +22,7 @@ Feature-folder guides under `src/features/` describe semantic screen intents. Ru
 - Public screens navigate and notify only through `lib/host` (`log-lifecycle` receives Kernel menu-query/action hooks from its native menu host); never import TanStack Router, test adapters or the `@/lib/api` barrel into their reachable graph.
 - Test-local memory-router hosts live under `src/test`; private legacy feature components still using TanStack keep that dependency.
 - New endpoints use `apiRequest(method, path, parser, opts)` with a response schema from `@ap/feature-shared`; legacy unparsed calls are tracked in `src/lib/api/api-unparsed-allowlist.txt`.
+- Build every API path that carries a value with `apiPath` from `src/lib/api/path.ts` (all of `src/lib/api` does; new code everywhere must): a plain value must be a UUID id (anything else throws before the request); a non-id segment is wrapped in `segment()` (encoded; empty, `.` and `..` throw). Ids from the URL and from responses alike. A detail read checks the response `id` against the requested one (`withRequestedId`). A success response with `Content-Disposition: attachment` is refused by the client (#2049).
 - Route ownership per feature: `docs/agents/feature-implementation.md` → Implementation Boundaries (canonical list, includes `voc-cluster`); Finding and Integration details in `features/findings/AGENTS.md` and `features/integration/AGENTS.md`.
 
 ## Lint

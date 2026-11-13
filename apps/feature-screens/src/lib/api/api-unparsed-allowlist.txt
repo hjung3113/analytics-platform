@@ -41,6 +41,6 @@ lib/api/permission-reads.ts 2
 lib/api/registry-writes.ts 7
 lib/api/saved-views.ts 4
 lib/api/task-requests.ts 5
-lib/api/tasks.ts 7
+lib/api/tasks.ts 6
 lib/cross-system/useVocDetail.ts 2
 lib/cross-system/useWorkspaceActors.ts 2

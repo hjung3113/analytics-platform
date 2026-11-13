@@ -1,6 +1,7 @@
-import { taskDtoSchema } from '@ap/feature-shared';
+import { taskDetailDtoSchema, taskDtoSchema } from '@ap/feature-shared';
 import type { ListTasksResponse } from '@ap/feature-shared';
 import { apiRequest } from './client';
+import { apiPath, withRequestedId } from './path';
 export type { ListTasksResponse } from '@ap/feature-shared';
 import type {
   AssignTaskMilestoneRequest,
@@ -62,7 +63,7 @@ export async function listTasks(
 }
 
 export async function getTask(id: string, signal?: AbortSignal): Promise<TaskDetailDto> {
-  const res = await apiClient<TaskDetailDto>('GET', `/tasks/${id}`, {
+  const res = await apiRequest('GET', apiPath`/tasks/${id}`, withRequestedId(taskDetailDtoSchema, id), {
     ...(signal !== undefined ? { signal } : {}),
   });
   return res.data;
@@ -73,7 +74,7 @@ export async function updateTaskStatus(
   status: TaskStatus,
   options: { ifMatch: string; idempotencyKey: string },
 ): Promise<TaskDetailDto> {
-  const res = await apiClient<TaskDetailDto>('PATCH', `/tasks/${id}`, {
+  const res = await apiClient<TaskDetailDto>('PATCH', apiPath`/tasks/${id}`, {
     body: { status },
     ifMatch: options.ifMatch,
     idempotencyKey: options.idempotencyKey,
@@ -86,7 +87,7 @@ export async function convertTaskRequest(
   body: ConvertTaskRequestRequest,
   idempotencyKey: string,
 ): Promise<TaskDto> {
-  const res = await apiClient<TaskDto>('POST', `/task-requests/${id}/convert`, {
+  const res = await apiClient<TaskDto>('POST', apiPath`/task-requests/${id}/convert`, {
     body,
     idempotencyKey,
   });
@@ -98,7 +99,7 @@ export async function linkExistingTask(
   body: LinkExistingTaskRequest,
   idempotencyKey: string,
 ): Promise<TaskDto> {
-  const res = await apiClient<TaskDto>('POST', `/task-requests/${id}/link-task`, {
+  const res = await apiClient<TaskDto>('POST', apiPath`/task-requests/${id}/link-task`, {
     body,
     idempotencyKey,
   });
@@ -110,7 +111,7 @@ export async function linkTaskToFinding(
   body: LinkTaskRequest,
   idempotencyKey: string,
 ): Promise<FindingDto> {
-  const res = await apiClient<FindingDto>('POST', `/findings/${findingId}/link-task`, {
+  const res = await apiClient<FindingDto>('POST', apiPath`/findings/${findingId}/link-task`, {
     body,
     idempotencyKey,
   });
@@ -123,7 +124,7 @@ export async function assignTaskResponsibility(
   idempotencyKey: string,
   ifMatch: string,
 ) {
-  const response = await apiRequest('POST', `/tasks/${id}/responsibility`, taskDtoSchema, {
+  const response = await apiRequest('POST', apiPath`/tasks/${id}/responsibility`, taskDtoSchema, {
     body,
     idempotencyKey,
     ifMatch,
@@ -139,7 +140,7 @@ export async function assignTaskMilestone(
   idempotencyKey: string,
   ifMatch: string,
 ) {
-  const response = await apiRequest('POST', `/tasks/${id}/milestone`, taskDtoSchema, {
+  const response = await apiRequest('POST', apiPath`/tasks/${id}/milestone`, taskDtoSchema, {
     body,
     idempotencyKey,
     ifMatch,

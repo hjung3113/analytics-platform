@@ -91,7 +91,7 @@ describe('Task list paging and independent selection', () => {
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
         const url = new URL(String(input), 'http://localhost');
-        if (url.pathname === `/tasks/${second.id}`) return response(second);
+        if (url.pathname === `/tasks/${second.id}`) return response({ ...second, source: null });
         const query = listTasksQuerySchema.parse(Object.fromEntries(url.searchParams));
         expect(query.limit).toBe(50);
         cursors.push(query.cursor);
@@ -124,8 +124,9 @@ describe('Task list paging and independent selection', () => {
               : response({
                   ...second,
                   primary_managed_system_id: '30000000-0000-0000-0000-000000000099',
+                  source: null,
                 });
-          if (url.pathname === `/tasks/${task.id}`) return response(task);
+          if (url.pathname === `/tasks/${task.id}`) return response({ ...task, source: null });
           expect(
             listTasksQuerySchema.parse(Object.fromEntries(url.searchParams)).public_update,
           ).toBe('missing');
@@ -201,8 +202,8 @@ it.each(['backlog', 'my'] as const)(
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
         const url = new URL(String(input), 'http://localhost');
-        if (url.pathname === `/tasks/${task.id}`) return response(task);
-        if (url.pathname === `/tasks/${second.id}`) return response(second);
+        if (url.pathname === `/tasks/${task.id}`) return response({ ...task, source: null });
+        if (url.pathname === `/tasks/${second.id}`) return response({ ...second, source: null });
         queries.push(listTasksQuerySchema.parse(Object.fromEntries(url.searchParams)));
         return response({
           items: queries.length === 1 ? [task] : [second],

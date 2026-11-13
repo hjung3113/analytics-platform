@@ -20,8 +20,9 @@ export const MIME_ALLOWLIST: ReadonlySet<string> = new Set([
   // Documents
   'application/pdf',
   'text/plain',
-  // Data files (#1741). Safe to serve: the download route always sends `Content-Disposition: attachment` and the
-  // server sends `X-Content-Type-Options: nosniff` on every response.
+  // Data files (#1741). The download route always sends `Content-Disposition: attachment` and the server sends
+  // `X-Content-Type-Options: nosniff`, so a browser never renders it; API callers rely on the feature client refusing
+  // an attachment response as a success body (#2049, attachments/AGENTS.md).
   'application/json',
   // Office (read-only consumption — write side is out of scope)
   'application/msword',

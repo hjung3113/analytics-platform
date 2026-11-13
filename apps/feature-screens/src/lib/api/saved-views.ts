@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { apiPath } from './path';
 
 export type SavedViewSurface = 'voc' | 'tasks' | 'task_requests' | 'findings';
 
@@ -25,5 +26,5 @@ export async function createSavedView(input: Pick<SavedView, 'surface' | 'name' 
 }
 
 export async function deleteSavedView(id: string): Promise<void> {
-  await apiClient('DELETE', `/saved-views/${id}`);
+  await apiClient('DELETE', apiPath`/saved-views/${id}`);
 }

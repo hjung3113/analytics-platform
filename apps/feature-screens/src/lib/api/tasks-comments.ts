@@ -15,6 +15,7 @@ import {
 } from '@ap/feature-shared';
 
 import { apiRequest } from './client';
+import { apiPath } from './path';
 
 export async function listTaskComments(
   taskId: string,
@@ -22,7 +23,7 @@ export async function listTaskComments(
 ): Promise<ListTaskCommentsResponse> {
   const qs = new URLSearchParams();
   if (options.cursor !== undefined) qs.set('cursor', options.cursor);
-  const path = `/tasks/${taskId}/comments${qs.size > 0 ? `?${qs.toString()}` : ''}`;
+  const path = `${apiPath`/tasks/${taskId}/comments`}${qs.size > 0 ? `?${qs.toString()}` : ''}`;
   const res = await apiRequest('GET', path, listTaskCommentsResponseSchema, {
     ...(options.signal !== undefined ? { signal: options.signal } : {}),
   });
@@ -35,7 +36,7 @@ export async function createTaskComment(
 ): Promise<CreateTaskCommentResponse> {
   const res = await apiRequest(
     'POST',
-    `/tasks/${taskId}/comments`,
+    apiPath`/tasks/${taskId}/comments`,
     createTaskCommentResponseSchema,
     {
       body,

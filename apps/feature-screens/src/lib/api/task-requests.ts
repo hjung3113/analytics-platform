@@ -1,6 +1,7 @@
 import { taskRequestDtoSchema } from '@ap/feature-shared';
 import type { ListTaskRequestsResponse } from '@ap/feature-shared';
 import { apiRequest } from './client';
+import { apiPath, withRequestedId } from './path';
 export type { ListTaskRequestsResponse } from '@ap/feature-shared';
 import type {
   ApproveTaskRequestRequest,
@@ -44,7 +45,7 @@ export async function approveTaskRequest(
   body: ApproveTaskRequestRequest,
   idempotencyKey: string,
 ): Promise<TaskRequestDto> {
-  const res = await apiClient<TaskRequestDto>('POST', `/task-requests/${id}/approve`, {
+  const res = await apiClient<TaskRequestDto>('POST', apiPath`/task-requests/${id}/approve`, {
     body,
     idempotencyKey,
   });
@@ -56,7 +57,7 @@ export async function rejectTaskRequest(
   body: RejectTaskRequestRequest,
   idempotencyKey: string,
 ): Promise<TaskRequestDto> {
-  const res = await apiClient<TaskRequestDto>('POST', `/task-requests/${id}/reject`, {
+  const res = await apiClient<TaskRequestDto>('POST', apiPath`/task-requests/${id}/reject`, {
     body,
     idempotencyKey,
   });
@@ -70,7 +71,7 @@ export async function requestMoreEvidenceForTaskRequest(
 ): Promise<TaskRequestDto> {
   const res = await apiClient<TaskRequestDto>(
     'POST',
-    `/task-requests/${id}/request-more-evidence`,
+    apiPath`/task-requests/${id}/request-more-evidence`,
     {
       body,
       idempotencyKey,
@@ -82,8 +83,8 @@ export async function requestMoreEvidenceForTaskRequest(
 export async function getTaskRequest(id: string, signal?: AbortSignal): Promise<TaskRequestDto> {
   const response = await apiRequest(
     'GET',
-    `/task-requests/${id}`,
-    taskRequestDtoSchema,
+    apiPath`/task-requests/${id}`,
+    withRequestedId(taskRequestDtoSchema, id),
     signal === undefined ? {} : { signal },
   );
   return response.data;
@@ -94,7 +95,7 @@ export async function assignTaskRequestReviewer(
   body: import('@ap/feature-shared').AssignTaskRequestReviewerRequest,
   idempotencyKey: string,
 ) {
-  const response = await apiRequest('POST', `/task-requests/${id}/reviewer`, taskRequestDtoSchema, {
+  const response = await apiRequest('POST', apiPath`/task-requests/${id}/reviewer`, taskRequestDtoSchema, {
     body,
     idempotencyKey,
   });

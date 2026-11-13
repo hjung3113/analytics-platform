@@ -2,6 +2,7 @@
 // Unlike the prior raw-fetch exports, 401 now follows the client's ApiError and unauthorized-hook behavior.
 
 import { apiClient } from './client';
+import { apiPath } from './path';
 import type { AnalyticsAreaDto, ManagedSystemDto } from './registry-reads';
 
 export interface RegisterManagedSystemBody {
@@ -61,7 +62,7 @@ export async function updateManagedSystem(
   options?: { idempotencyKey?: string; signal?: AbortSignal },
 ): Promise<ManagedSystemDto> {
   return (
-    await apiClient<ManagedSystemDto>('PATCH', `/managed-systems/${id}`, {
+    await apiClient<ManagedSystemDto>('PATCH', apiPath`/managed-systems/${id}`, {
       body,
       ...clientOptions(options),
     })
@@ -75,7 +76,7 @@ export async function archiveManagedSystem(
   return (
     await apiClient<ManagedSystemDto & { cascaded_analytics_area_ids: string[] }>(
       'POST',
-      `/managed-systems/${id}/archive`,
+      apiPath`/managed-systems/${id}/archive`,
       clientOptions(options),
     )
   ).data;
@@ -99,7 +100,7 @@ export async function updateAnalyticsArea(
   options?: { idempotencyKey?: string; signal?: AbortSignal },
 ): Promise<AnalyticsAreaDto> {
   return (
-    await apiClient<AnalyticsAreaDto>('PATCH', `/analytics-areas/${id}`, {
+    await apiClient<AnalyticsAreaDto>('PATCH', apiPath`/analytics-areas/${id}`, {
       body,
       ...clientOptions(options),
     })
@@ -113,7 +114,7 @@ export async function archiveAnalyticsArea(
   return (
     await apiClient<AnalyticsAreaDto>(
       'POST',
-      `/analytics-areas/${id}/archive`,
+      apiPath`/analytics-areas/${id}/archive`,
       clientOptions(options),
     )
   ).data;

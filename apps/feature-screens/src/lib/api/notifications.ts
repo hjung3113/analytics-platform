@@ -6,6 +6,7 @@ import {
 } from '@ap/feature-shared';
 
 import { apiRequest } from './client';
+import { apiPath } from './path';
 
 export const notificationsQueryKey = ['notifications'] as const;
 
@@ -34,12 +35,12 @@ export async function fetchNotifications(
 }
 
 export async function markNotificationRead(id: string): Promise<NotificationDto> {
-  const response = await apiRequest('POST', `/notifications/${id}/read`, notificationDtoSchema);
+  const response = await apiRequest('POST', apiPath`/notifications/${id}/read`, notificationDtoSchema);
   return response.data;
 }
 
 export async function archiveNotification(id: string): Promise<NotificationDto> {
-  const response = await apiRequest('POST', `/notifications/${id}/archive`, notificationDtoSchema);
+  const response = await apiRequest('POST', apiPath`/notifications/${id}/archive`, notificationDtoSchema);
   return response.data;
 }
 

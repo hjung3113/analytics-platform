@@ -18,6 +18,7 @@ import {
 } from '@ap/feature-shared';
 
 import { apiRequest } from './client';
+import { apiPath } from './path';
 
 export type { MinePermissionRequestRow };
 
@@ -91,7 +92,7 @@ export async function fetchPermissionRequestOwnerDetail(id: string, signal?: Abo
   return (
     await apiRequest(
       'GET',
-      `/permission-requests/${id}`,
+      apiPath`/permission-requests/${id}`,
       permissionRequestOwnerDetailSchema,
       signal ? { signal } : {},
     )
@@ -107,7 +108,7 @@ export async function updateOwnPermissionRequest(
   return (
     await apiRequest(
       action === 'edit' ? 'PATCH' : 'POST',
-      `/permission-requests/${id}${action === 'supplement' ? '/submit-more-info' : ''}`,
+      `${apiPath`/permission-requests/${id}`}${action === 'supplement' ? '/submit-more-info' : ''}`,
       submitMoreInfoPermissionRequestResultSchema,
       { body: editPermissionRequestSchema.parse(body), idempotencyKey },
     )
@@ -122,7 +123,7 @@ export async function withdrawPermissionRequest(
   return (
     await apiRequest(
       'POST',
-      `/permission-requests/${id}/cancel`,
+      apiPath`/permission-requests/${id}/cancel`,
       cancelPermissionRequestResultSchema,
       { body: cancelPermissionRequestSchema.parse(body), idempotencyKey },
     )

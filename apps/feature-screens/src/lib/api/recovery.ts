@@ -10,6 +10,7 @@ import {
   recoveryPresentationPatchSchema,
 } from '@ap/feature-shared';
 import { apiRequest } from './client';
+import { apiPath, segment } from './path';
 
 function serialize(query: Record<string, unknown>): string {
   const params = new URLSearchParams();
@@ -31,7 +32,7 @@ export async function fetchRecoveryDetail(id: string, signal?: AbortSignal) {
   return (
     await apiRequest(
       'GET',
-      `/dashboard/recovery-items/${encodeURIComponent(id)}`,
+      apiPath`/dashboard/recovery-items/${segment(id)}`,
       recoveryDetailSchema,
       { ...(signal ? { signal } : {}) },
     )
@@ -55,7 +56,7 @@ export async function patchRecoveryPresentation(
   return (
     await apiRequest(
       'PATCH',
-      `/dashboard/recovery-items/${encodeURIComponent(id)}/presentation`,
+      apiPath`/dashboard/recovery-items/${segment(id)}/presentation`,
       recoveryDetailSchema,
       { body: recoveryPresentationPatchSchema.parse(body), ...(signal ? { signal } : {}) },
     )

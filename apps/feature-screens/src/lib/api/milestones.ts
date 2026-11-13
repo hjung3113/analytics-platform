@@ -21,6 +21,7 @@ import {
 import { z } from 'zod';
 
 import { apiRequest } from './client';
+import { apiPath, withRequestedId } from './path';
 
 const listMilestonesResponseSchema = z.object({ items: z.array(milestoneDtoSchema) }).strict();
 export type ListMilestonesResponse = z.infer<typeof listMilestonesResponseSchema>;
@@ -41,7 +42,7 @@ export async function listMilestones(
 }
 
 export async function getMilestone(id: string, signal?: AbortSignal): Promise<MilestoneDetailDto> {
-  const res = await apiRequest('GET', `/milestones/${id}`, milestoneDetailDtoSchema, {
+  const res = await apiRequest('GET', apiPath`/milestones/${id}`, withRequestedId(milestoneDetailDtoSchema, id), {
     ...(signal !== undefined ? { signal } : {}),
   });
   return res.data;
@@ -63,7 +64,7 @@ export async function updateMilestone(
   body: PatchMilestoneRequest,
   options: { ifMatch: string; idempotencyKey: string },
 ): Promise<MilestoneDto> {
-  const res = await apiRequest('PATCH', `/milestones/${id}`, milestoneDtoSchema, {
+  const res = await apiRequest('PATCH', apiPath`/milestones/${id}`, milestoneDtoSchema, {
     body,
     ifMatch: options.ifMatch,
     idempotencyKey: options.idempotencyKey,
