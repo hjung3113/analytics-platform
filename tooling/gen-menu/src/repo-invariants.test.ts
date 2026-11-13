@@ -369,6 +369,32 @@ describe('wiring invariants against a fixture repo', () => {
     shape.mockAssemblyTsx = base;
   });
 
+  describe('exported action/sample pair of a menu mock must be imported and registered (#1904 C1)', () => {
+    const wire = (shape: ReturnType<typeof loadShape>, imp: string, spread: string, entry: string): string => shape.mockAssemblyTsx
+      .replace('// </gen:menu-mock-action-imports>', `${imp}\n// </gen:menu-mock-action-imports>`)
+      .replace('  // </gen:menu-mock-action-spreads>', `${spread}\n  // </gen:menu-mock-action-spreads>`)
+      .replace('  // </gen:menu-mock-sample-entries>', `${entry}\n  // </gen:menu-mock-sample-entries>`);
+    const from = `'${PACKAGE_PREFIX}menu-quality/mock'`;
+    const both = 'export const qualityMock = []; export const qualityActionsMock = []; export const qualityWriteSamples = {};';
+    it('(a) rejects an exported action list whose import and spread are absent', () => {
+    const a = loadShape(fresh());
+    a.mockIndexes['menus/mars/quality'] = both;
+    a.mockAssemblyTsx = wire(a, `import { qualityWriteSamples } from ${from};`, '', '  qualityWriteSamples,');
+    expect(() => checkWiring(a)).toThrow(/qualityActionsMock/);
+    });
+    it('(b) rejects an exported pair with no wiring at all', () => {
+    const b = loadShape(fresh());
+    b.mockIndexes['menus/mars/quality'] = both;
+    expect(() => checkWiring(b)).toThrow(/menu-quality.*(qualityActionsMock|qualityWriteSamples)|(qualityActionsMock|qualityWriteSamples).*menu-quality/);
+    });
+    it('(c) rejects a mock that exports only one of the pair', () => {
+    const c = loadShape(fresh());
+    c.mockIndexes['menus/mars/quality'] = 'export const qualityMock = []; export const qualityActionsMock = [];';
+    c.mockAssemblyTsx = wire(c, `import { qualityActionsMock } from ${from};`, '  ...qualityActionsMock,', '');
+    expect(() => checkWiring(c)).toThrow(/qualityActionsMock.*pair/);
+    });
+  });
+
   it('accepts a mock import under a local alias when the spread uses the alias', () => {
     const shape = loadShape(fresh());
     shape.mockAssemblyTsx = shape.mockAssemblyTsx

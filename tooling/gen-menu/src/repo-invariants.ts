@@ -342,6 +342,28 @@ export function checkWiring(shape: RepoShape): void {
   for (const name of [...actionSpreads, ...sampleEntries]) {
     if (!actionImports.some(i => i.local === name)) throw new Error(`'${name}' inside the mock-assembly.tsx mock action markers has no matching mock action import`);
   }
+  // Expected pairs come from the mock exports, so a removed registration cannot pass by being absent (hand-wired lists with other names stay accepted).
+  for (const folder of shape.mockFolders) {
+    const name = shape.packageNames[folder];
+    const exported = [...exportedNames(shape.mockIndexes[folder] ?? '')];
+    const actions = exported.filter(n => n.endsWith('ActionsMock'));
+    const samples = exported.filter(n => n.endsWith('WriteSamples'));
+    if (samples.length > 0 && actions.length === 0) throw new Error(`${folder}/src/mock exports '${samples[0]}' but no '*ActionsMock' (${name}): actions and write samples come as a pair`);
+    if (samples.length === 0) {
+      // Actions without samples are the older hand-wired shape: accepted only when imported outside the generated markers.
+      for (const action of actions) {
+        const handWired = new RegExp(`\\b${action}\\b[^;]*from '${name}/mock'`).test(shape.mockAssemblyTsx);
+        if (!handWired || actionImports.some(i => i.module === `${name}/mock` && i.imported === action)) throw new Error(`${folder}/src/mock exports '${action}' but no '*WriteSamples' (${name}): actions and write samples come as a pair, or the actions are hand-wired outside the generated markers`);
+      }
+      continue;
+    }
+    for (const [exportName, wired, place] of [...actions.map(n => [n, actionSpreads, 'spread'] as const), ...samples.map(n => [n, sampleEntries, 'entry'] as const)]) {
+      const imports = actionImports.filter(i => i.module === `${name}/mock` && i.imported === exportName);
+      if (imports.length !== 1) throw new Error(`${folder} (${name}): '${exportName}' exported by src/mock is imported ${imports.length} times inside the mock-assembly.tsx mock action import markers (expected exactly once)`);
+      const count = countOf(wired, n => n === (imports[0] as ImportSpec).local);
+      if (count !== 1) throw new Error(`${folder} (${name}): '${exportName}' exported by src/mock has ${count} ${place} registrations inside the mock-assembly.tsx mock action markers (expected exactly once)`);
+    }
+  }
 }
 
 /** Probe leftovers by name only; skipped while the probe's own menu exists (GEN_MENU_PROBE=1). */
