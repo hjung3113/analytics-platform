@@ -15,8 +15,9 @@ const registry = knowledgeRegistry(['knowledge:spec-publish', 'knowledge:catalog
 let queries: MenuQuery[], writes: MenuAction[], result: ApiResponse<unknown> | null, allowed: boolean, conflict: boolean, saveInvalid: boolean;
 let extraChanges: SpecChangeRow[];
 let coverage: unknown;
+let revisions: unknown[] | null, drafts: Record<string, unknown>;
 let restoreGeometry: () => void;
-beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); HTMLElement.prototype.scrollIntoView = vi.fn(); queries = []; writes = []; result = ok(spec); allowed = true; conflict = false; saveInvalid = false; extraChanges = []; coverage = null; });
+beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); HTMLElement.prototype.scrollIntoView = vi.fn(); queries = []; writes = []; result = ok(spec); allowed = true; conflict = false; saveInvalid = false; extraChanges = []; coverage = null; revisions = null; drafts = {}; });
 afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks();
   // eslint-disable-next-line no-restricted-syntax -- the kernel owns web storage; the test resets the faked seam it reads
   window.localStorage?.removeItem?.('platform:lang');
@@ -34,9 +35,9 @@ function mount(search = '', draft: Record<string, unknown> | null = null, id = m
     if (req.endpoint === 'logKnowledge.modelSpec') return result === null ? new Promise(() => {}) : result as ApiResponse<never>;
     if (req.endpoint === 'logKnowledge.softwareVersions') return ok({ rows: [{ id: sw, versionLabel: 'v1.0', releaseOrder: 1 }], total: 1 });
     if (req.endpoint === 'logKnowledge.specChanges') return ok({ rows: [change, ...extraChanges], total: 1 + extraChanges.length });
-    if (req.endpoint === 'logKnowledge.modelSpecRevisions') return ok({ rows: [{ id: rev, revisionNo: 2, state: 'draft', version: 1 }], total: 1 });
+    if (req.endpoint === 'logKnowledge.modelSpecRevisions') return ok({ rows: revisions ?? [{ id: rev, revisionNo: 2, state: 'draft', version: 1 }], total: (revisions ?? [0]).length });
     if (req.endpoint === 'logKnowledge.specCoverage') return ok(coverage);
-    if (req.endpoint === 'logKnowledge.specDraft') return ok(draft ?? { ...spec, revision: { ...spec.revision, state: 'draft', version: 1 } });
+    if (req.endpoint === 'logKnowledge.specDraft') return ok(drafts[(req.params as { revisionId: string }).revisionId] ?? draft ?? { ...spec, revision: { ...spec.revision, state: 'draft', version: 1 } });
     return ok(null);
   }, menuAction: async req => { writes.push(req); return saveInvalid ? { outcome: 'invalid', fieldErrors: [{ path: ['text'], code: 'malformed' }] } as unknown as ActionResponse<never> : (conflict ? { outcome: 'conflict', currentVersion: '2' } : { outcome: 'ok', data: { revisionId: rev, version: '2' }, version: '2' }) as unknown as ActionResponse<never>; } });
   return mountWith({ registry, adapter, ui: <SpecScreen params={{ modelId: id }} />, slot: true });
@@ -101,10 +102,68 @@ describe('production model spec screen', () => {
     conflict = true; mount('&drawer=draft&revision=' + rev); const input = await screen.findByLabelText('명세 TSV');
     fireEvent.change(input, { target: { value: 'kind\tmodule\nmodule\tKept' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
-    expect(await screen.findByRole('button', { name: '최신 확인 후 새 초안 작성' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '최신 발행본 확인' })).toBeTruthy();
     expect((input as HTMLTextAreaElement).value).toContain('Kept');
     expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(true);
     expect(writes[0]?.expectedVersion).toBe('1');
+  });
+  // #2073: recovery shows what it read and writes nothing before the user picks.
+  const publishedB: ModelSpecData = { ...spec, revision: { ...spec.revision, revisionNo: 4 }, modules: [...spec.modules, { id: 'm3', moduleKey: 'BPUB', name: 'BPublished', parentModuleId: null }] };
+  const conflictThenRecover = async (search = '&drawer=draft&revision=' + rev) => {
+    conflict = true; mount(search); const input = await screen.findByLabelText('명세 TSV') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'kind\tmodule\nmodule\tAKept' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    fireEvent.click(await screen.findByRole('button', { name: '최신 발행본 확인' }));
+    return input;
+  };
+  const writeNames = () => writes.map(x => x.action);
+  it('recovery shows the latest publication and writes nothing until a choice; replacing puts it in the editor', async () => {
+    result = ok(publishedB); revisions = [{ id: rev, revisionNo: 4, state: 'published', version: 1 }];
+    const input = await conflictThenRecover();
+    const shown = await screen.findByRole('group', { name: '현재 발행본 r4' });
+    expect(within(shown).getByText(/BPublished/)).toBeTruthy();
+    expect(input.value).toContain('AKept');
+    expect(writes).toHaveLength(1);
+    expect(writeNames()).toEqual(['logKnowledge.specDraftSave']);
+    conflict = false;
+    fireEvent.click(screen.getByRole('button', { name: '발행본으로 바꾸기' }));
+    await waitFor(() => expect(input.value).toContain('BPublished'));
+    expect(input.value).not.toContain('AKept');
+    // The new draft is empty on the server: 발행 stays closed until the shown content is saved into it.
+    await waitFor(() => expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(false));
+    expect((screen.getByRole('button', { name: '발행' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(writeNames()).toEqual(['logKnowledge.specDraftSave', 'logKnowledge.specDraftCreate', 'logKnowledge.specDraftSave']));
+    expect(String((writes[2]?.input as Record<string, unknown>)['text'])).toContain('BPublished');
+  });
+  it('keeping the input after recovery creates the draft and leaves the editor dirty', async () => {
+    result = ok(publishedB); revisions = [{ id: rev, revisionNo: 4, state: 'published', version: 1 }];
+    const input = await conflictThenRecover();
+    await screen.findByRole('group', { name: '현재 발행본 r4' });
+    conflict = false;
+    fireEvent.click(screen.getByRole('button', { name: '내 입력 유지' }));
+    await waitFor(() => expect(writeNames()).toEqual(['logKnowledge.specDraftSave', 'logKnowledge.specDraftCreate']));
+    expect(input.value).toContain('AKept');
+    await waitFor(() => expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(false));
+    expect((screen.getByRole('button', { name: '발행' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+  it('open-draft recovery shows that draft and adopts its revision and version', async () => {
+    const other = '00000007-0000-4000-8000-000000000003';
+    result = ok(publishedB); revisions = [{ id: other, revisionNo: 5, state: 'draft', version: 7 }];
+    drafts[other] = { ...spec, revision: { ...spec.revision, id: other, revisionNo: 5, state: 'draft', version: 7 }, modules: [{ id: 'm9', moduleKey: 'OS', name: 'OtherSaved', parentModuleId: null }] };
+    const input = await conflictThenRecover();
+    const shown = await screen.findByRole('group', { name: '열린 초안 r5 (다른 사람이 저장)' });
+    expect(within(shown).getByText(/OtherSaved/)).toBeTruthy();
+    expect(writes).toHaveLength(1);
+    conflict = false;
+    fireEvent.click(screen.getByRole('button', { name: '내 입력 유지' }));
+    await waitFor(() => expect(window.location.search).toContain(`revision=${other}`));
+    expect(input.value).toContain('AKept');
+    await waitFor(() => expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(writes).toHaveLength(2));
+    expect(writes[1]?.expectedVersion).toBe('7');
+    expect((writes[1]?.input as Record<string, unknown>)['revisionId']).toBe(other);
   });
   it.each(['empty', 'loading', 'error', 'forbidden'] as const)('renders the %s state', async state => {
     result = state === 'empty' ? ok(null) : state === 'loading' ? null : { ...ok(null), outcome: state === 'forbidden' ? 'forbidden' : 'error' };

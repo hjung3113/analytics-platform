@@ -26,7 +26,7 @@ export function targetOf(row: Pick<SpecChangeRow, 'targetKind' | 'targetKey'>): 
   return { sourceModule: module, sourceEvent: event, predicate: decodeKey(predicate), targetModule, targetEvent };
 }
 /** The text editor is a full snapshot; replace creates a new draft, never edits a sealed revision. */
-export function specText(spec: SpecDraftData): string {
+export function specText(spec: Pick<SpecDraftData, 'modules' | 'events' | 'relations'>): string {
   const modules = new Map(spec.modules.map(m => [m.id, m.name]));
   const events = new Map(spec.events.map(e => [e.id, e]));
   const rows = [ ['kind', 'module', 'parent_module', 'event', 'trigger_rule', 'detail_doc_ref', 'fields_json', 'source_module', 'source_event', 'predicate', 'target_module', 'target_event', 'rule_ref'] ];

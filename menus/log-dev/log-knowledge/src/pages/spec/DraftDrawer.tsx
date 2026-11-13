@@ -3,6 +3,7 @@ import type { ActionResult } from '@ap/contracts';
 import { useMenuAction, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { DetailDrawer, QueryView } from '@ap/components';
 import { Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input } from '@ap/ui';
+import type { ModelSpecData, SpecDraftData } from '../../endpoints';
 import { modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftCreate, specDraftEndpoint, specDraftSave, specPublish, specReject, SPEC_SAVE_LIMITS } from '../../endpoints';
 import { specRows, specText } from './specModel';
 import { SpecField, useSpecFieldErrors, useSpecWords, type FieldRoute } from './SpecControls';
@@ -19,7 +20,10 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
   const { setPage } = usePlatform();
   const draft = useMenuQuery(specDraftEndpoint, { revisionId: revisionId ?? '' }, !!revisionId);
   const create = useMenuAction(specDraftCreate), save = useMenuAction(specDraftSave), publish = useMenuAction(specPublish), reject = useMenuAction(specReject);
-  const latest = useMenuFetch(modelSpecEndpoint), history = useMenuFetch(modelSpecRevisionsEndpoint);
+  const latest = useMenuFetch(modelSpecEndpoint), history = useMenuFetch(modelSpecRevisionsEndpoint), openDraft = useMenuFetch(specDraftEndpoint);
+  // What recovery read, shown read-only until the user picks; nothing is written before that (#2073).
+  const [recovery, setRecovery] = useState<{ kind: 'published'; revisionNo: number; text: string } | { kind: 'draft'; revisionNo: number; text: string; draft: SpecDraftData; publishedNo: number | null } | null>(null);
+  const [baseNo, setBaseNo] = useState<number | null>(null);
   const [text, setText] = useState('kind\tmodule\tevent\n'), [savedText, setSavedText] = useState('kind\tmodule\tevent\n');
   // The loaded draft as structured rows: metadata-only saves never funnel stored tabs/newlines through unquoted TSV (fix C1).
   const [rows, setRows] = useState<ReturnType<typeof specRows> | null>(null), [textDirty, setTextDirty] = useState(false);
@@ -40,6 +44,7 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
   useEffect(() => { onDirtyChange?.(dirty); return () => onDirtyChange?.(false); }, [dirty, onDirtyChange]);
   const pending = create.pending || save.pending || publish.pending || reject.pending || recovering;
   const editable = !pending && !conflict;
+  const deciding = recovery !== null;
   const close = () => { if (dirty) setDiscard(true); else onClose(); };
   function failure(result: ActionResult<unknown>): boolean {
     if (result.outcome === 'ok' && result.data) { setProblem(''); setFieldErrors({}); return false; }
@@ -76,16 +81,52 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
     try {
       const fresh = await latest.fetch({ modelId }), revisions = await history.fetch({ modelId, page: 0, pageSize: 200 });
       if (fresh.outcome !== 'ok' || revisions.outcome !== 'ok' || !revisions.data) { setProblem(w('최신 상태를 확인하지 못했습니다. 입력은 유지됩니다.', 'Could not check the latest state. Your input is preserved.')); return; }
+      const published = fresh.data && !('effective' in fresh.data && fresh.data.effective) ? fresh.data as ModelSpecData : null;
       const existing = revisions.data.rows.find(r => r.state === 'draft');
-      if (existing) { setProblem(w('열린 초안이 있습니다. Revision 이력에서 확인한 뒤 반려하거나 사용해 주세요. 현재 입력은 유지됩니다.', 'An open draft exists. Review it in Revision history before rejecting or using it. Your current input is preserved.')); return; }
+      if (existing) {
+        const read = await openDraft.fetch({ revisionId: existing.id });
+        if (read.outcome !== 'ok' || !read.data) { setProblem(w('열린 초안을 읽지 못했습니다. 입력은 유지됩니다.', 'Could not read the open draft. Your input is preserved.')); return; }
+        setProblem(''); setRecovery({ kind: 'draft', revisionNo: read.data.revision.revisionNo, text: specText(read.data), draft: read.data, publishedNo: published?.revision.revisionNo ?? null });
+        return;
+      }
+      if (!published) { setProblem(w('발행된 명세를 찾지 못했습니다. 입력은 유지됩니다.', 'No published specification was found. Your input is preserved.')); return; }
+      setProblem(''); setRecovery({ kind: 'published', revisionNo: published.revision.revisionNo, text: specText(published) });
+    } finally { setRecovering(false); }
+  }
+  /** The user's pick after recovery: `replace` takes the shown content into the editor, `keep` leaves the typed text; either way the shown content becomes the saved state. */
+  async function choose(pick: 'replace' | 'keep') {
+    if (!recovery) return;
+    setRecovering(true);
+    try {
+      if (recovery.kind === 'draft') {
+        const d = recovery.draft, ref = { docLabel: d.revision.sourceDocRef.docLabel, docVersion: d.revision.sourceDocRef.docVersion, link: d.revision.sourceDocRef.link ?? '' };
+        setLoaded(d.revision.id); setVersion(String(d.revision.version)); setSavedText(recovery.text); setSavedSource(ref); setBaseNo(recovery.publishedNo);
+        if (pick === 'replace') { setText(recovery.text); setSource(ref); setRows(specRows(d)); setTextDirty(false); } else { setRows(null); setTextDirty(true); }
+        setConflict(false); setRecovery(null); setPage({ revision: d.revision.id }, { replace: true });
+        return;
+      }
       const result = await create.run({ modelId, sourceDocRef: doc() });
-      if (!failure(result) && result.outcome === 'ok' && result.data) { setLoaded(result.data.revisionId); setVersion(String(result.data.version)); setSavedText(''); setRows(null); setConflict(false); setPage({ revision: result.data.revisionId }, { replace: true }); }
+      if (!failure(result) && result.outcome === 'ok' && result.data) {
+        // The new draft is empty on the server: its saved state stays empty, so either pick must be saved before 발행 (never publish an empty draft).
+        setLoaded(result.data.revisionId); setVersion(String(result.data.version)); setSavedText(''); setRows(null); setBaseNo(recovery.revisionNo);
+        if (pick === 'replace') { setText(recovery.text); setTextDirty(false); } else setTextDirty(true);
+        setConflict(false); setRecovery(null); setPage({ revision: result.data.revisionId }, { replace: true });
+      }
     } finally { setRecovering(false); }
   }
   const textError = fieldErrors['text'] ?? fieldErrors['input'] ?? fieldErrors['format'];
   const body = <div className="grid gap-4" aria-busy={pending || undefined}>
     {problem && <Callout tone="red" title={w('처리하지 못했습니다', 'Action did not complete')}><p role="alert" className="whitespace-pre-wrap text-sm">{problem}</p></Callout>}
-    {conflict && <Button variant="secondary" disabled={pending} aria-busy={recovering || undefined} onClick={() => { void recover().catch(() => setRecovering(false)); }}>{recovering ? w('새 초안을 만드는 중…', 'Creating a new draft…') : w('최신 확인 후 새 초안 작성', 'Check latest and create a new draft')}</Button>}
+    {conflict && !deciding && <Button variant="secondary" disabled={pending} aria-busy={recovering || undefined} onClick={() => { void recover().catch(() => setRecovering(false)); }}>{recovering ? w('확인하는 중…', 'Checking…') : w('최신 발행본 확인', 'Check the latest publication')}</Button>}
+    {recovery && <div role="group" aria-label={recovery.kind === 'published' ? w(`현재 발행본 r${recovery.revisionNo}`, `Current publication r${recovery.revisionNo}`) : w(`열린 초안 r${recovery.revisionNo} (다른 사람이 저장)`, `Open draft r${recovery.revisionNo} (saved by someone else)`)} className="grid gap-2 rounded-md border p-3">
+      <p className="text-sm font-medium">{recovery.kind === 'published' ? w(`현재 발행본 r${recovery.revisionNo}`, `Current publication r${recovery.revisionNo}`) : w(`열린 초안 r${recovery.revisionNo} (다른 사람이 저장)`, `Open draft r${recovery.revisionNo} (saved by someone else)`)}</p>
+      <pre className="max-h-60 overflow-auto whitespace-pre text-xs">{recovery.text}</pre>
+      <p className="text-sm">{w('아무것도 저장하지 않았습니다. 하나를 고르면 이어서 편집할 수 있습니다.', 'Nothing has been saved. Pick one to continue editing.')}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" disabled={pending} onClick={() => { void choose('replace').catch(() => setRecovering(false)); }}>{recovery.kind === 'published' ? w('발행본으로 바꾸기', 'Replace with the publication') : w('그 초안으로 바꾸기', 'Replace with that draft')}</Button>
+        <Button variant="secondary" disabled={pending} onClick={() => { void choose('keep').catch(() => setRecovering(false)); }}>{w('내 입력 유지', 'Keep my input')}</Button>
+      </div>
+    </div>}
     <SpecField id={`${id}-label`} label={w('원본 문서', 'Source document')} value={source.docLabel} onChange={docLabel => setSource({ ...source, docLabel })} disabled={!editable} error={fieldErrors['sourceDocRef.docLabel']} required />
     <SpecField id={`${id}-version`} label={w('문서 버전', 'Document version')} value={source.docVersion} onChange={docVersion => setSource({ ...source, docVersion })} disabled={!editable} error={fieldErrors['sourceDocRef.docVersion']} required />
     <SpecField id={`${id}-link`} label={w('원본 링크 (선택)', 'Source link (optional)')} value={source.link} onChange={link => setSource({ ...source, link })} disabled={!editable} error={fieldErrors['sourceDocRef.link']} />
@@ -106,7 +147,7 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
         : <Button disabled={pending || !source.docLabel.trim() || !source.docVersion.trim()} aria-busy={create.pending || undefined} onClick={() => { void createNew().catch(() => undefined); }}>{create.pending ? w('작성 중…', 'Creating…') : w('초안 작성', 'Create draft')}</Button>}
     </div>} tabs={[{ id: 'draft', label: w('내용', 'Content'), content: !revisionId ? body : <QueryView widgetName={w('명세 초안', 'Spec draft')} query={draft}>{value => value ? body : <div role="alert">{w('초안이 이미 발행되거나 반려됐습니다. 입력을 유지하고 최신 상태를 확인해 주세요.', 'The draft was already published or rejected. Keep your input and check the latest state.')}{body}</div>}</QueryView> }]} />
     <Dialog open={confirm} onOpenChange={setConfirm}><DialogContent closeLabel={w('닫기', 'Close')}><DialogHeader><DialogTitle>{w('명세 발행 확인', 'Publish specification?')}</DialogTitle><DialogDescription>{w('제출한 내용은 해시로 봉인되며 발행 뒤에는 고칠 수 없습니다.', 'Submitted content is sealed with a hash and cannot be edited after publication.')}</DialogDescription></DialogHeader>
-      <div className="grid gap-2 break-words text-sm"><p>{w('모델', 'Model')}: {modelLabel}</p><p>{w('초안 Revision', 'Draft revision')}: {data ? `r${data.revision.revisionNo}` : revisionId}</p><p>{w('원본 문서', 'Source document')}: {source.docLabel} · {source.docVersion}</p></div>
+      <div className="grid gap-2 break-words text-sm"><p>{w('모델', 'Model')}: {modelLabel}</p><p>{w('초안 Revision', 'Draft revision')}: {data ? `r${data.revision.revisionNo}` : revisionId}</p><p>{w('원본 문서', 'Source document')}: {source.docLabel} · {source.docVersion}</p>{baseNo !== null && <p>{w('기준 발행본', 'Base publication')}: r{baseNo}</p>}</div>
       <p className="text-sm">{w('새 Revision이 건드린 열린 변경점은 재검토 필요로 표시됩니다.', 'Open changes touched by the new revision will be marked for revalidation.')}</p>
       <DialogFooter><Button variant="secondary" onClick={() => setConfirm(false)}>{w('취소', 'Cancel')}</Button><Button aria-busy={publish.pending || undefined} disabled={pending} onClick={() => { if (revisionId) void publish.run({ revisionId }, { expectedVersion: version }).then(r => { if (!failure(r)) onClose(); }).catch(() => undefined); }}>{publish.pending ? w('발행 중…', 'Publishing…') : w('확인하고 발행', 'Confirm publication')}</Button></DialogFooter>
     </DialogContent></Dialog>

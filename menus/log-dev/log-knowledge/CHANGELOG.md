@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.12.2 — 2026-11-14
+
+- #2073 명세 초안 충돌 복구: «최신 발행본 확인»이 최신 발행본(또는 열린 초안)을 읽기 전용으로 보이고, «바꾸기»/«내 입력 유지» 중 하나를 고르기 전에는 아무것도 쓰지 않는다. 고른 뒤에만 새 초안을 만들거나 열린 초안(Revision·version)을 이어받고, 발행 확인에 «기준 발행본 r{N}»을 보인다.
+
 ## 0.12.1 — 2026-11-13
 
 - 모델 프로필 Top View 절의 `Studio에서 열기`: 손 가드(`registry.menus.some`)를 걷고 `resolveLink`의 `kind`로 가른다. `log-knowledge-model`이 `linkTargets.optional: ['eqv-studio']`를 선언한다(06 §22, ADR-0158, #1903). 화면은 그대로다.
