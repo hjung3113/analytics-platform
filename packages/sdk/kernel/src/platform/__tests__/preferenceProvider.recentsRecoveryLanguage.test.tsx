@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type JsonValue, type PlatformAdapter, type Session } from '@ap/contracts';
@@ -9,7 +9,7 @@ import { usePreferenceController } from '../preferenceContext';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
 
-// #1104b final-review fixes C1 (visit merge), C6 (production recovery trigger) and C7 (document language) through the real Provider.
+// The Provider's server-preference effects: a visit before the account list is known is merged into recents, the online event recovers a failed first load, and the document language follows the visible language.
 const registry = createRegistry({
   spaces: [testSpace()],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
@@ -35,12 +35,19 @@ function Probe() {
   );
 }
 const mount = (adapter: PlatformAdapter) => render(<I18nProvider><PlatformProvider serverPreferences equipmentAxes={[]} adapter={adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); document.documentElement.lang = ''; });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+// Fake timers stand in for real waits: retry the assertion while advancing virtual time, so a state that never arrives fails instead of hanging.
+const eventually = async (assertion: () => void) => {
+  for (let i = 0; i < 100; i++) {
+    try { assertion(); return; } catch { await act(async () => { await vi.advanceTimersByTimeAsync(10); }); }
+  }
+  assertion();
+};
+beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }); vi.stubGlobal('localStorage', memoryStorage()); document.documentElement.lang = ''; });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 const setOf = (patches: unknown[], key: string) => (patches as { set?: Record<string, JsonValue> }[]).map(p => p.set?.[key]).filter(v => v !== undefined);
 
-describe('C1 a visit before the account list is known is merged, not substituted', () => {
+describe('a visit before the account list is known is merged, not substituted', () => {
   it('deferred read: the visit goes first, existing recents keep order and de-duplicate', async () => {
     const read = gated<ReturnType<typeof wrap>>();
     const patches: unknown[] = [];
@@ -52,8 +59,8 @@ describe('C1 a visit before the account list is known is merged, not substituted
     mount(adapter);
     await act(async () => { await Promise.resolve(); });
     expect(patches).toEqual([]);
-    await act(async () => { read.release(wrap({ values: { recents: recents('m1', 'home', 'm2') }, importedAt: '2026-10-29T00:00:00Z' })); await new Promise(r => setTimeout(r, 20)); });
-    await waitFor(() => expect(setOf(patches, 'recents')).toHaveLength(1));
+    await act(async () => { read.release(wrap({ values: { recents: recents('m1', 'home', 'm2') }, importedAt: '2026-10-29T00:00:00Z' })); await vi.advanceTimersByTimeAsync(20); });
+    await eventually(() => expect(setOf(patches, 'recents')).toHaveLength(1));
     const list = setOf(patches, 'recents')[0] as { menuId: string }[];
     expect(list.map(r => r.menuId)).toEqual(['home', 'm1', 'm2']);
   });
@@ -69,9 +76,9 @@ describe('C1 a visit before the account list is known is merged, not substituted
       patchPreferences: async patch => { patches.push(patch); return wrap({ values: patch.set ?? {}, importedAt: '2026-10-29T00:00:00Z' }); },
     });
     mount(adapter);
-    await act(async () => { await new Promise(r => setTimeout(r, 10)); });
-    await act(async () => { importing.release(wrap({ values: { recents: recents('m1', 'm2') }, importedAt: '2026-10-29T00:00:00Z' })); await new Promise(r => setTimeout(r, 20)); });
-    await waitFor(() => expect(setOf(patches, 'recents')).toHaveLength(1));
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    await act(async () => { importing.release(wrap({ values: { recents: recents('m1', 'm2') }, importedAt: '2026-10-29T00:00:00Z' })); await vi.advanceTimersByTimeAsync(20); });
+    await eventually(() => expect(setOf(patches, 'recents')).toHaveLength(1));
     expect((setOf(patches, 'recents')[0] as { menuId: string }[]).map(r => r.menuId)).toEqual(['home', 'm1', 'm2']);
   });
 
@@ -85,14 +92,14 @@ describe('C1 a visit before the account list is known is merged, not substituted
     const inner = adapter.patchPreferences;
     adapter.patchPreferences = async (p, s) => { patches.push(p); return inner(p, s); };
     mount(adapter);
-    await waitFor(() => expect(setOf(patches, 'recents')).toHaveLength(1));
+    await eventually(() => expect(setOf(patches, 'recents')).toHaveLength(1));
     const list = setOf(patches, 'recents')[0] as { menuId: string }[];
     expect(list).toHaveLength(12);
     expect(list[0]!.menuId).toBe('home');
   });
 });
 
-describe('C6 production recovery after a failed first load', () => {
+describe('production recovery after a failed first load', () => {
   it('the online event retries; the retained edit persists without a reload; the listener is removed on unmount', async () => {
     let healthy = false;
     let reads = 0;
@@ -103,26 +110,26 @@ describe('C6 production recovery after a failed first load', () => {
       patchPreferences: async patch => { patches.push(patch); return wrap({ values: patch.set ?? {}, importedAt: '2026-10-29T00:00:00Z' }); },
     });
     const view = mount(adapter);
-    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
     expect(reads).toBe(1);
     act(() => screen.getByText('fav').click());
     // The edit retries the failed read once (still down) and stays retained.
-    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
     const readsDown = reads;
     expect(patches).toEqual([]);
     healthy = true;
-    await act(async () => { window.dispatchEvent(new Event('online')); await new Promise(r => setTimeout(r, 30)); });
+    await act(async () => { window.dispatchEvent(new Event('online')); await vi.advanceTimersByTimeAsync(30); });
     expect(reads).toBe(readsDown + 1);
-    await waitFor(() => expect(setOf(patches, 'favorites')).toContainEqual(['m1']));
+    await eventually(() => expect(setOf(patches, 'favorites')).toContainEqual(['m1']));
     view.unmount();
     const after = reads;
     window.dispatchEvent(new Event('online'));
-    await new Promise(r => setTimeout(r, 10));
+    await vi.advanceTimersByTimeAsync(10);
     expect(reads).toBe(after);
   });
 });
 
-describe('C7 the document language follows the visible language', () => {
+describe('the document language follows the visible language', () => {
   it('a new account without lang and a removed lang return to the browser language, in context and on <html>', async () => {
     const accounts: Record<string, Record<string, JsonValue>> = { 'user-a': { lang: 'en' }, 'user-b': {} };
     let current = sessionOf('user-a');
@@ -134,16 +141,16 @@ describe('C7 the document language follows the visible language', () => {
       patchPreferences: async patch => { const id = current.user.id; const acc = { ...accounts[id]! }; for (const k of patch.remove ?? []) delete acc[k]; accounts[id] = { ...acc, ...(patch.set ?? {}) }; return wrap({ values: accounts[id], importedAt: '2026-10-29T00:00:00Z' }); },
     });
     mount(adapter);
-    await waitFor(() => expect(screen.getByTestId('lang').textContent).toBe('en'));
-    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    await eventually(() => expect(screen.getByTestId('lang').textContent).toBe('en'));
+    await eventually(() => expect(document.documentElement.lang).toBe('en'));
     act(() => { current = sessionOf('user-b'); listeners.forEach(l => l()); });
-    await waitFor(() => expect(screen.getByTestId('lang').textContent).toBe('ko'));
+    await eventually(() => expect(screen.getByTestId('lang').textContent).toBe('ko'));
     expect(document.documentElement.lang).toBe('ko');
     // Back to an account with a lang, then remove it.
     act(() => { current = sessionOf('user-a'); listeners.forEach(l => l()); });
-    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    await eventually(() => expect(document.documentElement.lang).toBe('en'));
     act(() => screen.getByText('drop-lang').click());
-    await waitFor(() => expect(screen.getByTestId('lang').textContent).toBe('ko'));
+    await eventually(() => expect(screen.getByTestId('lang').textContent).toBe('ko'));
     expect(document.documentElement.lang).toBe('ko');
   });
 });

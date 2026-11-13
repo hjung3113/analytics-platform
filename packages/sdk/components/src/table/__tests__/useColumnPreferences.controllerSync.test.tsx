@@ -6,7 +6,7 @@ import { createRegistry, I18nProvider, PlatformProvider, usePreferenceController
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { useColumnPreferences } from '../useColumnPreferences';
 
-// #1104b final-review fixes C2 (late controller values reach the table) and C3 (a raw key change is an ownership boundary), with the REAL Provider, controller and hook.
+// Controller values reach a mounted table, and a raw key change is an ownership boundary — with the REAL Provider, controller and hook.
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', primary: true, group: groupId('overview'), path: '/', label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: false, context: noContext, features: { export: false, annotate: false, compare: false, savedView: false }, pageType: 'analysis', pageKeys: [] }] });
 const ok = (values: Record<string, JsonValue>) => ({ outcome: 'ok' as const, data: { values, importedAt: '2026-10-29T00:00:00Z' }, assessments: [], trust: null, correlationId: 'c' });
 const session = (): Session => testSession(['platform:view'], { user: { id: 'user-a', name: 'a', title: { ko: 'a', en: 'a' } } });
@@ -38,7 +38,7 @@ const settle = () => act(async () => { await new Promise(resolve => setTimeout(r
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-describe('C2 late controller values are shown by a mounted table', () => {
+describe('late controller values are shown by a mounted table', () => {
   it('an old generation\'s deferred hash completing after the replacement hydrated is shown and stored', async () => {
     const f = fixture();
     let release!: () => void;
@@ -75,7 +75,7 @@ describe('C2 late controller values are shown by a mounted table', () => {
   });
 });
 
-describe('C3 a raw key change is an ownership boundary', () => {
+describe('a raw key change is an ownership boundary', () => {
   const seed = async () => ({ [await hashKey('A')]: table({ sizing: { a: 100 }, visibility: { x: false } }), [await hashKey('B')]: table({ sizing: { b: 300 }, visibility: { y: false } }) });
 
   it('A edit → B without edit → A shows A, and the next edit does not copy B into A', async () => {

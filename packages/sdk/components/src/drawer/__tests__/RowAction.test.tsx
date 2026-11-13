@@ -1,9 +1,15 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { PanelRight } from 'lucide-react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RowAction } from '../RowAction';
 
-afterEach(cleanup);
+// Fake timers that follow the real clock keep `findBy*` working; the "stays closed" checks step the tooltip delay through virtual time.
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.stubGlobal('jest', { advanceTimersByTime: (ms: number) => { vi.advanceTimersByTime(ms); } });
+});
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
 
 describe('RowAction (row action, compact ↔ full, ADR-0037)', () => {
   it('compact: keeps the accessible name when the tooltip text differs, and renders an icon without visible text', () => {
@@ -35,7 +41,7 @@ describe('RowAction (row action, compact ↔ full, ADR-0037)', () => {
     const button = screen.getByRole('button', { name: 'engineer 보기' });
     button.focus();
     fireEvent.pointerMove(button);
-    await new Promise(r => setTimeout(r, 300));
+    await advance(300);
     expect(screen.queryByRole('tooltip')).toBeNull();
     rerender(<RowAction compact icon={PanelRight} label="engineer 보기" text="보기" />);
     rerender(<RowAction compact={false} icon={PanelRight} label="engineer 보기" text="보기" />);
@@ -51,7 +57,7 @@ describe('RowAction (row action, compact ↔ full, ADR-0037)', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
     screen.getByRole('button', { name: '다른 곳' }).focus();
     rerender(make(true));
-    await new Promise(r => setTimeout(r, 300));
+    await advance(300);
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
@@ -66,7 +72,7 @@ describe('RowAction (row action, compact ↔ full, ADR-0037)', () => {
       trigger.focus();
       other.focus();
     });
-    await new Promise(r => setTimeout(r, 300));
+    await advance(300);
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 

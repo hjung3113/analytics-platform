@@ -1,6 +1,6 @@
 import { PageDensityProvider } from '../pageDensity';
 import { StrictMode, useEffect, useState, type ReactNode } from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -83,9 +83,11 @@ const ready = async () => {
   });
   await waitFor(() => { expect(screen.getByTestId('query')).toHaveTextContent('done'); });
 };
-const settle = () => act(() => new Promise<void>(resolve => { setTimeout(resolve, 30); }));
+// Fake timers that also follow the real clock keep `waitFor` and `userEvent` working while the persist debounce is stepped through virtual time.
+const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+const settle = () => advance(30);
 const groups = () => groupsOnScreen().map(panels => [...panels].sort());
-const sleep = (ms: number) => act(() => new Promise<void>(resolve => { setTimeout(resolve, ms); }));
+const sleep = advance;
 /** The height mode lives in the toolbar's `⋯` menu (ADR-0130): opens it when it is not open and returns the item. */
 const modeItem = async (name: string) => {
   if (!screen.queryByRole('menuitemradio', { name })) await userEvent.click(screen.getByRole('button', { name: '높이 방식' }));
@@ -104,6 +106,10 @@ const chooseFromMenu = async (menuButton: string, item: string) => {
 const written = () => setItem.mock.calls.filter(([key]) => String(key).startsWith('platform:workspace:')) as [string, string][];
 
 beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  // Polling under fake timers spends virtual time, so the first (cold) mount needs a wider virtual budget than the real 1000 ms.
+  configure({ asyncUtilTimeout: 10_000 });
+  vi.stubGlobal('jest', { advanceTimersByTime: (ms: number) => { vi.advanceTimersByTime(ms); } });
   for (const key of Object.keys(mounts)) delete mounts[key];
   menuQuery.mockClear();
   setItem.mockClear();
@@ -114,7 +120,7 @@ beforeEach(() => {
   window.history.replaceState(null, '', PERIOD);
   observer.resize(1200, 600);
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); vi.useRealTimers(); configure({ asyncUtilTimeout: 1000 }); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('PanelWorkspace: remount 0, query 0', () => {
   it('renders the initial preset', async () => {
