@@ -253,6 +253,17 @@ describe('Kernel blocked screens: next actions (#1940)', () => {
     expect(screen.queryByText('권한 요청')).toBeNull();
   });
 
+  it('a slot that throws while rendering leaves the denial, the home link and the page (reported like any shell region)', () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const throwing: AccessRequestSlot = { Pending: () => { throw new Error('slot failed'); }, Dialog: () => null };
+    mountWith('/mars/equipment?v=1', { accessRequest: throwing });
+    const main = within(screen.getByRole('main'));
+    expect(main.getByRole('status')).toHaveTextContent('설비 마스터');
+    expect(main.getByRole('link', { name: '홈' })).toBeTruthy();
+    expect(screen.queryByText('권한 요청')).toBeNull();
+    quiet.mockRestore();
+  });
+
   it('other blocked screens do not get either new button', () => {
     mountWith('/operations/roles?v=1', { accessRequest: slot });
     expect(screen.queryByText('권한 요청')).toBeNull();

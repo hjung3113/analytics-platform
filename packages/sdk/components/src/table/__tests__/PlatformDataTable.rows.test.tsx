@@ -147,6 +147,15 @@ describe('PlatformDataTable rows', () => {
     expect(screen.getByTestId('ids')).toHaveTextContent('r2');
   });
 
+  it('with externalPagination and no rows, controlled filters the table ignores do not offer «조건 초기화» (#1940)', async () => {
+    const onChange = vi.fn();
+    const filters: ColumnFilter[] = [{ id: 'line', op: 'equals', value: 'B' }];
+    render(<Harness rows={[]} externalPagination={{ summary: '0건', controls: 'ctl' }} urlState={{ ...controlled({ filters }), onChange }} />);
+    await screen.findByText('조건에 맞는 결과가 없습니다');
+    expect(screen.queryByRole('button', { name: '조건 초기화' })).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('with externalPagination, controlled filters are neither sent to exportRows nor described', async () => {
     const exportRows = vi.fn(async (..._args: unknown[]) => ({ outcome: 'ok' as const, data: make(1, 2), assessments: [], trust: null, correlationId: 'c' }));
     window.history.replaceState(null, '', '/'); // earlier tests leave the address elsewhere; the export menu resolves its route from it

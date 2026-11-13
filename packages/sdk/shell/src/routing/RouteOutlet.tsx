@@ -131,8 +131,9 @@ function RequestPermissionLink({ permission }: { permission: Permission }) {
   const { slots } = useHostPlatform();
   const Pending = slots.accessRequest?.Pending;
   if (!Pending) return null;
-  return <Pending target={{ kind: 'permission', permission }}>{state => state.statusHref === null ? null
-    : <Button asChild size="sm" variant="secondary"><PlatformLink href={state.statusHref}>{t('accessRequest')}</PlatformLink></Button>}</Pending>;
+  // An injected slot is outside the menu's `RouteErrorBoundary`: its failure leaves the denial and the home link, and is reported like any shell region.
+  return <ShellBoundary fallback={null}><Pending target={{ kind: 'permission', permission }}>{state => state.statusHref === null ? null
+    : <Button asChild size="sm" variant="secondary"><PlatformLink href={state.statusHref}>{t('accessRequest')}</PlatformLink></Button>}</Pending></ShellBoundary>;
 }
 
 function ContractErrorView() {

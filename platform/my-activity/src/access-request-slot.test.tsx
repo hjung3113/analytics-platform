@@ -140,5 +140,11 @@ describe('accessRequest slot', () => {
       expect(screen.queryByTestId('permission-request-dialog')).toBeNull();
       expect(calls).toEqual([]);
     });
+
+    it('a denied console:access gets no request page address: the requester page cannot ask for the workspace-admin permission (#1940)', () => {
+      stubFetch(() => json({ requests: [] }));
+      mount({ kind: 'permission', permission: 'console:access' });
+      expect(screen.getByTestId('state').textContent).toMatch(/^pending=null href=null/);
+    });
   });
 });
