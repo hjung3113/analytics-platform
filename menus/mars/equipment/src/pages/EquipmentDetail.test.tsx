@@ -86,6 +86,11 @@ describe('EquipmentDetail related analysis tab: Top View link', () => {
     expect(screen.queryByRole('link', { name: '이 설비 Top View' })).toBeNull();
   });
 
+  it('reports the absent Top View as an optional link target at assembly (06 §22, #1903)', () => {
+    expect(withTopView.missingLinkTargets).toEqual([]);
+    expect(withoutTopView.missingLinkTargets).toEqual([{ menuId: 'equipment-detail', target: 'eqv:topview', level: 'optional' }]);
+  });
+
   it('has no Top View link without the module permission', async () => {
     renderAnalysis(withTopView, ['equipment:view', 'platform:view']);
     expect(await screen.findByRole('link', { name: '이 설비로 사이클타임 상세' })).toBeTruthy();

@@ -15,10 +15,10 @@ const STUDIO_MENU_ID = 'eqv-studio';
 const revisionKey = (r: { layoutId: string; revision: string }) => `${r.layoutId}|${r.revision}`;
 
 function StudioLink({ layoutId, revision }: { layoutId: string; revision: string }) {
-  const { registry, resolveLink } = usePlatform();
-  // resolveLink throws for an unregistered menu, so look before resolving. No permission ⇒ no link.
-  const link = registry.menus.some(m => m.id === STUDIO_MENU_ID) ? resolveLink(STUDIO_MENU_ID, { page: { layout: layoutId, revision } }) : null;
-  if (!link?.allowed) return null;
+  const { resolveLink } = usePlatform();
+  // An assembly without the studio resolves to `none` (06 §22): no link. No permission ⇒ no link.
+  const link = resolveLink(STUDIO_MENU_ID, { page: { layout: layoutId, revision } });
+  if (link.kind !== 'link' || !link.allowed) return null;
   return <Button asChild size="toolbar" variant="secondary"><PlatformLink href={link.href}>Studio에서 열기</PlatformLink></Button>;
 }
 

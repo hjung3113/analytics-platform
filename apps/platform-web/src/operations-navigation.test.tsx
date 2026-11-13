@@ -10,7 +10,7 @@ const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const OTHER = '44444444-4444-4444-8444-444444444444';
 const PERSONAL = ['platform:view', 'voc:view', 'notice:view'] as const;
 
-type Out = { spaces: string[]; entries: Record<'flow' | 'operations', string | null>; open: Record<string, boolean>; links: Record<string, string> };
+type Out = { spaces: string[]; entries: Record<'flow' | 'operations', string | null>; open: Record<string, boolean>; links: Record<string, string | null> };
 let out: Out | null = null;
 
 function Probe({ ids, links }: { ids: string[]; links: Array<[string, Parameters<ReturnType<typeof usePlatform>['resolveLink']>[1]?]> }) {

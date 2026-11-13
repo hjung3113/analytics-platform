@@ -202,6 +202,8 @@ export default function MetricDetailPage({ params }: PageProps) {
                   const link = resolveLink(row.menuId, { global: { metricId, metricVersion: row.version } });
                   // Rows of the previous version stay readable, but opening them waits for the picked version (#1365).
                   if (usageStale) return <span className="text-xs text-text-muted">{lang === 'ko' ? `v${versionParam} 불러오는 중 — 열기는 그 뒤에` : `Loading v${versionParam} — open after`}</span>;
+                  // A consumer menu this assembly does not register is not a permission matter: the row keeps its name and id as text, no link (06 §22).
+                  if (link.kind === 'none') return null;
                   return link.allowed
                     ? <PlatformLink className="font-medium text-accent-primary hover:underline" href={link.href}>{lang === 'ko' ? '사용처 열기' : 'Open consumer'}</PlatformLink>
                     : <span className="text-xs text-text-muted">{lang === 'ko' ? '열 권한이 없습니다' : 'No access to open'}</span>;

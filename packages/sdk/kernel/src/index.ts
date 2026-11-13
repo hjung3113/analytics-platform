@@ -10,7 +10,7 @@ export { useMenuAction, type MenuActionState } from './query/action';
 export { useEndpointRefreshEpoch, useEntityAudit, useEntityQuery, useMenuFetch, useMenuQuery, usePlatformQuery, type AuditMore, type AuditMoreError, type AuditMoreLast, type AuditMoreStatus, type MenuFetch, type MenuQueryOptions, type MenuQueryState, type QueryState, type RequestState } from './query/query';
 export {
   CONTEXT_LABELS, createRegistry, isBoardPath, PAGE_TYPE_LABELS, pathFor, routeParamNames, RegistryError,
-  type AnyGroupId, type GroupDef, type MenuEntry, type ModuleGroupDef, type ModuleMenuEntry, type PageProps, type PlatformGroupDef, type PlatformMenuEntry, type Registry, type RouteMatch,
+  type AnyGroupId, type GroupDef, type MenuEntry, type MissingLinkTarget, type ModuleGroupDef, type ModuleMenuEntry, type PageProps, type PlatformGroupDef, type PlatformMenuEntry, type Registry, type RouteMatch,
 } from './registry/registry';
 export { mountModule, type MountOptions } from './registry/module';
 

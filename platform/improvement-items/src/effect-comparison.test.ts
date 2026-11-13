@@ -3,7 +3,7 @@ import { emptyGlobal, isAppRelativePath, serializeGlobal } from '@ap/contracts';
 import type { LinkOptions } from '@ap/kernel';
 import { comparisonFor } from './effect-comparison';
 const origin = { menuId: 'cycle-time', context: { scopeId: 'MEM', metricId: 'cycle & time', metricVersion: 'v1', selection: ['EQ 01', 'EQ-02'] } };
-const resolve = vi.fn((_id: string, options: LinkOptions = {}) => ({ allowed: true, href: `/mars/cycle-time?${new URLSearchParams(serializeGlobal({ ...emptyGlobal, ...options.global }))}`, droppedPageKeys: [] }));
+const resolve = vi.fn((_id: string, options: LinkOptions = {}) => ({ kind: 'link' as const, allowed: true, href: `/mars/cycle-time?${new URLSearchParams(serializeGlobal({ ...emptyGlobal, ...options.global }))}`, droppedPageKeys: [] }));
 describe('effect comparison wiring', () => {
   it.each([
     ['2026-11-04', 7, '2026-10-28T00:00:00', '2026-11-11T00:00:00'],
@@ -30,10 +30,10 @@ describe('effect comparison wiring', () => {
     expect(comparisonFor(day, source, 7, resolve)).toMatchObject({ href: null, reason });
   });
   it.each(['https://evil.test/x', '//evil.test/x', '/%09/evil.test/x', '/a#fragment', `/a?q=${'a'.repeat(2000)}`])('does not offer an unsafe or oversized href %s', href => {
-    expect(comparisonFor('2026-11-04', origin, 7, () => ({ href, allowed: true, droppedPageKeys: [] }))).toMatchObject({ href: null, reason: 'unavailable' });
+    expect(comparisonFor('2026-11-04', origin, 7, () => ({ kind: 'link' as const, href, allowed: true, droppedPageKeys: [] }))).toMatchObject({ href: null, reason: 'unavailable' });
   });
   it('handles inaccessible, retired and invalid sources without a dead link', () => {
-    expect(comparisonFor('2026-11-04', origin, 7, () => ({ href: '/x', allowed: false, droppedPageKeys: [] })).reason).toBe('unavailable');
+    expect(comparisonFor('2026-11-04', origin, 7, () => ({ kind: 'link' as const, href: '/x', allowed: false, droppedPageKeys: [] })).reason).toBe('unavailable');
     expect(comparisonFor('2026-11-04', origin, 7, () => { throw new Error('retired'); }).reason).toBe('unavailable');
     expect(comparisonFor('2026-02-30', origin, 7, resolve).reason).toBe('unavailable');
   });
@@ -41,7 +41,7 @@ describe('effect comparison wiring', () => {
 
 
 it('keeps the saved drill page when opening a before/after comparison (#1408)', () => {
-  const resolver = vi.fn(() => ({ allowed: true, href: '/analysis', droppedPageKeys: [] }));
+  const resolver = vi.fn(() => ({ kind: 'link' as const, allowed: true, href: '/analysis', droppedPageKeys: [] }));
   comparisonFor('2026-11-04', { menuId: 'analysis', context: { selection: ['EQ-1'], page: { drillEquipment: 'EQ-2' } } }, 7, resolver);
   expect(resolver).toHaveBeenCalledWith('analysis', expect.objectContaining({ page: { drillEquipment: 'EQ-2' }, global: expect.objectContaining({ selection: ['EQ-1'], from: '2026-11-04T00:00:00' }) }));
 });

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { PageFocus } from '../context/pageNavigation';
 import { classifyMetricInit, sameMetricInit } from '../registry/metric-init';
 import { sameItems, useStable } from '../stable';
-import { isBoardPath, pathFor, type MenuEntry } from '../registry/registry';
+import { isBoardPath, pathFor, RegistryError, type MenuEntry } from '../registry/registry';
 import { useI18n } from '../i18n';
 import { hasDotSegment } from '../context/location';
 import { readReturnHidden, rememberReturnHidden, type ReturnHiddenOwner } from '../context/returnHidden';
@@ -50,7 +50,14 @@ function consecutiveDrillTrail(menu: MenuEntry, search: string): { label: Text; 
  * usage stay. The main screen feeds it the browser URL; a board pane feeds it its own `PaneScreen` (ADR-0049), so
  * the same rules run per screen.
  */
-export function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenState; sidebarSpace: SpaceDef | null; resolveEntryLink: (menuId: string, options?: LinkOptions) => LinkResolution } {
+type RegisteredLink = Extract<LinkResolution, { kind: 'link' }>;
+/** The same `RegistryError` `menuById` throws (`Unknown menu …`) when the id is not registered. */
+function registered(link: LinkResolution, menuId: string): RegisteredLink {
+  if (link.kind === 'link') return link;
+  throw new RegistryError(`Unknown menu ${menuId}`);
+}
+
+export function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenState; sidebarSpace: SpaceDef | null; resolveEntryLink: (menuId: string, options?: LinkOptions) => RegisteredLink } {
   const { registry, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes } = app.pub;
   const { enters, usageSessionId, userIdRef, usageNav } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
@@ -185,7 +192,10 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // site boundary as setGlobal (ADR-0004) to the values carried over from the current URL — values the caller
   // passes explicitly are meant for the destination and stay. `allowed` is a display hint (permission, plus
   // space entry for a space menu — a global utility menu is permission only, 06 §9.1); the server re-checks on arrival.
+  const menuIds = useMemo(() => new Set(registry.menus.map(m => m.id)), [registry]);
+  // An id this assembly does not register resolves to `none` (no href, never a permission reason, ADR-0158); `linkTo` keeps throwing for it.
   const resolveWith = useCallback((menuId: string, options: LinkOptions, carry: boolean): LinkResolution => {
+    if (!menuIds.has(menuId)) return { kind: 'none', href: null, allowed: false, droppedPageKeys: [] };
     const target = menuById(menuId);
     const carried: GlobalContext = options.global && 'scopeId' in options.global && options.global.scopeId !== global.scopeId
       ? withoutSiteBound(global)
@@ -210,14 +220,16 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     }
     if (options.returnTo && !sameCarryingSet && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY) && options.page?.[RETURN_TO_KEY] === undefined) pagePairs.push([RETURN_TO_KEY, stripDetailExpansion(visibleUrl)]);
     return {
+      kind: 'link',
       href: pathFor(target, options.params) + buildQuery(g, pagePairs.map(([key, value]) => [key, key === RETURN_TO_KEY ? stripDetailExpansion(value) : value])),
       allowed: canOpen(menuId),
       droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
     };
-  }, [global, visibleUrl, menuById, canOpen, page, route, registry]);
+  }, [global, visibleUrl, menuById, menuIds, canOpen, page, route, registry]);
   const resolveLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => resolveWith(menuId, options, true), [resolveWith]);
-  const resolveEntryLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => resolveWith(menuId, options, false), [resolveWith]);
-  const linkTo = useCallback((menuId: string, options: LinkOptions = {}) => resolveLink(menuId, options).href, [resolveLink]);
+  // Kernel entries (space entry/resume) resolve only registered, openable menus; `linkTo` is for destinations the assembly guarantees (06 §22).
+  const resolveEntryLink = useCallback((menuId: string, options: LinkOptions = {}): RegisteredLink => registered(resolveWith(menuId, options, false), menuId), [resolveWith]);
+  const linkTo = useCallback((menuId: string, options: LinkOptions = {}): string => registered(resolveLink(menuId, options), menuId).href, [resolveLink]);
 
   const currentSpace = useMemo(() => (route ? registry.spaceOf(route.menu) : null), [registry, route]);
   const ownSidebarSpace = source.sidebarSpace;

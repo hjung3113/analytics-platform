@@ -200,10 +200,13 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     const space = registry.spaceOf(menu);
     return space === null || canEnter(space);
   }, [registry, canEnter]);
+  const menuIds = useMemo(() => new Set(registry.menus.map(m => m.id)), [registry]);
+  // An unregistered id is not openable (06 §22, ADR-0158): `false`, never a throw.
   const canOpen = useCallback((menuId: string) => {
+    if (!menuIds.has(menuId)) return false;
     const menu = menuById(menuId);
     return menuPermissions(menu).every(can) && enters(menu);
-  }, [menuById, can, enters]);
+  }, [menuIds, menuById, can, enters]);
 
   // Permission-visible menus grouped by their space; membership lives on the group, never the menu.
   const spaceMenus = useMemo(() => {

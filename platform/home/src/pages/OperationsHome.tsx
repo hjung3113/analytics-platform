@@ -78,14 +78,14 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
     </PlatformLink>;
   };
 
-  return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? 'VOC' : 'VOC'}</PlatformLink> : undefined}>
+  return <PlatformPage secondaryActions={voc.allowed ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? 'VOC' : 'VOC'}</PlatformLink> : undefined}>
     {/* #1167 B-3/C-4: the container the launcher grids answer to is the page body, so a detail slot narrows it. */}
     <div className="@container space-y-4">
       <section aria-label={lang === 'ko' ? '업무 시스템' : 'Work systems'}>
         {accessibleSpaces.length === 0
           ? <div className="rounded-lg border border-border-subtle bg-surface-card p-4">
               <h2 className="t-section-title">{lang === 'ko' ? '접근 가능한 업무 시스템이 없습니다' : 'No work systems are available'}</h2>
-              {canOpen('permission-requests')
+              {permissionRequests.allowed
                 ? <>
                     <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 기능 권한이 필요하면 요청하세요.' : 'Work system access is granted by a platform administrator. Request the feature access you need.'}</p>
                     <Button asChild size="sm" className="mt-3"><PlatformLink href={permissionRequests.href}>{lang === 'ko' ? '권한 요청' : 'Request access'}</PlatformLink></Button>
@@ -141,7 +141,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
       </div>
 
       <section aria-label={lang === 'ko' ? '공지' : 'Notices'} className="space-y-2">
-        {canOpen('notices') && <PlatformLink href={noticesLink.href} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '공지 목록' : 'Notice list'}</PlatformLink>}
+        {noticesLink.allowed && <PlatformLink href={noticesLink.href} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '공지 목록' : 'Notice list'}</PlatformLink>}
         {notices.response && notices.response.outcome === 'ok' && notices.response.data!.filter(notice => !dismissed.includes(notice.id)).map(notice =>
           <div key={notice.id} role="status" className="flex items-start gap-3 rounded-md border border-accent-primary/30 bg-accent-primary-soft px-4 py-2.5 text-sm">
             <Megaphone className="mt-0.5 size-4 shrink-0 text-accent-primary" aria-hidden />

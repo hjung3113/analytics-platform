@@ -61,7 +61,11 @@ function resolve(url: string, permissions: Session['user']['permissions'], menuI
   screen.getByTestId('ready');
   return captured!(menuId, options);
 }
-const query = (href: string) => new URLSearchParams(href.slice(href.indexOf('?') + 1));
+// `href` is null only for an unregistered destination (`kind: 'none'`); every query read here targets a registered menu.
+const query = (href: string | null) => {
+  if (href === null) throw new Error('expected a registered destination');
+  return new URLSearchParams(href.slice(href.indexOf('?') + 1));
+};
 
 afterEach(() => { cleanup(); captured = null; vi.unstubAllGlobals(); });
 
@@ -374,3 +378,42 @@ const equipmentAxes = [
   { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
   { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
 ];
+
+describe('unregistered destination (06 §22, ADR-0158, #1903)', () => {
+  let host: { canOpen: (id: string) => boolean; linkTo: (id: string, options?: LinkOptions) => string } | null = null;
+  function HostProbe() {
+    const { canOpen, linkTo } = useHostPlatform();
+    host = { canOpen, linkTo };
+    return <p data-testid="host-ready">ready</p>;
+  }
+  const mount = () => {
+    window.history.replaceState(null, '', URL_MEM);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(ANALYST)} registry={registry}><HostProbe /></PlatformProvider></I18nProvider>);
+    screen.getByTestId('host-ready');
+    return host!;
+  };
+  afterEach(() => { host = null; });
+
+  it('resolveLink returns kind none with no href instead of throwing, page keys included', () => {
+    expect(resolve(URL_MEM, ANALYST, 'nowhere', { page: { tab: 'a' }, params: { id: 'E1' }, returnTo: true })).toEqual({ kind: 'none', href: null, allowed: false, droppedPageKeys: [] });
+  });
+  it('a registered destination resolves with kind link and the same href, allowed and dropped keys as before', () => {
+    expect(resolve(URL_MEM, ANALYST, 'analysis', { page: { tab: 'a', nope: 'x' } })).toMatchObject({ kind: 'link', allowed: true, droppedPageKeys: ['nope'] });
+  });
+  it('canOpen is false for an unregistered id; linkTo still throws for it', () => {
+    const { canOpen, linkTo } = mount();
+    expect(canOpen('nowhere')).toBe(false);
+    expect(canOpen('analysis')).toBe(true);
+    expect(() => linkTo('nowhere')).toThrow(/Unknown menu nowhere/);
+  });
+  it('a screen linking to a menu this assembly lacks still renders (the "Unknown menu" case of #1903)', () => {
+    function LinkingScreen() {
+      const { resolveLink } = useHostPlatform();
+      const link = resolveLink('eqv:topview', { params: { equipmentId: 'E1' } });
+      return link.kind === 'link' ? <a href={link.href}>open</a> : <p data-testid="no-link">value only</p>;
+    }
+    window.history.replaceState(null, '', URL_MEM);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(ANALYST)} registry={registry}><LinkingScreen /></PlatformProvider></I18nProvider>);
+    expect(screen.getByTestId('no-link')).toBeTruthy();
+  });
+});

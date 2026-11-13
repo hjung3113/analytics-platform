@@ -141,6 +141,13 @@ export type MenuMeta = {
    * hard-codes a menu's key name. Absent = the menu names no subject.
    */
   subjectPageKeys?: Readonly<Record<string, string>>;
+  /**
+   * Ids of the other menus this menu links to (06 §22, ADR-0158; field names Candidate). Only menu ids: no Context, page or path value, no carried key,
+   * no permission. `required`: the menu's main flow breaks without it — `createRegistry` rejects an unregistered one unless `linkTargetCheck: 'report'`.
+   * `optional`: may be absent; its links resolve to `kind: 'none'`. Unregistered targets of either list appear in `registry.missingLinkTargets`.
+   * Absent = nothing is checked. A module menu cannot declare it.
+   */
+  linkTargets?: { required?: readonly string[]; optional?: readonly string[] };
   /** Id-only metricId is completed from PUBLISHED_METRICS. Every other menu rejects it as metric_pair_incomplete. */
   initializesMetric?: boolean;
   /** Detail/destination routes are reachable through Context Links, not the sidebar. */

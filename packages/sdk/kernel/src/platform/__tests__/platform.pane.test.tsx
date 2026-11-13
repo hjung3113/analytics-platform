@@ -233,12 +233,13 @@ describe('PaneScreenProvider — navigation and links', () => {
     mount(<Pane id="p" initial={screenA(`?scopeId=S1&${window1}`)} spies={p} />, fixture().adapter);
     await flush();
     const link = at('p').resolveLink('board-b', { returnTo: true, page: { tab: 'z' } });
+    if (link.kind !== 'link') throw new Error('board-b is registered');
     expect(link.href.startsWith('/mars/board-b?')).toBe(true);
     expect(new URLSearchParams(link.href.split('?')[1]).get('scopeId')).toBe('S1');
     expect(link.allowed).toBe(true);
     expect(link.droppedPageKeys).toEqual([]);
     const target = at('p').resolveLink('board-a', { returnTo: true });
-    expect(new URLSearchParams(target.href.split('?')[1]).get('returnTo')).toBe(`/mars/board-a?scopeId=S1&${window1}`);
+    expect(new URLSearchParams(target.href!.split('?')[1]).get('returnTo')).toBe(`/mars/board-a?scopeId=S1&${window1}`);
     expect(p.onChange).not.toHaveBeenCalled();
     expect(p.onLeave).not.toHaveBeenCalled();
   });

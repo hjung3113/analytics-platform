@@ -210,7 +210,8 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
   };
   const resolvedHref = (node: HierarchyNode) => {
     if (!node.target) return null;
-    try { const result = resolveLink(node.target.menuId, { params: node.target.params, page: node.target.page }); return result.allowed ? result.href : null; } catch { return null; }
+    // An unregistered menu resolves to `none` (06 §22); a missing route param still throws in pathFor, so keep that guard.
+    try { const result = resolveLink(node.target.menuId, { params: node.target.params, page: node.target.page }); return result.kind === 'link' && result.allowed ? result.href : null; } catch { return null; }
   };
 
   return <div data-hierarchy-nav className="min-h-0 break-keep">

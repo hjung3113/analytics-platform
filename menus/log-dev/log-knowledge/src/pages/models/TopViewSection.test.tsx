@@ -134,6 +134,10 @@ describe('Studio link', () => {
     await screen.findByText(appliedText(/^적용: /), {}, slow);
     expect(screen.queryByRole('link', { name: 'Studio에서 열기' })).toBeNull();
   });
+  it('reports the absent Studio as an optional link target at assembly (06 §22, #1903)', () => {
+    expect(registryWith(true).missingLinkTargets).toEqual([]);
+    expect(registryWith(false).missingLinkTargets).toEqual([{ menuId: 'log-knowledge-model', target: 'eqv-studio', level: 'optional' }]);
+  });
   it('is hidden when the Studio menu is not registered', async () => {
     mount({ studio: false });
     await screen.findByText(appliedText(/^적용: /), {}, slow);

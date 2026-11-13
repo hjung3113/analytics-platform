@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.2.4 — 2026-11-13
+
+- 설비 상세의 Top View 버튼: 손 가드(`registry.menus.some`)를 걷고 `resolveLink`의 `kind`로 가른다. `equipment-detail`이 `linkTargets.optional: ['eqv:topview']`를 선언한다(06 §22, ADR-0158, #1903). 화면은 그대로다.
+
 ## 0.2.3 — 2026-11-05
 
 - 빠른 검색·필터 지우기를 SDK `TableQuickSearch`·`useClearFiltersAction`으로 바꿈, 입력 중 Enter 안내 표시(#1232, #1233).

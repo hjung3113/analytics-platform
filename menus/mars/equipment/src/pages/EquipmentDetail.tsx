@@ -14,12 +14,12 @@ export function EquipmentStatus({ equipment }: { equipment: Equipment }) {
 }
 
 export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 'validity' | 'audit' | 'analysis' }) {
-  const { global, scope, linkTo, resolveLink, registry } = usePlatform();
+  const { global, scope, linkTo, resolveLink } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
-  // resolveLink throws for an unregistered menu, so look before resolving. No permission ⇒ no link.
-  const topViewLink = registry.menus.some(m => m.id === EV_TOP_VIEW_MENU_ID) ? resolveLink(EV_TOP_VIEW_MENU_ID, { page: { equipment: id } }) : null;
-  const topView = topViewLink?.allowed ? topViewLink : null;
+  // An assembly without the EV module resolves to `none` (06 §22): no button. No permission ⇒ no link.
+  const topViewLink = resolveLink(EV_TOP_VIEW_MENU_ID, { page: { equipment: id } });
+  const topView = topViewLink.kind === 'link' && topViewLink.allowed ? topViewLink : null;
   const query = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, kind, kind !== 'audit' && scope.status === 'valid');
   // #50: the audit tab reads the destination's changes from the port, not the entity payload. Session identity
   // (ADR-0085): the ref carries the scope, so a scope change reads again, a period change does not. Older pages are

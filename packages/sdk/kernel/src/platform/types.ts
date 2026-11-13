@@ -130,13 +130,18 @@ export type AccessRequestSlot = {
 };
 export type PlatformSlots = { analysisActions?: AnalysisActionsSlot; scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot; accessRequest?: AccessRequestSlot };
 export type LinkOptions = { params?: Record<string, string>; /** A value may be a list for a repeated page key of the destination: one pair per item, in order. */ page?: Record<string, string | readonly string[] | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
+/**
+ * Read `kind` first (06 §22, ADR-0158). `link`: the destination is registered. `none`: this assembly does not register it — draw no fixed entry,
+ * show a recorded destination as plain text, never as a permission reason, and never build a URL from the id.
+ */
 export type LinkResolution = {
+  kind: 'link';
   href: string;
   /** False when the signed-in user lacks the target's permission or, for a space menu, space entry. A global utility menu is permission only. Display only — never a permission proof. */
   allowed: boolean;
   /** Requested page keys the target menu does not register; they are not in `href`. */
   droppedPageKeys: string[];
-};
+} | { kind: 'none'; href: null; allowed: false; droppedPageKeys: [] };
 
 /**
  * The full platform value the shell, the platform components and the app read through `useHostPlatform()` (`@ap/kernel/host`, ADR-0076).
@@ -183,8 +188,9 @@ export type HostPlatform = {
   /** A value may be a list for a `repeatedPageKeys` key (one pair per item; more than one value on another key throws `RangeError`); `[]` and null remove the key. A hidden key is written to a new history entry (or `replace`) whose address is unchanged. */
   setPage: (patch: Record<string, string | readonly string[] | null>, options?: { replace?: boolean; focus?: PageFocus }) => void;
   resetContext: () => void;
+  /** `resolveLink(...).href` as a string, for a destination the assembly guarantees (a menu of the same package, `linkTargets.required`). Throws `RegistryError` for an unregistered id (06 §22). */
   linkTo: (menuId: string, options?: LinkOptions) => string;
-  /** `linkTo` plus what a menu needs to draw the link honestly: whether the user may open it and which page keys were dropped. */
+  /** What a menu needs to draw a link honestly: whether the destination is registered (`kind`), whether the user may open it and which page keys were dropped. Never throws for an unregistered id. */
   resolveLink: (menuId: string, options?: LinkOptions) => LinkResolution;
   /**
    * Reports a render failure the route error boundary contained and returns the correlation id to show
@@ -202,7 +208,7 @@ export type HostPlatform = {
   /** App-wide refresh counters per endpoint: a write bumps what it invalidates and mounted queries refetch (ADR-0054). */
   refreshEpochs: RefreshEpochs;
   can: (permission: Permission | ModuleScopedId) => boolean;
-  /** Menu permission ∧ space entry, independent of URL generation and route parameters. */
+  /** Menu permission ∧ space entry, independent of URL generation and route parameters. False for an id this assembly does not register. */
   canOpen: (menuId: string) => boolean;
   /** Menus of the sidebar space the user may enter: menu permission ∧ space entry (06 §9.1). Empty when sidebarSpace is null. */
   visibleMenus: MenuEntry[];

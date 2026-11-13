@@ -74,6 +74,11 @@ export type Registry = {
   /** Carry set the menu joined with `carrySet`, or null. Independent of the menu's space. */
   carrySetOf: (menu: MenuEntry) => CarrySetDef | null;
   menuById: (id: string) => MenuEntry;
+  /**
+   * Declared `linkTargets` this assembly does not register, in menu then declaration order (06 §22, ADR-0158). With the default check only
+   * `optional` entries appear (an unregistered `required` one is rejected); with `linkTargetCheck: 'report'` both do.
+   */
+  missingLinkTargets: readonly MissingLinkTarget[];
   /** The menu at the platform home path, declared by `platformHomeMenuId`. Null when the app has no space-less `/` menu. */
   platformHome: MenuEntry | null;
   matchRoute: (pathname: string) => RouteMatch | null;
@@ -86,6 +91,9 @@ export type Registry = {
    */
   safeReturnTo: (value: string | null) => string | null;
 };
+
+/** One declared link target the Registry does not hold (`Registry.missingLinkTargets`). */
+export type MissingLinkTarget = { menuId: string; target: string; level: 'required' | 'optional' };
 
 export class RegistryError extends Error {}
 
@@ -115,9 +123,10 @@ export const isBoardPath = (pathname: string) => pathname.replace(/\/+$/, '') ==
  * Validates the declared IA once and returns the lookup functions the kernel and shell use
  * (docs/integration/platform-packages.md §5). Throws RegistryError on any violation.
  */
-export function createRegistry({ spaces, groups, menus: menusIn, permissions: declared = [], carrySets = [], platformHomeMenuId, reservedRoots = [] }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[]; /** The app's carry sets. Omit when no page key follows the user between menus. */ carrySets?: readonly CarrySetDef[]; /** Id of the menu at the platform home path. Required when a space-less menu declares `/`. */ platformHomeMenuId?: string; /** Roots the app serves outside the Registry (its menu roots, e.g. `voc`); a space id may not take one. Added to the platform's own `board`, `api` and `auth`. */ reservedRoots?: readonly string[] }): Registry {
+export function createRegistry({ spaces, groups, menus: menusIn, permissions: declared = [], carrySets = [], platformHomeMenuId, reservedRoots = [], linkTargetCheck = 'enforce' }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[]; /** The app's carry sets. Omit when no page key follows the user between menus. */ carrySets?: readonly CarrySetDef[]; /** Id of the menu at the platform home path. Required when a space-less menu declares `/`. */ platformHomeMenuId?: string; /** Roots the app serves outside the Registry (its menu roots, e.g. `voc`); a space id may not take one. Added to the platform's own `board`, `api` and `auth`. */ reservedRoots?: readonly string[]; /** `'report'` lists unregistered `linkTargets.required` in `missingLinkTargets` instead of rejecting them — only for a Registry that holds just its own menus (package tests, a start kit before other menus are added). A deployed assembly omits it (06 §22, ADR-0158). */ linkTargetCheck?: 'enforce' | 'report' }): Registry {
   const fail = (message: string): never => { throw new RegistryError(message); };
   // Runtime config can hold non-strings the brand does not stop: check the shape before the namespace is taken.
+  if (linkTargetCheck !== 'enforce' && linkTargetCheck !== 'report') fail(`linkTargetCheck must be "enforce" or "report"`);
   for (const p of declared) if (!isPermissionShape(p)) fail(`Declared permission "${String(p)}" must be "<namespace>:<action>" without whitespace or ? # & /`);
   for (const root of reservedRoots) if (!isIdShape(root)) fail(`Reserved root "${String(root)}" must be non-empty without whitespace or ? # & /`);
   const permissions: readonly Permission[] = [...KERNEL_PERMISSIONS, ...declared];
@@ -211,6 +220,24 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       if (!m.permission.startsWith(`${m.module}:`)) fail(`Menu "${m.id}" of module "${m.module}" permission "${m.permission}" needs the "${m.module}:" prefix`);
       if (isPlatformPermission(m.permission)) fail(`Menu "${m.id}" of module "${m.module}" permission "${m.permission}" is a reserved platform permission`);
       if (reserved.has(m.module)) fail(`Menu "${m.id}" module "${m.module}" is a reserved platform namespace`);
+    }
+    if (m.linkTargets !== undefined) {
+      if (m.module !== undefined) fail(`Menu "${m.id}" of module "${m.module}" cannot declare linkTargets (module contract 1, ADR-0053)`);
+      if (typeof m.linkTargets !== 'object' || m.linkTargets === null || Array.isArray(m.linkTargets)) fail(`Menu "${m.id}" linkTargets must be an object`);
+      const listed = new Set<string>();
+      for (const level of ['required', 'optional'] as const) {
+        const targets = m.linkTargets[level];
+        if (targets === undefined) continue;
+        if (!Array.isArray(targets)) fail(`Menu "${m.id}" linkTargets.${level} must be a list`);
+        const seen = new Set<string>();
+        for (const target of targets) {
+          if (!isIdShape(target)) fail(`Menu "${m.id}" linkTargets.${level} entry "${String(target)}" must be a menu id (non-empty, without whitespace or ? # & /)`);
+          if (seen.has(target)) fail(`Menu "${m.id}" linkTargets.${level} target "${target}" is listed twice`);
+          if (listed.has(target)) fail(`Menu "${m.id}" linkTargets target "${target}" is both required and optional`);
+          seen.add(target);
+        }
+        for (const target of seen) listed.add(target);
+      }
     }
     if (m.additionalPermissions !== undefined) {
       if (m.module !== undefined) fail(`Menu "${m.id}" of module "${m.module}" cannot declare additionalPermissions (one permission per module menu, ADR-0053)`);
@@ -386,6 +413,18 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     if (s.permission !== undefined && home.permission !== s.permission) fail(`Space "${s.id}" home permission must be "${s.permission}"`);
   }
 
+  // Declared link targets are checked once every menu is known; a module menu may be a target (06 §22, ADR-0158).
+  const missingLinkTargets: MissingLinkTarget[] = [];
+  for (const m of menus) {
+    for (const level of ['required', 'optional'] as const) {
+      for (const target of m.linkTargets?.[level] ?? []) {
+        if (byId.has(target)) continue;
+        if (level === 'required' && linkTargetCheck === 'enforce') fail(`Menu "${m.id}" requires link target "${target}", which this assembly does not register (register it, or pass linkTargetCheck: 'report' to a Registry that holds only its own menus)`);
+        missingLinkTargets.push({ menuId: m.id, target, level });
+      }
+    }
+  }
+
   const groupById = (id: AnyGroupId) => groups.find(g => g.id === id) ?? fail(`Unknown group ${id}`);
   const spaceById = (id: SpaceId) => spaceByIdMap.get(id) ?? fail(`Unknown space ${id}`);
   const spaceOf = (menu: MenuEntry): SpaceDef | null => {
@@ -443,7 +482,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     return value;
   };
 
-  return { groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, platformHome, matchRoute, canonicalHref, safeReturnTo };
+  return { groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, missingLinkTargets, platformHome, matchRoute, canonicalHref, safeReturnTo };
 }
 
 /** Parameter names declared by route segments, in route order. */

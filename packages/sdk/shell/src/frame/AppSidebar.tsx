@@ -120,7 +120,7 @@ function SidebarScope({ collapsed }: { collapsed: boolean }) {
 }
 
 function FeatureBlock({ collapsed }: { collapsed: boolean }) {
-  const { slots, route, currentSpace, sidebarSpace, accessibleSpaces, can, resolveLink } = useHostPlatform();
+  const { slots, route, currentSpace, sidebarSpace, accessibleSpaces, can, resolveLink, linkTo } = useHostPlatform();
   const { tx, lang } = useI18n();
   const slot = slots.features;
   // Only the space this sidebar is drawing, and only when the route is that space's menu.
@@ -142,7 +142,7 @@ function FeatureBlock({ collapsed }: { collapsed: boolean }) {
       const Icon = entry.icon;
       const label = tx(entry.label);
       const inShellName = `${label} — ${spaceName}, ${featureName}`;
-      const inShell = <PlatformLink via="sidebar" href={resolveLink(entry.menuId, { global: emptyGlobal, page: entry.page, returnTo: true }).href} aria-label={inShellName}
+      const inShell = <PlatformLink via="sidebar" href={linkTo(entry.menuId, { global: emptyGlobal, page: entry.page, returnTo: true })} aria-label={inShellName}
         className={navRowVariants({ feature: true, collapsed })}>
         <Icon className="size-4 shrink-0" aria-hidden />
         {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
