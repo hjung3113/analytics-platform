@@ -1,3 +1,4 @@
+import type { ChartTrust } from '../state/trustFormat';
 import { useEmbeddedChrome } from '../workspace/panelContext';
 import { toMs, unknownLabel } from './analysisChartShared';
 import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
@@ -144,7 +145,8 @@ export type AnalysisChartFrameProps = {
   unit: string;
   valueFormat?: (v: number) => string;
   height?: number; size?: ChartSize;
-  trust?: { source: string; updated: string; coverage: string };
+  /** Trust footer: the response `Trust` (formatted by the SDK, viewer time zone), `null` (no footer), or an already formatted `{ source, updated, coverage }` text triple (shown as given). */
+  trust?: ChartTrust;
   /** Time axis only: allow promoting a brushed range to the global period (explicit Apply). */
   canApplyRange?: boolean;
   /** Page-owned actions for the current brushed selection (e.g. filter a table). */

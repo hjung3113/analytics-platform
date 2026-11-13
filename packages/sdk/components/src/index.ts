@@ -3,6 +3,7 @@ export * from './chart/AnalysisChartFrame';
 export * from './drawer/AuditTimeline';
 export { copyText, useCopyLink } from './state/copyText';
 export * from './state/DataTrustIndicator';
+export type { ChartTrust } from './state/trustFormat';
 export * from './drawer/DetailDrawer';
 // Explicit: strokeToken·baseTextStyle stay package-internal (chart plumbing and tests only).
 export { chartTheme, EChart, token, type EChartProps } from './chart/EChart';

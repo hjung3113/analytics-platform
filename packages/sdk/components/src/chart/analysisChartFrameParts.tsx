@@ -4,6 +4,7 @@ import { Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } 
 import { formatMetricVersion } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
 import { useInWorkspacePanel } from '../workspace/panelContext';
+import { chartTrustText, type ChartTrust } from '../state/trustFormat';
 
 /** Internal frame fragments: preserve the time-series frame's element tree. */
 export function AnalysisChartPart({ enabled, body, children }: { enabled: boolean; body?: boolean; children: ReactNode }) {
@@ -31,8 +32,9 @@ export function ChartHeading({ titleId, title, description, metricVersion, compa
   </div>;
 }
 
-export function ChartTrustFooter({ trust }: { trust?: { source: string; updated: string; coverage: string } }) {
-  const { t } = useI18n();
+export function ChartTrustFooter({ trust: input }: { trust?: ChartTrust }) {
+  const { t, lang } = useI18n();
+  const trust = chartTrustText(input, lang);
   return trust && <footer className="shrink-0 border-t border-border-subtle px-4 py-2 text-tiny text-text-muted tabular">
     {t('source')}: <span className="t-mono text-tiny">{trust.source}</span> · {t('updated')}: {trust.updated} · {t('coverage')}: {trust.coverage}
   </footer>;

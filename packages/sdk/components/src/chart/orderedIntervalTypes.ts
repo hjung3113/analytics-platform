@@ -1,3 +1,4 @@
+import type { ChartTrust } from '../state/trustFormat';
 import type { ReactNode } from 'react';
 import type { ThemeColorToken } from '@ap/ui/theme';
 
@@ -55,7 +56,8 @@ export type OrderedIntervalTrackProps = {
     retryLabel?: string;
     onRetry?: () => void;
   };
-  trust?: { source: string; updated: string; coverage: string };
+  /** Trust footer: the response `Trust` (formatted by the SDK, viewer time zone), `null` (no footer), or an already formatted `{ source, updated, coverage }` text triple (shown as given). */
+  trust?: ChartTrust;
   selectedId?: string | null;
   onSelect?: (item: OrderedTrackItem | null) => void;
   onRangeRequest?: (

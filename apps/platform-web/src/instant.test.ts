@@ -12,6 +12,18 @@ describe('formatInstant (real instants)', () => {
     expect(formatInstant('2026-09-26T02:00:00.000Z', 'en', 'Asia/Seoul')).not.toContain('02:00');
     expect(formatInstant('2026-09-26T02:00:00.000Z', 'en', 'UTC')).toContain('2:00');
   });
+  it.each([
+    ['monthDayMinute', 'Asia/Seoul', '10-28 09:00'],
+    ['monthDayMinute', 'UTC', '10-28 00:00'],
+    ['minute', 'Asia/Seoul', '2026-10-28 09:00'],
+    ['minute', 'America/Los_Angeles', '2026-10-27 17:00'],
+  ] as const)('prints the digit form %s in %s (24-hour, same in every language)', (form, zone, expected) => {
+    expect(formatInstant('2026-10-28T00:00:00Z', 'ko', zone, form)).toBe(expected);
+    expect(formatInstant('2026-10-28T00:00:00Z', 'en', zone, form)).toBe(expected);
+  });
+  it('keeps midnight as 00, not 24, in the digit forms', () => {
+    expect(formatInstant('2026-10-28T00:30:00+09:00', 'en', 'Asia/Seoul', 'monthDayMinute')).toBe('10-28 00:30');
+  });
   it('accepts an explicit numeric offset as an instant', () => {
     expect(formatInstant('2026-09-26T11:00:00+09:00', 'en', 'Asia/Seoul')).toContain('11:00');
   });

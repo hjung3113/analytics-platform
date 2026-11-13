@@ -69,7 +69,7 @@ describe('useWorkbookExport (#860)', () => {
   });
 
   it('keeps a Korean menu file name, replaces characters no OS accepts, and marks provisional data', async () => {
-    options = { fileName: 'HW Time/가동률', trust: { provisional: true, dataThrough: '2026-09-25T09:00:00' } as never };
+    options = { fileName: 'HW Time/가동률', trust: { provisional: true, dataThrough: '2026-09-25T09:00:00+09:00' } as never };
     mount(true);
     fireEvent.click(screen.getByText('export'));
     await waitFor(() => expect(downloads).toHaveLength(1), { timeout: 8000 });

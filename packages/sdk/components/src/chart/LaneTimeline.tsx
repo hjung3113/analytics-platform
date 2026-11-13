@@ -1,3 +1,4 @@
+import type { ChartTrust } from '../state/trustFormat';
 import { useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
 import { Info } from 'lucide-react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
@@ -22,7 +23,9 @@ export type TimelineSegment = {
 export type TimelineLane = { id: string; label: string; segments: TimelineSegment[] };
 export type LaneTimelineHandle = { resetZoom(): void; reveal(itemIndex: number): void; revealById(segmentId: string): void };
 export type LaneTimelineProps = {
-  description?: ReactNode; trust?: { source: string; updated: string; coverage: string };
+  description?: ReactNode;
+  /** Trust footer: the response `Trust` (formatted by the SDK, viewer time zone), `null` (no footer), or an already formatted `{ source, updated, coverage }` text triple (shown as given). */
+  trust?: ChartTrust;
   lanes: TimelineLane[]; ariaLabel: string; ref?: Ref<LaneTimelineHandle>; height?: number;
   formatTick?: (time: number) => string; formatTooltip?: (segment: TimelineSegment, lane: TimelineLane) => string;
   densityInstants?: number[]; paletteTokens?: ThemeColorToken[]; neutralColorToken?: ThemeColorToken;

@@ -1,4 +1,4 @@
-import { isRecord, type ActionOutcome, type ActionResponse, type ApiResponse, type Outcome, type PublishedMetric, type Session } from '@ap/contracts';
+import { isIsoInstant, isRecord, type ActionOutcome, type ActionResponse, type ApiResponse, type Outcome, type PublishedMetric, type Session } from '@ap/contracts';
 
 const OUTCOMES: readonly string[] = ['ok', 'empty', 'error', 'forbidden', 'too_large', 'timeout'];
 const ACTION_OUTCOMES: readonly string[] = ['ok', 'invalid', 'conflict', 'forbidden', 'not_found', 'error', 'unknown'];
@@ -26,7 +26,7 @@ function isAssessment(value: unknown): boolean {
     isString(value['kind']) && ASSESSMENT_KINDS.includes(value['kind']) &&
     isString(value['state']) && ASSESSMENT_STATES.includes(value['state']) &&
     isOptional(value['statusSource'], isString) &&
-    isOptional(value['observedAt'], isString) &&
+    isOptional(value['observedAt'], isIsoInstant) &&
     isOptional(value['reason'], (v) => isString(v) && ASSESSMENT_REASONS.includes(v)) &&
     isOptional(value['explainsEmpty'], (v) => typeof v === 'boolean') &&
     isOptional(value['detail'], isString)
@@ -36,8 +36,9 @@ function isAssessment(value: unknown): boolean {
 function isTrust(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return (
-    isString(value['updatedAt']) &&
-    (value['dataThrough'] === null || isString(value['dataThrough'])) &&
+    // Real instants with an offset (contract-schemas `instant`); an offset-less value would be read as the viewer's wall-clock.
+    isIsoInstant(value['updatedAt']) &&
+    (value['dataThrough'] === null || isIsoInstant(value['dataThrough'])) &&
     (value['coverage'] === null || typeof value['coverage'] === 'number') &&
     isOptional(value['metricVersion'], isString) &&
     typeof value['provisional'] === 'boolean' &&

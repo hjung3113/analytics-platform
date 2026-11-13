@@ -53,6 +53,8 @@ Selection Summary
 Source · Updated · Coverage
 ```
 
+꼬리말 `Source · Updated · Coverage`는 네 차트 틀(`AnalysisChartFrame`·`AnalysisChart`·`LaneTimeline`·`OrderedIntervalTrack`)의 `trust` prop이 그린다(#2009, #2044). `trust`는 응답의 `Trust | null`을 그대로 받는다. SDK가 `DataTrustIndicator`와 같은 함수로 글자를 만든다: 갱신은 `formatInstant`로 보는 사람의 시간대에 맞춘 `MM-DD HH:mm`, 커버리지는 `NN.N%`, 커버리지 없음은 「미확인」(en `Not confirmed`), 오프셋 없는 등 잘못된 시각은 「—」. `null`이면 꼬리말을 그리지 않는다. 메뉴는 Trust를 손으로 글자로 바꾸지 않는다. 이미 만든 글자 세 값 `{ source, updated, coverage }`도 그대로 받아 보인다. 응답 Trust가 아닌 합성 견본 표기에만 쓴다.
+
 ### 메뉴가 조립하는 차트 조각 (Decided, #541·#580 S4)
 
 `AnalysisChartFrame`의 선택 API는 메뉴가 의미를 정하고 프레임은 지점·행·시리즈 표시만 제공한다([ADR-0063](../adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)). 기본 소비자는 새 prop 없이 기존 동작을 유지한다.

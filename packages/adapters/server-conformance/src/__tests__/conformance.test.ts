@@ -53,13 +53,13 @@ const err = (message: string): ApiResponse<never> => ({ outcome: 'error', messag
 const forbidden: ApiResponse<unknown> = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'ref' };
 
 // Well-formed 06 §19/§18 shapes the reference answers successful reads with (mirrors the contract, not the mock).
-const OBSERVED = '2026-09-26T08:58:00';
+const OBSERVED = '2026-09-26T08:58:00+09:00';
 const REF_ASSESSMENTS: Assessment[] = [
   { kind: 'collection', state: 'unknown', reason: 'source_unavailable' },
   { kind: 'processing_delay', state: 'clear', statusSource: 'mart-watermark', observedAt: OBSERVED },
   { kind: 'coverage', state: 'clear', statusSource: 'coverage-service', observedAt: OBSERVED },
 ];
-const REF_TRUST: Trust = { updatedAt: '2026-09-26T09:02:00', dataThrough: '2026-09-26T08:00:00', coverage: 0.987, provisional: false, source: 'mart.productivity_hourly' };
+const REF_TRUST: Trust = { updatedAt: '2026-09-26T09:02:00+09:00', dataThrough: '2026-09-26T08:00:00+09:00', coverage: 0.987, provisional: false, source: 'mart.productivity_hourly' };
 const REF_EVENT: AuditEvent = {
   id: 'equipment:MEM-PHOTO-0103:create', at: '2026-01-01T00:00:00.000Z', actor: 'master-sync', action: 'create', source: 'system',
   target: { type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' }, changes: {},

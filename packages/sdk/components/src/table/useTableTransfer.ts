@@ -15,6 +15,7 @@ import type { Preferences } from './useColumnPreferences';
 import type { TableExportRequest } from './useTableSelection';
 import { filterInfoRows } from './columnFilters';
 import type { InstantEntry } from './filterFields';
+import { trustCoverageText, trustInstantText } from '../state/trustFormat';
 
 /**
  * Row copy (#174) clipboard path, by feature detection — never by `.catch`: in an insecure context (in-house HTTP)
@@ -149,7 +150,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
         blob = new Blob([toCsv(headers, cells)], { type: 'text/csv;charset=utf-8' });
       } else {
         // "조회 정보" sheet: what was exported, from which Context, with which filters and trust. Missing values stay
-        // empty — never invented. Values render like the screen: times space-separated, coverage as a percent string.
+        // empty — never invented. Values render like the screen (shared Trust formatter): instants in the viewer's zone, coverage as a percent string or the unknown wording.
         const trust = response.trust;
         // Labels follow the UI language, like the menus' exportFilterSummary (#173 review N-P3-4). 기간/Scope are written
         // only when they apply (export endpoint's — else the manifest's — time 'apply' / requiresScope) — never a condition that did not filter (N-P2-1).
@@ -165,9 +166,9 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
           ...(input.exportFilterSummary ?? []).map(([label, value]) => [label, value] as [string, string]),
           ...(filters ? filterInfoRows(filters, input.filterFields.map(f => ({ id: f.id, label: f.label, filter: f.spec, entry: f.entry })), lang) : []),
           ...(appliedContext ? globalContextRows(queryContext, appliedContext, lang, axes, t('membershipAsOf')) : []),
-          [L.updatedAt, trust?.updatedAt?.replace('T', ' ') ?? ''],
-          [L.dataThrough, trust?.dataThrough?.replace('T', ' ') ?? ''],
-          [L.coverage, trust != null && trust.coverage !== null ? `${(trust.coverage * 100).toFixed(1)}%` : ''],
+          [L.updatedAt, trust?.updatedAt ? trustInstantText(trust.updatedAt, lang, 'minute') : ''],
+          [L.dataThrough, trust?.dataThrough ? trustInstantText(trust.dataThrough, lang, 'minute') : ''],
+          [L.coverage, trust ? trustCoverageText(trust.coverage, lang) : ''],
           [L.metricVersion, trust?.metricVersion ?? ''],
           [L.provisional, trust ? (trust.provisional ? L.provisionalYes : L.provisionalNo) : ''],
           [L.source, trust?.source ?? ''],

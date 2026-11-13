@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer } from 'lucide-react';
-import { formatNumber, periodHours, type GlobalContext, type Pair, type Trust } from '@ap/contracts';
+import { formatNumber, periodHours, type GlobalContext, type Pair } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform, useSavedViewSupport } from '@ap/kernel';
 import { PanelWorkspace, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type PageFilterAppliedChip, type Delta, type PlatformColumn, parsePageIndex, PageKeyWarning, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
@@ -155,7 +155,6 @@ export default function CycleTimeDrilldown(_: PageProps) {
   ], [ko, lang]);
 
   const filterKey = JSON.stringify({ tail: tailMode, granularity, bucket: bucketRange, bin, sort: sortRaw, reload });
-  const unknown = ko ? '미확인' : 'Not confirmed';
   const granularityPending = draftParam('granularity') === null && draftHours === null;
 
   // Field labels and option labels shared by the edit controls and the collapsed summary. The summary states
@@ -283,7 +282,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
                   { id: 'p95-prev', name: ko ? 'P95 이전 기간' : 'P95 previous period', color: 'cat-amber', points: data.previous.p95, dashed: true },
                 ]}
                 markLines={data.populationP95 === null ? undefined : [{ y: data.populationP95, label: `P95 ${formatMin(data.populationP95, lang)}` }]}
-                trust={chartTrust(response.trust, unknown)}
+                trust={response.trust}
                 pointClickHint={ko ? '점을 클릭하면 그 버킷만 목록에 남습니다. 전역 기간은 바뀌지 않습니다.' : 'Click a point to keep that bucket in the list. The global period does not change.'}
                 onPointClick={(x, seriesId) => {
                   if (seriesId.endsWith('-prev')) {
@@ -316,7 +315,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 valueFormat={value => formatNumber(Math.round(value), lang)}
                 size="fill"
                 series={[{ id: 'hist', name: ko ? '실행 수' : 'Executions', color: 'chart-blue', kind: 'bar', points: data.bins.map((item): [string, number] => [item.id, item.count]) }]}
-                trust={chartTrust(response.trust, unknown)}
+                trust={response.trust}
                 selectionActions={selection => <Button size="toolbar" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
               />}
             </QueryView>
@@ -446,13 +445,4 @@ function metricLabel(metric: ResolvedMetric, ko: boolean): string {
       ? (ko ? ' · 페이지 기본(전역 지표 미적용)' : ' page default, global not applied')
       : '';
   return `${metric.metricId} v${metric.metricVersion}${suffix}`;
-}
-
-function chartTrust(trust: Trust | null, unknown: string) {
-  if (!trust) return undefined;
-  return {
-    source: trust.source,
-    updated: trust.updatedAt.replace('T', ' '),
-    coverage: trust.coverage === null ? unknown : `${(trust.coverage * 100).toFixed(1)}%`,
-  };
 }

@@ -1,3 +1,4 @@
+import type { ChartTrust } from '../state/trustFormat';
 import { percent, unknownLabel, brushOptions, isBrushableKind, isSingleSelectKind } from './analysisChartShared';
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
@@ -76,7 +77,8 @@ export type TopNBarSpec = {
 export type ChartSpec = HeatmapSpec | DonutSpec | ScatterSpec | BoxPlotSpec | ParetoSpec | TopNBarSpec;
 export type AnalysisChartProps = {
   chartId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; unit: string;
-  trust?: { source: string; updated: string; coverage: string }; height?: number; size?: ChartSize; emptyText?: string; spec: ChartSpec;
+  /** Trust footer: the response `Trust` (formatted by the SDK, viewer time zone), `null` (no footer), or an already formatted `{ source, updated, coverage }` text triple (shown as given). */
+  trust?: ChartTrust; height?: number; size?: ChartSize; emptyText?: string; spec: ChartSpec;
   /** Adds a `이미지 복사` button (PNG to the clipboard, or a download when the clipboard is unavailable), shown only when the current menu manifest enables `features.export`. */
   imageCopy?: boolean;
   /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Shown only when the current menu manifest enables `features.export`. */

@@ -1143,7 +1143,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     const rows = Object.fromEntries(Object.keys(info).filter(k => k.startsWith('A')).map(k => [info[k], info['B' + k.slice(1)]]));
     // Values render like the screen (#173 P3-1): space-separated times, coverage as a "97.0%" string.
     expect(rows).toMatchObject({
-      메뉴: 'export-menu', 대상: '선택 2행', '갱신 시각': '2026-10-02 09:00:00+09:00', '데이터 기준 시각': '2026-10-02 08:00:00+09:00',
+      메뉴: 'export-menu', 대상: '선택 2행', '갱신 시각': '2026-10-02 09:00', '데이터 기준 시각': '2026-10-02 08:00',
       커버리지: '97.0%', '지표 버전': '3', '잠정 여부': '잠정', 원천: 'mart', 'Correlation ID': 'corr-1',
     });
     expect(rows.Scope).toBeUndefined(); // no Scope in this Context → empty, never invented
@@ -1408,7 +1408,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     const { sheetNames, sheets: [, info] } = await readXlsx(downloads[0].blob);
     expect(sheetNames).toEqual(['Data', 'Query info']);
     const rows = infoRows(info);
-    expect(rows).toMatchObject({ Menu: 'export-menu', Target: 'all 1 filtered row', 'Updated at': '2026-10-02 09:00:00+09:00', Provisional: 'Final', Source: 'mart', Search: 'etch', Lot: '2 ids: LOT-1, LOT-2' });
+    expect(rows).toMatchObject({ Menu: 'export-menu', Target: 'all 1 filtered row', 'Updated at': '2026-10-02 09:00', Provisional: 'Final', Source: 'mart', Search: 'etch', Lot: '2 ids: LOT-1, LOT-2' });
     expect(Object.keys(rows).filter(label => /[가-힣]/.test(label))).toEqual([]);
     expect(Object.values(rows).filter(value => /[가-힣]/.test(String(value)))).toEqual([]);
   });
