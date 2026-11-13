@@ -72,20 +72,24 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
   // A Mapping save in flight settles on the Board it captured, so nothing rebuilds the Board until it ends (a clean Board with automatic
   // drafts saves too).
   const [saving, setSaving] = useState(false);
+  // Scopes one's own save raised since the last consumed read: only these wait for their refetch (review M1).
+  const [raised, setRaised] = useState<readonly SaveScope[]>([]);
   // The Board and its versions always come from one `data` object.
   const rebuildBoard = () => {
     setBoard(createBoardState({ equipment, ruleFiles }));
     setBoardVersions(data.ruleVersions);
     setSeenVersions(data.ruleVersions);
     setSaveConflict(false);
+    setRaised([]);
   };
   const dirty = board !== null && isBoardDirty(board);
   // A scope one's own save raised whose read still holds the pre-save version: that `data` is stale, not a new arrival; wait for its refetch.
-  const staleRead = (['model', 'equipment'] as const).some((scope) => boardVersions[scope] !== seenVersions[scope] && data.ruleVersions[scope] === seenVersions[scope]);
+  const staleRead = raised.some((scope) => data.ruleVersions[scope] === seenVersions[scope]);
   if (board === null && boardInput !== null) rebuildBoard();
   else if (board !== null && !saving && !staleRead && !sameVersions(seenVersions, data.ruleVersions)) {
     // Another person's save reached the screen: a clean Board takes it; a dirty one (or a locked conflict) waits for 다시 불러오기.
     setSeenVersions(data.ruleVersions);
+    setRaised([]);
     if (!dirty && !saveConflict && !sameVersions(boardVersions, data.ruleVersions)) rebuildBoard();
   }
   useUnsavedGuard(dirty, { leaves: { pageKeys: ['equipment', 'window'] }, message: GUARD_MESSAGE, onDiscard: () => setBoard((b) => (b ? { ...b, present: b.baseline, past: [], future: [] } : b)) });
@@ -172,7 +176,7 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
         <TabsContent value="template" className="m-0 flex min-h-0 flex-1 flex-col"><TemplateTab data={data} /></TabsContent>
         <TabsContent value="mapping" className="m-0 flex min-h-0 flex-1 flex-col">
           {boardInput && board ? <MappingTab input={boardInput} board={board} setBoard={setBoard} saveScope={saveScope} setSaveScope={setSaveScope} data={data}
-            boardVersions={boardVersions} onSaved={(scope, version) => setBoardVersions((v) => ({ ...v, [scope]: version }))}
+            boardVersions={boardVersions} onSaved={(scope, version) => { setBoardVersions((v) => ({ ...v, [scope]: version })); setRaised((r) => (r.includes(scope) ? r : [...r, scope])); }}
             conflict={saveConflict} onConflict={() => setSaveConflict(true)} onReload={rebuildBoard} onSaving={setSaving} />
             : <NoBoard hasInventory={inventory !== null} onTemplate={() => go('template')} />}
         </TabsContent>
