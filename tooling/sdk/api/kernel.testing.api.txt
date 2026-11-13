@@ -6,6 +6,7 @@ noContext | const | const noContext: Record<@ap/contracts#ContextKey, @ap/contra
 settleQueries | function | function settleQueries(): Promise<void>
 testAdapter | function | function testAdapter(over?: Partial<@ap/contracts#PlatformAdapter>): @ap/contracts#PlatformAdapter
 testSavedView | function | function testSavedView(over: Partial<@ap/contracts#SavedView> & { context?: @ap/contracts#SavedView['context']; id: string; }): @ap/contracts#SavedView
+testScreen | const | const testScreen: import("react").LazyExoticComponent<() => null>
 testSession | function | function testSession(permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[], over?: { scopes?: readonly @ap/contracts#ScopeOption[]; user?: Partial<@ap/contracts#SessionUser>; }): @ap/contracts#Session
 testSpace | function | function testSpace(over?: Partial<@ap/contracts#SpaceDef>): @ap/contracts#SpaceDef
 testViewCapabilities | const | const testViewCapabilities: @ap/contracts#ViewCapabilities
