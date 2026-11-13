@@ -152,9 +152,6 @@ jobs:
           node --test apps/platform-e2e/tests-kit/*.test.mjs
       - run: pnpm lint
         if: ${{ env.DOCS_ONLY != 'true' }}
-      # #1951: typecheck only, 4 packages at once on the 4-vCPU runner (turbo.json keeps 2 for local runs and the vitest jobs).
-      - run: pnpm typecheck --concurrency=4
-        if: ${{ env.DOCS_ONLY != 'true' }}
       - name: Additional feature static gates
         if: ${{ env.DOCS_ONLY != 'true' }}
         run: bash ops/platform-api/scripts/ci/gate.sh static-extra
@@ -231,6 +228,46 @@ jobs:
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-static-${{ github.sha }}
+
+  # #1951: typecheck runs beside Platform static, not inside it. Cold, it took 281-392 s of a 14-19 min static job; raising turbo
+  # concurrency alone did not help (361 s at 4). The required check name and meaning stay: Platform workspace requires this job.
+  platform-typecheck:
+    name: Platform typecheck
+    needs: changes
+    # Never skipped as a whole: the aggregate required check reads its result.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOCS_ONLY: ${{ needs.changes.outputs.code == 'false' }}
+      TURBO_FORCE: ${{ needs.changes.outputs.full != 'false' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: ${{ env.DOCS_ONLY != 'true' }}
+      # Same rule as the static cache: restored on every non-full run, saved only by a push to main.
+      - uses: actions/cache/restore@v4
+        if: ${{ env.DOCS_ONLY != 'true' && env.TURBO_FORCE != 'true' }}
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-typecheck-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-typecheck-
+      # The job runs nothing else, so it may use all 4 vCPUs (turbo.json keeps 2 for local runs and the vitest jobs).
+      - run: pnpm typecheck --concurrency=4
+        if: ${{ env.DOCS_ONLY != 'true' }}
+      - name: Prune turbo cache
+        if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
+        run: find .turbo/cache -type f -mtime +7 -delete || true
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-typecheck-${{ github.sha }}
 
   # `pnpm test` beside Platform static. #166: turbo concurrency is capped at 2 in turbo.json (vitest workers × parallel packages oversubscribe a runner or a 16 GB Mac).
   # #1680: three package groups on three runners, so the longest package (`@ap/feature-screens`, ~560 s of vitest in the
@@ -508,7 +545,7 @@ jobs:
   # and fails unless static, test and integration are success (docs-only permits only the intentional integration skip).
   platform-workspace:
     name: Platform workspace (pnpm monorepo)
-    needs: [changes, platform-static, platform-test, feature-integration]
+    needs: [changes, platform-static, platform-typecheck, platform-test, feature-integration]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -519,11 +556,12 @@ jobs:
       - name: All workspace gates succeeded
         env:
           STATIC: ${{ needs.platform-static.result }}
+          TYPECHECK: ${{ needs.platform-typecheck.result }}
           TEST: ${{ needs.platform-test.result }}
           INTEGRATION: ${{ needs.feature-integration.result }}
           CODE: ${{ needs.changes.outputs.code }}
         run: |
-          .github/scripts/require-success.sh "static=$STATIC" "test=$TEST"
+          .github/scripts/require-success.sh "static=$STATIC" "typecheck=$TYPECHECK" "test=$TEST"
           if [ "$CODE" != false ] || [ "$INTEGRATION" != skipped ]; then .github/scripts/require-success.sh "integration=$INTEGRATION"; fi
 
   # #666: the contract suite (~600 s of tests on one worker) runs as Playwright shards in parallel. Each shard starts
