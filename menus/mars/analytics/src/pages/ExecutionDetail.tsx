@@ -1,5 +1,5 @@
 import { AlertTriangle, Ban } from 'lucide-react';
-import { parseDateTime } from '@ap/contracts';
+import { formatNumber, parseDateTime } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
 import { DataTrustIndicator, Panel, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
@@ -82,7 +82,7 @@ export default function ExecutionDetail({ params }: PageProps) {
 
 const PANEL_GAP = 'space-y-3';
 
-function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: string; recipe: string; lotId: string; ppid: string; anchor: string; startedAt: string; cycleMin: number; quality: 'unknown' | 'review' }; segments: Segment[]; ko: boolean; lang: string }) {
+function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: string; recipe: string; lotId: string; ppid: string; anchor: string; startedAt: string; cycleMin: number; quality: 'unknown' | 'review' }; segments: Segment[]; ko: boolean; lang: 'ko' | 'en' }) {
   const spanEnd = segments.reduce((max, segment) => segment.end > max ? segment.end : max, execution.startedAt);
   const axisEnd = spanEnd;
   const totalSec = Math.max(1, secondsBetween(execution.startedAt, axisEnd));
@@ -93,7 +93,7 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
         <Identity label="Recipe" value={execution.recipe} />
         <Identity label="Lot" value={execution.lotId} />
         <Identity label="PPID" value={execution.ppid} />
-        <Identity label={ko ? '사이클타임' : 'Cycle time'} value={`${execution.cycleMin.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${ko ? '분' : 'min'}`} />
+        <Identity label={ko ? '사이클타임' : 'Cycle time'} value={`${formatNumber(execution.cycleMin, lang, { decimals: 1 })} ${ko ? '분' : 'min'}`} />
       </div>
     </Panel>
 
@@ -136,7 +136,7 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
               <td className="t-mono px-4 py-1">{segment.slot}</td>
               <td className="t-mono px-4 py-1 tabular">{segment.start.replace('T', ' ')}</td>
               <td className="t-mono px-4 py-1 tabular">{segment.end.replace('T', ' ')}</td>
-              <td className="px-4 py-1 text-right tabular">{segment.durationMin.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+              <td className="px-4 py-1 text-right tabular">{formatNumber(segment.durationMin, lang, { decimals: 1 })}</td>
             </tr>)}
           </tbody>
         </table>

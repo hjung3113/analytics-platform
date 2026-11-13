@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, Info, X } from 'lucide-react';
-import type { ActionResult, ActionSpec, ApiResponse } from '@ap/contracts';
+import { formatNumber, type ActionResult, type ActionSpec, type ApiResponse } from '@ap/contracts';
 import { useMenuAction, useMenuFetch, usePlatform } from '@ap/kernel';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -308,7 +308,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
         <div className="t-mono"><Textarea id={`${uid}-paste`} aria-describedby={`${uid}-help ${uid}-limit`} rows={12} value={text} spellCheck={false}
           onChange={e => setText(e.target.value)} placeholder={`${EXAMPLE.header.join('\t')}\n${EXAMPLE.rows[0]!.join('\t')}`} /></div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p id={`${uid}-limit`} className="t-caption text-text-muted">한 번에 {PASTE_ROW_LIMIT.toLocaleString('ko-KR')}행까지{dataRows > 0 && <span className="tabular"> · 지금 {dataRows.toLocaleString('ko-KR')}행</span>}{sourceName && <span> · 파일 {sourceName}</span>}</p>
+          <p id={`${uid}-limit`} className="t-caption text-text-muted">한 번에 {formatNumber(PASTE_ROW_LIMIT, 'ko')}행까지{dataRows > 0 && <span className="tabular"> · 지금 {formatNumber(dataRows, 'ko')}행</span>}{sourceName && <span> · 파일 {sourceName}</span>}</p>
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" variant="secondary" onClick={() => { void copyText(TEMPLATE_HEADER).then(ok => toast(ok ? '머리글 행을 복사했습니다' : '복사하지 못했습니다. 직접 입력해 주세요.', ok ? 'info' : 'warning')); }}>양식 복사</Button>
             <Button type="button" size="sm" variant="secondary" onClick={() => fileInput.current?.click()}>CSV 파일 열기</Button>

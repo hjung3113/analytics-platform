@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Clock, Cpu, Gauge } from 'lucide-react';
+import { formatNumber } from '@ap/contracts';
 import { useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { AnalysisChart, AnalysisLayout, DataTrustIndicator, LaneTimeline, PlatformPage, QueryView, StatCard, type TimelineLane } from '@ap/components';
 import { operationTimeEndpoint, type OperationKind, type OperationTimeData } from '../endpoints';
@@ -36,7 +37,7 @@ function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeDat
   const { tx, lang } = useI18n();
   const { global, setPage } = usePlatform();
   const ko = lang === 'ko';
-  const number = (value: number) => value.toLocaleString(ko ? 'ko-KR' : 'en-US');
+  const number = (value: number) => formatNumber(value, lang);
   const rooms = useMemo(() => [...new Set(data.ranking.map(row => row.room))], [data.ranking]);
   const roomColor = (room: string) => ROOM_COLORS[rooms.indexOf(room) % ROOM_COLORS.length];
   const lanes = useMemo<TimelineLane[]>(() => data.lanes.map(lane => ({

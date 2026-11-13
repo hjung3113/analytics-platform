@@ -42,7 +42,7 @@ function SeriesLegend({ series, values, lang }: { series: readonly HwTimeSeries[
         {/* eslint-disable-next-line shadcn/no-inline-styles -- swatch color is the series' theme token resolved at runtime (as in LegendTree) */}
         <span data-legend-swatch aria-hidden className="inline-block size-3 shrink-0 rounded-sm" style={{ backgroundColor: isThemeColorToken(item.color) ? readColorToken(item.color) : undefined }} />
         <span className="min-w-0 flex-1 truncate">{item.name}</span>
-        <span className="tabular text-text-primary">{value === null ? missingText(lang) : `${formatSeconds(value)} ${unitOf(lang)}`}</span>
+        <span className="tabular text-text-primary">{value === null ? missingText(lang) : `${formatSeconds(value, lang)} ${unitOf(lang)}`}</span>
       </li>;
     })}
   </ul>;

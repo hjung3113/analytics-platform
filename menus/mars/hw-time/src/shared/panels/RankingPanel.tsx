@@ -29,7 +29,7 @@ export function RankingPanel({ block, visibleSeriesIds, limit = 50 }: RankingPan
     {ranked.map((item, index) => <li key={item.id}>
       <div className="flex items-baseline justify-between gap-2">
         <span className="truncate text-text-secondary" title={rowIdLabel(item.id)}><span className="text-text-muted">{index + 1}.</span> {rowIdLabel(item.id)}</span>
-        <span className="shrink-0 tabular-nums">{item.total === null ? missingText(lang) : `${item.partial ? '≥ ' : ''}${formatSeconds(item.total)} ${HW_TIME_UNIT[lang]}`}</span>
+        <span className="shrink-0 tabular-nums">{item.total === null ? missingText(lang) : `${item.partial ? '≥ ' : ''}${formatSeconds(item.total, lang)} ${HW_TIME_UNIT[lang]}`}</span>
       </div>
       {/* Its own line, so a narrow panel never truncates the row id to make room for it. */}
       {item.partial && <p className="text-right text-text-warning-label">{partialText}</p>}

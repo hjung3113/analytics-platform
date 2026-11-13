@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { Inbox, Shield } from 'lucide-react';
-import type { UsageNextScreens as NextScreens, UsageVia } from '@ap/contracts';
+import { formatNumber, type UsageNextScreens as NextScreens, type UsageVia } from '@ap/contracts';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { QueryView, StateMessage } from '@ap/components';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
@@ -88,7 +88,7 @@ function NextScreenResult({ data, expanded, onExpand, listId }: { data: NextScre
   return <div className="flex min-w-0 flex-col gap-4">
     <section aria-label={ko ? '진입 후 이동 요약' : 'Entry movement summary'} className="flex flex-col gap-2">
       <h4 className="t-card-title">{ko ? '진입 후 이동 요약' : 'Entry movement summary'}</h4>
-      <p className="text-xs text-text-secondary">{ko ? `본 화면 진입 ${data.entries.toLocaleString(lang)}건` : `${data.entries.toLocaleString(lang)} entries into this screen`}</p>
+      <p className="text-xs text-text-secondary">{ko ? `본 화면 진입 ${formatNumber(data.entries, lang)}건` : `${formatNumber(data.entries, lang)} entries into this screen`}</p>
       <StackedBar values={summary} colors={summaryColors} />
       <ul className="grid grid-cols-2 gap-2 text-xs">
         {summary.map((count, i) => <li key={i} className="flex flex-col gap-1">

@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer } from 'lucide-react';
-import { periodHours, type GlobalContext, type Pair, type Trust } from '@ap/contracts';
+import { formatNumber, periodHours, type GlobalContext, type Pair, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform, useSavedViewSupport } from '@ap/kernel';
 import { PanelWorkspace, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type PageFilterAppliedChip, type Delta, type PlatformColumn, parsePageIndex, PageKeyWarning, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
@@ -255,8 +255,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
               {data => <div className="grid grid-cols-2 gap-3">
                 <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p50, data.prevP50)} caption={ko ? '적용 모집단' : 'Applied population'} />
                 <StatCard icon={Gauge} chip="amber" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} caption={ko ? '적용 모집단' : 'Applied population'} />
-                <StatCard icon={Hash} chip="teal" label={ko ? '실행 수' : 'Executions'} value={data.count.toLocaleString(ko ? 'ko-KR' : 'en-US')} caption={ko ? '완료된 합성 Job' : 'Completed synthetic jobs'} />
-                <StatCard icon={AlertTriangle} chip="purple" label={ko ? '느린 실행 (P95 기준)' : 'Slow executions (P95 threshold)'} value={data.slowCount.toLocaleString(ko ? 'ko-KR' : 'en-US')} caption={ko ? '표시된 P95 이상' : 'At or above the displayed P95'} />
+                <StatCard icon={Hash} chip="teal" label={ko ? '실행 수' : 'Executions'} value={formatNumber(data.count, lang)} caption={ko ? '완료된 합성 Job' : 'Completed synthetic jobs'} />
+                <StatCard icon={AlertTriangle} chip="purple" label={ko ? '느린 실행 (P95 기준)' : 'Slow executions (P95 threshold)'} value={formatNumber(data.slowCount, lang)} caption={ko ? '표시된 P95 이상' : 'At or above the displayed P95'} />
               </div>}
             </QueryView>
           </div>
@@ -313,7 +313,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 metricVersion={metricLabel(metric, ko)}
                 xType="category"
                 unit={ko ? '건' : 'jobs'}
-                valueFormat={value => Math.round(value).toLocaleString(ko ? 'ko-KR' : 'en-US')}
+                valueFormat={value => formatNumber(Math.round(value), lang)}
                 size="fill"
                 series={[{ id: 'hist', name: ko ? '실행 수' : 'Executions', color: 'chart-blue', kind: 'bar', points: data.bins.map((item): [string, number] => [item.id, item.count]) }]}
                 trust={chartTrust(response.trust, unknown)}
@@ -325,8 +325,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
           <PlatformDataTable<SlowRow>
             title={ko ? '느린 실행' : 'Slow executions'}
             subtitle={ko
-              ? `페이지 필터 적용 목록입니다. 느린 실행 기준 ${tailMode === 'all' ? '전체' : `≥ ${tailMode.toUpperCase()}`} · 모집단 ${kpi.response === null ? '…건' : kpi.response.outcome === 'ok' ? `${kpi.response.data!.count.toLocaleString('ko-KR')}건` : '확인할 수 없음'}.`
-              : `Page-filtered list. Slow-execution predicate ${tailMode === 'all' ? 'all' : `≥ ${tailMode.toUpperCase()}`} · population ${kpi.response === null ? '…' : kpi.response.outcome === 'ok' ? kpi.response.data!.count.toLocaleString('en-US') : 'unavailable'}.`}
+              ? `페이지 필터 적용 목록입니다. 느린 실행 기준 ${tailMode === 'all' ? '전체' : `≥ ${tailMode.toUpperCase()}`} · 모집단 ${kpi.response === null ? '…건' : kpi.response.outcome === 'ok' ? `${formatNumber(kpi.response.data!.count, 'ko')}건` : '확인할 수 없음'}.`
+              : `Page-filtered list. Slow-execution predicate ${tailMode === 'all' ? 'all' : `≥ ${tailMode.toUpperCase()}`} · population ${kpi.response === null ? '…' : kpi.response.outcome === 'ok' ? formatNumber(kpi.response.data!.count, 'en') : 'unavailable'}.`}
             ariaLabel={ko ? '느린 실행 목록' : 'Slow executions'}
             columns={columns}
             getRowId={executionKey}
@@ -420,12 +420,12 @@ function qualityBadge(quality: SlowRow['quality'], ko: boolean) {
     : <StatusBadge tone="neutral">{label}</StatusBadge>;
 }
 
-function formatMin(value: number | null, lang: string): string {
+function formatMin(value: number | null, lang: 'ko' | 'en'): string {
   if (value === null) return '—';
-  return value.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return formatNumber(value, lang, { decimals: 1 });
 }
 
-function formatDelta(value: number | null, lang: string): string {
+function formatDelta(value: number | null, lang: 'ko' | 'en'): string {
   if (value === null) return '—';
   const text = formatMin(Math.abs(value), lang);
   return value > 0 ? `+${text}` : value < 0 ? `-${text}` : text;
