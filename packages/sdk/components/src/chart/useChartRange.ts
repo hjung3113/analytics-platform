@@ -23,6 +23,8 @@ type RangeAction =
   /** A category brush. null = invalid bounds: the selection stays. */
   | { type: 'categorySelect'; range: Selection | null }
   | { type: 'clear' }
+  /** The data under a kept selection changed: the re-fitted selection and confirm (null = gone). */
+  | { type: 'refit'; selection: Selection | null; preview: Selection | null; notice: ClipNotice | null }
   | { type: 'preview'; range: Selection | null }
   | { type: 'draft'; range: Selection | null }
   | { type: 'zoom'; range: Zoom }
@@ -46,6 +48,8 @@ function reduce(state: RangeState, action: RangeAction): RangeState {
       return { ...state, selection: action.range ?? state.selection, clipNotice: null, rangeDraft: null, preview: null };
     case 'clear':
       return { ...state, selection: null, clipNotice: null, rangeDraft: null };
+    case 'refit':
+      return { ...state, selection: action.selection, preview: action.preview, clipNotice: action.selection ? state.clipNotice : action.notice, rangeDraft: null };
     case 'preview':
       return { ...state, preview: action.range };
     case 'draft':
@@ -83,6 +87,7 @@ export function useChartRange() {
     snapSelect: (result: ClipResult | null) => dispatch({ type: 'snapSelect', result }),
     categorySelect: (range: Selection | null) => dispatch({ type: 'categorySelect', range }),
     clear: () => dispatch({ type: 'clear' }),
+    refit: (selection: Selection | null, preview: Selection | null, notice: ClipNotice | null) => dispatch({ type: 'refit', selection, preview, notice }),
     setPreview: (range: Selection | null) => dispatch({ type: 'preview', range }),
     setDraft: (range: Selection | null) => dispatch({ type: 'draft', range }),
     setZoom: (range: Zoom) => dispatch({ type: 'zoom', range }),

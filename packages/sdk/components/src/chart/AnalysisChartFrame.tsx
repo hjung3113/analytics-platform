@@ -293,16 +293,16 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const hasPointActions = typeof pointActions === 'function' || !!pointActions?.length;
   const pointControls = !!p.pointActivation || hasPointActions;
   const isPointSelectable = p.isPointSelectable;
-  const categories = useMemo(() => (xType === 'category' ? (horizontal ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : p.series[0]?.points.map(([x]) => x) ?? []) : []), [xType, horizontal, p.series]);
+  const categories = useMemo(() => (xType === 'category' ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : []), [xType, p.series]);
   // With a row pitch the chart is as tall as its rows and `viewportHeight` is only the window the plot box scrolls in.
   const height = rowPitch !== undefined ? rowPitchChartHeight(categories.length, rowPitch) : viewportHeight;
-  // Horizontal consumers share the plotted axis and first-occurrence value policy.
+  // Every category chart (either orientation) shares the plotted axis and first-occurrence value policy, so the plot, table, CSV and summary read one projection (06 §16, #2020).
   // One lookup per category (a series' first point for a label wins, as `find` did): categories × points was quadratic on long bars (#822).
-  const displayed = useMemo(() => horizontal ? visible.map(s => {
+  const displayed = useMemo(() => xType === 'category' ? visible.map(s => {
     const byLabel = new Map<string, number | null>();
     for (const [label, value] of s.points) if (!byLabel.has(label)) byLabel.set(label, value);
     return { ...s, points: categories.map(x => [x, byLabel.get(x) ?? null] as [string, number | null]) };
-  }) : visible, [horizontal, visible, categories]);
+  }) : visible, [xType, visible, categories]);
   // One visible series has nothing to align to: StartAlign then does nothing (normal value axis, Brush stays); hiding series is a normal user action, so no diagnostic.
   const startAlign = horizontal && !!p.stacked && !!p.startAlign && displayed.length >= 2;
   // StartAlign turns Brush off: x is no longer one value scale, so a dragged range would not mean seconds.
@@ -384,6 +384,28 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
   const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
   const showKeyboard = xType === 'time' && global.to !== null && timeBounds.length >= 2;
+  // A category axis has no query end to wait for: the start/end selects are the non-pointer path to a range (06 §16, #2024). StartAlign turns Brush off, and the selects with it.
+  const showCategoryKeyboard = xType === 'category' && categories.length > 0 && !startAlign;
+  const rangeKeyboard = showKeyboard || showCategoryKeyboard;
+  // The data under a kept selection changed (#2064): a new granularity or a new category list re-fits the selection the same way a fresh pick is fitted,
+  // so the header and the counts never describe different ranges. Time: snap outward onto the new bars, then clip; nothing left clears it. Category: an end that is no longer drawn clears it.
+  const { selection: currentSelection, preview: currentPreview } = range;
+  const compareClipOn = compare && canCompare;
+  const periodFrom = global.from; const periodTo = global.to;
+  useEffect(() => {
+    if (!currentSelection && !currentPreview) return;
+    const fit = (r: Selection | null): ClipResult => {
+      if (!r) return { range: null, notice: null };
+      if (xType === 'category') return { range: categories.includes(r.from) && categories.includes(r.to) ? r : null, notice: null };
+      const snapped = snapOutward(toMs(r.from), toMs(r.to), timeBounds);
+      return snapped ? clipToPeriod(snapped, periodFrom, periodTo, compareClipOn) : { range: null, notice: 'outside' };
+    };
+    const next = fit(currentSelection); const nextPreview = fit(currentPreview);
+    const same = (a: Selection | null, b: Selection | null) => a === b || (!!a && !!b && a.from === b.from && a.to === b.to);
+    if (same(next.range, currentSelection) && same(nextPreview.range, currentPreview)) return;
+    rangeActions.refit(next.range, nextPreview.range, next.notice);
+    if (currentSelection && !next.range) closeEditor();
+  }, [xType, categories, timeBounds, periodFrom, periodTo, compareClipOn, currentSelection, currentPreview, rangeActions, closeEditor]);
   // Label geometry, cached by what it depends on: the spans and rows change with the notes only, the data extent with the series,
   // so zoom, resize, editor typing and busy state redo none of it. Nothing runs while there are no notes.
   const noteSpans = useMemo(() => annotations.map(a => (xType === 'time'
@@ -583,7 +605,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
   const oneHour = global.to ? presetWindow(1, timeBounds, global.to) : null;
   const fourHour = global.to ? presetWindow(4, timeBounds, global.to) : null;
-  const fallbackRange: Selection | null = timeBounds.length >= 2 ? { from: timeBounds[0], to: timeBounds[timeBounds.length - 1] } : null;
+  const fallbackRange: Selection | null = xType === 'category' ? (categories.length > 0 ? { from: categories[0], to: categories[categories.length - 1] } : null) : timeBounds.length >= 2 ? { from: timeBounds[0], to: timeBounds[timeBounds.length - 1] } : null;
   const draft = rangeDraft ?? selection ?? fallbackRange;
   // A fill card gives the plot the space: the start/end form and the empty-selection hint appear while brushing or once a range exists
   // (ADR-0067 decision 21); notes, errors and the confirm row keep their place. Other sizes always show them.
@@ -618,6 +640,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   function chooseStart(next: string) {
     const base = rangeDraft ?? selection ?? fallbackRange;
     if (!base) return;
+    if (xType === 'category') { rangeActions.setDraft({ from: next, to: categories.indexOf(base.to) >= categories.indexOf(next) ? base.to : next }); return; }
     const to = base.to > next ? base.to : timeBounds.find(bound => bound > next) ?? base.to;
     rangeActions.setDraft({ from: next, to });
   }
@@ -733,14 +756,14 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </div>}
 
     {showSummary && <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} aria-live="polite" className="mx-4 mb-3 min-h-9 shrink-0 rounded-md bg-surface-sunken px-3 py-2 text-xs">
-      {rangeUi && showKeyboard && draft && <div role="group" aria-label={lang === 'ko' ? '시작과 끝으로 구간 선택' : 'Choose a range by start and end'} className="mb-2 flex flex-wrap items-center gap-2">
+      {rangeUi && rangeKeyboard && draft && <div role="group" aria-label={lang === 'ko' ? '시작과 끝으로 구간 선택' : 'Choose a range by start and end'} className="mb-2 flex flex-wrap items-center gap-2">
         <span className="text-text-secondary">{lang === 'ko' ? '시작' : 'Start'}</span>
         <Select value={draft.from} onValueChange={chooseStart}>
           <SelectTrigger ref={rangeStart} aria-label={lang === 'ko' ? '구간 시작' : 'Range start'} className="h-8 w-44 border-border-control">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {withBound(timeBounds.slice(0, -1), draft.from).map(value => <SelectItem key={value} value={value}>{fmt(value)}</SelectItem>)}
+            {(xType === 'category' ? categories : withBound(timeBounds.slice(0, -1), draft.from)).map(value => <SelectItem key={value} value={value}>{xType === 'category' ? value : fmt(value)}</SelectItem>)}
           </SelectContent>
         </Select>
         <span className="text-text-secondary">{lang === 'ko' ? '끝' : 'End'}</span>
@@ -749,15 +772,15 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {withBound(timeBounds.filter(bound => bound > draft.from), draft.to).map(value => <SelectItem key={value} value={value}>{fmt(value)}</SelectItem>)}
+            {(xType === 'category' ? categories.slice(categories.indexOf(draft.from)) : withBound(timeBounds.filter(bound => bound > draft.from), draft.to)).map(value => <SelectItem key={value} value={value}>{xType === 'category' ? value : fmt(value)}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button size="toolbar" onClick={() => commitRange(draft)}>{lang === 'ko' ? '선택' : 'Select'}</Button>
+        <Button size="toolbar" onClick={() => (xType === 'category' ? rangeActions.categorySelect(draft) : commitRange(draft))}>{lang === 'ko' ? '선택' : 'Select'}</Button>
       </div>}
       {drawnActive !== null && <p className="mb-1 font-semibold">{lang === 'ko' ? '활성 행' : 'Active row'}: {drawnActive}</p>}
       {selectedPoint && equalIds?.has(selectedPoint.seriesId) && <p className="mb-1 tabular">{allSeries.find(s => s.id === selectedPoint.seriesId)?.name}: {allEqualText}</p>}
       {selectedPoint && extremes?.get(selectedPoint.seriesId) && (() => { const e = extremes.get(selectedPoint.seriesId)!; const name = allSeries.find(s => s.id === selectedPoint.seriesId)?.name; return <p className="mb-1 tabular">{name}: {lang === 'ko' ? '최소' : 'Min'} {e.min.x} {format(e.min.value)} · {lang === 'ko' ? '최대' : 'Max'} {e.max.x} {format(e.max.value)} {p.unit}</p>; })()}
-      {!selection ? rangeUi && <span className="text-text-secondary">{startAlign ? (lang === 'ko' ? '선택 구간 없음' : 'No selection') : showKeyboard
+      {!selection ? rangeUi && <span className="text-text-secondary">{startAlign ? (lang === 'ko' ? '선택 구간 없음' : 'No selection') : rangeKeyboard
         ? (lang === 'ko' ? '선택 구간 없음. 시작·끝이나 빠른 구간을 고르거나 차트를 끌면 요약·주석·적용이 열립니다.' : 'No selection. Choose a start and end or a quick range, or drag on the chart to open summary, annotation and apply actions.')
         : (lang === 'ko' ? '선택 구간 없음. 차트를 끌어 구간을 고르면 요약·주석·적용이 열립니다.' : 'No selection. Drag on the chart to select a range and open summary, annotation and apply actions.')}</span>
         : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
