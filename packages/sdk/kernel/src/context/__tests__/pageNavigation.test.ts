@@ -136,4 +136,36 @@ describe('blocked main-screen arrival (#1893)', () => {
     blocked = false;
     expect(navigation.consume('/locked')).toBeNull();
   });
+
+  it.each([
+    ['a StrictMode effect re-run', '/locked?v=1'],
+    ['a same-screen URL rewrite', '/locked?v=1&from=2026-09-25T09:00:00'],
+  ])('keeps a kept page arrival when its owner subscribes again after %s (#1893)', (_case, rewritten) => {
+    let blocked = true;
+    const navigation = createPageNavigation('/home?v=1', () => blocked);
+    const owner = Symbol('blocked screen');
+    const unsubscribe = navigation.subscribe(() => {}, owner);
+    navigation.advance('/locked?v=1', 'page');
+    navigation.cancel(true);
+    navigation.materialize(rewritten);
+    unsubscribe();
+    expect(navigation.consume('/locked')).toBeNull();
+    navigation.subscribe(() => {}, owner);
+    navigation.cancel(true);
+    blocked = false;
+    expect(navigation.consume('/locked')).toBe('page');
+  });
+
+  it('expires a kept page arrival when a different screen subscribes in its place (#1893)', () => {
+    let blocked = true;
+    const navigation = createPageNavigation('/home?v=1', () => blocked);
+    const unsubscribe = navigation.subscribe(() => {}, Symbol('blocked screen'));
+    navigation.advance('/locked?v=1', 'page');
+    navigation.cancel(true);
+    unsubscribe();
+    navigation.subscribe(() => {}, Symbol('ordinary screen'));
+    navigation.subscribe(() => {});
+    blocked = false;
+    expect(navigation.consume('/locked')).toBeNull();
+  });
 });

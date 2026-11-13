@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type Permission } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -40,16 +41,26 @@ const blocked = [
   ['menu denied', '/mars/equipment?v=1', '설비 마스터'],
 ] as const;
 
-function mount(url = '/mars/home?v=1', pane = false) {
+function mount(url = '/mars/home?v=1', pane = false, strict = false, menus = registry) {
   window.history.replaceState(null, '', url);
   const session = testSession(['platform:view']);
-  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session, publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }] })} registry={registry}>
+  const tree = <I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session, publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }] })} registry={menus}>
     <Probe /><AppSidebar collapsed={false} onToggle={() => {}} />
     <main id="platform-main" tabIndex={-1}><ScreenOutlet /></main>
     {pane && <div data-pane-id="denied" tabIndex={-1}>
       <PaneScreenProvider paneId="denied" screen={{ menuId: 'equipment', params: {}, query: '?v=1' }} onChange={() => {}} onLeave={() => {}}><ScreenOutlet /></PaneScreenProvider>
     </div>}
-  </PlatformProvider></I18nProvider>);
+  </PlatformProvider></I18nProvider>;
+  return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
+}
+
+/** Holds the navigation dialog's focus gate across `act`, then returns its release. */
+function navigateBehindDialog(href: string) {
+  act(() => { platform.setPaletteOpen(true); });
+  const session = overlay.paletteSession!;
+  const owner = Symbol('dialog');
+  act(() => { session.claim(owner); platform.setPaletteOpen(false); platform.navigate(href, { focus: 'page' }); });
+  return () => act(() => { session.release(owner); });
 }
 
 beforeEach(() => {
@@ -172,5 +183,32 @@ describe('Kernel blocked screens (#1893, 06 §26)', () => {
     act(() => { outside.focus(); dialog.release(owner); });
     expect(outside).toHaveFocus();
     outside.remove();
+  });
+
+  it('keeps the gated arrival through the StrictMode effect replay', () => {
+    mount('/mars/home?v=1', false, true);
+    const release = navigateBehindDialog('/mars/equipment?v=1');
+    const heading = within(screen.getByRole('main')).getByRole('heading', { level: 1, name: '설비 마스터' });
+    expect(heading).not.toHaveFocus();
+    release();
+    expect(heading).toHaveFocus();
+  });
+
+  it('keeps the gated arrival when the default period rewrites the denied address', () => {
+    const timed = createRegistry({
+      spaces: [testSpace({ homeMenuId: 'home', label: { ko: 'MARS', en: 'MARS' } })],
+      groups: [{ id: groupId('overview'), space: spaceId('mars'), label: { ko: '개요', en: 'Overview' }, icon: House }],
+      menus: [
+        { ...entry('home', 'overview', '/home', '홈'), primary: true },
+        { ...entry('trend', 'overview', '/trend', '추이 분석', 'console:access'), context: { ...noContext, time: 'apply' as const } },
+      ],
+    });
+    mount('/mars/home?v=1', false, false, timed);
+    const release = navigateBehindDialog('/mars/trend?v=1');
+    expect(new URLSearchParams(window.location.search).get('from')).not.toBeNull();
+    const heading = within(screen.getByRole('main')).getByRole('heading', { level: 1, name: '추이 분석' });
+    expect(heading).not.toHaveFocus();
+    release();
+    expect(heading).toHaveFocus();
   });
 });

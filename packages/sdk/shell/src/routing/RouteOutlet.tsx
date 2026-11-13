@@ -85,16 +85,18 @@ export function ScreenOutlet() {
 
 /** No menu chrome or Scope/query slots: these screens can have no route or no permission to mount menu content. */
 function KernelStatePage({ title, children }: { title: string; children: React.ReactNode }) {
-  const { pageNavigation, pathname, url, screenMode } = useHostPlatform();
+  const { pageNavigation, pathname, screenMode } = useHostPlatform();
   const heading = useRef<HTMLHeadingElement>(null);
+  // This screen instance owns a kept arrival across its own re-subscriptions (StrictMode replay, pathname-equal rewrites).
+  const owner = useRef(Symbol('kernel state page'));
   useLayoutEffect(() => {
     // The board owns a pane's heading and automatic arrival focus (ADR-0049).
     if (screenMode === 'pane') return;
     // The same Kernel handoff as PlatformPage and BoardSurface: explicit arrival only, including delayed dialog release.
     const focus = () => { if (pageNavigation.consume(pathname)) heading.current?.focus({ preventScroll: true }); };
     focus();
-    return pageNavigation.subscribe(focus);
-  }, [url, pathname, pageNavigation, screenMode]);
+    return pageNavigation.subscribe(focus, owner.current);
+  }, [pathname, pageNavigation, screenMode]);
   return <div data-platform-page className="flex min-h-full flex-col">
     {screenMode !== 'pane' && <header className="flex h-[50px] shrink-0 items-center border-b border-border-subtle bg-surface-canvas px-4">
       <h1 ref={heading} tabIndex={0} title={title} className="min-w-0 truncate text-sm font-semibold text-text-primary">{title}</h1>
