@@ -122,7 +122,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const menu = matchRoute(address.split('?')[0] || '/')?.menu.id;
     return menu === undefined ? null : { user: userId, deployment: app.pub.location.absoluteUrl('/'), menu };
   }, [matchRoute, userId, app.pub.location]);
-  const navigate = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia }) => {
+  const navigate = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia; guard?: boolean }) => {
     const trail = usageNav.current;
     const before = trail.via;
     if (mode === 'main') trail.via = options?.via ?? null;

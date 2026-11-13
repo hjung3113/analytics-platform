@@ -89,8 +89,9 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
     }
     if (after.readOnly) { setProblem(text.boardNotSaved); return; }
     control.close();
-    // The same transition as the rail's open and the chip's restore: a replace, so a board opened from here never adds a history entry.
-    navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(next.activeSheetId)}`, { replace: true, focus: 'page', via: 'board' });
+    // The same transition as the rail's open and the chip's restore: a replace, so a board opened from here never adds a history entry,
+    // held like them by unsaved edits (`guard`, #2061): staying keeps the screen, and the board already holds the saved addition.
+    navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(next.activeSheetId)}`, { replace: true, focus: 'page', via: 'board', guard: true });
   };
   const pick = (value: string) => { setDestination(value as Destination); setSheetId(''); setPaneIndex(null); setProblem(null); };
 

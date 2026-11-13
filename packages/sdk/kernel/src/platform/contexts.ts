@@ -57,7 +57,7 @@ export const OverlayContext = createContext<OverlayState | null>(null);
 export const RecentContext = createContext<readonly Recent[] | null>(null);
 
 /** `redirect`: replace an alias address by its canonical one (ADR-0093) — the same arrival, so a pending focus request and the address-bar hash survive. */
-export type CommitOptions = { focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[]; /** Internal: replay of a move the person confirmed leaving; skips the unsaved-edit guard (ADR-0115). */ bypassGuard?: boolean };
+export type CommitOptions = { focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[]; /** Internal: replay of a move the person confirmed leaving; skips the unsaved-edit guard (ADR-0115). */ bypassGuard?: boolean; /** Host only: this `replace` is held by the unsaved-edit guard like a push (board open, #2061). */ guard?: boolean };
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
 export type ScreenSource = {
   draftStore?: DraftStore;
@@ -72,7 +72,7 @@ export type ScreenSource = {
   /** Writes this screen's own address (history for main, `onChange` for a pane). Stable identity. False when nothing was written. */
   commit: (next: string, how: 'push' | 'replace', options?: CommitOptions) => boolean;
   /** Imperative navigation to any app-relative href. Stable identity. */
-  go: (href: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[] }) => boolean;
+  go: (href: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[]; guard?: boolean }) => boolean;
   /** A pane reads the sidebar space from the main screen; the main screen derives its own. */
   sidebarSpace?: SpaceDef | null;
   /** Main only: remember a Scope the server confirmed. */
