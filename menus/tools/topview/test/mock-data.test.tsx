@@ -86,8 +86,9 @@ describe('through the adapter', () => {
     expect(screen.queryByText(/데이터 오류/)).toBeNull();
   });
 
-  it.each(SCREENS)('%s: an unknown equipment is ready with the no-Binding state, not outcome empty', async (name, Screen) => {
-    const fake = hostFor(name, 'eq-other');
+  // The second listed equipment has no data: a page key naming an equipment that is not listed is rejected (#2055), so the no-Binding state is reached through a listed one.
+  it.each(SCREENS)('%s: an equipment without data is ready with the no-Binding state, not outcome empty', async (name, Screen) => {
+    const fake = hostFor(name, 'eq-synth-02');
     fake.render(Screen);
     await screen.findByText(NO_BINDING);
     expect(screen.queryByText(/데이터 오류/)).toBeNull();

@@ -28,7 +28,7 @@ export type HostProps = {
 };
 
 /** The host pads naive seconds (`hostWallClock`), then the pair is parsed as any other range; a null side is a format problem. */
-function hostRange(from: string, to: string): WallClockRange {
+export function hostRange(from: string, to: string): WallClockRange {
   const a = hostWallClock(from);
   const b = hostWallClock(to);
   return a === null || b === null ? { ok: false, problem: 'format' } : parseWallClockRange(a, b);
