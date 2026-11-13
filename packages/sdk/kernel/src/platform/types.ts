@@ -7,6 +7,7 @@ import { CONTEXT_LABELS, type MenuEntry, type Registry, type RouteMatch } from '
 import type { QueryHistory } from '../query/query-history';
 import type { QueryDraft, QueryMissing } from '../query/query-draft';
 import type { RefreshEpochs } from '../query/refresh-epochs';
+import type { ScopeSelectorRequest } from '../scope/scopeSelectorRequest';
 import type { ContextKey, PageType, ContractError, EquipmentAxisDescriptor, GlobalContext, ModuleScopedId, Pair, Permission, PermissionRequestTarget, PlatformAdapter, QueryHistoryStore, SavedViewStore, Session, SessionUser, SpaceDef, SpaceId, Text, MainUsageVia } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
@@ -255,6 +256,8 @@ export type HostPlatform = {
   setPaletteOpen: (open: boolean) => void;
   /** The business-system switcher takes part in the same arrival-focus gate as the palette (ADR-0032). Open state and sessions: `useOverlayState()`. */
   setSwitcherOpen: (open: boolean) => void;
+  /** Opens the shell's Scope selector from a page body (a Scope gate's `Scope 선택`, #1938); one stable channel per Provider. */
+  scopeSelector: ScopeSelectorRequest;
   /** `'main'` for the URL-bound screen, `'pane'` inside a `PaneScreenProvider` (ADR-0049). Read-only. */
   screenMode: 'main' | 'pane';
   /** The pane's id in a pane, null on the main screen. */

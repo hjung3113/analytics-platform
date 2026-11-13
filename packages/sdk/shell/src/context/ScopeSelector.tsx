@@ -10,9 +10,9 @@ import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLa
  * Single requested Scope; validation and retries belong to the Kernel. `layout="bar"` is the analysis board's Context bar: it edits the
  * selected pane's Scope and is the only Scope selector on that screen (06 §7), so it drops the sidebar's frame and status line.
  */
-export function ScopeSelector({ collapsed = false, layout = 'sidebar' }: { collapsed?: boolean; layout?: 'sidebar' | 'bar' }) {
+export function ScopeSelector({ collapsed = false, layout = 'sidebar', onExpand }: { collapsed?: boolean; layout?: 'sidebar' | 'bar'; /** Expands a collapsed sidebar before a page's `Scope 선택` request opens the list (#1938). */ onExpand?: () => void }) {
   const bar = layout === 'bar';
-  const { global, setGlobal, scope, retryScope, session, url, navigate } = useHostPlatform();
+  const { global, setGlobal, scope, retryScope, session, url, navigate, scopeSelector } = useHostPlatform();
   const { t, lang } = useI18n();
   const accessRequest = useScopeAccessRequest();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -21,6 +21,21 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar' }: { colla
   const chosenSite = useRef<string | null>(null);
   const [requestSite, setRequestSite] = useState<string | null>(null);
   const [closedDialogs, setClosedDialogs] = useState(0);
+  // A page's `Scope 선택` (host request, #1938) opens the list; only the sidebar selector answers, because a minimized board keeps its
+  // bar selector mounted but hidden. Closing without a pick returns focus to the element that asked (the gate button).
+  const [open, setOpen] = useState(false);
+  const requester = useRef<HTMLElement | null>(null);
+  const picked = useRef(false);
+  const latest = useRef({ collapsed, onExpand });
+  useEffect(() => { latest.current = { collapsed, onExpand }; });
+  useEffect(() => {
+    if (bar) return;
+    return scopeSelector.answer(() => {
+      requester.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      if (latest.current.collapsed) latest.current.onExpand?.();
+      setOpen(true);
+    });
+  }, [bar, scopeSelector]);
   useEffect(() => {
     if (closedDialogs === 0) return;
     // After the dialog's own close autofocus, which is scheduled the same way and runs first.
@@ -55,17 +70,24 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar' }: { colla
     </button>
   </DropdownMenuTrigger>;
   return <TooltipProvider><div className={bar ? 'shrink-0' : 'shrink-0 border-b border-border-subtle p-2'}>
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={next => { if (next) picked.current = false; setOpen(next); }}>
       {collapsed ? <Tooltip><TooltipTrigger asChild>{trigger}</TooltipTrigger><TooltipContent side="right">{name} · {status}{current && ` · room ${current.grantedRooms}/${current.totalRooms}`}</TooltipContent></Tooltip> : trigger}
       <DropdownMenuContent align="start" className="w-72" onCloseAutoFocus={event => {
+        const from = requester.current;
+        requester.current = null;
         const site = chosenSite.current;
-        if (site === null) return;
+        if (site === null) {
+          // A pick removes the gate button with the state change, so focus stays with the trigger (the default) then.
+          if (from?.isConnected && !picked.current) { event.preventDefault(); from.focus(); }
+          return;
+        }
         chosenSite.current = null;
         event.preventDefault();
         setRequestSite(site);
       }}>
         <DropdownMenuLabel>{lang === 'ko' ? '요청 Scope (단일 선택, 서버 재검증)' : 'Requested scope (single, server re-validated)'}</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={global.scopeId ?? ''} onValueChange={v => {
+          picked.current = true;
           // Re-picking the current Scope from a failed check retries the validation — setGlobal(same) is a
           // no-op and the check would never re-run (#183). Any other pick navigates as before.
           if (v === global.scopeId && scope.status === 'error') retryScope(); else setGlobal({ scopeId: v });

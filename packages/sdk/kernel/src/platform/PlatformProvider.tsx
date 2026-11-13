@@ -1,6 +1,7 @@
 import { stripDetailExpansion } from '../links/detail-expansion';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortCache } from '../scope/selection-port-cache';
+import { createScopeSelectorRequest } from '../scope/scopeSelectorRequest';
 import { createBrowserLocation, type PlatformLocation } from '../context/location';
 import { createPaletteFocus, useFocusGate } from '../context/paletteFocus';
 import { createPageNavigation } from '../context/pageNavigation';
@@ -80,6 +81,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   useLayoutEffect(() => { removeOtherGenerations(queryClient, gen); }, [queryClient, gen]);
   useEffect(() => startQueryEngine(queryClient), [queryClient]);
   const [initialUrl] = useState(() => location.read() ?? '');
+  const [scopeSelector] = useState(createScopeSelectorRequest);
   const [{ pageNavigation, paletteFocus, switcherFocus }] = useState(() => {
     const paletteFocus = createPaletteFocus({ cancel: () => pageNavigation.cancel(), notify: () => pageNavigation.notify() });
     // Reopening the switcher must not cancel an arrival that is still resolving: it keeps its title focus.
@@ -352,11 +354,11 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     pub: {
       registry, adapter, location, absoluteUrl, equipmentAxes, queryHistoryStore: queryHistory, savedViewStore: savedViews,
       session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
-      toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen,
+      toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, scopeSelector,
     },
     internal: { currentRevision: revisions.get, selectionPortCache, queryEngine, enters, usageSessionId, savedViewSupports, userIdRef, usageNav, mainNavigation: pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations },
   }), [registry, adapter, location, absoluteUrl, equipmentAxes, queryHistory, savedViews, session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
-    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, revisions, selectionPortCache, queryEngine, enters, usageSessionId, savedViewSupports, userIdRef, usageNav, pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations]);
+    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, scopeSelector, revisions, selectionPortCache, queryEngine, enters, usageSessionId, savedViewSupports, userIdRef, usageNav, pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations]);
   const overlay = useMemo((): OverlayState => ({ paletteOpen, paletteSession, switcherOpen, switcherSession }), [paletteOpen, paletteSession, switcherOpen, switcherSession]);
   return (
     <AppContext.Provider value={value}>

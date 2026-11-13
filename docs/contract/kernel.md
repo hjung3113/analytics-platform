@@ -234,6 +234,7 @@ carry set과 `contextResetKeys`는 이 키들을 그대로 가리킬 수 있다.
 - **room → StGroup → Equipment의 권한 상속 및 조회 필터 자동 포함의 세부 규칙은 Open domain decision이다.** room_name이 실무 권한 축이라는 결정과 구별한다. Site 선택만으로 모든 room_name에 대한 접근이 허용된다고 해석하지 않으며, 셸에 고정 다단 선택기를 요구하지 않는다.
 - **Site는 부여 축이고 DB 배치는 배포 라우팅이다(Decided, [ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md)이 ADR-0004를 대체).** 어느 서버·DB가 그 Site의 데이터를 갖는지는 코어 서버의 배포 설정이 정하며 N:M이다(한 Site가 여러 DB에, 한 DB가 여러 Site를). 화면·Kernel은 DB를 모른다. 설비 ID 사용 전에 활성 Scope의 Site가 확립돼 있어야 한다. URL에 없는 `scopeId`를 세션에서 몰래 채우거나 EquipmentID로 Site를 역산하지 않는다.
 - **Scope 확인 상태(현재 코드 어휘, 이름 Candidate):** `none`·`validating`·`valid`·`forbidden`·`unknown_scope`(서버가 모르는 id — 권한 거부가 아니다)·`error`(확인 요청 실패). `error`는 자동 재시도 없이 사용자가 '다시 시도'하며, 현재 세션에서 `valid`가 되기 전에는 Scope가 필요한 조회를 보내지 않는다.
+- **`none` 관문의 `Scope 선택`(#1938):** `requiresScope` 메뉴의 `none` 관문에는 셸의 Scope 선택기를 여는 `Scope 선택` 버튼이 늘 있으며(접힌 사이드바는 먼저 펴고 포커스를 목록 안으로, 고르지 않고 닫으면 버튼으로 돌아온다; 마지막 Scope가 있으면 `최근 Scope 적용`이 주 버튼이고 이것은 보조), 이 버튼은 Scope를 적용·대체·자동 선택하지 않고 host 요청 `HostPlatform.scopeSelector`로 선택기를 열기만 하므로 답할 선택기가 없는 화면에서는 그리지 않는다.
 
 <a id="ctx-time"></a>
 <a id="63-시간-계약-decided-tz-값다중-사업장-같은-날짜는-open-domain-decision"></a>

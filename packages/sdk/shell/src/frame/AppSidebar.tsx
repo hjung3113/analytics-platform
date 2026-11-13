@@ -46,7 +46,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
           </button>
         </TooltipTrigger><TooltipContent side="right">{collapsed ? t('expand') : t('collapse')} ([)</TooltipContent></Tooltip>
       </div>
-      <SidebarScope collapsed={collapsed} />
+      <SidebarScope collapsed={collapsed} onExpand={onToggle} />
       <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
         <CountsBoundary key={`counts:${slotSpaceId}`} spaceId={slotSpaceId} menu={slotMenu ?? null}>{counts => <nav id="platform-nav" aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
           {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
@@ -130,10 +130,10 @@ function currentNavView(views: readonly NavView[], page: readonly (readonly [str
 
 // A space may supply its own list-scope control (06 §8 `scopeControl`); every other space and space-less page keeps the analytics Scope selector.
 // `scopePresentation: 'hidden'` only removes that fallback: the space's own control still renders, otherwise nothing (#1251).
-function SidebarScope({ collapsed }: { collapsed: boolean }) {
+function SidebarScope({ collapsed, onExpand }: { collapsed: boolean; onExpand: () => void }) {
   const { slots, sidebarSpace, route, canOpen } = useHostPlatform();
   const denied = route !== null && !canOpen(route.menu.id);
-  const fallback = sidebarSpace?.scopePresentation === 'hidden' ? null : <ScopeSelector collapsed={collapsed} />;
+  const fallback = sidebarSpace?.scopePresentation === 'hidden' ? null : <ScopeSelector collapsed={collapsed} onExpand={onExpand} />;
   if (sidebarSpace === null || denied || !slots.scopeControl) return fallback;
   return <ShellBoundary key={`scope:${sidebarSpace.id}`} fallback={collapsed ? null : undefined}><ScopeControlSlot collapsed={collapsed} spaceId={sidebarSpace.id} menu={route?.menu ?? null} fallback={fallback} /></ShellBoundary>;
 }

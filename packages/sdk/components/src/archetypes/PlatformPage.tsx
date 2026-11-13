@@ -6,7 +6,7 @@ import { QueryBarStatusContext, useQueryBarStatus, type QueryBarStatus } from '.
 import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { Ban, ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
-import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useConditionPreset, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
@@ -144,7 +144,7 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', arrivalTarget, children }: PlatformPageProps) {
-  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft, pageParams, session } = useHostPlatform();
+  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft, pageParams, session, scopeSelector } = useHostPlatform();
   const accessRequest = useScopeAccessRequest();
   const detailFullscreen = useContext(DetailPanelFullscreenContext);
   const covered = detailFullscreen?.expanded === true;
@@ -257,13 +257,18 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   // #353: a gate action button disappears with the state change it triggers, so keyboard focus must
   // move before that — §19 banner dismissal rule: main landmark, page content element outside a shell.
 
+  // `Scope 선택` (#1938) only opens the shell's selector; it is drawn while a selector is mounted to answer it.
+  const selectorAvailable = useSyncExternalStore(scopeSelector.subscribe, scopeSelector.available, scopeSelector.available);
   let gate: ReactNode = null;
   if (menu.requiresScope && scope.status !== 'valid') {
     gate = scope.status === 'validating'
       ? <StateMessage icon={<Loader2 className="size-4 animate-spin" aria-hidden />} title={t('scopeValidating')} />
       : scope.status === 'none'
         ? <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('selectScope')} body={t('selectScopeBody')}
-            action={lastScope && <Button size="sm" onClick={() => { focusPageFallback(root.current); setGlobal({ scopeId: lastScope }); }}>{t('applySuggested')}: {lastScope}</Button>} />
+            action={(lastScope || selectorAvailable) && <>
+              {lastScope && <Button size="sm" onClick={() => { focusPageFallback(root.current); setGlobal({ scopeId: lastScope }); }}>{t('applySuggested')}: {lastScope}</Button>}
+              {selectorAvailable && <Button size="sm" variant={lastScope ? 'secondary' : 'default'} aria-haspopup="menu" onClick={() => scopeSelector.open()}>{t('scopeNone')}</Button>}
+            </>} />
         : scope.status === 'error'
           ? <StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={t('scopeErrorTitle')}
               body={t('scopeErrorBody')}

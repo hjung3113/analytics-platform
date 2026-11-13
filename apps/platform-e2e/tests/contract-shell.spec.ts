@@ -621,6 +621,37 @@ test.describe('워크스페이스 (06 §9.1)', () => {
   });
 });
 
+test.describe('Scope 관문 첫 진입 (06 §6.2, #1938)', () => {
+  test('Scope 없이 들어온 분석 메뉴는 본문 `Scope 선택`으로 접힌 사이드바를 펴고 목록을 열며, Esc는 버튼으로 돌아온다', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/mars/productivity-overview');
+    const main = page.getByRole('main');
+    await expect(main.getByText('Scope를 선택하세요')).toBeVisible();
+    await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+    const choose = main.getByRole('button', { name: 'Scope 선택', exact: true });
+    await expect(choose).toBeVisible();
+
+    await choose.focus();
+    await page.keyboard.press('Enter');
+    const list = page.getByRole('menu');
+    await expect(list).toBeVisible();
+    await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
+    await expect.poll(() => list.evaluate(node => node.contains(document.activeElement))).toBe(true);
+    // Opening applies nothing: the gate stays until the person picks.
+    expect(query(page).get('scopeId')).toBeNull();
+
+    await page.keyboard.press('Escape');
+    await expect(list).toBeHidden();
+    await expect(choose).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await list.getByRole('menuitemradio').first().click();
+    await expect(main.getByText('Scope를 선택하세요')).toHaveCount(0);
+    await expect.poll(() => query(page).get('scopeId')).not.toBeNull();
+  });
+});
+
 test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {
   test('viewer는 홈에서 공지와 VOC를 열고, 전역 화면에는 업무 사이드바 대신 플랫폼 사이드바가 있다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
