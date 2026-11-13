@@ -88,6 +88,32 @@ describe('accessRequest slot', () => {
       expect(calls.filter(call => call.path === MINE).length).toBe(2);
     });
 
+    it('a duplicate 409 keeps the dialog open with the status notice and a working link, and refetches the mine list (#1907)', async () => {
+      const calls = stubFetch((path, method) => {
+        if (path === MINE) return json({ requests: [] });
+        if (path === CREATE && method === 'POST') return json({ code: 'conflict.permission_request_duplicate', message: 'dup' }, 409);
+        return json({ sites: [] });
+      });
+      mount(SITE);
+      await waitFor(() => expect(screen.getByTestId('state').textContent).toContain('pending=false'));
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: '열기' }));
+      const dialog = await screen.findByTestId('permission-request-dialog');
+      within(dialog).getByRole('combobox', { name: '범위 종류' }).focus();
+      await user.keyboard('{Enter}');
+      await user.click(await screen.findByRole('option', { name: 'Site 전체 (이후 추가되는 공정 포함)' }));
+      await user.type(within(dialog).getByTestId('permission-request-reason'), '조회');
+      await user.click(within(dialog).getByRole('button', { name: '요청 제출' }));
+
+      const notice = await within(dialog).findByTestId('permission-request-conflict');
+      expect(notice.getAttribute('role')).toBe('status');
+      // The bridge host maps `/permission-requests` to the 권한 요청 menu, so the link exists (it is absent under the default no-link host).
+      const link = within(notice).getByRole('link', { name: '요청 상태 보기' });
+      expect(link.getAttribute('href')).toMatch(/^\/permission-requests/);
+      expect(screen.getByTestId('permission-request-dialog')).toBe(dialog);
+      await waitFor(() => expect(calls.filter(call => call.path === MINE).length).toBe(2));
+    });
+
     it('a retained dialog follows a changed target: cancel on one room, reopen on another (review C1)', async () => {
       const calls = stubFetch((path) => path === MINE ? json({ requests: [] }) : json({ sites: [{ site: 'site-alpha', label: 'Site alpha', rooms: [{ room: 'room-one', granted: false }, { room: 'room-two', granted: false }], siteGranted: false }] }));
       const { adapter } = switchableAdapter();

@@ -27,4 +27,6 @@ export const PERMISSION_REQUESTS_PAGE_COPY = {
   moreInfoHint: '철회한 뒤 답을 사유에 적어 다시 요청할 수 있습니다.',
   staleWrite: '요청이 바뀌었습니다. 목록을 새로 고쳤습니다.',
   confirmWithdraw: '철회',
+  duplicateInReview: '이미 같은 대상의 요청이 검토 중입니다.',
+  duplicateStatusLink: '요청 상태 보기',
 } as const;
