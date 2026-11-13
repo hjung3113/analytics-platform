@@ -1,4 +1,5 @@
 import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
+import { hasDotSegment } from '../context/location';
 import type { ComponentType, LazyExoticComponent, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type CarrySetDef, type CarrySetId, type ContextKey, type GroupId, type HostFeature, type HierarchySource, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
@@ -476,6 +477,8 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     const q = value.indexOf('?');
     const path = q === -1 ? value : value.slice(0, q);
     const search = q === -1 ? '' : value.slice(q);
+    // A `..` (including `%2e%2e`) matches a param route, then the browser folds the path to another address.
+    if (hasDotSegment(path)) return null;
     const route = matchRoute(path);
     if (!route || route.menu.navHidden) return null;
     try { parseQuery(search, route.menu.pageKeys, { repeated: route.menu.repeatedPageKeys }); } catch { return null; }

@@ -240,7 +240,7 @@ export function projectMenuContext<P, T>(spec: EndpointSpec<P, T>, { global, pag
 
 /**
  * The request gates shared by useMenuQuery, useMenuFetch and the module host port: Scope validated for this session,
- * absolute period when time applies, Context projection and the assessment check. Not a hook.
+ * absolute period when time applies, no drill gap in the page (06 §6.4), Context projection and the assessment check. Not a hook.
  */
 export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestInputs) {
   const { adapter, global, scope, session, queryPolicy } = inputs;
@@ -250,7 +250,7 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
   const send = async (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> =>
     checkMenuResponse(spec, projected, await adapter.menuQuery({ endpoint: spec.id, context: projected, params }, signal));
   const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
-  return { projected, ready: scopeReady && periodReady && queryPolicy.ready && !queryPolicy.idle, send, notReady };
+  return { projected, ready: scopeReady && periodReady && queryPolicy.ready && !queryPolicy.idle && !queryPolicy.drillGap, send, notReady };
 }
 
 /** `useMenuQuery` result: `QueryState` with `resultParams` typed as the endpoint's `P` (the params the shown result was loaded with). */

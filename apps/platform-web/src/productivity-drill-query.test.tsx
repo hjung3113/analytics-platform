@@ -8,7 +8,7 @@ import { testAdapter, testSession } from '@ap/kernel/testing';
 import { registry } from './menus';
 
 // Same scope, period and room filter. Only the drill step differs, so a zero count is the format-error
-// guard (canQuery requires drill.invalid === null, 06 §6.4) and not an unvalidated Scope.
+// guard (the Kernel query gate closes on a drill gap, 06 §6.4) and not an unvalidated Scope.
 const BASE = '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&roomNames=PHOTO';
 
 // Per-test timeout must exceed the waitFor readiness cap (10s), or vitest (default 5s) ends the test before waitFor leaves its diagnosis.

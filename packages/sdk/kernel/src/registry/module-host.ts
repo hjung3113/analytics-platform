@@ -179,7 +179,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
           const adapterCall = new AbortController();
           const call: Pending = {
             valid: () => instance.state === 'active' && !callerSignal?.aborted && latest.current.revision === startedFor.revision
-              && latest.current.user.id === startedFor.user && latest.current.queryPolicy.ready && !latest.current.queryPolicy.idle && JSON.stringify(projectMenuContext(spec, latest.current)) === appliedKey,
+              && latest.current.user.id === startedFor.user && latest.current.queryPolicy.ready && !latest.current.queryPolicy.idle && !latest.current.queryPolicy.drillGap && JSON.stringify(projectMenuContext(spec, latest.current)) === appliedKey,
             fail: () => { settle(); adapterCall.abort(); reject(abortError()); },
           };
           const settle = () => { instance.pending.delete(call); callerSignal?.removeEventListener('abort', call.fail); };

@@ -9,7 +9,7 @@ import { readReturnHidden, rememberReturnHidden, type ReturnHiddenOwner } from '
 import { DETAIL_EXPAND_KEY, stripDetailExpansion, withDetailExpansion } from '../links/detail-expansion';
 import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
-import { dropDrillResetKeys } from '../context/drillReset';
+import { drillGap, dropDrillResetKeys } from '../context/drillReset';
 import { appliedQueryPolicy, useScreenDraft } from '../query/draft-state';
 import { buildQuery, carriesReturnTo, clientCorrelationId, CONTEXT_FIELDS, ContractError, emptyGlobal, SITE_BOUND_CONTEXT_KEYS, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type MainUsageVia, type UsageEvent } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
@@ -25,7 +25,7 @@ function paneTrailFor(ref: { current: { paneId: string | null; trail: PaneUsageT
   return ref.current.trail;
 }
 function sameQueryPolicy(a: HostPlatform['queryPolicy'], b: HostPlatform['queryPolicy']): boolean {
-  return a.ready === b.ready && a.idle === b.idle && JSON.stringify(a.missing) === JSON.stringify(b.missing);
+  return a.ready === b.ready && a.idle === b.idle && a.drillGap === b.drillGap && JSON.stringify(a.missing) === JSON.stringify(b.missing);
 }
 function sameScopeState(a: ScopeState, b: ScopeState): boolean {
   return a.scopeId === b.scopeId && a.status === b.status && a.validatedFor === b.validatedFor && sameItems(a.grantedRooms, b.grantedRooms);
@@ -435,6 +435,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const reportShellError = sendClientError;
 
   const queryPolicy = useStable({ ...appliedQueryPolicy(route?.menu ?? null, global, page, routeContractError !== null || metricInit.phase !== 'skip'),
+    // The Kernel refuses a drill URL with a gap once (06 §6.4 «조회하지 않는다»), so no menu repeats the gate.
+    drillGap: drillGap(route?.menu.drill?.levels ?? [], page) !== null,
     ready: route?.menu.query?.mode !== 'apply' || !route.menu.requiresScope || (scopeView.status === 'valid' && scopeView.scopeId === global.scopeId && scopeView.validatedFor === session) }, sameQueryPolicy);
   const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url: hidden && hidden.length > 0 && parsed ? pathname + buildQuery(global, page, extras) : appliedUrl,
     global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null,

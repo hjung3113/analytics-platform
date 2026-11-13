@@ -38,7 +38,7 @@ export default function StepsPage(_props: PageProps) {
   // Keyed by Module and Motion on purpose: at L3 the series are that Motion's detail, so another Motion is another series set.
   const state = useHwTimeLevelState({ hiddenKey: `${module ?? ''}/${motion ?? ''}` });
   const { invalid, sort, sortText, trendRows, hidden, setHidden, notice } = state;
-  const levelQ = useHwTimeLevel(params, drill.invalid === null && invalid === null);
+  const levelQ = useHwTimeLevel(params, invalid === null);
   const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0 && invalid === null);
   // While the previous level is kept (#1365), titles and drill actions follow the Module/Motion the rows were loaded with; drilling from old rows is off.
   const kept = shownDrill(levelQ, params);

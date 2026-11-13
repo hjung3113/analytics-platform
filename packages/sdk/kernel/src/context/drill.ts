@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type { Text } from '@ap/contracts';
 import { usePlatform } from '../platform/platform';
-import { drillLevelChanged } from './drillReset';
+import { drillGap, drillLevelChanged } from './drillReset';
 
 /** One declared step plus the current page value. Empty string is absent (`null`). */
 export type DrillLevelState = { key: string; label: Text; value: string | null };
@@ -51,15 +51,12 @@ export function useDrill(): DrillState {
     level.value === null ? [] : [{ key: level.key, label: level.label, value: level.value }]
   )), [levels, depth]);
 
-  const invalid = useMemo<DrillInvalid | null>(() => {
-    for (let i = depth; i < levels.length; i += 1) {
-      const value = levels[i]?.value;
-      if (value !== null && value !== undefined) return { key: levels[i].key, label: levels[i].label, value };
-    }
-    return null;
-  }, [levels, depth]);
-
   const current = useMemo(() => levels.map((level): [string, string | null] => [level.key, level.value]), [levels]);
+
+  const invalid = useMemo<DrillInvalid | null>(() => {
+    const gap = drillGap(levels, current);
+    return gap === null ? null : { key: gap.level.key, label: gap.level.label, value: gap.value };
+  }, [levels, current]);
 
   const enter = useCallback((key: string, value: string) => {
     const list = declared ?? [];

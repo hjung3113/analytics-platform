@@ -62,7 +62,8 @@ export default function ProductivityOverview(_: PageProps) {
   const stgroup = drill.levels.find(level => level.key === 'drillStgroup')?.value ?? null;
   const equipment = drill.levels.find(level => level.key === 'drillEquipment')?.value ?? null;
   const pageInvalid = keys.invalid;
-  const canQuery = !pageInvalid && drill.invalid === null;
+  // A drill URL with a gap is closed by the Kernel query gate (06 §6.4), so only the page keys gate here.
+  const canQuery = !pageInvalid;
   const summary = canQuery && drill.depth === 0;
   const selectedKpi = kpiResult.ok ? kpiResult.value : 'throughput';
   const axis = axisResult.ok ? axisResult.value : 'room';

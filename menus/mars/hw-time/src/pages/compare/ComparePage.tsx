@@ -62,7 +62,7 @@ export default function ComparePage(_props: PageProps) {
   const { invalid, sort, sortText, row, trendRows, notice } = state;
   const [summaryHidden, setSummaryHidden] = useKeyedHidden('summary');
   const [moduleHidden, setModuleHidden] = useKeyedHidden(module ?? '');
-  const enabled = drill.invalid === null && invalid === null;
+  const enabled = invalid === null;
   // One query per panel, each projecting only its own drill keys (#912 §5). A panel whose input is missing sends nothing; its placeholder
   // identity (`''`) differs from the summary's, so a disabled query never reads another panel's cached answer.
   const summaryQ = useHwTimeLevel({}, enabled);
