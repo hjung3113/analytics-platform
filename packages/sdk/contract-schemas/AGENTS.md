@@ -4,7 +4,7 @@ Zod wire-contract schemas and JSON Schema 2020-12 artifacts. [ADR-0096](https://
 
 ## Editing schemas
 
-- Production `src/**` imports only `zod` (exact version in package.json, using `zod/v4`). The `contractSchemas` lint preset rejects other `@ap/*` packages and React; the manifest and review enforce the broader external-dependency restriction. Test files alone may import `@ap/contracts` and its `vocab.json`.
+- Production `src/**` imports only `zod` (exact version in package.json, using `zod/v4`). The `contractSchemas` lint preset rejects other `@ap/*` packages and React; the manifest and review enforce the broader external-dependency restriction. Test files alone may import `@ap/contracts`, its `@ap/contracts/build` entry and its `vocab.json`.
 - Keep vocabulary lists in `src/vocab.ts`; `vocab.test.ts` and type-equivalence tests bind them to the contracts vocabulary. Open app-owned permissions remain strings (ADR-0072).
 - Schemas are the intended source, but until the first Node runtime tarball consumer the existing hand-written `@ap/contracts` types stay and `equivalence.test.ts` must prove equality under `tsc`. Its test-only `Wire<T>` removes readonly modifiers; endpoint declarations also normalize Permission brands, turn paramKeys into key lists, and drop phantom `_types`. A remaining mismatch is a blocker: report it instead of weakening either representation.
 - Keep `.readonly()` out of schemas: it adds JSON Schema `readOnly` metadata. Retain field-comment semantics, including present sourceLogicVersions being non-empty, distinct, non-empty strings.

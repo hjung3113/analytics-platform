@@ -1,0 +1,18 @@
+MENU_DECLARATION_SNAPSHOT_FILE | const | const MENU_DECLARATION_SNAPSHOT_FILE: "menu-declarations.snapshot.json"
+MENU_DECLARATION_SNAPSHOT_VERSION | const | const MENU_DECLARATION_SNAPSHOT_VERSION: 1
+MenuDeclarationSnapshot | type | type MenuDeclarationSnapshot = { actions: @ap/contracts/build#SnapshotAction[]; digest: string; endpoints: @ap/contracts/build#SnapshotEndpoint[]; menus: @ap/contracts/build#SnapshotMenu[]; permissions: string[]; schemaVersion: typeof @ap/contracts/build#MENU_DECLARATION_SNAPSHOT_VERSION; sdkVersion: string; }
+MenuDeclarationSnapshotError | class | class MenuDeclarationSnapshotError extends Error { readonly problems: readonly string[]; constructor(problems: readonly string[]); }
+MenuDeclarationSnapshotInput | type | type MenuDeclarationSnapshotInput = { actions?: readonly @ap/contracts#AnyActionSpec[]; endpoints: readonly @ap/contracts#AnyEndpointSpec[]; menus: readonly @ap/contracts/build#SnapshotMenuInput[]; permissions?: readonly string[]; sdkVersion: string; }
+MenuDeclarationSnapshotPluginOptions | type | type MenuDeclarationSnapshotPluginOptions = { declarationModules: readonly string[]; load: (path: string) => Promise<Readonly<Record<string, unknown>>>; registry: string; registryExport?: string; sdkVersion: string; }
+SnapshotAction | type | type SnapshotAction = { concurrency: 'none' | 'version'; id: string; inputKeys: string[]; invalidates: string[]; menuId: string; permission: string; requiresScope: boolean; }
+SnapshotContext | type | type SnapshotContext = Partial<Record<@ap/contracts#ContextKey, Exclude<@ap/contracts#Capability, 'unsupported'>>>
+SnapshotEmitContext | type | type SnapshotEmitContext = { emitFile(file: { fileName: string; source: string; type: 'asset'; }): string; }
+SnapshotEndpoint | type | type SnapshotEndpoint = { context: @ap/contracts/build#SnapshotContext; id: string; kinds: @ap/contracts#AssessmentKind[]; limits?: { maxHours?: number; maxRows?: number; }; menuId: string; mergeTimeDomain: boolean; paramKeys: string[]; permission: string; requiredContext?: @ap/contracts#ContextKey[]; requiresScope: boolean; }
+SnapshotMenu | type | type SnapshotMenu = { context: @ap/contracts/build#SnapshotContext; id: string; permission: string; requiresScope: boolean; }
+SnapshotMenuInput | type | type SnapshotMenuInput = { readonly context: Readonly<Partial<Record<@ap/contracts#ContextKey, @ap/contracts#Capability>>>; readonly id: string; readonly permission: string; readonly requiresScope: boolean; }
+canonicalJson | function | function canonicalJson(value: unknown): string
+collectDeclarations | function | function collectDeclarations(modules: readonly Readonly<Record<string, unknown>>[]): { actions: @ap/contracts#AnyActionSpec[]; endpoints: @ap/contracts#AnyEndpointSpec[]; }
+menuDeclarationSnapshot | function | function menuDeclarationSnapshot(input: @ap/contracts/build#MenuDeclarationSnapshotInput): @ap/contracts/build#MenuDeclarationSnapshot
+menuDeclarationSnapshotDigest | function | function menuDeclarationSnapshotDigest(body: Omit<@ap/contracts/build#MenuDeclarationSnapshot, 'digest'>): string
+menuDeclarationSnapshotPlugin | function | function menuDeclarationSnapshotPlugin(options: @ap/contracts/build#MenuDeclarationSnapshotPluginOptions): { apply: "build"; generateBundle(this: @ap/contracts/build#SnapshotEmitContext): Promise<void>; name: string; }
+# reachable types

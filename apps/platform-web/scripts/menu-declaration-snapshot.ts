@@ -5,7 +5,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { menuDeclarationSnapshotPlugin } from '@ap/contracts';
+import { menuDeclarationSnapshotPlugin } from '@ap/contracts/build';
 import { runnerImport } from 'vite';
 
 const APP_ROOT = fileURLToPath(new URL('..', import.meta.url));

@@ -20,7 +20,10 @@ const sourceManifestPath = join(packageRoot, 'package.json');
 const VOCAB_ENTRY = './vocab.json';
 const VOCAB_SOURCE = './src/vocab.json';
 const VOCAB_DIST = './dist/vocab.json';
-const ENTRY_POINTS = ['.', VOCAB_ENTRY].join(',');
+/** The build-tool entry point (ADR-0156): `@ap/contracts/build`. */
+const BUILD_ENTRY = './build';
+const BUILD_SOURCE = './src/build.ts';
+const ENTRY_POINTS = ['.', BUILD_ENTRY, VOCAB_ENTRY].join(',');
 let temporaryRoot;
 
 function oneLine(value) {
@@ -49,21 +52,21 @@ function readJson(path) {
   }
 }
 
-function validateExports(entry, label) {
+function validateExports(entry, label, key = '.') {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-    fail(`${label} exports["."] must define types and import conditions`);
+    fail(`${label} exports["${key}"] must define types and import conditions`);
   }
   const conditions = Object.keys(entry).sort();
   if (conditions.join(',') !== 'import,types') {
-    fail(`${label} exports["."] must contain only types and import conditions`);
+    fail(`${label} exports["${key}"] must contain only types and import conditions`);
   }
   for (const [condition, target] of Object.entries(entry)) {
     if (typeof target !== 'string' || !target.startsWith('./dist/') || target.split('/').includes('..')) {
-      fail(`${label} exports["."].${condition} must point inside dist`);
+      fail(`${label} exports["${key}"].${condition} must point inside dist`);
     }
   }
   if (!entry.types.endsWith('.d.ts') || !entry.import.endsWith('.js')) {
-    fail(`${label} exports["."] must target .d.ts types and an ESM .js file`);
+    fail(`${label} exports["${key}"] must target .d.ts types and an ESM .js file`);
   }
 }
 
@@ -72,17 +75,18 @@ function validateSourceManifest() {
   if (manifest.exports?.['.'] !== './src/index.ts') {
     fail('workspace exports["."] must keep pointing to ./src/index.ts');
   }
-  if (Object.keys(manifest.exports ?? {}).join(',') !== ENTRY_POINTS || manifest.exports[VOCAB_ENTRY] !== VOCAB_SOURCE) {
-    fail(`the package must expose only the . and ${VOCAB_ENTRY} entry points`);
+  if (Object.keys(manifest.exports ?? {}).join(',') !== ENTRY_POINTS || manifest.exports[VOCAB_ENTRY] !== VOCAB_SOURCE || manifest.exports[BUILD_ENTRY] !== BUILD_SOURCE) {
+    fail(`the package must expose only the ., ${BUILD_ENTRY} and ${VOCAB_ENTRY} entry points`);
   }
   if (!Array.isArray(manifest.files) || !manifest.files.includes('dist')) {
     fail('package.json files must include dist');
   }
   const publishExports = manifest.publishConfig?.exports;
   if (!publishExports || Object.keys(publishExports).join(',') !== ENTRY_POINTS || publishExports[VOCAB_ENTRY] !== VOCAB_DIST) {
-    fail(`publishConfig.exports must expose only the . and ${VOCAB_ENTRY} entry points`);
+    fail(`publishConfig.exports must expose only the ., ${BUILD_ENTRY} and ${VOCAB_ENTRY} entry points`);
   }
   validateExports(publishExports['.'], 'publishConfig');
+  validateExports(publishExports[BUILD_ENTRY], 'publishConfig', BUILD_ENTRY);
 }
 
 function archiveRelativePath(path) {
@@ -194,12 +198,13 @@ function main() {
   if (!existsSync(packedManifestPath)) fail('packed archive has no package.json');
   const packedManifest = readJson(packedManifestPath);
   if (Object.keys(packedManifest.exports ?? {}).join(',') !== ENTRY_POINTS || packedManifest.exports[VOCAB_ENTRY] !== VOCAB_DIST) {
-    fail(`packed package must expose only the . and ${VOCAB_ENTRY} entry points`);
+    fail(`packed package must expose only the ., ${BUILD_ENTRY} and ${VOCAB_ENTRY} entry points`);
   }
   if (!archiveFiles.has(VOCAB_DIST.slice('./'.length))) fail(`packed archive is missing ${VOCAB_DIST}`);
   const packedExports = packedManifest.exports['.'];
   validateExports(packedExports, 'packed package');
-  for (const target of Object.values(packedExports)) {
+  validateExports(packedManifest.exports[BUILD_ENTRY], 'packed package', BUILD_ENTRY);
+  for (const target of [...Object.values(packedExports), ...Object.values(packedManifest.exports[BUILD_ENTRY])]) {
     const archivePath = target.slice('./'.length);
     if (!archiveFiles.has(archivePath)) fail(`packed exports target is missing from tarball: ${target}`);
   }

@@ -93,16 +93,10 @@ InstantOp | type | type InstantOp = (typeof @ap/contracts#INSTANT_OPS)[number]
 JsonValue | type | type JsonValue = @ap/contracts#JsonValue[] | boolean | null | number | string | { [key: string]: @ap/contracts#JsonValue; }
 KERNEL_PERMISSIONS | const | const KERNEL_PERMISSIONS: readonly [ "platform:view", "notice:view", "voc:view", "console:access", "features:access" ]
 KernelPermission | type | type KernelPermission = (typeof @ap/contracts#KERNEL_PERMISSIONS)[number]
-MENU_DECLARATION_SNAPSHOT_FILE | const | const MENU_DECLARATION_SNAPSHOT_FILE: "menu-declarations.snapshot.json"
-MENU_DECLARATION_SNAPSHOT_VERSION | const | const MENU_DECLARATION_SNAPSHOT_VERSION: 1
 MainUsageVia | type | type MainUsageVia = Exclude<@ap/contracts#UsageVia, (typeof @ap/contracts#PANE_USAGE_VIAS)[number]>
 MeasureMeta | type | type MeasureMeta = { metricVersion?: string; reaggregation: @ap/contracts#Reaggregation; unit: string; }
 MembershipPeriod | type | type MembershipPeriod = { from: string; to: string; }
 MenuAction | type | type MenuAction<I = unknown> = { action: string; context: { scopeId?: null | string; }; expectedVersion?: string; idempotencyKey: string; input: I; }
-MenuDeclarationSnapshot | type | type MenuDeclarationSnapshot = { actions: @ap/contracts#SnapshotAction[]; digest: string; endpoints: @ap/contracts#SnapshotEndpoint[]; menus: @ap/contracts#SnapshotMenu[]; permissions: string[]; schemaVersion: typeof @ap/contracts#MENU_DECLARATION_SNAPSHOT_VERSION; sdkVersion: string; }
-MenuDeclarationSnapshotError | class | class MenuDeclarationSnapshotError extends Error { readonly problems: readonly string[]; constructor(problems: readonly string[]); }
-MenuDeclarationSnapshotInput | type | type MenuDeclarationSnapshotInput = { actions?: readonly @ap/contracts#AnyActionSpec[]; endpoints: readonly @ap/contracts#AnyEndpointSpec[]; menus: readonly @ap/contracts#SnapshotMenuInput[]; permissions?: readonly string[]; sdkVersion: string; }
-MenuDeclarationSnapshotPluginOptions | type | type MenuDeclarationSnapshotPluginOptions = { declarationModules: readonly string[]; load: (path: string) => Promise<Readonly<Record<string, unknown>>>; registry: string; registryExport?: string; sdkVersion: string; }
 MenuMeta | type | type MenuMeta = { additionalPermissions?: readonly @ap/contracts#Permission[]; aliases?: readonly string[]; carrySet?: @ap/contracts#CarrySetId; conditionPreset?: { default: string; key: string; }; conditionPresets?: readonly @ap/contracts#ConditionPreset[]; context: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; contextResetKeys?: readonly string[]; defaultPeriodHours?: number; description: @ap/contracts#Text; drill?: { levels: readonly @ap/contracts#DrillLevel[]; resetKeys?: readonly string[]; }; features: { annotate: boolean; board?: boolean; compare: boolean; export: boolean; savedView: boolean; }; group: @ap/contracts#GroupId; hiddenPageKeys?: readonly string[]; id: string; initializesMetric?: boolean; label: @ap/contracts#Text; navHidden?: boolean; navViews?: readonly @ap/contracts#NavView[]; pageKeys: readonly string[]; pageType: @ap/contracts#PageType; parent?: string; path: string; permission: @ap/contracts#Permission; primary?: boolean; query?: { mode: 'apply'; required?: { context?: readonly @ap/contracts#ContextKey[]; page?: readonly { key: string; label: @ap/contracts#Text; }[]; }; }; repeatedPageKeys?: readonly string[]; requiresScope: boolean; subjectPageKeys?: Readonly<Record<string, string>>; }
 MenuPermission | type | type MenuPermission = Brand<'MenuPermission'>
 MenuQuery | type | type MenuQuery<P = unknown> = { context: @ap/contracts#MenuQueryContext; endpoint: string; params: P; }
@@ -180,12 +174,6 @@ SelectionResolveResult | type | type SelectionResolveResult = { items: @ap/contr
 Session | type | type Session = { requestableScopes?: readonly { id: string; label: string; totalRooms: number; }[]; scopes: readonly @ap/contracts#ScopeOption[]; user: @ap/contracts#SessionUser; }
 SessionUser | type | type SessionUser = { id: string; name: string; permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[]; title: @ap/contracts#Text; }
 SiteGrant | type | type SiteGrant = { grantedRooms: readonly string[]; id: string; label: string; totalRooms: number; }
-SnapshotAction | type | type SnapshotAction = { concurrency: 'none' | 'version'; id: string; inputKeys: string[]; invalidates: string[]; menuId: string; permission: string; requiresScope: boolean; }
-SnapshotContext | type | type SnapshotContext = Partial<Record<@ap/contracts#ContextKey, Exclude<@ap/contracts#Capability, 'unsupported'>>>
-SnapshotEmitContext | type | type SnapshotEmitContext = { emitFile(file: { fileName: string; source: string; type: 'asset'; }): string; }
-SnapshotEndpoint | type | type SnapshotEndpoint = { context: @ap/contracts#SnapshotContext; id: string; kinds: @ap/contracts#AssessmentKind[]; limits?: { maxHours?: number; maxRows?: number; }; menuId: string; mergeTimeDomain: boolean; paramKeys: string[]; permission: string; requiredContext?: @ap/contracts#ContextKey[]; requiresScope: boolean; }
-SnapshotMenu | type | type SnapshotMenu = { context: @ap/contracts#SnapshotContext; id: string; permission: string; requiresScope: boolean; }
-SnapshotMenuInput | type | type SnapshotMenuInput = { readonly context: Readonly<Partial<Record<@ap/contracts#ContextKey, @ap/contracts#Capability>>>; readonly id: string; readonly permission: string; readonly requiresScope: boolean; }
 SpaceDef | type | type SpaceDef = { description: @ap/contracts#Text; feedbackTracking?: true; homeMenuId: string; id: @ap/contracts#SpaceId; label: @ap/contracts#Text; permission?: @ap/contracts#Permission; scopePresentation?: 'default' | 'hidden'; subtitle?: @ap/contracts#Text; }
 SpaceId | type | type SpaceId = Brand<'SpaceId'>
 TEXT_OPS | const | const TEXT_OPS: readonly [ "contains", "notContains", "startsWith", "endsWith", "equals", "notEquals", "isEmpty", "isNotEmpty" ]
@@ -221,11 +209,9 @@ buildPlatformInboundLink | function | function buildPlatformInboundLink(input: {
 buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page?: @ap/contracts#Pair[], extras?: @ap/contracts#Pair[]): string
 canClientSum | function | function canClientSum(measure: Pick<@ap/contracts#MeasureMeta, 'reaggregation'>): boolean
 canTransition | function | function canTransition(approval: @ap/contracts#ViewApproval, action: @ap/contracts#ApprovalAction): boolean
-canonicalJson | function | function canonicalJson(value: unknown): string
 carriesReturnTo | function | function carriesReturnTo(carrySet: Pick<@ap/contracts#CarrySetDef, 'pageKeys'> | null | undefined): boolean
 carrySetId | const | const carrySetId: <const S extends string>(id: S) => S & @ap/contracts#CarrySetId
 clientCorrelationId | function | function clientCorrelationId(): string
-collectDeclarations | function | function collectDeclarations(modules: readonly Readonly<Record<string, unknown>>[]): { actions: @ap/contracts#AnyActionSpec[]; endpoints: @ap/contracts#AnyEndpointSpec[]; }
 compareAuditEvents | function | function compareAuditEvents(a: @ap/contracts#AuditEvent, b: @ap/contracts#AuditEvent): number
 compareHistoryText | function | function compareHistoryText(a: string, b: string): number
 compareQueryHistory | function | function compareQueryHistory(a: @ap/contracts#QueryHistoryEntry, b: @ap/contracts#QueryHistoryEntry): number
@@ -252,9 +238,6 @@ isHierarchyFailure | function | function isHierarchyFailure(value: unknown): val
 isIsoInstant | function | function isIsoInstant(value: unknown): value is string
 isPortError | function | function isPortError(e: unknown): e is @ap/contracts#PortError
 isRecord | const | const isRecord: (value: unknown) => value is Record<string, unknown>
-menuDeclarationSnapshot | function | function menuDeclarationSnapshot(input: @ap/contracts#MenuDeclarationSnapshotInput): @ap/contracts#MenuDeclarationSnapshot
-menuDeclarationSnapshotDigest | function | function menuDeclarationSnapshotDigest(body: Omit<@ap/contracts#MenuDeclarationSnapshot, 'digest'>): string
-menuDeclarationSnapshotPlugin | function | function menuDeclarationSnapshotPlugin(options: @ap/contracts#MenuDeclarationSnapshotPluginOptions): { apply: "build"; generateBundle(this: @ap/contracts#SnapshotEmitContext): Promise<void>; name: string; }
 menuPermission | const | const menuPermission: <const S extends string>(id: S) => S & @ap/contracts#MenuPermission
 menuPermissions | function | function menuPermissions(menu: { readonly additionalPermissions?: readonly @ap/contracts#Permission[]; readonly permission: string; }): readonly @ap/contracts#Permission[]
 missingRequiredContext | function | function missingRequiredContext(keys: readonly @ap/contracts#ContextKey[], context: Partial<@ap/contracts#GlobalContext>): @ap/contracts#ContextKey[]
