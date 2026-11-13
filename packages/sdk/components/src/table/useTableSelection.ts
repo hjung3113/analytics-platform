@@ -31,6 +31,29 @@ export function exportScopeIds(scope: TableExportRequest['scope']): { mode: 'ids
   }
 }
 
+/** The server-side export parameters `tableExportParams` builds from a `TableExportRequest` (#1974). The menu spreads its own page filters next to them. */
+export type TableExportParams = {
+  /** `null` = every row of the filtered result. */
+  ids: string[] | null;
+  /** Present only for an `all` scope of a table that declared `selectAll` (`selectAllResults`): every filtered row but these. */
+  excludedIds?: string[];
+  sorting: PageSort[];
+  /** Present only when the request carries column filters (the table never sends an empty list). */
+  filters?: ColumnFilter[];
+};
+
+/**
+ * Turns an `exportRows` request into server parameters (#1974, 06 §15). The menu declares only whether its table enabled
+ * `selectAllResults` (`selectAll`). An `all` scope from a table that did not declare it throws: **data integrity** — sending
+ * `ids: null` alone would export the rows the user excluded.
+ */
+export function tableExportParams(request: TableExportRequest, options?: { selectAll?: boolean }): TableExportParams {
+  const scope = exportScopeIds(request.scope);
+  if (scope.mode === 'all-except' && !options?.selectAll) throw new Error('tableExportParams: a select-all (`all`) export scope needs `selectAll: true` (the table must enable selectAllResults)');
+  const selection = scope.mode === 'all-except' ? { ids: null, excludedIds: scope.excludedIds } : { ids: scope.ids };
+  return { ...selection, sorting: request.sorting, ...(request.filters?.length ? { filters: request.filters } : {}) };
+}
+
 type SelectAllState = { excluded: ReadonlySet<string>; total: number };
 
 type Input<T> = {

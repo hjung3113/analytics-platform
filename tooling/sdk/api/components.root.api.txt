@@ -136,6 +136,7 @@ ShareTargetPickerProps | type | type ShareTargetPickerProps = { confirmError?: n
 StatCard | function | function StatCard({ icon: Icon, label, value, unit, delta, caption, chip, onClick, active, footnote, secondary }: { active?: boolean; caption?: ReactNode; chip?: 'amber' | 'blue' | 'purple' | 'teal'; delta?: @ap/components#Delta; footnote?: ReactNode; icon: LucideIcon; label: ReactNode; onClick?: () => void; secondary?: ReactNode; unit?: ReactNode; value: ReactNode; }): import("react").JSX.Element
 StateMessage | function | function StateMessage({ icon, title, body, action, tone, correlationId, compact, detail }: StateProps): import("react").JSX.Element
 SummaryPreset | type | type SummaryPreset = { id: string; key: string; presets: readonly @ap/contracts#ConditionPreset[]; }
+TableExportParams | type | type TableExportParams = { excludedIds?: string[]; filters?: @ap/contracts#ColumnFilter[]; ids: null | string[]; sorting: @ap/contracts#PageSort[]; }
 TableExportRequest | type | type TableExportRequest = { filters?: @ap/contracts#ColumnFilter[]; scope: { excludedIds: string[]; kind: 'all'; } | { ids: string[]; kind: 'selected'; } | { kind: 'filtered'; }; sorting: @ap/contracts#PageSort[]; }
 TableFilterColumnProps | type | type TableFilterColumnProps = Pick<@ap/components#PlatformColumn<unknown>, 'filter' | 'filterEntry' | 'filterLabel' | 'filterPinned' | 'header' | 'id'>
 TableFilterDeclaration | type | type TableFilterDeclaration = { column?: boolean; entry?: @ap/components#InstantEntry; id: string; label: @ap/contracts#Text | string; pinned?: boolean | number; spec?: @ap/contracts#ColumnFilterSpec; }
@@ -202,6 +203,7 @@ sortAndPage | function | function sortAndPage<T>(rows: readonly T[], q: @ap/cont
 stepGeometry | function | function stepGeometry(geometry: @ap/components#FloatingGeometry, key: 'ArrowDown' | 'ArrowLeft' | 'ArrowRight' | 'ArrowUp', far: boolean, resize: boolean, area: @ap/components#FloatingArea, minSize: @ap/components#FloatingSize): @ap/components#FloatingGeometry
 summarizeSavedViewContext | function | function summarizeSavedViewContext(context: @ap/contracts#SavedViewContext, lang: Lang): string[]
 summaryPreset | function | function summaryPreset(view: null | { activeId: string; appliedId: string; key: string; presets: readonly @ap/contracts#ConditionPreset[]; }, which: 'applied' | 'draft'): @ap/components#SummaryPreset | undefined
+tableExportParams | function | function tableExportParams(request: @ap/components#TableExportRequest, options?: { selectAll?: boolean; }): @ap/components#TableExportParams
 toWorkbookXlsx | function | function toWorkbookXlsx(sheets: readonly @ap/components#WorkbookSheet[], signal?: AbortSignal): Promise<Blob>
 toggleMember | function | function toggleMember(list: readonly @ap/contracts#GroupMember[], member: @ap/contracts#GroupMember): @ap/contracts#GroupMember[]
 token | function | function token(name: @ap/ui/theme#ThemeColorToken): string

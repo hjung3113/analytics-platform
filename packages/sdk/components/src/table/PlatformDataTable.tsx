@@ -36,11 +36,11 @@ import { useRegisterPageBound } from '../pageFlow';
 export type { GroupedPageResult, PageGroup, PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
 export type { TableFilterField } from './filterFields';
-export type { TableExportRequest, TableSelection } from './useTableSelection';
+export type { TableExportParams, TableExportRequest, TableSelection } from './useTableSelection';
 
 /** Read by the stable `_select` header renderer from `table.options.meta`. */
 type SelectionMeta = { headerState: 'all' | 'partial' | null; clear: () => void };
-export { exportScopeIds } from './useTableSelection';
+export { exportScopeIds, tableExportParams } from './useTableSelection';
 type ColumnMeta = { align?: 'right'; label?: string };
 
 /** §15 domain-owned column shape (#160): what menus declare; the TanStack `ColumnDef` conversion lives in the internal `columnDef.ts`, which index.ts does not export. */
