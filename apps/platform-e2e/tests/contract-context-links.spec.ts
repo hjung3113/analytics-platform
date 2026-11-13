@@ -71,8 +71,9 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
 
   test('주소 오류 화면의 조건 초기화는 눌린 뒤 포커스를 main으로 보낸다', async ({ page }) => {
     await page.goto('/mars/equipment-master?v=2&scopeId=MEM');
-    await page.getByRole('button', { name: '조건 초기화' }).click();
-    await expect(page.getByRole('button', { name: '조건 초기화' })).toHaveCount(0);
+    const alert = page.getByRole('alert');
+    await alert.getByRole('button', { name: '조건 초기화' }).click();
+    await expect(alert).toHaveCount(0);
     expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('MAIN');
   });
 

@@ -217,7 +217,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
             const next = !expanded; if (spec.expanded === undefined) setLocalExpanded(next); spec.onExpandedChange?.(next);
             if (!next) collapseButton.current?.focus();
           }}>{expanded ? (lang === 'ko' ? '숨기기' : 'Hide') : (lang === 'ko' ? '표시' : 'Show')}</Button>}
-          <Button size="toolbar" variant="ghost" onClick={reset}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
+          <Button size="toolbar" variant="ghost" onClick={reset}>{lang === 'ko' ? '차트 초기화' : 'Reset chart'}</Button>
           {brushable && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{lang === 'ko' ? '끌어서 선택' : 'Drag to select'}</Button>}
           <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => setTable(!table)}>{lang === 'ko' ? '표로 보기' : 'Show as table'}</Button>
           {route?.menu.features?.export && <Button size="toolbar" variant="ghost" onClick={exportCsv}>{lang === 'ko' ? '내보내기' : 'Export'}</Button>}

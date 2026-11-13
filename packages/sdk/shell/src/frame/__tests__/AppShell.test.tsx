@@ -119,6 +119,21 @@ describe('rail space navigation', () => {
   });
 });
 
+describe('skip links (#1942)', () => {
+  it('offers 메뉴로 건너뛰기 as the second Tab stop and Enter focuses the first menu link', async () => {
+    mount();
+    const user = userEvent.setup();
+    await user.tab();
+    expect(screen.getByRole('link', { name: '본문으로 건너뛰기' })).toHaveFocus();
+    await user.tab();
+    const skip = screen.getByRole('link', { name: '메뉴로 건너뛰기' });
+    expect(skip).toHaveFocus();
+    await user.keyboard('{Enter}');
+    const nav = screen.getByRole('navigation', { name: '주 메뉴' });
+    expect(within(nav).getAllByRole('link')[0]).toHaveFocus();
+  });
+});
+
 describe('light sidebar', () => {
   it('toggles with the button and [, persists the existing key, and ignores text editing', () => {
     localStorage.setItem('platform:sidebar-collapsed', '0');
@@ -847,6 +862,17 @@ describe('platform sidebar (ADR-0070)', () => {
     mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
     expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
     expect(screen.queryByRole('navigation', { name: '플랫폼 메뉴' })).toBeNull();
+  });
+
+  it('offers 메뉴로 건너뛰기 only where a sidebar renders; the board keeps just 본문으로 건너뛰기 (#1942)', () => {
+    window.history.replaceState(null, '', '/equipment?v=1');
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    expect(screen.getByRole('link', { name: '메뉴로 건너뛰기' })).toBeTruthy();
+    cleanup();
+    window.history.replaceState(null, '', '/board');
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    expect(screen.getByRole('link', { name: '본문으로 건너뛰기' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: '메뉴로 건너뛰기' })).toBeNull();
   });
 
   it('shares one collapse state with the business sidebar: button and [ key toggle platform:sidebar-collapsed', () => {

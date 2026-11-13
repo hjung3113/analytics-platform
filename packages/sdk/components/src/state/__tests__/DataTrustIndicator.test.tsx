@@ -22,6 +22,34 @@ describe('DataTrustIndicator wrap (table status line, ADR-0037)', () => {
     expect(details().className).toContain('flex-wrap');
     expect(screen.getByRole('button', { name: '데이터 신뢰' }).className).toContain('max-w-full');
   });
+
+  it('keeps each fragment on one line and the text left-aligned when wrapping (#1942)', () => {
+    render(<I18nProvider><DataTrustIndicator trust={trust} assessments={[]} wrap /></I18nProvider>);
+    const fragments = [...details().querySelectorAll('.tabular')];
+    expect(fragments).toHaveLength(3);
+    for (const f of fragments) expect(f).toHaveClass('whitespace-nowrap');
+    expect(screen.getByRole('button', { name: '데이터 신뢰' })).toHaveClass('text-left');
+    expect(details()).toHaveClass('justify-start', 'text-left');
+  });
+
+  // jsdom has no layout, so the DOM structure is what pins "a break never leaves the dot or the icon alone".
+  it('groups the dot with the headline and the info icon with the last fragment in nowrap units when wrapping (#1942)', () => {
+    render(<I18nProvider><DataTrustIndicator trust={trust} assessments={[]} wrap /></I18nProvider>);
+    const [headline, , updated] = [...details().querySelectorAll('.tabular')];
+    const first = headline!.parentElement!, last = updated!.parentElement!;
+    expect(first).toHaveClass('whitespace-nowrap');
+    expect(first.querySelector('.rounded-pill')).not.toBeNull();
+    expect(last).toHaveClass('whitespace-nowrap');
+    expect(last.querySelector('svg')).not.toBeNull();
+    expect(first).not.toBe(last);
+  });
+
+  it('groups the info icon with the no-Trust text when wrapping (#1942)', () => {
+    render(<I18nProvider><DataTrustIndicator trust={null} assessments={[{ kind: 'collection', state: 'unknown', statusSource: 'fixture', observedAt: '2026-10-16T09:00:00', reason: 'check_failed' }]} showWithoutTrust wrap /></I18nProvider>);
+    const text = [...details().querySelectorAll('.tabular')].at(-1)!;
+    expect(text.parentElement).toHaveClass('whitespace-nowrap');
+    expect(text.parentElement!.querySelector('svg')).not.toBeNull();
+  });
 });
 
 describe('source logic versions', () => {

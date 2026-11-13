@@ -659,7 +659,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
             {fourHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(fourHour)}>{lang === 'ko' ? '4시간' : '4h'}</Button>}
             <Button variant="ghost" size="toolbar" onClick={() => commitRange({ from: timeBounds[0], to: timeBounds[timeBounds.length - 1] })}>{lang === 'ko' ? '전체' : 'All'}</Button>
           </div>}
-          <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{lang === 'ko' ? '초기화' : 'Reset'}</Button>
+          <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{lang === 'ko' ? '차트 초기화' : 'Reset chart'}</Button>
           {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{lang === 'ko' ? '비교' : 'Compare'}</Button>}
           {canAnnotate && <Button ref={annotateButton} variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? '구간 선택으로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={editor.openEditor}><MessageSquarePlus className="size-3.5" aria-hidden />{lang === 'ko' ? '주석' : 'Annotate'}</Button>}
         </div>

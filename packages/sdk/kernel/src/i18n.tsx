@@ -82,6 +82,7 @@ const dict = {
   pageFilter: { ko: '페이지 필터', en: 'Page filters' },
   clearFilters: { ko: '필터 초기화', en: 'Clear filters' },
   skipToContent: { ko: '본문으로 건너뛰기', en: 'Skip to content' },
+  skipToMenu: { ko: '메뉴로 건너뛰기', en: 'Skip to menu' },
   breadcrumb: { ko: '이동 경로', en: 'Breadcrumb' },
   roomNames: { ko: 'room_name', en: 'room_name' },
   membershipAsOf: { ko: '그 시점 소속', en: 'Membership as of period' },

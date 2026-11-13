@@ -641,9 +641,11 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
     await other.focus();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(new RegExp(`focus=${encodeURIComponent(otherId)}`));
-    // Escape closes the dock; the table widens and the same action node, now in its full text form, keeps the focus.
+    // Escape closes the dock. At 992px the table is still narrower than 800px with columns scrolled off, so it stays compact
+    // (#1942); widening the window gives the full text form, and the same action node keeps the focus.
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: '상세 닫기', exact: true })).toHaveCount(0);
+    await page.setViewportSize({ width: 1440, height: 900 });
     await expect.poll(() => otherCell.evaluate(el => Math.round(el.getBoundingClientRect().width))).toBeGreaterThanOrEqual(127);
     const restored = rows.getByRole('button', { name: otherName, exact: true });
     await expect(restored).toHaveText('보기');

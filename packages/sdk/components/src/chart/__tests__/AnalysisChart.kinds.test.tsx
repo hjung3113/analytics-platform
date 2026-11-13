@@ -86,7 +86,7 @@ it('maps grouped scatter indices past omitted nulls, merges groups and commits o
   click(1, 0); expect(selection()).toHaveTextContent('b · 1개 선택');
 });
 
-it.each(['초기화', 'context'])('clears scatter pending selection and ECharts areas on %s', async action => {
+it.each(['차트 초기화', 'context'])('clears scatter pending selection and ECharts areas on %s', async action => {
   mount(scatter); await screen.findByRole('img');
   const dispatchAction = vi.fn(); act(() => plot.onReady?.({ dispatchAction } as never));
   brush([{ seriesIndex: 0, dataIndex: [0, 1] }]);
@@ -102,7 +102,7 @@ it.each([scatter, box, pareto])('preserves $kind selection by ID on reorder, pru
   view.update(reverse); expect(selection()).toHaveTextContent('Alpha');
   const removed: ChartSpec = spec.kind === 'scatter' ? { ...spec, points: [spec.points[1]] } : spec.kind === 'boxPlot' ? { ...spec, groups: [spec.groups[1]] } : { ...spec, items: [spec.items[1]] };
   view.update(removed); expect(selection()).toHaveTextContent('선택 없음');
-  click(0, 0); fireEvent.click(screen.getByRole('button', { name: '초기화' })); expect(selection()).toHaveTextContent('선택 없음');
+  click(0, 0); fireEvent.click(screen.getByRole('button', { name: '차트 초기화' })); expect(selection()).toHaveTextContent('선택 없음');
   click(0, 0); fireEvent.click(screen.getByRole('button', { name: 'context' })); expect(selection()).toHaveTextContent('선택 없음');
 });
 
@@ -156,7 +156,7 @@ it.each([scatter, box, pareto])('uses English summary, table and toolbar for $ki
   mount(spec); await screen.findByRole('img');
   fireEvent.click(screen.getByRole('button', { name: 'english' }));
   fireEvent.click(screen.getByRole('button', { name: 'Show as table' }));
-  expect(screen.getByRole('button', { name: 'Reset' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Reset chart' })).toBeVisible();
   expect(screen.getByRole('region', { name: 'Selection summary' })).toHaveTextContent('No selection');
   expect(screen.queryByRole('button', { name: 'Details' })).toBeNull();
   const region = screen.getByRole('region', { name: 'Chart' });

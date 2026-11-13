@@ -48,7 +48,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       </div>
       <SidebarScope collapsed={collapsed} />
       <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
-        <CountsBoundary key={`counts:${slotSpaceId}`} spaceId={slotSpaceId} menu={slotMenu ?? null}>{counts => <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
+        <CountsBoundary key={`counts:${slotSpaceId}`} spaceId={slotSpaceId} menu={slotMenu ?? null}>{counts => <nav id="platform-nav" aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
           {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
             {!collapsed && systems === null && !(group.hideLabelWhenSingle && items.length === 1) && <p className={cn('mx-2 mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
             {collapsed && index > 0 && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}

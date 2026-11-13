@@ -31,7 +31,7 @@ export function PlatformSidebar({ collapsed, onToggle }: { collapsed: boolean; o
         </TooltipTrigger><TooltipContent side="right">{collapsed ? t('expand') : t('collapse')} ([)</TooltipContent></Tooltip>
       </div>
       <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
-        <nav aria-label={t('platformMenu')}>
+        <nav id="platform-nav" aria-label={t('platformMenu')}>
           {sections.map(({ group, items }, index) => {
             const headed = !(group.hideLabelWhenSingle && items.length === 1);
             return <div key={group.id} role="group" aria-label={tx(group.label)}>

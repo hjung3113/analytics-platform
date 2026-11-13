@@ -389,7 +389,7 @@ describe('toolbar speaks the UI language (#302, #297)', () => {
   it('labels the chart actions and the popover terms in Korean in Korean mode', async () => {
     mount(fixture().adapter, on);
     const toolbar = await screen.findByRole('toolbar', { name: '차트 동작' });
-    for (const name of ['확대', '구간 선택', '초기화', '비교', '주석', '내보내기', '더보기']) {
+    for (const name of ['확대', '구간 선택', '차트 초기화', '비교', '주석', '내보내기', '더보기']) {
       expect(within(toolbar).getByRole('button', { name })).toBeTruthy();
     }
     // No selection yet: the annotate hint names the Brush action in Korean too.
@@ -421,7 +421,7 @@ describe('chart card sizing and toolbar wrapping (#297 FIX1 UX)', () => {
     const front = tail.previousElementSibling as HTMLElement;
     expect(front.className).toContain('flex-wrap');
     expect(within(front).getByRole('button', { name: '구간 선택' })).toBeTruthy();
-    expect(within(front).getByRole('button', { name: '초기화' })).toBeTruthy();
+    expect(within(front).getByRole('button', { name: '차트 초기화' })).toBeTruthy();
     expect(within(front).getByRole('button', { name: '비교' })).toBeTruthy();
   });
 });
