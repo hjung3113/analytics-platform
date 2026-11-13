@@ -22,10 +22,10 @@ export function contextHasValue(global: GlobalContext): Record<ContextKey, boole
   };
 }
 
-/** A context bar is drawn when any key is usable on this screen or already has a value (06 §11). */
-export function contextBarVisible(context: Record<ContextKey, Capability>, global: GlobalContext): boolean {
-  const has = contextHasValue(global);
-  return CONTEXT_KEYS.some(k => context[k] !== 'unsupported' || has[k]);
+/** A context bar is drawn when any key is usable on this screen (06 §11). Values of keys this screen
+ * does not use stay in the URL and Kernel and are shown again on a screen that uses them (#1944). */
+export function contextBarVisible(context: Record<ContextKey, Capability>): boolean {
+  return CONTEXT_KEYS.some(k => context[k] !== 'unsupported');
 }
 
 export function GlobalContextBar({ label, whenEmpty = null }: {
@@ -50,8 +50,8 @@ function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; regio
   if (!route) return whenEmpty;
   const cap = route.menu.context;
   const has = contextHasValue(global);
+  if (!contextBarVisible(cap)) return whenEmpty;
   const shown = CONTEXT_KEYS.filter(k => cap[k] !== 'unsupported' || has[k]);
-  if (!shown.length) return whenEmpty;
   const editable = (k: ContextKey) => cap[k] !== 'unsupported';
 
   const controls = [

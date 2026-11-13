@@ -106,12 +106,10 @@ it('retains child axes and IDs outside candidates with nonblocking explanations'
   expect(screen.getAllByText(/현재 후보에 없음/).length).toBeGreaterThan(0);
   expect(draft.canApply).toBe(true);
 });
-it('keeps visibility semantics for reference-only, carried unsupported, absent and apply values', () => {
-  const g = { scopeId: null, from: null, to: null, roomNames: null, lineNames: null, prcGroups: null, condition: null, membershipBasis: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null };
-  expect(contextBarVisible(noContext, g)).toBe(false);
-  expect(contextBarVisible({ ...noContext, time: 'reference' }, g)).toBe(true);
-  expect(contextBarVisible(noContext, { ...g, lotIds: ['L'] })).toBe(true);
-  expect(contextBarVisible({ ...noContext, time: 'apply' }, g)).toBe(true);
+it('derives bar visibility from menu capabilities only, not from carried values', () => {
+  expect(contextBarVisible(noContext)).toBe(false);
+  expect(contextBarVisible({ ...noContext, time: 'reference' })).toBe(true);
+  expect(contextBarVisible({ ...noContext, time: 'apply' })).toBe(true);
 });
 
 it('distinguishes explicit empty selection/rooms, removes the last Condition key and enables PRC-only history', async () => {

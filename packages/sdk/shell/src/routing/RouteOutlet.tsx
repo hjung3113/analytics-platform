@@ -152,12 +152,12 @@ function capabilityLabel(cap: Capability, t: (key: 'applied' | 'referenceOnly' |
 }
 
 function PlannedPage() {
-  const { route, registry, global } = useHostPlatform();
+  const { route, registry } = useHostPlatform();
   const { t, tx, lang } = useI18n();
   const menu = route!.menu;
   const keys = Object.keys(menu.context) as ContextKey[];
   const tone = { apply: 'success', reference: 'info', unsupported: 'neutral' } as const;
-  const barVisible = contextBarVisible(menu.context, global);
+  const barVisible = contextBarVisible(menu.context);
   return <PlatformPage>
     <div className="grid gap-3 wide:grid-cols-[1fr_1fr]">
       <Panel title={t('plannedTitle')} subtitle={t('plannedBody')}>

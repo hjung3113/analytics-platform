@@ -31,6 +31,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 (#1944) | shell | **기본 동작 변경** — 모든 Context 키를 `unsupported`로 선언한 화면(공지·알림·권한 요청·홈 같은)은 전역 값이 있어도 Context 바를 그리지 않는다(이전: 값이 하나라도 있으면 그렸다). 값은 URL과 Kernel에 그대로 남아 지원 화면에서 다시 보인다([kernel §11](../../docs/contract/kernel.md)) | 없음 — 메뉴가 맞출 선언은 없다. 셸 안 `contextBarVisible`은 셸 내부용이라 공개 export가 아니다 |
 | 다음 릴리스 (#1938) | kernel · components · shell | 추가(기본 동작 불변 — 메뉴 선언 불변): `HostPlatform.scopeSelector`(`@ap/kernel/host`의 `ScopeSelectorRequest`: `open`·`answer`·`available`·`subscribe`)와 `ScopeSelector`의 선택 prop `onExpand`. `PlatformPage`의 Scope `none` 관문에 `Scope 선택` 버튼이 생겨 셸 선택기를 연다(마지막 Scope가 있으면 `최근 Scope 적용` 다음의 보조 버튼, 답할 선택기가 없으면 그리지 않음). 스냅샷 `kernel.host`·`shell.root` | 없음 — 관문의 버튼 수를 세던 시험은 `Scope 선택`을 더한다 |
 | 다음 릴리스 (#2061) | kernel · shell | 추가(선택, 기본 동작 불변): `HostPlatform.navigate`의 호스트 전용 옵션 `guard?: boolean` — 그 `replace`를 미저장 편집 가드가 push처럼 보류한다([kernel §6.4](../../docs/contract/kernel.md)). 호스트 전용 `run?: () => boolean`은 떠나기를 승인한 뒤 이동 직전에 한 번 불리고 `false`면 이동을 취소한다(`분석 보드에 열기…`가 보드 저장을 여기서 한다). `MenuPlatform.navigate`는 이 두 옵션 없이 따로 적힌다(같은 런타임 함수). 셸의 보드 열기·복원·창 최대화·`분석 보드에 열기…` 확인이 쓴다. 스냅샷 `kernel.root`·`kernel.host` | 없음 |
 | 다음 릴리스 (#2022) | kernel, shell | **기본 동작 변경** — 셸이 사이드바 아래에 «통합 프로토타입 · 합성 데이터»를 더는 고정으로 적지 않는다. 추가: `PlatformSlots.sidebarNotice?: ReactNode`(펼친 사이드바 맨 아래 안내, 기본 없음). 스냅샷 `kernel.root` | 그 줄이 필요한 앱은 `sidebarNotice`로 넘긴다. 넘기지 않으면 아무것도 그리지 않는다 |

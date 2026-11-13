@@ -52,7 +52,7 @@ pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mo
 - Scope 단일 선택 + 서버 재검증(검증 중/검증됨/접근 불가), Scope 전환 시 Site 경계 Context 명시 초기화.
 - 기간 `1일/7일/사용자 지정`, 사용자 지정 날짜(양끝 포함)→`[D1T00:00:00,(D2+1)T00:00:00)`, 초 단위 입력.
 - room_name / Condition(StGroup·분임조·Maker+Model 중 하나) / Selection(부재·명시·명시적 빈 집합), 조건 밖 선택 경고(자동 제거 없음).
-- 미지원 Context는 URL에 보존되고 “이 화면에서 미사용”으로 표시.
+- 미지원 Context는 URL에 보존되고 “이 화면에서 미사용”으로 표시(그 화면이 어느 키도 지원하지 않으면 Context 바를 그리지 않는다, #1944).
 - URL 계약 오류(`v=2`, 한쪽 기간, 공집합 표식 충돌 등)는 보정 없이 오류 화면.
 - 응답 시나리오 시뮬레이터(플라스크 아이콘, 같은 개발 도구)로 §19 taxonomy 전 상태 재현 + 계약 검증 링크. "응답 형식 오류"는 화면이 렌더 중 예외를 던지게 해 Error Boundary(§4)를 확인한다.
 - Registry `primary`(그룹 대표 목적지): 그룹당 정확히 하나를 `createRegistry`가 강제한다.

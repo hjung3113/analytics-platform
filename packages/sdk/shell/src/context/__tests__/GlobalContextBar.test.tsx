@@ -285,6 +285,26 @@ describe('Global Context priority overflow (#56)', () => {
   });
 
 });
+describe('Context 막대 그리기 조건 (#1944 4번)', () => {
+  const allUnsupported = Object.fromEntries(Object.keys(caps).map(k => [k, 'unsupported'])) as Record<keyof typeof caps, Capability>;
+
+  it('모든 키가 미지원인 화면은 값이 있어도 막대를 그리지 않고 값은 URL에 남는다', () => {
+    mount('&roomNames=PHOTO', 'ko', true, registryWith(allUnsupported));
+    expect(screen.queryByRole('region', { name: '전역 Context' })).toBeNull();
+    // Values stay in the URL (06 §6.4): nothing is dropped when the bar is hidden.
+    expect(new URLSearchParams(window.location.search).get('roomNames')).toBe('PHOTO');
+    expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-09-25T09:00:00');
+  });
+
+  it('지원 키가 있는 화면으로 돌아가면 같은 값이 다시 보인다', () => {
+    mount('&roomNames=PHOTO', 'ko', true, registryWith(allUnsupported));
+    expect(screen.queryByRole('region', { name: '전역 Context' })).toBeNull();
+    cleanup();
+    mount('&roomNames=PHOTO');
+    expect(within(bar()).getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
+  });
+});
+
 
 describe('현재 조건 공유 reports success only after the clipboard write (#300)', () => {
   const SUCCESS = '현재 적용된 조건의 링크를 복사했습니다. 편집 중인 변경은 제외됩니다.';

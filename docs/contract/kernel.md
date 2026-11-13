@@ -174,7 +174,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 - **page-owned URL 키의 예시로 `granularity`(Candidate 필드명, Decided — 메커니즘)**: 조회 기간(`from`/`to`)과 집계 단위(시간별/일별/주별로 뭉쳐 보기)는 다른 축이다. 모든 메뉴가 집계 단위 선택을 갖는 게 아니므로 전역 Context Bar가 아니라 `metricId`+`metricVersion` 쌍과 같은 방식으로 화면마다 선언·등록하는 page-owned 계약으로 둔다. 값 후보: `hour`/`day`/`week`.
 - 딥링크 왕복은 조회조건·명시 선택·지표 버전을 재현한다. live Condition은 재방문 시 선언한 소속 기준의 멤버/매칭 결과를 재평가하므로 대상 집합이 달라질 수 있음을 표시한다. Selection은 고정이며, 지연 완료·마스터 정정으로 숫자는 달라질 수 있으므로 결과에는 계산 기준시각을 표시한다.
 - 단순 차트 줌은 로컬 상태다. Brush 후 명시적인 분석 구간 적용만 전역 Context/URL로 전달한다.
-- 미지원 Context는 조용히 버리지 않고 적용되지 않음을 표시한다. 보존·재적용 방식은 §6.4를 따른다.
+- 미지원 Context는 조용히 버리지 않고 적용되지 않음을 표시한다(모든 키가 `unsupported`인 화면은 바를 그리지 않는다, §11). 보존·재적용 방식은 §6.4를 따른다.
 - `savedViewToken`은 긴 URL을 대체할 후보 계약으로 예약한다(Deferred; 저장된 뷰 자체는 §21, ADR-0092). 저장된 뷰 구현 전에는 토큰 생성이나 비활성 버튼을 셸 필수 요소로 두지 않는다.
 
 **URL/JSON 케이싱과 매핑 소유 (Decided):** URL·JSON 공개 필드명은 camelCase, DB는 해당 스키마 관례(snake_case)를 유지한다. 컬렉션은 URL 반복 키(`equipmentIds=A&equipmentIds=B`), JSON은 배열로 직렬화한다(콤마 결합은 ID의 예약문자와 충돌할 수 있어 채택하지 않는다). 공개 계약(이름·타입·카디널리티·버전·지원 Context·page-owned 키 등록)은 플랫폼 Kernel이 소유하며 클라이언트 라우터와 서버 요청 검증은 같은 산출물을 소비한다. SQL 컬럼/조인/계산식 매핑은 서버 소비 계층이 소유하고 공개 필드가 DB 컬럼과 1:1이라고 가정하지 않는다. 구현 형식은 Zod 스키마 → JSON Schema(2020-12) 산출물이다(Decided, [ADR-0096](../adr/0096-contract-schemas-zod-source-and-reference-implementations.md)). OpenAPI는 원본이 아니다.
@@ -450,6 +450,7 @@ Create VOC from current context
 ## 11. Global Context Bar
 
 Context 바는 전역 Context를 표시·편집하는 셸 자리다. 초안/적용 메뉴에서는 이 자리가 조회 바(`QueryBar`)로 바뀌며, live 메뉴에서는 즉시 적용한다.
+**그리는 조건(Decided, 소유자 2026-11-13, #1944):** 메뉴가 어느 Context 키 하나라도 `unsupported`가 아닌(쓸 수 있는) 경우에만 바를 그린다. 모든 키가 `unsupported`인 화면(공지·알림·권한 요청·홈 같은)은 전역 값이 있어도 바를 그리지 않는다. 값은 URL과 Kernel에 그대로 남아(§6.4) 지원하는 화면으로 돌아가면 다시 보인다.
 
 플랫폼에서 가장 중요한 공통 UI 중 하나다.
 
