@@ -11,27 +11,29 @@ const aggregate = workflow.split('  platform-workspace:\n')[1].split('\n  # #666
 const verdict = aggregate.split('        run: |\n')[1].trim().replace(/^          /gm, '');
 
 test('required workspace verdict fails every failed, cancelled or accidental skipped feature gate', () => {
-  assert.match(aggregate, /needs: \[changes, platform-static, platform-test, feature-integration\]/);
+  assert.match(aggregate, /needs: \[changes, platform-static, platform-typecheck, platform-test, feature-integration\]/);
   let cases = 0;
   for (const CODE of ['true', '', 'false']) {
     for (const STATIC of ['success', 'failure', 'cancelled', 'skipped', '']) {
+     for (const TYPECHECK of ['success', 'failure', 'cancelled', 'skipped', '']) {
       for (const TEST of ['success', 'failure', 'cancelled', 'skipped', '']) {
         for (const INTEGRATION of ['success', 'failure', 'cancelled', 'skipped', '']) {
           const run = spawnSync('bash', ['-e', '-c', verdict], {
-            cwd: root, encoding: 'utf8', env: { ...process.env, CODE, STATIC, TEST, INTEGRATION },
+            cwd: root, encoding: 'utf8', env: { ...process.env, CODE, STATIC, TYPECHECK, TEST, INTEGRATION },
           });
-          const succeeds = STATIC === 'success' && TEST === 'success' && (INTEGRATION === 'success' || (CODE === 'false' && INTEGRATION === 'skipped'));
-          assert.equal(run.status === 0, succeeds, JSON.stringify({ CODE, STATIC, TEST, INTEGRATION }));
+          const succeeds = STATIC === 'success' && TYPECHECK === 'success' && TEST === 'success' && (INTEGRATION === 'success' || (CODE === 'false' && INTEGRATION === 'skipped'));
+          assert.equal(run.status === 0, succeeds, JSON.stringify({ CODE, STATIC, TYPECHECK, TEST, INTEGRATION }));
           cases++;
         }
       }
+     }
     }
   }
-  assert.equal(cases, 375);
+  assert.equal(cases, 1875);
 });
 
 test('mock-dist readers precede real production build; folded feature coverage stays required', () => {
-  const staticJob = workflow.split('  platform-static:\n')[1].split('  platform-test:\n')[0];
+  const staticJob = workflow.split('  platform-static:\n')[1].split('  platform-typecheck:\n')[0];
   const mock = staticJob.indexOf('- run: pnpm build');
   const lazy = staticJob.indexOf('pnpm check:lazy-chunks');
   const sdk = staticJob.indexOf('pnpm sdk:api');
@@ -73,5 +75,29 @@ test('Platform test shards cover every package once', () => {
   assert.deepEqual(excluded.map(f => f.slice(1)).sort(), ['@ap/platform-api', ...included].sort());
   // One package alone may use every vCPU; shards running two packages at once keep 2 workers each (4 vCPUs).
   for (const s of shards) assert.ok(s.workers * (s.filters.length === 1 && !s.filters[0].includes('*') ? 1 : 2) <= 4, `shard ${s.shard} workers`);
-  assert.match(job, /key: turbo-\$\{\{ runner\.os \}\}-node26\.7\.0-test-\$\{\{ matrix\.shard \}\}-/);
+  assert.match(job, /key: turbo-\$\{\{ runner\.os \}\}-node\$\{\{ hashFiles\('\.nvmrc'\) \}\}-test-\$\{\{ matrix\.shard \}\}-/);
+});
+
+// #1951: the Node version lives in .nvmrc only, so a Node upgrade is one edit and no job runs a stale version.
+test('every setup-node step reads .nvmrc', () => {
+  for (const name of ['ci.yml', 'pages.yml', 'css-selectors.yml']) {
+    const text = readFileSync(new URL(`../workflows/${name}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(text, /node-version:\s/, `${name} hardcodes node-version`);
+    assert.doesNotMatch(text, /node\d+\.\d+\.\d+/, `${name} hardcodes a Node version in a cache key`);
+    const setups = text.match(/uses: actions\/setup-node@/g)?.length ?? 0;
+    const files = text.match(/node-version-file: \.nvmrc/g)?.length ?? 0;
+    assert.equal(files, setups, `${name}: every setup-node step needs node-version-file: .nvmrc`);
+  }
+});
+
+// #1951: typecheck is its own job beside Platform static, and the required aggregate fails when it does.
+test('typecheck runs in its own job, not in Platform static', () => {
+  const staticJob = workflow.split('  platform-static:\n')[1].split('  platform-typecheck:\n')[0];
+  const typecheckJob = workflow.split('  platform-typecheck:\n')[1].split('\n  platform-test:\n')[0];
+  assert.doesNotMatch(staticJob, /pnpm typecheck/);
+  assert.match(typecheckJob, /needs: changes\n/);
+  assert.match(typecheckJob, /if: \$\{\{ !cancelled\(\) \}\}/);
+  assert.match(typecheckJob, /- run: pnpm typecheck --concurrency=4/);
+  assert.match(typecheckJob, /-typecheck-\$\{\{ github\.sha \}\}/);
+  assert.match(aggregate, /"typecheck=\$TYPECHECK"/);
 });
