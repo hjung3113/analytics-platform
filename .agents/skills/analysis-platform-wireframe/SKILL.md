@@ -11,13 +11,13 @@ Read `references/wireframe-rules.md` before Step 2 — it has the wireframe temp
 
 ## Why this exists
 
-This workflow names four design skills. ui-ux-pro-max is active locally; interface-design, frontend-design and web-design-guidelines are parked in .agents/skills-off/. For a gated stage that needs one, use an available global copy or read its parked SKILL.md explicitly; see ../../README.md (Run and Maintenance). Their scopes overlap on paper:
+This workflow names four design skills. ui-ux-pro-max is active locally, impeccable is a global skill, and frontend-design and web-design-guidelines are parked in .agents/skills-off/. For a gated stage that needs a parked one, read its parked SKILL.md explicitly; see ../../README.md (Run and Maintenance). Their scopes overlap on paper:
 
 | Skill | Owns | Does NOT own |
 |---|---|---|
 | **this skill** (analysis-platform-wireframe) | Requirements → user tasks → IA → screen inventory → wireframe → component/data requirements | Visual styling, pixel-level polish, final review |
 | **ui-ux-pro-max** | Pattern/product classification, chart type selection, color/typography/design-token intelligence, dashboard pattern library | Page architecture — never let it decide the overall IA or navigation structure on its own |
-| **interface-design** | Enterprise UI discipline: information density, hierarchy, spacing, component consistency, dashboard/admin conventions | Decorative or marketing-oriented choices — its rules win over those when they conflict |
+| **impeccable** | Enterprise UI discipline: information density, hierarchy, spacing, component consistency, dashboard/admin conventions | Decorative or marketing-oriented choices — this repo's `DESIGN.md` and the platform principles below win over those when they conflict |
 | **frontend-design** | Visual refinement: typography, visual identity, intentional layout, avoiding generic AI-default look | Product architecture — invoke it only *after* IA + wireframe + main components + design-system direction exist, never at the start |
 | **web-design-guidelines** | Final review: accessibility, keyboard/focus, forms, interaction conventions | Redesign — it fixes high-confidence issues, it doesn't re-architect |
 | **`.agents/references/design-md/`** (awesome-design-md) | External visual references only, filtered to dev-tools/observability/data-platform/enterprise-SaaS examples | Never copy a brand's DESIGN.md wholesale as this project's identity — extract 1–3 principles into this project's own `DESIGN.md` |
@@ -42,7 +42,7 @@ After Step 4, record Decided / Candidate / Open / Deferred decisions and finish 
 
 ## Optional implementation stages
 
-5. **Design System** — invoke **ui-ux-pro-max** + **interface-design** together to establish spacing, type scale, surface hierarchy, semantic colors, table rules, form rules, chart rules, navigation rules, responsive behavior. Write the result to this project's `DESIGN.md` (create it if it doesn't exist yet; it becomes the source of truth for visual consistency). If useful, pull 1–3 extracted principles from `.agents/references/design-md/` first (prefer linear.app, sentry, clickhouse, posthog, mongodb, hashicorp, ibm, supabase, cursor over consumer/landing-page entries) — extract principles, don't copy a brand wholesale.
+5. **Design System** — invoke **ui-ux-pro-max** + **impeccable** together to establish spacing, type scale, surface hierarchy, semantic colors, table rules, form rules, chart rules, navigation rules, responsive behavior. Write the result to this project's `DESIGN.md` (create it if it doesn't exist yet; it becomes the source of truth for visual consistency). If useful, pull 1–3 extracted principles from `.agents/references/design-md/` first (prefer linear.app, sentry, clickhouse, posthog, mongodb, hashicorp, ibm, supabase, cursor over consumer/landing-page entries) — extract principles, don't copy a brand wholesale.
 6. **Interactive Prototype** — build it only after IA + wireframe + `DESIGN.md` exist. Default stack unless the project already specifies otherwise: React + TypeScript + Tailwind + shadcn/ui. Use realistic mock data. Must demonstrate real workflows: navigation, filters, table interactions, selection, sorting, search, detail views, drawer/panel behavior, loading/empty/error states. Never a static screenshot dressed up as a prototype.
 7. **Visual Polish** — invoke **frontend-design** now, not earlier. Typography, visual hierarchy, balance, surface treatment, micro-layout, interaction polish. Do not change IA or core workflows unless a clear usability issue surfaces during this pass — if one does, report it rather than silently re-architecting.
 8. **UX/Accessibility Review** — invoke **web-design-guidelines** last. Accessibility, keyboard nav, focus states, form behavior, responsive behavior, typography, interaction clarity, error handling. Fix high-confidence issues only; don't redesign the app during review.

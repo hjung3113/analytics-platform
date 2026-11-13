@@ -44,7 +44,7 @@ If skill discovery is disabled or a client is outdated, ask it to read `.agents/
 - Resolve `scripts/` and `references/` inside a skill relative to the directory containing its `SKILL.md`. Run the `ui-ux-pro-max` search example from that directory: `python3 scripts/search.py "analytics dashboard" --domain product`.
 - Tool names, image generation, external requests and credentials vary by environment: use the tools available and report a missing dependency.
 - `references/design-md` is an external visual reference. Do not let it override product IA, permission, or Scope contracts, and do not adopt it as the repository's `DESIGN.md` without changes.
-- `interface-design`, `frontend-design` and `web-design-guidelines` are parked in `.agents/skills-off/`; use the global copy of the same name or move the local one back. `ui-ux-pro-max` stays enabled but is not used until measured to find something the repo lens and `impeccable` miss.
+- `interface-design`, `frontend-design` and `web-design-guidelines` are parked in `.agents/skills-off/` and not used: none has a global copy, so a task never invokes them; moving one back into `.agents/skills/` is an owner decision. `ui-ux-pro-max` stays enabled but is not used until measured to find something the repo lens and `impeccable` miss.
 - Some tests in imported skills require generation scripts or fixtures from the upstream repository. Do not treat them as this repository's full test suite. After moving a skill, check its links, frontmatter, execution paths, and required helper scripts.
 - Git checks out symlinks as actual links in the supported environment. If links are checked out as plain text, verify symlink support before relying on client discovery.
 

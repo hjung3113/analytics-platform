@@ -1,5 +1,5 @@
 ---
-name: interface-design:design-review
+name: design-review
 description: Strict, multi-pass craft and visual-hierarchy review of a UI build, with severity scoring and an explicit approval bar. The design counterpart to a deep code-quality review.
 ---
 
@@ -26,7 +26,7 @@ Five steps, in order. Don't skip to the dimension checklist — the procedure is
 Establish two things:
 
 - **What's under review** — the current build, a named component, or the branch's UI changes. Bound it.
-- **What it's trying to be** — read `.interface-design/system.md` if it exists, and infer the intended user, task, and feel. *You review against the design's own intent, not a generic ideal.* A deliberately dense trading terminal is not failing for being dense. If intent is genuinely unknowable, say so and review against general craft — but note the assumption.
+- **What it's trying to be** — read the repo `DESIGN.md`, and infer the intended user, task, and feel. *You review against the design's own intent, not a generic ideal.* A deliberately dense trading terminal is not failing for being dense. If intent is genuinely unknowable, say so and review against general craft — but note the assumption.
 
 ## Step 2 — See the whole first
 

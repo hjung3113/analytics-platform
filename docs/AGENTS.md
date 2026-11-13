@@ -19,7 +19,7 @@ The source of product and platform contracts. Check here what is decided before 
 
 ## Rules
 
-- Keep the status words Decided / Candidate / Open / Deferred. Do not decide an Open item on your own. When it is decided, fix the source document and add one line to the `adr/README.md` table (ADR) or the `05` table (non-ADR). Questions that need an answer go in `.planning/`.
+- Keep the status words Decided / Candidate / Open / Deferred. Do not decide an Open item on your own. When it is decided, fix the source document and add one line to the `adr/README.md` table and one to `adr/by-topic.md` (ADR; `pnpm docs:links` fails when a platform ADR is missing from `by-topic.md`) or the `05` table (non-ADR). Questions that need an answer go in `.planning/`.
 - Change a contract in its owning document only; other documents link to it. Never copy the same rule into several documents.
 - Put a document in the folder of the scope it covers. One package/app/menu: that folder's `docs/` (outside `src/`, because Tailwind reads strings in `src/` as classes). Design or contract several packages follow: root `docs/`. Reason: whoever edits the code finds it beside the code. Move records of finished work to the same area's `history/` and state at the top that it is a past record.
 - When a document and code disagree, find out which is right, then fix it. Do not report a document comparison as runtime verification.
