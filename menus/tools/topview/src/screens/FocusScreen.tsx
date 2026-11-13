@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePlatform } from '@ap/kernel';
-import { DetailDrawer, PlatformPage } from '@ap/components';
+import { DetailDrawer, PageKeyWarning, PlatformPage } from '@ap/components';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 import { FocusView, type FocusTab } from '@eqv/views';
 import { useReplayScreen } from '../use-replay-input.js';
 import { TrustLine, stateFor } from './states.js';
+import { useEquipmentOptions } from './EquipmentBar.js';
+import { usePageKeyRulesFor } from '../page-key-rules.js';
 
 /**
  * `eqv:focus`. Top View, Gantt and Occurrence list on one cursor over the applied time. The evidence of
@@ -48,5 +50,7 @@ function FocusBody() {
 
 /** The platform page frame (page title, Context bar) around the Focus view. */
 export function FocusScreen() {
-  return <PlatformPage title="Focus"><FocusBody /></PlatformPage>;
+  const rules = usePageKeyRulesFor(useEquipmentOptions().state);
+  // A rejected key sends no replay query: the load lives in `FocusBody`, which is not mounted while a key is invalid.
+  return <PlatformPage title="Focus">{rules.invalid ? <PageKeyWarning sentences={rules.sentences} onRecover={rules.recover} /> : <FocusBody />}</PlatformPage>;
 }

@@ -7,7 +7,7 @@ import { equipmentOptions, type EquipmentOptions } from '../endpoints.js';
 import type { HostProps } from '../host-props.js';
 import { EQV_MAX_WINDOW_HOURS } from '../limits.js';
 
-type OptionsState = { kind: 'ready'; options: EquipmentOptions['options'] } | { kind: 'message'; message: string };
+export type OptionsState = { kind: 'ready'; options: EquipmentOptions['options'] } | { kind: 'message'; message: string };
 const FAILED = '설비 목록을 불러오지 못했습니다';
 const MAX_MILLIS = EQV_MAX_WINDOW_HOURS * 3_600_000;
 

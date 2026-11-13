@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { DetailDrawer, PlatformPage, StateMessage } from '@ap/components';
+import { DetailDrawer, PageKeyWarning, PlatformPage, StateMessage } from '@ap/components';
 import { ArrowRight, MapPinOff, MousePointerClick, ServerCrash } from 'lucide-react';
 import { Button, EmptyState, FieldRow } from '@ap/ui';
 import { bindingLayout, seekSceneState, type EquipmentLayoutDocument, type OccurrenceBatch, type ReplayInput, type SceneState, type SiteWallClock } from '@eqv/core';
@@ -11,7 +11,8 @@ import { Panel, ViewerZoomControls } from '@eqv/ui';
 import { NoticeList } from '@eqv/views';
 import { useReplayScreen } from '../use-replay-input.js';
 import { TrustLine, stateFor } from './states.js';
-import { EquipmentBar, useEquipmentOptions } from './EquipmentBar.js';
+import { EquipmentBar, useEquipmentOptions, type OptionsState } from './EquipmentBar.js';
+import { usePageKeyRulesFor } from '../page-key-rules.js';
 
 type Scene = { state: SceneState; layout: EquipmentLayoutDocument | null } | { error: string };
 
@@ -60,11 +61,10 @@ function sceneAt(input: ReplayInput, to: SiteWallClock): Scene {
  * `eqv:topview` (the primary screen). The layout effective at the end of the applied window with the scene state as of `to`
  * (`seekSceneState`, evidence labels exactly as the reducer gives them). A selected Component's detail opens in the platform `DetailDrawer` (it closes on equipment, time or server-generation change, close and unmount).
  */
-function TopViewBody() {
+function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsState: OptionsState | null; refreshing: boolean; listFailed: boolean; retry: () => void }) {
   const { resolveLink, navigate } = usePlatform();
   const { lang } = useI18n();
   const { props, load, resetKey, generation, retry: retryLoad } = useReplayScreen();
-  const { state: optionsState, refreshing, failed: listFailed, retry } = useEquipmentOptions();
   const [selection, setSelection] = useState<{ key: string; id: string | null }>({ key: resetKey, id: null });
   const [zoomHost, setZoomHost] = useState<HTMLElement | null>(null);
   const input = load?.kind === 'ready' ? load.input : null;
@@ -115,5 +115,10 @@ function TopViewBody() {
 
 /** The platform page frame (page title, Context bar) around the board. */
 export function TopViewScreen() {
-  return <PlatformPage title="설비 Top View"><TopViewBody /></PlatformPage>;
+  const { state, refreshing, failed, retry } = useEquipmentOptions();
+  const rules = usePageKeyRulesFor(state);
+  // A rejected key sends no replay query: the load lives in `TopViewBody`, which is not mounted while a key is invalid.
+  return <PlatformPage title="설비 Top View">{rules.invalid
+    ? <PageKeyWarning sentences={rules.sentences} onRecover={rules.recover} />
+    : <TopViewBody optionsState={state} refreshing={refreshing} listFailed={failed} retry={retry} />}</PlatformPage>;
 }

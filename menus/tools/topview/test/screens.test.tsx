@@ -32,6 +32,9 @@ const fakeFor = (name: keyof typeof PATHS, options: Partial<FakeOptions> = {}) =
 });
 /** The equipment list declares no assessment kinds. */
 const listOk = (data: unknown) => ok(data, []);
+/** A ready equipment list that knows every equipment id these tests put in the address (a present `equipment` outside a ready list is rejected, #2055). */
+const KNOWN = [EQUIPMENT, 'eq-slow', 'eq-b', 'eq-synth-02', 'other-tool'];
+const knownList = () => listOk({ options: KNOWN.map((id) => ({ id, label: id, dataRange: null })) });
 const row = (id: string) => document.querySelector(`tr[data-occurrence-id="${id}"]`);
 const drawn = () => document.querySelector('tr[data-occurrence-id], [data-layer="replay"]');
 
@@ -40,7 +43,7 @@ describe('queries', () => {
     const fake = fakeFor('focus');
     const view = fake.render(FocusScreen);
     await waitFor(() => expect(row('occ-open')).not.toBeNull());
-    expect(fake.log.queries.map(({ id, params }) => [id, params])).toEqual([
+    expect(fake.log.queries.filter(({ id }) => id !== OPTIONS_ID).map(({ id, params }) => [id, params])).toEqual([
       [CONTEXT_ID, { equipmentId: EQUIPMENT }],
       [EVENTS_ID, { equipmentId: EQUIPMENT }],
       [EVENTS_ID, { equipmentId: EQUIPMENT, continuationToken: 'p2' }],
@@ -50,7 +53,7 @@ describe('queries', () => {
     expect(row('occ-carrier')).not.toBeNull();
     view.unmount();
     // A load that was already done has nothing to abort; the signal of a read left pending does (see load races).
-    expect(fake.log.queries).toHaveLength(3);
+    expect(fake.log.queries.filter(({ id }) => id !== OPTIONS_ID)).toHaveLength(3);
   });
 });
 
@@ -59,7 +62,7 @@ describe('states that need the user', () => {
     const fake = fakeFor(name, { page: {}, query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : server()(call) });
     fake.render(Screen);
     screen.getByText(name === 'topview' ? '위에서 설비를 고르세요' : 'Top View에서 설비를 고르세요');
-    await waitFor(() => expect(fake.log.queries.map(call => call.id)).toEqual(name === 'topview' ? [OPTIONS_ID] : []));
+    await waitFor(() => expect(fake.log.queries.map(call => call.id)).toEqual([OPTIONS_ID]));
   });
 });
 
@@ -70,7 +73,7 @@ describe('load races', () => {
       page: { equipment: 'eq-slow' },
       query: async (call) => {
         if (call.id === CONTEXT_ID && (call.params as { equipmentId: string }).equipmentId === 'eq-slow') return await late.promise;
-        if (call.id === OPTIONS_ID) return listOk({ options: [] });
+        if (call.id === OPTIONS_ID) return knownList();
         return await server()(call);
       },
     });
@@ -91,7 +94,7 @@ describe('request generations', () => {
     let calls = 0;
     const fake = fakeFor(name, {
       query: async (call) => {
-        if (call.id === OPTIONS_ID) return listOk({ options: [] });
+        if (call.id === OPTIONS_ID) return knownList();
         if (call.id === CONTEXT_ID && ++calls === 2) return await late.promise;
         return await server()(call);
       },
@@ -113,7 +116,7 @@ describe('request generations', () => {
     let aCalls = 0;
     const fake = fakeFor(name, {
       query: async (call) => {
-        if (call.id === OPTIONS_ID) return listOk({ options: [] });
+        if (call.id === OPTIONS_ID) return knownList();
         const equipmentId = (call.params as { equipmentId: string }).equipmentId;
         if (call.id === CONTEXT_ID && equipmentId === 'eq-b') return await slowB.promise;
         if (call.id === CONTEXT_ID && ++aCalls === 2) return await new Promise<never>(() => undefined);
@@ -142,7 +145,7 @@ describe('server generation (session, Kernel revision, adapter)', () => {
   it.each(cases)('%s: settled data is hidden at once after %s and the same equipment and time are read again', async (name, _change, Screen, run) => {
     const late = deferred<ApiResponse<unknown>>();
     let calls = 0;
-    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : call.id === CONTEXT_ID && ++calls === 2 ? await late.promise : await server()(call) });
+    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? knownList() : call.id === CONTEXT_ID && ++calls === 2 ? await late.promise : await server()(call) });
     fake.render(Screen);
     await waitFor(() => expect(drawn()).not.toBeNull());
     const url = fake.url();
@@ -158,7 +161,7 @@ describe('server generation (session, Kernel revision, adapter)', () => {
   it.each(cases)('%s: a pending request is aborted by %s and its late reply is not shown', async (name, _change, Screen, run) => {
     const late = deferred<ApiResponse<unknown>>();
     let calls = 0;
-    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : call.id === CONTEXT_ID && ++calls === 1 ? await late.promise : await server()(call) });
+    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? knownList() : call.id === CONTEXT_ID && ++calls === 1 ? await late.promise : await server()(call) });
     fake.render(Screen);
     await waitFor(() => expect(calls).toBe(1));
     const first = fake.log.queries.find(call => call.id === CONTEXT_ID)!;
@@ -172,7 +175,7 @@ describe('server generation (session, Kernel revision, adapter)', () => {
 });
 
 describe('outcomes', () => {
-  const failing = (outcome: ApiResponse<unknown>['outcome']) => fakeFor('topview', { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : server({ context: response(outcome, null, { message: `${outcome}-text` }) })(call) });
+  const failing = (outcome: ApiResponse<unknown>['outcome']) => fakeFor('topview', { query: async (call) => call.id === OPTIONS_ID ? knownList() : server({ context: response(outcome, null, { message: `${outcome}-text` }) })(call) });
 
   it.each([
     ['error', '불러오지 못했습니다', /error-text/],
@@ -188,7 +191,7 @@ describe('outcomes', () => {
   });
 
   it('empty shows the empty state', async () => {
-    const fake = fakeFor('topview', { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : server({ context: response('empty', null) })(call) });
+    const fake = fakeFor('topview', { query: async (call) => call.id === OPTIONS_ID ? knownList() : server({ context: response('empty', null) })(call) });
     fake.render(TopViewScreen);
     await screen.findByText('이 구간에 표시할 Occurrence가 없습니다');
   });
@@ -208,7 +211,7 @@ describe('outcomes', () => {
 
   it.each(SCREENS)('%s: Retry on forbidden re-requests the same equipment and time and shows the data; the address does not change', async (name, Screen) => {
     let denied = true;
-    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : denied ? response('forbidden', null) : await server()(call) });
+    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? knownList() : denied ? response('forbidden', null) : await server()(call) });
     fake.render(Screen);
     await screen.findByText('접근 권한이 필요합니다');
     const before = fake.url();
@@ -226,7 +229,7 @@ describe('outcomes', () => {
 
   it.each(SCREENS)('%s: non-clear assessments become one Data Trust line, not stacked notices; unknown is not worded as clear', async (name, Screen) => {
     const notClear = assessments({ coverage: { kind: 'coverage', state: 'unknown', reason: 'check_failed' }, collection: { kind: 'collection', state: 'confirmed' } });
-    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : server({ events: (token) => ok(token === undefined ? pages()[0] : pages()[1], notClear) })(call) });
+    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? knownList() : server({ events: (token) => ok(token === undefined ? pages()[0] : pages()[1], notClear) })(call) });
     fake.render(Screen);
     await waitFor(() => expect(drawn()).not.toBeNull());
     screen.getByTitle(/확인된 이슈 1건/);
@@ -252,7 +255,7 @@ describe('outcomes', () => {
 
   it.each(SCREENS)('%s: a tampered Mapping Version is an error state, not a partial replay', async (name, Screen) => {
     const tampered = { ...mappings[0]!, entries: mappings[0]!.entries.slice(0, -1) };
-    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : server({ context: ok({ ...contextData(), mappings: [tampered, mappings[1]!] }) })(call) });
+    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? knownList() : server({ context: ok({ ...contextData(), mappings: [tampered, mappings[1]!] }) })(call) });
     fake.render(Screen);
     await screen.findByText('데이터 오류');
     screen.getByText(/내용 hash가 맞지 않습니다/);
@@ -263,7 +266,7 @@ describe('outcomes', () => {
     const [first] = bindings.bindings;
     const other = { ...layout, id: 'eq-synth-01-layout-b' };
     const twin = { ...bindings, bindings: [first!, { ...first!, layoutId: other.id, effectiveFrom: '2026-01-01T10:04:30.000' }] };
-    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : server({ context: ok({ layouts: [layout, other], bindings: twin, mappings }) })(call) });
+    const fake = fakeFor(name, { query: async (call) => call.id === OPTIONS_ID ? knownList() : server({ context: ok({ layouts: [layout, other], bindings: twin, mappings }) })(call) });
     fake.render(Screen);
     await screen.findByText('데이터 오류');
     screen.getByText(/layoutId/);
@@ -403,7 +406,7 @@ describe('Top View', () => {
 
   it('shows one Data Trust line for non-clear assessments above the board', async () => {
     const notClear = assessments({ processing_delay: { kind: 'processing_delay', state: 'confirmed', detail: '15분 지연' } });
-    const fake = fakeFor('topview', { query: async (call) => call.id === OPTIONS_ID ? listOk({ options: [] }) : server({ events: (token) => ok(token === undefined ? pages()[0] : pages()[1], notClear) })(call) });
+    const fake = fakeFor('topview', { query: async (call) => call.id === OPTIONS_ID ? knownList() : server({ events: (token) => ok(token === undefined ? pages()[0] : pages()[1], notClear) })(call) });
     fake.render(TopViewScreen);
     await screen.findAllByText('2026-01-01 10:30:00');
     expect(screen.getAllByTitle(/확인된 이슈 1건/)).toHaveLength(1);
@@ -445,17 +448,25 @@ describe('Focus 재생 구간 in the page keys', () => {
     expect(rangeInputs().map((input) => input.value)).toEqual(['2026-01-01T10:05:00.000', '2026-01-01T10:12:00.000']);
   });
 
+  const warning = () => screen.getByRole('button', { name: '초기화' });
+  const replayQueries = (fake: ReturnType<typeof fakeFor>) => fake.log.queries.filter(({ id }) => id !== OPTIONS_ID);
   it.each([
     ['reversed', '2026-01-01T10:12:00.000', '2026-01-01T10:05:00.000'],
     ['equal', '2026-01-01T10:05:00.000', '2026-01-01T10:05:00.000'],
     ['malformed', 'not-a-time', '2026-01-01T10:12:00.000'],
     ['missing end', '2026-01-01T10:05:00.000', null],
     ['impossible calendar', '2026-02-30T10:00:00.000', '2026-02-30T11:00:00.000'],
-  ] as const)('a %s pair in the page keys is ignored, not applied', async (_name, rangeFrom, rangeTo) => {
+  ] as const)('a %s pair in the page keys shows the warning and sends no replay query; recover clears the bad keys', async (_name, rangeFrom, rangeTo) => {
     const fake = fakeFor('focus', { page: { equipment: EQUIPMENT, rangeFrom, ...(rangeTo === null ? {} : { rangeTo }) } });
     fake.render(FocusScreen);
+    await waitFor(() => expect(warning()).toBeTruthy());
+    expect(screen.queryByRole('form', { name: '구간' })).toBeNull();
+    await waitFor(() => expect(fake.log.queries.some(({ id }) => id === OPTIONS_ID)).toBe(true));
+    expect(replayQueries(fake)).toEqual([]);
+    fireEvent.click(warning());
+    await waitFor(() => expect([fake.page('rangeFrom'), fake.page('rangeTo')]).toEqual([null, null]));
+    expect(fake.page('equipment')).toBe(EQUIPMENT);
     await screen.findByRole('form', { name: '구간' });
-    expect(rangeInputs().map((input) => input.value)).not.toContain(rangeFrom);
   });
 
   it('a saved range survives a refresh of the same equipment, time and entry', async () => {
@@ -478,6 +489,47 @@ describe('Focus 재생 구간 in the page keys', () => {
     change(fake);
     await waitFor(() => expect(fake.page('rangeFrom')).toBeNull());
     expect(fake.page('rangeTo')).toBeNull();
+  });
+});
+
+describe('equipment page key (#2055)', () => {
+  const listOf = (ids: string[]) => async (call: QueryCall) => call.id === OPTIONS_ID ? listOk({ options: ids.map((id) => ({ id, label: id, dataRange: null })) }) : await server()(call);
+  const warn = () => screen.queryByRole('button', { name: '초기화' });
+  const replayQueries = (fake: ReturnType<typeof fakeFor>) => fake.log.queries.filter(({ id }) => id !== OPTIONS_ID);
+
+  it.each(SCREENS)('%s: an equipment outside a ready list shows the warning and sends no replay query; recover clears the key', async (name, Screen) => {
+    const fake = fakeFor(name, { page: { equipment: 'eq-unknown' }, query: listOf([EQUIPMENT]) });
+    fake.render(Screen);
+    await waitFor(() => expect(warn()).not.toBeNull());
+    // Until the list is ready the key passes, so a read may already have started: the warning aborts it and starts no other.
+    const sent = replayQueries(fake);
+    await waitFor(() => expect(sent.every(({ signal }) => signal?.aborted)).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(replayQueries(fake)).toEqual(sent);
+    fireEvent.click(warn()!);
+    await waitFor(() => expect(fake.page('equipment')).toBeNull());
+    expect(warn()).toBeNull();
+  });
+
+  it.each(SCREENS)('%s: an equipment in the list loads as before', async (name, Screen) => {
+    const fake = fakeFor(name, { query: listOf([EQUIPMENT]) });
+    fake.render(Screen);
+    await waitFor(() => expect(drawn()).not.toBeNull());
+    expect(warn()).toBeNull();
+    expect(fake.page('equipment')).toBe(EQUIPMENT);
+  });
+
+  it.each(SCREENS)('%s: while the list is loading or failed nothing is rejected', async (name, Screen) => {
+    const pending = deferred<ApiResponse<unknown>>();
+    const loading = fakeFor(name, { page: { equipment: 'eq-unknown' }, query: async (call) => call.id === OPTIONS_ID ? await pending.promise : await server()(call) });
+    loading.render(Screen);
+    await waitFor(() => expect(replayQueries(loading).length).toBeGreaterThan(0));
+    expect(warn()).toBeNull();
+    cleanup();
+    const failed = fakeFor(name, { page: { equipment: 'eq-unknown' }, query: async (call) => call.id === OPTIONS_ID ? response('error', null, { message: 'down' }) : await server()(call) });
+    failed.render(Screen);
+    await waitFor(() => expect(replayQueries(failed).length).toBeGreaterThan(0));
+    expect(warn()).toBeNull();
   });
 });
 
