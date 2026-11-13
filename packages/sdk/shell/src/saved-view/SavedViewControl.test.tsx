@@ -42,7 +42,7 @@ async function pick(user: ReturnType<typeof userEvent.setup>, name: string) {
 }
 const selector = () => screen.getByRole('button', { name: /^저장된 뷰:/, hidden: true });
 const toasts = () => Array.from(screen.getByRole('list', { name: 'toasts', hidden: true }).querySelectorAll('li'), li => li.textContent);
-beforeEach(() => { support = baseSupport; vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }); window.sessionStorage.clear(); });
+beforeEach(() => { support = baseSupport; vi.stubGlobal('localStorage', memoryStorage()); localStorage.setItem('platform:query-bar-collapsed:home', 'false'); /* these tests drive the open editor; the arrival default is pinned in QueryBar.test.tsx (#1892) */ vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }); window.sessionStorage.clear(); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('SavedViewControl in the query tool row', () => {

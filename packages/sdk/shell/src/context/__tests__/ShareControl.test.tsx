@@ -50,6 +50,7 @@ beforeEach(() => {
   vi.stubGlobal('sessionStorage', memoryStorage());
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   localStorage.setItem('platform:lang', 'ko');
+  localStorage.setItem('platform:query-bar-collapsed:query', 'false'); /* these tests drive the open editor; the arrival default is pinned in QueryBar.test.tsx (#1892) */
 });
 afterEach(() => {
   cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals();
