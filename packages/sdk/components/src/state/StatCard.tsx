@@ -8,11 +8,11 @@ export type Delta = { value: string; direction: 'up' | 'down'; /** Whether this 
 /** stat-card: icon chip + label + one primary number + delta + caption. One metric per tile. */
 export function StatCard({ icon: Icon, label, value, unit, delta, caption, chip = 'blue', onClick, active, footnote, secondary }: {
   icon: LucideIcon; label: ReactNode; value: ReactNode; unit?: ReactNode; delta?: Delta; caption?: ReactNode;
-  chip?: 'blue' | 'teal' | 'purple' | 'amber'; onClick?: () => void; active?: boolean; footnote?: ReactNode;
+  chip?: 'blue' | 'teal' | /** @deprecated Use `teal`; removed next SDK minor. */ 'purple' | /** @deprecated Use `blue`; removed next SDK minor. */ 'amber'; onClick?: () => void; active?: boolean; footnote?: ReactNode;
   /** Paired secondary number in the same tile (e.g. P95 beside P50), rendered at Secondary KPI scale. */
   secondary?: ReactNode;
 }) {
-  const chipClass = { blue: 'bg-icon-blue-soft text-accent-primary', teal: 'bg-icon-teal-soft text-cat-teal', purple: 'bg-cat-purple/10 text-cat-purple', amber: 'bg-accent-warn-soft text-cat-amber' }[chip];
+  const chipClass = { blue: 'bg-icon-blue-soft text-accent-primary', teal: 'bg-icon-teal-soft text-cat-teal', purple: 'bg-icon-teal-soft text-cat-teal', amber: 'bg-icon-blue-soft text-accent-primary' }[chip];
   const compact = useCompactPageDensity();
   const Tag = onClick ? 'button' : 'div';
   return <Tag type={onClick ? 'button' : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}

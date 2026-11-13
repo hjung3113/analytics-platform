@@ -24,3 +24,14 @@ it.each([[undefined], ['comfortable' as const]])('comfortable (%s): 16px padding
   expect(card().className).toContain('gap-3');
   expect(card().className).not.toMatch(/\bp-3\b|\bgap-2\b/);
 });
+
+it.each([
+  ['purple', 'teal'],
+  ['amber', 'blue'],
+] as const)('deprecated %s chip renders exactly like %s for the migration release', (legacy, supported) => {
+  const { container, rerender } = render(<StatCard icon={Timer} label="사이클타임" value="12" chip={legacy} />);
+  const legacyClass = container.querySelector('span')!.className;
+  rerender(<StatCard icon={Timer} label="사이클타임" value="12" chip={supported} />);
+  expect(legacyClass).toBe(container.querySelector('span')!.className);
+  expect(legacyClass).toContain(`bg-icon-${supported}-soft`);
+});

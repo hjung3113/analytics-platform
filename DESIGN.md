@@ -176,6 +176,8 @@ components:
 | `t-mono` | 12px / 1.4 / 상속 | 공유 `--font-mono` | ID·기술 값·correlation ID |
 | `tabular` | 크기·weight 상속 | tabular-nums lining-nums | 수치 열·분모·비교 값 |
 
+크기 전용 `text-caption`도 `--text-caption`의 12px을 쓰며 line-height는 상속한다. 사이드바 그룹 제목은 `t-nav-group`, 「예정」·개수 표시는 `t-badge`를 쓴다. 그룹 제목의 여백만 각 자리에서 정한다.
+
 표 header row는 승인된 프로토타입과 front matter binding대로 `t-table-header`를 사용한다(uppercase; 한국어 label은 대소문자 변환의 영향을 받지 않는다). PlatformDataTable의 sort button도 같은 uppercase 규칙을 따른다. 그룹 제목은 heading/disclosure가 아닌 section label이며 CSS uppercase가 navigation 동작을 뜻하지 않는다.
 
 ### Radius and layout extensions
@@ -249,6 +251,7 @@ Opt-in page density and embedded chart/table chrome follow [06 §12](docs/contra
 ### KPI tiles and supporting copy
 
 - icon·label·값·단위·기준이 있는 delta·보조 caption으로 구성한다. 한 tile에 무관한 두 primary 값을 쌓지 않는다.
+- `StatCard`의 icon chip은 `blue`(`icon-blue-soft`)·`teal`(`icon-teal-soft`) 두 가지이며 연결된 현재 지표의 차트 색과 맞춘다. `purple`·`amber`는 deprecated 값으로 한 릴리스 동안 각각 `teal`·`blue`와 같은 클래스로 표시한다. 메뉴는 다음 SDK minor 전에 이전한다.
 - primary 값은 `t-stat`, 보조 값은 `t-stat-2`; 숫자는 tabular, 단위는 덜 강조하되 읽을 수 있게 한다. delta는 비교 기간·분모를 함께 설명하고 증가 자체를 성공으로 판단하지 않는다.
 - 값 → 원천 표/상세로 추적할 수 있어야 한다. 갱신 시각·coverage·정의 버전은 DataTrust 계약과 함께 표시한다. unknown을 0 또는 0%로 만들지 않는다.
 - 보조 문구는 현재 조건과 다음 행동을 짧게 설명한다. sunken/hover/selected의 필수 문구는 secondary, 의미 문구는 공유 `text-text-*-label` 쌍을 사용한다. screenshot의 Live 표시는 실제 feed의 근거가 있을 때만 쓴다.
@@ -332,6 +335,8 @@ Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 
 ### Shared outcome banner and compact widget state — Decided (B, 2026-10-04)
 
 [06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 공유 응답 계약을 B안으로 표시한다([ADR-0017](docs/adr/0017-shared-outcome-banner.md)). 본문 상단 배너는 Callout 구조(아이콘·상태 제목·관측한 동일 응답 요약·그룹 재시도)이며 error/timeout은 danger-soft + danger-label border/title, empty는 sunken + control border + secondary다. 대표 Correlation ID나 추론한 수집 원인을 배너에 두지 않는다. 배너는 non-live group이며 처음부터 마운트된 scope의 assertive/polite 채널이 요약·갱신을 안내한다. 갱신 중 재시도는 같은 폭·포커스를 유지하고 spinner·busy를 표시하며 중복 활성화를 막는다. 배너 제거 때 내부 포커스는 이름 있는 본문/상세 영역으로 이동한다.
+
+묶이지 않은 오류 카드(`StateMessage tone="danger"`)는 `bg-accent-danger-soft`와 1px `border border-text-danger-label`을 쓴다. 아이콘은 `text-text-danger`, 제목은 `text-text-danger-label`, 본문·추적 번호·서버 세부는 `text-text-secondary`다. warning 톤의 recipe는 바꾸지 않는다.
 
 그룹 위젯은 중립 sunken 표면, 의미 아이콘·제목만 label token으로 표시한다. 이름·본문·timeout 조언·동작·ID를 직접 읽을 수 있게 배치한다. 작은 필수 본문은 sunken 위 secondary이며 opacity fade를 쓰지 않는다. 본문은 독립 행, 동작·ID는 다음 wrap 행으로 두어 좁은 카드에서 단어마다 줄이 갈라지지 않게 한다. 상위 heading과 같은 위젯 제목을 중복 표시하지 않되 접근 이름은 보존한다. chip/disclosure C안은 조언이 추가 클릭 뒤에 숨으므로 채택하지 않는다.
 

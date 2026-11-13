@@ -1,15 +1,24 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
 import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { groupId, spaceId } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppSidebar } from '../AppSidebar';
+import { SIDEBAR_GROUP_TITLE } from '../SidebarHierarchy';
 
 const base = 'relative flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary';
 const active = 'bg-surface-row-selected font-semibold text-text-primary';
 const view = 'relative flex min-h-8 items-center gap-2 rounded-md py-1.5 pl-9 pr-3 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary';
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+it.each(['AppSidebar.tsx', 'PlatformSidebar.tsx', 'SidebarHierarchy.tsx'])('%s shares the navigation group typography constant', file => {
+  expect(SIDEBAR_GROUP_TITLE.split(' ')).toContain('t-nav-group');
+  expect(SIDEBAR_GROUP_TITLE).not.toMatch(/text-caption|font-semibold|uppercase|tracking-wide/);
+  const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+  const titles = source.match(/<p className=\{cn\(SIDEBAR_GROUP_TITLE/g) ?? [];
+  expect(titles).toHaveLength(file === 'AppSidebar.tsx' ? 5 : 1);
+});
 it.each([false, true])('pins existing NavItem, NavViewItem and feature row classes (collapsed=%s)', async collapsed => {
   vi.stubGlobal('localStorage', memoryStorage());
   vi.stubGlobal('sessionStorage', memoryStorage());

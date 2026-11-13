@@ -167,7 +167,7 @@ to the same palette color (`accent-success`, `accent-warn`, `accent-info`).
 |------|------|-------------|----------------|-------|
 | system-mark | 8px | — | — | `--text-system-mark` |
 | micro | 9px | — | — | `--text-micro` |
-| caption | 10px | 1.4 | -0.13px | `--text-caption` |
+| caption | 12px | 1.4 | -0.13px | `--text-caption` |
 | tiny | 11px | — | — | `--text-tiny` |
 | xs | 12px | — | — | `--text-xs` |
 | sm | 13px | — | — | `--text-sm` |

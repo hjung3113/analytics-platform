@@ -22,6 +22,7 @@
  * The semantic base tokens remain.
  * #799 (2026-10-06): internal Task status labels gained matching `-label`
  * tokens measured on each status tint over every Task badge surface.
+ * #1945: caption is 12px, matching the current DESIGN typography contract.
  */
 
 export interface TokenEntry {
@@ -232,7 +233,7 @@ export const PACK_17_TOKENS: TokenEntry[] = [
   },
 
   // --- Typography: sizes ---
-  { tokenName: '--text-caption', raw: '10px' },
+  { tokenName: '--text-caption', raw: '12px' },
   { tokenName: '--text-tiny', raw: '11px' },
   { tokenName: '--text-xs', raw: '12px' },
   { tokenName: '--text-sm', raw: '13px' },
