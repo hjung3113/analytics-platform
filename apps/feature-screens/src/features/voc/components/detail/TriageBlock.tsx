@@ -1,6 +1,8 @@
 // TriageBlock — read-only triage fields; edits happen in the triage console (#363).
 
 import { TRIAGE_STATE_LABELS } from '@/lib/copy/enum-labels';
+import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
+import { shortId } from '@/lib/identity';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { SeverityBadge, UnassignedBadge } from '@ap/feature-ui';
@@ -11,6 +13,7 @@ export interface TriageBlockProps {
   voc: VocDetailEnvelope;
   /** The host places this section at the top of its properties track. */
   leading?: boolean;
+  ownerTeamName?: string | null | undefined;
   ownerDisplayName?: string | null | undefined;
   analyticsAreaName?: string | null | undefined;
   canTriage: boolean;
@@ -22,6 +25,7 @@ export function TriageBlock({
   voc,
   leading = false,
   ownerDisplayName,
+  ownerTeamName,
   analyticsAreaName,
   canTriage,
   onOpenTriage,
@@ -57,6 +61,10 @@ export function TriageBlock({
       <FieldRow label="담당자" inset="none">
         {voc.owner_user_id !== null ? (
           <UserChip user={{ display_name: ownerDisplayName ?? GLOSSARY.owner }} size="sm" />
+        ) : voc.owner_team_id != null ? (
+          <span className="text-sm text-text-primary">
+            {RESPONSIBILITY_COPY.teamMark} · {ownerTeamName ?? `팀 ${shortId(voc.owner_team_id)}`}
+          </span>
         ) : (
           <UnassignedBadge />
         )}

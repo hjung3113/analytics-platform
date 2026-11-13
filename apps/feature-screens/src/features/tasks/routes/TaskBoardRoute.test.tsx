@@ -1,3 +1,5 @@
+import { TaskBoardCardPreview } from '../components/task-board/TaskBoardCard';
+import { GLOSSARY } from '@/lib/copy/glossary';
 import { ApiError } from '@/lib/api/types';
 import { TASK_PRIORITY_LABELS } from '@/lib/copy/enum-labels';
 import { TaskBoardRoute } from '@/test/screen-host/features/tasks/routes/TaskBoardRoute';
@@ -828,4 +830,37 @@ describe('TaskBoardRoute', () => {
     render(<TasksRouteView search={{ view: 'requests' }} />);
     expect(screen.getByText('task requests unchanged')).toBeInTheDocument();
   });
+});
+
+
+it('keeps an unresolved assigned actor distinct from unassigned on the board', async () => {
+  const actorId = '00000000-0000-4000-8000-000000000051';
+  api.listTasks.mockImplementation(boardList([{ ...task, assignee_actor_id: actorId }]));
+  renderBoard();
+  const card = await screen.findByRole('button', { name: `${task.display_id}: ${task.title}` });
+  expect(within(card).getByText(GLOSSARY.unknownUser)).toBeInTheDocument();
+  expect(within(card).queryByText('담당자 없음')).not.toBeInTheDocument();
+});
+
+it('uses the unknown-user group title instead of the unresolved actor UUID', async () => {
+  const actorId = '00000000-0000-4000-8000-000000000051';
+  api.listTasks.mockImplementation(boardList([{ ...task, assignee_actor_id: actorId }]));
+  renderBoard();
+  await screen.findByRole('button', { name: `${task.display_id}: ${task.title}` });
+  fireEvent.click(screen.getByRole('button', { name: '그룹화' }));
+  fireEvent.click(screen.getByRole('radio', { name: '담당자' }));
+  expect(await screen.findByLabelText(`${GLOSSARY.unknownUser} 열`)).toBeInTheDocument();
+  expect(screen.queryByText(actorId)).not.toBeInTheDocument();
+});
+
+it('uses the unknown-user label in the drag preview for an unresolved assignee', () => {
+  render(
+    <TaskBoardCardPreview
+      task={{ ...task, assignee_actor_id: '00000000-0000-4000-8000-000000000051', assignee_team_id: null }}
+      selected={false}
+      managedSystemName="운영 시스템"
+    />,
+  );
+  expect(screen.getByText(GLOSSARY.unknownUser)).toBeInTheDocument();
+  expect(screen.queryByText('담당자 없음')).not.toBeInTheDocument();
 });

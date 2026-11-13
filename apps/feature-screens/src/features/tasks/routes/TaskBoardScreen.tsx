@@ -1,3 +1,4 @@
+import { GLOSSARY } from '@/lib/copy/glossary';
 import { ListStateMessage } from '@/components/ListStateMessage';
 import { MyVocsRecoveryLink } from '@/components/MyVocsRecoveryLink';
 import { mapUnknownError } from '@/lib/api/errorMapper';
@@ -375,7 +376,7 @@ export function TaskBoardScreen({ renderDetail }: TaskBoardScreenProps) {
         key,
         label: key.startsWith('team:')
           ? taskTeamLabel(key.slice(5), teamNames)
-          : (actorNames.get(key) ?? key),
+          : (actorNames.get(key) ?? GLOSSARY.unknownUser),
       }))
       .concat({ key: '__unassigned', label: '미배정' });
   }, [actorNames, teamNames, items, groupBy, systemNames, data.columns]);

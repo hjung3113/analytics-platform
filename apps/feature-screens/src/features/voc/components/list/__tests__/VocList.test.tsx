@@ -1,3 +1,4 @@
+import * as actorApi from '@/lib/api/actors';
 import { usePermissionCheckBridge } from '@/lib/cross-system/usePermissionCheckBridge';
 import type { VocListItem } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
@@ -336,4 +337,23 @@ describe('Inbox retry accessibility (#953)', () => {
     expect(alert).toHaveTextContent('불러오기 실패');
     await waitFor(() => expect(document.activeElement).toBe(document.body));
   });
+});
+
+
+it('resolves a persisted team owner and passes its name to the list row', async () => {
+  const teamId = '00000000-0000-4000-8000-000000000050';
+  const resolve = vi.spyOn(actorApi, 'resolveActors').mockResolvedValue({
+    actors: [], teams: [{ id: teamId, name: '운영팀' }],
+  });
+  try {
+    render(
+      <VocList items={[makeVoc({ owner_team_id: teamId })]} loading={false} error={null} onSelect={() => {}} />,
+      { wrapper: makeWrapper() },
+    );
+    expect(await screen.findByText('팀 · 운영팀')).toBeInTheDocument();
+    expect(screen.queryByText('담당자 없음')).not.toBeInTheDocument();
+    expect(resolve).toHaveBeenCalledWith({ actorIds: [], teamIds: [teamId] }, expect.any(AbortSignal));
+  } finally {
+    resolve.mockRestore();
+  }
 });

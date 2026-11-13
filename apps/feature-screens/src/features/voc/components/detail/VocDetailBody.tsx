@@ -67,6 +67,7 @@ export function VocDetailBody({
     setReviewOpen,
     scrollRef,
     actorNamesById,
+    ownerTeamName,
     analyticsAreasById,
     canTriage,
     noFollowUpScope,
@@ -115,7 +116,7 @@ export function VocDetailBody({
     <div data-anchor="overview">
       <IdentitySection
         voc={voc}
-        reporterDisplayName={actorNamesById.get(voc.reporter_id) ?? me?.actor.display_name}
+        reporterDisplayName={actorNamesById.get(voc.reporter_id)}
         {...(titleInHeader ? { titleInHeader } : {})}
       />
     </div>
@@ -128,6 +129,7 @@ export function VocDetailBody({
         ownerDisplayName={
           voc.owner_user_id != null ? (actorNamesById.get(voc.owner_user_id) ?? null) : null
         }
+        ownerTeamName={ownerTeamName}
         analyticsAreaName={
           voc.analytics_area_id != null
             ? (analyticsAreasById.get(voc.analytics_area_id) ?? null)
