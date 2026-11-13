@@ -228,8 +228,28 @@ const reactUiConfigs = (reactHooks) => [
 // These are factories, called by index.js after it defines the pieces they take (index.js owns the Hooks block and the
 // design-system config; importing them here would make the two modules circular).
 
-/** platform-api: Node server, no browser or React. @type {() => import('eslint').Linter.Config[]} */
-export const featureServer = () => baseConfigs();
+const typedServerConfig = () => (
+  // A promise nobody awaits loses its rejection: on a Fastify route the reply can go out before the write, or an error
+  // never reaches the error handler (#1972). The rule needs type information, so this block alone parses with the
+  // package's tsconfig. Tests are left out: several are outside `tsconfig.json` (typed by tsconfig.platform-tests.json),
+  // which the project service cannot open, and a test's floating promise fails the test run instead.
+  {
+    files: ['src/**/*.ts'],
+    ignores: ['src/**/__tests__/**', 'src/**/*.test.ts'],
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: process.cwd() } },
+    rules: { '@typescript-eslint/no-floating-promises': 'error' },
+  }
+);
+
+/**
+ * platform-api: Node server, no browser or React. `typed: false` leaves out the type-aware block, for probes that lint
+ * text under a path that does not exist (the project service cannot open it).
+ * @type {(options?: { typed?: boolean }) => import('eslint').Linter.Config[]}
+ */
+export const featureServer = ({ typed = true } = {}) => [
+  ...baseConfigs(),
+  ...(typed ? [typedServerConfig()] : []),
+];
 
 /** feature-shared: contracts shared by the server and the screens; no React. @type {() => import('eslint').Linter.Config[]} */
 export const featureShared = () => baseConfigs();

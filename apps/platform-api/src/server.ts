@@ -37,6 +37,7 @@ import { getStorage } from './lib/storage/factory.js';
 import type { StorageBackend } from './lib/storage/index.js';
 import { installCrossSiteGuard } from './middleware/cross-site-guard.js';
 import { SESSION_COOKIE_NAME } from './middleware/require-session.js';
+import { installRouteAuthCheck } from './middleware/route-auth.js';
 import { catalogReportRoutes, createRuleCoveragePort, logRulesContribution } from './modules/log-rules/index.js';
 import {
   apiTokenRoutes,
@@ -515,6 +516,9 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
 
   // ADR-0116 token gate: after the rate limiter (a failed Bearer call counts in the IP bucket), before any route.
   installTokenGate(app as unknown as FastifyInstance, { tokens: apiTokenService });
+  // #1972: every route registered from here on declares its auth mode (a marked guard, `public` or `authInHandler`);
+  // an undeclared route makes buildServer() throw.
+  installRouteAuthCheck(app as unknown as FastifyInstance);
 
   // ── Error handler ─ FO ADR-0012 envelope (lib/http-error-handler.ts) ────
   // Registered on the ROOT instance: a plugin-scoped setErrorHandler would

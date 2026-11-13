@@ -691,6 +691,13 @@ const eqvBanOnly = eqvBanOnlyFor();
 /** @type {import('eslint').Linter.Config[]} */
 export const featureServerPreset = [...featureServer(), eqvBanOnlyFor(['@eqv/core'])];
 
+/**
+ * `featureServerPreset` without its type-aware block (#1972): only for tests that lint text under a path that does not
+ * exist, which the project service cannot open. Never a package's lint config.
+ * @type {import('eslint').Linter.Config[]}
+ */
+export const featureServerUntypedPreset = [...featureServer({ typed: false }), eqvBanOnlyFor(['@eqv/core'])];
+
 /** @type {import('eslint').Linter.Config[]} */
 export const featureSharedPreset = [...featureShared(), eqvBanOnly];
 

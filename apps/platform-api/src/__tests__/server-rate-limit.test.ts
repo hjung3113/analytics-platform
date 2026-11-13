@@ -137,9 +137,10 @@ function createDbHandle(opts: {
 
 async function buildFakeServer(dbHandle: DbHandle): Promise<FastifyInstance> {
   const app = await buildServer({ config: config(), dbHandle });
-  app.get('/issue-25-global-probe', async () => ({ ok: true }));
+  // Probe routes measure the limiter only; they declare `public` because every route must declare an auth mode (#1972).
+  app.get('/issue-25-global-probe', { config: { public: true } }, async () => ({ ok: true }));
   for (const [tier, url] of RATE_LIMIT_TIER_PROBES) {
-    app.get(url, { config: { rateLimit: app.rateLimitConfig[tier] as never } }, async () => ({
+    app.get(url, { config: { public: true, rateLimit: app.rateLimitConfig[tier] as never } }, async () => ({
       ok: true,
       tier,
     }));

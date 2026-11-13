@@ -52,7 +52,8 @@ export const logExplorerExportRoutes: FastifyPluginAsync<LogExplorerExportRoutes
     return app.errorHandler(err, req, reply);
   };
 
-  app.post('/export', { config: { tokenCallable: true }, errorHandler }, async (req, reply) => {
+  // authInHandler (#1972): the disconnect listener is attached before the session lookup (see below).
+  app.post('/export', { config: { tokenCallable: true, authInHandler: true }, errorHandler }, async (req, reply) => {
     // The client going away cancels the Source reads and the stream. Tracked BEFORE the authentication await (same order as the menu-query
     // route), so a disconnect while the session loads is not missed; an already destroyed connection starts aborted.
     const abandoned = new AbortController();

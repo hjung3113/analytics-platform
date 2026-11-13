@@ -16,6 +16,13 @@ declare module 'fastify' {
     tokenCallable?: boolean;
     /** A token call to this route is a mutation: it uses the mutation-sized per-token rate-limit bucket. */
     tokenMutation?: boolean;
+    /**
+     * #1972: the route is reachable without authentication on purpose (health probes, the login flow). State the
+     * reason beside the declaration. A route needs this, `authInHandler` or a marked guard hook, or startup fails.
+     */
+    public?: boolean;
+    /** #1972: the handler authenticates the caller itself (no marked guard hook can run first without a behaviour change). */
+    authInHandler?: boolean;
   }
   interface FastifyRequest {
     session?: {

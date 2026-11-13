@@ -11,6 +11,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
 import type { Db } from '../../db/client.js';
 import { sendError, statusForCode } from '../../lib/errors.js';
+import { markAuthGuard } from '../../middleware/route-auth.js';
 import { SESSION_COOKIE_NAME } from '../../middleware/require-session.js';
 import type { ActorRecord, SessionRecord, SessionService } from '../auth/session-service.js';
 import type { CheckService } from '../permissions/check-service.js';
@@ -101,22 +102,34 @@ export const platformSavedViewRoutes: FastifyPluginAsync<PlatformSavedViewsOptio
     };
   }
 
+  // #1972: the lookup runs as a marked preHandler. The command keeps CSRF first, as when the handler authenticated.
+  const sessions = new WeakMap<FastifyRequest, SavedViewSession>();
+  const authenticateFirst = markAuthGuard(async (req: FastifyRequest, reply: FastifyReply) => {
+    const session = await authenticate(req, reply);
+    if (!session) return reply;
+    sessions.set(req, session);
+    return undefined;
+  });
+  const sessionOf = (req: FastifyRequest): SavedViewSession => {
+    const session = sessions.get(req);
+    if (!session) throw new Error('session guard did not run before the handler');
+    return session;
+  };
+
   /** Plain JSON, serialized by hand: `null` (a missing `get`) must reach the client as the text `null`, not an empty body. */
   const respond = (reply: FastifyReply, value: unknown) =>
     reply.code(200).type('application/json; charset=utf-8').send(JSON.stringify(value));
 
-  app.post('/saved-views/commands', { preHandler: csrf }, async (req, reply) => {
-    const session = await authenticate(req, reply);
-    if (!session) return reply;
+  app.post('/saved-views/commands', { preHandler: [csrf, authenticateFirst] }, async (req, reply) => {
+    const session = sessionOf(req);
     const parsed = req.body === MALFORMED_BODY ? null : savedViewCommandSchema.safeParse(req.body);
     if (!parsed?.success)
       return sendError(reply, 'validation.malformed_request', 'invalid saved view command');
     return respond(reply, await service.execute(session, parsed.data));
   });
 
-  app.post('/people/lookup', async (req, reply) => {
-    const session = await authenticate(req, reply);
-    if (!session) return reply;
+  app.post('/people/lookup', { preHandler: authenticateFirst }, async (req, reply) => {
+    const session = sessionOf(req);
     const parsed =
       req.body === MALFORMED_BODY ? null : peopleLookupRequestSchema.safeParse(req.body);
     if (!parsed?.success)

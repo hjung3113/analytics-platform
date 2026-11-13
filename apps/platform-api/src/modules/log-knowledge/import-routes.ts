@@ -9,11 +9,12 @@ import { viewerOf } from './repositories/access-visibility.js';
 import { createHash } from 'node:crypto';
 
 import type pg from 'pg';
-import type { FastifyPluginAsync, FastifyReply, preHandlerHookHandler } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
 
 import type { Db } from '../../db/client.js';
 import { HttpError, sendError } from '../../lib/errors.js';
 import { requireIdempotencyKey } from '../../lib/http-headers.js';
+import { markAuthGuard } from '../../middleware/route-auth.js';
 import type { SessionService } from '../auth/session-service.js';
 import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import { runIdempotentCommand } from '../core/idempotency/idempotent-command.js';
@@ -23,6 +24,7 @@ import { requireCsrf } from '../platform-port/csrf.js';
 import {
   type LoadedSession,
   createAuthenticator,
+  createSessionGuard,
   platformActorOf,
 } from '../platform-port/transport.js';
 import { encodeRfc5987, asciiFallback } from '../attachments/rfc5987.js';
@@ -71,12 +73,14 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
   const authorize = importAuthorizer(opts.checkService);
 
   const authenticated = new WeakMap<object, LoadedSession>();
-  const authenticateFirst: preHandlerHookHandler = async (req, reply) => {
+  const authenticateFirst: preHandlerHookHandler = markAuthGuard(async (req: FastifyRequest, reply: FastifyReply) => {
     const loaded = await authenticate(req, reply, true);
     if (!loaded) return reply;
     authenticated.set(req, loaded);
     return undefined;
-  };
+  });
+  // The report reads without touching the session, as before; its guard is a preHandler like the writes' (#1972).
+  const reportGuard = createSessionGuard(authenticate, false);
 
   app.post('/imports', { preHandler: [authenticateFirst, csrf] }, async (req, reply) => {
     const loaded = authenticated.get(req);
@@ -222,9 +226,8 @@ export const importRoutes: FastifyPluginAsync<ImportRoutesOptions> = async (app,
   });
 
   // ---- report: one row per file row with the plan, the resolution and the apply outcome -----------------------
-  app.get('/imports/:jobId/report.csv', async (req, reply) => {
-    const loaded = await authenticate(req, reply, false);
-    if (!loaded) return reply;
+  app.get('/imports/:jobId/report.csv', { preHandler: reportGuard.preHandler }, async (req, reply) => {
+    const loaded = reportGuard.loadedOf(req);
     const actor = platformActorOf(loaded);
     if (!(await authorize(actor, opts.db))) {
       return sendError(reply, 'permission.denied', 'No permission knowledge.catalog.import');

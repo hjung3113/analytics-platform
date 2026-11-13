@@ -7,13 +7,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { contracts, featureScreensPreset, featureServerPreset, featureSharedPreset, featureUiPreset } from './index.js';
+import { contracts, featureScreensPreset, featureServerPreset, featureServerUntypedPreset, featureSharedPreset, featureUiPreset } from './index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
 
 const PACKAGES = {
-  'apps/platform-api': { name: '@ap/platform-api', preset: featureServerPreset },
+  // Probes lint text under paths that do not exist; the typed block cannot open them (#1972). It is pinned on its own below.
+  'apps/platform-api': { name: '@ap/platform-api', preset: featureServerUntypedPreset },
   'packages/feature-shared': { name: '@ap/feature-shared', preset: featureSharedPreset },
   'packages/feature-ui': { name: '@ap/feature-ui', preset: featureUiPreset },
   'apps/feature-screens': { name: '@ap/feature-screens', preset: featureScreensPreset },
@@ -100,6 +101,19 @@ describe('feature full-source presets: correctness policy carried over from the 
     expect(await lint(SERVER, 'src/probe.ts', code)).toEqual([]);
     expect(await lint('packages/feature-shared', 'src/probe.ts', code, contracts)).not.toEqual([]);
   });
+});
+
+describe('server preset: type-aware no-floating-promises (#1972)', () => {
+  // The project service opens only files on disk, so the probe text is linted under an existing source path.
+  const code = 'export async function f(p: Promise<void>) {\n  p;\n  await p;\n}\n';
+
+  it('reports an unawaited promise in server source', async () => {
+    expect(await lint(SERVER, 'src/middleware/route-auth.ts', code, featureServerPreset)).toContain('@typescript-eslint/no-floating-promises');
+  }, 300_000);
+
+  it('leaves tests out of the typed block', async () => {
+    expect(await lint(SERVER, 'src/middleware/__tests__/route-auth.test.ts', code, featureServerPreset)).not.toContain('@typescript-eslint/no-floating-promises');
+  }, 300_000);
 });
 
 describe('feature full-source presets: checks the compiler no longer reports for files outside every tsc program', () => {
@@ -362,5 +376,6 @@ describe('package lint dispatch', () => {
       clearInterval(heartbeat);
       rmSync(scratch, { recursive: true, force: true });
     }
-  }, 180_000);
+  // The platform-api row runs the type-aware lint (#1972): it builds the package's TS program, about 2.5x the untyped run.
+  }, 600_000);
 });

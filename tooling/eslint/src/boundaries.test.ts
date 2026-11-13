@@ -20,7 +20,7 @@ import {
   featureBridgePreset,
   featureBridgeMenuPreset,
   featureScreensPreset,
-  featureServerPreset,
+  featureServerUntypedPreset,
   featureSharedPreset,
   featureUiPreset,
   hostModule,
@@ -1040,7 +1040,7 @@ describe('EV ban outside the host slot', () => {
   });
 
   const FEATURE: [string, Linter.Config[]][] = [
-    ['apps/platform-api', featureServerPreset], ['packages/feature-shared', featureSharedPreset],
+    ['apps/platform-api', featureServerUntypedPreset], ['packages/feature-shared', featureSharedPreset],
     ['packages/feature-ui', featureUiPreset], ['apps/feature-screens', featureScreensPreset],
   ];
   it.each(FEATURE.flatMap(([dir, preset]) => importForms('@eqv/ui/sub').map((f) => ({ dir, preset, ...f }))))('$dir rejects @eqv/ui/sub ($form)', async ({ dir, preset, code, rule }) => {
@@ -1064,13 +1064,13 @@ describe('EV ban outside the host slot', () => {
 
   it.each(importForms('@eqv/core'))('apps/platform-api allows @eqv/core ($form) and nothing else of EV', async ({ code }) => {
     const cwd = path.join(REPO_ROOT, 'apps/platform-api');
-    const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: featureServerPreset });
+    const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: featureServerUntypedPreset });
     const [result] = await eslint.lintText(code, { filePath: path.join(cwd, 'src/x.ts') });
     expect((result?.messages ?? []).filter((m) => m.message.includes('ADR-0132')), code).toEqual([]);
   });
   it.each(['@eqv/renderer', '@eqv/ui'].flatMap((source) => importForms(source)))('apps/platform-api rejects other EV packages ($form)', async ({ code, rule }) => {
     const cwd = path.join(REPO_ROOT, 'apps/platform-api');
-    const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: featureServerPreset });
+    const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: featureServerUntypedPreset });
     const [result] = await eslint.lintText(code, { filePath: path.join(cwd, 'src/x.ts') });
     expect((result?.messages ?? []).some((m) => m.ruleId === rule && m.message.includes('ADR-0132'))).toBe(true);
   });

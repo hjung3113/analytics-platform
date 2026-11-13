@@ -34,6 +34,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   app.route({
     method: 'GET',
     url: '/auth/login',
+    config: { public: true }, // login entry: the caller has no session yet
     schema: {
       querystring: z.object({ return_to: z.string().optional() }),
     },
@@ -76,6 +77,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   app.route({
     method: 'GET',
     url: '/auth/callback',
+    config: { public: true }, // IdP redirect target: the session is created here
     handler: async (req, reply) => {
       if (authProvider.name === 'mock') {
         return sendError(reply, 'not_found.record', 'auth callback is not available');
@@ -128,6 +130,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   app.route({
     method: 'GET',
     url: '/auth/mock-login',
+    config: { public: true }, // dev-only picker before any session; 404 in production
     schema: {
       querystring: z.object({ return_to: z.string().optional() }),
     },
@@ -169,6 +172,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   app.route({
     method: 'POST',
     url: '/auth/mock-login',
+    config: { public: true }, // dev-only login: creates the session; 404 in production
     schema: {
       body: z.object({ external_id: z.string().min(1), return_to: z.string().optional() }),
     },
@@ -213,6 +217,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   app.route({
     method: 'POST',
     url: '/auth/logout',
+    config: { public: true }, // must answer with no or an expired cookie: logout revokes what it finds, else no-op
     handler: async (req, reply) => {
       const cookie = req.cookies?.[SESSION_COOKIE_NAME];
       if (cookie) {

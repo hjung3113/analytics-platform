@@ -4,13 +4,14 @@
 // cookie-session lookup. Notice routes are children of the platform plugin and inherit all of it.
 
 import { errorCodeSchema } from '@ap/feature-shared';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
 
 import { replyIfDbTimeout } from '../../lib/db-timeout.js';
 import { sendError, statusForCode } from '../../lib/errors.js';
 import { refuseLostTokenContext } from '../api-tokens/gate.js';
 import { tokenSessionOf } from '../api-tokens/request-state.js';
 import { SESSION_COOKIE_NAME } from '../../middleware/require-session.js';
+import { markAuthGuard } from '../../middleware/route-auth.js';
 import type { ActorRecord, SessionRecord, SessionService } from '../auth/session-service.js';
 import type { PlatformActor } from './permissions.js';
 
@@ -115,6 +116,30 @@ export function createAuthenticator(deps: {
     }
     return loaded;
   };
+}
+
+/**
+ * The cookie-session lookup as a marked preHandler (#1972): `preHandler` authenticates with the same `touch`, answers
+ * the same 401/403 and stops the route; `loadedOf` hands the session to the handler. A route that also checks CSRF
+ * lists the guard after the CSRF hook when the handler used to authenticate after it, so the order is unchanged.
+ */
+export function createSessionGuard(authenticate: Authenticate, touch: boolean): {
+  preHandler: preHandlerHookHandler;
+  loadedOf: (req: FastifyRequest) => LoadedSession;
+} {
+  const loadedSessions = new WeakMap<FastifyRequest, LoadedSession>();
+  const preHandler: preHandlerHookHandler = markAuthGuard(async (req: FastifyRequest, reply: FastifyReply) => {
+    const loaded = await authenticate(req, reply, touch);
+    if (!loaded) return reply;
+    loadedSessions.set(req, loaded);
+    return undefined;
+  });
+  const loadedOf = (req: FastifyRequest): LoadedSession => {
+    const loaded = loadedSessions.get(req);
+    if (!loaded) throw new Error('session guard did not run before the handler');
+    return loaded;
+  };
+  return { preHandler, loadedOf };
 }
 
 export function platformActorOf(loaded: LoadedSession): PlatformActor {
