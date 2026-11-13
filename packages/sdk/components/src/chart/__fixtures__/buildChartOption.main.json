@@ -8,7 +8,6 @@
  },
  "tooltip": {
   "trigger": "axis",
-  "renderMode": "richText",
   "confine": true,
   "textStyle": {
    "fontSize": 12
