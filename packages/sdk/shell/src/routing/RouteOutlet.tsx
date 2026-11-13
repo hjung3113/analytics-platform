@@ -1,5 +1,5 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useLayoutEffect, useRef } from 'react';
 import { CONTEXT_LABELS, PAGE_TYPE_LABELS, contractErrorSentence, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { LoadingBlock, Panel, PlatformPage, StateMessage, focusPageFallback } from '@ap/components';
@@ -46,12 +46,13 @@ export function ScreenOutlet() {
   if (contractError) return <ContractErrorView />;
   // Space entry is checked before the menu permission (06 §9.1/§2): the route still matches, but the page never mounts and nothing redirects.
   if (currentSpace !== null && currentSpace.permission !== undefined && !can(currentSpace.permission)) {
-    return <KernelMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={lang === 'ko' ? '이 업무 시스템에 들어갈 수 없습니다' : 'You cannot enter this business system'}
+    return <KernelMessage heading={tx(currentSpace.label)} tone="warning" icon={<Ban className="size-4" aria-hidden />} title={t('spaceDenied')}
       body={<>{tx(currentSpace.label)}. {t('askAccessOwner')}</>} />;
   }
   if (metricInit.phase === 'confirm') {
-    return <KernelMessage icon={<Link2Off className="size-4" aria-hidden />} title={lang === 'ko' ? '발행 버전 확인 중' : 'Confirming the released version'}
-      body={lang === 'ko' ? '서버가 확인한 버전을 URL에 기록하기 전에는 조회하지 않습니다.' : 'Nothing is queried until the server-confirmed version is written into the URL.'} />;
+    // This is a transient URL-stamping step; the final menu owns the pending arrival focus.
+    return <div className="p-6"><StateMessage icon={<Link2Off className="size-4" aria-hidden />} title={lang === 'ko' ? '발행 버전 확인 중' : 'Confirming the released version'}
+      body={lang === 'ko' ? '서버가 확인한 버전을 URL에 기록하기 전에는 조회하지 않습니다.' : 'Nothing is queried until the server-confirmed version is written into the URL.'} action={<HomeLink />} /></div>;
   }
   if (metricInit.phase === 'blocked') {
     const id = global.metricId;
@@ -68,7 +69,7 @@ export function ScreenOutlet() {
       action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); setGlobal({ metricId: null, metricVersion: null }, { replace: true }); }}>{lang === 'ko' ? '이 지표 쌍 지우기' : 'Clear this metric pair'}</Button>} /></div>;
   }
   // Direct URL to a menu hidden by permission: the server check still answers (§17), distinct from "no data".
-  if (!menuPermissions(route.menu).every(can)) return <KernelMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={lang === 'ko' ? '이 메뉴에 대한 권한이 없습니다' : 'You do not have access to this menu'}
+  if (!menuPermissions(route.menu).every(can)) return <KernelMessage heading={tx(route.menu.label)} tone="warning" icon={<Ban className="size-4" aria-hidden />} title={t('menuDenied')}
     body={<>{tx(route.menu.label)}. {t('askAccessOwner')}</>} />;
   const Page = route.menu.component;
   const pageKey = route.menu.id + JSON.stringify(route.params);
@@ -82,17 +83,38 @@ export function ScreenOutlet() {
   </RouteErrorBoundary>;
 }
 
-function KernelMessage({ icon, title, body, tone }: { icon: React.ReactNode; title: string; body: React.ReactNode; tone?: 'warning' | 'danger' }) {
-  return <div className="p-6"><StateMessage tone={tone} icon={icon} title={title} body={body} action={<HomeLink />} /></div>;
+/** No menu chrome or Scope/query slots: these screens can have no route or no permission to mount menu content. */
+function KernelStatePage({ title, children }: { title: string; children: React.ReactNode }) {
+  const { pageNavigation, pathname, screenMode } = useHostPlatform();
+  const heading = useRef<HTMLHeadingElement>(null);
+  // This screen instance owns a kept arrival across its own re-subscriptions (StrictMode replay, pathname-equal rewrites).
+  const owner = useRef(Symbol('kernel state page'));
+  useLayoutEffect(() => {
+    // The board owns a pane's heading and automatic arrival focus (ADR-0049).
+    if (screenMode === 'pane') return;
+    // The same Kernel handoff as PlatformPage and BoardSurface: explicit arrival only, including delayed dialog release.
+    const focus = () => { if (pageNavigation.consume(pathname)) heading.current?.focus({ preventScroll: true }); };
+    focus();
+    return pageNavigation.subscribe(focus, owner.current);
+  }, [pathname, pageNavigation, screenMode]);
+  return <div data-platform-page className="flex min-h-full flex-col">
+    {screenMode !== 'pane' && <header className="flex h-[50px] shrink-0 items-center border-b border-border-subtle bg-surface-canvas px-4">
+      <h1 ref={heading} tabIndex={0} title={title} className="min-w-0 truncate text-sm font-semibold text-text-primary">{title}</h1>
+    </header>}
+    <div data-platform-page-content tabIndex={-1} className="p-6">{children}</div>
+  </div>;
+}
+
+function KernelMessage({ heading, icon, title, body, tone }: { heading?: string; icon: React.ReactNode; title: string; body: React.ReactNode; tone?: 'warning' | 'danger' }) {
+  return <KernelStatePage title={heading ?? title}><StateMessage tone={tone} icon={icon} title={title} body={body} action={<HomeLink />} /></KernelStatePage>;
 }
 
 function ContractErrorView() {
   const { contractError, resetContext, url } = useHostPlatform();
   const { t, lang } = useI18n();
-  return <div className="p-6"><StateMessage tone="danger" icon={<Link2Off className="size-4" aria-hidden />} title={t('contractError')}
+  return <KernelStatePage title={t('contractError')}><StateMessage tone="danger" icon={<Link2Off className="size-4" aria-hidden />} title={t('contractError')}
     body={<><p>{contractErrorSentence(lang, contractError!)}</p><p className="t-mono mt-2 break-all">{url}</p></>}
-    detail={contractError!.message}
-    action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); resetContext(); }}>{t('resetContext')}</Button>} /></div>;
+    action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); resetContext(); }}>{t('resetContext')}</Button>} /></KernelStatePage>;
 }
 
 /** Registry-only menu: proves shell, permissions and Context transfer work before the screen exists. */

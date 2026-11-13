@@ -34,11 +34,10 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
   return <TooltipProvider delayDuration={200}>
     <aside data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
       <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
-        {!collapsed && (sidebarSpace === null
-          ? <p className="min-w-0 truncate text-sm font-semibold">{t('appName')}</p>
+        {!collapsed && (systems === null || sidebarSpace === null
+          ? <p className="min-w-0 truncate text-sm font-semibold">{t('platformName')}</p>
           : <div className="min-w-0"><p className="truncate text-sm font-semibold">{tx(sidebarSpace.label)}</p>
-            {systems === null ? <p className="truncate text-caption text-text-muted">{t('appName')}</p>
-              : sectionName !== null && sectionName !== tx(sidebarSpace.label) && <p className="truncate text-caption text-text-muted">{sectionName}</p>}</div>)}
+            {sectionName !== null && sectionName !== tx(sidebarSpace.label) && <p className="truncate text-caption text-text-muted">{sectionName}</p>}</div>)}
         <Tooltip><TooltipTrigger asChild>
           <button type="button" onClick={onToggle} aria-label={collapsed ? t('expand') : t('collapse')} aria-keyshortcuts="["
             className="ml-auto grid size-7 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-text-primary">

@@ -90,3 +90,82 @@ describe('return focus through a legacy-form returnTo (ADR-0093)', () => {
     expect(navigation.consume('/mars/source')).toBe('page');
   });
 });
+
+describe('blocked main-screen arrival (#1893)', () => {
+  it.each(['page', 'return', 'drill'] as const)('keeps only page arrival when content is blocked (%s)', focus => {
+    const navigation = createPageNavigation('/home?v=1');
+    navigation.subscribe(() => {});
+    navigation.advance('/locked?v=1', focus);
+    navigation.cancel(true);
+    expect(navigation.consume('/locked')).toBe(focus === 'page' ? 'page' : null);
+  });
+
+  it('keeps a gated page arrival until the dialog releases it, while default cancel still drops it', () => {
+    let blocked = true;
+    const navigation = createPageNavigation('/home?v=1', () => blocked);
+    navigation.subscribe(() => {});
+    navigation.advance('/locked?v=1', 'page');
+    navigation.cancel(true);
+    expect(navigation.consume('/locked')).toBeNull();
+    blocked = false;
+    expect(navigation.consume('/locked')).toBe('page');
+    navigation.advance('/other?v=1', 'page');
+    navigation.cancel();
+    expect(navigation.consume('/other')).toBeNull();
+  });
+
+  it('cancels page arrival when no screen subscribes to consume it, including after unmount', () => {
+    const navigation = createPageNavigation('/home?v=1');
+    navigation.advance('/locked?v=1', 'page');
+    navigation.cancel(true);
+    expect(navigation.consume('/locked')).toBeNull();
+    const unsubscribe = navigation.subscribe(() => {});
+    unsubscribe();
+    navigation.advance('/locked?v=1', 'page');
+    navigation.cancel(true);
+    expect(navigation.consume('/locked')).toBeNull();
+  });
+
+  it('expires a kept page arrival when its subscriber leaves before the gate opens (#1893)', () => {
+    let blocked = true;
+    const navigation = createPageNavigation('/home?v=1', () => blocked);
+    const unsubscribe = navigation.subscribe(() => {});
+    navigation.advance('/locked?v=1', 'page');
+    navigation.cancel(true);
+    unsubscribe();
+    blocked = false;
+    expect(navigation.consume('/locked')).toBeNull();
+  });
+
+  it.each([
+    ['a StrictMode effect re-run', '/locked?v=1'],
+    ['a same-screen URL rewrite', '/locked?v=1&from=2026-09-25T09:00:00'],
+  ])('keeps a kept page arrival when its owner subscribes again after %s (#1893)', (_case, rewritten) => {
+    let blocked = true;
+    const navigation = createPageNavigation('/home?v=1', () => blocked);
+    const owner = Symbol('blocked screen');
+    const unsubscribe = navigation.subscribe(() => {}, owner);
+    navigation.advance('/locked?v=1', 'page');
+    navigation.cancel(true);
+    navigation.materialize(rewritten);
+    unsubscribe();
+    expect(navigation.consume('/locked')).toBeNull();
+    navigation.subscribe(() => {}, owner);
+    navigation.cancel(true);
+    blocked = false;
+    expect(navigation.consume('/locked')).toBe('page');
+  });
+
+  it('expires a kept page arrival when a different screen subscribes in its place (#1893)', () => {
+    let blocked = true;
+    const navigation = createPageNavigation('/home?v=1', () => blocked);
+    const unsubscribe = navigation.subscribe(() => {}, Symbol('blocked screen'));
+    navigation.advance('/locked?v=1', 'page');
+    navigation.cancel(true);
+    unsubscribe();
+    navigation.subscribe(() => {}, Symbol('ordinary screen'));
+    navigation.subscribe(() => {});
+    blocked = false;
+    expect(navigation.consume('/locked')).toBeNull();
+  });
+});

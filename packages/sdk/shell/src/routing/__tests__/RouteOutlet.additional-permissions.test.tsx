@@ -124,6 +124,7 @@ describe('module menus keep the primary-only ModuleScopedId predicate (ADR-0053)
     expect(seen.resolveLink('fixture:list').allowed).toBe(false);
     expect(seen.globalMenus.concat(seen.menusInSpace(spaceId('mars'))).map(m => m.id)).not.toContain('fixture:list');
     expect(screen.queryByRole('heading', { name: 'Fixture list' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'list' })).toBeTruthy();
     expect(screen.getByText(DENIED)).toBeTruthy();
     expect(lists).toHaveLength(0);
   });
