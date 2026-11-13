@@ -303,7 +303,9 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 ## 9. Information Architecture
 
-최상위 Navigation Group:
+**층 계약 (Decided):** 내비게이션은 업무 시스템(공간, §9.1) → 그룹 → 메뉴의 세 층이다. 계약이 고정하는 것은 이 층 구조뿐이고, 그룹 목록·순서·공간 귀속은 앱 조립이 `GROUPS`(`apps/platform-web/src/menus.ts`)로 선언한다([ADR-0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md), [ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)).
+
+초기 IA 기록(공간 층 도입 전의 최상위 Navigation Group, 지금의 그룹 목록이 아니다):
 
 ```text
 Overview
@@ -316,7 +318,7 @@ Notice & VOC
 Administration
 ```
 
-이 7그룹을 navigation IA의 단일 기준으로 둔다(Decided). 표시명은 운영 개요 / 설비관리 / 기준정보관리 / 생산성 분석 / 지표관리 / 공지·VOC / 관리·감사다. 이 그룹들은 §9.1의 워크스페이스 층 아래에서 배치된다. 관리·감사는 운영 콘솔로 이동한다. 나머지 그룹의 업무 공간 귀속은 §9.1에서 Decided다([ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)). `../product/domain-menus.md`의 6개 도메인 중 공지와 VOC가 한 그룹을 공유하고, 운영 개요·관리·감사는 플랫폼 기능이다. 도메인 개수와 내비게이션 그룹 개수를 같게 맞출 필요는 없다. 하위 화면 배치와 표시명 변경은 별도 설계 결정이다.
+표시명은 운영 개요 / 설비관리 / 기준정보관리 / 생산성 분석 / 지표관리 / 공지·VOC / 관리·감사였다. 공간 층이 생긴 뒤 그룹은 공간마다 나뉘어 늘었고(관리·감사는 운영 콘솔로 이동), 지금 목록은 `GROUPS`가 원본이다. `../product/domain-menus.md`의 6개 도메인 중 공지와 VOC가 한 그룹을 공유하고, 운영 개요·관리·감사는 플랫폼 기능이다. 도메인 개수와 내비게이션 그룹 개수를 같게 맞출 필요는 없다. 하위 화면 배치와 표시명 변경은 별도 설계 결정이다.
 
 Sidebar 기능(셸 구조는 §7, ADR-0011):
 
