@@ -1886,13 +1886,16 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
   });
 
   test('최대화: 도구줄 아래 보이는 영역 높이이고 복원 버튼이 화면 안에 있으며, 복원하면 스크롤 위치가 돌아오고 최대화 중에는 띠가 없다', async ({ page }, testInfo) => {
-    // #1978: with the query bar collapsed (the new start for an applied address, #1892) the restore does not return the scroll; this check measures the open-bar layout until that is fixed.
-    await page.addInitScript(() => localStorage.setItem('platform:query-bar-collapsed:cycle-time', 'false'));
     await open(page);
     await main(page).evaluate(element => { element.scrollTop = 300; });
     const before = await scrollTop(page);
+    expect(before).toBeGreaterThan(ROUNDING);
     const group = groupOf(page, TITLES.trend);
-    await group.getByRole('button', { name: `${TITLES.trend} 최대화` }).click();
+    // The trend header is above the visible area at this scroll position: a real click would first scroll it into view and move the position the restore must return to.
+    // Focus it without scrolling, as a real click would, so Escape later reaches the workspace.
+    const maximize = group.getByRole('button', { name: `${TITLES.trend} 최대화` });
+    await maximize.evaluate(button => { (button as HTMLElement).focus({ preventScroll: true }); });
+    await maximize.dispatchEvent('click');
     await expect(dropStrip(page)).toHaveCount(0);
     const restore = group.getByRole('button', { name: '원래 크기로' });
     await expect(restore).toBeVisible();
@@ -1909,7 +1912,8 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await page.keyboard.press('Escape');
     await expect(restore).toHaveCount(0);
     await expect(dropStrip(page)).toHaveCount(1);
-    expect(Math.abs((await scrollTop(page)) - before)).toBeLessThanOrEqual(ROUNDING);
+    // The restore retries for a few frames while the page grows back: wait for the final value.
+    await expect.poll(async () => Math.abs((await scrollTop(page)) - before)).toBeLessThanOrEqual(ROUNDING);
   });
 
   test('최대화: 긴 쌓기 맨 아래에서 최대화·복원을 두 번 반복해도 버튼·메뉴·Esc 모두 스크롤 위치가 돌아온다', async ({ page }) => {
