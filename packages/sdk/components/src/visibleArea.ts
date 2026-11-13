@@ -101,3 +101,41 @@ export function alignUnderChrome(element: HTMLElement, workspaceRoot: HTMLElemen
   const top = container.getBoundingClientRect().top + stickyChromeHeight(workspaceRoot.closest('[data-platform-page]'));
   container.scrollTop += element.getBoundingClientRect().top - top;
 }
+
+/** How many animation frames a scroll restore keeps trying while the page is still shorter than the saved offset. */
+const RESTORE_FRAMES = 12;
+
+/**
+ * Puts `container` back at `offset` after a layout change that shrank it (the maximize box). The browser clamps `scrollTop` to the scroll room that
+ * exists when it is written, and the dock engine re-fits its rows after the commit, so a short page (collapsed query bar) can clamp the write to 0.
+ * Writes now, then retries each frame until the offset holds or `RESTORE_FRAMES` have passed. A wheel, touch, key or pointer press on the container
+ * after the first frame means the user has taken over and ends the retries. Returns a cancel function.
+ */
+export function restoreScrollOffset(container: HTMLElement, offset: number): () => void {
+  let frame = 0;
+  let stopped = false;
+  const takeOver = () => stop();
+  const stop = () => {
+    stopped = true;
+    if (frame) cancelAnimationFrame(frame);
+    for (const type of ['wheel', 'touchstart', 'keydown', 'pointerdown']) container.removeEventListener(type, takeOver);
+  };
+  container.scrollTop = offset;
+  let left = RESTORE_FRAMES;
+  let watching = false;
+  const step = () => {
+    frame = 0;
+    if (stopped || !container.isConnected) return stop();
+    if (!watching) {
+      // Attached a frame late on purpose: the key press or click that triggered the restore (Escape, the restore button) is often still bubbling to
+      // the container when this runs, and it must not count as the user taking over.
+      watching = true;
+      for (const type of ['wheel', 'touchstart', 'keydown', 'pointerdown']) container.addEventListener(type, takeOver, { passive: true });
+    }
+    if (Math.abs(container.scrollTop - offset) <= 1 || left-- <= 0) return stop();
+    container.scrollTop = offset;
+    frame = requestAnimationFrame(step);
+  };
+  frame = requestAnimationFrame(step);
+  return stop;
+}
