@@ -38,7 +38,8 @@ export function installStaleChunkNotice(reload: () => void = () => window.locati
     root = createRoot(host);
     root.render(<StaleChunkNotice onReload={reload} />);
   };
-  const onPreloadError = (event: Event) => { event.preventDefault(); show(); };
+  // Never `preventDefault()` here: Vite then rethrows the original import rejection, which the nearest boundary needs to recognise a chunk failure (a prevented event makes the import resolve to `undefined` and the lazy slot's retry then fails for good).
+  const onPreloadError = () => show();
   const onRejection = (event: Event) => { if (isChunkLoadFailure((event as PromiseRejectionEvent).reason)) show(); };
   window.addEventListener('vite:preloadError', onPreloadError);
   window.addEventListener('unhandledrejection', onRejection);

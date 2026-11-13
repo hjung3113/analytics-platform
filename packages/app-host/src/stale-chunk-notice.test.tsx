@@ -10,11 +10,11 @@ const install = (reload = vi.fn()) => { remove = installStaleChunkNotice(reload)
 afterEach(() => { remove?.(); remove = null; cleanup(); });
 
 describe('stale chunk notice (#1981)', () => {
-  it('vite:preloadError is prevented and shows one reload notice without the error text; the button reloads', async () => {
+  it('vite:preloadError shows one reload notice without the error text and is not prevented (Vite must still rethrow the import rejection to the local boundary); the button reloads', async () => {
     const reload = install();
     const event = new Event('vite:preloadError', { cancelable: true });
     act(() => { window.dispatchEvent(event); });
-    expect(event.defaultPrevented).toBe(true);
+    expect(event.defaultPrevented).toBe(false);
     expect(await screen.findByText(NOTICE, { exact: false })).toBeInTheDocument();
     expect(screen.queryByText(/fixture-chunk/)).toBeNull();
     expect(reload).not.toHaveBeenCalled();
