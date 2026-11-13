@@ -16,6 +16,7 @@
 - **구현 안 함 — 재검증 요청(N5)·Task/VOC/Finding 전달(H8)·첨부(H6) (#1808):** 이유: H6/H8의 방향은 Decided지만 재검증·외부 도메인 전달·첨부 연결 노드는 구현하지 않았다. 다시 여는 조건: 해당 노드의 범위를 배정하고 대상 API 권한·EntityLink 허용 쌍 및 첨부 보관/ACL 조건을 확정할 때. [설계](../docs/design/features/log-lifecycle/validation-issues-discussion.md).
 - **구현 안 함 — 검증 항목 정정·작성자 이름·Round 전체 수 (#1808 N3):** Round 화면은 등록·댓글·연결·읽기만 제공한다. 정정(`validationIssueCorrect`, 원 작성자만) 화면, 댓글/항목의 작성자 표시 이름(API가 Actor ID만 준다), 검증 항목의 Round 전체 수는 없다. 전체 수는 #1917의 API가 현재 ACL을 적용한 Round 필터의 `counts.open`·`counts.closed`·`counts.byState`로 이미 주지만 N3 화면과 mock 계약이 아직 쓰지 않아, 헤더·Gate 패널·개발 건 요약은 `검증 항목 집계 불가`로 표시한다. 이유: 정정 방향은 H5에서 Decided지만 화면은 미구현이고, 작성자 표시 이름 투영도 없다. 다시 열 조건: 정정 요청이 오거나 N3 후속이 counts를 화면·mock 계약에 연결하고 실제 Round 필터 집계를 확인할 때(그때 헤더는 첫 페이지 크기와 무관한 그 값을 쓴다). [설계 노드](../docs/design/features/log-lifecycle/validation-issues-discussion.md#6-18151809-경계와-구현-노드).
 - **구현 안 함 — Round 진단 리포트·첨부 상세 (#1815, #1809):** 기존 서버 규칙 결과·근거·발췌만 표시한다. 이유: 출력 보존·진단 읽기·첨부 ACL은 #1815 범위다. 다시 여는 조건: #1815의 읽기/첨부 노드와 시안 승인이 준비될 때. 구현됨: A3의 근거 행 두 상태(A2 부분); 남음: A1 summary 투영·Slice B 표/첨부 상세(R1·R2 범위 확정 대기). [설계·선행 노드](../docs/design/features/log-lifecycle/diagnostic-report-parity.md).
+- **구현 안 함 — 운영 compose 전체 스택 기동 검증 (#1881):** 합성 묶음·스냅샷·키를 넣은 운영 compose의 backend 실기동은 돌리지 않았다. `docker compose config`(마운트·변수), preflight 시험, `loadMenuDeclarationSetup` 기동 시험, `--dist` 이미지 빌드·edge 서빙만 확인했다. 이유: 전체 스택과 backend 이미지 빌드가 필요하고 묶음 형식이 라우팅·커넥터·스냅샷까지 커졌다. 다시 여는 조건: 사내 첫 스택 기동(#1836) 때 실패하거나, 운영 compose를 바꾸는 다음 변경. [운영]
 
 ## 작은 후속 (확인된 것)
 
