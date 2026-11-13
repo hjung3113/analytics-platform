@@ -201,6 +201,18 @@ describe('restoreScrollOffset (#1978)', () => {
     frames(3);
     expect(element.scrollTop).toBe(300);
   }));
+  it('ends on an input a child consumed (stopPropagation) after the first frame', () => withFrames(() => {
+    const { element, grow } = clamped(0);
+    const child = document.createElement('button');
+    element.append(child);
+    child.addEventListener('keydown', event => { event.stopPropagation(); });
+    restoreScrollOffset(element, 300);
+    frames(1);
+    child.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    grow(900);
+    frames(5);
+    expect(element.scrollTop).toBe(0);
+  }));
   it('can be cancelled by the caller', () => withFrames(() => {
     const { element, grow } = clamped(0);
     const cancel = restoreScrollOffset(element, 300);

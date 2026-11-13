@@ -1912,7 +1912,8 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await page.keyboard.press('Escape');
     await expect(restore).toHaveCount(0);
     await expect(dropStrip(page)).toHaveCount(1);
-    expect(Math.abs((await scrollTop(page)) - before)).toBeLessThanOrEqual(ROUNDING);
+    // The restore retries for a few frames while the page grows back: wait for the final value.
+    await expect.poll(async () => Math.abs((await scrollTop(page)) - before)).toBeLessThanOrEqual(ROUNDING);
   });
 
   test('최대화: 긴 쌓기 맨 아래에서 최대화·복원을 두 번 반복해도 버튼·메뉴·Esc 모두 스크롤 위치가 돌아온다', async ({ page }) => {
