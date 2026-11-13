@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { Clock, Cpu, Gauge } from 'lucide-react';
+import { AlertTriangle, Clock, Cpu, Gauge } from 'lucide-react';
 import { formatNumber } from '@ap/contracts';
 import { useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AnalysisChart, AnalysisLayout, Button, DataTrustIndicator, LaneTimeline, PlatformPage, QueryView, StateMessage, StatCard, type TimelineLane } from '@ap/components';
+import { AnalysisChart, AnalysisLayout, DataTrustIndicator, LaneTimeline, PlatformPage, QueryView, RecoverButton, StateMessage, StatCard, type TimelineLane } from '@ap/components';
 import { operationTimeEndpoint, type OperationKind, type OperationTimeData } from '../endpoints';
 
 const KIND_COLOR = { process: 'chart-series-1', transfer: 'chart-series-2', wait: 'chart-series-3' } as const;
@@ -63,9 +63,9 @@ function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeDat
           legend: rooms.map(room => ({ label: room, colorToken: roomColor(room) })) }} /> },
     ]}
     breakdown={{ id: 'flow', title: flowTitle, node: data.missingEquipment !== null
-      ? <StateMessage tone="danger" title={tx({ ko: `요청한 설비 ${data.missingEquipment}는 현재 Scope·room 조건에 없습니다`, en: `The requested equipment ${data.missingEquipment} is not in the current Scope and room conditions` })}
+      ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={tx({ ko: `요청한 설비 ${data.missingEquipment}는 현재 Scope·room 조건에 없습니다`, en: `The requested equipment ${data.missingEquipment} is not in the current Scope and room conditions` })}
           body={tx({ ko: '다른 설비로 바꿔 그리지 않습니다. 설비 선택을 지우면 순위 1위 설비의 흐름을 봅니다.', en: 'No other equipment is drawn in its place. Clear the selection to see the flow of the top-ranked equipment.' })}
-          action={<Button type="button" variant="secondary" size="toolbar" onClick={() => setPage({ eqp: null })}>{tx({ ko: '설비 선택 지우기', en: 'Clear equipment selection' })}</Button>} />
+          action={<RecoverButton onRecover={() => setPage({ eqp: null })} label={tx({ ko: '설비 선택 지우기', en: 'Clear equipment selection' })} />} />
       : <div className="space-y-2">
         <PreviousEquipmentLine equipment={previousEquipment} />
         <LaneTimeline key={data.equipmentId} lanes={lanes} ariaLabel={flowTitle} description={period} trust={trust} height={320}
