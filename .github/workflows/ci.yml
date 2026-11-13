@@ -115,8 +115,8 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          # 로컬 검증 환경(Node 26.7.0 / pnpm 11.1.1)과 동일.
-          node-version: '26.7.0'
+          # Node 버전은 .nvmrc 한 곳에서 읽는다(#1951). 로컬 검증 환경과 같다.
+          node-version-file: .nvmrc
           cache: pnpm
       # Relative links and heading anchors in tracked Markdown (CLAUDE.md symlinks and vendored skills excluded); every PR; node builtins only, before install.
       - run: node .github/scripts/check-doc-links.mjs
@@ -135,8 +135,8 @@ jobs:
         if: ${{ env.DOCS_ONLY != 'true' && env.TURBO_FORCE != 'true' }}
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-node26.7.0-static-${{ github.sha }}
-          restore-keys: turbo-${{ runner.os }}-node26.7.0-static-
+          key: turbo-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-static-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-static-
       - name: Guard unified root task graphs
         if: ${{ env.DOCS_ONLY != 'true' }}
         run: |
@@ -152,7 +152,8 @@ jobs:
           node --test apps/platform-e2e/tests-kit/*.test.mjs
       - run: pnpm lint
         if: ${{ env.DOCS_ONLY != 'true' }}
-      - run: pnpm typecheck
+      # #1951: typecheck only, 4 packages at once on the 4-vCPU runner (turbo.json keeps 2 for local runs and the vitest jobs).
+      - run: pnpm typecheck --concurrency=4
         if: ${{ env.DOCS_ONLY != 'true' }}
       - name: Additional feature static gates
         if: ${{ env.DOCS_ONLY != 'true' }}
@@ -229,7 +230,7 @@ jobs:
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-node26.7.0-static-${{ github.sha }}
+          key: turbo-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-static-${{ github.sha }}
 
   # `pnpm test` beside Platform static. #166: turbo concurrency is capped at 2 in turbo.json (vitest workers × parallel packages oversubscribe a runner or a 16 GB Mac).
   # #1680: three package groups on three runners, so the longest package (`@ap/feature-screens`, ~560 s of vitest in the
@@ -273,7 +274,7 @@ jobs:
       - uses: actions/setup-node@v5
         if: ${{ env.DOCS_ONLY != 'true' }}
         with:
-          node-version: '26.7.0'
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: ${{ env.DOCS_ONLY != 'true' }}
@@ -282,8 +283,8 @@ jobs:
         if: ${{ env.DOCS_ONLY != 'true' && env.TURBO_FORCE != 'true' }}
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-node26.7.0-test-${{ matrix.shard }}-${{ github.sha }}
-          restore-keys: turbo-${{ runner.os }}-node26.7.0-test-${{ matrix.shard }}-
+          key: turbo-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-test-${{ matrix.shard }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-test-${{ matrix.shard }}-
       # Load context for a vitest `Timeout calling "onTaskUpdate"` or a 5 s test timeout (#1227): runner CPUs, load and the worker cap in force.
       - name: Runner load context
         if: ${{ env.DOCS_ONLY != 'true' }}
@@ -306,7 +307,7 @@ jobs:
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-node26.7.0-test-${{ matrix.shard }}-${{ github.sha }}
+          key: turbo-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-test-${{ matrix.shard }}-${{ github.sha }}
 
   feature-integration:
     needs: changes
@@ -454,7 +455,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: '26.7.0'
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Playwright image matches @playwright/test
@@ -495,7 +496,7 @@ jobs:
       - uses: actions/setup-node@v5
         if: ${{ steps.scope.outputs.run == 'true' }}
         with:
-          node-version: '26.7.0'
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: ${{ steps.scope.outputs.run == 'true' }}
@@ -554,7 +555,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: '26.7.0'
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # The image tag above and @playwright/test must move together; fail loudly instead of drifting.
@@ -635,7 +636,7 @@ jobs:
       - uses: actions/setup-node@v5
         if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
         with:
-          node-version: '26.7.0'
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
@@ -727,7 +728,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: '26.7.0'
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Build demo (mock, sub-path)

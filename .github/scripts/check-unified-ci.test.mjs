@@ -73,5 +73,17 @@ test('Platform test shards cover every package once', () => {
   assert.deepEqual(excluded.map(f => f.slice(1)).sort(), ['@ap/platform-api', ...included].sort());
   // One package alone may use every vCPU; shards running two packages at once keep 2 workers each (4 vCPUs).
   for (const s of shards) assert.ok(s.workers * (s.filters.length === 1 && !s.filters[0].includes('*') ? 1 : 2) <= 4, `shard ${s.shard} workers`);
-  assert.match(job, /key: turbo-\$\{\{ runner\.os \}\}-node26\.7\.0-test-\$\{\{ matrix\.shard \}\}-/);
+  assert.match(job, /key: turbo-\$\{\{ runner\.os \}\}-node\$\{\{ hashFiles\('\.nvmrc'\) \}\}-test-\$\{\{ matrix\.shard \}\}-/);
+});
+
+// #1951: the Node version lives in .nvmrc only, so a Node upgrade is one edit and no job runs a stale version.
+test('every setup-node step reads .nvmrc', () => {
+  for (const name of ['ci.yml', 'pages.yml', 'css-selectors.yml']) {
+    const text = readFileSync(new URL(`../workflows/${name}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(text, /node-version:\s/, `${name} hardcodes node-version`);
+    assert.doesNotMatch(text, /node\d+\.\d+\.\d+/, `${name} hardcodes a Node version in a cache key`);
+    const setups = text.match(/uses: actions\/setup-node@/g)?.length ?? 0;
+    const files = text.match(/node-version-file: \.nvmrc/g)?.length ?? 0;
+    assert.equal(files, setups, `${name}: every setup-node step needs node-version-file: .nvmrc`);
+  }
 });
