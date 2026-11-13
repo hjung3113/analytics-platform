@@ -173,6 +173,7 @@ FeedbackOps 합류, 플랫폼 기능 메뉴, VOC·과제·감사 화면.
 - [0125](0125-event-order-search-uses-structured-event-relation-records.md) — Event 순서 검색은 본문 해석이 아니라 Revision이 구조화해 적은 Event 관계 기록으로 한다
 - [0136](0136-verification-expected-behavior-and-criteria.md) — 기능 검증: 기대 동작표, 판단 기준, 플랫폼 제공 기능을 Home에서 눌러서 확인
 - [0152](0152-worker-input-delivery-source-owner-step.md) — 작업자 입력 전달은 공급자 중립인 Source 소유자의 별도 단계로 둔다
+- [0159](0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md) — 시도별 진단(`AttemptDiagnostic`)은 별도 worker 쓰기 경로·유한 상한·Source ACL 읽기, summary 투영은 자유 텍스트 없는 키 다섯 개, 첨부는 Source 참조로 미룸
 
 ## EV (설비 시각화)
 
