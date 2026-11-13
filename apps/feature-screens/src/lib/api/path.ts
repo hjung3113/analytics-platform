@@ -26,7 +26,7 @@ export interface ApiPathSegment {
 
 /** A non-id path segment: rejected when empty, `.` or `..`, otherwise `encodeURIComponent`-encoded. */
 export function segment(value: string): ApiPathSegment {
-  if (value === '' || value === '.' || value === '..') throw new ApiPathError('segment');
+  if (typeof value !== 'string' || value === '' || value === '.' || value === '..') throw new ApiPathError('segment');
   return { [encoded]: encodeURIComponent(value) };
 }
 
@@ -48,8 +48,12 @@ export function apiPath(
     if (typeof value === 'string') {
       if (!isApiPathId(value)) throw new ApiPathError('id');
       out += value;
-    } else {
+    } else if (typeof value === 'object' && value !== null && typeof value[encoded] === 'string') {
       out += value[encoded];
+    } else {
+      // A response value is not type-checked at runtime by unparsed reads: anything that is neither a UUID string nor a
+      // `segment()` result (a number, null, an object) must stop here, before a request.
+      throw new ApiPathError('id');
     }
     out += strings[index + 1] ?? '';
   });

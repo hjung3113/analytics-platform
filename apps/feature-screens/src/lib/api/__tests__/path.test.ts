@@ -18,7 +18,7 @@ import { listTaskComments } from '../tasks-comments';
 import { fetchVocOwnerCandidates } from '../voc-owner-candidates';
 import { ApiParseError } from '../types';
 
-const ID = '11111111-1111-4111-8111-111111111111';
+const ID = 'abcdef12-1111-4111-8111-1111111111ab';
 const OTHER = '22222222-2222-4222-8222-222222222222';
 const U = '33333333-3333-4333-8333-333333333333';
 const AT = '2026-01-01T00:00:00.000Z';
@@ -157,6 +157,27 @@ const milestone = (id: string) => ({
   updated_at: AT,
   progress: { released_done: 0, in_flight: 0, queued: 0, total: 0, percent: 0 },
   source_finding: null,
+});
+
+describe('runtime types', () => {
+  it.each([[42], [null], [undefined], [{ toString: () => ID }], [['x']], [true]])(
+    'apiPath refuses a non-string value %#: ApiPathError, no request',
+    (value) => {
+      expect(() => apiPath`/tasks/${value as never}`).toThrow(ApiPathError);
+    },
+  );
+  it('apiPath refuses a forged segment object', () => {
+    expect(() => apiPath`/x/${{ fake: '..' } as never}`).toThrow(ApiPathError);
+  });
+  it('segment refuses a non-string value', () => {
+    expect(() => segment(7 as never)).toThrow(ApiPathError);
+  });
+  it('a response id of another runtime type stops before the request (deleteSavedView)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(deleteSavedView(42 as never)).rejects.toBeInstanceOf(ApiPathError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('detail responses', () => {
