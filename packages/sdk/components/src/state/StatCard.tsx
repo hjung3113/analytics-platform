@@ -8,6 +8,7 @@ export type Delta = { value: string; direction: 'up' | 'down'; /** Whether this 
 /** stat-card: icon chip + label + one primary number + delta + caption. One metric per tile. */
 export function StatCard({ icon: Icon, label, value, unit, delta, caption, chip = 'blue', onClick, active, footnote, secondary }: {
   icon: LucideIcon; label: ReactNode; value: ReactNode; unit?: ReactNode; delta?: Delta; caption?: ReactNode;
+  /** Icon chip colour: `blue` or `teal` (DESIGN.md). Deprecated: `purple` renders as `teal`, `amber` as `blue`; both are removed from the type in the next SDK minor (#1945). */
   chip?: 'blue' | 'teal' | /** @deprecated Use `teal`; removed next SDK minor. */ 'purple' | /** @deprecated Use `blue`; removed next SDK minor. */ 'amber'; onClick?: () => void; active?: boolean; footnote?: ReactNode;
   /** Paired secondary number in the same tile (e.g. P95 beside P50), rendered at Secondary KPI scale. */
   secondary?: ReactNode;

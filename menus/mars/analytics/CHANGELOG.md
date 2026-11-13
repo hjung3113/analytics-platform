@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.5.3 — 2026-11-14
+
+- 생산성 개요·사이클타임 상세의 StatCard 칩을 blue·teal로 맞추고(purple→teal, amber→blue), 처리량 차트 계열 색을 카드 칩과 같은 blue로(#1945).
+
 ## 0.5.2 — 2026-11-14
 
 - 생산성 개요·사이클타임 차트가 응답 `Trust`를 그대로 넘긴다. 꼬리말 표기는 SDK가 머리 Trust 표시와 같은 함수로 만든다(갱신 `MM-DD HH:mm`, 보는 사람의 시간대, 커버리지 없음 「미확인」). 메뉴의 `chartTrust`·`trustLine`·`coverageText`를 지웠다(#2009, #2044).
