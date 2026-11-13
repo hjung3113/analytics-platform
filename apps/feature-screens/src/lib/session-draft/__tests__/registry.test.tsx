@@ -6,6 +6,7 @@ import { noticeHost, noticeMessages, registerNoticeHost } from '@/test/notice-ho
 import {
   SESSION_DRAFT_TTL_MS,
   beginSessionDraftOwner,
+  currentSessionDraftBinding,
   discardSessionDraft,
   registerSessionDraft,
   resetSessionDraftsForTests,
@@ -93,6 +94,37 @@ describe('session draft registry', () => {
     expect(draftKeys()).toEqual([]);
   });
 
+  it('a discard bound at registration deletes its own snapshot after the session was retired', () => {
+    beginSessionDraftOwner('u1');
+    registerSessionDraft('k', () => 'text');
+    const binding = currentSessionDraftBinding();
+    snapshotSessionDrafts('u1');
+    discardSessionDraft('k', binding);
+    expect(draftKeys()).toEqual([]);
+  });
+
+  it('an old owner\'s late cleanup never deletes another user\'s or a later snapshot', () => {
+    beginSessionDraftOwner('u1');
+    registerSessionDraft('k', () => 'old');
+    const old = currentSessionDraftBinding();
+    snapshotSessionDrafts('u1');
+    beginSessionDraftOwner('u2');
+    registerSessionDraft('k', () => 'other');
+    snapshotSessionDrafts('u2');
+    discardSessionDraft('k', old);
+    expect(draftKeys()).toEqual(['draft:u2:k']);
+
+    beginSessionDraftOwner('u2');
+    discardSessionDraft('k', old);
+    expect(draftKeys()).toEqual(['draft:u2:k']);
+    // Same user, newer generation: the older form's cleanup leaves the newer snapshot.
+    beginSessionDraftOwner('u1');
+    registerSessionDraft('k', () => 'newer');
+    snapshotSessionDrafts('u1');
+    discardSessionDraft('k', old);
+    expect(draftKeys()).toEqual(['draft:u1:k']);
+  });
+
   it('a throwing storage never throws out of the registry', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
@@ -139,6 +171,38 @@ describe('useSessionDraft', () => {
     expect((second.getByLabelText('text') as HTMLInputElement).value).toBe('kept text');
     expect(draftKeys()).toEqual([]);
     expect(noticeMessages('info')).toEqual(['세션이 만료되어 작성 중이던 내용을 복원했습니다']);
+  });
+
+  it('a submit that succeeds after a sibling 401 snapshot leaves no restorable draft for the same user', () => {
+    beginSessionDraftOwner('u1');
+    let submitted = () => {};
+    function Submitting() {
+      const [text] = useState('typed');
+      const { discard } = useSessionDraft({ key: 'form', read: () => ({ text }), parse: () => null, restore: () => {} });
+      submitted = discard;
+      return null;
+    }
+    const view = render(<Submitting />);
+    act(() => snapshotSessionDrafts('u1'));
+    expect(draftKeys()).toEqual(['draft:u1:form']);
+    view.unmount();
+    act(() => beginSessionDraftOwner('u1'));
+    act(() => submitted());
+    expect(draftKeys()).toEqual([]);
+  });
+
+  it('a submit that succeeds before the next session begins also clears its snapshot', () => {
+    beginSessionDraftOwner('u1');
+    let submitted = () => {};
+    function Submitting() {
+      const { discard } = useSessionDraft({ key: 'form', read: () => 'x', parse: () => null, restore: () => {} });
+      submitted = discard;
+      return null;
+    }
+    render(<Submitting />);
+    act(() => snapshotSessionDrafts('u1'));
+    act(() => submitted());
+    expect(draftKeys()).toEqual([]);
   });
 
   it('a form still works when storage throws', () => {

@@ -17,11 +17,15 @@ export const SESSION_DRAFT_PREFIX = 'draft:';
 export const SESSION_DRAFT_TTL_MS = 30 * 60 * 1000;
 
 type Entry = { key: string; read: () => DraftJson | null };
-type Stored = { savedAt: number; value: DraftJson };
+type Stored = { savedAt: number; value: DraftJson; generation?: number };
+/** Who a form was mounted under: its user and the session generation, so a late cleanup only touches its own snapshot. */
+export type SessionDraftBinding = { owner: string | null; generation: number };
 
 /** Registration order; a later registration with the same key wins at snapshot time. */
 const entries: Entry[] = [];
 let owner: string | null = null;
+/** Bumped by every `beginSessionDraftOwner`; a snapshot is stamped with the generation it was taken in. */
+let generation = 0;
 
 function storage(): Storage | null {
   try {
@@ -39,7 +43,9 @@ function parseStored(raw: string | null): Stored | null {
     const parsed = JSON.parse(raw) as unknown;
     if (parsed === null || typeof parsed !== 'object' || !('savedAt' in parsed) || !('value' in parsed)) return null;
     const { savedAt, value } = parsed as { savedAt: unknown; value: unknown };
-    return typeof savedAt === 'number' ? { savedAt, value: value as DraftJson } : null;
+    const { generation: stamped } = parsed as { generation?: unknown };
+    if (typeof savedAt !== 'number') return null;
+    return typeof stamped === 'number' ? { savedAt, value: value as DraftJson, generation: stamped } : { savedAt, value: value as DraftJson };
   } catch {
     return null;
   }
@@ -73,7 +79,7 @@ export function snapshotSessionDrafts(userId: string | null): void {
     }
     if (value === null) continue;
     try {
-      store.setItem(storageKey(userId, entry.key), JSON.stringify({ savedAt, value } satisfies Stored));
+      store.setItem(storageKey(userId, entry.key), JSON.stringify({ savedAt, value, generation } satisfies Stored));
     } catch {
       // Quota or a blocked store: this draft is lost, the session-expiry handling goes on.
     }
@@ -83,6 +89,7 @@ export function snapshotSessionDrafts(userId: string | null): void {
 /** A ready session of `userId`: drafts of other users and expired ones are deleted unread; `takeSessionDraft` reads this user's. */
 export function beginSessionDraftOwner(userId: string | null): void {
   owner = userId;
+  generation += 1;
   const store = storage();
   if (store === null) return;
   try {
@@ -117,13 +124,28 @@ export function takeSessionDraft(key: string): DraftJson | null {
   }
 }
 
-/** Deletes the current owner's draft for `key` (successful submit, explicit cancel or close). */
-export function discardSessionDraft(key: string): void {
-  if (owner === null) return;
+/** The owner and generation a form mounting now belongs to; pass it to `discardSessionDraft` so a late cleanup stays bound to it. */
+export function currentSessionDraftBinding(): SessionDraftBinding {
+  return { owner, generation };
+}
+
+/**
+ * Deletes a draft for `key` (successful submit, explicit cancel or close). With a `binding` it deletes only that user's snapshot taken in
+ * that generation, even after the session was retired (`owner === null`) and never the next session's owner or a later snapshot;
+ * without one it deletes the current owner's.
+ */
+export function discardSessionDraft(key: string, binding?: SessionDraftBinding): void {
+  const target = binding === undefined ? owner : binding.owner;
+  if (target === null) return;
   const store = storage();
   if (store === null) return;
   try {
-    store.removeItem(storageKey(owner, key));
+    const name = storageKey(target, key);
+    if (binding !== undefined) {
+      const stored = parseStored(store.getItem(name));
+      if (stored !== null && stored.generation !== undefined && stored.generation !== binding.generation) return;
+    }
+    store.removeItem(name);
   } catch {
     // Nothing to delete from an unusable store.
   }
@@ -133,4 +155,5 @@ export function discardSessionDraft(key: string): void {
 export function resetSessionDraftsForTests(): void {
   entries.length = 0;
   owner = null;
+  generation = 0;
 }

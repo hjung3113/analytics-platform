@@ -2,7 +2,7 @@ import * as React from 'react';
 
 import { SESSION_DRAFT_COPY } from '@/lib/copy/session-draft';
 import { useHostSeam } from '@/lib/host/host-seam';
-import { type DraftJson, discardSessionDraft, registerSessionDraft, takeSessionDraft } from './registry';
+import { type DraftJson, type SessionDraftBinding, currentSessionDraftBinding, discardSessionDraft, registerSessionDraft, takeSessionDraft } from './registry';
 
 export type UseSessionDraftOptions<T> = {
   /** One key per form instance kind (with the record id where a form is per record); `null` registers and restores nothing. */
@@ -29,8 +29,11 @@ export function useSessionDraft<T>({ key, read, parse, restore, active = true }:
     latest.current = { read, parse, restore, seam };
   });
 
+  const binding = React.useRef<SessionDraftBinding | null>(null);
   React.useEffect(() => {
     if (key === null) return;
+    // Bound once per registration: a late cleanup (a submit resolving after a 401 retired the session) deletes this form's own snapshot.
+    binding.current = currentSessionDraftBinding();
     return registerSessionDraft(key, () => latest.current.read());
   }, [key]);
 
@@ -47,7 +50,7 @@ export function useSessionDraft<T>({ key, read, parse, restore, active = true }:
   }, [key, active]);
 
   const discard = React.useCallback(() => {
-    if (key !== null) discardSessionDraft(key);
+    if (key !== null) discardSessionDraft(key, binding.current ?? undefined);
   }, [key]);
   return { discard };
 }
