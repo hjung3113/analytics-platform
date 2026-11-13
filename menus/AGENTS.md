@@ -21,7 +21,7 @@ Holds only business-system menu Consumer packages: `menus/<system>/<group>/` (tw
   - `@ap/menu-log-analysis/view` (`RoundSourceView`, read-only, namespaced `source*` keys): `apps/platform-web/src/main.tsx` only. It is the Round tab body (ADR-0128).
   - `@ap/menu-log-models/round-source-slot` (`setRoundSourceView`): filled by `main.tsx`. The Round detail «원본/시퀀스» tab does not render when the slot is unset (ADR-0128).
   - `@ap/menu-log-knowledge/model-topview-slot` (`setModelTopView`): filled by `main.tsx` with `@ap/menu-topview/model-topview` (`ModelTopView`, read-only). The model profile Top View section shows the pointer and «이 화면에서는 Top View를 표시할 수 없습니다» when the slot is unset (ADR-0128).
-- Never import one `@ap/menu-*` from another. Cross-menu navigation is `linkTo(menuId)` only (06 §22).
+- Never import one `@ap/menu-*` from another. Cross-menu navigation goes through the Kernel link API only (06 §22): `linkTo(menuId)` for a destination the package owns or declares in `linkTargets.required`.
 - A link to another menu branches on `resolveLink(...).kind` (`none` = this assembly lacks it: draw no entry); never search `registry.menus` for it. The manifest may declare the target in `linkTargets` (06 §22, ADR-0158).
 - The table engine (the four `@tanstack/*` packages) is internal to `@ap/components`. Menus use only `PlatformColumn<T>` and `PageSort[]` (lint `TABLE_ENGINE_PACKAGES`, including `src/mock/**`).
 - Pages may import `@ap/contracts`, `@ap/kernel`, `@ap/components`, `@ap/ui` (public entry points only) and their own `src/endpoints.ts`. Never import apps (`apps/*`) or other `@ap/menu-*` (package boundary §3).
