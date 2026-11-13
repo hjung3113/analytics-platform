@@ -15,6 +15,8 @@ export function createPageNavigation(initialUrl: string, isBlocked: () => boolea
   let generation = 0;
   let url = initialUrl;
   let pending: { generation: number; path: string; focus: PageFocus } | null = null;
+  // A page request kept for a mounted blocked screen belongs to that subscription: it ends with the last subscriber.
+  let kept = false;
   let seenFocus = focusKeyOf(initialUrl);
   let claimsDetail = seenFocus === null;
   const listeners = new Set<() => void>();
@@ -31,9 +33,10 @@ export function createPageNavigation(initialUrl: string, isBlocked: () => boolea
       generation += 1;
       url = next;
       pending = focus ? { generation, path: pathOf(next), focus } : null;
+      kept = false;
     },
     materialize(next: string) {
-      if (pathOf(next) !== pathOf(url)) { generation += 1; pending = null; }
+      if (pathOf(next) !== pathOf(url)) { generation += 1; pending = null; kept = false; }
       url = next;
       // A kernel rewrite is not the user opening the panel. Keep the claim, but see the new key.
       seenFocus = focusKeyOf(next);
@@ -48,19 +51,27 @@ export function createPageNavigation(initialUrl: string, isBlocked: () => boolea
       // A legacy-form `returnTo` still names the current page: compare in canonical form.
       const target = canonicalHref(href);
       pending = target === canonicalHref(url) ? { generation, path: pathOf(target), focus: 'return' } : null;
+      kept = false;
       if (pending) claimsDetail = focusKeyOf(target) === null;
     },
     // A mounted blocked main screen subscribes for its title's arrival. Without a consumer, even page focus must expire.
-    cancel(preservePage = false) { if (!preservePage || pending?.focus !== 'page' || listeners.size === 0) pending = null; },
+    cancel(preservePage = false) {
+      if (preservePage && pending?.focus === 'page' && listeners.size > 0) kept = true;
+      else { pending = null; kept = false; }
+    },
     notify() { listeners.forEach(listener => listener()); },
     subscribe(listener: () => void) {
       listeners.add(listener);
-      return () => { listeners.delete(listener); };
+      return () => {
+        listeners.delete(listener);
+        if (kept && listeners.size === 0) { pending = null; kept = false; }
+      };
     },
     consume(path: string): PageFocus | null {
       if (pending?.focus === 'page' && isBlocked()) return null;
       const request = pending;
       pending = null;
+      kept = false;
       return request?.generation === generation && request.path === path ? request.focus : null;
     },
     claimsDetailFocus() { return claimsDetail; },

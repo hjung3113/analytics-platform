@@ -151,4 +151,26 @@ describe('Kernel blocked screens (#1893, 06 §26)', () => {
     expect(new URLSearchParams(window.location.search).get('metricVersion')).toBe('7');
     expect(within(screen.getByRole('main')).getByRole('heading', { level: 1, name: '지표 화면' })).toHaveFocus();
   });
+
+  it('does not move focus to the new title when permission alone recovers before the dialog gate opens', () => {
+    window.history.replaceState(null, '', '/mars/home?v=1');
+    let session = testSession(['platform:view']);
+    const listeners = new Set<() => void>();
+    const adapter = testAdapter({ session: () => session, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; } });
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <Probe /><main id="platform-main" tabIndex={-1}><ScreenOutlet /></main>
+    </PlatformProvider></I18nProvider>);
+    act(() => { platform.setPaletteOpen(true); });
+    const dialog = overlay.paletteSession!;
+    const owner = Symbol('dialog');
+    act(() => { dialog.claim(owner); platform.setPaletteOpen(false); platform.navigate('/mars/equipment?v=1', { focus: 'page' }); });
+    expect(within(screen.getByRole('main')).getByRole('heading', { level: 1, name: '설비 마스터' })).not.toHaveFocus();
+    session = testSession(['platform:view', 'console:access']);
+    act(() => { listeners.forEach(listener => listener()); });
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    act(() => { outside.focus(); dialog.release(owner); });
+    expect(outside).toHaveFocus();
+    outside.remove();
+  });
 });

@@ -125,4 +125,15 @@ describe('blocked main-screen arrival (#1893)', () => {
     navigation.cancel(true);
     expect(navigation.consume('/locked')).toBeNull();
   });
+
+  it('expires a kept page arrival when its subscriber leaves before the gate opens (#1893)', () => {
+    let blocked = true;
+    const navigation = createPageNavigation('/home?v=1', () => blocked);
+    const unsubscribe = navigation.subscribe(() => {});
+    navigation.advance('/locked?v=1', 'page');
+    navigation.cancel(true);
+    unsubscribe();
+    blocked = false;
+    expect(navigation.consume('/locked')).toBeNull();
+  });
 });
