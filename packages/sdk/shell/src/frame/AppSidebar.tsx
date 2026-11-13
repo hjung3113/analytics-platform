@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Clock3, Star } from 'lucide-react';
 import { emptyGlobal, type NavView } from '@ap/contracts';
 import { badgeCountText } from '@ap/components';
@@ -6,6 +6,7 @@ import { type MenuEntry, PlatformLink, useI18n, useRecentVisits } from '@ap/kern
 import { useHostPlatform } from '@ap/kernel/host';
 import { navRowVariants, NavCurrentMarker, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from '../context/ScopeSelector';
+import { ShellBoundary } from './ShellBoundary';
 import { SidebarHierarchy } from './SidebarHierarchy';
 import { useSystemSections } from './systemSections';
 
@@ -47,7 +48,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       </div>
       <SidebarScope collapsed={collapsed} />
       <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
-        <CountsHost>{counts => <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
+        <CountsBoundary Host={CountsHost}>{counts => <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
           {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
             {!collapsed && systems === null && !(group.hideLabelWhenSingle && items.length === 1) && <p className={cn('mx-2 mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
             {collapsed && index > 0 && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
@@ -61,10 +62,10 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
             })}</ul>
             {items.filter(menu => menu.navTree && canOpen(menu.id)).map(menu => <SidebarHierarchy key={menu.id} menu={menu} collapsed={collapsed} />)}
           </div>)}
-        </nav>}</CountsHost>
+        </nav>}</CountsBoundary>
         {!collapsed && sectionSlot !== null && <section aria-label={tx(sectionSlot.label)}>
           <p className="mx-2 mb-1 mt-3.5 text-caption font-semibold uppercase tracking-wide text-text-muted">{tx(sectionSlot.label)}</p>
-          <sectionSlot.Body />
+          <ShellBoundary><sectionSlot.Body /></ShellBoundary>
         </section>}
         {/* Expanded only (prototype C). An empty list keeps its guidance (07 §3 empty state). */}
         {!collapsed && <section aria-label={t('favorites')}>
@@ -75,13 +76,18 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
         </section>}
         {!collapsed && <SidebarRecent />}
       </div>
-      <FeatureBlock collapsed={collapsed} />
+      <ShellBoundary fallback={null}><FeatureBlock collapsed={collapsed} /></ShellBoundary>
       {!collapsed && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
     </aside>
   </TooltipProvider>;
 }
 
 const NoCounts = ({ children }: { children: (counts: null) => ReactNode }) => <>{children(null)}</>;
+type CountsRender = (counts: Readonly<Record<string, number>> | null) => ReactNode;
+/** Menu code (`navCounts`) wraps the menu list: when it throws, the same list renders without counts (#1876). */
+function CountsBoundary({ Host, children }: { Host: ComponentType<{ children: CountsRender }>; children: CountsRender }) {
+  return <ShellBoundary fallback={<NoCounts>{children}</NoCounts>}><Host>{children}</Host></ShellBoundary>;
+}
 
 /** The recent-visit list, a leaf of its own: a visit wakes only this list, never the menu tree around it (#824). */
 function SidebarRecent() {
@@ -114,7 +120,7 @@ function SidebarScope({ collapsed }: { collapsed: boolean }) {
   const { slots, sidebarSpace, route, canOpen } = useHostPlatform();
   const denied = route !== null && !canOpen(route.menu.id);
   const Control = sidebarSpace === null || denied ? null : slots.scopeControl?.For(sidebarSpace.id, route?.menu ?? null) ?? null;
-  if (Control !== null) return <Control collapsed={collapsed} />;
+  if (Control !== null) return <ShellBoundary fallback={collapsed ? null : undefined}><Control collapsed={collapsed} /></ShellBoundary>;
   return sidebarSpace?.scopePresentation === 'hidden' ? null : <ScopeSelector collapsed={collapsed} />;
 }
 

@@ -57,6 +57,21 @@ describe('startAppHost', () => {
     expect(createAssembly).not.toHaveBeenCalled();
   });
 
+  // A declaration error the Provider finds at render (after `await start()` resolved) still ends in StartupFailure, not a blank root (#1876).
+  it.each([
+    ['a Condition preset naming an undeclared axis', () => testDeclarations({ menus: [testMenu('first', {
+      context: { ...testMenu('first').context, condition: 'apply' }, pageKeys: ['view'], conditionPreset: { key: 'view', default: 'a' },
+      conditionPresets: [{ id: 'a', label: { ko: 'A', en: 'A' }, axes: ['fixture-axis-a'] }, { id: 'b', label: { ko: 'B', en: 'B' }, axes: ['fixture-axis-b'] }],
+    })] })],
+    ['a registry that declares no spaces', () => testDeclarations({ spaces: [], groups: [{ ...testDeclarations().groups[0]!, space: null }] })],
+  ])('a render-time declaration error (%s) renders StartupFailure without the error text', async (_name, declarations) => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await start({ declarations: declarations() });
+    expect(await failure()).toBeInTheDocument();
+    expect(screen.queryByText(/equipmentAxes|declares no spaces/)).toBeNull();
+    error.mockRestore();
+  });
+
   it('injected slots win over the generic defaults', async () => {
     await start({ createAssembly: () => testAssembly({ topBarTools: <span>default tools</span> }), slots: () => ({ topBarTools: <span>injected tools</span> }) });
     await screen.findByText('menu first');

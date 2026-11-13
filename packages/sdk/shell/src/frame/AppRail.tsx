@@ -8,6 +8,7 @@ import { placeableMenus } from '../board/boardMenus';
 import { useBoardPresentation } from '../board/boardPresentation';
 import { boardText } from '../board/text';
 import { NotificationsBell } from './NotificationsBell';
+import { ShellBoundary } from './ShellBoundary';
 import { firstOpenableMenu, useSystemSections } from './systemSections';
 import { VocDrawerContext } from '../voc/VocDrawer';
 
@@ -64,7 +65,8 @@ export function AppRail() {
           {voc.draftHidden && <span data-draft-dot aria-hidden className="absolute right-0.5 top-0.5 size-2 rounded-pill bg-accent-primary" />}
         </button>
       </TooltipTrigger><TooltipContent side="right">{vocLabel}</TooltipContent></Tooltip>}
-      {slots.notifications && canOpen(slots.notifications.menuId) && <NotificationsBell slot={slots.notifications} />}
+      {/* Menu code (count, recent list): a throw drops only the bell (#1876). */}
+      {slots.notifications && canOpen(slots.notifications.menuId) && <ShellBoundary fallback={null}><NotificationsBell slot={slots.notifications} /></ShellBoundary>}
       <div className="flex shrink-0 flex-col items-center gap-1">{slots.topBarTools}</div>
       <div className="my-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
       <Popover>

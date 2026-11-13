@@ -4,13 +4,14 @@ import { createBasePathLocation, I18nProvider, type PlatformLocation, type Platf
 import { GlobalContextBar, OpenInBoardAction } from '@ap/shell';
 import { AppRoot } from './app-root';
 import { buildRegistry } from './build-registry';
-import { startOrFail } from './startup-failure';
+import { StartupBoundary, startOrFail } from './startup-failure';
 import type { HostAssembly, StartAppHostOptions } from './types';
 
 /**
  * Builds the Registry from the injected declarations, asks `createAssembly` for the outcome and mounts it into `container`:
  * `{ redirect }` calls `redirect` once and renders nothing, `{ screen }` renders the node without `PlatformProvider`, an assembly is
- * mounted as `<StrictMode><I18nProvider><AppRoot/></I18nProvider></StrictMode>`. A throw in any step renders `StartupFailure`.
+ * mounted as `<StrictMode><I18nProvider><AppRoot/></I18nProvider></StrictMode>`. A throw in any step renders `StartupFailure`, and so does a later
+ * render throw that no inner boundary contains (`StartupBoundary`, #1876).
  * The Host merges three generic slots (`contextBar`, `boardEntry`, `topBarTools`) under the caller's `slots`.
  */
 export async function startAppHost<A extends HostAssembly = HostAssembly>(options: StartAppHostOptions<A>): Promise<void> {
@@ -23,7 +24,7 @@ export async function startAppHost<A extends HostAssembly = HostAssembly>(option
       return;
     }
     if ('screen' in outcome) {
-      root.render(<StrictMode>{outcome.screen}</StrictMode>);
+      root.render(<StrictMode><StartupBoundary>{outcome.screen}</StartupBoundary></StrictMode>);
       return;
     }
     const assembly = outcome;
@@ -32,9 +33,11 @@ export async function startAppHost<A extends HostAssembly = HostAssembly>(option
     const location = base === undefined || base === '/' ? undefined : createBasePathLocation(base);
     root.render(
       <StrictMode>
-        <I18nProvider>
-          <HostRoot options={options} assembly={assembly} registry={registry} location={location} />
-        </I18nProvider>
+        <StartupBoundary>
+          <I18nProvider>
+            <HostRoot options={options} assembly={assembly} registry={registry} location={location} />
+          </I18nProvider>
+        </StartupBoundary>
       </StrictMode>,
     );
   });
