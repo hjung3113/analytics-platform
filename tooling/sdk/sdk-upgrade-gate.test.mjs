@@ -3,10 +3,10 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { releasePackages } from './sdk-exports.mjs';
-import { assemblyHash, assertAssembly, buildProject, downloadPrevious, replaceBundle, runSequence, verifyBundle, verifyStartKit, FINAL_REPORT } from './sdk-upgrade-gate.mjs';
+import { assemblyHash, assertAssembly, downloadPrevious, kitAsset, kitSequence, runSequence, unpackKit, verifyBundle, verifyStartKit, FINAL_REPORT } from './sdk-upgrade-gate.mjs';
 
 const names = releasePackages().map(({ name }) => name);
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -63,18 +63,6 @@ test('checksum list and payload corruption fail before install', () => fixture(r
   writeFileSync(join(entry.directory, 'ap-kernel-0.0.0-a.tgz'), 'corrupt');
   assert.throws(() => verifyBundle(entry.directory, entry), /checksum.*ap-kernel/);
 }));
-test('replacement rewrites exactly nine specifiers atomically and preserves third parties', () => fixture(root => {
-  const entry = bundle(root, '0.0.0-b');
-  const kit = project(root);
-  replaceBundle(kit, entry.directory, 'http://127.0.0.1:1234/b');
-  const dependencies = JSON.parse(readFileSync(join(kit, 'package.json'))).dependencies;
-  assert.equal(dependencies.react, '19');
-  for (const name of names) assert.equal(dependencies[`@ap/${name}`], `http://127.0.0.1:1234/b/ap-${name}-${entry.version}.tgz`);
-  rmSync(join(entry.directory, `ap-kernel-${entry.version}.tgz`));
-  const before = readFileSync(join(kit, 'package.json'), 'utf8');
-  assert.throws(() => replaceBundle(kit, entry.directory, 'bad'), /kernel/);
-  assert.equal(readFileSync(join(kit, 'package.json'), 'utf8'), before);
-}));
 test('assembly hash ignores install/build state and detects a single assembly line', () => fixture(root => {
   const kit = project(root);
   const before = assemblyHash(kit);
@@ -129,9 +117,10 @@ test('CI isolates the upgrade cost and runs SDK upgrade gate after consumer and 
 
 test('assembly manifest scripts stay protected while nine release URLs change', () => fixture(root => {
   const kit = project(root);
-  const entry = bundle(root, '0.0.0-c');
   const expected = assemblyHash(kit);
-  replaceBundle(kit, entry.directory, 'http://127.0.0.1:1234/c');
+  const urls = JSON.parse(readFileSync(join(kit, 'package.json')));
+  for (const name of names) urls.dependencies[`@ap/${name}`] = `http://127.0.0.1:1234/c/ap-${name}-0.0.0-c.tgz`;
+  writeFileSync(join(kit, 'package.json'), JSON.stringify(urls));
   assertAssembly(kit, expected);
   const manifest = JSON.parse(readFileSync(join(kit, 'package.json')));
   manifest.scripts = { build: 'changed assembly command' };
@@ -169,20 +158,99 @@ function withStartKit(root, version, { sums = true, corrupt = false } = {}) {
   return { ...entry, sha256: hash(readFileSync(join(entry.directory, 'SHA256SUMS'))) };
 }
 
-test('previous start kit is the assembly for rc, formal and rollback (same hash in every phase)', () => fixture(async root => {
-  const previous = withStartKit(root, '0.0.0-prev');
-  const formal = bundle(root, '0.0.0-next');
-  const project = join(root, 'p');
-  buildProject(project, previous.directory, name => `http://127.0.0.1:1/${name}`);
-  assert.ok(existsSync(join(project, 'FROM-PREVIOUS-KIT.txt')), 'files come from the previous kit, top folder stripped');
-  assert.ok(!existsSync(join(project, 'README.md')) && !existsSync(join(project, 'src')), 'tree kit sample is not used');
-  assert.ok(existsSync(join(project, 'round-trip/main.tsx')), 'round-trip fixture still comes from the tree');
+/**
+ * A start-kit asset that passes the shipped bundle check: nine vendor tarballs, a lockfile resolving them, the real
+ * sdk-bundle-check.mjs and SHA256SUMS over every file. Kit files carry the version so the test can tell kits apart.
+ */
+function realKit(root, version, { withoutLockfile = false } = {}) {
+  const release = join(root, `release-${version}`);
+  const stage = join(root, `kit-stage-${version}`);
+  const kit = join(stage, `ap-start-kit-${version}`);
+  mkdirSync(join(kit, 'vendor'), { recursive: true });
+  mkdirSync(release);
+  const tarball = name => `ap-${name}-${version}.tgz`;
+  for (const name of names) {
+    const pkg = join(root, `pkg-${version}-${name}`, 'package');
+    mkdirSync(pkg, { recursive: true });
+    writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: `@ap/${name}`, version }));
+    assert.equal(spawnSync('tar', ['-czf', join(kit, 'vendor', tarball(name)), '-C', dirname(pkg), 'package']).status, 0);
+  }
+  const files = {
+    'package.json': JSON.stringify({ name: 'ap-start-kit', version, scripts: { check: 'x', build: 'y' }, dependencies: Object.fromEntries(names.map(name => [`@ap/${name}`, `file:./vendor/${tarball(name)}`])) }),
+    'pnpm-lock.yaml': ["lockfileVersion: '9.0'", '', 'packages:', '', ...names.flatMap(name => [`  '@ap/${name}@file:vendor/${tarball(name)}':`, `    resolution: {integrity: sha512-${hash(name)}, tarball: file:vendor/${tarball(name)}}`, '']), 'snapshots:', '', ...names.map(name => `  '@ap/${name}@file:vendor/${tarball(name)}': {}`), ''].join('\n'),
+    'third-party.json': '[]\n',
+    'menus.ts': `export const menus = ['sample ${version}'];\n`,
+    'menus/sample/menu.ts': `sample ${version}\n`,
+    'mock/assembly.ts': `mock ${version}\n`,
+    'src/start.tsx': `start ${version}\n`,
+    'sdk-bundle-check.mjs': readFileSync(new URL('./sdk-bundle-check.mjs', import.meta.url), 'utf8'),
+  };
+  for (const [path, content] of Object.entries(files)) {
+    mkdirSync(dirname(join(kit, path)), { recursive: true });
+    writeFileSync(join(kit, path), content);
+  }
+  const listed = [...Object.keys(files), ...names.map(name => `vendor/${tarball(name)}`)];
+  writeFileSync(join(kit, 'SHA256SUMS'), `${listed.map(path => `${hash(readFileSync(join(kit, path)))}  ${path}`).join('\n')}\n`);
+  if (withoutLockfile) rmSync(join(kit, 'pnpm-lock.yaml'));
+  assert.equal(spawnSync('tar', ['-czf', join(release, `ap-start-kit-${version}.tgz`), '-C', stage, `ap-start-kit-${version}`]).status, 0);
+  return { directory: release, kit: kitAsset(release) };
+}
+/** Runs the kit's own node scripts for real (verify, adopt); records pnpm and the post-install check, which need an install. */
+function recorder() {
+  const commands = [];
+  const run = async (command, args, cwd) => {
+    commands.push({ command, args, cwd });
+    if (command !== 'node' || args.includes('installed')) return;
+    const result = spawnSync(process.execPath, args, { cwd, encoding: 'utf8' });
+    if (result.status !== 0) throw new Error(`${args.join(' ')} exited ${result.status}: ${result.stderr}`);
+  };
+  return { commands, run };
+}
+const read = (root, path) => readFileSync(join(root, path), 'utf8');
+
+test('kit change procedure: older kit → newer kit → back, each from its own lockfile with --frozen-lockfile', () => fixture(async root => {
+  const previous = realKit(root, '0.0.0-a');
+  const formal = realKit(root, '0.0.0-b');
+  const { commands, run } = recorder();
+  const roots = {};
   const hashes = [];
-  await runSequence({ root: project, previous: previous.directory, formal: formal.directory, log: () => {}, execute: async (_phase, directory) => {
-    replaceBundle(project, directory, 'http://127.0.0.1:1/x');
+  await kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: formal.kit, run, log: () => {}, afterInstall: async (phase, project) => {
+    roots[phase] = project;
     hashes.push(assemblyHash(project));
   } });
-  assert.equal(new Set(hashes).size, 1);
+  assert.equal(new Set(Object.values(roots)).size, 3, 'each kit change unpacks into a new folder');
+  assert.equal(new Set(hashes).size, 1, 'the assembly is byte-identical in every phase');
+  const installs = commands.filter(({ command, args }) => command === 'pnpm' && args[0] === 'install');
+  assert.deepEqual(installs.map(({ args, cwd }) => [args.join(' '), cwd]), Object.values(roots).map(cwd => ['install --frozen-lockfile', cwd]));
+  const adopts = commands.filter(({ args }) => args.includes('adopt'));
+  assert.deepEqual(adopts.map(({ args }) => args), [
+    [join(roots.formal, 'sdk-bundle-check.mjs'), 'adopt', '--from', roots.rc, '--bundle', roots.formal],
+    [join(roots.formal, 'sdk-bundle-check.mjs'), 'adopt', '--from', roots.formal, '--bundle', roots.rollback],
+  ], 'adopt runs from the newer kit: the target on upgrade, the current project on rollback');
+  assert.match(read(roots.formal, 'pnpm-lock.yaml'), /ap-kernel-0\.0\.0-b\.tgz/);
+  assert.ok(existsSync(join(roots.formal, 'vendor/ap-kernel-0.0.0-b.tgz')) && !existsSync(join(roots.formal, 'vendor/ap-kernel-0.0.0-a.tgz')));
+  assert.equal(read(roots.formal, 'src/start.tsx'), 'start 0.0.0-b\n', 'kit files come from the new kit');
+  assert.equal(read(roots.formal, 'menus/sample/menu.ts'), 'sample 0.0.0-a\n', 'menus come from the project');
+  assert.ok(existsSync(join(roots.formal, 'round-trip/main.tsx')), 'an added folder travels with the project');
+  assert.match(read(roots.rollback, 'pnpm-lock.yaml'), /ap-kernel-0\.0\.0-a\.tgz/);
+  assert.equal(read(roots.rollback, 'src/start.tsx'), 'start 0.0.0-a\n');
+}));
+test('a new kit without its lockfile stops the upgrade before any install in that kit', () => fixture(async root => {
+  const previous = realKit(root, '0.0.0-a');
+  const formal = realKit(root, '0.0.0-b', { withoutLockfile: true });
+  const { commands, run } = recorder();
+  await assert.rejects(kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: formal.kit, run, log: () => {} }), /pnpm-lock\.yaml: listed in SHA256SUMS but missing/);
+  assert.equal(commands.filter(({ command, args }) => command === 'pnpm' && args[0] === 'install').length, 1, 'only the rc install ran');
+  assert.ok(!commands.some(({ args }) => args.includes('adopt')));
+}));
+test('an assembly edit after the rc run fails before the kit change', () => fixture(async root => {
+  const previous = realKit(root, '0.0.0-a');
+  const formal = realKit(root, '0.0.0-b');
+  const { commands, run } = recorder();
+  await assert.rejects(kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: formal.kit, run, log: () => {}, afterInstall: async (phase, project) => {
+    if (phase === 'rc') writeFileSync(join(project, 'menus.ts'), 'changed assembly line\n');
+  } }), /assembly code changed/);
+  assert.ok(!commands.some(({ args }) => args.includes('adopt')));
 }));
 test('start kit checksum mismatch or missing entry fails before install', () => fixture(async root => {
   const bad = withStartKit(root, '0.0.0-a', { corrupt: true });
@@ -192,11 +260,17 @@ test('start kit checksum mismatch or missing entry fails before install', () => 
   const { cpSync } = await import('node:fs');
   await assert.rejects(downloadPrevious(missing, join(root, 'dl'), async (_pin, destination) => cpSync(missing.directory, destination, { recursive: true })), /Start kit missing from SHA256SUMS/);
 }));
-test('without a start kit (self-test path) the tree kit is still used', () => fixture(root => {
+test('a release directory without a start kit has no kit asset (the gate builds one with sdk-kit.mjs)', () => fixture(root => {
   const previous = bundle(root, '0.0.0-c');
   assert.equal(verifyStartKit(previous.directory, previous.version), null);
-  const project = join(root, 'p');
-  buildProject(project, previous.directory, name => `http://127.0.0.1:1/${name}`);
-  assert.ok(existsSync(join(project, 'menus.ts')) && existsSync(join(project, 'round-trip')));
-  assert.ok(!existsSync(join(project, 'FROM-PREVIOUS-KIT.txt')));
+  assert.equal(kitAsset(previous.directory), null);
+  const kit = withStartKit(root, '0.0.0-d');
+  assert.equal(kitAsset(kit.directory), join(kit.directory, 'ap-start-kit-0.0.0-d.tgz'));
+}));
+test('unpacking a kit refuses a folder that is not empty', () => fixture(root => {
+  const kit = withStartKit(root, '0.0.0-e');
+  const target = join(root, 'p');
+  unpackKit(target, kitAsset(kit.directory));
+  assert.ok(existsSync(join(target, 'FROM-PREVIOUS-KIT.txt')), 'top folder stripped');
+  assert.throws(() => unpackKit(target, kitAsset(kit.directory)), /is not empty/);
 }));

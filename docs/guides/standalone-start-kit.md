@@ -28,6 +28,42 @@
 3. 견본 메뉴 패키지 `menus/sample/`을 복사해 세 상수를 바꾸고 `menus.ts`와 `mock/assembly.ts`에 등록한다(키트 README «둘째 메뉴»). 둘째 메뉴가 등록된 채 `build`와 렌더가 통과하면 시작이 끝난 것이다. 공개 CI가 이 순서를 스크립트로 따라 한다.
 4. 변경마다 `check`를 돌린다.
 
+## 버전 교체와 되돌리기
+
+플랫폼 버전을 N-1에서 N으로 올리는 것도, N에서 N-1로 되돌리는 것도 같은 순서 하나다. 키트를 고쳐 가며 버전을 올리지 않고, 목표 버전의 키트를 새로 풀어 조립 몫만 옮긴다. 호환 범위는 «같은 열차 N, 롤백용 N-1»이다([ADR-0143](../adr/0143-release-units-and-compatibility-train.md)).
+
+키트 폴더의 파일은 두 몫이다. 경계는 `sdk-bundle-check.mjs`의 `ASSEMBLY_PATHS`다.
+
+| 몫 | 파일 | 교체 때 |
+| --- | --- | --- |
+| 조립 | `menus/`(견본 포함 메뉴 폴더 전체), `menus.ts`, `mock/assembly.ts`, 키트 `SHA256SUMS`에 없는 파일(직접 더한 파일) | 지금 폴더에서 그대로 옮긴다 |
+| 키트 | 키트 `SHA256SUMS`에 적힌 나머지 전부: `vendor/`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `patches/`, `package.json`, `third-party.json`, `src/`, `real/`, `index.html`, `vite.config.ts`, `tsconfig*.json`, `sdk-bundle-check.mjs`, README | 목표 키트의 것을 통째로 쓴다 |
+
+키트 몫은 릴리스마다 바뀐다(설정, 진입 파일, 시험 파일이 더해지거나 바뀐다). lockfile은 레지스트리가 있어야 만들 수 있으므로 다시 만들지 않는다. 목표 키트에 실린 lockfile로 `--frozen-lockfile` 설치만 한다. 그래서 키트 몫 파일은 고치지 않는다. 고쳐야 하는 일은 조립 몫으로 옮기거나 [환류 절차](../integration/upstream-feedback-procedure.md)로 공개 저장소에 보낸다.
+
+순서(지금 폴더 `app/`, 목표 키트 `ap-start-kit-<목표>.tgz`):
+
+1. 목표 키트를 **새 빈 폴더**에 푼다. 지금 폴더 위에 풀지 않는다.
+   `mkdir app-next && tar -xzf ap-start-kit-<목표>.tgz -C app-next --strip-components=1`
+2. 새 폴더에서 설치 검사: `node sdk-bundle-check.mjs verify`(사내 미러를 쓰면 `mirror`도, 키트 README «설치»).
+3. 조립 몫을 옮긴다. 두 키트 가운데 **새 버전 키트**의 스크립트로 돌린다.
+   - 올릴 때(새 폴더가 새 버전): `cd app-next && node sdk-bundle-check.mjs adopt --from ../app`
+   - 되돌릴 때(지금 폴더가 새 버전): `node app/sdk-bundle-check.mjs adopt --from app --bundle app-next`
+
+   `adopt`는 새 폴더의 견본 `menus/`·`menus.ts`·`mock/assembly.ts`를 지우고 지금 폴더의 조립 몫을 복사한다. 아래 중 하나라도 있으면 아무것도 바꾸지 않고 이유를 모두 적은 뒤 exit 1로 멈춘다.
+   - 지금 폴더에서 키트 몫 파일을 고쳤다(새 키트가 덮어써서 그 변경을 잃는다).
+   - 직접 더한 파일과 같은 경로의 파일을 새 키트가 싣는다.
+   - 새 폴더가 갓 푼 키트가 아니다(`verify` 실패: lockfile이 없거나 파일이 바뀜).
+   - 지금 폴더에 `SHA256SUMS`, `menus.ts`, `mock/assembly.ts`나 `menus/`가 없다.
+4. 새 폴더에서 `pnpm install --frozen-lockfile` → `node sdk-bundle-check.mjs installed` → `pnpm check` → `pnpm build`. 메뉴의 적합성 사례는 실어댑터 하네스로도 다시 돌린다([환류 절차](../integration/upstream-feedback-procedure.md) §1).
+5. 통과하면 새 폴더가 조립 폴더가 된다. 실패하면 새 폴더를 버리고 지금 폴더를 그대로 쓴다. 실패 원인이 새 키트가 메뉴에 요구하는 것(예: 메뉴 폴더마다 `conformance.ts`)이면 메뉴를 고친 뒤 1부터 다시 한다.
+
+되돌리기는 위 순서에 직전 릴리스 키트 `ap-start-kit-<N-1>.tgz`를 넣는 것이다. 옛 폴더를 다시 쓰지 않는다. 그 사이에 바뀐 메뉴도 함께 옮겨지게 하기 위해서다.
+
+- `adopt` 뒤의 폴더에서 `verify`는 조립 몫(`menus.ts` 등)이 키트 `SHA256SUMS`와 달라서 실패한다. `verify`는 1–2단계의 갓 푼 키트에서만 돌린다.
+- `adopt`가 없는 키트끼리 바꿀 때는 3단계를 손으로 한다. 새 폴더의 `menus/`·`menus.ts`·`mock/assembly.ts`를 지우고, 지금 폴더의 그 셋과 직접 더한 파일만 복사한다. 키트 몫 파일은 복사하지 않는다.
+- 공개 CI(`tooling/sdk/sdk-upgrade-gate.mjs`)가 이 순서를 그대로 돈다. 직전 릴리스 키트에서 시작해 새 키트로 올리고, 다시 직전 키트로 되돌린다. 세 번 모두 `--frozen-lockfile`로 설치하고, 조립 몫 바이트가 세 단계에서 같아야 통과한다.
+
 ## 확장 경로
 
 무엇을 하고 싶을 때 어디를 고치는가.

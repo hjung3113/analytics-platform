@@ -1,20 +1,20 @@
 // Host-only integration: node tooling/sdk/sdk-upgrade-gate.mjs <current bundle directory>
-// --self-test packs this tree at gate-a/gate-b and exercises replacement, rollback, mutation and strict peers.
-// The assembly is the PREVIOUS release's start kit (`ap-start-kit-<V>.tgz`) for rc, formal and rollback alike: a menu built on N-1
-// must run unchanged on N and back, so the kit never changes between phases. The current tree's kit against the new bundle is
-// sdk-kit-check's job. Without a start-kit asset (the --self-test path) the tree kit is the assembly.
-// Tests inject the download and phase execution; they never install, fetch or launch browsers.
+// --self-test packs this tree at gate-a/gate-b, builds a start kit for each and exercises upgrade, rollback and mutation.
+// The assembly (menus/, menus.ts, mock/assembly.ts and the round-trip fixture) starts in the PREVIOUS release's start kit
+// (`ap-start-kit-<V>.tgz`) and moves between kits by the documented kit change procedure (`kitSequence`): unpack the target kit
+// into a new folder, `adopt`, install from that kit's own lockfile with --frozen-lockfile. A menu built on N-1 must run unchanged on
+// N and back, so the assembly bytes never change between phases. A release directory without a kit gets one from sdk-kit.mjs.
+// Tests inject the download and command execution; they never install, fetch or launch browsers.
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:http';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { releasePackages } from './sdk-exports.mjs';
-import { releaseTarball, writeKitProject } from './sdk-consumer-check.mjs';
-import { parseSums, readTarEntry } from './sdk-bundle-check.mjs';
+import { releaseTarball } from './sdk-consumer-check.mjs';
+import { assemblyFiles, parseSums, readTarEntry } from './sdk-bundle-check.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const names = releasePackages().map(({ name }) => name);
@@ -48,21 +48,19 @@ export function verifyStartKit(directory, version) {
   return file;
 }
 
-/** Project root from the previous start kit when the directory has one, else from this tree's kit. */
-export function buildProject(root, previous, apSpec) {
-  const kit = readdirSync(previous).find(file => /^ap-start-kit-.+\.tgz$/.test(file));
-  if (!kit) writeKitProject(root, apSpec);
-  else extractStartKit(root, join(previous, kit));
-  // The round-trip fixture is not part of the kit asset: it is the same browser assertion for every phase, so it comes from this tree.
-  cpSync(join(repo, 'tooling/sdk/fixtures/out-of-repo-assembly/round-trip'), join(root, 'round-trip'), { recursive: true });
-  return kit ? 'previous-kit' : 'tree';
+/** The release directory's start-kit asset, or null. */
+export function kitAsset(directory) {
+  const file = readdirSync(directory).find(entry => /^ap-start-kit-.+\.tgz$/.test(entry));
+  return file ? join(directory, file) : null;
 }
-function extractStartKit(root, file) {
+/** Procedure step 1: unpack a start-kit asset into a new empty folder (top folder stripped). */
+export function unpackKit(root, file) {
+  if (existsSync(root) && readdirSync(root).length > 0) throw new Error(`Kit target ${root} is not empty`);
   mkdirSync(root, { recursive: true });
   const result = spawnSync('tar', ['-xzf', file, '-C', root, '--strip-components=1']);
-  if (result.status !== 0) throw new Error(`Cannot extract ${kit}: ${result.stderr}`);
+  if (result.status !== 0) throw new Error(`Cannot extract ${file}: ${result.stderr}`);
   const scripts = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts ?? {};
-  for (const script of ['check', 'build']) if (!scripts[script]) throw new Error(`Previous start kit has no "${script}" script`);
+  for (const script of ['check', 'build']) if (!scripts[script]) throw new Error(`Start kit ${basename(file)} has no "${script}" script`);
 }
 
 async function fetchPrevious(pin, destination) {
@@ -85,52 +83,37 @@ export async function downloadPrevious(pin, destination, download = fetchPreviou
   return destination;
 }
 
-/** Resolve every specifier before a single atomic manifest rename: partial replacements cannot be written. */
-export function replaceBundle(root, directory, base) {
-  const replacements = Object.fromEntries(names.map(name => [`@ap/${name}`, `${base}/${basename(releaseTarball(directory, name))}`]));
-  const manifestPath = join(root, 'package.json');
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  manifest.dependencies = { ...manifest.dependencies, ...replacements };
-  const pending = `${manifestPath}.replacement`;
-  writeFileSync(pending, `${JSON.stringify(manifest, null, 2)}\n`);
-  renameSync(pending, manifestPath);
-}
-
-/** All fixture files, including mock/real assembly and round-trip, are immutable; only install/build outputs differ. */
+/**
+ * The assembly is what the kit change carries (`assemblyFiles`: menus/, menus.ts, mock/assembly.ts and files the kit did not ship,
+ * round-trip included); it must be byte-identical in every phase. Kit files (vendor/, lockfile, manifest) change with the kit.
+ * Without a kit SHA256SUMS every file counts, with the nine @ap specifiers and the lockfile left out.
+ */
 export function assemblyHash(root) {
   const hash = createHash('sha256');
-  const ignored = new Set(['node_modules', 'dist', '.vite', 'pnpm-lock.yaml']);
-  function walk(directory, prefix = '') {
-    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-      if (ignored.has(entry.name)) continue;
-      const path = join(directory, entry.name);
-      const key = `${prefix}${entry.name}`;
-      if (entry.isDirectory()) walk(path, `${key}/`);
-      else if (entry.isFile()) {
-        let content = readFileSync(path);
-        if (key === 'package.json') {
-          const manifest = JSON.parse(content.toString('utf8'));
-          for (const name of names) if (manifest.dependencies?.[`@ap/${name}`]) manifest.dependencies[`@ap/${name}`] = '<bundle>';
-          content = JSON.stringify(manifest);
-        }
-        hash.update(key).update('\0').update(content).update('\0');
-      }
-      else throw new Error(`Unexpected assembly entry: ${key}`);
+  for (const key of assemblyFiles(root).filter(path => path !== 'pnpm-lock.yaml')) {
+    let content = readFileSync(join(root, key));
+    if (key === 'package.json') {
+      const manifest = JSON.parse(content.toString('utf8'));
+      for (const name of names) if (manifest.dependencies?.[`@ap/${name}`]) manifest.dependencies[`@ap/${name}`] = '<bundle>';
+      content = JSON.stringify(manifest);
     }
+    hash.update(key).update('\0').update(content).update('\0');
   }
-  walk(root);
   return hash.digest('hex');
 }
 export function assertAssembly(root, expected) {
   if (assemblyHash(root) !== expected) throw new Error('assembly code changed between upgrade runs');
 }
-export async function runSequence({ root, previous, formal, execute, log = console.log }) {
+/** `execute(phase, directory, mode, root)` may return the folder the next phase starts from (a kit change moves the project). */
+export async function runSequence({ root: start, previous, formal, execute, log = console.log }) {
+  let root = start;
   const expected = assemblyHash(root);
   for (const [phase, directory, mode] of [['rc', previous, 'save'], ['formal', formal, 'restore'], ['rollback', previous, 'restore']]) {
     assertAssembly(root, expected);
-    log(`sdk:upgrade-gate ${phase}: replace all nine → install → build → run kit → ${mode} view`);
+    log(`sdk:upgrade-gate ${phase}: change kit → frozen install → build → run kit → ${mode} view`);
     const started = Date.now();
-    await execute(phase, directory, mode);
+    const next = await execute(phase, directory, mode, root);
+    if (typeof next === 'string') root = next;
     assertAssembly(root, expected);
     log(`sdk:upgrade-gate PASS ${phase} (${((Date.now() - started) / 1000).toFixed(1)}s; assembly ${expected})`);
   }
@@ -158,22 +141,36 @@ async function checked(commandName, args, cwd, env) {
   return result;
 }
 
-async function serveBundles(directories) {
-  const token = randomUUID();
-  const server = createServer((request, response) => {
-    const [run, id, file, ...rest] = (request.url ?? '').slice(1).split('/');
-    const directory = directories[Number(id)];
-    if (request.method !== 'GET' || run !== token || !directory || rest.length || !file || basename(file) !== file || !file.endsWith('.tgz') || !existsSync(join(directory, file))) {
-      response.writeHead(404).end();
-      return;
+/**
+ * The kit change procedure of docs/guides/standalone-start-kit.md «버전 교체와 되돌리기», verbatim: rc starts from the previous kit
+ * unpacked and verified; formal and rollback each unpack the target kit into a new folder, verify it, `adopt` the current project
+ * with the newer kit's script, and install from the target kit's own lockfile with --frozen-lockfile (never regenerated).
+ * `run(command, args, cwd)` executes one command; `afterInstall(phase, root, mode)` runs the browser checks.
+ */
+export async function kitSequence({ work, previous, formal, previousKit, formalKit, run, afterInstall = async () => {}, log }) {
+  const start = join(work, `project-rc-${randomUUID()}`);
+  unpackKit(start, previousKit);
+  // The round-trip fixture is not part of the kit asset: it is the same browser assertion in every phase, so it comes from this
+  // tree and travels with the project like any file the integrator added.
+  cpSync(join(repo, 'tooling/sdk/fixtures/out-of-repo-assembly/round-trip'), join(start, 'round-trip'), { recursive: true });
+  await run('node', ['sdk-bundle-check.mjs', 'verify'], start);
+  await runSequence({ root: start, previous, formal, log, execute: async (phase, directory, mode, current) => {
+    let root = current;
+    if (phase !== 'rc') {
+      root = join(work, `project-${phase}-${randomUUID()}`);
+      unpackKit(root, directory === formal ? formalKit : previousKit);
+      await run('node', ['sdk-bundle-check.mjs', 'verify'], root);
+      // The newer kit carries `adopt`: the target on upgrade, the current project on rollback.
+      const newer = phase === 'rollback' ? current : root;
+      await run('node', [join(newer, 'sdk-bundle-check.mjs'), 'adopt', '--from', current, '--bundle', root], root);
     }
-    response.writeHead(200).end(readFileSync(join(directory, file)));
-  });
-  await new Promise((done, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', done);
-  });
-  return { server, base: directory => `http://127.0.0.1:${server.address().port}/${token}/${directories.indexOf(directory)}` };
+    await run('pnpm', ['install', '--frozen-lockfile'], root);
+    await run('node', ['sdk-bundle-check.mjs', 'installed'], root);
+    await run('pnpm', ['run', 'check'], root);
+    await run('pnpm', ['run', 'build'], root);
+    await afterInstall(phase, root, mode);
+    return root;
+  } });
 }
 
 /** Same round-trip fixture and browser assertions as e1, with storageState carried across installs at one stable origin. */
@@ -231,7 +228,7 @@ async function savedView(root, state, mode) {
   }
 }
 
-async function integration(previous, formal, work, { mutate = false, strictPeerProbe = false } = {}) {
+async function integration(previous, formal, work, { mutate = false } = {}) {
   verifyBundle(previous);
   verifyBundle(formal);
   // Check archive versions too: the installed specifiers alone do not prove different releases were exercised.
@@ -242,39 +239,21 @@ async function integration(previous, formal, work, { mutate = false, strictPeerP
     return manifest.version;
   })));
   if (versions.some(set => set.size !== 1) || [...versions[0]][0] === [...versions[1]][0]) throw new Error('Upgrade requires two distinct, internally consistent bundle versions');
-  const root = join(work, `project-${randomUUID()}`);
-  const served = await serveBundles([previous, formal]);
-  try {
-    console.log(`sdk:upgrade-gate assembly from ${buildProject(root, previous, name => `${served.base(previous)}/${basename(releaseTarball(previous, name))}`)}`);
-    const state = join(work, `storage-${randomUUID()}.json`);
-    const started = Date.now();
-    await runSequence({ root, previous, formal, execute: async (phase, directory, mode) => {
-      console.log(`sdk:upgrade-gate ${phase}: rewrite all nine specifiers from ${directory}`);
-      replaceBundle(root, directory, served.base(directory));
-      await checked('pnpm', ['install', '--no-frozen-lockfile'], root);
-      await checked('pnpm', ['run', 'check'], root);
-      await checked('pnpm', ['run', 'build'], root);
+  // A release directory without a start-kit asset (sdk:pack output, an rc before #1790) gets one built from its nine tarballs.
+  for (const directory of [previous, formal]) if (!kitAsset(directory)) await checked('node', ['tooling/sdk/sdk-kit.mjs', '--tarballs', directory]);
+  const state = join(work, `storage-${randomUUID()}.json`);
+  const started = Date.now();
+  await kitSequence({
+    work, previous, formal, previousKit: kitAsset(previous), formalKit: kitAsset(formal),
+    run: (commandName, args, cwd) => checked(commandName, args, cwd),
+    afterInstall: async (phase, root, mode) => {
       await checked('pnpm', ['--filter', '@ap/platform-e2e', 'exec', 'playwright', 'test', '--config', 'playwright.kit.config.ts'], repo, { AP_SDK_KIT_DIR: root });
       console.log(`sdk:upgrade-gate ${phase}: ${mode} saved view via storageState`);
       await savedView(root, state, mode);
       if (mutate && phase === 'rc') writeFileSync(join(root, 'menus.ts'), `${readFileSync(join(root, 'menus.ts'), 'utf8')}\n// self-test: changed assembly line\n`);
-    } });
-    console.log(`sdk:upgrade-gate three installs/builds/runs: ${((Date.now() - started) / 1000).toFixed(1)}s (isolated CI job)`);
-    if (strictPeerProbe) {
-      const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-      const oldKernel = manifest.dependencies['@ap/kernel'];
-      replaceBundle(root, formal, served.base(formal));
-      const mixed = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-      mixed.dependencies['@ap/kernel'] = oldKernel;
-      writeFileSync(join(root, 'package.json'), JSON.stringify(mixed));
-      const result = await command('pnpm', ['install', '--no-frozen-lockfile'], root);
-      if (!Number.isInteger(result.status) || result.status <= 0 || !result.output.includes('ERR_PNPM_PEER_DEP_ISSUES')) throw new Error(`Eight-of-nine replacement did not fail with strict-peer error (exit ${result.status}): ${result.output.slice(-3000)}`);
-      console.log(`sdk:upgrade-gate PASS eight-of-nine replacement rejected: ERR_PNPM_PEER_DEP_ISSUES (exit ${result.status})`);
-    }
-  } finally {
-    await new Promise(done => served.server.close(done));
-    rmSync(root, { recursive: true, force: true });
-  }
+    },
+  });
+  console.log(`sdk:upgrade-gate three kit changes/installs/builds/runs: ${((Date.now() - started) / 1000).toFixed(1)}s (isolated CI job)`);
 }
 
 async function main(args) {
@@ -285,7 +264,7 @@ async function main(args) {
       const a = join(work, 'a');
       const b = join(work, 'b');
       for (const [out, version] of [[a, '0.0.0-gate-a'], [b, '0.0.0-gate-b']]) await checked('node', ['tooling/sdk/sdk-pack.mjs', '--version', version, '--out', out]);
-      await integration(a, b, work, { strictPeerProbe: true });
+      await integration(a, b, work);
       try {
         await integration(a, b, work, { mutate: true });
       } catch (error) {

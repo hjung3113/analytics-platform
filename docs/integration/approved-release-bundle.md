@@ -13,6 +13,8 @@
 - 설치 안내(키트 README «설치»)와 설치 검사 스크립트(`sdk-bundle-check.mjs`).
 - `SHA256SUMS`.
 
+버전 교체와 N-1 되돌리기는 묶음을 고치지 않고 목표 버전의 묶음(키트)을 새로 풀어 조립 몫만 옮긴다. 키트의 `vendor/`·lockfile·`pnpm-workspace.yaml`·`patches/`는 통째로 바뀐다. 순서와 `adopt` 명령은 [시작 키트 «버전 교체와 되돌리기»](../guides/standalone-start-kit.md#버전-교체와-되돌리기)에 있고, 공개 CI의 `tooling/sdk/sdk-upgrade-gate.mjs`가 같은 순서를 돈다.
+
 ## 설치 검사
 
 묶음 설치 전에 스크립트가 아래를 검사하고 하나라도 어긋나면 설치를 시작하지 않는다. 스크립트는 [`tooling/sdk/sdk-bundle-check.mjs`](../../tooling/sdk/sdk-bundle-check.mjs)이고 Node 내장 모듈만 써서 묶음 안에 그대로 실린다. 묶음 폴더는 키트 폴더 자체다: `vendor/`에 tarball 아홉, `pnpm-lock.yaml`은 이들을 `file:vendor/…`로 풀고, `third-party.json`이 나머지 패키지의 정확 버전 목록, `SHA256SUMS`가 실린 파일을 덮는다.
@@ -23,6 +25,7 @@
 | `mirror --registry <url>` | 5. 미러에 없는 이름·버전과 무결성 값이 다른 것을 적는다. 설치하지 않는다. 인증이 필요하면 `AP_MIRROR_AUTH`에 Authorization 값 |
 | `installed` | 설치 뒤 `node_modules/.pnpm`에 `@ap/*`가 하나씩만 있는지 |
 | `third-party --lockfile <path>` | 릴리스 쪽에서 lockfile로 `third-party.json`을 만든다 |
+| `adopt --from <지금 폴더> [--bundle <새 키트 폴더>]` | 버전 교체·되돌리기: 갓 푼 키트에 조립 몫을 옮긴다. 키트 파일을 고쳤거나 덮어쓰게 되면 아무것도 바꾸지 않고 exit 1([시작 키트](../guides/standalone-start-kit.md#버전-교체와-되돌리기)) |
 
 1. 체크섬: `SHA256SUMS`와 파일이 일치한다.
 2. `@ap/*` 단일 사본: 같은 패키지가 둘 설치되지 않는다. 설치 전에는 lockfile의 `snapshots`에서 다른 peer 묶음으로 두 번 풀린 `@ap/*`를 찾고, 설치 뒤에는 `installed`로 디스크를 본다.

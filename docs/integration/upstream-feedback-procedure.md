@@ -6,11 +6,11 @@
 
 사내 조립에서 플랫폼 버전을 바꿀 때는 이 순서를 지킨다.
 
-1. 고정 버전을 바꾼다(반입 묶음 한 벌, [승인 릴리스 반입 묶음](approved-release-bundle.md)).
+1. 고정 버전을 바꾼다(반입 묶음 한 벌, [승인 릴리스 반입 묶음](approved-release-bundle.md)). 묶음은 시작 키트 자체이므로 목표 버전 키트를 새 폴더에 풀고 조립 몫만 옮긴다([시작 키트 «버전 교체와 되돌리기»](../guides/standalone-start-kit.md#버전-교체와-되돌리기)).
 2. 설치 검사를 통과시킨다.
 3. 시작 키트의 `check`를 돌린다.
 4. 사내 메뉴를 다시 검증한다. 메뉴 폴더의 적합성 사례를 실어댑터 하네스로 돌린다([실서버 연결 체크리스트 §4](real-server-checklist.md#4-적합성-묶음으로-확인하기)).
-5. 실패하면 직전 묶음(N-1)으로 되돌린다([ADR-0143](../adr/0143-release-units-and-compatibility-train.md)).
+5. 실패하면 직전 묶음(N-1)으로 되돌린다([ADR-0143](../adr/0143-release-units-and-compatibility-train.md)). 되돌리기도 1과 같은 순서에 N-1 키트를 넣는다([시작 키트 «버전 교체와 되돌리기»](../guides/standalone-start-kit.md#버전-교체와-되돌리기)).
 
 ## 2. 문제의 분류
 

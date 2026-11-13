@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { appendFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { BUNDLE_PACKAGES, checkInstalled, checkMirror, parseLockfile, readTarEntry, thirdPartyList, verifyBundle } from './sdk-bundle-check.mjs';
+import { adoptAssembly, assemblyFiles, BUNDLE_PACKAGES, checkInstalled, checkMirror, parseLockfile, readTarEntry, thirdPartyList, verifyBundle } from './sdk-bundle-check.mjs';
 import { releasePackages } from './sdk-exports.mjs';
 
 const VERSION = '1.2.3';
@@ -215,6 +215,92 @@ test('mirror: reports a missing name, a missing version and a different integrit
   assert.ok(requested.includes('https://mirror.invalid/npm/@scope%2Flib'));
   assert.ok(requested.every((url) => !url.includes('?') && !url.includes('19.3.0')));
 });
+
+/** A bundle with the kit layout: assembly-owned files, a kit-owned source file, and SHA256SUMS over every file. */
+function makeKit({ sample = 'sample v1', start = 'start v1', extra = {} } = {}) {
+  const kit = makeBundle();
+  const files = { 'menus.ts': "export * from './menus/sample';\n", 'menus/sample/menu.ts': `${sample}\n`, 'mock/assembly.ts': 'mock v1\n', 'src/start.tsx': `${start}\n`, ...extra };
+  for (const [path, content] of Object.entries(files)) {
+    mkdirSync(join(kit, path, '..'), { recursive: true });
+    writeFileSync(join(kit, path), content);
+  }
+  const paths = ['package.json', 'pnpm-lock.yaml', 'third-party.json', ...readdirSync(join(kit, 'vendor')).map((file) => `vendor/${file}`), ...Object.keys(files)];
+  writeFileSync(join(kit, 'SHA256SUMS'), `${paths.map((path) => `${createHash('sha256').update(readFileSync(join(kit, path))).digest('hex')}  ${path}`).join('\n')}\n`);
+  return kit;
+}
+/** The integrator's project on the old kit: own menus, own assembly line, one added file, install output. */
+function makeProject(options) {
+  const project = makeKit(options);
+  writeFileSync(join(project, 'menus.ts'), "export * from './menus/sample';\nexport * from './menus/second';\n");
+  mkdirSync(join(project, 'menus', 'second'));
+  writeFileSync(join(project, 'menus', 'second', 'menu.ts'), 'second\n');
+  writeFileSync(join(project, 'mock', 'assembly.ts'), 'mock with second\n');
+  writeFileSync(join(project, '.npmrc'), 'registry=https://mirror.invalid/\n');
+  mkdirSync(join(project, 'node_modules', '.pnpm'), { recursive: true });
+  writeFileSync(join(project, 'node_modules', '.pnpm', 'x'), 'installed');
+  return project;
+}
+const read = (root, path) => readFileSync(join(root, path), 'utf8');
+const runCli = (args) => spawnSync(process.execPath, [join(import.meta.dirname, 'sdk-bundle-check.mjs'), ...args], { encoding: 'utf8' });
+
+test('adopt: the new kit keeps its kit files and takes menus/, menus.ts, mock/assembly.ts and added files from the project', () => {
+  const project = makeProject();
+  const kit = makeKit({ sample: 'sample v2', start: 'start v2' });
+  const result = runCli(['adopt', '--from', project, '--bundle', kit]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(read(kit, 'menus.ts'), read(project, 'menus.ts'));
+  assert.equal(read(kit, 'menus/sample/menu.ts'), 'sample v1\n', 'the project menu folder replaces the kit sample');
+  assert.equal(read(kit, 'menus/second/menu.ts'), 'second\n');
+  assert.equal(read(kit, 'mock/assembly.ts'), 'mock with second\n');
+  assert.equal(read(kit, '.npmrc'), read(project, '.npmrc'));
+  assert.equal(read(kit, 'src/start.tsx'), 'start v2\n', 'kit files come from the new kit');
+  assert.ok(!existsSync(join(kit, 'node_modules')), 'install output is not carried');
+  assert.deepEqual(assemblyFiles(kit), assemblyFiles(project));
+});
+
+test('adopt: removes a kit menu file the project no longer has', () => {
+  const project = makeProject();
+  const kit = makeKit({ extra: { 'menus/sample/conformance.ts': 'cases\n' } });
+  assert.deepEqual(adoptAssembly(kit, project), []);
+  assert.ok(!existsSync(join(kit, 'menus/sample/conformance.ts')));
+});
+
+test('adopt refuses, and changes nothing, when it would overwrite or lose a file', async (t) => {
+  const none = () => {};
+  const cases = [
+    ['a kit file changed in the project', (project) => writeFileSync(join(project, 'src/start.tsx'), 'edited\n'), {}, none, /src\/start\.tsx: changed in the current project/],
+    ['a project file the new kit also ships', (project) => writeFileSync(join(project, 'real.tsx'), 'mine\n'), { extra: { 'real.tsx': 'kit\n' } }, none, /real\.tsx: added in the current project, but the new kit ships it/],
+    ['a new kit that is not freshly unpacked', none, {}, (kit) => writeFileSync(join(kit, 'menus.ts'), 'adopted before\n'), /new kit: menus\.ts: checksum does not match/],
+    ['a new kit without its lockfile', none, {}, (kit) => rmSync(join(kit, 'pnpm-lock.yaml')), /new kit: pnpm-lock\.yaml: listed in SHA256SUMS but missing/],
+    ['a project without SHA256SUMS', (project) => rmSync(join(project, 'SHA256SUMS')), {}, none, /SHA256SUMS is missing: cannot tell kit files from assembly files/],
+    ['a project without mock/assembly.ts', (project) => rmSync(join(project, 'mock/assembly.ts')), {}, none, /mock\/assembly\.ts: missing in the current project/],
+  ];
+  for (const [name, breakProject, kitOptions, breakKit, expected] of cases) {
+    await t.test(name, () => {
+      const project = makeProject();
+      const kit = makeKit(kitOptions);
+      breakKit(kit);
+      breakProject(project);
+      const before = listAll(kit);
+      const result = runCli(['adopt', '--from', project, '--bundle', kit]);
+      assert.equal(result.status, 1, result.stdout);
+      assert.match(result.stderr, expected);
+      assert.deepEqual(listAll(kit), before);
+    });
+  }
+});
+
+test('adopt refuses the project folder itself as the new kit', () => {
+  const project = makeProject();
+  assert.match(adoptAssembly(project, project).join('\n'), /new kit folder and the current project are the same folder/);
+});
+
+function listAll(root, prefix = '') {
+  return readdirSync(join(root, prefix), { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name)).flatMap((entry) => {
+    const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+    return entry.isDirectory() ? listAll(root, path) : [`${path}=${createHash('sha256').update(readFileSync(join(root, path))).digest('hex')}`];
+  });
+}
 
 test('mirror: a network error is reported, not counted as present', async () => {
   const result = await checkMirror('https://mirror.invalid', [{ name: 'react', version: '19.3.0', integrity: null }], async () => {
