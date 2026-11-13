@@ -48,10 +48,27 @@ export function verifyStartKit(directory, version) {
   return file;
 }
 
-/** The release directory's start-kit asset, or null. */
-export function kitAsset(directory) {
-  const file = readdirSync(directory).find(entry => /^ap-start-kit-.+\.tgz$/.test(entry));
-  return file ? join(directory, file) : null;
+/**
+ * The start-kit asset of release `version` in its directory, or null. Any other start kit in the directory is refused: the
+ * installs must come from the release whose nine tarballs were checked, never from a kit of another version.
+ */
+export function kitAsset(directory, version) {
+  const file = `ap-start-kit-${version}.tgz`;
+  const others = readdirSync(directory).filter(entry => /^ap-start-kit-.+\.tgz$/.test(entry) && entry !== file);
+  if (others.length > 0) throw new Error(`Release ${version} directory holds a start kit of another version: ${others.join(', ')}`);
+  return existsSync(join(directory, file)) ? join(directory, file) : null;
+}
+/** An unpacked kit installs release `version`: vendor/ holds exactly its nine tarballs, each manifest naming that version. */
+export function assertKitVersion(root, version) {
+  const vendor = join(root, 'vendor');
+  const expected = names.map(name => `ap-${name}-${version}.tgz`).sort();
+  const actual = existsSync(vendor) ? readdirSync(vendor).filter(file => file.endsWith('.tgz')).sort() : [];
+  if (actual.join('\n') !== expected.join('\n')) throw new Error(`Start kit in ${root} is not release ${version}: vendor/ holds ${actual.join(', ') || 'no tarballs'}`);
+  for (const name of names) {
+    const body = readTarEntry(readFileSync(join(vendor, `ap-${name}-${version}.tgz`)), 'package/package.json');
+    const manifest = body ? JSON.parse(body.toString('utf8')) : {};
+    if (manifest.name !== `@ap/${name}` || manifest.version !== version) throw new Error(`Start kit in ${root} is not release ${version}: vendor/ap-${name}-${version}.tgz is ${manifest.name}@${manifest.version}`);
+  }
 }
 /** Procedure step 1: unpack a start-kit asset into a new empty folder (top folder stripped). */
 export function unpackKit(root, file) {
@@ -88,9 +105,9 @@ export async function downloadPrevious(pin, destination, download = fetchPreviou
  * round-trip included); it must be byte-identical in every phase. Kit files (vendor/, lockfile, manifest) change with the kit.
  * Without a kit SHA256SUMS every file counts, with the nine @ap specifiers and the lockfile left out.
  */
-export function assemblyHash(root) {
+export function assemblyHash(root, skip = new Set()) {
   const hash = createHash('sha256');
-  for (const key of assemblyFiles(root).filter(path => path !== 'pnpm-lock.yaml')) {
+  for (const key of assemblyFiles(root).filter(path => path !== 'pnpm-lock.yaml' && !skip.has(path))) {
     let content = readFileSync(join(root, key));
     if (key === 'package.json') {
       const manifest = JSON.parse(content.toString('utf8'));
@@ -104,17 +121,40 @@ export function assemblyHash(root) {
 export function assertAssembly(root, expected) {
   if (assemblyHash(root) !== expected) throw new Error('assembly code changed between upgrade runs');
 }
+/**
+ * The starting assembly stays byte-identical in every phase. A file that was not in it may appear only as a kit file `adopt`
+ * kept in a carried menu folder (its bytes equal the file a kit of this run lists in its SHA256SUMS); anything else is a change.
+ */
+function assemblyGuard(start) {
+  const baseline = new Set(assemblyFiles(start));
+  const expected = assemblyHash(start);
+  const kitFiles = new Map();
+  return root => {
+    const sums = existsSync(join(root, 'SHA256SUMS')) ? parseSums(readFileSync(join(root, 'SHA256SUMS'), 'utf8')) : new Map();
+    const added = new Set();
+    for (const path of assemblyFiles(root)) {
+      if (baseline.has(path)) continue;
+      const hex = digest(readFileSync(join(root, path)));
+      if (kitFiles.get(path) !== hex && sums.get(path) !== hex) throw new Error(`assembly code changed between upgrade runs: ${path} is new and is not a kit file`);
+      kitFiles.set(path, hex);
+      added.add(path);
+    }
+    if (assemblyHash(root, added) !== expected) throw new Error('assembly code changed between upgrade runs');
+    return expected;
+  };
+}
 /** `execute(phase, directory, mode, root)` may return the folder the next phase starts from (a kit change moves the project). */
 export async function runSequence({ root: start, previous, formal, execute, log = console.log }) {
   let root = start;
-  const expected = assemblyHash(root);
+  const check = assemblyGuard(start);
+  const expected = check(root);
   for (const [phase, directory, mode] of [['rc', previous, 'save'], ['formal', formal, 'restore'], ['rollback', previous, 'restore']]) {
-    assertAssembly(root, expected);
+    check(root);
     log(`sdk:upgrade-gate ${phase}: change kit → frozen install → build → run kit → ${mode} view`);
     const started = Date.now();
     const next = await execute(phase, directory, mode, root);
     if (typeof next === 'string') root = next;
-    assertAssembly(root, expected);
+    check(root);
     log(`sdk:upgrade-gate PASS ${phase} (${((Date.now() - started) / 1000).toFixed(1)}s; assembly ${expected})`);
   }
   log('sdk:upgrade-gate mock 통과');
@@ -147,9 +187,11 @@ async function checked(commandName, args, cwd, env) {
  * with the newer kit's script, and install from the target kit's own lockfile with --frozen-lockfile (never regenerated).
  * `run(command, args, cwd)` executes one command; `afterInstall(phase, root, mode)` runs the browser checks.
  */
-export async function kitSequence({ work, previous, formal, previousKit, formalKit, run, afterInstall = async () => {}, log }) {
+export async function kitSequence({ work, previous, formal, previousKit, formalKit, previousVersion, formalVersion, run, afterInstall = async () => {}, log }) {
+  if (!previousVersion || !formalVersion || previousVersion === formalVersion) throw new Error('kitSequence needs two distinct release versions');
   const start = join(work, `project-rc-${randomUUID()}`);
   unpackKit(start, previousKit);
+  assertKitVersion(start, previousVersion);
   // The round-trip fixture is not part of the kit asset: it is the same browser assertion in every phase, so it comes from this
   // tree and travels with the project like any file the integrator added.
   cpSync(join(repo, 'tooling/sdk/fixtures/out-of-repo-assembly/round-trip'), join(start, 'round-trip'), { recursive: true });
@@ -159,6 +201,7 @@ export async function kitSequence({ work, previous, formal, previousKit, formalK
     if (phase !== 'rc') {
       root = join(work, `project-${phase}-${randomUUID()}`);
       unpackKit(root, directory === formal ? formalKit : previousKit);
+      assertKitVersion(root, directory === formal ? formalVersion : previousVersion);
       await run('node', ['sdk-bundle-check.mjs', 'verify'], root);
       // The newer kit carries `adopt`: the target on upgrade, the current project on rollback.
       const newer = phase === 'rollback' ? current : root;
@@ -239,12 +282,19 @@ async function integration(previous, formal, work, { mutate = false } = {}) {
     return manifest.version;
   })));
   if (versions.some(set => set.size !== 1) || [...versions[0]][0] === [...versions[1]][0]) throw new Error('Upgrade requires two distinct, internally consistent bundle versions');
-  // A release directory without a start-kit asset (sdk:pack output, an rc before #1790) gets one built from its nine tarballs.
-  for (const directory of [previous, formal]) if (!kitAsset(directory)) await checked('node', ['tooling/sdk/sdk-kit.mjs', '--tarballs', directory]);
+  const [previousVersion, formalVersion] = versions.map(set => [...set][0]);
+  // Each kit is bound to the release whose nine tarballs were just checked: its exact file name, its line in that release's
+  // SHA256SUMS, and (after unpacking, in kitSequence) the versions of its vendor/ manifests.
+  // A release directory without a start-kit asset (sdk:pack output, an rc before #1790) gets one built from its nine tarballs and
+  // this tree's kit fixture: for the current bundle that is the kit the release workflow will publish.
+  for (const [directory, version] of [[previous, previousVersion], [formal, formalVersion]]) {
+    if (!kitAsset(directory, version)) await checked('node', ['tooling/sdk/sdk-kit.mjs', '--tarballs', directory]);
+    if (!verifyStartKit(directory, version)) throw new Error(`Release ${version} has no start kit ap-start-kit-${version}.tgz`);
+  }
   const state = join(work, `storage-${randomUUID()}.json`);
   const started = Date.now();
   await kitSequence({
-    work, previous, formal, previousKit: kitAsset(previous), formalKit: kitAsset(formal),
+    work, previous, formal, previousKit: kitAsset(previous, previousVersion), formalKit: kitAsset(formal, formalVersion), previousVersion, formalVersion,
     run: (commandName, args, cwd) => checked(commandName, args, cwd),
     afterInstall: async (phase, root, mode) => {
       await checked('pnpm', ['--filter', '@ap/platform-e2e', 'exec', 'playwright', 'test', '--config', 'playwright.kit.config.ts'], repo, { AP_SDK_KIT_DIR: root });

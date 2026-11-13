@@ -13,14 +13,16 @@
 //   node sdk-bundle-check.mjs third-party --lockfile <path>             prints third-party.json for a lockfile (release side)
 //   node sdk-bundle-check.mjs adopt --from <project> [--bundle <dir>]   kit change (upgrade N or rollback N-1): moves the
 //                                                                        project's menus/, menus.ts, mock/assembly.ts and
-//                                                                        added files into the freshly unpacked kit <dir>;
-//                                                                        refuses when a kit file was changed or would be overwritten
+//                                                                        added files into the freshly unpacked kit <dir>
+//                                                                        (kit files of a carried menu folder the project lacks
+//                                                                        stay); refuses, changing nothing, when a kit file was
+//                                                                        changed or deleted, a copy would collide, or a link is met
 //
 // The mirror check sends only package names to the registry URL given on the command line; its result stays on the
 // machine that runs it. Set AP_MIRROR_AUTH to a full Authorization header value if the mirror needs one.
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmdirSync, rmSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 
@@ -298,53 +300,122 @@ export const ASSEMBLY_PATHS = Object.freeze(['menus/', 'menus.ts', 'mock/assembl
 const NOT_CARRIED = new Set(['node_modules', 'dist', '.vite', '.git']);
 const isAssemblyPath = (path) => ASSEMBLY_PATHS.some((owned) => (owned.endsWith('/') ? path.startsWith(owned) : path === owned));
 
-function projectFiles(root, prefix = '') {
-  return readdirSync(join(root, prefix), { withFileTypes: true })
-    .filter((entry) => !NOT_CARRIED.has(entry.name))
-    .flatMap((entry) => {
-      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-      return entry.isDirectory() ? projectFiles(root, path) : [path];
-    })
-    .sort();
+/** Regular files and other entries (links, sockets …) under `root`, as sorted `/` paths. lstat only: links are never followed. */
+function walk(root, skip = new Set(), prefix = '') {
+  const files = [];
+  const other = [];
+  for (const entry of readdirSync(join(root, prefix), { withFileTypes: true })) {
+    if (skip.has(entry.name)) continue;
+    const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      const inner = walk(root, skip, path);
+      files.push(...inner.files);
+      other.push(...inner.other);
+    } else if (entry.isFile()) files.push(path);
+    else other.push(path);
+  }
+  return { files: files.sort(), other: other.sort() };
 }
+
+const readSums = (root) => (existsSync(join(root, 'SHA256SUMS')) ? parseSums(readFileSync(join(root, 'SHA256SUMS'), 'utf8')) : new Map());
 
 /** The files a kit change carries: the assembly paths and every file the project's own kit did not ship. */
 export function assemblyFiles(project) {
+  const kitFiles = readSums(project);
+  const { files, other } = walk(project, NOT_CARRIED);
+  return [...files, ...other].sort().filter((path) => path !== 'SHA256SUMS' && (isAssemblyPath(path) || !kitFiles.has(path)));
+}
+
+/** `inner` is `outer` or lies under it (both canonical). */
+function within(outer, inner) {
+  const rel = relative(outer, inner);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+/** `menus/<folder>` for a file inside a menu folder, undefined for any other path. */
+const menuFolder = (path) => (path.startsWith('menus/') && path.split('/').length > 2 ? path.split('/').slice(0, 2).join('/') : undefined);
+
+/**
+ * Everything `adopt` will do, decided before it changes anything: the files it copies from the project, the kit files it
+ * removes, and why it must not run (empty `failures` = it may run). Both folders are canonical (links resolved).
+ *
+ * Kit files under the assembly paths are the kit's sample. The project's assembly replaces them, except a kit file inside a
+ * menu folder the project carries but that has no file at that path: the new kit keeps it. A newer kit adds files to its
+ * sample menu (0.35.0-rc.2 added `menus/sample/conformance.ts`, which its `src/conformance.test.tsx` requires per menu); the
+ * integrator never wrote that file, so carrying the folder must not delete it. A menu folder the project no longer has
+ * leaves the new kit whole.
+ */
+export function adoptPlan(kitPath, projectPath) {
+  let kit;
+  let project;
+  try {
+    kit = realpathSync(kitPath);
+    project = realpathSync(projectPath);
+  } catch (error) {
+    return { failures: [`cannot resolve the folder: ${error.message}`] };
+  }
+  if (kit === project) return { failures: ['the new kit folder and the current project are the same folder: unpack the new kit into an empty folder'] };
+  if (within(project, kit) || within(kit, project)) return { failures: [`the new kit folder ${kit} and the current project ${project} overlap: unpack the new kit into an empty folder outside the project`] };
+
+  const failures = [];
+  const kitTree = walk(kit);
+  for (const path of kitTree.other) failures.push(`new kit: ${path}: a link or special file; a freshly unpacked kit holds regular files only`);
+  failures.push(...verifyBundle(kit).map((line) => `new kit: ${line}`));
+  const newKit = readSums(kit);
+  for (const path of kitTree.files) {
+    if (path !== 'SHA256SUMS' && !newKit.has(path)) failures.push(`new kit: ${path}: not a kit file (not in its SHA256SUMS); unpack the new kit into an empty folder`);
+  }
+
   const sumsPath = join(project, 'SHA256SUMS');
-  const kitFiles = existsSync(sumsPath) ? parseSums(readFileSync(sumsPath, 'utf8')) : new Map();
-  return projectFiles(project).filter((path) => path !== 'SHA256SUMS' && (isAssemblyPath(path) || !kitFiles.has(path)));
+  if (!existsSync(sumsPath)) return { failures: [...failures, `${sumsPath} is missing: cannot tell kit files from assembly files`] };
+  const projectKit = parseSums(readFileSync(sumsPath, 'utf8'));
+  const tree = walk(project, NOT_CARRIED);
+  for (const path of tree.other) failures.push(`${path}: a link or special file in the current project; adopt copies regular files only, so replace it with the file or folder itself`);
+  const present = new Set(tree.files);
+  for (const [path, hex] of projectKit) {
+    if (isAssemblyPath(path) || tree.other.includes(path)) continue;
+    if (!present.has(path)) failures.push(`${path}: deleted in the current project; the new kit replaces kit files, so restore it or report the need upstream`);
+    else if (sha256(join(project, path)) !== hex) failures.push(`${path}: changed in the current project; the new kit replaces kit files, so move the change into ${ASSEMBLY_PATHS.join(', ')} or report it upstream`);
+  }
+
+  const copy = tree.files.filter((path) => path !== 'SHA256SUMS' && (isAssemblyPath(path) || !projectKit.has(path)));
+  const copied = new Set(copy);
+  const carriedFolders = new Set(copy.map(menuFolder).filter(Boolean));
+  const remove = [...newKit.keys()].filter((path) => isAssemblyPath(path) && !copied.has(path) && !carriedFolders.has(menuFolder(path))).sort();
+  // The new kit's files after removal; a copy must not land on one of them, under one of them, or over a folder of them.
+  const removed = new Set(remove);
+  const kept = [...newKit.keys()].filter((path) => !removed.has(path));
+  const keptFiles = new Set(kept);
+  const keptFolders = new Set(kept.flatMap((path) => path.split('/').slice(0, -1).map((_, index, parts) => parts.slice(0, index + 1).join('/'))));
+  for (const path of copy) {
+    if (keptFiles.has(path) && !isAssemblyPath(path)) failures.push(`${path}: added in the current project, but the new kit ships it; rename or move it first`);
+    if (keptFolders.has(path)) failures.push(`${path}: added in the current project as a file, but the new kit has a folder there; rename or move it first`);
+    const parents = path.split('/').slice(0, -1).map((_, index, parts) => parts.slice(0, index + 1).join('/'));
+    for (const parent of parents) if (keptFiles.has(parent)) failures.push(`${path}: added in the current project inside ${parent}/, but the new kit ships ${parent} as a file; rename or move it first`);
+  }
+  for (const path of ['menus.ts', 'mock/assembly.ts']) if (!copied.has(path)) failures.push(`${path}: missing in the current project`);
+  if (!copy.some((path) => path.startsWith('menus/'))) failures.push('menus/: missing or empty in the current project');
+  return { failures, kit, project, copy, remove };
 }
 
 /** Why `adopt` must not run; empty when the freshly unpacked `kit` can take the assembly of `project`. */
 export function adoptFailures(kit, project) {
-  if (resolve(kit) === resolve(project)) return ['the new kit folder and the current project are the same folder: unpack the new kit into an empty folder'];
-  const failures = verifyBundle(kit).map((line) => `new kit: ${line}`);
-  const sumsPath = join(project, 'SHA256SUMS');
-  if (!existsSync(sumsPath)) return [...failures, `${sumsPath} is missing: cannot tell kit files from assembly files`];
-  const projectKit = parseSums(readFileSync(sumsPath, 'utf8'));
-  for (const [path, hex] of projectKit) {
-    if (isAssemblyPath(path) || !existsSync(join(project, path))) continue;
-    if (sha256(join(project, path)) !== hex) failures.push(`${path}: changed in the current project; the new kit replaces kit files, so move the change into ${ASSEMBLY_PATHS.join(', ')} or report it upstream`);
-  }
-  const newKit = existsSync(join(kit, 'SHA256SUMS')) ? parseSums(readFileSync(join(kit, 'SHA256SUMS'), 'utf8')) : new Map();
-  const carried = assemblyFiles(project);
-  for (const path of carried) {
-    if (!isAssemblyPath(path) && newKit.has(path)) failures.push(`${path}: added in the current project, but the new kit ships it; rename or move it first`);
-  }
-  for (const path of ['menus.ts', 'mock/assembly.ts']) if (!carried.includes(path)) failures.push(`${path}: missing in the current project`);
-  if (!carried.some((path) => path.startsWith('menus/'))) failures.push('menus/: missing or empty in the current project');
-  return failures;
+  return adoptPlan(kit, project).failures;
 }
 
 /**
  * Moves the assembly of `project` into the freshly unpacked `kit` (the kit change procedure, docs/guides/standalone-start-kit.md
- * «버전 교체와 되돌리기»). Refuses, changing nothing, on any adoptFailures line. Returns the failures (empty = adopted).
+ * «버전 교체와 되돌리기»). Every refusal is decided by `adoptPlan` before the first change, so a refusal changes neither folder;
+ * the project is only read. Returns the failures (empty = adopted).
  */
-export function adoptAssembly(kit, project) {
-  const failures = adoptFailures(kit, project);
+export function adoptAssembly(kitPath, projectPath) {
+  const { failures, kit, project, copy, remove } = adoptPlan(kitPath, projectPath);
   if (failures.length > 0) return failures;
-  for (const owned of ASSEMBLY_PATHS) rmSync(join(kit, owned), { recursive: true, force: true });
-  for (const path of assemblyFiles(project)) {
+  for (const path of remove) {
+    rmSync(join(kit, path));
+    for (let folder = dirname(join(kit, path)); folder !== kit && readdirSync(folder).length === 0; folder = dirname(folder)) rmdirSync(folder);
+  }
+  for (const path of copy) {
     mkdirSync(dirname(join(kit, path)), { recursive: true });
     cpSync(join(project, path), join(kit, path));
   }

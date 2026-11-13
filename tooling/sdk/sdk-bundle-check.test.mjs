@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 
 import { adoptAssembly, assemblyFiles, BUNDLE_PACKAGES, checkInstalled, checkMirror, parseLockfile, readTarEntry, thirdPartyList, verifyBundle } from './sdk-bundle-check.mjs';
@@ -258,11 +258,50 @@ test('adopt: the new kit keeps its kit files and takes menus/, menus.ts, mock/as
   assert.deepEqual(assemblyFiles(kit), assemblyFiles(project));
 });
 
-test('adopt: removes a kit menu file the project no longer has', () => {
+test('adopt: a newer kit file inside a menu folder the project carries stays; a kit menu folder the project dropped goes', () => {
   const project = makeProject();
-  const kit = makeKit({ extra: { 'menus/sample/conformance.ts': 'cases\n' } });
+  const kit = makeKit({ extra: { 'menus/sample/conformance.ts': 'cases\n', 'menus/third/menu.ts': 'third\n' } });
   assert.deepEqual(adoptAssembly(kit, project), []);
-  assert.ok(!existsSync(join(kit, 'menus/sample/conformance.ts')));
+  assert.equal(read(kit, 'menus/sample/conformance.ts'), 'cases\n', 'the project never wrote it: carrying the folder keeps the kit file');
+  assert.equal(read(kit, 'menus/sample/menu.ts'), 'sample v1\n');
+  assert.ok(!existsSync(join(kit, 'menus/third')), 'a kit menu folder the project does not have is removed whole');
+});
+
+/**
+ * The released 0.35.0-rc.1 kit (git tag sdk-v0.35.0-rc.1, and the asset's file list) lacked these four files; 0.35.0-rc.2 added
+ * them, and its src/conformance.test.tsx requires a menus/<menu>/conformance.ts case for every page menu.
+ */
+const RC1_LACKS = ['menus/sample/conformance.ts', 'real/assembly.test.tsx', 'real/assembly.tsx', 'src/conformance.test.tsx'];
+const KIT_FIXTURE = join(import.meta.dirname, 'fixtures', 'out-of-repo-assembly', 'kit');
+/** A kit bundle with the repo's kit fixture as its files, without `lacks` (the historical layout). */
+function fixtureKit(lacks = []) {
+  const kit = makeBundle();
+  cpSync(KIT_FIXTURE, kit, { recursive: true });
+  for (const path of lacks) {
+    rmSync(join(kit, path));
+    if (readdirSync(dirname(join(kit, path))).length === 0) rmSync(dirname(join(kit, path)), { recursive: true });
+  }
+  const paths = listAll(kit).map((line) => line.replace(/=.*$/, '')).filter((path) => path !== 'SHA256SUMS');
+  writeFileSync(join(kit, 'SHA256SUMS'), `${paths.map((path) => `${createHash('sha256').update(readFileSync(join(kit, path))).digest('hex')}  ${path}`).join('\n')}\n`);
+  return kit;
+}
+
+test('adopt: the rc.1 → rc.2 layout keeps the newer kit\'s conformance case for the carried sample menu, and rolls back unchanged', () => {
+  const rc1 = fixtureKit(RC1_LACKS);
+  const before = listAll(rc1).filter((line) => /^(menus\/|menus\.ts=|mock\/assembly\.ts=)/.test(line));
+  const rc2 = fixtureKit();
+  assert.deepEqual(adoptAssembly(rc2, rc1), []);
+  for (const path of RC1_LACKS) assert.ok(existsSync(join(rc2, path)), `${path} comes from the newer kit`);
+  // What src/conformance.test.tsx needs: a conformance.ts in every menu folder, importing what the carried endpoints export.
+  for (const folder of readdirSync(join(rc2, 'menus'))) assert.ok(existsSync(join(rc2, 'menus', folder, 'conformance.ts')), `menus/${folder} has a conformance case`);
+  assert.match(read(rc2, 'menus/sample/conformance.ts'), /import \{ sampleEndpoint \} from '\.\/endpoints';/);
+  assert.match(read(rc2, 'menus/sample/endpoints.ts'), /export const sampleEndpoint = /);
+  for (const line of before) assert.ok(listAll(rc2).includes(line), `${line.replace(/=.*$/, '')}: the carried assembly bytes are the project's`);
+  // Rollback with the newer script: the rc.1 kit takes the folder as it is now, the kept kit file included.
+  const back = fixtureKit(RC1_LACKS);
+  assert.deepEqual(adoptAssembly(back, rc2), []);
+  for (const line of before) assert.ok(listAll(back).includes(line), `${line.replace(/=.*$/, '')}: unchanged after rollback`);
+  assert.ok(!existsSync(join(back, 'src/conformance.test.tsx')) && !existsSync(join(back, 'real')), 'kit files come from the rc.1 kit');
 });
 
 test('adopt refuses, and changes nothing, when it would overwrite or lose a file', async (t) => {
@@ -274,6 +313,12 @@ test('adopt refuses, and changes nothing, when it would overwrite or lose a file
     ['a new kit without its lockfile', none, {}, (kit) => rmSync(join(kit, 'pnpm-lock.yaml')), /new kit: pnpm-lock\.yaml: listed in SHA256SUMS but missing/],
     ['a project without SHA256SUMS', (project) => rmSync(join(project, 'SHA256SUMS')), {}, none, /SHA256SUMS is missing: cannot tell kit files from assembly files/],
     ['a project without mock/assembly.ts', (project) => rmSync(join(project, 'mock/assembly.ts')), {}, none, /mock\/assembly\.ts: missing in the current project/],
+    ['a kit file deleted in the project', (project) => rmSync(join(project, 'src/start.tsx')), {}, none, /src\/start\.tsx: deleted in the current project/],
+    ['a project file where the new kit has a folder', (project) => writeFileSync(join(project, 'real'), 'mine\n'), { extra: { 'real/assembly.tsx': 'kit\n' } }, none, /real: added in the current project as a file, but the new kit has a folder there/],
+    ['a project folder where the new kit has a file', (project) => { mkdirSync(join(project, 'extra')); writeFileSync(join(project, 'extra/file.ts'), 'mine\n'); }, { extra: { extra: 'kit\n' } }, none, /extra\/file\.ts: added in the current project inside extra\/, but the new kit ships extra as a file/],
+    ['a new kit with a file it does not list', (project) => writeFileSync(join(project, '.env'), 'mine\n'), {}, (kit) => writeFileSync(join(kit, '.env'), 'theirs\n'), /new kit: \.env: not a kit file/],
+    ['a link inside the project assembly', (project) => { const outside = mkdtempSync(join(tmpdir(), 'ap-outside-')); writeFileSync(join(outside, 'menu.ts'), 'outside\n'); rmSync(join(project, 'menus/second'), { recursive: true }); symlinkSync(outside, join(project, 'menus/second')); }, {}, none, /menus\/second: a link or special file in the current project/],
+    ['a link inside the new kit', none, {}, (kit) => { const outside = mkdtempSync(join(tmpdir(), 'ap-outside-')); cpSync(join(kit, 'mock'), outside, { recursive: true }); rmSync(join(kit, 'mock'), { recursive: true }); symlinkSync(outside, join(kit, 'mock')); }, /new kit: mock: a link or special file/],
   ];
   for (const [name, breakProject, kitOptions, breakKit, expected] of cases) {
     await t.test(name, () => {
@@ -281,11 +326,11 @@ test('adopt refuses, and changes nothing, when it would overwrite or lose a file
       const kit = makeKit(kitOptions);
       breakKit(kit);
       breakProject(project);
-      const before = listAll(kit);
+      const before = [listAll(kit), listAll(project)];
       const result = runCli(['adopt', '--from', project, '--bundle', kit]);
       assert.equal(result.status, 1, result.stdout);
       assert.match(result.stderr, expected);
-      assert.deepEqual(listAll(kit), before);
+      assert.deepEqual([listAll(kit), listAll(project)], before, 'neither folder changed');
     });
   }
 });
@@ -295,9 +340,31 @@ test('adopt refuses the project folder itself as the new kit', () => {
   assert.match(adoptAssembly(project, project).join('\n'), /new kit folder and the current project are the same folder/);
 });
 
+test('adopt refuses a link alias of the project and a kit folder inside the project, changing neither', () => {
+  const pristine = makeKit();
+  const alias = join(mkdtempSync(join(tmpdir(), 'ap-alias-')), 'kit');
+  symlinkSync(pristine, alias);
+  const before = listAll(pristine);
+  const result = runCli(['adopt', '--from', pristine, '--bundle', alias]);
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stderr, /the same folder/);
+  assert.deepEqual(listAll(pristine), before, 'the source assembly is not removed through the alias');
+
+  const project = makeProject();
+  const nested = join(project, 'next');
+  const kit = makeKit();
+  cpSync(kit, nested, { recursive: true });
+  const both = [listAll(project)];
+  assert.match(adoptAssembly(nested, project).join('\n'), /overlap: unpack the new kit into an empty folder outside the project/);
+  assert.match(adoptAssembly(project, nested).join('\n'), /overlap/);
+  assert.deepEqual([listAll(project)], both);
+});
+
+/** path=sha256 of every file, path->target of every link (never followed), sorted. */
 function listAll(root, prefix = '') {
   return readdirSync(join(root, prefix), { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name)).flatMap((entry) => {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isSymbolicLink()) return [`${path}->${readlinkSync(join(root, path))}`];
     return entry.isDirectory() ? listAll(root, path) : [`${path}=${createHash('sha256').update(readFileSync(join(root, path))).digest('hex')}`];
   });
 }

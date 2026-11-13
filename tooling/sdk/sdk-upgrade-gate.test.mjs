@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { releasePackages } from './sdk-exports.mjs';
-import { assemblyHash, assertAssembly, downloadPrevious, kitAsset, kitSequence, runSequence, unpackKit, verifyBundle, verifyStartKit, FINAL_REPORT } from './sdk-upgrade-gate.mjs';
+import { assemblyHash, assertAssembly, assertKitVersion, downloadPrevious, kitAsset, kitSequence, runSequence, unpackKit, verifyBundle, verifyStartKit, FINAL_REPORT } from './sdk-upgrade-gate.mjs';
 
 const names = releasePackages().map(({ name }) => name);
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -107,6 +107,8 @@ test('CI isolates the upgrade cost and runs SDK upgrade gate after consumer and 
   const negatives = workflow.indexOf('node tooling/sdk/sdk-consumer-negatives.mjs');
   assert.ok(consumer > 0 && consumer < negatives && negatives < workflow.indexOf('\n  sdk-upgrade-gate:'));
   assert.match(job, /node tooling\/sdk\/sdk-upgrade-gate.mjs/);
+  // The job builds the current kit with sdk-kit.mjs, which lists tracked files with git inside a container of another uid.
+  assert.ok(job.indexOf('git config --global --add safe.directory "$GITHUB_WORKSPACE"') > 0 && job.indexOf('safe.directory') < job.indexOf('node tooling/sdk/sdk-upgrade-gate.mjs'));
   assert.match(workflow, /UPGRADE: \$\{\{ needs.sdk-upgrade-gate.result \}\}/);
   assert.doesNotMatch(job, /--self-test/);
   const selftest = workflow.slice(workflow.indexOf('\n  sdk-upgrade-gate-selftest:'), workflow.indexOf('\n  platform-workspace:'));
@@ -162,17 +164,17 @@ function withStartKit(root, version, { sums = true, corrupt = false } = {}) {
  * A start-kit asset that passes the shipped bundle check: nine vendor tarballs, a lockfile resolving them, the real
  * sdk-bundle-check.mjs and SHA256SUMS over every file. Kit files carry the version so the test can tell kits apart.
  */
-function realKit(root, version, { withoutLockfile = false } = {}) {
+function realKit(root, version, { withoutLockfile = false, extra = {}, vendorVersion = version } = {}) {
   const release = join(root, `release-${version}`);
   const stage = join(root, `kit-stage-${version}`);
   const kit = join(stage, `ap-start-kit-${version}`);
   mkdirSync(join(kit, 'vendor'), { recursive: true });
   mkdirSync(release);
-  const tarball = name => `ap-${name}-${version}.tgz`;
+  const tarball = name => `ap-${name}-${vendorVersion}.tgz`;
   for (const name of names) {
     const pkg = join(root, `pkg-${version}-${name}`, 'package');
     mkdirSync(pkg, { recursive: true });
-    writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: `@ap/${name}`, version }));
+    writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: `@ap/${name}`, version: vendorVersion }));
     assert.equal(spawnSync('tar', ['-czf', join(kit, 'vendor', tarball(name)), '-C', dirname(pkg), 'package']).status, 0);
   }
   const files = {
@@ -184,6 +186,7 @@ function realKit(root, version, { withoutLockfile = false } = {}) {
     'mock/assembly.ts': `mock ${version}\n`,
     'src/start.tsx': `start ${version}\n`,
     'sdk-bundle-check.mjs': readFileSync(new URL('./sdk-bundle-check.mjs', import.meta.url), 'utf8'),
+    ...extra,
   };
   for (const [path, content] of Object.entries(files)) {
     mkdirSync(dirname(join(kit, path)), { recursive: true });
@@ -193,7 +196,7 @@ function realKit(root, version, { withoutLockfile = false } = {}) {
   writeFileSync(join(kit, 'SHA256SUMS'), `${listed.map(path => `${hash(readFileSync(join(kit, path)))}  ${path}`).join('\n')}\n`);
   if (withoutLockfile) rmSync(join(kit, 'pnpm-lock.yaml'));
   assert.equal(spawnSync('tar', ['-czf', join(release, `ap-start-kit-${version}.tgz`), '-C', stage, `ap-start-kit-${version}`]).status, 0);
-  return { directory: release, kit: kitAsset(release) };
+  return { directory: release, version, kit: kitAsset(release, version) };
 }
 /** Runs the kit's own node scripts for real (verify, adopt); records pnpm and the post-install check, which need an install. */
 function recorder() {
@@ -214,7 +217,7 @@ test('kit change procedure: older kit → newer kit → back, each from its own 
   const { commands, run } = recorder();
   const roots = {};
   const hashes = [];
-  await kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: formal.kit, run, log: () => {}, afterInstall: async (phase, project) => {
+  await kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: formal.kit, previousVersion: previous.version, formalVersion: formal.version, run, log: () => {}, afterInstall: async (phase, project) => {
     roots[phase] = project;
     hashes.push(assemblyHash(project));
   } });
@@ -239,7 +242,7 @@ test('a new kit without its lockfile stops the upgrade before any install in tha
   const previous = realKit(root, '0.0.0-a');
   const formal = realKit(root, '0.0.0-b', { withoutLockfile: true });
   const { commands, run } = recorder();
-  await assert.rejects(kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: formal.kit, run, log: () => {} }), /pnpm-lock\.yaml: listed in SHA256SUMS but missing/);
+  await assert.rejects(kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: formal.kit, previousVersion: previous.version, formalVersion: formal.version, run, log: () => {} }), /pnpm-lock\.yaml: listed in SHA256SUMS but missing/);
   assert.equal(commands.filter(({ command, args }) => command === 'pnpm' && args[0] === 'install').length, 1, 'only the rc install ran');
   assert.ok(!commands.some(({ args }) => args.includes('adopt')));
 }));
@@ -247,7 +250,7 @@ test('an assembly edit after the rc run fails before the kit change', () => fixt
   const previous = realKit(root, '0.0.0-a');
   const formal = realKit(root, '0.0.0-b');
   const { commands, run } = recorder();
-  await assert.rejects(kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: formal.kit, run, log: () => {}, afterInstall: async (phase, project) => {
+  await assert.rejects(kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: formal.kit, previousVersion: previous.version, formalVersion: formal.version, run, log: () => {}, afterInstall: async (phase, project) => {
     if (phase === 'rc') writeFileSync(join(project, 'menus.ts'), 'changed assembly line\n');
   } }), /assembly code changed/);
   assert.ok(!commands.some(({ args }) => args.includes('adopt')));
@@ -263,14 +266,49 @@ test('start kit checksum mismatch or missing entry fails before install', () => 
 test('a release directory without a start kit has no kit asset (the gate builds one with sdk-kit.mjs)', () => fixture(root => {
   const previous = bundle(root, '0.0.0-c');
   assert.equal(verifyStartKit(previous.directory, previous.version), null);
-  assert.equal(kitAsset(previous.directory), null);
+  assert.equal(kitAsset(previous.directory, previous.version), null);
   const kit = withStartKit(root, '0.0.0-d');
-  assert.equal(kitAsset(kit.directory), join(kit.directory, 'ap-start-kit-0.0.0-d.tgz'));
+  assert.equal(kitAsset(kit.directory, '0.0.0-d'), join(kit.directory, 'ap-start-kit-0.0.0-d.tgz'));
 }));
 test('unpacking a kit refuses a folder that is not empty', () => fixture(root => {
   const kit = withStartKit(root, '0.0.0-e');
   const target = join(root, 'p');
-  unpackKit(target, kitAsset(kit.directory));
+  unpackKit(target, kitAsset(kit.directory, '0.0.0-e'));
   assert.ok(existsSync(join(target, 'FROM-PREVIOUS-KIT.txt')), 'top folder stripped');
-  assert.throws(() => unpackKit(target, kitAsset(kit.directory)), /is not empty/);
+  assert.throws(() => unpackKit(target, kitAsset(kit.directory, '0.0.0-e')), /is not empty/);
+}));
+
+test('a kit is bound to its release: another version in the directory, or a kit installing another version, is refused', () => fixture(async root => {
+  const previous = realKit(root, '0.0.0-a');
+  const formal = realKit(root, '0.0.0-b');
+  // The formal release directory also holds the previous release's kit: picking "the first start kit" would install A twice.
+  cpSync(previous.kit, join(formal.directory, 'ap-start-kit-0.0.0-a.tgz'));
+  assert.throws(() => kitAsset(formal.directory, '0.0.0-b'), /holds a start kit of another version: ap-start-kit-0\.0\.0-a\.tgz/);
+  // A kit named for B whose vendor/ installs A: its own verify passes, the release binding does not.
+  const renamed = realKit(root, '0.0.0-c', { vendorVersion: '0.0.0-a' });
+  const unpacked = join(root, 'renamed');
+  unpackKit(unpacked, renamed.kit);
+  assert.throws(() => assertKitVersion(unpacked, '0.0.0-c'), /is not release 0\.0\.0-c: vendor\/ holds ap-app-host-0\.0\.0-a\.tgz/);
+  assert.doesNotThrow(() => assertKitVersion(unpacked, '0.0.0-a'));
+  const { commands, run } = recorder();
+  await assert.rejects(kitSequence({ work: root, previous: previous.directory, formal: renamed.directory, previousKit: previous.kit, formalKit: renamed.kit, previousVersion: '0.0.0-a', formalVersion: '0.0.0-c', run, log: () => {} }), /is not release 0\.0\.0-c/);
+  assert.ok(!commands.some(({ args }) => args.includes('adopt')), 'refused before the kit change');
+  await assert.rejects(kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: previous.kit, previousVersion: '0.0.0-a', formalVersion: '0.0.0-b', run, log: () => {} }), /is not release 0\.0\.0-b/);
+}));
+test('a newer kit file in a carried menu folder is the kit\'s, not an assembly change; it is kept on upgrade and travels back', () => fixture(async root => {
+  // 0.35.0-rc.1 → rc.2: the newer kit adds menus/sample/conformance.ts to the sample menu the project carries.
+  const previous = realKit(root, '0.0.0-a');
+  const formal = realKit(root, '0.0.0-b', { extra: { 'menus/sample/conformance.ts': 'cases b\n' } });
+  const { run } = recorder();
+  const roots = {};
+  await kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: formal.kit, previousVersion: previous.version, formalVersion: formal.version, run, log: () => {}, afterInstall: async (phase, project) => {
+    roots[phase] = project;
+  } });
+  assert.equal(read(roots.formal, 'menus/sample/conformance.ts'), 'cases b\n', 'the newer kit keeps its file in the carried sample folder');
+  assert.equal(read(roots.formal, 'menus/sample/menu.ts'), 'sample 0.0.0-a\n', 'the carried menu file is the project\'s');
+  assert.equal(read(roots.rollback, 'menus/sample/conformance.ts'), 'cases b\n', 'the rolled-back project keeps the folder as it was');
+  // An integrator file that appears between runs is still a change, even under menus/.
+  await assert.rejects(kitSequence({ work: root, previous: previous.directory, formal: formal.directory, previousKit: previous.kit, formalKit: formal.kit, previousVersion: previous.version, formalVersion: formal.version, run, log: () => {}, afterInstall: async (phase, project) => {
+    if (phase === 'formal') writeFileSync(join(project, 'menus/sample/extra.ts'), 'mine\n');
+  } }), /assembly code changed between upgrade runs: menus\/sample\/extra\.ts is new and is not a kit file/);
 }));

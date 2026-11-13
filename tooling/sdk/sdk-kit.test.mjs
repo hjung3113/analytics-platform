@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { addSecondMenu, ALLOWED_ORIGINS, kitTestFailures, scanBuildOutput } from './sdk-kit-check.mjs';
 import { assertNoPlatformSource, listFiles, platformSourceHashes } from './sdk-kit.mjs';
@@ -36,6 +37,14 @@ test('copy check: a kit file equal to a tracked platform source file fails, the 
   assert.doesNotThrow(() => assertNoPlatformSource(kit, hashes));
   cpSync(join(repoRoot, 'packages', 'sdk', 'kernel', 'src', 'context', 'location.ts'), join(kit, 'src', 'location.ts'));
   assert.throws(() => assertNoPlatformSource(kit, hashes), /src\/location\.ts = packages\/sdk\/kernel\/src\/context\/location\.ts/);
+});
+
+test('copy check: a checkout owned by another uid (a CI container) still lists tracked files', () => {
+  // git's own test switch makes every repository look foreign, as the CI container's checkout does.
+  const probe = `import { platformSourceHashes } from ${JSON.stringify(pathToFileURL(join(repoRoot, 'tooling/sdk/sdk-kit.mjs')).href)}; process.stdout.write(String(platformSourceHashes().size));`;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', probe], { cwd: tmpdir(), encoding: 'utf8', env: { ...process.env, GIT_TEST_ASSUME_DIFFERENT_OWNER: '1' } });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(Number(result.stdout) > 0);
 });
 
 test('second menu: the README steps apply to the fixture and register the copy in both lists', () => {

@@ -449,6 +449,8 @@ jobs:
         run: test "$(node -p "require('./apps/platform-e2e/node_modules/@playwright/test/package.json').version")" = "1.63.0"
       - name: SDK upgrade gate
         run: |
+          # The container runs as another uid than the checkout owner; git refuses the tree otherwise (sdk-kit.mjs lists tracked files).
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           out="$(mktemp -d)"
           trap 'rm -rf "$out"' EXIT
           pnpm sdk:pack --out "$out"
