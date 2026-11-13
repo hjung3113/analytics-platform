@@ -24,6 +24,6 @@ export function emptyOutcomeText(causes: readonly Assessment[], t: Translate): {
   if (!causes.length) return { title: t('stateEmpty'), body: t('stateEmptyBody') };
   const kinds = [...new Set(causes.map(a => a.kind))];
   const title = kinds.map(kind => t(CAUSE_KEY[kind])).join(' · ');
-  const details = causes.map(a => a.detail).filter((detail): detail is string => !!detail);
-  return { title, body: details.length ? details.join(' · ') : t('stateEmptyCauseBody', { cause: title }) };
+  const body = causes.map(a => a.detail || t('stateEmptyCauseBody', { cause: t(CAUSE_KEY[a.kind]) })).join(' · ');
+  return { title, body };
 }

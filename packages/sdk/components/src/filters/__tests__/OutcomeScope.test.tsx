@@ -77,6 +77,16 @@ describe('shared outcome contract #55', () => {
     render(<Page><Widget q={query(response('empty', ''))} /></Page>);
     expect(screen.getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
   });
+  it('keeps a default sentence for a finding without detail next to one that has detail (#1886)', () => {
+    const mixed: Assessment[] = [
+      { kind: 'collection', state: 'confirmed', explainsEmpty: true, statusSource: 'worker', observedAt: '2026-10-04' },
+      { kind: 'processing_delay', state: 'confirmed', explainsEmpty: true, detail: 'Queue waiting', statusSource: 'worker', observedAt: '2026-10-04' },
+    ];
+    render(<Page><Widget q={query(response('empty', '', mixed))} /><Widget q={query(response('empty', '', mixed))} name="Widget B" /></Page>);
+    const state = screen.getByRole('group', { name: 'Widget A' });
+    expect(state).toHaveTextContent('원천이 0건의 원인을 확인했습니다: 아직 수집되지 않았습니다.');
+    expect(state).toHaveTextContent('Queue waiting');
+  });
   it('does not group different messages or explanation evidence', () => {
     const a: Assessment = { kind: 'collection', state: 'confirmed', explainsEmpty: true, detail: 'one', statusSource: 'worker', observedAt: '2026-10-04' };
     render(<Page><Widget q={query(response('error', 'one'))} /><Widget q={query(response('error', 'two'))} />
