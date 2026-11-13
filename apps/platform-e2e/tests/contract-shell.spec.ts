@@ -516,7 +516,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
       // 본문은 Registry 공간 라벨과 요청 문장이다. 레일에는 이 공간이 없다.
       await expect(page.getByRole('main')).toContainText('권한/역할 관리');
       await expect(page.getByRole('main')).toContainText('관리자에게 요청하세요');
-      await expect(page.getByRole('heading', { name: '권한/역할 관리' })).toHaveCount(0);
+      // #1893: the denial view owns the page's single h1 (the space label); the protected screen itself is not mounted.
+      await expect(page.getByRole('heading', { level: 1, name: '권한/역할 관리' })).toHaveCount(1);
       // Denial never rewrites the address: pathname and the four global keys stay exactly as entered.
       expect(new URL(page.url()).pathname).toBe('/operations/admin-roles');
       const q = query(page);
