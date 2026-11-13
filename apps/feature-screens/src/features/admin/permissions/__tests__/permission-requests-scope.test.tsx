@@ -168,3 +168,65 @@ describe('review console — Site·공정 requests', () => {
     expect(screen.queryByRole('button', { name: '명시적 거부' })).not.toBeInTheDocument();
   });
 });
+
+describe('review console — requests for a capability the bundle no longer declares (ADR-0157 decision 7)', () => {
+  const declaredRow = (id: string, inDeclarations: boolean) => ({
+    ...scopeAdminRowBody(id, 'site', 'SITE-A'),
+    requested_capability: 'ext.widget.annotate',
+    requested_scope_kind: undefined,
+    requested_scope_site: undefined,
+    requested_scope_room: undefined,
+    in_declarations: inDeclarations,
+  });
+
+  it('the queue row of an undeclared request carries «선언에 없음»; a declared one does not', () => {
+    const orphan = declaredRow('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee3', false);
+    const current = declaredRow('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee4', true);
+    const rows = [orphan, current] as unknown as AdminPermissionRequestRow[];
+    mocks.useConsole.mockReturnValue({
+      allRequests: rows,
+      visibleRequests: rows,
+      activeTab: 'pending',
+      selected: null,
+      selectedId: null,
+      actorNames: {},
+      managedSystemNames: {},
+      isPending: false,
+      isError: false,
+      handleTabChange: vi.fn(),
+      handleSelect: vi.fn(),
+      handleClose: vi.fn(),
+    });
+    render(<PermissionRequestsScreen />);
+
+    expect(screen.getAllByText('선언에 없음')).toHaveLength(1);
+  });
+
+  it('the drawer of an undeclared request shows «선언에 없음» beside the id and offers only rejection', () => {
+    const detail = scopeAdminDetailBody(scopeAdminRowBody('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee3', 'site', 'SITE-A'));
+    const { requested_scope_kind: _k, requested_scope_site: _s, requested_scope_room: _r, ...rest } = detail;
+    withClient(
+      <PermissionRequestDetail
+        request={{
+          ...rest,
+          requested_capability: 'ext.widget.annotate',
+          in_declarations: false,
+          effective_access: {
+            decision: { allow: false, reason: 'no_grant', requestable: null },
+            scope: { kind: 'scoped', managed_system_ids: [] },
+            expires_at: null,
+            granted_managed_system_id: null,
+          },
+          approval_scope_candidates: [],
+          risk_indicators: [],
+          allowed_actions: ['reject'],
+        }}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('선언에 없음')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '거절' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '승인' })).not.toBeInTheDocument();
+  });
+});

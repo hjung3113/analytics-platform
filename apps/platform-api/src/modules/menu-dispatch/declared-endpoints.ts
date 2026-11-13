@@ -91,7 +91,8 @@ export function declaredContribution({ bundle: input, snapshot, forwarder, check
 
   return {
     permissions,
-    // Carried when the bundle has a `capabilities` field (even empty: the server then syncs the audit table to nothing).
+    // Carried when the bundle has a `capabilities` field. Without it the server uses the platform-only registry and still
+    // syncs the audit table (to nothing) on boot.
     ...(bundle.capabilities === undefined ? {} : { capabilities }),
     endpoints: bundle.endpoints.map(({ limits, requiredContext, ...spec }) => {
       const path = bundle.endpointOwners[spec.id];

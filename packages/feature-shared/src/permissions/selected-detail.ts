@@ -65,6 +65,8 @@ const permissionSelectedRequestSchema = z
     requester_actor_id: z.string().uuid(),
     ...requestedPermissionScopeFields,
     requested_capability: z.string().min(1),
+    // ADR-0157 decision 7: present on a declared-prefix request; false when the server's bundle no longer declares it.
+    in_declarations: z.boolean().optional(),
     requested_managed_system_id: z.string().uuid().nullable(),
     requested_object_type: z.string().nullable(),
     requested_object_id: z.string().uuid().nullable(),

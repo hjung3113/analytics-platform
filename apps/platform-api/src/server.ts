@@ -1086,9 +1086,10 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     }
   }
   platformPermissions.use(menuRegistry.permissions);
-  if (bundleRegistries.length > 0) {
-    // ADR-0157 decisions 7, 8, 10: mirror the declared rows for the audit projection (one transaction), then log the
-    // counts. Rows of names the bundle no longer declares are a warning, never a boot failure.
+  {
+    // ADR-0157 decisions 7, 8, 10: on every boot, mirror the declared rows for the audit projection (one transaction),
+    // then log the counts. A bundle without the `capabilities` field, or no bundle at all, is the empty registry: the
+    // table is emptied and the rows still naming retired declarations are counted. Never a boot failure for those rows.
     await syncDeclaredCapabilities(dbHandle.db, capabilities);
     const declared = capabilities.declaredList();
     app.log.info({ declared: declared.length, relaxed: declared.filter(relaxesDefaults).length }, 'Declared capabilities');

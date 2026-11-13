@@ -75,6 +75,7 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
       requester_actor_id: row.requesterActorId,
       ...requestedScopeFields(requestScope(row)),
       requested_capability: row.requestedCapability,
+      ...(isDeclaredCapabilityId(row.requestedCapability) ? { in_declarations: !isOrphan(row) } : {}),
       requested_managed_system_id: row.requestedManagedSystemId,
       requested_object_type: row.requestedObjectType,
       requested_object_id: row.requestedObjectId,

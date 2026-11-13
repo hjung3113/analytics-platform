@@ -40,6 +40,7 @@ import {
   PERMISSION_REQUESTS_MINE_ALL_LIMIT,
   type SubmitMoreInfoPermissionRequest,
   type SubmitMoreInfoPermissionRequestResult,
+  isDeclaredCapabilityId,
 } from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
@@ -732,12 +733,17 @@ export function createRequestService(deps: RequestServiceDeps) {
       )
       .orderBy(desc(permissionRequests.createdAt));
 
+    // ADR-0157 decision 7: a declared-prefix request carries whether this server still declares it («선언에 없음»).
+    const capabilities = capabilitiesOf(checkService);
     return {
       requests: rows.map((r) => ({
         id: r.id,
         requester_actor_id: r.requesterActorId,
         ...requestedScopeFields(requestScope(r)),
         requested_capability: r.requestedCapability,
+        ...(isDeclaredCapabilityId(r.requestedCapability)
+          ? { in_declarations: capabilities.isDeclared(r.requestedCapability) }
+          : {}),
         requested_managed_system_id: r.requestedManagedSystemId,
         requested_expiration: r.requestedExpiration?.toISOString() ?? null,
         reason: r.reason,

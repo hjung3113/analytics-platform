@@ -6,7 +6,7 @@ import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from
 import * as React from 'react';
 
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
-import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
+import { UNDECLARED_CAPABILITY_LABEL, getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { grantedScopeTargetLabel, requestedScopeTargetLabel } from '@/lib/copy/permission-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
@@ -95,7 +95,10 @@ export function PermissionRequestDetail({
           {isDeclared ? (
             <span className="flex flex-col gap-0.5">
               <DeclaredCapabilityName id={request.requested_capability} />
-              <span className="font-mono text-xs text-text-muted">{request.requested_capability}</span>
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-xs text-text-muted">{request.requested_capability}</span>
+                {request.in_declarations === false ? <OutlineBadge>{UNDECLARED_CAPABILITY_LABEL}</OutlineBadge> : null}
+              </span>
             </span>
           ) : (
             <span>{getCapabilityDisplayLabel(request.requested_capability)}</span>

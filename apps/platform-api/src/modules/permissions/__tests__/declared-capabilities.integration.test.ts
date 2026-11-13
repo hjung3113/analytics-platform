@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { FastifyInstance } from 'fastify';
+import { pino } from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { loadConfig } from '../../../config.js';
@@ -131,7 +132,14 @@ describe.skipIf(!runIntegration)('declared capabilities (ADR-0157)', () => {
   const check = (app: FastifyInstance, key: string, capability: string) =>
     call(app, 'GET', `/me/permissions/check?capability=${encodeURIComponent(capability)}`, key);
 
-  async function serverFor(bundle: unknown, name: string) {
+  /** Boots a server from `bundle` (or with no bundle at all when `null`); `lines` collects its log lines. */
+  async function bootFor(bundle: unknown, name: string, lines?: string[]) {
+    const logger = lines ? pino({ level: 'info' }, { write: (line: string) => { lines.push(line); } }) : undefined;
+    if (bundle === null) {
+      const app = await buildServer({ config: loadConfig(), dbHandle, ...(logger ? { logger } : {}) });
+      await app.ready();
+      return { app, menuDispatch: [] as MenuDispatchContribution[] };
+    }
     const bundleFile = join(dir, `${name}.json`);
     const keyFile = join(dir, `${name}.key`);
     const { privateKey } = generateKeyPairSync('ed25519');
@@ -160,9 +168,15 @@ describe.skipIf(!runIntegration)('declared capabilities (ADR-0157)', () => {
       config, dbHandle, menuDispatch: setup.menuDispatch,
       ...(setup.scopeCatalog ? { scopeCatalog: setup.scopeCatalog } : {}),
       ...(setup.scopeResolver ? { scopeResolver: setup.scopeResolver } : {}),
+      ...(logger ? { logger } : {}),
     });
     await app.ready();
-    const contribution = setup.menuDispatch.find((c) => c.capabilities);
+    return { app, menuDispatch: setup.menuDispatch };
+  }
+
+  async function serverFor(bundle: unknown, name: string) {
+    const { app, menuDispatch } = await bootFor(bundle, name);
+    const contribution = menuDispatch.find((c) => c.capabilities);
     if (!contribution?.capabilities) throw new Error('the bundle contribution carries the registry');
     return { app, contribution, registry: contribution.capabilities };
   }
@@ -334,6 +348,20 @@ describe.skipIf(!runIntegration)('declared capabilities (ADR-0157)', () => {
     expect(underB.grants - underA.grants).toBe(4);
   });
 
+  it('a pending request of a capability the bundle no longer declares is marked in the review list and detail', async () => {
+    const pending = await insertPermissionRequestRow(migrateHandle, { workspaceId: WORKSPACE_ID, requesterActorId: who('both').id, requestedCapability: ANNOTATE, reason: 'mark' });
+    type Row = { id: string; in_declarations?: boolean };
+    const rowOn = async (app: FastifyInstance) =>
+      (await call(app, 'GET', '/permissions/requests', 'admin')).json<{ requests: Row[] }>().requests.find((row) => row.id === pending.id);
+    expect(await rowOn(appB)).toMatchObject({ in_declarations: false });
+    expect(await rowOn(appA)).toMatchObject({ in_declarations: true });
+    const detailB = await call(appB, 'GET', `/permissions/requests/${pending.id}`, 'admin');
+    expect(detailB.statusCode).toBe(200);
+    expect(detailB.json()).toMatchObject({ in_declarations: false, allowed_actions: ['reject'] });
+    const detailA = await call(appA, 'GET', `/permissions/requests/${pending.id}`, 'admin');
+    expect(detailA.json()).toMatchObject({ in_declarations: true });
+  });
+
   it('two servers in one process never accept each other\'s declared capabilities', async () => {
     expect((await check(appA, 'granted', GADGET)).json()).toMatchObject({ code: 'validation.unknown_capability' });
     expect((await check(appB, 'granted', VIEW)).json()).toMatchObject({ code: 'validation.unknown_capability' });
@@ -372,5 +400,43 @@ describe.skipIf(!runIntegration)('declared capabilities (ADR-0157)', () => {
     expect(await listed()).toEqual(visible);
     // The failed sync rolled back: the declared rows are still there.
     expect(await listed()).toContain(ids[VIEW]);
+  });
+
+  it.each([
+    ['a bundle without the capabilities field', 'nofield'],
+    ['no bundle at all', 'nobundle'],
+  ] as const)('a boot with %s empties the audit table and still logs the undeclared counts', async (_label, name) => {
+    await syncDeclaredCapabilities(dbHandle.db, registryA);
+    const res = await migrateHandle.pool.query<{ id: string }>(
+      `insert into core.audit_log (workspace_id, actor_id, event_type, subject_type, subject_id, summary, detail)
+       values ($1, $2, 'permission_granted', 'permission_grant', $3, 's', $4::jsonb) returning id`,
+      [WORKSPACE_ID, who('admin').id, randomUUID(), JSON.stringify({ capability: VIEW })],
+    );
+    const viewAudit = res.rows[0]?.id as string;
+    const listed = async () => (await dbHandle.pool.query<{ audit_id: string | null }>(
+      `select audit_id from core.platform_audit_events($1, null, null, $2, null, null, null, null, $3::jsonb, 'at', true, 100, 0)`,
+      [WORKSPACE_ID, `${PREFIX}-admin`, JSON.stringify({ permission_granted: 'grant' })],
+    )).rows.map((row) => row.audit_id);
+    expect(await listed()).toContain(viewAudit);
+
+    // The same deployment after every declaration left: the permission row points back at a platform capability.
+    const bundle = name === 'nobundle' ? null : {
+      endpoints: [endpoint('plain', P_VIEW, false)],
+      actions: [],
+      permissions: [{ permission: P_VIEW, capability: 'workspace.read' }],
+      endpointOwners: { [`${PREFIX}.plain`]: '/upstream/plain' },
+    };
+    const lines: string[] = [];
+    const { app } = await bootFor(bundle, name, lines);
+    try {
+      expect(await listed()).not.toContain(viewAudit);
+      const logs = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
+      expect(logs).toContainEqual(expect.objectContaining({ msg: 'Declared capabilities', declared: 0, relaxed: 0 }));
+      const warning = logs.find((entry) => entry.msg === 'Permission rows name capabilities the bundle no longer declares');
+      // The grants of `annotate` (granted, both, demoted) and `view` (both) of this suite are among them.
+      expect(Number(warning?.grants)).toBeGreaterThanOrEqual(4);
+    } finally {
+      await app.close();
+    }
   });
 });
