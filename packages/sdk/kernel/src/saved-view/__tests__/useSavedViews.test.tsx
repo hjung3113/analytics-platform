@@ -192,6 +192,43 @@ it('saving to the selected view uses its version; a conflict reports it and chan
   expect(store.rows.get('l1')?.context.lineNames).toEqual(['L1']);
   expect(host.global.lineNames).toEqual(['L2']);
 });
+// #2031: 현재 뷰에 저장 replaces only what this menu supports; stores replace `context`/`page` wholesale, so the patch carries the rest.
+async function saveSelected(store: FakeStore, id: string, change: () => void) {
+  mount(store);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select(id); });
+  act(change);
+  await waitFor(() => expect(views.state.modified).toBe(true));
+  let result: Awaited<ReturnType<SavedViews['saveToSelected']>> | undefined;
+  await act(async () => { result = await views.saveToSelected(); });
+  expect(result?.ok).toBe(true);
+  // The kept fields are not on this screen: the selected view reads clean after the save.
+  await waitFor(() => expect(views.state.modified).toBe(false));
+  return store.rows.get(id);
+}
+const relative = viewOf({ id: 'rel', name: 'Last 24h', context: { relativePeriod: { hours: 24 }, lineNames: ['L1'] } });
+it('saving to a condition set keeps the Context this menu does not support (condition with its membershipBasis)', async () => {
+  const set = viewOf({ id: 'cs', context: { ...period, lineNames: ['L1'], condition: { fab: ['F1'] }, membershipBasis: 'asOf', roomNames: ['R1'] } });
+  const row = await saveSelected(createFakeStore([set]), 'cs', () => host.setGlobal({ lineNames: ['L2'] }));
+  expect(row?.context).toEqual({ ...period, lineNames: ['L2'], condition: { fab: ['F1'] }, membershipBasis: 'asOf', roomNames: ['R1'] });
+});
+it('saving to a relative-period view whose period was not changed keeps the relative period and writes no absolute window', async () => {
+  const row = await saveSelected(createFakeStore([relative]), 'rel', () => host.setGlobal({ lineNames: ['L2'] }));
+  expect(row?.context).toEqual({ relativePeriod: { hours: 24 }, lineNames: ['L2'] });
+});
+it('saving to a relative-period view whose period was changed stores the absolute window and drops the relative period', async () => {
+  const row = await saveSelected(createFakeStore([relative]), 'rel', () => host.setGlobal(period));
+  expect(row?.context).toEqual({ ...period, lineNames: ['L1'] });
+});
+it('saving to a view clears a supported Context key the user emptied instead of keeping the saved value', async () => {
+  const row = await saveSelected(createFakeStore([L1]), 'l1', () => host.setGlobal({ lineNames: null }));
+  expect(row?.context).toEqual(period);
+});
+it('saving to a menu view keeps the page keys this menu does not declare and replaces the declared ones', async () => {
+  const mv = viewOf({ id: 'mv', kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, context: { ...period, lineNames: ['L1'] }, page: [['filter', 'a'], ['other', 'x']], chartOptions: {}, layout: null, panels: null } as never);
+  const row = await saveSelected(createFakeStore([mv]), 'mv', () => host.setPage({ filter: 'b' }));
+  expect(row).toMatchObject({ context: { ...period, lineNames: ['L1'] }, page: [['filter', 'b'], ['other', 'x']] });
+});
 it('rejects an unsavable draft before the store is called', async () => {
   const store = createFakeStore();
   mount(store);
