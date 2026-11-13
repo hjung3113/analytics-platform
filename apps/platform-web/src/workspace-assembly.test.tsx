@@ -15,6 +15,7 @@ const SPACE_DEFS: readonly SpaceDef[] = SPACES;
 // The gen-menu probe (tooling/gen-menu/scripts/probe.ts) adds a `genProbe` group in the mars space and runs the
 // whole suite with GEN_MENU_PROBE=1; the two tests that pin the exact decided IA skip during that run only.
 const probeRun = process.env.GEN_MENU_PROBE === '1';
+const PIN_HINT = 'GROUPS/SPACES differ from the decided composition: if you added or moved a group or space on purpose, update this list (apps/platform-web/AGENTS.md «Adding a space»)';
 
 describe('workspace assembly (#260)', () => {
   it('FIX2 keeps the viewer group before Top View authoring in Tools', () => {
@@ -85,8 +86,9 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menus.filter(menu => menu.group === 'noticeVoc' && !menu.navHidden).map(menu => menu.id)).toEqual(['notices', 'faq', 'voc', 'surveys']);
   });
 
+  // The owner decides space and group order, so this pin is deliberate (#1905): adding or moving a space or group updates both lists here.
   it.skipIf(probeRun)('registers seven spaces and the decided group order', () => {
-    expect(GROUPS.map(group => [group.id, group.space])).toEqual([
+    expect(GROUPS.map(group => [group.id, group.space]), PIN_HINT).toEqual([
       ['overview', null],
       ['improvementItems', null],
       ['noticeVoc', null],
@@ -120,7 +122,7 @@ describe('workspace assembly (#260)', () => {
       ['topview', 'tools'],
       ['topviewStudio', 'tools'],
     ]);
-    expect(SPACES.map(space => space.id)).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'flow', 'operations']);
+    expect(SPACES.map(space => space.id), PIN_HINT).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'flow', 'operations']);
     expect(SPACE_DEFS[0]).toMatchObject({
       label: { ko: 'MARS', en: 'MARS' },
       subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },

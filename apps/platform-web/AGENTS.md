@@ -61,7 +61,17 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
   - An edit to an official registered view is kept as a pending-approval change set separate from the approved copy. Per-object capability, approval/group transitions, conflict and the people directory are computed only here.
   - Keys are user·menu JSON tuples (`platform:saved-views:v1:`, `…-default:v1:`, `…-groups:v1:`). Serialize mutations with one Web Lock; without locks, fail closed. The seed (fictional people; out-of-permission, stale and pending views) is the package's default seed, replaceable whole through the store's `seed` option.
 
-## Where things live
+## Adding a space
+
+A new business system (space) needs these app edits beyond its menu packages (`menus/AGENTS.md`: `GROUPS`, `PERMISSIONS`, CODEOWNERS, `pnpm install`). Each step names the test that fails without it.
+
+1. `src/menus.ts`: a `SPACES` row and its `GROUPS` rows (hand-written, see Files).
+2. `src/menus.ts` `HOME_LAUNCHER_GROUPS`: put the space in one home category ([ADR-0102](../../docs/adr/0102-home-launcher-app-groups.md)). `src/home-launcher.test.tsx` «classifies every declared space exactly once»; the rendered cards follow the declaration, so nothing else changes there.
+3. A space with `feedbackTracking: true` (a Managed System of the feature server):
+   - run `pnpm gen:platform-systems` and commit `platform-systems.json` (`src/platform-systems.test.ts` reports it stale);
+   - add its row to `src/dev/mock-space-systems.ts` with a new synthetic v4 uuid (`src/feature-systems.test.ts` names the missing space).
+4. `src/workspace-assembly.test.tsx` «registers … the decided group order» pins the whole `GROUPS` and `SPACES` order on purpose (the owner decides the composition): update both lists in the same change.
+
 
 - Menu screens and their screen-only synthetic data (`data.ts`) live in `menus/<space>/<group>/src/pages/` (platform features: `platform/<feature>/src/pages/`); computation of migrated screens is in `src/mock/`.
 - The server stand-in is `packages/adapters/mock-server`. The app keeps `src/dev/mock-assembly.tsx`, `src/dev/DevTools.tsx` and integration tests `src/*.test.ts` that use the real Registry and contracts (file name = subject).

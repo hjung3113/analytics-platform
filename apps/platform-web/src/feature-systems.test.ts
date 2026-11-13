@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { spaceId } from '@ap/contracts';
 import { featureSlot, managedSystemFor, useComposeDefaultStatus } from './feature-systems';
 import { spaceSystems } from './space-systems';
-import { registry } from './menus';
+import { SPACES, registry } from './menus';
 import { createAssembly, type Assembly } from '#platform-assembly';
 
 /** The mock assembly's answer (ADR-0009: tests reach `src/dev/**` only through the assembly). */
@@ -25,8 +25,9 @@ async function load(data: typeof MOCK_SPACE_SYSTEMS | null, identity = 'session'
 afterEach(() => { spaceSystems.reset(); });
 
 describe('mock space systems', () => {
-  it('maps mars and bravo to distinct v4 uuids, declared, plus a 「플랫폼」 id', () => {
-    expect(MOCK_SPACE_SYSTEMS.links.map((link) => link.spaceId).sort()).toEqual(['bravo', 'mars']);
+  it('maps every feedbackTracking space to distinct v4 uuids, declared, plus a 「플랫폼」 id', () => {
+    const tracked = SPACES.filter((space) => 'feedbackTracking' in space && space.feedbackTracking).map((space) => String(space.id)).sort();
+    expect(MOCK_SPACE_SYSTEMS.links.map((link) => link.spaceId).sort(), 'one src/dev/mock-space-systems.ts row per feedbackTracking space (#1905)').toEqual(tracked);
     const ids = [...MOCK_SPACE_SYSTEMS.links.map((link) => link.managedSystemId), PLATFORM];
     for (const id of ids) expect(id).toMatch(UUID);
     expect(new Set(ids).size).toBe(ids.length);

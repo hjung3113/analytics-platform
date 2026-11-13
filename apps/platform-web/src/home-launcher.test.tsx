@@ -16,14 +16,19 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('app home launcher assembly (#1109)', () => {
   it('classifies every declared space exactly once', () => {
     const classified = HOME_LAUNCHER_GROUPS.flatMap(group => group.spaces.map(String));
-    expect([...classified].sort()).toEqual(SPACES.map(space => space.id).sort());
+    expect([...classified].sort(), 'every SPACES entry needs one HOME_LAUNCHER_GROUPS entry (apps/platform-web/AGENTS.md «Adding a space»)').toEqual(SPACES.map(space => space.id).sort());
     expect(new Set(classified).size).toBe(classified.length);
   });
 
+  // #1905: the expectations come from HOME_LAUNCHER_GROUPS and SPACES (one card per space, in declared order, linking to the space's home
+  // menu), so adding a space needs no edit here — only its HOME_LAUNCHER_GROUPS entry (the test above names a missing one).
   it.each([
-    ['ko', ['분석', '업무 운영', '도구', '플랫폼 관리'], '업무 시스템'],
-    ['en', ['Analysis', 'Work operations', 'Tools', 'Platform administration'], 'Work systems'],
-  ])('renders selected A through the actual registry (%s)', async (lang, headings, systems) => {
+    ['ko' as const, '업무 시스템'],
+    ['en' as const, 'Work systems'],
+  ])('renders selected A through the actual registry (%s)', async (lang, systems) => {
+    const headings = HOME_LAUNCHER_GROUPS.map(group => group.label[lang]);
+    // Cards inside a category follow SPACES (Registry) order, not the membership array order (ADR-0102 decision 1).
+    const categoryPaths = HOME_LAUNCHER_GROUPS.map(group => SPACES.filter(space => (group.spaces as readonly string[]).includes(space.id)).map(space => registry.menuById(space.homeMenuId!)!.path));
     localStorage.setItem('platform:lang', lang);
     const session = testSession([...registry.permissions]);
     const adapter = testAdapter({ session: () => session, menuQuery: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }) });
@@ -33,9 +38,6 @@ describe('app home launcher assembly (#1109)', () => {
     const section = await screen.findByRole('region', { name: systems }, { timeout: 10_000 });
     expect(within(section).getAllByRole('heading').map(heading => heading.textContent)).toEqual(headings);
     const categories = within(section).getAllByRole('heading').map(heading => within(heading.closest('section')!).getAllByRole('link'));
-    expect(categories.map(cards => cards.length)).toEqual([3, 2, 1, 1]);
-    expect(categories.flat().map(card => new URL(card.getAttribute('href')!, window.location.origin).pathname)).toEqual([
-      '/mars/productivity-overview', '/bravo/metric-catalog', '/clas/operation-time', '/log-dev/log-my-queue', '/flow/dashboard', '/tools/eqv-topview', '/operations/admin-roles',
-    ]);
+    expect(categories.map(cards => cards.map(card => new URL(card.getAttribute('href')!, window.location.origin).pathname))).toEqual(categoryPaths);
   }, 15_000);
 });
