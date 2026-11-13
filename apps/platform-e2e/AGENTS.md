@@ -46,7 +46,7 @@ Boots the assembled app (`apps/platform-web`, mock adapter) in a browser and che
   - To reproduce one shard run `pnpm e2e --shard=2/4`; never put `--` before the argument (Playwright reads it as a file filter).
   - `e2e:base-path` runs once, in the last shard.
   - PRs and main pushes run only affected specs (`.github/scripts/select-e2e.mjs`): chosen specs go to one shard (`i/1`) by file path (`tests/<x>.spec.ts`), so `contract-report` is a partial report of those specs. With no affected spec, shard Jobs are skipped and the merge Job decides.
-  - A full run (4 shards) happens on `workflow_dispatch` `full=true` (the required cold full gate before release), manual `full=false`, PR/push changing `menus/**`, `packages/**`, `apps/**`, tooling, workflows or unclassified paths, and when selection or base-SHA computation fails (fail-safe). Changing non-spec files under `tests/` (`contract-helpers.ts`, `support.ts`), config or `package.json` also runs full.
+  - A full run (6 shards) happens on `workflow_dispatch` `full=true` (the required cold full gate before release), manual `full=false`, PR/push changing `menus/**`, `packages/**`, `apps/**`, tooling, workflows or unclassified paths, and when selection or base-SHA computation fails (fail-safe). Changing non-spec files under `tests/` (`contract-helpers.ts`, `support.ts`), config or `package.json` also runs full.
 - Lint and typecheck are part of root `pnpm lint` / `pnpm typecheck`, not of `pnpm test`.
 
 ## Start-kit browser check (#1702)

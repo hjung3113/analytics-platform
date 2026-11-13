@@ -5,8 +5,8 @@
 //                  'base-path-only' only the base-path run (its spec or config changed); the main-config run is skipped
 //                  '<a.spec.ts> …'  space-separated spec file names under apps/platform-e2e/tests/ (all exist; never base-path.spec.ts)
 //   e2e_base_path  'true' | 'false'  whether the base-path run (`pnpm e2e:base-path`) runs
-//   e2e_shards     JSON matrix: [1,2,3,4] for 'all', [1] for anything else (the shard job is skipped for 'none')
-//   e2e_total      '4' for 'all', '1' otherwise
+//   e2e_shards     JSON matrix: [1,2,3,4,5,6] for 'all', [1] for anything else (the shard job is skipped for 'none')
+//   e2e_total      '6' for 'all', '1' otherwise
 //   e2e_kit        'true' for 'all', 'false' otherwise: conservatively covers kit, app-host, mock-server and SDK dependency changes
 //
 // Rules (safe side, a file is judged alone and the strictest verdict wins):
@@ -21,7 +21,7 @@
 //   and any path no rule knows.
 // Events: a pull request diffs BASE...HEAD; a push diffs BASELINE (the last main SHA whose CI run was green, last-green-main-sha.mjs) against SHA, so a spec that failed
 // stays in scope until a green run covers it; a manual run, FULL_INPUT=true, an empty diff, a missing baseline, an unknown event or any exception → all.
-// Fail-safe: an exception prints e2e=all e2e_base_path=true e2e_shards=[1,2,3,4] e2e_total=4 and exits 0 (stderr says why). If the job itself fails the outputs are
+// Fail-safe: an exception prints e2e=all e2e_base_path=true e2e_shards=[1,2,3,4,5,6] e2e_total=6 and exits 0 (stderr says why). If the job itself fails the outputs are
 // empty and ci.yml treats empty as "run everything".
 //
 //   node .github/scripts/select-e2e.mjs      reads EVENT, BASE, HEAD (pull_request), BASELINE, SHA (push), FULL_INPUT; writes $GITHUB_OUTPUT once
@@ -43,7 +43,7 @@ const SERVER_ONLY = /^(?:apps|ops)\/platform-api\//;
 const SERVER_ONLY_EXCEPTION = 'ops/platform-api/tsconfig.base.json';
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]*\.spec\.ts$/;
 
-const ALL = Object.freeze({ e2e: 'all', e2e_base_path: 'true', e2e_shards: '[1,2,3,4]', e2e_total: '4' });
+const ALL = Object.freeze({ e2e: 'all', e2e_base_path: 'true', e2e_shards: '[1,2,3,4,5,6]', e2e_total: '6' });
 const NONE = Object.freeze({ e2e: 'none', e2e_base_path: 'false', e2e_shards: '[1]', e2e_total: '1' });
 
 /**
@@ -112,7 +112,7 @@ function selfTest() {
   const exists = (n) => present.has(n);
   const T = 'apps/platform-e2e/tests/';
   const out = (e2e, base, shards, total) => ({ e2e, e2e_base_path: base, e2e_shards: shards, e2e_total: total });
-  const ALLV = out('all', 'true', '[1,2,3,4]', '4');
+  const ALLV = out('all', 'true', '[1,2,3,4,5,6]', '6');
   const NONEV = out('none', 'false', '[1]', '1');
   const sub = (list, base = 'false') => out(list, base, '[1]', '1');
   const pr = (files, extra = {}) => select({ event: 'pull_request', files, exists, ...extra });

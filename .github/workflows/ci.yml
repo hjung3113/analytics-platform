@@ -30,9 +30,13 @@ concurrency:
 # workspace 검사(#1019)는 turbo 캐시로 바뀐 패키지와 그 의존자만 다시 돈다(`.turbo/cache`를 main push가 저장하고 PR은 복원만 한다). 전체·cold는 `full`일 때뿐이다(바뀐 패키지가 많은 보통 PR은 20분대까지 걸릴 수 있고, 서버 시험은 `Platform test`가 아니라 `integration`이 한 번만 돈다):
 # `workflow_dispatch`의 `full=true`(릴리스 태그 전 수동), 또는 `changes`가 판단하지 못해 `full`이 'false'가 아닐 때(출력 없음 포함) → 캐시를 복원하지 않고 `TURBO_FORCE=true`.
 # `Platform workspace (pnpm monorepo)`는 병렬 Job(Platform static·Platform test 조각 3개, #1680)의 모음 Job이고, 하위 결과가 모두 정확히 success일 때만 통과한다.
-# E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 4개)이고 대부분의 코드 PR이 전부 돈다. `apps/platform-api/**`·`ops/platform-api/**`만 바뀐 PR은 mock E2E가 필요 없다(`ops/platform-api/tsconfig.base.json` 제외, #1680). 전체는 `workflow_dispatch`의
+# E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 6개)이고 대부분의 코드 PR이 전부 돈다. `apps/platform-api/**`·`ops/platform-api/**`만 바뀐 PR은 mock E2E가 필요 없다(`ops/platform-api/tsconfig.base.json` 제외, #1680). 전체는 `workflow_dispatch`의
 # `full=true`(릴리스 태그 전)에서도 돈다. main push의 기준은 직전 커밋이 아니라 CI가 green이었던 마지막 main SHA다(`last-green-main-sha.mjs`) — 실패한 spec은 green이 될 때까지 범위에 남는다.
 # 기능 패키지는 서브모듈이 아니라 일반 디렉터리(apps/{platform-api,feature-screens}·packages/feature-*·docs/{product,design,user-guide}/features·docs/architecture/platform-api)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유).
+
+# PR 최소 모드(#1931, 소유자 지시: 운영 전까지 PR CI 벽시계 약 10분, 운영 시점은 소유자가 정한다): 아래 검사는 PR에서 돌지 않고 main push와
+# `workflow_dispatch`(릴리스 `full=true` 포함)에서만 돈다 — SDK upgrade gate와 그 self-test, Platform static의 SDK 릴리스 tarball·외부 소비자·키트 검사,
+# E2E shard 1의 키트 브라우저 검사, Intro site captures, Backend images. 필수 검사 두 개의 이름과 의미는 그대로다. 옮긴 검사가 깨지면 main push가 먼저 빨개진다.
 
 jobs:
   changes:
@@ -164,7 +168,7 @@ jobs:
         if: ${{ env.DOCS_ONLY != 'true' }}
       # #519 (ADR-0056): the nine release tarballs, then a clean outside consumer installs them (install, tsc, vite build, CSS classes, vitest).
       - name: SDK release tarballs and outside consumer
-        if: ${{ env.DOCS_ONLY != 'true' }}
+        if: ${{ env.DOCS_ONLY != 'true' && github.event_name != 'pull_request' }}
         run: |
           out="$(mktemp -d)"
           pnpm sdk:pack --out "$out"
@@ -299,7 +303,7 @@ jobs:
   feature-integration:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
-    name: Platform API · Backend integration (${{ matrix.shard }}/2)
+    name: Platform API · Backend integration (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # #1680: the suite runs one file at a time (fileParallelism: false, one shared DB) and was the PR critical path
@@ -308,7 +312,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     services:
       postgres:
         # Google's Docker Hub mirror (same digest): GitHub runners hit Docker Hub's unauthenticated pull limit.
@@ -335,7 +339,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
         working-directory: .
-      - run: bash ops/platform-api/scripts/ci/gate.sh integration --shard=${{ matrix.shard }}/2
+      - run: bash ops/platform-api/scripts/ci/gate.sh integration --shard=${{ matrix.shard }}/3
         env:
           CI_PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
       # The service container log is printed only when the job ends; on failure, put its slow statements (log_min_duration_statement),
@@ -359,7 +363,7 @@ jobs:
   backend-images:
     name: Backend images (docker build)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -431,7 +435,7 @@ jobs:
   sdk-upgrade-gate:
     name: SDK upgrade gate
     needs: [changes, platform-static]
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.platform-static.result == 'success' }}
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.platform-static.result == 'success' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
@@ -462,7 +466,7 @@ jobs:
   sdk-upgrade-gate-selftest:
     name: SDK upgrade gate self-test
     needs: [changes, platform-static]
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.platform-static.result == 'success' }}
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.platform-static.result == 'success' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
@@ -515,10 +519,10 @@ jobs:
 
   # #666: the contract suite (~600 s of tests on one worker) runs as Playwright shards in parallel. Each shard starts
   # its own dev server and runs its contiguous slice serially (fullyParallel + workers: 1), so evidence stays in contract
-  # order. A whole run uses 4 shards (e2e_total); a selected-spec run (#1019) is one shard with the spec list appended.
+  # order. A whole run uses 6 shards (e2e_total, #1931: 4 left the slowest shard near 12 min); a selected-spec run (#1019) is one shard with the spec list appended.
   # Empty outputs (`changes` failed) fall back to the whole run: 4 shards, no spec list, base-path run.
   platform-contracts-e2e-shard:
-    name: Platform contracts (E2E shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '4' }})
+    name: Platform contracts (E2E shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '6' }})
     needs: changes
     # Not a required check, so skipping it is safe (the aggregate below reads `e2e == 'none'` for the verdict); runs when `changes` failed (no output).
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.changes.outputs.e2e != 'none' }}
@@ -536,7 +540,7 @@ jobs:
       # Every shard runs to the end so the merged report lists every failing contract, not only the first shard's.
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.changes.outputs.e2e_shards || '[1,2,3,4]') }}
+        shard: ${{ fromJSON(needs.changes.outputs.e2e_shards || '[1,2,3,4,5,6]') }}
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
@@ -551,7 +555,7 @@ jobs:
           want="$(node -p "require('./apps/platform-e2e/node_modules/@playwright/test/package.json').version")"
           test "$want" = "1.63.0" || { echo "::error::@playwright/test is $want but the E2E container is mcr.microsoft.com/playwright:v1.63.0-noble — bump both"; exit 1; }
       - name: Start kit browser check
-        if: ${{ matrix.shard == 1 && needs.changes.outputs.e2e_kit != 'false' }}
+        if: ${{ matrix.shard == 1 && needs.changes.outputs.e2e_kit != 'false' && github.event_name != 'pull_request' }}
         run: |
           out="$(mktemp -d)"
           kit_dir_file="$out/kit-dir"
@@ -561,7 +565,7 @@ jobs:
           export AP_SDK_KIT_DIR="$(cat "$kit_dir_file")"
           pnpm --filter @ap/platform-e2e exec playwright test --config playwright.kit.config.ts
       - name: Upload start kit browser evidence
-        if: ${{ matrix.shard == 1 && needs.changes.outputs.e2e_kit != 'false' && !cancelled() }}
+        if: ${{ matrix.shard == 1 && needs.changes.outputs.e2e_kit != 'false' && github.event_name != 'pull_request' && !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: platform-start-kit-browser-report
@@ -580,10 +584,10 @@ jobs:
         run: |
           set --
           if [ "$E2E" != all ] && [ -n "$E2E" ]; then for s in $E2E; do set -- "$@" "tests/$s"; done; fi
-          pnpm e2e --shard=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '4' }} --reporter=list,blob "$@"
+          pnpm e2e --shard=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '6' }} --reporter=list,blob "$@"
       # 하위 경로 배포(#318, ADR-0030): 별도 mock 빌드·preview(4191)에서 base 유지 계약을 확인한다.
       # Runs once, on the last shard, regardless of the shard's own result; skipped only when the selection says it is unaffected ('false'; empty = run).
-      - if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '4') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
+      - if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '6') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
         run: pnpm e2e:base-path
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && needs.changes.outputs.e2e != 'base-path-only' }}
@@ -592,7 +596,7 @@ jobs:
           path: apps/platform-e2e/blob-report/
           retention-days: 1
       - uses: actions/upload-artifact@v4
-        if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '4') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
+        if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '6') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
         with:
           name: platform-e2e-base-path-report
           path: apps/platform-e2e/contract-report/base-path/
@@ -681,8 +685,9 @@ jobs:
           CODE: ${{ needs.changes.outputs.code }}
           UPGRADE: ${{ needs.sdk-upgrade-gate.result }}
           SELFTEST: ${{ needs.sdk-upgrade-gate-selftest.result }}
+        # A pull request skips both jobs on purpose (#1931 PR minimal mode); main push and manual runs require them.
         run: |
-          if [ "$CODE" != false ]; then .github/scripts/require-success.sh "sdk-upgrade=$UPGRADE" "sdk-upgrade-selftest=$SELFTEST"; fi
+          if [ "$CODE" != false ] && [ "$GITHUB_EVENT_NAME" != pull_request ]; then .github/scripts/require-success.sh "sdk-upgrade=$UPGRADE" "sdk-upgrade-selftest=$SELFTEST"; fi
       - name: Shard verdict
         if: ${{ !cancelled() }}
         env:
@@ -699,7 +704,7 @@ jobs:
   site-shots:
     name: Intro site captures
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.site != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.site != 'false' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
