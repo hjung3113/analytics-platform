@@ -7,6 +7,7 @@ const platform = { adapter: {} as PlatformAdapter, revision: 1, user: { id: 'u1'
 vi.mock('@ap/kernel', () => ({ usePlatform: () => platform }));
 
 const { featureQueryClient, unauthorizedReporter, useFeatureSession, resetFeatureSessionForTests } = await import('./session');
+const { registerSessionDraft, takeSessionDraft } = await import('@ap/feature-screens/global-screens/core');
 
 const identity = () => [platform.adapter, platform.revision, platform.user?.id ?? null] as const;
 
@@ -69,5 +70,54 @@ describe('unauthorizedReporter', () => {
     expect(featureQueryClient.getQueryCache().getAll()).toHaveLength(0);
     expect(first.result.current.status).toBe('retired');
     expect(second.result.current.status).toBe('retired');
+  });
+});
+
+// The bridge never touches web storage itself (lint); what was kept is read back through the feature registry.
+describe('session-expiry drafts (#1887)', () => {
+  let unregister: (() => void) | null = null;
+  beforeEach(() => { platform.user = { id: 'u1' }; });
+  afterEach(() => { unregister?.(); unregister = null; platform.user = { id: 'u1' }; });
+
+  /** A new generation for `userId` (re-authentication), which binds the kept drafts to that user. */
+  const signInAgain = (hook: { rerender: () => void }, userId: string) => { platform.user = { id: userId }; platform.revision += 1; hook.rerender(); };
+
+  it('keeps nothing while the session is healthy', () => {
+    withApi();
+    const hook = renderHook(() => useFeatureSession());
+    unregister = registerSessionDraft('voc-compose', () => ({ title: 'typed' }));
+    signInAgain(hook, 'u1');
+    expect(hook.result.current.status).toBe('ready');
+    expect(takeSessionDraft('voc-compose')).toBeNull();
+  });
+
+  it('a 401 keeps the drafts before the cache is cleared; the same user\'s next session takes it once', () => {
+    const onSessionLost = withApi();
+    const hook = renderHook(() => useFeatureSession());
+    featureQueryClient.setQueryData(['rows'], 1);
+    const seenCacheAtRead: number[] = [];
+    unregister = registerSessionDraft('voc-compose', () => { seenCacheAtRead.push(featureQueryClient.getQueryCache().getAll().length); return { title: 'typed' }; });
+    act(() => unauthorizedReporter({ onSessionLost }, identity())());
+    expect(seenCacheAtRead).toEqual([1]);
+    expect(onSessionLost).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.status).toBe('retired');
+    expect(takeSessionDraft('voc-compose')).toBeNull(); // not readable until a new session is ready
+    signInAgain(hook, 'u1');
+    expect(hook.result.current.status).toBe('ready');
+    expect(takeSessionDraft('voc-compose')).toEqual({ title: 'typed' });
+    expect(takeSessionDraft('voc-compose')).toBeNull();
+  });
+
+  it('another user\'s next session deletes the draft unread', () => {
+    const onSessionLost = withApi();
+    const hook = renderHook(() => useFeatureSession());
+    unregister = registerSessionDraft('voc-compose', () => ({ title: 'typed' }));
+    act(() => unauthorizedReporter({ onSessionLost }, identity())());
+    unregister();
+    unregister = null;
+    signInAgain(hook, 'u2');
+    expect(takeSessionDraft('voc-compose')).toBeNull();
+    signInAgain(hook, 'u1'); // deleted, not only hidden from u2
+    expect(takeSessionDraft('voc-compose')).toBeNull();
   });
 });

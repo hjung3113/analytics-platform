@@ -10,17 +10,22 @@ import { useAttachmentUploadQueue } from '@/lib/attachments/useAttachmentUploadQ
 import { VOC_CREATE_COPY } from '@/lib/copy/voc';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { useHostSeam } from '@/lib/host/host-seam';
+import type { DraftJson } from '@/lib/session-draft/registry';
+import { useSessionDraft } from '@/lib/session-draft/useSessionDraft';
 import {
   MAX_ATTACHMENT_IDS_PER_PARENT,
   createVocRequestSchema,
   emptyTipTapDoc,
   isTipTapDocBlank,
+  sourceContextSchema,
+  tipTapDocSchema,
 } from '@ap/feature-shared';
 import type { CreateVocRequest, TipTapDoc } from '@ap/feature-shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { useVocCreateMutation } from '../../hooks/useVocCreateMutation';
 import { mergeAttachmentIds, normalizeAttachmentRefs } from './attachment-refs';
 import { type VocComposeContextBlock, appendContextBlock } from './context-block';
@@ -40,6 +45,16 @@ export interface VocComposeErrorReport {
   hint: string;
   traceId: string | null;
 }
+
+/** What the compose form keeps across a session expiry (#1887): typed title and body and the chosen system, area and source. Attachments uploaded beside the body are not kept. */
+export const VOC_COMPOSE_DRAFT_KEY = 'voc-compose';
+const vocComposeDraftSchema = z.object({
+  title: z.string(),
+  description: tipTapDocSchema,
+  managedSystemId: z.string(),
+  areaId: z.string().nullable(),
+  sourceContext: sourceContextSchema,
+});
 
 const paragraphDoc = (text: string): TipTapDoc => ({
   type: 'doc',
@@ -111,6 +126,8 @@ export function useVocComposeController({
     idempotencyKey,
     onSuccess: (data) => {
       markConsumed();
+      submittedRef.current = true;
+      discardDraft();
       notifySuccess(`접수 완료: ${data.display_id}`);
       onDirtyChange(false);
       onSubmitted({ vocId: data.id, displayId: data.display_id });
@@ -210,6 +227,37 @@ export function useVocComposeController({
   }, [selectedMs, form]);
 
   // Dirty = a field differs from its initial value or an attachment exists; the Context block never counts.
+  // A submitted form keeps nothing; the drafts are written only by the bridge on a session expiry.
+  const submittedRef = React.useRef(false);
+  const { discard: discardDraft } = useSessionDraft({
+    key: VOC_COMPOSE_DRAFT_KEY,
+    read: () => {
+      if (submittedRef.current || !dirty) return null;
+      const values = form.getValues();
+      return {
+        title: values.title,
+        description: values.description_rich_content as unknown as DraftJson,
+        managedSystemId: values.primary_managed_system_id,
+        areaId: values.analytics_area_id ?? null,
+        sourceContext: values.source_context ?? 'direct_use',
+      };
+    },
+    parse: (value) => {
+      const parsed = vocComposeDraftSchema.safeParse(value);
+      return parsed.success ? parsed.data : null;
+    },
+    restore: (draft) => {
+      // The restored system is the user's choice: no late default overwrites it, and its Area survives the system-change reset.
+      if (draft.managedSystemId !== '') defaultResolved.current = true;
+      prevMsRef.current = draft.managedSystemId;
+      form.setValue('title', draft.title, { shouldDirty: true });
+      form.setValue('description_rich_content', draft.description, { shouldDirty: true });
+      form.setValue('primary_managed_system_id', draft.managedSystemId, { shouldDirty: true });
+      form.setValue('analytics_area_id', draft.areaId ?? undefined, { shouldDirty: true });
+      form.setValue('source_context', draft.sourceContext, { shouldDirty: true });
+    },
+  });
+
   const dirty =
     title !== initialTitle ||
     (errorReport ? JSON.stringify(description) !== JSON.stringify(initialDoc) : !isTipTapDocBlank(description)) ||
@@ -292,5 +340,6 @@ export function useVocComposeController({
     handleSubmit,
     handleAttachmentError,
     notifyError,
+    discardDraft,
   };
 }

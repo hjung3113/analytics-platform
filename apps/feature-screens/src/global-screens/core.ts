@@ -16,3 +16,7 @@ export type { ScopeSwitchInput } from '@/lib/host/scope-switch';
 // The blocked-place request slot's pending read (ADR-0154 decision 6): the caller's open requests under the shared mine key.
 export { fetchPermissionRequestsMine, permissionRequestsMineKey } from '@/lib/api/permission-requests';
 export type { MinePermissionRequestRow } from '@/lib/api/permission-requests';
+// Session-expiry drafts (#1887): the session snapshots registered form drafts on a feature 401 and binds them to the next ready user.
+// `registerSessionDraft`/`takeSessionDraft` serve a bridge-side form outside feature screens (and the bridge's session tests).
+export { beginSessionDraftOwner, registerSessionDraft, snapshotSessionDrafts, takeSessionDraft } from '@/lib/session-draft/registry';
+export type { DraftJson } from '@/lib/session-draft/registry';

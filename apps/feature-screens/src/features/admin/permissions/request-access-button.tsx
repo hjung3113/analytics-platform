@@ -55,6 +55,7 @@ import {
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { useManagedSystemNames } from '@/lib/cross-system/useManagedSystemNames';
 import { permissionCheckQueryKey } from '@/lib/cross-system/usePermissionCheckBridge';
+import { draftRecord, draftString, useSessionDraft } from '@/lib/session-draft/useSessionDraft';
 import { permissionRequestStatusLabel } from './permission-requests-search.js';
 
 /** A blocked Site or 공정 (ADR-0154 decision 6). A Site target lets the user pick the scope kind. */
@@ -146,6 +147,43 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
     ? managedSystemNames.get(props.managedSystemId)
     : undefined;
 
+  // Kept across a session expiry (#1887) while the form is open: the typed reason, the chosen expiration and scope choice, per requested permission.
+  const { discard: discardDraft } = useSessionDraft({
+    key: scopeTarget
+      ? `permission-request:scope:${scopeTarget.site}:${scopeTarget.kind === 'site_room' ? scopeTarget.room : ''}`
+      : `permission-request:${capability}:${props.managedSystemId ?? '*'}`,
+    active: open,
+    read: () =>
+      open && submitted === null && (reason !== '' || expiration !== '')
+        ? { reason, expiration, scopeKind, scopeRoom }
+        : null,
+    parse: (value) => {
+      const record = draftRecord(value);
+      const restoredReason = record === null ? null : draftString(record, 'reason');
+      if (record === null || restoredReason === null) return null;
+      const kind = draftString(record, 'scopeKind');
+      const restoredKind: PermissionScopeTargetKind | null = kind === 'site' || kind === 'site_room' ? kind : null;
+      return {
+        reason: restoredReason,
+        expiration: draftString(record, 'expiration') ?? '',
+        scopeKind: restoredKind,
+        scopeRoom: draftString(record, 'scopeRoom') ?? '',
+      };
+    },
+    restore: (draft) => {
+      setReason(draft.reason);
+      setExpiration(draft.expiration);
+      if (scopeTarget && draft.scopeKind !== null) {
+        setScopeKind(draft.scopeKind);
+        setScopeRoom(draft.scopeRoom);
+      }
+    },
+  });
+  const closeDialog = () => {
+    discardDraft();
+    setOpen(false);
+  };
+
   // The dep list here is an *intent key*, not a value dependency: one
   // Idempotency-Key per logical intent (FO ADR-0015:71-90). Narrowing it to what the
   // callback reads would stop rotating the key when the intent changes, and
@@ -181,6 +219,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
       return await createPermissionRequest(body, { idempotencyKey: key });
     },
     onSuccess: async (result, submission) => {
+      discardDraft();
       setErrorMessage(null);
       setConflict(null);
       setSubmitted({
@@ -229,7 +268,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
   });
 
   const dialog = (
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : closeDialog())}>
         <DialogContent data-testid="permission-request-dialog">
           {submitted ? (
             <>
@@ -295,7 +334,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                 >
                   다른 권한 요청
                 </Button>
-                <Button type="button" onClick={() => setOpen(false)}>
+                <Button type="button" onClick={closeDialog}>
                   확인
                 </Button>
               </DialogFooter>
@@ -464,7 +503,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                   </p>
                 ) : null}
                 <DialogFooter>
-                  <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+                  <Button type="button" variant="secondary" onClick={closeDialog}>
                     {GLOSSARY.cancel}
                   </Button>
                   <Button type="submit" disabled={mutation.isPending}>

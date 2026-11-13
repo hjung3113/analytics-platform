@@ -1,7 +1,7 @@
 import { useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { usePlatform } from '@ap/kernel';
 import type { PlatformAdapter } from '@ap/contracts';
-import { configureApiClient, createFeatureQueryClient } from '@ap/feature-screens/global-screens/core';
+import { beginSessionDraftOwner, configureApiClient, createFeatureQueryClient, snapshotSessionDrafts } from '@ap/feature-screens/global-screens/core';
 import { featureApi } from '../feature-api';
 
 /** One feature QueryClient for the whole app (ADR-0071 decision 5); cleared whenever the session generation changes. */
@@ -80,9 +80,13 @@ export function useFeatureSession(): FeatureSession {
     if (lastReady === null || !sameGeneration(lastReady, current)) {
       featureQueryClient.clear();
       lastReady = { ...current, epoch: (lastReady?.epoch ?? 0) + 1 };
+      // A new generation binds kept form drafts to this user; another user's drafts and expired ones are deleted unread (#1887).
+      beginSessionDraftOwner(userId);
     }
     const epoch = lastReady.epoch;
     const fire = () => {
+      // Keep the mounted forms' in-progress input for the same user's next session before their subtrees unmount (#1887); nothing is stored before this.
+      snapshotSessionDrafts(userId);
       // Retire every subtree and the cache first: the host's login redirect can take a while, and the previous session's rows must not stay on screen.
       retiredEpoch = epoch;
       for (const listener of [...retiredListeners]) listener();
