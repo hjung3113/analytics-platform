@@ -86,6 +86,7 @@
 - [ ] 웹 빌드(키트 `build:real`)가 빌드 출력에 쓴 `menu-declarations.snapshot.json`을 코어 서버가 읽는 위치에 둔다. 손으로 만들거나 고치지 않는다. 메뉴 선언이 바뀌면 웹을 다시 빌드하고 이 파일도 함께 바꾼다.
 - [ ] 코어 서버 설정 `MENU_DECLARATIONS_SNAPSHOT_FILE`에 그 경로를 준다. `MENU_DECLARATIONS_FILE`이 있으면 필수다. 묶음의 엔드포인트·동작이 이 스냅샷의 메뉴 선언과 다르면 서버가 뜨지 않고, 어느 행의 어느 필드인지 알려 준다([ADR-0156](../adr/0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md)).
 - [ ] 묶음의 엔드포인트 행은 `{ id }`만 쓴다. 배포가 정하는 `paramTypes`·`limits`만 덧붙이고, 메뉴 소유 필드(`menuId`·권한·Scope·Context·`paramKeys` 등)는 서버가 스냅샷에서 채운다. 그래서 메뉴 선언이 바뀌어도 묶음은 고치지 않는다. 새 엔드포인트에 남는 손 작업은 소유자 표(`endpointOwners`) 한 행이다. 동작 행은 모든 필드를 적는다.
+- [ ] **한계:** 실서버에서 선언 묶음의 쓰기 동작(`actions`)은 아직 안 된다(미구현, [ADR-0148](../adr/0148-minimal-forwarder-and-identity-token.md) 미룸). 스키마는 `actions`를 받지만 묶음에 동작이 한 줄이라도 있으면 코어 서버가 기동을 거부한다(`declared actions are refused … ADR-0148`). 쓰기는 mock에서만 동작하므로, 저장소 밖 메뉴의 쓰기는 실서버 통과로 세지 않는다. 다시 여는 조건과 추적은 `.planning/backlog.md`.
 
 ### Scope 카탈로그와 첫 부여
 
