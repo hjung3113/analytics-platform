@@ -25,7 +25,7 @@ export function AppRoot({ assembly, registry, queryHistory, location, slots, spa
     <PlatformProvider serverPreferences={assembly.serverPreferences} spaceIdMigrations={spaceIdMigrations} queryHistory={queryHistory} savedViews={assembly.savedViews} equipmentAxes={equipmentAxes} adapter={assembly.adapter} registry={registry} location={location} slots={slots}>
       {children}
       {assembly.invalidation && <EndpointInvalidationBridge source={assembly.invalidation} />}
-      <AppShell><RouteOutlet /></AppShell>
+      <AppShell productName={productName}><RouteOutlet /></AppShell>
     </PlatformProvider>
   );
 }

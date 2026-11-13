@@ -26,6 +26,12 @@ describe('startAppHost', () => {
     expect(await screen.findByText('menu first')).toBeInTheDocument();
   });
 
+  it('passes the host option productName to the shell: the tab title ends with it (#1944)', async () => {
+    await start({ productName: 'Synthetic Product' });
+    expect(await screen.findByText('menu first', {}, { timeout: 30_000 })).toBeInTheDocument();
+    await vi.waitFor(() => expect(document.title).toMatch(/ · Synthetic Product$/), { timeout: 30_000 });
+  });
+
   it('{ redirect } calls the injected redirect once and renders nothing', async () => {
     const redirect = vi.fn();
     await start({ createAssembly: () => ({ redirect: '/login' }), redirect });
