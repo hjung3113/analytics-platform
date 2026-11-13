@@ -4,6 +4,7 @@ import {
   itemVersionErrors,
   parseReviewInput,
   reviewerAuthorship,
+  reviseBaseError,
   reviseTargetError,
   validateReviewInput,
 } from '../domain/review-input.js';
@@ -70,5 +71,14 @@ describe('reviseTargetError', () => {
   });
   it('a matching published target passes', () => {
     expect(reviseTargetError({ publicationState: 'published', rowVersion: 3 }, 3)).toBeNull();
+  });
+});
+
+describe('reviseBaseError', () => {
+  it('a newer latest revision than the draft base is base_stale', () => {
+    expect(reviseBaseError({ latestRevisionNo: 4 }, 3)).toEqual({ path: ['id'], code: 'base_stale' });
+  });
+  it('the same revision passes', () => {
+    expect(reviseBaseError({ latestRevisionNo: 3 }, 3)).toBeNull();
   });
 });
