@@ -187,8 +187,9 @@ export type HostPlatform = {
   /**
    * `guard` (host only, #2061): this `replace` is held by the unsaved-edit guard like a push (ADR-0115) — for a replace that leaves the menu screen,
    * such as opening the analysis board (ADR-0087). Without it a `replace` is never held.
+   * `run` (host only): a step that must happen only if the move does, such as saving the board before opening it. It runs once, after a confirmed leave and just before the write; returning `false` cancels the move.
    */
-  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia; guard?: boolean }) => boolean;
+  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia; guard?: boolean; run?: () => boolean }) => boolean;
   setGlobal: (patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => void;
   /** A value may be a list for a `repeatedPageKeys` key (one pair per item; more than one value on another key throws `RangeError`); `[]` and null remove the key. A hidden key is written to a new history entry (or `replace`) whose address is unchanged. */
   setPage: (patch: Record<string, string | readonly string[] | null>, options?: { replace?: boolean; focus?: PageFocus }) => void;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useUnsavedGuard } from '@ap/kernel';
@@ -11,8 +11,9 @@ import { RouteOutlet } from '../../routing/RouteOutlet';
 // RouteOutlet loads the board lazily (#821); evaluate it up front so a short settle does not race a cold dynamic import.
 import '../BoardHost';
 import { BOARD_LAYOUT_ENGINE_KEY } from '../layoutEngine';
-import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed } from '../__fixtures__/legacyBoard';
+import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, storedLegacy, V1_KEY, V2_KEY } from '../__fixtures__/legacyBoard';
 import { resetBoardPresentationForTests } from '../boardPresentation';
+import { OpenInBoardAction } from '../OpenInBoardAction';
 
 /** Opening the board from a menu with unsaved edits asks first; leaving the board back to the menu never does (#2061, ADR-0087, ADR-0115). */
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
@@ -40,7 +41,7 @@ const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
 function mount(url: string) {
   window.history.replaceState(null, '', url);
   const session = testSession(['platform:view']);
-  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
+  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={{ boardEntry: <OpenInBoardAction /> }}>
     <AppShell><RouteOutlet /></AppShell>
   </PlatformProvider></I18nProvider>);
 }
@@ -141,5 +142,77 @@ describe('opening the board from a menu with unsaved edits (#2061)', () => {
     expect(leaveDialog()).toBeNull();
     expect(path()).toBe(at);
     expect(screen.getByText('editing')).toBeTruthy();
+  });
+});
+
+/** A window over the editing menu. */
+async function windowOverEditing() {
+  mount('/editor');
+  await settle();
+  fireEvent.click(rail('분석 보드'));
+  fireEvent.click(await screen.findByRole('button', { name: '창으로 보기' }));
+  await settle();
+  fireEvent.click(screen.getByRole('button', { name: 'start edit' }));
+  await settle();
+}
+
+describe('the confirmed leave replays the arrival (#2061 review)', () => {
+  it('window 최대화 → 변경 버리고 이동 lands on /board with focus on the board heading', async () => {
+    await windowOverEditing();
+    fireEvent.click(screen.getByRole('button', { name: '최대화' }));
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '변경 버리고 이동' }));
+    await settle();
+    expect(window.location.pathname).toBe('/board');
+    expect(document.activeElement).toBe(document.querySelector('[data-board-heading]'));
+  });
+});
+
+describe('분석 보드에 열기… from a menu with unsaved edits saves only after the leave is approved (#2061 review)', () => {
+  /** Both stored forms, so a write under the migrated key shows too. */
+  const stored = () => JSON.stringify([localStorage.getItem(V1_KEY), localStorage.getItem(V2_KEY)]);
+  const storedSheets = () => storedLegacy().sheets;
+  const beta = { menuId: 'editor', params: {}, query: '' };
+  /** The dialog's destination steps, then 열기. */
+  async function openFromEditor(pick: 'new' | 'replace') {
+    mount('/editor');
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: 'start edit' }));
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    fireEvent.click(await screen.findByRole('button', { name: '분석 보드에 열기…' }));
+    await settle();
+    const dialog = await screen.findByRole('dialog', { name: '분석 보드에 열기' });
+    if (pick === 'replace') {
+      fireEvent.click(within(dialog).getByRole('radio', { name: '기존 칸 바꾸기' }));
+      fireEvent.click(await within(dialog).findByRole('radio', { name: 'a' }));
+      fireEvent.click(await within(dialog).findByRole('radio', { name: /^칸 1/ }));
+    }
+    fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
+    await settle();
+  }
+
+  it.each([['new' as const], ['replace' as const]])('%s: 머무르기 writes nothing and keeps the menu', async pick => {
+    seed(boardOf([sheet('a', { panes: [beta] })]));
+    const before = stored();
+    await openFromEditor(pick);
+    expect(leaveDialog()).not.toBeNull();
+    expect(stored()).toBe(before);
+    fireEvent.click(screen.getByRole('button', { name: '머무르기' }));
+    await settle();
+    expect(stored()).toBe(before);
+    expect(window.location.pathname).not.toBe('/board');
+    expect(screen.getByText('editing')).toBeTruthy();
+  });
+
+  it.each([['new' as const, 2], ['replace' as const, 1]])('%s: 변경 버리고 이동 saves once and opens the board', async (pick, sheets) => {
+    seed(boardOf([sheet('a', { panes: [beta] })]));
+    const before = stored();
+    await openFromEditor(pick);
+    fireEvent.click(screen.getByRole('button', { name: '변경 버리고 이동' }));
+    await settle();
+    expect(window.location.pathname).toBe('/board');
+    expect(stored()).not.toBe(before);
+    expect(storedSheets()).toHaveLength(sheets);
   });
 });

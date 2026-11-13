@@ -88,6 +88,8 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
         return false;
       }
     }
+    // The host's own step (#2061): after any confirmed leave and before the write, so a cancelled leave never runs it; it may still refuse.
+    if (options.run && !options.run()) { pageNavigation.cancel(); return false; }
     // An accepted write changes the origin the pending request was made from (a replace, a Scope change, a confirmed replay): that request is stale (F3).
     guard.dropRequest();
     if (options.redirect) pageNavigation.redirect(split.url);
@@ -122,7 +124,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     return true;
   }, [pageNavigation, location, hiddenKeysFor, menuFor, guard, usageNav, stamping]);
   useLayoutEffect(() => { commitRef.current = commit; }, [commit]);
-  const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[]; guard?: boolean }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, restoreHidden: options?.restoreHidden, guard: options?.guard }), [commit]);
+  const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[]; guard?: boolean; run?: () => boolean }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, restoreHidden: options?.restoreHidden, guard: options?.guard, run: options?.run }), [commit]);
 
   const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, hidden, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
   const { screen, sidebarSpace, resolveEntryLink } = useScreenState(app, source);

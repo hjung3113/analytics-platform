@@ -165,7 +165,7 @@ export function useBoardPresentation() {
     /** Held by a menu with unsaved edits (`guard`): nothing changes until the person confirms; a confirmed replay arrives at `/board`, which ends the window. */
     maximize: (text: string) => {
       displayFocus.set(user.id, 'maximized');
-      if (!navigate(sheetHref(read(user.id).lastSheetId), { replace: true, guard: true })) { displayFocus.delete(user.id); return; }
+      if (!navigate(sheetHref(read(user.id).lastSheetId), { replace: true, focus: 'page', guard: true })) { displayFocus.delete(user.id); return; }
       announce(text);
       write(user.id, { floating: false, lastMode: 'maximized' });
     },
