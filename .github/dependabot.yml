@@ -1,0 +1,41 @@
+# Dependency update bot (#1982). Owner decision 2026-11-13: once a week, one grouped PR per ecosystem.
+# Handling rule: .agents/conductor/PROFILE.md §Flow «Bot PRs».
+version: 2
+updates:
+  - package-ecosystem: npm
+    # The root covers every pnpm workspace package (pnpm-workspace.yaml).
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 1
+    # apps/feature-screens is a frozen app that pins vite 5, vitest 2 and TypeScript 5.7 on purpose; bumping them is a migration, not a weekly update.
+    exclude-paths:
+      - apps/feature-screens/**
+    ignore:
+      # Majors are judged one at a time, never opened automatically.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # The feature packages resolve every @tiptap package to one version through pnpm-workspace.yaml overrides (#443).
+      - dependency-name: "@tiptap/*"
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps)"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 1
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"
