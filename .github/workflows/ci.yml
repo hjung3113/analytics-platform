@@ -30,7 +30,7 @@ concurrency:
 # workspace 검사(#1019)는 turbo 캐시로 바뀐 패키지와 그 의존자만 다시 돈다(`.turbo/cache`를 main push가 저장하고 PR은 복원만 한다). 전체·cold는 `full`일 때뿐이다(바뀐 패키지가 많은 보통 PR은 20분대까지 걸릴 수 있고, 서버 시험은 `Platform test`가 아니라 `integration`이 한 번만 돈다):
 # `workflow_dispatch`의 `full=true`(릴리스 태그 전 수동), 또는 `changes`가 판단하지 못해 `full`이 'false'가 아닐 때(출력 없음 포함) → 캐시를 복원하지 않고 `TURBO_FORCE=true`.
 # `Platform workspace (pnpm monorepo)`는 병렬 Job(Platform static·Platform test 조각 3개, #1680)의 모음 Job이고, 하위 결과가 모두 정확히 success일 때만 통과한다.
-# E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 6개)이고 대부분의 코드 PR이 전부 돈다. `apps/platform-api/**`·`ops/platform-api/**`만 바뀐 PR은 mock E2E가 필요 없다(`ops/platform-api/tsconfig.base.json` 제외, #1680). 전체는 `workflow_dispatch`의
+# E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 8개)이고 대부분의 코드 PR이 전부 돈다. `apps/platform-api/**`·`ops/platform-api/**`만 바뀐 PR은 mock E2E가 필요 없다(`ops/platform-api/tsconfig.base.json` 제외, #1680). 전체는 `workflow_dispatch`의
 # `full=true`(릴리스 태그 전)에서도 돈다. main push의 기준은 직전 커밋이 아니라 CI가 green이었던 마지막 main SHA다(`last-green-main-sha.mjs`) — 실패한 spec은 green이 될 때까지 범위에 남는다.
 # 기능 패키지는 서브모듈이 아니라 일반 디렉터리(apps/{platform-api,feature-screens}·packages/feature-*·docs/{product,design,user-guide}/features·docs/architecture/platform-api)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유).
 
@@ -519,10 +519,10 @@ jobs:
 
   # #666: the contract suite (~600 s of tests on one worker) runs as Playwright shards in parallel. Each shard starts
   # its own dev server and runs its contiguous slice serially (fullyParallel + workers: 1), so evidence stays in contract
-  # order. A whole run uses 6 shards (e2e_total, #1931: 4 left the slowest shard near 12 min); a selected-spec run (#1019) is one shard with the spec list appended.
+  # order. A whole run uses 8 shards (e2e_total, #1931: Playwright splits by test count, and the slow board tests clump in shard 1; 4 left it near 12 min, 6 near 10); a selected-spec run (#1019) is one shard with the spec list appended.
   # Empty outputs (`changes` failed) fall back to the whole run: 4 shards, no spec list, base-path run.
   platform-contracts-e2e-shard:
-    name: Platform contracts (E2E shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '6' }})
+    name: Platform contracts (E2E shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '8' }})
     needs: changes
     # Not a required check, so skipping it is safe (the aggregate below reads `e2e == 'none'` for the verdict); runs when `changes` failed (no output).
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.changes.outputs.e2e != 'none' }}
@@ -540,7 +540,7 @@ jobs:
       # Every shard runs to the end so the merged report lists every failing contract, not only the first shard's.
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.changes.outputs.e2e_shards || '[1,2,3,4,5,6]') }}
+        shard: ${{ fromJSON(needs.changes.outputs.e2e_shards || '[1,2,3,4,5,6,7,8]') }}
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
@@ -584,10 +584,10 @@ jobs:
         run: |
           set --
           if [ "$E2E" != all ] && [ -n "$E2E" ]; then for s in $E2E; do set -- "$@" "tests/$s"; done; fi
-          pnpm e2e --shard=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '6' }} --reporter=list,blob "$@"
+          pnpm e2e --shard=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '8' }} --reporter=list,blob "$@"
       # 하위 경로 배포(#318, ADR-0030): 별도 mock 빌드·preview(4191)에서 base 유지 계약을 확인한다.
       # Runs once, on the last shard, regardless of the shard's own result; skipped only when the selection says it is unaffected ('false'; empty = run).
-      - if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '6') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
+      - if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '8') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
         run: pnpm e2e:base-path
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && needs.changes.outputs.e2e != 'base-path-only' }}
@@ -596,7 +596,7 @@ jobs:
           path: apps/platform-e2e/blob-report/
           retention-days: 1
       - uses: actions/upload-artifact@v4
-        if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '6') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
+        if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '8') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
         with:
           name: platform-e2e-base-path-report
           path: apps/platform-e2e/contract-report/base-path/
