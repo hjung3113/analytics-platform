@@ -2,13 +2,18 @@
 //
 // Usage (migrate-role job; the runtime backend never receives these secrets):
 //   DATABASE_URL_MIGRATE=… WORKSPACE_ID=<uuid> \
-//     node dist/cli/set-actor-role.js --external-id <idp-sub> --role admin|user [--reason <text>]
+//     node dist/cli/set-actor-role.js --external-id <idp-sub> --role admin|user [--reason <text>] [--revoke-admin-grants]
 //
 // Behavior:
 //   * The Actor must already exist: the person logs in once first (the first
 //     OIDC login creates the Actor as `user`).
 //   * One transaction: per-workspace advisory lock → check → update → one
 //     `actor_role_changed` audit row attributed to the `system` Actor.
+//   * Lowering an admin who holds active `workspace.admin` grants (not revoked,
+//     not superseded, not expired) is refused with the count (exit 5): a
+//     demotion alone leaves those grants answering the admin checks. With
+//     `--revoke-admin-grants` the grants are revoked in the same transaction,
+//     one `permission_revoked` audit row each, attributed to the `system` Actor.
 //   * Already at the requested role → no change, no audit row, exit 0.
 //   * Prints one JSON line (ids and roles only, never an email).
 //
@@ -16,11 +21,13 @@
 //   0 changed or already set   1 usage / config / unexpected error
 //   2 unknown external id (log in first)   3 refused: last non-system admin
 //   4 refused: the `system` Actor
+//   5 refused: active `workspace.admin` grants, rerun with --revoke-admin-grants
 
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, ne, or, sql } from 'drizzle-orm';
 
 import { type DbHandle, createDb } from '../db/client.js';
 import { actors } from '../db/schema/core.js';
+import { permissionGrants } from '../db/schema/permission.js';
 import { createAuditService } from '../modules/core/audit/audit-service.js';
 
 export type SettableRole = 'admin' | 'user';
@@ -28,7 +35,7 @@ export type SettableRole = 'admin' | 'user';
 export class SetActorRoleError extends Error {
   constructor(
     message: string,
-    readonly exitCode: 1 | 2 | 3 | 4,
+    readonly exitCode: 1 | 2 | 3 | 4 | 5,
   ) {
     super(message);
     this.name = 'SetActorRoleError';
@@ -40,6 +47,8 @@ export interface SetActorRoleInput {
   externalId: string;
   role: SettableRole;
   reason?: string | undefined;
+  /** Revoke the target's active workspace.admin grants in the same transaction when lowering an admin. */
+  revokeAdminGrants?: boolean | undefined;
 }
 
 export interface SetActorRoleResult {
@@ -116,6 +125,37 @@ export async function setActorRole(
       }
     }
 
+    // A demotion only changes the role column; workspace.admin grants keep
+    // answering the admin checks (#2057). Surface them instead of leaving them.
+    const now = new Date();
+    const adminGrants =
+      target.roleLevel === 'admin'
+        ? await tx
+            .select({
+              id: permissionGrants.id,
+              capability: permissionGrants.capability,
+              managedSystemId: permissionGrants.managedSystemId,
+            })
+            .from(permissionGrants)
+            .where(
+              and(
+                eq(permissionGrants.workspaceId, input.workspaceId),
+                eq(permissionGrants.actorId, target.id),
+                eq(permissionGrants.capability, 'workspace.admin'),
+                isNull(permissionGrants.revokedAt),
+                isNull(permissionGrants.supersededAt),
+                or(isNull(permissionGrants.expiresAt), gt(permissionGrants.expiresAt, now)),
+              ),
+            )
+            .for('update')
+        : [];
+    if (adminGrants.length > 0 && !input.revokeAdminGrants) {
+      throw new SetActorRoleError(
+        `refusing to lower '${input.externalId}': ${adminGrants.length} active workspace.admin grant(s) would keep passing admin checks; rerun with --revoke-admin-grants to revoke them in the same change`,
+        5,
+      );
+    }
+
     await hooks.afterAdminCount?.();
 
     const [system] = await tx
@@ -133,6 +173,34 @@ export async function setActorRole(
       .update(actors)
       .set({ roleLevel: input.role })
       .where(and(eq(actors.workspaceId, input.workspaceId), eq(actors.id, target.id)));
+    const revokeReason = input.reason ?? 'actor lowered from admin by set-actor-role';
+    for (const grant of adminGrants) {
+      await tx
+        .update(permissionGrants)
+        .set({ revokedAt: now, revokedByActorId: system.id, revokedReason: revokeReason })
+        .where(
+          and(
+            eq(permissionGrants.workspaceId, input.workspaceId),
+            eq(permissionGrants.id, grant.id),
+          ),
+        );
+      // Same event and detail shape as the API revoke (grant-admin-service revokeGrant).
+      await audit.record(tx, {
+        workspace_id: input.workspaceId,
+        actor_id: system.id,
+        event_type: 'permission_revoked',
+        subject_type: 'permission_grant',
+        subject_id: grant.id,
+        summary: 'Permission grant revoked',
+        detail: {
+          grant_id: grant.id,
+          capability: grant.capability,
+          managed_system_id: grant.managedSystemId,
+          grantee_actor_id: target.id,
+          reason: revokeReason,
+        },
+      });
+    }
     await hooks.afterUpdate?.();
     await audit.record(tx, {
       workspace_id: input.workspaceId,
@@ -155,11 +223,14 @@ export function parseArgs(argv: readonly string[]): {
   externalId: string;
   role: SettableRole;
   reason?: string;
+  revokeAdminGrants?: true;
 } {
+  const revokeAdminGrants = argv.includes('--revoke-admin-grants');
+  const pairs = argv.filter((a) => a !== '--revoke-admin-grants');
   const values = new Map<string, string>();
-  for (let i = 0; i < argv.length; i += 2) {
-    const key = argv[i];
-    const value = argv[i + 1];
+  for (let i = 0; i < pairs.length; i += 2) {
+    const key = pairs[i];
+    const value = pairs[i + 1];
     if (!key?.startsWith('--') || value === undefined || value.startsWith('--')) {
       throw new SetActorRoleError(`bad argument near '${key ?? ''}'`, 1);
     }
@@ -172,7 +243,12 @@ export function parseArgs(argv: readonly string[]): {
     throw new SetActorRoleError('--role must be admin or user', 1);
   }
   const reason = values.get('--reason');
-  return { externalId, role, ...(reason ? { reason } : {}) };
+  return {
+    externalId,
+    role,
+    ...(reason ? { reason } : {}),
+    ...(revokeAdminGrants ? { revokeAdminGrants } : {}),
+  };
 }
 
 async function main(): Promise<number> {
