@@ -11,7 +11,7 @@ const GROUP = groupId('noticeVoc');
 
 export const manifests: MenuEntry[] = [
   {
-    id: 'notices', primary: true, group: GROUP, label: { ko: '공지', en: 'Notices' },
+    id: 'notices', primary: true, group: GROUP, label: { ko: '공지', en: 'Notices' }, keywords: { ko: ['공지사항', '게시판'], en: ['announcements'] },
     description: { ko: '공지 목록/상세', en: 'Notice list/detail' },
     path: '/notices', icon: Megaphone, permission: 'notice:view', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['focus'],
     component: lazy(() => import('./pages/Notices')),

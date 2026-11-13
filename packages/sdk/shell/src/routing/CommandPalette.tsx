@@ -4,6 +4,7 @@ import { type MenuEntry, useI18n, useRecentVisits } from '@ap/kernel';
 import { useHostPlatform, useLeaveRequest, useOverlayState } from '@ap/kernel/host';
 import type { Text } from '@ap/contracts';
 import { usePlatformMenu } from '../frame/platformMenu';
+import { isNearMiss, MATCH_NAME, matchRank, queryWords, type PaletteTarget } from './paletteMatch';
 import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
@@ -47,23 +48,36 @@ export function CommandPalette() {
     if (!leaveRequest) setPaletteOpen(false);
   }, [failedSelection, leaveRequest, setPaletteOpen]);
 
-  const sections = useMemo(() => {
-    const rank = (id: string) => { const i = recent.findIndex(r => r.menuId === id); return i < 0 ? 99 : i; };
-    const needle = q.trim().toLowerCase();
-    const sort = (menus: readonly MenuEntry[]) => menus.filter(m => !m.navHidden).slice().sort((a, b) => rank(a.id) - rank(b.id));
-    const matches = (m: MenuEntry, names: readonly string[]) => {
-      if (!needle) return true;
+  const { sections, suggested } = useMemo(() => {
+    const recentRank = (id: string) => { const i = recent.findIndex(r => r.menuId === id); return i < 0 ? 99 : i; };
+    const words = queryWords(q);
+    const searching = words.length > 0;
+    const targetOf = (m: MenuEntry, names: readonly string[]): PaletteTarget => {
       const group = registry.groupById(m.group);
-      return [m.label.ko, m.label.en, ...names, group.label.ko, group.label.en].some(s => s.toLowerCase().includes(needle));
+      return { names: [m.label.ko, m.label.en], keywords: [...(m.keywords?.ko ?? []), ...(m.keywords?.en ?? [])], context: [...names, group.label.ko, group.label.en] };
     };
-    const bundles: { key: string; label: Text; items: MenuEntry[] }[] = [];
-    for (const space of accessibleSpaces) {
-      const items = sort(menusInSpace(space.id)).filter(m => matches(m, [space.label.ko, space.label.en]));
-      if (items.length) bundles.push({ key: space.id, label: space.label, items });
-    }
-    const globals = sort(platformMenus).filter(m => matches(m, [platformLabel.ko, platformLabel.en]));
-    if (globals.length) bundles.push({ key: 'platform', label: platformLabel, items: globals });
-    return bundles;
+    const build = (pick: (m: MenuEntry, target: PaletteTarget) => number | null) => {
+      // Rank (name > keyword > group/system), then implemented above planned, then recent. Without a query only recency orders.
+      const sort = (menus: readonly MenuEntry[], names: readonly string[]) => menus.filter(m => !m.navHidden)
+        .flatMap(m => { const rank = pick(m, targetOf(m, names)); return rank === null ? [] : [{ m, rank }]; })
+        .sort((a, b) => a.rank - b.rank
+          || (searching ? Number(!a.m.component && !a.m.moduleScreen) - Number(!b.m.component && !b.m.moduleScreen) : 0)
+          || recentRank(a.m.id) - recentRank(b.m.id))
+        .map(entry => entry.m);
+      const bundles: { key: string; label: Text; items: MenuEntry[] }[] = [];
+      for (const space of accessibleSpaces) {
+        const items = sort(menusInSpace(space.id), [space.label.ko, space.label.en]);
+        if (items.length) bundles.push({ key: space.id, label: space.label, items });
+      }
+      const globals = sort(platformMenus, [platformLabel.ko, platformLabel.en]);
+      if (globals.length) bundles.push({ key: 'platform', label: platformLabel, items: globals });
+      return bundles;
+    };
+    const found = build((_m, target) => searching ? matchRank(words, target) : MATCH_NAME);
+    if (found.length || !searching) return { sections: found, suggested: false };
+    // Nothing matched: offer menus one letter away from the query.
+    const near = build((_m, target) => isNearMiss(q, target) ? MATCH_NAME : null);
+    return { sections: near, suggested: near.length > 0 };
   }, [accessibleSpaces, menusInSpace, platformMenus, recent, q, registry, platformLabel]);
 
   const items = sections.flatMap(section => section.items);
@@ -117,6 +131,7 @@ export function CommandPalette() {
         </div>
         <ul id="palette-list" role="listbox" className="max-h-[50vh] overflow-auto p-1.5">
           {items.length === 0 && <li className="px-3 py-6 text-center text-sm text-text-muted">{t('paletteEmpty')}</li>}
+          {suggested && <li role="presentation" className="px-3 pb-1 pt-2 text-sm text-text-muted">{t('paletteDidYouMean')}</li>}
           {sections.map(section => {
             const headingId = `palette-heading-${section.key}`;
             return <li key={section.key} role="presentation">

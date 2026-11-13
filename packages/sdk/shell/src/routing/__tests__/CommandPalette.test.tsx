@@ -579,3 +579,70 @@ describe('menu navigation page focus (06 §26)', () => {
     await waitFor(() => expect(input).toHaveFocus());
   });
 });
+
+describe('CommandPalette menu matching (#1943)', () => {
+  const searchRegistry = createRegistry({
+    spaces: [testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, homeMenuId: 'equipment-master' })],
+    groups: [
+      { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment management' }, icon: House, space: spaceId('mars') },
+      { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+    ],
+    menus: [
+      // The planned menu is declared first so a rank bug cannot hide behind declaration order.
+      menu('process-master', groupId('equipment'), '/process-master', { ko: '공정 마스터', en: 'Process master' }),
+      menu('equipment-master', groupId('equipment'), '/equipment-master', { ko: '설비 마스터', en: 'Equipment master' }, { primary: true, component: page, keywords: { ko: ['장비'], en: ['machine'] } }),
+      menu('cycle-time', groupId('equipment'), '/cycle-time', { ko: '사이클타임 상세', en: 'Cycle time detail' }, { component: page, keywords: { ko: ['택트'] } }),
+      menu('notices', groupId('noticeVoc'), '/notices', { ko: '공지', en: 'Notices' }, { primary: true, permission: 'notice:view', component: page, keywords: { ko: ['공지사항', '게시판'] } }),
+    ],
+  });
+  const ids = () => screen.queryAllByRole('option').map(option => option.id.replace('palette-', ''));
+  const search = (value: string) => {
+    mount(undefined, searchRegistry);
+    fireEvent.change(screen.getByRole('combobox', { name: '메뉴 검색' }), { target: { value } });
+  };
+
+  it.each([
+    ['설비마스터', ['equipment-master']],
+    ['사이클 타임', ['cycle-time']],
+    ['장비', ['equipment-master']],
+    ['택트', ['cycle-time']],
+    ['공지사항', ['notices']],
+    ['게시판', ['notices']],
+    ['machine', ['equipment-master']],
+  ])('finds exactly %s', (input, expected) => {
+    search(input);
+    expect(ids()).toEqual(expected);
+  });
+
+  // The system or group name also matches sibling menus, but only at the lowest rank.
+  it.each([['설비 마스터'], ['MARS 설비'], ['equipment master']])('finds %s with the named menu first', input => {
+    search(input);
+    expect(ids()[0]).toBe('equipment-master');
+  });
+
+  it('ranks the menu name above keywords above group and system names', () => {
+    search('설비');
+    // 설비 마스터 (name) · 공정 마스터 and 사이클타임 상세 only match through the group name 설비관리.
+    expect(ids()[0]).toBe('equipment-master');
+    expect(ids().slice(1).sort()).toEqual(['cycle-time', 'process-master']);
+  });
+
+  it('puts an implemented menu above a planned one at the same rank', () => {
+    search('마스터');
+    expect(ids()).toEqual(['equipment-master', 'process-master']);
+  });
+
+  it('offers a one-letter typo candidate under 이 메뉴를 찾으셨나요', () => {
+    search('설비 마스처');
+    expect(screen.getByText('이 메뉴를 찾으셨나요')).toBeInTheDocument();
+    expect(ids()).toEqual(['equipment-master']);
+    expect(screen.queryByText('일치하는 메뉴가 없습니다.')).toBeNull();
+  });
+
+  it('keeps the empty sentence when nothing is within one letter', () => {
+    search('전혀없는말');
+    expect(ids()).toEqual([]);
+    expect(screen.getByText('일치하는 메뉴가 없습니다.')).toBeInTheDocument();
+    expect(screen.queryByText('이 메뉴를 찾으셨나요')).toBeNull();
+  });
+});

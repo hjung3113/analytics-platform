@@ -35,7 +35,7 @@ export const manifests: MenuEntry[] = [
     component: lazy(() => import('./pages/ProductivityOverview')),
   },
   {
-    id: 'cycle-time', group: GROUP, label: { ko: '사이클타임 상세', en: 'Cycle time detail' },
+    id: 'cycle-time', group: GROUP, label: { ko: '사이클타임 상세', en: 'Cycle time detail' }, keywords: { ko: ['택트', '택트타임'] },
     description: { ko: '사이클타임 분포에서 느린 실행을 찾아 실행 상세로 드릴다운합니다.', en: 'Find slow executions in the cycle-time distribution and drill into them.' },
     path: '/analytics/cycle-time', icon: Timer, permission: PERMISSION, requiresScope: true, pageType: 'analysis',
     context: contextCapabilities({ time: 'apply', roomNames: 'apply', line: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' }),

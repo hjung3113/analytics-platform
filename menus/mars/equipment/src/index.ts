@@ -12,7 +12,7 @@ const GROUP = groupId('equipment');
 
 export const manifests: MenuEntry[] = [
   {
-    id: 'equipment-master', primary: true, group: GROUP, label: { ko: '설비 마스터', en: 'Equipment master' },
+    id: 'equipment-master', primary: true, group: GROUP, label: { ko: '설비 마스터', en: 'Equipment master' }, keywords: { ko: ['장비'], en: ['machine'] },
     description: { ko: '설비 속성과 유효구간 이력을 조회하고 상세·감사 이력을 확인합니다.', en: 'Browse equipment attributes with validity history, details and audit.' },
     path: '/equipment', icon: Boxes, permission: PERMISSION, requiresScope: true, pageType: 'management',
     context: contextCapabilities({ time: 'reference', roomNames: 'apply', condition: 'apply', selection: 'apply' }),
