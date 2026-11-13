@@ -33,6 +33,7 @@ import {
   type PermissionScopeTargetKind,
   requestedScopeTargetLabel,
 } from '@/lib/copy/permission-scope';
+import { useDeclaredCapabilities } from '@/lib/api/declared-capabilities';
 import { formatDate } from '@/lib/format/datetime';
 import { useHostSeam } from '@/lib/host/host-seam';
 import {
@@ -40,6 +41,7 @@ import {
   type Capability,
   type MinePermissionRequestRow,
   OPEN_PERMISSION_REQUEST_STATUSES,
+  isDeclaredCapabilityId,
 } from '@ap/feature-shared';
 import {
   Button,
@@ -141,7 +143,11 @@ function NewRequestForm(): React.ReactElement {
   const systemRef = React.useRef<HTMLButtonElement>(null);
   const reasonRef = React.useRef<HTMLTextAreaElement>(null);
 
-  const showManagedSystem = !isScope && capability !== '' && !NO_MANAGED_SYSTEM.has(capability);
+  // ADR-0157: the bundle's declared capabilities the reader's Role Level may request, after the platform ones. A declared
+  // capability is granted workspace-wide only, so it never asks for a Managed System.
+  const declared = useDeclaredCapabilities();
+  const requestableDeclared = declared.filter((item) => item.requestable);
+  const showManagedSystem = !isScope && capability !== '' && !NO_MANAGED_SYSTEM.has(capability) && !isDeclaredCapabilityId(capability);
   const managedSystemOptional = OPTIONAL_MANAGED_SYSTEM.has(capability);
   const activeSystems = (managedSystems.data?.items ?? []).filter((ms) => ms.archived_at === null);
   const systemMissing = showManagedSystem && !managedSystemOptional && managedSystemId === '';
@@ -335,6 +341,11 @@ function NewRequestForm(): React.ReactElement {
                       {getCapabilityDisplayLabel(c)}
                     </SelectItem>
                   ))}
+                  {requestableDeclared.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {getCapabilityDisplayLabel(item.id, declared)}
+                    </SelectItem>
+                  ))}
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -450,6 +461,7 @@ function NewRequestForm(): React.ReactElement {
 
 function MyRequests(): React.ReactElement {
   const { notifyError, notifySuccess } = useHostSeam();
+  const declared = useDeclaredCapabilities();
   const queryClient = useQueryClient();
   const managedSystems = useManagedSystemsQuery();
   const list = useQuery({
@@ -552,7 +564,7 @@ function MyRequests(): React.ReactElement {
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="text-sm font-medium text-text-primary">
-                  {requestedScopeTargetLabel(row) ?? getCapabilityDisplayLabel(row.requested_capability)}
+                  {requestedScopeTargetLabel(row) ?? getCapabilityDisplayLabel(row.requested_capability, declared)}
                 </span>
                 <span className="text-xs text-text-secondary">
                   {permissionRequestStatusLabel[row.status]}
@@ -560,7 +572,7 @@ function MyRequests(): React.ReactElement {
               </div>
               <p className="text-xs text-text-muted">
                 {requestedScopeTargetLabel(row) !== null
-                  ? getCapabilityDisplayLabel(row.requested_capability)
+                  ? getCapabilityDisplayLabel(row.requested_capability, declared)
                   : systemName(row.requested_managed_system_id)}{' '}
                 · {formatDate(row.created_at)}
               </p>
@@ -610,7 +622,7 @@ function MyRequests(): React.ReactElement {
                       type="button"
                       variant="secondary"
                       size="sm"
-                      aria-label={`${HOME_PERMISSION_COPY.withdraw}: ${requestedScopeTargetLabel(row) ?? `${getCapabilityDisplayLabel(row.requested_capability)} · ${systemName(row.requested_managed_system_id)}`}`}
+                      aria-label={`${HOME_PERMISSION_COPY.withdraw}: ${requestedScopeTargetLabel(row) ?? `${getCapabilityDisplayLabel(row.requested_capability, declared)} · ${systemName(row.requested_managed_system_id)}`}`}
                       onClick={() => {
                         setConfirmingId(row.id);
                         setFocusTarget({ kind: 'cancel' });

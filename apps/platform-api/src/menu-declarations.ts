@@ -19,14 +19,13 @@ import { readTargetSecrets, type TargetSecrets } from './modules/menu-dispatch/b
 import { connectorFactories as defaultFactories } from './modules/menu-dispatch/connectors/index.js';
 import type { ConnectorFactories, RoutingLog } from './modules/menu-dispatch/connectors/types.js';
 import { routedBootProblems } from './modules/menu-dispatch/routing.js';
-import { declaredContribution } from './modules/menu-dispatch/declared-endpoints.js';
+import { type DeclaredCheckService, declaredContribution } from './modules/menu-dispatch/declared-endpoints.js';
 import { bundleSnapshotCheck, loadMenuSnapshot } from './modules/menu-dispatch/menu-snapshot.js';
 import { createMenuForwarder, normalizeMenuUpstreamBaseUrl, validateMenuOwnerPath } from './modules/menu-dispatch/forwarder.js';
 import { createHttpScopeResolver } from './modules/menu-dispatch/http-scope-resolver.js';
 import { createIdentityTokenSigner } from './modules/menu-dispatch/identity-token.js';
 import type { ScopeResolver } from './modules/menu-dispatch/scope-resolver.js';
 import type { MenuDispatchContribution } from './modules/menu-dispatch/types.js';
-import type { CheckService } from './modules/permissions/check-service.js';
 
 export type MenuDeclarationConfig = Pick<
   AppConfig,
@@ -57,7 +56,7 @@ export interface MenuDeclarationSetup {
  */
 export async function loadMenuDeclarationSetup(
   config: MenuDeclarationConfig,
-  deps: { db?: Db; checkService: CheckService; fetch?: typeof globalThis.fetch; connectorFactories?: ConnectorFactories; scopeCatalog?: Readonly<Record<string, readonly string[]>>; log?: (entry: RoutingLog) => void },
+  deps: { db?: Db; checkService: DeclaredCheckService; fetch?: typeof globalThis.fetch; connectorFactories?: ConnectorFactories; scopeCatalog?: Readonly<Record<string, readonly string[]>>; log?: (entry: RoutingLog) => void },
 ): Promise<MenuDeclarationSetup | null> {
   const file = config.MENU_DECLARATIONS_FILE;
   if (file === undefined) return null;

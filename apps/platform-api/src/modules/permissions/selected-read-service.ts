@@ -4,8 +4,7 @@ import {
   type PermissionRequestAdminDetail,
   type PermissionRequestOwnerDetail,
   type PermissionRiskIndicator,
-  isCapability,
-  isSensitiveCapability,
+  isDeclaredCapabilityId,
   permissionRequestAdminDetailSchema,
   permissionRequestOwnerDetailSchema,
 } from '@ap/feature-shared';
@@ -23,7 +22,7 @@ import { latestPermissionRequestQuestion } from '../core/audit/index.js';
 import { permissionTaskSourceSummary } from '../tasks/index.js';
 import { permissionVocSourceSummary } from '../voc/index.js';
 import { getResolvedWorkspaceSettings } from '../workspace-settings/index.js';
-import { type ActorContext, type CheckService, applyAdminModuleBypass } from './check-service.js';
+import { type ActorContext, type CheckService, applyAdminModuleBypass, capabilitiesOf } from './check-service.js';
 import { isSupportedScope, supportedScopeCandidates } from './supported-scope-policy.js';
 
 type RequestRow = typeof permissionRequests.$inferSelect;
@@ -48,8 +47,13 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
     return row;
   }
 
+  const capabilities = capabilitiesOf(checkService);
+  /** ADR-0157 decision 7: a request for a declared-prefix name this server no longer declares (only withdraw/reject remain). */
+  const isOrphan = (row: RequestRow) =>
+    isDeclaredCapabilityId(row.requestedCapability) && !capabilities.has(row.requestedCapability);
+
   function capability(row: RequestRow) {
-    if (!isCapability(row.requestedCapability)) {
+    if (!capabilities.has(row.requestedCapability)) {
       // Historical unsupported data is a calculation failure, never a successful zero signal.
       throw new Error('cannot calculate selected request context for unknown capability');
     }
@@ -100,6 +104,15 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
           actor.workspace_id,
           row.id,
         );
+        const open = row.status === 'pending' || row.status === 'needs_more_info';
+        if (isOrphan(row)) {
+          return permissionRequestOwnerDetailSchema.parse({
+            ...(await common(tx, actor, row)),
+            latest_admin_question,
+            editable_scope_candidates: [],
+            allowed_actions: open ? ['withdraw'] : [],
+          });
+        }
         const cap = capability(row);
         const editable_scope_candidates = row.requestedScopeKind !== 'managed_system'
           ? (inScopeCatalog(requestScope(row), deps.scopeCatalog) ? [{ managed_system_id: null, ...scopeFields(requestScope(row)) }] : [])
@@ -107,6 +120,7 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
           tx,
           actor.workspace_id,
           cap,
+          capabilities,
         );
         return permissionRequestOwnerDetailSchema.parse({
           ...(await common(tx, actor, row)),
@@ -146,6 +160,33 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
           actorId: row.requesterActorId,
         });
         if (!requester) throw new Error('selected requester context unavailable');
+        if (isOrphan(row)) {
+          // Nothing is judged for a name outside the registry: no access, no approval, only the reject cleanup.
+          const policy = await getResolvedWorkspaceSettings(tx, actor.workspace_id);
+          const is_requester = actor.actor_id === requester.id;
+          const open = row.status === 'pending' || row.status === 'needs_more_info';
+          return permissionRequestAdminDetailSchema.parse({
+            ...(await common(tx, actor, row)),
+            requester,
+            effective_access: {
+              decision: { allow: false, reason: 'no_grant', requestable: null },
+              scope: { kind: 'scoped', managed_system_ids: [] },
+              expires_at: null,
+              granted_managed_system_id: null,
+            },
+            administrative_authority: {
+              capability: 'workspace.admin',
+              allowed: true,
+              is_requester,
+              permission_self_approval: policy.permission_self_approval,
+              self_approval_required: is_requester && policy.permission_self_approval === 'allowed',
+            },
+            approval_scope_candidates: [],
+            matching_denies: [],
+            risk_indicators: [],
+            allowed_actions: open ? ['reject'] : [],
+          });
+        }
         const cap = capability(row);
         const recipient: ActorContext = {
           actor_id: requester.id,
@@ -190,6 +231,7 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
             },
             { tx },
           ),
+          capabilities,
         );
         const scope = await checkService.capabilityScope(
           recipient,
@@ -242,7 +284,7 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
           )
           .orderBy(permissionDenies.id);
         const risk_indicators: PermissionRiskIndicator[] = [];
-        if (isSensitiveCapability(cap))
+        if (capabilities.meta(cap).sensitive)
           risk_indicators.push({ code: 'sensitive_capability', evidence: { capability: cap } });
         if (row.requestedManagedSystemId === null)
           risk_indicators.push({ code: 'workspace_scope', evidence: { managed_system_id: null } });
@@ -254,7 +296,7 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
             code: 'active_deny',
             evidence: { denies: [firstDeny, ...otherDenies] },
           });
-        const candidates = await supportedScopeCandidates(tx, actor.workspace_id, cap);
+        const candidates = await supportedScopeCandidates(tx, actor.workspace_id, cap, capabilities);
         const approval_scope_candidates = isSupportedScope(
           candidates,
           row.requestedManagedSystemId,

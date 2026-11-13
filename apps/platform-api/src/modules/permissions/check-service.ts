@@ -28,18 +28,25 @@
 
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 
-import {
-  type Capability,
-  adminModuleBypassFor,
-  isSessionOnlyCapability,
-  isTokenOnlyCapability,
-} from '@ap/feature-shared';
+import type { CapabilityName } from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
 import { permissionDenies, permissionGrants } from '../../db/schema/permission.js';
 import type { Tx } from '../../db/tx.js';
 import { currentAuthContext, noteSessionOnlyDenial } from '../../lib/auth-context.js';
 import { allManagedSystemIds } from '../managed-systems/read-projections.js';
-import { isOrdinarilyRequestable, isNotForUserRole } from './supported-scope-policy.js';
+import { type CapabilityRegistry, PLATFORM_CAPABILITY_REGISTRY } from './capability-registry.js';
+
+// The capability registry (ADR-0157) is part of the approved permission check surface: other modules reach it here.
+export {
+  type CapabilityRegistry,
+  type DeclaredCapability,
+  type DeclaredCapabilityInput,
+  PLATFORM_CAPABILITY_REGISTRY,
+  UnknownCapabilityError,
+  createCapabilityRegistry,
+  declaredCapabilityProblems,
+  relaxesDefaults,
+} from './capability-registry.js';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Decision shape — locked verbatim by issue #4. Do not extend without an
@@ -67,14 +74,20 @@ export type DenyReason =
  * role, so the effective right is that intersect the scopes). Session calls and non-request code are unaffected.
  * Snapshot readers may disable audit marking; the denial decision itself is unchanged.
  */
-export function tokenDenial(capability: Capability, options: { auditTokenDenials?: boolean } = {}): Decision | null {
+export function tokenDenial(
+  capability: CapabilityName,
+  options: { auditTokenDenials?: boolean; capabilities?: CapabilityRegistry } = {},
+): Decision | null {
+  // ADR-0157 decision 2: the meta is read here, at judgment time, so a capability that later became session-only or left
+  // the declarations refuses an already issued token from its next call (an unregistered name throws).
+  const meta = (options.capabilities ?? PLATFORM_CAPABILITY_REGISTRY).meta(capability);
   const auth = currentAuthContext();
   if (auth.kind !== 'token') {
-    return isTokenOnlyCapability(capability)
+    return meta.tokenOnly
       ? { allow: false, reason: 'token_required', requestable: null }
       : null;
   }
-  if (isSessionOnlyCapability(capability)) {
+  if (meta.sessionOnly) {
     if (options.auditTokenDenials !== false) noteSessionOnlyDenial(capability);
     return { allow: false, reason: 'session_required', requestable: null };
   }
@@ -115,9 +128,12 @@ export interface CheckScope {
 export interface CheckServiceDeps {
   db: Db;
   now?: () => Date;
+  /** This server's capability vocabulary (ADR-0157); defaults to the platform capabilities alone. */
+  capabilities?: CapabilityRegistry;
 }
 
-export type CheckService = ReturnType<typeof createCheckService>;
+/** `capabilities` is optional on the type so a stand-in or a transaction-binding wrapper stays a check service; read it with `capabilitiesOf`. */
+export type CheckService = Omit<ReturnType<typeof createCheckService>, 'capabilities'> & { capabilities?: CapabilityRegistry };
 
 /** Scope to one read call; never hold this wrapper across requests or mutations. */
 export function memoizeCapabilityChecks(checkService: CheckService): CheckService {
@@ -150,10 +166,11 @@ export function memoizeCapabilityChecks(checkService: CheckService): CheckServic
 
 export function createCheckService(deps: CheckServiceDeps) {
   const now = deps.now ?? (() => new Date());
+  const capabilities = deps.capabilities ?? PLATFORM_CAPABILITY_REGISTRY;
 
   async function checkCapability(
     actor: ActorContext,
-    capability: Capability,
+    capability: CapabilityName,
     scope: CheckScope,
     options: { tx?: Tx } = {},
   ): Promise<Decision> {
@@ -163,7 +180,7 @@ export function createCheckService(deps: CheckServiceDeps) {
     // read-only callers like the route-level pre-check at routes.ts.
     const db: Tx = options.tx ?? deps.db;
 
-    const byToken = tokenDenial(capability);
+    const byToken = tokenDenial(capability, { capabilities });
     if (byToken) return byToken;
 
     // (1) workspace context — actor must be acting inside their own workspace.
@@ -172,13 +189,13 @@ export function createCheckService(deps: CheckServiceDeps) {
     }
 
     // One loader for decision and scope reads (#1531): it also drops grants the actor's CURRENT role may not exercise.
-    const rows = await loadDenyAndGrantRows(db, actor, capability);
-    return decideFromRows(actor, capability, scope, rows, now());
+    const rows = await loadDenyAndGrantRows(db, actor, capability, capabilities);
+    return decideFromRows(actor, capability, scope, rows, now(), capabilities);
   }
 
   async function capabilityScope(
     actor: ActorContext,
-    capability: Capability,
+    capability: CapabilityName,
     scope: { workspace_id: string },
     options: { tx?: Tx } = {},
   ): Promise<CapabilityScope> {
@@ -186,7 +203,7 @@ export function createCheckService(deps: CheckServiceDeps) {
     if (actor.workspace_id !== scope.workspace_id)
       return { kind: 'scoped', managed_system_ids: [] };
 
-    return resolveCapabilityScope(db, actor, capability, now);
+    return resolveCapabilityScope(db, actor, capability, now, capabilities);
   }
 
   /**
@@ -196,11 +213,12 @@ export function createCheckService(deps: CheckServiceDeps) {
    */
   async function loadCapabilitySnapshot(
     actors: readonly ActorContext[],
-    capabilities: readonly Capability[],
+    names: readonly CapabilityName[],
     options: { tx?: Tx; auditTokenDenials?: boolean } = {},
   ): Promise<CapabilitySnapshot> {
     const db: Tx = options.tx ?? deps.db;
-    const rowsByKey = await loadDenyAndGrantRowsBatch(db, actors, capabilities);
+    const rowsByKey = await loadDenyAndGrantRowsBatch(db, actors, names, capabilities);
+    const tokenOptions = { capabilities, ...(options.auditTokenDenials === undefined ? {} : { auditTokenDenials: options.auditTokenDenials }) };
     const rightNow = now();
     // The workspace's Managed System ids are read at most once per snapshot, and only when a scope needs them.
     const idsByWorkspace = new Map<string, Promise<string[]>>();
@@ -212,7 +230,7 @@ export function createCheckService(deps: CheckServiceDeps) {
       }
       return ids;
     };
-    const rowsOf = (actor: ActorContext, capability: Capability) => {
+    const rowsOf = (actor: ActorContext, capability: CapabilityName) => {
       const rows = rowsByKey.get(snapshotKey(actor, capability));
       if (!rows) {
         throw new Error(`capability snapshot: ${actor.actor_id} / ${capability} was not loaded`);
@@ -221,7 +239,7 @@ export function createCheckService(deps: CheckServiceDeps) {
     };
     return {
       decision(actor, capability) {
-        const byToken = tokenDenial(capability, options);
+        const byToken = tokenDenial(capability, tokenOptions);
         if (byToken) return byToken;
         return decideFromRows(
           actor,
@@ -229,28 +247,38 @@ export function createCheckService(deps: CheckServiceDeps) {
           { workspace_id: actor.workspace_id },
           rowsOf(actor, capability),
           rightNow,
+          capabilities,
         );
       },
       async scope(actor, capability) {
-        if (tokenDenial(capability, options)) return { kind: 'scoped', managed_system_ids: [] };
-        const bypass = actor.role_level === 'admin' ? adminModuleBypassFor(capability) : 'none';
+        if (tokenDenial(capability, tokenOptions)) return { kind: 'scoped', managed_system_ids: [] };
+        const bypass = actor.role_level === 'admin' ? capabilities.meta(capability).adminModuleBypass : 'none';
         if (bypass === 'always') return { kind: 'all' };
         return scopeFromRows(actor, capability, rowsOf(actor, capability), rightNow, () =>
-          allIds(actor.workspace_id),
+          allIds(actor.workspace_id), capabilities,
         );
       },
     };
   }
 
-  return { checkCapability, capabilityScope, loadCapabilitySnapshot };
+  return { checkCapability, capabilityScope, loadCapabilitySnapshot, capabilities };
+}
+
+/**
+ * The registry a check service judges with (ADR-0157). Services that validate names (request, decision, grant, token)
+ * read it from the server's check service, so the server holds one vocabulary. A stand-in without one knows only the
+ * platform capabilities.
+ */
+export function capabilitiesOf(checkService: Pick<CheckService, 'capabilities'>): CapabilityRegistry {
+  return checkService.capabilities ?? PLATFORM_CAPABILITY_REGISTRY;
 }
 
 /** Decisions and scopes of a preloaded set of (actor, capability) pairs; reading a pair that was not loaded throws. */
 export interface CapabilitySnapshot {
   /** What `checkCapability(actor, capability, { workspace_id: actor.workspace_id })` answers. */
-  decision(actor: ActorContext, capability: Capability): Decision;
+  decision(actor: ActorContext, capability: CapabilityName): Decision;
   /** What `capabilityScope(actor, capability, { workspace_id: actor.workspace_id })` answers. */
-  scope(actor: ActorContext, capability: Capability): Promise<CapabilityScope>;
+  scope(actor: ActorContext, capability: CapabilityName): Promise<CapabilityScope>;
 }
 
 interface DenyRow {
@@ -270,20 +298,22 @@ export interface DenyAndGrantRows {
 
 const rowKey = (workspaceId: string, actorId: string, capability: string) =>
   `${workspaceId}\u0000${actorId}\u0000${capability}`;
-const snapshotKey = (actor: ActorContext, capability: Capability) =>
+const snapshotKey = (actor: ActorContext, capability: CapabilityName) =>
   rowKey(actor.workspace_id, actor.actor_id, capability);
 
 /**
  * #1531: a grant counts only while the CURRENT role may hold the capability. A demoted actor keeps its grant rows (a later
- * promotion restores them), but a User never exercises a capability that is excluded for the User role (ADR-0107 decision 3).
+ * promotion restores them), but a User never exercises a capability that is excluded for the User role (ADR-0107 decision 3);
+ * a declared capability is exercised only by the Role Levels on its allow-list (ADR-0157 decision 6).
  * Every decision and scope read goes through here (single and batch), so this is the one place the rule lives.
  */
 function withRoleExclusion(
   actor: ActorContext,
-  capability: Capability,
+  capability: CapabilityName,
   rows: DenyAndGrantRows,
+  capabilities: CapabilityRegistry,
 ): DenyAndGrantRows {
-  if (actor.role_level === 'user' && isNotForUserRole(capability)) {
+  if (capabilities.excludesRole(capability, actor.role_level)) {
     return { denyRows: rows.denyRows, grantRows: [] };
   }
   return rows;
@@ -301,7 +331,8 @@ const grantColumns = {
 export async function loadDenyAndGrantRows(
   db: Tx,
   actor: ActorContext,
-  capability: Capability,
+  capability: CapabilityName,
+  capabilities: CapabilityRegistry = PLATFORM_CAPABILITY_REGISTRY,
 ): Promise<DenyAndGrantRows> {
   const [denyRows, grantRows] = await Promise.all([
     db
@@ -328,7 +359,7 @@ export async function loadDenyAndGrantRows(
         ),
       ),
   ]);
-  return withRoleExclusion(actor, capability, { denyRows, grantRows });
+  return withRoleExclusion(actor, capability, { denyRows, grantRows }, capabilities);
 }
 
 /**
@@ -338,13 +369,14 @@ export async function loadDenyAndGrantRows(
 export async function loadDenyAndGrantRowsBatch(
   db: Tx,
   actors: readonly ActorContext[],
-  capabilities: readonly Capability[],
+  names: readonly CapabilityName[],
+  capabilities: CapabilityRegistry = PLATFORM_CAPABILITY_REGISTRY,
 ): Promise<Map<string, DenyAndGrantRows>> {
   const out = new Map<string, DenyAndGrantRows>();
-  if (actors.length === 0 || capabilities.length === 0) return out;
+  if (actors.length === 0 || names.length === 0) return out;
   const workspaceIds = [...new Set(actors.map((a) => a.workspace_id))];
   const actorIds = [...new Set(actors.map((a) => a.actor_id))];
-  const capabilityList = [...capabilities];
+  const capabilityList = [...names];
   const [denyRows, grantRows] = await Promise.all([
     db
       .select({
@@ -397,9 +429,9 @@ export async function loadDenyAndGrantRowsBatch(
     slot(workspaceId, actorId, capability).grantRows.push(row);
   }
   for (const actor of actors) {
-    for (const capability of capabilities) {
+    for (const capability of names) {
       const key = snapshotKey(actor, capability);
-      out.set(key, withRoleExclusion(actor, capability, raw.get(key) ?? { denyRows: [], grantRows: [] }));
+      out.set(key, withRoleExclusion(actor, capability, raw.get(key) ?? { denyRows: [], grantRows: [] }, capabilities));
     }
   }
   return out;
@@ -411,10 +443,11 @@ export async function loadDenyAndGrantRowsBatch(
  */
 export function decideFromRows(
   actor: ActorContext,
-  capability: Capability,
+  capability: CapabilityName,
   scope: CheckScope,
   { denyRows, grantRows }: DenyAndGrantRows,
   rightNow: Date,
+  capabilities: CapabilityRegistry = PLATFORM_CAPABILITY_REGISTRY,
 ): Decision {
   // (2) explicit deny — a workspace-wide active deny blocks every check;
   // an MS-scoped deny blocks only that same MS scope. Both precede grants
@@ -482,8 +515,8 @@ export function decideFromRows(
   // no requestable scope on any of these denies, like explicit_deny.
   // Likewise for a User and a User-excluded capability: the request path refuses it (#1531), so no request is offered.
   const requestableScope: RequestableScope[] | null =
-    isOrdinarilyRequestable(capability) &&
-    !(actor.role_level === 'user' && isNotForUserRole(capability))
+    capabilities.isOrdinarilyRequestable(capability) &&
+    !capabilities.excludesRole(capability, actor.role_level)
       ? [{ workspace_id: actor.workspace_id }]
       : null;
   if (sawRevoked) {
@@ -503,28 +536,30 @@ export function decideFromRows(
 export async function resolveCapabilityScope(
   db: Tx,
   actor: ActorContext,
-  capability: Capability,
+  capability: CapabilityName,
   now: () => Date = () => new Date(),
+  capabilities: CapabilityRegistry = PLATFORM_CAPABILITY_REGISTRY,
 ): Promise<CapabilityScope> {
-  if (tokenDenial(capability)) return { kind: 'scoped', managed_system_ids: [] };
-  const bypass = actor.role_level === 'admin' ? adminModuleBypassFor(capability) : 'none';
+  if (tokenDenial(capability, { capabilities })) return { kind: 'scoped', managed_system_ids: [] };
+  const bypass = actor.role_level === 'admin' ? capabilities.meta(capability).adminModuleBypass : 'none';
   if (bypass === 'always') return { kind: 'all' };
 
-  const rows = await loadDenyAndGrantRows(db, actor, capability);
+  const rows = await loadDenyAndGrantRows(db, actor, capability, capabilities);
   return scopeFromRows(actor, capability, rows, now(), () =>
-    allManagedSystemIds(db, actor.workspace_id),
+    allManagedSystemIds(db, actor.workspace_id), capabilities,
   );
 }
 
 /** The scope rule over loaded rows (token and `always` bypass are the callers' step). `allIds` runs only when a scope needs the id list. */
 async function scopeFromRows(
   actor: ActorContext,
-  capability: Capability,
+  capability: CapabilityName,
   { denyRows, grantRows }: DenyAndGrantRows,
   rightNow: Date,
   allIds: () => Promise<string[]>,
+  capabilities: CapabilityRegistry,
 ): Promise<CapabilityScope> {
-  const bypass = actor.role_level === 'admin' ? adminModuleBypassFor(capability) : 'none';
+  const bypass = actor.role_level === 'admin' ? capabilities.meta(capability).adminModuleBypass : 'none';
   if (denyRows.some((row) => row.managedSystemId === null)) {
     return { kind: 'scoped', managed_system_ids: [] };
   }
@@ -580,8 +615,9 @@ async function scopeFromRows(
  */
 export function applyAdminModuleBypass(
   roleLevel: string,
-  capability: Capability,
+  capability: CapabilityName,
   decision: Decision,
+  capabilities: CapabilityRegistry = PLATFORM_CAPABILITY_REGISTRY,
 ): Decision {
   if (decision.allow || roleLevel !== 'admin') return decision;
   if (decision.reason === 'workspace_mismatch') return decision;
@@ -592,7 +628,7 @@ export function applyAdminModuleBypass(
     decision.reason === 'token_required'
   )
     return decision;
-  switch (adminModuleBypassFor(capability)) {
+  switch (capabilities.meta(capability).adminModuleBypass) {
     case 'always':
       return { allow: true, via: 'role' };
     case 'unless_denied':
@@ -602,7 +638,7 @@ export function applyAdminModuleBypass(
   }
 }
 
-function roleSatisfies(roleLevel: string, capability: Capability): boolean {
+function roleSatisfies(roleLevel: string, capability: CapabilityName): boolean {
   // role_level is stored lower-case (core.actors CHECK constraint).
   if (roleLevel === 'admin') {
     // admin role implicitly satisfies voc.triage and voc.read (workspace-wide);

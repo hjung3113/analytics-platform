@@ -12,10 +12,10 @@
 
 import { readFile } from 'node:fs/promises';
 
-import { isCapability } from '@ap/feature-shared';
+import { DECLARED_CAPABILITY_DISPLAY_NAME_MAX, ROLE_LEVEL_VALUES, isCapability } from '@ap/feature-shared';
 import { z } from 'zod';
 
-import { parseScopeCatalog, type ScopeCatalog } from '../permissions/index.js';
+import { declaredCapabilityProblems, parseScopeCatalog, type ScopeCatalog } from '../permissions/index.js';
 import { PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
 import { CONTEXT_KEYS } from './types.js';
 import { isEnvelope } from './bundle/calls.js';
@@ -70,9 +70,23 @@ const actionSchema = z.strictObject({
 
 const permissionSchema = z.strictObject({
   permission: z.string().min(1),
-  capability: z.string().superRefine((capability, ctx) => {
-    if (!isCapability(capability)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${capability} is not a platform capability` });
-  }),
+  /** A platform capability or one this bundle declares in `capabilities` (cross-checked in `crossProblems`). */
+  capability: z.string().min(1),
+});
+
+/**
+ * A capability the bundle declares (ADR-0157 decisions 1–3). Only `id` is required; every omitted field takes the closed
+ * default (`sensitive: true`, `adminModuleBypass: 'none'`, `sessionOnly: true`, `roleLevels: ['admin', 'developer']`,
+ * display name = `id`). `tokenOnly` is refused (strict object). The id grammar and the platform-name collisions are
+ * judged in `crossProblems` with a readable message.
+ */
+const capabilitySchema = z.strictObject({
+  id: z.string().min(1),
+  displayName: z.string().trim().min(1).max(DECLARED_CAPABILITY_DISPLAY_NAME_MAX).optional(),
+  sensitive: z.boolean().optional(),
+  adminModuleBypass: z.enum(['none', 'unless_denied', 'always']).optional(),
+  sessionOnly: z.boolean().optional(),
+  roleLevels: z.array(z.enum(ROLE_LEVEL_VALUES)).optional(),
 });
 
 const ownerPathSchema = z.string().regex(/^\/.*/, 'an upstream path must start with /');
@@ -81,6 +95,7 @@ const bundleSchema = z.strictObject({
   endpoints: z.array(endpointSchema),
   actions: z.array(actionSchema),
   permissions: z.array(permissionSchema),
+  capabilities: z.array(capabilitySchema).optional(),
   /** Owner table: every declared endpoint exactly once → the upstream path the forwarder posts to (ADR-0148). */
   endpointOwners: z.record(z.string().min(1), z.union([ownerPathSchema, routingSchema])),
   targets: targetsSchema.optional(),
@@ -96,8 +111,11 @@ export type DeclaredEndpoint = z.infer<typeof endpointSchema>;
 export type DeclaredEndpointRow = z.infer<typeof endpointRowSchema>;
 export type DeclaredAction = z.infer<typeof actionSchema>;
 export type DeclaredPermission = z.infer<typeof permissionSchema>;
+export type DeclaredCapabilityRow = z.infer<typeof capabilitySchema>;
 export type DeclarationBundle = {
   readonly scopeCatalog?: ScopeCatalog;
+  /** The capabilities this bundle declares (ADR-0157); absent = none. */
+  readonly capabilities?: readonly DeclaredCapabilityRow[] | undefined;
   readonly endpoints: readonly DeclaredEndpoint[];
   readonly actions: readonly DeclaredAction[];
   readonly permissions: readonly DeclaredPermission[];
@@ -140,9 +158,19 @@ function crossProblems(bundle: z.infer<typeof bundleSchema>): string[] {
   const declaredPermissions = new Set(bundle.permissions.map((row) => row.permission));
   const kernelPermission = (permission: string) => PLATFORM_PERMISSION_TABLE.some((entry) => entry.permission === permission);
 
+  const declaredCapabilities = bundle.capabilities ?? [];
+  problems.push(...declaredCapabilityProblems(declaredCapabilities));
+  const declaredIds = new Set(declaredCapabilities.map((row) => row.id));
   for (const row of bundle.permissions) {
     if (kernelPermission(row.permission)) {
       problems.push(`permission ${row.permission}: is a kernel permission, not a declared one's`);
+    }
+    // ADR-0157 decision 1: a platform capability or one this bundle declares; `scope.read` never opens a menu permission
+    // (it has no workspace-wide grant). An unused declared capability is not a problem (transition and retire order).
+    if (row.capability === 'scope.read') {
+      problems.push(`permission ${row.permission}: scope.read cannot open a menu permission (it has no workspace-wide grant)`);
+    } else if (!isCapability(row.capability) && !declaredIds.has(row.capability)) {
+      problems.push(`permission ${row.permission}: ${row.capability} is not a platform capability nor declared in the bundle's capabilities`);
     }
   }
   for (const [id, path] of Object.entries(bundle.endpointOwners)) {
@@ -201,7 +229,7 @@ export async function loadDeclarationBundle(path: string, snapshotCheck?: Bundle
   } catch {
     throw new DeclarationBundleError([`declaration bundle at ${path} is not valid JSON`]);
   }
-  const { endpoints, actions, permissions, endpointOwners, targets, scopeCatalog } = validateDeclarationBundle(json, `declaration bundle at ${path} failed its schema`, snapshotCheck);
+  const { endpoints, actions, permissions, capabilities, endpointOwners, targets, scopeCatalog } = validateDeclarationBundle(json, `declaration bundle at ${path} failed its schema`, snapshotCheck);
   return {
     endpoints: endpoints.map(({ limits, ...row }) => {
       const owner = endpointOwners[row.id];
@@ -215,6 +243,7 @@ export async function loadDeclarationBundle(path: string, snapshotCheck?: Bundle
     ...(scopeCatalog === undefined ? {} : { scopeCatalog }),
     actions,
     permissions,
+    ...(capabilities === undefined ? {} : { capabilities }),
     endpointOwners,
     ...(targets === undefined ? {} : { targets }),
   };

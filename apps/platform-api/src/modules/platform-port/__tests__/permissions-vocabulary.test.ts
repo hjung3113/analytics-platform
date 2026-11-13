@@ -1,4 +1,4 @@
-import { CAPABILITIES } from '@ap/feature-shared';
+import { CAPABILITIES, DECLARED_CAPABILITY_PREFIX } from '@ap/feature-shared';
 import { describe, expect, it } from 'vitest';
 import { eqvContribution } from '../../eqv/index.js';
 import { improvementItemsContribution } from '../../improvement-items/item-endpoints.js';
@@ -115,9 +115,14 @@ describe('declaration bundle vocabulary (ADR-0146, the deployment config the loa
     for (const permission of declaredInBundle) expect(vocabulary, permission).not.toContain(permission);
   });
 
-  it('names only platform capabilities', async () => {
-    for (const row of (await bundle()).permissions) {
-      expect(CAPABILITIES, row.capability).toContain(row.capability);
+  // ADR-0157 decision 1: a platform capability or one the bundle itself declares, and a declared one only under the
+  // reserved prefix. The loader refuses anything else; this pins the fixture against both vocabularies.
+  it('names only platform capabilities or capabilities the bundle declares', async () => {
+    const loaded = await bundle();
+    const declared = new Set((loaded.capabilities ?? []).map((row) => row.id));
+    for (const id of declared) expect(id.startsWith(DECLARED_CAPABILITY_PREFIX), id).toBe(true);
+    for (const row of loaded.permissions) {
+      expect((CAPABILITIES as readonly string[]).includes(row.capability) || declared.has(row.capability), row.capability).toBe(true);
     }
   });
 });

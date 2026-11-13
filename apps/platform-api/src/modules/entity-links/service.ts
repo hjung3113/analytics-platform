@@ -609,6 +609,7 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
           deps.checkService.checkCapability(actor, capability, subject, { ...options, tx }),
         loadCapabilitySnapshot: (actors, capabilities, options) =>
           deps.checkService.loadCapabilitySnapshot(actors, capabilities, { ...options, tx }),
+        ...(deps.checkService.capabilities ? { capabilities: deps.checkService.capabilities } : {}),
       },
     };
   }

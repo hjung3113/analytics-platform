@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import {
   type ApprovePermissionRequest,
-  type Capability,
+  type CapabilityName,
   type CreatePermissionRequest,
   type DenyPermissionRequest,
   type NeedMoreInfoPermissionRequest,
@@ -20,7 +20,7 @@ import {
   denyPermissionRequestSchema,
   directPermissionGrantSchema,
   editPermissionRequestSchema,
-  isCapability,
+  listDeclaredCapabilitiesResponseSchema,
   needMoreInfoPermissionRequestSchema,
   permissionRequestsMineQuerySchema,
   permissionGrantListQuerySchema,
@@ -34,7 +34,7 @@ import { optionalIdempotencyKey } from '../../lib/http-headers.js';
 import { requireSession } from '../../middleware/require-session.js';
 import { requireWorkspace } from '../../middleware/require-workspace.js';
 import type { SessionService } from '../auth/session-service.js';
-import { applyAdminModuleBypass } from './check-service.js';
+import { applyAdminModuleBypass, capabilitiesOf } from './check-service.js';
 import type { ActorContext, CheckService, Decision } from './check-service.js';
 import type { DecisionService } from './decision-service.js';
 import type { GrantAdminService } from './grant-admin-service.js';
@@ -74,6 +74,26 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
     workspaceId,
     rateLimitConfig,
   } = opts;
+  const capabilities = capabilitiesOf(checkService);
+
+  // ADR-0157 decision 9: this server's declared capabilities for any authenticated workspace member — id, display name,
+  // `sensitive` and whether the reader's current Role Level may request it. Organisation values only: no holder appears.
+  app.route({
+    method: 'GET', url: '/me/permissions/declared-capabilities',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    handler: async (req) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      return listDeclaredCapabilitiesResponseSchema.parse({
+        items: capabilities.declaredList().map((row) => ({
+          id: row.id,
+          display_name: row.displayName,
+          sensitive: row.sensitive,
+          requestable: !capabilities.excludesRole(row.id, sess.role_level),
+        })),
+      });
+    },
+  });
 
   app.route({
     method: 'GET', url: '/permission-requests/scope-candidates',
@@ -108,12 +128,12 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
       if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
 
       const q = req.query as { capability: string; managed_system_id?: string };
-      if (!isCapability(q.capability)) {
+      if (!capabilities.has(q.capability)) {
         return sendError(reply, 'validation.unknown_capability', 'unknown capability', {
           capability: q.capability,
         });
       }
-      const capability: Capability = q.capability;
+      const capability: CapabilityName = q.capability;
 
       const actor: ActorContext = {
         actor_id: sess.actor_id,
@@ -132,6 +152,7 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
           workspace_id: sess.workspace_id,
           ...(q.managed_system_id !== undefined ? { managed_system_id: q.managed_system_id } : {}),
         }),
+        capabilities,
       );
 
       // Look up the actor's currently-open request (pending|needs_more_info)
@@ -163,7 +184,7 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
       const sess = req.session;
       if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
       const q = req.query as { capability: string };
-      if (!isCapability(q.capability)) {
+      if (!capabilities.has(q.capability)) {
         return sendError(reply, 'validation.unknown_capability', 'unknown capability', {
           capability: q.capability,
         });
@@ -199,7 +220,7 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
 
       // Unknown capability check happens inside the service (returns 422), but
       // we can short-circuit here for a cleaner envelope.
-      if (!isCapability(body.requested_capability)) {
+      if (!capabilities.has(body.requested_capability)) {
         return sendError(reply, 'validation.unknown_capability', 'unknown capability', {
           capability: body.requested_capability,
         });

@@ -36,12 +36,10 @@ import {
   type AuditEventType,
   type CancelPermissionRequest,
   type CancelPermissionRequestResult,
-  type Capability,
+  type CapabilityName,
   PERMISSION_REQUESTS_MINE_ALL_LIMIT,
   type SubmitMoreInfoPermissionRequest,
   type SubmitMoreInfoPermissionRequestResult,
-  isCapability,
-  isSensitiveCapability,
 } from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
@@ -52,7 +50,7 @@ import type { AuditService } from '../core/audit/audit-service.js';
 import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { NotificationNotifier } from '../notifications/index.js';
-import type { ActorContext, CheckScope, CheckService } from './check-service.js';
+import { type ActorContext, type CheckScope, type CheckService, capabilitiesOf } from './check-service.js';
 import type { OpenRequestSummary } from './state-mapper.js';
 import { validateRequestExpiration, validateSupportedScope } from './supported-scope-policy.js';
 
@@ -127,14 +125,15 @@ export function createRequestService(deps: RequestServiceDeps) {
     body: CreatePermissionRequestBody,
     options: CreatePermissionRequestOptions = {},
   ): Promise<CreatePermissionRequestResult> {
-    if (!isCapability(body.requested_capability)) {
+    const capabilities = capabilitiesOf(checkService);
+    if (!capabilities.has(body.requested_capability)) {
       throw new HttpError('validation.unknown_capability', 'unknown capability', {
         capability: body.requested_capability,
       });
     }
-    const capability: Capability = body.requested_capability;
+    const capability: CapabilityName = body.requested_capability;
     const scope = { kind: body.requested_scope_kind ?? 'managed_system', site: body.requested_scope_site ?? null, room: body.requested_scope_room ?? null };
-    const sensitive = isSensitiveCapability(capability);
+    const sensitive = capabilities.meta(capability).sensitive;
     // Sensitive capabilities (docs/architecture/platform-api/05-permission-policy.md ## Sensitive Permissions)
     // require a non-empty `reason`. The route Zod schema already requires
     // `reason.min(1)`, but we re-check here so the service emits a distinct
@@ -159,7 +158,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           body.requested_managed_system_id ?? null,
           body.requested_object_type ?? null,
           body.requested_object_id ?? null,
-          { recipientRole: actor.role_level, scope, scopeCatalog: deps.scopeCatalog },
+          { recipientRole: actor.role_level, scope, scopeCatalog: deps.scopeCatalog, capabilities },
         );
         validateRequestExpiration(
           body.requested_expiration ? new Date(body.requested_expiration) : null,
@@ -357,14 +356,15 @@ export function createRequestService(deps: RequestServiceDeps) {
             },
           );
         }
-        if (!isCapability(request.requestedCapability)) {
+        const capabilities = capabilitiesOf(checkService);
+        if (!capabilities.has(request.requestedCapability)) {
           throw new HttpError('validation.unknown_capability', 'unknown capability', {
             capability: request.requestedCapability,
           });
         }
 
-        const capability: Capability = request.requestedCapability;
-        const sensitive = isSensitiveCapability(capability);
+        const capability: CapabilityName = request.requestedCapability;
+        const sensitive = capabilities.meta(capability).sensitive;
         const reason = body.reason === undefined ? request.reason : body.reason.trim();
         if (reason.trim().length === 0) {
           if (sensitive) {
@@ -404,7 +404,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           requestedManagedSystemId,
           requestedObjectType,
           requestedObjectId,
-          { recipientRole: actor.role_level, scope, scopeCatalog: deps.scopeCatalog },
+          { recipientRole: actor.role_level, scope, scopeCatalog: deps.scopeCatalog, capabilities },
         );
         validateRequestExpiration(requestedExpiration);
 
@@ -662,7 +662,7 @@ export function createRequestService(deps: RequestServiceDeps) {
 
   async function findOpenRequestSummary(
     actor: ActorContext,
-    capability: Capability,
+    capability: CapabilityName,
     scope: CheckScope,
   ): Promise<OpenRequestSummary | null> {
     const msFilter =

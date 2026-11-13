@@ -1,7 +1,23 @@
 import { z } from 'zod';
 import { permissionScopeFields } from './scope-kinds.js';
 
-import { CAPABILITIES } from '../enums/capabilities.js';
+import {
+  CAPABILITIES,
+  DECLARED_CAPABILITY_DISPLAY_NAME_MAX,
+  type CapabilityName,
+  isCapability,
+  isDeclaredCapabilityId,
+} from '../enums/capabilities.js';
+
+/**
+ * A capability name on the wire: a platform capability or a name under the declared prefix (ADR-0157). Whether the server
+ * declares it is the server's judgment; this schema only keeps the grammar. A refusal keeps the closed enum's issue code.
+ */
+export const capabilityNameSchema = z.string().superRefine((value, ctx): value is CapabilityName => {
+  if (isCapability(value) || isDeclaredCapabilityId(value)) return true;
+  ctx.addIssue({ code: z.ZodIssueCode.invalid_enum_value, options: [...CAPABILITIES], received: value });
+  return false;
+});
 
 export const permissionGrantAdminItemSchema = z
   .object({
@@ -11,6 +27,8 @@ export const permissionGrantAdminItemSchema = z
     managed_system_id: z.string().uuid().nullable(),
     ...permissionScopeFields,
     in_catalog: z.boolean().optional(),
+    // ADR-0157 decision 7: present on a declared-prefix row; false when the server's bundle no longer declares it.
+    in_declarations: z.boolean().optional(),
     granted_by_actor_id: z.string().uuid(),
     granted_at: z.string().datetime(),
     expires_at: z.string().datetime().nullable(),
@@ -25,6 +43,7 @@ export const permissionDenyAdminItemSchema = z
     capability: z.string().min(1),
     managed_system_id: z.string().uuid().nullable(),
     reason: z.string().min(1),
+    in_declarations: z.boolean().optional(),
     created_by_actor_id: z.string().uuid(),
     created_at: z.string().datetime(),
   })
@@ -44,7 +63,7 @@ export type ListPermissionDeniesResponse = z.infer<typeof listPermissionDeniesRe
 export const directPermissionGrantSchema = z
   .object({
     actor_id: z.string().uuid(),
-    capability: z.enum(CAPABILITIES),
+    capability: capabilityNameSchema,
     managed_system_id: z.string().uuid().optional(),
     expires_at: z.string().datetime().optional(),
     reason: z.string().trim().min(1).max(2000),
@@ -102,7 +121,7 @@ export const permissionGrantOptionsSchema = z
     candidates: z.array(
       z
         .object({
-          capability: z.enum(CAPABILITIES),
+          capability: capabilityNameSchema,
           managed_system_id: z.string().uuid().nullable(),
           // scope.read advertises supported kinds, never a workspace-wide grant.
           scope_kinds: z.tuple([z.literal('site'), z.literal('site_room')]).optional(),
@@ -115,3 +134,23 @@ export const permissionGrantOptionsSchema = z
   })
   .strict();
 export type PermissionGrantOptions = z.infer<typeof permissionGrantOptionsSchema>;
+
+/**
+ * ADR-0157 decision 9: the declared capabilities of this server, for every authenticated workspace member. Display only:
+ * the server judges the reason requirement, the Role Level and tokens. `requestable` = the reader's current Role Level is
+ * on the capability's allow-list. Who holds a grant is never part of this read.
+ */
+export const declaredCapabilityItemSchema = z
+  .object({
+    id: z.string().refine((value) => isDeclaredCapabilityId(value), 'not a declared capability id'),
+    display_name: z.string().min(1).max(DECLARED_CAPABILITY_DISPLAY_NAME_MAX),
+    sensitive: z.boolean(),
+    requestable: z.boolean(),
+  })
+  .strict();
+export type DeclaredCapabilityItem = z.infer<typeof declaredCapabilityItemSchema>;
+
+export const listDeclaredCapabilitiesResponseSchema = z
+  .object({ items: z.array(declaredCapabilityItemSchema) })
+  .strict();
+export type ListDeclaredCapabilitiesResponse = z.infer<typeof listDeclaredCapabilitiesResponseSchema>;

@@ -5,7 +5,7 @@ import { Button, ListShell, ListTabs, type ListToolbarTab, ObjectRow } from '@ap
 import * as React from 'react';
 
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
-import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
+import { UNDECLARED_CAPABILITY_LABEL, getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
 import { PERMISSION_SCOPE_COPY, scopeTargetLabelOf } from '@/lib/copy/permission-scope';
@@ -273,14 +273,23 @@ function ActivePermissionRow({
   const scopeTarget = kind === 'grants' ? scopeTargetLabelOf(item) : null;
   // ADR-0154 decision 3: a grant whose Site·공정 left the catalog stays listed and revocable.
   const outOfCatalog = kind === 'grants' && scopeTarget !== null && item.in_catalog === false;
+  // ADR-0157 decision 7: a grant or deny of a capability the bundle no longer declares stays listed and revocable.
+  const undeclared = item.in_declarations === false;
 
   return (
     <ObjectRow
       title={`${actorName ?? GLOSSARY.unknownUser} · ${getCapabilityDisplayLabel(item.capability)}`}
       selected={selected}
       onClick={onSelect}
-      {...(outOfCatalog
-        ? { badges: <OutlineBadge>{PERMISSION_SCOPE_COPY.notInCatalog}</OutlineBadge> }
+      {...(outOfCatalog || undeclared
+        ? {
+            badges: (
+              <>
+                {outOfCatalog ? <OutlineBadge>{PERMISSION_SCOPE_COPY.notInCatalog}</OutlineBadge> : null}
+                {undeclared ? <OutlineBadge>{UNDECLARED_CAPABILITY_LABEL}</OutlineBadge> : null}
+              </>
+            ),
+          }
         : {})}
       meta={
         <>

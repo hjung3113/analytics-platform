@@ -6,8 +6,7 @@ import { and, asc, desc, eq, gt, inArray, isNull, or } from 'drizzle-orm';
 
 import {
   type AuditEventType,
-  CAPABILITIES,
-  type Capability,
+  type CapabilityName,
   type DirectPermissionGrant,
   type PermissionDenyAdminItem,
   type PermissionGrantAdminItem,
@@ -17,6 +16,7 @@ import {
   type RevokePermissionBody,
   type RevokePermissionResult,
   directPermissionGrantSchema,
+  isDeclaredCapabilityId,
   permissionGrantOptionsSchema,
 } from '@ap/feature-shared';
 
@@ -37,7 +37,7 @@ import {
   getResolvedWorkspaceSettings,
   getResolvedWorkspaceSettingsForUpdate,
 } from '../workspace-settings/index.js';
-import { resolveCapabilityScope } from './check-service.js';
+import { capabilitiesOf, resolveCapabilityScope } from './check-service.js';
 import type { ActorContext, CapabilityScope, CheckService } from './check-service.js';
 import { writePermissionGrant } from './grant-command.js';
 import {
@@ -80,6 +80,9 @@ export function vocReadPrerequisiteState(
 }
 
 export function createGrantAdminService(deps: GrantAdminServiceDeps) {
+  /** ADR-0157 decision 7: on a declared-prefix row, whether this server still declares the name (the «선언에 없음» mark). */
+  const declarationMark = (capability: string) =>
+    isDeclaredCapabilityId(capability) ? { in_declarations: capabilitiesOf(deps.checkService).isDeclared(capability) } : {};
   async function assertAdmin(actor: ActorContext, tx?: Tx): Promise<void> {
     const options = tx !== undefined ? { tx } : {};
     const decision = await deps.checkService.checkCapability(
@@ -97,7 +100,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
     tx: Tx,
     workspaceId: string,
     actorId: string,
-    capability: Capability,
+    capability: CapabilityName,
     managedSystemId: string | null,
     scope: GrantScope = managedScope,
   ): Promise<PermissionGrantPreflight> {
@@ -200,13 +203,16 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           ]).then(([scope, denies]) => ({ scope, denies }));
           return vocRead;
         };
+        const capabilities = capabilitiesOf(deps.checkService);
         const candidates: PermissionGrantOptions['candidates'] = [];
-        for (const capability of CAPABILITIES) {
+        for (const capability of capabilities.names()) {
+          // ADR-0157 decision 6: a declared capability is offered only to a Role Level on its allow-list.
+          if (capabilities.isDeclared(capability) && capabilities.excludesRole(capability, recipient.role_level)) continue;
           if (capability === 'scope.read') {
             candidates.push({ capability, managed_system_id: null, scope_kinds: ['site', 'site_room'], governance_required: false, preflight: { state: 'available' } });
             continue;
           }
-          const scopes = await supportedScopeCandidates(tx, actor.workspace_id, capability);
+          const scopes = await supportedScopeCandidates(tx, actor.workspace_id, capability, capabilities);
           for (const scope of scopes) {
             const candidate = {
               capability,
@@ -262,6 +268,10 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           fields: parsed.error.issues.map((issue) => ({ path: issue.path, code: issue.code })),
         });
       const input = parsed.data;
+      const capabilities = capabilitiesOf(deps.checkService);
+      if (!capabilities.has(input.capability)) {
+        throw new HttpError('validation.unknown_capability', 'unknown capability', { capability: input.capability });
+      }
       const recipient = await lockWorkspaceActor(tx, {
         workspaceId: actor.workspace_id,
         actorId: input.actor_id,
@@ -284,6 +294,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
             field: 'managed_system_id',
             recipientRole: recipient.role_level,
             capabilityField: 'capability',
+            capabilities,
           },
         );
         const expiresAt = input.expires_at ? new Date(input.expires_at) : null;
@@ -398,6 +409,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       items: rows.map((row) => ({
         ...scopeFields(grantScope(row)),
         ...(row.scopeKind !== 'managed_system' ? { in_catalog: inScopeCatalog(grantScope(row), deps.scopeCatalog) } : {}),
+        ...declarationMark(row.capability),
         id: row.id,
         actor_id: row.actorId,
         capability: row.capability,
@@ -437,6 +449,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         capability: row.capability,
         managed_system_id: row.managedSystemId,
         reason: row.reason,
+        ...declarationMark(row.capability),
         created_by_actor_id: row.createdByActorId,
         created_at: row.createdAt.toISOString(),
       })),

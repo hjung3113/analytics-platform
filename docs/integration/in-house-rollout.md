@@ -94,6 +94,16 @@
 - site·room을 없애거나 이름을 바꾸기 전에 해당 값의 부여를 먼저 회수한다. 카탈로그 밖 부여는 판정에서 제외되지만 행은 남으므로 같은 이름이 돌아오면 접근이 되살아날 수 있다.
 - 첫 배포는 카탈로그 설정 → 서버 기동 → Admin의 첫 Scope 부여 순서다. `permission_self_approval: forbidden`이면 첫 부여를 위해 Admin이 두 명 이상 필요하다.
 
+### 선언 capability (메뉴 권한 단위)
+
+사내 메뉴 권한은 묶음의 `capabilities`에 `ext.<모듈>.<동작>` 이름으로 선언하고 권한 행이 그 이름을 가리키게 한다([ADR-0157](../adr/0157-bundle-declares-menu-capabilities.md)). 규칙과 기본값은 [05 권한 정책 «Declared capabilities»](../architecture/platform-api/05-permission-policy.md#declared-capabilities-adr-0157-1902)가 원천이다. 메타를 비우면 가장 닫힌 기본값(민감, Admin 우회 없음, 세션 전용, Admin·Developer만)이 된다.
+
+- 전환 순서: 묶음에 capability 선언 → 서버 재기동 → 필요한 사람에게 부여 → 권한 행을 새 capability로 바꾸고 재기동. 선언 없이 권한 행부터 바꾸면 기동이 실패하고, 부여 전에 권한 행을 바꾸면 전원이 막힌다.
+- 은퇴 순서: 권한 행에서 뺌 → 그 capability의 부여·거부·대기 신청 회수(부여 목록에 «선언에 없음»으로 남은 행) → 선언 삭제. 선언을 먼저 지우면 부여 행은 판정에서 거부되지만 남아 있어서, 같은 이름을 다시 선언하면 옛 부여가 되살아난다. 기동 로그의 경고 수가 0인지 본다.
+- 모든 선언 capability를 거둘 때는 `capabilities`를 빈 목록(`[]`)으로 한 번 배포한 뒤 필드나 묶음을 뺀다. 기동 동기화(감사 투영용 표)와 경고 수 기록은 묶음에 `capabilities` 필드가 있을 때만 돈다.
+- `sensitive: true → false`로 바꾸면 그 capability의 지난 권한 행 중 `detail.sensitive` 표식이 없는 행(승인·부여·회수 등)도 감사 화면에 나온다. 신청 행은 표식이 있어 계속 빠진다.
+- 되돌리기: 묶음을 이전 판으로 되돌리면 권한 행이 이전의 넓은 대응(예: `workspace.read`)으로 돌아간다. 마이그레이션 0131을 되돌릴 때는 머리의 되돌리기 줄을 따른다(감사 함수 0130 본문 복원, 동기화 함수와 표 삭제). 선언 capability 이름의 부여·신청 행은 지우지 않으며, 선언이 없으면 판정에서 읽히지 않는다.
+
 ### 3.3 기존 시스템 연결·서버 계약 담당 — [#148](https://github.com/hjung3113/analytics-platform/issues/148)·[#149](https://github.com/hjung3113/analytics-platform/issues/149)·[#155](https://github.com/hjung3113/analytics-platform/issues/155)
 
 - [ ] 선언 원본은 TS(Zod) → JSON Schema로 정해졌다(ADR-0096). 백엔드 담당은 생성한 Pydantic 모델·`endpoints.json`을 쓰는 데 이의가 없는지 확인 — #148(닫힘)

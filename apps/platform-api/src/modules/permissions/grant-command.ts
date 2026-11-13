@@ -1,6 +1,6 @@
 import { grantScope, managedScope, scopeFields, type GrantScope } from './site-scope-policy.js';
 import {
-  type Capability,
+  type CapabilityName,
   type PermissionGrantAdminItem,
   permissionGrantAdminItemSchema,
 } from '@ap/feature-shared';
@@ -17,7 +17,7 @@ export async function writePermissionGrant(
     scope?: GrantScope;
     workspaceId: string;
     actorId: string;
-    capability: Capability;
+    capability: CapabilityName;
     managedSystemId: string | null;
     grantedByActorId: string;
     expiresAt: Date | null;

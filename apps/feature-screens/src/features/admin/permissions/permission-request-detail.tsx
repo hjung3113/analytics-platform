@@ -11,8 +11,9 @@ import { grantedScopeTargetLabel, requestedScopeTargetLabel } from '@/lib/copy/p
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { shortId } from '@/lib/identity';
-import type { PermissionRequestAdminDetail } from '@ap/feature-shared';
+import { type PermissionRequestAdminDetail, isDeclaredCapabilityId } from '@ap/feature-shared';
 
+import { DeclaredCapabilityName } from './declared-capability-name.js';
 import { PermissionRequestDecisionForm } from './permission-request-decision-form.js';
 import { permissionRequestStatusLabel } from './permission-requests-search.js';
 
@@ -45,6 +46,8 @@ export function PermissionRequestDetail({
   renderDetail?: (parts: ClosableDetailParts) => React.ReactNode;
 }) {
   const resolvedManagedSystemNames = managedSystemNames ?? {};
+  // ADR-0157 decision 9: a declared capability shows its display name with its id beside it.
+  const isDeclared = isDeclaredCapabilityId(request.requested_capability);
   const staleAlertRef = React.useRef<HTMLParagraphElement>(null);
   // Explicit success boundary: a completed review remounts the decision form
   // with a clean draft even when the refetched detail keeps the same revision.
@@ -89,7 +92,14 @@ export function PermissionRequestDetail({
           <span className="font-mono text-xs text-text-muted">{shortId(request.id)}</span>
         </FieldRow>
         <FieldRow label="요청 권한" inset="none">
-          <span>{getCapabilityDisplayLabel(request.requested_capability)}</span>
+          {isDeclared ? (
+            <span className="flex flex-col gap-0.5">
+              <DeclaredCapabilityName id={request.requested_capability} />
+              <span className="font-mono text-xs text-text-muted">{request.requested_capability}</span>
+            </span>
+          ) : (
+            <span>{getCapabilityDisplayLabel(request.requested_capability)}</span>
+          )}
         </FieldRow>
         <FieldRow label="범위" inset="none">
           <span className="flex flex-col gap-0.5">

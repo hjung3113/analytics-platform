@@ -1,9 +1,8 @@
-import { CAPABILITIES } from '@ap/feature-shared';
 import { type SQL, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { sqlTextArray } from '../../db/sql-arrays.js';
 import { workspaceActorDisplayNameSql } from '../auth/index.js';
-import type { ActorContext, CheckService } from './check-service.js';
+import { type ActorContext, type CheckService, capabilitiesOf } from './check-service.js';
 
 export const RECOVERY_PERMISSION_ACTIVE_STATUSES = ['pending', 'needs_more_info'] as const;
 export function permissionRecoveryPredicate(): SQL {
@@ -22,7 +21,7 @@ export async function permissionRecoveryProjection(
     query: sql`SELECT p.id AS source_id, NULL::uuid AS system_id, NULL::text AS display_id,
     COALESCE(NULLIF(btrim(${workspaceActorDisplayNameSql(sql`p.workspace_id`, sql`p.requester_actor_id`)}), ''), 'Permission Request') AS title, (${permissionRecoveryPredicate()}) AS active,
     p.status = 'cancelled' AS withdrawn, NULL::uuid AS actor_id, NULL::uuid AS team_id,
-    CASE WHEN p.requested_capability = ANY(${sqlTextArray([...CAPABILITIES])}) THEN p.id END AS repair_id,
+    CASE WHEN p.requested_capability = ANY(${sqlTextArray([...capabilitiesOf(check).names()])}) THEN p.id END AS repair_id,
     NULL::uuid AS repair_system_id
     FROM permission.permission_requests p WHERE p.requested_scope_kind = 'managed_system' AND p.workspace_id = ${actor.workspace_id}::uuid
       AND ${allowed} AND ${sourceId ? sql`p.id = ${sourceId}::uuid` : sql`true`}`,

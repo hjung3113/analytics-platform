@@ -1,4 +1,4 @@
-import type { Capability, PermissionScopeCatalogCandidate } from '@ap/feature-shared';
+import type { CapabilityName, PermissionScopeCatalogCandidate } from '@ap/feature-shared';
 import { and, eq, gt, isNull, or } from 'drizzle-orm';
 import { permissionGrants } from '../../db/schema/permission.js';
 import type { Tx } from '../../db/tx.js';
@@ -17,7 +17,7 @@ function invalid(field: string, message: string): never {
 }
 
 export function validateSiteScope(
-  capability: Capability, scope: GrantScope, managedSystemId: string | null,
+  capability: CapabilityName, scope: GrantScope, managedSystemId: string | null,
   objectType: string | null, objectId: string | null,
   catalog: ScopeCatalog | undefined, prefix: string,
 ): void {

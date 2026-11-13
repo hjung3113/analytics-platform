@@ -13,6 +13,15 @@ export {
   type ActorContext,
   type CheckScope,
   isRequestableDenial,
+  capabilitiesOf,
+  createCapabilityRegistry,
+  declaredCapabilityProblems,
+  relaxesDefaults,
+  PLATFORM_CAPABILITY_REGISTRY,
+  UnknownCapabilityError,
+  type CapabilityRegistry,
+  type DeclaredCapability,
+  type DeclaredCapabilityInput,
 } from './check-service.js';
 export {
   toFrontendState,
@@ -47,3 +56,8 @@ export { parseScopeCatalog, type ScopeCatalog } from './scope-catalog.js';
 export { createGrantTableScopeResolver } from './grant-table-scope-resolver.js';
 
 export { createPermissionServices } from './services.js';
+export {
+  countUndeclaredPermissionRows,
+  syncDeclaredCapabilities,
+  type UndeclaredPermissionRows,
+} from './declared-capabilities-sync.js';

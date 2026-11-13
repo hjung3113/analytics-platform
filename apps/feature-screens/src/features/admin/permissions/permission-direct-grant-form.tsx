@@ -1,6 +1,9 @@
 import {
+  isCapability,
+  isDeclaredCapabilityId,
   isTokenOnlyCapability,
   CAPABILITIES,
+  type DeclaredCapabilityItem,
   type PermissionGrantAdminItem,
   type PermissionGrantOptions,
 } from '@ap/feature-shared';
@@ -24,10 +27,11 @@ import {
   Textarea,
 } from '@ap/ui';
 import { GroupedSelectionList } from '@ap/ui';
-import { groupPermissionItems, permissionSelectionItem } from '@/lib/copy/permission-selection';
+import { declaredSelectionItem, groupPermissionItems, permissionSelectionItem } from '@/lib/copy/permission-selection';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
+import { useDeclaredCapabilities } from '@/lib/api/declared-capabilities';
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { useMeBridge } from '@/lib/api/me';
@@ -89,12 +93,13 @@ function actorOptionLabel(actor: {
 function candidateLabel(
   candidate: DirectGrantCandidate,
   managedSystemNames: Record<string, string>,
+  declared: readonly DeclaredCapabilityItem[] = [],
 ): string {
   const scope = candidate.managed_system_id
     ? (managedSystemNames[candidate.managed_system_id] ??
       `시스템 · ${shortId(candidate.managed_system_id)}`)
     : SCOPE_SELECTOR_COPY.workspaceAll;
-  return `${getCapabilityDisplayLabel(candidate.capability)} · ${scope}`;
+  return `${getCapabilityDisplayLabel(candidate.capability, declared)} · ${scope}`;
 }
 
 function toFutureExpiration(value: string): string | undefined {
@@ -434,6 +439,9 @@ function DirectGrantFields({
   // The advisory `scope.read` candidate names the Site·공정 kinds; its catalog values come from the candidate read.
   const scopeCandidate = options.candidates.find((candidate) => candidate.scope_kinds !== undefined);
   const systemCandidates = options.candidates.filter((candidate) => candidate.scope_kinds === undefined);
+  // ADR-0157: declared capabilities come from the server's grant options (already filtered by the recipient's Role Level).
+  const declaredCandidateIds = [...new Set(systemCandidates.map((candidate) => candidate.capability).filter(isDeclaredCapabilityId))];
+  const declared = useDeclaredCapabilities(declaredCandidateIds.length > 0);
   const scopeGrant = grantScopeKind !== 'managed_system' ? grantScopeKind : null;
   const scopeDraft =
     scopeGrant !== null ? { kind: scopeGrant, site: scopeSite, room: scopeRoom } : null;
@@ -653,11 +661,11 @@ function DirectGrantFields({
           />
         ) : (
         <GroupedSelectionList mode="single" aria-label={DIRECT_GRANT_COPY.optionLabel} searchPlaceholder="권한 이름·설명 검색"
-          groups={groupPermissionItems(CAPABILITIES.flatMap(capability => {
-            const item = permissionSelectionItem(capability);
+          groups={groupPermissionItems([...CAPABILITIES, ...declaredCandidateIds].flatMap(capability => {
+            const item = isDeclaredCapabilityId(capability) ? declaredSelectionItem(capability, declared) : permissionSelectionItem(capability);
             const candidates = systemCandidates.filter(candidate => candidate.capability === capability);
             if (candidates.length === 0) return [{ ...item, capability, disabledReason: '이 대상에 부여할 수 없음' }];
-            return candidates.map(candidate => ({ ...item, capability, id: candidateKey(candidate), label: candidateLabel(candidate, managedSystemNames),
+            return candidates.map(candidate => ({ ...item, capability, id: candidateKey(candidate), label: candidateLabel(candidate, managedSystemNames, declared),
               ...(heldEntries.some(entry => entry.candidate === candidate) ? { disabledReason: DIRECT_GRANT_COPY.alreadyGranted } : mutation.isPending ? { disabledReason: '부여 중…' } : {}) }));
           }))}
           value={selectedCandidateKey || null} onChange={value => clearErrorAndUpdate(() => {
@@ -667,7 +675,7 @@ function DirectGrantFields({
             setPeerReviewerAbsence('');
           })} />
         )}
-        {selectedCandidate && isTokenOnlyCapability(selectedCandidate.capability) ? (
+        {selectedCandidate && isCapability(selectedCandidate.capability) && isTokenOnlyCapability(selectedCandidate.capability) ? (
           <p className="text-xs text-text-secondary" data-testid="direct-grant-token-only-hint">
             {DIRECT_GRANT_COPY.tokenOnlyHint}
           </p>
@@ -687,7 +695,7 @@ function DirectGrantFields({
                   to={to}
                   onClick={onClose}
                 >
-                  {candidateLabel(candidate, managedSystemNames)} ·{' '}
+                  {candidateLabel(candidate, managedSystemNames, declared)} ·{' '}
                   {DIRECT_GRANT_COPY.alreadyGrantedLink}
                 </HostLink>
               ) : null;
@@ -852,7 +860,7 @@ function DirectGrantFields({
             ? `선택: ${getCapabilityDisplayLabel('scope.read')} · ${formatPermissionScopeTarget(scopeDraft.kind, scopeDraft.site, scopeDraft.room)}`
             : '선택한 권한 없음'
           : selectedCandidate
-            ? `선택: ${candidateLabel(selectedCandidate, managedSystemNames)}`
+            ? `선택: ${candidateLabel(selectedCandidate, managedSystemNames, declared)}`
             : '선택한 권한 없음'}
       </p>
       <DialogFooter className="shrink-0">

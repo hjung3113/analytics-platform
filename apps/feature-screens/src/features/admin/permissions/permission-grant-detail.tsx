@@ -3,15 +3,16 @@ import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from
 import type { ReactNode } from 'react';
 
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
-import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
+import { UNDECLARED_CAPABILITY_LABEL, getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
 import { PERMISSION_SCOPE_COPY, scopeTargetLabelOf } from '@/lib/copy/permission-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { shortId } from '@/lib/identity';
-import type { PermissionDenyAdminItem, PermissionGrantAdminItem } from '@ap/feature-shared';
+import { type PermissionDenyAdminItem, type PermissionGrantAdminItem, isDeclaredCapabilityId } from '@ap/feature-shared';
 
+import { DeclaredCapabilityName } from './declared-capability-name.js';
 import { PermissionGrantActionForm } from './permission-grant-action-form.js';
 import type { ActivePermission } from './use-permission-grants-console.js';
 
@@ -52,8 +53,15 @@ export function PermissionGrantDetail({
         </FieldRow>
         <FieldRow label={ADMIN_PERMISSIONS_COPY.permission} inset="none">
           <span className="flex flex-col gap-0.5">
-            <span>{getCapabilityDisplayLabel(item.capability)}</span>
-            <span className="font-mono text-xs text-text-muted">{item.capability}</span>
+            {isDeclaredCapabilityId(item.capability) ? (
+              <DeclaredCapabilityName id={item.capability} />
+            ) : (
+              <span>{getCapabilityDisplayLabel(item.capability)}</span>
+            )}
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs text-text-muted">{item.capability}</span>
+              {item.in_declarations === false ? <OutlineBadge>{UNDECLARED_CAPABILITY_LABEL}</OutlineBadge> : null}
+            </span>
           </span>
         </FieldRow>
         <FieldRow label={ADMIN_PERMISSIONS_COPY.scope} inset="none">

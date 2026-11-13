@@ -1,4 +1,4 @@
-import { type NotificationDto, isCapability } from '@ap/feature-shared';
+import { type DeclaredCapabilityItem, type NotificationDto, isCapability, isDeclaredCapabilityId } from '@ap/feature-shared';
 import {
   Button,
   SkeletonRows,
@@ -14,6 +14,7 @@ import { Archive, Check } from 'lucide-react';
 import * as React from 'react';
 
 import { ListStateMessage } from '@/components/ListStateMessage';
+import { useDeclaredCapabilities } from '@/lib/api/declared-capabilities';
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import {
   archiveNotification,
@@ -62,11 +63,17 @@ export function notificationTarget(notification: NotificationDto): string | null
 }
 
 // Permission notifications carry the raw capability key as the subject title.
-function subjectRefTitle(notification: NotificationDto, title: string): string {
+function subjectRefTitle(
+  notification: NotificationDto,
+  title: string,
+  declared: readonly DeclaredCapabilityItem[],
+): string {
   const carriesCapability =
     notification.subject_type === 'permission_request' ||
     notification.subject_type === 'permission_grant';
-  return carriesCapability && isCapability(title) ? getCapabilityDisplayLabel(title) : title;
+  return carriesCapability && (isCapability(title) || isDeclaredCapabilityId(title))
+    ? getCapabilityDisplayLabel(title, declared)
+    : title;
 }
 
 // `'recent'` is the platform bell popover body (platform ADR-0071): the latest notifications, read and unread, no filter, no paging.
@@ -285,13 +292,17 @@ function NotificationRow({
   onArchive: () => void;
 }): React.ReactElement {
   const host = useHostSeam();
+  // ADR-0157: a declared capability's display name comes from the server read; loaded only for such a title.
+  const declared = useDeclaredCapabilities(
+    notification.subject_ref?.visibility_state === 'allowed' && isDeclaredCapabilityId(notification.subject_ref.title),
+  );
   const target = notificationTarget(notification);
   const linkTarget = target !== null && host.canLink(target) ? target : null;
   // The host has a target for this row but cannot open it: the body promises nothing; read/archive stay on their buttons.
   const hostCannotLink = target !== null && linkTarget === null;
   const subjectTitle =
     notification.subject_ref?.visibility_state === 'allowed'
-      ? subjectRefTitle(notification, notification.subject_ref.title)
+      ? subjectRefTitle(notification, notification.subject_ref.title, declared)
       : null;
   const titleTooltipOnArchive =
     subjectTitle !== null &&

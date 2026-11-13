@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { permissionScopeFields, requestedPermissionScopeFields, grantedPermissionScopeFields } from '../permissions/scope-kinds.js';
 
-import { CAPABILITIES } from '../enums/capabilities.js';
+import { capabilityNameSchema } from '../permissions/admin.js';
 
 export const PERMISSION_AUDIT_EVENT_TYPES = [
   'permission_requested',
@@ -193,7 +193,7 @@ export const permissionGrantedDetailSchema = z
   .object({
     grant_id: z.string().uuid(),
     grantee_actor_id: z.string().uuid(),
-    capability: z.enum(CAPABILITIES),
+    capability: capabilityNameSchema,
     ...permissionScopeFields,
   managed_system_id: z.string().uuid().nullable(),
     reason: z.string().trim().min(1).max(2000),

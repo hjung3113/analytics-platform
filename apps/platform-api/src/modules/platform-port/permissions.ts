@@ -11,12 +11,13 @@
 
 import type { Tx } from '../../db/tx.js';
 import { currentAuthContext } from '../../lib/auth-context.js';
-import type { Capability } from '@ap/feature-shared';
+import type { CapabilityName } from '@ap/feature-shared';
 import {
   type CapabilityScope,
   type CheckService,
   type Decision,
   applyAdminModuleBypass,
+  capabilitiesOf,
 } from '../permissions/check-service.js';
 import type { MenuPermissionDeclaration } from '../menu-dispatch/types.js';
 
@@ -97,9 +98,9 @@ export function createPlatformPermissionResolver(
 }
 
 /** The capabilities one permission judgment reads; the batched path loads them for every permission at once. */
-function capabilitiesRead(menu: readonly MenuPermissionDeclaration[]): Capability[] {
+function capabilitiesRead(menu: readonly MenuPermissionDeclaration[]): CapabilityName[] {
   return [
-    ...new Set<Capability>([
+    ...new Set<CapabilityName>([
       'workspace.read',
       'workspace.admin',
       ...FEATURES_ACCESS_CAPABILITIES,
@@ -110,8 +111,10 @@ function capabilitiesRead(menu: readonly MenuPermissionDeclaration[]): Capabilit
 
 /** Where a rule reads its capability decisions from: one call each (`holdsPlatformPermission`) or a preloaded snapshot. */
 interface CapabilityReader {
-  decision(capability: Capability): Promise<Decision> | Decision;
-  scope(capability: Capability): Promise<CapabilityScope>;
+  decision(capability: CapabilityName): Promise<Decision> | Decision;
+  scope(capability: CapabilityName): Promise<CapabilityScope>;
+  /** Bypass against the registry the decisions came from (ADR-0157: a declared capability's meta lives only there). */
+  bypass(roleLevel: string, capability: CapabilityName, decision: Decision): Decision;
 }
 
 async function judgeKernelRule(
@@ -143,14 +146,15 @@ async function judgeKernelRule(
 
 /**
  * A declared menu permission: the same decision the module's write actions take — capability check, then the capability's
- * Admin bypass. The User exclusion is the check service's (`NOT_FOR_USER_ROLE`), not repeated here.
+ * Admin bypass. The Role Level exclusion is the check service's (`NOT_FOR_USER_ROLE`, a declared capability's allow-list),
+ * not repeated here. Every meta is the server's registry's (ADR-0157 decision 7).
  */
 async function judgeMenuPermission(
   actor: PlatformActor,
   declaration: MenuPermissionDeclaration,
   reader: CapabilityReader,
 ): Promise<boolean> {
-  return applyAdminModuleBypass(actor.role_level, declaration.capability, await reader.decision(declaration.capability)).allow;
+  return reader.bypass(actor.role_level, declaration.capability, await reader.decision(declaration.capability)).allow;
 }
 
 /**
@@ -160,11 +164,17 @@ async function judgeMenuPermission(
 export async function holdsMenuPermission(
   checkService: CheckService,
   actor: PlatformActor,
-  capability: Capability,
+  capability: CapabilityName,
   options: { tx?: Tx } = {},
 ): Promise<boolean> {
   return judgeMenuPermission(actor, { permission: capability, capability }, readerOf(checkService, actor, options));
 }
+
+const bypassOf = (checkService: CheckService) => {
+  const capabilities = capabilitiesOf(checkService);
+  return (roleLevel: string, capability: CapabilityName, decision: Decision) =>
+    applyAdminModuleBypass(roleLevel, capability, decision, capabilities);
+};
 
 const readerOf = (
   checkService: CheckService,
@@ -175,6 +185,7 @@ const readerOf = (
     checkService.checkCapability(actor, capability, { workspace_id: actor.workspace_id }, options),
   scope: (capability) =>
     checkService.capabilityScope(actor, capability, { workspace_id: actor.workspace_id }, options),
+  bypass: bypassOf(checkService),
 });
 
 /**
@@ -190,10 +201,12 @@ async function resolveBatchWith(
 ): Promise<Map<string, string[]>> {
   const snapshot = await checkService.loadCapabilitySnapshot(actors, capabilitiesRead(menu), options);
   const out = new Map<string, string[]>();
+  const bypass = bypassOf(checkService);
   for (const actor of actors) {
     const reader: CapabilityReader = {
       decision: (capability) => snapshot.decision(actor, capability),
       scope: (capability) => snapshot.scope(actor, capability),
+      bypass,
     };
     const held: string[] = [];
     for (const { permission, rule } of PLATFORM_PERMISSION_TABLE) {

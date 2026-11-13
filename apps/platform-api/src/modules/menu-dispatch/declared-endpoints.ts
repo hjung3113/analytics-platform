@@ -1,8 +1,12 @@
 // Deployment rows become executable declarations here; policy stays in the platform permission
 // table and data validation stays with the owner. The real registry still checks all specs and ids.
-import { isCapability } from '@ap/feature-shared';
-
-import type { CheckService } from '../permissions/check-service.js';
+import {
+  type CapabilityRegistry,
+  type CheckService,
+  capabilitiesOf,
+  createCapabilityRegistry,
+  declaredCapabilityProblems,
+} from '../permissions/check-service.js';
 import { holdsPlatformPermission, PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
 import { DeclarationBundleError, validateDeclarationBundle, type DeclarationBundle, type DeclarationBundleInput } from './declarations-file.js';
 import type { MenuForwarder } from './forwarder.js';
@@ -17,15 +21,22 @@ import { assertBundleMatchesMenuSnapshot, fillEndpointsFromSnapshot, parseMenuSn
 import type { MenuDispatchContribution, MenuPermissionDeclaration } from './types.js';
 
 /**
+ * The check service the declared endpoints judge with. A factory receives the bundle's capability registry (production:
+ * `createCheckService({ db, capabilities })`), so the server and this contribution share one registry (ADR-0157 decision 7).
+ * A ready service is accepted when the bundle declares no capability, or when it was built from the same registry.
+ */
+export type DeclaredCheckService = CheckService | ((capabilities: CapabilityRegistry) => CheckService);
+
+/**
  * Assemble loaded bundle data; refuse inconsistent programmatic bundles too, before registration. `snapshot` is the
  * menu declaration snapshot (ADR-0156): required on both assembly paths, so a programmatic bundle meets the same rules;
  * its endpoint rows may be partial and are filled from the snapshot by the same function as the file path (node 1900b).
  */
-export function declaredContribution({ bundle: input, snapshot, forwarder, checkService, connectorFactories = defaultFactories, targetSecrets, timeoutMs = 27000, log }: {
+export function declaredContribution({ bundle: input, snapshot, forwarder, checkService: checkServiceInput, connectorFactories = defaultFactories, targetSecrets, timeoutMs = 27000, log }: {
   bundle: DeclarationBundleInput;
   snapshot: MenuDeclarationSnapshot;
   forwarder?: MenuForwarder;
-  checkService: CheckService;
+  checkService: DeclaredCheckService;
   connectorFactories?: ConnectorFactories;
   targetSecrets?: Readonly<Record<string, TargetSecrets>>;
   timeoutMs?: number;
@@ -53,9 +64,18 @@ export function declaredContribution({ bundle: input, snapshot, forwarder, check
   for (const id of Object.keys(bundle.endpointOwners)) {
     if (!ids.has(id)) problems.push(`owner table names endpoint ${id}, which is not declared`);
   }
+  // ADR-0157: the bundle's declared capabilities become this contribution's registry (platform ∪ declared). The registry is
+  // built only from valid rows; every problem is reported at once.
+  const capabilityProblems = declaredCapabilityProblems(bundle.capabilities ?? []);
+  if (capabilityProblems.length > 0) throw new DeclarationBundleError(capabilityProblems);
+  const capabilities = createCapabilityRegistry(bundle.capabilities ?? []);
+  const checkService = typeof checkServiceInput === 'function' ? checkServiceInput(capabilities) : checkServiceInput;
+  if (capabilities.declaredList().length > 0 && capabilitiesOf(checkService) !== capabilities) {
+    throw new DeclarationBundleError(['declared capabilities require a check service built from the bundle registry']);
+  }
   const permissions: MenuPermissionDeclaration[] = bundle.permissions.map((row) => {
-    if (!isCapability(row.capability)) {
-      throw new DeclarationBundleError([`permission ${row.permission}: ${row.capability} is not a platform capability`]);
+    if (row.capability === 'scope.read' || !capabilities.has(row.capability)) {
+      throw new DeclarationBundleError([`permission ${row.permission}: ${row.capability} is not a platform capability nor declared in the bundle's capabilities`]);
     }
     return { permission: row.permission, capability: row.capability };
   });
@@ -71,6 +91,8 @@ export function declaredContribution({ bundle: input, snapshot, forwarder, check
 
   return {
     permissions,
+    // Carried when the bundle has a `capabilities` field (even empty: the server then syncs the audit table to nothing).
+    ...(bundle.capabilities === undefined ? {} : { capabilities }),
     endpoints: bundle.endpoints.map(({ limits, requiredContext, ...spec }) => {
       const path = bundle.endpointOwners[spec.id];
       if (path === undefined) throw new DeclarationBundleError([`endpoint ${spec.id}: no owner-table row`]);
