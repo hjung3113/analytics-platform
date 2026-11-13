@@ -54,7 +54,7 @@ export function declaredContribution({ bundle: input, snapshot, forwarder, check
     if (new Set(row.kinds).size !== (row.kinds?.length ?? 0)) problems.push(`endpoint ${row.id}: kinds must not contain duplicates`);
     if (row.limits?.maxRows !== undefined && typeof bundle.endpointOwners[row.id] === 'string') problems.push(`endpoint ${row.id}: ${MAX_ROWS_REASON}`);
   }
-  if (bundle.actions.length > 0) problems.push('declared actions are refused: the forwarder serves menu-query only');
+  if (bundle.actions.length > 0) problems.push('declared actions are refused: writes through a declaration bundle are not implemented (ADR-0148, deferred); the forwarder serves menu-query only');
 
   const ids = new Map<string, number>();
   for (const row of bundle.endpoints) ids.set(row.id, (ids.get(row.id) ?? 0) + 1);

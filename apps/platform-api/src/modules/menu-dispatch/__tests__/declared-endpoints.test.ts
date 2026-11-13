@@ -129,7 +129,7 @@ describe('declared endpoint contribution (1729g)', () => {
     ['orphan owner', (bundle: DeclarationBundle) => ({ ...bundle, endpointOwners: { ...bundle.endpointOwners, orphan: '/orphan' } }), /not declared/],
     ['duplicate endpoint', (bundle: DeclarationBundle) => ({ ...bundle, endpoints: [...bundle.endpoints, ...bundle.endpoints] }), /declared 2 times/],
     ['unknown permission', (bundle: DeclarationBundle) => ({ ...bundle, endpoints: bundle.endpoints.map((row) => ({ ...row, permission: 'unknown:view' })) }), /neither declared.*nor a kernel permission/],
-    ['actions', (bundle: DeclarationBundle) => ({ ...bundle, actions: [{ id: 'synthetic.write', menuId: 'synthetic', inputKeys: [], permission: 'synthetic:view', requiresScope: false, concurrency: 'none' as const, invalidates: [] }] }), /actions.*menu-query only/],
+    ['actions', (bundle: DeclarationBundle) => ({ ...bundle, actions: [{ id: 'synthetic.write', menuId: 'synthetic', inputKeys: [], permission: 'synthetic:view', requiresScope: false, concurrency: 'none' as const, invalidates: [] }] }), /actions.*not implemented \(ADR-0148.*menu-query only/],
   ] as const)('fails closed at assembly: %s', async (_label, change, message) => {
     const bundle = change(await loadDeclarationBundle(fixture));
     expect(() => assemble(bundle)).toThrow(DeclarationBundleError);
