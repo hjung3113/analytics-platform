@@ -1,4 +1,4 @@
-import { hostLinksCarrying } from './links';
+import { hostLinksCarrying, permissionRequestsTarget } from './links';
 import { adminOperatorTargets } from './admin-routes';
 import { surveyCarry, surveyOperatorTargets } from './survey-routes';
 import { findingsRoute } from './finding-routes';
@@ -17,6 +17,7 @@ export const operatorHostLinks = hostLinksCarrying(
   taskRequestsRoute.target, taskBoardRoute.target, milestonesRoute.target, taskListRoute.target, myTasksRoute.target, taskListInboxAlias.target, taskListBareAlias.target,
   ...integrationOperatorTargets,
   vocTarget, vocListTarget,
+  permissionRequestsTarget,
   ...surveyOperatorTargets,
   ...adminOperatorTargets,
 );
