@@ -1,9 +1,6 @@
 import { createRoot, type Root } from 'react-dom/client';
+import { isChunkLoadFailure } from '@ap/kernel/host';
 import { Alert, AlertDescription, AlertTitle, Button } from '@ap/ui';
-
-// Same matcher as `isChunkLoadFailure` in `@ap/shell` (`routing/chunkFailure.ts`), which is not a public export: a new SDK export would change the API surface for a one-line test.
-const CHUNK_FAILURE = /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Loading (CSS )?chunk .* failed/i;
-const isChunkLoadFailure = (error: unknown) => { try { return error instanceof Error && (error.name === 'ChunkLoadError' || CHUNK_FAILURE.test(error.message)); } catch { return false; } };
 
 /** Fixed copy, `@ap/ui` only; no error text, URL or stack (same rule as `StartupFailure`). */
 function StaleChunkNotice({ onReload }: { onReload: () => void }) {

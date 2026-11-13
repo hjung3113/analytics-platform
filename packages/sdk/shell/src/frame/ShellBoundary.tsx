@@ -2,7 +2,7 @@ import { Component, type ReactNode } from 'react';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { Button } from '@ap/ui';
-import { isChunkLoadFailure } from '../routing/chunkFailure';
+import { isChunkLoadFailure } from '@ap/kernel/host';
 import { reloadApp } from './reload';
 
 type Props = {

@@ -1,4 +1,5 @@
 import { Component, lazy, useCallback, useState, type ComponentType, type ReactNode } from 'react';
+import { isChunkLoadFailure } from '@ap/kernel/host';
 
 /**
  * A code-split component shared by every mount (#915). Internal: `EChart` and `DockLayout` use it; `index.ts` does not export it.
@@ -27,12 +28,19 @@ export function lazyChunk<P extends object>(load: () => Promise<{ default: Compo
 
 type LazyChunk<P extends object> = ReturnType<typeof lazyChunk<P>>;
 
-/** Contains a rejected chunk load inside the consumer's box so it never unmounts the surrounding app (#48 P2). */
-export class ChunkLoadBoundary extends Component<{ onError: (error: unknown) => void; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() { return { failed: true }; }
-  componentDidCatch(error: unknown) { this.props.onError(error); }
-  render() { return this.state.failed ? null : this.props.children; }
+/**
+ * Contains a rejected chunk load inside the consumer's box so it never unmounts the surrounding app (#48 P2). Any other error is not this
+ * boundary's: it is thrown again in render so the nearest screen or panel boundary reports it (#2025).
+ */
+export class ChunkLoadBoundary extends Component<{ onError: (error: unknown) => void; children: ReactNode }, { failed: boolean; error: unknown }> {
+  state = { failed: false, error: null as unknown };
+  static getDerivedStateFromError(error: unknown) { return { failed: true, error }; }
+  componentDidCatch(error: unknown) { if (isChunkLoadFailure(error)) this.props.onError(error); }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    if (!isChunkLoadFailure(this.state.error)) throw this.state.error;
+    return null;
+  }
 }
 
 /**
