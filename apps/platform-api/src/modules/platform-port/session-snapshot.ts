@@ -1,6 +1,6 @@
 import type { ScopeResolver } from '../menu-dispatch/index.js';
 import type { ScopeCatalog } from '../permissions/index.js';
-import type { CheckService } from '../permissions/check-service.js';
+import { tokenDenial, type CheckService } from '../permissions/check-service.js';
 import type { PlatformPermissionResolver } from './permissions.js';
 import { sessionVersionOf } from './session-version.js';
 import { titleFor } from './titles.js';
@@ -30,6 +30,10 @@ export function createSessionState(deps: SessionSnapshotDeps) {
     // `grantKey` (server-private) is the effective granted set, sorted; it feeds only the version hash.
     const scopeState = await (async (): Promise<{ scopes: ScopeOption[]; requestableScopes?: RequestableScope[]; grantKey?: string[] }> => {
       if (!deps.scopeCatalog || !deps.scopeResolver) return { scopes: [] };
+      // ADR-0116 (#1874): a token without `scope.read` reads no site·room grants here either (the dispatch identity
+      // token's `sv` reaches this state from token-callable routes). Not an attempted call: no denial audit row.
+      if (tokenDenial('scope.read', { auditTokenDenials: false })) return { scopes: [] };
+
       try {
         const grants = await deps.scopeResolver.resolve(platformActorOf(loaded));
         const held = deps.scopeCatalog.sites.map(({ site, label, rooms }) => ({

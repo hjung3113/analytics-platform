@@ -9,6 +9,7 @@ import { loginAs, SESSION_COOKIE_NAME } from '../../../test-support/auth.js';
 import { insertMsDirectly } from '../../../test-support/core-fixtures.js';
 import { grantCapability, insertScopePermissionRow } from '../../../test-support/permissions-fixtures.js';
 import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fixtures.js';
+import { resolveRequestScopes } from '../../menu-dispatch/query.js';
 import { createPlatformPermissionResolver } from '../../platform-port/permissions.js';
 import { actorEffectiveScope, actorReadScope, canReadVocAsSource } from '../../voc/authorization.js';
 import { createCheckService } from '../check-service.js';
@@ -158,22 +159,23 @@ describe.skipIf(!runIntegration)('scope grant kinds', () => {
     expect(await resolver.resolve(admin)).toEqual([]);
   });
 
-  it('API token scopes intersect owner grants before any grant read', async () => {
+  it('API token scopes intersect owner grants before any grant read (judged at resolveRequestScopes, #1874)', async () => {
     await grant('site', 'SITE-A');
     await grant('site_room', 'SITE-B', 'RA1');
     const resolver = resolve();
     const ownerSet = [{ site: 'SITE-A', rooms: ['RA2', 'RA1'] }, { site: 'SITE-B', rooms: ['RA1'] }];
-    expect(await resolver.resolve(actor())).toEqual(ownerSet);
+    const atBoundary = () => resolveRequestScopes(resolver, actor(), { scopeId: 'SITE-A' });
+    expect(await atBoundary()).toEqual(ownerSet);
     // Observe the real DB method without replacing it: a denied token must not even start a SELECT.
     const select = vi.spyOn(handle.db, 'select');
     try {
-      expect(await runAsToken('scope-token', ['workspace.read'], () => resolver.resolve(actor()))).toEqual([]);
+      expect(await runAsToken('scope-token', ['workspace.read'], atBoundary)).toBeNull();
       expect(select).not.toHaveBeenCalled();
     } finally {
       select.mockRestore();
     }
-    expect(await runAsToken('scope-token', ['scope.read'], () => resolver.resolve(actor()))).toEqual(ownerSet);
-    expect(await resolver.resolve(actor())).toEqual(ownerSet);
+    expect(await runAsToken('scope-token', ['scope.read'], atBoundary)).toEqual(ownerSet);
+    expect(await atBoundary()).toEqual(ownerSet);
   });
 
   it.each(['site', 'site_room'].flatMap(kind => ['expires_at', 'revoked_at', 'superseded_at'].map(column => [kind, column] as const)))('%s %s drops the row on the next resolve call', async (kind, column) => {

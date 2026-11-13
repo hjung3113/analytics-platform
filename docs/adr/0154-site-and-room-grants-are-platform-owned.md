@@ -52,7 +52,7 @@
 
 - `createGrantTableScopeResolver({ db, catalog })`가 `ScopeResolver`를 구현한다. 요청마다 DB를 읽고 캐시하지 않는다. 활성(`revoked_at`·`superseded_at` NULL, `expires_at`이 없거나 미래) `scope.read` 행만 읽는다. `site` 부여는 그 순간의 Scope 카탈로그 room 전체로 펼친다. Scope 카탈로그 밖 값은 버린다. DB 오류는 거부로 실패한다(`resolveRequestScopes`가 `forbidden`으로 바꾼다).
 - `buildServer`는 Scope 카탈로그가 있으면 이 resolver를 주입한다(결정 1의 원천 하나). ADR-0147 결정 3(resolver 없으면 등록 거부)은 그대로다.
-- **토큰 범위:** API 토큰 호출에서 부여 표 resolver는 토큰 범위에 `scope.read`가 없으면 빈 집합을 낸다(capability 판정의 토큰 거부와 같은 판정, [ADR-0116](0116-platform-api-tokens-personal-and-service.md) «토큰의 실효 권한 = 소유자의 현재 부여 ∩ 토큰 범위»). `scope.read`는 세션 전용이 아니며 토큰 범위에 실을 수 있다. `scope.read`를 실은 토큰은 소유자의 site·room 전체를 받는다(site별 토큰 범위는 Deferred).
+- **토큰 범위:** API 토큰 호출에서 토큰 범위에 `scope.read`가 없으면 `requiresScope` 조회·쓰기는 `forbidden`이다. 이 판정은 resolver 안이 아니라 조회 경계(`resolveRequestScopes`)에서 resolver를 부르기 전에 한 번 하므로, 부여 표 resolver든 HTTP 부여 서비스 resolver든 같다(#1874: 토큰 발급은 원천을 보지 않아 HTTP 배포의 토큰도 `scope.read`를 실을 수 있다)(capability 판정의 토큰 거부와 같은 판정, [ADR-0116](0116-platform-api-tokens-personal-and-service.md) «토큰의 실효 권한 = 소유자의 현재 부여 ∩ 토큰 범위»). `scope.read`는 세션 전용이 아니며 토큰 범위에 실을 수 있다. `scope.read`를 실은 토큰은 소유자의 site·room 전체를 받는다(site별 토큰 범위는 Deferred).
 - 상류 토큰의 `scopes` claim(ADR-0148 결정 4, ADR-0153 결정 3.6)은 이 resolver의 결과를 싣는다. 원천만 바뀐다.
 
 ### 5. 세션 scopes와 validateScope (질문 3 변경)
