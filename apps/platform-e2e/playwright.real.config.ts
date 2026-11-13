@@ -5,7 +5,7 @@ import { requireSafeRealDatabaseEnv } from './tests-real/database-safety';
 import { parsePort } from './tests-real/port';
 
 const databaseEnv = requireSafeRealDatabaseEnv();
-const PORT = parsePort('E2E_PORT', 4190);
+const PORT = parsePort('E2E_PORT', 4290);
 const BACKEND_PORT = parsePort('E2E_REAL_BACKEND_PORT', 3011);
 if (PORT === BACKEND_PORT) throw new Error('E2E_PORT and E2E_REAL_BACKEND_PORT must be different ports.');
 
@@ -18,6 +18,9 @@ export default defineConfig({
   testMatch: '**/*.real.spec.ts',
   testIgnore: '**/backend-down.real.spec.ts',
   globalSetup: './tests-real/global-setup.ts',
+  // The page is served by the Vite dev server, which transforms ~850 modules on the first load of a route (13-25 s measured on the desktop host, API replies under 1.2 s); the 30 s test and 5 s expect defaults fail on that wait, not on the product.
+  timeout: 120_000,
+  expect: { timeout: 20_000 },
   workers: 1,
   fullyParallel: false,
   retries: 0,

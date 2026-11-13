@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 import { parsePort } from './tests-real/port';
 
-const PORT = parsePort('E2E_PORT', 4190);
+const PORT = parsePort('E2E_PORT', 4290);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 /** Exercises the assembly's backend-down screen without the healthy backend or database setup. */
