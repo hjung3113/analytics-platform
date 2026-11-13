@@ -124,7 +124,7 @@ describe('chart catalog route and lifetime', () => {
     expect(within(dataTable).getAllByRole('checkbox')[0].getAttribute('aria-checked')).toBe('true');
     expect(screen.getByRole('table', { name: /차트/ })).toBe(dataTable);
     expect(canvas.init.mock.calls.length).toBe(init); expect(query.mock.calls.length).toBe(fetches);
-    click('집중'); click('초기화');
+    click('집중'); click('차트 초기화');
     expect(checkbox.getAttribute('aria-checked')).toBe('false');
     expect(within(summary()).queryByRole('button', { name: '상세' })).toBeNull();
     fireEvent.click(within(dataTable).getAllByRole('button', { name: '상세' })[0]);
@@ -253,7 +253,7 @@ it('renders the standalone Lane consumer with labels and keyboard selection', as
 });
 
 describe('breakdown support rows match the controls on the screen (#580h)', () => {
-  const controls = { zoom: '확대', selection: '구간 선택', reset: '초기화', compare: '비교', annotate: '주석', export: '내보내기', drill: /단계로 이동/ } as const;
+  const controls = { zoom: '확대', selection: '구간 선택', reset: '차트 초기화', compare: '비교', annotate: '주석', export: '내보내기', drill: /단계로 이동/ } as const;
   it('every claimed capability has its control and every unsupported one has none', async () => {
     mount('breakdown');
     await screen.findByRole('checkbox', { name: '최소·최대 표시' });
