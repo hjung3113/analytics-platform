@@ -7,6 +7,7 @@ import { Button, StatusBadge } from '@ap/ui';
 import { menuPermissions, type Capability, type ContextKey } from '@ap/contracts';
 import { contextBarVisible } from '../context/GlobalContextBar';
 import { HomeLink } from '../frame/HomeLink';
+import { ShellBoundary } from '../frame/ShellBoundary';
 import { ModuleScreen } from './ModuleScreen';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
 import { useBoardPresentationSync } from '../board/boardPresentation';
@@ -28,7 +29,8 @@ export function RouteOutlet() {
   const fallback = <div className="p-5"><LoadingBlock rows={6} height={320} /></div>;
   return <>
     {!maximized && <Suspense fallback={fallback}><ScreenOutlet /></Suspense>}
-    {mounted && <Suspense fallback={maximized ? fallback : null}><BoardHost Outlet={ScreenOutlet} display={maximized ? 'maximized' : floating ? 'window' : 'minimized'} /></Suspense>}
+    {/* A stale board chunk (or a board render throw) shows a retry in place of the open or windowed board; only a really minimized board draws nothing. The rail and the screen stay (#1876). */}
+    {mounted && <ShellBoundary fallback={maximized || floating ? undefined : null}><Suspense fallback={maximized ? fallback : null}><BoardHost Outlet={ScreenOutlet} display={maximized ? 'maximized' : floating ? 'window' : 'minimized'} /></Suspense></ShellBoundary>}
   </>;
 }
 

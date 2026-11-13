@@ -6,6 +6,7 @@ import { Button } from '@ap/ui';
 import { HomeLink } from '../frame/HomeLink';
 import { reloadApp } from '../frame/reload';
 import { useErrorReport } from '../voc/useErrorReport';
+import { isChunkLoadFailure } from './chunkFailure';
 
 type Props = {
   /** Reports the contained error and returns the correlation id to show. */
@@ -15,12 +16,6 @@ type Props = {
   children: ReactNode;
 };
 type State = { failed: boolean; correlationId: string | null; chunkFailure: boolean };
-
-const CHUNK_FAILURE = /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Loading (CSS )?chunk .* failed/i;
-/** A rejected `React.lazy` import: React caches the rejection on the lazy object the manifest keeps, so only a reload can retry it. */
-function isChunkLoadFailure(error: unknown): boolean {
-  try { return error instanceof Error && (error.name === 'ChunkLoadError' || CHUNK_FAILURE.test(error.message)); } catch { return false; }
-}
 
 /**
  * Contains a menu screen's render failure in the content slot (06 §4 전역 Error Boundary) so the shell,
