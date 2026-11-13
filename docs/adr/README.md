@@ -50,7 +50,7 @@
 | [0036](0036-chart-range-keyboard-snap-compare-clip.md) | 차트 구간은 키보드로 고르고 막대 경계에 맞추며 비교 중에는 현재 기간만 선택한다 | Decided(2026-10-16) |
 | [0037](0037-table-filter-consistency.md) | 관리 표는 내용만큼 커지고 동작 열은 오른쪽에 고정하며, 필터는 초안을 적용으로 한 번에 반영한다 | Decided(2026-10-16) |
 | [0038](0038-host-module-contract-and-feedbackops-mounting.md) | 업무 모듈은 한 원본을 두 호스트에 탑재하고, FeedbackOps 화면은 플랫폼 셸의 협업 공간에 모듈로 올린다 | Superseded(2026-10-21) — 0066(FeedbackOps 부분). 호스트 계약은 0053 |
-| [0039](0039-equipment-visualization-platform-first-host-contract.md) | equipment-visualization은 플랫폼 탑재가 기본이고, 플랫폼이 `@ap/contracts`로 호스트 → 모듈 계약을 낸다 | Candidate(2026-10-17, 선행 조사) — 방향은 사용자 코멘트(#332·#396). 계약 부분은 0053이 구현 — "EV는 외부 저장소" 서술은 0132가 대체 |
+| [0039](0039-equipment-visualization-platform-first-host-contract.md) | equipment-visualization은 플랫폼 탑재가 기본이고, 플랫폼이 `@ap/contracts`로 호스트 → 모듈 계약을 낸다 | Decided(2026-11-13, 사용자, #1977) — 방향은 사용자 코멘트(#332·#396), 세부는 0053·0132가 확정. 계약 부분은 0053이 구현 — "EV는 외부 저장소" 서술은 0132가 대체 |
 | [0040](0040-public-test-adapter-entry.md) | 어댑터·세션·공간 테스트 fixture는 `@ap/kernel/testing` 한 곳에서 공개하고 테스트 파일에서만 import한다 | Decided(2026-10-16) — #265의 패키지 내부 fixture를 바꿈 |
 | [0041](0041-annotation-author-delete-audit.md) | 차트 주석은 작성자만 지울 수 있고, 삭제는 감사 기록에 남긴다 | Decided(2026-10-17) — #399 |
 | [0042](0042-system-switcher-and-system-owned-rail.md) | 업무 시스템은 레일 맨 위 전환기 하나로 바꾸고, 레일은 현재 시스템의 섹션으로 쓴다 | Decided(2026-10-18 방향, 2026-10-19 화면 A안) — 0028 부분 대체, FeedbackOps 셸 안 열기는 0038이었으나 0038은 대체됨(0066·0097). 구현 #423. 전환기 이름·팝오버 구성·레일 도구는 0070 부분 대체(2026-10-22) |

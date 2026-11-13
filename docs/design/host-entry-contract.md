@@ -1,6 +1,6 @@
 # Host 조립 계약 — 저장소 밖 조립이 받는 도메인 없는 조립 함수 (#1702)
 
-상태: **Candidate** — 설계. 결정은 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)(방향), [ADR-0142](../adr/0142-out-of-repo-menu-package-and-host-module-split.md)(확장 방식), [ADR-0143](../adr/0143-release-units-and-compatibility-train.md)(릴리스 단위)가 소유하고, 이 문서는 그 결정을 따르는 Host 쪽 모양과 다음 노드의 수용 목록을 소유한다. Host 조립 함수는 `packages/app-host`(`@ap/app-host`, 노드 1702a)에 구현됐고, 공개 앱 `apps/platform-web`도 이 함수를 쓴다(#1812).
+상태: **Decided** (2026-11-13, 사용자, [#1977](https://github.com/hjung3113/analytics-platform/issues/1977)) — 설계. 결정은 [ADR-0141](../adr/0141-in-house-assembly-in-separate-repository.md)(방향), [ADR-0142](../adr/0142-out-of-repo-menu-package-and-host-module-split.md)(확장 방식), [ADR-0143](../adr/0143-release-units-and-compatibility-train.md)(릴리스 단위)가 소유하고, 이 문서는 그 결정을 따르는 Host 쪽 모양과 다음 노드의 수용 목록을 소유한다. Host 조립 함수는 `packages/app-host`(`@ap/app-host`, 노드 1702a)에 구현됐고, 공개 앱 `apps/platform-web`도 이 함수를 쓴다(#1812).
 
 용어: 여기서 «Host»는 조립 함수와 그 릴리스 단위다. 셸·앱만 import하는 `@ap/kernel/host` 진입점([ADR-0076](../adr/0076-kernel-host-entry-narrow-menu-platform.md))과 호스트 모듈([ADR-0053](../adr/0053-host-module-contract-v1.md))과는 다른 것이다.
 
