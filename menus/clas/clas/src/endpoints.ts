@@ -10,8 +10,10 @@ export type OperationRankRow = { equipmentId: string; room: string; minutes: num
 export type OperationLane = { id: string; label: string; segments: { id: string; start: number; end: number; kind: OperationKind }[] };
 export type OperationTimeData = {
   ranking: OperationRankRow[];
-  /** Equipment whose operation flow `lanes` shows: the requested one when it is in scope, else the top of `ranking`. */
+  /** Equipment whose operation flow `lanes` shows: the requested one when it is in scope, the top of `ranking` when none was requested, else null. */
   equipmentId: string | null;
+  /** The requested `eqp` that is not in the current Scope and room conditions. It is never replaced by another equipment: `lanes` is empty and the page says so. */
+  missingEquipment: string | null;
   lanes: OperationLane[];
 };
 
