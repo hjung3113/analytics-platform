@@ -799,7 +799,8 @@ describe('SurveyResultsSummary', () => {
 
   it('keeps the pre-refetch request body when only response group order reverses', async () => {
     const user = userEvent.setup();
-    apiClient.mockResolvedValue({ data: { id: ids.finding } });
+    // The first request fails, so the same draft stays open across the refetch (a success closes it, #2070).
+    apiClient.mockRejectedValueOnce(new Error('network')).mockResolvedValue({ data: { id: ids.finding } });
     const holderResults = {
       ...results,
       questions: results.questions.map((question) =>
@@ -836,6 +837,8 @@ describe('SurveyResultsSummary', () => {
     await user.click(screen.getByTestId(`survey-finding-excerpt-${refetchIds.retainedExcerpt}`));
     await user.click(screen.getByTestId('survey-create-finding-submit'));
     await waitFor(() => expect(apiClient).toHaveBeenCalledWith(...request));
+    const firstKey = (apiClient.mock.calls[0]?.[2] as { idempotencyKey?: string } | undefined)?.idempotencyKey;
+    expect(firstKey).toEqual(expect.any(String));
     apiClient.mockClear();
 
     rerender(
@@ -854,15 +857,13 @@ describe('SurveyResultsSummary', () => {
       </QueryClientProvider>,
     );
 
-    // The draft closed on success, so the second submission starts from a reopened draft.
-    await user.click(screen.getByRole('button', { name: 'Finding 생성' }));
-    await user.click(screen.getByTestId('survey-finding-response-1'));
     expect(
       screen.getByTestId(`survey-finding-excerpt-${refetchIds.retainedExcerpt}`),
-    ).toBeInTheDocument();
-    await user.click(screen.getByTestId(`survey-finding-excerpt-${refetchIds.retainedExcerpt}`));
+    ).toBeChecked();
     await user.click(screen.getByTestId('survey-create-finding-submit'));
     await waitFor(() => expect(apiClient).toHaveBeenCalledWith(...request));
+    // Same body after the reorder, so the retry carries the same key.
+    expect((apiClient.mock.calls[0]?.[2] as { idempotencyKey?: string } | undefined)?.idempotencyKey).toBe(firstKey);
   });
 
   it('shows a loading affordance while creating a Finding', async () => {
