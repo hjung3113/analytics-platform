@@ -25,6 +25,7 @@
         "$TURBO_ROOT$/apps/feature-screens/eslint.config.js",
         "$TURBO_ROOT$/components.json",
         "$TURBO_ROOT$/apps/platform-web/src/**/*.css",
+        "$TURBO_ROOT$/apps/feature-screens/*.css",
         "$TURBO_ROOT$/packages/**/*.css",
         "$TURBO_ROOT$/menus/**/*.css",
         "$TURBO_ROOT$/platform/**/*.css",
