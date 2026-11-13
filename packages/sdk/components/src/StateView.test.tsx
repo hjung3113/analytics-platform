@@ -10,6 +10,11 @@ import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
 
 afterEach(cleanup);
 
+it.each([false, true])('keeps Korean error-card advice together (compact=%s)', compact => {
+  render(<I18nProvider><StateMessage tone="danger" compact={compact} icon={null} title="Error" body="Correlation ID를 전달하세요" /></I18nProvider>);
+  expect(screen.getByText('Correlation ID를 전달하세요')).toHaveClass('break-keep');
+});
+
 it.each([false, true])('danger card limits colour to icon/title and borders the soft surface (compact=%s)', compact => {
   render(<I18nProvider><StateMessage tone="danger" compact={compact} icon={<span>icon</span>} title="Error title" body="Recovery advice" correlationId="trace-1945" detail="Server detail" /></I18nProvider>);
   const alert = screen.getByRole('alert');

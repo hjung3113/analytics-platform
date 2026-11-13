@@ -69,6 +69,15 @@ function width(value: number) { act(() => { barWidth = value; resize?.(); }); }
 const inlineKeys = () => Array.from(bar().querySelectorAll('[data-context-key]'), el => el.getAttribute('data-context-key'));
 
 describe('Global Context priority overflow (#56)', () => {
+  it('uses badge typography for capability tags', () => {
+    mount();
+    const tags = within(bar()).getAllByText('참조만', { exact: true });
+    for (const tag of tags) {
+      expect(tag).toHaveClass('t-badge');
+      expect(tag).not.toHaveClass('text-caption', 'font-semibold');
+    }
+  });
+
   it('keeps every control inline at wide widths and observes the bar, not the viewport', async () => {
     mount('&lotIds=L1&ppid=P1&recipeIds=R1&metricId=M1&metricVersion=1');
     expect(observed).toBe(bar());
