@@ -39,7 +39,7 @@ interface MultiComboboxBaseProps {
   disabled?: boolean;
   id?: string;
   className?: string;
-  /** `compact` is the 32px toolbar height (the same option `SelectTrigger` has); the default is unchanged. */
+  /** `compact` is the 32px toolbar height (the same option `SelectTrigger` has), selected chips included: they shrink to 20px so a one-line selection still fits. The default is unchanged. */
   density?: 'default' | 'compact';
   'aria-invalid'?: React.AriaAttributes['aria-invalid'];
   'aria-describedby'?: string;
@@ -132,13 +132,13 @@ export function MultiCombobox({
       <PopoverAnchor asChild>
         <div className={cn('flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-border-control bg-surface-field px-3 py-2 text-sm text-text-primary', density === 'compact' && 'min-h-8 px-2 py-1', className)}>
           {values.slice(0, Math.max(0, maxVisibleChips)).map(value => (
-            <Button key={value} type="button" variant="secondary" size="toolbar" disabled={disabled}
+            <Button key={value} type="button" variant="secondary" size="toolbar" disabled={disabled} className={density === 'compact' ? 'h-5 px-1.5 text-xs' : undefined}
               aria-label={removeLabel(valueLabel(value))} onClick={() => { remove(value); triggerRef.current?.focus(); }}>
               <span className="max-w-28 truncate">{valueLabel(value)}</span><X className="size-3" aria-hidden="true" />
             </Button>
           ))}
           {values.length > Math.max(0, maxVisibleChips) && (
-            <Button type="button" variant="ghost" size="toolbar" disabled={disabled}
+            <Button type="button" variant="ghost" size="toolbar" disabled={disabled} className={density === 'compact' ? 'h-5 px-1.5 text-xs' : undefined}
               aria-label={selectedSummaryLabel(values.length)} aria-haspopup="dialog" aria-controls={open && !disabled ? popupId : undefined} aria-expanded={open && !disabled}
               onClick={() => { setSelectedView(true); setOpen(true); }}>+{values.length - Math.max(0, maxVisibleChips)}</Button>
           )}

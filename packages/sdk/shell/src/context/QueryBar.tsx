@@ -245,7 +245,9 @@ function SetField({ name, values, onChange, invalid, reasonId, request, ...props
   const ko = lang === 'ko';
   return <div className="grid w-56 min-w-0 max-w-full gap-1 text-xs text-text-secondary">
     <span>{name}</span>
-    <MultiCombobox {...props} density="compact" label={name} clearAction={values === null ? undefined : { label: ko ? `${name} 전체로 되돌리기` : `Reset ${name} to all`, onClear: () => onChange(null) }} values={values ?? []} onValuesChange={onChange} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} listboxLabel={name} emptyText={ko ? '후보 없음' : 'No candidates'} placeholder={values === null ? (ko ? '전체' : 'All') : values.length === 0 ? (ko ? '명시적 빈 선택' : 'Explicit empty selection') : undefined} selectedSummaryLabel={count => ko ? `선택한 항목 ${count}개` : `${count} selected items`} moreLabel={ko ? '더 보기' : 'Load more'} clearAllLabel={ko ? '선택 모두 비우기' : 'Clear selection'} removeLabel={value => `${t('clear')} ${value}`} loadingText={ko ? '후보 확인 중' : 'Loading candidates'} retryLabel={t('retry')} />
+    <div className="rounded-md bg-surface-card">
+      <MultiCombobox {...props} density="compact" label={name} clearAction={values === null ? undefined : { label: ko ? `${name} 전체로 되돌리기` : `Reset ${name} to all`, onClear: () => onChange(null) }} values={values ?? []} onValuesChange={onChange} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} listboxLabel={name} emptyText={ko ? '후보 없음' : 'No candidates'} placeholder={values === null ? (ko ? '전체' : 'All') : values.length === 0 ? (ko ? '명시적 빈 선택' : 'Explicit empty selection') : undefined} selectedSummaryLabel={count => ko ? `선택한 항목 ${count}개` : `${count} selected items`} moreLabel={ko ? '더 보기' : 'Load more'} clearAllLabel={ko ? '선택 모두 비우기' : 'Clear selection'} removeLabel={value => `${t('clear')} ${value}`} loadingText={ko ? '후보 확인 중' : 'Loading candidates'} retryLabel={t('retry')} />
+    </div>
     {request && <div className="flex flex-wrap items-center gap-1">{request}</div>}
   </div>;
 }
