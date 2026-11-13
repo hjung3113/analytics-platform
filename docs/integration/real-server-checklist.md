@@ -104,6 +104,8 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 `SpaceDef.feedbackTracking: true`를 선언한 업무 시스템은 서버가 시작할 때 Managed System으로 자동 등록된다(「플랫폼」 시스템 포함, [ADR-0110](../adr/0110-platform-feature-roles-and-scope.md) 결정 5). 앱 Registry의 선언은 `apps/platform-web/platform-systems.json`(생성·커밋, `pnpm gen:platform-systems`; 낡으면 `platform-systems.test.ts`가 실패)에 담기고, 서버는 환경 변수 `PLATFORM_SYSTEMS_FILE`(선택)이 가리키는 그 파일을 읽는다. 백엔드 이미지는 파일을 `/app/platform-systems.json`에 넣고 변수의 기본값으로 쓴다. 파일이 없으면 「플랫폼」만 등록하고, 형식이 틀리면 오류 한 줄만 남기고 그 파일에서는 아무것도 등록하지 않는다(서버는 계속 뜬다). 사내 앱이 별도 이미지를 만들면 같은 모양의 파일을 넣고 이 변수로 가리킨다. 부트스트랩 전에 먼저 뜬 백엔드는 `system` Actor가 없어 건너뛰므로 `bootstrap` 뒤에 백엔드를 한 번 재시작한다([운영 절차](../../ops/platform-api/docs/release/oidc-and-images.md#production-stack)). 동작 세부는 [core API](../architecture/platform-api/api/core.md#registry-owned-managed-systems-1289-node-i)가 갖는다.
 
+운영 스택에서 `MENU_*`(선언 묶음·스냅샷·신원 키 마운트)와 미리 빌드한 web `dist`로 edge 이미지를 만드는 절차는 [run-guide «메뉴 조립 연결»](../../ops/platform-api/docs/release/run-guide.md#메뉴-조립-연결-선택-1881)이 갖는다(#1881).
+
 ### 서버 선언 등록부 (platform-api)
 
 platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu-dispatch`의 선언 등록부 하나로 판정한다([아키텍처 02](../../apps/platform-api/docs/02-domain-module-boundaries.md) Menu Dispatch). 업무 모듈이 엔드포인트·동작 선언(`spec` + `authorize`·`validate`·`handle`, 동작은 `currentVersion`)을 `buildServer({ menuDispatch })`로 기여하고, 엔진은 이 문서의 판정 순서와 아래 등록 검증만 맡는다. 쓰기와 감사는 선언의 핸들러가 같은 트랜잭션에서 한다. 라우트는 `POST /api/v1/menu-query`·`POST /api/v1/menu-action`이고 멱등 키·버전은 본문 값으로 판정한다(어댑터가 같은 값을 `Idempotency-Key`·`If-Match`로도 보낸다). 쓰기는 공지 쓰기(notice)와 같은 CSRF 검사를 세션 확인 뒤에 한다.

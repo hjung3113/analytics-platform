@@ -123,6 +123,27 @@ Admin이 되어도 **Scope가 필요한 분석 메뉴는 열리지 않습니다.
 - 프로젝트 이름을 바꿔도 볼륨 이름은 따로 정해져 있습니다. `RELEASE_POSTGRES_VOLUME`·`RELEASE_MINIO_VOLUME`의 기본값이 옛 설치(`feedbackops-release-1060_…`)를 가리키므로, 연습용으로 띄웠다가 `down -v` 하면 **같은 이름의 기존 데이터 볼륨이 지워집니다.** 연습 전에 두 변수를 다른 이름으로 지정하세요. 자세한 것은 oidc-and-images.md의 「Existing installs: data volumes」입니다.
 - `.env.production`과 `docker compose config` 출력을 티켓이나 로그에 붙이지 않습니다.
 
+## 메뉴 조립 연결 (선택, #1881)
+
+기본 비활성입니다. 저장소 밖에서 만든 메뉴 조립(선언 묶음·스냅샷·데이터 서버 연결)을 운영 스택에 붙입니다. 운영 compose 원본이 이미 `MENU_*`를 비어 있는 기본값으로 backend에 넘기고 읽기 전용 마운트 둘을 갖고 있으므로, `.env.production`만 채우면 됩니다. `upgrade.sh`·백업 스크립트는 compose 파일 하나만 읽기 때문에 override 파일 대신 원본에 둔 것입니다.
+
+1. 호스트에 디렉터리 둘을 만듭니다. 선언 묶음(`menu-declarations.json`), 앱 빌드가 쓴 `menu-declarations.snapshot.json`, 교체할 `platform-systems.json`(선택)은 `MENU_ASSEMBLY_DIR`에, 전달기 신원 키는 `MENU_KEY_DIR`에 둡니다. 키 파일은 모드 0600입니다.
+2. `.env.production`에 [`.env.production.example`](../../.env.production.example)의 `MENU_*` 항목을 채웁니다. 파일 경로는 컨테이너 안 경로입니다(`/menu-assembly/…`, `/menu-identity/…`). 교체 업무 시스템 파일은 `PLATFORM_SYSTEMS_FILE=/menu-assembly/platform-systems.json`.
+3. `scripts/release/production-preflight.sh .env.production`이 묶음·스냅샷·키 파일이 호스트에 있고 읽히는지, 키가 world-readable이 아닌지, 키 id가 있는지 봅니다. 없으면 실패합니다. 서버는 묶음이 있는데 키 파일이 없으면 기동하지 않습니다(fail closed).
+4. `docker compose --env-file .env.production -f docker-compose.production.yml up -d`(또는 `restart backend`).
+
+`MENU_DECLARATIONS_FILE`을 비우면 위 검사와 마운트 내용은 모두 꺼지고 배포는 이전과 같습니다. `docker compose config`에는 키 경로·URL이 나오므로 [주의](#주의)대로 붙이지 않습니다.
+
+### 이미 빌드한 web dist로 edge 이미지 만들기
+
+저장소 밖 조립은 `vite build --mode real`로 만든 `dist/`(그 안에 `menu-declarations.snapshot.json`)를 갖습니다. 같은 커밋의 이 저장소에서 한 명령으로 같은 `apps/platform-web/Dockerfile`·nginx edge 설정에 얹습니다.
+
+```sh
+bash scripts/release/build-web-image.sh --dist /path/to/dist --tag <tag>   # platform-release-web:<tag>
+```
+
+`--tag`를 생략하면 `:local`입니다(저장소 안 빌드와 같은 태그). `dist/index.html`이 없으면 빌드 전에 멈춥니다. 이어서 backend·migrate 이미지를 같은 `<tag>`로 준비하고 `BACKUP_ROOT=… bash scripts/release/upgrade.sh <tag>`를 실행하면 세 이미지가 함께 `:local`로 올라갑니다. 저장소 안 빌드 경로(인자 없음)는 바뀌지 않았습니다.
+
 ## 원문 창 Source 연결 (선택, #1817)
 
 기본 비활성입니다. [서버 Source 설정](../../../../apps/platform-api/README.md#optional-source-window-provider-1817)의 세 환경 변수와 grant 파일을 준비합니다. 환경 변수의 경로는 backend 컨테이너 안의 경로입니다. 운영 compose 원본을 유지하고 배포별 override의 backend `environment`에 세 변수를 명시하며, Source 루트와 grant 파일의 부모 디렉터리를 읽기 전용으로 마운트합니다. 부모 디렉터리를 마운트해야 호스트의 grant 파일 원자 교체가 컨테이너에 반영됩니다. Linux `/proc/self/fd` 접근이 필요합니다.

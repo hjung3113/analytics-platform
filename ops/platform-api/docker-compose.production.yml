@@ -248,6 +248,21 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      # Out-of-repo menu assembly (#1881, run-guide.md «메뉴 조립 연결»). All empty/default = off: the config treats an
+      # empty value as unset, and the two timeouts keep the config defaults. The file paths are container paths under
+      # the read-only mounts below.
+      MENU_DECLARATIONS_FILE: ${MENU_DECLARATIONS_FILE:-}
+      MENU_DECLARATIONS_SNAPSHOT_FILE: ${MENU_DECLARATIONS_SNAPSHOT_FILE:-}
+      MENU_UPSTREAM_BASE_URL: ${MENU_UPSTREAM_BASE_URL:-}
+      MENU_IDENTITY_KEY_FILE: ${MENU_IDENTITY_KEY_FILE:-}
+      MENU_IDENTITY_KEY_ID: ${MENU_IDENTITY_KEY_ID:-}
+      MENU_SCOPE_GRANT_SERVICE_URL: ${MENU_SCOPE_GRANT_SERVICE_URL:-}
+      MENU_RESOLVER_TIMEOUT_MS: ${MENU_RESOLVER_TIMEOUT_MS:-3000}
+      MENU_UPSTREAM_TIMEOUT_MS: ${MENU_UPSTREAM_TIMEOUT_MS:-27000}
+    volumes:
+      # Defaults point at the tracked empty ./menu-assembly, so an unset deployment mounts nothing of its own.
+      - ${MENU_ASSEMBLY_DIR:-./menu-assembly}:/menu-assembly:ro
+      - ${MENU_KEY_DIR:-./menu-assembly}:/menu-identity:ro
     depends_on:
       postgres:
         condition: service_healthy
