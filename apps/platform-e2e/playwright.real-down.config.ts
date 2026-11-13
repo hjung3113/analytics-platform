@@ -11,6 +11,8 @@ export default defineConfig({
   testMatch: '**/backend-down.real.spec.ts',
   workers: 1,
   retries: 0,
+  // A leftover `.only` would make the required E2E check pass on one test; CI refuses it, local runs still allow it.
+  forbidOnly: !!process.env.CI,
   outputDir: './test-results-real/down',
   reporter: [['list'], ['./contract-reporter.ts', { outputDir: './contract-report-real/down' }], ['html', { outputFolder: './playwright-report-real/down', open: 'never' }]],
   use: {

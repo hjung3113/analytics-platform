@@ -22,6 +22,8 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 15_000 },
   retries: 0,
+  // A leftover `.only` would make the required E2E check pass on one test; CI refuses it, local runs still allow it.
+  forbidOnly: !!process.env.CI,
   outputDir: './test-results/kit',
   reporter: [['list'], ['html', { outputFolder: './playwright-report/kit', open: 'never' }]],
   use: {
