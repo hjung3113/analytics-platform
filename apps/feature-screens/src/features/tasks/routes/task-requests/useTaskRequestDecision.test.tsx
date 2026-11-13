@@ -1,3 +1,4 @@
+import { ApiError } from '@/lib/api/types';
 import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
 import { registerDefaultHost } from '@/lib/host/host-seam';
 import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
@@ -57,8 +58,7 @@ const taskRequest: TaskRequestDto = {
   source: undefined,
 };
 
-function renderDecision() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderDecision(queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return renderHook(
     () =>
       useTaskRequestDecision({
@@ -168,5 +168,58 @@ describe('useTaskRequestDecision success toast', () => {
     rerender({ item: { ...taskRequest } });
     expect(result.current.dialog).toBeNull();
     expect(result.current.isSubmitting).toBe(false);
+  });
+
+  describe('Idempotency-Key and error handling (#1888)', () => {
+    it('resends the SAME key after a network failure and mints a new one for a new dialog', async () => {
+      api.approveTaskRequest
+        .mockReset()
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValue({ ...taskRequest, status: 'approved' });
+      const { result } = renderDecision();
+      act(() => result.current.approve());
+      submitDecision(result.current);
+      await waitFor(() => expect(result.current.error).not.toBeNull());
+      expect(result.current.dialog?.reasonInvalid).toBe(false);
+      submitDecision(result.current);
+      await waitFor(() => expect(result.current.result).not.toBeNull());
+
+      const [first, second] = api.approveTaskRequest.mock.calls;
+      expect(first?.[2]).toBe(second?.[2]);
+
+      act(() => result.current.approve());
+      submitDecision(result.current);
+      await waitFor(() => expect(api.approveTaskRequest).toHaveBeenCalledTimes(3));
+      expect(api.approveTaskRequest.mock.calls[2]?.[2]).not.toBe(first?.[2]);
+    });
+
+    it('refetches the list and the detail on 409 and does not flag the reason field', async () => {
+      api.approveTaskRequest
+        .mockReset()
+        .mockRejectedValue(new ApiError(409, { code: 'conflict.stale_write', message: 'x' }));
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const spy = vi.spyOn(queryClient, 'invalidateQueries');
+      const { result } = renderDecision(queryClient);
+      act(() => result.current.approve());
+      submitDecision(result.current);
+      await waitFor(() => expect(result.current.error).not.toBeNull());
+
+      const keys = spy.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey));
+      expect(keys).toContain(JSON.stringify(['task-requests']));
+      expect(keys).toContain(JSON.stringify(['task-request']));
+      expect(result.current.dialog?.reasonInvalid).toBe(false);
+    });
+
+    it('flags the reason field for a validation error only', async () => {
+      api.rejectTaskRequest
+        .mockReset()
+        .mockRejectedValue(new ApiError(422, { code: 'validation.failed', message: 'x' }));
+      const { result } = renderDecision();
+      act(() => result.current.reject());
+      act(() => result.current.changeValue('사유'));
+      submitDecision(result.current);
+      await waitFor(() => expect(result.current.error).not.toBeNull());
+      expect(result.current.dialog?.reasonInvalid).toBe(true);
+    });
   });
 });

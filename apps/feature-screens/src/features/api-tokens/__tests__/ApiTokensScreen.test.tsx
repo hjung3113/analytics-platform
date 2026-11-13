@@ -22,6 +22,7 @@ let rows: ApiTokenItem[];
 let nextCursor: string | null;
 let issueError: unknown;
 let issueErrorStatus: number;
+let revokeFailure: { status: number; body: unknown } | undefined;
 let client: QueryClient;
 let calls: { path: string; method: string; body: unknown }[];
 const notices = vi.fn();
@@ -51,12 +52,13 @@ async function openIssue() {
 }
 beforeEach(() => {
   configureApiClient({ basePath: '/api/features' });
-  rows = [row()]; nextCursor = null; issueError = undefined; issueErrorStatus = 422; calls = []; notices.mockClear();
+  rows = [row()]; nextCursor = null; issueError = undefined; issueErrorStatus = 422; revokeFailure = undefined; calls = []; notices.mockClear();
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input); const method = init?.method ?? 'GET';
     const body: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
     calls.push({ path, method, body });
     if (path.includes('/actors?')) return json({ actors: [{ id: ACTOR, display_name: '검증 워커', email: 'system@example.test', role_level: 'user', actor_type: 'system' }] });
+    if (method === 'POST' && path.endsWith('/revoke') && revokeFailure) return json(revokeFailure.body, revokeFailure.status);
     if (method === 'POST' && path.endsWith('/revoke')) { rows = rows.map(r => row({ ...r, revokedAt: '2026-11-07T00:00:00Z' })); return json({ item: rows[0] }); }
     if (method === 'POST') {
       if (issueError) return json(issueError, issueErrorStatus);
@@ -154,6 +156,18 @@ describe('API token management', () => {
     expect(screen.getByText('입력값이 올바르지 않습니다.')).toBeVisible();
     expect(screen.getByLabelText('토큰 이름')).toHaveValue('새 토큰');
   });
+  it.each([
+    ['in_the_past', 'expiresAt', '오늘 이후의 만료 날짜를 선택하세요.'],
+    ['session_only', 'scopes.0', '로그인 세션으로만 쓸 수 있는 권한이라 토큰에 담을 수 없습니다.'],
+    ['brand_new_code', 'name', '입력값을 확인하세요.'],
+    ['brand_new_code', 'somethingElse', '입력값을 확인하세요.'],
+  ])('maps server field code %s at %s to copy, never the raw code or path', async (code, path, message) => {
+    issueError = { code: 'validation.failed', message: 'invalid', detail: { fields: [{ path: path.split('.').map(p => (/^\d+$/.test(p) ? Number(p) : p)), code }] } };
+    mount(); const user = await openIssue();
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '토큰 발급' }));
+    expect((await screen.findAllByText(message)).length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain(code === 'brand_new_code' ? code : `${path}:`);
+  });
   it('copies only on explicit action and handles an unavailable clipboard', async () => {
     mount(); const user = await openIssue();
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '토큰 발급' }));
@@ -185,6 +199,20 @@ describe('API token management', () => {
     await user.click(screen.getByRole('button', { name: '토큰 폐기' }));
     expect(await screen.findByText('폐기됨')).toBeVisible();
     expect(calls.some(c => c.path.endsWith(`/${ID}/revoke`))).toBe(true);
+  });
+  it.each([
+    [404, 'not_found.record'],
+    [409, 'conflict.permission_not_active'],
+  ])('re-reads the list when revoke fails with %s (already revoked)', async (status, code) => {
+    mount(); await screen.findByRole('table'); const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /분석 스크립트 폐기/ }));
+    revokeFailure = { status, body: { code, message: 'x' } };
+    rows = [row({ revokedAt: '2026-11-07T00:00:00Z' })];
+    const listReads = () => calls.filter(c => c.method === 'GET' && !c.path.includes('/actors?')).length;
+    const before = listReads();
+    await user.click(screen.getByRole('button', { name: '토큰 폐기' }));
+    expect(await screen.findByRole('alert')).toBeVisible();
+    await waitFor(() => expect(listReads()).toBeGreaterThan(before));
   });
   it('loads system actors, issues for the selected actor, filters no-expiry and traverses keyset pages', async () => {
     nextCursor = 'opaque-next'; mount(true); const user = await openIssue();

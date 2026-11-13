@@ -1,4 +1,5 @@
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { fetchPermissionCheckViaClient } from '@/lib/api/permission-reads';
 import {
   approveTaskRequest,
@@ -65,10 +66,13 @@ export function useTaskRequestDecision({
   const [isDecisionSubmitting, setIsDecisionSubmitting] = React.useState(false);
   const decisionSubmittingRef = React.useRef(false);
   const lastItemRef = React.useRef(item);
+  // One Idempotency-Key per open dialog until success, so a retry after a lost response replays the same request.
+  const keyRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (lastItemRef.current === item) return;
     lastItemRef.current = item;
+    keyRef.current = null;
     setDecisionDialog(null);
     setIsDecisionSubmitting(false);
     decisionSubmittingRef.current = false;
@@ -95,7 +99,7 @@ export function useTaskRequestDecision({
     { action: 'approve' | 'reject' | 'request-more-evidence'; reason?: string; note?: string }
   >({
     mutationFn: async (vars) => {
-      const key = crypto.randomUUID();
+      const key = (keyRef.current ??= mintIdempotencyKey());
       if (vars.action === 'approve') {
         return approveTaskRequest(item.id, vars.reason ? { reason: vars.reason } : {}, key);
       }
@@ -107,6 +111,7 @@ export function useTaskRequestDecision({
     onSuccess: (_result, variables) => {
       decisionSubmittingRef.current = false;
       setIsDecisionSubmitting(false);
+      keyRef.current = null;
       setDecisionDialog(null);
       invalidateNavCounts(queryClient);
       void queryClient.invalidateQueries({ queryKey: ['task-requests'] });
@@ -136,8 +141,15 @@ export function useTaskRequestDecision({
       // #561: computed outside the updater; React runs updaters during render, so a throw
       // there (a non-ApiError has no envelope) would take down the whole screen.
       const message = mapUnknownError(err).message;
+      // Only a validation rejection points at the reason field; 409/404/429/network do not.
+      const reasonInvalid =
+        err.code === 'validation.failed' || err.code === 'validation.sensitive_reason_required';
+      if (err.status === 409 || err.status === 404) {
+        void queryClient.invalidateQueries({ queryKey: ['task-requests'] });
+        void queryClient.invalidateQueries({ queryKey: ['task-request'] });
+      }
       setDecisionDialog((current) => {
-        if (current) return { ...current, error: message, reasonInvalid: err.status !== 429 };
+        if (current) return { ...current, error: message, reasonInvalid };
         notifyError(message);
         return current;
       });
@@ -149,10 +161,12 @@ export function useTaskRequestDecision({
       notifyError('본인 승인에는 범위가 지정된 권한이 필요합니다.');
       return;
     }
+    keyRef.current = mintIdempotencyKey();
     setDecisionDialog({ requestId: item.id, action: 'approve', value: '', error: null });
   }
 
   function requestEvidence(): void {
+    keyRef.current = mintIdempotencyKey();
     setDecisionDialog({
       requestId: item.id,
       action: 'request-more-evidence',
@@ -162,6 +176,7 @@ export function useTaskRequestDecision({
   }
 
   function reject(): void {
+    keyRef.current = mintIdempotencyKey();
     setDecisionDialog({ requestId: item.id, action: 'reject', value: '', error: null });
   }
 
@@ -197,6 +212,8 @@ export function useTaskRequestDecision({
   }
 
   function changeValue(value: string): void {
+    // A different body under the same key would be rejected as key reuse.
+    keyRef.current = mintIdempotencyKey();
     setDecisionDialog((current) => (current ? { ...current, value, error: null } : current));
   }
 

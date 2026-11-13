@@ -23,8 +23,10 @@ function validationFields(error: unknown): Field[] {
     if (!field || typeof field !== 'object') return [];
     const value = field as Record<string, unknown>;
     const path = Array.isArray(value.path) ? value.path.join('.') : String(value.path ?? '');
-    return [{ path, message: typeof value.message === 'string' ? value.message : `${path}: ${String(value.code ?? '입력값 확인')}` }];
-  });
+    // A server code maps to existing copy; an unknown code is never printed raw.
+    const mapped = typeof value.code === 'string' ? COPY.fieldCodes[value.code] : undefined;
+    return [{ path, message: typeof value.message === 'string' ? value.message : (mapped ?? COPY.fieldInvalid) }];
+  }).filter((field, index, all) => all.findIndex(other => other.path === field.path && other.message === field.message) === index);
 }
 
 export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIssued, returnFocusRef }: {
@@ -111,7 +113,7 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
     </fieldset>
     <p className="text-xs text-text-secondary">{service ? COPY.serviceIntersection : COPY.personalIntersection}</p>
     {error ? <p role="alert" className="text-sm text-text-danger-label">{error}</p> : null}
-    {fields.filter(field => !['name', 'scopes', 'actorId', 'expiresAt'].some(path => field.path === path || field.path.startsWith(`${path}.`))).map(field => <p role="alert" key={`${field.path}-${field.message}`}>{field.path}: {field.message}</p>)}
+    {fields.filter(field => !['name', 'scopes', 'actorId', 'expiresAt'].some(path => field.path === path || field.path.startsWith(`${path}.`))).map(field => <p role="alert" key={`${field.path}-${field.message}`} className="text-xs text-text-danger-label">{field.message}</p>)}
 
   </form>;
   return <>{renderDrawer({ title: secret ? COPY.secretTitle : service ? COPY.serviceIssue : COPY.personalIssue, returnFocusRef, subtitle: secret ? COPY.secretSubtitle : service ? 'system Actor 귀속' : '내 계정에 귀속', body, footer: secret ? undefined : <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={pending} onClick={requestClose}>{COPY.cancel}</Button><Button type="submit" form={formId} variant="primary" disabled={pending || (service && !actors.isSuccess)}>{pending ? '발급 중…' : COPY.issue}</Button></div>, requestClose })}

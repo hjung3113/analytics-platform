@@ -1,3 +1,4 @@
+import { ApiError } from '@/lib/api/types';
 import { TASK_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import type { HostSeam } from '@/lib/host/host-seam';
 import { HostSeamProvider } from '@/lib/host/host-seam';
@@ -313,5 +314,23 @@ describe('Task detail parts through the host seam', () => {
     expect(within(screen.getByTestId('body')).getAllByText('요약').length).toBeGreaterThan(0);
     expect(within(screen.getByTestId('body')).getAllByText(TASK_STATUS_LABELS[task.status]).length)
       .toBeGreaterThan(0);
+  });
+
+  it('shows a not-found state without a retry action on 404 (#1888)', async () => {
+    api.getTask.mockRejectedValue(new ApiError(404, { code: 'not_found.record', message: 'x' }));
+    const { seam } = makeSeam();
+    renderParts(seam);
+    await waitFor(() => expect(screen.getByTestId('view').textContent).toBe('not-found'));
+    const body = within(screen.getByTestId('body'));
+    expect(body.getByText('Task를 찾을 수 없습니다.')).toBeInTheDocument();
+    expect(body.queryByRole('button', { name: '다시 시도' })).toBeNull();
+  });
+
+  it('keeps the retry state for a non-404 failure', async () => {
+    api.getTask.mockRejectedValue(new ApiError(500, { code: 'internal.unexpected', message: 'x' }));
+    const { seam } = makeSeam();
+    renderParts(seam);
+    await waitFor(() => expect(screen.getByTestId('view').textContent).toBe('error'));
+    expect(within(screen.getByTestId('body')).getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
   });
 });

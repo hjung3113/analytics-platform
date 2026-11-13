@@ -622,6 +622,36 @@ describe.skipIf(!runIntegration)('GET /vocs (#15 C4 — list)', () => {
     }
   });
 
+  it('#1888: filter.owner=assigned,unassigned returns both (no owner filter); a single value still narrows', async () => {
+    const msId = await insertMsDirectly(
+      dbHandle,
+      WORKSPACE_ID,
+      `${uid(SLUG_PREFIX)}-owner-pair`,
+      'Owner Pair MS',
+    );
+    const assigned = await insertVocDirectly(dbHandle, WORKSPACE_ID, msId, reporterId, 'Owner A', {
+      severity: 'high',
+      ownerUserId: adminActorId,
+    });
+    const unassigned = await insertVocDirectly(dbHandle, WORKSPACE_ID, msId, reporterId, 'Owner U', {
+      severity: 'high',
+    });
+    const ids = async (owner: string): Promise<string[]> => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/vocs?view=inbox&managed_system_id=${msId}&filter.owner=${owner}`,
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      });
+      expect(res.statusCode).toBe(200);
+      return res.json<{ items: { id: string }[] }>().items.map((i) => i.id);
+    };
+    const both = await ids('assigned,unassigned');
+    expect(both).toEqual(expect.arrayContaining([assigned.id, unassigned.id]));
+    const only = await ids('assigned');
+    expect(only).toContain(assigned.id);
+    expect(only).not.toContain(unassigned.id);
+  });
+
   // ── AC8: view=triage requires voc.triage capability ──────────────────────
 
   it('AC8: developer with voc.read but no voc.triage → 403 on view=triage', async () => {

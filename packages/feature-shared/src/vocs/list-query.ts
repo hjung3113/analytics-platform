@@ -68,7 +68,14 @@ export const listVocsQuerySchema = z.object({
   // Dot-key filter fields — Fastify query params are flat strings.
   'filter.severity': commaListOf(severityEnumSchema).optional(),
   'filter.reporter_facing_status': commaListOf(reporterFacingStatusEnumSchema).optional(),
-  'filter.owner': z.enum(['assigned', 'unassigned']).optional(),
+  // Comma list like severity (#1888): the inbox owner chip sends `assigned,unassigned`
+  // when both are chosen. Both values (or none) mean no filter; one value keeps its meaning.
+  'filter.owner': commaListOf(z.enum(['assigned', 'unassigned']))
+    .transform((values): 'assigned' | 'unassigned' | undefined => {
+      const distinct = [...new Set(values)];
+      return distinct.length === 1 ? distinct[0] : undefined;
+    })
+    .optional(),
   'filter.analytics_area': z.union([z.string().uuid(), z.literal('unset')]).optional(),
   // Exact match on the client error id (#606). Applied inside the list predicate after the read-scope clause.
   'filter.trace_id': vocTraceIdSchema.optional(),
