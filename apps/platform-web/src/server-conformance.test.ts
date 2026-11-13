@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ACTORS, createLocalSavedViewStore, createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
-import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, stageValidationIssue, stageOnboardingWindow, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS } from './dev/mock-assembly';
+import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, stageValidationIssue, stageOnboardingWindow, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MOCK_WRITE_SAMPLES } from './dev/mock-assembly';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
 import { GROUPS, MENUS, PERMISSIONS, registry } from './menus';
 import { defineAction, emptyGlobal, menuPermission, menuPermissions, spaceId, type Permission } from '@ap/contracts';
@@ -396,11 +396,19 @@ const writeSamples: Record<string, Record<string, () => Record<string, unknown>>
     reviewLabelAdd: () => ({ suiteRunId: '14810000-0000-4000-8000-000000000401', datasetRevisionId: '14810000-0000-4000-8000-000000000101', ruleId: 'R-01', label: 'needs_review', reason: '적합성 검토' }),
   },
 };
-const actionCases = MOCK_ACTIONS.map(action => {
-  const dot = action.spec.id.indexOf('.');
-  const sample = writeSamples[action.spec.id.slice(0, dot)]![action.spec.id.slice(dot + 1)]!;
+// A menu's `./mock` exports its write samples keyed by the full action id (`MOCK_WRITE_SAMPLES`, generator-wired);
+// the hand tables above cover the menus that predate it (key: group prefix → action name).
+const menuSamples: Record<string, () => Record<string, unknown>> = Object.assign({}, ...MOCK_WRITE_SAMPLES);
+const sampleOf = (actionId: string): (() => Record<string, unknown>) | undefined => {
+  const dot = actionId.indexOf('.');
+  return menuSamples[actionId] ?? writeSamples[actionId.slice(0, dot)]?.[actionId.slice(dot + 1)];
+};
+// An action without a sample is reported by name in the harness test below instead of crashing the suite at load.
+const actionCases = MOCK_ACTIONS.flatMap(action => {
+  const sample = sampleOf(action.spec.id);
+  if (sample === undefined) return [];
   const currentVersion = async () => action.version!({ input: sample(), actor: 'admin', scopeId: null }) ?? '';
-  return { spec: action.spec, get input() { return sample(); }, ...(action.spec.concurrency === 'version' ? { currentVersion } : {}) };
+  return [{ spec: action.spec, get input() { return sample(); }, ...(action.spec.concurrency === 'version' ? { currentVersion } : {}) }];
 });
 const GRANTED: RoleId = 'engineer';
 // Only admin holds `knowledge:catalog-manage`, `knowledge:item-publish` and `improvement:manage` in the mock (the
@@ -427,6 +435,11 @@ const secondGroup = grantedEquipment.find(e => e.stgroup !== conditionSample.stg
 describe('conformance harness covers what the app registers', () => {
   it('gives a sample request to every endpoint that declares params', () => {
     const missing = endpoints.filter(({ spec }) => Object.keys(spec.paramKeys).length > 0 && !(spec.id in PARAMS)).map(({ spec }) => spec.id);
+    expect(missing).toEqual([]);
+  });
+
+  it('gives a write sample to every action the app registers', () => {
+    const missing = MOCK_ACTIONS.filter(action => sampleOf(action.spec.id) === undefined).map(action => action.spec.id);
     expect(missing).toEqual([]);
   });
 });

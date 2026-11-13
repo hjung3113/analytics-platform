@@ -6,7 +6,7 @@ import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import {
-  depLine, importLine, menuPackage, mockImportLine, mockSpreadLine, pageImportedIdentifiers, renderFiles,
+  depLine, importLine, menuPackage, mockActionImportLine, mockActionSpreadLine, mockImportLine, mockSampleEntryLine, mockSpreadLine, pageImportedIdentifiers, renderFiles,
   spreadLine, styleLine, PAGE_TYPES, type MenuInputs, type PageType,
 } from './templates.ts';
 import { writeAppFile } from './app-write.ts';
@@ -45,6 +45,12 @@ export const MOCK_IMPORTS_START = '// <gen:menu-mock-imports>';
 export const MOCK_IMPORTS_END = '// </gen:menu-mock-imports>';
 export const MOCK_SPREADS_START = '// <gen:menu-mock-spreads>';
 export const MOCK_SPREADS_END = '// </gen:menu-mock-spreads>';
+export const MOCK_ACTION_IMPORTS_START = '// <gen:menu-mock-action-imports>';
+export const MOCK_ACTION_IMPORTS_END = '// </gen:menu-mock-action-imports>';
+export const MOCK_ACTION_SPREADS_START = '// <gen:menu-mock-action-spreads>';
+export const MOCK_ACTION_SPREADS_END = '// </gen:menu-mock-action-spreads>';
+export const MOCK_SAMPLE_ENTRIES_START = '// <gen:menu-mock-sample-entries>';
+export const MOCK_SAMPLE_ENTRIES_END = '// </gen:menu-mock-sample-entries>';
 export const STYLES_START = '/* <gen:menu-styles> */';
 export const STYLES_END = '/* </gen:menu-styles> */';
 
@@ -254,12 +260,15 @@ function assertMarkerInsideArray(menusText: string, arrayName: string, marker: s
 
 /** The mock assembly's one endpoint list (#153): `export const MOCK_ENDPOINTS[: T] = [ ... ];` at top level. */
 export const MOCK_ENDPOINTS = 'MOCK_ENDPOINTS';
+/** The mock assembly's action list and write-sample list (#1904), same declaration form. */
+export const MOCK_ACTIONS = 'MOCK_ACTIONS';
+export const MOCK_WRITE_SAMPLES = 'MOCK_WRITE_SAMPLES';
 
-function mockEndpointsArray(sf: ts.SourceFile): ts.ArrayLiteralExpression | undefined {
+function mockAssemblyArray(sf: ts.SourceFile, name: string): ts.ArrayLiteralExpression | undefined {
   for (const stmt of sf.statements) {
     if (!ts.isVariableStatement(stmt)) continue;
     for (const d of stmt.declarationList.declarations) {
-      if (ts.isIdentifier(d.name) && d.name.text === MOCK_ENDPOINTS && d.initializer !== undefined && ts.isArrayLiteralExpression(d.initializer)) {
+      if (ts.isIdentifier(d.name) && d.name.text === name && d.initializer !== undefined && ts.isArrayLiteralExpression(d.initializer)) {
         return d.initializer;
       }
     }
@@ -267,14 +276,14 @@ function mockEndpointsArray(sf: ts.SourceFile): ts.ArrayLiteralExpression | unde
   return undefined;
 }
 
-/** F7: the marker comment must sit inside the MOCK_ENDPOINTS array literal. */
-function assertMarkerInsideEndpointsArray(mainText: string, marker: string): void {
+/** F7: the marker comment must sit inside the named mock-assembly array literal. */
+function assertMarkerInsideMockArray(mainText: string, arrayName: string, marker: string): void {
   const sf = ts.createSourceFile(MOCK_ASSEMBLY_TSX, mainText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const array = mockEndpointsArray(sf);
-  if (array === undefined) throw new GenMenuError(`${MOCK_ENDPOINTS} = [...] array literal not found in ${MOCK_ASSEMBLY_TSX}`);
+  const array = mockAssemblyArray(sf, arrayName);
+  if (array === undefined) throw new GenMenuError(`${arrayName} = [...] array literal not found in ${MOCK_ASSEMBLY_TSX}`);
   const at = standaloneMarkerPositions(mainText, marker)[0] ?? -1;
   if (array.getStart(sf) < at && at < array.getEnd()) return;
-  throw new GenMenuError(`marker '${marker}' is not inside the ${MOCK_ENDPOINTS} array in ${MOCK_ASSEMBLY_TSX}`);
+  throw new GenMenuError(`marker '${marker}' is not inside the ${arrayName} array in ${MOCK_ASSEMBLY_TSX}`);
 }
 
 /** F7: every marker appears exactly once, pairs are ordered, and each pair sits in its right context. */
@@ -286,6 +295,9 @@ export function checkAppMarkers(menusText: string, styleText: string, mainText: 
     [STYLES_START, STYLES_END, STYLE_CSS],
     [MOCK_IMPORTS_START, MOCK_IMPORTS_END, MOCK_ASSEMBLY_TSX],
     [MOCK_SPREADS_START, MOCK_SPREADS_END, MOCK_ASSEMBLY_TSX],
+    [MOCK_ACTION_IMPORTS_START, MOCK_ACTION_IMPORTS_END, MOCK_ASSEMBLY_TSX],
+    [MOCK_ACTION_SPREADS_START, MOCK_ACTION_SPREADS_END, MOCK_ASSEMBLY_TSX],
+    [MOCK_SAMPLE_ENTRIES_START, MOCK_SAMPLE_ENTRIES_END, MOCK_ASSEMBLY_TSX],
   ];
   for (const [start, end, file] of pairs) {
     const text = texts[file] as string;
@@ -305,8 +317,15 @@ export function checkAppMarkers(menusText: string, styleText: string, mainText: 
   assertMarkerInsideArray(menusText, 'MENUS', SPREADS_END);
   assertImportsOnly(menusText, IMPORT_START, IMPORT_END, MENUS_TS);
   assertImportsOnly(mainText, MOCK_IMPORTS_START, MOCK_IMPORTS_END, MOCK_ASSEMBLY_TSX);
-  assertMarkerInsideEndpointsArray(mainText, MOCK_SPREADS_START);
-  assertMarkerInsideEndpointsArray(mainText, MOCK_SPREADS_END);
+  assertImportsOnly(mainText, MOCK_ACTION_IMPORTS_START, MOCK_ACTION_IMPORTS_END, MOCK_ASSEMBLY_TSX);
+  for (const [array, start, end] of [
+    [MOCK_ENDPOINTS, MOCK_SPREADS_START, MOCK_SPREADS_END],
+    [MOCK_ACTIONS, MOCK_ACTION_SPREADS_START, MOCK_ACTION_SPREADS_END],
+    [MOCK_WRITE_SAMPLES, MOCK_SAMPLE_ENTRIES_START, MOCK_SAMPLE_ENTRIES_END],
+  ] as const) {
+    assertMarkerInsideMockArray(mainText, array, start);
+    assertMarkerInsideMockArray(mainText, array, end);
+  }
 }
 
 /**
@@ -406,11 +425,13 @@ function assertActiveWiring(menusEdit: string, binding: string, pkgName: string)
 }
 
 /** R3: the proposed mock-assembly.tsx must wire the mock binding actively, not just parse. */
-function assertActiveMockWiring(mainEdit: string, binding: string, pkgName: string): void {
+function assertActiveMockWiring(mainEdit: string, binding: string, pkgName: string, arrayName = MOCK_ENDPOINTS, spread = true): void {
   const sf = ts.createSourceFile(MOCK_ASSEMBLY_TSX, mainEdit, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let importActive = false;
-  const spreadActive = (mockEndpointsArray(sf)?.elements ?? []).some(
-    element => ts.isSpreadElement(element) && ts.isIdentifier(element.expression) && element.expression.text === binding,
+  const spreadActive = (mockAssemblyArray(sf, arrayName)?.elements ?? []).some(
+    element => spread
+      ? ts.isSpreadElement(element) && ts.isIdentifier(element.expression) && element.expression.text === binding
+      : ts.isIdentifier(element) && element.text === binding,
   );
   const walk = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text === pkgName) {
@@ -425,7 +446,7 @@ function assertActiveMockWiring(mainEdit: string, binding: string, pkgName: stri
   };
   walk(sf);
   if (!importActive) throw new GenMenuError(`proposed ${MOCK_ASSEMBLY_TSX} has no active import of '${binding}' from '${pkgName}' — refusing to write`);
-  if (!spreadActive) throw new GenMenuError(`proposed ${MOCK_ASSEMBLY_TSX} has no active spread of '${binding}' inside the ${MOCK_ENDPOINTS} array — refusing to write`);
+  if (!spreadActive) throw new GenMenuError(`proposed ${MOCK_ASSEMBLY_TSX} has no active spread of '${binding}' inside the ${arrayName} array — refusing to write`);
 }
 
 function insertAbove(text: string, marker: string, line: string): string {
@@ -659,8 +680,9 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   }
   // F5: the mock binding must not collide with any top-level declaration in the app's mock-assembly.tsx.
   const mockBinding = `${group}Mock`;
-  if (appTopLevelBindings(mainText, MOCK_ASSEMBLY_TSX, ts.ScriptKind.TSX).has(mockBinding)) {
-    throw new GenMenuError(`binding '${mockBinding}' is already imported or declared in ${MOCK_ASSEMBLY_TSX}`);
+  const mainBindings = appTopLevelBindings(mainText, MOCK_ASSEMBLY_TSX, ts.ScriptKind.TSX);
+  for (const name of [mockBinding, `${group}ActionsMock`, `${group}WriteSamples`]) {
+    if (mainBindings.has(name)) throw new GenMenuError(`binding '${name}' is already imported or declared in ${MOCK_ASSEMBLY_TSX}`);
   }
 
   const appPkgText = readText(root, APP_PKG);
@@ -682,9 +704,21 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   // R3: the wiring must be active code in the proposed AST, not commented-out text.
   assertActiveWiring(menusEdit, binding, menuPackage(folder));
   const mainEdit = insertAbove(
-    insertAbove(mainText, MOCK_IMPORTS_END, mockImportLine(inputs)),
-    MOCK_SPREADS_END,
-    mockSpreadLine(inputs),
+    insertAbove(
+      insertAbove(
+        insertAbove(
+          insertAbove(mainText, MOCK_IMPORTS_END, mockImportLine(inputs)),
+          MOCK_SPREADS_END,
+          mockSpreadLine(inputs),
+        ),
+        MOCK_ACTION_IMPORTS_END,
+        mockActionImportLine(inputs),
+      ),
+      MOCK_ACTION_SPREADS_END,
+      mockActionSpreadLine(inputs),
+    ),
+    MOCK_SAMPLE_ENTRIES_END,
+    mockSampleEntryLine(inputs),
   );
   // F7: the proposed mock-assembly.tsx must parse before anything is written.
   const mainParsed = ts.transpileModule(mainEdit, {
@@ -698,6 +732,8 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   }
   // R3: the mock wiring must be active code in the proposed AST, not commented-out text.
   assertActiveMockWiring(mainEdit, mockBinding, `${menuPackage(folder)}/mock`);
+  assertActiveMockWiring(mainEdit, `${group}ActionsMock`, `${menuPackage(folder)}/mock`, MOCK_ACTIONS);
+  assertActiveMockWiring(mainEdit, `${group}WriteSamples`, `${menuPackage(folder)}/mock`, MOCK_WRITE_SAMPLES, false);
   const stylesEdit = insertAbove(stylesText, STYLES_END, styleLine(inputs));
   const pkgEdit = insertDep(appPkgText, menuPackage(folder));
   // R4: the planned dependency block must stay valid JSON before anything is written.
@@ -773,13 +809,16 @@ export function applyGenerate(plan: GeneratePlan): void {
   throw original;
 }
 
-/** The six wiring lines, for stdout. */
+/** The wiring lines, for stdout. */
 export function editSummary(plan: GeneratePlan): string[] {
   return [
     `${MENUS_TS}: ${importLine(plan.inputs)}`,
     `${MENUS_TS}: ${spreadLine(plan.inputs)}`,
     `${MOCK_ASSEMBLY_TSX}: ${mockImportLine(plan.inputs)}`,
     `${MOCK_ASSEMBLY_TSX}: ${mockSpreadLine(plan.inputs)}`,
+    `${MOCK_ASSEMBLY_TSX}: ${mockActionImportLine(plan.inputs)}`,
+    `${MOCK_ASSEMBLY_TSX}: ${mockActionSpreadLine(plan.inputs)}`,
+    `${MOCK_ASSEMBLY_TSX}: ${mockSampleEntryLine(plan.inputs)}`,
     `${STYLE_CSS}: ${styleLine(plan.inputs)}`,
     `${APP_PKG}: ${depLine(plan.inputs)}`,
   ];

@@ -1,10 +1,11 @@
 import { locationPath, packageFolders, parseLocation } from './package-location.ts';
 import { existsSync, readFileSync, realpathSync, readdirSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { depLine, importLine, mockImportLine, mockSpreadLine, renderFiles, spreadLine, styleLine, type MenuInputs } from './templates.ts';
+import { depLine, importLine, mockActionImportLine, mockActionSpreadLine, mockImportLine, mockSampleEntryLine, mockSpreadLine, renderFiles, spreadLine, styleLine, type MenuInputs } from './templates.ts';
 import {
   APP_PKG, GROUP_RE, GenMenuError, MOCK_ASSEMBLY_TSX, MENUS_TS, STYLE_CSS,
-  IMPORT_END, IMPORT_START, MOCK_IMPORTS_END, MOCK_IMPORTS_START, MOCK_SPREADS_END, MOCK_SPREADS_START,
+  IMPORT_END, IMPORT_START, MOCK_ACTION_IMPORTS_END, MOCK_ACTION_IMPORTS_START, MOCK_ACTION_SPREADS_END, MOCK_ACTION_SPREADS_START,
+  MOCK_SAMPLE_ENTRIES_END, MOCK_SAMPLE_ENTRIES_START, MOCK_IMPORTS_END, MOCK_IMPORTS_START, MOCK_SPREADS_END, MOCK_SPREADS_START,
   SPREADS_END, SPREADS_START, STYLES_END, STYLES_START,
   checkAppMarkers, checkInsideRoot, kebab, ownedLine, parseDepLine, splitLines, type OwnedLineState,
 } from './generate.ts';
@@ -94,6 +95,9 @@ export function planRemove(root: string, group: string): RemovePlan {
     { relPath: MENUS_TS, line: spreadLine(inputs), start: SPREADS_START, end: SPREADS_END },
     { relPath: MOCK_ASSEMBLY_TSX, line: mockImportLine(inputs), start: MOCK_IMPORTS_START, end: MOCK_IMPORTS_END },
     { relPath: MOCK_ASSEMBLY_TSX, line: mockSpreadLine(inputs), start: MOCK_SPREADS_START, end: MOCK_SPREADS_END },
+    { relPath: MOCK_ASSEMBLY_TSX, line: mockActionImportLine(inputs), start: MOCK_ACTION_IMPORTS_START, end: MOCK_ACTION_IMPORTS_END },
+    { relPath: MOCK_ASSEMBLY_TSX, line: mockActionSpreadLine(inputs), start: MOCK_ACTION_SPREADS_START, end: MOCK_ACTION_SPREADS_END },
+    { relPath: MOCK_ASSEMBLY_TSX, line: mockSampleEntryLine(inputs), start: MOCK_SAMPLE_ENTRIES_START, end: MOCK_SAMPLE_ENTRIES_END },
     { relPath: STYLE_CSS, line: styleLine(inputs), start: STYLES_START, end: STYLES_END },
     { relPath: APP_PKG, line: depLine(inputs) },
   ];

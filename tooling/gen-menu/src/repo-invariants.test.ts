@@ -91,11 +91,23 @@ import { createMockAdapter } from '${PACKAGE_PREFIX}mock-server';
 // <gen:menu-mock-imports>
 ${mockImports}
 // </gen:menu-mock-imports>
+// <gen:menu-mock-action-imports>
+// </gen:menu-mock-action-imports>
 
 export const MOCK_ENDPOINTS = [
   // <gen:menu-mock-spreads>
 ${mockSpreads}
   // </gen:menu-mock-spreads>
+];
+
+export const MOCK_ACTIONS = [
+  // <gen:menu-mock-action-spreads>
+  // </gen:menu-mock-action-spreads>
+];
+
+export const MOCK_WRITE_SAMPLES = [
+  // <gen:menu-mock-sample-entries>
+  // </gen:menu-mock-sample-entries>
 ];
 `);
   const cssImports = PACKAGES.map(p => `@import "${pkgName(p)}/styles.css";`).join('\n');
@@ -330,6 +342,31 @@ describe('wiring invariants against a fixture repo', () => {
     expect(() => checkWiring(shape)).not.toThrow();
     shape.mockAssemblyTsx = shape.mockAssemblyTsx.replace('  ...qualityMock,', '  ...qualityMock,\n  ...qualityMock,');
     expect(() => checkWiring(shape)).toThrow(/spread 2 times/);
+  });
+
+  it('checks the generated mock action and write sample wiring (#1904)', () => {
+    const shape = loadShape(fresh());
+    const base = shape.mockAssemblyTsx;
+    const wire = (imp: string, spread: string, entry: string): string => base
+      .replace('// </gen:menu-mock-action-imports>', `${imp}\n// </gen:menu-mock-action-imports>`)
+      .replace('  // </gen:menu-mock-action-spreads>', `${spread}\n  // </gen:menu-mock-action-spreads>`)
+      .replace('  // </gen:menu-mock-sample-entries>', `${entry}\n  // </gen:menu-mock-sample-entries>`);
+    const imp = `import { qualityActionsMock, qualityWriteSamples } from '${PACKAGE_PREFIX}menu-quality/mock';`;
+    shape.mockIndexes['menus/mars/quality'] = 'export const qualityMock = []; export const qualityActionsMock = []; export const qualityWriteSamples = {};';
+    shape.mockAssemblyTsx = wire(imp, '  ...qualityActionsMock,', '  qualityWriteSamples,');
+    expect(() => checkWiring(shape)).not.toThrow();
+    shape.mockAssemblyTsx = wire(imp, '', '  qualityWriteSamples,');
+    expect(() => checkWiring(shape)).toThrow(/qualityActionsMock' imported .* wired 0 times/);
+    shape.mockAssemblyTsx = wire(imp, '  ...qualityActionsMock,', '');
+    expect(() => checkWiring(shape)).toThrow(/qualityWriteSamples' imported .* wired 0 times/);
+    shape.mockAssemblyTsx = wire(imp, '  ...qualityActionsMock,\n  ...qualityActionsMock,', '  qualityWriteSamples,');
+    expect(() => checkWiring(shape)).toThrow(/wired 2 times/);
+    shape.mockAssemblyTsx = wire('', '  ...qualityActionsMock,', '  qualityWriteSamples,');
+    expect(() => checkWiring(shape)).toThrow(/has no matching mock action import/);
+    shape.mockIndexes['menus/mars/quality'] = 'export const qualityMock = [];';
+    shape.mockAssemblyTsx = wire(imp, '  ...qualityActionsMock,', '  qualityWriteSamples,');
+    expect(() => checkWiring(shape)).toThrow(/does not export 'qualityActionsMock'/);
+    shape.mockAssemblyTsx = base;
   });
 
   it('accepts a mock import under a local alias when the spread uses the alias', () => {

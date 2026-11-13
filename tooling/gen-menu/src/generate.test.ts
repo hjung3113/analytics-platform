@@ -4,7 +4,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import ts from 'typescript';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { APP_PKG, MOCK_ASSEMBLY_TSX, MENUS_TS, STYLE_CSS, editSummary } from './generate.ts';
-import { PAGE_SLOTS, PAGE_TYPES, depLine, importLine, mockImportLine, mockSpreadLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
+import { PAGE_SLOTS, PAGE_TYPES, depLine, importLine, mockActionImportLine, mockActionSpreadLine, mockImportLine, mockSampleEntryLine, mockSpreadLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
 import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, fixtureMockAssemblyTsx, makeFixture, menusTree, removeFixture, repoRoot, runCli } from './fixture.ts';
 
 const INPUTS: MenuInputs = {
@@ -102,6 +102,28 @@ describe('menu-query scaffold (#126)', () => {
     expect(leadOf(analyticsSpreadLine(real))).toBe(leadOf(analyticsSpreadLine(fixture)));
     expect(leadOf(mockImportLine(INPUTS))).toBe(leadOf(analyticsImportLine(fixture)));
     expect(leadOf(analyticsImportLine(real))).toBe(leadOf(analyticsImportLine(fixture)));
+  });
+
+  /** #1904: the action/sample arrays and their marker rows keep the fixture's shape and indentation in the real file. */
+  it.each([
+    { decl: 'export const MOCK_ACTIONS: readonly AnyMockAction[] = [', start: '// <gen:menu-mock-action-spreads>', end: '// </gen:menu-mock-action-spreads>' },
+    { decl: 'export const MOCK_WRITE_SAMPLES: readonly Readonly<Record<string, () => Record<string, unknown>>>[] = [', start: '// <gen:menu-mock-sample-entries>', end: '// </gen:menu-mock-sample-entries>' },
+  ])('keeps the $start region inside $decl with the fixture indentation', ({ decl, start, end }) => {
+    for (const text of [readFileSync(join(repoRoot(), MOCK_ASSEMBLY_TSX), 'utf8'), fixtureMockAssemblyTsx()]) {
+      const lines = text.split('\n');
+      const at = lines.indexOf(decl);
+      expect(at, `${decl} not found`).toBeGreaterThan(-1);
+      expect(lines.indexOf(`  ${start}`, at)).toBeGreaterThan(at);
+      expect(lines.indexOf(`  ${end}`, at)).toBeGreaterThan(lines.indexOf(`  ${start}`, at));
+    }
+  });
+
+  it('generates the mock actions and write samples exports with full-id keys, empty by default (#1904)', () => {
+    const index = renderFiles(INPUTS).find(f => f.relPath === 'src/mock/index.ts')!.content;
+    expect(index).toContain(`export const ${INPUTS.group}ActionsMock: readonly AnyMockAction[] = [];`);
+    expect(index).toContain(`export const ${INPUTS.group}WriteSamples: Readonly<Record<string, () => Record<string, unknown>>> = {};`);
+    const test = renderFiles(INPUTS).find(f => f.relPath === 'src/mock/index.test.ts')!.content;
+    expect(test).toContain('gives every mock action a write sample keyed by its full id');
   });
 
   it('generates src/endpoints.ts and src/mock/index.ts instead of src/api.ts', () => {
@@ -306,6 +328,18 @@ describe('generate in a temp workspace', () => {
     const importRegion = region('// <gen:menu-mock-imports>', '// </gen:menu-mock-imports>');
     expect(importRegion).toEqual([`import { analyticsMock } from '${PACKAGE_PREFIX}menu-analytics/mock';`, mockImportLine(INPUTS)]);
     expect(leadOf(importRegion[1]), 'inserted import row must match the analytics row indentation').toBe(leadOf(importRegion[0]));
+  });
+
+  it('wires the action import, spread and sample entry into their own marker regions (#1904)', async () => {
+    const root = makeFixture();
+    keep.push(root);
+    expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS], root)).status).toBe(0);
+    const lines = readFileSync(join(root, MOCK_ASSEMBLY_TSX), 'utf8').split('\n');
+    const region = (start: string, end: string): string[] =>
+      lines.slice(lines.findIndex(l => l.trim() === start) + 1, lines.findIndex(l => l.trim() === end));
+    expect(region('// <gen:menu-mock-action-imports>', '// </gen:menu-mock-action-imports>')).toEqual([mockActionImportLine(INPUTS)]);
+    expect(region('// <gen:menu-mock-action-spreads>', '// </gen:menu-mock-action-spreads>')).toEqual([mockActionSpreadLine(INPUTS)]);
+    expect(region('// <gen:menu-mock-sample-entries>', '// </gen:menu-mock-sample-entries>')).toEqual([mockSampleEntryLine(INPUTS)]);
   });
 
   it('refuses a second generate without changing bytes', async () => {
