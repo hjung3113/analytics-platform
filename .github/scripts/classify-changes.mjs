@@ -1,6 +1,7 @@
 // CI `changes` job (#671 B6, #1018, #1019): decides which parts of ci.yml do real work. Node builtins only (the job has no setup-node or install).
 //
-//   code  'false' only for a pull request with a non-empty diff whose every file is Markdown or under .agents/; the heavy steps then skip.
+//   code  'false' only for a pull request with a non-empty diff whose every file is Markdown or under .agents/ and none is a Markdown file
+//         that code or a test reads (CODE_READS_MD, #1884); the heavy steps then skip.
 //   site  'false' only for a pull request with a non-empty diff that touches nothing the intro-site captures depend on (#608).
 //   full  'true' for a manual run with full=true (release gate), and whenever this script cannot decide: the consumers then run cold
 //         (turbo --force, no cache restore).
@@ -16,6 +17,16 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DOCS_ONLY = /(\.md$|^\.agents\/)/;
+// Markdown that code or a test reads as input (#1884): a PR that changes only these must still run the tests, or main is the first to fail.
+// When a test or script starts reading another .md file, add its path here; the self-test checks each pattern still matches a tracked file.
+export const CODE_READS_MD = [
+  /^(menus\/[^/]+\/[^/]+|platform\/[^/]+)\/CHANGELOG\.md$/, // tooling/gen-menu repo-invariants: first heading = package.json version
+  /^packages\/eqv\/assets\/primitives\/README\.md$/, // eqv core/renderer tests: the token table
+  /^packages\/eqv\/fixtures\/[^/]+\/README\.md$/, // eqv core occurrence test
+  /^docs\/architecture\/platform-api\/api\/platform-port\.md$/, // platform-port conformance integration test: the method support table
+  /^tooling\/sdk\/fixtures\/out-of-repo-assembly\/kit\/README\.md$/, // sdk-kit test: the README «둘째 메뉴» steps
+];
+const docsOnly = (file) => DOCS_ONLY.test(file) && !CODE_READS_MD.some((pattern) => pattern.test(file));
 // Feature screen sources are bundled into the demo through the `@` alias; GLOSSARY.md feeds the site's banned-term check.
 const SITE_DIRS = /^(menus|platform|packages|apps\/feature-screens|apps\/platform-web|site|tooling|patches)\//;
 const SITE_FILES = /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps\/platform-e2e\/package\.json|\.github\/workflows\/(ci|pages)\.yml)$/;
@@ -33,7 +44,7 @@ export function classify({ event, files, fullInput }) {
   if (event !== 'pull_request' || files === null) return { ...ALL };
   const list = files.filter(Boolean);
   const nonEmpty = list.length > 0;
-  const code = nonEmpty && list.every((f) => DOCS_ONLY.test(f)) ? 'false' : 'true';
+  const code = nonEmpty && list.every(docsOnly) ? 'false' : 'true';
   const touchesSite = list.some((f) => (!f.endsWith('.md') && SITE_DIRS.test(f)) || SITE_FILES.test(f));
   const site = nonEmpty && !touchesSite ? 'false' : 'true';
   return { code, site, full: 'false' };
@@ -115,6 +126,21 @@ function selfTest() {
   check('pr: e2e spec only → site=false code=true', pr(['apps/platform-e2e/tests/a.spec.ts']), out(T, F, F));
   check('pr: feature-screens src → site=true', pr(['apps/feature-screens/src/a.ts']).site, T);
   check('pr: platform-api src → site=false', pr(['apps/platform-api/src/a.ts']).site, F);
+  // #1884: Markdown that code reads counts as code.
+  check('pr: menu CHANGELOG only → code=true', pr(['menus/mars/hw-time/CHANGELOG.md']).code, T);
+  check('pr: platform CHANGELOG only → code=true', pr(['platform/home/CHANGELOG.md']).code, T);
+  check('pr: eqv primitives README → code=true', pr(['packages/eqv/assets/primitives/README.md']).code, T);
+  check('pr: eqv fixture README → code=true', pr(['packages/eqv/fixtures/cluster-single/README.md']).code, T);
+  check('pr: platform-port API doc → code=true', pr(['docs/architecture/platform-api/api/platform-port.md']).code, T);
+  check('pr: kit README → code=true', pr(['tooling/sdk/fixtures/out-of-repo-assembly/kit/README.md']).code, T);
+  check('pr: CHANGELOG + other docs → code=true', pr(['docs/a.md', 'menus/mars/hw-time/CHANGELOG.md']).code, T);
+  check('pr: menu README (not read by code) → code=false', pr(['menus/mars/hw-time/README.md']).code, F);
+  check('pr: nested menu CHANGELOG (not a package root) → code=false', pr(['menus/mars/hw-time/docs/CHANGELOG.md']).code, F);
+  check('pr: packages/sdk CHANGELOG (not read by code) → code=false', pr(['packages/sdk/CHANGELOG.md']).code, F);
+  // Each pattern still matches a tracked file, so a moved file cannot silently fall out of the list.
+  const tracked = (() => { try { return lines(git(['ls-files', '*.md'], resolve(fileURLToPath(import.meta.url), '../../..'))); } catch { return null; } })();
+  if (tracked) for (const pattern of CODE_READS_MD) check(`CODE_READS_MD ${pattern} matches a tracked file`, tracked.some((f) => pattern.test(f)), true);
+  else { bad += 1; console.error('FAIL git ls-files unavailable for the CODE_READS_MD check'); }
   check('pr: computation failed (null) → everything cold', pr(null), out(T, T, T));
   // Push to main: code stays true, turbo decides the scope; undecidable base → cold.
   check('push: diff known → code=true site=true full=false', classify({ event: 'push', files: ['docs/a.md'] }), out(T, T, F));

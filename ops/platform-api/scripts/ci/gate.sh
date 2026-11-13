@@ -63,6 +63,9 @@ stage_static_extra() {
   step node --test "$FEATURE_OPS/scripts/backup/backup.test.mjs"
   step node apps/platform-e2e/tests-real/database-safety.test.ts
   step node apps/platform-e2e/tests-real/token-evidence-config.test.ts
+  step node apps/platform-e2e/tests-real/token-evidence-safety.test.ts
+  step node apps/platform-e2e/tests-real/port.test.ts
+  step node "$FEATURE_OPS/scripts/gates/changed-files.test.mjs"
   step feature_ops gate:db-migration-drift
   step feature_ops gate:fe-typecheck
 }
