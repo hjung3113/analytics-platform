@@ -78,7 +78,9 @@ function releaseVersion(tarballDir) {
 
 /** sha256 → repo path of every tracked platform source file of at least MIN_COMPARED_BYTES. */
 export function platformSourceHashes() {
-  const tracked = run('git', ['ls-files', '-z', '--', ...PLATFORM_SOURCE_DIRS], repoRoot).split('\0').filter(Boolean);
+  // Only this repository is read (a file list). safe.directory on the command line lets a checkout owned by another uid (a CI
+  // container) answer without trusting it machine-wide; a command-line value counts as protected configuration since git 2.36.
+  const tracked = run('git', ['-c', `safe.directory=${repoRoot}`, 'ls-files', '-z', '--', ...PLATFORM_SOURCE_DIRS], repoRoot).split('\0').filter(Boolean);
   const hashes = new Map();
   for (const path of tracked) {
     const file = join(repoRoot, path);

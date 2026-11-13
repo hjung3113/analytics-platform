@@ -14,7 +14,7 @@
 | `menus/<메뉴>/conformance.ts` | 그 메뉴 엔드포인트의 서버 경계 적합성 사례. 폴더를 복사하면 따라온다(아래 «적합성 검사») |
 | `src/conformance.test.tsx` | 모든 메뉴 폴더의 적합성 사례를 mock 어댑터로 돌리는 시험 |
 | `src/start.test.tsx` | 렌더 시험. `menus/sample`을 복사한 메뉴는 시험을 고치지 않아도 자기 URL에서 렌더되는지 검사된다 |
-| `vendor/`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `patches/` | 고정 버전 설치 재료. 고치지 않는다 |
+| `vendor/`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `patches/` | 고정 버전 설치 재료. 손으로 고치지 않는다. 버전을 바꿀 때는 목표 버전 키트의 것을 통째로 쓴다(아래 «버전 교체와 되돌리기») |
 | `sdk-bundle-check.mjs`, `third-party.json`, `SHA256SUMS` | 설치 검사와 그 입력 |
 
 `viewer` 역할은 공개 메뉴만 보고, `engineer`(사내 역할)는 `kit:inhouse-view`까지 받아 «사내 업무» 메뉴가 더 뜬다. 권한 선언은 부여가 아니다.
@@ -63,6 +63,19 @@ Vite의 `--mode real` 하나로 `#kit-assembly`가 `real/assembly.tsx`를 가리
 5. `pnpm check && pnpm build`
 
 화면은 `menus/second/SamplePage.tsx`, 읽는 데이터의 선언은 `endpoints.ts`, mock 응답은 `mock.ts`에서 바꾼다. 화면은 `mock.ts`를 import하지 않는다. 실어댑터 조립이 mock 코드를 싣지 않게 하기 위해서다.
+
+## 버전 교체와 되돌리기
+
+버전을 올리거나 직전 버전(N-1)으로 되돌릴 때는 이 폴더를 고치지 않는다. 목표 버전 키트를 새 빈 폴더에 풀고 조립 몫(`menus/`, `menus.ts`, `mock/assembly.ts`, 직접 더한 파일)만 옮긴다. 나머지는 목표 키트의 것을 그대로 쓴다.
+
+```sh
+mkdir app-next && tar -xzf ap-start-kit-<목표>.tgz -C app-next --strip-components=1
+cd app-next && node sdk-bundle-check.mjs verify
+node sdk-bundle-check.mjs adopt --from ../app    # 되돌릴 때는 새 버전 쪽 스크립트로: node ../app/sdk-bundle-check.mjs adopt --from ../app --bundle .
+pnpm install --frozen-lockfile && node sdk-bundle-check.mjs installed && pnpm check && pnpm build
+```
+
+`adopt`는 이 폴더의 키트 파일을 고쳤거나 직접 더한 파일을 새 키트가 같은 경로로 실으면 아무것도 바꾸지 않고 멈춘다. 순서와 거부 조건 전체는 공개 저장소의 `docs/guides/standalone-start-kit.md` «버전 교체와 되돌리기»에 있다.
 
 ## 저장된 뷰·주석·기준 시각
 
