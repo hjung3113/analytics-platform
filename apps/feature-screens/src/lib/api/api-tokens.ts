@@ -3,6 +3,7 @@ import {
   type IssueApiTokenInput,
 } from '@ap/feature-shared';
 import { apiRequest } from './client';
+import { apiPath } from './path';
 
 const path = (service: boolean) => `/api-tokens${service ? '/service' : ''}`;
 export async function fetchApiTokens(service: boolean, cursor: string | undefined, noExpiry: boolean, signal: AbortSignal, kind?: 'personal' | 'service') {
@@ -17,7 +18,7 @@ export async function issueApiToken(service: boolean, body: IssueApiTokenInput) 
   return (await apiRequest('POST', path(service), issuedApiTokenSchema, { body })).data;
 }
 export async function revokeApiToken(service: boolean, id: string) {
-  return (await apiRequest('POST', `${path(service)}/${encodeURIComponent(id)}/revoke`, revokedApiTokenSchema)).data;
+  return (await apiRequest('POST', `${path(service)}${apiPath`/${id}/revoke`}`, revokedApiTokenSchema)).data;
 }
 export async function fetchSystemActors(signal: AbortSignal) {
   return (await apiRequest('GET', '/actors?workspace=current&actorType=system', listActorsResponseSchema, { signal })).data.actors;

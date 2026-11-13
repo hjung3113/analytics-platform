@@ -48,7 +48,7 @@ function installFetch() {
       return response({
         items: [
           {
-            id: 'ms-active',
+            id: 'a1111111-1111-4111-8111-111111111111',
             slug: ACTIVE_MS_SLUG,
             name: 'Active',
             external_key: null,
@@ -57,7 +57,7 @@ function installFetch() {
             archived_at: null,
           },
           {
-            id: 'ms-archived',
+            id: 'a2222222-2222-4222-8222-222222222222',
             slug: ARCHIVED_MS_SLUG,
             name: 'Archived',
             external_key: null,
@@ -70,8 +70,8 @@ function installFetch() {
     return response({
       items: [
         {
-          id: 'aa-active',
-          managed_system_id: 'ms-active',
+          id: 'b1111111-1111-4111-8111-111111111111',
+          managed_system_id: 'a1111111-1111-4111-8111-111111111111',
           slug: ACTIVE_AREA_SLUG,
           name: 'Active Area',
           owner_team_id: null,
@@ -79,8 +79,8 @@ function installFetch() {
           archived_at: null,
         },
         {
-          id: 'aa-archived',
-          managed_system_id: 'ms-active',
+          id: 'b2222222-2222-4222-8222-222222222222',
+          managed_system_id: 'a1111111-1111-4111-8111-111111111111',
           slug: ARCHIVED_AREA_SLUG,
           name: 'Archived Area',
           owner_team_id: null,
@@ -141,7 +141,7 @@ describe('admin archive actions', () => {
       page: ManagedSystemsAdminPage,
       trigger: `archive-${ACTIVE_MS_SLUG}`,
       name: 'Active',
-      archiveUrl: '/managed-systems/ms-active/archive',
+      archiveUrl: '/managed-systems/a1111111-1111-4111-8111-111111111111/archive',
       open: async () => {
         await waitFor(() =>
           expect(screen.getByTestId(`managed-system-row-${ACTIVE_MS_SLUG}`)).toBeInTheDocument(),
@@ -155,7 +155,7 @@ describe('admin archive actions', () => {
       page: AnalyticsAreasAdminPage,
       trigger: `aa-archive-${ACTIVE_AREA_SLUG}`,
       name: 'Active Area',
-      archiveUrl: '/analytics-areas/aa-active/archive',
+      archiveUrl: '/analytics-areas/b1111111-1111-4111-8111-111111111111/archive',
       open: async () => {
         fireEvent.click(await screen.findByTestId(`aa-detail-${ACTIVE_AREA_SLUG}`));
         fireEvent.click(await screen.findByTestId('aa-edit-button'));

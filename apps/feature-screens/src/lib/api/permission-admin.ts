@@ -18,6 +18,7 @@ import {
 } from '@ap/feature-shared';
 
 import { apiRequest } from './client';
+import { apiPath, segment } from './path';
 import { permissionRequestAdminDetailKey } from './permission-requests';
 
 export { permissionRequestAdminDetailKey };
@@ -51,7 +52,7 @@ export async function revokePermission(
   const body = revokePermissionBodySchema.parse({ reason });
   const response = await apiRequest(
     'POST',
-    `/permissions/${kind}/${id}/revoke`,
+    apiPath`/permissions/${segment(kind)}/${id}/revoke`,
     revokePermissionResultSchema,
     { body, idempotencyKey },
   );
@@ -124,7 +125,7 @@ export async function decidePermissionRequest(
         };
   const response = await apiRequest(
     'POST',
-    `/permissions/requests/${id}/${action}`,
+    apiPath`/permissions/requests/${id}/${segment(action)}`,
     permissionDecisionResultSchema,
     { body, idempotencyKey },
   );
@@ -135,7 +136,7 @@ export async function fetchPermissionRequestAdminDetail(id: string, signal?: Abo
   return (
     await apiRequest(
       'GET',
-      `/permissions/requests/${id}`,
+      apiPath`/permissions/requests/${id}`,
       permissionRequestAdminDetailSchema,
       signal ? { signal } : {},
     )

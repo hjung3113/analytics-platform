@@ -41,11 +41,11 @@ function installFetch(gate?: { list: Promise<void> | null }) {
     const url = String(input);
     if (url.startsWith('/me/permissions/check'))
       return response({ state: 'approved', decision: { allow: true } });
-    if (init?.method === 'POST' && url === '/managed-systems/ms-active/archive') {
+    if (init?.method === 'POST' && url === '/managed-systems/a1111111-1111-4111-8111-111111111111/archive') {
       archived.ms = true;
       return response({});
     }
-    if (init?.method === 'POST' && url === '/analytics-areas/aa-active/archive') {
+    if (init?.method === 'POST' && url === '/analytics-areas/b1111111-1111-4111-8111-111111111111/archive') {
       archived.aa = true;
       return response({});
     }
@@ -55,7 +55,7 @@ function installFetch(gate?: { list: Promise<void> | null }) {
       return response({
         items: [
           {
-            id: 'ms-active',
+            id: 'a1111111-1111-4111-8111-111111111111',
             slug: 'active',
             name: 'Active',
             external_key: null,
@@ -68,8 +68,8 @@ function installFetch(gate?: { list: Promise<void> | null }) {
     return response({
       items: [
         {
-          id: 'aa-active',
-          managed_system_id: 'ms-active',
+          id: 'b1111111-1111-4111-8111-111111111111',
+          managed_system_id: 'a1111111-1111-4111-8111-111111111111',
           slug: 'active-area',
           name: 'Active Area',
           owner_team_id: null,

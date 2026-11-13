@@ -126,7 +126,7 @@ Every operator-screen menu below follows these unless its entry says otherwise.
 - Lifts `TaskRequestsScreen`, `TaskBoardScreen`, `MilestonesScreen`, `TaskListScreen` via `operator-screens/task-requests|task-board|milestones|task-list`. Page keys equal `taskRequestsRoute`, `taskBoardRoute`, `myTasksRoute`, `milestonesRoute`, `taskListRoute` plus `returnTo`.
 - The list and 내 Task draw Task detail for `focus` (`useTaskDetailParts`, `task-detail` entry) with `FeatureDetailDrawer` in the shell detail slot, inside `FeatureBridge` (`renderDetail` always `undefined`, `autoSelect={false}`).
 - The board, Task 요청 and 마일스톤 draw screen-supplied parts (including Milestone creation) in place with `FeatureDetailDrawer`; closing goes through the screen (`requestClose`).
-- All five pages check address values with `isTasksSearchValueValid` (`tasks-search` entry) before mount; reject and preserve wrong values.
+- All five pages check address values with `isTasksSearchValueValid` (`tasks-search` entry) before mount, and `focus` (the screen `param`, a request path segment) must be a UUID; reject and preserve wrong values with the `값 지우기` warning and make no feature request (ADR-0071 decision 9, 06 §6.4).
 
 ### `@ap/menu-admin`
 

@@ -15,6 +15,7 @@ import {
 } from '@ap/feature-shared';
 
 import { apiRequest } from './client';
+import { apiPath } from './path';
 
 export async function listFindingComments(
   findingId: string,
@@ -22,7 +23,7 @@ export async function listFindingComments(
 ): Promise<ListFindingCommentsResponse> {
   const qs = new URLSearchParams();
   if (options.cursor !== undefined) qs.set('cursor', options.cursor);
-  const path = `/findings/${findingId}/comments${qs.size > 0 ? `?${qs.toString()}` : ''}`;
+  const path = `${apiPath`/findings/${findingId}/comments`}${qs.size > 0 ? `?${qs.toString()}` : ''}`;
   const res = await apiRequest('GET', path, listFindingCommentsResponseSchema, {
     ...(options.signal !== undefined ? { signal: options.signal } : {}),
   });
@@ -35,7 +36,7 @@ export async function createFindingComment(
 ): Promise<CreateFindingCommentResponse> {
   const res = await apiRequest(
     'POST',
-    `/findings/${findingId}/comments`,
+    apiPath`/findings/${findingId}/comments`,
     createFindingCommentResponseSchema,
     {
       body,

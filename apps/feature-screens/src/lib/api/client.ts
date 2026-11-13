@@ -134,6 +134,13 @@ async function sendRequest(
     return base;
   }
 
+  // A file download (`Content-Disposition: attachment`) is never an API success body, whatever its
+  // Content-Type: refuse it before reading, for both adapters (#2049).
+  if (res.ok && isAttachmentDisposition(res.headers.get('content-disposition'))) {
+    void res.body?.cancel().catch(() => undefined);
+    throw new ApiParseError(res.status, endpointOf(upper, path), [], requestId);
+  }
+
   const text = await res.text();
 
   if (!res.ok) {
@@ -164,6 +171,17 @@ async function sendRequest(
   if (rateLimit) base.rateLimit = rateLimit;
   if (retryAfterSeconds !== undefined) base.retryAfterSeconds = retryAfterSeconds;
   return base;
+}
+
+/** `METHOD /path` without the query string: the endpoint label of an {@link ApiParseError}. */
+function endpointOf(method: string, path: string): string {
+  const query = path.indexOf('?');
+  return `${method} ${query === -1 ? path : path.slice(0, query)}`;
+}
+
+/** Whether a Content-Disposition value has the `attachment` disposition type (case-insensitive, RFC 6266). */
+function isAttachmentDisposition(value: string | null): boolean {
+  return value !== null && /^\s*attachment\s*(;|$)/i.test(value);
 }
 
 function rawToResponse<T>(raw: RawApiResponse, data: T): ApiResponse<T> {
@@ -222,8 +240,7 @@ export async function apiRequest<T>(
   if (raw.notModified) return rawToResponse(raw, undefined as T);
 
   const parse = typeof parser === 'function' ? parser : (input: unknown) => parser.parse(input);
-  const query = path.indexOf('?');
-  const endpoint = `${method.toUpperCase()} ${query === -1 ? path : path.slice(0, query)}`;
+  const endpoint = endpointOf(method.toUpperCase(), path);
   let json: unknown;
   try {
     json = raw.text ? (JSON.parse(raw.text) as unknown) : undefined;
