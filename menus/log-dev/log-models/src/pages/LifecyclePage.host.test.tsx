@@ -302,6 +302,9 @@ describe('lifecycle interactions with the real Kernel host', () => {
     const head = () => element('[aria-label="선택 시도 서버 판정"]').textContent ?? '';
     expect(head()).toContain('시도 #7');
     activateRoundTab('설정·이력');
+    // Page 1 holds the decisive request: it is shown in 결과·결함 but not chosen, so no row reads as active.
+    await waitFor(() => expect(text(ID.slice(0, 8), requestsRegion())).toBe(true));
+    expect(document.querySelector('section[aria-label="Round 검증 요청"] [aria-current="true"]')).toBeNull();
     click(button('다음', requestsRegion()));
     await waitFor(() => expect(query().get('requestsPage')).toBe('2'));
     await waitFor(() => expect(text('cccccccc', requestsRegion())).toBe(true));
