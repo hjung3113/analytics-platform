@@ -172,7 +172,7 @@ export function specEndpoints(deps: LogKnowledgeDeps): MenuEndpointDeclaration[]
         data:
           softwareId === null
             ? await getModelSpec(deps.db, workspaceId, modelId)
-            : await getEffectiveModelSpec(deps.db, workspaceId, modelId, softwareId),
+            : await getEffectiveModelSpec(deps.db, viewer, modelId, softwareId),
       };
     }),
     declareSpecRead(
