@@ -20,10 +20,12 @@ const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
 const wrap = (children: React.ReactNode) => render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{children}</PlatformProvider></I18nProvider>);
 
+// Every dev diagnostic of the file; the helper reports once per page load, so the last test counts them all.
+const diagnostics: unknown[][] = [];
 beforeEach(() => {
   window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
   vi.stubGlobal('ResizeObserver', undefined);
-  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'error').mockImplementation((...args) => { if (String(args[0]).startsWith('Chart engine unavailable')) diagnostics.push(args); });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -48,4 +50,32 @@ it('LaneTimeline renders the unavailable state and keeps its header', () => {
 it('OrderedIntervalTrack renders the unavailable state', async () => {
   wrap(<OrderedIntervalTrack ariaLabel="Track" lanes={[{ laneKey: 'a', label: 'Lane A' }]} states={{ ok: { label: '완료', colorToken: 'chart-series-1' } }} items={[{ id: '1', laneKey: 'a', orderStart: 1, orderEnd: 2, state: 'ok', label: 'x' }]} domain={[0, 10]} />);
   expect(await screen.findByText(UNAVAILABLE)).toBeInTheDocument();
+});
+
+const observer = class { observe() {} disconnect() {} };
+const trackProps = { ariaLabel: 'Track', lanes: [{ laneKey: 'a', label: 'Lane A' }], states: { ok: { label: '완료', colorToken: 'chart-series-1' as const } }, items: [{ id: '1', laneKey: 'a', orderStart: 1, orderEnd: 2, state: 'ok', label: 'x' }], domain: [0, 10] as [number, number] };
+
+it('LaneTimeline renders the unavailable state when ResizeObserver exists but the canvas has no 2d context', () => {
+  vi.stubGlobal('ResizeObserver', observer);
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  wrap(<LaneTimeline ariaLabel="Timeline" lanes={[{ id: 'l', label: 'Lane', segments: [{ id: 's', start: 0, end: 10 }] }]} />);
+  expect(screen.getByText(UNAVAILABLE)).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Timeline' })).toBeInTheDocument();
+});
+
+it('OrderedIntervalTrack renders the unavailable state when getContext throws at startup', async () => {
+  vi.stubGlobal('ResizeObserver', observer);
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => { throw new Error('no canvas'); });
+  wrap(<OrderedIntervalTrack {...trackProps} />);
+  expect(await screen.findByText(UNAVAILABLE)).toBeInTheDocument();
+});
+
+it('reports the unavailable state once per page load and never in production', async () => {
+  // The earlier tests failed in several charts (EChart, Lane, ordered track): one diagnostic in total.
+  expect(diagnostics).toHaveLength(1);
+  vi.stubEnv('NODE_ENV', 'production');
+  wrap(<OrderedIntervalTrack {...trackProps} />);
+  expect(await screen.findByText(UNAVAILABLE)).toBeInTheDocument();
+  vi.unstubAllEnvs();
+  expect(diagnostics).toHaveLength(1);
 });

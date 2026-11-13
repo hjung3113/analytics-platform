@@ -10,7 +10,7 @@ import {
   visibleOrderedItems,
   visiblePartialGaps,
 } from './orderedIntervalGeometry';
-import { ChartUnavailable } from './ChartUnavailable';
+import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
 import type { OrderedIntervalTrackProps, OrderedTrackItem } from './orderedIntervalTypes';
 
 type PlotProps = Pick<
@@ -54,6 +54,11 @@ export function OrderedIntervalPlot(props: PlotProps) {
   const [theme, setTheme] = useState(0);
   // No canvas 2d context or no ResizeObserver (jsdom): the plot cannot draw, the track around it still renders (#1862).
   const [unavailable, setUnavailable] = useState(typeof ResizeObserver === 'undefined');
+  // Context acquisition is caught until both contexts were acquired once; a later throw is a real error and propagates.
+  const started = useRef(false);
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') reportChartUnavailable(new Error('ResizeObserver is missing'));
+  }, []);
   const [dpr, setDpr] = useState(() =>
     typeof window === 'undefined' ? 1 : Math.max(1, window.devicePixelRatio || 1),
   );
@@ -132,7 +137,13 @@ export function OrderedIntervalPlot(props: PlotProps) {
       target.width = Math.round(width * dpr);
       target.height = Math.round(h * dpr);
       target.style.height = `${h}px`;
-      const ctx = target.getContext('2d');
+      let ctx: CanvasRenderingContext2D | null = null;
+      try {
+        ctx = target.getContext('2d');
+      } catch (cause) {
+        if (started.current) throw cause;
+        reportChartUnavailable(cause);
+      }
       if (ctx) {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, width, h);
@@ -143,7 +154,12 @@ export function OrderedIntervalPlot(props: PlotProps) {
     const captionOffset = props.timeLabels && props.axis !== 'time' ? 20 : 0;
     const axisHeight = AXIS_HEIGHT + (captionOffset ? 24 : 0);
     const head = setup(header, axisHeight);
-    if (!ctx || !head) { setUnavailable(true); return; }
+    if (!ctx || !head) {
+      if (!started.current) reportChartUnavailable(new Error('Canvas 2d context is missing'));
+      setUnavailable(true);
+      return;
+    }
+    started.current = true;
     const colors = new Map<ThemeColorToken, string>();
     const color = (name: ThemeColorToken | `--${ThemeColorToken}`) => {
       const token = (name.startsWith('--') ? name.slice(2) : name) as ThemeColorToken;

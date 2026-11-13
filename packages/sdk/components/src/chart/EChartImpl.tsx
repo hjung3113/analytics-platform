@@ -66,6 +66,8 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, on
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<ECharts | null>(null);
   const applied = useRef<EChartsCoreOption | null>(null);
+  /** Set by the mount effect: releases everything a chart that failed its first draw still holds (observer, engine, zrender handler). */
+  const releaseFailed = useRef<(() => void) | null>(null);
   const events = useRef(onEvents);
   events.current = onEvents;
   const resized = useRef(onResize);
@@ -86,11 +88,22 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, on
     chart.current = instance;
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { instance.resize(); resized.current?.(instance.getWidth()); }) : null;
     observer?.observe(el.current);
+    let failed = false;
+    releaseFailed.current = () => {
+      failed = true;
+      observer?.disconnect();
+      const zr = instance.getZr?.();
+      // Disposing an engine whose canvas context was never acquired throws inside zrender, after it has stopped its loop but before
+      // it removes the DOM listeners of its handler: remove those here so nothing stays registered on the detached node.
+      try { instance.dispose(); } catch { try { zr?.handler?.dispose(); } catch { /* the engine is already unusable */ } }
+    };
     onReady?.(instance);
     return () => {
-      observer?.disconnect();
-      // Disposing an instance whose canvas context was never acquired throws inside zrender; nothing is left to release then.
-      if (!instance.isDisposed?.()) try { instance.dispose(); } catch (cause) { reportChartUnavailable(cause); }
+      releaseFailed.current = null;
+      if (!failed) {
+        observer?.disconnect();
+        if (!instance.isDisposed?.()) instance.dispose();
+      }
       chart.current = null; applied.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the effect owns mount/unmount only; onReady is read once at mount
@@ -123,9 +136,9 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, on
         instance.setOption(next, mode);
       } catch (cause) {
         reportChartUnavailable(cause);
-        // Dispose now: zrender stops its animation loop first, so the half-built layer is never painted on the next frame.
-        try { instance.dispose(); } catch { /* zrender throws on the missing context after it has stopped its loop */ }
+        // Release now: zrender stops its animation loop first, so the half-built layer is never painted on the next frame.
         chart.current = null;
+        releaseFailed.current?.();
         setUnavailable(true);
         return;
       }

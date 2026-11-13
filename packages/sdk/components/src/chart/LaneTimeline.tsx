@@ -86,6 +86,8 @@ export function LaneTimeline(props: LaneTimelineProps) {
     if (!root.current || !scroll.current || !canvas.current || !overlay.current || !axis.current || !spacer.current || !tooltip.current) return;
     try {
       if (typeof ResizeObserver === 'undefined') throw new Error('ResizeObserver is missing');
+      // The renderer first touches its canvases in a later frame; probe them now so a missing 2d context selects the fallback (#1862).
+      for (const target of [axis.current, canvas.current, overlay.current]) if (!target.getContext('2d')) throw new Error('Canvas 2d context is missing');
       engine.current = createLaneRenderer({ root: root.current, scroll: scroll.current, canvas: canvas.current, overlay: overlay.current, axis: axis.current, spacer: spacer.current, tooltip: tooltip.current, ...state });
     } catch (cause) {
       reportChartUnavailable(cause);
