@@ -3,6 +3,12 @@ import { migrateV1 } from './boardMigrate';
 import { asStored, boardVersionFor, freshBoard, parseBoard, type Board } from './boardModel';
 
 const v2Key = (userId: string) => `platform:board:v2:${userId}`;
+/** The key the board is stored under, for matching another tab's `storage` event. */
+export const boardStorageKey = v2Key;
+/** The raw stored board text (`null`: none); `undefined` when storage cannot be read, so no comparison is made. */
+export function readStoredRaw(storage: KeyValueStore, userId: string): string | null | undefined {
+  try { return storage.getItem(v2Key(userId)); } catch { return undefined; }
+}
 const v1Key = (userId: string) => `platform:board:${userId}`;
 const v1BackupKey = (userId: string) => `platform:board:v1-backup:${userId}`;
 const corruptBackupKey = (userId: string, version: 'v1' | 'v2') => `platform:board:corrupt-backup:${version}:${userId}`;

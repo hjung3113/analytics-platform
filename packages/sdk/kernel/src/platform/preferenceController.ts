@@ -30,6 +30,12 @@ export type UpdatingPreferenceController = PreferenceController & {
   readonly update: (key: string, apply: PreferenceUpdate['apply']) => void;
   /** Like `update`, but only the PATCH waits: `get` shows the edit at once, a later `hold` of the same key replaces it, and after `delayMs` it goes through `update`. An `update` of the key (or `stop`) moves it on first; a later `set`/`remove` of the key cancels it. */
   readonly hold: (key: string, apply: PreferenceUpdate['apply'], delayMs: number) => void;
+  /**
+   * Re-reads the server values once (another tab of the account may have written since this tab's snapshot, #2033), so the next `update`
+   * applies on top of them. Only a ready controller with no edit pending, held, queued or in flight reads; one read at a time. A read that a
+   * write answer overtook, or that fails, changes nothing.
+   */
+  readonly refresh: () => void;
 };
 
 export type PreferenceControllerOptions = {
@@ -367,6 +373,23 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
     clearTimeout(edit.timer);
     held.delete(key);
   };
+  let refreshing: AbortController | null = null;
+  const idle = () => pending.size === 0 && sending.size === 0 && !writing && held.size === 0 && lane.queued.length === 0 && lane.writes === 0 && lane.flying.size === 0 && lane.parked.size === 0 && lane.rawTable.size === 0;
+  const refresh = async () => {
+    if (refreshing || !started || status !== 'ready' || !loaded || !idle() || !sessionMatches()) return;
+    const gen = generation;
+    const clock = lane.clock;
+    const own = new AbortController();
+    refreshing = own;
+    let snapshot: PreferencesSnapshot | null = null;
+    try { snapshot = okSnapshot(await adapter.readPreferences(own.signal)); } catch { snapshot = null; } finally { if (refreshing === own) refreshing = null; }
+    // A newer server answer (a patch confirmed meanwhile) or a write still on its way outranks this read; a local edit made meanwhile is still shown over it by `effective`.
+    if (!snapshot || own.signal.aborted || !current(gen) || lane.clock !== clock || lane.writes > 0) return;
+    server = snapshot.values;
+    serverStamp = ++lane.clock;
+    emit();
+  };
+
   const notifyQueued = () => {
     if (!started) { if (lane.poke) lane.poke(); return; }
     emit();
@@ -434,6 +457,8 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
       generation++;
       abort?.abort();
       abort = null;
+      refreshing?.abort();
+      refreshing = null;
       released = true;
       if (lane.active === adopt) lane.active = null;
       if (lane.receive === receive) lane.receive = null;
@@ -454,5 +479,6 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
       releaseIntent(leftover);
     },
     retry: retryNow,
+    refresh: () => { void refresh(); },
   };
 }

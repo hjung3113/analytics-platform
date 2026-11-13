@@ -103,6 +103,15 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     return () => preferences.stop();
   }, [preferences]);
   const preferenceState = usePreferenceState(preferences);
+  // Another tab of the account may have changed a list since this tab's snapshot (#2033): coming back to the tab re-reads the server once,
+  // so the next change applies on top of the fresh value. The controller skips the read while any edit of this account is pending or in flight.
+  useEffect(() => {
+    if (!preferences) return;
+    const onVisible = () => { if (document.visibilityState === 'visible') preferences.refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => { document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', onVisible); };
+  }, [preferences]);
   const [localFavorites, setFavorites] = useState<string[]>(() => serverPreferences ? [] : readPreference(`platform:favorites:${userId}`, decodeFavorites, []));
   const [localRecent, setRecent] = useState<Recent[]>(() => serverPreferences ? [] : readPreference(`platform:recent:${userId}`, decodeRecent, []));
   const [localLastScope, setLastScope] = useState<string | null>(() => serverPreferences ? null : readPreference(`platform:lastScope:${userId}`, decodeScopeId, null));
@@ -296,12 +305,12 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       preferences.update('favorites', current => flipFavorite(decodeFavorites(current) ?? [], menuId));
       return;
     }
-    setFavorites(list => {
-      const next = flipFavorite(list, menuId);
-      writePreference(`platform:favorites:${userId}`, next);
-      return next;
-    });
-  }, [userId, preferences]);
+    // Browser-storage mode: on top of the stored list (another tab may have changed it, #2033), this tab's list only when storage has none.
+    const key = `platform:favorites:${userId}`;
+    const next = flipFavorite(readPreference(key, decodeFavorites, localFavorites), menuId);
+    writePreference(key, next);
+    setFavorites(next);
+  }, [userId, preferences, localFavorites]);
 
   // `readRecent` reads this ref: it follows the state in a layout effect and at once in `recordVisit` (never written during render).
   const recentRef = useRef(recent);
@@ -330,9 +339,11 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       recentRef.current = decodeRecent(preferences.get('recents')) ?? [];
       return;
     }
-    const next = mergeVisit(recentRef.current, visit);
+    // On top of the stored list, as for favorites (#2033).
+    const key = `platform:recent:${userId}`;
+    const next = mergeVisit(readPreference(key, decodeRecent, recentRef.current), visit);
     recentRef.current = next;
-    writePreference(`platform:recent:${userId}`, next);
+    writePreference(key, next);
     setRecent(next);
   }, [userId, preferences]);
   const rememberScope = useCallback((scopeId: string) => {

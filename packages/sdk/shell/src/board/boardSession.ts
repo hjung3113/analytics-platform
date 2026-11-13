@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import type { Board } from './boardModel';
-import { browserStorage, loadBoard, saveBoard, type StorageNotice } from './boardStore';
+import { boardStorageKey, browserStorage, loadBoard, readStoredRaw, saveBoard, type StorageNotice } from './boardStore';
 
 /**
  * The board session store (docs/16 §7): one module-level store of the signed-in users' boards, the only path that reads or writes the stored
@@ -8,16 +8,51 @@ import { browserStorage, loadBoard, saveBoard, type StorageNotice } from './boar
  * the board document only; what is on screen is not part of it. A user's session lives while someone subscribes to it (plus the tick after the last one leaves) or for one call of
  * `updateBoardSession`; the next one reads the stored value again.
  */
-type Session = { board: Board; notice: StorageNotice | null; readOnly: boolean; unsaved: boolean };
+/** `raw`: the stored text this session last read or wrote (`undefined` when storage could not be read), so a save can tell that another tab wrote since. */
+type Session = { board: Board; notice: StorageNotice | null; readOnly: boolean; unsaved: boolean; raw: string | null | undefined };
 export type BoardUpdate = (change: (board: Board) => Board, options?: { save?: boolean }) => void;
 
 const sessions = new Map<string, Session>();
 const subscribers = new Map<string, Set<() => void>>();
+/** One `storage` listener per user with subscribers: another tab's save is taken into the live session (#2019). */
+const storageListeners = new Map<string, (event: StorageEvent) => void>();
 
+/** Reads the stored text before the board, so a write in between shows as a difference at the next save rather than being missed. */
+const load = (userId: string, prefix: string, enter?: (board: Board) => Board): Omit<Session, 'unsaved'> => {
+  const raw = readStoredRaw(browserStorage, userId);
+  return { ...loadBoard(browserStorage, userId, prefix, enter), raw };
+};
 const open = (userId: string, prefix: string): Session => {
   let session = sessions.get(userId);
-  if (!session) { session = { ...loadBoard(browserStorage, userId, prefix), unsaved: false }; sessions.set(userId, session); }
+  if (!session) { session = { ...load(userId, prefix), unsaved: false }; sessions.set(userId, session); }
   return session;
+};
+/** Has another tab written the stored board since this session last read or wrote it? Unknown (storage unreadable) counts as no. */
+const storedChanged = (userId: string, session: Session) => {
+  if (session.raw === undefined) return false;
+  const now = readStoredRaw(browserStorage, userId);
+  return now !== undefined && now !== session.raw;
+};
+/** The live session with the stored document taken in: selected panes and the active sheet stay as on screen (`keepingLive`). */
+const merged = (userId: string, prefix: string, live: Session): Session => {
+  const stored = load(userId, prefix, board => board);
+  return { ...stored, board: stored.readOnly ? stored.board : keepingLive(stored.board, live.board), unsaved: false };
+};
+const listenToStorage = (userId: string, prefix: string) => {
+  if (typeof window === 'undefined' || storageListeners.has(userId)) return;
+  const listener = (event: StorageEvent) => {
+    if (event.key !== null && event.key !== boardStorageKey(userId)) return;
+    try { if (event.storageArea !== null && event.storageArea !== localStorage) return; } catch { return; }
+    reloadBoardSession(userId, prefix);
+  };
+  storageListeners.set(userId, listener);
+  window.addEventListener('storage', listener);
+};
+const stopListening = (userId: string) => {
+  const listener = storageListeners.get(userId);
+  if (!listener) return;
+  storageListeners.delete(userId);
+  window.removeEventListener('storage', listener);
 };
 /** A session nobody subscribes to is not kept: the next reader loads the stored value. */
 const dropIfAlone = (userId: string) => { if (!subscribers.has(userId)) sessions.delete(userId); };
@@ -28,27 +63,40 @@ const dropAfterTick = (userId: string) => {
   queueMicrotask(() => { if (queued === generation && !subscribers.has(userId)) sessions.delete(userId); });
 };
 const emit = (userId: string) => { for (const listener of Array.from(subscribers.get(userId) ?? [])) listener(); };
-const subscribe = (userId: string, listener: () => void) => {
+const subscribe = (userId: string, prefix: string, listener: () => void) => {
   let set = subscribers.get(userId);
   if (!set) { set = new Set(); subscribers.set(userId, set); }
   set.add(listener);
+  listenToStorage(userId, prefix);
   return () => {
     set.delete(listener);
-    if (set.size === 0) { subscribers.delete(userId); dropAfterTick(userId); }
+    if (set.size === 0) { subscribers.delete(userId); stopListening(userId); dropAfterTick(userId); }
   };
 };
 
 /** The session after `change`. `save: false` changes the board in memory only (the moves of a splitter drag, #823); the next saving update writes the whole board. */
 function apply(userId: string, prefix: string, change: (board: Board) => Board, save: boolean): Session {
-  const previous = open(userId, prefix);
+  let previous = open(userId, prefix);
+  // Another tab saved since this session read or wrote (#2019): the change goes on top of the stored document, never a stale copy over it.
+  // Unsaved moves and a read-only latch keep the session as it is (the `reloadBoardSession` rules).
+  let reloaded = false;
+  // A newer build's write latches read-only as before, over the board on screen (nothing is written).
+  if (save && !previous.unsaved && !previous.readOnly && storedChanged(userId, previous)) {
+    const fresh = merged(userId, prefix, previous);
+    previous = fresh.readOnly ? { ...fresh, board: previous.board } : fresh;
+    reloaded = true;
+  }
   const next = change(previous.board);
   // A saving update that changes nothing still writes a board held in memory by `save: false`.
-  if (next === previous.board && !(save && previous.unsaved)) { dropIfAlone(userId); return previous; }
+  if (next === previous.board && !(save && previous.unsaved)) {
+    if (reloaded) { sessions.set(userId, previous); dropIfAlone(userId); emit(userId); return previous; }
+    dropIfAlone(userId); return previous;
+  }
   let session: Session;
   if (!save) session = { ...previous, board: next, unsaved: true };
   // A newer build may have written since the load: that refusal latches this session read-only, with the notice.
   else if (!previous.readOnly && !saveBoard(browserStorage, userId, next)) session = { ...previous, board: next, notice: 'newer', readOnly: true, unsaved: false };
-  else session = { ...previous, board: next, unsaved: false };
+  else session = { ...previous, board: next, unsaved: false, raw: previous.readOnly ? previous.raw : readStoredRaw(browserStorage, userId) };
   sessions.set(userId, session);
   dropIfAlone(userId);
   emit(userId);
@@ -57,7 +105,7 @@ function apply(userId: string, prefix: string, change: (board: Board) => Board, 
 
 /** The signed-in user's board, shared by every caller; a new user is read in the same render the user changes. `storageNotice` says why a stored value was not used. */
 export function useBoardSession(userId: string, prefix: string): { board: Board; update: BoardUpdate; storageNotice: StorageNotice | null } {
-  const session = useSyncExternalStore(useCallback((listener: () => void) => subscribe(userId, listener), [userId]), () => open(userId, prefix));
+  const session = useSyncExternalStore(useCallback((listener: () => void) => subscribe(userId, prefix, listener), [userId, prefix]), () => open(userId, prefix));
   const update = useCallback<BoardUpdate>((change, { save = true } = {}) => { apply(userId, prefix, change, save); }, [userId, prefix]);
   return { board: session.board, update, storageNotice: session.notice };
 }
@@ -66,7 +114,7 @@ export function useBoardSession(userId: string, prefix: string): { board: Board;
 export const readBoardSession = (userId: string, prefix: string): { board: Board; readOnly: boolean; notice: StorageNotice | null; unsaved: boolean } => {
   const live = sessions.get(userId);
   if (live) return live;
-  return { ...loadBoard(browserStorage, userId, prefix), unsaved: false };
+  return { ...load(userId, prefix), unsaved: false };
 };
 
 /** Runs `change` against the one session and returns it afterwards (`readOnly` true: nothing was written). */
@@ -83,21 +131,24 @@ const keepingLive = (stored: Board, live: Board): Board => {
 };
 
 /**
- * Takes the stored value into a live session, so a change another tab made is seen before a confirm judges its target (`분석 보드에 열기…`).
- * A session holding unsaved moves keeps them, and a read-only one stays as it is (its latch and notice last the session). The selected panes
- * and the active sheet stay as they are on screen; only the stored document is taken in. With no live session the next read loads from storage anyway.
+ * Takes the stored value into a live session, so a change another tab made is seen before a confirm judges its target (`분석 보드에 열기…`) and
+ * whenever another tab saves while this session has subscribers (its `storage` event, #2019). A session holding unsaved moves keeps them, and
+ * a read-only one stays as it is (its latch and notice last the session). The selected panes and the active sheet stay as they are on screen;
+ * only the stored document is taken in. Nothing is written. With no live session the next read loads from storage anyway.
  */
 export function reloadBoardSession(userId: string, prefix: string): void {
   const live = sessions.get(userId);
   if (!live) return;
   if (live.unsaved || live.readOnly) { dropIfAlone(userId); return; }
-  const stored = loadBoard(browserStorage, userId, prefix, board => board);
-  sessions.set(userId, { ...stored, board: stored.readOnly ? stored.board : keepingLive(stored.board, live.board), unsaved: false });
+  sessions.set(userId, merged(userId, prefix, live));
   dropIfAlone(userId);
   emit(userId);
 }
 
-export function resetBoardSessionsForTests(): void { generation += 1; sessions.clear(); subscribers.clear(); }
+export function resetBoardSessionsForTests(): void {
+  generation += 1; sessions.clear(); subscribers.clear();
+  for (const userId of Array.from(storageListeners.keys())) stopListening(userId);
+}
 
 /** Drops the sessions nobody subscribes to now, instead of waiting for the tick: a test that cleans up and mounts again in one tick starts from its stored value. */
 export function dropIdleBoardSessionsForTests(): void { for (const userId of Array.from(sessions.keys())) if (!subscribers.has(userId)) sessions.delete(userId); }
