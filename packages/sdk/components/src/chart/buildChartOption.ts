@@ -121,6 +121,10 @@ export type ChartOptionInput = {
 /** What a label that does not fit lays out as: ECharts has no hide switch for a layout callback, so the label collapses to nothing. */
 const YIELDED = { fontSize: 0, width: 0, height: 0 };
 
+const HTML_ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+/** Text for an HTML-mode ECharts tooltip: markup in a server-supplied name must stay text. */
+const escapeHtml = (text: string) => text.replace(/[&<>"']/g, ch => HTML_ESCAPES[ch]);
+
 export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const { horizontal, xType, categories, palette, lang } = i;
   const theme = palette.theme;
@@ -174,7 +178,9 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       id: '__total', type: 'scatter', silent: false, animation: false, z: 4,
       // ECharts draws no label for a symbol of `none`, so the anchor is a 1px transparent dot.
       symbol: 'circle', symbolSize: 1, itemStyle: { color: 'transparent', opacity: 1 },
-      tooltip: { trigger: 'item', formatter: (p: { data?: { tip?: string } }) => p.data?.tip ?? '' },
+      // The tooltip renderer is picked once from the global tooltip model (a series-level `renderMode` is ignored) and HTML mode sets a formatter's string as innerHTML.
+      // The tip carries series names from server data, so the formatter escapes them (#1879).
+      tooltip: { trigger: 'item', formatter: (p: { data?: { tip?: string } }) => escapeHtml(p.data?.tip ?? '') },
       label: { show: true, position: 'right', fontSize: 11, fontWeight: 'bold', color: palette.totalText },
       data: categories.flatMap(x => {
         const t = totals.get(x);
