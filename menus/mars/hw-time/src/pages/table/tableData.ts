@@ -1,4 +1,4 @@
-import { exportScopeIds, type TableExportRequest } from '@ap/components';
+import { tableExportParams, type TableExportRequest } from '@ap/components';
 import { HW_TIME_UNIT, MODULE_IDS, MOTION_IDS, type HwTimeDrill, type HwTimeLevelData, type HwTimeRow } from '../../endpoints';
 import { formatSeconds, missingText } from '../../shared/format';
 
@@ -48,10 +48,7 @@ export function auxiliaryText(row: HwTimeRow, lang: 'ko' | 'en'): string {
 }
 
 export function exportParams(drill: HwTimeDrill, request: TableExportRequest) {
-  const scope = exportScopeIds(request.scope);
-  // This table does not enable selectAllResults: an `all` scope would export the excluded rows, so it is refused.
-  if (scope.mode === 'all-except') throw new Error('select-all export scope is not supported by this table');
-  return { ...drill, ids: scope.ids, sorting: request.sorting };
+  return { ...drill, ...tableExportParams(request) };
 }
 
 /** Readable page filters for the 조회 정보 sheet. */

@@ -3,7 +3,7 @@
  * what both halves share (metric resolution, anchors, bins, bucket ends, the execution key) lives in `../endpoints`.
  */
 import { bucketStart, parseDateTime } from '@ap/contracts';
-import { encodeTableSort, exportScopeIds, parseTableSort, type TableExportRequest } from '@ap/components';
+import { encodeTableSort, parseTableSort, tableExportParams, type TableExportRequest } from '@ap/components';
 import { binText, bucketText } from '../bucket-format';
 import { BINS, binIndex, isInstant, type Granularity, type SlowExportFilter, type SlowFilter, type SlowRow, type TailMode } from '../endpoints';
 
@@ -86,10 +86,7 @@ export function exportParams(
   filter: SlowFilter,
   request: TableExportRequest,
 ): SlowExportFilter {
-  const scope = exportScopeIds(request.scope);
-  // This table does not enable selectAllResults: an `all` scope would export the excluded rows, so it is refused.
-  if (scope.mode === 'all-except') throw new Error('select-all export scope is not supported by this table');
-  return { ...filter, ids: scope.ids, sorting: request.sorting };
+  return { ...filter, ...tableExportParams(request) };
 }
 
 /** Readable page filters for the XLSX 조회 정보 sheet (#173 review P2-3), labeled as the screen labels them. */
