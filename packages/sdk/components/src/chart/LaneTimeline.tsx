@@ -1,10 +1,11 @@
 import type { ChartTrust } from '../state/trustFormat';
-import { useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
 import { Info } from 'lucide-react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { prepareLanes, segmentText } from './laneTimelineGeometry';
+import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
 import { ChartTrustFooter } from './analysisChartFrameParts';
 import { createLaneRenderer, type RendererState } from './laneTimelineRenderer';
 import { overlaySummaries, validateOverlays } from './laneTimelineOverlays';
@@ -57,6 +58,9 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const canvas = useRef<HTMLCanvasElement>(null); const overlay = useRef<HTMLCanvasElement>(null); const axis = useRef<HTMLCanvasElement>(null);
   const spacer = useRef<HTMLDivElement>(null); const tooltip = useRef<HTMLDivElement>(null);
   const engine = useRef<ReturnType<typeof createLaneRenderer> | null>(null);
+  // No ResizeObserver or a renderer that throws on start (jsdom): the renderer cannot start, the frame around it still renders (#1862).
+  const [unavailable, setUnavailable] = useState(false);
+  const markUnavailable = useCallback(() => setUnavailable(true), []);
   const model = useMemo(() => prepareLanes(props.lanes, props.densityInstants ?? noInstants), [props.lanes, props.densityInstants]);
   const overlays = useMemo(() => validateOverlays(props.overlays ?? noOverlays), [props.overlays]);
   const overlayLines = useMemo(() => overlaySummaries(overlays), [overlays]);
@@ -80,7 +84,15 @@ export function LaneTimeline(props: LaneTimelineProps) {
   useEffect(() => {
     if (engine.current) { engine.current.update(state); return; }
     if (!root.current || !scroll.current || !canvas.current || !overlay.current || !axis.current || !spacer.current || !tooltip.current) return;
-    engine.current = createLaneRenderer({ root: root.current, scroll: scroll.current, canvas: canvas.current, overlay: overlay.current, axis: axis.current, spacer: spacer.current, tooltip: tooltip.current, ...state });
+    try {
+      if (typeof ResizeObserver === 'undefined') throw new Error('ResizeObserver is missing');
+      // The renderer first touches its canvases in a later frame; probe them now so a missing 2d context selects the fallback (#1862).
+      for (const target of [axis.current, canvas.current, overlay.current]) if (!target.getContext('2d')) throw new Error('Canvas 2d context is missing');
+      engine.current = createLaneRenderer({ root: root.current, scroll: scroll.current, canvas: canvas.current, overlay: overlay.current, axis: axis.current, spacer: spacer.current, tooltip: tooltip.current, ...state });
+    } catch (cause) {
+      reportChartUnavailable(cause);
+      markUnavailable();
+    }
   });
   useEffect(() => () => { engine.current?.destroy(); engine.current = null; }, []);
   function summary(item: typeof focused) {
@@ -120,6 +132,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
     </header>
     <p className="px-4 py-2 text-text-secondary">{tx(boundaryHelp)}</p>
     <p id={helpId} className="sr-only">{tx(accessibleHelp)}</p>
+    {unavailable ? <ChartUnavailable /> : (
     <div className="overflow-x-auto">
       <div className="min-w-[352px]">
         <canvas ref={axis} aria-hidden className="block w-full" />
@@ -131,6 +144,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
         </div>
       </div>
     </div>
+    )}
     {!model.flat.length && <p className="px-4 py-3 text-text-secondary">{tx({ ko: '데이터 없음', en: 'No data' })}</p>}
     <section aria-label={tx({ ko: '선택 요약', en: 'Selection summary' })} className="bg-surface-sunken px-4 py-2 text-text-secondary">{selectedItem ? summary(selectedItem) : tx({ ko: '선택 없음', en: 'No selection' })}</section>
     {overlayLines.length > 0 && <ul aria-label={tx({ ko: '표시 목록', en: 'Marked times' })} className="sr-only">{overlayLines.map((line, i) => <li key={i}>{line}</li>)}</ul>}

@@ -239,7 +239,10 @@ it('renders the TopN catalog consumer through the SDK table and explicit details
 });
 it('renders the standalone Lane consumer with labels and keyboard selection', async () => {
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  // The lane chart starts only with a 2d context (#1862): a minimal fake with the methods its renderer calls.
+  const noop = () => {};
+  const fake2d = { setTransform: noop, clearRect: noop, save: noop, restore: noop, beginPath: noop, rect: noop, clip: noop, fillRect: noop, fillText: noop, moveTo: noop, lineTo: noop, stroke: noop, strokeRect: noop, setLineDash: noop, measureText: () => ({ width: 10 }) };
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(fake2d as unknown as CanvasRenderingContext2D);
   const previous = query.getMockImplementation()!;
   query.mockImplementation(async () => ({ outcome: 'ok', data: { ...fixture, lane: [{ id: 'lane', label: 'Lane 1', segments: [{ id: 'segment', start: 0, end: 10 }] }] }, assessments: [{ kind: 'collection', state: 'confirmed' }, { kind: 'coverage', state: 'confirmed' }], trust: null, correlationId: 'lane' }));
   try {

@@ -114,6 +114,10 @@ Zoom·Brush·항목 선택은 Chart Local State이며 URL·Global Context를 바
 
 차트마다 이 상태를 섞어 구현하지 않는다.
 
+### 차트를 그릴 수 없는 환경
+
+캔버스 2D 컨텍스트나 `ResizeObserver`가 없어 엔진이 시작하지 못하면(시도해서 실패한 경우만) 차트는 예외를 던지지 않고 그리는 영역에 «이 환경에서는 차트를 그릴 수 없습니다» 상태(중립 톤)를 보인다. 프레임·제목·툴바·표는 그대로 그린다. 이유: 테스트 환경(jsdom)과 start kit의 렌더 검사에서 메뉴가 별도 래퍼나 설정 없이 차트 주변 텍스트를 검증할 수 있게 한다. 실제 브라우저 동작은 바뀌지 않는다.
+
 ### Persistent Annotation과 선택 기능 (Decided, #103)
 
 - **주석은 서버 소유이고 `(chartId, scopeId)`로 키한다.** Chart Frame은 `adapter.listAnnotations({ chartId, scopeId })`·`saveAnnotation({ chartId, scopeId, from, to, text })`로만 읽고 쓴다(모듈 전역 저장소·`chartId`만으로 행을 고르는 조회 금지). 서버는 요청 시점의 세션으로 권한(`analytics:view`)과 Site 경계(§6.2, ADR-0004)를 판정하고, 작성자·시각은 서버가 찍는다(입력에 두 필드가 없다). Scope가 없으면(`null`) 읽지도 쓰지도 않는다 — `null`은 "전체 사이트"가 아니다.
