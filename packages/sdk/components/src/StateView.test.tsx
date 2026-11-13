@@ -23,6 +23,7 @@ it.each([false, true])('danger card limits colour to icon/title and borders the 
   expect(screen.getByText('Error title')).toHaveClass('text-text-danger-label');
   expect(screen.getByText('icon').parentElement).toHaveClass('text-text-danger');
   expect(screen.getByText('Recovery advice')).toHaveClass('text-text-secondary');
+  fireEvent.click(within(alert).getByRole('button', { name: '기술 정보' }));
   for (const node of [screen.getByText(/trace-1945/), screen.getByRole('note')]) {
     expect(node.closest('.text-text-secondary')).toBeTruthy();
     expect(node.closest('.text-text-danger-label')).toBeNull();
