@@ -90,6 +90,7 @@ HostContract | type | type HostContract = 1
 HostFeature | type | type HostFeature = 'detailSlot' | 'query' | 'write'
 INSTANT_OPS | const | const INSTANT_OPS: readonly [ "between", "isEmpty", "isNotEmpty" ]
 IdSet | type | type IdSet = null | string[]
+InstantForm | type | type InstantForm = 'minute' | 'monthDayMinute' | 'short'
 InstantOp | type | type InstantOp = (typeof @ap/contracts#INSTANT_OPS)[number]
 JsonValue | type | type JsonValue = @ap/contracts#JsonValue[] | boolean | null | number | string | { [key: string]: @ap/contracts#JsonValue; }
 KERNEL_PERMISSIONS | const | const KERNEL_PERMISSIONS: readonly [ "platform:view", "notice:view", "voc:view", "console:access", "features:access" ]
@@ -226,7 +227,7 @@ encodeFilterParams | const | const encodeFilterParams: (filters: readonly @ap/co
 filterParamLimit | function | function filterParamLimit(values: readonly string[], key?: string): 'too-long' | 'too-many-conditions' | 'too-many-values' | null
 filterRows | function | function filterRows<T>(rows: readonly T[], filters: readonly @ap/contracts#ColumnFilter[] | undefined, accessor?: (row: T, id: string) => unknown, options?: @ap/contracts#FilterRowsOptions): T[]
 formatDateTime | function | function formatDateTime(date: Date): string
-formatInstant | function | function formatInstant(instant: number | string, lang: keyof @ap/contracts#Text, timeZone?: string): string
+formatInstant | function | function formatInstant(instant: number | string, lang: keyof @ap/contracts#Text, timeZone?: string, form?: @ap/contracts#InstantForm): string
 formatMetricVersion | function | function formatMetricVersion(version: string): string
 formatNumber | function | function formatNumber(value: number, lang: 'en' | 'ko', options?: @ap/contracts#FormatNumberOptions): string
 formatPeriod | function | function formatPeriod(from: null | string, to: null | string, lang: 'en' | 'ko'): string
