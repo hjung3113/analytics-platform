@@ -4,11 +4,12 @@ import { menuQueryContextSchema } from '@ap/contract-schemas';
 
 import type { Binding, ParamType } from '../../bundle/bindings.js';
 import type { Call } from '../../bundle/calls.js';
-import { sqlPlaceholders } from '../../bundle/sql-placeholders.js';
+import { sqlPlaceholderOccurrences, sqlPlaceholders } from '../../bundle/sql-placeholders.js';
 import type { Target } from '../../bundle/targets.js';
 import type { TargetSecrets } from '../../bundle/secrets.js';
 import { MenuUpstreamError } from '../../forwarder.js';
 import { TargetJudgmentTimeout, type Connector } from '../types.js';
+import { createConcurrencyGate } from './shared.js';
 
 type SqlTarget = Extract<Target, { kind: 'sql' }>;
 type Bound = readonly [name: string, value: unknown];
@@ -188,14 +189,10 @@ export function rewriteMssqlStatement(statement: string, params: Readonly<Record
   let template = templates.get(statement);
   if (!template) {
     const names = sqlPlaceholders(statement, 'mssql');
-    let probe = '__ap_probe';
-    while (statement.includes(probe)) probe += '_';
     const spans: { start: number; end: number; name: string }[] = [];
-    for (const match of statement.matchAll(/:([A-Za-z_][A-Za-z0-9_]*)/g)) {
-      const offset = match.index;
-      const name = match[1] ?? '';
-      if (statement[offset - 1] === ':' || !sqlPlaceholders(`${statement.slice(0, offset)}:${probe}`, 'mssql').includes(probe)) continue;
-      spans.push({ start: offset, end: offset + match[0].length, name });
+    for (const { name, offset } of sqlPlaceholderOccurrences(statement, 'mssql')) {
+      if (statement[offset - 1] === ':') continue;
+      spans.push({ start: offset, end: offset + name.length + 1, name });
     }
     template = { names, spans };
     templates.set(statement, template);
@@ -263,8 +260,7 @@ export function createMssqlConnector(target: SqlTarget, secrets: TargetSecrets |
   // Pool and idle-connection errors carry driver diagnostics; they never reach the default unhandled path.
   pool.on('error', () => {});
   let connecting: Promise<unknown> | undefined;
-  let active = 0;
-  const waiters = new Set<() => void>();
+  const gate = createConcurrencyGate(concurrency);
   return {
     query(leg, { signal, deadlineMs, rowCap }): AsyncIterableIterator<unknown> {
       let returning = false;
@@ -281,7 +277,6 @@ export function createMssqlConnector(target: SqlTarget, secrets: TargetSecrets |
         const types = plan.values.map(([, value]) => parameterType(driver, value));
         const expires = Date.now() + deadlineMs;
         let failure: Error | undefined;
-        let wake: (() => void) | undefined;
         let rejectStop: (error: Error) => void = () => {};
         const stopped = new Promise<never>((_resolve, reject) => { rejectStop = reject; });
         void stopped.catch(() => {});
@@ -296,15 +291,13 @@ export function createMssqlConnector(target: SqlTarget, secrets: TargetSecrets |
           // A paused request must flow again for the driver to process the attention acknowledgement.
           try { request.cancel(); request.resume(); } catch { /* the driver reports through 'error'/'done' */ }
         };
-        const stop = (error: Error) => { failure ??= error; rejectStop(failure); wake?.(); cancel(); };
+        const stop = (error: Error) => { failure ??= error; rejectStop(failure); cancel(); };
         interrupt = () => stop(new MenuUpstreamError('timeout'));
         const onAbort = () => stop(new MenuUpstreamError('timeout'));
         signal.addEventListener('abort', onAbort, { once: true });
         const timer = setTimeout(() => stop(new TargetJudgmentTimeout()), Math.min(deadlineMs, 2147483647));
-        let acquired = false;
-        const releaseCapacity = () => {
-          if (acquired) { acquired = false; active--; for (const waiter of waiters) waiter(); }
-        };
+        let release: (() => void) | undefined;
+        const releaseCapacity = () => release?.();
         const queue: unknown[][] = [];
         let columns: MssqlColumn[] | undefined;
         let received = 0;
@@ -313,12 +306,8 @@ export function createMssqlConnector(target: SqlTarget, secrets: TargetSecrets |
         let pending: (() => void) | undefined;
         const nudge = () => { const resume = pending; pending = undefined; resume?.(); };
         try {
-          while (active >= concurrency) {
-            await Promise.race([new Promise<void>((resolve) => { wake = resolve; waiters.add(resolve); }), stopped]);
-            if (wake) waiters.delete(wake);
-          }
+          release = await gate.acquire(stopped);
           if (failure) throw failure;
-          active++; acquired = true;
           connecting ??= pool.connect().catch((error: unknown) => { connecting = undefined; throw error; });
           await Promise.race([connecting, stopped]);
           // Acquisition consumed part of the budget; the driver's own limit is what remains.
@@ -374,7 +363,6 @@ export function createMssqlConnector(target: SqlTarget, secrets: TargetSecrets |
           throw new MenuUpstreamError('unavailable');
         } finally {
           clearTimeout(timer); signal.removeEventListener('abort', onAbort);
-          if (wake) waiters.delete(wake);
           if (request && !finished) {
             cancel();
             // The driver returns the connection to its pool on 'done'; bound the wait like the postgres cleanup.

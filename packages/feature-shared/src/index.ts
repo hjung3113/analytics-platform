@@ -28,6 +28,7 @@ export * from './audit/log-explorer.js';
 export * from './audit/eqv.js';
 export * from './entity-links.js';
 export * from './platform-systems.js';
+export * from './validation-issue-limits.js';
 export * from './findings/index.js';
 export * from './task-requests/index.js';
 export * from './tasks/index.js';

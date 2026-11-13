@@ -12,7 +12,7 @@ type Issue = Omit<ValidationIssueDetail, 'occurrences'>;
 /** Stored evidence keeps its insert time so a page can apply the snapshot cutoff, as the server does; it is stripped on output. */
 type StoredOccurrence = Omit<IssueOccurrence, 'evidence'> & { issueId: string; evidence: (IssueOccurrence['evidence'][number] & { createdAt: string })[] };
 type Comment = DiscussionComment & { target: string };
-/** Server limits (`validation-issue-limits.ts`), copied: the mock may not import the server. */
+/** COPY of `VALIDATION_ISSUE_LIMITS` (`@ap/feature-shared`; `evidence` = `evidencePerOccurrence`): menus may not import feature packages. Pinned by `packages/feature-shared/src/__tests__/validation-issue-limits.test.ts`. */
 const LIMIT = { title: 200, body: 8000, comment: 4000, evidence: 20, pageDefault: 50, pageMax: 100 } as const;
 const at = new Date('2026-11-07T00:40:00Z').toISOString();
 const ISSUE_ID = fixtureId(1808501);

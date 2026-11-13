@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { parseEvidenceRefs } from './evidence-ref-intake.js';
 import { looksSecret } from './result-payload.js';
-import { VALIDATION_ISSUE_LIMITS as L } from './validation-issue-limits.js';
+import { VALIDATION_ISSUE_LIMITS as L } from '@ap/feature-shared';
 import { ISSUE_STATES } from './validation-issue-states.js';
 
 // Same normalisation as opinion-input: title is one line; prose keeps LF and TAB.

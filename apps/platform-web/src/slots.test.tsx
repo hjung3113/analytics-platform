@@ -7,11 +7,11 @@ import { appSlots, makeAppSlots } from './slots';
 describe('analysis action slot assembly (#1408)', () => {
   it('passes the app-supplied actions through without a menu exclusion', () => {
     const analysisActions: AnalysisActionsSlot = { Actions: () => null };
-    const slots = appSlots({ topBarTools: null }, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, analysisActions);
+    const slots = appSlots(undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, analysisActions);
     expect(slots.analysisActions?.Actions).toBe(analysisActions.Actions);
     expect(slots.analysisActions?.appliesTo).toBeUndefined();
     expect(slots.analysisActions?.pageTypes).toEqual(['analysis', 'overview']);
-    const narrowed = appSlots({ topBarTools: null }, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, { ...analysisActions, pageTypes: ['analysis'] });
+    const narrowed = appSlots(undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, { ...analysisActions, pageTypes: ['analysis'] });
     expect(narrowed.analysisActions?.pageTypes).toEqual(['analysis']);
   });
 });
@@ -47,10 +47,11 @@ describe('the slots hook the Host calls on every render (#1702b)', () => {
     expect('accessRequest' in mock.result.current).toBe(false);
   });
 
-  it('carries the assembly through to the slots', () => {
-    const tools = <p>tools</p>;
-    const view = renderHook(() => useAppSlots({ topBarTools: tools }));
-    expect(view.result.current.topBarTools).toBe(tools);
+  it('leaves the Host defaults (contextBar, boardEntry, topBarTools) to startAppHost', () => {
+    const view = renderHook(() => useAppSlots({ topBarTools: <p>tools</p> }));
+    expect(view.result.current.topBarTools).toBeUndefined();
+    expect(view.result.current.contextBar).toBeUndefined();
+    expect(view.result.current.boardEntry).toBeUndefined();
     expect(view.result.current.features).toBeDefined();
   });
 });

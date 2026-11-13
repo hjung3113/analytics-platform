@@ -1,10 +1,11 @@
 import pg from 'pg';
 
-import { sqlPlaceholders } from '../../bundle/sql-placeholders.js';
+import { sqlPlaceholderOccurrences, sqlPlaceholders } from '../../bundle/sql-placeholders.js';
 import type { Target } from '../../bundle/targets.js';
 import type { TargetSecrets } from '../../bundle/secrets.js';
 import { MenuUpstreamError } from '../../forwarder.js';
 import { TargetJudgmentTimeout, type Connector } from '../types.js';
+import { createConcurrencyGate } from './shared.js';
 
 type SqlTarget = Extract<Target, { kind: 'sql' }>;
 // pg 8.13 supports queryMode; the pinned older @types/pg omits that field.
@@ -15,10 +16,9 @@ export function rewriteStatement(statement: string, params: Readonly<Record<stri
   let template = templates.get(statement);
   if (!template) {
     const names = sqlPlaceholders(statement, 'postgres');
-    let probe = '__ap_probe';
-    while (statement.includes(probe)) probe += '_';
+    const live = new Set(sqlPlaceholderOccurrences(statement, 'postgres').map((found) => found.offset));
     const text = statement.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (whole: string, name: string, offset: number) => {
-      if (statement[offset - 1] === ':' || !sqlPlaceholders(`${statement.slice(0, offset)}:${probe}`, 'postgres').includes(probe)) return whole;
+      if (statement[offset - 1] === ':' || !live.has(offset)) return whole;
       return `$${names.indexOf(name) + 1}`;
     });
     template = { text, names };
@@ -64,8 +64,7 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
   pool.on('error', () => {});
   // Idempotent fallback for injected pools that supply clients without our constructor.
   pool.on('connect', ownClient);
-  let active = 0;
-  const waiters = new Set<() => void>();
+  const gate = createConcurrencyGate(concurrency);
   return {
     query(leg, { signal, deadlineMs, rowCap }): AsyncIterableIterator<unknown> {
       let returning = false;
@@ -85,13 +84,10 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
       let cursor = false;
       let transaction = false;
       let completed = false;
-      let acquired = false;
-      const releaseCapacity = () => {
-        if (acquired) { acquired = false; active--; for (const waiter of waiters) waiter(); }
-      };
+      let release: (() => void) | undefined;
+      const releaseCapacity = () => release?.();
       let failure: Error | undefined;
       let cleaning: Promise<void> | undefined;
-      let wake: (() => void) | undefined;
       let rejectStop: (error: Error) => void = () => {};
       const stopped = new Promise<never>((_resolve, reject) => { rejectStop = reject; });
       // Attach immediately, including while the iterator is suspended at yield.
@@ -163,7 +159,7 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
         return cleaning;
       };
       const stop = (error: Error) => {
-        failure ??= error; rejectStop(failure); wake?.();
+        failure ??= error; rejectStop(failure);
         void cleanup(true);
       };
       interrupt = () => stop(new MenuUpstreamError('timeout'));
@@ -176,12 +172,8 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
         return Promise.race([client.query(extended(text, values)), stopped]);
       };
       try {
-        while (active >= concurrency) {
-          await Promise.race([new Promise<void>((resolve) => { wake = resolve; waiters.add(resolve); }), stopped]);
-          if (wake) waiters.delete(wake);
-        }
+        release = await gate.acquire(stopped);
         if (failure) throw failure;
-        active++; acquired = true;
         const pending = pool.connect();
         void pending.then((late) => { if (failure && !client) late.release(true); }, () => {});
         client = await Promise.race([pending, stopped]);
@@ -220,7 +212,6 @@ export function createPostgresConnector(target: SqlTarget, secrets: TargetSecret
         throw new MenuUpstreamError('unavailable');
       } finally {
         clearTimeout(timer); signal.removeEventListener('abort', onAbort);
-        if (wake) waiters.delete(wake);
         await cleanup(!completed);
         releaseCapacity();
       }

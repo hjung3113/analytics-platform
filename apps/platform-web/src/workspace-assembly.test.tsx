@@ -301,8 +301,7 @@ describe('workspace assembly (#260)', () => {
     const fakeScopeControl: ScopeControlSlot = { For: () => null };
     const fakeNavCounts: NavCountsSlot = { For: () => null };
     const fakeSection: SpaceNavSectionSlot = { For: () => null };
-    const slots = appSlots(assembly, fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection);
-    expect(slots.topBarTools).toBe(assembly.topBarTools);
+    const slots = appSlots(fakeSlot, fakeVocCompose, fakeHomeTodo, fakeScopeControl, fakeNavCounts, fakeSection);
     // The links come from the assembly's source into the app store (#1289 node j); until it answers the slot draws nothing.
     expect(slots.features?.entriesFor(spaceId('bravo'))).toBeNull();
     spaceSystems.start(['workspace-assembly'], assembly.spaceSystems ?? null);
@@ -312,7 +311,7 @@ describe('workspace assembly (#260)', () => {
     expect(slots.features?.entriesFor(spaceId('operations'))).toBeNull();
     expect(slots.features?.entriesFor(spaceId('flow'))).toBeNull();
     expect(slots.features?.entriesFor(spaceId('bravo'))?.map(entry => entry.menuId)).toEqual(['inbox', 'task-list', 'survey-management']);
-    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'features', 'plannedSpaces', 'boardEntry', 'notifications', 'vocCompose', 'homeTodo', 'scopeControl', 'navCounts', 'spaceNavSection']);
+    expect(Object.keys(slots)).toEqual(['features', 'plannedSpaces', 'notifications', 'vocCompose', 'homeTodo', 'scopeControl', 'navCounts', 'spaceNavSection']);
     expect(slots.notifications).toBe(fakeSlot);
     expect(slots.vocCompose).toBe(fakeVocCompose);
     expect(slots.homeTodo).toBe(fakeHomeTodo);
