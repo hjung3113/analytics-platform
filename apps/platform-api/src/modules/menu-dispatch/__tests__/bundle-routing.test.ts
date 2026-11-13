@@ -123,6 +123,8 @@ it.each([
   ['invalid baseUrl', ownerBundle({}, {}, { targets: { 'tgt-1': { kind: 'http', baseUrl: 'https://user:secret-value@target.test' } } }), 'targets.tgt-1.baseUrl: baseUrl must be an absolute http(s) URL without credentials, query, fragment or whitespace'],
   ['relative mapped path', ownerBundle({ call: { ...httpCall, path: 'https://target.test/rows' } }), 'endpointOwners.syn.rows.call.path: path must be fixed and absolute with whole-segment {name} variables only'],
   ['partial path variable', ownerBundle({ call: { ...httpCall, path: '/rows/prefix-{key}' } }), 'endpointOwners.syn.rows.call.path: path must be fixed and absolute with whole-segment {name} variables only'],
+  ['object binding in query', ownerBundle({ call: { ...httpCall, query: { c: 'context.condition' } } }, { context: { condition: 'apply' } }, { targets: { 'tgt-1': httpTarget } }), 'endpoint syn.rows: binding context.condition: object value is not allowed in query or pathParams'],
+  ['object binding in pathParams', ownerBundle({ call: { ...httpCall, path: '/rows/{c}', pathParams: { c: 'context.condition' } } }, { context: { condition: 'apply' } }, { targets: { 'tgt-1': httpTarget } }), 'endpoint syn.rows: binding context.condition: object value is not allowed in query or pathParams'],
   ['unbound path variable', ownerBundle({ call: { ...httpCall, path: '/rows/{key}' } }), 'endpointOwners.syn.rows.call.pathParams: path variables must match pathParams exactly'],
 ])('refuses %s without echoing supplied secrets', async (_name, value, problem) => {
   try { await load(value); throw new Error('bundle accepted'); } catch (error) {

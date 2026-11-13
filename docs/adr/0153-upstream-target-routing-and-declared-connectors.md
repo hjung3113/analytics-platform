@@ -124,6 +124,7 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 - **`call.mode: "envelope"`:** 지금의 전달기 그대로다 — 원래 요청 본문, 신원 토큰, 응답을 고치지 않는다(ADR-0148 결정 2 유지). 대상의 `baseUrl`이 `MENU_UPSTREAM_BASE_URL` 대신 쓰이고 토큰은 결정 3.6을 따른다.
 - **`call.mode: "mapped"`(선언적 요청·응답 변환):**
   - 요청: `method`(`GET`|`POST`), `path`(고정 경로, 변수는 경로 조각 전체 `{name}`만, 조각 단위로 인코딩하며 빈 값·`.`·`..`은 요청 `error`), `query`·`body`(이름 → 바인딩, 배열 값의 query 직렬화 방식 — 반복 키 또는 구분자 — 를 선언), 정적 헤더(값은 비밀 파일). 주소의 호스트·스킴은 대상 선언에서만 온다. `redirect: error`.
+  - query 값이 `null`·`undefined`면 그 키를 보내지 않는다(문자열 `"null"`로 나가지 않는다). 스칼라와 스칼라 배열만 직렬화하고, 객체가 될 수 있는 바인딩(`context.condition`, 객체 `const`)을 query·pathParams에 쓰면 기동 검사가 거부한다. body는 JSON `null`, SQL은 파라미터 `null` 그대로다.
   - 응답: `rows`(JSON 포인터, 기본 루트), `fields`(출력 이름 → `{ 행 안 JSON 포인터, type? }`; 없으면 행 그대로), 페이지 엔드포인트가 아니면 `total`은 쓰지 않는다. 2xx와 배열이면 행, 아니면 502. 응답 바이트 상한을 둔다.
   - 이 모드에서 대상은 신원 토큰을 받지 않는다(결정 3.5).
 

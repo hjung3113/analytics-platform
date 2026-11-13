@@ -1,4 +1,4 @@
-import { bindingProblems, type ParamType } from './bindings.js';
+import { bindingProblems, scalarOnlyProblems, type ParamType } from './bindings.js';
 import { callBindings, callKind, isEnvelope, statementProblems } from './calls.js';
 import { type Routing, routeCall } from './routing.js';
 import type { Target } from './targets.js';
@@ -98,6 +98,9 @@ export function routingProblems(bundle: {
     }
     for (const call of [...(owner.call ? [owner.call] : []), ...owner.routes.flatMap((route) => route.call ? [route.call] : [])]) {
       for (const problem of bindingProblems(callBindings(call), endpoint)) add(problem);
+      if ('mode' in call && call.mode === 'mapped') {
+        for (const problem of scalarOnlyProblems([...Object.values(call.pathParams ?? {}), ...Object.values(call.query ?? {})])) add(problem);
+      }
       if ('mode' in call && call.mode === 'mapped' && call.response.total !== undefined && !paged) add('response.total is only allowed on a paged endpoint');
     }
     if (owner.scopeCheck?.mode === 'resolve-keys') {
