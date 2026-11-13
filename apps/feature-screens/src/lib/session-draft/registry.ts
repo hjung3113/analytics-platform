@@ -1,5 +1,5 @@
 /**
- * Session-expiry draft registry (#1887, ADR-0071 decision 5 addendum). No domain knowledge and no imports: the bridge (through
+ * Session-expiry draft registry (#1887, platform ADR-0071 decision 5 addendum). No domain knowledge and no imports: the bridge (through
  * `global-screens/core`) and every form reach it without a new package edge.
  *
  * - A mounted form registers `{ key, read }`; `read` returns only plain user-entered text/choices (never a secret or one-time value) or `null`.
