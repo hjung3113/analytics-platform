@@ -22,6 +22,14 @@ describe('DataTrustIndicator wrap (table status line, ADR-0037)', () => {
     expect(details().className).toContain('flex-wrap');
     expect(screen.getByRole('button', { name: '데이터 신뢰' }).className).toContain('max-w-full');
   });
+
+  it('keeps each fragment on one line and the text left-aligned when wrapping (#1942)', () => {
+    render(<I18nProvider><DataTrustIndicator trust={trust} assessments={[]} wrap /></I18nProvider>);
+    const fragments = [...details().querySelectorAll('.tabular')];
+    expect(fragments).toHaveLength(3);
+    for (const f of fragments) expect(f).toHaveClass('whitespace-nowrap');
+    expect(screen.getByRole('button', { name: '데이터 신뢰' })).toHaveClass('text-left');
+  });
 });
 
 describe('source logic versions', () => {

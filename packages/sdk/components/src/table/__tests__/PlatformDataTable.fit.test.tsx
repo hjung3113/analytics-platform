@@ -284,6 +284,24 @@ describe('action column pinned right (ADR-0037)', () => {
     expect(screen.getByRole('button', { name: 'r1 열기' })).toHaveAttribute('data-compact', compact);
   });
 
+  // #1942: a detail drawer leaves ~690px; with the columns scrolled off anyway the action column takes the compact 72px form.
+  const manyColumns: PlatformDataTableProps<Row>['columns'] = Array.from({ length: 10 }, (_, i) => ({ id: `c${i}`, header: `C${i}`, size: 140, value: (r: Row) => r.id }));
+  it.each([[690, 72, 'true'], [799, 72, 'true'], [800, 128, 'false'], [1400, 128, 'false']])('a 10-column table at %ipx keeps the action column at %ipx (compact=%s)', async (width, size, compact) => {
+    geo.viewportWidth = width;
+    render(<Page height={200} columns={manyColumns} rowAction={compactAction} />);
+    await screen.findByRole('button', { name: 'r1 열기' });
+    expect(actionCell().style.position).toBe('sticky');
+    expect(actionCell().style.width).toBe(`${size}px`);
+    expect(screen.getByRole('button', { name: 'r1 열기' })).toHaveAttribute('data-compact', compact);
+  });
+
+  it('a narrow table whose columns barely overflow keeps the full action column', async () => {
+    geo.viewportWidth = 690;
+    render(<Page height={200} columns={manyColumns.slice(0, 5)} rowAction={compactAction} />);
+    await screen.findByRole('button', { name: 'r1 열기' });
+    expect(actionCell().style.width).toBe('128px');
+  });
+
   it('unpins below left pins + 72 + 120px and shows the normal form, and re-pins compact then full when it widens', async () => {
     geo.viewportWidth = 191;
     render(<Page height={200} rowAction={compactAction} />);

@@ -86,8 +86,8 @@ describe('Global Context priority overflow (#56)', () => {
     expect(screen.queryAllByText('전역 Context', { exact: true })).toHaveLength(0);
     expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
     expect(inlineKeys()).toHaveLength(8);
-    for (const name of ['현재 조건 공유', '초기화']) {
-      expect(within(bar()).getByRole('button', { name }).textContent).toContain(name);
+    for (const [name, text] of [['현재 조건 공유', '현재 조건 공유'], ['조건 초기화', '초기화']]) {
+      expect(within(bar()).getByRole('button', { name }).textContent).toContain(text);
     }
 
     width(2000);
@@ -127,8 +127,8 @@ describe('Global Context priority overflow (#56)', () => {
     expect(within(bar()).getByRole('button', { name: '조건 3개 더' })).toBeVisible();
     // The share label stays visible when compact (kernel.md §11); only the reset button collapses to its icon.
     expect(within(bar()).getByRole('button', { name: '현재 조건 공유' }).textContent).toBe('현재 조건 공유');
-    const reset = within(bar()).getByRole('button', { name: '초기화' });
-    expect(reset).toHaveAttribute('title', '초기화');
+    const reset = within(bar()).getByRole('button', { name: '조건 초기화' });
+    expect(reset).toHaveAttribute('title', '조건 초기화');
     expect(reset.textContent).toBe('');
     const period = within(bar()).getByRole('button', { name: /^기간:/ });
     expect(period).toHaveAttribute('title', '기간: 09-25 09:00 → 09-26 09:00 (24h)');
@@ -215,8 +215,8 @@ describe('Global Context priority overflow (#56)', () => {
     const classes = (el: Element) => el.className.split(/\s+/).filter(c => c !== 'shrink-0').sort().join(' ');
     for (const copy of copies) expect(classes(copy)).toBe(classes(trigger));
     const chip = bar().querySelector('[data-measure-key="roomNames"] button');
-    expect(trigger).toHaveClass('border-border-strong', 'hover:border-border-control');
-    expect(chip).toHaveClass('border-border-strong', 'hover:border-border-control');
+    expect(trigger).toHaveClass('border-border-control', 'hover:border-border-control');
+    expect(chip).toHaveClass('border-border-control', 'hover:border-border-control');
   });
 
   it('keeps unapplied room drafts through inline → overflow → inline and restores connected bar focus (UIUX-56-02)', async () => {

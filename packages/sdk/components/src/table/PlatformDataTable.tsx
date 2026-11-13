@@ -98,6 +98,8 @@ const FILTER_BASIS = 320;
 const ACTION_COLUMN_WIDTH = 128;
 /** Icon-only action column: two 32px icon buttons and a 4px gap fit with `px-0`. */
 const COMPACT_ACTION_WIDTH = 72;
+/** A table narrower than this (a detail drawer beside it) takes the compact action column when columns are scrolled off anyway, so the freed 56px shows more data. */
+const NARROW_TABLE_WIDTH = 800;
 const DEFAULT_COLUMN_WIDTH = 150;
 /** Keyboard focus ring only (ADR-0023): the feature-ui item focus tint is not distinguishable on the popover surface, so the menu keeps an inset ring — never clipped by the content's `overflow-hidden`, and it stays on top of the shared focus background. */
 const exportItemClass = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
@@ -328,7 +330,10 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const leftPinnedWidth = (preferences.pinning.left ?? []).reduce((sum, id) => preferences.visibility[id] === false ? sum : sum + (preferences.sizing[id] ?? Math.round((p.columns.find(c => c.id === id)?.size ?? DEFAULT_COLUMN_WIDTH) * widthScale)), 0);
   // When only the compact (72px, icon-only) form fits beside the left pins it stays pinned; narrower still it unpins in the normal form.
   const fitsFull = fit.width === null || fit.width === 0 || fit.width >= leftPinnedWidth + ACTION_COLUMN_WIDTH + ACTION_PIN_MIN_SCROLL;
-  const actionCompact = !!p.rowAction && !fitsFull && fit.width !== null && fit.width >= leftPinnedWidth + COMPACT_ACTION_WIDTH + ACTION_PIN_MIN_SCROLL;
+  // Narrow table with columns scrolled off by more than a whole action column: the 56px saved by the compact form is worth more as data.
+  const dataColumnsWidth = (selectable ? 40 : 0) + p.columns.reduce((sum, c) => preferences.visibility[c.id] === false ? sum : sum + (preferences.sizing[c.id] ?? Math.round((c.size ?? DEFAULT_COLUMN_WIDTH) * widthScale)), 0);
+  const narrowScrolling = fit.width !== null && fit.width > 0 && fit.width < NARROW_TABLE_WIDTH && dataColumnsWidth > fit.width + ACTION_COLUMN_WIDTH;
+  const actionCompact = !!p.rowAction && (fitsFull ? narrowScrolling : fit.width !== null && fit.width >= leftPinnedWidth + COMPACT_ACTION_WIDTH + ACTION_PIN_MIN_SCROLL);
   const actionPinned = !!p.rowAction && (fitsFull || actionCompact);
   const actionWidth = actionCompact ? COMPACT_ACTION_WIDTH : ACTION_COLUMN_WIDTH;
   // #556a: `order` is the single order source; the pins only say which columns are pinned and are laid out by it.

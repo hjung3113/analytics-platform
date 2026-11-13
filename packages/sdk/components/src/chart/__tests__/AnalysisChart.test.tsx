@@ -91,7 +91,7 @@ it('shares canvas/table selection, drills only via Details, resets, clears on Co
   const table = screen.getByRole('table'); fireEvent.click(within(table).getAllByRole('button', { name: '상세' })[1]);
   expect(drill).toHaveBeenCalledTimes(2); expect(drill).toHaveBeenLastCalledWith('10', 'A');
   expect(window.location.href).toBe(url); expect(history).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: '초기화' })); expect(selection()).toHaveTextContent('선택 없음');
+  fireEvent.click(screen.getByRole('button', { name: '차트 초기화' })); expect(selection()).toHaveTextContent('선택 없음');
   brushPlot([0, 1]); act(() => plot.onEvents?.brushEnd?.({}, {} as never)); view.update({ ...heat, cells: [heat.cells[0]] });
   expect(selection()).toHaveTextContent('1칸 선택');
   fireEvent.click(screen.getByRole('button', { name: 'context' })); expect(selection()).toHaveTextContent('선택 없음');
@@ -112,7 +112,7 @@ it('selects a donut slice without drill, switches centre, and drills only on Det
   clickPlot(0); expect(screen.getByText('20 ea')).toBeTruthy(); expect(drill).not.toHaveBeenCalled();
   fireEvent.click(within(selection()).getByRole('button', { name: '상세' })); expect(drill).toHaveBeenCalledExactlyOnceWith('a');
   clickPlot(0); expect(screen.getByText('100 ea')).toBeTruthy(); expect(selection()).toHaveTextContent('선택 없음');
-  clickPlot(1); fireEvent.click(screen.getByRole('button', { name: '초기화' })); expect(screen.getByText('100 ea')).toBeTruthy();
+  clickPlot(1); fireEvent.click(screen.getByRole('button', { name: '차트 초기화' })); expect(screen.getByText('100 ea')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: '표로 보기' })); fireEvent.click(screen.getAllByRole('checkbox')[1]);
   expect(selection()).toHaveTextContent('Beta'); expect(screen.getAllByRole('checkbox')[0]).not.toBeChecked();
 });
@@ -147,7 +147,7 @@ it('clears the ECharts brush areas as well as local selection on Reset and Conte
   mount(heat); await screen.findByRole('img');
   const dispatchAction = vi.fn(); act(() => plot.onReady?.({ dispatchAction } as never));
   brushPlot([0]);
-  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  fireEvent.click(screen.getByRole('button', { name: '차트 초기화' }));
   expect(dispatchAction).toHaveBeenCalledWith({ type: 'brush', areas: [] });
   dispatchAction.mockClear(); brushPlot([0]); fireEvent.click(screen.getByRole('button', { name: 'context' }));
   expect(dispatchAction).toHaveBeenCalledWith({ type: 'brush', areas: [] });
@@ -191,7 +191,7 @@ it('uses English chart, table, unknown, aggregate and drill copy', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'english' }));
   fireEvent.click(screen.getByRole('button', { name: 'Show as table' }));
   expect(screen.getAllByText('Unknown')).toHaveLength(2);
-  expect(screen.getByRole('button', { name: 'Reset' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Reset chart' })).toBeTruthy();
   expect(screen.getByRole('region', { name: 'Selection summary' })).toHaveTextContent('No selection');
   expect(screen.getAllByRole('button', { name: 'Details' })).toHaveLength(2);
   expect(screen.getByRole('checkbox', { name: 'Select A · 09' })).toBeTruthy();
@@ -228,7 +228,7 @@ it('puts keyboard-operable rectangle selection in the header instead of over the
   expect((plot.option as { brush: { toolbox: string[] } }).brush.toolbox).toEqual([]);
   const toolbar = screen.getByRole('toolbar', { name: '차트 동작' });
   const button = within(toolbar).getByRole('button', { name: '끌어서 선택' });
-  within(toolbar).getByRole('button', { name: '초기화' }).focus();
+  within(toolbar).getByRole('button', { name: '차트 초기화' }).focus();
   await user.tab(); expect(button).toHaveFocus();
   await user.keyboard('{Enter}'); expect(button).toHaveAttribute('aria-pressed', 'true');
   expect(dispatchAction).toHaveBeenCalledWith({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'rect', brushMode: 'single' } }, { silent: true });
@@ -259,7 +259,7 @@ it.each([
   expect(within(summary).queryAllByRole('button')).toHaveLength(count === 1 ? 1 : 0);
 });
 
-it.each(['초기화', 'context'])('clears the pending drag on %s so brushEnd cannot restore it', async action => {
+it.each(['차트 초기화', 'context'])('clears the pending drag on %s so brushEnd cannot restore it', async action => {
   mount(heat); await screen.findByRole('img');
   clickPlot(1);
   brushPlot([0]);
@@ -321,7 +321,7 @@ it('preserves rich compact descriptions in a keyboard tooltip and keeps metric v
   expect(tooltip.querySelector('strong')).toBeTruthy();
   expect(screen.getByRole('button', { name: '차트 설명' })).toHaveAttribute('aria-describedby', tooltip.id);
   expect(container.querySelector('header + div')).toHaveClass('text-tiny');
-  for (const name of ['초기화', '끌어서 선택', '표로 보기']) expect(screen.getByRole('button', { name })).toBeVisible();
+  for (const name of ['차트 초기화', '끌어서 선택', '표로 보기']) expect(screen.getByRole('button', { name })).toBeVisible();
 });
 it('keeps selection, table, brush and focused actions across size changes', async () => {
   const view = render(sizedChart()); await screen.findByRole('img'); clickPlot(0);
@@ -374,7 +374,7 @@ it('retains the focused description control when leaving compact size', async ()
   act(() => info.focus()); await screen.findByRole('tooltip');
   view.rerender(sizedChart({ size: 'regular', description: 'Details' }));
   expect(info).toHaveFocus(); expect(info).toBeVisible();
-  const reset = screen.getByRole('button', { name: '초기화' });
+  const reset = screen.getByRole('button', { name: '차트 초기화' });
   act(() => reset.focus());
   expect(screen.queryByRole('button', { name: '차트 설명' })).toBeNull();
 });

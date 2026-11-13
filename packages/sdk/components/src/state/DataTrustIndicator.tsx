@@ -66,6 +66,8 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
   const shortStatus = confirmed.length
     ? (lang === 'ko' ? `이슈 ${confirmed.length}건` : `${confirmed.length} issue(s)`)
     : unknown.length ? (lang === 'ko' ? '일부 미확인' : 'Partly unconfirmed') : (lang === 'ko' ? '이슈 없음' : 'No issues');
+  // Wrapping form: a line break may fall between the fragments, never inside one.
+  const fragment = cn('tabular', wrap && 'whitespace-nowrap');
   const detailsText = lang === 'ko' ? '자세히' : 'Details';
   const summaryName = `${trust ? `${headline} · ${coverageText} · ${updatedText}` : `${headline} · ${noTrustText}`}${collapsed && mixed ? ` · ${mixedText}` : ''}`;
   if (probe) {
@@ -86,14 +88,14 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
         <Dot tone={tone} />
         {summary && <span data-trust-short className="inline-flex items-center gap-2 whitespace-nowrap"><span className="tabular">{shortStatus}</span><span className="text-text-disabled" aria-hidden>·</span><span className="text-accent-primary underline-offset-2 group-hover/trust:underline">{detailsText}</span></span>}
         <span data-trust-summary-details className={cn('inline-flex items-center gap-2', wrap && 'min-w-0 flex-wrap gap-y-0', (compact || summary) && 'sr-only')}>
-          <span className="tabular">{headline}</span>
+          <span className={fragment}>{headline}</span>
           <span className="text-text-disabled" aria-hidden>·</span>
           {trust ? <>
-            <span className="tabular">{coverageText}</span>
+            <span className={fragment}>{coverageText}</span>
             <span className="text-text-disabled" aria-hidden>·</span>
-            <span className="tabular">{updatedText}</span>
+            <span className={fragment}>{updatedText}</span>
           </> : <>
-            <span className="tabular">{noTrustText}</span>
+            <span className={fragment}>{noTrustText}</span>
           </>}
         </span>
         {trust?.provisional && !hideProvisional && !summary && <StatusBadge tone="warning">{t('provisional')}</StatusBadge>}

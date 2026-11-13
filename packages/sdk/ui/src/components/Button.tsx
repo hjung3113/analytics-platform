@@ -20,11 +20,11 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-accent-primary text-text-on-accent hover:bg-accent-primary/90',
         secondary:
-          'bg-surface-raised text-text-primary border border-border-subtle hover:bg-surface-card',
+          'bg-surface-raised text-text-primary border border-border-subtle hover:bg-surface-row-hover',
         destructive: 'bg-accent-danger text-text-on-accent hover:bg-accent-danger/90',
         outline:
-          'border border-border-default bg-transparent text-text-primary hover:bg-surface-card',
-        ghost: 'text-text-primary hover:bg-surface-card',
+          'border border-border-default bg-transparent text-text-primary hover:bg-surface-row-hover',
+        ghost: 'text-text-primary hover:bg-surface-row-hover',
         navigation: 'text-text-secondary hover:bg-surface-row-hover hover:text-text-primary',
         link: 'text-accent-primary underline-offset-4 hover:underline',
       },

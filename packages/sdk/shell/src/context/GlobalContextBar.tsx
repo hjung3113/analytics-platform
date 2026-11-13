@@ -68,7 +68,7 @@ function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; regio
   ];
   return <ContextBarLayout regionName={label?.region} controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length, label])} actions={compact => <span className="flex items-center gap-1">
         <ShareControl compact={compact} align="end" />
-        <Button type="button" variant="ghost" size="toolbar" aria-label={t('reset')} title={t('reset')} onClick={resetContext}>
+        <Button type="button" variant="ghost" size="toolbar" aria-label={t('resetContext')} title={t('resetContext')} onClick={resetContext}>
           <RotateCcw className="size-3.5" aria-hidden />{!compact && t('reset')}
         </Button>
   </span>} />;
@@ -97,7 +97,7 @@ function CapTag({ cap }: { cap: Capability }) {
 function ChipShell({ label, value, cap, empty, children, ...rest }: { label: ReactNode; value: ReactNode; cap: Capability; empty?: boolean; children?: ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button type="button" {...rest}
     className={cn(CONTEXT_CHIP, 'max-w-[22rem]',
-      cap === 'unsupported' ? 'border-dashed border-border-strong bg-transparent text-text-muted' : CONTEXT_CHIP_TONE,
+      cap === 'unsupported' ? 'border-dashed border-border-control bg-transparent text-text-muted' : CONTEXT_CHIP_TONE,
       empty && 'text-text-muted')}>
     <span className="text-text-muted">{label}</span>
     <span className="truncate font-medium tabular">{value}</span>
@@ -111,8 +111,8 @@ function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capabili
   const { tx, t, lang } = useI18n();
   const { global } = useHostPlatform();
   const fullValue = k === 'time' ? (global.from ? formatPeriod(global.from, global.to, lang) : t('selectPeriod')) : value;
-  return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}${capStatus(cap, t)}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-sm border pl-2.5 pr-1 whitespace-nowrap text-xs',
-    cap === 'unsupported' ? 'border-dashed border-border-strong text-text-muted' : 'border-border-strong bg-surface-card')}
+  return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}${capStatus(cap, t)}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-md border pl-2.5 pr-1 whitespace-nowrap text-xs',
+    cap === 'unsupported' ? 'border-dashed border-border-control text-text-muted' : 'border-border-control bg-surface-card')}
     title={cap === 'unsupported' ? (lang === 'ko' ? 'URL에 보존되며 지원 메뉴로 이동하면 재검증 후 적용됩니다.' : 'Kept in the URL; re-validated and applied on a supporting page.') : undefined}>
     <span className="text-text-muted">{tx(CONTEXT_LABELS[k])}</span>
     <span className="min-w-0 max-w-48 truncate font-medium tabular" title={fullValue}>{value}</span>
@@ -150,7 +150,7 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
   return <div className="flex min-w-0 items-center gap-1">
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-sm border border-border-strong bg-surface-card px-2.5 whitespace-nowrap text-xs hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={`${periodName}${capStatus(cap, t)}`}>
+        <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-md border border-border-control bg-surface-card px-2.5 whitespace-nowrap text-xs hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={`${periodName}${capStatus(cap, t)}`}>
           <CalendarDays className="size-4 shrink-0 text-text-muted" aria-hidden />
           {global.from ? <span className="min-w-0 truncate font-medium tabular">{periodShort(global.from)} → {periodShort(global.to!)}</span> : <span className="min-w-0 truncate text-text-muted">{t('selectPeriod')}</span>}
           {!compact && h !== null && <span className="text-text-muted tabular">({periodSpan(h, lang)})</span>}

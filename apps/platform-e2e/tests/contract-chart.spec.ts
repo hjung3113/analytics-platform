@@ -118,7 +118,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     await frame.getByRole('button', { name: '구간 선택', exact: true }).focus();
     await page.keyboard.press('Enter');
     await expect(start).toBeFocused();
-    await frame.getByRole('button', { name: '초기화', exact: true }).focus();
+    await frame.getByRole('button', { name: '차트 초기화', exact: true }).focus();
     await tabToControl('구간 시작', start);
 
     // fallbackRange spans 09:00–09:00 next day; two start steps pick 11:00 and one end step picks 08:00.

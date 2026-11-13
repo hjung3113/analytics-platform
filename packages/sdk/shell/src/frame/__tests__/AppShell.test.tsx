@@ -119,6 +119,21 @@ describe('rail space navigation', () => {
   });
 });
 
+describe('skip links (#1942)', () => {
+  it('offers 메뉴로 건너뛰기 as the second Tab stop and Enter focuses the first menu link', async () => {
+    mount();
+    const user = userEvent.setup();
+    await user.tab();
+    expect(screen.getByRole('link', { name: '본문으로 건너뛰기' })).toHaveFocus();
+    await user.tab();
+    const skip = screen.getByRole('link', { name: '메뉴로 건너뛰기' });
+    expect(skip).toHaveFocus();
+    await user.keyboard('{Enter}');
+    const nav = screen.getByRole('navigation', { name: '주 메뉴' });
+    expect(within(nav).getAllByRole('link')[0]).toHaveFocus();
+  });
+});
+
 describe('light sidebar', () => {
   it('toggles with the button and [, persists the existing key, and ignores text editing', () => {
     localStorage.setItem('platform:sidebar-collapsed', '0');
