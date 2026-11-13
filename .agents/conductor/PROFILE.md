@@ -26,9 +26,9 @@ Tiers, PR count, round cap, brief check and ship-check: the global `issue-wave-c
 | Label | Owns | Main paths | E2E port |
 | --- | --- | --- | --- |
 | `lane:sdk` | Public package contracts and parts, analysis workspace, SDK quality | `packages/sdk/*`, `tooling/sdk/`, `docs/contract/`, `docs/integration/sdk-*` | 4190 |
-| `lane:platform` | App assembly, mock/real adapters, server conformance, sample menus, in-house rollout | `apps/platform-web`, `packages/adapters/{mock-server,http-adapter,server-conformance}`, `menus/*`, `platform/{admin,home,my-activity,notice-voc}` (not screen bridge consumers) | 4590 |
+| `lane:platform` | App assembly, mock/real adapters, server conformance, sample menus, in-house rollout | `apps/platform-web`, `packages/adapters/{mock-server,http-adapter,server-conformance}`, `menus/*`, `platform/{admin,home,improvement-items,my-activity,notice-voc}` (not screen bridge consumers) | 4590 |
 | `lane:arch` | Refactors, folder structure, glossary, boundary lint, CI, doc structure | `tooling/{eslint,gen-menu,tsconfig,css-selectors}`, `.github/workflows`, `docs/INDEX.md`, `docs/AGENTS.md`, `GLOSSARY.md` | 4690 |
-| `lane:features` | Platform feature screens and core-server feature domains | `apps/platform-api`, `apps/feature-screens`, `packages/feature-{shared,ui}`, `packages/adapters/feature-bridge`, `ops/platform-api`, `platform/{dashboard,voc,findings,tasks,integration,surveys,feature-admin}`, feature bridges in `platform/{home,my-activity,notice-voc}`; `docs/{product/features,architecture/platform-api,design/features,user-guide/features}` | 4390 |
+| `lane:features` | Platform feature screens and core-server feature domains | `apps/platform-api`, `apps/feature-screens`, `packages/feature-{shared,ui}`, `packages/adapters/feature-bridge`, `ops/platform-api`, `platform/{access,dashboard,voc,findings,tasks,integration,surveys,systems,feature-admin}`, feature bridges in `platform/{home,my-activity,notice-voc}`; `docs/{product/features,architecture/platform-api,design/features,user-guide/features}` | 4390 |
 | `lane:ev` | equipment-visualization, AP side: EV packages, Studio, EV docs | `packages/eqv/*`, `tools` space, host-module fixtures, `docs/design/features/equipment-visualization/`, `docs/adr/history/eqv/` (frozen), `.agents/skills/reference-to-semantic-topview` | 4490 |
 | `lane:site` | Intro site | `site/` | 4790 |
 | `lane:ops` | Conductor profile, agent assets, owner-requested reports | `.agents/` (not this file), `docs/agents/` | 4990 |
@@ -58,7 +58,7 @@ Procedure: the global `issue-wave-conductor` skill's `references/lanes.md` §Sta
 - `apps/platform-e2e`
 - The "next release" row in `packages/sdk/CHANGELOG.md`, the `docs/adr/README.md` table, ADR numbers (reservation: [`addenda/traps.md`](addenda/traps.md))
 - `addenda/traps.md`, `docs/agents/operations.md` (append only)
-- The four screen bridge entry lists ([`addenda/traps.md`](addenda/traps.md))
+- The screen bridge entry list (`apps/feature-screens/package.json` `exports`)
 - `.planning/README.md`: the lead updates it once, in the release-docs PR.
 
 ## Owner gates
