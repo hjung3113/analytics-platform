@@ -140,6 +140,7 @@ const dict = {
   stateTooLarge: { ko: '조회 범위가 너무 큽니다', en: 'Query too large' },
   stateTooLargeBody: { ko: '한 번에 가져오기에는 범위가 큽니다. 조회 조건을 좁혀 다시 시도하세요.', en: 'The range is too large to load at once. Narrow the conditions and retry.' },
   stateTimeout: { ko: '조회 시간이 초과되었습니다', en: 'Query timed out' },
+  chartUnavailable: { ko: '이 환경에서는 차트를 그릴 수 없습니다', en: 'Charts cannot be drawn in this environment' },
   stateError: { ko: '데이터를 불러오지 못했습니다', en: 'Unable to load data' },
   stateErrorCause: { ko: '서버가 데이터를 보내지 못했습니다.', en: 'The server could not return the data.' },
   stateErrorAction: { ko: '다시 시도하세요. 문제가 계속되면 관리자에게 아래 Correlation ID를 전달하세요.', en: 'Retry. If the problem persists, share the Correlation ID below with your system administrator.' },

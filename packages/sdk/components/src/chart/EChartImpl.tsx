@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as echarts from 'echarts/core';
 import { BarChart, BoxplotChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
 import { BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
@@ -7,6 +7,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { cn, prefersReducedMotion } from '@ap/ui';
 import { baseTextStyle, type EChartProps } from './EChart';
+import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
 
 echarts.use([LineChart, BarChart, BoxplotChart, PieChart, ScatterChart, GridComponent, TooltipComponent, DataZoomComponent, BrushComponent, ToolboxComponent, MarkAreaComponent, MarkLineComponent, LabelLayout, CanvasRenderer]);
 
@@ -69,15 +70,29 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, on
   events.current = onEvents;
   const resized = useRef(onResize);
   resized.current = onResize;
+  // The engine cannot start where there is no canvas 2d context (jsdom): detected by the attempt, not by sniffing the environment (#1862).
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     if (!el.current) return;
-    const instance = echarts.init(el.current, undefined, { renderer: 'canvas' });
+    let instance: ECharts;
+    try {
+      instance = echarts.init(el.current, undefined, { renderer: 'canvas' });
+    } catch (cause) {
+      reportChartUnavailable(cause);
+      setUnavailable(true);
+      return;
+    }
     chart.current = instance;
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { instance.resize(); resized.current?.(instance.getWidth()); }) : null;
     observer?.observe(el.current);
     onReady?.(instance);
-    return () => { observer?.disconnect(); instance.dispose(); chart.current = null; applied.current = null; };
+    return () => {
+      observer?.disconnect();
+      // Disposing an instance whose canvas context was never acquired throws inside zrender; nothing is left to release then.
+      if (!instance.isDisposed?.()) try { instance.dispose(); } catch (cause) { reportChartUnavailable(cause); }
+      chart.current = null; applied.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the effect owns mount/unmount only; onReady is read once at mount
   }, []);
 
@@ -101,7 +116,20 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, on
     // replaceMerge still merges a component whose id matches (every series has one), so a key the next option leaves out would
     // survive (a value label turned off kept drawing). Empty the series first; axes, brush and toolbox carry no id and are rebuilt.
     if ('replaceMerge' in mode) instance.setOption({ series: [] }, { replaceMerge: ['series'], silent: true, lazyUpdate: true });
-    instance.setOption(next, mode);
+    if (applied.current === null) {
+      // The first draw is where zrender acquires the canvas 2d context (init alone does not touch it): a null context throws here.
+      // Only this first draw is caught; a later render error propagates as before.
+      try {
+        instance.setOption(next, mode);
+      } catch (cause) {
+        reportChartUnavailable(cause);
+        // Dispose now: zrender stops its animation loop first, so the half-built layer is never painted on the next frame.
+        try { instance.dispose(); } catch { /* zrender throws on the missing context after it has stopped its loop */ }
+        chart.current = null;
+        setUnavailable(true);
+        return;
+      }
+    } else instance.setOption(next, mode);
     applied.current = next;
   }, [option]);
 
@@ -115,6 +143,7 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, on
     return () => { for (const name of names) instance.off(name); };
   }, [eventNames]);
 
+  if (unavailable) return <ChartUnavailable height={height} className={className} />;
   // eslint-disable-next-line shadcn/no-inline-styles -- chart height comes from the height prop at runtime
   return <div ref={el} role="img" aria-label={ariaLabel} className={cn(className, 'w-full')} style={{ height }} />;
 }

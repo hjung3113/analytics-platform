@@ -10,6 +10,7 @@ import {
   visibleOrderedItems,
   visiblePartialGaps,
 } from './orderedIntervalGeometry';
+import { ChartUnavailable } from './ChartUnavailable';
 import type { OrderedIntervalTrackProps, OrderedTrackItem } from './orderedIntervalTypes';
 
 type PlotProps = Pick<
@@ -51,6 +52,8 @@ export function OrderedIntervalPlot(props: PlotProps) {
   const [width, setWidth] = useState(600);
   const [top, setTop] = useState(0);
   const [theme, setTheme] = useState(0);
+  // No canvas 2d context or no ResizeObserver (jsdom): the plot cannot draw, the track around it still renders (#1862).
+  const [unavailable, setUnavailable] = useState(typeof ResizeObserver === 'undefined');
   const [dpr, setDpr] = useState(() =>
     typeof window === 'undefined' ? 1 : Math.max(1, window.devicePixelRatio || 1),
   );
@@ -74,7 +77,7 @@ export function OrderedIntervalPlot(props: PlotProps) {
   }, []);
   useEffect(() => {
     const element = scroll.current;
-    if (!element) return;
+    if (!element || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => setWidth(Math.max(240, element.clientWidth || 600)));
     observer.observe(element);
     const themeObserver = new MutationObserver(() => setTheme((n) => n + 1));
@@ -140,7 +143,7 @@ export function OrderedIntervalPlot(props: PlotProps) {
     const captionOffset = props.timeLabels && props.axis !== 'time' ? 20 : 0;
     const axisHeight = AXIS_HEIGHT + (captionOffset ? 24 : 0);
     const head = setup(header, axisHeight);
-    if (!ctx || !head) return;
+    if (!ctx || !head) { setUnavailable(true); return; }
     const colors = new Map<ThemeColorToken, string>();
     const color = (name: ThemeColorToken | `--${ThemeColorToken}`) => {
       const token = (name.startsWith('--') ? name.slice(2) : name) as ThemeColorToken;
@@ -359,6 +362,7 @@ export function OrderedIntervalPlot(props: PlotProps) {
     const hit = hits.filter((item) => item.kind === 'point').at(-1) ?? hits.at(-1);
     return { order, hit };
   }
+  if (unavailable) return <ChartUnavailable height={height} />;
   return (
     <>
       <canvas ref={axis} aria-hidden className="block w-full t-caption" />
