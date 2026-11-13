@@ -8,6 +8,7 @@ import { menuQueryContextSchema } from '@ap/contract-schemas';
 
 import { MenuUpstreamError } from './forwarder.js';
 
+import { tokenDenial } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 import type { ScopeGrant, ScopeResolver } from './scope-resolver.js';
 import type { MenuDispatchRegistry } from './registry.js';
@@ -171,13 +172,17 @@ class CoreDeadlineExpired extends MenuUpstreamError {
   constructor() { super('timeout'); }
 }
 
-/** Scope resolution fails closed; resolver timeouts are owned by the injected adapter. */
+/**
+ * Scope resolution fails closed; resolver timeouts are owned by the injected adapter. The API-token rule
+ * (ADR-0116: owner grants ∩ token scope) is judged here once, before any resolver, so no resolver can skip it.
+ */
 export async function resolveRequestScopes(
   resolver: ScopeResolver | undefined,
   actor: PlatformActor,
   context: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<readonly ScopeGrant[] | null> {
+  if (tokenDenial('scope.read')) return null;
   try {
     const scopes = await resolver?.resolve(actor, signal);
     if (signal?.aborted || !scopes?.length) return null;
