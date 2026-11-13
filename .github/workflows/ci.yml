@@ -59,7 +59,7 @@ jobs:
       e2e_total: ${{ steps.e2e.outputs.e2e_total }}
       e2e_kit: ${{ steps.e2e.outputs.e2e_kit }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       # The rules live in the script (with --self-test): code=false only for a PR whose every changed file is Markdown or under .agents/;
@@ -108,12 +108,12 @@ jobs:
       # Cold and whole when `full` is 'true' (release gate) or empty (changes failed): the turbo cache is neither restored nor trusted.
       TURBO_FORCE: ${{ needs.changes.outputs.full != 'false' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       # pnpm 버전은 루트 package.json의 packageManager를 따른다.
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           # Node 버전은 .nvmrc 한 곳에서 읽는다(#1951). 로컬 검증 환경과 같다.
           node-version-file: .nvmrc
@@ -131,7 +131,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: ${{ env.DOCS_ONLY != 'true' }}
       # turbo cache (#1019): restored on every non-full run, saved only by a push to main so PR runs cannot grow the cache.
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         if: ${{ env.DOCS_ONLY != 'true' && env.TURBO_FORCE != 'true' }}
         with:
           path: .turbo/cache
@@ -223,7 +223,7 @@ jobs:
       - name: Prune turbo cache
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
         run: find .turbo/cache -type f -mtime +7 -delete || true
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
         with:
           path: .turbo/cache
@@ -242,16 +242,16 @@ jobs:
       DOCS_ONLY: ${{ needs.changes.outputs.code == 'false' }}
       TURBO_FORCE: ${{ needs.changes.outputs.full != 'false' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: ${{ env.DOCS_ONLY != 'true' }}
       # Same rule as the static cache: restored on every non-full run, saved only by a push to main.
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         if: ${{ env.DOCS_ONLY != 'true' && env.TURBO_FORCE != 'true' }}
         with:
           path: .turbo/cache
@@ -263,7 +263,7 @@ jobs:
       - name: Prune turbo cache
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
         run: find .turbo/cache -type f -mtime +7 -delete || true
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
         with:
           path: .turbo/cache
@@ -304,11 +304,11 @@ jobs:
       VITEST_MIN_FORKS: '1'
       VITEST_MIN_THREADS: '1'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: ${{ env.DOCS_ONLY != 'true' }}
       - uses: pnpm/action-setup@v6
         if: ${{ env.DOCS_ONLY != 'true' }}
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         if: ${{ env.DOCS_ONLY != 'true' }}
         with:
           node-version-file: .nvmrc
@@ -316,7 +316,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: ${{ env.DOCS_ONLY != 'true' }}
       # turbo cache (#1019): restored on every non-full run, saved only by a push to main so PR runs cannot grow the cache.
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         if: ${{ env.DOCS_ONLY != 'true' && env.TURBO_FORCE != 'true' }}
         with:
           path: .turbo/cache
@@ -340,7 +340,7 @@ jobs:
       - name: Prune turbo cache
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
         run: find .turbo/cache -type f -mtime +7 -delete || true
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
         with:
           path: .turbo/cache
@@ -374,11 +374,11 @@ jobs:
           --health-timeout 2s
           --health-retries 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
         with:
           package_json_file: package.json
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -413,7 +413,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - id: gate
@@ -432,10 +432,10 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
       - if: ${{ steps.gate.outputs.run == 'true' }}
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Build runtime image
         if: ${{ steps.gate.outputs.run == 'true' }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/platform-api/Dockerfile
@@ -447,7 +447,7 @@ jobs:
           cache-to: type=gha,scope=backend-image,mode=max
       - name: Build migrate image
         if: ${{ steps.gate.outputs.run == 'true' }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/platform-api/Dockerfile
@@ -488,9 +488,9 @@ jobs:
       options: --ipc=host
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -519,7 +519,7 @@ jobs:
       options: --ipc=host
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Scope
@@ -530,7 +530,7 @@ jobs:
           if git diff --name-only "origin/$GITHUB_BASE_REF...HEAD" | grep -Eq '^(tooling/sdk/sdk-upgrade-gate|tooling/sdk/sdk-bundle-check\.mjs|tooling/sdk/previous-bundle\.json|apps/platform-e2e/(playwright\.kit\.config|tests-kit/))'; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "run=false" >> "$GITHUB_OUTPUT"; fi
       - uses: pnpm/action-setup@v6
         if: ${{ steps.scope.outputs.run == 'true' }}
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         if: ${{ steps.scope.outputs.run == 'true' }}
         with:
           node-version-file: .nvmrc
@@ -550,7 +550,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: .github/scripts
       - name: All workspace gates succeeded
@@ -589,9 +589,9 @@ jobs:
       matrix:
         shard: ${{ fromJSON(needs.changes.outputs.e2e_shards || '[1,2,3,4,5,6,7,8]') }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -613,7 +613,7 @@ jobs:
           pnpm --filter @ap/platform-e2e exec playwright test --config playwright.kit.config.ts
       - name: Upload start kit browser evidence
         if: ${{ matrix.shard == 1 && needs.changes.outputs.e2e_kit != 'false' && github.event_name != 'pull_request' && !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: platform-start-kit-browser-report
           path: |
@@ -636,13 +636,13 @@ jobs:
       # Runs once, on the last shard, regardless of the shard's own result; skipped only when the selection says it is unaffected ('false'; empty = run).
       - if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '8') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
         run: pnpm e2e:base-path
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && needs.changes.outputs.e2e != 'base-path-only' }}
         with:
           name: platform-e2e-blob-${{ matrix.shard }}
           path: apps/platform-e2e/blob-report/
           retention-days: 1
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '8') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
         with:
           name: platform-e2e-base-path-report
@@ -665,20 +665,20 @@ jobs:
     timeout-minutes: 10
     steps:
       # The verdict script needs only .github/scripts; the full tree only when a report is merged.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: ${{ !cancelled() }}
         with:
           sparse-checkout: ${{ env.MERGE_REPORT != 'true' && '.github/scripts' || '' }}
       - uses: pnpm/action-setup@v6
         if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
         with:
           pattern: platform-e2e-blob-*
@@ -688,14 +688,14 @@ jobs:
       - run: pnpm --filter @ap/platform-e2e e2e:merge
         if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
       # After the merge: the contract reporter clears contract-report/ when it starts.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
         continue-on-error: true
         with:
           name: platform-e2e-base-path-report
           path: apps/platform-e2e/contract-report/base-path
       # Base-path run alone: nothing to merge, but its report is still published (same artifact name as the merged run).
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: ${{ env.BASE_ONLY == 'true' && !cancelled() }}
         continue-on-error: true
         with:
@@ -705,7 +705,7 @@ jobs:
         if: ${{ env.BASE_ONLY == 'true' && !cancelled() }}
         run: |
           echo "Contract report - base-path run only (main-config specs not selected); the report is in the platform-contract-report artifact." >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ env.BASE_ONLY == 'true' && !cancelled() }}
         with:
           name: platform-contract-report
@@ -716,7 +716,7 @@ jobs:
       - name: Contract report → job summary
         if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
         run: cat apps/platform-e2e/contract-report/README.md >> "$GITHUB_STEP_SUMMARY" || echo "contract report missing (suite did not start)" >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ env.MERGE_REPORT == 'true' && !cancelled() }}
         with:
           name: platform-contract-report
@@ -762,9 +762,9 @@ jobs:
         # A container job's default shell is `sh` (dash): no `${var::n}`, no pipefail.
         shell: bash
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -779,7 +779,7 @@ jobs:
           node site/scripts/shots.mjs --demo apps/platform-web/dist --out _shots
           node site/scripts/assemble.mjs --out "$RUNNER_TEMP/_site" --site-base /analytics-platform/ --ref "$GITHUB_SHA" --commit "${GITHUB_SHA::7}" --demo apps/platform-web/dist --shots _shots
           node site/scripts/check-assembled.mjs --site "$RUNNER_TEMP/_site" --captures _shots --browser
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ failure() }}
         with:
           name: site-shots
