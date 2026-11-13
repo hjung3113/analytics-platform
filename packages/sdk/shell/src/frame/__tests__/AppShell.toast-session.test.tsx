@@ -1,18 +1,27 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
+import { useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, type PlatformMenuEntry } from '@ap/kernel';
 import { useHostPlatform, type HostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type PlatformAdapter, type Session } from '@ap/contracts';
 import { AppShell } from '../AppShell';
+import { RouteOutlet } from '../../routing/RouteOutlet';
 
 // #2075 C2: a toast can carry the previous user's data (a private saved-view name). The visible stack and both sr-only live regions belong to
 // one session generation (adapter, revision, user): a new generation drops them, and a toast call from an older generation shows nothing.
+// A menu screen that announces its own closing from a layout cleanup, with the current user's private view name.
+const LEAVING = 'u1 private view';
+function LeavingPage() {
+  const { toast } = useHostPlatform();
+  useLayoutEffect(() => () => { toast(LEAVING); }, [toast]);
+  return <p>leaving page</p>;
+}
 const registry = createRegistry({
   spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'home' })],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
-  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], component: LeavingPage as unknown as PlatformMenuEntry['component'] }],
 });
 
 let host!: HostPlatform;
@@ -73,6 +82,25 @@ describe('shell toasts belong to one session generation (#2075)', () => {
     expectRaised();
     rerender(tree(sessionAdapter(testSession(['platform:view', 'console:access'])).adapter));
     expectGone();
+  });
+
+  // C2: the old screen's layout cleanup runs in the swap commit before the Provider's own cleanup, after the render that dropped the list.
+  it.each([
+    ['another user', testSession(['platform:view'], { user: { id: 'u2', name: 'u2' } })],
+    ['the same user with fewer permissions', testSession(['platform:view'])],
+  ])('a toast the old screen raises from its layout cleanup during an adapter swap (%s) never reaches the new session', (_name, next) => {
+    const routed = (adapter: PlatformAdapter) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AppShell><Probe /><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>;
+    const { rerender } = render(routed(sessionAdapter(testSession(['platform:view', 'console:access'])).adapter));
+    expect(screen.getByText('leaving page')).toBeTruthy();
+    rerender(routed(sessionAdapter(next).adapter));
+    expect(screen.getByText('leaving page')).toBeTruthy();
+    act(() => {});
+    expect(items().join('|')).not.toContain(LEAVING);
+    expect(spoken()).not.toContain(LEAVING);
+    expect(document.body.textContent).not.toContain(LEAVING);
+    // The new generation's own toast is still shown.
+    act(() => { host.toast('새 세대 알림'); });
+    expect(items()).toEqual([expect.stringContaining('새 세대 알림')]);
   });
 
   it('a toast call from an older generation (a late callback) shows and says nothing', async () => {

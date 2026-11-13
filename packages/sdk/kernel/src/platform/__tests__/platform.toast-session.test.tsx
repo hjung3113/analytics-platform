@@ -1,5 +1,5 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
-import { useLayoutEffect } from 'react';
+import { StrictMode, useLayoutEffect } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { House } from 'lucide-react';
 import { groupId, type PlatformAdapter, type Session } from '@ap/contracts';
@@ -57,5 +57,25 @@ describe('toasts per session generation (#2075)', () => {
     expect(listed()).toBe('first mountu1 private');
     rerender(tree(sessionAdapter(testSession(['platform:view'])).adapter, 'second mount'));
     expect(listed()).toBe('second mount');
+  });
+
+  // C3: StrictMode's replay releases the Provider's effects for a moment; a descendant's layout setup runs again before the Provider's.
+  it('under StrictMode keeps the toast a current-generation layout effect raises again after its cleanup dismissed the first one', () => {
+    const ids: number[] = [];
+    function Raise() {
+      const { toast, dismissToast } = useHostPlatform();
+      useLayoutEffect(() => {
+        const id = toast('현재 세대 알림');
+        ids.push(id);
+        return () => dismissToast(id);
+      }, [toast, dismissToast]);
+      return null;
+    }
+    render(<StrictMode><I18nProvider><PlatformProvider adapter={sessionAdapter(testSession(['platform:view'])).adapter} registry={registry}>
+      <Raise /><ToastProbe />
+    </PlatformProvider></I18nProvider></StrictMode>);
+    expect(listed()).toBe('현재 세대 알림');
+    expect(ids).toHaveLength(2);
+    expect(ids.at(-1)).toBeGreaterThan(0);
   });
 });
