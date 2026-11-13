@@ -74,6 +74,11 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
   const usable = windows?.filter((w) => w.state === 'active' || w.state === 'replaced' || w.state === 'staged') ?? [];
   const latestActive = [...usable].filter((w) => w.state === 'active').sort((a, b) => (a.from < b.from ? 1 : a.from > b.from ? -1 : 0))[0] ?? null;
   const window = windowKey === null ? latestActive : windows?.find((w) => windowHex(w.hash) === windowKey) ?? null;
+  // The Sample Window whose review was refused as `mapping/changed`; another window (or none) shows no notice, and a window change clears it.
+  const [rulesChangedFor, setRulesChangedFor] = useState<string | null>(null);
+  const reviewKey = window ? windowHex(window.hash) : 'none';
+  const [keyFor, setKeyFor] = useState(reviewKey);
+  if (keyFor !== reviewKey) { setKeyFor(reviewKey); setRulesChangedFor(null); }
   const inventoryQ = useMenuQuery(observedInventoryEndpoint, { equipmentId, windowHash: window ? windowHex(window.hash) : NO_HEX }, window !== null);
 
   const dictGlobalQ = useMenuQuery(typeDictionaryEndpoint, { level: 'global' }, known);
@@ -84,7 +89,6 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
   const rulesMakerQ = useMenuQuery(aliasRulesEndpoint, { level: 'maker', vendorId }, known);
   const rulesModelQ = useMenuQuery(aliasRulesEndpoint, { level: 'model', vendorId, modelId }, known);
   const rulesEquipmentQ = useMenuQuery(aliasRulesEndpoint, { level: 'equipment', equipmentId }, known);
-  const [rulesChanged, setRulesChanged] = useState(false);
   const bindingsQ = useMenuQuery(bindingsEndpoint, { equipmentId });
   const bindingsRaw = dataOf(bindingsQ);
   const bindingsParsed = useMemo(() => {
@@ -194,9 +198,9 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
       bindings: bindingsParsed?.ok ? bindingsParsed.file : null, bindingsVersion: bindingsRaw?.version ?? '0',
       previous: parsed.previous, baseline: parsed.baseline, layoutId, draft: parsed.draft,
       driftLayout: parsed.driftLayout, driftProblem: parsed.driftProblem, templates: parsed.templates,
-      rulesChanged,
-      reloadRules: () => { setRulesChanged(true); for (const q of [rulesGlobalQ, rulesMakerQ, rulesModelQ, rulesEquipmentQ]) q.refetch(); },
-      dismissRulesChanged: () => setRulesChanged(false),
+      rulesChanged: rulesChangedFor === reviewKey,
+      reloadRules: () => { setRulesChangedFor(reviewKey); for (const q of [rulesGlobalQ, rulesMakerQ, rulesModelQ, rulesEquipmentQ]) q.refetch(); },
+      dismissRulesChanged: () => setRulesChangedFor(null),
     },
   };
 }

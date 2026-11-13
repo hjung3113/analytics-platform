@@ -326,6 +326,29 @@ describe('검증·게시', () => {
     expect(notify).not.toHaveBeenCalledWith('Mapping을 게시했습니다', 'info');
   });
 
+  it('the rules-changed notice belongs to the refused review: a Sample Window change by Back/Forward clears it (#2053)', async () => {
+    server.state.refuseMapping = { outcome: 'invalid', code: 'changed' };
+    mount('engineer', `&equipment=eq-synth-01&step=validate&window=${STAGED}`);
+    const trigger = await screen.findByRole('combobox', { name: 'Sample Window' }, slow);
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    const active = (await screen.findAllByRole('option', {}, slow)).find((o) => !/교체 대기/.test(o.textContent ?? ''))!;
+    fireEvent.click(active);
+    await waitFor(() => expect(params().window).not.toBe(STAGED), slow);
+    const openReview = async () => {
+      const review = await screen.findByRole('button', { name: '게시 검토' }, slow);
+      await waitFor(() => expect((review as HTMLButtonElement).disabled).toBe(false), slow);
+      fireEvent.click(review);
+      return screen.findByRole('alertdialog', {}, slow);
+    };
+    fireEvent.click(within(await openReview()).getByRole('button', { name: '게시' }));
+    await waitFor(() => expect(within(screen.getByRole('alertdialog')).getByRole('alert').textContent).toBe('규칙이 바뀌었습니다. 다시 확인한 뒤 게시하세요.'), slow);
+    act(() => window.history.back());
+    await waitFor(() => expect(params().window).toBe(STAGED), slow);
+    act(() => window.history.forward());
+    await waitFor(() => expect(params().window).not.toBe(STAGED), slow);
+    expect(within(await openReview()).queryByRole('alert')).toBeNull();
+  });
+
   it('a server refusal as the same as the latest publish says so in the dialog', async () => {
     server.state.refuseMapping = { outcome: 'invalid', code: 'same-as-latest' };
     mount('engineer', '&equipment=eq-synth-01&step=validate');
