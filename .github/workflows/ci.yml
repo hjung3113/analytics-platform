@@ -142,6 +142,9 @@ jobs:
         run: |
           node .github/scripts/check-platform-turbo-scope.mjs
           node .github/scripts/check-platform-turbo-scope.mjs --self-test
+          # #2029: a cached test that reads another package's files must hash them, or a stale cache passes.
+          node .github/scripts/check-turbo-cross-reads.mjs
+          node .github/scripts/check-turbo-cross-reads.mjs --self-test
           node --test .github/scripts/check-unified-ci.test.mjs
           # #1884: the scripts that decide which gates run are tested here too (node builtins and bash only, seconds).
           node .github/scripts/classify-changes.mjs --self-test

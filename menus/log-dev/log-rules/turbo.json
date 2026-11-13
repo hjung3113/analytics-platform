@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../node_modules/turbo/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/platform-api/src/modules/log-rules/domain/catalog-params.ts",
+        "$TURBO_ROOT$/apps/platform-api/src/modules/log-rules/domain/coverage-params.ts",
+        "$TURBO_ROOT$/apps/platform-api/src/modules/log-rules/menu.ts",
+        "$TURBO_ROOT$/packages/sdk/contract-schemas/scripts/endpoints.vitest.mjs"
+      ]
+    }
+  }
+}

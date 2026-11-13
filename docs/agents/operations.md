@@ -44,7 +44,7 @@ Shared list: rule 8 of the global worker rules.
 - A comment line starting with `// eslint-disable…` is parsed as a directive and errors without a rule name; do not start a line with it.
 - `Closes #n` can lag: check once after merge and close manually. A review bot may not review a new commit again.
 - CI wait procedure: [`traps.md`](../../.agents/conductor/addenda/traps.md) (`gh pr checks --watch` exits early on queued runs).
-- CI turbo cache: workspace checks restore `.turbo/cache` (key `turbo-<os>-node26.7.0-<static|test>-<sha>`); only `main` pushes save it. A task reading files outside its package declares `$TURBO_ROOT$` inputs in `turbo.json`, or a stale cache returns a false green.
+- CI turbo cache: workspace checks restore `.turbo/cache` (key `turbo-<os>-node26.7.0-<static|test>-<sha>`); only `main` pushes save it. A task reading files outside its package declares `$TURBO_ROOT$` inputs in `turbo.json`, or a stale cache returns a false green. CI checks this for every package's `test` task with `.github/scripts/check-turbo-cross-reads.mjs` (static paths only; its header lists what it cannot see). A test whose repo paths are names, not reads, says so with `// turbo-cross-reads: names-only — <reason>`.
 
 ## Browser Checks and Captures
 
