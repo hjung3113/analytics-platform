@@ -13,6 +13,7 @@ import { useVocDrawer, VocDrawer, VocDrawerContext } from '../voc/VocDrawer';
 import { BoardRestoreChip } from '../board/BoardRestoreChip';
 import { useBoardPresentation } from '../board/boardPresentation';
 import { expandedDetailClass } from './expandedDetailClass';
+import { useSessionKey } from './sessionKey';
 import type { ToastBottom } from '../board/windowLayout';
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
@@ -136,6 +137,15 @@ function Toasts({ bottom }: { bottom: ToastBottom }) {
   const { lang } = useI18n();
   const langRef = useRef(lang);
   langRef.current = lang;
+  // The sr-only copies are this session generation's too (#2075): a new generation empties both regions in the same render the Kernel drops
+  // its toasts, so nothing the previous session was told stays in the DOM. The regions themselves stay mounted (persistent live regions).
+  const sessionKey = useSessionKey();
+  const [saidFor, setSaidFor] = useState(sessionKey);
+  if (saidFor !== sessionKey) {
+    setSaidFor(sessionKey);
+    setPolite([]);
+    setAssertive([]);
+  }
   // The first render only records what is already there; later renders announce the ids not yet heard.
   useEffect(() => {
     const seen = heard.current ?? new Set<number>();

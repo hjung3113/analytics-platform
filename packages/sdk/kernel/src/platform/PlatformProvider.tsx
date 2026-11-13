@@ -31,7 +31,8 @@ const browserLocation = createBrowserLocation();
 
 function counterStore(adapter: PlatformAdapter) {
   let n = 0;
-  return { subscribe: (listener: () => void) => adapter.subscribe(() => { n++; listener(); }), get: () => n };
+  // `live` turns false when the Provider leaves this adapter (layout cleanup, before any new setup), so its closures know they are stale.
+  return { live: true, subscribe: (listener: () => void) => adapter.subscribe(() => { n++; listener(); }), get: () => n };
 }
 
 /** Fallback tab-session id when sessionStorage is unavailable (privacy mode, tests). One per JS runtime. */
@@ -130,6 +131,13 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     }
   }
   const [toasts, setToasts] = useState<Toast[]>([]);
+  // Toasts belong to one session generation (#2075): a toast can name the previous user's data (a private view name), so a new
+  // generation drops the list (and with it every action) in the same render; their timers are retired in the layout effect below.
+  const [toastGen, setToastGen] = useState(gen);
+  if (toastGen !== gen) {
+    setToastGen(gen);
+    setToasts([]);
+  }
   const { open: paletteOpen, session: paletteSession, setOpen: setPaletteOpen } = useFocusGate(paletteFocus, session);
   const { open: switcherOpen, session: switcherSession, setOpen: setSwitcherOpen } = useFocusGate(switcherFocus, session);
   const toastId = useRef(1);
@@ -144,6 +152,8 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   }, []);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   const durations = useRef(new Map<number, number>());
+  // The generation each live toast was raised in; a toast of another generation has its timer and duration retired.
+  const toastOwners = useRef(new Map<number, string>());
   const armToast = useCallback((id: number) => {
     clearTimeout(timers.current.get(id));
     // An action toast without an explicit durationMs has no timer (Infinity): it stays until acted on or dismissed (06 Toast).
@@ -151,27 +161,47 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     timers.current.set(id, setTimeout(() => {
       timers.current.delete(id);
       durations.current.delete(id);
+      toastOwners.current.delete(id);
       if (mounted.current) setToasts(list => list.filter(t => t.id !== id));
     }, durations.current.get(id)));
   }, []);
+  useLayoutEffect(() => {
+    revisions.live = true;
+    return () => { revisions.live = false; };
+  }, [revisions]);
+  useLayoutEffect(() => {
+    for (const [id, owner] of toastOwners.current) {
+      if (owner === gen) continue;
+      clearTimeout(timers.current.get(id));
+      timers.current.delete(id);
+      durations.current.delete(id);
+      toastOwners.current.delete(id);
+    }
+  }, [gen]);
   const toast = useCallback((text: string, tone: Toast['tone'] = 'info', detail?: string, options?: ToastOptions) => {
+    // A call from an older generation (a callback that resolved after a session change notice or an adapter swap) shows nothing: the
+    // counter moves at the notice itself, before any re-render, so even a call in the same task as the notice is refused. The id is never live.
+    if (!revisions.live || revisions.get() !== revision) return -1;
     const id = toastId.current++;
+    toastOwners.current.set(id, gen);
     // Live ids are the duration keys (set here, deleted on expiry/dismiss); the cap drops all but the newest three.
     for (const old of [...durations.current.keys()].slice(0, -3)) {
       clearTimeout(timers.current.get(old));
       timers.current.delete(old);
       durations.current.delete(old);
+      toastOwners.current.delete(old);
     }
     setToasts(list => [...list.slice(-3), { id, text, tone, ...(detail === undefined ? {} : { detail }), ...(options?.action ? { action: options.action } : {}) }]);
     // An action toast stays by default: the user has to reach and read it first (06 Toast paragraph).
     durations.current.set(id, options?.durationMs ?? (options?.action ? Infinity : 5000));
     armToast(id);
     return id;
-  }, [armToast]);
+  }, [armToast, revisions, revision, gen]);
   const dismissToast = useCallback((id: number) => {
     clearTimeout(timers.current.get(id));
     timers.current.delete(id);
     durations.current.delete(id);
+    toastOwners.current.delete(id);
     setToasts(list => list.filter(t => t.id !== id));
   }, []);
   const holdToast = useCallback((id: number, held: boolean) => {

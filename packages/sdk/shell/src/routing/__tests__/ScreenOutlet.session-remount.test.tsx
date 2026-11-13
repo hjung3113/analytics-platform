@@ -72,6 +72,21 @@ describe('ScreenOutlet remounts the menu page per session generation (#2075)', (
     expect(mounts).toBe(2);
   });
 
+  it.each([
+    ['fewer permissions', testSession(['platform:view'])],
+    ['a smaller Scope grant', testSession(['platform:view', 'console:access'], { scopes: [{ id: 's1', label: 's1', grantedRooms: 1, totalRooms: 2 }] })],
+  ])('a new adapter that keeps the same user at revision 0 with %s still remounts the page', (_name, next) => {
+    const first = sessionAdapter(testSession(['platform:view', 'console:access'], { scopes: [{ id: 's1', label: 's1', grantedRooms: 2, totalRooms: 2 }] }));
+    const { rerender } = render(tree(first.adapter));
+    pickRow();
+    expect(host.revision).toBe(0);
+    rerender(tree(sessionAdapter(next).adapter));
+    expect(host.user.id).toBe('u1');
+    expect(host.revision).toBe(0);
+    expect(screen.getByText('picked: none')).toBeTruthy();
+    expect(mounts).toBe(2);
+  });
+
   it('keeps the same page instance when nothing about the session changed', () => {
     const { adapter } = sessionAdapter(testSession(['platform:view']));
     const { rerender } = render(tree(adapter));

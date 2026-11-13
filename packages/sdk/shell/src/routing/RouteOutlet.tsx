@@ -11,6 +11,7 @@ import { ShellBoundary } from '../frame/ShellBoundary';
 import { ModuleScreen } from './ModuleScreen';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
 import { useBoardPresentationSync } from '../board/boardPresentation';
+import { useSessionKey } from '../frame/sessionKey';
 
 // The board is a lazy chunk: only `/board` needs it, and the start-up chunk stays without it (#821, `pnpm check:lazy-chunks`).
 const BoardHost = lazy(() => import('../board/BoardHost').then(module => ({ default: module.BoardHost })));
@@ -40,7 +41,8 @@ export function RouteOutlet() {
  * chain for that pane's menu, so a denied pane shows its own permission state.
  */
 export function ScreenOutlet() {
-  const { route, contractError, can, url, global, metricInit, setGlobal, currentSpace, reportError, revision, user } = useHostPlatform();
+  const { route, contractError, can, url, global, metricInit, setGlobal, currentSpace, reportError } = useHostPlatform();
+  const sessionKey = useSessionKey();
   const { t, tx, lang } = useI18n();
   if (!route) return <KernelMessage icon={<FileQuestion className="size-4" aria-hidden />} title={t('notFound')} body={<span className="t-mono">{url}</span>} />;
   // An alias address is replaced by the canonical one right after this render (ADR-0093): the screen waits, so nothing queries on the legacy path.
@@ -74,9 +76,9 @@ export function ScreenOutlet() {
   if (!menuPermissions(route.menu).every(can)) return <KernelMessage heading={tx(route.menu.label)} tone="warning" icon={<Ban className="size-4" aria-hidden />} title={t('menuDenied')}
     body={<>{tx(route.menu.label)}. {t('askAccessOwner')}</>} />;
   const Page = route.menu.component;
-  // Every screen is a different instance per session generation (#2075): a session change notice (revision) or another user (an
-  // adapter swap restarts the revision count) remounts it and drops its local state; URL state survives because it comes from the URL.
-  const instanceKey = `${route.menu.id}${JSON.stringify(route.params)}|${revision}|${user.id}`;
+  // Every screen is a different instance per session generation (#2075): a session change notice (revision), another user or an adapter
+  // swap (its revision count restarts at 0, even for the same user) remounts it and drops its local state; URL state survives because it comes from the URL.
+  const instanceKey = `${route.menu.id}${JSON.stringify(route.params)}|${sessionKey}`;
   if (route.menu.moduleScreen) return <RouteErrorBoundary onError={reportError} resetKey={instanceKey}>
     <ModuleScreen key={instanceKey} entry={route.menu} params={route.params} />
   </RouteErrorBoundary>;
