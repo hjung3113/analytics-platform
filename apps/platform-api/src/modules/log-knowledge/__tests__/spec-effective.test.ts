@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { type EffectiveChange, type SpecBaseContent, applySpecChanges } from '../domain/spec-effective.js';
+import { type EffectiveChange, type SpecBaseContent, applySpecChanges, maskChangeMarks } from '../domain/spec-effective.js';
 
 const fld = (name: string, extra: Record<string, unknown> = {}) => ({ name, type: 'int', description: name, ...extra });
 const BASE: SpecBaseContent = {
@@ -117,5 +117,23 @@ describe('applySpecChanges (#1196 c)', () => {
     expect(out.events[1]?.needsRevalidation).toBe(true);
     expect(out.events[0]?.needsRevalidation).toBe(false);
     expect(out.stale[0]?.needsRevalidation).toBe(true);
+  });
+});
+
+describe('maskChangeMarks (#1880)', () => {
+  it('drops the marks, stale and removed reports of hidden changes, keeps their values and recomputes needsRevalidation', () => {
+    const hiddenChange = ch('event', 'spindle/start', 'changed', { before: { name: 'Start', triggerRule: 'on start', detailDocRef: null }, after: { name: 'Start', triggerRule: 'on stop', detailDocRef: null } }, true);
+    const hiddenStale = ch('event', 'motor/gone', 'behavior', {}, true);
+    const hiddenRemoved = ch('relation', 'spindle/start#precedes#motor/run', 'removed', { before: { ruleRef: null } });
+    const visible = ch('event', 'spindle/start', 'behavior', {});
+    const changes = [hiddenChange, hiddenStale, hiddenRemoved, visible];
+    const full = applySpecChanges(BASE, changes);
+    const out = maskChangeMarks(full, changes, new Set([hiddenChange.id, hiddenStale.id, hiddenRemoved.id]));
+    expect(JSON.stringify(out)).not.toMatch(new RegExp(`"(${hiddenChange.id}|${hiddenStale.id}|${hiddenRemoved.id})"`));
+    expect(out.events[0]).toMatchObject({ triggerRule: 'on stop', changed: [expect.objectContaining({ changeId: visible.id })], needsRevalidation: false });
+    expect(out.relations).toEqual([]);
+    expect(out.stale).toEqual([]);
+    expect(out.removed).toEqual([]);
+    expect(maskChangeMarks(full, changes, new Set())).toBe(full);
   });
 });

@@ -2,7 +2,7 @@
 // session's workspace. `modelSpec` returns the latest published revision and nothing of a draft or rejected one;
 // `modelSpecRevisions` lists every revision's header (a draft shows up as a row, its content never does).
 
-import { and, asc, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import {
@@ -13,7 +13,7 @@ import {
   specModules,
   specSwChanges,
 } from '../../../db/schema/knowledge.js';
-import { type EffectiveChange, type EffectiveSpec, applySpecChanges } from '../domain/spec-effective.js';
+import { type EffectiveChange, type EffectiveSpec, applySpecChanges, maskChangeMarks } from '../domain/spec-effective.js';
 import { appliesAt } from '../domain/spec-range.js';
 import type { SpecChangeKind } from '../domain/spec-effective.js';
 import type { SpecTargetKind } from '../domain/spec-target-key.js';
@@ -258,13 +258,29 @@ export async function loadApplicableChanges(
   }));
 }
 
-/** Null when the model has no published revision, or the software version is not a version of this model. */
+/** Ids among `changeIds` whose start SW version the viewer cannot see (#1880). */
+async function hiddenStartChangeIds(tx: Tx, viewer: Viewer, changeIds: readonly string[]): Promise<Set<string>> {
+  if (changeIds.length === 0) return new Set();
+  const c = specSwChanges;
+  const rows = await tx
+    .select({ id: c.id })
+    .from(c)
+    .where(and(eq(c.workspaceId, viewer.workspaceId), inArray(c.id, [...changeIds]), sql`not ${visibleSoftwareSql(viewer, ref(c.softwareId))}`));
+  return new Set(rows.map((r) => r.id));
+}
+
+/**
+ * Null when the model has no published revision, or the software version is not a version of this model. Every
+ * applicable change is applied (the values match the viewer-independent pin), but a change that starts at a SW version
+ * the viewer cannot see leaves no id or marker in the answer (#1880, `maskChangeMarks`).
+ */
 export async function getEffectiveModelSpec(
   tx: Tx,
-  workspaceId: string,
+  viewer: Viewer,
   modelId: string,
   softwareId: string,
 ): Promise<EffectiveModelSpecData | null> {
+  const workspaceId = viewer.workspaceId;
   const [software] = await tx
     .select({ order: softwareVersions.releaseOrder })
     .from(softwareVersions)
@@ -274,7 +290,8 @@ export async function getEffectiveModelSpec(
   if (!spec) return null;
   const changes = await loadApplicableChanges(tx, workspaceId, modelId, software.order);
   if (changes.length === 0) return { ...spec, effective: false };
-  return { revision: spec.revision, effective: true, softwareId, ...applySpecChanges(spec, changes) };
+  const hidden = await hiddenStartChangeIds(tx, viewer, changes.map((c) => c.id));
+  return { revision: spec.revision, effective: true, softwareId, ...maskChangeMarks(applySpecChanges(spec, changes), changes, hidden) };
 }
 
 // ---- change list (#1196 c) ---------------------------------------------------------------------------------------

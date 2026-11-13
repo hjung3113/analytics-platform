@@ -94,6 +94,27 @@ const isRecord = (v: unknown): v is Record<string, unknown> => v !== null && typ
 const same = (a: unknown, b: unknown): boolean => canonicalJson(a ?? null) === canonicalJson(b ?? null);
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 
+/**
+ * The effective spec with the per-change markers of `hidden` changes taken out (#1880, ADR-0124): their marks in
+ * `changed`, their `stale` and `removed` reports. The values they produced stay (the spec of a visible version is
+ * computed from every applicable change); `needsRevalidation` is recomputed from the visible marks only.
+ */
+export function maskChangeMarks(spec: EffectiveSpec, changes: readonly EffectiveChange[], hidden: ReadonlySet<string>): EffectiveSpec {
+  if (hidden.size === 0) return spec;
+  const revalidate = new Map(changes.map((c) => [c.id, c.needsRevalidation]));
+  const entry = <T extends Marked>(e: T): T => {
+    const changed = e.changed.filter((m) => !hidden.has(m.changeId));
+    return { ...e, changed, needsRevalidation: changed.some((m) => revalidate.get(m.changeId) === true) };
+  };
+  return {
+    modules: spec.modules.map(entry),
+    events: spec.events.map(entry),
+    relations: spec.relations.map(entry),
+    stale: spec.stale.filter((s) => !hidden.has(s.changeId)),
+    removed: spec.removed.filter((r) => !hidden.has(r.changeId)),
+  };
+}
+
 export function applySpecChanges(base: SpecBaseContent, changes: readonly EffectiveChange[]): EffectiveSpec {
   const moduleKeyById = new Map(base.modules.map((m) => [m.id, m.moduleKey]));
   const eventRefById = new Map(base.events.map((e) => [e.id, { moduleKey: moduleKeyById.get(e.moduleId) ?? '', eventKey: e.eventKey }]));

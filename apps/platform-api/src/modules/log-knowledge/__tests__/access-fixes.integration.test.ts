@@ -238,6 +238,29 @@ describe.skipIf(!(APP_URL && MIGRATE_URL && WS))('access review regressions (#15
     expect(JSON.stringify(page.data)).not.toContain(sw2);
     expect(clean(await read('logKnowledge.specChanges', { modelId: model, softwareId: sw2 }))).toEqual(clean(await read('logKnowledge.specChanges', { modelId: model, softwareId: randomUUID() })));
   });
+  it('#1880: modelSpec at a visible SW masks the change ids of a change that starts at a hidden SW, values and pin unchanged', async () => {
+    await publish();
+    const hidden = (await change(sw1)).data.changeId as string; // open-ended from SW1, so it applies at SW2
+    ok(await act('accessRuleAdd', { targetKind: 'software', targetId: sw1, granteeId: manager.id, effect: 'allow' }, { who: manager }));
+    await mode('software_version', sw1);
+    const restricted = (await read('logKnowledge.modelSpec', { modelId: model, softwareId: sw2 })).data;
+    const allowed = (await read('logKnowledge.modelSpec', { modelId: model, softwareId: sw2 }, manager)).data;
+    expect(JSON.stringify(restricted)).not.toContain(hidden);
+    expect(JSON.stringify(allowed)).toContain(hidden);
+    // The effective value still applies for both viewers; only the per-change markers are masked.
+    for (const spec of [restricted, allowed]) expect(spec.events.find((e: { name: string }) => e.name === 'Start')).toMatchObject({ triggerRule: 'on stop' });
+    expect(restricted.events.find((e: { name: string }) => e.name === 'Start')).toMatchObject({ changed: [], needsRevalidation: false });
+    expect({ ...restricted, events: undefined }).toEqual({ ...allowed, events: undefined });
+    // The pin and the lookup port stay viewer-independent and carry no change id.
+    const lookup = (who: Person) => db.db.transaction(async (tx) => ({
+      pin: await knowledgeLookup.getEffectiveSpecPin(tx, WS, model, sw2, who.id),
+      requirements: await knowledgeLookup.listEffectiveRequirements(tx, WS, model, sw2, who.id),
+    }));
+    const [mine, theirs] = [await lookup(viewer), await lookup(manager)];
+    expect(mine).toEqual(theirs);
+    expect(mine.pin).not.toBeNull();
+    expect(JSON.stringify(mine)).not.toContain(hidden);
+  });
   it.each(['specChangeConfirm', 'specChangeRetire'])('C4: %s checks its software before any version', async (action) => {
     await publish(); const c = await change(sw1); await mode('software_version', sw1);
     const hidden = await act(action, { changeId: c.data.changeId }, { version: '999' });
