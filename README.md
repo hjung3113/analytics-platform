@@ -33,6 +33,7 @@ pnpm typecheck && pnpm test && pnpm build
 
 | 하려는 일 | 먼저 | 다음 |
 | --- | --- | --- |
+| 저장소 밖(사내 조립 저장소)에서 메뉴를 만든다 | [시작 키트 안내](docs/guides/standalone-start-kit.md) | [승인 릴리스 반입 묶음](docs/integration/approved-release-bundle.md), [사내 적용 가이드 §5](docs/integration/in-house-rollout.md#5-사내-메뉴-개발-가이드) |
 | 이 저장소에서 메뉴 화면을 만든다 | [첫 메뉴 화면 만들기](docs/guides/first-menu-screen.md) | [사내 적용 가이드 §5](docs/integration/in-house-rollout.md#5-사내-메뉴-개발-가이드), [페이지 작성 가이드](apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) |
 | 서버를 띄운다 (개발·로컬 스모크·운영) | [배포판 실행 안내](ops/platform-api/docs/release/run-guide.md) | [최초 Admin](ops/platform-api/docs/release/first-admin-bootstrap.md) |
 | 실서버 어댑터를 붙인다 | [사내 적용 가이드](docs/integration/in-house-rollout.md) | [실서버 연결 체크리스트](docs/integration/real-server-checklist.md), [전송 형식](docs/integration/http-adapter-contract.md) |

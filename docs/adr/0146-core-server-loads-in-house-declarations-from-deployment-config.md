@@ -17,6 +17,8 @@
 
 ## 결정
 
+> Amended: 데이터 연결 경로는 [ADR-0153](0153-upstream-target-routing-and-declared-connectors.md), Scope의 기본 원천은 [ADR-0154](0154-site-and-room-grants-are-platform-owned.md), 묶음 대조는 [ADR-0156](0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md)이 개정했다. 현행 파일 형식·등록 판정은 [실서버 연결 체크리스트](../integration/real-server-checklist.md)를 따른다.
+
 1. **사내 서버 코드를 코어 서버 프로세스에 넣지 않는다.** 코어 서버에는 선언만 싣는다. Scope resolver도 예외가 아니다: 공개 어댑터가 설정된 사내 부여 서비스를 부르며 사내 코드를 직접 주입하지 않는다([ADR-0147](0147-scope-grants-come-from-an-injected-resolver.md), 소유자 2026-11-12). 사내 데이터 핸들러는 코어 서버 전달기 뒤의 사내 데이터 서버(ADR-0095의 FastAPI 분석 서버)에 둔다([ADR-0148](0148-minimal-forwarder-and-identity-token.md)).
 2. **선언은 배포 설정으로 읽는다.** 엔드포인트·동작 선언, 소유자 표([ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 2의 `server-routing.json`: 어느 상류가 소유하는가), 메뉴 권한 행을 한 묶음의 검증된 데이터 파일로 두고, 기동 때 읽어 기존 `menuDispatch` 옵션과 같은 등록 검증을 통과시킨다. 공개 서버 파일을 고치지 않는다. 설정에는 코드 실행도 원격 로딩도 넣지 않는다([#1700](https://github.com/hjung3113/analytics-platform/issues/1700) §2).
 3. **메뉴 권한 표(P5-b).** 메뉴 권한은 `permission → capability` 행으로 같은 설정에 둔다. 권한 선언은 부여가 아니다. capability를 누구에게 주는지는 지금의 부여 체계([ADR-0068](0068-permission-scope-and-business-system-link.md))가 하나로 정하고, 판정은 코어 서버 한 곳이 한다. capability를 가진 사람이 없으면(Admin 우회는 capability 메타가 정한 대로) 열리지 않는다.

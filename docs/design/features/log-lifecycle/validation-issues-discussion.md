@@ -1,6 +1,6 @@
 # 사람이 등록하는 검증 항목과 토론 (#1808)
 
-**Candidate · 미구현.** 논리 모델·권한 분리·후속 노드 설계이며 API/DDL/새 메뉴/역할 부여 승인이 아니다. **DDL은 이 설계 merge와 소유자 결정 뒤 별도 PR**로 작성한다. #1815는 [진단 출력·근거 읽기](diagnostic-report-parity.md), #1809는 Round 결과 탐색·Drawer를 소유한다. UI 문구는 정하지 않는다.
+**저장(N1)·API(N2)·Round 등록/연결/토론 화면(N3)과 H3 상태·담당 서버 계약은 구현됐다(§6 As-built).** 남은 범위(상태 변경 화면·심각도·재검증/전달·첨부)는 Candidate·미구현이다. 논리 모델·권한 분리·후속 노드 설계이며 새 메뉴/역할 부여 승인이 아니다. #1815는 [진단 출력·근거 읽기](diagnostic-report-parity.md), #1809는 Round 결과 탐색·Drawer를 소유한다. UI 문구는 정하지 않는다.
 
 ## 1. 도메인 경계
 
@@ -20,17 +20,7 @@ occurrence/근거 연결은 같은 workspace·개발 건의 읽을 수 있는 Ro
 
 ## 2. 상태 기계 후보와 재검증
 
-아래 전이는 **Candidate**이며 H1/H2/H3에서 단계·역할을 결정하기 전 구현하지 않는다. 단순 `open/resolved/reopened` 대안과 함께 비교한다.
-
-| 사건 후보 | 전이 후보 | 조건·기록 |
-| --- | --- | --- |
-| 등록 | 없음 → `reported` | 규칙 없이 허용. 공식 결함 확정은 별도 H1 |
-| 조사 시작 | `reported` → `investigating` | 담당/변경 권한을 다시 판정 |
-| 수정 요청 | `investigating` → `change_requested` | 사람 판단 사유와 관련 근거 참조 |
-| 재검증 요청 | `investigating|change_requested` → `revalidation_needed` | 기존 요청 등록 API와 별도 명시 동작. 상태 변경만으로 Worker 실행하지 않음 |
-| 해결 확인 | `investigating|revalidation_needed` → `resolved` | 확인 사유·선택한 새 occurrence. PASS만으로 자동 해결하지 않음 |
-| 검토 제외 | `reported|investigating` → `dismissed` | 오인/중복 등 사유. Rule FAIL을 지우지 않음 |
-| 재발/재열기 | `resolved|dismissed` → `investigating` | 같은 issueId에 새 occurrence·재열기 사건. 과거 댓글·해결 기록 유지 |
+처리 상태·전이는 **Decided**이고 H3 서버 구현은 #1917이다. 코드값·허용 전이·담당/사유·권한·동시성은 [API의 Issue states](../../../architecture/platform-api/api/log-lifecycle.md#issue-states-1808-h3)가 소유한다. 사람의 처리 상태와 기계 판정은 별도 축이며 PASS/FAIL로 자동 전이하지 않는다. 상태 변경 화면·재검증 요청(N5)·심각도는 미구현이다. 닫힌 Round도 사람 기록을 허용한다(H4).
 
 재검증은 해당 Round의 기존 `lifecycle.round.manage`와 요청 등록 규칙을 그대로 따른다. Issue 상태를 바꿀 권한만으로 요청·Gate 권한을 얻지 않는다. 닫힌 Round에 댓글/Issue 등록을 허용할지는 H4이며 샘플·결과 불변 규칙은 어느 선택에서도 유지한다.
 
@@ -89,7 +79,7 @@ Task/VOC/Finding/지식 초안으로의 전달은 H8 답 뒤 사용자가 명시
 | N1 **As-built** #1855 저장·이력·멱등 | N0의 모델/상태/댓글 정책 확정 | **후속 DDL PR**, backend only. #1809 미접촉 |
 | N2 **As-built** #1906 사람 API/가시성/감사 | N1 + 역할/Source 정책 확정 | backend only. #1809보다 먼저 가능. service token 부정 테스트 포함 |
 | H3 상태 노드 **As-built** #1917 처리 상태·전이 | N1·N2 + H3 자문 결정(2026-11-13) | 상태 9개, 추가 전용 `validation_issue_transition`, `validationIssueChangeState`, `lifecycle.issue.triage`, 마이그레이션 0130. 심각도·Gate 차단·종료 상태 재오픈은 미구현(백로그) |
-| N2 사람 API/가시성/감사 | N1 + 역할/Source 정책 확정 | backend only. #1809보다 먼저 가능. service token 부정 테스트 포함 |
+| N3 **As-built** #1914 등록·연결·Round/항목별 토론 화면 | N2 + #1809의 확정된 슬롯 | 기존 Round 표·Drawer·토론 탭. 처리 상태·담당 UI와 집계 소비는 미구현(백로그) |
 | N4 진단/근거 연결 UI | N3 + #1815 A3, B 진단 연결은 B1 이후 | `RoundScreen.tsx` 연결 가능. 공통 EvidenceRef 유지 |
 | N5 재검증/도메인 전달 | N2 + H8 및 기존 대상 API 권한·링크 쌍 확인, UI는 N3 | 요청 생성은 기존 API, 외부 도메인 쓰기 직접 금지 |
 | N6 합성 수직 검증 | N2/N3/N4, 전달은 N5 뒤 | Round 전체 대화 + 두 항목 thread, 재발·권한 철회·직접 링크·충돌·긴 페이지 확인 |

@@ -378,12 +378,15 @@ _Avoid_: 플러그인, 확장 모듈 — 보류된 Plugin SDK·System Extension 
 도메인을 모르는 채로 주입된 registry 선언, 어댑터 조립, slot, 축을 받아 띄울 수 있는 앱을 마운트하는 함수. `@ap/app-host`의 `startAppHost`이며 공개 앱 `apps/platform-web`과 조립 저장소가 부른다([Host 조립 계약](docs/design/host-entry-contract.md) §3). 셸·앱만 import하는 `@ap/kernel/host` 진입점이나 호스트 모듈과 다른 것이다.
 _Avoid_: Host 진입점 — `@ap/kernel/host`(ADR-0076)와 섞인다.
 
+**메뉴 선언 스냅샷**:
+앱 빌드가 낸, 메뉴·엔드포인트·동작 선언을 고정한 산출물. 코어 서버가 배포 선언 묶음과 대조하는 기준이며, 상류 대상·접속 정보·Scope 카탈로그를 담는 배포 선언 묶음과 구별한다([ADR-0156](docs/adr/0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md)).
+
 **조립 저장소**:
 메뉴 패키지와 합성 핸들러를 모아 Host로 플랫폼을 띄우는, 이 저장소 밖의 사내 저장소. 사내 도메인 의미는 여기가 소유한다([ADR-0141](docs/adr/0141-in-house-assembly-in-separate-repository.md)).
 _Avoid_: 포크 — 공개 파일을 고치는 안(ADR-0141 기각 B)과 섞인다.
 
 **전달기**:
-코어 서버(Fastify)가 소유자 표를 보고 menu-query 같은 요청을 envelope를 말하는 상류(기본 상류 또는 envelope 상류 대상)로 넘기는 구성요소. 등록된 id인지만 판정하고 outcome을 만들거나 응답 본문을 고치지 않는다. 코어가 행을 읽어 outcome을 만드는 경로는 **연결기**다([ADR-0153](docs/adr/0153-upstream-target-routing-and-declared-connectors.md))([ADR-0095](docs/adr/0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 2). 브라우저는 상류를 직접 부르지 않는다. menu-query 경로는 구현 전이며 v0.36.0 범위는 [ADR-0148](docs/adr/0148-minimal-forwarder-and-identity-token.md).
+코어 서버(Fastify)가 소유자 표를 보고 menu-query 같은 요청을 envelope를 말하는 상류(기본 상류 또는 envelope 상류 대상)로 넘기는 구성요소. 등록된 id인지만 판정하고 outcome을 만들거나 응답 본문을 고치지 않는다. 코어가 행을 읽어 outcome을 만드는 경로는 **연결기**다([ADR-0153](docs/adr/0153-upstream-target-routing-and-declared-connectors.md))([ADR-0095](docs/adr/0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 2). 브라우저는 상류를 직접 부르지 않는다. menu-query 전달의 범위는 [ADR-0148](docs/adr/0148-minimal-forwarder-and-identity-token.md).
 _Avoid_: 프록시, 게이트웨이 — 앞단(nginx) 경로 라우팅과 섞인다.
 
 **신원 토큰** (`X-Internal-Identity`):
@@ -397,7 +400,7 @@ site·room 데이터 읽기 부여를 운반하는 capability. 메뉴 권한이 
 배포 설정 묶음이 내는 `{ site, label, rooms }` 목록. 부여·신청할 수 있는 site·room과 표시 순서의 원본이며 배포의 모든 workspace가 공유한다. 카탈로그만으로 접근을 부여하지 않는다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
 
 **막힌 자리 (blocked place)**:
-메뉴·Scope·room 또는 조회 권한이 없어 사용자가 진행하지 못한 자리. 그 대상이 미리 채워진 권한 신청으로 이어진다. 진입 방식과 화면 구현은 시안 확정 후 1844f다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
+메뉴·Scope·room 또는 조회 권한이 없어 사용자가 진행하지 못한 자리. 그 대상이 미리 채워진 권한 신청으로 이어진다. 진입과 대상 규칙은 [셸 슬롯 계약](docs/contract/layout.md#8-shell-slots)을 따르고 메뉴 거부 자리의 남은 범위는 [백로그](.planning/backlog.md)에 기록한다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
 
 **신청 가능 site** (`requestableScopes`):
 Scope 카탈로그에 있고 사용자에게 부여된 room이 없는 site. 플랫폼 부여 표가 원천일 때 세션의 별도 선택 필드로 내며 `{ id, label, totalRooms }`만 담는다. 부여된 site를 나열하는 `scopes`와 겹치지 않는다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).

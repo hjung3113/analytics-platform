@@ -3,6 +3,7 @@
 상태: **Decided (2026-11-12)** — 전달기 범위는 menu-query 경로와 신원 토큰뿐이고, 토큰은 요청마다 해석한 Scope 집합을 30초 토큰에 싣는다.
 - 결정자: 사용자(소유자) — 2026-11-12 [#1087](https://github.com/hjung3113/analytics-platform/issues/1087) 질문 3·4 «ㅇㅋ ㄱㄱ»: 이 ADR의 추천안(요청마다 해석한 Scope 집합을 30초 토큰에 싣는다)을 그대로 채택한다. 분석 서버 위치(결정 3)는 [#1700](https://github.com/hjung3113/analytics-platform/issues/1700) 결정 7(2026-11-11 «추천대로»), 입구·상류 분리는 [ADR-0146](0146-core-server-loads-in-house-declarations-from-deployment-config.md)의 소유자 답이다. 범위(결정 1·2)는 ADR-0095가 이미 정한 입구·분담을 v0.36.0 몫으로 좁힌 것이다.
 - Scope: [#1729](https://github.com/hjung3113/analytics-platform/issues/1729), [#1087](https://github.com/hjung3113/analytics-platform/issues/1087). 관련: [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) 결정 2·5·9와 「설계 남음」, [ADR-0146](0146-core-server-loads-in-house-declarations-from-deployment-config.md), [ADR-0147](0147-scope-grants-come-from-an-injected-resolver.md).
+- Amended: [ADR-0153](0153-upstream-target-routing-and-declared-connectors.md)이 라우팅된 envelope 목적지의 Scope claim·audience와 연결기 경로를 정했다. 현행 등록·배포 조건은 [실서버 체크리스트](../integration/real-server-checklist.md)를 따른다.
 - Amends: [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) — 분석 서버 위치에 한 줄 보충(결정 3, 근거 #1700 결정 7).
 - 구현 없음.
 
@@ -30,5 +31,5 @@
 
 ## 결과
 
-- v0.37.0 구현 문장은 «전달기(menu-query) + 신원 토큰 최소 + 설정 선언 + 권한 표 + Scope resolver, 상류는 합성»이다([#1729](https://github.com/hjung3113/analytics-platform/issues/1729)).
+- v0.36.0 구현 문장은 «전달기(menu-query) + 신원 토큰 최소 + 설정 선언 + 권한 표 + Scope resolver, 상류는 합성»이다([#1729](https://github.com/hjung3113/analytics-platform/issues/1729)).
 - 키트(#1790)의 실어댑터 조립이 이 서버에서 사내 역할 엔드포인트를 조회하는 것이 v0.37.0 수용 기준이다.
