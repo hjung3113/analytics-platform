@@ -100,7 +100,7 @@ The `edge` service (nginx, image from `apps/platform-web/Dockerfile`, config `op
 Operator runbooks for this stack, with `P` as above (`$P exec backend node dist/cli/<name>.js …` for CLIs):
 
 - First admin: [first-admin-bootstrap.md](first-admin-bootstrap.md) (`$P --profile bootstrap run --rm bootstrap`, `$P --profile admin run --rm set-actor-role …`).
-- Failed background jobs: [failed-jobs-replay.md](failed-jobs-replay.md) (`jobs-inventory`, `jobs-replay`).
+- Failed background jobs: [failed-jobs-replay.md](failed-jobs-replay.md) (`jobs-inventory`, `jobs-replay`, `jobs-health`).
 - Attachment orphans: [attachment-orphans.md](attachment-orphans.md) (`attachments-orphans`).
 - Backup, isolated restore and upgrade (RPO 24 h, RTO 4 h): [backup-restore-upgrade.md](backup-restore-upgrade.md).
 
@@ -113,7 +113,7 @@ Capacity checks (run periodically and before upgrades):
 - Docker disk: `docker system df`; free space on the volume host: `df -h "$(docker info --format '{{.DockerRootDir}}')"`.
 - Largest tables: `$P exec postgres psql -U postgres -d platform -c "select relid::regclass, pg_size_pretty(pg_total_relation_size(relid)) from pg_catalog.pg_statio_user_tables order by pg_total_relation_size(relid) desc limit 10"`.
 - Attachment bucket size: `mc du <alias>/platform-attachments` with an `mc` alias for the MinIO endpoint.
-- Job backlog and failures: `jobs-inventory` (see the failed-jobs runbook).
+- Job backlog and failures: `jobs-inventory`; scheduled-job freshness and failures: `jobs-health` (see the failed-jobs runbook).
 - Audit table: `$P exec postgres psql -U postgres -d platform -c "select pg_size_pretty(pg_total_relation_size('core.audit_log'))"`.
 
 **Audit retention.** Interim policy (conductor decision, reversible): retain all audit rows; nothing purges them and the INSERT-only protections stay. Review the policy when `core.audit_log` (the only stored audit table; `core.platform_audit_events` is a projection function) exceeds 5 GB or once a year, whichever comes first.
