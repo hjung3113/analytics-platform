@@ -26,7 +26,7 @@ declare module '#platform-assembly' {
    * feature API, the mock assembly answers fixed data of the same shape; absent = no links (no sidebar feature
    * block, no 「플랫폼」 default). Structural: the Kernel and this contract know no menu.
    */
-  export type Assembly = HostAssembly & { featureApi?: { basePath: string; onSessionLost: () => void }; spaceSystems?: (signal?: AbortSignal) => Promise<SpaceLinks> };
+  export type Assembly = HostAssembly & { sidebarNotice?: ReactNode; featureApi?: { basePath: string; onSessionLost: () => void }; spaceSystems?: (signal?: AbortSignal) => Promise<SpaceLinks> };
   /**
    * What `createAssembly` may answer (#154, http-adapter-contract §3 안 B): the assembly to mount, a `redirect` target
    * (the Host calls `window.location.replace`, e.g. to the login page), or a `screen` rendered instead of the app

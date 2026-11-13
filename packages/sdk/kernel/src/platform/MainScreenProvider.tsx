@@ -204,6 +204,8 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   useEffect(() => {
     if (!route || route.viaAlias || contractError || !menuPermissions(route.menu).every(can)) return;
     if (!enters(route.menu)) return;
+    // A registered menu with no screen yet is a place to look at, not one to come back to: no 이어서, no recent visit (#1944).
+    if (!route.menu.component && !route.menu.moduleScreen) return;
     const space = registry.spaceOf(route.menu);
     if (space !== null) writeSpaceLast(userId, space.id, url, spaceIdMigrations);
     recordVisit(route.menu.id, url);

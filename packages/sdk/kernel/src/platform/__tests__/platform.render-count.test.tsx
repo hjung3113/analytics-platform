@@ -6,7 +6,7 @@ import { groupId } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
 import { PaneScreenProvider, PlatformProvider, useHostPlatform, useOverlayState, useRecentVisits, useToastList, usePlatform, type PaneScreen } from '../platform';
 import { createRegistry } from '../../registry/registry';
-import { noContext, testAdapter, testSession, testSpace, useToastsForTest } from '../../testing';
+import { noContext, testAdapter, testSession, testSpace, useToastsForTest, testScreen } from '../../testing';
 
 // #824 (ADR-0076 supplement): shell-only state that changes often (toasts, palette/switcher, recent visits) lives in its own contexts, so a
 // menu or pane `usePlatform()` consumer is not woken by it. These tests count renders; they were red before the split (see the issue table).
@@ -14,7 +14,7 @@ import { noContext, testAdapter, testSession, testSpace, useToastsForTest } from
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: noContext, pageType: 'analysis' as const, features: { ...features, board: true }, pageKeys: ['page', 'returnTo'], ...over,
+  requiresScope: false, context: noContext, component: testScreen, pageType: 'analysis' as const, features: { ...features, board: true }, pageKeys: ['page', 'returnTo'], ...over,
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'main' })],

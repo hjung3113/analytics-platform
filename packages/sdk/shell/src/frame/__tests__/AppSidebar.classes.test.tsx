@@ -36,3 +36,22 @@ it.each([false, true])('pins existing NavItem, NavViewItem and feature row class
   if (!collapsed) expect(screen.getByRole('link', { name: '하위' }).className).toBe(`${view.replace('text-text-secondary ', '')} ${active}`);
   expect(screen.getByRole('link', { name: /^기능 —/ }).className).toBe(`flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary${collapsed ? ' justify-center px-0' : ''}`.replace(collapsed ? 'px-3 ' : '__absent__', ''));
 });
+
+it.each([false, true])('draws the sidebar notice slot only when given and expanded (collapsed=%s) (#2022)', async collapsed => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  vi.stubGlobal('sessionStorage', memoryStorage());
+  window.history.replaceState(null, '', '/');
+  const registry = createRegistry({
+    spaces: [testSpace({ homeMenuId: 'fixture-home' })],
+    groups: [{ id: groupId('fixture-group'), space: spaceId('mars'), label: { ko: '그룹', en: 'Group' }, icon: House }],
+    menus: [{ id: 'fixture-home', path: '/', primary: true, group: groupId('fixture-group'), label: { ko: '메뉴', en: 'Menu' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  });
+  const session = testSession(['platform:view']);
+  const mount = (slots: Record<string, unknown>) => <I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots}><AppSidebar collapsed={collapsed} onToggle={() => {}} /></PlatformProvider></I18nProvider>;
+  const { rerender } = render(mount({}));
+  await waitFor(() => expect(screen.getByRole('link', { name: '메뉴' })).toBeTruthy());
+  expect(document.querySelector('[data-sidebar-notice]')).toBeNull();
+  expect(screen.queryByText(/합성 데이터/)).toBeNull();
+  rerender(mount({ sidebarNotice: <span>app notice</span> }));
+  expect(screen.queryByText('app notice') !== null).toBe(!collapsed);
+});

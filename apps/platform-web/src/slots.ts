@@ -24,9 +24,11 @@ export type AppSlotObjects = { notifications: NotificationsSlot; vocCompose: Voc
  * through the provider's context; the closed-over slot objects, `vocCompose` and an open form's draft with it, keep identity.
  * `accessRequest` (ADR-0154 decision 6) is passed only when the assembly has a feature API: mock has no request server, so every blocked place renders as without it.
  */
-export function makeAppSlots(slotObjects: AppSlotObjects): (assembly: { topBarTools: ReactNode; featureApi?: unknown }) => PlatformSlots {
-  return function useAppSlots(assembly: { topBarTools: ReactNode; featureApi?: unknown }): PlatformSlots {
+export function makeAppSlots(slotObjects: AppSlotObjects): (assembly: { topBarTools: ReactNode; featureApi?: unknown; sidebarNotice?: ReactNode }) => PlatformSlots {
+  return function useAppSlots(assembly: { topBarTools: ReactNode; featureApi?: unknown; sidebarNotice?: ReactNode }): PlatformSlots {
     useSyncExternalStore(spaceSystems.subscribe, spaceSystems.getSnapshot);
-    return appSlots(slotObjects.notifications, slotObjects.vocCompose, slotObjects.homeTodo, slotObjects.scopeControl, slotObjects.navCounts, slotObjects.spaceNavSection, slotObjects.analysisActions, assembly.featureApi ? slotObjects.accessRequest : undefined);
+    const slots = appSlots(slotObjects.notifications, slotObjects.vocCompose, slotObjects.homeTodo, slotObjects.scopeControl, slotObjects.navCounts, slotObjects.spaceNavSection, slotObjects.analysisActions, assembly.featureApi ? slotObjects.accessRequest : undefined);
+    // The sidebar notice is the assembly's (mock says «synthetic data»; a real assembly passes none, so the shell draws nothing).
+    return assembly.sidebarNotice == null ? slots : { ...slots, sidebarNotice: assembly.sidebarNotice };
   };
 }

@@ -36,6 +36,7 @@ import type { CreateAssembly } from '#platform-assembly';
 import { menuPermissions, type AuditEvent } from '@ap/contracts';
 import { createMockAdapter, createLocalSavedViewStore, seedUsageNext, storedUsage, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
+import { MockNotice } from './MockNotice';
 import { MOCK_SPACE_SYSTEMS } from './mock-space-systems';
 
 /**
@@ -119,6 +120,7 @@ export const createAssembly: CreateAssembly = ({ registry }) => {
       return adapter.menuQuery(request, signal);
     } },
     topBarTools: <DevTools />,
+    sidebarNotice: <MockNotice />,
     savedViews,
     spaceSystems: async () => MOCK_SPACE_SYSTEMS,
   };

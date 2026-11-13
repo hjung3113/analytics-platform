@@ -6,10 +6,10 @@ import { createRegistry, I18nProvider, PlatformProvider, useMenuQuery, useSavedV
 import { useHostPlatform, useLeaveRequest, useSavedViews, type HostPlatform } from '../../host';
 import { canonicalHistoryQuery } from '../../query/query-history';
 import { decodeRecent, readSpaceLast, spaceLastKey } from '../preferences';
-import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '../../testing';
+import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace, testScreen } from '../../testing';
 
 const group = { id: groupId('g'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') };
-const base = { group: group.id, icon: House, label: group.label, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const, pageKeys: ['q', 'focus', 'returnTo'], features: { export: false, savedView: true, annotate: false, compare: false } };
+const base = { group: group.id, icon: House, component: testScreen, label: group.label, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const, pageKeys: ['q', 'focus', 'returnTo'], features: { export: false, savedView: true, annotate: false, compare: false } };
 const menus = [
   { ...base, id: 'home', path: '/mars/home', aliases: ['/legacy-home'], primary: true, carrySet: carrySetId('set') },
   { ...base, id: 'other', path: '/mars/other', carrySet: carrySetId('set') },

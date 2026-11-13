@@ -5,7 +5,7 @@ import { groupId, type JsonValue, type PlatformAdapter } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform, usePlatform, useRecentVisits, type HostPlatform, type MenuPlatform, type Recent } from '../platform';
 import { createRegistry } from '../../registry/registry';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
 
 // #1702 (host-entry-contract §7): a stored recent visit of a menu the registry no longer lists is kept — in the stored
 // preference and in `useRecentVisits()` — and never thrown away by a later write. The shell's own filter hides it
@@ -15,7 +15,7 @@ import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '.
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const entry = (id: string, path: string) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: noContext, pageType: 'analysis' as const, features: { ...features, board: true }, pageKeys: ['page'],
+  requiresScope: false, context: noContext, component: testScreen, pageType: 'analysis' as const, features: { ...features, board: true }, pageKeys: ['page'],
 });
 // No menu `gone` exists anywhere in this registry.
 const registry = createRegistry({

@@ -188,7 +188,7 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
     await expect(page.getByRole('alert')).toContainText(longRaw);
     await expect(page.getByRole('alert')).not.toContainText('percentile=');
 
-    // 1024×900 기본값은 사이드바가 접힌다(AppShell innerWidth < 1440). 접근 가능한 토글로 펼친 것을 확인한 뒤 필터를 접는다.
+    // 1024×900 기본값은 사이드바가 접힌다(AppShell innerWidth < 1200). 접근 가능한 토글로 펼친 것을 확인한 뒤 필터를 접는다.
     const sidebarExpand = page.getByRole('button', { name: '사이드바 펼치기' });
     await expect(sidebarExpand).toBeVisible();
     await sidebarExpand.click();

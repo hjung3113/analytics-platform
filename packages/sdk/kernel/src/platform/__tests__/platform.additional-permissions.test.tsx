@@ -5,13 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform } from '../platform';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from '../../registry/registry';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
 import { groupId, menuPermission, spaceId, type Permission, type Session, type UsageEvent } from '@ap/contracts';
 
 // A synthetic ungated global menu needs C (`console:access`, its primary) AND F (`features:access`, additional).
 // No space gate exists to mask the extra grant, so each single-grant actor is denied by that branch alone.
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
-const base = { icon: House, requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [], description: { ko: '', en: '' } } as const;
+const base = { icon: House, component: testScreen, requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [], description: { ko: '', en: '' } } as const;
 const menu = (over: Partial<PlatformMenuEntry> & Pick<PlatformMenuEntry, 'id' | 'path' | 'permission'>): MenuEntry => ({ group: groupId('utility'), label: { ko: over.id, en: over.id }, ...base, ...over });
 const registry = createRegistry({
   permissions: [menuPermission('analytics:view')],

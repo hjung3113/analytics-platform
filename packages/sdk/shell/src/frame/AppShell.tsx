@@ -12,20 +12,24 @@ import { AppRail } from './AppRail';
 import { useVocDrawer, VocDrawer, VocDrawerContext } from '../voc/VocDrawer';
 import { BoardRestoreChip } from '../board/BoardRestoreChip';
 import { useBoardPresentation } from '../board/boardPresentation';
+import { useDocumentTitle } from './useDocumentTitle';
 import { expandedDetailClass } from './expandedDetailClass';
 import { useSessionKey } from './sessionKey';
 import type { ToastBottom } from '../board/windowLayout';
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
+/** Below this window width the sidebar starts collapsed when the user has not chosen: rail 52px + open sidebar 240px leaves ≥ 908px for the page body at 1200px (#1944). */
+const SIDEBAR_OPEN_MIN_WIDTH = 1200;
 
 /** Application Shell (§7): 52px rail, 240/56px sidebar, page-owned 50px header; pages render into content and the registered detail slot. */
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, productName }: { children: ReactNode; /** Product name the host appends to the tab title (`<menu> — <system> · <product>`); none by default. */ productName?: string }) {
   const { detailExpanded, setDetailExpanded, platformScreen } = useHostPlatform();
   const inBoard = platformScreen === 'board';
-  return <DetailPanelSlotProvider expanded={inBoard ? undefined : detailExpanded} onExpandedChange={inBoard ? undefined : setDetailExpanded}><ShellLayout>{children}</ShellLayout></DetailPanelSlotProvider>;
+  return <DetailPanelSlotProvider expanded={inBoard ? undefined : detailExpanded} onExpandedChange={inBoard ? undefined : setDetailExpanded}><ShellLayout productName={productName}>{children}</ShellLayout></DetailPanelSlotProvider>;
 }
 
-function ShellLayout({ children }: { children: ReactNode }) {
+function ShellLayout({ children, productName }: { children: ReactNode; productName: string | undefined }) {
+  useDocumentTitle(productName);
   const detail = useDetailPanelSlotHost();
   const { lang, t } = useI18n();
   const { route, registry, sidebarSpace, platformScreen, slots, global, page, absoluteUrl, session } = useHostPlatform();
@@ -35,7 +39,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
   // Registry screens outside every space (home, 내 활동, 공지) draw the platform sidebar; the board and unmatched paths do not (ADR-0070).
   const showPlatformSidebar = route !== null && registry.spaceOf(route.menu) === null;
   const [collapsed, setCollapsed] = useState(() => {
-    return readLocalStorage(COLLAPSE_KEY, v => v === null ? window.innerWidth < 1440 : v === '1', false);
+    return readLocalStorage(COLLAPSE_KEY, v => v === null ? window.innerWidth < SIDEBAR_OPEN_MIN_WIDTH : v === '1', false);
   });
   // The VOC drawer and the detail aside share one right position; a newly visible detail (activation) takes it from the drawer (06 §13).
   const axes = useEquipmentAxes();

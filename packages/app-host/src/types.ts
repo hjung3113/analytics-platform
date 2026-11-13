@@ -31,6 +31,8 @@ export type StartAppHostOptions<A extends HostAssembly = HostAssembly> = {
   /** Old space id → current space id (ADR-0093). */
   spaceIdMigrations?: Readonly<Record<string, string>>;
   equipmentAxes: readonly EquipmentAxisDescriptor[];
+  /** Product name the shell appends to the tab title (`<menu> — <system> · <product>`); absent → no product part. */
+  productName?: string;
   queryHistory: QueryHistoryStore;
   /** App slots; the Host puts `contextBar`, `boardEntry` and `topBarTools` UNDER these, so an injected value wins. Called in the root's render on every render: it may use React hooks (keep the hook order fixed), so an assembler whose slots depend on a store subscribes there and returns the current slots. */
   slots?: (assembly: A) => PlatformSlots;

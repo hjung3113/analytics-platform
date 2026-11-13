@@ -1,11 +1,13 @@
 // Test-only public entry `@ap/kernel/testing` (ADR-0040, #381): adapter, session and space fixtures.
 // Import only from test files (*.test.ts(x), test-support.ts, test-setup.ts); the boundary lint rejects production imports.
 // Deliberately not exported from src/index.ts.
-import { act, createElement, type ReactElement } from 'react';
+import { act, createElement, lazy, type ReactElement } from 'react';
 import { useToastList, type Toast } from './platform/platform';
 import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type JsonValue, type ModuleScopedId, type PreferencesSnapshot, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef, spaceId } from '@ap/contracts';
 
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
+/** A registered screen that draws nothing: a menu entry with `component: testScreen` is not «planned» (no screen), so visits and resume record it (#1944). */
+export const testScreen = lazy(async () => ({ default: () => null }));
 export const noContext: Record<ContextKey, Capability> = contextCapabilities();
 
 /** analytics space fixture. Pass the fields the test means (id · homeMenuId · permission · label); the rest are filler. */

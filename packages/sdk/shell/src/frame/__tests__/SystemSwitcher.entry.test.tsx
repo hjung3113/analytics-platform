@@ -3,7 +3,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@ap/ui';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { noContext, testAdapter, testSession, testSpace, testScreen } from '@ap/kernel/testing';
 import { SystemSwitcher } from '../SystemSwitcher';
 import { groupId, spaceId, type GroupId, type SpaceId } from '@ap/contracts';
 
@@ -21,7 +21,7 @@ vi.mock('@ap/kernel/host', async importOriginal => {
 });
 
 function menu(id: string, group: GroupId, path: string, label: string) {
-  return { id, group, path, permission: 'platform:view' as const, primary: id.endsWith('-home'), label: { ko: label, en: label }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
+  return { id, group, path, permission: 'platform:view' as const, primary: id.endsWith('-home'), label: { ko: label, en: label }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, component: testScreen, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
 }
 const registry = createRegistry({
   spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'A' }, homeMenuId: 'a-home' }), testSpace({ id: spaceId('bravo'), label: { ko: '지표', en: 'M' }, homeMenuId: 'm-home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영', en: 'O' }, homeMenuId: 'o-home' })],

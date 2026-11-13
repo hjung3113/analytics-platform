@@ -6,7 +6,7 @@ import { groupId, type JsonValue, type PlatformAdapter, type Session } from '@ap
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform, usePlatform, useRecentVisits } from '../platform';
 import { createRegistry } from '../../registry/registry';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
 
 // #1671: a URL change inside one menu holds the recents PATCH for 1 s. The held visit is shown at once and is never lost, reordered or
 // sent for another account when the controller is replaced, the account switches, the tree unmounts or the user enters another menu.
@@ -14,7 +14,7 @@ import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '.
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: noContext, pageType: 'analysis' as const, features: { ...features, board: true }, pageKeys: ['page', 'returnTo'], ...over,
+  requiresScope: false, context: noContext, component: testScreen, pageType: 'analysis' as const, features: { ...features, board: true }, pageKeys: ['page', 'returnTo'], ...over,
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'main' })],

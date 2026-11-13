@@ -6,7 +6,7 @@ import { PlatformProvider, useHostPlatform } from '../platform';
 import { createBasePathLocation } from '../../context/location';
 import { readSpaceLast, writeSpaceLast } from '../preferences';
 import { createRegistry, type PlatformMenuEntry } from '../../registry/registry';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
 import { groupId, spaceId, menuPermission, type Session, type SpaceDef } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
@@ -23,11 +23,11 @@ const registry = createRegistry({
     { id: groupId('noticeVoc'), label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
   ],
   menus: [
-    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
-    { id: 'equipment-detail', group: groupId('equipment'), label: { ko: '설비 상세', en: 'Equipment detail' }, description: { ko: '', en: '' }, path: '/equipment/:equipmentId', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: [], navHidden: true, parent: 'equipment' },
-    { id: 'admin-roles', group: groupId('admin'), primary: true, label: { ko: '권한/역할 관리', en: 'Roles' }, description: { ko: '', en: '' }, path: '/admin/roles', icon: House, permission: 'console:access', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
-    { id: 'admin-child', group: groupId('admin'), label: { ko: '콘솔 하위', en: 'Console child' }, description: { ko: '', en: '' }, path: '/admin/child', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
-    { id: 'notices', group: groupId('noticeVoc'), primary: true, label: { ko: '공지', en: 'Notices' }, description: { ko: '', en: '' }, path: '/notices', icon: House, permission: 'notice:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
+    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, component: testScreen, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
+    { id: 'equipment-detail', group: groupId('equipment'), label: { ko: '설비 상세', en: 'Equipment detail' }, description: { ko: '', en: '' }, path: '/equipment/:equipmentId', icon: House, component: testScreen, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: [], navHidden: true, parent: 'equipment' },
+    { id: 'admin-roles', group: groupId('admin'), primary: true, label: { ko: '권한/역할 관리', en: 'Roles' }, description: { ko: '', en: '' }, path: '/admin/roles', icon: House, component: testScreen, permission: 'console:access', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
+    { id: 'admin-child', group: groupId('admin'), label: { ko: '콘솔 하위', en: 'Console child' }, description: { ko: '', en: '' }, path: '/admin/child', icon: House, component: testScreen, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
+    { id: 'notices', group: groupId('noticeVoc'), primary: true, label: { ko: '공지', en: 'Notices' }, description: { ko: '', en: '' }, path: '/notices', icon: House, component: testScreen, permission: 'notice:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
   ],
 });
 

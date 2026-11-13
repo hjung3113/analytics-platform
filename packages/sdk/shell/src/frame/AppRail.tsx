@@ -33,11 +33,13 @@ export function AppRail() {
         {systems.sections.map(({ group, items }) => {
           const Icon = group.icon;
           const active = group.id === systems.currentGroupId;
-          const name = tx(group.label);
+          // A section whose menus are all registered without a screen looks dimmed and says so; the words are in the name and tooltip (#1944).
+          const planned = items.every(menu => !menu.component && !menu.moduleScreen);
+          const name = planned ? `${tx(group.label)} · ${t('planned')}` : tx(group.label);
           return <Tooltip key={group.id}><TooltipTrigger asChild>
-            <button type="button" aria-label={name} aria-current={active ? 'true' : undefined}
+            <button type="button" aria-label={name} data-section-planned={planned ? 'true' : undefined} aria-current={active ? 'true' : undefined}
               onClick={() => { if (!active) navigate(linkTo(firstOpenableMenu(items).id), { focus: 'page', via: 'sidebar' }); }}
-              className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>
+              className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', planned && 'opacity-50', active && 'bg-surface-row-selected text-accent-primary')}>
               {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
               <Icon className="size-4" aria-hidden />
             </button>

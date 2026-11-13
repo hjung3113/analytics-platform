@@ -74,7 +74,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
         {!collapsed && <SidebarRecent />}
       </div>
       <ShellBoundary key={`features:${sidebarSpace?.id ?? ''}`} fallback={null}><FeatureBlock collapsed={collapsed} /></ShellBoundary>
-      {!collapsed && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
+      {!collapsed && slots.sidebarNotice != null && <div data-sidebar-notice className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted"><ShellBoundary fallback={null}>{slots.sidebarNotice}</ShellBoundary></div>}
     </aside>
   </TooltipProvider>;
 }
