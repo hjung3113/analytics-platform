@@ -19,7 +19,7 @@ import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorks
 import { applyPreset, changeMode, hidePanel, initialWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
 import { canMoveBelow, clampRow, enterRows, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
-import { alignUnderChrome, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
+import { alignUnderChrome, restoreScrollOffset, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
 
 export type { PanelWorkspaceLayout } from './workspaceState';
 
@@ -405,6 +405,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const maximizing = hasRows && maximizedId !== null;
   const wasMaximizing = useRef(false);
   const savedScroll = useRef<number | null>(null);
+  const cancelRestore = useRef<(() => void) | null>(null);
   /** Every maximize request goes through here: the scroll position is read before the render that drops the strip and shrinks the box can clamp it. */
   const requestMaximized = (panelId: string | null) => {
     if (panelId !== null && maximizedId === null && live.current.stackActive && root.current) {
@@ -414,6 +415,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     setMaximized(panelId);
   };
   useLayoutEffect(() => {
+    cancelRestore.current?.();
+    cancelRestore.current = null;
     const was = wasMaximizing.current;
     wasMaximizing.current = maximizing;
     const element = root.current;
@@ -425,8 +428,9 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     } else if (!maximizing && was) {
       const saved = savedScroll.current;
       savedScroll.current = null;
-      if (hasRows && saved !== null && container) container.scrollTop = saved;
+      if (hasRows && saved !== null && container) cancelRestore.current = restoreScrollOffset(container, saved);
     } else if (!maximizing && !hasRows) savedScroll.current = null;
+    return () => { cancelRestore.current?.(); cancelRestore.current = null; };
   }, [maximizing, hasRows]);
 
   const groupActions = (group: { panels: string[]; active: string }) => {

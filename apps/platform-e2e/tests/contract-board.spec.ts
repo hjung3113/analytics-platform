@@ -1886,8 +1886,6 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
   });
 
   test('최대화: 도구줄 아래 보이는 영역 높이이고 복원 버튼이 화면 안에 있으며, 복원하면 스크롤 위치가 돌아오고 최대화 중에는 띠가 없다', async ({ page }, testInfo) => {
-    // #1978: with the query bar collapsed (the new start for an applied address, #1892) the restore does not return the scroll; this check measures the open-bar layout until that is fixed.
-    await page.addInitScript(() => localStorage.setItem('platform:query-bar-collapsed:cycle-time', 'false'));
     await open(page);
     await main(page).evaluate(element => { element.scrollTop = 300; });
     const before = await scrollTop(page);
