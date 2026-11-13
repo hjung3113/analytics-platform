@@ -28,6 +28,7 @@ const candidateData = vi.hoisted(() => ({
     },
   ],
 }));
+const removeMemberMutate = vi.hoisted(() => vi.fn());
 const linkFindingMutate = vi.hoisted(() => vi.fn());
 const requestTaskMutate = vi.hoisted(() => vi.fn());
 const currentRole = vi.hoisted(() => ({ role_level: 'admin' as string }));
@@ -381,7 +382,7 @@ vi.mock('@/features/findings/hooks/useFindingsList', () => ({
 
 vi.mock('@/features/voc-cluster/hooks/useRemoveClusterMember', () => ({
   useRemoveClusterMember: () => ({
-    mutate: vi.fn(),
+    mutate: removeMemberMutate,
     isPending: false,
     variables: undefined,
   }),
@@ -488,6 +489,7 @@ describe('VOC cluster route shells', () => {
     navigateMock.mockClear();
     hostNavigateMock.mockClear();
     addClusterMemberMutate.mockClear();
+    removeMemberMutate.mockClear();
     linkFindingMutate.mockClear();
     listQueryState.status = 'success';
     detailQueryState.status = 'success';
@@ -846,7 +848,7 @@ describe('VOC cluster route shells', () => {
     expect(screen.getByTestId('cluster-link-existing-finding-button')).toBeDisabled();
   });
 
-  it('renders rich nullable fields, five section anchors, member reporter status, and truncates members', async () => {
+  it('truncates members to 4 by default and expands the rest with the 더보기 button to remove them', async () => {
     firstCluster().severity = 'high';
     firstCluster().confidence = 'medium';
     firstCluster().rationale = '같은 결제 실패 패턴입니다.';
@@ -872,7 +874,31 @@ describe('VOC cluster route shells', () => {
     expect(screen.getByTestId('cluster-detail-severity')).toHaveTextContent('높음');
     expect(screen.getByTestId('cluster-detail-owner')).toHaveTextContent('owner-1');
     expect(screen.getAllByTestId('reporter-status-reviewing')).toHaveLength(4);
-    expect(screen.getByTestId('cluster-members-more')).toHaveTextContent('+1 더보기');
+    expect(
+      screen.queryByTestId('cluster-member-row-33333333-3333-3333-3333-333333333334'),
+    ).not.toBeInTheDocument();
+
+    const more = screen.getByTestId('cluster-members-more');
+    expect(more).toHaveTextContent('+1 더보기');
+    expect(more).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(more);
+
+    expect(screen.getAllByTestId('reporter-status-reviewing')).toHaveLength(5);
+    expect(
+      screen.getByTestId('cluster-member-row-33333333-3333-3333-3333-333333333334'),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByTestId('cluster-member-remove-33333333-3333-3333-3333-333333333334'),
+    );
+    expect(removeMemberMutate).toHaveBeenCalledWith(
+      { clusterId: firstCluster().id, vocId: '33333333-3333-3333-3333-333333333334' },
+      expect.any(Object),
+    );
+
+    expect(screen.getByTestId('cluster-members-more')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('cluster-members-more')).toHaveTextContent('접기');
+    fireEvent.click(screen.getByTestId('cluster-members-more'));
+    expect(screen.getAllByTestId('reporter-status-reviewing')).toHaveLength(4);
   });
 
   it('renders graceful empty values for nullable cluster fields', async () => {
