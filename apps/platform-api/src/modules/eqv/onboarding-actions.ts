@@ -6,7 +6,8 @@
 //
 // Version contract of the saves: `currentVersion` answers `'0'` while no row exists (never `null`), the first row is version 1, `'0'`
 // against an existing row is a `conflict`. publishMapping's version is the equipment's Binding row count (`'0'` with none), so a publish
-// lands only over the Bindings its author saw. An unknown scope target, an unknown equipment and a hidden Hub model all answer `not_found`.
+// lands only over the Bindings its author saw, and its `expectedMappingHash` makes it publish only the Mapping its author
+// reviewed (another flattened hash is `mapping/changed`). An unknown scope target, an unknown equipment and a hidden Hub model all answer `not_found`.
 import { type AliasRulesFile, latestBinding, layoutRevision, publishMapping, validateBindings } from '@eqv/core';
 
 import type { Tx } from '../../db/tx.js';
@@ -144,7 +145,7 @@ export function onboardingActions(deps: EqvDeps & { knowledgeLookup: ModelLookup
     spec: {
       id: 'eqv.publishMapping',
       menuId: O,
-      inputKeys: ['equipmentId', 'layoutId', 'layoutRevision', 'windowHash', 'effectiveFrom'],
+      inputKeys: ['equipmentId', 'layoutId', 'layoutRevision', 'windowHash', 'effectiveFrom', 'expectedMappingHash'],
       permission: EQV_MAPPING_PUBLISH_PERMISSION,
       requiresScope: false,
       concurrency: 'version',
@@ -163,6 +164,8 @@ export function onboardingActions(deps: EqvDeps & { knowledgeLookup: ModelLookup
       const clock = wallClockProblem(input.effectiveFrom);
       if (clock) errors.push({ path: ['effectiveFrom'], code: clock });
       if (!isWindowHex(input.windowHash)) errors.push({ path: ['windowHash'], code: 'invalid' });
+      // The Mapping hash the author reviewed (`sha256:<64 lowercase hex>`, the same form as a Revision).
+      if (typeof input.expectedMappingHash !== 'string' || !REVISION_PATTERN.test(input.expectedMappingHash)) errors.push({ path: ['expectedMappingHash'], code: 'invalid' });
       return errors;
     },
     // The version the author saw is the number of Bindings of the equipment; the equipment lock is taken here and held to the end.
@@ -219,6 +222,8 @@ export function onboardingActions(deps: EqvDeps & { knowledgeLookup: ModelLookup
       // Any issue stores nothing. Mapping Conflicts are not issues and never block (ONBOARDING D9).
       if (!published.ok) throw invalid(...issueErrors(published.issues, ['mapping']));
       const mapping = published.mapping;
+      // The rules may have been saved since the author reviewed (#2053): publish only the reviewed Mapping, and say so before any other verdict.
+      if (mapping.hash !== input.expectedMappingHash) throw invalid({ path: ['mapping'], code: 'changed' });
 
       const rows = await read.listBindingRows(tx, ws, equipmentId);
       const toCore = (r: (typeof rows)[number]) => ({

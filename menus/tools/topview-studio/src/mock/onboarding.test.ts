@@ -27,6 +27,8 @@ const act = (action: string, input: Record<string, unknown>, expectedVersion?: s
   action, context: {}, input, idempotencyKey: crypto.randomUUID(), ...(expectedVersion === undefined ? {} : { expectedVersion }),
 });
 const G1 = '23e9e214b396bfaa4539e7b30c5f8f9163fbac6c50201430231f641ff7c822ba';
+/** A well-formed reviewed Mapping hash: the mock checks only its format (it cannot recompute the screen's hash). */
+const REVIEWED = `sha256:${'b'.repeat(64)}`;
 type Windows = { rows: { hash: string; state: string; mappingCount: number }[] };
 
 describe('onboarding mock reads', () => {
@@ -85,7 +87,7 @@ describe('onboarding mock writes', () => {
 
   it('publishMapping: needs a published Revision, opens a Binding closing the previous one, stores the Baseline, refuses same-as-latest', async () => {
     const baseline = await data<Record<string, unknown>>('eqv.observedInventory', { equipmentId: 'eq-synth-01', windowHash: G1 });
-    const input = { equipmentId: 'eq-synth-01', layoutId: 'eq-synth-01-layout', layoutRevision: `sha256:${'a'.repeat(64)}`, windowHash: G1, effectiveFrom: '2026-01-01T10:30:00.000' };
+    const input = { equipmentId: 'eq-synth-01', layoutId: 'eq-synth-01-layout', layoutRevision: `sha256:${'a'.repeat(64)}`, windowHash: G1, effectiveFrom: '2026-01-01T10:30:00.000', expectedMappingHash: REVIEWED };
     expect(await act('eqv.publishMapping', input, '2')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['layoutRevision'], code: 'not_found' }] });
     const revision = await act('eqv.publishRevision', { layoutId: 'eq-synth-01-layout' }, '1');
     const layoutRevision = (revision.data as { revision: string }).revision;
@@ -110,12 +112,14 @@ describe('onboarding mock writes', () => {
   it('publishMapping takes the Baseline from an active window of the equipment: a staged, retired or foreign window is windowHash/not_active and nothing is stored', async () => {
     const revision = await act('eqv.publishRevision', { layoutId: 'eq-synth-01-layout' }, '1');
     const layoutRevision = (revision.data as { revision: string }).revision;
-    const base = { equipmentId: 'eq-synth-01', layoutId: 'eq-synth-01-layout', layoutRevision, effectiveFrom: '2026-01-01T10:30:00.000' };
+    const base = { equipmentId: 'eq-synth-01', layoutId: 'eq-synth-01-layout', layoutRevision, effectiveFrom: '2026-01-01T10:30:00.000', expectedMappingHash: REVIEWED };
     const staged = (await data<Windows>('eqv.sampleWindows', { equipmentId: 'eq-synth-01' })).rows.find((w) => w.state === 'staged')!;
     for (const windowHash of [staged.hash.slice(7), 'f'.repeat(64)]) {
       expect(await act('eqv.publishMapping', { ...base, windowHash }, '2')).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['windowHash'], code: 'not_active' }] });
     }
     expect((await act('eqv.publishMapping', { ...base, windowHash: 'xyz' }, '2')).fieldErrors).toEqual([{ path: ['windowHash'], code: 'invalid' }]);
+    // The mock cannot recompute the screen's hash: it checks only the format of the reviewed hash (#2053).
+    expect((await act('eqv.publishMapping', { ...base, windowHash: G1, expectedMappingHash: 'sha256:ABC' }, '2')).fieldErrors).toEqual([{ path: ['expectedMappingHash'], code: 'invalid' }]);
     expect((await data<{ version: string }>('eqv.bindings', { equipmentId: 'eq-synth-01' })).version).toBe('2');
   });
 

@@ -1,5 +1,5 @@
 /** Every read of one equipment's onboarding, validated at the boundary with `@eqv/core` (the dev tool's `onboarding-data.ts`, over menu reads). */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   latestBinding, mappingVersionSchema, observedInventorySchema, validateAliasRules, validateBindings, validateLayout, validateTypeDictionary,
   type AliasRulesFile, type BindingsFile, type EquipmentLayoutDocument, type MappingVersion, type ObservedInventory, type TemplateDocument, type TypeDictionaryFile,
@@ -42,6 +42,14 @@ export interface EquipmentData {
   driftLayout: EquipmentLayoutDocument | null;
   driftProblem: string | null;
   templates: TemplateDocument[];
+  /**
+   * #2053: a publish was refused as `mapping/changed` (rules saved since the review). `reloadRules` marks it and reads the four alias rule
+   * scopes again, so the review is recomputed from the new rules; the mark outlives that recompute (the dialog remounts with the new plan)
+   * until `dismissRulesChanged`.
+   */
+  rulesChanged: boolean;
+  reloadRules(): void;
+  dismissRulesChanged(): void;
 }
 
 export type EquipmentLoad =
@@ -76,6 +84,7 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
   const rulesMakerQ = useMenuQuery(aliasRulesEndpoint, { level: 'maker', vendorId }, known);
   const rulesModelQ = useMenuQuery(aliasRulesEndpoint, { level: 'model', vendorId, modelId }, known);
   const rulesEquipmentQ = useMenuQuery(aliasRulesEndpoint, { level: 'equipment', equipmentId }, known);
+  const [rulesChanged, setRulesChanged] = useState(false);
   const bindingsQ = useMenuQuery(bindingsEndpoint, { equipmentId });
   const bindingsRaw = dataOf(bindingsQ);
   const bindingsParsed = useMemo(() => {
@@ -185,6 +194,9 @@ export function useEquipment(equipmentId: string, windowKey: string | null): Equ
       bindings: bindingsParsed?.ok ? bindingsParsed.file : null, bindingsVersion: bindingsRaw?.version ?? '0',
       previous: parsed.previous, baseline: parsed.baseline, layoutId, draft: parsed.draft,
       driftLayout: parsed.driftLayout, driftProblem: parsed.driftProblem, templates: parsed.templates,
+      rulesChanged,
+      reloadRules: () => { setRulesChanged(true); for (const q of [rulesGlobalQ, rulesMakerQ, rulesModelQ, rulesEquipmentQ]) q.refetch(); },
+      dismissRulesChanged: () => setRulesChanged(false),
     },
   };
 }

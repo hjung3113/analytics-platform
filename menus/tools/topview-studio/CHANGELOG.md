@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.4.2 — 2026-11-14
+
+- 게시는 검토한 Mapping만 싣는다(#2053): `eqv.publishMapping` 입력에 `expectedMappingHash`(검토 대화상자의 `plan.mapping.hash`)를 더했다. 검토 뒤 다른 사람이 규칙을 저장해 서버의 평탄화 hash가 다르면 `invalid` `mapping/changed`로 아무것도 저장하지 않고, 대화상자는 «규칙이 바뀌었습니다. 다시 확인한 뒤 게시하세요.»를 보이며 alias 규칙을 다시 읽어 diff를 새 규칙으로 다시 계산한다. mock은 hash 형식만 검사한다.
+
 ## 0.4.1 — 2026-11-11
 
 - Sample Window·Fleet 서버(#1658): `eqv.fleet`·`eqv.sampleWindows`·`eqv.observedInventory`·`eqv.bundledTemplates`와 가져오기·교체·퇴역·설비 등록을 서버가 제공한다(«Server: pending» 표시 제거). `eqv.publishMapping` 입력 `baseline`이 `windowHash`(선택한 window의 64 hex)로 바뀌고 서버가 저장된 Inventory를 Baseline으로 쓴다(`ValidateTab`·mock·`endpoints.ts`). `invalidates`: 게시는 `eqv.fleet`·`eqv.sampleWindows`도, 규칙·사전 저장은 `eqv.fleet`도 비운다. 화면은 달라지지 않는다.

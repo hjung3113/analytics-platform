@@ -76,7 +76,8 @@ const onboardingSamples: Record<string, () => Record<string, unknown>> = {
     const layoutId = stagedStudioLayout();
     const { revision } = studioRun('publishRevision', { layoutId });
     const effectiveFrom = new Date(Date.UTC(2027, 0, 1) + ++onboardingSequence * 1000).toISOString().slice(0, 23);
-    return { equipmentId: 'eq-synth-02', layoutId, layoutRevision: revision, windowHash: ONBOARDING_WINDOW, effectiveFrom };
+    // The mock checks only the format of the reviewed hash (it cannot recompute the screen's, #2053).
+    return { equipmentId: 'eq-synth-02', layoutId, layoutRevision: revision, windowHash: ONBOARDING_WINDOW, effectiveFrom, expectedMappingHash: ONBOARDING_MAPPING };
   },
   replaceSampleWindow: () => ({ equipmentId: 'eq-synth-02', windowHash: stageOnboardingWindow('staged') }),
   retireSampleWindow: () => ({ equipmentId: 'eq-synth-02', windowHash: stageOnboardingWindow('active') }),
