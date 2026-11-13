@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.1.9 — 2026-11-14
+
+- 화면이 마운트된 채 사이드바로 `개선 아이템`에 다시 들어와도 `내 담당` 보기의 필터를 다시 넣는다. 한 번만 넣던 초기화 대신 주소 상태(`view`가 없거나 `all`이 아니고 `filter`가 비었음)를 볼 때마다 `replace`로 쓴다. 지운 조건(`view=all`)과 `view`·`filter`를 명시한 딥링크는 그대로 둔다(#2012).
+
 ## 0.1.8 — 2026-11-10
 
 - Quest 조회(`getQuest`·`searchQuests`)를 `PlatformAdapter` 포트에서 메뉴 조회 `improvement.quest`·`improvement.questSearch`로 옮겼다. `QuestReference`는 `useMenuQuery`, 선택기의 ID 확인은 `useMenuFetch`를 쓰고, mock 처리기는 `src/mock/`에 있다. 아이템 쓰기는 Quest 조회를 다시 읽지 않는다(#1641, ADR-0134).
