@@ -31,10 +31,10 @@ describe('CLAS operation time keeps the previous equipment while another loads (
     expect(renderToStaticMarkup(<PreviousEquipmentLine equipment={null} />)).toBe('');
   });
 
-  it('names the equipment the data shows: the response id wins over the accepted request (default equipment, out-of-Scope fallback)', () => {
+  it('names the equipment the data shows: the response id wins over the accepted request (no `eqp` picks the default equipment)', () => {
     expect(acceptedEquipment('', 'MEM-CVD-0156')).toBe('MEM-CVD-0156');
     expect(acceptedEquipment(undefined, 'MEM-CVD-0156')).toBe('MEM-CVD-0156');
-    expect(acceptedEquipment('OUT-OF-SCOPE', 'MEM-CVD-0156')).toBe('MEM-CVD-0156');
+    expect(acceptedEquipment('OUT-OF-SCOPE', null)).toBe('OUT-OF-SCOPE');
     expect(acceptedEquipment('EQ-03', null)).toBe('EQ-03');
     expect(acceptedEquipment('', undefined)).toBe('');
   });

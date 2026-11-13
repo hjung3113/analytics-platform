@@ -32,7 +32,7 @@ describe('clas operation time mock', () => {
       equipment: reason === 'empty Scope' ? [] : EQUIPMENT.slice(0, 6), params: { eqp: '' }, actor: 'engineer',
     });
     expect(operationTimeMock.isEmpty?.(data)).toBe(true);
-    expect(data).toEqual({ ranking: [], equipmentId: null, lanes: [] });
+    expect(data).toEqual({ ranking: [], equipmentId: null, missingEquipment: null, lanes: [] });
   });
 
   it('ranks Scope equipment by operation time and shows the top one when none is chosen', async () => {
@@ -63,7 +63,14 @@ describe('clas operation time mock', () => {
     const pick = equipment[3].equipmentId;
     const chosen = operationTimeMock.handle({ context: { ...emptyGlobal, ...context }, equipment, params: { eqp: pick }, actor: 'engineer' });
     expect(chosen.equipmentId).toBe(pick);
+    const none = operationTimeMock.handle({ context: { ...emptyGlobal, ...context }, equipment, params: { eqp: '' }, actor: 'engineer' });
+    expect(none.equipmentId).toBe(none.ranking[0].equipmentId);
+    expect(none.missingEquipment).toBeNull();
+    // A requested equipment outside the conditions is reported and never replaced by another one (#2055).
     const outside = operationTimeMock.handle({ context: { ...emptyGlobal, ...context }, equipment, params: { eqp: 'NOT-IN-SCOPE' }, actor: 'engineer' });
-    expect(outside.equipmentId).toBe(outside.ranking[0].equipmentId);
+    expect(outside.equipmentId).toBeNull();
+    expect(outside.missingEquipment).toBe('NOT-IN-SCOPE');
+    expect(outside.lanes).toEqual([]);
+    expect(outside.ranking.length).toBeGreaterThan(0);
   });
 });

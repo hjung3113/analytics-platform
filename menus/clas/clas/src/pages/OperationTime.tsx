@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { Clock, Cpu, Gauge } from 'lucide-react';
+import { AlertTriangle, Clock, Cpu, Gauge } from 'lucide-react';
 import { formatNumber } from '@ap/contracts';
 import { useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AnalysisChart, AnalysisLayout, DataTrustIndicator, LaneTimeline, PlatformPage, QueryView, StatCard, type TimelineLane } from '@ap/components';
+import { AnalysisChart, AnalysisLayout, DataTrustIndicator, LaneTimeline, PlatformPage, QueryView, RecoverButton, StateMessage, StatCard, type TimelineLane } from '@ap/components';
 import { operationTimeEndpoint, type OperationKind, type OperationTimeData } from '../endpoints';
 
 const KIND_COLOR = { process: 'chart-series-1', transfer: 'chart-series-2', wait: 'chart-series-3' } as const;
@@ -23,7 +23,7 @@ export default function OperationTimeScreen() {
   </PlatformPage>;
 }
 
-// The data names the equipment it shows (a request outside the Scope or with no `eqp` falls back to another equipment), so the response's id wins and the accepted request only fills in when the response has none.
+// The data names the equipment it shows (no `eqp` picks the top of the ranking; a request outside the conditions shows none and the page says so, #2055), so the response's id wins and the accepted request only fills in when the response has none.
 export function acceptedEquipment(eqp: string | undefined, dataEquipmentId: string | null | undefined): string { return dataEquipmentId || eqp || ''; }
 
 // A long result scrolls the Kernel notice off screen, so the section that reads the accepted equipment says it again locally (no role: the Kernel notice announces).
@@ -47,7 +47,7 @@ function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeDat
   const top = data.ranking[0];
   const period = `${tx({ ko: '합성 데이터', en: 'Synthetic data' })} · ${displayTime(global.from)} – ${displayTime(global.to)}`;
   const trust = { source: tx({ ko: '합성 데이터', en: 'Synthetic data' }), updated: displayTime(global.to), coverage: tx({ ko: '견본 데이터', en: 'Sample data' }) };
-  const flowTitle = `${data.equipmentId ?? ''} ${tx({ ko: '모듈별 동작 흐름', en: 'operation flow by module' })}`;
+  const flowTitle = `${data.equipmentId ?? ''} ${tx({ ko: '모듈별 동작 흐름', en: 'operation flow by module' })}`.trim();
   return <AnalysisLayout
     kpi={{ id: 'summary', title: tx({ ko: '동작시간 요약', en: 'Operation time summary' }), node: <div className="grid grid-cols-1 gap-3 @min-[720px]/analysis:grid-cols-3">
       <StatCard icon={Cpu} chip="blue" label={tx({ ko: '집계 설비', en: 'Equipment ranked' })} value={number(data.ranking.length)} caption={tx({ ko: '동작시간 상위 30대까지', en: 'Up to the top 30' })} />
@@ -62,7 +62,11 @@ function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeDat
           items: data.ranking.map(row => ({ id: row.equipmentId, label: row.equipmentId, value: row.minutes, colorToken: roomColor(row.room) })),
           legend: rooms.map(room => ({ label: room, colorToken: roomColor(room) })) }} /> },
     ]}
-    breakdown={{ id: 'flow', title: flowTitle, node: <div className="space-y-2">
+    breakdown={{ id: 'flow', title: flowTitle, node: data.missingEquipment !== null
+      ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={tx({ ko: `요청한 설비 ${data.missingEquipment}는 현재 Scope·room 조건에 없습니다`, en: `The requested equipment ${data.missingEquipment} is not in the current Scope and room conditions` })}
+          body={tx({ ko: '다른 설비로 바꿔 그리지 않습니다. 설비 선택을 지우면 순위 1위 설비의 흐름을 봅니다.', en: 'No other equipment is drawn in its place. Clear the selection to see the flow of the top-ranked equipment.' })}
+          action={<RecoverButton onRecover={() => setPage({ eqp: null })} label={tx({ ko: '설비 선택 지우기', en: 'Clear equipment selection' })} />} />
+      : <div className="space-y-2">
         <PreviousEquipmentLine equipment={previousEquipment} />
         <LaneTimeline key={data.equipmentId} lanes={lanes} ariaLabel={flowTitle} description={period} trust={trust} height={320}
           formatTooltip={(segment, lane) => `${lane.label} · ${tx(KIND_LABEL[segment.rank as OperationKind])}`} />
