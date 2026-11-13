@@ -284,7 +284,9 @@ describe('<VocComposeScreen> Context block (F2)', () => {
     [
       'an href over 2048 characters',
       { items: BLOCK.items, href: long },
-      [typed, heading, bullets(['메뉴: 생산성 분석', '기간: 2026-10-01 ~ 2026-10-07'])],
+      [typed, heading, bullets(['메뉴: 생산성 분석', '기간: 2026-10-01 ~ 2026-10-07']), {
+        type: 'paragraph', content: [{ type: 'text', text: '화면 링크가 너무 길어 첨부하지 못했습니다.' }],
+      }],
     ],
   ])('appends %s as expected', async (_name, contextBlock, expected) => {
     installFetch();
