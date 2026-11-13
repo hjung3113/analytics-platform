@@ -304,10 +304,12 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   }, [mode, search, route, routeContractError, global, metricInit, page, extras, pathname, url, commit, commitState, defaultRangeTo]);
 
   useLayoutEffect(() => {
-    // A platform screen takes its own arrival focus; "no route" must not cancel the request for it.
-    if (platformScreen !== null) return;
-    if (!route || routeContractError || !menuPermissions(route.menu).every(can) || !enters(route.menu) || metricInit.phase === 'blocked') pageNavigation.cancel();
-  }, [route, routeContractError, can, enters, metricInit.phase, pageNavigation, platformScreen]);
+    // A platform screen owns its arrival; an alias keeps the same request until its canonical screen mounts (ADR-0093).
+    if (platformScreen !== null || route?.viaAlias) return;
+    // A mounted blocked main screen subscribes for page arrival too; a dialog may still be holding its focus gate (#1893).
+    if (!route || routeContractError || !menuPermissions(route.menu).every(can) || !enters(route.menu)) pageNavigation.cancel(mode === 'main');
+    else if (metricInit.phase === 'blocked') pageNavigation.cancel();
+  }, [route, routeContractError, can, enters, metricInit.phase, pageNavigation, platformScreen, mode]);
 
   // Usage events (docs/05 메뉴 활용률 계측): one `entry` per admitted stay and a `dwell` on leave, sent
   // fire-and-forget through the adapter — no await, no abort signal, failures are silent, navigation never

@@ -201,7 +201,7 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
     mountGlobal('/secret', true);
     expect(await screen.findByText('이 메뉴에 대한 권한이 없습니다')).toBeTruthy();
     expect(screen.queryByText(/permission=/)).toBeNull();
-    expect(screen.getByText(/secret/)).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'secret' })).toBeTruthy();
     // Label and sentence are sibling text nodes inside one body, so no element’s text is the sentence alone.
     expect(screen.getByText((_, node) => hasTextWithoutChild(node, '관리자에게 요청하세요.'))).toBeTruthy();
     expect(screen.getByRole('link', { name: '홈' })).toBeTruthy();
@@ -332,14 +332,15 @@ describe('planned menu without a context bar (#304)', () => {
 });
 
 describe('RouteOutlet contract error view', () => {
-  it('names the bad value in user words; the parser text stays in the detail note (ADR-0034, #397)', async () => {
+  it('names the bad value in user words without client parser detail (#1893)', async () => {
     const { adapter } = fixture(async () => ({ accepted: true }));
     mountAt('/home?from=garbage&to=2026-09-26T09:00:00', adapter);
-    expect(await screen.findByText('주소에 쓸 수 없는 값이 있습니다')).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: '주소에 쓸 수 없는 값이 있습니다' })).toBeTruthy();
     const sentence = await screen.findByText(/“garbage”/, { selector: 'p:not(.t-mono)' });
     expect(sentence.textContent).toBe('시작 시각 “garbage”은 이 화면에서 쓸 수 없습니다. 주소를 고치거나 조건을 초기화하세요.');
     expect(sentence.textContent).not.toMatch(/from=|계약|URL/);
-    expect(screen.getByRole('note', { name: '서버 세부' }).textContent).toContain('from: use YYYY-MM-DDTHH:mm:ss');
+    expect(screen.queryByRole('note', { name: '서버 세부' })).toBeNull();
+    expect(screen.queryByText(/from: use YYYY-MM-DDTHH:mm:ss/)).toBeNull();
     expect(screen.getByRole('button', { name: '조건 초기화' })).toBeTruthy();
   });
 

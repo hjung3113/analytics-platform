@@ -61,6 +61,9 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
   test('지원하지 않는 URL 버전은 자동 보정하지 않고 계약 오류로 보인다', async ({ page }, testInfo) => {
     await page.goto('/mars/equipment-master?v=2&scopeId=MEM');
     await expect(page.getByRole('alert')).toContainText('주소에 쓸 수 없는 값이 있습니다');
+    await expect(mainHeading(page)).toHaveText('주소에 쓸 수 없는 값이 있습니다');
+    await expect(page.getByRole('note', { name: '서버 세부' })).toHaveCount(0);
+    await expect(page.getByRole('alert')).not.toContainText('is not supported');
     await expect(page.getByRole('button', { name: '조건 초기화' })).toBeVisible();
     expect(query(page).get('v')).toBe('2');
     await evidence(page, testInfo, 'contract-error');
@@ -195,7 +198,7 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
     await expect(page.getByText('permission=equipment:view')).toHaveCount(0);
-    await expect(page.getByText('설비 마스터')).toBeVisible();
+    await expect(mainHeading(page)).toHaveText('설비 마스터');
     await expect(page.getByText('관리자에게 요청하세요')).toBeVisible();
     await expect(page.getByRole('table')).toHaveCount(0);
     await evidence(page, testInfo, 'viewer-direct-url');

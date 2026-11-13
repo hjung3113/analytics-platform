@@ -50,7 +50,8 @@ export function createPageNavigation(initialUrl: string, isBlocked: () => boolea
       pending = target === canonicalHref(url) ? { generation, path: pathOf(target), focus: 'return' } : null;
       if (pending) claimsDetail = focusKeyOf(target) === null;
     },
-    cancel() { pending = null; },
+    // A mounted blocked main screen subscribes for its title's arrival. Without a consumer, even page focus must expire.
+    cancel(preservePage = false) { if (!preservePage || pending?.focus !== 'page' || listeners.size === 0) pending = null; },
     notify() { listeners.forEach(listener => listener()); },
     subscribe(listener: () => void) {
       listeners.add(listener);

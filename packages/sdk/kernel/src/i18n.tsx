@@ -166,6 +166,8 @@ const dict = {
   contractCauseEmptySetWithList: { ko: '빈 선택 표시와 목록을 주소에 같이 적었습니다.', en: 'An empty-selection mark and a list are both written in the address.' },
   resetContext: { ko: '조건 초기화', en: 'Reset conditions' },
   notFound: { ko: '등록되지 않은 경로입니다', en: 'Unregistered route' },
+  spaceDenied: { ko: '이 업무 시스템에 들어갈 수 없습니다', en: 'You cannot enter this business system' },
+  menuDenied: { ko: '이 메뉴에 대한 권한이 없습니다', en: 'You do not have access to this menu' },
   plannedTitle: { ko: '레지스트리에 선언된 메뉴 (화면 미구현)', en: 'Registered menu (screen not built)' },
   plannedBody: { ko: '이 메뉴는 등록만 되어 있고 화면은 아직 없습니다. 이동, 조건 전달, 권한 확인은 화면 없이도 동작합니다.', en: 'This menu is registered but its screen is not built yet. Navigation, carried conditions and access checks already work.' },
   dataTrust: { ko: '데이터 신뢰', en: 'Data trust' },

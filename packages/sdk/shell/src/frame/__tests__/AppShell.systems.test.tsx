@@ -174,7 +174,7 @@ describe('fallback sidebar on an unmatched or denied route (B5)', () => {
     expect(sections()).toBeNull();
     expect(rail().querySelector('[aria-current]')).toBeNull();
     const head = view.container.querySelector('aside > div')!;
-    expect(Array.from(head.querySelectorAll('p')).map(p => p.textContent)).toEqual(['MARS', 'Analytics Platform']);
+    expect(Array.from(head.querySelectorAll('p')).map(p => p.textContent)).toEqual(['분석 플랫폼']);
     expect(nav.querySelector('[aria-current="page"]')).toBeNull();
 
     fireEvent.click(screen.getByRole('link', { name: 'back to cycle' }));
