@@ -28,10 +28,11 @@ updates:
       prefix: "chore(deps)"
   - package-ecosystem: github-actions
     directory: /
+    # Two hours after the npm PR: each bot PR runs all 18 PR jobs, and two at once exceed the 20-job concurrency limit.
     schedule:
       interval: weekly
       day: monday
-      time: "06:00"
+      time: "08:00"
       timezone: Asia/Seoul
     open-pull-requests-limit: 1
     groups:
