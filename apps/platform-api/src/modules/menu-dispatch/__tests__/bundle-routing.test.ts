@@ -33,6 +33,7 @@ const statement = (params: Record<string, unknown>) => ({ statement: `SELECT ${O
 const route = (rooms?: string[]) => ({ sites: ['SITE-A'], ...(rooms ? { rooms } : {}), targets: ['tgt-1'] });
 const httpTarget = { kind: 'http', baseUrl: 'https://target.test' };
 const httpCall = { mode: 'mapped', method: 'POST', path: '/rows', body: { rooms: 'scope.rooms' }, response: { rows: '/data' } };
+const sqlTarget = { kind: 'sql', dialect: 'postgres', connectionFile: '/secrets/syn-db' };
 const paging = { paramKeys: ['page', 'pageSize', 'q'], limits: undefined };
 const resolveKeys = { mode: 'resolve-keys', lookup: statement({ keys: 'params.q' }), keys: 'params.q', siteField: '/site', roomField: '/room' };
 
@@ -53,6 +54,8 @@ it.each([
   ['multi-site row field', ownerBundle({ routes: [{ ...route(), sites: ['SITE-A', 'SITE-B'] }], call: statement({ rooms: 'scope.rooms', site: 'scope.site' }) }), 'endpoint syn.rows: route 0: multi-site scopeCheck needs siteField'],
   ['aggregate guard', ownerBundle({ scopeCheck: { ...resolveKeys, keys: { const: [] } }, call: statement({ q: 'params.q' }) }), 'endpoint syn.rows: route 0: resolve-keys without keys must bind scope.rooms in the main call'],
   ['lookup kind', ownerBundle({ scopeCheck: { ...resolveKeys, lookup: httpCall } }), 'endpoint syn.rows: route 0: scopeCheck.lookup kind does not match target tgt-1'],
+  ['resolve-keys multi-target fan-out', ownerBundle({ routes: [{ ...route(), targets: ['tgt-1', 'tgt-2'] }], scopeCheck: resolveKeys }, {}, { targets: { 'tgt-1': sqlTarget, 'tgt-2': sqlTarget } }), 'endpoint syn.rows: resolve-keys can select 2 legs for site SITE-A: a key lives in one room and one target, so a multi-leg lookup is always forbidden (ADR-0153)'],
+  ['resolve-keys split-room fan-out', ownerBundle({ routes: [route(['RA1']), { ...route(['RA2']), targets: ['tgt-2'] }], scopeCheck: resolveKeys }, {}, { targets: { 'tgt-1': sqlTarget, 'tgt-2': sqlTarget } }), 'endpoint syn.rows: resolve-keys can select 2 legs for site SITE-A: a key lives in one room and one target, so a multi-leg lookup is always forbidden (ADR-0153)'],
   ['paged filter', ownerBundle({ scopeCheck: { mode: 'drop-rows', roomField: '/room' }, merge: { maxWindow: 100 } }, paging), 'endpoint syn.rows: scopeCheck.mode drop-rows is refused on a paged endpoint'],
   ['paged partial', ownerBundle({ merge: { maxWindow: 100, partial: 'coverage' } }, paging), 'endpoint syn.rows: merge.partial is refused on a paged endpoint'],
   ['missing coverage kind', ownerBundle({ merge: { partial: 'coverage' } }, { kinds: [] }), 'endpoint syn.rows: merge.partial coverage requires coverage in kinds'],
@@ -75,6 +78,7 @@ it.each([
 
 it.each([
   ['different rooms', ownerBundle({ routes: [route(['RA1']), route(['RA2'])] })],
+  ['resolve-keys single leg per site', ownerBundle({ routes: [route(['RA1']), { ...route(['RA2']), sites: ['SITE-B'] }], scopeCheck: resolveKeys }, {}, { targets: { 'tgt-1': sqlTarget, 'tgt-2': sqlTarget } })],
   ['different sites, same rooms', ownerBundle({ routes: [route(['RA1']), { ...route(['RA1']), sites: ['SITE-B'] }], call: statement({ rooms: 'scope.rooms', site: 'scope.site' }), scopeCheck: { mode: 'verify-rows', siteField: '/site', roomField: '/room' } })],
   ['scope-free route', ownerBundle({ routes: [{ targets: ['tgt-1'] }], scopeCheck: undefined }, { requiresScope: false })],
   ['one envelope target', ownerBundle({ call: { mode: 'envelope' } }, { limits: undefined }, { targets: { 'tgt-1': httpTarget } })],

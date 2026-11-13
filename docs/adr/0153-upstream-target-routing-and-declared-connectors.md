@@ -73,6 +73,7 @@ Site는 공장의 최상위 조직 단위이자 Scope 부여 키다. 어느 서�
 - leg별 원본 읽기는 `maxRows + 1`에서 멈춘다. 한 leg가 넘으면 형제도 취소하고 `rowsRead` 초과 표식을 `query.ts`에 넘겨 `too_large`, `data: null`을 판정하게 한다. leg별 상한 안에서도 투영 후 합친 행 수가 상한을 넘으면 같은 판정을 쓴다.
 - 순수 함수 `mergeRows`는 경로·대상 선언 순서와 leg 안의 행 순서를 보존하거나 `merge.sort`로 정렬한다. 문자열은 Unicode 코드포인트 순서, 숫자는 수치 순서이며 `null`은 방향과 무관하게 끝이다. 정렬 필드의 누락·지원하지 않는 값·혼합 형과 leg 사이의 마지막 유일 키 중복은 값 없는 고정 `MenuUpstreamError('unavailable')`로 실패한다.
 - `resolve-keys`의 `lookup` 결과는 그 leg의 room(R ∩ 경로 rooms)으로 판정한다. 요청 전체 R이 아니다. 다른 leg의 room이나 `unroutedRooms: "skip"`으로 빠진 room으로 풀리는 키는 `forbidden`이고 본 호출은 돌지 않는다. 이유: `resolve-keys`에서는 본 호출 행을 다시 검사하지 않으므로, 넓은 집합으로 판정하면 다른 room의 키를 이 대상에서 읽는다. 단일 대상 `skip`에서 이전에 받아들이던 조회가 거부로 바뀐다(닫힌 쪽).
+- 따라서 기동 검사는 `resolve-keys` 엔드포인트의 site가 경로·대상 조합으로 leg 둘 이상으로 풀릴 수 있으면 묶음을 거부한다(#2039). 키는 한 room·한 대상에만 있으므로 키 없는 쪽 leg의 조회가 항상 `forbidden`을 내고 요청 전체를 막기 때문이다. 「키가 이 leg에서 0행이면 그 leg만 건너뛴다」는 다른 쪽 선택은 [백로그](../../.planning/backlog.md)행이 소유한다(ADR 개정 필요).
 
 ### coverage·페이지 fan-out의 구체 모양 (1839d2)
 
