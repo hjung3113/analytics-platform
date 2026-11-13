@@ -129,15 +129,19 @@ test('assembly manifest scripts stay protected while nine release URLs change', 
   writeFileSync(join(kit, 'package.json'), JSON.stringify(manifest));
   assert.throws(() => assertAssembly(kit, expected), /assembly code changed/);
 }));
-test('required upgrade verdict rejects every failed, cancelled, missing or skipped gate for code changes', () => {
+test('required upgrade verdict rejects every failed, cancelled, missing or skipped gate for code changes outside a pull request', () => {
   const workflow = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
   const verdict = workflow.split('      - name: SDK upgrade verdict\n')[1].split('      - name: Shard verdict')[0];
   const script = verdict.split('        run: |\n')[1].trim();
-  for (const CODE of ['true', '', 'false']) {
-    for (const UPGRADE of ['success', 'failure', 'cancelled', 'skipped', '']) {
-      for (const SELFTEST of ['success', 'failure', 'cancelled', 'skipped', '']) {
-        const result = spawnSync('sh', ['-e', '-c', script], { cwd: new URL('../..', import.meta.url), env: { ...process.env, CODE, UPGRADE, SELFTEST } });
-        assert.equal(result.status === 0, CODE === 'false' || (UPGRADE === 'success' && SELFTEST === 'success'), JSON.stringify({ CODE, UPGRADE, SELFTEST }));
+  // #1931: a pull request skips both gates on purpose until production; push and manual runs (release full=true) still require them.
+  for (const GITHUB_EVENT_NAME of ['push', 'workflow_dispatch', 'pull_request']) {
+    for (const CODE of ['true', '', 'false']) {
+      for (const UPGRADE of ['success', 'failure', 'cancelled', 'skipped', '']) {
+        for (const SELFTEST of ['success', 'failure', 'cancelled', 'skipped', '']) {
+          const result = spawnSync('sh', ['-e', '-c', script], { cwd: new URL('../..', import.meta.url), env: { ...process.env, GITHUB_EVENT_NAME, CODE, UPGRADE, SELFTEST } });
+          const pass = CODE === 'false' || GITHUB_EVENT_NAME === 'pull_request' || (UPGRADE === 'success' && SELFTEST === 'success');
+          assert.equal(result.status === 0, pass, JSON.stringify({ GITHUB_EVENT_NAME, CODE, UPGRADE, SELFTEST }));
+        }
       }
     }
   }
