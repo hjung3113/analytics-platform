@@ -167,6 +167,7 @@
 | [0154](0154-site-and-room-grants-are-platform-owned.md) | Site·room 부여는 플랫폼 부여 표가 소유하고, 막힌 자리에서 바로 신청한다 | Decided(2026-11-12) |
 | [0155](0155-categorized-permission-list-checkbox-rows.md) | 분류된 권한 목록은 체크박스 행·프리셋, 부여는 후보별 radio | Decided(2026-11-12, 고문·소유자 위임, 되돌릴 수 있음) |
 | [0156](0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md) | 코어 서버는 선언 묶음을 앱 빌드가 낸 메뉴 선언 스냅샷과 대조한다 | Decided(2026-11-13, advisor·소유자 위임, 되돌릴 수 있음) |
+| [0157](0157-bundle-declares-menu-capabilities.md) | 선언 묶음이 자기 capability 행과 메타를 선언한다(ADR-0146 결정 3 개정) | Decided(2026-11-13, 소유자 «니추천대로», 고문 리뷰 반영, 되돌릴 수 있음) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

@@ -145,7 +145,11 @@ import {
   notificationRoutes,
 } from './modules/notifications/index.js';
 import {
+  PLATFORM_CAPABILITY_REGISTRY,
+  countUndeclaredPermissionRows,
   createCheckService,
+  relaxesDefaults,
+  syncDeclaredCapabilities,
   createDecisionService,
   createGrantAdminService,
   createRequestService,
@@ -417,9 +421,16 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // workspace+actor identity when a valid session cookie is present, and
   // `req.ip` only for unauthenticated traffic.
   const auditService = createAuditService();
+  // ADR-0157 decision 7: one capability registry per server — the platform capabilities ∪ what the declaration bundle
+  // declares. Only the bundle contribution carries a registry; the check, token and permission services and the bundle's
+  // own endpoints all judge with this one object.
+  const bundleRegistries = [...new Set((opts.menuDispatch ?? []).flatMap((c) => (c.capabilities ? [c.capabilities] : [])))];
+  if (bundleRegistries.length > 1) throw new Error('only one menu contribution may carry declared capabilities');
+  const capabilities = bundleRegistries[0] ?? PLATFORM_CAPABILITY_REGISTRY;
   const apiTokenService = createApiTokenService({
     db: dbHandle.db,
     auditService,
+    capabilities,
     workspaceId,
     unusedWarningDays: config.API_TOKEN_UNUSED_WARNING_DAYS ?? 30,
   });
@@ -576,7 +587,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // ── Permissions module — slice 1 issue #4 ───────────────────────────────
   // Registered AFTER auth so requireSession is available on its routes.
   const recoveryRecorder = createOwnerRecoveryRecorder();
-  const checkService = createCheckService({ db: dbHandle.db });
+  const checkService = createCheckService({ db: dbHandle.db, capabilities });
   const idempotencyService = createIdempotencyService();
   const notificationDispatcher =
     opts.notificationDispatcher ??
@@ -1068,7 +1079,26 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     ...(opts.menuDispatch ?? []),
   ], scopeResolver ? { scopeResolver } : {});
   // The menu permissions the modules declared are what this server's bootstrap, session-state and access directory resolve (#1667).
+  // Every one must name a capability of this server's registry (ADR-0157): a judgment never meets an unregistered name.
+  for (const declaration of menuRegistry.permissions) {
+    if (!capabilities.has(declaration.capability)) {
+      throw new Error(`menu permission ${declaration.permission}: capability ${declaration.capability} is not in this server's registry`);
+    }
+  }
   platformPermissions.use(menuRegistry.permissions);
+  {
+    // ADR-0157 decisions 7, 8, 10: on every boot, mirror the declared rows for the audit projection (one transaction),
+    // then log the counts. A bundle without the `capabilities` field, or no bundle at all, is the empty registry: the
+    // table is emptied and the rows still naming retired declarations are counted. Never a boot failure for those rows.
+    await syncDeclaredCapabilities(dbHandle.db, capabilities);
+    const declared = capabilities.declaredList();
+    app.log.info({ declared: declared.length, relaxed: declared.filter(relaxesDefaults).length }, 'Declared capabilities');
+    const undeclared = await countUndeclaredPermissionRows(dbHandle.db, capabilities);
+    const tokens = await apiTokenService.countUndeclaredScopeTokens();
+    if (undeclared.grants + undeclared.denies + undeclared.requests + tokens > 0) {
+      app.log.warn({ ...undeclared, tokens }, 'Permission rows name capabilities the bundle no longer declares');
+    }
+  }
   // The dispatch identity token's `sv` claim must equal the `/bootstrap` `sessionVersion` (#1729 h):
   // one snapshot factory (platform-port/session-snapshot.ts) feeds both hashes.
   const buildMenuSession = createSessionState({ permissions: platformPermissions, checkService, ...scopeDeps, scopeWarning: () => app.log.warn('Scope resolution failed') });

@@ -1,14 +1,16 @@
 // API token application service (ADR-0116, #1442): issue, list, revoke, authenticate.
 // The token value exists only in the issue response; storage, audit, logs, errors and lists carry the prefix at most.
 
-import { type Capability, isCapability, isSessionOnlyCapability, isTokenOnlyScope } from '@ap/feature-shared';
+import { DECLARED_CAPABILITY_PREFIX, isTokenOnlyScope } from '@ap/feature-shared';
 import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 
 import type { Db } from '../../db/client.js';
 import { actors, apiTokens } from '../../db/schema/core.js';
+import { sqlTextArray } from '../../db/sql-arrays.js';
 import { HttpError } from '../../lib/errors.js';
 import { type ActorRecord, summarizeIp } from '../auth/session-service.js';
 import type { AuditService } from '../core/audit/index.js';
+import { type CapabilityRegistry, PLATFORM_CAPABILITY_REGISTRY } from '../permissions/check-service.js';
 import { bearerValue, generateToken, hashToken, hashesEqual, parseTokenPrefix } from './token-format.js';
 
 export const LAST_USED_STAMP_INTERVAL_MS = 60_000;
@@ -56,6 +58,8 @@ export interface ApiTokenServiceDeps {
   workspaceId: string;
   unusedWarningDays: number;
   now?: () => Date;
+  /** This server's capability vocabulary (ADR-0157); a declared name is a scope only when declared `sessionOnly: false`. */
+  capabilities?: CapabilityRegistry;
 }
 
 export type ApiTokenService = ReturnType<typeof createApiTokenService>;
@@ -80,6 +84,7 @@ const invalid = (fields: Field[]): HttpError =>
 
 export function createApiTokenService(deps: ApiTokenServiceDeps) {
   const now = deps.now ?? (() => new Date());
+  const capabilities = deps.capabilities ?? PLATFORM_CAPABILITY_REGISTRY;
 
   function toRow(r: typeof apiTokens.$inferSelect): TokenRow {
     const reference = (r.lastUsedAt ?? r.createdAt).getTime();
@@ -106,8 +111,8 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
       // A token-only scope (ADR-0117 decision 9) is not a capability; a personal token never carries one.
       if (isTokenOnlyScope(scope)) {
         if (kind !== 'service') fields.push({ path: ['scopes', i], code: 'service_only' });
-      } else if (!isCapability(scope)) fields.push({ path: ['scopes', i], code: 'unknown_capability' });
-      else if (isSessionOnlyCapability(scope as Capability)) fields.push({ path: ['scopes', i], code: 'session_only' });
+      } else if (!capabilities.has(scope)) fields.push({ path: ['scopes', i], code: 'unknown_capability' });
+      else if (capabilities.meta(scope).sessionOnly) fields.push({ path: ['scopes', i], code: 'session_only' });
     });
     return fields;
   }
@@ -433,5 +438,18 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
     );
   }
 
-  return { issue, listPersonal, listWorkspace, revoke, authenticate, isActive, recordAuthFailure, recordSessionRequiredDenied, bearerValue };
+  /**
+   * ADR-0157 decision 7 boot warning: active tokens carrying a declared-prefix scope this server does not declare. Such a
+   * scope opens nothing (the token judgment reads the registry at call time); the count only tells the operator.
+   */
+  async function countUndeclaredScopeTokens(): Promise<number> {
+    const declared = sqlTextArray(capabilities.declaredList().map((row) => row.id));
+    const result = await deps.db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM core.api_tokens t
+      WHERE t.revoked_at IS NULL AND (t.expires_at IS NULL OR t.expires_at > now())
+        AND EXISTS (SELECT 1 FROM unnest(t.scopes) AS s(scope)
+          WHERE s.scope LIKE ${`${DECLARED_CAPABILITY_PREFIX}%`} AND s.scope <> ALL(${declared}))`);
+    return Number(result.rows[0]?.n ?? 0);
+  }
+
+  return { issue, listPersonal, listWorkspace, revoke, authenticate, isActive, recordAuthFailure, recordSessionRequiredDenied, bearerValue, countUndeclaredScopeTokens };
 }

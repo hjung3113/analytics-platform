@@ -1,6 +1,6 @@
-import { CAPABILITIES, CAPABILITY_META, TOKEN_ONLY_SCOPES, isCapability, type Capability, type TokenOnlyScope } from '@ap/feature-shared';
+import { CAPABILITIES, CAPABILITY_META, TOKEN_ONLY_SCOPES, isCapability, isDeclaredCapabilityId, type Capability, type CapabilityName, type DeclaredCapabilityItem, type TokenOnlyScope } from '@ap/feature-shared';
 import type { GroupedSelectionGroup, GroupedSelectionItem } from '@ap/ui';
-import { CAPABILITY_LABELS } from './capabilities';
+import { CAPABILITY_LABELS, getCapabilityDisplayLabel } from './capabilities';
 
 /** Categories in screen order (advisor decision #1842). A capability names one of these; there is no default category. */
 export const PERMISSION_CATEGORIES = ['공통', 'VOC·Finding·Task', '개선 아이템', '설문', '로그 지식 허브', '로그 개발·검증', '로그 탐색', '설비 시각화'] as const;
@@ -58,16 +58,34 @@ export function permissionSelectionItem(id: Capability | TokenOnlyScope): Groupe
   return { id, label: isCapability(id) ? CAPABILITY_LABELS[id] : '검증 작업자', description: declaration.description,
     ...(isCapability(id) && CAPABILITY_META[id].sensitive ? { badge: { label: '민감', tone: 'warning' as const } } : {}) };
 }
-export function groupPermissionItems(items: readonly (GroupedSelectionItem & { capability: Capability | TokenOnlyScope })[]): GroupedSelectionGroup[] {
+/** ADR-0157: the deployment bundle's declared capabilities form one group after the platform categories. */
+export const DECLARED_PERMISSION_CATEGORY = '배포 선언 권한';
+
+/** A declared capability row: display name with its id; marked 민감 unless the server read says otherwise (closed). */
+export function declaredSelectionItem(id: string, declared: readonly DeclaredCapabilityItem[]): GroupedSelectionItem {
+  const item = declared.find(entry => entry.id === id);
+  return { id, label: getCapabilityDisplayLabel(id, declared), description: id,
+    ...(item?.sensitive === false ? {} : { badge: { label: '민감', tone: 'warning' as const } }) };
+}
+
+export function groupPermissionItems(items: readonly (GroupedSelectionItem & { capability: CapabilityName | TokenOnlyScope })[]): GroupedSelectionGroup[] {
   const groups = new Map<PermissionCategory, GroupedSelectionItem[]>();
+  const declaredItems: GroupedSelectionItem[] = [];
   for (const item of items) {
+    if (isDeclaredCapabilityId(item.capability)) {
+      declaredItems.push(item);
+      continue;
+    }
     const category = PERMISSION_DECLARATIONS[item.capability].category;
     groups.set(category, [...(groups.get(category) ?? []), item]);
   }
-  return PERMISSION_CATEGORIES.flatMap(category => {
-    const members = groups.get(category);
-    return members ? [{ id: category, label: category, items: members }] : [];
-  });
+  return [
+    ...PERMISSION_CATEGORIES.flatMap(category => {
+      const members = groups.get(category);
+      return members ? [{ id: category, label: category, items: members }] : [];
+    }),
+    ...(declaredItems.length > 0 ? [{ id: DECLARED_PERMISSION_CATEGORY, label: DECLARED_PERMISSION_CATEGORY, items: declaredItems }] : []),
+  ];
 }
 export function tokenSelectionGroups(service: boolean): GroupedSelectionGroup[] {
   type Row = GroupedSelectionItem & { capability: Capability | TokenOnlyScope };

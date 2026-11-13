@@ -61,6 +61,22 @@ function sessionCookie(token: string): string {
   return `${SESSION_COOKIE_NAME}=${token}`;
 }
 
+function sqlText(query: unknown): string {
+  if (!query || typeof query !== 'object') return '';
+  const chunks = (query as { queryChunks?: unknown }).queryChunks;
+  if (!Array.isArray(chunks)) return '';
+  return chunks
+    .map((chunk) => {
+      const value = (chunk as { value?: unknown } | null)?.value;
+      return Array.isArray(value) ? value.join('') : sqlText(chunk);
+    })
+    .join(' ');
+}
+
+function isBootDeclaredCapabilityQuery(query: unknown): boolean {
+  return /sync_declared_capabilities|permission\.permission_grants|core\.api_tokens/.test(sqlText(query));
+}
+
 function extractSqlParams(query: unknown): unknown[] {
   if (!query || typeof query !== 'object') return [];
   const chunks = (query as { queryChunks?: unknown }).queryChunks;
@@ -83,6 +99,8 @@ function createDbHandle(opts: {
 
   const db = {
     execute: async (query: unknown): Promise<{ rows: FakeSession[] }> => {
+      // The boot-time declared-capability sync and counts (ADR-0157) are not session lookups.
+      if (isBootDeclaredCapabilityQuery(query)) return { rows: [] };
       sessionLookupCount += 1;
       if (opts.failSessionLookup) {
         throw new Error('simulated session lookup failure');

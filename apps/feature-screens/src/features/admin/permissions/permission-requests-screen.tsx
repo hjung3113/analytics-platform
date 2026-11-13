@@ -4,7 +4,7 @@ import { ListShell, ListTabs, type ListToolbarTab, ObjectRow } from '@ap/ui';
 import type { ReactNode } from 'react';
 
 import type { AdminPermissionRequestRow } from '@/lib/api/permission-reads';
-import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
+import { UNDECLARED_CAPABILITY_LABEL, getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { requestedScopeTargetLabel } from '@/lib/copy/permission-scope';
 import { formatDateOnly, formatDateTime } from '@/lib/format/datetime';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
@@ -160,7 +160,13 @@ function PermissionRequestRow({
       title={`${actorName ?? GLOSSARY.unknownUser} · ${getCapabilityDisplayLabel(request.requested_capability)}`}
       selected={selected}
       onClick={onSelect}
-      badges={<OutlineBadge>{permissionRequestStatusLabel[request.status]}</OutlineBadge>}
+      badges={
+        <>
+          <OutlineBadge>{permissionRequestStatusLabel[request.status]}</OutlineBadge>
+          {/* ADR-0157 decision 7: a request for a capability the bundle no longer declares stays listed for rejection. */}
+          {request.in_declarations === false ? <OutlineBadge>{UNDECLARED_CAPABILITY_LABEL}</OutlineBadge> : null}
+        </>
+      }
       meta={
         <>
           <span>

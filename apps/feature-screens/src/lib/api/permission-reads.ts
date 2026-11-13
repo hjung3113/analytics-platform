@@ -40,6 +40,8 @@ export interface AdminPermissionRequestRow {
   revision: number;
   requester_actor_id: string;
   requested_capability: string;
+  /** ADR-0157 decision 7: present on a declared-prefix request; `false` = the bundle no longer declares it. */
+  in_declarations?: boolean;
   requested_managed_system_id: string | null;
   /** Site/room requests only (ADR-0154). */
   requested_scope_kind?: 'managed_system' | 'site' | 'site_room';

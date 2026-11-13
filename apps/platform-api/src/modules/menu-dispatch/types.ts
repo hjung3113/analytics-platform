@@ -4,7 +4,8 @@
 // (check-boundaries rule 11, ADR-0073). A module contributes declarations; the dispatch engine
 // owns the judgment order (docs/integration/real-server-checklist.md §3) and never any business write.
 
-import type { Capability } from '@ap/feature-shared';
+import type { CapabilityName } from '@ap/feature-shared';
+import type { CapabilityRegistry } from '../permissions/check-service.js';
 import type { ScopeGrant } from './scope-resolver.js';
 import type { Tx } from '../../db/tx.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
@@ -179,7 +180,8 @@ export interface MenuActionDeclaration {
 export interface MenuPermissionDeclaration {
   /** The menu permission name the endpoints/actions declare (`<namespace>:<name>`). Unique across the registry and never a kernel permission. */
   permission: string;
-  capability: Capability;
+  /** A platform capability or one the deployment bundle declares (ADR-0157); the server's registry must hold it. */
+  capability: CapabilityName;
 }
 
 /** What one module contributes to the dispatch registry. */
@@ -188,6 +190,12 @@ export interface MenuDispatchContribution {
   actions?: readonly MenuActionDeclaration[];
   /** The menu permissions this module's declarations use; a new menu permission is added here, not in `platform-port/permissions.ts`. */
   permissions?: readonly MenuPermissionDeclaration[];
+  /**
+   * The capability registry this contribution's declarations judge with (ADR-0157): only the declaration-bundle contribution
+   * carries one. The server adopts it as its single registry, so its check, token and permission services and this
+   * contribution's own check service read the same vocabulary.
+   */
+  capabilities?: CapabilityRegistry;
 }
 
 export type ActionOutcome = 'ok' | 'invalid' | 'conflict' | 'forbidden' | 'not_found' | 'error';

@@ -1,6 +1,7 @@
 import {
   type PermissionRequestAdminDetail,
   isCapability,
+  isDeclaredCapabilityId,
   isSensitiveCapability,
 } from '@ap/feature-shared';
 import { OutlineBadge } from '@ap/feature-ui';
@@ -212,11 +213,16 @@ export function PermissionRequestDecisionForm({
   const workspaceSettings = useWorkspaceSettings();
   const minExpirationDate = localDateInputValue(new Date());
   const selectedAction = ACTIONS.find((candidate) => candidate.value === action) ?? null;
+  // A declared capability (ADR-0157): the server's registry marks it sensitive through the selected read's risk signals.
+  const declaredSensitive =
+    isDeclaredCapabilityId(request.requested_capability) &&
+    request.risk_indicators.some((indicator) => indicator.code === 'sensitive_capability');
   const needsReason =
     (selectedAction?.needsReason ?? false) ||
     (action === 'approve' &&
-      isCapability(request.requested_capability) &&
-      isSensitiveCapability(request.requested_capability));
+      ((isCapability(request.requested_capability) &&
+        isSensitiveCapability(request.requested_capability)) ||
+        declaredSensitive));
   const decidable = request.status === 'pending' || request.status === 'needs_more_info';
   const isSelfApproval = request.administrative_authority.is_requester;
   const selfApprovalBlockedByPolicy =

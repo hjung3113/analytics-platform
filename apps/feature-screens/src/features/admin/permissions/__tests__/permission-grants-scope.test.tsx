@@ -5,6 +5,7 @@ import {
   directPermissionGrantSchema,
   listPermissionDeniesResponseSchema,
   listPermissionGrantsResponseSchema,
+  permissionGrantAdminItemSchema,
   revokePermissionResultSchema,
 } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -212,6 +213,38 @@ describe('부여 목록 — Site·공정 grants', () => {
     await waitFor(() =>
       expect(requests.some((r) => r.method === 'POST' && r.path === `/permissions/grants/${REMOVED_ID}/revoke`)).toBe(true),
     );
+  });
+
+  it('a declared-capability row shows the declared display name beside its id (ADR-0157 decision 9)', async () => {
+    const declaredGrant = permissionGrantAdminItemSchema.parse({
+      id: IN_CATALOG_ID,
+      actor_id: SCOPE_ACTOR,
+      capability: 'ext.widget.annotate',
+      managed_system_id: null,
+      in_declarations: true,
+      granted_by_actor_id: ADMIN_ID,
+      granted_at: SCOPE_AT,
+      expires_at: null,
+    });
+    apiRequestMock.mockImplementation(
+      async (method: string, path: string, parser: { parse: (value: unknown) => unknown }) => {
+        requests.push({ method, path, body: undefined });
+        if (method === 'GET' && path === '/permissions/grants')
+          return { data: parser.parse({ items: [declaredGrant] }) };
+        if (method === 'GET' && path === '/permissions/denies') return { data: parser.parse({ items: [] }) };
+        if (method === 'GET' && path === '/me/permissions/declared-capabilities')
+          return {
+            data: parser.parse({
+              items: [{ id: 'ext.widget.annotate', display_name: 'Widget annotate', sensitive: true, requestable: false }],
+            }),
+          };
+        throw new Error(`unmocked ${method} ${path}`);
+      },
+    );
+    renderScreen('/admin/permissions/grants?selected=99999999-9999-4999-8999-999999999999');
+
+    expect(await screen.findByText('Actor One · Widget annotate (ext.widget.annotate)')).toBeInTheDocument();
+    expect(requests.filter((r) => r.path === '/me/permissions/declared-capabilities')).toHaveLength(1);
   });
 });
 

@@ -15,6 +15,7 @@
   - `checkCapability` answers for the generic role layer only (`roleSatisfies`).
   - Domain modules that layer an admin-role bypass on top declare it once in `CAPABILITY_META.adminModuleBypass` (`packages/feature-shared/src/enums/capabilities.ts`), and `GET /me/permissions/check` re-applies that declaration via `applyAdminModuleBypass`.
   - Adding or moving a module-level bypass without updating that declaration is the #372 defect.
+- Capability meta is read through the server's `CapabilityRegistry` (`capability-registry.ts`, ADR-0157): platform `CAPABILITY_META` ∪ the declaration bundle's `ext.*` capabilities. Services take it from the check service (`capabilitiesOf`); never branch on a hand list for a name the registry may hold, and never let an unregistered name fall through to an open answer.
 - A new Role Level extends `ROLE_LEVEL_VALUES` in `packages/feature-shared/src/enums/index.ts` and the layers in `docs/adr/history/feedbackops/0048-role-level-extension.md`.
   - `roleSatisfies` in `check-service.ts` is the implicit-capability arm; domain modules that compare `role_level` themselves are part of that same change.
 

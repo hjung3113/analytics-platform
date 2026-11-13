@@ -235,3 +235,26 @@ export type TokenOnlyScope = (typeof TOKEN_ONLY_SCOPES)[number];
 export function isTokenOnlyScope(value: string): value is TokenOnlyScope {
   return (TOKEN_ONLY_SCOPES as readonly string[]).includes(value);
 }
+
+/**
+ * ADR-0157 decision 3: a capability a deployment's declaration bundle declares lives only under this reserved prefix, so a
+ * new platform name never collides with a deployed declaration and a removed declaration never reads as a platform grant.
+ * `CAPABILITIES` and `TOKEN_ONLY_SCOPES` never use it (pinned by a test).
+ */
+export const DECLARED_CAPABILITY_PREFIX = 'ext.';
+/** Upper bound of a declared capability id (`permission.*.capability` columns are `text`; the cap keeps ids readable). */
+export const DECLARED_CAPABILITY_ID_MAX = 64;
+/** Upper bound of a declared capability's display name; screens render it as plain text only (ADR-0157 decision 9). */
+export const DECLARED_CAPABILITY_DISPLAY_NAME_MAX = 80;
+/** `ext.` then two or more dot-separated segments of lower-case letters, digits and `_` (e.g. `ext.widget.annotate`). */
+export const DECLARED_CAPABILITY_ID_PATTERN = /^ext(?:\.[a-z0-9_]+){2,}$/;
+
+/** A capability name under the reserved prefix. Whether a deployment declares it is the server's registry question. */
+export type DeclaredCapabilityId = `ext.${string}`;
+/** The storage vocabulary of a server: a platform capability or a declared one (ADR-0157 decision 7). */
+export type CapabilityName = Capability | DeclaredCapabilityId;
+
+/** True when the value follows the declared-capability grammar (prefix, charset, length). Not a declaration check. */
+export function isDeclaredCapabilityId(value: string): value is DeclaredCapabilityId {
+  return value.length <= DECLARED_CAPABILITY_ID_MAX && DECLARED_CAPABILITY_ID_PATTERN.test(value);
+}

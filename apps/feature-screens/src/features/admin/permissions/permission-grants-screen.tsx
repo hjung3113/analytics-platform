@@ -1,11 +1,12 @@
 import { ListStateMessage } from '@/components/ListStateMessage';
-import type { PermissionGrantAdminItem } from '@ap/feature-shared';
+import { type PermissionGrantAdminItem, isDeclaredCapabilityId } from '@ap/feature-shared';
 import { OutlineBadge } from '@ap/feature-ui';
 import { Button, ListShell, ListTabs, type ListToolbarTab, ObjectRow } from '@ap/ui';
 import * as React from 'react';
 
+import { type DeclaredCapabilityItem, useDeclaredCapabilities } from '@/lib/api/declared-capabilities';
 import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
-import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
+import { UNDECLARED_CAPABILITY_LABEL, getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
 import { PERMISSION_SCOPE_COPY, scopeTargetLabelOf } from '@/lib/copy/permission-scope';
@@ -61,6 +62,10 @@ export function PermissionGrantsScreen({
     handleSelect,
     handleClose,
   } = usePermissionGrantsConsole({ autoSelect });
+  // ADR-0157 decision 9: one declaration read for the whole list, issued only when a row names a declared capability.
+  const declared = useDeclaredCapabilities(
+    visiblePermissions.some((permission) => isDeclaredCapabilityId(permission.item.capability)),
+  );
   const [directGrantOpen, setDirectGrantOpen] = React.useState(false);
   const [directGrantDraft, setDirectGrantDraft] = React.useState<DirectGrantDraft | null>(null);
   const [readFollowUp, setReadFollowUp] = React.useState<
@@ -228,6 +233,7 @@ export function PermissionGrantsScreen({
             <ActivePermissionRow
               key={permission.item.id}
               permission={permission}
+              declared={declared}
               actorName={actorNames[permission.item.actor_id]}
               managedSystemName={
                 permission.item.managed_system_id
@@ -256,12 +262,14 @@ export function PermissionGrantsScreen({
 
 function ActivePermissionRow({
   permission,
+  declared,
   actorName,
   managedSystemName,
   selected,
   onSelect,
 }: {
   permission: ActivePermission;
+  declared: readonly DeclaredCapabilityItem[];
   actorName?: string | undefined;
   managedSystemName?: string | undefined;
   selected: boolean;
@@ -273,14 +281,23 @@ function ActivePermissionRow({
   const scopeTarget = kind === 'grants' ? scopeTargetLabelOf(item) : null;
   // ADR-0154 decision 3: a grant whose Site·공정 left the catalog stays listed and revocable.
   const outOfCatalog = kind === 'grants' && scopeTarget !== null && item.in_catalog === false;
+  // ADR-0157 decision 7: a grant or deny of a capability the bundle no longer declares stays listed and revocable.
+  const undeclared = item.in_declarations === false;
 
   return (
     <ObjectRow
-      title={`${actorName ?? GLOSSARY.unknownUser} · ${getCapabilityDisplayLabel(item.capability)}`}
+      title={`${actorName ?? GLOSSARY.unknownUser} · ${getCapabilityDisplayLabel(item.capability, declared)}`}
       selected={selected}
       onClick={onSelect}
-      {...(outOfCatalog
-        ? { badges: <OutlineBadge>{PERMISSION_SCOPE_COPY.notInCatalog}</OutlineBadge> }
+      {...(outOfCatalog || undeclared
+        ? {
+            badges: (
+              <>
+                {outOfCatalog ? <OutlineBadge>{PERMISSION_SCOPE_COPY.notInCatalog}</OutlineBadge> : null}
+                {undeclared ? <OutlineBadge>{UNDECLARED_CAPABILITY_LABEL}</OutlineBadge> : null}
+              </>
+            ),
+          }
         : {})}
       meta={
         <>

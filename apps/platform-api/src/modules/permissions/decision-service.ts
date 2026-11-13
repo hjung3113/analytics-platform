@@ -14,13 +14,12 @@ import type { DatabaseError } from 'pg';
 import {
   type ApprovePermissionRequest,
   type AuditEventType,
-  type Capability,
+  type CapabilityName,
   type DenyPermissionRequest,
   type NeedMoreInfoPermissionRequest,
   type PermissionDecisionResult,
   type RejectPermissionRequest,
-  isCapability,
-  isSensitiveCapability,
+  isDeclaredCapabilityId,
 } from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
@@ -33,7 +32,7 @@ import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { NotificationNotifier } from '../notifications/index.js';
 import { getResolvedWorkspaceSettingsForUpdate } from '../workspace-settings/index.js';
-import type { ActorContext, CheckService } from './check-service.js';
+import { type ActorContext, type CheckService, capabilitiesOf } from './check-service.js';
 import { writePermissionGrant } from './grant-command.js';
 import { validateRequestExpiration, validateSupportedScope } from './supported-scope-policy.js';
 
@@ -149,12 +148,16 @@ export function createDecisionService(deps: DecisionServiceDeps) {
             },
           );
         }
-        if (!isCapability(request.requestedCapability)) {
+        // ADR-0157 decision 7: judged against the registry of this moment. A request for a capability the bundle no longer
+        // declares can only be rejected (the «선언에 없음» cleanup); approval, deny and questions refuse it.
+        const capabilities = capabilitiesOf(deps.checkService);
+        const registered = capabilities.has(request.requestedCapability);
+        if (!registered && !(action === 'reject' && isDeclaredCapabilityId(request.requestedCapability))) {
           throw new HttpError('validation.unknown_capability', 'unknown capability', {
             capability: request.requestedCapability,
           });
         }
-        const capability: Capability = request.requestedCapability;
+        const capability = request.requestedCapability as CapabilityName;
         if (action === 'deny' && capability === 'scope.read') {
           throw new HttpError('validation.failed', 'scope.read denies are unsupported', { fields: [{ path: ['requested_capability'], code: 'custom' }] });
         }
@@ -192,7 +195,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
             );
           }
         }
-        if (action === 'approve' && isSensitiveCapability(capability) && !reason) {
+        if (action === 'approve' && capabilities.meta(capability).sensitive && !reason) {
           throw new HttpError(
             'validation.sensitive_reason_required',
             'a non-empty reason is required for sensitive capabilities',
@@ -230,7 +233,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
             request.requestedManagedSystemId,
             request.requestedObjectType,
             request.requestedObjectId,
-            { approval: true, recipientRole: requester?.role_level, scope, scopeCatalog: deps.scopeCatalog },
+            { approval: true, recipientRole: requester?.role_level, scope, scopeCatalog: deps.scopeCatalog, capabilities },
           );
           if (scope.kind !== 'managed_system' || grantedScope.kind !== 'managed_system' ||
             body.granted_scope_site !== undefined || body.granted_scope_room !== undefined) {
@@ -239,7 +242,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
               body.granted_managed_system_id === undefined ? grantedManagedSystemId : body.granted_managed_system_id,
               null, null,
               { approval: true, recipientRole: requester?.role_level, scope: grantedScope,
-                scopeCatalog: deps.scopeCatalog, scopePrefix: 'granted_' },
+                scopeCatalog: deps.scopeCatalog, scopePrefix: 'granted_', capabilities },
             );
             assertScopeNarrowing(scope, grantedScope);
           }
@@ -269,6 +272,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
                 scope: grantedScope, scopeCatalog: deps.scopeCatalog, scopePrefix: 'granted_',
                 field: 'granted_managed_system_id',
                 recipientRole: requester?.role_level,
+                capabilities,
               },
             );
           }

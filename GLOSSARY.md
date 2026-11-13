@@ -396,6 +396,10 @@ _Avoid_: 세션 토큰, API 토큰
 **scope.read**:
 site·room 데이터 읽기 부여를 운반하는 capability. 메뉴 권한이 아니며 플랫폼 부여 표에 site 또는 site_room 종류로 저장한다. Admin도 이 부여가 있어야 데이터를 본다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
 
+**선언 capability (Declared capability)** (`ext.<모듈>.<동작>`):
+배포 설정 묶음이 `capabilities`에 선언한 capability. 서버의 capability 어휘는 «플랫폼 ∪ 선언»이고, 선언 capability는 workspace 범위로만 신청·부여되며 메타를 비우면 가장 닫힌 기본값(민감, Admin 우회 없음, 세션 전용, Admin·Developer만)을 받는다. 선언은 부여가 아니다([ADR-0157](docs/adr/0157-bundle-declares-menu-capabilities.md)).
+_Avoid_: 커스텀 권한, 사내 capability
+
 **Scope 카탈로그 (Scope catalog)** (`scopeCatalog`):
 배포 설정 묶음이 내는 `{ site, label, rooms }` 목록. 부여·신청할 수 있는 site·room과 표시 순서의 원본이며 배포의 모든 workspace가 공유한다. 카탈로그만으로 접근을 부여하지 않는다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
 

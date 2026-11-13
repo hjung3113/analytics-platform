@@ -173,7 +173,9 @@ const drainState = createDrainState();
 // `MENU_DECLARATIONS_FILE` builds nothing and the server starts exactly as before.
 const menuDeclarations = await loadMenuDeclarationSetup(config, {
   db: dbHandle.db,
-  checkService: createCheckService({ db: dbHandle.db }),
+  // ADR-0157: the bundle's capability registry is handed to this factory; the contribution carries the same registry to
+  // `buildServer`, so the server holds one vocabulary.
+  checkService: (capabilities) => createCheckService({ db: dbHandle.db, capabilities }),
 });
 const app = await buildServer({
   config,
