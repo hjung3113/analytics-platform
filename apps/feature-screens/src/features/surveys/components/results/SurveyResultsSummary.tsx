@@ -2,7 +2,7 @@ import { RequestAccessButton } from '@/features/admin/public';
 import { FindingRequestTaskDraftHost } from '@/features/findings/components/FindingDetail/FindingRequestTaskDraftHost';
 import { useFindingDetail } from '@/features/findings/hooks/useFindingDetail';
 import { RATING_BAND_LABELS, SURVEY_RESULT_KIND_LABELS } from '@/lib/copy/enum-labels';
-import { HostLink, useHostHere, useHostSeam } from '@/lib/host/host-seam';
+import { HostLink, useHostHere, useHostNotice, useHostSeam } from '@/lib/host/host-seam';
 import type { OutcomeFollowUpReadDto, SurveyResultDto } from '@ap/feature-shared';
 import { Button, EmptyState } from '@ap/ui';
 import { FilePlus } from 'lucide-react';
@@ -135,6 +135,7 @@ function NextActions({
   results: SurveyResultDto;
   surveyId: string;
 }) {
+  const { notify } = useHostNotice();
   const here = useHostHere();
   const [draftOpen, setDraftOpen] = useState(false);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
@@ -215,7 +216,19 @@ function NextActions({
                     접근 가능한 응답에 승인된 발췌가 없습니다.
                   </p>
                 )}
-                {draftOpen && <CreateFindingDraftPanel groups={groups} surveyId={surveyId} />}
+                {draftOpen && (
+                  <CreateFindingDraftPanel
+                    groups={groups}
+                    onCreated={(finding) => {
+                      notify({
+                        tone: 'success',
+                        message: `Finding 생성 완료: ${finding.display_id}`,
+                      });
+                      setDraftOpen(false);
+                    }}
+                    surveyId={surveyId}
+                  />
+                )}
               </div>
             );
           }

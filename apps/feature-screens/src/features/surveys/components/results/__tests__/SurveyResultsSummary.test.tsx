@@ -40,6 +40,9 @@ vi.mock('@/features/admin/permissions/request-access-button', () => ({
 import { ApiParseError } from '@/lib/api';
 import { registerAnchorLinkHostAt } from '@/test/anchor-link-host';
 import { SurveyResultsSummary } from '../SurveyResultsSummary';
+import { registerDefaultHost } from '@/lib/host/host-seam';
+import { noticeHost, noticeMessages } from '@/test/notice-host';
+import { tanstackHost } from '@/test/host-adapters/lib/host/tanstack-host';
 
 beforeAll(() => registerAnchorLinkHostAt('/surveys/survey-1/results'));
 
@@ -102,6 +105,28 @@ function makeDeferred<T>() {
     resolve = resolvePromise;
   });
   return { promise, resolve };
+}
+
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+function resultsWithResponseExcerpt() {
+  return {
+    ...results,
+    questions: results.questions.map((question) =>
+      question.kind === 'text'
+        ? {
+            ...question,
+            excerpts: [
+              {
+                id: ids.finding,
+                text: '내보내기가 너무 느립니다.',
+                response_id: ids.responseOne,
+              },
+            ],
+          }
+        : question,
+    ),
+  };
 }
 
 const survey = {
@@ -446,7 +471,7 @@ describe('SurveyResultsSummary', () => {
       expect(apiClient).toHaveBeenCalledWith(
         'POST',
         `/survey-responses/${ids.responseOne}/create-finding`,
-        { body: { severity: 'high', approved_excerpt_ids: [ids.finding] } },
+        { body: { severity: 'high', approved_excerpt_ids: [ids.finding] }, idempotencyKey: expect.any(String) },
       ),
     );
     expect(apiClient).toHaveBeenCalledTimes(1);
@@ -455,6 +480,63 @@ describe('SurveyResultsSummary', () => {
         queryKey: ['surveys', ids.survey, 'results'],
       }),
     );
+  });
+
+  it('shows a success notice with the Finding display id and closes the draft after creation', async () => {
+    // The file's anchor host fixes `here` without a router; keep that while swapping in notice spies.
+    registerDefaultHost({
+      ...tanstackHost,
+      notify: noticeHost.notify,
+      dismiss: noticeHost.dismiss,
+      useHere: () => '/surveys/survey-1/results',
+      Link: ({ to, children, ref, ...rest }) => (
+        <a href={to} ref={ref as React.Ref<HTMLAnchorElement>} {...rest}>
+          {children}
+        </a>
+      ),
+    });
+    const user = userEvent.setup();
+    apiClient.mockResolvedValue({ data: makeFinding(ids.finding, '생성된 Finding') });
+    renderWithClient(
+      <SurveyResultsSummary survey={survey} results={resultsWithResponseExcerpt()} />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Finding 생성' }));
+    await user.click(screen.getByTestId('survey-finding-response-0'));
+    await user.click(screen.getByTestId(`survey-finding-excerpt-${ids.finding}`));
+    await user.click(screen.getByTestId('survey-create-finding-submit'));
+
+    await waitFor(() =>
+      expect(noticeMessages('success')).toContain('Finding 생성 완료: FND-510'),
+    );
+    // The draft closes, so a second POST cannot leave the same draft.
+    expect(screen.queryByTestId('survey-create-finding-draft')).not.toBeInTheDocument();
+    expect(apiClient).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses one Idempotency-Key when the same submission body is retried', async () => {
+    const user = userEvent.setup();
+    apiClient
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValue({ data: makeFinding(ids.finding, '재시도로 생성된 Finding') });
+    renderWithClient(
+      <SurveyResultsSummary survey={survey} results={resultsWithResponseExcerpt()} />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Finding 생성' }));
+    await user.click(screen.getByTestId('survey-finding-response-0'));
+    await user.click(screen.getByTestId(`survey-finding-excerpt-${ids.finding}`));
+    await user.click(screen.getByTestId('survey-create-finding-submit'));
+    await waitFor(() => expect(apiClient).toHaveBeenCalledTimes(1));
+
+    // Retry of the unchanged draft: same body, same key.
+    await user.click(screen.getByTestId('survey-create-finding-submit'));
+    await waitFor(() => expect(apiClient).toHaveBeenCalledTimes(2));
+
+    const firstKey = apiClient.mock.calls[0]?.[2]?.idempotencyKey;
+    const secondKey = apiClient.mock.calls[1]?.[2]?.idempotencyKey;
+    expect(firstKey).toMatch(UUID_V4_PATTERN);
+    expect(secondKey).toBe(firstKey);
   });
 
   it('clears selected excerpts when the chosen response changes', async () => {
@@ -493,7 +575,7 @@ describe('SurveyResultsSummary', () => {
       expect(apiClient).toHaveBeenCalledWith(
         'POST',
         `/survey-responses/${ids.responseTwo}/create-finding`,
-        { body: { severity: 'medium', approved_excerpt_ids: [ids.excerptTwo] } },
+        { body: { severity: 'medium', approved_excerpt_ids: [ids.excerptTwo] }, idempotencyKey: expect.any(String) },
       ),
     );
   });
@@ -545,7 +627,7 @@ describe('SurveyResultsSummary', () => {
       expect(apiClient).toHaveBeenCalledWith(
         'POST',
         `/survey-responses/${ids.responseOne}/create-finding`,
-        { body: { severity: 'medium', approved_excerpt_ids: [ids.finding] } },
+        { body: { severity: 'medium', approved_excerpt_ids: [ids.finding] }, idempotencyKey: expect.any(String) },
       ),
     );
   });
@@ -636,6 +718,7 @@ describe('SurveyResultsSummary', () => {
         `/survey-responses/${refetchIds.responseA}/create-finding`,
         {
           body: { severity: 'medium', approved_excerpt_ids: [refetchIds.retainedExcerpt] },
+          idempotencyKey: expect.any(String),
         },
       ),
     );
@@ -716,7 +799,8 @@ describe('SurveyResultsSummary', () => {
 
   it('keeps the pre-refetch request body when only response group order reverses', async () => {
     const user = userEvent.setup();
-    apiClient.mockResolvedValue({ data: { id: ids.finding } });
+    // The first request fails, so the same draft stays open across the refetch (a success closes it, #2070).
+    apiClient.mockRejectedValueOnce(new Error('network')).mockResolvedValue({ data: { id: ids.finding } });
     const holderResults = {
       ...results,
       questions: results.questions.map((question) =>
@@ -745,7 +829,7 @@ describe('SurveyResultsSummary', () => {
     const request = [
       'POST',
       `/survey-responses/${refetchIds.responseA}/create-finding`,
-      { body: { severity: 'medium', approved_excerpt_ids: [refetchIds.retainedExcerpt] } },
+      { body: { severity: 'medium', approved_excerpt_ids: [refetchIds.retainedExcerpt] }, idempotencyKey: expect.any(String) },
     ] as const;
 
     await user.click(screen.getByRole('button', { name: 'Finding 생성' }));
@@ -753,6 +837,8 @@ describe('SurveyResultsSummary', () => {
     await user.click(screen.getByTestId(`survey-finding-excerpt-${refetchIds.retainedExcerpt}`));
     await user.click(screen.getByTestId('survey-create-finding-submit'));
     await waitFor(() => expect(apiClient).toHaveBeenCalledWith(...request));
+    const firstKey = (apiClient.mock.calls[0]?.[2] as { idempotencyKey?: string } | undefined)?.idempotencyKey;
+    expect(firstKey).toEqual(expect.any(String));
     apiClient.mockClear();
 
     rerender(
@@ -776,6 +862,8 @@ describe('SurveyResultsSummary', () => {
     ).toBeChecked();
     await user.click(screen.getByTestId('survey-create-finding-submit'));
     await waitFor(() => expect(apiClient).toHaveBeenCalledWith(...request));
+    // Same body after the reorder, so the retry carries the same key.
+    expect((apiClient.mock.calls[0]?.[2] as { idempotencyKey?: string } | undefined)?.idempotencyKey).toBe(firstKey);
   });
 
   it('shows a loading affordance while creating a Finding', async () => {

@@ -1,4 +1,5 @@
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { FINDING_SEVERITY_LABELS } from '@/lib/copy/enum-labels';
 import { CREATE_OR_LINK_FINDING_LABEL } from '@/lib/copy/glossary';
 import {
@@ -54,12 +55,24 @@ export function CreateFindingDraftPanel({
     excerptIds: [],
   }));
   const [severity, setSeverity] = useState<FindingSeverity>('medium');
-  const mutation = useCreateFindingFromSurveyResponse(surveyId, (finding, variables) =>
-    onCreated?.(finding, variables.responseId),
-  );
   const selectedGroup = groups.find((group) => group[0]?.response_id === selection.responseId);
   const selectedExcerptIds = selection.excerptIds.filter((id) =>
     selectedGroup?.some((excerpt) => excerpt.id === id),
+  );
+  // One Idempotency-Key per submission content: a retry of the same body reuses the key,
+  // a changed body re-mints it, and markConsumed() after success starts a fresh key.
+  const submissionContent =
+    selection.responseId === undefined
+      ? ''
+      : `${selection.responseId}:${severity}:${[...selectedExcerptIds].sort().join(',')}`;
+  const { key: idempotencyKey, markConsumed } = useIdempotencyKey(submissionContent);
+  const mutation = useCreateFindingFromSurveyResponse(
+    surveyId,
+    (finding, variables) => {
+      markConsumed();
+      onCreated?.(finding, variables.responseId);
+    },
+    idempotencyKey,
   );
 
   function selectResponse(nextResponseId: string) {

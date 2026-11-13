@@ -19,6 +19,7 @@ type CreateFindingSuccess = (
 export function useCreateFindingFromSurveyResponse(
   surveyId: string,
   onSuccess?: CreateFindingSuccess,
+  idempotencyKey?: string,
 ): UseMutationResult<FindingDto, ApiError, CreateFindingFromSurveyResponseVariables> {
   const queryClient = useQueryClient();
 
@@ -27,6 +28,7 @@ export function useCreateFindingFromSurveyResponse(
       (
         await apiClient<FindingDto>('POST', `/survey-responses/${responseId}/create-finding`, {
           body,
+          ...(idempotencyKey !== undefined ? { idempotencyKey } : {}),
         })
       ).data,
     onSuccess: (finding, variables) => {

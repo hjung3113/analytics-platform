@@ -78,6 +78,9 @@ const HOST_RETURN_INTENT_SEAM: HostSeam = {
 const SURVEY_RESULTS_SEAM: HostSeam = {
   ...PERMISSION_GATE_SEAM,
   useHere: () => `/surveys/${SURVEY_ID}/results`,
+  // The results screen announces a created Finding through the host notice (#2070).
+  notify: () => 'notice',
+  dismiss: () => undefined,
 };
 
 function InboxHarness() {

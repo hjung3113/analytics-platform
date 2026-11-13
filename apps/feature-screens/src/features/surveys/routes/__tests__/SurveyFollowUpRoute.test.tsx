@@ -601,6 +601,7 @@ describe('/surveys/:surveyId/follow-up route', () => {
         `/survey-responses/${responseOpenSecond}/create-finding`,
         {
           body: { severity: 'medium', approved_excerpt_ids: [secondExcerptId] },
+          idempotencyKey: expect.any(String),
         },
       ),
     );
