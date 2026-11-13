@@ -180,6 +180,24 @@ describe('production model spec screen', () => {
     expect(payload['text']).toBeUndefined();
     expect(payload['events']).toEqual([{ module: 'Arm', name: 'Move', fields: [], triggerRule: 'a\tb\nc', detailDocRef: null }]);
   });
+  it('keeping untouched text after recovery saves the loaded draft as structured rows, never the unquoted preview', async () => {
+    result = ok(publishedB); revisions = [{ id: rev, revisionNo: 4, state: 'published', version: 1 }];
+    conflict = true; mount('&drawer=draft&revision=' + rev); await screen.findByLabelText('명세 TSV');
+    // Only the source metadata changes: the TSV text stays untouched.
+    fireEvent.change(screen.getByLabelText('문서 버전*'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    fireEvent.click(await screen.findByRole('button', { name: '최신 발행본 확인' }));
+    await screen.findByRole('group', { name: '현재 발행본 r4' });
+    conflict = false;
+    fireEvent.click(screen.getByRole('button', { name: '내 입력 유지' }));
+    await waitFor(() => expect(writeNames()).toEqual(['logKnowledge.specDraftSave', 'logKnowledge.specDraftCreate']));
+    await waitFor(() => expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(writes).toHaveLength(3));
+    const payload = writes[2]?.input as Record<string, unknown>;
+    expect(payload['text']).toBeUndefined();
+    expect(payload['events']).toEqual([{ module: 'Arm', name: 'Move', fields: [], triggerRule: 'on move', detailDocRef: null }]);
+  });
   it('a lost create race returns to a fresh recovery read that shows the newly opened draft', async () => {
     const other = '00000007-0000-4000-8000-000000000003';
     result = ok(publishedB); revisions = [{ id: rev, revisionNo: 4, state: 'published', version: 1 }];
