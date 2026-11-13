@@ -4,7 +4,7 @@ import { APPLIED_CAPABILITIES, CONTEXT_KEYS } from './vocab.ts';
 
 /**
  * Menu declaration snapshot v1 (#1900, ADR-0156): the file `menu-declarations.snapshot.json` the app assembly build writes
- * (`menuDeclarationSnapshot` / `menuDeclarationSnapshotPlugin` in `@ap/contracts`) and the core server reads beside the
+ * (`menuDeclarationSnapshot` / `menuDeclarationSnapshotPlugin` in `@ap/contracts/build`) and the core server reads beside the
  * declaration bundle. Rows are sorted by id and ids are unique; `digest` is `sha256:` + hex over the canonical JSON of
  * every other field (sorted keys, no whitespace). Recomputing the digest is a runtime rule the server applies.
  */

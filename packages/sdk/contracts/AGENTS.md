@@ -9,12 +9,12 @@ Contract types and pure functions shared by the platform, server and menus. Keep
 - Contract tests live in the app integration tests `apps/platform-web/src/{url-contract,platform-inbound-link,instant,menu-query-contract,contracts-helpers,measure}.test.ts` (and `saved-view-contract.test.ts`): update them with any codec or declaration change. The package's own `test` only checks that `vocab.json` is current: after changing a vocabulary list, run `gen:vocab` and commit the result.
 - Reject URLs with an error; never repair them (contract/kernel.md §6).
 - When adding a method to `PlatformAdapter`, fix in the same PR every adapter implementation that `pnpm typecheck` then breaks (`testAdapter` in `@ap/kernel/testing`, mock `packages/adapters/mock-server/src/adapter.ts`, `referenceAdapter` in `@ap/server-conformance` tests), the `@ap/server-conformance` checks, and the tables in [checklist §2](../../../docs/integration/real-server-checklist.md) and [wire-format draft §1](../../../docs/integration/http-adapter-contract.md).
-- The public API is `index.ts` only; export new public API explicitly there. Moving files only changes import paths.
+- The public API is `index.ts` (root), `build.ts` (`@ap/contracts/build`, build tools only) and the generated `vocab.json`; export new public API explicitly there, and keep build tooling out of the root. Moving files only changes import paths.
 - Deployment output and consumer-environment rules belong to [package boundaries §3](../../../docs/integration/platform-packages.md#3-패키지-구성); `check:pack` verifies them.
 
 ## Layout
 
-`src/` root holds the public entry `index.ts`, the generated `vocab.json` (referenced by `exports`), `globals.d.ts`, and the cross-cutting `guards.ts`·`i18n.ts`. The rest are folders: `adapter/` (port, actions, audit, response, paging, selection ports, correlation ID), `menu/` (menu declaration, query declaration, required Context), `links/` (URL codec, `returnTo`, platform inbound links, applied history), `host/` (host → module contract), `values/` (period, measure, instant). File names below are inside these folders.
+`src/` root holds the public entries `index.ts` and `build.ts`, the generated `vocab.json` (referenced by `exports`), `globals.d.ts`, and the cross-cutting `guards.ts`·`i18n.ts`. The rest are folders: `adapter/` (port, actions, audit, response, paging, selection ports, correlation ID), `menu/` (menu declaration, query declaration, required Context), `links/` (URL codec, `returnTo`, platform inbound links, applied history), `host/` (host → module contract), `values/` (period, measure, instant). File names below are inside these folders.
 
 ## Contracts by file
 

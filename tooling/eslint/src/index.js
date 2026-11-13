@@ -429,7 +429,7 @@ export const contracts = [
 ];
 
 // contract-schemas (ADR-0096): production code imports no other platform package and no React; "zod only" is held by the manifest and review, not lint.
-// Its tests compare the schemas with the hand-written types, so test files alone may import contracts and its vocab.json.
+// Its tests compare the schemas with the hand-written types, so test files alone may import contracts, its vocab.json and its build entry (the snapshot emitter the schema pins).
 const CONTRACT_SCHEMAS_RESTRICTION = { allow: [], denyReact: true, mockAllowed: false };
 const CONTRACT_SCHEMAS_TEST_RESTRICTION = { ...CONTRACT_SCHEMAS_RESTRICTION, allow: ['contracts'] };
 
@@ -437,7 +437,7 @@ const CONTRACT_SCHEMAS_TEST_RESTRICTION = { ...CONTRACT_SCHEMAS_RESTRICTION, all
 export const contractSchemas = [
   BUILD_OUTPUT,
   layerConfig({ restriction: CONTRACT_SCHEMAS_RESTRICTION }),
-  testEntryOverride(CONTRACT_SCHEMAS_TEST_RESTRICTION, ['contracts/vocab.json'], ['**/*.test.ts']),
+  testEntryOverride(CONTRACT_SCHEMAS_TEST_RESTRICTION, ['contracts/vocab.json', 'contracts/build'], ['**/*.test.ts']),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -656,6 +656,8 @@ export const app = [
   testEntryOverride(APP_RESTRICTION, [...ABOVE_COMPONENTS_TEST_ENTRIES, FEATURE_BRIDGE_TESTING_SUBPATH]),
   appOverride(['src/menus.ts'], { ...APP_RESTRICTION, allowSubpaths: [...APP_RESTRICTION.allowSubpaths, 'menu-home/launcher'] }),
   appOverride(['src/main.tsx'], APP_MAIN_RESTRICTION),
+  // The build script that emits the menu declaration snapshot (ADR-0156) is the one app file that imports the contracts build entry.
+  appOverride(['scripts/menu-declaration-snapshot.ts'], { ...APP_RESTRICTION, allowSubpaths: [...APP_RESTRICTION.allowSubpaths, 'contracts/build'] }),
   appOverride([APP_CONFORMANCE_FILE], APP_CONFORMANCE_RESTRICTION),
   appOverride([APP_PUBLISHED_METRICS_FILE], APP_PUBLISHED_METRICS_RESTRICTION),
   appOverride([APP_SAVED_VIEW_ASSEMBLY_FILE], { ...APP_PUBLISHED_METRICS_RESTRICTION, allowSubpaths: [...APP_PUBLISHED_METRICS_RESTRICTION.allowSubpaths, ...ABOVE_COMPONENTS_TEST_ENTRIES] }),
