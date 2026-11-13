@@ -4,10 +4,13 @@
 // each one is hashed by that package's `test` task, using the file list Turbo itself reports (`turbo run test --dry=json`).
 //
 // Only test files are scanned (`*.test.*`, `*.spec.*`, `__tests__/`, `test/`, `tests/`, `test-support`, `test-setup`,
-// `vitest.config`): other scripts of a package run outside its `test` task.
+// `vitest.config`). Helpers with other names that a test imports are NOT scanned, nor are scripts the package runs
+// outside its `test` task.
 // A referenced FILE is covered when the task, or a task it depends on (transitively; Turbo folds those hashes in),
 // hashes it. A referenced DIRECTORY is covered when one of those tasks hashes at least one file under it outside the
-// package itself: this catches a missing input, not a glob that is too narrow.
+// package itself: this catches a missing input, not a glob that is too narrow (one hashed `package.json` passes a
+// folder the test copies whole). Files a library reads for the test (a lint plugin's config and theme) are declared
+// by hand; the `names-only` marker skips a whole file, so its real reads need the same care.
 //
 // What it can SEE (static text only): string literals starting with `../` (resolved from the file), `new URL('<lit>',
 // import.meta.url)`, consecutive literal arguments of `join(`/`resolve(` (with `'..'` segments resolved from the file),
@@ -157,7 +160,7 @@ function main() {
   if (errors.length) {
     console.error(errors.join('\n'));
     process.exitCode = 1;
-  } else console.log(`turbo cross-reads: ${checked} test tasks hash every file they read outside their package`);
+  } else console.log(`turbo cross-reads: ${checked} test tasks hash every outside path their test files name (static check)`);
 }
 
 function selfTest() {

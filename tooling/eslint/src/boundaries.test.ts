@@ -1,5 +1,6 @@
 // turbo-cross-reads: names-only — the repo paths here are ESLint `lintText` targets; the files this test does read
-// (package manifests, menu and platform `eslint.config.js`) are `test` inputs in tooling/eslint/turbo.json.
+// (package manifests, menu and platform `eslint.config.js`) and the files the design-system lint reads (`components.json`,
+// the stylesheets it imports, the UI components) are `test` inputs in tooling/eslint/turbo.json.
 import { ESLint } from 'eslint';
 import type { Linter, Rule } from 'eslint';
 import { readdir, readFile } from 'node:fs/promises';
