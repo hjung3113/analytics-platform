@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { VALIDATION_ISSUE_LIMITS as L } from './validation-issue-limits.js';
+import { VALIDATION_ISSUE_LIMITS as L } from '@ap/feature-shared';
 import { ISSUE_STATES } from './validation-issue-states.js';
 
 const id = z.string().uuid();

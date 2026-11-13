@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Db } from '../../db/client.js';
 import { HttpError } from '../../lib/errors.js';
 import { viewerOf } from '../log-knowledge/index.js';
-import { VALIDATION_ISSUE_LIMITS as L } from './domain/validation-issue-limits.js';
+import { VALIDATION_ISSUE_LIMITS as L } from '@ap/feature-shared';
 import { CLOSED_ISSUE_STATES, ISSUE_STATES, OPEN_ISSUE_STATES } from './domain/validation-issue-states.js';
 import { discussionVisible, readDiscussion, readIssueDetail, readIssueHistory, readIssueList, readIssueOccurrences, readIssueStateCounts, readIssueTransitions, type DiscussionTarget, type IssueFilters, type IssuePageKey } from './repositories/validation-issue-read.js';
 

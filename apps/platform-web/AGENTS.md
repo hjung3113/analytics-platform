@@ -23,7 +23,7 @@ The app assembles the platform packages (dev and tests inject the mock adapter).
 
 ### Slots
 
-- `src/slots.ts` `appSlots(assembly, notifications, vocCompose, homeTodo, scopeControl, navCounts, spaceNavSection, analysisActions, accessRequest)` builds the slots: `contextBar`, `topBarTools`, `features`, `plannedSpaces`, and the header `⋯` `boardEntry` (shell `OpenInBoardAction`) of board-capable menus.
+- `src/slots.ts` `appSlots(notifications, vocCompose, homeTodo, scopeControl, navCounts, spaceNavSection, analysisActions, accessRequest)` builds the app's slots: `features`, `plannedSpaces` and the injected slot objects. The Host (`startAppHost`) supplies `contextBar`, `topBarTools` and the header `⋯` `boardEntry` under them.
 - `main.tsx` injects:
   - `analysisActions` from `@ap/menu-improvement-items/analysis-actions` (`improvementAnalysisActions`).
   - `notificationsSlot`, `homeTodoSlot`, `scopeControlSlot`, `navCountsSlot`, `savedViewsSlot` from `@ap/feature-bridge/notifications-slot|home-todo-slot|scope-control|nav-counts|saved-views`.

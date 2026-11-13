@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Button, Checkbox, Input, Label, Textarea } from '@ap/ui';
-import { ISSUE_LIMITS, type Action, type CursorPage, type DiscussionComment, type IssueHistoryEvent, type IssueOccurrence, type LifecycleApi, type Params, type RoundDetail, type RuleResult, type ScreenProps, type ValidationIssueDetail, type ValidationIssueRow, type WriteResult } from './contracts';
+import { VALIDATION_ISSUE_LIMITS as ISSUE_LIMITS } from '@ap/feature-shared';
+import { type Action, type CursorPage, type DiscussionComment, type IssueHistoryEvent, type IssueOccurrence, type LifecycleApi, type Params, type RoundDetail, type RuleResult, type ScreenProps, type ValidationIssueDetail, type ValidationIssueRow, type WriteResult } from './contracts';
 import { ReadView, Section, time, writeFailure, WriteError } from './presentation';
 
 /**
@@ -143,7 +144,7 @@ function useRefreshed(completedAt: number | null | undefined, onRefresh: () => v
  * (C2). A failed later page (expired or refused cursor) offers a restart from the first page instead of the same cursor.
  */
 function FeedPage<T extends { id: string }, D>({ api, name, params, cursor, last, select, render, empty, onMore, onRestart }: { api: LifecycleApi; name: string; params: Params; cursor: string | undefined; last: boolean; select(data: D): CursorPage<T>; render(row: T): ReactNode; empty: string; onMore(cursor: string): void; onRestart(): void }) {
-  const query = api.useRead<D>(name, { ...params, ...(cursor ? { cursor } : {}), limit: ISSUE_LIMITS.page });
+  const query = api.useRead<D>(name, { ...params, ...(cursor ? { cursor } : {}), limit: ISSUE_LIMITS.pageDefault });
   useRefreshed(query.completedAt, onRestart);
   if (cursor && query.status === 'error') return <li className="grid gap-2"><p role="alert" className="text-xs text-text-danger-label">다음 페이지를 읽지 못했습니다. 목록이 바뀌었거나 이어 읽기 시간이 지났을 수 있습니다.</p><Button variant="secondary" size="toolbar" className="justify-self-start" onClick={onRestart}>처음부터 다시 보기</Button></li>;
   return <ReadView query={query} empty="항목을 찾을 수 없거나 읽을 수 없습니다.">{data => { const page = select(data); return <>{page.rows.length === 0 && !cursor ? <li><p role="status" className="text-xs text-text-secondary">{empty}</p></li> : page.rows.map(row => <li key={row.id}>{render(row)}</li>)}{last && page.nextCursor ? <li><Button variant="secondary" size="toolbar" onClick={() => { if (page.nextCursor) onMore(page.nextCursor); }}>더 보기</Button></li> : null}</>; }}</ReadView>;
@@ -156,7 +157,7 @@ export function CursorFeed<T extends { id: string }, D = CursorPage<T>>({ api, n
 }
 /** One page of the Round's issue table; a page answered again is a new snapshot, so the table returns to its first page (C2). */
 export function IssueTablePage({ api, roundId, cursor, onRefresh, children }: Pick<ScreenProps, 'api'> & { roundId: string; cursor: string | undefined; onRefresh(): void; children(page: CursorPage<ValidationIssueRow>): ReactNode }) {
-  const query = api.useRead<CursorPage<ValidationIssueRow>>('validationIssues', { roundId, limit: ISSUE_LIMITS.page, ...(cursor ? { cursor } : {}) });
+  const query = api.useRead<CursorPage<ValidationIssueRow>>('validationIssues', { roundId, limit: ISSUE_LIMITS.pageDefault, ...(cursor ? { cursor } : {}) });
   useRefreshed(query.completedAt, onRefresh);
   if (cursor && query.status === 'error') return <div className="grid gap-2"><p role="alert" className="text-xs text-text-danger-label">다음 페이지를 읽지 못했습니다. 목록이 바뀌었거나 이어 읽기 시간이 지났을 수 있습니다.</p><Button variant="secondary" size="toolbar" className="justify-self-start" onClick={onRefresh}>처음부터 다시 보기</Button></div>;
   return <ReadView query={query}>{children}</ReadView>;
@@ -196,7 +197,7 @@ export function IssueDetailBody({ api, round, issue, actorId, canContribute, con
   </div>;
 }
 export function IssueDrawer({ api, ui, round, issueId, actorId, canContribute, controller, returnFocusRef, onClose, onOpenSource }: Pick<ScreenProps, 'api' | 'ui'> & { round: RoundDetail; issueId: string; actorId: string; canContribute: boolean; controller: DiscussionController; returnFocusRef: RefObject<HTMLElement | null>; onClose(): void; onOpenSource?: ((order: number, line: number) => void) | undefined }) {
-  const detail = api.useRead<ValidationIssueDetail>('validationIssueDetail', { issueId, limit: ISSUE_LIMITS.page });
+  const detail = api.useRead<ValidationIssueDetail>('validationIssueDetail', { issueId, limit: ISSUE_LIMITS.pageDefault });
   const title = detail.status === 'done' && detail.data ? detail.data.title : '검증 항목 상세';
   return ui.drawer({ title, subtitle: `검증 항목 · Round ${round.seq}`, returnFocusRef, requestClose: onClose, body: <ReadView query={detail} empty="선택한 검증 항목을 찾을 수 없거나 읽을 수 없습니다.">{issue => <IssueDetailBody api={api} round={round} issue={issue} actorId={actorId} canContribute={canContribute} controller={controller} onOpenSource={onOpenSource} />}</ReadView> });
 }
@@ -235,7 +236,7 @@ export function IssueLink({ api, round, attemptId, rule, controller, onOpenIssue
   const { draft, result, linked } = controller.slot(key);
   const pending = controller.pending('validationIssueLinkOccurrence') || controller.pending('validationIssueLinkEvidence');
   const locked = lockedBy(result, pending) || lockedBy(controller.slot(evidenceKey).result, false);
-  const refs = rule.evidence.slice(0, ISSUE_LIMITS.evidence).map(({ fileRef, line, fileSha256 }) => ({ fileRef, line, fileSha256 }));
+  const refs = rule.evidence.slice(0, ISSUE_LIMITS.evidencePerOccurrence).map(({ fileRef, line, fileSha256 }) => ({ fileRef, line, fileSha256 }));
   const withEvidence = draft.evidence !== 'false' && refs.length > 0;
   const issueId = draft.issueId ?? '';
   const link = () => { if (!locked && issueId) void controller.link(key, { issueId, roundId: round.id, attemptId, ruleResultId: rule.id }, withEvidence ? refs : null); };

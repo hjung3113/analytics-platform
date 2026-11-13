@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseValidationIssueInput } from '../domain/validation-issue-input.js';
-import { VALIDATION_ISSUE_LIMITS as L } from '../domain/validation-issue-limits.js';
+import { VALIDATION_ISSUE_LIMITS as L } from '@ap/feature-shared';
 
 const ID = '00000000-0000-4000-8000-000000000001';
 const issue = { projectId: ID, firstRoundId: ID, title: 'Synthetic observation', body: 'Expected sequence absent' };

@@ -11,7 +11,7 @@ import { createIdempotencyService } from '../core/idempotency/idempotency-servic
 import { type Viewer, viewerOf } from '../log-knowledge/index.js';
 import { validationIssues, validationIssueEvidenceRefs, validationIssueComments, roundComments, validationIssueEvents, validationIssueTransitions } from '../../db/schema/log-lifecycle.js';
 import { parseValidationIssueInput, type ValidationIssueAction } from './domain/validation-issue-input.js';
-import { VALIDATION_ISSUE_LIMITS as L } from './domain/validation-issue-limits.js';
+import { VALIDATION_ISSUE_LIMITS as L } from '@ap/feature-shared';
 import { sampleSetMisses, evidenceRefTripleKey } from './domain/evidence-ref-intake.js';
 import { currentIssueState, judgeTransition } from './domain/validation-issue-states.js';
 import { actorInWorkspace } from './repositories/lifecycle-write.js';

@@ -41,18 +41,23 @@ function skippedEnd(sql: string, at: number, dialect: SqlDialect): number | unde
   return undefined;
 }
 
-/** Unique placeholder names in appearance order; quoted text, comments and casts are ignored. */
-export function sqlPlaceholders(sql: string, dialect: SqlDialect): string[] {
-  const names = new Set<string>();
+/** Every live `:name` occurrence in appearance order with its offset; quoted text, comments and casts are ignored. */
+export function sqlPlaceholderOccurrences(sql: string, dialect: SqlDialect): { name: string; offset: number }[] {
+  const found: { name: string; offset: number }[] = [];
   for (let i = 0; i < sql.length;) {
     const end = skippedEnd(sql, i, dialect);
     if (end !== undefined) { i = end; continue; }
     if (sql.startsWith('::', i)) { i += 2; continue; }
     const match = sql[i] === ':' ? /^:([A-Za-z_][A-Za-z0-9_]*)/.exec(sql.slice(i)) : null;
-    if (match?.[1]) { names.add(match[1]); i += match[0].length; }
+    if (match?.[1]) { found.push({ name: match[1], offset: i }); i += match[0].length; }
     else i++;
   }
-  return [...names];
+  return found;
+}
+
+/** Unique placeholder names in appearance order; quoted text, comments and casts are ignored. */
+export function sqlPlaceholders(sql: string, dialect: SqlDialect): string[] {
+  return [...new Set(sqlPlaceholderOccurrences(sql, dialect).map((found) => found.name))];
 }
 
 export function startsReadStatement(sql: string, dialect: SqlDialect): boolean {
