@@ -149,11 +149,17 @@ function selfTest() {
   // tracked file it names. The two lists live apart; this check keeps the turbo list from growing past the classifier.
   try {
     const repo = resolve(fileURLToPath(import.meta.url), '../../..');
-    const globToRegExp = (glob) => new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]+').replace(/\u0000/g, '.*')}$`);
+    // Turbo globs: `*` is any run (even empty) inside one path segment, `**/` any number of directories (even none), `**` anything.
+    const globToRegExp = (glob) => new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*\//g, '\u0001').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0001/g, '(?:.*/)?').replace(/\u0000/g, '.*')}$`);
+    check('glob: * matches an empty run', globToRegExp('docs/a*.md').test('docs/a.md'), true);
+    check('glob: **/ matches no directory', globToRegExp('docs/**/a.md').test('docs/a.md'), true);
+    check('glob: * stays inside one segment', globToRegExp('docs/*.md').test('docs/x/a.md'), false);
     const turboFiles = lines(git(['ls-files', 'turbo.json', '*/turbo.json'], repo));
     const declared = turboFiles.flatMap((file) => {
       const json = JSON.parse(readFileSync(join(repo, file), 'utf8'));
+      // An input is a glob string; a structured entry carries its globs in `globs`. Anything else names no file.
       return Object.values(json.tasks ?? {}).flatMap((task) => task.inputs ?? [])
+        .flatMap((input) => (typeof input === 'string' ? [input] : Array.isArray(input?.globs) ? input.globs.filter((g) => typeof g === 'string') : []))
         .filter((input) => input.startsWith('$TURBO_ROOT$/') && input.endsWith('.md'))
         .map((input) => ({ file, glob: input.slice('$TURBO_ROOT$/'.length) }));
     });
