@@ -1,22 +1,13 @@
 # 선언 묶음이 자기 capability 행과 메타를 선언한다: 메뉴 권한이 닫힌 목록의 별칭이 아니게 한다
 
-상태: **Decided (2026-11-13)** — 설계. 세부 모양(문법, 읽기 응답의 자리)은 구현 노드가 정한다.
-- 결정자: 사용자(소유자) — 2026-11-13 [#1902](https://github.com/hjung3113/analytics-platform/issues/1902) 질문 «니추천대로»(방향 (a)와 두 조건: 가장 닫힌 기본값, 플랫폼 이름 충돌은 기동 실패). 고문 리뷰(2026-11-13, #1902 댓글)의 변경 R1–R9를 반영했고, 그중 «범위 종류 메타 없음»(R3)과 `sessionOnly` 기본 `true`(R2)는 소유자 결정 (a)보다 좁히는 방향이라 팀장이 승인했다. 구현 노드가 되돌릴 수 있다.
+상태: **Decided (2026-11-13)**. 문법·메타·읽기 응답의 현행 계약은 [권한 정책](../architecture/platform-api/05-permission-policy.md#declared-capabilities-adr-0157-1902)이 소유한다.
+- 결정자: 사용자(소유자) — 2026-11-13 [#1902](https://github.com/hjung3113/analytics-platform/issues/1902) 질문 «니추천대로»(방향 (a)와 두 조건: 가장 닫힌 기본값, 플랫폼 이름 충돌은 기동 실패). Role Level 허용 목록과 세션 전용 기본값을 사용하며, 부여 범위는 workspace 하나로 제한한다. 구체 결정과 이유는 아래 결정 2·5·6을 따른다.
 - Amends: [ADR-0146](0146-core-server-loads-in-house-declarations-from-deployment-config.md) 결정 3(capability 목록은 코드에 닫혀 있다), [ADR-0068](0068-permission-scope-and-business-system-link.md) 결정 2(capability 어휘 원천은 «플랫폼 ∪ 선언»이 된다).
 - Scope: [#1902](https://github.com/hjung3113/analytics-platform/issues/1902). 관련: [ADR-0116](0116-platform-api-tokens-personal-and-service.md), [ADR-0154](0154-site-and-room-grants-are-platform-owned.md), [ADR-0156](0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md), #1844, #1846.
 
 ## 맥락
 
-ADR-0146 결정 3은 메뉴 권한을 `permission → capability` 행으로 두고 capability는 «지금의 부여 체계»가 정한다고 했다. 그 capability 목록(`CAPABILITIES`)은 코드에 닫혀 있다. 저장소 밖 조립은 플랫폼 코드와 마이그레이션을 고칠 수 없으므로 시스템별·동작별 권한(예: 보기와 표시하기를 따로)은 기존 capability에 얹을 수밖에 없고, 그러면 서로 다른 메뉴 권한이 같은 부여 하나가 된다(`widget:view`와 `widget:annotate`가 모두 `workspace.read`).
-
-capability 이름이 닫힌 목록에 묶인 곳은 아래보다 많다. 구현 노드가 `rg`로 다시 센다.
-- 목록과 메타: `packages/feature-shared/src/enums/capabilities.ts`(`CAPABILITIES`, `CAPABILITY_META`), `supported-scope-policy.ts`의 손 목록(`NOT_FOR_USER_ROLE`, `supportedScopeCandidates`).
-- 공유 wire 스키마: `packages/feature-shared/src/permissions/admin.ts`(직접 부여 입력, 부여 목록 응답의 `z.enum(CAPABILITIES)`), `audit/permission.ts`(`permission_granted` 감사 상세). 그대로면 선언 capability는 직접 부여가 안 되고 부여 목록 응답의 클라이언트 파싱이 통째로 실패한다.
-- 서버 판정 입구: `permissions/routes.ts`, `request-service.ts`, `decision-service.ts`, `selected-read-service.ts`, `api-tokens/service.ts`, `menu-dispatch/declarations-file.ts`, `declared-endpoints.ts`.
-- 감사 읽기 투영(`core.platform_audit_events`, `SECURITY DEFINER`)이 SQL에 하드코딩한 비민감 capability 목록.
-- 화면: 권한 신청 결정 폼의 민감 사유 요구, `permission-selection.ts`, `InboxPanel`, 권한 신청 화면의 신청 가능 목록, 문구 표(`apps/feature-screens/src/lib/copy/capabilities.ts`).
-
-기존 손 목록은 모르는 이름을 **열린 쪽**으로 답한다(`NOT_FOR_USER_ROLE.has(x)`는 `false`, `supportedScopeCandidates`의 마지막 가지는 Managed System별 후보). `CAPABILITY_META[x]`를 직접 읽는 함수는 예외를 던진다. 선언 capability가 한 곳이라도 옛 경로를 타면 닫힌 기본값이 깨진다.
+ADR-0146의 초기 방식은 메뉴 권한을 코드에 고정된 capability의 별칭으로 연결했다. 이 방식으로는 저장소 밖 조립이 플랫폼 코드·마이그레이션을 바꾸지 않고 자기 권한 단위를 나눌 수 없었다. 이 ADR은 선언 capability와 서버 인스턴스별 레지스트리를 채택한 이유를 기록한다. 현행 스키마·판정·읽기 응답은 [권한 정책](../architecture/platform-api/05-permission-policy.md#declared-capabilities-adr-0157-1902), 배포 전환·은퇴 순서는 [사내 적용 가이드](../integration/in-house-rollout.md#선언-capability-메뉴-권한-단위)가 소유한다.
 
 ## 결정
 
@@ -26,7 +17,7 @@ capability 이름이 닫힌 목록에 묶인 곳은 아래보다 많다. 구현 
    - `adminModuleBypass: 'none'`은 ADR-0154 결정 2와 같은 뜻이다: Admin을 막는 경계가 아니라 «기본은 못 열고, 열 때는 감사 기록이 남는다». `permission_self_approval`이 `allowed`면 Admin은 자기에게 부여할 수 있고 `self_grant` 감사가 남는다. 승인자는 지금처럼 `workspace.admin`이고 선언 capability별 승인자는 없다(ADR-0068 결정 2).
    - 명시 거부(deny)는 선언 capability에도 그대로 동작하고 `unless_denied`와 맞물린다.
 3. **이름은 예약 접두어 아래에만 둔다.** 선언 `id`는 고정된 예약 접두어(문법은 구현 노드, 예: `ext.<module>.<action>`)로 시작하고, 문자 집합(소문자·숫자·`_`·`.`)과 길이 상한을 지킨다. 아니면 기동 실패다. 플랫폼 쪽 시험이 `CAPABILITIES`와 `TOKEN_ONLY_SCOPES`(`validation.worker`가 토큰 범위에서 같은 이름 공간을 쓴다)에 이 접두어가 없음을 고정한다. 이유: 접두어가 플랫폼이 쓰지 않는 영역이어야 다음 릴리스의 새 플랫폼 이름이 업그레이드한 배포의 기동을 깨지 않고, 선언만 지웠을 때 부여 행이 같은 이름의 플랫폼 capability 부여로 읽히는 권한 이월이 생기지 않는다. 묶음마다 접두어를 하나로 묶지 않는다(시스템별 권한 `ext.sysa.view`·`ext.sysb.view`를 막을 이유가 없다). `id`가 `CAPABILITIES`에 있으면 기동 실패라는 규칙은 최종 판정으로 그대로 둔다(덮어쓰기도 보태기도 없다).
-4. **부여는 별개이고 선언은 부여가 아니다.** 선언 capability는 부여 표(ADR-0068)의 ordinary capability처럼 신청·승인·부여된다. `widget.annotate` 부여가 `widget.view`나 `workspace.read`를 주지 않는다. 부여받지 못한 사람은 선언 capability로 열리는 메뉴 권한에 접근하지 못한다. 한 capability의 판정은 그 capability의 부여만 본다.
+4. **부여는 별개이고 선언은 부여가 아니다.** 선언 capability는 부여 표(ADR-0068)의 ordinary capability처럼 신청·승인·부여된다. `ext.widget.annotate` 부여가 `ext.widget.view`나 `workspace.read`를 주지 않는다. 부여받지 못한 사람은 선언 capability로 열리는 메뉴 권한에 접근하지 못한다. 한 capability의 판정은 그 capability의 부여만 본다.
 5. **부여 범위는 workspace 하나뿐이다.** 선언 capability의 후보는 항상 `[{ managed_system_id: null }]`이다. Managed System·site·room 범위의 신청·승인·직접 부여는 `validation.failed`다. 이유: 메뉴 권한 판정은 Managed System 없이 `{ workspace_id }`로만 capability를 묻는다. Managed System 범위 부여는 메뉴를 열지 못하는 죽은 부여가 되거나, «아무 시스템 부여나 있으면 연다»로 구현하면 한 시스템 부여가 메뉴 전체를 여는 누출이 된다. 데이터 범위는 Scope(`requiresScope` + `scope.read`, ADR-0154)가 따로 좁힌다. `scope.read`와 선언 capability는 서로를 주지 않는다. `requiresScope` 엔드포인트를 API 토큰으로 부르려면 선언 capability(`sessionOnly: false`)와 `scope.read`가 둘 다 토큰 범위에 있어야 한다(ADR-0154 결정 4). Managed System별 선언 권한은 Deferred.
 6. **Role Level은 허용 목록이고 쓰기와 판정 양쪽에서 현재 Role Level로 본다.** 목록에 없는 Role Level은 신청·승인·직접 부여가 거부되고, 판정 때 부여 행을 버리며, 신청 가능으로 나오지 않는다. 받는 쪽 검증(`validateSupportedScope`의 `recipientRole`)과 판정 시점의 현재 역할(`check-service.ts`의 `withRoleExclusion`)을 모두 같은 메타로 옮긴다. 허용 목록이어야 새 Role Level이 생겼을 때 닫힌 쪽이다.
 7. **저장 어휘는 «플랫폼 ∪ 선언» 레지스트리 하나이고 서버 인스턴스에 속한다.** 서버는 기동 때 묶음의 선언 capability를 검증하고 레지스트리를 만든다. 부여·신청·API 토큰 범위·확인 서비스는 `isCapability`(닫힌 목록) 대신 이 레지스트리를 쓰고, **메타 조회는 레지스트리 한 곳이며 등록되지 않은 이름은 예외 또는 거부다**(손 목록의 «모르면 연다»를 선언 capability가 타지 않는다). 레지스트리는 `createPlatformPermissionResolver`와 같은 이유로 인스턴스에 속한다: 한 프로세스의 두 서버가 서로의 선언을 읽지 않는다. `@ap/feature-shared`의 모듈 전역 상수를 바꾸는 방식은 쓰지 않는다. 레지스트리는 배포 하나에 하나이고 모든 workspace가 같이 쓴다.
@@ -46,7 +37,7 @@ capability 이름이 닫힌 목록에 묶인 곳은 아래보다 많다. 구현 
 
 - 예약 접두어가 아닌 `id`, `CAPABILITIES`·`TOKEN_ONLY_SCOPES`와 같은 `id`는 기동 실패. 플랫폼 쪽 시험이 두 목록에 예약 접두어가 없음을 고정한다.
 - 부여받지 않은 사람은 선언 capability로 열리는 메뉴 권한에 접근할 수 없다. 세션 스냅샷의 권한 목록과 조회 판정 두 경로 모두에서 확인한다. 기본에서 Admin도 우회로 열지 못한다(`self_grant`가 가능한 설정에서는 감사가 남는다).
-- 합성 `widget.annotate` 부여가 `widget.view`(다른 선언 capability)나 `workspace.read`를 주지 않는다.
+- 합성 `ext.widget.annotate` 부여가 `ext.widget.view`(다른 선언 capability)나 `workspace.read`를 주지 않는다.
 - 메타를 비운 선언 capability는 토큰 범위로 발급할 수 없고(`session_only`) 토큰 호출은 `session_required`다. `workspace.read`만 실은 토큰은 선언 capability로 옮긴 메뉴 권한을 열지 못한다.
 - 선언 capability 부여만 있고 `scope.read` site 부여가 없으면 `requiresScope` 엔드포인트는 `forbidden`이다. 반대도 같다.
 - 선언 capability의 Managed System·site 범위 부여·신청은 `validation.failed`.

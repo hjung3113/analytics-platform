@@ -362,6 +362,9 @@ _Avoid_: 패널(단독) — 작업 영역 패널과 섞인다.
 레일의 `VOC 등록`으로 여는 오른쪽 도킹 드로어. 지금 화면을 떠나지 않고 VOC를 쓴다([ADR-0070](docs/adr/0070-global-features-platform-menu-and-voc-drawer.md)).
 _Avoid_: VOC 등록 패널 — 상세 패널과 섞인다.
 
+**링크 목적지 선언** (`linkTargets`):
+메뉴가 다른 메뉴로 이동하는 연결에서 의존하는 목적지 메뉴 목록. 주 흐름에 반드시 필요한 목적지와 없어도 되는 목적지를 구분하며, 여는 객체를 가리키는 목적지 객체 ID나 접근 권한과는 별개다([06 §22](docs/contract/cross-menu-links.md#22-cross-menu-context-link), [ADR-0158](docs/adr/0158-unregistered-link-destinations-and-declared-link-targets.md)).
+
 **목적지 객체 ID**:
 메뉴 간 이동이나 상세 패널에서 열 객체 하나를 가리키는 ID(예: Occurrence, EquipmentID). 단독 `목적지`는 이동할 화면을 뜻하고, 객체는 늘 `목적지 객체 ID`로 쓴다. 분석 Context와 따로 전달하고, 그 값으로 분석 Context를 추정하지 않는다([06 §22](docs/contract/platform-ui-contract.md)).
 

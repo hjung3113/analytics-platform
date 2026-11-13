@@ -97,7 +97,7 @@ pnpm install --frozen-lockfile && node sdk-bundle-check.mjs installed && pnpm ch
 | --- | --- | --- |
 | 필터를 더한다 | 메뉴의 page key(`pageKeys`), 또는 `startAppHost`에 주입하는 축(ADR-0149) | `GlobalContext`는 바꾸지 않는다 |
 | 데이터를 읽는다 | 엔드포인트 선언(`endpoints.ts`) + mock 핸들러(`mock.ts`) + 서버 쪽 | 서버 쪽은 코어 서버의 배포 선언 묶음과 연결기가 맡는다. 사내에 새 서버를 두지 않는다(ADR-0153) |
-| 데이터를 쓴다 | 동작 선언 + `useMenuAction` + `invalidates` (mock에서만) | 실서버에서 선언 묶음의 쓰기 동작(`actions`)은 아직 안 된다(미구현, [ADR-0148](../../../../../docs/adr/0148-minimal-forwarder-and-identity-token.md) 미룸). 스키마는 `actions`를 받지만 묶음에 동작이 한 줄이라도 있으면 코어 서버가 기동을 거부한다(`declared actions are refused … ADR-0148`). 쓰기는 mock에서만 동작하므로, 저장소 밖 메뉴의 쓰기는 실서버 통과로 세지 않는다. 다시 여는 조건과 추적은 저장소의 `.planning/backlog.md`. 키트의 적합성 검사도 쓰기를 보지 않는다 |
+| 데이터를 쓴다 | 동작 선언 + `useMenuAction` + `invalidates`; 키트 배선은 미구현 | 이 키트는 mock에도 `actions`를 등록하지 않아 쓰기를 실행할 수 없고 적합성 검사도 쓰기를 보지 않는다. 키트 mock 쓰기의 이유와 재개 조건은 저장소 `.planning/backlog.md`의 «시작 키트의 mock 쓰기 동작»(#1904)을 따른다. 실서버 선언 묶음의 쓰기도 미구현이며, `actions`가 한 줄이라도 있으면 기동을 거부한다. 실서버 경계는 [실서버 체크리스트](../../../../../docs/integration/real-server-checklist.md)의 «선언 묶음의 쓰기 동작 미구현», 결정은 [ADR-0148](../../../../../docs/adr/0148-minimal-forwarder-and-identity-token.md)을 따른다 |
 | 권한을 정한다 | `menus.ts`의 메뉴 권한 선언(`KIT_PERMISSIONS`) + 서버가 부여 | 선언은 부여가 아니다 |
 | 저장된 뷰를 쓴다 | 메뉴 선언의 `features.savedView` + `mock/assembly.ts`의 저장된 뷰 저장소 | 메뉴 컴포넌트가 `useSavedViewSupport`로 `menuId`·`menuSchemaVersion`·지원 Context/page 키를 가진 support 객체(모듈 상수)를 등록한다. 저장된 뷰 선택기는 `query: { mode: 'apply' }` + `context.time: 'apply'` 메뉴에만 나온다 |
 
