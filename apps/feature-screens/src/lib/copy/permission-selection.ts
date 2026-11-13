@@ -10,7 +10,7 @@ export type PermissionCategory = (typeof PERMISSION_CATEGORIES)[number];
 export const PERMISSION_DECLARATIONS: Record<Capability | TokenOnlyScope, { category: PermissionCategory; description: string }> = {
   'workspace.read': { category: '공통', description: '접근 가능한 플랫폼 자료를 조회합니다.' },
   'workspace.admin': { category: '공통', description: '플랫폼 설정과 권한을 관리합니다.' },
-  'scope.read': { category: '공통', description: '부여받은 site·room의 데이터를 읽습니다.' },
+  'scope.read': { category: '공통', description: '부여받은 site·공정의 데이터를 읽습니다.' },
   'voc.triage': { category: 'VOC·Finding·Task', description: '시스템의 VOC를 분류하고 처리합니다.' },
   'voc.read': { category: 'VOC·Finding·Task', description: '시스템의 VOC와 내부 처리 내용을 조회합니다.' },
   'voc.read_public': { category: 'VOC·Finding·Task', description: 'VOC의 공개 내용과 공개 첨부를 조회합니다.' },
