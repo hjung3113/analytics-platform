@@ -84,6 +84,14 @@ _Avoid_: 검증 Finding — Finding은 다른 객체다(아래 Finding).
 시도의 항목 하나에 외부 작업자가 덧붙이는 평가(항목 키, 등급 키, 선택 표식 키, 질의·메모 텍스트, 근거 위치). 규칙 결과와 1:1이 아니고(규칙 결과가 없는 항목도 있다) 판정(verdict)·Gate 결정과 다른 축이며 어느 쪽도 바꾸지 못한다. 등급·표식의 값 목록은 **의견 척도**(`queue_settings.opinion_scale`)로 사내가 선언하고 플랫폼은 값을 갖지 않는다. 화면에서 질의 텍스트는 «설비사 질의»라고 쓴다.
 _Avoid_: AI 판정, 등급 판정 — 의견은 판정이 아니다.
 
+**시도 진단** (`AttemptDiagnostic`) · **진단 항목** (`DiagnosticItem`):
+성공한 시도 하나에 생산자(`producer`, 진단을 만든 도구의 식별자)별로 하나 붙는 설명·표 문서와 그 안의 항목(항목 키, 출처 `rule|analysis`, 제목, 설명, 근거 위치, 표). 규칙 결과와 1:1이 아니고(`analysis` 항목은 규칙 결과가 없어도 된다) 규칙 결과·의견·사람 등록 항목과 다른 출처다. 판정(verdict)·Gate·Knowledge·회귀 비교는 읽지 않는다. 제목·설명·표 텍스트는 Source 유래라 원본 소유자의 `lifecycle.excerpt.read`로 읽고, 권한이 없으면 형태 메타데이터만 보인다([ADR-0159](docs/adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md)).
+_Avoid_: 단독 «진단 리포트» — 사내 리포트 파일(첨부)과 이 구조를 섞는다. 작업자 요약(`summary`)과 같은 이름으로 부르는 것.
+
+**작업자 요약** (`workerSummary`):
+작업자가 결과와 함께 올리는 `summary` JSON 중 서버가 허용 목록(버전 `workerSummaryProjection`)으로 걸러 시도 목록에 내는 값. 키는 `fixture`·`mode`·`durationMs`·`producer`·`producerVersion`뿐이며 자유 텍스트를 담지 않는다. verdict·건수를 대체하지 않는다. 상태는 `not_submitted | no_allowed_fields | available`.
+_Avoid_: 작업자 요약을 시도 진단과 같은 이름으로 부르는 것 — 요약은 `platform:view`로 읽히고 진단 본문은 Source ACL로만 읽힌다.
+
 **근거 위치** (`EvidenceRef`: 파일·줄·해시):
 원본 로그의 한 줄을 가리키는 참조. 규칙 결과와 로그 탐색이 **같은 타입**을 쓰고 본문을 담지 않는다. 같은 이름 계열이지만 다른 항목: Finding에 붙는 근거 조각(Evidence Highlight), 로그 지식 허브의 지식 근거(Evidence Ref). 사람이 올린 파일은 `수동 검증 첨부`로 부른다. **발췌**는 근거 위치에 딸린 짧은 로그 본문으로 별도 상한·권한·보관 기한을 갖는다.
 _Avoid_: 증거(화면 문구), 근거 위치를 첨부와 같은 이름으로 부르는 것
@@ -91,9 +99,6 @@ _Avoid_: 증거(화면 문구), 근거 위치를 첨부와 같은 이름으로 �
 #### 검증 설계의 후보 용어 (Candidate)
 
 아래는 [진단 리포트 설계](docs/design/features/log-lifecycle/diagnostic-report-parity.md)·[사람 등록/토론 설계](docs/design/features/log-lifecycle/validation-issues-discussion.md)의 미확정 개념이다. 정본 명칭·화면 문구를 고르는 결정이 아니며 독립 용어 검토와 소유자 확인 전에는 확정 용어로 사용하지 않는다.
-
-**AttemptDiagnostic** · **DiagnosticItem** (Candidate):
-시도에서 생성한 설명·구조화 진단의 묶음과 그 안의 안정된 항목. 규칙 결과·작업자 의견·사람의 주장과 구별하는 후보 개념이다.
 
 **ValidationIssue** (Candidate):
 사람이 검증 중 발견한 관찰·검토 필요 사항·문제를 등록하는 항목. 공식 결함으로 확정하는 시점과 한국어 명칭은 Open이며 Finding·Task·규칙 결과와 다른 객체다.

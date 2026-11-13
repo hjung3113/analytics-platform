@@ -277,7 +277,7 @@ The 참조 작업자 is `tooling/scripts/validation-worker-mock.mjs`: a **합성
 | `fixture` | `'synthetic'` | 합성 결과 표시. 참조 작업자의 기존 키 |
 | `mode` | `'pass' \| 'fail' \| 'incomplete'` | 생산자가 의도한 실행 모드. verdict가 아니며 verdict를 대체하지 않는다 |
 | `durationMs` | 정수 0–86,400,000 | 실행 시간. 숫자라 원본 텍스트를 실을 수 없다 |
-| `producer` | `^[a-z0-9][a-z0-9._-]{0,63}$` | 진단 생산자 식별자(아래 B1의 `producer`와 같은 문법). 소문자·숫자·`._-`만이라 경로·문장을 담지 못한다 |
+| `producer` | `^[a-z0-9][a-z0-9._-]{0,63}$` | 진단 생산자 식별자(아래 B1의 `producer`와 같은 문법). 의견의 `producer`(자유 text ≤200)와 같은 개념(생산자 식별자)이나 이 표면은 문법을 좁히고, 기존 의견 데이터는 바꾸지 않는다. 소문자·숫자·`._-`만이라 경로·문장을 담지 못한다 |
 | `producerVersion` | `^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$` | 생산자 버전 문자열. 같은 이유로 좁은 문자 집합 |
 
 검사는 읽을 때 저장 행마다 다시 한다(쓰기는 지금처럼 임의 JSON이라서). 키별로 따로 판정해 잘못된 값·미지 키·중첩 객체·배열은 그 키만 빼고, 원본 JSON·빠진 키 이름·빠진 값은 DTO·로그에 남기지 않는다. 쓰기 경로·4,096 bytes 상한·`secret_detected`는 그대로다.
@@ -349,7 +349,7 @@ This read contains no body text and writes no audit row, verdict, Gate decision 
 - `logLifecycle.diagnostics` `{ attemptId, ruleResultId?, page, pageSize ≤ 100 }` → `{ access: 'granted' | 'no_permission', documents: [{ producer, producerVersion, schemaVersion, itemCount, createdAt }], rows: [{ producer, itemKey, origin, ruleResultId, evidenceCount, tableCount, rowCounts, bodyState, title }], total }`. 순서는 producer, 쓴 순서. 권리가 없으면 `title`은 `null`이고 나머지는 형태 메타데이터라 그대로 낸다(R5의 독립 메타데이터). 문서가 없으면 `documents: []`, `rows: []`. 권리가 있고 제목을 낸 호출은 `lifecycle.diagnostic.read`(subject `execution_request`; `attemptId`, `scope: 'list'`, 행 수)를 한 줄 쓴다.
 - `logLifecycle.diagnosticItem` `{ attemptId, producer, itemKey, tableKey?, rowOffset? }` → `{ item: { producer, itemKey, origin, ruleResultId, title, explanation, evidenceRefs, bodyState, tables: [{ tableKey, title, columns, totalRows, rowOffset, rows }] } }`. 표마다 행 100개씩, `tableKey`+`rowOffset`으로 그 표의 다음 쪽을 읽는다. 권리 없음은 `forbidden`, 모르는 항목은 `ok` + `null`. 감사 `lifecycle.diagnostic.read`(`scope: 'item'`, `itemKey`, 본문 없음).
 
-`bodyState`는 `live | erased_retention | erased_admin`이다. 지워진 항목은 `title`·`explanation`·셀·표 제목·열 라벨이 `null`이고 키·출처·규칙 연결·근거 위치·표 형태는 남는다. 새 표라서 삭제 원인을 열거형 열로 저장하므로 원인을 낸다(R3의 과거 발췌 행 `unknown`은 그대로).
+`bodyState`는 `live | erased_retention | erased_admin`이다. 지워진 항목은 `title`·`explanation`·셀·표 제목·열 라벨이 `null`이고 키·출처·규칙 연결·근거 위치·표 형태는 남는다. 새 표라서 삭제 원인을 열거형 열(`erased_cause`)로 저장하므로 원인을 낸다. 발췌 표의 `deleted_reason`은 관리자 사유 텍스트이고 열거형이 아니다(R3의 과거 발췌 행 `unknown`은 그대로).
 
 **수명과 삭제.** 본문은 발췌와 같이 Round `closed` + `excerptRetentionDays`(suite 주체는 suite run 종료 기준) 뒤 지운다. 같은 일일 작업과 관리자 `excerptDelete`(Round·시도 범위)가 같은 저장 경로로 진단 본문도 지우며, 원인은 `retention`·`admin`으로 따로 기록한다. 수명 이유: 진단 본문은 발췌와 같은 Source 유래 텍스트다.
 
