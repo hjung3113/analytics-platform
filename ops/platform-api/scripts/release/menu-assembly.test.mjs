@@ -5,14 +5,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { after } from 'node:test';
@@ -177,7 +170,9 @@ test(
     );
     assert.equal(r.status, 0, r.stderr.replace(/(PASSWORD|SECRET)[^\n]*/g, '$1=…'));
     const backend = JSON.parse(r.stdout).services.backend;
-    for (const key of Object.keys(MENU).filter((k) => k.startsWith('MENU_') && !k.endsWith('_DIR'))) {
+    for (const key of Object.keys(MENU).filter(
+      (k) => k.startsWith('MENU_') && !k.endsWith('_DIR'),
+    )) {
       assert.equal(backend.environment[key], MENU[key], key);
     }
     const mounts = Object.fromEntries(backend.volumes.map((v) => [v.target, v]));
@@ -194,10 +189,7 @@ function stubDocker() {
   const bin = join(dir, `bin-${n++}`);
   mkdirSync(bin);
   const log = join(bin, 'calls.log');
-  writeFileSync(
-    join(bin, 'docker'),
-    `#!/bin/sh\necho "$@" >> "${log}"\nexit 0\n`,
-  );
+  writeFileSync(join(bin, 'docker'), `#!/bin/sh\necho "$@" >> "${log}"\nexit 0\n`);
   chmodSync(join(bin, 'docker'), 0o755);
   return { bin, log };
 }
