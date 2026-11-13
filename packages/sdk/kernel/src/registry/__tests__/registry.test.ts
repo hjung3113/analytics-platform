@@ -649,3 +649,54 @@ describe('navTree declaration (#1448)', () => {
     expect(() => createRegistry({ spaces, groups, menus: [{ ...treeMenu, navTree }, menu('second', '/second', { navTree })] })).toThrow(/navTree/);
   });
 });
+
+describe('menu linkTargets (06 §22, ADR-0158, #1903)', () => {
+  const modGroup: GroupDef = { id: 'fx:main', module: 'fx', label: { ko: '모', en: 'M' }, icon: House, space: spaceId('mars') };
+  const modMenu = (over: Partial<ModuleMenuEntry> = {}): ModuleMenuEntry => ({
+    id: 'fx:home', module: 'fx', group: 'fx:main', permission: 'fx:view', label: { ko: 'f', en: 'f' }, description: { ko: '', en: '' }, path: '/fx', icon: House,
+    requiresScope: false, context: none, pageType: 'catalog', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], primary: true,
+    moduleScreen: () => null, ...over,
+  });
+  const linking = (linkTargets: unknown, others: MenuEntry[] = [], options: { linkTargetCheck?: 'enforce' | 'report' } = {}) =>
+    createRegistry({ spaces, groups: [...groups, modGroup], menus: [{ ...catalog, linkTargets: linkTargets as never }, modMenu(), ...others], ...options });
+
+  it('checks nothing and reports nothing when no menu declares linkTargets', () => {
+    expect(createRegistry({ spaces, groups, menus: [catalog] }).missingLinkTargets).toEqual([]);
+  });
+  it('accepts registered targets, including a module menu id with ":"', () => {
+    const registry = linking({ required: ['fx:home'], optional: ['detail'] }, [menu('detail', '/metrics/:id', { navHidden: true })]);
+    expect(registry.missingLinkTargets).toEqual([]);
+  });
+  it('rejects an unregistered required target and names the report option', () => {
+    expect(() => linking({ required: ['nowhere'] })).toThrow(RegistryError);
+    expect(() => linking({ required: ['nowhere'] })).toThrow(/linkTargetCheck: 'report'/);
+  });
+  it('lists an unregistered optional target without rejecting', () => {
+    expect(linking({ optional: ['nowhere'] }).missingLinkTargets).toEqual([{ menuId: 'catalog', target: 'nowhere', level: 'optional' }]);
+  });
+  it("with linkTargetCheck: 'report' lists required and optional targets instead of rejecting", () => {
+    expect(linking({ required: ['gone'], optional: ['nowhere'] }, [], { linkTargetCheck: 'report' }).missingLinkTargets).toEqual([
+      { menuId: 'catalog', target: 'gone', level: 'required' },
+      { menuId: 'catalog', target: 'nowhere', level: 'optional' },
+    ]);
+  });
+  it.each([
+    ['a non-object declaration', 'detail', /linkTargets must be an object/],
+    ['a list that is not an array', { optional: 'detail' }, /linkTargets\.optional must be a list/],
+    ['an empty id', { optional: [''] }, /must be a menu id/],
+    ['an id with whitespace', { optional: ['a b'] }, /must be a menu id/],
+    ['an id with /', { required: ['a/b'] }, /must be a menu id/],
+    ['an id with ?', { optional: ['a?b'] }, /must be a menu id/],
+    ['a duplicate in one list', { optional: ['detail', 'detail'] }, /listed twice/],
+    ['the same id in both lists', { required: ['fx:home'], optional: ['fx:home'] }, /both required and optional/],
+  ])('rejects %s', (_name, linkTargets, message) => {
+    expect(() => linking(linkTargets)).toThrow(message);
+    expect(() => linking(linkTargets, [], { linkTargetCheck: 'report' })).toThrow(message);
+  });
+  it('rejects linkTargets on a module menu; a module menu may still be a target', () => {
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu({ linkTargets: { optional: ['catalog'] } } as never)] })).toThrow(/cannot declare linkTargets/);
+  });
+  it('rejects an unknown linkTargetCheck value', () => {
+    expect(() => linking({ optional: ['fx:home'] }, [], { linkTargetCheck: 'off' as never })).toThrow(/linkTargetCheck/);
+  });
+});

@@ -15,7 +15,7 @@ const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-l
  * from `onCloseAutoFocus`, after the focus trap is gone, so the Kernel arrival focus (ADR-0032) lands on the new title.
  */
 export function SystemSwitcher() {
-  const { currentSpace: routeSpace, accessibleSpaces, spaceEntry, switchSpace, registry, resolveLink, navigate, pathname, route, slots, setSwitcherOpen } = useHostPlatform();
+  const { currentSpace: routeSpace, accessibleSpaces, spaceEntry, switchSpace, registry, linkTo, navigate, pathname, route, slots, setSwitcherOpen } = useHostPlatform();
   const { switcherOpen: open, switcherSession } = useOverlayState();
   const { t, tx } = useI18n();
   const titleId = useId();
@@ -119,13 +119,14 @@ export function SystemSwitcher() {
         {platformItems.length > 0 && <nav aria-label={t('platformMenu')} className="border-b border-border-subtle px-4 py-3">
           <p className="mb-1.5 text-caption font-semibold text-text-muted">{t('platformMenu')} <span className="font-normal">· {t('platformMenuShared')}</span></p>
           <ul className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">{platformItems.map((menu, at) => {
-            const link = resolveLink(menu.id);
+            // A platform menu item comes from the Registry, so its destination is registered.
+            const href = linkTo(menu.id);
             return <li key={menu.id} className="flex items-center gap-1.5">
               {at > 0 && <span aria-hidden className="text-text-muted">·</span>}
               <MenuUnread menuId={menu.id}>{count => {
                 const name = platform.labelOf(menu);
                 const unread = count !== null && count > 0 ? count : 0;
-                return <PlatformLink data-switcher-platform href={link.href} aria-current={route?.menu.id === menu.id ? 'page' : undefined} onClick={event => goPlatform(event, link.href)}
+                return <PlatformLink data-switcher-platform href={href} aria-current={route?.menu.id === menu.id ? 'page' : undefined} onClick={event => goPlatform(event, href)}
                   {...(unread > 0 ? { 'aria-label': t('unreadNamed', { label: name, count: unread }) } : {})}
                   className="rounded-md px-1.5 py-0.5 text-text-secondary hover:bg-surface-row-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring aria-[current=page]:font-semibold aria-[current=page]:text-text-primary">
                   {name}

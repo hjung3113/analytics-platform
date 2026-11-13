@@ -23,7 +23,7 @@ const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>
 
 /**
  * 변경 감사 (issue #50, 06 §12.3 management list). The console's index over the shared audit store: the
- * table is the index, the destination's own AuditTimeline is the detail, and a row links out with linkTo
+ * table is the index, the destination's own AuditTimeline is the detail, and a row links out with resolveLink
  * instead of opening a second timeline in a drawer. Server-side sort/page (offset, not cursor), the client
  * never re-sorts a page; the default sort is the server's newest-first and no URL key is written for it.
  */
@@ -31,7 +31,7 @@ export default function AuditTrail() {
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const timeZone = viewerTimeZone();
-  const { adapter, linkTo } = usePlatform();
+  const { adapter, resolveLink } = usePlatform();
   // ADR-0105: every condition is one hidden repeated page key `filter`. A bad sort/page/condition is the table warning, which clears exactly the bad keys.
   const filterDeclarations = useMemo<TableFilterDeclaration[]>(() => {
     const specs = auditFilterSpecs(lang);
@@ -85,7 +85,7 @@ export default function AuditTrail() {
         }}
         emptyAction={clearButton}
         rowAction={(row, { compact }) => {
-          const link = auditDestination(linkTo, row.target);
+          const link = auditDestination(resolveLink, row.target);
           const name = ko ? `${row.target.id} 상세` : `Detail ${row.target.id}`;
           if (link.ok) return <RowAction compact={compact} icon={ArrowRight} label={name} text={ko ? '상세' : 'Detail'} link={<PlatformLink href={link.href} />} />;
           const none = ko ? '상세 화면 없음' : 'No detail page';

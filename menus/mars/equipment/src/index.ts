@@ -26,6 +26,8 @@ export const manifests: MenuEntry[] = [
     path: '/equipment/:equipmentId', icon: Cpu, permission: PERMISSION, requiresScope: true, pageType: 'management',
     context: contextCapabilities({ time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference' }),
     features: NO_FEATURES, pageKeys: ['tab', 'returnTo'],
+    // The EV Top View button: an assembly without the EV module draws none (06 §22).
+    linkTargets: { optional: ['eqv:topview'] },
     component: lazy(() => import('./pages/EquipmentDetail')),
   },
 ];

@@ -49,7 +49,7 @@ function mountAt(url: string) {
   screen.getByTestId('ready');
   return host!;
 }
-const linkFrom = (url: string, menuId: string, options?: LinkOptions) => mountAt(url).resolveLink(menuId, options).href;
+const linkFrom = (url: string, menuId: string, options?: LinkOptions) => mountAt(url).resolveLink(menuId, options).href!;
 const originFrom = (url: string): ReturnOrigin => mountAt(url).returnOrigin();
 
 beforeEach(() => {
@@ -170,11 +170,11 @@ describe('a carry set across spaces and a global menu survives Back, Forward and
     const start = `/left/l1?v=1&k=x&returnTo=${encodeURIComponent(ORIGIN)}`;
     mountSpan(start);
     await at(start);
-    const toRight = spanHost!.resolveLink('r1').href;
+    const toRight = spanHost!.resolveLink('r1').href!;
     act(() => { spanHost!.navigate(toRight); });
     await at(toRight);
     expect(spanHost!.route?.menu.id).toBe('r1');
-    const toGlobal = spanHost!.resolveLink('g1', { returnTo: true }).href;
+    const toGlobal = spanHost!.resolveLink('g1', { returnTo: true }).href!;
     act(() => { spanHost!.navigate(toGlobal); });
     await at(toGlobal);
     expect(spanHost!.route?.menu.id).toBe('g1');
@@ -209,7 +209,7 @@ describe('a carry set across spaces and a global menu survives Back, Forward and
     mountSpan(start);
     await at(start);
     expect(spanHost!.returnOrigin().accepted).toBe(false);
-    const toRight = spanHost!.resolveLink('r1').href;
+    const toRight = spanHost!.resolveLink('r1').href!;
     act(() => { spanHost!.navigate(toRight); });
     await at(toRight);
     expect(spanHost!.route?.menu.id).toBe('r1');

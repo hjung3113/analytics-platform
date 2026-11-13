@@ -38,4 +38,10 @@ describe('improvement analysis overflow entry (#1408)', () => {
     fireEvent.click(button);
     expect(platform.navigate).not.toHaveBeenCalled();
   });
+  it('draws no entry when the destination is not registered in this assembly (06 §22 none)', () => {
+    platform.resolveLink.mockReturnValue({ kind: 'none', allowed: false, href: null, droppedPageKeys: [] });
+    render(<I18nProvider><ImprovementAnalysisActions {...props} /></I18nProvider>);
+    expect(screen.queryByRole('button', { name: '개선 아이템 남기기' })).toBeNull();
+    expect(screen.queryByText('개선 아이템을 열 권한이 없습니다.')).toBeNull();
+  });
 });

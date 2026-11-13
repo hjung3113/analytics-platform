@@ -22,6 +22,8 @@ export const manifests: MenuEntry[] = [
     description: { ko: '전역 Audit Trail (각 상세에도 탭으로 노출)', en: 'Global audit trail (also a tab on each detail)' },
     path: '/admin/audit', icon: FileClock, permission: 'console:access', requiresScope: false, pageType: 'management', context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['filter', 'sort', 'page'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'],
+    // Row destinations are sample menus an in-house assembly lacks; a row without one shows no link (06 §22).
+    linkTargets: { optional: ['equipment-detail', 'metric-detail'] },
     component: lazy(() => import('./pages/AuditTrail')),
   },
   {

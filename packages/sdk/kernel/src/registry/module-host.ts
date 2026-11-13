@@ -97,7 +97,9 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
           const candidate = p.registry.menuById(id);
           if (candidate.moduleScreen === undefined || candidate.module !== entry.module) return null;
         } else id = target.menuId;
-        return p.resolveLink(id, { params: target.params, page: target.page, returnTo: target.returnTo });
+        // An unregistered menu id resolves to `none` (06 §22); the catch keeps the `menuById` ownership check and a missing route param.
+        const link = p.resolveLink(id, { params: target.params, page: target.page, returnTo: target.returnTo });
+        return link.kind === 'link' ? link : null;
       } catch { return null; }
     };
     const host: ModuleHost = {

@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.12.1 — 2026-11-13
+
+- 모델 프로필 Top View 절의 `Studio에서 열기`: 손 가드(`registry.menus.some`)를 걷고 `resolveLink`의 `kind`로 가른다. `log-knowledge-model`이 `linkTargets.optional: ['eqv-studio']`를 선언한다(06 §22, ADR-0158, #1903). 화면은 그대로다.
+
 ## 0.12.0 — 2026-11-11
 
 - #1656 모델 프로필 Top View 절: 모델에 연결된 게시 Layout Revision을 읽기 전용으로 보인다(`적용: <SW 버전 또는 모델 기본> · Layout · Revision`, 미연결, Revision 읽기 실패 표시). 모델 SW 버전이 있으면 `기준 SW` 선택으로 다시 읽고, 메뉴 `eqv-studio`가 등록돼 있고 권한이 있으면 `Studio에서 열기`를 보인다. 카탈로그 관리 권한자는 같은 절에서 연결(게시 Revision과 시작 SW 선택, 같은 시작 SW 행은 교체)과 해제를 한다. 그림은 앱이 `./model-topview-slot`으로 꽂는다(ADR-0128). mock에 합성 Layout 하나와 읽기 2개·쓰기 2개를 둔다.

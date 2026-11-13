@@ -343,6 +343,23 @@ describe('MetricDetail describes the kept usage and pair result by the version i
   });
 });
 
+describe('MetricDetail usage rows whose consumer menu this assembly lacks (06 §22, #1903)', () => {
+  it('keep the consumer name and id as text, with neither a link nor a permission reason', async () => {
+    const metricsOnly = createRegistry({
+      permissions: [menuPermission('analytics:view'), menuPermission('metrics:view')],
+      spaces: [{ id: spaceId('bravo'), label: { ko: '지표', en: 'Metrics' }, description: { ko: '지표 카탈로그', en: 'Metric catalog' }, permission: menuPermission('metrics:view'), homeMenuId: 'metric-catalog' }],
+      groups: [{ id: groupId('metrics'), label: { ko: '지표', en: 'Metrics' }, icon: Gauge, space: spaceId('bravo') }],
+      menus: manifests,
+    });
+    window.history.replaceState(null, '', '/metrics/cycle_time?version=4');
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixtureAdapter()} registry={metricsOnly}><MetricDetailPage params={{ metricId: 'cycle_time' }} /></PlatformProvider></I18nProvider>);
+    await screen.findByText(/cycle_time @ 4 만 조회합니다/);
+    expect(await screen.findByText('productivity-overview')).toBeTruthy();
+    expect(screen.queryByText('열 권한이 없습니다')).toBeNull();
+    expect(screen.queryByRole('link', { name: '사용처 열기' })).toBeNull();
+  });
+});
+
 describe('MetricDetail change history pages (ADR-0085)', () => {
   const recorded = (id: string, minute: number, reason: string): AuditEvent => ({
     id, at: `2026-09-20T02:${String(minute).padStart(2, '0')}:00.000Z`, actor: 'park.seo', action: 'update', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, reason,

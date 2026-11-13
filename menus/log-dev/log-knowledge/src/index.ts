@@ -28,6 +28,8 @@ export const manifests: MenuEntry[] = [
     description: { ko: '모델의 요약, SW 버전, 모델 공통 Item을 한 화면에서 봅니다', en: 'Summary, software versions and common items of one model' },
     path: '/log/knowledge/models/:modelId', icon: Cpu, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['returnTo'],
+    // The Top View section's «Studio에서 열기»: an assembly without the studio draws none (06 §22).
+    linkTargets: { optional: ['eqv-studio'] },
     component: lazy(() => import('./pages/models/ModelProfile')),
   },
   {

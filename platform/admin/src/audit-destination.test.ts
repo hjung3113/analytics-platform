@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { AuditTarget, GlobalContext } from '@ap/contracts';
-import { auditDestination, type LinkTo } from './audit-destination';
+import { auditDestination, type ResolveLink } from './audit-destination';
 
-const recording = () => {
-  const calls: { menuId: string; options?: Parameters<LinkTo>[1] }[] = [];
-  const linkTo: LinkTo = (menuId, options) => { calls.push({ menuId, options }); return `/linked/${menuId}`; };
+// The injected resolver answers like the kernel's resolveLink: registered (`link`, with `allowed`) or not in this assembly (`none`).
+const recording = (answer: 'link' | 'denied' | 'none' = 'link') => {
+  const calls: { menuId: string; options?: Parameters<ResolveLink>[1] }[] = [];
+  const linkTo: ResolveLink = (menuId, options) => {
+    calls.push({ menuId, options });
+    return answer === 'none' ? { kind: 'none', href: null, allowed: false, droppedPageKeys: [] } : { kind: 'link', href: `/linked/${menuId}`, allowed: answer === 'link', droppedPageKeys: [] };
+  };
   return { linkTo, calls };
 };
 const target = (over: Partial<AuditTarget>): AuditTarget => ({ type: 'equipment', id: 'MEM-ETCH-0101', scopeId: 'MEM', ...over });
@@ -41,5 +45,15 @@ describe('auditDestination (#50: the screen-owned type → menu map)', () => {
     const { linkTo, calls } = recording();
     expect(auditDestination(linkTo, target({ type: 'notice' }))).toEqual({ ok: false });
     expect(calls).toEqual([]);
+  });
+
+  // #1903: the sample destinations are absent from an in-house assembly; the helper must answer, never throw (06 §22).
+  it.each([
+    { name: 'an unregistered equipment destination', answer: 'none' as const, over: {} },
+    { name: 'an unregistered metric destination', answer: 'none' as const, over: { type: 'metric', id: 'cycle_time', scopeId: null } as Partial<AuditTarget> },
+    { name: 'a destination the user may not open', answer: 'denied' as const, over: {} },
+  ])('answers { ok: false } for $name', ({ answer, over }) => {
+    const { linkTo } = recording(answer);
+    expect(auditDestination(linkTo, target(over))).toEqual({ ok: false });
   });
 });
