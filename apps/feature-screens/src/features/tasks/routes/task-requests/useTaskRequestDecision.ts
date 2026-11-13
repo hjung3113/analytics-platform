@@ -68,11 +68,15 @@ export function useTaskRequestDecision({
   const lastItemRef = React.useRef(item);
   // One Idempotency-Key per open dialog until success, so a retry after a lost response replays the same request.
   const keyRef = React.useRef<string | null>(null);
+  // The last submitted action + normalized body. A retry reuses the key only for an identical payload (a lost response must
+  // replay); a different payload under the same key would be rejected as key reuse, so only then is the key rotated.
+  const sentRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (lastItemRef.current === item) return;
     lastItemRef.current = item;
     keyRef.current = null;
+    sentRef.current = null;
     setDecisionDialog(null);
     setIsDecisionSubmitting(false);
     decisionSubmittingRef.current = false;
@@ -99,7 +103,10 @@ export function useTaskRequestDecision({
     { action: 'approve' | 'reject' | 'request-more-evidence'; reason?: string; note?: string }
   >({
     mutationFn: async (vars) => {
+      const payload = JSON.stringify(vars);
+      if (sentRef.current !== null && sentRef.current !== payload) keyRef.current = mintIdempotencyKey();
       const key = (keyRef.current ??= mintIdempotencyKey());
+      sentRef.current = payload;
       if (vars.action === 'approve') {
         return approveTaskRequest(item.id, vars.reason ? { reason: vars.reason } : {}, key);
       }
@@ -112,6 +119,7 @@ export function useTaskRequestDecision({
       decisionSubmittingRef.current = false;
       setIsDecisionSubmitting(false);
       keyRef.current = null;
+      sentRef.current = null;
       setDecisionDialog(null);
       invalidateNavCounts(queryClient);
       void queryClient.invalidateQueries({ queryKey: ['task-requests'] });
@@ -162,11 +170,13 @@ export function useTaskRequestDecision({
       return;
     }
     keyRef.current = mintIdempotencyKey();
+    sentRef.current = null;
     setDecisionDialog({ requestId: item.id, action: 'approve', value: '', error: null });
   }
 
   function requestEvidence(): void {
     keyRef.current = mintIdempotencyKey();
+    sentRef.current = null;
     setDecisionDialog({
       requestId: item.id,
       action: 'request-more-evidence',
@@ -177,6 +187,7 @@ export function useTaskRequestDecision({
 
   function reject(): void {
     keyRef.current = mintIdempotencyKey();
+    sentRef.current = null;
     setDecisionDialog({ requestId: item.id, action: 'reject', value: '', error: null });
   }
 
@@ -212,8 +223,6 @@ export function useTaskRequestDecision({
   }
 
   function changeValue(value: string): void {
-    // A different body under the same key would be rejected as key reuse.
-    keyRef.current = mintIdempotencyKey();
     setDecisionDialog((current) => (current ? { ...current, value, error: null } : current));
   }
 

@@ -193,6 +193,34 @@ describe('useTaskRequestDecision success toast', () => {
       expect(api.approveTaskRequest.mock.calls[2]?.[2]).not.toBe(first?.[2]);
     });
 
+    it('keeps the key when only surrounding whitespace changes before a retry, and rotates it for a changed body', async () => {
+      api.rejectTaskRequest
+        .mockReset()
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValue({ ...taskRequest, status: 'rejected' });
+      const { result } = renderDecision();
+      act(() => result.current.reject());
+      act(() => result.current.changeValue('검토 완료'));
+      submitDecision(result.current);
+      await waitFor(() => expect(result.current.error).not.toBeNull());
+      // The response was lost: trailing whitespace is trimmed away, so the submitted body is identical.
+      act(() => result.current.changeValue('검토 완료 '));
+      submitDecision(result.current);
+      await waitFor(() => expect(api.rejectTaskRequest).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(result.current.error).not.toBeNull());
+      // A genuinely different body gets a fresh key.
+      act(() => result.current.changeValue('다른 사유'));
+      submitDecision(result.current);
+      await waitFor(() => expect(result.current.result).not.toBeNull());
+
+      const [first, second, third] = api.rejectTaskRequest.mock.calls;
+      expect(second?.[1]).toEqual(first?.[1]);
+      expect(second?.[2]).toBe(first?.[2]);
+      expect(third?.[1]).not.toEqual(first?.[1]);
+      expect(third?.[2]).not.toBe(first?.[2]);
+    });
+
     it('refetches the list and the detail on 409 and does not flag the reason field', async () => {
       api.approveTaskRequest
         .mockReset()
