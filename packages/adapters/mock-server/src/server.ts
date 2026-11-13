@@ -258,7 +258,8 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   const mart = o.mart !== false;
   if (mart && partialFails(s)) return { ...base, outcome: 'error', message: '위젯 쿼리가 실패했습니다(부분 실패 시나리오)' };
   const requiresScope = o.requiresScope ?? true;
-  const resolved = requiresScope ? resolveEquipment(o.global, requestRole) : { rows: EQUIPMENT, forbidden: null };
+  // A handler that declares no Scope gets no equipment: its rows would not be filtered by the caller's grants, so they must never reach the response.
+  const resolved = requiresScope ? resolveEquipment(o.global, requestRole) : { rows: [] as Equipment[], forbidden: null };
   if (s === 'forbidden' || resolved.forbidden) return { ...base, outcome: 'forbidden', message: resolved.forbidden ?? '권한이 회수되었습니다(시나리오)' };
   const hours = periodHours(o.global);
   if ((mart && s === 'too_large') || (o.maxHours && hours !== null && hours > o.maxHours && (o.global.selection === null || o.global.selection.length > 40))) {

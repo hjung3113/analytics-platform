@@ -1,8 +1,7 @@
 /**
  * Synthetic metric catalog — the server half of the metric endpoints (#129). Definitions are fabricated; they are
  * not registered production metrics. `publishedPointer` and `catalogVersion` are stored on the record — the
- * client does not pick a max version number (13 §3.2, Open policy). Equipment examples are population
- * illustrations, not a runtime coverage rate.
+ * client does not pick a max version number (13 §3.2, Open policy).
  */
 import type { AuditEvent } from '@ap/contracts';
 import {
@@ -398,20 +397,6 @@ export function filterCatalog(rows: CatalogRow[], q: string | null): CatalogRow[
   return rows.filter(r => r.metricId.toLowerCase().includes(needle) || r.nameKo.toLowerCase().includes(needle) || r.nameEn.toLowerCase().includes(needle));
 }
 
-function matchesPopulation(status: string, chamberType: string, rule: PopulationRule): boolean {
-  if (rule === 'not-retired') return status !== 'retired';
-  if (rule === 'active-only') return status === 'active';
-  if (rule === 'etch') return chamberType.startsWith('ET');
-  return status === 'maintenance' || status === 'active';
-}
-
-/** Example equipment IDs for the definition's population rule. Not a coverage rate. */
-export function populationExamples(rule: PopulationRule, equipment: { equipmentId: string; room: string; status: string; chamberType: string }[]): { ids: string[]; rooms: string[] } {
-  const rows = equipment.filter(e => matchesPopulation(e.status, e.chamberType, rule));
-  const rooms = [...new Set(rows.map(e => e.room))].sort();
-  return { ids: rows.slice(0, 3).map(e => e.equipmentId), rooms };
-}
-
 /** Catalog wall-clock (Asia/Seoul, no DST, 06 §6.3) → the recorded instant, canonical `Z`. */
 const recordedAt = (wallClock: string): string => new Date(`${wallClock}+09:00`).toISOString();
 
@@ -469,14 +454,13 @@ function metricAuditEvents(metric: MetricDef): AuditEvent[] {
 /** Every catalog metric's audit events, handed to `createMockAdapter({ auditEvents })` by the app's mock assembly (ADR-0048). */
 export const METRIC_AUDIT_EVENTS: readonly AuditEvent[] = METRICS.flatMap(metricAuditEvents);
 
-export function buildDefinition(metricId: string, requestedVersion: string | null, equipment: { equipmentId: string; room: string; status: string; chamberType: string }[]): DefinitionPayload {
+export function buildDefinition(metricId: string, requestedVersion: string | null): DefinitionPayload {
   const metric = metricById(metricId);
-  if (!metric) return { problem: 'unknown-metric', requestedVersion, metric: null, version: null, previous: null, exampleEquipmentIds: [], exampleRooms: [] };
-  const examples = populationExamples(metric.populationRule, equipment);
-  if (!requestedVersion) return { problem: 'need-version', requestedVersion, metric, version: null, previous: null, exampleEquipmentIds: examples.ids, exampleRooms: examples.rooms };
+  if (!metric) return { problem: 'unknown-metric', requestedVersion, metric: null, version: null, previous: null };
+  if (!requestedVersion) return { problem: 'need-version', requestedVersion, metric, version: null, previous: null };
   const version = versionOf(metric, requestedVersion);
-  if (!version) return { problem: 'version-not-member', requestedVersion, metric, version: null, previous: null, exampleEquipmentIds: examples.ids, exampleRooms: examples.rooms };
-  return { problem: null, requestedVersion, metric, version, previous: previousVersion(metric, requestedVersion), exampleEquipmentIds: examples.ids, exampleRooms: examples.rooms };
+  if (!version) return { problem: 'version-not-member', requestedVersion, metric, version: null, previous: null };
+  return { problem: null, requestedVersion, metric, version, previous: previousVersion(metric, requestedVersion) };
 }
 
 export function buildUsage(metricId: string, requestedVersion: string | null): UsagePayload {
