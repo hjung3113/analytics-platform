@@ -32,6 +32,10 @@ const section = savedViewsSlot.For(SPACE, registry.menuById('inbox'))!;
 const Body = section.Body;
 
 type Row = { id: string; surface: 'voc'; name: string; filter: Record<string, unknown>; created_at: string; updated_at: string };
+/** The server issues UUID ids for saved views (`z.string().uuid()`); the fixtures use the same shape. */
+const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const row = (id: string, name: string, filter: Record<string, unknown>): Row => ({ id, surface: 'voc', name, filter, created_at: '', updated_at: '' });
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -107,7 +111,7 @@ beforeEach(() => {
       if (failPost !== null) return json({ code: failPost.code, message: 'x' }, failPost.status);
       const body = JSON.parse(String(init!.body)) as Row;
       posted.push(body);
-      rows = [...rows, row(`n${rows.length + 1}`, body.name, body.filter)];
+      rows = [...rows, row(`${String(rows.length + 1).padStart(8, '0')}-dddd-4ddd-8ddd-dddddddddddd`, body.name, body.filter)];
       return json(rows[rows.length - 1], 201);
     }
     await deleteGates.get(url.split('/').at(-1) ?? '');
@@ -159,7 +163,7 @@ describe('savedViewsSlot', () => {
   });
 
   it('on the dashboard lists the saved views', async () => {
-    rows = [row('a', '높음 보기', { view: 'inbox', 'filter.severity': 'high' })];
+    rows = [row(A, '높음 보기', { view: 'inbox', 'filter.severity': 'high' })];
     await mount('/flow/dashboard');
     await settle();
     expect(applyButton('높음 보기')).toBeTruthy();
@@ -206,7 +210,7 @@ describe('apply', () => {
   const click = async (name: string) => { await act(async () => { applyButton(name).click(); }); await settle(); };
 
   it('lands on 수신함 with exactly the stored keys and clears a carried managedSystem', async () => {
-    rows = [row('a', '높음', { view: 'inbox', 'filter.severity': 'high' })];
+    rows = [row(A, '높음', { view: 'inbox', 'filter.severity': 'high' })];
     await mount('/flow/inbox?q=old&managedSystem=ms1&sort=-created&returnTo=%2Forigin%3Fv%3D1');
     await settle();
     await click('높음');
@@ -218,7 +222,7 @@ describe('apply', () => {
   });
 
   it('keeps the stored managedSystem and lands on Triage for a triage view from another menu', async () => {
-    rows = [row('a', '트리아지', { view: 'triage', tab: 'high', managed_system_id: 'ms2' })];
+    rows = [row(A, '트리아지', { view: 'triage', tab: 'high', managed_system_id: 'ms2' })];
     await mount('/flow/dashboard');
     await settle();
     await click('트리아지');
@@ -232,7 +236,7 @@ describe('apply', () => {
     ['inbox', '/flow/inbox?managedSystem=ms1', '/flow/inbox'],
     ['triage', '/flow/triage?managedSystem=ms1', '/flow/triage'],
   ])('applies a stored managed_system_id all as a cleared scope for a %s view', async (view, start, pathname) => {
-    rows = [row('a', '전체', { view, managed_system_id: 'all' })];
+    rows = [row(A, '전체', { view, managed_system_id: 'all' })];
     await mount(start);
     await settle();
     await click('전체');
@@ -242,7 +246,7 @@ describe('apply', () => {
   });
 
   it('leaves a stored view no table maps inert', async () => {
-    rows = [row('a', '이상함', { view: 'mystery' })];
+    rows = [row(A, '이상함', { view: 'mystery' })];
     await mount('/flow/dashboard');
     await settle();
     await click('이상함');
@@ -278,7 +282,7 @@ describe('delete and focus recovery', () => {
     await act(async () => { host!.querySelector<HTMLButtonElement>(`button[aria-label="저장된 보기 ${name} 삭제"]`)!.click(); });
     await settle();
   };
-  const three = () => [row('a', 'A', { view: 'inbox' }), row('b', 'B', { view: 'inbox' }), row('c', 'C', { view: 'inbox' })];
+  const three = () => [row(A, 'A', { view: 'inbox' }), row(B, 'B', { view: 'inbox' }), row(C, 'C', { view: 'inbox' })];
 
   it('focuses the next surviving row', async () => {
     rows = three();
@@ -297,7 +301,7 @@ describe('delete and focus recovery', () => {
   });
 
   it('focuses the save input when the last row is deleted on 수신함', async () => {
-    rows = [row('a', 'A', { view: 'inbox' })];
+    rows = [row(A, 'A', { view: 'inbox' })];
     await mount('/flow/inbox');
     await settle();
     await del('A');
@@ -373,7 +377,7 @@ describe('saved-view focus and drafts across navigation (#597)', () => {
     return field;
   }
   it('a same-route delayed delete leaves outside focus and draft alone', async () => {
-    rows = [row('a', 'A', {view: 'inbox'}), row('b', 'B', {view: 'inbox'})];
+    rows = [row(A, 'A', {view: 'inbox'}), row(B, 'B', {view: 'inbox'})];
     let release!: () => void;
     deleteGate = new Promise<void>(resolve => {release = resolve;});
     await mount('/flow/inbox'); await settle();
@@ -385,7 +389,7 @@ describe('saved-view focus and drafts across navigation (#597)', () => {
     expect(field.value).toBe('draft stays');
   });
   it('a rejected delete never moves focus the user placed outside', async () => {
-    rows = [row('a', 'A', {view: 'inbox'})]; failDelete = true;
+    rows = [row(A, 'A', {view: 'inbox'})]; failDelete = true;
     let release!: () => void;
     deleteGate = new Promise<void>(resolve => {release = resolve;});
     await mount('/flow/inbox'); await settle();
@@ -397,7 +401,7 @@ describe('saved-view focus and drafts across navigation (#597)', () => {
     expect(field.value).toBe('draft stays');
   });
   it('leaving and returning before a delete resolves never revives old focus recovery', async () => {
-    rows = [row('a', 'A', {view: 'inbox'}), row('b', 'B', {view: 'inbox'})];
+    rows = [row(A, 'A', {view: 'inbox'}), row(B, 'B', {view: 'inbox'})];
     let release!: () => void;
     deleteGate = new Promise<void>(resolve => {release = resolve;});
     await mount('/flow/inbox'); await settle();
@@ -411,7 +415,7 @@ describe('saved-view focus and drafts across navigation (#597)', () => {
   });
   it('keeps a long name discoverable through its full title and clipped label', async () => {
     const name = '가'.repeat(200);
-    rows = [row('a', name, {view: 'inbox'})];
+    rows = [row(A, name, {view: 'inbox'})];
     await mount('/flow/inbox'); await settle();
     expect(applyButton(name).title).toBe(name);
     expect(applyButton(name).querySelector('span')!.classList.contains('truncate')).toBe(true);
@@ -419,10 +423,10 @@ describe('saved-view focus and drafts across navigation (#597)', () => {
 });
 
 // Both completion orders retain the #972 concurrent-delete assertion from AppSidebar.
-it.each([['c', 'b'], ['b', 'c']])('concurrent deletes settling %s then %s focus the surviving neighbour', async (first, second) => {
-  rows = [row('a', 'A', { view: 'inbox' }), row('b', 'B', { view: 'inbox' }), row('c', 'C', { view: 'inbox' })];
+it.each([[C, B], [B, C]])('concurrent deletes settling %s then %s focus the surviving neighbour', async (first, second) => {
+  rows = [row(A, 'A', { view: 'inbox' }), row(B, 'B', { view: 'inbox' }), row(C, 'C', { view: 'inbox' })];
   const releases = new Map<string, () => void>();
-  for (const id of ['b', 'c']) deleteGates.set(id, new Promise<void>(resolve => { releases.set(id, resolve); }));
+  for (const id of [B, C]) deleteGates.set(id, new Promise<void>(resolve => { releases.set(id, resolve); }));
   await mount('/flow/inbox'); await settle();
   await act(async () => {
     for (const name of ['C', 'B']) {
@@ -430,7 +434,7 @@ it.each([['c', 'b'], ['b', 'c']])('concurrent deletes settling %s then %s focus 
       button.focus(); button.click();
     }
   });
-  expect(calls.filter(call => call.startsWith('DELETE ')).map(call => call.split('/').at(-1))).toEqual(['c', 'b']);
+  expect(calls.filter(call => call.startsWith('DELETE ')).map(call => call.split('/').at(-1))).toEqual([C, B]);
   // Both deletions fulfil before the two list snapshots land, matching the original regression.
   let releaseRead!: () => void;
   getGate = new Promise<void>(resolve => { releaseRead = resolve; });
