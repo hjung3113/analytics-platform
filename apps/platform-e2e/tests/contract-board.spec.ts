@@ -1889,8 +1889,10 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await open(page);
     await main(page).evaluate(element => { element.scrollTop = 300; });
     const before = await scrollTop(page);
+    expect(before).toBeGreaterThan(ROUNDING);
     const group = groupOf(page, TITLES.trend);
-    await group.getByRole('button', { name: `${TITLES.trend} 최대화` }).click();
+    // The trend header is above the visible area at this scroll position: a real click would first scroll it into view and move the position the restore must return to.
+    await group.getByRole('button', { name: `${TITLES.trend} 최대화` }).dispatchEvent('click');
     await expect(dropStrip(page)).toHaveCount(0);
     const restore = group.getByRole('button', { name: '원래 크기로' });
     await expect(restore).toBeVisible();
