@@ -243,6 +243,60 @@ describe('sharing keeps its input until the store answers ok (C1)', () => {
     expect([...store.rows.values()][0]?.visibility).toEqual({ kind: 'groups', groupIds: ['g1'] });
   });
 
+  // #2046: the share step retries at the version it created; a conflict rereads the view before the next try.
+  it('a share applied whose answer was lost reads as done on the retry, not as a refusal', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([]);
+    store.groups = GROUPS;
+    const real = store.setVisibility;
+    let lost = true;
+    store.setVisibility = async (...args) => { const result = await real(...args); if (lost) { lost = false; return { ok: false as const, reason: 'unavailable' as const }; } return result; };
+    mount(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    const picker = await startShare(user);
+    await user.click(within(picker).getByRole('button', { name: '공유 대상 저장' }));
+    expect(await within(screen.getByRole('dialog', { name: '공유 대상' })).findByRole('alert')).toHaveTextContent('공유 대상은 바꾸지 못했습니다');
+    await user.click(within(picker).getByRole('button', { name: '공유 대상 저장' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(toasts().join(' ')).toContain('공유 대상을 정했습니다'));
+    expect(store.rows.size).toBe(1);
+    expect([...store.rows.values()][0]?.visibility).toEqual({ kind: 'groups', groupIds: ['g1'] });
+  });
+  it('a share that conflicts with a change made elsewhere rereads the version, and the retry shares it', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([]);
+    store.groups = GROUPS;
+    const save = store.save;
+    // Someone else changes the new view right after it is created.
+    store.save = async input => { const result = await save(input); if (result.ok) store.rows.set(result.value.view.id, { ...result.value.view, name: 'renamed', version: 3 }); return result; };
+    mount(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    const picker = await startShare(user);
+    await user.click(within(picker).getByRole('button', { name: '공유 대상 저장' }));
+    expect(await within(screen.getByRole('dialog', { name: '공유 대상' })).findByRole('alert')).toHaveTextContent('다른 곳에서 먼저 바뀌었습니다');
+    await user.click(within(picker).getByRole('button', { name: '공유 대상 저장' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(store.calls.filter(c => c === 'save')).toHaveLength(1);
+    expect([...store.rows.values()][0]).toMatchObject({ version: 4, visibility: { kind: 'groups', groupIds: ['g1'] } });
+  });
+  // The conflict text says the latest version was loaded, so it shows only when the reread could read it.
+  it.each([
+    ['denied', (store: FakeViewStore, id: string) => { store.denied.add(id); }, '저장할 권한이 없습니다'],
+    ['throwing', (store: FakeViewStore) => { store.failGet = true; }, '지금은 저장할 수 없습니다'],
+  ])('a share conflict whose reread is %s keeps the picker and says why, not that the latest version was loaded', async (_name, breakRead, text) => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([]);
+    store.groups = GROUPS;
+    const save = store.save;
+    store.save = async input => { const result = await save(input); if (result.ok) { store.rows.set(result.value.view.id, { ...result.value.view, version: 3 }); breakRead(store, result.value.view.id); } return result; };
+    mount(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    const picker = await startShare(user);
+    await user.click(within(picker).getByRole('button', { name: '공유 대상 저장' }));
+    const alert = await within(screen.getByRole('dialog', { name: '공유 대상' })).findByRole('alert');
+    expect(alert).toHaveTextContent(text);
+    expect(alert).not.toHaveTextContent('다른 곳에서 먼저');
+    expect(within(picker).getByRole('checkbox', { name: '야간조 (2명)' })).toBeChecked();
+    expect(toasts().join(' ')).not.toContain('공유 대상을 정했습니다');
+  });
+
   it('keeps the picker when the first save is refused and saves on the retry', async () => {
     const user = userEvent.setup();
     const store = createFakeViewStore([]);
@@ -348,6 +402,40 @@ describe('a switch asks only when something would be lost (UX-1)', () => {
     await user.click(selector());
     await user.click(await screen.findByRole('button', row('포토 뷰')));
     expect(await screen.findByRole('dialog', { name: '변경한 내용을 어떻게 할까요?' })).toBeTruthy();
+  });
+
+  // #2046: a conflict rereads the list; when the selected view is gone from it, the edit is still the user's, not a fresh start.
+  it.each([
+    ['deleted elsewhere', (store: FakeViewStore) => { store.rows.delete('l1'); }],
+    ['no longer readable', (store: FakeViewStore) => {
+      const list = store.list;
+      store.list = async key => (await list(key)).map(item => (!item.denied && item.view.id === L1.id ? { id: L1.id, denied: true as const, reason: 'scope' as const } : item));
+    }],
+  ])('a conflict whose reread no longer lists the edited view (%s) still asks before the next pick, and saving it as new keeps the input', async (_name, lose) => {
+    const user = userEvent.setup();
+    const L2 = viewOf({ ...L1, id: 'l2', name: '둘째 뷰' } as never);
+    const store = createFakeViewStore([L1, L2]);
+    mount(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await pick(user, '포토 뷰');
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+    act(() => platform.setGlobal({ roomNames: ['ETCH'] }));
+    await waitFor(() => expect(screen.getByText('수정됨')).toBeTruthy());
+    store.update = async () => { lose(store); return { ok: false as const, reason: 'conflict' as const }; };
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    await user.click(await screen.findByRole('menuitem', { name: '현재 뷰에 저장' }));
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 저장하지 않은 조건'));
+    expect(platform.global.roomNames).toEqual(['ETCH']);
+    // The hook drops the id it can no longer show, so a reload does not try to recover it.
+    expect(Object.keys(window.sessionStorage).filter(key => key.startsWith('platform:saved-view:selected:'))).toEqual([]);
+    await user.click(selector());
+    await user.click(await screen.findByRole('button', row('둘째 뷰')));
+    const ask = await screen.findByRole('dialog', { name: '변경한 내용을 어떻게 할까요?' });
+    await user.click(within(ask).getByRole('button', { name: '새 뷰로 저장하고 이동' }));
+    await user.type(await screen.findByLabelText('뷰 이름'), '살린 뷰');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '저장' }));
+    await waitFor(() => expect([...store.rows.values()].find(view => view.name === '살린 뷰')?.context.roomNames).toEqual(['ETCH']));
   });
 });
 

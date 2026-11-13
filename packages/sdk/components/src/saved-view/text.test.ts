@@ -20,7 +20,8 @@ it('uses the view picker context summary in saved view details', () => {
 
 it('provides the shared saved view failure sentence', () => {
   expect(failureText({ ok: false, reason: 'unavailable' }, text => text.ko)).toBe('지금은 저장할 수 없습니다. 입력은 그대로이니 다시 시도하세요.');
-  expect(failureText({ ok: false, reason: 'conflict' }, text => text.en)).toBe('It changed elsewhere first. Your input is kept; refresh and save again.');
+  expect(failureText({ ok: false, reason: 'conflict' }, text => text.ko)).toBe('다른 곳에서 먼저 바뀌었습니다. 바뀐 저장본을 불러왔습니다. 내용을 확인하고 다시 저장하세요.');
+  expect(failureText({ ok: false, reason: 'conflict' }, text => text.en)).toBe('Changed elsewhere first. The latest saved version was loaded. Review it and save again.');
   expect(failureText({ ok: false, reason: 'forbidden' }, text => text.ko)).toBe('저장할 권한이 없습니다. 입력은 그대로입니다.');
   expect(failureText({ ok: false, reason: 'invalid' }, text => text.en)).toBe('This content cannot be saved. Your input is kept.');
 });

@@ -163,7 +163,7 @@ export function contentLines(view: SavedView, tx: (text: Text) => string, lang: 
 }
 
 const FAILURE_TEXT: Record<Extract<Result<unknown>, { ok: false }>['reason'], Text> = {
-  conflict: { ko: '다른 곳에서 먼저 바뀌었습니다. 입력은 그대로입니다. 새로 고친 뒤 다시 저장하세요.', en: 'It changed elsewhere first. Your input is kept; refresh and save again.' },
+  conflict: { ko: '다른 곳에서 먼저 바뀌었습니다. 바뀐 저장본을 불러왔습니다. 내용을 확인하고 다시 저장하세요.', en: 'Changed elsewhere first. The latest saved version was loaded. Review it and save again.' },
   forbidden: { ko: '저장할 권한이 없습니다. 입력은 그대로입니다.', en: 'You cannot save this. Your input is kept.' },
   unavailable: { ko: '지금은 저장할 수 없습니다. 입력은 그대로이니 다시 시도하세요.', en: 'Saving is unavailable now. Your input is kept; try again.' },
   invalid: { ko: '저장할 수 없는 내용입니다. 입력은 그대로입니다.', en: 'This content cannot be saved. Your input is kept.' },

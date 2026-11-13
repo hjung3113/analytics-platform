@@ -192,6 +192,47 @@ it('saving to the selected view uses its version; a conflict reports it and chan
   expect(store.rows.get('l1')?.context.lineNames).toEqual(['L1']);
   expect(host.global.lineNames).toEqual(['L2']);
 });
+// #2046: a conflict rereads the list, so the next save goes at the store's current version instead of conflicting forever.
+it('after a conflict the selection stays as 수정됨, and the second save sends the current version and succeeds', async () => {
+  const store = createFakeStore([L1]);
+  mount(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('l1'); });
+  act(() => host.setGlobal({ lineNames: ['L2'] }));
+  await waitFor(() => expect(views.state.modified).toBe(true));
+  store.rows.set('l1', { ...L1, version: 5 });
+  const update = vi.spyOn(store, 'update');
+  let first: Awaited<ReturnType<SavedViews['saveToSelected']>> | undefined;
+  await act(async () => { first = await views.saveToSelected(); });
+  expect(first).toMatchObject({ ok: false, reason: 'conflict' });
+  await waitFor(() => expect(views.selected?.view.version).toBe(5));
+  expect(views.selected?.view.id).toBe('l1');
+  expect(window.sessionStorage.getItem(KEY)).toBe('l1');
+  expect(views.state.modified).toBe(true);
+  expect(host.global.lineNames).toEqual(['L2']);
+  let second: Awaited<ReturnType<SavedViews['saveToSelected']>> | undefined;
+  await act(async () => { second = await views.saveToSelected(); });
+  expect(second?.ok).toBe(true);
+  expect(update).toHaveBeenLastCalledWith('l1', expect.anything(), { expectedVersion: 5 });
+  expect(store.rows.get('l1')).toMatchObject({ version: 6, context: { lineNames: ['L2'] } });
+  expect(views.selected?.view.id).toBe('l1');
+});
+it.each([['conflict', true], ['forbidden', false], ['unavailable', false], ['invalid', false]] as const)('saveToSelected answered %s rereads the view list: %s', async (reason, rereads) => {
+  const store = createFakeStore([L1]);
+  mount(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('l1'); });
+  act(() => host.setGlobal({ lineNames: ['L2'] }));
+  await waitFor(() => expect(views.state.modified).toBe(true));
+  store.update = vi.fn(async () => ({ ok: false as const, reason }));
+  const before = store.reads.filter(read => read === 'list').length;
+  await act(async () => { await views.saveToSelected(); });
+  await act(async () => {});
+  const after = () => store.reads.filter(read => read === 'list').length;
+  if (rereads) await waitFor(() => expect(after()).toBeGreaterThan(before)); else expect(after()).toBe(before);
+  expect(views.selected?.view.id).toBe('l1');
+  expect(host.global.lineNames).toEqual(['L2']);
+});
 // #2031: 현재 뷰에 저장 replaces only what this menu supports; stores replace `context`/`page` wholesale, so the patch carries the rest.
 async function saveSelected(store: FakeStore, id: string, change: () => void) {
   mount(store);
@@ -645,17 +686,25 @@ it.each(writeNames.flatMap(name => (['revision', 'unmount'] as const).map(how =>
   expect(result).toEqual({ ok: false, reason: 'unavailable' });
   expect(spy).not.toHaveBeenCalled();
 });
-it.each(entryWriteNames)('%s refreshes the view list after a current ok, and a failed Result does not', async name => {
+// #2046: a conflict rereads the list too, so a retry goes at the current version; other failures do not.
+it.each(entryWriteNames.flatMap(name => (['ok', 'conflict'] as const).map(answer => [name, answer] as const)))('%s refreshes the view list after a current %s', async (name, answer) => {
   const store = createFakeStore([L1]);
   mount(store, `/${query(['L1'])}`);
   await waitFor(() => expect(views.status).toBe('ready'));
-  stub(store, name, async () => ({ ok: false, reason: 'conflict' }));
+  stub(store, name, async () => (answer === 'ok' ? entryAt(2) : { ok: false, reason: 'conflict' }));
   const before = listCount(store);
   await act(async () => { await call(name); });
-  expect(listCount(store)).toBe(before);
-  stub(store, name, async () => entryAt(2));
-  await act(async () => { await call(name); });
   await waitFor(() => expect(listCount(store)).toBeGreaterThan(before));
+});
+it.each(entryWriteNames.flatMap(name => (['forbidden', 'unavailable', 'invalid'] as const).map(reason => [name, reason] as const)))('%s answered %s does not refresh the view list', async (name, reason) => {
+  const store = createFakeStore([L1]);
+  mount(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  stub(store, name, async () => ({ ok: false, reason }));
+  const before = listCount(store);
+  await act(async () => { await call(name); });
+  await act(async () => {});
+  expect(listCount(store)).toBe(before);
 });
 it.each(['createGroup', 'updateGroup'] as const)('%s does not refresh the view list', async name => {
   const store = createFakeStore([L1]);
