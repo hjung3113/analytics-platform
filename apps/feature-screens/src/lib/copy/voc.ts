@@ -22,6 +22,7 @@ export const VOC_CREATE_COPY = {
   requiredFieldsPrefix: '필수 항목: ',
   // #656: merged editor + dropzone attachments over the per-parent cap block the submit.
   attachmentLimit: '첨부는 최대 10개까지 연결할 수 있습니다.',
+  contextLinkTooLong: '화면 링크가 너무 길어 첨부하지 못했습니다.',
   // #1358: a system the actor may not file in (ADR-0113); the same line serves the picker, a blocked default and a 403 at submit.
   createDenied: '등록 권한이 없습니다 · 관리자에게 문의',
 } as const;
