@@ -23,7 +23,7 @@ export type SavedViews = {
   clearSelection: () => void;
   /** 새 뷰로 저장: stores the APPLIED conditions (never the draft) as a new view and selects it. */
   saveAs: (input: SaveInput) => Promise<Result<SavedViewEntry>>;
-  /** 현재 뷰에 저장: overwrites the selected view with the applied conditions at its version, keeping what this menu does not support and an unchanged relative period (`overwritePatch`); a conflict leaves everything as it is. */
+  /** 현재 뷰에 저장: overwrites the selected view with the applied conditions at its version, keeping what this menu does not support and an unchanged relative period (`overwritePatch`); a conflict keeps the selection and the applied conditions and rereads the view list, so the next call goes at the store's current version. */
   saveToSelected: () => Promise<Result<SavedViewEntry>>;
   /** 저장본으로 되돌리기: re-applies the selected view's saved copy. */
   revertToSaved: () => Promise<SelectOutcome>;
@@ -38,6 +38,7 @@ export type SavedViews = {
    *
    * `update`: raw patch at an `expectedVersion` (migration, rename): unlike `saveToSelected` it does not capture the applied conditions.
    * On ok the view list refreshes; when the returned view is the selected one it shows the returned version until the list answers (a newer version is kept).
+   * A current `conflict` refreshes the view list too (nothing else changes); `forbidden`, `unavailable` and `invalid` do not.
    */
   update: SavedViewStore['update'];
   /** On ok: same refresh and selected-view version rule as `update`. */
@@ -243,6 +244,8 @@ export function useSavedViews(): SavedViews {
       if (intent.current === mine && live.current.selectedId === result.value.view.id) setFresh({ gen: at, entry: result.value });
       refresh();
     }
+    // A write refused for its version rereads the list (06 §21.2): the selection and the applied conditions stay, and the next save goes at the version the store now holds.
+    if (!result.ok && result.reason === 'conflict' && !stale(at)) refresh();
     return result;
   }, [enabled, support, selected, applied, anchor, store, gen, refresh]);
   const revertToSaved = useCallback(async (): Promise<SelectOutcome> => selected ? apply(selected.view.id, 'selected') : { ok: false, reason: 'unavailable' }, [selected, apply]);
@@ -263,14 +266,16 @@ export function useSavedViews(): SavedViews {
     return result;
   }, [enabled, store, gen, userId, menuId, refresh]);
   // Store writes of the shell: sent only from the current generation; the Result of a completed call is returned unchanged, `after` runs only for a current ok.
+  // A view write (`after` given) answered `conflict` in the current generation rereads the list, as `saveToSelected` does; group writes do not touch views.
   const write = useCallback(async <T,>(send: (store: SavedViewStore) => Promise<Result<T>>, after?: (value: T, at: object) => void): Promise<Result<T>> => {
     const at = gen;
     if (!enabled || stale(at)) return OFF;
     let result: Result<T>;
     try { result = await send(store); } catch { return OFF; }
     if (result.ok && !stale(at)) after?.(result.value, at);
+    else if (after && !result.ok && result.reason === 'conflict' && !stale(at)) refresh();
     return result;
-  }, [enabled, store, gen]);
+  }, [enabled, store, gen, refresh]);
   // A written view that is still the selected one is the new snapshot, unless a newer version is already shown; picks and the selection stay untouched.
   const viewWritten = useCallback((entry: SavedViewEntry, at: object) => {
     if (live.current.selectedId === entry.view.id && !((live.current.selectedVersion ?? 0) > entry.view.version)) setFresh(previous => previous?.gen === at && previous.entry.view.id === entry.view.id && previous.entry.view.version > entry.view.version ? previous : { gen: at, entry });

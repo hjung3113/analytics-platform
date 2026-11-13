@@ -243,6 +243,41 @@ describe('sharing keeps its input until the store answers ok (C1)', () => {
     expect([...store.rows.values()][0]?.visibility).toEqual({ kind: 'groups', groupIds: ['g1'] });
   });
 
+  // #2046: the share step retries at the version it created; a conflict rereads the view before the next try.
+  it('a share applied whose answer was lost reads as done on the retry, not as a refusal', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([]);
+    store.groups = GROUPS;
+    const real = store.setVisibility;
+    let lost = true;
+    store.setVisibility = async (...args) => { const result = await real(...args); if (lost) { lost = false; return { ok: false as const, reason: 'unavailable' as const }; } return result; };
+    mount(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    const picker = await startShare(user);
+    await user.click(within(picker).getByRole('button', { name: '공유 대상 저장' }));
+    expect(await within(screen.getByRole('dialog', { name: '공유 대상' })).findByRole('alert')).toHaveTextContent('공유 대상은 바꾸지 못했습니다');
+    await user.click(within(picker).getByRole('button', { name: '공유 대상 저장' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(toasts().join(' ')).toContain('공유 대상을 정했습니다'));
+    expect(store.rows.size).toBe(1);
+    expect([...store.rows.values()][0]?.visibility).toEqual({ kind: 'groups', groupIds: ['g1'] });
+  });
+  it('a share that conflicts with a change made elsewhere rereads the version, and the retry shares it', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([]);
+    store.groups = GROUPS;
+    const save = store.save;
+    // Someone else changes the new view right after it is created.
+    store.save = async input => { const result = await save(input); if (result.ok) store.rows.set(result.value.view.id, { ...result.value.view, name: 'renamed', version: 3 }); return result; };
+    mount(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    const picker = await startShare(user);
+    await user.click(within(picker).getByRole('button', { name: '공유 대상 저장' }));
+    expect(await within(screen.getByRole('dialog', { name: '공유 대상' })).findByRole('alert')).toHaveTextContent('다른 곳에서 먼저 바뀌었습니다');
+    await user.click(within(picker).getByRole('button', { name: '공유 대상 저장' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(store.calls.filter(c => c === 'save')).toHaveLength(1);
+    expect([...store.rows.values()][0]).toMatchObject({ version: 4, visibility: { kind: 'groups', groupIds: ['g1'] } });
+  });
+
   it('keeps the picker when the first save is refused and saves on the retry', async () => {
     const user = userEvent.setup();
     const store = createFakeViewStore([]);

@@ -32,8 +32,17 @@ const generationKey = (generation: object): number => {
 
 type Pending = { unit: 'condition-set' | 'menu-view'; name: string };
 const entriesOf = (items: readonly SavedViewListItem[]) => items.flatMap(item => item.denied ? [] : [item]);
+const sameIds = (a: readonly string[], b: readonly string[]) => a.length === b.length && [...a].sort().join('\n') === [...b].sort().join('\n');
+/** Whether the stored view already holds what the share step asks for: the same people or groups, or an official request on its way or granted. */
+function shareApplied(view: SavedView, official: boolean, wanted: ViewVisibility): boolean {
+  if (official) return view.approval === 'pending' || view.approval === 'approved';
+  const now = view.visibility;
+  if (now.kind === 'people' && wanted.kind === 'people') return sameIds(now.userIds, wanted.userIds);
+  if (now.kind === 'groups' && wanted.kind === 'groups') return sameIds(now.groupIds, wanted.groupIds);
+  return false;
+}
 
-function Ready({ views, store, support }: { views: SavedViews; store: Pick<SavedViewStore, 'listGroups' | 'listApprovalRequests' | 'searchPeople'>; support: SavedViewSupport }) {
+function Ready({ views, store, support }: { views: SavedViews; store: Pick<SavedViewStore, 'get' | 'listGroups' | 'listApprovalRequests' | 'searchPeople'>; support: SavedViewSupport }) {
   const host = useHostPlatform();
   const axes = useEquipmentAxes();
   const { lang, tx } = useI18n();
@@ -206,7 +215,17 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       const visibility: ViewVisibility = draft.mode === 'people' ? { kind: 'people', userIds: draft.people.map(p => p.userId) } : { kind: 'groups', groupIds: [...draft.groupIds] };
       const shared = draft.mode === 'private' ? null : draft.mode === 'official' ? await views.requestOfficial(id, at) : await views.setVisibility(id, visibility, at);
       if (!alive.current) return false;
-      if (shared !== null && !shared.ok) return refused(shared.reason, true);
+      if (shared !== null && !shared.ok) {
+        if (shared.reason !== 'conflict') return refused(shared.reason, true);
+        // The view changed since this step read it, possibly by this step's own earlier try whose answer was lost: reread it, so a retry goes at
+        // the current version, and a share that is already in place counts as done instead of a refusal (#2046).
+        let now: SavedViewListItem | null;
+        try { now = await store.get(id); } catch { now = null; }
+        if (!alive.current) return false;
+        if (!now || now.denied || created.current?.id !== id) return refused('conflict', true);
+        created.current = { id, version: now.view.version };
+        if (!shareApplied(now.view, draft.mode === 'official', visibility)) return refused('conflict', true);
+      }
       pending.current = null;
       created.current = null;
       if (shared === null) { toast(ko ? `"${made.name}" 뷰를 저장했습니다.` : `Saved "${made.name}".`, 'info'); return true; }
