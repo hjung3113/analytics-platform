@@ -27,7 +27,8 @@ describe('app home launcher assembly (#1109)', () => {
     ['en' as const, 'Work systems'],
   ])('renders selected A through the actual registry (%s)', async (lang, systems) => {
     const headings = HOME_LAUNCHER_GROUPS.map(group => group.label[lang]);
-    const homePath = (id: string) => registry.menuById(SPACES.find(space => space.id === id)!.homeMenuId!)!.path;
+    // Cards inside a category follow SPACES (Registry) order, not the membership array order (ADR-0102 decision 1).
+    const categoryPaths = HOME_LAUNCHER_GROUPS.map(group => SPACES.filter(space => (group.spaces as readonly string[]).includes(space.id)).map(space => registry.menuById(space.homeMenuId!)!.path));
     localStorage.setItem('platform:lang', lang);
     const session = testSession([...registry.permissions]);
     const adapter = testAdapter({ session: () => session, menuQuery: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }) });
@@ -37,8 +38,6 @@ describe('app home launcher assembly (#1109)', () => {
     const section = await screen.findByRole('region', { name: systems }, { timeout: 10_000 });
     expect(within(section).getAllByRole('heading').map(heading => heading.textContent)).toEqual(headings);
     const categories = within(section).getAllByRole('heading').map(heading => within(heading.closest('section')!).getAllByRole('link'));
-    expect(categories.map(cards => cards.length)).toEqual(HOME_LAUNCHER_GROUPS.map(group => group.spaces.length));
-    expect(categories.flat().map(card => new URL(card.getAttribute('href')!, window.location.origin).pathname))
-      .toEqual(HOME_LAUNCHER_GROUPS.flatMap(group => group.spaces.map(homePath)));
+    expect(categories.map(cards => cards.map(card => new URL(card.getAttribute('href')!, window.location.origin).pathname))).toEqual(categoryPaths);
   }, 15_000);
 });
