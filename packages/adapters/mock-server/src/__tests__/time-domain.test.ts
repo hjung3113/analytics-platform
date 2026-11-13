@@ -137,7 +137,7 @@ describe('serve time-domain guard', () => {
     expect(res.data).toBeGreaterThan(1);
     expect(res.assessments).toEqual([
       { kind: 'collection', state: 'unknown', reason: 'source_unavailable' },
-      { kind: 'time_domain', state: 'clear', statusSource: 'time-domain-registry', observedAt: '2026-09-26T08:58:00', detail: 'KR-WALL' },
+      { kind: 'time_domain', state: 'clear', statusSource: 'time-domain-registry', observedAt: '2026-09-26T08:58:00+09:00', detail: 'KR-WALL' },
     ]);
   });
 

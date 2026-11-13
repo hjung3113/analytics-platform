@@ -199,11 +199,6 @@ export default function ProductivityOverview(_: PageProps) {
     };
   }
 
-  const coverageText = (c: number | null) => (c === null ? (ko ? '미확인' : 'Not confirmed') : `${(c * 100).toFixed(1)}%`);
-  const trustLine = (updatedAt: string, coverage: number | null, source: string) => ({
-    updated: updatedAt.replace('T', ' ').slice(5, 16), coverage: coverageText(coverage), source,
-  });
-
   const stgroupData = stgroupQ.response?.outcome === 'ok' ? stgroupQ.response.data : null;
   const equipmentData = equipmentQ.response?.outcome === 'ok' ? equipmentQ.response.data : null;
   const notFound = stgroupData && !stgroupData.roomFound && room
@@ -297,7 +292,7 @@ export default function ProductivityOverview(_: PageProps) {
               unit={meta.unit}
               valueFormat={fmtTrend}
               height={280}
-              trust={t ? trustLine(t.updatedAt, t.coverage, t.source) : undefined}
+              trust={t}
             />;
           }}
         </QueryView>
@@ -341,7 +336,7 @@ export default function ProductivityOverview(_: PageProps) {
                     { id: 'occupied', name: ko ? '점유 시간' : 'Occupied hours', color: 'chart-blue', kind: 'bar', points: rows.map(r => [r.key, r.occupiedHours] as [string, number | null]) },
                     { id: 'remainder', name: ko ? '미점유 (관측 가능 시간)' : 'Not occupied (observable)', color: 'chart-remainder', kind: 'bar', points: rows.map(r => [r.key, r.observableHours - r.occupiedHours] as [string, number | null]) },
                   ]}
-                  trust={t ? trustLine(t.updatedAt, t.coverage, t.source) : undefined}
+                  trust={t}
                 />
                 <div className="mt-2 overflow-auto rounded-lg border border-border-subtle bg-surface-card">
                   <table className="w-full text-xs">

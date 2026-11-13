@@ -198,7 +198,7 @@ export function evaluateTimeDomainMerge(
   return { ok: true, timeDomainId: domainIds[0] };
 }
 
-const OBSERVED = '2026-09-26T08:58:00';
+const OBSERVED = '2026-09-26T08:58:00+09:00';
 
 /** A paged result (`PageResult`): an object with a `rows` array and a numeric `total`. */
 function isPageResult(value: unknown): value is { rows: unknown[]; total: number } {
@@ -234,7 +234,7 @@ function finish<T>(args: {
     data: args.data,
     assessments,
     trust: args.mart === false ? null : {
-      updatedAt: '2026-09-26T09:02:00', dataThrough: '2026-09-26T08:00:00', coverage: args.scenario === 'unknown_status' ? null : 0.987,
+      updatedAt: '2026-09-26T09:02:00+09:00', dataThrough: '2026-09-26T08:00:00+09:00', coverage: args.scenario === 'unknown_status' ? null : 0.987,
       metricVersion: args.metricVersion, provisional: args.provisional, source: args.source ?? 'mart.productivity_hourly',
       ...(args.sourceLogicVersions ? { sourceLogicVersions: args.sourceLogicVersions } : {}),
     },

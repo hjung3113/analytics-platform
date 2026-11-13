@@ -1,5 +1,6 @@
 import { CONTEXT_LABELS, labelledCondition } from '@ap/kernel';
 import type { ApiResponse, Capability, ContextKey, EquipmentAxisDescriptor, GlobalContext, Trust } from '@ap/contracts';
+import { trustInstantText } from '../state/trustFormat';
 
 /** Pure wording and formatting for the table's export/copy (#173, #174): no React, no state. */
 type Lang = 'ko' | 'en';
@@ -62,8 +63,8 @@ export function exportDoneText(target: string, format: ExportFormat, lang: Lang)
 export function provisionalSuffix(trust: Trust | null | undefined, lang: Lang): string {
   return trust?.provisional
     ? (lang === 'ko'
-        ? ` — 잠정 데이터(${trust.dataThrough ? `데이터 기준 시각 ${trust.dataThrough.replace('T', ' ').slice(0, 16)}` : '기준 시각 미확인'})`
-        : ` — provisional data (${trust.dataThrough ? `data through ${trust.dataThrough.replace('T', ' ').slice(0, 16)}` : 'data-through unknown'})`)
+        ? ` — 잠정 데이터(${trust.dataThrough ? `데이터 기준 시각 ${trustInstantText(trust.dataThrough, lang, 'minute')}` : '기준 시각 미확인'})`
+        : ` — provisional data (${trust.dataThrough ? `data through ${trustInstantText(trust.dataThrough, lang, 'minute')}` : 'data-through unknown'})`)
     : '';
 }
 

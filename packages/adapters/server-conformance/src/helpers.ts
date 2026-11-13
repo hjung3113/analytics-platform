@@ -1,5 +1,5 @@
 import {
-  emptyGlobal, projectContext,
+  emptyGlobal, isIsoInstant, projectContext,
   type ActionResponse, type ApiResponse, type Assessment, type AssessmentKind, type GlobalContext, type MenuQuery, type Permission, type Trust,
 } from '@ap/contracts';
 import type { ConformanceCase, ServerConformanceHarness } from './types';
@@ -48,6 +48,7 @@ export function assessmentProblem(assessments: readonly Assessment[], outcome: A
     if ((a.state === 'confirmed' || a.state === 'clear') && (!a.statusSource || !a.observedAt)) {
       return `${a.kind} is ${a.state} without statusSource/observedAt (06 §19)`;
     }
+    if (a.observedAt != null && !isIsoInstant(a.observedAt)) return `${a.kind} observedAt is not an ISO-8601 instant with an offset (06 §19, kernel §6.3)`;
     if (a.state === 'unknown' && !a.reason) return `${a.kind} is unknown without a reason (06 §19)`;
     if (a.explainsEmpty === true && !(outcome === 'empty' && a.state === 'confirmed')) {
       return `${a.kind} sets explainsEmpty outside an empty outcome confirmed by a source (06 §19)`;
@@ -61,6 +62,9 @@ export function trustProblem(trust: Trust | null): string | null {
   if (trust === null) return null;
   if (typeof trust.updatedAt !== 'string') return 'trust.updatedAt is not a string (06 §18)';
   if (trust.dataThrough !== null && typeof trust.dataThrough !== 'string') return 'trust.dataThrough is not a string or null (06 §18)';
+  // Real instants (contract-schemas `instant`): an offset-less value would be read as the viewer's wall-clock and shift by the zone difference.
+  if (!isIsoInstant(trust.updatedAt)) return 'trust.updatedAt is not an ISO-8601 instant with an offset (06 §18, kernel §6.3)';
+  if (trust.dataThrough !== null && !isIsoInstant(trust.dataThrough)) return 'trust.dataThrough is not an ISO-8601 instant with an offset (06 §18, kernel §6.3)';
   if (trust.coverage !== null && typeof trust.coverage !== 'number') return 'trust.coverage is not a number or null (06 §18)';
   if (typeof trust.provisional !== 'boolean') return 'trust.provisional is not a boolean (06 §18)';
   if (typeof trust.source !== 'string') return 'trust.source is not a string (06 §18)';

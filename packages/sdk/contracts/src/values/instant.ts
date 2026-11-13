@@ -57,14 +57,27 @@ export function isIsoInstant(value: unknown): value is string {
   }
 }
 
-/** Format a real instant (epoch ms, or ISO-8601 with an explicit offset/Z) with Intl date+time 'short' in
- *  `timeZone` (default: the viewer's). A naive string — formatDateTime's wall-clock domain — is rejected,
- *  so silent UTC-digits-as-local rendering cannot happen. */
-export function formatInstant(instant: number | string, lang: keyof Text, timeZone?: string): string {
+/** How formatInstant prints: `'short'` (default) is Intl date+time 'short' in the viewer's locale; `'minute'` is
+ *  `YYYY-MM-DD HH:mm` and `'monthDayMinute'` is `MM-DD HH:mm` — digits only, 24-hour, the same in every language. */
+export type InstantForm = 'short' | 'minute' | 'monthDayMinute';
+
+const digitParts = (date: Date, timeZone: string | undefined): Record<'year' | 'month' | 'day' | 'hour' | 'minute', string> => {
+  const parts = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value ?? '';
+  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute') };
+};
+
+/** Format a real instant (epoch ms, or ISO-8601 with an explicit offset/Z) in `timeZone` (default: the
+ *  viewer's), in `form` (default Intl date+time 'short'). A naive string — formatDateTime's wall-clock domain —
+ *  is rejected, so silent UTC-digits-as-local rendering cannot happen. */
+export function formatInstant(instant: number | string, lang: keyof Text, timeZone?: string, form: InstantForm = 'short'): string {
   const value = typeof instant === 'string' ? parseInstant(instant) : instant;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return fail('invalid_time', 'instant: not a parseable epoch-ms or offset ISO-8601 value');
-  return date.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { dateStyle: 'short', timeStyle: 'short', timeZone });
+  if (form === 'short') return date.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { dateStyle: 'short', timeStyle: 'short', timeZone });
+  const p = digitParts(date, timeZone);
+  const monthDayMinute = `${p.month}-${p.day} ${p.hour}:${p.minute}`;
+  return form === 'minute' ? `${p.year}-${monthDayMinute}` : monthDayMinute;
 }
 
 /** Epoch ms of an ISO-8601 instant string — the sort/compare key where string compare is wrong once `Z`

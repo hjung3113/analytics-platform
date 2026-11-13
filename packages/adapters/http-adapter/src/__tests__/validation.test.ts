@@ -7,7 +7,7 @@ const QUERY = { endpoint: 'e.x', context: {}, params: {} } as never;
 const REQ: MenuAction = { action: 'g.n', context: { scopeId: 'fab-a' }, input: {}, idempotencyKey: '7b6c1d6e-0000-4000-8000-000000000000' };
 const SERVER_ID = { 'X-Correlation-Id': 'srv-7' };
 const ASSESSMENT = { kind: 'coverage', state: 'clear' };
-const TRUST = { updatedAt: '2026-10-02T09:00:00', dataThrough: null, coverage: null, provisional: false, source: 'dw' };
+const TRUST = { updatedAt: '2026-10-02T09:00:00+09:00', dataThrough: null, coverage: null, provisional: false, source: 'dw' };
 
 const UNSAFE: [string, string][] = [
   ['a URL', 'see https://internal.example/private?token=secret'],
@@ -60,6 +60,11 @@ describe('envelope structure (C3)', () => {
     const { adapter } = await ready(() => json(body));
     expect(await adapter.menuQuery(QUERY)).toEqual(body);
   });
+  it('accepts Trust and assessment instants with a Z or numeric offset (#2044)', async () => {
+    const body = { ...ENVELOPE, assessments: [{ ...ASSESSMENT, statusSource: 's', observedAt: '2026-10-01T23:58:00Z' }], trust: { ...TRUST, updatedAt: '2026-10-02T00:00:00Z', dataThrough: '2026-10-02T08:00:00+0900' } };
+    const { adapter } = await ready(() => json(body));
+    expect(await adapter.menuQuery(QUERY)).toEqual(body);
+  });
   it('data may be null or any value, but the key must be present', async () => {
     const { adapter } = await ready(() => json({ ...ENVELOPE, data: null }));
     expect((await adapter.menuQuery(QUERY)).outcome).toBe('ok');
@@ -78,6 +83,10 @@ describe('envelope structure (C3)', () => {
     ['trust without updatedAt', { ...ENVELOPE, trust: without(TRUST, 'updatedAt') }],
     ['trust with a string coverage', { ...ENVELOPE, trust: { ...TRUST, coverage: '1' } }],
     ['trust with a non-boolean provisional', { ...ENVELOPE, trust: { ...TRUST, provisional: 'no' } }],
+    // #2044: Trust times are real instants with an offset (contract-schemas `instant`); a wall-clock string is refused.
+    ['trust with an offset-less updatedAt', { ...ENVELOPE, trust: { ...TRUST, updatedAt: '2026-10-02T09:00:00' } }],
+    ['trust with an offset-less dataThrough', { ...ENVELOPE, trust: { ...TRUST, dataThrough: '2026-10-02T08:00:00' } }],
+    ['assessment with an offset-less observedAt', { ...ENVELOPE, assessments: [{ ...ASSESSMENT, statusSource: 's', observedAt: '2026-10-02T08:58:00' }] }],
   ])('%s is invalid_envelope', async (_name, body) => {
     const { adapter } = await ready(() => json(body, { headers: SERVER_ID }));
     expect(await adapter.menuQuery(QUERY)).toEqual({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'srv-7', message: 'invalid_envelope' });

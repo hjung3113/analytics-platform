@@ -341,6 +341,8 @@ Status        Provisional
 
 숫자를 보이지 않는 절(예: 지표 상세의 정의)에는 Data Trust를 그리지 않는다. 응답 봉투의 trust는 그 조회의 신뢰이지 절이 말하는 대상(버전의 발행·초안·폐기 상태)의 신뢰가 아니다(사용자 결정 2026-10-13, #299).
 
+Trust의 시각(`updatedAt`·`dataThrough`·평가 `observedAt`)은 오프셋이 붙은 실제 시점이다. 한 줄·Popover·차트 꼬리말·표 내보내기 「조회 정보」 시트·잠정 데이터 토스트는 모두 `@ap/components`의 같은 Trust 표시 함수를 거친다: `formatInstant`로 보는 사람의 시간대에 맞추고(한 줄·꼬리말 `MM-DD HH:mm`, Popover·시트·토스트 `YYYY-MM-DD HH:mm`), 커버리지 없음은 어디서나 「미확인」이다. 오프셋 없는 값은 화면을 깨뜨리지 않고 「—」로 보인다(#2009, #2044).
+
 `DataTrustIndicator`는 `trust`가 null이면 기본으로 아무것도 그리지 않는다. 응답에 Trust는 없고 평가 항목만 있을 때는 선택 옵션 `showWithoutTrust`가 평가 항목만으로 한 줄과 Popover를 그린다. 이때 갱신·커버리지·확정/잠정 행은 빼고 «응답에 Trust 없음»을 보이며, 메뉴는 Trust를 지어내 넘기지 않는다(서버가 말하지 않은 «확정»을 만들기 때문이다). 평가 항목이 비면 이 옵션에서도 그리지 않는다.
 
 ### Data Trust를 페이지마다 새로 설계하지 않는다

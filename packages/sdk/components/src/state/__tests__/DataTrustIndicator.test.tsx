@@ -7,7 +7,7 @@ import { DataTrustIndicator } from '../DataTrustIndicator';
 
 afterEach(cleanup);
 
-const trust: Trust = { updatedAt: '2026-10-16T09:00:00', dataThrough: '2026-10-16T08:00:00', coverage: 0.98, source: 'fixture', provisional: false };
+const trust: Trust = { updatedAt: '2026-10-16T09:00:00+09:00', dataThrough: '2026-10-16T08:00:00+09:00', coverage: 0.98, source: 'fixture', provisional: false };
 const details = () => screen.getByRole('button', { name: '데이터 신뢰' }).querySelector('[data-trust-summary-details]')!;
 
 describe('DataTrustIndicator wrap (table status line, ADR-0037)', () => {
@@ -195,5 +195,28 @@ describe('DataTrustIndicator showWithoutTrust (#1769)', () => {
   it('still renders nothing when there are no assessment items', () => {
     const { container } = render(<I18nProvider><DataTrustIndicator trust={null} assessments={[]} showWithoutTrust /></I18nProvider>);
     expect(container.textContent).toBe('');
+  });
+});
+
+describe('DataTrustIndicator shared Trust formatter (#2009, #2044)', () => {
+  it('words an unknown coverage 미확인 in the line and the popover, the same as the chart footer', () => {
+    render(<I18nProvider><DataTrustIndicator trust={{ ...trust, coverage: null }} assessments={[]} /></I18nProvider>);
+    expect(details()).toHaveTextContent('커버리지 미확인');
+    expect(details().textContent).not.toContain('커버리지 —');
+    fireEvent.click(screen.getByRole('button', { name: '데이터 신뢰' }));
+    const coverage = screen.getAllByText('커버리지').find(n => n.tagName === 'DT')!;
+    expect(coverage.nextElementSibling).toHaveTextContent('미확인');
+  });
+  it('shows Trust instants in the viewer zone (a Z instant read in Seoul), not the digits of the string', () => {
+    render(<I18nProvider><DataTrustIndicator trust={{ ...trust, updatedAt: '2026-10-28T00:00:00Z', dataThrough: '2026-10-27T23:00:00Z' }} assessments={[{ kind: 'coverage', state: 'clear', statusSource: 'svc', observedAt: '2026-10-27T23:30:00Z' }]} /></I18nProvider>);
+    expect(details()).toHaveTextContent('갱신 10-28 09:00');
+    fireEvent.click(screen.getByRole('button', { name: '데이터 신뢰' }));
+    expect(screen.getAllByText('갱신').find(n => n.tagName === 'DT')!.nextElementSibling).toHaveTextContent('2026-10-28 09:00');
+    expect(screen.getByText('데이터 기준').nextElementSibling).toHaveTextContent('2026-10-28 08:00');
+    expect(screen.getByText('svc · 10-28 08:30')).toBeTruthy();
+  });
+  it('shows 「—」 for an offset-less update time instead of crashing the screen', () => {
+    render(<I18nProvider><DataTrustIndicator trust={{ ...trust, updatedAt: '2026-10-16T09:00:00' }} assessments={[]} /></I18nProvider>);
+    expect(details()).toHaveTextContent('갱신 —');
   });
 });
