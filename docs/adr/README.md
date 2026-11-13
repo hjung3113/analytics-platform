@@ -169,6 +169,7 @@
 | [0156](0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md) | 코어 서버는 선언 묶음을 앱 빌드가 낸 메뉴 선언 스냅샷과 대조한다 | Decided(2026-11-13, advisor·소유자 위임, 되돌릴 수 있음) |
 | [0157](0157-bundle-declares-menu-capabilities.md) | 선언 묶음이 자기 capability 행과 메타를 선언한다(ADR-0146 결정 3 개정) | Decided(2026-11-13, 소유자 «니추천대로», 고문 리뷰 반영, 되돌릴 수 있음) |
 | [0158](0158-unregistered-link-destinations-and-declared-link-targets.md) | 등록되지 않은 링크 목적지는 «없음», 메뉴는 링크 목적지를 선언한다(`linkTargets`) | Decided(2026-11-13, advisor·소유자 위임, 되돌릴 수 있음) |
+| [0159](0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md) | 시도별 진단(`AttemptDiagnostic`)은 별도 worker 쓰기 경로·유한 상한·Source ACL 읽기, summary 투영은 자유 텍스트 없는 키 다섯 개, 첨부는 Source 참조로 미룸 | Decided(2026-11-13, 소유자 «플랫폼이 정의», 미구현, 되돌릴 수 있음) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

@@ -1,6 +1,6 @@
 # 검증 진단 리포트 보존 설계 (#1815)
 
-**Candidate · 미구현.** 공개 코드의 정적 대조와 구현 분할을 담는다. 사내 Validator의 실제 출력·변환기는 확인하지 않았으며 필드·첨부·새 스키마를 승인하지 않는다. 기존 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)·[ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)는 Decided로 유지한다. API 규칙은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815), 공통 근거 위치는 [기존 설계 §3](README.md#rule_result)가 소유한다.
+**Decided 구조 · 대부분 미구현.** 공개 코드의 정적 대조와 구현 분할을 담는다. 사내 Validator의 실제 출력은 확인하지 않았고, 소유자 결정에 따라 플랫폼이 진단 구조를 정의하며 사내가 그 구조에 맞춘다(R1·R2, [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md)). 기존 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)·[ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)는 Decided로 유지한다. API 규칙은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815), 공통 근거 위치는 [기존 설계 §3](README.md#rule_result)가 소유한다.
 
 ## 1. Worker → 저장 → 읽기 → 화면 손실 매트릭스
 
@@ -23,7 +23,7 @@
 
 **Candidate.** 새 Worker 쓰기 필드·DDL·대용량 저장 없이 진행하는 범위다. 기존 verdict/Gate/회귀 비교·의견을 바꾸지 않는다. 이유: 상세 읽기와 기계 판정을 분리한다.
 
-- `AttemptOut`의 기존 필드 목록과 추가 `workerSummaryState`, `workerSummary` 및 정확한 허용 키/타입은 [API의 읽기 투영](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815)에 한 번만 정의한다. 추천은 기존 합성 fixture의 enum 메타데이터만이며, 실제 설명 필드는 Open R1 답 후 정한다.
+- `AttemptOut`의 기존 필드 목록과 추가 `workerSummaryProjection`, `workerSummaryState`, `workerSummary` 및 정확한 허용 키/타입(버전 1: `fixture`, `mode`, `durationMs`, `producer`, `producerVersion`)은 [API의 읽기 투영](../../../architecture/platform-api/api/log-lifecycle.md#attemptout과-summary-허용-목록)에 한 번만 정의한다(R1 Decided). 제목·설명은 summary에 두지 않고 Slice B의 ACL 읽기로 낸다.
 - 규칙 상세는 저장된 기대/관측을 잘림 없는 텍스트로, 근거는 모든 행을 표로 제공한다. 이는 로컬 원문이나 제거된 개행의 복원을 뜻하지 않는다. 읽기 필드·상한·행 identity·중복 위치와 발췌 index 연결은 [API의 근거 행 계약](../../../architecture/platform-api/api/log-lifecycle.md#근거-행의-두-상태-축)을 따른다.
 - 발췌/원본 상태·삭제 provenance·재인증·감사·숨겨진 대상 처리는 같은 API 계약이 소유한다. 화면은 그 상태를 구분해 표시하며, 원본 링크의 파일 순서·줄 이동은 기존 Source 통합을 사용한다. 보관된 발췌와 원본은 수명이 다르므로 하나의 상태로 합치지 않는 이유도 API를 따른다.
 - `PlatformDataTable`·`DetailDrawer`·`@ap/ui`를 재사용한다. [#1809 수정 A](README.md#121-결과-중심-round-workbench-1809)가 결과 우선 탐색과 공용 우측 Drawer 구조를 확정했다. 이 문서는 진단 출력의 픽셀·문구·추가 URL 키를 정하지 않는다. UI 구현은 같은 실제 앱 variant와 소유자 Artifact 승인 뒤 진행한다.
@@ -32,20 +32,14 @@ Slice A는 풍부한 로컬 보고서 전체 parity를 약속하지 않는다. �
 
 ## 3. Slice B — 버전 있는 진단과 선택 첨부
 
-**Candidate · 미구현, R1/R2/R4/R5 답 이후 재개.** `AttemptDiagnostic`은 규칙 결과와 1:1을 강제하지 않는 시도별 읽기 모델 후보이며 `DiagnosticItem`은 그 안의 항목 후보 명칭이다. 규칙 결과·의견·사람 등록 항목은 서로 다른 출처다. API/저장 스키마 도입은 별도 구현 PR에서 소유 문서를 고치며, 이 문서는 wire schema를 확정하지 않는다.
+**Decided · 미구현 (R2, [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md)).** `AttemptDiagnostic`(시도 × 생산자당 문서 하나)과 `DiagnosticItem`을 도입한다. 규칙 결과와 1:1을 강제하지 않으며 규칙 결과·의견·사람 등록 항목과 다른 출처다. wire shape·상한·읽기·감사·수명은 [API §시도 진단](../../../architecture/platform-api/api/log-lifecycle.md#시도-진단-attemptdiagnostic-b0b1)이 한 번만 정의한다. 이 절은 설계 이유만 둔다.
 
-| 논리 필드 후보 | 제약과 이유 |
-| --- | --- |
-| `schemaVersion`, `attemptId`, `inputManifestDigest`, `producer`, `producerVersion` | 버전·시도·입력·생산자를 식별. 지원하지 않는 버전은 명시적 미지원 |
-| `items[].itemKey`, 선택 `ruleResultId` | 같은 생산자/시도 안에서 안정 키 유지. 배열 순번·제목을 키로 쓰지 않음. 참조는 같은 시도인지 검증 |
-| `origin`, `title`, `explanation` | 규칙 진단/별도 분석 출처를 명시. 의견 등급이나 사람 주장을 기계 verdict로 바꾸지 않음 |
-| `evidenceRefs[]` | 기존 EvidenceRef 사용. 본문·경로·일시 URL을 identity에 넣지 않음 |
-| `tables[].columns`, `rows` | 열은 안정 key·텍스트 label·scalar type 선언. 행은 열 key에 맞는 string/finite number/boolean/null만. 실행 코드·중첩 임의 객체 금지 |
-| 선택 `attachmentRefs` | 원본 소유자·내용 해시·보관/접근 상태를 가리키는 안정 참조. 발행/연결 권한은 별도 설계 게이트 |
+- **쓰기를 결과 본문과 떼는 이유.** 별도 worker 경로라서 verdict·`result_digest`·결과 422 범위가 진단 상한에 묶이지 않는다. 의견 경로와 같은 «성공한 시도 뒤 추가 쓰기» 틀이다.
+- **상한.** items 500, 표 4/항목, 열 16, 행 200, 셀 500자, 설명 4,000자, 시도 합계 512 KiB, 읽기 쪽 크기 100. 모두 유한하고 초과는 422, 조용한 절단은 없다. 수량을 곱한 값보다 합계 bytes가 실제 상한이며 발췌 256 KiB와 summary 4,096 bytes와 비교한 이유는 API가 가진다.
+- **R5 적용.** 제목·설명·표 텍스트는 Source 유래로 보고 원본 소유자 `lifecycle.excerpt.read`를 매 호출 판정·감사한다. 권리 없는 사람에게는 형태 메타데이터만 간다. HTML·Markdown·수식·URL은 해석하지 않고 텍스트로만 렌더한다.
+- **수명.** 본문은 발췌와 같은 보관 일수 뒤 지우고, 새 표라서 삭제 원인(`retention`·`admin`)을 권위 있게 기록한다.
 
-items 수, 항목별 표 수, 열 수, 행 수, 셀 길이, payload 총 bytes, 페이지 크기를 **각각 유한 상한**으로 둔다. 구체 수치는 R2의 합성 인벤토리와 읽기 예산으로 정하며 무제한·조용한 절단은 금지한다. 큰 표는 안정 순서/페이지·총량·누락 이유를 함께 제공한다. HTML·SQL·Markdown 실행/렌더 명령·수식 실행·임의 URL fetch·원본 경로는 받지 않는다. 텍스트로만 렌더하고 Source 유래 셀/설명은 원본과 같은 ACL·보관 조건을 적용한다.
-
-첨부는 인라인 표·제한된 발췌로 해결되지 않는 경우에만 후보로 연다. PDF/CSV/JSON/이미지 중 필요한 형식·보관 주체를 R4에서 정한다. Source 소유 참조를 우선 추천하며 플랫폼 저장이 필요하면 기존 StorageBackend/Attachments seam의 재사용을 검토한다. 세션 전용 `uploadFile`을 worker 업로드로 전용하지 않는다. worker token 발행/연결, 부모 읽기 판정, 크기/MIME/내용 검사, 다운로드 중계·감사, 멱등 키, 보관/삭제·철회 시험을 설계한 뒤 별도 구현한다. 원본 전체를 자동 복제하지 않는다.
+**첨부 (R4 Decided, schemaVersion 1 제외).** 방향은 Source 소유 참조다. 형식은 인라인 표로 담지 못하는 경우의 최소 셋인 CSV(큰 표)·PDF(사람용 리포트)·PNG(차트 그림)이고, JSON은 구조 데이터가 인라인 표로 가므로 제외한다. 플랫폼은 내용 해시·크기·형식 참조만 두고 열기는 Source 계약의 새 ACL 판정을 거친다. 보관은 Source 수명이며 발췌 90일과 따로 간다(발췌가 지워져도 참조는 남고, Source가 지운 파일은 열 때 부재로 드러난다). 플랫폼 저장 첨부·세션 전용 `uploadFile`의 worker 전용·원본 자동 복제는 하지 않는다. Source 산출물 읽기 포트가 없어 버전 2 필드로 미루며 다시 여는 조건은 backlog가 가진다.
 
 ## 4. Golden report parity 확인 계획
 
@@ -62,16 +56,17 @@ items 수, 항목별 표 수, 열 수, 행 수, 셀 길이, payload 총 bytes, �
 
 | 노드 | 선행 / 게이트 | 변경 위치와 충돌 |
 | --- | --- | --- |
-| P0 출력 인벤토리/Golden 매핑 | 사내 합성 등가 구조 확보, R1 | 문서/fixture. #1809와 독립 |
-| A1 summary 안전 투영 | 이 설계 merge + R1의 허용 키 승인 | backend `queue-read`/DTO·읽기 권한 테스트. RoundScreen 미접촉, 먼저 가능 |
+| P0 출력 인벤토리/Golden 매핑 | 사내가 플랫폼 구조에 맞춘 뒤의 적합성 기록 | 문서/fixture. A1·B1의 게이트가 아님. #1809와 독립 |
+| A1 summary 안전 투영 | 이 설계 merge (R1 Decided) | **구현 가능 backend 노드.** 새 `domain/worker-summary-projection.ts`(허용 목록 버전 1 판정, 순수 함수), `repositories/queue-read.ts`의 `AttemptOut`·시도 select에 `worker_summary` 추가, 시험 `__tests__/worker-summary-projection.test.ts`(단위)·`request-queue.integration.test.ts` 확장. DDL·쓰기 변경 없음. RoundScreen 미접촉 |
 | A2 **As-built** #1840 발췌/원본 상태 읽기 | 이 설계 merge + R3 삭제 provenance 결정 | backend excerpt/Source 읽기·ACL/상태 테스트. RoundScreen 미접촉, 먼저 가능. 기존 상태만으로 만료를 추정하는 구현 금지 |
 | A3 상세/근거표 | A1/A2 + **#1809 merge** + 실제 앱 variant 승인 | `RoundScreen.tsx`, 화면 contracts·상세 Drawer. #1809 뒤 stack |
 | A4 parity 회귀 | P0 + A1/A2/A3 | 합성 DB/read/UI 검증. UI 사양은 A3 의존 |
-| B0 진단/첨부 계약 | P0 + R2/R4/R5 및 권한·보관 확정 | 별도 API/저장 설계. #1807 공급자 선택과 동일시하지 않음 |
-| B1 버전 진단 쓰기/읽기 | B0 승인 | backend·schema·후속 DDL. RoundScreen 미접촉 |
-| B2 표/첨부 상세 | B1 + A3 + 실제 앱 variant 승인 | `RoundScreen.tsx` 연결 가능, #1809 뒤 stack |
+| B0 진단 계약 | **Decided** ([ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md), API §시도 진단) | 문서만. #1807 공급자 선택과 동일시하지 않음 |
+| B1 버전 진단 쓰기/읽기 | B0 | **구현 가능 backend 노드.** 마이그레이션(`attempt_diagnostic`·`attempt_diagnostic_item`, guard·삭제 함수 확장, `db:generate` 스냅샷), `domain/diagnostic-payload.ts`(파싱·상한·비밀 검사), `diagnostic-service.ts`, `repositories/diagnostic-write.ts`·`diagnostic-read.ts`, `worker-routes.ts`의 진단 경로, `request-endpoints.ts`의 `logLifecycle.diagnostics`·`diagnosticItem`, `excerpt-purge-job.ts`·`excerptDelete` 경로 확장, `@ap/contract-schemas` `validationDiagnostic*` 스키마, 메뉴 `log-validation-requests` 읽기 미러. RoundScreen 미접촉 |
+| B2 진단 표 상세 | B1 + A3 + `?variant=` 실제 앱 시안 + 소유자 질문 답 | 화면 노드. `RoundScreen.tsx`·상세 Drawer, #1809 뒤 stack |
+| B3 첨부 참조 | Source 산출물 읽기 포트 + schemaVersion 2 | Deferred(backlog #1815 행) |
 
-**A3 상태 · 부분 구현(A2 부분만).** 규칙 상세 Drawer의 «근거·원본 라인»이 `logLifecycle.evidenceStates`를 열 때마다 읽어 근거 행마다 발췌 축(`not_submitted`·`not_loaded`·`no_permission`·`unknown`)과 원본 축(`no_permission`·`hash_mismatch`·`not_checked`)을 따로 보인다. 발췌 보기는 `not_loaded`일 때만, 원본에서 보기는 `not_checked`일 때만 열린다. 근거 상태와 발췌 본문은 Drawer 인스턴스마다 따로 읽어, 다시 열면 이전 결과 없이 새로 읽는다(오프라인으로 다시 열어도 캐시된 본문·상태를 보이지 않고 연결 뒤 새 요청만 보인다). 상태 조회 뒤 삭제된 발췌도 원인을 단정하지 않고 «발췌 상태 알 수 없음»으로 보인다(R3). A1 summary 투영과 Slice B(표·첨부 상세)는 Candidate로 남는다. 다시 여는 조건: R1·R2 범위를 사내 리포트 점검 뒤 소유자가 확정할 때.
+**A3 상태 · 부분 구현(A2 부분만).** 규칙 상세 Drawer의 «근거·원본 라인»이 `logLifecycle.evidenceStates`를 열 때마다 읽어 근거 행마다 발췌 축(`not_submitted`·`not_loaded`·`no_permission`·`unknown`)과 원본 축(`no_permission`·`hash_mismatch`·`not_checked`)을 따로 보인다. 발췌 보기는 `not_loaded`일 때만, 원본에서 보기는 `not_checked`일 때만 열린다. 근거 상태와 발췌 본문은 Drawer 인스턴스마다 따로 읽어, 다시 열면 이전 결과 없이 새로 읽는다(오프라인으로 다시 열어도 캐시된 본문·상태를 보이지 않고 연결 뒤 새 요청만 보인다). 상태 조회 뒤 삭제된 발췌도 원인을 단정하지 않고 «발췌 상태 알 수 없음»으로 보인다(R3). A1(summary 투영)과 B1(진단 쓰기·읽기)은 계약이 Decided라 화면 없이 구현할 수 있다. A3의 summary 표시와 B2(진단 표 상세)는 화면 노드라 `?variant=` 실제 앱 시안과 소유자 승인 뒤에 만든다(루트 AGENTS §UI 시험 A: 새 상세 영역).
 
 #1808은 [사람 등록/토론 설계](validation-issues-discussion.md)의 N1/N2 backend를 먼저 준비할 수 있지만 진단 연결 UI는 A3의 안정 참조를 따른다.
 
@@ -79,10 +74,10 @@ items 수, 항목별 표 수, 열 수, 행 수, 셀 길이, payload 총 bytes, �
 
 | ID / 상태 | 선택지·실사 질문 | 추천과 이유 |
 | --- | --- | --- |
-| R1 Open | 실제 보고서에 제목/설명/원인/통계/버전 중 무엇이 있으며 어느 것이 필수인가? Slice A 허용 키를 enum만 둘까, 검증된 자유 설명까지 열까? | enum 메타데이터로 시작하고 설명은 구조 실사 후 결정. secret 정규식만으로 원본 유출을 막을 수 없음 |
-| R2 Open | 기존 기대/관측·근거로 충분한가, AttemptDiagnostic이 필요한가? 표의 열/행/셀·총량·페이지 상한은? | 실제 Golden에서 사라지는 정보가 입증될 때 B 도입. 수치는 합성 크기와 운영 예산을 함께 측정 |
+| R1 Decided (소유자 2026-11-13, 플랫폼 정의; 미구현) | Slice A 허용 키를 enum만 둘까, 검증된 자유 설명까지 열까? | 허용 목록 버전 1: `fixture`·`mode`·`durationMs`·`producer`·`producerVersion`(enum·정수·좁은 문자 집합). 자유 제목·설명은 summary에 두지 않음: `platform:view` 목록 읽기라 R5 ACL이 없고, 비밀 패턴·길이 제한으로 원본 비포함을 증명할 수 없음. 제목·설명은 R2의 ACL 읽기로 |
+| R2 Decided (소유자 2026-11-13, 플랫폼 정의; [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md), 미구현) | 기존 기대/관측·근거로 충분한가, AttemptDiagnostic이 필요한가? 표의 열/행/셀·총량·페이지 상한은? | 도입. 별도 worker 경로, items 500·표 4·열 16·행 200·셀 500자·설명 4,000자·시도 합계 512 KiB·페이지 100. 한 줄 500자 기대/관측으로는 설명·표가 사라짐 |
 | R3 Decided (소유자 2026-11-12, 추천안; 과거 삭제 provenance는 unknown) | 관리자 삭제와 retention의 과거 provenance를 어떻게 구별할까? unknown 유지, 제한된 안전 사유 읽기, 후속 provenance 보강 중 선택 | 권위가 없는 과거 행은 unknown. 만료를 추정하면 거짓 상태가 됨. 보강에 DDL이 필요하면 별도 승인 PR |
-| R4 Decided (소유자 2026-11-12, 추천안; 미구현) | 첨부 불필요, Source 소유 참조, 플랫폼 attempt/issue 첨부 중 어느 범위·형식·보관 기간인가? | Source 참조 우선. 필요한 최소 형식만 선택하고 발췌 90일과 별도 수명 차이를 명시 |
+| R4 Decided (소유자 2026-11-12, 추천안; 미구현) | 첨부 불필요, Source 소유 참조, 플랫폼 attempt/issue 첨부 중 어느 범위·형식·보관 기간인가? | Source 참조 우선, 형식 CSV·PDF·PNG, 보관은 Source 수명(발췌 90일과 별도). schemaVersion 1에서 제외하고 Source 산출물 읽기 포트가 생기면 버전 2로(§3) |
 | R5 Decided (소유자 2026-11-12, 추천안) | 진단 상세/첨부를 누가 읽고 생산자는 누구인가? Source 유래 표·설명을 통째로 보호할까, 검증된 메타데이터만 분리할까? | Source 유래 내용은 매 접근 ACL. 독립 metadata만 명시적으로 투영해 목록 누출 방지 |
 
-R1–R5의 미확정 범위는 구현하지 않는다. 같은 ID의 답과 소유자 승인으로 해당 노드만 다시 연다.
+R1–R5는 모두 Decided다. 화면 노드(A3 summary 표시, B2)는 `?variant=` 시안과 소유자 질문 답 뒤에만 구현한다.
