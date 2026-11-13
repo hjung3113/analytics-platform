@@ -1,8 +1,10 @@
 import { act, cleanup, screen } from '@testing-library/react';
-import { useSyncExternalStore, type ReactNode } from 'react';
+import { lazy, useSyncExternalStore, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { menuPermission } from '@ap/contracts';
 import { usePlatform } from '@ap/kernel';
+import { memoryStorage } from '@ap/kernel/testing';
+import { removeStaleChunkNotice } from './stale-chunk-notice';
 import { startAppHost } from './start';
 import type { StartAppHostOptions } from './types';
 import { AXES, QUERY_HISTORY, testAssembly, testDeclarations, testMenu } from './test-support';
@@ -124,5 +126,26 @@ describe('startAppHost invalidation', () => {
     await start({ createAssembly: () => testAssembly({ invalidation: { subscribe } }) });
     await screen.findByText('menu first');
     expect(subscribe).toHaveBeenCalled();
+  });
+});
+
+describe('startAppHost stale chunk notice (#1981)', () => {
+  beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); });
+  afterEach(() => { removeStaleChunkNotice(); vi.unstubAllGlobals(); });
+
+  it('installs the global notice: a vite:preloadError after start shows the reload button', async () => {
+    await start();
+    await screen.findByText('menu first', {}, { timeout: 10_000 });
+    act(() => { window.dispatchEvent(new Event('vite:preloadError', { cancelable: true })); });
+    expect(await screen.findByRole('button', { name: '새로 고침' }, { timeout: 10_000 })).toBeInTheDocument();
+  });
+
+  it('a menu chunk failure that RouteErrorBoundary catches shows its own retry and no second notice', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const component = lazy(() => Promise.reject(new TypeError('Failed to fetch dynamically imported module: /assets/fixture-chunk.js')));
+    await start({ declarations: testDeclarations({ menus: [testMenu('first', { component })] }) });
+    expect(await screen.findByRole('button', { name: '다시 시도' }, { timeout: 10_000 })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '새로 고침' })).toBeNull();
+    error.mockRestore();
   });
 });

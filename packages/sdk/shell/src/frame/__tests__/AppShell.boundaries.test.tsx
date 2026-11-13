@@ -88,6 +88,18 @@ describe('shell region boundaries (#1876)', { timeout: 15_000 }, () => {
     await expectFrameStands();
   });
 
+  // #1981: the popover body is a lazy feature chunk; its failure is drawn inside the popover, not by dropping the bell.
+  it('a failed notifications popover chunk keeps the bell and shows a retry that reloads the app', async () => {
+    const chunk = new TypeError('Failed to fetch dynamically imported module: /assets/fixture-chunk.js');
+    const Stale = (): ReactNode => { throw chunk; };
+    mount({ slots: { notifications: { menuId: 'fixture-other', UnreadCount: ({ children }) => children(0), Recent: Stale } } });
+    await expectFrameStands();
+    fireEvent.click(screen.getByRole('button', { name: 'fixture-other' }));
+    fireEvent.click(await screen.findByRole('button', { name: '다시 시도' }));
+    expect(reloadApp).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'fixture-other' })).toBeInTheDocument();
+  });
+
   it('a throwing topBarTools slot drops only the tools: the rail, the menu list and the screen stay', async () => {
     mount({ slots: { topBarTools: <Boom /> } });
     expect(await screen.findByText('screen content')).toBeInTheDocument();
