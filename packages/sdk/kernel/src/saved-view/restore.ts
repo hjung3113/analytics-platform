@@ -1,5 +1,5 @@
-import { buildQuery, emptyGlobal, RETURN_TO_KEY, type GlobalContext, type Pair, type SavedView, type SavedViewContext, type SavedViewSupport } from '@ap/contracts';
-import { resolveContext, supportedFields, type Applied, type SavedState } from './capture';
+import { buildQuery, emptyGlobal, RETURN_TO_KEY, type GlobalContext, type Pair, type SavedView, type SavedViewContext, type SavedViewPatch, type SavedViewSupport } from '@ap/contracts';
+import { pagePairs, resolveContext, supportedFields, type Applied, type SavedState } from './capture';
 
 /** Saved field → the Context key the user reads in the 적용되지 않음 list. */
 const KEY_OF: Record<keyof SavedViewContext, string> = { from: 'time', to: 'time', relativePeriod: 'time', roomNames: 'roomNames', lineNames: 'line', prcGroups: 'prcGroup', condition: 'condition', membershipBasis: 'condition', selection: 'selection' };
@@ -68,7 +68,28 @@ export function restoreSavedView(input: { view: SavedView; support: SavedViewSup
   return { ok: true, applied: true, next, href: input.pathname + buildQuery(next.global, next.page, input.extras), unsupported: unsupportedOf(view, support, input.anchor) };
 }
 
-const FIELD_TO_GLOBAL = { from: 'from', to: 'to', roomNames: 'roomNames', lineNames: 'lineNames', prcGroups: 'prcGroups', condition: 'condition', membershipBasis: 'membershipBasis', selection: 'selection', relativePeriod: 'from' } as const;
+/**
+ * The patch of 현재 뷰에 저장 (#2031): stores replace `context` and `page` wholesale, so the patch is complete. Saved fields and page keys this menu does
+ * not support stay as stored (06 §21.1); supported ones take the applied value, an emptied one is cleared. A relative period whose window the user
+ * did not change (applied `from`/`to` equal the view resolved at `anchor`, as the restore did) stays relative; a changed window is saved absolute.
+ */
+export function overwritePatch(view: SavedView, applied: SavedState, support: SavedViewSupport, anchor: string | null): Pick<SavedViewPatch, 'context' | 'page'> {
+  const fields = supportedFields(support);
+  const kept = Object.fromEntries(Object.entries(view.context).filter(([field]) => !fields.has(field as keyof SavedViewContext))) as SavedViewContext;
+  let context: SavedViewContext = { ...kept, ...applied.context };
+  const { relativePeriod } = view.context;
+  if (relativePeriod && fields.has('relativePeriod') && anchor !== null) {
+    const resolved = resolveContext(view.context, anchor);
+    if (applied.context.from === resolved.from && applied.context.to === resolved.to) {
+      const { from: _from, to: _to, ...rest } = context;
+      context = { ...rest, relativePeriod };
+    }
+  }
+  if (view.kind !== 'menu-view') return { context };
+  return { context, page: pagePairs([...savedPage(view).filter(([key]) => !support.pageKeys.includes(key)), ...applied.page]) };
+}
+
+const FIELD_TO_GLOBAL ={ from: 'from', to: 'to', roomNames: 'roomNames', lineNames: 'lineNames', prcGroups: 'prcGroups', condition: 'condition', membershipBasis: 'membershipBasis', selection: 'selection', relativePeriod: 'from' } as const;
 function savedPage(view: Extract<SavedView, { kind: 'menu-view' }>): Pair[] {
   return Array.isArray(view.page) ? view.page : Object.entries(view.page).flatMap(([k, vs]) => vs.map((v): Pair => [k, v]));
 }

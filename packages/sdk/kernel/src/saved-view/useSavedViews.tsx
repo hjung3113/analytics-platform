@@ -3,7 +3,7 @@ import { buildQuery, validateSavedView, type JsonValue, type Result, type SavedV
 import { useHostPlatform } from '../platform/platform';
 import { AppContext } from '../platform/contexts';
 import { captureApplied, viewState, type ViewState } from './capture';
-import { comparableApplied, restoreSavedView, savedStateOf, unsupportedOf, type RestoreFailure, type Unsupported } from './restore';
+import { comparableApplied, overwritePatch, restoreSavedView,savedStateOf, unsupportedOf, type RestoreFailure, type Unsupported } from './restore';
 
 export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' };
 export type SaveInput = { name: string; kind: 'condition-set' | 'menu-view'; chartOptions?: Record<string, JsonValue>; layout?: JsonValue; panels?: unknown };
@@ -23,7 +23,7 @@ export type SavedViews = {
   clearSelection: () => void;
   /** 새 뷰로 저장: stores the APPLIED conditions (never the draft) as a new view and selects it. */
   saveAs: (input: SaveInput) => Promise<Result<SavedViewEntry>>;
-  /** 현재 뷰에 저장: overwrites the selected view with the applied conditions at its version; a conflict leaves everything as it is. */
+  /** 현재 뷰에 저장: overwrites the selected view with the applied conditions at its version, keeping what this menu does not support and an unchanged relative period (`overwritePatch`); a conflict leaves everything as it is. */
   saveToSelected: () => Promise<Result<SavedViewEntry>>;
   /** 저장본으로 되돌리기: re-applies the selected view's saved copy. */
   revertToSaved: () => Promise<SelectOutcome>;
@@ -236,8 +236,7 @@ export function useSavedViews(): SavedViews {
     if (stale(at)) return OFF;
     ++intent.current;
     const mine = intent.current;
-    const captured = captureApplied(applied, support);
-    const patch = selected.view.kind === 'menu-view' ? { context: captured.context, page: captured.page } : { context: captured.context };
+    const patch = overwritePatch(selected.view, captureApplied(applied, support), support, anchor);
     let result: Result<SavedViewEntry>;
     try { result = await store.update(selected.view.id, patch, { expectedVersion: selected.view.version }); } catch { return OFF; }
     if (result.ok && !stale(at)) {
@@ -245,7 +244,7 @@ export function useSavedViews(): SavedViews {
       refresh();
     }
     return result;
-  }, [enabled, support, selected, applied, store, gen, refresh]);
+  }, [enabled, support, selected, applied, anchor, store, gen, refresh]);
   const revertToSaved = useCallback(async (): Promise<SelectOutcome> => selected ? apply(selected.view.id, 'selected') : { ok: false, reason: 'unavailable' }, [selected, apply]);
   const remove = useCallback(async (id: string): Promise<Result<null>> => {
     const at = gen;
