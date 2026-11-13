@@ -1,3 +1,4 @@
+import { StrictMode, useLayoutEffect } from 'react';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -73,6 +74,25 @@ describe('URL writes check only the path (#1875)', () => {
     let moved = true;
     act(() => { moved = platform.navigate(target); });
     expect(moved).toBe(false);
+    expect(window.location.pathname + window.location.search).toBe(before);
+    expect(reportClientError).toHaveBeenCalledTimes(1);
+    expect(reportClientError.mock.calls[0]).toMatchObject([{ name: 'NavTargetRefused', menuId: 'period' }]);
+  });
+
+  it.each([false, true])('a refusal raised in a child\'s first layout effect is reported once, after the reporter is wired (strict=%s)', async strict => {
+    window.history.replaceState(null, '', `/mars/period?v=1&${PERIOD}`);
+    const before = window.location.pathname + window.location.search;
+    const reportClientError = vi.fn(async () => ({ accepted: true as const }));
+    let result: boolean | null = null;
+    function Early() {
+      const { navigate } = useHostPlatform();
+      useLayoutEffect(() => { if (result === null) result = navigate('//evil.example/x'); }, [navigate]);
+      return null;
+    }
+    const tree = <I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session, menuQuery: async () => answer, reportClientError })} registry={registry}><Probe /><Early /></PlatformProvider></I18nProvider>;
+    render(strict ? <StrictMode>{tree}</StrictMode> : tree);
+    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+    expect(result).toBe(false);
     expect(window.location.pathname + window.location.search).toBe(before);
     expect(reportClientError).toHaveBeenCalledTimes(1);
     expect(reportClientError.mock.calls[0]).toMatchObject([{ name: 'NavTargetRefused', menuId: 'period' }]);

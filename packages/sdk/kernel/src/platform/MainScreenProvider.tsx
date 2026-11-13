@@ -42,7 +42,9 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const segRef = useRef<string | null>(bootIdx === null ? null : readHistorySeg(location.readState?.()));
   const stamping = location.readState !== undefined;
   const commitRef = useRef<((next: string, how: 'push' | 'replace', options?: CommitOptions) => boolean) | null>(null);
-  const reportRef = useRef<(error: unknown) => string>(() => '');
+  // Refusals raised before the reporter is wired (a child's first layout effect runs before this provider's) wait here and are delivered once.
+  const reportRef = useRef<((error: unknown) => string) | null>(null);
+  const pendingRef = useRef<unknown[]>([]);
   // The one rewrite of the arrival address: same history entry, no new entry (replace), the fragment stays.
   useEffect(() => {
     if (!arrival.rewrite || latestArrival.current !== arrival) return;
@@ -62,7 +64,8 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       if (!options.materialize) pageNavigation.cancel();
       const error = new Error('NavTargetRefused');
       error.name = 'NavTargetRefused';
-      reportRef.current(error);
+      if (reportRef.current) reportRef.current(error);
+      else pendingRef.current.push(error);
       return false;
     }
     // Hidden keys of the destination leave the address and travel in the entry's state; an alias redirect keeps the hidden pairs of the entry it replaces.
@@ -124,14 +127,17 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const { screen, sidebarSpace, resolveEntryLink } = useScreenState(app, source);
   const { pathname, route, contractError, navigate, currentSpace } = screen;
 
-  useLayoutEffect(() => { reportRef.current = screen.reportError; });
+  useLayoutEffect(() => {
+    reportRef.current = screen.reportError;
+    for (let error = pendingRef.current.shift(); error !== undefined; error = pendingRef.current.shift()) screen.reportError(error);
+  });
 
   // One stable listener (it reads refs, so a pathname change never re-registers it). `compensating`: Back/Forward pops the guard undid itself and must ignore;
   // `replayIdx`: the position a confirmed leave is travelling to (ADR-0115).
   const compensating = useRef(0);
   const replayIdx = useRef<number | null>(null);
   useEffect(() => {
-    const failOpen = (name: string) => { const error = new Error(name); error.name = name; reportRef.current(error); };
+    const failOpen = (name: string) => { const error = new Error(name); error.name = name; reportRef.current?.(error); };
     const arrivePop = (newIdx: number | null) => {
       const raw = location.read() ?? '';
       const arrived = arrive(raw, readHiddenState(location.readState?.()));

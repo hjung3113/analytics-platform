@@ -240,6 +240,24 @@ describe('PaneScreenProvider — navigation and links', () => {
     expect(reportClientError.mock.calls).toEqual(Array.from({ length: 3 }, () => [expect.objectContaining({ name: 'NavTargetRefused' })]));
   });
 
+  it.each([false, true])('a refusal raised in a child\'s first layout effect is reported once, after the reporter is wired (strict=%s) (#1875)', async strict => {
+    const p = spies();
+    const reportClientError = vi.fn(async () => ({ accepted: true as const }));
+    let result: boolean | null = null;
+    function Early() {
+      const { navigate } = useHostPlatform();
+      useLayoutEffect(() => { if (result === null) result = navigate('//evil.example/x'); }, [navigate]);
+      return null;
+    }
+    mount(<Pane id="p" initial={screenA()} spies={p} echo={false}><Early /></Pane>, fixture({ reportClientError }).adapter, undefined, strict);
+    await flush();
+    expect(result).toBe(false);
+    expect(p.onChange).not.toHaveBeenCalled();
+    expect(p.onLeave).not.toHaveBeenCalled();
+    expect(reportClientError).toHaveBeenCalledTimes(1);
+    expect(reportClientError.mock.calls[0]).toMatchObject([{ name: 'NavTargetRefused' }]);
+  });
+
   it('an accepted same-pane destination honors replace and a no-op navigation returns false', async () => {
     const p = spies();
     mount(<Pane id="p" initial={screenA()} spies={p} echo={false} />, fixture().adapter);

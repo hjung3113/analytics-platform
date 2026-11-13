@@ -71,10 +71,12 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
     return true;
   }, [navigation, url, menuId, params]);
   const { matchRoute } = registry;
-  const reportRef = useRef<(error: unknown) => string>(() => '');
+  // Refusals raised before the reporter is wired (a child's first layout effect runs before this provider's) wait here and are delivered once.
+  const reportRef = useRef<((error: unknown) => string) | null>(null);
+  const pendingRef = useRef<unknown[]>([]);
   const go = useCallback((href: string, options?: { replace?: boolean; focus?: PageFocus }) => {
     // Path-only check, as on the main screen (#1875): a refused destination is reported, a same-address one is a quiet no-op.
-    if (!isAppPath(href)) { navigation.cancel(); const error = new Error('NavTargetRefused'); error.name = 'NavTargetRefused'; reportRef.current(error); return false; }
+    if (!isAppPath(href)) { navigation.cancel(); const error = new Error('NavTargetRefused'); error.name = 'NavTargetRefused'; if (reportRef.current) reportRef.current(error); else pendingRef.current.push(error); return false; }
     if (href === url) { navigation.cancel(); return false; }
     const how = options?.replace ? 'replace' : 'push';
     const q = href.indexOf('?');
@@ -92,6 +94,9 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
   useEffect(() => app.internal.selectionPortCache.retain(`pane:${paneId}`), [app.internal.selectionPortCache, paneId]);
   const source: ScreenSource = { draftStore: draftStores?.get(paneId), mode: 'pane', paneId, paneLabel, url, navigation, commit, go, sidebarSpace: main.sidebarSpace, countsUsage: countUsage };
   const state = useScreenState(app, source);
-  useLayoutEffect(() => { reportRef.current = state.screen.reportError; });
+  useLayoutEffect(() => {
+    reportRef.current = state.screen.reportError;
+    for (let error = pendingRef.current.shift(); error !== undefined; error = pendingRef.current.shift()) state.screen.reportError(error);
+  });
   return <PaneScreenContext.Provider value={state.screen}>{children}</PaneScreenContext.Provider>;
 }
