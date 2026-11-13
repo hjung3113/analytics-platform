@@ -17,13 +17,18 @@ type Presentation = {
   geometry: BoardWindowGeometry | null;
   /** The window is shown in its narrow replacement (`fill`): the rail must not call it a window. Set by the host that measures. */
   windowFill: boolean;
+  /**
+   * The last ordinary screen to go back to, with its hidden page pairs (`appliedUrl`, ADR-0105): navigating to it hands them to the entry's state, never the address.
+   * `returnVisible` is the same screen's visible address, written with it: the only part `safeReturnTo` judges, as on the screen itself.
+   */
   returnHref: string | null;
+  returnVisible: string | null;
   lastSheetId: string | null;
   lastSheetName: string | null;
   /** The last status sentence for the chip's live region; `n` makes the same sentence announce again. */
   announcement: { text: string; n: number } | null;
 };
-const EMPTY: Presentation = { live: false, floating: false, lastMode: 'maximized', geometry: null, windowFill: false, returnHref: null, lastSheetId: null, lastSheetName: null, announcement: null };
+const EMPTY: Presentation = { live: false, floating: false, lastMode: 'maximized', geometry: null, windowFill: false, returnHref: null, returnVisible: null, lastSheetId: null, lastSheetName: null, announcement: null };
 
 const states = new Map<string, Presentation>();
 const listeners = new Set<() => void>();
@@ -99,7 +104,7 @@ const sheetHref = (id: string | null) => (id === null ? BOARD_PATH : `${BOARD_PA
  * every ordinary path that can be opened again is remembered as the place a minimize goes back to. Returns whether the board is mounted.
  */
 export function useBoardPresentationSync(): { mounted: boolean; maximized: boolean; floating: boolean } {
-  const { user, platformScreen, url, registry } = useHostPlatform();
+  const { user, platformScreen, url, appliedUrl, registry } = useHostPlatform();
   const state = useSyncExternalStore(subscribe, () => read(user.id));
   const maximized = platformScreen === 'board';
   // The mounted board of the previous user unmounts with this render (`mounted` is read per user); its stored state goes with it.
@@ -114,8 +119,8 @@ export function useBoardPresentationSync(): { mounted: boolean; maximized: boole
     const arrived = maximized && !wasMaximized.current;
     wasMaximized.current = maximized;
     if (maximized) write(user.id, { live: true, lastMode: 'maximized', ...(arrived ? { floating: false } : {}) });
-    else if (registry.safeReturnTo(url) !== null) write(user.id, { returnHref: withoutDetailKey(url) });
-  }, [maximized, url, user.id, registry]);
+    else if (registry.safeReturnTo(url) !== null) write(user.id, { returnHref: withoutDetailKey(appliedUrl), returnVisible: withoutDetailKey(url) });
+  }, [maximized, url, appliedUrl, user.id, registry]);
   // `lastMode` is always the last visible mode, so an automatic minimize (the address moved) restores to what was on screen.
   useLayoutEffect(() => {
     if (!maximized && state.live && state.floating) write(user.id, { lastMode: 'floating' });
@@ -134,10 +139,17 @@ export function useBoardPresentation() {
   const minimized = state.live && platformScreen !== 'board' && !floating;
   const announce = (text: string) => { write(user.id, { announcement: { text, n: (read(user.id).announcement?.n ?? 0) + 1 } }); };
 
-  /** Where leaving the board goes: the last ordinary path while it can still be opened, else the platform home. */
+  /**
+   * Where leaving the board goes: the last ordinary path while it can still be opened, else the platform home. The visible address is what is judged;
+   * the hidden pairs travel with it only to a screen that passes, and `navigate` moves them into the entry's state.
+   */
   const leaveHref = (): string => {
-    const stored = read(user.id).returnHref === null ? null : withoutDetailKey(read(user.id).returnHref!);
-    const menu = stored !== null && registry.safeReturnTo(stored) !== null ? registry.matchRoute(stored.split('?')[0])?.menu : undefined;
+    const { returnHref, returnVisible } = read(user.id);
+    const visible = returnVisible === null ? null : withoutDetailKey(returnVisible);
+    const stored = returnHref === null ? null : withoutDetailKey(returnHref);
+    // Both are written together, so they name the same path; the check keeps a mismatch from ever leaving for a path that was not judged.
+    const path = visible?.split('?')[0];
+    const menu = visible !== null && stored !== null && stored.split('?')[0] === path && registry.safeReturnTo(visible) !== null ? registry.matchRoute(path)?.menu : undefined;
     return stored !== null && menu !== undefined && canOpen(menu.id) ? stored : home ?? '/';
   };
   return {

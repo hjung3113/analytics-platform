@@ -11,12 +11,15 @@ import { boardText } from './text';
 
 type Destination = 'new' | 'empty' | 'replace';
 
-/** The current screen as a pane screen: this menu, its route params and the address's Context and page keys. */
+/**
+ * The current screen as a pane screen: this menu, its route params and its Context and page keys. Read from `appliedUrl`, not the address:
+ * a pane keeps hidden page keys in its own query (ADR-0105), and the detail expansion (`expand`) is main-screen presentation, not page state.
+ */
 function useCurrentScreen(): PaneScreen | null {
-  const { route, url } = useHostPlatform();
+  const { route, appliedUrl } = useHostPlatform();
   if (!route) return null;
-  const at = url.indexOf('?');
-  return { menuId: route.menu.id, params: { ...route.params }, query: at === -1 ? '' : url.slice(at) };
+  const at = appliedUrl.indexOf('?');
+  return { menuId: route.menu.id, params: { ...route.params }, query: at === -1 ? '' : appliedUrl.slice(at) };
 }
 
 /**
