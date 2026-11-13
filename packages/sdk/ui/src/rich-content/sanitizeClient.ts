@@ -178,6 +178,15 @@ interface WalkCtx {
   nodeCount: number;
   markCount: number;
   textBytes: number;
+  /** false = report a size limit instead of dropping (the editor's outgoing value, #2021). */
+  enforceLimits: boolean;
+  overLimit: boolean;
+}
+
+// A size limit is either enforced (drop: the read side) or only reported (keep: the write side).
+function limitHit(ctx: WalkCtx): boolean {
+  ctx.overLimit = true;
+  return ctx.enforceLimits;
 }
 
 const EMPTY_DOC: TipTapDoc = { type: 'doc', content: [] } as unknown as TipTapDoc;
@@ -185,7 +194,7 @@ const EMPTY_DOC: TipTapDoc = { type: 'doc', content: [] } as unknown as TipTapDo
 function cleanNode(raw: unknown, depth: number, ctx: WalkCtx): CleanNode | null {
   const allow = UI_ALLOWLISTS[ctx.surface];
 
-  if (depth > allow.maxDepth) return null;
+  if (depth > allow.maxDepth && limitHit(ctx)) return null;
   if (!isPlainObject(raw)) return null;
 
   const node = raw as RawNode;
@@ -195,13 +204,13 @@ function cleanNode(raw: unknown, depth: number, ctx: WalkCtx): CleanNode | null 
   if (allow.leafNodes.has(node.type) && Array.isArray(node.content) && node.content.length > 0) return null;
 
   ctx.nodeCount++;
-  if (ctx.nodeCount > allow.maxNodes) return null;
+  if (ctx.nodeCount > allow.maxNodes && limitHit(ctx)) return null;
 
   // text byte cap (defence-in-depth; truncate by dropping further text).
   let text: string | undefined;
   if (typeof node.text === 'string') {
     const bytes = new TextEncoder().encode(node.text).length;
-    if (ctx.textBytes + bytes > allow.maxTextBytes) return null;
+    if (ctx.textBytes + bytes > allow.maxTextBytes && limitHit(ctx)) return null;
     ctx.textBytes += bytes;
     text = node.text;
   }
@@ -211,8 +220,8 @@ function cleanNode(raw: unknown, depth: number, ctx: WalkCtx): CleanNode | null 
   const marks: CleanMark[] = [];
   if (Array.isArray(node.marks)) {
     for (const rawMark of node.marks) {
-      if (ctx.markCount >= allow.maxMarks) break;
       const m = cleanMark(rawMark, allow.marks, allow.markAttrs);
+      if (m && ctx.markCount >= allow.maxMarks && limitHit(ctx)) break;
       if (m) {
         marks.push(m);
         ctx.markCount++;
@@ -254,11 +263,25 @@ function cleanNode(raw: unknown, depth: number, ctx: WalkCtx): CleanNode | null 
  * Unrecognised input shapes coerce to an empty `doc`.
  */
 export function sanitizeClient(doc: TipTapDoc, surface: ClientSanitizeSurface): TipTapDoc {
-  if (!UI_ALLOWLISTS[surface]) return EMPTY_DOC;
-  if (!isPlainObject(doc as unknown)) return EMPTY_DOC;
+  return walkDoc(doc, surface, true).doc;
+}
 
-  const ctx: WalkCtx = { surface, nodeCount: 0, markCount: 0, textBytes: 0 };
+/**
+ * Write-side variant for the editor's outgoing value (#2021): the same node, mark and attribute
+ * normalisation as `sanitizeClient`, but the size limits (text bytes, nodes, marks, depth) are only
+ * reported in `overLimit`, never applied by dropping what the author typed. The server stays the
+ * authority and rejects an over-limit document with an error.
+ */
+export function normalizeClient(doc: TipTapDoc, surface: ClientSanitizeSurface): { doc: TipTapDoc; overLimit: boolean } {
+  return walkDoc(doc, surface, false);
+}
+
+function walkDoc(doc: TipTapDoc, surface: ClientSanitizeSurface, enforceLimits: boolean): { doc: TipTapDoc; overLimit: boolean } {
+  if (!UI_ALLOWLISTS[surface]) return { doc: EMPTY_DOC, overLimit: false };
+  if (!isPlainObject(doc as unknown)) return { doc: EMPTY_DOC, overLimit: false };
+
+  const ctx: WalkCtx = { surface, nodeCount: 0, markCount: 0, textBytes: 0, enforceLimits, overLimit: false };
   const cleaned = cleanNode(doc, 0, ctx);
-  if (!cleaned || cleaned.type !== 'doc') return EMPTY_DOC;
-  return cleaned as unknown as TipTapDoc;
+  if (!cleaned || cleaned.type !== 'doc') return { doc: EMPTY_DOC, overLimit: ctx.overLimit };
+  return { doc: cleaned as unknown as TipTapDoc, overLimit: ctx.overLimit };
 }

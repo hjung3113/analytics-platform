@@ -8,7 +8,7 @@ import { getExtensionsForSurface } from './allowlist-local';
 import { buildExtensionsForSurface } from './editor-extensions';
 import { RichEditorToolbar } from './RichEditorToolbar';
 import { EditorExtras, type SlashMenuAssociation } from './EditorExtras';
-import { sanitizeClient } from './sanitizeClient';
+import { normalizeClient } from './sanitizeClient';
 
 export default function RichEditorImpl({
   surface,
@@ -22,11 +22,15 @@ export default function RichEditorImpl({
   toolbar,
   onAttach,
   resolveAttachmentUrl,
+  resolveMentionLabel,
   toolbarStickyOffset,
 }: RichEditorProps) {
-  const callbacks = React.useRef({ onAttach, resolveAttachmentUrl });
-  React.useEffect(() => { callbacks.current = { onAttach, resolveAttachmentUrl }; }, [onAttach, resolveAttachmentUrl]);
+  const callbacks = React.useRef({ onAttach, resolveAttachmentUrl, resolveMentionLabel });
+  React.useEffect(() => { callbacks.current = { onAttach, resolveAttachmentUrl, resolveMentionLabel }; }, [onAttach, resolveAttachmentUrl, resolveMentionLabel]);
   const [uploadError, setUploadError] = React.useState(false);
+  const [overLimit, setOverLimit] = React.useState(false);
+  // The last value handed to onChange: a parent that echoes this same object needs no comparison.
+  const lastEmitted = React.useRef<TipTapDoc | null>(null);
   const [slashMenu, setSlashMenu] = React.useState<SlashMenuAssociation | null>(null);
   const uploadFiles = React.useCallback(async (editor: Editor, files: File[], pos?: number) => {
     if (!editor.isEditable || !callbacks.current.onAttach) return;
@@ -51,6 +55,7 @@ export default function RichEditorImpl({
   const extensions = React.useMemo(
     () => buildExtensionsForSurface(surface, placeholder ?? '', {
       resolveAttachmentUrl: id => callbacks.current.resolveAttachmentUrl?.(id) ?? null,
+      resolveMentionLabel: id => callbacks.current.resolveMentionLabel?.(id),
       onFiles: (editor, files, pos) => { void uploadFiles(editor, files, pos); },
     }), [surface, placeholder, uploadFiles],
   );
@@ -77,12 +82,18 @@ export default function RichEditorImpl({
     editorProps,
     // value can be null (explicit clear); fall through to defaultValue / empty doc.
     content: getExtensionsForSurface(surface).includes('image')
-      ? sanitizeClient(value ?? defaultValue ?? { type: 'doc', content: [{ type: 'paragraph' }] }, surface)
+      ? normalizeClient(value ?? defaultValue ?? { type: 'doc', content: [{ type: 'paragraph' }] }, surface).doc
       : (value ?? defaultValue ?? { type: 'doc', content: [{ type: 'paragraph' }] }) as TipTapDoc,
     editable: !disabled,
+    // The outgoing value never drops what the author typed (#2021): size limits are only reported, as a
+    // notice here, and the server rejects an over-limit document with an error instead of storing less.
     onUpdate({ editor }) {
       const doc = editor.getJSON() as TipTapDoc;
-      onChange?.(getExtensionsForSurface(surface).includes('image') ? sanitizeClient(doc, surface) : doc);
+      const normalized = normalizeClient(doc, surface);
+      setOverLimit(normalized.overLimit);
+      const emitted = getExtensionsForSurface(surface).includes('image') ? normalized.doc : doc;
+      lastEmitted.current = emitted;
+      onChange?.(emitted);
     },
     immediatelyRender: false,
   });
@@ -115,18 +126,29 @@ export default function RichEditorImpl({
       wasControlledRef.current = true;
     }
     if (!wasControlledRef.current) return;
+    if (value != null && value === lastEmitted.current) return;
+    // Any other value ends the echo: returning later to an object emitted earlier must compare again.
+    lastEmitted.current = null;
     const incoming: TipTapDoc = value ?? { type: 'doc', content: [{ type: 'paragraph' }] };
-    const targetDoc = getExtensionsForSurface(surface).includes('image') ? sanitizeClient(incoming, surface) : incoming;
-    // Compare as schema documents: raw getJSON() and the sanitized value differ in key order and
-    // default attrs even when identical, and a needless setContent moves the caret.
+    const normalizes = getExtensionsForSurface(surface).includes('image');
+    const targetDoc = normalizes ? normalizeClient(incoming, surface).doc : incoming;
+    // Compare as schema documents: raw getJSON() and the normalized value differ in key order and
+    // default attrs even when identical, and a needless setContent moves the caret. The editor side goes
+    // through the same normalisation, so an echo that only lacks attributes the allowlist strips
+    // (orderedList `start`, an unlisted code language) is the same document, not a replacement (#2021).
     let same = false;
     try {
-      same = ProseNode.fromJSON(editor.schema, targetDoc).eq(editor.state.doc);
+      const current = normalizes
+        ? ProseNode.fromJSON(editor.schema, normalizeClient(editor.getJSON() as TipTapDoc, surface).doc)
+        : editor.state.doc;
+      same = ProseNode.fromJSON(editor.schema, targetDoc).eq(current);
     } catch {
       same = false;
     }
     if (!same) {
       editor.commands.setContent(targetDoc, { emitUpdate: false });
+      // No update event fires for this replacement, so the size notice follows the new document here.
+      setOverLimit(normalizeClient(targetDoc, surface).overLimit);
     }
   }, [editor, value, surface]);
 
@@ -185,6 +207,7 @@ export default function RichEditorImpl({
     <>
       {toolbar ? toolbar(editor, toolbarApi) : editor && getExtensionsForSurface(surface).includes('heading') ? <RichEditorToolbar editor={editor} surface={surface} stickyOffset={toolbarStickyOffset} {...(onAttach ? { attach: toolbarApi.attach } : {})} /> : null}
       {uploadError && <p role="alert" className="break-keep px-3 text-sm text-text-danger-label">첨부 파일을 올리지 못했습니다. 다시 시도해 주세요.</p>}
+      {overLimit && <p role="alert" className="break-keep px-3 text-sm text-text-danger-label">내용이 너무 깁니다. 줄여야 저장할 수 있습니다.</p>}
       {editor && getExtensionsForSurface(surface).includes('heading') && <EditorExtras editor={editor} surface={surface} onMenuChange={setSlashMenu} />}
       {/*
         `minHeight` sizes this wrapper, but the editable element TipTap renders

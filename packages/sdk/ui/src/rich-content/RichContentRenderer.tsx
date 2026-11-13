@@ -63,6 +63,8 @@ export interface RichContentRendererProps {
   /** Label for a reference whose id is not in `attachments`. Defaults to 'attachment'. */
   attachmentFallbackLabel?: string;
   resolveAttachmentUrl?: (id: string) => string | null;
+  /** Display name of a mentioned actor (`actor_id` → name). Unresolved mentions show `@멘션`, never the id. */
+  resolveMentionLabel?: (actorId: string) => string | null | undefined;
   size?: 'default' | 'sm';
   className?: string;
 }
@@ -86,6 +88,7 @@ export function RichContentRenderer({
   attachments,
   attachmentFallbackLabel,
   resolveAttachmentUrl,
+  resolveMentionLabel,
   size = 'default',
   className,
 }: RichContentRendererProps) {
@@ -112,9 +115,9 @@ export function RichContentRenderer({
       AttachmentRef.configure({
         label: ({ id }: AttachmentRefAttrs) => names.get(id) ?? attachmentFallbackLabel ?? 'attachment',
       }),
-      Mention,
+      Mention.configure({ label: actorId => resolveMentionLabel?.(actorId) }),
     ]);
-  }, [doc, mode, surface, attachments, attachmentFallbackLabel, resolveAttachmentUrl, anchorPrefix]);
+  }, [doc, mode, surface, attachments, attachmentFallbackLabel, resolveAttachmentUrl, resolveMentionLabel, anchorPrefix]);
 
   return (
     <div

@@ -72,6 +72,12 @@ export interface RichEditorProps {
   onAttach?: (file: File) => Promise<RichEditorAttachmentResult>;
   /** Resolve an uploaded attachment at view time. URLs are never stored in image JSON. */
   resolveAttachmentUrl?: (id: string) => string | null;
+  /**
+   * Display name of a mentioned actor. A mention stores only `actor_id`; without a resolver, or when it
+   * returns nothing, the chip shows the neutral fallback `@멘션`, never the id. The editor reads the latest
+   * resolver when a mention is drawn.
+   */
+  resolveMentionLabel?: (actorId: string) => string | null | undefined;
 }
 
 // The root entry stays cheap; Tiptap editing plugins load only when an editor mounts.
