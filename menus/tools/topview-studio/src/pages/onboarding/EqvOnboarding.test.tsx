@@ -200,6 +200,105 @@ describe('Mapping', () => {
     expect(option('LLA').getAttribute('aria-label')).not.toContain('새 규칙 반영 가능');
   });
 
+  describe('save versions (#2035)', () => {
+    const MODEL = 'model/synth-maker/synth-model';
+    const CONFLICT = '다른 사용자가 먼저 저장했습니다. 다시 불러온 뒤 편집하세요.';
+    /** Another person saves the model file: PM9 is ignored, and the version moves to 2. */
+    const otherSavesModel = () => {
+      const current = server.state.rules.get(MODEL)!;
+      const document = structuredClone(current.document);
+      (document.rules as unknown[]).push({ id: 'ignore-pm9', match: { exact: ['PM9'] }, target: { ignore: true }, certainty: 'verified' });
+      server.state.rules.set(MODEL, { document, version: current.version + 1 });
+    };
+    const modelReads = () => server.state.queries.filter((q) => q.endpoint === 'eqv.aliasRules' && (q.params as { level: string }).level === 'model').length;
+    const ignored = (alias: string) => option(alias).getAttribute('aria-label')!.startsWith(`${alias}, 무시`);
+    const saveButton = () => button('저장') as HTMLButtonElement;
+
+    it('(a) a conflict locks 저장 until 다시 불러오기, which rebuilds the Board from the other file; the next save sends its version', async () => {
+      mount('engineer', '&equipment=eq-synth-01&step=mapping');
+      const list = await aliasList();
+      otherSavesModel();
+      const reads = modelReads();
+      fireEvent.click(option('PM1'));
+      fireEvent.keyDown(list, { key: 'i' });
+      await screen.findByText('저장 안 됨 · Model', {}, slow);
+      fireEvent.click(saveButton());
+      expect(await screen.findByText(CONFLICT, {}, slow)).toBeTruthy();
+      // The engine refetches the rules after a conflict; the Board keeps its version, so 저장 stays locked.
+      await waitFor(() => expect(modelReads()).toBeGreaterThan(reads), slow);
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+      expect(saveButton().disabled).toBe(true);
+      fireEvent.click(saveButton());
+      expect(writes().map((w) => w.expectedVersion)).toEqual(['1']);
+      expect(server.state.rules.get(MODEL)!.version).toBe(2);
+
+      fireEvent.click(button('다시 불러오기'));
+      const dialog = await screen.findByRole('alertdialog', {}, slow);
+      expect(within(dialog).getByText(/저장하지 않은 Mapping 변경을 버립니다/)).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole('button', { name: '버리고 다시 불러오기' }));
+      await waitFor(() => expect(ignored('PM9')).toBe(true), slow);
+      expect(ignored('PM1')).toBe(false);
+      expect(screen.queryByText(CONFLICT)).toBeNull();
+      fireEvent.click(option('PM1'));
+      fireEvent.keyDown(list, { key: 'i' });
+      await screen.findByText('저장 안 됨 · Model', {}, slow);
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(writes().map((w) => w.expectedVersion)).toEqual(['1', '2']), slow);
+      expect(await screen.findByText('저장됨', {}, slow)).toBeTruthy();
+      expect(JSON.stringify(server.state.rules.get(MODEL)!.document)).toContain('ignore-pm9');
+    });
+
+    it('(b) after an equipment-scope save refetches a newer model file, a model save sends the model version first read', async () => {
+      // Hold the model rules refetch until the user has a model edit, so the newer version reaches a dirty Board.
+      let release = () => {};
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      let holding = false;
+      const query = server.query;
+      server.query = async (req) => {
+        if (holding && req.endpoint === 'eqv.aliasRules' && (req.params as { level: string }).level === 'model') await held;
+        return query(req);
+      };
+      mount('engineer', '&equipment=eq-synth-01&step=mapping');
+      const list = await aliasList();
+      otherSavesModel();
+      holding = true;
+      fireEvent.click(screen.getByLabelText('설비 (eq-synth-01)'));
+      fireEvent.click(option('PM1'));
+      fireEvent.keyDown(list, { key: 'i' });
+      await screen.findByText('저장 안 됨 · 설비', {}, slow);
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(writes()).toEqual([expect.objectContaining({ input: expect.objectContaining({ level: 'equipment' }), expectedVersion: '1' })]), slow);
+      await screen.findByText('저장됨', {}, slow);
+      fireEvent.click(screen.getByLabelText('Model (Synth Maker / Synth Model)'));
+      fireEvent.click(option('TM_R1'));
+      fireEvent.keyDown(list, { key: 'i' });
+      await screen.findByText('저장 안 됨 · Model', {}, slow);
+      await act(async () => { release(); await new Promise((resolve) => setTimeout(resolve, 50)); });
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(writes()).toHaveLength(2), slow);
+      expect(writes()[1]).toEqual(expect.objectContaining({ input: expect.objectContaining({ level: 'model' }), expectedVersion: '1' }));
+      expect(await screen.findByText(CONFLICT, {}, slow)).toBeTruthy();
+      expect(JSON.stringify(server.state.rules.get(MODEL)!.document)).toContain('ignore-pm9');
+    });
+
+    it('(c) a clean Board takes another person\'s save that a refetch brings, without asking', async () => {
+      mount('engineer', '&equipment=eq-synth-01&step=mapping');
+      const list = await aliasList();
+      otherSavesModel();
+      expect(ignored('PM9')).toBe(false);
+      // An equipment-scope save refetches every rules file; the Board is clean afterwards.
+      fireEvent.click(screen.getByLabelText('설비 (eq-synth-01)'));
+      fireEvent.click(option('PM1'));
+      fireEvent.keyDown(list, { key: 'i' });
+      await screen.findByText('저장 안 됨 · 설비', {}, slow);
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(ignored('PM9')).toBe(true), slow);
+      expect(ignored('PM1')).toBe(true);
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(screen.queryByText(CONFLICT)).toBeNull();
+    });
+  });
+
   it('unsaved edits survive a step tab switch, which moves without asking (#1745)', async () => {
     mount('engineer', '&equipment=eq-synth-01&step=mapping');
     const list = await aliasList();

@@ -14,6 +14,7 @@ import {
 import { RULES_EDIT_PERMISSION, saveAliasRules, type JsonDocument } from '../../endpoints';
 import { Canvas, PANEL } from '../../parts/Canvas';
 import { IconAction, Toolbar } from '../../parts/Toolbar';
+import { DiscardDialog } from '../../parts/Dialogs';
 import type { EquipmentData } from './useEquipment';
 
 const STATUS_WORD: Record<BoardStatus, string> = { conflict: '충돌', ignored: '무시', verified: '확정', assumed: '자동', unmapped: '미매핑' };
@@ -32,13 +33,22 @@ export interface MappingTabProps {
   saveScope: SaveScope;
   setSaveScope(scope: SaveScope): void;
   data: EquipmentData;
+  /** The rule-file versions the Board was built from; a save sends only these (#2035). */
+  boardVersions: EquipmentData['ruleVersions'];
+  onSaved(scope: SaveScope, version: string): void;
+  /** A save answered `conflict`: saving stays locked until `onReload` rebuilds the Board from the latest files. */
+  conflict: boolean;
+  onConflict(): void;
+  onReload(): void;
 }
+
+const CONFLICT_TEXT = '다른 사용자가 먼저 저장했습니다. 다시 불러온 뒤 편집하세요.';
 
 /**
  * ④ Mapping Board (ONBOARDING §4): alias list grouped by Role | Layouts `Canvas` | Inspector. The Board follows viewer clicks (EV#60) and
  * the viewer fills its area. Edits write only the save scope's alias-rules file; the state lives above the tabs.
  */
-export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, data }: MappingTabProps) {
+export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, data, boardVersions, onSaved, conflict, onConflict, onReload }: MappingTabProps) {
   const { can, toast } = usePlatform();
   const writable = can(RULES_EDIT_PERMISSION);
   const ids = useId();
@@ -49,6 +59,7 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
   const [notice, setNotice] = useState<{ state: BoardState; text: string } | null>(null);
   const [savedState, setSavedState] = useState<BoardState | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [confirmReload, setConfirmReload] = useState(false);
   const [palette, setPalette] = useState<{ alias: string; filter: string; active: number } | null>(null);
   // `touched`: problems show after a change or a submit, not on open (a prefilled empty target is not an error yet).
   const [rule, setRule] = useState<{ alias: string; pattern: string; target: string; touched: boolean } | null>(null);
@@ -73,7 +84,7 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
   const autoRows = rows.filter((row) => row.status === 'assumed');
   const dirty = isBoardDirty(board);
   const payload = useMemo(() => buildSavePayload(input, board, saveScope), [input, board, saveScope]);
-  const canSave = writable && payload.files.length > 0 && !save.pending;
+  const canSave = writable && payload.files.length > 0 && !save.pending && !conflict;
   const confirmReason = !selected ? null : !selected.target ? '배정된 대상이 없어 확정할 수 없습니다'
     : applyEdit(input, board, saveScope, { kind: 'confirm', alias: selected.alias }) === board ? '저장 범위에 이미 같은 verified 정확 규칙이 있습니다' : null;
   const preview = useMemo(() => (rule ? previewPatternRule(input, board.present, saveScope, { pattern: rule.pattern, target: rule.target }) : null), [input, board.present, saveScope, rule]);
@@ -146,17 +157,24 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
       if (!file) continue;
       const params = scope === 'model' ? { level: 'model' as const, vendorId: equipment.maker, modelId: equipment.model } : { level: 'equipment' as const, equipmentId: equipment.equipmentId };
       try {
-        const result = await save.run({ ...params, document: file.file as unknown as JsonDocument }, { expectedVersion: data.ruleVersions[scope] });
-        if (result.outcome !== 'ok') { outcome.error = result.outcome === 'conflict' ? '다른 사용자가 먼저 저장했습니다. 다시 불러온 뒤 편집하세요.' : result.outcome === 'forbidden' ? '권한이 없어 저장하지 못했습니다.' : '저장하지 못했습니다.'; break; }
+        const result = await save.run({ ...params, document: file.file as unknown as JsonDocument }, { expectedVersion: boardVersions[scope] });
+        if (result.outcome === 'conflict') { onConflict(); outcome.error = CONFLICT_TEXT; break; }
+        if (result.outcome !== 'ok' || !result.data) { outcome.error = result.outcome === 'forbidden' ? '권한이 없어 저장하지 못했습니다.' : '저장하지 못했습니다.'; break; }
+        onSaved(scope, result.data.version);
         outcome.savedScopes.push(scope);
       } catch { outcome.error = '저장하지 못했습니다.'; break; }
     }
     const next = applySaveOutcome(board, sent, outcome as SaveOutcome);
     setBoard(next);
     setSavedState(outcome.error ? null : next);
-    setSaveError(outcome.error ?? null);
+    setSaveError(outcome.error === CONFLICT_TEXT ? null : outcome.error ?? null);
     if (!outcome.error) toast('alias 규칙을 저장했습니다', 'info');
   };
+
+  // 다시 불러오기: unsaved edits are discarded only after a confirm.
+  const reload = () => { setConfirmReload(false); setSaveError(null); setSavedState(null); onReload(); };
+  const askReload = () => { if (dirty) setConfirmReload(true); else reload(); };
+  const errorText = conflict ? CONFLICT_TEXT : saveError;
 
   const statusText = save.pending ? '저장 중…' : notice?.state === board ? notice.text
     : dirty ? `저장 안 됨 · ${dirtyScopes(board).map((s) => LEVEL_WORD[s]).join(', ')}` : view.drafts.length ? `초안 ${view.drafts.length}건 (저장하면 assumed 규칙으로 기록)` : board === savedState ? '저장됨' : '변경 없음';
@@ -178,11 +196,14 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
       <IconAction label="실행 취소 · Ctrl/Cmd+Z" icon={<Undo2 className="size-4" aria-hidden />} disabled={save.pending || !canUndoBoard(board)} onClick={() => setBoard((b) => (b ? undoBoard(b) : b))} />
       <IconAction label="다시 실행 · Ctrl/Cmd+Shift+Z" icon={<Redo2 className="size-4" aria-hidden />} disabled={save.pending || !canRedoBoard(board)} onClick={() => setBoard((b) => (b ? redoBoard(b) : b))} />
       <Button size="toolbar" variant="secondary" disabled={save.pending || autoRows.length === 0} onClick={confirmAuto}>자동 일괄 확정 ({autoRows.length})</Button>
-      <Button size="toolbar" variant="primary" disabled={!canSave} onClick={() => void onSave()}><Save className="size-3.5" aria-hidden />저장</Button>
+      <Button size="toolbar" variant="primary" disabled={!canSave} aria-describedby={conflict ? `${ids}-save-locked` : undefined} onClick={() => void onSave()}><Save className="size-3.5" aria-hidden />저장</Button>
+      {conflict && <span id={`${ids}-save-locked`} className="text-text-muted">다시 불러온 뒤 저장할 수 있습니다</span>}
       <span ref={statusRef} role="status" tabIndex={-1} className="text-text-secondary">{statusText}</span>
       {saveScope === 'model' && <span className="text-text-muted">Model 범위 규칙은 {names.maker} / {names.model}의 모든 설비에 적용됩니다.</span>}
     </div>}
-    {saveError && <div className="shrink-0 border-b border-border-subtle p-2"><Callout tone="red"><span role="alert">{saveError}</span></Callout></div>}
+    {errorText && <div className="shrink-0 border-b border-border-subtle p-2"><Callout tone="red" action={conflict ? <Button size="toolbar" variant="secondary" onClick={askReload}>다시 불러오기</Button> : undefined}><span role="alert">{errorText}</span></Callout></div>}
+    {confirmReload && <DiscardDialog title="Mapping을 다시 불러올까요?" body="저장하지 않은 Mapping 변경을 버립니다. 다른 사용자가 저장한 최신 규칙으로 Board를 다시 만듭니다." confirmLabel="버리고 다시 불러오기"
+      onConfirm={reload} onCancel={() => setConfirmReload(false)} />}
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <aside aria-label="Alias" className="flex w-60 shrink-0 flex-col border-r border-border-subtle bg-surface-card">
         <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">

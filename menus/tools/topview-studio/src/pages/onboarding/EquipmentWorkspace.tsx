@@ -46,6 +46,9 @@ export function EquipmentWorkspace({ equipmentId }: { equipmentId: string }) {
   return <Loaded key={load.data.window?.hash ?? 'none'} data={load.data} step={step} crumbs={crumbs} title={title} />;
 }
 
+type RuleVersions = EquipmentData['ruleVersions'];
+const sameVersions = (a: RuleVersions, b: RuleVersions) => a.model === b.model && a.equipment === b.equipment;
+
 type Computed = { input: object; run: DryRun; revision: string } | { input: object; error: string };
 
 function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: StepKey; crumbs: { label: string; href: string }[]; title(status: FleetStatusCode | null, label?: string | null): ReactNode }) {
@@ -60,8 +63,26 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
   const boardInput = useMemo(() => (layout && inventory ? { equipment, inventory, dictionaries, layout, ruleFiles, templates } : null), [equipment, inventory, dictionaries, layout, ruleFiles, templates]);
   const [board, setBoard] = useState<BoardState | null>(null);
   const [saveScope, setSaveScope] = useState<SaveScope>('model');
-  if (board === null && boardInput !== null) setBoard(createBoardState({ equipment, ruleFiles }));
+  // The rule-file versions the Board was built from: a save sends only these and raises a scope only from its own `ok` (#2035). `seenVersions`
+  // is the last `data.ruleVersions` looked at, so a refetch that lands while the Board is dirty is never applied later.
+  const [boardVersions, setBoardVersions] = useState<RuleVersions>(data.ruleVersions);
+  const [seenVersions, setSeenVersions] = useState<RuleVersions>(data.ruleVersions);
+  // A `conflict` locks saving until the Board is reloaded.
+  const [saveConflict, setSaveConflict] = useState(false);
+  // The Board and its versions always come from one `data` object.
+  const rebuildBoard = () => {
+    setBoard(createBoardState({ equipment, ruleFiles }));
+    setBoardVersions(data.ruleVersions);
+    setSeenVersions(data.ruleVersions);
+    setSaveConflict(false);
+  };
   const dirty = board !== null && isBoardDirty(board);
+  if (board === null && boardInput !== null) rebuildBoard();
+  else if (board !== null && !sameVersions(seenVersions, data.ruleVersions)) {
+    // Another person's save reached the screen: a clean Board takes it; a dirty one (or a locked conflict) waits for 다시 불러오기.
+    setSeenVersions(data.ruleVersions);
+    if (!dirty && !saveConflict && !sameVersions(boardVersions, data.ruleVersions)) rebuildBoard();
+  }
   useUnsavedGuard(dirty, { leaves: { pageKeys: ['equipment', 'window'] }, message: GUARD_MESSAGE, onDiscard: () => setBoard((b) => (b ? { ...b, present: b.baseline, past: [], future: [] } : b)) });
 
   // ---- D8 dry-run of the saved rules and the draft, in the browser; the server judges again on publish ----
@@ -145,7 +166,9 @@ function Loaded({ data, step, crumbs, title }: { data: EquipmentData; step: Step
         <TabsContent value="inventory" className="m-0 flex min-h-0 flex-1 flex-col"><InventoryTab data={data} /></TabsContent>
         <TabsContent value="template" className="m-0 flex min-h-0 flex-1 flex-col"><TemplateTab data={data} /></TabsContent>
         <TabsContent value="mapping" className="m-0 flex min-h-0 flex-1 flex-col">
-          {boardInput && board ? <MappingTab input={boardInput} board={board} setBoard={setBoard} saveScope={saveScope} setSaveScope={setSaveScope} data={data} />
+          {boardInput && board ? <MappingTab input={boardInput} board={board} setBoard={setBoard} saveScope={saveScope} setSaveScope={setSaveScope} data={data}
+            boardVersions={boardVersions} onSaved={(scope, version) => setBoardVersions((v) => ({ ...v, [scope]: version }))}
+            conflict={saveConflict} onConflict={() => setSaveConflict(true)} onReload={rebuildBoard} />
             : <NoBoard hasInventory={inventory !== null} onTemplate={() => go('template')} />}
         </TabsContent>
         <TabsContent value="validate" className="m-0 flex min-h-0 flex-1 flex-col">
