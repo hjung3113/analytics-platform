@@ -78,6 +78,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 function cleanAttrs(
   attrSchemas: Readonly<Record<string, AttrSchema>> | undefined,
   rawAttrs: unknown,
+  dropNull = false,
 ): Record<string, unknown> {
   if (!isPlainObject(rawAttrs)) return {};
   if (!attrSchemas) return {};
@@ -91,6 +92,8 @@ function cleanAttrs(
     const value = rawAttrs[key];
     const coerced = coerceAttrValue(schema, value, key);
     if (coerced === DROP) continue;
+    // Write side (#2043): a null attr is the editor's unset default; leaving it out stores the same document.
+    if (dropNull && coerced === null) continue;
     out[key] = coerced;
   }
   return out;
@@ -157,6 +160,7 @@ function cleanMark(
   raw: unknown,
   allowedMarks: ReadonlySet<string>,
   markAttrSchemas: Readonly<Record<string, Readonly<Record<string, AttrSchema>>>>,
+  dropNull: boolean,
 ): CleanMark | null {
   if (!isPlainObject(raw)) return null;
   if (typeof raw.type !== 'string') return null;
@@ -164,7 +168,7 @@ function cleanMark(
   if (!allowedMarks.has(markType)) return null;
 
   const schemas = markAttrSchemas[markType];
-  const attrs = cleanAttrs(schemas, raw.attrs);
+  const attrs = cleanAttrs(schemas, raw.attrs, dropNull);
 
   const out: CleanMark = { type: markType };
   if (Object.keys(attrs).length > 0) out.attrs = attrs;
@@ -215,12 +219,12 @@ function cleanNode(raw: unknown, depth: number, ctx: WalkCtx): CleanNode | null 
     text = node.text;
   }
 
-  const attrs = cleanAttrs(allow.nodeAttrs[node.type], node.attrs);
+  const attrs = cleanAttrs(allow.nodeAttrs[node.type], node.attrs, !ctx.enforceLimits);
 
   const marks: CleanMark[] = [];
   if (Array.isArray(node.marks)) {
     for (const rawMark of node.marks) {
-      const m = cleanMark(rawMark, allow.marks, allow.markAttrs);
+      const m = cleanMark(rawMark, allow.marks, allow.markAttrs, !ctx.enforceLimits);
       if (m && ctx.markCount >= allow.maxMarks && limitHit(ctx)) break;
       if (m) {
         marks.push(m);
@@ -270,7 +274,8 @@ export function sanitizeClient(doc: TipTapDoc, surface: ClientSanitizeSurface): 
  * Write-side variant for the editor's outgoing value (#2021): the same node, mark and attribute
  * normalisation as `sanitizeClient`, but the size limits (text bytes, nodes, marks, depth) are only
  * reported in `overLimit`, never applied by dropping what the author typed. The server stays the
- * authority and rejects an over-limit document with an error.
+ * authority and rejects an over-limit document with an error. It is the send-ready cleanup of every
+ * surface (#2043): only attr keys the surface allowlist defines are kept, and null attrs are left out.
  */
 export function normalizeClient(doc: TipTapDoc, surface: ClientSanitizeSurface): { doc: TipTapDoc; overLimit: boolean } {
   return walkDoc(doc, surface, false);

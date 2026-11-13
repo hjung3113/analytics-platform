@@ -81,17 +81,17 @@ export default function RichEditorImpl({
     extensions,
     editorProps,
     // value can be null (explicit clear); fall through to defaultValue / empty doc.
-    content: getExtensionsForSurface(surface).includes('image')
-      ? normalizeClient(value ?? defaultValue ?? { type: 'doc', content: [{ type: 'paragraph' }] }, surface).doc
-      : (value ?? defaultValue ?? { type: 'doc', content: [{ type: 'paragraph' }] }) as TipTapDoc,
+    content: normalizeClient(value ?? defaultValue ?? { type: 'doc', content: [{ type: 'paragraph' }] }, surface).doc,
     editable: !disabled,
     // The outgoing value never drops what the author typed (#2021): size limits are only reported, as a
     // notice here, and the server rejects an over-limit document with an error instead of storing less.
+    // Every surface emits the send-ready document (#2043): attrs the surface allowlist does not define
+    // (link target/rel/class/title, orderedList start/type, attachment display attrs) and null attrs are
+    // removed, or the server rejects the document. An ordered list therefore always restarts at 1.
     onUpdate({ editor }) {
-      const doc = editor.getJSON() as TipTapDoc;
-      const normalized = normalizeClient(doc, surface);
+      const normalized = normalizeClient(editor.getJSON() as TipTapDoc, surface);
       setOverLimit(normalized.overLimit);
-      const emitted = getExtensionsForSurface(surface).includes('image') ? normalized.doc : doc;
+      const emitted = normalized.doc;
       lastEmitted.current = emitted;
       onChange?.(emitted);
     },
@@ -130,17 +130,14 @@ export default function RichEditorImpl({
     // Any other value ends the echo: returning later to an object emitted earlier must compare again.
     lastEmitted.current = null;
     const incoming: TipTapDoc = value ?? { type: 'doc', content: [{ type: 'paragraph' }] };
-    const normalizes = getExtensionsForSurface(surface).includes('image');
-    const targetDoc = normalizes ? normalizeClient(incoming, surface).doc : incoming;
+    const targetDoc = normalizeClient(incoming, surface).doc;
     // Compare as schema documents: raw getJSON() and the normalized value differ in key order and
     // default attrs even when identical, and a needless setContent moves the caret. The editor side goes
     // through the same normalisation, so an echo that only lacks attributes the allowlist strips
     // (orderedList `start`, an unlisted code language) is the same document, not a replacement (#2021).
     let same = false;
     try {
-      const current = normalizes
-        ? ProseNode.fromJSON(editor.schema, normalizeClient(editor.getJSON() as TipTapDoc, surface).doc)
-        : editor.state.doc;
+      const current = ProseNode.fromJSON(editor.schema, normalizeClient(editor.getJSON() as TipTapDoc, surface).doc);
       same = ProseNode.fromJSON(editor.schema, targetDoc).eq(current);
     } catch {
       same = false;
