@@ -4,6 +4,7 @@ import { baselineInput } from '../__fixtures__/baselineInput';
 import main from '../__fixtures__/buildChartOption.main.json';
 
 // `buildChartOption.main.json` is the option origin/main's builder (before node 580d) produced for `baselineInput()`; functions are not in JSON and are pinned below.
+// The one deliberate difference is `tooltip.renderMode: 'richText'` (#1879), added by hand.
 describe('main-derived option (#580d, F9)', () => {
   const built = () => buildChartOption(baselineInput()) as unknown as { tooltip: { valueFormatter: (v: number | null) => string }; yAxis: { axisLabel: { formatter: (v: string) => string } } };
   it('equals what main built for an existing stacked chart while no value labels are asked for', () => {

@@ -174,8 +174,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       id: '__total', type: 'scatter', silent: false, animation: false, z: 4,
       // ECharts draws no label for a symbol of `none`, so the anchor is a 1px transparent dot.
       symbol: 'circle', symbolSize: 1, itemStyle: { color: 'transparent', opacity: 1 },
-      // richText: the series names in the tip come from server data; HTML mode would set the formatter's string as innerHTML (#1879).
-      tooltip: { trigger: 'item', renderMode: 'richText', formatter: (p: { data?: { tip?: string } }) => p.data?.tip ?? '' },
+      tooltip: { trigger: 'item', formatter: (p: { data?: { tip?: string } }) => p.data?.tip ?? '' },
       label: { show: true, position: 'right', fontSize: 11, fontWeight: 'bold', color: palette.totalText },
       data: categories.flatMap(x => {
         const t = totals.get(x);
@@ -199,7 +198,9 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     grid: horizontal && i.rowPitch !== undefined ? { left: ROW_LABEL_GUTTER, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
       : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
     tooltip: {
-      trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
+      // The renderer is picked once from this global model (a series-level `renderMode` is ignored), and HTML mode sets a formatter's string as innerHTML.
+      // The partial-total tip carries series names from server data, so the chart draws every tooltip as canvas text (#1879).
+      trigger: 'axis', renderMode: 'richText', confine: true, textStyle: { fontSize: 12 },
       valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${i.valueFormat(v)} ${i.unit}`),
     },
     // Lane mode: ticks sit at scale intervals and cannot mark lane starts, so the numbers and the unit go; lane names are drawn by the overlay's markLine.
