@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
 import { Redo2, Save, Undo2 } from 'lucide-react';
 import { canonicalJson } from '@eqv/core';
 import {
@@ -40,6 +40,8 @@ export interface MappingTabProps {
   conflict: boolean;
   onConflict(): void;
   onReload(): void;
+  /** True from a save's start until its Board and versions are settled: the parent rebuilds nothing meanwhile. */
+  onSaving(saving: boolean): void;
 }
 
 const CONFLICT_TEXT = '다른 사용자가 먼저 저장했습니다. 다시 불러온 뒤 편집하세요.';
@@ -48,7 +50,7 @@ const CONFLICT_TEXT = '다른 사용자가 먼저 저장했습니다. 다시 불
  * ④ Mapping Board (ONBOARDING §4): alias list grouped by Role | Layouts `Canvas` | Inspector. The Board follows viewer clicks (EV#60) and
  * the viewer fills its area. Edits write only the save scope's alias-rules file; the state lives above the tabs.
  */
-export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, data, boardVersions, onSaved, conflict, onConflict, onReload }: MappingTabProps) {
+export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, data, boardVersions, onSaved, conflict, onConflict, onReload, onSaving }: MappingTabProps) {
   const { can, toast } = usePlatform();
   const writable = can(RULES_EDIT_PERMISSION);
   const ids = useId();
@@ -150,29 +152,42 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
     if (!canSave) return;
     statusRef.current?.focus();
     setSaveError(null);
-    const sent = payload;
-    const outcome: { savedScopes: SaveScope[]; error?: string } = { savedScopes: [] };
-    for (const scope of ['equipment', 'model'] as const) {
-      const file = sent.files.find((f) => f.scope === scope);
-      if (!file) continue;
-      const params = scope === 'model' ? { level: 'model' as const, vendorId: equipment.maker, modelId: equipment.model } : { level: 'equipment' as const, equipmentId: equipment.equipmentId };
-      try {
-        const result = await save.run({ ...params, document: file.file as unknown as JsonDocument }, { expectedVersion: boardVersions[scope] });
-        if (result.outcome === 'conflict') { onConflict(); outcome.error = CONFLICT_TEXT; break; }
-        if (result.outcome !== 'ok' || !result.data) { outcome.error = result.outcome === 'forbidden' ? '권한이 없어 저장하지 못했습니다.' : '저장하지 못했습니다.'; break; }
-        onSaved(scope, result.data.version);
-        outcome.savedScopes.push(scope);
-      } catch { outcome.error = '저장하지 못했습니다.'; break; }
+    onSaving(true);
+    try {
+      const sent = payload;
+      const outcome: { savedScopes: SaveScope[]; error?: string } = { savedScopes: [] };
+      for (const scope of ['equipment', 'model'] as const) {
+        const file = sent.files.find((f) => f.scope === scope);
+        if (!file) continue;
+        const params = scope === 'model' ? { level: 'model' as const, vendorId: equipment.maker, modelId: equipment.model } : { level: 'equipment' as const, equipmentId: equipment.equipmentId };
+        try {
+          const result = await save.run({ ...params, document: file.file as unknown as JsonDocument }, { expectedVersion: boardVersions[scope] });
+          if (result.outcome === 'conflict') { onConflict(); outcome.error = CONFLICT_TEXT; break; }
+          if (result.outcome !== 'ok' || !result.data) { outcome.error = result.outcome === 'forbidden' ? '권한이 없어 저장하지 못했습니다.' : '저장하지 못했습니다.'; break; }
+          onSaved(scope, result.data.version);
+          outcome.savedScopes.push(scope);
+        } catch { outcome.error = '저장하지 못했습니다.'; break; }
+      }
+      const next = applySaveOutcome(board, sent, outcome as SaveOutcome);
+      setBoard(next);
+      setSavedState(outcome.error ? null : next);
+      setSaveError(outcome.error === CONFLICT_TEXT ? null : outcome.error ?? null);
+      if (!outcome.error) toast('alias 규칙을 저장했습니다', 'info');
+    } finally {
+      // Same task as the settle above, so React commits the Board, its versions and the end of the flight together.
+      onSaving(false);
     }
-    const next = applySaveOutcome(board, sent, outcome as SaveOutcome);
-    setBoard(next);
-    setSavedState(outcome.error ? null : next);
-    setSaveError(outcome.error === CONFLICT_TEXT ? null : outcome.error ?? null);
-    if (!outcome.error) toast('alias 규칙을 저장했습니다', 'info');
   };
 
-  // 다시 불러오기: unsaved edits are discarded only after a confirm.
-  const reload = () => { setConfirmReload(false); setSaveError(null); setSavedState(null); onReload(); };
+  // 다시 불러오기: unsaved edits are discarded only after a confirm. The opener leaves with the conflict, so focus goes to the Alias list
+  // once the reload commits (a cancel keeps the dialog's return to the opener).
+  const focusListAfterReload = useRef(false);
+  useEffect(() => {
+    if (!focusListAfterReload.current) return;
+    focusListAfterReload.current = false;
+    listRef.current?.focus();
+  });
+  const reload = () => { focusListAfterReload.current = true; setConfirmReload(false); setSaveError(null); setSavedState(null); onReload(); };
   const askReload = () => { if (dirty) setConfirmReload(true); else reload(); };
   const errorText = conflict ? CONFLICT_TEXT : saveError;
 

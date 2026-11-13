@@ -239,6 +239,8 @@ describe('Mapping', () => {
       await waitFor(() => expect(ignored('PM9')).toBe(true), slow);
       expect(ignored('PM1')).toBe(false);
       expect(screen.queryByText(CONFLICT)).toBeNull();
+      // The opener left with the conflict: focus lands on the Alias list.
+      await waitFor(() => expect(document.activeElement).toBe(list), slow);
       fireEvent.click(option('PM1'));
       fireEvent.keyDown(list, { key: 'i' });
       await screen.findByText('저장 안 됨 · Model', {}, slow);
@@ -296,6 +298,68 @@ describe('Mapping', () => {
       expect(ignored('PM1')).toBe(true);
       expect(screen.queryByRole('alertdialog')).toBeNull();
       expect(screen.queryByText(CONFLICT)).toBeNull();
+    });
+
+    it('(d) a newer file that lands while a clean draft save is in flight never pairs the old model file with the new version', async () => {
+      // Hold the model rules reads and the equipment-scope write independently (the technique of (b)).
+      let releaseRead = () => {};
+      const heldRead = new Promise<void>((resolve) => { releaseRead = resolve; });
+      let holdReads = false;
+      let heldReads = 0;
+      let releaseSave = () => {};
+      const heldSave = new Promise<void>((resolve) => { releaseSave = resolve; });
+      let holdSave = false;
+      let saveStarted = false;
+      const query = server.query;
+      const action = server.action;
+      server.query = async (req) => {
+        if (holdReads && req.endpoint === 'eqv.aliasRules' && (req.params as { level: string }).level === 'model') { heldReads += 1; await heldRead; }
+        return query(req);
+      };
+      server.action = async (req) => {
+        if (holdSave && req.action === 'eqv.saveAliasRules' && (req.input as { level: string }).level === 'equipment') { saveStarted = true; await heldSave; }
+        return action(req);
+      };
+      // Without its rule, LLA is an automatic draft (the Template places it), so the Board can save while clean.
+      const model = server.state.rules.get(MODEL)!;
+      model.document.rules = (model.document.rules as { id: string }[]).filter((r) => r.id !== 'll');
+      mount('engineer', '&equipment=eq-synth-01&step=mapping');
+      const list = await aliasList();
+      otherSavesModel();
+      holdReads = true;
+      // A Model save conflicts; its model refetch is held, and 다시 불러오기 rebuilds from the cached first read.
+      fireEvent.click(option('PM1'));
+      fireEvent.keyDown(list, { key: 'i' });
+      await screen.findByText('저장 안 됨 · Model', {}, slow);
+      fireEvent.click(saveButton());
+      expect(await screen.findByText(CONFLICT, {}, slow)).toBeTruthy();
+      await waitFor(() => expect(heldReads).toBeGreaterThan(0), slow);
+      fireEvent.click(button('다시 불러오기'));
+      fireEvent.click(within(await screen.findByRole('alertdialog', {}, slow)).getByRole('button', { name: '버리고 다시 불러오기' }));
+      await waitFor(() => expect(screen.queryByText(CONFLICT)).toBeNull(), slow);
+      // A clean Board with automatic drafts saves at the equipment scope; the write is held.
+      fireEvent.click(screen.getByLabelText('설비 (eq-synth-01)'));
+      expect(await screen.findByText(/^초안 \d+건/, {}, slow)).toBeTruthy();
+      holdSave = true;
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(saveStarted).toBe(true), slow);
+      // The newer model file lands while the save is pending, then the save answers.
+      await act(async () => { releaseRead(); await new Promise((resolve) => setTimeout(resolve, 50)); });
+      await act(async () => { releaseSave(); await new Promise((resolve) => setTimeout(resolve, 50)); });
+      await screen.findByText(/저장됨|변경 없음/, {}, slow);
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+      // A later Model save either conflicts at the old version or carries the other person's rule.
+      fireEvent.click(screen.getByLabelText('Model (Synth Maker / Synth Model)'));
+      fireEvent.click(option('TM_R1'));
+      fireEvent.keyDown(list, { key: 'i' });
+      await screen.findByText('저장 안 됨 · Model', {}, slow);
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(writes()).toHaveLength(3), slow);
+      const last = writes()[2]!;
+      expect(last.input).toEqual(expect.objectContaining({ level: 'model' }));
+      expect(last.expectedVersion === '1' || JSON.stringify(last.input.document).includes('ignore-pm9')).toBe(true);
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+      expect(JSON.stringify(server.state.rules.get(MODEL)!.document)).toContain('ignore-pm9');
     });
   });
 
