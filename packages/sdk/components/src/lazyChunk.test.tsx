@@ -14,7 +14,7 @@ function Probe({ chunk }: { chunk: ReturnType<typeof lazyChunk<{ label: string }
 describe('useLazyChunk', () => {
   it('shows the failed state, then loads the component after a retry', async () => {
     let fail = true;
-    const chunk = lazyChunk<{ label: string }>(() => (fail ? Promise.reject(new Error('chunk')) : Promise.resolve({ default: ({ label }) => <p>{label}</p> })));
+    const chunk = lazyChunk<{ label: string }>(() => (fail ? Promise.reject(new TypeError('Failed to fetch dynamically imported module: /assets/chunk.js')) : Promise.resolve({ default: ({ label }) => <p>{label}</p> })));
     render(<Probe chunk={chunk} />);
     const button = await screen.findByRole('button', { name: 'retry' });
     fail = false;
