@@ -905,6 +905,25 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
     await evidence(page, testInfo, 'usage-engineer-space-denied');
   });
 
+  test('없는 경로의 「메뉴 검색」 버튼이 팔레트를 연다 (#1940)', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.goto('/this-route-does-not-exist');
+    const main = page.getByRole('main');
+    await expect(main).toContainText('등록되지 않은 경로입니다');
+    await main.getByRole('button', { name: /^메뉴 검색 \((⌘K|Ctrl\+K)\)$/ }).click();
+    await expect(page.getByRole('dialog').getByRole('combobox', { name: '메뉴 검색' })).toBeVisible();
+  });
+
+  test('메뉴 거부 화면은 요청 slot이 없는 mock 조립에서 「권한 요청」 버튼을 그리지 않는다 (#1940)', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.goto(DIRECT_URL);
+    const main = page.getByRole('main');
+    await expect(main).toContainText('이 메뉴에 대한 권한이 없습니다');
+    await expect(main.getByRole('link', { name: '홈' })).toBeVisible();
+    await expect(main.getByRole('link', { name: '권한 요청' })).toHaveCount(0);
+    await expect(main.getByRole('button', { name: '권한 요청' })).toHaveCount(0);
+  });
+
   test('거부된 공간 URL은 레일이 현재 시스템을 이름 짓지 않는다 — 레일과 사이드바가 다른 시스템을 가리키지 않는다 (#1314)', async ({ page }) => {
     await signInAs(page, 'engineer');
     await page.goto(DIRECT_URL);

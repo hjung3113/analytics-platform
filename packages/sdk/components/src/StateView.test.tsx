@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, type QueryState } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
@@ -32,6 +32,7 @@ describe('non-grouped compact state names its widget (UXA-3)', () => {
     expect(screen.getByText('지표 쌍 검증')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('데이터를 불러오지 못했습니다');
     const alert = screen.getByRole('alert');
+    fireEvent.click(within(alert).getByRole('button', { name: '기술 정보' }));
     expect(within(alert).getByRole('note', { name: '서버 세부' })).toHaveTextContent('boom');
     expect(textWithoutDetail(alert)).not.toContain('boom');
   });
@@ -48,6 +49,7 @@ describe('non-grouped compact state names its widget (UXA-3)', () => {
     const region = screen.getByRole(role);
     for (const phrase of phrases) expect(textWithoutDetail(region)).toContain(phrase);
     expect(textWithoutDetail(region)).not.toContain(message);
+    fireEvent.click(within(region).getByRole('button', { name: '기술 정보' }));
     expect(within(region).getByRole('note', { name: '서버 세부' })).toHaveTextContent(message);
     expect(region).toHaveTextContent('c-stand');
     if (retry) expect(within(region).getByRole('button', { name: '다시 시도' })).toBeTruthy();
@@ -298,5 +300,21 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
   it.each([true, false])('disables spinner motion for reduced motion (previous=%s)', showingPrevious => {
     render(view(showingPrevious));
     expect(screen.getByRole('status').querySelector('svg')).toHaveClass('animate-spin', 'motion-reduce:animate-none');
+  });
+});
+
+describe('error card trace number and folded technical info (#1940)', () => {
+  it('names the number 추적 번호 and shows the server original only after 기술 정보 is opened', () => {
+    render(<I18nProvider><QueryView query={query()}>{() => null}</QueryView></I18nProvider>);
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('추적 번호: c1');
+    expect(alert).not.toHaveTextContent('Correlation ID');
+    const toggle = within(alert).getByRole('button', { name: '기술 정보' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(within(alert).queryByRole('note', { name: '서버 세부' })).toBeNull();
+    expect(alert).not.toHaveTextContent('boom');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(within(alert).getByRole('note', { name: '서버 세부' })).toHaveTextContent('boom');
   });
 });

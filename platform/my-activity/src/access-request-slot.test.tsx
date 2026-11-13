@@ -132,11 +132,11 @@ describe('accessRequest slot', () => {
       expect(calls.some(call => call.method === 'POST')).toBe(false);
     });
 
-    it('a permission place reports unknown without a status link, reads nothing and draws no dialog', async () => {
+    it('a permission place reports unknown, reads nothing, draws no dialog, and gives the request page address (#1940)', async () => {
       const calls = stubFetch(() => json({ requests: [mineRow('site-alpha')] }));
       mount({ kind: 'permission', permission: 'synthetic:view' as never });
       await userEvent.setup().click(screen.getByRole('button', { name: '열기' }));
-      expect(screen.getByTestId('state').textContent).toBe('pending=null href=null열기');
+      expect(screen.getByTestId('state').textContent).toMatch(/^pending=null href=\/permission-requests(\?|열기)/);
       expect(screen.queryByTestId('permission-request-dialog')).toBeNull();
       expect(calls).toEqual([]);
     });

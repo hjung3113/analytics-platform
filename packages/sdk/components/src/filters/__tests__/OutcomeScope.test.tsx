@@ -34,6 +34,13 @@ it('unregisters grouped outcomes when their queries become idle without leaving 
   expect(screen.getAllByText('아직 조회하지 않았습니다')).toHaveLength(2);
 });
 
+/** The server original is folded behind «기술 정보» (#1940): open it, then return the note. */
+function openDetail(scope: HTMLElement) {
+  const toggle = within(scope).getByRole('button', { name: '기술 정보' });
+  if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+  return within(scope).getByRole('note', { name: '서버 세부' });
+}
+
 describe('shared outcome contract #55', () => {
   it('announces one error banner, preserves named compact states and retries exactly its members', () => {
     const a = query(); const b = query(); const other = query(response('error', 'Different'));
@@ -45,7 +52,7 @@ describe('shared outcome contract #55', () => {
     for (const name of ['Widget A', 'Widget B']) {
       const state = screen.getByRole('group', { name });
       expect(state).toHaveTextContent(name);
-      expect(within(state).getByRole('note', { name: '서버 세부' })).toHaveTextContent('Same response');
+      expect(openDetail(state)).toHaveTextContent('Same response');
       expect(textWithoutDetail(state)).not.toContain('Same response');
       expect(state).toHaveTextContent('corr-widget');
       expect(within(state).queryByRole('alert')).toBeNull();
@@ -119,7 +126,7 @@ describe('shared outcome contract #55', () => {
     render(<Page><h2>Widget A</h2><Widget q={query(response('timeout'))} hide /><Widget q={query(response('timeout'))} name="Widget B" /></Page>);
     expect(screen.getAllByText('Widget A')).toHaveLength(1);
     expect(screen.getByRole('group', { name: 'Widget A' })).toHaveTextContent('기간을 줄이거나 집계 단위를 키워 다시 시도하세요.');
-    expect(within(screen.getByRole('group', { name: 'Widget A' })).getByRole('note', { name: '서버 세부' })).toHaveTextContent('Same response');
+    expect(openDetail(screen.getByRole('group', { name: 'Widget A' }))).toHaveTextContent('Same response');
     expect(textWithoutDetail(screen.getByRole('group', { name: 'Widget A' }))).not.toContain('Same response');
     expect(screen.queryByRole('alert')).toBeNull();
   });
@@ -365,7 +372,7 @@ describe('server message is detail, not the body (#304)', () => {
       const body = textWithoutDetail(state);
       for (const phrase of phrases) expect(body).toContain(phrase);
       expect(body).not.toContain(message);
-      expect(within(state).getByRole('note', { name: '서버 세부' })).toHaveTextContent(message);
+      expect(openDetail(state)).toHaveTextContent(message);
       expect(state).toHaveTextContent('corr-widget');
       expect(within(state).getByRole('button', { name: '다시 시도' })).toBeTruthy();
     }
@@ -378,7 +385,7 @@ describe('server message is detail, not the body (#304)', () => {
     const state = screen.getByRole('group', { name: 'Widget A' });
     expect(textWithoutDetail(state)).toContain('Confirmed explanation');
     expect(textWithoutDetail(state)).not.toContain(message);
-    expect(within(state).getByRole('note', { name: '서버 세부' })).toHaveTextContent(message);
+    expect(openDetail(state)).toHaveTextContent(message);
   });
 });
 

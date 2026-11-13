@@ -14,7 +14,7 @@ const STATUS_MENU_ID = 'permission-requests';
  * The place's request state from the user's own open requests (`GET /permission-requests/mine`). One `useQuery` on the shared feature
  * QueryClient under `permissionRequestsMineKey`, the key the home `내 할 일` reads and the request dialog invalidates on submit, so a submit
  * flips every place without a reload. `pending` is null in mock, before the session is ready, while loading, after an error and for a
- * `permission` place (no mapping yet, node 1844f1c). `children` is called at one stable position in every state.
+ * `permission` place (no mapping yet, node 1844f1c); `statusHref` is the requester page for every place kind. `children` is called at one stable position in every state.
  */
 function Pending({ target, children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) {
   const session = useFeatureSession();
@@ -29,7 +29,8 @@ function Pending({ target, children }: { target: PermissionRequestTarget; childr
     retry: false,
   }, featureQueryClient);
   const pending = enabled && !isError && data !== undefined ? isPendingFor(target, data.requests) : null;
-  const link = scoped && isReachable(registry, { menuId: STATUS_MENU_ID }) ? resolveLink(STATUS_MENU_ID) : null;
+  // A `permission` place has no pending read, but it still gets the requester page: that is where the user asks for the missing capability (#1940).
+  const link = isReachable(registry, { menuId: STATUS_MENU_ID }) ? resolveLink(STATUS_MENU_ID) : null;
   return <>{children({ pending, statusHref: link?.allowed ? link.href : null })}</>;
 }
 

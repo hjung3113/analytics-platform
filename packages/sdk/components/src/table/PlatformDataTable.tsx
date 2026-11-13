@@ -186,6 +186,7 @@ type TableBaseProps<T> = {
   height?: number;
   /** Use the parent flex height budget instead of the page-fit cap; short tables keep their intrinsic height. Default false. Explicit height still caps the row area. */
   fill?: boolean;
+  /** The empty result's action. Absent: while column filters are applied the table offers `조건 초기화` (clears them); with none applied there is no button. A passed node replaces that default. */
   emptyAction?: ReactNode;
   /** Filterable fields that are not columns (ADR-0105). Ids are unique across columns and these fields; the filter line renders when there is at least one filterable field. */
   filterFields?: TableFilterField[];
@@ -759,7 +760,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
 
     {/* Stable widget wrapper (like QueryView's): the busy state survives the outcome/rows switch. A grouped table's refresh is announced by the scope only (components.md §공유 위젯 응답). */}
     <div aria-busy={loading} className={p.fill ? 'flex min-h-0 flex-col' : undefined}>
-    {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeContent response={shown} onRetry={retry} emptyAction={p.emptyAction} grouped={groupedOutcome} compact={groupedOutcome || undefined} widgetName={p.ariaLabel} hideWidgetName>{() => null}</OutcomeContent></div> :
+    {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeContent response={shown} onRetry={retry} emptyAction={p.emptyAction ?? (columnFilters.filters.length > 0 ? <Button type="button" size="sm" variant="secondary" onClick={() => { columnFilters.clear(); droppedNote.reset(); }}>{t('clearConditions')}</Button> : undefined)} grouped={groupedOutcome} compact={groupedOutcome || undefined} widgetName={p.ariaLabel} hideWidgetName>{() => null}</OutcomeContent></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
       <div ref={viewportRef} data-table-auto-fit={p.height === undefined && !p.fill ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', p.fill && 'min-h-0', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} onScroll={updateFade} style={{ maxHeight: p.height ?? (p.fill ? undefined : fit.cap ?? ROW_AREA_FALLBACK) }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
