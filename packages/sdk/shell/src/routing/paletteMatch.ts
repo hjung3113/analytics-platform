@@ -52,9 +52,20 @@ function nearSubstring(pattern: string, text: string): boolean {
   return Math.min(...prev) <= 1;
 }
 
-/** Typo candidate: the whole query (spaces dropped) is one letter off a menu name or keyword. Needs 3+ letters so short input does not match everything. */
+/** A two-letter query is one substitution away from a same-length slice of `text` (`장부` → `장비`); inserting or deleting a letter would match nearly every name. */
+function nearSlice(pattern: string, text: string): boolean {
+  for (let i = 0; i + pattern.length <= text.length; i++) {
+    let diff = 0;
+    for (let k = 0; k < pattern.length && diff < 2; k++) if (pattern[k] !== text[i + k]) diff++;
+    if (diff === 1) return true;
+  }
+  return false;
+}
+
+/** Typo candidate: the whole query (spaces dropped) is one letter off a menu name or keyword. A one-letter query never suggests; a two-letter one only for a substituted letter, so short input does not match everything. */
 export function isNearMiss(q: string, target: PaletteTarget): boolean {
   const pattern = squash(q);
-  if (pattern.length < 3) return false;
-  return prepare([...target.names, ...target.keywords]).some(s => nearSubstring(pattern, s));
+  if (pattern.length < 2) return false;
+  const texts = prepare([...target.names, ...target.keywords]);
+  return pattern.length === 2 ? texts.some(s => nearSlice(pattern, s)) : texts.some(s => nearSubstring(pattern, s));
 }

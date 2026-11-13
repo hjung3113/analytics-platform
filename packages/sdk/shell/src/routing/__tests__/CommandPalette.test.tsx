@@ -639,6 +639,17 @@ describe('CommandPalette menu matching (#1943)', () => {
     expect(screen.queryByText('일치하는 메뉴가 없습니다.')).toBeNull();
   });
 
+  it.each([['장부', 'equipment-master'], ['택크', 'cycle-time']])('offers a candidate for the two-letter typo %s of a declared keyword', (typo, id) => {
+    search(typo);
+    expect(screen.getByText('이 메뉴를 찾으셨나요')).toBeInTheDocument();
+    expect(ids()).toContain(id);
+  });
+
+  it('never suggests for a one-letter query', () => {
+    search('장');
+    expect(screen.queryByText('이 메뉴를 찾으셨나요')).toBeNull();
+  });
+
   it('keeps the empty sentence when nothing is within one letter', () => {
     search('전혀없는말');
     expect(ids()).toEqual([]);
