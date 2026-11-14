@@ -3,7 +3,7 @@ import type { JsonValue } from '@ap/contracts';
 import { memoryStorage, testAdapter, testSession } from '../../testing';
 import { createPreferenceController } from '../preferenceController';
 
-// #1104b final-review fixes C4–C6 on the controller: complete response shapes, retryable hashing, bounded recovery.
+// Controller failure handling: a response must be complete before it counts as an ACK, a failed hash stays retryable, and recovery from a failed step is bounded.
 const HEX = 'c'.repeat(64);
 const goodSha = async () => HEX;
 const wrap = (data: unknown) => ({ outcome: 'ok' as const, data: data as never, assessments: [], trust: null, correlationId: 'c' });
@@ -26,7 +26,7 @@ function build(options: { sha?: (t: string) => Promise<string>; importedAt?: str
   return { adapter, counts, patches, server: () => values, controller };
 }
 
-describe('C4 complete response shape before any ACK', () => {
+describe('a complete response shape is required before any ACK', () => {
   it.each([
     ['missing importedAt', { values: {} }],
     ['undefined importedAt', { values: {}, importedAt: undefined }],
@@ -95,7 +95,7 @@ describe('C4 complete response shape before any ACK', () => {
   });
 });
 
-describe('C5 a failed hash is retryable and keeps the raw table intent', () => {
+describe('a failed hash is retryable and keeps the raw table intent', () => {
   for (const [name, bad] of [['rejection', () => Promise.reject(new Error('no crypto'))], ['invalid hex', () => Promise.resolve('xyz')]] as const) {
     it(`${name}: recovery then retry stores the original value`, async () => {
       let healthy = false;
@@ -178,7 +178,7 @@ describe('C5 a failed hash is retryable and keeps the raw table intent', () => {
   });
 });
 
-describe('C6 recovery after a failed step', () => {
+describe('recovery after a failed step', () => {
   it('a deliberate edit after a failed first read retries the read and then saves the edit', async () => {
     const f = build();
     const read = f.adapter.readPreferences;

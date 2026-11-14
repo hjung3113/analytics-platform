@@ -84,12 +84,15 @@ function open() {
 const cardOf = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}`) });
 
 beforeEach(() => {
+  // Fake timers that follow the real clock keep `waitFor`/`findBy*` working; the late drawer and the "nothing moves" checks are stepped through virtual time.
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.stubGlobal('jest', { advanceTimersByTime: (ms: number) => { vi.advanceTimersByTime(ms); } });
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   vi.stubGlobal('localStorage', memoryStorage());
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
   sessionStorage.clear();
 });
-afterEach(() => { lazyMenuId = null; resolveLazy = () => {}; cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { lazyMenuId = null; resolveLazy = () => {}; cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('SystemSwitcher button (15 §3.2)', () => {
   it('names the button and its visible tooltip with the current system', async () => {
@@ -168,7 +171,7 @@ describe('SystemSwitcher popover', () => {
     expect(row).toHaveFocus();
     const before = window.location.href;
     fireEvent.click(row);
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
     expect(window.location.href).toBe(before);
     expect(screen.getByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeTruthy();
   });
@@ -292,7 +295,7 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus());
     expect(screen.queryByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeNull();
     expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('MEM');
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30); });
     expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus();
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
@@ -362,7 +365,7 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     const title = await screen.findByRole('heading', { name: '카탈로그' });
     await waitFor(() => expect(title).toHaveFocus());
     expect(await screen.findByRole('dialog', { name: 'Detail' })).toBeTruthy();
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30); });
     expect(title).toHaveFocus();
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
@@ -383,7 +386,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     const arrival = step === 1 ? '카탈로그' : '사이클';
     await waitFor(() => expect(screen.getByRole('heading', { name: arrival })).toHaveFocus());
     expect(screen.queryByRole('dialog', { name: '시스템 및 플랫폼 메뉴' })).toBeNull();
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30); });
     expect(screen.getByRole('heading', { name: arrival })).toHaveFocus();
     expect(trigger()).not.toHaveFocus();
   });
@@ -411,7 +414,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     open();
     fireEvent.click(cardOf('BRAVO'));
     await waitFor(() => expect(window.location.pathname).toBe('/bravo/catalog'));
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30); });
     expect(push).toHaveBeenCalledTimes(1);
   });
 
@@ -421,7 +424,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     open();
     fireEvent.click(cardOf('BRAVO'));
     view.unmount();
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30); });
     expect(push).not.toHaveBeenCalled();
     expect(window.location.pathname).toBe('/mars/cycle');
   });
@@ -437,7 +440,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     fireEvent.click(cardOf('BRAVO'));
     current = testSession(['platform:view', 'metrics:view', 'console:access', 'notice:view']);
     act(() => { listeners.forEach(listener => listener()); });
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30); });
     expect(push).not.toHaveBeenCalled();
     expect(window.location.pathname).toBe('/mars/cycle');
   });
@@ -502,7 +505,7 @@ describe('notifications slot (ADR-0070 decision 4)', () => {
     expect(window.location.pathname).toBe('/alerts');
     if (url.startsWith('/cycle')) {
       await waitFor(() => expect(screen.getByRole('heading', { name: '알림' })).toHaveFocus());
-      await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(20); });
       expect(screen.getByRole('heading', { name: '알림' })).toHaveFocus();
     } else {
       await waitFor(() => expect(bell()).toHaveFocus());

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { column, group, installResizeObserver, row } from './harness';
 import { DockLayout, DockLayoutBase } from '../DockLayout';
@@ -304,6 +304,12 @@ describe('DockLayout rows: maximize, tab drag and edge scroll (#701, ADR-0130)',
   });
 
   describe('row separator drag near the edge of the visible area', () => {
+    // Fake timers that follow the real clock keep `waitFor` working; the "does not scroll" checks step the edge-scroll frames through virtual time.
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.stubGlobal('jest', { advanceTimersByTime: (ms: number) => { vi.advanceTimersByTime(ms); } });
+    });
+    afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
     const mountScroll = (onHeightsChange: DockRows['onHeightsChange']) => {
       const view = render(<I18nProvider><main data-testid="scroll" style={{ overflowY: 'auto' }}><DockLayoutBase panels={panels} layout={layout} onLayoutChange={vi.fn()} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }} rows={rowsProps({ onHeightsChange, maximum: 900 })} /></main></I18nProvider>);
       const main = screen.getByTestId('scroll');
@@ -327,7 +333,7 @@ describe('DockLayout rows: maximize, tab drag and edge scroll (#701, ADR-0130)',
       expect(onHeightsChange.mock.calls.every(call => (call[0] as number[])[1] === 400)).toBe(true);
       fireEvent.pointerUp(separator, at(790));
       const stopped = main.scrollTop;
-      await new Promise(resolve => { setTimeout(resolve, 80); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(80); });
       expect(main.scrollTop).toBe(stopped);
     });
 
@@ -338,12 +344,12 @@ describe('DockLayout rows: maximize, tab drag and edge scroll (#701, ADR-0130)',
       const separator = screen.getAllByRole('separator')[0]!;
       fireEvent.pointerDown(separator, at(400));
       fireEvent.pointerMove(separator, at(450));
-      await new Promise(resolve => { setTimeout(resolve, 80); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(80); });
       expect(main.scrollTop).toBe(0);
       fireEvent.pointerMove(separator, at(795));
       await waitFor(() => { expect(Math.max(...onHeightsChange.mock.calls.map(call => (call[0] as number[])[0]!))).toBe(900); });
       const stopped = main.scrollTop;
-      await new Promise(resolve => { setTimeout(resolve, 80); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(80); });
       expect(main.scrollTop).toBe(stopped);
       fireEvent.pointerUp(separator, at(795));
     });
@@ -355,7 +361,7 @@ describe('DockLayout rows: maximize, tab drag and edge scroll (#701, ADR-0130)',
       fireEvent.pointerDown(separator, at(500));
       fireEvent.lostPointerCapture(separator);
       fireEvent.pointerMove(separator, at(795));
-      await new Promise(resolve => { setTimeout(resolve, 80); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(80); });
       expect(main.scrollTop).toBe(0);
     });
   });
