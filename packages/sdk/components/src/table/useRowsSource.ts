@@ -11,6 +11,7 @@ type RowsInput<T> = {
   /** The menu owns the window (keyset): every given row is shown in the given order. */
   external: boolean;
   columns: PlatformColumn<T>[];
+  urlSorting?: boolean;
   filterFields: TableFilterField[] | undefined;
 };
 
@@ -27,17 +28,21 @@ function withoutFilterAndGroup<T>(column: PlatformColumn<T>): PlatformColumn<T> 
  * With `external` the menu owns the window, so column filters and row groups (which need the whole set) are removed here, once, before
  * the columns reach the rest of the table; `filtersIgnored` tells the table to drop any (controlled or own) filter state too, so identity, export and descriptions never see it.
  */
-export function useRowsSource<T>({ rows, rowsLoading, external, columns, filterFields }: RowsInput<T>) {
+export function useRowsSource<T>({ rows, rowsLoading, external, columns, filterFields, urlSorting = false }: RowsInput<T>) {
   const active = rows !== undefined;
   // State adjusted during render (never a ref): React re-runs this component at once with the new version.
   const [seen, setSeen] = useState({ rows, rowsLoading, version: 0 });
   if (seen.rows !== rows || seen.rowsLoading !== rowsLoading) setSeen({ rows, rowsLoading, version: seen.version + 1 });
   const ignored = active && external && (columns.some(c => c.filter || c.groupable) || (filterFields?.length ?? 0) > 0);
+  const sortingIgnored = active && external && !urlSorting && columns.some(column => column.sortable !== false);
   useEffect(() => {
-    if (!ignored || isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) return;
-    console.warn('[PlatformDataTable] `filter`, `filterFields` and `groupable` are ignored with `rows` and `externalPagination`: the menu owns the window, so the table cannot filter or group the whole result.');
-  }, [ignored]);
-  const shownColumns = useMemo(() => ignored ? columns.map(withoutFilterAndGroup) : columns, [ignored, columns]);
+    if (!(ignored || sortingIgnored) || isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) return;
+    console.warn('[PlatformDataTable] `filter`, `filterFields` and `groupable` are ignored with `rows` and `externalPagination`: the menu owns the window, so the table cannot filter or group the whole result. Sorting is disabled without `urlState` because the menu must fetch the sorted window.');
+  }, [ignored, sortingIgnored]);
+  const shownColumns = useMemo(() => {
+    const filtered = ignored ? columns.map(withoutFilterAndGroup) : columns;
+    return sortingIgnored ? filtered.map(column => ({ ...column, sortable: false })) : filtered;
+  }, [ignored, sortingIgnored, columns]);
   const shownFields = ignored ? undefined : filterFields;
   if (!active) return { columns, filterFields, loadPage: undefined, version: 0, filtersIgnored: false };
   const loadPage: TableLoadPage<T> = async (query, signal) => {

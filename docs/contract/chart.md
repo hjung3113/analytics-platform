@@ -14,7 +14,7 @@ Primary candidate는 `../architecture/frontend-ui-ux.md`에 따라 Apache EChart
 
 플랫폼은 Chart의 비즈니스 정의가 아니라 **Chart Frame과 Interaction Contract**를 소유한다.
 
-`AnalysisChartFrame`의 그림 위에서 수정키 없는 휠은 가장 가까운 스크롤 컨테이너를 그대로 스크롤하고(프레임이 막지 않는다), Shift+휠이 확대이며 키보드·포인터 대안은 툴바 `확대` 버튼이다(#700).
+`AnalysisChartFrame`의 그림 위에서 수정키 없는 휠은 가장 가까운 스크롤 컨테이너를 그대로 스크롤하고(프레임이 막지 않는다), Shift+휠이 확대이며 키보드·포인터 대안은 툴바 `확대`·`축소`·`왼쪽으로 이동`·`오른쪽으로 이동` 버튼이다(#700, #2065). 이동은 현재 창 너비의 절반이며 양 끝에서 멈춘다. 축소는 창 너비를 두 배로 넓히고 전체 구간에서 멈춘다. 이 조작은 선택 구간·비교·시리즈 표시·주석 초안을 유지한다.
 
 **`markLines`.** `{ y: number; label: string; unit?: string; metricVersion?: string }[]`를 받아 값 축의 `y` 위치에 라벨이 붙은 기준선을 그린다(세로 차트는 가로선, 가로 막대는 세로선). `startAlign`에서는 x가 더는 한 값 축이 아니므로 무시하고 아래 단위 안내도 하지 않는다. 그릴 선에 `unit`이나 `metricVersion`이 있고 Frame의 `unit`·`metricVersion`과 다르면 그 선만 그리지 않고, 차트 동작 도구줄 밖(범례 아래 안내 줄)에 `<라벨> 기준선은 단위가 달라 표시하지 않음`을 `text-text-secondary`로 선마다 한 줄 보인다. 두 필드를 생략한 선은 그대로 그린다.
 

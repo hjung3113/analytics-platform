@@ -66,6 +66,7 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
           role:    'button',
           tabIndex: 0,
           onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+            if (event.target !== event.currentTarget) return;
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();
               event.currentTarget.click();

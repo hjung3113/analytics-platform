@@ -1,7 +1,7 @@
 import type { ChartTrust } from '../state/trustFormat';
 import { useEmbeddedChrome } from '../workspace/panelContext';
 import { toMs, unknownLabel } from './analysisChartShared';
-import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
+import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn, ZoomOut, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform } from '@ap/kernel';
@@ -686,6 +686,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
         <div className="flex flex-wrap items-center gap-1">
           {rowPitch === undefined && <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomIn} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>}
+          {rowPitch === undefined && <>
+            <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomOut} disabled={zoom[0] === 0 && zoom[1] === 100}><ZoomOut className="size-3.5" aria-hidden />{lang === 'ko' ? '축소' : 'Zoom out'}</Button>
+            <Button variant="ghost" size="toolbar" onClick={() => rangeActions.pan(-1)} disabled={zoom[0] <= 0}><ArrowLeft className="size-3.5" aria-hidden />{lang === 'ko' ? '왼쪽으로 이동' : 'Pan left'}</Button>
+            <Button variant="ghost" size="toolbar" onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden />{lang === 'ko' ? '오른쪽으로 이동' : 'Pan right'}</Button>
+          </>}
           <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} disabled={startAlign} title={startAlign ? (lang === 'ko' ? '시작 위치 맞춤에서는 가로축이 하나의 값 척도가 아니라 구간 선택을 쓸 수 없습니다' : 'Brush is unavailable with StartAlign: the x axis is no longer one value scale') : undefined} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
           {showKeyboard && <div role="group" aria-label={lang === 'ko' ? '빠른 구간 선택' : 'Quick range'} className="flex items-center gap-1">
             {oneHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{lang === 'ko' ? '1시간' : '1h'}</Button>}
