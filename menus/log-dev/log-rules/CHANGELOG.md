@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.5.2 — 2026-11-14
+
+- 결과 검토 라벨 입력에 실행 항목 순번을 포함해 같은 Revision의 다른 결과와 구분한다(#2107).
+
 ## 0.5.1 — 2026-11-11
 
 - Baseline 승인 가능 여부 지표기가 지어낸 Trust(`provisional: false`로 «확정»처럼 보임)를 지우고 `DataTrustIndicator`의 `showWithoutTrust`로 평가 항목만 보인다(#1769).

@@ -183,11 +183,17 @@ describe('param judgments', () => {
 });
 
 describe('reviewLabelAdd input', () => {
-  const ok = { suiteRunId: '0B2D6D2E-6D3A-4A43-9D52-7A1D4C9F0C11', ruleId: ' R-1 ', datasetRevisionId: '1b2d6d2e-6d3a-4a43-9d52-7a1d4c9f0c11', label: 'false_positive', reason: ' not a defect ' };
+  const ok = { ordinal: 1, suiteRunId: '0B2D6D2E-6D3A-4A43-9D52-7A1D4C9F0C11', ruleId: ' R-1 ', datasetRevisionId: '1b2d6d2e-6d3a-4a43-9d52-7a1d4c9f0c11', label: 'false_positive', reason: ' not a defect ' };
   it('normalises ids to lower case and trims text', () => {
     expect(parseReviewLabelInput(ok)).toMatchObject({ ok: true, value: { suiteRunId: '0b2d6d2e-6d3a-4a43-9d52-7a1d4c9f0c11', ruleId: 'R-1', reason: 'not a defect' } });
   });
   it.each([
+    ['no ordinal', { ordinal: undefined }, 'ordinal:required'],
+    ['a zero ordinal', { ordinal: 0 }, 'ordinal:malformed'],
+    ['a negative ordinal', { ordinal: -1 }, 'ordinal:malformed'],
+    ['a fractional ordinal', { ordinal: 1.5 }, 'ordinal:malformed'],
+    ['a string ordinal', { ordinal: '2' }, 'ordinal:malformed'],
+    ['a null ordinal', { ordinal: null }, 'ordinal:malformed'],
     ['no run', { suiteRunId: undefined }, 'suiteRunId:required'],
     ['a malformed revision', { datasetRevisionId: 'x' }, 'datasetRevisionId:malformed'],
     ['no rule', { ruleId: '  ' }, 'ruleId:required'],

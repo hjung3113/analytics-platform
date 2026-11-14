@@ -149,6 +149,8 @@ export const datasetSuiteRunRequestedDetailSchema = z
 export const datasetReviewLabelAddedDetailSchema = z
   .object({
     datasetRevisionId: z.string().uuid(),
+    // The run item the label belongs to (#2107): a Revision may appear in more than one item of a run.
+    ordinal: z.number().int().min(1),
     ruleId: z.string().min(1).max(200),
     label: z.enum(['false_positive', 'false_negative', 'accepted_change', 'needs_review']),
     reasonLength: z.number().int().min(1),

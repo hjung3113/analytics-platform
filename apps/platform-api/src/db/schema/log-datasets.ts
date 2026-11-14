@@ -413,6 +413,7 @@ export const suiteReviewLabels = logDatasetsSchema.table(
       .notNull()
       .references(() => workspaces.id),
     suiteRunId: uuid('suite_run_id').notNull(),
+    ordinal: integer('ordinal'),
     ruleId: text('rule_id').notNull(),
     datasetRevisionId: uuid('dataset_revision_id').notNull(),
     label: text('label').notNull(),
@@ -428,12 +429,18 @@ export const suiteReviewLabels = logDatasetsSchema.table(
       columns: [t.workspaceId, t.suiteRunId],
       foreignColumns: [suiteRuns.workspaceId, suiteRuns.id],
     }).onDelete('restrict'),
+    itemFk: foreignKey({
+      name: 'suite_review_label_item_fk',
+      columns: [t.workspaceId, t.suiteRunId, t.ordinal],
+      foreignColumns: [suiteRunItems.workspaceId, suiteRunItems.suiteRunId, suiteRunItems.ordinal],
+    }).onDelete('restrict'),
+    ordinalCheck: check('suite_review_label_ordinal_check', sql`${t.ordinal} is null or ${t.ordinal} >= 1`),
     revisionFk: foreignKey({
       name: 'suite_review_label_revision_fk',
       columns: [t.workspaceId, t.datasetRevisionId],
       foreignColumns: [datasetRevisions.workspaceId, datasetRevisions.id],
     }).onDelete('restrict'),
-    ruleIdx: index('suite_review_label_rule_idx').on(t.workspaceId, t.suiteRunId, t.datasetRevisionId, t.ruleId, t.at),
+    ruleIdx: index('suite_review_label_rule_idx').on(t.workspaceId, t.suiteRunId, t.ordinal, t.ruleId, t.at),
     labelCheck: check('suite_review_label_label_check', sql`${t.label} in ('false_positive','false_negative','accepted_change','needs_review')`),
     ruleCheck: check('suite_review_label_rule_check', sql`char_length(${t.ruleId}) between 1 and 200`),
     reasonCheck: check('suite_review_label_reason_check', sql`char_length(${t.reason}) between 1 and ${sql.raw(String(REASON_MAX))}`),

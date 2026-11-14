@@ -89,6 +89,17 @@ describe('log dataset captured states', () => {
     expect(within(drawer).getByText(/결과 검토 라벨 권한이 없습니다/)).toBeVisible();
     expect(within(drawer).getByRole('button', { name: '결과 검토 라벨 남기기' })).toBeDisabled();
   });
+  it('#2107 submits the selected run item ordinal', async () => {
+    const selected: Comparison = { ...comparison, items: comparison.items.map(i => ({ ...i, ordinal: 2 })), rules: { ...comparison.rules, rows: comparison.rules.rows.map(r => ({ ...r, ordinal: 2 })) } };
+    const p = props({ comparison: selected });
+    const action = p.api.useAction('reviewLabelAdd');
+    render(<ComparisonPanel {...p} datasetId="ds" suiteRunId="run" />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'R-01 검토 전' }));
+    await user.type(screen.getByLabelText('검토 사유'), '확인 필요');
+    await user.click(screen.getByRole('button', { name: '결과 검토 라벨 남기기' }));
+    expect(action.run).toHaveBeenCalledWith({ suiteRunId: 'run', ordinal: 2, datasetRevisionId: 'rev', ruleId: 'R-01', label: 'needs_review', reason: '확인 필요' });
+  });
   it('submits an append-only review label against the pinned revision', async () => {
     const p = props({ comparison }); const action = p.api.useAction('reviewLabelAdd');
     render(<ComparisonPanel {...p} datasetId="ds" suiteRunId="run" />);
@@ -96,7 +107,7 @@ describe('log dataset captured states', () => {
     await user.click(screen.getByRole('button', { name: 'R-01 검토 전' }));
     await user.type(screen.getByLabelText('검토 사유'), '엔진 지원 확인 필요');
     await user.click(screen.getByRole('button', { name: '결과 검토 라벨 남기기' }));
-    expect(action.run).toHaveBeenCalledWith({ suiteRunId: 'run', datasetRevisionId: 'rev', ruleId: 'R-01', label: 'needs_review', reason: '엔진 지원 확인 필요' });
+    expect(action.run).toHaveBeenCalledWith({ suiteRunId: 'run', ordinal: 1, datasetRevisionId: 'rev', ruleId: 'R-01', label: 'needs_review', reason: '엔진 지원 확인 필요' });
   });
   it.each(['queued', 'failed'] as const)('shows request %s and pins the resolved baseline', async state => {
     const result = state === 'queued' ? { outcome: 'ok', data: { suiteRunId: 'new-run' }, version: null, fieldErrors: [] } : { outcome: 'invalid', data: null, version: null, fieldErrors: [{ path: ['suiteId'], code: 'suite.run_limit' }] };

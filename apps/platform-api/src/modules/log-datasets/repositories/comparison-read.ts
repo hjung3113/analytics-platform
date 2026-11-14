@@ -65,7 +65,7 @@ export type ComparedItem =
       rules: RuleComparison[];
       counts: ClassificationCounts;
       coverage: Coverage | null;
-      /** Latest label per rule id of this item's revision in this run. */
+      /** Latest label per rule id of this run item. */
       labels: Map<string, LabelOut>;
       labelCount: number;
     };
@@ -124,6 +124,9 @@ export async function compareRun(
     .where(and(eq(suiteReviewLabels.workspaceId, workspaceId), eq(suiteReviewLabels.suiteRunId, runId)))
     .orderBy(asc(suiteReviewLabels.at), asc(suiteReviewLabels.id));
 
+  const revisionCounts = new Map<string, number>();
+  for (const { item } of rows) revisionCounts.set(item.datasetRevisionId, (revisionCounts.get(item.datasetRevisionId) ?? 0) + 1);
+
   const items: ComparedItem[] = rows.map((x) => {
     if (!x.visible) return { ordinal: x.item.ordinal, restricted: true };
     const seen = observedByRequest.get(x.item.requestId);
@@ -133,6 +136,8 @@ export async function compareRun(
     let labelCount = 0;
     for (const l of labelRows) {
       if (l.datasetRevisionId !== x.item.datasetRevisionId) continue;
+      // Legacy NULL ordinals attach only to an unambiguous revision; never guess ownership for repeated revisions (#2107).
+      if (l.ordinal === null ? revisionCounts.get(l.datasetRevisionId) !== 1 : l.ordinal !== x.item.ordinal) continue;
       labelCount += 1;
       labels.set(l.ruleId, { label: l.label as ReviewLabel, reason: l.reason, actorId: l.actorId, at: iso(l.at) });
     }
@@ -164,12 +169,13 @@ export async function compareRun(
   };
 }
 
-/** Everything a label write must check about a run item, in one statement: the item of that run with this revision, and its dataset's visibility. */
+/** Everything a label write must check about a run item, in one statement: the exact ordinal of that run with this revision, and its dataset's visibility. */
 export async function findLabelTarget(
   tx: Tx,
   workspaceId: string,
   actorId: string,
   runId: string,
+  ordinal: number,
   revisionId: string,
 ): Promise<{ requestId: string; baselineId: string } | null> {
   const [row] = await tx
@@ -180,11 +186,11 @@ export async function findLabelTarget(
       and(
         eq(i.workspaceId, workspaceId),
         eq(i.suiteRunId, runId),
+        eq(i.ordinal, ordinal),
         eq(i.datasetRevisionId, revisionId),
         sql`(${d.shareScope} = 'workspace' or ${d.ownerActorId} = ${actorId})`,
       ),
     )
-    .orderBy(asc(i.ordinal))
     .limit(1);
   return row ?? null;
 }
@@ -208,11 +214,11 @@ export async function baselineRuleIds(tx: Tx, workspaceId: string, baselineId: s
 
 export async function insertLabel(
   tx: Tx,
-  v: { workspaceId: string; actorId: string; suiteRunId: string; ruleId: string; datasetRevisionId: string; label: ReviewLabel; reason: string },
+  v: { workspaceId: string; actorId: string; suiteRunId: string; ordinal: number; ruleId: string; datasetRevisionId: string; label: ReviewLabel; reason: string },
 ): Promise<{ id: string; at: string }> {
   const [row] = await tx
     .insert(suiteReviewLabels)
-    .values({ workspaceId: v.workspaceId, actorId: v.actorId, suiteRunId: v.suiteRunId, ruleId: v.ruleId, datasetRevisionId: v.datasetRevisionId, label: v.label, reason: v.reason })
+    .values({ workspaceId: v.workspaceId, actorId: v.actorId, suiteRunId: v.suiteRunId, ordinal: v.ordinal, ruleId: v.ruleId, datasetRevisionId: v.datasetRevisionId, label: v.label, reason: v.reason })
     .returning({ id: suiteReviewLabels.id, at: suiteReviewLabels.at });
   if (!row) throw new Error('insertLabel: no row returned');
   return { id: row.id, at: iso(row.at) };
