@@ -6,7 +6,7 @@ import { attemptVisibleSql, requestVisibleSql, workerRequestVisibleSql, roundVis
 // UPDATE on request and attempt, INSERT only on rule results and excerpts (migration 0104); the guard triggers refuse a
 // missing `row_version` bump, an illegal state pair and any edit of a finished attempt.
 
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, or, sql } from 'drizzle-orm';
 
 import {
   excerptReaders,
@@ -484,12 +484,15 @@ export async function eraseExcerpts(
   return Number(row?.n ?? 0);
 }
 
-/** The Round and request an attempt belongs to (workspace-scoped); null when unknown. */
+/** Admin-only erasure lookup: preserve Round ACLs; suite attempts have no Round but remain workspace-scoped. */
 export async function attemptOwner(tx: Tx, workspaceId: string, attemptId: string, viewer: Viewer): Promise<{ requestId: string; roundId: string | null } | null> {
   const [row] = await tx
     .select({ requestId: a.requestId, roundId: q.roundId })
     .from(a)
     .innerJoin(q, and(eq(q.workspaceId, a.workspaceId), eq(q.id, a.requestId)))
-    .where(and(eq(a.workspaceId, workspaceId), eq(a.id, attemptId), attemptVisibleSql(viewer, ref(a.id))));
+    .where(and(eq(a.workspaceId, workspaceId), eq(a.id, attemptId), or(
+      attemptVisibleSql(viewer, ref(a.id)),
+      sql`${q.roundId} is null and ${q.suiteRunItemId} is not null`,
+    )));
   return row ?? null;
 }

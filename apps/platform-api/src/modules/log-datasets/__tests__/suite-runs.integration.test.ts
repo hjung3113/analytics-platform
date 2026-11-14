@@ -17,6 +17,7 @@ import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
 import { hashToken } from '../../api-tokens/token-format.js';
+import { attemptOwner } from '../../log-lifecycle/repositories/queue-write.js';
 import { purgeExpiredExcerpts } from '../../log-lifecycle/excerpt-purge-job.js';
 import { toCodeKey } from '../../log-knowledge/domain/code-key.js';
 import type { DatasetSourceRead, DescribeFileResponse } from '../source-check.js';
@@ -974,6 +975,30 @@ describe.skipIf(!runIntegration)('regression suites and suite runs (#1479 D-c)',
 
   // ============================================================================================================
   describe('excerpt retention for a suite subject', () => {
+    it('admin erases a suite attempt while a sibling is queued; other callers remain refused (SER-26)', async () => {
+      const a = await approvedDataset(['erase-a.log']);
+      const b = await approvedDataset(['erase-b.log']);
+      const suite = await makeSuite([{ datasetId: a.ds.id }, { datasetId: b.ds.id }]);
+      const started = await run(suite.id);
+      expect(started.outcome).toBe('ok');
+      const c = (await claim()).json();
+      const file = at(c.request.sampleSet.files as { fileRef: string; sha256: string }[], 0);
+      await finish(c, [rule('SYN-ERASE', 'FAIL', { evidence: [{ fileRef: file.fileRef, line: 1, fileSha256: file.sha256, excerpt: 'Synthetic excerpt' }] })]);
+      const input = { scope: 'attempt', id: c.attempt.id, reason: 'Synthetic privacy request' };
+      expect((await actOn(withPort, 'excerptDelete', input, developer, undefined, 'logLifecycle')).outcome).toBe('forbidden');
+      const tokenRes = await withPort.inject({ method: 'POST', url: '/api/v1/menu-action', headers: { authorization: `Bearer ${worker}` }, payload: { action: 'logLifecycle.excerptDelete', context: {}, input, idempotencyKey: randomUUID() } });
+      expect(tokenRes.json().outcome).toBe('forbidden');
+      expect(fe(await actOn(withPort, 'excerptDelete', { ...input, id: randomUUID() }, admin, undefined, 'logLifecycle'))).toEqual(['id:not_found']);
+      const foreignLookup = await dbHandle.db.transaction((tx) => attemptOwner(tx, otherWorkspace, c.attempt.id, { workspaceId: otherWorkspace, actorId: foreignActor }));
+      expect(foreignLookup).toBeNull();
+      const done = await actOn(withPort, 'excerptDelete', input, admin, undefined, 'logLifecycle');
+      expect(done).toMatchObject({ outcome: 'ok', data: { count: 1 } });
+      expect((await sql('select excerpt, deleted_reason from log_lifecycle.rule_result_excerpt e join log_lifecycle.rule_result rr on rr.id = e.rule_result_id where rr.attempt_id = $1', [c.attempt.id])).rows).toEqual([{ excerpt: '', deleted_reason: input.reason }]);
+      expect((await audit(c.request.id)).find((row) => row.event_type === 'lifecycle.excerpt.deleted')).toMatchObject({ detail: { scope: 'attempt', attemptId: c.attempt.id, count: 1 } });
+      expect((await actOn(withPort, 'excerptDelete', input, admin, undefined, 'logLifecycle')).data.count).toBe(0);
+      expect((await sql("select count(*)::int as n from log_lifecycle.execution_request where suite_run_id = $1 and state = 'queued'", [started.data.suiteRunId])).rows[0].n).toBe(1);
+    });
+
     it('the clock is the FINISH of the suite run: nothing is erased while a sibling request is still open, nothing before the retention days, everything after', async () => {
       const a = await approvedDataset(['x1.log']);
       const b = await approvedDataset(['x2.log']);
