@@ -194,7 +194,7 @@ describe('recovery after a failed step', () => {
     expect(f.server()).toEqual({ lang: 'en' });
   });
 
-  it('a permanent import_too_large neither spins nor retries on an edit', async () => {
+  it('an import over the budget is reduced and acknowledged (KER-15): it neither spins nor re-reads on an edit', async () => {
     const store = memoryStorage();
     store.setItem('platform:favorites:u1', JSON.stringify(['m']));
     const f = build({ importedAt: null, store });
@@ -202,11 +202,11 @@ describe('recovery after a failed step', () => {
     const c = f.controller();
     c.start();
     await settle();
-    expect(c.state()).toMatchObject({ status: 'failed', failure: 'import_too_large' });
+    expect(c.state()).toMatchObject({ status: 'ready', failure: null, partialImport: true });
     c.set('lang', 'en');
     await settle();
     await settle();
     expect(f.counts.read).toBe(1);
-    expect(f.counts.import).toBe(0);
+    expect(f.counts.import).toBe(1);
   });
 });
