@@ -676,15 +676,16 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {
     await evidence(page, testInfo, 'viewer-home-global');
   });
 
-  test('mock 홈 첫 줄은 내 담당·최근 방문이고 빈 최근 방문은 접히며 즐겨찾기·시스템 목록은 아래에 있다 (#1998)', async ({ page }) => {
+  test('mock 홈 첫 줄은 내 담당·최근 방문이고 빈 최근 방문도 빈 안내로 남으며 즐겨찾기·시스템 목록은 아래에 있다 (#1998)', async ({ page }) => {
     await signInAs(page, 'viewer');
     await page.goto('/home');
     await expect(page.getByRole('heading', { name: '플랫폼 홈' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '즐겨찾기' })).toBeVisible();
     await expect(page.getByRole('region', { name: '내 할 일' })).toHaveCount(0);
     await expect(page.getByText('실서버 필요')).toHaveCount(0);
-    // When assignments exist and recent visits are empty, recent visits collapses so assignments fill the row.
-    await expect(page.getByRole('heading', { name: '최근 방문' })).toHaveCount(0);
+    // Recent visits stays beside assignments with its empty message, so the first row has no blank half.
+    const emptyRecent = page.getByRole('heading', { name: '최근 방문' }).locator('xpath=ancestor::section[1]');
+    await expect(emptyRecent.getByText('최근 방문한 화면이 없습니다.')).toBeVisible();
     const assignments = page.getByRole('region', { name: '내 담당 개선 아이템' });
     await expect(assignments.getByText('담당 건수 없음')).toBeVisible();
     await expect(assignments.getByRole('link', { name: '내 담당 목록 열기 · 내 담당 개선 아이템 0건' })).toHaveAttribute('href', /view=mine/);
