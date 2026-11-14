@@ -23,13 +23,28 @@ export function ActiveFilterBar({ items, onClearAll, className, messages, return
   const clear = useRef<HTMLButtonElement>(null);
   const removeButtons = useRef(new Map<string, HTMLButtonElement>());
   const pending = useRef<{ key: string | null; nextKey?: string; fallback: HTMLElement | null; trigger: HTMLElement } | null>(null);
-  const rememberFocus = (trigger: HTMLButtonElement, key: string | null, nextKey?: string) => {
-    if (document.activeElement !== trigger) return;
+  const findFallback = () => {
+    if (!bar.current) return null;
     const candidates = [...document.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href], [tabindex]')];
-    const fallback = candidates.filter(element => element.tabIndex >= 0 && !element.matches(':disabled')
+    return candidates.filter(element => element.tabIndex >= 0 && !element.matches(':disabled')
       && !element.closest('[hidden], [inert], [aria-hidden="true"]') && !!bar.current
       && !!(element.compareDocumentPosition(bar.current) & Node.DOCUMENT_POSITION_FOLLOWING)).at(-1) ?? null;
-    pending.current = { key, nextKey, fallback, trigger };
+  };
+  const handoffFocus = (
+    trigger: HTMLButtonElement,
+    action: () => void,
+    key: string | null,
+    nextKey?: string,
+  ) => {
+    const focused = document.activeElement === trigger;
+    const isFinal = key === null || items.length === 1;
+    const fallback = focused ? findFallback() : null;
+    pending.current = focused && !isFinal ? { key, nextKey, fallback, trigger } : null;
+    action();
+    if (!focused || !isFinal) return;
+    if (document.activeElement !== document.body && document.activeElement !== trigger) return;
+    const target = returnFocusRef?.current ?? fallback;
+    if (target?.isConnected) target.focus();
   };
   useLayoutEffect(() => {
     const move = pending.current;
@@ -63,7 +78,7 @@ export function ActiveFilterBar({ items, onClearAll, className, messages, return
                   className="text-current hover:bg-accent-primary/10"
                   aria-label={messages?.remove?.(label) ?? `${label} 필터 제거`}
                   ref={element => { if (element) removeButtons.current.set(key, element); else removeButtons.current.delete(key); }}
-                  onClick={event => { rememberFocus(event.currentTarget, key, items[index + 1]?.key); onRemove(); }}
+                  onClick={event => handoffFocus(event.currentTarget, onRemove, key, items[index + 1]?.key)}
                 >
                   <X className="size-3" aria-hidden="true" />
                 </Button>
@@ -75,7 +90,7 @@ export function ActiveFilterBar({ items, onClearAll, className, messages, return
         <button
           type="button"
           ref={clear}
-          onClick={event => { rememberFocus(event.currentTarget, null); onClearAll(); }}
+          onClick={event => handoffFocus(event.currentTarget, onClearAll, null)}
           className="rounded-sm text-xs text-accent-primary hover:underline focus-visible:outline focus-visible:outline-focus-ring"
         >
           {messages?.reset ?? '필터 초기화'}
