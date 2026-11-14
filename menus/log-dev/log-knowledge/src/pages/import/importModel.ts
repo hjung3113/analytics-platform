@@ -3,7 +3,7 @@
  * the distinct new maker / process count, the conflict guide, and the three loops that talk to the server (read every page, resolve in
  * batches, apply until done). No React: the screens call these with their action and fetch functions.
  */
-import { formatNumber, type ActionResult, type ApiResponse, type ColumnFilter, type FieldError } from '@ap/contracts';
+import { formatNumber, type ActionResult, type ApiResponse, type ColumnFilter, type FieldError, isAnswered } from '@ap/contracts';
 import type { ImportApplyCounts, ImportApplyResult, ImportApplyStatus, ImportDetail, ImportJobStatus, ImportPlanState, ImportResolveInput, ImportRowView, ImportStepResult } from '../../endpoints';
 
 export const PASTE_ROW_LIMIT = 1000;
@@ -192,7 +192,7 @@ export async function fetchAllRows(fetchPage: DetailFetch, filters?: ColumnFilte
   for (let page = 0; ; page += 1) {
     const res = await fetchPage({ page, pageSize, ...(filters && filters.length > 0 ? { filters } : {}) });
     if (res.outcome === 'empty' && first) break;
-    if ((res.outcome !== 'ok' && res.outcome !== 'empty') || !res.data) return { ok: false, outcome: res.outcome };
+    if (!isAnswered(res.outcome) || !res.data) return { ok: false, outcome: res.outcome };
     first ??= res.data;
     rows.push(...res.data.rows);
     if (res.data.rows.length === 0 || rows.length >= res.data.total || page >= Math.ceil(PASTE_ROW_LIMIT / pageSize)) break;

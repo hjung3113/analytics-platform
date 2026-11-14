@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState, type RefObject } from 'react';
-import { encodeFilterParams, type ActionResult, type ActionSpec, type ApiResponse, type PageResult } from '@ap/contracts';
+import { encodeFilterParams, type ActionResult, type ActionSpec, type ApiResponse, type PageResult, isAnswered } from '@ap/contracts';
 import { PlatformLink, useMenuAction, useMenuFetch, useMenuQuery, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
 import {
@@ -52,7 +52,7 @@ export function useCatalogRow(kind: CatalogKind, focus: string, rowsRef: RefObje
     const settle = (lookup: Lookup) => { if (!controller.signal.aborted) setHeld({ key, lookup }); };
     (async () => {
       const res: ApiResponse<PageResult<CatalogRow>> = await fetchRef.current({ q: null, page: 0, pageSize: 1, sorting: [{ id: 'createdAt', desc: false }], filters: [{ id: 'id', op: 'in', value: [focus.toLowerCase()] }] }, controller.signal);
-      if (res.outcome !== 'ok' && res.outcome !== 'empty') { settle({ state: 'error' }); return; }
+      if (!isAnswered(res.outcome)) { settle({ state: 'error' }); return; }
       const found = res.data?.rows.find(r => r.id === focus.toLowerCase());
       if (found) { rowsRef.current.set(found.id, found); settle({ state: 'ready', row: found }); } else settle({ state: 'missing' });
     })().catch(() => settle({ state: 'error' }));

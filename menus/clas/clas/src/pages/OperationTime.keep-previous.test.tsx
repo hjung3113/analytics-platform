@@ -21,7 +21,7 @@ beforeEach(() => { vi.mocked(useMenuQuery).mockClear(); });
 describe('CLAS operation time keeps the previous equipment while another loads (#1365)', () => {
   it('reads the chosen equipment with keepPrevious on', () => {
     renderToStaticMarkup(<OperationTimeScreen />);
-    expect(useMenuQuery).toHaveBeenCalledWith(operationTimeEndpoint, { eqp: 'EQ-07' }, true, { keepPrevious: true });
+    expect(useMenuQuery).toHaveBeenCalledWith(operationTimeEndpoint, { eqp: 'EQ-07' }, { keepPrevious: true });
   });
 
   it('shows a local previous-equipment line only while a previous result shows, without a live-region role', () => {

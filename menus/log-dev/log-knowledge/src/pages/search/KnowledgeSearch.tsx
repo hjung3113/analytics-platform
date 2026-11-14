@@ -8,6 +8,7 @@ import { EventKeyPicker } from '../items/EventKeyPicker';
 import { useSpecWords } from '../spec/SpecControls';
 import { parseSearchAddress, plainQuery, SEARCH_KEY_RULES, SEARCH_KIND_LABEL } from './searchModel';
 import { SearchFailure, SearchMore, SearchRows } from './SearchResults';
+import { isAnswered } from '@ap/contracts';
 
 function useSuggestions(text: string) {
   const [debounced, setDebounced] = useState('');
@@ -51,7 +52,7 @@ export default function KnowledgeSearch() {
   const ime = useImeEnterGuard();
   if (draft.applied !== q) setDraft({ applied: q, text: q });
   const query = useMenuQuery(searchEndpoint, address.params, address.active && !keys.invalid);
-  const response = query.response, data = response && ['ok', 'empty'].includes(response.outcome) ? response.data : null;
+  const response = query.response, data = response && isAnswered(response.outcome) ? response.data : null;
   const interpretationKey = JSON.stringify([q, relation, kind]);
   const [interpretation, setInterpretation] = useState<{ key: string; direction: SearchDirection | null }>({ key: '', direction: null });
   if (data && (interpretation.key !== interpretationKey || JSON.stringify(interpretation.direction) !== JSON.stringify(data.interpretation.direction))) {

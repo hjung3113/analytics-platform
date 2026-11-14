@@ -3,12 +3,18 @@ import { hashKey, useQuery, type QueryClient, type QueryKey } from '@tanstack/re
 import type { QueryMissing } from './query-draft';
 import { narrowedGlobal } from './condition-preset';
 import { useHostPlatform, useQueryEngine } from '../platform/platform';
-import { clientCorrelationId, compareAuditEvents, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
+import { clientCorrelationId, compareAuditEvents, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, serializeGlobal, isAnswered } from '@ap/contracts';
 import { useCursorPages, type CursorMore, type CursorMoreError, type CursorMoreLast, type CursorMoreStatus, type FirstPage } from '../audit/cursor-pages';
 
+/**
+ * Lifecycle of one request as a screen sees it. loading: no result for the current Context yet. refreshing: same Context re-query,
+ * prior result kept. This is the *request's* vocabulary; `RequestState` (below) is the action/mutation one, which has no `refreshing`.
+ */
+export type QueryStatus = 'idle' | 'loading' | 'refreshing' | 'done';
+
 export type QueryState<T> = {
-  /** loading: no result for the current Context yet. refreshing: same Context re-query, prior result kept. */
-  status: 'idle' | 'loading' | 'refreshing' | 'done';
+  /** See {@link QueryStatus}. */
+  status: QueryStatus;
   missing: readonly QueryMissing[];
   completedAt: number | null;
   response: ApiResponse<T> | null;
@@ -49,6 +55,11 @@ type Accepted = { key: string; scope: string; data: unknown; at: number; params:
 
 /** Opt-in of {@link useMenuQuery} (ADR-0114). */
 export type MenuQueryOptions = {
+  /**
+   * Gate for the request: false sends nothing and shows no result (the same as the positional `enabled` it replaces). Default true.
+   * When the positional `enabled` is also given both must be true.
+   */
+  enabled?: boolean;
   /**
    * When only the endpoint's own `params` change (same session generation, projected Context and endpoint, gate open), keep the
    * last result this hook accepted as `refreshing` until the new result arrives. Default false: a params change hides the result.
@@ -215,7 +226,7 @@ function requestedEmptySet(projected: MenuQueryContext): boolean {
 /** Replaces an `ok`/`empty` reply whose assessment kinds differ from the declaration with a `contract_violation` error. */
 function checkMenuResponse<P, T>(spec: EndpointSpec<P, T>, projected: MenuQueryContext, response: ApiResponse<unknown>): ApiResponse<T> {
   const explicitEmpty = requestedEmptySet(projected) && response.outcome === 'empty' && response.assessments.length === 0 && response.trust === null;
-  if ((response.outcome === 'ok' || response.outcome === 'empty') && !explicitEmpty && !hasExactAssessmentKinds(response.assessments, spec.kinds)) {
+  if ((isAnswered(response.outcome)) && !explicitEmpty && !hasExactAssessmentKinds(response.assessments, spec.kinds)) {
     const got = `[${response.assessments.map(({ kind }) => kind).join(', ')}]`;
     const declared = `[${spec.kinds.join(', ')}]`;
     return {
@@ -278,7 +289,12 @@ export type MenuQueryState<P, T> = QueryState<T> & { resultParams?: P };
  * `resultParams` is the params the shown result was loaded with and `showingPrevious` is true while a kept result with other params
  * shows (both are `undefined` unless `keepPrevious` is on): build titles, drill/click handlers, exports and writes from `resultParams` (not the current selection) while it is true.
  */
-export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true, options?: MenuQueryOptions): MenuQueryState<P, T> {
+export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, options?: MenuQueryOptions): MenuQueryState<P, T>;
+/** The positional `enabled` form is deprecated: pass `{ enabled }` in `options` (an unnamed boolean says nothing at the call site). It keeps working. */
+export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled?: boolean, options?: MenuQueryOptions): MenuQueryState<P, T>;
+export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, third?: boolean | MenuQueryOptions | undefined, fourth?: MenuQueryOptions): MenuQueryState<P, T> {
+  const options = typeof third === 'object' ? third : fourth;
+  const enabled = (typeof third === 'boolean' ? third : true) && (options?.enabled ?? true);
   const platform = useHostPlatform();
   const { projected, ready, missing, send } = menuRequest(spec, platform);
   // `resultParams` is the `params` object handed to the lifecycle below, so it is a `P`; the engine layer types it `unknown`.

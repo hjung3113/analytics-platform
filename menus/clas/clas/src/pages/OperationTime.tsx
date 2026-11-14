@@ -16,7 +16,7 @@ const ROOM_COLORS = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'char
 export default function OperationTimeScreen() {
   const { pageParam } = usePlatform();
   // keepPrevious ON (#1365, ADR-0114): picking another equipment re-reads the same period and Scope; the ranking and the flow title (from the data) stay until the new flow arrives.
-  const query = useMenuQuery(operationTimeEndpoint, { eqp: pageParam('eqp') ?? '' }, true, { keepPrevious: true });
+  const query = useMenuQuery(operationTimeEndpoint, { eqp: pageParam('eqp') ?? '' }, { keepPrevious: true });
   // Opened from another screen's object list (06 §22, #1930): the way back to that screen.
   const returning = pageParam('returnTo') !== null;
   return <PlatformPage {...(returning ? { secondaryActions: <ReturnLink /> } : {})} dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>

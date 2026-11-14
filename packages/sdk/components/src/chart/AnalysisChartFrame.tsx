@@ -5,7 +5,7 @@ import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, useMessages, usePlatform } from '@ap/kernel';
-import { canClientSum, formatDateTime, formatNumber, formatWallClock, type Reaggregation } from '@ap/contracts';
+import { canClientSum, formatDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -626,7 +626,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // The controlled value stays as given (the reveal and selection effects read it); only the summary names a row the plot draws.
   const drawnActive = activeCategory != null && categories.includes(activeCategory) ? activeCategory : null;
   const rangeUi = size !== 'fill' || brushMode || !!selection;
-  const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !['ok', 'empty'].includes(editor.query.response.outcome);
+  const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !isAnswered(editor.query.response.outcome);
   const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || drawnActive !== null || (!!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)));
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;

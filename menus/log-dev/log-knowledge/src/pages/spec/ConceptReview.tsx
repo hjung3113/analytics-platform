@@ -8,6 +8,7 @@ import { canConfirm, canReject, CONCEPT_RELATION_LABEL, filterByTarget, proposed
 import { Pager, SpecField, useSpecWords } from './SpecControls';
 import { eventsOf, eventIdentity, type Spec } from './specModel';
 import { useConceptActions } from './useConceptData';
+import { isAnswered } from '@ap/contracts';
 
 type DefinitionState = ReturnType<typeof useSubjectPickerSpec>;
 /** One query observer per model in the section, shared by every definition card. */
@@ -22,7 +23,7 @@ type Membership = { rows: ConceptMappingRow[] | null; outcome: string; refetch: 
 function MembershipLoader({ conceptId, onLoad }: { conceptId: string; onLoad: (id: string, membership: Membership) => void }) {
   const query = useMenuQuery(conceptMappingsEndpoint, { conceptId, page: 0, pageSize: 200 });
   const { response, refetch } = query;
-  useEffect(() => { if (response) onLoad(conceptId, { rows: response.outcome === 'ok' || response.outcome === 'empty' ? response.data?.rows ?? [] : null, outcome: response.outcome, refetch }); }, [conceptId, response, refetch, onLoad]);
+  useEffect(() => { if (response) onLoad(conceptId, { rows: isAnswered(response.outcome) ? response.data?.rows ?? [] : null, outcome: response.outcome, refetch }); }, [conceptId, response, refetch, onLoad]);
   return null;
 }
 /** A computed decision resolves only its two targets: open rows of each model, small pages, hard request ceiling. */
@@ -32,7 +33,7 @@ function Definition({ modelName, targetKey, name, spec, query }: { modelName: st
   const w = useSpecWords();
   const event = spec ? eventsOf(spec).find(e => eventIdentity(e) === targetKey) : null;
   return <div className="grid min-w-0 content-start gap-1 bg-surface-sunken p-3"><p className="text-xs text-text-secondary">{modelName}</p><p className="t-mono break-all">{targetKey}</p><p className="text-sm font-medium">{name ?? w('대상 사라짐', 'Target gone')}</p>
-    {!spec && !query?.response ? <p role="status" className="text-sm">{w('정의를 불러오는 중…', 'Loading definition…')}</p> : query?.response && !['ok', 'empty'].includes(query.response.outcome) ? <div><p role="alert" className="text-sm">{w('정의를 불러오지 못했습니다.', 'Could not load definition.')}</p><Button size="sm" variant="secondary" onClick={query.refetch}>{w('다시 시도', 'Retry')}</Button></div> : <p className="text-sm">{event?.triggerRule ?? w('발생 조건 없음', 'No trigger rule')}</p>}
+    {!spec && !query?.response ? <p role="status" className="text-sm">{w('정의를 불러오는 중…', 'Loading definition…')}</p> : query?.response && !isAnswered(query.response.outcome) ? <div><p role="alert" className="text-sm">{w('정의를 불러오지 못했습니다.', 'Could not load definition.')}</p><Button size="sm" variant="secondary" onClick={query.refetch}>{w('다시 시도', 'Retry')}</Button></div> : <p className="text-sm">{event?.triggerRule ?? w('발생 조건 없음', 'No trigger rule')}</p>}
   </div>;
 }
 type CardProps = { modelId: string; current: Spec | null; row?: ConceptMappingRow; suggestion?: ConceptSuggestion; all: ConceptMappingRow[]; reload: () => void; definitions: Map<string, DefinitionState>; onComplete: (id: string, action: 'confirm' | 'reject') => void; cardId: string; headingRef?: ((element: HTMLHeadingElement | null) => void) | undefined };
@@ -164,7 +165,7 @@ export function ConceptReview({ modelId, current, mappings, suggestions, reload,
   const membershipGate = (row: ConceptMappingRow, key: string) => membershipFailed(row)
     ? <div key={key} className="grid justify-items-start gap-2"><p role="alert" className="text-sm">{members.get(row.conceptId)?.outcome === 'forbidden' ? w('개념 대상을 볼 권한이 없습니다.', 'No permission to read concept targets.') : w('다른 모델의 대상을 불러오지 못했습니다.', 'Could not load the targets from other models.')}</p>{members.get(row.conceptId)?.outcome !== 'forbidden' && <Button size="sm" variant="secondary" onClick={members.get(row.conceptId)?.refetch}>{w('다시 시도', 'Retry')}</Button>}</div>
     : <p key={key} role="status">{w('정의를 불러오는 중…', 'Loading definition…')}</p>;
-  const historyFailed = historyQueries.some(q => q.response && !['ok', 'empty'].includes(q.response.outcome));
+  const historyFailed = historyQueries.some(q => q.response && !isAnswered(q.response.outcome));
   const modelIds = [...new Set([...queue, ...history].flatMap(r => [r.modelId, ...all.filter(p => p.conceptId === r.conceptId).map(p => p.modelId)]).concat(computed.flatMap(s => [s.source.modelId, s.candidate.modelId])))].filter(id => id !== modelId || !!current && 'effective' in current && current.effective);
   const onComplete = (id: string, action: 'confirm' | 'reject') => {
     focusAfter.current = { id, index: cards.findIndex(c => c.id === id) };
@@ -180,9 +181,9 @@ export function ConceptReview({ modelId, current, mappings, suggestions, reload,
   });
   const clearFilter = () => { onPage(0); onHistoryPage(0); setPage({ event: null }); sectionHeading.current?.focus(); };
   const eventName = current ? eventsOf(current).find(e => eventIdentity(e) === event)?.name : null;
-  const failed = response && !['ok', 'empty'].includes(response.outcome);
+  const failed = response && !isAnswered(response.outcome);
   const readError = failed ? response.outcome === 'forbidden' ? w('개념 매핑을 볼 권한이 없습니다', 'No permission to read concept mappings') : w('개념 제안을 불러오지 못했습니다', 'Could not load concept proposals') : '';
-  const suggestionError = suggest && !['ok', 'empty'].includes(suggest.outcome) ? w('추가 제안을 불러오지 못했습니다.', 'Could not load additional suggestions.') : '';
+  const suggestionError = suggest && !isAnswered(suggest.outcome) ? w('추가 제안을 불러오지 못했습니다.', 'Could not load additional suggestions.') : '';
   return <section aria-label={w('개념 매핑 검토', 'Concept mapping review')} className="grid gap-3">
     {conceptIds.map(id => <MembershipLoader key={id} conceptId={id} onLoad={onMembers} />)}
     {modelIds.map(id => <DefinitionLoader key={id} modelId={id} onLoad={onLoad} />)}
@@ -194,12 +195,12 @@ export function ConceptReview({ modelId, current, mappings, suggestions, reload,
     {failed && <div>{response.outcome === 'forbidden' ? <p className="text-sm">{w('조회 권한을 관리자에게 요청하세요.', 'Ask an administrator for read permission.')}</p> : <Button size="sm" variant="secondary" onClick={reload}>{w('다시 시도', 'Retry')}</Button>}</div>}
     {response && !failed && <>
       {!suggest && <p role="status">{w('추가 제안을 불러오는 중…', 'Loading additional suggestions…')}</p>}
-      {suggest && !['ok', 'empty'].includes(suggest.outcome) && <div><Button size="sm" variant="secondary" onClick={suggestions.refetch}>{w('다시 시도', 'Retry')}</Button></div>}
+      {suggest && !isAnswered(suggest.outcome) && <div><Button size="sm" variant="secondary" onClick={suggestions.refetch}>{w('다시 시도', 'Retry')}</Button></div>}
       {suggest?.outcome === 'ok' && suggest.data?.truncated && <p role="status" className="text-sm text-text-secondary">{w('제안 상한에 도달해 일부만 표시합니다.', 'The suggestion limit was reached; this list is incomplete.')}</p>}
-      {cards.length === 0 && suggest && ['ok', 'empty'].includes(suggest.outcome) && <div role="status" className="grid justify-items-start gap-2"><p>{event ? w('이 Event에 해당하는 제안이 없습니다', 'No proposals for this Event') : w('개념 제안이 없습니다', 'No concept proposals')}</p>{event ? <Button size="sm" variant="secondary" onClick={clearFilter}>{w('필터 해제', 'Clear filter')}</Button> : <Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'spec', event: null, drawer: null, change: null })}>{w('Event에서 제안하기', 'Propose from an Event')}</Button>}</div>}
+      {cards.length === 0 && suggest && isAnswered(suggest.outcome) && <div role="status" className="grid justify-items-start gap-2"><p>{event ? w('이 Event에 해당하는 제안이 없습니다', 'No proposals for this Event') : w('개념 제안이 없습니다', 'No concept proposals')}</p>{event ? <Button size="sm" variant="secondary" onClick={clearFilter}>{w('필터 해제', 'Clear filter')}</Button> : <Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'spec', event: null, drawer: null, change: null })}>{w('Event에서 제안하기', 'Propose from an Event')}</Button>}</div>}
     </>}
     {cards.map(c => c.row && !membershipReady(c.row) ? membershipGate(c.row, c.id) : <ReviewCard key={c.id} modelId={modelId} current={current} all={all} reload={reload} definitions={definitions} onComplete={onComplete} cardId={c.id} headingRef={element => { if (element) headings.current.set(c.id, element); else headings.current.delete(c.id); }} {...(c.row ? { row: c.row } : { suggestion: c.suggestion! })} />)}
     {queueTotal > 10 && <Pager page={page} size={10} total={queueTotal} onChange={onPage} />}
-    {response && !failed && <section aria-label={w('확정·거절 이력', 'Review history')} className="grid gap-3"><h3 className="mt-3 text-sm font-semibold">{w('확정·거절 이력', 'Review history')}</h3>{historyFailed && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm">{historyQueries.some(q => q.response?.outcome === 'forbidden') ? w('이력을 볼 권한이 없습니다.', 'No permission to read review history.') : w('검토 이력을 불러오지 못했습니다.', 'Could not load review history.')}</p>{!historyQueries.some(q => q.response?.outcome === 'forbidden') && <Button size="sm" variant="secondary" onClick={() => historyQueries.forEach(q => { if (q.response && !['ok', 'empty'].includes(q.response.outcome)) q.refetch(); })}>{w('다시 시도', 'Retry')}</Button>}</div>}{history.length === 0 && !historyFailed && <p className="text-sm text-text-muted">{w('검토 이력이 없습니다.', 'No review history.')}</p>}{history.map(row => !membershipReady(row) ? membershipGate(row, row.id) : <ReviewCard key={row.id} row={row} modelId={modelId} current={current} all={all} reload={reload} definitions={definitions} onComplete={onComplete} cardId={row.id} />)}{historyTotal > 10 && <Pager page={historyPage} size={10} total={historyTotal} onChange={onHistoryPage} />}</section>}
+    {response && !failed && <section aria-label={w('확정·거절 이력', 'Review history')} className="grid gap-3"><h3 className="mt-3 text-sm font-semibold">{w('확정·거절 이력', 'Review history')}</h3>{historyFailed && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm">{historyQueries.some(q => q.response?.outcome === 'forbidden') ? w('이력을 볼 권한이 없습니다.', 'No permission to read review history.') : w('검토 이력을 불러오지 못했습니다.', 'Could not load review history.')}</p>{!historyQueries.some(q => q.response?.outcome === 'forbidden') && <Button size="sm" variant="secondary" onClick={() => historyQueries.forEach(q => { if (q.response && !isAnswered(q.response.outcome)) q.refetch(); })}>{w('다시 시도', 'Retry')}</Button>}</div>}{history.length === 0 && !historyFailed && <p className="text-sm text-text-muted">{w('검토 이력이 없습니다.', 'No review history.')}</p>}{history.map(row => !membershipReady(row) ? membershipGate(row, row.id) : <ReviewCard key={row.id} row={row} modelId={modelId} current={current} all={all} reload={reload} definitions={definitions} onComplete={onComplete} cardId={row.id} />)}{historyTotal > 10 && <Pager page={historyPage} size={10} total={historyTotal} onChange={onHistoryPage} />}</section>}
   </section>;
 }

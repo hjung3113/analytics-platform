@@ -9,6 +9,7 @@ import { BasketDrawer, ExportDialog, RecordDrawer, SampleDialog, SourceNotice } 
 import { periodSelectionOf, queryFrom, selectionOf, sequenceData, sourceReadable } from './explorerModel';
 import { DEFAULT_PAGE_KEYS, PageKeysContext, type PageKeys } from './pageKeys';
 import { useSourceRead } from './useSourceRead';
+import { isAnswered } from '@ap/contracts';
 
 const rulesFor = (keys: PageKeys) => [
   { key: keys.tab, label: { ko: '탭', en: 'Tab' }, valid: (s: string) => s === 'raw' || s === 'sequence' },
@@ -39,7 +40,7 @@ export default function LogExplorer({ params }: PageProps) {
     <Button variant="secondary" size="toolbar" onClick={() => setSampleOpen(true)}>조사 만들기</Button>
     {list.response?.data && list.response.data.total > 200 && <p className="text-xs text-text-secondary">최근 조사 200개 표시 · 조사 주소로 직접 열 수 있습니다.</p>}
   </div>;
-  const failed = list.response?.outcome !== 'ok' && list.response?.outcome !== 'empty' || !!detail.response && detail.response.outcome !== 'ok' && detail.response.outcome !== 'empty';
+  const failed = !list.response || !isAnswered(list.response.outcome) || !!detail.response && !isAnswered(detail.response.outcome);
   if (!valid) return <PlatformPage><StateMessage icon={<Info className="size-4" aria-hidden />} title="조사 주소를 확인하세요." /></PlatformPage>;
   return <>
     {investigation ? <InvestigationScreen key={investigation.id} investigation={investigation} picker={picker} /> : <PlatformPage layout="fill">

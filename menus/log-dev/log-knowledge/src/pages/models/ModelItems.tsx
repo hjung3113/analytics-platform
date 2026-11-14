@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Plus } from 'lucide-react';
-import { encodeFilterParams, type PageResult } from '@ap/contracts';
+import { encodeFilterParams, type PageResult, isAnswered } from '@ap/contracts';
 import { PlatformLink, useMenuQuery, usePlatform } from '@ap/kernel';
 import { Button } from '@ap/ui';
 import { ITEM_PUBLISH_PERMISSION, itemsEndpoint, type CatalogPageParams, type ItemRow } from '../../endpoints';
@@ -21,7 +21,7 @@ export function ModelItems({ modelId, active }: { modelId: string; active: boole
     filters: [{ id: 'ownerModelId', op: 'in', value: [modelId] }, { id: 'includeSoftware', op: 'in', value: ['false'] }, PUBLISHED_ONLY],
   }), [modelId]);
   const query = useMenuQuery(itemsEndpoint, params);
-  const data = query.response?.outcome === 'ok' || query.response?.outcome === 'empty' ? (query.response.data as PageResult<ItemRow> | null) : null;
+  const data = query.response && isAnswered(query.response.outcome) ? (query.response.data as PageResult<ItemRow> | null) : null;
   if (!data) return <p className="text-sm text-text-muted">{query.response ? '모델 공통 Item을 불러오지 못했습니다.' : '불러오는 중…'}</p>;
   if (data.rows.length === 0) {
     // An inactive model cannot own a new item (the server refuses), so it offers no create entry.

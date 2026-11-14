@@ -2,6 +2,8 @@
 /** The outcome vocabulary at runtime — emitted to `vocab.json` (#674). */
 export const OUTCOMES = ['ok', 'empty', 'error', 'forbidden', 'too_large', 'timeout'] as const;
 export type Outcome = typeof OUTCOMES[number];
+/** The server answered with data the screen can read: `ok` or `empty` (every other outcome is a refusal or a failure). One home for the test the clients repeated by hand (#2189). */
+export const isAnswered = (outcome: Outcome): outcome is 'ok' | 'empty' => outcome === 'ok' || outcome === 'empty';
 /** §19: the platform owns the kind list; a query must not drop an applicable kind because its source is unimplemented. */
 export type AssessmentKind = 'collection' | 'processing_delay' | 'coverage' | 'time_domain' | 'respondent_history';
 export type Assessment = {

@@ -7,6 +7,7 @@ import { noticesEndpoint } from '../endpoints';
 import { dismissNotice, useDismissedNotices } from './dismissed-notices';
 import { Panel, PlatformPage, QueryView } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
+import { isAnswered } from '@ap/contracts';
 
 /** Platform home (ADR-0028, 15 §3.1): `내 할 일` (a Kernel slot) beside recent visits, then favorites, system rows and notices. */
 const NO_LAUNCHER_GROUPS: readonly HomeLauncherGroup[] = [];
@@ -167,7 +168,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, sp
             <button type="button" aria-label={m('operationsHomeDismissForThisVisit')} className="grid size-6 place-items-center rounded-xs text-text-muted hover:bg-surface-card"
               onClick={() => dismissNotice(notice.id)}><X className="size-3.5" aria-hidden /></button>
           </div>)}
-        {notices.response && !['ok', 'empty'].includes(notices.response.outcome) && <QueryView widgetName={m('operationsHomeNotices2')} hideWidgetName query={notices} compact>{() => null}</QueryView>}
+        {notices.response && !isAnswered(notices.response.outcome) && <QueryView widgetName={m('operationsHomeNotices2')} hideWidgetName query={notices} compact>{() => null}</QueryView>}
       </section>
     </div>
   </PlatformPage>;

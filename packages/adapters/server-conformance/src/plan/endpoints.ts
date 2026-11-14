@@ -1,4 +1,4 @@
-import { CONTEXT_FIELDS, emptyGlobal, missingRequiredContext, type GlobalContext, type MenuQuery } from '@ap/contracts';
+import { CONTEXT_FIELDS, emptyGlobal, missingRequiredContext, type GlobalContext, type MenuQuery, isAnswered } from '@ap/contracts';
 import type { ConformanceCheck, PortMethod, ServerConformanceHarness } from '../types';
 import { CONTEXT_KEYS, SET_KEYS, UNKNOWN_ENDPOINT, UNKNOWN_KEY, assessmentProblem, baseRequest, describeResponse, expectOutcome, missingEnvelopeKey, sameKinds, trustProblem } from '../helpers';
 import { planActionChecks } from './actions';
@@ -31,7 +31,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       uses: ['menuQuery'],
       run: async () => {
         const r = await harness.adapter.menuQuery(base);
-        if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
+        if (!isAnswered(r.outcome)) return `expected ok or empty, got ${describeResponse(r)}`;
         const missing = missingEnvelopeKey(r, 'assessments');
         if (missing) return missing;
         if (SET_KEYS.some(key => Array.isArray(base.context[key]) && base.context[key]!.length === 0)) {
@@ -52,7 +52,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       uses: ['menuQuery'],
       run: async () => {
         const r = await harness.adapter.menuQuery(base);
-        if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
+        if (!isAnswered(r.outcome)) return `expected ok or empty, got ${describeResponse(r)}`;
         const missing = missingEnvelopeKey(r, 'assessments');
         if (missing) return missing;
         return assessmentProblem(r.assessments, r.outcome);
@@ -64,7 +64,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       uses: ['menuQuery'],
       run: async () => {
         const r = await harness.adapter.menuQuery(base);
-        if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
+        if (!isAnswered(r.outcome)) return `expected ok or empty, got ${describeResponse(r)}`;
         const missing = missingEnvelopeKey(r, 'trust');
         if (missing) return missing;
         return trustProblem(r.trust);

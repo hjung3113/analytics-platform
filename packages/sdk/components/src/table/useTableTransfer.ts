@@ -17,6 +17,7 @@ import type { TableExportRequest } from './useTableSelection';
 import { filterInfoRows } from './columnFilters';
 import type { InstantEntry } from './filterFields';
 import { trustCoverageText, trustInstantText } from '../state/trustFormat';
+import { isAnswered } from '@ap/contracts';
 
 /**
  * Row copy (#174) clipboard path, by feature detection — never by `.catch`: in an insecure context (in-house HTTP)
@@ -113,7 +114,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
       const filters = scope.kind !== 'selected' && input.columnFilters.length > 0 ? input.columnFilters : undefined;
       const response = await input.exportRows!({ scope, sorting: activeSorting, ...(filters ? { filters } : {}) }, controller.signal);
       if (controller.signal.aborted) return;
-      if (response.outcome !== 'ok' && response.outcome !== 'empty') {
+      if (!isAnswered(response.outcome)) {
         const refusalOf = exportRefusal(response.outcome, response, lang);
         toast(refusalOf.text, 'warning', refusalOf.detail);
         return;
@@ -209,7 +210,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
     const response = await input.exportRows!({ scope: { kind: 'selected', ids }, sorting: activeSorting }, signal);
     // Same controller whose catch checks `signal.aborted` (#186): this throw is the table's own cancel there.
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-    if (response.outcome !== 'ok' && response.outcome !== 'empty') {
+    if (!isAnswered(response.outcome)) {
       const refusalOf = exportRefusal(response.outcome, response, lang);
       throw new CopyStop(refusalOf.text, refusalOf.detail);
     }

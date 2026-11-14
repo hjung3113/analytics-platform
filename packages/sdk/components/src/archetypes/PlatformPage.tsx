@@ -8,7 +8,7 @@ import { WorkspaceQueryBarContext } from './WorkspaceQueryBar';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode } from 'react';
-import { type MenuEntry, PlatformLink, useConditionPreset, useI18n, useMessages } from '@ap/kernel';
+import { type MenuEntry, PlatformLink, type QueryStatus, useConditionPreset, useI18n, useMessages } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
@@ -127,7 +127,7 @@ export type PlatformPageProps = {
   dataTrustSummary?: ReactNode;
   queryBarExtension?: QueryBarExtension;
   /** Completion of the consumer's authoritative summary query, including terminal error responses. */
-  queryResult?: { completedAt: number | null; status: 'idle' | 'loading' | 'refreshing' | 'done'; /** Whether the completed summary response failed. */ failed?: boolean };
+  queryResult?: { completedAt: number | null; status: QueryStatus; /** Whether the completed summary response failed. */ failed?: boolean };
   /** Extra crumbs between the menu and the current object. */
   crumbs?: { label: ReactNode; href?: string }[];
   /**
@@ -270,30 +270,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
 
   // `Scope 선택` (#1938) only opens the shell's selector; it is drawn on the main screen while a selector is mounted to answer it (a pane has no selector that answers for it).
   const selectorAvailable = useSyncExternalStore(scopeSelector.subscribe, scopeSelector.available, scopeSelector.available) && screenMode === 'main';
-  let gate: ReactNode = null;
-  if (menu.requiresScope && scope.status !== 'valid') {
-    gate = scope.status === 'validating'
-      ? <StateMessage icon={<Loader2 className="size-4 animate-spin" aria-hidden />} title={t('scopeValidating')} />
-      : scope.status === 'none'
-        ? <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('selectScope')} body={t('selectScopeBody')}
-            action={(lastScope || selectorAvailable) && <>
-              {lastScope && <Button size="sm" onClick={() => { focusPageFallback(root.current); setGlobal({ scopeId: lastScope }); }}>{t('applySuggested')}: {lastScope}</Button>}
-              {selectorAvailable && <Button size="sm" variant={lastScope ? 'secondary' : 'default'} aria-haspopup="menu" onClick={() => scopeSelector.open()}>{t('scopeNone')}</Button>}
-            </>} />
-        : scope.status === 'error'
-          ? <StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={t('scopeErrorTitle')}
-              body={t('scopeErrorBody')}
-              action={<Button size="sm" variant="secondary" onClick={() => { focusPageFallback(root.current); retryScope(); }}><RotateCw className="size-3.5" />{t('retry')}</Button>} />
-        : scope.status === 'unknown_scope'
-          ? <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('scopeUnknownTitle')}
-              body={t('scopeUnknownBody')} />
-          : accessRequest && scope.scopeId !== null
-            // Place (c): the forbidden Scope itself is the request target (site only; the dialog lets the user pick the range kind, ADR-0154 decision 6).
-            ? <AccessRequestEntry slot={accessRequest} target={{ kind: 'site', site: scope.scopeId }}>{(state, action) => <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
-                body={accessRequestBody(t, state, true)} action={action} />}</AccessRequestEntry>
-            : <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
-              body={t('stateForbiddenBody')} />;
-  }
+  const gate: ReactNode = menu.requiresScope && scope.status !== 'valid' ? <ScopeGate root={root} selectorAvailable={selectorAvailable} /> : null;
   // Place (e): one request banner for the page body when a widget answers `forbidden` on a partially granted Scope (ADR-0154 decision 6).
   // A fully granted Scope has no request entry: forbidden grouping still applies to capability failures.
   const scopeOption = scope.scopeId === null ? undefined : session.scopes.find(option => option.id === scope.scopeId);
@@ -324,7 +301,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const workspaceQueryBar = !inPane && layout === 'fill' && menu.pageType === 'analysis' && menu.query?.mode === 'apply' && Boolean(slots.contextBar) && !gate && shownBarStatus?.folded === true;
   const workspaceQueryRowReady = workspaceQueryBar && parameterTarget !== null && toolbarTarget !== null;
   const workspaceStatus = queryResult && queryResult.status !== 'idle' ? <span role="status" className="max-w-56 text-xs text-text-secondary break-keep">
-    {queryResult.status === 'loading' ? t('loading') : queryResult.status === 'refreshing' ? t('refreshing') : queryResult.failed ? t('stateError') : m('workspaceQueryCompleted')}
+    {queryResult.status === 'loading' || queryResult.status === 'refreshing' ? t(queryResult.status) : queryResult.failed ? t('stateError') : m('workspaceQueryCompleted')}
     {queryResult.completedAt !== null && <> {formatInstant(queryResult.completedAt, lang)}</>}
   </span> : null;
   const completionShown = queryResult != null && queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing');
@@ -407,6 +384,35 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
 }
 
 /** The way back into a carry set that lists `returnTo` (ADR-0081 UX-10): drawn only for an origin `safeReturnTo` and `canOpen` accepted, never for a parent/home fallback. */
+/** The screen standing in for a page whose Scope is not usable: one branch per `scope.status` (everything but `valid`; `forbidden` is the default branch and carries the request entry, place (c)). */
+function ScopeGate({ root, selectorAvailable }: { root: React.RefObject<HTMLDivElement | null>; selectorAvailable: boolean }) {
+  const { scope, retryScope, setGlobal, lastScope, scopeSelector } = useHostPlatform();
+  const accessRequest = useScopeAccessRequest();
+  const { t } = useI18n();
+  switch (scope.status) {
+    case 'validating':
+      return <StateMessage icon={<Loader2 className="size-4 animate-spin" aria-hidden />} title={t('scopeValidating')} />;
+    case 'none':
+      return <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('selectScope')} body={t('selectScopeBody')}
+        action={(lastScope || selectorAvailable) && <>
+          {lastScope && <Button size="sm" onClick={() => { focusPageFallback(root.current); setGlobal({ scopeId: lastScope }); }}>{t('applySuggested')}: {lastScope}</Button>}
+          {selectorAvailable && <Button size="sm" variant={lastScope ? 'secondary' : 'default'} aria-haspopup="menu" onClick={() => scopeSelector.open()}>{t('scopeNone')}</Button>}
+        </>} />;
+    case 'error':
+      return <StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={t('scopeErrorTitle')}
+        body={t('scopeErrorBody')}
+        action={<Button size="sm" variant="secondary" onClick={() => { focusPageFallback(root.current); retryScope(); }}><RotateCw className="size-3.5" />{t('retry')}</Button>} />;
+    case 'unknown_scope':
+      return <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('scopeUnknownTitle')} body={t('scopeUnknownBody')} />;
+    default:
+      // Place (c): the forbidden Scope itself is the request target (site only; the dialog lets the user pick the range kind, ADR-0154 decision 6).
+      return accessRequest && scope.scopeId !== null
+        ? <AccessRequestEntry slot={accessRequest} target={{ kind: 'site', site: scope.scopeId }}>{(state, action) => <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
+          body={accessRequestBody(t, state, true)} action={action} />}</AccessRequestEntry>
+        : <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')} body={t('stateForbiddenBody')} />;
+  }
+}
+
 function ReturnRow() {
   // The space carries no global Context by design, so "reverted Context" would always list everything the user never changed.
   const { origin, onNavigate } = useReturnNavigation({ announceReverted: false });

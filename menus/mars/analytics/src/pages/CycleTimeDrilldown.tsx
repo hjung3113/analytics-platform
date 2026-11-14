@@ -1,6 +1,6 @@
 import { useMessages, formatText } from '@ap/kernel';
 import { ANALYTICS_MESSAGES } from '../messages';
-import { formatWallClock } from '@ap/contracts';
+import { formatWallClock, isAnswered } from '@ap/contracts';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer } from 'lucide-react';
@@ -196,7 +196,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const resetFilters = <Button type="button" variant="ghost" size="toolbar" onClick={() => queryDraft.setDraftPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{m('cycleTimeDrilldownResetPageFilters')}</Button>;
 
   return <PlatformPage layout="fill"
-    queryResult={{ completedAt: kpi.completedAt, status: kpi.status, failed: kpi.response != null && kpi.response.outcome !== 'ok' && kpi.response.outcome !== 'empty' }}
+    queryResult={{ completedAt: kpi.completedAt, status: kpi.status, failed: kpi.response != null && !isAnswered(kpi.response.outcome) }}
     queryBarExtension={{ pageSummary, appliedPageSummary, historyPageSummary, issues }}
     description={m('cycleTimeDrilldownCycleTimeForTheAppliedPeriodAnd')}
     secondaryActions={<Button variant="secondary" size="sm" onClick={() => { kpi.refetch(); trend.refetch(); dist.refetch(); setReload(n => n + 1); if (pageRaw !== null) setPage({ page: null }, { replace: true }); }}><RotateCw className="size-3.5" aria-hidden />{m('cycleTimeDrilldownRefresh')}</Button>}

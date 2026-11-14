@@ -6,13 +6,14 @@ import { targetBodyOf, SUBJECT_RELATION_LABEL } from '../items/subjectModel';
 import { conceptFieldErrors, CONCEPT_RELATION_LABEL, groupByConcept } from './conceptModel';
 import { Pager, SpecField, SpecSelect, useSpecWords } from './SpecControls';
 import { useConceptActions, useConceptMappings, useSpecSubjectItems } from './useConceptData';
+import { isAnswered } from '@ap/contracts';
 export function EventRelatedItems({ modelId, identity }: { modelId: string; identity: string }) {
   const w = useSpecWords(), { linkTo } = usePlatform(), [page, setPage] = useState(0), query = useSpecSubjectItems(modelId, identity, true, page);
   const response = query.response, data = response?.outcome === 'ok' ? response.data : null;
   return <section className="grid gap-2"><h3 className="font-semibold">{w('관련 Item', 'Related Items')}</h3>
     {!response ? <p role="status">{w('관련 Item을 불러오는 중…', 'Loading related Items…')}</p>
       : response.outcome === 'forbidden' ? <p role="status">{w('관련 Item을 볼 수 없습니다. 조회 권한을 관리자에게 요청하세요.', 'Ask an administrator for read permission to read related Items.')}</p>
-      : !['ok', 'empty'].includes(response.outcome) ? <div role="alert"><p>{w('관련 Item을 불러오지 못했습니다.', 'Could not load related Items.')}</p><Button size="sm" variant="secondary" onClick={query.refetch}>{w('다시 시도', 'Retry')}</Button></div>
+      : !isAnswered(response.outcome) ? <div role="alert"><p>{w('관련 Item을 불러오지 못했습니다.', 'Could not load related Items.')}</p><Button size="sm" variant="secondary" onClick={query.refetch}>{w('다시 시도', 'Retry')}</Button></div>
       : !data?.rows.length ? <p role="status" className="text-text-secondary">{w('연결된 Item이 없습니다.', 'No related Items.')}</p>
       : <><ul className="grid gap-2">{data.rows.map(item => <li key={item.id} className="grid justify-items-start gap-1"><PlatformLink href={linkTo('log-knowledge-item', { params: { itemId: item.id } })}>KI-{item.itemNo} · {item.title}</PlatformLink><span className="text-xs text-text-secondary">{w(SUBJECT_RELATION_LABEL[item.subjectRelation].ko, SUBJECT_RELATION_LABEL[item.subjectRelation].en)}</span></li>)}</ul>{data.total > 200 && <Pager page={page} size={200} total={data.total} onChange={setPage} />}</>}
   </section>;

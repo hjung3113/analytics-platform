@@ -8,6 +8,7 @@ import { useSpecWords } from '../spec/SpecControls';
 import { Field } from './ItemFormParts';
 import { EventKeyPicker } from './EventKeyPicker';
 import { emptyRelation, type RelationRow } from './itemRelationModel';
+import { isAnswered } from '@ap/contracts';
 
 export function RelationEditor({ rows, onChange, options, errors, specReady, disabled = false }: {
   rows: RelationRow[]; onChange: (rows: RelationRow[]) => void; options: string[]; errors: Record<string, string>; specReady: boolean; disabled?: boolean;
@@ -67,7 +68,7 @@ export function RelationEditor({ rows, onChange, options, errors, specReady, dis
 export function ItemRelations({ modelId, softwareId, ...props }: Omit<Parameters<typeof RelationEditor>[0], 'options' | 'specReady'> & { modelId: string; softwareId?: string }) {
   const w = useSpecWords(), query = useMenuQuery(modelSpecEndpoint, { modelId, ...(softwareId ? { softwareId } : {}) }, !!modelId);
   const response = query.response, malformed = !!response?.data && (!Array.isArray(response.data.events) || !Array.isArray(response.data.modules));
-  const ready = !!response && ['ok', 'empty'].includes(response.outcome) && !malformed;
+  const ready = !!response && isAnswered(response.outcome) && !malformed;
   const data = ready ? response?.data : null;
   const options = data ? eventsOf(data).map(eventIdentity) : [];
   return <><RelationEditor {...props} options={options} specReady={ready} />
