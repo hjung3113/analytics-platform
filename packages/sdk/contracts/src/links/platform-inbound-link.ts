@@ -13,6 +13,27 @@ export type PlatformHop =
   | { menuId: 'equipment-master' }
   | { menuId: 'cycle-time' };
 
+/** One inbound destination. The SDK knows no menus: a caller that assembles its own platform lists its destinations
+ *  (`destinations` option); the three below are the default so existing calls behave the same. */
+export interface PlatformDestination {
+  menuId: string;
+  /** App-relative path. With `idField` it is the prefix of exactly one id segment (`/equipment` → `/equipment/<id>`). */
+  path: string;
+  /** Name of the hop field carrying the single path-segment id; omit for a fixed path. */
+  idField?: string;
+  /** The destination accepts the `returnTo` page key. */
+  acceptsReturnTo?: boolean;
+}
+
+export const DEFAULT_PLATFORM_DESTINATIONS: readonly PlatformDestination[] = [
+  { menuId: 'equipment-detail', path: '/equipment', idField: 'equipmentId', acceptsReturnTo: true },
+  { menuId: 'equipment-master', path: '/equipment' },
+  { menuId: 'cycle-time', path: '/analytics/cycle-time' },
+];
+
+/** Hop of an injected destination list: `menuId` plus the id field the destination declares. */
+export type PlatformInboundHop = { menuId: string } & { [field: string]: string };
+
 /** Canonical absolute origin via URL-standard parsing: input must equal `new URL(input).origin`
  *  (a single trailing '/' is allowed); https anywhere, http only for loopback hosts; no path/query/hash/userinfo. */
 function origin(input: string): string {
@@ -30,9 +51,9 @@ function origin(input: string): string {
 }
 
 /** One nonblank path segment; '.'/'..' are rejected because browsers normalize them away in the path. */
-function equipmentDetailId(id: string): string {
+function equipmentDetailId(id: string, field = 'equipmentId'): string {
   if (!id.length || id === '.' || id === '..' || Array.from(id).every(c => /\s/.test(c))) {
-    return fail('invalid_id', `equipmentId must be a single nonblank path segment and must not be '.' or '..', got ${JSON.stringify(id)}`);
+    return fail('invalid_id', `${field} must be a single nonblank path segment and must not be '.' or '..', got ${JSON.stringify(id)}`);
   }
   return id;
 }
@@ -63,25 +84,55 @@ function splitUrl(url: string): { origin: string; path: string; search: string }
 
 const RETURN_TO: readonly string[] = [RETURN_TO_KEY];
 
-/** Feature screens → platform. Generates the canonical inbound URL for a hop (contract §2). */
+/** An injected list is caller input that ends up in a URL path: each path must be an app-internal pathname (no query, fragment,
+ *  userinfo-style `@`, dot segment or encoded byte), menu ids must be unique, and an id destination's path must not end in '/'. */
+function validateDestinations(destinations: readonly PlatformDestination[]): void {
+  const seen = new Set<string>();
+  for (const d of destinations) {
+    if (seen.has(d.menuId)) fail('invalid_destination', `destination menuId ${JSON.stringify(d.menuId)} is declared twice`);
+    seen.add(d.menuId);
+    const segments = d.path.split('/').slice(1);
+    const clean = isAppRelativePath(d.path) && !d.path.includes('?') && !d.path.includes('%') && !d.path.includes('@')
+      && segments.every((seg, i) => (seg.length > 0 || (i === 0 && segments.length === 1)) && seg !== '.' && seg !== '..');
+    if (!clean || (d.idField !== undefined && (d.path === '/' || d.path.endsWith('/')))) {
+      fail('invalid_destination', `destination ${JSON.stringify(d.menuId)} path must be an app-internal pathname without query, fragment, '@', dot segments or encoded bytes, got ${JSON.stringify(d.path)}`);
+    }
+  }
+}
+
+/** The default list keeps its historical message; an injected list gets the general one. */
+function returnToRefusal(isDefault: boolean, menuId: string): string {
+  return isDefault ? `returnTo is a page key of equipment-detail only, not ${menuId}` : `returnTo is not a page key of ${menuId}`;
+}
+
+function destinationOf(destinations: readonly PlatformDestination[], menuId: string): PlatformDestination {
+  return destinations.find(d => d.menuId === menuId) ?? fail('unsupported_path', `unknown platform destination ${JSON.stringify(menuId)}`);
+}
+
+/** Feature screens → platform. Generates the canonical inbound URL for a hop (contract §2). `destinations` defaults to
+ *  `DEFAULT_PLATFORM_DESTINATIONS`; pass your own list (and hops of `PlatformInboundHop`) for a different platform. */
+export function buildPlatformInboundLink(input: { origin: string; hop: PlatformHop; context: GlobalContext; returnTo?: string }): string;
+export function buildPlatformInboundLink(input: { origin: string; hop: PlatformInboundHop; context: GlobalContext; returnTo?: string; destinations: readonly PlatformDestination[] }): string;
 export function buildPlatformInboundLink(input: {
   origin: string;
-  hop: PlatformHop;
+  hop: PlatformHop | PlatformInboundHop;
   context: GlobalContext;
   returnTo?: string;
+  destinations?: readonly PlatformDestination[];
 }): string {
   const base = origin(input.origin);
+  if (input.destinations !== undefined) validateDestinations(input.destinations);
+  const dest = destinationOf(input.destinations ?? DEFAULT_PLATFORM_DESTINATIONS, input.hop.menuId);
   const wantsReturnTo = input.returnTo !== undefined;
-  if (wantsReturnTo && input.hop.menuId !== 'equipment-detail') return fail('unsupported_page_key', `returnTo is a page key of equipment-detail only, not ${input.hop.menuId}`);
+  if (wantsReturnTo && !dest.acceptsReturnTo) return fail('unsupported_page_key', returnToRefusal(input.destinations === undefined, dest.menuId));
   if (wantsReturnTo && !isAppRelativePath(input.returnTo!)) return fail('external_return', `returnTo must be an app-relative platform path, got ${JSON.stringify(input.returnTo)}`);
-  if (input.hop.menuId === 'equipment-detail') equipmentDetailId(input.hop.equipmentId);
+  const hopFields = input.hop as Record<string, string>;
+  if (dest.idField !== undefined) equipmentDetailId(hopFields[dest.idField] ?? '', dest.idField);
   validateContext(input.context); // before serialization: serializeGlobal would silently drop a one-sided period or orphan metricVersion.
   const page: Pair[] = wantsReturnTo ? [[RETURN_TO_KEY, input.returnTo!]] : [];
   const query = buildQuery(input.context, page);
   parseQuery(query, wantsReturnTo ? RETURN_TO : []); // validate the serialized form before hand-out: scopeId/ppid/condition identifiers, set markers.
-  const path = input.hop.menuId === 'equipment-detail'
-    ? `/equipment/${encodeURIComponent(input.hop.equipmentId)}`
-    : input.hop.menuId === 'equipment-master' ? '/equipment' : '/analytics/cycle-time';
+  const path = dest.idField !== undefined ? `${dest.path}/${encodeURIComponent(hopFields[dest.idField])}` : dest.path;
   return base + path + query;
 }
 
@@ -92,25 +143,42 @@ export function parsePlatformInboundLink(url: string, expectedOrigin: string): {
   context: GlobalContext;
   extras: Pair[];
   returnTo: string | null;
+};
+export function parsePlatformInboundLink(url: string, expectedOrigin: string, destinations: readonly PlatformDestination[]): {
+  hop: PlatformInboundHop;
+  context: GlobalContext;
+  extras: Pair[];
+  returnTo: string | null;
+};
+export function parsePlatformInboundLink(url: string, expectedOrigin: string, destinations: readonly PlatformDestination[] = DEFAULT_PLATFORM_DESTINATIONS): {
+  hop: PlatformHop | PlatformInboundHop;
+  context: GlobalContext;
+  extras: Pair[];
+  returnTo: string | null;
 } {
   const expected = origin(expectedOrigin);
+  const isDefault = destinations === DEFAULT_PLATFORM_DESTINATIONS;
+  if (!isDefault) validateDestinations(destinations);
   const split = splitUrl(url);
   if (split.origin !== expected) return fail('inbound_origin', `link origin ${split.origin} does not match expectedOrigin ${expected}`);
-  let hop: PlatformHop;
-  let returnToIsPageKey = false;
-  if (split.path === '/equipment') hop = { menuId: 'equipment-master' };
-  else if (split.path === '/analytics/cycle-time') hop = { menuId: 'cycle-time' };
-  else if (split.path.startsWith('/equipment/')) {
-    const raw = split.path.slice('/equipment/'.length);
-    if (raw.includes('/')) return fail('invalid_id', `equipmentId must be exactly one path segment, got ${JSON.stringify(raw)}`);
-    let equipmentId: string;
-    try { equipmentId = decodeURIComponent(raw); } catch { return fail('invalid_id', `equipmentId segment is not decodable: ${JSON.stringify(raw)}`); }
-    equipmentDetailId(equipmentId);
-    hop = { menuId: 'equipment-detail', equipmentId };
-    returnToIsPageKey = true;
-  } else return fail('unsupported_path', `unsupported platform hop path ${split.path}`);
+  let dest = destinations.find(d => d.idField === undefined && d.path === split.path);
+  let hop: Record<string, string>;
+  if (dest !== undefined) hop = { menuId: dest.menuId };
+  else {
+    // The declaration that leaves exactly one raw segment wins, so a nested pair (`/orders` and `/orders/lines`) parses in any order.
+    const prefixed = destinations.filter(d => d.idField !== undefined && split.path.startsWith(`${d.path}/`));
+    dest = prefixed.find(d => !split.path.slice(d.path.length + 1).includes('/')) ?? prefixed[0];
+    if (dest === undefined || dest.idField === undefined) return fail('unsupported_path', `unsupported platform hop path ${split.path}`);
+    const raw = split.path.slice(dest.path.length + 1);
+    if (raw.includes('/')) return fail('invalid_id', `${dest.idField} must be exactly one path segment, got ${JSON.stringify(raw)}`);
+    let id: string;
+    try { id = decodeURIComponent(raw); } catch { return fail('invalid_id', `${dest.idField} segment is not decodable: ${JSON.stringify(raw)}`); }
+    equipmentDetailId(id, dest.idField);
+    hop = { menuId: dest.menuId, [dest.idField]: id };
+  }
+  const returnToIsPageKey = dest.acceptsReturnTo === true;
   const parsed = parseQuery(split.search, returnToIsPageKey ? RETURN_TO : []);
-  if (parsed.extras.some(([k]) => k === RETURN_TO_KEY)) return fail('unsupported_page_key', `returnTo is a page key of equipment-detail only, not ${hop.menuId}`);
+  if (parsed.extras.some(([k]) => k === RETURN_TO_KEY)) return fail('unsupported_page_key', returnToRefusal(isDefault, dest.menuId));
   const returnToPair = parsed.page.find(([k]) => k === RETURN_TO_KEY) ?? null;
   let returnTo: string | null = null;
   if (returnToPair !== null) {
@@ -118,7 +186,7 @@ export function parsePlatformInboundLink(url: string, expectedOrigin: string): {
     returnTo = returnToPair[1];
   }
   return {
-    hop,
+    hop: hop as PlatformHop | PlatformInboundHop,
     context: parsed.global,
     extras: parsed.extras,
     returnTo,

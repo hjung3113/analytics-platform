@@ -26,10 +26,16 @@ export type DetailDrawerTab = { id: string; label: ReactNode } & (
 );
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
-export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, focusOnOpen, returnFocusRef }: {
+export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, focusOnOpen, returnFocusRef, identity }: {
   /** For consumers with a detail identity other than focus=: false preserves arrival focus; true claims a user-opened detail. Default follows Kernel navigation. */
   focusOnOpen?: boolean;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  /**
+   * Which target the drawer shows (a row id, a record key). When it changes while the drawer stays open, the tab content restarts:
+   * scroll returns to the top, an uncontrolled tab returns to the first one and the tab content mounts afresh. The drawer itself
+   * (header, expansion, focus claim, footer) is not remounted. Omit it and a changed target keeps scroll and tab as before.
+   */
+  identity?: string | number;
   title: ReactNode; subtitle?: ReactNode; headerActions?: ReactNode; context?: ReactNode; footer?: ReactNode;
   tabs: DetailDrawerTab[];
   onClose: () => void; tab?: string; onTabChange?: (tab: string) => void;
@@ -46,7 +52,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, footer, 
   useCloseOnPaneChange(onClose);
   // A drawer whose owning surface is covered stays mounted in the hidden host; its own transient UI is dismissed, as a docked detail owns its visibility.
   const paused = useSurfacePaused();
-  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent focusOnOpen={focusOnOpen} superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} footer={footer} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} returnFocusRef={returnFocusRef} /></OutcomeScope></TransientOverlayScope>, host) : null;
+  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent identity={identity} focusOnOpen={focusOnOpen} superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} footer={footer} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} returnFocusRef={returnFocusRef} /></OutcomeScope></TransientOverlayScope>, host) : null;
 }
 
 /**
@@ -68,7 +74,7 @@ function useCloseOnPaneChange(onClose: () => void) {
   }, [identity]);
 }
 
-function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, returnFocusRef }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
+function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, returnFocusRef }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
   const { lang, t } = useI18n();
   const onKeyDown = useDetailPanelEscape(onClose);
   const close = useRef<HTMLButtonElement>(null);
@@ -164,6 +170,7 @@ function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions
     {context && <div className="border-b border-border-subtle bg-surface-sunken px-5 py-2 text-xs text-text-secondary">{context}</div>}
     <OutcomeBanners />
     {/* One tab draws no tab row (06 §13, #886 UX-8); the content stays a focusable, named scroll region like a tabpanel. */}
+    <Fragment key={identity}>
     {tabs.length === 1
       ? tabs[0].regions !== undefined ? <DeclaredRegions regions={tabs[0].regions} /> : <div role="region" tabIndex={0} aria-labelledby={`${id}-t`} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0"><DetailPanelReadingColumn>{tabs[0].content}</DetailPanelReadingColumn></div>
       : <Tabs value={tab} defaultValue={tab ? undefined : tabs[0].id} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
@@ -175,6 +182,7 @@ function DetailContent({ focusOnOpen, superseded, title, subtitle, headerActions
           <TabsContent key={tb.id} value={tb.id} className={tb.regions !== undefined ? 'flex min-h-0 flex-1 flex-col overflow-hidden focus-visible:ring-inset focus-visible:ring-offset-0' : 'min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:ring-inset focus-visible:ring-offset-0'}>{tb.regions !== undefined ? <DeclaredRegions regions={tb.regions} /> : <DetailPanelReadingColumn>{tb.content}</DetailPanelReadingColumn>}</TabsContent>
         ))}
       </Tabs>}
+    </Fragment>
     {footer !== undefined && <DetailPanelReadingColumn asChild><div className="shrink-0 border-t border-border-subtle px-5 py-3">{footer}</div></DetailPanelReadingColumn>}
     </div>;
 }
