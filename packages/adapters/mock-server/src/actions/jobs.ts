@@ -87,14 +87,38 @@ function segmentsFor(anchor: string, processMin: number, equipmentId: string): J
   return out;
 }
 
-/** 2 or 3 jobs per clock hour. Cached per equipment and calendar day. */
+const SHIFT_BOUNDARY_HOURS = new Set([6, 14, 22]);
+const MAINTENANCE_HOURS = new Set([2, 3]);
+const PEAK_HOURS = new Set([10, 11, 17, 18, 19, 20]);
+
+/** Seeded per-hour job count: shift-boundary dips, a maintenance window on ~70% of equipment, and mild noise (day sum ≤ 70 < MAX_RANK). */
+function hourlyJobCount(equipment: Equipment, day: string, hour: number): number {
+  const rnd = lcg(fnv(`${equipment.equipmentId}|${day}|${hour}|count`));
+  const base = 2.3 + (fnv(equipment.equipmentId) % 3) * 0.35;
+  const inMaintenance = MAINTENANCE_HOURS.has(hour) && (fnv(`${equipment.equipmentId}|${day}|maint`) % 10) < 7;
+  let expected: number;
+  if (inMaintenance) {
+    expected = 0.08;
+  } else if (SHIFT_BOUNDARY_HOURS.has(hour)) {
+    expected = base * 0.36;
+  } else {
+    const diurnal = PEAK_HOURS.has(hour) ? 1.15 : hour < 6 ? 0.9 : 1.0;
+    expected = base * diurnal + (rnd() - 0.5) * 0.7;
+  }
+  const floor = Math.floor(expected);
+  const count = floor + (rnd() < expected - floor ? 1 : 0);
+  const cap = SHIFT_BOUNDARY_HOURS.has(hour) ? 1 : MAINTENANCE_HOURS.has(hour) ? 2 : PEAK_HOURS.has(hour) ? 4 : 3;
+  return Math.max(0, Math.min(cap, count));
+}
+
+/** Hourly varied synthetic jobs per equipment and calendar day (cached). */
 export function jobsForEquipmentDay(equipment: Equipment, day: string): Job[] {
   const key = `${equipment.equipmentId}|${day}`;
   const hit = dayCache.get(key);
   if (hit) return hit;
-  const perHour = 2 + (fnv(equipment.equipmentId) % 2);
   const jobs: Job[] = [];
   for (let hour = 0; hour < 24; hour++) {
+    const perHour = hourlyJobCount(equipment, day, hour);
     for (let j = 0; j < perHour; j++) {
       const rnd = lcg(fnv(`${equipment.equipmentId}|${day}|${hour}|${j}`));
       const startedAt = `${day}T${pad(hour)}:${pad(Math.floor(rnd() * 60))}:${pad(Math.floor(rnd() * 60))}`;

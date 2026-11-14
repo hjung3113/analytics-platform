@@ -62,4 +62,28 @@ describe('screen 11 and 12 share one job population', () => {
     expect(job.cycleMinV4).toBeGreaterThan(job.cycleMinV3);
     expect(job.startedAt < '2026-09-26T08:00:00').toBe(true);
   });
+
+  it('varies hourly throughput deterministically with shift-boundary dips and a maintenance trough', () => {
+    const equipment = EQUIPMENT.filter(e => e.site === 'MEM' && ['PHOTO', 'ETCH', 'CVD'].includes(e.room));
+    const from = '2026-09-25T00:00:00';
+    const to = '2026-09-26T00:00:00';
+    const trend = trendBuckets(equipment, from, to, 'hour', emptyGlobal);
+    expect(trend).toHaveLength(24);
+    expect(trendBuckets(equipment, from, to, 'hour', emptyGlobal)).toEqual(trend);
+
+    const counts = trend.map(bucket => bucket.jobs ?? 0);
+    const min = Math.min(...counts);
+    const max = Math.max(...counts);
+    expect(min).toBeGreaterThan(0);
+    expect(max / min).toBeGreaterThanOrEqual(2);
+
+    for (const shiftHour of [6, 14, 22]) {
+      expect(counts[shiftHour]).toBeLessThan(counts[shiftHour - 1]);
+      expect(counts[shiftHour]).toBeLessThan(counts[shiftHour + 1]);
+    }
+    for (const maintHour of [2, 3]) {
+      expect(counts[maintHour]).toBeLessThan(counts[1]);
+      expect(counts[maintHour]).toBeLessThan(counts[4]);
+    }
+  });
 });
