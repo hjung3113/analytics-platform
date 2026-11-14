@@ -113,10 +113,23 @@ export function createDecisionService(deps: DecisionServiceDeps) {
           ),
         );
       if (!selected[0]) throw new HttpError('not_found.record', 'permission request not found');
-      await lockWorkspaceActor(tx, {
+      const lockedRequester = await lockWorkspaceActor(tx, {
         workspaceId: actor.workspace_id,
         actorId: selected[0].requesterActorId,
       });
+      // The gate above used the role loaded before this lock. A self-decision waited on its own
+      // Actor row, so decide again with the locked role and this transaction's current grants.
+      if (lockedRequester && lockedRequester.id === actor.actor_id) {
+        const refreshed = await deps.checkService.checkCapability(
+          { ...actor, role_level: lockedRequester.role_level },
+          'workspace.admin',
+          { workspace_id: actor.workspace_id },
+          { tx },
+        );
+        if (refreshed.allow !== true) {
+          throw new HttpError('permission.denied', 'workspace.admin required');
+        }
+      }
       const run = async (): Promise<{
         status: number;
         body: PermissionDecisionResult;

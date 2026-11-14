@@ -1,7 +1,5 @@
 import type { ScopeCatalog } from './scope-catalog.js';
 import { grantScope, managedScope, scopeFields, inScopeCatalog, type GrantScope } from './site-scope-policy.js';
-import { randomUUID } from 'node:crypto';
-
 import { and, asc, desc, eq, gt, inArray, isNull, or } from 'drizzle-orm';
 
 import {
@@ -40,6 +38,7 @@ import {
 import { capabilitiesOf, resolveCapabilityScope } from './check-service.js';
 import type { ActorContext, CapabilityScope, CheckService } from './check-service.js';
 import { writePermissionGrant } from './grant-command.js';
+import { revokePermissionGrant } from './revoke-command.js';
 import {
   supportedScopeCandidates,
   validateRequestExpiration,
@@ -277,6 +276,11 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         actorId: input.actor_id,
       });
       if (!recipient) throw new HttpError('not_found.record', 'recipient not found');
+      // The early gate used the role loaded before this lock. A self-grant waited on its own
+      // Actor row, so decide again with the locked role and this transaction's current grants.
+      if (input.actor_id === actor.actor_id) {
+        await assertAdmin({ ...actor, role_level: recipient.role_level }, tx);
+      }
       const requestHash = hashRequestBody({ action: 'direct_grant', ...input });
       const run = async (): Promise<{ status: number; body: PermissionGrantAdminItem }> => {
         const scope = { kind: input.scope_kind ?? 'managed_system', site: input.scope_site ?? null, room: input.scope_room ?? null };
@@ -475,71 +479,15 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
 
 
       const run = async (): Promise<{ status: number; body: RevokePermissionResult }> => {
-        const rows = await tx
-          .select()
-          .from(permissionGrants)
-          .where(
-            and(
-              eq(permissionGrants.id, grantId),
-              eq(permissionGrants.workspaceId, actor.workspace_id),
-            ),
-          )
-          .for('update');
-        const grant = rows[0];
-        if (!grant) throw new HttpError('not_found.record', 'permission grant not found');
-
-        const now = new Date();
-        if (
-          grant.revokedAt !== null ||
-          grant.supersededAt !== null ||
-          (grant.expiresAt !== null && grant.expiresAt <= now)
-        ) {
-          throw new HttpError('conflict.permission_not_active', 'permission grant is not active');
-        }
-
-        const updated = await tx
-          .update(permissionGrants)
-          .set({ revokedAt: now, revokedByActorId: actor.actor_id, revokedReason: reason })
-          .where(
-            and(
-              eq(permissionGrants.id, grant.id),
-              eq(permissionGrants.workspaceId, actor.workspace_id),
-            ),
-          )
-          .returning({ revokedAt: permissionGrants.revokedAt });
-        const revokedAt = updated[0]?.revokedAt;
-        if (!revokedAt) {
-          throw new HttpError('internal.unexpected', 'permission grant revoke returned no row');
-        }
-
-        const eventType: AuditEventType = 'permission_revoked';
-        await deps.auditService.record(tx, {
-          workspace_id: actor.workspace_id,
-          actor_id: actor.actor_id,
-          event_type: eventType,
-          subject_type: 'permission_grant',
-          subject_id: grant.id,
-          summary: 'Permission grant revoked',
-          detail: {
-            grant_id: grant.id,
-            capability: grant.capability,
-            ...scopeFields(grantScope(grant)),
-            managed_system_id: grant.managedSystemId,
-            grantee_actor_id: grant.actorId,
-            reason,
-          },
+        const revoked = await revokePermissionGrant(tx, {
+          workspaceId: actor.workspace_id,
+          grantId,
+          revokedByActorId: actor.actor_id,
+          reason,
+          audit: deps.auditService,
+          notify: deps.notify,
         });
-
-        await deps.notify(tx, 'permission_grant.revoked', {
-          workspace_id: actor.workspace_id,
-          actor_ids: [grant.actorId],
-          subject_id: grant.id,
-          correlation_id: randomUUID(),
-          detail: { permission_grant_id: grant.id },
-          params: {},
-        });
-
-        return { status: 200, body: { id: grant.id, revoked_at: revokedAt.toISOString() } };
+        return { status: 200, body: { id: revoked.id, revoked_at: revoked.revokedAt.toISOString() } };
       };
 
       if (!options.idempotencyKey) return run();

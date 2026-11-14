@@ -28,7 +28,7 @@ All commands run as one-off jobs from the migrate/tools image in the operator Co
          run --rm migrate node_modules/.bin/tsx src/cli/set-actor-role.ts \
          --external-id <idp-sub> --role admin --reason "first admin"
 
-   Arguments: `--external-id <sub>`, `--role admin|user`, optional `--reason <text>` (≤500 characters). On success it prints one JSON line with ids and roles only (never an email). The compiled form is `node dist/cli/set-actor-role.js` with the same arguments, for an image that ships `dist/`.
+   Arguments: `--external-id <sub>`, `--role admin|user`, optional `--reason <text>` (≤500 characters), optional `--revoke-admin-grants` (a flag without a value, see below). On success it prints one JSON line with ids and roles only (never an email). The compiled form is `node dist/cli/set-actor-role.js` with the same arguments, for an image that ships `dist/`.
 5. **Verify.** The person reloads the app: `/me` shows role Admin.
 
 ## Behavior and exit codes
@@ -36,6 +36,7 @@ All commands run as one-off jobs from the migrate/tools image in the operator Co
 - One transaction: a per-workspace lock, the role update, and one `actor_role_changed` audit row attributed to the `system` Actor (subject = the changed Actor; detail = `before_role`, `after_role`, optional `reason`).
 - Role changes are serialized per workspace, so two concurrent demotions cannot remove the last admin.
 - Already at the requested role: no change, no audit row, exit 0.
+- **Demotion does not revoke grants.** An explicit `workspace.admin` grant is a capability separate from the role, and the server keeps honoring it after the role drops to `user` (admin checks, permission decisions, workspace settings, the operations console). So lowering an Actor who holds an active `workspace.admin` grant (not revoked, not superseded, not expired) is refused with exit 5 and the count, and nothing changes. Rerun with `--revoke-admin-grants` to lower the role and revoke those grants in the same transaction: one `permission_revoked` audit row per grant, attributed to the `system` Actor (reason = `--reason`, else a fixed text). Promotion and lowering an Actor without such grants are unaffected.
 
 | Exit | Meaning |
 | --- | --- |
@@ -44,6 +45,7 @@ All commands run as one-off jobs from the migrate/tools image in the operator Co
 | 2 | Unknown external id: the person must log in once first |
 | 3 | Refused: would demote the last admin Actor that is not the `system` Actor |
 | 4 | Refused: the `system` Actor's role cannot be changed |
+| 5 | Refused: the Actor being lowered holds active `workspace.admin` grants; rerun with `--revoke-admin-grants` |
 
 ## Why the migrate role
 
