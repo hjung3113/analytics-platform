@@ -1,9 +1,10 @@
 import { useContext } from 'react';
 import { CircleHelp, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
-import { useI18n, useMessages } from '@ap/kernel';
+import { type MenuEntry, useI18n, useMessages } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { SystemSwitcher } from './SystemSwitcher';
+import { undeclaredOnlySections, UndeclaredBoundary } from './undeclared';
 import { placeableMenus } from '../board/boardMenus';
 import { useBoardPresentation } from '../board/boardPresentation';
 import { boardText } from '../board/text';
@@ -16,7 +17,7 @@ import { VocDrawerContext } from '../voc/VocDrawer';
 /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
   const voc = useContext(VocDrawerContext);
-  const { slots, user, setPaletteOpen, navigate, linkTo, canOpen, registry } = useHostPlatform();
+  const { slots, user, setPaletteOpen, navigate, linkTo, canOpen, registry, visibleMenus, currentSpace } = useHostPlatform();
   const { t, tx, lang, setLang } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const systems = useSystemSections();
@@ -31,23 +32,39 @@ export function AppRail() {
     <nav aria-label={m('railNav')} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
       <SystemSwitcher />
       <div className="mb-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
-      {systems !== null && systems.sections.length > 0 && <div role="group" aria-label={t('railSections')} className="flex min-h-8 shrink flex-col items-center gap-1.5 overflow-y-auto">
-        {systems.sections.map(({ group, items }) => {
-          const Icon = group.icon;
-          const active = group.id === systems.currentGroupId;
-          // A section whose menus are all registered without a screen looks dimmed and says so; the words are in the name and tooltip (#1944).
-          const planned = items.every(menu => !menu.component && !menu.moduleScreen);
-          const name = planned ? `${tx(group.label)} · ${t('planned')}` : tx(group.label);
-          return <Tooltip key={group.id}><TooltipTrigger asChild>
-            <button type="button" aria-label={name} data-section-planned={planned ? 'true' : undefined} aria-current={active ? 'true' : undefined}
-              onClick={() => { if (!active) navigate(linkTo(firstOpenableMenu(items).id), { focus: 'page', via: 'sidebar' }); }}
-              className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', planned && 'opacity-50', active && 'bg-surface-row-selected text-accent-primary')}>
-              {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
-              <Icon className="size-4" aria-hidden />
-            </button>
-          </TooltipTrigger><TooltipContent side="right">{name}</TooltipContent></Tooltip>;
-        })}
-      </div>}
+      {systems !== null && currentSpace !== null && <UndeclaredBoundary>{undeclared => {
+        // Operator only (#2201): a section whose menus are all undeclared is drawn dimmed and not navigable, in its Registry place among the real ones.
+        const dimmed = undeclaredOnlySections(currentSpace.id, registry.groups, registry.menus, visibleMenus, undeclared);
+        const order = new Map(registry.groups.map((group, at) => [group.id, at]));
+        const entries = [...systems.sections.map(section => ({ ...section, permissions: null as string | null })), ...dimmed.map(({ group, permissions }) => ({ group, items: [] as MenuEntry[], permissions }))]
+          .sort((a, b) => (order.get(a.group.id) ?? 0) - (order.get(b.group.id) ?? 0));
+        return entries.length > 0 && <div role="group" aria-label={t('railSections')} className="flex min-h-8 shrink flex-col items-center gap-1.5 overflow-y-auto">
+          {entries.map(({ group, items, permissions }) => {
+            const Icon = group.icon;
+            if (permissions !== null) {
+              const dimmedName = t('undeclaredMenuNamed', { label: tx(group.label), permission: permissions });
+              return <Tooltip key={group.id}><TooltipTrigger asChild>
+                <button type="button" aria-label={dimmedName} aria-disabled="true" data-section-undeclared={group.id}
+                  className="grid size-8 shrink-0 cursor-default place-items-center rounded-md text-text-disabled focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
+                  <Icon className="size-4" aria-hidden />
+                </button>
+              </TooltipTrigger><TooltipContent side="right">{dimmedName}</TooltipContent></Tooltip>;
+            }
+            const active = group.id === systems.currentGroupId;
+            // A section whose menus are all registered without a screen looks dimmed and says so; the words are in the name and tooltip (#1944).
+            const planned = items.every(menu => !menu.component && !menu.moduleScreen);
+            const name = planned ? `${tx(group.label)} · ${t('planned')}` : tx(group.label);
+            return <Tooltip key={group.id}><TooltipTrigger asChild>
+              <button type="button" aria-label={name} data-section-planned={planned ? 'true' : undefined} aria-current={active ? 'true' : undefined}
+                onClick={() => { if (!active) navigate(linkTo(firstOpenableMenu(items).id), { focus: 'page', via: 'sidebar' }); }}
+                className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', planned && 'opacity-50', active && 'bg-surface-row-selected text-accent-primary')}>
+                {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
+                <Icon className="size-4" aria-hidden />
+              </button>
+            </TooltipTrigger><TooltipContent side="right">{name}</TooltipContent></Tooltip>;
+          })}
+        </div>;
+      }}</UndeclaredBoundary>}
       <div className="min-h-3 flex-1" />
       <Tooltip><TooltipTrigger asChild>
         <button type="button" onClick={() => setPaletteOpen(true)} aria-label={t('searchPlaceholder')} aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K"
