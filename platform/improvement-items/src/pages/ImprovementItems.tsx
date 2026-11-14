@@ -69,13 +69,15 @@ export default function ImprovementItems() {
   const c = useCopy(), { pageParam, pageParams, setPage, can, canOpen, global, registry } = usePlatform();
   const view = pageParam('view') ?? 'mine', q = pageParam('q') ?? '';
   const validView = ['mine', 'all', 'unlinked'].includes(view);
-  const [initialized, setInitialized] = useState(false);
-  const rawFilters = pageParams('filter');
+  // Address-state rule, not a one-shot mount flag (#2012): whenever the address names a preset view
+  // (or none) with no `filter`, the preset is written with `replace` — also on a same-menu re-entry
+  // that keeps this page mounted. The user's own clearing writes `view: 'all'` (C4), and an explicit
+  // `view`/`filter` deep link already fails the condition, so neither is touched. The write makes the
+  // condition false, so it cannot loop; the table waits until then so no unfiltered list is fetched.
+  const needsPreset = validView && view !== 'all' && pageParams('filter').length === 0;
   useEffect(() => {
-    if (initialized) return;
-    if (validView && rawFilters.length === 0 && view !== 'all') setPage({ view, filter: filtersForView(view as View).map(encodeFilterParam) }, { replace: true });
-    setInitialized(true);
-  }, [initialized, validView, view, rawFilters.length, setPage]);
+    if (needsPreset) setPage({ view, filter: filtersForView(view as View).map(encodeFilterParam) }, { replace: true });
+  }, [needsPreset, view, setPage]);
   const chooseView = (value: View) => setPage({ view: value, filter: filtersForView(value).map(encodeFilterParam), q: null, page: null, sort: null });
   const clear = () => setPage({ view: 'all', filter: null, q: null, page: null, sort: null });
   const canWrite = can(MANAGE_PERMISSION), creating = pageParam('focus') === 'new';
@@ -104,7 +106,7 @@ export default function ImprovementItems() {
     <Tabs value={validView ? view : 'all'} onValueChange={value => chooseView(value as View)}>
       <TabsList><TabsTrigger value="mine">{c.mine}</TabsTrigger><TabsTrigger value="all">{c.all}</TabsTrigger><TabsTrigger value="unlinked">{c.unlinked}</TabsTrigger></TabsList>
       {view === 'mine' && <p className="py-3 text-xs text-text-secondary">{c.mineHint}</p>}
-      <TabsContent value={validView ? view : 'all'}>{initialized && <ManagementLayout table={<ItemTable q={q} view={validView ? (view as View) : 'all'} onClear={clear} />} />}</TabsContent>
+      <TabsContent value={validView ? view : 'all'}>{!needsPreset && <ManagementLayout table={<ItemTable q={q} view={validView ? (view as View) : 'all'} onClear={clear} />} />}</TabsContent>
     </Tabs>
   </PlatformPage>;
 }

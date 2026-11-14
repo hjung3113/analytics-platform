@@ -396,6 +396,36 @@ describe('unsaved-edit guard (#1388)', () => {
 });
 
 
+describe('preset view on re-entry (#2012)', () => {
+  type MenuQueryCalls = Array<[{ endpoint: string; params: { filters?: unknown[] } }]>;
+  const itemsCalls = (api: { menuQuery: unknown }) => (api.menuQuery as { mock: { calls: MenuQueryCalls } }).mock.calls.filter(([r]) => r.endpoint === 'improvement.items');
+  const mine = [{ id: 'assignee', op: 'in', value: ['me'] }, { id: 'status', op: 'notIn', value: ['verified', 'dropped'] }];
+  function Probe({ result }: { result: { enter: () => boolean } }) {
+    const { navigate, linkTo } = usePlatform();
+    result.enter = () => navigate(linkTo('improvement-items'));
+    return null;
+  }
+  it('puts the «내 담당» preset back when the same menu is entered again without a remount', async () => {
+    const result = {} as { enter: () => boolean };
+    const api = mount({ url: '/improvement-items?v=1&scopeId=MEM&view=mine&filter=status:in:open', children: <><ImprovementItems /><Probe result={result} /></> });
+    await waitFor(() => expect(itemsCalls(api).at(-1)?.[0].params.filters).toEqual([{ id: 'status', op: 'in', value: ['open'] }]));
+    const before = itemsCalls(api).length;
+    act(() => { expect(result.enter()).toBe(true); });
+    // `filter` is a hidden page key (history state), so the request carries the proof, not the visible address.
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('view')).toBe('mine'));
+    await waitFor(() => expect(itemsCalls(api).length).toBeGreaterThan(before));
+    await waitFor(() => expect(itemsCalls(api).at(-1)?.[0].params.filters).toEqual(mine));
+    // No request ever went out without the preset after the re-entry (no full-list flash).
+    expect(itemsCalls(api).some(([r]) => r.params.filters === undefined)).toBe(false);
+  }, 30_000);
+  it('keeps an explicit view=all deep link unfiltered', async () => {
+    const api = mount({ url: '/improvement-items?v=1&scopeId=MEM&view=all' });
+    await waitFor(() => expect(itemsCalls(api).length).toBeGreaterThan(0));
+    expect(itemsCalls(api).at(-1)![0].params.filters).toBeUndefined();
+    expect(new URLSearchParams(window.location.search).get('view')).toBe('all');
+  }, 30_000);
+});
+
 describe('owner-decided create drawer (#1408)', () => {
   const source = { menuId: 'improvement-items', context: { selection: ['EQ-1'], roomNames: ['PHOTO'], metricId: 'catalog-id', metricVersion: '3', page: { q: 'source problem' } } };
   it('labels Selection and process separately and uses catalog and Registry names', async () => {
