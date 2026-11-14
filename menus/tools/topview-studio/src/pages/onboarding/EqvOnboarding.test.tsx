@@ -200,6 +200,31 @@ describe('Mapping', () => {
     expect(document.activeElement).toBe(list);
   });
 
+  it('only the Component filter\'s Enter assigns; Enter on 닫기 keeps the board unchanged', async () => {
+    mount('engineer', '&equipment=eq-synth-01&step=mapping');
+    const list = await aliasList();
+    fireEvent.click(option('PM1'));
+    fireEvent.keyDown(list, { key: 'a' });
+    const dialog = await screen.findByRole('dialog', {}, slow);
+    const close = within(dialog).getByRole('button', { name: '닫기' });
+    close.focus();
+    // Not cancelled: the button keeps its own activation.
+    expect(fireEvent.keyDown(close, { key: 'Enter' })).toBe(true);
+    expect(screen.queryByText('저장 안 됨 · Model')).toBeNull();
+  });
+  it('the rule form cancels the implicit submit of the Enter Safari sends right after compositionend', async () => {
+    mount('engineer', '&equipment=eq-synth-01&step=mapping');
+    const list = await aliasList();
+    fireEvent.click(option('PM1'));
+    fireEvent.keyDown(list, { key: 'r' });
+    const dialog = await screen.findByRole('dialog', {}, slow);
+    const pattern = within(dialog).getByLabelText('패턴');
+    fireEvent.compositionStart(pattern);
+    fireEvent.compositionEnd(pattern);
+    expect(fireEvent.keyDown(pattern, { key: 'Enter' })).toBe(false);
+    expect(fireEvent.keyDown(pattern, { key: 'Enter' })).toBe(true);
+  });
+
   it('an edit is unsaved until 저장, which writes the Model scope at the version read; Ctrl+Z undoes', async () => {
     mount('engineer', '&equipment=eq-synth-01&step=mapping');
     const list = await aliasList();

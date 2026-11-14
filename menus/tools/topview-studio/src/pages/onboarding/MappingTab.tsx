@@ -68,6 +68,7 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
   const [rule, setRule] = useState<{ alias: string; pattern: string; target: string; touched: boolean } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const paletteFilterRef = useRef<HTMLInputElement>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
 
   const { equipment, layout } = input;
@@ -294,14 +295,15 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
           if (!options.length) return;
           const step = event.key === 'ArrowDown' ? 1 : -1;
           setPalette((p) => p && { ...p, active: (Math.min(p.active, options.length - 1) + step + options.length) % options.length });
-        } else if (event.key === 'Enter') {
+        } else if (event.key === 'Enter' && event.target === paletteFilterRef.current) {
+          // Only the filter's Enter assigns; Enter on 닫기 or the close button keeps its own meaning.
           const option = options[Math.min(palette.active, options.length - 1)];
           if (option) { edit({ kind: 'assign', alias: palette.alias, componentId: option.id }); setPalette(null); }
         } else return;
         event.preventDefault();
       }}>
         <DialogHeader><DialogTitle>{palette.alias}를 배정할 Component</DialogTitle><DialogDescription>↑↓로 고르고 Enter로 배정합니다. Esc로 닫습니다.</DialogDescription></DialogHeader>
-        <Input inputSize="toolbar" role="combobox" aria-label="Component 필터" aria-expanded="true" aria-controls={`${ids}-palette`} value={palette.filter} onChange={(event) => setPalette({ ...palette, filter: event.target.value, active: 0 })} />
+        <Input ref={paletteFilterRef} inputSize="toolbar" role="combobox" aria-label="Component 필터" aria-expanded="true" aria-controls={`${ids}-palette`} value={palette.filter} onChange={(event) => setPalette({ ...palette, filter: event.target.value, active: 0 })} />
         <div id={`${ids}-palette`} role="listbox" aria-label="Component 목록" className="max-h-64 overflow-y-auto">
           {options.map((option, index) => <div key={option.id} role="option" aria-selected={index === Math.min(palette.active, options.length - 1)}
             className={cn('flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1 text-xs', index === Math.min(palette.active, options.length - 1) && 'bg-surface-row-selected')}
@@ -316,7 +318,8 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
       <DialogContent closeLabel="창 닫기" className="break-keep" onCloseAutoFocus={returnToList}>
         <DialogHeader><DialogTitle>{rule.alias}에서 규칙 만들기 · 저장 범위 {LEVEL_WORD[saveScope]}</DialogTitle>
           <DialogDescription>패턴에 맞는 alias를 한 번에 같은 규칙으로 배정합니다. 추가 전에 결과를 확인하세요.</DialogDescription></DialogHeader>
-        <form noValidate className="space-y-3" id={`${ids}-rule`} onSubmit={(event) => {
+        <form noValidate className="space-y-3" id={`${ids}-rule`}
+          onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={(event) => {
           event.preventDefault();
           if (preview.problems.length) { setRule({ ...rule, touched: true }); return; }
           if (!writable) return;
