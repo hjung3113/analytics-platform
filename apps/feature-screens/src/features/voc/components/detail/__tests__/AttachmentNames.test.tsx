@@ -3,7 +3,12 @@
 import type { ConversationEntry, VocDetailEnvelope } from '@ap/feature-shared';
 import type { TipTapDoc } from '@ap/ui';
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/cross-system/useMentionLabelResolver', () => ({
+  useMentionLabelResolver: () => () => null,
+}));
+
 import { ComposerReplyPreview } from '../ComposerReplyPreview';
 import { TimelineEntry } from '../TimelineEntry';
 

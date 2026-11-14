@@ -1,6 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('@/lib/cross-system/useMentionLabelResolver', () => ({
+  useMentionLabelResolver: () => () => null,
+}));
 vi.mock('@/lib/api/me', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/me')>()),
   useMeBridge: vi.fn(),

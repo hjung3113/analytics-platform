@@ -10,6 +10,7 @@
 // passes InternalTaskBadge (which owns its own labels). Status vocabulary stays
 // on the owning surface instead of being duplicated here.
 
+import { useMentionLabelResolver } from '@/lib/cross-system/useMentionLabelResolver';
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { formatShortDateTime } from '@/lib/format/datetime';
 import { isTipTapDocBlank } from '@ap/feature-shared';
@@ -47,6 +48,7 @@ export function ProgressNoteEntry({
   renderStatusBadge,
   isLast,
 }: ProgressNoteEntryProps): React.ReactElement {
+  const resolveMentionLabel = useMentionLabelResolver();
   const actor: { display_name: string } = { display_name: actorFallbackName };
   if (actorDisplayName !== undefined) {
     actor.display_name = actorDisplayName;
@@ -82,6 +84,7 @@ export function ProgressNoteEntry({
             doc={entry.body_rich_content as TipTapDoc}
             mode="internal"
             attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
+            resolveMentionLabel={resolveMentionLabel}
           />
         </div>
       )}
