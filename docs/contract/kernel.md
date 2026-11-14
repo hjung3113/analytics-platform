@@ -299,7 +299,7 @@ Kernel은 앱 메뉴 루트를 알지 못하고, 선언하지 않으면 거부�
 홈이 필요한 곳(홈 링크, 플랫폼 메뉴의 `홈`, 되돌아갈 곳이 없을 때의 폴백, 홈 화면의 최근 방문)은 `matchRoute('/')`가 아니라 `registry.platformHome`을 읽고, 없으면(`null`) 공간 홈 폴백으로 간다.
 **`returnTo`:** 저장된·옛 형식의 `returnTo`(별칭 경로)도 돌아가기 포커스를 받는다 — `pageNavigation.requestReturn`이 두 주소를 정규 형태로 맞춰 비교하고, 저장된 값은 고쳐 쓰지 않는다(`safeReturnTo`는 원래 문자열을 돌려주고 공유·VOC 페이로드는 계속 `returnTo`를 싣지 않는다).
 설문은 정규 `/survey`·`/survey/:surveyId/respond`이고 `/surveys…`는 별칭이다(기능 단독 `/surveys…` 주소와 그 파서는 이 경로가 아니라 변하지 않는다).
-옛 → 정규 경로 표는 `apps/platform-web/src/canonical-paths.test.ts`가 조립된 Registry로 검사한다.
+옛 → 정규 경로 표는 `apps/platform-web/src/__tests__/links/canonical-paths.test.ts`가 조립된 Registry로 검사한다.
 
 **위치 어댑터와 비교:** `PlatformLocation.replace(url, { keepFragment: true })`는 같은 도착의 별칭 리다이렉트·기본값 물질화 때 현재 주소의 fragment를 보존해 한 번의 history replace로 쓴다. 옵션을 생략하거나 false이면 현재 fragment를 이어 붙이지 않는다. 입력은 base 없는 앱 상대 URL이다. `registry.canonicalHref(href)`는 pathname과 선택적인 query로 된 입력에서 매칭된 별칭만 정규 경로로 바꾸고 query를 그대로 보존한다. 정규 경로 또는 매칭되지 않은 입력은 그대로 반환한다. 비교용이며 검증이나 fragment 처리를 수행하지 않는다.
 

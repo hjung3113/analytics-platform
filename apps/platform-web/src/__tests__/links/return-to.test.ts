@@ -1,0 +1,48 @@
+import { describe, expect, it } from 'vitest';
+import { isAppRelativePath } from '@ap/contracts';
+import { registry } from '../../menus';
+
+const { safeReturnTo } = registry;
+
+const cycle = '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
+
+describe('safeReturnTo', () => {
+  it('rejects open redirects and non-routes', () => {
+    expect(safeReturnTo('https://evil.example')).toBeNull();
+    expect(safeReturnTo('https://evil.example/phish')).toBeNull();
+    expect(safeReturnTo('//evil.example')).toBeNull();
+    expect(safeReturnTo('/\\evil.example')).toBeNull();
+    expect(safeReturnTo('javascript:alert(1)')).toBeNull();
+    expect(safeReturnTo('/unregistered')).toBeNull();
+    expect(safeReturnTo('/equipment/X')).toBeNull();
+    expect(safeReturnTo('/equipment/X?tab=attributes')).toBeNull();
+    expect(safeReturnTo('/analytics/cycle-time?v=2&scopeId=MEM')).toBeNull();
+    expect(safeReturnTo('/%2F%2Fevil.example')).toBeNull();
+    expect(safeReturnTo('/equipment\u0000')).toBeNull();
+    expect(safeReturnTo(null)).toBeNull();
+  });
+
+  it('keeps a registered non-detail URL whose query parses', () => {
+    expect(safeReturnTo(cycle)).toBe(cycle);
+    expect(safeReturnTo('/equipment?v=1&scopeId=MEM')).toBe('/equipment?v=1&scopeId=MEM');
+    expect(safeReturnTo('/')).toBe('/');
+  });
+
+  it('keeps §6.1 screen state (sort/page/tab/focus, cycle bucket/bin) in the return URL', () => {
+    const equipment = '/equipment?v=1&scopeId=MEM&sort=status:desc&page=2&focus=MEM-PHOTO-0103&tab=audit';
+    const cycleFull = '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&sort=startedAt:asc&page=2&bucket=2026-09-25T09:00:00&bin=45-60';
+    expect(safeReturnTo(equipment)).toBe(equipment);
+    expect(safeReturnTo(cycleFull)).toBe(cycleFull);
+  });
+
+  it('rejects a duplicated page key instead of guessing', () => {
+    expect(safeReturnTo('/equipment?v=1&scopeId=MEM&page=2&page=3')).toBeNull();
+  });
+
+  it('does not treat a detail path as an app-relative failure', () => {
+    expect(isAppRelativePath('/equipment/X')).toBe(true);
+    expect(safeReturnTo('/equipment/X')).toBeNull();
+    expect(isAppRelativePath('https://evil.example')).toBe(false);
+    expect(isAppRelativePath('//evil.example')).toBe(false);
+  });
+});

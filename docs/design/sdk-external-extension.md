@@ -74,7 +74,7 @@
 - 업무 시스템 id는 **패키지가 정하는 별도 값**이다. 초판의 «공간 id = 모듈 id»는 기각한다: 정규 경로가 `/{공간 id}/{메뉴 슬러그}`(ADR-0093)라 URL 뿌리와 서버가 주는 권한 네임스페이스를 따로 바꿀 수 없게 묶이고, 앱의 공간·예약 루트와 겹치면 패키지가 권한까지 개명해 다시 릴리스해야 한다. 충돌은 `createRegistry`가 이미 거부한다.
 - **Registry 변경은 한 곳이다.** 공간 권한 검사를 «메뉴가 만들어진 뒤의 공간 반복»으로 옮겨, 홈이 모듈 메뉴이고 공간 권한이 `<그 모듈 id>:` 접두사이면 허용한다. `SpaceDef.permission` 타입은 그대로이고(`menuPermission` 캐스트), 그 한 줄의 주석(「공간 권한은 Kernel·앱 선언」)을 맞게 고친다. 홈 메뉴 권한 = 공간 권한 검사는 그대로다.
 - 약점: 패키지가 `homeMenuId`를 `<모듈 id>:<화면 id>` 문자열로 직접 쓴다. 어긋나면 Registry가 시작 때 `is unknown`/`is not in that space`로 거부하므로 fail closed다.
-- **Managed System 자동 등록은 합친 목록을 읽어야 한다.** 지금 `platform-systems.json`은 `buildPlatformSystemsFile(SPACES)`로 앱의 `SPACES`만 읽는다(`apps/platform-web/src/platform-systems.test.ts`). 패키지 공간을 `[...SPACES, x]`로 합치면 여기서 빠진다. 구현에서 생성기·테스트 입력을 합친 목록으로 바꾼다(ADR-0110 결정 5가 대상이며 본문은 이번에 읽지 못했다).
+- **Managed System 자동 등록은 합친 목록을 읽어야 한다.** 지금 `platform-systems.json`은 `buildPlatformSystemsFile(SPACES)`로 앱의 `SPACES`만 읽는다(`apps/platform-web/src/__tests__/space-systems/platform-systems.test.ts`). 패키지 공간을 `[...SPACES, x]`로 합치면 여기서 빠진다. 구현에서 생성기·테스트 입력을 합친 목록으로 바꾼다(ADR-0110 결정 5가 대상이며 본문은 이번에 읽지 못했다).
 
 #### 보류한 안: manifest 필드
 

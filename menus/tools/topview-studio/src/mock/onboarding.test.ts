@@ -153,7 +153,7 @@ describe('onboarding mock writes', () => {
   });
 });
 
-// The app wires `@eqv/core`'s `checkSampleWindowImport` and `buildInventory` (`apps/platform-web/src/dev/eqv-onboarding-import.test.ts` runs
+// The app wires `@eqv/core`'s `checkSampleWindowImport` and `buildInventory` (`apps/platform-web/src/dev/__tests__/eqv-onboarding-import.test.ts` runs
 // them on synthetic batches); mock code may not import core, so these tests drive the store with a stand-in verdict over the file's fields.
 type Batch = { equipmentId: string; from: string; to: string; timeDomain: string; dataGeneration: string; hash: string; bad?: boolean };
 const stub: SampleWindowImportHooks = {

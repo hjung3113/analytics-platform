@@ -42,7 +42,7 @@ https://platform.example/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09
 
 - The SDK owns `PlatformHop`, `buildPlatformInboundLink`, `parsePlatformInboundLink` in `packages/sdk/contracts/src/links/platform-inbound-link.ts`, global Context and platform `returnTo` validation. The inbound wire format and every origin/path rejection remain unchanged; the error codes are `inbound_origin` and `inbound_path` (renamed from `feedbackops_origin`/`feedbackops_path` in #1130, ADR-0097, no alias).
 - feature screens own their semantic search schemas, data and workflows. The platform registry and bridge own their mounted URLs and translate `selected`/`param` to `focus` as declared by each menu.
-- Tests: `apps/platform-web/src/platform-inbound-link.test.ts`, `packages/adapters/feature-bridge/src/feature-entry-graph.test.ts`, bridge route mapper tests and the retained platform E2E contracts.
+- Tests: `apps/platform-web/src/__tests__/links/platform-inbound-link.test.ts`, `packages/adapters/feature-bridge/src/feature-entry-graph.test.ts`, bridge route mapper tests and the retained platform E2E contracts.
 
 ## 4. Changes
 

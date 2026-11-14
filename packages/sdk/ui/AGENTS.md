@@ -41,7 +41,7 @@ UI Primitive layer (06 §13) and the design-system CSS. It knows no platform con
 
 ## Rich content
 
-- **Allowlist parity (security):** `rich-content/allowlist-local.ts` and `fixtures-local.ts` are copies of the sanitizer allowlist. The `allowlist-drift` and `fixtures-drift` tests pin the copies to inline fixtures. The [feature-source parity test](../../../apps/platform-web/src/rich-content-allowlist-parity.test.ts) compares the allowlist's full rules and the fixture corpus without importing the feature package set (`tooling/eslint/src/feature-packages.js`). Changing the allowlist here requires the same change in the feature. Record: [backlog](../../../.planning/backlog.md).
+- **Allowlist parity (security):** `rich-content/allowlist-local.ts` and `fixtures-local.ts` are copies of the sanitizer allowlist. The `allowlist-drift` and `fixtures-drift` tests pin the copies to inline fixtures. The [feature-source parity test](../../../apps/platform-web/src/__tests__/assembly/rich-content-allowlist-parity.test.ts) compares the allowlist's full rules and the fixture corpus without importing the feature package set (`tooling/eslint/src/feature-packages.js`). Changing the allowlist here requires the same change in the feature. Record: [backlog](../../../.planning/backlog.md).
 - **Extension boundary:** `RichEditor.tsx` is the lazy public wrapper. Editing plugins live in `RichEditorImpl.tsx` / `editor-extensions.ts`; `content-schema.ts` holds reader-safe schema/render definitions.
   - Drive all controls from the mirrored surface capabilities.
   - Inline images store only a UUID `id` and optional bounded `width`; resolve URLs through the optional editor/renderer prop.

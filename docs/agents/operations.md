@@ -67,7 +67,7 @@ Frequent capture URLs:
 ## Generator and Mock Registration
 
 - Changing `tooling/gen-menu`: run `node tooling/gen-menu/scripts/probe.ts` on a clean tree.
-- The mock registry is only `apps/platform-web/src/dev/mock-assembly.tsx` (`MOCK_ENDPOINTS`). Add sample values to `src/server-conformance.test.ts` `PARAMS` for each endpoint that declares params; tests fail otherwise.
+- The mock registry is only `apps/platform-web/src/dev/mock-assembly.tsx` (`MOCK_ENDPOINTS`). Add sample values to `src/__tests__/query/server-conformance.test.ts` `PARAMS` for each endpoint that declares params; tests fail otherwise.
 
 ## Tests That Fail Only Under Load
 

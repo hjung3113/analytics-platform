@@ -29,7 +29,7 @@ describe('TrustLine', () => {
   });
 });
 
-/** The assessments the mock server gives the two replay reads (collection and time domain unverified, the other two clear), with no Trust (see apps/platform-web/src/dev/eqv-viewer-mock.test.ts). */
+/** The assessments the mock server gives the two replay reads (collection and time domain unverified, the other two clear), with no Trust (see apps/platform-web/src/dev/__tests__/eqv-viewer-mock.test.ts). */
 const MOCK_ASSESSMENTS: Assessment[] = [
   UNKNOWN_COLLECTION,
   { kind: 'processing_delay', state: 'clear', statusSource: 'mart-watermark', observedAt: '2026-09-26T08:58:00' },
