@@ -22,7 +22,7 @@ const period = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 const menu = (id: string, path: string, over: Record<string, unknown> = {}) => ({ id, group: groupId('overview'), primary: id === 'home', label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const, requiresScope: true, context: { ...noContext, time: 'apply' as const, roomNames: 'apply' as const }, query: { mode: 'apply' as const, required: { context: ['time' as const] } }, pageKeys: [], pageType: 'analysis' as const, features: { export: false, savedView: true, annotate: false, compare: false }, ...over });
 const registry = createRegistry({
   spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
-  menus: [menu('home', '/'), menu('live', '/live', { query: undefined, primary: false })],
+  menus: [menu('home', '/'), menu('live', '/live', { query: undefined, primary: false, features: { export: false, savedView: false, annotate: false, compare: false } })],
 });
 const session = testSession(['platform:view']);
 let platform: ReturnType<typeof useHostPlatform>;

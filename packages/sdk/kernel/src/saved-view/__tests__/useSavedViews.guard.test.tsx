@@ -8,7 +8,7 @@ import { useHostPlatform, useLeaveRequest, useSavedViews, type SavedViews, type 
 import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSession, testSpace } from '../../testing';
 
 const support: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: [], pageKeys: ['filter'] };
-const base = { group: groupId('g'), icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'analysis' as const, pageKeys: ['filter'], features: { export: false, savedView: true, annotate: false, compare: false } };
+const base = { group: groupId('g'), icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, query: { mode: 'apply' as const }, pageType: 'analysis' as const, pageKeys: ['filter'], features: { export: false, savedView: true, annotate: false, compare: false } };
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('g'), label: base.label, icon: House, space: spaceId('mars') }], menus: [{ ...base, id: 'home', path: '/', primary: true }, { ...base, id: 'other', path: '/other' }] });
 const row = (id: string) => testSavedView({ id, name: id, kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, context: {}, page: [['filter', id]], chartOptions: {}, layout: null, panels: null } as never);
 let views: SavedViews;
