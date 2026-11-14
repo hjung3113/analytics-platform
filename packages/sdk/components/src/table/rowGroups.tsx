@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
-import { EMPTY_GROUP_LABEL, type PageGroup } from '@ap/contracts';
+import { EMPTY_GROUP_LABEL, formatNumber, type PageGroup } from '@ap/contracts';
 import { formatText, useMessages, type Lang } from '@ap/kernel';
 import { cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -58,7 +58,7 @@ export function groupHeaderLayout<C extends { id: string }>(displayed: readonly 
   return { leading: displayed.slice(0, end), trailing: displayed.slice(end), leadSubtotal: null };
 }
 
-export const groupCountText = (count: number, lang: Lang) => formatText(COMPONENTS_MESSAGES.tableGroupCount, lang, { count: count.toLocaleString() });
+export const groupCountText = (count: number, lang: Lang) => formatText(COMPONENTS_MESSAGES.tableGroupCount, lang, { count: formatNumber(count, lang) });
 export const groupToggleName = (label: string, collapsed: boolean, lang: Lang) =>
   formatText(collapsed ? COMPONENTS_MESSAGES.tableGroupExpand : COMPONENTS_MESSAGES.tableGroupCollapse, lang, { label });
 
@@ -88,7 +88,7 @@ export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellCla
     return value === undefined ? null : <>
       <span className="sr-only">{m('tableGroupTotalSr')}</span>
       <span className="mr-1 text-xs font-normal text-text-muted" aria-hidden>{m('tableGroupTotal')}</span>
-      {value === null ? '—' : value.toLocaleString()}
+      {value === null ? '—' : formatNumber(value, lang)}
     </>;
   };
   const label = group.label === '' ? EMPTY_GROUP_LABEL : group.label;
@@ -105,7 +105,7 @@ export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellCla
         <span className="min-w-0 truncate" title={label}>{label}</span>
         {continued && <span className="shrink-0 text-xs font-normal text-text-muted">{m('tableGroupContinued')}</span>}
         <span className="shrink-0 text-xs font-normal text-text-secondary tabular" data-group-count>{groupCountText(group.count, lang)}</span>
-        {collapsed && <span className="shrink-0 text-xs font-normal text-text-muted tabular">{m('tableGroupHiddenRows', { count: rowsOnPage.toLocaleString() })}</span>}
+        {collapsed && <span className="shrink-0 text-xs font-normal text-text-muted tabular">{m('tableGroupHiddenRows', { count: formatNumber(rowsOnPage, lang) })}</span>}
       </div>
     </div>
     {/* eslint-disable-next-line shadcn/no-inline-styles -- band width comes from column sizing at runtime */}
