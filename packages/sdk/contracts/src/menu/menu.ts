@@ -141,6 +141,10 @@ export type MenuMeta = {
    * hard-codes a menu's key name. Absent = the menu names no subject.
    */
   subjectPageKeys?: Readonly<Record<string, string>>;
+  /** Display-only inbound destinations (06 §22). Each kind uses one path param or single-value page key. */
+  opensObject?: Readonly<Record<string, { param: string; pageKey?: never } | { pageKey: string; param?: never }>>;
+  /** Opt into the page header's object links. true reads subjectPageKeys; param reads the current route. */
+  subjectLinks?: Readonly<Record<string, true | { param: string }>>;
   /**
    * Ids of the other menus this menu links to (06 §22, ADR-0158; field names Candidate). Only menu ids: no Context, page or path value, no carried key,
    * no permission. `required`: the menu's main flow breaks without it — `createRegistry` rejects an unregistered one unless `linkTargetCheck: 'report'`.

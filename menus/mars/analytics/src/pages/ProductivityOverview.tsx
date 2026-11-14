@@ -1,3 +1,4 @@
+import { ObjectLinks } from '@ap/components';
 import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
 /**
  * 생산성 분석 — 개요 (wireframe 11, Overview archetype §12.1).
@@ -394,15 +395,13 @@ export default function ProductivityOverview(_: PageProps) {
                     <PlatformLink href={linkTo('cycle-time', { global: { selection: [r.equipmentId] } })}
                       title={ko ? '설비 선택을 이 설비로 바꾸고 사이클타임 상세로 이동합니다.' : 'Changes the equipment selection to this equipment and opens cycle time detail.'}
                       className="text-xs font-medium text-accent-primary hover:underline">{ko ? '사이클타임 상세 →' : 'Cycle time →'}</PlatformLink>
-                    <PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: r.equipmentId }, returnTo: true })}
-                      title={ko ? '이 설비의 상세만 엽니다. 설비 선택은 바뀌지 않습니다.' : 'Opens this equipment only. The equipment selection does not change.'}
-                      className="text-xs text-text-secondary hover:text-accent-primary hover:underline">{ko ? '설비 상세' : 'Equipment'}</PlatformLink>
+                    <ObjectLinks kind="equipment" id={r.equipmentId} returnTo />
                   </li>)}
                 </ul>
                 <p className="t-caption mt-2 text-text-muted">
                   {ko
-                    ? '사이클타임 상세 링크는 설비 선택을 해당 설비로 바꾸고 나머지 조건은 그대로 둡니다. 설비 상세 링크는 그 설비만 열며 설비 선택을 바꾸지 않습니다.'
-                    : 'The cycle-time link changes the equipment selection to that equipment and keeps the other conditions. The equipment link opens that equipment only and does not change the equipment selection.'}
+                    ? '사이클타임 상세 링크는 설비 선택을 해당 설비로 바꾸고 나머지 조건은 그대로 둡니다. 다른 화면 링크는 그 설비만 열며 설비 선택을 바꾸지 않습니다.'
+                    : 'The cycle-time link changes the equipment selection to that equipment and keeps the other conditions. The other-screen links open that equipment only and does not change the equipment selection.'}
                 </p>
               </>}
             </QueryView>

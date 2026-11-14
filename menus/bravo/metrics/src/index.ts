@@ -21,6 +21,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'metric-detail', group: GROUP, parent: 'metric-catalog', navHidden: true, label: { ko: '지표 상세', en: 'Metric detail' },
     description: { ko: '정의·버전 이력·사용처', en: 'Definition, version history and usage' },
+    opensObject: { metric: { param: 'metricId' } },
     path: '/metrics/:metricId', icon: Gauge, permission: PERMISSION, requiresScope: false, pageType: 'catalog',
     context: contextCapabilities({ metric: 'apply', selection: 'reference' }), features: NO_FEATURES, pageKeys: ['tab', 'version', 'returnTo'], initializesMetric: true,
     component: lazy(() => import('./pages/MetricDetail')),

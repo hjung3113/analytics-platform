@@ -31,3 +31,10 @@ describe('manifest', () => {
     expect(manifests[0].features.board).toBe(true);
   });
 });
+
+describe('inbound equipment links (#1930)', () => {
+  it('opts into the header and opens equipment using its existing eqp page key', () => {
+    expect(manifests[0].subjectLinks).toEqual({ equipment: true });
+    expect(manifests[0].opensObject).toEqual({ equipment: { pageKey: 'eqp' } });
+  });
+});

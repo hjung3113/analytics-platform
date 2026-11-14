@@ -66,3 +66,4 @@ export type { ApprovalRequestInfo, ViewActionOutcome, ViewDecideHandler, ViewDia
 export { HierarchyNav, type HierarchyNavProps } from './hierarchy/HierarchyNav';
 export { useHierarchyNavState } from './hierarchy/useHierarchyNavState';
 export { type HierarchyNavState } from './hierarchy/hierarchyState';
+export { ObjectLinks, type ObjectLinksProps } from './archetypes/ObjectLinks';

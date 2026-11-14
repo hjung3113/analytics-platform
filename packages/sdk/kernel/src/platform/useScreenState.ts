@@ -226,6 +226,17 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     };
   }, [global, visibleUrl, menuById, canOpen, page, route, registry]);
   const resolveLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => resolveWith(menuId, options, true), [resolveWith]);
+  const objectLinks = useCallback<HostPlatform['objectLinks']>(({ kind, id }, options = {}) => {
+    if (!id) return [];
+    return registry.objectDestinations(kind).flatMap(menu => {
+      if (menu.id === route?.menu.id) return [];
+      const declaration = menu.opensObject![kind]!;
+      const link = resolveLink(menu.id, declaration.param !== undefined
+        ? { ...options, params: { [declaration.param]: id } }
+        : { ...options, page: { ...options.page, [declaration.pageKey]: id } });
+      return link.kind === 'none' ? [] : [{ ...link, menuId: menu.id, label: menu.label }];
+    });
+  }, [registry, resolveLink, route?.menu.id]);
   // Kernel entries (space entry/resume) resolve only registered, openable menus; `linkTo` is for destinations the assembly guarantees (06 §22).
   const resolveEntryLink = useCallback((menuId: string, options: LinkOptions = {}): RegisteredLink => registered(resolveWith(menuId, options, false), menuId), [resolveWith]);
   const linkTo = useCallback((menuId: string, options: LinkOptions = {}): string => registered(resolveLink(menuId, options), menuId).href, [resolveLink]);
@@ -441,8 +452,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null,
     commit: commitState, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
-    detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, reportShellError, returnTarget, returnOrigin,
+    detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId, paneLabel,
-  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
+  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
   return { screen, sidebarSpace, resolveEntryLink };
 }

@@ -94,6 +94,8 @@ Reject invalid URL values; never repair them (06 §6). Use these for tables whos
 ## Page archetypes
 
 ### `archetypes/PlatformPage.tsx` — page top level
+
+- `ObjectLinks` is the public body placement for kind/id + link options. `RowAction.menu` keeps its trigger node across density changes. PlatformPage alone draws subjectLinks header groups, main screen only; HeaderOverflowGroup and ObjectLinkItems stay internal (06 §22).
 - Slots: title, actions, `contextExtension`, `dataTrustSummary`, breadcrumb; the Scope gate. The global Context Bar arrives as `slots.contextBar` (never import the shell).
 - The body is identified by `data-platform-page-content` (excludes header, global Context, page extension; the Scope gate renders inside it). Contract checks use this stable hook, not style classes.
 - `contextNotes` (`ReactNode[]`; `null`/`false` entries are neither counted nor drawn) is the notice slot above `contextExtension`. With `layout="fill"`, the head area (notes + extension) is drawn as a collapsible by internal `PageContextHead.tsx` (not exported from `index.ts`; 06 §12.8, ADR-0075). Internal `useCollapsePreference.ts` shares remembered collapse, opposite-toggle focus and collapsed-summary notice with `PageFilterBar`. A flow page draws notes above the extension without collapse.

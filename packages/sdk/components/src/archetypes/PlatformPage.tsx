@@ -19,6 +19,7 @@ import { drillDestinationOf, focusPageFallback } from '../state/pageFocus';
 import { PageBoundContext, PageFlowContext } from '../pageFlow';
 import { stickyChromeHeight } from '../visibleArea';
 import { StateMessage } from '../StateView';
+import { ObjectLinkItems } from './ObjectLinkItems';
 import { useInWorkspacePanel } from '../workspace/panelContext';
 
 function withTrustYield(node: ReactNode, yieldState: HeaderYield): ReactNode {
@@ -42,17 +43,17 @@ export function useHeaderOverflowDialog(): ShowHeaderDialog | null {
   return useContext(HeaderOverflowDialogContext);
 }
 
-/**
- * One row of a page's `⋯` menu, the shape of `분석 보드에 열기…`. `allowed: false` keeps the row, disabled, with `reason` read as its description
- * (06 §22: a link the user may not follow is shown disabled with the reason, not hidden). The menu closes after `onSelect` runs.
- */
-export function HeaderOverflowItem({ label, onSelect, allowed = true, reason }: { label: ReactNode; onSelect: () => void; allowed?: boolean; reason?: ReactNode }) {
-  const reasonId = useId();
-  const blocked = !allowed;
-  return <div className="grid gap-0.5">
-    <Button type="button" variant="ghost" size="sm" className="w-full justify-start" disabled={blocked} aria-describedby={blocked && reason ? reasonId : undefined} onClick={onSelect}>{label}</Button>
-    {blocked && reason && <span id={reasonId} className="px-2 text-tiny text-text-muted">{reason}</span>}
-  </div>;
+export { HeaderOverflowItem } from './HeaderOverflowItem';
+
+function HeaderOverflowGroup({ title, children }: { title: ReactNode; children: ReactNode }) {
+  const headingId = useId();
+  return <>
+    <div role="separator" className="-mx-1 h-px bg-border-subtle" />
+    <div role="group" aria-labelledby={headingId} className="grid gap-2">
+      <div id={headingId} className="break-keep px-2 py-1.5 text-sm font-semibold text-text-primary">{title}</div>
+      {children}
+    </div>
+  </>;
 }
 
 function HeaderOverflow({ actions }: { actions: ReactNode }) {
@@ -145,7 +146,7 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', arrivalTarget, children }: PlatformPageProps) {
-  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, currentSpace, screenMode, canOpen, queryDraft, pageParams, session, scopeSelector } = useHostPlatform();
+  const { global, page, equipmentAxes, route, objectLinks, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, currentSpace, screenMode, canOpen, queryDraft, pageParams, session, scopeSelector } = useHostPlatform();
   const accessRequest = useScopeAccessRequest();
   const detailFullscreen = useContext(DetailPanelFullscreenContext);
   const covered = detailFullscreen?.expanded === true;
@@ -246,6 +247,16 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const analysisPage = Object.fromEntries(menu.pageKeys.flatMap(key => { const values = pageParams(key); return values.length === 0 ? [] : [[key, menu.repeatedPageKeys?.includes(key) ? values : values[0]!]]; }));
   const analysisSubject = Object.fromEntries(Object.entries(menu.subjectPageKeys ?? {}).flatMap(([kind, key]) => { const value = analysisPage[key]; return typeof value === 'string' ? [[kind, value]] : []; }));
   const analysisActions = AnalysisActions ? <AnalysisActions menuId={menu.id} global={global} page={analysisPage} {...(Object.keys(analysisSubject).length ? { subject: analysisSubject } : {})} /> : null;
+  // Match analysisActions: header additions are main-screen only; pane headers belong to their host.
+  const objectGroups = !inPane ? Object.entries(menu.subjectLinks ?? {}).flatMap(([kind, source]) => {
+    const id = source === true ? analysisSubject[kind] : route!.params[source.param];
+    if (!id) return [];
+    const links = objectLinks({ kind, id }, { returnTo: true });
+    if (!links.length) return [];
+    return [<HeaderOverflowGroup key={kind} title={<><span className="font-mono">{id}</span> {t('objectLinks')}</>}>
+      <ObjectLinkItems links={links} />
+    </HeaderOverflowGroup>];
+  }) : [];
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
   const parent: MenuEntry | null = menu.parent ? registry.menuById(menu.parent) : null;
@@ -362,7 +373,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
         </div>
         <div className="flex shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap">
           {!gate && dataTrustSummary && withTrustYield(dataTrustSummary, headerYield)}
-          {!gate && (secondaryActions || boardEntry || analysisActions) && <HeaderOverflow actions={<>{secondaryActions}{boardEntry}{analysisActions}</>} />}
+          {!gate && (secondaryActions || boardEntry || analysisActions || objectGroups.length > 0) && <HeaderOverflow actions={<>{secondaryActions}{boardEntry}{analysisActions}{objectGroups}</>} />}
           {!gate && primaryAction}
         </div>
       </header>
