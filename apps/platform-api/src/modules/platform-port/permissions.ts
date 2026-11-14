@@ -72,8 +72,8 @@ export interface PlatformPermissionResolver {
 }
 
 /**
- * `declarations` may be bound later with `use` (once): `buildServer` registers the port routes before it builds the
- * menu registry, and the routes only resolve at request time. Until `use` is called only the kernel table applies.
+ * `declarations` may be bound later with `use` (once), after `buildServer` assembles the menu registry.
+ * The port routes only resolve at request time. Until `use` is called only the kernel table applies.
  */
 export function createPlatformPermissionResolver(
   declarations: readonly MenuPermissionDeclaration[] = [],

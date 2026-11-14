@@ -21,7 +21,6 @@ import type { ConnectorFactories, RoutingLog } from './modules/menu-dispatch/con
 import { routedBootProblems } from './modules/menu-dispatch/routing.js';
 import { type DeclaredCheckService, declaredContribution } from './modules/menu-dispatch/declared-endpoints.js';
 import { bundleSnapshotCheck, loadMenuSnapshot } from './modules/menu-dispatch/menu-snapshot.js';
-import { undeclaredMenuPermissions, type UndeclaredMenuPermission } from './modules/menu-dispatch/undeclared-menu-permissions.js';
 import { createMenuForwarder, normalizeMenuUpstreamBaseUrl, validateMenuOwnerPath } from './modules/menu-dispatch/forwarder.js';
 import { createHttpScopeResolver } from './modules/menu-dispatch/http-scope-resolver.js';
 import { createIdentityTokenSigner } from './modules/menu-dispatch/identity-token.js';
@@ -48,8 +47,8 @@ export interface MenuDeclarationSetup {
   /** The sole Scope source: grant table with a catalog, or optional HTTP service (ADR-0154). */
   scopeResolver?: ScopeResolver;
   scopeCatalog?: ScopeCatalog;
-  /** Menus whose permission the bundle does not declare (#1846): hidden for everyone; the caller logs one warning each. */
-  undeclaredMenuPermissions: readonly UndeclaredMenuPermission[];
+  /** Validated snapshot requirements, compared with all contributions by server assembly (#1846). */
+  menuRequirements: readonly { id: string; permission: string }[];
 }
 
 /**
@@ -83,7 +82,6 @@ export async function loadMenuDeclarationSetup(
       .filter((key) => !config[key]);
     if (missing.length) throw new DeclarationBundleError(missing.map((key) => `${key} is required when the bundle has an envelope destination`));
   }
-  const undeclared = undeclaredMenuPermissions(snapshot.menus, bundle.permissions.map((row) => row.permission));
   const targetSecrets = bundle.targets === undefined ? undefined : await readTargetSecrets(bundle.targets);
   const connectorFactories = deps.connectorFactories ?? defaultFactories;
   const problems = routedBootProblems(bundle, connectorFactories, scopeCatalog ? Object.fromEntries(scopeCatalog.sites.map(entry => [entry.site, entry.rooms])) : deps.scopeCatalog);
@@ -100,7 +98,7 @@ export async function loadMenuDeclarationSetup(
     });
   if (!envelope) return {
     menuDispatch: [declaredContribution({ bundle, snapshot, checkService: deps.checkService, ...routedDeps })],
-    undeclaredMenuPermissions: undeclared,
+    menuRequirements: snapshot.menus.map(({ id, permission }) => ({ id, permission })),
     ...(scopeResolver ? { scopeResolver } : {}),
     ...(scopeCatalog ? { scopeCatalog } : {}),
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
@@ -138,7 +136,7 @@ export async function loadMenuDeclarationSetup(
   return {
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
     menuDispatch: [declaredContribution({ bundle, snapshot, forwarder, checkService: deps.checkService, ...routedDeps })],
-    undeclaredMenuPermissions: undeclared,
+    menuRequirements: snapshot.menus.map(({ id, permission }) => ({ id, permission })),
     ...(scopeResolver ? { scopeResolver } : {}),
     ...(scopeCatalog ? { scopeCatalog } : {}),
   };

@@ -38,7 +38,6 @@ import { createCheckService } from './modules/permissions/index.js';
 import { createPublicUpdateReviewCandidatesService } from './modules/voc/public-update-review-candidates/service.js';
 import { sourceAssemblyFromEnv } from './modules/log-explorer/source-assembly.js';
 import { loadMenuDeclarationSetup } from './menu-declarations.js';
-import { undeclaredMenuPermissionLines } from './modules/menu-dispatch/undeclared-menu-permissions.js';
 import { buildServer } from './server.js';
 
 const config = loadConfig();
@@ -178,13 +177,11 @@ const menuDeclarations = await loadMenuDeclarationSetup(config, {
   // `buildServer`, so the server holds one vocabulary.
   checkService: (capabilities) => createCheckService({ db: dbHandle.db, capabilities }),
 });
-// #1846: a menu whose permission the bundle does not declare is hidden for everyone (closed failure, ADR-0146): warn, never fail.
-for (const line of undeclaredMenuPermissionLines(menuDeclarations?.undeclaredMenuPermissions ?? [])) logger.warn(line);
 const app = await buildServer({
   config,
   drainState,
    ...(sourceAssembly.sourceReadPort ? { logExplorer: { sourceReadPort: sourceAssembly.sourceReadPort, sourceOwnerAccess: sourceAssembly.sourceOwnerAccess } } : {}),
-  ...(menuDeclarations ? { menuDispatch: menuDeclarations.menuDispatch, undeclaredMenuPermissions: menuDeclarations.undeclaredMenuPermissions } : {}),
+  ...(menuDeclarations ? { menuDispatch: menuDeclarations.menuDispatch, menuRequirements: menuDeclarations.menuRequirements } : {}),
   ...(menuDeclarations?.scopeCatalog ? { scopeCatalog: menuDeclarations.scopeCatalog } : {}),
   ...(menuDeclarations?.scopeResolver ? { scopeResolver: menuDeclarations.scopeResolver } : {}),
    dbHandle,

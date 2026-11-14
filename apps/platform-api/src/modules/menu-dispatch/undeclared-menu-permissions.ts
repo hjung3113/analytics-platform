@@ -1,6 +1,7 @@
 // Menus whose required permission the server does not declare (#1846, ADR-0146 decisions 3 and 4).
 //
-// A session's permission list is the kernel table plus the bundle's declared `permission -> capability` rows. A menu whose
+// A session's permission list is the kernel table plus every built-in and deployment contribution's declared
+// `permission -> capability` rows in the assembled menu registry. A menu whose
 // permission is in neither is in nobody's list, so the menu is hidden for everyone, operators included. That closed failure
 // is intended and stays; this only makes it visible. An undeclared endpoint permission already refuses boot; a menu
 // permission has no such check, so it is reported here as a warning (never a boot failure).
