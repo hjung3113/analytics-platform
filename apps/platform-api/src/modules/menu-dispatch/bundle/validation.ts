@@ -1,5 +1,5 @@
 import { bindingProblems, scalarOnlyProblems, type ParamType } from './bindings.js';
-import { callBindings, callKind, isEnvelope, statementProblems } from './calls.js';
+import { type Call, callBindings, callKind, isEnvelope, statementProblems } from './calls.js';
 import { type Routing, routeCall } from './routing.js';
 import type { Target } from './targets.js';
 import type { ContextKey } from '../types.js';
@@ -15,6 +15,11 @@ interface EndpointRow {
   paramTypes?: Record<string, ParamType> | undefined;
   limits?: { maxRows?: number | undefined } | undefined;
   kinds?: readonly string[] | undefined;
+}
+
+function mappedScalarProblems(call: Call): string[] {
+  if (!('mode' in call) || call.mode !== 'mapped') return [];
+  return scalarOnlyProblems([...Object.values(call.pathParams ?? {}), ...Object.values(call.query ?? {})]);
 }
 
 /** Audience binds a token to one envelope destination, independently of path and Scope. */
@@ -98,13 +103,12 @@ export function routingProblems(bundle: {
     }
     for (const call of [...(owner.call ? [owner.call] : []), ...owner.routes.flatMap((route) => route.call ? [route.call] : [])]) {
       for (const problem of bindingProblems(callBindings(call), endpoint)) add(problem);
-      if ('mode' in call && call.mode === 'mapped') {
-        for (const problem of scalarOnlyProblems([...Object.values(call.pathParams ?? {}), ...Object.values(call.query ?? {})])) add(problem);
-      }
+      for (const problem of mappedScalarProblems(call)) add(problem);
       if ('mode' in call && call.mode === 'mapped' && call.response.total !== undefined && !paged) add('response.total is only allowed on a paged endpoint');
     }
     if (owner.scopeCheck?.mode === 'resolve-keys') {
       for (const problem of bindingProblems([...callBindings(owner.scopeCheck.lookup), owner.scopeCheck.keys], endpoint)) add(problem);
+      for (const problem of mappedScalarProblems(owner.scopeCheck.lookup)) add(problem);
       if (isEnvelope(owner.scopeCheck.lookup)) add('scopeCheck.lookup must be a non-envelope call');
     }
     for (const [index, route] of owner.routes.entries()) {
