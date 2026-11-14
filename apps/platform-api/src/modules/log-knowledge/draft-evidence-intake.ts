@@ -18,7 +18,7 @@ import { findWorkspaceActor } from '../auth/index.js';
 import { type FieldError, MenuActionInvalidError } from '../menu-dispatch/types.js';
 import { type CheckService, applyAdminModuleBypass } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
-import { parseProposal } from './domain/draft-input.js';
+import { type NormalizedProposal, parseProposal } from './domain/draft-input.js';
 import { isFinalDraftStatus } from './domain/draft-transitions.js';
 import {
   type DraftEvidenceOrigin,
@@ -29,7 +29,7 @@ import {
   parseDraftEvidenceRefs,
   parseSourceOwner,
 } from './domain/evidence-intake.js';
-import { EVIDENCE_MAX, type EvidencePointer } from './domain/item-input.js';
+import { EVIDENCE_MAX, evidenceList, fieldErrors } from './domain/item-input.js';
 import { DRAFT_PERMISSION } from './draft-actions.js';
 import { authorAuthNow, draftCores } from './draft-core.js';
 import { getDraftDetail, listOwnOpenDrafts } from './repositories/draft-read.js';
@@ -220,12 +220,13 @@ export function draftEvidenceIntake(deps: DraftEvidenceIntakeDeps): DraftEvidenc
         if (!before) throw invalid({ path: ['id'], code: 'not_found' });
         if (String(before.rowVersion) !== input.expectedVersion) throw invalid({ path: ['expectedVersion'], code: 'conflict' });
         if (isFinalDraftStatus(before.status)) throw invalid({ path: ['id'], code: 'illegal_transition' });
-        const latest = (await latestProposal(tx, ws, before)) as { evidence?: EvidencePointer[] } & Record<string, unknown>;
+        const latest = (await latestProposal(tx, ws, before)) as NormalizedProposal;
         const stored = latest.evidence ?? [];
         const { merged } = mergePointers(stored, pointers);
         if (merged.length > EVIDENCE_MAX) throw invalid({ path: ['refs'], code: 'too_many' });
-        const parsed = parseProposal(before.proposalType as 'create' | 'revise', { ...latest, evidence: merged });
-        if (!parsed.ok) {
+        // Stored subjects are normalized values, not the wire input accepted by parseProposal.
+        const parsed = evidenceList.safeParse(merged);
+        if (!parsed.success) {
           // merged = stored pointers, then the new incoming ones in order (a repeat is not added again).
           const seen = new Set(stored.map(pointerKey));
           const originOf: (number | null)[] = stored.map(() => null);
@@ -234,9 +235,10 @@ export function draftEvidenceIntake(deps: DraftEvidenceIntakeDeps): DraftEvidenc
             seen.add(pointerKey(p));
             originOf.push(i);
           });
-          throw new MenuActionInvalidError(pointerErrors(parsed.errors, originOf));
+          const evidenceErrors = fieldErrors(parsed.error).map((error) => ({ ...error, path: ['evidence', ...error.path] }));
+          throw new MenuActionInvalidError(pointerErrors(evidenceErrors, originOf));
         }
-        return toResult(await core.updateDraft(tx, actor, before, parsed.value, handoffOf(origin, pointers.length)));
+        return toResult(await core.updateDraft(tx, actor, before, { ...latest, evidence: parsed.data }, handoffOf(origin, pointers.length)));
       });
     },
   };
