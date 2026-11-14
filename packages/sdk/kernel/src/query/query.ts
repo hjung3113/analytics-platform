@@ -235,7 +235,7 @@ export type MenuRequestInputs = Pick<ReturnType<typeof useHostPlatform>, 'adapte
 
 /** The Context a menu request carries: `projectContext` over the global Context narrowed to the screen's applied Condition preset (06 §6.4). */
 export function projectMenuContext<P, T>(spec: EndpointSpec<P, T>, { global, page, route }: Pick<MenuRequestInputs, 'global' | 'page' | 'route'>): MenuQueryContext {
-  return projectContext(spec, narrowedGlobal(route?.menu, page, global));
+  return projectContext(spec, spec.menuId === route?.menu.id ? narrowedGlobal(route.menu, page, global) : global);
 }
 
 /**
@@ -250,7 +250,11 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
   const send = async (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> =>
     checkMenuResponse(spec, projected, await adapter.menuQuery({ endpoint: spec.id, context: projected, params }, signal));
   const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
-  return { projected, ready: scopeReady && periodReady && queryPolicy.ready && !queryPolicy.idle && !queryPolicy.drillGap, send, notReady };
+  // Sidebar sources belong to their endpoint's menu, so another screen's Apply/drill gate cannot block them.
+  const ownScreen = spec.menuId === inputs.route?.menu.id;
+  const screenReady = !ownScreen || (queryPolicy.ready && !queryPolicy.idle && !queryPolicy.drillGap);
+  const missing = ownScreen && queryPolicy.idle ? queryPolicy.missing : null;
+  return { projected, ready: scopeReady && periodReady && screenReady, missing, send, notReady };
 }
 
 /** `useMenuQuery` result: `QueryState` with `resultParams` typed as the endpoint's `P` (the params the shown result was loaded with). */
@@ -276,9 +280,9 @@ export type MenuQueryState<P, T> = QueryState<T> & { resultParams?: P };
  */
 export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true, options?: MenuQueryOptions): MenuQueryState<P, T> {
   const platform = useHostPlatform();
-  const { projected, ready, send } = menuRequest(spec, platform);
+  const { projected, ready, missing, send } = menuRequest(spec, platform);
   // `resultParams` is the `params` object handed to the lifecycle below, so it is a `P`; the engine layer types it `unknown`.
-  return useQueryLifecycle<T>(['menu', spec.id, projected, params], signal => send(params, signal), enabled && ready, 0, platform.queryPolicy.idle ? platform.queryPolicy.missing : null, options?.keepPrevious ? [spec.id, projected] : undefined, { value: params }) as MenuQueryState<P, T>;
+  return useQueryLifecycle<T>(['menu', spec.id, projected, params], signal => send(params, signal), enabled && ready, 0, missing, options?.keepPrevious ? [spec.id, projected] : undefined, { value: params }) as MenuQueryState<P, T>;
 }
 
 export type MenuFetch<P, T> = {

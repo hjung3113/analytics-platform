@@ -326,6 +326,11 @@ describe('spaces (06 §9.1)', () => {
     expect(() => createRegistry({ spaces: [operations], groups: adminGroups, menus: [viewerRoles] })).toThrow(/Space "operations" home permission must be "console:access"/);
   });
 
+  it('rejects additional home permissions beyond the space gate (#2008 KER-3)', () => {
+    const restrictedHome = { ...roles, additionalPermissions: ['platform:view' as const] };
+    expect(() => createRegistry({ spaces: [operations], groups: adminGroups, menus: [restrictedHome] })).toThrow(/home permission must be/);
+  });
+
   it('rejects a parent menu in another space', () => {
     const detail = menu('detail', '/metrics/:metricId', { parent: 'admin-roles' });
     expect(() => createRegistry({ spaces: [analyticsSpace, operations], groups: [...groups, ...adminGroups], menus: [roles, detail] })).toThrow(/Menu "detail" parent "admin-roles" is in another space/);
@@ -387,6 +392,14 @@ describe('spaces (06 §9.1)', () => {
       { ...menu('m7', '/m7', { primary: true }), group: 'probe:main', module: 'probe', permission: 'probe:view', component: undefined, moduleScreen: () => null } as MenuEntry,
     ];
     expect(() => createRegistry({ spaces: [{ ...analyticsSpace, homeMenuId: 'm0' }], groups: eight, menus: eightMenus })).not.toThrow();
+  });
+});
+
+describe('matchRoute malformed separators (#2008 KER-7)', () => {
+  it.each(['/mars//catalog', '//mars/catalog', '/mars/catalog//'])('refuses %s consistently with URL writes', path => {
+    const r = createRegistry({ spaces, groups, menus: [catalog] });
+    expect(r.matchRoute('/mars/catalog')?.menu.id).toBe('catalog');
+    expect(r.matchRoute(path)).toBeNull();
   });
 });
 

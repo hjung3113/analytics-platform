@@ -1,11 +1,11 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useLayoutEffect, useState } from 'react';
-import { defineEndpoint, type ApiResponse, type AssessmentKind, type EndpointSpec, type MenuQuery, type PlatformAdapter, type ScopeCheck, type Session, groupId, spaceId } from '@ap/contracts';
+import { defineEndpoint, emptyGlobal, type ApiResponse, type AssessmentKind, type EndpointSpec, type MenuQuery, type PlatformAdapter, type ScopeCheck, type Session, groupId, spaceId } from '@ap/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform } from '../../platform/platform';
-import { type MenuFetch, type QueryState, useEntityQuery, useMenuFetch, useMenuQuery } from '../query';
+import { type MenuFetch, type QueryState, projectMenuContext, useEntityQuery, useMenuFetch, useMenuQuery } from '../query';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, testAdapter, testSession, testSpace } from '../../testing';
 
@@ -42,6 +42,49 @@ function makeRegistry(time: 'apply' | 'unsupported') {
 
 const registry = makeRegistry('unsupported');
 const periodRegistry = makeRegistry('apply');
+
+describe('cross-menu fetch on an idle Apply screen (#2008 KER-6)', () => {
+  it('uses the screen Condition preset only for that screen\'s own endpoint', () => {
+    const route = {
+      menu: { ...registry.menus[0], conditionPresets: [{ id: 'one', label: { ko: 'One', en: 'One' }, axes: ['team'] }], conditionPreset: { key: 'view', default: 'one' } },
+      params: {}, viaAlias: false,
+    };
+    const input = { route, page: [], global: { ...emptyGlobal, condition: { team: ['T'], maker: ['M'] } } };
+    const own = defineEndpoint<Params, QueryData>({ ...endpoint, context: { condition: 'apply' } });
+    expect(projectMenuContext(own, input).condition).toEqual({ team: ['T'] });
+    expect(projectMenuContext({ ...own, menuId: 'other' }, input).condition).toEqual({ team: ['T'], maker: ['M'] });
+  });
+
+  it('allows a Context-free endpoint owned by another menu while keeping the screen endpoint idle', async () => {
+    const base = makeRegistry('apply');
+    const applyRegistry = createRegistry({
+      spaces: base.spaces, groups: base.groups,
+      menus: base.menus.map(menu => ({ ...menu, query: { mode: 'apply' as const } })),
+    });
+    const auxiliary = defineEndpoint<Params, QueryData>({ ...endpoint, id: 'other.hierarchy', menuId: 'other', context: {} });
+    const own = defineEndpoint<Params, QueryData>({ ...endpoint, id: 'home.auxiliary', context: {} });
+    const fx = fixture();
+    let otherFetch!: MenuFetch<Params, QueryData>;
+    let ownFetch!: MenuFetch<Params, QueryData>;
+    let otherQuery!: QueryState<QueryData>;
+    function Probe() {
+      otherFetch = useMenuFetch(auxiliary);
+      ownFetch = useMenuFetch(own);
+      otherQuery = useMenuQuery(auxiliary, params);
+      return null;
+    }
+    window.history.replaceState(null, '', '/');
+    render(<I18nProvider><PlatformProvider registry={applyRegistry} adapter={fx.adapter}><Probe /></PlatformProvider></I18nProvider>);
+    expect(ownFetch.ready).toBe(false);
+    expect(otherFetch.ready).toBe(true);
+    await waitFor(() => expect(otherQuery.status).toBe('done'));
+    await act(async () => { expect((await otherFetch.fetch(params)).outcome).toBe('ok'); });
+    expect(fx.requests).toHaveLength(2);
+    expect(fx.requests[0].context).toEqual({});
+    expect((await ownFetch.fetch(params)).outcome).toBe('error');
+    expect(fx.requests).toHaveLength(2);
+  });
+});
 
 type Answer = (request: MenuQuery, call: number) => ApiResponse<QueryData>;
 type FixtureOptions = { answer?: Answer; validateScope?: PlatformAdapter['validateScope'] };

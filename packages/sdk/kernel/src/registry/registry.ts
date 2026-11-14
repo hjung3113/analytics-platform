@@ -440,7 +440,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     // Space entry lands on the home menu without params, so its route must not need any.
     if (segments(home.path).some(isParam)) fail(`Space "${s.id}" homeMenuId "${s.homeMenuId}" home route must not need parameters`);
     // The landing menu must not re-block a user who passed the space gate.
-    if (s.permission !== undefined && home.permission !== s.permission) fail(`Space "${s.id}" home permission must be "${s.permission}"`);
+    if (s.permission !== undefined && (menuPermissions(home).length !== 1 || menuPermissions(home)[0] !== s.permission)) fail(`Space "${s.id}" home permission must be "${s.permission}"`);
   }
 
   // Declared link targets are checked once every menu is known; a module menu may be a target (06 §22, ADR-0158).
@@ -489,6 +489,8 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   });
 
   const matchRoute = (pathname: string): RouteMatch | null => {
+    // Empty segments are refused by the URL writer too; never mount a screen whose writes cannot commit.
+    if (pathname.includes('//')) return null;
     const parts = segments(pathname.replace(/\/+$/, ''));
     for (const { menu, pattern, canonical, viaAlias } of compiled) {
       if (pattern.length !== parts.length) continue;

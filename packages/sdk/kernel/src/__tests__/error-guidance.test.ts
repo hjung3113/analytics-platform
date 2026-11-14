@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { errorGuidance, userFacingEntries } from '../../i18n';
+import { errorGuidance, userFacingEntries } from '../i18n';
 
 const BANNED = /Candidate|Deferred|\bOpen\b|\[from, to\)|초 정렬/;
 /** Named exceptions. Empty: no user-facing dictionary entry may match the banned pattern. */

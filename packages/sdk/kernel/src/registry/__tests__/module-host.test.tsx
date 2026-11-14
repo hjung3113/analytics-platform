@@ -109,6 +109,20 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
+describe('useModuleHost: latest presentation state (#2008 KER-4)', () => {
+  it.each(['setPage', 'setTime'] as const)('retains expand=1 after %s on a retained snapshot', write => {
+    const { seen } = setup();
+    const host = seen.host;
+    act(() => seen.platform.setDetailExpanded(true));
+    expect(new URLSearchParams(window.location.search).get('expand')).toBe('1');
+    act(() => {
+      if (write === 'setPage') host.setPage({ q: 'changed' });
+      else host.setTime!({ from: '2026-01-01T10:00:00', to: '2026-01-01T10:30:00' });
+    });
+    expect(new URLSearchParams(window.location.search).get('expand')).toBe('1');
+  });
+});
+
 describe('useModuleHost: reads', () => {
   it('serves config, session, lang and the matched params', () => {
     const { seen } = setup();
@@ -634,6 +648,17 @@ it('inherits optional apply metadata through mountModule and gates host.query wi
   expect(calls).toHaveLength(1);
   await act(async () => { calls[0].resolve(ok(calls[0].request)); await response; });
 });
+it('host.query delivers another menu\'s Context-free response while its own Apply screen is idle (#2008 KER-6)', async () => {
+  const m = manifest();
+  m.screens = m.screens.map(screen => screen.id === 'list' ? { ...screen, query: { mode: 'apply' } } : screen);
+  const { calls, seen } = setup('/fx', m);
+  const auxiliary = defineEndpoint<{ page: number }, Data>({ ...spec, id: 'other.hierarchy', menuId: 'other', context: {} });
+  const response = settle(seen.host.query!(auxiliary, { page: 0 }));
+  expect(calls).toHaveLength(1);
+  await act(async () => { calls[0].resolve(ok(calls[0].request)); });
+  expect(await response).toMatchObject({ value: { outcome: 'ok' } });
+});
+
 it('history initialization leaves module snapshots, links and query gate applied-only', async () => {
   const m = manifest(); m.screens = m.screens.map(screen => screen.id === 'list' ? { ...screen, query: { mode: 'apply' } } : screen);
   const registry = makeRegistry(m); const session = testSession(['fx:view']);

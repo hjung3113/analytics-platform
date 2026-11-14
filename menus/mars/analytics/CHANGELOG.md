@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.5.9 — 2026-11-15
+
+- 실행 상세의 복귀 안내에 Kernel의 `returnOrigin().accepted`를 사용해 출발 메뉴 권한 판정 반영 (#2008 KER-2).
+
 ## 0.5.8 — 2026-11-15
 
 - 생산성 행은 ObjectLinks, 실행 상세는 route-param subjectLinks로 다른 화면 목록을 표시 (#1930).
