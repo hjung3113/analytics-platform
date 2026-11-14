@@ -145,3 +145,13 @@ it('selects the Occurrence whose RecordSequence is a job anchor (AP ADR-0094)', 
   render(<FocusView input={input} notices={[]} entityType="job" anchor="18" resetKey="a" />);
   expect(document.querySelector('tr[aria-selected="true"]')?.getAttribute('data-occurrence-id')).toBe('occ-pm1-process');
 });
+
+// #2236: the Enter Safari sends right after compositionend in the range form is cancelled, so it never applies the range.
+it('the range form does not apply on the Enter that confirms a composition', () => {
+  render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" />);
+  const from = within(screen.getByRole('form', { name: '구간' })).getAllByRole('textbox')[0]!;
+  fireEvent.compositionStart(from);
+  fireEvent.compositionEnd(from);
+  expect(fireEvent.keyDown(from, { key: 'Enter' })).toBe(false);
+  expect(fireEvent.keyDown(from, { key: 'Enter' })).toBe(true);
+});

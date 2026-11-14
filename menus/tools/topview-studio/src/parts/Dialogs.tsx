@@ -4,7 +4,7 @@ import type { RemovalImpact } from '@eqv/editor';
 import type { FieldError } from '@ap/contracts';
 import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-  Button, Callout, FieldLabel, FieldList, FieldRow, Input,
+  Button, Callout, FieldLabel, FieldList, FieldRow, Input, useImeEnterGuard,
 } from '@ap/ui';
 import { TEMPLATE_ID_PATTERN } from '../endpoints';
 import { COLLECTIONS } from '../model/layout-changes';
@@ -73,6 +73,8 @@ export function PromoteDialog({ layoutId, revision, source, submitting, fieldErr
 }) {
   const [templateId, setTemplateId] = useState('');
   const [name, setName] = useState('');
+  // The Enter that confirms a Korean composition (Safari: right after compositionend) does not submit (#2236).
+  const ime = useImeEnterGuard();
   const idInput = useRef<HTMLInputElement>(null);
   const idValid = TEMPLATE_ID_PATTERN.test(templateId);
   const nameValid = name.trim() !== '';
@@ -88,7 +90,7 @@ export function PromoteDialog({ layoutId, revision, source, submitting, fieldErr
         <AlertDialogTitle>EV Template으로 승격할까요?</AlertDialogTitle>
         <AlertDialogDescription>게시된 Revision에서 EV Template을 만듭니다. 만든 EV Template은 삭제할 수 없습니다.</AlertDialogDescription>
       </AlertDialogHeader>
-      <form noValidate className="space-y-3" id="promote-form" onSubmit={event => { event.preventDefault(); if (idValid && nameValid && !submitting) onSubmit({ templateId, name: name.trim() }); }}>
+      <form noValidate className="space-y-3" id="promote-form" onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={event => { event.preventDefault(); if (idValid && nameValid && !submitting) onSubmit({ templateId, name: name.trim() }); }}>
         <div className="space-y-1"><FieldLabel htmlFor="template-id" required>ID</FieldLabel>
           <Input ref={idInput} inputSize="toolbar" id="template-id" autoComplete="off" spellCheck={false} placeholder="sample-template" value={templateId} disabled={submitting} aria-invalid={idError ? true : undefined} aria-describedby={idError ? 'template-id-error' : 'template-id-hint'}
             onChange={e => setTemplateId(e.target.value)} />
