@@ -2,7 +2,7 @@ import * as React from 'react';
 
 import { uploadAttachment } from '@/lib/api/attachments';
 import { errorMapper } from '@/lib/api/errorMapper';
-import { mintIdempotencyKey } from '@/lib/api/idempotency';
+import { mintIdempotencyKey, randomUuidV4 } from '@/lib/api/idempotency';
 import type { ApiError } from '@/lib/api/types';
 import { useHostSeam } from '@/lib/host/host-seam';
 
@@ -42,8 +42,7 @@ export interface UseAttachmentUploadQueueOptions {
 }
 
 function mintRowId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-  return `row-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+  return randomUuidV4();
 }
 
 function clientSideRejection(file: File): { code: string; message: string } | null {

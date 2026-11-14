@@ -255,6 +255,7 @@ periodShort | const | const periodShort: (instant: string) => string
 periodSpan | function | function periodSpan(hours: number, lang: 'en' | 'ko'): string
 projectContext | function | function projectContext<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, g: @ap/contracts#GlobalContext): @ap/contracts#MenuQueryContext
 queryHistoryId | function | function queryHistoryId(query: string): string
+randomUuidV4 | function | function randomUuidV4(): string
 requiredContextError | function | function requiredContextError(keys: readonly @ap/contracts#ContextKey[], capabilities: Partial<Record<@ap/contracts#ContextKey, @ap/contracts#Capability>>): null | string
 sameGlobal | function | function sameGlobal(a: @ap/contracts#GlobalContext, b: @ap/contracts#GlobalContext): boolean
 serializeGlobal | function | function serializeGlobal(g: @ap/contracts#GlobalContext): @ap/contracts#Pair[]

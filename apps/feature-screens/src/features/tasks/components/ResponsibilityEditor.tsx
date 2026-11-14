@@ -1,5 +1,6 @@
 import { resolveActors } from '@/lib/api/actors';
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
 import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
@@ -74,7 +75,7 @@ export function ResponsibilityEditor({
   const eligibleActors = useEligibleResponsibilityActors(editing && canEdit);
   const save = useMutation({
     mutationFn: () => {
-      submissionKey.current ??= crypto.randomUUID();
+      submissionKey.current ??= mintIdempotencyKey();
       return onSave(
         mode === 'actor' ? value.trim() : null,
         mode === 'team' ? value.trim() : null,

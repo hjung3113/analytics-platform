@@ -2,6 +2,7 @@ export * from './adapter/action.js';
 export * from './adapter/adapter.js';
 export * from './adapter/service-ports.js';
 export { clientCorrelationId } from './adapter/correlation.js';
+export { randomUuidV4 } from './adapter/uuid.js';
 export * from './adapter/audit.js';
 export * from './adapter/audit-order.js';
 export * from './links/platform-inbound-link.js';

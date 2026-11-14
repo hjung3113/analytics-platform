@@ -12,18 +12,28 @@
 // all, so every mutation that let the client auto-mint failed outright in exactly
 // those environments while the ones passing a key from `useIdempotencyKey` (which
 // had a correct fallback) kept working.
+//
+// It is also the package's one UUID generator (#2017): the feature-screens lint
+// forbids `crypto.randomUUID` everywhere else, because a direct call throws a
+// TypeError outside a secure context. It mirrors `randomUuidV4` of
+// `@ap/contracts`, which this package does not depend on.
 
-/** A UUIDv4 suitable for the `Idempotency-Key` header, in any browser context. */
+/** A UUIDv4 suitable for the `Idempotency-Key` header, in any browser context; throws when no Web Crypto exists. */
 export function mintIdempotencyKey(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return randomUuidV4();
+}
 
-  // RFC4122 §4.4 — random bits with the version and variant nibbles pinned.
+/** A random UUIDv4 in any browser context (`crypto.randomUUID`, else `getRandomValues`; throws with neither — no `Math.random`); use it for any client-made id, never `crypto.randomUUID()`. */
+export function randomUuidV4(): string {
+  // eslint-disable-next-line ap/no-browser-random-uuid -- the one guarded call the rule points everyone else to
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+
+  // RFC4122 §4.4 — random bits with the version and variant nibbles pinned. Ids are cryptographic or the mint fails.
   const bytes = new Uint8Array(16);
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes);
-  } else {
-    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    throw new Error('randomUuidV4: no Web Crypto (crypto.randomUUID and crypto.getRandomValues are both missing); refusing to fall back to Math.random');
   }
+  crypto.getRandomValues(bytes);
   bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
   bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
   const hex = Array.from(bytes, (b) => (b ?? 0).toString(16).padStart(2, '0'));

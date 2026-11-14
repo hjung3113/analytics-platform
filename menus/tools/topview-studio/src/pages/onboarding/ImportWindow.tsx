@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileUp } from 'lucide-react';
 import { checkSampleWindowImport, type SampleWindowImportCheck } from '@eqv/core';
+import { randomUuidV4 } from '@ap/contracts';
 import { useMenuAction, usePlatform } from '@ap/kernel';
 import { Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FieldList, FieldRow } from '@ap/ui';
 import { SAMPLE_WINDOW_FILE_SUFFIX, WINDOW_IMPORT_PERMISSION, importSampleWindow, type SampleWindowRow } from '../../endpoints';
@@ -119,7 +120,7 @@ function ImportWindowDialog({ equipmentId, windows, onImported, onClose }: { equ
   const choose = (next: File) => {
     setFailure(null);
     const problem = windowFileProblem(next);
-    setPicked(problem ? { file: next, key: crypto.randomUUID(), problem } : { file: next, key: crypto.randomUUID(), checking: true });
+    setPicked(problem ? { file: next, key: randomUuidV4(), problem } : { file: next, key: randomUuidV4(), checking: true });
   };
   const checked = picked !== null && 'check' in picked ? picked : null;
   const verdict = checked ? verdictOf(checked.check, windows, { equipmentId, fileEquipmentId: checked.fileEquipmentId }) : null;

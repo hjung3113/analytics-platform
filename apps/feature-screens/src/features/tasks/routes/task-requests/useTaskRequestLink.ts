@@ -1,4 +1,5 @@
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { fetchPermissionCheckViaClient } from '@/lib/api/permission-reads';
 import { listAllTasks } from '@/lib/api/list-all';
 import { linkExistingTask } from '@/lib/api/tasks';
@@ -76,7 +77,7 @@ export function useTaskRequestLink({
 
   const linkMutation = useMutation<TaskDto, ApiError, { taskId: string; taskRequestId: string }>({
     mutationFn: async ({ taskId, taskRequestId }) => {
-      return linkExistingTask(taskRequestId, { task_id: taskId }, crypto.randomUUID());
+      return linkExistingTask(taskRequestId, { task_id: taskId }, mintIdempotencyKey());
     },
     onSuccess: (task) => {
       invalidateNavCounts(queryClient);

@@ -1,5 +1,6 @@
 import { resolveActors } from '@/lib/api/actors';
 import { GENERIC_ERROR_MESSAGE, mapUnknownError } from '@/lib/api/errorMapper';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { listMilestones } from '@/lib/api/milestones';
 import { fetchPermissionCheckViaClient } from '@/lib/api/permission-reads';
 import { convertTaskRequest } from '@/lib/api/tasks';
@@ -289,7 +290,7 @@ export function useTaskRequestConversion({
               ? convertAnalyticsAreaSelection.id
               : null,
         },
-        crypto.randomUUID(),
+        mintIdempotencyKey(),
       );
     },
     onSuccess: async (task) => {

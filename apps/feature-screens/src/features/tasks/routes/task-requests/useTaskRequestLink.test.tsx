@@ -60,6 +60,31 @@ describe('useTaskRequestLink', () => {
       expect(toast.success).toHaveBeenCalledWith('Task TASK-901을 연결했습니다.'),
     );
   });
+  it('sends a backend-valid Idempotency-Key outside a secure context (no crypto.randomUUID, #2017)', async () => {
+    vi.stubGlobal('crypto', {
+      getRandomValues: globalThis.crypto.getRandomValues.bind(globalThis.crypto),
+    });
+    try {
+      api.linkExistingTask.mockClear();
+      api.linkExistingTask.mockResolvedValue(task);
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <LinkHarness />
+        </QueryClientProvider>,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Link Task' }));
+
+      await waitFor(() => expect(api.linkExistingTask).toHaveBeenCalledTimes(1));
+      // The backend guard every mutation route applies (UUIDv4 only).
+      expect(api.linkExistingTask.mock.calls[0]?.[2]).toMatch(
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it('keeps the picker open on a rerender with the same item object and closes it for a new object with an equal id', () => {
     api.fetchPermissionCheck.mockResolvedValue({ state: 'approved' });
     api.listTasks.mockResolvedValue({ items: [] });

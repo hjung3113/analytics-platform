@@ -1,4 +1,5 @@
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { updateMilestone } from '@/lib/api/milestones';
 import { ApiError } from '@/lib/api/types';
 import type { MilestoneDetailDto, MilestoneDto, MilestoneStatusFilter } from '@ap/feature-shared';
@@ -24,7 +25,7 @@ export function useMilestoneStatusEdit({
     { status: MilestoneStatusFilter; ifMatch: string }
   >({
     mutationFn: async ({ status, ifMatch }) =>
-      updateMilestone(milestone.id, { status }, { ifMatch, idempotencyKey: crypto.randomUUID() }),
+      updateMilestone(milestone.id, { status }, { ifMatch, idempotencyKey: mintIdempotencyKey() }),
     onSuccess: async (updated, { ifMatch: requestToken }) => {
       setStatusError(null);
       // R2 — the draft token is advanced ONLY when the status PATCH started
