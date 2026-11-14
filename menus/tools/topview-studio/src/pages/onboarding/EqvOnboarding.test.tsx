@@ -895,6 +895,7 @@ describe('equipment registration', () => {
     expect(fireEvent.keyDown(label, { key: 'Enter' })).toBe(false);
     expect(fireEvent.keyDown(label, { key: 'Enter' })).toBe(true);
   });
+
   it('registers an equipment under a Fleet Model; it appears in Fleet as 관측 없음', async () => {
     mount('engineer');
     fireEvent.click(await screen.findByRole('button', { name: '설비 등록' }, slow));
