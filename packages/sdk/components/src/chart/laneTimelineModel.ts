@@ -274,7 +274,7 @@ export function hitTest(model: LaneModel, view: [number, number], width: number,
   // A hit rect spans at most 1.5 px beyond its time edges, so this window is a superset; the exact rect test decides.
   const delta = (MIN_WIDTH + (lodLanes?.size ? 1 : 0)) * span / plotWidth * 1.01 + Math.abs(time) * 1e-12 + 1e-9;
   const row = Math.floor((y + scroll) / ROW_HEIGHT);
-  let bestFlat = -1; let bestDepth = -1; let bestCover = -1; let best: LaneRect | undefined;
+  let bestLane = -1; let bestFlat = -1; let bestDepth = -1; let bestCover = -1; let best: LaneRect | undefined;
   const local: number[] = [];
   for (let laneIndexValue = row - 1; laneIndexValue <= row; laneIndexValue++) {
     if (laneIndexValue < first || laneIndexValue >= last) continue;
@@ -288,8 +288,8 @@ export function hitTest(model: LaneModel, view: [number, number], width: number,
       const covered = lod ? Math.min(G.x + G.width, column + 1) - Math.max(G.x, column) : 0;
       if (!(y >= G.y && y <= G.y + G.height) || (lod ? covered <= 0 : !(x >= G.x && x <= G.x + G.width))) continue;
       const depth = cols.depth[o]; const flat = model.offsets[laneIndexValue] + o;
-      if (depth > bestDepth || (depth === bestDepth && (covered > bestCover || (covered === bestCover && flat > bestFlat)))) {
-        bestDepth = depth; bestFlat = flat; bestCover = covered;
+      if (depth > bestDepth || (depth === bestDepth && (laneIndexValue > bestLane || (laneIndexValue === bestLane && (covered > bestCover || (covered === bestCover && flat > bestFlat)))))) {
+        bestLane = laneIndexValue; bestDepth = depth; bestFlat = flat; bestCover = covered;
         best = { segment: cols.segments[o], laneIndex: laneIndexValue, index: flat, offset: o, x: G.x, y: G.y, width: G.width, height: G.height };
       }
     }
