@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { groupId } from '@ap/contracts';
 import { registry } from '../../menus';
 
-const SRC = path.dirname(fileURLToPath(import.meta.url));
+// The app source root (this file sits in src/__tests__/eqv/).
+const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function sourcesOutsideDev(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

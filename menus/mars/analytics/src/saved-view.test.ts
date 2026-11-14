@@ -27,7 +27,7 @@ describe('사이클타임 상세 Saved View 지원 선언 (06 §21)', () => {
     expect([...SUPPORT.pageKeys]).toEqual(manifest.pageKeys.filter(key => key !== 'page'));
   });
 
-  it('선언대로 만든 뷰는 낡지 않은 것으로 진단된다(캡처→복원 왕복은 apps/platform-web/src/saved-view-cycle-time.test가 실제 선언으로 본다)', () => {
+  it('선언대로 만든 뷰는 낡지 않은 것으로 진단된다(캡처→복원 왕복은 apps/platform-web/src/__tests__/saved-view/saved-view-cycle-time.test가 실제 선언으로 본다)', () => {
     const view = menuView();
     expect(diagnose(JSON.parse(JSON.stringify(view)) as SavedView)).toEqual({ status: 'ok', reasons: [] });
   });
