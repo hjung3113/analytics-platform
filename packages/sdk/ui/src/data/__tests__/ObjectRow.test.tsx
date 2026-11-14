@@ -73,3 +73,18 @@ describe('ObjectRow', () => {
     expect(container.firstElementChild?.firstElementChild).not.toBeEmptyDOMElement();
   });
 });
+
+// SHE-46: child keyboard actions belong to their own control.
+it.each(['Enter', ' '])('activates the row itself with %s', key => {
+  const click = vi.fn();
+  const view = render(<ObjectRow title="Row" onClick={click} />);
+  fireEvent.keyDown(view.container.firstElementChild!, { key });
+  expect(click).toHaveBeenCalledOnce();
+});
+it.each(['checkbox', 'button'])('does not turn a nested %s key into a row click', kind => {
+  const click = vi.fn();
+  render(<ObjectRow title="Row" onClick={click} selectable trailing={<button>Action</button>} />);
+  const control = screen.getByRole(kind, { name: kind === 'checkbox' ? '행 선택' : 'Action' });
+  expect(fireEvent.keyDown(control, { key: kind === 'checkbox' ? ' ' : 'Enter' })).toBe(true);
+  expect(click).not.toHaveBeenCalled();
+});

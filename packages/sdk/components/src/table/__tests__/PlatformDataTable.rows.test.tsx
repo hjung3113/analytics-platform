@@ -194,3 +194,23 @@ describe('PlatformDataTable rows', () => {
     await expect(load!(query, already.signal)).rejects.toMatchObject({ name: 'AbortError' });
   });
 });
+
+it.each([false, true])('external rows only offer sorting with urlState (%s)', async controlledSort => {
+  const onChange = vi.fn();
+  const view = render(<Harness rows={make(3, 1, 2)} columns={[columns[0]]}
+    externalPagination={{ summary: '3건', controls: 'ctl' }}
+    urlState={controlledSort ? controlled({ onChange }) : undefined} />);
+  await waitFor(() => expect(shownIds()).toHaveLength(3));
+  const header = screen.getByRole('columnheader', { name: /Rank/ });
+  const button = header.querySelector('button');
+  if (controlledSort) {
+    expect(button).not.toBeNull();
+    fireEvent.click(button!);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ sorting: [{ id: 'rank', desc: true }] }), 'user');
+  } else {
+    expect(button).toBeNull();
+    fireEvent.click(header);
+    expect(view.container.querySelector('[aria-sort="ascending"]')).toBeNull();
+  }
+  expect(shownIds()).toEqual(['r1', 'r2', 'r3']);
+});

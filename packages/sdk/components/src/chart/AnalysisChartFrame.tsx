@@ -1,7 +1,7 @@
 import type { ChartTrust } from '../state/trustFormat';
 import { useEmbeddedChrome } from '../workspace/panelContext';
 import { toMs, unknownLabel } from './analysisChartShared';
-import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
+import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn, ZoomOut, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, useMessages, usePlatform } from '@ap/kernel';
@@ -688,6 +688,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
         <div className="flex flex-wrap items-center gap-1">
           {rowPitch === undefined && <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomIn} title={m('chartZoomTitle')}><ZoomIn className="size-3.5" aria-hidden />{m('chartZoom')}</Button>}
+          {rowPitch === undefined && <>
+            <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomOut} disabled={zoom[0] === 0 && zoom[1] === 100}><ZoomOut className="size-3.5" aria-hidden />{m('chartZoomOut')}</Button>
+            <Button variant="ghost" size="toolbar" onClick={() => rangeActions.pan(-1)} disabled={zoom[0] <= 0}><ArrowLeft className="size-3.5" aria-hidden />{m('chartPanLeft')}</Button>
+            <Button variant="ghost" size="toolbar" onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden />{m('chartPanRight')}</Button>
+          </>}
           <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} disabled={startAlign} title={startAlign ? m('chartBrushStartAlignDisabled') : undefined} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{m('chartBrush')}</Button>
           {showKeyboard && <div role="group" aria-label={m('chartQuickRange')} className="flex items-center gap-1">
             {oneHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{m('chartRange1h')}</Button>}

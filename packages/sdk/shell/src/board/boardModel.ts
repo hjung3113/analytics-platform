@@ -259,16 +259,17 @@ export function selectPane(board: Board, sheetId: string, index: number): Board 
 }
 
 /** Puts a whole new screen (or nothing) in a pane: a clear, an insert or a replace, so the pane's `이전 화면` goes. */
-export function setPane(board: Board, sheetId: string, index: number, screen: PaneScreen | null): Board {
-  return mapSheet(board, sheetId, s => mapSlot(s, index, slot => ({ ...slot, screen, previous: null })));
+export function setPane(board: Board, sheetId: string, index: number | string, screen: PaneScreen | null): Board {
+  return mapSheet(board, sheetId, s => mapSlot(s, typeof index === 'string' ? indexOfPane(s, index) : index, slot => ({ ...slot, screen, previous: null })));
 }
 
 /**
  * A pane edits its own screen (`PaneScreenProvider.onChange`). A `push` to another menu keeps the screen it leaves as the pane's one
  * `이전 화면`; a replace or a write inside the same menu leaves `previous` alone (docs/16 §4).
  */
-export function editPane(board: Board, sheetId: string, index: number, next: PaneScreen, how: 'push' | 'replace'): Board {
-  return mapSheet(board, sheetId, s => mapSlot(s, index, slot => {
+export function editPane(board: Board, sheetId: string, index: number | string, next: PaneScreen, how: 'push' | 'replace'): Board {
+  return mapSheet(board, sheetId, s => mapSlot(s, typeof index === 'string' ? indexOfPane(s, index) : index, slot => {
+    if (slot.screen === null) return slot;
     const moved = how === 'push' && slot.screen !== null && slot.screen.menuId !== next.menuId;
     return { ...slot, screen: next, previous: moved ? slot.screen : slot.previous };
   }));
