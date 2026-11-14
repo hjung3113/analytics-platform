@@ -124,31 +124,45 @@ function ItemDetailScreen({ params }: PageProps) {
   // keepPrevious ON (#1365, ADR-0114): `rev` re-reads the same Item, so the shown revision stays (refreshing) until the picked one arrives; the banner and revision list follow when it does.
   const query = useMenuQuery(itemDetailEndpoint, { itemId, ...(revisionNo === null ? {} : { revisionNo }) } satisfies ItemDetailParams, known && !keys.invalid, { keepPrevious: true });
   const live = query.response?.outcome === 'ok' ? query.response.data : undefined;
-  const [kept, setKept] = useState(live);
-  const [retain, setRetain] = useState(false);
-  if (live && live !== kept) setKept(live);
-  // A failed conflict reload must keep the active editor and its draft, but never cross an Item/revision boundary.
-  const keepEditor = retain && ['revise', 'assess'].includes(pageParam('drawer') ?? '') && kept?.item.id === itemId && (revisionNo === null || kept.revision.revisionNo === revisionNo) && (!query.response || ['error', 'timeout', 'too_large'].includes(query.response.outcome));
-  const detail = live ?? (keepEditor ? kept : undefined);
-  // Only holders of the publish right see write controls; the server stays the authority.
-  const canWrite = can(ITEM_PUBLISH_PERMISSION) && !!detail;
+  const hasPublishRight = can(ITEM_PUBLISH_PERMISSION);
+  const drawerParam = pageParam('drawer');
+  const drawer = hasPublishRight && drawerParam !== null && (DRAWERS as readonly string[]).includes(drawerParam) ? (drawerParam as DrawerKind) : null;
   // While another revision is loading the shown one is the previous pick (#1365): no write may start from it, an open form keeps the revision it was opened on.
   const previous = query.showingPrevious === true;
+  const [owner, setOwner] = useState<{ drawer: DrawerKind | null; revisionNo: number | null }>({ drawer, revisionNo });
+  const [kept, setKept] = useState<{ drawer: DrawerKind; revisionNo: number | null; detail: ItemDetailData } | null>(null);
+  const [retain, setRetain] = useState(false);
+  const targetChanged = owner.drawer !== drawer || owner.revisionNo !== revisionNo;
+  const canCapture = (drawer === 'assess' || drawer === 'revise') && !!live && !previous && !keys.invalid;
+  if (targetChanged) {
+    setOwner({ drawer, revisionNo });
+    if (retain) setRetain(false);
+    if (canCapture) setKept({ drawer, revisionNo, detail: live });
+    else if (kept !== null) setKept(null);
+  } else if (canCapture && (kept?.drawer !== drawer || kept.revisionNo !== revisionNo || kept.detail !== live)) {
+    setKept({ drawer, revisionNo, detail: live });
+  }
+  // Assess retains for its whole lifetime; revise retains after reload. Both stay within their own drawer, exact read target and Item.
+  const keepEditor = !keys.invalid
+    && (drawer === 'assess' || (drawer === 'revise' && retain))
+    && kept !== null && kept.drawer === drawer && kept.revisionNo === revisionNo && kept.detail.item.id === itemId
+    && (!query.response || ['error', 'timeout', 'too_large'].includes(query.response.outcome));
+  const drawerDetail = (drawer === 'assess' && previous ? undefined : live) ?? (keepEditor ? kept.detail : undefined);
+  // Only holders of the publish right see write controls; page header and actions come from the live result only.
+  const canWrite = hasPublishRight && !!live;
   const waitingReason = previous ? '선택한 리비전을 불러오는 중입니다. 불러온 뒤에 할 수 있습니다.' : undefined;
-  const archived = detail?.item.publicationState === 'archived';
-  const drawerParam = pageParam('drawer');
-  const drawer = canWrite && drawerParam !== null && (DRAWERS as readonly string[]).includes(drawerParam) ? (drawerParam as DrawerKind) : null;
+  const archived = live?.item.publicationState === 'archived';
   const secondary = <>
     <ReturnLink />
     {canWrite && !archived && <Button type="button" variant="ghost" size="sm" className="w-full justify-start" disabled={previous} title={waitingReason} onClick={() => setPage({ drawer: 'assess' })}>판단 변경</Button>}
     {canWrite && <Button type="button" variant="ghost" size="sm" className="w-full justify-start" disabled={previous} title={waitingReason} onClick={() => setPage({ drawer: 'derive' })}>관련 Item으로 신규 작성</Button>}
-    {canWrite && detail && <ArchiveAction item={detail.item} onChanged={query.refetch} disabledReason={waitingReason} />}
+    {canWrite && live && <ArchiveAction item={live.item} onChanged={query.refetch} disabledReason={waitingReason} />}
   </>;
-  return <PlatformPage title={detail?.revision.title ?? '기술 Item'} crumbs={[{ label: <span className="t-mono">{detail ? itemNoLabel(detail.item.itemNo) : '…'}</span> }]}
+  return <PlatformPage title={live?.revision.title ?? '기술 Item'} crumbs={[{ label: <span className="t-mono">{live ? itemNoLabel(live.item.itemNo) : '…'}</span> }]}
     primaryAction={canWrite && !archived ? <Button type="button" disabled={previous} title={waitingReason} onClick={() => setPage({ drawer: 'revise' })}>수정</Button> : undefined}
     secondaryActions={secondary}>
-    {!canWrite && detail && <p role="status" className="text-sm text-text-secondary">수정하려면 Item 작성 권한을 관리자에게 요청하세요.</p>}
-    {drawer && detail && <DrawerHost key={drawer} kind={drawer} detail={detail} viewedRevisionNo={revisionNo} reloadQuery={query} onReload={() => { setRetain(true); query.refetch(); }} />}
+    {!canWrite && live && <p role="status" className="text-sm text-text-secondary">수정하려면 Item 작성 권한을 관리자에게 요청하세요.</p>}
+    {drawer && drawerDetail && <DrawerHost key={drawer === 'assess' ? `assess:${revisionNo}` : drawer} kind={drawer} detail={drawerDetail} viewedRevisionNo={revisionNo} reloadQuery={query} onReload={() => { setRetain(true); query.refetch(); }} />}
     {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />
       : !known ? <NotFound revision={null} />
       : <QueryView widgetName="기술 Item 상세" query={query}>{data => data ? <Body detail={data} /> : <NotFound revision={revisionNo} />}</QueryView>}

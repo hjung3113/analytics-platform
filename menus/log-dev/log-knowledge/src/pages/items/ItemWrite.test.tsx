@@ -518,6 +518,92 @@ describe('assessment conflict reload (#2109)', () => {
     fireEvent.click(screen.getByRole('button', { name: '계속 작성' }));
     expect((field(/^사유/) as HTMLTextAreaElement).value).toBe(rationale);
   });
+
+  it('keeps the drawer, rationale and conflict callout when the automatic conflict read fails before any click, then clears on reload', async () => {
+    reloadFails = false;
+    const selected = testAdapter({ ...adapter, menuQuery: req => req.endpoint === 'logKnowledge.itemDetail' && reloadFails
+      ? Promise.resolve({ ...ok(null), outcome: 'error', message: 'boom' } as ApiResponse<never>) : adapter.menuQuery(req) });
+    window.history.replaceState(null, '', `/log/knowledge/items/${ITEM(1)}?v=1&drawer=assess`);
+    render(tree(<ItemDetail params={{ itemId: ITEM(1) }} />, selected));
+    await screen.findByRole('heading', { name: '판단 변경' }, slow);
+    fireEvent.click(within(drawer()).getByRole('radio', { name: /검증됨/ }));
+    type(/^사유/, rationale);
+    reloadFails = true;
+    nextError = { outcome: 'conflict' };
+    submit('판단 변경');
+    await screen.findByRole('button', { name: '다시 시도' }, slow);
+    expect(within(drawer()).getByRole('heading', { name: '판단 변경' })).toBeTruthy();
+    expect(within(drawer()).getByText('다른 사람이 먼저 고쳤습니다')).toBeTruthy();
+    expect((field(/^사유/) as HTMLTextAreaElement).value).toBe(rationale);
+    expect(saveButton().disabled).toBe(true);
+    reloadFails = false;
+    advance();
+    reload();
+    await within(drawer()).findByText(notice, {}, slow);
+    expect(saveButton().disabled).toBe(false);
+    expect((field(/^사유/) as HTMLTextAreaElement).value).toBe(rationale);
+  });
+
+  it('does not keep r1 detail mounted when switching from rev=1 conflict reload to latest and latest read fails', async () => {
+    let failLatestRead = false;
+    const selected = testAdapter({ ...adapter, menuQuery: req => {
+      const p = req.params as { revisionNo?: number };
+      if (req.endpoint === 'logKnowledge.itemDetail' && failLatestRead && p.revisionNo === undefined) {
+        return Promise.resolve({ ...ok(null), outcome: 'error', message: 'boom' } as ApiResponse<never>);
+      }
+      return adapter.menuQuery(req);
+    } });
+    window.history.replaceState(null, '', `/log/knowledge/items/${ITEM(1)}?v=1&rev=1&drawer=assess`);
+    render(tree(<ItemDetail params={{ itemId: ITEM(1) }} />, selected));
+    await screen.findByRole('heading', { name: '판단 변경' }, slow);
+    expect(await screen.findByText(/이전 리비전 r1을 보고 있습니다/, {}, slow)).toBeTruthy();
+    fireEvent.click(within(drawer()).getByRole('radio', { name: /검증됨/ }));
+    type(/^사유/, '처음 쓴 사유');
+    nextError = { outcome: 'conflict' };
+    submit('판단 변경');
+    await within(drawer()).findByText('다른 사람이 먼저 고쳤습니다', {}, slow);
+    await rtlAct(async () => {});
+    type(/^사유/, rationale);
+    let release = () => {};
+    holdDetail = new Promise<void>(resolve => { release = resolve; });
+    advance();
+    reload();
+    failLatestRead = true;
+    fireEvent.click(await screen.findByRole('button', { name: '최신 보기' }, slow));
+    await waitFor(() => expect(url().get('rev')).toBeNull(), slow);
+    await rtlAct(async () => { release(); });
+    await screen.findByRole('button', { name: '다시 시도' }, slow);
+    expect(screen.queryByRole('heading', { name: '판단 변경' })).toBeNull();
+    expect(screen.queryByDisplayValue(rationale)).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('does not enable header 수정 or feed revise from the kept detail when assessment reload fails on latest', async () => {
+    await conflict();
+    reloadFails = true;
+    reload();
+    await within(drawer()).findByText('최신 상태를 불러오지 못했습니다', {}, slow);
+    await screen.findByRole('button', { name: '다시 시도' }, slow);
+    expect(screen.queryByRole('button', { name: '수정' })).toBeNull();
+    rtlAct(() => {
+      window.history.pushState(null, '', `${window.location.pathname}?v=1&drawer=revise`);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await waitFor(() => expect(url().get('drawer')).toBe('revise'), slow);
+    expect(screen.queryByRole('heading', { name: '기술 Item 수정' })).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('resets the assessment drawer when switching to another viewed revision', async () => {
+    mountDetail(ITEM(1), '&rev=1&drawer=assess');
+    await screen.findByRole('heading', { name: '판단 변경' }, slow);
+    type(/^사유/, rationale);
+    fireEvent.click(await screen.findByRole('button', { name: '최신 보기' }, slow));
+    await waitFor(() => expect(url().get('rev')).toBeNull(), slow);
+    await waitFor(() => expect(screen.queryByText(/이전 리비전 r1을 보고 있습니다/)).toBeNull(), slow);
+    await screen.findByRole('heading', { name: '판단 변경' }, slow);
+    expect((field(/^사유/) as HTMLTextAreaElement).value).toBe('');
+  });
 });
 
 describe('관련 Item으로 신규 작성 (derive)', () => {
