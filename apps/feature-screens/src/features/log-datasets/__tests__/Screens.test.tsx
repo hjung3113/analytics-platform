@@ -129,6 +129,18 @@ it('keeps the approved baseline pin and stale reasons visible beside a selected 
 });
 
 
+it('renders visible run request details alongside a minimal restricted item (#2112)', () => {
+  const run: Run = { id: 'visible-run', suiteId: 'suite', state: 'queued', createdAt: at, engineProfileRef: null, items: [
+    { ordinal: 1, restricted: true },
+    { ordinal: 2, restricted: false, datasetId: 'ds', revisionSeq: 3, baselineSeq: 2, requestState: 'failed', attemptCount: 2, latestVerdict: null },
+  ] };
+  render(<RunsPanel {...props({ suites: { rows: [suite], total: 1 }, suiteDetail: suite, suiteRuns: { rows: [run], total: 1 } })} dataset={{ ...dataset, revisions: [] }} />);
+  expect(screen.getByText('visible-run')).toBeVisible();
+  expect(screen.getByText(/r3 · Baseline b2 · 프로파일 미지정 고정 · 시도 2/)).toBeVisible();
+  expect(screen.getByText(/검증 요청이 실패했습니다/)).toBeVisible();
+  expect(screen.getAllByText(/검증 요청:/)).toHaveLength(1);
+});
+
 // Exercise server-sized histories and a pinned Suite outside the list page.
 function historyProps() {
   const suites = [{ ...suite, id: 'suite-a', name: 'Suite A' }, { ...suite, id: 'suite-b', name: 'Suite B', engineProfileRef: 'profile-B' }];

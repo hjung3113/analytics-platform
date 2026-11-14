@@ -154,9 +154,9 @@ export async function getSuiteDetail(tx: Tx, workspaceId: string, actorId: strin
   };
 }
 
-export interface RunItemOut {
+export type RunItemOut = { ordinal: number; restricted: true } | {
   ordinal: number;
-  restricted: boolean;
+  restricted: false;
   datasetId?: string;
   datasetName?: string;
   datasetRevisionId?: string;
@@ -171,7 +171,7 @@ export interface RunItemOut {
   requestState: string | null;
   attemptCount: number | null;
   latestVerdict: string | null;
-}
+};
 
 export interface RunOut {
   id: string;
@@ -197,7 +197,15 @@ export async function listRuns(
   const [suite] = await tx.select({ id: s.id }).from(s).where(and(eq(s.workspaceId, workspaceId), eq(s.id, v.suiteId)));
   if (!suite) return null;
   const who = alias(actors, 'run_requester');
-  const where = and(eq(suiteRuns.workspaceId, workspaceId), eq(suiteRuns.suiteId, v.suiteId));
+  // Match comparison reads: a run with no visible item is absent, including from totals and pagination.
+  const hasVisibleItem = sql`exists (
+    select 1 from ${suiteRunItems} inner join ${d}
+      on ${d.workspaceId} = ${suiteRunItems.workspaceId} and ${d.id} = ${suiteRunItems.datasetId}
+    where ${suiteRunItems.workspaceId} = ${workspaceId}::uuid
+      and ${suiteRunItems.suiteRunId} = ${sql.raw('"log_datasets"."suite_run"."id"')}
+      and ${visibleExpr(actorId)}
+  )`;
+  const where = and(eq(suiteRuns.workspaceId, workspaceId), eq(suiteRuns.suiteId, v.suiteId), hasVisibleItem);
   const runs = await tx
     .select({ row: suiteRuns, requesterName: who.displayName })
     .from(suiteRuns)
@@ -219,13 +227,13 @@ export async function listRuns(
           .innerJoin(b, and(eq(b.workspaceId, suiteRunItems.workspaceId), eq(b.id, suiteRunItems.baselineId)))
           .where(and(eq(suiteRunItems.workspaceId, workspaceId), sql`${suiteRunItems.suiteRunId} in (${sql.join(runIds.map((id) => sql`${id}::uuid`), sql`, `)})`))
           .orderBy(asc(suiteRunItems.suiteRunId), asc(suiteRunItems.ordinal));
-  const states = await lifecycle.requestStates(tx, workspaceId, items.map((x) => x.item.requestId));
+  const states = await lifecycle.requestStates(tx, workspaceId, items.filter((x) => x.visible).map((x) => x.item.requestId));
   const rows: RunOut[] = runs.map((run) => {
     const mine = items.filter((x) => x.item.suiteRunId === run.row.id);
     const outItems: RunItemOut[] = mine.map((x) => {
+      if (!x.visible) return { ordinal: x.item.ordinal, restricted: true };
       const st = states.get(x.item.requestId);
       const base = { ordinal: x.item.ordinal, requestState: st?.state ?? null, attemptCount: st?.attemptCount ?? null, latestVerdict: st?.latestVerdict ?? null };
-      if (!x.visible) return { ...base, restricted: true };
       return {
         ...base,
         restricted: false,
@@ -241,7 +249,7 @@ export async function listRuns(
         requestId: x.item.requestId,
       };
     });
-    const counts = countRequestStates(outItems.map((i) => i.requestState ?? ''));
+    const counts = countRequestStates(outItems.flatMap((i) => i.restricted ? [] : [i.requestState ?? '']));
     return {
       id: run.row.id,
       suiteId: run.row.suiteId,
