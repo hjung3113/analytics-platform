@@ -22,6 +22,7 @@ import { EQUIPMENT_AXES } from './equipmentAxes';
 import { managedSystemFor, useComposeDefaultStatus } from './feature-systems';
 import { createLocalQueryHistoryStore } from './query-history-store';
 import { makeAppSlots } from './slots';
+import { undeclaredMenusSlot } from './undeclared-menus-slot';
 import { declarations, SPACE_ID_MIGRATIONS } from './menus';
 import { SpaceSystemsSession } from './space-systems-session';
 
@@ -33,7 +34,7 @@ import { SpaceSystemsSession } from './space-systems-session';
 const homeTodo = { Todo: () => <><improvementHomeTodoSlot.Todo /><homeTodoSlot.Todo /></> };
 // One slot object for the page's lifetime: its `Compose` component must keep its identity so a held draft does not remount.
 const vocCompose = vocComposeSlot(managedSystemFor, useComposeDefaultStatus);
-const useAppSlots = makeAppSlots({ notifications: notificationsSlot, vocCompose, homeTodo, scopeControl: scopeControlSlot, navCounts: navCountsSlot, spaceNavSection: savedViewsSlot, analysisActions: improvementAnalysisActions, accessRequest: accessRequestSlot });
+const useAppSlots = makeAppSlots({ notifications: notificationsSlot, vocCompose, homeTodo, scopeControl: scopeControlSlot, navCounts: navCountsSlot, spaceNavSection: savedViewsSlot, analysisActions: improvementAnalysisActions, accessRequest: accessRequestSlot, undeclaredMenus: undeclaredMenusSlot });
 
 void startAppHost({
   container: document.getElementById('root')!,

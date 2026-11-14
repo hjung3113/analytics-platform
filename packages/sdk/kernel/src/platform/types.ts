@@ -76,6 +76,7 @@ export type HomeTodoSlot = { Todo: ComponentType };
  * boardEntry: the `분석 보드에 열기…` item `PlatformPage` appends to a board menu's `⋯` menu (docs/16 §6); components never import the shell.
  * scopeControl: a space's own sidebar list-scope control in place of the analytics `ScopeSelector` (ADR-0081 decision 4, 06 §8); `For` returns null for spaces and current menus that keep the default. A space with `SpaceDef.scopePresentation: 'hidden'` never falls back to the `ScopeSelector`: a component `For` returns still renders, null draws nothing (#1251).
  * The three sidebar slots (`scopeControl`, `navCounts`, `spaceNavSection`) resolve by the space and the current route's menu (`null` off a route), so a consumer can decline a menu by its own declaration before any of its subtree mounts (#1099c).
+ * undeclaredMenus: operator-only list of menus no server declaration grants to anyone; the sidebar draws them greyed in place (#1846, see `UndeclaredMenusSlot`).
  * notifications: the rail bell and the platform-menu unread badge (ADR-0070 decision 4, #652).
  * vocCompose: the body of the rail `VOC 등록` docked drawer; the shell owns position, frozen Context chips, draft and close rules (ADR-0070 decision 5, #655).
  * navCounts: per-menu and per-`navViews` count badges in a space's sidebar (06 §8, #761).
@@ -129,7 +130,19 @@ export type AccessRequestSlot = {
   Pending: ComponentType<{ target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }>;
   Dialog: ComponentType<{ target: PermissionRequestTarget; returnTo: string; open: boolean; onOpenChange: (open: boolean) => void }>;
 };
-export type PlatformSlots = { analysisActions?: AnalysisActionsSlot; scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot; accessRequest?: AccessRequestSlot; sidebarNotice?: ReactNode };
+/**
+ * A menu whose permission no server declaration grants to anyone (#1846): hidden from every session list, so no actor's `visibleMenus` holds it.
+ * `permission` is the permission key the menu requires, shown to the operator who reads the diagnostic.
+ */
+export type UndeclaredMenu = { menuId: string; permission: string };
+/**
+ * Operator-only diagnostic list for the sidebar (#1846, 06 §7 «권한 미선언»). `Read` renders `children(list)` once around the menu list, the same
+ * shape as `NavCountsSlot`, so the app owns the permission check and the request: the app passes the real list only to an actor allowed to
+ * read it and an empty list to everyone else. The shell draws one greyed, non-navigable row per entry and never names an app permission.
+ * Absent slot → no rows, the behaviour before the slot.
+ */
+export type UndeclaredMenusSlot = { Read: ComponentType<{ children: (list: readonly UndeclaredMenu[]) => ReactNode }> };
+export type PlatformSlots = { analysisActions?: AnalysisActionsSlot; scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot; accessRequest?: AccessRequestSlot; sidebarNotice?: ReactNode; undeclaredMenus?: UndeclaredMenusSlot };
 export type LinkOptions = { params?: Record<string, string>; /** A value may be a list for a repeated page key of the destination: one pair per item, in order. */ page?: Record<string, string | readonly string[] | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 /**
  * Read `kind` first (06 §22, ADR-0158). `link`: the destination is registered. `none`: this assembly does not register it — draw no fixed entry,
