@@ -51,7 +51,9 @@ type Row = Record<string, unknown>;
 const FILES = (n = 2) => Array.from({ length: n }, (_v, i) => ({ fileRef: `s3://${TAG}/f${i + 1}.log`, order: i + 1, sha256: H('a') }));
 const SAMPLE = (n = 2, sourceOwner = `${TAG}-fab`) => ({ files: FILES(n), sourceOwner });
 
-describe.skipIf(!runIntegration)('validation request queue (#1445 d)', () => {
+// 30 s per test, not the 5 s default (#2153): on a shared CI runner the DB-bound reads here took 5 s+ while 0.3 s locally (#1850),
+// and one timeout turned main red. A test that needs more than 30 s is a real regression, not runner noise.
+describe.skipIf(!runIntegration)('validation request queue (#1445 d)', { timeout: 30_000 }, () => {
   let app: FastifyInstance;
   let dbHandle: DbHandle;
   let migrate: DbHandle;
