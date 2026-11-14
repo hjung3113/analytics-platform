@@ -1,8 +1,9 @@
 name: Pages
 
+# Paused: the intro site is not deployed on release (owner, 2026-11-15: the site is paused until
+# the owner restructures it). Only a manual run deploys. Reopen: when the owner resumes the site,
+# restore the `release: types: [published]` trigger.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       ref:

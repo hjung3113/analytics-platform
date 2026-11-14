@@ -6,7 +6,7 @@
 - **구현 안 함(결함 아님) — `LaneTimeline`·`OrderedIntervalTrack` canvas 배관 통합 (#2028 SHE-23):** 공통 helper 추출과 휠 동작 통일을 구현하지 않았다. 이유: [차트 계약](../docs/contract/chart.md)이 `LaneTimeline`(Ctrl/⌘+wheel)과 `OrderedIntervalTrack`(Shift 또는 Ctrl/⌘+wheel)의 확대 수정키를 별도 규정하고 기존 `LaneTimeline` 동작을 유지하며, 구현 중복만으로는 시연된 동작 결함이 성립하지 않는다. 다시 열 조건: 두 트랙에 걸친 구체적 공통 동작 결함이 확인되거나 공통 상호작용 계약이 확정될 때(의도된 수정키 차이는 유지).
 - **미구현 — 공개 EChart 진입점 정리 (#2028 SHE-26):** 루트의 엔진 export 제거 또는 호스트 진입점으로 이동. 이유: 공개 SDK 기능 제거는 이번 작업의 중단 조건이다. 다시 열 조건: 소유자가 호환 기간·대체 진입점을 확정할 때.
 
-- **미구현 — 소개 사이트 캡처 CI와 `shots.mjs` testid 전환 (#2153):** `ci.yml`의 `Intro site captures` job을 뺐고, `site/scripts/shots.mjs` 셀렉터를 문구 대신 `data-testid`로 바꾸는 일과 캡처 갱신은 하지 않았다. 이유: 소유자 2026-11-14 — 소개 사이트는 소유자가 재개를 말할 때까지 관리하지 않는다. 다시 열 조건: 소유자가 소개 사이트 재개를 말할 때. 그때 job을 git 기록(#2153 직전)에서 되살리고 testid 전환부터 한다.
+- **미구현 — 소개 사이트 캡처 CI와 `shots.mjs` testid 전환 (#2153):** `ci.yml`의 `Intro site captures` job을 뺐고, `site/scripts/shots.mjs` 셀렉터를 문구 대신 `data-testid`로 바꾸는 일과 캡처 갱신은 하지 않았다. 릴리스 발행 때의 Pages 자동 배포(`pages.yml`의 `release` 트리거)도 껐다(수동 실행만). 이유: 소유자 2026-11-14·11-15 — 소개 사이트는 나중에 재구성할 것이라 그때까지 갱신·시험·배포하지 않는다. 다시 열 조건: 소유자가 소개 사이트 재개를 말할 때. 그때 job을 git 기록(#2153 직전)에서 되살리고 testid 전환부터 한다.
 - **미구현 — StatCard `purple`·`amber` 타입 제거 (#1945):** 한 릴리스의 호환 기간에는 각각 `teal`·`blue`로 표시한다. 이유: 기존 SDK 메뉴의 타입 호환을 유지하며 두 색으로 이전한다. 다시 열 조건: 다음 SDK minor 릴리스. 그때 공개 `chip` 타입에서 두 값을 제거한다.
 
 - **미구현 — 대상 시스템 선택 단계 분리 (#1842):** 이유: 지금은 시스템 3개·22행이라 검색으로 충분하다. 다시 열 조건: 한 대상자의 후보 행이 40개를 넘거나 Managed System이 5개를 넘을 때. 그때는 시스템을 먼저 고르고 목록은 권한당 한 행으로 줄인다.
