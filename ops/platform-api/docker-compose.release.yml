@@ -25,6 +25,16 @@ services:
     labels: *ownership
     logging: *logging
     image: pgvector/pgvector:pg16
+    command:
+      - postgres
+      - "-c"
+      - "log_min_duration_statement=1000"
+      - "-c"
+      - "log_lock_waits=on"
+      - "-c"
+      - "log_parameter_max_length=0"
+      - "-c"
+      - "log_parameter_max_length_on_error=0"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copy .env.release.example to .env.release}

@@ -12,6 +12,8 @@
     "start": "node dist/index.js",
     "test": "pnpm run build:schemas && env -u DATABASE_URL -u DATABASE_URL_MIGRATE -u WORKSPACE_ID ALLOW_SKIPPED_INTEGRATION=1 vitest run",
     "test:integration": "pnpm run build:schemas && bash ../../ops/platform-api/scripts/test-integration.sh",
+    "jobs:inventory": "tsx src/cli/jobs-inventory.ts",
+    "jobs:health": "tsx src/cli/jobs-health.ts",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.platform-tests.json",
     "gen:bundled-templates": "node scripts/gen-bundled-templates.mjs",
