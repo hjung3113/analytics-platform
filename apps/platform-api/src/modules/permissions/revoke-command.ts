@@ -13,7 +13,7 @@ import { grantScope, scopeFields } from './site-scope-policy.js';
  * Permission-owned revoke of one active grant, inside the caller's transaction.
  * The caller authorizes and takes the recipient lock first. Revoke metadata, the
  * `permission_revoked` audit row and the `permission_grant.revoked` notification
- * (ADR-0061 decision 7) are written together and roll back together.
+ * (FO ADR-0061 decision 7) are written together and roll back together.
  */
 export async function revokePermissionGrant(
   tx: Tx,
