@@ -366,6 +366,18 @@ describe('useMenuQuery identity and request shape', () => {
     expect(f.requests).toHaveLength(0);
   });
 
+  it('keeps the positional enabled optional: an undefined third argument and a boolean | undefined value still type-check and run (#2189 review C1)', async () => {
+    function Optional({ gate }: { gate?: boolean }) {
+      const viaUndefined = useMenuQuery(endpoint, params, undefined, { keepPrevious: true });
+      const viaMaybe = useMenuQuery({ ...endpoint, id: 'fixture.other' }, params, gate);
+      return <p data-testid="optional">{viaUndefined.status}|{viaMaybe.status}</p>;
+    }
+    const f = fixture();
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><Optional /></PlatformProvider></I18nProvider>);
+    await waitFor(() => expect(screen.getByTestId('optional').textContent).toBe('done|done'));
+    expect(f.requests).toHaveLength(2);
+  });
+
   it('options.enabled gates the request like the positional argument (#2189)', async () => {
     const off = fixture();
     mount(off, { enabled: false, form: 'options' });

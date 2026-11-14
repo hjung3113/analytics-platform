@@ -291,8 +291,8 @@ export type MenuQueryState<P, T> = QueryState<T> & { resultParams?: P };
  */
 export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, options?: MenuQueryOptions): MenuQueryState<P, T>;
 /** The positional `enabled` form is deprecated: pass `{ enabled }` in `options` (an unnamed boolean says nothing at the call site). It keeps working. */
-export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled: boolean, options?: MenuQueryOptions): MenuQueryState<P, T>;
-export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, third?: boolean | MenuQueryOptions, fourth?: MenuQueryOptions): MenuQueryState<P, T> {
+export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled?: boolean, options?: MenuQueryOptions): MenuQueryState<P, T>;
+export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, third?: boolean | MenuQueryOptions | undefined, fourth?: MenuQueryOptions): MenuQueryState<P, T> {
   const options = typeof third === 'object' ? third : fourth;
   const enabled = (typeof third === 'boolean' ? third : true) && (options?.enabled ?? true);
   const platform = useHostPlatform();
