@@ -144,7 +144,7 @@
 | [0129](0129-prototype-only-for-new-or-hard-to-undo-ui.md) | 시안은 새 화면이거나 되돌리기 어려운 변경에만 만든다(나머지는 전후 캡처와 PR의 Decisions) | Decided(2026-11-09) |
 | [0130](0130-workspace-stack-default-and-declared-stack-layout.md) | 작업 영역은 아래로 쌓기로 시작하고, 메뉴가 쌓기용 배치(`stackPreset`)와 패널 선호 높이를 선언한다 | Decided(2026-11-09) |
 | [0131](0131-sdk-consumer-skill-and-intent-table.md) | SDK 소비 지원은 스킬과 손으로 쓴 의도어 표로 시작하고, 생성형 Catalog는 만들지 않는다 | Decided(2026-11-10, 범위는 소유자, 나머지는 코디네이터·사용자 위임) |
-| [0132](0132-eqv-merges-into-platform.md) | 설비 시각화(EV)를 플랫폼에 합친다: 이력은 `products/eqv/`로 보존하고 패키지는 `packages/eqv/*`로 옮기며 EV 저장소는 소유자 확인 뒤 아카이브 | Decided(2026-11-10, 사용자) — 0039·0053의 "EV는 외부 저장소" 서술을 대체, 구현은 #1607 |
+| [0132](0132-eqv-merges-into-platform.md) | 설비 시각화(EV)를 플랫폼에 합친다: 이력은 git으로 가져오고(사본 `products/eqv/`는 #2208에서 삭제) 패키지는 `packages/eqv/*`로 옮기며 EV 저장소는 소유자 확인 뒤 아카이브 | Decided(2026-11-10, 사용자) — 0039·0053의 "EV는 외부 저장소" 서술을 대체, 구현은 #1607 |
 | [0133](0133-feature-screens-frozen-new-screens-on-sdk.md) | `apps/feature-screens`는 동결하고, 새 플랫폼 기능은 `platform/<feature>/`에 SDK 소비자로 만들며, 기존 화면은 크게 고칠 때 옮긴다 | Decided(2026-11-10, 사용자, 되돌릴 수 있음) — 0066 결정 4의 후속 |
 | [0134](0134-bravo-quest-leaves-platform-adapter-port.md) | BRAVO Quest는 `PlatformAdapter` 포트에서 빼고 메뉴 조회 엔드포인트로 옮긴다 | Decided(2026-11-10, 사용자, 되돌릴 수 있음) — 0098의 Quest 포트 개정을 대체, 구현 #1641 |
 | [0135](0135-eqv-layout-storage-publish-and-promotion.md) | 서버 `eqv` 모듈: 게시 순서·가져오기 검증·Template 승격의 저장 방식 | Decided(2026-11-10, 코디네이터(사용자 위임), 되돌릴 수 있음) — EV ADR-0007·0010·0015의 저장 방식, 구현 #1645 |
@@ -171,7 +171,7 @@
 | [0156](0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md) | 코어 서버는 선언 묶음을 앱 빌드가 낸 메뉴 선언 스냅샷과 대조한다 | Decided(2026-11-13, advisor·소유자 위임, 되돌릴 수 있음) |
 | [0157](0157-bundle-declares-menu-capabilities.md) | 선언 묶음이 자기 capability 행과 메타를 선언한다(ADR-0146 결정 3 개정) | Decided(2026-11-13, 소유자 «니추천대로», 고문 리뷰 반영, 되돌릴 수 있음) |
 | [0158](0158-unregistered-link-destinations-and-declared-link-targets.md) | 등록되지 않은 링크 목적지는 «없음», 메뉴는 링크 목적지를 선언한다(`linkTargets`) | Decided(2026-11-13, advisor·소유자 위임, 되돌릴 수 있음) |
-| [0159](0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md) | 시도별 진단(`AttemptDiagnostic`)은 별도 worker 쓰기 경로·유한 상한·Source ACL 읽기, summary 투영은 자유 텍스트 없는 키 다섯 개, 첨부는 Source 참조로 미룸 | Decided(2026-11-13, 소유자 «플랫폼이 정의», 미구현, 되돌릴 수 있음) |
+| [0159](0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md) | 시도별 진단(`AttemptDiagnostic`)은 별도 worker 쓰기 경로·유한 상한·Source ACL 읽기, summary 투영은 자유 텍스트 없는 키 다섯 개, 첨부는 Source 참조로 미룸 | Decided(2026-11-13, 소유자 «플랫폼이 정의», B1 As-built #2196, 되돌릴 수 있음) |
 | [0160](0160-folded-analysis-workspace-query-bar.md) | 접힌 분석 작업 영역의 조회 결과·페이지 조건·화면 배치를 조회 막대의 고정 둘째 줄에 둔다 | Decided(2026-11-14, 소유자 B 승인, 되돌릴 수 있음) |
 | [0161](0161-form-field-hint-always-visible-render-function.md) | 폼 필드는 도움말을 항상 보이고 오류를 그 아래에 더하는 렌더 함수 조각 `FormField`로 둔다 | Decided(2026-11-14, 소유자가 Opus(high) 리뷰에 위임, 되돌릴 수 있음) |
 | [0162](0162-inbound-links-destination-declares-object-kinds.md) | 들어오는 연결은 목적지 객체 종류 선언과 출발 목록 opt-in으로 표시한다 | Decided(2026-11-14, 소유자 위임 Opus 리뷰, 되돌릴 수 있음) |

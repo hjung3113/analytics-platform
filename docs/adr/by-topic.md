@@ -184,7 +184,7 @@ FeedbackOps 합류, 플랫폼 기능 메뉴, VOC·과제·감사 화면.
 
 - [0039](0039-equipment-visualization-platform-first-host-contract.md) — equipment-visualization은 플랫폼 탑재가 기본이고, 플랫폼이 `@ap/contracts`로 호스트 → 모듈 계약을 낸다
 - [0053](0053-host-module-contract-v1.md) — 호스트 → 모듈 계약 1판을 `@ap/contracts`에 내고, Kernel이 모듈을 등록해 화면에 호스트 포트를 준다(첫 소비자는 저장소 안 고정 모듈, 2026-10-25 개정: 첫 외부 소비자 EV 마운트 #801)
-- [0132](0132-eqv-merges-into-platform.md) — 설비 시각화(EV)를 플랫폼에 합친다: 이력은 `products/eqv/`로 보존하고 패키지는 `packages/eqv/*`로 옮기며 EV 저장소는 소유자 확인 뒤 아카이브
+- [0132](0132-eqv-merges-into-platform.md) — 설비 시각화(EV)를 플랫폼에 합친다: 이력은 git으로 가져오고(사본 `products/eqv/`는 #2208에서 삭제) 패키지는 `packages/eqv/*`로 옮기며 EV 저장소는 소유자 확인 뒤 아카이브
 - [0135](0135-eqv-layout-storage-publish-and-promotion.md) — 서버 `eqv` 모듈: 게시 순서·가져오기 검증·Template 승격의 저장 방식
 - [0139](0139-eqv-onboarding-storage-and-publish.md) — 서버 `eqv` Onboarding: alias 규칙·Type Dictionary·Mapping Version·Baseline·Binding의 저장과 게시
 

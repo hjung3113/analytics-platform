@@ -1,6 +1,6 @@
 # ADR-0159 — 시도별 진단(`AttemptDiagnostic`)은 별도 worker 쓰기와 Source ACL 읽기로 둔다
 
-- 상태: Decided (2026-11-13, 플랫폼 정의 구조, 미구현, 되돌릴 수 있음). 이슈 [#1815](https://github.com/hjung3113/analytics-platform/issues/1815).
+- 상태: Decided (2026-11-13, 플랫폼 정의 구조, B1 As-built #2196, 되돌릴 수 있음). 이슈 [#1815](https://github.com/hjung3113/analytics-platform/issues/1815).
 - 결정자: 소유자 — 사내 리포트 실사(R1)를 기다리지 않고 플랫폼이 최선이라 판단한 구조를 정하고 사내가 맞춘다(2026-11-13). 구조와 수치는 플랫폼(에이전트)이 정했다.
 - 계약 원천: [log-lifecycle API §시도 진단](../architecture/platform-api/api/log-lifecycle.md#시도-진단-attemptdiagnostic-b0b1), 설계 [진단 리포트 보존 §3](../design/features/log-lifecycle/diagnostic-report-parity.md#3-slice-b--버전-있는-진단과-선택-첨부). 관련: [ADR-0117](0117-validation-request-queue-claim-lease-heartbeat.md)(큐·결과 쓰기·발췌 삭제), [ADR-0119](0119-log-explorer-source-read-port-and-evidence-refs.md)(Source 읽기·근거 위치), [ADR-0140](0140-generic-file-upload-port.md)(범용 업로드).
 
