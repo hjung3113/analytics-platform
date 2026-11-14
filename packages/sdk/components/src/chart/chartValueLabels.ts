@@ -1,3 +1,4 @@
+import { formatNumber } from '@ap/contracts';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ChartSeries } from './AnalysisChartFrame';
 
@@ -29,7 +30,7 @@ export function segmentLabelStyle(fill: ThemeColorToken): { text: 'text-primary'
 
 /** Segment label: grouped digits, no compact notation (1,234 / 12.3), so it reads like the uncompacted numbers beside it; the exact value stays in the tooltip. */
 export function shortNumber(v: number, lang: string): string {
-  return new Intl.NumberFormat(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 1 }).format(v);
+  return formatNumber(v, lang === 'ko' ? 'ko' : 'en', { maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 1 });
 }
 
 export const LABEL_FONT = 10;

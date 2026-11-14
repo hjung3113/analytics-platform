@@ -5,7 +5,7 @@ import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { canClientSum, formatDateTime, type Reaggregation } from '@ap/contracts';
+import { canClientSum, formatDateTime, formatNumber, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, FILL_CARD_CLASS, FILL_CHART_MIN_HEIGHT, FILL_PLOT_BASE_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
@@ -335,7 +335,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const actionsFor = useCallback((point: ChartPoint): readonly ChartPointAction[] => (typeof pointActions === 'function' ? pointActions(point) : pointActions ?? []), [pointActions]);
   const selectedActions = useMemo(() => (selectedPoint ? actionsFor(selectedPoint) : []), [selectedPoint, actionsFor]);
   const noActions = hasPointActions && selectedActions.length === 0;
-  const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
+  const format = p.valueFormat ?? ((v: number) => formatNumber(v, lang, { maximumFractionDigits: 1 }));
   // The tooltip reads the formatter when it opens, so a consumer's new `valueFormat` takes effect without rebuilding the option.
   const formatRef = useRef(format);
   useLayoutEffect(() => { formatRef.current = format; });

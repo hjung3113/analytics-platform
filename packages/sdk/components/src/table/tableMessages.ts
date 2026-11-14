@@ -1,5 +1,5 @@
 import { CONTEXT_LABELS, labelledCondition } from '@ap/kernel';
-import type { ApiResponse, Capability, ContextKey, EquipmentAxisDescriptor, GlobalContext, Trust } from '@ap/contracts';
+import { formatNumber, type ApiResponse, type Capability, type ContextKey, type EquipmentAxisDescriptor, type GlobalContext, type Trust } from '@ap/contracts';
 import { trustInstantText } from '../state/trustFormat';
 
 /** Pure wording and formatting for the table's export/copy (#173, #174): no React, no state. */
@@ -53,8 +53,8 @@ export function selectionShortNote(wanted: number, received: number, lang: Lang)
   const missing = wanted - received;
   return lang === 'ko' ? `선택 ${wanted}행 중 ${received}행 · ${missing}행은 현재 결과에 없음` : `${received} of ${wanted} selected rows · ${missing} ${missing === 1 ? 'row is' : 'rows are'} not in the current results`;
 }
-export const exportRowCapNote = (lang: Lang) => lang === 'ko' ? `받은 행이 ${EXPORT_ROW_CAP.toLocaleString('ko-KR')}행을 넘어 파일을 만들지 않습니다. 필터를 좁혀 주세요.` : `More than ${EXPORT_ROW_CAP.toLocaleString('en-US')} rows arrived; no file was built. Narrow the filter.`;
-export const copyRowCapNote = (lang: Lang) => lang === 'ko' ? `받은 행이 ${EXPORT_ROW_CAP.toLocaleString('ko-KR')}행 초과 · 복사 중단. 선택을 줄여 주세요.` : `More than ${EXPORT_ROW_CAP.toLocaleString('en-US')} rows arrived; nothing was copied. Select fewer rows.`;
+export const exportRowCapNote = (lang: Lang) => lang === 'ko' ? `받은 행이 ${formatNumber(EXPORT_ROW_CAP, 'ko')}행을 넘어 파일을 만들지 않습니다. 필터를 좁혀 주세요.` : `More than ${formatNumber(EXPORT_ROW_CAP, 'en')} rows arrived; no file was built. Narrow the filter.`;
+export const copyRowCapNote = (lang: Lang) => lang === 'ko' ? `받은 행이 ${formatNumber(EXPORT_ROW_CAP, 'ko')}행 초과 · 복사 중단. 선택을 줄여 주세요.` : `More than ${formatNumber(EXPORT_ROW_CAP, 'en')} rows arrived; nothing was copied. Select fewer rows.`;
 export function exportDoneText(target: string, format: ExportFormat, lang: Lang): string {
   const file = format === 'xlsx' ? 'Excel' : 'CSV';
   return lang === 'ko' ? `${target}${objectParticle(target)} ${file} 파일로 내보냈습니다` : `Exported ${target} to ${format === 'xlsx' ? 'an' : 'a'} ${file} file`;
