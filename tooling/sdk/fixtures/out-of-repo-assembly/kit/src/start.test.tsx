@@ -1,12 +1,18 @@
 import { cleanup, screen } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { setRole } from '@ap/mock-server';
 import { buildRegistry } from '@ap/app-host';
 import { pathFor } from '@ap/kernel';
 import { declarations } from '../menus';
 import { inMemoryQueryHistory, startKitApp } from './start';
 
+// The shell starts the sidebar collapsed below 1200 px when the user has not chosen (#1944), and jsdom is 1024 px wide: a desktop-wide window keeps the labels in the DOM.
+beforeEach(() => {
+  vi.stubGlobal('innerWidth', 1440);
+});
+
 afterEach(() => {
+  vi.unstubAllGlobals();
   cleanup();
   document.body.innerHTML = '';
   setRole('engineer');
