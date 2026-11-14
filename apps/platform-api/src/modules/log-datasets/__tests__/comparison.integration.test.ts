@@ -488,7 +488,7 @@ describe.skipIf(!runIntegration)('comparison, coverage, review labels, rerun dif
       expect(await f({ sorting: [{ id: 'ruleId', desc: true }], pageSize: 2 })).toEqual(['1/R-4', '1/R-3']);
       const labelled = await compare(t.runId);
       expect(labelled.outcome).toBe('ok');
-      expect((await addLabel({ suiteRunId: t.runId, datasetRevisionId: t.a.revision.id, ruleId: 'R-1', label: 'needs_review', reason: 'look' })).outcome).toBe('ok');
+      expect((await addLabel({ suiteRunId: t.runId, ordinal: 1, datasetRevisionId: t.a.revision.id, ruleId: 'R-1', label: 'needs_review', reason: 'look' })).outcome).toBe('ok');
       expect(await f({ filters: [{ id: 'label', op: 'in', value: ['needs_review'] }] })).toEqual(['1/R-1']);
       expect(await f({ filters: [{ id: 'label', op: 'in', value: ['none'] }] })).toHaveLength(4);
     });
@@ -563,7 +563,7 @@ describe.skipIf(!runIntegration)('comparison, coverage, review labels, rerun dif
       const run0 = (await sql(`insert into log_datasets.suite_run (workspace_id, suite_id, requested_by_actor_id, idempotency_key) values ($1,$2,$3,'k') returning id`, [otherWorkspace, foreignSuite, foreignActor])).rows[0].id as string;
       await sql(`insert into log_datasets.suite_run_item (workspace_id, suite_run_id, ordinal, dataset_id, dataset_revision_id, baseline_id, sample_manifest_digest, baseline_digest, baseline_stale, request_id) values ($1,$2,1,$3,$4,$5,$6,$6,'{}'::jsonb,$7)`, [otherWorkspace, run0, ds, rev, bl, H('d'), randomUUID()]);
       expect(await compare(run0, admin)).toMatchObject({ outcome: 'ok', data: null });
-      expect((await addLabel({ suiteRunId: run0, datasetRevisionId: rev, ruleId: 'R-1', label: 'accepted_change', reason: 'x' }, admin)).fieldErrors.map((e) => `${e.path}:${e.code}`)).toEqual(['suiteRunId:not_found']);
+      expect((await addLabel({ suiteRunId: run0, ordinal: 1, datasetRevisionId: rev, ruleId: 'R-1', label: 'accepted_change', reason: 'x' }, admin)).fieldErrors.map((e) => `${e.path}:${e.code}`)).toEqual(['suiteRunId:not_found']);
     });
   });
 
@@ -586,7 +586,7 @@ describe.skipIf(!runIntegration)('comparison, coverage, review labels, rerun dif
       expect((await addLabel(input(2))).outcome).toBe('ok');
       expect((await addLabel(input(1, { label: 'needs_review' }))).outcome).toBe('ok');
       const compared = await compare(runId);
-      expect(compared.data.rules.rows.map((r: { ordinal: number; label: { label: string } }) => [r.ordinal, r.label.label])).toEqual([[1, 'needs_review'], [2, 'false_positive']]);
+      expect(compared.data.rules.rows.map((r: { ordinal: number; ruleId: string; label: { label: string } | null }) => [r.ordinal, r.ruleId, r.label?.label ?? null])).toEqual([[2, 'R-1', 'false_positive'], [2, 'R-only-2', null], [1, 'R-1', 'needs_review']]);
       expect(compared.data.items.map((i: { labelCount: number }) => i.labelCount)).toEqual([1, 1]);
       expect((await compare(runId, runner, { ordinal: 2 })).data.labels.total).toBe(1);
       expect((await labelRows(runId)).map(r => r.ordinal)).toEqual([2, 1]);
