@@ -252,6 +252,17 @@ describe('HomeTodoPanel', () => {
     expect(links.at(-1)?.textContent).toBe('모두 보기');
   });
 
+  it.each([true, false])('shows the notification destination for an incomplete first page, even without VOC rows: %s', async (withVoc) => {
+    answers.notifications = {
+      items: withVoc ? [notification(1)] : [notification(1, { event_type: 'voc.assigned_to_me' })],
+      page: { has_more: true, cursor: 'next' },
+      unread_count: 101,
+    };
+    mount();
+    const vocs = await screen.findByTestId('home-todo-vocs');
+    expect(within(vocs).getByRole('link', { name: '모두 보기' }).getAttribute('href')).toBe('/notifications');
+  });
+
   it('Z1 sizes the groups grid by its own width (auto-fit), and a lone group is the only grid child', async () => {
     answers.surveys = surveysOf(1);
     mount();
