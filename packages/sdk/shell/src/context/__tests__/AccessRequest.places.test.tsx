@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRegistry, I18nProvider, PlatformProvider, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
@@ -108,6 +108,32 @@ describe('place (b): Scope selector request items', () => {
     expect(row.getAttribute('data-access-request')).toBe('checking');
     fireEvent.click(row);
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('a retry from the menu keeps the failure rows (busy retry row, usable request row) and returns focus to the request row (#1933 review C3)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-A');
+    let phase: 'error' | 'checking' | 'plain' = 'error';
+    const listeners = new Set<() => void>();
+    const bump = () => { for (const listener of listeners) listener(); };
+    const slot: AccessRequestSlot = {
+      ...fakeSlot,
+      Pending: ({ children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) => {
+        const current = useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, () => phase);
+        if (current === 'checking') return <>{children({ pending: null, statusHref: null, read: 'checking' })}</>;
+        if (current === 'error') return <>{children({ pending: null, statusHref: null, read: 'error', retry: () => { phase = 'checking'; bump(); } })}</>;
+        return <>{children({ pending: null, statusHref: null })}</>;
+      },
+    };
+    mount(grantTable(), slot);
+    openMenu();
+    const retry = (await screen.findAllByRole('menuitem', { name: '요청 상태 다시 확인' }))[0]!;
+    fireEvent.click(retry);
+    await waitFor(() => expect(screen.getAllByRole('menuitem', { name: '요청 상태 다시 확인' })[0]!.getAttribute('aria-busy')).toBe('true'));
+    expect(screen.getAllByRole('menuitem', { name: 'SITE-B · 공정 3개 권한 없음' })[0]!.getAttribute('aria-disabled')).toBeNull();
+    screen.getAllByRole('menuitem', { name: '요청 상태 다시 확인' })[0]!.focus();
+    act(() => { phase = 'plain'; bump(); });
+    await waitFor(() => expect(screen.queryAllByRole('menuitem', { name: '요청 상태 다시 확인' })).toHaveLength(0));
+    expect(document.activeElement).toBe(screen.getAllByRole('menuitem', { name: 'SITE-B · 공정 3개 권한 없음' })[0]!);
   });
 
   it('after a failed read the site row still requests and a row re-reads the state (#1933)', async () => {
