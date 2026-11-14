@@ -4,7 +4,7 @@ import { featureSlot } from './feature-systems';
 import { spaceSystems } from './space-systems';
 
 /** Business systems announced in the switcher but not built (15 §3.2). Display only: no Registry entry, no permission, no menu. */
-export const PLANNED_SPACES: readonly PlannedSpace[] = [];
+const PLANNED_SPACES: readonly PlannedSpace[] = [];
 
 /** Slots `main.tsx` passes to the Host; the Host supplies `contextBar`, `boardEntry` and `topBarTools` under them (`startAppHost`), so they are not repeated here. */
 /** Screens whose `⋯` menu takes the analysis actions: analysis workspaces and overview dashboards (#1430). A slot can still narrow this with its own `pageTypes`. */

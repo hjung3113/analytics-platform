@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-topview-studio",
   "private": true,
-  "version": "0.4.3",
+  "version": "0.4.4",
   "ap": {
     "sdk": ">=0.36.0 <0.37.0"
   },

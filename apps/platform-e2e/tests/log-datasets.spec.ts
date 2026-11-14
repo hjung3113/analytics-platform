@@ -7,7 +7,7 @@ const FAILED = '14810000-0000-4000-8000-000000000403';
 const detail = `/log-dev/log-dataset/${DS}`;
 const comparison = (run: string) => `/log-dev/log-dataset-run/${DS}/${run}`;
 
-test.describe('log-datasets screens', () => {
+test.describe('log-datasets screens (06 §6·§15·§17·§18·§19)', () => {
   test('server list paging and search open a stable detail with all five tabs at both desktop widths', async ({ page }, info) => {
     await signInAs(page, 'admin');
     await page.goto('/log-dev/log-datasets');
@@ -187,8 +187,8 @@ test.describe('log-datasets screens', () => {
     await page.goto('/log-dev/log-datasets');
     await expect(page.getByRole('table', { name: '테스트 데이터셋 목록', exact: true })).toBeVisible();
     await setScenario(page, '서버 오류 (error)');
-    // The scenario switch may refetch on its own (then the error replaces the table and its search box before this fill); a query change is the fallback trigger.
-    await page.getByRole('searchbox', { name: '데이터셋 검색' }).fill('경계', { timeout: 3_000 }).catch(() => undefined);
+    // Scenario changes invalidate the mounted query through the adapter subscription.
+
     await expect(page.getByText('데이터를 불러오지 못했습니다.')).toBeVisible();
     await expect(page.getByText('등록된 테스트 데이터셋이 없습니다.')).toHaveCount(0);
     await evidence(page, info, 'list-error');

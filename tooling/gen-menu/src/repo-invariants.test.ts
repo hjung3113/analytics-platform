@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import { SDK_RANGE } from './templates.ts';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { removeFixture } from './fixture.ts';
 import { checkCodeowners, checkMenuVersions, checkGroups, checkMarkers, checkNoProbe, checkUniqueness, checkWiring, loadShape, type RepoShape } from './repo-invariants.ts';
@@ -459,15 +460,15 @@ describe('menu version metadata', () => {
     keep.push(root);
     const dir = join(root, 'menus/mars/example');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '0.1.0', ap: { sdk: '>=0.19.0 <0.20.0' } }));
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '0.1.0', ap: { sdk: SDK_RANGE } }));
     writeFileSync(join(dir, 'CHANGELOG.md'), '# 기록\n\n## 0.1.0 — 2026-10-27\n');
     return root;
   };
   afterAll(() => { for (const root of keep) removeFixture(root); });
-  it('accepts valid metadata and caret ranges', () => {
+  it('accepts current metadata for any internal menu version', () => {
     const root = fresh();
     expect(() => checkMenuVersions(root)).not.toThrow();
-    writeFileSync(join(root, 'menus/mars/example/package.json'), JSON.stringify({ version: '1.2.3', ap: { sdk: '^1.2.3' } }));
+    writeFileSync(join(root, 'menus/mars/example/package.json'), JSON.stringify({ version: '1.2.3', ap: { sdk: SDK_RANGE } }));
     writeFileSync(join(root, 'menus/mars/example/CHANGELOG.md'), '## 1.2.3\n');
     expect(() => checkMenuVersions(root)).not.toThrow();
   });
@@ -480,6 +481,11 @@ describe('menu version metadata', () => {
     const root = fresh();
     writeFileSync(join(root, 'menus/mars/example/package.json'), JSON.stringify(pkg));
     expect(() => checkMenuVersions(root)).toThrow();
+  });
+  it.each(['>=0.19.0 <0.20.0', '^1.2.3'])('rejects a well-shaped but stale SDK range %s', sdk => {
+    const root = fresh();
+    writeFileSync(join(root, 'menus/mars/example/package.json'), JSON.stringify({ version: '0.1.0', ap: { sdk } }));
+    expect(() => checkMenuVersions(root)).toThrow(/ap.sdk.*expected/);
   });
   it('checks platform features too', () => {
     const root = fresh();

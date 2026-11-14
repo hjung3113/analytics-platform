@@ -8,7 +8,7 @@ const ATTEMPT = '14470000-0000-4000-8000-000000000401';
 const modelNode = 'v/14470000-0000-4000-8000-000000000011/p/14470000-0000-4000-8000-000000000021/m/14470000-0000-4000-8000-000000000001';
 const roundPath = `/log-dev/log-model-round/${PROJECT}/${ROUND}`;
 
-test.describe('log-lifecycle screens', () => {
+test.describe('log-lifecycle screens (06 §6·§12·§17·§22)', () => {
   test('sidebar hierarchy expands vendor, process and model and opens its registered project target', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto('/log-dev/log-models');

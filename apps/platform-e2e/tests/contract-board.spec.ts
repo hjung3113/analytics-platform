@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, PRODUCTIVITY, openSwitcher, chooseSystem, headerMore, startWithQueryBarOpen } from './contract-helpers';
-import { evidence, expandPageHead, mainHeading, nextFrames, query, settleOn, setScenario, signInAs } from './support';
+import { expandQueryBar, evidence, expandPageHead, mainHeading, nextFrames, query, settleOn, setScenario, signInAs } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -40,7 +40,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     const context = boardContext(page, number);
     await expect(context).toBeVisible();
     if (await context.getAttribute('data-query-bar') !== null) {
-      await context.getByRole('button', { name: /조회 조건 펼치기/ }).click();
+      await expandQueryBar(page, context);
       await page.getByRole('button', { name: name === '1일' ? '최근 24시간' : '최근 7일', exact: true }).click();
       await page.getByRole('button', { name: '적용', exact: true }).click();
       await page.getByRole('button', { name: '닫기', exact: true }).click();
@@ -1705,9 +1705,8 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     const reset = await rowPx(page);
     await page.getByRole('button', { name: '기본 배치', exact: true }).click();
     await page.getByRole('button', { name: '기본 배치', exact: true }).click();
-    // Nothing happens: repeating the default layout must not stack more height; give a wrong stack time to show.
-    await page.waitForTimeout(300);
-    expect(await rowPx(page)).toEqual(reset);
+    // Repeating the default layout must preserve the measured row heights.
+    await expect.poll(() => rowPx(page)).toEqual(reset);
 
     await chooseMode(page, '화면 맞춤');
     await chooseMode(page, '아래로 쌓기');

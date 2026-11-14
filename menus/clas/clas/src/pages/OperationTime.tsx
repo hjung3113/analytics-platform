@@ -1,3 +1,4 @@
+import { formatWallClock } from '@ap/contracts';
 import { useMemo } from 'react';
 import { AlertTriangle, Clock, Cpu, Gauge } from 'lucide-react';
 import { formatNumber } from '@ap/contracts';
@@ -11,8 +12,6 @@ const KIND_LABEL: Record<OperationKind, { ko: string; en: string }> = {
 };
 const ROOM_COLORS = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'] as const;
 
-// Same wall-clock display convention as the analytics sample menus.
-const displayTime = (value: string | null) => (value ?? '').replace('T', ' ');
 
 export default function OperationTimeScreen() {
   const { pageParam } = usePlatform();
@@ -45,8 +44,8 @@ function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeDat
   })), [data.lanes]);
   const total = data.ranking.reduce((sum, row) => sum + row.minutes, 0);
   const top = data.ranking[0];
-  const period = `${tx({ ko: '합성 데이터', en: 'Synthetic data' })} · ${displayTime(global.from)} – ${displayTime(global.to)}`;
-  const trust = { source: tx({ ko: '합성 데이터', en: 'Synthetic data' }), updated: displayTime(global.to), coverage: tx({ ko: '견본 데이터', en: 'Sample data' }) };
+  const period = `${tx({ ko: '합성 데이터', en: 'Synthetic data' })} · ${formatWallClock(global.from)} – ${formatWallClock(global.to)}`;
+  const trust = { source: tx({ ko: '합성 데이터', en: 'Synthetic data' }), updated: formatWallClock(global.to), coverage: tx({ ko: '견본 데이터', en: 'Sample data' }) };
   const flowTitle = `${data.equipmentId ?? ''} ${tx({ ko: '모듈별 동작 흐름', en: 'operation flow by module' })}`.trim();
   return <AnalysisLayout
     kpi={{ id: 'summary', title: tx({ ko: '동작시간 요약', en: 'Operation time summary' }), node: <div className="grid grid-cols-1 gap-3 @min-[720px]/analysis:grid-cols-3">

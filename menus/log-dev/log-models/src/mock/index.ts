@@ -110,7 +110,7 @@ export const logLifecycleMock: readonly AnyMockEndpoint[] = Object.entries(endpo
   const idKey = { projectDetail: 'projectId', projectEvents: 'projectId', rounds: 'projectId', roundDetail: 'roundId', roundEvidence: 'roundId', requestDetail: 'requestId', ruleResults: 'attemptId', opinions: 'attemptId', excerpt: 'ruleResultId', evidenceStates: 'ruleResultId' }[name];
   return idKey && (typeof params[idKey] !== 'string' || !isUuid(params[idKey] as string)) ? `${idKey} must be UUID` : null;
 }, handle: ({ params, actor }) => read(name, params, actor) }));
-export const logLifecycleActionsMock: readonly AnyMockAction[] = Object.entries(actions).map(([name, spec]) => defineMockAction(spec, {
+export const logModelsActionsMock: readonly AnyMockAction[] = Object.entries(actions).map(([name, spec]) => defineMockAction(spec, {
   version: ({ input }) => name === 'gateDecide' ? findProject(roundOf(input.roundId)?.projectId)?.version ?? null : name === 'requestCancel' ? requestOf(input.id)?.version ?? null : name === 'roundClose' ? roundOf(input.id)?.version ?? null : findProject(input.id)?.version ?? null,
   validate: input => ISSUE_ACTIONS.has(name) ? validateIssueAction(name, input) : ['projectSetStage', 'projectReopen', 'requestCancel', 'gateDecide'].includes(name) && !String(input.reason ?? '').trim() ? [field('reason', 'required')] : [],
   handle: ({ input, actor }) => {
@@ -151,3 +151,5 @@ export const logLifecycleActionsMock: readonly AnyMockAction[] = Object.entries(
 }));
 /** The generator-wired name of the endpoint mocks (tooling/gen-menu spreads `<group>Mock`). */
 export const logModelsMock = logLifecycleMock;
+
+export { logModelsWriteSamples } from './write-samples';

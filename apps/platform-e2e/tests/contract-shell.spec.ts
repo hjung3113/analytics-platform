@@ -720,8 +720,8 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {
   test('여러 공간이 있는 역할도 전역 화면에서는 현재 시스템·섹션 표식이 없고, 공간 화면에서만 표시한다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto('/notices');
-    await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
     await expect(systemSwitcher(page)).toHaveAccessibleName('시스템 및 플랫폼 메뉴');
+    await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
     await expect(page.getByRole('group', { name: '시스템 섹션' })).toHaveCount(0);
     const popover = await openSwitcher(page);
     await expect(popover.getByRole('button', { name: /^MARS/ })).toBeVisible();
@@ -842,11 +842,11 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
   test('VOC 등록은 사이드바 링크가 아니라 레일 버튼의 서랍이고 mock에서는 실서버 필요 상태를 보인다 (#656)', async ({ page }) => {
     await signInAs(page, 'viewer');
     await page.goto('/bravo/metric-catalog');
-    await expect(page.getByRole('navigation', { name: '기능 · BRAVO' }).getByRole('link', { name: 'VOC 등록' })).toHaveCount(0);
     await page.getByRole('button', { name: 'VOC 등록', exact: true }).click();
     const drawer = page.getByRole('complementary', { name: 'VOC 등록' });
     await expect(drawer).toBeVisible();
     await expect(drawer.getByRole('status').filter({ hasText: '실서버 필요' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: '기능 · BRAVO' }).getByRole('link', { name: 'VOC 등록' })).toHaveCount(0);
   });
 
   test('플랫폼 사이드바는 업무 사이드바와 접힘 상태를 함께 쓴다', async ({ page }) => {

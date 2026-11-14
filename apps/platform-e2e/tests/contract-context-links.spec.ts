@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, PRODUCTIVITY, railSection, headerMore, periodPreset, queryBarCollapsedKey } from './contract-helpers';
-import { contextBar, evidence, expandPageHead, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, queryResultSurface, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, switchScope, tableStatusLine } from './support';
+import { expandQueryBar, contextBar, evidence, expandPageHead, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, queryResultSurface, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, switchScope, tableStatusLine } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -11,8 +11,7 @@ async function contextEditor(page: Page, name: string) {
   const bar = contextBar(page);
   await expect(bar).toBeVisible();
   if (await bar.getAttribute('data-query-bar') !== null) {
-    const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
-    if (await expand.count()) await expand.click();
+    await expandQueryBar(page, bar);
     return { locator: bar.getByRole('button', { name }), close: async () => {} };
   }
   await expect(bar.getByRole('button', { name: /^기간:/ })).toBeVisible();
@@ -748,8 +747,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
   async function expandQuery(page: Page) {
     const bar = contextBar(page);
     await expect(bar).toBeVisible();
-    const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
-    if (await expand.count()) await expand.click();
+    await expandQueryBar(page, bar);
     return bar;
   }
   test('펼친 조회 조건에서도 첫 차트는 y=600 위에서 시작하고 적용은 마지막 동작이다 (#1939)', async ({ page }, testInfo) => {
@@ -888,8 +886,7 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
   async function openBar(page: Page) {
     const bar = contextBar(page);
     await expect(bar).toBeVisible();
-    const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
-    if (await expand.count()) await expand.click();
+    await expandQueryBar(page, bar);
     return bar;
   }
   const switcher = (scope: Locator | Page) => scope.getByRole('radiogroup', { name: '조건 묶음' });

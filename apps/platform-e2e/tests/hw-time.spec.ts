@@ -140,7 +140,7 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
 });
 
 /** Approved B observes real layout/paint. No SDK or engine-instance imports. */
-test.describe('approved analysis B (#1141)', () => {
+test.describe('approved analysis B (06 §12.7·§12.8, #1141)', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
 
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }]) {

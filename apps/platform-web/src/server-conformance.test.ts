@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ACTORS, createLocalSavedViewStore, createMockAdapter, defineMockAction, EQUIPMENT, MENU_ID_PATTERN, getRole, jobsForEquipmentDay, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
-import { stageDatasetSuiteRun, stageDatasetBaseline, stageLifecycleFixture, stageValidationIssue, stageOnboardingWindow, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MOCK_WRITE_SAMPLES } from './dev/mock-assembly';
+import { stagedImport, specFixture, setConformanceUpload, MOCK_ACTIONS, MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS, MOCK_WRITE_SAMPLES } from './dev/mock-assembly';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
 import { GROUPS, MENUS, PERMISSIONS, registry } from './menus';
 import { defineAction, emptyGlobal, menuPermission, menuPermissions, spaceId, type Permission } from '@ap/contracts';
@@ -23,73 +23,19 @@ const OCCURRENCE_ANCHOR = jobsForEquipmentDay(EQUIPMENT.find(row => row.equipmen
 
 const page = { page: 0, pageSize: 10, sorting: [] };
 const EXPLORER_SET = { sourceOwner: 'synthetic-ok', files: [{ fileRef: 'source-b', order: 1, sha256: 'b'.repeat(64) }] };
-const EXPLORER_REF = { fileRef: 'source-b', line: 1, fileSha256: 'b'.repeat(64) };
-// The import wizard's reads and writes need a staged job (#1195 c): the mock's own handlers stage one, so each sample is a fresh job.
-const importHandler = (id: string) => MOCK_ACTIONS.find(action => action.spec.id === `logKnowledge.${id}`)!;
-let importSeq = 0;
-const stagedImport = (validated: boolean): { jobId: string; planVersion: number } => {
-  const n = ++importSeq;
-  const text = ['설비사명\t공정명\t모델명', `CF Import Co ${n}\tEtch\tCF Import Model ${n}`, 'Alpha Semicap\t\tAlpha'].join('\n');
-  const { jobId } = importHandler('importPaste').handle({ input: { text }, actor: 'admin', scopeId: null }).data as { jobId: string };
-  const planVersion = validated ? (importHandler('importValidate').handle({ input: { jobId }, actor: 'admin', scopeId: null }).data as { planVersion: number }).planVersion : 1;
-  return { jobId, planVersion };
-};
-// Each spec sample owns a fresh model, so sealed drafts and append-only changes can be exercised repeatedly.
-let specSequence = 0;
-const specFixture = (publish = false) => {
-  const n = ++specSequence;
-  const send = (id: string, input: Record<string, unknown>) => importHandler(id).handle({ input, actor: 'admin', scopeId: null }).data as Record<string, unknown>;
-  const modelId = send('modelCreate', { vendorId: '00000001-0000-4000-8000-000000000001', code: `CF-SPEC-${n}`, name: `CF spec ${n}`, processIds: [] }).id as string;
-  const softwareId = send('softwareCreate', { modelId, versionLabel: '1', name: '' }).id as string;
-  const revisionId = send('specDraftCreate', { modelId, sourceDocRef: { docLabel: 'Conformance', docVersion: '1' } }).revisionId as string;
-  send('specDraftSave', { revisionId, mode: 'append', modules: [{ name: 'Module' }], events: [{ module: 'Module', name: 'Event', triggerRule: 'first' }] });
-  if (publish) send('specPublish', { revisionId });
-  return { modelId, softwareId, revisionId, send };
-};
 const SPEC_READ_DRAFT = specFixture().revisionId;
 const IMPORT_READ_JOB = stagedImport(true).jobId;
-// Studio Layouts (#1654): the mock's own handlers stage Layouts, Revisions and Templates; each write sample owns a fresh Layout so repeated calls never collide.
+// Read conformance fixtures: the seeded Layout and a published Revision and Template.
 const studioAction = (id: string) => MOCK_ACTIONS.find(action => action.spec.id === `eqv.${id}`)!;
 const studioRun = (id: string, input: Record<string, unknown>) => studioAction(id).handle({ input, actor: 'admin', scopeId: null }).data as Record<string, string>;
 const studioRead = (id: string, params: Record<string, unknown>) => endpoints.find(({ spec }) => spec.id === `eqv.${id}`)!.handle({ equipment: [], context: emptyGlobal, params, actor: 'admin' }) as { document: Record<string, unknown> };
 const STUDIO_LAYOUT = 'sample-layout';
-let studioSequence = 0;
-const stagedStudioLayout = (): string => {
-  const layoutId = `cf-layout-${++studioSequence}`;
-  studioRun('saveDraft', { layoutId, document: { ...studioRead('layoutDraft', { layoutId: STUDIO_LAYOUT }).document, id: layoutId } });
-  return layoutId;
-};
 const STUDIO_REVISION = studioRun('publishRevision', { layoutId: STUDIO_LAYOUT }).revision!;
 const STUDIO_TEMPLATE = 'conformance-template';
 studioRun('promoteTemplate', { layoutId: STUDIO_LAYOUT, revision: STUDIO_REVISION, templateId: STUDIO_TEMPLATE, name: 'Conformance' });
-// 설비 온보딩 writes (#1658): a publish sample stages its own Layout and Revision and a later effectiveFrom, so it never equals the latest
-// Binding; a window sample stages its own synthetic window (`stageOnboardingWindow`) on eq-synth-02.
+// Synthetic window and mapping hashes used by the onboarding reads.
 const ONBOARDING_G1 = '23e9e214b396bfaa4539e7b30c5f8f9163fbac6c50201430231f641ff7c822ba';
 const ONBOARDING_MAPPING = 'sha256:0abf3e9ff0b22cb0e7993bfe143461f44ef1b8828df2cdce8e25af3d02987aef';
-/** The seeded active window of eq-synth-02: a publish names it and the mock takes its stored Inventory as the Baseline. */
-const ONBOARDING_WINDOW = '38098e59b24809a728006d2b635e8034d7303ea9403f69f6da7201fe635f9da8';
-let onboardingSequence = 0;
-const onboardingSamples: Record<string, () => Record<string, unknown>> = {
-  saveAliasRules: () => ({ level: 'equipment', equipmentId: 'eq-synth-02', document: { schemaVersion: '0.4', scope: { level: 'equipment', equipmentId: 'eq-synth-02' }, rules: [] } }),
-  saveTypeDictionary: () => ({ level: 'maker', vendorId: 'synth-maker', document: { schemaVersion: '0.4', scope: { level: 'maker', maker: 'synth-maker' }, entries: [] } }),
-  publishMapping: () => {
-    const layoutId = stagedStudioLayout();
-    const { revision } = studioRun('publishRevision', { layoutId });
-    const effectiveFrom = new Date(Date.UTC(2027, 0, 1) + ++onboardingSequence * 1000).toISOString().slice(0, 23);
-    // The mock checks only the format of the reviewed hash (it cannot recompute the screen's, #2053).
-    return { equipmentId: 'eq-synth-02', layoutId, layoutRevision: revision, windowHash: ONBOARDING_WINDOW, effectiveFrom, expectedMappingHash: ONBOARDING_MAPPING };
-  },
-  replaceSampleWindow: () => ({ equipmentId: 'eq-synth-02', windowHash: stageOnboardingWindow('staged') }),
-  retireSampleWindow: () => ({ equipmentId: 'eq-synth-02', windowHash: stageOnboardingWindow('active') }),
-  // The synthetic eq-synth-01 batch, uploaded once by the granted actor below: importing stored content again answers the stored row.
-  importSampleWindow: () => ({ equipmentId: 'eq-synth-01', uploadId: onboardingUploadId }),
-  registerEquipment: () => ({ equipmentId: `cf-eq-${++onboardingSequence}`, label: 'Conformance', vendorId: 'synth-maker', modelId: 'synth-model' }),
-};
-const studioSamples: Record<string, () => Record<string, unknown>> = {
-  saveDraft: () => { const layoutId = `cf-new-${++studioSequence}`; return { layoutId, document: { ...studioRead('layoutDraft', { layoutId: STUDIO_LAYOUT }).document, id: layoutId } }; },
-  publishRevision: () => ({ layoutId: stagedStudioLayout() }),
-  promoteTemplate: () => { const layoutId = stagedStudioLayout(); const { revision } = studioRun('publishRevision', { layoutId }); return { layoutId, revision, templateId: `cf-template-${++studioSequence}`, name: 'Conformance' }; },
-};
 const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
 /** One request per endpoint that the granted actor (engineer at MEM) runs successfully. Endpoints with no params default to `{}`. */
 const PARAMS: Record<string, Record<string, unknown>> = {
@@ -220,7 +166,7 @@ const EQV_CONTEXT = { from: '2026-01-01T10:00:00', to: '2026-01-01T10:30:00' };
 // `forbidden` where the kit wants `ok` or `empty`. `menus/log-dev/log-knowledge/src/mock/topview.test.ts` covers the refusal and the manager answer.
 const LEFT_OUT = new Set(['logKnowledge.topViewRevisionOptions']);
 const cases: ConformanceCase[] = endpoints.filter(({ spec }) => !LEFT_OUT.has(spec.id)).map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {}, ...(spec.id.startsWith('eqv.topview-') ? { context: EQV_CONTEXT } : {}) }));
-// No menu declares a write yet, so the write checks (ADR-0054) judge the mock engine over one fixture action on an
+// One fixed action checks the mock write engine independently of the registered menu actions (ADR-0054).
 // existing analytics menu; the version counter is the stored row the handler bumps and `currentVersion` reads.
 const trendSpec = endpoints.find(({ spec }) => spec.id === 'analytics.productivity.trend')!.spec;
 const fixtureSave = defineAction<{ text: string }, { id: number }>({
@@ -233,177 +179,9 @@ const fixtureMockAction = defineMockAction(fixtureSave, {
   handle: () => { fixtureVersion += 1; return { data: { id: fixtureVersion }, version: String(fixtureVersion) }; },
 });
 
-// The catalog writes (#1194 r) run against the mock's own actions. Each kit check writes with a fresh key, so a create
-// sample hands out a new code every time (a getter) and the others re-send values the row already has. Seed ids are the
-// deterministic ones of `menus/log-dev/log-knowledge/src/mock/store.ts` (sequence order: vendors 1-3, processes 4-7, models
-// 8-13, software 14-17); that package's mock test pins them.
-const seedId = (kind: number, n: number) => `${String(kind).padStart(8, '0')}-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
-const [ALPHA, ETCH, A100, A100_V1] = [seedId(1, 1), seedId(2, 4), seedId(3, 8), seedId(4, 14)];
-let sampleSeq = 0;
-const unique = (label: string) => `CF-${label}-${++sampleSeq}`;
-const catalogSamples: Record<string, () => Record<string, unknown>> = {
-  vendorCreate: () => ({ code: unique('V'), name: 'Conformance vendor' }),
-  vendorUpdate: () => ({ id: ALPHA, code: 'ALPHA', name: 'Alpha Semicap' }),
-  vendorSetActive: () => ({ id: ALPHA, active: true }),
-  processCreate: () => ({ code: unique('P'), name: 'Conformance process' }),
-  processUpdate: () => ({ id: ETCH, code: 'ETCH', name: 'Etch' }),
-  processSetActive: () => ({ id: ETCH, active: true }),
-  modelCreate: () => ({ vendorId: ALPHA, code: unique('M'), name: 'Conformance model', processIds: [ETCH] }),
-  modelUpdate: () => ({ id: A100, code: 'A-100', name: 'Alpha 100', processIds: [ETCH] }),
-  modelSetActive: () => ({ id: A100, active: true }),
-  softwareCreate: () => ({ modelId: A100, versionLabel: unique('S'), name: '' }),
-  softwareUpdate: () => ({ id: A100_V1, versionLabel: 'v1.0', name: '' }),
-  softwareSetActive: () => ({ id: A100_V1, active: true }),
-};
-// The item writes (#1197 s3a) run on seed items (`menus/log-dev/log-knowledge/src/mock/items.ts`, ids `00000005-…-<n>`):
-// 2 is published and stays so, 3 is archived (never written here). Each kit check writes with a fresh key, so every
-// sample must succeed again: a revise appends a revision, a derive and a create hand out new items, a set-archived to
-// `false` on a published item changes nothing, and an assess asks for the state the item does not have right now.
-const itemSeedId = (n: number) => `00000005-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
-const ITEM_PUBLISHED = itemSeedId(2);
-const ITEM_ASSESSED = itemSeedId(6);
-const itemDetailRead = MOCK_ENDPOINTS.find(endpoint => endpoint.spec.id === 'logKnowledge.itemDetail')!;
-const verificationOf = (itemId: string) =>
-  (itemDetailRead.handle({ equipment: [], context: emptyGlobal, params: { itemId }, actor: 'admin' }) as { item: { verificationState: string } }).item.verificationState;
-const itemBody = { typeCode: 'anomaly', observation: '적합성 표본 관찰', expected: '적합성 표본 기대' };
-const itemSamples: Record<string, () => Record<string, unknown>> = {
-  itemCreate: () => ({ ownerModelId: A100, title: unique('I'), ...itemBody }),
-  itemRevise: () => ({ id: ITEM_PUBLISHED, title: unique('R'), ...itemBody, changeNote: '적합성 표본 보완' }),
-  itemAssess: () => ({ id: ITEM_ASSESSED, dimension: 'verification', newState: verificationOf(ITEM_ASSESSED) === 'verified' ? 'observed' : 'verified', rationale: '적합성 표본 근거' }),
-  itemDerive: () => ({ sourceItemId: itemSeedId(1), sourceRevisionNo: 1, ownerModelId: A100, title: unique('D'), ...itemBody }),
-  itemSetArchived: () => ({ id: ITEM_PUBLISHED, archived: false }),
-};
-// The import writes (#1195 c): every sample stages its own job, so it succeeds again with a fresh key. Applies use new names each time.
-const importSamples: Record<string, () => Record<string, unknown>> = {
-  importPaste: () => ({ text: `설비사명\t모델명\nCF Paste Co\tCF Paste ${++importSeq}` }),
-  importValidate: () => ({ jobId: stagedImport(false).jobId }),
-  importResolve: () => ({ jobId: stagedImport(true).jobId, resolutions: [{ rowNo: 2, resolution: 'skip' }] }),
-  importCancel: () => ({ jobId: stagedImport(false).jobId }),
-  importApply: () => { const staged = stagedImport(true); return { jobId: staged.jobId, expectedPlanVersion: staged.planVersion }; },
-};
-const changeFixture = (flag = false) => {
-  const f = specFixture(true);
-  const { changeId } = f.send('specChangeAdd', { modelId: f.modelId, softwareId: f.softwareId, targetKind: 'event', target: { module: 'Module', event: 'Event' }, changeKind: 'behavior', note: 'Conformance note' });
-  if (flag) {
-    const { revisionId } = f.send('specDraftCreate', { modelId: f.modelId, sourceDocRef: { docLabel: 'Conformance', docVersion: '2' } });
-    f.send('specDraftSave', { revisionId, mode: 'append', modules: [{ name: 'Module' }], events: [{ module: 'Module', name: 'Event', triggerRule: 'second' }] });
-    f.send('specPublish', { revisionId });
-  }
-  return { changeId };
-};
-const specSamples: Record<string, () => Record<string, unknown>> = {
-  specDraftCreate: () => ({ modelId: specFixture(true).modelId, sourceDocRef: { docLabel: 'Conformance', docVersion: '2' } }),
-  specDraftSave: () => ({ revisionId: specFixture().revisionId, mode: 'append', modules: [{ name: 'Extra' }] }),
-  specPublish: () => ({ revisionId: specFixture().revisionId }),
-  specReject: () => ({ revisionId: specFixture().revisionId, reason: 'Conformance rejection' }),
-  specChangeAdd: () => { const f = specFixture(true); return { modelId: f.modelId, softwareId: f.softwareId, targetKind: 'event', target: { module: 'Module', event: 'Event' }, changeKind: 'behavior', note: 'Conformance note' }; },
-  specChangeRetire: () => changeFixture(),
-  specChangeConfirm: () => changeFixture(true),
-};
-// The concept writes (#1196 e): every sample stages its own `related` proposal on the seed model's Chamber module (a
-// `related` row is exempt from the one-confirmed-equivalent rule), so confirm and reject succeed again on every call.
-const stagedConcept = (): string => {
-  const out = importHandler('conceptPropose').handle({ input: { modelId: A100, targetKind: 'module', target: { module: 'Chamber' }, canonicalLabel: unique('CONCEPT'), relationKind: 'related' }, actor: 'admin', scopeId: null }).data as { mappingId: string };
-  return out.mappingId;
-};
-// The Top View pointer writes (#1656). `unlinkTopView` stages its own row once (only while none exists), so the version the harness
-// reads and the version it sends agree on every call. The Revision is the mock's synthetic Layout (hash proved in @ap/menu-topview).
-const TOPVIEW = { layoutId: 'sample-layout', revision: 'sha256:0cd25afbcf9beeb516b7d6c65b16d12ba648c688c70c8c0b2db994170e1ec0f5' };
-const topViewSamples: Record<string, () => Record<string, unknown>> = {
-  linkTopView: () => ({ modelId: A100, fromSoftwareId: null, ...TOPVIEW }),
-  unlinkTopView: () => {
-    const link = importHandler('linkTopView');
-    const input = { modelId: A100, fromSoftwareId: A100_V1, ...TOPVIEW };
-    if (link.version?.({ input, actor: 'admin', scopeId: null }) === '0') link.handle({ input, actor: 'admin', scopeId: null });
-    return { modelId: A100, fromSoftwareId: A100_V1 };
-  },
-};
-const conceptSamples: Record<string, () => Record<string, unknown>> = {
-  conceptPropose: () => ({ modelId: A100, targetKind: 'module', target: { module: 'Chamber' }, canonicalLabel: unique('CONCEPT') }),
-  conceptConfirm: () => ({ mappingId: stagedConcept() }),
-  conceptReject: () => ({ mappingId: stagedConcept(), reason: '적합성 표본 기각' }),
-};
-// The improvement writes (#1328 d) run on seed items (`platform/improvement-items/src/mock/index.ts`, ids `13280000-…-<n>`):
-// 1 is open with no quest, 2 is in_progress with quest Q-1. Re-sending values the row already has changes nothing, so
-// itemUpdate/itemAssign/itemLinkQuest succeed again on every call (the mock bumps the version only when the row really
-// changed); a status move and a reopen can never re-send a state (FORWARD is one-way, REOPEN always flips), so those
-// samples stage their own fresh item, like the import samples stage their job.
-const improvementSeedId = (n: number) => `13280000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
-const IMPROVEMENT_OPEN = improvementSeedId(1);
-const IMPROVEMENT_QUESTED = improvementSeedId(2);
-const improvementHandler = (id: string) => MOCK_ACTIONS.find(action => action.spec.id === `improvement.${id}`)!;
-const stagedOpenItem = (): string => {
-  const { itemId } = improvementHandler('itemCreate').handle({ input: { problem: unique('IS'), targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'EQ-01' }] }, actor: 'admin', scopeId: null }).data as { itemId: string };
-  return itemId;
-};
-const improvementSamples: Record<string, () => Record<string, unknown>> = {
-  itemCreate: () => ({ problem: unique('IC'), targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'EQ-01' }] }),
-  itemUpdate: () => ({ itemId: IMPROVEMENT_OPEN, problem: '이송 대기 시간 증가' }),
-  itemSetStatus: () => ({ itemId: stagedOpenItem(), status: 'in_progress', action: '적합성 표본 조치' }),
-  itemReopen: () => {
-    const itemId = stagedOpenItem();
-    // FORWARD is one-way (open → done is not a legal move, the server refuses it), so staging follows the legal path.
-    improvementHandler('itemSetStatus').handle({ input: { itemId, status: 'in_progress', action: '적합성 표본 조치' }, actor: 'admin', scopeId: null });
-    improvementHandler('itemSetStatus').handle({ input: { itemId, status: 'done', action: '적합성 표본 조치', actionDate: '2026-11-04' }, actor: 'admin', scopeId: null });
-    return { itemId, reason: '적합성 표본 재열기' };
-  },
-  itemAssign: () => ({ itemId: IMPROVEMENT_OPEN, assigneeId: null }),
-  itemLinkQuest: () => ({ itemId: IMPROVEMENT_QUESTED, questId: 'Q-1', questTitle: '대기 시간 줄이기' }),
-};
-// Fresh own investigations keep archive and evidence writes repeatable in the conformance kit.
-const explorerHandler = (name: string) => MOCK_ACTIONS.find(a => a.spec.id === `logExplorer.${name}`)!;
-const EXPLORER_ROUND = '14740000-0000-4000-8000-0000000000aa';
-const freshInvestigation = (withEvidence = false, round = false): string => {
-  const id = (explorerHandler('investigationCreate').handle({ actor: 'admin', scopeId: null, input: round ? { title: 'Synthetic conformance round investigation', origin: 'round', roundId: EXPLORER_ROUND } : { title: 'Synthetic conformance investigation', origin: 'standalone', sampleSet: EXPLORER_SET } }).data as { id: string }).id;
-  if (withEvidence) explorerHandler('evidenceAdd').handle({ actor: 'admin', scopeId: null, input: { id, ref: EXPLORER_REF } });
-  return id;
-};
-const explorerSamples = {
-  investigationCreate: () => ({ title: 'Synthetic conformance investigation', origin: 'standalone', sampleSet: EXPLORER_SET }),
-  investigationUpdate: () => ({ id: freshInvestigation(), filters: { module: 'Module 1' } }),
-  evidenceAdd: () => ({ id: freshInvestigation(), ref: EXPLORER_REF }),
-  evidenceRemove: () => ({ id: freshInvestigation(true), ref: { fileRef: EXPLORER_REF.fileRef, line: EXPLORER_REF.line } }),
-  investigationArchive: () => ({ id: freshInvestigation() }),
-  evidenceHandoff: () => ({ id: freshInvestigation(true, true), refs: [{ fileRef: EXPLORER_REF.fileRef, line: EXPLORER_REF.line, fileSha256: EXPLORER_REF.fileSha256 }], target: { kind: 'round', roundId: EXPLORER_ROUND } }),
-};
-// #1447 lifecycle actions are stateful; stage fresh mock-only targets for each conformance request.
-const lifecycleSamples: Record<string, () => Record<string, unknown>> = {
-  projectCreate: () => ({ modelId: stageLifecycleFixture({ withoutProject: true }).modelId, kind: 'new', ownerActorId: 'admin' }),
-  projectSetStage: () => ({ id: stageLifecycleFixture().projectId, toStage: 'beta', reason: '적합성 단계 이동' }),
-  projectReopen: () => ({ id: stageLifecycleFixture({ cancelled: true }).projectId, reason: '적합성 재개' }),
-  projectUpdate: () => ({ id: stageLifecycleFixture().projectId, targetDate: '2026-12-01' }),
-  roundOpen: () => ({ projectId: stageLifecycleFixture({ noOpenRound: true }).projectId, sampleSet: { sourceOwner: 'synthetic', files: [{ fileRef: 's3://synthetic/conformance.log', order: 1, sha256: 'a'.repeat(64) }] } }),
-  roundClose: () => ({ id: stageLifecycleFixture().roundId }),
-  requestCreate: () => ({ roundId: stageLifecycleFixture().roundId, priority: 1, immediate: false }),
-  requestCancel: () => ({ id: stageLifecycleFixture().requestId, reason: '적합성 취소' }),
-  gateDecide: () => ({ roundId: stageLifecycleFixture().roundId, targetStage: 'beta', decision: 'rejected', reason: '적합성 검토' }),
-  // #1808 human validation records: each request gets a fresh Round and issue.
-  validationIssueRegister: () => { const t = stageLifecycleFixture(); return { projectId: t.projectId, firstRoundId: t.roundId, title: '적합성 항목', body: '적합성 설명' }; },
-  validationIssueComment: () => ({ issueId: stageValidationIssue(stageLifecycleFixture()).issueId, body: '적합성 댓글' }),
-  validationIssueCorrect: () => ({ issueId: stageValidationIssue(stageLifecycleFixture()).issueId, field: 'body', body: '적합성 정정' }),
-  validationIssueLinkOccurrence: () => { const t = stageLifecycleFixture(); return { issueId: stageValidationIssue(t).issueId, roundId: t.roundId }; },
-  validationIssueLinkEvidence: () => ({ occurrenceId: stageValidationIssue(stageLifecycleFixture()).occurrenceId, refs: [{ fileRef: 's3://synthetic/sample-01.log', line: 1, fileSha256: 'a'.repeat(64) }] }),
-  roundDiscussionComment: () => ({ roundId: stageLifecycleFixture().roundId, body: '적합성 Round 의견' }),
-};
-const writeSamples: Record<string, Record<string, () => Record<string, unknown>>> = {
-  logKnowledge: { ...catalogSamples, ...itemSamples, ...importSamples, ...specSamples, ...conceptSamples, ...topViewSamples },
-  improvement: improvementSamples,
-  logExplorer: explorerSamples,
-  logLifecycle: lifecycleSamples,
-  eqv: { ...studioSamples, ...onboardingSamples },
-  logDataset: {
-    baselineApprove: () => ({ id: stageDatasetBaseline(), reason: '적합성 승인' }),
-    suiteRun: () => ({ suiteId: stageDatasetSuiteRun(), idempotencyKey: crypto.randomUUID() }),
-    reviewLabelAdd: () => ({ suiteRunId: '14810000-0000-4000-8000-000000000401', datasetRevisionId: '14810000-0000-4000-8000-000000000101', ruleId: 'R-01', label: 'needs_review', reason: '적합성 검토' }),
-  },
-};
-// A menu's `./mock` exports its write samples keyed by the full action id (`MOCK_WRITE_SAMPLES`, generator-wired);
-// the hand tables above cover the menus that predate it (key: group prefix → action name).
+// Every action input comes from its menu's generated mock registration.
 const menuSamples: Record<string, () => Record<string, unknown>> = Object.assign({}, ...MOCK_WRITE_SAMPLES);
-const sampleOf = (actionId: string): (() => Record<string, unknown>) | undefined => {
-  const dot = actionId.indexOf('.');
-  return menuSamples[actionId] ?? writeSamples[actionId.slice(0, dot)]?.[actionId.slice(dot + 1)];
-};
+const sampleOf = (actionId: string) => menuSamples[actionId];
 // An action without a sample is reported by name in the harness test below instead of crashing the suite at load.
 const actionCases = MOCK_ACTIONS.flatMap(action => {
   const sample = sampleOf(action.spec.id);
@@ -434,6 +212,10 @@ const secondGroup = grantedEquipment.find(e => e.stgroup !== conditionSample.stg
 
 
 describe('conformance harness covers what the app registers', () => {
+  it('gets every registered action sample from its menu mock (#2010)', () => {
+    expect(MOCK_ACTIONS.filter(action => menuSamples[action.spec.id] === undefined).map(action => action.spec.id)).toEqual([]);
+  });
+
   it('gives a sample request to every endpoint that declares params', () => {
     const missing = endpoints.filter(({ spec }) => Object.keys(spec.paramKeys).length > 0 && !(spec.id in PARAMS)).map(({ spec }) => spec.id);
     expect(missing).toEqual([]);
@@ -451,6 +233,7 @@ const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints, re
 const onboardingBatchDir = join(process.cwd(), '../../packages/eqv/assets/observations/eq-synth-01/windows');
 const onboardingBatch = readFileSync(join(onboardingBatchDir, readdirSync(onboardingBatchDir)[0]!), 'utf8');
 const onboardingUploadId = (await asRole(GRANTED, () => adapter.uploadFile!({ file: new Blob([onboardingBatch], { type: 'application/json' }), name: 'conformance.batch.json', idempotencyKey: crypto.randomUUID() }))).data!.id;
+setConformanceUpload(onboardingUploadId);
 
 // The SavedViewStore conformance sample (#1131): the browser-local store judged by the same checks as the real
 // server's. Both actors come from the mock directory of @ap/mock-server so the group share between them is real;

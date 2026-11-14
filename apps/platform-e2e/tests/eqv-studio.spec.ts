@@ -12,7 +12,7 @@ const SEEDED_REVISION = 'sha256:0cd25afbcf9beeb516b7d6c65b16d12ba648c688c70c8c0b
 const sidebar = (page: Page) => page.getByRole('navigation', { name: '주 메뉴' });
 const heading = (page: Page) => page.getByRole('heading', { level: 1 });
 
-test.describe('eqv studio layouts', () => {
+test.describe('eqv studio layouts (06 §5·§17·§19)', () => {
   test('engineer edits a label, saves, publishes a Revision and promotes it to an EV Template', async ({ page }, testInfo) => {
     await page.goto('/');
     await chooseSystem(page, '도구');

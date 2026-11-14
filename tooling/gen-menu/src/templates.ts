@@ -22,13 +22,13 @@ export type MenuInputs = {
   binding: string;
 };
 
+export const SDK_RANGE = '>=0.36.0 <0.37.0';
+
 /**
  * The scaffold's one permission: the manifest declares it and the sample endpoint's ACL requires
  * it, because the server re-validates data permission per request (#47). Kept in one place so the
  * two never drift apart.
  */
-export const SDK_RANGE = '>=0.36.0 <0.37.0';
-
 export const SCAFFOLD_PERMISSION = 'platform:view';
 
 export const menuPackage = (folder: string): string => `${PACKAGE_PREFIX}menu-${folder}`;

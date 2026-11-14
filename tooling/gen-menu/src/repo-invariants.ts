@@ -9,6 +9,7 @@ import {
   MOCK_SAMPLE_ENTRIES_END, MOCK_SAMPLE_ENTRIES_START, MOCK_SPREADS_END, MOCK_SPREADS_START, SPREADS_END, SPREADS_START,
   STYLES_END, STYLES_START, STYLE_CSS, manifestEntries, packageName, parseDepLine, pathShape,
 } from './generate.ts';
+import { SDK_RANGE } from './templates.ts';
 import { PACKAGE_PREFIX } from './prefix.ts';
 
 const MENUS_MARKERS = [IMPORT_START, IMPORT_END, GROUPS_END, SPREADS_START, SPREADS_END] as const;
@@ -396,6 +397,7 @@ export function checkMenuVersions(root: string): void {
     if (!caret && !(range && range[1] === range[4] && Number(range[5]) === Number(range[2]) + 1)) {
       throw new Error(`${pkgPath}: invalid ap.sdk range`);
     }
+    if (sdk !== SDK_RANGE) throw new Error(`${pkgPath}: ap.sdk must match SDK_RANGE (expected ${SDK_RANGE})`);
     const changelog = join(dir, 'CHANGELOG.md');
     if (!existsSync(changelog)) throw new Error(`${changelog}: missing CHANGELOG`);
     const heading = /^## (.+)$/m.exec(readFileSync(changelog, 'utf8'))?.[1];

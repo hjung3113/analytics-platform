@@ -3,7 +3,7 @@ import { evidence, signInAs } from './support';
 import { chooseSystem } from './contract-helpers';
 
 /**
- * EV viewer (#801, #1659): the menu package @ap/menu-topview (`eqv:topview`, `eqv:focus`); the describe name keeps the former host-module title.
+ * EV viewer (#801, #1659): the menu package @ap/menu-topview (`eqv:topview`, `eqv:focus`); the describe names the menu and permission contracts observed through it.
  * Black-box: nothing from @eqv/* is imported; the window and equipment are the mock fixture's, spelled as the URL carries them
  * (naive seconds, no `Z`). The placement below is the one in `menus/tools/topview/src/index.ts` — update both together.
  * The server-side refusal of a viewer (`without eqv:view → forbidden`) is the conformance test; the client gate renders first here.
@@ -12,7 +12,7 @@ const TOPVIEW = '/tools/eqv-topview?equipment=eq-synth-01&from=2026-01-01T10:00:
 const MENU = '설비 Top View';
 const sidebar = (page: Page) => page.getByRole('navigation', { name: '주 메뉴' });
 
-test.describe('EV host module (#801)', () => {
+test.describe('EV 메뉴 계약 (06 §5·§17, #801)', () => {
   test('sidebar entry offers equipment and recovers its data window with an at-most-eight-hour default', async ({ page }, testInfo) => {
     await page.goto('/');
     await chooseSystem(page, '도구');

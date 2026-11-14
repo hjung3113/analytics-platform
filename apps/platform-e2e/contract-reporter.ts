@@ -49,7 +49,7 @@ export default class ContractReporter implements Reporter {
 
   onEnd(result: FullResult) {
     const rows: Row[] = [...this.tests.values()].map(({ test, attempts }) => ({
-      area: test.parent.title, check: test.title, outcome: test.outcome(), attempts,
+      area: test.titlePath().slice(3, -1).join(' › '), check: test.title, outcome: test.outcome(), attempts,
     }));
     const count = (o: Row['outcome']) => rows.filter(r => r.outcome === o).length;
     const lines = [

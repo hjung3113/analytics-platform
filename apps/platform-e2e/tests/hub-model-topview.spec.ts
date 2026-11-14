@@ -5,7 +5,7 @@ import { signInAs } from './support';
 const linked = '00000003-0000-4000-8000-000000000008';
 const unlinked = '00000003-0000-4000-8000-000000000009';
 
-test.describe('hub model topview', () => {
+test.describe('hub model topview (06 §13·§18)', () => {
   test('a linked model shows the drawing region and the disclosure', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto(`/log/knowledge/models/${linked}?v=1&scopeId=MEM`);

@@ -1,3 +1,4 @@
+import { formatWallClock } from '@ap/contracts';
 /**
  * One display text for the cycle-time bucket and histogram (분포 구간) filters (#1218 FORMAT): the
  * chip row, the query-bar summary (`summaryFor`) and the XLSX 조회 정보 sheet all print these, so
@@ -23,8 +24,8 @@ export function bucketText(raw: string, grain: Granularity, _lang: 'ko' | 'en'):
   }
   const end = bucketEnd(raw, grain);
   if (grain === 'hour') {
-    const to = end.slice(0, 10) === raw.slice(0, 10) ? end.slice(11, 16) : end.replace('T', ' ').slice(0, 16);
-    return `${raw.replace('T', ' ').slice(0, 16)} → ${to}`;
+    const to = end.slice(0, 10) === raw.slice(0, 10) ? end.slice(11, 16) : formatWallClock(end, 'minute');
+    return `${formatWallClock(raw, 'minute')} → ${to}`;
   }
   return `${raw.slice(0, 10)} → ${end.slice(0, 10)}`;
 }

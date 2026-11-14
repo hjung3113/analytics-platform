@@ -392,3 +392,5 @@ function maskChanges(changes: Record<string, unknown>, grants: Record<string, st
   }
   return result;
 }
+
+export { improvementItemsWriteSamples } from './write-samples';

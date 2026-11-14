@@ -29,10 +29,10 @@ test.describe('관리 레이아웃 필터 줄 — 레일 없음 (06 §12.6, ADR-
     await signInAs(page, 'admin');
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/operations/admin-audit?v=1');
-    await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^필터(?: · \d+)?$/ })).toHaveCount(0);
     const line = page.locator('[data-filter-line]');
     await expect(line).toBeVisible();
+    await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^필터(?: · \d+)?$/ })).toHaveCount(0);
     await expect(line.locator('[data-filter-body]')).toHaveCount(2);
     await expect(line.locator('[data-filter-body]').first()).toHaveAttribute('data-filter-body', 'action');
     await expect(line.locator('[data-filter-body]').nth(1)).toHaveAttribute('data-filter-body', 'actor');
@@ -102,8 +102,9 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
   // #1217 (node e1): q is the toolbar search (draft + Enter, ADR-0037); 상태·Maker moved into the hidden `filter` key (describe 「표 필터 모델 (#1217)」).
   test('설비 q는 page key를 쓰고 Enter로 적용하며 page를 초기화하고, 필터 초기화는 q와 조건을 함께 지운다', async ({ page }, testInfo) => {
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM&page=2');
-    await expect(page.getByRole('button', { name: '필터 초기화' })).toHaveCount(0);
     const search = page.getByRole('searchbox', { name: '설비 ID 검색' });
+    await expect(search).toBeVisible();
+    await expect(page.getByRole('button', { name: '필터 초기화' })).toHaveCount(0);
     await search.fill('PHOTO');
     expect(query(page).has('q')).toBe(false);
     expect(query(page).get('page')).toBe('2');

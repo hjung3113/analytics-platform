@@ -49,7 +49,7 @@ Holds only business-system menu Consumer packages: `menus/<system>/<group>/` (tw
 
 ## Verification
 
-- Narrow with `pnpm --filter @ap/menu-<group> test`, then run the root checks (root `AGENTS.md`). Every menu package has a `test` script except those with planned menus only (`@ap/menu-master-data`, `menus/log-dev/*` other than `log-knowledge` and `log-rules`).
+- Narrow with `pnpm --filter @ap/menu-<group> test`, then run the root checks (root `AGENTS.md`). Every menu package has a `test` script except those with planned menus only (`master-data`, `rcc`, `mcc`, `wpt`, `configuration`, `log-my-work`, `log-cross`).
 - When a screen changes, check it in the browser with `pnpm dev`.
 
 Next: screen authoring is [apps/platform-web README "페이지 작성 가이드"](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙); the menu declaration contract is 06 §5.

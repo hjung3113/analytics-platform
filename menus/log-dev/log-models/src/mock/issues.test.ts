@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyGlobal } from '@ap/contracts';
-import { logLifecycleActionsMock, logLifecycleMock, ATTEMPT_ID, PROJECT_ID, ROUND_ID, REQUEST_ID, fixtureId, resetLifecycle } from './index';
+import { logModelsActionsMock as logLifecycleActionsMock, logLifecycleMock, ATTEMPT_ID, PROJECT_ID, ROUND_ID, REQUEST_ID, fixtureId, resetLifecycle } from './index';
 import type { RoleId } from '@ap/mock-server';
 import type { CursorPage, DiscussionComment, RequestDetail, RoundDetail, ValidationIssueDetail, ValidationIssueRow } from '../endpoints';
 

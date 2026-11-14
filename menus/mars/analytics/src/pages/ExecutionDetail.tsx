@@ -1,3 +1,4 @@
+import { formatWallClock } from '@ap/contracts';
 import { AlertTriangle, Ban } from 'lucide-react';
 import { formatNumber, parseDateTime } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
@@ -59,7 +60,7 @@ export default function ExecutionDetail({ params }: PageProps) {
           <Identity label="EquipmentID" value={equipmentId} />
           <Identity label="entityType" value={entityType ?? '—'} />
           <Identity label="anchor" value={anchor ?? '—'} />
-          <Identity label={ko ? '시작 시각' : 'Start time'} value={startedAt ? startedAt.replace('T', ' ') : '—'} />
+          <Identity label={ko ? '시작 시각' : 'Start time'} value={startedAt ? formatWallClock(startedAt) : '—'} />
         </div>
       </Panel>
 
@@ -113,8 +114,8 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
         })}
       </div>
       <div className="mt-1 flex justify-between text-tiny text-text-muted tabular">
-        <span>{execution.startedAt.replace('T', ' ')}</span>
-        <span>{axisEnd.replace('T', ' ')}</span>
+        <span>{formatWallClock(execution.startedAt)}</span>
+        <span>{formatWallClock(axisEnd)}</span>
       </div>
       <p className="mt-2 text-xs text-text-muted">{ko
         ? '막대 위치는 초 단위 길이입니다. 시작 시각은 식별 키와 별도 필드에서 가져와 그대로 표시합니다. 정확한 값은 아래 표입니다.'
@@ -134,8 +135,8 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
               <td className="px-4 py-1"><span className="t-mono">{segment.kind}</span></td>
               <td className="t-mono px-4 py-1">{segment.module}</td>
               <td className="t-mono px-4 py-1">{segment.slot}</td>
-              <td className="t-mono px-4 py-1 tabular">{segment.start.replace('T', ' ')}</td>
-              <td className="t-mono px-4 py-1 tabular">{segment.end.replace('T', ' ')}</td>
+              <td className="t-mono px-4 py-1 tabular">{formatWallClock(segment.start)}</td>
+              <td className="t-mono px-4 py-1 tabular">{formatWallClock(segment.end)}</td>
               <td className="px-4 py-1 text-right tabular">{formatNumber(segment.durationMin, lang, { decimals: 1 })}</td>
             </tr>)}
           </tbody>
