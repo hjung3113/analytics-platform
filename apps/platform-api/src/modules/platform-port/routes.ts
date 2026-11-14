@@ -72,7 +72,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     entityReader,
   });
   const access = createAccessDirectoryService({ db: opts.db, checkService: opts.checkService, permissions: opts.permissions });
-  const usage = createPlatformUsageService({ db: opts.db, checkService: opts.checkService, undeclaredMenuPermissions: opts.undeclaredMenuPermissions });
+  const usage = createPlatformUsageService({ db: opts.db, checkService: opts.checkService, ...(opts.undeclaredMenuPermissions ? { undeclaredMenuPermissions: opts.undeclaredMenuPermissions } : {}) });
   const clientErrors = createPlatformClientErrorService({ db: opts.db });
   const prefs = createPlatformPreferencesService({ db: opts.db });
   const csrf = requireCsrf(opts.sessionService);

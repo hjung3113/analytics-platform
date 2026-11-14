@@ -1010,7 +1010,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     ...scopeDeps,
     prefix: PLATFORM_PORT_PREFIX,
     permissions: platformPermissions,
-    undeclaredMenuPermissions: opts.undeclaredMenuPermissions,
+    ...(opts.undeclaredMenuPermissions ? { undeclaredMenuPermissions: opts.undeclaredMenuPermissions } : {}),
     sessionService,
     checkService,
     workspaceId,
