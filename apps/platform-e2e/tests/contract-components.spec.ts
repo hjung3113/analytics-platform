@@ -1,3 +1,4 @@
+import { browserPreferenceKey } from './support';
 import { expect, test, type Page } from '@playwright/test';
 import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
 import { contextBar, evidence, expandPageHead, fitWorkspace, query, setScenario, signInAs, tableStatusLine } from './support';
@@ -316,11 +317,11 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
     await expect(collapse).toBeFocused();
 
     // 접힘 기억과 사이드바 상태는 storage state 없이 context마다 격리되지만, 테스트가 남긴 키를 지워 기본값으로 끝낸다.
-    await page.evaluate(() => {
-      localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
-      localStorage.removeItem('platform:page-head-collapsed:cycle-time');
-      localStorage.removeItem('platform:sidebar-collapsed');
-    });
+    await page.evaluate(keys => {
+      localStorage.removeItem(keys[0]);
+      localStorage.removeItem(keys[1]);
+      localStorage.removeItem(keys[2]);
+    }, [browserPreferenceKey('page-filter-collapsed', 'cycle-time'), browserPreferenceKey('page-head-collapsed', 'cycle-time'), browserPreferenceKey('sidebar-collapsed', '')]);
   });
 });
 
@@ -636,7 +637,7 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
   test('992px 펼친 사이드바·상세 패널에서 동작 열은 72px 아이콘으로 고정되고 눌린다 (#399)', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 992, height: 900 });
     await signInAs(page, 'admin');
-    await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
+    await page.addInitScript(keys => localStorage.setItem(keys[0], 'false'), [browserPreferenceKey('sidebar-collapsed', '', 'admin')]);
     await page.goto('/operations/admin-roles?v=1');
     await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
     const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
@@ -828,7 +829,7 @@ test.describe('표 필터 모델 (#1217)', () => {
 // #680 keeps the expanded-bar head disclosure; #1941 moves its folded-bar controls into the query region.
 test.describe('페이지 머리 접기 (#680)', () => {
   const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
-  const HEAD_KEY = 'platform:page-head-collapsed:cycle-time';
+  const HEAD_KEY = browserPreferenceKey('page-head-collapsed', 'cycle-time');
   /** Owner-approved B: first chart top at 1440×900 is at most 270px (prototype 262px). */
   const FIRST_CHART_TOP_MAX = 270;
   const line = (page: Page) => page.locator('[data-page-head-line]');
@@ -836,12 +837,12 @@ test.describe('페이지 머리 접기 (#680)', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.addInitScript(() => {
+    await page.addInitScript(keys => {
       if (sessionStorage.getItem('platform:e2e-head-reset')) return;
-      localStorage.removeItem('platform:page-head-collapsed:cycle-time');
-      localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
+      localStorage.removeItem(keys[0]);
+      localStorage.removeItem(keys[1]);
       sessionStorage.setItem('platform:e2e-head-reset', '1');
-    });
+    }, [browserPreferenceKey('page-head-collapsed', 'cycle-time'), browserPreferenceKey('page-filter-collapsed', 'cycle-time')]);
     await startWithQueryBarOpen(page, 'cycle-time'); // these specs measure the open bar
   });
 

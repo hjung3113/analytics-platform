@@ -15,7 +15,7 @@ Boots the assembled app (`apps/platform-web`, mock adapter) in a browser and che
 - Selectors use roles and accessible names (Korean UI); update them when copy changes.
 - Attach evidence screenshots with `evidence(page, testInfo, name)` at the moment the contract is visible (right after a transition).
 - Default viewport is desktop 1440×900 (05 Decided). Only width-dependent contracts (ADR-0013 detail slot, ADR-0015 Context bar) use `setViewportSize` (1280, 1920, …) in their `test`.
-- `layout="fill"` pages (cycle time) start with the head collapsed (#680). Before touching head controls (page filters, chip row) call `expandPageHead(page)` from `tests/support.ts`; clear the memory key `platform:page-head-collapsed:<menuId>` before load when it must not persist.
+- `layout="fill"` pages (cycle time) start with the head collapsed (#680). Before touching head controls (page filters, chip row) call `expandPageHead(page)` from `tests/support.ts`; clear the account-owned head key from `browserPreferenceKey` in `tests/support.ts` before load when it must not persist.
 - Fixed-URL `page` must be inside the real range for that filter combination (#314: `page=2` on a table filtered to 1 row fails).
 - A new page starts at `about:blank`, so `history.length` is not 1. Assert replace as "one Back leaves the app (`about:blank`)".
 - Reproduce local-pass/CI-fail with CPU throttling (`Emulation.setCPUThrottlingRate` 8) and compare with main.

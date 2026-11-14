@@ -662,14 +662,14 @@ describe('PlatformColumn conversion defaults (#160)', () => {
     expect(headerOrder()).toEqual(['visits', 'status', 'fixed']);
     expect(document.activeElement).toBe(within(popover).getByRole('button', { name: 'Status 아래로' }));
     expect(within(popover).getByText('Status 2번째로 이동')).toBeTruthy();
-    expect(JSON.parse(localStorage.getItem('plain-table')!).order).toEqual(['visits', 'status', 'fixed']);
+    expect(JSON.parse(localStorage.getItem('platform:columns:v1:user-a:plain-table')!).order).toEqual(['visits', 'status', 'fixed']);
     // at the edge the pressed button is disabled now: focus moves to its opposite
     fireEvent.click(within(popover).getByRole('button', { name: 'Status 아래로' }));
     expect(headerOrder()).toEqual(['visits', 'fixed', 'status']);
     expect(document.activeElement).toBe(within(popover).getByRole('button', { name: 'Status 위로' }));
     fireEvent.click(within(popover).getByRole('button', { name: '기본값으로' }));
     expect(headerOrder()).toEqual(['status', 'visits', 'fixed']);
-    expect(JSON.parse(localStorage.getItem('plain-table')!).order).toEqual([]);
+    expect(JSON.parse(localStorage.getItem('platform:columns:v1:user-a:plain-table')!).order).toEqual([]);
     vi.unstubAllGlobals();
   });
 
@@ -733,7 +733,7 @@ describe('PlatformColumn conversion defaults (#160)', () => {
     const popover = await screen.findByRole('dialog');
     fireEvent.click(within(popover).getByRole('button', { name: 'B 아래로' }));
     expect(headerOrder()).toEqual(['c', 'a', 'd', 'b']);
-    const saved = JSON.parse(localStorage.getItem('legacy-pins')!);
+    const saved = JSON.parse(localStorage.getItem('platform:columns:v1:user-a:legacy-pins')!);
     expect(exportColumns(legacyColumns, saved).map(c => c.id)).toEqual(['c', 'a', 'd', 'b']);
     view.unmount();
     render(<LegacyPinHarness />);

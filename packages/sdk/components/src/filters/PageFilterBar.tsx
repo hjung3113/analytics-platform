@@ -166,7 +166,7 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
   const summaryId = `${id}-summary`;
   const summaryText = `${summaryItems.map(item => `${item.label} ${item.value}`).join(' · ')}${hasPendingChanges ? ` · ${t('pageFilterPendingChanges')}` : ''}`;
   const expandedByParent = useContext(PageFilterExpandedContext);
-  const { collapsed: preferredCollapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText, defaultCollapsed);
+  const { collapsed: preferredCollapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText, { defaultCollapsed });
   const collapsed = !expandedByParent && preferredCollapsed;
   const barRef = useRef<HTMLFieldSetElement>(null);
   const fieldsRef = useRef<HTMLDivElement>(null);

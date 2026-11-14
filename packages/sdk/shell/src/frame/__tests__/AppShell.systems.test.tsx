@@ -39,7 +39,7 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
   sessionStorage.clear();
-  localStorage.setItem('platform:sidebar-collapsed', '0');
+  localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -147,7 +147,7 @@ describe('sidebar of the current section (15 §3.2)', () => {
   });
 
   it('draws the current section menu icons only when collapsed', () => {
-    localStorage.setItem('platform:sidebar-collapsed', '1');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
     const view = mount('/cycle?v=1');
     const nav = screen.getByRole('navigation', { name: '주 메뉴' });
     expect(within(nav).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['사이클 목록']);

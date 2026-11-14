@@ -1,12 +1,19 @@
 export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type DonutSpec, type DonutSlice, type ScatterPoint, type ScatterSpec, type BoxStats, type BoxPlotSpec, type ParetoSpec, type TopNBarSpec, type TopNBarItem } from './chart/AnalysisChart';
-export * from './chart/AnalysisChartFrame';
+export { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries, type ChartPoint, type ChartPointAction } from './chart/AnalysisChartFrame';
 export * from './drawer/AuditTimeline';
 export { copyText, useCopyLink } from './state/copyText';
 export * from './state/DataTrustIndicator';
 export type { ChartTrust } from './state/trustFormat';
 export * from './drawer/DetailDrawer';
 // Explicit: strokeToken·baseTextStyle stay package-internal (chart plumbing and tests only).
-export { chartTheme, EChart, token, type EChartProps } from './chart/EChart';
+/** @deprecated use '@ap/components/host'; removed next SDK minor */
+export { chartTheme } from './chart/EChart';
+/** @deprecated use '@ap/components/host'; removed next SDK minor */
+export { EChart } from './chart/EChart';
+/** @deprecated use '@ap/components/host'; removed next SDK minor */
+export { token } from './chart/EChart';
+/** @deprecated use '@ap/components/host'; removed next SDK minor */
+export { type EChartProps } from './chart/EChart';
 export * from './filters/PageFilterBar';
 export * from './table/PlatformDataTable';
 export * from './table/tableUrlWarning';
@@ -67,3 +74,6 @@ export { HierarchyNav, type HierarchyNavProps } from './hierarchy/HierarchyNav';
 export { useHierarchyNavState } from './hierarchy/useHierarchyNavState';
 export { type HierarchyNavState } from './hierarchy/hierarchyState';
 export { ObjectLinks, type ObjectLinksProps } from './archetypes/ObjectLinks';
+
+export { browserPreferenceKey } from './preferences/browserPreference';
+export { useCollapsePreference, type CollapsePreference, type CollapsePreferenceOptions } from './filters/useCollapsePreference';

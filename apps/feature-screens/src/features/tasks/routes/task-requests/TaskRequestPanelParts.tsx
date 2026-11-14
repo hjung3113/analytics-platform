@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 import { TASK_REQUEST_STATUS_LABELS } from '@/lib/copy/enum-labels';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { TASK_REQUEST_REVIEW_DECISION_LABEL } from '@/lib/copy/task-requests';
@@ -251,7 +252,7 @@ export function TaskRequestPanelFrame({ parts }: { parts: TaskRequestPanelParts 
   return (
     <aside className="flex h-full flex-col bg-surface-detail">
       <DetailPanelHeader
-        kind="task_request"
+        {...DETAIL_PANEL_KICKERS.task_request}
         id={parts.displayId}
         onClose={parts.requestClose}
         extras={parts.headerActions}

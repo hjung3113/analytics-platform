@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./testing": "./src/testing.ts",
     "./testing/engines": "./src/testing-engines.tsx",
+    "./host": "./src/host.ts",
     "./dock": "./src/dock/index.ts",
     "./styles.css": "./src/styles.css"
   },

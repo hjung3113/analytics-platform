@@ -199,13 +199,13 @@ describe('AnalysisLayout', () => {
     expect(screen.queryByRole('region', { name: '추세' })).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: '접힌 항목' })).toBeInTheDocument();
     expect(expand('추세')).toHaveFocus();
-    expect(storage.get(key)).toBe('["trend"]');
+    expect(storage.get('platform:analysis-collapsed:v1:user-a:home:trend')).toBe('true');
     expect(container.querySelector('[data-analysis-chart-grid]')).toHaveClass('grid-cols-1');
     fireEvent.click(expand('추세'));
     expect(collapse('추세')).toHaveFocus();
     expect([...container.querySelectorAll('[data-analysis-kind="chart"]')].map(node => node.getAttribute('data-analysis-section'))).toEqual(['trend', 'dist']);
     expect(screen.queryByRole('group', { name: '접힌 항목' })).not.toBeInTheDocument();
-    expect(storage.get(key)).toBe('[]');
+    expect(storage.get('platform:analysis-collapsed:v1:user-a:home:trend')).toBe('false');
   });
 
   it('spans the last odd chart and recomputes spans after collapsing', () => {
@@ -222,7 +222,8 @@ describe('AnalysisLayout', () => {
     expect(screen.queryByRole('region', { name: '분포' })).not.toBeInTheDocument();
     expect(screen.queryByText('gone')).not.toBeInTheDocument();
     fireEvent.click(collapse('요약'));
-    expect(JSON.parse(storage.get(key)!)).toEqual(['kpi', 'dist']);
+    expect(storage.get('platform:analysis-collapsed:v1:user-a:home:kpi')).toBe('true');
+    expect(storage.get('platform:analysis-collapsed:v1:user-a:home:dist')).toBe('true');
   });
 
   it('collapses KPI and table separately and restores their collapse focus', async () => {
@@ -353,12 +354,12 @@ it('restores compact collapse focus, storage, order and column count', () => {
   </PlatformProvider></I18nProvider>;
   const view = render(node); setWidth(1300);
   fireEvent.click(collapse('B')); expect(expand('B')).toHaveFocus();
-  expect(JSON.parse(storage.get(key)!)).toEqual(['B']);
+  expect(storage.get('platform:analysis-collapsed:v1:user-a:home:B')).toBe('true');
   expect(view.container.querySelector('[data-analysis-chart-grid]')).toHaveAttribute('data-columns', '4');
   view.unmount();
   const restored = render(node); expect(screen.queryByRole('region', { name: 'B' })).toBeNull();
   fireEvent.click(expand('B')); expect(collapse('B')).toHaveFocus();
-  expect(JSON.parse(storage.get(key)!)).toEqual([]);
+  expect(storage.get('platform:analysis-collapsed:v1:user-a:home:B')).toBe('false');
   expect([...restored.container.querySelectorAll('[data-analysis-kind="chart"]')].map(el => el.getAttribute('data-analysis-section'))).toEqual(['A', 'B', 'C']);
 });
 

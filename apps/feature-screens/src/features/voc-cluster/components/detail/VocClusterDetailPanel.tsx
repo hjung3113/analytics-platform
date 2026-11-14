@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 // VOC Cluster detail panel: detail query, role gate, Execution / Members /
 // Properties sections, CTA footer, and cross-system flow mounts.
 
@@ -588,7 +589,7 @@ export function VocClusterDetailPanel({
       data-testid="cluster-detail-panel"
     >
       <DetailPanelHeader
-        kind="cluster"
+        {...DETAIL_PANEL_KICKERS.cluster}
         id={String(parts.title)}
         onClose={onClose ?? (() => navigate('/voc-clusters'))}
       />

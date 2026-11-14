@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 import {
   type MilestoneCreatePanelProps,
   type MilestoneCreateParts,
@@ -18,7 +19,7 @@ export function MilestoneCreateFrame({ parts }: { parts: MilestoneCreateParts })
     <aside className="flex h-full flex-col bg-surface-detail">
       {/* No display id exists yet: the header chrome mounts without record
           identity, mirroring the pending detail read. */}
-      <DetailPanelHeader kind="milestone" onClose={parts.requestClose} />
+      <DetailPanelHeader {...DETAIL_PANEL_KICKERS.milestone} onClose={parts.requestClose} />
       {parts.body}
     </aside>
   );

@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../components/shadcn/dropdown-menu.js';
 import { cn } from '../utils/cn.js';
@@ -12,20 +11,15 @@ import { copyText } from '../utils/copyText.js';
 import type { DetailPanelKind } from './DetailPanelHeader.js';
 
 export interface DetailPanelHeaderActionsProps {
-  entityKind: DetailPanelKind;
-  entityId: string;
+  /** @deprecated Unused; removed next SDK minor. */
+  entityKind?: DetailPanelKind;
+  /** @deprecated Unused; removed next SDK minor. */
+  entityId?: string;
   copyUrl: string;
   extraMore?: React.ReactNode;
   /** Where the copy result is reported; default is the sonner toast. A host without a sonner Toaster passes its own notice (06 §15). */
   notify?: { success: (message: string) => void; error: (message: string) => void };
 }
-
-const DEFERRED_ITEMS: Array<{ label: string; disabledReason: string }> = [
-  { label: '읽음 표시', disabledReason: '이후 제공 예정입니다' },
-  { label: '스누즈', disabledReason: '이후 제공 예정입니다' },
-  { label: '구독', disabledReason: '이후 제공 예정입니다' },
-  { label: '보관', disabledReason: '이후 제공 예정입니다' },
-];
 
 const iconButtonCls = cn(
   'flex items-center justify-center rounded p-1',
@@ -34,8 +28,6 @@ const iconButtonCls = cn(
 );
 
 export function DetailPanelHeaderActions({
-  entityKind: _entityKind,
-  entityId: _entityId,
   copyUrl,
   extraMore,
   notify = toast,
@@ -72,7 +64,7 @@ export function DetailPanelHeaderActions({
       </button>
 
       {/* Kebab dropdown */}
-      <DropdownMenu>
+      {extraMore != null && <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button type="button" aria-label="더 보기" title="더 보기" className={iconButtonCls}>
             <MoreVertical size={16} />
@@ -80,13 +72,8 @@ export function DetailPanelHeaderActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {extraMore}
-          {DEFERRED_ITEMS.map((item) => (
-            <DropdownMenuItem key={item.label} disabled title={item.disabledReason}>
-              {item.label}
-            </DropdownMenuItem>
-          ))}
         </DropdownMenuContent>
-      </DropdownMenu>
+      </DropdownMenu>}
     </div>
   );
 }

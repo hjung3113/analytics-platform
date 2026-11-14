@@ -5,9 +5,7 @@
 - **구현 안 함 — 가드가 이동을 붙잡은 Apply의 주소 확인 (#2047 KER-20 일부):** 숨은 page 키 확인은 고쳤지만, 가드가 붙잡아 `commit`이 false를 돌려줄 때 대기 중 제안을 지우는 부분은 그대로다(false가 거절·no-op도 뜻해서 모두 보존하면 취소된 Apply가 남음). 다시 열 조건: 가드를 아는 commit/확인 결과가 설계될 때.
 - **미구현 — 저장소 밖 하네스 문서의 질문·태그·리뷰 규칙 정리 (#2154 2차):** 1차(#2154)는 저장소 안 `AGENTS.md`·`PROFILE.md`·`lead.md`만 고쳤다. 전역 `~/AGENTS.md`, 엔진 `issue-wave-conductor`의 `SKILL.md`·`references/lanes.md`, 프로젝트 메모리에 남은 질문 규칙·태그 전 병합 보류·«PROFILE 전체 읽기» 문구는 그대로다. 이유: 저장소 밖 변경이고, 회고 권장 순서상 2차(SKILL/lanes 통합)는 릴리스 뒤다. 다시 열 조건: v0.38.0 태그 뒤 팀장이 2차를 배정할 때. 그때 이 파일들이 `PROFILE.md` §Owner gates and questions와 `lead.md`를 가리키게 한다.
 - **미구현 — 범위 조회 트랙의 소스 정체·초기화 계약 (#2028 SHE-12):** `OrderedIntervalTrack`의 로더 참조는 새 소스와 부모 재렌더의 인라인 콜백을 구별하지 못한다. 이유: 소스 전환 때 받은 항목·선택·탐색·Brush를 지우면서 인라인 로더의 반복 조회를 막으려면 명시적 소스 식별 계약이 필요하다. 레인 판단(2026-11-15, 추가형·기존 소비자 무영향): 선택 prop `sourceKey`를 더하고 값이 바뀌면 상태를 지운다 — #2191에서 구현.
-- **미구현 — 브라우저 선호의 사용자 범위·키 이전 (#2028 SHE-18):** 열·접힘 선호의 사용자별 키와 형식 통일. 이유: 기존 저장 키·형식 변경은 이번 작업의 중단 조건이다. 다시 열 조건: 소유자가 사용자/브라우저 범위와 이전 정책을 확정할 때.
 - **구현 안 함(결함 아님) — `LaneTimeline`·`OrderedIntervalTrack` canvas 배관 통합 (#2028 SHE-23):** 공통 helper 추출과 휠 동작 통일을 구현하지 않았다. 이유: [차트 계약](../docs/contract/chart.md)이 `LaneTimeline`(Ctrl/⌘+wheel)과 `OrderedIntervalTrack`(Shift 또는 Ctrl/⌘+wheel)의 확대 수정키를 별도 규정하고 기존 `LaneTimeline` 동작을 유지하며, 구현 중복만으로는 시연된 동작 결함이 성립하지 않는다. 다시 열 조건: 두 트랙에 걸친 구체적 공통 동작 결함이 확인되거나 공통 상호작용 계약이 확정될 때(의도된 수정키 차이는 유지).
-- **미구현 — 공개 EChart 진입점 정리 (#2028 SHE-26):** 루트의 엔진 export 제거 또는 호스트 진입점으로 이동. 이유: 공개 SDK 기능 제거는 이번 작업의 중단 조건이다. 다시 열 조건: 소유자가 호환 기간·대체 진입점을 확정할 때.
 
 - **미구현 — 소개 사이트 캡처 CI와 `shots.mjs` testid 전환 (#2153):** `ci.yml`의 `Intro site captures` job을 뺐고, `site/scripts/shots.mjs` 셀렉터를 문구 대신 `data-testid`로 바꾸는 일과 캡처 갱신은 하지 않았다. 릴리스 발행 때의 Pages 자동 배포(`pages.yml`의 `release` 트리거)도 껐다(수동 실행만). 이유: 소유자 2026-11-14·11-15 — 소개 사이트는 나중에 재구성할 것이라 그때까지 갱신·시험·배포하지 않는다. 다시 열 조건: 소유자가 소개 사이트 재개를 말할 때. 그때 job을 git 기록(#2153 직전)에서 되살리고 testid 전환부터 한다.
 - **미구현 — Fable minor 다음 묶음 (#2014 FEA-5·6·8·9·10·11·12·13·14):** 이번 변경은 브리지 범위 UUID 검증(FEA-7·15)만 다룬다. 이유: 전체 묶음은 feature 화면·브리지 경계·플랫폼 메뉴·SDK 적합성 등 여러 영역이며 약 400 source-line 제한을 넘을 것으로 예상하여, 가장 낮은 위험의 같은 영역부터 분리한다. 다시 열 조건: #2014의 다음 구현 묶음을 배정할 때. 남은 경로와 현재 코드 근거는 #2014 본문의 각 항목에 있다. FEA-9의 callback 소실은 아직 실행으로 입증하지 않았으므로 회귀 재현부터 한다.
@@ -667,4 +665,11 @@
 
 - **SHE-42 — not implemented:** Compare x semantics differ between CycleTimeDrilldown and ProductivityOverview. Reason: choosing aligned versus original timestamps changes the chart contract and requires a consumer-visible declaration. Lane decision 2026-11-15 (defect fix, current contract `chart.md:124` already gives the Compare series its own x): fix ProductivityOverview to keep original timestamps; an overlay offset becomes an optional Frame option with the default unchanged. Implemented in #2191.
 - **SHE-43 — not implemented:** annotation reads have no axis/period bounds, and the Frame assumes annotation coordinates match its axis. Values need validation. Reason: the proposed complete fix changes the public adapter query contract; W-2065 stops this item at that boundary. Recommendation: optional axis/period query metadata, server validation and bounded results, plus Frame validation and an out-of-period count. Split 2026-11-15: the Frame-side validation (drop out-of-axis annotations and show their count) is a defect fix done in #2191; the optional adapter query metadata (optional fields, existing adapters unaffected) was approved by the lead the same day and is in #2191 too.
-- **SHE-45 — not implemented:** detail-panel kind mapping and deferred action entries remain in the SDK. Reason: replacing required kind/entity props requires consumers to adapt and removing visible entries crosses the W-2065 stop rule. Recommendation: consumer-owned label/accent mapping and optional extraMore entries. Owner 2026-11-15 chose the recommendation (optional `{label, accent}`, old props deprecated for one release, the four always-disabled entries hidden now); implemented in #2194.
+
+## #2194 SDK compatibility removals
+
+| 상태 | 대상 | 미구현 이유 | 다시 열 조건 |
+| --- | --- | --- | --- |
+| 미구현 | `@ap/components` 루트의 `EChart`·`chartTheme`·`token`·`EChartProps` 호환 export 삭제 | SHE-26 소유자 결정: `/host` 이전을 위해 한 릴리스 유지 | 다음 SDK minor 릴리스 |
+| 미구현 | `DetailPanelHeader.kind`·`KIND_LABELS`·기존 kind accent 맵 삭제 | SHE-45 소유자 결정: 소비자 label·accent 선언으로 이전할 한 릴리스 유지 | 다음 SDK minor 릴리스 |
+| 미구현 | `DetailPanelHeaderActions.entityKind`·`entityId` prop 삭제 | SHE-45 소유자 결정: 사용하지 않는 prop의 소스 호환을 한 릴리스 유지 | 다음 SDK minor 릴리스 |

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ColumnPinningState, ColumnSizingState, OnChangeFn, VisibilityState } from '@tanstack/react-table';
-import { readLocalStorage, writeLocalStorage } from '@ap/ui';
+import { writeLocalStorage } from '@ap/ui';
 import type { JsonValue } from '@ap/contracts';
-import { usePreferenceController, usePreferenceState, type PreferenceController } from '@ap/kernel';
+import { usePlatformOptional, usePreferenceController, usePreferenceState, type PreferenceController } from '@ap/kernel';
+
+import { browserPreferenceKey, readBrowserPreference } from '../preferences/browserPreference';
 
 export type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState; /** Column ids in display order; `[]` = declaration order (#556a). */ order: string[] };
 const defaults: Preferences = { sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [] };
@@ -15,8 +17,11 @@ function sanitize(p: { sizing?: object; visibility?: object; pinning?: { left?: 
     order: Array.isArray(p.order) ? p.order.filter((v: unknown): v is string => typeof v === 'string') : [],
   };
 }
-function readPreferences(key: string): Preferences {
-  return readLocalStorage(key, raw => sanitize(JSON.parse(raw || 'null')), defaults);
+function readPreferences(key: string, legacyKey: string): Preferences {
+  return readBrowserPreference(key, { legacyKey, decode: raw => {
+    const value: unknown = JSON.parse(raw);
+    return value !== null && typeof value === 'object' && !Array.isArray(value) ? sanitize(value) : null;
+  }, fallback: defaults });
 }
 
 /**
@@ -24,12 +29,14 @@ function readPreferences(key: string): Preferences {
  * carries the server preference seam (ADR-0098) — on the server under a hashed table key, shown from the server only.
  */
 export function useColumnPreferences(preferenceKey: string) {
+  const localKey = browserPreferenceKey('columns', usePlatformOptional()?.session.user.id, preferenceKey);
+  const identity = localKey;
   const controller = usePreferenceController();
   const controllerState = usePreferenceState(controller);
-  const [preferences, setPreferences] = useState(() => controller ? defaults : readPreferences(preferenceKey));
+  const [preferences, setPreferences] = useState(() => controller ? defaults : readPreferences(localKey, preferenceKey));
   // Server mode: `synced` is the (controller, key) and the controller value last shown from it; `touched` is the (controller, key) the person changed first.
   const [seen, setSeen] = useState<PreferenceController | null>(controller);
-  const [seenRaw, setSeenRaw] = useState(preferenceKey);
+  const [seenRaw, setSeenRaw] = useState(identity);
   const [synced, setSynced] = useState<{ controller: PreferenceController; raw: string; json: string } | null>(null);
   const [touched, setTouched] = useState<{ controller: PreferenceController; raw: string } | null>(null);
   const [derived, setDerived] = useState<{ controller: PreferenceController; raw: string; key: string | null } | null>(null);
@@ -37,19 +44,17 @@ export function useColumnPreferences(preferenceKey: string) {
     setSeen(controller);
     setSynced(null);
     setTouched(null);
-    setPreferences(controller ? defaults : readPreferences(preferenceKey));
+    setPreferences(controller ? defaults : readPreferences(localKey, preferenceKey));
   }
   // A raw key change is an ownership boundary on the server: the other table's values and edits do not carry over (a pending width was flushed to its own key by the write effect).
-  if (seenRaw !== preferenceKey) {
-    setSeenRaw(preferenceKey);
+  if (seenRaw !== identity) {
+    setSeenRaw(identity);
     if (controller) {
       setSynced(null);
       setTouched(null);
       setPreferences(defaults);
-    } else setPreferences(readPreferences(preferenceKey));
+    } else setPreferences(readPreferences(localKey, preferenceKey));
   }
-  const controllerRef = useRef(controller);
-  useEffect(() => { controllerRef.current = controller; }, [controller]);
   // The hash is computed outside render; WebCrypto answers asynchronously.
   useEffect(() => {
     if (!controller) return;
@@ -57,7 +62,7 @@ export function useColumnPreferences(preferenceKey: string) {
     void controller.tableKey(preferenceKey).then(key => { if (live) setDerived({ controller, raw: preferenceKey, key }); });
     return () => { live = false; };
   }, [controller, preferenceKey]);
-  if (controller && seen === controller && seenRaw === preferenceKey && controllerState.status === 'ready' && derived?.controller === controller && derived.raw === preferenceKey && derived.key !== null) {
+  if (controller && seen === controller && seenRaw === identity && controllerState.status === 'ready' && derived?.controller === controller && derived.raw === preferenceKey && derived.key !== null) {
     const value = controller.get(derived.key);
     const json = JSON.stringify(value ?? null);
     // Every new controller value (a late server answer, an intent adopted from an older generation) is shown, unless the person already changed this table here.
@@ -68,9 +73,8 @@ export function useColumnPreferences(preferenceKey: string) {
   }
   // Writes follow user changes only (#823): nothing on mount; a width drag (`columnResizeMode: 'onChange'` reports every move) is written
   // 300 ms after its last change, or on pagehide/unmount; visibility, pin and reset are written at once. Memory-only when storage refuses.
-  const write = useRef<'now' | 'later' | null>(null);
   // The pending write remembers the controller (account generation) it was made under; a later generation never receives it.
-  const pending = useRef<{ key: string; value: Preferences; controller: PreferenceController | null } | null>(null);
+  const pending = useRef<{ key: string; value: Preferences; controller: PreferenceController | null; mode: 'now' | 'later' } | null>(null);
   const flush = useCallback(() => {
     const next = pending.current;
     pending.current = null;
@@ -79,30 +83,40 @@ export function useColumnPreferences(preferenceKey: string) {
     else writeLocalStorage(next.key, JSON.stringify(next.value));
   }, []);
   useEffect(() => {
-    // A width still waiting for another key, or made under another account generation, goes to the one it was made under first.
-    if (pending.current && (pending.current.key !== preferenceKey || pending.current.controller !== controllerRef.current)) flush();
-    const mode = write.current;
-    write.current = null;
-    if (mode === null) return;
-    pending.current = { key: preferenceKey, value: preferences, controller: controllerRef.current };
-    if (mode === 'now') { flush(); return; }
+    const intent = pending.current;
+    if (!intent) return;
+    // Flush the captured original intent at a boundary; reset state never becomes a new owner's write.
+    if (intent.key !== (controller ? preferenceKey : localKey) || intent.controller !== controller || intent.mode === 'now') {
+      flush();
+      return;
+    }
     const timer = setTimeout(flush, 300);
     return () => clearTimeout(timer);
-  }, [preferences, preferenceKey, flush]);
+  }, [preferences, preferenceKey, localKey, controller, flush]);
   useEffect(() => {
     window.addEventListener('pagehide', flush);
     return () => { window.removeEventListener('pagehide', flush); flush(); };
   }, [flush]);
-  const touch = () => { if (controller) setTouched({ controller, raw: preferenceKey }); };
-  const onColumnSizingChange: OnChangeFn<ColumnSizingState> = u => { touch(); write.current = 'later'; setPreferences(pr => ({ ...pr, sizing: typeof u === 'function' ? u(pr.sizing) : u })); };
-  const onColumnVisibilityChange: OnChangeFn<VisibilityState> = u => { touch(); write.current = 'now'; setPreferences(pr => ({ ...pr, visibility: typeof u === 'function' ? u(pr.visibility) : u })); };
+  // Capture owner and value together in the event, before a batched identity change can reset state.
+  const updatePreferences = (update: (previous: Preferences) => Preferences, mode: 'now' | 'later') => {
+    const key = controller ? preferenceKey : localKey;
+    const previous = pending.current;
+    const sameOwner = previous?.key === key && previous.controller === controller;
+    if (previous && !sameOwner) flush();
+    const value = update(sameOwner ? previous.value : preferences);
+    pending.current = { key, value, controller, mode };
+    if (controller) setTouched({ controller, raw: preferenceKey });
+    setPreferences(value);
+  };
+  const onColumnSizingChange: OnChangeFn<ColumnSizingState> = u => updatePreferences(pr => ({ ...pr, sizing: typeof u === 'function' ? u(pr.sizing) : u }), 'later');
+  const onColumnVisibilityChange: OnChangeFn<VisibilityState> = u => updatePreferences(pr => ({ ...pr, visibility: typeof u === 'function' ? u(pr.visibility) : u }), 'now');
   // Only the user's left pins are stored: the merged state carries the derived right pin of `_action`.
-  const onColumnPinningChange = (actionPinned: boolean): OnChangeFn<ColumnPinningState> => u => { touch(); write.current = 'now'; setPreferences(pr => {
+  const onColumnPinningChange = (actionPinned: boolean): OnChangeFn<ColumnPinningState> => u => updatePreferences(pr => {
     const next = typeof u === 'function' ? u({ left: pr.pinning.left ?? [], right: actionPinned ? ['_action'] : [] }) : u;
     return { ...pr, pinning: { left: (next.left ?? []).filter(id => id !== '_action'), right: [] } };
-  }); };
-  const onColumnOrderChange = (order: string[]) => { touch(); write.current = 'now'; setPreferences(pr => ({ ...pr, order })); };
+  }, 'now');
+  const onColumnOrderChange = (order: string[]) => updatePreferences(pr => ({ ...pr, order }), 'now');
   /** Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */
-  const resetPreferences = () => { touch(); write.current = 'now'; setPreferences({ sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [] }); };
+  const resetPreferences = () => updatePreferences(() => ({ sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [] }), 'now');
   return { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, resetPreferences };
 }

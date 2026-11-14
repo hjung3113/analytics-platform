@@ -14,7 +14,7 @@ const registry = createRegistry({
 });
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
-const KEY = 'platform:page-head-collapsed:home';
+const KEY = 'platform:page-head-collapsed:v1:u1:home';
 const applied = [{ key: 'bucket', label: '버킷', value: '09:00 → 10:00' }];
 const draftOnly = [{ key: 'bucket', label: '버킷', value: '초안 값' }];
 

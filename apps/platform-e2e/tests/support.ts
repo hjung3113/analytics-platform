@@ -165,3 +165,8 @@ export async function settleOn(read: () => Promise<unknown>, message?: string) {
   let last: string | undefined;
   await expect.poll(async () => { const now = JSON.stringify(await read()); const same = now === last; last = now; return same; }, { message }).toBe(true);
 }
+
+/** Mock adapter session.user.id is the persona role (adapter.ts); no SDK imports in black-box tests. */
+export function browserPreferenceKey(kind: string, rest = '', userId: Role = 'engineer') {
+  return `platform:${kind}:v1:${userId}:${rest}`;
+}

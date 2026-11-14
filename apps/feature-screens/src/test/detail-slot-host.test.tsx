@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 import { AppFrame } from '@/test/detail-slot-host';
 import { DetailPanelHeader, ListShell } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -26,7 +27,7 @@ function dispatchClosePanel() {
 
 const PANEL_WITH_HEADER = (
   <div data-testid="header-panel">
-    <DetailPanelHeader kind="voc" id="VOC-A" onClose={dispatchClosePanel} />
+    <DetailPanelHeader {...DETAIL_PANEL_KICKERS.voc} id="VOC-A" onClose={dispatchClosePanel} />
   </div>
 );
 const PANEL_ESCAPE_PREVENTED = (
@@ -39,22 +40,22 @@ const PANEL_ESCAPE_PREVENTED = (
         if (event.key === 'Escape') event.preventDefault();
       }}
     />
-    <DetailPanelHeader kind="voc" id="VOC-B" onClose={dispatchClosePanel} />
+    <DetailPanelHeader {...DETAIL_PANEL_KICKERS.voc} id="VOC-B" onClose={dispatchClosePanel} />
   </div>
 );
 const PANEL_CLOSE_FIRST = (
   <div data-testid="close-first-panel">
-    <DetailPanelHeader kind="voc" id="VOC-C1" onClose={dispatchClosePanel} />
+    <DetailPanelHeader {...DETAIL_PANEL_KICKERS.voc} id="VOC-C1" onClose={dispatchClosePanel} />
   </div>
 );
 const PANEL_CLOSE_NEXT = (
   <div data-testid="close-next-panel">
-    <DetailPanelHeader kind="voc" id="VOC-C2" onClose={dispatchClosePanel} />
+    <DetailPanelHeader {...DETAIL_PANEL_KICKERS.voc} id="VOC-C2" onClose={dispatchClosePanel} />
   </div>
 );
 const PANEL_ROUTE_A = (
   <div data-testid="route-panel-a">
-    <DetailPanelHeader kind="voc" id="VOC-D1" onClose={dispatchClosePanel} />
+    <DetailPanelHeader {...DETAIL_PANEL_KICKERS.voc} id="VOC-D1" onClose={dispatchClosePanel} />
   </div>
 );
 // Records data-expanded in the commit that first shows route B's panel, before
@@ -72,17 +73,17 @@ function FirstCommitProbe() {
 const PANEL_ROUTE_B = (
   <div data-testid="route-panel-b">
     <FirstCommitProbe />
-    <DetailPanelHeader kind="voc" id="VOC-D2" onClose={dispatchClosePanel} />
+    <DetailPanelHeader {...DETAIL_PANEL_KICKERS.voc} id="VOC-D2" onClose={dispatchClosePanel} />
   </div>
 );
 const PANEL_RECORD_A = (
   <div data-testid="record-panel-a">
-    <DetailPanelHeader kind="voc" id="VOC-E1" onClose={dispatchClosePanel} />
+    <DetailPanelHeader {...DETAIL_PANEL_KICKERS.voc} id="VOC-E1" onClose={dispatchClosePanel} />
   </div>
 );
 const PANEL_RECORD_B = (
   <div data-testid="record-panel-b">
-    <DetailPanelHeader kind="voc" id="VOC-E2" onClose={dispatchClosePanel} />
+    <DetailPanelHeader {...DETAIL_PANEL_KICKERS.voc} id="VOC-E2" onClose={dispatchClosePanel} />
   </div>
 );
 const originalFetch = globalThis.fetch;

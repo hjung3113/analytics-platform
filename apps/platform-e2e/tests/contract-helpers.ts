@@ -1,11 +1,11 @@
 import { expect, type Page } from '@playwright/test';
-import { contextBar, expandQueryBar } from './support';
+import { browserPreferenceKey, contextBar, expandQueryBar } from './support';
 
 export const PERIOD = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 export const PRODUCTIVITY = `/mars/productivity-overview?v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`;
 
 /** The menu's stored query-bar choice (`'true'` collapsed, `'false'` open): a saved-state key of the Kernel contract, written in one place. */
-export const queryBarCollapsedKey = (menuId: string) => `platform:query-bar-collapsed:${menuId}`;
+export const queryBarCollapsedKey = (menuId: string) => browserPreferenceKey('query-bar-collapsed', menuId);
 /** Stores «open» before every load, so the query bar starts expanded: an applied address starts collapsed without a stored choice (#1892). */
 export async function startWithQueryBarOpen(page: Page, menuId: string) {
   await page.addInitScript(key => localStorage.setItem(key, 'false'), queryBarCollapsedKey(menuId));

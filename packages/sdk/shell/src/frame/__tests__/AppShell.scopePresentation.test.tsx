@@ -34,7 +34,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 function mount(url: string, collapsed: boolean, slots: PlatformSlots = {}) {
   window.history.replaceState(null, '', url);
-  localStorage.setItem('platform:sidebar-collapsed', collapsed ? '1' : '0');
+  localStorage.setItem('platform:sidebar-collapsed:v1:u1:', collapsed ? 'true' : 'false');
   const session = testSession(['platform:view']);
   return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots}><AppShell><p>body</p></AppShell></PlatformProvider></I18nProvider>);
 }

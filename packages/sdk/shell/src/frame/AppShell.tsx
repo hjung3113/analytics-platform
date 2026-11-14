@@ -1,9 +1,9 @@
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { formatText, useEquipmentAxes, useI18n, useMessages, type Text, type Toast } from '@ap/kernel';
 import { useHostPlatform, useToastList } from '@ap/kernel/host';
-import { LoadingBlock } from '@ap/components';
-import { cn, DetailPanelFullscreenContext, DetailPanelSlotProvider, readLocalStorage, useDetailPanelSlotHost, writeLocalStorage } from '@ap/ui';
+import { LoadingBlock, useCollapsePreference } from '@ap/components';
+import { cn, DetailPanelFullscreenContext, DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { CommandPalette } from '../routing/CommandPalette';
 import { LeaveConfirmDialog } from '../routing/LeaveConfirmDialog';
 import { AppSidebar } from './AppSidebar';
@@ -47,9 +47,7 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
   const showSidebar = sidebarSpace !== null && !globalScreen;
   // Registry screens outside every space (home, 내 활동, 공지) draw the platform sidebar; the board and unmatched paths do not (ADR-0070).
   const showPlatformSidebar = route !== null && registry.spaceOf(route.menu) === null;
-  const [collapsed, setCollapsed] = useState(() => {
-    return readLocalStorage(COLLAPSE_KEY, v => v === null ? window.innerWidth < SIDEBAR_OPEN_MIN_WIDTH : v === '1', false);
-  });
+  const { collapsed, toggle: setCollapsed } = useCollapsePreference(COLLAPSE_KEY, '', { defaultCollapsed: typeof window !== 'undefined' && window.innerWidth < SIDEBAR_OPEN_MIN_WIDTH });
   // The VOC drawer and the detail aside share one right position; a newly visible detail (activation) takes it from the drawer (06 §13).
   const axes = useEquipmentAxes();
   const voc = useVocDrawer(slots.vocCompose, () => ({ route, platformScreen, global, page, absoluteUrl, registry, lang, axes, asOf: t('membershipAsOf') }), detail.activation, session);
@@ -69,7 +67,7 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
   const mainArea = useRef<HTMLDivElement>(null);
   const expandedStyle = useExpandedDetailArea(mainArea, expanded);
   const board = useBoardPresentation();
-  const toggle = () => setCollapsed(c => { writeLocalStorage(COLLAPSE_KEY, c ? '0' : '1'); return !c; });
+  const toggle = useCallback(() => setCollapsed(!collapsed), [collapsed, setCollapsed]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -77,7 +75,7 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [toggle]);
 
   // The provider wraps the whole layout (not only the rail), so a screen's error view can open the drawer too (#606).
   return <UndeclaredProvider><DetailPanelFullscreenContext.Provider value={fullscreen}><VocDrawerContext.Provider value={voc}><div className="flex h-full overflow-hidden">

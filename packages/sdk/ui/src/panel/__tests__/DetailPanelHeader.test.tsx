@@ -233,3 +233,24 @@ describe('DetailPanelHeader — fullscreen toggle', () => {
     expect(screen.getByTestId('detail-panel-header-content').children).toHaveLength(1);
   });
 });
+
+describe('DetailPanelHeader — consumer-owned kicker', () => {
+  it('lets label and accent override legacy kind', () => {
+    const { container } = render(<DetailPanelHeader kind="voc" label="Equipment" accent="success" />);
+    expect(screen.getByText('Equipment')).toBeInTheDocument();
+    expect(screen.queryByText('VOC')).not.toBeInTheDocument();
+    expect(container.querySelector('.bg-accent-success')).not.toBeNull();
+  });
+  it('renders no kicker when neither label nor kind is supplied', () => {
+    const { container } = render(<DetailPanelHeader id="ID-1" />);
+    expect(screen.getByText('ID-1')).toBeInTheDocument();
+    expect(container.querySelector('.tracking-kind-label')).toBeNull();
+  });
+});
+
+it('preserves the milestone compact chrome through consumer-owned props', () => {
+  const { container } = render(<DetailPanelHeader label="Milestone" accent="warn" appearance="badge" data-kind="milestone" />);
+  expect(container.querySelector('[data-kind="milestone"]')).not.toBeNull();
+  expect(container.querySelector('.w-1')).toBeNull();
+  expect(screen.getByText('Milestone')).toBeInTheDocument();
+});

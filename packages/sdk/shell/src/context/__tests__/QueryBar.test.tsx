@@ -370,7 +370,7 @@ it('no server anchor: the custom range editor starts blank', async () => {
 function Body() { const query = useMenuQuery(endpoint, null); return <QueryView query={query}>{() => <span>result</span>}</QueryView>; }
 function mountPage(query: string, collapsed: boolean, completed = false) {
   window.history.replaceState(null, '', `/?scopeId=MEM${query}`);
-  if (collapsed) localStorage.setItem('platform:query-bar-collapsed:home', 'true');
+  if (collapsed) localStorage.setItem('platform:query-bar-collapsed:v1:u1:home', 'true');
   const session = testSession(['platform:view']);
   render(<I18nProvider><PlatformProvider registry={registry} slots={{ contextBar: <GlobalContextBar /> }} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', menuQuery: send })}><Probe /><PlatformPage layout="fill" queryResult={completed ? { status: 'done', completedAt: 1_800_000_000_000 } : undefined}><Body /></PlatformPage></PlatformProvider></I18nProvider>);
 }
@@ -418,7 +418,7 @@ it('folded workspace: edits stay in the query bar and expanding restores applied
 });
 it.each([['compact', 'px-4'], ['comfortable', 'px-3']] as const)('%s page: the collapsed query bar row insets %s so it lines up with the content (#1166)', async (density, inset) => {
   window.history.replaceState(null, '', '/?scopeId=MEM');
-  localStorage.setItem('platform:query-bar-collapsed:home', 'true');
+  localStorage.setItem('platform:query-bar-collapsed:v1:u1:home', 'true');
   const session = testSession(['platform:view']);
   render(<I18nProvider><PlatformProvider registry={registry} slots={{ contextBar: <GlobalContextBar /> }} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', menuQuery: send })}><Probe /><PlatformPage density={density}><Body /></PlatformPage></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
@@ -478,12 +478,12 @@ describe('initial disclosure (#1892)', () => {
     expect(bar()).not.toHaveAttribute('data-query-bar-collapsed');
   });
   it('lets a stored expanded choice win over an applied URL, and a stored collapsed choice over a bare one', async () => {
-    localStorage.setItem('platform:query-bar-collapsed:home', 'false');
+    localStorage.setItem('platform:query-bar-collapsed:v1:u1:home', 'false');
     mount(APPLIED);
     await waitFor(() => expect(platform.scope.status).toBe('valid'));
     expect(bar()).not.toHaveAttribute('data-query-bar-collapsed');
     cleanup();
-    localStorage.setItem('platform:query-bar-collapsed:home', 'true');
+    localStorage.setItem('platform:query-bar-collapsed:v1:u1:home', 'true');
     mount('');
     await waitFor(() => expect(platform.scope.status).toBe('valid'));
     expect(bar()).toHaveAttribute('data-query-bar-collapsed');
@@ -493,7 +493,7 @@ describe('initial disclosure (#1892)', () => {
     await waitFor(() => expect(bar()).toHaveAttribute('data-query-bar-collapsed'));
     fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
     expect(bar()).not.toHaveAttribute('data-query-bar-collapsed');
-    expect(localStorage.getItem('platform:query-bar-collapsed:home')).toBe('false');
+    expect(localStorage.getItem('platform:query-bar-collapsed:v1:u1:home')).toBe('false');
   });
 });
 

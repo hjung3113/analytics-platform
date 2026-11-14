@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 import { ListStateMessage } from '@/components/ListStateMessage';
 import { patchRecoveryPresentation } from '@/lib/api/recovery';
 import { ApiError } from '@/lib/api/types';
@@ -94,7 +95,7 @@ export function RecoveryPanelFrame({ parts }: { parts: RecoveryPanelParts }) {
     >
       {sourceHeader ? (
         <DetailPanelHeader
-          kind={sourceHeader.kind}
+          {...DETAIL_PANEL_KICKERS[sourceHeader.kind]}
           {...(sourceHeader.displayId ? { id: sourceHeader.displayId } : {})}
           onClose={parts.requestClose}
           extras={<h2 className="truncate text-sm font-semibold">{parts.title}</h2>}

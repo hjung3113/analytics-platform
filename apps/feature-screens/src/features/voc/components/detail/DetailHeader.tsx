@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 // DetailHeader — panel header wired with the canonical VOC URL.
 
 import { useHostSeam } from '@/lib/host/host-seam';
@@ -34,7 +35,7 @@ export function VocHeaderActions({
 export function DetailHeader({ vocId, displayId, onClose }: DetailHeaderProps): React.ReactElement {
   return (
     <DetailPanelHeader
-      kind="voc"
+      {...DETAIL_PANEL_KICKERS.voc}
       id={displayId}
       onClose={onClose}
       extras={<VocHeaderActions vocId={vocId} displayId={displayId} />}
