@@ -640,6 +640,63 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', { timeout
     });
   });
 
+  describe('worker summary projection', () => {
+    it('projects only allowed fields for a platform:view viewer and preserves the stored summary and audit', async () => {
+      const round = await makeRound();
+      const request = await makeRequest(round.roundId);
+      const claimed = (await claim()).json();
+      const allowed = { fixture: 'synthetic', mode: 'fail', durationMs: 42, producer: 'synthetic.worker', producerVersion: '1.0+test' };
+      const summary = { ...allowed, syntheticPrivateKey: 'synthetic private text', nested: { mode: 'pass' }, list: ['synthetic private text'] };
+      const res = await post(workerA, `/requests/${request.id}/result`, { ...resultBody(claimed, [rule('R1', 'PASS')]), summary });
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json().verdict).toBe('pass');
+      expect((await attempts(request.id))[0]?.worker_summary).toEqual(summary);
+      const auditBefore = await audit(request.id);
+      const detail = await read('requestDetail', { requestId: request.id }, user);
+      expect(detail.outcome).toBe('ok');
+      expect(detail.data.attempts).toHaveLength(1);
+      expect(detail.data.attempts[0]).toMatchObject({ workerSummaryProjection: 1, workerSummaryState: 'available', workerSummary: allowed });
+      expect(detail.data.attempts[0].workerSummary).toEqual(allowed);
+      expect(JSON.stringify(detail)).not.toMatch(/syntheticPrivateKey|synthetic private text|nested|list|worker_summary/);
+      expect(await audit(request.id)).toEqual(auditBefore);
+      expect(JSON.stringify(auditBefore)).not.toMatch(/syntheticPrivateKey|synthetic private text|synthetic.worker/);
+    });
+
+    it.each(['null', 'failed'] as const)('projects the %s stored summary state without returning a body', async (kind) => {
+      const round = await makeRound();
+      const request = await makeRequest(round.roundId);
+      const claimed = (await claim()).json();
+      const res = kind === 'failed'
+        ? await post(workerA, `/requests/${request.id}/fail`, { attemptNo: 1, reason: 'synthetic failure' })
+        : await post(workerA, `/requests/${request.id}/result`, resultBody(claimed, [rule('R1', 'PASS')]));
+      expect(res.statusCode, res.body).toBe(200);
+      expect((await attempts(request.id))[0]?.worker_summary).toEqual(kind === 'failed' ? { reason: 'synthetic failure' } : null);
+      const detail = await read('requestDetail', { requestId: request.id }, user);
+      expect(detail.outcome).toBe('ok');
+      expect(detail.data.attempts[0]).toMatchObject({ workerSummaryProjection: 1, workerSummaryState: kind === 'failed' ? 'no_allowed_fields' : 'not_submitted', workerSummary: null });
+      expect(JSON.stringify(detail)).not.toContain('synthetic failure');
+    });
+
+    it('keeps the worker write cap at 4,096 UTF-8 bytes even for dropped keys', async () => {
+      const round = await makeRound();
+      const request = await makeRequest(round.roundId);
+      const claimed = (await claim()).json();
+      // JSON overhead is 12 bytes; each synthetic character is two UTF-8 bytes.
+      const summary = { extra: 'é'.repeat(2042) };
+      expect(Buffer.byteLength(JSON.stringify(summary), 'utf8')).toBe(4096);
+      const body = resultBody(claimed, [rule('R1', 'PASS')]);
+      const oversized = await post(workerA, `/requests/${request.id}/result`, { ...body, summary: { extra: `${summary.extra}x` } });
+      expect(oversized.statusCode, oversized.body).toBe(422);
+      expect(oversized.json().detail.fields).toContainEqual({ path: ['summary'], code: 'too_long' });
+      expect((await attempts(request.id))[0]?.worker_summary).toBeNull();
+      expect((await requestRow(request.id)).state).toBe('claimed');
+      const accepted = await post(workerA, `/requests/${request.id}/result`, { ...body, summary });
+      expect(accepted.statusCode, accepted.body).toBe(200);
+      expect((await attempts(request.id))[0]?.worker_summary).toEqual(summary);
+      expect((await read('requestDetail', { requestId: request.id }, user)).data.attempts[0]).toMatchObject({ workerSummaryProjection: 1, workerSummaryState: 'no_allowed_fields', workerSummary: null });
+    });
+  });
+
   describe('result: idempotency, conflict, verdicts, input checks', () => {
     it('the same body again answers the same 200 and writes no new row; a different body for the attempt is conflict.stale_write', async () => {
       const round = await makeRound();
@@ -679,7 +736,7 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', { timeout
       expect(res.json().verdict).toBe(expected);
       const [attempt] = await attempts(request.id);
       expect(attempt).toMatchObject({ verdict: expected, input_manifest_digest: manifest ?? round.digest, result_digest: res.json().resultDigest });
-      // The worker's own summary is stored for reference and read by nothing.
+      // The worker's own summary is stored for reference and never read by the verdict.
       expect((attempt?.worker_summary as Row).verdict).toBe('pass');
       expect((await read('requestDetail', { requestId: request.id })).data.attempts[0]).toMatchObject({ verdict: expected, manifestMatches: manifest === null });
       expect((await read('requests', { roundId: round.roundId })).data.rows[0].latestVerdict).toBe(expected);

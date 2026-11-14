@@ -788,3 +788,48 @@ export const validationIssueTransitions = logLifecycleSchema.table('validation_i
     occurrenceCheck: check('validation_issue_transition_occurrence_check', sql`(${t.occurrenceId} is not null) = (${t.toState} = 'fix_verified')`),
     duplicateCheck: check('validation_issue_transition_duplicate_check', sql`${t.duplicateOfIssueId} is null or (${t.toState} = 'dismissed' and ${t.duplicateOfIssueId} <> ${t.issueId})`),
   }));
+
+/** Versioned Source-derived diagnostics; insert-only except body erasure through erase_excerpts. */
+export const attemptDiagnostics = logLifecycleSchema.table('attempt_diagnostic', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  attemptId: uuid('attempt_id').notNull(),
+  producer: text('producer').notNull(),
+  producerVersion: text('producer_version').notNull(),
+  schemaVersion: integer('schema_version').notNull(),
+  digest: text('digest').notNull(),
+  byteCount: integer('byte_count').notNull(),
+  itemCount: integer('item_count').notNull(),
+  actorId: uuid('actor_id').notNull().references(() => actors.id),
+  tokenId: uuid('token_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  workspaceUq: unique('attempt_diagnostic_workspace_uq').on(t.workspaceId, t.attemptId, t.id),
+  producerUq: unique('attempt_diagnostic_producer_uq').on(t.attemptId, t.producer),
+  attemptFk: foreignKey({ name: 'attempt_diagnostic_attempt_fk', columns: [t.workspaceId, t.attemptId], foreignColumns: [executionAttempts.workspaceId, executionAttempts.id] }).onDelete('restrict'),
+  shapeCheck: check('attempt_diagnostic_shape_check', sql`${t.schemaVersion} = 1 and ${t.producer} ~ '^[a-z0-9][a-z0-9._-]{0,63}$' and ${t.producerVersion} ~ '^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$' and ${t.digest} ~ '^[0-9a-f]{64}$' and ${t.byteCount} between 1 and 524288 and ${t.itemCount} between 1 and 500`),
+}));
+
+export const attemptDiagnosticItems = logLifecycleSchema.table('attempt_diagnostic_item', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  attemptId: uuid('attempt_id').notNull(),
+  diagnosticId: uuid('diagnostic_id').notNull(),
+  itemKey: text('item_key').notNull(),
+  ordinal: integer('ordinal').notNull(),
+  origin: text('origin').notNull(),
+  ruleResultId: uuid('rule_result_id'),
+  evidence: jsonb('evidence').notNull(),
+  title: text('title'),
+  explanation: text('explanation'),
+  tables: jsonb('tables').notNull(),
+  erasedAt: timestamp('erased_at', { withTimezone: true }),
+  erasedCause: text('erased_cause', { enum: ['retention', 'admin'] }),
+}, (t) => ({
+  keyUq: unique('attempt_diagnostic_item_key_uq').on(t.diagnosticId, t.itemKey),
+  ordinalUq: unique('attempt_diagnostic_item_ordinal_uq').on(t.diagnosticId, t.ordinal),
+  documentFk: foreignKey({ name: 'attempt_diagnostic_item_document_fk', columns: [t.workspaceId, t.attemptId, t.diagnosticId], foreignColumns: [attemptDiagnostics.workspaceId, attemptDiagnostics.attemptId, attemptDiagnostics.id] }).onDelete('restrict'),
+  resultFk: foreignKey({ name: 'attempt_diagnostic_item_result_fk', columns: [t.workspaceId, t.attemptId, t.ruleResultId], foreignColumns: [ruleResults.workspaceId, ruleResults.attemptId, ruleResults.id] }).onDelete('restrict'),
+  liveIdx: index('attempt_diagnostic_item_live_idx').on(t.workspaceId, t.attemptId).where(sql`${t.erasedAt} is null`),
+  shapeCheck: check('attempt_diagnostic_item_shape_check', sql`${t.itemKey} ~ '^[A-Za-z0-9._:-]{1,200}$' and ${t.ordinal} between 0 and 499 and ${t.origin} in ('rule','analysis') and (${t.origin} <> 'rule' or ${t.ruleResultId} is not null) and jsonb_typeof(${t.evidence}) = 'array' and jsonb_array_length(${t.evidence}) <= 20 and jsonb_typeof(${t.tables}) = 'array' and jsonb_array_length(${t.tables}) <= 4 and coalesce(char_length(${t.explanation}),0) <= 4000 and ((${t.erasedAt} is null and ${t.erasedCause} is null and ${t.title} is not null and char_length(${t.title}) between 1 and 200) or (${t.erasedAt} is not null and ${t.erasedCause} is not null and ${t.erasedCause} in ('retention','admin') and ${t.title} is null and ${t.explanation} is null))`),
+}));

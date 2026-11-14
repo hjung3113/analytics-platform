@@ -1,3 +1,5 @@
+import { DIAGNOSTIC_LIST_KEYS, DIAGNOSTIC_ITEM_KEYS, parseDiagnosticListParams, parseDiagnosticItemParams } from './domain/diagnostic-params.js';
+import { diagnosticTarget, listDiagnostics, readDiagnosticItem } from './repositories/diagnostic-read.js';
 import { viewerOf } from '../log-knowledge/index.js';
 // The validation request reads (#1445 d, design §5) as menu-dispatch declarations: the request list, one request with its
 // attempts, the rule results of an attempt and one excerpt body. Same read right and workspace rule as the lifecycle
@@ -108,6 +110,34 @@ export function requestEndpoints(deps: LogLifecycleDeps): MenuEndpointDeclaratio
         return { outcome: 'ok', data: await listOpinions(tx, actor.workspace_id, query, scale, viewerOf(actor)) };
       }),
     ),
+    declare(deps, 'diagnostics', DIAGNOSTIC_LIST_KEYS, parseDiagnosticListParams, async (actor, query) => {
+      if (currentAuthContext().kind === 'token') return { outcome: 'forbidden', data: null, message: 'diagnostic reads need a login session' };
+      return deps.db.transaction(async (tx): Promise<EndpointResult> => {
+        const target = await diagnosticTarget(tx, actor.workspace_id, query.attemptId, viewerOf(actor));
+        if (!target) return { outcome: 'ok', data: null };
+        const allowed = await holdsExcerptRead(tx, actor.workspace_id, target.sourceOwner, actor.actor_id);
+        const data = await listDiagnostics(tx, actor.workspace_id, query, allowed);
+        if (allowed && data.rows.some((row) => row.title !== null)) await audit.record(tx, {
+          workspace_id: actor.workspace_id, actor_id: actor.actor_id, event_type: 'lifecycle.diagnostic.read', subject_type: 'execution_request', subject_id: target.requestId,
+          summary: 'validation diagnostic titles read', detail: { attemptId: query.attemptId, scope: 'list', count: data.rows.length },
+        });
+        return { outcome: 'ok', data };
+      });
+    }),
+    declare(deps, 'diagnosticItem', DIAGNOSTIC_ITEM_KEYS, parseDiagnosticItemParams, async (actor, query) => {
+      if (currentAuthContext().kind === 'token') return { outcome: 'forbidden', data: null, message: 'diagnostic reads need a login session' };
+      return deps.db.transaction(async (tx): Promise<EndpointResult> => {
+        const target = await diagnosticTarget(tx, actor.workspace_id, query.attemptId, viewerOf(actor));
+        if (!target) return { outcome: 'ok', data: null };
+        if (!(await holdsExcerptRead(tx, actor.workspace_id, target.sourceOwner, actor.actor_id))) return { outcome: 'forbidden', data: null, message: 'no right lifecycle.excerpt.read for this source' };
+        const data = await readDiagnosticItem(tx, actor.workspace_id, query);
+        if (data) await audit.record(tx, {
+          workspace_id: actor.workspace_id, actor_id: actor.actor_id, event_type: 'lifecycle.diagnostic.read', subject_type: 'execution_request', subject_id: target.requestId,
+          summary: 'validation diagnostic item read', detail: { attemptId: query.attemptId, scope: 'item', itemKey: query.itemKey },
+        });
+        return { outcome: 'ok', data };
+      });
+    }),
     declare(deps, 'evidenceStates', EVIDENCE_STATES_PARAM_KEYS, parseEvidenceStatesParams, async (actor, ruleResultId) => {
       if (currentAuthContext().kind === 'token') return { outcome: 'forbidden', data: null, message: 'evidence state reads need a login session' };
       return deps.db.transaction(async (tx): Promise<EndpointResult> => {

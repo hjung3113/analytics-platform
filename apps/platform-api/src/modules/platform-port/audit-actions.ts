@@ -154,6 +154,8 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   'lifecycle.request.failed': 'update',
   'lifecycle.request.lease_expired': 'update',
   'lifecycle.opinion.recorded': 'create',
+  'lifecycle.diagnostic.recorded': 'create',
+  'lifecycle.diagnostic.read': 'update',
   'lifecycle.excerpt.read': 'update',
   'lifecycle.queue_settings.updated': 'update',
   'lifecycle.excerpt_access.set': 'update',

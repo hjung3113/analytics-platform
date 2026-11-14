@@ -22,6 +22,8 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_TYPES = [
   'lifecycle.request.failed',
   'lifecycle.request.lease_expired',
   'lifecycle.opinion.recorded',
+  'lifecycle.diagnostic.recorded',
+  'lifecycle.diagnostic.read',
   'lifecycle.excerpt.read',
   'lifecycle.queue_settings.updated',
   'lifecycle.excerpt_access.set',
@@ -136,6 +138,12 @@ export const lifecycleRequestLeaseExpiredDetailSchema = z
   .strict();
 /** Opinions written on a succeeded attempt (#1778): the attempt number and the count of new rows only, never a note or any other text. */
 export const lifecycleOpinionRecordedDetailSchema = z.object({ attemptNo: ATTEMPT_NO, recorded: z.number().int().min(0) }).strict();
+/** Diagnostic audit receipts contain shape identity and counts only (ADR-0159). */
+export const lifecycleDiagnosticRecordedDetailSchema = z.object({ attemptNo: ATTEMPT_NO, producer: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,63}$/), itemCount: z.number().int().min(1).max(500) }).strict();
+export const lifecycleDiagnosticReadDetailSchema = z.discriminatedUnion('scope', [
+  z.object({ attemptId: z.string().uuid(), scope: z.literal('list'), count: z.number().int().min(1).max(100) }).strict(),
+  z.object({ attemptId: z.string().uuid(), scope: z.literal('item'), itemKey: z.string().regex(/^[A-Za-z0-9._:-]{1,200}$/) }).strict(),
+]);
 export const lifecycleExcerptReadDetailSchema = z
   .object({ attemptId: z.string().uuid(), ruleResultId: z.string().uuid(), evidenceIndex: z.number().int().min(0).max(19) })
   .strict();
@@ -206,6 +214,8 @@ export const LOG_LIFECYCLE_AUDIT_EVENT_DETAIL_SCHEMAS = {
   'lifecycle.request.failed': lifecycleRequestFailedDetailSchema,
   'lifecycle.request.lease_expired': lifecycleRequestLeaseExpiredDetailSchema,
   'lifecycle.opinion.recorded': lifecycleOpinionRecordedDetailSchema,
+  'lifecycle.diagnostic.recorded': lifecycleDiagnosticRecordedDetailSchema,
+  'lifecycle.diagnostic.read': lifecycleDiagnosticReadDetailSchema,
   'lifecycle.excerpt.read': lifecycleExcerptReadDetailSchema,
   'lifecycle.queue_settings.updated': lifecycleQueueSettingsUpdatedDetailSchema,
   'lifecycle.excerpt_access.set': lifecycleExcerptAccessSetDetailSchema,

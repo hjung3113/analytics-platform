@@ -107,7 +107,7 @@ function read(name: string, p: Params, actor: string): unknown {
 export const logLifecycleMock: readonly AnyMockEndpoint[] = Object.entries(endpoints).map(([name, spec]) => defineMockEndpoint(spec, { mart: false, validate: ({ params }) => {
   if (name === 'hierarchy') return validateHierarchy(params);
   if (ISSUE_READS.has(name)) return validateIssueRead(name, params, isUuid);
-  const idKey = { projectDetail: 'projectId', projectEvents: 'projectId', rounds: 'projectId', roundDetail: 'roundId', roundEvidence: 'roundId', requestDetail: 'requestId', ruleResults: 'attemptId', opinions: 'attemptId', excerpt: 'ruleResultId', evidenceStates: 'ruleResultId' }[name];
+  const idKey = { projectDetail: 'projectId', projectEvents: 'projectId', rounds: 'projectId', roundDetail: 'roundId', roundEvidence: 'roundId', requestDetail: 'requestId', ruleResults: 'attemptId', opinions: 'attemptId', diagnostics: 'attemptId', diagnosticItem: 'attemptId', excerpt: 'ruleResultId', evidenceStates: 'ruleResultId' }[name];
   return idKey && (typeof params[idKey] !== 'string' || !isUuid(params[idKey] as string)) ? `${idKey} must be UUID` : null;
 }, handle: ({ params, actor }) => read(name, params, actor) }));
 export const logModelsActionsMock: readonly AnyMockAction[] = Object.entries(actions).map(([name, spec]) => defineMockAction(spec, {

@@ -463,7 +463,7 @@ export async function setExcerptReader(
 export const EXCERPT_ERASE_BATCH = 500;
 
 /**
- * Erases excerpt bodies through the migration's definer function (the runtime role has no UPDATE on the table): exactly
+ * Erases excerpt and diagnostic item bodies through the migration's definer function (the runtime role has no UPDATE on the table): exactly
  * one scope (a Round, an attempt, or every Round closed before `closedBefore`). Rule results and evidence stay. Returns
  * the number of bodies erased in this call.
  */

@@ -197,6 +197,9 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   'log_lifecycle.rule_result_evidence': ['SELECT', 'INSERT'],
   // Migration 0126 (#1778): opinions on attempt items are append-only (guard trigger on top of the missing UPDATE / DELETE grant).
   'log_lifecycle.attempt_opinion': ['SELECT', 'INSERT'],
+  // Migration 0134 (#1815 B1): attempt diagnostics are append-only for platform_app; bodies are erased only through the SECURITY DEFINER erase function.
+  'log_lifecycle.attempt_diagnostic': ['SELECT', 'INSERT'],
+  'log_lifecycle.attempt_diagnostic_item': ['SELECT', 'INSERT'],
   'log_lifecycle.validation_issue': ['SELECT', 'INSERT'],
   'log_lifecycle.validation_issue_occurrence': ['SELECT', 'INSERT'],
   'log_lifecycle.validation_issue_evidence_ref': ['SELECT', 'INSERT'],

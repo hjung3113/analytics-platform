@@ -1,3 +1,4 @@
+import * as diagnostic from './validation-diagnostic.ts';
 import { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
 import { endpointDeclarationSchema, menuQueryContextSchema, menuQuerySchema } from './menu-query.ts';
 import { columnFilterSchema, columnFilterSpecSchema } from './column-filter.ts';
@@ -293,9 +294,21 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   validationResultResponse: queue.validationResultResponseSchema,
   validationFailInput: queue.validationFailInputSchema,
   validationFailResponse: queue.validationFailResponseSchema,
+  validationDiagnosticColumn: diagnostic.validationDiagnosticColumnSchema,
+  validationDiagnosticTable: diagnostic.validationDiagnosticTableSchema,
+  validationDiagnosticItem: diagnostic.validationDiagnosticItemSchema,
+  validationDiagnosticInput: diagnostic.validationDiagnosticInputSchema,
+  validationDiagnosticResponse: diagnostic.validationDiagnosticResponseSchema,
+  validationDiagnosticBodyState: diagnostic.validationDiagnosticBodyStateSchema,
+  validationDiagnosticListParams: diagnostic.validationDiagnosticListParamsSchema,
+  validationDiagnosticItemParams: diagnostic.validationDiagnosticItemParamsSchema,
+  validationDiagnosticList: diagnostic.validationDiagnosticListSchema,
+  validationDiagnosticItemResponse: diagnostic.validationDiagnosticItemResponseSchema,
   validationOpinionEvidence: opinion.validationOpinionEvidenceSchema,
   validationOpinionItem: opinion.validationOpinionItemSchema,
   validationOpinionInput: opinion.validationOpinionInputSchema,
   validationOpinionResponse: opinion.validationOpinionResponseSchema,
   validationOpinionScale: opinion.validationOpinionScaleSchema,
 };
+
+export { validationDiagnosticColumnSchema, validationDiagnosticTableSchema, validationDiagnosticItemSchema, validationDiagnosticInputSchema, validationDiagnosticResponseSchema, validationDiagnosticBodyStateSchema, validationDiagnosticListParamsSchema, validationDiagnosticItemParamsSchema, validationDiagnosticListSchema, validationDiagnosticItemResponseSchema } from './validation-diagnostic.ts';

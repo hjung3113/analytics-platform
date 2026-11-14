@@ -251,7 +251,7 @@ State table (`domain/request-states.ts`, the DB guard `log_lifecycle.request_gua
 - **Run window** (`domain/run-window.ts`): `{ timezone (IANA), weekday: { fromHour, toHour }, weekendAllDay }`; start value Asia/Seoul, weekdays 22:00–06:00, weekend all day, judged on the wall clock of the zone by the server. Outside it only `immediate` requests are handed out.
 - **Lease rules**: a call for the current attempt of a claimed request is accepted; a **result or fail** for the latest, lease-expired attempt of a request that went back to `queued` and that nobody took is accepted (the request ends `succeeded`/`failed`; audit `late: true`); everything else — another attempt exists, the request is cancelled/expired/finished, the attempt belongs to another worker — is `409 queue.lease_lost`, except that a **heartbeat** for the latest, lease-expired attempt of a request that went back to `queued` and that nobody took gives the lease back to that same attempt (request `claimed`, attempt `running`, `attempt_count` unchanged, lease extended; one transaction under the request row lock, so a claim by another worker that got there first makes it `queue.lease_lost`). A request that reached `expired` is terminal: its late result is `queue.lease_lost`.
 - **Result idempotency**: the server canonicalises the normalised body (control characters removed) into `result_digest`. Same attempt, same digest → the same 200 with no new row; different digest, or a result after `fail` → `409 conflict.stale_write`.
-- **Verdict** (`domain/verdict.ts`, server-computed; the result body has no verdict or opinion field, an unknown key is `malformed`; opinions come only through the opinions route above): any `FAIL` → `fail`; else a manifest digest different from the request's, or a `required` rule `ERROR|NOT_CHECKED|SKIPPED` → `incomplete`; else `pass`. The worker's `summary` (≤ 4,096 bytes) is stored for reference and never read by the verdict; the only planned reader is the allow-listed projection of [진단 읽기 투영](#attemptout과-summary-허용-목록) (A1, Decided, not implemented).
+- **Verdict** (`domain/verdict.ts`, server-computed; the result body has no verdict or opinion field, an unknown key is `malformed`; opinions come only through the opinions route above): any `FAIL` → `fail`; else a manifest digest different from the request's, or a `required` rule `ERROR|NOT_CHECKED|SKIPPED` → `incomplete`; else `pass`. The worker's `summary` (≤ 4,096 bytes) is stored for reference and never read by the verdict; the read projection is the allow-listed [진단 읽기 투영](#attemptout과-summary-허용-목록) (A1, As-built).
 - **Input checks** (422 `validation.failed`, `detail.fields[{ path, code }]`; nothing is cut, nothing is written): `observed`/`expected` ≤ 500 characters, `ruleId` ≤ 200, ≤ 2,000 results, ≤ 20 evidence entries per rule result, excerpt ≤ 2,000 characters, excerpts ≤ 256 KB per attempt (`too_long`, `too_many`, `excerpt_total_too_large`); control characters are removed; in any worker text field (`ruleId`, `expected`, `observed`, excerpts, `executorVersion`, `executorDigest`, `ruleSetRevision`, `summary`) text matching a platform token (`ap_…`), a private-key header, a cloud/VCS/chat token or `password|secret|api_key = value` is `secret_detected`; an evidence `fileRef` outside the Round's sample set is `not_in_sample`; a duplicate `ruleId` is `duplicate`.
 - **Error codes of the queue**: `queue.lease_lost` (409, answered by the worker routes; not an entry of the shared `ERROR_CODES` registry), `queue.immediate_limit` (field error code of `requestCreate`), `conflict.stale_write`.
 
@@ -272,13 +272,13 @@ The 참조 작업자 is `tooling/scripts/validation-worker-mock.mjs`: a **합성
 
 ## 진단 읽기 투영 (#1815)
 
-**A2 As-built; A1·B0/B1 Decided · 미구현.** [진단 리포트 설계](../../../design/features/log-lifecycle/diagnostic-report-parity.md)의 Slice A 중 근거 상태 읽기(A2)는 아래 계약으로 구현했다. summary 투영(A1)과 시도 진단(B0/B1, [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md))은 플랫폼이 정한 구조로 확정했고 구현 전이다(소유자 2026-11-13, R1·R2). 기존 worker result 쓰기 shape·상한·verdict는 바꾸지 않는다.
+**A1·A2·B1 As-built; B0 Decided.** [진단 리포트 설계](../../../design/features/log-lifecycle/diagnostic-report-parity.md)의 Slice A에서 summary 투영(A1)과 근거 상태 읽기(A2)는 아래 계약으로 구현했다. 시도 진단(B0/B1, [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md))은 플랫폼이 정한 구조로 구현했다(R1·R2). 기존 worker result 쓰기 shape·상한·verdict는 바꾸지 않는다.
 
 ### AttemptOut과 summary 허용 목록
 
-현재 `AttemptOut` 필드는 `id`, `attemptNo`, `workerActorId`, `startedAt`, `endedAt`, `outcome`, `executorVersion`, `executorDigest`, `ruleSetRevision`, `inputManifestDigest`, `manifestMatches`, `resultDigest`, `verdict`, `ruleCount`, `requiredUnchecked`, `counts`, `opinionCount`다. `withAttemptRuleSets`가 붙이는 별도 RuleSet 연결 투영도 유지한다. `requestDetail`은 Round 요청만 읽는다.
+`AttemptOut`의 기본 필드는 `id`, `attemptNo`, `workerActorId`, `startedAt`, `endedAt`, `outcome`, `executorVersion`, `executorDigest`, `ruleSetRevision`, `inputManifestDigest`, `manifestMatches`, `resultDigest`, `verdict`, `ruleCount`, `requiredUnchecked`, `counts`, `opinionCount`다. `withAttemptRuleSets`가 붙이는 별도 RuleSet 연결 투영도 유지한다. `requestDetail`은 Round 요청만 읽는다.
 
-**Decided · 미구현 (A1).** `AttemptOut`에 세 필드를 더한다: `workerSummaryProjection: 1`(서버가 적용한 허용 목록의 버전, 상수), `workerSummaryState: not_submitted | no_allowed_fields | available`, `workerSummary: WorkerSummaryV1 | null`. 허용 목록 버전 1은 아래 다섯 키뿐이다. 허용된 값이 하나 이상이면 available, 저장 summary가 null이면 not_submitted, 객체는 있으나 유효한 허용 키가 없으면 no_allowed_fields(이때 `workerSummary`는 빈 객체 대신 null)다. 실패 시도의 `{ reason }`도 저장 summary이므로 no_allowed_fields가 된다.
+**As-built (A1).** `AttemptOut`에 세 필드를 항상 낸다: `workerSummaryProjection: 1`(서버가 적용한 허용 목록의 버전, 상수), `workerSummaryState: not_submitted | no_allowed_fields | available`, `workerSummary: WorkerSummaryV1 | null`. 허용 목록 버전 1은 아래 다섯 키뿐이다. 허용된 값이 하나 이상이면 available, 저장 summary가 null이면 not_submitted, 객체에 유효한 허용 키가 없거나 객체가 아닌 JSON이면 no_allowed_fields(이때 `workerSummary`는 빈 객체 대신 null)다. 실패 시도의 `{ reason }`도 저장 summary이므로 no_allowed_fields가 된다.
 
 | 키 | 타입과 검사 | 이유 |
 | --- | --- | --- |
@@ -318,7 +318,7 @@ This read contains no body text and writes no audit row, verdict, Gate decision 
 
 ### 시도 진단 (AttemptDiagnostic, B0/B1)
 
-**Decided · 미구현.** 결정과 대안은 [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md). 이 절이 wire·상한·읽기 계약을 소유한다. `AttemptDiagnostic`은 시도 × 생산자당 문서 하나, `DiagnosticItem`은 그 안의 항목이다. 규칙 결과·의견·사람 등록 항목과 다른 출처이며 verdict·Gate·Knowledge·회귀 비교·의견은 이 표를 읽지 않는다(시험으로 고정).
+**As-built (B1).** 결정과 대안은 [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md). 이 절이 wire·상한·읽기 계약을 소유한다. `AttemptDiagnostic`은 시도 × 생산자당 문서 하나, `DiagnosticItem`은 그 안의 항목이다. 규칙 결과·의견·사람 등록 항목과 다른 출처이며 verdict·Gate·Knowledge·회귀 비교·의견은 이 표를 읽지 않는다(시험으로 고정).
 
 **쓰기 (worker REST, token-only).** `POST /api/v1/validation-queue/requests/:id/attempts/:attemptNo/diagnostics`, `tokenCallable`, scope `validation.worker`(다른 worker 경로와 같은 거절: 세션·scope 없는 토큰 403 `permission.denied`, 자격 없음 401). 요청 주체는 Round와 suite item 둘 다 받는다. 시도는 `succeeded`여야 한다.
 
@@ -361,7 +361,7 @@ This read contains no body text and writes no audit row, verdict, Gate decision 
 
 **수명과 삭제.** 본문은 발췌와 같이 Round `closed` + `excerptRetentionDays`(suite 주체는 suite run 종료 기준) 뒤 지운다. 같은 일일 작업과 관리자 `excerptDelete`(Round·시도 범위)가 같은 저장 경로로 진단 본문도 지우며, 원인은 `retention`·`admin`으로 따로 기록한다. 수명 이유: 진단 본문은 발췌와 같은 Source 유래 텍스트다.
 
-**저장 (B1 마이그레이션).** `log_lifecycle.attempt_diagnostic`(시도·workspace·producer·버전·schemaVersion·digest·바이트 수·actor·token, `(attempt_id, producer)` 고유)과 `attempt_diagnostic_item`(항목 키·순서·origin·`rule_result_id`·근거 jsonb·제목·설명·표 jsonb·`erased_at`·`erased_cause`). `platform_app`은 SELECT·INSERT만, 삭제는 발췌와 같은 `SECURITY DEFINER` 함수 경로, guard trigger가 그 한 가지 UPDATE만 허용한다. 열 이름·인덱스는 B1 PR이 [04](../../../../apps/platform-api/docs/04-database-and-migrations.md)에 적는다.
+**저장 (B1 마이그레이션).** `log_lifecycle.attempt_diagnostic`(시도·workspace·producer·버전·schemaVersion·digest·바이트 수·actor·token, `(attempt_id, producer)` 고유)과 `attempt_diagnostic_item`(항목 키·순서·origin·`rule_result_id`·근거 jsonb·제목·설명·표 jsonb·`erased_at`·`erased_cause`). `platform_app`은 SELECT·INSERT만, 삭제는 발췌와 같은 `SECURITY DEFINER` 함수 경로, guard trigger가 그 한 가지 UPDATE만 허용한다. 열 이름·인덱스와 삭제 경로는 [04](../../../../apps/platform-api/docs/04-database-and-migrations.md#0134--attempt-diagnostics-1815-b1)가 소유한다.
 
 **첨부 (R4).** schemaVersion 1에는 첨부 필드가 없다. 방향은 Source 소유 참조(형식 CSV·PDF·PNG, 내용 해시·크기·형식만 플랫폼에 저장, 열기는 Source 계약의 새 ACL 판정, 보관은 Source 수명이며 발췌 90일과 무관)다. 플랫폼 저장 첨부와 세션 전용 `uploadFile`의 worker 전용은 쓰지 않는다. 버전 2 필드로 여는 조건은 [backlog](../../../../.planning/backlog.md)의 #1815 행이 가진다.
 

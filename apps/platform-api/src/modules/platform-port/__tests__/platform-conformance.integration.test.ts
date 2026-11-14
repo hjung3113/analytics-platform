@@ -233,6 +233,8 @@ const MENU_PARAMS: Record<string, Record<string, unknown>> = {
   'logLifecycle.validationIssueThread': { issueId: NO_ROW },
   'logLifecycle.validationIssueHistory': { issueId: NO_ROW },
   'logLifecycle.roundDiscussion': { roundId: NO_ROW },
+  'logLifecycle.diagnostics': { attemptId: NO_ROW, page: 0, pageSize: 25 },
+  'logLifecycle.diagnosticItem': { attemptId: NO_ROW, producer: 'conformance', itemKey: 'item-0' },
   'logLifecycle.evidenceStates': { ruleResultId: NO_ROW },
   'logLifecycle.excerpt': { ruleResultId: NO_ROW, evidenceIndex: 0 },
   'logLifecycle.opinionScale': {},

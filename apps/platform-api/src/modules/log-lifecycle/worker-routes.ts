@@ -99,4 +99,12 @@ export const workerRoutes: FastifyPluginAsync<WorkerRoutesOptions> = async (app,
       return opts.queue.recordOpinions(callerOf(req), idOf(req), attemptNo, req.body);
     }),
   );
+  app.post('/requests/:id/attempts/:attemptNo/diagnostics', { preHandler: pre, config }, async (req, reply) =>
+    guard(reply, () => {
+      const raw = (req.params as { attemptNo?: string }).attemptNo ?? '';
+      const attemptNo = /^[1-9][0-9]{0,8}$/.test(raw) ? Number(raw) : 0;
+      if (attemptNo < 1) throw new HttpError('validation.failed', 'attemptNo must be a positive integer', { fields: [{ path: ['attemptNo'], code: 'malformed' }] });
+      return opts.queue.recordDiagnostics(callerOf(req), idOf(req), attemptNo, req.body);
+    }),
+  );
 };
