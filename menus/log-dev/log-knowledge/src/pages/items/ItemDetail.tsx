@@ -1,13 +1,13 @@
 import { SearchX } from 'lucide-react';
 import { useState } from 'react';
-import { PlatformLink, useMenuQuery, usePlatform, type PageProps, type QueryState } from '@ap/kernel';
+import { PlatformLink, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
 import { DetailDrawer, PageKeyWarning, PlatformPage, QueryView, ReturnLink, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button } from '@ap/ui';
 import { isUuid, ITEM_PUBLISH_PERMISSION, itemDetailEndpoint, type ItemDetail as ItemDetailData, type ItemDetailParams } from '../../endpoints';
 import { SubjectChips } from './ItemSubjects';
 import { ArchiveAction } from './ArchiveAction';
 import { AssessDrawer } from './AssessDrawer';
-import { ItemWriteDrawer } from './ItemWriteDrawer';
+import { itemWriteDraftKey, ItemWriteDrawer, useItemWriteDraft, type ItemWriteTarget } from './ItemWriteDrawer';
 import { OwnerChip, StateBadges, TypeBadge } from './ItemBadges';
 import { AssessmentTimeline, EvidenceList, ItemBodyBlocks, LinkList, RevisionList, Section, stamp } from './ItemDetailParts';
 import { isRevisionParam, itemNoLabel, revisionOf, shortActor } from './itemModel';
@@ -70,33 +70,59 @@ function Body({ detail }: { detail: ItemDetailData }) {
 }
 
 /**
- * The drawer behind `drawer=<kind>`. Revise edits the latest revision: while an older `rev` is shown, the latest is read once more for the
- * form (and for the version the write is guarded by); the other two drawers use the shown detail (derive takes the viewed revision).
+ * The drawer behind `drawer=revise|derive`. Owns the session draft while the current-generation detail and latest reads are pending
+ * (with `ready: false` so the form stays withheld until access succeeds) and discards explicitly when closed via the placeholder or form.
  */
-function DrawerHost({ kind, detail, viewedRevisionNo, onReload, reloadQuery }: { kind: DrawerKind; detail: ItemDetailData; viewedRevisionNo: number | null; onReload: () => void; reloadQuery: QueryState<ItemDetailData | null> }) {
+function WriteDrawerOwner({
+  kind, itemId, revisionNo, detail, onReload,
+}: {
+  kind: 'revise' | 'derive';
+  itemId: string;
+  revisionNo: number | null;
+  detail: ItemDetailData | undefined;
+  onReload: () => void;
+}) {
   const { setPage } = usePlatform();
   // The derive form is pinned to the revision it was opened on (#1365): a later response for another `rev` must not rebuild it or change its source.
-  const [pinnedSource] = useState(detail);
-  const shownIsLatest = detail.revision.revisionNo === detail.item.latestRevisionNo;
-  const latestQuery = useMenuQuery(itemDetailEndpoint, { itemId: detail.item.id } satisfies ItemDetailParams, kind === 'revise' && !shownIsLatest);
+  const [pinnedSource, setPinnedSource] = useState<ItemDetailData | undefined>(detail);
+  if (detail && !pinnedSource) setPinnedSource(detail);
+  const [pinnedRevisionNo] = useState(revisionNo);
+
+  const shownIsLatest = detail ? detail.revision.revisionNo === detail.item.latestRevisionNo : false;
+  const latestQuery = useMenuQuery(itemDetailEndpoint, { itemId } satisfies ItemDetailParams, kind === 'revise' && !!detail && !shownIsLatest);
   const fresh = latestQuery.response?.outcome === 'ok' ? latestQuery.response.data : null;
   // A failed re-read after a conflict keeps the form (and its draft) on the last good latest instead of unmounting it.
   // One source per render (the shown detail when it is the latest, else the re-read), so the two can never alternate in an update loop.
-  const source = shownIsLatest ? detail : fresh;
+  const source = detail ? (shownIsLatest ? detail : fresh) : null;
   const [kept, setKept] = useState(source);
   const [retain, setRetain] = useState(false);
   if (source && source !== kept) setKept(source);
-  const latest = shownIsLatest ? detail : fresh ?? (retain ? kept : null);
-  const close = () => setPage({ drawer: null });
-  if (kind === 'derive') return <ItemWriteDrawer target={{ mode: 'derive', detail: pinnedSource }} onClose={close} />;
-  if (kind === 'assess') return detail.item.publicationState === 'archived' ? null : <AssessDrawer detail={detail} onReload={onReload} onClose={close} reloadQuery={reloadQuery} />;
-  if (detail.item.publicationState === 'archived') return null;
-  if (!latest) return <DetailDrawer title="기술 Item 수정" subtitle={itemNoLabel(detail.item.itemNo)} onClose={close}
-    tabs={[{ id: 'form', label: '내용', content: latestQuery.response === null || latestQuery.response === undefined
-      ? <p role="status" className="text-sm text-text-muted">최신 리비전을 불러오는 중…</p>
-      : <div className="grid gap-3"><p role="alert" className="text-sm text-text-danger-label">최신 리비전을 불러오지 못했습니다. 수정은 항상 최신 리비전을 바탕으로 합니다.</p>
-        <div className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={() => latestQuery.refetch()}>다시 시도</Button><Button type="button" size="sm" variant="ghost" onClick={close}>닫기</Button></div></div> }]} />;
-  return <ItemWriteDrawer target={{ mode: 'revise', detail: latest, viewedRevisionNo, onReload: () => { setRetain(true); onReload(); latestQuery.refetch(); } }} onClose={close} />;
+  const latest = shownIsLatest ? detail! : fresh ?? (retain ? kept : null);
+
+  const archived = detail?.item.publicationState === 'archived';
+  const target: ItemWriteTarget | null = !detail
+    ? null
+    : kind === 'derive'
+      ? { mode: 'derive', detail: pinnedSource ?? detail, viewedRevisionNo: pinnedRevisionNo }
+      : archived || !latest
+        ? null
+        : { mode: 'revise', detail: latest, viewedRevisionNo: revisionNo, onReload: () => { setRetain(true); onReload(); latestQuery.refetch(); } };
+
+  const draftState = useItemWriteDraft(itemWriteDraftKey(kind, itemId, pinnedRevisionNo), target);
+  const [, , { discard }] = draftState;
+  const close = () => { discard(); setPage({ drawer: null }); };
+
+  if (!detail) return null;
+  if (kind === 'revise' && archived) return null;
+  if (kind === 'revise' && !latest) {
+    return <DetailDrawer title="기술 Item 수정" subtitle={itemNoLabel(detail.item.itemNo)} onClose={close}
+      tabs={[{ id: 'form', label: '내용', content: latestQuery.response === null || latestQuery.response === undefined
+        ? <p role="status" className="text-sm text-text-muted">최신 리비전을 불러오는 중…</p>
+        : <div className="grid gap-3"><p role="alert" className="text-sm text-text-danger-label">최신 리비전을 불러오지 못했습니다. 수정은 항상 최신 리비전을 바탕으로 합니다.</p>
+          <div className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={() => latestQuery.refetch()}>다시 시도</Button><Button type="button" size="sm" variant="ghost" onClick={close}>닫기</Button></div></div> }]} />;
+  }
+  if (!target) return null;
+  return <ItemWriteDrawer target={target} draftState={draftState} onClose={close} />;
 }
 
 /**
@@ -152,6 +178,10 @@ function ItemDetailScreen({ params }: PageProps) {
   const canWrite = hasPublishRight && !!live;
   const waitingReason = previous ? '선택한 리비전을 불러오는 중입니다. 불러온 뒤에 할 수 있습니다.' : undefined;
   const archived = live?.item.publicationState === 'archived';
+  // Revise/derive own a session draft (#2108): the owner mounts while the detail read is pending (the form stays withheld until it succeeds),
+  // never for a missing or forbidden Item or an archived revise.
+  const terminalMissing = query.response?.outcome === 'forbidden' || (query.response?.outcome === 'ok' && query.response.data === null);
+  const writeDrawer = (drawer === 'revise' || drawer === 'derive') && known && !keys.invalid && !terminalMissing && !(drawer === 'revise' && archived) ? drawer : null;
   const secondary = <>
     <ReturnLink />
     {canWrite && !archived && <Button type="button" variant="ghost" size="sm" className="w-full justify-start" disabled={previous} title={waitingReason} onClick={() => setPage({ drawer: 'assess' })}>판단 변경</Button>}
@@ -162,7 +192,8 @@ function ItemDetailScreen({ params }: PageProps) {
     primaryAction={canWrite && !archived ? <Button type="button" disabled={previous} title={waitingReason} onClick={() => setPage({ drawer: 'revise' })}>수정</Button> : undefined}
     secondaryActions={secondary}>
     {!canWrite && live && <p role="status" className="text-sm text-text-secondary">수정하려면 Item 작성 권한을 관리자에게 요청하세요.</p>}
-    {drawer && drawerDetail && <DrawerHost key={drawer === 'assess' ? `assess:${revisionNo}` : drawer} kind={drawer} detail={drawerDetail} viewedRevisionNo={revisionNo} reloadQuery={query} onReload={() => { setRetain(true); query.refetch(); }} />}
+    {writeDrawer && <WriteDrawerOwner key={writeDrawer} kind={writeDrawer} itemId={itemId} revisionNo={revisionNo} detail={drawerDetail} onReload={() => { setRetain(true); query.refetch(); }} />}
+    {drawer === 'assess' && drawerDetail && drawerDetail.item.publicationState !== 'archived' && <AssessDrawer key={`assess:${revisionNo}`} detail={drawerDetail} reloadQuery={query} onReload={() => { setRetain(true); query.refetch(); }} onClose={() => setPage({ drawer: null })} />}
     {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />
       : !known ? <NotFound revision={null} />
       : <QueryView widgetName="기술 Item 상세" query={query}>{data => data ? <Body detail={data} /> : <NotFound revision={revisionNo} />}</QueryView>}

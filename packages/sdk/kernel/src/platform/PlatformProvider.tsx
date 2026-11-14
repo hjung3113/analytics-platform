@@ -18,6 +18,7 @@ import { ServerLanguage, textFor } from '../i18n';
 import { decodeFavorites, decodeRecent, decodeScopeId, readPreference, writePreference } from './preferences';
 import { AppContext, OverlayContext, RecentContext, ToastsContext, type AppValue, type OverlayState, type UsageNavTrail } from './contexts';
 import { MainScreenProvider } from './MainScreenProvider';
+import { createSessionDraftStore } from './sessionDraft';
 import { createNavigationGuard } from './navigationGuard';
 import { createSupportRegistry } from '../saved-view/useSavedViewSupport';
 
@@ -77,6 +78,10 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     setAdapterEpoch({ adapter, epoch });
   }
   const gen = `${epoch}:${revision}:${userId}`;
+  const [heldDrafts, setHeldDrafts] = useState(() => createSessionDraftStore(userId, gen));
+  const sessionDrafts = heldDrafts.gen === gen ? heldDrafts : createSessionDraftStore(userId, gen, heldDrafts);
+  // Render-phase state adjustment: another user gets an empty map before descendants render, without mutating refs or old maps.
+  if (heldDrafts !== sessionDrafts) setHeldDrafts(sessionDrafts);
   const queryEngine = useMemo((): QueryEngine => ({ client: queryClient, gen }), [queryClient, gen]);
   useLayoutEffect(() => { removeOtherGenerations(queryClient, gen); }, [queryClient, gen]);
   useEffect(() => startQueryEngine(queryClient), [queryClient]);
@@ -356,9 +361,9 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
       toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, scopeSelector,
     },
-    internal: { currentRevision: revisions.get, selectionPortCache, queryEngine, enters, usageSessionId, savedViewSupports, userIdRef, usageNav, mainNavigation: pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations },
+    internal: { sessionDrafts, currentRevision: revisions.get, selectionPortCache, queryEngine, enters, usageSessionId, savedViewSupports, userIdRef, usageNav, mainNavigation: pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations },
   }), [registry, adapter, location, absoluteUrl, equipmentAxes, queryHistory, savedViews, session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
-    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, scopeSelector, revisions, selectionPortCache, queryEngine, enters, usageSessionId, savedViewSupports, userIdRef, usageNav, pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations]);
+    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, scopeSelector, revisions, selectionPortCache, queryEngine, sessionDrafts, enters, usageSessionId, savedViewSupports, userIdRef, usageNav, pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations]);
   const overlay = useMemo((): OverlayState => ({ paletteOpen, paletteSession, switcherOpen, switcherSession }), [paletteOpen, paletteSession, switcherOpen, switcherSession]);
   return (
     <AppContext.Provider value={value}>

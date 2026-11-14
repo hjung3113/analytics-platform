@@ -935,3 +935,117 @@ describe('쓰기는 불러온 리비전 기준으로만 (#1365 F5)', () => {
     expect(input()).toMatchObject({ sourceItemId: ITEM(1), sourceRevisionNo: 2 });
   });
 });
+
+describe('item input across a same-user session generation (#2108)', () => {
+  it('restores typed input after the replacement item access read succeeds', async () => {
+    window.history.replaceState(null, '', `/log/knowledge/items/${ITEM(1)}?v=1&drawer=revise`);
+    const listeners = new Set<() => void>();
+    let blocked = false;
+    let deliver = (_: ApiResponse<never>) => {};
+    const port = testAdapter({ session: () => publisher, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, menuQuery: req => {
+      if (req.endpoint !== 'logKnowledge.itemDetail') return Promise.resolve(ok({ rows: [], total: 0 }));
+      return blocked ? new Promise(resolve => { deliver = resolve; }) : Promise.resolve(ok(detailOf(store[0]!)));
+    } });
+    render(tree(<ItemDetail params={{ itemId: ITEM(1) }} />, port));
+    await screen.findByRole('heading', { name: '기술 Item 수정' });
+    type(/^제목/, 'my unsaved title');
+    blocked = true;
+    reactAct(() => listeners.forEach(listener => listener()));
+    expect(screen.queryByDisplayValue('my unsaved title')).toBeNull();
+    await reactAct(async () => deliver(ok(detailOf(store[0]!))));
+    await waitFor(() => expect((field(/^제목/) as HTMLInputElement).value).toBe('my unsaved title'));
+    expect(screen.getByText('세션이 바뀌어 화면을 다시 열었습니다. 저장하지 않은 입력을 되살렸습니다.')).toBeTruthy();
+    fireEvent.click(within(drawer()).getByRole('button', { name: '취소' }));
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+  });
+
+  it('keeps the original baseVersion on a restored revise draft so saving after a server update enters conflict instead of overwriting', async () => {
+    window.history.replaceState(null, '', `/log/knowledge/items/${ITEM(1)}?v=1&drawer=revise`);
+    const listeners = new Set<() => void>();
+    const port = testAdapter({
+      session: () => publisher,
+      subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+      menuQuery: req => req.endpoint === 'logKnowledge.itemDetail' ? Promise.resolve(ok(detailOf(store[0]!))) : Promise.resolve(ok({ rows: [], total: 0 })),
+      menuAction: async (req: MenuAction) => { writes.push(req); return act(req); },
+    });
+    render(tree(<ItemDetail params={{ itemId: ITEM(1) }} />, port));
+    await screen.findByRole('heading', { name: '기술 Item 수정' }, slow);
+    type(/^제목/, 'my unsaved title');
+    // Server advances to v2 with an updated untouched field while the user holds a v1 draft.
+    const rec = store[0]!;
+    rec.revisions.push(revision(3, { title: '다른 사람의 3차', observation: '다른 사람의 관찰 r3' }));
+    rec.version = 2;
+    reactAct(() => listeners.forEach(listener => listener()));
+    await waitFor(() => expect((field(/^제목/) as HTMLInputElement).value).toBe('my unsaved title'), slow);
+    type(/^변경 사유/, '내 수정');
+    submit('새 리비전 저장');
+    expect(await within(drawer()).findByText('다른 사람이 먼저 고쳤습니다', {}, slow)).toBeTruthy();
+    expect(writes).toHaveLength(1);
+    expect(lastWrite()?.expectedVersion).toBe('1');
+    expect(rec.version).toBe(2);
+    expect(rec.revisions.at(-1)!.observation).toBe('다른 사람의 관찰 r3');
+    fireEvent.click(within(drawer()).getByRole('button', { name: '최신 불러오기' }));
+    await waitFor(() => expect(within(drawer()).queryByText('다른 사람이 먼저 고쳤습니다')).toBeNull(), slow);
+    submit('새 리비전 저장');
+    await waitFor(() => expect(writes).toHaveLength(2), slow);
+    expect(lastWrite()?.expectedVersion).toBe('2');
+  });
+
+  it('discards a held draft when navigating away before the pending replacement read resolves', async () => {
+    window.history.replaceState(null, '', `/log/knowledge/items/${ITEM(1)}?v=1&drawer=revise`);
+    const listeners = new Set<() => void>();
+    let blocked = false;
+    let deliver = (_: ApiResponse<never>) => {};
+    const port = testAdapter({
+      session: () => publisher,
+      subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+      menuQuery: req => {
+        if (req.endpoint !== 'logKnowledge.itemDetail') return Promise.resolve(ok({ rows: [], total: 0 }));
+        return blocked ? new Promise(resolve => { deliver = resolve; }) : Promise.resolve(ok(detailOf(store[0]!)));
+      },
+    });
+    const view = render(tree(<ItemDetail params={{ itemId: ITEM(1) }} />, port));
+    await screen.findByRole('heading', { name: '기술 Item 수정' }, slow);
+    type(/^제목/, 'my unsaved title');
+    blocked = true;
+    reactAct(() => listeners.forEach(listener => listener()));
+    expect(screen.queryByDisplayValue('my unsaved title')).toBeNull();
+    // Navigate away before the pending detail read resolves, then return in the same session.
+    view.rerender(tree(<div />, port));
+    await reactAct(async () => {});
+    blocked = false;
+    view.rerender(tree(<ItemDetail params={{ itemId: ITEM(1) }} />, port));
+    await screen.findByRole('heading', { name: '기술 Item 수정' }, slow);
+    await waitFor(() => expect((field(/^제목/) as HTMLInputElement).value).toBe('챔버 압력 로그 지연 (보완)'), slow);
+    expect(screen.queryByText('세션이 바뀌어 화면을 다시 열었습니다. 저장하지 않은 입력을 되살렸습니다.')).toBeNull();
+    void deliver;
+  });
+
+  it('discards a held draft when closing via the latest-read placeholder before the pending read resolves', async () => {
+    window.history.replaceState(null, '', `/log/knowledge/items/${ITEM(1)}?v=1&rev=1&drawer=revise`);
+    const listeners = new Set<() => void>();
+    let blockLatest = false;
+    const port = testAdapter({
+      session: () => publisher,
+      subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+      menuQuery: req => {
+        if (req.endpoint !== 'logKnowledge.itemDetail') return Promise.resolve(ok({ rows: [], total: 0 }));
+        const params = req.params as { revisionNo?: number };
+        if (blockLatest && params.revisionNo === undefined) return new Promise(() => {});
+        return Promise.resolve(ok(detailOf(store[0]!, params.revisionNo)));
+      },
+    });
+    render(tree(<ItemDetail params={{ itemId: ITEM(1) }} />, port));
+    await waitFor(() => expect((field(/^제목/) as HTMLInputElement).value).toBe('챔버 압력 로그 지연 (보완)'), slow);
+    type(/^제목/, 'my unsaved title');
+    blockLatest = true;
+    reactAct(() => listeners.forEach(listener => listener()));
+    expect(await within(drawer()).findByText('최신 리비전을 불러오는 중…', {}, slow)).toBeTruthy();
+    fireEvent.click(within(drawer()).getByRole('button', { name: '상세 닫기' }));
+    await waitFor(() => expect(url().get('drawer')).toBeNull(), slow);
+    blockLatest = false;
+    fireEvent.click(screen.getByRole('button', { name: '수정' }));
+    await waitFor(() => expect((field(/^제목/) as HTMLInputElement).value).toBe('챔버 압력 로그 지연 (보완)'), slow);
+    expect(screen.queryByText('세션이 바뀌어 화면을 다시 열었습니다. 저장하지 않은 입력을 되살렸습니다.')).toBeNull();
+  });
+});

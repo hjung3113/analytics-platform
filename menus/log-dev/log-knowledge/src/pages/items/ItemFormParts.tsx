@@ -138,6 +138,8 @@ export type GuardedLeave = { run: () => void; title: string; message: string; co
  */
 export function useCloseGuard(onClose: () => void) {
   const dirty = useRef(false);
+  const discardRef = useRef<(() => void) | null>(null);
+  const setDiscard = useCallback((discard: () => void) => { discardRef.current = discard; return () => { discardRef.current = null; }; }, []);
   const [asking, setAsking] = useState<GuardedLeave | null>(null);
   const closeRef = useRef(onClose);
   useEffect(() => { closeRef.current = onClose; });
@@ -145,14 +147,14 @@ export function useCloseGuard(onClose: () => void) {
   const leave = useCallback((next: GuardedLeave) => { if (dirty.current) setAsking(next); else next.run(); }, []);
   const request = () => leave(closing);
   const dialog = <DirtyConfirmation open={asking !== null} title={asking?.title ?? closing.title} message={asking?.message ?? closing.message} confirmLabel={asking?.confirmLabel ?? closing.confirmLabel} cancelLabel="계속 작성"
-    onCancel={() => setAsking(null)} onConfirm={() => { const next = asking; setAsking(null); dirty.current = false; next?.run(); }} />;
+    onCancel={() => setAsking(null)} onConfirm={() => { const next = asking; setAsking(null); dirty.current = false; discardRef.current?.(); next?.run(); }} />;
   const markDirty = useCallback((value: boolean) => { dirty.current = value; }, []);
-  return { markDirty, request, leave, force: () => { dirty.current = false; closeRef.current(); }, dialog };
+  return { markDirty, setDiscard, request, leave, force: () => { dirty.current = false; discardRef.current?.(); closeRef.current(); }, dialog };
 }
 
 /** Whether `value` differs from what it was when the form first mounted; reports each change to `markDirty`. */
-export function useDirtyReport(value: unknown, markDirty: (dirty: boolean) => void): void {
-  const [start] = useState(() => JSON.stringify(value));
+export function useDirtyReport(value: unknown, markDirty: (dirty: boolean) => void, initial: unknown = value): void {
+  const [start] = useState(() => JSON.stringify(initial));
   const now = JSON.stringify(value) !== start;
   useEffect(() => { markDirty(now); }, [now, markDirty]);
 }

@@ -5,3 +5,5 @@ export type { OverlayState } from './contexts';
 export { PlatformProvider } from './PlatformProvider';
 export { PaneQueryDraftProvider, PaneScreenProvider, type PaneScreen } from './PaneProviders';
 export { PlatformLink, useEquipmentAxes, useHostPlatform, useHostPlatformOptional, useOverlayState, usePlatform, usePlatformOptional, useQueryEngine, useUnsavedGuard, useLeaveRequest, useRecentVisits, useSelectionPortCache, useToastList } from './hooks';
+
+export { useSessionDraft } from './useSessionDraft';

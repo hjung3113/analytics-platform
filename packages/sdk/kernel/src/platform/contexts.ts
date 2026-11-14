@@ -8,6 +8,7 @@ import type { QueryEngine } from '../query/query-engine';
 import { PANE_USAGE_VIAS, type MainUsageVia, type Pair, type SpaceDef } from '@ap/contracts';
 import type { SupportRegistry } from '../saved-view/useSavedViewSupport';
 import type { HostPlatform, Recent, Toast } from './types';
+import type { SessionDraftStore } from './sessionDraft';
 import type { NavigationGuard } from './navigationGuard';
 
 /** Fields of the screen state: what a menu page reads about the screen it is shown on (the main screen or one board pane). */
@@ -33,6 +34,7 @@ export type AppInternal = {
   mainNavigation: ReturnType<typeof createPageNavigation>;
   /** Unsaved-edit guards and the pending leave request (ADR-0115). */
   guard: NavigationGuard;
+  sessionDrafts: SessionDraftStore;
   initialUrl: string;
   recordVisit: (menuId: string, url: string) => void;
   rememberScope: (scopeId: string) => void;
