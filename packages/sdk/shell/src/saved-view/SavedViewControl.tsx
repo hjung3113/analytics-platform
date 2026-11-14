@@ -46,7 +46,7 @@ function shareApplied(view: SavedView, official: boolean, wanted: ViewVisibility
 function Ready({ views, store, support }: { views: SavedViews; store: Pick<SavedViewStore, 'get' | 'listGroups' | 'listApprovalRequests' | 'searchPeople'>; support: SavedViewSupport }) {
   const host = useHostPlatform();
   const axes = useEquipmentAxes();
-  const { t, tx } = useI18n();
+  const { lang, t, tx } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const userId = host.user.id;
   // False once this surface was replaced or unmounted: its pending writes may finish, but nothing of theirs reaches the screen, the toasts or the parent.
