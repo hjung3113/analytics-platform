@@ -44,7 +44,7 @@ export type LaneTimelineProps = {
   /**
    * Opt-in range brush (#1860), the same as OrderedIntervalTrack's: adds the `구간 선택` toggle. While it is on, a drag picks a time
    * range (epoch ms, like the segments) instead of panning and a click selects nothing; Shift+←/→ moves the range end within the
-   * visible window; the selection summary shows the range with `선택 구간 확대`. Escape and `초기화` clear it. Pass `{}` for an
+   * visible window; the selection summary shows the range with `선택 구간 확대`. Escape and `확대 초기화` clear it. Pass `{}` for an
    * uncontrolled brush, or `value`/`onChange` to own the range. Omitted: no toggle, and drag, keys and summary are unchanged.
    */
   rangeBrush?: RangeBrushOptions;
@@ -132,7 +132,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
       <div role="toolbar" aria-label={m('chartActions')} className="ml-auto flex flex-wrap items-center justify-end gap-1">
         <TooltipProvider delayDuration={200}><Tooltip>
           <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" aria-label={m('laneHowToInteract')}><Info className="size-3.5" aria-hidden /></Button></TooltipTrigger>
-          <TooltipContent>{m('laneInteractionHelp')}</TooltipContent>
+          <TooltipContent>{m(brushOn ? 'laneInteractionHelpBrush' : 'laneInteractionHelp')}</TooltipContent>
         </Tooltip></TooltipProvider>
         <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{m('laneZoomIn')}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{m('laneZoomOut')}</Button>{brushOn && <Button type="button" size="toolbar" variant={brush.mode ? 'secondary' : 'ghost'} aria-pressed={brush.mode} onClick={() => brush.setMode(!brush.mode)}>{m('chartBrush')}</Button>}
         <Button size="toolbar" variant="ghost" onClick={() => { engine.current?.resetZoom(); if (brushOn) brush.clear(); }}>{m('laneZoomReset')}</Button>
@@ -141,7 +141,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
       </div>
     </header>
     <p className="px-4 py-2 text-text-secondary">{m('laneBoundaryHelp')}</p>
-    <p id={helpId} className="sr-only">{m('laneAccessibleHelp')}</p>
+    <p id={helpId} className="sr-only">{m(brushOn ? 'laneAccessibleHelpBrush' : 'laneAccessibleHelp')}</p>
     {unavailable ? <ChartUnavailable /> : (
     <div className="overflow-x-auto">
       <div className="min-w-[352px]">

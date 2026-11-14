@@ -204,11 +204,12 @@ export function createLaneRenderer(input: RendererInput) {
     if (brush?.mode) {
       // Brush mode: a drag picks a range and a click does nothing (as on OrderedIntervalTrack); a cancelled drag leaves no range.
       if (drag.moved && event.type === 'pointerup') brush.onSelect(drag.time, timeAt(event.clientX));
-      if (brushDraft) { brushDraft = null; schedule(false); }
     } else if (!drag.moved && event.type === 'pointerup') {
       const bounds = canvas.getBoundingClientRect(); const rect = hit(event.clientX - bounds.left, event.clientY - bounds.top);
       onSelect(rect?.segment.id ?? null);
     }
+    // Whatever the mode is now (Escape mid-drag turns it off), an unfinished band never outlives its drag.
+    if (brushDraft) { brushDraft = null; schedule(false); }
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     drag = null;
   }
@@ -236,10 +237,11 @@ export function createLaneRenderer(input: RendererInput) {
   function update(next: RendererState) {
     onSelect = next.onSelect; onHover = next.onHover; lang = next.lang;
     const prevBrush = brush; brush = next.brush ?? null;
+    if (!brush?.mode) brushDraft = null;
     if (prevBrush?.mode !== brush?.mode || prevBrush?.range?.[0] !== brush?.range?.[0] || prevBrush?.range?.[1] !== brush?.range?.[1]) schedule(false);
     const modelChanged = next.model !== model; const prevProps = props; props = next.props;
     if (modelChanged) {
-      model = next.model; view = [...model.domain]; drag = null; lastHover = null; invalidateHover(); onHover(null);
+      model = next.model; view = [...model.domain]; drag = null; brushDraft = null; lastHover = null; invalidateHover(); onHover(null);
       // The new model has not been painted: close the hit gate until drawData() runs, so hits never mix it with the old view.
       hasDrawn = false; overlayCache = null;
       sizeKey = ''; resize(); styleCache = null; schedule();

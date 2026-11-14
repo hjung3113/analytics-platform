@@ -1,4 +1,7 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useState } from 'react';
+
+/** The key fields `keyDown` reads: a React keyboard event and a DOM `KeyboardEvent` both fit. */
+export type RangeBrushKey = { key: string; shiftKey: boolean; preventDefault: () => void };
 
 /** A closed range `[start, end]` (start ≤ end) on one numeric axis: epoch ms on a time axis, positions on an order axis. */
 export type AxisRange = readonly [number, number];
@@ -25,10 +28,11 @@ export type RangeBrush = {
   /** A finished drag between two axis values, in either order. */
   select: (from: number, to: number) => void;
   /**
-   * Shift+←/→: moves the end by a twentieth of `view` from the range start (the view start without a range), never past the
-   * view end nor below `minSpan`, and turns brush mode on. Returns true when it handled the key (the caller stops there).
+   * Shift+←/→: moves the end by a twentieth of `view` from the range start, never past the view end nor below `minSpan`, and
+   * turns brush mode on. Without a range, or when its start lies outside `view` (after a pan or zoom), it starts at the view
+   * start. Returns true when it handled the key (the caller stops there).
    */
-  keyDown: (event: KeyboardEvent, view: AxisRange) => boolean;
+  keyDown: (event: RangeBrushKey, view: AxisRange) => boolean;
   /** Escape or reset: no range, brush mode off. */
   clear: () => void;
 };
@@ -37,10 +41,12 @@ export type RangeBrush = {
 export const RANGE_BRUSH_DRAG_THRESHOLD = 3;
 
 function extendRange(range: AxisRange | null, direction: -1 | 1, view: AxisRange, minSpan: number): AxisRange {
-  const start = range?.[0] ?? view[0];
+  // A start the view no longer shows restarts at the view start, so the result stays inside the view and start <= end.
+  const kept = range && range[0] >= view[0] && range[0] <= view[1] ? range : null;
+  const start = kept?.[0] ?? view[0];
   const minimum = Math.min(minSpan, view[1] - start);
   const step = Math.max(minimum, (view[1] - view[0]) / 20);
-  return [start, Math.max(start + minimum, Math.min(view[1], (range?.[1] ?? start) + direction * step))];
+  return [start, Math.max(start + minimum, Math.min(view[1], (kept?.[1] ?? start) + direction * step))];
 }
 
 /**
@@ -53,10 +59,11 @@ function extendRange(range: AxisRange | null, direction: -1 | 1, view: AxisRange
 export function useRangeBrush(options: RangeBrushOptions = {}): RangeBrush {
   const [local, setLocal] = useState<AxisRange | null>(options.defaultValue ?? null);
   const [mode, setMode] = useState(false);
-  const range = options.value === undefined ? local : options.value;
+  const controlled = options.value !== undefined;
+  const range = controlled ? options.value ?? null : local;
   const set = (next: AxisRange | null) => {
     if (next === null && range === null) return;
-    setLocal(next);
+    if (!controlled) setLocal(next);
     options.onChange?.(next);
   };
   return {

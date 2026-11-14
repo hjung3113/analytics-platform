@@ -28,6 +28,15 @@ it('orders a drag, extends from the range start within the view, and clears once
   expect(onChange).toHaveBeenCalledTimes(calls);
 });
 
+// Review F2: a range whose start the view no longer shows restarts at the view start instead of inverting.
+it('restarts at the view start when the range start lies outside the view', () => {
+  const onChange = vi.fn();
+  const { result } = renderHook(() => useRangeBrush({ defaultValue: [200, 250], onChange }));
+  act(() => { result.current.keyDown(key('ArrowRight'), [0, 100]); });
+  expect(result.current.range).toEqual([0, 5]);
+  expect(onChange).toHaveBeenLastCalledWith([0, 5]);
+});
+
 it('leaves keys other than Shift+←/→ to the surface', () => {
   const { result } = renderHook(() => useRangeBrush());
   for (const event of [key('ArrowRight', false), key('ArrowUp'), key('Escape')]) expect(result.current.keyDown(event, [0, 100])).toBe(false);

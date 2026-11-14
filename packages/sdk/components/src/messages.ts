@@ -177,6 +177,15 @@ export const COMPONENTS_MESSAGES = {
     ko: 'Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 방향키: 탐색 · Enter: 선택 · Escape: 해제',
     en: 'Ctrl/⌘ + wheel: Zoom · Drag: Pan · Arrows: Navigate · Enter: Select · Escape: Clear',
   },
+  // With `rangeBrush` (#1860): the same help plus the brush, in OrderedIntervalTrack's words.
+  laneInteractionHelpBrush: {
+    ko: 'Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 구간 선택: 끌기 / Shift+←→ · 방향키: 탐색 · Enter: 선택 · Escape: 해제',
+    en: 'Ctrl/⌘ + wheel: Zoom · Drag: Pan · Brush: Drag / Shift+arrows · Arrows: Navigate · Enter: Select · Escape: Clear',
+  },
+  laneAccessibleHelpBrush: {
+    ko: 'Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 구간 선택: 끌기 / Shift+←→ · 방향키: 탐색 · Enter: 선택 · Escape: 해제 · 시작 미확인 · 종료 미확인',
+    en: 'Ctrl/⌘ + wheel: Zoom · Drag: Pan · Brush: Drag / Shift+arrows · Arrows: Navigate · Enter: Select · Escape: Clear · Start unknown · End unknown',
+  },
   laneBoundaryHelp: { ko: '시작 미확인 · 종료 미확인', en: 'Start unknown · End unknown' },
   laneAccessibleHelp: {
     ko: 'Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 방향키: 탐색 · Enter: 선택 · Escape: 해제 · 시작 미확인 · 종료 미확인',

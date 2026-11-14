@@ -73,10 +73,10 @@ Ctrl/⌘+wheel·+/−·확대 버튼으로 확대하고 plot drag로 이동한�
 ```tsx
 const [range, setRange] = useState<AxisRange | null>(null);
 <LaneTimeline ariaLabel="Intervals" lanes={lanes} rangeBrush={{ value: range, onChange: setRange }} />;
-// 제어하지 않을 때: rangeBrush={brushOptions} (메모이즈한 {} 또는 { onChange })
+// 제어하지 않을 때: rangeBrush={{}} 또는 rangeBrush={{ onChange }} (메모이즈하지 않아도 된다)
 ```
 
-차트 밖 표면(메뉴가 직접 그린 띠·canvas)은 같은 상태와 키보드 대체 입력을 `useRangeBrush({ value?, defaultValue?, onChange?, minSpan? })`로 쓴다. 반환값의 `mode`·`setMode`는 토글, `select(from, to)`는 끝난 drag(순서 무관, 축 값), `keyDown(event, view)`는 Shift+←/→를 처리했으면 true, `clear()`는 Escape·초기화다. 포인터 좌표를 축 값으로 바꾸는 일과 그리기는 표면 몫이며, 3px(`RANGE_BRUSH_DRAG_THRESHOLD`)보다 짧은 누름은 클릭으로 본다. 구간은 Chart Local State라 URL·전역 Context를 바꾸지 않는다.
+차트 밖 표면(메뉴가 직접 그린 띠·canvas)은 같은 상태와 키보드 대체 입력을 `useRangeBrush({ value?, defaultValue?, onChange?, minSpan? })`로 쓴다. 반환값의 `mode`·`setMode`는 토글, `select(from, to)`는 끝난 drag(순서 무관, 축 값), `keyDown(event, view)`는 Shift+←/→를 처리했으면 true(React와 DOM 키 이벤트 모두 받는다, 구간 시작이 보이는 창 밖이면 창의 시작부터 다시 잡는다), `clear()`는 Escape·초기화다. 포인터 좌표를 축 값으로 바꾸는 일과 그리기는 표면 몫이며, 3px(`RANGE_BRUSH_DRAG_THRESHOLD`)보다 짧은 누름은 클릭으로 본다. 구간은 Chart Local State라 URL·전역 Context를 바꾸지 않는다.
 
 ## 변경 기록
 
@@ -90,4 +90,4 @@ const [range, setRange] = useState<AxisRange | null>(null);
 
 2026-11-11 / #1746: 선택 옵션 추가(기본 동작 불변). `LaneTimelineProps.overlays?: TimelineOverlay[]`와 타입 `TimelineOverlay`(`instant`·`range`·`segments`) 추가. 렌더러는 마운트마다 한 번 만들어지고, 선택·오버레이 변경은 오버레이 층만 다시 그린다. `LaneTimelineHandle`은 그대로다.
 
-2026-11-15 / #1860: 선택 옵션 추가(기본 동작 불변). `LaneTimelineProps.rangeBrush?: RangeBrushOptions`(구간 끌어 고르기)와 차트 밖 표면용 `useRangeBrush`·`AxisRange`·`RangeBrush`·`RangeBrushOptions`·`RANGE_BRUSH_DRAG_THRESHOLD` 추가. `OrderedIntervalTrack`의 구간 선택이 같은 훅을 쓴다(동작 같음).
+2026-11-15 / #1860: 선택 옵션 추가(기본 동작 불변). `LaneTimelineProps.rangeBrush?: RangeBrushOptions`(구간 끌어 고르기)와 차트 밖 표면용 `useRangeBrush`·`AxisRange`·`RangeBrush`·`RangeBrushOptions`·`RangeBrushKey`·`RANGE_BRUSH_DRAG_THRESHOLD` 추가. `OrderedIntervalTrack`의 구간 선택이 같은 훅을 쓴다(동작 같음).

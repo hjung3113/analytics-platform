@@ -39,7 +39,13 @@ it('changes nothing without rangeBrush: no toggle, Shift+→ moves the item focu
   expect(screen.queryByRole('button', { name: '구간 선택' })).toBeNull();
   fireEvent.keyDown(region(), { key: 'ArrowRight', shiftKey: true });
   expect(screen.getByRole('status').textContent).toContain('item-y');
-  drag(300, 200);
+  const ticks = () => context.fillText.mock.calls.map(([text]) => String(text)).filter(text => /^t\d+$/.test(text));
+  fireEvent.click(screen.getByRole('button', { name: '확대' })); flush();
+  context.fillText.mockClear(); fireEvent.keyDown(region(), { key: '+' }); flush();
+  const before = ticks();
+  context.fillText.mockClear(); drag(300, 200);
+  // The drag panned: the axis was redrawn with other ticks, and no range exists.
+  expect(ticks()).not.toEqual(before);
   expect(screen.queryByText(/선택 구간/)).toBeNull();
 });
 
@@ -58,6 +64,36 @@ it('a drag in brush mode picks the time range under the pointer, in either direc
   fireEvent.pointerUp(canvas(), { clientX: 150, clientY: 12, pointerId: 2 });
   expect(onSelectedChange).not.toHaveBeenCalled();
   expect(onChange).toHaveBeenCalledTimes(1);
+});
+
+// Review F1: the band under an unfinished drag never outlives it — Escape mid-drag, or a cancelled pointer.
+const bandCalls = () => context.strokeRect.mock.calls.filter(([, y]) => y === 1);
+it('Escape during a brush drag leaves no band once the pointer lifts', () => {
+  const onChange = vi.fn();
+  mount({ rangeBrush: { onChange } });
+  fireEvent.click(toggle());
+  fireEvent.pointerDown(canvas(), { clientX: 200, clientY: 12, pointerId: 1, button: 0 });
+  fireEvent.pointerMove(canvas(), { clientX: 400, clientY: 12, pointerId: 1 }); flush();
+  expect(bandCalls()).toHaveLength(1);
+  context.strokeRect.mockClear();
+  fireEvent.keyDown(region(), { key: 'Escape' }); flush();
+  fireEvent.pointerUp(canvas(), { clientX: 400, clientY: 12, pointerId: 1 }); flush();
+  // A later redraw (zoom) draws no band either.
+  fireEvent.keyDown(region(), { key: '+' }); flush();
+  expect(bandCalls()).toHaveLength(0);
+  expect(onChange).not.toHaveBeenCalled();
+});
+it('a cancelled brush drag picks nothing and clears its band', () => {
+  const onChange = vi.fn();
+  mount({ rangeBrush: { onChange } });
+  fireEvent.click(toggle());
+  fireEvent.pointerDown(canvas(), { clientX: 200, clientY: 12, pointerId: 1, button: 0 });
+  fireEvent.pointerMove(canvas(), { clientX: 400, clientY: 12, pointerId: 1 }); flush();
+  context.strokeRect.mockClear();
+  fireEvent.pointerCancel(canvas(), { clientX: 400, clientY: 12, pointerId: 1 }); flush();
+  fireEvent.keyDown(region(), { key: '+' }); flush();
+  expect(bandCalls()).toHaveLength(0);
+  expect(onChange).not.toHaveBeenCalled();
 });
 
 it('Shift+←/→ moves the range end by a twentieth of the view and turns brush mode on; Escape and 초기화 clear it', () => {

@@ -13,7 +13,7 @@ import {
 } from './orderedIntervalGeometry';
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
 import type { OrderedIntervalTrackProps, OrderedTrackItem } from './orderedIntervalTypes';
-import type { AxisRange } from './useRangeBrush';
+import { RANGE_BRUSH_DRAG_THRESHOLD, type AxisRange } from './useRangeBrush';
 
 type PlotProps = Pick<
   OrderedIntervalTrackProps,
@@ -432,7 +432,7 @@ export function OrderedIntervalPlot(props: PlotProps) {
               if (!start || event.pointerId !== start.pointer) return;
               drag.current = null;
               const { order, hit } = position(event);
-              if (Math.abs(event.clientX - start.x) > 3) {
+              if (Math.abs(event.clientX - start.x) > RANGE_BRUSH_DRAG_THRESHOLD) {
                 if (props.brushMode)
                   props.onBrush(start.order, order);
                 else props.onView([view[0] + start.order - order, view[1] + start.order - order]);
