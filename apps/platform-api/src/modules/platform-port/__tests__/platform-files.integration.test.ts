@@ -29,7 +29,18 @@ describe.skipIf(!runIntegration)('POST /api/v1/platform/files (live DB)', () => 
   let dbHandle: DbHandle;
   let migrateHandle: DbHandle;
   let app: FastifyInstance;
-  const storage = memoryStorage();
+  const memory = memoryStorage();
+  // #1991: a storage put delay makes concurrent uploads overlap for certain, as they do on a slow CI runner.
+  let putDelayMs = 0;
+  const storage: typeof memory = {
+    ...memory,
+    async put(input) {
+      if (putDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, putDelayMs));
+      return memory.put(input);
+    },
+  };
+  // The concurrent-retry test sends this many uploads at once; each holds an admission slot until it answers.
+  const CONCURRENT_RETRIES = 6;
 
   async function login(externalId: string): Promise<string> {
     const res = await app.inject({
@@ -78,7 +89,14 @@ describe.skipIf(!runIntegration)('POST /api/v1/platform/files (live DB)', () => 
     process.env.NODE_ENV = 'test';
     dbHandle = createDb(APP_URL);
     migrateHandle = createDb(MIGRATE_URL);
-    app = await buildServer({ config: loadConfig(), dbHandle, storage });
+    // Enough admission slots for every concurrent retry: this suite proves idempotency, not the busy refusal
+    // (covered in upload-admission.integration.test.ts). With the default 4, retries 5 and 6 were refused as
+    // `error` whenever the first four still held their slots (#1991).
+    app = await buildServer({
+      config: { ...loadConfig(), ATTACHMENT_UPLOAD_CONCURRENCY: CONCURRENT_RETRIES },
+      dbHandle,
+      storage,
+    });
     await app.ready();
   });
 
@@ -147,13 +165,16 @@ describe.skipIf(!runIntegration)('POST /api/v1/platform/files (live DB)', () => 
     const csrf = await csrfOf(cookie);
     const key = randomUUID();
     const before = await dbHandle.pool.query(`select 1 from voc.voc_attachments`);
+    putDelayMs = 300;
     const results = await Promise.all(
-      Array.from({ length: 6 }, (_, i) =>
+      Array.from({ length: CONCURRENT_RETRIES }, (_, i) =>
         upload(cookie, { key: i % 2 === 0 ? key.toLowerCase() : key.toUpperCase(), csrf }),
       ),
-    );
+    ).finally(() => {
+      putDelayMs = 0;
+    });
     const bodies = results.map((r) => r.json() as { outcome: string; replayed: boolean; data: { id: string } });
-    expect(bodies.map((b) => b.outcome)).toEqual(Array(6).fill('ok'));
+    expect(bodies.map((b) => b.outcome)).toEqual(Array(CONCURRENT_RETRIES).fill('ok'));
     expect(bodies.filter((b) => b.replayed === false)).toHaveLength(1);
     expect(new Set(bodies.map((b) => b.data.id)).size).toBe(1);
     const after = await dbHandle.pool.query(`select 1 from voc.voc_attachments`);
