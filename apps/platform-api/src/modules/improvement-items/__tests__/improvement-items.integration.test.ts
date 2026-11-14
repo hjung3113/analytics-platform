@@ -409,14 +409,15 @@ describe.skipIf(!runIntegration)('improvement items schema and reads (#1328 a)',
         status: 'open',
         assignee: { id: actorId },
         quest: { id: 'Q-1', titleSnapshot: 'Quest one' },
-        origin: { menuId: 'mars-trend', context: { metric: 'yield', equipment: 'EQ-1' } },
-        targets: [{ kind: 'equipment', externalKey: 'EQ-1', displayName: 'Etcher 1' }],
+        restricted: true,
+        origin: { menuId: 'mars-trend', context: {}, restricted: true },
+        targets: [{ kind: 'equipment', externalKey: '', displayName: '' }],
         version: '1',
         effectResult: null,
       });
       expect(a1.assignee.displayName).not.toBe('');
       const a4 = (all.data.rows as any[]).find((r) => r.id === ids.a4); // eslint-disable-line @typescript-eslint/no-explicit-any -- wire JSON
-      expect(a4).toMatchObject({ actionDate: '2026-02-04', effectResult: 'effective', effectCompareLink: '/mars/compare?from=2026-02-04', assignee: null, quest: null, origin: { menuId: 'schema-test', context: {} } });
+      expect(a4).toMatchObject({ actionDate: '2026-02-04', effectResult: 'effective', effectCompareLink: null, restricted: true, assignee: null, quest: null, origin: { menuId: 'schema-test', context: {} } });
     });
 
     it('filters by status (in and notIn)', async () => {
@@ -500,8 +501,8 @@ describe.skipIf(!runIntegration)('improvement items schema and reads (#1328 a)',
         problem: `${TAG} beta 100%_wide`,
         action: 'recalibrate the chamber',
         targets: [
-          { kind: 'equipment', externalKey: 'EQ-1' },
-          { kind: 'process', externalKey: 'CVD', displayName: 'Deposition' },
+          { kind: 'equipment', externalKey: '', displayName: '' },
+          { kind: 'process', externalKey: '', displayName: '' },
         ],
       });
       const no = byId.data.itemNo as number;

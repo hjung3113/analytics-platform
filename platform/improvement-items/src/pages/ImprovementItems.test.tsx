@@ -675,3 +675,20 @@ describe('target presentation and unified editor (#1430)', () => {
     } finally { height.mockRestore(); }
   });
 });
+
+it('renders the Scope restriction in list and detail without target history or analysis links (#2076)', async () => {
+  const saved = { ...row, restricted: true, origin: { menuId: 'improvement-items', context: {}, restricted: true }, targets: [{ kind: 'equipment' as const, externalKey: '', displayName: '' }] };
+  mount({ detail: true, overrides: { menuQuery: async r => response(r.endpoint === 'improvement.itemDetail' ? saved : { rows: [], total: 0 }) } });
+  await screen.findByText('test problem');
+  expect(screen.getAllByText('권한 밖').length).toBeGreaterThanOrEqual(2);
+  expect(screen.queryByRole('link', { name: '분석 화면 열기' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^설비 ·/ })).toBeNull();
+});
+
+it('renders the restriction label in the list target cell (#2076)', async () => {
+  const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.getAttribute('role') === 'row' ? 32 : 420; });
+  try {
+    mount({ overrides: { menuQuery: async () => response({ rows: [{ ...row, restricted: true, targets: [{ kind: 'process', externalKey: '', displayName: '' }] }], total: 1 }) } });
+    expect(await screen.findByRole('cell', { name: '권한 밖' })).toBeTruthy();
+  } finally { height.mockRestore(); }
+});

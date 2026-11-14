@@ -7,8 +7,9 @@ export const STATUSES = ['open', 'in_progress', 'done', 'verified', 'dropped'] a
 export type Status = typeof STATUSES[number];
 export type Effect = 'effective' | 'ineffective' | 'inconclusive';
 export type Target = { kind: 'equipment' | 'process'; externalKey: string; displayName: string };
-export type Origin = { menuId: string; context: Record<string, unknown> };
+export type Origin = { menuId: string; context: Record<string, unknown>; restricted?: true };
 export type ItemRow = {
+  restricted?: true; effectCompareRestricted?: true;
   id: string; itemNo: number; problem: string; action: string | null; actionDate: string | null; status: Status;
   assignee: { id: string; displayName: string } | null; quest: { id: string; titleSnapshot: string } | null;
   origin: Origin | null; targets: Target[]; effectResult: Effect | null; effectNote: string | null;

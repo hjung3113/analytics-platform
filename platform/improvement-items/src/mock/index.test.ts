@@ -117,7 +117,7 @@ describe('improvement mock dispatch', () => {
   });
   it('trims targets before the duplicate check and storage, like the server (C3)', async () => {
     const a = adapter();
-    const origin = { menuId: 'cycle-time', context: { from: '2026-11-01T00:00', to: '2026-11-05T00:00' } };
+    const origin = { menuId: 'cycle-time', context: { scopeId: 'MEM', from: '2026-11-01T00:00', to: '2026-11-05T00:00' } };
     // leading/trailing space and tab collapse before the duplicate check: the second occurrence is the duplicate
     expect(await write(a, 'itemCreate', { problem: 'p', origin, targets: [
       { kind: 'equipment', externalKey: ' EQ-9 ', displayName: 'x' },
@@ -249,5 +249,31 @@ describe('Quest reads (BRAVO is not served by the platform; the mock answers the
     const listed = pageOf(await search(a, { page: 0, pageSize: 1 }))!.items[0] as Quest;
     listed.title = 'changed';
     expect(pageOf(await search(a, { page: 0, pageSize: 1 }))!.items[0]!.title).toBe('Chamber pressure drift review');
+  });
+});
+
+describe('Scope masking (#2076)', () => {
+  it('keeps rows readable while masking targets, origin, history and links outside granted Sites', async () => {
+    const a = adapter();
+    const created: string[] = [];
+    for (const site of ['MEM', 'FDRY', 'missing', 'no-origin']) {
+      const res = await write(a, 'itemCreate', { problem: `mask-${site}`, origin: site === 'no-origin' ? null : { menuId: 'cycle-time', context: site === 'missing' ? {} : { scopeId: site, selection: ['SECRET-EQ'], roomNames: ['SECRET-ROOM'], page: { drillEquipment: 'SECRET-EQ' } } }, targets: [{ kind: 'equipment', externalKey: 'SECRET-EQ', displayName: 'SECRET-NAME' }, { kind: 'process', externalKey: 'SECRET-ROOM', displayName: 'SECRET-ROOM' }] });
+      expect(res.outcome).toBe('ok'); created.push((res.data as { itemId: string }).itemId);
+    }
+    setRole('viewer');
+    const listed = (await query(a, 'improvement.items', { ...params, q: 'mask-' })).data as { rows: { restricted?: boolean; id: string }[]; total: number };
+    expect(listed.total).toBe(4);
+    for (const [i, itemId] of created.entries()) {
+      const detail = await query(a, 'improvement.itemDetail', { itemId });
+      const events = await query(a, 'improvement.itemEvents', { itemId });
+      expect((detail.data as { restricted?: boolean }).restricted).toBe(i ? true : undefined);
+      expect(listed.rows.find(r => r.id === itemId)?.restricted).toBe(i ? true : undefined);
+      if (i) { expect(JSON.stringify(detail.data)).not.toContain('SECRET-'); expect(JSON.stringify(events.data)).not.toContain('SECRET-'); }
+      else expect(JSON.stringify(detail.data)).toContain('SECRET-EQ');
+    }
+    setRole('admin');
+    // Masking is a response projection: recording a Site later reveals the unchanged stored targets.
+    expect(await write(a, 'itemUpdate', { itemId: created[1], origin: { menuId: 'cycle-time', context: { scopeId: 'MEM' } } }, '1')).toMatchObject({ outcome: 'ok' });
+    expect(await query(a, 'improvement.itemDetail', { itemId: created[1] })).toMatchObject({ data: { targets: [{ externalKey: 'SECRET-EQ' }, { externalKey: 'SECRET-ROOM' }] } });
   });
 });

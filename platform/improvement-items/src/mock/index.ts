@@ -1,6 +1,6 @@
 /** Deterministic menu-owned fixtures; production screens never import this module. */
 import { filterRows, validateFilters, type ActionSpec, type FieldError, type PageResult } from '@ap/contracts';
-import { MockActionInvalid, MockRequestError, defineMockAction, defineMockEndpoint, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
+import { USERS, MockActionInvalid, MockRequestError, defineMockAction, defineMockEndpoint, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
 import { FORWARD, QUEST_QUERY_MAX, QUEST_SEARCH_PAGE_SIZE_MAX, REOPEN, SORT_IDS, actionSpecs, detailEndpoint, eventsEndpoint, filterSpecs, itemCreate, itemsEndpoint, questEndpoint, questSearchEndpoint, type CreateInput, type ItemEvent, type ItemRow, type ListParams, type Quest, type QuestSearchParams, type Status, type StatusInput, type Target, type UpdateInput } from '../endpoints';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const at = '2026-11-05T01:00:00.000Z';
@@ -308,11 +308,11 @@ function searchQuests(input: QuestSearchParams) {
   return { supported: true, items: matches.slice(start, start + pageSize).map(row => ({ ...row })), page, hasMore: start + pageSize < matches.length };
 }
 export const improvementItemsMock: readonly AnyMockEndpoint[] = [
-  defineMockEndpoint(itemsEndpoint, { mart: false, validate: ({ params }) => listMessage(params), handle: ({ params, actor }) => list(params, actor), isEmpty: d => d.total === 0 }),
+  defineMockEndpoint(itemsEndpoint, { mart: false, validate: ({ params }) => listMessage(params), handle: ({ params, actor }) => { const page = list(params, actor); return { ...page, rows: page.rows.map(row => maskItem(row, USERS[actor].grants)) }; }, isEmpty: d => d.total === 0 }),
   defineMockEndpoint(detailEndpoint, { mart: false, validate: ({ params: p }) => (p.itemId === undefined) === (p.itemNo === undefined) || (p.itemId !== undefined && !UUID.test(p.itemId)) || (p.itemNo !== undefined && !/^(?:IM-)?[1-9]\d*$/i.test(String(p.itemNo))) ? 'invalid detail key' : null,
-    handle: ({ params: p }) => structuredClone(rows.find(r => p.itemId ? r.id === p.itemId.toLowerCase() : r.itemNo === Number(String(p.itemNo).replace(/^IM-/i, ''))) ?? null) }),
+    handle: ({ params: p, actor }) => { const row = structuredClone(rows.find(r => p.itemId ? r.id === p.itemId.toLowerCase() : r.itemNo === Number(String(p.itemNo).replace(/^IM-/i, ''))) ?? null); return row ? maskItem(row, USERS[actor].grants) : null; } }),
   defineMockEndpoint(eventsEndpoint, { mart: false, validate: ({ params: p }) => !UUID.test(p.itemId) || (p.order !== undefined && !['asc', 'desc'].includes(p.order)) || !Number.isInteger(p.page ?? 0) || (p.page ?? 0) < 0 || !Number.isInteger(p.pageSize ?? 50) || (p.pageSize ?? 50) < 1 || (p.pageSize ?? 50) > 200 ? 'invalid events params' : null,
-    handle: ({ params: p }) => { const all = [...(events.get(p.itemId) ?? [])].sort((a, b) => (a.seq - b.seq) * (p.order === 'asc' ? 1 : -1)); return structuredClone({ rows: all.slice((p.page ?? 0) * (p.pageSize ?? 50), ((p.page ?? 0) + 1) * (p.pageSize ?? 50)), total: all.length }); } }),
+    handle: ({ params: p, actor }) => { const all = [...(events.get(p.itemId) ?? [])].sort((a, b) => (a.seq - b.seq) * (p.order === 'asc' ? 1 : -1)).map(row => ({ ...row, changes: maskChanges(row.changes, USERS[actor].grants) })); return structuredClone({ rows: all.slice((p.page ?? 0) * (p.pageSize ?? 50), ((p.page ?? 0) + 1) * (p.pageSize ?? 50)), total: all.length }); } }),
   defineMockEndpoint(questEndpoint, { mart: false, validate: ({ params: p }) => typeof p.id !== 'string' || p.id === '' ? 'id must be a non-empty string' : null,
     handle: ({ params: p }) => { if (p.id === QUEST_DOWN_ID) throw new MockRequestError(BRAVO_DOWN); const quest = MOCK_QUESTS.find(row => row.id === p.id); return quest ? { ...quest } : null; } }),
   defineMockEndpoint(questSearchEndpoint, { mart: false, validate: ({ params }) => questSearchMessage(params), handle: ({ params }) => searchQuests(params) }),
@@ -355,3 +355,25 @@ const writes = actionSpecs.slice(1).map(spec => defineMockAction(spec as ActionS
   },
 }));
 export const improvementItemsActionsMock: readonly AnyMockAction[] = [create, ...writes];
+
+// Mirror the server's response-only Scope projection; writes retain the stored snapshots.
+const visibleSite = (site: unknown, grants: Record<string, string[]>): boolean => typeof site === 'string' && (grants[site]?.length ?? 0) > 0;
+const object = (value: unknown): Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+function visibleLink(link: string | null, grants: Record<string, string[]>): boolean {
+  if (!link) return false;
+  try { return visibleSite(new URL(link, 'https://platform.invalid').searchParams.get('scopeId'), grants); } catch { return false; }
+}
+function maskItem(row: ItemRow, grants: Record<string, string[]>): ItemRow {
+  const visible = visibleSite(row.origin?.context.scopeId, grants);
+  return { ...row, ...(!visible ? { restricted: true as const, targets: row.targets.map(t => ({ kind: t.kind, externalKey: '', displayName: '' })), origin: row.origin ? { menuId: row.origin.menuId, context: {}, restricted: true as const } : null } : {}), ...(row.effectCompareLink && (!visible || !visibleLink(row.effectCompareLink, grants)) ? { effectCompareRestricted: true as const } : {}), effectCompareLink: visible && visibleLink(row.effectCompareLink, grants) ? row.effectCompareLink : null };
+}
+function maskChanges(changes: Record<string, unknown>, grants: Record<string, string[]>): Record<string, unknown> {
+  const result = { ...changes };
+  for (const key of ['before', 'after']) {
+    if (!(key in result)) continue;
+    const snapshot = object(result[key]), origin = object(snapshot.origin);
+    const visible = visibleSite(object(origin.context).scopeId, grants);
+    result[key] = { ...snapshot, ...(!visible ? { restricted: true, ...('targets' in snapshot ? { targets: Array.isArray(snapshot.targets) ? snapshot.targets.map(t => ({ kind: object(t).kind, externalKey: '', displayName: '' })) : [] } : {}), ...('origin' in snapshot ? { origin: snapshot.origin ? { menuId: origin.menuId, context: {}, restricted: true } : null } : {}) } : {}), ...('effectCompareLink' in snapshot ? { effectCompareLink: visible && typeof snapshot.effectCompareLink === 'string' && visibleLink(snapshot.effectCompareLink, grants) ? snapshot.effectCompareLink : null } : {}) };
+  }
+  return result;
+}
