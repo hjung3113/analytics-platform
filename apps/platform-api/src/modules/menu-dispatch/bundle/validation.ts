@@ -1,6 +1,7 @@
 import { bindingProblems, scalarOnlyProblems, type ParamType } from './bindings.js';
 import { type Call, callBindings, callKind, isEnvelope, statementProblems } from './calls.js';
 import { type Routing, routeCall } from './routing.js';
+import { selectRoutes } from '../routing.js';
 import type { Target } from './targets.js';
 import type { ContextKey } from '../types.js';
 
@@ -51,6 +52,23 @@ export function envelopeAudienceProblems(bundle: {
   return [...new Set(problems)];
 }
 
+
+const PROBE_ROOM = 'syn-resolve-keys-probe-room';
+/**
+ * A key lives in exactly one room and one target, so when a site can select two or more legs the leg
+ * without the key answers `forbidden` and refuses the whole request (#2039, ADR-0153). Reuses the
+ * runtime `selectRoutes` over the declared rooms; a rooms-undefined route always carries the whole
+ * room set, so a single probe room stands in when no route declares rooms.
+ */
+function resolveKeysFanOutProblems(owner: Routing): string[] {
+  const sites = [...new Set(owner.routes.flatMap((route) => route.sites ?? []))];
+  return [...(sites.length ? sites : [null as string | null])].flatMap((site) => {
+    const declared = [...new Set(owner.routes.flatMap((route) => site === null || route.sites?.includes(site) ? route.rooms ?? [] : []))];
+    const selected = selectRoutes(owner, site, declared.length ? declared : [PROBE_ROOM]);
+    if (!selected.ok || selected.legs.length < 2) return [];
+    return [`resolve-keys can select ${selected.legs.length} legs${site === null ? '' : ` for site ${site}`}: a key lives in one room and one target, so a multi-leg lookup is always forbidden (ADR-0153)`];
+  });
+}
 export function routingProblems(bundle: {
   endpoints: readonly EndpointRow[];
   endpointOwners: Readonly<Record<string, string | Routing>>;
@@ -110,7 +128,9 @@ export function routingProblems(bundle: {
       for (const problem of bindingProblems([...callBindings(owner.scopeCheck.lookup), owner.scopeCheck.keys], endpoint)) add(problem);
       for (const problem of mappedScalarProblems(owner.scopeCheck.lookup)) add(problem);
       if (isEnvelope(owner.scopeCheck.lookup)) add('scopeCheck.lookup must be a non-envelope call');
+      for (const problem of resolveKeysFanOutProblems(owner)) add(problem);
     }
+
     for (const [index, route] of owner.routes.entries()) {
       const prefix = `route ${index}`;
       const call = routeCall(owner, route);

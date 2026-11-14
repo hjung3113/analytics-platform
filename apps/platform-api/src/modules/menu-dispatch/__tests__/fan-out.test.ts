@@ -135,7 +135,7 @@ it('does not rank a driver rejection caused by sibling cancellation as a fresh t
 });
 function keyedRuntime(connector: Connector) {
   const owner: Routing = {
-    routes: [{ sites: ['SITE-A'], rooms: ['R1'], targets: ['syn-1'] }, { sites: ['SITE-A'], rooms: ['R2'], targets: ['syn-2'] }],
+    routes: [{ sites: ['SITE-A'], rooms: ['R1'], targets: ['syn-1'] }],
     call: { statement: 'SELECT :key AS main', params: { key: 'params.q' }, response: { fields: { id: { from: '/id', type: 'number' } } } },
     scopeCheck: { mode: 'resolve-keys', keys: 'params.q', lookup: { statement: 'SELECT :key', params: { key: 'params.q' } }, siteField: '/site', roomField: '/room' }, unroutedRooms: 'error',
   };
@@ -146,22 +146,14 @@ function keyedRuntime(connector: Connector) {
   } as DeclarationBundle;
   return defined(declaredContribution({ bundle, snapshot: menuSnapshotFor(bundle), checkService: stubCheckService(true), connectorFactories: { sql: () => connector } }).endpoints?.[0]);
 }
-it('resolve-keys judges each fan-out leg against its own rooms, not the request rooms', async () => {
+it('resolve-keys never runs the main call when the lookup resolves outside the leg rooms', async () => {
   const mains: string[] = [];
   const endpoint = keyedRuntime({ async *query(leg) {
-    // The lookup resolves the key to R2: inside the request rooms, outside leg syn-1's shard (R1).
+    // The lookup resolves the key to R2: outside the leg's rooms (R1).
     if ('statement' in leg.call && leg.call.statement === 'SELECT :key') { yield { site: 'SITE-A', room: 'R2' }; return; }
     mains.push(leg.targetId);
     yield { id: 1 };
   } });
-  expect(await endpoint.handle({ ...args(), params: { q: 'syn-key' } })).toMatchObject({ outcome: 'forbidden', data: null });
+  expect(await endpoint.handle({ ...args(), scopes: [{ site: 'SITE-A', rooms: ['R1'] }], params: { q: 'syn-key' } })).toMatchObject({ outcome: 'forbidden', data: null });
   expect(mains).not.toContain('syn-1');
-});
-it('resolve-keys answers from every leg when each lookup resolves inside its own shard', async () => {
-  const endpoint = keyedRuntime({ async *query(leg) {
-    if ('statement' in leg.call && leg.call.statement === 'SELECT :key') { yield { site: 'SITE-A', room: leg.rooms[0] }; return; }
-    yield { id: leg.targetId === 'syn-1' ? 1 : 2 };
-  } });
-  const answer = await endpoint.handle({ ...args(), params: { q: 'syn-key' } });
-  expect(answer).toMatchObject({ outcome: 'ok' }); expect((answer as { data: unknown[] }).data).toHaveLength(2);
 });

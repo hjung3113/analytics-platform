@@ -89,9 +89,9 @@ it('Scope violation is fatal even when partial coverage is enabled', async () =>
 });
 it('resolve-keys refusal is fatal even when partial coverage is enabled', async () => {
   const { run } = runtime({ async *query(leg) {
-    if ('statement' in leg.call && leg.call.statement === 'SELECT :key') { yield { site: 'SITE-A', room: leg.targetId === 'syn-2' ? 'syn-outside' : 'R1' }; return; }
+    if ('statement' in leg.call && leg.call.statement === 'SELECT :key') { yield { site: 'SITE-A', room: 'R2' }; return; }
     yield { id: 1, value: 1 };
-  } }, { keyed: true });
+  } }, { keyed: true, single: true });
   expect(await run({ q: 'syn-key' })).toMatchObject({ outcome: 'forbidden', data: null });
 });
 it('partial overflow remains too_large even with a failed sibling', async () => {
