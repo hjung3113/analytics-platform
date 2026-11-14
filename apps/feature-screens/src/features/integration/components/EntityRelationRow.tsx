@@ -31,16 +31,6 @@ function endpointIdentity(
   return { label: ENTITY_TYPE_LABEL[type], displayId: false };
 }
 
-export function entityLinkEndpointPrimaryLabels(link: EntityLinkDto): [string, string] {
-  if (link.visibility_state !== 'allowed') {
-    return ['접근할 수 없는 항목', '접근할 수 없는 항목'];
-  }
-  return [
-    endpointIdentity(link.source_type, link.source_id, link.source_summary).label,
-    endpointIdentity(link.target_type, link.target_id, link.target_summary).label,
-  ];
-}
-
 function iconTypeFor(type: EntityLinkDto['source_type']): EntityIconType {
   if (type === 'task_request') return 'request';
   if (type === 'voc_cluster') return 'voc';

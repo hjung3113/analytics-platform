@@ -26,8 +26,6 @@ export const findingsSearchSchema = z
   })
   .strict();
 
-export type FindingsSearch = z.infer<typeof findingsSearchSchema>;
-
 export function validateFindingsSearch(raw: unknown) {
   return parseRouteSearch(findingsSearchSchema, raw);
 }

@@ -1,6 +1,6 @@
 import { ReadView, StateBadge } from './presentation';
 import { IssueCount } from './Discussion';
-import type { Attempt, LifecycleApi, Page, RequestDetail, RequestRow, RoundDetail } from './contracts';
+import type { LifecycleApi, Page, RequestDetail, RequestRow, RoundDetail } from './contracts';
 
 /** The server's decisive attempt is Round-wide, including results from an older request. */
 export function decisiveReference(round: RoundDetail): { requestId: string; attemptId: string } | null {
@@ -21,7 +21,6 @@ export function useRoundExecution(api: LifecycleApi, round: RoundDetail, selecte
   const latestAttempt = latestDetail.data?.roundId === round.id ? latestDetail.data.attempts.at(-1) : undefined;
   return { latest, latestDetail, latestAttempt, request, requestId, attempt };
 }
-export function uncheckedCount(attempt: Attempt) { return ['NOT_CHECKED', 'ERROR', 'SKIPPED'].reduce((total, result) => total + (attempt.counts[result] ?? 0), 0); }
 
 export function RoundSummaryCell({ api, roundId, field }: { api: LifecycleApi; roundId: string; field: 'execution' | 'verdict' | 'counts' }) {
   const round = api.useRead<RoundDetail>('roundDetail', { roundId });
