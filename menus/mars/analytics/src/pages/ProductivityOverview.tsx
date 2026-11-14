@@ -1,6 +1,7 @@
 import { useMessages } from '@ap/kernel';
 import { ANALYTICS_MESSAGES } from '../messages';
 import { ObjectLinks } from '@ap/components';
+import { compareBreakdownCells } from './breakdownSort';
 import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
 /**
  * 생산성 분석 — 개요 (wireframe 11, Overview archetype §12.1).
@@ -309,7 +310,7 @@ export default function ProductivityOverview(_: PageProps) {
                 sort.key === 'key' ? r.key : sort.key === 'occ' ? r.occupiedHours : sort.key === 'obs' ? r.observableHours : sort.key === 'pct' ? (pct(r) ?? -1) : r.jobs;
               const sorted = [...rows].sort((a, b) => {
                 const va = valueOf(a); const vb = valueOf(b);
-                return (typeof va === 'string' || typeof vb === 'string' ? String(va).localeCompare(String(vb)) : va - vb) * sort.dir;
+                return compareBreakdownCells(va, vb) * sort.dir;
               });
               const columns: { key: typeof sort.key; label: string; align: 'left' | 'right' }[] = [
                 { key: 'key', label: shownAxis === 'room' ? m('productivityTableProcess') : m('productivityTableStgroup'), align: 'left' },
