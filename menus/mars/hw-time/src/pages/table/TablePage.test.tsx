@@ -276,7 +276,7 @@ describe('HW Time table page', () => {
     if (outcome === 'error') {
       // The level-failure box joins the page group; an empty level read is not drawn at all (levelFailure excludes it), so only error groups two widgets.
       const banner = await screen.findByRole('group', { name: '위젯 상태 요약' }, { timeout: 8000 });
-      expect(banner.textContent).toContain('위젯 2개에서 같은 응답');
+      expect(banner.textContent).toContain('위젯 2개가 같은 이유로 열리지 않았습니다');
       expect(screen.getAllByRole('group', { name: '위젯 상태 요약' })).toHaveLength(1);
       expect(screen.queryByRole('alert')).toBeNull();
       expect(screen.getByRole('group', { name: 'HW Time 동작시간 표' }).hasAttribute('data-widget-state')).toBe(true);
