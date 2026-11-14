@@ -13,7 +13,8 @@
 //     not superseded, not expired) is refused with the count (exit 5): a
 //     demotion alone leaves those grants answering the admin checks. With
 //     `--revoke-admin-grants` the grants are revoked in the same transaction,
-//     one `permission_revoked` audit row each, attributed to the `system` Actor.
+//     one `permission_revoked` audit row each, attributed to the `system` Actor,
+//     and one `permission_grant.revoked` notification queued for the grantee.
 //   * Already at the requested role → no change, no audit row, exit 0.
 //   * Prints one JSON line (ids and roles only, never an email).
 //
@@ -24,11 +25,18 @@
 //   5 refused: active `workspace.admin` grants, rerun with --revoke-admin-grants
 
 import { and, eq, gt, isNull, ne, or, sql } from 'drizzle-orm';
+import { PgBoss } from 'pg-boss';
 
 import { type DbHandle, createDb } from '../db/client.js';
 import { actors } from '../db/schema/core.js';
 import { permissionGrants } from '../db/schema/permission.js';
 import { createAuditService } from '../modules/core/audit/audit-service.js';
+import {
+  type NotificationNotifier,
+  createNotificationNotifier,
+  createPgBossNotificationDispatcher,
+} from '../modules/notifications/index.js';
+import { revokePermissionGrant } from '../modules/permissions/revoke-command.js';
 
 export type SettableRole = 'admin' | 'user';
 
@@ -67,10 +75,17 @@ export interface SetActorRoleHooks {
   afterUpdate?: () => Promise<void>;
 }
 
+/** Collaborators the CLI wires in `main`; tests pass a recording notifier. */
+export interface SetActorRoleDeps {
+  /** Required when a demotion revokes grants: the grantee notification is part of the revoke contract. */
+  notify?: NotificationNotifier | undefined;
+}
+
 export async function setActorRole(
   handle: DbHandle,
   input: SetActorRoleInput,
   hooks: SetActorRoleHooks = {},
+  deps: SetActorRoleDeps = {},
 ): Promise<SetActorRoleResult> {
   const audit = createAuditService();
   return handle.db.transaction(async (tx) => {
@@ -156,6 +171,10 @@ export async function setActorRole(
       );
     }
 
+    if (adminGrants.length > 0 && !deps.notify) {
+      throw new SetActorRoleError('revoking grants needs a notifier (internal wiring error)', 1);
+    }
+
     await hooks.afterAdminCount?.();
 
     const [system] = await tx
@@ -175,30 +194,15 @@ export async function setActorRole(
       .where(and(eq(actors.workspaceId, input.workspaceId), eq(actors.id, target.id)));
     const revokeReason = input.reason ?? 'actor lowered from admin by set-actor-role';
     for (const grant of adminGrants) {
-      await tx
-        .update(permissionGrants)
-        .set({ revokedAt: now, revokedByActorId: system.id, revokedReason: revokeReason })
-        .where(
-          and(
-            eq(permissionGrants.workspaceId, input.workspaceId),
-            eq(permissionGrants.id, grant.id),
-          ),
-        );
-      // Same event and detail shape as the API revoke (grant-admin-service revokeGrant).
-      await audit.record(tx, {
-        workspace_id: input.workspaceId,
-        actor_id: system.id,
-        event_type: 'permission_revoked',
-        subject_type: 'permission_grant',
-        subject_id: grant.id,
-        summary: 'Permission grant revoked',
-        detail: {
-          grant_id: grant.id,
-          capability: grant.capability,
-          managed_system_id: grant.managedSystemId,
-          grantee_actor_id: target.id,
-          reason: revokeReason,
-        },
+      // Shared Permission command: revoke metadata, audit and the grantee notification,
+      // all in this transaction, attributed to the system Actor.
+      await revokePermissionGrant(tx, {
+        workspaceId: input.workspaceId,
+        grantId: grant.id,
+        revokedByActorId: system.id,
+        reason: revokeReason,
+        audit,
+        notify: deps.notify as NotificationNotifier,
       });
     }
     await hooks.afterUpdate?.();
@@ -261,7 +265,19 @@ async function main(): Promise<number> {
   const handle = createDb(url);
   try {
     const args = parseArgs(process.argv.slice(2));
-    const r = await setActorRole(handle, { workspaceId, ...args });
+    // Enqueue only (no start): the notification job rides the demotion transaction and the
+    // running backend's worker delivers it.
+    const boss = new PgBoss({
+      db: { executeSql: (text, values) => handle.pool.query(text, values as unknown[] | undefined) },
+      schema: 'pgboss',
+      migrate: false,
+      createSchema: false,
+      supervise: false,
+      schedule: false,
+    });
+    boss.on('error', () => {});
+    const notify = createNotificationNotifier(createPgBossNotificationDispatcher(boss));
+    const r = await setActorRole(handle, { workspaceId, ...args }, {}, { notify });
     console.info(JSON.stringify(r));
     return 0;
   } catch (err) {
