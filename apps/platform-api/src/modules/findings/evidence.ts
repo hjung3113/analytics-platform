@@ -289,6 +289,15 @@ export function createFindingEvidence(deps: FindingsServiceDeps) {
             body: { evidence_highlight_id: highlight.id, finding_id: finding.id },
           };
         },
+        {
+          beforeReplay: async () => {
+            const finding = await findFindingById(tx, { workspaceId: actor.workspace_id, findingId: findingId });
+            if (!finding) throw new HttpError('not_found.record', 'finding not found');
+            if (!(await canReadFinding(deps, actor, finding.primary_managed_system_id, { tx }))) {
+              throw new HttpError('permission.denied', 'finding.read capability required');
+            }
+          },
+        },
       );
     });
   }

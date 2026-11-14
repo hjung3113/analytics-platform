@@ -61,6 +61,8 @@ import {
 import {
   type TaskReleasedReviewCandidatesPayload,
   type VocReferenceReader,
+  canReadVocAsSource,
+  selectVocForUpdate,
   enqueueReleasedTaskReviewCandidates,
 } from '../voc/index.js';
 import {
@@ -557,6 +559,14 @@ export function createTasksService(deps: TasksServiceDeps) {
 
           return { status: 201, body: { comment: taskCommentToDto(row) } };
         },
+        {
+          beforeReplay: async () => {
+            const task = await findTaskById(tx, { workspaceId: args.actor.workspace_id, taskId: args.taskId });
+            if (!task) throw new HttpError('not_found.record', 'task not found');
+            const decision = await checkFindingManage(deps.checkService, args.actor, task.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('permission.denied', 'finding.manage capability required');
+          },
+        },
       );
     });
   }
@@ -748,6 +758,12 @@ export function createTasksService(deps: TasksServiceDeps) {
             },
           };
         },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('permission.denied', 'finding.manage capability required');
+          },
+        },
       );
     });
   }
@@ -843,6 +859,12 @@ export function createTasksService(deps: TasksServiceDeps) {
               'linkExistingTask',
             );
           return { status: 200, body: taskToDto(task) };
+        },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('permission.denied', 'finding.manage capability required');
+          },
         },
       );
     });
@@ -982,6 +1004,18 @@ export function createTasksService(deps: TasksServiceDeps) {
             body: { ...taskToDto(updatedTask), source: resolved?.source ?? null },
           };
         },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('permission.denied', 'finding.manage capability required');
+            if (body.source?.voc?.visibility_state === 'allowed') {
+              const source = await selectVocForUpdate(tx, args.actor.workspace_id, body.source.voc.id);
+              if (!source || !(await canReadVocAsSource(deps.checkService, args.actor, {
+                managedSystemId: source.primaryManagedSystemId, reporterId: source.reporterId,
+              }, { tx }))) throw new HttpError('not_found.record', 'voc not found');
+            }
+          },
+        },
       );
     });
   }
@@ -1067,6 +1101,12 @@ export function createTasksService(deps: TasksServiceDeps) {
           });
 
           return { status: 200, body: taskToDto(updatedTask) };
+        },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('permission.denied', 'finding.manage capability required');
+          },
         },
       );
     });
@@ -1239,6 +1279,12 @@ export function createTasksService(deps: TasksServiceDeps) {
             });
           }
           return { status: 200, body: taskToDto(updated) };
+        },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('permission.denied', 'finding.manage capability required');
+          },
         },
       ),
     );

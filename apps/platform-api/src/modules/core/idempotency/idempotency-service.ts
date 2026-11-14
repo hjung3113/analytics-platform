@@ -3,7 +3,7 @@
 //
 // Protocol (FO ADR-0015:71-90):
 //   1. Lookup (actor_id, key) in core.idempotency_keys.
-//   2. Hit + matching request_hash → return stored response.
+//   2. Hit + matching request_hash → check current access, return stored response.
 //   3. Hit + mismatched hash       → throw HitMismatchError (controller → 409).
 //   4. Miss                         → caller executes the handler, then calls
 //                                     `record` inside the SAME transaction.
@@ -147,6 +147,7 @@ export function createIdempotencyService() {
     key: string,
     requestHash: string,
     handler: () => Promise<IdempotentResult<TBody>>,
+    options?: { beforeReplay?: (stored: IdempotentResult<TBody>) => Promise<void> },
   ): Promise<IdempotentResult<TBody>> {
     // FO ADR-0015 race-surface amendment: serialise first-time retries with the
     // same (actor_id, key) before lookup so only one handler can produce
@@ -155,7 +156,10 @@ export function createIdempotencyService() {
 
     const hit = await lookup(tx, actorId, key, requestHash);
     if (hit.kind === 'match') {
-      return { status: hit.status, body: hit.body as TBody };
+      const stored = { status: hit.status, body: hit.body as TBody };
+      // A stored response must not outlive the Actor's current access.
+      await options?.beforeReplay?.(stored);
+      return stored;
     }
     if (hit.kind === 'mismatch') {
       throw new HttpError(
