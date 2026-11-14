@@ -1,10 +1,15 @@
-import { Alert, AlertDescription, AlertTitle, Button } from '@ap/ui';
+import { useEffect, useRef } from 'react';
+import { createRoot } from 'react-dom/client';
+import { usePlatform } from '@ap/kernel';
+import { Alert, AlertDescription, AlertTitle, Button, AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from '@ap/ui';
 import { fetchSpaceLinks } from '@ap/feature-bridge';
 import { bootstrapHttpAdapter, type BootstrapResult, type HttpAdapterOptions } from '@ap/http-adapter';
 import { FEATURE_API_PREFIX } from '../../scripts/real-dev-proxy.ts';
 import type { AssemblyOutcome, CreateAssembly } from '#platform-assembly';
 import { afterImport, runLocalImport, type LocalImportDeps } from './local-import';
 import { createEndpointInvalidation, withNoticeInvalidation } from './endpoint-invalidation';
+import { restoreLoginReturn, saveLoginReturn } from './login-return';
+import { loginReturnMessages } from './messages';
 
 /**
  * This repo's real-server assembly (#154, http-adapter-contract §3 안 B): `vite --mode real` aliases `#platform-assembly`
@@ -14,8 +19,53 @@ import { createEndpointInvalidation, withNoticeInvalidation } from './endpoint-i
 
 type Where = { pathname: string; search: string };
 
-/** Feature reads `return_to` raw, so the whole app-relative URL is encoded — an unencoded `&` would cut the Context (#150). */
-export const loginHref = (where: Where): string => `/auth/login?return_to=${encodeURIComponent(where.pathname + where.search)}`;
+// Must match apps/platform-api/src/modules/auth/return-to.ts; the parity test guards the server's transport cap.
+export const LOGIN_RETURN_TO_LIMIT = 2048;
+
+/** Feature reads `return_to` raw, so encode it whole; long conditions travel once in this tab instead (#2195). */
+export const loginHref = (where: Where, onSaveFailure?: () => void): string => {
+  const address = where.pathname + where.search;
+  let returnTo = address;
+  if (address.length > LOGIN_RETURN_TO_LIMIT) {
+    if (saveLoginReturn(where.pathname, where.search)) returnTo = where.pathname;
+    else onSaveFailure?.();
+  }
+  return `/auth/login?return_to=${encodeURIComponent(returnTo)}`;
+};
+
+/** Available before bootstrap mounts a provider and after session loss; acknowledge before leaving the page. */
+function acknowledgeLoginReturnLoss(): Promise<void> {
+  const container = document.createElement('div');
+  document.body.append(container);
+  const root = createRoot(container);
+  return new Promise<void>(resolve => {
+    root.render(
+      <AlertDialog open>
+        <AlertDialogContent above>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{loginReturnMessages.saveFailedTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{loginReturnMessages.saveFailed}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => resolve()}>{loginReturnMessages.continueLogin}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>,
+    );
+  }).finally(() => { root.unmount(); container.remove(); });
+}
+
+/** Mounted under the normal provider through the app-owned tools slot; storage failure never blocks routing. */
+function LoginReturnNotice() {
+  const { toast } = usePlatform();
+  const announced = useRef(false);
+  useEffect(() => {
+    if (announced.current) return;
+    announced.current = true;
+    toast(loginReturnMessages.restoreFailed, 'warning');
+  }, [toast]);
+  return null;
+}
 
 /** No Kernel, no shell, no i18n provider: only `@ap/ui` parts, fixed Korean copy, the correlation id the person can read out. */
 function Unavailable({ correlationId }: { correlationId: string }) {
@@ -86,18 +136,31 @@ function serverSavedViews(ready: Extract<BootstrapResult, { kind: 'ready' }>, en
 
 /** `createAssembly` with its two environment reads injected, so the branches are testable without a server. */
 export function createRealAssembly({ bootstrap, where, importEnvironment = pageEnvironment }: Deps): () => Promise<AssemblyOutcome> {
+  let pendingNotice: Promise<void> | undefined;
+  const loginDestination = (): string | Promise<string> => {
+    let saveFailed = false;
+    const href = loginHref(where(), () => { saveFailed = true; });
+    if (!saveFailed) return href;
+    pendingNotice ??= acknowledgeLoginReturnLoss().finally(() => { pendingNotice = undefined; });
+    return pendingNotice.then(() => href);
+  };
   return async () => {
-    const login: AssemblyOutcome = { redirect: loginHref(where()) };
-    const onSessionLost = () => window.location.replace(loginHref(where()));
+    const onSessionLost = () => {
+      const destination = loginDestination();
+      if (typeof destination === 'string') window.location.replace(destination);
+      else void destination.then(href => window.location.replace(href));
+    };
     const result = await bootstrap({ onSessionLost });
     if (result.kind === 'ready') {
+      // startAppHost awaits this outcome before creating the router; normal route/Scope checks read the restored URL.
+      const loginReturn = restoreLoginReturn();
       // One decorated adapter per bootstrap (never per render): a notice write refreshes the Home banner (#1106).
       const invalidation = createEndpointInvalidation();
       const featureApi = { basePath: FEATURE_API_PREFIX, onSessionLost };
       // Space → system links (#1289 node j): read with the same feature API the bridge screens use; `main.tsx` loads it once per session.
-      return { adapter: withNoticeInvalidation(result.adapter, invalidation), topBarTools: null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi, spaceSystems: createSpaceSystemsSource(featureApi), invalidation: { subscribe: invalidation.subscribe } };
+      return { adapter: withNoticeInvalidation(result.adapter, invalidation), topBarTools: loginReturn === 'rejected' ? <LoginReturnNotice /> : null, serverPreferences: true, savedViews: serverSavedViews(result, importEnvironment), featureApi, spaceSystems: createSpaceSystemsSource(featureApi), invalidation: { subscribe: invalidation.subscribe } };
     }
-    if (result.kind === 'login') return login;
+    if (result.kind === 'login') return { redirect: await loginDestination() };
     if (result.kind === 'throttled') return { screen: <Throttled correlationId={result.correlationId} retryAfterSeconds={result.retryAfterSeconds} /> };
     return { screen: <Unavailable correlationId={result.correlationId} /> };
   };
