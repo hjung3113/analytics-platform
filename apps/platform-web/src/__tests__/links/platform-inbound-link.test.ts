@@ -7,6 +7,7 @@ import {
   emptyGlobal,
   parsePlatformInboundLink,
   type GlobalContext,
+  type InboundDestinationSource,
   type PlatformDestination,
 } from '@ap/contracts';
 
@@ -195,7 +196,7 @@ it('history restores only draft and leaves the applied address query untouched',
 });
 
 describe('inbound destinations come from the menus\' opensObject (#2230, ADR-0162)', () => {
-  const menus = [
+  const menus: InboundDestinationSource[] = [
     { id: 'order-list', path: '/orders' },
     { id: 'order-detail', path: '/orders/:orderId', opensObject: { order: { param: 'orderId' } }, pageKeys: ['tab', 'returnTo'] },
     { id: 'metric', path: '/metrics/:metricId', opensObject: { metric: { param: 'metricId' } } },
