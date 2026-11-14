@@ -1,6 +1,6 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
 import { lazy, Suspense, useRef } from 'react';
-import { CONTEXT_LABELS, PAGE_TYPE_LABELS, PlatformLink, contractErrorSentence, useI18n } from '@ap/kernel';
+import { CONTEXT_LABELS, PAGE_TYPE_LABELS, PlatformLink, contractErrorSentence, useI18n, useMessages } from '@ap/kernel';
 import { useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
 import { LoadingBlock, Panel, PlatformPage, StateMessage, focusPageFallback } from '@ap/components';
 import { Button, StatusBadge, shortcutLabel } from '@ap/ui';
@@ -8,6 +8,7 @@ import { menuPermissions, type Capability, type ContextKey, type Permission } fr
 import { contextBarVisible } from '../context/GlobalContextBar';
 import { HomeLink } from '../frame/HomeLink';
 import { ShellBoundary } from '../frame/ShellBoundary';
+import { SHELL_MESSAGES } from '../messages';
 import { ModuleScreen } from './ModuleScreen';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
 import { useBoardPresentationSync } from '../board/boardPresentation';
@@ -43,7 +44,8 @@ export function RouteOutlet() {
 export function ScreenOutlet() {
   const { route, contractError, can, url, global, metricInit, setGlobal, currentSpace, reportError } = useHostPlatform();
   const sessionKey = useSessionKey();
-  const { t, tx, lang } = useI18n();
+  const { t, tx } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   if (!route) return <KernelMessage heading={t('notFoundTitle')} icon={<FileQuestion className="size-4" aria-hidden />} title={t('notFound')} body={<span className="t-mono">{url}</span>} extra={<OpenPaletteButton />} />;
   // An alias address is replaced by the canonical one right after this render (ADR-0093): the screen waits, so nothing queries on the legacy path.
   if (route.viaAlias) return null;
@@ -55,22 +57,18 @@ export function ScreenOutlet() {
   }
   if (metricInit.phase === 'confirm') {
     // This is a transient URL-stamping step; the final menu owns the pending arrival focus.
-    return <div className="p-6"><StateMessage icon={<Link2Off className="size-4" aria-hidden />} title={lang === 'ko' ? '발행 버전 확인 중' : 'Confirming the released version'}
-      body={lang === 'ko' ? '서버가 확인한 버전을 URL에 기록한 뒤 조회합니다.' : 'Queries begin after the server-confirmed version is written into the URL.'} action={<HomeLink />} /></div>;
+    return <div className="p-6"><StateMessage icon={<Link2Off className="size-4" aria-hidden />} title={m('metricConfirmingTitle')}
+      body={m('metricConfirmingBody')} action={<HomeLink />} /></div>;
   }
   if (metricInit.phase === 'blocked') {
     const id = global.metricId;
     const blockedBody = metricInit.reason === 'unknown_metric'
-      ? (id
-        ? (lang === 'ko' ? `${id} 지표를 열 수 없습니다. 지우고 다시 고르세요.` : `${id} cannot be opened. Clear it and choose again.`)
-        : (lang === 'ko' ? '이 지표를 열 수 없습니다. 지우고 다시 고르세요.' : 'This metric cannot be opened. Clear it and choose again.'))
-      : (lang === 'ko' ? '발행된 버전이 없습니다. 다른 지표를 고르세요.' : 'There is no released version. Choose another metric.');
+      ? (id ? m('metricUnknownWithId', { id }) : m('metricUnknownGeneric'))
+      : m('metricNoReleasedVersionBody');
     return <div className="p-6"><StateMessage tone="warning" icon={<Link2Off className="size-4" aria-hidden />}
-      title={metricInit.reason === 'unknown_metric'
-        ? (lang === 'ko' ? '지표를 확인하지 못했습니다' : 'The metric could not be confirmed')
-        : (lang === 'ko' ? '발행 버전이 없습니다' : 'No released version')}
+      title={metricInit.reason === 'unknown_metric' ? m('metricUnknownTitle') : m('metricNoReleasedVersionTitle')}
       body={blockedBody}
-      action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); setGlobal({ metricId: null, metricVersion: null }, { replace: true }); }}>{lang === 'ko' ? '이 지표 쌍 지우기' : 'Clear this metric pair'}</Button>} /></div>;
+      action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); setGlobal({ metricId: null, metricVersion: null }, { replace: true }); }}>{m('metricClearPair')}</Button>} /></div>;
   }
   // Direct URL to a menu hidden by permission: the server check still answers (§17), distinct from "no data".
   const missing = menuPermissions(route.menu).find(permission => !can(permission));
@@ -145,7 +143,8 @@ function capabilityLabel(cap: Capability, t: (key: 'applied' | 'referenceOnly' |
 
 function PlannedPage() {
   const { route, registry } = useHostPlatform();
-  const { t, tx, lang } = useI18n();
+  const { t, tx } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const menu = route!.menu;
   const keys = Object.keys(menu.context) as ContextKey[];
   const tone = { apply: 'success', reference: 'info', unsupported: 'neutral' } as const;
@@ -154,11 +153,11 @@ function PlannedPage() {
     <div className="grid gap-3 wide:grid-cols-[1fr_1fr]">
       <Panel title={t('plannedTitle')} subtitle={t('plannedBody')}>
         <dl className="grid grid-cols-[10rem_1fr] gap-y-1.5 text-sm">
-          <dt className="text-text-muted">{lang === 'ko' ? '그룹' : 'Group'}</dt><dd>{tx(registry.groupById(menu.group).label)}</dd>
+          <dt className="text-text-muted">{m('plannedGroup')}</dt><dd>{tx(registry.groupById(menu.group).label)}</dd>
           <dt className="text-text-muted">{t('pageType')}</dt><dd>{tx(PAGE_TYPE_LABELS[menu.pageType])}</dd>
         </dl>
       </Panel>
-      <Panel title={t('capability')} subtitle={barVisible ? (lang === 'ko' ? '지원하지 않는 조건은 위 막대에 이 화면에서 미사용으로 표시됩니다.' : 'Conditions this page does not use stay on the bar above.') : undefined}>
+      <Panel title={t('capability')} subtitle={barVisible ? m('plannedCapabilitySubtitle') : undefined}>
         <ul className="grid grid-cols-2 gap-1.5 text-sm">
           {keys.map(k => <li key={k} className="flex items-center justify-between rounded-sm bg-surface-sunken px-2 py-1">
             <span>{tx(CONTEXT_LABELS[k])}</span><StatusBadge tone={tone[menu.context[k]]}>{capabilityLabel(menu.context[k], t)}</StatusBadge>

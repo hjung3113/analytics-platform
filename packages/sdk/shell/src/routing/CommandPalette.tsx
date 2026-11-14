@@ -1,9 +1,10 @@
 import { CornerDownLeft, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { type MenuEntry, useI18n, useRecentVisits } from '@ap/kernel';
+import { type MenuEntry, useI18n, useMessages, useRecentVisits } from '@ap/kernel';
 import { useHostPlatform, useLeaveRequest, useOverlayState } from '@ap/kernel/host';
 import type { Text } from '@ap/contracts';
 import { usePlatformMenu } from '../frame/platformMenu';
+import { SHELL_MESSAGES } from '../messages';
 import { isNearMiss, MATCH_NAME, matchRank, queryWords, type PaletteTarget } from './paletteMatch';
 import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
 
@@ -13,7 +14,8 @@ export function CommandPalette() {
   const { paletteOpen, paletteSession } = useOverlayState();
   const leaveRequest = useLeaveRequest();
   const recent = useRecentVisits();
-  const { t, tx, text, lang } = useI18n();
+  const { t, tx, text } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const [failedSelection, setFailedSelection] = useState(false);
@@ -156,7 +158,7 @@ export function CommandPalette() {
             </li>;
           })}
         </ul>
-        <p className="border-t border-border-subtle bg-surface-sunken px-4 py-2 text-tiny text-text-secondary">{t('paletteHint')} · {lang === 'ko' ? '이동 시 전역 Context를 보존합니다.' : 'Global context is preserved on navigation.'}</p>
+        <p className="border-t border-border-subtle bg-surface-sunken px-4 py-2 text-tiny text-text-secondary">{t('paletteHint')} · {m('palettePreserveContext')}</p>
       </DialogContent>
   </Dialog>;
 }

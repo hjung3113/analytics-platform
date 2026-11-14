@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronDown, Loader2, MapPin, RotateCw, ShieldAlert } from 'lucide-react';
-import { useI18n, type AccessRequestSlot } from '@ap/kernel';
+import { useI18n, useMessages, type AccessRequestSlot } from '@ap/kernel';
 import { useScopeAccessRequest } from '@ap/components';
 import { useHostPlatform } from '@ap/kernel/host';
 import { ShellBoundary } from '../frame/ShellBoundary';
+import { SHELL_MESSAGES } from '../messages';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
 /**
@@ -13,7 +14,8 @@ import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLa
 export function ScopeSelector({ collapsed = false, layout = 'sidebar', onExpand }: { collapsed?: boolean; layout?: 'sidebar' | 'bar'; /** Expands a collapsed sidebar before a page's `Scope 선택` request opens the list (#1938). */ onExpand?: () => void }) {
   const bar = layout === 'bar';
   const { global, setGlobal, scope, retryScope, session, url, navigate, scopeSelector } = useHostPlatform();
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const accessRequest = useScopeAccessRequest();
   const triggerRef = useRef<HTMLButtonElement>(null);
   // Place (b) (ADR-0154 decision 6): the item only records the site; the dialog opens after the menu has closed and lives outside it,
@@ -87,7 +89,7 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar', onExpand 
         event.preventDefault();
         setRequestSite(site);
       }}>
-        <DropdownMenuLabel>{lang === 'ko' ? '요청 Scope (단일 선택, 서버 재검증)' : 'Requested scope (single, server re-validated)'}</DropdownMenuLabel>
+        <DropdownMenuLabel>{m('requestedScopeLabel')}</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={global.scopeId ?? ''} onValueChange={v => {
           picked.current = true;
           // Re-picking the current Scope from a failed check retries the validation — setGlobal(same) is a
@@ -109,7 +111,7 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar', onExpand 
             onRequest={() => { chosenSite.current = site.id; }} onStatus={href => navigate(href)} />)}
         </>}
         <DropdownMenuSeparator />
-        <p className="px-2 py-1.5 text-tiny leading-4 text-text-secondary">{lang === 'ko' ? '권한 축은 Site 안의 공정입니다. Scope를 바꾸면 Site 경계를 넘는 공정·설비 조건/선택은 초기화됩니다.' : 'Grants are Process within a Site. Changing scope clears site-bound Process/equipment context.'}</p>
+        <p className="px-2 py-1.5 text-tiny leading-4 text-text-secondary">{m('scopeBoundaryNote')}</p>
       </DropdownMenuContent>
     </DropdownMenu>
     {accessRequest && requestSite !== null && <ShellBoundary fallback={null}><accessRequest.Dialog target={{ kind: 'site', site: requestSite }} returnTo={url} open onOpenChange={open => {

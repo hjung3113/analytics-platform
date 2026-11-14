@@ -321,4 +321,5 @@ const EN: Strings<typeof KO> = {
 };
 
 export type BoardText = Strings<typeof KO>;
-export const boardText = (lang: Lang): BoardText => (lang === 'ko' ? KO : EN);
+const BOARD_TEXT: Record<Lang, BoardText> = { ko: KO, en: EN };
+export const boardText = (lang: Lang): BoardText => BOARD_TEXT[lang];

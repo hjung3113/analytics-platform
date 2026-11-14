@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
+import { SHELL_MESSAGES } from '../messages';
 
 /**
  * The browser tab title, written on every route change: `<menu> — <system> · <product>` (layout §7). Status screens use the name their own
@@ -9,9 +10,10 @@ import { useHostPlatform } from '@ap/kernel/host';
  */
 export function useDocumentTitle(productName: string | undefined): void {
   const { route, contractError, currentSpace, platformScreen, can, url } = useHostPlatform();
-  const { t, tx, lang } = useI18n();
+  const { t, tx } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   let title: string;
-  if (platformScreen === 'board') title = lang === 'ko' ? '분석 보드' : 'Analysis board';
+  if (platformScreen === 'board') title = m('documentTitleBoard');
   else if (!route) title = t('notFoundTitle');
   else if (contractError) title = t('contractError');
   else if (currentSpace !== null && currentSpace.permission !== undefined && !can(currentSpace.permission)) title = tx(currentSpace.label);
