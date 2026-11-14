@@ -324,7 +324,6 @@ describe.skipIf(!runIntegration)('Saved Survey definition reuse (#1074)', () => 
           ].parse(row.detail),
         ).toEqual(row.detail);
       const committed = await effects();
-      await denyCapability(appHandle, WORKSPACE_ID, developerId, 'survey.read', systemId, adminId);
       await migrateHandle.pool.query(
         "update survey.survey_questions set prompt='later edit' where survey_id=$1",
         [id],
@@ -332,6 +331,18 @@ describe.skipIf(!runIntegration)('Saved Survey definition reuse (#1074)', () => 
       const replay = await reuse(id, selected.definition_token, {}, key);
       expect(replay.json()).toEqual(copied.json());
       expect((await reuse(id, 'different-token', {}, key)).statusCode).toBe(409);
+      expect(await effects()).toEqual(committed);
+      await denyCapability(appHandle, WORKSPACE_ID, developerId, 'survey.read', systemId, adminId);
+      const deniedDetail = await app.inject({
+        method: 'GET',
+        url: `/surveys/${target.id}`,
+        headers: headers(developerCookie),
+      });
+      expect(deniedDetail.statusCode).toBe(404);
+      expect(deniedDetail.json().code).toBe('not_found.record');
+      const deniedReplay = await reuse(id, selected.definition_token, {}, key);
+      expect(deniedReplay.statusCode).toBe(deniedDetail.statusCode);
+      expect(deniedReplay.json().code).toBe(deniedDetail.json().code);
       expect(await effects()).toEqual(committed);
     },
   );
