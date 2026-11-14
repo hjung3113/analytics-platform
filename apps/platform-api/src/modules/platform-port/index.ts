@@ -17,3 +17,9 @@ export {
   PLATFORM_FILE_MAX_BYTES,
   type PlatformFilesRoutesOptions,
 } from './files-routes.js';
+export {
+  MALFORMED_BODY,
+  createAuthenticator,
+  createSessionGuard,
+  installPlatformTransport,
+} from './transport.js';

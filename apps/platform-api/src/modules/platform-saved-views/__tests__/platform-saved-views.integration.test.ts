@@ -153,6 +153,53 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
     workspaceIds.push(foreignWorkspaceId);
   });
 
+  it('saved-view lock timeout returns 503 without creating a group or audit', async () => {
+    const runtime = createDb(APP_URL, {
+      budgets: {
+        poolMax: 5,
+        acquireTimeoutMs: 5_000,
+        statementTimeoutMs: 15_000,
+        lockTimeoutMs: 100,
+        idleInTransactionTimeoutMs: 30_000,
+      },
+    });
+    const timedApp = await buildServer({ config: loadConfig(), dbHandle: runtime });
+    const blocker = await migrate.pool.connect();
+    const name = `${PREFIX}-lock-timeout`;
+    try {
+      await timedApp.ready();
+      const before = await audits(['saved_view_group_created']);
+      await blocker.query('begin');
+      await blocker.query(
+        'select pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1, 0))',
+        [`platform-saved-views:${WORKSPACE_ID}`],
+      );
+      const response = await timedApp.inject({
+        method: 'POST',
+        url: URL,
+        headers: {
+          cookie: `${SESSION_COOKIE_NAME}=${alice.cookie}`,
+          'x-csrf-token': alice.csrf,
+        },
+        payload: { version: 1, op: 'createGroup', name, memberIds: [] },
+      });
+      expect(response.statusCode).toBe(503);
+      expect(response.json()).toEqual({
+        code: 'service.unavailable', message: 'service temporarily unavailable',
+      });
+      expect(response.headers['cache-control']).toBe('no-store');
+      expect(
+        (await q('select id from platform.saved_view_groups where name = $1', [name])).rows,
+      ).toEqual([]);
+      expect(await audits(['saved_view_group_created'])).toEqual(before);
+    } finally {
+      await blocker.query('rollback');
+      blocker.release();
+      await timedApp.close();
+      await runtime.close();
+    }
+  });
+
   beforeEach(async () => {
     await q('delete from core.rate_limits');
   });
