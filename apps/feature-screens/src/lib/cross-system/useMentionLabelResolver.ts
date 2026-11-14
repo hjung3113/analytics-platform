@@ -14,7 +14,7 @@ import * as React from 'react';
 export function useMentionLabelResolver(
   options: { enabled?: boolean } = {},
 ): (actorId: string) => string | null {
-  const { actors } = useWorkspaceActors({ enabled: options.enabled });
+  const { actors } = useWorkspaceActors(options.enabled === undefined ? {} : { enabled: options.enabled });
   return React.useMemo(() => {
     const names = new Map((actors ?? []).map((a) => [a.id, a.display_name]));
     return (actorId: string) => names.get(actorId) ?? null;
