@@ -52,22 +52,27 @@ export function useAddEvidenceHighlightMutation(
 
 // ── Link Existing Evidence ────────────────────────────────────────────────────
 
+export interface LinkEvidenceResponse {
+  id: string;
+  relation_type: 'evidence_of';
+}
+
 export interface UseLinkEvidenceArgs {
   findingId: string;
   idempotencyKey: string;
-  onSuccess?: (data: EvidenceHighlightDto) => void;
+  onSuccess?: (data: LinkEvidenceResponse) => void;
   onError?: (err: ApiError) => void;
 }
 
 export function useLinkEvidenceMutation(
   args: UseLinkEvidenceArgs,
-): UseMutationResult<EvidenceHighlightDto, ApiError, LinkEvidenceRequest> {
+): UseMutationResult<LinkEvidenceResponse, ApiError, LinkEvidenceRequest> {
   const { findingId, idempotencyKey, onSuccess, onError } = args;
   const queryClient = useQueryClient();
 
-  return useMutation<EvidenceHighlightDto, ApiError, LinkEvidenceRequest>({
+  return useMutation<LinkEvidenceResponse, ApiError, LinkEvidenceRequest>({
     mutationFn: async (body) => {
-      const res = await apiClient<EvidenceHighlightDto>(
+      const res = await apiClient<LinkEvidenceResponse>(
         'POST',
         apiPath`/findings/${findingId}/link-evidence`,
         { body, idempotencyKey },

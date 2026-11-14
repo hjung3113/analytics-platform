@@ -35,7 +35,7 @@ const MOCK_TRIAGE_VOCS = [
     id: '00000000-0000-0000-0000-000000000001',
     display_id: 'VOC-001',
     title: 'Triage VOC 1',
-    primary_managed_system_id: 'ms-1',
+    primary_managed_system_id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001',
     analytics_area_id: null,
     reporter_id: 'u1',
     owner_user_id: null,
@@ -52,7 +52,7 @@ const MOCK_TRIAGE_VOCS = [
     id: '00000000-0000-0000-0000-000000000002',
     display_id: 'VOC-002',
     title: 'Triage VOC 2',
-    primary_managed_system_id: 'ms-1',
+    primary_managed_system_id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001',
     analytics_area_id: null,
     reporter_id: 'u2',
     owner_user_id: null,
@@ -69,7 +69,7 @@ const MOCK_TRIAGE_VOCS = [
 
 vi.mock('../../hooks/useVocList', () => ({
   useVocList: () => ({
-    data: { items: MOCK_TRIAGE_VOCS, next_cursor: undefined },
+    data: { items: MOCK_TRIAGE_VOCS, page: { has_more: false } },
     isLoading: false,
     error: null,
     refetch: vi.fn(),
@@ -357,7 +357,7 @@ describe('TriageRoute', () => {
   it('drops selected from the next search when the tab changes (#922)', async () => {
     searchState = {
       view: 'triage',
-      managedSystem: 'ms-1',
+      managedSystem: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001',
       selected: '00000000-0000-4000-8000-000000000009',
       returnTo: '/home',
     };
@@ -376,7 +376,7 @@ describe('TriageRoute', () => {
     expect(href.startsWith('/vocs?')).toBe(true);
     expect(next.get('tab')).toBe('high');
     expect(next.has('selected')).toBe(false);
-    expect(next.get('managedSystem')).toBe('ms-1');
+    expect(next.get('managedSystem')).toBe('aaaaaaaa-aaaa-4aaa-8aaa-000000000001');
     expect(next.get('returnTo')).toBe('/home');
   });
 
@@ -398,7 +398,7 @@ describe('TriageRoute', () => {
   // PermissionBlockedPanel instead of the queue. The gate is now driven by
   // the authoritative usePermissionCheck decision, not by role_level.
   it('[#9] no voc.triage capability: renders PermissionBlockedPanel instead of the queue', async () => {
-    searchState = { view: 'triage', managedSystem: 'ms-1' };
+    searchState = { view: 'triage', managedSystem: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001' };
     vi.mocked(usePermissionCheck).mockReturnValue({
       isPending: false,
       isError: false,
@@ -410,6 +410,7 @@ describe('TriageRoute', () => {
 
     renderWithQc(<TriageRoute />);
 
+    await screen.findByRole('link', { name: 'VOC 생성' });
     // PermissionBlockedPanel must be visible
     await waitFor(() => {
       // PermissionBlockedPanel renders some form of "권한" or blocked state copy.
@@ -439,7 +440,7 @@ describe('TriageRoute', () => {
       canLink: (to) => to !== '/vocs?action=create',
     });
     try {
-      searchState = { view: 'triage', managedSystem: 'ms-1' };
+      searchState = { view: 'triage', managedSystem: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001' };
       vi.mocked(usePermissionCheck).mockReturnValue({
         isPending: false,
         isError: false,
