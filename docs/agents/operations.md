@@ -18,6 +18,7 @@ Workers launched with `codex … -s workspace-write` cannot use the network, wri
 - Workers run package-scoped checks only; root checks are the coordinator's.
 - After a worker exit or Orca restart, find orphaned vitest processes (parent PID 1): `pgrep -fl vitest`, `lsof -a -p <pid> -d cwd`.
 - Stop only your own checks (job ID, `$!`, or a PID whose cwd is your worktree). Never `pkill -f "turbo run"`.
+- Never `pkill -f <pattern>` (or `pgrep -f | xargs kill`) from an agent shell: the pattern also matches the command line of the shell that runs it, so the shell kills itself (exit 144). Find the PID with `pgrep -fl <pattern>` and check its cwd, then `kill <pid>`.
 
 ## New Worktrees and pnpm
 
