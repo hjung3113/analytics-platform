@@ -285,6 +285,21 @@ describe('feature screens preset: the UI rules plus the restyled-component check
     expect(await lint(UI, 'src/probe.tsx', restyled, featureUiPreset)).not.toContain('shadcn/no-restyle');
   });
 
+  it('forbids the browser crypto.randomUUID() call, which is missing on plain HTTP, in sources and tests (#2017)', async () => {
+    expect(await lint(SCREENS, 'src/probe.ts', 'export const k = () => crypto.randomUUID();\n')).toContain('ap/no-browser-random-uuid');
+    expect(await lint(SCREENS, 'src/probe.ts', 'export const k = () => globalThis.crypto.randomUUID();\n')).toContain('ap/no-browser-random-uuid');
+    expect(await lint(SCREENS, 'src/probe.ts', 'export const k = () => window.crypto.randomUUID();\n')).toContain('ap/no-browser-random-uuid');
+    expect(await lint(SCREENS, 'src/__tests__/probe.test.ts', 'export const k = () => crypto.randomUUID();\n')).toContain('ap/no-browser-random-uuid');
+    expect(await lint(UI, 'src/probe.ts', 'export const k = () => crypto.randomUUID();\n', featureUiPreset)).not.toContain('ap/no-browser-random-uuid');
+  }, 60_000);
+
+  it('allows safe randomUUID uses: feature detection, non-browser receivers, other properties (#2017)', async () => {
+    expect(await lint(SCREENS, 'src/probe.ts', 'export const k = () => crypto.randomUUID === undefined;\n')).toEqual([]);
+    expect(await lint(SCREENS, 'src/probe.ts', "export const k = () => typeof globalThis.crypto.randomUUID === 'function';\n")).toEqual([]);
+    expect(await lint(SCREENS, 'src/probe.ts', 'const nodeCrypto = { randomUUID: () => "" };\nexport const k = () => nodeCrypto.randomUUID();\n')).toEqual([]);
+    expect(await lint(SCREENS, 'src/probe.ts', 'export const k = () => crypto.getRandomValues(new Uint8Array(16));\n')).toEqual([]);
+  }, 60_000);
+
   it('checks components imported from @ap/feature-ui as well', async () => {
     const code = "import { SeverityBadge } from '@ap/feature-ui';\nexport const C = () => <SeverityBadge className=\"text-xs\" />;\n";
     expect(await lint(SCREENS, 'src/probe.tsx', code)).toContain('shadcn/no-restyle');

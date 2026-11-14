@@ -1,4 +1,5 @@
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { updateMilestone } from '@/lib/api/milestones';
 import { ApiError } from '@/lib/api/types';
 import type { MilestoneDetailDto, MilestoneDto } from '@ap/feature-shared';
@@ -40,7 +41,7 @@ export function useMilestoneTitleEdit(
       updateMilestone(
         milestone.id,
         { title: titleDraft.trim() },
-        { ifMatch, idempotencyKey: crypto.randomUUID() },
+        { ifMatch, idempotencyKey: mintIdempotencyKey() },
       ),
     onSuccess: async () => {
       setEditingTitle(false);

@@ -1,4 +1,4 @@
-import type { Notice, NoticeDraft, Text } from '@ap/contracts';
+import { randomUuidV4, type Notice, type NoticeDraft, type Text } from '@ap/contracts';
 
 /** Server limits (ADR-0098 §4): title ko/en ≤ 200 and content ko/en ≤ 10 000 UTF-16 units. */
 export const TITLE_MAX = 200;
@@ -94,6 +94,6 @@ export function fieldOfPath(path: readonly string[]): FormField | null {
  * uncertain retry (`error`/`unknown`) resends the identical operation with the same key (ADR-0098 §4).
  */
 export type Attempt = { fingerprint: string; key: string };
-export function attemptFor(previous: Attempt | null, fingerprint: string, mint: () => string = () => crypto.randomUUID()): Attempt {
+export function attemptFor(previous: Attempt | null, fingerprint: string, mint: () => string = randomUuidV4): Attempt {
   return previous && previous.fingerprint === fingerprint ? previous : { fingerprint, key: mint() };
 }

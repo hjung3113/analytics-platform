@@ -1,4 +1,5 @@
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { listMilestones } from '@/lib/api/milestones';
 import { ApiError, isPermissionDenied } from '@/lib/api/types';
 import { TASK_MILESTONE_COPY } from '@/lib/copy/tasks';
@@ -107,7 +108,7 @@ export function TaskMilestoneEditor({
 
   const save = useMutation<unknown, Error, AssignMilestoneVars>({
     mutationFn: (vars) => {
-      submission.current ??= { key: crypto.randomUUID(), ifMatch, milestoneId: vars.to };
+      submission.current ??= { key: mintIdempotencyKey(), ifMatch, milestoneId: vars.to };
       const attempt = submission.current;
       return onSave(attempt.milestoneId, attempt.key, attempt.ifMatch);
     },

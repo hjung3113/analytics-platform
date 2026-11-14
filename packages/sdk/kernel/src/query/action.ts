@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { clientCorrelationId, type ActionResponse, type ActionResult, type ActionSpec, type AnyActionSpec, type MenuAction } from '@ap/contracts';
+import { clientCorrelationId, randomUuidV4, type ActionResponse, type ActionResult, type ActionSpec, type AnyActionSpec, type MenuAction } from '@ap/contracts';
 import { useHostPlatform } from '../platform/platform';
 
 /** What the write gates read from the platform; a host port reads it at call time instead of from a hook. */
@@ -28,7 +28,7 @@ export function actionRequest<I, T>(spec: ActionSpec<I, T>, input: I, expectedVe
     action: spec.id,
     context: spec.requiresScope ? { scopeId: inputs.global.scopeId } : {},
     input: structuredClone(input),
-    idempotencyKey: crypto.randomUUID(),
+    idempotencyKey: randomUuidV4(),
     ...(spec.concurrency === 'version' ? { expectedVersion } : {}),
   };
   const resend = async (): Promise<ActionResult<T>> => {

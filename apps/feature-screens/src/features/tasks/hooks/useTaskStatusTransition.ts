@@ -1,4 +1,5 @@
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { updateTaskStatus } from '@/lib/api/tasks';
 import { ApiError } from '@/lib/api/types';
 import { useHostSeam } from '@/lib/host/host-seam';
@@ -14,12 +15,6 @@ import {
 } from '@tanstack/react-query';
 import * as React from 'react';
 import { TASK_BOARD_STATUS_COLUMNS } from './useTaskBoardData';
-
-function uuid(): string {
-  return typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random()}`;
-}
 
 type ColumnPages = InfiniteData<ListTasksResponse, string | undefined>;
 type Position = { page: number; index: number };
@@ -258,7 +253,7 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
   const mutation = useMutation({
     mutationKey: ['task-status-transition'],
     mutationFn: ({ task, status }: { task: TaskDto; status: TaskStatus }) =>
-      updateTaskStatus(task.id, status, { ifMatch: task.updated_at, idempotencyKey: uuid() }),
+      updateTaskStatus(task.id, status, { ifMatch: task.updated_at, idempotencyKey: mintIdempotencyKey() }),
     onMutate: async ({ task, status }): Promise<Delta> => {
       const token = (mutationTokens.current.get(task.id) ?? 0) + 1;
       mutationTokens.current.set(task.id, token);

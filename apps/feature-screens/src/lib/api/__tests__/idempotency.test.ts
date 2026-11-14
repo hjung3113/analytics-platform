@@ -33,12 +33,14 @@ describe('mintIdempotencyKey', () => {
     }
   });
 
-  it('produces a key the backend accepts with no Web Crypto at all', () => {
-    vi.stubGlobal('crypto', undefined);
-
-    for (let i = 0; i < 200; i++) {
-      expect(mintIdempotencyKey()).toMatch(BACKEND_IDEMPOTENCY_KEY_REGEX);
-    }
+  // No `Math.random` fallback (#2017 fix): without a cryptographic RNG the mint fails loudly, whatever the shape of the
+  // missing Web Crypto. Kept behaviourally identical to `@ap/contracts` `randomUuidV4`, down to the same throw.
+  it.each([
+    ['crypto undefined', undefined],
+    ['an incomplete crypto object (no randomUUID, no getRandomValues)', {}],
+  ])('throws instead of falling back to Math.random: %s', (_label, stub) => {
+    vi.stubGlobal('crypto', stub);
+    expect(() => mintIdempotencyKey()).toThrow(/Web Crypto/);
   });
 
   it('does not repeat itself', () => {

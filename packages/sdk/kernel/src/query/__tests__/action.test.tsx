@@ -98,6 +98,15 @@ describe('useMenuAction: request', () => {
     expect(t.sent[1].request.idempotencyKey).not.toBe(t.sent[0].request.idempotencyKey);
   });
 
+  it('sends a UUIDv4 key outside a secure context, where crypto.randomUUID does not exist (#2017)', async () => {
+    vi.stubGlobal('crypto', { getRandomValues: globalThis.crypto.getRandomValues.bind(globalThis.crypto) });
+    const t = setup(both());
+    await flush();
+    act(() => { void t.probes.action.run(input()); });
+    expect(t.sent).toHaveLength(1);
+    expect(t.sent[0].request.idempotencyKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+
   it('carries expectedVersion only for a versioned action and throws RangeError before any call otherwise', async () => {
     const t = setup(both(versioned));
     await flush();

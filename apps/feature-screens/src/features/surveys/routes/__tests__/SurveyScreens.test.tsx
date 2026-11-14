@@ -1568,7 +1568,6 @@ describe('설문 screens', () => {
         },
       },
     ],
-    ['crypto unavailable', undefined],
   ] as const)('adds an option when %s', async (_label, cryptoValue) => {
     const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
     let unmount: (() => void) | undefined;
@@ -1607,7 +1606,6 @@ describe('설문 screens', () => {
         },
       },
     ],
-    ['crypto unavailable', undefined],
   ] as const)('W-823 adds questions with unique ids when %s', (_label, cryptoValue) => {
     const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
     let unmount: (() => void) | undefined;

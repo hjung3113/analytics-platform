@@ -29,7 +29,7 @@ interface Blob {
 }
 
 /**
- * Web Crypto — used only by `correlation.ts`; exists in browsers and Node. `randomUUID` is absent outside a secure
+ * Web Crypto — used only by `correlation.ts` and `uuid.ts`; exists in browsers and Node. `randomUUID` is absent outside a secure
  * context (plain HTTP), so it is optional here.
  */
 declare var crypto: {

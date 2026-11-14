@@ -12,6 +12,7 @@ import restrictedImportSource from './import-source.js';
 import { noMenuMockImport } from './menu-boundaries.js';
 import noShellIdLiteralComparison from './no-shell-id-literal-comparison.js';
 import noColorVarShorthand from './no-color-var-shorthand.js';
+import noBrowserRandomUuid from './no-browser-random-uuid.js';
 import { featureServer, featureShared, featureUi } from './feature.js';
 
 const pkg = (name) => `${PACKAGE_PREFIX}${name}`;
@@ -678,7 +679,10 @@ export const tooling = [
 // @eqv/core (pure domain validation shared with the browser; no React and no platform imports; ADR-0132, ADR-0135).
 const eqvBanOnlyFor = (allowEqvPackages = []) => ({
   files: ['**/*.{ts,tsx,js,mjs}'],
-  plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource } } },
+  // One `ap` plugin per preset array: flat config rejects a second definition of the same plugin name. The screens-only
+  // `no-browser-random-uuid` is registered here (dormant — no preset enables it) so `featureScreensPreset` can enable it
+  // without redefining `ap`.
+  plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource, 'no-browser-random-uuid': noBrowserRandomUuid } } },
   rules: {
     'no-restricted-imports': ['error', { patterns: [{ regex: eqvRegex([], allowEqvPackages), message: EQV_MESSAGE }] }],
     'ap/restricted-import-source': ['error', { eqvOnly: true, eqvMessage: EQV_MESSAGE, allowEqvPackages }],
@@ -720,4 +724,13 @@ export const featureScreensPreset = [...featureUi({
       },
     },
   },
-}), eqvBanOnly];
+}), eqvBanOnly, {
+  // #2017: `crypto.randomUUID` does not exist outside a secure context (plain HTTP on a non-localhost origin), so a direct
+  // call throws and the write never leaves. Only the browser call is reported — the global receivers `crypto`,
+  // `globalThis.crypto` and `window.crypto` — so feature detection (`crypto.randomUUID === undefined`) and Node test
+  // objects (`nodeCrypto.randomUUID()`) pass. Feature-only: no other preset reads this.
+  // `ap/no-browser-random-uuid` is registered once in `eqvBanOnlyFor`'s plugin (above); the screens preset only enables it.
+  rules: {
+    'ap/no-browser-random-uuid': ['error'],
+  },
+}];

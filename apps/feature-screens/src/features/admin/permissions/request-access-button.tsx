@@ -35,6 +35,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useMemo, useState } from 'react';
 
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import {
   type CreatePermissionRequestBody,
   type CreatePermissionRequestSuccess,
@@ -190,7 +191,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
   // widening it would rotate mid-intent — either way server-side idempotency
   // reconciliation breaks. The suppression must stay a single line to register.
   const idempotencyKey = useMemo(
-    () => crypto.randomUUID(),
+    () => mintIdempotencyKey(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the dep list is the intent key (FO ADR-0015:71-90), see above
     [capability, props.managedSystemId, scopeTarget?.site, scopeKind, scopeRoom, attempt],
   );
