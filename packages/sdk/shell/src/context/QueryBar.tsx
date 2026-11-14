@@ -184,7 +184,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
           if (values?.length) next[axis.id] = values; else delete next[axis.id];
           write({ condition: Object.keys(next).length ? next : null });
         }} />)}
-        {(cap.condition === 'apply' || cap.prcGroup === 'apply') && <div className="grid w-64 max-w-full gap-1 text-xs text-text-secondary">
+        {(cap.condition === 'apply' || cap.prcGroup === 'apply') && <div className="grid w-80 max-w-full gap-1 text-xs text-text-secondary">
           <span id={`${id}-membership`}>{ko ? '소속 기준' : 'Membership'}</span>
           {/* SegmentedRadio uses these primitives too, but cannot disable just the historical option. */}
           <RadioGroup appearance="segmented" orientation="horizontal" aria-labelledby={`${id}-membership`} value={g.membershipBasis ?? 'current'} onValueChange={value => write({ membershipBasis: value === 'asOf' ? 'asOf' : null })} onKeyDownCapture={event => {
@@ -243,7 +243,7 @@ type SetFieldProps = { name: string; values: IdSet; options: { value: string; la
 function SetField({ name, values, onChange, invalid, reasonId, request, ...props }: SetFieldProps & Partial<Pick<ComponentProps<typeof MultiCombobox>, 'getLabel' | 'search' | 'onSearchChange' | 'loading' | 'error' | 'onRetry' | 'hasMore' | 'onLoadMore'>>) {
   const { lang, t } = useI18n();
   const ko = lang === 'ko';
-  return <div className="grid w-56 min-w-0 max-w-full gap-1 text-xs text-text-secondary">
+  return <div className="grid w-44 min-w-0 max-w-full gap-1 text-xs text-text-secondary">
     <span>{name}</span>
     <div className="rounded-md bg-surface-card">
       <MultiCombobox {...props} density="compact" label={name} clearAction={values === null ? undefined : { label: ko ? `${name} 전체로 되돌리기` : `Reset ${name} to all`, onClear: () => onChange(null) }} values={values ?? []} onValuesChange={onChange} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} listboxLabel={name} emptyText={ko ? '후보 없음' : 'No candidates'} placeholder={values === null ? (ko ? '전체' : 'All') : values.length === 0 ? (ko ? '명시적 빈 선택' : 'Explicit empty selection') : undefined} selectedSummaryLabel={count => ko ? `선택한 항목 ${count}개` : `${count} selected items`} moreLabel={ko ? '더 보기' : 'Load more'} clearAllLabel={ko ? '선택 모두 비우기' : 'Clear selection'} removeLabel={value => `${t('clear')} ${value}`} loadingText={ko ? '후보 확인 중' : 'Loading candidates'} retryLabel={t('retry')} />
@@ -302,7 +302,7 @@ function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, re
     { label: ko ? '오늘' : 'Today', pressed: defaultRangeTo !== null && g.from === `${defaultRangeTo.slice(0, 10)}T00:00:00` && hours === 24, apply: () => { if (defaultRangeTo !== null) date(defaultRangeTo.slice(0, 10)); } },
   ];
   return <div className="grid min-w-0 max-w-full gap-1 text-xs text-text-secondary" role="group" aria-label={ko ? '기간' : 'Period'}>
-    <span>{ko ? '기간' : 'Period'}</span>
+    <span className="flex flex-wrap items-baseline gap-x-2">{ko ? '기간' : 'Period'}<span className="[overflow-wrap:anywhere]">{formatPeriod(g.from, g.to, lang)}</span></span>
     <div className="flex flex-wrap items-center gap-1">
       {presets.map(p => <Button key={p.label} type="button" size="toolbar" variant={p.pressed ? 'secondary' : 'ghost'} aria-pressed={p.pressed} disabled={defaultRangeTo === null} onClick={p.apply}>{p.label}</Button>)}
       {/* Presets pick a range, the pair picks how to type one: a divider keeps two pressed buttons from reading as one choice. */}
@@ -314,6 +314,5 @@ function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, re
       <Input type="datetime-local" step="1" aria-label={ko ? '시작 시각' : 'From'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.from} onChange={event => custom('from', event.target.value)} className="w-64 max-w-full" />
       <Input type="datetime-local" step="1" aria-label={ko ? '종료 시각 (제외)' : 'To (exclusive)'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.to} onChange={event => custom('to', event.target.value)} className="w-64 max-w-full" />
     </div>}
-    <span className="[overflow-wrap:anywhere]">{formatPeriod(g.from, g.to, lang)}</span>
   </div>;
 }
