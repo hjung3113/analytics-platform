@@ -50,7 +50,7 @@ async function problems(promise: Promise<unknown>) {
 
 describe('declaration boot gates (ADR-0153 a1)', () => {
   it('accepts an empty bundle without envelope-only environment', async () => {
-    expect(await setup(emptyBundle())).toEqual({ menuDispatch: [{ permissions: [], endpoints: [] }] });
+    expect(await setup(emptyBundle())).toEqual({ menuDispatch: [{ permissions: [], endpoints: [] }], undeclaredMenuPermissions: [] });
   });
   it('refuses SQL without a connector factory, without requiring envelope env', async () => {
     expect(await problems(setup(routed(), {}, {}))).toEqual(['connector kind sql is not available']);
