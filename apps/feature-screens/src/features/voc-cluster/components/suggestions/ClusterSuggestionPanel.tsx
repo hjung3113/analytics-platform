@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 import { apiPath, isApiPathId } from '@/lib/api/path';
 import { apiHref } from '@/lib/api/client';
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
@@ -44,7 +45,7 @@ export function ClusterSuggestionPanel({
   }, [notice, noticeId, fallbackRef]);
   return (
     <div data-testid="cluster-suggestion-panel">
-      <DetailPanelHeader kind="cluster" id={COPY.tab} onClose={onClose} />
+      <DetailPanelHeader {...DETAIL_PANEL_KICKERS.cluster} id={COPY.tab} onClose={onClose} />
       <div className="flex flex-col gap-5 p-5">
         {notice && (
           <div role="alert" tabIndex={-1} ref={noticeNode}>

@@ -15,7 +15,7 @@ describe('column preference writes (#823)', () => {
   afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
   it('writes nothing on mount: the value it just read stays as stored', () => {
-    localStorage.setItem('t', JSON.stringify({ sizing: { a: 120 }, visibility: {}, pinning: { left: [], right: [] } }));
+    localStorage.setItem('platform:columns:v1:anon:t', JSON.stringify({ sizing: { a: 120 }, visibility: {}, pinning: { left: [], right: [] } }));
     const written = vi.spyOn(localStorage, 'setItem');
     renderHook(() => useColumnPreferences('t'));
     act(() => { vi.advanceTimersByTime(1000); });
@@ -30,8 +30,8 @@ describe('column preference writes (#823)', () => {
     rerender({ key: 'b' });
     expect(result.current.preferences).toEqual({ sizing: { b: 160 }, visibility: { b: false }, order: ['b'], pinning: { left: ['b'], right: [] } });
     act(() => { result.current.onColumnOrderChange(['b', 'c']); });
-    expect(JSON.parse(localStorage.getItem('b')!).sizing).toEqual({ b: 160 });
-    expect(JSON.parse(localStorage.getItem('a')!).sizing).toEqual({ a: 140 });
+    expect(JSON.parse(localStorage.getItem('platform:columns:v1:anon:b')!).sizing).toEqual({ b: 160 });
+    expect(JSON.parse(localStorage.getItem('platform:columns:v1:anon:a')!).sizing).toEqual({ a: 140 });
     rerender({ key: 'unused' });
     expect(result.current.preferences.visibility).toEqual({});
   });
@@ -43,16 +43,16 @@ describe('column preference writes (#823)', () => {
     expect(written).not.toHaveBeenCalled();
     act(() => { vi.advanceTimersByTime(300); });
     expect(written).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(localStorage.getItem('t')!).sizing).toEqual({ a: 130 });
+    expect(JSON.parse(localStorage.getItem('platform:columns:v1:anon:t')!).sizing).toEqual({ a: 130 });
   });
 
   it('visibility and pin changes are written at once; a pending width is written on unmount', () => {
     const { result, unmount } = renderHook(() => useColumnPreferences('t'));
     act(() => { result.current.onColumnVisibilityChange({ a: false }); });
-    expect(JSON.parse(localStorage.getItem('t')!).visibility).toEqual({ a: false });
+    expect(JSON.parse(localStorage.getItem('platform:columns:v1:anon:t')!).visibility).toEqual({ a: false });
     act(() => { result.current.onColumnSizingChange({ a: 150 }); });
     unmount();
-    expect(JSON.parse(localStorage.getItem('t')!).sizing).toEqual({ a: 150 });
+    expect(JSON.parse(localStorage.getItem('platform:columns:v1:anon:t')!).sizing).toEqual({ a: 150 });
   });
 
   it('a width waiting when the key changes is written to its own key (#823)', () => {
@@ -60,7 +60,7 @@ describe('column preference writes (#823)', () => {
     act(() => { result.current.onColumnSizingChange({ c: 140 }); });
     rerender({ key: 'b' });
     act(() => { result.current.onColumnVisibilityChange({ c: false }); });
-    expect(JSON.parse(localStorage.getItem('a')!).sizing).toEqual({ c: 140 });
+    expect(JSON.parse(localStorage.getItem('platform:columns:v1:anon:a')!).sizing).toEqual({ c: 140 });
   });
 });
 
@@ -78,8 +78,8 @@ describe('column order preference (#556a)', () => {
   it('an order change is written at once and reset clears it', () => {
     const { result } = renderHook(() => useColumnPreferences('o'));
     act(() => { result.current.onColumnOrderChange(['b', 'a']); });
-    expect(JSON.parse(localStorage.getItem('o')!).order).toEqual(['b', 'a']);
+    expect(JSON.parse(localStorage.getItem('platform:columns:v1:anon:o')!).order).toEqual(['b', 'a']);
     act(() => { result.current.resetPreferences(); });
-    expect(JSON.parse(localStorage.getItem('o')!).order).toEqual([]);
+    expect(JSON.parse(localStorage.getItem('platform:columns:v1:anon:o')!).order).toEqual([]);
   });
 });

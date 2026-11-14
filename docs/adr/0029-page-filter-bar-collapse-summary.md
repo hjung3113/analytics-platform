@@ -9,7 +9,7 @@
 
 - A의 한 줄 값 요약에 C의 필드명 표시를 결합한다. 접힘 줄은 왼쪽 chevron + `필터` + `라벨 값 · 라벨 값 …`을 담은 펼치기 버튼 하나이고, 초기화 같은 접힘 액션은 오른쪽 독립 버튼으로 남는다. 펼친 입력 줄 끝에는 명시적 `⌃ 접기` 버튼을 두고 별도 상단 헤더는 두지 않는다(C).
 - 개수 배지(`필터 3`), 접힘 요약 칩, `변경 n`은 채택하지 않는다. 요약은 소비자가 `summaryItems`(`{ key, label, value }`)로 제공하며, 공통 부품은 활성 조건을 생략·추측하지 않는다. `+n`·CSS 말줄임·title 전용 치환은 금지이고, 폭이 부족하면 `필드명 값` 항목 단위로 줄바꿈한다(긴 값은 단어 내부 줄바꿈 허용).
-- 접힘 기억(`platform:page-filter-collapsed:<preferenceKey>`, 실패 시 메모리), 펼침/접힘 포커스 이동, disclosure aria는 PageFilterBar가 소유한다. ManagementLayout column 레일은 자체 접기가 있으므로 이 접기를 켜지 않는다.
+- 접힘 기억([계정별 브라우저 선호 키](../contract/components.md#15-platform-data-table-contract), #2194, 실패 시 메모리), 펼침/접힘 포커스 이동, disclosure aria는 PageFilterBar가 소유한다. ManagementLayout column 레일은 자체 접기가 있으므로 이 접기를 켜지 않는다.
 
 ## Considered Options
 

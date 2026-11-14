@@ -1,3 +1,4 @@
+import { browserPreferenceKey } from './support';
 import { expect, test, type Page } from '@playwright/test';
 import { PERIOD, PRODUCTIVITY, railSection, systemSwitcher, openSwitcher, chooseSystem, headerMore } from './contract-helpers';
 import { contextBar, evidence, expectScopeValid, mainHeading, query, setScenario, signInAs, storedUsageEvents, usageVisits } from './support';
@@ -61,7 +62,7 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
 
   test('1024px 펼친 사이드바와 상세 패널에서도 Tab으로 주 동작에 닿는다 (#303)', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1024, height: 900 });
-    await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
+    await page.addInitScript(keys => localStorage.setItem(keys[0], 'false'), [browserPreferenceKey('sidebar-collapsed', '')]);
     await page.goto(PRODUCTIVITY.replace('&roomNames=PHOTO', ''));
     await expectScopeValid(page, 'MEM · 메모리');
     await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
@@ -90,7 +91,7 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
   // controls spill under Data Trust — a click on the star opened Data Trust instead of the favorite.
   test('1024px 펼친 사이드바·설비 상세에서 별과 Data Trust 상자는 겹치지 않고 별은 눌린다 (#398)', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1024, height: 900 });
-    await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
+    await page.addInitScript(keys => localStorage.setItem(keys[0], 'false'), [browserPreferenceKey('sidebar-collapsed', '')]);
     await page.goto(`${PRODUCTIVITY}&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=MEM-PHOTO-0103`);
     await expectScopeValid(page, 'MEM · 메모리');
     await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
@@ -126,7 +127,7 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
   for (const { width, drill } of [{ width: 1024, drill: false }, { width: 1440, drill: true }]) {
     test(`사이드바를 접은 ${width}px ${drill ? '설비 상세' : '개요'}에서 머리는 모든 양보 전에 가로로 넘치지 않는다 (#398)`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
-      await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '1'));
+      await page.addInitScript(keys => localStorage.setItem(keys[0], 'true'), [browserPreferenceKey('sidebar-collapsed', '')]);
       await page.goto(`${PRODUCTIVITY}${drill ? '&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=MEM-PHOTO-0103' : ''}`);
       await expectScopeValid(page, 'MEM · 메모리');
       await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
@@ -609,7 +610,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
 
   test('Scope 표시를 숨긴 공간(표준 로그 개발)은 펼친·접힌 사이드바 모두 Scope 선택기가 없고 MARS는 그대로 보인다 (#1251)', async ({ page }) => {
     await signInAs(page, 'engineer');
-    await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
+    await page.addInitScript(keys => localStorage.setItem(keys[0], 'false'), [browserPreferenceKey('sidebar-collapsed', '')]);
     await page.goto('/log-dev/log-my-queue');
     await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Scope:/ })).toHaveCount(0);

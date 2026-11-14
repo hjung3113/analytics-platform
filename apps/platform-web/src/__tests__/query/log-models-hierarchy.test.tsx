@@ -14,7 +14,7 @@ const process = '14470000-0000-4000-8000-000000000021';
 let restore: () => void;
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage());
-  localStorage.setItem('platform:sidebar-collapsed', '0'); localStorage.setItem('platform:role', 'admin');
+  localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false'); localStorage.setItem('platform:role', 'admin');
   restore = stubHierarchyGeometry();
 });
 afterEach(() => { cleanup(); restore(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });

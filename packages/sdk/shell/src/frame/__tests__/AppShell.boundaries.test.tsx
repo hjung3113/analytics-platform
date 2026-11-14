@@ -24,7 +24,7 @@ const registry = (navTree: boolean) => createRegistry({
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage());
-  localStorage.setItem('platform:sidebar-collapsed', '0');
+  localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
   vi.spyOn(console, 'error').mockImplementation(() => {});
   failWith = new Error('fixture region failure');
   vi.mocked(reloadApp).mockClear();

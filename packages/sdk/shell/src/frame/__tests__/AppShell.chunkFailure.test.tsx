@@ -24,7 +24,7 @@ const registry = createRegistry({
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage());
-  localStorage.setItem('platform:sidebar-collapsed', '0');
+  localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
   vi.spyOn(console, 'error').mockImplementation(() => {});
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });

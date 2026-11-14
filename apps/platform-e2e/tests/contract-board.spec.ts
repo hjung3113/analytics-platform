@@ -1,3 +1,4 @@
+import { browserPreferenceKey } from './support';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, PRODUCTIVITY, openSwitcher, chooseSystem, headerMore, startWithQueryBarOpen } from './contract-helpers';
 import { expandQueryBar, evidence, expandPageHead, mainHeading, nextFrames, query, settleOn, setScenario, signInAs } from './support';
@@ -1022,10 +1023,10 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
   /** The page filter and head flags are cleared and the query bar's stored choice is set to open before every load, so the bars start expanded (an applied address would otherwise start collapsed, #1892). */
   async function expandedBarsAtLoad(page: Page) {
     await startWithQueryBarOpen(page, 'cycle-time');
-    await page.addInitScript(() => {
-      localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
-      localStorage.removeItem('platform:page-head-collapsed:cycle-time');
-    });
+    await page.addInitScript(keys => {
+      localStorage.removeItem(keys[0]);
+      localStorage.removeItem(keys[1]);
+    }, [browserPreferenceKey('page-filter-collapsed', 'cycle-time'), browserPreferenceKey('page-head-collapsed', 'cycle-time')]);
   }
   /** Collapses the query bar, the page filter and the page head (the head starts collapsed; the filter sits inside it). */
   async function collapseBars(page: Page) {
@@ -1248,14 +1249,14 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
   const productivityPane = (): PaneSeed => ({ menuId: 'productivity-overview', params: {}, query: `?v=1&scopeId=MEM&roomNames=ETCH&${PERIOD}` });
   async function seedDockBoard(page: Page, layout: '1x1' | '1x2', panes: PaneSeed[]) {
     await signInAs(page, 'engineer');
-    await page.addInitScript(({ value }) => {
+    await page.addInitScript(({ value, filterKey }) => {
       localStorage.setItem('platform:board-layout-engine', 'dock');
-      localStorage.setItem('platform:page-filter-collapsed:cycle-time', 'true');
+      localStorage.setItem(filterKey, 'true');
       const seeded = 'platform:board-fixture-seeded:engineer';
       if (sessionStorage.getItem(seeded)) return;
       localStorage.setItem('platform:board:engineer', JSON.stringify(value));
       sessionStorage.setItem(seeded, '1');
-    }, { value: { v: 1, activeSheetId: 'ws', sheets: [{ id: 'ws', name: '작업 영역', layout, selected: 0, panes }] } });
+    }, { filterKey: browserPreferenceKey('page-filter-collapsed', 'cycle-time'), value: { v: 1, activeSheetId: 'ws', sheets: [{ id: 'ws', name: '작업 영역', layout, selected: 0, panes }] } });
   }
 
   test('보드 칸 안에서는 작업 영역 도구줄이 없고 칸 ⋯ 메뉴가 프리셋(라디오)과 기본 배치를 싣는다', async ({ page }, testInfo) => {
@@ -1746,14 +1747,14 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
   test('보드 칸 안: 칸 본문이 스크롤되고 보드 바깥 배치와 경계(퍼센트)는 그대로이며, 안쪽 끌기는 보드를 바꾸지 않는다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1600, height: 900 });
     await signInAs(page, 'engineer');
-    await page.addInitScript(({ value }) => {
+    await page.addInitScript(({ value, filterKey }) => {
       localStorage.setItem('platform:board-layout-engine', 'dock');
-      localStorage.setItem('platform:page-filter-collapsed:cycle-time', 'true');
+      localStorage.setItem(filterKey, 'true');
       const seeded = 'platform:board-fixture-seeded:engineer';
       if (sessionStorage.getItem(seeded)) return;
       localStorage.setItem('platform:board:engineer', JSON.stringify(value));
       sessionStorage.setItem(seeded, '1');
-    }, { value: { v: 1, activeSheetId: 'ws', sheets: [{ id: 'ws', name: '작업 영역', layout: '2x1', selected: 0, panes: [
+    }, { filterKey: browserPreferenceKey('page-filter-collapsed', 'cycle-time'), value: { v: 1, activeSheetId: 'ws', sheets: [{ id: 'ws', name: '작업 영역', layout: '2x1', selected: 0, panes: [
       { menuId: 'cycle-time', params: {}, query: `?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}` },
       { menuId: 'productivity-overview', params: {}, query: `?v=1&scopeId=MEM&roomNames=ETCH&${PERIOD}` },
     ] }] } });

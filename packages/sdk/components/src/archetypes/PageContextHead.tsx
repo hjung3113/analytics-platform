@@ -20,7 +20,7 @@ export function PageHeadBody({ notes, extension }: { notes: readonly ReactNode[]
 }
 
 export type PageContextHeadProps = {
-  /** Per-menu preference id: the head memory is `platform:page-head-collapsed:<menuId>`. */
+  /** Per-menu preference id: the head memory is `platform:page-head-collapsed:v1:<userId>:<menuId>`. */
   menuId: string;
   notes: readonly ReactNode[];
   extension: ReactNode;
@@ -58,7 +58,7 @@ export function PageContextHead({ menuId, notes, extension, summary, pendingChan
   const compact = useCompactPageDensity();
   const chips = useRef<HTMLDivElement>(null);
   const overflowing = useIsTruncated(chips);
-  const { collapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(`platform:page-head-collapsed:${menuId}`, summaryText, true, issueCount > 0);
+  const { collapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(`platform:page-head-collapsed:${menuId}`, summaryText, { defaultCollapsed: true, expandOnMount: issueCount > 0 });
   // The fade shows only while the chip list is cut off at the right edge.
 
   const body = bodyHost ? createPortal(<PageFilterExpandedContext.Provider value={Boolean(workspace?.parameterTarget)}><PageHeadBody notes={notes} extension={extension} /></PageFilterExpandedContext.Provider>, bodyHost) : null;

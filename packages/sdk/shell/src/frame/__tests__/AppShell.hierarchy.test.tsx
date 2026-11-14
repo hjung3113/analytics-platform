@@ -26,7 +26,7 @@ function targetSource(menuId = 'fixture-home'): HierarchySource {
   return { listChildren: async args => target(await synthetic.listChildren(args)), resolveAncestors: synthetic.resolveAncestors, searchNodes: async args => target(await synthetic.searchNodes!(args)) };
 }
 let restore: () => void;
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); localStorage.setItem('platform:sidebar-collapsed', '0'); restore = stubHierarchyGeometry(); mounted.mockClear(); window.history.replaceState(null, '', '/fixture?v=1'); });
+beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false'); restore = stubHierarchyGeometry(); mounted.mockClear(); window.history.replaceState(null, '', '/fixture?v=1'); });
 afterEach(() => { cleanup(); restore(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 function mount(source = targetSource(), mode: 'drill' | 'tree' = 'drill', platform = false, dirty = false, visibleKey = false) {
   let session = testSession(['platform:view']);
@@ -49,6 +49,7 @@ it.each([false, true])('hosts declared hierarchy in the real AppShell (platform=
   expect(navigation.querySelectorAll('[data-current-marker]').length).toBe(2);
 });
 it('never mounts Source for a denied declaring menu, and invalidates same-render on grant/session changes', async () => {
+  localStorage.setItem('platform:sidebar-collapsed:v1:second:', 'false'); // This test needs the second account's hierarchy expanded too.
   const source = targetSource(); const list = vi.spyOn(source, 'listChildren');
   const view = mount(source);
   await screen.findByRole('link', { name: 'Item 1' });

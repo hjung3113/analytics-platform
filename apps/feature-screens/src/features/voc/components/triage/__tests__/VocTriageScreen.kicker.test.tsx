@@ -300,7 +300,7 @@ describe('VocTriageScreen — V1 inline kicker', () => {
     vi.unstubAllGlobals();
   });
 
-  it('expands the triage panel, handles Escape, and keeps its copy and deferred menu actions', () => {
+  it('expands the triage panel, handles Escape, and keeps copy without deferred menu actions', () => {
     render(
       <Wrapper>
         <VocTriageScreen
@@ -326,9 +326,8 @@ describe('VocTriageScreen — V1 inline kicker', () => {
     expect(queue).not.toHaveAttribute('hidden');
     expect(expand).toHaveAttribute('aria-pressed', 'false');
 
-    const more = screen.getByRole('button', { name: '더 보기' });
-    fireEvent.keyDown(more, { key: 'Enter' });
-    expect(screen.getByText('읽음 표시')).toBeInTheDocument();
-    expect(screen.getByText('스누즈')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument();
+    expect(screen.queryByText('읽음 표시')).not.toBeInTheDocument();
+    expect(screen.queryByText('스누즈')).not.toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 import { RequestAccessButton } from '@/features/admin/public';
 import { errorMapper } from '@/lib/api/errorMapper';
 import { ApiError } from '@/lib/api/types';
@@ -147,7 +148,7 @@ function renderStandaloneAside(parts: ClosableDetailParts): ReactNode {
       className="flex h-full min-h-0 flex-col bg-surface-detail"
       data-testid="follow-up-detail-panel"
     >
-      <DetailPanelHeader kind="survey" id={String(parts.title)} onClose={parts.requestClose} />
+      <DetailPanelHeader {...DETAIL_PANEL_KICKERS.survey} id={String(parts.title)} onClose={parts.requestClose} />
       {parts.body}
     </aside>
   );

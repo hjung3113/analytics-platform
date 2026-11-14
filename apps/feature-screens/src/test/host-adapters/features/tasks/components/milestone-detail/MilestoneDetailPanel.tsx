@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 import {
   type MilestoneDetailPanelProps,
   type MilestoneDetailParts,
@@ -25,7 +26,7 @@ export function MilestoneDetailFrame({ parts }: { parts: MilestoneDetailParts })
           dismissible. Identity and record actions render only for a successful
           read with no terminal error — never for cached data after 403/404. */}
       <DetailPanelHeader
-        kind="milestone"
+        {...DETAIL_PANEL_KICKERS.milestone}
         onClose={parts.requestClose}
         {...(view.kind === 'ready'
           ? { id: view.milestone.display_id, extras: parts.headerActions }

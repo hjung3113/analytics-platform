@@ -84,7 +84,7 @@ describe('PageFilterBar collapsible', () => {
     expect(summary).toHaveTextContent('≥ P95');
     expect(summary).toHaveTextContent('정렬');
     expect(summary).toHaveTextContent('사이클타임 내림차순');
-    expect(storage.get('platform:page-filter-collapsed:cycle-time')).toBe('true');
+    expect(storage.get('platform:page-filter-collapsed:v1:anon:cycle-time')).toBe('true');
 
     fireEvent.click(expand);
     expect(screen.getByRole('button', { name: '페이지 필터 접기' })).toHaveFocus();
@@ -95,7 +95,7 @@ describe('PageFilterBar collapsible', () => {
     { collapsed: false, toggleName: '페이지 필터 접기', expanded: 'true' },
     { collapsed: true, toggleName: '페이지 필터 펼치기', expanded: 'false' },
   ])('declares aria-expanded="$expanded" on "$toggleName" and points aria-controls at the input panel', ({ collapsed, toggleName, expanded }) => {
-    if (collapsed) storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    if (collapsed) storage.set('platform:page-filter-collapsed:v1:anon:cycle-time', 'true');
     mountBar();
     const toggle = screen.getByRole('button', { name: toggleName });
     expect(toggle).toHaveAttribute('aria-expanded', expanded);
@@ -131,13 +131,13 @@ describe('PageFilterBar collapsible', () => {
     view.rerender(<I18nProvider><Harness preferenceKey="other-menu" /></I18nProvider>);
 
     expect(screen.getByRole('button', { name: '페이지 필터 접기' })).toBeInTheDocument();
-    expect(storage.get('platform:page-filter-collapsed:cycle-time')).toBe('true');
-    expect(storage.has('platform:page-filter-collapsed:other-menu')).toBe(false);
+    expect(storage.get('platform:page-filter-collapsed:v1:anon:cycle-time')).toBe('true');
+    expect(storage.has('platform:page-filter-collapsed:v1:anon:other-menu')).toBe(false);
   });
 
   it('keeps the collapsed state when a collapsedAction fires', () => {
     const onReset = vi.fn();
-    storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    storage.set('platform:page-filter-collapsed:v1:anon:cycle-time', 'true');
     mountBar({ ...collapsibleProps, collapsedActions: <button type="button" onClick={onReset}>페이지 조건 기본값</button> });
 
     fireEvent.click(screen.getByRole('button', { name: '페이지 조건 기본값' }));
@@ -165,7 +165,7 @@ describe('PageFilterBar collapsible', () => {
 
   it('keeps every summary value as DOM text (no truncate class or title); layout clipping is covered by E2E (#278)', () => {
     const longValue = 'VERY-LONG-EQUIPMENT-IDENTIFIER-'.repeat(5);
-    storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    storage.set('platform:page-filter-collapsed:v1:anon:cycle-time', 'true');
     mountBar({ ...collapsibleProps, summaryItems: [{ key: 'q', label: '검색', value: longValue }] });
 
     expect(screen.getByText(longValue)).toBeInTheDocument();
@@ -174,7 +174,7 @@ describe('PageFilterBar collapsible', () => {
   });
 
   it('marks unapplied changes at the end of the collapsed summary', () => {
-    storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    storage.set('platform:page-filter-collapsed:v1:anon:cycle-time', 'true');
     mountBar({ ...collapsibleProps, hasPendingChanges: true });
 
     const summary = document.getElementById(screen.getByRole('button', { name: '페이지 필터 펼치기' }).getAttribute('aria-describedby')!);
@@ -279,7 +279,7 @@ describe('PageFilterBar collapsible', () => {
   });
 
   it.each([false, true])('shows applied parameters and removable narrowing on one row (collapsed=%s)', collapsed => {
-    if (collapsed) storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    if (collapsed) storage.set('platform:page-filter-collapsed:v1:anon:cycle-time', 'true');
     const onClear = vi.fn();
     mountBar({ ...collapsibleProps, appliedChips: [
       { key: 'grain', label: '집계', value: '시간' },
@@ -317,7 +317,7 @@ describe('PageFilterBar collapsible', () => {
   });
 
   it.each([false, true])('keeps keyboard focus on the next clear action, then the bar toggle (collapsed=%s)', async collapsed => {
-    if (collapsed) storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    if (collapsed) storage.set('platform:page-filter-collapsed:v1:anon:cycle-time', 'true');
     function ClearHarness() {
       const [bucket, setBucket] = useState(true);
       const [bin, setBin] = useState(true);
@@ -375,7 +375,7 @@ describe('PageFilterBar collapsible', () => {
   });
 
   it.each([false, true])('tabs through the bar before the clear buttons, skipping fixed chips (collapsed=%s)', async collapsed => {
-    if (collapsed) storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    if (collapsed) storage.set('platform:page-filter-collapsed:v1:anon:cycle-time', 'true');
     const user = userEvent.setup();
     mountBar({ ...collapsibleProps, appliedChips: [
       { key: 'grain', label: '집계', value: '시간' },

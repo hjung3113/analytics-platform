@@ -138,18 +138,18 @@ describe('skip links (#1942)', () => {
 
 describe('light sidebar', () => {
   it('toggles with the button and [, persists the existing key, and ignores text editing', () => {
-    localStorage.setItem('platform:sidebar-collapsed', '0');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
     const view = mount();
     const sidebar = view.container.querySelector('aside')!;
     expect(sidebar.getAttribute('data-collapsed')).toBe('false');
     fireEvent.click(screen.getByRole('button', { name: '사이드바 접기' }));
     expect(sidebar.getAttribute('data-collapsed')).toBe('true');
-    expect(localStorage.getItem('platform:sidebar-collapsed')).toBe('1');
+    expect(localStorage.getItem('platform:sidebar-collapsed:v1:u1:')).toBe('true');
     expect(screen.getByRole('button', { name: /^Scope:/ })).toBeTruthy();
     expect(within(screen.getByRole('group', { name: '개요' })).getByRole('link', { name: '홈' })).toBeTruthy();
     fireEvent.keyDown(window, { key: '[' });
     expect(sidebar.getAttribute('data-collapsed')).toBe('false');
-    expect(localStorage.getItem('platform:sidebar-collapsed')).toBe('0');
+    expect(localStorage.getItem('platform:sidebar-collapsed:v1:u1:')).toBe('false');
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'editor' }), { key: '[' });
     expect(sidebar.getAttribute('data-collapsed')).toBe('false');
     cleanup();
@@ -167,18 +167,18 @@ describe('light sidebar', () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
     expect(mount().container.querySelector('aside')?.getAttribute('data-collapsed')).toBe('false');
     cleanup();
-    localStorage.setItem('platform:sidebar-collapsed', '1');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
     expect(mount().container.querySelector('aside')?.getAttribute('data-collapsed')).toBe('true');
   });
 
   it('marks a menu without a screen as planned in the sidebar', () => {
-    localStorage.setItem('platform:sidebar-collapsed', '0');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
     mount();
     expect(within(screen.getByRole('navigation', { name: '주 메뉴' })).getAllByText('예정').length).toBeGreaterThan(0);
   });
 
   it('renders flat sections, favorites and exact recent URLs without a menu filter', async () => {
-    localStorage.setItem('platform:sidebar-collapsed', '0');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
     localStorage.setItem('platform:favorites:u1', JSON.stringify(['ops']));
     localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'ops', url: '/ops?v=1&scopeId=MEM' }]));
     mount(['platform:view'], true, makeRegistry(true));
@@ -225,7 +225,7 @@ describe('declared single-menu sidebar group labels', () => {
 
 describe('primary navigation boundary (#194 FIX1)', () => {
   it.each([false, true])('keeps favorite and recent links outside the registry menu tree (collapsed=%s)', async collapsed => {
-    localStorage.setItem('platform:sidebar-collapsed', collapsed ? '1' : '0');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', collapsed ? 'true' : 'false');
     localStorage.setItem('platform:favorites:u1', JSON.stringify(['home', 'ops']));
     localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'home', url: '/?v=1&scopeId=MEM&lotIds=previous' }, { menuId: 'ops', url: '/ops' }]));
     mount(['platform:view'], true, makeRegistry(true));
@@ -261,7 +261,7 @@ describe('primary navigation boundary (#194 FIX1)', () => {
 describe('shell accessibility (#194 FIX2)', () => {
   it('keeps the empty-state guidance for favorites and recent in the expanded sidebar (07 §3)', () => {
     window.history.replaceState(null, '', '/unregistered?v=1');
-    localStorage.setItem('platform:sidebar-collapsed', '0');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
     mount();
     const favorites = screen.getByRole('region', { name: '즐겨찾기' });
     expect(within(favorites).getByText('즐겨찾기가 없습니다. 화면 제목 옆 ☆로 추가하세요.')).toBeTruthy();
@@ -282,7 +282,7 @@ describe('shell accessibility (#194 FIX2)', () => {
   });
 
   it('marks only the current menu and section with a persistent shape, and keeps groups out of region/headings', async () => {
-    localStorage.setItem('platform:sidebar-collapsed', '0');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
     mount(['platform:view', 'console:access']);
     const primary = screen.getByRole('navigation', { name: '주 메뉴' });
     const home = within(primary).getByRole('link', { name: '홈' });
@@ -503,7 +503,7 @@ describe('workspace shell layout (15 §3.1)', () => {
   });
 
   it('shows only entry icons, in the same order, when the sidebar is collapsed', () => {
-    localStorage.setItem('platform:sidebar-collapsed', '1');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
     mount(['platform:view'], true, registry, { features: feedbackSlot });
     const block = screen.getByRole('navigation', { name: '기능 · 분석' });
     expect(block.textContent).not.toContain('기능 · 분석');
@@ -556,7 +556,7 @@ describe('workspace shell layout (15 §3.1)', () => {
       mount(['platform:view'], true, featureRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       expect(screen.queryByRole('navigation', { name: /^기능/ })).toBeNull();
       cleanup();
-      localStorage.setItem('platform:sidebar-collapsed', '1');
+      localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
       mount(['platform:view', 'features:access'], true, featureRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
       expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['VOC · 분석, 기능', 'Task · 분석, 기능']);
@@ -843,7 +843,7 @@ function platformSidebarRegistry() {
 const PLATFORM_PERMISSIONS: Permission[] = ['platform:view', 'notice:view', menuPermission('equipment:view')];
 
 describe('platform sidebar (ADR-0070)', () => {
-  beforeEach(() => { localStorage.setItem('platform:sidebar-collapsed', '0'); });
+  beforeEach(() => { localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false'); });
 
   it.each([['/?v=1'], ['/alerts?v=1'], ['/notices?v=1']])('replaces the business sidebar on the global screen %s', url => {
     window.history.replaceState(null, '', url);
@@ -892,15 +892,15 @@ describe('platform sidebar (ADR-0070)', () => {
     expect(screen.queryByRole('link', { name: '메뉴로 건너뛰기' })).toBeNull();
   });
 
-  it('shares one collapse state with the business sidebar: button and [ key toggle platform:sidebar-collapsed', () => {
+  it('shares one collapse state with the business sidebar: button and [ key toggle platform:sidebar-collapsed:v1:u1:', () => {
     window.history.replaceState(null, '', '/?v=1');
     const view = mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
     fireEvent.click(screen.getByRole('button', { name: '사이드바 접기' }));
-    expect(localStorage.getItem('platform:sidebar-collapsed')).toBe('1');
+    expect(localStorage.getItem('platform:sidebar-collapsed:v1:u1:')).toBe('true');
     expect(view.container.querySelector('aside[data-collapsed]')).toHaveAttribute('data-collapsed', 'true');
     expect(screen.getByRole('button', { name: '사이드바 펼치기' })).toHaveAttribute('aria-keyshortcuts', '[');
     fireEvent.keyDown(document.body, { key: '[' });
-    expect(localStorage.getItem('platform:sidebar-collapsed')).toBe('0');
+    expect(localStorage.getItem('platform:sidebar-collapsed:v1:u1:')).toBe('false');
     fireEvent.keyDown(document.body, { key: '[' });
     cleanup();
     window.history.replaceState(null, '', '/equipment?v=1');
@@ -932,7 +932,7 @@ const CountsNull = ({ children }: { children: (counts: Readonly<Record<string, n
 const SectionBody = () => <p>saved views body</p>;
 
 describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
-  beforeEach(() => { localStorage.setItem('platform:sidebar-collapsed', '0'); });
+  beforeEach(() => { localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false'); });
   const primary = () => screen.getByRole('navigation', { name: '주 메뉴' });
 
   it('draws views under their menu and marks only the matching view current', () => {
@@ -953,7 +953,7 @@ describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
   });
 
   it('draws no sub-items in the collapsed sidebar', () => {
-    localStorage.setItem('platform:sidebar-collapsed', '1');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
     window.history.replaceState(null, '', '/inbox?v=1&tab=mine');
     mount(['platform:view'], true, navViewsRegistry(), { navCounts: { For: () => CountsA }, spaceNavSection: { For: () => ({ label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionBody }) } });
     expect(within(primary()).getAllByRole('link')).toHaveLength(2);
@@ -974,7 +974,7 @@ describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
     mount(['platform:view'], true, navViewsRegistry(), { navCounts: { For: () => CountsNull } });
     expect(within(primary()).getByRole('link', { name: '수신함' })).not.toHaveTextContent(/\d/);
     cleanup();
-    localStorage.setItem('platform:sidebar-collapsed', '1');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
     const collapsed = mount(['platform:view'], true, navViewsRegistry(), { navCounts: { For: () => CountsA } });
     expect(collapsed.container.querySelector('a[aria-label="수신함, 48건"] [class*="bg-accent-danger"]')).toBeNull();
   });
@@ -1097,7 +1097,7 @@ describe('sidebar slots on a matched route the actor cannot open (#1099c)', () =
     expect(screen.queryByText('operator saved views')).toBeNull();
     expect(screen.queryByRole('region', { name: '저장된 보기' })).toBeNull();
   };
-  beforeEach(() => { mounted.length = 0; resolved.length = 0; localStorage.setItem('platform:sidebar-collapsed', '0'); });
+  beforeEach(() => { mounted.length = 0; resolved.length = 0; localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false'); });
 
   it.each([
     ['a C-only actor on a denied operator (F) link', ['platform:view', 'console:access'], 'console:access', 'features:access', undefined],
@@ -1241,7 +1241,7 @@ describe('favorites inside a carry set (#1099b)', () => {
 describe('recent links from stored values (#1967)', () => {
   const recentRegistry = sidebarRegistry(groupId('equipment'), '설비관리', ['m-a', 'm-b']);
   function mountRecent(stored: string, base?: string) {
-    localStorage.setItem('platform:sidebar-collapsed', '0');
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
     localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'm-b', url: stored, at: 1 }]));
     window.history.replaceState(null, '', `${base ?? ''}/m-a`);
     const location = base ? createBasePathLocation(base) : undefined;

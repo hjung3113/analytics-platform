@@ -83,7 +83,7 @@ describe('resizing after fill (#1166)', () => {
     expect(tableEl().style.width).toBe('800px');
     fireEvent.mouseUp(document, { clientX: 210 });
     view.unmount();
-    expect(JSON.parse(storage.getItem('fill-table')!).sizing).toEqual({ a: 210 });
+    expect(JSON.parse(storage.getItem('platform:columns:v1:user-a:fill-table')!).sizing).toEqual({ a: 210 });
   });
   it('the touch path starts from the rendered width too', async () => {
     mount(800);
@@ -115,7 +115,7 @@ describe('resize bounds from the rendered width (#1166 C1)', () => {
     expect(widthOf('b')).toBe('740px');
     fireEvent.mouseUp(document, { clientX: 60 });
     view.unmount();
-    expect(JSON.parse(storage.getItem('fill-table')!).sizing).toEqual({ a: 60 });
+    expect(JSON.parse(storage.getItem('platform:columns:v1:user-a:fill-table')!).sizing).toEqual({ a: 60 });
   });
   it('a column grown above 600px follows the pointer from its rendered width and clamps at the maximum', async () => {
     const view = mount(1200); // b: base 300 → rendered 900
@@ -129,7 +129,7 @@ describe('resize bounds from the rendered width (#1166 C1)', () => {
     expect(bodyWidth('b')).toBe('600px');
     fireEvent.mouseUp(document, { clientX: 1210 });
     view.unmount();
-    expect(JSON.parse(storage.getItem('fill-table')!).sizing).toEqual({ b: 600 });
+    expect(JSON.parse(storage.getItem('platform:columns:v1:user-a:fill-table')!).sizing).toEqual({ b: 600 });
   });
   it('the touch path shrinks to the minimum in one gesture too', async () => {
     mount(800);

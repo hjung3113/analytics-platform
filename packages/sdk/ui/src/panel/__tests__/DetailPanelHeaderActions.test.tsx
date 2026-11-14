@@ -169,30 +169,15 @@ describe('DetailPanelHeaderActions — copy link', () => {
 });
 
 describe('DetailPanelHeaderActions — kebab dropdown', () => {
-  it('renders more button', () => {
-    render(<DetailPanelHeaderActions {...defaultProps} />);
+  it('renders more button for extraMore', () => {
+    render(<DetailPanelHeaderActions {...defaultProps} extraMore={<div>More</div>} />);
     expect(screen.getByRole('button', { name: '더 보기' })).toBeInTheDocument();
   });
 
-  it('shows deferred menu items after opening dropdown', async () => {
-    const user = userEvent.setup();
-    render(<DetailPanelHeaderActions {...defaultProps} />);
-    await user.click(screen.getByRole('button', { name: '더 보기' }));
-    expect(screen.getByText('읽음 표시')).toBeInTheDocument();
-    expect(screen.getByText('스누즈')).toBeInTheDocument();
-    expect(screen.getByText('구독')).toBeInTheDocument();
-    expect(screen.getByText('보관')).toBeInTheDocument();
-  });
-
-  it('deferred items are disabled', async () => {
-    const user = userEvent.setup();
-    render(<DetailPanelHeaderActions {...defaultProps} />);
-    await user.click(screen.getByRole('button', { name: '더 보기' }));
-    const item = screen.getByText('읽음 표시');
-    // Radix DropdownMenuItem with disabled prop sets aria-disabled
-    expect(
-      item.closest('[aria-disabled="true"]') ?? item.closest('[data-disabled]'),
-    ).not.toBeNull();
+  it('omits the unused menu and deferred actions without extraMore', () => {
+    render(<DetailPanelHeaderActions copyUrl="/voc/1" />);
+    expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument();
+    for (const label of ['읽음 표시', '스누즈', '구독', '보관']) expect(screen.queryByText(label)).not.toBeInTheDocument();
   });
 
   it('renders extraMore slot inside dropdown', async () => {

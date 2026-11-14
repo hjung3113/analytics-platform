@@ -4,8 +4,8 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, queryMissingSentence, useI18n, useMessages, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
-import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, readLocalStorage, writeLocalStorage } from '@ap/ui';
+import { useCollapsePreference, AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
+import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem } from '@ap/ui';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
 import { SHELL_MESSAGES } from '../messages';
 import { ShareControl } from './ShareControl';
@@ -54,10 +54,9 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const preference = `platform:query-bar-collapsed:${route?.menu.id}`;
   // `null` = no stored choice yet. Without one, an arrival whose URL already carries an applied query starts collapsed (#1892);
   // a bar that cannot run yet (required conditions missing) starts expanded. A stored choice always wins.
-  const [choice, setChoice] = useState<boolean | null>(() => {
-    if (board) return false;
-    return readLocalStorage<boolean | null>(preference, raw => raw === null ? null : raw !== 'true', null);
-  });
+  const collapsePreference = useCollapsePreference(preference, '', { defaultCollapsed: board ? true : null, persist: !board });
+  const choice = collapsePreference.choice === null ? null : !collapsePreference.choice;
+  const setChoice = (open: boolean) => collapsePreference.choose(!open);
   // Until the decision is taken an address with an applied period is drawn collapsed already, so the common deep link has no open-then-fold flash.
   const expanded = choice ?? !(global.from !== null && global.to !== null);
   // Scope and metric validation settle after mount, so the arrival decision is taken once they have; an edit seals it as expanded.
@@ -85,7 +84,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const toggle = (open: boolean) => {
     focusFirst.current = open;
     setChoice(open);
-    if (!board) writeLocalStorage(preference, String(!open)); // optional preference
+    if (!board) collapsePreference.toggle(!open);
     if (!open) disclosure.current?.focus();
   };
   const write = (patch: Partial<GlobalContext>) => {

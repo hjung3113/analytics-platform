@@ -11,7 +11,7 @@ describe('consumer-declared initial filter collapse (#1473)', () => {
     expect(screen.getByRole('button', { name: defaultCollapsed ? '조회 조건 펼치기' : '조회 조건 접기' })).toHaveAttribute('aria-expanded', String(!defaultCollapsed));
   });
   it('respects the person’s saved expanded preference over the consumer default', () => {
-    const storage = memoryStorage(); storage.setItem('platform:page-filter-collapsed:initial-test', 'false'); vi.stubGlobal('localStorage', storage);
+    const storage = memoryStorage(); storage.setItem('platform:page-filter-collapsed:v1:anon:initial-test', 'false'); vi.stubGlobal('localStorage', storage);
     render(<I18nProvider><PageFilterBar collapsible defaultCollapsed label="조회 조건" preferenceKey="initial-test" fields={[]} summaryItems={[]} /></I18nProvider>);
     expect(screen.getByRole('button', { name: '조회 조건 접기' })).toHaveAttribute('aria-expanded', 'true');
   });

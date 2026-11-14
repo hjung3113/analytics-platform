@@ -19,7 +19,14 @@ export type DetailPanelKind =
   | 'cluster';
 
 export interface DetailPanelHeaderProps {
-  kind: DetailPanelKind;
+  /** @deprecated Supply label and accent; removed next SDK minor. */
+  kind?: DetailPanelKind;
+  label?: string;
+  /** Consumer-owned semantic marker, independent of the deprecated kind prop. */
+  'data-kind'?: string;
+  /** Badge-only chrome preserves the compact presentation without a domain kind. */
+  appearance?: 'stripe' | 'badge';
+  accent?: 'voc' | 'success' | 'warn' | 'task' | 'info';
   /**
    * Display id. Omit while the record is pending/denied/unavailable so the
    * header chrome (and its close action) still mounts without showing any
@@ -31,6 +38,7 @@ export interface DetailPanelHeaderProps {
   className?: string;
 }
 
+/** @deprecated Consumer-owned labels replace this map next SDK minor. */
 const KIND_LABELS: Record<DetailPanelKind, string> = {
   voc: 'VOC',
   finding: 'Finding',
@@ -71,19 +79,25 @@ const KIND_ACCENT = {
 
 export function DetailPanelHeader({
   kind,
+  'data-kind': dataKind,
+  label,
+  appearance,
+  accent: suppliedAccent,
   id,
   onClose,
   extras,
   className,
 }: DetailPanelHeaderProps) {
-  const isMilestone = kind === 'milestone';
-  const accent = KIND_ACCENT[kind];
+  const isMilestone = appearance === 'badge' || (appearance === undefined && kind === 'milestone');
+  const accentKind = { voc: 'voc', success: 'finding', warn: 'task_request', task: 'task', info: 'survey' } as const;
+  const accent = suppliedAccent ? KIND_ACCENT[accentKind[suppliedAccent]] : KIND_ACCENT[kind ?? 'voc'];
+  const kicker = label ?? (kind ? KIND_LABELS[kind] : undefined);
   const hasFullscreenToggle = useContext(DetailPanelFullscreenContext) !== null;
   const showActions = hasFullscreenToggle || onClose !== undefined;
 
   return (
     <div
-      data-kind={kind}
+      data-kind={dataKind ?? kind}
       style={
         {
           // eslint-disable-next-line shadcn/no-inline-styles -- exact 0.12 kind tint is asserted by the milestones visual spec
@@ -105,7 +119,7 @@ export function DetailPanelHeader({
       >
         {/* Kind chip + id (id only when the caller has it) */}
         <div className={cn('flex gap-2 min-w-0', isMilestone ? 'items-center' : 'items-baseline')}>
-          <StatusBadgeFrame
+          {kicker !== undefined && <StatusBadgeFrame
             appearance="compact"
             textClassName={accent.textClass}
             tintClassName="bg-(--detail-panel-kind-tint)"
@@ -117,8 +131,8 @@ export function DetailPanelHeader({
               />
             }
           >
-            {KIND_LABELS[kind]}
-          </StatusBadgeFrame>
+            {kicker}
+          </StatusBadgeFrame>}
           {id !== undefined && (
             <span className="font-mono text-xs text-text-muted leading-none">{id}</span>
           )}

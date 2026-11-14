@@ -62,7 +62,7 @@ beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
   vi.stubGlobal('localStorage', memoryStorage());
   vi.stubGlobal('sessionStorage', memoryStorage());
-  localStorage.setItem('platform:sidebar-collapsed', '0');
+  localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
   window.history.replaceState(null, '', '/mars/draft?v=1');
   discard.mockClear();
   editorLeaves = undefined;

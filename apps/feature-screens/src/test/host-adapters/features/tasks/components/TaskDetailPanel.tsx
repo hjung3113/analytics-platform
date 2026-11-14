@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 import {
   type UseTaskDetailPartsArgs,
   useTaskDetailParts,
@@ -29,7 +30,7 @@ function TaskDetailPanelFrame({
       className="flex h-full flex-col bg-surface-detail"
     >
       <DetailPanelHeader
-        kind="task"
+        {...DETAIL_PANEL_KICKERS.task}
         {...(headerId !== undefined ? { id: headerId } : {})}
         onClose={onClose}
         {...(headerExtras !== undefined ? { extras: headerExtras } : {})}

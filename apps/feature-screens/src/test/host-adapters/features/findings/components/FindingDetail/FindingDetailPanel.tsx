@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 // FindingDetailPanel — the standalone frame for the Finding detail page.
 // Composes the same `FindingDetailParts` the platform bridge draws in its own drawer.
 // Mirrors VocDetailPanel structure per domain-module-boundaries §Frontend Boundary Rules.
@@ -26,7 +27,7 @@ function FindingPanelLayout({
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-detail">
       <DetailPanelHeader
-        kind="finding"
+        {...DETAIL_PANEL_KICKERS.finding}
         {...(id !== undefined ? { id } : {})}
         {...(headerExtras !== undefined ? { extras: headerExtras } : {})}
       />

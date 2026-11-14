@@ -1,3 +1,4 @@
+import { DETAIL_PANEL_KICKERS } from '@/lib/copy/detail-panel';
 import {
   surveyDetailPieces,
   useSurveyClosing,
@@ -35,7 +36,7 @@ export function SurveyDetail({
       data-testid="survey-detail"
     >
       <DetailPanelHeader
-        kind="survey"
+        {...DETAIL_PANEL_KICKERS.survey}
         id={survey.display_id}
         {...(onClose !== undefined ? { onClose } : {})}
         {...(pieces.builderAction !== undefined ? { extras: pieces.builderAction } : {})}

@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { Button, cn, readLocalStorage, writeLocalStorage } from '@ap/ui';
+import { Button, cn } from '@ap/ui';
+import { useCollapsePreference } from '../filters/useCollapsePreference';
 import { AnalysisCollapseButton, AnalysisSectionContext } from './AnalysisSectionContext';
 import { useInWorkspacePanel } from '../workspace/panelContext';
 
@@ -16,13 +17,6 @@ export type AnalysisLayoutProps = {
   breakdown?: AnalysisSection;
 };
 
-function readCollapsed(key: string): string[] {
-  return readLocalStorage(key, raw => {
-    const value: unknown = JSON.parse(raw ?? '[]');
-    return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : [];
-  }, []);
-}
-
 export function AnalysisLayout(props: AnalysisLayoutProps) {
   const { route } = usePlatform();
   // Remount preference state when the route changes without remounting the consumer.
@@ -36,7 +30,7 @@ function AnalysisLayoutBody({ kpi, charts, breakdown, density = 'regular', stora
   const inPanel = useInWorkspacePanel();
   const root = useRef<HTMLDivElement>(null);
   const sections = [kpi, ...charts, breakdown].filter((section): section is AnalysisSection => section !== undefined);
-  const [collapsed, setCollapsed] = useState(() => readCollapsed(storageKey));
+  const { collapsedSections: collapsed, toggleSection } = useCollapsePreference(storageKey, '', { sections: sections.map(section => section.id) });
   const [width, setWidth] = useState(0);
   const pendingFocus = useRef<{ id: string; collapsed: boolean } | null>(null);
   const sectionElements = useRef(new Map<string, HTMLDivElement>());
@@ -73,8 +67,7 @@ function AnalysisLayoutBody({ kpi, charts, breakdown, density = 'regular', stora
   function toggle(id: string, nextCollapsed: boolean) {
     const next = sections.filter(section => section.id === id ? nextCollapsed : collapsed.includes(section.id)).map(section => section.id);
     pendingFocus.current = { id, collapsed: nextCollapsed };
-    setCollapsed(next);
-    writeLocalStorage(storageKey, JSON.stringify(next)); // preference stays in memory when storage refuses
+    toggleSection(id, next.includes(id));
   }
 
   function renderSection(section: AnalysisSection, kind: 'kpi' | 'chart' | 'breakdown', index = 0) {

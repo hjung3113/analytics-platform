@@ -27,7 +27,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 function mount(collapsed: boolean) {
   window.history.replaceState(null, '', '/mars/a?v=1');
-  localStorage.setItem('platform:sidebar-collapsed', collapsed ? '1' : '0');
+  localStorage.setItem('platform:sidebar-collapsed:v1:u1:', collapsed ? 'true' : 'false');
   const session = testSession(['platform:view'], { scopes });
   const adapter = testAdapter({ session: () => session, validateScope: async () => ({ status: 'valid', grantedRooms: [] }) });
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AppShell><PlatformPage><p>page body</p></PlatformPage></AppShell></PlatformProvider></I18nProvider>);

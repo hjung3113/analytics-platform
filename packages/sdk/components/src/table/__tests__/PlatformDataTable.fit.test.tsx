@@ -379,7 +379,7 @@ describe('action column pinned right (ADR-0037)', () => {
     fireEvent.click(screen.getByRole('button', { name: /컬럼/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Status 왼쪽 고정' }));
     expect(document.querySelector<HTMLElement>('[role="cell"][data-column="_action"]')!.style.position).toBe('sticky');
-    expect(JSON.parse(localStorage.getItem('fit-table')!).pinning).toEqual({ left: ['status'], right: [] });
+    expect(JSON.parse(localStorage.getItem('platform:columns:v1:user-a:fit-table')!).pinning).toEqual({ left: ['status'], right: [] });
     geo.viewportWidth = 380; // 150 + 72 + 120 = 342 ≤ 380 < 398 → compact, still pinned
     fireObservers(el => el.getAttribute('aria-label') === '스크롤 가능한 행 영역');
     expect(document.querySelector<HTMLElement>('[role="cell"][data-column="_action"]')!.style.position).toBe('sticky');
