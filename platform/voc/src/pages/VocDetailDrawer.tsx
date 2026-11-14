@@ -1,7 +1,8 @@
+import { useMessages } from '@ap/kernel';
+import { VOC_MESSAGES } from '../messages';
 import type * as React from 'react';
 import { DetailDrawer } from '@ap/components';
 import { DetailPanelSectionNav, type PanelSection } from '@ap/ui';
-import { useI18n } from '@ap/kernel';
 import { useVocDetailParts } from '@ap/feature-screens/operator-screens/voc-detail';
 
 /** The menu declares sections; DetailDrawer owns their width-dependent placement. */
@@ -14,7 +15,7 @@ export function VocDetailDrawer({
   managedSystemId?: string;
   onClose: () => void;
 }) {
-  const { lang } = useI18n();
+  const m = useMessages(VOC_MESSAGES);
   const parts = useVocDetailParts({
     vocId,
     onClose,
@@ -43,7 +44,7 @@ export function VocDetailDrawer({
       tabs={[
         {
           id: 'detail',
-          label: lang === 'ko' ? '상세' : 'Detail',
+          label: m('vocDetailDrawerDetail'),
           regions: {
             ...regions,
             ...(sections?.length

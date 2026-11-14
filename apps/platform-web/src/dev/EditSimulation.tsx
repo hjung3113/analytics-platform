@@ -1,3 +1,4 @@
+import { DEV_MESSAGES } from './messages';
 import { useState } from 'react';
 import { useI18n, useUnsavedGuard } from '@ap/kernel';
 import { Button, Checkbox, Input, Label } from '@ap/ui';
@@ -8,13 +9,13 @@ import { Button, Checkbox, Input, Label } from '@ap/ui';
  * It registers exactly like a consumer would: dirty registers, clearing the draft or switching it off unregisters.
  * State lives in `DevTools` (always mounted in the rail), so it survives the popover closing and every navigation.
  */
-const CUSTOM_MESSAGE = { ko: '스펙 편집기의 변경 3건이 저장되지 않았습니다', en: '3 changes in the spec editor are not saved' };
+const CUSTOM_MESSAGE = DEV_MESSAGES.editSimulation3ChangesInTheSpecEditorAre;
 const copy = {
-  title: { ko: '편집 중 시뮬레이션', en: 'Simulate editing' },
-  hint: { ko: '켜고 변경 내용을 입력하면 메뉴 이동 확인이 열립니다.', en: 'Turn on and type a change to make menu moves ask first.' },
-  draft: { ko: '변경 내용', en: 'Changes' },
-  custom: { ko: '사용자 지정 메시지', en: 'Custom message' },
-  reset: { ko: '초기화', en: 'Reset' },
+  title: DEV_MESSAGES.editSimulationSimulateEditing,
+  hint: DEV_MESSAGES.editSimulationTurnOnAndTypeAChangeTo,
+  draft: DEV_MESSAGES.editSimulationChanges,
+  custom: DEV_MESSAGES.editSimulationCustomMessage,
+  reset: DEV_MESSAGES.editSimulationReset,
 };
 
 export function useEditSimulation() {

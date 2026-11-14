@@ -79,10 +79,13 @@ export const toDraft = (form: NoticeForm): NoticeDraft => ({
   until: withSeconds(form.until),
 });
 
+// Form field identifiers, not user-visible copy.
+const FORM_LANGUAGE_SUFFIX = { ko: 'Ko', en: 'En' } as const;
+
 /** Maps a server `fieldErrors` path to a form field (`title.ko` → `titleKo`); unknown paths are not field errors. */
 export function fieldOfPath(path: readonly string[]): FormField | null {
   const [head, lang] = path;
-  if ((head === 'title' || head === 'content') && (lang === 'ko' || lang === 'en')) return `${head}${lang === 'ko' ? 'Ko' : 'En'}`;
+  if ((head === 'title' || head === 'content') && (lang === 'ko' || lang === 'en')) return `${head}${FORM_LANGUAGE_SUFFIX[lang]}`;
   if (head === 'title') return 'titleKo';
   if (head === 'content') return 'contentKo';
   if (head === 'until' || head === 'scopeId') return head;

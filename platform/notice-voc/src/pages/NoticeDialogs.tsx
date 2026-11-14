@@ -1,7 +1,8 @@
+import { formatText, usePlatform } from '@ap/kernel';
+import { NOTICE_VOC_MESSAGES } from '../messages';
 import { cloneElement, useEffect, useRef, useState, type ReactElement } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import type { ActionResponse, Notice, ScopeOption } from '@ap/contracts';
-import { usePlatform } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@ap/ui';
 import { attemptFor, CONTENT_MAX, emptyForm, fieldOfPath, formOf, TITLE_MAX, toDraft, validateForm, type Attempt, type FormErrors, type FormField, type NoticeForm } from '../notice-model';
@@ -34,30 +35,30 @@ function useAlive() {
 
 function FailureMessage({ failure, ko, onReload, onRetry }: { failure: Failure; ko: boolean; onReload: () => void; onRetry: () => void }) {
   if (failure.kind === 'conflict') {
-    return <StateMessage icon={<AlertTriangle className="size-4" aria-hidden />} tone="warning" title={ko ? '다른 곳에서 먼저 바뀌었습니다' : 'Changed elsewhere first'}
-      body={ko ? '이 공지가 그 사이 수정되거나 삭제되었습니다. 저장하지 않았습니다. 최신 내용을 불러온 뒤 다시 시도하세요.' : 'This notice was changed meanwhile. Nothing was saved. Load the latest and try again.'}
-      action={<Button type="button" size="sm" variant="secondary" onClick={onReload}>{ko ? '최신 내용 불러오기' : 'Load latest'}</Button>} />;
+    return <StateMessage icon={<AlertTriangle className="size-4" aria-hidden />} tone="warning" title={formatText(NOTICE_VOC_MESSAGES.noticeDialogsChangedElsewhereFirst, (ko ? 'ko' : 'en'))}
+      body={formatText(NOTICE_VOC_MESSAGES.noticeDialogsThisNoticeWasChangedMeanwhileNothingWas, (ko ? 'ko' : 'en'))}
+      action={<Button type="button" size="sm" variant="secondary" onClick={onReload}>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsLoadLatest, (ko ? 'ko' : 'en'))}</Button>} />;
   }
   if (failure.kind === 'not_found') {
-    return <StateMessage icon={<AlertTriangle className="size-4" aria-hidden />} tone="warning" title={ko ? '공지를 찾을 수 없습니다' : 'Notice not found'}
-      body={ko ? '이미 삭제된 공지입니다.' : 'This notice was already deleted.'}
-      action={<Button type="button" size="sm" variant="secondary" onClick={onReload}>{ko ? '목록 새로 읽기' : 'Reload list'}</Button>} />;
+    return <StateMessage icon={<AlertTriangle className="size-4" aria-hidden />} tone="warning" title={formatText(NOTICE_VOC_MESSAGES.noticeDialogsNoticeNotFound, (ko ? 'ko' : 'en'))}
+      body={formatText(NOTICE_VOC_MESSAGES.noticeDialogsThisNoticeWasAlreadyDeleted, (ko ? 'ko' : 'en'))}
+      action={<Button type="button" size="sm" variant="secondary" onClick={onReload}>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsReloadList, (ko ? 'ko' : 'en'))}</Button>} />;
   }
   if (failure.kind === 'forbidden') {
-    return <StateMessage icon={<AlertTriangle className="size-4" aria-hidden />} tone="danger" title={ko ? '공지를 관리할 권한이 없습니다' : 'No permission to manage notices'} body={ko ? '권한이 회수되었을 수 있습니다. 변경하지 않았습니다.' : 'Your access may have been revoked. Nothing was changed.'} />;
+    return <StateMessage icon={<AlertTriangle className="size-4" aria-hidden />} tone="danger" title={formatText(NOTICE_VOC_MESSAGES.noticeDialogsNoPermissionToManageNotices, (ko ? 'ko' : 'en'))} body={formatText(NOTICE_VOC_MESSAGES.noticeDialogsYourAccessMayHaveBeenRevokedNothing, (ko ? 'ko' : 'en'))} />;
   }
   if (failure.kind === 'retry') {
-    return <StateMessage icon={<AlertTriangle className="size-4" aria-hidden />} tone="danger" title={ko ? '저장 결과를 확인하지 못했습니다' : 'Could not confirm the result'}
-      body={ko ? '같은 요청을 다시 보내도 중복 저장되지 않습니다.' : 'Resending the same request will not duplicate it.'}
-      action={<Button type="button" size="sm" variant="secondary" onClick={onRetry}>{ko ? '다시 시도' : 'Retry'}</Button>} />;
+    return <StateMessage icon={<AlertTriangle className="size-4" aria-hidden />} tone="danger" title={formatText(NOTICE_VOC_MESSAGES.noticeDialogsCouldNotConfirmTheResult, (ko ? 'ko' : 'en'))}
+      body={formatText(NOTICE_VOC_MESSAGES.noticeDialogsResendingTheSameRequestWillNotDuplicate, (ko ? 'ko' : 'en'))}
+      action={<Button type="button" size="sm" variant="secondary" onClick={onRetry}>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsRetry, (ko ? 'ko' : 'en'))}</Button>} />;
   }
-  return <StateMessage icon={<AlertTriangle className="size-4" aria-hidden />} tone="danger" title={ko ? '입력을 확인하세요' : 'Check the input'} body={ko ? '서버가 입력을 받아들이지 않았습니다. 표시된 항목을 고쳐 다시 저장하세요.' : 'The server rejected the input. Fix the marked fields and save again.'} />;
+  return <StateMessage icon={<AlertTriangle className="size-4" aria-hidden />} tone="danger" title={formatText(NOTICE_VOC_MESSAGES.noticeDialogsCheckTheInput, (ko ? 'ko' : 'en'))} body={formatText(NOTICE_VOC_MESSAGES.noticeDialogsTheServerRejectedTheInputFixThe, (ko ? 'ko' : 'en'))} />;
 }
 
 const ERROR_TEXT = (ko: boolean): Record<NonNullable<FormErrors[FormField]>, string> => ({
-  required: ko ? '필수 항목입니다.' : 'Required.',
-  too_long: ko ? '허용 길이를 넘었습니다.' : 'Too long.',
-  invalid: ko ? '올바른 값이 아닙니다.' : 'Not a valid value.',
+  required: formatText(NOTICE_VOC_MESSAGES.noticeDialogsRequired, (ko ? 'ko' : 'en')),
+  too_long: formatText(NOTICE_VOC_MESSAGES.noticeDialogsTooLong, (ko ? 'ko' : 'en')),
+  invalid: formatText(NOTICE_VOC_MESSAGES.noticeDialogsNotAValidValue, (ko ? 'ko' : 'en')),
 });
 
 /** The error is linked to its control: `aria-invalid` plus `aria-describedby` → the message id. */
@@ -99,7 +100,7 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
     const next = failureOf(res);
     if (concluded(next)) attempt.current = null;
     if (!next) {
-      toast(ko ? '공지를 저장했습니다.' : 'Notice saved.', 'info');
+      toast(formatText(NOTICE_VOC_MESSAGES.noticeDialogsNoticeSaved, (ko ? 'ko' : 'en')), 'info');
       onDone({ kind: 'saved', id: res.data?.id ?? notice?.id ?? '' });
       return;
     }
@@ -112,43 +113,43 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
   }
 
   return <Dialog open onOpenChange={open => { if (!open && !busy) onDone({ kind: 'cancel' }); }}>
-    <DialogContent className="max-w-xl" closeLabel={ko ? '닫기' : 'Close'}>
+    <DialogContent className="max-w-xl" closeLabel={formatText(NOTICE_VOC_MESSAGES.noticeDialogsClose, (ko ? 'ko' : 'en'))}>
       <DialogHeader>
-        <DialogTitle>{notice ? (ko ? '공지 수정' : 'Edit notice') : (ko ? '공지 작성' : 'Write notice')}</DialogTitle>
-        <DialogDescription>{ko ? '종료 일시가 지나면 홈 배너에서 내려가고 목록의 「종료됨」으로 옮겨집니다.' : 'After the end time the notice leaves the Home banner and moves to “Ended”.'}</DialogDescription>
+        <DialogTitle>{notice ? (formatText(NOTICE_VOC_MESSAGES.noticeDialogsEditNotice, (ko ? 'ko' : 'en'))) : (formatText(NOTICE_VOC_MESSAGES.noticeDialogsWriteNotice, (ko ? 'ko' : 'en')))}</DialogTitle>
+        <DialogDescription>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsAfterTheEndTimeTheNoticeLeaves, (ko ? 'ko' : 'en'))}</DialogDescription>
       </DialogHeader>
       <form className="grid gap-3" noValidate onSubmit={event => { event.preventDefault(); void submit(); }}>
-        <Field id="notice-title-ko" label={ko ? '제목 (한국어)' : 'Title (Korean)'} error={errors.titleKo && text[errors.titleKo]}>
+        <Field id="notice-title-ko" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsTitleKorean, (ko ? 'ko' : 'en'))} error={errors.titleKo && text[errors.titleKo]}>
           <Input id="notice-title-ko" value={form.titleKo} maxLength={TITLE_MAX} onChange={e => set({ titleKo: e.target.value })} />
         </Field>
-        <Field id="notice-title-en" label={ko ? '제목 (English)' : 'Title (English)'} error={errors.titleEn && text[errors.titleEn]}>
+        <Field id="notice-title-en" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsTitleEnglish, (ko ? 'ko' : 'en'))} error={errors.titleEn && text[errors.titleEn]}>
           <Input id="notice-title-en" value={form.titleEn} maxLength={TITLE_MAX} onChange={e => set({ titleEn: e.target.value })} />
         </Field>
-        <Field id="notice-content-ko" label={ko ? '내용 (한국어)' : 'Content (Korean)'} error={errors.contentKo && text[errors.contentKo]}>
+        <Field id="notice-content-ko" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsContentKorean, (ko ? 'ko' : 'en'))} error={errors.contentKo && text[errors.contentKo]}>
           <Textarea id="notice-content-ko" value={form.contentKo} maxLength={CONTENT_MAX} rows={4} onChange={e => set({ contentKo: e.target.value })} />
         </Field>
-        <Field id="notice-content-en" label={ko ? '내용 (English)' : 'Content (English)'} error={errors.contentEn && text[errors.contentEn]}>
+        <Field id="notice-content-en" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsContentEnglish, (ko ? 'ko' : 'en'))} error={errors.contentEn && text[errors.contentEn]}>
           <Textarea id="notice-content-en" value={form.contentEn} maxLength={CONTENT_MAX} rows={4} onChange={e => set({ contentEn: e.target.value })} />
         </Field>
-        <Field id="notice-until" label={ko ? '종료 일시 (서울 시각)' : 'Ends at (Seoul time)'} error={errors.until && text[errors.until]}>
+        <Field id="notice-until" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsEndsAtSeoulTime, (ko ? 'ko' : 'en'))} error={errors.until && text[errors.until]}>
           <Input id="notice-until" type="datetime-local" step={1} value={form.until} onChange={e => set({ until: e.target.value })} />
         </Field>
         {sites.length > 0
           ? <div className="grid gap-1">
-              <Label id="notice-scope-label">{ko ? '대상 사이트' : 'Target site'}</Label>
+              <Label id="notice-scope-label">{formatText(NOTICE_VOC_MESSAGES.noticeDialogsTargetSite, (ko ? 'ko' : 'en'))}</Label>
               <Select value={form.scopeId ?? '__all'} onValueChange={value => set({ scopeId: value === '__all' ? null : value })}>
                 <SelectTrigger aria-labelledby="notice-scope-label"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__all">{ko ? '전체' : 'All'}</SelectItem>
+                  <SelectItem value="__all">{formatText(NOTICE_VOC_MESSAGES.noticeDialogsAll, (ko ? 'ko' : 'en'))}</SelectItem>
                   {sites.map(site => <SelectItem key={site.id} value={site.id}>{site.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-          : <p className="text-sm text-text-secondary">{ko ? '대상 사이트: 전체' : 'Target site: All'}</p>}
+          : <p className="text-sm text-text-secondary">{formatText(NOTICE_VOC_MESSAGES.noticeDialogsTargetSiteAll, (ko ? 'ko' : 'en'))}</p>}
         {failure && <FailureMessage failure={failure} ko={ko} onReload={() => onDone({ kind: 'reload' })} onRetry={() => void submit()} />}
         <DialogFooter>
-          <Button type="button" variant="secondary" disabled={busy} onClick={() => onDone({ kind: 'cancel' })}>{ko ? '취소' : 'Cancel'}</Button>
-          <Button type="submit" disabled={busy}>{ko ? '저장' : 'Save'}</Button>
+          <Button type="button" variant="secondary" disabled={busy} onClick={() => onDone({ kind: 'cancel' })}>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsCancel, (ko ? 'ko' : 'en'))}</Button>
+          <Button type="submit" disabled={busy}>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsSave, (ko ? 'ko' : 'en'))}</Button>
         </DialogFooter>
       </form>
     </DialogContent>
@@ -174,7 +175,7 @@ export function NoticeDeleteDialog({ notice, ko, onDone, onCloseAutoFocus }: { n
     const next = failureOf(res);
     if (concluded(next)) attempt.current = null;
     if (!next) {
-      toast(ko ? '공지를 삭제했습니다.' : 'Notice deleted.', 'info');
+      toast(formatText(NOTICE_VOC_MESSAGES.noticeDialogsNoticeDeleted, (ko ? 'ko' : 'en')), 'info');
       onDone({ kind: 'deleted', id: notice.id });
       return;
     }
@@ -182,15 +183,15 @@ export function NoticeDeleteDialog({ notice, ko, onDone, onCloseAutoFocus }: { n
   }
 
   return <Dialog open onOpenChange={open => { if (!open && !busy) onDone({ kind: 'cancel' }); }}>
-    <DialogContent className="max-w-md" closeLabel={ko ? '닫기' : 'Close'} onCloseAutoFocus={onCloseAutoFocus}>
+    <DialogContent className="max-w-md" closeLabel={formatText(NOTICE_VOC_MESSAGES.noticeDialogsClose2, (ko ? 'ko' : 'en'))} onCloseAutoFocus={onCloseAutoFocus}>
       <DialogHeader>
-        <DialogTitle>{ko ? '공지 삭제' : 'Delete notice'}</DialogTitle>
-        <DialogDescription>{ko ? `「${notice.title.ko}」 공지를 삭제합니다. 되돌릴 수 없습니다.` : `Delete “${notice.title.en || notice.title.ko}”. This cannot be undone.`}</DialogDescription>
+        <DialogTitle>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsDeleteNotice, (ko ? 'ko' : 'en'))}</DialogTitle>
+        <DialogDescription>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsDeleteThisCannotBeUndone, (ko ? 'ko' : 'en'), { titleKo: notice.title.ko, titleEn: notice.title.en || notice.title.ko })}</DialogDescription>
       </DialogHeader>
       {failure && <FailureMessage failure={failure} ko={ko} onReload={() => onDone({ kind: 'reload' })} onRetry={() => void submit()} />}
       <DialogFooter>
-        <Button type="button" variant="secondary" disabled={busy} onClick={() => onDone({ kind: 'cancel' })}>{ko ? '취소' : 'Cancel'}</Button>
-        <Button type="button" variant="destructive" disabled={busy} onClick={() => void submit()}>{ko ? '삭제' : 'Delete'}</Button>
+        <Button type="button" variant="secondary" disabled={busy} onClick={() => onDone({ kind: 'cancel' })}>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsCancel2, (ko ? 'ko' : 'en'))}</Button>
+        <Button type="button" variant="destructive" disabled={busy} onClick={() => void submit()}>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsDelete, (ko ? 'ko' : 'en'))}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>;

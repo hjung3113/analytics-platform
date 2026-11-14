@@ -1,6 +1,7 @@
+import { useMessages, useI18n, usePlatform } from '@ap/kernel';
+import { DEV_MESSAGES } from './messages';
 import { Check, FlaskConical, UserCog } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
-import { useI18n, usePlatform } from '@ap/kernel';
 import { getRole, getScenario, setRole, setScenario, subscribeServer, type Scenario } from '@ap/mock-server';
 import { USERS, type RoleId } from '@ap/mock-server';
 import { SegmentedRadio } from '@ap/components';
@@ -13,20 +14,21 @@ import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuR
  * the topBarTools slot at the bottom of the app rail by the mock assembly (mock-assembly.tsx); a production build never bundles it (ADR-0009).
  */
 const SCENARIOS: { id: Scenario; ko: string; en: string }[] = [
-  { id: 'normal', ko: '정상', en: 'Normal' },
-  { id: 'slow', ko: '느린 응답 (+2.2s)', en: 'Slow (+2.2s)' },
-  { id: 'empty', ko: '0건 (empty)', en: 'Zero rows (empty)' },
-  { id: 'unknown_status', ko: '상태 원천 미확인', en: 'Status source unknown' },
-  { id: 'partial', ko: '일부 위젯 실패', en: 'Partial widget failure' },
-  { id: 'forbidden', ko: '권한 거부 (forbidden)', en: 'Forbidden' },
-  { id: 'too_large', ko: '조회 과대 (too_large)', en: 'Too large' },
-  { id: 'timeout', ko: '시간 초과 (timeout)', en: 'Timeout' },
-  { id: 'error', ko: '서버 오류 (error)', en: 'Server error' },
-  { id: 'malformed', ko: '응답 형식 오류 (malformed)', en: 'Malformed response' },
-  { id: 'scope_error', ko: 'Scope 확인 실패', en: 'Scope check failed' },
+  { ...DEV_MESSAGES.devToolsNormal, id: 'normal' },
+  { ...DEV_MESSAGES.devToolsSlow22s, id: 'slow' },
+  { ...DEV_MESSAGES.devToolsZeroRowsEmpty, id: 'empty' },
+  { ...DEV_MESSAGES.devToolsStatusSourceUnknown, id: 'unknown_status' },
+  { ...DEV_MESSAGES.devToolsPartialWidgetFailure, id: 'partial' },
+  { ...DEV_MESSAGES.devToolsForbidden, id: 'forbidden' },
+  { ...DEV_MESSAGES.devToolsTooLarge, id: 'too_large' },
+  { ...DEV_MESSAGES.devToolsTimeout, id: 'timeout' },
+  { ...DEV_MESSAGES.devToolsServerError, id: 'error' },
+  { ...DEV_MESSAGES.devToolsMalformedResponse, id: 'malformed' },
+  { ...DEV_MESSAGES.devToolsScopeCheckFailed, id: 'scope_error' },
 ];
 
 export function DevTools() {
+  const m = useMessages(DEV_MESSAGES);
   const { navigate, toast } = usePlatform();
   const { t, tx, lang } = useI18n();
   const scenario = useSyncExternalStore(subscribeServer, getScenario);
@@ -34,7 +36,7 @@ export function DevTools() {
   const editSim = useEditSimulation();
   const switchRole = (next: RoleId) => {
     setRole(next);
-    toast(lang === 'ko' ? `역할 전환: ${USERS[next].title.ko} — 권한·Scope를 다시 검증합니다.` : `Role switched: ${USERS[next].title.en} — permissions and scope re-validated.`, 'info');
+    toast(m('devToolsRoleSwitchedPermissionsAndScopeReValidated', { roleKo: USERS[next].title.ko, roleEn: USERS[next].title.en }), 'info');
   };
 
   return <>
@@ -54,19 +56,19 @@ export function DevTools() {
           value={scenario}
           onChange={setScenario}
           className="grid grid-cols-2"
-          options={SCENARIOS.map(s => ({ value: s.id, label: <>{scenario === s.id && <Check className="size-3" aria-hidden />}{lang === 'ko' ? s.ko : s.en}</> }))}
+          options={SCENARIOS.map(s => ({ value: s.id, label: <>{scenario === s.id && <Check className="size-3" aria-hidden />}{s[lang]}</> }))}
         />
-        <p className="mb-1 mt-3 text-tiny font-semibold uppercase tracking-wide text-text-secondary">{lang === 'ko' ? '계약 검증 링크' : 'Contract test links'}</p>
+        <p className="mb-1 mt-3 text-tiny font-semibold uppercase tracking-wide text-text-secondary">{m('devToolsContractTestLinks')}</p>
         <ul className="space-y-0.5 text-xs">
           {[
-            { ko: '권한 없는 Scope (XIA)', en: 'Forbidden scope (XIA)', url: '/analytics/productivity?v=1&scopeId=XIA&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00' },
-            { ko: '미지원 URL 버전 (v=2)', en: 'Unsupported version (v=2)', url: '/equipment?v=2&scopeId=MEM' },
-            { ko: '기간 한쪽만 (from만)', en: 'Partial period (from only)', url: '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09:00:00' },
-            { ko: '미지원 Lot Context 전달', en: 'Unsupported Lot context', url: '/equipment?v=1&scopeId=MEM&lotIds=LOT-A1023&lotIds=LOT-A1024' },
-            { ko: '명시적 빈 설비 선택', en: 'Explicit empty selection', url: '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&equipmentSelection=none' },
-            { ko: '90일 조회 (too_large)', en: '90-day query (too_large)', url: '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-06-28T09:00:00&to=2026-09-26T09:00:00' },
-            { ko: '7일 복수 설비 (time_domain_unverified)', en: '7-day multi-equipment (time_domain_unverified)', url: '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00' },
-          ].map(l => <li key={l.url}><button type="button" className="w-full rounded-sm px-2 py-1 text-left text-accent-primary hover:bg-surface-sunken hover:underline" onClick={() => navigate(l.url)}>{lang === 'ko' ? l.ko : l.en}</button></li>)}
+            { ...DEV_MESSAGES.devToolsForbiddenScopeXIA, url: '/analytics/productivity?v=1&scopeId=XIA&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00' },
+            { ...DEV_MESSAGES.devToolsUnsupportedVersionV2, url: '/equipment?v=2&scopeId=MEM' },
+            { ...DEV_MESSAGES.devToolsPartialPeriodFromOnly, url: '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09:00:00' },
+            { ...DEV_MESSAGES.devToolsUnsupportedLotContext, url: '/equipment?v=1&scopeId=MEM&lotIds=LOT-A1023&lotIds=LOT-A1024' },
+            { ...DEV_MESSAGES.devToolsExplicitEmptySelection, url: '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&equipmentSelection=none' },
+            { ...DEV_MESSAGES.devTools90DayQueryTooLarge, url: '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-06-28T09:00:00&to=2026-09-26T09:00:00' },
+            { ...DEV_MESSAGES.devTools7DayMultiEquipmentTimeDomainUnverified, url: '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00' },
+          ].map(l => <li key={l.url}><button type="button" className="w-full rounded-sm px-2 py-1 text-left text-accent-primary hover:bg-surface-sunken hover:underline" onClick={() => navigate(l.url)}>{l[lang]}</button></li>)}
         </ul>
         <EditSimulationSection sim={editSim} />
       </PopoverContent>

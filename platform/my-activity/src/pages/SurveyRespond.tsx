@@ -1,5 +1,6 @@
+import { useMessages, usePlatform, type PageProps } from '@ap/kernel';
+import { MY_ACTIVITY_MESSAGES } from '../messages';
 import { SearchX } from 'lucide-react';
-import { useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { PlatformPage, ReturnLink, StateMessage } from '@ap/components';
 import { RespondSurveyScreen } from '@ap/feature-screens/global-screens';
 import { FeatureBridge, canSurveyLink, SURVEY_ID, SurveyLink } from '@ap/feature-bridge';
@@ -10,15 +11,14 @@ import { FeatureBridge, canSurveyLink, SURVEY_ID, SurveyLink } from '@ap/feature
  * header offers the way back; the target is only ever the Kernel's `returnOrigin()` (`safeReturnTo`), never `returnTo` read here.
  */
 export default function SurveyRespond({ params }: PageProps) {
-  const { lang } = useI18n();
+  const m = useMessages(MY_ACTIVITY_MESSAGES);
   const { pageParam } = usePlatform();
-  const ko = lang === 'ko';
   const surveyId = params.surveyId!;
   if (!SURVEY_ID.test(surveyId)) {
     return <PlatformPage>
       <StateMessage icon={<SearchX className="size-4" aria-hidden />}
-        title={ko ? '설문을 찾을 수 없습니다' : 'Survey not found'}
-        body={ko ? '주소의 설문 ID가 올바르지 않습니다.' : 'The survey ID in the address is not valid.'} />
+        title={m('surveyRespondSurveyNotFound')}
+        body={m('surveyRespondTheSurveyIDInTheAddressIs')} />
     </PlatformPage>;
   }
   return <PlatformPage secondaryActions={pageParam('returnTo') !== null ? <ReturnLink /> : undefined}>

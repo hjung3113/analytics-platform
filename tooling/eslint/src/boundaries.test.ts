@@ -156,7 +156,12 @@ const rows: Row[] = [
   { file: 'packages/sdk/shell/src/frame/AppRail.tsx', code: `let ko = lang === 'ko'; const a = ko ? '도움말' : 'Help';`, rule: '' },
   { file: 'packages/sdk/shell/src/frame/AppRail.test.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: '' },
   { file: 'packages/sdk/components/src/table/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
-  { file: 'menus/bravo/metrics/src/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: '' },
+  { file: 'menus/bravo/metrics/src/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
+  { file: 'menus/tools/topview/src/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
+  { file: 'platform/home/src/pages/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
+  { file: 'platform/voc/src/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
+  { file: 'apps/platform-web/src/dev/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
+  { file: 'platform/home/src/pages/x.test.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: '' },
   // #2215: a text field's Enter handler goes through useImeEnterGuard().isComposingEnter (ui, components, shell, menu, app).
   { file: 'packages/sdk/ui/src/x.tsx', code: 'export const A = () => <input onKeyDown={e => { if (e.key === \'Enter\') go(); }} />;', rule: 'ap/ime-enter-guard', token: 'confirms a Korean composition' },
   { file: 'packages/sdk/ui/src/x.tsx', code: 'export function A() { function down(e) { switch (e.key) { case \'Enter\': go(); } } return <input onKeyDown={down} />; }', rule: 'ap/ime-enter-guard', token: 'confirms a Korean composition' },
