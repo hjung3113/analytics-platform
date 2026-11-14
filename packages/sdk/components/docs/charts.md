@@ -78,6 +78,24 @@ const [range, setRange] = useState<AxisRange | null>(null);
 
 차트 밖 표면(메뉴가 직접 그린 띠·canvas)은 같은 상태와 키보드 대체 입력을 `useRangeBrush({ value?, defaultValue?, onChange?, minSpan? })`로 쓴다. 반환값의 `mode`·`setMode`는 토글, `select(from, to)`는 끝난 drag(순서 무관, 축 값), `keyDown(event, view)`는 Shift+←/→를 처리했으면 true(React와 DOM 키 이벤트 모두 받는다, 구간 시작이 보이는 창 밖이면 창의 시작부터 다시 잡는다), `clear()`는 Escape·초기화다. 포인터 좌표를 축 값으로 바꾸는 일과 그리기는 표면 몫이며, 3px(`RANGE_BRUSH_DRAG_THRESHOLD`)보다 짧은 누름은 클릭으로 본다. 구간은 Chart Local State라 URL·전역 Context를 바꾸지 않는다.
 
+### 순서 기반 유사 구간 찾기 (`findSequenceMatches`, `findRepeatedSequences`)
+
+시간을 빼고 순서만 같은 구간을 찾는 계산 조각이다(#1861). 화면은 그리지 않는다. 메뉴는 레인마다 항목을 순서대로 넘기고(`SequenceLane<T> = { id, items }`, 정렬은 메뉴 몫), `symbol(item)`으로 항목이 뜻하는 단계를 문자열로 선언한다. 같은 문자열이면 같은 단계다. SDK는 단계에 뜻을 붙이지 않는다(동작·상태·설비 의미는 메뉴 몫). 일치는 정확 일치다(빈칸·치환 없음).
+
+- `findSequenceMatches(lanes, pattern, { symbol, collapseRuns? })`: 단계가 `pattern`과 같은 곳을 모두 찾는다. 레인 순서, 레인 안 위치 순서로 돌려준다. 한 레인 안에서는 겹치지 않는다(왼쪽부터, 먼저 시작한 것). 빈 `pattern`은 아무것도 찾지 않는다.
+- `findRepeatedSequences(lanes, { symbol, collapseRuns?, minLength? = 3, maxLength? = SEQUENCE_MAX_LENGTH(32), minCount? = 2 })`: 모든 레인에 걸쳐 `minCount`번 이상(겹치지 않게) 나오는 단계열을 찾는다. 최대인 것만 남긴다: 같은 횟수의 더 긴 결과 하나가 모든 나타남을 품으면 뺀다. 정렬은 단계 수(긴 것 먼저), 나타난 횟수(많은 것 먼저), 첫 위치 순이다. 단계열은 아직 `minCount`번 나오는 동안만 한 단계씩 늘리므로 일은 찾은 반복만큼이고 최대 단계 수 × `maxLength`다(1만 항목에서 무작위·주기·잡음 섞인 주기 단계 모두 0.1초 안). `maxLength`는 이 성능 경계일 뿐이다. 더 긴 반복은 그 안의 `maxLength` 단계 창 하나하나(서로 겹침)가 각각 결과로 나온다. 바뀐 입력에서만 다시 부르게 `useMemo`에 둔다. `minLength`·`maxLength`·`minCount`가 유한하지 않으면 기본값을 쓴다.
+- `collapseRuns: true`: 이웃한 같은 단계를 한 단계로 본다(레인과 `pattern` 모두). 일치 범위는 그 연속 전체를 덮는다.
+- 결과 `SequenceMatch<T> = { laneId, from, to, items }`: `from`·`to`는 레인 `items`의 포함 색인이고 `items`는 그 사이 항목이다. 그리기는 메뉴가 고른다(예: `LaneTimeline` `overlays`의 `segments`에 `items`의 id를 준다).
+- `useRangeBrush`와 잇기: `itemsInRange(items, range, span)`는 구간 안에 다 들어간 항목을 순서대로 돌려주고, `sequenceSteps(items, { symbol, collapseRuns? })`는 그 단계열(`pattern`)을 만든다.
+
+```ts
+// stepOf는 모듈 범위의 안정된 함수, source는 메뉴가 고른 기준 레인(예: 선택한 레인)이다. 구간 선택은 시간 구간만 주고 레인은 정하지 않는다.
+const seqLanes = useMemo(() => lanes.map(l => ({ id: l.id, items: l.segments })), [lanes]);
+const pattern = useMemo(() => (range && source ? sequenceSteps(itemsInRange(source.segments, range, s => [s.start, s.end]), { symbol: stepOf }) : []), [range, source]);
+const matches = useMemo(() => findSequenceMatches(seqLanes, pattern, { symbol: stepOf }), [seqLanes, pattern]);
+const overlays = useMemo((): TimelineOverlay[] => [{ kind: 'segments', id: 'same-order', segmentIds: matches.flatMap(m => m.items.map(s => s.id)), style: 'outline' }], [matches]);
+```
+
 ## 변경 기록
 
 2026-10-21 / #541: `ChartPoint`, `ChartPointAction` 추가. `AnalysisChartFrame`에 `pointActivation`, `pointActions`, `orientation`, `visibleSeriesIds`, `onVisibleSeriesChange` 추가. `AnalysisChart` 반환 타입이 `JSX.Element`에서 `JSX.Element | null`로 바뀌었다(`topNBar.hideWhenEmpty`, 호환성 변경).
@@ -89,6 +107,8 @@ const [range, setRange] = useState<AxisRange | null>(null);
 2026-11-10 / #1665: 선택 옵션 추가(기본 동작 불변). `AnalysisChartFrame`·`AnalysisChart`·`LaneTimeline`의 `imagePrint?: boolean`은 `imageCopy`와 같은 PNG를 차트 제목과 함께 인쇄한다(`features.export`가 켜진 메뉴에서만 표시).
 
 2026-11-11 / #1746: 선택 옵션 추가(기본 동작 불변). `LaneTimelineProps.overlays?: TimelineOverlay[]`와 타입 `TimelineOverlay`(`instant`·`range`·`segments`) 추가. 렌더러는 마운트마다 한 번 만들어지고, 선택·오버레이 변경은 오버레이 층만 다시 그린다. `LaneTimelineHandle`은 그대로다.
+
+2026-11-15 / #1861: 추가(기존 동작 불변). 순서 기반 유사 구간 찾기 계산 조각 `findSequenceMatches`·`findRepeatedSequences`·`sequenceSteps`·`itemsInRange`·`SEQUENCE_MAX_LENGTH`와 타입 `SequenceLane`·`SequenceMatch`·`SequenceMatchOptions`·`RepeatedSequence`·`RepeatedSequenceOptions`.
 
 2026-11-15 / #1860: 선택 옵션 추가(기본 동작 불변). `LaneTimelineProps.rangeBrush?: RangeBrushOptions`(구간 끌어 고르기)와 차트 밖 표면용 `useRangeBrush`·`AxisRange`·`RangeBrush`·`RangeBrushOptions`·`RangeBrushKey`·`RANGE_BRUSH_DRAG_THRESHOLD` 추가. `OrderedIntervalTrack`의 구간 선택이 같은 훅을 쓴다(동작 같음).
 2026-11-15 / #1953 A: 선택 옵션 추가(기본 동작 불변). `LaneTimeline`의 `imageActions?: ChartImageActionsPolicy`(`{ exportAllowed, notify? }`) — `PlatformProvider` 없이 `I18nProvider`만으로 `imageCopy`·`imagePrint`를 쓰려면 `exportAllowed: true`를 준다(기본 꺼짐, 결과는 `notify` 또는 버튼 옆 상태 줄). 플랫폼 안에서는 무시되고 메뉴 `features.export`가 결정한다. 소비자 조치 없음. 규칙은 `docs/contract/chart.md` §16.
