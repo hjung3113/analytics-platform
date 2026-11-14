@@ -27,6 +27,13 @@ If target creation succeeds but entity link creation fails:
 - do not silently remove the target from the UI
 ```
 
+### Cluster creation while pending
+
+The manual Cluster and Cluster-to-Finding creation dialogs ignore Escape, backdrop dismissal,
+and the built-in close button while their mutation is pending. Cancel and submit stay disabled.
+Completion delivers the created id or Finding navigation once; failures retain the draft and
+show the existing error notice so the user can retry.
+
 ## Linked Context Preview Rule
 
 Surfaces that show related objects should show only the minimum context needed
