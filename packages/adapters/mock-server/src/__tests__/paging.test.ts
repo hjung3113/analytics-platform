@@ -11,6 +11,21 @@ describe('sortRows', () => {
     expect(sortRows(rows, [{ id: 'v', desc: true }]).map(r => r.id)).toEqual(['b', 'a', 'd', 'c']);
     expect(sortRows(rows, []).map(r => r.id)).toEqual(['a', 'b', 'c', 'd']);
   });
+  it('orders text naturally: digit runs as numbers, case ignored, ties stable, desc reverses (#2218)', () => {
+    const names = ['EQ-10', 'EQ-2', 'eq-3', 'EQ-1', 'Eq-2'].map((name, at) => ({ id: String(at), name }));
+    expect(sortRows(names, [{ id: 'name', desc: false }]).map(r => r.name)).toEqual(['EQ-1', 'EQ-2', 'Eq-2', 'eq-3', 'EQ-10']);
+    expect(sortRows(names, [{ id: 'name', desc: true }]).map(r => r.name)).toEqual(['EQ-10', 'eq-3', 'EQ-2', 'Eq-2', 'EQ-1']);
+    expect(sortRows([{ name: 'b' }, { name: null }, { name: 'A' }], [{ id: 'name', desc: false }]).map(r => r.name)).toEqual(['A', 'b', null]);
+  });
+  it('keeps a column that mixes kinds in one transitive order, whatever the input order (#2218 review)', () => {
+    const values: unknown[] = ['1.2', '1.10', 1.15, true, new Date(5), 'b'];
+    const expected = [1.15, true, '1.2', '1.10', 'b', new Date(5)].map(String);
+    const permutations = (xs: unknown[]): unknown[][] => xs.length <= 1 ? [xs] : xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map(rest => [x, ...rest]));
+    for (const p of permutations(values.slice(0, 5))) {
+      const out = sortRows(p.map(v => ({ v })), [{ id: 'v', desc: false }]).map(r => String(r.v));
+      expect(out).toEqual(expected.filter(e => out.includes(e)));
+    }
+  });
   it('does not mutate its input', () => {
     sortRows(rows, [{ id: 'v', desc: true }]);
     expect(rows.map(r => r.id)).toEqual(['a', 'b', 'c', 'd']);

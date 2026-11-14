@@ -52,7 +52,7 @@ const PUBLIC_EXPORTS = [
   'Sheet', 'SheetClose', 'SheetContent', 'SheetDescription', 'SheetFooter', 'SheetHeader', 'SheetOverlay', 'SheetPortal', 'SheetTitle', 'SheetTrigger',
   'Textarea', 'ToggleGroup', 'ToggleGroupItem', 'DialogContentBare', 'TabsListBase', 'TabsTriggerBase',
   'KeyboardShortcut', 'SkeletonBlocks', 'SkeletonRows',
-  'DIALOG_CONTENT_MOTION', 'POPPER_CONTENT_MOTION', 'SCRIM_MOTION', 'SELECT_CONTENT_MOTION', 'SHEET_CONTENT_MOTION', 'readMotionTiming', 'useListMotion', 'isToastTarget',
+  'DIALOG_CONTENT_MOTION', 'POPPER_CONTENT_MOTION', 'SCRIM_MOTION', 'SELECT_CONTENT_MOTION', 'SHEET_CONTENT_MOTION', 'readMotionTiming', 'useListMotion', 'useIsTruncated', 'isToastTarget',
 ];
 
 it('pins the @ap/ui public export names', () => {

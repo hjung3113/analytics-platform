@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useI18n, useMessages } from '@ap/kernel';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger, useIsTruncated } from '@ap/ui';
 import { WorkspaceQueryBarContext } from './WorkspaceQueryBar';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { PageFilterExpandedContext } from '../filters/pageFilterPresentation';
@@ -57,19 +57,9 @@ export function PageContextHead({ menuId, notes, extension, summary, pendingChan
   ].filter(Boolean).join(' · ');
   const compact = useCompactPageDensity();
   const chips = useRef<HTMLDivElement>(null);
-  const [overflowing, setOverflowing] = useState(false);
+  const overflowing = useIsTruncated(chips);
   const { collapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(`platform:page-head-collapsed:${menuId}`, summaryText, true, issueCount > 0);
   // The fade shows only while the chip list is cut off at the right edge.
-  useEffect(() => {
-    const element = chips.current;
-    if (!element) return;
-    const measure = () => setOverflowing(element.scrollWidth > element.clientWidth);
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [collapsed, summaryText, workspace?.parameterTarget]);
 
   const body = bodyHost ? createPortal(<PageFilterExpandedContext.Provider value={Boolean(workspace?.parameterTarget)}><PageHeadBody notes={notes} extension={extension} /></PageFilterExpandedContext.Provider>, bodyHost) : null;
   const head = workspace?.parameterTarget ? createPortal(<Popover>
