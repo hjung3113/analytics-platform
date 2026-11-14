@@ -10,7 +10,6 @@ import {
   CAPABILITIES,
   CAPABILITY_META,
   type AdminModuleBypass,
-  type Capability,
   type CapabilityName,
   type DeclaredCapabilityId,
   ROLE_LEVEL_VALUES,
