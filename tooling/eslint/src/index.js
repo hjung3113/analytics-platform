@@ -461,8 +461,8 @@ export const ui = [
 ];
 
 // #2174: ko/en copy lives in a message table, not a language ternary (rule source: no-lang-copy-ternary.js). Tests may
-// spell the expected text of both languages. Enabled per package as its copy moves: kernel, shell and components so far, then
-// menus and platform features.
+// spell the expected text of both languages. Enabled for kernel, shell, components, every menu and platform feature (the
+// menu presets) and the app.
 const LANG_COPY = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/no-lang-copy-ternary': 'error' } };
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -611,6 +611,7 @@ const menuPreset = (restriction) => [
   }),
   testEntryOverride(restriction, ABOVE_COMPONENTS_TEST_ENTRIES),
   menuMockOverride,
+  LANG_COPY,
   designSystem(),
   IME_ENTER_GUARD,
 ];
@@ -689,6 +690,7 @@ export const app = [
   // the test-entry override for src/real/**/*.test.*; the test files keep the test entry subpaths.
   appOverride([APP_REAL_FILES], APP_REAL_RESTRICTION),
   appOverride([APP_REAL_TEST_FILES], { ...APP_REAL_RESTRICTION, allowSubpaths: [...APP_REAL_RESTRICTION.allowSubpaths, ...ABOVE_COMPONENTS_TEST_ENTRIES] }),
+  LANG_COPY,
   designSystem(),
   IME_ENTER_GUARD,
 ];
