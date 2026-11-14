@@ -1,4 +1,4 @@
-# packages/adapters/mock-server — development server stand-in
+# packages/host/mock-server — development server stand-in
 
 `@ap/mock-server` imitates the server where no real backend exists. The Kernel and common components never import it. The app's mock assembly `apps/platform-web/src/dev/mock-assembly.tsx` passes the result of `createMockAdapter({ endpoints: MOCK_ENDPOINTS, registry, auditEvents: MOCK_AUDIT_EVENTS })` to `main.tsx` as `#platform-assembly`. It runs only in dev, `--mode mock` and vitest, never in a production build (ADR-0009).
 

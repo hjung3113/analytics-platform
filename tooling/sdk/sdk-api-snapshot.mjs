@@ -519,7 +519,7 @@ function packageConfigs() {
   // app-host joins the SDK five (ADR-0143); the adapters publish no public TS surface yet, so they get no snapshot.
   const snapshotPackages = [
     ...SDK_PACKAGES.map((name) => ({ name, dir: join(repoRoot, 'packages/sdk', name) })),
-    { name: 'app-host', dir: join(repoRoot, 'packages/app-host') },
+    { name: 'app-host', dir: join(repoRoot, 'packages/host/app-host') },
   ];
   return snapshotPackages.map(({ name, dir }) => {
     const manifest = readJson(join(dir, 'package.json'));

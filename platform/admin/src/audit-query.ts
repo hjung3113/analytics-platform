@@ -35,7 +35,7 @@ export const TYPE_LABEL: Record<string, { ko: string; en: string }> = {
 };
 
 /** An opaque, case-sensitive subject-type token: no trimming or normalization. Keep in lockstep with the mock
- *  (`packages/adapters/mock-server/src/audit/audit.ts`) and the server (`apps/platform-api/.../audit-query.ts`) copies. */
+ *  (`packages/host/mock-server/src/audit/audit.ts`) and the server (`apps/platform-api/.../audit-query.ts`) copies. */
 export const AUDIT_TYPE_TOKEN = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/;
 
 export const AUDIT_ACTIONS: readonly string[] = Object.keys(ACTION_LABEL);

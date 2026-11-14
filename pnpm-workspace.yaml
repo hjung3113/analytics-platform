@@ -7,9 +7,13 @@ packages:
   - packages/eqv/*
   - packages/sdk/*
   - packages/adapters/*
+  - packages/host/*
   - menus/*/*
   - platform/*
-  - tooling/*
+  - tooling/css-selectors
+  - tooling/eslint
+  - tooling/gen-menu
+  - tooling/tsconfig
   - ops/*
 allowBuilds:
   "@biomejs/biome": true

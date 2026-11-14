@@ -413,8 +413,8 @@ runCase(
       dependencies: { fastify: '5.2.0' },
       devDependencies: {
         '@ap/contracts': 'link:../../../../packages/sdk/contracts',
-        '@ap/http-adapter': 'link:../../../../packages/adapters/http-adapter',
-        '@ap/server-conformance': 'link:../../../../packages/adapters/server-conformance',
+        '@ap/http-adapter': 'link:../../../../packages/host/http-adapter',
+        '@ap/server-conformance': 'link:../../../../packages/host/server-conformance',
       },
     }),
     [join(FEATURE_SHARED, 'package.json')]: JSON.stringify({

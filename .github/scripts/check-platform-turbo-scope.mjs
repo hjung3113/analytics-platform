@@ -114,7 +114,7 @@ function selfTest() {
 
 function main() {
   const errors = configErrors(read('package.json'), manifests);
-  const workspacePackages = globSync(['apps/*/package.json', 'packages/*/package.json', 'packages/sdk/*/package.json', 'packages/adapters/*/package.json', 'packages/eqv/*/package.json', 'menus/*/*/package.json', 'platform/*/package.json', 'tooling/*/package.json', 'ops/*/package.json'], { cwd: repoRoot })
+  const workspacePackages = globSync(['apps/*/package.json', 'packages/*/package.json', 'packages/sdk/*/package.json', 'packages/adapters/*/package.json', 'packages/host/*/package.json', 'packages/eqv/*/package.json', 'menus/*/*/package.json', 'platform/*/package.json', 'tooling/*/package.json', 'ops/*/package.json'], { cwd: repoRoot })
     .map(path => ({ ...read(path), directory: posix.dirname(path) }));
   for (const task of taskNames) {
     const output = execFileSync('pnpm', [task, '--dry=json'], { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });

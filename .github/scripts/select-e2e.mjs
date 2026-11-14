@@ -162,7 +162,7 @@ function selfTest() {
   check('e2e: helper + spec → all', pr([`${T}support.ts`, `${T}hw-time.spec.ts`]), ALLV);
   // Everything that is not provably limited → all.
   for (const f of [
-    'packages/sdk/kernel/src/a.ts', 'packages/adapters/mock-server/src/a.ts', 'packages/feature-ui/src/a.ts', 'apps/platform-web/src/a.ts', 'apps/platform-web/vite.config.ts',
+    'packages/sdk/kernel/src/a.ts', 'packages/host/mock-server/src/a.ts', 'packages/feature-ui/src/a.ts', 'apps/platform-web/src/a.ts', 'apps/platform-web/vite.config.ts',
     'apps/feature-screens/src/a.ts', 'menus/mars/hw-time/src/a.ts', 'platform/home/src/a.ts', 'platform/dashboard/package.json', 'tooling/x.mjs', 'patches/x.patch', 'ops/platform-api/tsconfig.base.json', 'ops/other/x.sh', 'apps/platform-api-x/src/a.ts', 'ops/platform-api-x/a.sh',
     'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'turbo.json', '.nvmrc', '.github/workflows/ci.yml', '.github/scripts/select-e2e.mjs',
     'packages/sdk/shell/src/style.css', 'site/index.html', 'docs/diagram.png', 'unknown/file.bin', '.gitignore',
