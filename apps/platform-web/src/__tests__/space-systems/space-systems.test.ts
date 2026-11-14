@@ -228,3 +228,44 @@ describe('superseded requests carry cancellation (a 401 of an obsolete request h
     } finally { vi.unstubAllGlobals(); }
   });
 });
+
+
+describe('failed space links recover without opening VOC (#2037 MEN-19)', () => {
+  it('retries twice with bounded delays and restores the links after a transient failure', async () => {
+    vi.useFakeTimers();
+    const store = createSpaceSystemsStore();
+    const source = vi.fn().mockRejectedValueOnce(new Error('down')).mockResolvedValue(data('mars', A));
+    try {
+      store.start(['s1'], source);
+      await vi.advanceTimersByTimeAsync(999);
+      expect(source).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(source).toHaveBeenCalledTimes(2);
+      expect(linkedSystemOf(store.getSnapshot(), 'mars')).toBe(A);
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(source).toHaveBeenCalledTimes(2);
+    } finally { store.reset(); vi.useRealTimers(); }
+  });
+  it('stops after two retries, and reset or a new session cancels an old retry', async () => {
+    vi.useFakeTimers();
+    const store = createSpaceSystemsStore();
+    const source = vi.fn().mockRejectedValue(new Error('down'));
+    try {
+      store.start(['s1'], source);
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(source).toHaveBeenCalledTimes(3);
+      expect(store.getSnapshot().status).toBe('failed');
+      store.start(['s2'], source);
+      await vi.advanceTimersByTimeAsync(0);
+      store.reset();
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(source).toHaveBeenCalledTimes(4);
+      store.start(['s3'], source);
+      await vi.advanceTimersByTimeAsync(0);
+      store.start(['s4'], async () => data('mars', B));
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(source).toHaveBeenCalledTimes(5);
+      expect(linkedSystemOf(store.getSnapshot(), 'mars')).toBe(B);
+    } finally { store.reset(); vi.useRealTimers(); }
+  });
+});

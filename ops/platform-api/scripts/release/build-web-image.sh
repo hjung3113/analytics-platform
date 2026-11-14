@@ -6,7 +6,8 @@
 #   build-web-image.sh --dist <dir> [--tag T]   package an already-built dist (#1881: an assembly built outside this
 #                                               repo, e.g. with `vite build --mode real`); no pnpm run. Tag default :local;
 #                                               for upgrade.sh <tag> pass the release tag so platform-release-web:<tag> exists.
-# Both forms use the same apps/platform-web/Dockerfile and ops/platform-api/edge/nginx.conf. The dist must hold index.html.
+# Both forms use the same apps/platform-web/Dockerfile and ops/platform-api/edge/nginx.conf. The dist must hold index.html
+# and the non-mock build marker menu-declarations.snapshot.json.
 set -Eeuo pipefail
 
 caller_dir="$PWD" # a relative --dist is the caller's path: resolve it before the cd below
@@ -28,6 +29,7 @@ done
 if [ -z "$dist" ]; then
   pnpm --filter @ap/platform-web build:real-prod
   test -s apps/platform-web/dist/index.html || { echo "build-web-image: apps/platform-web/dist/index.html is missing after the build" >&2; exit 1; }
+  test -s apps/platform-web/dist/menu-declarations.snapshot.json || { echo "build-web-image: menu-declarations.snapshot.json is missing or empty; use a non-mock build" >&2; exit 1; }
   # BuildKit reads apps/platform-web/Dockerfile.dockerignore (per-Dockerfile ignore) instead of the root .dockerignore.
   DOCKER_BUILDKIT=1 docker build \
     -f apps/platform-web/Dockerfile \
@@ -39,6 +41,7 @@ fi
 case "$dist" in /*) ;; *) dist="$caller_dir/$dist" ;; esac
 [ -d "$dist" ] || { echo "build-web-image: --dist $dist is not a directory" >&2; exit 1; }
 test -s "$dist/index.html" || { echo "build-web-image: $dist/index.html is missing or empty" >&2; exit 1; }
+test -s "$dist/menu-declarations.snapshot.json" || { echo "build-web-image: $dist/menu-declarations.snapshot.json is missing or empty; use a non-mock build" >&2; exit 1; }
 # A temporary build context holds only what the Dockerfile copies, so the prebuilt dist never has to sit inside this checkout.
 ctx="$(mktemp -d)"
 trap 'rm -rf -- "${ctx:?}"' EXIT

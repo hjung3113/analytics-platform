@@ -134,6 +134,11 @@ export type GuardedLeave = { run: () => void; title: string; message: string; co
  */
 export function useCloseGuard(onClose: () => void) {
   const dirty = useRef(false);
+  const [isDirty, setDirty] = useState(false);
+  const [releasedAction, setReleasedAction] = useState<(() => void) | null>(null);
+  // Drop the address guard in a commit before a confirmed close or successful save writes the address.
+  const release = (run: () => void) => { dirty.current = false; setDirty(false); setReleasedAction(() => run); };
+  useEffect(() => { releasedAction?.(); }, [releasedAction]);
   const discardRef = useRef<(() => void) | null>(null);
   const setDiscard = useCallback((discard: () => void) => { discardRef.current = discard; return () => { discardRef.current = null; }; }, []);
   const [asking, setAsking] = useState<GuardedLeave | null>(null);
@@ -143,9 +148,9 @@ export function useCloseGuard(onClose: () => void) {
   const leave = useCallback((next: GuardedLeave) => { if (dirty.current) setAsking(next); else next.run(); }, []);
   const request = () => leave(closing);
   const dialog = <DirtyConfirmation open={asking !== null} title={asking?.title ?? closing.title} message={asking?.message ?? closing.message} confirmLabel={asking?.confirmLabel ?? closing.confirmLabel} cancelLabel="계속 작성"
-    onCancel={() => setAsking(null)} onConfirm={() => { const next = asking; setAsking(null); dirty.current = false; discardRef.current?.(); next?.run(); }} />;
-  const markDirty = useCallback((value: boolean) => { dirty.current = value; }, []);
-  return { markDirty, setDiscard, request, leave, force: () => { dirty.current = false; discardRef.current?.(); closeRef.current(); }, dialog };
+    onCancel={() => setAsking(null)} onConfirm={() => { const next = asking; setAsking(null); release(() => { discardRef.current?.(); next?.run(); }); }} />;
+  const markDirty = useCallback((value: boolean) => { dirty.current = value; setDirty(value); }, []);
+  return { dirty: isDirty, released: releasedAction !== null, release, markDirty, setDiscard, request, leave, force: () => release(() => { discardRef.current?.(); closeRef.current(); }), dialog };
 }
 
 /** Whether `value` differs from what it was when the form first mounted; reports each change to `markDirty`. */

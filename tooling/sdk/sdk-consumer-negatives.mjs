@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
-import { releaseTarball, singleCopyPeers, writeKitProject } from './sdk-consumer-check.mjs';
+import { releaseTarball, writeKitProject } from './sdk-consumer-check.mjs';
 import { scanBuildOutput } from './sdk-kit-check.mjs';
 import { checkManifests, readTarEntry } from './sdk-bundle-check.mjs';
 
@@ -97,9 +97,9 @@ function resolveFrom(dir, name) {
 export function kernelCopyMismatches(root) {
   const appKernel = resolveFrom(root, '@ap/kernel');
   if (appKernel === null) fail('@ap/kernel does not resolve from the consumer project');
-  const consumers = singleCopyPeers().filter(([consumer]) => ['components', 'shell', 'app-host'].includes(consumer));
+  // The release packages that peer on @ap/kernel; singleCopyPeers(root) reads them from an installed tree.
   const mismatches = [];
-  for (const [consumer] of consumers) {
+  for (const consumer of ['components', 'shell', 'app-host']) {
     const consumerDir = resolveFrom(root, `@ap/${consumer}`);
     if (consumerDir === null) fail(`@ap/${consumer} does not resolve from the consumer project`);
     const found = resolveFrom(consumerDir, '@ap/kernel');

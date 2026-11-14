@@ -326,12 +326,25 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
 });
 
 test.describe('공통 상태 화면 (06 §19)', () => {
+  test('상태 원천 미확인은 행을 숨기지 않고 신뢰 상세에 미확인으로 표시한다 (#2037)', async ({ page }, testInfo) => {
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    await expect(page.getByRole('table')).toBeVisible();
+    await setScenario(page, '상태 원천 미확인');
+    const trust = page.getByRole('button', { name: /^데이터 신뢰/ }).first();
+    await expect(trust).toHaveAttribute('title', /일부 상태를 확인하지 못했습니다/);
+    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
+    await trust.click();
+    await expect(page.getByRole('dialog').getByText('미확인', { exact: true }).first()).toBeVisible();
+    await evidence(page, testInfo, 'table-unknown-status');
+  });
+
   const EQUIPMENT = '/mars/equipment-master?v=1&scopeId=MEM';
   for (const { scenario, title, retry } of [
     { scenario: '서버 오류 (error)', title: '데이터를 불러오지 못했습니다', retry: true },
     { scenario: '시간 초과 (timeout)', title: '조회 시간이 초과되었습니다', retry: true },
     { scenario: '0건 (empty)', title: '조건에 맞는 결과가 없습니다', retry: false },
     { scenario: '권한 거부 (forbidden)', title: '이 Scope에 접근 권한이 없습니다', retry: false },
+    { scenario: '조회 과대 (too_large)', title: '조회 범위가 너무 큽니다', retry: false },
   ]) {
     test(`${scenario} → "${title}"`, async ({ page }, testInfo) => {
       await page.goto(EQUIPMENT);
@@ -677,6 +690,41 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 
 // #556a (ADR-0024 amendment): the Columns popover reorders columns; the header, the saved preference and reset follow.
 test.describe('표 고급 기능 (#556)', () => {
+  test('선택한 두 행 복사는 머리 줄과 두 행을 실제 클립보드에 쓴다 (#2037)', async ({ page, context }, testInfo) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    const rows = page.locator('[role="row"][data-row-id]');
+    await expect(rows.nth(1)).toBeVisible();
+    const ids = [await rows.nth(0).getAttribute('data-row-id'), await rows.nth(1).getAttribute('data-row-id')];
+    await rows.nth(0).getByRole('checkbox').check();
+    await rows.nth(1).getByRole('checkbox').check();
+    await page.getByRole('button', { name: '2행 복사', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(ids[1]!);
+    const lines = (await page.evaluate(() => navigator.clipboard.readText())).trimEnd().split(/\r?\n/).map(line => line.split('\t'));
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toEqual(['설비 ID', '공정', '라인', 'StGroup', '분임조', '설비사', 'Model', '챔버 유형', '상태', '유효 시작', '유효 종료일', '변경 시각', '변경자']);
+    expect(lines.slice(1).map(cells => cells[0])).toEqual(ids);
+    for (const cells of lines.slice(1)) expect(cells).toHaveLength(lines[0]!.length);
+    await evidence(page, testInfo, 'table-selected-clipboard');
+  });
+
+  test('선택 행 Excel 내보내기는 지연 청크를 불러 파일을 내려받는다 (#2037)', async ({ page }, testInfo) => {
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    const row = page.locator('[role="row"][data-row-id]').first();
+    await expect(row).toBeVisible();
+    await row.getByRole('checkbox').check();
+    await page.getByRole('button', { name: '내보내기', exact: true }).click();
+    const download = page.waitForEvent('download');
+    await page.getByRole('menuitem', { name: /^선택 1행을 Excel\(\.xlsx\)로 내보내기$/ }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/^equipment-master-\d{8}-\d{4}(?:-provisional)?\.xlsx$/);
+    expect(await file.failure()).toBeNull();
+    const path = await file.path();
+    expect(path).not.toBeNull();
+    await testInfo.attach('table-selected-xlsx', { path: path!, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    await evidence(page, testInfo, 'table-selected-xlsx');
+  });
+
   test('컬럼 팝오버에서 열을 아래로 옮기면 머리 순서가 바뀌고 새로고침 뒤에도 남으며 기본값으로 되돌린다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ActionResult } from '@ap/contracts';
-import { useMenuAction, usePlatform, type QueryState } from '@ap/kernel';
+import { useMenuAction, usePlatform, useUnsavedGuard, type QueryState } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
 import { Button, Callout, FormField, RadioGroup, RadioGroupItem, Textarea } from '@ap/ui';
 import { ASSESSMENT_DIMENSIONS, ITEM_LIMITS, PROCESSING_STATES, VERIFICATION_STATES, itemAssess, type AssessmentDimension, type ItemDetail } from '../../endpoints';
@@ -54,7 +54,7 @@ function AssessForm({ detail, onReload, guard, rationale, setRationale, reloadQu
   const current = (axis: AssessmentDimension) => (axis === 'verification' ? item.verificationState : item.processingState);
 
   function settle(res: ActionResult<unknown>) {
-    if (res.outcome === 'ok') { setErrors({}); setConflict(false); setFailed(null); toast('판단 상태를 바꿨습니다', 'info'); setPage({ drawer: null }); return; }
+    if (res.outcome === 'ok') { setErrors({}); setConflict(false); setFailed(null); toast('판단 상태를 바꿨습니다', 'info'); guard.release(() => setPage({ drawer: null })); return; }
     if (res.outcome === 'conflict') { setConflict(true); return; }
     const mapped = res.outcome === 'invalid' ? mapItemErrors(res.fieldErrors, KNOWN, 0) : {};
     setErrors(mapped);
@@ -117,6 +117,7 @@ export function AssessDrawer({ detail, onReload, onClose, reloadQuery }: { detai
   const [initialVersion] = useState(synced);
   const [rationale, setRationale] = useState('');
   const guard = useCloseGuard(onClose);
+  useUnsavedGuard(guard.dirty && !guard.released, { leaves: 'address' });
   return <>
     <DetailDrawer title="판단 변경" subtitle={`${itemNoLabel(detail.item.itemNo)} · ${ownerText(detail.item.owner)}`} onClose={guard.request}
       tabs={[{ id: 'form', label: '내용', content: <AssessForm key={synced} detail={detail} guard={guard} rationale={rationale} setRationale={setRationale} reloadQuery={reloadQuery} reloaded={synced !== initialVersion} onReload={() => { sync(); onReload(); }} /> }]} />

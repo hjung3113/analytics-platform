@@ -165,12 +165,13 @@ const GLOBAL_GROUP_ORDER = [
 ] as const;
 
 /** Moves each group's listed menus into `GLOBAL_GROUP_ORDER`, at the position of the group's first listed menu; every other menu keeps its place. A listed id that is not declared fails at startup. */
-function placeGlobalGroups(menus: readonly MenuEntry[]): MenuEntry[] {
+export function placeGlobalGroups(menus: readonly MenuEntry[]): MenuEntry[] {
   return GLOBAL_GROUP_ORDER.reduce<MenuEntry[]>((all, order) => {
     const placed = order.map(id => all.find(menu => menu.id === id) ?? fail(`placeGlobalGroups: menu "${id}" is not declared`));
     const first = all.findIndex(menu => menu.id === order[0]);
     const rest = all.filter(menu => !order.some(id => id === menu.id));
-    return [...rest.slice(0, first), ...placed, ...rest.slice(first)];
+    const insertion = all.slice(0, first).filter(menu => !order.some(id => id === menu.id)).length;
+    return [...rest.slice(0, insertion), ...placed, ...rest.slice(insertion)];
   }, [...menus]);
 }
 

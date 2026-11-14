@@ -550,7 +550,7 @@ describe('assessment conflict reload (#2109)', () => {
     expect((field(/^사유/) as HTMLTextAreaElement).value).toBe(rationale);
   });
 
-  it('does not keep r1 detail mounted when switching from rev=1 conflict reload to latest and latest read fails', async () => {
+  it('keeps r1 detail and dirty rationale when latest navigation is requested during a conflict reload', async () => {
     let failLatestRead = false;
     const selected = testAdapter({ ...adapter, menuQuery: req => {
       const p = req.params as { revisionNo?: number };
@@ -576,12 +576,10 @@ describe('assessment conflict reload (#2109)', () => {
     reload();
     failLatestRead = true;
     fireEvent.click(await screen.findByRole('button', { name: '최신 보기' }, slow));
-    await waitFor(() => expect(url().get('rev')).toBeNull(), slow);
+    expect(url().get('rev')).toBe('1');
     await rtlAct(async () => { release(); });
-    await screen.findByRole('button', { name: '다시 시도' }, slow);
-    expect(screen.queryByRole('heading', { name: '판단 변경' })).toBeNull();
-    expect(screen.queryByDisplayValue(rationale)).toBeNull();
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('heading', { name: '판단 변경' })).toBeTruthy();
+    expect((field(/^사유/) as HTMLTextAreaElement).value).toBe(rationale);
   });
 
   it('does not enable header 수정 or feed revise from the kept detail when assessment reload fails on latest', async () => {
@@ -600,15 +598,14 @@ describe('assessment conflict reload (#2109)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('resets the assessment drawer when switching to another viewed revision', async () => {
+  it('keeps the dirty assessment drawer when switching to another viewed revision is requested', async () => {
     mountDetail(ITEM(1), '&rev=1&drawer=assess');
     await screen.findByRole('heading', { name: '판단 변경' }, slow);
     type(/^사유/, rationale);
     fireEvent.click(await screen.findByRole('button', { name: '최신 보기' }, slow));
-    await waitFor(() => expect(url().get('rev')).toBeNull(), slow);
-    await waitFor(() => expect(screen.queryByText(/이전 리비전 r1을 보고 있습니다/)).toBeNull(), slow);
-    await screen.findByRole('heading', { name: '판단 변경' }, slow);
-    expect((field(/^사유/) as HTMLTextAreaElement).value).toBe('');
+    expect(url().get('rev')).toBe('1');
+    expect(screen.getByText(/이전 리비전 r1을 보고 있습니다/)).toBeTruthy();
+    expect((field(/^사유/) as HTMLTextAreaElement).value).toBe(rationale);
   });
 });
 
@@ -853,7 +850,7 @@ describe('revising from an older rev reads the latest', () => {
 });
 
 describe('수정 폼을 이전 리비전에서 연 채 최신 보기로 돌아오기 (#1365 R2)', () => {
-  it('does not loop: the form and its draft stay while the latest response arrives', async () => {
+  it('keeps the source revision and draft until the latest-view navigation is approved', async () => {
     mountDetail(ITEM(1), '&rev=1&drawer=revise');
     await screen.findByRole('heading', { name: '기술 Item 수정' }, slow);
     await waitFor(() => expect((field(/^제목/) as HTMLInputElement).value).toBe('챔버 압력 로그 지연 (보완)'), slow);
@@ -861,9 +858,9 @@ describe('수정 폼을 이전 리비전에서 연 채 최신 보기로 돌아�
     let release = () => {};
     holdDetail = new Promise<void>(resolve => { release = resolve; });
     fireEvent.click(await screen.findByRole('button', { name: '최신 보기' }, slow));
-    await waitFor(() => expect(url().get('rev')).toBeNull(), slow);
+    expect(url().get('rev')).toBe('1');
     await rtlAct(async () => { release(); });
-    await waitFor(() => expect(screen.queryByText(/이전 리비전 r1을 보고 있습니다/)).toBeNull(), slow);
+    expect(screen.getByText(/이전 리비전 r1을 보고 있습니다/)).toBeTruthy();
     expect(screen.queryByText(/Too many re-renders/)).toBeNull();
     expect((field(/^변경 사유/) as HTMLTextAreaElement | HTMLInputElement).value).toBe('입력 중');
     expect((field(/^제목/) as HTMLInputElement).value).toBe('챔버 압력 로그 지연 (보완)');
@@ -1053,5 +1050,40 @@ describe('item input across a same-user session generation (#2108)', () => {
     fireEvent.click(screen.getByRole('button', { name: '수정' }));
     await waitFor(() => expect((field(/^제목/) as HTMLInputElement).value).toBe('챔버 압력 로그 지연 (보완)'), slow);
     expect(screen.queryByText('세션이 바뀌어 화면을 다시 열었습니다. 저장하지 않은 입력을 되살렸습니다.')).toBeNull();
+  });
+});
+
+
+function GuardNavigation({ href }: { href: string }) {
+  const { navigate } = usePlatform();
+  return <button onClick={() => navigate(href)}>Guard test navigation</button>;
+}
+
+describe('Item drawer address navigation guards (#2037 MEN-17)', () => {
+  it.each([
+    ['create', '/log/knowledge/items?v=1&focus=new', '새 기술 Item', /^제목/],
+    ['revise', `/log/knowledge/items/${ITEM(1)}?v=1&drawer=revise`, '기술 Item 수정', /^변경 사유/],
+    ['derive', `/log/knowledge/items/${ITEM(1)}?v=1&drawer=derive`, '관련 Item으로 신규 작성', /^제목/],
+    ['assess', `/log/knowledge/items/${ITEM(1)}?v=1&drawer=assess`, '판단 변경', /^사유/],
+  ] as const)('%s keeps dirty input on a menu move and a drawer-only address change', async (_mode, href, heading, label) => {
+    window.history.replaceState(null, '', href);
+    const view = render(tree(<><Routes /><GuardNavigation href="/logDev/log-knowledge-models" /></>));
+    await screen.findByRole('heading', { name: heading }, slow);
+    const before = window.location.pathname + window.location.search;
+    type(label, 'unsaved guard regression');
+    fireEvent.click(screen.getByRole('button', { name: 'Guard test navigation' }));
+    expect(window.location.pathname + window.location.search).toBe(before);
+    expect((field(label) as HTMLInputElement).value).toBe('unsaved guard regression');
+    // Cancel the pending request by unmounting; retry against a fresh provider for an address-only move.
+    view.unmount();
+    window.history.replaceState(null, '', href);
+    const withoutDrawer = new URL(before, window.location.origin);
+    withoutDrawer.searchParams.delete('focus'); withoutDrawer.searchParams.delete('drawer');
+    render(tree(<><Routes /><GuardNavigation href={withoutDrawer.pathname + withoutDrawer.search} /></>));
+    await screen.findByRole('heading', { name: heading }, slow);
+    type(label, 'unsaved address regression');
+    fireEvent.click(screen.getByRole('button', { name: 'Guard test navigation' }));
+    expect(window.location.pathname + window.location.search).toBe(before);
+    expect((field(label) as HTMLInputElement).value).toBe('unsaved address regression');
   });
 });

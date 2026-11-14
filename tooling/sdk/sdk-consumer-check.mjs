@@ -92,11 +92,12 @@ function installedVersion(name) {
 }
 
 /** The `overrides:` lines of this repo's pnpm-workspace.yaml that pin @tiptap/* (consumer condition, packages/sdk/CHANGELOG.md). */
-function tiptapOverrides() {
+export function tiptapOverrides() {
   const workspaceYaml = readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8');
   const block = readWorkspaceBlock(workspaceYaml, 'overrides');
-  if (!block.some((line) => line.includes('"@tiptap/'))) fail('pnpm-workspace.yaml overrides carry no @tiptap pins');
-  return block;
+  const pins = block.filter((line) => /^  "@tiptap\//.test(line));
+  if (pins.length === 0) fail('pnpm-workspace.yaml overrides carry no @tiptap pins');
+  return pins;
 }
 
 function javascriptFiles(directory) {
@@ -148,16 +149,12 @@ export function removeInHouseMenus(source) {
 }
 
 /** Which @ap/* siblings each release package must resolve to the app's own single copy (unit 2 included, §10.3). */
-export function singleCopyPeers() {
-  return [
-    ['kernel', ['contracts']],
-    ['components', ['kernel', 'ui', 'contracts']],
-    ['shell', ['components', 'kernel', 'ui', 'contracts']],
-    ['app-host', ['shell', 'components', 'kernel', 'ui', 'contracts']],
-    ['mock-server', ['contracts']],
-    ['http-adapter', ['contracts']],
-    ['server-conformance', ['contracts']],
-  ];
+export function singleCopyPeers(root) {
+  return RELEASE_NAMES.map((name) => {
+    const manifest = JSON.parse(readFileSync(join(root, 'node_modules', '@ap', name, 'package.json'), 'utf8'));
+    const peers = Object.keys(manifest.peerDependencies ?? {}).filter((peer) => peer.startsWith('@ap/')).map((peer) => peer.slice(4));
+    return [name, peers];
+  });
 }
 
 /**
@@ -232,7 +229,7 @@ function assertSingleCopies(root) {
   };
   const dirs = Object.fromEntries(RELEASE_NAMES.map((name) => [name, dirOf(root, `@ap/${name}`)]));
   const mismatches = [];
-  for (const [consumer, wants] of singleCopyPeers()) {
+  for (const [consumer, wants] of singleCopyPeers(root)) {
     for (const dep of wants) {
       const found = dirOf(dirs[consumer], `@ap/${dep}`);
       if (found !== dirs[dep]) mismatches.push(`@ap/${consumer} resolves @ap/${dep} to ${found}, the app resolves ${dirs[dep]}`);
@@ -282,7 +279,11 @@ function assertCssClasses(root) {
 // statically replaceable `process.env.NODE_ENV` (bare import.meta stays in Vite builds).
 const BUTTON_DEV_ERROR = 'Slot enforces single-child contract';
 
-function assertProductionSignal(root) {
+export function assertProductionSignal(root) {
+  const uiFiles = javascriptFiles(join(root, 'node_modules', '@ap', 'ui', 'dist'));
+  if (!uiFiles.some((file) => readFileSync(file, 'utf8').includes(BUTTON_DEV_ERROR))) {
+    fail('installed UI dist is missing the Button dev probe; update the production-signal check');
+  }
   const assets = join(root, 'dist', 'assets');
   const jsFiles = existsSync(assets) ? readdirSync(assets).filter((file) => file.endsWith('.js')) : [];
   if (jsFiles.length === 0) fail('vite build emitted no JS file');

@@ -27,6 +27,9 @@ export function createSpaceSystemsStore() {
   let source: SpaceSystemsSource | null = null;
   let ticket = 0;
   let inflight: AbortController | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let retries = 0;
+  function cancelRetry(): void { if (retryTimer !== null) clearTimeout(retryTimer); retryTimer = null; }
   const listeners = new Set<() => void>();
 
   function publish(next: SpaceSystemsSnapshot): void {
@@ -35,6 +38,7 @@ export function createSpaceSystemsStore() {
   }
 
   function load(): void {
+    cancelRetry();
     const mine = ++ticket;
     // A superseded request is cancelled so its late answer (a 401 included) can cause no side effect.
     inflight?.abort();
@@ -46,9 +50,16 @@ export function createSpaceSystemsStore() {
     let answer: Promise<SpaceSystems>;
     try { answer = current(controller.signal, identity); } catch (error) { answer = Promise.reject(error); }
     answer.then(
-      (data) => { if (mine === ticket) publish({ status: 'ready', data }); },
+      (data) => { if (mine === ticket) { retries = 0; publish({ status: 'ready', data }); } },
       // A failed refresh keeps the links already in hand; only a load with nothing to show is `failed`.
-      () => { if (mine === ticket) publish(snapshot.data === null ? { status: 'failed', data: null } : snapshot); },
+      () => {
+        if (mine !== ticket) return;
+        publish(snapshot.data === null ? { status: 'failed', data: null } : snapshot);
+        if (mine === ticket && snapshot.data === null && retries < 2) {
+          const delay = ++retries * 1000;
+          retryTimer = setTimeout(() => { retryTimer = null; if (mine === ticket) load(); }, delay);
+        }
+      },
     );
   }
 
@@ -60,17 +71,18 @@ export function createSpaceSystemsStore() {
     /** Begin (or continue) the load for `identity`; `null` source = the assembly has no server links (empty and ready). */
     start(identity: readonly unknown[], nextSource: SpaceSystemsSource | null): void {
       if (session !== null && sameSession(session, identity) && source === nextSource) return;
+      retries = 0;
       session = identity;
       source = nextSource;
       publish({ status: 'pending', data: null });
       load();
     },
     /** Reload for the current session, keeping what is shown meanwhile. Nothing started yet: no-op. */
-    refresh(): void { if (session !== null) load(); },
+    refresh(): void { if (session !== null) { retries = 0; load(); } },
     /** The next open of the VOC form retries a failed load. */
-    retryIfFailed(): void { if (snapshot.status === 'failed') { publish({ status: 'pending', data: null }); load(); } },
-    /** Forget the session (sign-out): data cleared, in-flight results ignored. */
-    reset(): void { ticket += 1; inflight?.abort(); inflight = null; session = null; source = null; publish({ status: 'pending', data: null }); },
+    retryIfFailed(): void { if (snapshot.status === 'failed') { retries = 0; publish({ status: 'pending', data: null }); load(); } },
+    /** Forget the session (sign-out or host unmount): data cleared, pending retry cancelled, in-flight results ignored. */
+    reset(): void { cancelRetry(); retries = 0; ticket += 1; inflight?.abort(); inflight = null; session = null; source = null; publish({ status: 'pending', data: null }); },
   };
 }
 

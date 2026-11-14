@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { spaceId, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef } from '@ap/kernel';
-import { ONBOARDING_PAGE_KEYS, PAGE_KEYS, manifests } from './index';
+import * as publicEntry from './index';
+import { manifests } from './index';
 import { EQV_ONBOARDING_MENU_ID, EQV_READ_PERMISSION, EQV_STUDIO_MENU_ID, STUDIO_VIEW_PERMISSION, onboardingActionSpecs, onboardingReadSpecs, studioActionSpecs, studioReadSpecs } from './endpoints';
 
 describe('manifest', () => {
@@ -10,7 +11,7 @@ describe('manifest', () => {
     const menu = manifests[0]!;
     expect(menu).toMatchObject({ id: 'eqv-studio', primary: true, group: 'topviewStudio', path: '/tools/eqv-studio', requiresScope: false, pageType: 'catalog', permission: 'eqv-studio:view' });
     expect(menu.pageKeys).toEqual(['layout', 'revision', 'template']);
-    expect(PAGE_KEYS).toEqual(menu.pageKeys);
+    expect(Object.keys(publicEntry)).toEqual(['manifests']);
     for (const key of ['time', 'roomNames', 'condition', 'selection'] as const) expect(menu.context[key]).toBe('unsupported');
     const spaces: SpaceDef[] = [{ id: spaceId('tools'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];
     const groups: GroupDef[] = [{ id: menu.group, label: { ko: 'g', en: 'g' }, icon: menu.icon, space: spaceId('tools') }];
@@ -32,7 +33,7 @@ describe('manifest', () => {
     expect(menu).toMatchObject({ group: 'topviewStudio', path: '/tools/eqv-onboarding', pageType: 'management', permission: 'eqv-studio:view', requiresScope: false });
     expect(menu.primary).toBeFalsy();
     expect(menu.pageKeys).toEqual(['equipment', 'step', 'window']);
-    expect(ONBOARDING_PAGE_KEYS).toEqual(menu.pageKeys);
+
   });
 
   it('owns the onboarding declarations on eqv-onboarding; reads declare eqv:view; writes invalidate reads of the same menu', () => {

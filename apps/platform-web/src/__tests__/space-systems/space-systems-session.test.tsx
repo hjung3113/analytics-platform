@@ -107,3 +107,58 @@ describe('space links 401 vs the host session (#1289 node j)', () => {
     expect(seen).toEqual([false, true]);
   });
 });
+
+describe('SpaceSystemsSession host unmount and remount lifecycle (#2037 MEN-19)', () => {
+  it('cancels a pending retry timer when the host unmounts so no further load runs', async () => {
+    vi.useFakeTimers();
+    const failing = vi.fn().mockRejectedValue(new Error('down'));
+    try {
+      const view = render(<SpaceSystemsSession source={failing} />);
+      expect(failing).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(spaceSystems.getSnapshot().status).toBe('failed');
+      view.unmount();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(failing).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('aborts an in-flight load on host unmount so a late rejection schedules no retry', async () => {
+    vi.useFakeTimers();
+    let rejectLoad!: (error: unknown) => void;
+    let signal!: AbortSignal;
+    const deferred = vi.fn((abortSignal: AbortSignal) => {
+      signal = abortSignal;
+      return new Promise<never>((_resolve, reject) => { rejectLoad = reject; });
+    });
+    try {
+      const view = render(<SpaceSystemsSession source={deferred} />);
+      expect(deferred).toHaveBeenCalledTimes(1);
+      expect(signal.aborted).toBe(false);
+      view.unmount();
+      expect(signal.aborted).toBe(true);
+      rejectLoad(new Error('late down'));
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(deferred).toHaveBeenCalledTimes(1);
+      expect(spaceSystems.getSnapshot().status).toBe('pending');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('starts a fresh load when remounted with the same session identity after unmount', async () => {
+    const loader = vi.fn(async () => ({ links: [], platformManagedSystemId: null }));
+    const first = render(<SpaceSystemsSession source={loader} />);
+    await act(async () => { await flush(); });
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(spaceSystems.getSnapshot().status).toBe('ready');
+    first.unmount();
+    expect(spaceSystems.getSnapshot().status).toBe('pending');
+    render(<SpaceSystemsSession source={loader} />);
+    await act(async () => { await flush(); });
+    expect(loader).toHaveBeenCalledTimes(2);
+    expect(spaceSystems.getSnapshot().status).toBe('ready');
+  });
+});

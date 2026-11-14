@@ -516,7 +516,7 @@ function entrySnapshotPath(packageName, subpath) {
 }
 
 function packageConfigs() {
-  // app-host joins the SDK five (ADR-0143); the adapters publish no public TS surface yet, so they get no snapshot.
+  // Baselines currently cover the SDK five and app-host (ADR-0143); the released adapters also have public TS exports (#2037 MEN-15).
   const snapshotPackages = [
     ...SDK_PACKAGES.map((name) => ({ name, dir: join(repoRoot, 'packages/sdk', name) })),
     { name: 'app-host', dir: join(repoRoot, 'packages/host/app-host') },

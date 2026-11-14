@@ -35,7 +35,7 @@ node sdk-bundle-check.mjs installed                     # @ap/* 패키지가 하
 `vendor/`의 아홉 tarball은 키트 안에 있고, 나머지 패키지는 `third-party.json`에 정확 버전으로 적혀 있다. 서드파티 패키지를 받는 길은 둘이다.
 
 - **사내 npm 미러(기본).** `mirror` 검사로 빠진 패키지가 없는지 먼저 본 뒤 미러를 레지스트리로 두고 `pnpm install --frozen-lockfile`.
-- **연결된 기계에서 만든 store.** 설치할 기계와 같은 OS·아키텍처의 연결된 기계에서 `pnpm fetch --store-dir <store>`로 store를 만들어 옮긴 뒤, 설치할 기계에서 `pnpm install --offline --frozen-lockfile --store-dir <store>`. 공개 CI가 이 길을 리눅스 컨테이너 둘(연결된 쪽, `--network none` 쪽)로 매 PR 재현한다.
+- **연결된 기계에서 만든 store.** 설치할 기계와 같은 OS·아키텍처의 연결된 기계에서 `pnpm fetch --store-dir <store>`로 store를 만들어 옮긴 뒤, 설치할 기계에서 `pnpm install --offline --frozen-lockfile --store-dir <store>`. 공개 CI가 이 길을 리눅스 컨테이너 둘(연결된 쪽, `--network none` 쪽)로 main push와 수동 실행에서 재현한다(PR 제외).
 
 고정한 서드파티 조건은 `pnpm-workspace.yaml`의 `overrides`(정확 버전 목록)와 `patchedDependencies` + `patches/`다. 설치 스크립트는 `allowBuilds`에 적힌 것만 돈다. 이 셋은 고치지 않는다.
 

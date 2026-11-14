@@ -11,7 +11,7 @@ ENV NGINX_ENVSUBST_FILTER='^PUBLIC_ATTACHMENT_ORIGIN$'
 ENV PUBLIC_ATTACHMENT_ORIGIN="'self'"
 COPY ops/platform-api/edge/nginx.conf /etc/nginx/templates/default.conf.template
 
-# Fail the build when the bundle is missing or empty rather than shipping an edge that serves 404 for the SPA.
-RUN test -s /usr/share/nginx/html/index.html
+# Require a nonempty SPA entry and the declaration snapshot emitted only by non-mock builds.
+RUN test -s /usr/share/nginx/html/index.html && test -s /usr/share/nginx/html/menu-declarations.snapshot.json
 
 EXPOSE 80

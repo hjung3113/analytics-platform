@@ -2,7 +2,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { PRODUCTIVITY } from './contract-helpers';
 import { evidence, mainHeading, signInAs } from './support';
 
-// No real screen adopts useUnsavedGuard yet, so the guarded cases drive the mock-only demo fixture
+// CatalogDrawer, SpecScreen, EquipmentWorkspace and Item drawers adopt useUnsavedGuard. These shell cases use the stable mock-only fixture
 // 「편집 중 시뮬레이션」 in the demo tools (apps/platform-web/src/dev/EditSimulation.tsx, #1388 node c).
 // The first case pins the opt-in default: a menu that registers nothing never asks.
 // A reload (beforeunload) cannot be observed here; the Kernel unit tests own it.
