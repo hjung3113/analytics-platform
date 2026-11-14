@@ -135,6 +135,87 @@ describe('the board session store (docs/16 §7)', () => {
     expect(updateBoardSession('u1', '시트', board => board).board.sheets).toHaveLength(2);
   });
 
+  describe('another tab\'s save reaches a live session (#2019)', () => {
+    const otherTabSaves = (userId: string, board: ReturnType<typeof freshBoard>, event = true) => {
+      localStorage.setItem(V2(userId), JSON.stringify(board));
+      if (event) act(() => { window.dispatchEvent(new StorageEvent('storage', { key: V2(userId) })); });
+    };
+
+    it('a storage event reloads the live session, so its next save keeps the other tab\'s sheet', () => {
+      const { result } = renderHook(() => useBoardSession('u1', '시트'));
+      const theirs = addSheet(result.current.board, '시트');
+      otherTabSaves('u1', theirs);
+      expect(result.current.board.sheets).toHaveLength(2);
+      act(() => { result.current.update(board => addSheet(board, '시트')); });
+      const stored = JSON.parse(localStorage.getItem(V2('u1'))!) as { sheets: { id: string }[] };
+      expect(stored.sheets.map(s => s.id)).toContain(theirs.sheets[1].id);
+      expect(stored.sheets).toHaveLength(3);
+      expect(result.current.board.sheets).toHaveLength(3);
+    });
+
+    it('without the event, a save from a stale copy takes the stored board in first and applies the change on top', () => {
+      const { result } = renderHook(() => useBoardSession('u1', '시트'));
+      const theirs = addSheet(result.current.board, '시트');
+      otherTabSaves('u1', theirs, false);
+      const theirSheet = theirs.sheets[1].id;
+      act(() => { result.current.update(board => addSheet(board, '시트')); });
+      const stored = JSON.parse(localStorage.getItem(V2('u1'))!) as { sheets: { id: string }[] };
+      expect(stored.sheets).toHaveLength(3);
+      expect(stored.sheets.map(s => s.id)).toContain(theirSheet);
+      expect(result.current.board.sheets.map(s => s.id)).toContain(theirSheet);
+    });
+
+    it('unsaved moves survive a storage-event reload', () => {
+      const { result } = renderHook(() => useBoardSession('u1', '시트'));
+      act(() => { result.current.update(board => addSheet(board, '시트'), { save: false }); });
+      otherTabSaves('u1', freshBoard('시트'));
+      expect(result.current.board.sheets).toHaveLength(2);
+      expect(readBoardSession('u1', '시트').unsaved).toBe(true);
+    });
+
+    it('a reload never writes, and an event for another key or user is ignored', () => {
+      const setItem = vi.spyOn(localStorage, 'setItem');
+      const { result } = renderHook(() => useBoardSession('u1', '시트'));
+      otherTabSaves('u1', addSheet(freshBoard('시트'), '시트'));
+      expect(setItem).toHaveBeenCalledTimes(1);
+      const before = result.current.board;
+      localStorage.setItem(V2('u2'), JSON.stringify(freshBoard('시트')));
+      act(() => { window.dispatchEvent(new StorageEvent('storage', { key: V2('u2') })); window.dispatchEvent(new StorageEvent('storage', { key: 'other' })); });
+      expect(result.current.board).toBe(before);
+    });
+
+    describe('storage reads that throw (C4)', () => {
+      const breakReads = () => { vi.spyOn(localStorage, 'getItem').mockImplementation(() => { throw new Error('blocked'); }); };
+      it.each([['a matching event', V2('u1')], ['a clear event (key null)', null]])('keeps the live board when a reload cannot read storage: %s', (_name, key) => {
+        const { result } = renderHook(() => useBoardSession('u1', '시트'));
+        act(() => { result.current.update(board => renameSheet(board, board.sheets[0].id, 'mine')); });
+        const before = result.current.board;
+        breakReads();
+        act(() => { window.dispatchEvent(new StorageEvent('storage', { key })); });
+        expect(result.current.board).toBe(before);
+        expect(result.current.board.sheets[0].name).toBe('mine');
+      });
+      it('a new session with unreadable storage still starts from a fresh board', () => {
+        breakReads();
+        const { result } = renderHook(() => useBoardSession('u1', '시트'));
+        expect(result.current.board.sheets).toHaveLength(1);
+      });
+    });
+
+    it('adds one listener per live user and removes it after the last subscriber leaves (StrictMode included)', () => {
+      const add = vi.spyOn(window, 'addEventListener');
+      const remove = vi.spyOn(window, 'removeEventListener');
+      const storageCalls = (spy: typeof add | typeof remove) => spy.mock.calls.filter(([type]) => type === 'storage').length;
+      const a = renderHook(() => useBoardSession('u1', '시트'), { wrapper: StrictMode });
+      const b = renderHook(() => useBoardSession('u1', '시트'), { wrapper: StrictMode });
+      expect(storageCalls(add) - storageCalls(remove)).toBe(1);
+      a.unmount();
+      expect(storageCalls(add) - storageCalls(remove)).toBe(1);
+      b.unmount();
+      expect(storageCalls(add) - storageCalls(remove)).toBe(0);
+    });
+  });
+
   describe('the tick after the last subscriber leaves', () => {
     const tick = () => act(async () => { await Promise.resolve(); });
 

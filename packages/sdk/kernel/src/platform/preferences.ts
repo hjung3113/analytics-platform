@@ -13,8 +13,18 @@ export function readPreference<T>(key: string, decode: (value: unknown) => T | u
     return fallback;
   }
 }
-export function writePreference(key: string, value: unknown) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* memory-only */ }
+/** The stored value, or `undefined` when there is none, it does not decode, or storage cannot be read: the caller's own copy is then the newest it has. */
+export function readStoredPreference<T>(key: string, decode: (value: unknown) => T | undefined): T | undefined {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? decode(JSON.parse(raw)) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+/** False when the value could not be stored (blocked or full): it then lives in memory only. */
+export function writePreference(key: string, value: unknown): boolean {
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; /* memory-only */ }
 }
 /** String entries only; a non-list is rejected. */
 export function decodeFavorites(value: unknown): string[] | undefined {

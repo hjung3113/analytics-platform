@@ -15,7 +15,7 @@ import { PreferenceContext, usePreferenceState } from './preferenceContext';
 import { createPreferenceController, type PreferenceController } from './preferenceController';
 import { sameItems, useStable } from '../stable';
 import { ServerLanguage, textFor } from '../i18n';
-import { decodeFavorites, decodeRecent, decodeScopeId, readPreference, writePreference } from './preferences';
+import { decodeFavorites, decodeRecent, decodeScopeId, readPreference, readStoredPreference, writePreference } from './preferences';
 import { AppContext, OverlayContext, RecentContext, ToastsContext, type AppValue, type OverlayState, type UsageNavTrail } from './contexts';
 import { MainScreenProvider } from './MainScreenProvider';
 import { createSessionDraftStore } from './sessionDraft';
@@ -25,6 +25,20 @@ import { createSupportRegistry } from '../saved-view/useSavedViewSupport';
 const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
 const NO_SLOTS: PlatformSlots = {};
 /** A visit goes first; an earlier visit of the same menu is dropped; the list keeps 12. */
+/** `ops`: the edits whose write failed; `memory`: this tab's list after the latest edit (null until there is one). */
+type HeldList<T, O = T> = { memory: T[] | null; ops: O[] };
+/**
+ * One edit of a browser-storage list: the failed edits, then this one, on the freshest stored list (another tab may have changed it, #2033). Storage that has no
+ * list or cannot be read leaves this tab's own newest list as the base. The failed edits are dropped only once a write succeeds.
+ */
+function editStoredList<T, O>(key: string, decode: (value: unknown) => T[] | undefined, held: HeldList<T, O>, own: T[], apply: (list: T[], op: O) => T[], op: O): T[] {
+  const stored = readStoredPreference(key, decode);
+  const base = stored === undefined ? own : held.ops.reduce(apply, stored);
+  const next = apply(base, op);
+  held.ops = writePreference(key, next) ? [] : [...held.ops, op];
+  held.memory = next;
+  return next;
+}
 const flipFavorite = (list: readonly string[], menuId: string): string[] => list.includes(menuId) ? list.filter(id => id !== menuId) : [...list, menuId];
 const mergeVisit = (list: readonly Recent[], visit: Recent): Recent[] => [visit, ...list.filter(r => r.menuId !== visit.menuId)].slice(0, 12);
 /** URL changes inside one menu are saved once after this pause (#1671). */
@@ -103,6 +117,15 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     return () => preferences.stop();
   }, [preferences]);
   const preferenceState = usePreferenceState(preferences);
+  // Another tab of the account may have changed a list since this tab's snapshot (#2033): coming back to the tab re-reads the server once,
+  // so the next change applies on top of the fresh value. The controller skips the read while any edit of this account is pending or in flight.
+  useEffect(() => {
+    if (!preferences) return;
+    const onVisible = () => { if (document.visibilityState === 'visible') preferences.refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => { document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', onVisible); };
+  }, [preferences]);
   const [localFavorites, setFavorites] = useState<string[]>(() => serverPreferences ? [] : readPreference(`platform:favorites:${userId}`, decodeFavorites, []));
   const [localRecent, setRecent] = useState<Recent[]>(() => serverPreferences ? [] : readPreference(`platform:recent:${userId}`, decodeRecent, []));
   const [localLastScope, setLastScope] = useState<string | null>(() => serverPreferences ? null : readPreference(`platform:lastScope:${userId}`, decodeScopeId, null));
@@ -291,17 +314,22 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     [registry, can],
   );
 
+  // Browser-storage mode, a write that failed (quota, blocked): the edits not stored yet, and this tab's accumulated list. Refs: two actions may run before a render.
+  const listsHeld = useRef<{ userId: string; favorites: HeldList<string>; recents: HeldList<Recent> }>({ userId, favorites: { memory: null, ops: [] }, recents: { memory: null, ops: [] } });
+  const memoryLists = useCallback((owner: string) => {
+    if (listsHeld.current.userId !== owner) listsHeld.current = { userId: owner, favorites: { memory: null, ops: [] }, recents: { memory: null, ops: [] } };
+    return listsHeld.current;
+  }, []);
   const toggleFavorite = useCallback((menuId: string) => {
     if (preferences) {
       preferences.update('favorites', current => flipFavorite(decodeFavorites(current) ?? [], menuId));
       return;
     }
-    setFavorites(list => {
-      const next = flipFavorite(list, menuId);
-      writePreference(`platform:favorites:${userId}`, next);
-      return next;
-    });
-  }, [userId, preferences]);
+    // Browser-storage mode: on top of the stored list (another tab may have changed it, #2033), this tab's list only when storage has none.
+    const held = memoryLists(userId).favorites;
+    const next = editStoredList(`platform:favorites:${userId}`, decodeFavorites, held, held.memory ?? localFavorites, flipFavorite, menuId);
+    setFavorites(next);
+  }, [userId, preferences, localFavorites, memoryLists]);
 
   // `readRecent` reads this ref: it follows the state in a layout effect and at once in `recordVisit` (never written during render).
   const recentRef = useRef(recent);
@@ -330,11 +358,12 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       recentRef.current = decodeRecent(preferences.get('recents')) ?? [];
       return;
     }
-    const next = mergeVisit(recentRef.current, visit);
+    // On top of the stored list, as for favorites (#2033).
+    const held = memoryLists(userId).recents;
+    const next = editStoredList(`platform:recent:${userId}`, decodeRecent, held, recentRef.current, mergeVisit, visit);
     recentRef.current = next;
-    writePreference(`platform:recent:${userId}`, next);
     setRecent(next);
-  }, [userId, preferences]);
+  }, [userId, preferences, memoryLists]);
   const rememberScope = useCallback((scopeId: string) => {
     if (preferences) { preferences.set('lastScope', scopeId); return; }
     setLastScope(scopeId);

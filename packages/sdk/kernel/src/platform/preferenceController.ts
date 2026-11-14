@@ -30,6 +30,12 @@ export type UpdatingPreferenceController = PreferenceController & {
   readonly update: (key: string, apply: PreferenceUpdate['apply']) => void;
   /** Like `update`, but only the PATCH waits: `get` shows the edit at once, a later `hold` of the same key replaces it, and after `delayMs` it goes through `update`. An `update` of the key (or `stop`) moves it on first; a later `set`/`remove` of the key cancels it. */
   readonly hold: (key: string, apply: PreferenceUpdate['apply'], delayMs: number) => void;
+  /**
+   * Re-reads the server values once (another tab of the account may have written since this tab's snapshot, #2033), so the next `update`
+   * applies on top of them. Only a ready controller with no edit pending, held, queued or in flight reads; one read at a time. A read that a
+   * write answer overtook, or that fails, changes nothing.
+   */
+  readonly refresh: () => void;
 };
 
 export type PreferenceControllerOptions = {
@@ -340,7 +346,8 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
   };
   const poke = () => {
     if (!started || !sessionMatches()) return;
-    if (status === 'ready') drainQueued();
+    // A visibility refresh in flight holds relative edits: they apply on the value it brings, then drain (`refresh`).
+    if (status === 'ready') { if (!refreshing) drainQueued(); }
     else if (status === 'failed' && failure !== 'import_too_large') retryNow();
   };
 
@@ -360,13 +367,34 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
     lane.queued.push({ key, apply: edit.apply });
     return true;
   };
-  /** A newer absolute `set`/`remove` of `key` supersedes its held edit; `drainQueued` never calls this, so an earlier queued edit still materializes. */
-  const dropHeld = (key: string) => {
+  /** A newer absolute `set`/`remove` supersedes earlier relative edits of this key; draining relative edits never calls this. */
+  const dropEdits = (key: string) => {
+    lane.queued = lane.queued.filter(edit => edit.key !== key);
     const edit = held.get(key);
     if (!edit) return;
     clearTimeout(edit.timer);
     held.delete(key);
   };
+  let refreshing: AbortController | null = null;
+  const idle = () => pending.size === 0 && sending.size === 0 && !writing && held.size === 0 && lane.queued.length === 0 && lane.writes === 0 && lane.flying.size === 0 && lane.parked.size === 0 && lane.rawTable.size === 0;
+  const refresh = async () => {
+    if (refreshing || !started || status !== 'ready' || !loaded || !idle() || !sessionMatches()) return;
+    const gen = generation;
+    const clock = lane.clock;
+    const own = new AbortController();
+    refreshing = own;
+    let snapshot: PreferencesSnapshot | null = null;
+    try { snapshot = okSnapshot(await adapter.readPreferences(own.signal)); } catch { snapshot = null; } finally { if (refreshing === own) refreshing = null; }
+    // A newer server answer (a patch confirmed meanwhile) or a write still on its way outranks this read; a local edit made meanwhile is still shown over it by `effective`.
+    // Edits queued while the read was in flight apply on the folded value, or on the last known one when the read failed or was outranked; the health never changes here.
+    if (snapshot && !own.signal.aborted && current(gen) && lane.clock === clock && lane.writes === 0) {
+      server = snapshot.values;
+      serverStamp = ++lane.clock;
+      emit();
+    }
+    if (!own.signal.aborted && current(gen) && status === 'ready') drainQueued();
+  };
+
   const notifyQueued = () => {
     if (!started) { if (lane.poke) lane.poke(); return; }
     emit();
@@ -394,8 +422,8 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
       lane.queued.push({ key, apply });
       notifyQueued();
     },
-    set: (key, value) => { dropHeld(key); write(key, { remove: false, value, seq: ++lane.seq }); },
-    remove: key => { dropHeld(key); write(key, { remove: true, seq: ++lane.seq }); },
+    set: (key, value) => { dropEdits(key); write(key, { remove: false, value, seq: ++lane.seq }); },
+    remove: key => { dropEdits(key); write(key, { remove: true, seq: ++lane.seq }); },
     tableKey: ensureHash,
     setTable(rawKey, value) {
       const seq = ++lane.seq;
@@ -434,14 +462,16 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
       generation++;
       abort?.abort();
       abort = null;
+      refreshing?.abort();
+      refreshing = null;
       released = true;
       if (lane.active === adopt) lane.active = null;
       if (lane.receive === receive) lane.receive = null;
       if (lane.poke === poke) lane.poke = null;
-      // A held edit becomes an ordinary intent now (or waits on the lane while the value is unknown): a visit is never lost or sent for another account.
+      // Held edits follow queued predecessors. Without a relative queue, a known value still becomes an intent for detached saving.
       for (const [key, edit] of held) {
         clearTimeout(edit.timer);
-        if (loaded) {
+        if (loaded && lane.queued.length === 0) {
           const seq = ++lane.seq;
           lane.applied.set(key, seq);
           pending.set(key, { remove: false, value: edit.apply(effective(key)), seq });
@@ -454,5 +484,6 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
       releaseIntent(leftover);
     },
     retry: retryNow,
+    refresh: () => { void refresh(); },
   };
 }

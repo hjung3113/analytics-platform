@@ -383,3 +383,64 @@ describe('a held edit and a newer absolute write (#1671)', () => {
     expect(f.server().recents).toEqual(['newer']);
   });
 });
+
+describe('intent order during a delayed refresh (C5)', () => {
+  it.each(['set', 'remove'] as const)('a later %s supersedes queued and held edits of only its key', async kind => {
+    const f = fixture({ importedAt: '2026-10-01T00:00:00Z', server: { favorites: ['old'], lastScope: 'old' } });
+    const c = make(f);
+    c.start();
+    await flushAll();
+    let release!: () => void;
+    f.gate.read = new Promise(resolve => { release = resolve; });
+    c.refresh();
+    expect(f.calls).toEqual(['read', 'read']);
+    try {
+      c.update('favorites', current => [...(current as string[] ?? []), 'queued']);
+      c.update('lastScope', () => 'other-key');
+      c.hold('favorites', current => [...(current as string[] ?? []), 'held'], 60_000);
+      if (kind === 'set') c.set('favorites', ['newer']);
+      else c.remove('favorites');
+      const expected = kind === 'set' ? ['newer'] : undefined;
+      expect.soft(c.get('favorites')).toEqual(expected);
+      expect(c.get('lastScope')).toBe('other-key');
+      await flushAll();
+      expect.soft(f.server().favorites).toEqual(expected);
+      release();
+      await flushAll();
+      expect.soft(c.get('favorites')).toEqual(expected);
+      expect.soft(f.server().favorites).toEqual(expected);
+      expect(f.server().lastScope).toBe('other-key');
+    } finally { release(); c.stop(); }
+  });
+
+  it.each(['restart', 'replacement'] as const)('keeps a held A2 visit after queued A1 through stop and %s', async mode => {
+    const other = { menuId: 'other', url: '/other', at: 1 };
+    const a1 = { menuId: 'A', url: '/a?value=1', at: 2 };
+    const a2 = { menuId: 'A', url: '/a?value=2', at: 3 };
+    const visit = (entry: typeof a1) => (current: JsonValue | undefined): JsonValue => [entry, ...(current as (typeof a1)[] ?? []).filter(row => row.menuId !== entry.menuId)];
+    const f = fixture({ importedAt: '2026-10-01T00:00:00Z', server: { recents: [other] } });
+    const c = make(f);
+    let active = c;
+    c.start();
+    await flushAll();
+    let release!: () => void;
+    f.gate.read = new Promise(resolve => { release = resolve; });
+    c.refresh();
+    expect(f.calls).toEqual(['read', 'read']);
+    try {
+      c.update('recents', visit(a1));
+      c.hold('recents', visit(a2), 60_000);
+      expect(c.get('recents')).toEqual([a2, other]);
+      c.stop();
+      expect.soft(c.get('recents')).toEqual([a2, other]);
+      active = mode === 'restart' ? c : make(f);
+      active.start();
+      release();
+      await flushAll();
+      await flushAll();
+      expect(active.state().status).toBe('ready');
+      expect.soft(active.get('recents')).toEqual([a2, other]);
+      expect.soft(f.server().recents).toEqual([a2, other]);
+    } finally { release(); active.stop(); }
+  });
+});
