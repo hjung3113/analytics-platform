@@ -106,3 +106,65 @@ it('LaneTimeline copy composes the axis, data and overlay canvases into one PNG,
   fireEvent.click(button()!);
   await waitFor(() => expect(drawn).toEqual([axis, data, overlay]));
 });
+
+describe('LaneTimeline image actions without a PlatformProvider (#1953 A)', () => {
+  const bare = (element: React.ReactElement) => render(<I18nProvider>{element}</I18nProvider>);
+  const lane = (props: Partial<React.ComponentProps<typeof LaneTimeline>>) => <LaneTimeline lanes={lanes} ariaLabel="Timeline" {...props} />;
+  const printButton = () => screen.queryByRole('button', { name: '인쇄' });
+
+  it('renders with I18nProvider alone and shows no image action by default', () => {
+    bare(lane({ imageCopy: true, imagePrint: true }));
+    expect(button()).toBeNull();
+    expect(printButton()).toBeNull();
+  });
+
+  it('shows exactly the allowed actions: the prop opts a button in and exportAllowed opens it', () => {
+    bare(lane({ imageCopy: true, imageActions: { exportAllowed: true } }));
+    expect(button()).not.toBeNull();
+    expect(printButton()).toBeNull();
+    cleanup();
+    bare(lane({ imageCopy: true, imagePrint: true, imageActions: { exportAllowed: false } }));
+    expect(button()).toBeNull();
+  });
+
+  it('reports the result to the injected notify, and to a status line when there is none', async () => {
+    const notify = vi.fn();
+    let text = '';
+    bare(lane({ imageCopy: true, imageActions: { exportAllowed: true, notify } }));
+    fireEvent.click(button()!);
+    await waitFor(() => expect(notify).toHaveBeenCalledTimes(1));
+    text = notify.mock.calls[0]![0] as string;
+    expect(screen.queryByText(text)).toBeNull();
+    cleanup();
+    bare(lane({ imageCopy: true, imageActions: { exportAllowed: true } }));
+    fireEvent.click(button()!);
+    expect(await screen.findByText(text)).toBeTruthy();
+  });
+
+  it('print follows the same standalone gate and reports its failure to notify or the status line', async () => {
+    const notify = vi.fn();
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    bare(lane({ imagePrint: true, imageActions: { exportAllowed: true, notify } }));
+    expect(button()).toBeNull();
+    fireEvent.click(printButton()!);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.any(String), 'warning'));
+    cleanup();
+    bare(lane({ imagePrint: true, imageActions: { exportAllowed: true } }));
+    fireEvent.click(printButton()!);
+    await waitFor(() => expect(printButton()!.parentElement!.textContent).toMatch(/[^\s]{2,}/));
+    expect(printButton()!.parentElement!.querySelectorAll('[role="status"]').length).toBeGreaterThan(0);
+  });
+
+  it('inside a platform the menu manifest decides: exportAllowed never opens a closed menu, and notify is not used', async () => {
+    const notify = vi.fn();
+    mount(lane({ imageCopy: true, imagePrint: true, imageActions: { exportAllowed: true, notify } }), false);
+    expect(button()).toBeNull();
+    expect(printButton()).toBeNull();
+    cleanup();
+    mount(lane({ imageCopy: true, imageActions: { exportAllowed: false, notify } }), true);
+    expect(button()).not.toBeNull();
+    fireEvent.click(button()!);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(notify).not.toHaveBeenCalled();
+  });
+});

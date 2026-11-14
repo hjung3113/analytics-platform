@@ -1,27 +1,45 @@
+import { useState } from 'react';
 import { Image as ImageIcon, Printer } from 'lucide-react';
-import { useI18n, useMessages, usePlatform } from '@ap/kernel';
+import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { Button } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { copyChartImage, imageCopyText, imagePrintFailedText, printChartImage } from './chartImageCopy';
 
-/** `이미지 복사`: drawn only under a menu whose manifest enables `features.export` (same gate as Export). Mount it only when the chart's `imageCopy` is true, since it needs a PlatformProvider. */
-export function ChartImageCopyButton({ capture, fileName }: { capture: () => Blob | Promise<Blob>; fileName: string }) {
+/**
+ * Image actions outside a platform (#1953 A). Read only where there is no `PlatformProvider`: inside one, the menu manifest's `features.export` is the only gate
+ * and this is ignored, so a consumer prop never widens a menu's permission. `exportAllowed` defaults to off; `notify` receives the result text
+ * (default: a short status line beside the button).
+ */
+export type ChartImageActionsPolicy = { exportAllowed: boolean; notify?: (text: string, tone?: 'warning') => void };
+
+/** Whether the image actions show, and where their result text goes. */
+function useImageActionGate(standalone: ChartImageActionsPolicy | undefined): { allowed: boolean; say: (text: string, tone?: 'warning') => void; status: string } {
+  const platform = usePlatformOptional();
+  const [status, setStatus] = useState('');
+  if (platform !== null) return { allowed: !!platform.route?.menu.features?.export, say: (text, tone) => { platform.toast(text, tone); }, status: '' };
+  const notify = standalone?.notify;
+  return { allowed: standalone?.exportAllowed === true, say: notify ?? ((text) => setStatus(text)), status };
+}
+const Status = ({ text }: { text: string }) => text === '' ? null : <span role="status" className="t-caption text-text-muted">{text}</span>;
+
+/** `이미지 복사`: drawn under a menu whose manifest enables `features.export` (same gate as Export), or, with no `PlatformProvider`, only when `standalone.exportAllowed` is true. Mount it only when the chart's `imageCopy` is true. */
+export function ChartImageCopyButton({ capture, fileName, standalone }: { capture: () => Blob | Promise<Blob>; fileName: string; standalone?: ChartImageActionsPolicy }) {
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const { route, toast } = usePlatform();
-  if (!route?.menu.features?.export) return null;
-  return <Button variant="ghost" size="toolbar" onClick={() => { void copyChartImage(capture, fileName).then(outcome => toast(imageCopyText(outcome, lang), outcome === 'failed' ? 'warning' : undefined)); }}>
+  const { allowed, say, status } = useImageActionGate(standalone);
+  if (!allowed) return null;
+  return <><Button variant="ghost" size="toolbar" onClick={() => { void copyChartImage(capture, fileName).then(outcome => say(imageCopyText(outcome, lang), outcome === 'failed' ? 'warning' : undefined)); }}>
     <ImageIcon className="size-3.5" aria-hidden />{m('chartCopyImage')}
-  </Button>;
+  </Button><Status text={status} /></>;
 }
 
-/** `인쇄`: the same image and the same `features.export` gate as `ChartImageCopyButton`. `title` is read on click, so a ReactNode heading can pass its rendered text. */
-export function ChartImagePrintButton({ capture, title }: { capture: () => Blob | Promise<Blob>; title: () => string }) {
+/** `인쇄`: the same image and the same gate as `ChartImageCopyButton`. `title` is read on click, so a ReactNode heading can pass its rendered text. */
+export function ChartImagePrintButton({ capture, title, standalone }: { capture: () => Blob | Promise<Blob>; title: () => string; standalone?: ChartImageActionsPolicy }) {
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const { route, toast } = usePlatform();
-  if (!route?.menu.features?.export) return null;
-  return <Button variant="ghost" size="toolbar" onClick={() => { void printChartImage(capture, title()).then(printed => { if (!printed) toast(imagePrintFailedText(lang), 'warning'); }); }}>
+  const { allowed, say, status } = useImageActionGate(standalone);
+  if (!allowed) return null;
+  return <><Button variant="ghost" size="toolbar" onClick={() => { void printChartImage(capture, title()).then(printed => { if (!printed) say(imagePrintFailedText(lang), 'warning'); }); }}>
     <Printer className="size-3.5" aria-hidden />{m('chartPrint')}
-  </Button>;
+  </Button><Status text={status} /></>;
 }

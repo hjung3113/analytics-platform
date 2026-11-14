@@ -54,6 +54,7 @@ export { useCompactPageDensity } from './pageDensity';
 export { QueryBarExtensionContext, QueryBarExtensionsProvider, useQueryBarExtension, type QueryBarExtension } from './filters/QueryBarExtension';
 export { OrderedIntervalTrack } from './chart/OrderedIntervalTrack';
 export { ORDERED_TRACK_RESPONSE_LIMIT, type OrderedIntervalTrackProps, type OrderedTrackLane, type OrderedTrackState, type OrderedTrackItem, type OrderedTrackMarker, type OrderedTrackStatus, type OrderedTrackLoadState } from './chart/orderedIntervalTypes';
+export type { ChartImageActionsPolicy } from './chart/ChartImageCopyButton';
 export { LaneTimeline, type LaneTimelineProps, type LaneTimelineHandle, type TimelineLane, type TimelineSegment, type TimelineOverlay } from './chart/LaneTimeline';
 export { useRangeBrush, RANGE_BRUSH_DRAG_THRESHOLD, type AxisRange, type RangeBrush, type RangeBrushOptions, type RangeBrushKey } from './chart/useRangeBrush';
 export { Inspector, type InspectorProps, type InspectorSection } from './inspector/Inspector';
