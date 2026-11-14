@@ -1100,6 +1100,14 @@ describe('EV ban outside the host slot', () => {
     }
   });
 
+  // #2217: the feature-screens preset enforces the IME Enter guard (test files stay exempt).
+  it.each([['src/x.tsx', true], ['src/x.test.tsx', false]] as const)('apps/feature-screens ap/ime-enter-guard on %s: %s', async (file, reported) => {
+    const cwd = path.join(REPO_ROOT, 'apps/feature-screens');
+    const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: featureScreensPreset });
+    const [result] = await eslint.lintText('export const A = () => <input onKeyDown={e => { if (e.key === \'Enter\') go(); }} />;', { filePath: path.join(cwd, file) });
+    expect((result?.messages ?? []).some((m) => m.ruleId === 'ap/ime-enter-guard'), JSON.stringify(result?.messages, null, 2)).toBe(reported);
+  });
+
   it.each(importForms('@eqv/core'))('apps/platform-api allows @eqv/core ($form) and nothing else of EV', async ({ code }) => {
     const cwd = path.join(REPO_ROOT, 'apps/platform-api');
     const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: featureServerUntypedPreset });

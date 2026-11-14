@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import type { Presentation, RoundDetail, ScreenProps } from '../contracts';
@@ -46,4 +46,20 @@ it('marks completed stages with checks while cancellation invents no completed h
   expect(within(upcoming).getByText('4')).toBeTruthy();
   view.rerender(<StageStepper stage="cancelled" />);
   expect(screen.queryAllByText('완료', { selector: '.sr-only' })).toHaveLength(0);
+});
+
+it('applies the model id on a plain Enter but not on the Enter that confirms a Korean composition', async () => {
+  const p = props(); const user = userEvent.setup(); render(<RequestsScreen {...p} />);
+  await user.click(screen.getByText('추가 필터'));
+  const input = screen.getByLabelText('모델 ID');
+  fireEvent.change(input, { target: { value: '모델' } });
+  fireEvent.keyDown(input, { key: 'Enter', keyCode: 229, isComposing: true });
+  expect(p.setState).not.toHaveBeenCalled();
+  fireEvent.compositionStart(input);
+  fireEvent.compositionEnd(input);
+  fireEvent.keyDown(input, { key: 'Enter', keyCode: 13 });
+  expect(p.setState).not.toHaveBeenCalled();
+  fireEvent.keyDown(input, { key: 'Enter', keyCode: 13 });
+  expect(p.setState).toHaveBeenCalledTimes(1);
+  expect(p.setState).toHaveBeenCalledWith(expect.objectContaining({ modelId: '모델' }));
 });
