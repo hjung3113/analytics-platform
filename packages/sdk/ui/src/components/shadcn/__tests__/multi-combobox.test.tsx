@@ -42,6 +42,26 @@ describe('MultiCombobox', () => {
     expect(screen.getByRole('button', { name: 'Reset items' })).toBeDisabled();
   });
 
+  it('keeps the 40px default and gives the opt-in compact density the 32px toolbar height (#1939)', () => {
+    const { rerender } = render(<Harness />);
+    const field = () => screen.getByRole('button', { name: 'Items' }).closest('div[class*="min-h-"]')!;
+    expect(field().className).toContain('min-h-10');
+    expect(field().className).not.toContain('min-h-8');
+    rerender(<Harness density="compact" />);
+    expect(field().className).toContain('min-h-8');
+  });
+
+  it('shrinks the selected chips and the +N button in compact density so a one-line selection stays 32px (#1939)', () => {
+    const chips = (density?: 'compact') => {
+      render(<Harness density={density} maxVisibleChips={1} />);
+      open();
+      fireEvent.click(screen.getByRole('option', { name: /Alpha/ }));
+      fireEvent.click(screen.getByRole('option', { name: /Gamma/ }));
+      fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+      return [screen.getByRole('button', { name: 'Remove Alpha' }), screen.getByRole('button', { name: 'Selected items 2' })];
+    };
+    for (const button of chips('compact')) { expect(button.className).toContain('h-5'); expect(button.className).not.toContain('h-8'); }
+  });
   it.each(['label', 'aria-labelledby'] as const)('names the dialog with %s and keeps both opening controls aligned across views', naming => {
     const accessibleName = naming === 'label' ? 'Items' : 'External items';
     const namingProps = naming === 'label' ? { label: 'Items' } : { 'aria-labelledby': 'external-items' };

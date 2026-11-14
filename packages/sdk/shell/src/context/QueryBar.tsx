@@ -5,7 +5,7 @@ import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, ty
 import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, queryMissingSentence, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { AccessRequestEntry, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
-import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, readLocalStorage, writeLocalStorage } from '@ap/ui';
+import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, readLocalStorage, writeLocalStorage } from '@ap/ui';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
 import { ShareControl } from './ShareControl';
 
@@ -135,9 +135,9 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
       : notApplied && <span className="text-xs text-text-secondary">{ko ? '아직 조회 조건을 적용하지 않았습니다.' : 'No query conditions have been applied yet.'}</span>}
     <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: day(global.from ?? platform.defaultRangeTo), invalidReference: false }); setRangeSource('revert'); setEditError(null); }}>{ko ? '초안 되돌리기' : 'Revert draft'}</Button>
     <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: day(platform.defaultRangeTo), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{ko ? '조건 초기화' : 'Reset conditions'}</Button>
-    <Button type="button" size="toolbar" disabled={!canApply || reasons.length > 0} aria-describedby={reasonId} onClick={apply}>{ko ? '적용' : 'Apply'}</Button>
     {historySlot}
     {stableView.present && <span ref={stableView.adopt} className="contents" />}
+    <Button type="button" size="toolbar" disabled={!canApply || reasons.length > 0} aria-describedby={reasonId} onClick={apply}>{ko ? '적용' : 'Apply'}</Button>
   </div>;
   const remove = (key: string) => {
     const fields: Record<string, Partial<GlobalContext>> = { time: { from: null, to: null }, roomNames: { roomNames: null }, line: { lineNames: null }, prcGroup: { prcGroups: null }, selection: { selection: null }, lot: { lotIds: null }, ppid: { ppid: null }, recipe: { recipeIds: null }, metric: { metricId: null, metricVersion: null } };
@@ -162,24 +162,19 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     const name = nextPreset?.label[lang] ?? next;
     setPresetNotice({ id: next, text: ko ? `조건 묶음: ${name}.${left ? ` ${left}개 조건은 이 보기에서 미적용입니다.` : ''}` : `Condition set: ${name}.${left ? ` ${left} conditions are not applied in this view.` : ''}` });
   };
-  const content = <div ref={editor} id={`${id}-editor`} className="grid min-w-0 gap-2 p-2" onKeyDown={event => {
+  const content = <div ref={editor} id={`${id}-editor`} className={`grid min-w-0 gap-3 ${inset} pb-2`} onKeyDown={event => {
     // Child Radix popovers handle their first Escape before it reaches this inline surface.
     if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); toggle(false); }
   }}>
-    <fieldset className="min-w-0 rounded-md border border-border-subtle p-2">
-      <legend className="px-1 text-xs font-medium text-text-secondary">{ko ? '기간과 Scope' : 'Period and query scope'}</legend>
-      <div className="flex flex-wrap items-start gap-3">
+    <div role="group" aria-label={ko ? '기간과 Scope' : 'Period and query scope'} className="flex min-w-0 flex-wrap items-start gap-3">
         {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} reportInvalid={() => setEditError(ko ? '유효한 시작·종료 시각을 입력하세요.' : 'Enter valid start and end times.')} />}
         {cap.roomNames === 'apply' && <SetField name={ko ? '공정' : 'Process'} values={g.roomNames} options={scope.status === 'valid' && scope.validatedFor === session ? scope.grantedRooms.map(value => ({ value, label: value })) : []} onChange={roomNames => write({ roomNames })} invalid={invalid('roomNames')} reasonId={reasonId}
           request={roomRequest(g.roomNames, ko ? '공정' : 'Process')} />}
         {cap.line === 'apply' && <AxisField axisId="lineNames" name={tx(CONTEXT_LABELS.line)} values={g.lineNames} context={context} parents={g.roomNames === null ? {} : { roomNames: g.roomNames }} onChange={lineNames => write({ lineNames })} invalid={invalid('line')} reasonId={reasonId} />}
         {cap.prcGroup === 'apply' && <AxisField axisId="prcGroups" name={tx(CONTEXT_LABELS.prcGroup)} values={g.prcGroups} context={context} parents={{ ...(g.roomNames === null ? {} : { roomNames: g.roomNames }), ...(g.lineNames === null ? {} : { lineNames: g.lineNames }) }} onChange={prcGroups => write({ prcGroups })} invalid={invalid('prcGroup')} reasonId={reasonId} />}
-      </div>
-    </fieldset>
-    {(cap.condition === 'apply' || cap.selection === 'apply' || cap.prcGroup === 'apply') && <fieldset className="min-w-0 rounded-md border border-border-subtle p-2">
-      <legend className="px-1 text-xs font-medium text-text-secondary">{ko ? '설비 조건' : 'Equipment conditions'}</legend>
-      <div className="flex flex-wrap items-start gap-3">
-        {switcher && <div className="grid basis-full gap-1 text-xs text-text-secondary">
+    </div>
+    {(cap.condition === 'apply' || cap.selection === 'apply' || cap.prcGroup === 'apply') && <div role="group" aria-label={ko ? '설비 조건' : 'Equipment conditions'} className="flex min-w-0 flex-wrap items-start gap-3">
+        {switcher && <div className="grid gap-1 text-xs text-text-secondary">
           <span id={`${id}-preset`}>{ko ? '조건 묶음' : 'Condition set'}</span>
           <SegmentedRadio label={ko ? '조건 묶음' : 'Condition set'} labelledBy={`${id}-preset`} value={switcher.activeId} onChange={switchPreset} options={switcher.presets.map(item => ({ value: item.id, label: item.label[lang] }))} />
           <p role="status" className="sr-only">{presetNotice.id === switcher.activeId ? presetNotice.text : ''}</p>
@@ -189,15 +184,24 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
           if (values?.length) next[axis.id] = values; else delete next[axis.id];
           write({ condition: Object.keys(next).length ? next : null });
         }} />)}
-        {(cap.condition === 'apply' || cap.prcGroup === 'apply') && <div className="grid min-w-48 gap-1 text-xs text-text-secondary">
-          <span>{ko ? '소속 기준' : 'Membership'}</span>
-          <Button type="button" size="toolbar" variant="secondary" aria-pressed={g.membershipBasis === null} onClick={() => write({ membershipBasis: null })}>{ko ? '지금 소속' : 'Current membership'}</Button>
-          <Button type="button" size="toolbar" variant="secondary" disabled={!history} aria-pressed={g.membershipBasis === 'asOf'} aria-describedby={!history ? `${id}-history` : undefined} onClick={() => write({ membershipBasis: 'asOf' })}>{t('membershipAsOf')}</Button>
+        {(cap.condition === 'apply' || cap.prcGroup === 'apply') && <div className="grid w-80 max-w-full gap-1 text-xs text-text-secondary">
+          <span id={`${id}-membership`}>{ko ? '소속 기준' : 'Membership'}</span>
+          {/* SegmentedRadio uses these primitives too, but cannot disable just the historical option. */}
+          <RadioGroup appearance="segmented" orientation="horizontal" aria-labelledby={`${id}-membership`} value={g.membershipBasis ?? 'current'} onValueChange={value => write({ membershipBasis: value === 'asOf' ? 'asOf' : null })} onKeyDownCapture={event => {
+            // Match SegmentedRadio's synchronous focus/selection, skipping the unavailable historical choice.
+            if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const next = !history || event.key === 'Home' ? null : event.key === 'End' ? 'asOf' : g.membershipBasis === 'asOf' ? null : 'asOf';
+            write({ membershipBasis: next });
+            event.currentTarget.querySelector<HTMLButtonElement>(next === 'asOf' ? 'button[value="asOf"]' : 'button[value="current"]')?.focus();
+          }}>
+            <RadioGroupItem appearance="segmented" value="current">{ko ? '지금 소속' : 'Current membership'}</RadioGroupItem>
+            <RadioGroupItem appearance="segmented" value="asOf" disabled={!history} aria-describedby={!history ? `${id}-history` : undefined}>{t('membershipAsOf')}</RadioGroupItem>
+          </RadioGroup>
           {!history && <p id={`${id}-history`}>{ko ? '설비 조건이나 PRC 그룹을 선택하고 소속 이력을 확인하세요.' : 'Select equipment conditions or a PRC group with membership history.'}</p>}
         </div>}
         {cap.selection === 'apply' && <EquipmentField context={context} values={g.selection} onChange={selection => write({ selection })} invalid={invalid('selection')} reasonId={reasonId} />}
-      </div>
-    </fieldset>}
+    </div>}
     {carried.length > 0 && <div role="group" aria-label={ko ? '전달된 조건' : 'Carried conditions'} className="flex flex-wrap gap-2 text-xs">
       {carried.map(item => <span key={item.key} className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md border border-border-subtle p-2 [overflow-wrap:anywhere]">
         {item.label} {item.value} · {item.key.startsWith('condition:') && outside.includes(item.key.slice('condition:'.length)) ? (ko ? `${presetName}에서 미적용` : `not applied in ${presetName}`) : item.capability === 'unsupported' ? t('notUsed') : item.capability === 'reference' ? t('referenceOnly') : ko ? '적용' : 'Applied'}
@@ -239,9 +243,11 @@ type SetFieldProps = { name: string; values: IdSet; options: { value: string; la
 function SetField({ name, values, onChange, invalid, reasonId, request, ...props }: SetFieldProps & Partial<Pick<ComponentProps<typeof MultiCombobox>, 'getLabel' | 'search' | 'onSearchChange' | 'loading' | 'error' | 'onRetry' | 'hasMore' | 'onLoadMore'>>) {
   const { lang, t } = useI18n();
   const ko = lang === 'ko';
-  return <div className="grid w-56 min-w-0 max-w-full gap-1 text-xs text-text-secondary">
+  return <div className="grid w-44 min-w-0 max-w-full gap-1 text-xs text-text-secondary">
     <span>{name}</span>
-    <MultiCombobox {...props} label={name} clearAction={values === null ? undefined : { label: ko ? `${name} 전체로 되돌리기` : `Reset ${name} to all`, onClear: () => onChange(null) }} values={values ?? []} onValuesChange={onChange} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} listboxLabel={name} emptyText={ko ? '후보 없음' : 'No candidates'} placeholder={values === null ? (ko ? '전체' : 'All') : values.length === 0 ? (ko ? '명시적 빈 선택' : 'Explicit empty selection') : undefined} selectedSummaryLabel={count => ko ? `선택한 항목 ${count}개` : `${count} selected items`} moreLabel={ko ? '더 보기' : 'Load more'} clearAllLabel={ko ? '선택 모두 비우기' : 'Clear selection'} removeLabel={value => `${t('clear')} ${value}`} loadingText={ko ? '후보 확인 중' : 'Loading candidates'} retryLabel={t('retry')} />
+    <div className="rounded-md bg-surface-card">
+      <MultiCombobox {...props} density="compact" label={name} clearAction={values === null ? undefined : { label: ko ? `${name} 전체로 되돌리기` : `Reset ${name} to all`, onClear: () => onChange(null) }} values={values ?? []} onValuesChange={onChange} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} listboxLabel={name} emptyText={ko ? '후보 없음' : 'No candidates'} placeholder={values === null ? (ko ? '전체' : 'All') : values.length === 0 ? (ko ? '명시적 빈 선택' : 'Explicit empty selection') : undefined} selectedSummaryLabel={count => ko ? `선택한 항목 ${count}개` : `${count} selected items`} moreLabel={ko ? '더 보기' : 'Load more'} clearAllLabel={ko ? '선택 모두 비우기' : 'Clear selection'} removeLabel={value => `${t('clear')} ${value}`} loadingText={ko ? '후보 확인 중' : 'Loading candidates'} retryLabel={t('retry')} />
+    </div>
     {request && <div className="flex flex-wrap items-center gap-1">{request}</div>}
   </div>;
 }
@@ -295,7 +301,8 @@ function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, re
     { label: ko ? '최근 7일' : 'Last 7 days', pressed: ends(168), apply: () => { if (defaultRangeTo === null) return; setMode('range'); write({ from: shift(defaultRangeTo, -168), to: defaultRangeTo }); } },
     { label: ko ? '오늘' : 'Today', pressed: defaultRangeTo !== null && g.from === `${defaultRangeTo.slice(0, 10)}T00:00:00` && hours === 24, apply: () => { if (defaultRangeTo !== null) date(defaultRangeTo.slice(0, 10)); } },
   ];
-  return <div className="grid min-w-0 flex-1 basis-full gap-1 text-xs text-text-secondary" role="group" aria-label={ko ? '기간' : 'Period'}>
+  return <div className="grid min-w-0 max-w-full gap-1 text-xs text-text-secondary" role="group" aria-label={ko ? '기간' : 'Period'}>
+    <span className="flex flex-wrap items-baseline gap-x-2">{ko ? '기간' : 'Period'}<span className="[overflow-wrap:anywhere]">{formatPeriod(g.from, g.to, lang)}</span></span>
     <div className="flex flex-wrap items-center gap-1">
       {presets.map(p => <Button key={p.label} type="button" size="toolbar" variant={p.pressed ? 'secondary' : 'ghost'} aria-pressed={p.pressed} disabled={defaultRangeTo === null} onClick={p.apply}>{p.label}</Button>)}
       {/* Presets pick a range, the pair picks how to type one: a divider keeps two pressed buttons from reading as one choice. */}
@@ -303,10 +310,9 @@ function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, re
       <Button type="button" size="toolbar" variant={mode === 'reference' ? 'secondary' : 'ghost'} aria-pressed={mode === 'reference'} onClick={() => setMode('reference')}>{ko ? '기준일' : 'Reference date'}</Button>
       <Button type="button" size="toolbar" variant={mode === 'range' ? 'secondary' : 'ghost'} aria-pressed={mode === 'range'} onClick={() => setMode('range')}>{ko ? '직접 범위' : 'Custom range'}</Button>
     </div>
-    {mode === 'reference' ? <Input type="date" aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} aria-label={ko ? '기준일' : 'Reference date'} value={reference} onChange={event => date(event.target.value)} /> : <div className="flex flex-wrap gap-2">
-      <Input type="datetime-local" step="1" aria-label={ko ? '시작 시각' : 'From'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.from} onChange={event => custom('from', event.target.value)} className="min-w-64 flex-1" />
-      <Input type="datetime-local" step="1" aria-label={ko ? '종료 시각 (제외)' : 'To (exclusive)'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.to} onChange={event => custom('to', event.target.value)} className="min-w-64 flex-1" />
+    {mode === 'reference' ? <Input type="date" aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} aria-label={ko ? '기준일' : 'Reference date'} value={reference} onChange={event => date(event.target.value)} className="w-44 max-w-full" /> : <div className="flex flex-wrap gap-2">
+      <Input type="datetime-local" step="1" aria-label={ko ? '시작 시각' : 'From'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.from} onChange={event => custom('from', event.target.value)} className="w-64 max-w-full" />
+      <Input type="datetime-local" step="1" aria-label={ko ? '종료 시각 (제외)' : 'To (exclusive)'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.to} onChange={event => custom('to', event.target.value)} className="w-64 max-w-full" />
     </div>}
-    <span className="[overflow-wrap:anywhere]">{formatPeriod(g.from, g.to, lang)}</span>
   </div>;
 }
