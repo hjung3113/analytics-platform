@@ -12,7 +12,7 @@
 #       files changed since merge-base(HEAD, <ref>). The Biome gate diffs
 #       committed history, so the checkout needs full history and <ref>.
 #   bash ops/platform-api/scripts/ci/gate.sh unit
-#       vitest for apps/frontend, packages/ui and packages/shared. The backend
+#       vitest for @ap/feature-screens, @ap/feature-ui and @ap/feature-shared. The backend
 #       suite runs in `integration`, where its DB-backed suites are live.
 #   bash ops/platform-api/scripts/ci/gate.sh integration
 #       bootstraps a throwaway Postgres from ops/platform-api/scripts/db/init.sql, migrates it, and
@@ -56,6 +56,7 @@ stage_static_extra() {
   step node "$FEATURE_OPS/scripts/test-integration.test.mjs"
   step node "$FEATURE_OPS/scripts/release/release-identity.test.mjs"
   step node "$FEATURE_OPS/scripts/release/production-preflight.test.mjs"
+  step node --test "$FEATURE_OPS/scripts/release/slow-query.test.mjs"
   step node --test "$FEATURE_OPS/scripts/release/menu-assembly.test.mjs"
   step node "$FEATURE_OPS/edge/nginx.test.mjs"
   step node "$FEATURE_OPS/scripts/db/cutover-0076.test.mjs"

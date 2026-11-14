@@ -150,7 +150,7 @@ jobs:
           # #2029: a cached test that reads another package's files must hash them, or a stale cache passes.
           node .github/scripts/check-turbo-cross-reads.mjs
           node .github/scripts/check-turbo-cross-reads.mjs --self-test
-          node --test .github/scripts/check-unified-ci.test.mjs
+          node --test .github/scripts/check-unified-ci.test.mjs .github/scripts/check-ci-scope.test.mjs
           # #1884: the scripts that decide which gates run are tested here too (node builtins and bash only, seconds).
           node .github/scripts/classify-changes.mjs --self-test
           node .github/scripts/select-e2e.mjs --self-test
@@ -414,10 +414,8 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Not a required check (OPS-01, #1266 b1a): builds the release images from a clean context so a missing workspace manifest,
-  # source or emitted export fails here instead of on the host. It runs on every code change but the steps start only when a
-  # PR touches an image input (Dockerfile, .dockerignore, lockfile/workspace files, a closure package, ops scripts the
-  # image COPYs); push and manual runs always build. No push, no credentials.
+  # Not a required check (OPS-01, #1266 b1a): builds release images on code pushes and manual runs, never PRs (#1931).
+  # A clean context catches missing workspace manifests, sources and emitted exports before deployment. No push, no credentials.
   backend-images:
     name: Backend images (docker build)
     needs: changes
@@ -428,25 +426,8 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - id: gate
-        env:
-          EVENT: ${{ github.event_name }}
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          if [ "$EVENT" = pull_request ] && git diff --no-renames --name-only "$BASE" "$HEAD" > changed.txt; then
-            if grep -Eq '^(apps/platform-api/|packages/(sdk/contracts|sdk/contract-schemas|adapters/http-adapter|adapters/server-conformance|feature-shared)/|tooling/(eslint|tsconfig)/|ops/platform-api/|patches/|\.dockerignore$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.github/workflows/ci\.yml$)' changed.txt; then
-              echo "run=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "run=false" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
-      - if: ${{ steps.gate.outputs.run == 'true' }}
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
       - name: Build runtime image
-        if: ${{ steps.gate.outputs.run == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -458,7 +439,6 @@ jobs:
           cache-from: type=gha,scope=backend-image
           cache-to: type=gha,scope=backend-image,mode=max
       - name: Build migrate image
-        if: ${{ steps.gate.outputs.run == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -471,7 +451,6 @@ jobs:
       # Every @ap/* package the server imports at runtime (apps/platform-api/src, non-test) must resolve to emitted JS in the
       # runtime image, and the runtime image must not carry dev dependencies.
       - name: Runtime image resolves workspace imports
-        if: ${{ steps.gate.outputs.run == 'true' }}
         run: |
           docker run --rm --entrypoint node platform-api-runtime:ci --input-type=module -e "
             const cs = await import('@ap/contract-schemas');
@@ -518,9 +497,9 @@ jobs:
           pnpm sdk:pack --out "$out"
           node tooling/sdk/sdk-upgrade-gate.mjs "$out"
 
-  # The self-test packs the tree at two versions and replays the whole sequence (about 35 minutes measured on the host), so it
-  # runs in its own job and only when the gate's own files change, or on a push to the base branch. The job always runs and skips
-  # its steps, so the required verdict can still demand `success`.
+  # The self-test packs two versions and replays the upgrade sequence. Never runs on PRs (#1931).
+  # On push, steps run only when the gate's own files changed in before..sha; unknown diffs and manual runs run them.
+  # An unrelated push skips steps but succeeds, preserving the required aggregate verdict.
   sdk-upgrade-gate-selftest:
     name: SDK upgrade gate self-test
     needs: [changes, platform-static]
@@ -536,10 +515,24 @@ jobs:
           fetch-depth: 0
       - name: Scope
         id: scope
+        env:
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          if git diff --name-only "origin/$GITHUB_BASE_REF...HEAD" | grep -Eq '^(tooling/sdk/sdk-upgrade-gate|tooling/sdk/sdk-bundle-check\.mjs|tooling/sdk/previous-bundle\.json|apps/platform-e2e/(playwright\.kit\.config|tests-kit/))'; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "run=false" >> "$GITHUB_OUTPUT"; fi
+          if [ "$GITHUB_EVENT_NAME" != push ] || [ -z "$BEFORE" ] || [ -z "$SHA" ] || [[ "$BEFORE" =~ ^0+$ ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if ! git diff --no-renames --name-only "$BEFORE" "$SHA" > changed.txt; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if grep -Eq '^(tooling/sdk/sdk-upgrade-gate|tooling/sdk/sdk-bundle-check\.mjs|tooling/sdk/previous-bundle\.json|apps/platform-e2e/(playwright\.kit\.config|tests-kit/))' changed.txt; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ "$?" -eq 1 ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: pnpm/action-setup@v6
         if: ${{ steps.scope.outputs.run == 'true' }}
       - uses: actions/setup-node@v5
@@ -579,7 +572,7 @@ jobs:
   # #666: the contract suite (~600 s of tests on one worker) runs as Playwright shards in parallel. Each shard starts
   # its own dev server and runs its contiguous slice serially (fullyParallel + workers: 1), so evidence stays in contract
   # order. A whole run uses 8 shards (e2e_total, #1931: Playwright splits by test count, and the slow board tests clump in shard 1; 4 left it near 12 min, 6 near 10); a selected-spec run (#1019) is one shard with the spec list appended.
-  # Empty outputs (`changes` failed) fall back to the whole run: 4 shards, no spec list, base-path run.
+  # Empty outputs (`changes` failed) fall back to the whole run: 8 shards, no spec list, base-path run; kit runs only outside PRs (#1931).
   platform-contracts-e2e-shard:
     name: Platform contracts (E2E shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '8' }})
     needs: changes
