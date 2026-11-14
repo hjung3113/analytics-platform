@@ -7,7 +7,7 @@ import { hwTimeMock } from './index';
 
 const context = {
   scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00',
-  roomNames: ['PHOTO'], condition: null, membershipBasis: null, selection: null, ppid: null, recipeIds: null,
+  roomNames: ['PHOTO'], condition: null, membershipBasis: null, selection: null,
 };
 
 const menu: MenuMeta = {
@@ -18,7 +18,7 @@ const menu: MenuMeta = {
   path: '/hw-time/steps',
   permission: menuPermission('analytics:view'),
   requiresScope: true,
-  context: contextCapabilities({ time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply' }),
+  context: contextCapabilities({ time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'unsupported', recipe: 'unsupported' }),
   pageType: 'analysis',
   features: { export: false, savedView: false, annotate: false, compare: false },
   pageKeys: [],

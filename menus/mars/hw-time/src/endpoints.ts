@@ -56,9 +56,9 @@ export function isHwTimeTrendId(value: unknown): value is string {
 }
 
 const PERMISSION = menuPermission('analytics:view');
-/** Match the applied Context used by the analytics productivity endpoints. */
+/** Applied Context for the four HW Time menus. Values are synthetic with no Job axis, so ppid/recipe are unsupported (#2072). */
 export const HW_TIME_CONTEXT = {
-  time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply',
+  time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply',
 } as const;
 const common = {
   menuId: 'hw-time-steps', permission: PERMISSION, requiresScope: true,

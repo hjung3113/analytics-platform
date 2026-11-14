@@ -225,6 +225,62 @@ describe('productivity-overview endpoint smoke', () => {
   });
 });
 
+describe('productivity-overview applies PPID·Recipe to the job population', () => {
+  it.each([
+    ['recipe', { recipeIds: ['RCP-A'] }],
+    ['ppid', { ppid: 'PPID-100' }],
+  ])('%s filter narrows KPI job-derived values, not equipment counts', async (_name, applied) => {
+    const base = await adapter.menuQuery({ endpoint: kpisEndpoint.id, context, params: {} });
+    const filtered = await adapter.menuQuery({ endpoint: kpisEndpoint.id, context: { ...context, ...applied }, params: {} });
+    expect(base.outcome).toBe('ok');
+    expect(filtered.outcome).toBe('ok');
+    const b = (base.data as KpisData).current;
+    const f = (filtered.data as KpisData).current;
+    expect(f.throughput.jobs).toBeLessThan(b.throughput.jobs);
+    expect(f.cycle.jobs).toBeLessThan(b.cycle.jobs);
+    expect(f.equipmentCount).toBe(b.equipmentCount);
+    expect(f.knownBuckets).toBe(b.knownBuckets);
+    // The previous-period comparison is filtered too, like the current period.
+    const bp = (base.data as KpisData).previous;
+    const fp = (filtered.data as KpisData).previous;
+    expect(fp?.throughput.jobs ?? 0).toBeLessThan(bp?.throughput.jobs ?? Number.POSITIVE_INFINITY);
+  });
+
+  it('a recipe filter shrinks the trend bucket job counts', async () => {
+    const params = { kpi: 'throughput', granularity: 'hour' };
+    const base = await adapter.menuQuery({ endpoint: trendEndpoint.id, context, params });
+    const filtered = await adapter.menuQuery({ endpoint: trendEndpoint.id, context: { ...context, recipeIds: ['RCP-A'] }, params });
+    expect(base.outcome).toBe('ok');
+    expect(filtered.outcome).toBe('ok');
+    const filteredJobs = (filtered.data as TrendData).current.reduce((total, bucket) => total + (bucket.jobs ?? 0), 0);
+    const baseJobs = (base.data as TrendData).current.reduce((total, bucket) => total + (bucket.jobs ?? 0), 0);
+    expect(filteredJobs).toBeLessThan(baseJobs);
+    expect((filtered.data as TrendData).equipmentCount).toBe((base.data as TrendData).equipmentCount);
+  });
+
+  it('breakdown and attention rows follow the ppid filter', async () => {
+    const applied = { ppid: 'PPID-100' };
+    const baseRows = await adapter.menuQuery({ endpoint: breakdownEndpoint.id, context, params: { axis: 'stgroup' } });
+    const filteredRows = await adapter.menuQuery({ endpoint: breakdownEndpoint.id, context: { ...context, ...applied }, params: { axis: 'stgroup' } });
+    expect(baseRows.outcome).toBe('ok');
+    expect(filteredRows.outcome).toBe('ok');
+    expect((filteredRows.data as BreakdownRow[]).reduce((total, row) => total + row.jobs, 0))
+      .toBeLessThan((baseRows.data as BreakdownRow[]).reduce((total, row) => total + row.jobs, 0));
+
+    const baseAttention = await adapter.menuQuery({ endpoint: attentionEndpoint.id, context, params: {} });
+    const filteredAttention = await adapter.menuQuery({ endpoint: attentionEndpoint.id, context: { ...context, ...applied }, params: {} });
+    expect(baseAttention.outcome).toBe('ok');
+    expect(filteredAttention.outcome).toBe('ok');
+    expect((filteredAttention.data as AttentionRow[]).reduce((total, row) => total + row.jobs, 0))
+      .toBeLessThan((baseAttention.data as AttentionRow[]).reduce((total, row) => total + row.jobs, 0));
+  });
+
+  it('a Lot value never reaches the reads: lot is not an applied key', async () => {
+    const response = await adapter.menuQuery({ endpoint: kpisEndpoint.id, context: { ...context, lotIds: ['LOT-20260925-MEM-PHOTO-09-1'] }, params: {} });
+    expect(response.outcome).toBe('error');
+  });
+});
+
 describe('Trust.sourceLogicVersions fixture (parser logic cutover)', () => {
   const cutover = LOGIC_CUTOVER;
   const before = shift(cutover, -6);

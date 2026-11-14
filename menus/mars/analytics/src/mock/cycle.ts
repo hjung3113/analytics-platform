@@ -5,6 +5,7 @@
  */
 import { bucketStart, formatDateTime, parseDateTime, shift, sortAndPage, sortRows, type GlobalContext } from '@ap/contracts';
 import { cycleMinutes, defineMockEndpoint, EQUIPMENT, findJobByAnchor, jobPercentile, jobsInPeriod, type AnyMockEndpoint, type Equipment, type Job } from '@ap/mock-server';
+import { jobsFor } from './job-context';
 import { sourceLogicVersionsFor } from './productivity';
 import {
   BINS, binIndex, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, cycleTrendEndpoint,
@@ -63,12 +64,7 @@ export function trendOf(rows: Execution[], from: string, to: string, granularity
 /** Scope-resolved equipment × applied period × lot/ppid/recipe. Does not apply page filters. */
 export function population(equipment: Equipment[], global: GlobalContext, version = '3'): Execution[] {
   if (!global.from || !global.to) return [];
-  return jobsInPeriod(equipment, global.from, global.to).filter(job => {
-    if (global.lotIds !== null && !global.lotIds.includes(job.lotId)) return false;
-    if (global.recipeIds !== null && !global.recipeIds.includes(job.recipe)) return false;
-    if (global.ppid !== null && job.ppid !== global.ppid) return false;
-    return true;
-  }).map(job => executionFromJob(job, version));
+  return jobsFor(equipment, global.from, global.to, global, true).map(job => executionFromJob(job, version));
 }
 
 export function slowExecutions(

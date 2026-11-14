@@ -22,7 +22,7 @@ describe('screen 11 and 12 share one job population', () => {
     ];
     for (const { equipment, from, to } of cases) {
       const jobs = jobsInPeriod(equipment, from, to);
-      const kpi = computeKpis(equipment, from, to);
+      const kpi = computeKpis(equipment, from, to, emptyGlobal);
       const v3 = population(equipment, { ...emptyGlobal, from, to }, '3');
       const v4 = population(equipment, { ...emptyGlobal, from, to }, '4');
       expect(jobs.length).toBeGreaterThan(0);
@@ -36,7 +36,7 @@ describe('screen 11 and 12 share one job population', () => {
 
   it('matches v4 P50/P95 and keeps v3 minutes different', () => {
     const equipment = mem('PHOTO').slice(0, 2);
-    const kpi = computeKpis(equipment, FROM, TO);
+    const kpi = computeKpis(equipment, FROM, TO, emptyGlobal);
     const v4 = population(equipment, { ...emptyGlobal, from: FROM, to: TO }, '4');
     const v3 = population(equipment, { ...emptyGlobal, from: FROM, to: TO }, '3');
     expect(percentile(v4.map(row => row.cycleMin), 0.5)).toBe(kpi.cycle.p50);
@@ -47,9 +47,9 @@ describe('screen 11 and 12 share one job population', () => {
 
   it('sums the same jobs at hour, day, and week', () => {
     const equipment = mem('PHOTO').slice(0, 3);
-    const kpi = computeKpis(equipment, FROM, TO);
+    const kpi = computeKpis(equipment, FROM, TO, emptyGlobal);
     for (const grain of ['hour', 'day', 'week'] as const) {
-      const total = trendBuckets(equipment, FROM, TO, grain).reduce((sum, bucket) => sum + (bucket.jobs ?? 0), 0);
+      const total = trendBuckets(equipment, FROM, TO, grain, emptyGlobal).reduce((sum, bucket) => sum + (bucket.jobs ?? 0), 0);
       expect(total).toBe(kpi.throughput.jobs);
     }
   });
