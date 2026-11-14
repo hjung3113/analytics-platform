@@ -301,7 +301,7 @@ describe('Context 막대 그리기 조건 (#1944 4번)', () => {
     expect(screen.queryByRole('region', { name: '전역 Context' })).toBeNull();
     cleanup();
     mount('&roomNames=PHOTO');
-    expect(within(bar()).getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: '공정 PHOTO' })).toBeVisible();
   });
 });
 
