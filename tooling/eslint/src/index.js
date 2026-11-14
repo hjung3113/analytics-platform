@@ -703,8 +703,8 @@ export const tooling = [
 const eqvBanOnlyFor = (allowEqvPackages = []) => ({
   files: ['**/*.{ts,tsx,js,mjs}'],
   // One `ap` plugin per preset array: flat config rejects a second definition of the same plugin name. The screens-only
-  // `no-browser-random-uuid`, `require-api-path` and `ime-enter-guard` are registered here (dormant — no preset enables them) so
-  // `featureScreensPreset` can enable them without redefining `ap`.
+  // `no-browser-random-uuid`, `require-api-path` and `ime-enter-guard` are registered here (dormant in every other feature preset)
+  // so `featureScreensPreset` can enable them without redefining `ap`.
   plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource, 'no-browser-random-uuid': noBrowserRandomUuid, 'require-api-path': requireApiPath, 'ime-enter-guard': imeEnterGuard } } },
   rules: {
     'no-restricted-imports': ['error', { patterns: [{ regex: eqvRegex([], allowEqvPackages), message: EQV_MESSAGE }] }],

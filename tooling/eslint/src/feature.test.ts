@@ -297,6 +297,7 @@ describe('feature screens preset: the UI rules plus the restyled-component check
     const field = "import { Input } from '@ap/ui';\nexport const A = ({ go }: { go: () => void }) => <Input onKeyDown={e => { if (e.key === 'Enter') go(); }} />;\n";
     expect(await lint(SCREENS, 'src/probe.tsx', field)).toContain('ap/ime-enter-guard');
     expect(await lint(SCREENS, 'src/__tests__/probe.test.tsx', field)).not.toContain('ap/ime-enter-guard');
+    expect(await lint(UI, 'src/probe.tsx', field, featureUiPreset)).not.toContain('ap/ime-enter-guard');
   }, 60_000);
 
   it('allows safe randomUUID uses: feature detection, non-browser receivers, other properties (#2017)', async () => {
