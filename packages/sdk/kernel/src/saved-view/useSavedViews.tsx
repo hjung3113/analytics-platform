@@ -78,6 +78,13 @@ const entryOf = (item: SavedViewListItem | null | undefined): SavedViewEntry | n
  * Host hook of the Saved View selector (`@ap/kernel/host`, shell): list/save/restore over the injected store, the selected view of this tab and the
  * three change states. Inactive without a store, a `features.savedView` menu and its registered support.
  */
+/** The arrived address is rebuilt as the visible pairs, then the hidden ones (ADR-0105); the expected one must be in that order too. */
+function arrivalHref(page: readonly (readonly [string, string])[], from: Pick<ReturnType<typeof useHostPlatform>, 'route' | 'pathname' | 'global' | 'extras'>): string {
+  const hidden = from.route?.menu.hiddenPageKeys ?? [];
+  const pairs = page.map(([key, value]): Pair => [key, value]);
+  return from.pathname + buildQuery(from.global, [...pairs.filter(([key]) => !hidden.includes(key)), ...pairs.filter(([key]) => hidden.includes(key))], from.extras);
+}
+
 export function useSavedViews(): SavedViews {
   const host = useHostPlatform();
   const app = useContext(AppContext);
@@ -161,12 +168,6 @@ export function useSavedViews(): SavedViews {
     setFresh({ gen, entry: arrival.entry });
     setSelected(arrival.entry.view.id);
   }, [arrivingSelection, gen, host.pathname, host.global, host.page, host.extras, setSelected]);
-
-  const arrivalHref = (page: readonly (readonly [string, string])[], from: typeof host) => {
-    const hidden = from.route?.menu.hiddenPageKeys ?? [];
-    const pairs = page.map(([key, value]): Pair => [key, value]);
-    return from.pathname + buildQuery(from.global, [...pairs.filter(([key]) => !hidden.includes(key)), ...pairs.filter(([key]) => hidden.includes(key))], from.extras);
-  };
 
   const apply = useCallback(async (id: string, source: 'selected' | 'default'): Promise<SelectOutcome> => {
     if (!enabled || !support || blocked || stale(gen)) return { ok: false, reason: 'unavailable' };
