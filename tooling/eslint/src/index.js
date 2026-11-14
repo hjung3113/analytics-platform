@@ -14,6 +14,7 @@ import noShellIdLiteralComparison from './no-shell-id-literal-comparison.js';
 import noLangCopyTernary from './no-lang-copy-ternary.js';
 import noColorVarShorthand from './no-color-var-shorthand.js';
 import noBrowserRandomUuid from './no-browser-random-uuid.js';
+import imeEnterGuard from './ime-enter-guard.js';
 import requireApiPath from './require-api-path.js';
 import { featureServer, featureShared, featureUi, featureScreenPaths } from './feature.js';
 
@@ -331,6 +332,7 @@ function layerConfig({ restriction, extraRules = {} }) {
           'no-shell-id-literal-comparison': noShellIdLiteralComparison,
           'no-lang-copy-ternary': noLangCopyTernary,
           'no-color-var-shorthand': noColorVarShorthand,
+          'ime-enter-guard': imeEnterGuard,
         },
       },
     },
@@ -426,6 +428,11 @@ const REACT_HOOKS = {
 // only `ignores` is global, so no rule and no inline directive of the emitted files is evaluated.
 const BUILD_OUTPUT = { ignores: ['dist/**'] };
 
+// #2215: a text field's Enter handler goes through useImeEnterGuard().isComposingEnter (rule source: ime-enter-guard.js), so
+// the Enter that confirms a Korean composition never selects or commits. On in the UI-drawing presets ui, components, shell,
+// menu and app; the EV menus and feature screens turn it on once their handlers are fixed (#2216 and its feature sibling).
+const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
+
 /** @type {import('eslint').Linter.Config[]} */
 export const contracts = [
   BUILD_OUTPUT,
@@ -450,6 +457,7 @@ export const ui = [
   BUILD_OUTPUT,
   layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false, allowRadix: true } }),
   designSystem({ componentSource: true }),
+  IME_ENTER_GUARD,
 ];
 
 // #2174: ko/en copy lives in a message table, not a language ternary (rule source: no-lang-copy-ternary.js). Tests may
@@ -476,6 +484,7 @@ export const components = [
   layerConfig({ restriction: COMPONENTS_RESTRICTION }),
   testEntryOverride(COMPONENTS_RESTRICTION),
   LANG_COPY,
+  IME_ENTER_GUARD,
   // Shared components are assembled from ui primitives (06 §13) and may not restyle them; their own markup is not a
   // design-system component here (relative imports never match componentImports), so it styles freely with tokens.
   designSystem(),
@@ -491,6 +500,7 @@ export const shell = [
   }),
   testEntryOverride(SHELL_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
   designSystem(),  LANG_COPY,
+  IME_ENTER_GUARD,
 ];
 
 // Host assembly package (#1702, host-entry-contract §3): sits above the shell and is domain-free, so it sees exactly the SDK layers
@@ -589,7 +599,7 @@ const menuMockOverride = {
   },
 };
 
-const menuPreset = (restriction) => [
+const menuPreset = (restriction, { imeEnterGuard = true } = {}) => [
   REACT_HOOKS,
   layerConfig({
     restriction,
@@ -601,6 +611,7 @@ const menuPreset = (restriction) => [
   testEntryOverride(restriction, ABOVE_COMPONENTS_TEST_ENTRIES),
   menuMockOverride,
   designSystem(),
+  ...(imeEnterGuard ? [IME_ENTER_GUARD] : []),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -611,7 +622,7 @@ export const menu = menuPreset(MENU_RESTRICTION);
  * so subpaths such as `@eqv/ui/styles.css` stay banned; `src/mock/**` keeps the plain menu mock policy and may not import `@eqv/core`.
  * @type {import('eslint').Linter.Config[]}
  */
-export const eqvMenu = menuPreset({ ...MENU_RESTRICTION, allowEqv: EQV_MENU_ENTRIES, eqvMessage: EQV_MENU_MESSAGE });
+export const eqvMenu = menuPreset({ ...MENU_RESTRICTION, allowEqv: EQV_MENU_ENTRIES, eqvMessage: EQV_MENU_MESSAGE }, { imeEnterGuard: false });
 
 /**
  * `menu` plus the one feature entry the bridge menu (menu-my-activity) may import (platform ADR-0071).
@@ -678,6 +689,7 @@ export const app = [
   appOverride([APP_REAL_FILES], APP_REAL_RESTRICTION),
   appOverride([APP_REAL_TEST_FILES], { ...APP_REAL_RESTRICTION, allowSubpaths: [...APP_REAL_RESTRICTION.allowSubpaths, ...ABOVE_COMPONENTS_TEST_ENTRIES] }),
   designSystem(),
+  IME_ENTER_GUARD,
 ];
 
 /** @type {import('eslint').Linter.Config[]} */

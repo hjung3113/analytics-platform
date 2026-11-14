@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from '../components/shadcn/tooltip.js';
 import { cn } from '../utils/cn.js';
+import { useImeEnterGuard } from './useImeEnterGuard.js';
 
 export interface SearchInputProps {
   messages?: Partial<{ placeholder: string; disabled: string; clear: string }>;
@@ -30,7 +31,7 @@ export interface SearchInputProps {
   /**
    * #864: called when the user commits the draft — on Enter and on blur, in
    * controlled mode only. An Enter that confirms an IME composition
-   * (`isComposing`, or keyCode 229) does not commit; the next ordinary Enter
+   * (`useImeEnterGuard`: isComposing, keyCode 229, or Safari's Enter right after compositionend) does not commit; the next ordinary Enter
    * does. The current value is already with the parent via `onValueChange`.
    * Escape keeps its own clear behaviour and never commits.
    */
@@ -59,6 +60,7 @@ export function SearchInput({
   'aria-label': ariaLabel,
   clearLabel = messages?.clear ?? DEFAULT_MESSAGES.clear,
 }: SearchInputProps) {
+  const ime = useImeEnterGuard();
   if (onValueChange === undefined) {
     return (
       <TooltipProvider>
@@ -112,16 +114,16 @@ export function SearchInput({
         aria-label={ariaLabel ?? placeholder}
         className={cn('pl-9', size === 'toolbar' && 'pr-9 [&::-webkit-search-cancel-button]:appearance-none')}
         onChange={(event) => onValueChange(event.target.value)}
+        onCompositionStart={ime.onCompositionStart}
+        onCompositionEnd={ime.onCompositionEnd}
         onKeyDown={(event) => {
           onKeyDown?.(event);
           // A dialog (e.g. Radix) may have already handled this Escape on
           // document capture; one key must not also clear the box.
           if (event.defaultPrevented) return;
-          // Confirming an IME composition also reports Enter. keyCode 229 is the
-          // fallback where isComposing is missing (older Chrome/Safari).
-          const native = event.nativeEvent;
-          const composingEnter = native.isComposing || native.keyCode === 229;
-          if (event.key === 'Enter' && onCommit !== undefined && !composingEnter) onCommit();
+          // Confirming an IME composition also reports Enter (useImeEnterGuard).
+          if (ime.isComposingEnter(event)) return;
+          if (event.key === 'Enter' && onCommit !== undefined) onCommit();
           if (event.key === 'Escape' && value !== '') {
             event.preventDefault();
             onValueChange('');

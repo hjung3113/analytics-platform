@@ -32,6 +32,7 @@ import { Check, ChevronsUpDown } from 'lucide-react';
  */
 import * as React from 'react';
 import { cn } from '../../utils/cn.js';
+import { useImeEnterGuard } from '../../forms/useImeEnterGuard.js';
 import { Popover, PopoverContent, PopoverTrigger } from './popover.js';
 
 export interface ComboboxOption {
@@ -101,6 +102,7 @@ export function Combobox({
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
   const [activeIndex, setActiveIndex] = React.useState<number>(-1);
+  const ime = useImeEnterGuard();
 
   // Stable IDs for a11y
   const listboxId = React.useId();
@@ -156,7 +158,8 @@ export function Combobox({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!open) return;
+    // The Enter that confirms a Korean composition is not a selection (#2215).
+    if (ime.isComposingEnter(e) || !open) return;
 
     switch (e.key) {
       case 'ArrowDown': {
@@ -256,6 +259,8 @@ export function Combobox({
               onSearchChange?.(e.target.value);
             }}
             onKeyDown={handleKeyDown}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             placeholder={searchPlaceholder}
             aria-autocomplete="list"
             aria-controls={listboxId}

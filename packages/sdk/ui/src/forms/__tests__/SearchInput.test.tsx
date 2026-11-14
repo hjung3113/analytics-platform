@@ -169,6 +169,18 @@ describe('SearchInput onCommit (#864)', () => {
     expect(onCommit).not.toHaveBeenCalled();
   });
 
+  it('does not commit the Enter Safari sends right after compositionend (#2215)', () => {
+    const onCommit = vi.fn();
+    render(<SearchInput value="로그인" onValueChange={() => {}} onCommit={onCommit} />);
+    const input = screen.getByRole('searchbox');
+    fireEvent.compositionStart(input);
+    fireEvent.compositionEnd(input);
+    dispatchEnter(input, {});
+    expect(onCommit).not.toHaveBeenCalled();
+    dispatchEnter(input, {});
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
   it('commits a normal Enter after a composition Enter', () => {
     const onCommit = vi.fn();
     render(<SearchInput value="로그인" onValueChange={() => {}} onCommit={onCommit} />);

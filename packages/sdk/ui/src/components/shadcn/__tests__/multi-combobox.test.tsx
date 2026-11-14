@@ -274,3 +274,17 @@ describe('MultiCombobox', () => {
   });
 
 });
+
+// #2215: Safari sends the confirming Enter after compositionend with isComposing already false; it does not toggle.
+it('does not toggle on the Enter Safari sends right after compositionend (#2215)', () => {
+  render(<Harness />);
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Items' }), { key: 'ArrowDown' });
+  const input = screen.getByRole('combobox');
+  const alpha = screen.getByRole('option', { name: /Alpha/ });
+  fireEvent.compositionStart(input);
+  fireEvent.compositionEnd(input);
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(alpha).toHaveAttribute('aria-selected', 'false');
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(alpha).toHaveAttribute('aria-selected', 'true');
+});

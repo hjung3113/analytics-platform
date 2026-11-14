@@ -1,7 +1,6 @@
 import { useId, useState } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { Input } from '@ap/ui';
-import { useImeComposition } from '../filters/useImeEnterGuard';
+import { Input, useImeEnterGuard } from '@ap/ui';
 
 export type TableQuickSearchProps = {
   /** The page key the menu declares for this search (e.g. 'q'); the applied value is read from it. */
@@ -27,7 +26,7 @@ export function TableQuickSearch({ pageKey, label, placeholder, resetKeys = ['pa
   const [draft, setDraft] = useState(applied);
   const [synced, setSynced] = useState(applied);
   if (synced !== applied) { setSynced(applied); setDraft(applied); }
-  const ime = useImeComposition();
+  const ime = useImeEnterGuard();
   const [composing, setComposing] = useState(false);
   const showHint = draft !== '' && draft !== applied && !composing;
   const apply = (value: string) => {
@@ -46,8 +45,8 @@ export function TableQuickSearch({ pageKey, label, placeholder, resetKeys = ['pa
     onCompositionStart={() => { setComposing(true); ime.onCompositionStart(); }}
     onCompositionEnd={event => { setComposing(false); ime.onCompositionEnd(event); }}
     onKeyDown={event => {
-      if (event.key !== 'Enter') { ime.release(); return; }
-      if (ime.composingEnter(event)) { event.preventDefault(); return; }
+      if (ime.isComposingEnter(event)) { event.preventDefault(); return; }
+      if (event.key !== 'Enter') return;
       if (draft !== applied) apply(draft);
     }}
     />

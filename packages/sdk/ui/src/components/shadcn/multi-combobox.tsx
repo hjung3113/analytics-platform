@@ -2,6 +2,7 @@ import { Check, ChevronsUpDown, Loader2, X } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '../Button.js';
 import { cn } from '../../utils/cn.js';
+import { useImeEnterGuard } from '../../forms/useImeEnterGuard.js';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from './popover.js';
 
 export interface MultiComboboxOption {
@@ -74,6 +75,7 @@ export function MultiCombobox({
   const [localSearch, setLocalSearch] = React.useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const ime = useImeEnterGuard();
   const listId = React.useId();
   const summaryId = React.useId();
   const popupId = React.useId();
@@ -91,7 +93,7 @@ export function MultiCombobox({
     setActiveValue(null);
   }
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.nativeEvent.isComposing) return;
+    if (ime.isComposingEnter(event) || event.nativeEvent.isComposing) return;
     switch (event.key) {
       case 'ArrowDown': event.preventDefault(); move(activeIndex, 1); break;
       case 'ArrowUp': event.preventDefault(); move(activeIndex < 0 ? 0 : activeIndex, -1); break;
@@ -185,7 +187,7 @@ export function MultiCombobox({
         ) : <>
         <div className="border-b border-border-subtle px-3 py-2">
           <input ref={inputRef} role="combobox" value={search} aria-label={label} aria-labelledby={labelledBy}
-            aria-expanded={open} aria-controls={listId} aria-activedescendant={activeId} onKeyDown={handleKeyDown} aria-autocomplete="list" placeholder={searchPlaceholder}
+            aria-expanded={open} aria-controls={listId} aria-activedescendant={activeId} onKeyDown={handleKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} aria-autocomplete="list" placeholder={searchPlaceholder}
             onChange={event => { setActiveValue(null); setLocalSearch(event.target.value); onSearchChange?.(event.target.value); }}
             className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-secondary outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring" />
         </div>

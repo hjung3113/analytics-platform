@@ -68,3 +68,43 @@ it('shows a selected label outside the current page and owns loading/more contro
   expect(screen.getByRole('listbox')).toHaveAttribute('aria-busy', 'true');
   expect(screen.getByRole('button', { name: 'Loading' })).toBeDisabled();
 });
+
+// #2215: the Enter that confirms a Korean composition is not a selection (useImeEnterGuard).
+describe('Combobox IME Enter guard (#2215)', () => {
+  const OPTIONS = [{ value: 'a', label: '가나' }, { value: 'b', label: '다라' }];
+  function openSearch(onChange: (value: string) => void) {
+    render(<Combobox options={OPTIONS} value={null} onChange={onChange} listboxLabel="옵션" />);
+    fireEvent.click(screen.getByRole('combobox'));
+    const search = screen.getByPlaceholderText('검색…');
+    fireEvent.keyDown(search, { key: 'ArrowDown' });
+    return search;
+  }
+  function enter(target: HTMLElement, init: { isComposing?: boolean; keyCode?: number } = {}) {
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, isComposing: init.isComposing === true });
+    if (init.keyCode !== undefined) Object.defineProperty(event, 'keyCode', { value: init.keyCode });
+    fireEvent(target, event);
+  }
+
+  it.each([
+    ['isComposing', { isComposing: true }],
+    ['keyCode 229', { keyCode: 229 }],
+  ])('does not select on a composition Enter (%s), and the next plain Enter selects', (_label, init) => {
+    const onChange = vi.fn();
+    const search = openSearch(onChange);
+    enter(search, init);
+    expect(onChange).not.toHaveBeenCalled();
+    enter(search);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not select on the Enter Safari sends right after compositionend', () => {
+    const onChange = vi.fn();
+    const search = openSearch(onChange);
+    fireEvent.compositionStart(search);
+    fireEvent.compositionEnd(search);
+    enter(search);
+    expect(onChange).not.toHaveBeenCalled();
+    enter(search);
+    expect(onChange).toHaveBeenCalledWith('a');
+  });
+});

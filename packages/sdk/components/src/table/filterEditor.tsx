@@ -6,9 +6,8 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { betweenOrdered, FILTER_OPS_BY_KIND, type ColumnFilter, type ColumnFilterOp, type ColumnFilterSpec, type Text } from '@ap/contracts';
 import { useI18n, useMessages, type Lang } from '@ap/kernel';
-import { Button, Checkbox, Input, Label, PopoverContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
+import { Button, Checkbox, Input, Label, PopoverContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useImeEnterGuard } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { useImeEnterGuard } from '../filters/useImeEnterGuard';
 import { addDays, inclusiveDay, type FilterLimit } from './columnFilters';
 import { FILTER_OP_LABELS } from './filterOps';
 import type { InstantEntry, ResolvedFilterField } from './filterFields';
