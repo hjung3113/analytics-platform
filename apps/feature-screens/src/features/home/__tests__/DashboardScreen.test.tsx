@@ -148,6 +148,52 @@ describe('DashboardScreen', () => {
   });
 });
 
+describe('DashboardScreen assigned work (#2052 FEA-25)', () => {
+  it('requests only open tasks for the signed-in assignee', async () => {
+    mount();
+    await waitFor(() => {
+      const taskCall = vi.mocked(globalThis.fetch).mock.calls.find(([input]) =>
+        new URL(String(input), 'http://x').pathname === '/api/features/tasks',
+      );
+      expect(taskCall).toBeDefined();
+      const params = new URL(String(taskCall?.[0]), 'http://x').searchParams;
+      expect(params.get('status_group')).toBe('open');
+      expect(params.get('assignee')).toBe(me.actor.id);
+    });
+  });
+
+  it('keeps a pending review visible when four tasks are assigned', async () => {
+    installFetch({
+      '/api/features/tasks': {
+        items: Array.from({ length: 4 }, (_, index) => ({
+          id: `aaaaaaaa-aaaa-4aaa-8aaa-00000000001${index}`,
+          display_id: `T-${index + 1}`,
+          title: `Assigned task ${index + 1}`,
+          status: 'todo',
+        })),
+        page: { has_more: false },
+      },
+      '/api/features/task-requests': {
+        items: [{
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000020',
+          display_id: 'TR-1',
+          requested_outcome: 'Review synthetic request',
+          status: 'pending_review',
+        }],
+        page: { has_more: false },
+      },
+    });
+    mount();
+    await waitFor(() => {
+      expect(within(screen.getByTestId('home-my-work')).getByRole('link', { name: /TR-1/ })).toBeTruthy();
+    }, { timeout: 5000 });
+    const panel = screen.getByTestId('home-my-work');
+    expect(within(panel).getAllByRole('link')).toHaveLength(4);
+    expect(within(panel).getAllByRole('link')[0]?.textContent).toContain('TR-1');
+    expect(within(panel).getByRole('link', { name: /T-1/ })).toBeTruthy();
+  });
+});
+
 describe('DashboardScreen scope status', () => {
   const empty = { ...summary, action_queues: [], coverage: [] };
 
