@@ -350,6 +350,92 @@ describe('API token management', () => {
     expect(within(panel).getByText(/토큰 scope: 확인 실패/)).toBeVisible();
     expect(within(panel).queryByText(/토큰 scope: 없음/)).toBeNull();
   });
+  // #2013: the scope state reads every service token of the workspace, not the
+  // page or filter the list currently shows.
+  describe('token scope state is independent of the list page and filters (#2013)', () => {
+    const SCOPED = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    const filler = (n: number) => row({ id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`, kind: 'service', name: `채움 ${n}`, actorId: ACTOR, scopes: ['workspace.read'], expiresAt: '2099-01-01T00:00:00Z' });
+    let server: ApiTokenItem[];
+    let pageCap: boolean;
+    let failDrain: boolean;
+    const tokenReads = () => calls.filter(c => c.method === 'GET' && c.path.includes('/api-tokens'));
+    beforeEach(() => {
+      server = []; pageCap = false; failDrain = false;
+      const original = fetch;
+      vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input), 'http://x');
+        if (url.pathname.endsWith('/permissions/grants')) return Promise.resolve(json({ items: [systemActorGrant] }));
+        if ((init?.method ?? 'GET') === 'GET' && url.pathname.endsWith('/api-tokens/service')) {
+          calls.push({ path: String(input), method: 'GET', body: undefined });
+          const limit = Number(url.searchParams.get('limit'));
+          if (failDrain && limit > 25) return Promise.resolve(json({ code: 'internal.unexpected', message: 'x' }, 500));
+          const kind = url.searchParams.get('kind');
+          const matching = server.filter(t => (!kind || t.kind === kind) && (url.searchParams.get('noExpiry') !== 'true' || t.expiresAt === null));
+          const start = Number(url.searchParams.get('cursor') ?? 0);
+          const items = matching.slice(start, start + limit);
+          const next = pageCap || start + limit < matching.length ? String(start + limit) : null;
+          return Promise.resolve(json({ items, nextCursor: next }));
+        }
+        if ((init?.method ?? 'GET') === 'POST' && url.pathname.endsWith('/revoke')) {
+          server = server.map(t => (url.pathname.includes(t.id) ? { ...t, revokedAt: '2026-11-07T00:00:00Z' } : t));
+          return Promise.resolve(json({ item: server.find(t => url.pathname.includes(t.id)) }));
+        }
+        return original(input, init);
+      }));
+    });
+    const scopeText = async (text: RegExp) => {
+      const panel = await screen.findByTestId('service-token-actor-status');
+      return within(panel).findByText(text);
+    };
+    it('stays 포함 while the list is on page 2', async () => {
+      server = [row({ id: SCOPED, kind: 'service', name: '보고 토큰', actorId: ACTOR, scopes: ['workspace.read', 'validation.catalog.report'], expiresAt: '2099-01-01T00:00:00Z' }), ...Array.from({ length: 30 }, (_, i) => filler(i + 1))];
+      mount(true);
+      expect(await scopeText(/토큰 scope: 포함/)).toBeVisible();
+      await userEvent.setup().click(await screen.findByRole('button', { name: '다음' }));
+      await waitFor(() => expect(screen.getByText(/2페이지/)).toBeVisible());
+      expect(screen.queryByText('보고 토큰')).toBeNull();
+      expect(await scopeText(/토큰 scope: 포함/)).toBeVisible();
+      expect(screen.queryByText(/토큰 scope: 없음/)).toBeNull();
+    });
+    it('stays 포함 when the no-expiry filter hides the scoped token', async () => {
+      server = [row({ id: SCOPED, kind: 'service', name: '보고 토큰', actorId: ACTOR, scopes: ['workspace.read', 'validation.catalog.report'], expiresAt: '2099-01-01T00:00:00Z' }), { ...filler(1), expiresAt: null }];
+      mount(true);
+      expect(await scopeText(/토큰 scope: 포함/)).toBeVisible();
+      await userEvent.setup().click(screen.getByRole('checkbox', { name: '무기한 토큰' }));
+      await waitFor(() => expect(screen.queryByText('보고 토큰')).toBeNull());
+      expect(await scopeText(/토큰 scope: 포함/)).toBeVisible();
+    });
+    it('finds the scoped token beyond the first 25 rows', async () => {
+      server = [...Array.from({ length: 30 }, (_, i) => filler(i + 1)), row({ id: SCOPED, kind: 'service', name: '보고 토큰', actorId: ACTOR, scopes: ['workspace.read', 'validation.catalog.report'], expiresAt: '2099-01-01T00:00:00Z' })];
+      mount(true);
+      expect(await scopeText(/토큰 scope: 포함/)).toBeVisible();
+      expect(screen.queryByText('보고 토큰')).toBeNull();
+    });
+    it('reports 확인 실패, never 없음, when the status read fails while the list succeeds', async () => {
+      server = [filler(1)]; failDrain = true;
+      mount(true);
+      expect(await scopeText(/토큰 scope: 확인 실패/)).toBeVisible();
+      expect(screen.queryByText(/토큰 scope: 없음/)).toBeNull();
+      expect(await screen.findByText('채움 1')).toBeVisible();
+    });
+    it('reports 확인 실패, never 없음, when the page cap is reached before the last page', async () => {
+      server = [filler(1)]; pageCap = true;
+      mount(true);
+      expect(await scopeText(/토큰 scope: 확인 실패/)).toBeVisible();
+      expect(screen.queryByText(/토큰 scope: 없음/)).toBeNull();
+    });
+    it('re-reads the status after a revoke', async () => {
+      server = [row({ id: SCOPED, kind: 'service', name: '보고 토큰', actorId: ACTOR, scopes: ['workspace.read', 'validation.catalog.report'], expiresAt: '2099-01-01T00:00:00Z' })];
+      mount(true);
+      expect(await scopeText(/토큰 scope: 포함/)).toBeVisible();
+      const before = tokenReads().length;
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: /보고 토큰 폐기/ }));
+      await user.click(screen.getByRole('button', { name: '토큰 폐기' }));
+      expect(await scopeText(/토큰 scope: 없음/)).toBeVisible();
+      expect(tokenReads().length).toBeGreaterThan(before);
+    });
+  });
   it('offers first issuance without an orphan pager on the empty first page (B10)', async () => {
     rows = []; mount();
     expect(await screen.findByText('아직 발급한 토큰이 없습니다')).toBeVisible();

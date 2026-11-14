@@ -7,7 +7,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, Checkbox, EmptyState,
   StatusBadge, UserChip,
 } from '@ap/ui';
-import { fetchApiTokens, fetchSystemActors, revokeApiToken } from '@/lib/api/api-tokens';
+import { fetchAllServiceTokens, fetchApiTokens, fetchSystemActors, revokeApiToken } from '@/lib/api/api-tokens';
 import { resolveActors } from '@/lib/api/actors';
 import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
 import type { HostSearch } from '@/lib/host/search';
@@ -68,6 +68,15 @@ export function ApiTokensScreen({ service = false, canManageService = false, ren
     queryFn: ({ signal }) => fetchApiTokens(service, page.cursors[page.index], noExpiry, signal, kind), enabled,
   });
   const actors = useQuery({ queryKey: ['api-token-system-actors'], queryFn: ({ signal }) => fetchSystemActors(signal), enabled: service && enabled });
+  // #2013: the system Actor status reads every service token, never the list's page or filters; the key sits under
+  // API_TOKENS_QUERY_KEY so issue/revoke invalidate it with the list. A failure or a cap hit shows
+  // «확인 실패» (no retry, like the grants read beside it), never «없음».
+  const statusTokens = useQuery({
+    queryKey: [...API_TOKENS_QUERY_KEY, 'system-actor-status'],
+    queryFn: ({ signal }) => fetchAllServiceTokens(signal),
+    enabled: service && enabled && (actors.data?.length ?? 0) > 0,
+    retry: false,
+  });
   const rows = tokens.data?.items ?? [];
   const actorIds = [...new Set(rows.map(row => row.actorId))].sort();
   const owners = useQuery({ queryKey: ['api-token-owners', actorIds], queryFn: ({ signal }) => resolveActors({ actorIds }, signal), enabled: service && enabled && actorIds.length > 0 });
@@ -123,9 +132,9 @@ export function ApiTokensScreen({ service = false, canManageService = false, ren
     {service ? (
       <SystemActorGrantStatus
         actors={actors.data ?? []}
-        tokens={rows}
-        tokensPending={tokens.isPending}
-        tokensError={tokens.isError}
+        tokens={statusTokens.data ?? []}
+        tokensPending={statusTokens.isPending}
+        tokensError={statusTokens.isError}
       />
     ) : null}
     {issuing ? <TokenIssueDrawer returnFocusRef={issueTrigger} service={service} actors={actors} renderDrawer={renderDrawer} onClose={() => setIssuing(false)} onIssued={refresh} /> : null}
