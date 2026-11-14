@@ -1,6 +1,7 @@
 import { useContext, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Search, X } from 'lucide-react';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { PageFilterExpandedContext } from './pageFilterPresentation';
 import { useCollapsePreference } from './useCollapsePreference';
 import { Button, cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
@@ -135,7 +136,7 @@ export function PageFilterBar(props: PageFilterBarProps) {
   return <CollapsiblePageFilterBar key={storageKey} {...props} storageKey={storageKey} />;
 }
 
-function AppliedConditionChip({ chip, lang, onClear }: { chip: PageFilterAppliedChip; lang: 'ko' | 'en'; onClear: (chip: PageFilterAppliedChip, button: HTMLButtonElement) => void }) {
+function AppliedConditionChip({ chip, clearLabel, onClear }: { chip: PageFilterAppliedChip; clearLabel: string; onClear: (chip: PageFilterAppliedChip, button: HTMLButtonElement) => void }) {
   const text = `${chip.label} ${chip.value}`;
   // Same chip and clear-button vocabulary as table/filterLine.tsx; keep table output untouched.
   return <span role="group" aria-label={text} title={chip.title ?? text}
@@ -144,7 +145,7 @@ function AppliedConditionChip({ chip, lang, onClear }: { chip: PageFilterApplied
       <span className="shrink-0 text-text-secondary">{chip.label}</span>{' '}
       <span className="max-w-[28ch] truncate font-medium text-text-primary">{chip.value}</span>
     </span>
-    {chip.onClear && <button type="button" data-page-filter-chip-clear aria-label={chip.clearLabel ?? (lang === 'ko' ? `${chip.label} 필터 지우기` : `Clear ${chip.label} filter`)}
+    {chip.onClear && <button type="button" data-page-filter-chip-clear aria-label={chip.clearLabel ?? clearLabel}
       className="inline-flex size-6 shrink-0 items-center justify-center rounded-r-md text-text-secondary hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
       onClick={event => onClear(chip, event.currentTarget)}><X className="size-3" aria-hidden /></button>}
   </span>;
@@ -158,7 +159,8 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
   storageKey: string;
   defaultCollapsed?: boolean;
 }) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const id = useId();
   const panelId = `${id}-panel`;
   const summaryId = `${id}-summary`;
@@ -219,10 +221,10 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
         </div>
       </>}
     </div>
-    {appliedChips && appliedChips.length > 0 && <div role="group" aria-label={lang === 'ko' ? '적용된 조건' : 'Applied conditions'}
+    {appliedChips && appliedChips.length > 0 && <div role="group" aria-label={m('pageFilterAppliedRegion')}
       className="mt-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-border-subtle pt-2 text-xs">
-      <span className="text-text-secondary">{lang === 'ko' ? '적용됨' : 'Applied'}</span>
-      {appliedChips.map(chip => <AppliedConditionChip key={chip.key} chip={chip} lang={lang} onClear={clearChip} />)}
+      <span className="text-text-secondary">{m('pageFilterAppliedLabel')}</span>
+      {appliedChips.map(chip => <AppliedConditionChip key={chip.key} chip={chip} clearLabel={m('tableFilterClearOne', { label: chip.label })} onClear={clearChip} />)}
     </div>}
     {/* Always mounted; carries only real summary changes that happened while collapsed (see the baseline effect above). */}
     <div aria-live="polite" className="sr-only">{liveText}</div>

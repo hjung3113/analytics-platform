@@ -1,8 +1,9 @@
 import type { ChartTrust } from '../state/trustFormat';
 import { percent, unknownLabel, brushOptions, isBrushableKind, isSingleSelectKind } from './analysisChartShared';
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { useI18n, usePlatform } from '@ap/kernel';
+import { useI18n, useMessages, usePlatform } from '@ap/kernel';
 import { Button, Checkbox, cn } from '@ap/ui';
+import { COMPONENTS_MESSAGES } from '../messages';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { chartTheme, EChart, token } from './EChart';
@@ -89,7 +90,8 @@ const sequential = [colors.seq0, colors.seq1, colors.seq2, colors.seq3, colors.s
 const diverging = [colors.div0, colors.div1, colors.div2, colors.div3, colors.div4];
 /** Kind-specific charts keep selection local; only Details invokes consumer drill callbacks. */
 export function AnalysisChart(p: AnalysisChartProps) {
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const { global, route, toast } = usePlatform();
   const section = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, section);
@@ -114,7 +116,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const spec = p.spec;
   const brushable = isBrushableKind(spec.kind);
   const singleSelect = isSingleSelectKind(spec.kind);
-  const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang === 'ko', p.unit), [spec, lang, p.unit]);
+  const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang, p.unit), [spec, lang, p.unit]);
   // `fill`: the plot box takes the height its container leaves; a top-N bar keeps its row-count height only until that is measured.
   const fill = useElementSize(size === 'fill');
   const height = p.height ?? (size === 'fill' && fill.height !== null ? fillChartHeight(fill.height) : spec.kind === 'topNBar' ? Math.max(120, rows.length * 28 + 24) : analysisChartHeight(size, 280));
@@ -129,7 +131,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const reset = () => { brushedKeys.current = []; setSelected([]); if (brushable) clearBrush(chart.current); };
   const toggle = (key: string) => setSelected(old => old.includes(key) ? old.filter(k => k !== key) : singleSelect ? [key] : [...old, key]);
   const format = useCallback((v: number) => ('valueFormat' in spec ? spec.valueFormat?.(v) : undefined) ?? String(v), [spec]);
-  const unknown = unknownLabel(lang === 'ko');
+  const unknown = unknownLabel(lang);
   const valueText = useCallback((v: number | null) => v === null ? unknown : `${format(v)} ${p.unit}`, [unknown, format, p.unit]);
   const { option, scale, domain, ramp, validThreshold } = useMemo(() => {
     const theme = chartTheme();
@@ -188,43 +190,45 @@ export function AnalysisChart(p: AnalysisChartProps) {
     }
     measureGrid(chart.current);
   }, [option, brushMode, instanceReady, brushable, measureGrid]);
-  const summary = extended?.summary ?? (spec.kind === 'heatmap' ? (lang === 'ko' ? `${cells.length}칸 · ${spec.xLabels.length * spec.yLabels.length - cells.length}칸 비어 있음 · ${cells.filter(c => c.value === null).length}칸 미확인 · 단위 ${p.unit}` : `${cells.length} cells · ${spec.xLabels.length * spec.yLabels.length - cells.length} missing · ${cells.filter(c => c.value === null).length} unknown · Unit ${p.unit}`) : `${rows.length}${lang === 'ko' ? '개 항목 · 합계' : ' slices · Total'} ${format(total)} ${p.unit}`);
+  const summary = extended?.summary ?? (spec.kind === 'heatmap'
+    ? m('chartHeatmapSummary', { cells: cells.length, missing: spec.xLabels.length * spec.yLabels.length - cells.length, unknown: cells.filter(c => c.value === null).length, unit: p.unit })
+    : m('chartDonutSummary', { count: rows.length, total: format(total), unit: p.unit }));
   const selectedRows = rows.filter(row => active.includes(row.key));
-  let selectionSummary = active.length ? `${selectedRows.map(row => row.label).join(', ')} · ${active.length}${lang === 'ko' ? (spec.kind === 'heatmap' ? '칸 선택' : '개 선택') : ' selected'}` : (lang === 'ko' ? '선택 없음' : 'No selection');
+  let selectionSummary = active.length ? m(spec.kind === 'heatmap' ? 'chartHeatmapSelectionSummary' : 'chartSelectionSummary', { labels: selectedRows.map(row => row.label).join(', '), count: active.length }) : m('chartNoSelection');
   if ((spec.kind === 'scatter' || spec.kind === 'pareto') && active.length > 3) {
     const labels = selectedRows.slice(0, 3).map(row => row.label).join(', ');
-    selectionSummary = lang === 'ko' ? `${active.length}개 선택 · ${labels} 외 ${active.length - 3}개` : `${active.length} selected · ${labels} +${active.length - 3} more`;
+    selectionSummary = m('chartSelectionOverflow', { count: active.length, labels, more: active.length - 3 });
   }
   if (spec.kind === 'heatmap' && active.length > 3) {
     const range = (labels: string[], axis: 'x' | 'y') => {
       const selectedLabels = labels.filter(label => selectedRows.some(row => row[axis] === label));
       return selectedLabels.length === 1 ? selectedLabels[0] : `${selectedLabels[0]}–${selectedLabels.at(-1)}`;
     };
-    selectionSummary = `${active.length}${lang === 'ko' ? '칸 선택' : ' cells selected'} · ${range(spec.yLabels, 'y')} · ${range(spec.xLabels, 'x')}`;
+    selectionSummary = m('chartHeatmapRangeSelection', { count: active.length, yRange: range(spec.yLabels, 'y'), xRange: range(spec.xLabels, 'x') });
   }
   const empty = extended ? extended.empty : spec.kind === 'heatmap' ? !cells.length : total === 0;
-  const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', lang === 'ko' ? '값' : 'Value'] : [lang === 'ko' ? '이름' : 'Name', lang === 'ko' ? '값' : 'Value', '%']);
+  const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', m('chartHeaderValue')] : [m('chartHeaderName'), m('chartHeaderValue'), '%']);
   const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value)] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
   function exportCsv() {
     const csvHeaders = extended?.csvHeaders ?? headers.map((header, i) => i === (spec.kind === 'heatmap' ? 2 : 1) ? `${header} (${p.unit})` : header);
-    const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknownLabel(lang === 'ko')] : [row.label, row.value ?? unknownLabel(lang === 'ko'), row.share ?? 0]);
+    const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknownLabel(lang)] : [row.label, row.value ?? unknownLabel(lang), row.share ?? 0]);
     downloadChartCsv({ ...p, context: global }, csvHeaders, csvValues);
-    toast(lang === 'ko' ? `${p.chartId}.csv 내보냄` : `Exported ${p.chartId}.csv`);
+    toast(m('chartExportedCsv', { chartId: p.chartId }));
   }
   if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
   return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && FILL_CARD_CLASS)}>
     <AnalysisChartPart enabled={section !== null}>
       <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', section && 'pr-12')}>
         <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} />
-        <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="flex flex-wrap gap-1">
+        <div role="toolbar" aria-label={m('chartActions')} className="flex flex-wrap gap-1">
           {spec.kind === 'topNBar' && <Button ref={collapseButton} size="toolbar" variant="ghost" aria-expanded={expanded} aria-controls={bodyId} onClick={() => {
             const next = !expanded; if (spec.expanded === undefined) setLocalExpanded(next); spec.onExpandedChange?.(next);
             if (!next) collapseButton.current?.focus();
-          }}>{expanded ? (lang === 'ko' ? '숨기기' : 'Hide') : (lang === 'ko' ? '표시' : 'Show')}</Button>}
-          <Button size="toolbar" variant="ghost" onClick={reset}>{lang === 'ko' ? '차트 초기화' : 'Reset chart'}</Button>
-          {brushable && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{lang === 'ko' ? '끌어서 선택' : 'Drag to select'}</Button>}
-          <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => setTable(!table)}>{lang === 'ko' ? '표로 보기' : 'Show as table'}</Button>
-          {route?.menu.features?.export && <Button size="toolbar" variant="ghost" onClick={exportCsv}>{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
+          }}>{expanded ? m('chartHide') : m('chartShow')}</Button>}
+          <Button size="toolbar" variant="ghost" onClick={reset}>{m('chartReset')}</Button>
+          {brushable && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{m('chartDragToSelect')}</Button>}
+          <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => setTable(!table)}>{m('chartShowAsTable')}</Button>
+          {route?.menu.features?.export && <Button size="toolbar" variant="ghost" onClick={exportCsv}>{t('export')}</Button>}
           {p.imageCopy && <ChartImageCopyButton fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
           {p.imagePrint && <ChartImagePrintButton title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
         </div>
@@ -237,20 +241,20 @@ export function AnalysisChart(p: AnalysisChartProps) {
             <span>{format(domain[0])}</span>
             {scale?.type === 'diverging' && <span className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center">
               <span aria-hidden className="absolute bottom-full h-2 border-l border-border-strong" />
-              <span>{format(scale.pivot)} {lang === 'ko' ? '목표' : 'target'}</span>
+              <span>{m('chartTarget', { pivot: format(scale.pivot) })}</span>
             </span>}
             <span>{format(domain[1])}</span>
           </div>
         </>}
         <span className="flex items-center gap-1"><Swatch color={token(colors.unknown)} unknown />{unknown}</span>
       </div>}
-      {extended && <KindLegend compact={compact} items={extended.legend} label={lang === 'ko' ? '범례' : 'Legend'} />}
-      {spec.kind === 'donut' && <ul aria-label={lang === 'ko' ? '범례' : 'Legend'} className={cn('flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}
+      {extended && <KindLegend compact={compact} items={extended.legend} label={m('chartLegend')} />}
+      {spec.kind === 'donut' && <ul aria-label={m('chartLegend')} className={cn('flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}
       <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
     </AnalysisChartPart>
     <ChartCollapseBody enabled={spec.kind === 'topNBar'} bodyRef={collapsibleBody} id={bodyId} expanded={expanded}>
     <AnalysisChartPart enabled={section !== null} body>
-      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div ref={fill.ref} className={cn('relative', size === 'fill' && FILL_PLOT_CLASS)}>
+      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? m('chartNoData')}</p> : <div ref={fill.ref} className={cn('relative', size === 'fill' && FILL_PLOT_CLASS)}>
         <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => { if (params.componentType !== 'series') return; const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
           finished: (_, instance) => measureGrid(instance),
@@ -259,20 +263,20 @@ export function AnalysisChart(p: AnalysisChartProps) {
           brushEnd: () => { if (!brushable) return; const next = brushedKeys.current.filter(key => keys.includes(key)); setSelected(old => old.length === next.length && old.every(key => next.includes(key)) ? old : next); },
         }} />
         {spec.kind === 'donut' && <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-xs text-text-secondary">
-          <p>{selectedRows[0]?.label ?? spec.centerLabel ?? (lang === 'ko' ? '합계' : 'Total')}</p>
+          <p>{selectedRows[0]?.label ?? spec.centerLabel ?? m('chartTotal')}</p>
           <p className="t-card-title">{valueText(selectedRows[0]?.value ?? total)}</p>
           {selectedRows[0] && <p>{percent(selectedRows[0].share ?? 0)}</p>}
         </div>}
       </div>}
-      <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} className="bg-surface-sunken px-4 py-2 text-xs text-text-secondary">
+      <section aria-label={m('chartSelectionSummaryRegion')} className="bg-surface-sunken px-4 py-2 text-xs text-text-secondary">
         {selectionSummary}
-        {selectedRows.length === 1 && selectedRows[0].drill && <Button size="toolbar" variant="ghost" onClick={selectedRows[0].drill}>{lang === 'ko' ? '상세' : 'Details'}</Button>}
+        {selectedRows.length === 1 && selectedRows[0].drill && <Button size="toolbar" variant="ghost" onClick={selectedRows[0].drill}>{m('chartDetails')}</Button>}
       </section>
       {table && <div className="overflow-auto px-4 py-2"><table className="w-full text-xs"><caption>{p.title} · {p.unit}</caption>
-        <thead className="bg-surface-sunken"><tr>{[...headers, lang === 'ko' ? '선택' : 'Select'].map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>
+        <thead className="bg-surface-sunken"><tr>{[...headers, m('chartSelect')].map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>
         <tbody>{rows.map((row, i) => <tr key={row.key}>{tableValues[i].map((value, j) => <td key={j}>{value}</td>)}<td>
-          <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.label}`} checked={active.includes(row.key)} onCheckedChange={() => toggle(row.key)} />
-          {row.drill && <Button size="toolbar" variant="ghost" onClick={row.drill}>{lang === 'ko' ? '상세' : 'Details'}</Button>}
+          <Checkbox aria-label={m('chartSelectItem', { label: row.label })} checked={active.includes(row.key)} onCheckedChange={() => toggle(row.key)} />
+          {row.drill && <Button size="toolbar" variant="ghost" onClick={row.drill}>{m('chartDetails')}</Button>}
         </td></tr>)}</tbody>
       </table></div>}
       <ChartTrustFooter trust={p.trust} />

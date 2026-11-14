@@ -1,19 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatNumber, type ApiResponse, type Trust } from '@ap/contracts';
-import { useI18n, usePlatform } from '@ap/kernel';
+import { useI18n, useMessages, usePlatform, type Lang } from '@ap/kernel';
 import { isProductionEnv } from '@ap/ui';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { displayFileName, downloadBlob, fileStamp, safeFileName } from './download';
 import { EXPORT_REFUSAL, exportRefusal, provisionalSuffix } from './tableMessages';
 import { toWorkbookXlsx, WorkbookError, WORKBOOK_LIMITS, type WorkbookSheet } from './workbook';
 
-type Lang = 'ko' | 'en';
-const WORKBOOK_TEXT = {
-  done: { ko: 'Excel 파일로 내보냈습니다', en: 'Exported to an Excel file' },
-  tooLarge: {
-    ko: `내보낼 데이터가 브라우저 내보내기 상한(시트마다 ${formatNumber(WORKBOOK_LIMITS.rowsPerSheet, 'ko')}행·${formatNumber(WORKBOOK_LIMITS.columns, 'ko')}열, 셀 ${formatNumber(WORKBOOK_LIMITS.cells, 'ko')}개)을 넘었습니다. 필터를 좁혀 주세요.`,
-    en: `The data is over the browser export limit (${formatNumber(WORKBOOK_LIMITS.rowsPerSheet, 'en')} rows and ${formatNumber(WORKBOOK_LIMITS.columns, 'en')} columns per sheet, ${formatNumber(WORKBOOK_LIMITS.cells, 'en')} cells). Narrow the filter.`,
-  },
-} as const;
 /** The data's size, which the user can narrow; every other `WorkbookError` is the menu's declaration bug. */
 const SIZE_CODES = new Set(['too-many-rows', 'too-many-columns', 'too-many-cells']);
 
@@ -63,6 +56,7 @@ export type WorkbookExport = {
  */
 export function useWorkbookExport(): WorkbookExport {
   const { lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const { route, toast } = usePlatform();
   const canExport = !!route?.menu.features.export;
   const menuId = route?.menu.id;
@@ -83,7 +77,7 @@ export function useWorkbookExport(): WorkbookExport {
       if (controller.signal.aborted) return 'cancelled';
       const base = (options?.fileName !== undefined && displayFileName(options.fileName)) || safeFileName(menuId ?? 'workbook');
       downloadBlob(blob, `${base}-${fileStamp(new Date())}${options?.trust?.provisional ? '-provisional' : ''}.xlsx`);
-      toast(WORKBOOK_TEXT.done[l] + provisionalSuffix(options?.trust, l));
+      toast(m('tableWorkbookDone') + provisionalSuffix(options?.trust, l));
       return 'done';
     } catch (error) {
       // Only this export's own abort is silent; a `build` that rejects with its own AbortError/TimeoutError
@@ -101,7 +95,11 @@ export function useWorkbookExport(): WorkbookExport {
         return 'refused';
       }
       if (error instanceof WorkbookError && SIZE_CODES.has(error.code)) {
-        toast(WORKBOOK_TEXT.tooLarge[l], 'warning');
+        toast(m('tableWorkbookTooLarge', {
+          rows: formatNumber(WORKBOOK_LIMITS.rowsPerSheet, l),
+          columns: formatNumber(WORKBOOK_LIMITS.columns, l),
+          cells: formatNumber(WORKBOOK_LIMITS.cells, l),
+        }), 'warning');
         return 'too-large';
       }
       // A sheet-name or sheet-count error is the menu's declaration bug: loud in dev, the generic failure toast for the user.
@@ -111,7 +109,7 @@ export function useWorkbookExport(): WorkbookExport {
     } finally {
       if (running.current === controller) { running.current = null; setExporting(false); }
     }
-  }, [canExport, lang, menuId, toast]);
+  }, [canExport, lang, m, menuId, toast]);
 
   const cancel = useCallback(() => {
     running.current?.abort();

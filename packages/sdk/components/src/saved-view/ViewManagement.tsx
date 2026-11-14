@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { formatInstant } from '@ap/contracts';
 import type { SavedView, SavedViewEntry, SavedViewListItem } from '@ap/contracts';
-import { useI18n, type Text } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, Input } from '@ap/ui';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { SegmentedRadio } from '../RadioGroup';
 import { QueuePanel } from './ApprovalQueue';
 import { ViewDetail, ViewRow, rowHasReason, useRowElements, useVanishedLayers } from './ViewParts';
@@ -33,35 +34,24 @@ export type ViewManagementProps = {
   onDone?: (kind: 'approve' | 'reject' | 'revoke', name: string) => void;
 };
 
-const L = {
-  title: { ko: '뷰 관리', en: 'Manage views' },
-  description: { ko: '저장한 뷰의 상태를 확인하고 승인 요청을 처리합니다.', en: 'Check saved views and handle approval requests.' },
-  filter: { ko: '보기', en: 'Show' },
-  all: { ko: '전체', en: 'All' },
-  pending: { ko: '승인 대기', en: 'Awaiting approval' },
-  attention: { ko: '낡음·권한 부족', en: 'Out of date or no access' },
-  search: { ko: '뷰 이름·소유자 검색', en: 'Search view name or owner' },
-  list: { ko: '저장한 뷰', en: 'Saved views' },
-  empty: { ko: '조건에 맞는 뷰가 없습니다.', en: 'No views match.' },
-  count: (n: number): Text => ({ ko: `${n}건`, en: `${n} items` }),
-  done: (kind: 'approve' | 'reject' | 'revoke', name: string): Text => ({
-    ko: `${name}: ${{ approve: '승인', reject: '반려', revoke: '회수' }[kind]}했습니다.`,
-    en: `${name}: ${{ approve: 'approved', reject: 'rejected', revoke: 'revoked' }[kind]}.`,
-  }),
+const DONE_KEY = {
+  approve: 'svManageOutcomeApprove',
+  reject: 'svManageOutcomeReject',
+  revoke: 'svManageOutcomeRevoke',
 } as const;
 
 /** The requested `뷰 관리` surface: views with owner, time, contents, status and why-text, and the approval queue as a filter. */
 export function ViewManagement(props: ViewManagementProps) {
   const { open, onOpenChange, trigger } = props;
-  const { tx } = useI18n();
   return <Dialog open={open} onOpenChange={onOpenChange}>
     {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-    {open && <Body {...props} tx={tx} />}
+    {open && <Body {...props} />}
   </Dialog>;
 }
 
-function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'all', onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime: suppliedFormatTime, onDone, tx }: ViewManagementProps & { tx: (text: Text) => string }) {
-  const { lang } = useI18n();
+function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'all', onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime: suppliedFormatTime, onDone }: ViewManagementProps) {
+  const { t, lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const formatTime = suppliedFormatTime ?? ((ms: number) => formatInstant(ms, lang));
   const [filter, setFilter] = useState<ViewManagementFilter>(initialFilter);
   const [query, setQuery] = useState('');
@@ -94,17 +84,17 @@ function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'al
     if (reasonsId) { event.preventDefault(); const id = reasonsId; setReasonsId(null); els.focusReason(id); }
     else if (selectedId) { event.preventDefault(); closeDetail(selectedId); }
   };
-  const done = (kind: 'approve' | 'reject' | 'revoke', name: string) => { setNotice(tx(L.done(kind, name))); onDone?.(kind, name); };
+  const done = (kind: 'approve' | 'reject' | 'revoke', name: string) => { setNotice(m(DONE_KEY[kind], { name })); onDone?.(kind, name); };
 
   return <DialogContent className="max-w-4xl" onEscapeKeyDown={onEscapeKeyDown} aria-describedby={undefined}>
     <DialogHeader>
-      <DialogTitle>{tx(L.title)}</DialogTitle>
-      <DialogDescription>{tx(L.description)}</DialogDescription>
+      <DialogTitle>{m('svManage')}</DialogTitle>
+      <DialogDescription>{m('svManageDescription')}</DialogDescription>
     </DialogHeader>
     <SegmentedRadio<ViewManagementFilter>
-      label={tx(L.filter)} value={filter}
+      label={m('svManageFilterLabel')} value={filter}
       onChange={next => { setFilter(next); setSelectedId(null); setReasonsId(null); }}
-      options={[{ value: 'all', label: tx(L.all) }, { value: 'pending', label: tx(L.pending) }, { value: 'attention', label: tx(L.attention) }]} />
+      options={[{ value: 'all', label: t('all') }, { value: 'pending', label: m('svManagePending') }, { value: 'attention', label: m('svManageAttention') }]} />
     <p role="status" className="min-h-4 text-xs text-text-muted">{notice}</p>
     {filter === 'pending'
       ? <QueuePanel
@@ -113,11 +103,11 @@ function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'al
         onDecide={onDecide} onRevoke={onRevoke} onMigrate={onMigrate} personName={personName} groupName={groupName} describeView={describeView} formatTime={formatTime} onDone={done} />
       : <div className="grid min-h-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <div className="flex min-h-0 flex-col gap-2">
-          <Input ref={search} type="search" aria-label={tx(L.search)} placeholder={tx(L.search)} value={query} onChange={event => setQuery(event.target.value)} />
-          <p role="status" className="text-xs text-text-muted">{tx(L.count(visible.length))}</p>
+          <Input ref={search} type="search" aria-label={m('svManageSearch')} placeholder={m('svManageSearch')} value={query} onChange={event => setQuery(event.target.value)} />
+          <p role="status" className="text-xs text-text-muted">{m('svManageCount', { count: visible.length })}</p>
           {visible.length === 0
-            ? <p className="text-sm text-text-muted">{tx(L.empty)}</p>
-            : <ul aria-label={tx(L.list)} className="max-h-96 min-h-0 overflow-y-auto">
+            ? <p className="text-sm text-text-muted">{m('svNoResult')}</p>
+            : <ul aria-label={m('svManageList')} className="max-h-96 min-h-0 overflow-y-auto">
               {visible.map(item => {
                 const id = item.denied === true ? item.id : item.view.id;
                 return <ViewRow

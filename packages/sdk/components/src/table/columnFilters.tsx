@@ -5,11 +5,11 @@
  */
 import { useCallback, useState } from 'react';
 import { encodeFilterParams, filterParamLimit, formatInstant, instantEpochMs, type ColumnFilter, type ColumnFilterSpec } from '@ap/contracts';
+import { formatText, type Lang } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { FILTER_OP_LABELS } from './filterOps';
 import { pruneUnmet, type InstantEntry, type ResolvedFilterField } from './filterFields';
 import type { TableUrlState } from './PlatformDataTable';
-
-type Lang = 'ko' | 'en';
 
 /** Wall-clock `YYYY-MM-DD` ± days (UTC arithmetic on the calendar date only — never an instant, 06 §6.3). */
 export function addDays(ymd: string, days: number): string {
@@ -77,16 +77,15 @@ export function useColumnFilters(urlState: TableUrlState | undefined, fields: re
 
 /** Readable value of a filter as the user set it (a date range reads inclusive: the wire's exclusive `to` is shown as the day before). */
 export function describeFilter(filter: ColumnFilter, spec: ColumnFilterSpec | undefined, lang: Lang, entry?: InstantEntry): string {
-  const ko = lang === 'ko';
   switch (filter.op) {
-    case 'contains': return ko ? `포함 "${filter.value}"` : `contains "${filter.value}"`;
-    case 'equals': return ko ? `같음 "${filter.value}"` : `equals "${filter.value}"`;
+    case 'contains': return formatText(COMPONENTS_MESSAGES.tableFilterContains, lang, { value: filter.value });
+    case 'equals': return formatText(COMPONENTS_MESSAGES.tableFilterEquals, lang, { value: filter.value });
     case 'eq': return `= ${filter.value}`;
     case 'gte': return `≥ ${filter.value}`;
     case 'lte': return `≤ ${filter.value}`;
     // Operators beyond the first editor's two per kind (ADR-0105 vocabulary).
-    case 'startsWith': return ko ? `"${filter.value}"로 시작` : `starts with "${filter.value}"`;
-    case 'endsWith': return ko ? `"${filter.value}"로 끝남` : `ends with "${filter.value}"`;
+    case 'startsWith': return formatText(COMPONENTS_MESSAGES.tableFilterStartsWith, lang, { value: filter.value });
+    case 'endsWith': return formatText(COMPONENTS_MESSAGES.tableFilterEndsWith, lang, { value: filter.value });
     case 'notContains': case 'notEquals': case 'neq': case 'gt': case 'lt': case 'before': case 'after':
       return `${FILTER_OP_LABELS[filter.op][lang]} ${String(filter.value)}`;
     case 'isEmpty': case 'isNotEmpty': return FILTER_OP_LABELS[filter.op][lang];
@@ -113,6 +112,6 @@ export function filterInfoRows(filters: readonly ColumnFilter[], fields: readonl
   return filters.map(f => {
     const field = fields.find(c => c.id === f.id);
     const label = field ? ('label' in field ? field.label : field.header) : f.id;
-    return [`${lang === 'ko' ? '필터' : 'Filter'} · ${label}`, describeFilter(f, field?.filter, lang, field?.entry)];
+    return [`${formatText(COMPONENTS_MESSAGES.tableFilterGenericLabel, lang)} · ${label}`, describeFilter(f, field?.filter, lang, field?.entry)];
   });
 }

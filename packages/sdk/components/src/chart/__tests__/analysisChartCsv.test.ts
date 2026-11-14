@@ -17,11 +17,11 @@ it('uses a safe filename and keeps its blob URL alive until the download settles
 it('keeps numeric chart projections numeric, including negative coordinates (#2028 SHE-19)', async () => {
   const { scatterData, boxPlotData, paretoData } = await import('../analysisChartKinds');
   const { topNData } = await import('../topNBar');
-  const scatter = scatterData({ kind: 'scatter', points: [{ id: 'a', x: -3.2, y: 2 }], xLabel: 'X', yLabel: 'Y', xUnit: 's' }, false, 'ea');
+  const scatter = scatterData({ kind: 'scatter', points: [{ id: 'a', x: -3.2, y: 2 }], xLabel: 'X', yLabel: 'Y', xUnit: 's' }, 'en', 'ea');
   expect(scatter.csvValues[0].slice(-2)).toEqual([-3.2, 2]);
-  const box = boxPlotData({ kind: 'boxPlot', whisker: 'minMax', groups: [{ id: 'a', label: 'A', stats: { min: -5, q1: -4, median: -3, q3: -2, max: -1 } }] }, false, 's');
+  const box = boxPlotData({ kind: 'boxPlot', whisker: 'minMax', groups: [{ id: 'a', label: 'A', stats: { min: -5, q1: -4, median: -3, q3: -2, max: -1 } }] }, 'en', 's');
   expect(box.csvValues[0].slice(1, 6)).toEqual([-5, -4, -3, -2, -1]);
   expect(box.csvHeaders[1]).toBe('Min (s)');
-  expect(paretoData({ kind: 'pareto', items: [{ id: 'a', label: 'A', value: 2 }] }, false, 's').csvValues[0]).toEqual(['A', 2, 100]);
-  expect(topNData({ kind: 'topNBar', items: [{ id: 'a', label: 'A', value: 2, colorToken: 'chart-series-1' }] }, false, 's').csvValues[0]).toEqual(['A', 2]);
+  expect(paretoData({ kind: 'pareto', items: [{ id: 'a', label: 'A', value: 2 }] }, 'en', 's').csvValues[0]).toEqual(['A', 2, 100]);
+  expect(topNData({ kind: 'topNBar', items: [{ id: 'a', label: 'A', value: 2, colorToken: 'chart-series-1' }] }, 'en', 's').csvValues[0]).toEqual(['A', 2]);
 });

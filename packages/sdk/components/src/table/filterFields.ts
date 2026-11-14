@@ -1,5 +1,6 @@
 import type { ColumnFilter, ColumnFilterSpec, Text } from '@ap/contracts';
-import { topicParticle } from '@ap/kernel';
+import { formatText, topicParticle } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import type { PlatformColumn } from './PlatformDataTable';
 
 /**
@@ -55,7 +56,12 @@ const withParticle = (name: string): '와' | '과' => {
 /** The editor's refusal while a field's `requires` condition is missing (「대상 ID는 대상 유형과 함께 있어야 합니다.」), or `null`. The condition is never applied and silently pruned. */
 export function requiresIssue(field: ResolvedFilterField, filters: readonly ColumnFilter[], all: readonly ResolvedFilterField[]): Text | null {
   const need = unmetRequirement(field, filters, all);
-  return need === null ? null : { ko: `${field.label}${topicParticle(field.label)} ${need}${withParticle(need)} 함께 있어야 합니다.`, en: `${field.label} needs the ${need} condition to be set too.` };
+  if (need === null) return null;
+  const params = { field: field.label, topicParticle: topicParticle(field.label), need, withParticle: withParticle(need) };
+  return {
+    ko: formatText(COMPONENTS_MESSAGES.tableFilterRequiresIssue, 'ko', params),
+    en: formatText(COMPONENTS_MESSAGES.tableFilterRequiresIssue, 'en', params),
+  };
 }
 
 /** The conditions left after a change: any condition whose `requires` field lost its condition goes too (transitively). */

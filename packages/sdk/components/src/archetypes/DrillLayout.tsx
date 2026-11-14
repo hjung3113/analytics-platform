@@ -1,11 +1,12 @@
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
-import { RETURN_CONTEXT_LABELS, PlatformLink, type ReturnOrigin, invalidValueSentence, useDrill, useI18n } from '@ap/kernel';
+import { RETURN_CONTEXT_LABELS, PlatformLink, type ReturnOrigin, invalidValueSentence, useDrill, useI18n, useMessages } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import {
   Button, cn,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@ap/ui';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { drillDestinationOf, focusPageFallback, paneRootOf, requestReturnFocus } from '../state/pageFocus';
 import { StateMessage } from '../StateView';
 
@@ -43,13 +44,12 @@ function SiblingMenu({ label, value, items, onSwitch, scopeRef }: {
   /** The path bar, which stays mounted when this trigger does not; it keeps the lookup inside the owning pane (#497 D1). */
   scopeRef: { readonly current: HTMLElement | null };
 }) {
-  const { lang } = useI18n();
-  const ko = lang === 'ko';
+  const m = useMessages(COMPONENTS_MESSAGES);
   const switched = useRef(false);
   const trigger = useRef<HTMLButtonElement>(null);
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <button ref={trigger} type="button" aria-label={ko ? `${label} 바꾸기` : `Change ${label}`}
+      <button ref={trigger} type="button" aria-label={m('drillChangeStep', { label })}
         className="inline-flex size-6 items-center justify-center rounded-sm text-text-secondary hover:bg-surface-sunken hover:text-text-primary">
         <ChevronDown className="size-3.5" aria-hidden />
       </button>
@@ -72,8 +72,8 @@ function SiblingMenu({ label, value, items, onSwitch, scopeRef }: {
 export function DrillPath(props: DrillPathProps) {
   const { siblings, summary } = props;
   const drill = useDrill();
-  const { lang, tx } = useI18n();
-  const ko = lang === 'ko';
+  const { t, tx } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const wentUp = useRef(false);
   const nav = useRef<HTMLElement>(null);
   if (drill.depth === 0) return null;
@@ -98,13 +98,13 @@ export function DrillPath(props: DrillPathProps) {
   };
 
   const hasSummary = !(summary === undefined || summary === null || summary === false);
-  const navigation = <nav ref={nav} aria-label={ko ? '드릴 경로' : 'Drill path'} className={hasSummary ? 'flex min-w-0 flex-wrap items-center gap-1 text-xs' : 'flex flex-wrap items-center gap-1 text-xs'}>
-    <button type="button" onClick={() => drill.goTo(0)} className="rounded-md px-2 py-1 text-text-secondary hover:bg-surface-sunken">{ko ? '전체' : 'All'}</button>
+  const navigation = <nav ref={nav} aria-label={m('drillPathNav')} className={hasSummary ? 'flex min-w-0 flex-wrap items-center gap-1 text-xs' : 'flex flex-wrap items-center gap-1 text-xs'}>
+    <button type="button" onClick={() => drill.goTo(0)} className="rounded-md px-2 py-1 text-text-secondary hover:bg-surface-sunken">{t('all')}</button>
     {hidden.length > 0 && <>
       <ChevronRight className="size-3 text-text-muted" aria-hidden />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button type="button" aria-label={ko ? '가운데 단계' : 'Middle steps'} className="rounded-md px-2 py-1 text-text-secondary hover:bg-surface-sunken">…</button>
+          <button type="button" aria-label={m('drillMiddleSteps')} className="rounded-md px-2 py-1 text-text-secondary hover:bg-surface-sunken">…</button>
         </DropdownMenuTrigger>
         <DropdownMenuContent onCloseAutoFocus={event => { if (wentUp.current) { event.preventDefault(); wentUp.current = false; focusDrillDestination(nav.current); } }} align="start" className="w-56">
           {hidden.map((step, index) => <DropdownMenuItem key={step.key} className={focusRing} onSelect={() => { wentUp.current = true; drill.goTo(index + 1); }}>
@@ -137,16 +137,16 @@ export function DrillLayout(props: DrillLayoutProps) {
   const drill = useDrill();
   const { invalid } = drill;
   const { lang } = useI18n();
-  const ko = lang === 'ko';
+  const m = useMessages(COMPONENTS_MESSAGES);
   const body = invalid
     ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
       title={invalidValueSentence(lang, 'drillGap', invalid.label, invalid.value)}
-      body={ko ? '다른 값으로 바꾸지 않습니다.' : 'Nothing was substituted.'}
-      action={<Button size="sm" variant="secondary" onClick={() => drill.goTo(drill.depth)}>{ko ? '잘못된 단계 지우기' : 'Clear the invalid step'}</Button>} />
+      body={m('drillNothingSubstituted')}
+      action={<Button size="sm" variant="secondary" onClick={() => drill.goTo(drill.depth)}>{m('drillClearInvalidStep')}</Button>} />
     : notFound
       ? <StateMessage tone="warning" icon={<AlertTriangle className="size-4" aria-hidden />}
-        title={ko ? `이 조건에서 없는 값: ${notFound.value}` : `No value in this context: ${notFound.value}`}
-        body={ko ? '다른 값으로 바꾸지 않습니다.' : 'Nothing was substituted.'} />
+        title={m('drillNoValueInContext', { value: notFound.value })}
+        body={m('drillNothingSubstituted')} />
       : children;
   if (fill) return <div className="flex min-h-0 flex-1 flex-col gap-2">
     <DrillPath {...pathProps} />

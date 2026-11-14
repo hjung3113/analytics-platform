@@ -1,5 +1,7 @@
 import type { ECharts } from 'echarts/core';
+import { formatText, type Lang } from '@ap/kernel';
 import { readColorToken } from '@ap/ui/theme';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { downloadBlob } from '../table/download';
 import { chartTheme } from './EChart';
 
@@ -27,11 +29,14 @@ export function copyChartImage(produce: () => Blob | Promise<Blob>, fileName: st
   return write.then<ImageCopyOutcome, ImageCopyOutcome>(() => 'copied', download);
 }
 
-export function imageCopyText(outcome: ImageCopyOutcome, lang: string): string {
-  const ko = lang === 'ko';
-  return outcome === 'copied' ? (ko ? '이미지를 복사했습니다' : 'Image copied')
-    : outcome === 'downloaded' ? (ko ? '이미지를 내려받았습니다' : 'Image downloaded')
-    : (ko ? '이미지를 복사하거나 내려받지 못했습니다' : 'Could not copy or download the image');
+const IMAGE_COPY_KEY = {
+  copied: 'chartImageCopied',
+  downloaded: 'chartImageDownloaded',
+  failed: 'chartImageFailed',
+} as const satisfies Record<ImageCopyOutcome, keyof typeof COMPONENTS_MESSAGES>;
+
+export function imageCopyText(outcome: ImageCopyOutcome, lang: Lang): string {
+  return formatText(COMPONENTS_MESSAGES[IMAGE_COPY_KEY[outcome]], lang);
 }
 
 const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
@@ -44,8 +49,8 @@ const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
 const PRINT_GUARD_MS = 60_000;
 let printBusyUntil = 0;
 
-export function imagePrintFailedText(lang: string): string {
-  return lang === 'ko' ? '인쇄를 준비하지 못했습니다' : 'Could not prepare the print';
+export function imagePrintFailedText(lang: Lang): string {
+  return formatText(COMPONENTS_MESSAGES.chartPrintFailed, lang);
 }
 
 /**

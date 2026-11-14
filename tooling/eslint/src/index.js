@@ -453,8 +453,8 @@ export const ui = [
 ];
 
 // #2174: ko/en copy lives in a message table, not a language ternary (rule source: no-lang-copy-ternary.js). Tests may
-// spell the expected text of both languages. Enabled per package as its copy moves: kernel and shell first, then
-// components, then menus and platform features.
+// spell the expected text of both languages. Enabled per package as its copy moves: kernel, shell and components so far, then
+// menus and platform features.
 const LANG_COPY = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/no-lang-copy-ternary': 'error' } };
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -475,6 +475,7 @@ export const components = [
   BUILD_OUTPUT,
   layerConfig({ restriction: COMPONENTS_RESTRICTION }),
   testEntryOverride(COMPONENTS_RESTRICTION),
+  LANG_COPY,
   // Shared components are assembled from ui primitives (06 §13) and may not restyle them; their own markup is not a
   // design-system component here (relative imports never match componentImports), so it styles freely with tokens.
   designSystem(),

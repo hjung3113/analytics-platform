@@ -3,7 +3,8 @@ import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, u
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type Header } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, GripVertical, Loader2, Pin, PinOff } from 'lucide-react';
-import { useEndpointRefreshEpoch, useI18n, usePlatform } from '@ap/kernel';
+import { useEndpointRefreshEpoch, useI18n, useMessages, usePlatform } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { useHostPlatform } from '@ap/kernel/host';
 import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
@@ -228,6 +229,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const p = { ...props, columns: source.columns, filterFields: source.filterFields, loadPage: props.loadPage ?? source.loadPage! };
   const dataVersion = props.rows ? source.version : epoch;
   const { t, lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const analysisSection = useContext(AnalysisSectionContext);
   const inPanel = useInWorkspacePanel();
   const densePage = useCompactPageDensity();
@@ -357,20 +359,20 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       // The changing state arrives through `table.options.meta` so this renderer keeps its identity (a new component type would remount the focused checkbox).
       header: ({ table }) => {
         const { headerState, clear } = table.options.meta as SelectionMeta;
-        return <Checkbox aria-label={headerState ? (lang === 'ko' ? '필터 결과 전체 선택 해제' : 'Clear the whole-result selection') : lang === 'ko' ? '현재 페이지 전체 선택' : 'Select all rows on this page'}
+        return <Checkbox aria-label={headerState ? m('tableSelectAllClear') : m('tableSelectAllPage')}
           checked={headerState ? (headerState === 'all' ? true : 'indeterminate') : table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? 'indeterminate' : false}
           onCheckedChange={v => headerState ? clear() : table.toggleAllPageRowsSelected(v === true)} className="size-3.5 border-border-control" />;
       },
-      cell: ({ row }) => <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.id}`} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
+      cell: ({ row }) => <Checkbox aria-label={m('tableSelectRow', { id: row.id })} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
     } as ColumnDef<T>] : []),
     // 크게 widens the DEFAULT widths by the font ratio; a width the user dragged is stored in `preferences.sizing` and wins over it.
     ...p.columns.map(c => toColumnDef(widthScale === 1 ? c : { ...c, size: Math.round((c.size ?? DEFAULT_COLUMN_WIDTH) * widthScale) })),
-  ], [p.columns, lang, selectable, widthScale]);
+  ], [p.columns, m, selectable, widthScale]);
   const hasAction = !!p.rowAction;
   const allColumns = useMemo<ColumnDef<T>[]>(() => [
     ...baseColumns,
-    ...(hasAction ? [{ id: '_action', size: actionWidth, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
-  ], [baseColumns, hasAction, lang, actionWidth]);
+    ...(hasAction ? [{ id: '_action', size: actionWidth, enableSorting: false, enableHiding: false, enableResizing: false, header: m('tableActionColumn') } as ColumnDef<T>] : []),
+  ], [baseColumns, hasAction, m, actionWidth]);
 
   // The selection and action utility columns keep their places at the two ends.
   const columnOrder = useMemo(() => [...(selectable ? ['_select'] : []), ...orderedIds, ...(hasAction ? ['_action'] : [])], [selectable, orderedIds, hasAction]);
@@ -549,7 +551,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     // No saved order yet: start from what is shown (pins in their pin order, then the rest), so the untouched group keeps its sequence.
     const base = preferences.order.length > 0 ? orderedIds : [...pinnedIds, ...orderedIds.filter(id => !pinnedIds.includes(id))];
     onColumnOrderChange(moveWithinGroup(base, sequence, c.id, to));
-    setOrderNote(lang === 'ko' ? `${nameOf(c)} ${to + 1}번째로 이동` : `${nameOf(c)} moved to position ${to + 1}`);
+    setOrderNote(m('tableColumnMoved', { name: nameOf(c), position: to + 1 }));
   }
   /** Pointer drag on the handle: the row under the pointer (same group only) is the drop target; the move is committed on release. */
   function startDrag(e: React.PointerEvent<HTMLElement>, c: Column<T>, group: Column<T>[]) {
@@ -585,9 +587,9 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       <span role="presentation" aria-hidden className="shrink-0 cursor-grab touch-none text-text-muted" onPointerDown={e => startDrag(e, c, group)}><GripVertical className="size-3.5" /></span>
       {c.getCanHide() ? <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" /> : <span className="size-3.5 shrink-0" aria-hidden />}
       <div className="min-w-0 flex-1">{c.getCanHide() ? <Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{name}</Label> : <span className="text-sm">{name}</span>}</div>
-      <Button id={`${columnPrefsId}-${c.id}-up`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={`${name} ${lang === 'ko' ? '위로' : 'move up'}`} disabled={at === 0} onClick={() => moveColumn(c, group, at - 1, 'up')}><ArrowUp className="size-3.5" aria-hidden /></Button>
-      <Button id={`${columnPrefsId}-${c.id}-down`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={`${name} ${lang === 'ko' ? '아래로' : 'move down'}`} disabled={at === group.length - 1} onClick={() => moveColumn(c, group, at + 1, 'down')}><ArrowDown className="size-3.5" aria-hidden /></Button>
-      <Button id={`${columnPrefsId}-${c.id}-pin`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-pressed={pinned} aria-label={`${nameOf(c)} ${lang === 'ko' ? '왼쪽 고정' : 'pin left'}`} disabled={!c.getCanPin()} onClick={() => { refocusPin.current = c.id; c.pin(pinned ? false : 'left'); }}>
+      <Button id={`${columnPrefsId}-${c.id}-up`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('tableColumnMoveUp', { name })} disabled={at === 0} onClick={() => moveColumn(c, group, at - 1, 'up')}><ArrowUp className="size-3.5" aria-hidden /></Button>
+      <Button id={`${columnPrefsId}-${c.id}-down`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('tableColumnMoveDown', { name })} disabled={at === group.length - 1} onClick={() => moveColumn(c, group, at + 1, 'down')}><ArrowDown className="size-3.5" aria-hidden /></Button>
+      <Button id={`${columnPrefsId}-${c.id}-pin`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-pressed={pinned} aria-label={m('tableColumnPinLeft', { name })} disabled={!c.getCanPin()} onClick={() => { refocusPin.current = c.id; c.pin(pinned ? false : 'left'); }}>
         {pinned ? <PinOff className="size-3.5" aria-hidden /> : <Pin className="size-3.5" aria-hidden />}
       </Button>
     </li>;
@@ -604,13 +606,13 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const copyIn = canExport && overflow.has('copy');
   const exportIn = canExport && overflow.has('export');
   const hasMore = groupIn || sizeIn || columnsIn || copyIn || exportIn;
-  const copyLabel = selectedIds.length === 0 ? (lang === 'ko' ? '복사' : 'Copy') : lang === 'ko' ? `${selectedIds.length}행 복사` : `Copy ${selectedIds.length} ${selectedIds.length === 1 ? 'row' : 'rows'}`;
+  const copyLabel = selectedIds.length === 0 ? m('tableCopy') : m(selectedIds.length === 1 ? 'tableCopyRowsOne' : 'tableCopyRowsMany', { count: selectedIds.length });
   // Same wording as the wide 복사 button's tooltip; the overflow item carries it as its description (no hover/focus tooltip inside a menu).
   const copyHelp = selectionState.all
-    ? (lang === 'ko' ? '복사 대상: 불러온 행만. 쪽에서 행을 골라 복사하거나 전체 결과 내보내기를 쓰세요' : 'Copy reads loaded rows only. Select rows on a page to copy, or export the whole result')
+    ? m('tableCopyAllSelectionBlocked')
     : selectedIds.length === 0
-    ? (lang === 'ko' ? '복사할 행을 선택하세요' : 'Select rows to copy')
-    : (lang === 'ko' ? `${shortcutLabel('C')}로 복사 (표 안에서)` : `Copy with ${shortcutLabel('C')} (inside the table)`);
+    ? m('tableCopySelectPrompt')
+    : m('tableCopyShortcut', { shortcut: shortcutLabel('C') });
   const copyHelpId = `${columnPrefsId}-copy-help`;
   const descriptionId = `${columnPrefsId}-description`;
   const exportBody = <>
@@ -636,14 +638,14 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   }}>
     {groupIn && <GroupSubmenu lang={lang} value={groupBy ?? ''} options={groupColumns} onChange={changeGroup} />}
     {sizeIn && <TableSizeSubmenu lang={lang} value={tableSize} onChange={setTableSize} />}
-    {columnsIn && <DropdownMenuItem className={exportItemClass} onSelect={() => { openColumnsAfterMenu.current = true; }}><Columns3 className="mr-2 size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</DropdownMenuItem>}
+    {columnsIn && <DropdownMenuItem className={exportItemClass} onSelect={() => { openColumnsAfterMenu.current = true; }}><Columns3 className="mr-2 size-3.5" aria-hidden />{m('tableColumns')}</DropdownMenuItem>}
     {copyIn && <DropdownMenuItem className={exportItemClass} disabled={selectedIds.length === 0 || copying} aria-label={copyLabel} aria-describedby={copyHelpId} aria-keyshortcuts={selectedIds.length > 0 ? 'Control+C Meta+C' : undefined} onSelect={() => { void runCopy(); }}><Copy className="mr-2 size-3.5" aria-hidden />{copyLabel}</DropdownMenuItem>}
     {exportIn && <DropdownMenuSub>
       <DropdownMenuSubTrigger><Download className="mr-2 size-3.5" aria-hidden />{t('export')}</DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="min-w-56">{exportBody}</DropdownMenuSubContent>
     </DropdownMenuSub> }
   </MoreMenu> : null;
-  const columnsButton = <Button variant="secondary" size="toolbar"><Columns3 className="size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</Button>;
+  const columnsButton = <Button variant="secondary" size="toolbar"><Columns3 className="size-3.5" aria-hidden />{m('tableColumns')}</Button>;
   // With 「컬럼」 in `⋯`, the popover anchors to the `⋯` button and is rendered last, so `⋯` ends the row.
   const columnsPopover = <Popover open={overlayOpen.columns} onOpenChange={open => setOverlayOpen(o => ({ ...o, columns: open }))}>
     {columnsIn ? <PopoverAnchor asChild><span className="inline-flex">{moreMenu}</span></PopoverAnchor> : <PopoverTrigger asChild>{columnsButton}</PopoverTrigger>}
@@ -652,20 +654,20 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       if (!columnsOutside.current) moreButton.current?.focus();
       columnsOutside.current = false;
     } : undefined}>
-      <p className="t-card-title mb-2">{lang === 'ko' ? '컬럼 설정 (브라우저에 저장)' : 'Column preferences (saved locally)'}</p>
+      <p className="t-card-title mb-2">{m('tableColumnPrefsTitle')}</p>
       <div className="space-y-3">
         {pinnedPrefs.length > 0 && <div>
-          <p className="mb-1 text-xs text-text-secondary">{lang === 'ko' ? '고정됨' : 'Pinned'}</p>
+          <p className="mb-1 text-xs text-text-secondary">{m('tableColumnPinned')}</p>
           <ul className="space-y-2">{pinnedPrefs.map((c, i) => columnPrefRow(c, i, pinnedPrefs))}</ul>
         </div>}
         {otherPrefs.length > 0 && <div>
-          {pinnedPrefs.length > 0 && <p className="mb-1 text-xs text-text-secondary">{lang === 'ko' ? '나머지' : 'Other'}</p>}
+          {pinnedPrefs.length > 0 && <p className="mb-1 text-xs text-text-secondary">{m('tableColumnOther')}</p>}
           <ul className="space-y-2">{otherPrefs.map((c, i) => columnPrefRow(c, i, otherPrefs))}</ul>
         </div>}
       </div>
       <p className="sr-only" aria-live="polite">{orderNote}</p>
       {/* Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */}
-      <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetPreferences}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
+      <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetPreferences}>{m('tableResetPrefs')}</Button></div>
     </PopoverContent>
   </Popover>;
   const toolbarActions = <>
@@ -714,8 +716,8 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
         : !success ? '—'
         : p.externalPagination ? p.externalPagination.summary
         : outOfRange
-          ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
-          : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>;
+          ? m('tableSummaryOutOfRange', { total: data.total.toLocaleString(), pages: pageCount })
+          : m('tableSummaryPage', { total: data.total.toLocaleString(), page: shownPage + 1, pages: pageCount })}</span>;
   const resultLine = (
     <div ref={statusLine.ref} data-table-status-line className={cn('relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted', p.fill && 'shrink-0', !mergeToolbar && 'min-h-9 border-t border-border-subtle px-3 py-1.5')} aria-live={groupedOutcome ? 'off' : 'polite'}>
       {!mergeToolbar && filterLine}
@@ -748,14 +750,14 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     {selectedCount > 0 && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-xs">
       <span className="font-semibold tabular" data-testid="selected-count">{selectionState.all
         ? (selectionState.excludedIds.length > 0
-          ? (lang === 'ko' ? `전체 ${selectionState.all.total.toLocaleString()}행 중 ${selectionState.excludedIds.length.toLocaleString()}행 제외` : `${selectionState.excludedIds.length.toLocaleString()} of ${selectionState.all.total.toLocaleString()} rows excluded`)
-          : (lang === 'ko' ? `전체 ${selectionState.all.total.toLocaleString()}행 선택` : `All ${selectionState.all.total.toLocaleString()} rows selected`))
-        : (lang === 'ko' ? `${selectedCount}행 선택` : `${selectedCount} selected`)}</span>
+          ? m('tableSelectedExcluded', { total: selectionState.all.total.toLocaleString(), excluded: selectionState.excludedIds.length.toLocaleString() })
+          : m('tableSelectedAll', { total: selectionState.all.total.toLocaleString() }))
+        : m('tableSelectedCount', { count: selectedCount })}</span>
       {selectionState.selection?.kind === 'ids' && p.bulkActions?.(selectionState.selection.ids)}
       {selectionState.selection && p.bulkSelectionActions?.(selectionState.selection, { filters: effectiveFilters, sorting: activeSorting })}
-      {!selectionState.all && <Button variant="ghost" size="toolbar" onClick={clearSelection}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>}
-      {hiddenSelected > 0 && <span className="tabular" data-testid="selected-collapsed-note">{lang === 'ko' ? `접힌 그룹의 ${hiddenSelected.toLocaleString()}행 포함` : `includes ${hiddenSelected.toLocaleString()} rows in collapsed groups`}</span>}
-      <span className="text-text-secondary">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
+      {!selectionState.all && <Button variant="ghost" size="toolbar" onClick={clearSelection}>{m('tableClearSelection')}</Button>}
+      {hiddenSelected > 0 && <span className="tabular" data-testid="selected-collapsed-note">{m('tableSelectedCollapsedNote', { count: hiddenSelected.toLocaleString() })}</span>}
+      <span className="text-text-secondary">{m('tableSelectionPolicy')}</span>
     </div>}
 
     {/* Stable widget wrapper (like QueryView's): the busy state survives the outcome/rows switch. A grouped table's refresh is announced by the scope only (components.md §공유 위젯 응답). */}
@@ -844,7 +846,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
           if (p.urlState) p.urlState.onChange({ sorting: p.urlState.sorting, page: effectivePage === 1 ? null : effectivePage }, 'user');
           else setPage(effectivePage - 1);
           if (viewport.current) viewport.current.scrollTop = 0;
-        }}>{lang === 'ko' ? '이전' : 'Previous'}</Button>
+        }}>{m('tablePreviousPage')}</Button>
       <Button ref={nextButton} variant="secondary" size="toolbar" disabled={nextDisabled}
         aria-disabled={loading || undefined} className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
         onFocus={() => { focusedPager.current = 'next'; }} onBlur={() => { focusedPager.current = null; }}
@@ -853,7 +855,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
           if (p.urlState) p.urlState.onChange({ sorting: p.urlState.sorting, page: effectivePage + 2 }, 'user');
           else setPage(effectivePage + 1);
           if (viewport.current) viewport.current.scrollTop = 0;
-        }}>{lang === 'ko' ? '다음' : 'Next'}</Button></>}
+        }}>{m('tableNextPage')}</Button></>}
     </div>
   </section>;
 }

@@ -5,14 +5,15 @@
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { betweenOrdered, FILTER_OPS_BY_KIND, type ColumnFilter, type ColumnFilterOp, type ColumnFilterSpec, type Text } from '@ap/contracts';
+import { useI18n, useMessages, type Lang } from '@ap/kernel';
 import { Button, Checkbox, Input, Label, PopoverContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { useImeEnterGuard } from '../filters/useImeEnterGuard';
 import { addDays, inclusiveDay, type FilterLimit } from './columnFilters';
 import { FILTER_OP_LABELS } from './filterOps';
 import type { InstantEntry, ResolvedFilterField } from './filterFields';
 import { instantToLocalField, localFieldToInstant, type LocalFieldFailure } from './zonedInstant';
 
-type Lang = 'ko' | 'en';
 /** `keep`: the instant bounds the draft opened with (full ISO), used while the user has not edited that bound's text. */
 type Draft = { op: ColumnFilterOp; a: string; b: string; picked: string[]; keep?: { a?: [string, string]; b?: [string, string] } };
 
@@ -49,13 +50,13 @@ const trimSeconds = (text: string): string => text.replace(/\.000$/, '').replace
 const sameLocal = (a: string, b: string): boolean => trimSeconds(a) === trimSeconds(b);
 
 const ZONE_ISSUES: Record<LocalFieldFailure, Text> = {
-  format: { ko: '날짜·시간 형식이 올바르지 않습니다.', en: 'The date and time format is not valid.' },
-  calendar: { ko: '존재하지 않는 날짜입니다.', en: 'That date does not exist.' },
-  gap: { ko: '이 시간대에 없는 시각입니다 (서머타임 전환). 다른 시각을 고르세요.', en: 'That time does not exist in this time zone (clock change). Pick another time.' },
-  fold: { ko: '이 시간대에서 두 번 있는 시각이라 정할 수 없습니다 (서머타임 전환). 다른 시각을 고르세요.', en: 'That time happens twice in this time zone (clock change). Pick another time.' },
-  zone: { ko: '시간대를 알 수 없습니다.', en: 'The time zone is not known.' },
+  format: COMPONENTS_MESSAGES.tableFilterZoneFormat,
+  calendar: COMPONENTS_MESSAGES.tableFilterZoneCalendar,
+  gap: COMPONENTS_MESSAGES.tableFilterZoneGap,
+  fold: COMPONENTS_MESSAGES.tableFilterZoneFold,
+  zone: COMPONENTS_MESSAGES.tableFilterZoneUnknown,
 };
-const ORDER_ISSUE: Text = { ko: '시작은 끝보다 앞이어야 합니다.', en: 'The start must be before the end.' };
+const ORDER_ISSUE: Text = COMPONENTS_MESSAGES.tableFilterOrderIssue;
 
 /** One instant bound: the ISO instant, `undefined` for an empty or unreadable text, and the reason when the text is refused. An untouched bound keeps its exact ISO value. */
 function fromLocalInput(text: string, kept: [string, string] | undefined, entry: InstantEntry | undefined): { value?: string; issue?: Text } {
@@ -129,10 +130,10 @@ function draftIssue(spec: ColumnFilterSpec, d: Draft, entry: InstantEntry | unde
   return check?.(filter) ?? null;
 }
 
-const LIMIT_TEXT: Record<FilterLimit, { ko: string; en: string }> = {
-  'too-many-conditions': { ko: '조건이 너무 많아 적용할 수 없습니다. 다른 조건을 지운 뒤 다시 적용하세요.', en: 'Too many conditions to apply. Clear another condition and apply again.' },
-  'too-many-values': { ko: '값을 너무 많이 골랐습니다. 값을 줄인 뒤 다시 적용하세요.', en: 'Too many values selected. Select fewer and apply again.' },
-  'too-long': { ko: '조건이 너무 길어 적용할 수 없습니다. 값을 줄인 뒤 다시 적용하세요.', en: 'The condition is too long to apply. Shorten the value and apply again.' },
+const LIMIT_TEXT: Record<FilterLimit, Text> = {
+  'too-many-conditions': COMPONENTS_MESSAGES.tableFilterLimitConditions,
+  'too-many-values': COMPONENTS_MESSAGES.tableFilterLimitValues,
+  'too-long': COMPONENTS_MESSAGES.tableFilterLimitLong,
 };
 const SEARCH_FROM = 6;
 
@@ -144,7 +145,8 @@ export function FilterEditorForm({ field, active, lang, onApply, titleId, limit,
   /** The page's value check (`FilterValueCheck`): a refusal is shown inline and 적용 stays disabled. */
   check?: (next: ColumnFilter) => Text | null;
 }) {
-  const ko = lang === 'ko';
+  const { t } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const { spec } = field;
   const [draft, setDraft] = useState<Draft>(() => initialDraft(spec, active, field.entry));
   const [query, setQuery] = useState('');
@@ -163,34 +165,34 @@ export function FilterEditorForm({ field, active, lang, onApply, titleId, limit,
 
   let value: ReactNode = null;
   if (hasValue) {
-    if (spec.kind === 'text') value = <Input data-editor-focus aria-label={ko ? '값' : 'Value'} value={draft.a} onChange={e => patch({ a: e.target.value })} />;
+    if (spec.kind === 'text') value = <Input data-editor-focus aria-label={m('tableFilterValue')} value={draft.a} onChange={e => patch({ a: e.target.value })} />;
     else if (spec.kind === 'number') {
       const between = draft.op === 'between';
       value = <div className="flex items-center gap-1">
-        <Input data-editor-focus type="number" aria-label={between ? (ko ? '최솟값' : 'Minimum') : (ko ? '값' : 'Value')} value={draft.a} onChange={e => patch({ a: e.target.value })} />
-        {between && <><span aria-hidden>~</span><Input type="number" aria-label={ko ? '최댓값' : 'Maximum'} value={draft.b} onChange={e => patch({ b: e.target.value })} /></>}
+        <Input data-editor-focus type="number" aria-label={between ? m('tableFilterMinimum') : m('tableFilterValue')} value={draft.a} onChange={e => patch({ a: e.target.value })} />
+        {between && <><span aria-hidden>~</span><Input type="number" aria-label={m('tableFilterMaximum')} value={draft.b} onChange={e => patch({ b: e.target.value })} /></>}
       </div>;
     } else if (spec.kind === 'date' && (draft.op === 'before' || draft.op === 'after')) {
-      value = <Input data-editor-focus type="date" aria-label={ko ? '날짜' : 'Date'} value={draft.a} onChange={e => patch({ a: e.target.value })} />;
+      value = <Input data-editor-focus type="date" aria-label={m('tableFilterDate')} value={draft.a} onChange={e => patch({ a: e.target.value })} />;
     } else if (spec.kind === 'date') {
       value = <div className="space-y-1">
-        <Label htmlFor={`${baseId}-a`}>{ko ? '~부터' : 'From'}</Label>
+        <Label htmlFor={`${baseId}-a`}>{m('tableFilterDateFrom')}</Label>
         <Input data-editor-focus id={`${baseId}-a`} type="date" value={draft.a} onChange={e => patch({ a: e.target.value })} />
-        <Label htmlFor={`${baseId}-b`}>{ko ? '~까지 (포함)' : 'To (inclusive)'}</Label>
+        <Label htmlFor={`${baseId}-b`}>{m('tableFilterDateTo')}</Label>
         <Input id={`${baseId}-b`} type="date" value={draft.b} onChange={e => patch({ b: e.target.value })} />
       </div>;
     } else if (spec.kind === 'instant') {
       value = <div className="space-y-1">
-        <Label htmlFor={`${baseId}-a`}>{ko ? '시작 (이상)' : 'From'}</Label>
+        <Label htmlFor={`${baseId}-a`}>{m('tableFilterInstantFrom')}</Label>
         <Input data-editor-focus id={`${baseId}-a`} type="datetime-local" step={withSeconds(field.entry) ? 1 : undefined} value={draft.a} onChange={e => patch({ a: e.target.value })} />
-        <Label htmlFor={`${baseId}-b`}>{ko ? '끝 (미만)' : 'To (exclusive)'}</Label>
+        <Label htmlFor={`${baseId}-b`}>{m('tableFilterInstantTo')}</Label>
         <Input id={`${baseId}-b`} type="datetime-local" step={withSeconds(field.entry) ? 1 : undefined} value={draft.b} onChange={e => patch({ b: e.target.value })} />
       </div>;
     } else {
       const needle = query.trim().toLowerCase();
       const options = spec.options.filter(o => o.label.toLowerCase().includes(needle) || o.value.toLowerCase().includes(needle));
-      value = <div role="group" aria-label={ko ? '값 목록' : 'Values'} className="space-y-2">
-        {spec.options.length >= SEARCH_FROM && <Input data-editor-focus type="search" aria-label={ko ? '값 검색' : 'Search values'} placeholder={ko ? '값 검색' : 'Search values'} value={query}
+      value = <div role="group" aria-label={m('tableFilterValues')} className="space-y-2">
+        {spec.options.length >= SEARCH_FROM && <Input data-editor-focus type="search" aria-label={m('tableFilterSearchValues')} placeholder={m('tableFilterSearchValues')} value={query}
           onChange={e => setQuery(e.target.value)} />}
         <ul className="max-h-48 space-y-1 overflow-auto">
           {options.map(o => {
@@ -204,7 +206,7 @@ export function FilterEditorForm({ field, active, lang, onApply, titleId, limit,
               <Label htmlFor={id}>{o.label}</Label>
             </li>;
           })}
-          {options.length === 0 && <li className="text-xs text-text-muted">{ko ? '일치하는 값이 없습니다' : 'No matching values'}</li>}
+          {options.length === 0 && <li className="text-xs text-text-muted">{m('tableFilterNoMatchingValues')}</li>}
         </ul>
       </div>;
     }
@@ -221,7 +223,7 @@ export function FilterEditorForm({ field, active, lang, onApply, titleId, limit,
       <div className="flex items-center justify-between gap-2">
         <p id={titleId} className="t-card-title min-w-0 truncate">{field.label}</p>
         <Select value={draft.op} onValueChange={next => patch({ op: next as ColumnFilterOp, ...(single && draft.picked.length > 1 ? { picked: draft.picked.slice(0, 1) } : {}) })}>
-          <SelectTrigger density="compact" aria-label={ko ? '연산자' : 'Operator'} className="w-auto min-w-32 shrink-0 border-border-control">
+          <SelectTrigger density="compact" aria-label={m('tableFilterOperator')} className="w-auto min-w-32 shrink-0 border-border-control">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>{ops.map(op => <SelectItem key={op} value={op}>{word(op)}</SelectItem>)}</SelectContent>
@@ -231,8 +233,8 @@ export function FilterEditorForm({ field, active, lang, onApply, titleId, limit,
       {issue && <p role="alert" data-filter-issue className="text-xs text-text-danger-label">{issue[lang]}</p>}
       {refused && <p role="alert" className="text-xs text-text-danger-label">{LIMIT_TEXT[refused][lang]}</p>}
       <div className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
-        <Button type="button" variant="ghost" size="toolbar" onClick={() => onApply(null)}>{ko ? '지우기' : 'Clear'}</Button>
-        <Button type="submit" size="toolbar" disabled={!filter || issue !== null}>{ko ? '적용' : 'Apply'}</Button>
+        <Button type="button" variant="ghost" size="toolbar" onClick={() => onApply(null)}>{t('clear')}</Button>
+        <Button type="submit" size="toolbar" disabled={!filter || issue !== null}>{t('apply')}</Button>
       </div>
   </form>;
 }

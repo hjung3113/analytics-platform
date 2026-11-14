@@ -4,10 +4,11 @@ import { X } from 'lucide-react';
 import { Fragment, useContext, useEffect, useId, useState, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
-import { invalidValueSentence, useI18n } from '@ap/kernel';
+import { invalidValueSentence, useI18n, useMessages } from '@ap/kernel';
 import { RecoverButton } from '../state/RecoverButton';
 import { useHostPlatformOptional } from '@ap/kernel/host';
 import { DetailPanelFullscreenContext, DetailPanelFullscreenToggle, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused, cn } from '@ap/ui';
+import { COMPONENTS_MESSAGES } from '../messages';
 
 /** Menus declare content; the SDK owns its width-dependent placement. */
 export interface DetailDrawerRegions {
@@ -77,6 +78,7 @@ function useCloseOnPaneChange(onClose: () => void) {
 
 function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, onTabRecover, returnFocusRef }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
   const { lang, t } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const onKeyDown = useDetailPanelEscape(onClose);
   const close = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -165,7 +167,7 @@ function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, hea
       <div className="flex items-center gap-1">
         {headerActions}
         <DetailPanelFullscreenToggle expandLabel={t('detailExpand')} collapseLabel={t('detailCollapse')} />
-        <button ref={close} type="button" onClick={onClose} aria-label={lang === 'ko' ? '상세 닫기' : 'Close details'} className="grid size-8 place-items-center rounded-sm text-text-muted hover:bg-surface-sunken hover:text-text-primary"><X className="size-4" aria-hidden /></button>
+        <button ref={close} type="button" onClick={onClose} aria-label={m('drawerCloseDetails')} className="grid size-8 place-items-center rounded-sm text-text-muted hover:bg-surface-sunken hover:text-text-primary"><X className="size-4" aria-hidden /></button>
       </div>
     </header>
     {context && <div className="border-b border-border-subtle bg-surface-sunken px-5 py-2 text-xs text-text-secondary">{context}</div>}
@@ -173,11 +175,11 @@ function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, hea
     {/* One tab draws no tab row (06 §13, #886 UX-8); the content stays a focusable, named scroll region like a tabpanel. */}
     <Fragment key={identity}>
     {tab !== undefined && !tabs.some(candidate => candidate.id === tab)
-      ? <div role="alert" className="grid gap-2 px-5 py-3"><p>{invalidValueSentence(lang, 'value', { ko: '상세 탭', en: 'Detail tab' }, tab)}</p><RecoverButton onRecover={onTabRecover ?? (() => onTabChange?.(tabs[0].id))} label={lang === 'ko' ? '값 지우기' : 'Clear value'} /></div>
+      ? <div role="alert" className="grid gap-2 px-5 py-3"><p>{invalidValueSentence(lang, 'value', COMPONENTS_MESSAGES.drawerDetailTabField, tab)}</p><RecoverButton onRecover={onTabRecover ?? (() => onTabChange?.(tabs[0].id))} label={m('drawerClearTabValue')} /></div>
       : tabs.length === 1
       ? tabs[0].regions !== undefined ? <DeclaredRegions regions={tabs[0].regions} /> : <div role="region" tabIndex={0} aria-labelledby={`${id}-t`} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0"><DetailPanelReadingColumn>{tabs[0].content}</DetailPanelReadingColumn></div>
       : <Tabs value={tab} defaultValue={tab ? undefined : tabs[0].id} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
-        <TabsList aria-label={lang === 'ko' ? '상세 탭' : 'Detail tabs'} className="mx-5 mt-3 w-auto">
+        <TabsList aria-label={m('drawerDetailTabs')} className="mx-5 mt-3 w-auto">
           {tabs.map(tb => <TabsTrigger key={tb.id} value={tb.id}>{tb.label}</TabsTrigger>)}
         </TabsList>
         {tabs.map(tb => (

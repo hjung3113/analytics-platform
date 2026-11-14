@@ -23,10 +23,3 @@ export function WorkspaceQueryBarRow() {
     </div>
   </div>;
 }
-
-/** Component-local copy, translated through useI18n like the workspace toolbar's text dictionary. */
-export const workspaceQueryText = {
-  pageConditions: { ko: '페이지 조건', en: 'Page conditions' },
-  screenLayout: { ko: '화면 배치', en: 'Screen layout' },
-  completed: { ko: '요약 조회 완료', en: 'Summary response completed' },
-};

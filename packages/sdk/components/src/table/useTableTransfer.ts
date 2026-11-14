@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, PageSort } from '@ap/contracts';
-import { useEquipmentAxes, useI18n, usePlatform, useQueryContext } from '@ap/kernel';
+import { useEquipmentAxes, useI18n, useMessages, usePlatform, useQueryContext } from '@ap/kernel';
 import { isProductionEnv } from '@ap/ui';
+import { COMPONENTS_MESSAGES } from '../messages';
 import type { PlatformColumn } from './PlatformDataTable';
 import { downloadBlob, fileStamp, safeFileName } from './download';
 import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
 import {
   clipboardFailure, copiedText, copyingNote, copyRowCapNote, copyUnavailable, exportDoneText, EXPORT_REFUSAL, exportPreparingNote, exportRefusal, EXPORT_ROW_CAP,
-  exportRowCapNote, exportTarget, globalContextRows, INFO_LABELS, loadedRowsOnlyNote, noSelectedOnPage, provisionalSuffix, selectionShortNote,
+  exportRowCapNote, exportTarget, globalContextRows, loadedRowsOnlyNote, noSelectedOnPage, provisionalSuffix, selectionShortNote,
   type ExportFormat, type ExportScopeKind,
 } from './tableMessages';
 import type { Preferences } from './useColumnPreferences';
@@ -66,6 +67,7 @@ type TransferInput<T> = {
 export function useTableTransfer<T>(input: TransferInput<T>) {
   const { columns, getRowId, canExport, selectedIds, selection, activeSorting, preferences, overlayOpen } = input;
   const { lang, t } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const { global, route, toast } = usePlatform();
   const queryContext = useQueryContext();
   const axes = useEquipmentAxes();
@@ -154,24 +156,23 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
         const trust = response.trust;
         // Labels follow the UI language, like the menus' exportFilterSummary (#173 review N-P3-4). 기간/Scope are written
         // only when they apply (export endpoint's — else the manifest's — time 'apply' / requiresScope) — never a condition that did not filter (N-P2-1).
-        const L = INFO_LABELS[lang];
         const menu = route?.menu;
         const appliedContext = input.exportContext ?? menu?.context;
         const info: [string, string | number][] = [
-          [L.menu, menu?.id ?? ''],
-          [L.target, exportTarget(kind, rows.length, lang)],
-          [L.exportedAt, `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`],
+          [m('tableInfoMenu'), menu?.id ?? ''],
+          [m('tableInfoTarget'), exportTarget(kind, rows.length, lang)],
+          [m('tableInfoExportedAt'), `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`],
           ...(menu?.requiresScope ? [['Scope', global.scopeId ?? ''] as [string, string]] : []),
-          ...(appliedContext?.time === 'apply' ? [[L.period, global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
+          ...(appliedContext?.time === 'apply' ? [[t('period'), global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
           ...(input.exportFilterSummary ?? []).map(([label, value]) => [label, value] as [string, string]),
           ...(filters ? filterInfoRows(filters, input.filterFields.map(f => ({ id: f.id, label: f.label, filter: f.spec, entry: f.entry })), lang) : []),
           ...(appliedContext ? globalContextRows(queryContext, appliedContext, lang, axes, t('membershipAsOf')) : []),
-          [L.updatedAt, trust?.updatedAt ? trustInstantText(trust.updatedAt, lang, 'minute') : ''],
-          [L.dataThrough, trust?.dataThrough ? trustInstantText(trust.dataThrough, lang, 'minute') : ''],
-          [L.coverage, trust ? trustCoverageText(trust.coverage, lang) : ''],
-          [L.metricVersion, trust?.metricVersion ?? ''],
-          [L.provisional, trust ? (trust.provisional ? L.provisionalYes : L.provisionalNo) : ''],
-          [L.source, trust?.source ?? ''],
+          [m('tableInfoUpdatedAt'), trust?.updatedAt ? trustInstantText(trust.updatedAt, lang, 'minute') : ''],
+          [m('tableInfoDataThrough'), trust?.dataThrough ? trustInstantText(trust.dataThrough, lang, 'minute') : ''],
+          [t('coverage'), trust ? trustCoverageText(trust.coverage, lang) : ''],
+          [t('metricVersion'), trust?.metricVersion ?? ''],
+          [m('tableInfoProvisional'), trust ? (trust.provisional ? t('provisional') : t('final')) : ''],
+          [t('source'), trust?.source ?? ''],
           ['Correlation ID', response.correlationId ?? ''],
         ];
         blob = await toXlsx(headers, cells, info, lang);

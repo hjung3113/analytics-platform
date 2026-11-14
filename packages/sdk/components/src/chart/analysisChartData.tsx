@@ -1,3 +1,5 @@
+import { formatText, type Lang } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { topNData } from './topNBar';
 import { seriesColors } from './analysisChartShared';
 import { scatterData, boxPlotData, paretoData, type KindProjection } from './analysisChartKinds';
@@ -17,11 +19,11 @@ export const chartColors = {
 } as const satisfies Record<string, ThemeColorToken>;
 
 /** One projection for plot, table, selection and CSV. Synthetic aggregate rows never invent drill IDs. */
-export function chartData(spec: ChartSpec, ko: boolean, unit = ''): { cells: HeatmapCell[]; rows: ChartRow[]; total: number; extended?: KindProjection } {
-  if (spec.kind === 'topNBar') { const extended = topNData(spec, ko, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
-  if (spec.kind === 'scatter') { const extended = scatterData(spec, ko, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
-  if (spec.kind === 'boxPlot') { const extended = boxPlotData(spec, ko, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
-  if (spec.kind === 'pareto') { const extended = paretoData(spec, ko, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
+export function chartData(spec: ChartSpec, lang: Lang, unit = ''): { cells: HeatmapCell[]; rows: ChartRow[]; total: number; extended?: KindProjection } {
+  if (spec.kind === 'topNBar') { const extended = topNData(spec, lang, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
+  if (spec.kind === 'scatter') { const extended = scatterData(spec, lang, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
+  if (spec.kind === 'boxPlot') { const extended = boxPlotData(spec, lang, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
+  if (spec.kind === 'pareto') { const extended = paretoData(spec, lang, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
   if (spec.kind === 'heatmap') {
     const seen = new Set<string>();
     const cells = spec.cells.filter(cell => {
@@ -49,8 +51,8 @@ export function chartData(spec: ChartSpec, ko: boolean, unit = ''): { cells: Hea
   const rows: ChartRow[] = keep.map(slice => ({ key: JSON.stringify(['slice', slice.id]), label: slice.label, value: slice.value, color: slice.color, share: total ? slice.value / total * 100 : 0, drill: spec.onSliceClick ? () => spec.onSliceClick?.(slice.id) : undefined }));
   if (ordered.length > max) {
     const value = ordered.slice(max - 1).reduce((n, slice) => n + slice.value, 0);
-    rows.push({ key: 'other', label: ko ? '기타' : 'Other', value, share: total ? value / total * 100 : 0, color: chartColors.remainder });
+    rows.push({ key: 'other', label: formatText(COMPONENTS_MESSAGES.chartOther, lang), value, share: total ? value / total * 100 : 0, color: chartColors.remainder });
   }
-  if (total > sum) rows.push({ key: 'unclassified', label: ko ? '미분류' : 'Unclassified', value: total - sum, share: (total - sum) / total * 100, color: chartColors.unknown });
+  if (total > sum) rows.push({ key: 'unclassified', label: formatText(COMPONENTS_MESSAGES.chartUnclassified, lang), value: total - sum, share: (total - sum) / total * 100, color: chartColors.unknown });
   return { cells: [], rows, total };
 }

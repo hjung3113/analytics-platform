@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { formatInstant } from '@ap/contracts';
 import type { SavedView, SavedViewListItem, SavedViewEntry, ViewApproval } from '@ap/contracts';
-import { useI18n, type Text } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import { Input } from '@ap/ui';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { SegmentedRadio } from '../RadioGroup';
 import { ViewDetail, ViewRow, rowHasReason, useRowElements, useVanishedLayers } from './ViewParts';
 import { approvalText } from './text';
@@ -35,16 +36,6 @@ export type ApprovalQueueProps = {
   onDone?: (kind: 'approve' | 'reject' | 'revoke', name: string) => void;
 };
 
-const L = {
-  search: { ko: '이름·소유자·신청자 검색', en: 'Search name, owner or requester' },
-  status: { ko: '승인 상태', en: 'Approval status' },
-  pending: { ko: '대기', en: 'Waiting' },
-  all: { ko: '모든 상태', en: 'Any status' },
-  count: (n: number): Text => ({ ko: `${n}건`, en: `${n} items` }),
-  empty: { ko: '조건에 맞는 요청이 없습니다.', en: 'No requests match.' },
-  list: { ko: '승인 요청 목록', en: 'Approval requests' },
-} as const;
-
 /** What `ViewManagement` adds when it owns the open layers; not part of the public props. */
 export type QueuePanelProps = ApprovalQueueProps & {
   reasonsId?: string | null;
@@ -63,6 +54,7 @@ export function ApprovalQueue(props: ApprovalQueueProps) {
 
 export function QueuePanel({ items, requests, diagnoses, currentUserId, defaultStatus = 'pending', selectedId: controlledId, onSelectedChange, reasonsId: controlledReasons, onReasonsChange, elements, onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime: suppliedFormatTime, onDone }: QueuePanelProps) {
   const { tx, lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const formatTime = suppliedFormatTime ?? ((ms: number) => formatInstant(ms, lang));
   const [status, setStatus] = useState<ApprovalQueueStatus>(defaultStatus);
   const [query, setQuery] = useState('');
@@ -110,18 +102,18 @@ export function QueuePanel({ items, requests, diagnoses, currentUserId, defaultS
 
   return <div ref={root} className="grid min-h-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]" onKeyDown={onKeyDown}>
     <div className="flex min-h-0 flex-col gap-2">
-      <Input ref={search} type="search" aria-label={tx(L.search)} placeholder={tx(L.search)} value={query} onChange={event => setQuery(event.target.value)} />
+      <Input ref={search} type="search" aria-label={m('svQueueSearch')} placeholder={m('svQueueSearch')} value={query} onChange={event => setQuery(event.target.value)} />
       <SegmentedRadio<ApprovalQueueStatus>
-        label={tx(L.status)} value={status} onChange={setStatus}
+        label={m('svQueueStatus')} value={status} onChange={setStatus}
         options={[
-          { value: 'pending', label: tx(L.pending) },
+          { value: 'pending', label: m('svQueuePending') },
           ...(['approved', 'rejected'] as ViewApproval[]).map(value => ({ value: value as ApprovalQueueStatus, label: approvalText(value, lang) })),
-          { value: 'all', label: tx(L.all) },
+          { value: 'all', label: m('svQueueAllStatus') },
         ]} />
-      <p role="status" className="text-xs text-text-muted">{tx(L.count(visible.length))}</p>
+      <p role="status" className="text-xs text-text-muted">{m('svManageCount', { count: visible.length })}</p>
       {visible.length === 0
-        ? <p className="text-sm text-text-muted">{tx(L.empty)}</p>
-        : <ul aria-label={tx(L.list)} className="max-h-96 min-h-0 overflow-y-auto">
+        ? <p className="text-sm text-text-muted">{m('svQueueEmpty')}</p>
+        : <ul aria-label={m('svQueueList')} className="max-h-96 min-h-0 overflow-y-auto">
           {visible.map(entry => {
             const { view } = entry;
             const request = requests?.[view.id];

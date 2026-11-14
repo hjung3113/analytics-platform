@@ -1,3 +1,5 @@
+import { formatText, type Lang } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import type { TimelineLane, TimelineSegment } from './LaneTimeline';
 import type { LaneItem, LaneModel } from './laneTimelineModel';
 
@@ -6,9 +8,15 @@ export { GUTTER, ROW_HEIGHT, HEADER_HEIGHT, laneDiagnostic, prepareLanes, visibl
 export type { LaneItem, LaneModel, LaneRect, LaneColumns, LaneIndex } from './laneTimelineModel';
 export function utcTick(time: number) { return new Date(time).toISOString().slice(0, 19).replace('T', ' '); }
 /** `depth` is the normalised depth from the model columns; omitted, the segment's own depth is used. */
-export function segmentSummary(segment: TimelineSegment, lang: 'ko' | 'en', depth: number = segment.depth ?? 0) {
-  const ko = lang === 'ko';
-  return `${utcTick(segment.start)} – ${utcTick(segment.end)} · ${ko ? '깊이' : 'Depth'} ${depth}${segment.rank ? ` · ${segment.rank}` : ''}${segment.startBoundary === 'orphan' ? ` · ${ko ? '시작 미확인' : 'Start unknown'}` : ''}${segment.endBoundary === 'open' ? ` · ${ko ? '종료 미확인' : 'End unknown'}` : ''}`;
+export function segmentSummary(segment: TimelineSegment, lang: Lang, depth: number = segment.depth ?? 0) {
+  const parts = [
+    `${utcTick(segment.start)} – ${utcTick(segment.end)}`,
+    formatText(COMPONENTS_MESSAGES.laneSegmentSummaryDepth, lang, { depth }),
+    ...(segment.rank ? [segment.rank] : []),
+    ...(segment.startBoundary === 'orphan' ? [formatText(COMPONENTS_MESSAGES.laneStartUnknown, lang)] : []),
+    ...(segment.endBoundary === 'open' ? [formatText(COMPONENTS_MESSAGES.laneEndUnknown, lang)] : []),
+  ];
+  return parts.join(' · ');
 }
 export function segmentText(
   model: LaneModel,

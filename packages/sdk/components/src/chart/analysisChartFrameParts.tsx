@@ -2,7 +2,8 @@ import { useState, type ReactNode } from 'react';
 import { Info } from 'lucide-react';
 import { Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { formatMetricVersion } from '@ap/contracts';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { useInWorkspacePanel } from '../workspace/panelContext';
 import { chartTrustText, type ChartTrust } from '../state/trustFormat';
 
@@ -14,7 +15,8 @@ export function AnalysisChartPart({ enabled, body, children }: { enabled: boolea
 }
 
 export function ChartHeading({ titleId, title, description, metricVersion, compact = false }: { titleId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; compact?: boolean }) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const [infoFocused, setInfoFocused] = useState(false);
   // The workspace tab already shows this name.
   const inPanel = useInWorkspacePanel();
@@ -22,7 +24,7 @@ export function ChartHeading({ titleId, title, description, metricVersion, compa
     <div className="flex items-center gap-1">
       <h2 id={titleId} className={cn('t-card-title', inPanel && 'sr-only')}>{title}</h2>
       {description && <span hidden={!compact && !infoFocused}><TooltipProvider delayDuration={200}><Tooltip>
-        <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" onFocus={() => setInfoFocused(true)} onBlur={() => setInfoFocused(false)} aria-label={lang === 'ko' ? '차트 설명' : 'Chart description'}>
+        <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" onFocus={() => setInfoFocused(true)} onBlur={() => setInfoFocused(false)} aria-label={m('chartDescription')}>
           <Info className="size-3.5" aria-hidden />
         </Button></TooltipTrigger>
         <TooltipContent>{description}</TooltipContent>

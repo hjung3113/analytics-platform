@@ -1,5 +1,6 @@
-import { useI18n, usePlatform } from '@ap/kernel';
+import { useMessages, usePlatform } from '@ap/kernel';
 import { copyText } from '@ap/ui';
+import { COMPONENTS_MESSAGES } from '../messages';
 
 // The plain-text copy and its one success rule live in @ap/ui (06 §15, #673); re-exported so the components API keeps `copyText`.
 export { copyText };
@@ -21,15 +22,13 @@ export type CopyLinkOptions = {
  */
 export function useCopyLink(successText: string, options: CopyLinkOptions = {}): (url: string) => Promise<boolean> {
   const { toast, absoluteUrl } = usePlatform();
-  const { lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   return async (url: string) => {
     const link = options.absolute ? url : absoluteUrl(url);
     const copied = await copyText(link);
     if (copied) toast(successText);
     else {
-      toast(options.failureText ?? (lang === 'ko'
-        ? '링크를 복사하지 못했습니다. 주소창의 주소를 직접 복사하세요.'
-        : 'Could not copy the link. Copy the address from the address bar instead.'), 'warning');
+      toast(options.failureText ?? m('copyLinkFailed'), 'warning');
       options.onFailure?.(link);
     }
     return copied;

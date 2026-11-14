@@ -1,4 +1,6 @@
+import { useMessages } from '@ap/kernel';
 import { Button } from '@ap/ui';
+import { COMPONENTS_MESSAGES } from '../messages';
 
 type Props = {
   lang: 'ko' | 'en';
@@ -17,18 +19,18 @@ type Props = {
 };
 
 /** Gmail-style bar of the opt-in `selectAllResults` (#556c, ADR-0104): offers 「필터 결과 전체 M행 선택」 and, once chosen, states it and clears it. Renders nothing otherwise. */
-export function SelectAllBar({ lang, pageRows, total, offer, all, excluded, onSelectAll, onClear }: Props) {
+export function SelectAllBar({ pageRows, total, offer, all, excluded, onSelectAll, onClear }: Props) {
+  const m = useMessages(COMPONENTS_MESSAGES);
   if (!offer && !all) return null;
-  const ko = lang === 'ko';
   return <div data-testid="select-all-bar" className="flex min-h-9 flex-wrap items-center gap-2 border-t border-border-subtle bg-surface-card px-3 py-1.5 text-xs" role="status">
     {all ? <>
       <span className="tabular">{excluded > 0
-        ? (ko ? `필터 결과 전체 ${all.total.toLocaleString()}행 중 ${excluded.toLocaleString()}행 제외` : `${excluded.toLocaleString()} of ${all.total.toLocaleString()} filtered rows excluded`)
-        : (ko ? `필터 결과 전체 ${all.total.toLocaleString()}행을 선택했습니다` : `All ${all.total.toLocaleString()} filtered rows are selected`)}</span>
-      <Button variant="ghost" size="toolbar" onClick={onClear}>{ko ? '선택 해제' : 'Clear selection'}</Button>
+        ? m('tableSelectBarExcluded', { total: all.total.toLocaleString(), excluded: excluded.toLocaleString() })
+        : m('tableSelectBarAll', { total: all.total.toLocaleString() })}</span>
+      <Button variant="ghost" size="toolbar" onClick={onClear}>{m('tableClearSelection')}</Button>
     </> : <>
-      <span className="tabular">{ko ? `이 쪽의 ${pageRows.toLocaleString()}행을 선택했습니다` : `All ${pageRows.toLocaleString()} rows on this page are selected`}</span>
-      <Button variant="ghost" size="toolbar" onClick={onSelectAll}>{ko ? `필터 결과 전체 ${total.toLocaleString()}행 선택` : `Select all ${total.toLocaleString()} filtered rows`}</Button>
+      <span className="tabular">{m('tableSelectBarPage', { count: pageRows.toLocaleString() })}</span>
+      <Button variant="ghost" size="toolbar" onClick={onSelectAll}>{m('tableSelectBarSelectAll', { total: total.toLocaleString() })}</Button>
     </>}
   </div>;
 }

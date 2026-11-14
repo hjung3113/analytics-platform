@@ -1,3 +1,5 @@
+import { formatText, type Lang } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { seriesColors as fills, percent as pct, unknownLabel, brushOptions } from './analysisChartShared';
 import { cn } from '@ap/ui';
 import type { EChartsCoreOption } from 'echarts/core';
@@ -23,9 +25,9 @@ function unique<T extends { id: string }>(items: T[]): T[] {
   });
 }
 
-export function scatterData(spec: ScatterSpec, ko: boolean, unit: string): KindProjection {
-  const unknown = unknownLabel(ko);
-  const defaultLabel = ko ? '기본 그룹' : 'Default group';
+export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindProjection {
+  const unknown = unknownLabel(lang);
+  const defaultLabel = formatText(COMPONENTS_MESSAGES.chartDefaultGroup, lang);
   // JSON tags keep an ungrouped point separate from every caller-supplied string ID.
   const groupKey = (id?: string) => JSON.stringify(id === undefined ? ['default'] : ['group', id]);
   const groups = unique(spec.groups ?? []).map(g => ({ ...g, key: groupKey(g.id) }));
@@ -55,10 +57,18 @@ export function scatterData(spec: ScatterSpec, ko: boolean, unit: string): KindP
   const axisRange = (axis: 'x' | 'y') => ({ scale: true, min: (extent: { min: number; max: number }) => bounds(axis, extent).min, max: (extent: { min: number; max: number }) => bounds(axis, extent).max });
   return {
     rows, total: 0, empty: !plotted.some(g => g.length),
-    summary: ko ? `${points.length}개 점 · ${points.filter(p => p.x === null || p.y === null).length}개 미확인 · ${legend.map(g => g.label).join(', ')} · ${spec.xLabel} (${spec.xUnit}) · ${spec.yLabel} (${unit})` : `${points.length} points · ${points.filter(p => p.x === null || p.y === null).length} unknown · ${legend.map(g => g.label).join(', ')} · ${spec.xLabel} (${spec.xUnit}) · ${spec.yLabel} (${unit})`,
+    summary: formatText(COMPONENTS_MESSAGES.chartScatterSummary, lang, {
+      total: points.length,
+      unknown: points.filter(p => p.x === null || p.y === null).length,
+      legend: legend.map(g => g.label).join(', '),
+      xLabel: spec.xLabel,
+      xUnit: spec.xUnit,
+      yLabel: spec.yLabel,
+      unit,
+    }),
     csvValues: points.map(p => [p.id, p.label ?? p.id, groups.find(g => g.key === groupKey(p.group))!.label, p.x ?? unknown, p.y ?? unknown]),
-    csvHeaders: ['ID', ko ? '이름' : 'Name', ko ? '그룹' : 'Group', `${spec.xLabel} (${spec.xUnit})`, `${spec.yLabel} (${unit})`],
-    headers: ['ID', ko ? '이름' : 'Name', ko ? '그룹' : 'Group', `${spec.xLabel} (${spec.xUnit})`, `${spec.yLabel} (${unit})`], tableValues, legend,
+    csvHeaders: ['ID', formatText(COMPONENTS_MESSAGES.chartHeaderName, lang), formatText(COMPONENTS_MESSAGES.chartGroup, lang), `${spec.xLabel} (${spec.xUnit})`, `${spec.yLabel} (${unit})`],
+    headers: ['ID', formatText(COMPONENTS_MESSAGES.chartHeaderName, lang), formatText(COMPONENTS_MESSAGES.chartGroup, lang), `${spec.xLabel} (${spec.xUnit})`, `${spec.yLabel} (${unit})`], tableValues, legend,
     seriesKeys: plotted.map(g => g.map(p => rowKey('scatter', p.id))),
     option: active => {
       const theme = chartTheme();
@@ -95,16 +105,17 @@ function validStats(stats: BoxStats, mode: BoxPlotSpec['whisker']) {
     && (mode !== 'tukey' || (q1 - 1.5 * iqr <= min && max <= q3 + 1.5 * iqr));
 }
 
-export function boxPlotData(spec: BoxPlotSpec, ko: boolean, unit: string): KindProjection {
-  const unknown = unknownLabel(ko);
+export function boxPlotData(spec: BoxPlotSpec, lang: Lang, unit: string): KindProjection {
+  const unknown = unknownLabel(lang);
   const groups = unique(spec.groups).map(g => {
     if (g.stats && !validStats(g.stats, spec.whisker)) { chartDiagnostic('invalid box statistics; using Unknown'); return { ...g, stats: null }; }
     return g;
   });
   const rows = groups.map(g => ({ key: rowKey('boxPlot', g.id), label: g.label, value: g.stats?.median ?? null, drill: spec.onGroupClick ? () => spec.onGroupClick?.(g.id) : undefined }));
   const text = (v?: number) => v === undefined ? unknown : `${v} ${unit}`;
-  const tableValues = groups.map(g => [g.label, ...[g.stats?.min, g.stats?.q1, g.stats?.median, g.stats?.q3, g.stats?.max].map(text), g.stats?.n === undefined ? unknown : String(g.stats.n), g.stats ? (g.stats.outliers ?? []).map(text).join('; ') || (ko ? '없음' : 'None') : unknown]);
-  const headers = [ko ? '그룹' : 'Group', 'Min', 'Q1', ko ? '중앙값' : 'Median', 'Q3', 'Max', 'n', ko ? '이상치' : 'Outliers'];
+  const noneLabel = formatText(COMPONENTS_MESSAGES.chartNone, lang);
+  const tableValues = groups.map(g => [g.label, ...[g.stats?.min, g.stats?.q1, g.stats?.median, g.stats?.q3, g.stats?.max].map(text), g.stats?.n === undefined ? unknown : String(g.stats.n), g.stats ? (g.stats.outliers ?? []).map(text).join('; ') || noneLabel : unknown]);
+  const headers = [formatText(COMPONENTS_MESSAGES.chartGroup, lang), 'Min', 'Q1', formatText(COMPONENTS_MESSAGES.chartMedian, lang), 'Q3', 'Max', 'n', formatText(COMPONENTS_MESSAGES.chartOutliers, lang)];
   const outliers = groups.flatMap((g, i) => (g.stats?.outliers ?? []).map(value => ({ group: i, value })));
   const medianGroups = groups.flatMap((g, i) => g.stats ? [i] : []);
   const unknownGroups = groups.flatMap((g, i) => g.stats ? [] : [i]);
@@ -113,7 +124,11 @@ export function boxPlotData(spec: BoxPlotSpec, ko: boolean, unit: string): KindP
     headers, tableValues,
     csvHeaders: headers.map((header, i) => i > 0 && i !== 6 ? `${header} (${unit})` : header),
     csvValues: groups.map(g => [g.label, ...[g.stats?.min, g.stats?.q1, g.stats?.median, g.stats?.q3, g.stats?.max].map(value => value ?? unknown), g.stats?.n ?? unknown, g.stats ? JSON.stringify(g.stats.outliers ?? []) : unknown]),
-    summary: `${groups.length}${ko ? '개 그룹' : ' groups'} · ${groups.filter(g => !g.stats).length}${ko ? '개 미확인' : ' unknown'} · ${ko ? '수염: ' : 'Whiskers: '}${spec.whisker === 'tukey' ? '1.5×IQR' : ko ? '최소–최대' : 'min–max'} · ${unit}`,
+    summary: formatText(spec.whisker === 'tukey' ? COMPONENTS_MESSAGES.chartBoxSummaryTukey : COMPONENTS_MESSAGES.chartBoxSummaryMinMax, lang, {
+      groups: groups.length,
+      unknown: groups.filter(g => !g.stats).length,
+      unit,
+    }),
     legend: groups.map((g, i) => ({ label: g.label, color: g.stats ? fills[i % 4] : 'chart-no-data', stroke: g.stats ? strokeToken(fills[i % 4]) : 'chart-no-data-pattern', unknown: !g.stats, symbol: 'rect' })),
     seriesKeys: [rows.map(r => r.key), outliers.map(o => rows[o.group].key), medianGroups.map(i => rows[i].key)],
     option: active => {
@@ -140,7 +155,7 @@ export function boxPlotData(spec: BoxPlotSpec, ko: boolean, unit: string): KindP
   };
 }
 
-export function paretoData(spec: ParetoSpec, ko: boolean, unit: string): KindProjection {
+export function paretoData(spec: ParetoSpec, lang: Lang, unit: string): KindProjection {
   const items = unique(spec.items).filter(item => {
     if (!Number.isFinite(item.value) || item.value < 0) { chartDiagnostic('negative or non-finite Pareto value dropped'); return false; }
     return true;
@@ -152,20 +167,25 @@ export function paretoData(spec: ParetoSpec, ko: boolean, unit: string): KindPro
   if (!validTarget) chartDiagnostic('invalid Pareto target; using 0.8');
   const target = validTarget ? spec.cumulativeTarget ?? 0.8 : 0.8;
   const kept = items.length > cap ? items.slice(0, cap - 1) : items;
+  const otherLabel = formatText(COMPONENTS_MESSAGES.chartOther, lang);
   const rows: ChartRow[] = kept.map(item => ({ key: rowKey('pareto', item.id), label: item.label, value: item.value, color: 'chart-series-1', drill: spec.onItemClick ? () => spec.onItemClick?.(item.id) : undefined }));
-  if (items.length > cap) rows.push({ key: JSON.stringify(['pareto', 'other', null]), label: ko ? '기타' : 'Other', value: items.slice(cap - 1).reduce((sum, item) => sum + item.value, 0), color: 'chart-remainder' });
+  if (items.length > cap) rows.push({ key: JSON.stringify(['pareto', 'other', null]), label: otherLabel, value: items.slice(cap - 1).reduce((sum, item) => sum + item.value, 0), color: 'chart-remainder' });
   let sum = 0;
   const cumulative = rows.map(row => { sum += row.value!; return total ? sum / total * 100 : 0; });
   let originalSum = 0;
   const reached = total ? items.findIndex(item => { originalSum += item.value; return originalSum >= total * target; }) + 1 : 0;
   const tableValues = rows.map((row, i) => [row.label, `${row.value} ${unit}`, pct(cumulative[i])]);
+  const valueHeader = formatText(COMPONENTS_MESSAGES.chartHeaderValue, lang);
+  const cumulativeLabel = formatText(COMPONENTS_MESSAGES.chartCumulativePct, lang);
   return {
     rows, total, empty: total === 0,
-    summary: `${rows.length}${ko ? '개 항목 · 합계' : ' items · Total'} ${total} ${unit}${total ? ko ? ` · 상위 ${reached}개 원본 항목이 ${pct(target * 100)} 도달` : ` · Top ${reached} original items reach ${pct(target * 100)}` : ''}`,
-    headers: [ko ? '이름' : 'Name', ko ? '값' : 'Value', ko ? '누적 %' : 'Cumulative %'], tableValues,
-    csvHeaders: [ko ? '이름' : 'Name', `${ko ? '값' : 'Value'} (${unit})`, ko ? '누적 %' : 'Cumulative %'],
+    summary: total
+      ? formatText(COMPONENTS_MESSAGES.chartParetoSummaryWithTarget, lang, { count: rows.length, total, unit, reached, pct: pct(target * 100) })
+      : formatText(COMPONENTS_MESSAGES.chartParetoSummary, lang, { count: rows.length, total, unit }),
+    headers: [formatText(COMPONENTS_MESSAGES.chartHeaderName, lang), valueHeader, cumulativeLabel], tableValues,
+    csvHeaders: [formatText(COMPONENTS_MESSAGES.chartHeaderName, lang), `${valueHeader} (${unit})`, cumulativeLabel],
     csvValues: rows.map((row, i) => [row.label, row.value!, cumulative[i]]),
-    legend: [{ label: ko ? '값' : 'Value', color: 'chart-series-1', symbol: 'rect' }, ...(items.length > cap ? [{ label: ko ? '기타' : 'Other', color: 'chart-remainder' as const, symbol: 'rect' }] : []), { label: ko ? '누적 %' : 'Cumulative %', color: 'chart-series-2-stroke', symbol: 'line' }],
+    legend: [{ label: valueHeader, color: 'chart-series-1', symbol: 'rect' }, ...(items.length > cap ? [{ label: otherLabel, color: 'chart-remainder' as const, symbol: 'rect' }] : []), { label: cumulativeLabel, color: 'chart-series-2-stroke', symbol: 'line' }],
     seriesKeys: [rows.map(row => row.key), []],
     option: active => {
       const theme = chartTheme();

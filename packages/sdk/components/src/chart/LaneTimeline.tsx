@@ -2,8 +2,9 @@ import type { ChartTrust } from '../state/trustFormat';
 import { useCallback, useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
 import { Info } from 'lucide-react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { prepareLanes, segmentText } from './laneTimelineGeometry';
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
 import { ChartTrustFooter } from './analysisChartFrameParts';
@@ -42,18 +43,10 @@ export type LaneTimelineProps = {
 };
 const noInstants: number[] = [];
 const noOverlays: TimelineOverlay[] = [];
-const interactionHelp = {
-  ko: 'Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 방향키: 탐색 · Enter: 선택 · Escape: 해제',
-  en: 'Ctrl/⌘ + wheel: Zoom · Drag: Pan · Arrows: Navigate · Enter: Select · Escape: Clear',
-} as const;
-const boundaryHelp = { ko: '시작 미확인 · 종료 미확인', en: 'Start unknown · End unknown' } as const;
-const accessibleHelp = {
-  ko: `${interactionHelp.ko} · ${boundaryHelp.ko}`,
-  en: `${interactionHelp.en} · ${boundaryHelp.en}`,
-} as const;
 /** A standalone wall-clock interval chart. Pan, zoom and scroll never enter React state. */
 export function LaneTimeline(props: LaneTimelineProps) {
-  const { tx, lang } = useI18n();
+  const { lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const section = useContext(AnalysisSectionContext);
   const root = useRef<HTMLElement>(null); const scroll = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null); const overlay = useRef<HTMLCanvasElement>(null); const axis = useRef<HTMLCanvasElement>(null);
@@ -121,18 +114,18 @@ export function LaneTimeline(props: LaneTimelineProps) {
         <h3 className="t-card-title">{props.ariaLabel}</h3>
         {props.description && <p className="text-xs text-text-muted">{props.description}</p>}
       </div>
-      <div role="toolbar" aria-label={tx({ ko: '차트 동작', en: 'Chart actions' })} className="ml-auto flex flex-wrap items-center justify-end gap-1">
+      <div role="toolbar" aria-label={m('chartActions')} className="ml-auto flex flex-wrap items-center justify-end gap-1">
         <TooltipProvider delayDuration={200}><Tooltip>
-          <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" aria-label={tx({ ko: '조작 방법', en: 'How to interact' })}><Info className="size-3.5" aria-hidden /></Button></TooltipTrigger>
-          <TooltipContent>{tx(interactionHelp)}</TooltipContent>
+          <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" aria-label={m('laneHowToInteract')}><Info className="size-3.5" aria-hidden /></Button></TooltipTrigger>
+          <TooltipContent>{m('laneInteractionHelp')}</TooltipContent>
         </Tooltip></TooltipProvider>
-        <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{tx({ ko: '확대', en: 'Zoom in' })}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{tx({ ko: '축소', en: 'Zoom out' })}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.resetZoom()}>{tx({ ko: '확대 초기화', en: 'Zoom Reset' })}</Button>
+        <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{m('laneZoomIn')}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{m('laneZoomOut')}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.resetZoom()}>{m('laneZoomReset')}</Button>
         {props.imageCopy && <ChartImageCopyButton fileName={`${displayFileName(props.ariaLabel) || 'timeline'}.png`} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
         {props.imagePrint && <ChartImagePrintButton title={() => props.ariaLabel} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
       </div>
     </header>
-    <p className="px-4 py-2 text-text-secondary">{tx(boundaryHelp)}</p>
-    <p id={helpId} className="sr-only">{tx(accessibleHelp)}</p>
+    <p className="px-4 py-2 text-text-secondary">{m('laneBoundaryHelp')}</p>
+    <p id={helpId} className="sr-only">{m('laneAccessibleHelp')}</p>
     {unavailable ? <ChartUnavailable /> : (
     <div className="overflow-x-auto">
       <div className="min-w-[352px]">
@@ -146,9 +139,9 @@ export function LaneTimeline(props: LaneTimelineProps) {
       </div>
     </div>
     )}
-    {!model.flat.length && <p className="px-4 py-3 text-text-secondary">{tx({ ko: '데이터 없음', en: 'No data' })}</p>}
-    <section aria-label={tx({ ko: '선택 요약', en: 'Selection summary' })} className="bg-surface-sunken px-4 py-2 text-text-secondary">{selectedItem ? summary(selectedItem) : tx({ ko: '선택 없음', en: 'No selection' })}</section>
-    {overlayLines.length > 0 && <ul aria-label={tx({ ko: '표시 목록', en: 'Marked times' })} className="sr-only">{overlayLines.map((line, i) => <li key={i}>{line}</li>)}</ul>}
+    {!model.flat.length && <p className="px-4 py-3 text-text-secondary">{m('chartNoData')}</p>}
+    <section aria-label={m('chartSelectionSummaryRegion')} className="bg-surface-sunken px-4 py-2 text-text-secondary">{selectedItem ? summary(selectedItem) : m('chartNoSelection')}</section>
+    {overlayLines.length > 0 && <ul aria-label={m('laneMarkedTimes')} className="sr-only">{overlayLines.map((line, i) => <li key={i}>{line}</li>)}</ul>}
     <p id={summaryId} role="status" aria-live="polite" className="px-4 py-2 text-text-secondary">{summary(focused)}</p>
     <ChartTrustFooter trust={props.trust} />
     <BodyTooltipPortal domRef={tooltip} hidden={!hover} className="pointer-events-none fixed z-50 max-w-xs break-words rounded border border-border-subtle bg-surface-card px-3 py-2 text-xs text-text-primary shadow-lg">{hover}</BodyTooltipPortal>

@@ -144,7 +144,7 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `import tokens from '@ap/ui/src/styles/tokens.css';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from '@ap/components';`, rule: '' },
-  // #2174: ko/en copy comes from a message table, never a language ternary (kernel and shell so far).
+  // #2174: ko/en copy comes from a message table, never a language ternary (kernel, shell and components so far).
   { file: 'packages/sdk/shell/src/frame/AppRail.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
   { file: 'packages/sdk/shell/src/frame/AppRail.tsx', code: `const a = 'en' !== lang ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
   { file: 'packages/sdk/shell/src/frame/AppRail.tsx', code: `const a = i18n.lang === 'en' ? \`\${n} more\` : \`\${n}개 더\`;`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
@@ -155,6 +155,7 @@ const rows: Row[] = [
   { file: 'packages/sdk/shell/src/frame/AppRail.tsx', code: `const a = lang === 'ko' ? 'ko-KR' : 'en-US';`, rule: '' },
   { file: 'packages/sdk/shell/src/frame/AppRail.tsx', code: `let ko = lang === 'ko'; const a = ko ? '도움말' : 'Help';`, rule: '' },
   { file: 'packages/sdk/shell/src/frame/AppRail.test.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: '' },
+  { file: 'packages/sdk/components/src/table/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
   { file: 'menus/bravo/metrics/src/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: '' },
   { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (group.id === 'overview') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
   { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if ('home' === menu.id) render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },

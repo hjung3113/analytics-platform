@@ -1,9 +1,9 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 import { EMPTY_GROUP_LABEL, type PageGroup } from '@ap/contracts';
+import { formatText, useMessages, type Lang } from '@ap/kernel';
 import { cn } from '@ap/ui';
-
-type Lang = 'ko' | 'en';
+import { COMPONENTS_MESSAGES } from '../messages';
 
 /** One virtual item of a grouped table: a group header row (key `group:<key>`) or a data row (key = row id). */
 export type GroupedItem<R> =
@@ -58,9 +58,9 @@ export function groupHeaderLayout<C extends { id: string }>(displayed: readonly 
   return { leading: displayed.slice(0, end), trailing: displayed.slice(end), leadSubtotal: null };
 }
 
-export const groupCountText = (count: number, lang: Lang) => lang === 'ko' ? `${count.toLocaleString()}행 (전체 결과)` : `${count.toLocaleString()} rows (whole result)`;
+export const groupCountText = (count: number, lang: Lang) => formatText(COMPONENTS_MESSAGES.tableGroupCount, lang, { count: count.toLocaleString() });
 export const groupToggleName = (label: string, collapsed: boolean, lang: Lang) =>
-  lang === 'ko' ? `${label} 그룹 ${collapsed ? '펼치기' : '접기'}` : `${collapsed ? 'Expand' : 'Collapse'} group ${label}`;
+  formatText(collapsed ? COMPONENTS_MESSAGES.tableGroupExpand : COMPONENTS_MESSAGES.tableGroupCollapse, lang, { label });
 
 type HeaderProps = {
   lang: Lang;
@@ -82,12 +82,12 @@ type HeaderProps = {
 /** A group header row's content: collapse button, label, result-wide count and subtotal cells (labelled as whole-result). */
 export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellClassName, labelClassName = 'text-sm' }: HeaderProps): ReactNode {
   const { group, collapsed, continued, rowsOnPage } = item;
-  const ko = lang === 'ko';
+  const m = useMessages(COMPONENTS_MESSAGES);
   const total = (id: string) => {
     const value = group.subtotals?.[id];
     return value === undefined ? null : <>
-      <span className="sr-only">{ko ? '전체 결과 합계 ' : 'Whole-result total '}</span>
-      <span className="mr-1 text-xs font-normal text-text-muted" aria-hidden>{ko ? '합계' : 'Total'}</span>
+      <span className="sr-only">{m('tableGroupTotalSr')}</span>
+      <span className="mr-1 text-xs font-normal text-text-muted" aria-hidden>{m('tableGroupTotal')}</span>
       {value === null ? '—' : value.toLocaleString()}
     </>;
   };
@@ -103,18 +103,18 @@ export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellCla
           {collapsed ? <ChevronRight className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
         </button>
         <span className="min-w-0 truncate" title={label}>{label}</span>
-        {continued && <span className="shrink-0 text-xs font-normal text-text-muted">{ko ? '(이어서)' : '(continued)'}</span>}
+        {continued && <span className="shrink-0 text-xs font-normal text-text-muted">{m('tableGroupContinued')}</span>}
         <span className="shrink-0 text-xs font-normal text-text-secondary tabular" data-group-count>{groupCountText(group.count, lang)}</span>
-        {collapsed && <span className="shrink-0 text-xs font-normal text-text-muted tabular">{ko ? `이 쪽 ${rowsOnPage.toLocaleString()}행 숨김` : `${rowsOnPage.toLocaleString()} rows on this page hidden`}</span>}
+        {collapsed && <span className="shrink-0 text-xs font-normal text-text-muted tabular">{m('tableGroupHiddenRows', { count: rowsOnPage.toLocaleString() })}</span>}
       </div>
     </div>
     {/* eslint-disable-next-line shadcn/no-inline-styles -- band width comes from column sizing at runtime */}
     <div role="cell" aria-colspan={lead.span} data-column={lead.subtotal?.id} data-group-subtotal={lead.subtotal ? '' : undefined} style={lead.style} className={cn(cellClassName, 'gap-2 font-medium')}>
-      {lead.subtotal && <span className="ml-auto shrink-0 text-right tabular" title={ko ? '전체 결과 기준 합계' : 'Whole-result total'}>{total(lead.subtotal.id)}</span>}
+      {lead.subtotal && <span className="ml-auto shrink-0 text-right tabular" title={m('tableGroupSubtotalTitle')}>{total(lead.subtotal.id)}</span>}
     </div>
     {trailing.map(cell => {
       return <div role="cell" key={cell.id} data-column={cell.id} data-group-subtotal={cell.subtotal ? '' : undefined} style={cell.style}
-        title={cell.subtotal ? (ko ? '전체 결과 기준 합계' : 'Whole-result total') : undefined}
+        title={cell.subtotal ? m('tableGroupSubtotalTitle') : undefined}
         className={cn(cellClassName, 'justify-end text-right tabular', cell.className)}>
         {cell.subtotal && total(cell.id)}
       </div>;

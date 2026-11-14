@@ -4,11 +4,12 @@ import { formatQuerySummary, summaryPreset } from '../filters/querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from '../filters/QueryBarExtension';
 import { QueryBarStatusContext, useQueryBarStatus, type QueryBarStatus } from '../filters/QueryBarStatus';
 import { ForbiddenRequestMessage, OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
-import { WorkspaceQueryBarContext, workspaceQueryText } from './WorkspaceQueryBar';
+import { WorkspaceQueryBarContext } from './WorkspaceQueryBar';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode } from 'react';
-import { type MenuEntry, PlatformLink, useConditionPreset, useI18n } from '@ap/kernel';
+import { type MenuEntry, PlatformLink, useConditionPreset, useI18n, useMessages } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
@@ -56,10 +57,9 @@ export function HeaderOverflowItem({ label, onSelect, allowed = true, reason }: 
 }
 
 function HeaderOverflow({ actions }: { actions: ReactNode }) {
-  const { lang } = useI18n();
-  const ko = lang === 'ko';
-  const label = ko ? '더보기' : 'More';
-  const group = ko ? '기타 페이지 동작' : 'Other page actions';
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const label = m('chartMore');
+  const group = m('pageOtherActions');
   const [open, setOpen] = useState(false);
   const [dialog, setDialog] = useState<((control: HeaderOverflowDialogControl) => ReactNode) | null>(null);
   const { location } = useHostPlatform();
@@ -295,9 +295,10 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const titleResolved = title ?? tx(menu.label);
   const descriptionResolved = description ?? tx(menu.description);
   const hasDescription = typeof descriptionResolved === 'string' ? descriptionResolved.trim().length > 0 : descriptionResolved != null && descriptionResolved !== false;
+  const m = useMessages(COMPONENTS_MESSAGES);
   const descriptionName = typeof descriptionResolved === 'string' && descriptionResolved.trim().length > 0
     ? descriptionResolved
-    : (lang === 'ko' ? '설명' : 'Description');
+    : m('pageDescription');
 
   // rem like the classes it mirrors: 7rem = h1 min-w-28, 1.5rem = size-6 controls, 0.5rem = gap-2; the breadcrumb and an un-yielded description shrink to 0.
   const leftGroupItems = 1 + (favoriteTarget ? 1 : 0) + (hasDescription ? 1 : 0) + (currentSpace || parent || crumbs.length > 0 ? 1 : 0);
@@ -310,7 +311,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const workspaceQueryBar = !inPane && layout === 'fill' && menu.pageType === 'analysis' && menu.query?.mode === 'apply' && Boolean(slots.contextBar) && !gate && shownBarStatus?.folded === true;
   const workspaceQueryRowReady = workspaceQueryBar && parameterTarget !== null && toolbarTarget !== null;
   const workspaceStatus = queryResult && queryResult.status !== 'idle' ? <span role="status" className="max-w-56 text-xs text-text-secondary break-keep">
-    {queryResult.status === 'loading' ? t('loading') : queryResult.status === 'refreshing' ? t('refreshing') : queryResult.failed ? t('stateError') : tx(workspaceQueryText.completed)}
+    {queryResult.status === 'loading' ? t('loading') : queryResult.status === 'refreshing' ? t('refreshing') : queryResult.failed ? t('stateError') : m('workspaceQueryCompleted')}
     {queryResult.completedAt !== null && <> {formatInstant(queryResult.completedAt, lang)}</>}
   </span> : null;
   const completionShown = queryResult != null && queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing');
@@ -370,9 +371,9 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     </div>}
     <div data-platform-page-body className="contents" inert={covered || undefined}>
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
-    {!workspaceQueryRowReady && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
+    {!workspaceQueryRowReady && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={m('pageAppliedQueryConditions')} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
       {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
-      {completionShown && <span>{queryResult!.failed ? t('stateError') : lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult!.completedAt!, lang)}</span>}
+      {completionShown && <span>{queryResult!.failed ? t('stateError') : m('workspaceQueryCompleted')} {formatInstant(queryResult!.completedAt!, lang)}</span>}
     </section>}
     {headVisible && (layout === 'fill'
       ? <PageContextHead key={menu.id} menuId={menu.id} notes={notes} extension={contextExtension}

@@ -4,10 +4,11 @@ import { toMs, unknownLabel } from './analysisChartShared';
 import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
-import { useI18n, usePlatform } from '@ap/kernel';
+import { useI18n, useMessages, usePlatform } from '@ap/kernel';
 import { canClientSum, formatDateTime, formatNumber, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, FILL_CARD_CLASS, FILL_CHART_MIN_HEIGHT, FILL_PLOT_BASE_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
 import { useElementSize } from '../state/useElementSize';
 import { EChart, strokeToken, token } from './EChart';
@@ -196,6 +197,7 @@ export type AnalysisChartFrameProps = {
  */
 export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const { t, lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const compactEmbedded = useEmbeddedChrome();
   const analysisSection = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, analysisSection);
@@ -458,18 +460,18 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const totalTextKey = totals ? JSON.stringify([...totals].map(([x, t]) => [x, format(t.value)])) : '';
   const totalText = useMemo(() => (totalTextKey ? new Map<string, string>(JSON.parse(totalTextKey) as [string, string][]) : undefined), [totalTextKey]);
   const anyPartial = !!totals && [...totals.values()].some(t => t.partial);
-  const totalName = mayClientSum && anyHidden ? (lang === 'ko' ? '표시 합계' : 'Shown total') : (lang === 'ko' ? '합계' : 'Total');
+  const totalName = mayClientSum && anyHidden ? m('chartShownTotal') : m('chartTotal');
   // Said once per chart, not per row: what the number is, or why there is none.
   const totalNote = !wantsTotal ? null
-    : totals && totals.size > 0 ? (mayClientSum && anyHidden ? (lang === 'ko' ? '표시 합계 · 보이는 시리즈 합' : 'Shown total · visible series only') : null)
+    : totals && totals.size > 0 ? (mayClientSum && anyHidden ? m('chartShownTotalVisibleNote') : null)
     : visible.length === 0 ? null
-    : (lang === 'ko' ? '합계 없음 · 합산 제외 측정' : 'No total · non-additive measure');
-  const partialNote = anyPartial && p.partialTotalNote !== false ? (lang === 'ko' ? '◇ ≥ 합계: 미측정 계열이 있는 행의 합계' : '◇ ≥ total: total for a row with an unmeasured series') : null;
-  const missingText = (missing: readonly string[]) => `${missing.join(', ')} ${lang === 'ko' ? '미측정' : 'not measured'}`;
+    : m('chartNoTotalNonAdditive');
+  const partialNote = anyPartial && p.partialTotalNote !== false ? m('chartPartialTotalNote') : null;
+  const missingText = (missing: readonly string[]) => m('chartMissingTotal', { items: missing.join(', ') });
   const unit = p.unit; const stacked = p.stacked;
   // A reference line in another unit or metric version would sit on the wrong scale: it is not drawn and the Frame names it. No lines are drawn with startAlign, so no note either.
-  const mismatchedLines = useMemo(() => (startAlign ? [] : (p.markLines ?? []).filter(m => (m.unit !== undefined && m.unit !== p.unit) || (m.metricVersion !== undefined && m.metricVersion !== p.metricVersion))), [startAlign, p.markLines, p.unit, p.metricVersion]);
-  const markLines = useMemo(() => (mismatchedLines.length ? p.markLines?.filter(m => !mismatchedLines.includes(m)) : p.markLines), [p.markLines, mismatchedLines]);
+  const mismatchedLines = useMemo(() => (startAlign ? [] : (p.markLines ?? []).filter(line => (line.unit !== undefined && line.unit !== p.unit) || (line.metricVersion !== undefined && line.metricVersion !== p.metricVersion))), [startAlign, p.markLines, p.unit, p.metricVersion]);
+  const markLines = useMemo(() => (mismatchedLines.length ? p.markLines?.filter(line => !mismatchedLines.includes(line)) : p.markLines), [p.markLines, mismatchedLines]);
   // The plot width only feeds note labels and start-aligned lanes; any other chart keeps its option (and skips a full setOption) on resize (#822).
   const optionWidth = noteSpans.length > 0 || (horizontal && startAlign && !!stacked) ? chartWidth : NOTE_FALLBACK_WIDTH;
   // A horizontal value axis budgets its ticks from the measured width, in 64px steps capped where five ticks always fit, so a resize inside one step keeps the option.
@@ -563,12 +565,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     return { s, n: values.length, avg: values.length ? values.reduce((a, b) => a + b, 0) / values.length : null, max: values.length ? Math.max(...values) : null };
   }) : [];
 
-  const allEqualText = lang === 'ko' ? '모든 값이 같음' : 'all values equal';
+  const allEqualText = m('chartAllValuesEqual');
   /** ` · 최소` / ` · 최대` after a point that is its series' minimum or maximum, for the keyboard picker (colour is never the only cue). */
   function extremeText(point: ChartPoint) {
     const e = extremes?.get(point.seriesId);
     if (equalIds?.has(point.seriesId) && selectedPoint && pointKey(point) === pointKey(selectedPoint)) return ` · ${allEqualText}`;
-    return e?.min.x === point.x ? ` · ${lang === 'ko' ? '최소' : 'Min'}` : e?.max.x === point.x ? ` · ${lang === 'ko' ? '최대' : 'Max'}` : '';
+    return e?.min.x === point.x ? ` · ${m('chartMin')}` : e?.max.x === point.x ? ` · ${m('chartMax')}` : '';
   }
 
   function renderLegendSeries(s: ChartSeries, previous: boolean) {
@@ -608,7 +610,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     // The table projection verbatim: numbers stay numbers so the formula guard never prefixes them (#297).
     const body = rows.map(([x, values]) => [x, ...values.map(v => (v === null ? '' : v))]);
     downloadChartCsv({ ...p, context: global }, header, body);
-    toast(lang === 'ko' ? `${p.chartId}.csv 내보냄 (보이는 시리즈, 현재 적용 Context 기준)` : `Exported ${p.chartId}.csv (visible series, applied context)`);
+    toast(m('chartExportedVisibleCsv', { chartId: p.chartId }));
   }
 
   const oneHour = global.to ? presetWindow(1, timeBounds, global.to) : null;
@@ -667,53 +669,51 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} />
       {/* The core controls wrap in source order inside narrow cards; the Export/More tail stays bundled as its own
         wrap unit. Wide cards keep one right-aligned row, and extraActions keeps its own bundle. */}
-      <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="ml-auto flex flex-wrap items-center justify-end gap-1">
+      <div role="toolbar" aria-label={m('chartActions')} className="ml-auto flex flex-wrap items-center justify-end gap-1">
         {pointControls && <div className="flex flex-wrap items-center gap-1">
-          <select aria-label={lang === 'ko' ? '차트 지점 선택' : 'Select chart point'} value={selectedPoint ? pointKey(selectedPoint) : ''} disabled={brushMode || !points.length}
+          <select aria-label={m('chartSelectPoint')} value={selectedPoint ? pointKey(selectedPoint) : ''} disabled={brushMode || !points.length}
             className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => { setSelectedPointKey(event.target.value); const picked = points.find(point => pointKey(point) === event.target.value); if (horizontal && picked) p.onActiveCategoryChange?.(picked.x, 'keyboard'); }}>
-            {!points.length && <option value="">{lang === 'ko' ? '선택할 지점 없음' : 'No points available'}</option>}
-            {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{point.x} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang === 'ko') : fmtOf(allSeries.find(s => s.id === point.seriesId)!)(point.value)}{rightActive && point.value !== null ? ` ${unitOf(allSeries.find(s => s.id === point.seriesId)!)}` : ''}{extremeText(point)}</option>)}
+            {!points.length && <option value="">{m('chartNoPoints')}</option>}
+            {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{point.x} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang) : fmtOf(allSeries.find(s => s.id === point.seriesId)!)(point.value)}{rightActive && point.value !== null ? ` ${unitOf(allSeries.find(s => s.id === point.seriesId)!)}` : ''}{extremeText(point)}</option>)}
           </select>
-          {p.pointActivation && <Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) p.pointActivation?.onActivate(selectedPoint); }}>{lang === 'ko' ? '선택 지점 실행' : 'Activate selected point'}</Button>}
+          {p.pointActivation && <Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) p.pointActivation?.onActivate(selectedPoint); }}>{m('chartActivatePoint')}</Button>}
           {hasPointActions && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint && !noActions} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>
-            <DropdownMenuTrigger asChild><Button ref={menu.triggerRef} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint || noActions}>{lang === 'ko' ? '지점 동작' : 'Point actions'}</Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button ref={menu.triggerRef} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint || noActions}>{m('chartPointActions')}</Button></DropdownMenuTrigger>
             <DropdownMenuContent ref={menu.contentRef} align="end" onCloseAutoFocus={menu.onCloseAutoFocus}>
               {selectedActions.map(action => <DropdownMenuItem key={action.id} disabled={action.disabled} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring" onSelect={() => { if (selectedPoint && !brushMode) { if (action.keepsFocus) menu.stayOnChart(); action.onSelect(selectedPoint); } }}>{action.label}</DropdownMenuItem>)}
             </DropdownMenuContent>
           </DropdownMenu>}
-          {brushMode && <span className="text-tiny text-text-secondary">{lang === 'ko' ? '구간 선택 중에는 지점 실행과 동작을 사용할 수 없습니다.' : 'Point activation and actions are unavailable while brushing.'}</span>}
+          {brushMode && <span className="text-tiny text-text-secondary">{m('chartBrushDisablesPointActions')}</span>}
         </div>}
         {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
         <div className="flex flex-wrap items-center gap-1">
-          {rowPitch === undefined && <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomIn} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>}
-          <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} disabled={startAlign} title={startAlign ? (lang === 'ko' ? '시작 위치 맞춤에서는 가로축이 하나의 값 척도가 아니라 구간 선택을 쓸 수 없습니다' : 'Brush is unavailable with StartAlign: the x axis is no longer one value scale') : undefined} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
-          {showKeyboard && <div role="group" aria-label={lang === 'ko' ? '빠른 구간 선택' : 'Quick range'} className="flex items-center gap-1">
-            {oneHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{lang === 'ko' ? '1시간' : '1h'}</Button>}
-            {fourHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(fourHour)}>{lang === 'ko' ? '4시간' : '4h'}</Button>}
-            <Button variant="ghost" size="toolbar" onClick={() => commitRange({ from: timeBounds[0], to: timeBounds[timeBounds.length - 1] })}>{lang === 'ko' ? '전체' : 'All'}</Button>
+          {rowPitch === undefined && <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomIn} title={m('chartZoomTitle')}><ZoomIn className="size-3.5" aria-hidden />{m('chartZoom')}</Button>}
+          <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} disabled={startAlign} title={startAlign ? m('chartBrushStartAlignDisabled') : undefined} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{m('chartBrush')}</Button>
+          {showKeyboard && <div role="group" aria-label={m('chartQuickRange')} className="flex items-center gap-1">
+            {oneHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{m('chartRange1h')}</Button>}
+            {fourHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(fourHour)}>{m('chartRange4h')}</Button>}
+            <Button variant="ghost" size="toolbar" onClick={() => commitRange({ from: timeBounds[0], to: timeBounds[timeBounds.length - 1] })}>{t('all')}</Button>
           </div>}
-          <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{lang === 'ko' ? '차트 초기화' : 'Reset chart'}</Button>
-          {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{lang === 'ko' ? '비교' : 'Compare'}</Button>}
-          {canAnnotate && <Button ref={annotateButton} variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? '구간 선택으로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={editor.openEditor}><MessageSquarePlus className="size-3.5" aria-hidden />{lang === 'ko' ? '주석' : 'Annotate'}</Button>}
+          <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{m('chartReset')}</Button>
+          {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{m('chartCompare')}</Button>}
+          {canAnnotate && <Button ref={annotateButton} variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? m('chartAnnotatePickScope') : selection ? undefined : m('chartAnnotateBrushFirst')} onClick={editor.openEditor}><MessageSquarePlus className="size-3.5" aria-hidden />{m('chartAnnotate')}</Button>}
         </div>
         <div className="flex items-center gap-1" data-chart-toolbar-tail>
-          {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
+          {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{t('export')}</Button>}
           {p.imageCopy && <ChartImageCopyButton fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
           {p.imagePrint && <ChartImagePrintButton title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
           <Popover>
-            <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '더보기' : 'More'}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
+            <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
             <PopoverContent align="end" className="w-72">
-              <button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-sunken" onClick={() => setShowTable(s => !s)}><Table2 className="size-3.5" aria-hidden />{showTable ? (lang === 'ko' ? '데이터 표 숨기기' : 'Hide data table') : (lang === 'ko' ? '같은 데이터를 표로 보기' : 'Show same data as table')}</button>
-              <p className="mt-2 border-t border-border-subtle pt-2 text-text-secondary">{lang === 'ko'
-                ? '확대·구간 선택·시리즈 표시·비교는 이 차트의 로컬 상태로 URL에 저장되지 않습니다. 구간을 전역 기간으로 올리려면 선택 요약의 “분석 구간 적용”을 명시적으로 눌러야 합니다. 주석은 서버에 사이트(Scope)별로 보관되어 초기화 후에도 유지됩니다.'
-                : 'Zoom, brush, series visibility and compare are local chart state, never written to the URL. Promoting a range to the global period requires the explicit “Apply analysis range”. Annotations are stored on the server per site (Scope) and survive Reset.'}</p>
+              <button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-sunken" onClick={() => setShowTable(s => !s)}><Table2 className="size-3.5" aria-hidden />{showTable ? m('chartHideDataTable') : m('chartShowSameDataTable')}</button>
+              <p className="mt-2 border-t border-border-subtle pt-2 text-text-secondary">{m('chartLocalStateNote')}</p>
             </PopoverContent>
           </Popover>
         </div>
       </div>
     </header>
 
-    {(p.legend !== false || brushMode || (p.onPointClick && p.pointClickHint)) && <div role={p.legend === false ? undefined : 'group'} aria-label={p.legend === false ? undefined : lang === 'ko' ? '범례' : 'Legend'} className={cn('px-4 pt-2', showPeriodGroups ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-4 gap-y-1')}>
+    {(p.legend !== false || brushMode || (p.onPointClick && p.pointClickHint)) && <div role={p.legend === false ? undefined : 'group'} aria-label={p.legend === false ? undefined : m('chartLegend')} className={cn('px-4 pt-2', showPeriodGroups ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-4 gap-y-1')}>
       {/* eslint-disable-next-line shadcn/no-inline-styles -- legend column count depends on the visible period groups at runtime */}
       {p.legend === false ? null : showPeriodGroups ? usePeriodLegendGrid ? <div data-period-legend-grid className="grid items-center gap-x-4 gap-y-2" style={{ gridTemplateColumns: `repeat(${periodLegendColumnCount + 1}, max-content)` }}>
         {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
@@ -722,27 +722,27 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
         {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
       </> : allSeries.map(s => renderLegendSeries(s, false))}
-      {brushMode && <span className="text-tiny text-accent-primary">{lang === 'ko' ? '차트를 드래그해 구간을 선택하세요' : 'Drag across the chart to select a range'}</span>}
+      {brushMode && <span className="text-tiny text-accent-primary">{m('chartBrushHint')}</span>}
       {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-tiny text-text-muted">{p.pointClickHint}</span>}
     </div>}
 
     {(totalNote || partialNote || mismatchedLines.length > 0) && <div data-chart-notes className="space-y-0.5 px-4 pt-1 text-tiny text-text-secondary">
       {totalNote && <p>{totalNote}</p>}
       {partialNote && <p>{partialNote}</p>}
-      {mismatchedLines.map(m => <p key={m.label}>{lang === 'ko' ? `${m.label} 기준선은 단위가 달라 표시하지 않음` : `${m.label} reference line hidden: different unit`}</p>)}
+      {mismatchedLines.map(line => <p key={line.label}>{m('chartRefLineHiddenUnit', { label: line.label })}</p>)}
     </div>}
 
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
     {allSeries.length > 0 && visible.length === 0 && <>
       <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-        <p role="status" className="text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>
-        <Button ref={showAllButton} type="button" variant="secondary" size="toolbar" onClick={showAllSeries}><Eye className="size-3.5" aria-hidden />{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>
+        <p role="status" className="text-text-secondary">{m('chartAllSeriesOff')}</p>
+        <Button ref={showAllButton} type="button" variant="secondary" size="toolbar" onClick={showAllSeries}><Eye className="size-3.5" aria-hidden />{m('chartShowAll')}</Button>
       </div>
     </>}
     <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && (rowPitch !== undefined ? (loweredFill ? FILL_PLOT_SCROLL_BASE_CLASS : FILL_PLOT_SCROLL_CLASS) : (loweredFill ? FILL_PLOT_BASE_CLASS : FILL_PLOT_CLASS)), rowPitch !== undefined && 'overflow-y-auto')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
-      style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill ? { minHeight: fillMin } : undefined} role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : -1}
+      style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill ? { minHeight: fillMin } : undefined} role={pointControls ? 'group' : undefined} aria-label={pointControls ? m('chartPointsGroup') : undefined} tabIndex={pointControls ? 0 : -1}
       onContextMenu={event => { if (hasPointActions) event.preventDefault(); }}
       onKeyDown={event => {
         if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && hasPointActions) {
@@ -754,7 +754,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">
       <table aria-labelledby={titleId} className="w-full text-xs tabular">
-        <thead className="sticky top-0 bg-surface-sunken"><tr><th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{lang === 'ko' ? (xType === 'time' ? '시각' : '구간') : (xType === 'time' ? 'Time' : 'Category')}</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{columnName(s)}</th>)}{totals && totals.size > 0 && <th className="t-table-header px-3 py-1.5 text-right text-text-secondary">{totalName}</th>}</tr></thead>
+        <thead className="sticky top-0 bg-surface-sunken"><tr><th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{xType === 'time' ? m('chartAxisTime') : m('chartAxisCategory')}</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{columnName(s)}</th>)}{totals && totals.size > 0 && <th className="t-table-header px-3 py-1.5 text-right text-text-secondary">{totalName}</th>}</tr></thead>
         <tbody>{rows.map(([x, values]) => <tr key={x} className="border-t border-border-subtle">
           <td className="px-3 py-1">{xType === 'time' ? fmt(x) : x}</td>
           {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? '—' : fmtOf(visible[i])(v)}</td>)}
@@ -763,78 +763,76 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       </table>
     </div>}
 
-    {showSummary && <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} aria-live="polite" className="mx-4 mb-3 min-h-9 shrink-0 rounded-md bg-surface-sunken px-3 py-2 text-xs">
-      {rangeUi && rangeKeyboard && draft && <div role="group" aria-label={lang === 'ko' ? '시작과 끝으로 구간 선택' : 'Choose a range by start and end'} className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="text-text-secondary">{lang === 'ko' ? '시작' : 'Start'}</span>
+    {showSummary && <section aria-label={m('chartSelectionSummaryRegion')} aria-live="polite" className="mx-4 mb-3 min-h-9 shrink-0 rounded-md bg-surface-sunken px-3 py-2 text-xs">
+      {rangeUi && rangeKeyboard && draft && <div role="group" aria-label={m('chartRangeByStartEnd')} className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="text-text-secondary">{m('chartStart')}</span>
         <Select value={draft.from} onValueChange={chooseStart}>
-          <SelectTrigger ref={rangeStart} aria-label={lang === 'ko' ? '구간 시작' : 'Range start'} className="h-8 w-44 border-border-control">
+          <SelectTrigger ref={rangeStart} aria-label={m('chartRangeStart')} className="h-8 w-44 border-border-control">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {(xType === 'category' ? categories : withBound(timeBounds.slice(0, -1), draft.from)).map(value => <SelectItem key={value} value={value}>{xType === 'category' ? value : fmt(value)}</SelectItem>)}
           </SelectContent>
         </Select>
-        <span className="text-text-secondary">{lang === 'ko' ? '끝' : 'End'}</span>
+        <span className="text-text-secondary">{m('chartEnd')}</span>
         <Select value={draft.to} onValueChange={chooseEnd}>
-          <SelectTrigger aria-label={lang === 'ko' ? '구간 끝' : 'Range end'} className="h-8 w-44 border-border-control">
+          <SelectTrigger aria-label={m('chartRangeEnd')} className="h-8 w-44 border-border-control">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {(xType === 'category' ? categories.slice(categories.indexOf(draft.from)) : withBound(timeBounds.filter(bound => bound > draft.from), draft.to)).map(value => <SelectItem key={value} value={value}>{xType === 'category' ? value : fmt(value)}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button size="toolbar" onClick={() => (xType === 'category' ? rangeActions.categorySelect(draft) : commitRange(draft))}>{lang === 'ko' ? '선택' : 'Select'}</Button>
+        <Button size="toolbar" onClick={() => (xType === 'category' ? rangeActions.categorySelect(draft) : commitRange(draft))}>{m('chartSelect')}</Button>
       </div>}
-      {drawnActive !== null && <p className="mb-1 font-semibold">{lang === 'ko' ? '활성 행' : 'Active row'}: {drawnActive}</p>}
+      {drawnActive !== null && <p className="mb-1 font-semibold">{m('chartActiveRow')}: {drawnActive}</p>}
       {selectedPoint && equalIds?.has(selectedPoint.seriesId) && <p className="mb-1 tabular">{allSeries.find(s => s.id === selectedPoint.seriesId)?.name}: {allEqualText}</p>}
-      {selectedPoint && extremes?.get(selectedPoint.seriesId) && (() => { const e = extremes.get(selectedPoint.seriesId)!; const name = allSeries.find(s => s.id === selectedPoint.seriesId)?.name; return <p className="mb-1 tabular">{name}: {lang === 'ko' ? '최소' : 'Min'} {e.min.x} {format(e.min.value)} · {lang === 'ko' ? '최대' : 'Max'} {e.max.x} {format(e.max.value)} {p.unit}</p>; })()}
-      {!selection ? rangeUi && <span className="text-text-secondary">{startAlign ? (lang === 'ko' ? '선택 구간 없음' : 'No selection') : showKeyboard
-        ? (lang === 'ko' ? '선택 구간 없음. 시작·끝이나 빠른 구간을 고르거나 차트를 끌면 요약·주석·적용이 열립니다.' : 'No selection. Choose a start and end or a quick range, or drag on the chart to open summary, annotation and apply actions.')
-        : (lang === 'ko' ? '선택 구간 없음. 차트를 끌어 구간을 고르면 요약·주석·적용이 열립니다.' : 'No selection. Drag on the chart to select a range and open summary, annotation and apply actions.')}</span>
+      {selectedPoint && extremes?.get(selectedPoint.seriesId) && (() => { const e = extremes.get(selectedPoint.seriesId)!; const name = allSeries.find(s => s.id === selectedPoint.seriesId)?.name; return <p className="mb-1 tabular">{name}: {m('chartMin')} {e.min.x} {format(e.min.value)} · {m('chartMax')} {e.max.x} {format(e.max.value)} {p.unit}</p>; })()}
+      {!selection ? rangeUi && <span className="text-text-secondary">{startAlign ? m('chartNoRangeSelection') : showKeyboard
+        ? m('chartNoSelectionWithKeyboardHint')
+        : m('chartNoSelectionHint')}</span>
         : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="font-semibold tabular">{t('selectedRange')}: {xType === 'time' ? `${fmt(selection.from)} – ${fmt(selection.to)}` : `${selection.from} – ${selection.to}`}</span>
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${fmtOf(c.s)(c.avg)} · max ${fmtOf(c.s)(c.max!)}`} {unitOf(c.s)}</span>)}
           <span className="ml-auto flex flex-wrap gap-2">
             {p.selectionActions?.(selection)}
-            {xType === 'time' && p.canApplyRange !== false && <Button ref={applyRangeButton} size="toolbar" onClick={() => rangeActions.setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
+            {xType === 'time' && p.canApplyRange !== false && <Button ref={applyRangeButton} size="toolbar" onClick={() => rangeActions.setPreview(selection)}>{m('chartApplyRange')}</Button>}
             <Button size="toolbar" variant="ghost" onClick={rangeActions.clear}>{t('clear')}</Button>
           </span>
         </div>}
       {selection && selectionCounts.length > 0 && selectionCounts.every(c => c.n === 0) && <p className="mt-1 text-text-secondary">
-        {lang === 'ko' ? '선택 구간에 요약할 값이 없습니다. 시작·끝을 바꾸거나 더 넓은 구간을 선택하세요.' : 'No values to summarize in this range. Change the start and end or choose a wider range.'}
+        {m('chartNoValuesInRange')}
       </p>}
-      {clipNotice && <p className="mt-1 text-text-secondary">{clipNotice === 'partial'
-        ? (lang === 'ko' ? '비교 중인 이전 기간에 걸친 부분을 현재 기간으로 잘랐습니다.' : 'The part in the previous period was cut back to the current period.')
-        : (lang === 'ko' ? '고른 구간이 모두 이전 기간이라 선택하지 않았습니다.' : 'The range is entirely in the previous period, so nothing was selected.')}</p>}
-      {preview && <div role="group" aria-label={lang === 'ko' ? '구간 적용 확인' : 'Confirm range'} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
-        <span className="tabular">{lang === 'ko' ? '전역 기간을 다음으로 바꿉니다:' : 'Change the global period to:'} <b>{preview.from.replace('T', ' ')} → {preview.to.replace('T', ' ')}</b></span>
+      {clipNotice && <p className="mt-1 text-text-secondary">{m(clipNotice === 'partial' ? 'chartCutPreviousPeriod' : 'chartOnlyPreviousPeriod')}</p>}
+      {preview && <div role="group" aria-label={m('chartConfirmRange')} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
+        <span className="tabular">{m('chartConfirmGlobalPeriodChange')} <b>{preview.from.replace('T', ' ')} → {preview.to.replace('T', ' ')}</b></span>
         {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
-        <Button size="toolbar" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); brushToggle.current?.focus({ preventScroll: true }); }}>{t('apply')}</Button>
+        <Button size="toolbar" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(m('chartAppliedGlobalPeriodToast')); brushToggle.current?.focus({ preventScroll: true }); }}>{t('apply')}</Button>
         <Button size="toolbar" variant="secondary" onClick={() => { rangeActions.setPreview(null); applyRangeButton.current?.focus({ preventScroll: true }); }}>{t('cancel')}</Button>
       </div>}
       {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void editor.saveNote(selection); }}>
-        <input autoFocus aria-label={lang === 'ko' ? '주석 내용' : 'Annotation text'} value={note} onChange={e => editor.setNote(e.target.value)} placeholder={lang === 'ko' ? '예: PM 작업으로 인한 대기 증가' : 'e.g. queue spike due to PM'} className="h-7 min-w-64 flex-1 rounded-md border border-border-control bg-surface-card px-2" />
-        <Button size="toolbar" type="submit" disabled={editor.saving}>{lang === 'ko' ? '저장' : 'Save'}</Button>
+        <input autoFocus aria-label={m('chartAnnotationLabel')} value={note} onChange={e => editor.setNote(e.target.value)} placeholder={m('chartAnnotationPlaceholder')} className="h-7 min-w-64 flex-1 rounded-md border border-border-control bg-surface-card px-2" />
+        <Button size="toolbar" type="submit" disabled={editor.saving}>{m('chartSave')}</Button>
         <Button size="toolbar" type="button" variant="ghost" onClick={closeEditor}>{t('cancel')}</Button>
       </form>}
       {annotationAlert && <p role="alert" className="mt-2 flex items-center gap-2 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
-        {lang === 'ko' ? '주석을 불러오지 못했습니다. 차트는 그대로 유지됩니다.' : 'Could not load annotations. The chart is unaffected.'}
-        <Button size="toolbar" variant="ghost" onClick={editor.refetch}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
+        {m('chartAnnotationsLoadError')}
+        <Button size="toolbar" variant="ghost" onClick={editor.refetch}>{t('retry')}</Button>
       </p>}
       {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
         {annotations.map(a => <li key={a.id} className="tabular flex flex-wrap items-center gap-x-1"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' ? `${fmt(a.from)}–${fmt(a.to)}` : `${a.from}–${a.to}`}: {a.text}
           {a.mine && (editor.pendingDelete === a.id
-            ? <div role="group" aria-label={lang === 'ko' ? `삭제 확인: ${a.text}` : `Confirm delete: ${a.text}`} className="ml-2 inline-flex items-center gap-1" onFocus={() => { editor.focusOnConfirm.current = true; }} onBlur={e => {
+            ? <div role="group" aria-label={m('chartAnnotationDeleteConfirmGroup', { text: a.text })} className="ml-2 inline-flex items-center gap-1" onFocus={() => { editor.focusOnConfirm.current = true; }} onBlur={e => {
               if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
               // Removing the focused button also fires focusout (relatedTarget null, activeElement body) while the row is still attached; judge after the commit: a row that is gone keeps ownership.
               const group = e.currentTarget;
               queueMicrotask(() => { if (group.isConnected && !group.contains(document.activeElement)) editor.focusOnConfirm.current = false; });
             }}>
-              <span>{lang === 'ko' ? '이 주석을 삭제할까요?' : 'Delete this note?'}</span>
-              <Button size="toolbar" variant="destructive" autoFocus aria-disabled={editor.deleting} onClick={() => void editor.deleteNote(a.id)}>{lang === 'ko' ? '삭제 확정' : 'Confirm delete'}</Button>
+              <span>{m('chartAnnotationDeletePrompt')}</span>
+              <Button size="toolbar" variant="destructive" autoFocus aria-disabled={editor.deleting} onClick={() => void editor.deleteNote(a.id)}>{m('chartAnnotationDeleteConfirm')}</Button>
               <Button size="toolbar" variant="ghost" aria-disabled={editor.deleting} onClick={() => editor.cancelConfirm(a.id)}>{t('cancel')}</Button>
             </div>
-            : <Button ref={el => { if (el) editor.deleteButtons.current.set(a.id, el); else editor.deleteButtons.current.delete(a.id); }} size="toolbar" variant="ghost" className="ml-2" aria-label={lang === 'ko' ? `삭제: ${a.text}` : `Delete note: ${a.text}`} onClick={() => editor.startDelete(a.id)}>{lang === 'ko' ? '삭제' : 'Delete'}</Button>)}
+            : <Button ref={el => { if (el) editor.deleteButtons.current.set(a.id, el); else editor.deleteButtons.current.delete(a.id); }} size="toolbar" variant="ghost" className="ml-2" aria-label={m('chartAnnotationDeleteLabel', { text: a.text })} onClick={() => editor.startDelete(a.id)}>{m('chartDelete')}</Button>)}
         </li>)}
       </ul>}
     </section>}

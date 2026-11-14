@@ -1,5 +1,7 @@
 import type { EChartsCoreOption } from 'echarts/core';
+import { formatText, type Lang } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { chartTheme, strokeToken, token } from './EChart';
 import { noteLabelWidths } from './annotationLayout';
 import { GRID_BOTTOM, GRID_TOP, ROW_LABEL_GUTTER } from './analysisChartGeometry';
@@ -95,7 +97,7 @@ export type ChartOptionInput = {
   tickRoom?: number;
   markLines: { y: number; label: string }[] | undefined;
   unit: string;
-  lang: string;
+  lang: Lang;
   stacked: boolean | undefined;
   palette: ChartPalette;
   /** Stable and live: the tooltip calls it when it opens, so a consumer's new `valueFormat` never rebuilds the option. */
@@ -165,7 +167,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const noteWidths = noteLabelWidths(i.noteSpans, pxPerUnit, plotWidth);
   const areas = [
     // Notes keep the default top label; the selection labels its bottom so a note saved over it never collides (#320).
-    ...(i.selection ? [[{ name: lang === 'ko' ? '선택' : 'Selection', [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.from), itemStyle: { color: palette.selection, opacity: 0.12 }, label: { position: 'insideBottom' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.to) }]] : []),
+    ...(i.selection ? [[{ name: formatText(COMPONENTS_MESSAGES.chartSelection, lang), [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.from), itemStyle: { color: palette.selection, opacity: 0.12 }, label: { position: 'insideBottom' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.to) }]] : []),
     ...i.annotations.map((a, n) => [{ name: a.text, [horizontal ? 'yAxis' : 'xAxis']: xValue(a.from), itemStyle: { color: palette.annotation, opacity: 0.14 }, label: { color: palette.annotationLabel, fontSize: 10, offset: [0, i.noteLevels[n] * NOTE_LABEL_ROW], width: noteWidths[n], overflow: 'truncate', ellipsis: '…' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(a.to) }]),
   ];
   // A segment label is hidden (ECharts' label layout has no hide switch: a zero font size draws nothing) when ECharts' own resolved boxes say it does not fit (width and height).
@@ -173,7 +175,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const segmentLayout = (p: { labelRect: LabelRect; rect: LabelRect }) => (labelFitsSegment(p.labelRect, p.rect) ? {} : YIELDED);
   // The totals ride on an invisible scatter series: lanes put them at the lane span (one fixed column), a plain bar at its own end.
   function totalSeries(totals: ReadonlyMap<string, RowTotal>) {
-    const missingText = (t: RowTotal) => `${t.missing.join(', ')} ${lang === 'ko' ? '미측정' : 'not measured'}`;
+    const missingText = (t: RowTotal) => formatText(COMPONENTS_MESSAGES.chartMissingTotal, lang, { items: t.missing.join(', ') });
     return {
       id: '__total', type: 'scatter', silent: false, animation: false, z: 4,
       // ECharts draws no label for a symbol of `none`, so the anchor is a 1px transparent dot.
@@ -205,7 +207,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
     tooltip: {
       trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
-      valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${i.valueFormat(v)} ${i.unit}`),
+      valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${i.valueFormat(v)} ${i.unit}`),
     },
     // Lane mode: ticks sit at scale intervals and cannot mark lane starts, so the numbers and the unit go; lane names are drawn by the overlay's markLine.
     xAxis: lanes ? { type: 'value', min: 0, max: lanes.span || undefined, axisLabel: { show: false }, axisTick: { show: false }, splitLine: { show: false } }
@@ -243,7 +245,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: palette.series[n].fill },
           emphasis: { focus: i.emphasisFocus ?? 'series' },
           // The tooltip's own formatter is the left axis'; a right series reads its unit and format.
-          ...(right ? { yAxisIndex: 1, tooltip: { valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${right.valueFormat(v)} ${right.unit}`) } } : {}),
+          ...(right ? { yAxisIndex: 1, tooltip: { valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${right.valueFormat(v)} ${right.unit}`) } } : {}),
           ...(segments && kind === 'bar' ? {
             label: { show: true, position: 'inside', fontSize: LABEL_FONT, color: palette.segmentText[n].color, ...(palette.segmentText[n].chip ? { backgroundColor: palette.labelSurface, borderRadius: 2, padding: 0 } : {}), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? shortNumber(p.value, lang) : '') },
             labelLayout: segmentLayout,
@@ -273,15 +275,15 @@ function rightValueAxis(right: { unit: string }) {
   return { type: 'value', min: 0, position: 'right', name: right.unit, nameTextStyle: { align: 'left' }, splitLine: { show: false } };
 }
 
-function extremeName(mark: 'min' | 'max', lang: string) {
-  return mark === 'min' ? (lang === 'ko' ? '최소' : 'Min') : (lang === 'ko' ? '최대' : 'Max');
+function extremeName(mark: 'min' | 'max', lang: Lang) {
+  return formatText(mark === 'min' ? COMPONENTS_MESSAGES.chartMin : COMPONENTS_MESSAGES.chartMax, lang);
 }
 
 /**
  * The 최소/최대 label chip: the surface colour behind the text and a border in the emphasis colour, so it reads on any fill.
  * In lane mode a max segment fills its whole lane, so its label sits inside the right end; every other label stays outside to the right.
  */
-function extremeLabel(mark: 'min' | 'max', lanes: boolean, palette: ChartPalette, lang: string) {
+function extremeLabel(mark: 'min' | 'max', lanes: boolean, palette: ChartPalette, lang: Lang) {
   const name = extremeName(mark, lang);
   return {
     show: true, position: lanes && mark === 'max' ? 'insideRight' : 'right', formatter: name, fontSize: 10, fontWeight: 'bold', color: palette.minMax[mark],

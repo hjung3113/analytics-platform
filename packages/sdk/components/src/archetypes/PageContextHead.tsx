@@ -1,9 +1,10 @@
 import { createPortal } from 'react-dom';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
-import { WorkspaceQueryBarContext, workspaceQueryText } from './WorkspaceQueryBar';
+import { WorkspaceQueryBarContext } from './WorkspaceQueryBar';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { PageFilterExpandedContext } from '../filters/pageFilterPresentation';
 import type { PageFilterSummaryItem } from '../filters/PageFilterBar';
 import { pageInsetX, useCompactPageDensity } from '../pageDensity';
@@ -37,7 +38,8 @@ export type PageContextHeadProps = {
  * consumer's state and the `aria-controls` target survive a toggle (06 §12.8).
  */
 export function PageContextHead({ menuId, notes, extension, summary, pendingChanges, issueCount }: PageContextHeadProps) {
-  const { t, tx } = useI18n();
+  const { t } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const workspace = useContext(WorkspaceQueryBarContext);
   // Adopt one body host into either surface. Changing portal targets would remount the consumer's editor on every fold/open.
   const [bodyHost, setBodyHost] = useState<HTMLDivElement | null>(null);
@@ -72,7 +74,7 @@ export function PageContextHead({ menuId, notes, extension, summary, pendingChan
   const body = bodyHost ? createPortal(<PageFilterExpandedContext.Provider value={Boolean(workspace?.parameterTarget)}><PageHeadBody notes={notes} extension={extension} /></PageFilterExpandedContext.Provider>, bodyHost) : null;
   const head = workspace?.parameterTarget ? createPortal(<Popover>
     <PopoverTrigger asChild><Button type="button" variant="secondary" size="toolbar" className="max-w-80 break-keep" title={summaryText}>
-      <span className="shrink-0 font-normal text-text-secondary">{tx(workspaceQueryText.pageConditions)}</span>
+      <span className="shrink-0 font-normal text-text-secondary">{m('workspacePageConditions')}</span>
       <span className="min-w-0 truncate">{summary.map(item => <span key={item.key}>
         <span aria-hidden className="text-text-muted"> · </span><span className="font-normal text-text-secondary">{item.label}</span> <span className="font-medium text-text-primary">{item.value}</span>
       </span>)}</span>
@@ -81,7 +83,7 @@ export function PageContextHead({ menuId, notes, extension, summary, pendingChan
       {issueCount > 0 && <span data-page-head-issues className="shrink-0 whitespace-nowrap font-medium text-text-danger-label">{t('pageIssuesCount', { count: issueCount })}</span>}
       <ChevronDown className="size-3.5 shrink-0" aria-hidden />
     </Button></PopoverTrigger>
-    <PopoverContent align="start" aria-label={tx(workspaceQueryText.pageConditions)} className="w-auto max-w-3xl max-h-[var(--radix-popover-content-available-height)] overflow-auto break-keep">
+    <PopoverContent align="start" aria-label={m('workspacePageConditions')} className="w-auto max-w-3xl max-h-[var(--radix-popover-content-available-height)] overflow-auto break-keep">
       <div ref={adoptBody} />
     </PopoverContent>
     <div aria-live="polite" className="sr-only">{liveText}</div>
