@@ -13,6 +13,7 @@ import { noMenuMockImport } from './menu-boundaries.js';
 import noShellIdLiteralComparison from './no-shell-id-literal-comparison.js';
 import noColorVarShorthand from './no-color-var-shorthand.js';
 import noBrowserRandomUuid from './no-browser-random-uuid.js';
+import requireApiPath from './require-api-path.js';
 import { featureServer, featureShared, featureUi, featureScreenPaths } from './feature.js';
 
 const pkg = (name) => `${PACKAGE_PREFIX}${name}`;
@@ -680,9 +681,9 @@ export const tooling = [
 const eqvBanOnlyFor = (allowEqvPackages = []) => ({
   files: ['**/*.{ts,tsx,js,mjs}'],
   // One `ap` plugin per preset array: flat config rejects a second definition of the same plugin name. The screens-only
-  // `no-browser-random-uuid` is registered here (dormant — no preset enables it) so `featureScreensPreset` can enable it
-  // without redefining `ap`.
-  plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource, 'no-browser-random-uuid': noBrowserRandomUuid } } },
+  // `no-browser-random-uuid` and `require-api-path` are registered here (dormant — no preset enables them) so
+  // `featureScreensPreset` can enable them without redefining `ap`.
+  plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource, 'no-browser-random-uuid': noBrowserRandomUuid, 'require-api-path': requireApiPath } } },
   rules: {
     'no-restricted-imports': ['error', { patterns: [{ regex: eqvRegex([], allowEqvPackages), message: EQV_MESSAGE }] }],
     'ap/restricted-import-source': ['error', { eqvOnly: true, eqvMessage: EQV_MESSAGE, allowEqvPackages }],

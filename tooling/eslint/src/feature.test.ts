@@ -403,21 +403,57 @@ describe('feature screen request paths', () => {
     "apiClient.get(`/items/${id}`)",
     "apiClient.post(`/items/${id}`, {})",
     "apiRequest('GET', flag ? `/items/${id}` : '/items', parser)",
+    "apiClient.get(flag ? `/items/${id}` : '/items')",
+    "apiClient.post(flag ? '/items' : `/items/${id}`, {})",
+    "apiClient.get(flag ? '/items/' + id : '/items')",
+    "apiClient('GET', `/items/${id}` + '?' + params)",
+    "apiRequest('GET', `/items/${id}?` + params, parser)",
+    "apiClient.get(`/items/${id}` + '?' + new URLSearchParams({ id }))",
+    "apiHref(`/items/${id}` + '?' + params)",
+    "apiClient('GET', '/items/' + id)",
+    "apiClient('GET', '/items/' + id + '?' + params)",
+    "apiClient('GET', id + '?' + params)",
+    "apiClient('GET', '/items?' + `a=${id}`)",
+    "apiClient('GET', '/items?a=' + id)",
   ])('requires apiPath: %s', async (call) => {
-    expect(await lint(SCREENS, 'src/features/probe.ts', `export const f = (id: string) => ${call};`)).toContain('no-restricted-syntax');
+    expect(await lint(SCREENS, 'src/features/probe.ts', `export const f = (id: string) => ${call};`)).toContain('ap/require-api-path');
+  });
+
+  it('requires apiPath for composed local path constants', async () => {
+    expect(
+      await lint(
+        SCREENS,
+        'src/features/probe.ts',
+        "export const f = (id: string, params: URLSearchParams) => { const url = `/items/${id}` + '?' + params; return apiRequest('GET', url, parser); };",
+      ),
+    ).toContain('ap/require-api-path');
   });
 
   it.each([
     "apiClient('GET', apiPath`/items/${id}`)",
     "apiHref(apiPath`/items/${id}`)",
+    "apiClient.get(flag ? apiPath`/items/${id}` : '/items')",
     "apiClient('GET', '/items?' + new URLSearchParams({ id }))",
+    "apiRequest('GET', apiPath`/items/${id}` + '?' + params, parser)",
+    "apiRequest('GET', '/items' + (flag ? '?' + new URLSearchParams({ id }) : ''), parser)",
+    "apiRequest('GET', apiPath`/items/${id}` + (flag ? '?' + params : ''), parser)",
     "({ to: `/items/${id}` })",
   ])('allows validated paths and other strings: %s', async (call) => {
-    expect(await lint(SCREENS, 'src/features/probe.ts', `export const f = (id: string) => ${call};`)).not.toContain('no-restricted-syntax');
+    expect(await lint(SCREENS, 'src/features/probe.ts', `export const f = (id: string) => ${call};`)).not.toContain('ap/require-api-path');
+  });
+
+  it('allows validated composed local path constants', async () => {
+    expect(
+      await lint(
+        SCREENS,
+        'src/features/probe.ts',
+        "export const f = (id: string, flag: boolean, params: URLSearchParams) => { const url = apiPath`/items/${id}` + (flag ? '?' + params : ''); return apiRequest('GET', url, parser); };",
+      ),
+    ).not.toContain('ap/require-api-path');
   });
 
   it('keeps lib/api outside the rule', async () => {
-    expect(await lint(SCREENS, 'src/lib/api/probe.ts', 'export const f = (id: string) => apiHref(`/items/${id}`);')).not.toContain('no-restricted-syntax');
+    expect(await lint(SCREENS, 'src/lib/api/probe.ts', 'export const f = (id: string) => apiHref(`/items/${id}`);')).not.toContain('ap/require-api-path');
   });
 
   it('preserves existing correctness selectors', async () => {

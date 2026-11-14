@@ -37,7 +37,7 @@ const ORIGINAL_UPDATED_AT = '2026-05-01T00:00:00.000Z';
 const REFETCHED_UPDATED_AT = '2026-05-02T12:00:00.000Z';
 
 const MOCK_VOC: VocListItem = {
-  id: 'voc-rev3-clusterY',
+  id: '00000000-0000-4000-8000-000000000021',
   display_id: 'VOC-CY',
   title: 'REV-3 cluster Y',
   reporter_facing_status: 'received',

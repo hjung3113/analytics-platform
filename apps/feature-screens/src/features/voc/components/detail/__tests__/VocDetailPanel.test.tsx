@@ -689,7 +689,7 @@ describe('<VocDetailPanel>', () => {
 
   it('happy path: renders the detail panel with title', () => {
     vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
-    renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
+    renderWithClient(<VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={vi.fn()} />);
     expect(screen.getByText('테스트 VOC 제목')).toBeInTheDocument();
   });
 
@@ -841,7 +841,7 @@ describe('<VocDetailPanel>', () => {
       }),
     );
     const { container } = renderWithClient(
-      <VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />,
+      <VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={vi.fn()} />,
     );
     expect(container.querySelector('.animate-pulse')).not.toBeNull();
     expect(screen.queryByText('테스트 VOC 제목')).not.toBeInTheDocument();
@@ -859,13 +859,13 @@ describe('<VocDetailPanel>', () => {
         data: undefined,
       }),
     );
-    renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
+    renderWithClient(<VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={vi.fn()} />);
     expect(screen.getByText('VOC를 찾을 수 없습니다.')).toBeInTheDocument();
   });
 
   it('summary envelope: renders PermissionBlockedPanel', () => {
     const summaryData = {
-      id: 'voc-uuid-1111',
+      id: '00000000-0000-4000-8000-000000000011',
       display_id: 'VOC-0001',
       primary_managed_system_id: 'ms-1',
       reporter_facing_status: 'received',
@@ -879,7 +879,7 @@ describe('<VocDetailPanel>', () => {
     );
     vi.mocked(useMeBridge).mockReturnValue(makeMeQuery());
 
-    renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
+    renderWithClient(<VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={vi.fn()} />);
     // PermissionBlockedPanel renders; title should NOT be present
     expect(screen.queryByText('테스트 VOC 제목')).not.toBeInTheDocument();
   });
@@ -935,14 +935,14 @@ describe('<VocDetailPanel>', () => {
         data: undefined,
       }),
     );
-    renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={onClose} />);
+    renderWithClient(<VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={onClose} />);
     screen.getByRole('button', { name: '선택 해제' }).click();
     expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('does not render an empty related-entity section in the happy path', () => {
     vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
-    renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
+    renderWithClient(<VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={vi.fn()} />);
     expect(screen.getByRole('heading', { name: '분류 (읽기 전용)' })).toBeInTheDocument();
     // #679 FIX2: the reference's relaxed 'BODY' variance is superseded by the
     // Korean-chrome policy; the label is 본문.
@@ -955,7 +955,7 @@ describe('<VocDetailPanel>', () => {
   it('only renders the same-Managed-System section navigation entry and anchor when peers render', () => {
     vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
     const { container, rerender } = renderWithClient(
-      <VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />,
+      <VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={vi.fn()} />,
     );
 
     expect(
@@ -984,7 +984,7 @@ describe('<VocDetailPanel>', () => {
     );
     rerender(
       <QueryClientProvider client={new QueryClient()}>
-        <VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />
+        <VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={vi.fn()} />
       </QueryClientProvider>,
     );
 
@@ -1168,7 +1168,7 @@ describe('<VocDetailPanel>', () => {
     vi.mocked(useVocDetail).mockReturnValue(
       makeDetailQuery({ data: { ...DETAIL_ENVELOPE, reporter_id: ME_RESPONSE.actor.id } }),
     );
-    renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
+    renderWithClient(<VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={vi.fn()} />);
     expect(screen.getAllByText('김개발').length).toBeGreaterThan(0);
   });
 
@@ -1194,7 +1194,7 @@ describe('<VocDetailPanel>', () => {
       }),
     );
     hostSearch = { view: 'inbox', tab: 'similar' };
-    renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
+    renderWithClient(<VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: /VOC-0002 유사 VOC 제목/i }));
 
@@ -1379,7 +1379,7 @@ describe('<VocDetailPanel>', () => {
           },
         }),
       );
-      renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
+      renderWithClient(<VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={vi.fn()} />);
 
       expect(screen.getByRole('button', { name: /VOC-0002 열리는 유사 VOC/ })).toBeInTheDocument();
       expect(screen.getByText('막힌 유사 VOC')).toBeInTheDocument();
@@ -1407,7 +1407,7 @@ describe('<VocDetailPanel>', () => {
           },
         }),
       );
-      renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={vi.fn()} />);
+      renderWithClient(<VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={vi.fn()} />);
 
       expect(screen.getByText('유사 VOC 제목')).toBeInTheDocument();
       expect(
@@ -1433,7 +1433,7 @@ describe('<VocDetailPanel>', () => {
   it('#6 dirty composer close: shows DirtyConfirmation before closing panel', async () => {
     vi.mocked(useVocDetail).mockReturnValue(makeDetailQuery());
     const onClose = vi.fn();
-    renderWithClient(<VocDetailPanel vocId="voc-uuid-1111" onClose={onClose} />);
+    renderWithClient(<VocDetailPanel vocId="00000000-0000-4000-8000-000000000011" onClose={onClose} />);
 
     // Mark composer dirty via stub trigger
     fireEvent.click(screen.getByTestId('composer-dirty-trigger'));
