@@ -430,7 +430,7 @@ const BUILD_OUTPUT = { ignores: ['dist/**'] };
 
 // #2215: a text field's Enter handler goes through useImeEnterGuard().isComposingEnter (rule source: ime-enter-guard.js), so
 // the Enter that confirms a Korean composition never selects or commits. On in the UI-drawing presets ui, components, shell,
-// menu and app; the EV menus and feature screens turn it on once their handlers are fixed (#2216 and its feature sibling).
+// menu and app, and on EV's ui packages and menus (#2216); feature screens turn it on once their handlers are fixed.
 const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -589,6 +589,7 @@ export const eqvUi = [
   BUILD_OUTPUT,
   layerConfig({ restriction: EQV_UI_RESTRICTION }),
   designSystem({ eqvComponents: true }),
+  IME_ENTER_GUARD,
 ];
 
 const menuMockOverride = {
@@ -599,7 +600,7 @@ const menuMockOverride = {
   },
 };
 
-const menuPreset = (restriction, { imeEnterGuard = true } = {}) => [
+const menuPreset = (restriction) => [
   REACT_HOOKS,
   layerConfig({
     restriction,
@@ -611,7 +612,7 @@ const menuPreset = (restriction, { imeEnterGuard = true } = {}) => [
   testEntryOverride(restriction, ABOVE_COMPONENTS_TEST_ENTRIES),
   menuMockOverride,
   designSystem(),
-  ...(imeEnterGuard ? [IME_ENTER_GUARD] : []),
+  IME_ENTER_GUARD,
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -622,7 +623,7 @@ export const menu = menuPreset(MENU_RESTRICTION);
  * so subpaths such as `@eqv/ui/styles.css` stay banned; `src/mock/**` keeps the plain menu mock policy and may not import `@eqv/core`.
  * @type {import('eslint').Linter.Config[]}
  */
-export const eqvMenu = menuPreset({ ...MENU_RESTRICTION, allowEqv: EQV_MENU_ENTRIES, eqvMessage: EQV_MENU_MESSAGE }, { imeEnterGuard: false });
+export const eqvMenu = menuPreset({ ...MENU_RESTRICTION, allowEqv: EQV_MENU_ENTRIES, eqvMessage: EQV_MENU_MESSAGE });
 
 /**
  * `menu` plus the one feature entry the bridge menu (menu-my-activity) may import (platform ADR-0071).

@@ -170,6 +170,61 @@ describe('Mapping', () => {
     expect(button('다시 실행 · Ctrl/Cmd+Shift+Z').textContent).toBe('');
   });
 
+  // #2216: the Enter that confirms a Korean composition (isComposing, keyCode 229, Safari's Enter right after compositionend)
+  // never assigns from the Component filter, whose Enter the dialog handles, nor leaves the alias search; the next plain Enter does.
+  const composingEnters: Array<[string, (target: Element) => void]> = [
+    ['isComposing', (target) => fireEvent.keyDown(target, { key: 'Enter', isComposing: true })],
+    ['keyCode 229', (target) => fireEvent.keyDown(target, { key: 'Enter', keyCode: 229 })],
+    ['Safari after compositionend', (target) => { fireEvent.compositionStart(target); fireEvent.compositionEnd(target); fireEvent.keyDown(target, { key: 'Enter' }); }],
+  ];
+  it.each(composingEnters)('a composition Enter in the Component filter does not assign (%s)', async (_label, composingEnter) => {
+    mount('engineer', '&equipment=eq-synth-01&step=mapping');
+    const list = await aliasList();
+    fireEvent.click(option('PM1'));
+    fireEvent.keyDown(list, { key: 'a' });
+    const filter = await screen.findByRole('combobox', { name: 'Component 필터' }, slow);
+    composingEnter(filter);
+    // Assigning closes the palette, so an open palette means nothing was assigned.
+    expect(screen.getByRole('combobox', { name: 'Component 필터' })).toBe(filter);
+    fireEvent.keyDown(filter, { key: 'Enter' });
+    await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Component 필터' })).toBeNull(), slow);
+  });
+  it.each(composingEnters)('a composition Enter in the alias search stays in the search box (%s)', async (_label, composingEnter) => {
+    mount('engineer', '&equipment=eq-synth-01&step=mapping');
+    const list = await aliasList();
+    const search = screen.getByRole('searchbox', { name: 'Alias 검색' });
+    search.focus();
+    composingEnter(search);
+    expect(document.activeElement).toBe(search);
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(document.activeElement).toBe(list);
+  });
+
+  it('only the Component filter\'s Enter assigns; Enter on 닫기 keeps the board unchanged', async () => {
+    mount('engineer', '&equipment=eq-synth-01&step=mapping');
+    const list = await aliasList();
+    fireEvent.click(option('PM1'));
+    fireEvent.keyDown(list, { key: 'a' });
+    const dialog = await screen.findByRole('dialog', {}, slow);
+    const close = within(dialog).getByRole('button', { name: '닫기' });
+    close.focus();
+    // Not cancelled: the button keeps its own activation.
+    expect(fireEvent.keyDown(close, { key: 'Enter' })).toBe(true);
+    expect(screen.queryByText('저장 안 됨 · Model')).toBeNull();
+  });
+  it('the rule form cancels the implicit submit of the Enter Safari sends right after compositionend', async () => {
+    mount('engineer', '&equipment=eq-synth-01&step=mapping');
+    const list = await aliasList();
+    fireEvent.click(option('PM1'));
+    fireEvent.keyDown(list, { key: 'r' });
+    const dialog = await screen.findByRole('dialog', {}, slow);
+    const pattern = within(dialog).getByLabelText('패턴');
+    fireEvent.compositionStart(pattern);
+    fireEvent.compositionEnd(pattern);
+    expect(fireEvent.keyDown(pattern, { key: 'Enter' })).toBe(false);
+    expect(fireEvent.keyDown(pattern, { key: 'Enter' })).toBe(true);
+  });
+
   it('an edit is unsaved until 저장, which writes the Model scope at the version read; Ctrl+Z undoes', async () => {
     mount('engineer', '&equipment=eq-synth-01&step=mapping');
     const list = await aliasList();

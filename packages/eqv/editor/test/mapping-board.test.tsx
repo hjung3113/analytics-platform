@@ -683,3 +683,47 @@ it('keeps the active row apart from the bulk-marked rows', () => {
   press(list(), 'j', { shiftKey: true });
   expectState('LP1', ['LLA', 'LP1']);
 });
+
+// #2216: the Enter that confirms a Korean composition (isComposing, keyCode 229, Safari's Enter right after compositionend)
+// never assigns from the palette, adds a rule or leaves the search box; the next plain Enter does.
+const composingEnters: Array<[string, (target: Element) => void]> = [
+  ['isComposing', (target) => press(target, 'Enter', { isComposing: true })],
+  ['keyCode 229', (target) => press(target, 'Enter', { keyCode: 229 })],
+  ['Safari after compositionend', (target) => { fireEvent.compositionStart(target); fireEvent.compositionEnd(target); press(target, 'Enter'); }],
+];
+
+it.each(composingEnters)('a composition Enter in the palette filter does not assign (%s)', (_label, composingEnter) => {
+  mount();
+  fireEvent.click(option('PM9'));
+  press(list(), 'a');
+  const filter = screen.getByRole('combobox');
+  composingEnter(filter);
+  // Assigning closes the palette, so an open palette means nothing was assigned.
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  press(filter, 'Enter');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(button('실행 취소').disabled).toBe(false);
+});
+
+it.each(composingEnters)('a composition Enter in the rule dialog does not add the rule (%s)', (_label, composingEnter) => {
+  mount();
+  equipmentScope();
+  list().focus();
+  fireEvent.click(option('PM1'));
+  press(list(), 'r');
+  const pattern = within(screen.getByRole('dialog')).getByLabelText(/패턴/);
+  composingEnter(pattern);
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  press(pattern, 'Enter');
+  expect(screen.queryByRole('dialog')).toBeNull();
+});
+
+it.each(composingEnters)('a composition Enter in the alias search stays in the search box (%s)', (_label, composingEnter) => {
+  mount();
+  const search = screen.getByRole('searchbox', { name: 'Alias 검색' });
+  search.focus();
+  composingEnter(search);
+  expect(document.activeElement).toBe(search);
+  press(search, 'Enter');
+  expect(document.activeElement).toBe(list());
+});

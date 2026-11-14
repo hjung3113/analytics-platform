@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type DragEvent, type Keybo
 import type { AliasRulesFile } from '@eqv/core';
 import {
   Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, EmptyState, Input, KeyboardShortcut, Label,
-  PanelSectionTitle, RadioGroup, RadioGroupItem, StatusBadge, type Tone,
+  PanelSectionTitle, RadioGroup, RadioGroupItem, StatusBadge, useImeEnterGuard, type Tone,
 } from '@ap/ui';
 import { Check, CheckCheck, ChevronRight, Diamond, Redo2, Save, Search, TriangleAlert, Undo2 } from 'lucide-react';
 import { TopViewer, type TopViewerProps } from '@eqv/renderer';
@@ -77,6 +77,8 @@ export function MappingBoard(props: MappingBoardProps) {
   const saveStatusRef = useRef<HTMLSpanElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLInputElement>(null);
+  // The Enter that confirms a Korean composition never assigns, adds a rule or moves focus (#2216).
+  const ime = useImeEnterGuard();
   const patternRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -276,6 +278,7 @@ export function MappingBoard(props: MappingBoardProps) {
   };
 
   const onDialogKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (ime.isComposingEnter(event)) return;
     const key = event.key;
     if (key === 'Escape') closePalette();
     else if (key === 'ArrowDown' || key === 'ArrowUp') {
@@ -302,6 +305,7 @@ export function MappingBoard(props: MappingBoardProps) {
     return true;
   };
   const onRuleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (ime.isComposingEnter(event)) return;
     const key = event.key;
     if (key === 'Escape') closeRule();
     else if (key === 'Enter' && event.target instanceof HTMLInputElement) addRule();
@@ -406,7 +410,9 @@ export function MappingBoard(props: MappingBoardProps) {
             <Input
               ref={searchRef} type="search" aria-label="Alias 검색" placeholder="/ 검색" value={query}
               onChange={(event) => changeQuery(event.target.value)}
+              onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
               onKeyDown={(event) => {
+                if (ime.isComposingEnter(event)) return;
                 if (event.key === 'Escape') { changeQuery(''); listRef.current?.focus(); }
                 else if (event.key === 'Enter' || event.key === 'ArrowDown') listRef.current?.focus();
                 else return;
@@ -499,7 +505,7 @@ export function MappingBoard(props: MappingBoardProps) {
         <Dialog open onOpenChange={(open) => { if (!open) closePalette(); }}>
         <DialogContent
           ref={dialogRef} closeLabel="창 닫기" aria-modal="true" className="w-[420px] max-w-[min(420px,calc(100vw-32px))]"
-          onKeyDown={onDialogKeyDown} onInteractOutside={(event) => event.preventDefault()} onCloseAutoFocus={returnFocusToList}
+          onKeyDown={onDialogKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onInteractOutside={(event) => event.preventDefault()} onCloseAutoFocus={returnFocusToList}
         >
           <DialogHeader>
             <DialogTitle>{palette.alias}를 배정할 component</DialogTitle>
@@ -534,7 +540,7 @@ export function MappingBoard(props: MappingBoardProps) {
         <DialogContent
           ref={dialogRef} closeLabel="창 닫기" aria-modal="true"
           className="max-h-[80vh] w-[560px] max-w-[min(560px,calc(100vw-32px))] overflow-y-auto"
-          onKeyDown={onRuleKeyDown} onInteractOutside={(event) => event.preventDefault()} onCloseAutoFocus={returnFocusToList}
+          onKeyDown={onRuleKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onInteractOutside={(event) => event.preventDefault()} onCloseAutoFocus={returnFocusToList}
         >
           <DialogHeader>
             <DialogTitle>{rule.alias}에서 규칙 만들기 · 저장 범위 {LEVEL_TEXT[saveScope]}</DialogTitle>

@@ -9,7 +9,7 @@ import {
 import { useMenuAction, usePlatform } from '@ap/kernel';
 import {
   Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, EmptyState, FieldLabel, FieldList, FieldRow, Input, Label,
-  PanelSectionTitle, RadioGroup, RadioGroupItem, SearchInput, StatusBadge, cn, type Tone,
+  PanelSectionTitle, RadioGroup, RadioGroupItem, SearchInput, StatusBadge, cn, useImeEnterGuard, type Tone,
 } from '@ap/ui';
 import { RULES_EDIT_PERMISSION, saveAliasRules, type JsonDocument } from '../../endpoints';
 import { Canvas, PANEL } from '../../parts/Canvas';
@@ -58,6 +58,7 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
   const [alias, setAlias] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const ime = useImeEnterGuard();
   const [notice, setNotice] = useState<{ state: BoardState; text: string } | null>(null);
   const [savedState, setSavedState] = useState<BoardState | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
   const [rule, setRule] = useState<{ alias: string; pattern: string; target: string; touched: boolean } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const paletteFilterRef = useRef<HTMLInputElement>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
 
   const { equipment, layout } = input;
@@ -221,9 +223,10 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
       onConfirm={reload} onCancel={() => setConfirmReload(false)} />}
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <aside aria-label="Alias" className="flex w-60 shrink-0 flex-col border-r border-border-subtle bg-surface-card">
-        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
+        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3" onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}>
           <SearchInput size="toolbar" className="w-full" inputRef={searchRef} aria-label="Alias 검색" clearLabel="검색어 지우기" placeholder="/ 검색" value={query} onValueChange={setQuery}
             onKeyDown={(event) => {
+              if (ime.isComposingEnter(event)) return;
               if (event.key === 'Escape') { setQuery(''); listRef.current?.focus(); }
               else if (event.key === 'Enter' || event.key === 'ArrowDown') listRef.current?.focus();
               else return;
@@ -284,19 +287,23 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
       <span>{writable ? SHORTCUTS : '조회 전용 · alias와 Component 확인 가능'}</span>
     </div>
     {palette && <Dialog open onOpenChange={(open) => { if (!open) setPalette(null); }}>
-      <DialogContent closeLabel="창 닫기" className="break-keep" onCloseAutoFocus={returnToList} onKeyDown={(event) => {
+      <DialogContent closeLabel="창 닫기" className="break-keep" onCloseAutoFocus={returnToList}
+        onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onKeyDown={(event) => {
+        // The Enter that confirms a Korean composition in the Component filter bubbles here; it never assigns (#2216).
+        if (ime.isComposingEnter(event)) return;
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           if (!options.length) return;
           const step = event.key === 'ArrowDown' ? 1 : -1;
           setPalette((p) => p && { ...p, active: (Math.min(p.active, options.length - 1) + step + options.length) % options.length });
-        } else if (event.key === 'Enter') {
+        } else if (event.key === 'Enter' && event.target === paletteFilterRef.current) {
+          // Only the filter's Enter assigns; Enter on 닫기 or the close button keeps its own meaning.
           const option = options[Math.min(palette.active, options.length - 1)];
           if (option) { edit({ kind: 'assign', alias: palette.alias, componentId: option.id }); setPalette(null); }
         } else return;
         event.preventDefault();
       }}>
         <DialogHeader><DialogTitle>{palette.alias}를 배정할 Component</DialogTitle><DialogDescription>↑↓로 고르고 Enter로 배정합니다. Esc로 닫습니다.</DialogDescription></DialogHeader>
-        <Input inputSize="toolbar" role="combobox" aria-label="Component 필터" aria-expanded="true" aria-controls={`${ids}-palette`} value={palette.filter} onChange={(event) => setPalette({ ...palette, filter: event.target.value, active: 0 })} />
+        <Input ref={paletteFilterRef} inputSize="toolbar" role="combobox" aria-label="Component 필터" aria-expanded="true" aria-controls={`${ids}-palette`} value={palette.filter} onChange={(event) => setPalette({ ...palette, filter: event.target.value, active: 0 })} />
         <div id={`${ids}-palette`} role="listbox" aria-label="Component 목록" className="max-h-64 overflow-y-auto">
           {options.map((option, index) => <div key={option.id} role="option" aria-selected={index === Math.min(palette.active, options.length - 1)}
             className={cn('flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1 text-xs', index === Math.min(palette.active, options.length - 1) && 'bg-surface-row-selected')}
@@ -311,7 +318,8 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
       <DialogContent closeLabel="창 닫기" className="break-keep" onCloseAutoFocus={returnToList}>
         <DialogHeader><DialogTitle>{rule.alias}에서 규칙 만들기 · 저장 범위 {LEVEL_WORD[saveScope]}</DialogTitle>
           <DialogDescription>패턴에 맞는 alias를 한 번에 같은 규칙으로 배정합니다. 추가 전에 결과를 확인하세요.</DialogDescription></DialogHeader>
-        <form noValidate className="space-y-3" id={`${ids}-rule`} onSubmit={(event) => {
+        <form noValidate className="space-y-3" id={`${ids}-rule`}
+          onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={(event) => {
           event.preventDefault();
           if (preview.problems.length) { setRule({ ...rule, touched: true }); return; }
           if (!writable) return;

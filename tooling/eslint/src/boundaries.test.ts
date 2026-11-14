@@ -180,8 +180,8 @@ const rows: Row[] = [
   // Not caught on purpose: dialog content that receives the Enter bubbling from a field inside it is a review finding (MappingTab).
   { file: MENU, code: 'export const A = () => <DialogContent onKeyDown={e => { if (e.key === \'Enter\') go(); }}><Input /></DialogContent>;', rule: '' },
   { file: 'packages/sdk/ui/src/x.test.tsx', code: 'export const A = () => <input onKeyDown={e => { if (e.key === \'Enter\') go(); }} />;', rule: '' },
-  // The EV menus turn it on with #2216.
-  { file: 'menus/tools/topview-studio/src/x.tsx', code: 'export const A = () => <input onKeyDown={e => { if (e.key === \'Enter\') go(); }} />;', rule: '' },
+  // The EV menus too (#2216).
+  { file: 'menus/tools/topview-studio/src/x.tsx', code: 'export const A = () => <input onKeyDown={e => { if (e.key === \'Enter\') go(); }} />;', rule: 'ap/ime-enter-guard' },
   { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (group.id === 'overview') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
   { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if ('home' === menu.id) render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
   { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (group.id === selectedGroupId) render();`, rule: '' },
@@ -1216,6 +1216,11 @@ describe('eqvUi (ui, replay, views, editor)', () => {
   });
   it.each(['@eqv-extra/x', '@eqv/uix'])('near neighbour %s is not an EV identity', async (source) => {
     expect(await lintEqv(eqvUi, 'packages/eqv/ui/src/x.ts', `import { x } from '${source}';`)).toEqual([]);
+  });
+  // #2216: EV text fields go through the IME Enter guard too.
+  it('rejects an unguarded Enter handler on a text field', async () => {
+    const messages = await lintEqv(eqvUi, 'packages/eqv/editor/src/x.tsx', `export const A = () => <input onKeyDown={e => { if (e.key === 'Enter') go(); }} />;`);
+    expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual(['ap/ime-enter-guard']);
   });
 });
 
