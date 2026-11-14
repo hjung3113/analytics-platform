@@ -34,10 +34,11 @@ import {
   insertGateDecision,
   latestRequest,
   latestRoundId,
+  lockGateProject,
   projectIdOfRound,
   succeededAttempts,
 } from './repositories/gate.js';
-import { actorInWorkspace, insertEvent, lockProject, lockRound, patchProject } from './repositories/lifecycle-write.js';
+import { actorInWorkspace, insertEvent, lockRound, patchProject } from './repositories/lifecycle-write.js';
 import { readRoundEvidenceLinks } from './round-evidence-links.js';
 
 export const LIFECYCLE_GATE_PERMISSION = 'lifecycle.gate.decide';
@@ -89,7 +90,7 @@ export function gateActions(deps: GateActionDeps): MenuActionDeclaration[] {
       const ws = actor.workspace_id;
       const projectId = await projectIdOfRound(tx, ws, input.roundId as string, viewerOf(actor));
       if (!projectId) return null;
-      const project = await lockProject(tx, ws, projectId, viewerOf(actor));
+      const project = await lockGateProject(tx, ws, projectId, input.roundId as string, viewerOf(actor));
       return project ? String(project.rowVersion) : null;
     },
     async handle(tx, actor, input): Promise<ActionHandlerResult> {
@@ -100,7 +101,7 @@ export function gateActions(deps: GateActionDeps): MenuActionDeclaration[] {
 
       // Lock order: project, then Round (as `roundOpen`), so a decision, an open and an attach cannot deadlock.
       const projectId = await projectIdOfRound(tx, ws, value.roundId, viewerOf(actor));
-      const project = projectId ? await lockProject(tx, ws, projectId, viewerOf(actor)) : null;
+      const project = projectId ? await lockGateProject(tx, ws, projectId, value.roundId, viewerOf(actor)) : null;
       const round = project ? await lockRound(tx, ws, value.roundId, viewerOf(actor)) : null;
       if (!project || !round) throw new Error('action gateDecide: currentVersion judged not_found first');
 
@@ -108,6 +109,10 @@ export function gateActions(deps: GateActionDeps): MenuActionDeclaration[] {
       if (!isOpenStage(project.stage)) throw invalid({ path: ['roundId'], code: 'project_not_open' });
       if ((await latestRoundId(tx, ws, project.id, viewerOf(actor))) !== round.id) throw invalid({ path: ['roundId'], code: 'round_not_current' });
       if (round.stage !== project.stage) throw invalid({ path: ['roundId'], code: 'round_stage_mismatch' });
+      if (movesStage(value.decision)) {
+        if (round.ownerModelId === null) throw invalid({ path: ['roundId'], code: 'round_owner_unresolved' });
+        if (round.ownerModelId !== project.modelId || round.ownerSoftwareId !== project.softwareId) throw invalid({ path: ['roundId'], code: 'round_owner_mismatch' });
+      }
       const target = judgeTarget(project.stage, value.targetStage, project.softwareId, movesStage(value.decision));
       if (!target.ok) throw invalid(target.error);
 

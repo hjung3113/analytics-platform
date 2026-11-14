@@ -9,7 +9,19 @@ export function projectVisibleSql(viewer: Viewer, projectId: SQL): SQL {
   return sql`exists (select 1 from log_lifecycle.development_project acl_p where acl_p.workspace_id = ${viewer.workspaceId}::uuid and acl_p.id = ${projectId} and ${visibleModelSql(viewer, sql`acl_p.model_id`)} and (acl_p.software_id is null or ${visibleSoftwareSql(viewer, sql`acl_p.software_id`)}))`;
 }
 export function roundVisibleSql(viewer: Viewer, roundId: SQL): SQL {
-  return sql`exists (select 1 from log_lifecycle.validation_round acl_r where acl_r.workspace_id = ${viewer.workspaceId}::uuid and acl_r.id = ${roundId} and ${projectVisibleSql(viewer, sql`acl_r.project_id`)})`;
+  return sql`exists (
+    select 1 from log_lifecycle.validation_round acl_r
+    where acl_r.workspace_id = ${viewer.workspaceId}::uuid and acl_r.id = ${roundId} and (
+      (acl_r.owner_model_id is not null
+        and ${visibleModelSql(viewer, sql`acl_r.owner_model_id`)}
+        and (acl_r.owner_software_id is null or ${visibleSoftwareSql(viewer, sql`acl_r.owner_software_id`)}))
+      or (acl_r.owner_model_id is null
+        and exists (select 1 from core.actors acl_admin where acl_admin.workspace_id = ${viewer.workspaceId}::uuid
+          and acl_admin.id = ${viewer.actorId}::uuid and acl_admin.role_level = 'admin')
+        and exists (select 1 from log_lifecycle.development_project legacy_p where legacy_p.workspace_id = acl_r.workspace_id
+          and legacy_p.id = acl_r.project_id and ${visibleModelSql(viewer, sql`legacy_p.model_id`)}))
+    )
+  )`;
 }
 export function requestVisibleSql(viewer: Viewer, requestId: SQL): SQL {
   return sql`exists (select 1 from log_lifecycle.execution_request acl_q where acl_q.workspace_id = ${viewer.workspaceId}::uuid and acl_q.id = ${requestId} and ${roundVisibleSql(viewer, sql`acl_q.round_id`)})`;
@@ -24,7 +36,9 @@ export function attemptVisibleSql(viewer: Viewer, attemptId: SQL): SQL {
 
 /** Stabilize the parent ACL for commands and rejudge it in a new statement after all lock waits. */
 export async function lockRoundOwner(tx: Tx, viewer: Viewer, roundId: string): Promise<boolean> {
-  const found = await tx.execute(sql`select p.model_id, p.software_id from log_lifecycle.validation_round r join log_lifecycle.development_project p on p.workspace_id = r.workspace_id and p.id = r.project_id where r.workspace_id = ${viewer.workspaceId}::uuid and r.id = ${roundId}::uuid`);
-  const row = found.rows[0] as { model_id: string; software_id: string | null } | undefined;
-  return !!row && await lockOwnerAccess(tx, viewer, { ownerModelId: row.model_id, ownerSoftwareId: row.software_id });
+  // Rejudge after waits, using only the immutable owner. Unknown legacy owners are admin-only.
+  const found = await tx.execute(sql`select r.owner_model_id, r.owner_software_id, p.model_id as legacy_model_id from log_lifecycle.validation_round r join log_lifecycle.development_project p on p.workspace_id = r.workspace_id and p.id = r.project_id where r.workspace_id = ${viewer.workspaceId}::uuid and r.id = ${roundId}::uuid and ${roundVisibleSql(viewer, sql`r.id`)}`);
+  const row = found.rows[0] as { owner_model_id: string | null; owner_software_id: string | null; legacy_model_id: string } | undefined;
+  if (!row) return false;
+  return lockOwnerAccess(tx, viewer, { ownerModelId: row.owner_model_id ?? row.legacy_model_id, ownerSoftwareId: row.owner_software_id });
 }

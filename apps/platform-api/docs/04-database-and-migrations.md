@@ -305,7 +305,7 @@ improvement (improvement items, migration 0093, #1328 a, ADR-0106 amendment 2)
 log_lifecycle (log lifecycle, #1444 c, design docs/design/features/log-lifecycle/README.md §3)
 - development_project (`model_id`/`software_id` plain uuids, `kind`, `stage`, `owner_actor_id`, `target_date date`, `row_version`; partial unique index one open project per model)
 - development_event (append-only history; `seq` per project 1..n, `kind`, `before`/`after` objects, `reason`)
-- validation_round (`seq` per project, `stage`, `status`, `sample_set`, `sample_manifest_digest`, `spec_pin`, `note`, `row_version`; partial unique index one open round per project)
+- validation_round (`owner_model_id`, `owner_software_id` immutable creation owner, nullable for unresolved legacy ownership; `seq` per project, `stage`, `status`, `sample_set`, `sample_manifest_digest`, `spec_pin`, `note`, `row_version`; partial unique index one open round per project)
 - round_evidence_ref (evidence locations handed to a round, #1474: `seq` per round 1..n, `file_ref`, `line`, `file_sha256`, `note`, `status`, `origin_kind`, `origin_id`, `handed_off_by`, `at`; append-only; unique per round on `(file_ref, line, file_sha256)`)
 log_rules (validation catalog report, #1491 R-a, migration 0106, design docs/design/features/log-rules/README.md §3)
 - catalog_report (`source_system`, `reported_by_actor_id`, `validator_version`, `report_digest` unique per workspace, `outcome` accepted|rejected, `reject_reason`, `superseded_at` + `superseded_by_report_id`; partial unique index: one current accepted report per source)
@@ -1086,3 +1086,7 @@ Derived, rebuildable tables of `knowledge` for the log knowledge search (design 
 - Jobs: `knowledge.search.drain` (cron every minute, keeps polling for ~55 s; `FOR UPDATE SKIP LOCKED` batches of 100, per-Item advisory lock, backoff 30 s doubling to 1 h, `dead` after 8 attempts) and `knowledge.search.backfill` (cron every 10 minutes and once at start; keyset batches of 500, resumable). Neither is registered under `JOBS_DISABLED`. Finished outbox rows are pruned after a day; a retired generation is deleted after 7 days.
 - The drain checks its deadline after every batch, including full batches. A batch already in progress may finish after the deadline; the job then yields with any remaining backlog pending.
 
+
+## 0132 — Immutable Round owner (#2111)
+
+Adds nullable `owner_model_id` / `owner_software_id` UUIDs to `log_lifecycle.validation_round` (plain UUIDs across the knowledge boundary). The insert trigger records the project's model/SW under a row lock; the owner guard refuses changing either column even for the migration role. Existing app SELECT/INSERT and column-limited UPDATE privileges are sufficient; no GRANT is added. Existing Rounds retain null owner columns because their historical SW cannot be proven from the stored pin/event order. Null model is the unresolved marker, distinct from a resolved model with null SW. Access, legacy visibility and Gate policy: [log-lifecycle.md](../../../docs/architecture/platform-api/api/log-lifecycle.md#immutable-round-ownership-2111).

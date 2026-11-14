@@ -87,6 +87,8 @@ export function roundActions(deps: RoundActionDeps): MenuActionDeclaration[] {
             workspaceId: ws,
             actorId: actor.actor_id,
             projectId: project.id,
+            ownerModelId: project.modelId,
+            ownerSoftwareId: project.softwareId,
             stage: project.stage,
             sampleSet: value.sampleSet,
             sampleManifestDigest: sampleManifestDigest(value.sampleSet),

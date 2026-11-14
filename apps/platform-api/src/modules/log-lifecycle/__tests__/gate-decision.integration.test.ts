@@ -483,6 +483,156 @@ describe.skipIf(!runIntegration)('log lifecycle Gate decision (#1446 e)', () => 
     });
   });
 
+  describe('immutable Round owner (#2111)', () => {
+    const software = async (modelId: string) => (await sql(
+      `insert into knowledge.software_version (workspace_id, model_id, version_label, version_key, name, created_by, updated_by)
+       values ($1,$2,$3,$3,$3,$4,$4) returning id`,
+      [WORKSPACE_ID, modelId, `${TAG}-owner-sw${n++}`, admin.id],
+    )).rows[0].id as string;
+
+    it.each(['clear', 'replace'] as const)('keeps A-owned Round and derived reads/writes hidden after %s', async (change) => {
+      const round = await makeRound('registered', { software: true });
+      const { requestId, attemptId } = await seedAttempt(round.roundId, 'pass');
+      const replacement = change === 'replace' ? await software(round.modelId) : null;
+      const resultId = randomUUID();
+      await sql(`insert into log_lifecycle.rule_result (id, workspace_id, attempt_id, rule_id, result, required, evidence)
+        values ($1,$2,$3,'SYNTHETIC','PASS',true,$4::jsonb)`, [resultId, WORKSPACE_ID, attemptId, JSON.stringify([{ fileRef: 'synthetic-evidence', line: 1, fileSha256: H('a'), hasExcerpt: false }])]);
+      await sql("update knowledge.software_version set access_mode = 'restricted', row_version = row_version + 1 where id = $1", [round.softwareId]);
+      const ruleIds: string[] = [];
+      try {
+        for (const who of [admin, decider]) {
+          const rule = await sql(`insert into knowledge.object_access_rule
+            (workspace_id, target_kind, target_id, grantee_kind, grantee_id, effect, created_by)
+            values ($1,'software',$2,'actor',$3,'allow',$4) returning rule_id`, [WORKSPACE_ID, round.softwareId, who.id, admin.id]);
+          ruleIds.push(rule.rows[0].rule_id as string);
+        }
+        // Positive controls: plain can see the model/B, and has the write capability, but no allow for A.
+        expect((await read('roundDetail', { roundId: round.roundId }, admin)).data.id).toBe(round.roundId);
+        expect((await read('ruleResults', { attemptId }, admin)).data.rows).toHaveLength(1);
+        expect((await read('roundDetail', { roundId: round.roundId }, plain)).data).toBeNull();
+        expect((await act('projectUpdate', { id: round.projectId, softwareId: replacement }, admin, await version(round.projectId))).outcome).toBe('ok');
+        expect((await read('projectDetail', { projectId: round.projectId }, plain)).data).toMatchObject({ id: round.projectId, openRound: null });
+        for (const [endpoint, params] of [
+          ['roundDetail', { roundId: round.roundId }], ['roundEvidence', { roundId: round.roundId }],
+          ['requestDetail', { requestId }], ['evidenceStates', { ruleResultId: resultId }],
+        ] as const) expect(await read(endpoint, params, plain), endpoint).toMatchObject({ outcome: 'ok', data: null });
+        for (const [endpoint, params] of [
+          ['rounds', { projectId: round.projectId }], ['requests', { roundId: round.roundId }],
+          ['ruleResults', { attemptId }], ['opinions', { attemptId }],
+        ] as const) expect((await read(endpoint, params, plain)).data.rows, endpoint).toEqual([]);
+        const models = await read('models', { filters: [{ id: 'id', op: 'in', value: [round.modelId] }] }, plain);
+        expect(models.data.rows[0]).toMatchObject({ validation: 'none', pendingRequests: 0, gateDecision: null, project: { latestRound: null } });
+        for (const [action, input, expected] of [
+          ['roundClose', { id: round.roundId }, '1'],
+          ['roundEvidenceAttach', { roundId: round.roundId, attachmentIds: [randomUUID()] }, undefined],
+          ['requestCreate', { roundId: round.roundId, priority: 1 }, undefined],
+        ] as const) {
+          const denied = await act(action, input, plain, expected);
+          expect(denied.outcome, action).not.toBe('ok');
+          if (action !== 'roundClose') expect(fe(denied), action).toEqual(['roundId:not_found']);
+        }
+        expect((await sql('select owner_model_id, owner_software_id, status from log_lifecycle.validation_round where id = $1', [round.roundId])).rows[0]).toEqual({ owner_model_id: round.modelId, owner_software_id: round.softwareId, status: 'open' });
+        expect((await sql('select id from log_lifecycle.execution_request where round_id = $1', [round.roundId])).rows).toEqual([{ id: requestId }]);
+        expect((await sql("select id from core.audit_log where actor_id = $1 and subject_id = $2 and event_type in ('lifecycle.round.closed','lifecycle.round.evidence_attached')", [plain.id, round.roundId])).rows).toEqual([]);
+        expect((await read('roundDetail', { roundId: round.roundId }, decider)).data.id).toBe(round.roundId);
+      } finally {
+        await sql('delete from log_lifecycle.rule_result where id = $1', [resultId]);
+        await sql('delete from knowledge.object_access_rule where rule_id = any($1)', [ruleIds]);
+      }
+    });
+
+    it.each(['A-to-B', 'A-to-null', 'null-to-B'] as const)('refuses old pass for %s and approves a fresh owner-matched Round', async (change) => {
+      const round = await makeRound('registered', { software: change !== 'null-to-B' });
+      await seedAttempt(round.roundId, 'pass');
+      const replacement = change === 'A-to-null' ? null : await software(round.modelId);
+      expect((await act('projectUpdate', { id: round.projectId, softwareId: replacement }, admin, await version(round.projectId))).outcome).toBe('ok');
+      const before = await version(round.projectId);
+      for (const decision of ['approved', 'exception']) {
+        const answer = await decide(round, { targetStage: 'kickoff', decision, ...(decision === 'exception' ? { exception: { riskAcceptedBy: admin2.id, scope: 'synthetic' } } : {}) });
+        expect(fe(answer)).toEqual(['roundId:round_owner_mismatch']);
+      }
+      expect(await version(round.projectId)).toBe(before);
+      expect(await decisions(round.roundId)).toEqual([]);
+      expect(await gateAudit(round.roundId)).toEqual([]);
+      const hint = (await read('roundDetail', { roundId: round.roundId }, decider)).data.gateAvailability;
+      expect(hint.decisions.approved).toMatchObject({ allowed: false, reasons: expect.arrayContaining(['round_owner_mismatch']) });
+      expect(hint.decisions.rejected.allowed).toBe(true);
+      expect((await act('roundClose', { id: round.roundId }, admin, '1')).outcome).toBe('ok');
+      const fresh = await act('roundOpen', { projectId: round.projectId, sampleSet: { sourceOwner: 'synthetic-owner', files: [{ fileRef: 'synthetic-owner-sample', order: 1, sha256: H('a') }] } });
+      expect(fresh.outcome).toBe('ok');
+      await seedAttempt(fresh.data.roundId, 'pass');
+      expect((await decide({ ...round, roundId: fresh.data.roundId }, { targetStage: 'kickoff', decision: 'approved' })).outcome).toBe('ok');
+      expect((await projectRow(round.projectId)).stage).toBe('kickoff');
+      expect(await gateAudit(fresh.data.roundId)).toHaveLength(1);
+    });
+
+    it('uses the recorded owner for Gate authorization and its hint when the current SW is hidden', async () => {
+      const round = await makeRound('registered', { software: true });
+      await seedAttempt(round.roundId, 'pass');
+      const replacement = await software(round.modelId);
+      expect((await act('projectUpdate', { id: round.projectId, softwareId: replacement }, admin, await version(round.projectId))).outcome).toBe('ok');
+      await sql("update knowledge.software_version set access_mode = 'restricted', row_version = row_version + 1 where id = $1", [replacement]);
+      expect((await read('projectDetail', { projectId: round.projectId }, decider)).data).toBeNull();
+      const hint = (await read('roundDetail', { roundId: round.roundId }, decider)).data.gateAvailability;
+      expect(hint.decisions.approved).toMatchObject({ allowed: false, reasons: ['round_owner_mismatch'] });
+      expect(hint.decisions.rejected.allowed).toBe(true);
+      expect(fe(await decide(round, { targetStage: 'kickoff', decision: 'approved' }))).toEqual(['roundId:round_owner_mismatch']);
+      expect((await decide(round, { targetStage: 'kickoff', decision: 'rejected' })).outcome).toBe('ok');
+      expect((await gateAudit(round.roundId))[0]).toMatchObject({ actor_id: decider.id, detail: expect.objectContaining({ decision: 'rejected' }) });
+      expect((await projectRow(round.projectId)).stage).toBe('registered');
+    });
+
+    it('does not treat an older visible Round as current when the newest Round is hidden', async () => {
+      const round = await makeRound('registered', { software: true });
+      await seedAttempt(round.roundId, 'pass');
+      expect((await act('roundClose', { id: round.roundId }, admin, '1')).outcome).toBe('ok');
+      const replacement = await software(round.modelId);
+      expect((await act('projectUpdate', { id: round.projectId, softwareId: replacement }, admin, await version(round.projectId))).outcome).toBe('ok');
+      const fresh = await act('roundOpen', { projectId: round.projectId, sampleSet: { sourceOwner: 'synthetic-owner', files: [{ fileRef: 'synthetic-newest', order: 1, sha256: H('a') }] } });
+      expect(fresh.outcome).toBe('ok');
+      expect((await act('projectUpdate', { id: round.projectId, softwareId: round.softwareId }, admin, await version(round.projectId))).outcome).toBe('ok');
+      await sql("update knowledge.software_version set access_mode = 'restricted', row_version = row_version + 1 where id = $1", [replacement]);
+      expect((await read('roundDetail', { roundId: fresh.data.roundId }, decider)).data).toBeNull();
+      expect(fe(await decide(round, { targetStage: 'kickoff', decision: 'approved' }))).toEqual(['roundId:round_not_current']);
+      expect(await decisions(round.roundId)).toEqual([]);
+      expect(await gateAudit(round.roundId)).toEqual([]);
+    });
+
+    it('keeps unresolved legacy ownership admin-only and refuses approval even for Admin', async () => {
+      const round = await makeRound();
+      await seedAttempt(round.roundId, 'pass');
+      // Reproduce a pre-0132 row without inventing an owner from the current project.
+      const client = await migrate.pool.connect();
+      try {
+        await client.query('begin');
+        await client.query('alter table log_lifecycle.validation_round disable trigger validation_round_owner_guard');
+        await client.query('update log_lifecycle.validation_round set owner_model_id = null, owner_software_id = null, row_version = row_version + 1 where id = $1', [round.roundId]);
+        await client.query('alter table log_lifecycle.validation_round enable trigger validation_round_owner_guard');
+        await client.query('commit');
+      } catch (error) {
+        await client.query('rollback');
+        throw error;
+      } finally {
+        client.release();
+      }
+      expect(await read('roundDetail', { roundId: round.roundId }, plain)).toMatchObject({ outcome: 'ok', data: null });
+      expect((await read('rounds', { projectId: round.projectId }, plain)).data.rows).toEqual([]);
+      const history = await read('roundDetail', { roundId: round.roundId }, admin);
+      expect(history.data.id).toBe(round.roundId);
+      expect(history.data.gateAvailability.decisions.approved).toMatchObject({ allowed: false, reasons: expect.arrayContaining(['round_owner_unresolved']) });
+      expect(fe(await decide(round, { targetStage: 'kickoff', decision: 'approved' }, admin))).toEqual(['roundId:round_owner_unresolved']);
+      expect(await decisions(round.roundId)).toEqual([]);
+      expect(await gateAudit(round.roundId)).toEqual([]);
+      expect((await projectRow(round.projectId)).stage).toBe('registered');
+    });
+
+    it('refuses owner rewrites even for the migration role', async () => {
+      const round = await makeRound('registered', { software: true });
+      await expect(sql('update log_lifecycle.validation_round set owner_software_id = null, row_version = row_version + 1 where id = $1', [round.roundId])).rejects.toThrow(/owner.*immutable/);
+      await expect(dbHandle.pool.query('update log_lifecycle.validation_round set owner_model_id = $1 where id = $2', [randomUUID(), round.roundId])).rejects.toThrow();
+    });
+  });
+
   describe('append-only and the evidence snapshot', () => {
     it('gate_decision UPDATE and DELETE are refused by the database for the app role and the migrate role', async () => {
       const round = await makeRound();
