@@ -91,3 +91,4 @@ const [range, setRange] = useState<AxisRange | null>(null);
 2026-11-11 / #1746: 선택 옵션 추가(기본 동작 불변). `LaneTimelineProps.overlays?: TimelineOverlay[]`와 타입 `TimelineOverlay`(`instant`·`range`·`segments`) 추가. 렌더러는 마운트마다 한 번 만들어지고, 선택·오버레이 변경은 오버레이 층만 다시 그린다. `LaneTimelineHandle`은 그대로다.
 
 2026-11-15 / #1860: 선택 옵션 추가(기본 동작 불변). `LaneTimelineProps.rangeBrush?: RangeBrushOptions`(구간 끌어 고르기)와 차트 밖 표면용 `useRangeBrush`·`AxisRange`·`RangeBrush`·`RangeBrushOptions`·`RangeBrushKey`·`RANGE_BRUSH_DRAG_THRESHOLD` 추가. `OrderedIntervalTrack`의 구간 선택이 같은 훅을 쓴다(동작 같음).
+2026-11-15 / #1953 A: 선택 옵션 추가(기본 동작 불변). `LaneTimeline`의 `imageActions?: ChartImageActionsPolicy`(`{ exportAllowed, notify? }`) — `PlatformProvider` 없이 `I18nProvider`만으로 `imageCopy`·`imagePrint`를 쓰려면 `exportAllowed: true`를 준다(기본 꺼짐, 결과는 `notify` 또는 버튼 옆 상태 줄). 플랫폼 안에서는 무시되고 메뉴 `features.export`가 결정한다. 소비자 조치 없음. 규칙은 `docs/contract/chart.md` §16.

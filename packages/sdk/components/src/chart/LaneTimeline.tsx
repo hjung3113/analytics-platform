@@ -11,7 +11,7 @@ import { ChartTrustFooter } from './analysisChartFrameParts';
 import { createLaneRenderer, type RendererState } from './laneTimelineRenderer';
 import { overlaySummaries, validateOverlays } from './laneTimelineOverlays';
 import type { TimelineOverlay } from './laneTimelineTypes';
-import { ChartImageCopyButton, ChartImagePrintButton } from './ChartImageCopyButton';
+import { ChartImageCopyButton, ChartImagePrintButton, type ChartImageActionsPolicy } from './ChartImageCopyButton';
 import { BodyTooltipPortal } from './bodyTooltipPortal';
 import { laneImageBlob } from './chartImageCopy';
 import { displayFileName } from '../table/download';
@@ -34,10 +34,12 @@ export type LaneTimelineProps = {
   formatTick?: (time: number) => string; formatTooltip?: (segment: TimelineSegment, lane: TimelineLane) => string;
   densityInstants?: number[]; paletteTokens?: ThemeColorToken[]; neutralColorToken?: ThemeColorToken;
   outlineWidthsByRank?: Record<string, number>; outlineMode?: 'strong' | 'weak' | 'off';
-  /** Adds a `이미지 복사` button (axis and visible plot as a PNG, to the clipboard or a download), shown only when the current menu manifest enables `features.export`; needs a PlatformProvider only while true. */
+  /** Adds a `이미지 복사` button (axis and visible plot as a PNG, to the clipboard or a download), shown only when the current menu manifest enables `features.export`. Without a `PlatformProvider` it shows only when `imageActions.exportAllowed` is true (#1953). */
   imageCopy?: boolean;
-  /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Shown only when the current menu manifest enables `features.export`. */
+  /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Same gate as `imageCopy`. */
   imagePrint?: boolean;
+  /** Outside a platform only: allows the image actions (default off) and says where their result text goes (default a status line beside the button). Inside a `PlatformProvider` it is ignored and the menu's `features.export` decides; it never widens a menu's permission. */
+  imageActions?: ChartImageActionsPolicy;
   /** Marks drawn above the segments and below the selection outline: time instants, time ranges and segment sets. Memoize the array: a new array redraws the overlay layer once. */
   overlays?: TimelineOverlay[];
   selectedId?: string | null; defaultSelectedId?: string | null; onSelectedChange?: (id: string | null) => void;
@@ -136,8 +138,8 @@ export function LaneTimeline(props: LaneTimelineProps) {
         </Tooltip></TooltipProvider>
         <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{m('laneZoomIn')}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{m('laneZoomOut')}</Button>{brushOn && <Button type="button" size="toolbar" variant={brush.mode ? 'secondary' : 'ghost'} aria-pressed={brush.mode} onClick={() => brush.setMode(!brush.mode)}>{m('chartBrush')}</Button>}
         <Button size="toolbar" variant="ghost" onClick={() => { engine.current?.resetZoom(); if (brushOn) brush.clear(); }}>{m('laneZoomReset')}</Button>
-        {props.imageCopy && <ChartImageCopyButton fileName={`${displayFileName(props.ariaLabel) || 'timeline'}.png`} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
-        {props.imagePrint && <ChartImagePrintButton title={() => props.ariaLabel} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
+        {props.imageCopy && <ChartImageCopyButton standalone={props.imageActions} fileName={`${displayFileName(props.ariaLabel) || 'timeline'}.png`} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
+        {props.imagePrint && <ChartImagePrintButton standalone={props.imageActions} title={() => props.ariaLabel} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
       </div>
     </header>
     <p className="px-4 py-2 text-text-secondary">{m('laneBoundaryHelp')}</p>
