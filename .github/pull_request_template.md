@@ -12,8 +12,7 @@ Closes #
 
 ## 검증
 
-- [ ] `bash ~/.agents/skills/issue-wave-conductor/scripts/lanes/tier.sh`가 `verify=full`이면 `verify-root.sh`(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`), 아니면 `lint`·`typecheck`(와 바뀐 패키지 검사)만 — test·build는 PR CI. 문서만 바꿨으면 `pnpm docs:links` ([PROFILE §Verify](../.agents/conductor/PROFILE.md))
-- [ ] 공유 경로 PR(다섯 갈래: 공개 API·루트 `package.json`/lockfile/`turbo.json`·`.github/workflows`·`apps/platform-e2e`)은 경로와 관계없이 `verify-root.sh` 전체
+- [ ] 바뀐 패키지의 lint·typecheck·test, `verify-root.sh --light`(루트 lint·typecheck), 바꾸거나 Impact에 적힌 E2E describe를 `-g`로 — 루트 test·build는 PR CI. 문서만 바꿨으면 `pnpm docs:links` ([PROFILE §Verify](../.agents/conductor/PROFILE.md))
 - 브라우저/E2E:
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

@@ -1,5 +1,6 @@
 # 백로그 — 이슈로 올리지 않은 것
 
+- **미구현 — 저장소 밖 하네스 문서의 질문·태그·리뷰 규칙 정리 (#2154 2차):** 1차(#2154)는 저장소 안 `AGENTS.md`·`PROFILE.md`·`lead.md`만 고쳤다. 전역 `~/AGENTS.md`, 엔진 `issue-wave-conductor`의 `SKILL.md`·`references/lanes.md`, 프로젝트 메모리에 남은 질문 규칙·태그 전 병합 보류·«PROFILE 전체 읽기» 문구는 그대로다. 이유: 저장소 밖 변경이고, 회고 권장 순서상 2차(SKILL/lanes 통합)는 릴리스 뒤다. 다시 열 조건: v0.38.0 태그 뒤 팀장이 2차를 배정할 때. 그때 이 파일들이 `PROFILE.md` §Owner gates and questions와 `lead.md`를 가리키게 한다.
 - **미구현 — 소개 사이트 캡처 CI와 `shots.mjs` testid 전환 (#2153):** `ci.yml`의 `Intro site captures` job을 뺐고, `site/scripts/shots.mjs` 셀렉터를 문구 대신 `data-testid`로 바꾸는 일과 캡처 갱신은 하지 않았다. 이유: 소유자 2026-11-14 — 소개 사이트는 소유자가 재개를 말할 때까지 관리하지 않는다. 다시 열 조건: 소유자가 소개 사이트 재개를 말할 때. 그때 job을 git 기록(#2153 직전)에서 되살리고 testid 전환부터 한다.
 - **미구현 — StatCard `purple`·`amber` 타입 제거 (#1945):** 한 릴리스의 호환 기간에는 각각 `teal`·`blue`로 표시한다. 이유: 기존 SDK 메뉴의 타입 호환을 유지하며 두 색으로 이전한다. 다시 열 조건: 다음 SDK minor 릴리스. 그때 공개 `chip` 타입에서 두 값을 제거한다.
 
