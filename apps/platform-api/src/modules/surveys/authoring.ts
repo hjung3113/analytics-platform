@@ -538,6 +538,12 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
           });
           return { status: 201, body: dto(s) };
         },
+        {
+          beforeReplay: async ({ body }) => {
+            const read = await checkSurveyRead(deps.checkService, a.actor, body.primary_managed_system_id, { tx });
+            if (!read.allow) throw new HttpError('not_found.record', 'survey not found');
+          },
+        },
       ),
     );
   }
@@ -768,6 +774,13 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
           });
           return { status: 200, body: questionDto(q) };
         },
+        {
+          beforeReplay: async () => {
+            const survey = await findSurvey(tx, a.actor.workspace_id, a.surveyId);
+            if (!survey) throw new HttpError('not_found.record', 'survey not found');
+            await requireReadable(deps, tx, a.actor, survey);
+          },
+        },
       ),
     );
   }
@@ -863,6 +876,13 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
           });
           return { status: 200, body: dto(updated) };
         },
+        {
+          beforeReplay: async () => {
+            const survey = await findSurvey(tx, a.actor.workspace_id, a.surveyId);
+            if (!survey) throw new HttpError('not_found.record', 'survey not found');
+            await requireReadable(deps, tx, a.actor, survey);
+          },
+        },
       ),
     );
   }
@@ -913,6 +933,13 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
             detail: { survey_id: s.id },
           });
           return { status: 200, body: dto(s, await listQuestions(tx, a.actor.workspace_id, s.id)) };
+        },
+        {
+          beforeReplay: async () => {
+            const survey = await findSurvey(tx, a.actor.workspace_id, a.surveyId);
+            if (!survey) throw new HttpError('not_found.record', 'survey not found');
+            await requireReadable(deps, tx, a.actor, survey);
+          },
         },
       ),
     );
@@ -970,6 +997,13 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
           if (recovery)
             await deps.recoveryRecorder?.finish(tx, recovery, a.actor.actor_id, 'transitionSurvey');
           return { status: 200, body: dto(updated) };
+        },
+        {
+          beforeReplay: async () => {
+            const survey = await findSurvey(tx, a.actor.workspace_id, a.surveyId);
+            if (!survey) throw new HttpError('not_found.record', 'survey not found');
+            await requireReadable(deps, tx, a.actor, survey);
+          },
         },
       );
     });

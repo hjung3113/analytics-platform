@@ -262,6 +262,30 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
           const envelope = await createVoc({ tx, actor, input });
           return { status: 201, body: envelope };
         },
+        {
+          beforeReplay: async ({ body }) => {
+            const effectiveScope = await actorEffectiveScope(tx, {
+              ...actor,
+              role_level: actor.role_level ?? 'user',
+            });
+            const isReporterArm = inReporterArm({
+              isReporter: body.reporter_id === actor.actor_id,
+              effectiveScope,
+              managedSystemId: body.primary_managed_system_id,
+            });
+            if (!isReporterArm) return;
+            const { severity, analytics_area_id, owner_user_id, owner_team_id, ...reporter } = body;
+            return {
+              ...reporter,
+              ...operatorOnlyVocFields({
+                severity: severity ?? null,
+                analyticsAreaId: analytics_area_id ?? null,
+                ownerUserId: owner_user_id ?? null,
+                ownerTeamId: owner_team_id ?? null,
+              }, isReporterArm),
+            };
+          },
+        },
       );
     });
   }

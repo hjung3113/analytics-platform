@@ -8,7 +8,8 @@ import { captureOutcomeRecovery, finishOutcomeRecovery } from './recovery-presen
 //
 // Single transaction contract per command (AGENTS.md, FO ADR-0008/0015):
 //   1. Idempotency lookup against (actor_id, key) inside runIdempotent, with
-//      the advisory lock and all state checks inside the miss path.
+//      the advisory lock; matching replay rechecks personal read access, while
+//      write/classifier state checks stay inside the miss path.
 //   2. Personal-response seam first: response existence, workspace scope,
 //      survey.read, and survey.read_personal_responses collapse to one 404
 //      (no Admin bypass, exactly like create-finding).
@@ -162,6 +163,11 @@ export function createSurveyFollowUp(deps: SurveysServiceDeps) {
             }),
           };
         },
+        {
+          beforeReplay: async ({ body }) => {
+            await resolveSurveyResponseEvidenceAccess(deps, tx, actor, body.response_id, 'follow_up_decision');
+          },
+        },
       );
     });
   }
@@ -267,6 +273,11 @@ export function createSurveyFollowUp(deps: SurveysServiceDeps) {
               updated_at: updatedAt.toISOString(),
             }),
           };
+        },
+        {
+          beforeReplay: async ({ body }) => {
+            await resolveSurveyResponseEvidenceAccess(deps, tx, actor, body.response_id, 'follow_up_decision');
+          },
         },
       );
     });

@@ -347,6 +347,13 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
             await deps.recoveryRecorder?.finish(tx, recovery, actor.actor_id, 'patchFinding');
           return { status: 200, body: toDto(updated, source) };
         },
+        {
+          beforeReplay: async ({ body }) => {
+            if (!(await canReadFinding(deps, actor, body.primary_managed_system_id, { tx }))) {
+              throw new HttpError('permission.denied', 'finding.read capability required');
+            }
+          },
+        },
       );
     });
   }
@@ -475,6 +482,13 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
           if (recovery)
             await deps.recoveryRecorder?.finish(tx, recovery, actor.actor_id, 'linkTask');
           return { status: 200, body: toDto(updated, source) };
+        },
+        {
+          beforeReplay: async ({ body }) => {
+            if (!(await canReadFinding(deps, actor, body.primary_managed_system_id, { tx }))) {
+              throw new HttpError('permission.denied', 'finding.read capability required');
+            }
+          },
         },
       );
     });

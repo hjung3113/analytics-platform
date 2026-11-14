@@ -23,7 +23,7 @@ import { captureOutcomeRecovery, finishOutcomeRecovery } from '../surveys/recove
 import { canReadVocAsSource, selectVocForUpdate } from '../voc/index.js';
 import { incrementFindingEvidenceCount, insertEvidenceHighlight, insertFinding } from './repo.js';
 import { resolveOwner } from './responsibility.js';
-import { canManageFinding, toDto } from './service-shared.js';
+import { canManageFinding, canReadFinding, toDto } from './service-shared.js';
 import type { FindingsActor, FindingsServiceDeps } from './service.js';
 
 export function createFindingCreation(deps: FindingsServiceDeps) {
@@ -188,6 +188,17 @@ export function createFindingCreation(deps: FindingsServiceDeps) {
               }),
             },
           };
+        },
+        {
+          beforeReplay: async ({ body }) => {
+            const source = await selectVocForUpdate(tx, actor.workspace_id, vocId);
+            if (!source || !(await canReadVocAsSource(deps.checkService, actor, {
+              managedSystemId: source.primaryManagedSystemId, reporterId: source.reporterId,
+            }, { tx }))) throw new HttpError('not_found.record', 'voc not found');
+            if (!(await canReadFinding(deps, actor, body.primary_managed_system_id, { tx }))) {
+              throw new HttpError('permission.denied', 'finding.read capability required');
+            }
+          },
         },
       );
     });
@@ -398,6 +409,14 @@ export function createFindingCreation(deps: FindingsServiceDeps) {
             status: 201,
             body: { ...owner, ...toDto({ ...finding, evidence_count: safeExcerpts.length }) },
           };
+        },
+        {
+          beforeReplay: async ({ body }) => {
+            await resolveSurveyResponseEvidenceAccess(deps, tx, actor, responseId, 'create_finding');
+            if (!(await canReadFinding(deps, actor, body.primary_managed_system_id, { tx }))) {
+              throw new HttpError('permission.denied', 'finding.read capability required');
+            }
+          },
         },
       );
     });

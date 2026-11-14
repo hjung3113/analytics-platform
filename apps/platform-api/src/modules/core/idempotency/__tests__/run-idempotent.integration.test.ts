@@ -61,6 +61,65 @@ describe.skipIf(!runIntegration)('idempotencyService.runIdempotent', () => {
     }
   });
 
+  it('checks only matching replays and rolls back a denied replay without another write', async () => {
+    const svc = createIdempotencyService();
+    const key = randomUUID();
+    const body = { id: randomUUID() };
+    const handler = vi.fn(async () => ({ status: 201, body }));
+    const denied = new Error('current access denied');
+    const beforeReplay = vi.fn(async () => { throw denied; });
+    const run = (hash = 'access-hash') => handle.db.transaction((tx) =>
+      svc.runIdempotent(tx, actorId, key, hash, handler, { beforeReplay }),
+    );
+    try {
+      expect(await run()).toEqual({ status: 201, body });
+      expect(beforeReplay).not.toHaveBeenCalled();
+      await expect(run('different')).rejects.toMatchObject({ code: 'conflict.idempotency_key_reuse' });
+      expect(beforeReplay).not.toHaveBeenCalled();
+      await expect(run()).rejects.toBe(denied);
+      expect(beforeReplay).toHaveBeenCalledWith({ status: 201, body });
+      expect(handler).toHaveBeenCalledTimes(1);
+      const rows = await handle.db.execute(sql`
+        SELECT response_status, response_body FROM core.idempotency_keys
+        WHERE actor_id = ${actorId} AND key = ${key}
+      `);
+      expect(rows.rows).toEqual([{ response_status: 201, response_body: body }]);
+      const allowed = await handle.db.transaction((tx) =>
+        svc.runIdempotent(tx, actorId, key, 'access-hash', handler, {
+          beforeReplay: async () => {},
+        }),
+      );
+      expect(allowed).toEqual({ status: 201, body });
+    } finally {
+      await handle.db.execute(sql`DELETE FROM core.idempotency_keys WHERE actor_id = ${actorId} AND key = ${key}`);
+    }
+  });
+
+  it('returns a replacement replay body without changing the stored receipt or status', async () => {
+    const svc = createIdempotencyService();
+    const key = randomUUID();
+    const body = { id: randomUUID(), internal: 'operator-only' };
+    const replacement = { id: body.id };
+    const handler = vi.fn(async () => ({ status: 201, body }));
+    try {
+      await handle.db.transaction((tx) =>
+        svc.runIdempotent(tx, actorId, key, 'projection-hash', handler),
+      );
+      const replay = await handle.db.transaction((tx) =>
+        svc.runIdempotent<{ id: string; internal?: string }>(
+          tx, actorId, key, 'projection-hash', handler,
+          { beforeReplay: async () => replacement },
+        ),
+      );
+      expect(replay).toEqual({ status: 201, body: replacement });
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(await handle.db.transaction((tx) => svc.lookup(tx, actorId, key, 'projection-hash')))
+        .toEqual({ kind: 'match', status: 201, body });
+    } finally {
+      await handle.db.execute(sql`DELETE FROM core.idempotency_keys WHERE actor_id = ${actorId} AND key = ${key}`);
+    }
+  });
+
   it('rejects reused keys with a different request hash before running the handler', async () => {
     const svc = createIdempotencyService();
     const key = randomUUID();

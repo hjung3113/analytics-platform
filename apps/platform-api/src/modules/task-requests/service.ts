@@ -397,6 +397,12 @@ export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
             );
           return { status: 201, body };
         },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('not_found.record', 'task request not found');
+          },
+        },
       );
     });
   }
@@ -462,6 +468,12 @@ export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
             await deps.recoveryRecorder?.finish(tx, recovery, args.actor.actor_id, 'createFromVoc');
           return { status: 201, body };
         },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('not_found.record', 'task request not found');
+          },
+        },
       );
     });
   }
@@ -519,6 +531,12 @@ export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
               'createFromVocCluster',
             );
           return { status: 201, body };
+        },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('not_found.record', 'task request not found');
+          },
         },
       );
     });
@@ -858,6 +876,12 @@ export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
 
           return { status: 200, body: taskRequestToDto(updated) };
         },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('not_found.record', 'task request not found');
+          },
+        },
       );
     });
   }
@@ -926,6 +950,12 @@ export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
             },
           });
           return { status: 200, body: taskRequestToDto(updated) };
+        },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('not_found.record', 'task request not found');
+          },
         },
       ),
     );

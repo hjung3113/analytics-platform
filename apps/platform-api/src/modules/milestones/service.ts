@@ -241,6 +241,17 @@ export function createMilestonesService(deps: MilestonesServiceDeps) {
 
           return { status: 201, body: milestoneToDto(row, toMilestoneProgress(undefined)) };
         },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(
+              deps.checkService, args.actor, body.primary_managed_system_id,
+              { requireElevatedRole: true }, { tx },
+            );
+            if (!decision.allow) {
+              throw new HttpError('permission.denied', 'finding.manage capability required');
+            }
+          },
+        },
       );
     });
   }
@@ -451,6 +462,17 @@ export function createMilestonesService(deps: MilestonesServiceDeps) {
             status: 200,
             body: milestoneToDto(updated, toMilestoneProgress(counts.get(milestone.id))),
           };
+        },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingManage(
+              deps.checkService, args.actor, body.primary_managed_system_id,
+              { requireElevatedRole: true }, { tx },
+            );
+            if (!decision.allow) {
+              throw new HttpError('permission.denied', 'finding.manage capability required');
+            }
+          },
         },
       );
     });

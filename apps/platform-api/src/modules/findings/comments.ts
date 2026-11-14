@@ -198,6 +198,15 @@ export function createFindingComments(deps: FindingsServiceDeps) {
 
           return { status: 201, body: { comment: findingCommentToDto(row) } };
         },
+        {
+          beforeReplay: async () => {
+            const finding = await findFindingById(tx, { workspaceId: args.actor.workspace_id, findingId: args.findingId });
+            if (!finding) throw new HttpError('not_found.record', 'finding not found');
+            if (!(await canReadFinding(deps, args.actor, finding.primary_managed_system_id, { tx }))) {
+              throw new HttpError('permission.denied', 'finding.read capability required');
+            }
+          },
+        },
       );
     });
   }

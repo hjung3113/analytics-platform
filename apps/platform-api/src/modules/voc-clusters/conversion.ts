@@ -19,6 +19,7 @@ import { assertLinkManagedSystemCompatibility } from '../entity-links/service.js
 import {
   actorFindingReadScope,
   checkFindingManage,
+  checkFindingRead,
   isFindingInReadScope,
 } from '../findings/authorization.js';
 import { createFindingFromVocCluster, lockFindingForUpdate } from '../findings/commands.js';
@@ -244,6 +245,12 @@ export function createVocClusterConversion(
             },
           };
         },
+        {
+          beforeReplay: async ({ body }) => {
+            const decision = await checkFindingRead(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('not_found.record', 'record not found');
+          },
+        },
       );
     });
   }
@@ -408,6 +415,14 @@ export function createVocClusterConversion(
             status: link.inserted ? 201 : 200,
             body: { id: finding.id, display_id: finding.display_id, status: finding.status },
           };
+        },
+        {
+          beforeReplay: async () => {
+            const cluster = await lockVocClusterById(tx, { workspaceId: args.actor.workspace_id, clusterId: args.clusterId });
+            if (!cluster) throw new HttpError('not_found.record', 'record not found');
+            const decision = await checkFindingRead(deps.checkService, args.actor, cluster.primary_managed_system_id, { requireElevatedRole: true }, { tx });
+            if (!decision.allow) throw new HttpError('not_found.record', 'record not found');
+          },
         },
       );
     });

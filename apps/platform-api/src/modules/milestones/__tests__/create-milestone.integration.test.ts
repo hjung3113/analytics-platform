@@ -16,7 +16,7 @@ import { insertDevActor } from '../../../test-support/actor-fixtures.js';
 import { SESSION_COOKIE_NAME, loginAs } from '../../../test-support/auth.js';
 import { insertMsDirectly } from '../../../test-support/core-fixtures.js';
 import { uid } from '../../../test-support/ids.js';
-import { grantCapability } from '../../../test-support/permissions-fixtures.js';
+import { grantCapability, revokeCapabilityGrant } from '../../../test-support/permissions-fixtures.js';
 import { cleanupReadTestTables } from '../../../test-support/voc-fixtures.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
@@ -119,6 +119,34 @@ describe.skipIf(!runIntegration)('milestone create (#514 A4)', () => {
     primary_managed_system_id: msId,
     start_date: '2026-10-01',
     target_date: '2026-12-31',
+  });
+
+  it('replays identical responses once, then denies replay after scope revocation with the role kept', async () => {
+    const ms = await insertMsDirectly(dbHandle, WORKSPACE_ID, uid(SLUG_PREFIX), 'Replay MS');
+    const actor = await insertDevActor(dbHandle, WORKSPACE_ID, uid(`${SLUG_PREFIX}-dev`));
+    const grant = await grantCapability(dbHandle, WORKSPACE_ID, actor.id, 'finding.manage', ms, adminActorId);
+    const cookie = await loginAs(app, actor.externalId);
+    const key = randomUUID();
+    const send = () => createMilestone(cookie, validBody(ms), key);
+    const first = await send();
+    expect(first.statusCode).toBe(201);
+    const replay = await send();
+    expect(replay.statusCode).toBe(first.statusCode);
+    expect(replay.json()).toEqual(first.json());
+    await revokeCapabilityGrant(dbHandle, grant, adminActorId);
+    const denied = await send();
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toMatchObject({ code: 'permission.denied', message: 'finding.manage capability required' });
+    const rows = await dbHandle.pool.query(
+      'select id from task.milestones where workspace_id = $1 and primary_managed_system_id = $2',
+      [WORKSPACE_ID, ms],
+    );
+    expect(rows.rows).toHaveLength(1);
+    const audits = await migrateHandle.pool.query(
+      'select id from core.audit_log where subject_id = $1 and event_type = $2',
+      [first.json<{ id: string }>().id, 'milestone_created'],
+    );
+    expect(audits.rows).toHaveLength(1);
   });
 
   it('create: year zero returns 422 validation.failed without writing', async () => {

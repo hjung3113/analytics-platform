@@ -467,6 +467,7 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/create-finding (#18
       await grant(creator.id, 'survey.read_personal_responses', source.msId);
       await grant(creator.id, 'survey.manage', source.msId);
       await grant(creator.id, 'finding.manage', source.msId);
+      await grant(creator.id, 'finding.read', source.msId);
       const approvedId = await approve(source, creator.cookie);
       await migrateHandle.pool.query(
         'update core.managed_systems set default_owner_actor_id=$1 where id=$2',
@@ -704,6 +705,7 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/create-finding (#18
     await grant(creator.id, 'survey.read', source.msId);
     await grant(creator.id, 'survey.read_personal_responses', source.msId);
     await grant(creator.id, 'finding.manage', source.msId);
+    await grant(creator.id, 'finding.read', source.msId);
     const first = await post(
       creator.cookie,
       source.responseId,
@@ -723,6 +725,24 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/create-finding (#18
     expect(replayBody).toEqual(firstBody);
     expect(replayBody.id).toBe(firstBody.id);
     expect(await counts(source.responseId)).toEqual(before);
+  });
+
+  it('creates with finding.manage but refuses replay without finding.read and adds no rows or audits', async () => {
+    const source = await seed();
+    const creator = await actor();
+    await grant(creator.id, 'survey.read', source.msId);
+    await grant(creator.id, 'survey.read_personal_responses', source.msId);
+    await grant(creator.id, 'finding.manage', source.msId);
+    const key = randomUUID();
+    const body = { severity: 'medium', approved_excerpt_ids: [] };
+    const created = await post(creator.cookie, source.responseId, body, key);
+    expect(created.statusCode).toBe(201);
+    const committed = await counts(source.responseId);
+    expect(committed).toEqual({ findings: 1, links: 1, highlights: 0, audits: 1 });
+    const replay = await post(creator.cookie, source.responseId, body, key);
+    expect(replay.statusCode).toBe(403);
+    expect(replay.json().code).toBe('permission.denied');
+    expect(await counts(source.responseId)).toEqual(committed);
   });
 
   it('rejects a same-key different-payload replay with 409', async () => {
@@ -1668,6 +1688,7 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/create-finding (#18
     const reader = await attachmentActor();
     await grant(reader.id, 'survey.read', source.msId);
     await grant(reader.id, 'finding.manage', targetSystem);
+    await grant(reader.id, 'finding.read', targetSystem);
     const body = {
       approved_excerpt_id: source.approvalId,
       sentiment: 'negative',
