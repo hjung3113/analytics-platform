@@ -5,7 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, GripVertical, Loader2, Pin, PinOff } from 'lucide-react';
 import { useEndpointRefreshEpoch, useI18n, usePlatform } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
+import { formatNumber, type ApiResponse, type Capability, type ColumnFilter, type ColumnFilterSpec, type ContextKey, type GroupedPageResult, type PageQuery, type PageResult, type PageSort, type TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
@@ -714,8 +714,8 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
         : !success ? '—'
         : p.externalPagination ? p.externalPagination.summary
         : outOfRange
-          ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
-          : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>;
+          ? (lang === 'ko' ? `${formatNumber(data.total, lang)}건 · ${pageCount}페이지` : `${formatNumber(data.total, lang)} results · ${pageCount} pages`)
+          : (lang === 'ko' ? `${formatNumber(data.total, lang)}건 · ${shownPage + 1}/${pageCount} 페이지` : `${formatNumber(data.total, lang)} results · page ${shownPage + 1}/${pageCount}`)}</span>;
   const resultLine = (
     <div ref={statusLine.ref} data-table-status-line className={cn('relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted', p.fill && 'shrink-0', !mergeToolbar && 'min-h-9 border-t border-border-subtle px-3 py-1.5')} aria-live={groupedOutcome ? 'off' : 'polite'}>
       {!mergeToolbar && filterLine}
@@ -748,13 +748,13 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     {selectedCount > 0 && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-xs">
       <span className="font-semibold tabular" data-testid="selected-count">{selectionState.all
         ? (selectionState.excludedIds.length > 0
-          ? (lang === 'ko' ? `전체 ${selectionState.all.total.toLocaleString()}행 중 ${selectionState.excludedIds.length.toLocaleString()}행 제외` : `${selectionState.excludedIds.length.toLocaleString()} of ${selectionState.all.total.toLocaleString()} rows excluded`)
-          : (lang === 'ko' ? `전체 ${selectionState.all.total.toLocaleString()}행 선택` : `All ${selectionState.all.total.toLocaleString()} rows selected`))
+          ? (lang === 'ko' ? `전체 ${formatNumber(selectionState.all.total, lang)}행 중 ${formatNumber(selectionState.excludedIds.length, lang)}행 제외` : `${formatNumber(selectionState.excludedIds.length, lang)} of ${formatNumber(selectionState.all.total, lang)} rows excluded`)
+          : (lang === 'ko' ? `전체 ${formatNumber(selectionState.all.total, lang)}행 선택` : `All ${formatNumber(selectionState.all.total, lang)} rows selected`))
         : (lang === 'ko' ? `${selectedCount}행 선택` : `${selectedCount} selected`)}</span>
       {selectionState.selection?.kind === 'ids' && p.bulkActions?.(selectionState.selection.ids)}
       {selectionState.selection && p.bulkSelectionActions?.(selectionState.selection, { filters: effectiveFilters, sorting: activeSorting })}
       {!selectionState.all && <Button variant="ghost" size="toolbar" onClick={clearSelection}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>}
-      {hiddenSelected > 0 && <span className="tabular" data-testid="selected-collapsed-note">{lang === 'ko' ? `접힌 그룹의 ${hiddenSelected.toLocaleString()}행 포함` : `includes ${hiddenSelected.toLocaleString()} rows in collapsed groups`}</span>}
+      {hiddenSelected > 0 && <span className="tabular" data-testid="selected-collapsed-note">{lang === 'ko' ? `접힌 그룹의 ${formatNumber(hiddenSelected, lang)}행 포함` : `includes ${formatNumber(hiddenSelected, lang)} rows in collapsed groups`}</span>}
       <span className="text-text-secondary">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
     </div>}
 
