@@ -12,6 +12,6 @@ export function ObjectLinkItems({ links }: { links: readonly ObjectLink[] }) {
     const space = (counts.get(label) ?? 0) > 1 ? registry.spaceOf(registry.menuById(link.menuId)) : null;
     return <HeaderOverflowItem key={link.menuId} allowed={link.allowed} reason={t('menuDenied')}
       label={<span className="flex min-w-0 flex-col items-start break-keep text-left"><span className="text-sm">{label}</span>{space && <span className="text-tiny text-text-secondary">{tx(space.label)}</span>}</span>}
-      onSelect={() => { navigate(link.href); }} />;
+      onSelect={() => { navigate(link.href, { focus: 'page' }); }} />;
   })}</>;
 }

@@ -19,7 +19,7 @@ export const manifests: PlatformMenuEntry[] = [
     subjectLinks: { equipment: true },
     path: '/clas/operation-time', icon: Timer, permission: PERMISSION,
     requiresScope: true, context: contextCapabilities({ time: 'apply', roomNames: 'apply' }), pageType: 'analysis',
-    features: { ...NO_FEATURES, board: true }, pageKeys: ['eqp'], contextResetKeys: ['eqp'], subjectPageKeys: { equipment: 'eqp' },
+    features: { ...NO_FEATURES, board: true }, pageKeys: ['eqp', 'returnTo'], contextResetKeys: ['eqp'], subjectPageKeys: { equipment: 'eqp' },
     component: lazy(() => import('./pages/OperationTime')),
   },
 ];

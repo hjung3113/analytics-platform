@@ -38,7 +38,7 @@ export function RowAction({ compact, icon: Icon, label, text, variant = 'ghost',
   const content = compact ? <Icon className="size-4" aria-hidden /> : text;
   const control = link
     ? cloneElement(link, { className, 'aria-label': named }, content)
-    : <button type="button" title={menu && compact ? label : undefined} className={className} aria-label={named} aria-describedby={describedBy} disabled={disabled} onClick={onClick}>{content}</button>;
+    : <button type={menu ? 'button' : undefined} title={menu && compact ? label : undefined} className={className} aria-label={named} aria-describedby={describedBy} disabled={disabled} onClick={onClick}>{content}</button>;
   const trigger = <TooltipProvider delayDuration={200}><Tooltip>
     <TooltipTrigger asChild>{menu ? <PopoverTrigger asChild>{control}</PopoverTrigger> : control}</TooltipTrigger>
     {compact && <TooltipContent>{text}</TooltipContent>}

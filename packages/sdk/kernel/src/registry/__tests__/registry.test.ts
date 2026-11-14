@@ -715,10 +715,19 @@ describe('inbound object declarations (#1930)', () => {
     ['invalid kind', { 'bad-kind': { param: 'id' } }], ['both selectors', { equipment: { param: 'id', pageKey: 'object' } }],
     ['no selector', { equipment: {} }], ['nonobject selector', { equipment: true }],
     ['unknown field', { equipment: { param: 'id', other: true } }], ['missing param', { equipment: { param: 'missing' } }],
-    ['a global name not in the route', { equipment: { param: 'scopeId' } }], ['unknown page key', { equipment: { pageKey: 'missing' } }],
-    ['global key', { equipment: { pageKey: 'selectedEquipmentIds' } }], ['returnTo', { equipment: { pageKey: 'returnTo' } }],
+    ['a global name not in the route', { equipment: { param: 'scopeId' } }],
   ])('rejects opensObject %s with RegistryError', (_name, opensObject) => {
     expect(() => build({ opensObject })).toThrow(RegistryError);
+  });
+  // A path without params, where `pageKey: 'object'` is valid: each case fails on its own page-key rule only.
+  it('accepts a declared single-value page key on a path without params', () => {
+    expect(() => build({ opensObject: { equipment: { pageKey: 'object' } } }, '/objects')).not.toThrow();
+  });
+  it.each([
+    // A global key cannot be a declared page key (createRegistry rejects the collision), so it fails as undeclared.
+    ['an undeclared page key', 'missing'], ['a global key', 'selectedEquipmentIds'], ['returnTo', 'returnTo'],
+  ])('rejects opensObject on %s with RegistryError', (_name, pageKey) => {
+    expect(() => build({ opensObject: { equipment: { pageKey } } }, '/objects')).toThrow(RegistryError);
   });
   it('rejects additional unfilled path params for either selector', () => {
     expect(() => build({ opensObject: { equipment: { param: 'id' } } }, '/objects/:id/:other')).toThrow(RegistryError);
