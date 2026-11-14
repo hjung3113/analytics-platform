@@ -59,6 +59,13 @@ beforeEach(() => {
 afterEach(() => setRole(previousRole));
 
 describe('serveAction judgment order (ADR-0054)', () => {
+  it('replays a UUID key with different letter case before checking the old version', async () => {
+    const first = await call(req());
+    const retry = await call(req({ idempotencyKey: KEY.toUpperCase() }));
+    expect(retry).toMatchObject({ outcome: 'ok', replayed: true, data: first.data });
+    expect(handled).toBe(1);
+  });
+
   it('answers ok with data and the new version, replayed false', async () => {
     const r = await call(req());
     expect(r).toMatchObject({ outcome: 'ok', data: { id: 2 }, version: '2', fieldErrors: [], replayed: false });

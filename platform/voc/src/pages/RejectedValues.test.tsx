@@ -29,17 +29,20 @@ beforeEach(() => {
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 const OVERLONG = 'q'.repeat(101);
+const FILTER_CASES = [['managedSystem', 'abc'], ['severity', 'bogus'], ['reporterStatus', 'bogus'], ['owner', 'assigned,bogus']] as const;
 const INBOX_CASES = [
+  ...FILTER_CASES,
   ['tab', 'bogus'], ['sort', 'price:desc'], ['q', OVERLONG], ['area', 'not-a-uuid'], ['focus', 'abc'], ['tab', ''],
 ] as const;
-const TRIAGE_CASES = [['tab', 'bogus'], ['area', 'not-a-uuid'], ['focus', 'abc'], ['tab', '']] as const;
+const TRIAGE_CASES = [['managedSystem', 'abc'], ['tab', 'bogus'], ['area', 'not-a-uuid'], ['focus', 'abc'], ['tab', '']] as const;
 
 describe.each([
   ['VOC 처리함', '/flow/inbox', INBOX_CASES, 'inbox'],
   ['분류', '/flow/triage', TRIAGE_CASES, 'triage'],
 ] as const)('%s with an invalid address value', (_name, path, cases, testId) => {
   it.each(cases)('rejects an invalid %s, keeps the address and requests nothing from feature', async (key, value) => {
-    const search = `?${key}=${encodeURIComponent(value)}&managedSystem=${SYSTEM}`;
+    const scope = key === 'managedSystem' ? '' : `&managedSystem=${SYSTEM}`;
+    const search = `?${key}=${encodeURIComponent(value)}${scope}`;
     mountAt(`${path}${search}`);
     expect((await screen.findByText(`주소의 ${key} 값이 올바르지 않습니다`, undefined, LAZY_MOUNT_WAIT))).toBeTruthy();
     expect(screen.getByText('다른 값으로 바꾸지 않았습니다.')).toBeTruthy();

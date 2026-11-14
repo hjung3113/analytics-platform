@@ -299,6 +299,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       };
     },
     auditTrail: async query => {
+      if (query.page !== undefined && !Number.isSafeInteger(query.page)) return err('Invalid audit page');
       // ADR-0101: `type` is an opaque token — a well-formed one nobody wrote is a zero (`empty`), a malformed one is `error`.
       // 'console-auditTrail-type-rejected' rejects a well-formed unknown type; 'console-auditTrail-malformed-widened' widens a malformed one.
       if (state.console && query.type !== undefined) {
@@ -549,7 +550,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       if (!UUID_PATTERN.test(String(key)) && !breaks.has('action-key')) {
         return answer('invalid', { fieldErrors: [{ path: ['idempotencyKey'], code: key === undefined ? 'required' : 'malformed' }] });
       }
-      const slot = `${actor()}\n${key}`;
+      const slot = `${actor()}\n${key?.toLowerCase()}`;
       const hash = JSON.stringify([req.input, req.context, req.expectedVersion]);
       const replay = (): ActionResponse<unknown> | null => {
         const stored = actionRecords.get(slot);
@@ -619,7 +620,8 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       const update = 'id' in body || 'expectedVersion' in body;
       const allowed = ['title', 'content', 'scopeId', 'until', 'idempotencyKey', ...(update ? ['id', 'expectedVersion'] : [])];
       if (Object.keys(body).some(k => !allowed.includes(k)) && !breaks.has('notice-author')) return noticeAnswer('invalid', { fieldErrors: [{ path: ['body'], code: 'unknown_key' }] });
-      const replay = noticeReplays.get(`${actor()}:${input.idempotencyKey}`);
+      if (!UUID_PATTERN.test(input.idempotencyKey) || input.until === '2026-02-30T00:00:00') return noticeAnswer('invalid');
+      const replay = noticeReplays.get(`${actor()}:${input.idempotencyKey.toLowerCase()}`);
       if (replay && !breaks.has('notice-replay')) return { ...replay, replayed: true };
       let result: ActionResponse<Notice>;
       const draft = { title: input.title, content: input.content, scopeId: input.scopeId, until: input.until };
@@ -635,7 +637,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         noticeRows.push(row);
         result = noticeAnswer('ok', { data: toNotice(row), version: row.version });
       }
-      noticeReplays.set(`${actor()}:${input.idempotencyKey}`, result);
+      noticeReplays.set(`${actor()}:${input.idempotencyKey.toLowerCase()}`, result);
       return result;
     },
     deleteNotice: async input => {
@@ -652,7 +654,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       if (type !== 'application/json' && type !== 'text/plain' && !breaks.has('upload-type')) return noticeAnswer<UploadedFile>('invalid', { fieldErrors: [{ path: ['file'], code: 'unsupported_type' }] });
       if (name === '') return noticeAnswer<UploadedFile>('invalid', { fieldErrors: [{ path: ['file', 'name'], code: 'invalid_filename' }] });
       if (input.file.size > UPLOAD_FILE_MAX_BYTES && !breaks.has('upload-size')) return noticeAnswer<UploadedFile>('invalid', { fieldErrors: [{ path: ['file'], code: 'too_large' }] });
-      const key = `${actor()}:${input.idempotencyKey}`;
+      const key = `${actor()}:${input.idempotencyKey.toLowerCase()}`;
       const content = await new Response(input.file).text();
       const fingerprint = `${name}|${type}|${input.file.size}|${content}`;
       const seen = uploadRecords.get(key);
@@ -811,6 +813,7 @@ describe('server conformance kit (#145)', () => {
       'port · accessDirectory without console:access → forbidden',
       'port · usageSummary as a console actor → ok',
       'port · usageSummary without console:access → forbidden',
+      'port · auditTrail rejects an unsafe integer page',
       'port · usageNextScreens as a console actor → ok, masked or internally consistent',
       'port · usageNextScreens without console:access → forbidden',
       'port · usageNextScreens with a malformed menu id → error, never widened',
@@ -867,6 +870,9 @@ describe('server conformance kit (#145)', () => {
       'port · importPreferences keeps server values, saves missing keys once, and is a no-op afterwards',
       'port · preferences are per session user: a second user neither reads nor is changed by them',
       'port · lookupPeople answers exact ids with GroupMember fields only; unknown ids are absent',
+      'port · saveNotice rejects a non-UUID key',
+      'port · saveNotice rejects an impossible date',
+      'port · saveNotice replays a UUID key regardless of letter case',
       'port · notices: create, update under the version, stale update conflicts, delete, delete again not_found',
       'port · saveNotice with the same idempotency key replays without a second write',
       'port · saveNotice rejects a supplied author, id on create and unknown keys',
@@ -1419,7 +1425,7 @@ describe('menuAction conformance (#501)', () => {
   it('passes the reference adapter', async () => {
     const results = await runServerConformance(actionHarness());
     expect(results.filter(r => r.failure !== null)).toEqual([]);
-    expect(results.filter(r => r.id.startsWith('fixture.save · '))).toHaveLength(10);
+    expect(results.filter(r => r.id.startsWith('fixture.save · '))).toHaveLength(11);
   });
 
   it.each([

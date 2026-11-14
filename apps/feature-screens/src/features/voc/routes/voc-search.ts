@@ -4,7 +4,7 @@ import { isSearchFieldValueValid, parseRouteSearch, returnToField } from '@/lib/
 // The route file re-exports these for existing consumers (findings route,
 // tests).
 
-import { vocTabEnumSchema } from '@ap/feature-shared';
+import { listVocsQuerySchema, vocTabEnumSchema } from '@ap/feature-shared';
 import { z } from 'zod';
 
 export const vocSearchSchema = z
@@ -13,7 +13,7 @@ export const vocSearchSchema = z
     view: z.enum(['inbox', 'my', 'triage']).optional(),
     action: z.enum(['create']).optional(),
     selected: z.string().uuid().optional(),
-    managedSystem: z.string().optional(),
+    managedSystem: listVocsQuerySchema.shape.managed_system_id,
     // D-1.1: shared VOC list-query schema owns every supported tab value.
     tab: vocTabEnumSchema.optional(),
     // #821 server-side text search — inbox and my views only. Mirrors the
@@ -30,9 +30,9 @@ export const vocSearchSchema = z
       .optional(),
     // filter.* keys reserved for #20 per-view filters. Declared as explicit
     // dot-keys here to keep .strict() — no open-ended passthrough.
-    'filter.severity': z.string().optional(),
-    'filter.reporterStatus': z.string().optional(),
-    'filter.owner': z.string().optional(),
+    'filter.severity': z.string().refine((value) => listVocsQuerySchema.shape['filter.severity'].safeParse(value).success).optional(),
+    'filter.reporterStatus': z.string().refine((value) => listVocsQuerySchema.shape['filter.reporter_facing_status'].safeParse(value).success).optional(),
+    'filter.owner': z.string().refine((value) => listVocsQuerySchema.shape['filter.owner'].safeParse(value).success).optional(),
     'filter.analytics_area': z.union([z.string().uuid(), z.literal('unset')]).optional(),
   })
   .strict(); // reject unknown query keys — prevents link-poisoning as #20 grows

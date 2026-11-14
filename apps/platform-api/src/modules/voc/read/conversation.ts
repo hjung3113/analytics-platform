@@ -91,7 +91,7 @@ export function createVocConversationReader(deps: VocReadServiceDeps) {
 
     // ── 5. Decode conversation cursor (optional — first-page call passes none) ─
     // PLAN-22 §Bug-2: cursor is optional at the schema layer. Treat undefined
-    // as "start from oldest" — selectConversationPage already handles the
+    // as "start from newest" — selectConversationPage already handles the
     // undefined-cursor branch (no cursor predicate emitted).
     const decodedConvCursor =
       query.cursor !== undefined ? decodeConversationCursor(query.cursor) : undefined;

@@ -54,6 +54,14 @@ export function planConsoleChecks(harness: ServerConformanceHarness): Conformanc
       ),
     });
   }
+  checks.push({
+    id: 'port · auditTrail rejects an unsafe integer page',
+    uses: ['auditTrail'], mode: 'console',
+    run: async () => {
+      const result = await adapter.auditTrail({ page: 2 ** 53 });
+      return result.outcome === 'error' ? null : `unsafe page: expected error, got ${describeResponse(result)}`;
+    },
+  });
   // usageNextScreens (#605): three requests in all, to stay inside the shared per-actor rate budget. The answer's numbers depend on
   // the server's data, so the checks assert invariants that hold for any data: the mask (k = 3, ADR-0020 supplement) and the
   // internal consistency of every row — no seeded counts. Cases that need a seeded long tail live in the mock and server tests.

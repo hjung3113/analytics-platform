@@ -154,6 +154,31 @@ describe('people lookup', () => {
 });
 
 describe('notices', () => {
+  it.each([
+    ['non-UUID key', { idempotencyKey: 'not-a-uuid' }, 'idempotencyKey'],
+    ['impossible date', { until: '2026-02-30T00:00:00' }, 'until'],
+    ['impossible time', { until: '2026-13-45T99:99:99' }, 'until'],
+    ['year zero', { until: '0000-01-01T00:00:00' }, 'until'],
+  ])('rejects %s before writing', async (_name, over, path) => {
+    const result = await saveNotice({ ...draft, idempotencyKey: 'abcdefab-1234-4234-8234-abcdefabcdef', ...over }, undefined, as('admin'));
+    expect(result).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: [path], code: 'invalid' }] });
+    expect((await listNotices(undefined, as('admin'))).data?.items).toHaveLength(2);
+  });
+
+  it('reports an omitted key as required (not invalid) on save and delete', async () => {
+    const { idempotencyKey: _omit, ...noKey } = { ...draft, idempotencyKey: 'x' };
+    void _omit;
+    expect(await saveNotice(noKey as never, undefined, as('admin'))).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['idempotencyKey'], code: 'required' }] });
+    expect(await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1' } as never, undefined, as('admin'))).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['idempotencyKey'], code: 'required' }] });
+  });
+
+  it('replays notice keys regardless of UUID letter case', async () => {
+    const key = 'abcdefab-1234-4234-8234-abcdefabcdef';
+    const first = await saveNotice({ ...draft, idempotencyKey: key }, undefined, as('admin'));
+    const retry = await saveNotice({ ...draft, idempotencyKey: key.toUpperCase() }, undefined, as('admin'));
+    expect(retry).toMatchObject({ outcome: 'ok', replayed: true, data: first.data });
+  });
+
   it('lists for notice:view including expired rows, hides other sites from users without a grant, forbids without the permission', async () => {
     const admin = await listNotices(undefined, as('admin'));
     expect(admin.data?.items.map(n => n.id)).toEqual(['N-mock-1', 'N-mock-2']);
@@ -173,13 +198,13 @@ describe('notices', () => {
   });
 
   it('creates with a server id and version, updates under the expected version, conflicts on a stale one', async () => {
-    const created = await saveNotice({ ...draft, idempotencyKey: 'k1' }, undefined, as('admin'));
+    const created = await saveNotice({ ...draft, idempotencyKey: 'abcdefab-1234-4234-8234-000000000001' }, undefined, as('admin'));
     expect(created).toMatchObject({ outcome: 'ok', version: 'v1', replayed: false, data: { id: 'N-mock-3', version: 'v1' } });
-    const updated = await saveNotice({ ...draft, title: { ko: '수정', en: 'Edited' }, id: 'N-mock-3', expectedVersion: 'v1', idempotencyKey: 'k2' }, undefined, as('admin'));
+    const updated = await saveNotice({ ...draft, title: { ko: '수정', en: 'Edited' }, id: 'N-mock-3', expectedVersion: 'v1', idempotencyKey: 'abcdefab-1234-4234-8234-000000000002' }, undefined, as('admin'));
     expect(updated).toMatchObject({ outcome: 'ok', version: 'v2', data: { title: { en: 'Edited' } } });
-    const stale = await saveNotice({ ...draft, id: 'N-mock-3', expectedVersion: 'v1', idempotencyKey: 'k3' }, undefined, as('admin'));
+    const stale = await saveNotice({ ...draft, id: 'N-mock-3', expectedVersion: 'v1', idempotencyKey: 'abcdefab-1234-4234-8234-000000000003' }, undefined, as('admin'));
     expect(stale).toMatchObject({ outcome: 'conflict', data: null, version: 'v2' });
-    expect((await saveNotice({ ...draft, id: 'nope', expectedVersion: 'v1', idempotencyKey: 'k4' }, undefined, as('admin'))).outcome).toBe('not_found');
+    expect((await saveNotice({ ...draft, id: 'nope', expectedVersion: 'v1', idempotencyKey: 'abcdefab-1234-4234-8234-000000000004' }, undefined, as('admin'))).outcome).toBe('not_found');
   });
 
   it.each([
@@ -187,22 +212,22 @@ describe('notices', () => {
     ['version', { version: 'v9' }],
     ['createdAt', { createdAt: '2026-10-28T00:00:00Z' }],
   ])('create rejects a supplied %s', async (key, extra) => {
-    const result = await saveNotice({ ...draft, idempotencyKey: 'kx', ...extra } as never, undefined, as('admin'));
+    const result = await saveNotice({ ...draft, idempotencyKey: 'abcdefab-1234-4234-8234-000000000005', ...extra } as never, undefined, as('admin'));
     expect(result.outcome).toBe('invalid');
     expect(result.fieldErrors).toEqual([{ path: [key], code: 'unknown_key' }]);
   });
 
   it('an update with an id but no expectedVersion is invalid', async () => {
-    const result = await saveNotice({ ...draft, id: 'N-mock-1', idempotencyKey: 'ky' } as never, undefined, as('admin'));
+    const result = await saveNotice({ ...draft, id: 'N-mock-1', idempotencyKey: 'abcdefab-1234-4234-8234-000000000006' } as never, undefined, as('admin'));
     expect(result).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['expectedVersion'], code: 'required' }] });
   });
 
   it('a retry with the same idempotency key replays the stored answer without a second write; reuse with other input is invalid', async () => {
-    const first = await saveNotice({ ...draft, idempotencyKey: 'same' }, undefined, as('admin'));
-    const retry = await saveNotice({ ...draft, idempotencyKey: 'same' }, undefined, as('admin'));
+    const first = await saveNotice({ ...draft, idempotencyKey: 'abcdefab-1234-4234-8234-000000000007' }, undefined, as('admin'));
+    const retry = await saveNotice({ ...draft, idempotencyKey: 'abcdefab-1234-4234-8234-000000000007' }, undefined, as('admin'));
     expect(retry).toMatchObject({ outcome: 'ok', replayed: true, data: first.data });
     expect((await listNotices(undefined, as('admin'))).data?.items).toHaveLength(3);
-    const reused = await saveNotice({ ...draft, until: '2027-01-01T00:00:00', idempotencyKey: 'same' }, undefined, as('admin'));
+    const reused = await saveNotice({ ...draft, until: '2027-01-01T00:00:00', idempotencyKey: 'abcdefab-1234-4234-8234-000000000007' }, undefined, as('admin'));
     expect(reused.outcome).toBe('invalid');
   });
 
@@ -212,26 +237,26 @@ describe('notices', () => {
     ['content.ko', { content: { ko: '다른 본문', en: 'Title' } }],
     ['content.en', { content: { ko: '제목', en: 'Other body' } }],
   ])('reusing an idempotency key with a changed nested %s is invalid, not a replay', async (_name, change) => {
-    const first = await saveNotice({ ...draft, idempotencyKey: 'nested' }, undefined, as('admin'));
+    const first = await saveNotice({ ...draft, idempotencyKey: 'abcdefab-1234-4234-8234-000000000008' }, undefined, as('admin'));
     expect(first.outcome).toBe('ok');
-    const reused = await saveNotice({ ...draft, ...change, idempotencyKey: 'nested' }, undefined, as('admin'));
+    const reused = await saveNotice({ ...draft, ...change, idempotencyKey: 'abcdefab-1234-4234-8234-000000000008' }, undefined, as('admin'));
     expect(reused).toMatchObject({ outcome: 'invalid', replayed: false, fieldErrors: [{ path: ['idempotencyKey'], code: 'reused' }] });
   });
 
   it('a retry whose nested objects only reorder their keys is the same request and replays', async () => {
-    const first = await saveNotice({ ...draft, idempotencyKey: 'order' }, undefined, as('admin'));
+    const first = await saveNotice({ ...draft, idempotencyKey: 'abcdefab-1234-4234-8234-000000000009' }, undefined, as('admin'));
     const reordered = { until: draft.until, scopeId: draft.scopeId, content: { en: text.en, ko: text.ko }, title: { en: text.en, ko: text.ko } };
-    const retry = await saveNotice({ ...reordered, idempotencyKey: 'order' } as never, undefined, as('admin'));
+    const retry = await saveNotice({ ...reordered, idempotencyKey: 'abcdefab-1234-4234-8234-000000000009' } as never, undefined, as('admin'));
     expect(retry).toMatchObject({ outcome: 'ok', replayed: true, data: first.data });
   });
 
   it('delete enforces the version and replays safely', async () => {
-    expect((await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v0', idempotencyKey: 'd1' }, undefined, as('admin'))).outcome).toBe('conflict');
-    const done = await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1', idempotencyKey: 'd2' }, undefined, as('admin'));
+    expect((await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v0', idempotencyKey: 'abcdefab-1234-4234-8234-00000000000a' }, undefined, as('admin'))).outcome).toBe('conflict');
+    const done = await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1', idempotencyKey: 'abcdefab-1234-4234-8234-00000000000b' }, undefined, as('admin'));
     expect(done).toMatchObject({ outcome: 'ok', data: { id: 'N-mock-1' } });
-    expect(await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1', idempotencyKey: 'd2' }, undefined, as('admin'))).toMatchObject({ outcome: 'ok', replayed: true });
-    expect((await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1', idempotencyKey: 'd3' }, undefined, as('admin'))).outcome).toBe('not_found');
-    expect((await deleteNotice({ id: 'N-mock-2', expectedVersion: 'v1', idempotencyKey: 'd4', author: 'x' } as never, undefined, as('admin'))).outcome).toBe('invalid');
+    expect(await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1', idempotencyKey: 'abcdefab-1234-4234-8234-00000000000b' }, undefined, as('admin'))).toMatchObject({ outcome: 'ok', replayed: true });
+    expect((await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1', idempotencyKey: 'abcdefab-1234-4234-8234-00000000000c' }, undefined, as('admin'))).outcome).toBe('not_found');
+    expect((await deleteNotice({ id: 'N-mock-2', expectedVersion: 'v1', idempotencyKey: 'abcdefab-1234-4234-8234-00000000000d', author: 'x' } as never, undefined, as('admin'))).outcome).toBe('invalid');
   });
 });
 

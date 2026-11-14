@@ -17,7 +17,7 @@ const rows: VocListItem[] = [1, 2, 3, 4].map((n) => ({
   id: `00000000-0000-4000-8000-00000000000${n}`,
   display_id: `VOC-${n}`,
   title: `Queue item ${n}`,
-  primary_managed_system_id: 'scope-a',
+  primary_managed_system_id: 'bbbbbbbb-0000-4000-8000-00000000000a',
   analytics_area_id: null,
   reporter_id: 'reporter',
   owner_user_id: null,
@@ -64,7 +64,7 @@ function mount() {
       if (url.pathname === '/vocs') {
         if (
           url.searchParams.get('tab') === 'high' ||
-          url.searchParams.get('managed_system_id') === 'scope-b'
+          url.searchParams.get('managed_system_id') === 'bbbbbbbb-0000-4000-8000-00000000000b'
         )
           return pending;
         return json({ items: rows.filter((row) => !processed.has(row.id)) });
@@ -111,7 +111,7 @@ it.each(['tab', 'scope'] as const)(
       await act(async () => {
         await router.navigate({
           to: '/vocs',
-          search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-b' }),
+          search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'bbbbbbbb-0000-4000-8000-00000000000b' }),
         });
       });
     await screen.findByText('불러오는 중…');

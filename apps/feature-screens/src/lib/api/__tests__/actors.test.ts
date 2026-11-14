@@ -36,6 +36,39 @@ describe('resolveActors with a base path', () => {
     expect(init.signal).toBeDefined();
   });
 
+  it('chunks both identity lists at 200, deduplicates ids and merges every response', async () => {
+    const actorIds = Array.from({ length: 401 }, (_, i) => `actor-${i}`);
+    const teamIds = Array.from({ length: 201 }, (_, i) => `team-${i}`);
+    const calls: URLSearchParams[] = [];
+    global.fetch = vi.fn(async (input) => {
+      const query = new URL(String(input), 'http://test').searchParams;
+      calls.push(query);
+      const actors = (query.get('actor_ids')?.split(',') ?? []).map((id) => ({ id, display_name: id, email: '' }));
+      const teams = (query.get('team_ids')?.split(',') ?? []).map((id) => ({ id, name: id }));
+      return new Response(JSON.stringify({ actors, teams }), { status: 200 });
+    }) as typeof fetch;
+    const result = await resolveActors({ actorIds: [...actorIds, actorIds[0] ?? ''], teamIds });
+    expect(calls).toHaveLength(3);
+    for (const query of calls) {
+      expect(query.get('actor_ids')?.split(',').length ?? 0).toBeLessThanOrEqual(200);
+      expect(query.get('team_ids')?.split(',').length ?? 0).toBeLessThanOrEqual(200);
+    }
+    expect(result.actors.map((actor) => actor.id)).toEqual(actorIds);
+    expect(result.teams.map((team) => team.id)).toEqual(teamIds);
+  });
+
+  it('rejects the whole resolution when a later chunk fails', async () => {
+    let calls = 0;
+    global.fetch = vi.fn(async () => {
+      calls += 1;
+      return calls === 1
+        ? new Response(JSON.stringify({ actors: [], teams: [] }), { status: 200 })
+        : new Response('{}', { status: 500 });
+    }) as typeof fetch;
+    await expect(resolveActors({ actorIds: Array.from({ length: 201 }, (_, i) => `actor-${i}`) })).rejects.toThrow('/actors/resolve failed: 500');
+    expect(calls).toBe(2);
+  });
+
   it('omits the query when both id lists are empty', async () => {
     const fetchMock = stub(
       new Response(JSON.stringify({ actors: [], teams: [] }), { status: 200 }),

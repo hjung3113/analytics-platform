@@ -104,7 +104,7 @@ describe('InboxScreen write fold', () => {
 
   it.each([
     ['Back/Forward to a changed URL', { view: 'inbox', tab: 'no-task' }],
-    ['an external update', { view: 'inbox', managedSystem: 'ms-9', 'filter.owner': 'assigned' }],
+    ['an external update', { view: 'inbox', managedSystem: 'aaaaaaaa-0000-4000-8000-000000000009', 'filter.owner': 'assigned' }],
   ])('builds the next write on the host search after %s', async (_name, next) => {
     fireEvent.click(screen.getByRole('button', { name: 'VOC 선택' }));
     report(next);

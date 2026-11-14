@@ -8,6 +8,7 @@ import { PEOPLE_LOOKUP_MAX, UPLOAD_FILE_MAX_BYTES, PREFERENCE_KEYS_MAX, PREFEREN
 import type { ActionResponse, ApiResponse, DeleteNoticeInput, FieldError, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UploadFileInput, UploadedFile } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, defaultDelay, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
+import { isBareUuid } from '../access/uuid';
 
 export type ServiceOptions = { role?: RoleId; latency?: number };
 const DEFAULT_LATENCY_MS = 80;
@@ -178,6 +179,14 @@ export async function listNotices(signal?: AbortSignal, opts?: ServiceOptions): 
 const DRAFT_KEYS = ['title', 'content', 'scopeId', 'until', 'idempotencyKey'] as const;
 const text = (value: unknown, max: number): boolean => isPlain(value) && onlyKeys(value, ['ko', 'en']) && typeof value['ko'] === 'string' && typeof value['en'] === 'string' && value['ko'].length <= max && value['en'].length <= max;
 const WALL_CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+/** Match the server's Gregorian wall-clock validation, including years below 100. */
+function isRealWallClock(value: unknown): boolean {
+  if (typeof value !== 'string' || !WALL_CLOCK.test(value)) return false;
+  const year = Number(value.slice(0, 4));
+  if (year < 1) return false;
+  const date = new Date(`${value}Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 19) === value;
+}
 
 function checkSave(input: unknown): FieldError[] {
   if (!isPlain(input)) return [{ path: [], code: 'invalid' }];
@@ -189,14 +198,17 @@ function checkSave(input: unknown): FieldError[] {
   if (!text(input['title'], 200)) errors.push({ path: ['title'], code: 'invalid' });
   if (!text(input['content'], 10_000)) errors.push({ path: ['content'], code: 'invalid' });
   if (input['scopeId'] !== null && (typeof input['scopeId'] !== 'string' || input['scopeId'] === '')) errors.push({ path: ['scopeId'], code: 'invalid' });
-  if (typeof input['until'] !== 'string' || !WALL_CLOCK.test(input['until'])) errors.push({ path: ['until'], code: 'invalid' });
-  if (typeof input['idempotencyKey'] !== 'string' || input['idempotencyKey'] === '' || input['idempotencyKey'].length > 200) errors.push({ path: ['idempotencyKey'], code: 'required' });
+  if (!isRealWallClock(input['until'])) errors.push({ path: ['until'], code: 'invalid' });
+  if (input['idempotencyKey'] === undefined) errors.push({ path: ['idempotencyKey'], code: 'required' });
+  else if (!isBareUuid(input['idempotencyKey'])) errors.push({ path: ['idempotencyKey'], code: 'invalid' });
   return errors;
 }
 function checkDelete(input: unknown): FieldError[] {
   if (!isPlain(input)) return [{ path: [], code: 'invalid' }];
   const errors: FieldError[] = Object.keys(input).filter(key => !['id', 'expectedVersion', 'idempotencyKey'].includes(key)).map(key => ({ path: [key], code: 'unknown_key' }));
-  for (const key of ['id', 'expectedVersion', 'idempotencyKey']) if (typeof input[key] !== 'string' || input[key] === '') errors.push({ path: [key], code: 'required' });
+  if (input['idempotencyKey'] === undefined) errors.push({ path: ['idempotencyKey'], code: 'required' });
+  else if (!isBareUuid(input['idempotencyKey'])) errors.push({ path: ['idempotencyKey'], code: 'invalid' });
+  for (const key of ['id', 'expectedVersion']) if (typeof input[key] !== 'string' || input[key] === '') errors.push({ path: [key], code: 'required' });
   return errors;
 }
 
@@ -215,7 +227,7 @@ async function noticeWrite<T extends Notice | { id: string }>(input: unknown, si
   if (fieldErrors.length > 0) return answer<T>('invalid', { fieldErrors });
   const body = input as Record<string, unknown>;
   const { idempotencyKey: _key, ...rest } = body;
-  const recordKey = `${pinned.userId}\0${String(body['idempotencyKey'])}`;
+  const recordKey = `${pinned.userId}\0${String(body['idempotencyKey']).toLowerCase()}`;
   const fingerprint = canonical(rest);
   const seen = replays.get(recordKey);
   if (seen) {

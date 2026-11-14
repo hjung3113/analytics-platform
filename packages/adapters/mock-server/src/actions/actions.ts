@@ -2,6 +2,7 @@ import type { ActionResponse, ActionSpec, FieldError } from '@ap/contracts';
 import { checkScope, getRole, nextCorrelation, defaultDelay, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
 import { readUploadAs, type UploadContent } from '../services/services';
+import { isBareUuid } from '../access/uuid';
 
 type ActionInput<I> = {
   input: I; actor: RoleId; scopeId: string | null;
@@ -62,7 +63,6 @@ export class MockActionInvalid extends Error {
 export type AnyMockAction = MockAction<any, any>;
 
 const requestKeys = ['action', 'context', 'input', 'idempotencyKey'] as const;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Stored = { hash: string; response: ActionResponse<unknown> };
 /**
@@ -131,7 +131,7 @@ export async function serveAction(
 
   const key = req.idempotencyKey;
   if (!has('idempotencyKey')) return answer('invalid', { fieldErrors: [{ path: ['idempotencyKey'], code: 'required' }] });
-  if (typeof key !== 'string' || !UUID.test(key)) return answer('invalid', { fieldErrors: [{ path: ['idempotencyKey'], code: 'malformed' }] });
+  if (typeof key !== 'string' || !isBareUuid(key)) return answer('invalid', { fieldErrors: [{ path: ['idempotencyKey'], code: 'malformed' }] });
 
   await sleep(opts?.latency ?? defaultDelay(80), signal);
   if (!activeWorld().users[actor].permissions.includes(spec.permission)) return answer('forbidden', { message: `No permission ${spec.permission}` });
@@ -152,7 +152,7 @@ export async function serveAction(
   } catch {
     return shape('input cannot be canonicalized');
   }
-  const stored = store.get(`${actor}\n${key}`);
+  const stored = store.get(`${actor}\n${key.toLowerCase()}`);
   if (stored) return stored.hash === hash ? { ...structuredClone(stored.response), replayed: true } : shape('idempotency_key_reuse');
 
   const unexpectedFields = Object.keys(req.input).filter(k => !Object.prototype.hasOwnProperty.call(spec.inputKeys, k));
@@ -170,7 +170,7 @@ export async function serveAction(
     const done = action.handleAsync ? await action.handleAsync(full) : action.handle(full);
     const response = answer('ok', { data: done.data, version: done.version });
     // The record is a snapshot: a later handler write or a caller mutating its answer must not change a replay.
-    store.set(`${actor}\n${key}`, { hash, response: structuredClone(response) });
+    store.set(`${actor}\n${key.toLowerCase()}`, { hash, response: structuredClone(response) });
     return structuredClone(response);
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError') throw error;

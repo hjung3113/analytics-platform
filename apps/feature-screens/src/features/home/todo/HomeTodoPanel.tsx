@@ -35,6 +35,7 @@ const DECIDED_STATUSES: ReadonlySet<PermissionRequestStatus> = new Set([
 ]);
 const PUBLIC_UPDATE_EVENT = 'voc.public_update_posted';
 const SURVEYS_ALL = '/surveys/participate';
+const NOTIFICATIONS_ALL = '/notifications';
 const PERMISSION_REQUESTS_ALL = '/permission-requests';
 
 type Row = { key: string; to: string; title: string; meta: string };
@@ -100,7 +101,7 @@ function useVocGroup(): Group {
     title: COPY.vocs,
     state: query.isError ? 'error' : query.isPending ? 'pending' : 'ready',
     rows: query.data ? vocRows(query.data.items) : [],
-    moreTo: null,
+    moreTo: query.data?.page.has_more === true ? NOTIFICATIONS_ALL : null,
   };
 }
 
@@ -178,7 +179,7 @@ export function HomeTodoPanel(): React.ReactElement | null {
   const groups = [useSurveyGroup(), useVocGroup(), usePermissionGroup()];
   const anyItems = groups.some((group) => group.rows.length > 0);
   if (!anyItems && groups.some((group) => group.state === 'pending')) return null;
-  const shown = groups.filter((group) => group.rows.length > 0 || group.state === 'error');
+  const shown = groups.filter((group) => group.rows.length > 0 || group.state === 'error' || (group.state === 'ready' && group.moreTo === NOTIFICATIONS_ALL));
   if (shown.length === 0) return null;
   return (
     <section

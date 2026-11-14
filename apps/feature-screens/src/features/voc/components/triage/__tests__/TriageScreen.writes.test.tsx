@@ -64,7 +64,7 @@ beforeEach(() => {
   screenProps = null;
   searchState = {
     view: 'triage',
-    managedSystem: 'ms-1',
+    managedSystem: 'aaaaaaaa-0000-4000-8000-000000000001',
     selected: SELECTED,
     returnTo: '/home',
   };
@@ -76,7 +76,7 @@ describe('TriageScreen URL writes', () => {
     const { search, options } = lastWrite();
     expect(Object.fromEntries(search)).toEqual({
       view: 'triage',
-      managedSystem: 'ms-1',
+      managedSystem: 'aaaaaaaa-0000-4000-8000-000000000001',
       selected: SELECTED,
       returnTo: '/home',
       'filter.analytics_area': AREA,
@@ -90,7 +90,7 @@ describe('TriageScreen URL writes', () => {
     const { search, options } = lastWrite();
     expect(search.has('filter.analytics_area')).toBe(false);
     expect(search.get('selected')).toBe(SELECTED);
-    expect(search.get('managedSystem')).toBe('ms-1');
+    expect(search.get('managedSystem')).toBe('aaaaaaaa-0000-4000-8000-000000000001');
     expect(options).toBeUndefined();
   });
 
@@ -99,7 +99,7 @@ describe('TriageScreen URL writes', () => {
     const { search, options } = lastWrite();
     expect(Object.fromEntries(search)).toEqual({
       view: 'triage',
-      managedSystem: 'ms-1',
+      managedSystem: 'aaaaaaaa-0000-4000-8000-000000000001',
       returnTo: '/home',
       tab: 'high',
     });
@@ -110,7 +110,7 @@ describe('TriageScreen URL writes', () => {
     mountScreen().onSelectVoc(NEXT);
     const { search, options } = lastWrite();
     expect(search.get('selected')).toBe(NEXT);
-    expect(search.get('managedSystem')).toBe('ms-1');
+    expect(search.get('managedSystem')).toBe('aaaaaaaa-0000-4000-8000-000000000001');
     expect(search.get('returnTo')).toBe('/home');
     expect(options).toBeUndefined();
   });
@@ -119,7 +119,7 @@ describe('TriageScreen URL writes', () => {
     mountScreen().onAdvanceVoc?.(NEXT);
     const { search, options } = lastWrite();
     expect(search.get('selected')).toBe(NEXT);
-    expect(search.get('managedSystem')).toBe('ms-1');
+    expect(search.get('managedSystem')).toBe('aaaaaaaa-0000-4000-8000-000000000001');
     expect(options).toEqual({ replace: true });
   });
 
@@ -127,7 +127,7 @@ describe('TriageScreen URL writes', () => {
     mountScreen().onAdvanceVoc?.(null);
     const { search, options } = lastWrite();
     expect(search.has('selected')).toBe(false);
-    expect(search.get('managedSystem')).toBe('ms-1');
+    expect(search.get('managedSystem')).toBe('aaaaaaaa-0000-4000-8000-000000000001');
     expect(search.get('view')).toBe('triage');
     expect(options).toEqual({ replace: true });
   });

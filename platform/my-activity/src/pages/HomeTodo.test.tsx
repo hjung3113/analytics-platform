@@ -30,4 +30,17 @@ describe('HomeTodo page', () => {
     expect(pathOf('대기 중')).toBe('/permission-requests');
     expect(screen.queryByText('실서버 필요')).toBeNull();
   });
+
+  it('C3 links the more-unread overflow to the notifications page, with and without a VOC row', async () => {
+    for (const withVoc of [true, false]) {
+      stubFetch(path => path.startsWith('/api/features/notifications')
+        ? json({ items: withVoc ? [notification(ID_A, { event_type: 'voc.public_update_posted', detail: { voc_id: ID_B }, subject_ref: { visibility_state: 'allowed', display_id: 'VOC-1', title: '내 VOC 제목' } })] : [], page: { has_more: true }, unread_count: 60 })
+        : path.startsWith('/api/features/me/answerable-surveys') ? json({ items: [], page: { has_more: false } }) : json({ requests: [] }));
+      render(<I18nProvider><PlatformProvider adapter={switchableAdapter().adapter} registry={registry}><HomeTodo /></PlatformProvider></I18nProvider>);
+      const region = await screen.findByRole('region', { name: '내 할 일' });
+      const more = await within(region).findByRole('link', { name: /모두 보기/ });
+      expect(more.getAttribute('href')!.split('?')[0]).toBe('/notifications');
+      cleanup();
+    }
+  });
 });

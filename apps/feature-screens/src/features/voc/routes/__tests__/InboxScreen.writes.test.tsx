@@ -103,7 +103,7 @@ function written(index = -1) {
 const CARRIED = {
   returnTo: '/home',
   view: 'inbox',
-  managedSystem: 'ms-1',
+  managedSystem: 'aaaaaaaa-0000-4000-8000-000000000001',
   'filter.owner': 'assigned',
   selected: VOC,
 };
@@ -183,7 +183,7 @@ describe('InboxScreen URL writes', () => {
     mount();
     expect(renderDetail).toHaveBeenCalledWith(
       VOC,
-      expect.objectContaining({ managedSystemId: 'ms-1', onClose: expect.any(Function) }),
+      expect.objectContaining({ managedSystemId: 'aaaaaaaa-0000-4000-8000-000000000001', onClose: expect.any(Function) }),
     );
   });
 

@@ -77,7 +77,7 @@ const MOCK_VOC_ITEMS = [
     id: '00000000-0000-0000-0000-000000000001',
     display_id: 'VOC-001',
     title: '피드백 1',
-    primary_managed_system_id: 'ms-1',
+    primary_managed_system_id: 'aaaaaaaa-0000-4000-8000-000000000001',
     analytics_area_id: null,
     reporter_id: 'u1',
     owner_user_id: null,
@@ -95,7 +95,7 @@ const MOCK_VOC_ITEMS = [
     id: '00000000-0000-0000-0000-000000000002',
     display_id: 'VOC-002',
     title: '피드백 2',
-    primary_managed_system_id: 'ms-1',
+    primary_managed_system_id: 'aaaaaaaa-0000-4000-8000-000000000001',
     analytics_area_id: null,
     reporter_id: 'u2',
     owner_user_id: null,
@@ -113,7 +113,7 @@ const MOCK_VOC_ITEMS = [
     id: '00000000-0000-0000-0000-000000000003',
     display_id: 'VOC-003',
     title: '피드백 3',
-    primary_managed_system_id: 'ms-2',
+    primary_managed_system_id: 'aaaaaaaa-0000-4000-8000-000000000002',
     analytics_area_id: null,
     reporter_id: 'u3',
     owner_user_id: null,
@@ -169,7 +169,7 @@ function DetailStub({
   onClose: () => void;
 }) {
   useEffect(() => {
-    if (managedSystemId !== undefined && managedSystemId !== 'ms-1') onClose();
+    if (managedSystemId !== undefined && managedSystemId !== 'aaaaaaaa-0000-4000-8000-000000000001') onClose();
   }, [managedSystemId, onClose]);
 
   return (
@@ -584,17 +584,17 @@ describe('InboxScreen', () => {
 
   it('clears selected after the URL 시스템 changes outside the open VOC scope', async () => {
     const selected = '00000000-0000-0000-0000-000000000001';
-    searchState = { view: 'inbox', managedSystem: 'ms-1', selected };
+    searchState = { view: 'inbox', managedSystem: 'aaaaaaaa-0000-4000-8000-000000000001', selected };
     const { rerender } = render(<InboxTestHarness view="inbox" />);
 
     await screen.findByTestId('voc-detail-panel-stub');
 
-    searchState = { view: 'inbox', managedSystem: 'ms-2', selected };
+    searchState = { view: 'inbox', managedSystem: 'aaaaaaaa-0000-4000-8000-000000000002', selected };
     rerender(<InboxTestHarness view="inbox" />);
 
     await waitFor(() => expect(navigateMock).toHaveBeenCalled());
     const navigation = lastNav();
-    expect(navigation.search).toEqual({ view: 'inbox', managedSystem: 'ms-2' });
+    expect(navigation.search).toEqual({ view: 'inbox', managedSystem: 'aaaaaaaa-0000-4000-8000-000000000002' });
 
     searchState = navigation.search;
     rerender(<InboxTestHarness view="inbox" />);
@@ -604,14 +604,14 @@ describe('InboxScreen', () => {
   it('passes the selected 시스템 to the open detail panel', async () => {
     searchState = {
       view: 'my',
-      managedSystem: 'ms-1',
+      managedSystem: 'aaaaaaaa-0000-4000-8000-000000000001',
       selected: '00000000-0000-0000-0000-000000000001',
     };
     render(<InboxTestHarness view="my" />);
 
     expect(await screen.findByTestId('voc-detail-panel-stub')).toHaveAttribute(
       'data-managed-system-id',
-      'ms-1',
+      'aaaaaaaa-0000-4000-8000-000000000001',
     );
   });
 
@@ -798,7 +798,7 @@ describe('InboxScreen', () => {
       error: new ApiError(403, {
         code: 'permission.scope_required',
         message: 'voc.read capability required',
-        requestable_permission: { permission: 'voc.read', managed_system_id: 'ms-1' },
+        requestable_permission: { permission: 'voc.read', managed_system_id: 'aaaaaaaa-0000-4000-8000-000000000001' },
       }),
       refetch: vi.fn(),
     });
@@ -811,7 +811,7 @@ describe('InboxScreen', () => {
     expect(screen.getAllByRole('button', { name: '권한 요청하기' })).toHaveLength(1);
     const requestFlow = screen.getByTestId('request-access-flow');
     expect(requestFlow).toHaveAttribute('data-capability', 'voc.read');
-    expect(requestFlow).toHaveAttribute('data-managed-system-id', 'ms-1');
+    expect(requestFlow).toHaveAttribute('data-managed-system-id', 'aaaaaaaa-0000-4000-8000-000000000001');
     expect(requestFlow).toHaveAttribute('data-return-route-intent', '/vocs?view=inbox');
     fireEvent.click(requestButton);
     expect(openRequestAccessMock).toHaveBeenCalledTimes(1);

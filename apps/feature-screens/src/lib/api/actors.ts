@@ -38,17 +38,26 @@ export async function resolveActors(
   params: { actorIds?: string[]; teamIds?: string[] },
   signal?: AbortSignal,
 ): Promise<ResolveActorsResponse> {
-  const search = new URLSearchParams();
-  if (params.actorIds && params.actorIds.length > 0) {
-    search.set('actor_ids', params.actorIds.join(','));
-  }
-  if (params.teamIds && params.teamIds.length > 0) {
-    search.set('team_ids', params.teamIds.join(','));
-  }
-  const url = `/actors/resolve${search.size ? `?${search.toString()}` : ''}`;
+  // The endpoint bounds each identity list separately. Deduplicate before chunking so
+  // accumulated pages do not re-request an identity within the same resolution.
+  const RESOLVE_BATCH_SIZE = 200;
+  const actorIds = [...new Set(params.actorIds ?? [])];
+  const teamIds = [...new Set(params.teamIds ?? [])];
+  const result: ResolveActorsResponse = { actors: [], teams: [] };
+  const total = Math.max(actorIds.length, teamIds.length, 1);
   try {
-    const response = await apiRequest('GET', url, parseResolveActors, signal ? { signal } : {});
-    return response.data;
+    for (let offset = 0; offset < total; offset += RESOLVE_BATCH_SIZE) {
+      const search = new URLSearchParams();
+      const actors = actorIds.slice(offset, offset + RESOLVE_BATCH_SIZE);
+      const teams = teamIds.slice(offset, offset + RESOLVE_BATCH_SIZE);
+      if (actors.length > 0) search.set('actor_ids', actors.join(','));
+      if (teams.length > 0) search.set('team_ids', teams.join(','));
+      const url = `/actors/resolve${search.size ? `?${search.toString()}` : ''}`;
+      const response = await apiRequest('GET', url, parseResolveActors, signal ? { signal } : {});
+      result.actors.push(...response.data.actors);
+      result.teams.push(...response.data.teams);
+    }
+    return result;
   } catch (error) {
     if (error instanceof ApiError && !(error instanceof ApiParseError)) {
       if (error.status === 401) throw new UnauthenticatedError();
