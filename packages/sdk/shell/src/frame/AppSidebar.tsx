@@ -2,7 +2,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Clock3, Star } from 'lucide-react';
 import { emptyGlobal, type NavView, type SpaceId } from '@ap/contracts';
 import { badgeCountText } from '@ap/components';
-import { type MenuEntry, PlatformLink, useI18n, useMessages, useRecentVisits } from '@ap/kernel';
+import { type MenuEntry, PlatformLink, type UndeclaredMenu, useI18n, useMessages, useRecentVisits } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { navRowVariants, NavCurrentMarker, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from '../context/ScopeSelector';
@@ -23,6 +23,9 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
     ? (currentSection === null ? [] : [currentSection])
     : (sidebarSpace === null ? [] : registry.groups.filter(g => g.space === sidebarSpace.id))
       .map(group => ({ group, items: visibleMenus.filter(m => !m.navHidden && m.group === group.id) })).filter(g => g.items.length);
+  // Operator-only rows (#1846): a menu no server declaration grants to anyone is not in `visibleMenus`; the slot's list draws it greyed in its own
+  // group at its Registry position. Sidebar only: the palette, favorites, recents, resume and every access check read `visibleMenus`, which never holds it.
+  const registryOrder = new Map(registry.menus.map((menu, index) => [menu.id, index]));
   const hasHierarchy = !collapsed && grouped.some(({ items }) => items.some(menu => menu.navTree && canOpen(menu.id)));
   const sectionName = currentSection === null ? null : tx(currentSection.group.label);
   const favoriteMenus = favorites.map(id => visibleMenus.find(m => m.id === id)).filter((m): m is MenuEntry => !!m);
@@ -50,11 +53,13 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       </div>
       <SidebarScope collapsed={collapsed} onExpand={onToggle} />
       <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
-        <CountsBoundary key={`counts:${slotSpaceId}`} spaceId={slotSpaceId} menu={slotMenu ?? null}>{counts => <nav id="platform-nav" aria-label={m('primaryNav')}>
+        <UndeclaredBoundary>{undeclared => <CountsBoundary key={`counts:${slotSpaceId}`} spaceId={slotSpaceId} menu={slotMenu ?? null}>{counts => <nav id="platform-nav" aria-label={m('primaryNav')}>
           {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
             {!collapsed && systems === null && !(group.hideLabelWhenSingle && items.length === 1) && <p className={cn(SIDEBAR_GROUP_TITLE, index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
             {collapsed && index > 0 && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
-            <ul className="space-y-0.5">{items.map(menu => {
+            <ul className="space-y-0.5">{withUndeclared(items, group.id, undeclared, registry.menus, registryOrder).map(entry => {
+              if ('undeclaredPermission' in entry) return <li key={entry.menu.id}><UndeclaredNavRow menu={entry.menu} permission={entry.undeclaredPermission} collapsed={collapsed} /></li>;
+              const menu = entry;
               const views = !collapsed && menu.navViews?.length ? menu.navViews : null;
               const currentView = views !== null && route?.menu.id === menu.id ? currentNavView(views, page) : null;
               return <li key={menu.id}>
@@ -64,7 +69,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
             })}</ul>
             {items.filter(menu => menu.navTree && canOpen(menu.id)).map(menu => <SidebarHierarchy key={menu.id} menu={menu} collapsed={collapsed} />)}
           </div>)}
-        </nav>}</CountsBoundary>
+        </nav>}</CountsBoundary>}</UndeclaredBoundary>
         {!collapsed && slotSpaceId !== null && <ShellBoundary key={`section:${slotSpaceId}`}><SpaceNavSectionSlot spaceId={slotSpaceId} menu={slotMenu ?? null} /></ShellBoundary>}
         {/* Expanded only (prototype C). An empty list keeps its guidance (07 §3 empty state). */}
         {!collapsed && <section aria-label={t('favorites')}>
@@ -79,6 +84,51 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       {!collapsed && slots.sidebarNotice != null && <div data-sidebar-notice className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted"><ShellBoundary fallback={null}>{slots.sidebarNotice}</ShellBoundary></div>}
     </aside>
   </TooltipProvider>;
+}
+
+const NO_UNDECLARED: readonly UndeclaredMenu[] = [];
+type UndeclaredRender = (list: readonly UndeclaredMenu[]) => ReactNode;
+const NoUndeclared = ({ children }: { children: UndeclaredRender }) => <>{children(NO_UNDECLARED)}</>;
+/** The app's operator-only list wraps the menu list once (`undeclaredMenus.Read`); when it throws, the same list renders without those rows (#1876 shape). */
+function UndeclaredBoundary({ children }: { children: UndeclaredRender }) {
+  return <ShellBoundary fallback={<NoUndeclared>{children}</NoUndeclared>}><UndeclaredHostSlot>{children}</UndeclaredHostSlot></ShellBoundary>;
+}
+function UndeclaredHostSlot({ children }: { children: UndeclaredRender }) {
+  const { slots } = useHostPlatform();
+  const Host: ComponentType<{ children: UndeclaredRender }> = slots.undeclaredMenus?.Read ?? NoUndeclared;
+  return <Host>{children}</Host>;
+}
+
+type UndeclaredEntry = { menu: MenuEntry; undeclaredPermission: string };
+/** The group's visible rows plus its undeclared ones in Registry order; a listed menu the actor can actually see stays a normal row, and a detail screen (`navHidden`) never gets a row. */
+function withUndeclared(items: readonly MenuEntry[], groupId: string, undeclared: readonly UndeclaredMenu[], menus: readonly MenuEntry[], order: ReadonlyMap<string, number>): (MenuEntry | UndeclaredEntry)[] {
+  if (undeclared.length === 0) return [...items];
+  const shown = new Set(items.map(menu => menu.id));
+  const extra: UndeclaredEntry[] = [];
+  for (const { menuId, permission } of undeclared) {
+    const menu = menus.find(m => m.id === menuId);
+    if (menu !== undefined && menu.group === groupId && !menu.navHidden && !shown.has(menu.id)) extra.push({ menu, undeclaredPermission: permission });
+  }
+  if (extra.length === 0) return [...items];
+  const rank = (entry: MenuEntry | UndeclaredEntry) => order.get('undeclaredPermission' in entry ? entry.menu.id : entry.id) ?? 0;
+  return [...items, ...extra].sort((a, b) => rank(a) - rank(b));
+}
+
+/**
+ * A menu hidden by an undeclared permission, shown to the operator in place (06 §7, #1846): the same row frame as `NavItem`, not navigable
+ * (`aria-disabled`, no href), reachable by keyboard so focus shows the reason and the permission key. No hover or selected surface.
+ * Collapsed, the icon alone carries the state in `text-text-disabled`; expanded the label stays `text-text-muted` (no opacity) with the note beside it.
+ */
+function UndeclaredNavRow({ menu, permission, collapsed }: { menu: MenuEntry; permission: string; collapsed: boolean }) {
+  const { tx, t } = useI18n();
+  const Icon = menu.icon;
+  const label = tx(menu.label);
+  const name = t('undeclaredMenuNamed', { label, permission });
+  const row = <div role="link" aria-disabled="true" tabIndex={0} aria-label={name} data-undeclared-menu={menu.id} className={cn(navRowVariants({ collapsed, inert: true }), 'cursor-default break-keep')}>
+    <Icon className={cn('size-4 shrink-0', collapsed && 'text-text-disabled')} aria-hidden />
+    {!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span><span aria-hidden className="shrink-0 t-badge text-text-muted">{t('undeclaredMenu')}</span></>}
+  </div>;
+  return <Tooltip><TooltipTrigger asChild>{row}</TooltipTrigger><TooltipContent side="right">{name}</TooltipContent></Tooltip>;
 }
 
 const NoCounts = ({ children }: { children: (counts: null) => ReactNode }) => <>{children(null)}</>;

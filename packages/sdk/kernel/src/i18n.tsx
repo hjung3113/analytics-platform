@@ -200,6 +200,8 @@ const dict = {
   paletteHint: { ko: '메뉴 이동 전용', en: 'Menu navigation only.' },
   goTo: { ko: '이동', en: 'Go to' },
   planned: { ko: '예정', en: 'Planned' },
+  undeclaredMenu: { ko: '권한 미선언', en: 'Permission not declared' },
+  undeclaredMenuNamed: { ko: '{label} · 권한 미선언 ({permission})', en: '{label} · permission not declared ({permission})' },
   switcherTitle: { ko: '시스템 및 플랫폼 메뉴', en: 'Systems and platform menu' },
   switcherCurrent: { ko: '시스템 및 플랫폼 메뉴 · 현재: {space}', en: 'Systems and platform menu · current: {space}' },
   platformMenu: { ko: '플랫폼 메뉴', en: 'Platform menu' },
