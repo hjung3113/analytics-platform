@@ -118,3 +118,19 @@ describe('분석 보드에 열기… with the board mounted (893b, issue §4.3)'
     expect(JSON.parse(localStorage.getItem(`platform:board:v2:${userId}`)!).sheets.map((s: { name: string }) => s.name)).toEqual(['renamed', '시트 2']);
   });
 });
+
+describe('BoardSurface against a stale copy (#2019)', () => {
+  it('adding a sheet after another tab saved without its storage event keeps the other tab\'s sheet', async () => {
+    const userId = testSession(['platform:view']).user.id;
+    const key = `platform:board:v2:${userId}`;
+    render(provide(<BoardSurface sheetId="" onSheetChange={() => {}} arrivalKey="x" Outlet={Outlet} />));
+    await settle();
+    const theirs = addSheet(JSON.parse(localStorage.getItem(key) ?? JSON.stringify(freshBoard('시트'))), '시트');
+    localStorage.setItem(key, JSON.stringify(theirs));
+    fireEvent.click(screen.getByRole('button', { name: '시트 추가' }));
+    await settle();
+    const stored = JSON.parse(localStorage.getItem(key)!) as { sheets: { id: string }[] };
+    expect(stored.sheets).toHaveLength(3);
+    expect(stored.sheets.map(s => s.id)).toContain(theirs.sheets[1].id);
+  });
+});

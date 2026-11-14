@@ -15,7 +15,8 @@ const corruptBackupKey = (userId: string, version: 'v1' | 'v2') => `platform:boa
 
 /** `newer`: the stored board was saved by a newer build, so this session never writes it. `corrupt`: a stored value could not be read and was kept aside. */
 export type StorageNotice = 'newer' | 'corrupt';
-export type LoadedBoard = { board: Board; notice: StorageNotice | null; readOnly: boolean };
+/** `unavailable`: storage could not be read, so `board` is the fresh fallback and says nothing about what is stored. */
+export type LoadedBoard = { board: Board; notice: StorageNotice | null; readOnly: boolean; unavailable?: boolean };
 
 /** The two `Storage` methods the board needs. */
 export type KeyValueStore = Pick<Storage, 'getItem' | 'setItem'>;
@@ -59,7 +60,7 @@ export function loadBoard(storage: KeyValueStore, userId: string, prefix: string
       quarantine(storage, corruptBackupKey(userId, 'v1'), rawV1);
       notice = 'corrupt';
     }
-  } catch { /* storage unavailable: start fresh below */ }
+  } catch { return { board: freshBoard(prefix), notice, readOnly: false, unavailable: true }; /* storage unavailable: start fresh */ }
   return { board: freshBoard(prefix), notice, readOnly: false };
 }
 

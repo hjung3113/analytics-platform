@@ -184,6 +184,24 @@ describe('the board session store (docs/16 §7)', () => {
       expect(result.current.board).toBe(before);
     });
 
+    describe('storage reads that throw (C4)', () => {
+      const breakReads = () => { vi.spyOn(localStorage, 'getItem').mockImplementation(() => { throw new Error('blocked'); }); };
+      it.each([['a matching event', V2('u1')], ['a clear event (key null)', null]])('keeps the live board when a reload cannot read storage: %s', (_name, key) => {
+        const { result } = renderHook(() => useBoardSession('u1', '시트'));
+        act(() => { result.current.update(board => renameSheet(board, board.sheets[0].id, 'mine')); });
+        const before = result.current.board;
+        breakReads();
+        act(() => { window.dispatchEvent(new StorageEvent('storage', { key })); });
+        expect(result.current.board).toBe(before);
+        expect(result.current.board.sheets[0].name).toBe('mine');
+      });
+      it('a new session with unreadable storage still starts from a fresh board', () => {
+        breakReads();
+        const { result } = renderHook(() => useBoardSession('u1', '시트'));
+        expect(result.current.board.sheets).toHaveLength(1);
+      });
+    });
+
     it('adds one listener per live user and removes it after the last subscriber leaves (StrictMode included)', () => {
       const add = vi.spyOn(window, 'addEventListener');
       const remove = vi.spyOn(window, 'removeEventListener');

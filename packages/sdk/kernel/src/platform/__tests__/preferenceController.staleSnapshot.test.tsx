@@ -22,10 +22,17 @@ function server() {
   let values: Record<string, JsonValue> = { favorites: ['x'] };
   let reads = 0;
   let hold: ReturnType<typeof gated<void>> | null = null;
+  let readHold: ReturnType<typeof gated<void>> | null = null;
+  let failReads = false;
   const session = testSession(['platform:view'], { user: { id: 'user-a', name: 'a', title: { ko: 'a', en: 'a' } } });
   const adapter: PlatformAdapter = testAdapter({
     session: () => session,
-    readPreferences: async () => { reads++; return ok(values); },
+    readPreferences: async () => {
+      reads++;
+      if (readHold) await readHold.promise;
+      if (failReads) throw new Error('offline');
+      return ok(values);
+    },
     patchPreferences: async patch => {
       if (hold) await hold.promise;
       values = { ...values, ...(patch.set ?? {}) };
@@ -39,6 +46,9 @@ function server() {
     /** Another tab of the same account writes the server directly. */
     otherTab: (favorites: string[]) => { values = { ...values, favorites }; },
     holdPatches: () => { hold = gated<void>(); return hold; },
+    /** Reads after this call wait until released (a slow GET). */
+    holdReads: () => { readHold = gated<void>(); return readHold; },
+    failReads: () => { failReads = true; },
   };
 }
 
@@ -102,5 +112,68 @@ describe('preference lists after another tab changed them (#2033)', () => {
     act(() => { screen.getByText('fav-z').click(); });
     expect(JSON.parse(localStorage.getItem(key)!)).toEqual(['x', 'y', 'z']);
     expect(screen.getByTestId('favs').textContent).toBe('x,y,z');
+  });
+
+  it('a favorite pressed while the visibility GET is in flight applies on what the GET brings (C3)', async () => {
+    const s = server();
+    mount(s.adapter);
+    await waitFor(() => expect(screen.getByTestId('favs').textContent).toBe('x'));
+    s.otherTab(['x', 'y']);
+    const gate = s.holdReads();
+    const before = s.reads();
+    await becomeVisible();
+    expect(s.reads()).toBe(before + 1);
+    act(() => { screen.getByText('fav-z').click(); });
+    expect(screen.getByTestId('favs').textContent).toBe('x,z');
+    await act(async () => { gate.release(); await new Promise(resolve => setTimeout(resolve, 0)); });
+    await waitFor(() => expect(s.favorites()).toEqual(['x', 'y', 'z']));
+    await waitFor(() => expect(screen.getByTestId('favs').textContent).toBe('x,y,z'));
+  });
+
+  it('a failed visibility GET still drains the queued favorite against the last known list, without a failure state (C3)', async () => {
+    const s = server();
+    mount(s.adapter);
+    await waitFor(() => expect(screen.getByTestId('favs').textContent).toBe('x'));
+    const gate = s.holdReads();
+    s.failReads();
+    await becomeVisible();
+    act(() => { screen.getByText('fav-z').click(); });
+    await act(async () => { gate.release(); await new Promise(resolve => setTimeout(resolve, 0)); });
+    await waitFor(() => expect(s.favorites()).toEqual(['x', 'z']));
+  });
+});
+
+describe('browser-storage lists when the write fails (C2)', () => {
+  const key = 'platform:favorites:user-a';
+  const quota = () => vi.spyOn(localStorage, 'setItem').mockImplementation(() => { throw new DOMException('full', 'QuotaExceededError'); });
+
+  it('keeps the earlier favorite in memory when the next toggle follows a failed write', () => {
+    localStorage.setItem(key, JSON.stringify(['x']));
+    mount(server().adapter, false);
+    quota();
+    act(() => { screen.getByText('fav-z').click(); });
+    expect(screen.getByTestId('favs').textContent).toBe('x,z');
+    act(() => { screen.getByText('fav-w').click(); });
+    expect(screen.getByTestId('favs').textContent).toBe('x,z,w');
+  });
+
+  it('two favorite actions before a render both apply', () => {
+    localStorage.setItem(key, JSON.stringify(['x']));
+    mount(server().adapter, false);
+    quota();
+    act(() => { screen.getByText('fav-z').click(); screen.getByText('fav-w').click(); });
+    expect(screen.getByTestId('favs').textContent).toBe('x,z,w');
+  });
+
+  it('replays the retained edits on the stored list once a write can succeed again', () => {
+    localStorage.setItem(key, JSON.stringify(['x']));
+    mount(server().adapter, false);
+    const failing = quota();
+    act(() => { screen.getByText('fav-z').click(); });
+    failing.mockRestore();
+    localStorage.setItem(key, JSON.stringify(['x', 'y']));
+    act(() => { screen.getByText('fav-w').click(); });
+    expect(JSON.parse(localStorage.getItem(key)!)).toEqual(['x', 'y', 'z', 'w']);
+    expect(screen.getByTestId('favs').textContent).toBe('x,y,z,w');
   });
 });

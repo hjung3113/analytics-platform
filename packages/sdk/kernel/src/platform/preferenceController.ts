@@ -346,7 +346,8 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
   };
   const poke = () => {
     if (!started || !sessionMatches()) return;
-    if (status === 'ready') drainQueued();
+    // A visibility refresh in flight holds relative edits: they apply on the value it brings, then drain (`refresh`).
+    if (status === 'ready') { if (!refreshing) drainQueued(); }
     else if (status === 'failed' && failure !== 'import_too_large') retryNow();
   };
 
@@ -384,10 +385,13 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
     let snapshot: PreferencesSnapshot | null = null;
     try { snapshot = okSnapshot(await adapter.readPreferences(own.signal)); } catch { snapshot = null; } finally { if (refreshing === own) refreshing = null; }
     // A newer server answer (a patch confirmed meanwhile) or a write still on its way outranks this read; a local edit made meanwhile is still shown over it by `effective`.
-    if (!snapshot || own.signal.aborted || !current(gen) || lane.clock !== clock || lane.writes > 0) return;
-    server = snapshot.values;
-    serverStamp = ++lane.clock;
-    emit();
+    // Edits queued while the read was in flight apply on the folded value, or on the last known one when the read failed or was outranked; the health never changes here.
+    if (snapshot && !own.signal.aborted && current(gen) && lane.clock === clock && lane.writes === 0) {
+      server = snapshot.values;
+      serverStamp = ++lane.clock;
+      emit();
+    }
+    if (!own.signal.aborted && current(gen) && status === 'ready') drainQueued();
   };
 
   const notifyQueued = () => {

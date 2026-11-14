@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import type { Board } from './boardModel';
-import { boardStorageKey, browserStorage, loadBoard, readStoredRaw, saveBoard, type StorageNotice } from './boardStore';
+import { boardStorageKey, browserStorage, loadBoard, readStoredRaw, saveBoard, type KeyValueStore, type StorageNotice } from './boardStore';
 
 /**
  * The board session store (docs/16 §7): one module-level store of the signed-in users' boards, the only path that reads or writes the stored
@@ -18,9 +18,16 @@ const subscribers = new Map<string, Set<() => void>>();
 const storageListeners = new Map<string, (event: StorageEvent) => void>();
 
 /** Reads the stored text before the board, so a write in between shows as a difference at the next save rather than being missed. */
-const load = (userId: string, prefix: string, enter?: (board: Board) => Board): Omit<Session, 'unsaved'> => {
+const read = (userId: string, prefix: string, enter?: (board: Board) => Board): Omit<Session, 'unsaved'> & { unavailable: boolean } => {
   const raw = readStoredRaw(browserStorage, userId);
-  return { ...loadBoard(browserStorage, userId, prefix, enter), raw };
+  // The one read serves both the decoding and the baseline: a second read that fails cannot pass for an empty document.
+  const once: KeyValueStore = raw === undefined ? browserStorage : { getItem: key => (key === boardStorageKey(userId) ? raw : browserStorage.getItem(key)), setItem: browserStorage.setItem };
+  const { board, notice, readOnly, unavailable } = loadBoard(once, userId, prefix, enter);
+  return { board, notice, readOnly, raw, unavailable: raw === undefined || unavailable === true };
+};
+const load = (userId: string, prefix: string, enter?: (board: Board) => Board): Omit<Session, 'unsaved'> => {
+  const { unavailable: _unavailable, ...session } = read(userId, prefix, enter);
+  return session;
 };
 const open = (userId: string, prefix: string): Session => {
   let session = sessions.get(userId);
@@ -35,7 +42,9 @@ const storedChanged = (userId: string, session: Session) => {
 };
 /** The live session with the stored document taken in: selected panes and the active sheet stay as on screen (`keepingLive`). */
 const merged = (userId: string, prefix: string, live: Session): Session => {
-  const stored = load(userId, prefix, board => board);
+  const { unavailable, ...stored } = read(userId, prefix, board => board);
+  // Storage cannot be read now: the live board is the newest this tab has, so it stays (only a NEW session falls back to a fresh board).
+  if (unavailable) return live;
   return { ...stored, board: stored.readOnly ? stored.board : keepingLive(stored.board, live.board), unsaved: false };
 };
 const listenToStorage = (userId: string, prefix: string) => {
@@ -140,9 +149,9 @@ export function reloadBoardSession(userId: string, prefix: string): void {
   const live = sessions.get(userId);
   if (!live) return;
   if (live.unsaved || live.readOnly) { dropIfAlone(userId); return; }
-  sessions.set(userId, merged(userId, prefix, live));
+  const next = merged(userId, prefix, live);
+  if (next !== live) { sessions.set(userId, next); emit(userId); }
   dropIfAlone(userId);
-  emit(userId);
 }
 
 export function resetBoardSessionsForTests(): void {

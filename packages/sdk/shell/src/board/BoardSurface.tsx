@@ -170,19 +170,19 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     if (droppedPaneCount(sheet, target) > 0) setConfirmLayout(target); else applyLayout(target);
   };
   const deleteSheet = (id: string) => {
-    const result = removeSheet(board, id, text.sheetPrefix);
-    if (!result) return;
-    const { removed } = result;
-    update(() => result.board);
+    // Every writer below derives its change from the board the store hands in (the freshest stored one, #2019) and keeps what it needs from inside that call.
+    const made: { result: ReturnType<typeof removeSheet> } = { result: null };
+    update(b => { made.result = removeSheet(b, id, text.sheetPrefix); return made.result?.board ?? b; });
+    if (!made.result) return;
+    const { removed } = made.result;
     raiseUndo(text.sheetDeleted(removed.sheet.name), () => {
       if (undo(b => restoreSheet(b, removed)) && removed.wasActive) onSheetChange(removed.sheet.id, { replace: true });
     });
   };
   const addNewSheet = () => {
-    const next = addSheet(board, text.sheetPrefix);
-    if (next === board) return;
-    update(() => next);
-    onSheetChange(next.activeSheetId);
+    const made: { activeId: string | null } = { activeId: null };
+    update(b => { const next = addSheet(b, text.sheetPrefix); if (next !== b) made.activeId = next.activeSheetId; return next; });
+    if (made.activeId !== null) onSheetChange(made.activeId);
   };
   /** Runs `edits` on this sheet (or `onSheet`) and raises an undo that restores them only while every edited pane still holds what they left. */
   const editPanes = (edits: PaneEdit[], message: string, onSheet = sheetId) => {
@@ -213,10 +213,18 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     if (!from || (to === -1 && !canGrow) || !canMountPaneScreen(registry, canOpen, from)) return;
     if (to !== -1) { editPanes([{ index: to, paneId: sheet.panes[to].id, before: null, after: { ...from, params: { ...from.params } }, fresh: true }], text.duplicated(index + 1, to + 1)); return; }
     // No empty pane: the dock renderer makes a new one for the copy, and the undo takes it away again.
-    const grown = addPane(board, sheetId, false);
-    const slotId = grown.sheets.find(s => s.id === sheetId)!.panes[sheet.panes.length].id;
-    const edit: PaneEdit = { index: sheet.panes.length, paneId: slotId, before: null, after: { ...from, params: { ...from.params } }, fresh: true };
-    update(() => applyPaneEdits(grown, sheetId, [edit]));
+    const made: { edit: PaneEdit | null } = { edit: null };
+    update(b => {
+      const grown = addPane(b, sheetId, false);
+      const panes = grown === b ? undefined : grown.sheets.find(s => s.id === sheetId)?.panes;
+      const slot = panes?.at(-1);
+      if (!panes || !slot) return b;
+      made.edit = { index: panes.length - 1, paneId: slot.id, before: null, after: { ...from, params: { ...from.params } }, fresh: true };
+      return applyPaneEdits(grown, sheetId, [made.edit]);
+    });
+    const edit = made.edit;
+    if (!edit) return;
+    const slotId = edit.paneId;
     raiseUndo(text.duplicated(index + 1, edit.index + 1), () => {
       undo(b => {
         const reverted = revertPaneEdits(b, sheetId, [edit]);
@@ -304,11 +312,14 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const [newPane, setNewPane] = useState<{ id: string; dock: string } | null>(null);
   const addDockPane = () => {
     // The new pane's id is made here, so the dock can be told which tab to focus.
-    const grown = addPane(board, sheetId);
-    const added = grown === board ? undefined : grown.sheets.find(s => s.id === sheetId)?.panes.at(-1);
+    const made: { id: string | null } = { id: null };
+    update(b => {
+      const grown = addPane(b, sheetId);
+      made.id = grown === b ? null : grown.sheets.find(s => s.id === sheetId)?.panes.at(-1)?.id ?? null;
+      return grown;
+    });
     if (dockMaximized !== null) maximizeDock(null);
-    update(() => grown);
-    if (added) setNewPane({ id: added.id, dock: dockKey });
+    if (made.id !== null) setNewPane({ id: made.id, dock: dockKey });
   };
   /**
    * The `+` after a group's last tab (docs/16 §4): the picker comes first and cancelling changes nothing. The whole target (user, sheet, anchor pane,
@@ -335,15 +346,18 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     if (sheet.panes.length >= MAX_TABS) { setGroupAdd(null); notify(text.groupAddLimit); return; }
     const screen = { menuId: menu.id, params: {}, query: defaultQuery(registry, readRecent()) };
     if (!canMountPaneScreen(registry, canOpen, screen)) { setGroupAdd({ ...target, notice: text.groupAddUnavailable }); return; }
-    const grown = addPaneInGroup(board, sheetId, target.anchorId, screen);
-    const added = grown === board ? undefined : grown.sheets.find(s => s.id === sheetId)?.panes.at(-1);
-    if (!added) { setGroupAdd(null); notify(text.groupAddGone); return; }
+    const made: { id: string | null } = { id: null };
+    update(b => {
+      const grown = addPaneInGroup(b, sheetId, target.anchorId, screen);
+      made.id = grown === b ? null : grown.sheets.find(s => s.id === sheetId)?.panes.at(-1)?.id ?? null;
+      return grown;
+    });
+    if (made.id === null) { setGroupAdd(null); notify(text.groupAddGone); return; }
     // A maximized group stays maximized with the new tab, active in it, on screen (docs/16 §4); the dock focuses its tab.
-    if (dockMaximized !== null) setPresentation({ identity: owner, maximized: null, dockMaximized: holder.panes.includes(dockMaximized) ? added.id : null });
+    if (dockMaximized !== null) setPresentation({ identity: owner, maximized: null, dockMaximized: holder.panes.includes(dockMaximized) ? made.id : null });
     groupAdded.current = true;
     setGroupAdd(null);
-    update(() => grown);
-    setNewPane({ id: added.id, dock: dockKey });
+    setNewPane({ id: made.id, dock: dockKey });
   };
   /** A picker closed without adding: focus goes back to the `+` it came from (rebuilt since, then the one of the group holding the anchor), else the heading. */
   const returnToGroupAdd = () => {
