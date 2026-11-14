@@ -1,7 +1,7 @@
 import { createContext, useContext, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { Clock, Inbox, Loader2, RotateCw, ServerCrash } from 'lucide-react';
+import { Ban, Clock, Inbox, Loader2, RotateCw, ServerCrash } from 'lucide-react';
 import type { ApiResponse } from '@ap/contracts';
-import { useI18n, type QueryState } from '@ap/kernel';
+import { errorGuidance, useI18n, type QueryState } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { emptyCauses, emptyOutcomeText } from '../state/emptyCause';
 
@@ -11,7 +11,7 @@ type PendingMember = { response: Widget['response']; refreshing: boolean; done: 
 const EMPTY: Group[] = [];
 
 function groupingKey(response: ApiResponse<unknown> | null): string | null {
-  if (!response || !['error', 'timeout', 'empty'].includes(response.outcome)) return null;
+  if (!response || !['error', 'timeout', 'empty', 'forbidden'].includes(response.outcome)) return null;
   const explanations = response.assessments.filter(a => a.explainsEmpty && a.state === 'confirmed')
     .map(a => JSON.stringify([a.kind, a.state, a.statusSource, a.observedAt, a.reason, a.explainsEmpty, a.detail])).sort();
   return JSON.stringify([response.outcome, response.message, explanations]);
@@ -115,26 +115,32 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
   }, [detailsId]);
   const outcome = group.widgets[0].response!.outcome;
   const danger = outcome === 'error' || outcome === 'timeout';
-  const title = outcome === 'error' ? t('stateError') : outcome === 'timeout' ? t('stateTimeout') : emptyOutcomeText(emptyCauses(group.widgets[0].response!), t).title;
-  const label = outcome === 'error' ? t('sharedOutcomeError') : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
-  const Icon = outcome === 'error' ? ServerCrash : outcome === 'timeout' ? Clock : Inbox;
-  const summary = t('sharedOutcomeSummary', { count: group.widgets.length, outcome: label });
-  const retry = <Button type="button" size="sm" variant="secondary" aria-busy={group.busy} aria-disabled={group.busy} onClick={onRetry}>
+  const warning = outcome === 'forbidden';
+  const title = warning ? t('stateForbidden') : outcome === 'error' ? t('stateError') : outcome === 'timeout' ? t('stateTimeout') : emptyOutcomeText(emptyCauses(group.widgets[0].response!), t).title;
+  const label = warning ? t('stateForbidden') : outcome === 'error' ? t('sharedOutcomeError') : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
+  const Icon = warning ? Ban : outcome === 'error' ? ServerCrash : outcome === 'timeout' ? Clock : Inbox;
+  const summary = t('sharedOutcomeSummary', { count: group.widgets.length });
+  const response = group.widgets[0].response!;
+  const guide = errorGuidance(response.message);
+  const body = warning ? t('stateForbiddenBody') : outcome === 'timeout' ? t('stateTimeoutBody')
+    : outcome === 'error' ? <>{t(guide.cause)} {t(guide.action)}</> : emptyOutcomeText(emptyCauses(response), t).body;
+  const retry = warning ? null : <Button type="button" size="sm" variant="secondary" aria-busy={group.busy} aria-disabled={group.busy} onClick={onRetry}>
     {group.busy ? <Loader2 aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <RotateCw aria-hidden className="size-3.5" />}{t('retry')}
   </Button>;
   if (compact) {
     return <section ref={banner} data-outcome-banner data-outcome-compact role="group" aria-label={t('sharedOutcomeRegion')}
-      className={cn('mb-3 flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs text-text-secondary', danger ? 'border-text-danger-label bg-accent-danger-soft' : 'border-border-control bg-surface-sunken')}>
-      <Icon aria-hidden className={cn('size-4 shrink-0', danger ? 'text-text-danger-label' : 'text-text-secondary')} />
-      <span className={cn('shrink-0 whitespace-nowrap font-semibold', danger ? 'text-text-danger-label' : 'text-text-secondary')}>{label} ·</span>
+      className={cn('mb-3 flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs text-text-secondary', danger ? 'border-text-danger-label bg-accent-danger-soft' : warning ? 'border-border-control bg-accent-warn-soft text-text-warning-label' : 'border-border-control bg-surface-sunken')}>
+      <Icon aria-hidden className={cn('size-4 shrink-0', danger ? 'text-text-danger-label' : warning ? 'text-text-warning-label' : 'text-text-secondary')} />
+      <span className={cn('shrink-0 whitespace-nowrap font-semibold', danger ? 'text-text-danger-label' : warning ? 'text-text-warning-label' : 'text-text-secondary')}>{label} ·</span>
       <p className="min-w-0 flex-1 truncate" title={summary}>{summary}</p>
       <Popover>
         <PopoverTrigger asChild><Button type="button" size="toolbar" variant="ghost" className="shrink-0">{t('outcomeDetails')}</Button></PopoverTrigger>
         <PopoverContent data-outcome-details={detailsId} aria-labelledby={titleId} align="end" padding="compact" className="max-w-sm"
           onCloseAutoFocus={event => { if (unmounting.current) event.preventDefault(); }}>
           <div className="text-xs text-text-secondary">
-            <p id={titleId} className={cn('mb-1 text-sm font-semibold', danger ? 'text-text-danger-label' : 'text-text-secondary')}>{title}</p>
+            <p id={titleId} className={cn('mb-1 text-sm font-semibold', danger ? 'text-text-danger-label' : warning ? 'text-text-warning-label' : 'text-text-secondary')}>{title}</p>
             <p>{summary}</p>
+            <div className="mt-1">{body}</div>
           </div>
         </PopoverContent>
       </Popover>
@@ -142,13 +148,27 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
     </section>;
   }
   return <section ref={banner} data-outcome-banner role="group" aria-label={t('sharedOutcomeRegion')}
-    className={cn('mb-3 rounded-md border p-3 text-xs text-text-secondary', danger ? 'border-text-danger-label bg-accent-danger-soft' : 'border-border-control bg-surface-sunken')}>
-    <div className={cn('mb-1.5 flex items-center gap-2 text-sm font-semibold', danger ? 'text-text-danger-label' : 'text-text-secondary')}><Icon aria-hidden className="size-4 shrink-0" />{title}</div>
+    className={cn('mb-3 rounded-md border p-3 text-xs text-text-secondary', danger ? 'border-text-danger-label bg-accent-danger-soft' : warning ? 'border-border-control bg-accent-warn-soft text-text-warning-label' : 'border-border-control bg-surface-sunken')}>
+    <div className={cn('mb-1.5 flex items-center gap-2 text-sm font-semibold', danger ? 'text-text-danger-label' : warning ? 'text-text-warning-label' : 'text-text-secondary')}><Icon aria-hidden className="size-4 shrink-0" />{title}</div>
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="min-w-0 flex-[1_1_18rem]">{summary}</p>
+      <div className="min-w-0 flex-[1_1_18rem]"><p>{summary}</p><div className="mt-1">{body}</div></div>
       {retry}
     </div>
   </section>;
+}
+
+/** Package-internal: the access-request entry also carries grouped forbidden outcomes, without another live region. */
+export function ForbiddenRequestMessage({ body, action }: { body: ReactNode; action: ReactNode }) {
+  const store = useContext(OutcomeContext);
+  const groups = useSyncExternalStore(store?.subscribe ?? subscribeNone, store?.getSnapshot ?? emptySnapshot, emptySnapshot);
+  const count = groups.filter(group => group.widgets[0].response!.outcome === 'forbidden').reduce((total, group) => total + group.widgets.length, 0);
+  const { t } = useI18n();
+  return <div role={count ? 'group' : 'status'} aria-label={count ? t('sharedOutcomeRegion') : undefined} className="flex min-h-24 flex-col items-start gap-2 rounded-md bg-accent-warn-soft p-4 text-text-warning-label">
+    <div className="flex items-center gap-2 text-sm font-semibold"><Ban aria-hidden className="size-4 text-text-warning" />{t('stateForbidden')}</div>
+    {count > 0 && <p className="text-xs">{t('sharedOutcomeSummary', { count })}</p>}
+    <div className="max-w-prose break-keep text-xs leading-4">{body}</div>
+    <div className="flex flex-wrap items-center gap-3">{action}</div>
+  </div>;
 }
 
 /** `forbidden`: the page's request banner, drawn once above the groups while at least one widget of the body answers `forbidden`. */
@@ -157,16 +177,14 @@ export function OutcomeBanners({ compact = false, forbidden }: { compact?: boole
   const groups = useSyncExternalStore(store?.subscribe ?? subscribeNone, store?.getSnapshot ?? emptySnapshot, emptySnapshot);
   const anyForbidden = useSyncExternalStore(store?.subscribe ?? subscribeNone, store?.getForbidden ?? noForbidden, noForbidden);
   const { t } = useI18n();
-  const announcement = (danger: boolean) => groups.filter(group => (group.widgets[0].response!.outcome !== 'empty') === danger).map(group => {
-    const outcome = group.widgets[0].response!.outcome;
-    const label = outcome === 'error' ? t('sharedOutcomeError') : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
-    return <span key={group.key} className="block">{t('sharedOutcomeSummary', { count: group.widgets.length, outcome: label })}{group.busy ? ` ${t('refreshing')}` : ''}</span>;
+  const announcement = (danger: boolean) => groups.filter(group => ['error', 'timeout'].includes(group.widgets[0].response!.outcome) === danger).map(group => {
+    return <span key={group.key} className="block">{t('sharedOutcomeSummary', { count: group.widgets.length })}{group.busy ? ` ${t('refreshing')}` : ''}</span>;
   });
   // Empty from the first commit; visible banners/groups are never additional live channels.
   return <>
     <div data-outcome-announcer="assertive" aria-live="assertive" aria-atomic="true" className="sr-only">{announcement(true)}</div>
     <div data-outcome-announcer="polite" aria-live="polite" aria-atomic="true" className="sr-only">{announcement(false)}</div>
     {anyForbidden && forbidden}
-    {groups.map(group => <OutcomeBanner key={group.key} group={group} compact={compact} onRetry={() => store?.retry(group.key)} />)}
+    {groups.filter(group => !forbidden || group.widgets[0].response!.outcome !== 'forbidden').map(group => <OutcomeBanner key={group.key} group={group} compact={compact} onRetry={() => store?.retry(group.key)} />)}
   </>;
 }

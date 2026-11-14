@@ -3,9 +3,9 @@ import { carriesReturnTo, formatInstant } from '@ap/contracts';
 import { formatQuerySummary, summaryPreset } from '../filters/querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from '../filters/QueryBarExtension';
 import { QueryBarStatusContext, useQueryBarStatus, type QueryBarStatus } from '../filters/QueryBarStatus';
-import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
+import { ForbiddenRequestMessage, OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
-import { Ban, ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
+import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useConditionPreset, useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
@@ -284,11 +284,11 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
               body={t('stateForbiddenBody')} />;
   }
   // Place (e): one request banner for the page body when a widget answers `forbidden` on a partially granted Scope (ADR-0154 decision 6).
-  // A fully granted Scope keeps today's per-widget rendering: its `forbidden` is a capability matter, not a Scope target.
+  // A fully granted Scope has no request entry: forbidden grouping still applies to capability failures.
   const scopeOption = scope.scopeId === null ? undefined : session.scopes.find(option => option.id === scope.scopeId);
   const forbiddenRequest = accessRequest && menu.requiresScope && scope.status === 'valid' && scope.scopeId !== null && scopeOption !== undefined && scopeOption.grantedRooms < scopeOption.totalRooms
     ? <AccessRequestEntry slot={accessRequest} target={scopeRequestTarget(scope.scopeId, global.roomNames, scope.grantedRooms)}>{(state, action) => <div data-access-request-banner className="mb-3">
-        <StateMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={t('stateForbidden')} body={t(state.pending ? 'accessRequestPendingBody' : 'accessRequestBody')} action={action} />
+        <ForbiddenRequestMessage body={t(state.pending ? 'accessRequestPendingBody' : 'accessRequestBody')} action={action} />
       </div>}</AccessRequestEntry>
     : null;
 

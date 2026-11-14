@@ -31,6 +31,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 (#1994) | components | **기본 동작 변경** — 같은 응답의 위젯은 이름·한 줄 안내·개별 재시도만 표시하고 본문·조언은 배너에서 한 번 안내한다. 추적 번호·서버 원문은 접힌 기술 정보로 옮긴다. forbidden도 묶으며 재시도는 없다. 권한 요청 배너가 있으면 forbidden 그룹 배너를 대신한다. 추가: i18n `dict.sharedOutcomeNotice`(스냅샷 `kernel.root`). | 공개 prop 변경 없음. 반복 상태 본문을 검사하던 시험은 배너와 위젯의 한 줄 안내를 검사한다 |
 | 다음 릴리스 (#1995) | components, shell | 차트 구간 안내 간소화, 조회 조건 필드 안 전체로 되돌리기, 사이드바 보조 문구 삭제, 없는 화면 제목 분리. `ui` MultiCombobox에 선택적 `clearAction` 추가(기본 꺼짐) | 기존 소비자는 변경 없음. QueryBar의 전체 조건 표시는 `전체` |
 | 다음 릴리스 (#2108) | kernel | 추가(기본 동작 불변): `useSessionDraft(key, initial, { ready?, isEqual? })` — 같은 사용자 세션 재마운트 뒤 미저장 입력을 메모리에서 복원. 사용자 교체·일반 언마운트·`discard()` 시 폐기 | 선택 사용. 항목 접근 재조회 성공 뒤 `ready: true`, 저장 성공 뒤 `discard()` 호출 |
 | 다음 릴리스 (#1944) | shell | **기본 동작 변경** — 모든 Context 키를 `unsupported`로 선언한 화면(공지·알림·권한 요청·홈 같은)은 전역 값이 있어도 Context 바를 그리지 않는다(이전: 값이 하나라도 있으면 그렸다). 값은 URL과 Kernel에 그대로 남아 지원 화면에서 다시 보인다([kernel §11](../../docs/contract/kernel.md)) | 없음 — 메뉴가 맞출 선언은 없다. 셸 안 `contextBarVisible`은 셸 내부용이라 공개 export가 아니다 |

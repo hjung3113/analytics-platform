@@ -15,15 +15,15 @@ type WidgetStateProps = { grouped?: boolean; widgetName?: string; hideWidgetName
 
 type StateProps = { icon: ReactNode; title: string; body?: ReactNode; action?: ReactNode; tone?: 'neutral' | 'danger' | 'warning'; correlationId?: string; compact?: boolean; detail?: string };
 
-function ServerDetail({ detail }: { detail?: string }) {
+function ServerDetail({ detail, correlationId }: { detail?: string; correlationId?: string }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const panel = useId();
-  if (!detail) return null;
+  if (!detail && !correlationId) return null;
   // The server's own sentence is for support, not the reader: folded until the user opens it (#1940).
   return <span className="max-w-full text-tiny">
     <button type="button" aria-expanded={open} aria-controls={panel} onClick={() => setOpen(value => !value)} className="cursor-pointer underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-focus-ring">{t('technicalInfo')}</button>
-    {open && <span id={panel} className="mt-1 block max-w-full break-all" role="note" aria-label={t('serverDetail')}>{detail}</span>}
+    {open && <span id={panel} className="mt-1 block max-w-full break-all" role="note" aria-label={t('serverDetail')}>{correlationId && <span className="t-mono block">{t('correlationId')}: {correlationId}</span>}{detail}</span>}
   </span>;
 }
 
@@ -42,17 +42,15 @@ export function StateMessage({ icon, title, body, action, tone = 'neutral', corr
   </div>;
 }
 
-function GroupedStateMessage({ icon, title, body, action, tone = 'neutral', correlationId, detail, widgetName, hideWidgetName }: StateProps & WidgetStateProps) {
+function GroupedStateMessage({ action, correlationId, detail, widgetName, hideWidgetName }: StateProps & WidgetStateProps) {
   const { t } = useI18n();
   const nameId = useId();
   return <div data-widget-state role="group" aria-labelledby={widgetName && !hideWidgetName ? nameId : undefined} aria-label={hideWidgetName ? widgetName : undefined} className="min-w-0 rounded-md bg-surface-sunken p-3 text-text-secondary">
     {widgetName && !hideWidgetName && <p id={nameId} className="mb-1.5 text-sm font-semibold">{widgetName}</p>}
-    <div className={cn('flex items-center gap-2 text-xs font-semibold', tone === 'danger' && 'text-text-danger-label', tone === 'warning' && 'text-text-warning-label')}><span className="shrink-0">{icon}</span>{title}</div>
-    {body && <div className="mt-1.5 break-words text-xs leading-4">{body}</div>}
+    <p className="text-xs leading-4">{t('sharedOutcomeNotice')}</p>
     {(action || correlationId || detail) && <div className="mt-2 flex flex-wrap items-center gap-3">
       {action}
-      {correlationId && <span className="t-mono break-all text-tiny">{t('correlationId')}: {correlationId}</span>}
-      <ServerDetail detail={detail} />
+      <ServerDetail detail={detail} correlationId={correlationId} />
     </div>}
   </div>;
 }
@@ -90,7 +88,7 @@ export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, gro
     case 'empty': {
       const empty = emptyOutcomeText(emptyCauses(response), t);
       return <OutcomeStateMessage {...widget} compact={compact} icon={<Inbox className={icon} aria-hidden />} title={empty.title}
-        body={empty.body} action={grouped ? <><Button size="sm" variant="secondary" onClick={onRetry}><RotateCw aria-hidden className="size-3.5" />{t('retry')}</Button>{emptyAction}</> : emptyAction} correlationId={grouped ? response.correlationId : undefined} detail={grouped ? detail : undefined} />;
+        body={empty.body} action={grouped ? <><Button size="sm" variant="secondary" onClick={onRetry}><RotateCw aria-hidden className="size-3.5" />{t('retry')}</Button></> : emptyAction} correlationId={grouped ? response.correlationId : undefined} detail={grouped ? detail : undefined} />;
     }
     case 'forbidden': return <OutcomeStateMessage {...widget} compact={compact} tone="warning" icon={<Ban className={icon} aria-hidden />} title={t('stateForbidden')}
       body={t('stateForbiddenBody')} detail={detail} correlationId={response.correlationId} />;

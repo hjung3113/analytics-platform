@@ -46,7 +46,7 @@ describe('shared outcome contract #55', () => {
     const a = query(); const b = query(); const other = query(response('error', 'Different'));
     render(<StrictMode><Page><Widget q={a} /><Widget q={b} name="Widget B" /><Widget q={other} name="Other" /></Page></StrictMode>);
     const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
-    expect(banner).toHaveTextContent('위젯 2개에서 같은 응답(서버 오류)이 확인되었습니다.');
+    expect(banner).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
     expect(banner).not.toHaveTextContent('corr-widget');
     expect(within(banner).getAllByRole('button')).toHaveLength(1);
     for (const name of ['Widget A', 'Widget B']) {
@@ -68,15 +68,15 @@ describe('shared outcome contract #55', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('위젯 2개');
     const state = screen.getByRole('group', { name: 'Widget A' });
-    expect(state).toHaveTextContent('Confirmed explanation'); expect(state).toHaveTextContent('corr-widget');
+    expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('Confirmed explanation'); expect(openDetail(state)).toHaveTextContent('corr-widget');
     expect(within(state).getByRole('button', { name: '다시 시도' })).toBeVisible();
   });
   it('names the confirmed cause in the title, never the plain "no matching result", also for a finding without detail and in the shared banner (#1886, 06 §19)', () => {
     const noDetail: Assessment[] = [{ kind: 'collection', state: 'confirmed', explainsEmpty: true, statusSource: 'worker', observedAt: '2026-10-04' }];
     const view = render(<Page><Widget q={query(response('empty', '', noDetail))} /><Widget q={query(response('empty', '', noDetail))} name="Widget B" /></Page>);
     const state = screen.getByRole('group', { name: 'Widget A' });
-    expect(state).toHaveTextContent('아직 수집되지 않았습니다');
-    expect(state).toHaveTextContent('원천이 0건의 원인을 확인했습니다: 아직 수집되지 않았습니다.');
+    expect(state).toHaveTextContent('위 안내 참고');
+    expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('원천이 0건의 원인을 확인했습니다: 아직 수집되지 않았습니다.');
     expect(state).not.toHaveTextContent('조건에 맞는 결과가 없습니다');
     expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('아직 수집되지 않았습니다');
     expect(screen.getByRole('group', { name: '위젯 상태 요약' })).not.toHaveTextContent('조건에 맞는 결과가 없습니다');
@@ -90,9 +90,8 @@ describe('shared outcome contract #55', () => {
       { kind: 'processing_delay', state: 'confirmed', explainsEmpty: true, detail: 'Queue waiting', statusSource: 'worker', observedAt: '2026-10-04' },
     ];
     render(<Page><Widget q={query(response('empty', '', mixed))} /><Widget q={query(response('empty', '', mixed))} name="Widget B" /></Page>);
-    const state = screen.getByRole('group', { name: 'Widget A' });
-    expect(state).toHaveTextContent('원천이 0건의 원인을 확인했습니다: 아직 수집되지 않았습니다.');
-    expect(state).toHaveTextContent('Queue waiting');
+    expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('원천이 0건의 원인을 확인했습니다: 아직 수집되지 않았습니다.');
+    expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('Queue waiting');
   });
   it('does not group different messages or explanation evidence', () => {
     const a: Assessment = { kind: 'collection', state: 'confirmed', explainsEmpty: true, detail: 'one', statusSource: 'worker', observedAt: '2026-10-04' };
@@ -102,7 +101,7 @@ describe('shared outcome contract #55', () => {
     expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
     expect(screen.queryByRole('group')).toBeNull();
   });
-  it.each(['forbidden', 'too_large', 'ok', 'unknown'] as const)('never groups %s', outcome => {
+  it.each(['too_large', 'ok', 'unknown'] as const)('never groups %s', outcome => {
     const r = response(outcome as ApiResponse<unknown>['outcome']);
     render(<Page><Widget q={query(r)} /><Widget q={query(r)} /></Page>);
     expect(screen.queryByRole('group')).toBeNull();
@@ -122,10 +121,10 @@ describe('shared outcome contract #55', () => {
     render(<I18nProvider><Widget q={query()} /><Widget q={query()} /></I18nProvider>);
     expect(screen.getAllByRole('alert')).toHaveLength(2); expect(screen.queryByRole('group')).toBeNull();
   });
-  it('shows timeout advice directly and omits duplicate widget headings', () => {
+  it('shows timeout advice in the banner and omits duplicate widget headings', () => {
     render(<Page><h2>Widget A</h2><Widget q={query(response('timeout'))} hide /><Widget q={query(response('timeout'))} name="Widget B" /></Page>);
     expect(screen.getAllByText('Widget A')).toHaveLength(1);
-    expect(screen.getByRole('group', { name: 'Widget A' })).toHaveTextContent('기간을 줄이거나 집계 단위를 키워 다시 시도하세요.');
+    expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('기간을 줄이거나 집계 단위를 키워 다시 시도하세요.');
     expect(openDetail(screen.getByRole('group', { name: 'Widget A' }))).toHaveTextContent('Same response');
     expect(textWithoutDetail(screen.getByRole('group', { name: 'Widget A' }))).not.toContain('Same response');
     expect(screen.queryByRole('alert')).toBeNull();
@@ -218,7 +217,7 @@ describe('Fix round 1 regressions', () => {
     expect(channel).not.toBeNull(); expect(channel).toBeEmptyDOMElement();
     view.rerender(<Page><Widget q={a} /><Widget q={b} name="Widget B" /></Page>);
     expect(view.container.querySelector(`[data-outcome-announcer="${outcome === 'empty' ? 'polite' : 'assertive'}"]`)).toBe(channel);
-    expect(channel).toHaveTextContent('위젯 2개에서 같은 응답');
+    expect(channel).toHaveTextContent('위젯 2개가 같은 이유로');
     const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
     expect(banner).not.toHaveAttribute('aria-live'); expect(banner).not.toHaveAttribute('role', 'alert');
   });
@@ -312,8 +311,9 @@ describe('Fix round 1 boundaries', () => {
     }
     const view = render(<Page><Language /><Widget q={query()} /><Widget q={query()} name="Widget B" /></Page>);
     fireEvent.click(screen.getByRole('button', { name: 'English' }));
-    expect(screen.getByRole('group', { name: 'Widget state summary' })).toHaveTextContent('2 widgets report the same response (server error).');
-    expect(view.container.querySelector('[aria-live="assertive"]')).toHaveTextContent('2 widgets report the same response (server error).');
+    expect(screen.getByRole('group', { name: 'Widget state summary' })).toHaveTextContent('2 widgets could not open for the same reason.');
+    expect(screen.getAllByText('See the notice above')).toHaveLength(2);
+    expect(view.container.querySelector('[aria-live="assertive"]')).toHaveTextContent('2 widgets could not open for the same reason.');
     fireEvent.click(screen.getByRole('button', { name: 'Korean' }));
   });
 });
@@ -370,7 +370,8 @@ describe('server message is detail, not the body (#304)', () => {
       expect(within(state).queryByRole('alert')).toBeNull();
       expect(within(state).queryByRole('status')).toBeNull();
       const body = textWithoutDetail(state);
-      for (const phrase of phrases) expect(body).toContain(phrase);
+      for (const phrase of phrases) { expect(body).not.toContain(phrase); expect(summary).toHaveTextContent(phrase); }
+      expect(body).toContain('위 안내 참고');
       expect(body).not.toContain(message);
       expect(openDetail(state)).toHaveTextContent(message);
       expect(state).toHaveTextContent('corr-widget');
@@ -378,12 +379,13 @@ describe('server message is detail, not the body (#304)', () => {
     }
   });
 
-  it('keeps a confirmed empty explanation in the body and the server message in the detail', () => {
+  it('keeps a confirmed empty explanation in the banner and the server message in the detail', () => {
     const assessments: Assessment[] = [{ kind: 'collection', state: 'confirmed', explainsEmpty: true, detail: 'Confirmed explanation', statusSource: 'worker', observedAt: '2026-10-04' }];
     const message = 'same empty message';
     render(<Page><Widget q={query(response('empty', message, assessments))} /><Widget q={query(response('empty', message, assessments))} name="Widget B" /></Page>);
     const state = screen.getByRole('group', { name: 'Widget A' });
-    expect(textWithoutDetail(state)).toContain('Confirmed explanation');
+    expect(textWithoutDetail(state)).not.toContain('Confirmed explanation');
+    expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('Confirmed explanation');
     expect(textWithoutDetail(state)).not.toContain(message);
     expect(openDetail(state)).toHaveTextContent(message);
   });
@@ -418,8 +420,8 @@ describe('compact outcome strip on fill pages (#680)', () => {
     expect(strips[0]).toHaveAttribute('data-outcome-compact');
     expect(strips[0]).toHaveTextContent('서버 오류 ·');
     expect(strips[0]).not.toHaveTextContent('데이터를 불러오지 못했습니다');
-    const sentence = within(strips[0]).getByText('위젯 2개에서 같은 응답(서버 오류)이 확인되었습니다.');
-    expect(sentence).toHaveAttribute('title', '위젯 2개에서 같은 응답(서버 오류)이 확인되었습니다.');
+    const sentence = within(strips[0]).getByText('위젯 2개가 같은 이유로 열리지 않았습니다.');
+    expect(sentence).toHaveAttribute('title', '위젯 2개가 같은 이유로 열리지 않았습니다.');
     expect(sentence).toHaveClass('truncate');
     expect(strips[0]).toHaveClass('border-text-danger-label');
     expect(strips[1]).toHaveClass('border-border-control');
@@ -434,8 +436,8 @@ describe('compact outcome strip on fill pages (#680)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(within(strip).getByRole('button', { name: '자세히' }));
     expect(within(screen.getByRole('dialog')).getByText('데이터를 불러오지 못했습니다')).toBeVisible();
-    expect(screen.getByRole('dialog')).toHaveTextContent('위젯 2개에서 같은 응답(서버 오류)이 확인되었습니다.');
-    expect(document.querySelector('[data-outcome-announcer="assertive"]')).toHaveTextContent('위젯 2개에서 같은 응답(서버 오류)이 확인되었습니다.');
+    expect(screen.getByRole('dialog')).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
+    expect(document.querySelector('[data-outcome-announcer="assertive"]')).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
   });
 
   it('returns focus to the page target when the strip disappears while focus is inside its open details', () => {
@@ -484,4 +486,62 @@ describe('compact outcome strip on fill pages (#680)', () => {
     expect(banner).toHaveTextContent('데이터를 불러오지 못했습니다');
     expect(within(banner).queryByRole('button', { name: '자세히' })).toBeNull();
   });
+});
+
+describe('say a shared cause once (#1994)', () => {
+  it('keeps only the name, notice line, retry and folded per-widget trace in grouped errors', () => {
+    const a = query({ ...response(), correlationId: 'trace-a' });
+    const b = query({ ...response(), correlationId: 'trace-b' });
+    render(<Page><Widget q={a} /><Widget q={b} name="Widget B" /></Page>);
+    const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
+    expect(banner).toHaveTextContent('서버가 데이터를 보내지 못했습니다.');
+    for (const [name, q, trace] of [['Widget A', a, 'trace-a'], ['Widget B', b, 'trace-b']] as const) {
+      const state = screen.getByRole('group', { name });
+      expect(state).toHaveTextContent('위 안내 참고');
+      expect(state).not.toHaveTextContent('서버가 데이터를 보내지 못했습니다.');
+      expect(state).not.toHaveTextContent(trace);
+      expect(within(state).getByRole('button', { name: '다시 시도' })).toBeVisible();
+      fireEvent.click(within(state).getByRole('button', { name: '다시 시도' }));
+      expect(q.refetch).toHaveBeenCalledTimes(1);
+      expect(openDetail(state)).toHaveTextContent(trace);
+    }
+  });
+  it('groups forbidden widgets, preserves the panel names and offers no retry', () => {
+    const view = render(<Page><Widget q={query(response('forbidden'))} name="Job 처리량 추세" /><Widget q={query(response('forbidden'))} name="점유 구성" /></Page>);
+    expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
+    for (const name of ['Job 처리량 추세', '점유 구성']) {
+      const state = screen.getByRole('group', { name });
+      expect(state).toHaveTextContent(name);
+      expect(state).toHaveTextContent('위 안내 참고');
+      expect(within(state).queryByRole('status')).toBeNull();
+    }
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+    expect(view.container.querySelector('[data-outcome-announcer="polite"]')).toHaveTextContent('위젯 2개');
+  });
+  it('shows timeout advice once in the banner', () => {
+    render(<Page><Widget q={query(response('timeout'))} /><Widget q={query(response('timeout'))} name="Widget B" /></Page>);
+    expect(screen.getAllByText(/기간을 줄이거나 집계 단위를 키워 다시 시도하세요/)).toHaveLength(1);
+    expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('기간을 줄이거나 집계 단위를 키워 다시 시도하세요');
+  });
+  it('keeps the complete body and visible trace for a single failing widget', () => {
+    render(<Page><Widget q={query()} /></Page>);
+    expect(screen.getByRole('alert')).toHaveTextContent('서버가 데이터를 보내지 못했습니다.');
+    expect(screen.getByRole('alert')).toHaveTextContent('corr-widget');
+    expect(screen.queryByText('위 안내 참고')).toBeNull();
+  });
+});
+
+
+it('keeps different forbidden evidence separate (#1994)', () => {
+  render(<Page><Widget q={query(response('forbidden', 'one'))} /><Widget q={query(response('forbidden', 'two'))} name="Widget B" /></Page>);
+  expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
+  expect(screen.getAllByRole('status')).toHaveLength(2);
+});
+
+it('puts timeout advice in the thin strip details, once (#1994)', () => {
+  render(<I18nProvider><OutcomeScope><OutcomeBanners compact /><Widget q={query(response('timeout'))} /><Widget q={query(response('timeout'))} name="Widget B" /></OutcomeScope></I18nProvider>);
+  expect(screen.queryByText(/기간을 줄이거나 집계 단위를 키워 다시 시도하세요/)).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '자세히' }));
+  expect(screen.getByRole('dialog')).toHaveTextContent('기간을 줄이거나 집계 단위를 키워 다시 시도하세요');
+  expect(screen.getAllByText(/기간을 줄이거나 집계 단위를 키워 다시 시도하세요/)).toHaveLength(1);
 });
