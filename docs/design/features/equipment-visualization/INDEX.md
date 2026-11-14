@@ -34,4 +34,4 @@ Decisions are in [`docs/adr/history/eqv/`](../../../adr/history/eqv/README.md) (
 
 Stable identifiers: menu `eqv:topview`, permission `eqv:view`, route `/tools/eqv-topview`.
 
-The history copy `products/eqv/` stays until the owner confirms the archive.
+The imported EV history copy was deleted after the EV archive (#2208; the commits stay in git history); its import record (basis and new hashes) is in [the EV ADR history README](../../../adr/history/eqv/README.md#import-record).

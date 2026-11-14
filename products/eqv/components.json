@@ -1,4 +1,0 @@
-{
-  "tailwind": { "css": "apps/studio/src/studio.css" },
-  "aliases": { "ui": "./packages/ui/src" }
-}
