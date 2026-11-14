@@ -1722,8 +1722,9 @@ describe('HomeScreen route content', () => {
     expect(within(panel).getByText('REQ-902 — 재인증 흐름 개선')).toBeInTheDocument();
     const links = within(panel).getAllByRole('link');
     expect(links).toHaveLength(2);
-    expect(links[0]).toHaveAttribute('href', '/tasks?view=board&param=task-a1');
-    expect(links[1]).toHaveAttribute('href', '/tasks?view=requests&param=req-b2');
+    // Review requests come first (FEA-25), then the assigned Task.
+    expect(links[0]).toHaveAttribute('href', '/tasks?view=requests&param=req-b2');
+    expect(links[1]).toHaveAttribute('href', '/tasks?view=board&param=task-a1');
   });
 
   it('restores the Inbox tab from /home?tab=inbox', async () => {
