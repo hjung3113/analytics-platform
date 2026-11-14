@@ -1,6 +1,8 @@
 import { ArrowDownRight, ArrowUpRight, type LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useContext, type ReactNode } from 'react';
 import { cn } from '@ap/ui';
+import { useInWorkspacePanel } from '../workspace/panelContext';
+import { WorkspaceQueryBarContext } from '../archetypes/WorkspaceQueryBar';
 import { useCompactPageDensity } from '../pageDensity';
 
 export type Delta = { value: string; direction: 'up' | 'down'; /** Whether this direction is good for the metric. */ good: boolean };
@@ -15,11 +17,14 @@ export function StatCard({ icon: Icon, label, value, unit, delta, caption, chip 
 }) {
   const chipClass = { blue: 'bg-icon-blue-soft text-accent-primary', teal: 'bg-icon-teal-soft text-cat-teal', purple: 'bg-icon-teal-soft text-cat-teal', amber: 'bg-icon-blue-soft text-accent-primary' }[chip];
   const compact = useCompactPageDensity();
+  const inPanel = useInWorkspacePanel();
+  const workspace = useContext(WorkspaceQueryBarContext);
+  const paneBorderOnly = inPanel && workspace !== null;
   const Tag = onClick ? 'button' : 'div';
   return <Tag type={onClick ? 'button' : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
-    className={cn('flex min-h-[100px] w-full items-start rounded-lg border bg-surface-card text-left', compact ? 'gap-2 p-3' : 'gap-3 p-4',
+    className={cn('flex min-h-[100px] w-full items-start rounded-lg bg-surface-card text-left', !paneBorderOnly && 'border', compact ? 'gap-2 p-3' : 'gap-3 p-4',
       active ? 'border-accent-primary ring-1 ring-accent-primary' : 'border-border-subtle',
-      onClick && 'transition-colors hover:border-border-strong')}>
+      onClick && (paneBorderOnly ? 'transition-colors hover:bg-surface-row-hover' : 'transition-colors hover:border-border-strong'))}>
     <span className={cn('grid size-10 shrink-0 place-items-center rounded-md', chipClass)}><Icon className="size-6" strokeWidth={1.75} aria-hidden /></span>
     <span className="min-w-0 flex-1">
       <span className="block text-sm font-medium text-text-secondary">{label}</span>

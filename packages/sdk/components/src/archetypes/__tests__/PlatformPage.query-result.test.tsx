@@ -6,12 +6,13 @@ import { PaneScreenProvider } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSpace } from '@ap/kernel/testing';
 import { PlatformPage, type PlatformPageProps } from '../PlatformPage';
 import { useReportQueryBarStatus, type QueryBarStatus } from '../../filters/QueryBarStatus';
+import { WorkspaceQueryBarRow } from '../WorkspaceQueryBar';
 import { groupId, spaceId } from '@ap/contracts';
 
-function view(result: PlatformPageProps['queryResult'], apply = true, pane = false) {
+function view(result: PlatformPageProps['queryResult'], apply = true, pane = false, fill = false) {
   const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, path: '/', label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: false, context: { ...noContext, time: 'apply', roomNames: 'apply' }, ...(apply ? { query: { mode: 'apply' as const } } : {}), features: { export: false, annotate: false, compare: false, savedView: false }, pageType: 'analysis', pageKeys: [] }] });
   window.history.replaceState(null, '', '/?from=2026-01-01T01:00:00&to=2026-01-02T01:00:00&roomNames=PHOTO');
-  const page = <PlatformPage queryResult={result}>body</PlatformPage>;
+  const page = <PlatformPage layout={fill ? 'fill' : 'flow'} queryResult={result}>body</PlatformPage>;
   return <I18nProvider><PlatformProvider registry={registry} adapter={testAdapter()}>{pane ? <PaneScreenProvider paneId="p1" screen={{ menuId: 'home', params: {}, query: '?from=2026-01-01T01:00:00&to=2026-01-02T01:00:00&roomNames=PHOTO' }} onChange={() => {}} onLeave={() => {}}>{page}</PaneScreenProvider> : page}</PlatformProvider></I18nProvider>;
 }
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -63,25 +64,29 @@ it('counts only the collapsed query row in the sticky offset', () => {
 });
 
 // The bar lives in the shell; a reporter in the contextBar slot stands in for it without coupling components tests to the shell (#1170).
-function Reporter({ status }: { status: QueryBarStatus }) { useReportQueryBarStatus(status); return null; }
+function Reporter({ status }: { status: QueryBarStatus }) { useReportQueryBarStatus(status); return <section aria-label="조회 조건"><WorkspaceQueryBarRow /></section>; }
 function withBar(status: QueryBarStatus, result: PlatformPageProps['queryResult']) {
-  const tree = view(result);
+  const tree = view(result, true, false, true);
   const provider = tree.props.children;
   return { ...tree, props: { ...tree.props, children: { ...provider, props: { ...provider.props, slots: { contextBar: <Reporter status={status} /> } } } } };
 }
 const DONE = { status: 'done', completedAt: 1_800_000_000_000 } as const;
 it.each([
-  ['folded, not editing', { folded: true, editing: false, reasonKeys: [] }, false],
-  ['folded, editing', { folded: true, editing: true, reasonKeys: [] }, true],
-  ['expanded, not editing', { folded: false, editing: false, reasonKeys: [] }, true],
-] as const)('strip with the bar %s: applied values shown = %s, completion time always (#1170)', (_name, status, valuesShown) => {
+  ['folded, not editing', { folded: true, editing: false, reasonKeys: [] }],
+  ['folded, editing', { folded: true, editing: true, reasonKeys: [] }],
+] as const)('folded fill workspace %s: completion moves into the query bar (#1941)', (_name, status) => {
   vi.stubGlobal('localStorage', memoryStorage());
   render(withBar(status, DONE));
-  const strip = screen.getByRole('region', { name: '적용된 조회 조건' });
-  expect(strip).toHaveTextContent('요약 조회 완료');
-  if (valuesShown) expect(strip).toHaveTextContent('공정 PHOTO'); else expect(strip).not.toHaveTextContent('공정 PHOTO');
+  expect(screen.queryByRole('region', { name: '적용된 조회 조건' })).toBeNull();
+  expect(screen.getByRole('region', { name: '조회 조건' })).toHaveTextContent('요약 조회 완료');
 });
-it('hides the strip when the folded bar leaves nothing to say (no completion yet) (#1170)', () => {
+it('expanded fill workspace keeps applied values and completion in the strip (#1941)', () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  render(withBar({ folded: false, editing: false, reasonKeys: [] }, DONE));
+  expect(screen.getByRole('region', { name: '적용된 조회 조건' })).toHaveTextContent(/공정 PHOTO.*요약 조회 완료/);
+});
+it('shows in-progress status in the folded workspace before completion (#1941)', () => {
   render(withBar({ folded: true, editing: false, reasonKeys: [] }, { status: 'loading', completedAt: null }));
   expect(screen.queryByRole('region', { name: '적용된 조회 조건' })).toBeNull();
+  expect(screen.getByRole('region', { name: '조회 조건' })).toHaveTextContent('불러오는 중');
 });

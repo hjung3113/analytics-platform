@@ -1,6 +1,7 @@
-import { useId, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useContext, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Search, X } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
+import { PageFilterExpandedContext } from './pageFilterPresentation';
 import { useCollapsePreference } from './useCollapsePreference';
 import { Button, cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
 
@@ -162,8 +163,11 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
   const panelId = `${id}-panel`;
   const summaryId = `${id}-summary`;
   const summaryText = `${summaryItems.map(item => `${item.label} ${item.value}`).join(' · ')}${hasPendingChanges ? ` · ${t('pageFilterPendingChanges')}` : ''}`;
-  const { collapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText, defaultCollapsed);
+  const expandedByParent = useContext(PageFilterExpandedContext);
+  const { collapsed: preferredCollapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText, defaultCollapsed);
+  const collapsed = !expandedByParent && preferredCollapsed;
   const barRef = useRef<HTMLFieldSetElement>(null);
+  const fieldsRef = useRef<HTMLDivElement>(null);
   const clearedFocus = useRef<{ key: string; index: number } | null>(null);
   const clearChip = (chip: PageFilterAppliedChip, button: HTMLButtonElement) => {
     if (document.activeElement === button) {
@@ -178,10 +182,12 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
     if (!cleared || appliedChips?.some(chip => chip.key === cleared.key) || document.activeElement !== document.body) return;
     // A removed clear button must not strand keyboard focus on the document body.
     const buttons = barRef.current?.querySelectorAll<HTMLButtonElement>('[data-page-filter-chip-clear]');
-    (buttons?.[cleared.index] ?? buttons?.[cleared.index - 1] ?? (collapsed ? expandRef.current : collapseRef.current))?.focus();
+    const firstField = expandedByParent ? fieldsRef.current?.querySelector<HTMLElement>('input:not(:disabled), button:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') : null;
+    // In a parent-expanded editor with no focusable field, the fieldset itself takes focus (tabIndex -1).
+    (buttons?.[cleared.index] ?? buttons?.[cleared.index - 1] ?? firstField ?? (expandedByParent ? barRef.current : collapsed ? expandRef.current : collapseRef.current))?.focus();
   });
 
-  return <fieldset ref={barRef} data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
+  return <fieldset ref={barRef} tabIndex={expandedByParent ? -1 : undefined} data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
     <legend className={collapsed ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
     {collapsed && <div className="flex flex-wrap items-center gap-2">
       <Button ref={expandRef} type="button" variant="secondary" size="toolbar" wrapText onClick={() => toggle(false)}
@@ -200,16 +206,16 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
       {collapsedActions != null && <div className="flex flex-wrap items-center gap-2">{collapsedActions}</div>}
     </div>}
     {/* Shell stays mounted with the same id in both states so aria-controls never points at a missing element. */}
-    <div id={panelId} hidden={collapsed} className={collapsed ? undefined : 'flex flex-wrap items-end gap-3'}>
+    <div ref={fieldsRef} id={panelId} hidden={collapsed} className={collapsed ? undefined : 'flex flex-wrap items-end gap-3'}>
       {!collapsed && <>
         {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} id={`${id}-field-${index}`} />)}
         <div className="flex flex-wrap items-end gap-2">
           {actions}
           {hasPendingChanges && <span className="t-caption self-center text-text-secondary">{t('pageFilterPendingApplyHint')}</span>}
-          <Button ref={collapseRef} type="button" variant="ghost" size="toolbar" onClick={() => toggle(true)}
+          {!expandedByParent && <Button ref={collapseRef} type="button" variant="ghost" size="toolbar" onClick={() => toggle(true)}
             aria-expanded="true" aria-controls={panelId} aria-label={t('collapsePageFilter', { label })}>
             <ChevronUp className="size-3.5" aria-hidden />{t('collapseShort')}
-          </Button>
+          </Button>}
         </div>
       </>}
     </div>

@@ -451,7 +451,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
 
   return <WorkspaceDepthProvider value={depth}>
     <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} data-workspace-density={densePage ? 'compact' : undefined} className={cn(rows ? 'flex w-full min-w-0 flex-col' : 'flex h-full min-h-0 w-full min-w-0 flex-col', densePage ? 'gap-1.5' : 'gap-2')}>
-      {!hosted && <WorkspaceToolbar commands={commands} onShown={focusTab} />}
+      {!hosted && <WorkspaceToolbar label={tx(label)} commands={commands} onShown={focusTab} />}
       <div ref={fitSlot} className={rows ? undefined : 'min-h-0 flex-1'}>
         <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
           onLayoutChange={next => { const moved = dropped.current ?? undefined; dropped.current = null; layoutChange(current => ({ ...current, layout: next }), moved); }}

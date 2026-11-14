@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, queryMissingSentence, useI18n, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { AccessRequestEntry, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
+import { AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
 import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, readLocalStorage, writeLocalStorage } from '@ap/ui';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
 import { ShareControl } from './ShareControl';
@@ -220,6 +220,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
       {board && !expanded && <span id={reasonId} className="max-w-56 truncate text-xs text-text-secondary">{reasons.map(r => r.reason).join(' · ')}</span>}
       <ShareControl compact={false} align="start" />
     </div>
+    {!board && !expanded && <WorkspaceQueryBarRow />}
     {!board && expanded && <>{content}<div className={`${inset} pb-2`}>{issues}</div><div className={`${inset} pb-3`}>{actions}</div></>}
     {!board && !expanded && <div className={`${inset} pb-2`}>{issues}</div>}
   </section>{stableView.portal}</>;

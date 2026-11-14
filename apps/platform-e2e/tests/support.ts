@@ -30,12 +30,19 @@ export async function evidence(page: Page, testInfo: TestInfo, name: string) {
 export const mainHeading = (page: Page) => page.getByRole('main').getByRole('heading', { level: 1 });
 export const liveContextBar = (page: Page) => page.getByRole('region', { name: '전역 Context' });
 export const queryBar = (page: Page) => page.getByRole('region', { name: '조회 조건', exact: true });
+// The result moves into the folded workspace query bar; expanded/other pages keep the strip.
+export const queryResultSurface = (page: Page) => page.locator('[data-workspace-query-row], [role="region"][aria-label="적용된 조회 조건"]');
 export const contextBar = (page: Page) => liveContextBar(page).or(queryBar(page));
 
-/** Opens the page head of a `fill` page (collapsed by default, #680); a no-op when it is already open. */
+/** Opens the inline page editor. Expand a folded workspace query bar first (#1941). */
 export async function expandPageHead(page: Page) {
+  const queryExpand = queryBar(page).getByRole('button', { name: '조회 조건 펼치기' });
+  const row = page.locator('[data-workspace-query-row]');
   const expand = page.getByRole('button', { name: '페이지 머리 펼치기' });
   const collapse = page.getByRole('button', { name: '페이지 머리 접기' });
+  // The folded row registers after the first render (#1941 C2); wait for one of the two layouts before choosing.
+  await expect(row.or(expand).or(collapse).first()).toBeVisible();
+  if (await row.count()) await queryExpand.click();
   await expect(expand.or(collapse)).toBeVisible();
   if (await expand.isVisible()) await expand.click();
   await expect(collapse).toBeVisible();

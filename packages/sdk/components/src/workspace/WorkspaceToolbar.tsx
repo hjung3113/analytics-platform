@@ -1,9 +1,12 @@
-import { useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useContext, useId, useRef } from 'react';
 import { MoreHorizontal, TriangleAlert } from 'lucide-react';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 import type { WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { SegmentedRadio } from '../RadioGroup';
+import { WorkspaceQueryBarContext, workspaceQueryText } from '../archetypes/WorkspaceQueryBar';
+import { useInWorkspacePanel } from './panelContext';
 import { workspaceText } from './text';
 
 export const SHOW_PREFIX = 'show:';
@@ -21,8 +24,10 @@ function HiddenItemLabel({ command }: { command: WorkspaceCommand }) {
  * The workspace's one toolbar row: the presets, the hidden panels to reopen, `기본 배치` and, at the end, `⋯` with the height mode. It draws the same commands a host would
  * (`WorkspaceCommandsHost`), so the two surfaces cannot differ.
  */
-export function WorkspaceToolbar({ commands, onShown }: { commands: readonly WorkspaceCommand[]; /** A hidden panel was shown from the list: focus goes to its tab once the menu has closed. */ onShown: (panelId: string) => void }) {
+export function WorkspaceToolbar({ commands, onShown, label }: { label: string; commands: readonly WorkspaceCommand[]; /** A hidden panel was shown from the list: focus goes to its tab once the menu has closed. */ onShown: (panelId: string) => void }) {
   const { tx } = useI18n();
+  const workspace = useContext(WorkspaceQueryBarContext);
+  const inPanel = useInWorkspacePanel();
   const presets = commands.filter(command => command.kind === 'radio' && command.group !== 'mode');
   const modes = commands.filter(command => command.kind === 'radio' && command.group === 'mode');
   const hidden = commands.filter(command => command.id.startsWith(SHOW_PREFIX));
@@ -40,7 +45,7 @@ export function WorkspaceToolbar({ commands, onShown }: { commands: readonly Wor
   // A hidden panel with a warning badge: the button shows the mark and says so in its description (its name stays `숨긴 패널 n`).
   const warned = hidden.filter(command => command.warning);
   const warnedId = useId();
-  return <div role="toolbar" aria-label={tx(workspaceText.layout)} data-workspace-toolbar className="flex flex-wrap items-center gap-2">
+  const toolbar = <div role="toolbar" aria-label={tx(workspaceText.layout)} data-workspace-toolbar className="flex flex-wrap items-center gap-2">
     {presets.length > 1 && <span className="inline-flex" title={compactOff ? reason : undefined}>
       <SegmentedRadio label={tx(workspaceText.layout)} value={current} disabled={compactOff} describedBy={compactOff ? reasonId : undefined} onChange={next => { presets.find(command => command.id === next)?.run(); }}
         options={presets.map(command => ({ value: command.id, label: command.label }))} />
@@ -78,4 +83,7 @@ export function WorkspaceToolbar({ commands, onShown }: { commands: readonly Wor
       </DropdownMenuContent>
     </DropdownMenu>}
   </div>;
+  return workspace?.toolbarTarget && !inPanel
+    ? createPortal(<div role="group" aria-label={label} className="flex items-center gap-2 break-keep"><span className="text-xs text-text-secondary">{tx(workspaceQueryText.screenLayout)}</span>{toolbar}</div>, workspace.toolbarTarget)
+    : toolbar;
 }
