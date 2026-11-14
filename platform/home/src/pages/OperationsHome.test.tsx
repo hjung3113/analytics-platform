@@ -154,15 +154,15 @@ describe('platform home launcher', () => {
     expect(todo.compareDocumentPosition(recentNullSlot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('collapses recent visits when there are no recent visits but assignments exist (#1998)', async () => {
+  it('keeps the recent-visits empty message beside assignments so the first row has no blank half (#1998)', async () => {
     mount(BOTH, '/?v=1&scopeId=MEM', { homeTodo: { Todo: () => <section aria-label="내 담당 개선 아이템">내 담당 3건</section> } });
     await settled();
     const todo = screen.getByRole('region', { name: '내 담당 개선 아이템' });
-    const favorites = screen.getByRole('heading', { name: '즐겨찾기' }).closest('section')!;
+    const recent = screen.getByRole('heading', { name: '최근 방문' }).closest('section')!;
     const firstRow = todo.parentElement!.parentElement!;
-    expect(screen.queryByRole('heading', { name: '최근 방문' })).toBeNull();
-    expect(firstRow.classList.contains('@xl:grid-cols-2')).toBe(false);
-    expect(todo.compareDocumentPosition(favorites) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(recent).getByText('최근 방문한 화면이 없습니다.')).toBeTruthy();
+    expect(firstRow.classList.contains('@xl:grid-cols-2')).toBe(true);
+    expect(firstRow.contains(recent)).toBe(true);
   });
 
   it('keeps the recent-visits empty message across the row when both slots are empty (#1998)', async () => {

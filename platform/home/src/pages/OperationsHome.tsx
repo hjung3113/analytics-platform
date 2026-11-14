@@ -87,7 +87,9 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, sp
   }, [homeTodo]);
 
   const showTodo = !!homeTodo && hasTodoContent;
-  const showRecent = !showTodo || recentRows.length > 0;
+  // 최근 방문 always shows (its empty message when there are none): the assignment card is width-capped by its owner, so dropping
+  // this panel would leave the rest of the first row blank.
+  const showRecent = true;
   const twoFirstRowColumns = showTodo && showRecent;
 
   const compactEntry = (space: typeof accessibleSpaces[number]) => {
@@ -104,7 +106,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, sp
         {srSubtitle && <span className="sr-only">{srSubtitle}</span>}
         <span aria-hidden className="text-text-muted">·</span>
         <span className="min-w-0 truncate text-xs text-text-secondary">{description}</span>
-        {resumeMenu && <span className="sr-only">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
+        {resumeMenu && <span className="shrink-0 text-xs text-text-secondary">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
       </PlatformLink>
     </li>;
   };
