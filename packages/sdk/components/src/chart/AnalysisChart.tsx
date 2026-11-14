@@ -74,6 +74,12 @@ export type TopNBarSpec = {
   topN?: number; expanded?: boolean; defaultExpanded?: boolean;
   onExpandedChange?: (next: boolean) => void; hideWhenEmpty?: boolean;
   onItemClick?: (id: string) => void;
+  /**
+   * The item the page currently shows (for example the one an address names). Present → the chart starts with that bar selected and
+   * selects it again whenever this value or the global Context changes; `null` clears the selection. Clicks still change the selection
+   * locally in between. An item outside the drawn top N is named in the selection summary as outside it. Absent → selection is local only.
+   */
+  selectedId?: string | null;
 };
 export type ChartSpec = HeatmapSpec | DonutSpec | ScatterSpec | BoxPlotSpec | ParetoSpec | TopNBarSpec;
 export type AnalysisChartProps = {
@@ -108,7 +114,12 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const titleId = useId(); const summaryId = useId();
   const [table, setTable] = useState(false);
   const chart = useRef<ECharts | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
+  // A top-N bar may follow the page's current item (`selectedId`); otherwise selection is local only.
+  const followed = p.spec.kind === 'topNBar' && p.spec.selectedId !== undefined ? p.spec.selectedId : undefined;
+  const followedSelection = followed == null ? [] : [JSON.stringify(['topNBar', followed])];
+  const [selected, setSelected] = useState<string[]>(followedSelection);
+  const [previousFollowed, setPreviousFollowed] = useState(followed);
+  if (previousFollowed !== followed) { setPreviousFollowed(followed); setSelected(followedSelection); }
   const brushedKeys = useRef<string[]>([]);
   const [brushMode, setBrushMode] = useState(false);
   const [instanceReady, setInstanceReady] = useState(0);
@@ -124,7 +135,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const contextKey = JSON.stringify(global);
   const [previousContext, setPreviousContext] = useState(contextKey);
   const active = useMemo(() => previousContext === contextKey ? selected.filter(key => keys.includes(key)) : [], [previousContext, contextKey, selected, keys]);
-  if (previousContext !== contextKey) { setPreviousContext(contextKey); setSelected([]); }
+  if (previousContext !== contextKey) { setPreviousContext(contextKey); setSelected(followedSelection); }
   else if (active.length !== selected.length) setSelected(active);
   useEffect(() => { brushedKeys.current = []; if (brushable) clearBrush(chart.current); }, [contextKey, brushable]);
   useEffect(() => { brushedKeys.current = []; setBrushMode(false); }, [spec.kind]);
@@ -198,6 +209,10 @@ export function AnalysisChart(p: AnalysisChartProps) {
   if ((spec.kind === 'scatter' || spec.kind === 'pareto') && active.length > 3) {
     const labels = selectedRows.slice(0, 3).map(row => row.label).join(', ');
     selectionSummary = m('chartSelectionOverflow', { count: active.length, labels, more: active.length - 3 });
+  }
+  if (spec.kind === 'topNBar' && followed != null && !active.length && !keys.includes(followedSelection[0])) {
+    const item = spec.items.find(candidate => candidate.id === followed);
+    if (item) selectionSummary = m('chartSelectionOutsideTopN', { label: item.label, count: rows.length });
   }
   if (spec.kind === 'heatmap' && active.length > 3) {
     const range = (labels: string[], axis: 'x' | 'y') => {

@@ -59,7 +59,7 @@ function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeDat
       { id: 'ranking', title: tx({ ko: '설비별 동작시간', en: 'Operation time by equipment' }), node: <AnalysisChart chartId="clas-operation-ranking"
         title={tx({ ko: '설비별 동작시간', en: 'Operation time by equipment' })} description={period}
         metricVersion="synthetic v1" unit={tx({ ko: '분', en: 'min' })} size="hero" height={360} trust={trust}
-        spec={{ kind: 'topNBar', topN: 10, defaultExpanded: true, onItemClick: id => setPage({ eqp: id }),
+        spec={{ kind: 'topNBar', topN: 10, defaultExpanded: true, onItemClick: id => setPage({ eqp: id }), selectedId: data.equipmentId,
           items: data.ranking.map(row => ({ id: row.equipmentId, label: row.equipmentId, value: row.minutes, colorToken: roomColor(row.room) })),
           legend: rooms.map(room => ({ label: room, colorToken: roomColor(room) })) }} /> },
     ]}

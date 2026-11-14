@@ -121,3 +121,23 @@ it('gives an explicit AnalysisChart height precedence over the TopN row height',
   </PlatformProvider></I18nProvider>);
   await screen.findByRole('img'); expect(plot.height).toBe(444);
 });
+it('follows a page-chosen selectedId: starts selected, reselects on change and Context change, names an item outside the top N (#2187)', async () => {
+  const summary = () => screen.getByRole('region', { name: '선택 요약' }).textContent;
+  const view = mount({ kind: 'topNBar', items, expanded: true, selectedId: '7' });
+  await screen.findByRole('img');
+  expect(summary()).toContain('Item 7 · 1개 선택');
+  expect(plot.option.series).toBeDefined();
+  view.update({ kind: 'topNBar', items, expanded: true, selectedId: '9' });
+  expect(summary()).toContain('Item 9 · 1개 선택');
+  fireEvent.click(screen.getByRole('button', { name: 'context' }));
+  expect(summary()).toContain('Item 9 · 1개 선택');
+  view.update({ kind: 'topNBar', items, expanded: true, selectedId: '3' });
+  expect(summary()).toContain('Item 3 · 상위 8개 밖');
+  view.update({ kind: 'topNBar', items, expanded: true, selectedId: null });
+  expect(summary()).toContain('선택 없음');
+});
+it('keeps selection local when selectedId is absent', async () => {
+  mount({ kind: 'topNBar', items, expanded: true });
+  await screen.findByRole('img');
+  expect(screen.getByRole('region', { name: '선택 요약' }).textContent).toContain('선택 없음');
+});

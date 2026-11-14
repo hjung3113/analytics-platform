@@ -57,6 +57,8 @@ test.describe('다른 화면에서 열기 (06 §22, #1930)', () => {
     await page.getByRole('group', { name: `${id} 다른 화면에서 열기`, exact: true }).getByRole('button', { name: 'CLAS', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/clas/operation-time\\?.*eqp=${encodeURIComponent(id)}`));
     await expect(mainHeading(page)).toBeFocused();
+    // The destination shows the object it was opened for: the ranking's selection names it (#2187).
+    await expect(page.getByRole('region', { name: '설비별 동작시간', exact: true }).getByRole('region', { name: '선택 요약', exact: true })).toContainText(id);
     await (await headerMore(page)).getByRole('link', { name: '← 생산성 개요', exact: true }).click();
     await expect(page).toHaveURL(/\/mars\/productivity-overview\?/);
   });
