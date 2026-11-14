@@ -377,7 +377,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
     {!workspaceQueryRowReady && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
       {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
-      {completionShown && <span>{lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult!.completedAt!, lang)}</span>}
+      {completionShown && <span>{queryResult!.failed ? t('stateError') : lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult!.completedAt!, lang)}</span>}
     </section>}
     {headVisible && (layout === 'fill'
       ? <PageContextHead key={menu.id} menuId={menu.id} notes={notes} extension={contextExtension}

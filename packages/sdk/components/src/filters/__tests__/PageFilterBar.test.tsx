@@ -358,6 +358,22 @@ describe('PageFilterBar collapsible', () => {
     expect(trigger).toHaveFocus();
   });
 
+  it('moves focus to the editor itself when a parent-expanded bar has no focusable field (#1941 C3)', async () => {
+    function EmptyHarness() {
+      const [chip, setChip] = useState(true);
+      return <PageFilterExpandedContext.Provider value>
+        <PageFilterBar {...collapsibleProps} fields={[]} actions={undefined} appliedChips={chip ? [
+          { key: 'bucket', label: '버킷', value: '선택', onClear: () => setChip(false), clearLabel: '버킷 필터 해제' },
+        ] : []} />
+      </PageFilterExpandedContext.Provider>;
+    }
+    const user = userEvent.setup();
+    render(<I18nProvider><EmptyHarness /></I18nProvider>);
+    screen.getByRole('button', { name: '버킷 필터 해제' }).focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByTestId('page-filter-bar')).toHaveFocus();
+  });
+
   it.each([false, true])('tabs through the bar before the clear buttons, skipping fixed chips (collapsed=%s)', async collapsed => {
     if (collapsed) storage.set('platform:page-filter-collapsed:cycle-time', 'true');
     const user = userEvent.setup();

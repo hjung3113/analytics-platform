@@ -183,10 +183,11 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
     // A removed clear button must not strand keyboard focus on the document body.
     const buttons = barRef.current?.querySelectorAll<HTMLButtonElement>('[data-page-filter-chip-clear]');
     const firstField = expandedByParent ? fieldsRef.current?.querySelector<HTMLElement>('input:not(:disabled), button:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') : null;
-    (buttons?.[cleared.index] ?? buttons?.[cleared.index - 1] ?? firstField ?? (collapsed ? expandRef.current : collapseRef.current))?.focus();
+    // In a parent-expanded editor with no focusable field, the fieldset itself takes focus (tabIndex -1).
+    (buttons?.[cleared.index] ?? buttons?.[cleared.index - 1] ?? firstField ?? (expandedByParent ? barRef.current : collapsed ? expandRef.current : collapseRef.current))?.focus();
   });
 
-  return <fieldset ref={barRef} data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
+  return <fieldset ref={barRef} tabIndex={expandedByParent ? -1 : undefined} data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
     <legend className={collapsed ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
     {collapsed && <div className="flex flex-wrap items-center gap-2">
       <Button ref={expandRef} type="button" variant="secondary" size="toolbar" wrapText onClick={() => toggle(false)}

@@ -34,9 +34,9 @@ function Workspace({ name }: { name: string }) {
     { id: 'focus', label: { ko: '집중', en: 'Focus' }, layout: { type: 'group', panels: ['chart'] } },
   ]} />;
 }
-function view(row: boolean) {
+function view(row: boolean, failed = false) {
   return <I18nProvider><PlatformProvider registry={registry} adapter={adapter} slots={{ contextBar: <Bar row={row} /> }}>
-    <PlatformPage layout="fill" queryResult={{ status: 'done', completedAt: 1_800_000_000_000 }} contextExtension={<button>parameter field</button>}><Workspace name="작업 영역" /></PlatformPage>
+    <PlatformPage layout="fill" queryResult={{ status: 'done', completedAt: 1_800_000_000_000, failed }} contextExtension={<button>parameter field</button>}><Workspace name="작업 영역" /></PlatformPage>
   </PlatformProvider></I18nProvider>;
 }
 it('keeps the old status, head and toolbar until a replacement row registers, and restores them when it leaves (#1941 C2)', () => {
@@ -82,4 +82,11 @@ it.each(['첫 작업 영역', '둘째 작업 영역'])('keeps sibling toolbar na
   expect(within(survivor).getByRole('radio', { name: '기본' })).toHaveAttribute('aria-checked', 'true');
   await user.click(within(survivor).getByRole('radio', { name: '집중' }));
   expect(within(survivor).getByRole('radio', { name: '집중' })).toHaveAttribute('aria-checked', 'true');
+});
+
+it('the restored fallback reports a failed query as a failure, never as completed (#1941 C5)', () => {
+  render(view(false, true));
+  const strip = screen.getByRole('region', { name: '적용된 조회 조건' });
+  expect(strip).toHaveTextContent('데이터를 불러오지 못했습니다');
+  expect(strip).not.toHaveTextContent('요약 조회 완료');
 });
