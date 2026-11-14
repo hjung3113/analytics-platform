@@ -37,9 +37,12 @@ export const contextBar = (page: Page) => liveContextBar(page).or(queryBar(page)
 /** Opens the inline page editor. Expand a folded workspace query bar first (#1941). */
 export async function expandPageHead(page: Page) {
   const queryExpand = queryBar(page).getByRole('button', { name: '조회 조건 펼치기' });
-  if (await page.locator('[data-workspace-query-row]').count()) await queryExpand.click();
+  const row = page.locator('[data-workspace-query-row]');
   const expand = page.getByRole('button', { name: '페이지 머리 펼치기' });
   const collapse = page.getByRole('button', { name: '페이지 머리 접기' });
+  // The folded row registers after the first render (#1941 C2); wait for one of the two layouts before choosing.
+  await expect(row.or(expand).or(collapse).first()).toBeVisible();
+  if (await row.count()) await queryExpand.click();
   await expect(expand.or(collapse)).toBeVisible();
   if (await expand.isVisible()) await expand.click();
   await expect(collapse).toBeVisible();
