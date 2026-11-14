@@ -169,6 +169,7 @@ export const SHELL_MESSAGES = {
   toastToneWarning: { ko: '경고', en: 'Warning' },
   toastToneDanger: { ko: '오류', en: 'Error' },
   dismissToast: { ko: '닫기', en: 'Dismiss' },
+  toastRegion: { ko: '알림', en: 'Notifications' },
   primaryNav: { ko: '주 메뉴', en: 'Primary' },
   featuresLabel: { ko: '기능', en: 'Features' },
   documentTitleBoard: { ko: '분석 보드', en: 'Analysis board' },

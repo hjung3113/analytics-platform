@@ -129,6 +129,15 @@ describe('shell toasts belong to one session generation (#2075)', () => {
     expect(items()).toEqual([]);
   });
 
+  it('the toast stack is a named region (#2214)', () => {
+    const { adapter } = sessionAdapter(testSession(['platform:view']));
+    render(tree(adapter));
+    raise();
+    const stack = document.querySelector('[data-toast-stack]');
+    expect(stack?.getAttribute('role')).toBe('region');
+    expect(stack?.getAttribute('aria-label')).toBe('알림');
+  });
+
   it('keeps the toasts across a re-render and an endpoint refresh of the same session', () => {
     const { adapter } = sessionAdapter(testSession(['platform:view']));
     const { rerender } = render(tree(adapter));

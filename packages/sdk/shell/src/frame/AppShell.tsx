@@ -147,6 +147,7 @@ function Toasts({ bottom }: { bottom: ToastBottom }) {
   const [polite, setPolite] = useState<{ id: number; said: string }[]>([]);
   const [assertive, setAssertive] = useState<{ id: number; said: string }[]>([]);
   const { lang } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const langRef = useRef(lang);
   langRef.current = lang;
   // The sr-only copies are this session generation's too (#2075): a new generation empties both regions in the same render the Kernel drops
@@ -173,7 +174,7 @@ function Toasts({ bottom }: { bottom: ToastBottom }) {
   const said = (item: { id: number; said: string }) => <p key={item.id}>{item.said}</p>;
   // Toasts sit above the command palette scrim (z-60) so their dismiss stays clickable (#310), and above the board's dock sashes (z-99, #886).
   // The board keeps its 41px sheet strip at the column bottom: the stack sits above it (06 Toast, bottom bars).
-  return <div data-toast-stack className={cn('pointer-events-none absolute inset-x-4 z-[100] mx-auto max-w-[420px]', bottom)}>
+  return <div data-toast-stack role="region" aria-label={m('toastRegion')} className={cn('pointer-events-none absolute inset-x-4 z-[100] mx-auto max-w-[420px]', bottom)}>
     <div className="flex flex-col gap-2">
       {toasts.map(tst => <ToastItem key={tst.id} toast={tst} />)}
     </div>
