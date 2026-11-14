@@ -713,7 +713,7 @@ describe.skipIf(!runIntegration)('log lifecycle Gate decision (#1446 e)', () => 
     it('keeps unresolved legacy ownership admin-only and refuses approval even for Admin', async () => {
       const round = await makeRound();
       await seedAttempt(round.roundId, 'pass');
-      // Reproduce a pre-0132 row without inventing an owner from the current project.
+      // Reproduce a pre-0133 row without inventing an owner from the current project.
       const client = await migrate.pool.connect();
       try {
         await client.query('begin');

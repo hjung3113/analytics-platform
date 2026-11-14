@@ -1087,6 +1087,6 @@ Derived, rebuildable tables of `knowledge` for the log knowledge search (design 
 - The drain checks its deadline after every batch, including full batches. A batch already in progress may finish after the deadline; the job then yields with any remaining backlog pending.
 
 
-## 0132 — Immutable Round owner (#2111)
+## 0133 — Immutable Round owner (#2111)
 
 Adds nullable `owner_model_id` / `owner_software_id` UUIDs to `log_lifecycle.validation_round` (plain UUIDs across the knowledge boundary). The insert trigger records the project's model/SW under a row lock; the owner guard refuses changing either column even for the migration role. Existing app SELECT/INSERT and column-limited UPDATE privileges are sufficient; no GRANT is added. Existing Rounds retain null owner columns because their historical SW cannot be proven from the stored pin/event order. Null model is the unresolved marker, distinct from a resolved model with null SW. Access, legacy visibility and Gate policy: [log-lifecycle.md](../../../docs/architecture/platform-api/api/log-lifecycle.md#immutable-round-ownership-2111).
