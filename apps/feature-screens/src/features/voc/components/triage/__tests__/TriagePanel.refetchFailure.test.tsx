@@ -52,7 +52,7 @@ const ORIGINAL_UPDATED_AT = '2026-05-01T00:00:00.000Z';
 const REFETCHED_UPDATED_AT = '2026-05-03T00:00:00.000Z';
 
 const MOCK_VOC: VocListItem = {
-  id: 'voc-rev4-clusterY',
+  id: '00000000-0000-4000-8000-000000000011',
   display_id: 'VOC-REV4-CY',
   title: 'REV-4 cluster Y refetch-failure',
   reporter_facing_status: 'received',

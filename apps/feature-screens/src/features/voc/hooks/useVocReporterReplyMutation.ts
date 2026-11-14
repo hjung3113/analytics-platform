@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // useVocReporterReplyMutation — submit POST /vocs/:id/reporter-replies
 //
 // C5.3 (slice3 #21)
@@ -69,7 +70,7 @@ export function useVocReporterReplyMutation(
 
   return useMutation<ReporterReplySuccess, ApiError, ReporterReplyVars>({
     mutationFn: async ({ vocId, ifMatch, body }) => {
-      const res = await apiClient<ReporterReplySuccess>('POST', `/vocs/${vocId}/reporter-replies`, {
+      const res = await apiClient<ReporterReplySuccess>('POST', apiPath`/vocs/${vocId}/reporter-replies`, {
         body,
         ifMatch,
         // Idempotency-Key is auto-minted by apiClient for POST/PATCH/DELETE

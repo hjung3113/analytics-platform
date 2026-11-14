@@ -57,11 +57,11 @@ function RouteCounterScreen(props: React.ComponentProps<typeof VocTriageScreen>)
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 // Stable reference to the first VOC so non-null assertions are avoided throughout.
-const FIRST_VOC_ID = 'voc-int-0001';
+const FIRST_VOC_ID = '00000000-0000-4000-8000-000000000001';
 
 const MOCK_VOCS: VocListItem[] = [
   {
-    id: 'voc-int-0001',
+    id: '00000000-0000-4000-8000-000000000001',
     display_id: 'VOC-I-001',
     title: '통합 테스트 VOC 1',
     reporter_facing_status: 'received',
@@ -80,7 +80,7 @@ const MOCK_VOCS: VocListItem[] = [
     attachment_count: 0,
   },
   {
-    id: 'voc-int-0002',
+    id: '00000000-0000-4000-8000-000000000002',
     display_id: 'VOC-I-002',
     title: '통합 테스트 VOC 2',
     reporter_facing_status: 'received',
@@ -99,7 +99,7 @@ const MOCK_VOCS: VocListItem[] = [
     attachment_count: 0,
   },
   {
-    id: 'voc-int-0003',
+    id: '00000000-0000-4000-8000-000000000003',
     display_id: 'VOC-I-003',
     title: '통합 테스트 VOC 3',
     reporter_facing_status: 'progress',
@@ -118,7 +118,7 @@ const MOCK_VOCS: VocListItem[] = [
     attachment_count: 0,
   },
   {
-    id: 'voc-int-0004',
+    id: '00000000-0000-4000-8000-000000000004',
     display_id: 'VOC-I-004',
     title: '통합 테스트 VOC 4',
     reporter_facing_status: 'received',
@@ -137,7 +137,7 @@ const MOCK_VOCS: VocListItem[] = [
     attachment_count: 0,
   },
   {
-    id: 'voc-int-0005',
+    id: '00000000-0000-4000-8000-000000000005',
     display_id: 'VOC-I-005',
     title: '통합 테스트 VOC 5',
     reporter_facing_status: 'received',
@@ -312,7 +312,7 @@ const UNDO_PRIOR = {
 };
 
 const UNDO_TARGET: VocListItem = {
-  id: 'voc-undo-target',
+  id: '00000000-0000-4000-8000-000000000006',
   display_id: 'VOC-UNDO-TARGET',
   title: 'undo target',
   reporter_facing_status: 'received',
@@ -333,7 +333,7 @@ const UNDO_TARGET: VocListItem = {
 
 const UNDO_OTHER: VocListItem = {
   ...UNDO_TARGET,
-  id: 'voc-undo-other',
+  id: '00000000-0000-4000-8000-000000000007',
   display_id: 'VOC-UNDO-OTHER',
   title: 'still in the queue',
   severity: null,
@@ -829,12 +829,12 @@ describe('분류 flow — integration (C6.3)', () => {
     }
     render(<SelectedScreen />, { wrapper: Wrapper });
     await act(async () => fireEvent.click(screen.getByRole('button', { name: '보류' })));
-    expect(onSelectVoc).toHaveBeenLastCalledWith('voc-int-0002');
+    expect(onSelectVoc).toHaveBeenLastCalledWith('00000000-0000-4000-8000-000000000002');
     await act(async () => resolveForward(jsonResponse({ code: 'conflict.parent_archived' }, 409)));
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /VOC-I-001/ })).not.toBeInTheDocument(),
     );
-    expect(onSelectVoc).toHaveBeenLastCalledWith('voc-int-0002');
+    expect(onSelectVoc).toHaveBeenLastCalledWith('00000000-0000-4000-8000-000000000002');
     expect(onSelectVoc).not.toHaveBeenCalledWith(FIRST_VOC_ID);
     expect(screen.getByRole('button', { name: /VOC-I-002/ })).toHaveAttribute(
       'aria-selected',

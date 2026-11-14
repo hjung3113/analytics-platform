@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiRequest } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import { invalidateRecovery } from '@/lib/query/recovery';
@@ -36,7 +37,7 @@ export function useOutcomeFollowUp(surveyId: string, enabled = true) {
       (
         await apiRequest(
           'GET',
-          `/surveys/${surveyId}/outcome-follow-up`,
+          apiPath`/surveys/${surveyId}/outcome-follow-up`,
           outcomeFollowUpReadDtoSchema,
           { signal },
         )
@@ -55,7 +56,7 @@ export function useMarkOutcomeFollowUpNoAction(surveyId: string) {
       (
         await apiRequest(
           'POST',
-          `/survey-responses/${responseId}/mark-no-follow-up`,
+          apiPath`/survey-responses/${responseId}/mark-no-follow-up`,
           outcomeFollowUpMarkedResultSchema,
           { body: { reason }, idempotencyKey },
         )
@@ -71,7 +72,7 @@ export function useReopenOutcomeFollowUp(surveyId: string) {
       (
         await apiRequest(
           'POST',
-          `/survey-responses/${responseId}/reopen-follow-up`,
+          apiPath`/survey-responses/${responseId}/reopen-follow-up`,
           outcomeFollowUpReopenedResultSchema,
           { body: { reason }, idempotencyKey },
         )

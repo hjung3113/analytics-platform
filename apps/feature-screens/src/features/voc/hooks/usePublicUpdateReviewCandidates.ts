@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import type {
@@ -14,7 +15,7 @@ export function usePublicUpdateReviewCandidates(vocId: string, enabled: boolean)
     queryFn: async () => {
       const response = await apiClient<ListPublicUpdateReviewCandidatesResponse>(
         'GET',
-        `/vocs/${vocId}/public-update-candidates`,
+        apiPath`/vocs/${vocId}/public-update-candidates`,
       );
       return response.data;
     },
@@ -33,7 +34,7 @@ export function useResolvePublicUpdateReviewCandidate(vocId: string) {
     mutationFn: async (body) => {
       const response = await apiClient<unknown>(
         'POST',
-        `/vocs/${vocId}/apply-public-update-candidate`,
+        apiPath`/vocs/${vocId}/apply-public-update-candidate`,
         {
           body,
         },

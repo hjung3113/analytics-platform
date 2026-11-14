@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiRequest } from '@/lib/api/client';
 import { fetchNavResolve } from '@/lib/api/nav';
 import { ApiError } from '@/lib/api/types';
@@ -83,7 +84,7 @@ export function VocSourcePicker({
       if (debouncedSearch !== '') query.set('q', debouncedSearch);
       const response = await apiRequest(
         'GET',
-        `/vocs?${query.toString()}`,
+        '/vocs?' + query.toString(),
         vocSourceListResponseSchema,
         { signal },
       );
@@ -105,7 +106,7 @@ export function VocSourcePicker({
       if (displayId === null) return null;
       const resolved = await fetchNavResolve(displayId, { signal });
       if (resolved.entity_type !== 'voc') return null;
-      const detail = await apiRequest('GET', `/vocs/${resolved.id}`, resolvedVocScopeSchema, {
+      const detail = await apiRequest('GET', apiPath`/vocs/${resolved.id}`, resolvedVocScopeSchema, {
         signal,
       });
       if (detail.data.primary_managed_system_id !== managedSystemId) return null;

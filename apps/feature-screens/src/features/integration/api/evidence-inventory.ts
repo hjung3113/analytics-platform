@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiRequest } from '@/lib/api/client';
 import { EVIDENCE_INVENTORY_QUERY_KEY } from '@/lib/query/evidence-inventory-key';
 import {
@@ -22,14 +23,14 @@ export async function fetchEvidenceInventory(filters: EvidenceFilters, signal: A
   if (filters.q) query.set('q', filters.q);
   if (filters.cursor !== undefined) query.set('cursor', filters.cursor);
   return (
-    await apiRequest('GET', `/evidence-highlights?${query}`, listEvidenceInventoryResponseSchema, {
+    await apiRequest('GET', '/evidence-highlights?' + query, listEvidenceInventoryResponseSchema, {
       signal,
     })
   ).data;
 }
 export async function fetchEvidenceDetail(id: string, signal: AbortSignal) {
   return (
-    await apiRequest('GET', `/evidence-highlights/${id}`, getEvidenceInventoryResponseSchema, {
+    await apiRequest('GET', apiPath`/evidence-highlights/${id}`, getEvidenceInventoryResponseSchema, {
       signal,
     })
   ).data;

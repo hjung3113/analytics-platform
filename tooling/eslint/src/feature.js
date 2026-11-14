@@ -275,3 +275,12 @@ export const featureUi = ({ reactHooks, design }) => {
     },
   ];
 };
+
+// Path values are validated through apiPath; `ap/require-api-path` is registered in `index.js` (`eqvBanOnlyFor`).
+export const featureScreenPaths = {
+  files: ['src/**/*.{ts,tsx,js,mjs}'],
+  ignores: ['src/lib/api/**'],
+  rules: {
+    'ap/require-api-path': ['error'],
+  },
+};

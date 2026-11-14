@@ -34,7 +34,7 @@ const ORIGINAL_UPDATED_AT = '2026-05-01T00:00:00.000Z';
 const FRESH_UPDATED_AT = '2026-05-02T11:22:33.000Z';
 
 const MOCK_VOC: VocListItem = {
-  id: 'voc-rev1-p1-4',
+  id: '00000000-0000-4000-8000-000000000014',
   display_id: 'VOC-R4',
   title: 'REV-1 P1-4',
   reporter_facing_status: 'received',

@@ -25,7 +25,7 @@ export function useFindingsList(
         if (managedSystemId !== undefined) params.set('managed_system_id', managedSystemId);
         if (execution === 'none') params.set('execution', 'none');
         if (cursor !== undefined) params.set('cursor', cursor);
-        const res = await apiRequest('GET', `/findings?${params}`, listFindingsResponseSchema, {
+        const res = await apiRequest('GET', '/findings?' + params, listFindingsResponseSchema, {
           signal,
         });
         items.push(...res.data.items);
@@ -76,7 +76,7 @@ export function useFindingsPages(
       if (q !== undefined) params.set('q', q);
       if (pageParam !== undefined) params.set('cursor', pageParam);
       return (
-        await apiRequest('GET', `/findings?${params}`, listFindingsResponseSchema, { signal })
+        await apiRequest('GET', '/findings?' + params, listFindingsResponseSchema, { signal })
       ).data;
     },
     getNextPageParam: (last: ListFindingsResponse) =>
@@ -101,7 +101,7 @@ export function useFindingsTotal(managedSystemId: string | undefined, enabled: b
       const params = new URLSearchParams({ limit: '1' });
       if (managedSystemId !== undefined) params.set('managed_system_id', managedSystemId);
       return (
-        await apiRequest('GET', `/findings?${params}`, listFindingsResponseSchema, { signal })
+        await apiRequest('GET', '/findings?' + params, listFindingsResponseSchema, { signal })
       ).data;
     },
     enabled,

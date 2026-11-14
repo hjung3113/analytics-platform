@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiClient } from '@/lib/api/client';
 import type { VocDetailEnvelope, VocSummaryEnvelope } from '@ap/feature-shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
@@ -11,7 +12,7 @@ export function useVocDetail(id: string | null | undefined): UseQueryResult<VocD
       // TODO(#21): ETag round-trip — cache last seen ETag per id in queryClient
       // metadata and pass ifNoneMatch; handle 304 by returning cached data.
       // Skipped for #20 per plan; contract is in place.
-      const res = await apiClient<VocDetailResult>('GET', `/vocs/${id as string}`, { signal });
+      const res = await apiClient<VocDetailResult>('GET', apiPath`/vocs/${id as string}`, { signal });
       return res.data;
     },
     enabled: Boolean(id),

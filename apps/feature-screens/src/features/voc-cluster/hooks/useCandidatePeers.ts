@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // useCandidatePeers — paged GET /voc-clusters/:id/candidate-peers.
 // The backend narrows the list to readable active VOCs in the cluster's Managed System, searched
 // by `q` and paged by an opaque cursor. gcTime 0: closing the picker drops the cache so a reopen
@@ -21,7 +22,7 @@ export function useCandidatePeers(clusterId: string | null | undefined, q: strin
       if (pageParam !== undefined) params.set('cursor', pageParam);
       const response = await apiRequest(
         'GET',
-        `/voc-clusters/${clusterId as string}/candidate-peers?${params}`,
+        apiPath`/voc-clusters/${clusterId as string}/candidate-peers` + '?' + params,
         listSameManagedSystemCandidatePeersResponseSchema,
         { signal },
       );

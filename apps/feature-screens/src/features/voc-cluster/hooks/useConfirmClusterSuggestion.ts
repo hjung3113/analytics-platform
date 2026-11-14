@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiRequest } from '@/lib/api/client';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { invalidateRecovery } from '@/lib/query/recovery';
@@ -20,7 +21,7 @@ export function useConfirmClusterSuggestion() {
       (
         await apiRequest(
           'POST',
-          `/voc-cluster-suggestions/${intent.id}/confirm`,
+          apiPath`/voc-cluster-suggestions/${intent.id}/confirm`,
           confirmVocClusterSuggestionResponseSchema,
           {
             body: intent.body,

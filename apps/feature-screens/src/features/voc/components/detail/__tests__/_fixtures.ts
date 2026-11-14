@@ -25,7 +25,7 @@ export const ME_RESPONSE: MeResponse = {
 // ── Canonical detail envelope ────────────────────────────────────────────────
 
 export const DETAIL_ENVELOPE: VocDetailEnvelope = {
-  id: 'voc-uuid-1111',
+  id: '00000000-0000-4000-8000-000000000011',
   display_id: 'VOC-0001',
   title: '테스트 VOC 제목',
   primary_managed_system_id: 'ms-uuid-1111',

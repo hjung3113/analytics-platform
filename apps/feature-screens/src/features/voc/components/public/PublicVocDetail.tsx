@@ -1,3 +1,4 @@
+import { apiPath, isApiPathId } from '@/lib/api/path';
 import { apiHref } from '@/lib/api/client';
 // PublicVocDetail — one VOC as the public projection shows it (ADR-0110 decision 3): title, status with its stage line,
 // description and the public updates with attachments. It renders `PublicVocView` and nothing else; reporter replies,
@@ -42,7 +43,7 @@ export function PublicVocDetail({ voc, variant = 'page' }: PublicVocDetailProps)
           ) : (
             <RichContentRenderer doc={voc.description_rich_content as TipTapDoc} mode="reporter_visible" surface="voc-description"
               attachments={voc.attachments} attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
-              resolveAttachmentUrl={id => apiHref(`/attachments/${id}/download`)}
+              resolveAttachmentUrl={id => isApiPathId(id) ? apiHref(apiPath`/attachments/${id}/download`) : null}
             />
           )}
         </div>

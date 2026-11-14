@@ -27,7 +27,7 @@ import type { VocListItem } from '@ap/feature-shared';
 import { type TriageTab, VocTriageScreen } from '../VocTriageScreen';
 
 const MOCK_VOC: VocListItem = {
-  id: 'voc-kicker-001',
+  id: '00000000-0000-4000-8000-000000000001',
   display_id: 'VOC-K-001',
   title: '키커 테스트 VOC',
   reporter_facing_status: 'received',
@@ -48,7 +48,7 @@ const MOCK_VOC: VocListItem = {
 
 const PINNED_OUT_OF_TAB_VOC: VocListItem = {
   ...MOCK_VOC,
-  id: 'voc-kicker-pinned',
+  id: '00000000-0000-4000-8000-000000000003',
   display_id: 'VOC-K-PINNED',
   title: '이미 분류된 고정 VOC',
   triage_state: 'triaged',
@@ -265,7 +265,7 @@ describe('VocTriageScreen — V1 inline kicker', () => {
     );
     const items: VocListItem[] = [
       MOCK_VOC,
-      { ...MOCK_VOC, id: 'voc-kicker-002', display_id: 'VOC-K-002' },
+      { ...MOCK_VOC, id: '00000000-0000-4000-8000-000000000002', display_id: 'VOC-K-002' },
     ];
     function RouteSession() {
       const [processedCount, setProcessedCount] = useState(0);

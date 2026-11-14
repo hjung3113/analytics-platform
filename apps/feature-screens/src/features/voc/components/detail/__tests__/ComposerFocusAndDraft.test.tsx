@@ -24,7 +24,7 @@ import { ReporterReplyComposer } from '../ReporterReplyComposer';
 const ME_ID = '00000000-0000-0000-0000-000000000002';
 
 const VOC = {
-  id: 'voc-uuid-1111',
+  id: '00000000-0000-4000-8000-000000000011',
   display_id: 'VOC-0001',
   title: 'Test',
   primary_managed_system_id: 'ms-1',

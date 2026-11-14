@@ -29,8 +29,8 @@ beforeAll(registerNoticeHost);
 import type { VocListItem } from '@ap/feature-shared';
 import { VocTriageScreen } from '../VocTriageScreen';
 
-const VOC_A_ID = 'voc-rev1-p1-5-a';
-const VOC_B_ID = 'voc-rev1-p1-5-b';
+const VOC_A_ID = '00000000-0000-4000-8000-00000000000a';
+const VOC_B_ID = '00000000-0000-4000-8000-00000000000b';
 
 const VOC_A: VocListItem = {
   id: VOC_A_ID,

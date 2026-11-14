@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { resolveActors } from '@/lib/api/actors';
 import { apiRequest } from '@/lib/api/client';
 import { mapUnknownError } from '@/lib/api/errorMapper';
@@ -80,7 +81,7 @@ export function FindingOwnerField({
   const mutation = useMutation({
     mutationFn: async () =>
       (
-        await apiRequest('PATCH', `/findings/${finding.id}`, findingDtoSchema, {
+        await apiRequest('PATCH', apiPath`/findings/${finding.id}`, findingDtoSchema, {
           idempotencyKey: key,
           body: {
             owner_actor_id: value.startsWith('actor:') ? value.slice(6) : null,

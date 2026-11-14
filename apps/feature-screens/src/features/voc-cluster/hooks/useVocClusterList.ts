@@ -14,7 +14,7 @@ export function useVocClusterList(
     queryKey: ['voc-clusters', { managedSystemId }] as const,
     queryFn: async ({ signal }) => {
       const path = managedSystemId
-        ? `/voc-clusters?managed_system_id=${encodeURIComponent(managedSystemId)}`
+        ? '/voc-clusters?' + new URLSearchParams({ managed_system_id: managedSystemId })
         : '/voc-clusters';
       const res = await apiRequest('GET', path, listVocClustersResponseSchema, { signal });
       return res.data;

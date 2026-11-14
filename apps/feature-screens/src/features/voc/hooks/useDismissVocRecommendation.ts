@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // useDismissVocRecommendation — POST /vocs/:id/recommendations/:candidate_id/dismiss (#168 step 6).
 //
 // 204, empty body. On success the candidate is removed from the cached list
@@ -20,7 +21,7 @@ export function useDismissVocRecommendation(
   return useMutation<void, ApiError, string>({
     mutationFn: async (candidateVocId) => {
       // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- the response/value type is intentionally void here (the former Biome rule allowed void call-site type arguments)
-      await apiClient<void>('POST', `/vocs/${vocId}/recommendations/${candidateVocId}/dismiss`);
+      await apiClient<void>('POST', apiPath`/vocs/${vocId}/recommendations/${candidateVocId}/dismiss`);
     },
     onSuccess: async (_data, candidateVocId) => {
       qc.setQueryData<VocRecommendationsResponse>(vocRecommendationsQueryKey(vocId), (prev) => {

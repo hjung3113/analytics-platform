@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
@@ -20,7 +21,7 @@ export function useRequestTaskFromFinding(
 
   return useMutation<TaskRequestDto, ApiError, CreateTaskRequestFromFindingRequest>({
     mutationFn: async (body) => {
-      const res = await apiClient<TaskRequestDto>('POST', `/findings/${findingId}/request-task`, {
+      const res = await apiClient<TaskRequestDto>('POST', apiPath`/findings/${findingId}/request-task`, {
         body,
         idempotencyKey,
       });

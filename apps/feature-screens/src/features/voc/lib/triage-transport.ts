@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // triage-transport.ts — HTTP adapter for the VOC triage endpoints (issue #481).
 // The triage HTTP calls live ONLY in this file: the panel, the command hook,
 // and the react-query seam all delegate here.
@@ -19,7 +20,7 @@ import { buildCompensatePayload, buildPayload } from './triage-payload';
 import type { TriageInput, TriageOutput, TriageSnapshot } from './triage-types';
 
 export async function patchVocTriage(input: TriageInput): Promise<TriageOutput> {
-  const res = await apiClient<TriageOutput>('PATCH', `/vocs/${input.vocId}`, {
+  const res = await apiClient<TriageOutput>('PATCH', apiPath`/vocs/${input.vocId}`, {
     body: buildPayload(input),
     ifMatch: input.ifMatch,
     // Idempotency-Key auto-minted by the API client for PATCH (D-3.5)
@@ -37,7 +38,7 @@ export async function patchVocTriage(input: TriageInput): Promise<TriageOutput> 
  */
 export async function executeCompensatingPatch(snapshot: TriageSnapshot): Promise<TriageOutput> {
   const payload = buildCompensatePayload(snapshot);
-  const res = await apiClient<TriageOutput>('PATCH', `/vocs/${snapshot.vocId}`, {
+  const res = await apiClient<TriageOutput>('PATCH', apiPath`/vocs/${snapshot.vocId}`, {
     body: payload,
     ifMatch: snapshot.ifMatch,
     idempotencyKey: mintIdempotencyKey(),
@@ -49,7 +50,7 @@ export async function getVocUpdatedAt(
   vocId: string,
   signal?: AbortSignal,
 ): Promise<{ updated_at?: unknown }> {
-  const res = await apiClient<{ updated_at?: unknown }>('GET', `/vocs/${vocId}`, {
+  const res = await apiClient<{ updated_at?: unknown }>('GET', apiPath`/vocs/${vocId}`, {
     ...(signal !== undefined && { signal }),
   });
   return res.data;

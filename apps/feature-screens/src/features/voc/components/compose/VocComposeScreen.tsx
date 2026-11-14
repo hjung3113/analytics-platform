@@ -1,3 +1,4 @@
+import { apiPath, isApiPathId } from '@/lib/api/path';
 // VocComposeScreen — the VOC form for the platform's `VOC 등록` drawer (platform ADR-0070 decisions 4–5, platform ADR-0071).
 //
 // One column for a 360–520px container (no viewport breakpoints). It is the only VOC creation screen: no router, no
@@ -134,7 +135,7 @@ export function VocComposeScreen({
                 minHeight={160}
                 toolbar={vocDescriptionToolbar({ onAttachError: handleAttachmentError })}
                 onAttach={uploadEditorAttachment}
-                resolveAttachmentUrl={id => apiHref(`/attachments/${id}/download`)}
+                resolveAttachmentUrl={id => isApiPathId(id) ? apiHref(apiPath`/attachments/${id}/download`) : null}
               />
             )}
           />

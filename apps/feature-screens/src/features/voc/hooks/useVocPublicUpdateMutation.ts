@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { invalidateRecovery } from '@/lib/query/recovery';
 // useVocPublicUpdateMutation — submit POST /vocs/:id/public-updates
 //
@@ -84,7 +85,7 @@ export function useVocPublicUpdateMutation(
 
   return useMutation<PublicUpdateSuccess, ApiError, PublicUpdateVars>({
     mutationFn: async ({ vocId, ifMatch, body }) => {
-      const res = await apiClient<PublicUpdateSuccess>('POST', `/vocs/${vocId}/public-updates`, {
+      const res = await apiClient<PublicUpdateSuccess>('POST', apiPath`/vocs/${vocId}/public-updates`, {
         body,
         ifMatch,
         // Idempotency-Key is auto-minted by apiClient for POST/PATCH/DELETE

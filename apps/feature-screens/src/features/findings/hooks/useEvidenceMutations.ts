@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiClient, apiRequest } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import { EVIDENCE_INVENTORY_QUERY_KEY } from '@/lib/query/evidence-inventory-key';
@@ -31,7 +32,7 @@ export function useAddEvidenceHighlightMutation(
     mutationFn: async (body) => {
       const res = await apiClient<EvidenceHighlightDto>(
         'POST',
-        `/findings/${findingId}/evidence-highlights`,
+        apiPath`/findings/${findingId}/evidence-highlights`,
         { body, idempotencyKey },
       );
       return res.data;
@@ -68,7 +69,7 @@ export function useLinkEvidenceMutation(
     mutationFn: async (body) => {
       const res = await apiClient<EvidenceHighlightDto>(
         'POST',
-        `/findings/${findingId}/link-evidence`,
+        apiPath`/findings/${findingId}/link-evidence`,
         { body, idempotencyKey },
       );
       return res.data;
@@ -97,7 +98,7 @@ export function useAttachSurveyEvidenceMutation(findingId: string) {
       (
         await apiRequest(
           'POST',
-          `/findings/${findingId}/survey-evidence`,
+          apiPath`/findings/${findingId}/survey-evidence`,
           attachSurveyEvidenceResponseSchema,
           {
             body: attachSurveyEvidenceRequestSchema.parse(body),

@@ -1,5 +1,7 @@
+import { ApiPathError } from '@/lib/api/path';
+import { useCreateFindingFromVocMutation } from '../useCreateFindingFromVocMutation';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { navigate, useLocation } = vi.hoisted(() => ({
@@ -378,4 +380,22 @@ describe('CreateFindingModal Analytics Area inheritance', () => {
 
     expect(await submittedBody()).toMatchObject({ title: '유효한 제목', summary: '유효한 요약' });
   });
+});
+
+it('path values are validated', async () => {
+  const fetchMock = vi.fn();
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = fetchMock;
+  try {
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const { result } = renderHook(() => useCreateFindingFromVocMutation({ idempotencyKey: IDS.voc }), {
+      wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+    });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ vocId: 'invalid-id', body: { title: 'Finding', summary: 'Summary', severity: 'medium' } })).rejects.toBeInstanceOf(ApiPathError);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
 });

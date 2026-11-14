@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // useConfirmCluster — PATCH /voc-clusters/:id { status: 'confirmed' }.
 // Invalidates the cluster detail and list queries on success.
 
@@ -11,7 +12,7 @@ export function useConfirmCluster(): UseMutationResult<VocClusterDto, ApiError, 
   const qc = useQueryClient();
   return useMutation<VocClusterDto, ApiError, string>({
     mutationFn: async (clusterId) => {
-      const res = await apiClient<VocClusterDto>('PATCH', `/voc-clusters/${clusterId}`, {
+      const res = await apiClient<VocClusterDto>('PATCH', apiPath`/voc-clusters/${clusterId}`, {
         body: { status: 'confirmed' },
       });
       return res.data;

@@ -93,60 +93,60 @@ function mutationCase<TData, TError, TVariables>(
 
 const mutationCases: MutationCase[] = [
   mutationCase('VOC create', () => useVocCreateMutation({ idempotencyKey: 'key' }), {} as never),
-  mutationCase('VOC public update and status change', useVocPublicUpdateMutation, {} as never),
+  mutationCase('VOC public update and status change', useVocPublicUpdateMutation, { vocId: '10000000-0000-4000-8000-000000000001' } as never),
   mutationCase(
     'Request Task from VOC',
-    () => useRequestTaskFromVoc({ vocId: 'voc-1', idempotencyKey: 'key' }),
+    () => useRequestTaskFromVoc({ vocId: '10000000-0000-4000-8000-000000000001', idempotencyKey: 'key' }),
     {} as never,
   ),
   mutationCase(
     'Create Finding from VOC',
     () => useCreateFindingFromVocMutation({ idempotencyKey: 'key' }),
-    {} as never,
+    { vocId: '10000000-0000-4000-8000-000000000001' } as never,
   ),
   mutationCase('Create VOC Cluster', useCreateVocCluster, {} as never),
-  mutationCase('Confirm VOC Cluster', useConfirmCluster, 'cluster-1'),
+  mutationCase('Confirm VOC Cluster', useConfirmCluster, '10000000-0000-4000-8000-000000000002'),
   mutationCase('Add VOC Cluster member', useAddClusterMember, {
-    clusterId: 'cluster-1',
-    vocId: 'voc-1',
+    clusterId: '10000000-0000-4000-8000-000000000002',
+    vocId: '10000000-0000-4000-8000-000000000001',
   }),
   mutationCase('Remove VOC Cluster member', useRemoveClusterMember, {
-    clusterId: 'cluster-1',
-    vocId: 'voc-1',
+    clusterId: '10000000-0000-4000-8000-000000000002',
+    vocId: '10000000-0000-4000-8000-000000000001',
   }),
   mutationCase('Link Finding to VOC Cluster', useLinkExistingFindingToVocCluster, {
-    clusterId: 'cluster-1',
-    findingId: 'finding-1',
+    clusterId: '10000000-0000-4000-8000-000000000002',
+    findingId: '10000000-0000-4000-8000-000000000003',
   }),
   mutationCase('Create Finding from VOC Cluster', useCreateFindingFromCluster, {
-    clusterId: 'cluster-1',
+    clusterId: '10000000-0000-4000-8000-000000000002',
     body: {} as never,
   }),
   mutationCase(
     'Request Task from VOC Cluster',
-    () => useRequestTaskFromCluster({ clusterId: 'cluster-1', idempotencyKey: 'key' }),
+    () => useRequestTaskFromCluster({ clusterId: '10000000-0000-4000-8000-000000000002', idempotencyKey: 'key' }),
     {} as never,
   ),
   mutationCase(
     'Create Finding from Survey Response',
     () => useCreateFindingFromSurveyResponse('survey-1'),
-    { responseId: 'response-1', body: {} as never },
+    { responseId: '10000000-0000-4000-8000-000000000004', body: {} as never },
   ),
   mutationCase(
     'Finding status change',
-    () => useFindingStatusMutation({ findingId: 'finding-1', idempotencyKey: 'key' }),
+    () => useFindingStatusMutation({ findingId: '10000000-0000-4000-8000-000000000003', idempotencyKey: 'key' }),
     {} as never,
   ),
   mutationCase(
     'Request Task from Finding',
-    () => useRequestTaskFromFinding({ findingId: 'finding-1', idempotencyKey: 'key' }),
+    () => useRequestTaskFromFinding({ findingId: '10000000-0000-4000-8000-000000000003', idempotencyKey: 'key' }),
     {} as never,
   ),
   mutationCase('Survey create', useCreateSurvey, {} as never),
   mutationCase(
     'Confirm VOC Cluster recommendation',
-    () => useConfirmVocRecommendation('voc-1'),
-    'candidate-1',
+    () => useConfirmVocRecommendation('10000000-0000-4000-8000-000000000001'),
+    '10000000-0000-4000-8000-000000000005',
   ),
 ];
 
@@ -174,12 +174,12 @@ function isScopedNavCountInvalidated(queryClient: QueryClient, managedSystemId: 
 describe('nav count mutation invalidation', () => {
   beforeEach(() => {
     apiClientMock.mockReset().mockResolvedValue({
-      data: { id: 'record-1', display_id: 'VOC-1000', voc_cluster_id: 'cluster-1' },
+      data: { id: 'record-1', display_id: 'VOC-1000', voc_cluster_id: '10000000-0000-4000-8000-000000000002' },
     });
     triageMutationMock.mockReset().mockResolvedValue({
       id: 'record-1',
       display_id: 'VOC-1000',
-      voc_cluster_id: 'cluster-1',
+      voc_cluster_id: '10000000-0000-4000-8000-000000000002',
     });
     taskRequestMutationMock.mockReset().mockResolvedValue({
       id: 'task-1',
@@ -233,7 +233,7 @@ describe('nav count mutation invalidation', () => {
         () =>
           useTriageCommand({
             voc: {
-              id: 'voc-1',
+              id: '10000000-0000-4000-8000-000000000001',
               severity: 'high',
               owner_user_id: null,
               owner_team_id: null,
@@ -244,12 +244,12 @@ describe('nav count mutation invalidation', () => {
       );
 
       act(() => {
-        result.current.commit({ kind: 'skip', vocId: 'voc-1', ifMatch: 'version-1' });
+        result.current.commit({ kind: 'skip', vocId: '10000000-0000-4000-8000-000000000001', ifMatch: 'version-1' });
       });
       await waitFor(() => expect(result.current.isSubmitting).toBe(true));
       await act(async () => {
         if (fails) rejectPatch(new Error('triage failed'));
-        else resolvePatch({ id: 'voc-1', triage_state: 'triaged', updated_at: 'version-2' });
+        else resolvePatch({ id: '10000000-0000-4000-8000-000000000001', triage_state: 'triaged', updated_at: 'version-2' });
         await patchPromise.catch(() => undefined);
       });
       await waitFor(() => expect(result.current.isSubmitting).toBe(false));

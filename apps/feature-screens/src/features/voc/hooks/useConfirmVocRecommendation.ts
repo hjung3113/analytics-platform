@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // useConfirmVocRecommendation — POST /vocs/:id/recommendations/:candidate_id/confirm (#168 step 6).
 //
 // 200 { voc_cluster_id, cluster_created }. Confirm creates or joins a Cluster,
@@ -36,7 +37,7 @@ export function useConfirmVocRecommendation(
     mutationFn: async (candidateVocId) => {
       const res = await apiClient<ConfirmVocRecommendationResponse>(
         'POST',
-        `/vocs/${vocId}/recommendations/${candidateVocId}/confirm`,
+        apiPath`/vocs/${vocId}/recommendations/${candidateVocId}/confirm`,
       );
       return res.data;
     },

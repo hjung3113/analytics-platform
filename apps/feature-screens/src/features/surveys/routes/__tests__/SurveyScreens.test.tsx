@@ -100,7 +100,7 @@ vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
 // createRouter/RouterProvider/createRoute stay intact for renderDetailWithRouter.
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  useParams: () => ({ surveyId: 'survey-1' }),
+  useParams: () => ({ surveyId: '00000000-0000-4000-8000-000000000001' }),
   useSearch: () => routeQueryStubs.search,
   useMatchRoute: () => () => false,
   useNavigate: () => routeQueryStubs.navigate ?? (() => Promise.resolve()),
@@ -109,6 +109,12 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 beforeAll(registerAnchorLinkHost);
 
 const MANAGED_SYSTEM_ID = '11111111-1111-4111-8111-111111111111';
+const SURVEY_ID = '00000000-0000-4000-8000-000000000001';
+const QUESTION_ID_1 = '00000000-0000-4000-8000-000000000011';
+const QUESTION_ID_2 = '00000000-0000-4000-8000-000000000012';
+const QUESTION_ID_3 = '00000000-0000-4000-8000-000000000013';
+const QUESTION_CREATED_ID = '00000000-0000-4000-8000-000000000014';
+const SERVER_QUESTION_1_ID = '00000000-0000-4000-8000-000000000101';
 
 function question(id: string, prompt: string, sortOrder: number): SurveyQuestion {
   return {
@@ -173,7 +179,7 @@ function installQuestionServerOracle(
   options: { rejectFirstPatchFor?: string } = {},
 ) {
   const saved = new Map(initialQuestions.map((question) => [question.id, { ...question }]));
-  const surveyId = initialQuestions[0]?.survey_id ?? 'survey-1';
+  const surveyId = initialQuestions[0]?.survey_id ?? SURVEY_ID;
   let rejectedFirstPatch = false;
 
   const validateBranches = (questions: SurveyQuestion[]) => {
@@ -276,13 +282,13 @@ function installQuestionServerOracle(
         return { data: { id: questionId } };
       }
 
-      return { data: { id: 'question-1' } };
+      return { data: { id: QUESTION_ID_1 } };
     },
   );
 }
 
 const survey: Survey = {
-  id: 'survey-1',
+  id: SURVEY_ID,
   display_id: 'SRV-1',
   title: 'Q3 사용성 진단',
   type: 'discovery',
@@ -299,8 +305,8 @@ const survey: Survey = {
   updated_at: '2026-07-20T00:00:00.000Z',
   questions: [
     {
-      id: 'question-1',
-      survey_id: 'survey-1',
+      id: QUESTION_ID_1,
+      survey_id: SURVEY_ID,
       kind: 'single_choice',
       prompt: '도움이 되었나요?',
       is_required: true,
@@ -420,7 +426,7 @@ describe('설문 screens', () => {
     fetchCapabilityScope.mockReset();
     fetchManagedSystems.mockReset();
     apiClient.mockImplementation(async (_method: string, path: string) => ({
-      data: path.endsWith('/questions') ? { id: 'question-created' } : { id: 'question-1' },
+      data: path.endsWith('/questions') ? { id: QUESTION_CREATED_ID } : { id: QUESTION_ID_1 },
     }));
     fetchManagedSystems.mockResolvedValue({
       items: [{ id: MANAGED_SYSTEM_ID, name: 'Tableau', archived_at: null }],
@@ -439,10 +445,10 @@ describe('설문 screens', () => {
     expect(screen.queryByTestId(/create-voc/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /create voc/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Q3 사용성 진단'));
-    expect(select).toHaveBeenCalledWith('survey-1');
+    expect(select).toHaveBeenCalledWith(SURVEY_ID);
     fireEvent.click(screen.getByRole('button', { name: '카드 보기' }));
     expect(screen.getByTestId('survey-list-cards')).toBeInTheDocument();
-    const row = screen.getByTestId('survey-row-survey-1');
+    const row = screen.getByTestId(`survey-row-${SURVEY_ID}`);
     expect(row).not.toHaveTextContent('Responses');
     expect(row).not.toHaveTextContent('— / —');
     rerender(<SurveyList surveys={[]} isLoading={false} error={null} onSelect={select} />);
@@ -504,7 +510,7 @@ describe('설문 screens', () => {
   it('keeps the builder question list scrollable inside the WorkbenchShell body', () => {
     renderWithQuery(<SurveyBuilder survey={survey} canManage onBack={vi.fn()} />);
 
-    const questionList = screen.getByTestId('survey-question-row-question-1').closest('section');
+    const questionList = screen.getByTestId(`survey-question-row-${QUESTION_ID_1}`).closest('section');
     expect(questionList).toHaveClass('min-h-0', 'overflow-y-auto');
   });
 
@@ -527,7 +533,7 @@ describe('설문 screens', () => {
       />,
     );
 
-    const row = screen.getByTestId('survey-row-survey-1');
+    const row = screen.getByTestId(`survey-row-${SURVEY_ID}`);
     expect(row).toHaveTextContent('Revenue Analytics');
     expect(row).toHaveTextContent('Named Operator');
     expect(row).not.toHaveTextContent(managedSystemId);
@@ -547,7 +553,7 @@ describe('설문 screens', () => {
     const { rerender } = render(
       <SurveyList surveys={[unassignedSurvey]} isLoading={false} error={null} onSelect={vi.fn()} />,
     );
-    expect(screen.getByTestId('survey-row-survey-1')).toHaveTextContent('담당자 미지정');
+    expect(screen.getByTestId(`survey-row-${SURVEY_ID}`)).toHaveTextContent('담당자 미지정');
 
     rerender(
       <SurveyList
@@ -559,7 +565,7 @@ describe('설문 screens', () => {
         actorNamesById={new Map()}
       />,
     );
-    const row = screen.getByTestId('survey-row-survey-1');
+    const row = screen.getByTestId(`survey-row-${SURVEY_ID}`);
     expect(row).toHaveTextContent('알 수 없는 시스템');
     expect(row).toHaveTextContent('알 수 없는 사용자');
     expect(row).not.toHaveTextContent(unknownSystemId);
@@ -573,7 +579,7 @@ describe('설문 screens', () => {
     };
     render(<SurveyList surveys={[rowSurvey]} isLoading={false} error={null} onSelect={vi.fn()} />);
 
-    const row = screen.getByTestId('survey-row-survey-1');
+    const row = screen.getByTestId(`survey-row-${SURVEY_ID}`);
     expect(within(row).getAllByText('—', { exact: true }).length).toBeGreaterThanOrEqual(2);
     expect(row).not.toHaveTextContent('알 수 없는 시스템');
     expect(row).not.toHaveTextContent('알 수 없는 사용자');
@@ -758,7 +764,7 @@ describe('설문 screens', () => {
         <SurveyBuilder
           survey={{
             ...survey,
-            questions: [{ ...question('question-1', '도움이 되었나요?', 0), kind }],
+            questions: [{ ...question(QUESTION_ID_1, '도움이 되었나요?', 0), kind }],
           }}
           canManage
           onBack={vi.fn()}
@@ -876,7 +882,7 @@ describe('설문 screens', () => {
     await waitFor(() =>
       expect(apiClient).toHaveBeenCalledWith(
         'POST',
-        '/surveys/survey-1/questions',
+        `/surveys/${SURVEY_ID}/questions`,
         expect.objectContaining({
           body: expect.objectContaining({ kind: 'rating', rating_min: 1, rating_max: 5 }),
         }),
@@ -920,12 +926,12 @@ describe('설문 screens', () => {
     const header = await screen.findByTestId('detail-panel-header-content');
     expect(within(header).getByRole('link', { name: '질문 편집' })).toHaveAttribute(
       'href',
-      '/surveys/survey-1?builder=true',
+      `/surveys/${SURVEY_ID}?builder=true`,
     );
     expect(screen.getAllByRole('link', { name: '질문 편집' })).toHaveLength(1);
     expect(screen.getByRole('link', { name: '새 질문 추가' })).toHaveAttribute(
       'href',
-      '/surveys/survey-1?builder=true',
+      `/surveys/${SURVEY_ID}?builder=true`,
     );
   });
 
@@ -952,19 +958,19 @@ describe('설문 screens', () => {
       within(screen.getByTestId('survey-open-confirmation')).getByTestId('survey-status-confirm'),
     );
 
-    await waitFor(() => expect(apiClient).toHaveBeenCalledWith('POST', '/surveys/survey-1/open'));
+    await waitFor(() => expect(apiClient).toHaveBeenCalledWith('POST', `/surveys/${SURVEY_ID}/open`));
     await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1));
   });
 
   it('saves a newly added question before starting the 설문', async () => {
     const serverQuestionIds: string[] = [];
     apiClient.mockImplementation(async (method: string, path: string) => {
-      if (method === 'POST' && path === '/surveys/survey-1/questions') {
-        const id = `server-question-${serverQuestionIds.length + 1}`;
+      if (method === 'POST' && path === `/surveys/${SURVEY_ID}/questions`) {
+        const id = `00000000-0000-4000-8000-00000000010${serverQuestionIds.length + 1}`;
         serverQuestionIds.push(id);
         return { data: { id } };
       }
-      if (method === 'POST' && path === '/surveys/survey-1/open') {
+      if (method === 'POST' && path === `/surveys/${SURVEY_ID}/open`) {
         if (serverQuestionIds.length === 0)
           throw {
             status: 422,
@@ -995,8 +1001,8 @@ describe('설문 screens', () => {
     );
 
     await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1));
-    expect(serverQuestionIds).toEqual(['server-question-1']);
-    expect(calls('POST', '/surveys/survey-1/open')).toHaveLength(1);
+    expect(serverQuestionIds).toEqual([SERVER_QUESTION_1_ID]);
+    expect(calls('POST', `/surveys/${SURVEY_ID}/open`)).toHaveLength(1);
     expect(
       screen.queryByText('설문 시작 전에 질문을 하나 이상 추가해야 합니다.'),
     ).not.toBeInTheDocument();
@@ -1004,7 +1010,7 @@ describe('설문 screens', () => {
 
   it('keeps the start confirmation open when saving the draft fails', async () => {
     apiClient.mockImplementation(async (method: string, path: string) => {
-      if (method === 'POST' && path === '/surveys/survey-1/questions')
+      if (method === 'POST' && path === `/surveys/${SURVEY_ID}/questions`)
         throw new Error('question save failed');
       return { data: {} };
     });
@@ -1028,7 +1034,7 @@ describe('설문 screens', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(calls('POST', '/surveys/survey-1/open')).toHaveLength(0);
+    expect(calls('POST', `/surveys/${SURVEY_ID}/open`)).toHaveLength(0);
   });
 
   it('hides Launch when the builder survey is open', async () => {
@@ -1181,9 +1187,9 @@ describe('설문 screens', () => {
 
       expect(await screen.findByTestId('survey-builder-away')).toBeInTheDocument();
       expect(screen.queryByText('변경사항이 저장되지 않았습니다')).not.toBeInTheDocument();
-      expect(calls('PATCH', '/surveys/survey-1')).toHaveLength(1);
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}`)).toHaveLength(1);
       if (action === 'started 설문')
-        expect(calls('POST', '/surveys/survey-1/open')).toHaveLength(1);
+        expect(calls('POST', `/surveys/${SURVEY_ID}/open`)).toHaveLength(1);
     },
   );
 
@@ -1240,7 +1246,7 @@ describe('설문 screens', () => {
       within(screen.getByTestId('survey-close-confirmation')).getByTestId('survey-status-confirm'),
     );
 
-    await waitFor(() => expect(apiClient).toHaveBeenCalledWith('POST', '/surveys/survey-1/close'));
+    await waitFor(() => expect(apiClient).toHaveBeenCalledWith('POST', `/surveys/${SURVEY_ID}/close`));
   });
 
   it('hides Close survey for a manageable draft survey', async () => {
@@ -1270,7 +1276,7 @@ describe('설문 screens', () => {
       return { data: survey };
     });
     apiClient.mockImplementation(async (method: string, path: string) => {
-      if (method === 'POST' && path === '/surveys/survey-1/open')
+      if (method === 'POST' && path === `/surveys/${SURVEY_ID}/open`)
         return { data: listAfterLaunch[0] };
       return { data: survey };
     });
@@ -1303,7 +1309,7 @@ describe('설문 screens', () => {
         apiRequest.mock.calls.filter((call) => call[0] === 'GET' && call[1] === '/surveys'),
       ).toHaveLength(2),
     );
-    expect(screen.getByTestId('survey-row-survey-1')).toHaveTextContent('진행 중');
+    expect(screen.getByTestId(`survey-row-${SURVEY_ID}`)).toHaveTextContent('진행 중');
   });
 
   it.each(['open', 'closed'] as const)(
@@ -1312,7 +1318,7 @@ describe('설문 screens', () => {
       renderDetailWithRouter({ ...survey, status }, true);
 
       const link = await screen.findByRole('link', { name: '결과 요약 보기' });
-      expect(link).toHaveAttribute('href', '/surveys/survey-1/results');
+      expect(link).toHaveAttribute('href', `/surveys/${SURVEY_ID}/results`);
     },
   );
 
@@ -1372,9 +1378,9 @@ describe('설문 screens', () => {
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
 
     await waitFor(() =>
-      expect(calls('PATCH', '/surveys/survey-1/questions/question-1')).toHaveLength(1),
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)).toHaveLength(1),
     );
-    expect(calls('PATCH', '/surveys/survey-1/questions/question-1')[0]?.[2].body).toMatchObject({
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)[0]?.[2].body).toMatchObject({
       prompt: '저장된 질문 프롬프트',
     });
     await waitFor(() => expect(screen.getByText(/^저장 시각 /)).toBeInTheDocument());
@@ -1388,7 +1394,7 @@ describe('설문 screens', () => {
     });
     let surveyPatchCount = 0;
     apiClient.mockImplementation(async (method: string, path: string) => {
-      if (method === 'PATCH' && path === '/surveys/survey-1') {
+      if (method === 'PATCH' && path === `/surveys/${SURVEY_ID}`) {
         surveyPatchCount += 1;
         if (surveyPatchCount === 1) return firstPatch;
       }
@@ -1401,8 +1407,8 @@ describe('설문 screens', () => {
       target: { value: '첫 번째 저장 제목' },
     });
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
-    await waitFor(() => expect(calls('PATCH', '/surveys/survey-1')).toHaveLength(1));
-    expect(calls('PATCH', '/surveys/survey-1')[0]?.[2].body).toEqual({
+    await waitFor(() => expect(calls('PATCH', `/surveys/${SURVEY_ID}`)).toHaveLength(1));
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}`)[0]?.[2].body).toEqual({
       title: '첫 번째 저장 제목',
     });
 
@@ -1421,8 +1427,8 @@ describe('설문 screens', () => {
     await waitFor(() => expect(screen.queryByText('변경사항이 저장되지 않았습니다')).toBeNull());
 
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
-    await waitFor(() => expect(calls('PATCH', '/surveys/survey-1')).toHaveLength(2));
-    expect(calls('PATCH', '/surveys/survey-1')[1]?.[2].body).toEqual({
+    await waitFor(() => expect(calls('PATCH', `/surveys/${SURVEY_ID}`)).toHaveLength(2));
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}`)[1]?.[2].body).toEqual({
       title: '저장 중 바꾼 제목',
     });
     await waitFor(() => expect(screen.getByText(/^저장 시각 /)).toBeInTheDocument());
@@ -1445,12 +1451,12 @@ describe('설문 screens', () => {
     });
     let surveyPatchCount = 0;
     apiClient.mockImplementation(async (method: string, path: string) => {
-      if (method === 'PATCH' && path === '/surveys/survey-1') {
+      if (method === 'PATCH' && path === `/surveys/${SURVEY_ID}`) {
         surveyPatchCount += 1;
         if (surveyPatchCount === 1) return firstPatch;
         if (surveyPatchCount === 2) return secondPatch;
       }
-      if (method === 'POST' && path === '/surveys/survey-1/open')
+      if (method === 'POST' && path === `/surveys/${SURVEY_ID}/open`)
         return { data: { ...survey, status: 'open' } };
       return { data: survey };
     });
@@ -1461,7 +1467,7 @@ describe('설문 screens', () => {
       target: { value: '시작 전 저장 제목' },
     });
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
-    await waitFor(() => expect(calls('PATCH', '/surveys/survey-1')).toHaveLength(1));
+    await waitFor(() => expect(calls('PATCH', `/surveys/${SURVEY_ID}`)).toHaveLength(1));
 
     fireEvent.change(screen.getByRole('textbox', { name: '설문 제목' }), {
       target: { value: '저장 중 수정한 제목' },
@@ -1475,13 +1481,13 @@ describe('설문 screens', () => {
         'survey-status-confirm',
       ),
     );
-    await waitFor(() => expect(calls('PATCH', '/surveys/survey-1')).toHaveLength(2));
-    expect(calls('POST', '/surveys/survey-1/open')).toHaveLength(0);
-    expect(calls('PATCH', '/surveys/survey-1')[1]?.[2].body).toEqual({
+    await waitFor(() => expect(calls('PATCH', `/surveys/${SURVEY_ID}`)).toHaveLength(2));
+    expect(calls('POST', `/surveys/${SURVEY_ID}/open`)).toHaveLength(0);
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}`)[1]?.[2].body).toEqual({
       title: '저장 중 수정한 제목',
     });
     await act(async () => resolveSecondPatch({ data: survey }));
-    await waitFor(() => expect(calls('POST', '/surveys/survey-1/open')).toHaveLength(1));
+    await waitFor(() => expect(calls('POST', `/surveys/${SURVEY_ID}/open`)).toHaveLength(1));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
@@ -1490,11 +1496,11 @@ describe('설문 screens', () => {
     const secondQuestionPatch = new Promise<{ data: { id: string } }>((resolve) => {
       resolveSecondQuestionPatch = resolve;
     });
-    const secondQuestion = question('question-2', '다음 질문', 1);
+    const secondQuestion = question(QUESTION_ID_2, '다음 질문', 1);
     apiClient.mockImplementation(async (method: string, path: string) => {
-      if (method === 'PATCH' && path === '/surveys/survey-1/questions/question-2')
+      if (method === 'PATCH' && path === `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_2}`)
         return secondQuestionPatch;
-      return { data: { id: path.endsWith('question-1') ? 'question-1' : 'question-2' } };
+      return { data: { id: path.endsWith(QUESTION_ID_1) ? QUESTION_ID_1 : QUESTION_ID_2 } };
     });
     renderWithQuery(
       <SurveyBuilder
@@ -1513,21 +1519,21 @@ describe('설문 screens', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
     await waitFor(() =>
-      expect(calls('PATCH', '/surveys/survey-1/questions/question-2')).toHaveLength(1),
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_2}`)).toHaveLength(1),
     );
 
     fireEvent.click(screen.getByText('Q1'));
     fireEvent.change(screen.getByDisplayValue('첫 질문 저장 값'), {
       target: { value: '첫 질문 저장 중 수정 값' },
     });
-    await act(async () => resolveSecondQuestionPatch({ data: { id: 'question-2' } }));
+    await act(async () => resolveSecondQuestionPatch({ data: { id: QUESTION_ID_2 } }));
 
     expect(screen.getByText('저장되지 않은 변경 사항')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
     await waitFor(() =>
-      expect(calls('PATCH', '/surveys/survey-1/questions/question-1')).toHaveLength(2),
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)).toHaveLength(2),
     );
-    expect(calls('PATCH', '/surveys/survey-1/questions/question-1')[1]?.[2].body).toMatchObject({
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)[1]?.[2].body).toMatchObject({
       prompt: '첫 질문 저장 중 수정 값',
     });
     await waitFor(() => expect(screen.getByText(/^저장 시각 /)).toBeInTheDocument());
@@ -1544,9 +1550,9 @@ describe('설문 screens', () => {
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
 
     await waitFor(() =>
-      expect(calls('PATCH', '/surveys/survey-1/questions/question-1')).toHaveLength(1),
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)).toHaveLength(1),
     );
-    const sentBody = calls('PATCH', '/surveys/survey-1/questions/question-1')[0]?.[2].body;
+    const sentBody = calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)[0]?.[2].body;
     const parsed = parseBackendQuestionInput(sentBody);
     const options = parsed.options ?? [];
 
@@ -1584,9 +1590,9 @@ describe('설문 screens', () => {
       fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
 
       await waitFor(() =>
-        expect(calls('PATCH', '/surveys/survey-1/questions/question-1')).toHaveLength(1),
+        expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)).toHaveLength(1),
       );
-      const sentBody = calls('PATCH', '/surveys/survey-1/questions/question-1')[0]?.[2].body;
+      const sentBody = calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)[0]?.[2].body;
       const parsed = parseBackendQuestionInput(sentBody);
       expect(parsed.options).toHaveLength(3);
     } finally {
@@ -1652,9 +1658,9 @@ describe('설문 screens', () => {
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
 
     await waitFor(() =>
-      expect(calls('PATCH', '/surveys/survey-1/questions/question-1')).toHaveLength(1),
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)).toHaveLength(1),
     );
-    const sentBody = calls('PATCH', '/surveys/survey-1/questions/question-1')[0]?.[2].body;
+    const sentBody = calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)[0]?.[2].body;
     const parsed = parseBackendQuestionInput(sentBody);
     expect(parsed.options?.map((option) => option.key)).toEqual(
       initialOptions.slice(0, 2).map((option) => option.key),
@@ -1671,7 +1677,7 @@ describe('설문 screens', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(calls('PATCH', '/surveys/survey-1/questions/question-1')).toHaveLength(0);
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)).toHaveLength(0);
     expect(screen.queryByText('저장하지 못했습니다.')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '설문 시작' }));
@@ -1681,8 +1687,8 @@ describe('설문 screens', () => {
       ),
     );
     expect(await screen.findByText('빈 옵션을 채운 후 다시 시작하세요.')).toBeInTheDocument();
-    expect(calls('PATCH', '/surveys/survey-1/questions/question-1')).toHaveLength(0);
-    expect(calls('POST', '/surveys/survey-1/open')).toHaveLength(0);
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)).toHaveLength(0);
+    expect(calls('POST', `/surveys/${SURVEY_ID}/open`)).toHaveLength(0);
   });
 
   it('resets question validation errors after a successful draft save', async () => {
@@ -1694,7 +1700,7 @@ describe('설문 screens', () => {
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
     // Wait for the finished save (not just the PATCH) so the flag reset has run.
     await waitFor(() => expect(screen.getByText(/^저장 시각 /)).toBeInTheDocument());
-    expect(calls('PATCH', '/surveys/survey-1/questions/question-1')).toHaveLength(1);
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)).toHaveLength(1);
 
     fireEvent.click(screen.getByRole('button', { name: '새 질문 추가' }));
     expect(screen.queryByText('질문을 입력하세요.')).not.toBeInTheDocument();
@@ -1702,7 +1708,7 @@ describe('설문 screens', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
     expect(await screen.findByText('질문을 입력하세요.')).toBeInTheDocument();
-    expect(calls('POST', '/surveys/survey-1/questions')).toHaveLength(0);
+    expect(calls('POST', `/surveys/${SURVEY_ID}/questions`)).toHaveLength(0);
   });
 
   it.each(['draft-save', 'launch'] as const)(
@@ -1711,7 +1717,7 @@ describe('설문 screens', () => {
       const parent = survey.questions?.[0] as SurveyQuestion;
       const second: SurveyQuestion = {
         ...parent,
-        id: 'question-2',
+        id: QUESTION_ID_2,
         prompt: '다음 질문',
         sort_order: 1,
       };
@@ -1745,7 +1751,7 @@ describe('설문 screens', () => {
     'W-823 rejects whitespace-only prompts before %s and selects the first invalid question',
     async (action) => {
       const first = survey.questions?.[0] as SurveyQuestion;
-      const second = { ...question('question-2', '다음 질문', 1) };
+      const second = { ...question(QUESTION_ID_2, '다음 질문', 1) };
       renderWithQuery(
         <SurveyBuilder
           survey={{ ...survey, questions: [first, second] }}
@@ -1770,16 +1776,16 @@ describe('설문 screens', () => {
         );
       }
 
-      const firstRow = screen.getByTestId('survey-question-row-question-1');
-      const secondRow = screen.getByTestId('survey-question-row-question-2');
+      const firstRow = screen.getByTestId(`survey-question-row-${QUESTION_ID_1}`);
+      const secondRow = screen.getByTestId(`survey-question-row-${QUESTION_ID_2}`);
       expect(firstRow).toHaveClass('bg-surface-card');
       expect(secondRow).not.toHaveClass('bg-surface-card');
       expect(screen.getByLabelText('질문 제목')).toHaveValue('   ');
       expect(screen.getByLabelText('질문 제목')).toHaveAttribute('aria-invalid', 'true');
       expect(await screen.findByText('질문을 입력하세요.')).toBeInTheDocument();
-      expect(calls('PATCH', '/surveys/survey-1/questions/question-1')).toHaveLength(0);
-      expect(calls('PATCH', '/surveys/survey-1/questions/question-2')).toHaveLength(0);
-      expect(calls('POST', '/surveys/survey-1/open')).toHaveLength(0);
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)).toHaveLength(0);
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_2}`)).toHaveLength(0);
+      expect(calls('POST', `/surveys/${SURVEY_ID}/open`)).toHaveLength(0);
       expect(screen.queryByText('저장하지 못했습니다.')).not.toBeInTheDocument();
       if (action === 'launch') {
         expect(screen.queryByTestId('survey-open-confirmation')).not.toBeInTheDocument();
@@ -1852,11 +1858,11 @@ describe('설문 screens', () => {
     const parentLabel = `Q${parent.sort_order + 1} · ${parent.prompt}`;
     const child: SurveyQuestion = {
       ...parent,
-      id: 'question-2',
+      id: QUESTION_ID_2,
       prompt: '첫 번째 조건부 질문',
       sort_order: 1,
     };
-    const candidate = question('question-3', '추가 질문', 2);
+    const candidate = question(QUESTION_ID_3, '추가 질문', 2);
     renderWithQuery(
       <SurveyBuilder
         survey={{ ...survey, questions: [parent, child, candidate] }}
@@ -2074,7 +2080,7 @@ describe('설문 screens', () => {
       });
       expect(screen.getByText('설문 제목을 입력하세요.')).toBeInTheDocument();
       expect(calls('PATCH', `/surveys/${survey.id}`)).toHaveLength(0);
-      expect(calls('PATCH', `/surveys/${survey.id}/questions/question-1`)).toHaveLength(0);
+      expect(calls('PATCH', `/surveys/${survey.id}/questions/${QUESTION_ID_1}`)).toHaveLength(0);
       expect(calls('POST', `/surveys/${survey.id}/open`)).toHaveLength(0);
       expect(screen.queryByText('저장하지 못했습니다.')).not.toBeInTheDocument();
     },
@@ -2097,7 +2103,7 @@ describe('설문 screens', () => {
       const first = survey.questions?.[0] as SurveyQuestion;
       const rating: SurveyQuestion = {
         ...first,
-        id: 'question-2',
+        id: QUESTION_ID_2,
         prompt: '만족도',
         kind: 'rating',
         options: null,
@@ -2105,7 +2111,7 @@ describe('설문 screens', () => {
         rating_max: 5,
         sort_order: 1,
       };
-      const third = question('question-3', '추가 질문', 2);
+      const third = question(QUESTION_ID_3, '추가 질문', 2);
       renderWithQuery(
         <SurveyBuilder
           survey={{ ...survey, questions: [first, rating, third] }}
@@ -2130,7 +2136,7 @@ describe('설문 screens', () => {
       }
 
       expect(await screen.findByText(SURVEY_BUILDER_COPY.ratingRange)).toBeInTheDocument();
-      expect(screen.getByTestId('survey-question-row-question-2')).toHaveClass('bg-surface-card');
+      expect(screen.getByTestId(`survey-question-row-${QUESTION_ID_2}`)).toHaveClass('bg-surface-card');
       expect(screen.getByLabelText('최소 점수')).toHaveAttribute('aria-invalid', 'true');
       expect(screen.getByLabelText('최대 점수')).toHaveAttribute('aria-invalid', 'true');
       await act(async () => {
@@ -2586,18 +2592,18 @@ describe('설문 screens', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
 
-    await waitFor(() => expect(calls('PATCH', '/surveys/survey-1')).toHaveLength(1));
-    expect(calls('PATCH', '/surveys/survey-1')[0]?.[2].body).toEqual({
+    await waitFor(() => expect(calls('PATCH', `/surveys/${SURVEY_ID}`)).toHaveLength(1));
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}`)[0]?.[2].body).toEqual({
       title: '제목 전용 픽스처',
     });
-    expect(calls('PATCH', '/surveys/survey-1/questions/question-1')).toHaveLength(0);
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)).toHaveLength(0);
   });
 
   it('AC-4 saves a dragged [3,1,2] question order exactly once', async () => {
     const questions = [
-      question('question-1', '첫 질문', 0),
-      question('question-2', '둘째 질문', 1),
-      question('question-3', '셋째 질문', 2),
+      question(QUESTION_ID_1, '첫 질문', 0),
+      question(QUESTION_ID_2, '둘째 질문', 1),
+      question(QUESTION_ID_3, '셋째 질문', 2),
     ];
     renderWithQuery(<SurveyBuilder survey={{ ...survey, questions }} canManage onBack={vi.fn()} />);
     const dataTransfer = {
@@ -2607,16 +2613,16 @@ describe('설문 screens', () => {
       setData: vi.fn(),
     };
 
-    fireEvent.dragStart(screen.getByTestId('survey-question-row-question-3'), { dataTransfer });
-    fireEvent.dragOver(screen.getByTestId('survey-question-row-question-1'), { dataTransfer });
-    fireEvent.drop(screen.getByTestId('survey-question-row-question-1'), { dataTransfer });
+    fireEvent.dragStart(screen.getByTestId(`survey-question-row-${QUESTION_ID_3}`), { dataTransfer });
+    fireEvent.dragOver(screen.getByTestId(`survey-question-row-${QUESTION_ID_1}`), { dataTransfer });
+    fireEvent.drop(screen.getByTestId(`survey-question-row-${QUESTION_ID_1}`), { dataTransfer });
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
 
     await waitFor(() =>
-      expect(calls('PATCH', '/surveys/survey-1/questions/reorder')).toHaveLength(1),
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/reorder`)).toHaveLength(1),
     );
-    expect(calls('PATCH', '/surveys/survey-1/questions/reorder')[0]?.[2].body).toEqual({
-      question_ids: ['question-3', 'question-1', 'question-2'],
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/reorder`)[0]?.[2].body).toEqual({
+      question_ids: [QUESTION_ID_3, QUESTION_ID_1, QUESTION_ID_2],
     });
     expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', '2');
     await waitFor(() => expect(screen.getByText(/^저장 시각 /)).toBeInTheDocument());
@@ -2624,8 +2630,8 @@ describe('설문 screens', () => {
 
   it('names question delete actions by dense question position', () => {
     const questions = [
-      question('question-1', '첫 번째 질문', 0),
-      question('question-2', '두 번째 질문', 1),
+      question(QUESTION_ID_1, '첫 번째 질문', 0),
+      question(QUESTION_ID_2, '두 번째 질문', 1),
     ];
     renderWithQuery(<SurveyBuilder survey={{ ...survey, questions }} canManage onBack={vi.fn()} />);
 
@@ -2635,41 +2641,41 @@ describe('설문 screens', () => {
 
   it('does not repeat a successful question delete when reorder fails and save is retried', async () => {
     const questions = [
-      question('question-1', '첫 질문', 0),
-      question('question-2', '둘째 질문', 1),
-      question('question-3', '셋째 질문', 2),
+      question(QUESTION_ID_1, '첫 질문', 0),
+      question(QUESTION_ID_2, '둘째 질문', 1),
+      question(QUESTION_ID_3, '셋째 질문', 2),
     ];
     let rejectFirstReorder = true;
     apiClient.mockImplementation(async (method: string, path: string) => {
       if (
         method === 'PATCH' &&
-        path === '/surveys/survey-1/questions/reorder' &&
+        path === `/surveys/${SURVEY_ID}/questions/reorder` &&
         rejectFirstReorder
       ) {
         rejectFirstReorder = false;
         throw new Error('reorder failed');
       }
-      return { data: { id: 'question-1' } };
+      return { data: { id: QUESTION_ID_1 } };
     });
     renderWithQuery(<SurveyBuilder survey={{ ...survey, questions }} canManage onBack={vi.fn()} />);
 
     fireEvent.click(
-      within(screen.getByTestId('survey-question-row-question-2')).getByLabelText('Q2 질문 삭제'),
+      within(screen.getByTestId(`survey-question-row-${QUESTION_ID_2}`)).getByLabelText('Q2 질문 삭제'),
     );
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
     await waitFor(() => expect(screen.getByText('저장하지 못했습니다.')).toBeInTheDocument());
-    expect(calls('PATCH', '/surveys/survey-1/questions/reorder')).toHaveLength(1);
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/reorder`)).toHaveLength(1);
 
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
     await waitFor(() => expect(screen.getByText(/^저장 시각 /)).toBeInTheDocument());
 
-    expect(calls('DELETE', '/surveys/survey-1/questions/question-2')).toHaveLength(1);
+    expect(calls('DELETE', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_2}`)).toHaveLength(1);
   });
 
   it('AC-5 saves a keyboard-only one-step move', async () => {
     const questions = [
-      question('question-1', '첫 질문', 0),
-      question('question-2', '둘째 질문', 1),
+      question(QUESTION_ID_1, '첫 질문', 0),
+      question(QUESTION_ID_2, '둘째 질문', 1),
     ];
     renderWithQuery(<SurveyBuilder survey={{ ...survey, questions }} canManage onBack={vi.fn()} />);
 
@@ -2677,17 +2683,17 @@ describe('설문 screens', () => {
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
 
     await waitFor(() =>
-      expect(calls('PATCH', '/surveys/survey-1/questions/reorder')).toHaveLength(1),
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/reorder`)).toHaveLength(1),
     );
-    expect(calls('PATCH', '/surveys/survey-1/questions/reorder')[0]?.[2].body).toEqual({
-      question_ids: ['question-2', 'question-1'],
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/reorder`)[0]?.[2].body).toEqual({
+      question_ids: [QUESTION_ID_2, QUESTION_ID_1],
     });
   });
 
   it('AC-7 preserves dirty local state and retries the same body after save failure', async () => {
     apiClient
       .mockRejectedValueOnce(new Error('save failed'))
-      .mockResolvedValue({ data: { id: 'question-1' } });
+      .mockResolvedValue({ data: { id: QUESTION_ID_1 } });
     renderWithQuery(<SurveyBuilder survey={survey} canManage onBack={vi.fn()} />);
     fireEvent.change(screen.getByDisplayValue('도움이 되었나요?'), {
       target: { value: '재시도 보존 프롬프트' },
@@ -2698,13 +2704,13 @@ describe('설문 screens', () => {
     expect(screen.getByDisplayValue('재시도 보존 프롬프트')).toBeInTheDocument();
     expect(screen.getByText('저장되지 않은 변경 사항')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '초안 저장' })).toBeEnabled();
-    const firstBody = calls('PATCH', '/surveys/survey-1/questions/question-1')[0]?.[2].body;
+    const firstBody = calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)[0]?.[2].body;
 
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
     await waitFor(() =>
-      expect(calls('PATCH', '/surveys/survey-1/questions/question-1')).toHaveLength(2),
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)).toHaveLength(2),
     );
-    expect(calls('PATCH', '/surveys/survey-1/questions/question-1')[1]?.[2].body).toEqual(
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`)[1]?.[2].body).toEqual(
       firstBody,
     );
   });
@@ -2793,7 +2799,7 @@ describe('설문 screens', () => {
       await waitFor(() =>
         expect(apiClient).toHaveBeenCalledWith(
           'PATCH',
-          '/surveys/survey-1/questions/question-1',
+          `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_1}`,
           expect.objectContaining({ body: expect.any(Object) }),
         ),
       );
@@ -2818,13 +2824,13 @@ describe('설문 screens', () => {
     await waitFor(() =>
       expect(apiClient).toHaveBeenCalledWith(
         'POST',
-        '/surveys/survey-1/questions',
+        `/surveys/${SURVEY_ID}/questions`,
         expect.objectContaining({
           body: expect.objectContaining({ kind: 'single_choice', prompt: '수정된 질문' }),
         }),
       ),
     );
-    const createBody = calls('POST', '/surveys/survey-1/questions')[0]?.[2].body;
+    const createBody = calls('POST', `/surveys/${SURVEY_ID}/questions`)[0]?.[2].body;
     expect(createBody).not.toHaveProperty('rating_min');
     expect(createBody).not.toHaveProperty('branch_parent_question_id');
     const deleteButtons = screen.getAllByRole('button', { name: /^Q\d+ 질문 삭제$/ });
@@ -2835,7 +2841,7 @@ describe('설문 screens', () => {
     await waitFor(() =>
       expect(apiClient).toHaveBeenCalledWith(
         'DELETE',
-        '/surveys/survey-1/questions/question-created',
+        `/surveys/${SURVEY_ID}/questions/${QUESTION_CREATED_ID}`,
       ),
     );
     await waitFor(() => expect(screen.getByText(/^저장 시각 /)).toBeInTheDocument());
@@ -2848,7 +2854,7 @@ describe('설문 screens', () => {
         return new Promise((resolve) => {
           resolveCreate = resolve;
         });
-      return Promise.resolve({ data: { id: 'question-created' } });
+      return Promise.resolve({ data: { id: QUESTION_CREATED_ID } });
     });
     renderWithQuery(<SurveyBuilder survey={survey} canManage onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '새 질문 추가' }));
@@ -2858,11 +2864,11 @@ describe('설문 screens', () => {
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
     await waitFor(() => expect(resolveCreate).toBeDefined());
     fireEvent.change(screen.getByLabelText('질문 제목'), { target: { value: 'POST 중 수정' } });
-    await act(async () => resolveCreate?.({ data: { id: 'question-created' } }));
+    await act(async () => resolveCreate?.({ data: { id: QUESTION_CREATED_ID } }));
     await waitFor(() =>
       expect(apiClient).toHaveBeenCalledWith(
         'PATCH',
-        '/surveys/survey-1/questions/question-created',
+        `/surveys/${SURVEY_ID}/questions/${QUESTION_CREATED_ID}`,
         expect.objectContaining({ body: expect.objectContaining({ prompt: 'POST 중 수정' }) }),
       ),
     );
@@ -2879,7 +2885,7 @@ describe('설문 screens', () => {
     await waitFor(() =>
       expect(apiClient).toHaveBeenCalledWith(
         'POST',
-        '/surveys/survey-1/questions',
+        `/surveys/${SURVEY_ID}/questions`,
         expect.objectContaining({ body: expect.objectContaining({ kind: 'single_choice' }) }),
       ),
     );
@@ -2889,10 +2895,10 @@ describe('설문 screens', () => {
     const parentQuestion = survey.questions?.[0] as SurveyQuestion;
     const child: SurveyQuestion = {
       ...parentQuestion,
-      id: 'question-2',
+      id: QUESTION_ID_2,
       prompt: '추가 질문',
       branch_depth: 1,
-      branch_parent_question_id: 'question-1',
+      branch_parent_question_id: QUESTION_ID_1,
       branch_trigger_option_key: 'no',
       sort_order: 1,
     };
@@ -2908,23 +2914,23 @@ describe('설문 screens', () => {
     fireEvent.click(await screen.findByRole('option', { name: '분기 없음' }));
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
     await waitFor(() =>
-      expect(calls('PATCH', '/surveys/survey-1/questions/question-2')).toHaveLength(1),
+      expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_2}`)).toHaveLength(1),
     );
-    expect(calls('PATCH', '/surveys/survey-1/questions/question-2')[0]?.[2].body).toMatchObject({
+    expect(calls('PATCH', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_2}`)[0]?.[2].body).toMatchObject({
       branch_parent_question_id: null,
     });
     // The #188 workaround deleted and re-created the row, which minted a new
     // id. A PATCH must not touch either endpoint (#194).
-    expect(apiClient).not.toHaveBeenCalledWith('DELETE', '/surveys/survey-1/questions/question-2');
+    expect(apiClient).not.toHaveBeenCalledWith('DELETE', `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_2}`);
     expect(apiClient).not.toHaveBeenCalledWith(
       'POST',
-      '/surveys/survey-1/questions',
+      `/surveys/${SURVEY_ID}/questions`,
       expect.anything(),
     );
     // The backend clears trigger and depth alongside the parent, so sending
     // them would be redundant — and sending a stale trigger would fight it.
     const body = apiClient.mock.calls.find(
-      (call) => call[0] === 'PATCH' && call[1] === '/surveys/survey-1/questions/question-2',
+      (call) => call[0] === 'PATCH' && call[1] === `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_2}`,
     )?.[2].body;
     expect(body).not.toHaveProperty('branch_trigger_option_key');
   });
@@ -2932,20 +2938,20 @@ describe('설문 screens', () => {
   it('stays editable through an unbranch, since the id no longer changes', async () => {
     let resolvePatch: (() => void) | undefined;
     apiClient.mockImplementation((method: string, path: string) => {
-      if (method === 'PATCH' && path.endsWith('/question-2')) {
+      if (method === 'PATCH' && path.endsWith(`/${QUESTION_ID_2}`)) {
         return new Promise((resolve) => {
-          resolvePatch = () => resolve({ data: { id: 'question-2' } });
+          resolvePatch = () => resolve({ data: { id: QUESTION_ID_2 } });
         });
       }
-      return Promise.resolve({ data: { id: 'question-2' } });
+      return Promise.resolve({ data: { id: QUESTION_ID_2 } });
     });
     const parentQuestion = survey.questions?.[0] as SurveyQuestion;
     const child: SurveyQuestion = {
       ...parentQuestion,
-      id: 'question-2',
+      id: QUESTION_ID_2,
       prompt: '추가 질문',
       branch_depth: 1,
-      branch_parent_question_id: 'question-1',
+      branch_parent_question_id: QUESTION_ID_1,
       branch_trigger_option_key: 'no',
       sort_order: 1,
     };
@@ -2971,7 +2977,7 @@ describe('설문 screens', () => {
     await waitFor(() =>
       expect(apiClient).toHaveBeenCalledWith(
         'PATCH',
-        '/surveys/survey-1/questions/question-2',
+        `/surveys/${SURVEY_ID}/questions/${QUESTION_ID_2}`,
         expect.objectContaining({
           body: expect.objectContaining({ prompt: '언브랜치 중 수정' }),
         }),
@@ -2983,10 +2989,10 @@ describe('설문 screens', () => {
     const parentQuestion = survey.questions?.[0] as SurveyQuestion;
     const child: SurveyQuestion = {
       ...parentQuestion,
-      id: 'question-2',
+      id: QUESTION_ID_2,
       prompt: '추가 질문',
       branch_depth: 1,
-      branch_parent_question_id: 'question-1',
+      branch_parent_question_id: QUESTION_ID_1,
       branch_trigger_option_key: 'no',
       sort_order: 1,
     };

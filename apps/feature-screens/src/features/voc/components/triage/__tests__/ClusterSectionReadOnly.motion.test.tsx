@@ -24,8 +24,8 @@ afterEach(() => {
 function mount() {
   environment = installListMotionEnvironment();
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  client.setQueryData(['voc-recommendations', 'source-a'], response);
-  client.setQueryData(['voc-recommendations', 'source-b'], {
+  client.setQueryData(['voc-recommendations', '00000000-0000-4000-8000-0000000000a1'], response);
+  client.setQueryData(['voc-recommendations', '00000000-0000-4000-8000-0000000000b1'], {
     ...response,
     items: items.map((item) => ({
       ...item,
@@ -37,14 +37,14 @@ function mount() {
       <ClusterSectionReadOnly vocId={vocId} similarCount={2} />
     </QueryClientProvider>
   );
-  return { view: render(contents('source-a')), contents };
+  return { view: render(contents('00000000-0000-4000-8000-0000000000a1')), contents };
 }
 
 it('switches cached non-empty source VOCs without animating rows', async () => {
   const { view, contents } = mount();
   await act(async () => {});
   environment.animate.mockClear();
-  view.rerender(contents('source-b'));
+  view.rerender(contents('00000000-0000-4000-8000-0000000000b1'));
   await act(async () => {});
   expect(screen.getByTestId('cluster-recommendation-list').children).toHaveLength(2);
   expect(environment.animate).not.toHaveBeenCalled();

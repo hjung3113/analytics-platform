@@ -45,8 +45,11 @@ import { ComposerSection } from '../ComposerSection';
 const ADMIN_ID = '00000000-0000-0000-0000-000000000002';
 const OTHER_ID = '00000000-0000-0000-0000-000000000003';
 
+const VOC_ID_1 = '00000000-0000-4000-8000-000000000011';
+const VOC_ID_2 = '00000000-0000-4000-8000-000000000012';
+
 const BASE_VOC = {
-  id: 'voc-uuid-1111',
+  id: VOC_ID_1,
   display_id: 'VOC-0001',
   title: 'Test',
   primary_managed_system_id: 'ms-1',
@@ -132,7 +135,7 @@ describe('<ComposerSection> reply visibility (real useComposerVisibility)', () =
     });
     fireEvent.click(screen.getByRole('tab', REPLY_TAB));
 
-    rerender(<ComposerSection voc={{ ...someoneElses, id: 'voc-uuid-2222' }} me={me} canTriage />);
+    rerender(<ComposerSection voc={{ ...someoneElses, id: VOC_ID_2 }} me={me} canTriage />);
 
     expect(screen.getByRole('tab', { name: '담당자 답변' })).toHaveAttribute(
       'aria-selected',

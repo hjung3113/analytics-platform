@@ -35,7 +35,7 @@ import { TriagePanel } from '../TriagePanel';
 
 // VOC with PRIOR values already populated — the user is re-triaging.
 const PRIOR_VOC: VocListItem = {
-  id: 'voc-rev1-p1-3',
+  id: '00000000-0000-4000-8000-000000000013',
   display_id: 'VOC-R3',
   title: 'REV-1 P1-3',
   reporter_facing_status: 'received',

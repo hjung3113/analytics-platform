@@ -38,7 +38,7 @@ import type { VocListItem } from '@ap/feature-shared';
 import { TriagePanel } from '../TriagePanel';
 
 const MOCK_VOC: VocListItem = {
-  id: 'voc-rev3-clusterX',
+  id: '00000000-0000-4000-8000-000000000022',
   display_id: 'VOC-CX',
   title: 'REV-3 cluster X',
   reporter_facing_status: 'received',

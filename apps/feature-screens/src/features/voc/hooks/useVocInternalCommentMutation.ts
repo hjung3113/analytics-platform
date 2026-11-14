@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // useVocInternalCommentMutation — submit POST /vocs/:id/internal-comments
 //
 // C5.4 (slice3 #21)
@@ -69,7 +70,7 @@ export function useVocInternalCommentMutation(
     mutationFn: async ({ vocId, ifMatch, body }) => {
       const res = await apiClient<InternalCommentSuccess>(
         'POST',
-        `/vocs/${vocId}/internal-comments`,
+        apiPath`/vocs/${vocId}/internal-comments`,
         {
           body,
           ifMatch,

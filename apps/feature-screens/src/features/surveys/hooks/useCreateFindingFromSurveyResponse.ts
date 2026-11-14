@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
@@ -26,7 +27,7 @@ export function useCreateFindingFromSurveyResponse(
   return useMutation<FindingDto, ApiError, CreateFindingFromSurveyResponseVariables>({
     mutationFn: async ({ responseId, body }) =>
       (
-        await apiClient<FindingDto>('POST', `/survey-responses/${responseId}/create-finding`, {
+        await apiClient<FindingDto>('POST', apiPath`/survey-responses/${responseId}/create-finding`, {
           body,
           ...(idempotencyKey !== undefined ? { idempotencyKey } : {}),
         })

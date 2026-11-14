@@ -1,3 +1,4 @@
+import { ApiPathError } from '@/lib/api/path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -40,4 +41,15 @@ describe('useCreateFindingFromCluster', () => {
 
     expect(queryClient.getQueryState(findingsKey)?.isInvalidated).toBe(true);
   });
+});
+
+it('path values are validated', async () => {
+  apiClient.mockClear();
+  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const { result } = renderHook(() => useCreateFindingFromCluster(), { wrapper });
+  await act(async () => {
+    await expect(result.current.mutateAsync({ clusterId: 'invalid-id', body: { title: 'Finding', summary: 'Summary', severity: 'medium' } })).rejects.toBeInstanceOf(ApiPathError);
+  });
+  expect(apiClient).not.toHaveBeenCalled();
 });

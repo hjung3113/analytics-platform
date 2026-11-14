@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,8 +18,10 @@ vi.mock('@/lib/api/client', async (importOriginal) => ({
   apiClient,
 }));
 
+const SURVEY_ID = '00000000-0000-4000-8000-000000000001';
+
 const survey: Survey = {
-  id: 'survey-1',
+  id: SURVEY_ID,
   display_id: 'SRV-1',
   title: 'Q3 사용성 진단',
   type: 'discovery',
@@ -49,7 +52,7 @@ function renderBuilder(current: Survey = survey) {
 describe('Survey builder description', () => {
   beforeEach(() => {
     apiClient.mockClear();
-    apiClient.mockResolvedValue({ data: { id: 'survey-1' } });
+    apiClient.mockResolvedValue({ data: { id: SURVEY_ID } });
   });
 
   it('saves a description-only edit as the exact partial patch', async () => {
@@ -64,7 +67,7 @@ describe('Survey builder description', () => {
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
 
     await waitFor(() =>
-      expect(apiClient).toHaveBeenCalledWith('PATCH', '/surveys/survey-1', {
+      expect(apiClient).toHaveBeenCalledWith('PATCH', `/surveys/${SURVEY_ID}`, {
         body: { description: '배포 맥락' },
       }),
     );
@@ -86,7 +89,7 @@ describe('Survey builder description', () => {
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
 
     await waitFor(() =>
-      expect(apiClient).toHaveBeenCalledWith('PATCH', '/surveys/survey-1', {
+      expect(apiClient).toHaveBeenCalledWith('PATCH', `/surveys/${SURVEY_ID}`, {
         body: { description: '' },
       }),
     );
@@ -95,7 +98,7 @@ describe('Survey builder description', () => {
       expect(screen.queryByText('저장되지 않은 변경 사항')).not.toBeInTheDocument(),
     );
     view.unmount();
-    const readback = await apiClient('GET', '/surveys/survey-1');
+    const readback = await apiClient('GET', apiPath`/surveys/${SURVEY_ID}`);
     renderBuilder(readback.data);
     expect(screen.getByRole('textbox', { name: '설명 (선택)' })).toHaveValue('');
   });

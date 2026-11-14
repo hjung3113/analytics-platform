@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
@@ -29,7 +30,7 @@ export function useCreateFindingFromVocMutation(
   const queryClient = useQueryClient();
   return useMutation<FindingDto, ApiError, CreateFindingFromVocMutationVariables>({
     mutationFn: async ({ vocId, body }) => {
-      const res = await apiClient<FindingDto>('POST', `/vocs/${vocId}/create-finding`, {
+      const res = await apiClient<FindingDto>('POST', apiPath`/vocs/${vocId}/create-finding`, {
         body,
         idempotencyKey,
       });

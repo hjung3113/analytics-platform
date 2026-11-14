@@ -46,7 +46,7 @@ export function useEntityLinkInventory(params: EntityLinkInventoryParams, enable
 
       const res = await apiClient<EntityLinkInventoryPage>(
         'GET',
-        `/entity-links?${qs.toString()}`,
+        '/entity-links?' + qs.toString(),
         { signal },
       );
       return res.data;
