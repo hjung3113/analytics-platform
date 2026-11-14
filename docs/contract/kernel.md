@@ -34,7 +34,21 @@ Platform Kernel이 소유해야 하는 UI 책임:
 - 공통 Keyboard Shortcut: ⌘/Ctrl+K 명령 팔레트, `[` 사이드바 접기/펼치기(입력 중 제외), Esc로 상세 패널(패널 안)·팝오버 닫기. 셸은 본문 바로가기 링크를 제공한다
 - 메뉴 활용률 계측(진입·체류 이벤트는 어댑터로 전송하고, 콘솔은 집계만 읽는다)
 
-현재 구현: 즐겨찾기·최근 방문(12건)·마지막 Scope 제안·사이드바 접힘·언어·표 열 설정은 브라우저 localStorage에 저장된다(기기 간 동기 없음). 조립이 `PlatformProvider serverPreferences`를 켜면(실서버 조립, #1104b) Kernel이 즐겨찾기·최근·마지막 Scope·언어·표 열을 서버 포트로 읽고 쓰며 위 1회 이전을 실행한다(이전 후보·원본 보존·알려진 한계는 [ADR-0098 §6](../adr/0098-adapter-preferences-people-notices-ports.md)). 사이드바 접힘은 아직 브라우저에 있다. 서버 모드의 최근 방문은 메뉴에 들어갈 때 바로 저장하고, 같은 메뉴 안의 주소 변경은 1초 뒤 한 번만 저장한다(화면은 바로 최신 목록을 읽는다). 그 1초 안에 탭을 닫으면 메뉴 항목은 남고 마지막 주소 변경은 남지 않는다(`pagehide` 전송 없음 — 포트에 keepalive가 없다). **계약(Decided 2026-10-28, #1096·[ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md), 구현됨 — 서버 #1104a·Kernel 배선·이전 #1104b)**: 즐겨찾기·최근·마지막 Scope·언어·표 열(`favorites`·`recents`·`lastScope`·`lang`·`columns:<preferenceKey>`)은 서버가 사용자별로 보존한다. 포트 `readPreferences`·`patchPreferences`(키 패치, `null`은 값·`remove`는 삭제, 겹침 거부)·`importPreferences`(1회 원자 가져오기: 서버 값이 이기고 없는 키만, `importedAt`이 완료 확인, 완료 뒤 영구 no-op)가 `PlatformAdapter`에 있고 mock·HTTP 어댑터가 구현한다. 가져오기는 인증된 첫 읽기 성공 뒤 일반 쓰기 전에 하고, 확인 전에는 로컬 데이터를 지우지 않으며 다른 사용자 키를 가져오지 않는다. 탭 안 상태(공간 마지막 화면·활용 세션, `sessionStorage`)와 보드 레이아웃·데이터·필터·이력은 서버 설정이 아니다. 사람 정확 조회 `lookupPeople`(`GroupMember[]`)과 공지 관리 포트 `listNotices`·`saveNotice`·`deleteNotice`도 같은 포트에 있다(사람 조회 화면 연결은 #1105. 공지는 #1106에서 실서버가 구현했고 앱 조립이 `saveNotice`·`deleteNotice` 뒤 `home.notices`만 `refreshEpochs.bump`로 목표 갱신한다 — Kernel은 메뉴 이름을 모르고 `adapter.subscribe`의 전체 무효화는 쓰지 않는다. 공지 화면은 #1290의 `@ap/menu-notice-voc`가 이 포트로 그린다). **범용 파일 올리기(Decided 2026-11-11, #1741·[ADR-0140](../adr/0140-generic-file-upload-port.md))**: 같은 포트에 선택 메서드 `uploadFile?({ file: Blob, name, idempotencyKey })`가 있다(없는 어댑터는 지금과 같다). 답은 `ActionResponse<UploadedFile>`(`{ id, name, size, mimeType }`)이고 상한 `UPLOAD_FILE_MAX_BYTES`(32 MiB)는 화면의 사전 점검용이다 — 크기·형식(닫힌 MIME 집합, `file.type`을 반드시 지정)·이름·권한은 서버가 판정하며, 판정된 실패는 던지지 않고 `invalid`/`error`로 답한다. 올린 파일은 연결되지 않은 첨부라 올린 사용자만 내려받고 24시간 뒤 지워지므로, id를 받은 쪽이 그 안에 서버에서 읽거나 연결한다. 목록·삭제·연결·이어 올리기는 없다.
+현재 구현: 즐겨찾기·최근 방문(12건)·마지막 Scope 제안·사이드바 접힘·언어·표 열 설정은 브라우저 localStorage에 저장된다(기기 간 동기 없음).
+조립이 `PlatformProvider serverPreferences`를 켜면(실서버 조립, #1104b) Kernel이 즐겨찾기·최근·마지막 Scope·언어·표 열을 서버 포트로 읽고 쓰며 위 1회 이전을 실행한다(이전 후보·원본 보존·알려진 한계는 [ADR-0098 §6](../adr/0098-adapter-preferences-people-notices-ports.md)).
+사이드바 접힘은 아직 브라우저에 있다.
+서버 모드의 최근 방문은 메뉴에 들어갈 때 바로 저장하고, 같은 메뉴 안의 주소 변경은 1초 뒤 한 번만 저장한다(화면은 바로 최신 목록을 읽는다).
+그 1초 안에 탭을 닫으면 메뉴 항목은 남고 마지막 주소 변경은 남지 않는다(`pagehide` 전송 없음 — 포트에 keepalive가 없다).
+**계약(Decided 2026-10-28, #1096·[ADR-0098](../adr/0098-adapter-preferences-people-notices-ports.md), 구현됨 — 서버 #1104a·Kernel 배선·이전 #1104b)**: 즐겨찾기·최근·마지막 Scope·언어·표 열(`favorites`·`recents`·`lastScope`·`lang`·`columns:<preferenceKey>`)은 서버가 사용자별로 보존한다.
+포트 `readPreferences`·`patchPreferences`(키 패치, `null`은 값·`remove`는 삭제, 겹침 거부)·`importPreferences`(1회 원자 가져오기: 서버 값이 이기고 없는 키만, `importedAt`이 완료 확인, 완료 뒤 영구 no-op)가 `PlatformAdapter`에 있고 mock·HTTP 어댑터가 구현한다.
+가져오기는 인증된 첫 읽기 성공 뒤 일반 쓰기 전에 하고, 확인 전에는 로컬 데이터를 지우지 않으며 다른 사용자 키를 가져오지 않는다.
+탭 안 상태(공간 마지막 화면·활용 세션, `sessionStorage`)와 보드 레이아웃·데이터·필터·이력은 서버 설정이 아니다.
+사람 정확 조회 `lookupPeople`(`GroupMember[]`)과 공지 관리 포트 `listNotices`·`saveNotice`·`deleteNotice`도 같은 포트에 있다(사람 조회 화면 연결은 #1105. 공지는 #1106에서 실서버가 구현했고 앱 조립이 `saveNotice`·`deleteNotice` 뒤 `home.notices`만 `refreshEpochs.bump`로 목표 갱신한다 — Kernel은 메뉴 이름을 모르고 `adapter.subscribe`의 전체 무효화는 쓰지 않는다.
+공지 화면은 #1290의 `@ap/menu-notice-voc`가 이 포트로 그린다).
+**범용 파일 올리기(Decided 2026-11-11, #1741·[ADR-0140](../adr/0140-generic-file-upload-port.md))**: 같은 포트에 선택 메서드 `uploadFile?({ file: Blob, name, idempotencyKey })`가 있다(없는 어댑터는 지금과 같다).
+답은 `ActionResponse<UploadedFile>`(`{ id, name, size, mimeType }`)이고 상한 `UPLOAD_FILE_MAX_BYTES`(32 MiB)는 화면의 사전 점검용이다 — 크기·형식(닫힌 MIME 집합, `file.type`을 반드시 지정)·이름·권한은 서버가 판정하며, 판정된 실패는 던지지 않고 `invalid`/`error`로 답한다.
+올린 파일은 연결되지 않은 첨부라 올린 사용자만 내려받고 24시간 뒤 지워지므로, id를 받은 쪽이 그 안에 서버에서 읽거나 연결한다.
+목록·삭제·연결·이어 올리기는 없다.
 
 
 ### Kernel이 소유하지 않는 것
@@ -169,7 +183,26 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 **단일값 키 중복 (Decided):** `scopeId`/`from`/`to`/`v`/`equipmentGroup`/`membershipBasis`/`ppid`/`metricId`/`metricVersion`/목적지 객체 ID 등 카디널리티 1인 키가 반복되면 같은 값이어도 형식 오류다. 클라이언트와 서버가 첫 값/마지막 값을 다르게 해석하는 것을 금지한다.
 
-**page 키의 카디널리티와 숨김 (Decided, 2026-11-01; ADR-0105):** page 키는 기본적으로 단일값이라 같은 키가 두 번 나오면 `duplicate_page_key`다. 메뉴가 `MenuMeta.repeatedPageKeys`(`pageKeys`의 부분집합)로 선언한 키만 컬렉션을 항목당 한 쌍으로 쓴다(순서 보존). `pageParams(key): string[]`(없으면 `[]`)와 `setPage`의 배열 값(`[]`·null은 키 제거, 선언 없는 키에 두 값 이상을 쓰면 `RangeError`)이 이를 읽고 쓴다. `repeatedPageKeys`·`hiddenPageKeys`가 `pageKeys` 밖이거나 한 목록에서 두 번 나오면 `createRegistry`가 거부한다. carry set과 `contextResetKeys`는 이 키들을 그대로 가리킬 수 있다. `MenuMeta.hiddenPageKeys`(`pageKeys`의 부분집합)로 선언한 키는 **본 화면의 주소창에 나타나지 않는다.** 이 키가 든 주소가 들어오면(첫 로드, 내비게이션, 공유 링크) Kernel이 page 쌍으로 검증하고, 그 history entry의 `history.state`(`{ apHidden: { v: 1, pairs } }`, 다른 state 필드는 건드리지 않는다)에 두며 주소를 같은 entry에서 `replace`로 다시 쓴다(entry를 더하지 않는다). `page`·`pageParam(s)`은 보이는 쌍과 숨은 쌍을 함께 돌려준다. 숨은 키를 `setPage`로 쓰면 주소가 같은 새 entry(push, `replace` 옵션이면 같은 entry)가 만들어지고 state가 새 쌍을 싣는다. 새로고침은 `history.state`로, 뒤로/앞으로는 entry의 state로 복원한다. 다른 메뉴로 가면 숨은 쌍은 따라가지 않는다(page 상태는 entry 단위). `contextResetKeys`와 드릴 reset은 숨은 키에도 적용한다. 공유 링크(`현재 조건 공유`, VOC 재현 링크)와 저장된 메뉴 뷰는 숨은 쌍을 싣는다(링크 길이 상한 4000자에 포함). 칸·보드 칸은 주소창이 없으므로 숨은 키도 칸 자신의 page 상태(칸 query)에 다른 page 키처럼 둔다. 사용자가 받아들인 비용: 주소창 복사와 북마크, 주소로 연 새 탭은 숨은 키를 싣지 않는다(공유 버튼과 저장된 뷰는 싣는다). `returnTo`는 보이는 주소만 가리킨다. 출발 화면의 숨은 쌍은 주소에 싣지 않고 세션 저장소(`sessionStorage`, 이름 공간·버전 2·크기 상한, 보이는 출발 주소가 키)에 그 쌍을 남긴 사용자 id·배포(origin + base path)·메뉴 id와 함께 맡겼다가, 사용자가 반환 링크를 따라 갈 때 셋이 모두 지금과 같을 때만 도착 메뉴가 선언한 숨은 키로 검증해 새 entry의 state로 되살린다. 저장에 실패하면 그 반환에서는 아무것도 되살리지 않는다(fail closed). 저장소를 쓸 수 없으면 숨은 쌍은 버려지고 주소에는 어떤 경우에도 나타나지 않는다. 반복 키는 carry set 이동에서 전체 순서 컬렉션이 따라가고(멤버끼리 반복 여부가 같아야 하며 Registry가 검사), 저장된 뷰·질의 이력은 키 안의 값 순서를 보존하며, 반복 키는 드릴 단계·`conditionPreset` 키·`navViews` 프리셋 키와 겹칠 수 없다. `ModuleHost.pages`는 반복 키를 지원하는 호스트만 주는 선택 능력이다([ADR-0053](../adr/0053-host-module-contract-v1.md) 개정).
+**page 키의 카디널리티와 숨김 (Decided, 2026-11-01; ADR-0105):** page 키는 기본적으로 단일값이라 같은 키가 두 번 나오면 `duplicate_page_key`다.
+메뉴가 `MenuMeta.repeatedPageKeys`(`pageKeys`의 부분집합)로 선언한 키만 컬렉션을 항목당 한 쌍으로 쓴다(순서 보존).
+`pageParams(key): string[]`(없으면 `[]`)와 `setPage`의 배열 값(`[]`·null은 키 제거, 선언 없는 키에 두 값 이상을 쓰면 `RangeError`)이 이를 읽고 쓴다.
+`repeatedPageKeys`·`hiddenPageKeys`가 `pageKeys` 밖이거나 한 목록에서 두 번 나오면 `createRegistry`가 거부한다.
+carry set과 `contextResetKeys`는 이 키들을 그대로 가리킬 수 있다.
+`MenuMeta.hiddenPageKeys`(`pageKeys`의 부분집합)로 선언한 키는 **본 화면의 주소창에 나타나지 않는다.** 이 키가 든 주소가 들어오면(첫 로드, 내비게이션, 공유 링크) Kernel이 page 쌍으로 검증하고, 그 history entry의 `history.state`(`{ apHidden: { v: 1, pairs } }`, 다른 state 필드는 건드리지 않는다)에 두며 주소를 같은 entry에서 `replace`로 다시 쓴다(entry를 더하지 않는다).
+`page`·`pageParam(s)`은 보이는 쌍과 숨은 쌍을 함께 돌려준다.
+숨은 키를 `setPage`로 쓰면 주소가 같은 새 entry(push, `replace` 옵션이면 같은 entry)가 만들어지고 state가 새 쌍을 싣는다.
+새로고침은 `history.state`로, 뒤로/앞으로는 entry의 state로 복원한다.
+다른 메뉴로 가면 숨은 쌍은 따라가지 않는다(page 상태는 entry 단위).
+`contextResetKeys`와 드릴 reset은 숨은 키에도 적용한다.
+공유 링크(`현재 조건 공유`, VOC 재현 링크)와 저장된 메뉴 뷰는 숨은 쌍을 싣는다(링크 길이 상한 4000자에 포함).
+칸·보드 칸은 주소창이 없으므로 숨은 키도 칸 자신의 page 상태(칸 query)에 다른 page 키처럼 둔다.
+사용자가 받아들인 비용: 주소창 복사와 북마크, 주소로 연 새 탭은 숨은 키를 싣지 않는다(공유 버튼과 저장된 뷰는 싣는다).
+`returnTo`는 보이는 주소만 가리킨다.
+출발 화면의 숨은 쌍은 주소에 싣지 않고 세션 저장소(`sessionStorage`, 이름 공간·버전 2·크기 상한, 보이는 출발 주소가 키)에 그 쌍을 남긴 사용자 id·배포(origin + base path)·메뉴 id와 함께 맡겼다가, 사용자가 반환 링크를 따라 갈 때 셋이 모두 지금과 같을 때만 도착 메뉴가 선언한 숨은 키로 검증해 새 entry의 state로 되살린다.
+저장에 실패하면 그 반환에서는 아무것도 되살리지 않는다(fail closed).
+저장소를 쓸 수 없으면 숨은 쌍은 버려지고 주소에는 어떤 경우에도 나타나지 않는다.
+반복 키는 carry set 이동에서 전체 순서 컬렉션이 따라가고(멤버끼리 반복 여부가 같아야 하며 Registry가 검사), 저장된 뷰·질의 이력은 키 안의 값 순서를 보존하며, 반복 키는 드릴 단계·`conditionPreset` 키·`navViews` 프리셋 키와 겹칠 수 없다.
+`ModuleHost.pages`는 반복 키를 지원하는 호스트만 주는 선택 능력이다([ADR-0053](../adr/0053-host-module-contract-v1.md) 개정).
 
 **설비·공정 대상 page 키 (#1429):** 메뉴가 `MenuMeta.subjectPageKeys`(`{ <종류>: 선언된 단일값 pageKeys 키 }`)로 대상 키를 선언하면 셸이 그 현재 값을 `AnalysisActionsProps.subject`로 넘긴다. 종류(`equipment`, `process`, `lot` 등)는 메뉴가 이름 붙이며 SDK는 닫힌 목록을 두지 않는다. SDK는 종류가 식별자(`/^[a-z][a-zA-Z0-9]*$/`)인지, 키가 선언된 단일값 page 키인지만 검사하고 반복 키는 거부한다. 식별자 검사의 이유: 종류가 `AnalysisActionsProps.subject`의 객체 키가 되므로 `__proto__` 같은 키와 자유 텍스트 키를 막는다(데이터 무결성). 소비하는 기능은 아는 종류만 읽고 나머지는 무시한다.
 
@@ -240,7 +273,28 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 배포 하위 경로는 주입된 위치 어댑터의 브라우저 경계에서만 붙고 떼며, 앱 내부 URL·`returnTo`·저장 URL은 base 없는 앱 상대 경로다([ADR-0030](../adr/0030-location-adapter-base-path.md)).
 
-**메뉴 경로: 정규 경로와 옛 별칭 (Decided, 2026-10-27, [ADR-0093](../adr/0093-canonical-paths-from-space-and-menu-id.md)):** 공간에 속한 그룹의 메뉴 URL은 `/{공간 id}/{메뉴 id 슬러그}` 뒤에 manifest 경로의 `:param` 세그먼트를 순서대로 붙인 정규 경로다(슬러그: `:`→`-`, camelCase→kebab-case, 소문자; 예 `equipment-detail` → `/mars/equipment-detail/:equipmentId`, 모듈 메뉴 `eqv:topview` → `/tools/eqv-topview`). 공간 없는 그룹의 메뉴는 manifest 경로가 정규 경로이고, 플랫폼 홈은 앱이 `createRegistry({ platformHomeMenuId })`로 선언해 `registry.platformHome`으로 읽는다. 지정한 id는 등록된 공간 없는 메뉴여야 하고 정규 경로에 매개변수가 없어야 한다. 공간 없는 메뉴가 `/`를 경로 또는 별칭으로 선언하면 이 옵션이 필수지만, 지정 id가 그 메뉴일 필요는 없다. manifest 경로가 정규 경로와 다르면 옛 별칭(`MenuMeta.aliases`)이 되고, `createRegistry`가 돌려주는 메뉴는 `path`가 정규 경로이며 `aliases`에 옛 경로가 있어 `pathFor`는 정규 경로만 만든다. `matchRoute`는 정규 경로와 별칭을 모두 맞추고(정적 세그먼트 우선) `RouteMatch.viaAlias`로 어느 쪽인지 알린다 — `params`는 늘 정규 경로의 파라미터 이름이다. `safeReturnTo`는 저장된 옛 문자열도 받고 원래 문자열을 돌려준다. Registry는 같은 공간 슬러그 중복, 정규 경로·별칭 전체의 경로 모양 충돌, 예약 루트인 공간 id(Kernel 고유 루트 `board`·`api`·`auth`와, 앱이 `createRegistry`의 `reservedRoots`로 선언한 루트 — 이 앱은 `home`·`survey`·`voc`·`notifications`·`notices`·`permission-requests`·`my-tasks`·`faq`·`tokens`(`apps/platform-web/src/menus.ts` `APP_RESERVED_ROOTS`). Kernel은 앱 메뉴 루트를 알지 못하고, 선언하지 않으면 거부하지 않는다. 항목이 id 모양이 아니면 `RegistryError`), 공간 id로 시작하는 공간 없는 경로·별칭, `/board` 이름공간 경로와 다른 메뉴의 정규 경로를 가로채는 패턴을 `RegistryError`로 거부한다. 허용되는 별칭 간 중첩은 정적 세그먼트가 우선한다. **별칭 리다이렉트:** 메인 화면이 별칭(`viaAlias`)으로 열리면 Context를 해석한 직후 주소를 정규 경로로 한 번 `replace`한다(history 항목을 더하지 않고, 검색 문자열은 알 수 없는 키·`focus`·`returnTo`·v1 쿼리까지 바이트 그대로, 주소 해시도 그대로). 정규 주소로 열면 쓰지 않는다. 별칭 주소에서는 화면을 그리지 않고 조회·사용 계측(`entry`)·최근 방문·공간 마지막 화면도 기록하지 않으므로, 옛 경로로 나가는 요청은 없다. 기간·지표 버전의 기본값 채우기는 정규 주소로 옮긴 뒤 평소처럼 한 번 더 쓴다. 배포 base path는 위치 어댑터 경계에서만 붙는다(Registry·저장 URL은 앱 상대 경로). 리다이렉트는 권한·Scope를 바꾸지 않아, 열 수 없는 메뉴는 정규 주소에서 같은 거부를 보인다. **이 앱의 플랫폼 홈은 정규 `/home`이다:** 홈 메뉴가 `path: '/home'`에 `aliases: ['/']`를 선언하고 `/`는 `/home`으로 옮겨진다. 홈이 필요한 곳(홈 링크, 플랫폼 메뉴의 `홈`, 되돌아갈 곳이 없을 때의 폴백, 홈 화면의 최근 방문)은 `matchRoute('/')`가 아니라 `registry.platformHome`을 읽고, 없으면(`null`) 공간 홈 폴백으로 간다. **`returnTo`:** 저장된·옛 형식의 `returnTo`(별칭 경로)도 돌아가기 포커스를 받는다 — `pageNavigation.requestReturn`이 두 주소를 정규 형태로 맞춰 비교하고, 저장된 값은 고쳐 쓰지 않는다(`safeReturnTo`는 원래 문자열을 돌려주고 공유·VOC 페이로드는 계속 `returnTo`를 싣지 않는다). 설문은 정규 `/survey`·`/survey/:surveyId/respond`이고 `/surveys…`는 별칭이다(기능 단독 `/surveys…` 주소와 그 파서는 이 경로가 아니라 변하지 않는다). 옛 → 정규 경로 표는 `apps/platform-web/src/canonical-paths.test.ts`가 조립된 Registry로 검사한다.
+**메뉴 경로: 정규 경로와 옛 별칭 (Decided, 2026-10-27, [ADR-0093](../adr/0093-canonical-paths-from-space-and-menu-id.md)):** 공간에 속한 그룹의 메뉴 URL은 `/{공간 id}/{메뉴 id 슬러그}` 뒤에 manifest 경로의 `:param` 세그먼트를 순서대로 붙인 정규 경로다(슬러그: `:`→`-`, camelCase→kebab-case, 소문자; 예 `equipment-detail` → `/mars/equipment-detail/:equipmentId`, 모듈 메뉴 `eqv:topview` → `/tools/eqv-topview`).
+공간 없는 그룹의 메뉴는 manifest 경로가 정규 경로이고, 플랫폼 홈은 앱이 `createRegistry({ platformHomeMenuId })`로 선언해 `registry.platformHome`으로 읽는다.
+지정한 id는 등록된 공간 없는 메뉴여야 하고 정규 경로에 매개변수가 없어야 한다.
+공간 없는 메뉴가 `/`를 경로 또는 별칭으로 선언하면 이 옵션이 필수지만, 지정 id가 그 메뉴일 필요는 없다.
+manifest 경로가 정규 경로와 다르면 옛 별칭(`MenuMeta.aliases`)이 되고, `createRegistry`가 돌려주는 메뉴는 `path`가 정규 경로이며 `aliases`에 옛 경로가 있어 `pathFor`는 정규 경로만 만든다.
+`matchRoute`는 정규 경로와 별칭을 모두 맞추고(정적 세그먼트 우선) `RouteMatch.viaAlias`로 어느 쪽인지 알린다 — `params`는 늘 정규 경로의 파라미터 이름이다.
+`safeReturnTo`는 저장된 옛 문자열도 받고 원래 문자열을 돌려준다.
+Registry는 같은 공간 슬러그 중복, 정규 경로·별칭 전체의 경로 모양 충돌, 예약 루트인 공간 id(Kernel 고유 루트 `board`·`api`·`auth`와, 앱이 `createRegistry`의 `reservedRoots`로 선언한 루트 — 이 앱은 `home`·`survey`·`voc`·`notifications`·`notices`·`permission-requests`·`my-tasks`·`faq`·`tokens`(`apps/platform-web/src/menus.ts` `APP_RESERVED_ROOTS`).
+Kernel은 앱 메뉴 루트를 알지 못하고, 선언하지 않으면 거부하지 않는다.
+항목이 id 모양이 아니면 `RegistryError`), 공간 id로 시작하는 공간 없는 경로·별칭, `/board` 이름공간 경로와 다른 메뉴의 정규 경로를 가로채는 패턴을 `RegistryError`로 거부한다.
+허용되는 별칭 간 중첩은 정적 세그먼트가 우선한다.
+**별칭 리다이렉트:** 메인 화면이 별칭(`viaAlias`)으로 열리면 Context를 해석한 직후 주소를 정규 경로로 한 번 `replace`한다(history 항목을 더하지 않고, 검색 문자열은 알 수 없는 키·`focus`·`returnTo`·v1 쿼리까지 바이트 그대로, 주소 해시도 그대로).
+정규 주소로 열면 쓰지 않는다.
+별칭 주소에서는 화면을 그리지 않고 조회·사용 계측(`entry`)·최근 방문·공간 마지막 화면도 기록하지 않으므로, 옛 경로로 나가는 요청은 없다.
+기간·지표 버전의 기본값 채우기는 정규 주소로 옮긴 뒤 평소처럼 한 번 더 쓴다.
+배포 base path는 위치 어댑터 경계에서만 붙는다(Registry·저장 URL은 앱 상대 경로).
+리다이렉트는 권한·Scope를 바꾸지 않아, 열 수 없는 메뉴는 정규 주소에서 같은 거부를 보인다.
+**이 앱의 플랫폼 홈은 정규 `/home`이다:** 홈 메뉴가 `path: '/home'`에 `aliases: ['/']`를 선언하고 `/`는 `/home`으로 옮겨진다.
+홈이 필요한 곳(홈 링크, 플랫폼 메뉴의 `홈`, 되돌아갈 곳이 없을 때의 폴백, 홈 화면의 최근 방문)은 `matchRoute('/')`가 아니라 `registry.platformHome`을 읽고, 없으면(`null`) 공간 홈 폴백으로 간다.
+**`returnTo`:** 저장된·옛 형식의 `returnTo`(별칭 경로)도 돌아가기 포커스를 받는다 — `pageNavigation.requestReturn`이 두 주소를 정규 형태로 맞춰 비교하고, 저장된 값은 고쳐 쓰지 않는다(`safeReturnTo`는 원래 문자열을 돌려주고 공유·VOC 페이로드는 계속 `returnTo`를 싣지 않는다).
+설문은 정규 `/survey`·`/survey/:surveyId/respond`이고 `/surveys…`는 별칭이다(기능 단독 `/surveys…` 주소와 그 파서는 이 경로가 아니라 변하지 않는다).
+옛 → 정규 경로 표는 `apps/platform-web/src/canonical-paths.test.ts`가 조립된 Registry로 검사한다.
 
 **위치 어댑터와 비교:** `PlatformLocation.replace(url, { keepFragment: true })`는 같은 도착의 별칭 리다이렉트·기본값 물질화 때 현재 주소의 fragment를 보존해 한 번의 history replace로 쓴다. 옵션을 생략하거나 false이면 현재 fragment를 이어 붙이지 않는다. 입력은 base 없는 앱 상대 URL이다. `registry.canonicalHref(href)`는 pathname과 선택적인 query로 된 입력에서 매칭된 별칭만 정규 경로로 바꾸고 query를 그대로 보존한다. 정규 경로 또는 매칭되지 않은 입력은 그대로 반환한다. 비교용이며 검증이나 fragment 처리를 수행하지 않는다.
 
