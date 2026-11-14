@@ -34,6 +34,8 @@ Platform Kernel이 소유해야 하는 UI 책임:
 - 공통 Keyboard Shortcut: ⌘/Ctrl+K 명령 팔레트, `[` 사이드바 접기/펼치기(입력 중 제외), Esc로 상세 패널(패널 안)·팝오버 닫기. 셸은 본문 바로가기 링크를 제공한다
 - 메뉴 활용률 계측(진입·체류 이벤트는 어댑터로 전송하고, 콘솔은 집계만 읽는다)
 
+화면 없는 「예정」 메뉴(`component`도 `moduleScreen`도 없음)는 최근 방문과 공간의 마지막 화면(`space-last`, 홈의 「이어서」)에 기록하지 않는다(#1944). 열어 볼 수는 있지만 돌아올 곳으로 남지 않는다.
+
 현재 구현: 즐겨찾기·최근 방문(12건)·마지막 Scope 제안·사이드바 접힘·언어·표 열 설정은 브라우저 localStorage에 저장된다(기기 간 동기 없음).
 조립이 `PlatformProvider serverPreferences`를 켜면(실서버 조립, #1104b) Kernel이 즐겨찾기·최근·마지막 Scope·언어·표 열을 서버 포트로 읽고 쓰며 위 1회 이전을 실행한다(이전 후보·원본 보존·알려진 한계는 [ADR-0098 §6](../adr/0098-adapter-preferences-people-notices-ports.md)).
 사이드바 접힘은 아직 브라우저에 있다.

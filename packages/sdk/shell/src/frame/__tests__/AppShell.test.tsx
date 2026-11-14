@@ -9,19 +9,21 @@ import type { FeatureSlot, PlatformSlots } from '@ap/kernel';
 import { AppShell } from '../AppShell';
 import { AppRail } from '../AppRail';
 import { AppSidebar } from '../AppSidebar';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '@ap/kernel/testing';
 import { carrySetId, groupId, menuPermission, spaceId, type GroupId, type Permission, type PlatformAdapter, type Session } from '@ap/contracts';
 import { useEffect, useState, type ReactNode } from 'react';
 
 function menu(id: string, group: GroupId, path: string, permission: Permission) {
   return { id, group, path, permission, primary: true, label: { ko: '운영 홈', en: 'Operations home' }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
 }
-const registry = createRegistry({
+/** `homeScreen`: the home menu has a screen (a menu without one is «planned» and is never remembered as a recent visit, #1944). */
+function makeRegistry(homeScreen: boolean) { return createRegistry({
   permissions: [menuPermission('equipment:view')],
   spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, subtitle: { ko: '기능 검사 전용 시스템 부제', en: 'feature fixture system subtitle' }, homeMenuId: 'home' }), testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars'), hideLabelWhenSingle: true }, { id: groupId('admin'), label: { ko: '관리', en: 'Admin' }, icon: House, space: spaceId('operations') }],
-  menus: [menu('ops', groupId('admin'), '/ops', 'console:access'), { id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'] }],
-});
+  menus: [menu('ops', groupId('admin'), '/ops', 'console:access'), { id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'], ...(homeScreen ? { component: testScreen } : {}) }],
+}); }
+const registry = makeRegistry(false);
 
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 function adapterWith(permissions: Session['user']['permissions'] = ['platform:view']): PlatformAdapter {
@@ -112,7 +114,7 @@ describe('rail space navigation', () => {
     // pathname changes at pushState, before React re-renders the switcher label: wait for the DOM, not the URL.
     expect(await screen.findByRole('button', { name: '시스템 및 플랫폼 메뉴 · 현재: 운영 콘솔' })).toBeTruthy();
     const rail = screen.getByRole('navigation', { name: '시스템 레일' });
-    expect(within(rail).getByRole('button', { name: '관리' }).getAttribute('aria-current')).toBe('true');
+    expect(within(rail).getByRole('button', { name: '관리 · 예정' }).getAttribute('aria-current')).toBe('true');
     const nav = screen.getByRole('navigation', { name: '주 메뉴' });
     expect(within(nav).queryByRole('link', { name: '홈' })).toBeNull();
     expect(within(nav).getByRole('link', { name: '운영 홈' })).toBeTruthy();
@@ -155,22 +157,34 @@ describe('light sidebar', () => {
   });
 
   it('uses the existing viewport default only when no persisted value exists', () => {
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1439 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1199 });
     expect(mount().container.querySelector('aside')?.getAttribute('data-collapsed')).toBe('true');
     cleanup();
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
     expect(mount().container.querySelector('aside')?.getAttribute('data-collapsed')).toBe('false');
+    cleanup();
+    // The 1280px laptop starts open (#1944); a saved choice still wins at any width.
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    expect(mount().container.querySelector('aside')?.getAttribute('data-collapsed')).toBe('false');
+    cleanup();
+    localStorage.setItem('platform:sidebar-collapsed', '1');
+    expect(mount().container.querySelector('aside')?.getAttribute('data-collapsed')).toBe('true');
   });
 
-  it('renders flat sections, planned menus, favorites and exact recent URLs without a menu filter', async () => {
+  it('marks a menu without a screen as planned in the sidebar', () => {
+    localStorage.setItem('platform:sidebar-collapsed', '0');
+    mount();
+    expect(within(screen.getByRole('navigation', { name: '주 메뉴' })).getAllByText('예정').length).toBeGreaterThan(0);
+  });
+
+  it('renders flat sections, favorites and exact recent URLs without a menu filter', async () => {
     localStorage.setItem('platform:sidebar-collapsed', '0');
     localStorage.setItem('platform:favorites:u1', JSON.stringify(['ops']));
     localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'ops', url: '/ops?v=1&scopeId=MEM' }]));
-    mount();
+    mount(['platform:view'], true, makeRegistry(true));
     const nav = screen.getByRole('navigation', { name: '주 메뉴' });
     expect(within(nav).queryByRole('link', { name: /운영 홈/ })).toBeNull();
     expect(within(nav).getByRole('group', { name: '개요' })).toBeTruthy();
-    expect(within(nav).getAllByText('예정').length).toBeGreaterThan(0);
     expect(within(nav).queryByRole('textbox')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'save favorite' }));
     const favorites = screen.getByRole('region', { name: '즐겨찾기' });
@@ -214,7 +228,7 @@ describe('primary navigation boundary (#194 FIX1)', () => {
     localStorage.setItem('platform:sidebar-collapsed', collapsed ? '1' : '0');
     localStorage.setItem('platform:favorites:u1', JSON.stringify(['home', 'ops']));
     localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'home', url: '/?v=1&scopeId=MEM&lotIds=previous' }, { menuId: 'ops', url: '/ops' }]));
-    mount();
+    mount(['platform:view'], true, makeRegistry(true));
     const primary = screen.getByRole('navigation', { name: '주 메뉴' });
     if (collapsed) {
       expect(screen.queryByRole('region', { name: '즐겨찾기' })).toBeNull();
@@ -280,12 +294,12 @@ describe('shell accessibility (#194 FIX2)', () => {
     const rail = screen.getByRole('navigation', { name: '시스템 레일' });
     // aria-current="page" is the current menu only; the section button says "true" (06 §26).
     expect(home.getAttribute('aria-current')).toBe('page');
-    expect(within(rail).getByRole('button', { name: '개요' }).getAttribute('aria-current')).toBe('true');
-    expect(within(rail).getByRole('button', { name: '개요' }).querySelector('[data-current-marker]')).toHaveClass('w-0.5');
-    expect(within(rail).queryByRole('button', { name: '관리' })).toBeNull();
+    expect(within(rail).getByRole('button', { name: '개요 · 예정' }).getAttribute('aria-current')).toBe('true');
+    expect(within(rail).getByRole('button', { name: '개요 · 예정' }).querySelector('[data-current-marker]')).toHaveClass('w-0.5');
+    expect(within(rail).queryByRole('button', { name: '관리 · 예정' })).toBeNull();
     fireEvent.click(within(openSwitcher()).getByRole('button', { name: /운영 콘솔/ }));
-    await waitFor(() => expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).getByRole('button', { name: '관리' }).querySelector('[data-current-marker]')).toBeTruthy());
-    expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).queryByRole('button', { name: '개요' })).toBeNull();
+    await waitFor(() => expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).getByRole('button', { name: '관리 · 예정' }).querySelector('[data-current-marker]')).toBeTruthy());
+    expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).queryByRole('button', { name: '개요 · 예정' })).toBeNull();
     expect(within(screen.getByRole('navigation', { name: '주 메뉴' })).getByRole('link', { name: '운영 홈' }).querySelector('[data-current-marker]')).toBeTruthy();
   });
 });
@@ -1256,5 +1270,40 @@ describe('recent links from stored values (#1967)', () => {
   ])('keeps a valid stored path with its query %s', async (_label, base, expected) => {
     mountRecent('/m-b?v=1&page=2', base);
     expect((await recentLink())?.getAttribute('href')).toBe(expected);
+  });
+});
+
+describe('tab title and planned sections (#1944)', () => {
+  const titleRegistry = (withScreen: boolean) => createRegistry({
+    spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'ready' })],
+    groups: [{ id: groupId('live'), label: { ko: '살아 있는 섹션', en: 'Live' }, icon: House, space: spaceId('mars') }, { id: groupId('soon'), label: { ko: '예정 섹션', en: 'Soon' }, icon: House, space: spaceId('mars') }],
+    menus: [
+      { ...menu('ready', groupId('live'), '/ready', 'platform:view'), label: { ko: '준비된 메뉴', en: 'Ready' }, ...(withScreen ? { component: testScreen } : {}) },
+      { ...menu('later', groupId('soon'), '/later', 'platform:view'), label: { ko: '나중 메뉴', en: 'Later' }, primary: true },
+    ],
+  });
+
+  it.each([
+    ['/ready?v=1', '준비된 메뉴 — 분석 · 샘플 제품'],
+    ['/nowhere?v=1', '등록되지 않은 경로입니다 · 샘플 제품'],
+  ])('writes the tab title for %s', async (url, title) => {
+    window.history.replaceState(null, '', url);
+    render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={titleRegistry(true)}><AppShell productName="샘플 제품"><p>x</p></AppShell></PlatformProvider></I18nProvider>);
+    await waitFor(() => expect(document.title).toContain(title.split(' · ')[0]!));
+    expect(document.title.endsWith(' · 샘플 제품')).toBe(true);
+  });
+
+  it('writes no product name when the host passes none', async () => {
+    window.history.replaceState(null, '', '/ready?v=1');
+    render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={titleRegistry(true)}><AppShell><p>x</p></AppShell></PlatformProvider></I18nProvider>);
+    await waitFor(() => expect(document.title).toBe('준비된 메뉴 — 분석'));
+  });
+
+  it('dims a rail section that has only planned menus and says so in its name', () => {
+    window.history.replaceState(null, '', '/ready?v=1');
+    render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={titleRegistry(true)}><AppShell><p>x</p></AppShell></PlatformProvider></I18nProvider>);
+    const rail = screen.getByRole('navigation', { name: '시스템 레일' });
+    expect(within(rail).getByRole('button', { name: '예정 섹션 · 예정' }).getAttribute('data-section-planned')).toBe('true');
+    expect(within(rail).getByRole('button', { name: '살아 있는 섹션' }).getAttribute('data-section-planned')).toBeNull();
   });
 });

@@ -55,7 +55,7 @@ function HostRoot<A extends HostAssembly>({ options, assembly, registry, locatio
   const defaults = useMemo<PlatformSlots>(() => ({ contextBar: createElement(GlobalContextBar), boardEntry: createElement(OpenInBoardAction), topBarTools: assembly.topBarTools }), [assembly]);
   const slots: PlatformSlots = { ...defaults, ...options.slots?.(assembly) };
   return (
-    <AppRoot assembly={assembly} registry={registry} queryHistory={options.queryHistory} location={location} slots={slots} spaceIdMigrations={options.spaceIdMigrations} equipmentAxes={options.equipmentAxes}>
+    <AppRoot assembly={assembly} registry={registry} queryHistory={options.queryHistory} location={location} slots={slots} spaceIdMigrations={options.spaceIdMigrations} equipmentAxes={options.equipmentAxes} productName={options.productName}>
       {options.children?.(assembly)}
     </AppRoot>
   );

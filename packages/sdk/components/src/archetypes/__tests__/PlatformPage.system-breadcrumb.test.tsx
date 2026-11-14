@@ -31,13 +31,34 @@ describe('PlatformPage system breadcrumb (15 §3.2)', () => {
     const nav = screen.getByRole('navigation', { name: '이동 경로' });
     expect(within(nav).getByText('MARS')).toBeTruthy();
     expect(within(nav).queryByRole('link')).toBeNull();
-    expect(nav.textContent).toBe('MARS');
+    expect(nav.textContent).toBe('MARS설비');
+  });
+
+  it('writes the section between the system and the menu, as text (#1944)', () => {
+    mount('/equipment?v=1');
+    const nav = screen.getByRole('navigation', { name: '이동 경로' });
+    expect(nav.querySelector('[data-breadcrumb-section]')?.textContent).toBe('설비');
+    expect(nav.querySelector('[data-breadcrumb-system]')?.nextElementSibling?.nextElementSibling).toBe(nav.querySelector('[data-breadcrumb-section]'));
+  });
+
+  it('writes a section whose name equals the system or the menu once (#1944)', () => {
+    const same = createRegistry({
+      spaces: [testSpace({ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, homeMenuId: 'a' })],
+      groups: [{ id: groupId('mars-section'), label: { ko: 'MARS', en: 'MARS' }, icon: House, space: spaceId('mars') }, { id: groupId('same-menu'), label: { ko: '설비 목록', en: 'Equipment list' }, icon: House, space: spaceId('mars') }],
+      menus: [menu('a', groupId('mars-section'), '/a'), menu('b', groupId('same-menu'), '/b')],
+    });
+    for (const url of ['/a?v=1', '/b?v=1']) {
+      cleanup();
+      window.history.replaceState(null, '', url);
+      render(<I18nProvider><PlatformProvider adapter={adapter()} registry={same}><PlatformPage><p>body</p></PlatformPage></PlatformProvider></I18nProvider>);
+      expect(screen.getByRole('navigation', { name: '이동 경로' }).textContent).toBe('MARS');
+    }
   });
 
   it('keeps the system name before the parent and crumbs', () => {
     mount('/equipment/E1?v=1', [{ label: 'EQP-1' }]);
     const nav = screen.getByRole('navigation', { name: '이동 경로' });
-    expect(nav.textContent).toBe('MARS설비 목록EQP-1');
+    expect(nav.textContent).toBe('MARS설비설비 목록EQP-1');
     expect(nav.firstElementChild).toHaveAttribute('data-breadcrumb-system');
     expect(within(nav).getAllByRole('link').map(link => link.textContent)).toEqual(['설비 목록']);
   });

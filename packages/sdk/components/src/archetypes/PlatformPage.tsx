@@ -251,6 +251,9 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
   const parent: MenuEntry | null = menu.parent ? registry.menuById(menu.parent) : null;
+  // <system> › <section> › <menu> (15 §3.2, same rule as the palette): a section name equal to the name drawn right before or after it is written once.
+  const sectionName = tx(registry.groupById(menu.group).label);
+  const sectionShown = currentSpace !== null && sectionName !== tx(currentSpace.label) && sectionName !== tx((parent ?? menu).label);
   // #353: a gate action button disappears with the state change it triggers, so keyboard focus must
   // move before that — §19 banner dismissal rule: main landmark, page content element outside a shell.
 
@@ -323,6 +326,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
         <div style={{ '--header-left-min': leftGroupMinWidth } as CSSProperties} className="flex min-w-[var(--header-left-min)] flex-1 items-center gap-2">
           {(currentSpace || parent || crumbs.length > 0) && <nav aria-label={t('breadcrumb')} className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
             {currentSpace && <><span data-breadcrumb-system className="min-w-0 truncate" title={tx(currentSpace.label)}>{tx(currentSpace.label)}</span><ChevronRight className="size-3 shrink-0" aria-hidden /></>}
+            {sectionShown && <><span data-breadcrumb-section className="min-w-0 truncate" title={sectionName}>{sectionName}</span><ChevronRight className="size-3 shrink-0" aria-hidden /></>}
             {parent && <><PlatformLink className="min-w-0 truncate hover:text-accent-primary" title={tx(parent.label)} href={linkTo(parent.id)}>{tx(parent.label)}</PlatformLink><ChevronRight className="size-3 shrink-0" aria-hidden /></>}
             {crumbs.map((crumb, index) => <span key={index} className="flex min-w-0 items-center gap-1">
               {crumb.href ? <PlatformLink className="min-w-0 truncate hover:text-accent-primary" title={typeof crumb.label === 'string' ? crumb.label : undefined} href={crumb.href}>{crumb.label}</PlatformLink> : <span className="truncate">{crumb.label}</span>}

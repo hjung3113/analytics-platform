@@ -1,5 +1,5 @@
 AppRail | function | function AppRail(): import("react").JSX.Element
-AppShell | function | function AppShell({ children }: { children: ReactNode; }): import("react").JSX.Element
+AppShell | function | function AppShell({ children, productName }: { children: ReactNode; productName?: string; }): import("react").JSX.Element
 AppSidebar | function | function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void; }): import("react").JSX.Element
 CommandPalette | function | function CommandPalette(): import("react").JSX.Element
 GlobalContextBar | function | function GlobalContextBar({ label, whenEmpty }?: { label?: { region: string; visible: string; }; whenEmpty?: ReactNode; }): import("react").JSX.Element

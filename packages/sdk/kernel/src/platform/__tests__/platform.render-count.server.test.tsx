@@ -6,7 +6,7 @@ import { contextCapabilities, groupId, type JsonValue, type PlatformAdapter } fr
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform, usePlatform } from '../platform';
 import { createRegistry } from '../../registry/registry';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
 
 // #1671: with `serverPreferences` on, one URL change wakes a `usePlatform()` consumer once, and a run of URL changes inside one menu
 // sends one recents PATCH. The mock assembly (no `serverPreferences`) is measured in platform.render-count.test.tsx.
@@ -14,7 +14,7 @@ import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '.
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: noContext, pageType: 'analysis' as const, features: { ...features, board: true }, pageKeys: ['page', 'returnTo'], ...over,
+  requiresScope: false, context: noContext, component: testScreen, pageType: 'analysis' as const, features: { ...features, board: true }, pageKeys: ['page', 'returnTo'], ...over,
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'main' })],

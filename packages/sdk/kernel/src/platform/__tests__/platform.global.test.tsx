@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform, useRecentVisits } from '../platform';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from '../../registry/registry';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
 import { groupId, spaceId, type ClientErrorReport, type Session, type SpaceDef, type UsageEvent } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
@@ -17,7 +17,7 @@ const spaces: SpaceDef[] = [
 function menu(over: Partial<PlatformMenuEntry> & Pick<PlatformMenuEntry, 'id' | 'group' | 'path' | 'permission'>): MenuEntry {
   return {
     label: { ko: over.id, en: over.id }, description: { ko: '', en: '' }, icon: House, requiresScope: false,
-    context: noContext, pageType: 'catalog', features: noFeatures, pageKeys: [], ...over,
+    context: noContext, component: testScreen, pageType: 'catalog', features: noFeatures, pageKeys: [], ...over,
   };
 }
 

@@ -42,6 +42,7 @@ void startAppHost({
   basePath: import.meta.env.BASE_URL,
   spaceIdMigrations: SPACE_ID_MIGRATIONS,
   equipmentAxes: EQUIPMENT_AXES,
+  productName: 'Analytics Platform',
   queryHistory: createLocalQueryHistoryStore(),
   slots: useAppSlots,
   onAssembly: (assembly) => {

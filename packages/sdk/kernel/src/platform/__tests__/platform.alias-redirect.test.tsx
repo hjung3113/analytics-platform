@@ -4,12 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type UsageEvent } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createBasePathLocation, createRegistry } from '../../index';
 import { useHostPlatform } from '../../host';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const entry = (partial: { id: string; path: string; group: string; pageKeys: string[]; primary?: boolean; aliases?: string[]; context?: typeof noContext; initializesMetric?: boolean }) => ({
   label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
-  permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const, features,
+  permission: 'platform:view' as const, requiresScope: false, context: noContext, component: testScreen, pageType: 'overview' as const, features,
   ...partial, group: groupId(partial.group),
 });
 const registry = createRegistry({

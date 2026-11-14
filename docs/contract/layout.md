@@ -113,7 +113,10 @@ Kernel 세션이 바뀌거나 `vocCompose` 슬롯이 사라지면 고정 Context
 `appliesTo(menuId)`가 false면 그 메뉴는 건너뛴다.
 `Actions`는 그 외에 항목을 하나 이상 그려야 한다 — `pageTypes`에 든 `pageType` 메뉴(기본 analysis)의 본 화면(보드 pane 제외) `⋯` 메뉴에서 `secondaryActions`·`boardEntry` 뒤에 `Actions`를 그린다.
 메뉴 id·전역 Context·그 메뉴가 선언한 `pageKeys` 스냅샷(없는 키는 빠지고 `repeatedPageKeys`는 배열)을 props로 받고, 항목은 `HeaderOverflowItem`으로 그리며 `allowed: false`면 숨기지 않고 비활성 + `reason`을 보인다(§22).
-넘기지 않으면 `⋯`는 그대로, #1424), `boardEntry`(보드 지원 메뉴의 본 화면 페이지 머리 `⋯`에 PlatformPage가 덧붙이는 `분석 보드에 열기…` 항목, [16 §6](../design/analysis-board.md#6-메뉴-쪽-요구-decided) — 컴포넌트가 셸을 import하지 않도록 앱이 넘긴다.
+넘기지 않으면 `⋯`는 그대로, #1424), `sidebarNotice`(`ReactNode` — 펼친 사이드바 맨 아래, 기능 블록 아래의 안내 한 줄 자리.
+  접으면 그리지 않는다.
+  셸은 이 자리에 고정 문구를 갖지 않고(데이터 출처 같은 안내는 앱이 아는 사실이다) 넘기지 않으면 아무것도 그리지 않는다.
+  이 앱은 mock 조립만 «통합 프로토타입 · 합성 데이터»를 넘기고 실서버 조립은 넘기지 않는다, #2022), `boardEntry`(보드 지원 메뉴의 본 화면 페이지 머리 `⋯`에 PlatformPage가 덧붙이는 `분석 보드에 열기…` 항목, [16 §6](../design/analysis-board.md#6-메뉴-쪽-요구-decided) — 컴포넌트가 셸을 import하지 않도록 앱이 넘긴다.
 슬롯이 없거나 메뉴가 보드를 지원하지 않거나 열 수 없거나 칸 안이면 항목도 `⋯`도 만들지 않는다.
 항목의 대화상자는 `⋯` 메뉴가 닫혀도 남도록 머리가 들고 있다), `notifications`(`{ menuId, UnreadCount, Recent }` — 레일 `알림` 종과 플랫폼 메뉴 배지(전환기·플랫폼 사이드바).
 셸이 버튼·팝오버 틀·배지·접근 이름을 그리고 슬롯은 건수(`children(count)` 렌더 함수, `null`이면 배지 없음)와 팝오버 본문(`Recent`)만 준다.
@@ -343,7 +346,10 @@ Full experience.
 
 ### 1024–1439px
 
-- Sidebar collapse — 구현 현황: 1440px 미만은 기본 접힘(사용자가 저장한 선택이 있으면 그 값).
+- Sidebar collapse — 구현 현황: 1200px 미만은 기본 접힘(사용자가 저장한 선택이 있으면 그 값). 기준은 「사이드바를 편 채로 본문 최소 폭이 지켜지는가」다: 레일 52px + 편 사이드바 240px을 빼도 1200px에서 본문 약 908px이 남는다. 1280px 노트북은 편 채로 시작한다.
+- 탭 제목(`document.title`): 셸이 경로가 바뀔 때마다 `<메뉴 이름> — <시스템 이름> · <제품 이름>`으로 쓴다(시스템이 없는 화면은 `<메뉴 이름> · <제품 이름>`). 제품 이름은 호스트 조립이 `AppShell productName`(앱 호스트 옵션 `productName`)으로 넘기는 선택 값이며 없으면 붙이지 않는다. 없는 경로·계약 오류·권한 없음 화면은 자기 머리말 이름을 쓴다. 메뉴는 `document.title`을 직접 쓰지 않는다.
+- 페이지 머리의 경로: `<시스템> › <섹션(그룹)> › <부모 메뉴> › …`. 섹션 이름이 바로 앞(시스템) 또는 바로 뒤(부모 메뉴, 없으면 현재 메뉴)의 이름과 같으면 한 번만 적는다(팔레트와 같은 규칙).
+- 레일 섹션 버튼: 메뉴가 모두 화면 없는 「예정」인 섹션은 흐리게 그리고 접근 이름·툴팁에 「예정」을 붙인다.
 - Secondary panel Drawer 전환은 Candidate; DetailDrawer는 이 폭에서도 §13 고정 슬롯 유지
 - Grid column 축소
 

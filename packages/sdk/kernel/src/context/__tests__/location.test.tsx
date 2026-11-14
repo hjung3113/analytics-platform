@@ -3,13 +3,13 @@ import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createBrowserLocation, createBasePathLocation, type PlatformLocation, I18nProvider, PlatformProvider, PlatformLink, usePlatform, createRegistry } from '../../index';
 import { hasDotSegment, isDotSegment } from '../location';
-import { noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
 import { groupId, spaceId } from '@ap/contracts';
 
 const registry = createRegistry({
   spaces: [testSpace()],
   groups: [{ id: groupId('overview'), label: { ko: '홈', en: 'Home' }, icon: House, space: spaceId('mars') }],
-  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/mars/home', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['tab'] }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/mars/home', icon: House, component: testScreen, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['tab'] }],
 });
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });

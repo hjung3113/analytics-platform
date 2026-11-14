@@ -47,6 +47,12 @@ describe('the slots hook the Host calls on every render (#1702b)', () => {
     expect('accessRequest' in mock.result.current).toBe(false);
   });
 
+  it('passes the assembly\'s sidebar notice through and draws none without one (#2022)', () => {
+    const notice = <p>notice</p>;
+    expect(renderHook(() => useAppSlots({ topBarTools: null, sidebarNotice: notice })).result.current.sidebarNotice).toBe(notice);
+    expect('sidebarNotice' in renderHook(() => useAppSlots({ topBarTools: null })).result.current).toBe(false);
+  });
+
   it('leaves the Host defaults (contextBar, boardEntry, topBarTools) to startAppHost', () => {
     const view = renderHook(() => useAppSlots({ topBarTools: <p>tools</p> }));
     expect(view.result.current.topBarTools).toBeUndefined();

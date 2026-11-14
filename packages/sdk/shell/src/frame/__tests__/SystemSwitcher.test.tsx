@@ -4,13 +4,13 @@ import { Boxes, House, Wrench } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DetailDrawer, PlatformPage } from '@ap/components';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type PlatformSlots } from '@ap/kernel';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '@ap/kernel/testing';
 import userEvent from '@testing-library/user-event';
 import { AppShell } from '../AppShell';
 import { groupId, menuPermission, menuPermissions, spaceId, type GroupId, type Permission } from '@ap/contracts';
 
 function menu(id: string, group: GroupId, path: string, label: string, over: object = {}) {
-  return { id, group, path, permission: 'platform:view' as const, primary: true, label: { ko: label, en: `${label}-en` }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'], ...over };
+  return { id, group, path, permission: 'platform:view' as const, primary: true, label: { ko: label, en: `${label}-en` }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, component: testScreen, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'], ...over };
 }
 function buildRegistry(opts: { startOpen?: boolean } = {}) {
   return createRegistry({

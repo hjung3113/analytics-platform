@@ -2,12 +2,12 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { Boxes, House, Wrench } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformLink, PlatformProvider, createRegistry } from '@ap/kernel';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '@ap/kernel/testing';
 import { AppShell } from '../AppShell';
 import { groupId, spaceId, type GroupId, type Permission } from '@ap/contracts';
 
 function menu(id: string, group: GroupId, path: string, label: string, over: object = {}) {
-  return { id, group, path, permission: 'platform:view' as const, primary: false, label: { ko: label, en: label }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...over };
+  return { id, group, path, permission: 'platform:view' as const, primary: false, label: { ko: label, en: label }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, component: testScreen, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...over };
 }
 const registry = createRegistry({
   platformHomeMenuId: 'start',

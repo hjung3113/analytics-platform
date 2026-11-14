@@ -128,7 +128,7 @@ export type AccessRequestSlot = {
   Pending: ComponentType<{ target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }>;
   Dialog: ComponentType<{ target: PermissionRequestTarget; returnTo: string; open: boolean; onOpenChange: (open: boolean) => void }>;
 };
-export type PlatformSlots = { analysisActions?: AnalysisActionsSlot; scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot; accessRequest?: AccessRequestSlot };
+export type PlatformSlots = { analysisActions?: AnalysisActionsSlot; scopeControl?: ScopeControlSlot; contextBar?: ReactNode; topBarTools?: ReactNode; features?: FeatureSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; notifications?: NotificationsSlot; vocCompose?: VocComposeSlot; homeTodo?: HomeTodoSlot; navCounts?: NavCountsSlot; spaceNavSection?: SpaceNavSectionSlot; accessRequest?: AccessRequestSlot; sidebarNotice?: ReactNode };
 export type LinkOptions = { params?: Record<string, string>; /** A value may be a list for a repeated page key of the destination: one pair per item, in order. */ page?: Record<string, string | readonly string[] | null>; global?: Partial<GlobalContext>; returnTo?: boolean };
 /**
  * Read `kind` first (06 §22, ADR-0158). `link`: the destination is registered. `none`: this assembly does not register it — draw no fixed entry,
