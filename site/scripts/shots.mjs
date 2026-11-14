@@ -1213,7 +1213,7 @@ try {
       // 조건 바 왼쪽(기간·빠른 범위·room_name 칩)까지를 칩 경계에서 끊는다. 경계에 걸리는 오른쪽 데이터 신뢰 배지는 찍는 동안만 숨긴다.
       const bar = page.getByRole("button", { name: "현재 조건 공유", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]");
       const cutX = await bar.evaluate((el) => {
-        const chip = [...el.querySelectorAll("button")].find((b) => /^room_name/.test(b.textContent.trim()));
+        const chip = [...el.querySelectorAll("button")].find((b) => /^공정/.test(b.textContent.trim()));
         const right = chip.getBoundingClientRect().right + 4;
         for (const b of el.querySelectorAll("button")) {
           const r = b.getBoundingClientRect();
@@ -1223,7 +1223,7 @@ try {
       });
       // 생산성 개요의 sticky 묶음에는 페이지 머리도 들어 있어, 높이는 조건 칩 줄로만 자른다.
       const row = await bar.evaluate((el) => {
-        const chip = [...el.querySelectorAll("button")].find((b) => /^room_name/.test(b.textContent.trim()));
+        const chip = [...el.querySelectorAll("button")].find((b) => /^공정/.test(b.textContent.trim()));
         let line = chip.parentElement;
         while (line && line !== el && line.getBoundingClientRect().height < 40) line = line.parentElement;
         const r = line.getBoundingClientRect();
@@ -1239,7 +1239,7 @@ try {
   await capture(
     "voc-drawer",
     "VOC 등록 드로어 · 화면 정보 칩",
-    "‘VOC 등록’을 누르면 본문 오른쪽에 드로어가 열리고, 지금 화면의 업무 시스템·메뉴·기간·room_name·Scope가 칩으로 붙습니다. 데모에는 코어 서버가 없어 작성 화면 자리에 ‘실서버 필요’가 보입니다.",
+    "‘VOC 등록’을 누르면 본문 오른쪽에 드로어가 열리고, 지금 화면의 업무 시스템·메뉴·기간·공정·Scope가 칩으로 붙습니다. 데모에는 코어 서버가 없어 작성 화면 자리에 ‘실서버 필요’가 보입니다.",
     "shell",
     async () => {
       await resetStorage();
