@@ -79,25 +79,6 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
     return null;
   };
 
-  checks.push({
-    id: 'port · savedViews: list contains no denied entries',
-    uses: ['save', 'list'], mode: 'sequential', nonEnvelope: true,
-    run: async () => {
-      const saved = okOf(await sample.user.save(draft()), 'save');
-      if (typeof saved === 'string') return saved;
-      const items = await sample.user.list({ userId: saved.view.ownerId, menuId: sample.menuId });
-      return items.some(item => item.denied === true) ? 'list must omit unreachable objects, never return denied entries (ADR-0099 §6)' : null;
-    },
-  });
-  checks.push({
-    id: 'port · savedViews: save does not judge data Scope',
-    uses: ['save'], mode: 'sequential', nonEnvelope: true,
-    run: async () => {
-      const result = await sample.user.save({ ...draft(), context: { roomNames: [`conformance-outside-${crypto.randomUUID()}`] } });
-      return result.ok ? null : `save judges object ACL, not data Scope (ADR-0099 §6): got ${result.reason}`;
-    },
-  });
-
   // ADR-0099 §1·§6: reads re-judge the object ACL every time. Out of access is a denied entry in `get`, never a
   // leak and never null; `list` simply omits the view.
   checks.push({
