@@ -86,6 +86,7 @@ Core는 Start/End 점 이벤트를 짝짓지 않는다. Start/End만 주는 원�
 DQI는 타임라인 마커이며 Scene State에 들어가지 않고 상태를 바꾸지 않는다.
 Replay 입력은 하나의 설비에 속해야 하며 `bindings.equipmentId`, batch와 모든 Occurrence·DQI record의 `equipmentId`가 다르면 `seekSceneState`·`stepSceneState`·`replayKey`·`replayTimeline`은 상태를 도출하기 전에 `RangeError`를 던진다. 같은 진입점은 다음 batch도 `RangeError`로 거부한다(EV#42):
 - **Record Sequence 중복:** 모든 Occurrence의 `start.seq`·`end.seq`와 모든 DQI `seq`는 batch 안에서 서로 달라야 한다. 같은 seq면 입력 배열 순서가 상태를 정하게 되어 Replay Key 불변식이 깨진다.
+- **역순 Record Sequence:** 닫힌 Occurrence(`end`가 null이 아님)는 `start.seq < end.seq`여야 한다(#2110). end가 먼저면 seek와 타임라인이 열린 상태를 서로 다르게 판정한다. 가져오기에서는 `reversed-seq`로 거부된다. 시각(`at`)의 역전은 Time Anomaly이며 이 규칙과 별개로 허용된다.
 - **id 중복:** Occurrence `id`는 batch 안에서 서로 달라야 하고, DQI `id`도 서로 달라야 한다. `replayKey`가 id 순으로 정렬해 관측 집합 해시를 만들므로 같은 id면 입력 배열 순서가 해시를 정한다.
 - **미완료 page:** `continuationToken`이 있는 batch. 빠진 page의 record가 facet을 바꿀 수 있으므로(예: 같은 Holding Site의 두 번째 점유) 호출자가 전체 batch를 모은 뒤 replay한다. core는 page를 가져오지 않는다.
 

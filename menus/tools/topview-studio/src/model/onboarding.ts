@@ -143,6 +143,7 @@ const IMPORT_PROBLEM_TEXT: Record<string, (facts: ProblemFacts) => string> = {
   'equipment-mismatch': () => '다른 설비의 Sample Window입니다.',
   'record-owner': ({ count }) => `기록 ${count}개의 설비가 파일의 설비와 다릅니다.`,
   'duplicate-seq': ({ count }) => `Record Sequence ${count}개가 겹칩니다.`,
+  'reversed-seq': ({ problems }) => `이벤트 ${occurrenceCount(problems)}건의 끝 Record Sequence가 시작보다 앞섭니다.`,
   'duplicate-id': ({ count }) => `기록 ID ${count}개가 겹칩니다.`,
   'generation-mismatch': ({ problems, dataGeneration }) => (problems.every((p) => p.path.at(-1) === 'dataGeneration')
     ? `이벤트 ${occurrenceCount(problems)}건의 Generation이 파일의 Generation${dataGeneration ? `(${dataGeneration})` : ''}과 다릅니다.`
