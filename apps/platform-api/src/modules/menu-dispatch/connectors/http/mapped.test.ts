@@ -37,6 +37,13 @@ it.each([{ mode: 'repeat' }, { mode: 'join', separator: '|' }] as const)('serial
   expect(fetchImpl.mock.calls[0]?.[0]).toBe(arrayStyle.mode === 'repeat' ? 'https://synthetic.test/rows?rooms=R%2F1&rooms=R%3F2' : 'https://synthetic.test/rows?rooms=R%2F1%7CR%3F2');
   expect(fetchImpl.mock.calls[0]?.[1]).toMatchObject({ method: 'POST', body: '{"site":"S1"}', redirect: 'error', headers: { 'content-type': 'application/json' } });
 });
+it('omits a query key whose value is null or undefined and keeps scalars and arrays', async () => {
+  const fetchImpl = vi.fn<typeof fetch>(async () => new Response('[]'));
+  const connector = createHttpConnector({ fetch: fetchImpl })({ kind: 'http', baseUrl: 'https://synthetic.test' }, undefined);
+  const request: ConnectorLeg = { ...leg('key'), call: { mode: 'mapped', method: 'GET', path: '/rows', query: { lines: 'context.lineNames', gone: 'context.ppid', n: 'params.n', ids: 'params.ids' }, response: {} }, bindings: { query: { lines: null, gone: undefined, n: 0, ids: ['a', 'b'] } } };
+  await collect(connector.query(request, { signal: new AbortController().signal, deadlineMs: 1000, rowCap: 2 }));
+  expect(fetchImpl.mock.calls[0]?.[0]).toBe('https://synthetic.test/rows?n=0&ids=a&ids=b');
+});
 it.each([
   ['non-2xx', () => new Response('syn-upstream-private', { status: 500 })],
   ['non-JSON', () => new Response('syn-upstream-private')],

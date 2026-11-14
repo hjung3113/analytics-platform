@@ -24,6 +24,7 @@ export function createHttpConnector({ fetch: fetchImpl = fetch, byteCap = HTTP_R
         });
         const destination = new URL(`${baseUrl}${path}`);
         for (const [key, value] of Object.entries(leg.bindings.query ?? {})) {
+          if (value === null || value === undefined) continue;
           if (Array.isArray(value)) {
             if (call.arrayStyle?.mode === 'join') destination.searchParams.append(key, value.map(String).join(call.arrayStyle.separator));
             else for (const item of value) destination.searchParams.append(key, String(item));

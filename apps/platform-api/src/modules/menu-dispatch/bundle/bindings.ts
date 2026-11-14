@@ -51,3 +51,14 @@ export function bindingProblems(bindings: readonly Binding[], endpoint: {
   }
   return [...new Set(problems)];
 }
+
+/** query and pathParams carry scalars or scalar arrays; an object binding would serialize as "[object Object]" (ADR-0153 decision 7). */
+export function scalarOnlyProblems(bindings: readonly Binding[]): string[] {
+  const objectLike = (value: unknown) => typeof value === 'object' && value !== null && !Array.isArray(value);
+  return [...new Set(bindings.flatMap((binding) => {
+    if (typeof binding === 'string') return binding === 'context.condition' ? [`binding ${binding}: object value is not allowed in query or pathParams`] : [];
+    const value = binding.const;
+    return objectLike(value) || (Array.isArray(value) && value.some((item) => typeof item === 'object' && item !== null))
+      ? ['binding const: object value is not allowed in query or pathParams'] : [];
+  }))];
+}
