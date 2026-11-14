@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ApiResponse, Trust } from '@ap/contracts';
+import { formatNumber, type ApiResponse, type Trust } from '@ap/contracts';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { isProductionEnv } from '@ap/ui';
 import { displayFileName, downloadBlob, fileStamp, safeFileName } from './download';
@@ -10,8 +10,8 @@ type Lang = 'ko' | 'en';
 const WORKBOOK_TEXT = {
   done: { ko: 'Excel 파일로 내보냈습니다', en: 'Exported to an Excel file' },
   tooLarge: {
-    ko: `내보낼 데이터가 브라우저 내보내기 상한(시트마다 ${WORKBOOK_LIMITS.rowsPerSheet.toLocaleString('ko-KR')}행·${WORKBOOK_LIMITS.columns.toLocaleString('ko-KR')}열, 셀 ${WORKBOOK_LIMITS.cells.toLocaleString('ko-KR')}개)을 넘었습니다. 필터를 좁혀 주세요.`,
-    en: `The data is over the browser export limit (${WORKBOOK_LIMITS.rowsPerSheet.toLocaleString('en-US')} rows and ${WORKBOOK_LIMITS.columns.toLocaleString('en-US')} columns per sheet, ${WORKBOOK_LIMITS.cells.toLocaleString('en-US')} cells). Narrow the filter.`,
+    ko: `내보낼 데이터가 브라우저 내보내기 상한(시트마다 ${formatNumber(WORKBOOK_LIMITS.rowsPerSheet, 'ko')}행·${formatNumber(WORKBOOK_LIMITS.columns, 'ko')}열, 셀 ${formatNumber(WORKBOOK_LIMITS.cells, 'ko')}개)을 넘었습니다. 필터를 좁혀 주세요.`,
+    en: `The data is over the browser export limit (${formatNumber(WORKBOOK_LIMITS.rowsPerSheet, 'en')} rows and ${formatNumber(WORKBOOK_LIMITS.columns, 'en')} columns per sheet, ${formatNumber(WORKBOOK_LIMITS.cells, 'en')} cells). Narrow the filter.`,
   },
 } as const;
 /** The data's size, which the user can narrow; every other `WorkbookError` is the menu's declaration bug. */

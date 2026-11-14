@@ -192,10 +192,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // site boundary as setGlobal (ADR-0153) to the values carried over from the current URL — values the caller
   // passes explicitly are meant for the destination and stay. `allowed` is a display hint (permission, plus
   // space entry for a space menu — a global utility menu is permission only, 06 §9.1); the server re-checks on arrival.
-  const menuIds = useMemo(() => new Set(registry.menus.map(m => m.id)), [registry]);
   // An id this assembly does not register resolves to `none` (no href, never a permission reason, ADR-0158); `linkTo` keeps throwing for it.
   const resolveWith = useCallback((menuId: string, options: LinkOptions, carry: boolean): LinkResolution => {
-    if (!menuIds.has(menuId)) return { kind: 'none', href: null, allowed: false, droppedPageKeys: [] };
+    if (!registry.has(menuId)) return { kind: 'none', href: null, allowed: false, droppedPageKeys: [] };
     const target = menuById(menuId);
     const carried: GlobalContext = options.global && 'scopeId' in options.global && options.global.scopeId !== global.scopeId
       ? withoutSiteBound(global)
@@ -225,7 +224,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       allowed: canOpen(menuId),
       droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
     };
-  }, [global, visibleUrl, menuById, menuIds, canOpen, page, route, registry]);
+  }, [global, visibleUrl, menuById, canOpen, page, route, registry]);
   const resolveLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => resolveWith(menuId, options, true), [resolveWith]);
   // Kernel entries (space entry/resume) resolve only registered, openable menus; `linkTo` is for destinations the assembly guarantees (06 §22).
   const resolveEntryLink = useCallback((menuId: string, options: LinkOptions = {}): RegisteredLink => registered(resolveWith(menuId, options, false), menuId), [resolveWith]);

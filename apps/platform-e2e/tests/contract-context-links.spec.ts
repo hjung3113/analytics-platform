@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { PERIOD, PRODUCTIVITY, railSection, headerMore, periodPreset } from './contract-helpers';
+import { PERIOD, PRODUCTIVITY, railSection, headerMore, periodPreset, queryBarCollapsedKey } from './contract-helpers';
 import { contextBar, evidence, expandPageHead, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, queryResultSurface, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, switchScope, tableStatusLine } from './support';
 
 /**
@@ -754,7 +754,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
   }
   test('펼친 조회 조건에서도 첫 차트는 y=600 위에서 시작하고 적용은 마지막 동작이다 (#1939)', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.addInitScript(() => localStorage.removeItem('platform:query-bar-collapsed:cycle-time'));
+    await page.addInitScript(key => localStorage.removeItem(key), queryBarCollapsedKey('cycle-time'));
     await page.goto(`/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
     await expectScopeValid(page, 'MEM · 메모리');
     const bar = await expandQuery(page);

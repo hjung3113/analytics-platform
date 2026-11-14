@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { PERIOD } from './contract-helpers';
+import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
 import { contextBar, evidence, mainHeading, query, queryResultSurface, signInAs } from './support';
 
 /**
@@ -70,7 +70,7 @@ async function openManagement(page: Page) {
 test.describe('06 §21 저장된 뷰', () => {
   // These checks operate the open editor (condition chips, apply); an applied address starts collapsed without a stored choice (#1892).
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem('platform:query-bar-collapsed:cycle-time', 'false'));
+    await startWithQueryBarOpen(page, 'cycle-time');
   });
   test('조건을 저장하고 다른 뷰를 적용한 뒤 고치면 수정됨이 뜨고, 저장한 뷰를 다시 고르면 그 조건으로 돌아온다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');

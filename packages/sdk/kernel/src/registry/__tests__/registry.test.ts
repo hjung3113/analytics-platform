@@ -41,6 +41,13 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     expect(registry.groupById(groupId('metrics')).hideLabelWhenSingle).toBe(true);
   });
 
+  it('has(menuId) answers registration without throwing (#2001 F2)', () => {
+    const registry = createRegistry({ spaces, groups, menus: [catalog] });
+    expect(registry.has('catalog')).toBe(true);
+    expect(registry.has('nope')).toBe(false);
+    expect(() => registry.menuById('nope')).toThrow(RegistryError);
+  });
+
   it('rejects duplicate ids, unknown parents and undeclared groups', () => {
     expect(() => createRegistry({ spaces, groups, menus: [catalog, menu('catalog', '/x')] })).toThrow(RegistryError);
     expect(() => createRegistry({ spaces, groups, menus: [catalog, menu('detail', '/metrics/:id', { parent: 'nope' })] })).toThrow(/unknown parent/);

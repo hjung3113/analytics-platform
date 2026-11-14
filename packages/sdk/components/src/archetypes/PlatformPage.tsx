@@ -9,13 +9,13 @@ import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useConditionPreset, useI18n } from '@ap/kernel';
-import { useHostPlatform } from '@ap/kernel/host';
+import { useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { AccessRequestEntry, scopeRequestTarget, useScopeAccessRequest } from '../state/AccessRequestEntry';
 import { useReturnNavigation } from './DrillLayout';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
-import { consumePageFocus, drillDestinationOf, focusPageFallback } from '../state/pageFocus';
+import { drillDestinationOf, focusPageFallback } from '../state/pageFocus';
 import { PageBoundContext, PageFlowContext } from '../pageFlow';
 import { stickyChromeHeight } from '../visibleArea';
 import { StateMessage } from '../StateView';
@@ -145,7 +145,7 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', arrivalTarget, children }: PlatformPageProps) {
-  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen, queryDraft, pageParams, session, scopeSelector } = useHostPlatform();
+  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, currentSpace, screenMode, canOpen, queryDraft, pageParams, session, scopeSelector } = useHostPlatform();
   const accessRequest = useScopeAccessRequest();
   const detailFullscreen = useContext(DetailPanelFullscreenContext);
   const covered = detailFullscreen?.expanded === true;
@@ -224,24 +224,19 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   useLayoutEffect(() => { measureRef.current(); }, [headerYield]);
   const arrivalTargetRef = useRef(arrivalTarget);
   useLayoutEffect(() => { arrivalTargetRef.current = arrivalTarget; });
-  useLayoutEffect(() => {
-    const focusDestination = () => {
-      const request = consumePageFocus(pageNavigation, pathname);
-      // A pane takes no automatic arrival focus; its explicit drill/return requests still land inside the pane.
-      if (!request || (inPane && request === 'page')) return;
-      const currentStep = request === 'drill' && root.current ? drillDestinationOf(root.current) : null;
-      const registered = request === 'drill' ? null : arrivalTargetRef.current?.();
-      const target = currentStep ?? (registered?.isConnected ? registered : null) ?? heading.current;
-      if (!target) { if (inPane) focusPageFallback(root.current); return; }
-      programmaticHeadingFocus.current = target === heading.current;
-      if (programmaticHeadingFocus.current) setHeadingTooltipOpen(false);
-      try { target.focus({ preventScroll: true }); }
-      finally { programmaticHeadingFocus.current = false; }
-    };
-    focusDestination();
-    // A palette selection remains pending until Dialog's close autofocus completes.
-    return pageNavigation.subscribe(focusDestination);
-  }, [url, pathname, pageNavigation, inPane]);
+  // A palette selection remains pending until Dialog's close autofocus completes; the hook reads it again then.
+  useArrivalFocus(request => {
+    // A pane takes no automatic arrival focus; its explicit drill/return requests still land inside the pane.
+    if (inPane && request === 'page') return;
+    const currentStep = request === 'drill' && root.current ? drillDestinationOf(root.current) : null;
+    const registered = request === 'drill' ? null : arrivalTargetRef.current?.();
+    const target = currentStep ?? (registered?.isConnected ? registered : null) ?? heading.current;
+    if (!target) { if (inPane) focusPageFallback(root.current); return; }
+    programmaticHeadingFocus.current = target === heading.current;
+    if (programmaticHeadingFocus.current) setHeadingTooltipOpen(false);
+    try { target.focus({ preventScroll: true }); }
+    finally { programmaticHeadingFocus.current = false; }
+  }, { rereadKey: url });
   const menu = route!.menu;
   // `분석 보드에 열기…` (docs/16 §6): the app's slot item, only on the main screen of a menu that declares board support and the user can open.
   const boardEntry = !inPane && menu.features.board === true && canOpen(menu.id) ? slots.boardEntry : null;

@@ -6,6 +6,7 @@ export { PaneScreenProvider, PaneQueryDraftProvider, useHostPlatform, useHostPla
 export { isChunkLoadFailure } from './error/chunkFailure';
 export { useAdapterRequest } from './query/query';
 export { type PageFocus, type PageNavigation } from './context/pageNavigation';
+export { useArrivalFocus, type ArrivalFocusOptions } from './platform/useArrivalFocus';
 export { useModuleHost, type ModuleShellPorts } from './registry/module-host';
 export { BOARD_PATH } from './registry/registry';
 export { hasDotSegment } from './context/location';

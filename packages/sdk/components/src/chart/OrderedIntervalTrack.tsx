@@ -12,6 +12,7 @@ import { BodyTooltipPortal } from './bodyTooltipPortal';
 import { Ban, Inbox, Info, ServerCrash } from 'lucide-react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
 import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
+import { formatNumber } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { LoadingBlock, StateMessage } from '../StateView';
@@ -45,9 +46,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
       props.formatTick ??
       (props.axis === 'time' && props.formatTime
         ? props.formatTime
-        : new Intl.NumberFormat(lang, {
-            maximumFractionDigits: domain.every(Number.isInteger) ? 0 : 2,
-          }).format),
+        : (value: number) => formatNumber(value, lang, { maximumFractionDigits: domain.every(Number.isInteger) ? 0 : 2 })),
     [props.formatTick, props.axis, props.formatTime, lang, domain],
   );
   const [viewState, setView] = useState(() => clampOrderView(props.initialView ?? domain, domain));

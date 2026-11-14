@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { PERIOD, PRODUCTIVITY, openSwitcher, chooseSystem, headerMore } from './contract-helpers';
+import { PERIOD, PRODUCTIVITY, openSwitcher, chooseSystem, headerMore, startWithQueryBarOpen } from './contract-helpers';
 import { evidence, expandPageHead, mainHeading, nextFrames, query, settleOn, setScenario, signInAs } from './support';
 
 /**
@@ -1021,8 +1021,8 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
 
   /** The page filter and head flags are cleared and the query bar's stored choice is set to open before every load, so the bars start expanded (an applied address would otherwise start collapsed, #1892). */
   async function expandedBarsAtLoad(page: Page) {
+    await startWithQueryBarOpen(page, 'cycle-time');
     await page.addInitScript(() => {
-      localStorage.setItem('platform:query-bar-collapsed:cycle-time', 'false'); // an applied address starts collapsed without a stored choice (#1892); these specs measure the open bar
       localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
       localStorage.removeItem('platform:page-head-collapsed:cycle-time');
     });
