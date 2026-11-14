@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 export function BodyTooltipPortal({ domRef, hidden, className, children }: {
   domRef?: Ref<HTMLDivElement>; hidden?: boolean; className: string; children: ReactNode;
 }) {
+  if (typeof document === 'undefined' || !document.body) return null;
   return createPortal(
     <div ref={domRef} role="tooltip" hidden={hidden} className={className}>{children}</div>,
     document.body,

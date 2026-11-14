@@ -668,3 +668,40 @@ it('keeps range annotations in the accessible summary and shows them above the t
   expect(within(table).getByText('파일 경계 · File B · 40').closest('caption')).toBeVisible();
   expect(within(table).getByText('미수신: 60–70').closest('caption')).toBeVisible();
 });
+
+it.each(['view', 'empty items', 'height', 'list remount'] as const)(
+  'does not replay keyboard reveal after %s with a short viewport (C1)', change => {
+    const manyLanes = Array.from({ length: 16 }, (_, i) => ({ laneKey: `l${i}`, label: `Lane ${i}` }));
+    const manyItems: OrderedTrackItem[] = manyLanes.map((lane, i) => ({
+      id: `i${i}`, laneKey: lane.laneKey, orderStart: i * 3, orderEnd: i * 3 + 2, state: 'ok', label: `Item ${i}`,
+    }));
+    const props = { ...base, lanes: manyLanes, items: manyItems, height: 24 };
+    const { rerender } = mount(props);
+    const scroller = document.querySelector<HTMLDivElement>('[data-ordered-scroll]')!;
+    fireEvent.keyDown(screen.getByRole('region', { name: 'Track' }), { key: 'ArrowDown' });
+    expect(scroller.scrollTop).toBe(24);
+    scroller.scrollTop = 240;
+    fireEvent.scroll(scroller);
+    if (change === 'view') fireEvent.click(screen.getByRole('button', { name: '확대' }));
+    if (change === 'empty items') rerender(<I18nProvider><OrderedIntervalTrack {...props} items={[]} /></I18nProvider>);
+    if (change === 'height') rerender(<I18nProvider><OrderedIntervalTrack {...props} height={48} /></I18nProvider>);
+    if (change === 'list remount') {
+      fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
+      fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
+      expect(document.querySelector('[data-ordered-scroll]')!.scrollTop).toBe(0);
+      return;
+    }
+    expect(scroller.scrollTop).toBe(240);
+    if (change === 'height') {
+      const canvas = screen.getByRole('img', { name: 'Track' });
+      fireEvent.pointerMove(canvas, { clientX: 260, clientY: 12 });
+      expect(screen.getByRole('tooltip')).toHaveTextContent('Item 10');
+      fireEvent.pointerDown(canvas, { clientX: 260, clientY: 12, button: 0 });
+      fireEvent.pointerUp(canvas, { clientX: 260, clientY: 12 });
+      fireEvent.pointerLeave(canvas);
+      fireEvent.pointerDown(canvas, { clientX: 260, clientY: 12, button: 0 });
+      fireEvent.pointerUp(canvas, { clientX: 200, clientY: 12 });
+    }
+    expect(scroller.scrollTop).toBe(240);
+  },
+);

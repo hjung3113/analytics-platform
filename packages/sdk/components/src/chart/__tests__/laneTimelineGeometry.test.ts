@@ -92,3 +92,17 @@ it('keeps a zero-width point at the UTC Date limit inside the representable doma
   expect(model.domain[1]).toBe(8.64e15);
   expect(() => model.domain.map(time => new Date(time).toISOString())).not.toThrow();
 });
+
+it('keeps ticks present and labels distinct from one minute to years at widths 240–1200 (C4)', () => {
+  const minute = 60_000; const day = 86_400_000;
+  const spans = [minute, 2 * minute, 30 * minute, 31 * minute, 60 * minute, 12 * 60 * minute + minute, day, 10 * day + minute, 31 * day, 365 * day, 5 * 365 * day];
+  for (const width of [240, 320, 640, 1200]) for (const span of spans) {
+    const start = Date.UTC(2026, 0, 1, 0, 1);
+    const ticks = niceTicks([start, start + span], width);
+    expect(ticks.length, `span=${span}`).toBeGreaterThan(0);
+    expect(ticks.length).toBeLessThanOrEqual(100);
+    expect(ticks.every(t => t >= start && t <= start + span && t % minute === 0)).toBe(true);
+    const labels = ticks.map((t, i) => laneTickLabel(t, i === 0));
+    expect(new Set(labels).size, `span=${span}`).toBe(labels.length);
+  }
+});

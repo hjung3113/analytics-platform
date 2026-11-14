@@ -104,17 +104,19 @@ export function OrderedIntervalPlot(props: PlotProps) {
     if (spacer.current) spacer.current.style.height = `${props.lanes.length * ORDER_ROW_HEIGHT}px`;
   }, [height, props.lanes.length]);
   // Lane reveal belongs to ↑/↓ keyboard navigation only (16 §6): a mount, a view change or the `visible[0]` fallback never moves the scroll (#2026).
-  const revealed = useRef(0);
+  const revealed = useRef(props.laneReveal);
   useEffect(() => {
     const element = scroll.current;
     if (!element || revealed.current === props.laneReveal) return;
-    const y = Math.max(0, props.focusedLane) * ORDER_ROW_HEIGHT;
+    revealed.current = props.laneReveal;
+    if (props.focusedLane < 0 || props.focusedLane >= props.lanes.length) return;
+    const y = props.focusedLane * ORDER_ROW_HEIGHT;
     if (y < element.scrollTop) element.scrollTop = y;
     else if (y + ORDER_ROW_HEIGHT > element.scrollTop + height)
       element.scrollTop = y + ORDER_ROW_HEIGHT - height;
     setTop(element.scrollTop);
     // `focusedLane` is read at reveal time on purpose: only a new `laneReveal` token (set by the key handler) starts a reveal.
-  }, [props.laneReveal, props.focusedLane, height]);
+  }, [props.laneReveal, props.focusedLane, props.lanes.length, height]);
   useEffect(() => {
     const element = canvas.current;
     if (!element) return;

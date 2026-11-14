@@ -29,11 +29,19 @@ export function niceTicks(view: [number, number], width: number): number[] {
   // continues with 1·2·5×10ⁿ days (SHE-39/#2063: the old 1h/1d thresholds left gaps that fell to a 10× fallback —
   // 5h between 30min and 1h, 5 days between 12h and 1d, 100 days beyond 10 days — and a whole span drew one tick).
   const unit = desired <= 30 * MINUTE ? MINUTE : desired <= 12 * HOUR ? HOUR : DAY;
-  const step =
+  let step =
     unit === DAY
       ? // Calendar day steps: 1, 2, 5, 10, 20, 50, … days.
         ((() => { const days = desired / DAY; const base = 10 ** Math.floor(Math.log10(days)); return ([1, 2, 5].map(m => m * base).find(n => n >= days) ?? 10 * base) * DAY; })())
       : UNIT_STEPS[unit].map(n => n * unit).find(n => n >= desired)!;
+  // A rounded step larger than the view can put the next aligned tick beyond its end.
+  // Use the largest preceding calendar step that fits, preserving aligned (not endpoint) ticks.
+  const span = view[1] - view[0];
+  if (step > span && span >= MINUTE) {
+    const preceding = [...UNIT_STEPS[MINUTE].map(n => n * MINUTE), ...UNIT_STEPS[HOUR].map(n => n * HOUR)];
+    for (let base = DAY; base <= span; base *= 10) preceding.push(base, 2 * base, 5 * base);
+    step = preceding.filter(n => n <= span).at(-1)!;
+  }
   const ticks: number[] = [];
   for (let t = Math.ceil(view[0] / step) * step; t <= view[1] && ticks.length < 100; t += step) ticks.push(t);
   return ticks;
