@@ -1,12 +1,13 @@
 import { useContext } from 'react';
 import { CircleHelp, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { SystemSwitcher } from './SystemSwitcher';
 import { placeableMenus } from '../board/boardMenus';
 import { useBoardPresentation } from '../board/boardPresentation';
 import { boardText } from '../board/text';
+import { SHELL_MESSAGES } from '../messages';
 import { NotificationsBell } from './NotificationsBell';
 import { ShellBoundary } from './ShellBoundary';
 import { firstOpenableMenu, useSystemSections } from './systemSections';
@@ -17,6 +18,7 @@ export function AppRail() {
   const voc = useContext(VocDrawerContext);
   const { slots, user, setPaletteOpen, navigate, linkTo, canOpen, registry } = useHostPlatform();
   const { t, tx, lang, setLang } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const systems = useSystemSections();
   // The board is offered only where something can be placed on it: the same menus the empty pane lists (docs/16 §4).
   const showBoard = placeableMenus(registry, canOpen).length > 0;
@@ -24,9 +26,9 @@ export function AppRail() {
   const boardCopy = boardText(lang);
   // Three states told by words, not by colour: closed, open (this screen), minimized (a shape on the icon too).
   const boardLabel = board.maximized ? boardCopy.railOpen : board.floating ? (board.windowFill ? boardCopy.railOpen : boardCopy.railFloating) : board.minimized ? boardCopy.railMinimized : boardCopy.railClosed;
-  const vocLabel = lang === 'ko' ? 'VOC 등록' : 'File a VOC';
+  const vocLabel = m('railVoc');
   return <TooltipProvider delayDuration={200}>
-    <nav aria-label={lang === 'ko' ? '시스템 레일' : 'System rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
+    <nav aria-label={m('railNav')} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
       <SystemSwitcher />
       <div className="mb-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
       {systems !== null && systems.sections.length > 0 && <div role="group" aria-label={t('railSections')} className="flex min-h-8 shrink flex-col items-center gap-1.5 overflow-y-auto">
@@ -61,7 +63,7 @@ export function AppRail() {
         </button>
       </TooltipTrigger><TooltipContent side="right">{boardLabel}</TooltipContent></Tooltip>}
       {voc && <Tooltip><TooltipTrigger asChild>
-        <button ref={voc.railButton} type="button" onClick={voc.toggle} aria-expanded={voc.visible} aria-controls={voc.panelId} aria-label={voc.draftHidden ? `${vocLabel} (${lang === 'ko' ? '작성 중' : 'draft'})` : vocLabel}
+        <button ref={voc.railButton} type="button" onClick={voc.toggle} aria-expanded={voc.visible} aria-controls={voc.panelId} aria-label={voc.draftHidden ? m('railVocDraft') : vocLabel}
           className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring', voc.visible && 'bg-surface-row-selected text-accent-primary')}>
           <MessageSquarePlus className="size-4" aria-hidden />
           {voc.draftHidden && <span data-draft-dot aria-hidden className="absolute right-0.5 top-0.5 size-2 rounded-pill bg-accent-primary" />}
@@ -72,13 +74,13 @@ export function AppRail() {
       <div className="flex shrink-0 flex-col items-center gap-1"><ShellBoundary fallback={null}>{slots.topBarTools}</ShellBoundary></div>
       <div className="my-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
       <Popover>
-        <PopoverTrigger asChild><button type="button" aria-label={lang === 'ko' ? '도움말' : 'Help'} title={lang === 'ko' ? '도움말' : 'Help'} className="grid size-8 place-items-center rounded-md text-text-secondary hover:bg-surface-sunken"><CircleHelp className="size-4" aria-hidden /></button></PopoverTrigger>
+        <PopoverTrigger asChild><button type="button" aria-label={m('railHelp')} title={m('railHelp')} className="grid size-8 place-items-center rounded-md text-text-secondary hover:bg-surface-sunken"><CircleHelp className="size-4" aria-hidden /></button></PopoverTrigger>
         <PopoverContent side="right" align="end" className="w-72">
-          <p className="t-card-title mb-2">{lang === 'ko' ? '단축키' : 'Shortcuts'}</p>
+          <p className="t-card-title mb-2">{m('railShortcuts')}</p>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-            <dt><kbd className="rounded-xs border border-border-strong px-1">{shortcutLabel('K')}</kbd></dt><dd>{lang === 'ko' ? '메뉴 이동 팔레트' : 'Menu palette'}</dd>
-            <dt><kbd className="rounded-xs border border-border-strong px-1">[</kbd></dt><dd>{lang === 'ko' ? '사이드바 접기/펼치기' : 'Toggle sidebar'}</dd>
-            <dt><kbd className="rounded-xs border border-border-strong px-1">Esc</kbd></dt><dd>{lang === 'ko' ? '상세·팝오버 닫기' : 'Close detail/popover'}</dd>
+            <dt><kbd className="rounded-xs border border-border-strong px-1">{shortcutLabel('K')}</kbd></dt><dd>{m('shortcutMenuPalette')}</dd>
+            <dt><kbd className="rounded-xs border border-border-strong px-1">[</kbd></dt><dd>{m('shortcutToggleSidebar')}</dd>
+            <dt><kbd className="rounded-xs border border-border-strong px-1">Esc</kbd></dt><dd>{m('shortcutCloseOverlay')}</dd>
           </dl>
         </PopoverContent>
       </Popover>
@@ -93,7 +95,7 @@ export function AppRail() {
         <DropdownMenuContent side="right" align="end" className="w-64">
           <DropdownMenuLabel>{user.name} · {tx(user.title)}</DropdownMenuLabel>
           <DropdownMenuItem onSelect={event => { event.preventDefault(); setLang(lang === 'ko' ? 'en' : 'ko'); }}>
-            <Languages className="mr-2 size-3.5" aria-hidden />{lang === 'ko' ? '언어' : 'Language'} <span className="ml-auto text-caption text-text-muted">{lang === 'ko' ? '한국어 → English' : 'English → 한국어'}</span>
+            <Languages className="mr-2 size-3.5" aria-hidden />{t('language')} <span className="ml-auto text-caption text-text-muted">{m('languageSwitchLabel')}</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled><LogOut className="mr-2 size-3.5" aria-hidden />{t('signOut')} <span className="ml-auto text-caption">{t('signOutUnavailable')}</span></DropdownMenuItem>

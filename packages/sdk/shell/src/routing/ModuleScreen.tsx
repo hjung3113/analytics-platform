@@ -1,10 +1,11 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { KeyRound, ServerCrash, UserX } from 'lucide-react';
-import { useI18n, type ModuleMenuEntry } from '@ap/kernel';
+import { useI18n, useMessages, type ModuleMenuEntry } from '@ap/kernel';
 import { useModuleHost, type ModuleShellPorts } from '@ap/kernel/host';
 import { DetailDrawer, PlatformPage, StateMessage, focusPageFallback } from '@ap/components';
 import { Button } from '@ap/ui';
 import type { ModuleStatus } from '@ap/contracts';
+import { SHELL_MESSAGES } from '../messages';
 
 type Props = { entry: ModuleMenuEntry; params: Readonly<Record<string, string>> };
 
@@ -30,7 +31,7 @@ export function ModuleScreen({ entry, params }: Props) {
 }
 
 function ReadyInstance({ entry, params, setStatus, registerTarget }: Props & { setStatus: (next: ModuleStatus) => void; registerTarget: (el: HTMLElement | null) => void }) {
-  const { lang } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   // A setter from an instance that was released (status change, Retry, key change, unmount) must change nothing.
   const [token] = useState(() => ({ alive: true }));
   useLayoutEffect(() => {
@@ -53,17 +54,17 @@ function ReadyInstance({ entry, params, setStatus, registerTarget }: Props & { s
   return <>
     <Screen params={params} host={host} />
     {detail && <DetailDrawer title={detail.label} onClose={() => setDetail(null)}
-      tabs={[{ id: 'detail', label: lang === 'ko' ? '상세' : 'Detail', content: detail.node }]} />}
+      tabs={[{ id: 'detail', label: m('moduleDetailTab'), content: detail.node }]} />}
   </>;
 }
 
 function StatusView({ status, onRetry }: { status: Exclude<ModuleStatus, 'ready'>; onRetry: () => void }) {
-  const { t, lang } = useI18n();
-  const ko = lang === 'ko';
+  const { t } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const view = {
-    auth_required: { icon: <KeyRound className="size-4" aria-hidden />, title: ko ? '다시 로그인이 필요합니다' : 'Sign-in required' },
-    identity_mismatch: { icon: <UserX className="size-4" aria-hidden />, title: ko ? '로그인한 사용자가 다릅니다' : 'Signed-in user does not match' },
-    unavailable: { icon: <ServerCrash className="size-4" aria-hidden />, title: ko ? '지금 이 화면을 열 수 없습니다' : 'This screen is unavailable right now' },
+    auth_required: { icon: <KeyRound className="size-4" aria-hidden />, title: m('moduleAuthRequired') },
+    identity_mismatch: { icon: <UserX className="size-4" aria-hidden />, title: m('moduleIdentityMismatch') },
+    unavailable: { icon: <ServerCrash className="size-4" aria-hidden />, title: m('moduleUnavailable') },
   }[status];
   return <div className="p-6"><StateMessage tone="warning" icon={view.icon} title={view.title}
     action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); onRetry(); }}>{t('retry')}</Button>} /></div>;

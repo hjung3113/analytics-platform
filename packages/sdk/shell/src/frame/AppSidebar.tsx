@@ -2,17 +2,19 @@ import type { ComponentType, ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Clock3, Star } from 'lucide-react';
 import { emptyGlobal, type NavView, type SpaceId } from '@ap/contracts';
 import { badgeCountText } from '@ap/components';
-import { type MenuEntry, PlatformLink, useI18n, useRecentVisits } from '@ap/kernel';
+import { type MenuEntry, PlatformLink, useI18n, useMessages, useRecentVisits } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { navRowVariants, NavCurrentMarker, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from '../context/ScopeSelector';
+import { SHELL_MESSAGES } from '../messages';
 import { ShellBoundary } from './ShellBoundary';
 import { SidebarHierarchy, SIDEBAR_GROUP_TITLE } from './SidebarHierarchy';
 import { useSystemSections } from './systemSections';
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const { visibleMenus, route, favorites, registry, sidebarSpace, slots, page, linkTo, canOpen } = useHostPlatform();
-  const { t, tx, lang } = useI18n();
+  const { t, tx } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
   const systems = useSystemSections();
   // In a real system only the current section is drawn (15 §3.2). Fallback screens (unmatched, entry denied) keep every group.
@@ -48,7 +50,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       </div>
       <SidebarScope collapsed={collapsed} onExpand={onToggle} />
       <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
-        <CountsBoundary key={`counts:${slotSpaceId}`} spaceId={slotSpaceId} menu={slotMenu ?? null}>{counts => <nav id="platform-nav" aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
+        <CountsBoundary key={`counts:${slotSpaceId}`} spaceId={slotSpaceId} menu={slotMenu ?? null}>{counts => <nav id="platform-nav" aria-label={m('primaryNav')}>
           {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
             {!collapsed && systems === null && !(group.hideLabelWhenSingle && items.length === 1) && <p className={cn(SIDEBAR_GROUP_TITLE, index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
             {collapsed && index > 0 && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
@@ -147,7 +149,8 @@ function ScopeControlSlot({ collapsed, spaceId, menu, fallback }: { collapsed: b
 
 function FeatureBlock({ collapsed }: { collapsed: boolean }) {
   const { slots, route, currentSpace, sidebarSpace, accessibleSpaces, can, resolveLink, linkTo } = useHostPlatform();
-  const { tx, lang } = useI18n();
+  const { tx } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const slot = slots.features;
   // Only the space this sidebar is drawing, and only when the route is that space's menu.
   // A denied-space URL and an unmatched path keep a fallback sidebar but must not query another space.
@@ -160,7 +163,7 @@ function FeatureBlock({ collapsed }: { collapsed: boolean }) {
     ?.filter(entry => resolveLink(entry.menuId, { global: emptyGlobal, page: entry.page, returnTo: true }).allowed);
   if (!entries || entries.length === 0) return null;
   const spaceName = tx(sidebarSpace.label);
-  const featureName = lang === 'ko' ? '기능' : 'Features';
+  const featureName = m('featuresLabel');
   const heading = `${featureName} · ${spaceName}`;
   return <nav aria-label={heading} className="shrink-0 border-t border-border-subtle px-2 py-2">
     {!collapsed && <p className={cn(SIDEBAR_GROUP_TITLE)}>{heading}</p>}

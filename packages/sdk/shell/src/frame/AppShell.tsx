@@ -1,6 +1,6 @@
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { useEquipmentAxes, useI18n, type Toast } from '@ap/kernel';
+import { formatText, useEquipmentAxes, useI18n, useMessages, type Text, type Toast } from '@ap/kernel';
 import { useHostPlatform, useToastList } from '@ap/kernel/host';
 import { LoadingBlock } from '@ap/components';
 import { cn, DetailPanelFullscreenContext, DetailPanelSlotProvider, readLocalStorage, useDetailPanelSlotHost, writeLocalStorage } from '@ap/ui';
@@ -15,7 +15,14 @@ import { useBoardPresentation } from '../board/boardPresentation';
 import { useDocumentTitle } from './useDocumentTitle';
 import { expandedDetailClass } from './expandedDetailClass';
 import { useSessionKey } from './sessionKey';
+import { SHELL_MESSAGES } from '../messages';
 import type { ToastBottom } from '../board/windowLayout';
+
+const TOAST_TONE_TEXT: Record<Toast['tone'], Text> = {
+  info: SHELL_MESSAGES.toastToneInfo,
+  warning: SHELL_MESSAGES.toastToneWarning,
+  danger: SHELL_MESSAGES.toastToneDanger,
+};
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
 /** Below this window width the sidebar starts collapsed when the user has not chosen: rail 52px + open sidebar 240px leaves ≥ 908px for the page body at 1200px (#1944). */
@@ -32,6 +39,7 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
   useDocumentTitle(productName);
   const detail = useDetailPanelSlotHost();
   const { lang, t } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const { route, registry, sidebarSpace, platformScreen, slots, global, page, absoluteUrl, session } = useHostPlatform();
   // The board is a platform screen like the home and global utilities: no business-system sidebar (docs/16 §4).
   const globalScreen = platformScreen === 'board' || (route !== null && registry.spaceOf(route.menu) === null);
@@ -90,7 +98,7 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
       {/* The toast anchor: a zero-height positioned strip at the column's bottom edge, so the stack centres on the content column and never reaches the detail aside or the VOC drawer (06 Toast). */}
       <div data-toast-anchor className="relative h-0"><Toasts bottom={platformScreen === 'board' ? 'bottom-14' : board.minimized ? 'bottom-16' : 'bottom-4'} /></div>
     </div>
-    <aside ref={detail.ref} hidden={!detailShown} aria-label={lang === 'ko' ? '상세 패널' : 'Detail panel'} data-open={detailShown} data-expanded={detailShown && expanded} style={expanded && detailShown ? { '--detail-left': expandedStyle['--detail-left'], '--detail-top': expandedStyle['--detail-top'], '--detail-width': expandedStyle['--detail-width'], '--detail-height': expandedStyle['--detail-height'] } as CSSProperties : undefined}
+    <aside ref={detail.ref} hidden={!detailShown} aria-label={m('detailPanel')} data-open={detailShown} data-expanded={detailShown && expanded} style={expanded && detailShown ? { '--detail-left': expandedStyle['--detail-left'], '--detail-top': expandedStyle['--detail-top'], '--detail-width': expandedStyle['--detail-width'], '--detail-height': expandedStyle['--detail-height'] } as CSSProperties : undefined}
       className={expanded && detailShown ? expandedDetailClass : cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',
         detailShown ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')} />
     {voc && <VocDrawer voc={voc} lang={lang} expandedStyle={expandedStyle} />}
@@ -157,7 +165,7 @@ function Toasts({ bottom }: { bottom: ToastBottom }) {
     heard.current = new Set(toasts.map(tst => tst.id));
     if (fresh.length === 0) return;
     // The tone is not visible to a screen reader (an icon), so the announcement names it first, in the language of the moment it is raised.
-    const toneWord = (tone: Toast['tone']) => langRef.current === 'ko' ? { info: '알림', warning: '경고', danger: '오류' }[tone] : { info: 'Notice', warning: 'Warning', danger: 'Error' }[tone];
+    const toneWord = (tone: Toast['tone']) => formatText(TOAST_TONE_TEXT[tone], langRef.current);
     const entry = (tst: Toast) => ({ id: tst.id, said: `${toneWord(tst.tone)}: ${tst.text}${tst.detail ? ` ${tst.detail}` : ''}` });
     setPolite(list => [...list, ...fresh.filter(tst => tst.tone !== 'danger').map(entry)].slice(-4));
     setAssertive(list => [...list, ...fresh.filter(tst => tst.tone === 'danger').map(entry)].slice(-4));
@@ -176,7 +184,8 @@ function Toasts({ bottom }: { bottom: ToastBottom }) {
 
 function ToastItem({ toast: tst }: { toast: Toast }) {
   const { dismissToast, holdToast } = useHostPlatform();
-  const { lang, t } = useI18n();
+  const { t } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const { id, action } = tst;
   // Every toast waits while focus or the pointer is inside it (WCAG 2.2.1) and restarts its timer once both have left.
   const inside = useRef({ focus: false, pointer: false });
@@ -203,6 +212,6 @@ function ToastItem({ toast: tst }: { toast: Toast }) {
       {tst.detail && <span role="note" aria-label={t('serverDetail')} className="mt-0.5 block max-w-full break-all text-tiny">{tst.detail}</span>}
     </span>
     {action && <button type="button" onClick={() => { leave(); action.onAction(); dismissToast(id); }} className="font-medium text-accent-primary hover:underline">{action.label}</button>}
-    <button type="button" aria-label={lang === 'ko' ? '닫기' : 'Dismiss'} onClick={() => { leave(); dismissToast(id); }} className="text-text-muted hover:text-text-primary"><X className="size-3.5" aria-hidden /></button>
+    <button type="button" aria-label={m('dismissToast')} onClick={() => { leave(); dismissToast(id); }} className="text-text-muted hover:text-text-primary"><X className="size-3.5" aria-hidden /></button>
   </div>;
 }

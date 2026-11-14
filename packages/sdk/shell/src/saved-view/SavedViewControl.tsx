@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PEOPLE_LOOKUP_MAX, type ApprovalRequestInfo, type GroupMember, type SavedViewSupport, type Result, type SavedView, type SavedViewListItem, type SavedViewStore, type ViewVisibility } from '@ap/contracts';
-import { diagnoseSavedView, useEquipmentAxes, useI18n, type SavedViewDiagnosis } from '@ap/kernel';
+import { diagnoseSavedView, useEquipmentAxes, useI18n, useMessages, type SavedViewDiagnosis } from '@ap/kernel';
 import { captureApplied, useHostPlatform, useSavedViews, type SavedViews, type SelectOutcome } from '@ap/kernel/host';
 import { DirtyConfirmation } from '@ap/ui';
 import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSelector, type ShareGroupsState, type ShareTargetDraft, type ViewFilter, type ViewSelectorState } from '@ap/components';
+import { SHELL_MESSAGES } from '../messages';
 
 /**
  * The Saved View selector of the query tool row (06 §21): current view, `수정됨`, the save menu and the requested `뷰 관리` surface.
@@ -45,8 +46,8 @@ function shareApplied(view: SavedView, official: boolean, wanted: ViewVisibility
 function Ready({ views, store, support }: { views: SavedViews; store: Pick<SavedViewStore, 'get' | 'listGroups' | 'listApprovalRequests' | 'searchPeople'>; support: SavedViewSupport }) {
   const host = useHostPlatform();
   const axes = useEquipmentAxes();
-  const { lang, tx } = useI18n();
-  const ko = lang === 'ko';
+  const { t, tx } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const userId = host.user.id;
   // False once this surface was replaced or unmounted: its pending writes may finish, but nothing of theirs reaches the screen, the toasts or the parent.
   const alive = useRef(true);
@@ -80,12 +81,13 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   };
   const pickFailed = (outcome: SelectOutcome) => {
     if (outcome.ok) return;
-    toast({
-      'wrong-menu': ko ? '다른 메뉴에서 저장한 뷰입니다.' : 'This view was saved in another menu.',
-      'stale-schema': ko ? '메뉴 화면 버전이 달라 적용하지 못했습니다. 뷰 관리에서 확인하세요.' : 'The menu view version differs. Check it in Manage views.',
-      unavailable: ko ? '뷰를 불러오지 못했습니다.' : 'The view could not be loaded.',
-      denied: ko ? '이 뷰를 볼 권한이 없습니다.' : 'You cannot view this.',
-    }[outcome.reason], 'warning');
+    const keys = {
+      'wrong-menu': 'savedViewWrongMenu',
+      'stale-schema': 'savedViewStaleSchema',
+      unavailable: 'savedViewUnavailable',
+      denied: 'savedViewDenied',
+    } as const;
+    toast(m(keys[outcome.reason]), 'warning');
   };
 
   // Focus goes back to the selector after a surface that has no trigger of its own; deferred so it lands after the dialog's own cleanup.
@@ -177,7 +179,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const confirmDraft = () => new Promise<boolean>(resolve => { setDraftAsk(() => resolve); });
   const saveCurrent = async (): Promise<boolean> => {
     if (unapplied && !(await confirmDraft())) return false;
-    return report(await views.saveToSelected(), ko ? '현재 뷰에 저장했습니다.' : 'Saved to this view.');
+    return report(await views.saveToSelected(), m('savedViewUpdated'));
   };
   const openSave = (mode: 'new' | 'update') => new Promise<boolean>(resolve => { saveAsDone.current = { resolve, ok: false }; setSaveMode(mode); setSaveOpen(true); });
   const closeSave = (open: boolean) => {
@@ -193,7 +195,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     if (input.mode === 'update') result = await views.saveToSelected();
     else if (input.visibility === 'share') { pending.current = { unit: input.unit, name: input.name }; setHandoff(true); return { ok: true, value: null }; }
     else result = await views.saveAs({ name: input.name, kind: input.unit });
-    if (result.ok) { toast(input.mode === 'update' ? (ko ? '현재 뷰에 저장했습니다.' : 'Saved to this view.') : (ko ? `"${input.name}" 뷰를 저장했습니다.` : `Saved "${input.name}".`), 'info'); if (saveAsDone.current) saveAsDone.current.ok = true; }
+    if (result.ok) { toast(input.mode === 'update' ? m('savedViewUpdated') : m('savedViewSavedAs', { name: input.name }), 'info'); if (saveAsDone.current) saveAsDone.current.ok = true; }
     return result;
   };
 
@@ -204,7 +206,9 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     if (!made) return false;
     setShareError(null);
     const refused = (reason: Extract<Result<never>, { ok: false }>['reason'], saved: boolean) => {
-      const text = saved ? (ko ? `"${made.name}" 뷰는 저장했지만 공유 대상은 바꾸지 못했습니다. ${fail(reason)}` : `Saved "${made.name}" but could not share it. ${fail(reason)}`) : (ko ? `"${made.name}" 뷰를 저장하지 못했습니다. ${fail(reason)}` : `Could not save "${made.name}". ${fail(reason)}`);
+      const text = saved
+        ? m('savedViewSavedShareFailed', { name: made.name, reason: fail(reason) })
+        : m('savedViewSaveFailed', { name: made.name, reason: fail(reason) });
       setShareError(text);
       return false;
     };
@@ -235,8 +239,8 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       }
       pending.current = null;
       created.current = null;
-      if (shared === null) { toast(ko ? `"${made.name}" 뷰를 저장했습니다.` : `Saved "${made.name}".`, 'info'); return true; }
-      toast(draft.mode === 'official' ? (ko ? `"${made.name}" 뷰를 저장하고 공식 등록을 신청했습니다.` : `Saved "${made.name}" and asked for official publishing.`) : (ko ? `"${made.name}" 뷰를 저장하고 공유 대상을 정했습니다.` : `Saved "${made.name}" and set who can see it.`), 'info');
+      if (shared === null) { toast(m('savedViewSavedAs', { name: made.name }), 'info'); return true; }
+      toast(draft.mode === 'official' ? m('savedViewSavedOfficialRequested', { name: made.name }) : m('savedViewSavedShared', { name: made.name }), 'info');
       return true;
     } catch {
       return alive.current ? refused('unavailable', created.current !== null) : false;
@@ -249,7 +253,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     if (!item || diagnosis?.status !== 'stale' || !diagnosis.migration) return;
     let next: SavedView;
     try { next = diagnosis.migration.apply(); } catch { report({ ok: false, reason: 'unavailable' }, ''); return; }
-    const done = ko ? `"${item.view.name}" 뷰를 새 버전으로 갱신했습니다.` : `Updated "${item.view.name}" to the new version.`;
+    const done = m('savedViewMigrated', { name: item.view.name });
     const patch = next.kind === 'menu-view' ? { menuSchemaVersion: support.menuSchemaVersion, context: next.context, page: next.page, chartOptions: next.chartOptions, layout: next.layout, panels: next.panels } : { context: next.context };
     report(await views.update(id, patch, { expectedVersion: item.view.version }), done);
   };
@@ -258,7 +262,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const panelCount = (view: SavedView) => view.kind === 'menu-view' && Array.isArray(view.panels) ? view.panels.length : 0;
   const panels = selected ? panelCount(selected.view) : 0;
   const note = (excluded.length > 0 || panels > 0)
-    ? [panels > 0 ? (ko ? `패널 ${panels}개 포함` : `${panels} panels included`) : '', excluded.length > 0 ? (ko ? `제외된 조건: ${excluded.join(', ')}` : `Left out: ${excluded.join(', ')}`) : ''].filter(Boolean).join(' · ')
+    ? [panels > 0 ? m('savedViewPanelCount', { count: panels }) : '', excluded.length > 0 ? m('savedViewExcludedKeys', { keys: excluded.join(', ') }) : ''].filter(Boolean).join(' · ')
     : '';
 
   return <span ref={wrapper} className="inline-flex flex-wrap items-center gap-1">
@@ -269,15 +273,15 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       onSelect={id => { void views.select(id).then(pickFailed); }}
       onSave={saveCurrent} onSaveAs={() => openSave('new')} saveTriggerRef={saveTrigger}
       onRevert={() => { void views.revertToSaved().then(pickFailed); }}
-      onMakeDefault={id => { void views.setDefault(id).then(result => report(result, id === null ? (ko ? '개인 기본 뷰를 해제했습니다.' : 'Personal default cleared.') : (ko ? '개인 기본 뷰로 지정했습니다.' : 'Set as your default.'))); }}
-      onDelete={id => { void views.remove(id).then(result => report(result, ko ? '뷰를 삭제했습니다.' : 'View deleted.')); }}
+      onMakeDefault={id => { void views.setDefault(id).then(result => report(result, id === null ? m('savedViewDefaultCleared') : m('savedViewDefaultSet'))); }}
+      onDelete={id => { void views.remove(id).then(result => report(result, m('savedViewDeleted'))); }}
       onManage={() => setManageOpen(true)}
     />
     {note && <span role="status" className="max-w-56 truncate text-xs text-text-secondary" title={note}>{note}</span>}
     <SaveViewDialog
       key={saveMode} open={saveOpen} onOpenChange={closeSave} units={['menu-view', 'condition-set']} {...(updatable ? { updatable } : {})} initialMode={saveMode}
       context={captureApplied({ global: host.global, page: [] }, support).context} hasDraft={unapplied} returnFocusRef={saveTrigger}
-      visibilityOptions={[{ value: 'private', label: ko ? '나만 보기' : 'Only me' }, { value: 'share', label: ko ? '공유 대상 지정…' : 'Choose who can see it…' }]}
+      visibilityOptions={[{ value: 'private', label: m('savedViewVisibilityPrivate') }, { value: 'share', label: m('savedViewVisibilityShare') }]}
       onSubmit={submit}
     />
     <ShareTargetPicker
@@ -294,9 +298,9 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     />
     <DirtyConfirmation
       open={draftAsk !== null} onCancel={() => { draftAsk?.(false); setDraftAsk(null); }} onConfirm={() => { draftAsk?.(true); setDraftAsk(null); }}
-      title={ko ? '적용하지 않은 변경이 있습니다' : 'You have changes that are not applied'}
-      message={ko ? '저장에는 적용된 조건만 담깁니다. 적용하지 않은 변경은 이동하면 사라집니다. 담으려면 취소하고 먼저 조건을 적용하세요.' : 'A save holds only the applied conditions. Changes you have not applied are lost when you move on. To keep them, cancel and apply the conditions first.'}
-      confirmLabel={ko ? '적용된 조건만 저장하고 이동' : 'Save applied conditions and switch'} cancelLabel={ko ? '취소' : 'Cancel'}
+      title={m('savedViewDraftTitle')}
+      message={m('savedViewDraftMessage')}
+      confirmLabel={m('savedViewDraftConfirm')} cancelLabel={t('cancel')}
     />
   </span>;
 }

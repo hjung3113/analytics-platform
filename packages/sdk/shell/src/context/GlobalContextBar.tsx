@@ -5,13 +5,14 @@ import { CalendarDays, ChevronDown, RotateCcw, X } from 'lucide-react';
 import { useContext, type ReactNode } from 'react';
 import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
 import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
-import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, type RequestState } from '@ap/kernel';
+import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, useMessages, type RequestState } from '@ap/kernel';
 import { useAdapterRequest, useHostPlatform } from '@ap/kernel/host';
 import { type Capability, type Condition, type ContextKey, formatDateTime, formatPeriod, periodShort, periodHours, periodSpan, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem } from '@ap/ui';
 import { SegmentedRadio } from '@ap/components';
 import { ShareControl } from './ShareControl';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
+import { SHELL_MESSAGES } from '../messages';
 
 const CONTEXT_KEYS: ContextKey[] = ['time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
 
@@ -41,6 +42,7 @@ export function GlobalContextBar({ label, whenEmpty = null }: {
 function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; region: string }; whenEmpty: ReactNode }) {
   const { route, global, setGlobal, resetContext, scope, adapter } = useHostPlatform();
   const { t, lang } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const axes = useEquipmentAxes();
   const basisText = global.membershipBasis === 'asOf' ? ` · ${t('membershipAsOf')}` : '';
   // Keep one request owner while the Selection editor moves between inline and overflow.
@@ -64,7 +66,7 @@ function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; regio
     ...(has.lot ? [{ key: 'lot' as const, applied: has.lot, node: <CarriedChip k="lot" cap={cap.lot} value={setText(global.lotIds, t)} onRemove={() => setGlobal({ lotIds: null })} /> }] : []),
     ...(has.ppid ? [{ key: 'ppid' as const, applied: has.ppid, node: <CarriedChip k="ppid" cap={cap.ppid} value={global.ppid!} onRemove={() => setGlobal({ ppid: null })} /> }] : []),
     ...(has.recipe ? [{ key: 'recipe' as const, applied: has.recipe, node: <CarriedChip k="recipe" cap={cap.recipe} value={setText(global.recipeIds, t)} onRemove={() => setGlobal({ recipeIds: null })} /> }] : []),
-    ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${lang === 'ko' ? '버전 미정' : 'no version'})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
+    ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${m('metricNoVersion')})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
   ];
   return <ContextBarLayout regionName={label?.region} controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length, label])} actions={compact => <span className="flex items-center gap-1">
         <ShareControl compact={compact} align="end" />
@@ -109,11 +111,12 @@ function ChipShell({ label, value, cap, empty, children, ...rest }: { label: Rea
 /** Preserved context the current page does not edit: never silently dropped (§6); removable explicitly. */
 function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capability; value: string; onRemove: () => void }) {
   const { tx, t, lang } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const { global } = useHostPlatform();
   const fullValue = k === 'time' ? (global.from ? formatPeriod(global.from, global.to, lang) : t('selectPeriod')) : value;
   return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}${capStatus(cap, t)}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-md border pl-2.5 pr-1 whitespace-nowrap text-xs',
     cap === 'unsupported' ? 'border-dashed border-border-control text-text-muted' : 'border-border-control bg-surface-card')}
-    title={cap === 'unsupported' ? (lang === 'ko' ? 'URL에 보존되며 지원 메뉴로 이동하면 재검증 후 적용됩니다.' : 'Kept in the URL; re-validated and applied on a supporting page.') : undefined}>
+    title={cap === 'unsupported' ? m('carriedUnsupportedTitle') : undefined}>
     <span className="text-text-muted">{tx(CONTEXT_LABELS[k])}</span>
     <span className="min-w-0 max-w-48 truncate font-medium tabular" title={fullValue}>{value}</span>
     <CapTag cap={cap} />
@@ -170,7 +173,8 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
 /** Calendar dates are inclusive in the UI and become [D1T00:00:00, (D2+1)T00:00:00) in the URL (§6.3). */
 function CustomRange({ onDone }: { onDone: () => void }) {
   const { global, setGlobal, defaultRangeTo } = useHostPlatform();
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const [mode, setMode] = useContextEditorState<'date' | 'time'>('mode', 'date');
   const [start, setStart] = useContextEditorState('start', (global.from ?? (defaultRangeTo === null ? '' : shift(defaultRangeTo, -24))).slice(0, 10));
   const [end, setEnd] = useContextEditorState('end', global.to ? shift(global.to, -24).slice(0, 10) : (defaultRangeTo ?? '').slice(0, 10));
@@ -182,38 +186,38 @@ function CustomRange({ onDone }: { onDone: () => void }) {
     if (mode === 'date') {
       const from = `${start}T00:00:00`;
       const to = formatDateTime(new Date(parseDateTime(`${end}T00:00:00`, 'end').getTime() + 86_400_000));
-      if (from >= to) throw new Error(lang === 'ko' ? '시작일이 종료일보다 늦습니다.' : 'Start is after end.');
+      if (from >= to) throw new Error(m('rangeStartAfterEndDate'));
       result = { from, to };
     } else {
       const from = fromT.length === 16 ? `${fromT}:00` : fromT; const to = toT.length === 16 ? `${toT}:00` : toT;
       parseDateTime(from, 'from'); parseDateTime(to, 'to');
-      if (from >= to) throw new Error(lang === 'ko' ? '시작이 끝보다 앞서야 합니다.' : 'The start must be before the end.');
+      if (from >= to) throw new Error(m('rangeStartBeforeEndTime'));
       result = { from, to };
     }
   } catch (e) { error = e instanceof Error ? e.message : String(e); }
   const input = 'h-8 w-full rounded-md border border-border-control bg-surface-card px-2 text-xs tabular';
   return <form onSubmit={e => { e.preventDefault(); if (result) { setGlobal(result); onDone(); } }} onKeyDown={e => { if (e.key === 'Escape') onDone(); }} className="space-y-3 text-xs">
     <SegmentedRadio
-      label={lang === 'ko' ? '입력 방식' : 'Input mode'}
+      label={m('rangeInputMode')}
       value={mode}
       onChange={setMode}
       className="flex"
       options={[
-        { value: 'date', label: lang === 'ko' ? '날짜 (양끝 포함)' : 'Dates (inclusive)' },
-        { value: 'time', label: lang === 'ko' ? '시각 (초 단위)' : 'Date-time (seconds)' },
+        { value: 'date', label: m('rangeModeDates') },
+        { value: 'time', label: m('rangeModeDateTime') },
       ]}
     />
     {mode === 'date' ? <div className="grid grid-cols-2 gap-2">
-      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '시작일' : 'Start date'}</span><input type="date" className={input} value={start} onChange={e => setStart(e.target.value)} /></label>
-      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '종료일 (포함)' : 'End date (inclusive)'}</span><input type="date" className={input} value={end} onChange={e => setEnd(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">{m('rangeStartDate')}</span><input type="date" className={input} value={start} onChange={e => setStart(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">{m('rangeEndDate')}</span><input type="date" className={input} value={end} onChange={e => setEnd(e.target.value)} /></label>
     </div> : <div className="grid grid-cols-1 gap-2">
-      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '시작 시각' : 'Start time'}</span><input type="datetime-local" step={1} className={input} value={fromT} onChange={e => setFromT(e.target.value)} /></label>
-      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '끝 시각 (포함하지 않음)' : 'End time (not included)'}</span><input type="datetime-local" step={1} className={input} value={toT} onChange={e => setToT(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">{m('rangeStartTime')}</span><input type="datetime-local" step={1} className={input} value={fromT} onChange={e => setFromT(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">{m('rangeEndTime')}</span><input type="datetime-local" step={1} className={input} value={toT} onChange={e => setToT(e.target.value)} /></label>
     </div>}
     <p aria-live="polite" className={cn('rounded-md px-2 py-1.5 tabular', error ? 'bg-accent-danger-soft text-text-danger-label' : 'bg-surface-sunken text-text-secondary')}>
-      {error ?? (lang === 'ko' ? `조회: ${result!.from} ~ ${result!.to} (끝 시각은 포함하지 않음)` : `Range: ${result!.from} ~ ${result!.to} (end time is not included)`)}
+      {error ?? m('rangePreview', { from: result!.from, to: result!.to })}
     </p>
-    <p className="text-tiny text-text-secondary">{lang === 'ko' ? '설비에 기록된 시각 기준이며, 시간대를 바꾸지 않습니다.' : "Times are the equipment's recorded clock and are not converted."}</p>
+    <p className="text-tiny text-text-secondary">{m('rangeEquipmentClockNote')}</p>
     <div className="flex justify-end gap-2">
       <Button type="button" size="sm" variant="secondary" onClick={onDone}>{t('cancel')}</Button>
       <Button type="submit" size="sm" disabled={!result}>{t('apply')}</Button>
@@ -228,7 +232,8 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
   label: string; cap: Capability; value: string[] | null; options: { id: string; hint?: string; outside?: boolean }[];
   absentLabel: string; onApply: (v: string[] | null) => void; note?: ReactNode; search?: boolean;
 }) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const [open, setOpen] = useContextEditorState('open', false);
   const preserveRelocationFocus = useContextEditorFocusRecovery();
   const [mode, setMode] = useContextEditorState<SetMode>('mode', modeOf(value));
@@ -246,18 +251,18 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
         className="mb-2 flex flex-wrap"
         options={[
           { value: 'absent', label: absentLabel },
-          { value: 'some', label: lang === 'ko' ? '명시 선택' : 'Explicit' },
+          { value: 'some', label: m('setModeExplicit') },
           { value: 'empty', label: t('explicitEmpty') },
         ]}
       />
       {mode === 'some' && <>
-        {search && <input value={q} onChange={e => setQ(e.target.value)} placeholder={lang === 'ko' ? '검색…' : 'Search…'} aria-label={lang === 'ko' ? '검색' : 'Search'} className="mb-2 h-7 w-full rounded-md border border-border-control px-2" />}
+        {search && <input value={q} onChange={e => setQ(e.target.value)} placeholder={m('setSearchPlaceholder')} aria-label={m('setSearchLabel')} className="mb-2 h-7 w-full rounded-md border border-border-control px-2" />}
         <ul className="max-h-56 space-y-0.5 overflow-auto">
           {visible.map(o => <li key={o.id}><label className="flex cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 hover:bg-surface-sunken">
             <input type="checkbox" className="size-3.5 accent-accent-primary" checked={picked.includes(o.id)} onChange={() => setPicked(p => (p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id]))} />
             <span className="t-mono">{o.id}</span>
             {o.hint && <span className="truncate text-text-secondary">{o.hint}</span>}
-            {o.outside && <span className="ml-auto rounded-xs bg-accent-warn-soft px-1 text-caption text-text-warning-label">{lang === 'ko' ? '조건 밖' : 'outside'}</span>}
+            {o.outside && <span className="ml-auto rounded-xs bg-accent-warn-soft px-1 text-caption text-text-warning-label">{m('setOptionOutside')}</span>}
           </label></li>)}
         </ul>
       </>}
@@ -273,15 +278,17 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
 
 function RoomEditor({ cap }: { cap: Capability }) {
   const { global, setGlobal, scope } = useHostPlatform();
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   return <SetEditor label={t('roomNames')} cap={cap} value={global.roomNames} absentLabel={t('all')} onApply={v => setGlobal({ roomNames: v })}
     options={scope.grantedRooms.map(id => ({ id }))}
-    note={lang === 'ko' ? '공정: 요청 Scope 안의 조회 범위 · 접근에는 별도 권한 필요' : 'Process narrows the requested scope · access requires permission'} />;
+    note={m('roomScopeNote')} />;
 }
 
 function ConditionEditor({ cap }: { cap: Capability }) {
   const { global, setGlobal, adapter } = useHostPlatform();
   const { t, lang } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   const site = global.scopeId ?? '';
   const [open, setOpen] = useContextEditorState('open', false);
   const preserveRelocationFocus = useContextEditorFocusRecovery();
@@ -318,15 +325,15 @@ function ConditionEditor({ cap }: { cap: Capability }) {
     <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80">
       {representable ? <>
       <SegmentedRadio
-        label={lang === 'ko' ? '조건 축 (하나만)' : 'Condition axis (one)'}
+        label={m('conditionAxisLabel')}
         value={axis}
         onChange={a => { setAxis(a); setVal(''); }}
         className="mb-2 flex"
         options={groups.map(g => ({ value: g.id, label: g.label }))}
       />
       {choices.status !== 'done' && <p role="status" className="px-2 py-1 text-text-secondary">{choices.status === 'error'
-        ? <>{lang === 'ko' ? '선택지를 불러오지 못했습니다.' : 'Could not load choices.'} <button type="button" className="text-accent-primary underline" onClick={choices.retry}>{t('retry')}</button></>
-        : (lang === 'ko' ? '선택지를 불러오는 중…' : 'Loading choices…')}</p>}
+        ? <>{m('conditionChoicesError')} <button type="button" className="text-accent-primary underline" onClick={choices.retry}>{t('retry')}</button></>
+        : m('conditionChoicesLoading')}</p>}
       {/* Selection shape + text, not colour alone (06 §26): radio marker per option, arrow-key roving focus. */}
       <RadioGroup orientation="vertical" aria-label={group?.label} value={val} onValueChange={setVal}
         className="max-h-48 overflow-auto">
@@ -336,7 +343,7 @@ function ConditionEditor({ cap }: { cap: Capability }) {
           <span className="min-w-0">{o}</span>
         </label>)}
       </RadioGroup>
-      <p className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-tiny text-text-secondary">{lang === 'ko' ? 'live 조건: 재방문 시 현재 소속으로 다시 평가됩니다. 조건 변경은 고정 Selection을 바꾸지 않습니다.' : 'Live condition: membership is re-evaluated on revisit. Changing it never alters the fixed Selection.'}</p>
+      <p className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-tiny text-text-secondary">{m('conditionLiveNote')}</p>
       </> : <p>{summary}</p>}
       <div className="mt-3 flex justify-between gap-2">
         <Button size="toolbar" variant="ghost" onClick={() => { setGlobal({ condition: null }); setOpen(false); }}>{t('clear')}</Button>
@@ -351,15 +358,16 @@ function ConditionEditor({ cap }: { cap: Capability }) {
 
 function SelectionEditor({ cap, evaluation }: { cap: Capability; evaluation: RequestState<SelectionEvaluation> }) {
   const { global, setGlobal } = useHostPlatform();
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   // Condition matching and grants are the server's job; the same result also feeds inert measurement.
   const inCondition = evaluation.data?.inCondition ?? [];
   const outside = evaluation.data?.outOfCondition ?? [];
   const failed = evaluation.status === 'error';
   const options = [...inCondition.map(e => ({ id: e.equipmentId, hint: `${e.room} · ${e.model}` })), ...outside.map(id => ({ id, hint: undefined, outside: true }))];
-  const count = failed ? (lang === 'ko' ? '확인 실패' : 'unavailable') : evaluation.status === 'done' ? String(inCondition.length) : '…';
+  const count = failed ? m('selectionCountUnavailable') : evaluation.status === 'done' ? String(inCondition.length) : '…';
   return <SetEditor label={t('selection')} cap={cap} value={global.selection} search
-    absentLabel={global.condition ? (lang === 'ko' ? `조건 결과 전체 (${count})` : `All condition results (${count})`) : t('all')}
+    absentLabel={global.condition ? m('selectionAllConditionResults', { count }) : t('all')}
     onApply={v => setGlobal({ selection: v })} options={options}
-    note={<>{lang === 'ko' ? 'Selection은 고정 EquipmentID 집합입니다.' : 'Selection is a fixed EquipmentID set.'}{failed && <span role="alert" className="mt-1 block text-text-danger-label">{lang === 'ko' ? '조건 결과를 확인하지 못했습니다.' : 'Could not evaluate the condition.'} <button type="button" className="text-accent-primary underline" onClick={evaluation.retry}>{t('retry')}</button></span>}{outside.length > 0 && <b className="mt-1 block text-text-warning-label">{lang === 'ko' ? `현재 조건 결과 밖 ${outside.length}대 · 선택 유지.` : `${outside.length} outside the current condition · selection retained.`}</b>}</>} />;
+    note={<>{m('selectionFixedNote')}{failed && <span role="alert" className="mt-1 block text-text-danger-label">{m('selectionEvaluationError')} <button type="button" className="text-accent-primary underline" onClick={evaluation.retry}>{t('retry')}</button></span>}{outside.length > 0 && <b className="mt-1 block text-text-warning-label">{m('selectionOutsideCondition', { count: outside.length })}</b>}</>} />;
 }

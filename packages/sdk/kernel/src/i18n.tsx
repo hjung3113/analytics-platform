@@ -230,6 +230,7 @@ const dict = {
   invalidTableFilterTitle: { ko: '정렬·페이지·필터 값이 올바르지 않습니다', en: 'The sort, page or filter value cannot be used' },
   invalidTableSort: { ko: '정렬', en: 'Sort' },
   invalidTablePage: { ko: '페이지', en: 'Page' },
+  scopeChangedSiteReset: { ko: 'Scope 변경: 공정·Line·PRC 그룹·설비 조건·선택·Lot·Recipe·PPID를 초기화했습니다 (Site 경계).', en: 'Scope changed: Process, Line, PRC groups, condition, selection, Lot, Recipe and PPID were cleared (site boundary).' },
   preferencesUnsaved: { ko: '설정을 서버에 저장하지 못했습니다. 이 브라우저에는 남아 있으며 다시 시도합니다.', en: 'Your settings could not be saved to the server. They stay in this browser and will be retried.' },
 } satisfies Record<string, Text>;
 
@@ -248,7 +249,14 @@ function initialLang(): Lang {
   try { return localStorage.getItem(STORAGE) === 'en' ? 'en' : 'ko'; } catch { return 'ko'; }
 }
 
-const makeI18n = (lang: Lang, setLang: (lang: Lang) => void): I18n => ({ lang, setLang, t: (key, params) => dict[key][lang].replace(/\{(\w+)\}/g, (token, name: string) => params?.[name] === undefined ? token : String(params[name])), tx: text => text[lang], text: key => dict[key] });
+export type TextParams = Record<string, string | number>;
+
+/** One message in `lang`, `{name}` placeholders filled from `params` (an unknown name stays as written). */
+export function formatText(text: Text, lang: Lang, params?: TextParams): string {
+  return text[lang].replace(/\{(\w+)\}/g, (token, name: string) => params?.[name] === undefined ? token : String(params[name]));
+}
+
+const makeI18n = (lang: Lang, setLang: (lang: Lang) => void): I18n => ({ lang, setLang, t: (key, params) => formatText(dict[key], lang, params), tx: text => text[lang], text: key => dict[key] });
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(initialLang);
@@ -295,6 +303,15 @@ export function useI18n(): I18n {
   return value;
 }
 
+/**
+ * A package's own message table (its `messages.ts`, values typed `Text`) read in the current language (#2174): words several
+ * SDK screens share stay in the Kernel dictionary (`t`); copy only one package uses lives in that package's table.
+ */
+export function useMessages<K extends string>(messages: Readonly<Record<K, Text>>): (key: K, params?: TextParams) => string {
+  const { lang } = useI18n();
+  return useCallback((key: K, params?: TextParams) => formatText(messages[key], lang, params), [messages, lang]);
+}
+
 const ERROR_GUIDANCE = {
   time_domain_unverified: { cause: 'timeDomainUnverifiedCause', action: 'timeDomainUnverifiedAction' },
   time_domain_mismatch: { cause: 'timeDomainMismatchCause', action: 'timeDomainMismatchAction' },
@@ -334,11 +351,16 @@ export function objectParticle(name: string): '을' | '를' {
 
 /** Missing-condition line shared by the query bar and the result area, so both name the field and particle the same way. */
 export function queryMissingSentence(lang: Lang, label: Text): string {
-  return dict.queryMissing[lang].replace(/\{(label|particle)\}/g, (_token, name: string) => name === 'label' ? label[lang] : lang === 'ko' ? objectParticle(label.ko) : '');
+  return dict.queryMissing[lang].replace(/\{(label|particle)\}/g, (_token, name: string) => {
+    if (name === 'label') return label[lang];
+    // eslint-disable-next-line ap/no-lang-copy-ternary -- grammar, not copy: only Korean takes a particle after the label
+    return lang === 'ko' ? objectParticle(label.ko) : '';
+  });
 }
 
 /** ADR-0034 sentence for an invalid URL value: the field's user name + the raw value as entered (quoted, untruncated) + cause/action. Placeholders fill in one pass, so the raw value is never re-read. */
 export function invalidValueSentence(lang: Lang, kind: 'value' | 'filter' | 'plain' | 'drillGap', field: Text, raw: string): string {
+  // eslint-disable-next-line ap/no-lang-copy-ternary -- grammar, not copy: only Korean takes a particle after the field
   const fill: Record<string, string> = { field: field[lang], raw, particle: lang === 'ko' ? topicParticle(field.ko) : '' };
   return dict[INVALID_URL_KEY[kind]][lang].replace(/\{(field|raw|particle)\}/g, (_token, name: string) => fill[name] ?? '');
 }

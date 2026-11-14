@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffectEvent, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction, type ReactNode } from 'react';
 import type { ContextKey } from '@ap/contracts';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
+import { SHELL_MESSAGES } from '../messages';
 
 /** Measuring copies are inert and must never make adapter requests. */
 export const MeasuringContext = createContext(false);
@@ -41,7 +42,8 @@ export function ContextBarLayout({ controls, revision, actions, regionName }: {
   /** The analysis board names the bar after the pane it edits: the region's accessible name (docs/16 §4). */
   regionName?: string;
 }) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
   // The bar draws no visible label (#914, 06 §7); the region name is its accessible name.
   const barLabel = regionName ?? t('globalContext');
   const host = useRef<HTMLDivElement>(null);
@@ -55,8 +57,9 @@ export function ContextBarLayout({ controls, revision, actions, regionName }: {
   const [measurement, setMeasurement] = useState<Measurements | null>(null);
   const period = controls.find(c => c.key === 'time');
   const others = controls.filter(c => c.key !== 'time');
-  const overflowLabel = (count: number, applied: number) => (lang === 'ko' ? `조건 ${count}개 더` : `${count} more`)
-    + (applied ? (lang === 'ko' ? ` · ${applied}개 적용 중` : ` · ${applied} applied`) : '');
+  const overflowLabel = (count: number, applied: number) => applied
+    ? m('conditionsMoreApplied', { count, applied })
+    : m('conditionsMore', { count });
 
   useLayoutEffect(() => {
     const element = host.current;
@@ -161,7 +164,7 @@ export function ContextBarLayout({ controls, revision, actions, regionName }: {
       {others.slice(0, inlineCount).map(control => item(control))}
       {hidden.length > 0 && <Popover open={overflowOpen || activeHidden} onOpenChange={setOverflowOpen}><PopoverTrigger asChild>
         <button ref={overflowTrigger} data-context-overflow type="button" className={cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE, 'shrink-0')} aria-label={label} title={label}>{label}</button>
-      </PopoverTrigger><PopoverContent onFocusOutside={event => { if (recoveringFocus.current) event.preventDefault(); }} onCloseAutoFocus={event => { if (!overflowTrigger.current?.isConnected) { event.preventDefault(); focusBar(); } }} aria-label={lang === 'ko' ? '추가 Context 조건' : 'More Context conditions'} align="end" className="w-[28rem] max-w-[calc(100vw-2rem)]">
+      </PopoverTrigger><PopoverContent onFocusOutside={event => { if (recoveringFocus.current) event.preventDefault(); }} onCloseAutoFocus={event => { if (!overflowTrigger.current?.isConnected) { event.preventDefault(); focusBar(); } }} aria-label={m('moreContextConditions')} align="end" className="w-[28rem] max-w-[calc(100vw-2rem)]">
         <div className="grid gap-3">{hidden.map(control => item(control))}</div>
       </PopoverContent></Popover>}
       <div className="ml-auto shrink-0">{actions(compact)}</div>
