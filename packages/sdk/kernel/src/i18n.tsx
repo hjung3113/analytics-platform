@@ -8,6 +8,9 @@ export type { Text };
 
 // UI copy only (docs/06 §23): master values and identifiers are never translated.
 const dict = {
+  objectLinks: { ko: '다른 화면에서 열기', en: 'View in another screen' },
+  objectLinksShort: { ko: '다른 화면', en: 'Other screens' },
+  objectLinksAccessible: { ko: '{id} 다른 화면에서 열기', en: 'View {id} in another screen' },
   sessionDraftRestoredTitle: { ko: '입력 복원', en: 'Input restored' },
   sessionDraftRestored: { ko: '세션이 바뀌어 화면을 다시 열었습니다. 저장하지 않은 입력을 되살렸습니다.', en: 'The session changed and the screen reopened. Your unsaved input was restored.' },
   hierarchyBack: { ko: '뒤로', en: 'Back' },

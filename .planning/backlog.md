@@ -32,6 +32,15 @@
 
 ## 작은 후속 (확인된 것)
 
+| 항목 | 미구현 사유 | 다시 여는 조건 |
+| --- | --- | --- |
+| 구현 안 함 — 모듈 메뉴 opensObject/subjectLinks (#1930) | module contract 1을 넓혀야 함 | 첫 모듈이 객체 종류 목록을 요구할 때 |
+| 구현 안 함 — 다른 공간 목적지의 공간 둘째 줄 항상 표시 (#1930) | 겹치는 label만으로 현재 구분 가능 | 소유자가 공간 식별을 항상 요구할 때 |
+| 구현 안 함 — 출발 시험 vi.mock('@ap/kernel') 정리 (#1930) | 선언/목록 구현과 독립된 시험 구조 변경 | 출발 시험을 실제 Provider로 바꿀 범위를 잡을 때 |
+| 구현 안 함 — 모든 ⋯ 행 aria-disabled (#2186) | 전체 ⋯의 기본 키보드 동작 변경, 별도 UI B 확인 필요 | #2186에서 공통 동작을 검증할 때 |
+| 구현 안 함 — CLAS eqp가 있어도 선택 없음 (#2187) | 기존 대상/범위 밖 표시 결함, 목록 구현 범위 밖 | #2187에서 전달된 eqp의 대상 또는 범위 밖 상태를 고칠 때 |
+
+
 - **구현 안 함 — 손으로 만든 폼 필드 사본 7곳을 `FormField`로 이전 (#1890 항목 3):** 이유: 조각이 먼저 들어왔고(ADR-0161) 소비자 하나(`log-knowledge` 판단 변경의 「사유」)로 API를 증명했으며, 사본 이전은 메뉴 화면을 바꾸는 별도 작업이다. 대상: `log-knowledge` `CatalogDrawer`·`ItemFormParts`의 `Field`와 `SpecField`, `improvement-items` `parts.tsx`, `notice-voc` `NoticeDialogs.tsx`(`type FormField`와 이름 충돌, 별칭 필요), `log-analysis` `KnowledgeHandoffDialog`·`HandoffOwnerFields`. 다시 여는 조건: 해당 메뉴를 손볼 때 또는 사본 간 간격·접근성 차이로 결함이 보고될 때.
 - **구현 안 함 — RichEditor 멘션 이름 변경 시 기존 칩 다시 그리기 (#2043 C2):** 이유: ProseMirror 노드 DOM을 정적으로 그리므로 `resolveMentionLabel` 결과가 바뀌어도 이미 그린 칩은 갱신되지 않는다. 소비자는 마운트 전에 이름을 준비해야 한다. 다시 여는 조건: 편집기를 마운트한 채로 이름을 비동기로 받거나 바꿔야 하는 소비자가 생길 때(reactive redraw).
 
@@ -630,7 +639,7 @@
 
 - **Not implemented — lint binding `linkTo` call sites to declarations (#1903, ADR-0158):** a literal-id `linkTo` would have to target a menu of the same package or a `linkTargets.required` entry. Reason: the rule needs each package's menu ids statically, and today `platform/*` had one violating file, fixed by hand. Reopen when a `platform/*` or `packages/*` `linkTo` to an unguaranteed destination appears again.
 - **Not implemented — per-destination required params and page keys in `linkTargets` (#1903, ADR-0158):** `droppedPageKeys` reports dropped keys at run time; the #1903 evidence observed this behaviour but it is not a defect. Widening an entry from `id` to `id | { menu, pageKeys }` later keeps existing declarations valid and lets `createRegistry` compare against the destination's `pageKeys`. Reopen when a defect caused by a dropped page key occurs twice.
-- **Not implemented — common link piece drawing the three outcomes (link / permission reason / none) (#1903, ADR-0158):** a new visual `@ap/components` piece needs a prototype and owner confirmation; the Kernel contract fix is not tied to it. Reopen when a third menu draws the three outcomes by hand, or together with the incoming-link list of #1930 if they overlap.
+- **Partially implemented — common link piece drawing the three outcomes (#1903, ADR-0158):** `ObjectLinks` (#1930) now draws link + permission reason for the inbound list and omits empty lists. Not implemented: a generic renderer for arbitrary `resolveLink` results. Reason: the inbound list is the approved visual scope. Reopen when a third consumer repeats the arbitrary-result rendering.
 - **Not implemented — `linkTargets` on module manifests (#1903, ADR-0158):** it would widen the module contract (`contract: 1`), and the module host already answers `null` for a missing target. Reopen at the first module that needs a platform menu as a required target.
 - **Not implemented — a screen showing `missingLinkTargets` (#1903, ADR-0158):** an assembly test reading the field is enough. Reopen when an in-house assembler asks to see the list outside tests.
 - **Not implemented — the remaining `linkTo` calls between sample menus (`menus/*`, 11 places; #1903, ADR-0158):** sample menus are not in in-house assemblies and every target is registered in the sample assembly; sample screens are changed only as far as the contract they verify (the two hand guards were removed in #1903). Reopen when that sample is changed for other work.

@@ -51,6 +51,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'execution-detail', group: GROUP, parent: 'cycle-time', navHidden: true, label: { ko: '실행 상세', en: 'Execution detail' },
     description: { ko: 'occurrence 식별키 (equipmentId, entityType, anchor)로 식별되는 실행의 공정 타임라인.', en: 'Process timeline of one occurrence keyed by (equipmentId, entityType, anchor).' },
+    subjectLinks: { equipment: { param: 'equipmentId' } },
     path: '/analytics/executions/:equipmentId', icon: Timer, permission: PERMISSION, requiresScope: true, pageType: 'analysis',
     context: contextCapabilities({ time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference', lot: 'reference', ppid: 'reference', recipe: 'reference', metric: 'reference' }),
     features: NO_FEATURES, pageKeys: ['entityType', 'anchor', 'returnTo'],

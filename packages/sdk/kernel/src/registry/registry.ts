@@ -82,6 +82,8 @@ export type Registry = {
    * `optional` entries appear (an unregistered `required` one is rejected); with `linkTargetCheck: 'report'` both do.
    */
   missingLinkTargets: readonly MissingLinkTarget[];
+  /** Inbound destinations indexed once at assembly, in Registry order (06 §22). */
+  objectDestinations: (kind: string) => readonly MenuEntry[];
   /** The menu at the platform home path, declared by `platformHomeMenuId`. Null when the app has no space-less `/` menu. */
   platformHome: MenuEntry | null;
   matchRoute: (pathname: string) => RouteMatch | null;
@@ -295,6 +297,31 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       }
     }
     const menuCarrySet = m.carrySet === undefined ? undefined : carrySetByIdMap.get(m.carrySet) ?? fail(`Menu "${m.id}" uses undeclared carry set "${String(m.carrySet)}"`);
+    for (const field of ['opensObject', 'subjectLinks'] as const) {
+      const declaration = m[field];
+      if (declaration === undefined) continue;
+      if (m.module !== undefined) fail(`Menu "${m.id}" cannot declare ${field} (module contract 1, ADR-0053)`);
+      if (typeof declaration !== 'object' || declaration === null || Array.isArray(declaration)) fail(`Menu "${m.id}" ${field} must be an object`);
+      for (const [kind, value] of Object.entries(declaration)) {
+        const invalid = (): never => fail(`Menu "${m.id}" invalid ${field} declaration for kind "${kind}"`);
+        if (!/^[a-z][a-zA-Z0-9]*$/.test(kind)) invalid();
+        if (field === 'subjectLinks' && value === true) {
+          if (!Object.hasOwn(m.subjectPageKeys ?? {}, kind)) invalid();
+          continue;
+        }
+        if (typeof value !== 'object' || value === null || Array.isArray(value) || Object.keys(value).length !== 1) invalid();
+        const selector = value as { param?: unknown; pageKey?: unknown };
+        const params = routeParamNames(m.path);
+        if (Object.hasOwn(selector, 'param')) {
+          if (typeof selector.param !== 'string' || !params.includes(selector.param)) invalid();
+          if (field === 'opensObject' && params.length !== 1) invalid();
+        } else if (field === 'opensObject' && Object.hasOwn(selector, 'pageKey')) {
+          const key = selector.pageKey;
+          if (typeof key !== 'string' || GLOBAL_KEYS.has(key) || !m.pageKeys.includes(key) || params.length !== 0
+            || m.repeatedPageKeys?.includes(key) || m.hiddenPageKeys?.includes(key) || key === RETURN_TO_KEY || menuCarrySet?.pageKeys.includes(key)) invalid();
+        } else invalid();
+      }
+    }
     const missingCarried = (menuCarrySet?.pageKeys ?? []).find(k => !m.pageKeys.includes(k));
     if (missingCarried) fail(`Menu "${m.id}" does not declare carry set "${menuCarrySet?.id}" page key "${missingCarried}" in pageKeys`);
     if (m.navTree !== undefined) {
@@ -428,6 +455,15 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     }
   }
 
+  const objectsByKind = new Map<string, MenuEntry[]>();
+  for (const menu of menus) for (const kind of Object.keys(menu.opensObject ?? {})) {
+    const destinations = objectsByKind.get(kind) ?? [];
+    destinations.push(menu);
+    objectsByKind.set(kind, destinations);
+  }
+  const noDestinations: readonly MenuEntry[] = [];
+  const objectDestinations = (kind: string): readonly MenuEntry[] => objectsByKind.get(kind) ?? noDestinations;
+
   const groupById = (id: AnyGroupId) => groups.find(g => g.id === id) ?? fail(`Unknown group ${id}`);
   const spaceById = (id: SpaceId) => spaceByIdMap.get(id) ?? fail(`Unknown space ${id}`);
   const spaceOf = (menu: MenuEntry): SpaceDef | null => {
@@ -488,7 +524,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     return value;
   };
 
-  return { groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, has, missingLinkTargets, platformHome, matchRoute, canonicalHref, safeReturnTo };
+  return { groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, has, missingLinkTargets, objectDestinations, platformHome, matchRoute, canonicalHref, safeReturnTo };
 }
 
 /** Parameter names declared by route segments, in route order. */

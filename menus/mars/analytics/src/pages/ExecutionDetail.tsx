@@ -35,7 +35,6 @@ export default function ExecutionDetail({ params }: PageProps) {
   const startedAt = found && found.access === 'ok' ? found.execution.startedAt : null;
 
   const back = <ReturnLink />;
-  const equipmentLink = <Button asChild variant="secondary" size="sm"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId }, returnTo: true })}>{ko ? '설비 상세' : 'Equipment detail'}</PlatformLink></Button>;
   const voc = <Button asChild size="sm"><PlatformLink href={linkTo('voc')}>{ko ? 'VOC 생성(예정)' : 'Create VOC (planned)'}</PlatformLink></Button>;
 
   return <PlatformPage
@@ -44,7 +43,7 @@ export default function ExecutionDetail({ params }: PageProps) {
       ? 'occurrence는 (equipmentId, entityType, anchor)로만 식별합니다. 위 Context는 출발 분석의 참조이며 객체 구간을 자르지 않습니다.'
       : 'An occurrence is identified only by (equipmentId, entityType, anchor). The context above is the source analysis reference and does not clip the object.'}
     primaryAction={voc}
-    secondaryActions={<span className="flex flex-wrap gap-2">{back}{equipmentLink}</span>}
+    secondaryActions={<span className="flex flex-wrap gap-2">{back}</span>}
     dataTrustSummary={query.response?.trust ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}
   >
     <div className="space-y-3">

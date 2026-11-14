@@ -370,6 +370,9 @@ _Avoid_: VOC 등록 패널 — 상세 패널과 섞인다.
 **링크 목적지 선언** (`linkTargets`):
 메뉴가 다른 메뉴로 이동하는 연결에서 의존하는 목적지 메뉴 목록. 주 흐름에 반드시 필요한 목적지와 없어도 되는 목적지를 구분하며, 여는 객체를 가리키는 목적지 객체 ID나 접근 권한과는 별개다([06 §22](docs/contract/cross-menu-links.md#22-cross-menu-context-link), [ADR-0158](docs/adr/0158-unregistered-link-destinations-and-declared-link-targets.md)).
 
+**객체 종류 (object kind)**:
+같은 ID 공간을 가진 객체를 가리키는 공통 이름. `subjectPageKeys`·`opensObject`·`subjectLinks`, 개선 아이템 `Target['kind']`, 감사 `target.type`이 공유한다. 알려진 분석 대상은 `equipment` = 모든 site에서 유일한 EquipmentID, `metric` = 지표 정의 ID(버전과 별도), `process` = 현재 Scope의 room_name, `lot` = 현재 Scope의 Lot ID다. 기능·감사는 자체 객체 종류도 쓴다. 닫힌 enum이 아니며 메뉴 저자가 의미를 책임진다. 시스템 로컬 식별자는 플랫폼 공통 종류를 재사용하지 않고 `clasEquipment`처럼 한정한다. [06 §22](docs/contract/cross-menu-links.md#22-cross-menu-context-link).
+
 **목적지 객체 ID**:
 메뉴 간 이동이나 상세 패널에서 열 객체 하나를 가리키는 ID(예: Occurrence, EquipmentID). 단독 `목적지`는 이동할 화면을 뜻하고, 객체는 늘 `목적지 객체 ID`로 쓴다. 분석 Context와 따로 전달하고, 그 값으로 분석 Context를 추정하지 않는다([06 §22](docs/contract/platform-ui-contract.md)).
 

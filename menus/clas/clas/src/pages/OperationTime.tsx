@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { AlertTriangle, Clock, Cpu, Gauge } from 'lucide-react';
 import { formatNumber } from '@ap/contracts';
 import { useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AnalysisChart, AnalysisLayout, DataTrustIndicator, LaneTimeline, PlatformPage, QueryView, RecoverButton, StateMessage, StatCard, type TimelineLane } from '@ap/components';
+import { AnalysisChart, AnalysisLayout, DataTrustIndicator, LaneTimeline, PlatformPage, QueryView, RecoverButton, ReturnLink, StateMessage, StatCard, type TimelineLane } from '@ap/components';
 import { operationTimeEndpoint, type OperationKind, type OperationTimeData } from '../endpoints';
 
 const KIND_COLOR = { process: 'chart-series-1', transfer: 'chart-series-2', wait: 'chart-series-3' } as const;
@@ -17,7 +17,9 @@ export default function OperationTimeScreen() {
   const { pageParam } = usePlatform();
   // keepPrevious ON (#1365, ADR-0114): picking another equipment re-reads the same period and Scope; the ranking and the flow title (from the data) stay until the new flow arrives.
   const query = useMenuQuery(operationTimeEndpoint, { eqp: pageParam('eqp') ?? '' }, true, { keepPrevious: true });
-  return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
+  // Opened from another screen's object list (06 §22, #1930): the way back to that screen.
+  const returning = pageParam('returnTo') !== null;
+  return <PlatformPage {...(returning ? { secondaryActions: <ReturnLink /> } : {})} dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
     <QueryView query={query}>{data => <OperationTimeBody data={data} previousEquipment={query.showingPrevious ? acceptedEquipment(query.resultParams?.eqp, data.equipmentId) : null} />}</QueryView>
   </PlatformPage>;
 }

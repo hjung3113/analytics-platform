@@ -121,3 +121,17 @@ describe('RowAction (row action, compact ↔ full, ADR-0037)', () => {
     expect(button).toHaveAttribute('aria-describedby', 'why');
   });
 });
+
+describe('RowAction optional body menu (#1930)', () => {
+  it('keeps the focused trigger node and open menu across compact/full changes', async () => {
+    const menu = <button type="button">Destination</button>;
+    const view = render(<RowAction compact icon={PanelRight} label="Object links" text="Other screens" menu={menu} />);
+    const trigger = screen.getByRole('button', { name: 'Object links' });
+    fireEvent.click(trigger);
+    expect(await screen.findByRole('group', { name: 'Object links' })).toBeInTheDocument();
+    view.rerender(<RowAction compact={false} icon={PanelRight} label="Object links" text="Other screens" menu={menu} />);
+    expect(screen.getByRole('button', { name: 'Object links' })).toBe(trigger);
+    expect(trigger).toHaveTextContent('Other screens');
+    expect(screen.getByRole('button', { name: 'Destination' })).toBeInTheDocument();
+  });
+});

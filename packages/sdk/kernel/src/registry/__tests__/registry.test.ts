@@ -707,3 +707,61 @@ describe('menu linkTargets (06 §22, ADR-0158, #1903)', () => {
     expect(() => linking({ optional: ['fx:home'] }, [], { linkTargetCheck: 'off' as never })).toThrow(/linkTargetCheck/);
   });
 });
+
+describe('inbound object declarations (#1930)', () => {
+  const build = (extra: Record<string, unknown>, path = '/objects/:id') => createRegistry({ spaces, groups, menus: [catalog, menu('object', path, { pageKeys: ['object', 'returnTo'], ...extra })] });
+  it.each([
+    ['not an object', 'equipment'], ['null', null], ['array', []],
+    ['invalid kind', { 'bad-kind': { param: 'id' } }], ['both selectors', { equipment: { param: 'id', pageKey: 'object' } }],
+    ['no selector', { equipment: {} }], ['nonobject selector', { equipment: true }],
+    ['unknown field', { equipment: { param: 'id', other: true } }], ['missing param', { equipment: { param: 'missing' } }],
+    ['a global name not in the route', { equipment: { param: 'scopeId' } }],
+  ])('rejects opensObject %s with RegistryError', (_name, opensObject) => {
+    expect(() => build({ opensObject })).toThrow(RegistryError);
+  });
+  // A path without params, where `pageKey: 'object'` is valid: each case fails on its own page-key rule only.
+  it('accepts a declared single-value page key on a path without params', () => {
+    expect(() => build({ opensObject: { equipment: { pageKey: 'object' } } }, '/objects')).not.toThrow();
+  });
+  it.each([
+    // A global key cannot be a declared page key (createRegistry rejects the collision), so it fails as undeclared.
+    ['an undeclared page key', 'missing'], ['a global key', 'selectedEquipmentIds'], ['returnTo', 'returnTo'],
+  ])('rejects opensObject on %s with RegistryError', (_name, pageKey) => {
+    expect(() => build({ opensObject: { equipment: { pageKey } } }, '/objects')).toThrow(RegistryError);
+  });
+  it('rejects additional unfilled path params for either selector', () => {
+    expect(() => build({ opensObject: { equipment: { param: 'id' } } }, '/objects/:id/:other')).toThrow(RegistryError);
+    expect(() => build({ opensObject: { equipment: { pageKey: 'object' } } })).toThrow(RegistryError);
+  });
+  it.each(['repeatedPageKeys', 'hiddenPageKeys'])('rejects a %s destination key', field => {
+    expect(() => build({ [field]: ['object'], opensObject: { equipment: { pageKey: 'object' } } }, '/objects')).toThrow(RegistryError);
+  });
+  it('rejects a carry-set destination key', () => {
+    expect(() => createRegistry({ spaces, groups, carrySets: [{ id: carrySetId('objects'), pageKeys: ['object'] }], menus: [catalog, menu('object', '/objects', { pageKeys: ['object'], carrySet: carrySetId('objects'), opensObject: { equipment: { pageKey: 'object' } } })] })).toThrow(RegistryError);
+  });
+  it.each([
+    null, [], 'equipment', { 'bad-kind': true }, { equipment: true }, { equipment: false },
+    { equipment: { param: 'missing' } }, { equipment: { pageKey: 'object' } }, { equipment: { param: 'id', other: true } },
+  ])('rejects malformed or unresolved subjectLinks %j', subjectLinks => {
+    expect(() => build({ subjectLinks })).toThrow(RegistryError);
+  });
+  it('accepts optional source declarations independently of destination declarations', () => {
+    expect(() => build({ subjectLinks: { equipment: { param: 'id' } } })).not.toThrow();
+    expect(() => build({ subjectPageKeys: { equipment: 'object' }, subjectLinks: { equipment: true } })).not.toThrow();
+  });
+  it.each(['opensObject', 'subjectLinks'])('rejects %s even when empty on a module menu', field => {
+    const modGroup: GroupDef = { id: 'fx:main', module: 'fx', label: { ko: '모', en: 'Module' }, icon: House, space: spaceId('mars') };
+    const mod = { ...menu('fx:home', '/fx'), group: 'fx:main', permission: 'fx:view', module: 'fx', primary: true, moduleScreen: () => null, [field]: {} } as ModuleMenuEntry;
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, mod] })).toThrow(RegistryError);
+  });
+  it('indexes destinations once, in Registry order, with no rescan on lookup', () => {
+    const registry = createRegistry({ spaces, groups, menus: [catalog, menu('path', '/objects/:id', { opensObject: { equipment: { param: 'id' } } }), menu('page', '/page', { pageKeys: ['object'], opensObject: { equipment: { pageKey: 'object' } } })] });
+    const first = registry.objectDestinations('equipment');
+    expect(first.map(m => m.id)).toEqual(['path', 'page']);
+    const scan = vi.spyOn(registry.menus, 'filter');
+    expect(registry.objectDestinations('equipment')).toBe(first);
+    expect(registry.objectDestinations('unknown')).toEqual([]);
+    expect(scan).not.toHaveBeenCalled();
+    scan.mockRestore();
+  });
+});

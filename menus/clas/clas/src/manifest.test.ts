@@ -10,7 +10,7 @@ describe('manifest', () => {
     expect(manifests).toHaveLength(1);
     const menu = manifests[0];
     expect(menu.primary).toBe(true);
-    expect(menu.pageKeys).toEqual(['eqp']);
+    expect(menu.pageKeys).toEqual(['eqp', 'returnTo']);
     expect(menu.pageType).toBe('analysis');
     expect(menu.group).toBe('clas');
     const spaces: SpaceDef[] = [{ id: spaceId('clas'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];
@@ -29,5 +29,12 @@ describe('manifest', () => {
 
   it('declares board support so its screen can sit in a board pane (docs/16 §6)', () => {
     expect(manifests[0].features.board).toBe(true);
+  });
+});
+
+describe('inbound equipment links (#1930)', () => {
+  it('opts into the header and opens equipment using its existing eqp page key', () => {
+    expect(manifests[0].subjectLinks).toEqual({ equipment: true });
+    expect(manifests[0].opensObject).toEqual({ equipment: { pageKey: 'eqp' } });
   });
 });

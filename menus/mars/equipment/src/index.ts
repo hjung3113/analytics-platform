@@ -23,6 +23,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'equipment-detail', group: GROUP, parent: 'equipment-master', navHidden: true, label: { ko: '설비 상세', en: 'Equipment detail' },
     description: { ko: '열어 본 설비는 설비 선택과 별개입니다.', en: 'The equipment you open is separate from the equipment selection.' },
+    opensObject: { equipment: { param: 'equipmentId' } },
     path: '/equipment/:equipmentId', icon: Cpu, permission: PERMISSION, requiresScope: true, pageType: 'management',
     context: contextCapabilities({ time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference' }),
     features: NO_FEATURES, pageKeys: ['tab', 'returnTo'],

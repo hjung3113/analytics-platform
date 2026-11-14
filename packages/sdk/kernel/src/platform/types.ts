@@ -157,6 +157,9 @@ export type LinkResolution = {
   droppedPageKeys: string[];
 } | { kind: 'none'; href: null; allowed: false; droppedPageKeys: [] };
 
+export type ObjectLinkOptions = Pick<LinkOptions, 'returnTo' | 'page' | 'global'>;
+export type ObjectLink = Extract<LinkResolution, { kind: 'link' }> & { menuId: string; label: Text };
+
 /**
  * The full platform value the shell, the platform components and the app read through `useHostPlatform()` (`@ap/kernel/host`, ADR-0076).
  * Menus see the narrow `MenuPlatform` of the same runtime value, so a change to a shell-only field never breaks a menu.
@@ -212,6 +215,8 @@ export type HostPlatform = {
   linkTo: (menuId: string, options?: LinkOptions) => string;
   /** What a menu needs to draw a link honestly: whether the destination is registered (`kind`), whether the user may open it and which page keys were dropped. Never throws for an unregistered id. */
   resolveLink: (menuId: string, options?: LinkOptions) => LinkResolution;
+  /** Registered destinations for this object, in Registry order, excluding this menu (06 §22). */
+  objectLinks: (object: { kind: string; id: string }, options?: ObjectLinkOptions) => ObjectLink[];
   /**
    * Reports a render failure the route error boundary contained and returns the correlation id to show
    * (06 §4). Fire-and-forget: a rejected or throwing adapter is swallowed. Only the matched route's
@@ -283,7 +288,7 @@ export type HostPlatform = {
  * What a menu page sees through `usePlatform()` (ADR-0076): the same runtime value as `HostPlatform`, narrowed to the menu contract.
  * A field a menu needs that is missing here moves up from `HostPlatform`; a menu never imports `@ap/kernel/host`.
  */
-export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'pageParams' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'> & {
+export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'pageParams' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'objectLinks' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'> & {
   /** The host's `navigate` without its host-only `guard` option (#2061). */
   navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia }) => boolean;
 };
