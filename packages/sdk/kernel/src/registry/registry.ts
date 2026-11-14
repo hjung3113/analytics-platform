@@ -413,7 +413,8 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     for (const key of set.pageKeys) {
       const members = menus.filter(m => m.carrySet === set.id);
       const lists = members.filter(m => m.repeatedPageKeys?.includes(key));
-      if (lists.length > 0 && lists.length < members.length) fail(`Carry set "${set.id}" key "${key}" is a repeated page key of menu "${lists[0].id}" but not of menu "${members.find(m => !m.repeatedPageKeys?.includes(key))!.id}"`);
+      const single = members.find(m => !m.repeatedPageKeys?.includes(key));
+      if (lists.length > 0 && single !== undefined) fail(`Carry set "${set.id}" key "${key}" is a repeated page key of menu "${lists[0].id}" but not of menu "${single.id}"`);
     }
   }
   const homeMenus = menus.filter(m => groupSpace.get(m.group) === null && [m.path, ...(m.aliases ?? [])].some(path => segments(path).length === 0));

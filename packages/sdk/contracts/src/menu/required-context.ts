@@ -11,7 +11,9 @@ export function missingRequiredContext(keys: readonly ContextKey[], context: Par
   return keys.filter(key => {
     if (CONTEXT_FIELDS[key].some(field => context[field] == null || context[field] === '')) return true;
     if (key === 'time') {
-      try { return parseDateTime(context.from!, 'from') >= parseDateTime(context.to!, 'to'); } catch { return true; }
+      const { from, to } = context;
+      if (from == null || to == null) return true;
+      try { return parseDateTime(from, 'from') >= parseDateTime(to, 'to'); } catch { return true; }
     }
     return false;
   });

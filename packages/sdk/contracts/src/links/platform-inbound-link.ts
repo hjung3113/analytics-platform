@@ -148,13 +148,14 @@ export function buildPlatformInboundLink(input: {
   const base = origin(input.origin);
   if (input.destinations !== undefined) validateDestinations(input.destinations);
   const dest = destinationOf(input.destinations ?? DEFAULT_PLATFORM_DESTINATIONS, input.hop.menuId);
-  const wantsReturnTo = input.returnTo !== undefined;
+  const returnTo = input.returnTo;
+  const wantsReturnTo = returnTo !== undefined;
   if (wantsReturnTo && !dest.acceptsReturnTo) return fail('unsupported_page_key', returnToRefusal(input.destinations === undefined, dest.menuId));
-  if (wantsReturnTo && !isAppRelativePath(input.returnTo!)) return fail('external_return', `returnTo must be an app-relative platform path, got ${JSON.stringify(input.returnTo)}`);
+  if (wantsReturnTo && !isAppRelativePath(returnTo)) return fail('external_return', `returnTo must be an app-relative platform path, got ${JSON.stringify(input.returnTo)}`);
   const hopFields = input.hop as Record<string, string>;
   if (dest.idField !== undefined) equipmentDetailId(hopFields[dest.idField] ?? '', dest.idField);
   validateContext(input.context); // before serialization: serializeGlobal would silently drop a one-sided period or orphan metricVersion.
-  const page: Pair[] = wantsReturnTo ? [[RETURN_TO_KEY, input.returnTo!]] : [];
+  const page: Pair[] = wantsReturnTo ? [[RETURN_TO_KEY, returnTo]] : [];
   const query = buildQuery(input.context, page);
   parseQuery(query, wantsReturnTo ? RETURN_TO : []); // validate the serialized form before hand-out: scopeId/ppid/condition identifiers, set markers.
   const path = dest.idField !== undefined ? `${dest.path}/${encodeURIComponent(hopFields[dest.idField])}` : dest.path;

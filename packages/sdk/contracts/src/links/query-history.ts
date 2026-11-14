@@ -1,3 +1,5 @@
+import { codepoint } from '../guards.js';
+
 /** Applied occurrences only; implementations own atomic merge, ordering and the 20-entry cap. */
 export type QueryHistoryKey = { userId: string; menuId: string; scopeId: string | null };
 export type QueryHistoryEntry = { id: string; query: string; schemaVersion: 1; lastAppliedAt: number; count: number };
@@ -9,7 +11,7 @@ export type QueryHistoryStore = {
 };
 /** Unicode code-point order, independent of browser locale. */
 export function compareHistoryText(a: string, b: string): number {
-  const aa = Array.from(a, c => c.codePointAt(0)!); const bb = Array.from(b, c => c.codePointAt(0)!);
+  const aa = Array.from(a, c => codepoint(c)); const bb = Array.from(b, c => codepoint(c));
   for (let i = 0; i < Math.min(aa.length, bb.length); i++) if (aa[i] !== bb[i]) return aa[i] - bb[i];
   return aa.length - bb.length;
 }

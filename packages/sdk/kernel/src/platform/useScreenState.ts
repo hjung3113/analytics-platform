@@ -232,7 +232,10 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (!id) return [];
     return registry.objectDestinations(kind).flatMap(menu => {
       if (menu.id === route?.menu.id) return [];
-      const declaration = menu.opensObject![kind]!;
+      const declarations = menu.opensObject;
+      if (declarations === undefined) throw new Error('Object destination must declare opensObject');
+      const declaration = declarations[kind];
+      if (declaration === undefined) throw new Error('Object destination must declare the requested kind');
       const link = resolveLink(menu.id, declaration.param !== undefined
         ? { ...options, params: { [declaration.param]: id } }
         : { ...options, page: { ...options.page, [declaration.pageKey]: id } });

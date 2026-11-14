@@ -65,7 +65,7 @@ export function useDrill(): DrillState {
     if (index > depth) throw new Error(`drill enter "${key}" is past the next level`);
     const patch = Object.create(null) as Record<string, string | null>;
     patch[key] = value;
-    for (let i = index + 1; i < list.length; i += 1) patch[list[i]!.key] = null;
+    for (const level of list.slice(index + 1)) patch[level.key] = null;
     setPage(patch, drillLevelChanged(route?.menu, current, patch) ? { focus: 'drill' } : undefined);
   }, [declared, depth, current, route, setPage]);
 
@@ -73,7 +73,7 @@ export function useDrill(): DrillState {
     const list = declared ?? [];
     if (!Number.isInteger(n) || n < 0 || n > list.length) throw new Error(`drill goTo ${n} is outside 0..${list.length}`);
     const patch = Object.create(null) as Record<string, string | null>;
-    for (let i = n; i < list.length; i += 1) patch[list[i]!.key] = null;
+    for (const level of list.slice(n)) patch[level.key] = null;
     setPage(patch, drillLevelChanged(route?.menu, current, patch) ? { focus: 'drill' } : undefined);
   }, [declared, current, route, setPage]);
 

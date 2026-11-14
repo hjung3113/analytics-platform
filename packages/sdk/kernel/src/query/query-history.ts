@@ -118,10 +118,11 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
   }, [input, normalize, authorizedScope, checks, current, key]);
   const fail = useCallback(() => { if (current()) history.put({ ...history.get(), status: 'unavailable', rows: [] }); }, [current, history]);
   const load = useCallback(() => {
-    if (!input.history || !current()) return;
+    const store = input.history;
+    if (!store || !current()) return;
     const token = { ...history.get(), status: 'loading' as const, rows: [], raw: [] };
     history.put(token);
-    void Promise.resolve().then(() => input.history!.list(key)).then(async entries => {
+    void Promise.resolve().then(() => store.list(key)).then(async entries => {
       if (!current() || history.get() !== token) return;
       const raw = [...entries].sort(compareQueryHistory).slice(0, 10);
       const checking: QueryHistoryRow[] = raw.map(entry => ({ ...base(entry), status: 'loading', reason: 'checking' }));

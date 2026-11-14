@@ -159,14 +159,14 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
     }
     if (entry.moduleFeatures?.includes('detailSlot') && ports.detail) host.detail = ports.detail;
     if (entry.moduleFeatures?.includes('query')) {
-      host.query = <P, T>(spec: EndpointSpec<P, T>, queryParams: P, callerSignal?: AbortSignal): Promise<ApiResponse<T>> => {
+      host.query = function query<P, T>(spec: EndpointSpec<P, T>, queryParams: P, callerSignal?: AbortSignal): Promise<ApiResponse<T>> {
         const own = instance.controller.signal;
         // While suspended the host's own signal is already aborted; passing it back to `query` is not a caller abort.
         const suspended = instance.state === 'suspended';
         if (instance.state === 'released' || (callerSignal?.aborted && !(suspended && callerSignal === own))) return Promise.reject(abortError());
         if (suspended) {
           return new Promise<ApiResponse<T>>((resolve, reject) => {
-            const call: Deferred = { start: () => host.query!(spec, queryParams, callerSignal === own ? undefined : callerSignal).then(resolve, reject), fail: () => reject(abortError()) };
+            const call: Deferred = { start: () => query(spec, queryParams, callerSignal === own ? undefined : callerSignal).then(resolve, reject), fail: () => reject(abortError()) };
             instance.deferred.add(call);
           });
         }

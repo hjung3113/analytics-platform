@@ -107,7 +107,8 @@ export function createPortCache() {
       if (!entry) {
         entry = new PortEntry(send, itemId, () => {
           if (record.entries.get(key) !== entry) return;
-          record.entries.delete(key); record.entries.set(key, entry!); prune(record);
+          if (entry === undefined) throw new Error('Port cache callback requires its initialized entry');
+          record.entries.delete(key); record.entries.set(key, entry); prune(record);
         }) as PortEntry<unknown>;
       }
       record.entries.delete(key); record.entries.set(key, entry); prune(record);
