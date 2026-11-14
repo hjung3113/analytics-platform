@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
-import { groupId, spaceId, type ApiResponse, type UsageSummary } from '@ap/contracts';
+import { groupId, spaceId, type ApiResponse, type Permission, type UsageSummary } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, type PlatformMenuEntry, type UndeclaredMenu } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { undeclaredMenusSlot } from './undeclared-menus-slot';
@@ -16,7 +16,7 @@ const SERVER_ROWS = [{ menuId: 'm-1', permission: 'analytics:view', reason: 'per
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); window.history.replaceState(null, '', '/mars/fixture-home'); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-function mount(permissions: string[], usageSummary: ReturnType<typeof vi.fn>) {
+function mount(permissions: Permission[], usageSummary: ReturnType<typeof vi.fn>) {
   const session = testSession(permissions);
   const seen: (readonly UndeclaredMenu[])[] = [];
   const Probe = (): ReactNode => <undeclaredMenusSlot.Read>{list => { seen.push(list); return <p data-testid="out">{JSON.stringify(list)}</p>; }}</undeclaredMenusSlot.Read>;
