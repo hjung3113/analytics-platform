@@ -18,9 +18,14 @@ export async function issueOwner(tx: Tx, viewer: Viewer, issueId: string): Promi
   return result.rows[0] as unknown as IssueOwner | undefined ?? missing();
 }
 /** The shared project lock serialises all writers to its issues, including evidence cap checks. */
-export async function lockIssueRound(tx: Tx, viewer: Viewer, projectId: string, roundId: string): Promise<SampleSet> {
+export async function lockIssueRound(tx: Tx, viewer: Viewer, projectId: string, roundId: string, ownership: 'project' | 'round' = 'project'): Promise<SampleSet> {
+  // Round-only discussion keeps the parent lock without requiring access to the project's replacement SW.
+  const visible = ownership === 'round'
+    ? sql`exists (select 1 from log_lifecycle.validation_round discussion_r where discussion_r.workspace_id = p.workspace_id
+        and discussion_r.project_id = p.id and discussion_r.id = ${roundId}::uuid and ${roundVisibleSql(viewer, sql`discussion_r.id`)})`
+    : projectVisibleSql(viewer, sql`p.id`);
   const project = await tx.execute(sql`select p.id from log_lifecycle.development_project p where p.workspace_id = ${viewer.workspaceId}::uuid
-    and p.id = ${projectId}::uuid and ${projectVisibleSql(viewer, sql`p.id`)} for update`);
+    and p.id = ${projectId}::uuid and ${visible} for update`);
   if (!project.rows.length) missing();
   const round = await tx.execute(sql`select r.sample_set from log_lifecycle.validation_round r where r.workspace_id = ${viewer.workspaceId}::uuid
     and r.project_id = ${projectId}::uuid and r.id = ${roundId}::uuid and ${roundVisibleSql(viewer, sql`r.id`)} for update`);

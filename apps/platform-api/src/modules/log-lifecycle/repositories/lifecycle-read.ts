@@ -294,7 +294,14 @@ export async function listProjectEvents(tx: Tx, workspaceId: string, q: EventQue
   const actor = alias(actors, 'event_actor');
   const where = and(eq(e.workspaceId, workspaceId), eq(e.projectId, q.projectId), projectVisibleSql(viewer, ref(e.projectId)),
     sql`((${e.before}->>'softwareId') is null or ${visibleSoftwareSql(viewer, sql`(${ref(e.before)}->>'softwareId')::uuid`)})`,
-    sql`((${e.after}->>'softwareId') is null or ${visibleSoftwareSql(viewer, sql`(${ref(e.after)}->>'softwareId')::uuid`)})`);
+    sql`((${e.after}->>'softwareId') is null or ${visibleSoftwareSql(viewer, sql`(${ref(e.after)}->>'softwareId')::uuid`)})`,
+    // Gate events copy Round-owned prose. Missing or unrelated decisions fail closed for rows and totals alike.
+    sql`(${e.kind} <> 'gate_decided' or exists (
+      select 1 from log_lifecycle.gate_decision event_gd
+      join log_lifecycle.validation_round event_r on event_r.workspace_id = event_gd.workspace_id and event_r.id = event_gd.round_id
+      where event_gd.workspace_id = ${e.workspaceId} and event_r.project_id = ${e.projectId}
+        and event_gd.id::text = ${e.after}->>'gateDecisionId' and ${roundVisibleSql(viewer, sql`event_r.id`)}
+    ))`);
   const rows = await tx
     .select({ event: e, actorName: actor.displayName })
     .from(e)

@@ -490,6 +490,118 @@ describe.skipIf(!runIntegration)('log lifecycle Gate decision (#1446 e)', () => 
       [WORKSPACE_ID, modelId, `${TAG}-owner-sw${n++}`, admin.id],
     )).rows[0].id as string;
 
+    it.each(['clear', 'replace', 'legacy'] as const)('filters copied Gate history and totals after %s', async (change) => {
+      const round = await makeRound('registered', { software: change !== 'legacy' });
+      const reason = 'Restricted historical Gate reason';
+      const decision = await decide(round, { targetStage: 'kickoff', decision: 'rejected', reason });
+      expect(decision.outcome).toBe('ok');
+      const ruleIds: string[] = [];
+      try {
+        if (change === 'legacy') {
+          const client = await migrate.pool.connect();
+          try {
+            await client.query('begin');
+            await client.query('alter table log_lifecycle.validation_round disable trigger validation_round_owner_guard');
+            await client.query('update log_lifecycle.validation_round set owner_model_id = null, owner_software_id = null, row_version = row_version + 1 where id = $1', [round.roundId]);
+            await client.query('alter table log_lifecycle.validation_round enable trigger validation_round_owner_guard');
+            await client.query('commit');
+          } catch (error) {
+            await client.query('rollback');
+            throw error;
+          } finally { client.release(); }
+        } else {
+          const replacement = change === 'replace' ? await software(round.modelId) : null;
+          await sql("update knowledge.software_version set access_mode = 'restricted', row_version = row_version + 1 where id = $1", [round.softwareId]);
+          const rule = await sql(`insert into knowledge.object_access_rule
+            (workspace_id, target_kind, target_id, grantee_kind, grantee_id, effect, created_by)
+            values ($1,'software',$2,'actor',$3,'allow',$3) returning rule_id`, [WORKSPACE_ID, round.softwareId, admin.id]);
+          ruleIds.push(rule.rows[0].rule_id as string);
+          expect((await act('projectUpdate', { id: round.projectId, softwareId: replacement }, admin, await version(round.projectId))).outcome).toBe('ok');
+        }
+        expect((await act('projectUpdate', { id: round.projectId, targetDate: '2026-12-01' }, admin, await version(round.projectId))).outcome).toBe('ok');
+        expect((await read('projectDetail', { projectId: round.projectId }, plain)).data.id).toBe(round.projectId);
+        expect((await read('roundDetail', { roundId: round.roundId }, plain)).data).toBeNull();
+        const allowed = (await read('projectEvents', { projectId: round.projectId }, admin)).data;
+        expect(allowed.rows).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'gate_decided', reason,
+          after: expect.objectContaining({ gateDecisionId: decision.data.gateDecisionId, decision: 'rejected' }) })]));
+        const hidden = (await read('projectEvents', { projectId: round.projectId, pageSize: 1 }, plain)).data;
+        expect(hidden.rows).toEqual([expect.objectContaining({ kind: 'target_changed', after: { targetDate: '2026-12-01' } })]);
+        expect(hidden.total).toBe(change === 'legacy' ? 2 : 1);
+        const all = (await read('projectEvents', { projectId: round.projectId }, plain)).data;
+        expect(all.rows.some((event: Row) => event.kind === 'gate_decided')).toBe(false);
+        expect(JSON.stringify(all)).not.toContain(reason);
+        expect(JSON.stringify(all)).not.toContain(decision.data.gateDecisionId);
+      } finally {
+        await sql('delete from knowledge.object_access_rule where rule_id = any($1)', [ruleIds]);
+      }
+    });
+
+    it('writes, corrects and replays Round discussion using A while the current SW B is hidden', async () => {
+      const round = await makeRound('registered', { software: true });
+      const contributor = await person('developer');
+      const denied = await person('developer');
+      for (const who of [contributor, denied]) await grant(who, 'lifecycle.issue.contribute');
+      const ruleIds: string[] = [];
+      const comment = async (input: Record<string, unknown>, who = contributor, key = randomUUID()) => {
+        const response = await app.inject({ method: 'POST', url: '/api/v1/menu-action',
+          headers: { ...cookieHeader(who.cookie), 'x-csrf-token': who.csrf },
+          payload: { action: 'logLifecycle.roundDiscussionComment', context: {}, input, idempotencyKey: key } });
+        expect([200, 404], response.body).toContain(response.statusCode);
+        return response.json<Answer & { replayed?: boolean }>();
+      };
+      const cleanComments = async () => {
+        const client = await migrate.pool.connect();
+        try {
+          await client.query('begin');
+          await client.query('alter table log_lifecycle.round_comment disable trigger round_comment_append_only');
+          await client.query('delete from log_lifecycle.round_comment where round_id = $1', [round.roundId]);
+          await client.query('alter table log_lifecycle.round_comment enable trigger round_comment_append_only');
+          await client.query('commit');
+        } catch (error) {
+          await client.query('rollback');
+          throw error;
+        } finally { client.release(); }
+      };
+      try {
+        const input = { roundId: round.roundId, body: 'Before replacement' };
+        const key = randomUUID();
+        const original = await comment(input, contributor, key);
+        expect(original.outcome).toBe('ok');
+        const replacement = await software(round.modelId);
+        expect((await act('projectUpdate', { id: round.projectId, softwareId: replacement }, admin, await version(round.projectId))).outcome).toBe('ok');
+        await sql("update knowledge.software_version set access_mode = 'restricted', row_version = row_version + 1 where id = any($1)", [[round.softwareId, replacement]]);
+        const rule = await sql(`insert into knowledge.object_access_rule
+          (workspace_id, target_kind, target_id, grantee_kind, grantee_id, effect, created_by)
+          values ($1,'software',$2,'actor',$3,'allow',$4) returning rule_id`, [WORKSPACE_ID, round.softwareId, contributor.id, admin.id]);
+        ruleIds.push(rule.rows[0].rule_id as string);
+        expect((await read('projectDetail', { projectId: round.projectId }, contributor)).data).toBeNull();
+        expect((await read('roundDiscussion', { roundId: round.roundId }, contributor)).data.rows).toEqual([expect.objectContaining({ id: original.data.id })]);
+        expect(await comment(input, contributor, key)).toMatchObject({ outcome: 'ok', replayed: true, data: original.data });
+        const added = await comment({ roundId: round.roundId, body: 'After replacement' });
+        expect(added.outcome).toBe('ok');
+        const correction = { roundId: round.roundId, body: 'Own correction', correctsCommentId: original.data.id };
+        const correctionKey = randomUUID();
+        const corrected = await comment(correction, contributor, correctionKey);
+        expect(corrected.outcome).toBe('ok');
+        expect(await comment(correction, contributor, correctionKey)).toMatchObject({ outcome: 'ok', replayed: true, data: corrected.data });
+        expect(await comment({ roundId: round.roundId, body: 'Hidden A' }, denied)).toMatchObject({ code: 'not_found.record' });
+        const otherRule = await sql(`insert into knowledge.object_access_rule
+          (workspace_id, target_kind, target_id, grantee_kind, grantee_id, effect, created_by)
+          values ($1,'software',$2,'actor',$3,'allow',$4) returning rule_id`, [WORKSPACE_ID, round.softwareId, denied.id, admin.id]);
+        ruleIds.push(otherRule.rows[0].rule_id as string);
+        expect((await comment(correction, denied)).outcome).toBe('forbidden');
+        await sql('delete from knowledge.object_access_rule where rule_id = any($1)', [ruleIds]);
+        expect(await comment(input, contributor, key)).toMatchObject({ code: 'not_found.record' });
+        expect((await sql('select id from log_lifecycle.round_comment where round_id = $1', [round.roundId])).rows).toHaveLength(3);
+        const audits = (await sql("select detail from core.audit_log where subject_id = $1 and event_type = 'lifecycle.round.commented'", [round.roundId])).rows;
+        expect(audits.map(row => row.detail.commentId).sort()).toEqual([original.data.id, added.data.id, corrected.data.id].sort());
+        expect(JSON.stringify(audits)).not.toContain('replacement');
+      } finally {
+        await sql('delete from knowledge.object_access_rule where rule_id = any($1)', [ruleIds]);
+        await cleanComments();
+      }
+    });
+
     it.each(['clear', 'replace'] as const)('keeps A-owned Round and derived reads/writes hidden after %s', async (change) => {
       const round = await makeRound('registered', { software: true });
       const { requestId, attemptId } = await seedAttempt(round.roundId, 'pass');
