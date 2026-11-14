@@ -15,7 +15,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         type={type}
         data-size={inputSize === 'toolbar' ? 'toolbar' : undefined}
         className={cn(
-          'flex w-full rounded-md border border-border-control text-text-primary placeholder:text-text-muted',
+          'flex w-full rounded-md border border-border-control text-text-primary placeholder:text-text-muted aria-invalid:border-accent-danger',
           inputSize === 'toolbar' ? 'h-8 bg-surface-sunken px-2.5 py-0 text-sm' : 'h-10 bg-surface-field px-3 py-2 text-sm',
           inputFont === 'mono' && 'font-mono',
           'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2',

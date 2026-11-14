@@ -33,7 +33,7 @@ const PUBLIC_EXPORTS = [
   'shortcutLabel',
   'useDetailPanelSlot', 'useDetailPanelSlotHost', 'useDetailPanelEscape',
   // Moved from FeedbackOps in #442 (ADR-0046/0047).
-  'ActiveFilterBar', 'Callout', 'DatePicker', 'DetailPanelFullscreenContext', 'DetailPanelFullscreenToggle', 'DetailPanelHeader', 'DetailPanelHeaderActions', 'DetailPanelReadingColumn', 'DetailPanelSectionNav', 'StatusBadgeFrame', 'DirtyConfirmation', 'EmptyState', 'FieldLabel', 'FieldList', 'FieldRow', 'GROUPED_SELECTION_MESSAGES', 'GroupedSelectionList', 'ListFilterButton', 'ListShell', 'ListSortButton', 'ListTabs', 'ListToolbar', 'NestedTextBlock', 'PageShell', 'PanelSectionTitle', 'PanelTitleBlock', 'PreviewModal', 'SearchInput', 'ShellHeader', 'ToolbarKicker', 'UndoToast', 'WorkbenchShell', 'useDetailPanelContent',
+  'ActiveFilterBar', 'Callout', 'DatePicker', 'DetailPanelFullscreenContext', 'DetailPanelFullscreenToggle', 'DetailPanelHeader', 'DetailPanelHeaderActions', 'DetailPanelReadingColumn', 'DetailPanelSectionNav', 'StatusBadgeFrame', 'DirtyConfirmation', 'EmptyState', 'FieldLabel', 'FieldList', 'FieldRow', 'FormField', 'GROUPED_SELECTION_MESSAGES', 'GroupedSelectionList', 'ListFilterButton', 'ListShell', 'ListSortButton', 'ListTabs', 'ListToolbar', 'NestedTextBlock', 'PageShell', 'PanelSectionTitle', 'PanelTitleBlock', 'PreviewModal', 'SearchInput', 'ShellHeader', 'ToolbarKicker', 'UndoToast', 'WorkbenchShell', 'useDetailPanelContent',
   // Re-exported sonner for the analysis board's single <Toaster> and toast.custom() undo (#497).
   'Toaster', 'toast', 'TransientOverlayScope',
   // The surface that owns detail-slot registrants is covered but mounted (ADR-0088, #893 893c2).

@@ -36,6 +36,7 @@ export { ToolbarKicker, type ToolbarKickerProps } from './layout/ToolbarKicker';
 export { useDetailPanelContent } from './layout/useDetailPanelContent';
 
 export { FieldLabel, type FieldLabelProps } from './forms/FieldLabel';
+export { FormField, type FormFieldControl, type FormFieldProps } from './forms/FormField';
 export { DatePicker, type DatePickerProps } from './forms/DatePicker.js';
 export { SearchInput, type SearchInputProps } from './forms/SearchInput';
 export { GROUPED_SELECTION_MESSAGES, GroupedSelectionList, type GroupedSelectionGroup, type GroupedSelectionItem, type GroupedSelectionListProps, type GroupedSelectionMessages, type GroupedSelectionPreset } from './forms/GroupedSelectionList';

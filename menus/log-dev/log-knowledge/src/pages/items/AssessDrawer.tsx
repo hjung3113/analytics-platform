@@ -1,8 +1,8 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { ActionResult } from '@ap/contracts';
 import { useMenuAction, usePlatform, type QueryState } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
-import { Button, Callout, RadioGroup, RadioGroupItem, Textarea } from '@ap/ui';
+import { Button, Callout, FormField, RadioGroup, RadioGroupItem, Textarea } from '@ap/ui';
 import { ASSESSMENT_DIMENSIONS, ITEM_LIMITS, PROCESSING_STATES, VERIFICATION_STATES, itemAssess, type AssessmentDimension, type ItemDetail } from '../../endpoints';
 import { StateBadge } from './ItemBadges';
 import { Field, useCloseGuard, useSyncedVersion } from './ItemFormParts';
@@ -30,6 +30,16 @@ function AssessForm({ detail, onReload, guard, rationale, setRationale, reloadQu
   const [errors, setErrors] = useState<FormErrors>({});
   const [conflict, setConflict] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  // A failed submit moves focus to the first invalid input (components.md §13 FormField: errors carry no live role).
+  const formRef = useRef<HTMLFormElement>(null);
+  const [focusFirstInvalid, setFocusFirstInvalid] = useState(0);
+  useEffect(() => {
+    if (focusFirstInvalid === 0) return;
+    const invalid = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    const target = invalid?.getAttribute('role') === 'radiogroup' ? invalid.querySelector<HTMLElement>('[role="radio"]:not([disabled])') : invalid;
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView?.({ block: 'center' });
+  }, [focusFirstInvalid]);
   // The retained rationale is still unsaved after a keyed remount, not the new form's clean baseline.
   const { markDirty } = guard;
   useEffect(() => { markDirty(dimension !== 'verification' || newState !== '' || rationale !== ''); }, [dimension, newState, rationale, markDirty]);
@@ -48,7 +58,7 @@ function AssessForm({ detail, onReload, guard, rationale, setRationale, reloadQu
     if (res.outcome === 'conflict') { setConflict(true); return; }
     const mapped = res.outcome === 'invalid' ? mapItemErrors(res.fieldErrors, KNOWN, 0) : {};
     setErrors(mapped);
-    if (res.outcome === 'invalid' && Object.keys(mapped).length > 0) { setFailed(null); return; }
+    if (res.outcome === 'invalid' && Object.keys(mapped).length > 0) { setFailed(null); setFocusFirstInvalid(n => n + 1); return; }
     setFailed(res.outcome === 'unknown' ? '저장됐는지 확인하지 못했습니다. 판단 변경 이력을 확인해 주세요.' : '저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
   }
   const save = () => {
@@ -57,11 +67,11 @@ function AssessForm({ detail, onReload, guard, rationale, setRationale, reloadQu
     if (rationale.trim() === '') found['rationale'] = itemErrorText('required');
     else if ([...rationale].length > ITEM_LIMITS.rationale) found['rationale'] = itemErrorText('too_long');
     setErrors(found);
-    if (Object.keys(found).length > 0) return;
+    if (Object.keys(found).length > 0) { setFocusFirstInvalid(n => n + 1); return; }
     void assess.run({ id: item.id, dimension, newState, rationale }, { expectedVersion: baseVersion }).then(settle).catch(() => undefined);
   };
 
-  return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { event.preventDefault(); if (!assess.pending && !conflict) save(); }}>
+  return <form ref={formRef} className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { event.preventDefault(); if (!assess.pending && !conflict) save(); }}>
     {conflict && <Callout tone="amber" title="다른 사람이 먼저 고쳤습니다"
       action={<Button type="button" size="sm" variant="secondary" disabled={reload !== null && !reload.failed} onClick={() => { setReload({ start: reloadQuery, loadingSeen: false, failed: false }); setErrors({}); onReload(); }}>새로 불러오기</Button>}>
       {reload ? reload.failed ? '최신 상태를 불러오지 못했습니다' : '최신 상태를 불러오는 중입니다' : '새로 불러온 현재 상태에서 다시 고릅니다.'}
@@ -91,9 +101,9 @@ function AssessForm({ detail, onReload, guard, rationale, setRationale, reloadQu
         })}
       </RadioGroup>
     </Field>
-    <Field id={`${uid}-rationale`} label="사유" required error={errors['rationale']} hint={`판단 변경 이력에 남습니다 (${ITEM_LIMITS.rationale}자 이하)`}>
-      <Textarea id={`${uid}-rationale`} value={rationale} onChange={e => { setShowReloadNotice(false); setRationale(e.target.value); }} aria-invalid={errors['rationale'] !== undefined} aria-describedby={errors['rationale'] ? `${uid}-rationale-error` : undefined} />
-    </Field>
+    <FormField id={`${uid}-rationale`} label="사유" required error={errors['rationale']} hint={`판단 변경 이력에 남습니다 (${ITEM_LIMITS.rationale}자 이하)`}>
+      {control => <Textarea {...control} value={rationale} onChange={e => { setShowReloadNotice(false); setRationale(e.target.value); }} />}
+    </FormField>
     <div className="sticky bottom-0 z-10 -mx-5 mt-auto flex items-center justify-end gap-2 border-t border-border-subtle bg-surface-detail px-5 py-3">
       <Button type="button" variant="secondary" onClick={guard.request}>취소</Button>
       <Button type="submit" disabled={assess.pending || conflict}>{assess.pending ? '저장 중…' : '판단 변경'}</Button>
